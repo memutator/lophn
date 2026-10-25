@@ -1,6 +1,7 @@
 // Agent 화면 대화 줄 안의 본문. 확정 메시지 본문을 읽은 결과를 글(agent는 markdown, 사람은 plain)과 앱 카드로
 // 보이고, 보내지 못했거나 결과를 모르는 사람 말 아래에 다음 행동을 둔다.
 import type { ReactElement, ReactNode } from "react";
+import { memo } from "react";
 import { IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import { conversationIcons } from "../../icons/mod.ts";
@@ -31,9 +32,9 @@ interface MessageBodyProps {
 
 /**
  * 읽은 본문의 글과 블록을 차례로 보인다. 읽기 전이나 읽지 못했을 때 이 창이 보낸 글이 있으면 그것을,
- * 없으면 그 상태를 말한다. 빈 말로 보이지 않는다.
+ * 없으면 그 상태를 말한다. 빈 말로 보이지 않는다. 다 쓴 message는 live 글이 자라도 다시 그리지 않는다.
  */
-export function MessageBody(
+export const MessageBody = memo(function MessageBody(
   { message, body, fallback, artifacts, plain }: MessageBodyProps,
 ): ReactElement {
   if (body?.state === "ready") {
@@ -90,7 +91,7 @@ export function MessageBody(
       {t("conversation.notice.message-loading")}
     </p>
   );
-}
+});
 
 interface UserBodyProps extends MessageBodyProps {
   /** 첨부한 이미지의 그림 주소. */

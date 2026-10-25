@@ -38,6 +38,7 @@ import {
   SONNET,
 } from "./agent-tab-fake-models.ts";
 import { COMMANDS_GROUP, SKILLS_GROUP } from "./agent-tab-fake-commands.ts";
+import type { LiveText } from "./live-text.ts";
 
 /** 고를 수 있는 장면. 이름은 wireframe의 Agent 탭 장면을 따른다. */
 export const AGENT_TAB_SCENES = [
@@ -116,6 +117,19 @@ const CLEANUP_LEAD =
 const CLEANUP_COMMAND = "rm -r docs/reports/2026-w40";
 
 const turn1 = turnId(1);
+
+// working 장면에서 쓰는 중인 글. 짧은 문단, 목록 하나, 닫히지 않은 ts code fence로 끝난다.
+const LIVE_TEXT = [
+  "F-011 is the query-recipe-gap regression. The other two changed for the same reason:",
+  "",
+  "- sched-edit calls the recipe lookup right after a plan edit",
+  "- wake-plant rebuilds its schedule with the same lookup",
+  "",
+  "I am checking the run log before I write this into the report.",
+  "",
+  "```ts",
+  "const recipe = await lookup(",
+].join("\n");
 
 // ---- 장면이 쓰는 값 ----
 
@@ -276,6 +290,8 @@ interface SceneData {
   title: string;
   entries: ThreadEntry[];
   turn: ThreadView["turn"];
+  /** 아직 저장되지 않은 쓰는 중인 글. 없으면 null이다. */
+  live?: LiveText | null;
   queued?: QueuedView[];
   pending?: ThreadView["pending"];
   /** 메시지 id별 본문. 글만인 message는 text에서 만든다. */
@@ -349,6 +365,16 @@ function sceneData(scene: AgentTabScene): SceneData {
         title: "Week 41 summary",
         entries,
         turn: working(),
+        live: scene === "working"
+          ? {
+            turn: turn1,
+            modelCall: fakeId("mcl", 1),
+            text: LIVE_TEXT,
+            reasoning: "",
+            at: at(42),
+            gap: false,
+          }
+          : null,
         queued: steer ? [] : [{
           id: messageId(5),
           at: at(42),
@@ -853,6 +879,8 @@ export function createFakeAgentTabSource(
       turn: data.turn,
       queued: data.queued ?? [],
       pending: data.pending ?? EMPTY_THREAD.pending,
+      live: data.live ?? null,
+      dropped: EMPTY_THREAD.dropped,
     });
     threads.set(SESSION_EARLIER, EMPTY_THREAD);
     threads.set(SESSION_ARCHIVED, {
@@ -1041,6 +1069,7 @@ export function createFakeAgentTabSource(
       return change(session, (view) => ({
         ...view,
         turn: { ...view.turn!, phase: "ended" },
+        live: null,
         pending: EMPTY_THREAD.pending,
         entries: [...view.entries, {
           kind: "turn-end",
@@ -1058,6 +1087,7 @@ export function createFakeAgentTabSource(
       return change(session, (view) => ({
         ...view,
         turn: { ...view.turn!, phase: "working" },
+        live: null,
         entries: view.entries.filter((entry) =>
           entry.kind !== "provider-error"
         ),

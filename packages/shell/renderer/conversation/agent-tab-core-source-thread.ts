@@ -1,7 +1,7 @@
 // 한 session 화면(thread) snapshot: 받은 메시지, turn의 tool 줄·편집 카드·call 블록·질문 요약·끝 줄, 다음 turn을 기다리는
-// 사람 메시지, 지금 turn, 사람이 답할 것. snapshot을 처음과 다시 붙을 때(와 turn이 끝났을 때)만 읽고 그 사이는 화면이
-// agent event를 줄로 접는다. 줄 순서는 메시지의 created_seq이고, 메시지가 아닌 줄은 그 turn의 메시지에 맞춰 둔다.
-// 본문과 끝난 tool 호출은 한 번 읽으면 바뀌지 않으므로 기억한다.
+// 사람 메시지, 지금 turn, 사람이 답할 것, 쓰는 중인 글. snapshot을 처음과 다시 붙을 때(와 turn이 끝났을 때)만 읽고 그
+// 사이는 화면이 agent event를 줄로 접는다. 줄 순서는 메시지의 created_seq이고, 메시지가 아닌 줄은 그 turn의 메시지
+// 사이에 시각순으로 둔다. 본문과 끝난 tool 호출은 한 번 읽으면 바뀌지 않으므로 기억한다.
 import { t } from "@lophn/wording";
 
 import { askRead } from "../../../protocol/lophn-agent/ask-tool.ts";
@@ -46,6 +46,7 @@ import {
   readHiddenGroups,
 } from "./agent-tab-core-source-rewind.ts";
 import { readSession } from "./agent-tab-core-source-sessions.ts";
+import { liveFromWriting } from "./live-text.ts";
 
 /** 한 번 읽으면 바뀌지 않는 값. */
 interface ThreadMemo {
@@ -341,6 +342,7 @@ async function toolEntries(
   memo: ThreadMemo,
   session: string,
   turns: readonly TurnRecord[],
+  messageTimes: ReadonlyMap<string, readonly number[]>,
 ): Promise<Map<string, ThreadEntry[]>> {
   const found = new Map<string, ThreadEntry[]>();
   const all = await readToolCalls(env, session);
@@ -349,6 +351,17 @@ async function toolEntries(
   );
   let run: ToolCall[] = [];
   let runTurn: TurnRecord | undefined;
+  const callAt = (call: ToolCall, turn: TurnRecord) =>
+    call.started_at ?? call.finished_at ?? turn.started_at;
+  // 앞 call과 이 call 사이에 그 turn의 메시지가 있으면 같은 묶음으로 두면 메시지 뒤의 call이 메시지 앞에 보인다.
+  const interrupted = (call: ToolCall, turn: TurnRecord): boolean => {
+    const previous = run.at(-1);
+    const times = messageTimes.get(turn.id);
+    if (previous === undefined || times === undefined) return false;
+    const from = Date.parse(callAt(previous, turn));
+    const to = Date.parse(callAt(call, turn));
+    return times.some((at) => from < at && at <= to);
+  };
   const put = (turn: TurnRecord, entry: ThreadEntry) => {
     const list = found.get(turn.id) ?? [];
     list.push(entry);
@@ -412,7 +425,8 @@ async function toolEntries(
     if (
       run.length > 0 &&
       (runTurn?.id !== turn.id ||
-        bucketOf(run[0]!.tool) !== bucketOf(call.tool))
+        bucketOf(run[0]!.tool) !== bucketOf(call.tool) ||
+        interrupted(call, turn))
     ) flush();
     runTurn = turn;
     run.push(call);
@@ -503,10 +517,10 @@ export async function readThread(
   const turnById = new Map(turns.value.map((turn) => [turn.id, turn]));
   const current = latestTurn(turns.value);
   const running = current !== null && current.state === "running";
-  const live = snapshot.value.snapshots[0];
+  const sessionSnapshot = snapshot.value.snapshots[0];
   // harness 물음은 대기 목록의 coding 카드가 그린다.
   let approval: ApprovalCardRequest | null = null;
-  for (const one of live?.turn_requests ?? []) {
+  for (const one of sessionSnapshot?.turn_requests ?? []) {
     if (one.subject.kind === "harness") continue;
     approval = {
       id: one.id,
@@ -515,7 +529,15 @@ export async function readThread(
     };
     break;
   }
-  const asked = live?.questions[0] ?? null;
+  const asked = sessionSnapshot?.questions[0] ?? null;
+  // 늦게 붙은 화면도 쓰인 데까지 본다. 묶음 위의 시각은 그 turn의 시작이다.
+  const writing = sessionSnapshot?.writing ?? null;
+  const writingAt = writing === null
+    ? null
+    : turnById.get(writing.turn)?.started_at ?? current?.started_at ?? null;
+  const live = writing === null || writingAt === null
+    ? null
+    : liveFromWriting(writing, writingAt);
 
   // 사람이 도는 중에 다음 turn으로 보낸 메시지는 입력함에 있다.
   const queued: QueuedView[] = [];
@@ -573,16 +595,23 @@ export async function readThread(
       : { kind: "hidden", entry: hiddenEntry(group, hiddenIn.get(group)!) };
   });
 
-  // turn에 딸린 줄(tool 줄, 편집 카드, call 블록, 질문 요약)과 끝 줄을 그 turn의 메시지 둘레에 둔다.
-  const pre = await toolEntries(env, memo, session, turns.value);
+  // turn에 딸린 줄(tool 줄, 편집 카드, call 블록, 질문 요약)과 끝 줄을 그 turn의 메시지 사이에 시각순으로 둔다.
+  const messageTimes = new Map<string, number[]>();
+  for (const entry of entries) {
+    if (entry.turn === null) continue;
+    const times = messageTimes.get(entry.turn) ?? [];
+    times.push(Date.parse(entry.at));
+    messageTimes.set(entry.turn, times);
+  }
+  for (const times of messageTimes.values()) times.sort((a, b) => a - b);
+  const pre = await toolEntries(env, memo, session, turns.value, messageTimes);
+  for (const list of pre.values()) {
+    list.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  }
   const lastAt = new Map<string, number>();
-  const firstAnswerAt = new Map<string, number>();
   filled.forEach((row, index) => {
     if (row.kind !== "message" || row.entry.turn === null) return;
     lastAt.set(row.entry.turn, index);
-    if (row.entry.actor === "agent" && !firstAnswerAt.has(row.entry.turn)) {
-      firstAnswerAt.set(row.entry.turn, index);
-    }
   });
   const hiddenTurns = new Set(
     entries.filter((entry) => entry.turn !== null).map((entry) => entry.turn!),
@@ -593,20 +622,28 @@ export async function readThread(
     }
   }
   const out: ThreadEntry[] = [];
-  const placed = new Set<string>();
-  const place = (turnId: string, which: "pre" | "tail") => {
-    const turn = turnById.get(turnId);
-    if (turn === undefined || hiddenTurns.has(turnId)) return;
-    if (which === "pre") {
-      if (placed.has(`pre:${turnId}`)) return;
-      placed.add(`pre:${turnId}`);
-      out.push(...pre.get(turnId) ?? []);
-    } else {
-      if (placed.has(`tail:${turnId}`)) return;
-      placed.add(`tail:${turnId}`);
-      const tail = tailOf(turn);
-      if (tail !== null) out.push(tail);
+  const nextPre = new Map<string, number>();
+  const tails = new Set<string>();
+  // 아직 놓지 않은 pre 줄 중 `before`보다 앞선 것을 놓는다. null이면 남은 것을 모두 놓는다.
+  const placePre = (turnId: string, before: number | null) => {
+    if (hiddenTurns.has(turnId) || !turnById.has(turnId)) return;
+    const list = pre.get(turnId) ?? [];
+    let next = nextPre.get(turnId) ?? 0;
+    while (next < list.length) {
+      const entry = list[next]!;
+      if (before !== null && Date.parse(entry.at) >= before) break;
+      out.push(entry);
+      next++;
     }
+    nextPre.set(turnId, next);
+  };
+  const placeTail = (turnId: string) => {
+    if (hiddenTurns.has(turnId) || tails.has(turnId)) return;
+    const turn = turnById.get(turnId);
+    if (turn === undefined) return;
+    tails.add(turnId);
+    const tail = tailOf(turn);
+    if (tail !== null) out.push(tail);
   };
   filled.forEach((row, index) => {
     if (row.kind === "hidden") {
@@ -614,20 +651,19 @@ export async function readThread(
       return;
     }
     const turnId = row.entry.turn;
-    if (turnId !== null && firstAnswerAt.get(turnId) === index) {
-      place(turnId, "pre");
-    }
+    // 같은 시각이면 메시지가 먼저다(MessageRecorded가 그 응답의 ToolCallStarted보다 먼저 온다).
+    if (turnId !== null) placePre(turnId, Date.parse(row.entry.at));
     out.push(row.entry);
     if (turnId !== null && lastAt.get(turnId) === index) {
-      place(turnId, "pre");
-      place(turnId, "tail");
+      placePre(turnId, null);
+      placeTail(turnId);
     }
   });
   // 메시지를 못 찾은 turn의 줄은 맨 뒤에 둔다.
   for (const turn of turns.value) {
     if (!lastAt.has(turn.id)) {
-      place(turn.id, "pre");
-      place(turn.id, "tail");
+      placePre(turn.id, null);
+      placeTail(turn.id);
     }
   }
 
@@ -656,6 +692,18 @@ export async function readThread(
   };
   return {
     ok: true,
-    value: { entries: out, turn, queued, pending },
+    value: {
+      entries: out,
+      turn,
+      queued,
+      pending,
+      live,
+      dropped: {
+        modelCall: null,
+        turn: current !== null && current.state === "finished"
+          ? current.id
+          : null,
+      },
+    },
   };
 }

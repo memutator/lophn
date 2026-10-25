@@ -517,6 +517,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           agent={agent}
           entries={thread?.entries ?? []}
           detail={detail}
+          live={thread?.live ?? null}
           outgoing={draft.outgoing}
           working={working}
           now={now}

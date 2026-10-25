@@ -1,6 +1,7 @@
 // Agent 화면의 대화 줄. source가 준 시간순 줄을 그린다. 내 말은 오른쪽 bubble, 받은 메시지는 보낸 쪽 chip을 단
 // 왼쪽 메시지, 그 밖(agent의 말, tool 줄, call 블록, 편집 카드, 질문 요약, 허락 결과, 끝 줄, 오류)은 사이에 내 말이 없는
-// 동안 agent 한 덩어리로 묶는다. agent가 일하는 동안에는 끝에 일하는 중 줄이 선다.
+// 동안 agent 한 덩어리로 묶는다. agent가 일하는 동안에는 끝에 일하는 중 줄이 서고, 쓰는 중인 글은 끝 agent 묶음의
+// 마지막에 선다.
 import type { ReactElement, ReactNode } from "react";
 import { StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
@@ -23,6 +24,7 @@ import type {
   ThreadEntry,
   ThreadMessage,
 } from "./agent-tab-source.ts";
+import type { LiveText } from "./live-text.ts";
 import { ApprovalResult } from "./approval-card/approval-card.tsx";
 import { deliveryAction, type Outgoing } from "./delivery-state.ts";
 import type { DraftStore } from "./drafts.ts";
@@ -32,6 +34,7 @@ import {
   UserMessage,
   WorkingRow,
 } from "./message-list/agent-turn.tsx";
+import { LiveMessage, useThrottledLive } from "./message-list/live-message.tsx";
 import { MessageBody, UserBody } from "./message-list/message-body.tsx";
 import { ThreadScroll } from "./message-list/thread-scroll.tsx";
 import { QuestionSummary } from "./question-card/question-card.tsx";
@@ -47,6 +50,8 @@ interface AgentThreadProps {
   agent: Pick<AgentFace, "name" | "profile">;
   entries: readonly ThreadEntry[];
   detail: ViewDetail;
+  /** 아직 저장되지 않은 model 호출 하나의 글. */
+  live: LiveText | null;
   /** 아직 확정되지 않은 보낸 말. 같은 id의 확정 메시지가 오면 그것으로 바뀐다. */
   outgoing: Outgoing | null;
   /** agent가 일하는 중이다. `since`는 turn이 시작한 시각(ms)이고 모르면 null이다. */
@@ -81,8 +86,9 @@ interface AgentThreadProps {
 
 export function AgentThread(props: AgentThreadProps): ReactElement {
   const { entries, outgoing } = props;
+  const live = useThrottledLive(props.live, props.now);
   const shown = shownEntries(entries, props.detail);
-  const nodes = itemsOf(shown, props, entries, false);
+  const nodes = itemsOf(shown, props, entries, false, live);
   // 확정 메시지가 오면 같은 key의 줄로 바뀌어 다시 그려지지 않는다.
   if (outgoing !== null && !hasEntry(entries, outgoing.id)) {
     nodes.push(
@@ -143,6 +149,7 @@ function itemsOf(
   props: AgentThreadProps,
   all: readonly ThreadEntry[],
   nested: boolean,
+  live: LiveText | null,
 ): ReactElement[] {
   const out: ReactElement[] = [];
   let group: {
@@ -166,7 +173,11 @@ function itemsOf(
     );
     group = null;
   };
-  const add = (entry: ThreadEntry, node: ReactNode) => {
+  const add = (
+    entry: { readonly id: string; readonly at: string },
+    node: ReactNode,
+    said: ThreadMessage | null = null,
+  ) => {
     group ??= {
       id: entry.id,
       time: clockTime(entry.at),
@@ -174,7 +185,7 @@ function itemsOf(
       said: null,
     };
     group.items.push(node);
-    if (entry.kind === "message") group.said = entry;
+    if (said !== null) group.said = said;
   };
 
   for (const entry of list) {
@@ -191,6 +202,7 @@ function itemsOf(
                 artifacts={props.artifacts}
               />
             </Said>,
+            entry,
           );
         } else {
           flush();
@@ -299,12 +311,20 @@ function itemsOf(
                 props,
                 all,
                 true,
+                null,
               )}
             </div>
           </HiddenRange>,
         );
         break;
     }
+  }
+  if (live !== null && live.text !== "") {
+    const id = `live-${live.modelCall}`;
+    add(
+      { id, at: live.at },
+      <LiveMessage key={id} live={live} artifacts={props.artifacts} />,
+    );
   }
   flush();
   return out;

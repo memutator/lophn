@@ -18,6 +18,7 @@ import type {
   PickerLayoutView,
   PickerModelRef,
 } from "./model-picker/types.ts";
+import type { LiveText } from "./live-text.ts";
 import type { SlashEntryView, SlashGroupView } from "./slash-menu/types.ts";
 
 export type SourceResult<T> =
@@ -353,12 +354,22 @@ interface PendingView {
   readonly questions: AskedGroup | null;
 }
 
-/** 한 session 화면 전체: 시간순 줄, 지금 turn, 다음 turn 줄, 사람이 답할 것. */
+/** 한 session 화면 전체: 시간순 줄, 지금 turn, 다음 turn 줄, 사람이 답할 것, 쓰는 중인 글. */
 export interface ThreadView {
   readonly entries: readonly ThreadEntry[];
   readonly turn: TurnView | null;
   readonly queued: readonly QueuedView[];
   readonly pending: PendingView;
+  /** 아직 저장되지 않은 model 호출 하나의 글. 저장되면 그 message 줄로 바뀐다. */
+  readonly live: LiveText | null;
+  /**
+   * 마지막으로 글을 버린 model 호출(저장됐거나 tool call이 시작된)과 끝난 turn. 그 늦은 delta가 새 live
+   * 글로 보이지 않게 한다(core의 live-turns와 같은 규칙).
+   */
+  readonly dropped: {
+    readonly modelCall: string | null;
+    readonly turn: string | null;
+  };
 }
 
 export const EMPTY_THREAD: ThreadView = {
@@ -366,6 +377,8 @@ export const EMPTY_THREAD: ThreadView = {
   turn: null,
   queued: [],
   pending: { approval: null, questions: null },
+  live: null,
+  dropped: { modelCall: null, turn: null },
 };
 
 // ---- model, 명령, 권한 ----

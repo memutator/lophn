@@ -1,5 +1,6 @@
 // Agent 탭이 core의 현재 기록을 읽어 맞추는 일. 열린 session의 agent event(useSessionEvents)를 받아 줄을 이어
-// 붙이고, thread snapshot은 처음과 다시 붙을 때(와 turn이 끝났을 때)만 읽는다. 끊기면 마지막 내용과 확인 시각을 둔다.
+// 붙이고, thread snapshot은 처음과 다시 붙을 때, turn이 끝났을 때, live 글의 offset이 맞지 않았을 때(gap)만 읽는다.
+// 끊기면 마지막 내용과 확인 시각을 둔다.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { AgentEvent } from "../../../protocol/events/mod.ts";
@@ -21,6 +22,7 @@ import type {
   ThreadView,
   TurnView,
 } from "./agent-tab-source.ts";
+import { foldDelta } from "./live-text.ts";
 
 // ---- event를 줄로 접는 규칙 ----
 
@@ -79,9 +81,15 @@ function senderOf(
 /**
  * event 하나를 줄에 접는다. 같은 event를 두 번 접어도 같은 결과다(id로 한 번만 든다).
  * - MessageReceived: 사람이 도는 중에 다음 turn으로 보낸 것은 `queued`에, 나머지는 줄에 든다.
- * - TurnStarted: 그 입력 메시지를 줄로 올리고 turn을 연다.
- * - TurnEnded: 응답 글(`messages`)과 꼬리를 붙인다. 실패하고 오류가 있으면 꼬리 대신 오류 줄이다.
- * - ToolCall*: tool 이름만 아는 줄. call과 ask는 전용 카드가 그리므로 줄을 만들지 않는다.
+ * - TurnStarted: 그 입력 메시지를 줄로 올리고 turn을 연다. 다른 turn의 live 글은 버린다.
+ * - TurnEnded: 응답 글(`messages`)과 꼬리를 붙이고 그 turn의 live 글을 버린다. 실패하고 오류가 있으면 꼬리
+ *   대신 오류 줄이다.
+ * - ModelOutputStreamed: 그 model 호출의 live 글을 delta로 잇는다. offset이 앞 글 길이를 넘으면 gap을 세운다.
+ *   이미 저장된 model 호출이나 끝난 turn의 늦은 조각은 버린다.
+ * - MessageRecorded: agent message 줄 하나를 더하고 그 model 호출의 live 글을 버린다. 줄의 `text`는 그때의
+ *   live 글이라 본문을 읽기 전에 빈 자리가 없다.
+ * - ToolCall*: tool 이름만 아는 줄. call과 ask는 전용 카드가 그리므로 줄을 만들지 않는다. 그 turn의 live
+ *   글은 버린다(글이 있는 응답은 tool보다 먼저 저장되어 `MessageRecorded`가 먼저 온다).
  * - TurnRequest*·Question*: `pending`과 결과 줄. harness 물음은 접지 않는다(coding 카드가 그린다). 질문 내용은
  *   event에 없어 따로 읽고, 허락 범위(once·always)도 event에 없어 결과 줄은 범위를 모른다.
  * 모자란 칸(편집 카드, call 블록, 답 내용)은 turn이 끝난 뒤 snapshot을 다시 읽어 채운다.
@@ -144,14 +152,54 @@ function foldEvent(
           },
         ],
       };
+      const stale = next.live !== null && next.live.turn !== turn
+        ? next.live.modelCall
+        : null;
       return {
         ...next,
+        live: stale === null ? next.live : null,
+        dropped: stale === null
+          ? next.dropped
+          : { ...next.dropped, modelCall: stale },
         entries: next.entries.map((entry) =>
           entry.kind === "message" && entry.id === input_message
             ? { ...entry, turn }
             : entry
         ),
       };
+    }
+    case "ModelOutputStreamed": {
+      const { turn, model_call: modelCall } = event.payload;
+      // 저장됐거나 다음 호출로 바뀐 model 호출, 끝난 turn의 늦은 조각은 새 글이 아니다.
+      if (view.dropped.modelCall === modelCall || view.dropped.turn === turn) {
+        return view;
+      }
+      return {
+        ...view,
+        live: foldDelta(view.live, event.payload, event.at),
+      };
+    }
+    case "MessageRecorded": {
+      const { turn, message, model_call: modelCall } = event.payload;
+      const live = view.live;
+      return withEntries({
+        ...view,
+        live: live?.modelCall === modelCall ? null : live,
+        dropped: { ...view.dropped, modelCall },
+      }, [{
+        kind: "message",
+        id: message,
+        at: event.at,
+        actor: "agent",
+        sender: null,
+        call: null,
+        replyTo: null,
+        delivery: "next_turn",
+        turn,
+        text: live !== null && live.modelCall === modelCall && live.text !== ""
+          ? live.text
+          : null,
+      }]);
     }
     case "TurnEnded": {
       const { turn, outcome, messages, error } = event.payload;
@@ -196,12 +244,22 @@ function foldEvent(
         ...view,
         turn: { id: turn, phase: "ended", startedAt },
         pending: { approval: null, questions: null },
+        live: view.live?.turn === turn ? null : view.live,
+        dropped: { ...view.dropped, turn },
       }, [...answers, tail]);
     }
     case "ToolCallStarted": {
-      const { tool_call, tool } = event.payload;
-      if (tool === "ask" || tool === "call") return view;
-      return withEntries(view, [{
+      const { tool_call, tool, turn } = event.payload;
+      const live = view.live !== null && view.live.turn === turn
+        ? view.live
+        : null;
+      const cleared: ThreadView = live === null ? view : {
+        ...view,
+        live: null,
+        dropped: { ...view.dropped, modelCall: live.modelCall },
+      };
+      if (tool === "ask" || tool === "call") return cleared;
+      return withEntries(cleared, [{
         kind: "tools",
         id: tool_call,
         at: event.at,
@@ -365,14 +423,14 @@ export interface AgentTabData extends AgentTabList {
   readonly reload: () => Promise<void>;
 }
 
-/** 열린 session 하나의 화면 값. snapshot은 처음과 다시 붙을 때, turn이 끝났을 때 읽고 그 사이는 event를 접는다. */
+/** 열린 session 하나의 화면 값. snapshot은 처음과 다시 붙을 때, turn이 끝났을 때, live 글의 offset이 맞지 않았을 때(gap)만 읽고 그 사이는 event를 접는다. */
 export function useAgentTabData(
   source: AgentTabSource,
   session: string,
   now: () => number = Date.now,
 ): AgentTabData {
   const list = useAgentTabList(source);
-  const live = useSessionEvents(session);
+  const stream = useSessionEvents(session);
   const known = useSessions().sessions;
   const [base, setBase] = useState<
     { session: string; view: ThreadView; mark: number } | null
@@ -386,7 +444,12 @@ export function useAgentTabData(
   const sequence = useRef(0);
   // 읽기를 시작한 때 이미 쌓인 event는 그 snapshot이 담고 있다.
   const eventCount = useRef(0);
-  eventCount.current = live.events.length;
+  eventCount.current = stream.count;
+  // 접은 결과와 접은 개수를 기억해 새 event만 접는다. delta가 초당 여럿 와도 앞 event를 다시 접지 않는다.
+  const foldedRef = useRef<
+    | { base: ThreadView; ctx: FoldContext; upTo: number; view: ThreadView }
+    | null
+  >(null);
 
   const readThread = useCallback(async () => {
     const token = sequence.current += 1;
@@ -411,22 +474,24 @@ export function useAgentTabData(
   ]);
 
   // 끊겼다 다시 붙으면 놓친 진행을 하나씩 다시 보이지 않고 현재 기록으로 맞춘다.
-  const previous = useRef(live.status);
+  const previous = useRef(stream.status);
   useEffect(() => {
-    if (previous.current === "reconnecting" && live.status === "live") {
+    if (previous.current === "reconnecting" && stream.status === "live") {
       void readThread();
     }
-    previous.current = live.status;
-  }, [live.status, readThread]);
+    previous.current = stream.status;
+  }, [stream.status, readThread]);
 
   // event가 싣지 못한 줄(편집 카드, call 블록, 답)은 turn이 끝났을 때 한 번 읽어 채운다.
-  const ended = live.events.filter((event) => event.type === "TurnEnded")
-    .length;
-  const seenEnded = useRef(ended);
+  const seen = useRef(0);
   useEffect(() => {
-    if (ended > seenEnded.current) void readThread();
-    seenEnded.current = ended;
-  }, [ended, readThread]);
+    if (
+      stream.since(seen.current).some((event) => event.type === "TurnEnded")
+    ) {
+      void readThread();
+    }
+    seen.current = stream.count;
+  }, [stream, readThread]);
 
   const ctx = useMemo<FoldContext>(() => ({
     roleOf: (other) => {
@@ -435,13 +500,24 @@ export function useAgentTabData(
     },
   }), [known]);
 
-  const folded = useMemo(
-    () =>
-      base === null || base.session !== session
-        ? null
-        : foldEvents(base.view, live.events.slice(base.mark), ctx),
-    [base, session, live.events, ctx],
-  );
+  const folded = useMemo(() => {
+    if (base === null || base.session !== session) return null;
+    const previous = foldedRef.current;
+    // base와 ctx가 그대로면 앞 view에 새 event만 접는다. 둘이 바뀌면 snapshot 뒤의 event를 다시 접는다.
+    const view = previous !== null && previous.base === base.view &&
+        previous.ctx === ctx
+      ? foldEvents(previous.view, stream.since(previous.upTo), ctx)
+      : foldEvents(base.view, stream.since(base.mark), ctx);
+    foldedRef.current = { base: base.view, ctx, upTo: stream.count, view };
+    return view;
+  }, [base, session, ctx, stream]);
+
+  // offset이 맞지 않았다. 그 model 호출에서 한 번만 다시 읽는다. 그러고도 맞지 않으면 그 응답의
+  // `MessageRecorded` 본문이 맞추므로 읽기를 되풀이하는 고리를 만들지 않는다.
+  const gap = folded?.live?.gap === true ? folded.live.modelCall : null;
+  useEffect(() => {
+    if (gap !== null) void readThread();
+  }, [gap, readThread]);
 
   // 질문 내용은 event에 없다. 대기 중인 묶음이 생기면 한 번 읽는다.
   const waiting = folded?.pending.questions ?? null;
@@ -473,7 +549,7 @@ export function useAgentTabData(
   return {
     ...list,
     thread,
-    connection: live.status,
+    connection: stream.status,
     checkedAt,
     failed: list.failed || threadFailed,
     gone,

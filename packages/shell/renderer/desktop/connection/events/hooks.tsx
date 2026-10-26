@@ -9,6 +9,7 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
+import type { LophnNoticeApi } from "../../../../ipc/notice.ts";
 import type { TerminalApi } from "../../../../ipc/terminal.ts";
 import type { EventClient } from "./client.ts";
 import {
@@ -46,7 +47,10 @@ export function EventsProvider(
       (globalThis as { lophnTerminal?: TerminalApi }).lophnTerminal ?? null,
       { set: setTimeout, clear: clearTimeout },
     ),
-    sessions: createSessionsStore(client),
+    sessions: createSessionsStore(
+      client,
+      (globalThis as { lophnNotice?: LophnNoticeApi }).lophnNotice ?? null,
+    ),
     sessionEvents: createSessionEventsStore(client),
   }), [client]);
   useEffect(() => {

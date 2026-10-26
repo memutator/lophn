@@ -34,3 +34,32 @@ Deno.test("core main graph의 bare fetch는 check가 막는다", async () => {
     await Deno.remove(root, { recursive: true });
   }
 });
+
+Deno.test("DOM tag의 title 속성은 check가 막고 component prop과 document.title은 둔다", async () => {
+  const root = await Deno.makeTempDir();
+  try {
+    const dir = `${root}/packages/design/components/x`;
+    await Deno.mkdir(dir, { recursive: true });
+    await Deno.writeTextFile(
+      `${dir}/x.tsx`,
+      [
+        "export const a = <Card title={t('a')} />;",
+        "export const b = (",
+        "  <button",
+        "    onClick={() => go()}",
+        "    title={x}",
+        "  />",
+        ");",
+        "document.title = 'w';",
+        "el.setAttribute('title', 'x');",
+        "",
+      ].join("\n"),
+    );
+    const issues = (await checkSource(root)).filter((i) =>
+      i.rule === "NATIVE_TITLE"
+    );
+    assertEquals(issues.map((i) => i.line), [5, 9]);
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});

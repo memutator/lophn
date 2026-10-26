@@ -1,6 +1,13 @@
 // 펼친 대기 목록. 종류를 나눠 한 목록에 보이고, 결정한 직후 남는 줄이 그 아래 붙는다.
 import { StatusMark } from "@lophn/ui/feedback";
+import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/wording";
+import type { NoticeTarget } from "../../../../ipc/notice.ts";
+import { Avatar } from "../../../parts/avatar/avatar.tsx";
+import {
+  harnessVendorOf,
+  VendorIcon,
+} from "../../../parts/vendor-icon/vendor-icon.tsx";
 import { useEventClient } from "../events/hooks.tsx";
 import type { WaitingEntry } from "../events/waiting-store.ts";
 import { ActivationCard } from "./cards/activation-card.tsx";
@@ -12,6 +19,7 @@ import {
   PermissionCard,
 } from "./cards/permission-card.tsx";
 import { QuestionCard } from "./cards/question-card.tsx";
+import type { FinishedRow } from "./finished.ts";
 import { decideWaiting, type SettledState } from "./decide.ts";
 import { cardOf } from "./model.ts";
 import type { Settled, SettledRow } from "./settled.ts";
@@ -79,6 +87,56 @@ function SettledList({ rows }: { rows: readonly SettledRow[] }) {
   );
 }
 
+/** turn이 끝난 탭 한 줄. 줄 어디를 눌러도 그 탭이 열린다. */
+function FinishedList(
+  { rows, onShow }: {
+    rows: readonly FinishedRow[];
+    onShow: (target: NoticeTarget) => void;
+  },
+) {
+  return (
+    <section
+      className={styles.group}
+      aria-label={t("waiting.label.group-finished")}
+    >
+      <div className={styles.groupHead}>
+        <span>{t("waiting.label.group-finished")}</span>
+        <span>{rows.length}</span>
+      </div>
+      {rows.map((row) => {
+        const vendor = row.face.kind === "vendor"
+          ? harnessVendorOf(row.face.harness)
+          : undefined;
+        return (
+          <div
+            key={row.id}
+            className={`${styles.request} ${styles.finished}`}
+            data-kind="finished"
+            onClick={() => onShow(row.target)}
+          >
+            <div className={styles.who}>
+              <span className={styles.face}>
+                {row.face.kind === "avatar"
+                  ? <Avatar profile={row.face.profile} size="sm" />
+                  : vendor === undefined
+                  ? null
+                  : <VendorIcon vendor={vendor} />}
+              </span>
+              <div className={styles.whoText}>
+                <p className={styles.title}>{row.label}</p>
+                <span className={styles.meta}>{row.title}</span>
+              </div>
+              <Button size="sm" variant="primary">
+                {t("waiting.button.show-finished")}
+              </Button>
+            </div>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
 export interface PanelInitial {
   /** 세부를 펼친 채 시작할 요청. 나머지는 접혀 있다. */
   readonly expanded?: readonly string[];
@@ -87,12 +145,22 @@ export interface PanelInitial {
 }
 
 export function WaitingPanel(
-  { entries, settled, initial, onOpenSession, onAnswerInTerminal }: {
+  {
+    entries,
+    settled,
+    finished,
+    initial,
+    onOpenSession,
+    onAnswerInTerminal,
+    onShowFinished,
+  }: {
     entries: readonly WaitingEntry[];
     settled: Settled;
+    finished: readonly FinishedRow[];
     initial?: PanelInitial;
     onOpenSession: (session: string) => void;
     onAnswerInTerminal: (session: string) => void;
+    onShowFinished: (target: NoticeTarget) => void;
   },
 ) {
   const core = useEventClient().core;
@@ -160,7 +228,8 @@ export function WaitingPanel(
         </span>
       </header>
       <div className={styles.panelBody}>
-        {entries.length === 0 && settled.rows.length === 0
+        {entries.length === 0 && settled.rows.length === 0 &&
+            finished.length === 0
           ? <p className={styles.empty}>{t("waiting.notice.empty")}</p>
           : null}
         {GROUPS.map((group) => {
@@ -184,6 +253,9 @@ export function WaitingPanel(
             </section>
           );
         })}
+        {finished.length > 0
+          ? <FinishedList rows={finished} onShow={onShowFinished} />
+          : null}
         {settled.rows.length > 0 ? <SettledList rows={settled.rows} /> : null}
       </div>
     </section>

@@ -2,6 +2,9 @@
 // 탭 안에서 agent를 바꾸지 않는다. layout에는 agent·자리·session 참조만 저장하고 다시 열 때 그대로 복원한다.
 // 여는 길(sidebar 줄·activity bar 아래쪽 바로 가기·새 탭 menu·Ask)은 모두 openAgent 하나를 부른다.
 
+import { useEffect } from "react";
+
+import type { LophnNoticeApi } from "../../../ipc/notice.ts";
 import { conversationIcons } from "../../icons/mod.ts";
 
 import type { AgentViewHost } from "../../conversation/agent-view.tsx";
@@ -130,6 +133,20 @@ function viewHost(
   };
 }
 
+/**
+ * 이 session의 탭이 보이는 동안 main에 알린다. 알림과 finished 점이 "사람이 보고 있다"를 이것으로 판단한다.
+ * 그려지는 탭은 각 칸에서 고른 탭뿐이라 마운트가 곧 보임이다.
+ */
+function ReportVisible({ session }: { session: string | null }) {
+  useEffect(() => {
+    const notice = (globalThis as { lophnNotice?: LophnNoticeApi }).lophnNotice;
+    if (notice === undefined || session === null) return;
+    void notice.visible({ session, visible: true });
+    return () => void notice.visible({ session, visible: false });
+  }, [session]);
+  return null;
+}
+
 export const agentKind: TabKindDef = {
   kind: "agent",
   labelKey: "project-workspace.label.kind-agent",
@@ -221,23 +238,26 @@ export const agentKind: TabKindDef = {
     // 다른 project의 자리로 저장된 탭은 이 project의 agent로 바꾸어 읽지 않는다.
     if (place !== host.projectId) return null;
     return (
-      <AgentTab
-        key={tab.key}
-        agent={agent}
-        place={place}
-        slice={slice}
-        session={sessionOf(tab)}
-        onSession={(session) =>
-          host.patchTab(tab.key, (current) => {
-            const { session: _session, ...rest } = current.fields ?? {};
-            return {
-              fields: session === null ? rest : { ...rest, session },
-            };
-          })}
-        host={viewHost(tab, host, slice)}
-        title={tab.title}
-        onTitle={(name) => host.patchTab(tab.key, () => ({ title: name }))}
-      />
+      <>
+        <ReportVisible session={sessionOf(tab)} />
+        <AgentTab
+          key={tab.key}
+          agent={agent}
+          place={place}
+          slice={slice}
+          session={sessionOf(tab)}
+          onSession={(session) =>
+            host.patchTab(tab.key, (current) => {
+              const { session: _session, ...rest } = current.fields ?? {};
+              return {
+                fields: session === null ? rest : { ...rest, session },
+              };
+            })}
+          host={viewHost(tab, host, slice)}
+          title={tab.title}
+          onTitle={(name) => host.patchTab(tab.key, () => ({ title: name }))}
+        />
+      </>
     );
   },
 };

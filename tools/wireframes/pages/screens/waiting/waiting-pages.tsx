@@ -24,7 +24,6 @@ import {
   type WaitingLayerProps,
 } from "../../../../../packages/shell/renderer/desktop/connection/waiting/waiting-layer.tsx";
 import { busEventSchema } from "../../../../../packages/protocol/events/mod.ts";
-import type { CallAgent } from "../../../../../packages/protocol/lophn-agent/calls.ts";
 import { reactionsOf } from "../../../../../packages/shell/renderer/desktop/connection/events/reactions.ts";
 import { toastText } from "../../../../../packages/shell/renderer/desktop/connection/toasts/toast-text.ts";
 import { ProjectApp } from "../project-app.tsx";
@@ -43,29 +42,12 @@ const sid = (prefix: string, n: number) =>
 const AT = "2026-10-16T09:00:00.000Z";
 
 // 반응 층이 읽는 것과 같은 event를 fake로 만들어 reactionsOf에 넣는다. 정적 화면이라 overlay 창은 쓰지 않는다.
-const permission = SHELL_COMMAND();
 const FAKE_EVENTS = [
-  {
-    session: permission.session.id,
-    type: "TurnRequestOpened",
-    at: AT,
-    payload: { request: permission.request },
-  },
   {
     type: "ActivationConsentRequested",
     subject: ACTIVATION().release,
     at: AT,
     payload: { app: ACTIVATION().app, release: ACTIVATION().release },
-  },
-  {
-    session: sid("ses", 4),
-    type: "QuestionAsked",
-    at: AT,
-    payload: {
-      group: sid("qgr", 1),
-      turn: sid("trn", 31),
-      tool_call: sid("tcl", 31),
-    },
   },
   {
     type: "AppRestartHalted",
@@ -81,10 +63,6 @@ const FAKE_EVENTS = [
   },
 ].flatMap((event) => reactionsOf(busEventSchema.parse(event), "live"));
 
-const AGENTS: Record<string, CallAgent> = {
-  [permission.session.id]: permission.session.agent,
-};
-
 // 시간이 가지 않는 timer를 주어 화면에 남은 채로 보인다. ×와 행동으로 닫는다.
 const NO_TIMER = { set: () => 0, clear: () => {} };
 
@@ -97,7 +75,7 @@ function Toasts() {
   return (
     <ToastStack>
       {reactions.map((reaction) => {
-        const text = toastText(reaction, (session) => AGENTS[session] ?? null);
+        const text = toastText(reaction);
         return (
           <Toast
             key={reaction.id}
@@ -147,12 +125,40 @@ function Over(
   );
 }
 
+// 사람이 보지 않는 사이 turn이 끝난 탭 둘: 터미널의 coding agent와 lophn agent session.
+const FINISHED = [
+  {
+    id: "terminal:term_1",
+    target: { kind: "terminal", terminal_ref: "term_1" },
+    face: { kind: "vendor", harness: "claude" },
+    label: "Claude Code",
+    title: "orders-api",
+  },
+  {
+    id: "session:1",
+    target: { kind: "session", session: sid("ses", 1) },
+    face: { kind: "avatar", profile: { kind: "initial", text: "O" } },
+    label: "Operator",
+    title: "Invoice import",
+  },
+] as const satisfies NonNullable<
+  NonNullable<WaitingLayerProps["initial"]>["finished"]
+>;
+
 const idOf = (item: { request: { id: string } } | { release: string }) =>
   "request" in item ? item.request.id : item.release;
 
 /** 대기 목록: 모든 session의 대기 요청이 한 목록에 종류별로 나뉜다. 권한 요청(shell 명령과 coding agent), 질문, activation 동의 세 묶음이다. coding agent의 물음은 lophn에서 답하지 않고 터미널 탭으로 보낸다. */
 export const WaitingList = () => (
-  <Over items={allItems()} initial={{ open: true }} />
+  <Over items={allItems()} initial={{ open: true, finished: FINISHED }} />
+);
+
+/** Finished 묶음: 사람이 보지 않는 사이 turn이 끝난 탭이 대기 항목 아래에 나온다. 줄을 누르면 그 탭이 있는 창이 앞으로 오고 탭이 골라지며, 탭을 보면 줄은 저절로 빠진다. 위 알림 단추의 개수에도 들어간다. */
+export const WaitingFinished = () => (
+  <Over
+    items={[SHELL_COMMAND()]}
+    initial={{ open: true, finished: FINISHED }}
+  />
 );
 
 /** 권한 요청 둘: shell 명령은 접지 않고 code 줄로 보이며 Deny, Always allow(더해질 규칙 줄이 있을 때만), Allow once이고, MCP tool은 세부를 펼치면 대상과 효과가 보이며 Deny, Allow once다. 지금은 할당된 tool의 바깥 효과를 묻지 않아서 tool 물음은 실제로는 나오지 않고 카드 그림만 둔다. */

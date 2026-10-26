@@ -1,10 +1,12 @@
 // Settings › Coding agents의 renderer IPC. desktop 창 본문만 부르고, 호출 이름과 모양을 schema로 거른 뒤
-// harness 감지(coding-connection)에 넘긴다. 사람이 coding TUI를 직접 여는 길은 없다.
+// harness 감지(coding-connection)와 전역 hook 상태·설치(terminal/agent/hook-install)에 넘긴다. 사람이 coding TUI를 직접 여는 길은 없다.
 import {
   CODING_CHANNEL,
   codingCallSchema,
   type CodingReply,
 } from "../../ipc/coding.ts";
+import type { HookAsker } from "../terminal/agent/hook-ask.ts";
+import type { HookInstaller } from "../terminal/agent/hook-install.ts";
 import type { HarnessSettings } from "./coding-connection.ts";
 import {
   checkCaller,
@@ -16,6 +18,8 @@ import {
 interface CodingIpcDeps {
   registry: ContentsRegistry;
   harnesses: HarnessSettings;
+  hooks: Pick<HookInstaller, "status" | "install">;
+  asker: Pick<HookAsker, "answer">;
 }
 
 interface CodingIpcMain {
@@ -49,6 +53,20 @@ export function createCodingIpc(deps: CodingIpcDeps) {
         return await deps.harnesses.read();
       case "refresh":
         return await deps.harnesses.refresh();
+      case "hook_status":
+        return { ok: true, value: await deps.hooks.status() };
+      case "install_hooks":
+        return {
+          ok: true,
+          value: await deps.hooks.install(parsed.value.harness),
+        };
+      case "hook_answer":
+        deps.asker.answer(
+          event.sender.id,
+          parsed.value.request,
+          parsed.value.accepted,
+        );
+        return { ok: true, value: null };
     }
   };
 }

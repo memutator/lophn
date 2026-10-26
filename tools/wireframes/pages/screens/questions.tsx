@@ -5,6 +5,7 @@ import {
   SecretInputProvider,
   WaitingActivation,
   WaitingDenyReason,
+  WaitingFinished,
   WaitingFirstActivation,
   WaitingJobHoldConflict,
   WaitingJobHoldKinds,
@@ -54,6 +55,13 @@ export const questionsArea: Area = {
       description:
         "첫 activation의 세부를 펼친 상태다. 선언 전부가 늘어난 것이고 손실 단계는 없다.",
       render: () => <WaitingFirstActivation />,
+    },
+    {
+      id: "new-waiting-finished",
+      title: "Waiting · finished",
+      description:
+        "알림 panel의 Finished 묶음이다. 사람이 보지 않는 사이 turn이 끝난 터미널 coding agent와 lophn Agent session이 대기 항목 아래에 한 줄씩 나온다. 줄(오른쪽 끝 [Show])을 누르면 그 탭을 고르고, 탭을 보면 줄이 저절로 빠진다. 알림 단추의 개수에도 센다.",
+      render: () => <WaitingFinished />,
     },
     {
       id: "new-waiting-settled",

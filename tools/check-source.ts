@@ -194,6 +194,92 @@ function checkShellRoutes(file: string, source: string): Issue[] {
   }));
 }
 
+// NATIVE_TITLE: 화면의 hover 설명은 @lophn/ui의 Tooltip으로 쓴다. DOM의 title 속성, svg <title>은 native tooltip이라 지연·모양이 따로 놀고 접근성 이름과도 섞인다.
+// 읽는 꼴: 소문자 JSX tag(DOM)의 title 속성. 대문자 component의 title prop은 DOM이 아니니 본다. document.title은 창 제목이다.
+const NATIVE_TITLE_ROOTS =
+  /^(?:packages\/shell\/renderer|packages\/design\/components|packages\/sdk|tools\/wireframes)\//;
+const NATIVE_TITLE_TAG_LINES = 30;
+const NATIVE_TITLE_ALLOWED: ReadonlyMap<string, string> = new Map([
+  [
+    "tools/wireframes/gallery.tsx",
+    "화면 틀을 담은 iframe의 title은 tooltip이 아니라 접근성 이름이다",
+  ],
+]);
+
+// 주석을 같은 길이의 공백으로 바꿔 줄 번호를 지킨다. 문자열은 그대로 둔다(setAttribute("title")를 봐야 한다).
+function withoutComments(source: string): string {
+  return source.replace(
+    /(?:^|\s)\/\/.*|\/\*[\s\S]*?\*\//gm,
+    (comment) => comment.replace(/[^\n]/g, " "),
+  );
+}
+
+// 줄 안에 title 속성이 있는 DOM tag. `<tag`에서 닫는 `>`까지 `{}` 깊이를 세며 걷는다(속성은 여러 줄이고 `=>`를 품는다).
+function titleAttributeLines(code: string): number[] {
+  const found: number[] = [];
+  for (
+    const open of code.matchAll(/(?<![\w$\])/])<([a-z][\w-]*)(?=[\s/>])/g)
+  ) {
+    const start = open.index!;
+    const line = code.slice(0, start).split("\n").length;
+    if (open[1] === "title") found.push(line);
+    let depth = 0;
+    let lines = 0;
+    for (let i = start + open[0].length; i < code.length; i++) {
+      const char = code[i];
+      if (char === "\n" && ++lines > NATIVE_TITLE_TAG_LINES) break;
+      if (char === '"' || char === "'" || (char === "`" && depth > 0)) {
+        i++;
+        while (i < code.length && code[i] !== char) {
+          if (code[i] === "\\" && depth > 0) i++;
+          i++;
+        }
+      } else if (char === "{") depth++;
+      else if (char === "}") {
+        if (--depth < 0) break;
+      } else if (depth === 0 && char === ">") break;
+      else if (
+        depth === 0 && /\s/.test(code[i - 1] ?? "") &&
+        /^title\s*=(?![=>])/.test(code.slice(i, i + 12))
+      ) {
+        found.push(line + lines);
+        break;
+      }
+    }
+  }
+  return found;
+}
+
+function checkNativeTitle(file: string, source: string): Issue[] {
+  const code = withoutComments(source);
+  const at = (line: number, message: string): Issue => ({
+    file,
+    line,
+    rule: "NATIVE_TITLE",
+    message,
+  });
+  const issues: Issue[] = [];
+  if (file.endsWith(".tsx")) {
+    for (const line of titleAttributeLines(code)) {
+      issues.push(at(
+        line,
+        "DOM tag의 title은 native tooltip이다. @lophn/ui/overlay의 Tooltip을 쓰거나 뺀다(이름이면 aria-label)",
+      ));
+    }
+  }
+  code.split("\n").forEach((text, index) => {
+    if (
+      /(?<!document)\.title\s*=(?![=>])|\.setAttribute\(\s*["'`]title["'`]/
+        .test(text)
+    ) {
+      issues.push(
+        at(index + 1, "DOM의 title을 코드로 쓰지 않는다. Tooltip을 쓴다"),
+      );
+    }
+  });
+  return issues;
+}
+
 export async function checkSource(root: string): Promise<Issue[]> {
   const issues: Issue[] = [];
   const { files } = await walk(root);
@@ -219,6 +305,23 @@ export async function checkSource(root: string): Promise<Issue[]> {
     });
   }
   issues.push(...await checkExternalFetch(root, files, sources));
+  const titleHits = new Set<string>();
+  for (const [file, source] of sources) {
+    if (!NATIVE_TITLE_ROOTS.test(file)) continue;
+    const found = checkNativeTitle(file, source);
+    if (found.length) titleHits.add(file);
+    if (!NATIVE_TITLE_ALLOWED.has(file)) issues.push(...found);
+  }
+  for (const [file, reason] of NATIVE_TITLE_ALLOWED) {
+    if (sources.has(file) && !titleHits.has(file)) {
+      issues.push({
+        file,
+        line: 1,
+        rule: "NATIVE_TITLE",
+        message: `위반이 없다. NATIVE_TITLE_ALLOWED에서 뺀다 (${reason})`,
+      });
+    }
+  }
   for (const [file, source] of sources) {
     if (!SHELL_ROUTE_ROOTS.test(file) || /_test\.tsx?$/.test(file)) continue;
     issues.push(...checkShellRoutes(file, source));

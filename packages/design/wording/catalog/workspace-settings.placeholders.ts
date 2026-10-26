@@ -127,6 +127,7 @@ export type WorkspaceSettingsPlaceholders = {
     name: "string";
   };
   "settings.button.detect-again": Record<never, never>;
+  "settings.button.install-hooks": Record<never, never>;
   "settings.button.remove-entry": {
     item: "string";
   };
@@ -138,10 +139,12 @@ export type WorkspaceSettingsPlaceholders = {
     time: "string";
   };
   "settings.diagnostics.not-run": Record<never, never>;
+  "settings.empty.coding-search": Record<never, never>;
   "settings.empty.general": Record<never, never>;
   "settings.empty.shell-rules": Record<never, never>;
   "settings.error.coding-defaults": Record<never, never>;
   "settings.error.coding-detect": Record<never, never>;
+  "settings.error.coding-hooks-install": Record<never, never>;
   "settings.error.font-name": Record<never, never>;
   "settings.error.value-invalid": Record<never, never>;
   "settings.error.value-not-saved": Record<never, never>;
@@ -183,24 +186,23 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.code-font-system": Record<never, never>;
   "settings.label.coding-check-failed": Record<never, never>;
   "settings.label.coding-col-executable": Record<never, never>;
+  "settings.label.coding-col-hooks": Record<never, never>;
   "settings.label.coding-col-product": Record<never, never>;
-  "settings.label.coding-col-sign-in": Record<never, never>;
-  "settings.label.coding-col-skill": Record<never, never>;
   "settings.label.coding-col-takes-task": Record<never, never>;
   "settings.label.coding-col-turn-end": Record<never, never>;
   "settings.label.coding-default-none": Record<never, never>;
   "settings.label.coding-default-product": Record<never, never>;
   "settings.label.coding-found": Record<never, never>;
+  "settings.label.coding-hooks-failed": Record<never, never>;
+  "settings.label.coding-hooks-installed": Record<never, never>;
+  "settings.label.coding-hooks-missing": Record<never, never>;
   "settings.label.coding-launch-no": Record<never, never>;
   "settings.label.coding-launch-yes": Record<never, never>;
   "settings.label.coding-model": Record<never, never>;
   "settings.label.coding-not-checked": Record<never, never>;
   "settings.label.coding-not-found": Record<never, never>;
-  "settings.label.coding-sign-in-not-found": Record<never, never>;
-  "settings.label.coding-sign-in-unknown": Record<never, never>;
   "settings.label.coding-signal-no": Record<never, never>;
   "settings.label.coding-signal-yes": Record<never, never>;
-  "settings.label.coding-signed-in": Record<never, never>;
   "settings.label.coding-stage-connect": Record<never, never>;
   "settings.label.coding-target": Record<never, never>;
   "settings.label.coding-version": {
@@ -283,6 +285,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.note.coding-default-used": Record<never, never>;
   "settings.note.coding-defaults-saved": Record<never, never>;
   "settings.note.coding-detect-note": Record<never, never>;
+  "settings.note.coding-hooks": Record<never, never>;
   "settings.note.coding-model": Record<never, never>;
   "settings.note.coding-signal": Record<never, never>;
   "settings.note.not-set": Record<never, never>;

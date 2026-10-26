@@ -15,7 +15,7 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
    judge(call, assignment, shell, mode) ─┬ deny ─▶ 실행하지 않고 이유를 tool 결과로
    순수 함수                              ├ run  ─▶ 실행
                                           └ ask  ─▶ turn 안 request (메모리)
-                                                    TurnRequestOpened ─▶ 대기 목록, toast, 대화 카드
+                                                    TurnRequestOpened ─▶ 대기 목록, 알림(toast·OS), 대화 카드
                                                     사람: once | always | reject (DecideTurnRequest, 사람 자격만)
                                                     TurnRequestClosed ─▶ turn이 이어 간다
  앱 호출 경로 (agent·앱·job·flow가 앱 tool을 부름): 묻지 않고 막기만 한다

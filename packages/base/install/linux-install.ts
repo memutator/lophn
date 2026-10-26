@@ -52,17 +52,41 @@ const LOOPBACK = "127.0.0.1,[::1]";
 
 // launcher가 쓰는 공통 앞부분이다. H·cache 위치만 환경에서 풀고 나머지는 고정 값이다.
 // 시작에 의존성 다운로드가 없도록 항상 `--cached-only --frozen`이고 system Deno는 쓰지 않는다.
+// `ROOT=` 줄은 설치 확인(tools/verify-linux-install.ts)이 확인 대상 root로 바꾸는 자리라 그대로 둔다.
 function launcherHead(layout: LinuxInstallLayout, name: string): string {
+  return headOf(name, [
+    `ROOT=${layout.root}`,
+    'DENO_BIN="$ROOT/deno"',
+    'PLATFORM="$ROOT/platform"',
+    'DENO_DIR="${HOME}/.cache/lophn/deno"',
+  ]);
+}
+
+// 개발 실행의 launcher가 가리키는 경로다. 설치 묶음이 없어 저장소의 소스와 사람의 Deno·cache를 쓴다.
+type DevCliPaths = {
+  deno: string;
+  platform: string;
+  denoDir: string;
+};
+
+function devLauncherHead(paths: DevCliPaths): string {
+  return headOf("lophn(dev)", [
+    `DENO_BIN="${paths.deno}"`,
+    `PLATFORM="${paths.platform}"`,
+    `DENO_DIR="${paths.denoDir}"`,
+  ]);
+}
+
+function headOf(name: string, paths: string[]): string {
   return [
     "#!/bin/sh",
-    `# ${name}: 설치 묶음의 launcher다. 설치된 Deno로 cached-only 실행한다.`,
+    `# ${name}: launcher다. Deno로 cached-only 실행한다.`,
     "set -e",
-    `ROOT=${layout.root}`,
+    ...paths,
     'H="${LOPHN_HOME:-$HOME/.lophn}"',
     // CLI가 같은 data root를 읽게 한다.
     'LOPHN_HOME="$H"',
     "export LOPHN_HOME",
-    'DENO_DIR="${HOME}/.cache/lophn/deno"',
     "export DENO_DIR",
     'mkdir -p "$DENO_DIR"',
   ].join("\n");
@@ -84,16 +108,53 @@ const CLI_FALLBACK_BINS = [
 // CLI의 환경 이름이다.
 const CLI_ENV =
   "LOPHN_HOME,LOPHN_CODING_TOKEN,LOPHN_DAEMON_URL,HOME,DENO_DIR,PATH";
+// `hook` 명령만 더 읽는 환경 이름이다.
+const HOOK_ENV = "LPN_TERMINAL_HOOK";
 
 // `lophn` CLI. 같은 플랫폼 daemon에 loopback으로 연결하고 token은 환경 변수 `LOPHN_CODING_TOKEN`으로 받는다.
 // 고정 권한은 읽기(플랫폼·cache·H/run·PATH와 감지 폴더), 환경 이름, loopback이고 쓰기는 instance lock 파일 하나다.
 // 명령 시점에야 알 수 있는 권한(harness install의 전역 설정 위치, harness refresh의 제품 실행 파일)은 같은 argv를 읽는
 // 권한 계획 entry(`packages/coding-agent/cli/launch-entry.ts`)가 계산해 이 실행에만 더한다. 실행은 고정으로 없다.
-export function cliLauncher(layout: LinuxInstallLayout): string {
+export function cliLauncher(
+  layout: LinuxInstallLayout,
+  hookStdout: readonly HookStdoutRow[],
+): string {
+  return cliScript(launcherHead(layout, "lophn"), hookStdout);
+}
+
+// 개발 실행(`deno task dev`)의 `lophn`. 설치된 launcher와 같은 본문에 경로만 저장소 소스로 바꾼다.
+// 전역 hook command가 이 파일의 경로라서 `hook`이 터미널 hook env 없이 부르면 deno를 띄우지 않고 끝나는 것도 같다.
+export function devCliLauncher(
+  paths: DevCliPaths,
+  hookStdout: readonly HookStdoutRow[],
+): string {
+  return cliScript(devLauncherHead(paths), hookStdout);
+}
+
+// hook이 stdout에 써야 하는 글이다(`harness-hooks.ts`의 `HOOK_STDOUT`). event `*`는 그 harness의 나머지 전부다.
+type HookStdoutRow = { harness: string; event: string; stdout: string };
+
+// env 없이 일찍 끝나는 hook도 `lophn hook`과 같은 stdout을 내도록 같은 표로 `case`를 만든다. 정확한 event가 `*`보다 먼저다.
+function hookStdoutCase(rows: readonly HookStdoutRow[]): string[] {
+  const quoted = (text: string) => `'${text.replaceAll("'", "'\\''")}'`;
+  return [...rows].sort((a, b) =>
+    Number(a.event === "*") - Number(b.event === "*")
+  ).map((row) =>
+    `    ${row.harness}:${row.event}) printf '%s\\n' ${quoted(row.stdout)} ;;`
+  );
+}
+
+function cliScript(head: string, hookStdout: readonly HookStdoutRow[]): string {
   return [
-    launcherHead(layout, "lophn"),
-    "# 전역 hook은 lophn과 상관없는 harness 실행마다 불린다. token이 없으면 deno를 띄우지 않고 끝낸다.",
-    'if [ "${1:-}" = hook ] && [ -z "${LOPHN_CODING_TOKEN:-}" ]; then exit 0; fi',
+    head,
+    "# 전역 hook은 lophn과 상관없는 harness 실행마다 불린다. 터미널 hook env가 없으면 deno를 띄우지 않고 끝낸다.",
+    "# harness가 stdout을 요구하는 hook(`HOOK_STDOUT`)은 같은 글만 쓰고 끝낸다.",
+    'if [ "${1:-}" = hook ] && [ -z "${LPN_TERMINAL_HOOK:-}" ]; then',
+    '  case "${2:-}:${3:-}" in',
+    ...hookStdoutCase(hookStdout),
+    "  esac",
+    "  exit 0",
+    "fi",
     "# PATH의 절대 폴더만 읽기로 연다(제품 감지).",
     'PATHDIRS=""',
     "OLDIFS=$IFS",
@@ -105,36 +166,48 @@ export function cliLauncher(layout: LinuxInstallLayout): string {
     "  esac",
     "done",
     "IFS=$OLDIFS",
-    `READ="$ROOT/platform,$DENO_DIR,$H/run,$PWD,/proc/self/stat,${CLI_FALLBACK_BINS}\${PATHDIRS:+,$PATHDIRS}"`,
+    `READ="$PLATFORM,$DENO_DIR,$H/run,$PWD,/proc/self/stat,${CLI_FALLBACK_BINS}\${PATHDIRS:+,$PATHDIRS}"`,
     `WRITE="$H/run/${INSTANCE_LOCK_NAME}"`,
     `ENVNAMES="${CLI_ENV}"`,
+    `NET="${LOOPBACK}"`,
+    "# hook은 터미널의 hook socket(env JSON의 socket)에만 연결한다. unix socket connect는 그 경로의 읽기·쓰기와 net(`unix:<경로>`)이 필요하다.",
+    "# 계획 entry를 거치면 deno가 한 번 더 뜨므로 launcher가 경로를 꺼낸다. 이상한 경로면 아무것도 더하지 않고 hook은 조용히 끝난다.",
+    'if [ "${1:-}" = hook ]; then',
+    `  ENVNAMES="$ENVNAMES,${HOOK_ENV}"`,
+    String
+      .raw`  SOCK=$(printf '%s' "$${HOOK_ENV}" | sed -n 's/.*"socket":"\([^"\,]*\)".*/\1/p')`,
+    '  case "$SOCK" in',
+    "    /*..*|*,*) ;;",
+    '    /*) READ="$READ,$SOCK"; WRITE="$WRITE,$SOCK"; NET="$NET,unix:$SOCK" ;;',
+    "  esac",
+    "fi",
     "# harness 명령만 권한 계획을 부른다. 계획은 harness install의 전역 설정 위치와 harness refresh의 제품 실행 파일만 준다.",
     'EXTRA=""',
     'for arg in "$@"; do',
     '  case "$arg" in harness) NEED=1 ;; esac',
     "done",
     'if [ -n "${NEED:-}" ]; then',
-    '  EXTRA=$("$ROOT/deno" run --cached-only --frozen --no-prompt \\',
-    '    --config="$ROOT/platform/deno.json" \\',
+    '  EXTRA=$("$DENO_BIN" run --cached-only --frozen --no-prompt \\',
+    '    --config="$PLATFORM/deno.json" \\',
     // 계획도 감지가 보는 PATH 폴더와 home 기준 bin 폴더를 읽어야 refresh의 실행 파일을 찾는다(읽기만).
-    '    --allow-read="$ROOT/platform,$DENO_DIR,$H/run,$PWD,/proc/self/stat,' +
+    '    --allow-read="$PLATFORM,$DENO_DIR,$H/run,$PWD,/proc/self/stat,' +
     CLI_FALLBACK_BINS + '${PATHDIRS:+,$PATHDIRS}" \\',
     '    --allow-env="$ENVNAMES" \\',
-    `    --allow-net=${LOOPBACK} \\`,
-    '    "$ROOT/platform/packages/coding-agent/cli/launch-entry.ts" "$@" 2>/dev/null) || EXTRA=""',
+    '    --allow-net="$NET" \\',
+    '    "$PLATFORM/packages/coding-agent/cli/launch-entry.ts" "$@" 2>/dev/null) || EXTRA=""',
     "fi",
     "# 계획의 flag는 한 줄에 하나다. 줄 단위로만 나눈다.",
     "IFS='",
     "'",
     "set -f",
-    'exec "$ROOT/deno" run --cached-only --frozen --no-prompt \\',
-    '  --config="$ROOT/platform/deno.json" \\',
+    'exec "$DENO_BIN" run --cached-only --frozen --no-prompt \\',
+    '  --config="$PLATFORM/deno.json" \\',
     '  --allow-read="$READ" \\',
     '  --allow-write="$WRITE" \\',
     '  --allow-env="$ENVNAMES" \\',
-    `  --allow-net=${LOOPBACK} \\`,
+    '  --allow-net="$NET" \\',
     "  $EXTRA \\",
-    '  "$ROOT/platform/packages/coding-agent/cli/main.ts" "$@"',
+    '  "$PLATFORM/packages/coding-agent/cli/main.ts" "$@"',
     "",
   ].join("\n");
 }

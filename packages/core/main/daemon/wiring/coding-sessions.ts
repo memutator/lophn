@@ -1,6 +1,5 @@
 import { ok, type Result } from "../../../../base/mod.ts";
 import { createProductRedactor } from "../../../../base/redaction/mod.ts";
-import { codingHook } from "../../../../protocol/coding-agent/hook.ts";
 import {
   harnessList,
   harnessReport,
@@ -9,6 +8,7 @@ import { codingMessageSend } from "../../../../protocol/coding-agent/message.ts"
 import { CODING_MCP_PATH } from "../../../../protocol/coding-agent/mcp.ts";
 import {
   codingTerminalExited,
+  codingTerminalHook,
   codingTerminalResult,
 } from "../../../../protocol/coding-agent/terminal-requests.ts";
 import {
@@ -182,12 +182,12 @@ export const codingSessionsWiring: WiringFactory = () => {
             known: () => ctx.peek.knownSecrets,
           }),
         memory: [
-          [key(codingHook), handlers.hook],
           [key(codingMessageSend), handlers.message],
           [key(harnessReport), handlers.report],
           [key(harnessList), handlers.list],
           [key(codingTerminalResult), handlers.result],
           [key(codingTerminalExited), handlers.exited],
+          [key(codingTerminalHook), handlers.hook],
         ],
       });
     },

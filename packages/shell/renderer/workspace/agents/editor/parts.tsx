@@ -158,7 +158,6 @@ export function McpList(
                   }`}
                   role="img"
                   aria-label={text}
-                  title={text}
                 />
                 {item.name}
               </span>

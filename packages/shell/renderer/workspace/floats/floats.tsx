@@ -12,6 +12,7 @@ import { IconButton } from "@lophn/ui/primitives";
 import { t } from "@lophn/wording";
 
 import type { TabItem as StripTab } from "../../parts/tab-strip/tab-strip.tsx";
+import { TabStateDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import {
   useViewCover,
   ViewLayerProvider,
@@ -111,6 +112,7 @@ function FloatEntry(
   }: FloatEntryProps,
 ) {
   const { tab } = item;
+  const strip = stripTab(tab);
   // 이동·resize 중 미리보기. 놓을 때만 onRect로 올린다.
   const [preview, setPreview] = useState<FloatRect | null>(null);
   // 저장된 rect는 건드리지 않고 그릴 때만 가둔다. 창이 줄었다 커지면 원래 자리로 돌아온다.
@@ -167,7 +169,8 @@ function FloatEntry(
       <FloatPanel
         ref={ref}
         title={tab.title}
-        icon={stripTab(tab).icon}
+        icon={strip.icon}
+        badge={strip.dot ? <TabStateDot dot={strip.dot} /> : undefined}
         x={rect.x}
         y={rect.y}
         width={rect.width}

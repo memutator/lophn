@@ -3,7 +3,7 @@ import type { TerminalApi } from "../../ipc/terminal.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
 import { t } from "@lophn/wording";
 
-import { overlayConsumer } from "../overlay/consumer.ts";
+import { centerAnchor, overlayConsumer } from "../overlay/consumer.ts";
 import { endingOf, phaseOfRuntime } from "./model.ts";
 import type { TerminalStore } from "./store.ts";
 import type { TerminalView } from "./xterm-view.ts";
@@ -12,37 +12,15 @@ export interface TerminalDeps {
   /** preload 통로. 없으면 터미널을 열지 않는다. */
   readonly bridge: TerminalApi | null;
   readonly store: TerminalStore;
-  readonly createView: (host: HTMLElement) => TerminalView;
+  /** edge는 host 둘레 여백을 덮는 canvas다(xterm-view `paintEdges`). */
+  readonly createView: (
+    host: HTMLElement,
+    edge: HTMLCanvasElement,
+  ) => TerminalView;
   /** 살아 있는 터미널 닫기를 사람에게 묻는다. true일 때만 닫는다. */
   readonly confirmClose: () => Promise<boolean>;
   /** 출력 당겨 읽기 간격. */
   readonly pollMs?: number;
-}
-
-/**
- * dialog는 창 본문 전체에 그려지지만 main은 연 자리가 본문 안인지 본다. 누른 닫기
- * 버튼 자리를 쓰고, 모르면 창 가운데를 쓴다.
- */
-function anchorOf(
-  element: HTMLElement,
-): { x: number; y: number; width: number; height: number } {
-  const box = element === document.body
-    ? null
-    : element.getBoundingClientRect();
-  if (box && box.width > 0 && box.height > 0) {
-    return {
-      x: Math.max(0, Math.round(box.x)),
-      y: Math.max(0, Math.round(box.y)),
-      width: Math.max(1, Math.round(box.width)),
-      height: Math.max(1, Math.round(box.height)),
-    };
-  }
-  return {
-    x: Math.max(0, Math.round(globalThis.innerWidth / 2)),
-    y: Math.max(0, Math.round(globalThis.innerHeight / 2)),
-    width: 1,
-    height: 1,
-  };
 }
 
 const CLOSE_CHOICE = "close-terminal";
@@ -76,7 +54,7 @@ function overlayCloseConfirm(api: OverlayApi): () => Promise<boolean> {
     const opened = await consumer.open({
       requestId,
       kind: "dialog",
-      anchorRect: anchorOf(opener),
+      anchorRect: centerAnchor(),
       model: {
         label: t("terminal.title.close"),
         text: t("terminal.dialog.close-text"),
@@ -97,7 +75,7 @@ function overlayCloseConfirm(api: OverlayApi): () => Promise<boolean> {
 /** 창의 preload 통로로 묶음을 만든다. 통로가 없으면 bridge는 null이다. */
 export function windowTerminalDeps(
   store: TerminalStore,
-  createView: (host: HTMLElement) => TerminalView,
+  createView: TerminalDeps["createView"],
 ): TerminalDeps {
   const scope = globalThis as {
     lophnTerminal?: TerminalApi;

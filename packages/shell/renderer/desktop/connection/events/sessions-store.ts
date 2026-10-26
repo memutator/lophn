@@ -8,6 +8,7 @@ import type {
 } from "../../../../../protocol/events/mod.ts";
 import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
 import type { placeOutputSchema } from "../../../../../protocol/lophn-agent/places.ts";
+import type { LophnNoticeApi, UnseenSession } from "../../../../ipc/notice.ts";
 import type { EventClient } from "./client.ts";
 import { readSessionSnapshots } from "./snapshots.ts";
 import { createValueStore, syncOnReady } from "./store.ts";
@@ -23,6 +24,8 @@ export interface SessionEntry {
   readonly ended: EndReason | null;
   readonly agent: CallAgent | null;
   readonly place: Place | null;
+  /** 사람이 보지 않는 사이 turn이 끝났다(Agent 탭의 finished 점). main이 정하고 agent 이름·얼굴·session 이름까지 읽어 보낸다. */
+  readonly unseen: UnseenSession | null;
 }
 
 export interface SessionsState {
@@ -58,9 +61,14 @@ interface SessionsStore {
   start(): () => void;
 }
 
-export function createSessionsStore(client: EventClient): SessionsStore {
+export function createSessionsStore(
+  client: EventClient,
+  notice: Pick<LophnNoticeApi, "unseen" | "onUnseen"> | null = null,
+): SessionsStore {
   const state = createValueStore<SessionsState>({ sessions: [] });
   let records = new Map<string, Record_>();
+  // 창이 여럿이어도 정본은 main 하나라 이 쪽은 받은 목록을 그대로 둔다.
+  let unseen: ReadonlyMap<string, UnseenSession> = new Map();
 
   function publish() {
     const sessions: SessionEntry[] = [];
@@ -76,6 +84,7 @@ export function createSessionsStore(client: EventClient): SessionsStore {
         ended: record.ended,
         agent: record.agent,
         place: record.place,
+        unseen: unseen.get(session) ?? null,
       });
     }
     state.set({ sessions });
@@ -173,7 +182,15 @@ export function createSessionsStore(client: EventClient): SessionsStore {
     get: state.get,
     subscribe: state.subscribe,
     start() {
-      return client.subscribe(
+      const stopUnseen = notice?.onUnseen((sessions) => {
+        unseen = new Map(sessions.map((one) => [one.session, one]));
+        publish();
+      });
+      void notice?.unseen().then((sessions) => {
+        unseen = new Map(sessions.map((one) => [one.session, one]));
+        publish();
+      });
+      const stop = client.subscribe(
         SESSIONS_CONDITION,
         syncOnReady({
           read: () => readSessionSnapshots(client.core),
@@ -181,6 +198,10 @@ export function createSessionsStore(client: EventClient): SessionsStore {
           apply,
         }),
       );
+      return () => {
+        stopUnseen?.();
+        stop();
+      };
     },
   };
 }

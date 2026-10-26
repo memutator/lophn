@@ -17,9 +17,17 @@ type HostProcess = {
 
 type SpawnHost = (entry: string) => HostProcess;
 
+/** shell 터미널의 foreground process argv가 바뀌었다. host가 훑어서 알린다. */
+export type ForegroundChange = {
+  terminal_ref: string;
+  generation: number;
+  argv: string[] | null;
+};
+
 /** host에서 온 runtime(요청의 답에 실린 것과 process가 끝났다는 줄)과 host가 사라진 일을 듣는다. */
 type SupervisorListener = {
   runtime?(runtime: TerminalRuntime): void;
+  foreground?(change: ForegroundChange): void;
   hostLost?(): void;
 };
 
@@ -92,11 +100,17 @@ export function createSupervisor(options: {
       id?: string;
       reply?: TerminalReply;
       runtime?: TerminalRuntime;
+      foreground?: ForegroundChange;
     };
     try {
       parsed = JSON.parse(line) as typeof parsed;
     } catch {
       return;
+    }
+    if (parsed.foreground) {
+      for (const listener of listeners) {
+        listener.foreground?.(parsed.foreground);
+      }
     }
     if (parsed.runtime) {
       refreshRuntime(parsed.runtime);

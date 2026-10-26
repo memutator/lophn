@@ -126,6 +126,19 @@
   border-top: var(--border-width) solid var(--color-border-subtle);
 }
 
+/* 끝난 줄은 어디를 눌러도 열린다. */
+.finished {
+  cursor: pointer;
+}
+
+.finished .who {
+  align-items: center;
+}
+
+.finished:hover {
+  background: var(--color-surface-subtle);
+}
+
 .who {
   display: flex;
   align-items: flex-start;

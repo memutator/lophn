@@ -6,7 +6,7 @@ import type { z } from "zod";
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
   CODING_TOKEN_ENV,
-  HOOK_PAYLOAD_MAX_BYTES,
+  HOOK_STDIN_MAX_BYTES,
 } from "../../protocol/coding-agent/mod.ts";
 import {
   type RpcFetch,
@@ -57,12 +57,12 @@ function readTextOrUndefined(path: string): string | undefined {
   }
 }
 
-// hook payload 상한까지만 읽는다. 상한을 넘으면 넘은 것을 알 만큼만 더 읽고 멈춘다.
+// hook stdin 상한까지만 읽는다. 상한을 넘으면 넘은 것을 알 만큼만 더 읽고 멈춘다.
 async function readProcessStdin(): Promise<string> {
   const chunks: Uint8Array[] = [];
   let total = 0;
   const buffer = new Uint8Array(8192);
-  while (total <= HOOK_PAYLOAD_MAX_BYTES) {
+  while (total <= HOOK_STDIN_MAX_BYTES) {
     const read = await Deno.stdin.read(buffer);
     if (read === null) break;
     chunks.push(buffer.slice(0, read));

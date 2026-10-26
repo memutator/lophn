@@ -76,6 +76,9 @@ function floatFromStored(value: unknown): FloatItem | null {
     },
     minimized: float.minimized === true,
     originPane: float.origin_pane === 1 ? 1 : 0,
+    ...(typeof float.docked_at === "number" && float.minimized === true
+      ? { dockedAt: float.docked_at }
+      : {}),
   };
 }
 
@@ -173,6 +176,7 @@ interface StoredDesk {
     rect: FloatItem["rect"];
     minimized: boolean;
     origin_pane: number;
+    docked_at?: number;
   }[];
   detached: {
     tab: Record<string, unknown>;
@@ -207,6 +211,7 @@ function storedDesk(view: WorkspaceView): StoredDesk {
       rect: float.rect,
       minimized: float.minimized,
       origin_pane: float.originPane === 1 ? 1 : 0,
+      ...(float.dockedAt === undefined ? {} : { docked_at: float.dockedAt }),
     }];
   }).slice(0, 20);
   const detached = view.detached.flatMap((item) => {

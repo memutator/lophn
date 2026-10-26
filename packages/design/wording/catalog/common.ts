@@ -8,12 +8,13 @@ export const common = {
   "common.button.copy": "Copy",
   "common.button.copy-code": "Copy code",
   "common.button.copy-id": "Copy ID",
+  "common.button.install": "Install",
   "common.button.next-month": "Next month",
   "common.button.next-page": "Next page",
+  "common.button.not-now": "Not now",
   "common.button.previous-month": "Previous month",
   "common.button.previous-page": "Previous page",
   "common.button.quit": "Quit",
-  "common.button.register": "Register",
   "common.button.reload": "Reload",
   "common.button.reset-filters": "Reset filters",
   "common.button.retry": "Try again",
@@ -69,11 +70,14 @@ export const common = {
   "common.label.tray-tooltip": "lophn",
   "common.label.value-range": "{start}–{end}",
   "common.notice.coding-agent-register-failed":
-    "lophn couldn't add its hook and skill to this coding agent. The session opens without them.",
-  "common.notice.coding-agent-registered":
-    "lophn added its hook and skill to this coding agent.",
+    "lophn couldn't add its hooks, so this agent's status and turn notifications won't show. You can try again from Settings.",
+  "common.notice.coding-agent-restart":
+    "Quit {harness} and start it again to see its status and turn notifications.",
   "common.notice.register-coding-agent":
-    "lophn adds its hook and skill to this coding agent's user settings, once. They do nothing outside lophn coding sessions.",
+    "lophn adds hooks to {harness}'s user settings, once, so it can show this agent's status and notify you when a turn ends.",
+  "common.notice.register-coding-agent-codex":
+    "lophn also marks these hooks as trusted in Codex, so you don't need to approve them with /hooks.",
+  "common.notice.register-coding-agent-files": "lophn will write these files.",
   "common.overlay.unavailable": "This action couldn't be completed. Try again.",
   "common.palette.no-results": "Nothing matches your search.",
   "common.quit.saves":
@@ -83,14 +87,21 @@ export const common = {
   "common.quit.terminals-and-saves":
     "Running terminals will stop and changes that are still being saved may be lost. Apps and scheduled work stop until you open lophn again.",
   "common.stale.label": "Last updated {age}",
-  "common.title.coding-agent-register-failed": "Couldn't register lophn",
-  "common.title.coding-agent-registered": "lophn registered",
+  "common.title.agent-failed": "{agent}'s turn failed",
+  "common.title.agent-failed-in": "{agent}'s turn failed · {place}",
+  "common.title.agent-finished": "{agent} finished",
+  "common.title.agent-finished-in": "{agent} finished · {place}",
+  "common.title.agent-needs-permission": "{agent} needs permission",
+  "common.title.agent-needs-permission-in":
+    "{agent} needs permission · {place}",
+  "common.title.coding-agent-register-failed":
+    "Couldn't set up lophn for {harness}",
+  "common.title.coding-agent-registered": "lophn is set up for {harness}",
   "common.title.pick-file": "Choose a file",
   "common.title.pick-folder-register": "Choose a project folder",
   "common.title.pick-folder-relocate": "Choose the folder's new location",
   "common.title.quit": "Quit lophn?",
-  "common.title.register-coding-agent":
-    "Register lophn with this coding agent?",
+  "common.title.register-coding-agent": "Set up lophn for {harness}?",
   "document.button.check-again": "Check again",
   "document.button.read": "Read",
   "document.label.saving": "Saving…",

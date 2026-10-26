@@ -2,6 +2,7 @@
 import type {
   CodingConnectionsSource,
   CodingDefaults,
+  HarnessHookView,
   HarnessName,
   HarnessSettingsView,
   SourceResult,
@@ -11,10 +12,28 @@ const LABELS: Record<HarnessName, string> = {
   claude: "Claude Code",
   codex: "Codex",
   opencode: "OpenCode",
-  gemini: "Gemini CLI",
-  hermes: "Hermes",
   pi: "pi",
-  openclaw: "OpenClaw",
+  omp: "Oh My Pi",
+  cursor: "Cursor",
+  copilot: "GitHub Copilot CLI",
+  kimi: "Kimi Code",
+  kiro: "Kiro CLI",
+  antigravity: "Antigravity",
+  grok: "Grok",
+  droid: "Droid",
+  amp: "Amp",
+  devin: "Devin",
+  qwen: "Qwen Code",
+  qoder: "Qoder CLI",
+  hermes: "Hermes",
+  muse: "Muse",
+  codebuddy: "CodeBuddy Code",
+  "command-code": "Command Code",
+  "prime-agent": "Prime Agent",
+  mimocode: "MiMo Code",
+  cline: "Cline",
+  letta: "Letta Code",
+  kilo: "Kilo Code CLI",
 };
 
 function harness(
@@ -28,7 +47,6 @@ function harness(
     discovery: "detected",
     version: found ? "1.2.3" : null,
     version_result: found ? "verified" : "unknown",
-    login: "verified",
     can_launch: found,
     can_deliver_messages: found,
     reason: null,
@@ -40,9 +58,8 @@ function harness(
 const HARNESSES: readonly HarnessSettingsView[] = [
   harness("claude", { version: "2.1.4" }),
   harness("codex", { version: "0.58.0" }),
-  harness("gemini", {
+  harness("antigravity", {
     version: "0.9.2",
-    login: "not_verified",
     can_deliver_messages: false,
     reason: "This product doesn't report when a turn ends.",
   }),
@@ -54,10 +71,21 @@ const HARNESSES: readonly HarnessSettingsView[] = [
     reason:
       "The first prompt can't be passed on the command line or after the session starts.",
   }),
-  harness("hermes", { discovery: "absent", login: "unknown" }),
+  harness("hermes", { discovery: "absent" }),
+];
+
+/** 화면 확인용 hook 상태: 놓임, 안 놓임, 못 읽음, hook 없는 제품이 한 번씩 있다. */
+const HOOKS: readonly HarnessHookView[] = [
+  { harness_id: "claude", status: "installed", files: [] },
+  { harness_id: "codex", status: "missing", files: ["~/.codex/hooks.json"] },
+  { harness_id: "antigravity", status: "failed", files: [] },
+  { harness_id: "opencode", status: "missing", files: [] },
+  { harness_id: "pi", status: "unsupported", files: [] },
+  { harness_id: "hermes", status: "unsupported", files: [] },
 ];
 
 interface FakeConnectionsOptions {
+  hooks?: SourceResult<readonly HarnessHookView[]>;
   harnesses?: SourceResult<readonly HarnessSettingsView[]>;
   refresh?: SourceResult<readonly HarnessSettingsView[]>;
   defaults?: SourceResult<CodingDefaults>;
@@ -70,6 +98,8 @@ interface FakeConnections {
   readonly calls: {
     harnesses: number;
     refresh: number;
+    hookStatus: number;
+    installed: HarnessName[];
     saved: CodingDefaults[];
   };
 }
@@ -80,8 +110,13 @@ export function fakeConnections(
   const calls: FakeConnections["calls"] = {
     harnesses: 0,
     refresh: 0,
+    hookStatus: 0,
+    installed: [],
     saved: [],
   };
+  let hooks = options.hooks?.ok === false
+    ? []
+    : [...(options.hooks?.value ?? HOOKS)];
   let defaults: CodingDefaults = { harness: "claude", model: "" };
   const source: CodingConnectionsSource = {
     watch(listener) {
@@ -97,6 +132,24 @@ export function fakeConnections(
     refresh() {
       calls.refresh += 1;
       return Promise.resolve(options.refresh ?? { ok: true, value: HARNESSES });
+    },
+    hookStatus() {
+      calls.hookStatus += 1;
+      return Promise.resolve(
+        options.hooks?.ok === false
+          ? options.hooks
+          : { ok: true, value: hooks },
+      );
+    },
+    installHooks(id) {
+      calls.installed.push(id);
+      const done: HarnessHookView = {
+        harness_id: id,
+        status: "installed",
+        files: [],
+      };
+      hooks = hooks.map((hook) => hook.harness_id === id ? done : hook);
+      return Promise.resolve({ ok: true, value: done });
     },
     defaults() {
       return Promise.resolve(options.defaults ?? { ok: true, value: defaults });

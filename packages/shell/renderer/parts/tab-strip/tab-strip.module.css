@@ -100,24 +100,39 @@
   white-space: nowrap;
 }
 
-/* 상태 점: 기다림, 일하는 중, 끝남 */
-.dot {
+/* 이름 바꾸기 입력. 탭 높이 안에 들어가도록 작고, 폭은 탭의 최소 폭에서 시작해 이름 자리를 채운다. */
+.rename {
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  width: var(--tab-strip-min);
+  min-width: var(--space-0);
+  height: var(--control-sm-height);
+  padding: var(--space-0) var(--space-2);
+  border: var(--border-width) solid var(--color-focus);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font: inherit;
+  outline: none;
+  user-select: text;
+}
+
+/* 닫기 자리. 점과 닫기 단추가 같은 칸에 겹쳐 있고 폭이 고정이라 바꿔 보여도 제목이 밀리지 않는다. */
+.slot {
+  position: relative;
+  box-sizing: border-box;
+  display: inline-flex;
   flex: none;
-  width: var(--space-3);
-  height: var(--space-3);
-  border-radius: var(--radius-full);
+  align-items: center;
+  justify-content: center;
+  width: var(--space-7);
+  height: var(--space-7);
+  margin: var(--space-0) var(--space-0) var(--space-0) var(--space-1);
 }
 
-.dot[data-state="waiting"] {
-  background: var(--status-warning-marker);
-}
-
-.dot[data-state="working"] {
-  background: var(--color-focus);
-}
-
-.dot[data-state="ended"] {
-  background: var(--status-neutral-marker);
+/* 상태 점(TabStateDot)은 닫기 단추 위에 겹친다. */
+.dot {
+  position: absolute;
 }
 
 .end {
@@ -183,16 +198,16 @@
   box-shadow: inset calc(var(--tab-indicator) * -1) 0 0 var(--color-focus);
 }
 
-/* 닫기 자리. 고른 탭과 hover한 탭에만 보이고, 저장 안 된 탭은 늘 보이되 ●이다가 hover하면 ×가 된다. */
+/* 닫기 단추. 고른 탭과 hover한 탭에만 보이고, 저장 안 된 탭은 늘 보이되 ●이다가 hover하면 ×가 된다.
+   상태 점이 있는 탭은 점을 보이다가 hover나 키보드 focus에서 ×로 바뀐다(단추는 DOM에 남아 있어 tab으로 닿는다). */
 .close {
   box-sizing: border-box;
   display: inline-flex;
   flex: none;
   align-items: center;
   justify-content: center;
-  width: var(--space-7);
-  height: var(--space-7);
-  margin: var(--space-0) var(--space-0) var(--space-0) var(--space-1);
+  width: 100%;
+  height: 100%;
   padding: var(--space-0);
   border: var(--space-0);
   border-radius: var(--radius-xs);
@@ -240,6 +255,20 @@
 .unsaved .close:hover .cross,
 .unsaved .close:focus-visible .cross {
   display: inline-block;
+}
+
+.dotted .close {
+  opacity: 0;
+}
+
+.dotted:hover .close,
+.dotted:has(.close:focus-visible) .close {
+  opacity: 1;
+}
+
+.dotted:hover .dot,
+.dotted:has(.close:focus-visible) .dot {
+  visibility: hidden;
 }
 
 /* sidebar 위쪽 같은 줄. 높이는 본문 탭 줄과 같아야 아래선이 한 줄로 이어진다.

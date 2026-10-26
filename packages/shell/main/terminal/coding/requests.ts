@@ -3,8 +3,9 @@
 // 이 module은 frame 수신도 core client도 모른다. 호출하는 쪽(desktop wiring)이 `reportResult`·`reportExited`를
 // 사람 token의 core client로 잇는다.
 //
-// harness의 전역 hook·skill은 열 때 `dry_run`으로 있는지만 보고, 없으면 사람에게 한 번 물은 뒤 등록한다.
-// 거절하면 hook 없이 연다. 묻거나 등록하다 실패해도 session 열기는 막지 않는다.
+// harness의 전역 hook·skill은 열 때 `dry_run`으로 있는지만 보고, 없으면 사람에게 한 번 물은 뒤 등록한다
+// (`terminal/agent/hook-install.ts`). 거절하면 hook 없이 연다. 묻거나 등록하다 실패해도 session 열기는 막지 않는다.
+// 그 터미널의 hook은 shell main의 hook socket으로 온다. 여기서는 key를 plan env에 더하고 session에 묶는다.
 //
 // 첫 prompt는 plan이 argv면 이미 argv로 넘어갔고, paste_after_hook이면 core가 session 시작 hook을 받은 뒤
 // 일반 `input`으로 보낸다. 화면 출력으로 준비를 짐작하지 않고 재전송·재spawn·resume도 없다.
@@ -16,6 +17,8 @@ import {
   codingTerminalRequestSchema,
 } from "../../../../protocol/coding-agent/terminal-requests.ts";
 import type { TerminalRuntime } from "../../../ipc/terminal.ts";
+import type { HookInstaller } from "../agent/hook-install.ts";
+import type { TerminalHooks } from "../agent/ingress.ts";
 import type { Supervisor } from "../supervisor.ts";
 
 type Failure = "spawn_failed" | "no_terminal" | "folder_missing" | "host_lost";
@@ -30,36 +33,20 @@ type ExitedBody = {
   reason: "exited" | "killed" | "host_lost";
 };
 
-type CliRun = (
-  args: string[],
-) => Promise<{ ok: true; data: unknown } | { ok: false; message: string }>;
-
-type Install = { skill: string; hook: string; files: string[] };
-
 type CodingTerminalDeps = {
   supervisor: Pick<Supervisor, "request" | "on" | "runtimes">;
   /** 사람이 그 탭에 focus해 있지 않을 때 풀린다. */
   focus: { whenFree(terminalRef: string): Promise<void> };
   reportResult(body: ResultBody): Promise<unknown>;
   reportExited(body: ExitedBody): Promise<unknown>;
-  /** `lophn` CLI. 설치 경로를 모르면 null이고 skill·hook 등록은 건너뛴다. */
-  runCli: CliRun | null;
-  /** 전역 등록을 사람에게 묻고 결과를 보인다. 없으면 묻지 않고 등록하지 않는다. */
-  register?: {
-    ask(input: { harness: string; files: string[] }): Promise<boolean>;
-    show(
-      input: {
-        harness: string;
-        ok: boolean;
-        files: string[];
-        message?: string;
-      },
-    ): Promise<void>;
-  };
+  /** 전역 skill·hook 등록. 설치 경로를 모르거나 묻지 못하면 아무것도 하지 않는다. */
+  installer: Pick<HookInstaller, "ensureRegistered">;
+  /** 터미널 hook 길. 꺼져 있으면 없다. */
+  hooks?: TerminalHooks;
+  /** 터미널이 열렸다. 상태를 따라갈 제품을 알려 준다. */
+  opened?(terminalRef: string, harness: string): void;
   /** 새 coding 탭과 상태 변화를 창에 알린다. */
   publish?(runtime: TerminalRuntime): void;
-  /** 개발 실행의 hook command(절대 경로). packaged는 없고 PATH의 `lophn`이다. */
-  hookCommand?: string;
   /** 앱 source 폴더가 디렉터리이고 읽을 수 있는지. 기본은 fs로 본다. */
   checkFolder?(path: string): boolean;
 };
@@ -100,7 +87,6 @@ export function createCodingTerminalRequests(
   // session → 터미널 탭 표. 탭은 끝나도 host가 살아 있는 동안 남는다.
   const sessions = new Map<string, Entry>();
   const opening = new Set<string>();
-  const registering = new Map<string, Promise<void>>();
   const checkFolder = deps.checkFolder ?? folderReadable;
 
   function say(body: ResultBody): Promise<void> {
@@ -121,6 +107,7 @@ export function createCodingTerminalRequests(
     if (entry.reported) return;
     entry.reported = true;
     entry.end();
+    deps.hooks?.revoke(entry.terminalRef);
     void Promise.resolve(
       deps.reportExited({ session, exit_code: exitCode, reason }),
     ).catch(() => undefined);
@@ -155,92 +142,6 @@ export function createCodingTerminalRequests(
     },
   });
 
-  function installResult(data: unknown): Install | null {
-    const value = data as Partial<Install> | null;
-    if (
-      typeof value?.skill !== "string" || typeof value.hook !== "string" ||
-      !Array.isArray(value.files) ||
-      !value.files.every((file) => typeof file === "string")
-    ) return null;
-    return { skill: value.skill, hook: value.hook, files: value.files };
-  }
-
-  function runInstall(harness: string, dryRun: boolean) {
-    const input = {
-      harness,
-      ...(dryRun ? { dry_run: true } : {}),
-      ...(deps.hookCommand === undefined ? {} : { command: deps.hookCommand }),
-    };
-    return deps.runCli!([
-      "harness",
-      "install",
-      "--input",
-      JSON.stringify(input),
-    ]);
-  }
-
-  async function registerOnce(harness: string): Promise<void> {
-    const register = deps.register;
-    if (deps.runCli === null || register === undefined) return;
-    let files: string[];
-    try {
-      const seen = await runInstall(harness, true);
-      const found = seen.ok ? installResult(seen.data) : null;
-      if (found === null) return;
-      if (found.skill !== "missing" && found.hook !== "missing") return;
-      files = found.files;
-      if (!await register.ask({ harness, files })) return;
-    } catch {
-      return;
-    }
-    // 허락한 뒤의 실패는 사람에게 보인다.
-    let shown: Parameters<typeof register.show>[0];
-    try {
-      const done = await runInstall(harness, false);
-      const wrote = done.ok ? installResult(done.data) : null;
-      if (!done.ok) {
-        shown = { harness, ok: false, files: [], message: done.message };
-      } else if (wrote === null) {
-        shown = { harness, ok: false, files: [], message: "unexpected result" };
-      } else {
-        const ok = [wrote.skill, wrote.hook].every((outcome) =>
-          outcome === "installed" || outcome === "unchanged"
-        );
-        shown = {
-          harness,
-          ok,
-          files: wrote.files,
-          ...(ok ? {} : {
-            message: `skill ${wrote.skill}, hook ${wrote.hook}`,
-          }),
-        };
-      }
-    } catch (error) {
-      shown = {
-        harness,
-        ok: false,
-        files: [],
-        message: error instanceof Error ? error.message : "failed",
-      };
-    }
-    try {
-      await register.show(shown);
-    } catch {
-      // 결과 창을 못 띄워도 session은 연다.
-    }
-  }
-
-  // 같은 harness로 session 둘이 동시에 열려도 묻는 창은 하나다.
-  function ensureRegistered(harness: string): Promise<void> {
-    const running = registering.get(harness);
-    if (running !== undefined) return running;
-    const started = registerOnce(harness).finally(() =>
-      registering.delete(harness)
-    );
-    registering.set(harness, started);
-    return started;
-  }
-
   async function open(
     request: string,
     plan: Extract<CodingTerminalRequest, { kind: "open" }>["plan"],
@@ -253,10 +154,14 @@ export function createCodingTerminalRequests(
     opening.add(plan.session);
     try {
       if (!checkFolder(plan.cwd)) return await fail(request, "folder_missing");
-      await ensureRegistered(plan.harness_id);
+      await deps.installer.ensureRegistered(plan.harness_id);
+      // hook key는 shell main이 plan env에 더한다. core는 key를 모르고 plan은 log에 남지 않는다.
+      const issued = deps.hooks?.issue() ?? null;
       const reply = await deps.supervisor.request({
         type: "open-coding",
-        plan,
+        plan: issued === null
+          ? plan
+          : { ...plan, env: { ...plan.env, ...issued.env } },
         columns: 80,
         rows: 24,
       });
@@ -272,6 +177,10 @@ export function createCodingTerminalRequests(
             : "spawn_failed",
         );
       }
+      if (issued !== null) {
+        deps.hooks?.bind(issued.key, reply.runtime.terminal_ref, plan.session);
+      }
+      deps.opened?.(reply.runtime.terminal_ref, plan.harness_id);
       let end = () => {};
       const ended = new Promise<void>((resolve) => end = resolve);
       sessions.set(plan.session, {

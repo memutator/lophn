@@ -35,6 +35,9 @@ import {
   type IpcResult,
 } from "../desktop/ipc-guard.ts";
 import type { TerminalBridge } from "../browser-bridge/types.ts";
+import type { AgentTracker } from "./agent/tracker.ts";
+import type { TerminalHooks } from "./agent/ingress.ts";
+import { SHELL_INIT_ENV } from "../../terminal-host/shell-integration.ts";
 
 type FocusTable = {
   focused(
@@ -103,7 +106,18 @@ export function createTerminalIpc(deps: {
   coding?: { reveal(session: string): TerminalRuntime | undefined };
   /** 꺼져 있으면(win32, 준비 실패) 없다. shell 탭은 OS browser를 쓴다. */
   bridge?: TerminalBridge;
+  /** 터미널 안 harness hook 길. 꺼져 있으면(win32, 준비 실패) 없다. */
+  hooks?: TerminalHooks;
+  /** 사람 터미널의 shell에 끼울 시작 층 폴더. 없으면(hook이 꺼짐) shell은 그대로 뜬다. */
+  shellInit?: () => string | null;
+  /** 터미널 안 coding agent 상태. runtime 답에 agent를 싣고, 사람의 입력·focus를 알린다. */
+  agent?: Pick<AgentTracker, "decorate" | "humanInput" | "tabFocused">;
 }): TerminalIpc {
+  const withAgent = (reply: TerminalReply): TerminalReply =>
+    deps.agent && reply.ok
+      ? { ...reply, runtime: deps.agent.decorate(reply.runtime) }
+      : reply;
+
   async function guarded<T>(
     event: IpcEvent,
     schema: ZodType<T>,
@@ -114,7 +128,7 @@ export function createTerminalIpc(deps: {
     if (!caller.ok) return caller;
     const parsed = checkInput(schema, input);
     if (!parsed.ok) return parsed;
-    return { ok: true, value: await run(parsed.value) };
+    return { ok: true, value: withAgent(await run(parsed.value)) };
   }
 
   return {
@@ -122,6 +136,13 @@ export function createTerminalIpc(deps: {
       guarded<TerminalOpen>(event, terminalOpenSchema, input, async (value) => {
         const folders = await deps.folders.folders(value.project);
         const issued = deps.bridge?.issue() ?? null;
+        const hooked = deps.hooks?.issue() ?? null;
+        const shellInit = deps.shellInit?.() ?? null;
+        const env = {
+          ...issued?.env,
+          ...hooked?.env,
+          ...(shellInit === null ? {} : { [SHELL_INIT_ENV]: shellInit }),
+        };
         const reply = await deps.host.request({
           type: "open",
           project: value.project,
@@ -129,10 +150,15 @@ export function createTerminalIpc(deps: {
           folders,
           columns: 80,
           rows: 24,
-          ...(issued === null ? {} : { env: issued.env }),
+          ...(Object.keys(env).length === 0 ? {} : { env }),
         });
-        if (issued !== null && reply.ok) {
-          deps.bridge?.bind(issued.key, reply.runtime.terminal_ref);
+        if (reply.ok) {
+          if (issued !== null) {
+            deps.bridge?.bind(issued.key, reply.runtime.terminal_ref);
+          }
+          if (hooked !== null) {
+            deps.hooks?.bind(hooked.key, reply.runtime.terminal_ref);
+          }
         }
         // 여러 등록 폴더면 시작하지 않고 고를 목록을 돌려준다.
         if (!reply.ok && reply.reason === "choose_folder") {
@@ -165,7 +191,9 @@ export function createTerminalIpc(deps: {
               message: "terminal is not focused",
             };
           }
-          return await deps.host.request({ type: "input", ...value });
+          const reply = await deps.host.request({ type: "input", ...value });
+          if (reply.ok) deps.agent?.humanInput(value.terminal_ref, value.text);
+          return reply;
         },
       ),
     resize: (event, input) =>
@@ -173,16 +201,9 @@ export function createTerminalIpc(deps: {
         event,
         terminalResizeSchema,
         input,
-        async (value) => {
-          if (!deps.focus.focused(event.sender.id, value.terminal_ref)) {
-            return {
-              ok: false,
-              reason: "host_lost",
-              message: "terminal is not focused",
-            };
-          }
-          return await deps.host.request({ type: "resize", ...value });
-        },
+        // 치수는 그 칸의 크기를 따를 뿐 PTY에 글자를 넣지 않는다. focus가 없는 칸(split의 다른 pane)의
+        // 터미널도 보이는 채로 크기가 바뀌므로 focus 표를 보지 않는다.
+        async (value) => await deps.host.request({ type: "resize", ...value }),
       ),
     close: (event, input) =>
       guarded<TerminalClose>(
@@ -205,6 +226,7 @@ export function createTerminalIpc(deps: {
           const reply = await deps.host.request({ type: "close", ...value });
           if (reply.ok && reply.runtime.state === "exited") {
             deps.bridge?.revoke(value.terminal_ref);
+            deps.hooks?.revoke(value.terminal_ref);
           }
           return reply;
         },
@@ -240,6 +262,7 @@ export function createTerminalIpc(deps: {
       const value = parsed.value;
       if (value.focused) {
         deps.focus.focus(event.sender.id, value.terminal_ref, value.generation);
+        deps.agent?.tabFocused(value.terminal_ref);
       } else {
         deps.focus.blur(event.sender.id, value.terminal_ref);
       }

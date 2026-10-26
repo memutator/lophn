@@ -231,3 +231,25 @@ Deno.test("메시지는 idle일 때만 넣고 알 수 없는 상태에서는 거
   assert(result.ok);
   db.close();
 });
+
+// contract: 거절된 권한 물음은 PostToolUse가 오지 않으므로 turn이 끝나면 닫혀 대기가 풀리고 대기열이 흐른다.
+// 현실적 회귀: session이 `waiting`에 영영 머물고 쌓인 메시지가 나가지 않는다.
+// 왜 지금 못 잡나: 위 행은 권한 물음 없이 turn만 돈다.
+Deno.test("권한 물음이 열린 채 turn이 끝나면 물음을 닫고 대기열의 메시지를 넣는다", () => {
+  const { db, tx, transport, frames, start, hook, sessionOf } = setup();
+  assert(start(1).ok);
+  const session = sessionOf();
+  assert(hook("SessionStart", { session_id: "ext-1" }).ok);
+  assert(hook("UserPromptSubmit").ok);
+  assert(hook("PermissionRequest", { tool_name: "Bash" }).ok);
+  const queued = transport.send(tx, {
+    session,
+    call: call(1) as never,
+    text: "later",
+  });
+  assert(queued.ok && queued.value.status === "queued");
+  assertEquals(frames("input").length, 0);
+  assert(hook("Stop").ok);
+  assertEquals(frames("input").map((request) => request.text), ["later"]);
+  db.close();
+});

@@ -36,7 +36,12 @@ function isAlive(pid: number): boolean {
 
 export function createBridgeWiring(
   ctx: ShellContext,
-): { bridge: TerminalBridge; stop(): void } {
+): {
+  bridge: TerminalBridge;
+  /** bridge가 선 per-run 폴더. hook socket이 같은 폴더에 선다. 꺼졌으면 null. */
+  runDir: Promise<string | null>;
+  stop(): void;
+} {
   // URL을 잃지 않으려고 bridge가 꺼져도 link 클릭은 OS browser로 연다.
   function openExternal(url: string) {
     if (checkExternalUrl(url) === undefined || ctx.headless.headless) return;
@@ -55,6 +60,7 @@ export function createBridgeWiring(
         return Promise.resolve();
       },
     },
+    runDir: Promise.resolve(null),
     stop() {},
   };
   if (process.platform === "win32") return off;
@@ -64,6 +70,10 @@ export function createBridgeWiring(
   let live: TerminalBridge | null = null;
   let stopped = false;
   let server: Promise<{ stop(): Promise<void> | void } | null> | null = null;
+  let settleDir: (dir: string | null) => void = () => {};
+  const runDirReady = new Promise<string | null>((resolve) =>
+    settleDir = resolve
+  );
   const removeDir = () => {
     if (runDir === null) return;
     try {
@@ -72,7 +82,7 @@ export function createBridgeWiring(
   };
 
   function setup() {
-    if (stopped || !app.hasSingleInstanceLock()) return;
+    if (stopped || !app.hasSingleInstanceLock()) return settleDir(null);
     const run = prepareRunDir({
       dataRoot: ctx.dataRoot,
       env: process.env,
@@ -95,7 +105,7 @@ export function createBridgeWiring(
     });
     if (!run.ok) {
       ctx.log(`browser bridge is off: ${run.error.message}`);
-      return;
+      return settleDir(null);
     }
     const { dir, socket, shim, script } = run.value;
     runDir = dir;
@@ -111,7 +121,7 @@ export function createBridgeWiring(
         `browser bridge is off: cannot write the shim (${String(cause)})`,
       );
       removeDir();
-      return;
+      return settleDir(null);
     }
 
     const bridge = createBridge({
@@ -145,16 +155,19 @@ export function createBridgeWiring(
       log: ctx.log,
     }).then((started) => {
       live = bridge;
+      settleDir(dir);
       return started;
     }, (cause) => {
       ctx.log(`browser bridge is off: cannot listen (${String(cause)})`);
       removeDir();
+      settleDir(null);
       return null;
     });
   }
-  app.whenReady().then(setup).catch((cause) =>
-    ctx.log(`browser bridge is off: ${String(cause)}`)
-  );
+  app.whenReady().then(setup).catch((cause) => {
+    ctx.log(`browser bridge is off: ${String(cause)}`);
+    settleDir(null);
+  });
 
   const current = () => live ?? off.bridge;
   return {
@@ -165,6 +178,7 @@ export function createBridgeWiring(
       openLink: (input) => current().openLink(input),
       ack: (request, opened) => current().ack(request, opened),
     },
+    runDir: runDirReady,
     stop() {
       stopped = true;
       // quit 직후 process가 바로 끝나서 비동기 정리가 돌지 못하므로 폴더부터 동기로 지운다.

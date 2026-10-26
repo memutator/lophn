@@ -1,0 +1,69 @@
+# terminal-agent
+
+터미널의 agent는 터미널 탭 하나 안에서 지금 어떤 coding agent(harness)가 도는지, 그것이 무슨 상태인지 아는 층이다. 사람이 연 터미널과 lophn이 띄운 coding 터미널이 같은 층을 쓰고, 탭 icon, 탭 점, OS 알림이 이것만 본다. lophn session이 아니다. core는 사람이 연 터미널을 모르고 그 agent에 메시지를 넣지 않는다. coding session([coding-agent.md](coding-agent.md))은 이 층 위에 앱, call, token, 메시지 줄을 얹은 것이다.
+
+여러 곳에 걸쳐 있다. terminal-host(`packages/shell/terminal-host/foreground.ts`)가 foreground process를 읽고, CLI(`packages/coding-agent/cli/commands/hook.ts`)가 hook을 보내고, shell main(`packages/shell/main/terminal/agent/`, `packages/shell/main/notice/`, `packages/shell/main/desktop/wiring/agent.ts`, `packages/shell/main/desktop/wiring/notice.ts`)이 받아 상태를 정하고 알리며, renderer(`packages/shell/renderer/workspace/kinds/terminal.tsx`, `packages/shell/renderer/parts/tab-strip/`)가 그린다.
+
+## 흐름
+
+```
+사람이 터미널을 연다 ─ shell main: 터미널 key 발급, env LPN_TERMINAL_HOOK={socket,key}(+ browser bridge env)
+                      ─▶ terminal-host PTY($SHELL -l, bash·zsh·fish는 시작 층으로 `codex`·`opencode`·`kilo`·`cline` 함수를 끼운다)
+terminal-host ─ 1초마다 foreground process argv(shell launch만), 바뀔 때만 ─▶ shell main tracker
+                harnessOfProcess(argv)가 harness를 고르면 그 harness(unknown). 이 실행에서 처음 본 harness면 hook 설치를 묻는다
+harness(claude 등) ─ 전역 hook ─▶ lophn hook <harness> <event> ─ env가 없으면 바로 끝
+                                    └ stdin JSON ─▶ unix socket(<bridge run dir>/h.sock)에 한 줄 {v:1,key,harness,event,payload}
+shell main ─ key로 터미널을 찾고 hookSignalOf ─▶ tracker: running / waiting / idle / unknown, unseen
+           └ coding 터미널이면 같은 hook을 core `coding_agent_terminals/hook`(그 session)으로 넘긴다
+tracker ─ 바뀔 때 runtime.agent를 실어 모든 창에 push ─▶ renderer: 탭 icon(harness vendor), X 자리의 점
+        └ turn 끝(완료·실패)·권한 물음 + 사람이 안 보고 있음 ─▶ unseen + 알림(아래 "알림" 규칙, shell main 한 곳)
+```
+
+## 지키는 것
+
+- **무엇이 도는지는 foreground process나 hook이, 상태는 hook만 정한다.** 화면 글자를 읽지 않는다. foreground는 결정적인 사실이라 hook을 놓기 전에도 icon이 보이고 설치를 물을 때를 안다.
+  - terminal-host는 foreground process의 argv를 읽어 보낸다. Linux는 shell의 `/proc/<pid>/stat`에서 tpgid를 읽고 `/proc/<tpgid>/cmdline`을 NUL로 나눈다. 앞 6개 인자만, 인자마다 32768자까지 싣는다. Hermes는 `python3 -I -c '<launcher code>'`로 돌고 표지(`hermes_cli.main`)가 7KB 가까운 code의 끝에 있어 인자를 짧게 자르면 못 알아본다. shell 자신이 foreground면 없다. 바뀌었는지는 argv를 이어 붙인 것으로 본다.
+  - 다른 POSIX는 node-pty `process` 이름뿐이라 `[이름]`이고 node로 도는 CLI는 `node`로 보여 못 알아본다. hook이 오면 그때 harness를 안다. win32는 foreground도 hook socket도 없다.
+  - shell main의 tracker가 protocol의 `harnessOfProcess(argv)`(실행 파일 이름, interpreter가 돌리는 script 이름, package 경로, code 표지 규칙)로 harness를 고른다. 맞으면 그 harness다. foreground가 알아보지 못하는 process로 바뀌면 agent가 떠난 것이다. 사람 터미널에서는 터미널 process의 끝이 agent의 끝이 아니고(shell이 남는다), Codex·OpenCode는 session 끝 hook이 없다.
+  - **process가 정한 harness는 다른 harness의 hook이 뒤집지 못한다.** grok·devin·cursor는 `~/.claude/settings.json`의 hook을 기본으로 같이 읽어서 그 탭이 `lophn hook claude …`를 받는다. 이것으로 탭이 Claude로 바뀌면 안 되므로, foreground(또는 띄운 쪽)가 정한 harness와 다른 harness의 hook은 버린다. foreground를 못 알아본 탭(예: macOS의 node)은 hook이 알려 주는 harness를 따른다. 그러려고 tracker는 harness가 process로 정해졌는지, hook이 알려 준 것인지를 둘로 센다.
+  - coding 터미널은 띄운 제품을 처음부터 알아 foreground를 읽지 않고, 그 제품과 다른 harness의 hook은 같은 규칙으로 버린다.
+- **상태는 running, waiting, idle, unknown 넷이다.** 그 harness의 hook을 한 번도 못 들었으면 unknown이다. TurnStarted는 running, TurnEnded는 idle이고 권한 물음 수를 0으로 둔다. PermissionRequested는 waiting이고 수를 센다. PermissionResolved는 대기를 모두 푼다(0으로 둔다). 한 물음을 두 event로 알리는 harness가 있어 하나씩 줄이면 센 수가 남아 waiting이 계속 보인다. SessionEnded는 unknown이다.
+  - 도는 turn이나 물음 중에 사람이 단독 끊기 key를 치면 unknown으로 내리고 알리지 않는다. Claude Code처럼 끊어도 Stop을 보내지 않는 harness가 있다. 멈췄다고 하지 않고 모른다고 한다. 어느 key가 끊는지는 harness마다 다르다(`HARNESS_ADAPTERS[harness].interrupt_keys`). 대부분 Esc와 Ctrl-C이고 grok은 Esc가 turn을 끊지 않아 Ctrl-C만이다.
+- **`lophn hook`은 core가 아니라 터미널을 가진 shell main에 보낸다.** env `LPN_TERMINAL_HOOK`(`packages/protocol/coding-agent/terminal-hook.ts`)의 socket에 한 줄을 쓰고 답 없이 닫는다. hook은 harness 안에서 동기로 돌아서 CLI는 1초 안에 끝내고, 실패해도 출력 없이 성공한다.
+  - 개발 실행(`deno task dev`)도 같은 launcher 본문을 쓴다(`devCliLauncher`). 저장소 `.cache/dev-cli/lophn`을 `LOPHN_CLI`로 주므로 사람이 쓰는 진짜 harness가 개발 앱의 터미널에서 hook을 보낸다. env가 없으면 deno를 띄우지 않고 끝나는 것도 같다. 자세한 것은 [coding-agent.md](coding-agent.md)다.
+  - key는 터미널 하나에 하나(64 hex)다. shell main은 모르는 key, 상한(`TERMINAL_HOOK_LINE_MAX_BYTES`)을 넘는 줄, 틀린 모양을 버린다. socket은 browser bridge의 run dir에 있고 0600이라 run dir가 없으면(bridge가 꺼지면) hook도 없다. 그 터미널 안의 process는 그 터미널의 상태를 꾸밀 수 있다. 사람의 것이라 막지 않는다. CLI는 stdin을 `HOOK_STDIN_MAX_BYTES`(1 MiB)까지 읽고, 최상위 글 field(마지막 답, prompt)를 `HOOK_TEXT_FIELD_MAX_CHARS`(4,096자)로 자른 뒤 payload가 `HOOK_PAYLOAD_MAX_BYTES`(64 KiB)를 넘으면 버린다. 긴 마지막 답 하나가 turn 끝 신호째 버려지지 않게 하려는 것이다.
+  - key는 사람이 탭을 닫을 때 회수한다. shell이 스스로 끝나도 restart가 같은 env를 써서 남긴다. coding 터미널의 key는 session이 끝나면 회수한다.
+  - coding 터미널의 hook은 shell main이 core로 넘긴다(`codingTerminalHook`). CLI는 core에 보내지 않는다. 둘 다 보내면 core가 같은 hook을 두 번 본다.
+- **사람 터미널의 `codex`·`opencode`·`kilo`·`cline`은 그 탭의 private server로 돈다.** Codex(0.156+), OpenCode(2.x), Kilo, Cline(3.x)은 TUI를 사용자당 하나인 background server에 붙이고 turn과 hook을 그 server가 돌릴 수 있다. server는 처음 뜰 때 받은 env를 그대로 써서 hook이 이 탭의 `LPN_TERMINAL_HOOK`이 아니라 옛 값을 본다. Codex README(`codex-rs/app-server-daemon/README.md`)도 "Shared clients use the environment inherited when the daemon started"라고 적는다. 그래서 사람 터미널은 shell 시작 층(`packages/shell/terminal-host/shell-integration.ts`)이 함수를 정의해 `--no-daemon`(Codex), `--standalone`(OpenCode)을 붙이고, Kilo는 env `KILO_NO_DAEMON=1`, Cline은 env `CLINE_SESSION_BACKEND_MODE=local`(session을 hub daemon이 아니라 process 안에서 돌린다)로 부른다. 그러면 harness가 자기 server를 띄우거나 server 없이 돌아 hook이 탭의 env를 물려받는다.
+  - 시작 층은 shell이 사용자 startup file을 모두 읽은 뒤에 함수를 정의한다. bash는 `-l`을 빼고 `--init-file`로 뜨며(`-l`이면 init file을 무시한다) `bash.sh`가 login bash의 순서(`/etc/profile`, 그다음 `~/.bash_profile`·`~/.bash_login`·`~/.profile` 중 처음 있는 것)를 따라 한다. zsh는 `ZDOTDIR`을 우리 폴더로 줘 `.zshenv`만 먼저 읽히고, 그 안에서 사용자 값(없으면 unset)으로 돌린 뒤 사용자 `.zshenv`를 읽는다. 나머지 file은 사용자 자리에서 읽히고 함수는 첫 prompt 직전에 정의한다(PATH가 그때 완성된다). fish는 `--init-command`로 config 뒤에 source한다. 그 밖의 shell(sh, dash, nu 등)과 coding 터미널은 그대로다.
+  - file은 hook socket과 같은 per-run 폴더의 `shell-init/`에 앱이 켜질 때 쓴다(packaged의 asar 안 file은 외부 shell이 읽지 못한다). 폴더 경로는 env `LPN_SHELL_INIT`으로 터미널에 준다. hook이 꺼지면(run dir 없음, win32) 시작 층도 없다.
+  - 함수는 `command codex`·`command opencode`·`command kilo`·`command cline`을 부르고 인자와 종료 상태를 그대로 둔다. 실행 파일일 때만 정의해서 사용자의 alias·function과 없는 명령은 건드리지 않는다. 호출마다 `--help`로 flag를 지원하는지 본다(옛 버전은 모르는 flag에 오류로 끝난다). Codex는 인자에 `--no-daemon`, `agents`, `queue`, `--remote`, `--remote=*`가 있으면 붙이지 않는다(shared server가 목적인 명령). OpenCode는 `--standalone`, `--server`, `--help`, `--version`, `--completions`가 있거나 첫 인자가 `run`·`mini`가 아닌 subcommand(`acp`, `api`, `serve`, `service` 등)면 붙이지 않고, `run`·`mini`는 subcommand 뒤에, TUI는 맨 앞에 붙인다. Kilo와 Cline은 flag가 아니라 env라 `--help`를 보지 않는다(모르는 판은 env를 무시한다). 공유 daemon을 다루는 명령인 `kilo daemon`·`kilo console`, `cline hub`는 env 없이 부른다.
+- **알림은 사람이 보고 있지 않을 때만이고, 어디에 띄울지는 shell main 한 곳이 정한다.** turn 끝(완료, 실패)과 권한 물음·질문만 알린다. 사람이 끊은 turn(interrupted), `/clear`, compact는 알리지 않는다. 터미널 안 coding agent와 lophn의 Agent 탭(lophn agent session)이 같은 규칙이다(`packages/shell/main/notice/rule.ts`의 `routeNotice`, 띄우는 곳은 `packages/shell/main/desktop/wiring/notice.ts`).
+
+  | 상황 | 알림 |
+  |---|---|
+  | 그 탭이 focus를 가진 창에 보인다 | 없음 |
+  | lophn 창에 focus가 있는데 그 탭은 안 보인다 | 그 창의 toast(overlay notification). 누르면 그 탭을 고른다 |
+  | lophn 창 어디에도 focus가 없다 | OS 알림(Electron `Notification`). 누르면 그 탭이 있는 창을 앞으로 가져오고 탭을 고른다 |
+
+  - 보고 있다는 것은 그 탭이 focus를 가진 창에서 고른(보이는) 탭이라는 것이다. 터미널은 `TerminalFocusTable`, Agent 탭은 renderer가 탭이 그려지는 동안 알리는 `NOTICE_VISIBLE_CHANNEL`(`SessionVisibility`)로 main이 안다. 창이 여럿이어도 toast를 받는 창은 focus를 가진 창 하나라 한 번만 뜬다. detached 창에는 toast 표면이 없어 그 창이 focus를 가졌으면 OS 알림이다. headless는 OS 알림을 띄우지 않는다.
+  - 누르면 main이 그 탭을 가진 창(모르면 마지막 focus 창, detached 제외)을 앞으로 가져온다. 터미널은 renderer에 그 탭을 고르라고 보내고(`TERMINAL_REVEAL_CHANNEL`), Agent 탭은 그 창이 toast 행동 `session`을 돌려 탭을 연다(`NOTICE_REVEAL_CHANNEL`, sidebar 줄과 같은 길). toast의 누름도 같은 길(`NOTICE_OPEN_CHANNEL`)로 main이 처리한다.
+  - 못 본 것(unseen)은 알림이 나간 turn 끝에만 켠다. 터미널은 그 탭을 고를 때, 창이 focus를 받았는데 그 탭이 골라 둔 탭일 때, 다음 turn이 시작할 때 지운다. Agent 탭은 그 탭이 보이게 될 때, 보이는 탭의 창이 focus를 받을 때, 다음 turn이 시작할 때, session이 끝날 때 지운다.
+  - lophn agent session의 알림은 core Bus event(`TurnEnded`, `TurnRequestOpened`, `QuestionAsked`)를 shell main이 직접 듣고(`relay.events`) 정한다. session이 lophn agent인지는 `session_snapshots/list`로 읽고, coding session은 건너뛴다(터미널 쪽 tracker가 알린다. 둘 다 알리면 두 번 뜬다). event는 한 줄로 처리해 읽기가 끝나는 순서가 event 순서를 뒤집지 않는다. 못 본 session 목록은 main이 모든 창에 push하고(`NOTICE_UNSEEN_CHANNEL`) 창은 새로 붙을 때 한 번 읽는다. 목록의 한 칸은 session id에 알릴 때 읽은 agent 이름·profile·session 이름(`UnseenSession`)을 더한 것이다. renderer의 sessions store가 이를 session 상태와 합쳐 Agent 탭에 finished 점(`sessionDot`)을 준다. 권한 물음은 점을 켜지 않는다(waiting 점이 보인다).
+  - 알림 본문은 hook payload가 직접 준 글만 쓴다. `hookSignalOf`가 turn 끝 신호의 `message`에 마지막 답(실패면 오류 글)을 싣고(`TURN_MESSAGE_FIELDS`: claude 꼴·codex·droid·command-code·antigravity·grok·copilot는 `last_assistant_message`, kiro는 `assistant_response`), 권한 물음은 `request.summary`(없으면 tool 이름)를 쓴다. plugin 형식(opencode 계열·pi·omp·amp)은 lophn이 놓은 plugin 본문이 마지막 답을 `lophn_message`로 실어 보낸다(끝까지 간 turn만, 4000자 상한, 못 읽으면 뺀다). cursor·hermes·cline·letta는 payload에 답이 없어 본문 없이 알린다. transcript는 읽지 않는다. tracker가 `AgentNotice.body`로 넘기고 `desktop/wiring/agent.ts`가 공백을 접어 160자로 자른다(markdown은 그대로). 터미널 탭 이름(runtime title, 없으면 cwd basename)은 본문이 아니라 `place`로 제목에 간다. 모르면 본문은 없다(폴더 이름으로 채우지 않는다).
+  - 알림 글은 toast와 OS 알림이 같고, 글을 정하는 곳도 shell main 한 곳이다(`Notice`의 `agent`, `place`, `body`). 제목은 누구인지에 어디인지를 붙인다("Claude Code finished · 다운로드", "lophn needs permission · <session 이름>", "Claude Code's turn failed · …"). 어디를 모르면 "Claude Code finished"다. main은 ICU formatter가 없어 `{agent}`·`{place}`만 손으로 채우고, 있을 때와 없을 때를 별도 key(`common.title.agent-*`, `…-in`)로 둔다. 본문은 마지막 답의 앞부분(공백을 접고 160자에서 줄임표), 권한 물음의 요약, 실패 까닭이다. 모르면 비우고 폴더 이름 같은 것으로 채우지 않는다(`notice/excerpt.ts`). toast는 제목 앞에 그림을 단다(overlay model의 `lead`: 터미널은 harness 제품 아이콘, lophn agent는 그 agent의 profile `{ kind: "avatar", profile }`. profile은 icon id나 이니셜이고 올린 이미지는 main이 읽을 주소가 없어 이름 첫 글자로 갈음한다). OS 알림에는 그림이 없다(harness 아이콘이 renderer 안의 svg뿐이다).
+  - lophn agent 알림의 이름·얼굴·본문은 알릴 때마다 main이 core에서 읽는다(`wiring/notice.ts`). agent 이름과 profile은 `agent-definitions/read`의 `effective`, session 이름은 `sessions/read`의 `title`(없으면 제목에 어디를 붙이지 않는다), 끝난 turn의 답은 `TurnEnded.messages`를 뒤에서부터 `messages/body`로 읽어 글(text) 부분이 있는 첫 것, 실패는 `TurnEnded.error.message`, 권한 물음은 `TurnRequestOpened`의 subject(shell 명령, tool 이름, harness 요약), 질문은 `ask/read`의 첫 질문이다. 보고 있어 알리지 않을 때는 본문을 읽지 않는다.
+- **못 본 끝남은 알림 panel의 Finished 묶음에도 남는다.** 별도 기록 없이 두 정본(터미널 runtime의 `agent.unseen`과 `idle`, sessions store의 `unseen`)에서 줄을 만든다(`waiting/finished.ts`). lophn session 줄은 main이 unseen과 함께 보낸 agent 이름·avatar·session 이름을 그대로 그린다(renderer가 따로 찾지 않는다). 터미널 줄은 창마다 waiting store가 `onRuntime`으로 모으고(창이 뜨기 전에 끝난 turn은 다음 push 때 보인다), 줄을 누르면 toast와 같은 `lophnNotice.open(target)`으로 탭을 고른다. 탭을 보아 main이 unseen을 지우면 줄도 빠진다. 알림 단추의 개수는 대기 항목과 이 줄을 합한다.
+- **탭 점은 X 자리에 있다.** working은 숨 쉬듯 커졌다 작아지고(`--motion-pulse`) waiting, finished, ended는 멈춰 있다. 마우스를 올리거나 X에 keyboard focus가 가면 X로 바뀐다. reduced motion이면 움직이지 않는다. lophn agent 탭의 점도 같은 자리, 같은 규칙이다(working, waiting, finished, ended). detached 창의 위 막대에는 점이 없고 icon만 있다.
+- **hook 설치는 묻고 놓는다.** 사람 터미널에서 harness를 foreground로 처음 알아본 때(실행마다 harness당 한 번) `dry_run`으로 보고 없으면 그 터미널을 고른 창의 dialog로 묻는다(OS 창이 아니다. 창 고르기와 답은 [coding-agent.md](coding-agent.md)). Settings › Coding agents의 [Install hooks]는 누른 것이 허락이라 묻지 않는다. 놓는 규칙은 [coding-agent.md](coding-agent.md)다. 이 길에서는 harness가 이미 돌고 있고 harness는 hook을 시작할 때 읽어서(Hermes는 `_prepare_agent_startup`에서 한 번) 그 실행에는 상태가 보이지 않는다. 그래서 성공 알림이 다시 시작하라고 한다(`HookResult.running`).
+- **상태는 저장하지 않는다.** shell main 메모리뿐이고 runtime에 실어 push한다. 다시 붙은 창은 open·snapshot 답의 runtime에서 읽는다. 터미널이 끝나면 지우고, restart한 shell은 다음 foreground나 hook에서 다시 안다.
+
+## 왜 이 모양인가
+
+- **shell 함수로 끼운다.** 사람이 친 `codex`를 막거나 바꿔 부를 자리가 shell뿐이다. orca가 같은 방식(`codex` shell function, `src/shared/codex-shell-function.ts`)이다.
+- **session이 아니라 탭 상태다.** 사람이 자기 터미널에서 띄운 agent는 lophn의 대화가 아니고 lophn이 말을 넣지 않는다. session으로 두면 `claude`를 띄울 때마다 session 행이 생긴다. paseo도 터미널 탭의 agent를 chat agent와 나눠 상태 셋만 둔다. (사람, 2026-10-26)
+- **foreground process로 무엇이 도는지 안다.** herdr와 같은 방식이다. hook만 쓰면 hook이 없을 때 icon이 없고 설치를 물을 때를 모르며 Codex·OpenCode가 끝난 것을 모른다. 상태까지 화면으로 짐작하는 herdr는 상태 오판 이슈가 많아 상태는 hook만 쓴다. (사람, 2026-10-26)
+- **hook을 shell main이 받는다.** 터미널, 탭, focus, 알림이 모두 shell의 것이다. core를 거치면 core가 사람 터미널을 알아야 하고 Bus를 돌아 다시 shell로 와야 한다. browser bridge가 이미 같은 꼴(터미널 env의 socket과 key)이다. orca·emdash(loopback POST), paseo(터미널마다 env token), herdr(unix socket)도 터미널을 가진 쪽이 받는다.
+- **Esc·Ctrl-C는 사람이 친 key로 본다.** 화면이 아니라 입력이라 짐작이 아니다. paseo가 같은 규칙이다. orca는 title 변화와 맞춰 보는데 그러려면 화면을 읽어야 한다.
+- **보고 있으면 알리지 않고, 사람이 멈춘 것은 알리지 않는다.** orca(사람이 멈춘 turn은 news가 아니다), herdr(Done은 안 본 Idle)와 같다. (사람, 2026-10-26)
+- **알림 결정은 renderer가 아니라 shell main 한 곳이다.** 창마다 renderer가 event를 보고 각자 toast를 띄우면 창이 여럿일 때 겹치고, 터미널은 main이 이미 focus·unseen을 안다. main이 "어느 탭이 어느 창에 보이는가"를 한 표로 들고 있으면 터미널과 Agent 탭이 같은 규칙으로 toast와 OS 알림 중 하나를 고른다.

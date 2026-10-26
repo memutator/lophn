@@ -1,0 +1,44 @@
+/* 상태 점: 기다림, 일하는 중, 끝남, turn이 끝났는데 아직 안 봄. 누름은 받지 않고 뒤의 단추나 탭이 받는다. */
+.dot {
+  flex: none;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-full);
+  pointer-events: none;
+}
+
+.dot[data-state="waiting"] {
+  background: var(--status-warning-marker);
+}
+
+.dot[data-state="working"] {
+  background: var(--color-focus);
+  animation: breathe var(--motion-pulse) ease-in-out infinite;
+}
+
+.dot[data-state="ended"] {
+  background: var(--status-neutral-marker);
+}
+
+.dot[data-state="finished"] {
+  background: var(--status-good-marker);
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(0.75);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot[data-state="working"] {
+    animation: none;
+  }
+}

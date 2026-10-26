@@ -27,6 +27,14 @@ const host = hostFromNodePty({
     process.stdout.write(JSON.stringify({ runtime }) + "\n"),
 });
 
+// 어느 harness TUI가 도는지는 foreground process가 바뀔 때만 알린다. 새 process가 뜨는 것을 받는 event가 없어 훑는다.
+const FOREGROUND_POLL_MS = 1000;
+setInterval(() => {
+  for (const foreground of host.foregroundChanges()) {
+    process.stdout.write(JSON.stringify({ foreground }) + "\n");
+  }
+}, FOREGROUND_POLL_MS).unref();
+
 const lines = createInterface({ input: process.stdin });
 lines.on("line", async (line) => {
   const text = line.trim();

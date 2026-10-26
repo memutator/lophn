@@ -1,4 +1,9 @@
 import { assertEquals } from "@std/assert";
+import {
+  HARNESS_HOOKS,
+  HARNESS_IDS,
+  HOOK_EVENT_TABLE,
+} from "../../protocol/coding-agent/mod.ts";
 import { installGlobal, type InstallPorts } from "./install.ts";
 
 // file Map 위의 대역이다. 폴더는 file의 path 앞부분이거나 `dirs`에 든 빈 폴더다.
@@ -33,7 +38,13 @@ function memory(
 }
 
 const SETTINGS = "/home/u/.claude/settings.json";
-const input = { harness: "claude", home: "/home/u", dryRun: false } as const;
+const NOW = "2026-10-26T00:00:00.000Z";
+const input = {
+  harness: "claude",
+  home: "/home/u",
+  dryRun: false,
+  now: NOW,
+} as const;
 
 Deno.test("전역 설정 install은 사람이 쓴 key와 hook을 보존하고 파싱되지 않는 설정은 건드리지 않는다", async () => {
   const mine = { type: "command", command: "my-stop-hook" };
@@ -172,5 +183,367 @@ Deno.test("설치는 lophn이 놓은 지운 skill의 얇은 사본만 지우고,
       one.left.sort(),
       one.name,
     );
+  }
+});
+
+// contract: 새로 생긴 hook event(Claude PostToolUseFailure 등)가 우리 항목에 없으면 dry_run은 놓을 것이 있다고 알린다.
+// 현실적 회귀: harness 단위로만 보고 unchanged라 해서 새 event가 업데이트한 사용자에게 영영 놓이지 않는다.
+// 왜 지금 못 잡나: 위 행은 event가 전부 없거나 전부 있는 경우만 본다.
+Deno.test("우리 항목에 없는 event가 하나라도 있으면 dry_run은 missing이다", async () => {
+  const files = new Map<string, string>();
+  await installGlobal(memory(files), input);
+  const dry = { ...input, dryRun: true };
+  const full = await installGlobal(memory(files), dry);
+  assertEquals(full.ok && full.value.hook, "unchanged");
+  const doc = JSON.parse(files.get(SETTINGS)!);
+  delete doc.hooks.PostToolUseFailure;
+  files.set(SETTINGS, JSON.stringify(doc));
+  const stale = await installGlobal(memory(files), dry);
+  assertEquals(stale.ok && stale.value.hook, "missing");
+});
+
+// contract: codex hook trust 기록은 우리 hook의 실제 위치 key로 config.toml에 더해지고, 사람이 쓴 내용과 다른 도구의 기록은 byte 그대로다. 파싱되지 않는 config.toml은 건드리지 않는다.
+// 현실적 회귀: toml을 다시 직렬화해 주석과 다른 도구(orca 등)의 trust 기록이 사라지거나, 틀린 key로 써서 codex가 계속 건너뛴다.
+// 왜 지금 못 잡나: 이 test가 처음이다.
+Deno.test("codex hook install은 config.toml의 기존 내용을 그대로 두고 우리 hook의 trust 기록만 더한다", async () => {
+  const hooksFile = "/home/u/.codex/hooks.json";
+  const configFile = "/home/u/.codex/config.toml";
+  const codex = {
+    harness: "codex",
+    home: "/home/u",
+    dryRun: false,
+    now: NOW,
+  } as const;
+  const original = `# 내 설정
+model = "x"
+
+[hooks.state."/other/hooks.json:stop:0:0"]
+trusted_hash = "sha256:other" # 다른 도구
+
+[projects."/work"]
+trust_level = "trusted"
+`;
+  const files = new Map<string, string>([
+    [configFile, original],
+    // 사람의 hook이 앞에 있어 우리 group은 index 1이다.
+    [
+      hooksFile,
+      JSON.stringify({
+        hooks: { Stop: [{ hooks: [{ type: "command", command: "mine" }] }] },
+      }),
+    ],
+  ]);
+  const dry = await installGlobal(memory(files), { ...codex, dryRun: true });
+  assertEquals(dry.ok && dry.value.hook, "missing");
+  assertEquals(dry.ok && dry.value.files.includes(configFile), true);
+
+  const done = await installGlobal(memory(files), codex);
+  assertEquals(done.ok && done.value.hook, "installed");
+  const config = files.get(configFile)!;
+  assertEquals(config.startsWith(original), true);
+  const added = [
+    ...config.slice(original.length).matchAll(
+      /\[hooks\.state\."([^"]+)"\]\ntrusted_hash = "sha256:[0-9a-f]{64}"/g,
+    ),
+  ].map((one) => one[1]);
+  assertEquals(added.length, Object.keys(HOOK_EVENT_TABLE.codex).length);
+  assertEquals(added.includes(`${hooksFile}:stop:1:0`), true);
+  assertEquals(added.includes(`${hooksFile}:session_start:0:0`), true);
+
+  const again = await installGlobal(memory(files), {
+    ...codex,
+    dryRun: true,
+  });
+  assertEquals(again.ok && again.value.hook, "unchanged");
+
+  const broken = new Map([[configFile, "[hooks"]]);
+  const refused = await installGlobal(memory(broken), codex);
+  assertEquals(refused.ok && refused.value.hook, "failed");
+  assertEquals([...broken.entries()], [[configFile, "[hooks"]]);
+});
+
+// contract: 옛 본문의 plugin 파일은 dry_run이 missing으로 알려 다음 install 때 덮이고, 개발 command가 놓인 최신 본문은 unchanged다.
+// 현실적 회귀: 본문이 바뀌어도 env guard 문자열만 보고 unchanged라 해서 OpenCode 2.x가 못 읽는 옛 plugin이 영영 남는다.
+// 왜 지금 못 잡나: plugin 파일을 보는 test가 없다.
+Deno.test("OpenCode plugin은 본문이 다르면 dry_run이 missing이고 command만 다르면 unchanged다", async () => {
+  const opencode = {
+    harness: "opencode",
+    home: "/home/u",
+    dryRun: false,
+    now: NOW,
+  } as const;
+  const path = "/home/u/.config/opencode/plugins/lophn-status.ts";
+  const files = new Map<string, string>();
+  await installGlobal(memory(files), { ...opencode, command: "/dev/lophn" });
+  const dry = { ...opencode, dryRun: true };
+  const same = await installGlobal(memory(files), dry);
+  assertEquals(same.ok && same.value.hook, "unchanged");
+
+  files.set(
+    path,
+    files.get(path)!.replace("export default", "export const x ="),
+  );
+  const stale = await installGlobal(memory(files), dry);
+  assertEquals(stale.ok && stale.value.hook, "missing");
+  await installGlobal(memory(files), opencode);
+  const fixed = await installGlobal(memory(files), dry);
+  assertEquals(fixed.ok && fixed.value.hook, "unchanged");
+});
+
+// contract: 어떤 harness든 설치 뒤 dry_run은 unchanged이고 다시 설치해도 file이 바뀌지 않는다. 개발 command로 놓은 것은 packaged dry_run이 같다고 본다.
+// 현실적 회귀: 형식 하나의 기대 본문과 놓는 본문이 어긋나 열 때마다 사람에게 설치를 다시 묻거나, 설치마다 file이 흔들린다.
+// 왜 지금 못 잡나: 형식마다 쓰는 쪽과 비교하는 쪽이 따로 있어 한쪽만 고치면 어긋난다.
+Deno.test("hook이 있는 모든 harness는 설치 뒤 dry_run이 unchanged이고 다시 설치해도 file이 그대로다", async () => {
+  for (const harness of HARNESS_IDS) {
+    if (HARNESS_HOOKS[harness] === null) continue;
+    for (const command of [undefined, "/dev/cli/lophn"]) {
+      const files = new Map<string, string>();
+      const base = { harness, home: "/home/u", now: NOW, command };
+      const first = await installGlobal(memory(files), {
+        ...base,
+        dryRun: false,
+      });
+      assertEquals(first.ok && first.value.hook, "installed", harness);
+      const snapshot = JSON.stringify([...files]);
+      const dry = await installGlobal(memory(files), {
+        ...base,
+        command: undefined,
+        dryRun: true,
+      });
+      assertEquals(dry.ok && dry.value.hook, "unchanged", harness);
+      await installGlobal(memory(files), { ...base, dryRun: false });
+      assertEquals(JSON.stringify([...files]), snapshot, harness);
+    }
+  }
+});
+
+// contract: Kimi config.toml은 표시한 block 안만 바뀌고 block 밖 byte는 그대로이며, 파싱되지 않는 file은 건드리지 않는다.
+// 현실적 회귀: toml을 다시 쓰다 주석과 사람의 `[[hooks]]`가 사라지거나, 다시 설치할 때 block이 두 개가 된다.
+Deno.test("kimi 설치는 config.toml의 표시한 block만 바꾸고 나머지는 그대로 둔다", async () => {
+  const path = "/home/u/.kimi-code/config.toml";
+  const mine =
+    `# 내 설정\ndefault_model = "k"\n\n[[hooks]]\nevent = "Stop"\ncommand = "mine"\ntimeout = 5\n`;
+  const files = new Map([[path, mine]]);
+  const kimi = { harness: "kimi", home: "/home/u", now: NOW } as const;
+  await installGlobal(memory(files), { ...kimi, dryRun: false });
+  const placed = files.get(path)!;
+  assertEquals(placed.startsWith(`${mine}\n# >>> lophn kimi hooks\n`), true);
+  assertEquals(placed.endsWith("# <<< lophn kimi hooks\n"), true);
+  // 개발 command로 바꾸면 block 안만 바뀐다. 뒤에 사람이 더한 줄도 남는다.
+  files.set(path, `${placed}later = 1\n`);
+  await installGlobal(memory(files), {
+    ...kimi,
+    dryRun: false,
+    command: "/dev/lophn",
+  });
+  const swapped = files.get(path)!;
+  assertEquals(swapped.startsWith(mine), true);
+  assertEquals(swapped.endsWith("# <<< lophn kimi hooks\nlater = 1\n"), true);
+  assertEquals(swapped.split("# >>> lophn kimi hooks").length, 2);
+  assertEquals(swapped.includes("/dev/lophn hook kimi Stop"), true);
+
+  const broken = new Map([[path, "[[hooks"]]);
+  const refused = await installGlobal(memory(broken), {
+    ...kimi,
+    dryRun: false,
+  });
+  assertEquals(refused.ok && refused.value.hook, "failed");
+  assertEquals(broken.get(path), "[[hooks");
+});
+
+// contract: Devin JSONC 설정은 주석, 쉼표, 사람의 hook, 들여쓰기를 그대로 두고 우리 항목만 더하거나 제자리에서 바꾼다.
+// 현실적 회귀: JSONC를 JSON으로 다시 쓰다 주석(orca·mahas 항목 옆 메모)이 사라진다.
+Deno.test("devin 설치는 JSONC의 주석과 사람의 hook을 그대로 두고 우리 항목만 놓는다", async () => {
+  const path = "/home/u/.config/devin/config.json";
+  const original = `{
+  // 내 설정
+  "theme": "dark", /* 메모 */
+  "hooks": {
+    // 다른 도구의 hook
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "other stop" }] },
+    ],
+  },
+}
+`;
+  const files = new Map([[path, original]]);
+  const devin = { harness: "devin", home: "/home/u", now: NOW } as const;
+  await installGlobal(memory(files), { ...devin, dryRun: false });
+  const placed = files.get(path)!;
+  assertEquals(placed.includes("// 내 설정"), true);
+  assertEquals(placed.includes("/* 메모 */"), true);
+  assertEquals(placed.includes("// 다른 도구의 hook"), true);
+  assertEquals(placed.includes('"command": "other stop"'), true);
+  assertEquals(placed.includes('"command": "lophn hook devin Stop"'), true);
+  assertEquals(placed.includes('"SessionStart"'), true);
+  assertEquals(placed.split("hook devin Stop").length, 2);
+  const dev = await installGlobal(memory(files), {
+    ...devin,
+    dryRun: false,
+    command: "/dev/lophn",
+  });
+  assertEquals(dev.ok && dev.value.hook, "installed");
+  const swapped = files.get(path)!;
+  assertEquals(swapped.includes("// 다른 도구의 hook"), true);
+  assertEquals(swapped.split("hook devin Stop").length, 2);
+  assertEquals(swapped.includes("/dev/lophn hook devin Stop"), true);
+});
+
+// contract: Hermes는 config.yaml의 주석과 사람의 hooks를 그대로 두고 표시한 block만 놓고, 같은 event를 사람이 이미 쓰면 놓지 않으며, 사람의 다른 승인 기록을 보존한다.
+// 현실적 회귀: 같은 key가 둘이 되어 사람의 config.yaml이 깨지거나, allowlist의 다른 승인이 사라진다.
+Deno.test("hermes 설치는 config.yaml의 표시한 block과 allowlist의 우리 승인만 바꾼다", async () => {
+  const config = "/home/u/.hermes/config.yaml";
+  const allowlist = "/home/u/.hermes/shell-hooks-allowlist.json";
+  const original =
+    `# 내 설정\nmodel: x\nhooks:\n  # 내 hook\n  pre_tool_call:\n    - command: "mine"\nplugins:\n  enabled: []\n`;
+  const other = {
+    event: "pre_tool_call",
+    command: "mine",
+    approved_at: "t",
+    script_mtime_at_approval: null,
+  };
+  const files = new Map([
+    [config, original],
+    [allowlist, JSON.stringify({ approvals: [other] })],
+  ]);
+  const hermes = { harness: "hermes", home: "/home/u", now: NOW } as const;
+  await installGlobal(memory(files), { ...hermes, dryRun: false });
+  const placed = files.get(config)!;
+  assertEquals(
+    placed.replace(/ {2}# >>> lophn[\s\S]*# <<< lophn hermes hooks\n/, ""),
+    original,
+  );
+  const approvals = JSON.parse(files.get(allowlist)!).approvals;
+  assertEquals(approvals[0], other);
+  assertEquals(
+    approvals.slice(1).map((one: { event: string }) => one.event),
+    Object.keys(HOOK_EVENT_TABLE.hermes),
+  );
+  // 개발 command로 바꾸면 우리 승인은 새 command로 바뀌고 사람의 것은 남는다.
+  await installGlobal(memory(files), {
+    ...hermes,
+    dryRun: false,
+    command: "/dev/lophn",
+  });
+  const swapped = JSON.parse(files.get(allowlist)!).approvals;
+  assertEquals(swapped.length, 1 + Object.keys(HOOK_EVENT_TABLE.hermes).length);
+  assertEquals(swapped[1].command.startsWith("/dev/lophn hook hermes "), true);
+
+  const clash = new Map([[
+    config,
+    "hooks:\n  on_session_start:\n    - command: mine\n",
+  ]]);
+  const refused = await installGlobal(memory(clash), {
+    ...hermes,
+    dryRun: false,
+  });
+  assertEquals(refused.ok && refused.value.hook, "failed");
+  assertEquals(clash.size, 1);
+  assertEquals(
+    clash.get(config),
+    "hooks:\n  on_session_start:\n    - command: mine\n",
+  );
+});
+
+// contract: Muse settings.json은 사람의 key와 env 허용 목록을 보존하고 우리 env 이름만 더하며, 사람이 다른 managed hook 파일을 쓰면 아무것도 쓰지 않고 이유와 함께 거절한다.
+// 현실적 회귀: 사람의 managed hook 설정을 덮어 그 hook이 조용히 꺼진다.
+Deno.test("muse 설치는 settings.json의 사람의 key를 보존하고 다른 managed 파일은 덮지 않는다", async () => {
+  const settings = "/home/u/.config/muse/settings.json";
+  const muse = { harness: "muse", home: "/home/u", now: NOW } as const;
+  const files = new Map([[
+    settings,
+    JSON.stringify({
+      schema_version: 1,
+      model: "m",
+      managed_hooks_env_vars: ["MINE"],
+    }),
+  ]]);
+  await installGlobal(memory(files), { ...muse, dryRun: false });
+  const doc = JSON.parse(files.get(settings)!);
+  assertEquals(doc.model, "m");
+  assertEquals(doc.managed_hooks_env_vars, ["MINE", "LPN_TERMINAL_HOOK"]);
+  assertEquals(doc.managed_hooks_path, "/home/u/.config/muse/lophn-hooks.json");
+
+  const theirs = JSON.stringify({
+    schema_version: 1,
+    managed_hooks_path: "/etc/muse/hooks.json",
+  });
+  const clash = new Map([[settings, theirs]]);
+  const refused = await installGlobal(memory(clash), {
+    ...muse,
+    dryRun: false,
+  });
+  assertEquals(!refused.ok && refused.error.code, "conflict");
+  assertEquals([...clash.entries()], [[settings, theirs]]);
+});
+
+// contract: Cline script는 사람이 같은 이름으로 쓴 script를 덮지 않고(아무것도 쓰지 않고 failed), 우리 script는 실행 권한으로 놓는다.
+// 현실적 회귀: 사람의 TaskComplete script가 lophn의 한 줄로 바뀐다.
+Deno.test("cline 설치는 사람의 script를 덮지 않고 우리 script만 실행 권한으로 놓는다", async () => {
+  const dir = "/home/u/.cline/hooks";
+  const cline = { harness: "cline", home: "/home/u", now: NOW } as const;
+  const mine = "#!/bin/sh\necho mine\n";
+  const clash = new Map([[`${dir}/TaskComplete`, mine]]);
+  const refused = await installGlobal(memory(clash), {
+    ...cline,
+    dryRun: false,
+  });
+  assertEquals(refused.ok && refused.value.hook, "failed");
+  assertEquals([...clash.entries()], [[`${dir}/TaskComplete`, mine]]);
+
+  const files = new Map<string, string>();
+  const modes: string[] = [];
+  const ports = memory(files);
+  await installGlobal({
+    ...ports,
+    write: (path, text, executable) => {
+      if (executable === true) modes.push(path);
+      return ports.write(path, text);
+    },
+  }, { ...cline, dryRun: false });
+  assertEquals(modes.length, Object.keys(HOOK_EVENT_TABLE.cline).length);
+  assertEquals(
+    files.get(`${dir}/TaskComplete`),
+    '#!/bin/sh\nexec "lophn" hook cline TaskComplete\n',
+  );
+});
+
+// contract: 전용 file 형식(Kiro, Antigravity, Cursor)도 사람의 항목과 다른 이름의 hook을 보존한다.
+// 현실적 회귀: 배열이나 이름 key를 통째로 다시 써서 사람의 hook이 사라진다.
+Deno.test("kiro·antigravity·cursor 설치는 사람의 항목을 보존한다", async () => {
+  const home = "/home/u";
+  const cases = [
+    {
+      harness: "kiro",
+      path: `${home}/.kiro/hooks/lophn.json`,
+      seed: { version: "v1", hooks: [{ name: "mine", trigger: "Stop" }] },
+      kept: (text: string) => text.includes('"name": "mine"'),
+    },
+    {
+      harness: "antigravity",
+      path: `${home}/.gemini/config/hooks.json`,
+      seed: { mine: { Stop: [{ type: "command", command: "mine" }] } },
+      kept: (text: string) =>
+        text.includes('"mine": {') && text.includes('"command": "mine"'),
+    },
+    {
+      harness: "cursor",
+      path: `${home}/.cursor/hooks.json`,
+      seed: {
+        version: 1,
+        hooks: { stop: [{ type: "command", command: "mine" }] },
+      },
+      kept: (text: string) => text.includes('"command": "mine"'),
+    },
+  ] as const;
+  for (const one of cases) {
+    const files = new Map([[one.path, JSON.stringify(one.seed)]]);
+    await installGlobal(memory(files), {
+      harness: one.harness,
+      home,
+      dryRun: false,
+      now: NOW,
+    });
+    assertEquals(one.kept(files.get(one.path)!), true, one.harness);
   }
 });

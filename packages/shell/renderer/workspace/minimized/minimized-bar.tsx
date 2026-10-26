@@ -1,9 +1,11 @@
 import { type MouseEvent, type ReactElement, useRef, useState } from "react";
 import { Menu, MenuIcon, Tooltip } from "@lophn/ui/overlay";
+import { IconButton } from "@lophn/ui/primitives";
 import { useObservedSize } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 
 import type { TabItem as StripTab } from "../../parts/tab-strip/tab-strip.tsx";
+import { TabStateDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import { workspaceIcons } from "../../icons/mod.ts";
 import type { FloatItem, TabItem } from "../model.ts";
 import styles from "./minimized-bar.module.css";
@@ -93,14 +95,14 @@ function Row(
       aria-label={t("project-workspace.label.minimized")}
       data-minimized-bar=""
     >
-      {shown.map(({ tab }) => (
-        <Tooltip key={tab.key} content={tab.title}>
-          <button
-            type="button"
+      {shown.map(({ tab }) => {
+        const strip = stripTab(tab);
+        return (
+          <div
+            key={tab.key}
             className={styles.chip}
             style={{ width: CHIP_WIDTH }}
             data-minimized-chip={tab.key}
-            onClick={() => onRestore(tab.key)}
             onContextMenu={(event) => {
               event.preventDefault();
               setMenu({
@@ -111,11 +113,26 @@ function Row(
               });
             }}
           >
-            <span className={styles.icon}>{stripTab(tab).icon}</span>
-            <span className={styles.title}>{tab.title}</span>
-          </button>
-        </Tooltip>
-      ))}
+            <button
+              type="button"
+              className={styles.restore}
+              onClick={() => onRestore(tab.key)}
+            >
+              <span className={styles.icon}>{strip.icon}</span>
+              <span className={styles.title}>{tab.title}</span>
+              {strip.dot ? <TabStateDot dot={strip.dot} /> : null}
+            </button>
+            <IconButton
+              icon={workspaceIcons.close}
+              label={t("project-workspace.button.minimized-close", {
+                title: tab.title,
+              })}
+              size="sm"
+              onClick={() => onClose(tab.key)}
+            />
+          </div>
+        );
+      })}
       {hidden.length === 0 ? null : (
         <Tooltip
           content={t("project-workspace.button.minimized-more", {

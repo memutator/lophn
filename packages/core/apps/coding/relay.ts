@@ -9,7 +9,6 @@ import type { HarnessDetection } from "../../../protocol/coding-agent/harnesses.
 import type { CodingTokens } from "../../../protocol/coding-agent/token.ts";
 import { CODING_TOKEN_ENV } from "../../../protocol/coding-agent/token.ts";
 import { withCodingMcp } from "../../../protocol/coding-agent/mcp-launch.ts";
-import { codingHook } from "../../../protocol/coding-agent/hook.ts";
 import { codingMessageSend } from "../../../protocol/coding-agent/message.ts";
 import {
   harnessList,
@@ -17,6 +16,7 @@ import {
 } from "../../../protocol/coding-agent/harness-report.ts";
 import {
   codingTerminalExited,
+  codingTerminalHook,
   type CodingTerminalRequest,
   codingTerminalResult,
 } from "../../../protocol/coding-agent/terminal-requests.ts";
@@ -64,19 +64,6 @@ export function createCodingRelay(deps: CodingRelayDeps) {
   async function signal(value: CodingSignal): Promise<Result<SignalResult>> {
     return await deps.run(value);
   }
-
-  const hook: Handler = async (ctx, raw) => {
-    const session = codingSession(ctx);
-    if (session === null) {
-      return err({ code: "forbidden", message: "only a coding session" });
-    }
-    const input = codingHook.input.safeParse(raw);
-    if (!input.success) return bad("hook input is not valid");
-    const done = await signal(
-      { kind: "hook", session, ...input.data } as never,
-    );
-    return done.ok ? ok({ accepted: done.value.accepted }) : done;
-  };
 
   const message: Handler = async (ctx, raw) => {
     const session = codingSession(ctx);
@@ -133,6 +120,14 @@ export function createCodingRelay(deps: CodingRelayDeps) {
       session: input.data.session,
     });
     return done.ok ? ok({}) : done;
+  };
+
+  // shell main이 터미널의 hook socket에서 받아 넘긴 harness hook이다. session은 shell main이 터미널로 정한다.
+  const hook: Handler = async (_ctx, raw) => {
+    const input = codingTerminalHook.input.safeParse(raw);
+    if (!input.success) return bad("terminal hook is not valid");
+    const done = await signal({ kind: "hook", ...input.data });
+    return done.ok ? ok({ accepted: done.value.accepted }) : done;
   };
 
   const failed = (request: string) =>

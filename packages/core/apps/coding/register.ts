@@ -3,7 +3,6 @@
 // 한 번 만든다.
 import { CodingSessionLookup } from "../../../protocol/coding-agent/token.ts";
 import { CodingTransport } from "../../../protocol/coding-agent/transport.ts";
-import { codingHook } from "../../../protocol/coding-agent/hook.ts";
 import {
   harnessList,
   harnessReport,
@@ -11,6 +10,7 @@ import {
 import { codingMessageSend } from "../../../protocol/coding-agent/message.ts";
 import {
   codingTerminalExited,
+  codingTerminalHook,
   codingTerminalResult,
 } from "../../../protocol/coding-agent/terminal-requests.ts";
 import { defineTxPort } from "../../storage/ledger/mod.ts";
@@ -35,12 +35,12 @@ const codingDefinitions = {
   ],
   // handler는 core 조립(wiring)이 route 이름으로 붙인다.
   memoryRoutes: [
-    codingHook,
     codingMessageSend,
     harnessReport,
     harnessList,
     codingTerminalResult,
     codingTerminalExited,
+    codingTerminalHook,
   ],
 };
 

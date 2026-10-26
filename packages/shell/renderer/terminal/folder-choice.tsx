@@ -1,8 +1,4 @@
-import { Icon, IconButton } from "@lophn/ui/primitives";
 import { List, ListItem } from "@lophn/ui/data";
-import { Tooltip } from "@lophn/ui/overlay";
-import { iconPixels } from "@lophn/ui/shared";
-import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { TerminalFolderChoice } from "../../ipc/terminal.ts";
@@ -35,51 +31,5 @@ export function FolderChoice({ folders, onChoose }: FolderChoiceProps) {
         </List>
       </div>
     </section>
-  );
-}
-
-interface StartNoticeProps {
-  /** 주면 오른쪽에 숨기기 버튼을 둔다. */
-  onHide?: () => void;
-}
-
-// 첫 열기 안내. OS 사용자 권한과 시작 위치를 서로 다른 문장으로 보인다. 프로젝트
-// 폴더 밖 접근을 lophn이 막는다고 말하지 않는다.
-export function StartNotice({ onHide }: StartNoticeProps) {
-  const hideLabel = t("terminal.button.hide-notice");
-  return (
-    <aside className={styles.notice} data-start-notice="">
-      <ul className={styles.noticeList}>
-        <li className={styles.noticeItem} data-notice="account">
-          <Icon
-            icon={workspaceIcons.terminal}
-            pixels={iconPixels("small")}
-            className={styles.noticeIcon}
-          />
-          <span>{t("terminal.notice.account")}</span>
-        </li>
-        <li className={styles.noticeItem} data-notice="folder">
-          <Icon
-            icon={workspaceIcons.folder}
-            pixels={iconPixels("small")}
-            className={styles.noticeIcon}
-          />
-          <span>{t("terminal.notice.folder")}</span>
-        </li>
-      </ul>
-      {onHide
-        ? (
-          <Tooltip content={hideLabel}>
-            <IconButton
-              icon={workspaceIcons.close}
-              label={hideLabel}
-              size="sm"
-              data-hide-notice=""
-              onClick={onHide}
-            />
-          </Tooltip>
-        )
-        : null}
-    </aside>
   );
 }

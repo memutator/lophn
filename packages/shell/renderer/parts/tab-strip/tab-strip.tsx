@@ -15,9 +15,15 @@ import { X } from "lucide-react";
 import { t } from "@lophn/wording";
 import { Icon } from "@lophn/ui/primitives";
 import { componentMark, iconPixels } from "@lophn/ui/shared";
+import { Tooltip } from "@lophn/ui/overlay";
+import {
+  dotLabel,
+  type TabDot,
+  TabStateDot,
+} from "../tab-state-dot/tab-state-dot.tsx";
 import styles from "./tab-strip.module.css";
 
-export type TabDot = "waiting" | "working" | "ended";
+export type { TabDot };
 
 export interface TabItem {
   readonly key: string;
@@ -30,9 +36,9 @@ export interface TabItem {
   readonly preview?: boolean;
   /** 저장 안 된 변경이 있다. 닫기 자리에 ●가 보이고 hover하면 ×가 된다. */
   readonly unsaved?: boolean;
+  /** 이름을 바꿀 수 있는 탭. double-click하면 이름 자리가 입력이 된다. */
+  readonly renamable?: boolean;
 }
-
-const dotLabel = (dot: TabDot) => t(`common.label.tab-${dot}`);
 
 /** 탭을 끌 때 dataTransfer에 싣는 type. 값은 탭 key다. */
 const TAB_MIME = "application/x-lophn-tab";
@@ -50,6 +56,9 @@ export function TabStrip(
     onPin,
     onMenu,
     onReorder,
+    renaming = null,
+    onRenaming,
+    onRename,
     end,
   }: {
     tabs: readonly TabItem[];
@@ -67,6 +76,12 @@ export function TabStrip(
     onMenu?: (key: string, at: { x: number; y: number }) => void;
     /** 탭을 끌어 놓았다. before 탭 앞에 넣고 null이면 끝이다. 다른 줄에서 끌어 온 탭도 온다. */
     onReorder?: (key: string, before: string | null) => void;
+    /** 이름을 바꾸는 중인 탭 key. 탭 menu의 Rename도 이 값으로 입력을 연다. */
+    renaming?: string | null;
+    /** 이름 바꾸기를 시작(key)하거나 끝냈다(null). */
+    onRenaming?: (key: string | null) => void;
+    /** 입력을 확정했다. 빈 이름은 null이고 자동 이름으로 돌아간다. */
+    onRename?: (key: string, name: string | null) => void;
     /** 줄 끝(새 탭 단추, 칸 닫기 등). */
     end?: ReactNode;
   },
@@ -214,89 +229,116 @@ export function TabStrip(
         >
           {tabs.map((tab, index) => {
             const active = tab.key === selected;
+            // 저장 안 된 ●가 닫기 자리를 쓰는 탭은 점을 그리지 않는다.
+            const dot = onClose !== undefined && tab.unsaved ? null : tab.dot;
+            const editing = tab.key === renaming;
+            const tip = tab.dot
+              ? t("project-workspace.label.tab-tooltip", {
+                title: tab.title,
+                state: dotLabel(tab.dot),
+              })
+              : tab.title;
             return (
-              <div
+              <Tooltip
                 key={tab.key}
-                className={[
-                  styles.tab,
-                  active ? styles.active : "",
-                  active && focused ? styles.focused : "",
-                  tab.preview ? styles.preview : "",
-                  tab.unsaved ? styles.unsaved : "",
-                ].join(" ")}
-                role="tab"
-                aria-selected={active}
-                title={tab.title}
-                data-tab-key={tab.key}
-                data-drop={markOf(index)}
-                draggable={onReorder !== undefined}
-                onClick={() => onSelect?.(tab.key)}
-                onDoubleClick={() => {
-                  if (tab.preview) onPin?.(tab.key);
-                }}
-                onMouseDown={(event) => {
-                  // 가운데 단추의 자동 scroll을 막는다.
-                  if (event.button === 1 && onClose) event.preventDefault();
-                }}
-                onAuxClick={(event) => {
-                  if (event.button === 1 && onClose) {
-                    event.preventDefault();
-                    onClose(tab.key);
-                  }
-                }}
-                onContextMenu={(event) => {
-                  if (!onMenu) return;
-                  event.preventDefault();
-                  onMenu(tab.key, { x: event.clientX, y: event.clientY });
-                }}
-                onDragStart={(event) => {
-                  event.dataTransfer.setData(TAB_MIME, tab.key);
-                  event.dataTransfer.effectAllowed = "move";
-                }}
-                onDragEnd={() => setDrop(null)}
+                content={tip}
+                open={editing ? false : undefined}
               >
-                {tab.icon === undefined
-                  ? null
-                  : <span className={styles.icon}>{tab.icon}</span>}
-                <span className={styles.title}>{tab.title}</span>
-                {tab.dot
-                  ? (
-                    <span
-                      className={styles.dot}
-                      data-state={tab.dot}
-                      role="img"
-                      aria-label={dotLabel(tab.dot)}
-                      title={dotLabel(tab.dot)}
-                    />
-                  )
-                  : null}
-                {onClose === undefined ? null : (
-                  <button
-                    type="button"
-                    className={styles.close}
-                    aria-label={t("common.button.close")}
-                    onClick={(event) => {
-                      event.stopPropagation();
+                <div
+                  className={[
+                    styles.tab,
+                    active ? styles.active : "",
+                    active && focused ? styles.focused : "",
+                    tab.preview ? styles.preview : "",
+                    tab.unsaved ? styles.unsaved : "",
+                    dot ? styles.dotted : "",
+                  ].join(" ")}
+                  role="tab"
+                  aria-selected={active}
+                  data-tab-key={tab.key}
+                  data-drop={markOf(index)}
+                  draggable={onReorder !== undefined && !editing}
+                  onClick={() => onSelect?.(tab.key)}
+                  onDoubleClick={() => {
+                    if (tab.preview) onPin?.(tab.key);
+                    else if (tab.renamable) onRenaming?.(tab.key);
+                  }}
+                  onMouseDown={(event) => {
+                    // 가운데 단추의 자동 scroll을 막는다.
+                    if (event.button === 1 && onClose && !editing) {
+                      event.preventDefault();
+                    }
+                  }}
+                  onAuxClick={(event) => {
+                    if (event.button === 1 && onClose && !editing) {
+                      event.preventDefault();
                       onClose(tab.key);
-                    }}
-                  >
-                    {tab.unsaved
-                      ? (
-                        <span
-                          className={styles.mark}
-                          role="img"
-                          aria-label={t("project-workspace.label.tab-unsaved")}
-                        />
-                      )
-                      : null}
-                    <Icon
-                      icon={X}
-                      pixels={iconPixels("small")}
-                      className={styles.cross}
-                    />
-                  </button>
-                )}
-              </div>
+                    }
+                  }}
+                  onContextMenu={(event) => {
+                    if (!onMenu || editing) return;
+                    event.preventDefault();
+                    onMenu(tab.key, { x: event.clientX, y: event.clientY });
+                  }}
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData(TAB_MIME, tab.key);
+                    event.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragEnd={() => setDrop(null)}
+                >
+                  {tab.icon === undefined
+                    ? null
+                    : <span className={styles.icon}>{tab.icon}</span>}
+                  {editing
+                    ? (
+                      <RenameInput
+                        title={tab.title}
+                        onDone={(name) => {
+                          if (name !== undefined) onRename?.(tab.key, name);
+                          onRenaming?.(null);
+                        }}
+                      />
+                    )
+                    : <span className={styles.title}>{tab.title}</span>}
+                  {onClose === undefined && !dot
+                    ? null
+                    : (
+                      <span className={styles.slot}>
+                        {dot
+                          ? <TabStateDot dot={dot} className={styles.dot} />
+                          : null}
+                        {onClose === undefined ? null : (
+                          <button
+                            type="button"
+                            className={styles.close}
+                            aria-label={t("common.button.close")}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onClose(tab.key);
+                            }}
+                          >
+                            {tab.unsaved
+                              ? (
+                                <span
+                                  className={styles.mark}
+                                  role="img"
+                                  aria-label={t(
+                                    "project-workspace.label.tab-unsaved",
+                                  )}
+                                />
+                              )
+                              : null}
+                            <Icon
+                              icon={X}
+                              pixels={iconPixels("small")}
+                              className={styles.cross}
+                            />
+                          </button>
+                        )}
+                      </span>
+                    )}
+                </div>
+              </Tooltip>
             );
           })}
         </div>
@@ -314,5 +356,45 @@ export function TabStrip(
       </div>
       {end === undefined ? null : <div className={styles.end}>{end}</div>}
     </div>
+  );
+}
+
+// Enter나 blur는 확정(빈 이름은 null), Escape는 취소(undefined)다. unmount 때 blur가 한 번 더 와도 두 번 확정하지 않는다.
+function RenameInput(
+  { title, onDone }: {
+    title: string;
+    onDone: (name: string | null | undefined) => void;
+  },
+) {
+  const done = useRef(false);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    input.current?.focus();
+    input.current?.select();
+  }, []);
+  const finish = (name: string | null | undefined) => {
+    if (done.current) return;
+    done.current = true;
+    onDone(name);
+  };
+  return (
+    <input
+      ref={input}
+      className={styles.rename}
+      aria-label={t("project-workspace.label.tab-rename")}
+      defaultValue={title}
+      draggable={false}
+      onClick={(event) => event.stopPropagation()}
+      onBlur={(event) => finish(event.currentTarget.value.trim() || null)}
+      onKeyDown={(event) => {
+        // 터미널과 작업대 단축키로 키가 새지 않게 한다.
+        event.stopPropagation();
+        if (event.key === "Enter") {
+          finish(
+            event.currentTarget.value.trim() || null,
+          );
+        } else if (event.key === "Escape") finish(undefined);
+      }}
+    />
   );
 }

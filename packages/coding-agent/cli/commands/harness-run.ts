@@ -1,6 +1,6 @@
 // `lophn harness detect|refresh|install`의 실행이다. 감지·설치 engine을 부르는 일만 하고 새 규칙은 없다.
 // `install`은 home 기준 전역 위치에 쓴다(권한도 그 harness의 두 위치만 연다).
-// `detect`는 실행 파일만 찾고 `refresh`는 version·login probe까지 돈다. 결과는 저장하지 않는다.
+// `detect`는 실행 파일만 찾고 `refresh`는 version probe까지 돈다. 결과는 저장하지 않는다.
 import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
 import {
   HARNESS_ADAPTERS,
@@ -40,6 +40,7 @@ export function runHarnessDetect(
 export async function runHarnessInstall(
   input: { harness: HarnessId; dry_run?: boolean; command?: string },
   home: string,
+  now: string,
 ): Promise<
   Result<{ skill: string; hook: string; files: string[] }, LophnError>
 > {
@@ -53,11 +54,18 @@ export async function runHarnessInstall(
           throw thrown;
         }
       },
-      async write(path, text) {
-        await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), {
-          recursive: true,
-        });
-        await Deno.writeTextFile(path, text);
+      async write(path, text, executable) {
+        // 폴더가 이미 있으면 file 하나의 권한만으로 쓴다(폴더째 권한을 열지 않는 harness가 있다).
+        try {
+          await Deno.writeTextFile(path, text);
+        } catch (thrown) {
+          if (!(thrown instanceof Deno.errors.NotFound)) throw thrown;
+          await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), {
+            recursive: true,
+          });
+          await Deno.writeTextFile(path, text);
+        }
+        if (executable === true) await Deno.chmod(path, 0o755);
       },
       async list(dir) {
         try {
@@ -77,6 +85,7 @@ export async function runHarnessInstall(
       home,
       dryRun: input.dry_run === true,
       command: input.command,
+      now,
     },
   );
   return done.ok ? ok(done.value) : err(done.error);

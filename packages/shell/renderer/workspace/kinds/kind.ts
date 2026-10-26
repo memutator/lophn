@@ -30,6 +30,11 @@ export interface TabKindDef {
   homeDesk?(tab: TabItem): string | undefined;
   /** 탭 이름 뒤의 상태 점(Agent 탭의 session 상태). null이면 점이 없다. */
   dotOf?(tab: TabItem, host: TabHost): TabDot | null;
+  /**
+   * 사람이 탭 이름을 바꿨다. null이면 사람이 붙인 이름을 지우고 자동 이름으로 돌아간다. 이 hook을 선언한
+   * kind만 탭 줄의 이름 바꾸기(더블클릭, 탭 menu의 Rename)가 생긴다. 지금은 터미널만이다.
+   */
+  rename?(tab: TabItem, name: string | null, host: TabHost): void;
   /** true면 닫은 탭 다시 열기가 건너뛴다(PTY처럼 닫으면 이어 갈 수 없는 탭). */
   readonly noReopen?: true;
   /** true면 이 kind의 탭은 Detach하지 않는다(탭 menu 항목과 패널 단추를 그리지 않는다). 다른 탭에 묶인 보조 패널(browser DevTools)이 쓴다. */

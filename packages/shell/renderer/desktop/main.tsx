@@ -3,6 +3,10 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { CoreSource } from "./connection/connection.ts";
 import { useConnection } from "./connection/connection.tsx";
 import { useSessions } from "./connection/events/hooks.tsx";
+import {
+  type HookPromptApi,
+  HookPromptHost,
+} from "./hook-prompt/hook-prompt-host.tsx";
 import { ToastHost } from "./connection/toasts/toast-host.tsx";
 import { registerToastActionHandler } from "./connection/toasts/toast-actions.ts";
 import { useWaitingPanel } from "./connection/waiting/waiting-layer.tsx";
@@ -86,6 +90,8 @@ interface DesktopProps {
   agentViewSource?: AgentTabSourceFactory;
   /** 창 위 overlay. toast를 띄운다. 없으면 toast를 띄우지 않는다. */
   overlay?: OverlayApi;
+  /** main이 묻는 전역 hook 설치 확인 통로. overlay와 함께 있어야 dialog를 띄운다. */
+  hookPrompt?: HookPromptApi;
   /** detached 창 통로. 없으면 Detach 항목과 detached 공간을 두지 않는다. */
   detached?: LophnDetachedApi;
 }
@@ -145,6 +151,7 @@ export function Desktop(
     annotate,
     agentViewSource,
     overlay,
+    hookPrompt,
     detached,
   }: DesktopProps,
 ) {
@@ -399,6 +406,9 @@ export function Desktop(
       {space}
       {overlay && route.space !== "detached"
         ? <ToastHost overlay={overlay} />
+        : null}
+      {overlay && hookPrompt
+        ? <HookPromptHost overlay={overlay} coding={hookPrompt} />
         : null}
       {intents && route.space !== "detached"
         ? (

@@ -2,8 +2,11 @@
 // shell main은 사람 token으로 접속한 하나뿐인 client다. `open` 요청의 plan.env에 coding token이
 // 있으므로 shell main은 이 frame을 renderer로 중계하지 않는다.
 import { z } from "zod";
+import { jsonValueSchema } from "../base/json-values.ts";
 import { defineMemory } from "../base/route.ts";
+import { harnessIdSchema } from "./harnesses.ts";
 import { codingLaunchPlanSchema } from "./launch-plan.ts";
+import { HOOK_EVENT_MAX_CHARS } from "./terminal-hook.ts";
 import { codingSessionIdSchema } from "./token.ts";
 
 // 요청 하나를 가리키는 값이다. 결과는 같은 값으로 돌아온다.
@@ -83,7 +86,24 @@ export const codingTerminalExited = defineMemory({
   errors: ["invalid_input", "unauthorized", "forbidden"],
 });
 
+// 그 session의 터미널에서 온 harness hook이다. shell main이 hook socket에서 받아 넘긴다.
+export const codingTerminalHook = defineMemory({
+  resource: "coding_agent_terminals",
+  method: "hook",
+  name: "coding.terminal_hook",
+  input: z.strictObject({
+    session: codingSessionIdSchema,
+    harness: harnessIdSchema,
+    event: z.string().min(1).max(HOOK_EVENT_MAX_CHARS),
+    payload: jsonValueSchema,
+  }),
+  output: z.strictObject({ accepted: z.boolean() }),
+  actors: ["user"],
+  errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
+});
+
 export const TERMINAL_ROUTES = [
   codingTerminalResult,
   codingTerminalExited,
+  codingTerminalHook,
 ] as const;

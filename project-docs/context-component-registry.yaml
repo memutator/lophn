@@ -273,6 +273,14 @@ components:
     change_reasons:
       boundaries: [coding-agent, coding-agent-cli, coding-agent-harness-api, coding-agent-cli-interface]
 
+  - id: architecture-terminal-agent
+    kind: doc
+    roles: [planner, lead]
+    description: 터미널 탭 안에서 도는 coding agent(harness)와 상태를 알아 탭 icon, 점, OS 알림을 내는 층. 사람이 연 터미널과 coding 터미널이 같이 쓴다.
+    path: project-docs/architecture/terminal-agent.md
+    change_reasons:
+      boundaries: [coding-agent, coding-agent-cli, coding-agent-cli-interface, shell]
+
   - id: architecture-annotation
     kind: doc
     roles: [planner, lead]

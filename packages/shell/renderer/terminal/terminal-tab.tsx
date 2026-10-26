@@ -14,7 +14,7 @@ import type {
 } from "../../ipc/terminal.ts";
 import type { TerminalDeps } from "./deps.ts";
 import { ExitBanner, MissingOutput } from "./exit-banner.tsx";
-import { FolderChoice, StartNotice } from "./folder-choice.tsx";
+import { FolderChoice } from "./folder-choice.tsx";
 import {
   acceptOutput,
   endingOf,
@@ -23,6 +23,7 @@ import {
   phaseOfReply,
   phaseOfRuntime,
   splitInput,
+  tabName,
 } from "./model.ts";
 import type { TerminalEntry } from "./store.ts";
 import type { TerminalView } from "./xterm-view.ts";
@@ -31,13 +32,21 @@ import styles from "./terminal.module.css";
 interface TerminalTabProps {
   tabKey: string;
   project: string;
-  /** layout에 남은 시작 폴더. 복원한 탭을 사람이 다시 시작할 때 쓴다. */
+  /** layout에 남은 시작 폴더. 복원한 탭이 새 shell을 열 때 쓴다. */
   folderRef: string | null;
-  /** focus 칸의 고른 탭이다. 이때만 입력·resize를 보낸다. */
+  /** focus 칸의 고른 탭이다. 이때만 입력을 보낸다. resize는 보이는 한 칸 크기를 따른다. */
   active: boolean;
   deps: TerminalDeps;
   /** 시작한 폴더를 탭 제목과 layout에 남긴다. */
   onStarted?: (info: { title: string | null; folderRef: string }) => void;
+  /**
+   * 탭 줄에 보이는 이름과 그 이름을 정하는 입력. 사람이 붙인 이름 > agent의 터미널 제목 > 자동 이름.
+   * 탭 줄이 없는 자리(side panel의 coding 터미널)는 주지 않는다.
+   */
+  naming?: {
+    name: { shown: string; person: string | null; auto: string };
+    onName: (name: string) => void;
+  };
   /**
    * lophn(core 요청)이 연 coding 터미널 탭이다. 새 PTY를 열지도 다시 시작하지도 않고, 끝나면
    * session이 끝났다고만 보인다. `ended`는 runtime이 없는 복원 탭을 끝난 것으로 보인다.
@@ -47,8 +56,6 @@ interface TerminalTabProps {
 
 const IDLE: Phase = { kind: "idle" };
 const DEFAULT_POLL_MS = 40;
-// 이 renderer에서 사람이 첫 열기 안내를 숨겼다.
-let noticeHidden = false;
 // 같은 탭의 시작이 두 번 나가지 않게 한다. 탭 화면이 다시 그려져도 하나다.
 const opening = new Set<string>();
 
@@ -70,7 +77,7 @@ function sameRuntime(a: Phase, b: Phase): boolean {
 // 뿐이다. 탭을 숨기거나 옮겨도 shell은 그대로이고 다시 그리면 같은 runtime에
 // 붙는다.
 export function TerminalTab(
-  { tabKey, project, folderRef, active, deps, onStarted, coding }:
+  { tabKey, project, folderRef, active, deps, onStarted, naming, coding }:
     TerminalTabProps,
 ) {
   const { store, bridge } = deps;
@@ -82,13 +89,31 @@ export function TerminalTab(
     subscribe,
     () => store.get(tabKey),
   );
+  // agent와 제목은 store version이 알린다. 숨은 탭은 이 화면이 없어 다시 고를 때까지 이름이 그대로다.
+  useSyncExternalStore(subscribe, () => store.version());
+  const agentTitle = store.agentTitleOf(tabKey);
+  const nextName = naming === undefined ? null : tabName({
+    person: naming.name.person,
+    agentTitle,
+    auto: naming.name.auto,
+  });
+  useEffect(() => {
+    if (
+      naming !== undefined && nextName !== null &&
+      nextName !== naming.name.shown
+    ) {
+      naming.onName(nextName);
+    }
+  }, [nextName, naming?.name.shown]);
   const phase = entry?.phase ?? IDLE;
   const [missing, setMissing] = useState(false);
-  const [notice, setNotice] = useState(!noticeHidden);
   const hostRef = useRef<HTMLDivElement>(null);
+  const edgeRef = useRef<HTMLCanvasElement>(null);
   const screenRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<TerminalView | null>(null);
   const lastSeqRef = useRef(0);
+  // 이미 도는 터미널에 다시 붙었다. 처음 받는 출력은 붙기 전에 나온 것이라 다시 쓰기다.
+  const replayRef = useRef(false);
   const activeRef = useRef(active);
   const inputChain = useRef<Promise<unknown>>(Promise.resolve());
   const lastSize = useRef<string>("");
@@ -106,15 +131,24 @@ export function TerminalTab(
       value.runtime.generation,
       value.output,
     );
-    for (const text of step.writes) viewRef.current?.write(text);
+    store.noteRuntime(value.runtime);
+    // 다시 쓰는 출력의 질의(DA1 등)에 xterm이 답하면 그 답이 PTY에 사람의 입력으로 들어간다.
+    const replay = replayRef.current;
+    replayRef.current = false;
+    for (const text of step.writes) {
+      if (replay) viewRef.current?.replay(text);
+      else viewRef.current?.write(text);
+    }
     lastSeqRef.current = step.lastSeq;
     if (step.missing || value.runtime.dropped_output) setMissing(true);
     setPhase(phaseOfRuntime(value.runtime));
-  }, [setPhase]);
+  }, [store, setPhase]);
 
   const begin = useCallback((runtime: TerminalRuntime) => {
     lastSeqRef.current = 0;
+    replayRef.current = false;
     lastSize.current = "";
+    store.noteRuntime(runtime);
     setMissing(false);
     viewRef.current?.reset();
     store.update(tabKey, {
@@ -190,8 +224,9 @@ export function TerminalTab(
   // xterm 표시는 탭 화면이 있는 동안만 산다. 사라져도 shell은 host에 남는다.
   useEffect(() => {
     const host = hostRef.current;
-    if (!host) return;
-    const view = deps.createView(host);
+    const edge = edgeRef.current;
+    if (!host || !edge) return;
+    const view = deps.createView(host, edge);
     viewRef.current = view;
     const off = view.onData((text) => {
       const current = store.get(tabKey);
@@ -215,21 +250,27 @@ export function TerminalTab(
       if (!bridge || !terminalRef) return;
       void bridge.openLink({ terminal_ref: terminalRef, url });
     });
+    const offTitle = view.onTitle((title) => {
+      const terminalRef = store.get(tabKey)?.terminalRef;
+      if (terminalRef) store.noteTitle(terminalRef, title);
+    });
     return () => {
       off();
       offLink();
+      offTitle();
       view.dispose();
       viewRef.current = null;
     };
   }, [deps, store, tabKey, bridge]);
 
-  // 처음 그릴 때: 살아 있는 runtime이 있으면 다시 붙고, 사람이 연 탭이면 시작하고,
-  // 복원한 탭이면 누를 때까지 기다린다.
+  // 처음 그릴 때: 살아 있는 runtime이 있으면 다시 붙고, 아니면 시작한다. 터미널 탭은 보일 때만 그려지므로
+  // 복원한 탭은 사람이 그 탭을 볼 때 새 shell이 뜬다. coding 탭은 main이 연 runtime에만 붙어 끝난 것으로 남는다.
   useEffect(() => {
     lastSeqRef.current = 0;
     const current = store.get(tabKey);
     if (current?.terminalRef && bridge) {
       const terminalRef = current.terminalRef;
+      replayRef.current = true;
       void bridge.snapshot({ terminal_ref: terminalRef, after_seq: 0 }).then(
         (reply) => {
           if (reply.ok && reply.value.ok && "output" in reply.value) {
@@ -246,6 +287,8 @@ export function TerminalTab(
       );
     } else if (current?.requested && current.phase.kind === "opening") {
       void open(current.folderRef ?? folderRef);
+    } else if (!current && coding === undefined) {
+      void open(folderRef);
     } else if (!current) {
       store.update(tabKey, { phase: IDLE });
     }
@@ -299,9 +342,10 @@ export function TerminalTab(
     };
   }, [active, bridge, boundRef, boundGeneration]);
 
-  // 표시 영역에 맞춰 PTY 치수를 바꾼다. 고른 탭일 때만 보낸다.
+  // 표시 영역에 맞춰 PTY 치수를 바꾼다. focus 칸이 아니어도 보이면 따른다. 안 그러면 xterm만 새 폭이고
+  // PTY는 옛 폭이라 TUI가 옛 폭으로 그려 잘린다.
   useEffect(() => {
-    if (!active || !liveKey || !bridge || boundRef === null) return;
+    if (!liveKey || !bridge || boundRef === null) return;
     const dims = viewRef.current?.fit();
     if (!dims) return;
     const key = `${liveKey}:${dims.columns}x${dims.rows}`;
@@ -314,7 +358,6 @@ export function TerminalTab(
       rows: dims.rows,
     });
   }, [
-    active,
     liveKey,
     bridge,
     boundRef,
@@ -325,8 +368,6 @@ export function TerminalTab(
 
   const showScreen = phase.kind === "live" ||
     (phase.kind === "ended" && phase.runtime !== null);
-  const showNotice = notice && coding === undefined && phase.kind !== "idle" &&
-    !(phase.kind === "refused" && phase.reason === "unavailable");
 
   // 보일 출력이 있으면 그 아래 한 줄, 없으면 탭 가운데 자리표시다.
   const variant = showScreen ? "bar" : "center";
@@ -348,14 +389,6 @@ export function TerminalTab(
         onRestart={coding === undefined ? () => void restart() : undefined}
       />
     );
-  } else if (phase.kind === "idle") {
-    banner = (
-      <ExitBanner
-        variant={variant}
-        state={{ kind: "not_started" }}
-        onRestart={() => void restart()}
-      />
-    );
   } else if (phase.kind === "refused") {
     banner = (
       <ExitBanner
@@ -375,16 +408,6 @@ export function TerminalTab(
       data-phase={phase.kind}
       data-coding-session={coding?.session}
     >
-      {showNotice
-        ? (
-          <StartNotice
-            onHide={() => {
-              noticeHidden = true;
-              setNotice(false);
-            }}
-          />
-        )
-        : null}
       {missing && showScreen ? <MissingOutput /> : null}
       {phase.kind === "choose"
         ? (
@@ -403,6 +426,7 @@ export function TerminalTab(
         data-terminal-screen=""
       >
         <div ref={hostRef} className={styles.screenHost} />
+        <canvas ref={edgeRef} className={styles.edge} aria-hidden="true" />
       </div>
       {showScreen || phase.kind === "choose" || banner
         ? null

@@ -8,6 +8,8 @@ export type FloatEdge = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 export interface FloatPanelProps {
   title: string;
   icon?: ReactNode;
+  // 제목 바로 뒤. 상태 점 같은 작은 표시를 호출자가 넣는다.
+  badge?: ReactNode;
   // 위 bar 오른쪽 끝. IconButton 몇 개를 호출자가 넣는다.
   actions?: ReactNode;
   children?: ReactNode;
@@ -45,6 +47,7 @@ export function FloatPanel(
   {
     title,
     icon,
+    badge,
     actions,
     children,
     x,
@@ -81,6 +84,7 @@ export function FloatPanel(
       >
         {icon !== undefined && <span className={styles.icon}>{icon}</span>}
         <span className={styles.title}>{title}</span>
+        {badge}
         {actions !== undefined && (
           <div className={styles.actions}>{actions}</div>
         )}

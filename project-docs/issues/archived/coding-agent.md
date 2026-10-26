@@ -606,3 +606,22 @@ guard: `packages/coding-agent/harnesses/install_test.ts`의 "설치는 lophn이 
 - 그대로 두고 사람이 지운다(없음. 사람이 알아야 한다).
 
 닫음: 배포 skill(`lophn-build-app`)과 `CODING_SKILL_NAMES`를 지웠다. `lophn harness install`은 skill을 놓지 않고 `RETIRED_SKILL_NAMES`(`lophn-build-app`, `lophn-repair`)의 사본 가운데 폴더에 `SKILL.md` 하나뿐이고 글이 lophn이 쓰던 꼴과 byte까지 같은 것만 지운다. 설치는 coding session을 열 때만 저절로 돌고 지금은 여는 길이 없어, 옛 사본이 있는 사람은 `lophn harness install`을 한 번 돌려야 한다.
+
+## codex는 새로 놓은 hook을 사람이 `/hooks`에서 trust해야 쓴다
+
+```yaml
+kind: bug
+modules: [packages/coding-agent]
+closed: fixed
+guard: "codex hook install은 config.toml의 기존 내용을 그대로 두고 우리 hook의 trust 기록만 더한다" (packages/coding-agent/harnesses/install_test.ts), "codex hook hash는 Codex 자신의 test가 쓰는 hash와 같다" (packages/coding-agent/harnesses/codex-trust_test.ts)
+```
+
+지금: codex는 새로 놓이거나 바뀐 hook을 사람이 codex 안의 `/hooks`에서 trust하기 전까지 건너뛴다(learn.chatgpt.com/docs/hooks). trust 기록은 `~/.codex/config.toml`의 `[hooks.state."...hooks.json:stop:0:0"] trusted_hash`다. `harness install`은 toml을 쓰지 않는다. 설치된 codex 0.161.0 binary에도 `hooks need review before they can run` 문구와 `trusted_hash` 칸이 있다.
+
+영향: codex에 맡기면 첫 번(그리고 hook이 바뀐 뒤)에는 사람이 trust할 때까지 turn 끝 신호가 안 와서 state가 unknown이다.
+
+고치려면:
+- 그대로 두고 confirm 화면에서 "codex에서 /hooks로 trust하라"를 알린다(작음).
+- `config.toml`에 trust 기록을 쓴다(중간. toml을 고치는 코드와 hash 규칙을 알아야 한다).
+
+닫음: 설치가 `~/.codex/config.toml`에 lophn hook마다 Codex와 같은 계산의 `trusted_hash`를 쓴다(`packages/coding-agent/harnesses/codex-trust.ts`, `install.ts`). 사람 허락은 lophn 창의 설치 dialog 한 번이고 `/hooks` trust가 필요 없다.

@@ -109,6 +109,7 @@ export function codingBridge(
     openLink: () => ok(null),
     ackBridgeOpen: () => ok(null),
     onBridgeOpen: () => () => {},
+    onReveal: () => () => {},
     onRuntime(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);

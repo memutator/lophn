@@ -1,7 +1,5 @@
 export {
-  authResultSchema,
   HARNESS_IDS,
-  type HarnessAuth,
   type HarnessCandidate,
   type HarnessDetection,
   harnessDetectionSchema,
@@ -32,9 +30,11 @@ export {
 
 export { withCodingMcp } from "./mcp-launch.ts";
 
+export * from "./harness-hooks.ts";
+export { harnessOfProcess } from "./harness-process.ts";
 export * from "./token.ts";
 export * from "./cli-commands.ts";
-export * from "./hook.ts";
+export * from "./terminal-hook.ts";
 export * from "./message.ts";
 export * from "./harness-report.ts";
 export * from "./terminal-requests.ts";

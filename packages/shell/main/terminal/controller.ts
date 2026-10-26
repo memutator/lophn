@@ -145,6 +145,16 @@ export class TerminalFocusTable {
     for (const resolve of waiting ?? []) resolve();
   }
 
+  /** 그 탭을 골라 둔 창의 webContents id. 고른 창이 없으면 undefined. */
+  contentsOf(terminalRef: string): number | undefined {
+    return this.#focused.get(terminalRef)?.contents;
+  }
+
+  /** 어느 창이든 사람이 그 탭을 골라 두었다. */
+  isFocused(terminalRef: string): boolean {
+    return this.#focused.has(terminalRef);
+  }
+
   /** generation을 주면 renderer가 focus를 알린 그 generation일 때만 맞다. */
   focused(
     contentsId: number,

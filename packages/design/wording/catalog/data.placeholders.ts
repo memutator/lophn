@@ -40,6 +40,7 @@ export type DataPlaceholders = {
   "waiting.button.cancel": Record<never, never>;
   "waiting.button.deny": Record<never, never>;
   "waiting.button.open-session": Record<never, never>;
+  "waiting.button.show-finished": Record<never, never>;
   "waiting.button.skip": Record<never, never>;
   "waiting.button.start-now": Record<never, never>;
   "waiting.label.activation-first": Record<never, never>;
@@ -64,6 +65,7 @@ export type DataPlaceholders = {
   "waiting.label.fact-command": Record<never, never>;
   "waiting.label.fact-target": Record<never, never>;
   "waiting.label.group-activation": Record<never, never>;
+  "waiting.label.group-finished": Record<never, never>;
   "waiting.label.group-permission": Record<never, never>;
   "waiting.label.group-question": Record<never, never>;
   "waiting.label.group-job": Record<never, never>;
@@ -155,25 +157,15 @@ export type DataPlaceholders = {
   "waiting.notice.settled-denied-reason": {
     agent: "string";
   };
-  "waiting.toast-permission.button": Record<never, never>;
-  "waiting.toast-permission.body": Record<never, never>;
-  "waiting.toast-permission.title": {
-    agent: "string";
-  };
   "waiting.toast-activation.body": Record<never, never>;
   "waiting.toast-activation.button": Record<never, never>;
   "waiting.toast-activation.title": {
     app: "string";
   };
-  "waiting.toast-question.button": Record<never, never>;
-  "waiting.toast-question.body": Record<never, never>;
   "waiting.toast-kind-violation.body": {
     count: "plural";
   };
   "waiting.toast-kind-violation.title": Record<never, never>;
-  "waiting.toast-question.title": {
-    agent: "string";
-  };
   "waiting.toast-restart-halted.button": Record<never, never>;
   "waiting.toast-restart-halted.body": {
     app: "string";

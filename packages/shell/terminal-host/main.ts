@@ -14,6 +14,7 @@ import {
   yieldChunk,
 } from "./pty.ts";
 import { type ProcessGroup } from "./child-group.ts";
+import { integrateShell } from "./shell-integration.ts";
 import type { CodingHost } from "./coding-types.ts";
 import { RingBuffer } from "./ring-buffer.ts";
 
@@ -90,6 +91,14 @@ type Session = {
   typed: string[];
   /** open 요청이 더한 env. restart가 이어 쓴다. */
   env?: Record<string, string>;
+  /** 마지막으로 알린 foreground process argv를 이어 붙인 것. 바뀌었는지만 본다. */
+  foreground: string | null;
+};
+
+export type ForegroundChange = {
+  terminal_ref: string;
+  generation: number;
+  argv: string[] | null;
 };
 
 type Host = {
@@ -101,6 +110,8 @@ type Host = {
     | TerminalSnapshotReply
     | Promise<TerminalReply | TerminalSnapshotReply>;
   sessions(): readonly TerminalRuntime[];
+  /** 살아 있는 shell 터미널 중 foreground argv가 지난번과 달라진 것만 돌려준다. */
+  foregroundChanges(): ForegroundChange[];
   dispose(): TerminalRuntime[];
 };
 
@@ -160,6 +171,7 @@ function createHost(deps: HostDeps): Host {
       handle: null,
       group: null,
       typed: [],
+      foreground: null,
     };
     try {
       const handle = deps.pty.spawn({
@@ -237,15 +249,18 @@ function createHost(deps: HostDeps): Host {
       group: null,
       typed: [],
       env: shellEnv,
+      foreground: null,
     };
     sessions.set(terminalRef, session);
     try {
+      // strip 뒤에 덮어야 더한 LPN_ 값이 지워지지 않는다.
+      const env = { ...stripPlatformEnv(deps.env), ...shellEnv };
+      const integrated = integrateShell(program.file, program.args, env);
       const handle = deps.pty.spawn({
         file: program.file,
-        args: program.args,
+        args: integrated.args,
         cwd: checked.path,
-        // strip 뒤에 덮어야 더한 LPN_ 값이 지워지지 않는다.
-        env: { ...stripPlatformEnv(deps.env), ...shellEnv },
+        env: { ...env, ...integrated.env },
         columns: request.columns,
         rows: request.rows,
         controlFd: deps.controlFd,
@@ -399,6 +414,28 @@ function createHost(deps: HostDeps): Host {
     },
     sessions() {
       return [...sessions.values()].map((session) => ({ ...session.runtime }));
+    },
+    foregroundChanges() {
+      const changes: ForegroundChange[] = [];
+      for (const session of sessions.values()) {
+        const { runtime, handle } = session;
+        // coding TUI는 어느 제품인지 이미 안다.
+        if (runtime.launch_kind !== "shell" || runtime.state !== "running") {
+          continue;
+        }
+        if (!handle) continue;
+        const argv = handle.foreground();
+        // NUL은 argv 안에 들어갈 수 없어 이어 붙인 것이 argv를 대신한다.
+        const joined = argv === null ? null : argv.join("\0");
+        if (joined === session.foreground) continue;
+        session.foreground = joined;
+        changes.push({
+          terminal_ref: runtime.terminal_ref,
+          generation: runtime.generation,
+          argv,
+        });
+      }
+      return changes;
     },
     dispose() {
       const gone: TerminalRuntime[] = [];

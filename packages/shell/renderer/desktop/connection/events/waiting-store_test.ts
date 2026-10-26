@@ -131,7 +131,7 @@ Deno.test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요
   );
 
   // snapshot으로 들어온 것은 toast를 만들지 않고 live event는 만든다.
-  assertEquals(reactionsOf(turnRequestOpened(3), "snapshot"), []);
-  assertEquals(reactionsOf(turnRequestOpened(3), "live").length, 1);
+  assertEquals(reactionsOf(consentRequested(), "snapshot"), []);
+  assertEquals(reactionsOf(consentRequested(), "live").length, 1);
   stop();
 });

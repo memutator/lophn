@@ -130,7 +130,7 @@ export function panelRuns(
   });
 }
 
-/** Agent 탭 이름 뒤의 상태 점. */
+/** Agent 탭 이름 뒤의 상태 점. 도는 중이나 기다리는 중이 먼저고, 아니면 못 본 turn 끝이 finished다. */
 export function sessionDot(
   entries: readonly SessionEntry[],
   session: string | null,
@@ -143,5 +143,7 @@ export function sessionDot(
     ? "waiting"
     : entry.state === "running"
     ? "working"
+    : entry.unseen !== null
+    ? "finished"
     : null;
 }

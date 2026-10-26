@@ -22,7 +22,16 @@ import {
   type Timer,
 } from "@lophn/ui/shared";
 import { paletteIcons } from "../../icons/mod.ts";
-import type { OverlaySurface, PaletteIcon } from "../../../ipc/overlay.ts";
+import { Avatar } from "../../parts/avatar/avatar.tsx";
+import {
+  harnessVendorOf,
+  VendorIcon,
+} from "../../parts/vendor-icon/vendor-icon.tsx";
+import type {
+  OverlayLead,
+  OverlaySurface,
+  PaletteIcon,
+} from "../../../ipc/overlay.ts";
 import type { SurfaceActions, SurfaceMount } from "../registry.ts";
 import styles from "./surface.module.css";
 
@@ -129,7 +138,7 @@ function SurfaceView(
           title={label}
           actions={buttons.length > 0 ? buttons : undefined}
         >
-          {text}
+          {text !== undefined && <p className={styles.dialogText}>{text}</p>}
         </Surface>
       );
     }
@@ -151,6 +160,7 @@ function SurfaceView(
           <Toast
             title={label}
             body={text}
+            lead={surface.model.lead && leadOf(surface.model.lead)}
             tone={surface.model.tone}
             actions={third
               ? [first, second, third]
@@ -170,6 +180,17 @@ function SurfaceView(
     case "drag":
       return null;
   }
+}
+
+// 모르는 harness는 그림 없이 제목만 보인다. avatar는 모르는 icon id도 기본 얼굴로 그린다.
+function leadOf(lead: OverlayLead) {
+  if (lead.kind === "avatar") {
+    return <Avatar profile={lead.profile} size="sm" />;
+  }
+  const vendor = harnessVendorOf(lead.harness);
+  return vendor === undefined
+    ? undefined
+    : <VendorIcon vendor={vendor} size={16} />;
 }
 
 const PALETTE_ICONS: Record<PaletteIcon, IconProps["icon"]> = paletteIcons;

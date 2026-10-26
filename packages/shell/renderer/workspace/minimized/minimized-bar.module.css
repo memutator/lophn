@@ -29,11 +29,26 @@
   color: var(--color-text-primary);
 }
 
+/* 칸은 복원 단추와 닫기 단추를 담는다. button 안에 button을 둘 수 없어서 칸 자체는 button이 아니다. */
 .chip {
   display: flex;
   align-items: center;
+  padding: var(--space-0);
+}
+
+.restore {
+  display: flex;
+  flex: 1;
+  align-items: center;
   gap: var(--space-3);
-  padding: var(--space-0) var(--space-4);
+  min-width: var(--space-0);
+  height: 100%;
+  padding: var(--space-0) var(--space-0) var(--space-0) var(--space-4);
+  border: var(--space-0);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
 }
 
 .icon {

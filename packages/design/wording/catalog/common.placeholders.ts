@@ -11,12 +11,13 @@ export type CommonPlaceholders = {
   "common.button.copy": Record<never, never>;
   "common.button.copy-code": Record<never, never>;
   "common.button.copy-id": Record<never, never>;
+  "common.button.install": Record<never, never>;
   "common.button.next-month": Record<never, never>;
   "common.button.next-page": Record<never, never>;
+  "common.button.not-now": Record<never, never>;
   "common.button.previous-month": Record<never, never>;
   "common.button.previous-page": Record<never, never>;
   "common.button.quit": Record<never, never>;
-  "common.button.register": Record<never, never>;
   "common.button.reload": Record<never, never>;
   "common.button.reset-filters": Record<never, never>;
   "common.button.retry": Record<never, never>;
@@ -93,8 +94,14 @@ export type CommonPlaceholders = {
     end: "string";
   };
   "common.notice.coding-agent-register-failed": Record<never, never>;
-  "common.notice.coding-agent-registered": Record<never, never>;
-  "common.notice.register-coding-agent": Record<never, never>;
+  "common.notice.coding-agent-restart": {
+    harness: "string";
+  };
+  "common.notice.register-coding-agent": {
+    harness: "string";
+  };
+  "common.notice.register-coding-agent-codex": Record<never, never>;
+  "common.notice.register-coding-agent-files": Record<never, never>;
   "common.overlay.unavailable": Record<never, never>;
   "common.palette.no-results": Record<never, never>;
   "common.quit.saves": Record<never, never>;
@@ -103,13 +110,40 @@ export type CommonPlaceholders = {
   "common.stale.label": {
     age: "string";
   };
-  "common.title.coding-agent-register-failed": Record<never, never>;
-  "common.title.coding-agent-registered": Record<never, never>;
+  "common.title.agent-failed": {
+    agent: "string";
+  };
+  "common.title.agent-failed-in": {
+    agent: "string";
+    place: "string";
+  };
+  "common.title.agent-finished": {
+    agent: "string";
+  };
+  "common.title.agent-finished-in": {
+    agent: "string";
+    place: "string";
+  };
+  "common.title.agent-needs-permission": {
+    agent: "string";
+  };
+  "common.title.agent-needs-permission-in": {
+    agent: "string";
+    place: "string";
+  };
+  "common.title.coding-agent-register-failed": {
+    harness: "string";
+  };
+  "common.title.coding-agent-registered": {
+    harness: "string";
+  };
   "common.title.pick-file": Record<never, never>;
   "common.title.pick-folder-register": Record<never, never>;
   "common.title.pick-folder-relocate": Record<never, never>;
   "common.title.quit": Record<never, never>;
-  "common.title.register-coding-agent": Record<never, never>;
+  "common.title.register-coding-agent": {
+    harness: "string";
+  };
   "document.button.check-again": Record<never, never>;
   "document.button.read": Record<never, never>;
   "document.label.saving": Record<never, never>;

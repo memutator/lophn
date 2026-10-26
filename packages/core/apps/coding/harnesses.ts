@@ -28,7 +28,6 @@ export function harnessList(
       harness,
       detected: detection?.discovery === "detected",
       version: detection?.version.value ?? null,
-      login: detection?.auth.result ?? "unknown",
       can_launch: canLaunch(harness),
       can_deliver_messages: canDeliverMessages(harness),
     };

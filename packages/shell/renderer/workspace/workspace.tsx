@@ -42,6 +42,7 @@ import {
   mapTabs,
   mergeDeskIntoDefault,
   minimizeFloat,
+  minimizeTab,
   moveTab,
   moveTabBy,
   openAcrossDesks,
@@ -236,6 +237,7 @@ export function Workspace(props: WorkspaceProps) {
     project: projectId,
     source,
     agentViewSource,
+    terminalStore: terminal?.store,
     host: () => host,
     onSettings,
     onProjectInstructions,
@@ -955,6 +957,7 @@ export function Workspace(props: WorkspaceProps) {
       dot: def?.dotOf?.(tab, host) ?? null,
       preview: tab.preview === true,
       unsaved: isUnsaved(tab.key),
+      renamable: def?.rename !== undefined,
     };
   };
 
@@ -1534,6 +1537,16 @@ export function Workspace(props: WorkspaceProps) {
                     if (mainSize === undefined) return;
                     setFloatFocused(true);
                     update(floatTab(latest.current, key, mainSize));
+                  }}
+                  onMinimize={(_pane, key) => {
+                    if (mainSize === undefined) return;
+                    update(minimizeTab(latest.current, key, mainSize));
+                  }}
+                  onRename={(key, name) => {
+                    const tab = findTab(latest.current, key);
+                    if (tab !== undefined) {
+                      tabKindOf(tab.kind)?.rename?.(tab, name, host);
+                    }
                   }}
                   {...detachProps}
                   pathOf={pathOfTab}

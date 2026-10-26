@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { useArtifactList } from "../artifact/use-artifact-list.ts";
 import { useSessions } from "../desktop/connection/events/hooks.tsx";
@@ -11,6 +18,7 @@ import { createWebviewHost } from "../browser/webview-host.tsx";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { DraftStore } from "../conversation/drafts.ts";
 import { useConversation } from "../conversation/window-deps.tsx";
+import type { TerminalStore } from "../terminal/store.ts";
 import { useSidebarAgents } from "./agents/sidebar-agents.ts";
 import { openAgent } from "./kinds/agent.tsx";
 import { openArtifact } from "./kinds/artifact.tsx";
@@ -30,6 +38,8 @@ interface TabHostSlicesInput {
   agentViewSource?: AgentTabSourceFactory;
   /** 이 창이 만든 TabHost. slice는 이벤트 때만 불러 최신 host를 본다. */
   host: () => TabHost;
+  /** 이 창의 터미널 store. 탭 줄이 터미널 안 agent의 icon·점을 읽으려고 바뀔 때 다시 그린다. */
+  terminalStore?: TerminalStore;
   /** 이 창에서 앱 화면을 여는 길. detached 창은 noop이다. */
   onSettings: (pane?: SettingsPane) => void;
   onProjectInstructions?: () => void;
@@ -46,6 +56,15 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
     onProjectInstructions,
   } = input;
   const agentsSource = source.agentsSource;
+  // 값은 쓰지 않고 agent가 바뀔 때 이 hook을 쓴 창이 다시 그려지게만 한다.
+  const terminalStore = input.terminalStore;
+  useSyncExternalStore(
+    useCallback(
+      (listener) => terminalStore?.subscribe(listener) ?? (() => {}),
+      [terminalStore],
+    ),
+    () => terminalStore?.version() ?? 0,
+  );
   const sidebarAgents = useSidebarAgents(agentsSource, project);
   const { sessions: sessionStates } = useSessions();
   const conversation = useConversation();

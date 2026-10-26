@@ -1,10 +1,9 @@
-// harness 감지다. 실행 파일(PATH와 home 기준 bin 폴더 몇 곳), version, 로그인을 확인한다. 확인하지 못하면
+// harness 감지다. 실행 파일(PATH와 home 기준 bin 폴더 몇 곳), version을 확인한다. 확인하지 못하면
 // 확인 못함(unknown)이고 부재나 성공으로 바꾸지 않는다. 결과는 저장하지 않는다. 사람 요청이 올 때마다 다시 한다.
 import { err, formatAt, ok, type Result } from "../../base/mod.ts";
 import {
   HARNESS_ADAPTERS,
   type HarnessAdapter,
-  type HarnessAuth,
   type HarnessCandidate,
   type HarnessDetection,
   type HarnessId,
@@ -38,7 +37,7 @@ type DetectPorts = {
 };
 
 type DetectInput = {
-  // version·login probe를 돌릴지다. `harness refresh`만 돈다.
+  // version probe를 돌릴지다. `harness refresh`만 돈다.
   probe: boolean;
   now: string;
 };
@@ -95,25 +94,20 @@ function unknownVersion(reason: string): HarnessVersion {
   return { result: "unknown", value: null, reason };
 }
 
-function unknownAuth(reason: string): HarnessAuth {
-  return { result: "unknown", evidence: null, reason };
-}
-
 async function probeOne(
   adapter: HarnessAdapter,
   executable: string,
   ports: DetectPorts,
 ): Promise<
-  { version: HarnessVersion; auth: HarnessAuth; results: HarnessProbeResult[] }
+  { version: HarnessVersion; results: HarnessProbeResult[] }
 > {
   const results: HarnessProbeResult[] = [];
   let version = unknownVersion("이 제품은 version 확인 방법이 없다");
-  let auth = unknownAuth("이 제품은 로그인 확인 방법이 없다");
-  const run = async (probe: "version" | "login", argv: readonly string[]) => {
+  const run = async (argv: readonly string[]) => {
     const ran = await ports.run([executable, ...argv.slice(1)]);
     if (!ran.ok) {
       results.push({
-        probe,
+        probe: "version",
         outcome: "unavailable",
         detail: ran.error.message,
       });
@@ -121,21 +115,21 @@ async function probeOne(
     }
     if (ran.value.exit === null) {
       results.push({
-        probe,
+        probe: "version",
         outcome: "timeout",
         detail: "시간 안에 끝나지 않았다",
       });
       return null;
     }
     results.push({
-      probe,
+      probe: "version",
       outcome: ran.value.exit === 0 ? "ok" : "failed",
       detail: `종료 ${ran.value.exit}`,
     });
     return ran.value;
   };
   if (adapter.version_probe !== null) {
-    const done = await run("version", adapter.version_probe.argv);
+    const done = await run(adapter.version_probe.argv);
     if (done === null) {
       version = unknownVersion("version 확인이 끝나지 않았다");
     } else {
@@ -151,27 +145,7 @@ async function probeOne(
         };
     }
   }
-  if (adapter.login_probe !== null) {
-    const done = await run("login", adapter.login_probe.argv);
-    if (done === null) {
-      auth = unknownAuth("로그인 확인이 끝나지 않았다");
-    } else if (done.exit === 0) {
-      auth = {
-        result: "verified",
-        evidence: "login status를 확인했다",
-        reason: null,
-      };
-    } else if (/not logged in|no credentials|logged out/i.test(done.text)) {
-      auth = {
-        result: "not_verified",
-        evidence: "login status가 로그인하지 않았다고 했다",
-        reason: null,
-      };
-    } else {
-      auth = unknownAuth(`로그인 확인이 종료 ${done.exit}로 끝났다`);
-    }
-  }
-  return { version, auth, results };
+  return { version, results };
 }
 
 async function detectOne(
@@ -185,12 +159,9 @@ async function detectOne(
       ? "version 확인 방법이 없다"
       : "version probe를 실행하지 않았다",
   );
-  let auth = unknownAuth(
-    input.probe ? "로그인 확인 방법이 없다" : "login probe를 실행하지 않았다",
-  );
   let results: HarnessProbeResult[] = [];
   if (input.probe && found.selected !== null) {
-    ({ version, auth, results } = await probeOne(
+    ({ version, results } = await probeOne(
       adapter,
       found.selected,
       ports,
@@ -203,7 +174,6 @@ async function detectOne(
     candidates: found.candidates,
     selected_executable: found.selected,
     version,
-    auth,
     probe_results: results,
   };
 }

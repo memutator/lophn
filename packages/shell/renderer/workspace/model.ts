@@ -135,6 +135,11 @@ export interface FloatItem {
   readonly minimized: boolean;
   /** 떠 온 pane 번호. dockTab이 쓴다. */
   readonly originPane: number;
+  /**
+   * 탭 menu의 Minimize로 칸에서 바로 접은 탭이 그 칸에서 있던 자리. 있으면 복원과 Dock이 floating이 아니라
+   * 이 자리로 돌려놓는다. 사람은 접었다 편 것으로 보지 떠 있는 창을 만든 것으로 보지 않는다.
+   */
+  readonly dockedAt?: number;
 }
 
 export const FLOAT_MIN: FloatArea = { width: 320, height: 200 };
@@ -487,7 +492,10 @@ export function floatTab(
   };
 }
 
-/** floated 탭을 떠 온 pane 끝에 넣고 고른다. 그 pane이 없으면 focus pane. */
+/**
+ * floated 탭을 떠 온 pane에 넣고 고른다. 칸에서 바로 접은 탭은 있던 자리, 아니면 끝이다. 그 pane이 없으면
+ * focus pane.
+ */
 export function dockTab(view: WorkspaceView, key: string): WorkspaceView {
   const item = view.floats.find((float) => float.tab.key === key);
   if (item === undefined) return view;
@@ -499,10 +507,33 @@ export function dockTab(view: WorkspaceView, key: string): WorkspaceView {
   return {
     ...view,
     focusedPane: target,
-    panes: view.panes.map((pane, index) =>
-      index === target ? { tabs: [...pane.tabs, tab], selected: key } : pane
-    ),
+    panes: view.panes.map((pane, index) => {
+      if (index !== target) return pane;
+      const at = Math.min(item.dockedAt ?? pane.tabs.length, pane.tabs.length);
+      return {
+        tabs: [...pane.tabs.slice(0, at), tab, ...pane.tabs.slice(at)],
+        selected: key,
+      };
+    }),
     floats: view.floats.filter((float) => float.tab.key !== key),
+  };
+}
+
+/** 칸의 탭을 바로 접는다. 복원하면 floating이 아니라 그 칸의 같은 자리로 돌아간다. */
+export function minimizeTab(
+  view: WorkspaceView,
+  key: string,
+  area: FloatArea,
+): WorkspaceView {
+  const pane = holderOf(view, key);
+  if (pane < 0) return view;
+  const dockedAt = view.panes[pane]!.tabs.findIndex((item) => item.key === key);
+  const floated = floatTab(view, key, area);
+  return {
+    ...floated,
+    floats: floated.floats.map((float) =>
+      float.tab.key === key ? { ...float, minimized: true, dockedAt } : float
+    ),
   };
 }
 
@@ -530,10 +561,11 @@ export function minimizeFloat(view: WorkspaceView, key: string): WorkspaceView {
   );
 }
 
-/** minimized를 풀고 맨 위로 올린다. */
+/** minimized를 풀고 맨 위로 올린다. 칸에서 바로 접은 탭은 그 칸의 있던 자리로 돌아간다. */
 export function restoreFloat(view: WorkspaceView, key: string): WorkspaceView {
   const item = view.floats.find((float) => float.tab.key === key);
   if (item === undefined) return view;
+  if (item.dockedAt !== undefined) return dockTab(view, key);
   const top = view.floats[view.floats.length - 1] === item;
   if (!item.minimized && top) return view;
   return {

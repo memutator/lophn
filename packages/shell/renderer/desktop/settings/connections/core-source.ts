@@ -1,8 +1,9 @@
 // CodingConnectionsSource를 main의 통로로 만든다. 제품마다 감지 결과와 다시 감지는 main IPC
-// (`lophnCoding`의 `harnesses`·`refresh`)이고, 기본 실행 옵션은 선언 설정의 읽기·쓰기다.
+// (`lophnCoding`의 `harnesses`·`refresh`·`hookStatus`·`installHooks`)이고, 기본 실행 옵션은 선언 설정의 읽기·쓰기다.
 // 응답은 main의 contract client가 이미 검사했다. 연결 생성·회수·token은 이 통로에 없다.
 import type {
   CodingReply,
+  HarnessHookView,
   HarnessName,
   HarnessSettingsView,
 } from "../../../../ipc/coding.ts";
@@ -23,6 +24,8 @@ const DEFAULT_MODEL_KEY = "coding-agent.default_model";
 interface CodingSettingsApi {
   harnesses(): Promise<CodingReply<readonly HarnessSettingsView[]>>;
   refresh(): Promise<CodingReply<unknown>>;
+  hookStatus(): Promise<CodingReply<readonly HarnessHookView[]>>;
+  installHooks(harness: HarnessName): Promise<CodingReply<HarnessHookView>>;
 }
 
 export function windowCodingApi(): CodingSettingsApi | undefined {
@@ -76,6 +79,24 @@ export function coreCodingConnectionsSource(
       }
       // 다시 감지한 결과는 저장돼 있다. 같은 모양으로 읽어 온다.
       return read();
+    },
+
+    async hookStatus() {
+      if (deps.coding === undefined) return unavailable;
+      try {
+        return mapped(await deps.coding.hookStatus());
+      } catch {
+        return unavailable;
+      }
+    },
+
+    async installHooks(harness) {
+      if (deps.coding === undefined) return unavailable;
+      try {
+        return mapped(await deps.coding.installHooks(harness));
+      } catch {
+        return unavailable;
+      }
     },
 
     async defaults() {

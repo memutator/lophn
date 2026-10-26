@@ -91,14 +91,13 @@ type EndingWording =
       | "terminal.status.ended"
       | "terminal.status.start-failed"
       | "terminal.status.unknown"
-      | "terminal.status.stop-unconfirmed"
-      | "terminal.status.not-started";
+      | "terminal.status.stop-unconfirmed";
     values?: undefined;
   };
 
 /** 끝난 모양의 문구와 색조. exit code는 확인된 값만 보인다. */
 export function endingWording(
-  ending: Ending | "not_started",
+  ending: Ending,
   exitCode: number | null,
 ): { wording: EndingWording; tone: StatusTone } {
   switch (ending) {
@@ -123,11 +122,6 @@ export function endingWording(
       return {
         wording: { key: "terminal.status.stop-unconfirmed" },
         tone: "serious",
-      };
-    case "not_started":
-      return {
-        wording: { key: "terminal.status.not-started" },
-        tone: "neutral",
       };
   }
 }
@@ -199,4 +193,29 @@ export function folderTitle(path: string): string | null {
   const trimmed = path.replace(/[\\/]+$/, "");
   const name = trimmed.split(/[\\/]/).pop() ?? "";
   return name.length > 0 ? name : null;
+}
+
+// agent TUI가 제목 앞에 붙이는 상태 글리프: braille spinner, 반원 spinner, Claude의 ✳, ASCII `* `·`. `.
+// spinner 한 프레임이 제목에 남아도(herdr #5358) 이름이 흔들리지 않게 앞에서 걷어 낸다.
+const STATUS_PREFIX = /^(?:[\u2800-\u28FF\u25D0-\u25D3\u2733]\s*|[*.]\s+)+/;
+
+/** 터미널 제목에서 앞의 상태 글리프를 뗀 이름. harness별 손질은 하지 않는다. */
+export function stripStatusGlyphs(title: string): string {
+  return title.replace(STATUS_PREFIX, "").trim();
+}
+
+/**
+ * 탭에 보일 이름. 사람이 붙인 이름, 그다음 coding agent가 도는 동안의 터미널 제목(`agentTitle`,
+ * agent가 없으면 null), 없으면 자동 이름이다. 일반 shell은 prompt가 제목을 계속 바꾸므로 제목을 쓰지 않는다.
+ */
+export function tabName(
+  { person, agentTitle, auto }: {
+    person: string | null;
+    agentTitle: string | null;
+    auto: string;
+  },
+): string {
+  if (person !== null) return person;
+  const stripped = agentTitle === null ? "" : stripStatusGlyphs(agentTitle);
+  return stripped.length > 0 ? stripped : auto;
 }

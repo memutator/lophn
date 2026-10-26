@@ -4,6 +4,28 @@
 const SECRET_NAME =
   /(TOKEN|SECRET|PASSWORD|CREDENTIAL|KEYCHAIN|HANDLE|API_KEY|AUTH)/i;
 const INTERNAL_NAME = /^(LOPHN_|ELECTRON_|NODE_CHANNEL_FD$)/;
+// 터미널을 연 process가 agent session 안에서 도는 중이면 그 session이 자식 env에 넣은 표지다. 새 터미널은
+// 사람의 것이라 물려받지 않는다(Claude Code는 CLAUDE_CODE_CHILD_SESSION이 있으면 transcript를 저장하지
+// 않는다). 이름은 각 CLI가 자식 process env에 넣는 목록이다. CLAUDE_CODE_USE_BEDROCK 같은 사용자 설정은
+// 지우지 않는다.
+const SESSION_MARKER_NAME = new Set([
+  "AI_AGENT",
+  "CLAUDECODE",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_SESSION_ATTENDED",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_PID",
+  "CLAUDE_EFFORT",
+  "CODEX_THREAD_ID",
+  "CODEX_TOOL_CALL_ID",
+  "CODEX_VERSION",
+  "CODEX_PERMISSION_PROFILE",
+  "CODEX_SANDBOX",
+  "CODEX_SANDBOX_NETWORK_DISABLED",
+]);
 const INTERNAL_VALUE = /lophn-(core|agent|shell):\/\/|127\.0\.0\.1:\d{2,5}/i;
 
 export function stripPlatformEnv(
@@ -13,6 +35,7 @@ export function stripPlatformEnv(
   for (const [name, value] of Object.entries(source)) {
     if (value === undefined) continue;
     if (INTERNAL_NAME.test(name)) continue;
+    if (SESSION_MARKER_NAME.has(name)) continue;
     if (SECRET_NAME.test(name)) continue;
     if (INTERNAL_VALUE.test(value)) continue;
     out[name] = value;

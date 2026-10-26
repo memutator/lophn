@@ -110,6 +110,7 @@ export const project = {
   "project-workspace.button.float-restore": "Restore",
   "project-workspace.button.launcher": "Launcher",
   "project-workspace.button.manage-agents": "Manage",
+  "project-workspace.button.minimized-close": "Close {title}",
   "project-workspace.button.minimized-count": "+{count}",
   "project-workspace.button.minimized-more":
     "{count, plural, one {# more minimized panel} other {# more minimized panels}}",
@@ -128,6 +129,8 @@ export const project = {
   "project-workspace.button.tab-detach": "Detach",
   "project-workspace.button.tab-float": "Float",
   "project-workspace.button.tab-keep-open": "Keep Open",
+  "project-workspace.button.tab-minimize": "Minimize",
+  "project-workspace.button.tab-rename": "Rename",
   "project-workspace.button.tab-reveal": "Reveal in Explorer",
   "project-workspace.empty.no-folders": "No project folder.",
   "project-workspace.empty.no-tabs": "Nothing open in this pane.",
@@ -181,6 +184,9 @@ export const project = {
   "project-workspace.label.sidebar-tab-agent": "Agents",
   "project-workspace.label.sidebar-tab-artifact": "Artifacts",
   "project-workspace.label.sidebar-tab-explorer": "Explorer",
+  "project-workspace.label.tab-finished": "Finished, not seen yet",
+  "project-workspace.label.tab-rename": "Tab name",
+  "project-workspace.label.tab-tooltip": "{title} · {state}",
   "project-workspace.label.tab-unsaved": "Unsaved changes",
   "project-workspace.notice.explorer-delete-file":
     "Are you sure you want to delete “{name}”? You can restore it from the Trash.",
@@ -197,7 +203,6 @@ export const project = {
   "run-list.label.cancelled": "Cancelled",
   "run-list.label.failed": "Failed",
   "terminal.button.close-terminal": "Close terminal",
-  "terminal.button.hide-notice": "Hide note",
   "terminal.button.keep-open": "Keep open",
   "terminal.button.start-again": "Start again",
   "terminal.button.try-again": "Try again",
@@ -215,15 +220,9 @@ export const project = {
   "terminal.label.folders": "Project folders",
   "terminal.label.output": "Terminal",
   "terminal.label.session-ended": "Session ended",
-  "terminal.notice.account":
-    "Commands in this terminal use your computer account's permissions. It isn't an app sandbox.",
-  "terminal.notice.folder":
-    "The terminal starts in the project folder. That only sets where it starts, not what it can reach.",
   "terminal.notice.next-handoff": "The next hand-off starts a new session.",
   "terminal.status.ended": "The shell ended.",
   "terminal.status.exited": "The shell ended with exit code {code}.",
-  "terminal.status.not-started":
-    "This terminal isn't on. lophn doesn't start it again by itself.",
   "terminal.status.output-missing": "Some earlier output isn't shown.",
   "terminal.status.start-failed": "The shell couldn't start.",
   "terminal.status.stop-unconfirmed":

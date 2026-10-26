@@ -4,12 +4,18 @@ import { workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { closeTerminalTab } from "../../terminal/deps.ts";
+import { tabName } from "../../terminal/model.ts";
 import { TerminalTab } from "../../terminal/terminal-tab.tsx";
 import type { TerminalOpenRequest } from "../../terminal/use-terminal-open-requests.ts";
 import type { TabItem } from "../model.ts";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
-import { VendorIcon, vendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
+import {
+  harnessVendorOf,
+  VendorIcon,
+  vendorOf,
+} from "../../parts/vendor-icon/vendor-icon.tsx";
+import type { TabDot } from "../../parts/tab-strip/tab-strip.tsx";
 
 const TAB_KEY = /^[A-Za-z0-9._:-]+$/;
 
@@ -20,12 +26,26 @@ export function openTerminal(host: TabHost): void {
   const terminal = host.props.terminal;
   if (!terminal) return;
   const key = `terminal-${Date.now().toString(36)}-${++terminalCount}`;
+  const title = host.projectTitle ?? t("project-workspace.label.kind-terminal");
   terminal.store.request(key);
   host.openTab({
     key,
     kind: "terminal",
-    title: host.projectTitle ?? t("project-workspace.label.kind-terminal"),
+    title,
+    fields: { auto: title },
   });
+}
+
+// 이름의 두 입력. 사람이 붙인 이름과 자동 이름(폴더 제목·coding session 제목)은 fields에 두고,
+// tab.title은 그 둘과 agent의 제목으로 정해진 지금 보이는 이름이다.
+function personOf(tab: TabItem): string | null {
+  const name = tab.fields?.name;
+  return typeof name === "string" && name.length > 0 ? name : null;
+}
+
+function autoOf(tab: TabItem): string {
+  const auto = tab.fields?.auto;
+  return typeof auto === "string" ? auto : tab.title;
 }
 
 /** coding 탭이면 표지를 읽는다. `fields`에 session·product·app이 있다. */
@@ -43,8 +63,29 @@ function codingOf(
  */
 function codingTabIcon(tab: TabItem): ReactNode | null {
   const coding = codingOf(tab);
-  const vendor = coding === null ? undefined : vendorOf(coding.product);
+  const vendor = coding === null
+    ? undefined
+    : harnessVendorOf(coding.product) ?? vendorOf(coding.product);
   return vendor === undefined ? null : <VendorIcon vendor={vendor} size={14} />;
+}
+
+// 사람이 plain 터미널에서 직접 띄운 coding agent도 main이 알려 주면 그 제품 아이콘을 쓴다.
+// 사람이 띄운 agent가 coding 탭의 표지보다 지금 실제로 도는 것이라 먼저 본다.
+function agentTabIcon(tab: TabItem, host: TabHost): ReactNode | null {
+  const agent = host.props.terminal?.store.agentOf(tab.key);
+  const vendor = agent === undefined
+    ? undefined
+    : harnessVendorOf(agent.harness);
+  return vendor === undefined ? null : <VendorIcon vendor={vendor} size={14} />;
+}
+
+/** running은 일하는 중, waiting은 사람을 기다림, 끝났는데 안 본 turn은 finished다. */
+function agentTabDot(tab: TabItem, host: TabHost): TabDot | null {
+  const agent = host.props.terminal?.store.agentOf(tab.key);
+  if (agent === undefined) return null;
+  if (agent.state === "running") return "working";
+  if (agent.state === "waiting") return "waiting";
+  return agent.state === "idle" && agent.unseen ? "finished" : null;
 }
 
 /** lophn(core 요청)이 연 coding 터미널 탭. 붙이기만 하고 보고 있는 탭을 바꾸지 않는다. */
@@ -61,6 +102,7 @@ export function openCodingTerminal(
     title: request.tab.title,
     folder: request.tab.folder,
     fields: {
+      auto: request.tab.title,
       session: request.coding.session,
       product: request.coding.product,
       app: request.coding.app,
@@ -85,29 +127,52 @@ export const terminalKind: TabKindDef = {
   icon: workspaceIcons.terminal,
   paletteIcon: "terminal",
   noReopen: true,
-  iconOf: (tab) => codingTabIcon(tab),
+  iconOf: (tab, host) => agentTabIcon(tab, host) ?? codingTabIcon(tab),
+  dotOf: agentTabDot,
+  rename(tab, name, host) {
+    const person = name?.trim() || null;
+    host.patchTab(tab.key, (current) => {
+      const { name: _, ...rest } = current.fields ?? {};
+      return {
+        fields: person === null ? rest : { ...rest, name: person },
+        title: tabName({
+          person,
+          agentTitle: host.props.terminal?.store.agentTitleOf(tab.key) ?? null,
+          auto: autoOf(current),
+        }),
+      };
+    });
+  },
   fromStored(stored, { key }) {
+    const person = typeof stored.name === "string" ? stored.name : null;
     const folder = stored.project_folder;
     if (typeof folder !== "string" || folder.length < 1) return null;
     const coding = stored.coding;
     if (typeof coding === "object" && coding !== null) {
       const { session, product, title } = coding as Record<string, unknown>;
       if (typeof session === "string" && typeof product === "string") {
+        const auto = typeof title === "string" ? title : product;
         return {
           key,
           kind: "terminal",
-          title: typeof title === "string" ? title : product,
+          title: person ?? auto,
           folder,
-          fields: { session, product },
+          fields: {
+            auto,
+            session,
+            product,
+            ...(person === null ? {} : { name: person }),
+          },
         };
       }
     }
-    const title = stored.title;
+    const auto = typeof stored.title === "string" ? stored.title : "";
     return {
       key,
       kind: "terminal",
-      title: typeof title === "string" ? title : "",
+      title: person ?? auto,
       folder,
+      fields: { auto, ...(person === null ? {} : { name: person }) },
     };
   },
   toStored(tab) {
@@ -116,18 +181,22 @@ export const terminalKind: TabKindDef = {
       tab.folder.length > 4096 || !TAB_KEY.test(tab.key)
     ) return null;
     const coding = codingOf(tab);
+    const auto = autoOf(tab);
+    const person = personOf(tab);
     return {
       kind: "terminal",
       key: tab.key,
       project_folder: tab.folder,
-      ...(coding !== null || tab.title.length < 1
+      // agent의 터미널 제목은 저장하지 않는다. 자동 이름과 사람이 붙인 이름만 남는다.
+      ...(coding !== null || auto.length < 1
         ? {}
-        : { title: tab.title.slice(0, 200) }),
+        : { title: auto.slice(0, 200) }),
+      ...(person === null ? {} : { name: person.slice(0, 200) }),
       ...(coding === null ? {} : {
         coding: {
           session: coding.session,
           product: coding.product,
-          ...(tab.title.length > 0 ? { title: tab.title } : {}),
+          ...(auto.length > 0 ? { title: auto.slice(0, 200) } : {}),
         },
       }),
     };
@@ -164,11 +233,19 @@ export const terminalKind: TabKindDef = {
         active={active}
         deps={terminal}
         coding={coding ?? undefined}
+        naming={{
+          name: { shown: tab.title, person: personOf(tab), auto: autoOf(tab) },
+          onName: (title) => host.patchTab(tab.key, { title }, { later: true }),
+        }}
         onStarted={(info) =>
-          host.patchTab(tab.key, (current) => ({
-            title: info.title ?? current.title,
-            folder: info.folderRef,
-          }))}
+          host.patchTab(tab.key, (current) => {
+            const auto = info.title ?? autoOf(current);
+            return {
+              title: personOf(current) ?? auto,
+              folder: info.folderRef,
+              fields: { ...current.fields, auto },
+            };
+          })}
       />
     );
   },

@@ -1,4 +1,23 @@
-The SVG files in this folder come from @lobehub/icons-static-svg 1.95.1.
+The SVG files in this folder come from the sources below. The marks themselves are trademarks of
+their owners; they are used here only to identify the product.
+
+1. @lobehub/icons-static-svg (MIT, license text below).
+   - 1.101.0, color: claude (claude-color.svg, the Claude mark).
+   - 1.101.0 (mono variants, "fill: currentColor"): amp, antigravity, cline, codebuddy,
+     command-code (commandcode.svg), copilot, cursor, devin, grok, hermes (hermesagent.svg),
+     kilo (kilocode.svg), kimi, kiro, muse, opencode, pi, qoder, qwen.
+   - 1.95.1: anthropic, deepseek, google, mistral, ollama, openai,
+     openrouter, xai.
+   The 1.101.0 files had their width/height/style attributes removed so CSS sets the size.
+2. emdash (https://github.com/generalaction/emdash, Apache-2.0, apps/emdash-desktop/src/assets/images
+   and packages/plugins/src/agents/impl/*/icon.ts), width/height removed, <title> added:
+   - droid (droid.svg), letta (letta.svg, #202020 changed to currentColor),
+     mimocode (mimocode.svg), prime-agent (prime-agent/icon.ts).
+3. omp: the "Oh My Pi" mark as emdash's packages/plugins/src/agents/impl/oh-my-pi/icon.ts
+   (Apache-2.0) and orca's OmpIcon (MIT) both draw it, without the dark background square;
+   gradient colors #ed4abf, #9b4dff, #5ad8e6 are the brand colors.
+
+The MIT license of @lobehub/icons-static-svg:
 
 MIT License
 

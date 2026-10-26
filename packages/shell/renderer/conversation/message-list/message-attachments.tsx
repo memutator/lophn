@@ -35,7 +35,7 @@ export function MessageAttachments(
           key={path}
           name={nameOf(path)}
           icon={<FileIcon name={nameOf(path)} size={16} />}
-          title={path}
+          path={path}
           {...(onOpenFile === undefined
             ? {}
             : { onOpen: () => onOpenFile(path) })}

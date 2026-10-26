@@ -14,7 +14,8 @@
   position: relative;
   flex: 1;
   min-height: var(--space-0);
-  padding: var(--space-2) var(--space-3);
+  /* 오른쪽 여백은 xterm scrollbar 자리(폭 --space-3, xterm-view)가 대신한다. 여백을 또 두면 오른쪽만 넓어진다. */
+  padding: var(--space-2) var(--space-0) var(--space-2) var(--space-3);
   background: var(--color-surface-base);
   overflow: hidden;
   /* scroll한 뒤 위·왼쪽에 생기는 xterm 그림자(기본 #000)는 밝은 바탕에서 띠로 보인다. 탭 본문과 이어지게 끈다. */
@@ -36,39 +37,14 @@
   height: 100%;
 }
 
-/* 첫 열기 안내. 두 문장을 따로 둔다. */
-.notice {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: var(--border-width) solid var(--color-border-base);
-  background: var(--color-surface-subtle);
-  color: var(--color-text-secondary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-}
-
-.noticeList {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: var(--space-0);
-  padding: var(--space-0);
-  list-style: none;
-}
-
-.noticeItem {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-}
-
-.noticeIcon {
-  flex: none;
-  margin-top: var(--space-1);
-  color: var(--color-text-muted);
+/* 여백과 scrollbar 자리 위에 덮는 canvas. full-screen TUI의 가장자리 cell 색을 그 자리에 늘린다(xterm-view
+   `paintEdges`). 출력 화면 위는 비워 두고 누름은 아래 터미널이 받는다. */
+.edge {
+  position: absolute;
+  inset: var(--space-0);
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
 /* 출력 옆 상태 줄. */

@@ -1,9 +1,11 @@
 // node-pty adapter. renderer는 이 모듈을 import하지 않는다.
 // POSIX는 PTY, Windows는 ConPTY. 제어 pipe fd는 child에 상속하지 않는다.
 
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 
 import { posixGroup, type ProcessGroup } from "./child-group.ts";
+import { foregroundOf } from "./foreground.ts";
 
 type PtyExit = { exitCode: number; signal?: number };
 
@@ -14,7 +16,13 @@ export interface PtyHandle {
   kill(signal?: string): void;
   onData(listener: (chunk: string) => void): { dispose(): void };
   onExit(listener: (exit: PtyExit) => void): { dispose(): void };
+  /** 지금 PTY foreground에서 도는 process의 argv. shell만 있거나 읽지 못하면 null. */
+  foreground(): string[] | null;
 }
+
+type NodePtyHandle = Omit<PtyHandle, "foreground"> & {
+  readonly process: string;
+};
 
 type PtySpawnOptions = {
   file: string;
@@ -44,7 +52,7 @@ type NodePty = {
       name: string;
       useConpty?: boolean;
     },
-  ): PtyHandle;
+  ): NodePtyHandle;
 };
 
 export function nodePtyAdapter(load: () => NodePty = defaultLoad): PtyAdapter {
@@ -52,13 +60,22 @@ export function nodePtyAdapter(load: () => NodePty = defaultLoad): PtyAdapter {
     spawn(options) {
       assertNotInherited(options);
       const pty = load();
-      return pty.spawn(options.file, options.args, {
+      const raw = pty.spawn(options.file, options.args, {
         cwd: options.cwd,
         env: options.env,
         cols: options.columns,
         rows: options.rows,
         name: "xterm-256color",
         useConpty: process.platform === "win32",
+      });
+      return Object.assign(raw, {
+        foreground: () =>
+          foregroundOf({
+            pid: raw.pid,
+            platform: process.platform,
+            processName: () => raw.process,
+            readFile: (path) => readFileSync(path, "utf8"),
+          }),
       });
     },
     group: posixGroup,

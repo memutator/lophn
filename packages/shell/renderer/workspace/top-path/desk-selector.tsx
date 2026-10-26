@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Menu, MenuIcon } from "@lophn/ui/overlay";
+import { Menu, MenuIcon, Tooltip } from "@lophn/ui/overlay";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
@@ -33,13 +33,13 @@ export interface DeskSelectorProps {
 const pixels = iconPixels("small");
 
 function InvalidMark() {
+  const label = t("project-workspace.label.desk-invalid");
   return (
-    <span
-      className={styles.invalid}
-      title={t("project-workspace.label.desk-invalid")}
-    >
-      <Icon icon={editorIcons.problem} pixels={pixels} />
-    </span>
+    <Tooltip content={label}>
+      <span className={styles.invalid} role="img" aria-label={label}>
+        <Icon icon={editorIcons.problem} pixels={pixels} />
+      </span>
+    </Tooltip>
   );
 }
 

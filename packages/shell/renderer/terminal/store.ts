@@ -3,7 +3,11 @@
 // renderer가 다시 생기면 sessionStorage의 참조만으로 살아 있는 host buffer를 다시
 // 읽는다. 출력·입력은 여기 두지 않는다. Electron을 다시 띄우면 sessionStorage가
 // 비어 탭은 종료된 자리표시가 된다.
-import type { TerminalApi } from "../../ipc/terminal.ts";
+import type {
+  TerminalAgent,
+  TerminalApi,
+  TerminalRuntime,
+} from "../../ipc/terminal.ts";
 import { type Phase, phaseOfRuntime } from "./model.ts";
 import type { TerminalOpenRequest } from "./use-terminal-open-requests.ts";
 
@@ -37,6 +41,12 @@ export class TerminalStore {
   readonly #entries = new Map<string, TerminalEntry>();
   readonly #listeners = new Set<() => void>();
   readonly #selectors = new Set<(key: string) => void>();
+  // 터미널 안에서 도는 coding agent. 탭 key가 아니라 terminal_ref로 둔다. main의 push가 탭 항목보다
+  // 먼저 올 수 있고, 탭을 옮겨도 PTY 참조는 같다.
+  readonly #agents = new Map<string, TerminalAgent>();
+  // program이 OSC로 낸 제목의 마지막 값. agent와 같은 이유로 terminal_ref로 둔다.
+  readonly #titles = new Map<string, string>();
+  #version = 0;
   readonly #storage: RefStorage | null;
   readonly #bridge: TerminalApi | null;
 
@@ -56,10 +66,63 @@ export class TerminalStore {
         session: value.session,
       });
     }
+    // store는 창과 함께 살아 해지하지 않는다.
+    bridge?.onRuntime((runtime) => this.noteRuntime(runtime));
+    bridge?.onReveal(({ terminal_ref }) => this.reveal(terminal_ref));
   }
 
   get(key: string): TerminalEntry | undefined {
     return this.#entries.get(key);
+  }
+
+  /** 탭의 터미널 안에서 도는 coding agent. 없으면 undefined다. */
+  agentOf(key: string): TerminalAgent | undefined {
+    const ref = this.#entries.get(key)?.terminalRef;
+    return ref == null ? undefined : this.#agents.get(ref);
+  }
+
+  /** coding agent가 도는 동안 그 터미널의 마지막 OSC 제목. agent가 없거나 제목이 없으면 null이다. */
+  agentTitleOf(key: string): string | null {
+    const ref = this.#entries.get(key)?.terminalRef;
+    return ref == null || !this.#agents.has(ref)
+      ? null
+      : this.#titles.get(ref) ?? null;
+  }
+
+  /** 터미널이 낸 제목을 적는다. 같으면 아무것도 하지 않는다. */
+  noteTitle(terminalRef: string, title: string): void {
+    if (this.#titles.get(terminalRef) === title) return;
+    this.#titles.set(terminalRef, title);
+    this.#version += 1;
+    for (const listener of this.#listeners) listener();
+  }
+
+  /** 항목이나 agent가 바뀔 때마다 오르는 값. 탭 줄이 useSyncExternalStore로 읽어 다시 그린다. */
+  version(): number {
+    return this.#version;
+  }
+
+  /** main이 보낸 runtime(push, open·snapshot 답)의 agent를 반영한다. 같으면 아무것도 하지 않는다. */
+  noteRuntime(runtime: TerminalRuntime): void {
+    const before = this.#agents.get(runtime.terminal_ref);
+    const next = runtime.agent;
+    if (
+      before?.harness === next?.harness && before?.state === next?.state &&
+      before?.unseen === next?.unseen
+    ) return;
+    if (next === undefined) this.#agents.delete(runtime.terminal_ref);
+    else this.#agents.set(runtime.terminal_ref, next);
+    this.#version += 1;
+    for (const listener of this.#listeners) listener();
+  }
+
+  /** OS 알림을 눌렀다. 이 창에 그 터미널 탭이 있으면 고르고, 없으면 무시한다. */
+  reveal(terminalRef: string): void {
+    for (const [key, entry] of this.#entries) {
+      if (entry.terminalRef !== terminalRef) continue;
+      for (const select of this.#selectors) select(key);
+      return;
+    }
   }
 
   /** 사람이 터미널 열기를 눌렀다. 탭 화면이 그려지면 시작한다. */
@@ -167,6 +230,7 @@ export class TerminalStore {
   }
 
   #changed(): void {
+    this.#version += 1;
     this.#save();
     for (const listener of this.#listeners) listener();
   }

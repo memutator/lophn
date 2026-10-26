@@ -60,9 +60,19 @@ export type WaitingEntry =
   // 놓친 차례를 사람이 정한다. id는 job run이다. session도 request도 없는 job 표의 줄이다.
   | Common & { readonly kind: "job_hold"; readonly hold: JobHold };
 
+/** 사람이 보지 않는 사이 turn이 끝난 터미널 탭의 coding agent. */
+export interface FinishedTerminal {
+  readonly terminalRef: string;
+  readonly harness: string;
+  /** 탭 제목. 없으면 시작 폴더 이름이다(OS 알림과 같은 규칙). */
+  readonly title: string;
+}
+
 export interface WaitingState {
   readonly entries: readonly WaitingEntry[];
+  /** entries 수. */
   readonly count: number;
+  readonly finished: readonly FinishedTerminal[];
 }
 
 const WAITING_CONDITION: EventCondition = {
@@ -85,6 +95,10 @@ const WAITING_CONDITION: EventCondition = {
  * 정상 시작의 SessionStart는 이보다 빨리 온다고 보고 정한 값이다(근거 기록 없음). 이보다 늦으면 항목이 뜬다.
  */
 const STARTING_QUIET_MS = 5000;
+
+function folderName(path: string): string {
+  return path.split(/[\\/]/).filter((part) => part !== "").at(-1) ?? "";
+}
 
 /** `setTimeout` 꼴. 전역을 읽지 않으려고 인자로 받는다. */
 export interface Timer {
@@ -112,8 +126,14 @@ export function createWaitingStore(
   terminals: Pick<TerminalApi, "onRuntime"> | null,
   timer: Timer,
 ): WaitingStore {
-  const state = createValueStore<WaitingState>({ entries: [], count: 0 });
+  const state = createValueStore<WaitingState>({
+    entries: [],
+    count: 0,
+    finished: [],
+  });
   let entries = new Map<string, WaitingEntry>();
+  // main이 push하는 runtime에서만 안다. 창이 뜨기 전에 끝난 turn은 다음 push 때 보인다.
+  const finished = new Map<string, FinishedTerminal>();
   // session의 agent와 place는 SessionStarted와 snapshot에 실려 온다.
   const sessions = new Map<
     string,
@@ -171,7 +191,30 @@ export function createWaitingStore(
 
   function publish() {
     const list = [...entries.values()];
-    state.set({ entries: list, count: list.length });
+    state.set({
+      entries: list,
+      count: list.length,
+      finished: [...finished.values()],
+    });
+  }
+
+  // 탭 점이 finished인 때와 같다: turn이 끝났고(idle) 사람이 아직 보지 않았다. unseen은 main이 지운다.
+  function noteFinished(runtime: TerminalRuntime) {
+    const agent = runtime.agent;
+    const ref = runtime.terminal_ref;
+    if (agent?.state === "idle" && agent.unseen) {
+      const next = {
+        terminalRef: ref,
+        harness: agent.harness,
+        title: runtime.title || folderName(runtime.cwd_at_start),
+      };
+      const before = finished.get(ref);
+      if (before?.harness === next.harness && before.title === next.title) {
+        return;
+      }
+      finished.set(ref, next);
+    } else if (!finished.delete(ref)) return;
+    publish();
   }
 
   function put(entry: WaitingEntry) {
@@ -364,7 +407,10 @@ export function createWaitingStore(
     get: state.get,
     subscribe: state.subscribe,
     start() {
-      const stopRuntime = terminals?.onRuntime(watchStart);
+      const stopRuntime = terminals?.onRuntime((runtime) => {
+        noteFinished(runtime);
+        watchStart(runtime);
+      });
       const stopEvents = client.subscribe(
         WAITING_CONDITION,
         syncOnReady({ read: readAll, replace, apply }),

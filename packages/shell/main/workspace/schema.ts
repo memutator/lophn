@@ -59,6 +59,8 @@ const layoutFloatSchema = z.strictObject({
   rect: windowBounds,
   minimized: z.boolean(),
   origin_pane: z.number().int().min(0).max(1),
+  // 탭 menu의 Minimize로 칸에서 바로 접은 탭의 그 칸 안 자리. 복원하면 floating이 아니라 이 자리로 간다.
+  docked_at: z.number().int().min(0).max(1000).optional(),
 });
 
 // detached 탭. OS 창 하나가 탭 하나를 가진다. bounds는 화면 좌표다.

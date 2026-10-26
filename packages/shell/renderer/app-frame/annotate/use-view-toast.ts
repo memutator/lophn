@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { OverlayApi, OverlayIdentity } from "../../../ipc/overlay.ts";
-import { overlayConsumer } from "../../overlay/consumer.ts";
+import { centerAnchor, overlayConsumer } from "../../overlay/consumer.ts";
 
 interface ViewToast {
   readonly title: string;
@@ -16,15 +16,6 @@ const ACT = "act";
 
 /** 시간이 가지 않는 timer. 알림을 놓치지 않게 사람이 닫을 때까지 둔다. */
 export const STAY = { set: () => 0, clear: () => {} };
-
-function windowRect() {
-  return {
-    x: 0,
-    y: 0,
-    width: Math.max(1, Math.round(globalThis.innerWidth)),
-    height: Math.max(1, Math.round(globalThis.innerHeight)),
-  };
-}
 
 let serial = 0;
 
@@ -87,7 +78,7 @@ export function useViewToast(overlay: OverlayApi | undefined): {
     void consumer.current.open({
       requestId,
       kind: "notification",
-      anchorRect: windowRect(),
+      anchorRect: centerAnchor(),
       model: {
         label: toast.title,
         ...(toast.body === undefined ? {} : { text: toast.body }),

@@ -9,6 +9,8 @@ const layout = z.strictObject({
   key: tabKey,
   // plain terminal의 탭 제목. coding 탭은 `coding.title`을 쓴다.
   title: z.string().min(1).max(200).optional(),
+  // 사람이 탭에 붙인 이름. 있으면 자동 이름(title)과 agent의 터미널 제목보다 먼저 보인다.
+  name: z.string().min(1).max(200).optional(),
   project_folder: z.string().min(1).max(4096),
   // lophn(core 요청)이 연 coding 터미널 탭의 표지. 없으면 사람이 연 shell 탭이다.
   coding: z.strictObject({

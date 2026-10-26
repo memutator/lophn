@@ -408,6 +408,14 @@ export function KitOverlay() {
             {...stop}
           />
         </Row>
+        <Row label="lead + action">
+          <Toast
+            title="Claude Code is waiting for you"
+            lead={<Icon icon={FileText} pixels={16} />}
+            actions={[{ id: "view", label: "View", variant: "primary" }]}
+            {...stop}
+          />
+        </Row>
         <Row label="3 actions">
           <Toast
             title="Update ready"
@@ -431,7 +439,7 @@ export function KitOverlay() {
       </Section>
       <Section
         title="ToastStack"
-        note="Toast들을 오른쪽 아래 층에 쌓는다. 아래 상자 오른쪽 아래를 본다."
+        note="Toast들을 위쪽 가운데 층에 쌓는다. 아래 상자 위쪽 가운데를 본다. 행동 단추는 닫기 단추와 같은 오른쪽 끝이다."
       >
         <Stage height={300}>
           {() => (

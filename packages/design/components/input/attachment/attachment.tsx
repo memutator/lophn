@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
 import { Icon } from "../../primitives/icon/icon.tsx";
+import { Tooltip } from "../../overlay/tooltip/tooltip.tsx";
 import { tokens } from "../../../tokens.ts";
 import { componentMark, pixels } from "../../_shared/shared.ts";
 import styles from "./attachment.module.css";
@@ -14,18 +15,19 @@ function Remove(
   },
 ) {
   return (
-    <button
-      type="button"
-      className={badge ? styles.badge : styles.remove}
-      aria-label={label}
-      title={label}
-      onClick={(event) => {
-        event.stopPropagation();
-        onRemove();
-      }}
-    >
-      <Icon icon={X} pixels={pixels(tokens.attachment.removeIcon)} />
-    </button>
+    <Tooltip content={label}>
+      <button
+        type="button"
+        className={badge ? styles.badge : styles.remove}
+        aria-label={label}
+        onClick={(event) => {
+          event.stopPropagation();
+          onRemove();
+        }}
+      >
+        <Icon icon={X} pixels={pixels(tokens.attachment.removeIcon)} />
+      </button>
+    </Tooltip>
   );
 }
 
@@ -34,8 +36,8 @@ export interface AttachmentChipProps {
   name: string;
   // 이름 앞 종류 아이콘(FileIcon 같은).
   icon: ReactNode;
-  // hover에 보이는 전체 값(경로).
-  title?: string;
+  // hover tooltip에 보이는 전체 값(경로).
+  path?: string;
   // 주면 이름을 누를 수 있다(파일 열기).
   onOpen?: () => void;
   // 주면 오른쪽에 [x]가 생긴다.
@@ -46,8 +48,7 @@ export interface AttachmentChipProps {
 
 // 보낼 말에 붙였거나 보낸 말에 붙어 있는 파일 하나.
 export function AttachmentChip(
-  { name, icon, title, onOpen, onRemove, removeLabel = "" }:
-    AttachmentChipProps,
+  { name, icon, path, onOpen, onRemove, removeLabel = "" }: AttachmentChipProps,
 ) {
   const body = (
     <>
@@ -55,12 +56,8 @@ export function AttachmentChip(
       <span className={styles.name}>{name}</span>
     </>
   );
-  return (
-    <span
-      className={styles.chip}
-      title={title}
-      {...componentMark("AttachmentChip")}
-    >
+  const chip = (
+    <span className={styles.chip} {...componentMark("AttachmentChip")}>
       {onOpen === undefined
         ? <span className={styles.label}>{body}</span>
         : (
@@ -73,6 +70,7 @@ export function AttachmentChip(
         : <Remove label={removeLabel} onRemove={onRemove} badge={false} />}
     </span>
   );
+  return path === undefined ? chip : <Tooltip content={path}>{chip}</Tooltip>;
 }
 
 export interface AttachmentTileProps {

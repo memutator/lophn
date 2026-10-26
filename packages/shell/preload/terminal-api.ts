@@ -11,11 +11,13 @@ import {
   TERMINAL_OPEN_CHANNEL,
   TERMINAL_RESIZE_CHANNEL,
   TERMINAL_RESTART_CHANNEL,
+  TERMINAL_REVEAL_CHANNEL,
   TERMINAL_SNAPSHOT_CHANNEL,
   TERMINAL_STATE_CHANNEL,
   type TerminalApi,
   type TerminalBridgeOpen,
   type TerminalCall,
+  type TerminalReveal,
   type TerminalRuntime,
 } from "../ipc/terminal.ts";
 
@@ -52,6 +54,11 @@ function isBridgeOpen(value: unknown): value is TerminalBridgeOpen {
     typeof open.terminal_ref === "string" && typeof open.url === "string";
 }
 
+function isReveal(value: unknown): value is TerminalReveal {
+  return typeof value === "object" && value !== null &&
+    typeof (value as { terminal_ref?: unknown }).terminal_ref === "string";
+}
+
 export function createTerminalApi(transport: TerminalTransport): TerminalApi {
   async function invoke<T>(
     channel: string,
@@ -82,6 +89,14 @@ export function createTerminalApi(transport: TerminalTransport): TerminalApi {
         transport.on(TERMINAL_BRIDGE_OPEN_CHANNEL, callback);
         return () =>
           transport.removeListener(TERMINAL_BRIDGE_OPEN_CHANNEL, callback);
+      },
+      onReveal(listener) {
+        const callback = (_event: unknown, payload: unknown) => {
+          if (isReveal(payload)) listener(payload);
+        };
+        transport.on(TERMINAL_REVEAL_CHANNEL, callback);
+        return () =>
+          transport.removeListener(TERMINAL_REVEAL_CHANNEL, callback);
       },
       onRuntime(listener) {
         const callback = (_event: unknown, payload: unknown) => {

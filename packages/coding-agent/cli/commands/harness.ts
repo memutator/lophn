@@ -9,7 +9,7 @@ export const HARNESS_COMMANDS: readonly CommandEntry[] = [
   entryOf("harness detect", "harness 실행 파일을 찾는다", {
     run: (_input, ctx) => runHarnessDetect("detect", ctx.local),
   }),
-  entryOf("harness refresh", "harness를 찾고 version·login을 확인한다", {
+  entryOf("harness refresh", "harness를 찾고 version을 확인한다", {
     run: (_input, ctx) => runHarnessDetect("refresh", ctx.local),
   }),
   entryOf("harness install", "hook을 놓고 지운 skill의 옛 사본을 지운다", {
@@ -21,7 +21,11 @@ export const HARNESS_COMMANDS: readonly CommandEntry[] = [
           message: "harness·dry_run·command 입력이 맞지 않다",
         });
       }
-      const done = await runHarnessInstall(checked.data, ctx.local.home);
+      const done = await runHarnessInstall(
+        checked.data,
+        ctx.local.home,
+        ctx.local.now(),
+      );
       return done.ok ? ok(done.value) : done;
     },
   }),

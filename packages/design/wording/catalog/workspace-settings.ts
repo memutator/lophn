@@ -102,6 +102,7 @@ export const workspaceSettings = {
   "settings.button.choose-in-agents": "Choose in Agents",
   "settings.button.connect-with": "Connect {name}",
   "settings.button.detect-again": "Detect again",
+  "settings.button.install-hooks": "Install hooks",
   "settings.button.remove-entry": "Remove {item}",
   "settings.button.reset-default": "Reset to default",
   "settings.button.revoke": "Revoke",
@@ -111,12 +112,15 @@ export const workspaceSettings = {
   "settings.diagnostics.last-run": "Last run at {time}.",
   "settings.diagnostics.not-run":
     "No check has run yet. Checks run only when you press the button.",
+  "settings.empty.coding-search": "No product matches your search.",
   "settings.empty.general": "No settings are declared yet.",
   "settings.empty.shell-rules": "No rules here yet.",
   "settings.error.coding-defaults":
     "The options weren't saved. Nothing changed. Try again.",
   "settings.error.coding-detect":
     "Couldn't check again. The earlier results are still shown.",
+  "settings.error.coding-hooks-install":
+    "The hooks weren't installed. Nothing changed. Try again.",
   "settings.error.font-name":
     "Use only letters, numbers, spaces, hyphens, and underscores.",
   "settings.error.value-invalid":
@@ -165,24 +169,23 @@ export const workspaceSettings = {
   "settings.label.code-font-system": "System monospace",
   "settings.label.coding-check-failed": "Couldn't check",
   "settings.label.coding-col-executable": "Executable",
+  "settings.label.coding-col-hooks": "Hooks",
   "settings.label.coding-col-product": "Product",
-  "settings.label.coding-col-sign-in": "Sign-in",
-  "settings.label.coding-col-skill": "Skill",
   "settings.label.coding-col-takes-task": "Takes a task",
   "settings.label.coding-col-turn-end": "Turn-end signal",
   "settings.label.coding-default-none": "No default",
   "settings.label.coding-default-product": "Default product",
   "settings.label.coding-found": "Found",
+  "settings.label.coding-hooks-failed": "Couldn't read or write",
+  "settings.label.coding-hooks-installed": "Installed",
+  "settings.label.coding-hooks-missing": "Not installed",
   "settings.label.coding-launch-no": "Can't take a task",
   "settings.label.coding-launch-yes": "Ready",
   "settings.label.coding-model": "Model",
   "settings.label.coding-not-checked": "Not checked",
   "settings.label.coding-not-found": "Not found",
-  "settings.label.coding-sign-in-not-found": "No sign-in found",
-  "settings.label.coding-sign-in-unknown": "Sign-in not checked",
   "settings.label.coding-signal-no": "No signal",
   "settings.label.coding-signal-yes": "Has signal",
-  "settings.label.coding-signed-in": "Signed in",
   "settings.label.coding-stage-connect": "Connects to lophn",
   "settings.label.coding-target": "your coding agents",
   "settings.label.coding-version": "Version {version}",
@@ -252,6 +255,8 @@ export const workspaceSettings = {
   "settings.note.coding-defaults-saved": "Saved.",
   "settings.note.coding-detect-note":
     "These are the results from the last check. lophn only checks again when you ask.",
+  "settings.note.coding-hooks":
+    "Hooks let lophn show when a coding agent you start in a terminal is working or waiting for you. Installing them adds lines to the product's own settings file.",
   "settings.note.coding-model":
     "Leave it empty to use the product's own default model.",
   "settings.note.coding-signal":

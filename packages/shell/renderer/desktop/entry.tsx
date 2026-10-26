@@ -16,6 +16,7 @@ import {
   type Route,
 } from "./router.ts";
 import { catalogSource } from "./palette/core-catalog.ts";
+import type { HookPromptApi } from "./hook-prompt/hook-prompt-host.tsx";
 import { windowTerminalDeps } from "../terminal/deps.ts";
 import { TerminalStore } from "../terminal/store.ts";
 import { createXtermView } from "../terminal/xterm-view.ts";
@@ -134,7 +135,7 @@ const start: Route | undefined = seed
 // 창마다 하나. 탭과 host runtime의 대응만 갖고 출력은 갖지 않는다.
 const terminal = windowTerminalDeps(
   new TerminalStore(),
-  (host) => createXtermView(host),
+  (host, edge) => createXtermView(host, edge),
 );
 
 // 창 안 팔레트. overlay와 shortcut 통로는 desktop preload가 연다.
@@ -168,6 +169,9 @@ const palette: PaletteDeps | undefined =
       search: fileSearch(catalog, coreFileSearchSource(core)),
     }
     : undefined;
+
+// main이 묻는 전역 hook 설치 확인. desktop preload에만 있다.
+const hookPrompt = (globalThis as { lophnCoding?: HookPromptApi }).lophnCoding;
 
 // 앱 패널 탭과 세션 앱 카드의 view 통로. desktop 창 preload에만 있다. 화면 선언 read로
 // 프로젝트 탭의 앱 패널 열기를 세운다.
@@ -207,6 +211,7 @@ mount(
                       views={views}
                       annotate={annotate}
                       overlay={bridges.lophnShell}
+                      hookPrompt={hookPrompt}
                       instructions={mock?.instructions ??
                         windowInstructionsSource()}
                       agentViewSource={agentViewSource}

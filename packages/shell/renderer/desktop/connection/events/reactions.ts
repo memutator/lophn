@@ -1,4 +1,5 @@
 // event를 넣으면 반응(toast) 목록이 나오는 순수 함수. 문구 key는 toast 호스트의 wording이 채운다.
+// agent의 turn 끝·권한 물음·질문 알림은 여기 없다. 터미널 agent와 같은 규칙으로 shell main이 정한다.
 import type { BusEvent } from "../../../../../protocol/events/mod.ts";
 
 export type ReactionAction =
@@ -17,9 +18,7 @@ export interface Reaction {
 
 /** toast가 듣는 event 종류. */
 export const REACTION_EVENT_TYPES = [
-  "TurnRequestOpened",
   "ActivationConsentRequested",
-  "QuestionAsked",
   "AppRestartHalted",
   "KindViolationFound",
 ] as const;
@@ -48,23 +47,10 @@ export function reactionsOf(
 ): readonly Reaction[] {
   if (origin === "snapshot") return NONE;
   switch (event.type) {
-    case "TurnRequestOpened":
-      return toast("permission", event.payload.request.id, {
-        session: event.session,
-      }, { kind: "waiting" });
     case "ActivationConsentRequested":
       return toast("activation", event.payload.release, {
         app: event.payload.app,
       }, { kind: "waiting" });
-    case "QuestionAsked":
-      return toast(
-        "question",
-        event.payload.group,
-        { session: event.session },
-        {
-          kind: "waiting",
-        },
-      );
     case "AppRestartHalted":
       // 열 session이 없어 단추는 그 앱 공간을 연다.
       return toast(

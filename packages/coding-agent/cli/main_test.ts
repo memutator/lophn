@@ -14,7 +14,7 @@ function sink(): { stream: WritableStream<Uint8Array>; text(): string } {
   };
 }
 
-Deno.test("hook CLI는 token이 없으면 아무것도 보내지 않고 stdin도 읽지 않고 조용히 성공한다", async () => {
+Deno.test("hook CLI는 LPN_TERMINAL_HOOK이 없으면 아무것도 보내지 않고 stdin도 읽지 않고 조용히 성공한다", async () => {
   const stdout = sink();
   const stderr = sink();
   let sent = false;

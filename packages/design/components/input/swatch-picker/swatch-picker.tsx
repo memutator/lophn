@@ -1,11 +1,12 @@
 import { useId } from "react";
 import { useField } from "../field/field-context.ts";
 import { componentMark } from "../../_shared/shared.ts";
+import { Tooltip } from "../../overlay/tooltip/tooltip.tsx";
 import styles from "./swatch-picker.module.css";
 
 export interface SwatchOption {
   value: string;
-  /** 화면 읽기 도구와 hover가 말하는 이름. 색만으로 구별하지 않는다. */
+  /** 화면 읽기 도구와 tooltip이 말하는 이름. 색만으로 구별하지 않는다. */
   label: string;
   /** 견본 칸의 CSS background. 색 하나이거나 gradient다. */
   swatch: string;
@@ -34,25 +35,24 @@ export function SwatchPicker(
       {...componentMark("SwatchPicker")}
     >
       {options.map((option) => (
-        <label
-          key={option.value}
-          className={styles.option}
-          title={option.label}
-        >
-          <input
-            type="radio"
-            name={name}
-            value={option.value}
-            checked={option.value === value}
-            aria-label={option.label}
-            className={styles.input}
-            onChange={() => onValueChange(option.value)}
-          />
-          <span
-            className={styles.swatch}
-            style={{ background: option.swatch }}
-          />
-        </label>
+        <Tooltip key={option.value} content={option.label}>
+          <label className={styles.option}>
+            <input
+              type="radio"
+              name={name}
+              value={option.value}
+              checked={option.value === value}
+              aria-label={option.label}
+              className={styles.input}
+              onChange={() =>
+                onValueChange(option.value)}
+            />
+            <span
+              className={styles.swatch}
+              style={{ background: option.swatch }}
+            />
+          </label>
+        </Tooltip>
       ))}
     </div>
   );

@@ -1,5 +1,6 @@
 // harness 감지, 터미널 supervisor, 터미널·coding IPC.
-import { app, BrowserWindow, dialog } from "electron";
+import { app } from "electron";
+import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -13,6 +14,8 @@ import {
   type CodingTerminalRequests,
   createCodingTerminalRequests,
 } from "../../terminal/coding/requests.ts";
+import { createHookAsker } from "../../terminal/agent/hook-ask.ts";
+import { createHookInstaller } from "../../terminal/agent/hook-install.ts";
 import { createTerminalIpc } from "../../terminal/ipc.ts";
 import { createSupervisor, spawnNodeHost } from "../../terminal/supervisor.ts";
 import {
@@ -25,15 +28,16 @@ import {
   registerCodingIpc,
   removeCodingIpc,
 } from "../coding-ipc.ts";
-import { TERMINAL_STATE_CHANNEL } from "../../../ipc/terminal.ts";
 import {
   canDeliverMessages,
   canLaunch,
   HARNESS_ADAPTERS,
+  HARNESS_HOOKS,
   harnessDetectionSchema,
 } from "../../../../protocol/coding-agent/mod.ts";
-import { word } from "../wording.ts";
+import { createAgentWiring } from "./agent.ts";
 import { createBridgeWiring } from "./bridge.ts";
+import { createNoticeWiring } from "./notice.ts";
 import type { CallResult, Registered, ShellContext } from "./context.ts";
 
 type CallSession = {
@@ -134,58 +138,80 @@ export function register(ctx: ShellContext): Coding {
   // folder_ref는 documents의 등록 폴더 read를 다시 해석하고, 출력은 잡아 당기는
   // snapshot으로만 renderer에 다시 보인다.
   const terminalFocus = new TerminalFocusTable();
-  // 전역 hook·skill 등록을 OS 확인 창으로 묻고 결과를 보인다(quit 확인과 같은 종류). headless는 창을 안 띄운다.
-  async function box(options: Electron.MessageBoxOptions) {
-    const parent = BrowserWindow.getFocusedWindow();
-    return parent
-      ? await dialog.showMessageBox(parent, options)
-      : await dialog.showMessageBox(options);
-  }
-  const register = {
-    async ask(input: { harness: string; files: string[] }): Promise<boolean> {
-      if (ctx.headless.headless) return false;
-      const reply = await box({
-        type: "question",
-        buttons: [word("common.button.register"), word("common.button.cancel")],
-        defaultId: 1,
-        cancelId: 1,
-        noLink: true,
-        message: word("common.title.register-coding-agent"),
-        detail: `${word("common.notice.register-coding-agent")}\n\n${
-          harnessLabel(input.harness)
-        }\n${input.files.join("\n")}`,
-      });
-      return reply.response === 0;
+  // 전역 hook·skill 등록은 lophn 창의 dialog로 묻는다. 그 터미널을 고른 창, 모르면 마지막으로 focus를 받은
+  // 창이다(detached 창은 창 밖에서 온 일을 받지 않는다). headless는 묻지 않는다.
+  const asker = createHookAsker({
+    pick(terminalRef) {
+      if (ctx.headless.headless) return null;
+      const live = [...ctx.windows].filter((window) => !window.isDestroyed());
+      const owner = terminalRef === undefined
+        ? undefined
+        : terminalFocus.contentsOf(terminalRef);
+      const window = live.find((item) => item.webContents.id === owner) ??
+        live.filter((item) => !ctx.detached.has(item)).at(-1);
+      if (window === undefined) return null;
+      const contents = window.webContents;
+      return {
+        contentsId: contents.id,
+        send: (channel, payload) => contents.send(channel, payload),
+        // 창이 닫히거나 reload되면 dialog가 사라져 답이 오지 않는다.
+        onGone(run) {
+          const navigated = (
+            details: Electron.Event<
+              Electron.WebContentsDidStartNavigationEventParams
+            >,
+          ) => {
+            if (details.isMainFrame && !details.isSameDocument) run();
+          };
+          contents.on("did-start-navigation", navigated);
+          contents.on("render-process-gone", run);
+          window.on("closed", run);
+          return () => {
+            contents.off("did-start-navigation", navigated);
+            contents.off("render-process-gone", run);
+            window.off("closed", run);
+          };
+        },
+      };
     },
-    async show(
+    requestId: () => randomUUID(),
+  });
+  const register = {
+    ask: (input: { harness: string; files: string[]; terminalRef?: string }) =>
+      asker.ask({ ...input, label: harnessLabel(input.harness) }),
+    show: (
       input: {
         harness: string;
         ok: boolean;
         files: string[];
         message?: string;
+        terminalRef?: string;
       },
-    ): Promise<void> {
-      if (ctx.headless.headless) return;
-      await box({
-        type: input.ok ? "info" : "error",
-        buttons: [word("common.button.close")],
-        noLink: true,
-        message: word(
-          input.ok
-            ? "common.title.coding-agent-registered"
-            : "common.title.coding-agent-register-failed",
-        ),
-        detail: input.ok
-          ? `${word("common.notice.coding-agent-registered")}\n\n${
-            input.files.join("\n")
-          }`
-          : `${word("common.notice.coding-agent-register-failed")}\n\n${
-            input.message ?? ""
-          }`,
-      });
-    },
+    ) => asker.show({ ...input, label: harnessLabel(input.harness) }),
   };
-  // core 요청으로 연 coding 탭. 결과와 끝은 사람 token으로 core에 알린다. 전역 hook·skill 등록은 CLI가 한다.
+  // 전역 hook 등록의 묻기·놓기. coding 탭을 열 때와 사람 터미널이 harness를 처음 알아봤을 때, Settings가 쓴다.
+  const installer = createHookInstaller({
+    runCli: lophnCli === null
+      ? null
+      : childCliRunner({ command: lophnCli, env: cliEnv, timeout_ms: 15_000 }),
+    hookCommand: app.isPackaged ? undefined : lophnCli ?? undefined,
+    hasHook: (harness) =>
+      harness in HARNESS_HOOKS &&
+      HARNESS_HOOKS[harness as keyof typeof HARNESS_HOOKS] !== null,
+    register,
+  });
+  const bridgeWiring = createBridgeWiring(ctx);
+  // 터미널 안 coding agent의 hook socket·상태·알림. 사람 터미널은 foreground process가 harness를 알려 준다.
+  const notice = createNoticeWiring(ctx, terminalFocus);
+  const agent = createAgentWiring({
+    ctx,
+    notice,
+    runDir: bridgeWiring.runDir,
+    terminals,
+    identified: (harness, terminalRef) =>
+      installer.ensureOnce(harness, terminalRef),
+  });
+  // core 요청으로 연 coding 탭. 결과와 끝은 사람 token으로 core에 알린다.
   const codingTerminals = createCodingTerminalRequests({
     supervisor: terminals,
     focus: terminalFocus,
@@ -193,18 +219,11 @@ export function register(ctx: ShellContext): Coding {
       ctx.coreInternal("memory", "coding_agent_terminals", "result", body),
     reportExited: (body) =>
       ctx.coreInternal("memory", "coding_agent_terminals", "exited", body),
-    runCli: lophnCli === null
-      ? null
-      : childCliRunner({ command: lophnCli, env: cliEnv, timeout_ms: 15_000 }),
-    register,
-    hookCommand: app.isPackaged ? undefined : lophnCli ?? undefined,
-    publish: (runtime) => {
-      for (const window of ctx.windows) {
-        if (!window.isDestroyed()) {
-          window.webContents.send(TERMINAL_STATE_CHANNEL, runtime);
-        }
-      }
-    },
+    installer,
+    hooks: agent.hooks,
+    opened: (terminalRef, harness) =>
+      agent.tracker.registerCoding(terminalRef, harness),
+    publish: (runtime) => agent.publish(agent.tracker.decorate(runtime)),
   });
   // Gateway가 main에만 보내는 coding 터미널 요청.
   ctx.relay.frames.push((frame) => {
@@ -217,7 +236,6 @@ export function register(ctx: ShellContext): Coding {
   const mockFolder = process.env.LOPHN_DEV_MOCK === "1"
     ? join(dataRoot, "mock-terminal")
     : null;
-  const bridgeWiring = createBridgeWiring(ctx);
   const terminalIpc = createTerminalIpc({
     registry: overlays.overlayRegistry(),
     focus: terminalFocus,
@@ -232,6 +250,9 @@ export function register(ctx: ShellContext): Coding {
     host: terminals,
     coding: codingTerminals,
     bridge: bridgeWiring.bridge,
+    hooks: agent.hooks,
+    shellInit: agent.shellInit,
+    agent: agent.tracker,
   });
   registerTerminalIpc(ipc, terminalIpc);
   // Settings › Coding agents의 감지. desktop 창 본문만 부른다.
@@ -240,6 +261,8 @@ export function register(ctx: ShellContext): Coding {
     createCodingIpc({
       registry: overlays.overlayRegistry(),
       harnesses: harnessSettings,
+      hooks: installer,
+      asker,
     }),
   );
   ctx.windowHooks.created.push((window) =>
@@ -257,6 +280,8 @@ export function register(ctx: ShellContext): Coding {
       removeTerminalIpc({ handle: () => {}, removeHandler: ipc.removeHandler });
       removeCodingIpc(ipc);
       terminals.stop();
+      agent.stop();
+      notice.stop();
       bridgeWiring.stop();
     },
   };

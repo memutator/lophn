@@ -31,6 +31,14 @@ const PALETTE_ICONS = [
   "panel",
   "bookmark",
 ] as const;
+// lophn agent의 얼굴. renderer의 AvatarProfile 중 main이 core에서 읽어 줄 수 있는 둘이다(올린 이미지는 renderer만 읽을
+// 주소가 있어 이니셜로 갈음한다).
+export const avatarProfileSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("icon"), icon: z.string().min(1).max(64) })
+    .strict(),
+  z.object({ kind: z.literal("initial"), text: z.string().min(1).max(8) })
+    .strict(),
+]);
 const overlayModelSchema = z.object({
   label: z.string().max(256),
   text: z.string().max(4096).optional(),
@@ -38,6 +46,13 @@ const overlayModelSchema = z.object({
   search: z.boolean().optional(),
   // notification만 쓴다.
   tone: z.enum(["neutral", "error"]).optional(),
+  // notification만 쓴다. 제목 앞의 그림: coding agent harness의 제품 아이콘이나 lophn agent의 avatar.
+  lead: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("harness"), harness: z.string().min(1).max(64) })
+      .strict(),
+    z.object({ kind: z.literal("avatar"), profile: avatarProfileSchema })
+      .strict(),
+  ]).optional(),
   // notification은 앞의 세 choice를 단추로 쓴다.
   choices: z.array(
     z.object({
@@ -92,6 +107,8 @@ export type Rect = z.infer<typeof rectSchema>;
 export type OverlayOpen = z.infer<typeof overlayOpenSchema>;
 export type OverlayIdentity = z.infer<typeof overlayCloseSchema>;
 export type OverlayModel = z.infer<typeof overlayModelSchema>;
+export type OverlayLead = NonNullable<OverlayModel["lead"]>;
+export type AvatarFace = z.infer<typeof avatarProfileSchema>;
 type OverlayUpdate = z.infer<typeof overlayUpdateSchema>;
 export type PaletteIcon = typeof PALETTE_ICONS[number];
 export type OverlayResult = z.infer<typeof overlayResultSchema>;

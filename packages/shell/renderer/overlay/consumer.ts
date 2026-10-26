@@ -10,6 +10,25 @@ import {
   type OverlayReply,
 } from "../../ipc/overlay.ts";
 
+/**
+ * 창 가운데 1px. dialog·toast처럼 자리를 main이 정하는 표면의 anchor로 쓴다. main은 anchor 전체가 본문(상단
+ * bar 아래) 안이어야 연다. 창 전체(y=0부터)나 상단 bar 안의 단추를 주면 조용히 거절된다(toast가 한 번도
+ * 뜨지 않았고 최소화 칩의 닫기가 막혔다).
+ */
+export function centerAnchor(): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  return {
+    x: Math.max(0, Math.round(globalThis.innerWidth / 2)),
+    y: Math.max(0, Math.round(globalThis.innerHeight / 2)),
+    width: 1,
+    height: 1,
+  };
+}
+
 type Completion = OverlayOutcome | OverlayDragUpdate | OverlayQuery;
 type Opener = {
   element: HTMLElement;

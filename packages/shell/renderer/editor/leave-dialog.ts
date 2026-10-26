@@ -4,21 +4,12 @@
 import { t } from "@lophn/wording";
 
 import type { OverlayApi } from "../../ipc/overlay.ts";
-import { overlayConsumer } from "../overlay/consumer.ts";
+import { centerAnchor, overlayConsumer } from "../overlay/consumer.ts";
 import type { LeaveAsker, LeaveChoice } from "./sessions.ts";
 
 const KEEP = "keep-editing";
 const CHECK = "check-again";
 const DISCARD = "discard-changes";
-
-function centerRect() {
-  return {
-    x: Math.max(0, Math.round(globalThis.innerWidth / 2)),
-    y: Math.max(0, Math.round(globalThis.innerHeight / 2)),
-    width: 1,
-    height: 1,
-  };
-}
 
 let requests = 0;
 
@@ -49,7 +40,7 @@ export function overlayLeaveAsker(api: OverlayApi): LeaveAsker {
       const opened = await consumer.open({
         requestId,
         kind: "dialog",
-        anchorRect: centerRect(),
+        anchorRect: centerAnchor(),
         model: {
           label: t("document.title.unsaved"),
           text: name === null

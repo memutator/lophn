@@ -58,7 +58,7 @@ agent event와 화면
 - 화면은 조건을 걸고 ready를 받은 뒤에 snapshot을 읽는다. 읽고 나서 걸면 그 사이 event를 놓친다. 끊긴 연결은 replay 없이 처음부터 다시 맞춘다.
 - session을 건 조건은 session이 없는 event(남지 않는 event)와 맞지 않는다. 그런 event는 종류 조건으로만 받는다. 섞어 쓰면 전역 대기 목록이 조용히 빈다.
 - Gateway는 느린 구독자를 버퍼 한도에서 끊고 Bus는 던진 sink를 해제한다. 구독자 하나 때문에 publish가 막히면 command 경로가 막힌다.
-- core는 toast를 모르고 toast는 renderer의 정책이다. 끊긴 사이 놓친 toast는 다시 띄우지 않는다. 앱 멈춤과 kind 위반의 toast는 남지 않는 event를 듣는다.
+- core는 toast를 모르고 toast는 shell의 정책이다. 끊긴 사이 놓친 toast는 다시 띄우지 않는다. 앱 멈춤과 kind 위반의 toast는 renderer가 남지 않는 event를 듣고 띄운다. agent의 turn 끝·권한 물음·질문 알림은 renderer가 아니라 shell main이 같은 event를 듣고 터미널 agent와 같은 규칙으로 toast나 OS 알림을 정한다(`architecture/terminal-agent.md`).
 - 사람 화면에 가는 것은 앱 화면과 agent 결과(대화)뿐이다. call의 진행은 agent끼리의 일이라 화면의 대상이 아니다.
 - 꺼졌다 켜지면 돌던 turn은 interrupted로 닫고 그 turn의 turn 안 request와 질문은 cancelled다. activation 동의 대기는 apps의 표에 남는다(`architecture/activation.md`). coding agent는 신호를 받기 전까지 unknown이다.
 

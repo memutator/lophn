@@ -24,6 +24,7 @@ import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
 import { createAppearanceApi } from "./appearance-api.ts";
 import { createArtifactApi } from "./artifact-api.ts";
 import { createBrowserApi } from "./browser-api.ts";
+import { createNoticeApi } from "./notice-api.ts";
 import { createTerminalApi } from "./terminal-api.ts";
 import { createViewsApi } from "./views-api.ts";
 import { createWindowControlsApi } from "./window-controls-api.ts";
@@ -80,6 +81,8 @@ if (role === "shell") {
     "lophnTerminal",
     createTerminalApi(ipcRenderer),
   );
+  // 알림 toast와 Agent 탭의 보임·못 본 상태. 어디에 알릴지는 main이 정한다.
+  contextBridge.exposeInMainWorld("lophnNotice", createNoticeApi(ipcRenderer));
   contextBridge.exposeInMainWorld(
     "lophnShortcuts",
     createShortcutApi(ipcRenderer),

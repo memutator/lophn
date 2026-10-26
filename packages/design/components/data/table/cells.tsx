@@ -4,6 +4,7 @@ import {
   formatRelativeTime,
   t,
 } from "@lophn/wording";
+import { Tooltip } from "../../overlay/tooltip/tooltip.tsx";
 import { CopyButton } from "../../primitives/copy-button/copy-button.tsx";
 import type { Clipboard } from "../../_shared/shared.ts";
 import { shortId } from "./model.ts";
@@ -18,9 +19,16 @@ export interface CellFormat {
 }
 
 export function TextCell({ value }: { value: string | undefined }) {
-  // 말줄임된 글의 전체는 tooltip으로 읽는다.
-  return <td className={styles.text} data-kind="text" title={value}>{value}
-  </td>;
+  // 말줄임된 글의 전체는 tooltip으로 읽는다. 빈 값은 빈 bubble이 뜨지 않게 감싸지 않는다.
+  return (
+    <td className={styles.text} data-kind="text">
+      {value === undefined || value === "" ? value : (
+        <Tooltip content={value}>
+          <span>{value}</span>
+        </Tooltip>
+      )}
+    </td>
+  );
 }
 
 /** 링크 단추에 다는 data 속성. 값이 ""이면 값 없는 속성(`data-x`)이다. */
@@ -38,20 +46,22 @@ export function LinkCell(
     return <td className={styles.text} data-kind="link" />;
   }
   return (
-    <td className={styles.text} data-kind="link" title={value}>
-      <button
-        {...dataAttributes}
-        type="button"
-        className={styles.link}
-        onClick={onOpen}
-        onKeyDown={(event) => {
-          if (event.key !== "Enter") return;
-          event.preventDefault();
-          onOpen();
-        }}
-      >
-        {value}
-      </button>
+    <td className={styles.text} data-kind="link">
+      <Tooltip content={value}>
+        <button
+          {...dataAttributes}
+          type="button"
+          className={styles.link}
+          onClick={onOpen}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            onOpen();
+          }}
+        >
+          {value}
+        </button>
+      </Tooltip>
     </td>
   );
 }
@@ -81,9 +91,11 @@ export function TimeCell(
   });
   return (
     <td className={styles.text} data-kind="time">
-      <time dateTime={value.toISOString()} title={absolute}>
-        {formatRelativeTime(value, format.now, format.locale)}
-      </time>
+      <Tooltip content={absolute}>
+        <time dateTime={value.toISOString()}>
+          {formatRelativeTime(value, format.now, format.locale)}
+        </time>
+      </Tooltip>
     </td>
   );
 }

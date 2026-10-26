@@ -2,6 +2,7 @@
 // 일치한 부분이 든 snippet을 보인다. 결과를 누르면 그 줄에서 파일을 열라고 부르는 쪽에 알린다.
 import { useEffect, useRef, useState } from "react";
 import { Field, Input, Select } from "@lophn/ui/input";
+import { Tooltip } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import { rootChoices } from "../sidebar/explorer.tsx";
@@ -186,10 +187,12 @@ export function FileSearch(props: FileSearchProps) {
             )
             : files.map(([path, rows]) => (
               <section key={path} className={styles.finderFile}>
-                <h2 className={styles.finderPath} title={path}>
-                  {rows[0].path}
-                  <span className={styles.finderCount}>{rows.length}</span>
-                </h2>
+                <Tooltip content={path}>
+                  <h2 className={styles.finderPath}>
+                    {rows[0].path}
+                    <span className={styles.finderCount}>{rows.length}</span>
+                  </h2>
+                </Tooltip>
                 {rows.map((row) => {
                   const id = `${path}:${row.line}`;
                   return (

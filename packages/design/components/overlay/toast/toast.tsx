@@ -103,24 +103,10 @@ export function Toast(
       )}
       <div className={styles.text}>
         <p className={styles.title}>
-          {lead}
+          {lead !== undefined && <span className={styles.lead}>{lead}</span>}
           <span>{title}</span>
         </p>
         {body !== undefined && <p className={styles.body}>{body}</p>}
-        {actions.length > 0 && (
-          <div className={styles.actions}>
-            {actions.map((action) => (
-              <Button
-                key={action.id}
-                size="sm"
-                variant={action.variant}
-                onClick={() => onAction?.(action.id)}
-              >
-                {action.label}
-              </Button>
-            ))}
-          </div>
-        )}
       </div>
       <IconButton
         icon={X}
@@ -128,11 +114,25 @@ export function Toast(
         size="sm"
         onClick={onClose}
       />
+      {actions.length > 0 && (
+        <div className={styles.actions}>
+          {actions.map((action) => (
+            <Button
+              key={action.id}
+              size="sm"
+              variant={action.variant}
+              onClick={() => onAction?.(action.id)}
+            >
+              {action.label}
+            </Button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-// toast를 오른쪽 아래 toast 층에 쌓는다.
+// toast를 위쪽 가운데 toast 층에 쌓는다.
 export function ToastStack({ children }: { children: ReactNode }) {
   return (
     <div className={styles.stack} {...componentMark("ToastStack")}>

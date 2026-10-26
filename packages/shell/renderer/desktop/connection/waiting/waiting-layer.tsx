@@ -5,8 +5,10 @@ import { t } from "@lophn/wording";
 import { IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import { notificationsIcon } from "../../../icons/mod.ts";
+import type { LophnNoticeApi } from "../../../../ipc/notice.ts";
 import { useWaiting } from "../events/hooks.tsx";
 import { createValueStore } from "../events/store.ts";
+import { type FinishedRow, useFinished } from "./finished.ts";
 import type { SettledRow } from "./settled.ts";
 import { useSettled } from "./settled.ts";
 import { type PanelInitial, WaitingPanel } from "./waiting-panel.tsx";
@@ -32,13 +34,17 @@ export interface WaitingLayerProps {
   readonly initial?: PanelInitial & {
     readonly open?: boolean;
     readonly settled?: readonly SettledRow[];
+    readonly finished?: readonly FinishedRow[];
   };
 }
 
 export function WaitingLayer(
   { onOpenSession, onAnswerInTerminal, initial }: WaitingLayerProps,
 ) {
-  const { entries, count } = useWaiting();
+  const { entries } = useWaiting();
+  const finished = useFinished(initial?.finished);
+  // 배지는 "볼 것이 있다"는 뜻이라 끝난 줄도 센다.
+  const count = entries.length + finished.length;
   const { open, setOpen } = useWaitingPanel();
   const settled = useSettled(entries, initial?.settled);
   const initialOpen = initial?.open;
@@ -91,6 +97,7 @@ export function WaitingLayer(
             <WaitingPanel
               entries={entries}
               settled={settled}
+              finished={finished}
               initial={initial}
               onOpenSession={(session) => {
                 setOpen(false);
@@ -99,6 +106,12 @@ export function WaitingLayer(
               onAnswerInTerminal={(session) => {
                 setOpen(false);
                 onAnswerInTerminal(session);
+              }}
+              onShowFinished={(target) => {
+                setOpen(false);
+                // main이 그 탭이 있는 창을 앞으로 가져오고 탭을 고른다(toast를 누를 때와 같다).
+                (globalThis as { lophnNotice?: LophnNoticeApi }).lophnNotice
+                  ?.open(target);
               }}
             />
           </div>

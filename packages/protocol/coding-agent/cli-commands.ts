@@ -1,7 +1,7 @@
 // coding agent CLI의 명령 목록. 이름, 입력, 출력, 인증을 묶는다.
 // 인증은 셋이다. `coding_token`은 환경 변수 `LOPHN_CODING_TOKEN`이다. `user`는 coding token이 있으면
 // 그것, 없으면 data root의 user token file이다(사람이 쓰는 run 명령). `local` 명령은 token 없이
-// core를 부르지 않고 Settings와 shell main이 exec로 부른다.
+// core를 부르지 않는다(harness 명령은 Settings와 shell main이 exec로 부르고, `hook`은 harness가 부른다).
 // `app`은 route가 정한 대로다. core는 token에서 `app`을 채우지 않아 필수인 명령은
 // 앱 id를 입력에 넣어야 한다. 앱 id는 session을 맡긴 쪽이 첫 prompt로 알려 준다.
 import { z } from "zod";
@@ -17,14 +17,13 @@ import { idSchema } from "../base/ids.ts";
 import { jsonValueSchema } from "../base/json-values.ts";
 import { toolNameSchema } from "../apps/channel-values.ts";
 import { harnessDetectionSchema, harnessIdSchema } from "./harnesses.ts";
-import { codingHook, HOOK_ROUTES } from "./hook.ts";
 import { HARNESS_ROUTES } from "./harness-report.ts";
 import { codingMessageSend, MESSAGE_ROUTES } from "./message.ts";
+import { HOOK_EVENT_MAX_CHARS } from "./terminal-hook.ts";
 import { TERMINAL_ROUTES } from "./terminal-requests.ts";
 
 // coding route 배열이다. `registry.ts`가 펼쳐 모은다.
 export const CODING_ROUTES = [
-  ...HOOK_ROUTES,
   ...MESSAGE_ROUTES,
   ...HARNESS_ROUTES,
   ...TERMINAL_ROUTES,
@@ -112,13 +111,17 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
     codingMessageSend.input,
     codingMessageSend.output,
   ),
-  // `hook <harness> <event>`. payload는 stdin JSON이다. token이 없으면 아무것도 하지 않고 성공한다.
-  token(
-    "hook",
-    codingHook,
-    (codingHook.input as z.ZodObject).omit({ payload: true }),
-    codingHook.output,
-  ),
+  // `hook <harness> <event>`. payload는 stdin JSON이다. core를 부르지 않고 터미널의 hook socket에 한 줄을 쓴다.
+  // `LPN_TERMINAL_HOOK`이 없으면 아무것도 하지 않고 성공한다.
+  {
+    name: "hook",
+    auth: "local",
+    input: withCommon(z.strictObject({
+      harness: harnessIdSchema,
+      event: z.string().min(1).max(HOOK_EVENT_MAX_CHARS),
+    })),
+    output: z.unknown(),
+  },
   token("app show", appGet, appGet.input, appGet.output),
   token(
     "app preview start",

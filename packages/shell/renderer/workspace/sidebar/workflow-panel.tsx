@@ -2,6 +2,7 @@
 // 목록과 도는 수는 이 탭이 읽고, instance가 바뀔 때마다 다시 읽는다.
 import { useEffect, useState } from "react";
 import { ErrorState } from "@lophn/ui/feedback";
+import { Tooltip } from "@lophn/ui/overlay";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
@@ -84,40 +85,44 @@ export function WorkflowPanel(
     >
       {loaded.entries.map((entry) => {
         const count = running[entry.name] ?? 0;
-        return (
-          <li key={entry.name} className={styles.li}>
-            <button
-              type="button"
-              className={`${styles.item} ${styles.sessionItem}`}
-              data-workflow={entry.name}
-              data-active={entry.name === active || undefined}
-              title={entry.problem?.message}
-              onClick={() => onOpen(entry.name)}
+        const row = (
+          <button
+            type="button"
+            className={`${styles.item} ${styles.sessionItem}`}
+            data-workflow={entry.name}
+            data-active={entry.name === active || undefined}
+            onClick={() => onOpen(entry.name)}
+          >
+            <span
+              className={styles.runIcon}
+              data-tone={entry.invalid ? "critical" : undefined}
             >
+              <Icon
+                icon={entry.invalid
+                  ? editorIcons.problem
+                  : commonIcons.workflow}
+                pixels={iconPixels("base")}
+              />
+            </span>
+            <span className={styles.sessionText}>
+              <span className={styles.label}>{entry.name}</span>
               <span
-                className={styles.runIcon}
+                className={styles.sessionMeta}
                 data-tone={entry.invalid ? "critical" : undefined}
               >
-                <Icon
-                  icon={entry.invalid
-                    ? editorIcons.problem
-                    : commonIcons.workflow}
-                  pixels={iconPixels("base")}
-                />
+                {metaOf(entry, count)}
               </span>
-              <span className={styles.sessionText}>
-                <span className={styles.label}>{entry.name}</span>
-                <span
-                  className={styles.sessionMeta}
-                  data-tone={entry.invalid ? "critical" : undefined}
-                >
-                  {metaOf(entry, count)}
-                </span>
-              </span>
-              {count > 0
-                ? <span className={styles.workflowDot} aria-hidden="true" />
-                : null}
-            </button>
+            </span>
+            {count > 0
+              ? <span className={styles.workflowDot} aria-hidden="true" />
+              : null}
+          </button>
+        );
+        return (
+          <li key={entry.name} className={styles.li}>
+            {entry.problem === null
+              ? row
+              : <Tooltip content={entry.problem.message}>{row}</Tooltip>}
           </li>
         );
       })}

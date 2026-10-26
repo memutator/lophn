@@ -122,6 +122,9 @@ export type ProjectPlaceholders = {
   "project-workspace.button.float-restore": Record<never, never>;
   "project-workspace.button.launcher": Record<never, never>;
   "project-workspace.button.manage-agents": Record<never, never>;
+  "project-workspace.button.minimized-close": {
+    title: "string";
+  };
   "project-workspace.button.minimized-count": {
     count: "string";
   };
@@ -145,6 +148,8 @@ export type ProjectPlaceholders = {
   "project-workspace.button.tab-detach": Record<never, never>;
   "project-workspace.button.tab-float": Record<never, never>;
   "project-workspace.button.tab-keep-open": Record<never, never>;
+  "project-workspace.button.tab-minimize": Record<never, never>;
+  "project-workspace.button.tab-rename": Record<never, never>;
   "project-workspace.button.tab-reveal": Record<never, never>;
   "project-workspace.empty.no-folders": Record<never, never>;
   "project-workspace.empty.no-tabs": Record<never, never>;
@@ -204,6 +209,12 @@ export type ProjectPlaceholders = {
   "project-workspace.label.sidebar-tab-agent": Record<never, never>;
   "project-workspace.label.sidebar-tab-artifact": Record<never, never>;
   "project-workspace.label.sidebar-tab-explorer": Record<never, never>;
+  "project-workspace.label.tab-finished": Record<never, never>;
+  "project-workspace.label.tab-rename": Record<never, never>;
+  "project-workspace.label.tab-tooltip": {
+    title: "string";
+    state: "string";
+  };
   "project-workspace.label.tab-unsaved": Record<never, never>;
   "project-workspace.notice.explorer-delete-file": {
     name: "string";
@@ -228,7 +239,6 @@ export type ProjectPlaceholders = {
   "run-list.label.cancelled": Record<never, never>;
   "run-list.label.failed": Record<never, never>;
   "terminal.button.close-terminal": Record<never, never>;
-  "terminal.button.hide-notice": Record<never, never>;
   "terminal.button.keep-open": Record<never, never>;
   "terminal.button.start-again": Record<never, never>;
   "terminal.button.try-again": Record<never, never>;
@@ -242,14 +252,11 @@ export type ProjectPlaceholders = {
   "terminal.label.folders": Record<never, never>;
   "terminal.label.output": Record<never, never>;
   "terminal.label.session-ended": Record<never, never>;
-  "terminal.notice.account": Record<never, never>;
-  "terminal.notice.folder": Record<never, never>;
   "terminal.notice.next-handoff": Record<never, never>;
   "terminal.status.ended": Record<never, never>;
   "terminal.status.exited": {
     code: "string";
   };
-  "terminal.status.not-started": Record<never, never>;
   "terminal.status.output-missing": Record<never, never>;
   "terminal.status.start-failed": Record<never, never>;
   "terminal.status.stop-unconfirmed": Record<never, never>;

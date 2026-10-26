@@ -43,28 +43,6 @@ const harnessVersionSchema = pairedReason({
 
 export type HarnessVersion = z.infer<typeof harnessVersionSchema>;
 
-// auth 파일 존재만으로 verified 금지. 원문은 없다.
-const AUTH_RESULTS = [
-  "verified",
-  "not_verified",
-  "unknown",
-  "error",
-  "unverified_capability",
-] as const;
-
-export const authResultSchema = z.enum(AUTH_RESULTS);
-
-const harnessAuthSchema = z.object({
-  result: authResultSchema,
-  evidence: z.string().min(1).nullable(),
-  reason: z.string().min(1).nullable(),
-}).refine(
-  (value) => (value.evidence !== null) === (value.reason === null),
-  { message: "auth evidence and reason must pair" },
-);
-
-export type HarnessAuth = z.infer<typeof harnessAuthSchema>;
-
 // raw stdout는 없다. classifier·timeout·side effects만 남긴다.
 const harnessProbeResultSchema = z.object({
   probe: z.string().min(1),
@@ -81,7 +59,6 @@ export const harnessDetectionSchema = z.object({
   candidates: z.array(harnessCandidateSchema),
   selected_executable: z.string().min(1).nullable(),
   version: harnessVersionSchema,
-  auth: harnessAuthSchema,
   probe_results: z.array(harnessProbeResultSchema),
 }).refine(
   (value) =>

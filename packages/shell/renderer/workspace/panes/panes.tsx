@@ -6,7 +6,7 @@ import {
 import { Icon, IconButton } from "@lophn/ui/primitives";
 import { Menu, MenuIcon, Tooltip } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
-import { workspaceIcons } from "../../icons/mod.ts";
+import { editorIcons, workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import {
@@ -42,6 +42,10 @@ interface PanesProps {
   onPin: (key: string) => void;
   /** 탭 menu의 Float. */
   onFloat: (pane: number, key: string) => void;
+  /** 탭 menu의 Minimize. floated로 만들며 바로 접는다. */
+  onMinimize: (pane: number, key: string) => void;
+  /** 이름 바꾸기 입력의 확정. null이면 사람이 붙인 이름을 지운다. renamable 탭에만 온다. */
+  onRename: (key: string, name: string | null) => void;
   /** 탭 menu의 Detach. 없으면 항목을 두지 않는다. */
   onDetach?: (pane: number, key: string) => void;
   /** Detach할 수 있는 탭인지. 없으면 모두 할 수 있다. */
@@ -88,6 +92,8 @@ export function Panes(
     onCloseMany,
     onPin,
     onFloat,
+    onMinimize,
+    onRename,
     onDetach,
     canDetach,
     pathOf,
@@ -198,6 +204,8 @@ export function Panes(
               onCloseMany={(scope, key) => onCloseMany(index, scope, key)}
               onPin={onPin}
               onFloat={(key) => onFloat(index, key)}
+              onMinimize={(key) => onMinimize(index, key)}
+              onRename={onRename}
               onDetach={onDetach && ((key) => onDetach(index, key))}
               canDetach={canDetach}
               onCopyPath={onCopyPath}
@@ -230,6 +238,8 @@ interface PaneViewProps {
   onCloseMany: (scope: CloseScope, key: string) => void;
   onPin: (key: string) => void;
   onFloat: (key: string) => void;
+  onMinimize: (key: string) => void;
+  onRename: (key: string, name: string | null) => void;
   onDetach?: (key: string) => void;
   canDetach?: (tab: TabItem) => boolean;
   onCopyPath: (path: string, relative: boolean) => void;
@@ -256,6 +266,8 @@ function PaneView(
     onCloseMany,
     onPin,
     onFloat,
+    onMinimize,
+    onRename,
     onDetach,
     canDetach,
     onCopyPath,
@@ -268,6 +280,7 @@ function PaneView(
   const [menu, setMenu] = useState<
     { key: string; x: number; y: number } | null
   >(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
   // Explorer의 파일을 이 칸 위로 끄는 중이다.
   const [dropping, setDropping] = useState(false);
   const menuTab = menu === null
@@ -275,6 +288,13 @@ function PaneView(
     : pane.tabs.find((tab) => tab.key === menu.key);
   const menuPath = menuTab === undefined ? null : pathOf(menuTab);
   const menuItems = menuTab === undefined ? [] : [
+    ...(stripTab(menuTab).renamable
+      ? [{
+        id: "rename",
+        label: t("project-workspace.button.tab-rename"),
+        leading: <MenuIcon icon={editorIcons.edit} />,
+      }]
+      : []),
     {
       id: "close",
       label: t("project-workspace.button.tab-close"),
@@ -307,6 +327,11 @@ function PaneView(
       label: t("project-workspace.button.tab-float"),
       leading: <MenuIcon icon={workspaceIcons.float} />,
       separatorBefore: true,
+    },
+    {
+      id: "minimize",
+      label: t("project-workspace.button.tab-minimize"),
+      leading: <MenuIcon icon={workspaceIcons.minimize} />,
     },
     ...(onDetach && (canDetach?.(menuTab) ?? true)
       ? [{
@@ -351,6 +376,8 @@ function PaneView(
     else if (id === "saved") onCloseMany("saved", menuTab.key);
     else if (id === "all") onCloseMany("all", menuTab.key);
     else if (id === "float") onFloat(menuTab.key);
+    else if (id === "minimize") onMinimize(menuTab.key);
+    else if (id === "rename") setRenaming(menuTab.key);
     else if (id === "detach") onDetach?.(menuTab.key);
     else if (id === "keep-open") onPin(menuTab.key);
     else if (menuPath !== null) {
@@ -412,6 +439,9 @@ function PaneView(
         onPin={onPin}
         onMenu={(key, at) => setMenu({ key, ...at })}
         onReorder={onReorder}
+        renaming={renaming}
+        onRenaming={setRenaming}
+        onRename={onRename}
         end={end}
       />
       {menu === null || menuTab === undefined ? null : (

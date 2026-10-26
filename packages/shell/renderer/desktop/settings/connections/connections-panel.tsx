@@ -1,13 +1,13 @@
-// Settings › Coding agents. 제품마다 실행 파일, version, 로그인, turn 끝 신호, 맡길 수 있는지를 보이고
+// Settings › Coding agents. 제품마다 실행 파일, version, turn 끝 신호, 맡길 수 있는지를 보이고
 // 기본 실행 옵션을 정한다. 연결 만들기·범위·이름·회수와 doctor 단계는 없다. 감지는 사람이
 // [Detect again]을 누를 때만 다시 한다.
 import { useCallback, useState } from "react";
 import {
+  harnessVendorOf,
   VendorIcon,
-  vendorOf,
 } from "../../../parts/vendor-icon/vendor-icon.tsx";
 import { Button } from "@lophn/ui/primitives";
-import { Field, Input } from "@lophn/ui/input";
+import { Field, Input, SearchFilter } from "@lophn/ui/input";
 import { ErrorState, Loading, Skeleton, StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
@@ -17,15 +17,18 @@ import styles from "../settings.module.css";
 import {
   discoveryText,
   discoveryTone,
-  loginText,
-  loginTone,
+  hookText,
+  hookTone,
+  matchesQuery,
   pickable,
   shown,
+  sortedByFound,
   versionText,
 } from "./model.ts";
 import type {
   CodingConnectionsSource,
   CodingDefaults,
+  HarnessHookView,
   HarnessName,
   HarnessSettingsView,
 } from "./source.ts";
@@ -44,9 +47,11 @@ type Loaded =
 
 const EMPTY_DEFAULTS: CodingDefaults = { harness: null, model: "" };
 
-/** 제품 이름 앞에 vendor 아이콘을 붙인다. */
-function ProductName({ label }: { label: string }) {
-  const vendor = vendorOf(label);
+/** 제품 이름 앞에 vendor 아이콘을 붙인다. 아이콘은 이름이 아니라 harness id로 고른다. */
+function ProductName(
+  { harness, label }: { harness: HarnessName; label: string },
+) {
+  const vendor = harnessVendorOf(harness);
   return (
     <span className={styles.productName}>
       {vendor === undefined ? null : <VendorIcon vendor={vendor} />}
@@ -61,8 +66,13 @@ export function CodingConnectionsPanel(
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   const [detecting, setDetecting] = useState(false);
   const [detectFailed, setDetectFailed] = useState(false);
+  // 읽지 못했으면 비어 있어 hook 칸은 "-"다. 제품 감지와 따로 읽어 서로 막지 않는다.
+  const [hooks, setHooks] = useState<readonly HarnessHookView[]>([]);
+  const [installing, setInstalling] = useState<HarnessName | null>(null);
+  const [installFailed, setInstallFailed] = useState(false);
   const [defaults, setDefaults] = useState<CodingDefaults>(EMPTY_DEFAULTS);
   const [saved, setSaved] = useState<"idle" | "saved" | "failed">("idle");
+  const [query, setQuery] = useState("");
 
   const load = useCallback(() => {
     void source.harnesses().then((read) => {
@@ -71,6 +81,9 @@ export function CodingConnectionsPanel(
           ? { state: "ready", harnesses: read.value }
           : { state: "failed" },
       );
+    });
+    void source.hookStatus().then((read) => {
+      if (read.ok) setHooks(read.value);
     });
     void source.defaults().then((read) => {
       if (read.ok) setDefaults(read.value);
@@ -85,6 +98,17 @@ export function CodingConnectionsPanel(
     setDetecting(false);
     if (read.ok) setLoaded({ state: "ready", harnesses: read.value });
     else setDetectFailed(true);
+  }
+
+  async function installHooks(harness: HarnessName): Promise<void> {
+    setInstalling(harness);
+    setInstallFailed(false);
+    const done = await source.installHooks(harness);
+    // 쓴 결과를 믿지 않고 다시 읽어 보인다.
+    const read = await source.hookStatus();
+    setInstalling(null);
+    if (read.ok) setHooks(read.value);
+    setInstallFailed(!done.ok || done.value.status !== "installed");
   }
 
   async function save(): Promise<void> {
@@ -108,6 +132,9 @@ export function CodingConnectionsPanel(
     );
   }
   const harnesses = loaded.state === "ready" ? loaded.harnesses : [];
+  const rows = sortedByFound(harnesses).filter((harness) =>
+    matchesQuery(harness, query)
+  );
   return (
     <div data-coding="">
       <h1 className={styles.paneTitle}>{t("settings.label.tab-coding")}</h1>
@@ -132,32 +159,55 @@ export function CodingConnectionsPanel(
           </p>
         )
         : null}
+      {installFailed
+        ? (
+          <p className={styles.rejected} role="alert" data-hooks="failed">
+            {t("settings.error.coding-hooks-install")}
+          </p>
+        )
+        : null}
       <Loading
         loading={loaded.state === "loading"}
         placeholder={<Skeleton lines={5} />}
       >
+        <SearchFilter value={query} onChange={setQuery} />
         <div className={styles.tableScroll}>
           <table className={styles.table}>
             <thead>
               <tr>
                 <th scope="col">{t("settings.label.coding-col-product")}</th>
                 <th scope="col">{t("settings.label.coding-col-executable")}</th>
-                <th scope="col">{t("settings.label.coding-col-sign-in")}</th>
                 <th scope="col">{t("settings.label.coding-col-turn-end")}</th>
                 <th scope="col">{t("settings.label.coding-col-takes-task")}</th>
-                <th scope="col">{t("settings.label.coding-col-skill")}</th>
+                <th scope="col">{t("settings.label.coding-col-hooks")}</th>
               </tr>
             </thead>
             <tbody>
-              {harnesses.map((harness) => (
-                <HarnessRow key={harness.harness_id} harness={harness} />
+              {rows.map((harness) => (
+                <HarnessRow
+                  key={harness.harness_id}
+                  harness={harness}
+                  hook={hooks.find((hook) =>
+                    hook.harness_id === harness.harness_id
+                  )}
+                  installing={installing === harness.harness_id}
+                  onInstall={() => void installHooks(harness.harness_id)}
+                />
               ))}
             </tbody>
           </table>
         </div>
+        {rows.length === 0
+          ? (
+            <p className={styles.lineHelp} data-search="empty">
+              {t("settings.empty.coding-search")}
+            </p>
+          )
+          : null}
         <p className={`${styles.lineHelp} ${styles.groupBlock}`}>
           {t("settings.note.coding-signal")}
         </p>
+        <p className={styles.lineHelp}>{t("settings.note.coding-hooks")}</p>
         <section className={styles.groupBlock}>
           <h2 className={styles.groupTitle}>
             {t("settings.heading.coding-defaults")}
@@ -213,13 +263,20 @@ export function CodingConnectionsPanel(
   );
 }
 
-function HarnessRow({ harness }: { harness: HarnessSettingsView }) {
+function HarnessRow(
+  { harness, hook, installing, onInstall }: {
+    harness: HarnessSettingsView;
+    hook: HarnessHookView | undefined;
+    installing: boolean;
+    onInstall: () => void;
+  },
+) {
   const found = shown(harness);
   const version = versionText(harness);
   return (
     <tr data-harness={harness.harness_id}>
       <td>
-        <ProductName label={harness.label} />
+        <ProductName harness={harness.harness_id} label={harness.label} />
       </td>
       <td>
         <div className={styles.cell}>
@@ -231,11 +288,6 @@ function HarnessRow({ harness }: { harness: HarnessSettingsView }) {
             ? null
             : <span className={styles.caption}>{version}</span>}
         </div>
-      </td>
-      <td>
-        {found
-          ? <StatusMark tone={loginTone(harness)} label={loginText(harness)} />
-          : <span className={styles.dim}>-</span>}
       </td>
       <td>
         {found
@@ -267,9 +319,39 @@ function HarnessRow({ harness }: { harness: HarnessSettingsView }) {
           : <span className={styles.dim}>-</span>}
       </td>
       <td>
-        <span className={styles.dim}>-</span>
+        <HookCell hook={hook} installing={installing} onInstall={onInstall} />
       </td>
     </tr>
+  );
+}
+
+/** 전역 hook 상태. 안 놓였을 때만 [Install hooks]가 있고, hook이 없는 제품은 "-"다. */
+function HookCell(
+  { hook, installing, onInstall }: {
+    hook: HarnessHookView | undefined;
+    installing: boolean;
+    onInstall: () => void;
+  },
+) {
+  const text = hook === undefined ? null : hookText(hook);
+  if (hook === undefined || text === null) {
+    return <span className={styles.dim}>-</span>;
+  }
+  return (
+    <div className={styles.cell}>
+      <StatusMark tone={hookTone(hook)} label={text} />
+      {hook.status === "missing"
+        ? (
+          <Button
+            disabled={installing}
+            data-action="install-hooks"
+            onClick={onInstall}
+          >
+            {t("settings.button.install-hooks")}
+          </Button>
+        )
+        : null}
+    </div>
   );
 }
 
@@ -305,7 +387,7 @@ function ProductPicker(
             data-product={harness.harness_id}
             onClick={() => onChange(harness.harness_id)}
           >
-            <ProductName label={harness.label} />
+            <ProductName harness={harness.harness_id} label={harness.label} />
           </button>
         ))}
       </div>

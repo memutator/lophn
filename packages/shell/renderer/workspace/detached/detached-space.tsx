@@ -12,6 +12,7 @@ import type {
   TabTransfer,
 } from "../../../ipc/detached.ts";
 import { slimDetachedTab } from "../../../ipc/detached.ts";
+import { TabStateDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import { TopBar } from "../../desktop/top-bar/top-bar.tsx";
 import { workspaceIcons } from "../../icons/mod.ts";
 import {
@@ -143,6 +144,7 @@ function DetachedTab(
     project,
     source: workspace,
     agentViewSource,
+    terminalStore: terminal?.store,
     host: () => hostRef.current,
     onSettings: noop,
   });
@@ -270,6 +272,7 @@ function DetachedTab(
   const label = t("project-workspace.button.detached-dock");
   const icon = def === undefined ? undefined : def.iconOf?.(tab, host) ??
     <Icon icon={def.icon} pixels={iconPixels("small")} />;
+  const dot = def?.dotOf?.(tab, host) ?? null;
   const body = def === undefined
     ? null
     : def.keep?.(tab, true, host) ?? def.render?.(tab, true, host) ?? null;
@@ -287,6 +290,7 @@ function DetachedTab(
                     <span className={styles.title} data-detached-title>
                       {tab.title}
                     </span>
+                    {dot ? <TabStateDot dot={dot} /> : null}
                   </>
                 }
                 trailing={

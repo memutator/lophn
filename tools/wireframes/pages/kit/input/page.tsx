@@ -311,7 +311,7 @@ export function KitInput() {
           <AttachmentChip
             name="chest-layout.md"
             icon={<FileIcon name="chest-layout.md" size={16} />}
-            title="/home/me/phroner/docs/chest-layout.md"
+            path="/home/me/phroner/docs/chest-layout.md"
             onRemove={NOOP}
             removeLabel="Remove chest-layout.md"
           />

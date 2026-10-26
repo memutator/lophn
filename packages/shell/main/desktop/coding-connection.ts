@@ -2,7 +2,7 @@
 // `HarnessSettingsView`로 바꿔 renderer에 주고, 같은 결과를 core `harness.report`로 알린다. 감지 결과는 CLI도
 // 저장하지 않아서 이 module이 마지막 결과만 메모리에 쥔다.
 //
-// 처음 읽기는 `detect`(실행 파일 찾기만), 사람이 누른 [Detect again]만 `refresh`(version·login probe)다.
+// 처음 읽기는 `detect`(실행 파일 찾기만), 사람이 누른 [Detect again]만 `refresh`(version probe)다.
 // 화면이 열릴 때 자동 재감지는 없다. 연결을 만들거나 설치하는 길은 없다(맡길 때 core와 CLI가 한다).
 import { execFile } from "node:child_process";
 
@@ -10,7 +10,6 @@ import {
   type CodingReply,
   HARNESS_IDS,
   type HarnessDiscovery,
-  type HarnessLogin,
   type HarnessName,
   type HarnessSettingsView,
 } from "../../ipc/coding.ts";
@@ -27,7 +26,6 @@ type Detection = {
     result: HarnessSettingsView["version_result"];
     value: string | null;
   };
-  auth: { result: HarnessLogin };
 };
 
 export type HarnessCatalog = {
@@ -152,7 +150,6 @@ export function createHarnessSettings(
       discovery: detection.discovery,
       version: detection.version.value,
       version_result: detection.version.result,
-      login: detection.auth.result,
       can_launch: facts.can_launch,
       can_deliver_messages: facts.can_deliver_messages,
       reason: reasonOf(facts),
@@ -171,7 +168,6 @@ export function createHarnessSettings(
       discovery: "unknown",
       version: null,
       version_result: "unknown",
-      login: "unknown",
       can_launch: facts.can_launch,
       can_deliver_messages: facts.can_deliver_messages,
       reason: base === null ? why : `${why} ${base}`,

@@ -36,7 +36,7 @@ export function AttachmentChips(
                 <AttachmentChip
                   name={name}
                   icon={<FileIcon name={name} size={16} />}
-                  title={item.path}
+                  path={item.path}
                   {...remove}
                 />
               )

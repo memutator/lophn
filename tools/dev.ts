@@ -15,6 +15,8 @@
 // 채운다. 그래서 fake를 띄우지 않고, 데이터 root는 매번 새로 만드는 .dev-data/mock이다. 터미널 탭만
 // 진짜 PTY다. core가 mock project의 폴더를 모르므로 shell main이 데이터 root의 mock-terminal 폴더에서 연다.
 
+import { devCliLauncher } from "../packages/base/install/linux-install.ts";
+import { HOOK_STDOUT } from "../packages/protocol/coding-agent/mod.ts";
 import { providerList } from "../packages/protocol/lophn-agent/mod.ts";
 import { createFakeHandler } from "../tests/support/fake-server/mod.ts";
 import { bootCore } from "../tests/support/core/mod.ts";
@@ -185,6 +187,34 @@ function planCore(
     args,
     env: { ...options.env, [LOPHN_HOME]: options.dataRoot },
   };
+}
+
+/**
+ * 개발 실행의 `lophn` launcher를 쓰고 경로를 돌려준다. 전역 hook 설정(~/.claude/settings.json 등)에 이
+ * 경로가 command로 남으므로 .dev-data(schema가 바뀌면 지운다)가 아니라 저장소의 .cache/에 둔다.
+ * 실행마다 다시 쓰고 rename으로 바꿔, 돌고 있는 hook이 반쯤 쓴 file을 읽지 않는다.
+ */
+async function writeDevCli(root: string): Promise<string> {
+  const info = await new Deno.Command(Deno.execPath(), {
+    args: ["info", "--json"],
+    stdout: "piped",
+    stderr: "null",
+  }).output();
+  const denoDir = JSON.parse(new TextDecoder().decode(info.stdout))
+    .denoDir as string;
+  const dir = `${root}/.cache/dev-cli`;
+  const path = `${dir}/lophn`;
+  await Deno.mkdir(dir, { recursive: true });
+  await Deno.writeTextFile(
+    `${path}.tmp`,
+    devCliLauncher(
+      { deno: Deno.execPath(), platform: root, denoDir },
+      HOOK_STDOUT,
+    ),
+    { mode: 0o755 },
+  );
+  await Deno.rename(`${path}.tmp`, path);
+  return path;
 }
 
 /** shell main bundle build 계획. */
@@ -394,6 +424,8 @@ async function launch(
     // 이 dev 프로세스에는 LOPHN_HOME이 core를 거르는 역할이 없다. shell main에도
     // 같은 root를 넣어 두 값이 갈라지지 않게 한다.
     shellEnv[LOPHN_HOME] = dataRoot;
+    // shell main은 이 경로로 harness 감지·hook 설치를 하고, 설치된 hook command가 된다.
+    shellEnv["LOPHN_CLI"] = await writeDevCli(options.root);
     const child = spawn(
       planShell(options.root, { dataRoot, env: shellEnv }),
       "shell",

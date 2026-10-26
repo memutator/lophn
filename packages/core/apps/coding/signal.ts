@@ -13,7 +13,7 @@ import {
   harnessDetectionSchema,
   harnessIdSchema,
 } from "../../../protocol/coding-agent/harnesses.ts";
-import { HOOK_EVENT_MAX_CHARS } from "../../../protocol/coding-agent/hook.ts";
+import { HOOK_EVENT_MAX_CHARS } from "../../../protocol/coding-agent/terminal-hook.ts";
 import { requestIdSchema } from "../../../protocol/coding-agent/terminal-requests.ts";
 import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
 import { applyHook } from "./hook.ts";

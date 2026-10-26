@@ -1,11 +1,7 @@
 // shell main이 감지한 harness를 core 메모리에 알리고, core가 제품마다 보이는 값을 돌려준다.
 import { z } from "zod";
 import { defineMemory } from "../base/route.ts";
-import {
-  authResultSchema,
-  harnessDetectionSchema,
-  harnessIdSchema,
-} from "./harnesses.ts";
+import { harnessDetectionSchema, harnessIdSchema } from "./harnesses.ts";
 
 export const harnessReport = defineMemory({
   resource: "coding_agent_harnesses",
@@ -22,7 +18,6 @@ const harnessListItemSchema = z.strictObject({
   harness: harnessIdSchema,
   detected: z.boolean(),
   version: z.string().nullable(),
-  login: authResultSchema,
   can_launch: z.boolean(),
   can_deliver_messages: z.boolean(),
 });

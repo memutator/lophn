@@ -92,11 +92,16 @@ export function createWebviewHost(): WebviewHost {
       element.setAttribute("allowpopups", "");
       // 빈 주소 칸도 guest가 붙도록 about:blank로 연다. 첫 주소는 main이 attach 때 다시 검사한다.
       element.setAttribute("src", url === "" ? "about:blank" : url);
-      element.addEventListener("did-attach", () => {
-        entry.session = guestSession(
+      // Electron 44의 getWebContentsId는 did-attach 때 throw한다("dom-ready event emitted before this method").
+      // 그러면 session이 생기지 않아 toolbar가 모두 꺼진 채였다. dom-ready부터 읽는다. page를 옮길 때마다
+      // dom-ready가 오고 guest가 다시 붙으면 id가 바뀌므로, 바뀐 때만 알린다.
+      element.addEventListener("dom-ready", () => {
+        const session = guestSession(
           (element as WebviewElement).getWebContentsId(),
         );
-        for (const listener of entry.listeners) listener(entry.session);
+        if (session === entry.session) return;
+        entry.session = session;
+        for (const listener of entry.listeners) listener(session);
       });
     } else {
       entry.session = `fake-wv-${key}`;

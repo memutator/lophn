@@ -114,6 +114,19 @@ type TerminalCodingSession = {
   prompt: PromptOutcome;
 };
 
+/**
+ * 터미널 안에서 도는 coding agent(harness). 무엇이 도는지는 foreground process나 hook이, 상태는
+ * hook만 알린다. shell main이 정하고 바뀔 때마다 runtime을 다시 보낸다.
+ */
+export type TerminalAgent = {
+  /** harness id(`claude`, `codex`, `opencode`, `pi`, ...). 탭 icon을 고른다. */
+  harness: string;
+  /** 첫 hook 전이거나 사람이 Esc·Ctrl-C로 끊은 뒤는 unknown이다. */
+  state: "running" | "waiting" | "idle" | "unknown";
+  /** 사람이 그 탭을 보지 않는 사이 turn이 끝났거나 물음이 왔다. 그 탭을 고르면 지워진다. */
+  unseen: boolean;
+};
+
 export type TerminalRuntime = {
   terminal_ref: string;
   project: string;
@@ -135,7 +148,12 @@ export type TerminalRuntime = {
   title?: string;
   /** 탭 icon을 고르는 제품 이름(harness id)이다. */
   product?: string;
+  /** 지금 이 터미널에서 도는 coding agent. 없으면 없다. */
+  agent?: TerminalAgent;
 };
+
+/** OS 알림을 누르면 main이 그 터미널 탭을 고르라고 보낸다. */
+export type TerminalReveal = { terminal_ref: string };
 
 export type TerminalOutput = {
   terminal_ref: string;
@@ -202,6 +220,8 @@ export interface TerminalApi {
   onBridgeOpen(listener: (open: TerminalBridgeOpen) => void): () => void;
   /** main이 새 터미널(coding 탭 포함)을 열거나 상태가 바뀔 때마다 runtime을 보낸다. 구독 해지를 돌려준다. */
   onRuntime(listener: (runtime: TerminalRuntime) => void): () => void;
+  /** main이 그 터미널 탭을 골라 보이라고 보낸다(OS 알림 누름). 구독 해지를 돌려준다. */
+  onReveal(listener: (reveal: TerminalReveal) => void): () => void;
 }
 
 export const TERMINAL_STATE_CHANNEL = "shell:terminal-state";
@@ -216,3 +236,4 @@ export const TERMINAL_FOCUS_SESSION_CHANNEL = "shell:terminal-focus-session";
 export const TERMINAL_LINK_CHANNEL = "shell:terminal-link";
 export const TERMINAL_BRIDGE_ACK_CHANNEL = "shell:terminal-bridge-ack";
 export const TERMINAL_BRIDGE_OPEN_CHANNEL = "shell:terminal-bridge-open";
+export const TERMINAL_REVEAL_CHANNEL = "shell:terminal-reveal";

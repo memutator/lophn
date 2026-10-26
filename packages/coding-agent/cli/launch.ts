@@ -3,7 +3,11 @@
 // 명령 시점에야 알 수 있는 권한은 그 명령에만 정확한 경로로 더한다: `harness install`은 고른 harness의
 // 전역 위치(hook 설정 폴더와 skill 폴더, home 기준)의 읽기·쓰기, `harness refresh`는 감지가 찾은 제품
 // 실행 파일의 실행. `-A`·일반 `--allow-write`·`--allow-run`, 와일드카드는 없다.
-import { HARNESS_ADAPTERS } from "../../protocol/coding-agent/mod.ts";
+import {
+  HARNESS_ADAPTERS,
+  HARNESS_HOOKS,
+  hookPaths,
+} from "../../protocol/coding-agent/mod.ts";
 
 // 실행 entry의 설치 resource root 기준 경로다.
 
@@ -47,10 +51,9 @@ export function planSelection(
   );
   if (adapter === undefined) return NO_SELECTION;
   const base = home.replace(/\/+$/, "");
+  const hook = HARNESS_HOOKS[adapter.id];
   const paths = [
-    ...(adapter.hook === null
-      ? []
-      : [`${base}/${adapter.hook.path.split("/").slice(0, -1).join("/")}`]),
+    ...(hook === null ? [] : hookPaths(hook).map((path) => `${base}/${path}`)),
     ...(adapter.skill_dir === null ? [] : [`${base}/${adapter.skill_dir}`]),
   ];
   return { paths: paths.filter(exactPath) };

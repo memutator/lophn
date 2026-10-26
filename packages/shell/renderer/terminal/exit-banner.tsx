@@ -15,7 +15,6 @@ import styles from "./terminal.module.css";
 
 type BannerState =
   | { kind: "ended"; ending: Ending; exitCode: number | null }
-  | { kind: "not_started" }
   /** coding 탭이 끝났다. 다시 시작은 없고 다음 맡기기가 새 session을 시작한다. */
   | { kind: "session_ended" }
   | { kind: "refused"; reason: Refusal };
@@ -30,9 +29,8 @@ interface ExitBannerProps {
   variant?: "bar" | "center";
 }
 
-// 출력 옆의 상태 줄. 확인된 exit code·시작 실패·결과 불명·종료 확인 실패·아직
-// 시작 안 함을 다른 문구와 아이콘으로 보인다. 다시 시작은 자동이
-// 아니다.
+// 출력 옆의 상태 줄. 확인된 exit code·시작 실패·결과 불명·종료 확인 실패를 다른 문구와 아이콘으로 보인다.
+// 끝난 shell을 다시 시작하는 것은 자동이 아니다(사람이 누른다).
 export function ExitBanner(
   { state, onRestart, variant = "bar" }: ExitBannerProps,
 ) {
@@ -42,8 +40,8 @@ export function ExitBanner(
     ? { label: t("terminal.label.session-ended"), tone: "neutral" as const }
     : (() => {
       const { wording, tone } = endingWording(
-        state.kind === "ended" ? state.ending : "not_started",
-        state.kind === "ended" ? state.exitCode : null,
+        state.ending,
+        state.exitCode,
       );
       const label = wording.key === "terminal.status.exited"
         ? t(wording.key, wording.values)

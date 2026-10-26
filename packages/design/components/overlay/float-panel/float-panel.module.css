@@ -60,7 +60,7 @@
 }
 
 .title {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: var(--space-0);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -70,6 +70,7 @@
 .actions {
   display: flex;
   flex: none;
+  margin-left: auto;
   align-items: center;
 }
 

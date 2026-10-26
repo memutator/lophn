@@ -8,7 +8,7 @@ import type {
   OverlayIdentity,
   Rect,
 } from "../../../ipc/overlay.ts";
-import { overlayConsumer } from "../../overlay/consumer.ts";
+import { centerAnchor, overlayConsumer } from "../../overlay/consumer.ts";
 import {
   arrange,
   type PaletteEntry,
@@ -43,16 +43,6 @@ export interface PaletteOpener {
   toggle<T>(scope: PaletteScope<T>, opener: HTMLElement): Promise<void>;
   readonly open: boolean;
   dispose(): void;
-}
-
-// 팔레트는 창 본문 전체를 쓰므로 anchor는 본문 가운데 한 점이면 된다.
-function centerAnchor(): Rect {
-  return {
-    x: Math.max(0, Math.round(globalThis.innerWidth / 2)),
-    y: Math.max(0, Math.round(globalThis.innerHeight / 2)),
-    width: 1,
-    height: 1,
-  };
 }
 
 let requests = 0;

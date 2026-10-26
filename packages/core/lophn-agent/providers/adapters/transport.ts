@@ -1,7 +1,7 @@
 // 실제 HTTP 전송. fetch로 한 번만 보내고 SDK 숨은 retry는
 // 없다. redirect는 따라가지 않는다: 다른 목적지에 credential을 보내지 않기 위해
 // 3xx는 본문 없는 응답으로 돌려주고 분류가 원인 불명으로 둔다. 응답 body는
-// 성공 SSE만 stream으로 넘기고 나머지는 상한 안에서 한 덩어리로 읽는다(batch/JSON).
+// 성공 SSE(content-type 없는 성공 포함)만 stream으로 넘기고 나머지는 상한 안에서 한 덩어리로 읽는다(batch/JSON).
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { ERROR_BODY_MAX_BYTES } from "../failures.ts";
@@ -46,10 +46,12 @@ async function readBounded(
   return new TextDecoder().decode(merged);
 }
 
+// 요청은 늘 stream=true다. ChatGPT 구독 token으로 부른 api.openai.com /v1/responses는 SSE 본문을
+// content-type 없이 보낸다(2026-10-26 실제 응답). content-type이 없는 성공 응답도 SSE로 읽는다.
 function isEventStream(headers: Headers): boolean {
-  return (headers.get("content-type") ?? "").toLowerCase().startsWith(
-    "text/event-stream",
-  );
+  const type = headers.get("content-type");
+  return type === null ||
+    type.toLowerCase().startsWith("text/event-stream");
 }
 
 // option 값이 요구하는 header(예: Anthropic fast mode의 beta header)를 요청에 더한다.

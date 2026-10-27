@@ -14,6 +14,20 @@
 //   skills/                    coding agent skill 배포 원본
 //   sdk -> platform/packages/sdk
 // /usr/bin/{lophn-desktop,lophn} launcher, 데스크톱 항목, 아이콘.
+import { Buffer } from "node:buffer";
+import { spawn } from "node:child_process";
+import {
+  chmod,
+  copyFile,
+  mkdir,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
+import process from "node:process";
+
 import {
   cliLauncher,
   debControl,
@@ -31,8 +45,9 @@ const shellMain = `${repo}/packages/shell/main`;
 const layout = linuxInstallLayout();
 
 function option(name: string): string | undefined {
-  const index = Deno.args.indexOf(name);
-  return index >= 0 ? Deno.args[index + 1] : undefined;
+  const args = process.argv.slice(2);
+  const index = args.indexOf(name);
+  return index >= 0 ? args[index + 1] : undefined;
 }
 
 async function run(
@@ -41,28 +56,38 @@ async function run(
   options: { cwd?: string; env?: Record<string, string> } = {},
 ): Promise<void> {
   console.log(`$ ${command} ${args.join(" ")}`);
-  const result = await new Deno.Command(command, {
-    args,
+  const child = spawn(command, args, {
     cwd: options.cwd,
-    env: options.env,
-    stdout: "inherit",
-    stderr: "inherit",
-  }).output();
-  if (!result.success) throw new Error(`${command} failed (${result.code})`);
+    env: options.env ? { ...process.env, ...options.env } : undefined,
+    stdio: ["ignore", "inherit", "inherit"],
+  });
+  const code = await new Promise<number | null>((resolve, reject) => {
+    child.on("close", resolve);
+    child.on("error", reject);
+  });
+  if (code !== 0) throw new Error(`${command} failed (${code})`);
 }
 
 async function output(command: string, args: string[]): Promise<string> {
-  const result = await new Deno.Command(command, { args }).output();
-  if (!result.success) throw new Error(`${command} failed`);
-  return new TextDecoder().decode(result.stdout);
+  const child = spawn(command, args, {
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  const stdout: Buffer[] = [];
+  child.stdout?.on("data", (chunk: Buffer) => stdout.push(chunk));
+  const code = await new Promise<number | null>((resolve, reject) => {
+    child.on("close", resolve);
+    child.on("error", reject);
+  });
+  if (code !== 0) throw new Error(`${command} failed`);
+  return new TextDecoder().decode(Buffer.concat(stdout));
 }
 
 const copy = (from: string, to: string) => run("cp", ["-a", `${from}/.`, to]);
 
 async function write(path: string, text: string, mode: number) {
-  await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
-  await Deno.writeTextFile(path, text);
-  await Deno.chmod(path, mode);
+  await mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+  await writeFile(path, text);
+  await chmod(path, mode);
 }
 
 // 설치 묶음 안의 절대 경로(/opt/lophn/...)를 build 중 pkg root 아래 경로로 바꾼다.
@@ -72,7 +97,7 @@ function inPkg(pkg: string, installed: string): string {
 
 async function stagePlatform(pkg: string, work: string): Promise<void> {
   const platform = inPkg(pkg, layout.platform);
-  await Deno.mkdir(platform, { recursive: true });
+  await mkdir(platform, { recursive: true });
   await run("rsync", [
     "-a",
     "--exclude=node_modules",
@@ -82,7 +107,7 @@ async function stagePlatform(pkg: string, work: string): Promise<void> {
   ]);
   // desktop 화면 build 전용 member(packages/shell/renderer)와 개발 도구 member(tools/*)는 묶음에 없으므로 workspace에서 뺀다.
   // vendor와 node_modules를 설치 안에 두어 시작이 의존성을 받지 않는다.
-  const config = JSON.parse(await Deno.readTextFile(`${repo}/deno.json`));
+  const config = JSON.parse(await readFile(`${repo}/deno.json`, "utf8"));
   config.workspace = config.workspace.filter((member: string) =>
     !member.startsWith("./packages/shell") && !member.startsWith("./tools/")
   );
@@ -91,11 +116,11 @@ async function stagePlatform(pkg: string, work: string): Promise<void> {
   }
   config.vendor = true;
   config.nodeModulesDir = "manual";
-  await Deno.writeTextFile(
+  await writeFile(
     `${platform}/deno.json`,
     JSON.stringify(config, null, 2) + "\n",
   );
-  await Deno.copyFile(`${repo}/deno.lock`, `${platform}/deno.lock`);
+  await copyFile(`${repo}/deno.lock`, `${platform}/deno.lock`);
   // 저장소 lock에서 member만 줄어든 lock으로 의존성을 받는다.
   await run(Deno.execPath(), ["install", "--frozen=false"], {
     cwd: platform,
@@ -113,17 +138,17 @@ async function stageContent(pkg: string): Promise<void> {
   const skillSource = `${repo}/packages/coding-agent/guides/skills`;
   if (await exists(skillSource)) await copy(skillSource, skills);
   // core 기동의 sdk 설치(sdk-install.ts)는 platform/packages(sdk, design, 앱 template)를 직접 읽는다. 이 링크는 설치 확인용이다.
-  await Deno.symlink("platform/packages/sdk", inPkg(pkg, layout.sdk));
+  await symlink("platform/packages/sdk", inPkg(pkg, layout.sdk));
 }
 
 async function ensure(path: string): Promise<string> {
-  await Deno.mkdir(path, { recursive: true });
+  await mkdir(path, { recursive: true });
   return path;
 }
 
 async function exists(path: string): Promise<boolean> {
   try {
-    await Deno.stat(path);
+    await stat(path);
     return true;
   } catch {
     return false;
@@ -131,8 +156,8 @@ async function exists(path: string): Promise<boolean> {
 }
 
 async function stageSystem(pkg: string): Promise<void> {
-  await Deno.mkdir(`${pkg}/usr/bin`, { recursive: true });
-  await Deno.symlink(
+  await mkdir(`${pkg}/usr/bin`, { recursive: true });
+  await symlink(
     DESKTOP_LAUNCHER_TARGET,
     `${pkg}${LINUX_LAUNCHERS.desktop}`,
   );
@@ -147,8 +172,8 @@ async function stageSystem(pkg: string): Promise<void> {
     0o644,
   );
   const icon = `${pkg}/usr/share/icons/hicolor/512x512/apps/lophn.png`;
-  await Deno.mkdir(icon.slice(0, icon.lastIndexOf("/")), { recursive: true });
-  await Deno.copyFile(`${shellMain}/packaging/icon.png`, icon);
+  await mkdir(icon.slice(0, icon.lastIndexOf("/")), { recursive: true });
+  await copyFile(`${shellMain}/packaging/icon.png`, icon);
 }
 
 async function stageDebian(pkg: string, version: string): Promise<void> {
@@ -178,11 +203,11 @@ async function main(): Promise<void> {
   const work = `${out}/work`;
   const pkg = `${out}/pkg`;
   const version: string =
-    JSON.parse(await Deno.readTextFile(`${shellMain}/package.json`)).version;
-  await Deno.remove(out, { recursive: true }).catch(() => undefined);
-  await Deno.mkdir(work, { recursive: true });
+    JSON.parse(await readFile(`${shellMain}/package.json`, "utf8")).version;
+  await rm(out, { recursive: true }).catch(() => undefined);
+  await mkdir(work, { recursive: true });
 
-  if (!Deno.args.includes("--skip-shell-build")) {
+  if (!process.argv.slice(2).includes("--skip-shell-build")) {
     await run("npm", ["--prefix", shellMain, "run", "build"]);
     await run("deno", ["task", "build"], {
       cwd: `${repo}/packages/shell/renderer`,
@@ -198,12 +223,12 @@ async function main(): Promise<void> {
     `${shellMain}/release/linux-unpacked`,
     await ensure(inPkg(pkg, layout.root)),
   );
-  await Deno.chmod(inPkg(pkg, layout.chromeSandbox), SANDBOX_MODE);
-  await Deno.copyFile(
-    Deno.env.get("LOPHN_DENO_BINARY") ?? Deno.execPath(),
+  await chmod(inPkg(pkg, layout.chromeSandbox), SANDBOX_MODE);
+  await copyFile(
+    process.env.LOPHN_DENO_BINARY ?? Deno.execPath(),
     inPkg(pkg, layout.deno),
   );
-  await Deno.chmod(inPkg(pkg, layout.deno), 0o755);
+  await chmod(inPkg(pkg, layout.deno), 0o755);
   await stagePlatform(pkg, work);
   await stageContent(pkg);
   await stageSystem(pkg);

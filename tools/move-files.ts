@@ -1,6 +1,23 @@
-// 실행: deno run --allow-read --allow-write --allow-run tools/move-files.ts <mapping.json> [--dry-run] [--report <file>] [--root <dir>]
+// 실행: deno run --allow-read --allow-write --allow-run --allow-env tools/move-files.ts <mapping.json> [--dry-run] [--report <file>] [--root <dir>]
+// --allow-env는 node:child_process가 spawn 때 process.env를 읽어서 필요하다.
 // mapping대로 파일과 폴더를 옮기고, 옮긴 자리를 가리키는 import·설정 경로를 고친다.
 // 고치지 못하는 경로 문자열과 옛 경로 언급은 보고서에 file:line으로 남긴다. 손으로 고칠 목록이다.
+import { Buffer } from "node:buffer";
+import { spawn } from "node:child_process";
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  rmdir,
+  writeFile,
+} from "node:fs/promises";
+import { join } from "node:path";
+import process from "node:process";
+
+import { errorCode } from "../packages/base/mod.ts";
 import { readSpecifierSites, readStringSites } from "./deps-imports.ts";
 import {
   inside,
@@ -45,15 +62,23 @@ const CONFIG = /(?:^|\/)(?:deno|package|tsconfig[^/]*)\.json$/;
 const decoder = new TextDecoder();
 
 async function git(root: string, args: string[]): Promise<string> {
-  const output = await new Deno.Command("git", {
-    args: ["-C", root, ...args],
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
-  if (!output.success) {
-    throw new Error(`git ${args[0]}: ${decoder.decode(output.stderr).trim()}`);
+  const child = spawn("git", ["-C", root, ...args], {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const stdout: Buffer[] = [];
+  const stderr: Buffer[] = [];
+  child.stdout?.on("data", (chunk: Buffer) => stdout.push(chunk));
+  child.stderr?.on("data", (chunk: Buffer) => stderr.push(chunk));
+  const code = await new Promise<number | null>((resolve, reject) => {
+    child.on("close", resolve);
+    child.on("error", reject);
+  });
+  if (code !== 0) {
+    throw new Error(
+      `git ${args[0]}: ${decoder.decode(Buffer.concat(stderr)).trim()}`,
+    );
   }
-  return decoder.decode(output.stdout);
+  return decoder.decode(Buffer.concat(stdout));
 }
 
 function parent(path: string): string {
@@ -418,7 +443,7 @@ async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
   const texts = new Map<string, string>();
   for (const file of files) {
     if (TEXT.test(file)) {
-      texts.set(file, await Deno.readTextFile(`${root}/${file}`));
+      texts.set(file, await readFile(`${root}/${file}`, "utf8"));
     }
   }
   const contents = new Map<string, string>();
@@ -780,36 +805,33 @@ async function applyPlan(root: string, plan: Plan): Promise<string[]> {
   if ((await git(root, ["status", "--porcelain"])).trim()) {
     throw new Error("commit하지 않은 변경이 있다. 치운 뒤 돌린다");
   }
-  for (const file of plan.removed) await Deno.remove(`${root}/${file}`);
+  for (const file of plan.removed) await rm(`${root}/${file}`);
   // 새 자리가 다른 파일의 옛 자리일 수 있어서 임시 폴더를 거쳐 옮긴다.
-  const temp = await Deno.makeTempDir({ dir: root, prefix: ".move-files-" });
+  const temp = await mkdtemp(join(root, ".move-files-"));
   const pairs = [...plan.moved];
   for (const [index, [from]] of pairs.entries()) {
-    await Deno.rename(`${root}/${from}`, `${temp}/${index}`);
+    await rename(`${root}/${from}`, `${temp}/${index}`);
   }
   for (const [index, [, to]] of pairs.entries()) {
-    await Deno.mkdir(`${root}/${parent(to)}`, { recursive: true });
-    await Deno.rename(`${temp}/${index}`, `${root}/${to}`);
+    await mkdir(`${root}/${parent(to)}`, { recursive: true });
+    await rename(`${temp}/${index}`, `${root}/${to}`);
   }
-  await Deno.remove(temp);
+  await rmdir(temp);
   for (const [file, source] of plan.contents) {
-    await Deno.writeTextFile(`${root}/${file}`, source);
+    await writeFile(`${root}/${file}`, source);
   }
   const dirs = [...ancestors([...plan.moved.keys(), ...plan.removed])]
     .filter(Boolean).sort((a, b) => b.length - a.length);
   const left: string[] = [];
   for (const dir of dirs) {
-    let empty = true;
+    let entries: string[];
     try {
-      for await (const _ of Deno.readDir(`${root}/${dir}`)) {
-        empty = false;
-        break;
-      }
+      entries = await readdir(`${root}/${dir}`);
     } catch (error) {
-      if (error instanceof Deno.errors.NotFound) continue;
+      if (errorCode(error) === "ENOENT") continue;
       throw error;
     }
-    if (empty) await Deno.remove(`${root}/${dir}`);
+    if (entries.length === 0) await rmdir(`${root}/${dir}`);
     else left.push(dir);
   }
   await git(root, ["add", "-A"]);
@@ -867,28 +889,28 @@ function option(args: string[], name: string): string | undefined {
 }
 
 if (import.meta.main) {
-  const args = [...Deno.args];
+  const args = process.argv.slice(2);
   const dryRun = args.includes("--dry-run");
   if (dryRun) args.splice(args.indexOf("--dry-run"), 1);
-  const root = option(args, "--root") ?? Deno.cwd();
+  const root = option(args, "--root") ?? process.cwd();
   const reportPath = option(args, "--report");
   if (args.length !== 1) {
     console.error(
       "사용: tools/move-files.ts <mapping.json> [--dry-run] [--report <file>] [--root <dir>]",
     );
-    Deno.exit(2);
+    process.exit(2);
   }
   const [mappingPath] = args;
   try {
-    const mapping = JSON.parse(await Deno.readTextFile(mappingPath)) as Mapping;
+    const mapping = JSON.parse(await readFile(mappingPath, "utf8")) as Mapping;
     const plan = await planMoves(root, mapping ?? {});
     const report = reportPath ??
       mappingPath.replace(/(\.json)?$/, ".report.txt");
-    await Deno.writeTextFile(report, formatReport(plan));
+    await writeFile(report, formatReport(plan));
     console.log(`${summary(plan)}\n보고서: ${report}`);
     if (plan.notes.some((note) => note.kind === "error")) {
       console.error("오류가 있어 옮기지 않음");
-      Deno.exit(1);
+      process.exit(1);
     }
     if (!dryRun) {
       for (const dir of await applyPlan(root, plan)) {
@@ -900,6 +922,6 @@ if (import.meta.main) {
     console.error(
       `move-files: ${error instanceof Error ? error.message : error}`,
     );
-    Deno.exit(1);
+    process.exit(1);
   }
 }

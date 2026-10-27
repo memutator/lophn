@@ -7,9 +7,9 @@ const LINUX_INSTALL_ROOT = "/opt/lophn";
 // 설치 묶음 안의 위치. 모두 root 소유 읽기 전용이고 사람 데이터 root(H)와 겹치지 않는다.
 type LinuxInstallLayout = {
   root: string;
-  // 설치된 Deno binary. 플랫폼 process·migration·CLI가 모두 이 binary로 시작한다.
+  // 설치된 Deno binary. 앱과 flow가 wave 3까지 이 binary로 뜬다.
   deno: string;
-  // 플랫폼 source·lock·vendor. deno.json, deno.lock, vendor/, node_modules/가 함께 있다.
+  // 플랫폼 source·의존. deno.json, deno.lock, package.json, package-lock.json, node_modules/가 함께 있다.
   platform: string;
   // 빌드된 desktop 화면(renderer dist).
   desktop: string;
@@ -44,52 +44,45 @@ export const LINUX_LAUNCHERS = {
   cli: "/usr/bin/lophn",
 } as const;
 
-// Deno transpile cache. 지워도 H는 그대로고 고정 의존성으로 다시 만든다.
-
-// launcher가 쓰는 공통 앞부분이다. H·cache 위치만 환경에서 풀고 나머지는 고정 값이다.
-// 시작에 의존성 다운로드가 없도록 항상 `--cached-only --frozen`이고 system Deno는 쓰지 않는다.
+// launcher가 쓰는 공통 앞부분이다. H 위치만 환경에서 풀고 나머지는 고정 값이다.
+// CLI는 shell main과 같은 Electron binary를 Node로 띄우므로 PATH의 node가 필요 없다.
 // `ROOT=` 줄은 설치 확인(tools/verify-linux-install.ts)이 확인 대상 root로 바꾸는 자리라 그대로 둔다.
 function launcherHead(layout: LinuxInstallLayout, name: string): string {
   return headOf(name, [
     `ROOT=${layout.root}`,
-    'DENO_BIN="$ROOT/deno"',
+    'ELECTRON_BIN="$ROOT/lophn-desktop"',
     'PLATFORM="$ROOT/platform"',
-    'DENO_DIR="${HOME}/.cache/lophn/deno"',
   ]);
 }
 
-// 개발 실행의 launcher가 가리키는 경로다. 설치 묶음이 없어 저장소의 소스와 사람의 Deno·cache를 쓴다.
+// 개발 실행의 launcher가 가리키는 경로다. 설치 묶음이 없어 저장소의 source와 node_modules를 쓴다.
 type DevCliPaths = {
-  deno: string;
+  electron: string;
   platform: string;
-  denoDir: string;
 };
 
 function devLauncherHead(paths: DevCliPaths): string {
   return headOf("lophn(dev)", [
-    `DENO_BIN="${paths.deno}"`,
+    `ELECTRON_BIN="${paths.electron}"`,
     `PLATFORM="${paths.platform}"`,
-    `DENO_DIR="${paths.denoDir}"`,
   ]);
 }
 
 function headOf(name: string, paths: string[]): string {
   return [
     "#!/bin/sh",
-    `# ${name}: launcher다. Deno로 cached-only 실행한다.`,
+    `# ${name}: launcher다. Electron의 Node로 CLI를 실행한다.`,
     "set -e",
     ...paths,
     'H="${LOPHN_HOME:-$HOME/.lophn}"',
     // CLI가 같은 data root를 읽게 한다.
     'LOPHN_HOME="$H"',
     "export LOPHN_HOME",
-    "export DENO_DIR",
-    'mkdir -p "$DENO_DIR"',
   ].join("\n");
 }
 
 // `lophn` CLI. 같은 플랫폼 daemon에 loopback으로 연결하고 token은 환경 변수 `LOPHN_CODING_TOKEN`으로 받는다.
-// lophn 자신의 코드라 권한을 좁히지 않는다. 좁혀도 막는 것이 없고 Deno의 `node:*` 호환이 Deno 권한을 더 요구한다.
+// lophn 자신의 코드라 권한 flag가 없다. 설치 묶음의 Electron binary를 Node로 쓴다.
 export function cliLauncher(
   layout: LinuxInstallLayout,
   hookStdout: readonly HookStdoutRow[],
@@ -97,8 +90,8 @@ export function cliLauncher(
   return cliScript(launcherHead(layout, "lophn"), hookStdout);
 }
 
-// 개발 실행(`deno task dev`)의 `lophn`. 설치된 launcher와 같은 본문에 경로만 저장소 소스로 바꾼다.
-// 전역 hook command가 이 파일의 경로라서 `hook`이 터미널 hook env 없이 부르면 deno를 띄우지 않고 끝나는 것도 같다.
+// 개발 실행(`deno task dev`)의 `lophn`. 설치된 launcher와 같은 본문에 경로만 저장소 source로 바꾼다.
+// 전역 hook command가 이 파일의 경로라서 `hook`이 터미널 hook env 없이 부르면 CLI를 띄우지 않고 끝나는 것도 같다.
 export function devCliLauncher(
   paths: DevCliPaths,
   hookStdout: readonly HookStdoutRow[],
@@ -123,7 +116,7 @@ function hookStdoutCase(rows: readonly HookStdoutRow[]): string[] {
 function cliScript(head: string, hookStdout: readonly HookStdoutRow[]): string {
   return [
     head,
-    "# 전역 hook은 lophn과 상관없는 harness 실행마다 불린다. 터미널 hook env가 없으면 deno를 띄우지 않고 끝낸다.",
+    "# 전역 hook은 lophn과 상관없는 harness 실행마다 불린다. 터미널 hook env가 없으면 CLI를 띄우지 않고 끝낸다.",
     "# harness가 stdout을 요구하는 hook(`HOOK_STDOUT`)은 같은 글만 쓰고 끝낸다.",
     'if [ "${1:-}" = hook ] && [ -z "${LPN_TERMINAL_HOOK:-}" ]; then',
     '  case "${2:-}:${3:-}" in',
@@ -131,10 +124,8 @@ function cliScript(head: string, hookStdout: readonly HookStdoutRow[]): string {
     "  esac",
     "  exit 0",
     "fi",
-    "# CLI는 lophn 자신의 코드라 권한을 좁히지 않는다. 좁혀도 막는 것이 없고 Deno의 `node:*` 호환이 Deno 권한을 더 요구한다.",
-    'exec "$DENO_BIN" run --cached-only --frozen --no-prompt \\',
-    '  --config="$PLATFORM/deno.json" \\',
-    "  --allow-all \\",
+    "# CLI는 lophn 자신의 코드라 Deno처럼 좁힐 권한이 없다. shell main과 같은 Node runtime으로 돈다.",
+    'ELECTRON_RUN_AS_NODE=1 exec "$ELECTRON_BIN" \\',
     '  "$PLATFORM/packages/coding-agent/cli/main.ts" "$@"',
     "",
   ].join("\n");

@@ -2,14 +2,13 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { homedir } from "node:os";
 import { join } from "node:path";
-
+import { encodeFrame, FrameDecoder } from "../../../../protocol/base/mod.ts";
 import {
   type CoreToMainMessage,
   coreToMainMessageSchema,
   type MainHello,
   mainToCoreMessageSchema,
 } from "../../../../protocol/supervision/mod.ts";
-import { encodeFrame, FrameDecoder } from "../../../../protocol/base/mod.ts";
 
 /** 창 닫기와 무관한 core 종료 요청. tray의 명시 중지와 OS 종료가 이 값을 쓴다. */
 const STOP_GRACE_MS = 5_000;
@@ -27,7 +26,7 @@ export interface LaunchOptions {
   /** 저장소 루트(개발) 또는 설치 묶음의 platform/(packaged). core entry의 기준이다. */
   repoRoot: string;
   dataRoot: string;
-  /** 개발은 `deno`. packaged는 bundle된 Deno binary. */
+  /** 앱과 flow가 wave 3까지 Deno로 뜰 때 core가 쓰는 binary. 개발은 `deno`, packaged는 설치된 binary다. */
   denoBinary: string;
   packaged: boolean;
   port?: number;
@@ -35,15 +34,18 @@ export interface LaunchOptions {
 }
 
 /**
- * Deno transpile cache. 설치 묶음은 `~/.cache/lophn/deno`다.
+ * 앱과 flow의 Deno cache. 설치 묶음은 `~/.cache/lophn/deno`다.
  * 지워도 data root는 그대로고 고정 의존성으로 다시 만든다.
  */
 function packagedDenoDir(home: string = homedir()): string {
   return join(home, ".cache", "lophn", "deno");
 }
 
-/** `deno run <flags> packages/core/main/daemon/main.ts`. argv·env에 credential은 없다. */
-function coreLaunch(options: LaunchOptions): CoreSpawn {
+/**
+ * Electron의 Node로 `packages/core/main/daemon/main.ts`를 띄운다. argv·env에 credential은 없다.
+ * Deno flags는 없다.
+ */
+export function coreLaunch(options: LaunchOptions): CoreSpawn {
   const entry = join(
     options.repoRoot,
     "packages",
@@ -56,20 +58,18 @@ function coreLaunch(options: LaunchOptions): CoreSpawn {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     ...options.env,
+    // process.execPath가 Electron이어도 이 표시가 없으면 두 번째 Electron 앱으로 뜬다.
+    ELECTRON_RUN_AS_NODE: "1",
     LOPHN_HOME: options.dataRoot,
+    // core는 앱과 flow를 wave 3까지 Deno로 띄운다. 없으면 PATH의 deno를 쓴다.
+    LOPHN_DENO: options.denoBinary,
   };
+  // 앱과 flow의 Deno cache다. data root와 달리 지워도 다시 만든다.
   if (options.packaged && !env.DENO_DIR) env.DENO_DIR = packagedDenoDir();
-  // core는 lophn 자신의 코드라 권한을 좁히지 않는다. 개발·test와 같은 권한이어야 test한 것이 그대로 배포된다.
-  // sandbox는 AI가 쓴 코드를 돌리는 process(앱, flow, release 준비 자식)가 각자 갖는다. packaged는 시작에
-  // 의존성을 받지 않는다.
-  const flags = options.packaged
-    ? ["run", "--cached-only", "--frozen", "--no-prompt", "--allow-all"]
-    : ["run", "--allow-all"];
   return {
-    command: options.denoBinary,
-    args: [...flags, entry, `--port=${port}`],
-    // spawn에 기본 env는 없다. PATH가 사라지면 `deno`를 못 찾으므로 프로세스
-    // 환경을 바탕으로 LOPHN_HOME만 덮어쓴다. credential은 env에 넣지 않는다.
+    // shell main이 Electron이므로 그 binary가 곧 lophn의 Node다. PATH나 system Deno에 기대지 않는다.
+    command: process.execPath,
+    args: [entry, `--port=${port}`],
     env,
   };
 }

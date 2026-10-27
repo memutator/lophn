@@ -1,7 +1,9 @@
 // 설치된 Linux 묶음의 실제 확인이다.
 //
-//   deno run --allow-all tools/verify-linux-install.ts [--root /opt/lophn] [--bin /usr/bin]
+//   ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron tools/verify-linux-install.ts
+//     [--root /opt/lophn] [--bin /usr/bin]
 //
+// core를 shell main과 같은 Electron의 Node로 띄우므로 이 도구도 같은 binary로 돈다.
 // Ubuntu 24.04 이상에서 .deb를 설치한 뒤 부른다. 사람의 데이터 폴더는 절대 열지 않는다:
 // 모든 실행은 이 도구가 만든 임시 HOME·LOPHN_HOME을 쓴다. `--root`에 `dpkg-deb -x`로 푼 임시
 // 폴더를 줄 수도 있다. 미확인이 하나라도 있으면 Linux 배포를 사용 가능으로 표시하지 않는다.
@@ -20,9 +22,8 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
-
-import { spawnCore } from "../packages/shell/main/desktop/core/supervise.ts";
 import { linuxInstallLayout } from "../packages/core/install-and-update/mod.ts";
+import { spawnCore } from "../packages/shell/main/desktop/core/supervise.ts";
 
 type Verdict = "pass" | "fail" | "unverified";
 const results: { name: string; verdict: Verdict; note: string }[] = [];
@@ -44,8 +45,7 @@ const root = option("--root") ?? "/opt/lophn";
 const bin = option("--bin") ?? "/usr/bin";
 const layout = linuxInstallLayout(root);
 
-// denoRuns와 runLauncher는 부모 env를 물려받지 않는 것이 확인의 뜻이다. Deno의 spawnSync는 넘긴 env에
-// 부모 env를 합쳐 버려(실측) clearEnv가 사라지므로 spawn을 쓴다.
+// runLauncher는 부모 env를 물려받지 않는 것이 확인의 뜻이다. spawn은 넘긴 env만 쓴다.
 async function run(
   command: string,
   args: string[],
@@ -88,14 +88,16 @@ async function checkLayout(): Promise<void> {
     layout.chromeSandbox,
     `${layout.platform}/deno.json`,
     `${layout.platform}/deno.lock`,
+    `${layout.platform}/package.json`,
+    `${layout.platform}/package-lock.json`,
     `${layout.platform}/packages/core/main/daemon/main.ts`,
     `${layout.desktop}/desktop/index.html`,
   ]) {
     if (!(await isFile(file))) missing.push(file);
   }
   for (const dir of [
-    layout.platform + "/vendor",
-    layout.platform + "/node_modules",
+    `${layout.platform}/node_modules/@lophn/core`,
+    `${layout.platform}/node_modules/@lophn/protocol`,
     layout.skills,
     layout.sdk,
   ]) {
@@ -156,20 +158,20 @@ async function runLauncher(
 async function checkLaunchers(): Promise<void> {
   const text = await readFile(`${bin}/lophn`, "utf8");
   record(
-    "R3·R6 launcher에 sandbox 해제가 없고 CLI는 --allow-all로 뜬다",
+    "R3·R6 launcher에 sandbox 해제가 없고 CLI를 Electron의 Node로 띄운다",
     /no-sandbox|disable-setuid-sandbox/.test(text) ||
-      !text.includes("--allow-all")
+      !text.includes("ELECTRON_RUN_AS_NODE=1")
       ? "fail"
       : "pass",
   );
   const cli = await runLauncher("lophn", ["help"]);
   record(
-    "R6 lophn CLI가 설치된 Deno로 cached-only 시작",
+    "R6 lophn CLI가 설치된 Electron으로 시작",
     cli.stdout.includes("commands:") ? "pass" : "fail",
   );
 }
 
-// shell main이 core를 띄우는 것과 같은 launch(packaged flag, 설치된 Deno, DENO_DIR)다.
+// shell main이 core를 띄우는 것과 같은 launch(packaged flag, 앱과 flow용 Deno binary, DENO_DIR)다.
 async function startCore(home: string, data: string) {
   const core = spawnCore({
     repoRoot: layout.platform,
@@ -200,13 +202,14 @@ async function stopCore(core: {
 async function checkCoreOffline(): Promise<void> {
   const { home, data } = await tempHome();
   try {
-    // 새 cache로 의존성 다운로드 없이(--cached-only) 시작한다. PATH도 비워 system Deno가 없다.
+    // 새 Deno cache와 빈 PATH로 시작한다. core는 묶음의 node_modules만 읽고, 앱과 flow의 Deno는
+    // 필요할 때 이 cache를 채운다.
     const first = await startCore(home, data).catch((error) => error as Error);
     if (first instanceof Error) {
-      record("R4·R5·R8 cached-only core 시작", "fail", first.message);
+      record("R4·R5·R8 의존성 다운로드 없는 core 시작", "fail", first.message);
       return;
     }
-    record("R4·R5 새 cache·system Deno 없이 cached-only core 시작", "pass");
+    record("R4·R5 새 cache·system Deno 없이 core 시작", "pass");
     await stopCore(first.core);
 
     // Deno cache를 지워도 H는 그대로다.

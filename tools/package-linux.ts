@@ -8,8 +8,8 @@
 //
 // 묶음 배치(/opt/lophn/):
 //   lophn-desktop, chrome-sandbox(root 소유 4755), resources/  Electron(electron-builder `--linux dir`)
-//   deno                       설치된 Deno binary
-//   platform/                  packages source, deno.json, deno.lock, vendor/, node_modules/
+//   deno                       앱과 flow가 wave 3까지 쓰는 Deno binary
+//   platform/                  packages source, deno.json, deno.lock, npm production node_modules/
 //   desktop/                   빌드된 desktop 화면
 //   skills/                    coding agent skill 배포 원본
 //   sdk -> platform/packages/sdk
@@ -30,8 +30,8 @@ import process from "node:process";
 
 import {
   cliLauncher,
-  debControl,
   DESKTOP_LAUNCHER_TARGET,
+  debControl,
   desktopEntry,
   LINUX_LAUNCHERS,
   linuxInstallLayout,
@@ -95,7 +95,7 @@ function inPkg(pkg: string, installed: string): string {
   return `${pkg}${installed}`;
 }
 
-async function stagePlatform(pkg: string, work: string): Promise<void> {
+async function stagePlatform(pkg: string): Promise<void> {
   const platform = inPkg(pkg, layout.platform);
   await mkdir(platform, { recursive: true });
   await run("rsync", [
@@ -105,8 +105,7 @@ async function stagePlatform(pkg: string, work: string): Promise<void> {
     `${repo}/packages`,
     `${platform}/`,
   ]);
-  // desktop 화면 build 전용 member(packages/shell/renderer)와 개발 도구 member(tools/*)는 묶음에 없으므로 workspace에서 뺀다.
-  // vendor와 node_modules를 설치 안에 두어 시작이 의존성을 받지 않는다.
+  // 앱 화면 build는 Deno가 platform/deno.json으로 module을 푼다. 묶음에 없는 member는 workspace에서 뺀다.
   const config = JSON.parse(await readFile(`${repo}/deno.json`, "utf8"));
   config.workspace = config.workspace.filter(
     (member: string) =>
@@ -115,18 +114,42 @@ async function stagePlatform(pkg: string, work: string): Promise<void> {
   for (const key of ["tasks", "fmt", "lint", "test", "exclude"]) {
     delete config[key];
   }
-  config.vendor = true;
   config.nodeModulesDir = "manual";
+  // 묶음 workspace에서 빠진 member의 항목이 root deno.lock에 남아 frozen 검사가 실패한다.
+  // Deno 쪽은 앱 build 도구만 쓰므로 lock을 읽지 않는다(deno.lock은 wave 6에서 지운다).
+  config.lock = false;
   await writeFile(
     `${platform}/deno.json`,
     JSON.stringify(config, null, 2) + "\n",
   );
   await copyFile(`${repo}/deno.lock`, `${platform}/deno.lock`);
-  // 저장소 lock에서 member만 줄어든 lock으로 의존성을 받는다.
-  await run(Deno.execPath(), ["install", "--frozen=false"], {
-    cwd: platform,
-    env: { DENO_DIR: `${work}/denodir` },
-  });
+  await stageNodeModules(platform);
+}
+
+// core와 CLI는 Node로 뜨므로 platform/ 안에서 풀리는 npm production 의존이 있어야 한다.
+// npm workspace가 member를 상대 symlink로 잇고, 설치를 옮겨도 symlink가 설치 안을 가리킨다.
+async function stageNodeModules(platform: string): Promise<void> {
+  const root = JSON.parse(await readFile(`${repo}/package.json`, "utf8"));
+  // build 도구 의존은 설치본에서 쓰지 않는다. member 의존만 남긴다.
+  delete root.dependencies;
+  delete root.devDependencies;
+  root.workspaces = [
+    "packages/base",
+    "packages/protocol",
+    "packages/core",
+    "packages/coding-agent",
+  ];
+  await writeFile(
+    `${platform}/package.json`,
+    JSON.stringify(root, null, 2) + "\n",
+  );
+  await copyFile(`${repo}/package-lock.json`, `${platform}/package-lock.json`);
+  // 의존 install script는 설치본에 필요 없고 build 기계에서 돌릴 이유도 없다.
+  await run(
+    "npm",
+    ["ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"],
+    { cwd: platform },
+  );
 }
 
 async function stageContent(pkg: string): Promise<void> {
@@ -197,19 +220,34 @@ async function stageDebian(pkg: string, version: string): Promise<void> {
 
 async function main(): Promise<void> {
   const out = option("--out") ?? `${repo}/build/linux`;
-  const work = `${out}/work`;
   const pkg = `${out}/pkg`;
   const version: string = JSON.parse(
     await readFile(`${shellMain}/package.json`, "utf8"),
   ).version;
   await rm(out, { recursive: true }).catch(() => undefined);
-  await mkdir(work, { recursive: true });
+  await mkdir(pkg, { recursive: true });
 
   if (!process.argv.slice(2).includes("--skip-shell-build")) {
     await run("npm", ["--prefix", shellMain, "run", "build"]);
     await run("deno", ["task", "build"], {
       cwd: `${repo}/packages/shell/renderer`,
     });
+    // npm workspace는 shell main의 의존을 root node_modules로 올린다. electron-builder는 app dir의
+    // node_modules만 묶고 그 native module을 rebuild하므로, 여기에 production 의존을 따로 받는다.
+    // --workspaces=false가 없으면 electron-builder의 production install이 root node_modules를 프루닝한다.
+    await run(
+      "npm",
+      [
+        "install",
+        "--omit=dev",
+        "--workspaces=false",
+        "--ignore-scripts",
+        "--package-lock=false",
+        "--no-audit",
+        "--no-fund",
+      ],
+      { cwd: shellMain },
+    );
     await run(
       `${repo}/node_modules/.bin/electron-builder`,
       ["--linux", "dir"],
@@ -223,12 +261,13 @@ async function main(): Promise<void> {
     await ensure(inPkg(pkg, layout.root)),
   );
   await chmod(inPkg(pkg, layout.chromeSandbox), SANDBOX_MODE);
+  // 앱과 flow는 wave 3까지 Deno로 뜬다. core는 이 binary를 LOPHN_DENO로 받는다.
   await copyFile(
     process.env.LOPHN_DENO_BINARY ?? Deno.execPath(),
     inPkg(pkg, layout.deno),
   );
   await chmod(inPkg(pkg, layout.deno), 0o755);
-  await stagePlatform(pkg, work);
+  await stagePlatform(pkg);
   await stageContent(pkg);
   await stageSystem(pkg);
   // 그룹·기타의 쓰기 권한을 뺀다(umask와 무관하게 설치 묶음은 root만 쓴다). setuid는 그대로다.

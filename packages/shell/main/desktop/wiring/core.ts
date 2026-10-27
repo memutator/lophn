@@ -1,10 +1,11 @@
 // core 연결과 상태 relay.
-import { app, type BrowserWindow, ipcMain } from "electron";
+
 import { join } from "node:path";
+import { app, type BrowserWindow, ipcMain } from "electron";
 
 import { CORE_STATE_CHANNEL } from "../../../ipc/core.ts";
 import { startCoreConnection } from "../core/connection.ts";
-import { resolveDenoBinary } from "../core/deno-binary.ts";
+import { resolveAppDenoBinary } from "../core/deno-binary.ts";
 import { nodeFetch, nodeSockets, nodeStreamFetch } from "../core/node-io.ts";
 import { packagedInstall } from "../paths.ts";
 import type { CoreRelay, Registered, ShellContext } from "./context.ts";
@@ -28,7 +29,8 @@ export function connectCore(input: ConnectInput) {
         ? packagedInstall(process.resourcesPath).platform
         : join(here, "..", "..", "..", ".."),
       dataRoot,
-      denoBinary: resolveDenoBinary(
+      // 앱과 flow는 wave 3까지 Deno로 돈다. core는 이 binary를 LOPHN_DENO로 받는다.
+      denoBinary: resolveAppDenoBinary(
         { isPackaged: app.isPackaged, resourcesPath: process.resourcesPath },
         log,
       ),

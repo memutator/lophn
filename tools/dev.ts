@@ -15,7 +15,7 @@
 // 채운다. 그래서 fake를 띄우지 않고, 데이터 root는 매번 새로 만드는 .dev-data/mock이다. 터미널 탭만
 // 진짜 PTY다. core가 mock project의 폴더를 모르므로 shell main이 데이터 root의 mock-terminal 폴더에서 연다.
 
-import { type ChildProcess, spawn, spawnSync } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import {
   chmod,
   mkdir,
@@ -208,19 +208,14 @@ function planCore(
  * 실행마다 다시 쓰고 rename으로 바꿔, 돌고 있는 hook이 반쯤 쓴 file을 읽지 않는다.
  */
 async function writeDevCli(root: string): Promise<string> {
-  const info = spawnSync(Deno.execPath(), ["info", "--json"], {
-    stdio: ["ignore", "pipe", "ignore"],
-  });
-  const denoDir = JSON.parse(info.stdout.toString("utf8")).denoDir as string;
+  // 설치본과 같이 shell main이 도는 Electron binary를 Node로 쓴다.
+  const electron = createRequire(import.meta.url)("electron") as string;
   const dir = `${root}/.cache/dev-cli`;
   const path = `${dir}/lophn`;
   await mkdir(dir, { recursive: true });
   await writeFile(
     `${path}.tmp`,
-    devCliLauncher(
-      { deno: Deno.execPath(), platform: root, denoDir },
-      HOOK_STDOUT,
-    ),
+    devCliLauncher({ electron, platform: root }, HOOK_STDOUT),
     { mode: 0o755 },
   );
   await rename(`${path}.tmp`, path);

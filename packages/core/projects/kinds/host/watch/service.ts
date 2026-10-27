@@ -1,4 +1,4 @@
-// active domain 그릇(project의 등록 폴더들, 앱의 source 폴더)의 파일 변화를 core가 `Deno.watchFs`로 보고, 바뀌면 그
+// active domain 그릇(project의 등록 폴더들, 앱의 source 폴더)의 파일 변화를 core가 `node:fs` watch로 보고, 바뀌면 그
 // domain을 다시 sync하게 한다. 사람이 열지 않아도 위반이 늘면 사람에게 알리려는 것이 전부라 신호는 힌트일
 // 뿐이다: 변화 목록·이력·event를 만들지 않고, 놓쳐도 다음 읽기 앞 sync가 따라잡는다.
 //
@@ -47,7 +47,7 @@ type KindsWatchDeps = {
   >;
   // 그 project를 force sync한다. 기다리지 않는 쪽은 이 함수를 부르는 watch다.
   catchUp(domain: string): Promise<Result<KindsSyncResponse>>;
-  // 제품은 `Deno.watchFs`.
+  // 제품은 `nodeWatchFs`.
   watchFs: WatchFs;
   // domain 폴더를 만든다. 기본은 `mkdir(path, { recursive: true })`.
   ensureDir?(path: string): Promise<void>;
@@ -78,10 +78,6 @@ const realTimer: Timer = {
   set: (ms, run) => setTimeout(run, ms),
   clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
-
-// 제품의 watchFs. 폴더가 없으면 던진다(어댑터가 건너뛴다).
-export const denoWatchFs: WatchFs = (path, options) =>
-  Deno.watchFs(path, options);
 
 // 감시 집합(active domain과 그 그릇의 폴더)을 바꿀 수 있는 command.
 const WATCH_COMMANDS: Set<string> = new Set([

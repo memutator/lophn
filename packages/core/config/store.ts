@@ -6,7 +6,15 @@
 // - 쓰기는 같은 폴더의 임시 파일(0600)에 쓰고 rename한다. 실패하면 파일은 그대로다.
 // - watch는 폴더를 보고 settings.json 이벤트만 timer로 묶어 한 번 다시 읽는다. 내용이
 //   마지막으로 읽거나 쓴 것과 같으면 무시한다(자기 쓰기에 반응하지 않는다).
-import { readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  type FSWatcher,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  watch,
+  writeFileSync,
+} from "node:fs";
 import { err, errorCode, ok, type Result } from "../../base/mod.ts";
 import {
   type SettingRejection,
@@ -57,7 +65,7 @@ export function createSettingsStore(options: {
   const path = `${root}/${SETTINGS_FILE_NAME}`;
   let chosen: Record<string, unknown> = {};
   let lastText: string | undefined;
-  let watcher: Deno.FsWatcher | undefined;
+  let watcher: FSWatcher | undefined;
   let pending: unknown;
   let closed = false;
 
@@ -176,31 +184,26 @@ export function createSettingsStore(options: {
     },
     watch() {
       if (watcher !== undefined || closed) return;
+      let events: FSWatcher;
       try {
-        watcher = Deno.watchFs(root, { recursive: false });
+        // Deno의 node:fs watch는 없는 폴더를 비동기 error event로 알리므로, Node와 같이 동기적으로 던지게 한다.
+        statSync(root);
+        events = watch(root, { recursive: false }, (_kind, filename) => {
+          // 어느 file인지 모르는 신호도 다시 읽는다. 내용이 같으면 reload가 무시한다.
+          if (filename !== null && filename !== SETTINGS_FILE_NAME) return;
+          if (pending !== undefined) timer.clear(pending);
+          pending = timer.set(() => {
+            pending = undefined;
+            reload();
+          }, WATCH_DEBOUNCE_MS);
+        });
       } catch {
         log("settings: the settings folder could not be watched");
         return;
       }
-      const events = watcher;
-      void (async () => {
-        try {
-          for await (const event of events) {
-            if (
-              !event.paths.some((one) => one.endsWith(`/${SETTINGS_FILE_NAME}`))
-            ) {
-              continue;
-            }
-            if (pending !== undefined) timer.clear(pending);
-            pending = timer.set(() => {
-              pending = undefined;
-              reload();
-            }, WATCH_DEBOUNCE_MS);
-          }
-        } catch {
-          // watch가 닫히면 끝난다.
-        }
-      })();
+      // 오류로 끝난 감시는 더 신호를 주지 않는다. listener가 없으면 error event가 process를 끝낸다.
+      events.on("error", () => events.close());
+      watcher = events;
     },
     close() {
       closed = true;

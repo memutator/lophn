@@ -37,9 +37,8 @@ export type ChangeDetector = {
   close(): void;
 };
 
-// Deno.FsWatcher에서 어댑터가 쓰는 부분.
+// 감시한 폴더가 알린 event의 절대 경로들.
 type FsEventLike = {
-  kind: string;
   paths: readonly string[];
 };
 export type FsWatcherLike = AsyncIterable<FsEventLike> & { close(): void };

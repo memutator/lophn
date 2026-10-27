@@ -12,9 +12,9 @@ import {
 } from "../../../projects/kinds/host/dispatcher.ts";
 import { kindHandlers } from "../../../projects/kinds/host/handlers.ts";
 import { createKindsProcess } from "../../../projects/kinds/host/process.ts";
+import { nodeWatchFs } from "../../../projects/kinds/host/watch/fs.ts";
 import {
   createKindsWatch,
-  denoWatchFs,
   type KindsWatch,
 } from "../../../projects/kinds/host/watch/service.ts";
 import { appSourcePath, appStatusOf } from "../../../apps/lookups.ts";
@@ -111,7 +111,7 @@ export const kindsWiring: WiringFactory = () => {
           return got.ok ? ok(got.value as never) : got;
         },
         catchUp: (domain) => attached.sync(domain, { force: true }),
-        watchFs: denoWatchFs,
+        watchFs: nodeWatchFs,
         log: (message) => console.error(message),
       });
       void watch.start();

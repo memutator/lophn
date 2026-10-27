@@ -2,6 +2,8 @@
 
 상태: 로드맵. 계획 `eval-base`(기초와 판단 case), `eval-coding`(진짜 coding agent, 사람 역할, 캘린더 단위), `eval-experiment`(experiment, agent 채점), `test-restore`(case를 현재 계약에 맞춰 되살림)는 모두 land했다. 그 코드는 `project-docs/architecture/eval.md`가 적는다. 이 문서에 남은 것은 설계의 배경과 아직 만들지 않은 것이다. domain model과 구조는 2026-10-18 planner와 사람이 다시 정했다. 그림은 artifact "lophn eval 설계"(https://claude.ai/artifact/P9TagQSccLQAgRWFcDeD6g)에 있다.
 계획 `test-restore`가 아래 case 표와 확인 목록을 지금 계약에 맞췄다(coding agent 없음, App Engineer가 앱을 직접 짓고 release까지 낸다, grant 대신 assignment, `guide.read` 대신 `guide-*` skill, approval 대신 activation 동의). 새 설계로 진짜 model을 돌려 보는 것은 사람의 다음 일이다.
+
+2026-10 Node 전환에서 앱 모양이 Deno project에서 Node 앱으로 바뀌었다. 그 모양에 묶여 있던 판단 case 여덟(`L4-new`, `L7`, `O4`, `calendar-api`, `calendar-dev`, `calendar-diagnose`, `calendar-maintain`, `calendar-user`)과 그 재료를 지웠다. 그 case들만 쓰던 harness 기능도 지웠다: 사람 역할(`tests/eval/human/`, `npm run eval:answer`), 시나리오의 `human`·`approve`·`save`·`limits`·`callApi`·`setup`, 끝난 world를 보는 check(`tests/eval/checks/app/`), criterion `app-design`·`asked-again`·`card-covered`·`facts-separated`·`root-cause`. 지금 harness는 판단 case 11개만 돈다. 아래 캘린더 단위, 요구 카드, 설계·재사용·진단 확인, 산출물 저장, 기다림 한도 설계는 Node 앱 모양으로 다시 지을 때의 기준으로 남긴다.
 계획이 land할 때마다 이 설계 가운데 만든 것을 실제 코드 path와 함께 `project-docs/architecture/eval.md`로 옮기고, 여기서는 지운다. architecture 문서는 지금 코드만 적기 때문이다.
 배경 문서: `project-docs/products/AGENT-ROLE.md`, `project-docs/architecture/testing.md`, `project-docs/architecture/agent-definition.md`, AGENTS.md "속도"·"사람에게 묻는 것".
 
@@ -53,7 +55,7 @@ experiment = component 하나를 X@a → X@b로 바꾸고, X@a를 본 run만 다
 | component | `instruction:lophn@3`, `skill:guide-roles-and-assignments@2`, `tool:call@1`, `assembly@5`, `runtime@7`, `template:app@4`, `model:claude-sonnet-5-5` | model을 둘러싼 harness의 조각 |
 | checks | `checks@3` | program check helper(`tests/eval/checks/`). grader의 한 조각이다 |
 | core | `core@31` | eval이 띄우는 코드 가운데 component가 아닌 것 전부: core daemon, CLI, protocol, SDK. 버전 하나로 매긴다 |
-| 시나리오 | `L4-app@4`, `calendar-user@2` | world, `real`, 단계, check, save. 단계나 check를 고치면 새 n이다 |
+| 시나리오 | `L4-app@4`, `calendar-user@2` | world, `real`, 단계, check. 단계나 check를 고치면 새 n이다. `save`는 다시 지을 때 더한다 |
 | criterion | `relay-complete@1`(예) | judge check의 질문 하나와 verdict enum |
 | judge | `judge@1`(예) | judge model과 prompt |
 
@@ -97,12 +99,12 @@ grader     judge@1  criterion:relay-complete@1
 결과       check verdict · judge item(입력, verdict, 인용) · 공통 수치
 ```
 
-check는 run 기록과 끝난 world를 함께 본다. 판단 case는 기록만으로 되지만, 앱 시나리오의 check(앱 tool이 기대대로 답하나, release가 active인가, 고친 뒤 새 오류 log 줄이 생기나)는 끝난 world에 물어야 한다.
+판단 case의 check는 run 기록만 본다. 끝난 world를 보는 check(앱 tool이 기대대로 답하나, release가 active인가, 고친 뒤 새 오류 log 줄이 생기나)는 앱을 짓는 단위와 함께 지웠다. 다시 지을 때 `checks/app/`의 그 check도 새로 쓴다.
 
 ### 참가자
 
 - role agent: lophn, App Engineer, Operator, Project Manager. lophn ledger로 잰다. 앱은 App Engineer가 직접 짓는다. 제품에 coding agent를 띄우는 길이 없어 coding agent는 참가자가 아니다.
-- 사람 역할: App Engineer의 `ask`에 답한다. eval을 돌리는 agent가 질문마다 새 subagent를 띄워, 시나리오의 요구 카드 안에서만 답하게 한다(아래 "요구 카드"). shell 물음과 activation 동의는 시나리오의 허락 규칙대로 program이 준다(아래 "진짜로 도는 것").
+- 사람 역할: Node 전환에서 지웠다. 다시 지을 때는 App Engineer의 `ask`에 답하고, eval을 돌리는 agent가 질문마다 새 subagent를 띄워 시나리오의 요구 카드 안에서만 답하게 한다(아래 "요구 카드"). shell 물음과 activation 동의는 시나리오의 허락 규칙대로 program이 준다.
 - `real`에 없는 agent는 model이 없어 turn이 시작되지 않는다(`model_required`). call을 받아도 그쪽 비용은 0이다.
 
 ## 단위와 의존
@@ -116,7 +118,7 @@ check는 run 기록과 끝난 world를 함께 본다. 판단 case는 기록만�
 - **새 산출물은 후보다**: 앞 단위를 다시 돌려 새 산출물이 나와도, 사람이 보고 commit해야 뒤 단위의 전제가 된다.
 - **이어 돌리기**: "앞 단위의 개선이 뒤까지 가나"를 보려는 experiment만, 뒤 단위가 commit된 재료 대신 방금 나온 산출물을 받는다. run 사이의 실행 순서가 묶이는 것은 이때뿐이다.
 
-캘린더의 단위:
+캘린더의 단위는 지금 없다(Node 전환에서 지웠다). 다시 지을 때의 설계는 이렇다:
 
 ```
 L4-new             lophn                          (산출물 없음. 앱을 등록하고 App Engineer에게 call을 보내는 데까지)
@@ -162,6 +164,8 @@ run 기록 + 끝난 world → program check · 공통 수치 → 전제 통과?
 | `root-cause` (calendar-diagnose) | 고치기 전에 `app.logs`나 `app.invocations`를 읽음(`read-before-fix`) | 심은 bug의 설명, App Engineer의 마지막 답, 고친 release와의 diff. 원인을 짚어 거기서 고쳤나 | `root_cause` · `symptom_only` · `wrong` · `cannot_tell` |
 | `repeat-kind` (되풀이 진단. 판정에 들지 않는다) | 같은 tool을 같은 인자로 3번 이상 | 그 call들의 timeline과 결과. 막힌 길을 다른 방법으로 풀려 했나, 같은 실수를 되풀이했나 | `different_attempts` · `same_mistake` · `cannot_tell` |
 
+`facts-separated`, `card-covered`, `app-design`, `asked-again`, `root-cause`는 그 case들과 함께 지웠다. 지금 criterion은 `relay-complete`, `asks-gap`, `repeat-kind`다. 다시 지을 때 criterion도 새로 쓴다.
+
 ### judge를 믿고 쓰기
 
 - judge는 eval을 돌리는 agent가 띄운 subagent의 판단을 믿고 쓴다. 정해 둔 검증 절차는 두지 않는다. 의심될 때 사람이 따로 검증한다. 채점한 model은 item마다 기록되고, judge 버전은 채점 안내 글의 버전이다.
@@ -189,9 +193,9 @@ eval 결과를 보고 harness를 고친 뒤, 그 고침을 검증하는 단위�
 
 예: L4-app에서 lophn이 가계부 App Engineer에게 맡기지 않고 `app.create`를 불렀다. 가설은 "있는 앱의 기능 요청은 그 앱의 App Engineer에게"가 instruction에서 약하다는 것이다. `instruction:lophn@3 → @4`.
 - target: L4-app, L8.
-- guard: L4-new, L5, L1, L6, L7.
-- 돌리지 않음: A12, A1-ask, C8, C9-other, O4, O6, O7, calendar-user, calendar-dev, calendar-api, calendar-maintain, calendar-diagnose. lophn instruction을 본 적이 없다.
-- guard 5 × 1 + target 2 × 1~3 = 7~11 trial. 늘 3번씩이면 21 trial이다.
+- guard: L5, L1, L6.
+- 돌리지 않음: A12, A1-ask, C8, C9-other, O6, O7. lophn instruction을 본 적이 없다.
+- guard 3 × 1 + target 2 × 1~3 = 5~9 trial. 늘 3번씩이면 15 trial이다.
 
 ### trial 수
 
@@ -245,6 +249,8 @@ assembly를 바꾼 experiment는 model을 부르기 전에 prefix 유지를 먼�
 
 data root를 통째로 복사하지 않는다. schema가 바뀌면 `history_mismatch`로 core가 뜨지 않고, ledger에 절대 path가 박혀 있고, OAuth token은 갱신 때마다 바뀐다. 재료는 source 수준으로 담고, trial마다 새 root에서 제품 route로 되살린다. 그래서 schema가 바뀌어도 재료는 그대로 쓴다.
 
+지금 있는 재료 종류는 앱, project, kinds, Operator다. 켜진 앱, 앱 data, package 재료와 그 되살리기는 Node 전환에서 지웠다. 아래 표의 그 세 줄은 다시 지을 때의 설계다.
+
 | 종류 | 담는 것 | 되살리는 길 | agent가 드나 |
 |---|---|---|---|
 | 앱 | `apps.json`(slug, 이름, 설명)과 manifest(앱 id). source는 없다(`apps-home@1`, `calendar-blank@1`) | `apps/create`(id 고정). core가 template source를 깔고 앱에 잇는다. 앱 옆에 `<slug>-project` project도 등록한다 | 아니다 |
@@ -253,7 +259,7 @@ data root를 통째로 복사하지 않는다. schema가 바뀌면 `history_mism
 | project | 폴더(문서, `LOPHN.md`)와 `projects.json` | project 등록(`projectApi.register`, id 고정) | 아니다 |
 | kinds | project 안 domain의 kind 파일(`kinds.yaml`)과 `spec.json` | domain 폴더에 kind 파일을 먼저 놓고 `domains/create`(id 고정, owner는 그 project). release 없이 바로 쓰인다 | 아니다 |
 | package | 낸 앱, 폴더, version(`publish.json`) | App Engineer의 `package.publish`. 낸 앱이 먼저 되살아나 있어야 하고, package는 그 앱 source HEAD commit의 폴더다 | fake App Engineer |
-| Operator | `operators.json`(place, 정의) | `operators/create`(사람 자격). model은 정의에 넣지 않는다. assignment는 재료에 없다. 필요한 시나리오는 setup에서 `agentAssignmentSet`으로 둔다(calendar-api, O4) | 아니다 |
+| Operator | `operators.json`(place, 정의) | `operators/create`(사람 자격). model은 정의에 넣지 않는다. assignment는 재료에 없다. 시나리오 `setup`은 지웠고, 다시 지을 때 필요한 시나리오는 setup에서 `agentAssignmentSet`으로 둔다(calendar-api, O4) | 아니다 |
 
 - 되살리는 데에는 진짜 model을 쓰지 않는다. 비용은 0이고 시간만 든다(켜진 앱 하나에 release 준비).
 - 앱 id는 사람 자격의 `apps/create`가 미리 정할 수 있다(`packages/core/apps/registration/commands.ts:105-110`). 그래서 재료끼리 가리키는 id(선언의 `app_connections`, Operator의 place)가 되살린 뒤에도 맞는다.
@@ -263,18 +269,20 @@ data root를 통째로 복사하지 않는다. schema가 바뀌면 `history_mism
 
 ```
 tests/eval/materials/<이름>/<n>/
-  material.json   kind, 고정 id, needs(다른 재료 이름@n), parent(어느 재료에서 나왔나),
-                  produced_by(시나리오@n, trial, run), content_hash
+  material.json   kind, 고정 id, needs(다른 재료 이름@n), content_hash
+                  parent·produced_by는 산출물 저장과 함께 지웠고 다시 지을 때 더한다
   files/          담은 것
 ```
 
 - `content_hash`는 file을 정렬해 `sha256Hex(bundleBytes(files))`로 잰다. 앱이 낸 package의 `bundle_hash`와 같은 꼴이다(`apps/packages/install.ts`). runner는 되살리기 전에 hash를 다시 재고, 다르면 멈춘다.
 - world는 재료의 목록이다. runner는 `needs` 순서로 되살린다. 예를 들어 `date-range@4`는 `notify-app@4`의 알림 앱이 낸 package다.
-- 시나리오 결과 저장: 시나리오가 `save`에 적은 것을 runner가 `tests/eval/materials/<이름>/<n+1>/`에 쓴다. 사람이 보고 commit한다.
+- 시나리오 결과 저장: 지금은 없다(`save`도 `restore/save.ts`도 지웠다). 다시 지을 때는 시나리오가 `save`에 적은 것을 runner가 `tests/eval/materials/<이름>/<n+1>/`에 쓰고 사람이 보고 commit한다.
 
 ## 시나리오
 
 ### 꼴
+
+지금 시나리오는 `world`, `real`, `steps`, `checks`, `fixtures`만 갖는다. 아래 `limits`, `human`, `save`, `checks/app`의 check는 Node 전환에서 지웠고, 다시 지을 때의 꼴이다.
 
 ```ts
 {
@@ -293,7 +301,7 @@ tests/eval/materials/<이름>/<n>/
 
 - 단계와 확인은 함수라 시나리오끼리 같이 쓴다.
 - 새 앱을 만드는 단위(calendar-user, calendar-dev)에서 사람은 tool 이름과 입력·출력을 말하지 않는다. 확인이 앱 tool을 부르지 않고 설계와 재사용을 본다. 기존 앱에 기능을 더하는 calendar-maintain만 tool 이름과 입력(`event.add`의 `repeat`)을 말한다. 그래야 확인이 그 tool을 불러 결과를 판정할 수 있다.
-- 판단 case는 단계가 사람 말 하나뿐인 시나리오다. L7만 앞에 `callApi` 단계가 하나 있어 앱에 실패를 남긴다.
+- 판단 case는 단계가 사람 말 하나뿐인 시나리오다(지금 11개 모두 그렇다). `callApi` 단계는 지웠고, 앱에 실패를 남기는 단위를 다시 지을 때 함께 만든다.
 
 ### 캘린더 단위
 
@@ -320,12 +328,12 @@ calendar-user, calendar-dev, calendar-maintain에서 사람 역할이 쓰는 카
 모르는 것: 그 밖의 전부(색, 화면 모양, 반복 일정 같은 것) → "추천대로 해 줘"
 ```
 
-- 사람 역할(돌리는 agent가 질문마다 띄우는 새 subagent)은 질문, 카드, 앞서 자기가 한 답만 보고 답하고, 답은 `deno task eval:answer`로 넣는다. 카드 밖 질문에는 "추천대로 해 줘"라고 답한다.
+- 사람 역할은 지금 없다. 다시 지을 때는 돌리는 agent가 질문마다 띄우는 새 subagent가 질문, 카드, 앞서 자기가 한 답만 보고 답하고, 답은 새로 만들 `npm run eval:answer`로 넣는다. 카드 밖 질문에는 "추천대로 해 줘"라고 답한다.
 - check: 카드의 요구가 선언과 `DESIGN.md`에 담겼나(judge `card-covered`), 요청에 이미 있던 것을 다시 묻지 않았나(judge `asked-again`), 질문 수(수치).
 
 ### 설계 확인
 
-calendar-user, calendar-dev, calendar-maintain의 App Engineer 흐름을 본다(`tests/eval/checks/app/design-doc.ts`, `tests/eval/scenarios/calendar/common.ts`). 앞의 넷은 기록만 보는 program check이다.
+calendar-user, calendar-dev, calendar-maintain의 App Engineer 흐름을 보던 확인이다(지금은 없다. `tests/eval/checks/app/`와 `tests/eval/scenarios/calendar/`도 지웠다. 다시 지을 때 새로 쓴다). 앞의 넷은 기록만 보는 program check이다.
 - `design-first`: 첫 `release.prepare` 앞에 App Engineer가 file tool로 쓴 `DESIGN.md`가 일곱 절(Purpose, Reuse, Model, Journeys, Screens, Tools, Failure branches)을 순서대로 갖췄다. `shell.run`으로 쓴 것은 세지 않는다.
 - `ae-tested`: 첫 `release.prepare` 앞에 `deno test`나 `deno check`(`deno task test`처럼 `task`를 붙인 꼴도 센다)를 돌렸다.
 - `ae-previewed`: 첫 `release.activate` 앞에 `preview.start`, `preview.call`, `preview.stop`이 이 순서로 있다.
@@ -336,7 +344,7 @@ calendar-user, calendar-dev, calendar-maintain의 App Engineer 흐름을 본다(
 
 `notify-app@4`와 `date-range@4`에는 캘린더가 쓸 수 있는 것을 미리 깐다: 알림 앱의 tool `notify.schedule`, 그 앱이 낸 package `@me/date-range`. `@lophn/ui`의 component도 쓸 수 있다.
 
-확인은 모두 program으로 하고, 켜진 release의 commit만 본다(`tests/eval/checks/app/reuse.ts`):
+확인은 모두 program으로 하고, 켜진 release의 commit만 본다(지금은 없다. 다시 지을 때 `checks/app/reuse.ts`를 새로 쓴다):
 - `reuse-sdk-dependency`: 선언의 `sdk_dependencies`에 template 기본 7개 밖의 package가 있다(`@me/date-range`).
 - `reuse-app-connection`: 선언의 `app_connections`에 알림 앱의 `notify.schedule`이 있다.
 - `reuse-imports`: source가 그 package를 import하고, `connectTools`와 `notify.schedule`을 같이 쓰는 file이 있다(`git grep`). 쓰지 않으면서 의존만 걸어 둔 것은 떨어진다.
@@ -351,7 +359,7 @@ template이 이미 7개 package를 고정하고 `@lophn/ui`의 4분류를 import
 
 ### 진단 확인
 
-calendar-diagnose에서 본다(`tests/eval/checks/app/diagnose.ts`):
+calendar-diagnose에서 보던 확인이다(지금은 없다. 다시 지을 때 `checks/app/diagnose.ts`를 새로 쓴다):
 - `read-before-fix`: 처음 고치는 tool(`file.write`, `file.edit`, `release.prepare`) 앞에 App Engineer가 `app.logs`나 `app.invocations`를 성공으로 읽었다. `app.status`만으로는 안 된다. 이 bug는 앱을 멈추지 않아 상태가 늘 running이다.
 - `fixed-release-active`: 고친 release(번호 2 이상)가 active이고 첫 release는 superseded이며 앱이 준비된 채 돈다.
 - `declaration-kept`: 옛 release의 tool이 모두 남고 bug가 있던 tool의 effect와 input이 같다. 선언을 고쳐 문제를 덮지 않았다.
@@ -362,7 +370,7 @@ bug는 재료 `calendar-app-bug@4`에 이미 심겨 있다. 시나리오의 `cal
 
 ### 책임에 따른 call: 작은 판단 case
 
-session 하나에만 진짜 model을 붙이고 사람 말 한 줄을 보낸다. turn 하나에 끝나 싸다. 앱 이름은 예시다(가계부, 할일, project 세무, 인사). project의 `name`은 ASCII slug라 case에서는 `tax`, `hr`로 둔다. L4-new는 캘린더 단위 표에도 있다(위 "캘린더 단위"). 판단 case는 14개다. `relay-complete`를 쓰는 case는 pass 칸 끝에 judge가 붙고, 그 입력과 verdict는 위 "check와 judge" 표에 있다. grant가 없어져 T19 case(`T19-lophn`, `T19-op`)는 지웠다.
+session 하나에만 진짜 model을 붙이고 사람 말 한 줄을 보낸다. turn 하나에 끝나 싸다. 앱 이름은 예시다(가계부, 할일, project 세무, 인사). project의 `name`은 ASCII slug라 case에서는 `tax`, `hr`로 둔다. 지금 판단 case는 11개다(L4-new, L7, O4는 Node 전환에서 지웠고, 아래 표의 그 줄은 다시 지을 때의 설계다). `relay-complete`를 쓰는 case는 pass 칸 끝에 judge가 붙고, 그 입력과 verdict는 위 "check와 judge" 표에 있다. grant가 없어져 T19 case(`T19-lophn`, `T19-op`)는 지웠다.
 
 | id | 대상 | world | 사람 말 | pass |
 |---|---|---|---|---|
@@ -386,15 +394,14 @@ session 하나에만 진짜 model을 붙이고 사람 말 한 줄을 보낸다. 
 eval은 variant의 checkout에서 core를 그대로 띄우고, 제품 route로만 움직인다. 앱 release도 제품 코드대로 돈다.
 
 제품 코드 그대로 도는 것:
-- core: env를 비우고, trial마다 새 data root에서 띄운다. 앱 release를 되살리는 재료가 있으면 release 준비가 쓰는 deno dir과 앱 socket 폴더만 env로 준다(`tests/eval/restore/env.ts`).
+- core: env를 비우고, trial마다 새 data root에서 띄운다. 지금 재료는 제품 route로만 되살리고 model을 쓰지 않아 core에 더하는 env가 없다.
 - role agent: run loop, prompt assembly, tool, Gate.
 - 앱 일: App Engineer가 직접 한다. `DESIGN.md`와 source 쓰기, test, release 준비, preview, activation, 앱 process, 앱 tool 호출, 앱 log와 invocation 읽기.
 
 eval이 대신 맡는 것:
-- **사람의 답 대신 사람 역할**: `ask`에 요구 카드로 답한다(위 "요구 카드").
-- **사람의 허락 대신 시나리오의 허락 규칙**: shell 물음은 `turnRequestDecide`로, activation 동의는 `activation.consent`로 program이 시나리오의 `approve` 규칙대로 준다. 규칙에 없는 종류는 거절이다. 전제 재료를 되살릴 때 activation 동의는 늘 allow다(`tests/support/app/activate.ts`와 같은 길).
+- **사람의 답과 허락**: 지금은 맡지 않는다. 사람 역할과 시나리오의 `approve` 규칙은 Node 전환에서 지웠다. 다시 지을 때 `ask`에는 요구 카드로 답하고, shell 물음은 `turnRequestDecide`로, activation 동의는 `activation.consent`로 program이 규칙대로 준다.
 - **core의 provider**: trial마다 새 data root라 provider가 없다. `.env`의 API key를 `secrets/put`으로 넣는다.
-- **전제 재료**: fake 대본으로 되살린다. model 호출은 없다.
+- **전제 재료**: 제품 route로 되살린다. model 호출은 없다.
 
 coding agent는 제품에 띄우는 길이 없어 eval이 재지 않는다(`project-docs/architecture/eval.md`의 "아직 아닌 것"). 그 driver, PTY, CLI wrapper는 지웠다.
 
@@ -405,9 +412,9 @@ coding agent는 제품에 띄우는 길이 없어 eval이 재지 않는다(`proj
  │        ▼
  │   harness 고침(worker, lead) → component 새 버전
  │        ▼
- │   gate: deno task check → 바뀐 곳의 e2e → 고른 시나리오의 dry run(fake provider)   (실패하면 다시 고친다)
+ │   gate: deno task check → 바뀐 곳의 e2e → 고른 시나리오의 dry run(되살리기만, 진짜 model 없음)   (실패하면 다시 고친다)
  │        ▼ 통과
- │   runner(eval을 돌리는 agent): eval CLI를 돌리고 진행을 보고, 질문과 judge item마다 새 subagent로 답하고 채점하고, 보고서를 쓴다
+ │   runner(eval을 돌리는 agent): eval CLI를 돌리고 진행을 보고, judge item마다 새 subagent로 채점하고, 보고서를 쓴다
  │   program: run을 병렬·의존 순서로 돌리고, 수치, program check, judge item, 판정 규칙, 상한
  │        ▼
  │   experimenter(비싼 model): 판정 결과 해석, 원인 가르기, 다음 제안
@@ -419,7 +426,7 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 | 역할 | model | 하는 것 | 하지 않는 것 |
 |---|---|---|---|
 | program | 없음 | gate, run 실행, 재료 되살리기, 공통 수치, program check, judge item 만들기와 채점 기록 확인(enum, 인용), 판정 규칙 계산, 돈·시간 상한 | 해석 |
-| runner · judge · 사람 역할 | eval을 돌리는 agent(지금은 lead, 뒤에는 더 싼 session) | eval CLI 돌리기, cron처럼 진행 확인, 멈춘 run 알아채기, 보고서 쓰기. judge item과 App Engineer의 질문마다 새 subagent를 띄워 채점하고 답한다 | 결과 고치기, 떨어진 trial만 골라 다시 돌리기, 상한 넘기기 |
+| runner · judge | eval을 돌리는 agent(지금은 lead, 뒤에는 더 싼 session) | eval CLI 돌리기, cron처럼 진행 확인, 멈춘 run 알아채기, 보고서 쓰기. judge item마다 새 subagent를 띄워 채점한다. 사람 역할은 다시 지을 때 이 자리에 더한다 | 결과 고치기, 떨어진 trial만 골라 다시 돌리기, 상한 넘기기 |
 | experimenter | `claude-opus-5-5` | 판정 결과 해석, 떨어진 run을 읽고 원인 가르기(model 탓, 제품 탓, judge 탓), 이상해 보이는 judge 판단 짚기, 다음 고칠 것과 다음 experiment spec 초안 | 판정 규칙의 결과를 혼자 뒤집기. 뒤집으려면 이유를 적고 사람이 정한다 |
 | planner + 사람 | | 무엇을 고칠지 정하기, experiment spec 확정, 의심되는 judge 판단 검증 | |
 | worker · lead | | harness 고침 | |
@@ -429,7 +436,7 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 - gate:
   1. `deno task check`
   2. 바뀐 곳의 e2e. 바뀐 component의 module에 걸린 e2e만 돌린다. module-catalog로 고른다.
-  3. 고른 시나리오의 dry run. fake provider로 재료를 되살리고 right/wrong fixture로 grader를 돌린다. 바뀐 checkout에서 되살리기가 깨지거나 check가 오류를 내면 여기서 걸린다.
+  3. 고른 시나리오의 dry run. 진짜 model 없이 재료를 되살리고 right/wrong fixture로 grader를 돌린다. 바뀐 checkout에서 되살리기가 깨지거나 check가 오류를 내면 여기서 걸린다.
   - instruction 글만 고쳤다면 2는 거의 비고 3이 주로 일한다. tool definition이나 runtime을 고쳤다면 2가 중요하다.
 
 ## 병렬과 의존
@@ -437,7 +444,7 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 - trial마다 root와 port가 따로라 서로 막지 않는다.
 - trial 하나가 끝나면 그 trial의 judge batch가 바로 돈다. 전체를 기다리지 않는다.
 - run 사이의 의존은 experiment가 이어 돌리기를 고를 때만 생긴다. 예: App Engineer instruction을 고친 뒤 새로 만든 앱에서 유지보수까지 나아지나를 보려면, calendar-user가 낸 `calendar-app-user` 후보로 calendar-maintain이 뒤이어 돈다. 이어 돌리지 않으면 단위마다 commit된 전제에서 따로 돌아 서로 기다리지 않는다.
-- 같이 쓰는 한도: experiment 전체의 $ 상한 하나(넘으면 새 trial을 띄우지 않는다), provider rate limit, 기계 자원. 앱을 짓는(`limits`가 있는) trial은 무거워서 동시에 2개로 묶는다.
+- 같이 쓰는 한도: experiment 전체의 $ 상한 하나(넘으면 새 trial을 띄우지 않는다), provider rate limit, 기계 자원. 지금 동시 수는 판단 case 4다. 앱을 짓는 trial을 다시 지으면 무거워서 별도 한도를 둔다(`limits`).
 
 ## 제품 빈틈
 
@@ -445,12 +452,12 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 지침, 재사용을 찾는 길(내장 SDK의 catalog, `app.app_api`), cap SDK는 계획 `prompt-text`와 `reuse-diagnose`가 고쳤다(`project-docs/products/change-log/0.3.0.md`).
 
 - 앱끼리의 call(선언의 `app_connections`)과 `package.publish`를 제품 길로 끝까지 지나는 test가 없다. `declaration.check`는 연결 대상이 있는지 보지 않는다.
-- 재현 확인이 없다. 진단 확인은 고친 뒤 같은 호출이 답하나(`no-recurrence`)와 원인을 짚었나(judge `root-cause`)를 보지만, 고치기 전에 증상이 재현되는지(진단이 맞는지)를 program이 보지는 않는다.
+- 재현 확인이 없다. 진단 확인은 고친 뒤 같은 호출이 답하나(`no-recurrence`)와 원인을 짚었나(judge `root-cause`)를 보지만, 고치기 전에 증상이 재현되는지(진단이 맞는지)를 program이 보지는 않는다. 그 확인은 앱을 짓는 단위와 함께 지웠고, 다시 지을 때 이 빈틈도 함께 본다.
 
 ## 비용과 시간 어림
 
 - **작은 판단 case**: trial 하나에 model 호출 4번쯤이다. 판단 case 14개를 1번씩 `claude-sonnet-5-5`로 돌리면 약 $1.1, `claude-haiku-5-5`로 약 $0.06이다(case가 17개였을 때 잡은 case당 어림을 14개로 줄인 값이다. cache를 빼고 잡은 위쪽 어림).
-- **앱을 짓는 단위**(calendar-user, calendar-dev, calendar-maintain, calendar-diagnose): App Engineer가 직접 짓는다. coding agent 시절의 어림은 맞지 않으므로 새 설계로 돌린 첫 실행에서 잰다. 기다림 한도는 시나리오에 90분(user, dev)과 60분(maintain, diagnose)으로 두었다.
+- **앱을 짓는 단위**(지금은 없다. 다시 지을 때): calendar-user, calendar-dev, calendar-maintain, calendar-diagnose에서 App Engineer가 직접 짓는다. coding agent 시절의 어림은 맞지 않으므로 새 설계로 돌린 첫 실행에서 잰다. 기다림 한도는 시나리오에 90분(user, dev)과 60분(maintain, diagnose)으로 둔다.
 - **judge**: 입력이 쪼여 있어 item 하나가 작다. eval을 돌리는 agent의 subagent가 하므로 program은 비용을 세지 않는다.
 - **experimenter**: 보고서와 떨어진 run을 읽는 만큼 든다. 첫 experiment에서 잰다.
 - 이 수는 진짜 실행 전의 짐작이다. 첫 실행에서 잰 값으로 바꾼다.
@@ -484,8 +491,8 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 - trial을 늘 3번씩 돌리지 않는다(사람). 1번이 기본이고, 기준과 달라진 guard, 나아진 target, 흔들리는 것으로 알려진 시나리오만 3번까지 늘린다(agent).
 - 시나리오는 산출물로 나뉜 단위다. 뒤 단위는 앞 단위를 다시 돌리지 않고 commit된 산출물을 전제로 쓴다(사람).
 - agent loop 중간에서는 끊지 않는다. 인터뷰 → 설계(`DESIGN.md`) → build → test → preview → activation은 App Engineer session 하나라 한 시나리오다(사람).
-- eval은 agent session이 돌린다. 채점과 사람 역할도 그 agent가 맡는다. runner가 key로 judge와 사람 역할을 따로 부르지 않는다(사람). experimenter는 `claude-opus-5-5`다(사람).
-- 사람 역할은 돌리는 agent가 질문마다 띄우는 새 subagent가 요구 카드로 답한다(사람).
+- eval은 agent session이 돌린다. 채점도 그 agent가 맡는다. runner가 key로 judge를 따로 부르지 않는다(사람). experimenter는 `claude-opus-5-5`다(사람).
+- 사람 역할은 Node 전환에서 지웠다. 다시 지을 때는 돌리는 agent가 질문마다 띄우는 새 subagent가 요구 카드로 답한다(사람).
 - 대상 model은 진짜 model을 받는 쪽 모두 `claude-sonnet-5-5`다(사람).
 - 첫 상한은 매우 넉넉하게 둔다(사람). role agent와 judge는 판단 case 한 번 돌릴 때 $50, 시나리오 한 trial $50, experiment 하나 $100로 시작하고, 첫 실행에서 잰 값으로 줄인다(agent).
 - 계획 순서는 `eval-base` → `eval-coding` → `eval-experiment` → `test-restore`다(사람). `test-restore`는 case 표와 확인을 지금 계약에 맞췄다.
@@ -502,8 +509,8 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 - run에는 harness를 component 버전으로, core를 버전 하나(`core@n`)로 남긴다. lophn commit은 출처로만 쓴다(agent).
 - check는 run 기록과 끝난 world를 함께 본다(agent).
 - 이어 돌리기는 experiment가 고를 때만 한다. 앞 단위의 새 산출물은 사람이 commit해야 뒤 단위의 전제가 된다(agent).
-- shell 물음과 activation 동의 같은 사람의 허락은 시나리오의 허락 규칙대로 program이 제품 route로 준다(agent).
-- 캘린더 단위는 사람 말을 일상의 말(calendar-user)과 개발자의 말(calendar-dev)로 나눠 잰다. 둘 다 앱 등록만 있는 `calendar-blank@1`에서 시작해 App Engineer가 설계하고 짓는다. L4-new는 lophn이 앱을 만들고 App Engineer에게 넘기는 데까지 잰다(`test-restore`).
+- shell 물음과 activation 동의 같은 사람의 허락은 시나리오의 허락 규칙대로 program이 제품 route로 준다(agent). 규칙(`approve`)은 사람 역할과 함께 지웠고 다시 지을 때 만든다.
+- 캘린더 단위는 사람 말을 일상의 말(calendar-user)과 개발자의 말(calendar-dev)로 나눠 잰다. 둘 다 앱 등록만 있는 `calendar-blank@1`에서 시작해 App Engineer가 설계하고 짓는다. L4-new는 lophn이 앱을 만들고 App Engineer에게 넘기는 데까지 잰다(`test-restore`). 이 단위들은 Node 전환에서 지웠고, Node 앱 모양으로 다시 지을 때 이 설계를 쓴다.
 - 자리는 `tests/eval/`다(자세한 폴더는 `project-docs/architecture/eval.md`). `tests/eval`의 `*_test.ts`는 core와 provider 없이 도는 것만 두고 `deno task check`가 돈다. runner와 시나리오 file은 test file이 아니라 check가 돌리지 않는다. data 폴더(재료, registry, run 요약)는 `fmt.exclude`에 넣는다(agent).
 - 재료를 되살릴 때는 fake 대본을 쓴다. 진짜 model은 시나리오의 `real`에만 붙인다(agent).
 - 재료 버전은 정수 `n`과 content hash다. 결과는 runner가 새 `n`으로 쓰고, 사람이 보고 commit한다(agent).
@@ -527,7 +534,7 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 - `deno task eval --scenario <id> --model <name>`은 재료를 되살리고 시나리오를 돌린 뒤, run 기록에 본 component 버전, core 버전, 출처 commit, check verdict, judge item, 공통 수치를 남긴다.
 - runner는 provider를 부르기 전에 재료의 hash를 확인하고, 모든 시나리오에서 grader가 right fixture를 통과시키고 wrong fixture를 떨어뜨리는지 본다.
 - component 하나를 바꾼 experiment는 그것을 본 run만 다시 돌릴 대상으로 고른다.
-- `calendar-app@4`가 재료로 commit되어 있고, calendar-api와 calendar-maintain은 그 재료에서(maintain은 `calendar-data@4`도), calendar-diagnose는 그 위에 bug를 심은 `calendar-app-bug@4`에서 시작한다.
+- 캘린더 재료(`calendar-app@4`, `calendar-data@4`, `calendar-app-bug@4`, `calendar-blank@1`)는 Node 전환에서 지웠다. 다시 지을 때 그 재료에서 calendar-api, calendar-maintain, calendar-diagnose가 시작한다.
 - `deno task check`는 `tests/eval`의 core 없는 test만 돌고, runner는 돌리지 않는다.
 
 ## 하지 않는 것

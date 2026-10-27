@@ -3,7 +3,7 @@ import { sessionSnapshotsList } from "../../../packages/protocol/events/mod.ts";
 import { modelCallList } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type { Core } from "../../support/core/mod.ts";
 
-// trial 하나의 role agent 비용 상한. judge와 사람 역할은 key 호출이 아니다.
+// trial 하나의 role agent 비용 상한. judge는 key 호출이 아니다.
 export const TRIAL_CAP_USD = 50;
 
 const PRICED = ["reported", "estimated", "free"];

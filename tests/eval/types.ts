@@ -7,15 +7,8 @@
 // - run 요약은 `tests/eval/runs/<RunRecord.id>.json`이고 `RunRecord`에서
 //   `TrialResult.record`, `SourceInfo.diff`, `SourceInfo.untracked`를 뺀 JSON이다.
 //   전체 기록은 `.dev-data/eval/<RunRecord.id>/`에 있다.
-// - `CheckInput.core`가 null이면 fixture 확인이다.
 
-import type { TurnRequest } from "../../packages/protocol/approvals/mod.ts";
-import type { ActivationComparison } from "../../packages/protocol/apps/mod.ts";
 import type { Id } from "../../packages/protocol/base/mod.ts";
-import type {
-  AskAnswer,
-  AskQuestion,
-} from "../../packages/protocol/lophn-agent/ask-tool.ts";
 import type {
   AgentCallRecord,
   AgentRef,
@@ -30,7 +23,6 @@ import type {
   TurnRecord,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import type { Core } from "../support/core/mod.ts";
-import type { FakeServer } from "../support/fake-server/mod.ts";
 
 // ---- 버전 ----
 
@@ -70,27 +62,24 @@ export type Participant = Omit<NamedAgent, "role"> & { role: Role };
 
 export type Step =
   | { kind: "say"; to: Participant; text: string } // 사람 말 한 줄
-  | { kind: "untilIdle" } // 진짜 model을 받은 참가자가 모두 쉴 때까지
-  // 켜진 앱의 tool을 사람 자격으로 부른다(`apps/call_tool`). app은 app.name이다. 앱이 낸 오류(outcome `failed`)는
-  // 단계 실패가 아니다(시나리오가 bug를 일부러 터뜨릴 수 있다). `denied`·`unknown`은 던진다.
-  | { kind: "callApi"; app: string; api: string; input?: unknown };
+  | { kind: "untilIdle" }; // 진짜 model을 받은 참가자가 모두 쉴 때까지
 
 // 되살린 world. 키는 Participant에 쓰는 이름과 같다.
 export type WorldIds = {
   apps: Record<string, Id<"app">>; // app.name → id
   projects: Record<string, Id<"prj">>; // project.name → id
-  folders: Record<string, string>; // project.name → 되살린 폴더의 절대 경로
   operators: Record<string, Id<"agt">>; // Operator name → id
 };
 
-export type SetupContext = { core: Core; fake: FakeServer; world: WorldIds };
+// 재료를 되살리는 동안의 core와 지금까지 되살린 world.
+export type RestoreContext = { core: Core; world: WorldIds };
 
 // ---- check ----
 
 export type CheckOutcome = { pass: boolean; reason: string }; // reason은 한 줄
 
-// core가 null이면 fixture를 확인하는 중이다. 이 계획의 판단 case check는 core를 쓰지 않는다.
-export type CheckInput = { trial: TrialRecord; core: Core | null };
+// check는 trial 기록만 본다. 판단 case check는 끝난 world를 묻지 않는다.
+export type CheckInput = { trial: TrialRecord };
 
 export type ProgramCheck = {
   kind: "program";
@@ -103,7 +92,7 @@ export type JudgeCheck = {
   id: string;
   premise: string[]; // 먼저 통과해야 하는 같은 시나리오 program check id. 하나라도 떨어지면 judge를 부르지 않는다
   criterion: string; // `relay-complete@1`(name@n). parseRef(text, "criterion")로 푼다
-  input(input: CheckInput): string | Promise<string>; // judge가 받는 쪼인 입력. 인용은 이 글 안에 있어야 한다. 끝난 world를 읽는 입력은 route를 불러 Promise다
+  input(input: CheckInput): string | Promise<string>; // judge가 받는 쪼인 입력. 인용은 이 글 안에 있어야 한다
 };
 
 export type Check = ProgramCheck | JudgeCheck;
@@ -123,34 +112,12 @@ export type Fixtures = {
   wrong: { trial: TrialRecord; fails: string[] }[]; // fails에 적은 program check id가 떨어져야 한다
 };
 
-// 적지 않은 것은 reject다. 규칙에 없는 허락을 소리 없이 주지 않는다.
-// activation은 첫 activation·넓힌 선언·손실 migration의 동의, shell은 shell 규칙이 ask인 명령의 turn request다.
-// 앱 tool, MCP tool, agent call은 묻지 않아 규칙이 없다(architecture/approval.md).
-export type ApproveRule = {
-  activation?: "allow" | "reject";
-  shell?: "once" | "always" | "reject";
-};
-
-// card는 요구 카드 글이다(roadmap "요구 카드"). 이름@n으로 가리키지 않고 시나리오 file 안에 둔다.
-// 시나리오 hash가 시나리오 file로 재어지므로 카드를 고치면 시나리오 n이 오른다. 새 VersionKind가 필요 없다.
-export type HumanSpec = { card: string; approve: ApproveRule };
-
-// 시나리오가 끝난 world에서 남길 것. 키는 새 재료 이름, 값은 무엇을 남기나.
-// 쓰기는 runner가 `tests/eval/materials/<이름>/<n+1>/`에 한다.
-export type SaveSource = { kind: "active_app"; app: string }; // 켜진 앱: source repo(선언 포함)와 manifest, active 표시
-export type Save = Record<string, SaveSource>;
-
 export type Scenario = {
   id: string;
   n: number;
   proposal: boolean; // AGENT-ROLE의 "(제안)" 줄에서 나온 case. 떨어지면 model보다 그 줄이나 지침이 틀렸을 수 있다
   world: string[]; // 재료 `이름@n` 목록. 되살리는 순서는 재료의 needs가 정한다
   real: Participant[]; // 진짜 model을 받는 참가자. 나머지는 model이 없다
-  human?: HumanSpec; // 없으면 사람 역할이 없다(판단 case)
-  save?: Save; // 없으면 아무것도 남기지 않는다
-  // 앱을 짓는 시나리오는 기본 300 s보다 오래 돈다. idle_ms는 trial t0부터 잰 기다림 상한, stuck_ms는 turn이 되지 않은 입력의 한도다.
-  limits?: { idle_ms?: number; stuck_ms?: number };
-  setup?: (ctx: SetupContext) => Promise<void>;
   steps: Step[];
   checks: Check[];
   fixtures: Fixtures;
@@ -234,53 +201,6 @@ export type Metrics = {
   }[];
 };
 
-// ---- 사람 역할의 기록 ----
-
-// 사람 역할이 한 일(정의 버전, 답한 질문, 동의와 turn request 결정).
-export type HumanRecord = {
-  definition: string; // `human@<n>` (human.json의 n)
-  answers: {
-    at: string; // Clock
-    session: string;
-    tool_call: string;
-    questions: AskQuestion[]; // askRead로 읽은 질문 전부
-    answers: AskAnswer[]; // 낸 답
-    error: string | null; // 모델 호출 오류(default로 채웠으면 이유), askAnswer 오류
-    model: string | null; // 그 답을 낸 subagent의 model. 모르면 null
-  }[];
-  decisions: HumanDecision[];
-};
-
-// 동의는 session이 없고 turn request는 비교가 없어 갈래로 나눈다.
-export type HumanDecision =
-  | {
-      at: string;
-      path: "consent";
-      app: string;
-      release: string;
-      comparison: ActivationComparison; // 사람이 본 비교 그대로
-      choice: "allow" | "reject";
-      rule: "allow" | "reject" | null; // 시나리오 규칙. null이면 규칙 없음
-      error: string | null;
-    }
-  | {
-      at: string;
-      path: "turn";
-      session: string;
-      request: string; // apr_...
-      subject: TurnRequest["subject"];
-      choice: "once" | "always" | "reject";
-      rule: "once" | "always" | "reject" | null;
-      error: string | null;
-    };
-
-// run 요약(commit)에는 답 글을 넣지 않는다.
-export type HumanSummary = {
-  answered: number; // answers의 수
-  fallback: number; // answers 가운데 error가 있는 것(default로 채운 답)
-  decisions: number; // decisions의 수
-};
-
 // ---- trial 기록 ----
 
 // timeout이면 아직 시작 안 한 message나 session id를 unstarted에 담는다.
@@ -288,12 +208,11 @@ export type Settle = { kind: "idle" | "timeout"; unstarted: string[] };
 
 export type TrialRecord = {
   index: number; // 0부터
-  started_at: string; // t0. 되살리기, setup, model 붙이기가 끝난 뒤 첫 단계 직전
+  started_at: string; // t0. 되살리기와 model 붙이기가 끝난 뒤 첫 단계 직전
   finished_at: string;
   settle: Settle;
   sessions: SessionRecord[];
   metrics: Metrics; // sessions의 합
-  human?: HumanRecord; // 사람 역할이 있는 시나리오만
 };
 
 // ---- judge, run ----
@@ -329,7 +248,6 @@ export type TrialResult = {
   metrics: Metrics;
   components?: VersionRef[]; // 이 trial에서 진짜 model이 본 것. RunRecord.components는 trial 전체의 합집합이라 trial마다는 모른다
   record?: TrialRecord; // 전체 기록(.dev-data/eval)에만 있고 tests/eval/runs의 요약에는 없다
-  human?: HumanSummary;
 };
 
 export type SourceInfo = {
@@ -360,22 +278,13 @@ export type RunRecord = {
 // ---- 재료 ----
 
 // `app`은 앱 source만, `active_app`은 source에 active 표시와 release 이력을 얹은 것이다.
-export type MaterialKind =
-  | "app"
-  | "project"
-  | "kinds"
-  | "operator"
-  | "active_app"
-  | "app_data"
-  | "package";
+export type MaterialKind = "app" | "project" | "kinds" | "operator";
 
 // `tests/eval/materials/<이름>/<n>/material.json`의 내용이다. 이름과 n은 폴더가 정한다.
 export type MaterialManifest = {
   kind: MaterialKind;
   ids: Record<string, string>; // 되살린 뒤에도 같아야 하는 고정 id
   needs: string[]; // 다른 재료 `이름@n`
-  parent: string | null; // 이 재료가 나온 재료 `이름@n`
-  produced_by: { scenario: string; trial: number; run: string } | null;
   content_hash: string;
 };
 
@@ -406,14 +315,6 @@ export const say = (to: Participant, text: string): Step => ({
   text,
 });
 export const untilIdle = (): Step => ({ kind: "untilIdle" });
-export const callApi = (app: string, api: string, input?: unknown): Step =>
-  input === undefined
-    ? { kind: "callApi", app, api }
-    : { kind: "callApi", app, api, input };
-export const activeApp = (app: string): SaveSource => ({
-  kind: "active_app",
-  app,
-});
 
 // `kind:name@n`. 예: `material:apps-home@1`, `instruction:lophn@4`, `core:core@31`.
 export function refText(ref: VersionRef): string {

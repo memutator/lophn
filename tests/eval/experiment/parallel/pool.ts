@@ -1,5 +1,3 @@
-import { DEFAULT_LIMITS, type TrialKind } from "./kind.ts";
-
 // createCap의 반환과 같은 모양. runner를 import하면 방향이 거꾸로라 구조로만 받는다.
 export type Budget = {
   add(usd: number): void;
@@ -7,9 +5,11 @@ export type Budget = {
   total(): number;
 };
 
+// trial의 동시 수. 돈과 기계 자원을 같이 쓴다.
+export const DEFAULT_CONCURRENCY = 4;
+
 export type Job<T> = {
   id: string;
-  kind: TrialKind;
   run(): Promise<{ value: T; cost_usd: number }>;
 };
 
@@ -22,10 +22,8 @@ export type Pool = {
   submit<T>(job: Job<T>): Promise<JobResult<T>>;
   stop(): void;
   halted(): "budget" | "stopped" | null;
-  running(): Record<TrialKind, number>;
+  running(): number;
 };
-
-const KINDS = Object.keys(DEFAULT_LIMITS) as TrialKind[];
 
 // 줄 안의 job은 type이 지워져 있다. submit이 자기 T로 되돌려 준다.
 type Waiting = {
@@ -35,42 +33,37 @@ type Waiting = {
 
 export function createPool(options: {
   budget: Budget;
-  limits?: Partial<Record<TrialKind, number>>;
+  concurrency?: number;
 }): Pool {
   const { budget } = options;
-  const limits = { ...DEFAULT_LIMITS, ...options.limits };
-  for (const kind of KINDS) {
-    if (!(limits[kind] >= 1)) {
-      throw new Error(`limits.${kind}는 1 이상이어야 한다: ${limits[kind]}`);
-    }
+  const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
+  if (!(concurrency >= 1)) {
+    throw new Error(`concurrency는 1 이상이어야 한다: ${concurrency}`);
   }
-  const queues: Record<TrialKind, Waiting[]> = { judgment: [], long: [] };
-  const running: Record<TrialKind, number> = { judgment: 0, long: 0 };
+  const queue: Waiting[] = [];
+  let running = 0;
   let stopped = false;
 
   const halted = () =>
     stopped ? "stopped" : budget.exceeded() ? "budget" : null;
 
-  // 띄우기 직전에 확인한다. 긴 trial이 도는 동안 예산이 찰 수 있어서다.
+  // 띄우기 직전에 확인한다. 도는 trial이 있는 동안 예산이 찰 수 있어서다.
   function pump() {
-    for (const kind of KINDS) {
-      const queue = queues[kind];
-      while (queue.length > 0) {
-        const reason = halted();
-        if (reason) {
-          queue.shift()!.skip(reason);
-        } else if (running[kind] < limits[kind]) {
-          running[kind]++;
-          queue.shift()!.start();
-        } else break;
-      }
+    while (queue.length > 0) {
+      const reason = halted();
+      if (reason) {
+        queue.shift()!.skip(reason);
+      } else if (running < concurrency) {
+        running++;
+        queue.shift()!.start();
+      } else break;
     }
   }
 
   return {
     submit<T>(job: Job<T>): Promise<JobResult<T>> {
       return new Promise((resolve) => {
-        queues[job.kind].push({
+        queue.push({
           skip: (reason) => resolve({ status: "skipped", id: job.id, reason }),
           start: () => {
             // run이 동기로 던져도 같은 길로 failed가 된다.
@@ -99,7 +92,7 @@ export function createPool(options: {
                   }) as const,
               )
               .then((result) => {
-                running[job.kind]--;
+                running--;
                 resolve(result);
                 pump();
               });
@@ -113,6 +106,6 @@ export function createPool(options: {
       pump();
     },
     halted,
-    running: () => ({ ...running }),
+    running: () => running,
   };
 }

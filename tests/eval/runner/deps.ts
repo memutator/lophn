@@ -7,19 +7,18 @@ import type { TrialDeps } from "./trial.ts";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-// run마다 다른 runId와 saved만 빼고 trial이 쓰는 값을 모은다.
+// run마다 다른 runId만 빼고 trial이 쓰는 값을 모은다.
 export function trialDepsOf(args: {
   key: string;
   model: string;
   effort?: string;
   variant: Variant;
   trialBudgetUsd: number;
-  saveEnabled: boolean;
   keep?: boolean;
   source: SourceInfo;
   judge: JudgeDefinition;
   repeatCriterion: Criterion;
-}): Omit<TrialDeps, "runId" | "saved"> {
+}): Omit<TrialDeps, "runId"> {
   const { variant } = args;
   return {
     clock: systemClock,
@@ -34,7 +33,6 @@ export function trialDepsOf(args: {
     registryDir: REGISTRY_DIR,
     trialBudgetUsd: args.trialBudgetUsd,
     variant,
-    saveEnabled: args.saveEnabled,
     keep: args.keep,
     repeatCriterion: args.repeatCriterion,
     live: new Set(),

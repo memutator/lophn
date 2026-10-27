@@ -28,10 +28,9 @@ export function scenarioTerms(
     if (step.kind === "say") {
       addParticipant(step.to);
       texts.push(step.text);
-    } else if (step.kind === "callApi") raw.push(step.app);
+    }
   }
   scenario.real.forEach(addParticipant);
-  if (scenario.human) texts.push(scenario.human.card);
   const names = raw
     .map((n) => n?.normalize("NFC").trim() ?? "")
     .filter((n) => n.length >= 2);

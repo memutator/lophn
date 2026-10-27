@@ -32,27 +32,6 @@ export function passed(trial: TrialResult): boolean {
   return outcomeOf(trial, []).state !== "fail";
 }
 
-function extraLines(
-  results: TrialResult[],
-  saved: { name: string; n: number }[],
-): string[] {
-  const lines: string[] = [];
-  const humans = results.flatMap((t) => t.human ?? []);
-  if (humans.length > 0) {
-    const sum = (pick: (h: (typeof humans)[number]) => number) =>
-      humans.reduce((n, h) => n + pick(h), 0);
-    lines.push(
-      `  사람 역할: 답한 질문 ${sum((h) => h.answered)}(default ${sum(
-        (h) => h.fallback,
-      )}), 결정 ${sum((h) => h.decisions)}`,
-    );
-  }
-  if (saved.length > 0) {
-    lines.push(`  후보: ${saved.map((s) => `${s.name}@${s.n}`).join(", ")}`);
-  }
-  return lines;
-}
-
 export async function main(args: string[]): Promise<number> {
   let values;
   try {
@@ -139,7 +118,6 @@ export async function main(args: string[]): Promise<number> {
     ...(values.effort === undefined ? {} : { effort: values.effort }),
     variant: variant.value,
     trialBudgetUsd: trialBudget,
-    saveEnabled: true,
     keep: values.keep === true,
     source: await captureSource(variant.value.versionDeps),
     judge: await loadJudgeDefinition(),
@@ -169,7 +147,7 @@ export async function main(args: string[]): Promise<number> {
     );
   stopSignals();
 
-  for (const { scenario, record, saved } of runs) {
+  for (const { scenario, record } of runs) {
     if (record === null) continue;
     const results = record.trials;
     const failed = [
@@ -184,7 +162,6 @@ export async function main(args: string[]): Promise<number> {
       0,
     );
     const cost = results.reduce((sum, t) => sum + t.metrics.cost_usd, 0);
-    const lines = extraLines(results, saved);
     console.log(
       `${scenario.id}@${scenario.n}: ${
         results.filter(passed).length
@@ -194,9 +171,7 @@ export async function main(args: string[]): Promise<number> {
         pending > 0
           ? `, 채점 대기 ${pending}건(npm run eval:judge -- ${record.id})`
           : ""
-      }, $${cost.toFixed(4)} (${record.id})${
-        lines.length === 0 ? "" : `\n${lines.join("\n")}`
-      }`,
+      }, $${cost.toFixed(4)} (${record.id})`,
     );
   }
   const halted = pool.halted();

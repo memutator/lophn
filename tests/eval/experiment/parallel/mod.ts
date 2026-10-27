@@ -1,4 +1,3 @@
-export { DEFAULT_LIMITS, type TrialKind, trialKindOf } from "./kind.ts";
 export {
   type Budget,
   createPool,

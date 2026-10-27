@@ -104,7 +104,7 @@ async function readSession(
   if (found === null) return null;
   const agent = found.session.agent;
 
-  // t0보다 먼저 시작한 turn은 되살리기·setup의 흔적이라 그 turn의 call과 함께 뺀다.
+  // t0보다 먼저 시작한 turn은 되살리기의 흔적이라 그 turn의 call과 함께 뺀다.
   const turns = (
     await readAll(async (cursor) => {
       const out = (await read(port, turnList, { session, cursor }))!;

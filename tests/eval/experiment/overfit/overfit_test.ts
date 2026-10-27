@@ -11,12 +11,11 @@ const scenario = {
   id: "L4-app",
   n: 1,
   real: [{ role: "operator", place: { app: "가계부" }, name: "Mina" }],
-  human: { card: "월별 지출 합계를 보고 싶다", approve: {} },
   steps: [
     {
       kind: "say",
       to: { role: "project_agent", place: { project: "tax" } },
-      text: "hello",
+      text: "영수증을 보여 줘",
     },
   ],
 } as unknown as Scenario;
@@ -32,12 +31,12 @@ const run = (before: string, after: string) =>
 const terms = (before: string, after: string) =>
   run(before, after).map((w) => `${w.kind}:${w.term}`);
 
-test("더해진 줄의 앱 이름과 요구 카드 구절은 경고하고, 옛 글에 있던 것과 단어 일부는 아니다", () => {
+test("더해진 줄의 앱 이름과 사람 말 구절은 경고하고, 옛 글에 있던 것과 단어 일부는 아니다", () => {
   assert.deepStrictEqual(terms("a", "a\n가계부 앱을 만들 때는"), [
     "name:가계부",
   ]);
-  assert.deepStrictEqual(terms("a", "a\n월별 지출 합계를 표로 보여 준다"), [
-    "phrase:월별 지출 합계를",
+  assert.deepStrictEqual(terms("a", "a\n영수증을 보여 줘"), [
+    "phrase:영수증을 보여 줘",
   ]);
   // 옛 글에 이미 한 번 있었고 이번에 더 늘지 않았다
   assert.deepStrictEqual(terms("가계부 앱\nb", "가계부 앱\nb\nc"), []);

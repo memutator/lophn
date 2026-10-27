@@ -23,7 +23,7 @@ async function allRefs(): Promise<string[]> {
 }
 
 // 재료 file이 한 byte라도 바뀌거나 이어진 재료가 사라지면 모든 기준 run이 다른 world에서 돈 것이 된다.
-test("committed 재료의 hash, 고정 id, needs·parent가 맞고 앱 source file이 .tmpl로 담겨 있다", async () => {
+test("committed 재료의 hash, 고정 id, needs가 맞는다", async () => {
   const refs = await allRefs();
   const known = new Set(refs);
   const needsOf = new Map<string, string[]>();
@@ -33,21 +33,11 @@ test("committed 재료의 hash, 고정 id, needs·parent가 맞고 앱 source fi
     for (const id of Object.values(material.manifest.ids)) {
       idSchema(id.split("_")[0] as "app").parse(id);
     }
-    const linked = [
-      ...material.manifest.needs,
-      ...(material.manifest.parent === null ? [] : [material.manifest.parent]),
-    ];
-    for (const link of linked) {
-      splitRef(link);
-      assert.ok(known.has(link), `${ref} points at missing ${link}`);
+    for (const need of material.manifest.needs) {
+      splitRef(need);
+      assert.ok(known.has(need), `${ref} points at missing ${need}`);
     }
     needsOf.set(ref, material.manifest.needs);
-    // 앱 source가 아닌 repo 코드로 읽히면 npm run check가 lint와 type check를 건다.
-    for (const file of material.files) {
-      if (file.path.startsWith("source/")) {
-        assert.ok(file.path.endsWith(".tmpl"), `${ref} ${file.path}`);
-      }
-    }
   }
   const visiting = new Set<string>();
   const done = new Set<string>();

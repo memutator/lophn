@@ -37,7 +37,7 @@ export type GateDeps = {
   validateFixtures(
     scenarios: Scenario[],
   ): Promise<{ ok: boolean; problems: string[] }>;
-  // 시나리오 하나의 재료 되살리기와 setup까지(진짜 model 없이). 끝나면 core를 끄고 run을 지운다. 던지지 않는다.
+  // 시나리오 하나의 재료 되살리기까지(진짜 model 없이). 끝나면 core를 끄고 run을 지운다. 던지지 않는다.
   dryRun(scenario: Scenario): Promise<Result<void>>;
   now(): number;
   // module-catalog.yaml, boundary-catalog.yaml을 읽는 root. 어느 e2e를 돌릴지는 grader 쪽 규칙이라 늘 지금 checkout이다.

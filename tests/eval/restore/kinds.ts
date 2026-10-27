@@ -5,7 +5,7 @@ import {
   domainCreate,
   domainKindsFile,
 } from "../../../packages/protocol/domains/mod.ts";
-import type { SetupContext } from "../types.ts";
+import type { RestoreContext } from "../types.ts";
 import { type Material, textOf } from "./manifest.ts";
 
 const specSchema = z.strictObject({
@@ -23,7 +23,7 @@ const specSchema = z.strictObject({
 // kind 파일은 domain 폴더에 있으므로 project 안에 domain을 먼저 만든다. 고정 id는 사람만 정할 수 있고(Core.call은 user token),
 // 다른 재료처럼 trial마다 같은 world가 되도록 spec에 적는다. kind 파일은 release 없이 바로 쓰이므로 놓기만 하면 된다.
 export async function restoreKinds(
-  ctx: SetupContext,
+  ctx: RestoreContext,
   material: Material,
 ): Promise<Result<void>> {
   const parsed = specSchema.safeParse(

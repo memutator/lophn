@@ -1,5 +1,5 @@
 // 재료는 `tests/eval/materials/<이름>/<n>/`의 `material.json`과 `files/`다. 내용 hash의 정본은 여기다.
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { err, errorCode, ok, type Result } from "../../../packages/base/mod.ts";
 import { idSchema } from "../../../packages/protocol/base/mod.ts";
 import type { MaterialKind, MaterialManifest } from "../types.ts";
@@ -19,9 +19,6 @@ const ID_PREFIX = {
   project: "prj",
   kinds: "prj",
   operator: "agt",
-  active_app: "app",
-  app_data: "app",
-  package: "app",
 } as const satisfies Record<MaterialKind, string>;
 
 export function splitRef(ref: string): { name: string; n: number } {
@@ -69,36 +66,6 @@ export async function verifyMaterial(
       message: `material ${material.ref} content hash differs`,
     });
   }
-  return ok(undefined);
-}
-
-const json = (value: unknown) => JSON.stringify(value, null, 2) + "\n";
-
-// commit된 재료를 덮어쓰지 않는다.
-export async function writeMaterial(
-  root: string,
-  name: string,
-  n: number,
-  manifest: Omit<MaterialManifest, "content_hash">,
-  files: MaterialFile[],
-): Promise<Result<void>> {
-  const dir = `${root}/${name}/${n}`;
-  try {
-    await stat(dir);
-    return err({
-      code: "conflict",
-      message: `material ${name}@${n} already exists`,
-    });
-  } catch (error) {
-    if (errorCode(error) !== "ENOENT") throw error;
-  }
-  for (const file of files) {
-    const path = `${dir}/files/${file.path}`;
-    await mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
-    await writeFile(path, file.bytes);
-  }
-  const content_hash = await contentHash(files);
-  await writeFile(`${dir}/material.json`, json({ ...manifest, content_hash }));
   return ok(undefined);
 }
 

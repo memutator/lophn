@@ -1,7 +1,7 @@
 import { parseRef, type Scenario } from "../types.ts";
 import { runProgramChecks } from "./run.ts";
 
-// provider 없이 core: null로 fixture를 확인한다. right는 모두 통과, wrong은 fails가 떨어져야 한다.
+// provider 없이 fixture를 확인한다. right는 모두 통과, wrong은 fails가 떨어져야 한다.
 export async function validateFixtures(
   scenarios: Scenario[],
 ): Promise<{ ok: boolean; problems: string[] }> {
@@ -31,16 +31,13 @@ export async function validateFixtures(
 
     if (sc.fixtures.right.length === 0) bad("right fixture 없음");
     for (const [i, trial] of sc.fixtures.right.entries()) {
-      for (const r of await runProgramChecks(sc.checks, {
-        trial,
-        core: null,
-      })) {
+      for (const r of await runProgramChecks(sc.checks, { trial })) {
         if (!r.pass) bad(`right[${i}]에서 ${r.id} 떨어짐: ${r.reason}`);
       }
       for (const c of sc.checks) {
         if (c.kind !== "judge") continue;
         try {
-          if ((await c.input({ trial, core: null })).trim() === "") {
+          if ((await c.input({ trial })).trim() === "") {
             bad(`right[${i}]에서 judge ${c.id}의 input이 빈 글`);
           }
         } catch (e) {
@@ -58,7 +55,6 @@ export async function validateFixtures(
       if (w.fails.length === 0) bad(`wrong[${i}]의 fails가 빔`);
       const results = await runProgramChecks(sc.checks, {
         trial: w.trial,
-        core: null,
       });
       for (const id of w.fails) {
         const r = results.find((x) => x.id === id);

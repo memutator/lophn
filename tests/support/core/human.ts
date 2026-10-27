@@ -171,7 +171,7 @@ export async function waitPermission(
   });
 }
 
-// waitPermission의 짝이다. 사람 역할 helper 한도(열 개)는 흐름을 옮기는 helper를 세는 것이고, 이 helper는 같은 snapshot을 읽을 뿐이라 센 수에 넣지 않는다.
+// waitPermission의 짝이다. session helper 한도(열 개)는 흐름을 옮기는 helper를 세는 것이고, 이 helper는 같은 snapshot을 읽을 뿐이라 센 수에 넣지 않는다.
 export async function waitQuestion(
   core: Core,
   session: string,

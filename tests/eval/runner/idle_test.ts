@@ -48,36 +48,6 @@ test("waitUntilIdle: an input that never becomes a turn ends as timeout naming i
   });
 });
 
-const asking: Snapshot = {
-  ...quiet,
-  waiting: [{ session: "ses_a", questions: 1, permissions: 0 }],
-};
-
-test("waitUntilIdle: with a human role, waiting and pending consents block idle until it acts, then quietMs applies", async () => {
-  // 처음 세 번은 동의 대기(session 상태에 안 드러난다), 그다음 ask 대기, 이후 조용하다.
-  const reads = (call: number): Snapshot =>
-    call < 3 ? { ...quiet, pendingApprovals: 1 } : call < 5 ? asking : quiet;
-  const h = harness(reads);
-  let acts = 0;
-  // 사람 역할이 call 2와 call 4에서 처리한다.
-  const act = () => Promise.resolve(++acts === 3 || acts === 5);
-  const result = await waitUntilIdle(h.read, h, {
-    quietMs: 1_000,
-    pollMs: 250,
-    hooks: { act },
-  });
-  assert.deepStrictEqual(result.kind, "idle");
-  // 마지막 처리는 call 4(t=1000). call 5에서 조용함이 시작(t=1250)하고 quietMs 뒤 t=2250에 idle이다.
-  assert.deepStrictEqual(h.clock.nowMs(), 2_250);
-
-  // 사람 역할이 없으면 waiting은 그대로 조용함이다.
-  const plain = harness(() => asking);
-  assert.deepStrictEqual(
-    await waitUntilIdle(plain.read, plain, { quietMs: 1_000 }),
-    { kind: "idle", waiting: asking.waiting },
-  );
-});
-
 test("waitUntilIdle: stuckMs cuts an input that never became a turn, timeoutMs the rest, over cuts at once", async () => {
   const stuckInput: Snapshot = {
     ...quiet,

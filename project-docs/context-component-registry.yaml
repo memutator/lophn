@@ -41,7 +41,7 @@ roles:
     description: wireframe gallery와 화면 모양, 화면 문구를 고친다.
 
   - id: runner
-    description: eval experiment나 npm run eval을 돌리고, 질문 답과 judge 채점을 item마다 새 subagent에게 시키고, run.md에 사실을 적는다.
+    description: eval experiment나 npm run eval을 돌리고, judge 채점을 item마다 새 subagent에게 시키고, run.md에 사실을 적는다.
 
   - id: experimenter
     description: eval experiment의 판정을 해석하고 원인을 가르고, 의심스러운 judge 판단을 짚고, 다음 spec 초안을 쓴다.
@@ -468,9 +468,9 @@ components:
   - id: tool-eval
     kind: tool
     roles: [planner, lead]
-    description: 진짜 model로 판단 case를 돌리는 eval runner와 scorecard. 시나리오마다 재료로 world를 되살리고 real 참가자에게만 model을 붙여 돌린 뒤 program check로 채점하고 judge item과 사람 역할의 질문은 대기 file로 남겨 eval을 돌리는 agent가 채운다. experiment는 commit된 spec으로 판정을 tests/eval/experiments/<id>/result.json에 쓴다. run 요약은 tests/eval/runs/, scorecard는 tests/eval/scorecards/에 쓰고 commit한다. key가 없으면 재료 hash와 fixture만 확인하고 0으로 끝난다. 사람이 진짜 provider 호출을 허락했을 때만 key로 돈다.
+    description: 진짜 model로 판단 case를 돌리는 eval runner와 scorecard. 시나리오마다 재료로 world를 되살리고 real 참가자에게만 model을 붙여 돌린 뒤 program check로 채점하고 judge item은 대기 file로 남겨 eval을 돌리는 agent가 채운다. experiment는 commit된 spec으로 판정을 tests/eval/experiments/<id>/result.json에 쓴다. run 요약은 tests/eval/runs/, scorecard는 tests/eval/scorecards/에 쓰고 commit한다. key가 없으면 재료 hash와 fixture만 확인하고 0으로 끝난다. 사람이 진짜 provider 호출을 허락했을 때만 key로 돈다.
     path: tests/eval/
-    run: npm run eval -- (--scenario <id> | --all) [--model m] [--trials N] [--budget usd] / npm run eval:experiment -- <id> [--checkout path] / npm run eval:gate -- <id> / npm run eval:judge -- <run> / npm run eval:answer -- <run> / npm run eval:scorecard [-- diff <runA> <runB>]
+    run: npm run eval -- (--scenario <id> | --all) [--model m] [--trials N] [--budget usd] / npm run eval:experiment -- <id> [--checkout path] / npm run eval:gate -- <id> / npm run eval:judge -- <run> / npm run eval:scorecard [-- diff <runA> <runB>]
     change_reasons:
       paths: [tests/support/core/, packages/protocol/lophn-agent/]
       note: 읽는 route, call 모양, tool 정의 file, 요청 body blob 배치가 바뀔 때.
@@ -535,7 +535,7 @@ components:
   - id: tests-support
     kind: tool
     roles: [worker]
-    description: test의 띄우기와 연결. loop(scripted model), wire(녹화 재생 fetch), fake-server(core E2E와 dev의 provider, 함수 대답과 줄), core(daemon을 pipe로 띄우기, 사람 역할 helper, 묻게 하는 shell 명령), gateway(shell의 Gateway 역할), app(template 앱을 App Engineer의 release 길로 띄우기, patch, e2e:deps), fake-oauth(발급자), annotation. flow의 단계는 test file에 쓴다.
+    description: test의 띄우기와 연결. loop(scripted model), wire(녹화 재생 fetch), fake-server(core E2E와 dev의 provider, 함수 대답과 줄), core(daemon을 pipe로 띄우기, session helper, 묻게 하는 shell 명령), gateway(shell의 Gateway 역할), app(template 앱을 App Engineer의 release 길로 띄우기, patch, e2e:deps), fake-oauth(발급자), annotation. flow의 단계는 test file에 쓴다.
     path: tests/support/
     run: test file이 import한다(직접 돌리지 않는다)
     change_reasons:
@@ -573,11 +573,11 @@ components:
   - id: skill-eval-run
     kind: skill
     roles: [runner]
-    description: eval CLI를 돌리고 진행을 보고, 질문 답과 judge 채점을 새 subagent(haiku-xhigh)에게 시켜 넣고, 멈춘 run을 알아채고, run.md를 쓰는 절차.
+    description: eval CLI를 돌리고 진행을 보고, judge 채점을 새 subagent(haiku-xhigh)에게 시켜 넣고, 멈춘 run을 알아채고, run.md를 쓰는 절차.
     path: .claude/skills/eval-run/
     change_reasons:
       paths: [tests/eval/run.ts, package.json, tests/eval/experiment/spec/types.ts]
-      note: eval CLI의 인자, stdout 줄, 채점·답 절차가 바뀔 때.
+      note: eval CLI의 인자, stdout 줄, 채점 절차가 바뀔 때.
 
   # ── experimenter ──
 

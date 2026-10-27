@@ -4,7 +4,5 @@
   "needs": [
     "projects-home@1"
   ],
-  "parent": null,
-  "produced_by": null,
   "content_hash": "80c3c928187894f6eaa4f2cdb0ddafefe92f1c5de1303d10e44c9d49d055b454"
 }

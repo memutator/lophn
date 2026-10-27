@@ -46,13 +46,6 @@ export async function measureAssembly(
     baseline: null,
     variant: null,
   };
-  // 사람 역할은 fake provider 재생에 없다.
-  if (scenario.human !== undefined) {
-    return {
-      ...base,
-      reason: "scenario has a human role; not replayed",
-    };
-  }
   const script = scriptOf(trial);
   if (!script.ok) return { ...base, reason: script.error.message };
   const { session, requests, replies } = script.value;

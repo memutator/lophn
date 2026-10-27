@@ -1,12 +1,12 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { projectApi } from "../../../packages/protocol/projects/mod.ts";
 import type { Id } from "../../../packages/protocol/base/mod.ts";
-import type { SetupContext } from "../types.ts";
+import type { RestoreContext } from "../types.ts";
 import { type Material, textOf } from "./manifest.ts";
 
 // `files/<name>/`를 run의 work 아래로 복사해 그 폴더로 project를 등록한다.
 export async function restoreProjects(
-  ctx: SetupContext,
+  ctx: RestoreContext,
   material: Material,
 ): Promise<void> {
   const { core } = ctx;
@@ -35,6 +35,5 @@ export async function restoreProjects(
       folders: [{ path: folder, description: "", subfolders: [] }],
     });
     ctx.world.projects[name] = id;
-    ctx.world.folders[name] = folder;
   }
 }

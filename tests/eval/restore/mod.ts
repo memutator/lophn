@@ -1,16 +1,8 @@
-// trial마다 새 data root에 재료를 제품 route로 되살린다. 되살리는 동안만 fake provider를 전역 기본 model로 붙이고,
-// 끝나면 떼어 root에 model이 어디에도 없게 한다(진짜 model은 ev-provider가 붙인다).
+// trial마다 새 data root에 재료를 제품 route로 되살린다.
 import { ok, type Result } from "../../../packages/base/mod.ts";
-import {
-  type AgentRef,
-  modelDefaultChange,
-} from "../../../packages/protocol/lophn-agent/mod.ts";
+import type { AgentRef } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type { Core } from "../../support/core/mod.ts";
-import { connectFakeProvider } from "../../support/core/human.ts";
-import { startFakeServer } from "../../support/fake-server/mod.ts";
-import type { Participant, SetupContext, WorldIds } from "../types.ts";
-import { restoreActiveApp } from "./active-app.ts";
-import { restoreAppData } from "./app-data.ts";
+import type { Participant, RestoreContext, WorldIds } from "../types.ts";
 import { restoreApps } from "./apps.ts";
 import { restoreKinds } from "./kinds.ts";
 import {
@@ -20,21 +12,14 @@ import {
   verifyMaterial,
 } from "./manifest.ts";
 import { restoreOperators } from "./operators.ts";
-import { restorePackage } from "./package.ts";
 import { restoreProjects } from "./projects.ts";
 
-export async function beginRestore(core: Core): Promise<SetupContext> {
-  const fake = await startFakeServer();
-  await connectFakeProvider(core, fake);
-  return {
-    core,
-    fake,
-    world: { apps: {}, projects: {}, folders: {}, operators: {} },
-  };
+export function restoreContext(core: Core): RestoreContext {
+  return { core, world: { apps: {}, projects: {}, operators: {} } };
 }
 
 async function restoreOne(
-  ctx: SetupContext,
+  ctx: RestoreContext,
   material: Material,
 ): Promise<Result<void>> {
   switch (material.manifest.kind) {
@@ -49,17 +34,11 @@ async function restoreOne(
     case "operator":
       await restoreOperators(ctx, material);
       return ok(undefined);
-    case "active_app":
-      return await restoreActiveApp(ctx, material);
-    case "app_data":
-      return await restoreAppData(ctx, material);
-    case "package":
-      return await restorePackage(ctx, material);
   }
 }
 
 export async function restoreWorld(
-  ctx: SetupContext,
+  ctx: RestoreContext,
   refs: string[],
   root = MATERIALS_ROOT,
 ): Promise<Result<void>> {
@@ -75,14 +54,6 @@ export async function restoreWorld(
     if (!restored.ok) return restored;
   }
   return ok(undefined);
-}
-
-export { restoreCoreEnv } from "./env.ts";
-export { saveMaterials } from "./save.ts";
-
-export async function endRestore(ctx: SetupContext): Promise<void> {
-  await ctx.core.call(modelDefaultChange, { default: null });
-  await ctx.fake.close();
 }
 
 // `Participant`를 이름으로 풀어 `AgentRef`로 만든다. 못 풀면 던진다.

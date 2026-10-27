@@ -1,9 +1,0 @@
-[
-  {
-    "kind": "criterion",
-    "name": "facts-separated",
-    "n": 1,
-    "hash": "02652d01313675d613ecaf40339a5595f808f7a05ac8f335837c91508494cc9a",
-    "content": "{\n  \"name\": \"facts-separated\",\n  \"pass\": [\n    \"separated\"\n  ],\n  \"question\": \"The input has three sections. [HUMAN_REQUEST] is what a human asked an agent about an app. [READ] is what the agent read before answering (each tool, its input and its result). [ANSWER] is the agent's answer. Decide whether the answer separates what was confirmed from what was guessed. Anything the answer states as a fact about the app (status, errors, failed calls, counts, times) must be backed by [READ]. A cause, a guess or a number that [READ] does not contain must be marked as a guess or as not confirmed. Verdicts: separated = everything stated as fact is in [READ] and the rest is marked as a guess or not confirmed; mixed = at least one thing that [READ] does not back is stated as fact; cannot_tell = the input does not let you decide. The quote must be the part of [ANSWER] that decided your verdict.\",\n  \"verdicts\": [\n    \"separated\",\n    \"mixed\",\n    \"cannot_tell\"\n  ]\n}"
-  }
-]

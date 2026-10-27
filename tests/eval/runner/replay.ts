@@ -40,10 +40,9 @@ export function createReplayPort(
         });
         const settle = await runSteps({
           core,
-          setup: ctx,
+          restore: ctx,
           scenario,
           roots: new Map(),
-          startedMs: systemClock.nowMs(),
           clock: systemClock,
           sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
           log,

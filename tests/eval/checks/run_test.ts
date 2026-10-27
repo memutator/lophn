@@ -35,7 +35,7 @@ test("runProgramChecks는 check를 배열 순서대로 하나씩 돌고, 던진 
       run: () => ({ pass: true, reason: "ok" }),
     },
   ];
-  const input: CheckInput = { trial: fixtureTrial([]), core: null };
+  const input: CheckInput = { trial: fixtureTrial([]) };
   const results = await runProgramChecks(checks, input);
   assert.deepStrictEqual(
     results.map((r) => [r.id, r.pass]),

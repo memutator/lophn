@@ -449,7 +449,6 @@ export async function experimentCommand(
       model: spec.model,
       variant,
       trialBudgetUsd: TRIAL_CAP_USD,
-      saveEnabled: false,
       source: await captureSource(variant.versionDeps),
       judge: await loadJudgeDefinition(),
       repeatCriterion: await loadCriterion(REPEAT_KIND),

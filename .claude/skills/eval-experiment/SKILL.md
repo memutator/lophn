@@ -13,7 +13,7 @@ experimenter는 program이 낸 판정을 **해석**한다. 판정을 뒤집지 �
 
 1. `spec.json`: `hypothesis`, `change`(바꾼 것), `target`, `cases`(미리 써 둔 같은 규칙), `trials`, `budget_usd`
 2. `result.json`: `decision`, `reasons`, `scenarios[]`(`role`, `baseline`, `variant`, `status`, `weaker`, `note`), `mixed`, `changed`, `keep`, `excluded`, `stopped_by_budget`. 칸의 뜻은 `tests/eval/experiment/spec/types.ts`의 주석을 읽는다. 이 skill에 복사하지 않는다(복사본이 낡는다).
-3. `run.md`: runner가 적은 사실(gate, 비용, 멈춤, 답한 질문 수, 채점 model)
+3. `run.md`: runner가 적은 사실(gate, 비용, 멈춤, 채점 model)
 4. 떨어졌거나 이상한 시나리오의 run 요약 `tests/eval/runs/<run>.json`: check verdict, judge item, 수치. run id는 `result.json`의 `baseline_runs`, `variant_runs`
 5. 필요한 trial만 전체 기록: `.dev-data/eval/<run>/trial-<n>.json`(`{ trial, judge, source }`), `trial-<n>.core.log`(core log), `trial-<n>.repeat.json`(되풀이 진단). 크다. 어느 trial을 왜 여는지 정하고 연다.
 

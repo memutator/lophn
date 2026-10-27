@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 
-import { type Pool, trialKindOf } from "../experiment/parallel/mod.ts";
+import type { Pool } from "../experiment/parallel/mod.ts";
 import { outcomeOf } from "../experiment/spec/mod.ts";
 import { foldJudge, readPending } from "../judge/mod.ts";
 import {
@@ -16,7 +16,7 @@ import { runTrial, type TrialDeps, type TrialOutcome } from "./trial.ts";
 export type ScenarioArgs = {
   scenario: Scenario;
   runId: string;
-  deps: Omit<TrialDeps, "runId" | "saved">;
+  deps: Omit<TrialDeps, "runId">;
   pool: Pool;
   // 지금까지 끝난 결과를 보고 더 돌릴 trial 수. 0이면 끝이다.
   next(results: TrialResult[]): number;
@@ -28,7 +28,6 @@ export type ScenarioArgs = {
 
 export type ScenarioRun = {
   record: RunRecord | null; // 끝난 trial이 하나도 없으면 null
-  saved: { name: string; n: number }[];
   failed: string | null; // trial이 던져 멈춘 이유
 };
 
@@ -47,11 +46,9 @@ export function trialLine(trial: TrialResult): string {
 // 시나리오 하나의 trial을 pool로 돌려 run 하나로 묶는다. 한 번에 next개를 내고, 끝난 만큼 보고 다시 묻는다.
 export async function runScenario(args: ScenarioArgs): Promise<ScenarioRun> {
   const { scenario, runId, pool, deps } = args;
-  const saved: { name: string; n: number }[] = [];
-  const trialDeps: TrialDeps = { ...deps, runId, saved };
+  const trialDeps: TrialDeps = { ...deps, runId };
   const startedAt = deps.clock.now();
   const outcomes: TrialOutcome[] = [];
-  const kind = trialKindOf(scenario);
   let failed: string | null = null;
   let index = 0;
 
@@ -61,7 +58,6 @@ export async function runScenario(args: ScenarioArgs): Promise<ScenarioRun> {
       const id = `${scenario.id}#${i}`;
       return pool.submit({
         id,
-        kind,
         run: async () => {
           deps.log(`[trial] ${id} start`);
           const outcome = await runTrial(trialDeps, scenario, i);
@@ -87,7 +83,7 @@ export async function runScenario(args: ScenarioArgs): Promise<ScenarioRun> {
     count = args.next(outcomes.map((o) => o.result));
   }
   if (failed !== null) deps.log(failed);
-  if (outcomes.length === 0) return { record: null, saved, failed };
+  if (outcomes.length === 0) return { record: null, failed };
   outcomes.sort((a, b) => a.result.index - b.result.index);
 
   if (outcomes.some((o) => o.result.metrics.unpriced_calls > 0)) {
@@ -130,5 +126,5 @@ export async function runScenario(args: ScenarioArgs): Promise<ScenarioRun> {
     `${args.runsDir}/${runId}.json`,
     JSON.stringify(record, null, 2) + "\n",
   );
-  return { record, saved, failed };
+  return { record, failed };
 }

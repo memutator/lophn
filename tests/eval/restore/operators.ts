@@ -1,13 +1,13 @@
 import { operatorCreate } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type { Id } from "../../../packages/protocol/base/mod.ts";
-import type { SetupContext } from "../types.ts";
+import type { RestoreContext } from "../types.ts";
 import { type Material, textOf } from "./manifest.ts";
 
 type Place = { project: string } | { app: string };
 
 // model은 정의에 넣지 않는다.
 export async function restoreOperators(
-  ctx: SetupContext,
+  ctx: RestoreContext,
   material: Material,
 ): Promise<void> {
   const operators = JSON.parse(textOf(material, "operators.json")) as {

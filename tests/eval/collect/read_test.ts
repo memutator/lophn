@@ -73,7 +73,6 @@ const inputs: Record<string, unknown> = {
 };
 
 const port: ReadPort = {
-  // deno-lint-ignore require-await
   async tryCall(route: unknown, input: unknown) {
     const i = input as Record<string, string>;
     switch (route) {

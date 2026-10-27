@@ -33,7 +33,7 @@ export function windowsShortcut(
   return {
     target: execPath,
     args: `${OPEN_APP_FLAG} ${app.id}`,
-    // deno-lint-ignore no-control-regex
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: shortcut 설명에서 제어 문자를 지운다.
     description: app.name.replace(/[\u0000-\u001f\u007f]+/g, " "),
     icon: execPath,
     iconIndex: 0,

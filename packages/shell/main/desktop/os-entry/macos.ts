@@ -22,7 +22,7 @@ export function macBundlePath(home: string, app: string): string {
 function xml(text: string): string {
   return (
     text
-      // deno-lint-ignore no-control-regex
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: plist XML에 들어갈 수 없는 제어 문자를 지운다.
       .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")

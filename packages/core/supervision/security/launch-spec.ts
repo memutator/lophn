@@ -16,7 +16,7 @@ function reject(message: string): Result<never, LaunchSpecError> {
   return err({ code: "invalid_input", message });
 }
 
-// deno-lint-ignore no-control-regex
+// biome-ignore lint/suspicious/noControlCharactersInRegex: 등록을 거절할 제어 문자 범위를 그대로 본다.
 const CONTROL = /[\u0000-\u001f\u007f]/;
 
 export function checkLaunchSpec(

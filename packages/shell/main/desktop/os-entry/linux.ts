@@ -12,7 +12,7 @@ export function linuxEntryPath(dataHome: string, app: string): string {
 // Desktop Entry 값의 escape. 제어 문자는 공백으로 바꾼다.
 function entryValue(text: string): string {
   return text.replaceAll("\\", "\\\\").replace(
-    // deno-lint-ignore no-control-regex
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: desktop entry 값에서 제어 문자를 공백으로 바꾼다.
     /[\u0000-\u001f\u007f]+/g,
     " ",
   );

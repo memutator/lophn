@@ -69,7 +69,7 @@ export interface AutostartOs {
 
 // 제어 문자와 따옴표는 어디서나 받지 않는다. Linux는 Exec quoting·field code에 걸리는
 // 글자도 받지 않는다. escape 규칙에 기대지 않고 등록 자체를 거절한다(fail closed).
-// deno-lint-ignore no-control-regex
+// biome-ignore lint/suspicious/noControlCharactersInRegex: 제어 문자와 따옴표를 등록 전에 거절한다.
 const UNSAFE = /[\u0000-\u001f\u007f"]/;
 const UNSAFE_EXEC = /[`$\\%]/;
 

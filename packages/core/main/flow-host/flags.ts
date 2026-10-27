@@ -12,7 +12,7 @@ const FIXED = [
 ] as const;
 
 // 쉼표나 제어 문자가 있으면 한 flag 값이 두 항목으로 갈라져 허락 범위가 넓어진다.
-// deno-lint-ignore no-control-regex
+// biome-ignore lint/suspicious/noControlCharactersInRegex: flag 값이 두 항목으로 갈라지지 않게 제어 문자 범위를 그대로 검사한다.
 const ONE_ITEM = /[,\x00-\x1f\x7f]/;
 
 // 넘으면 process가 죽고 program_exited 줄에 끝 code와 stderr가 남는다.

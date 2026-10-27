@@ -66,7 +66,7 @@ function fail(
   return err({ code, message });
 }
 
-// deno-lint-ignore no-control-regex
+// biome-ignore lint/suspicious/noControlCharactersInRegex: flag 값이 쉼표로 갈라지지 않게 제어 문자 범위를 그대로 검사한다.
 const ONE_ITEM = /[,\x00-\x1f\x7f]/;
 
 function single(value: string): Result<string> {

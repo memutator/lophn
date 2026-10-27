@@ -4,10 +4,10 @@ const LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
 const IMAGE_PROTOCOLS = new Set(["http:", "https:"]);
 const SCHEME = /^[a-z][a-z0-9+.-]*:/i;
 // URL parser는 앞뒤 C0·공백을 자르고 가운데 tab·줄바꿈을 지운다. 검사도 같은 값을 본다.
-// deno-lint-ignore no-control-regex -- URL parser가 지우는 C0 범위를 그대로 따라야 한다.
+// biome-ignore lint/suspicious/noControlCharactersInRegex: URL parser가 지우는 C0 범위를 그대로 따라야 한다.
 const EDGE = /^[\u0000-\u0020]+|[\u0000-\u0020]+$/g;
 const STRIPPED = /[\t\n\r]/g;
-// deno-lint-ignore no-control-regex -- 남은 제어 문자가 있는 주소는 거절한다.
+// biome-ignore lint/suspicious/noControlCharactersInRegex: 남은 제어 문자가 있는 주소는 거절한다.
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const RELATIVE_BASE = "https://relative.invalid/";
 

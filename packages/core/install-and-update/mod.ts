@@ -3,7 +3,7 @@ export {
   acquireInstanceLock,
   INSTANCE_LOCK_NAME,
   type InstanceLock,
-} from "../../base/install/instance-lock.ts";
+} from "./instance-lock.ts";
 export { removeRunMetadata, writeRunMetadata } from "./run-metadata.ts";
 export {
   cliLauncher,

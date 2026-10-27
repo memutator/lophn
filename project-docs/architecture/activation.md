@@ -28,7 +28,7 @@ App Engineer가 준비한 release가 운영 앱이 되는 순간이다. 도는 �
 ```
 
 - 이전 release로 돌아가기도 같은 순서다. 사람만 시작하고, 지금 활성 release와 data schema가 같은 release만 고른다. migration이 없어서 앱 code만 바뀌고 DB는 그대로다.
-- 앱 process의 실제 권한은 선언 사실과 active 앱 grant의 교집합으로 만든 flag다. 앱 code가 선언을 어겨도 flag 밖은 열리지 않는다. 선언 사실은 release 선언에서 권한 요구, 다른 앱 tool 쓰기, tool 이름만 뽑아 준비 때 한 번 계산해 release 행의 `facts` 열에 둔 값이다(`AppFacts`, `packages/core/apps/permissions/facts.ts`).
+- 앱 process는 권한 flag 없이 뜬다(사람이 정했다). 선언 사실은 release 선언에서 권한 요구, 다른 앱 tool 쓰기, tool 이름만 뽑아 준비 때 한 번 계산해 release 행의 `facts` 열에 둔 값이다(`AppFacts`, `packages/core/apps/permissions/facts.ts`).
 
 ## 지키는 것
 
@@ -54,7 +54,7 @@ App Engineer가 준비한 release가 운영 앱이 되는 순간이다. 도는 �
 - migration의 출발 schema는 ledger 값이 아니라 종료 뒤 읽은 실제 DB의 값이다. 기록과 실제가 어긋날 수 있다.
 - 복구본이 ledger에 확정된 뒤에만 migration을 시작한다. 확정 전에 꺼지면 복원할 근거가 없다.
 - 새 process는 준비 모드로 확인까지만 하고 업무 통로는 complete가 commit된 뒤에 연다. 그 전에 업무가 들어오면 실패해도 되돌릴 수 없는 쓰기가 생긴다.
-- complete 뒤에는 그 후보 process가 그대로 운영 process가 된다. 다시 띄우는 것은 complete가 앱 grant를 바꿔(넓어진 선언 사실을 허락) flag가 달라질 때 한 번뿐이다. 앱 process를 바꿀 때 끝내는 credential은 그 앱의 app credential이고, 같은 앱의 coding token은 coding session이 끝날 때까지 남는다.
+- complete 뒤에는 그 후보 process가 그대로 운영 process가 된다. 다시 띄우지 않는다. 앱 process를 바꿀 때 끝내는 credential은 그 앱의 app credential이고, 같은 앱의 coding token은 coding session이 끝날 때까지 남는다.
 - complete는 한 tx다. active 참조, grant 맞춤, 복구본 정리가 따로 있으면 어디서 끊겨도 중간 상태가 남는다. complete는 같은 시도인지와 실제 데이터 결과, 준비 확인을 core가 다시 검사한다.
 - 도는 호출이 유예 안에 끝나지 않으면 결과 모름으로 닫고 강제로 멈춘다. 호출 접수는 성공이든 실패든 끝에 다시 연다. 닫힌 채 두면 앱이 영영 안 받는다.
 

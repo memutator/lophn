@@ -9,7 +9,7 @@ planner의 본업은 plan → implement → changelog → **context 유지보수
 
 ## 1. 끝났는지 확인
 
-- main에 그 계획의 commit이 있다(`git log --oneline main`). `deno task check`가 통과한다.
+- main에 그 계획의 commit이 있다(`git log --oneline main`). `npm run check`가 통과한다.
 - 계획 폴더(`project-docs/plan/<계획>/`), 계획이 지우기로 한 roadmap 파일, lead worktree(`git worktree list`), branch `plan/<계획>`(`git branch --list 'plan/*'`)이 없다. 남았으면 lead에게 알리거나 사람에게 묻고 지운다(지우기 전에 merge됐는지 본다).
 - changelog 열린 판(`project-docs/products/change-log/<판>.md`)의 그 계획 항목을 읽는다. `modules`가 실제 diff와 맞는지 2의 script로 본다. 결정 중 `(agent)`가 붙은 것을 모아 사람에게 보인다. 사람이 정하지 않고 넘어간 결정이다.
 
@@ -17,7 +17,7 @@ planner의 본업은 plan → implement → changelog → **context 유지보수
 
 1. 다시 볼 조각을 뽑는다.
    ```
-   deno run --allow-read --allow-run --allow-env tools/context-review.ts --range <계획 첫 commit의 부모>..main
+   node tools/context-review.ts --range <계획 첫 commit의 부모>..main
    ```
    바뀐 file → module-catalog → boundary → registry의 `change_reasons`로 걸린 조각을 낸다. "같은 변경에서 고친 조각"은 lead가 이미 고친 것이다. "다시 볼 조각"이 planner의 목록이다.
 2. 목록의 조각을 하나씩 열어 지금 코드와 대조한다. 문서가 말하는 file, 함수, 흐름, 규칙이 그대로인지 본다. 다르면 고친다. 고칠 것이 없으면 changelog 항목의 `checked`에 그 ID를 더한다(append-only라 항목을 새로 덧붙이지 않고, 아직 열린 판의 그 항목 칸만 채운다. 판이 닫혔으면 새 항목으로).

@@ -20,30 +20,30 @@ description: 화면에 보이는 문구(label, 단추, 안내, 오류)를 더하
 
 1. 같은 뜻의 key가 이미 있는지 grep한다(`common.*` 먼저).
 2. 알맞은 영역 file(`catalog/<영역>.ts`)에 key를 더한다. 기존 정렬을 따른다. 영역 사이에 같은 key를 두지 않는다.
-3. `deno task wording`으로 `catalog/<영역>.placeholders.ts`를 다시 만든다.
+3. `npm run wording`으로 `catalog/<영역>.placeholders.ts`를 다시 만든다.
 4. 화면 코드는 `t("key")`나 `t("key", { name })`로 쓴다(`import { t } from "@lophn/wording"`). 값 이름은 문장의 `{placeholder}`와 같아야 한다.
-5. `deno run --allow-read tools/check-wording.ts`.
-6. `deno task check`.
+5. `node tools/check-wording.ts`.
+6. `npm run check`.
 
-새 영역 file이 필요하면 `wording/en.ts`에 import 한 줄, `AREAS` 한 칸, `en`의 spread 한 칸을 더하고 `wording/placeholders.ts`(손으로 두는 file)에 import와 `&` 한 칸을 더한다. 그다음 `deno task wording`.
+새 영역 file이 필요하면 `wording/en.ts`에 import 한 줄, `AREAS` 한 칸, `en`의 spread 한 칸을 더하고 `wording/placeholders.ts`(손으로 두는 file)에 import와 `&` 한 칸을 더한다. 그다음 `npm run wording`.
 
 ## 명령
 
 | 명령 | 하는 일 |
 |---|---|
-| `deno task wording` | placeholders 생성물을 쓴다 |
-| `deno task wording --check` | 생성물이 catalog와 같은지만 본다 (`deno task check`의 "wording 생성", design이 바뀌면 돈다) |
-| `deno run --allow-read tools/check-wording.ts` | 화면 코드의 직접 문구, 없는 key, 값 이름 불일치, catalog 규칙을 본다. warning은 목록만 낸다 |
+| `npm run wording` | placeholders 생성물을 쓴다 |
+| `npm run wording -- --check` | 생성물이 catalog와 같은지만 본다 (`npm run check`의 "wording 생성", design이 바뀌면 돈다) |
+| `node tools/check-wording.ts` | 화면 코드의 직접 문구, 없는 key, 값 이름 불일치, catalog 규칙을 본다. warning은 목록만 낸다 |
 
 ## 손으로 생성물을 고치지 않는다
 
-`catalog/*.placeholders.ts`는 생성물이다. 한 번 손으로 고치다 괄호를 깨뜨린 채 commit한 적이 있다. 틀렸으면 고치지 말고 `deno task wording`으로 덮어쓴다. 충돌이 나도 손으로 풀지 말고 영역 file(`catalog/<영역>.ts`)을 풀고 다시 생성한다. `generate.ts`는 영역 file이 `AREAS`에 없거나 영역 사이에 key가 겹치면 실패한다.
+`catalog/*.placeholders.ts`는 생성물이다. 한 번 손으로 고치다 괄호를 깨뜨린 채 commit한 적이 있다. 틀렸으면 고치지 말고 `npm run wording`으로 덮어쓴다. 충돌이 나도 손으로 풀지 말고 영역 file(`catalog/<영역>.ts`)을 풀고 다시 생성한다. `generate.ts`는 영역 file이 `AREAS`에 없거나 영역 사이에 key가 겹치면 실패한다.
 
 ## key를 지우기 전에
 
 - **template literal로 만드는 key가 있다.** ``t(`secret-input.title.${purpose}`)``나 ``t(`conversation.label.media-${media}`)`` 같은 호출은 key 전체 문자열이 코드에 없다. key 전체로 grep해 "쓰는 곳 없음"으로 보고 지우면 안 된다(실제로 `common.label.tab-${dot}` 류를 지운 적이 있다).
 - 지우기 전에 key의 **앞부분**(`secret-input.title.`)으로 `packages`와 `tools`를 grep한다(catalog와 `.placeholders.ts` 제외). template 호출이 보이면 그 union의 모든 값에 대응하는 key를 남긴다.
-- check-wording은 `t("...")`의 문자열 literal만 확인한다. template 호출이 깨졌는지는 type check(`deno task check`)가 잡는다. 지운 뒤 이 둘을 모두 돌린다.
+- check-wording은 `t("...")`의 문자열 literal만 확인한다. template 호출이 깨졌는지는 type check(`npm run check`)가 잡는다. 지운 뒤 이 둘을 모두 돌린다.
 - key 이름을 바꿀 때도 같다. 앞부분 grep으로 쓰는 곳을 다 찾아 바꾼다.
 
 ## 검사 범위 (함정)

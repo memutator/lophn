@@ -37,7 +37,7 @@ domain의 문서가 어떤 모양이어야 하는지는 그 domain의 kind 파�
 - 문서 위반은 아무것도 막지 않는다. 읽지 못한 문서(`unreadable`)와 type이 틀린 문서(`type`)는 index에서 빠지고 `skipped`로 센다. 필수·허용 값·pattern·unique·ref 위반 문서는 값이 있으므로 item으로 남는다. 두 kind에 걸린 문서(`overlap`)는 어느 kind의 item도 아니다. key 칸은 kind 안에서 유일해야 한다(`unique` 위반).
   - `kind.list`는 `skipped`를 늘 돌려준다. 빠진 것을 모르면 agent가 결과를 전부로 믿는다.
 - 위반 message에는 문서의 값을 싣지 않는다. 칸 이름, 기대 type, 규칙만 쓴다. 문서 내용이 tool 결과와 알림으로 퍼지지 않게 한다.
-- kinds worker는 lophn DB를 열지 않고 core에 닿지 않는다. 읽기는 그릇 폴더, kind 파일, 자기 index이고 쓰기는 index다. lophn의 코드라 `--allow-all`로 뜬다(`packages/core/projects/kinds/host/process.ts`). 요청의 `kinds_file`이 그 domain의 정해진 자리가 아니면 거절한다.
+- kinds worker는 lophn DB를 열지 않고 core에 닿지 않는다. 읽기는 그릇 폴더, kind 파일, 자기 index이고 쓰기는 index다. lophn의 코드라 권한 flag가 없어 읽을 경로가 늘어도 다시 띄우지 않는다(`packages/core/projects/kinds/host/process.ts`). 요청의 `kinds_file`이 그 domain의 정해진 자리가 아니면 거절한다.
 - scan은 `sync`만 한다. `get`·`list`·`check`는 index를 있는 그대로 읽는다. dispatcher가 읽기 앞에 늘 sync를 보내므로 읽기는 최대 2초 묵은 것이다.
   - 새 위반을 알리는 길은 sync 답 하나다. 읽기가 scan하면 그 결과가 dispatcher를 거치지 않아 알리지 않는다.
   - 직전 scan 뒤 2초 안이면 다시 훑지 않는다. 감시의 신호는 `force`로 이 규칙을 건너뛴다. 감시는 힌트일 뿐이라 놓쳐도 다음 읽기 앞 sync가 따라잡는다.

@@ -72,4 +72,4 @@ task가 merge되거나 사람이 남기기로 정하면 절을 `archived/<topic>
 쓰거나 옮긴 뒤 본다.
 - yaml block의 `modules`가 모두 module-catalog에 있다. archived 절에는 `closed`와 `guard`가 있다.
 - 열린 파일에 남은 정할 것이 정말 사람만 정할 수 있는 것이다.
-- `deno task check`가 통과한다.
+- `npm run check`가 통과한다.

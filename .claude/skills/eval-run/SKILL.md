@@ -1,6 +1,6 @@
 ---
 name: eval-run
-description: lophn eval experiment나 `deno task eval`을 돌리고, 진행을 보고, agent의 질문에 답하고 judge item을 채점하고(item마다 새 subagent), 멈춘 run을 알아채고, 실행 기록(run.md)을 쓸 때 쓴다. eval을 돌리는 agent session(runner)이 읽는다. 해석과 원인 추정은 이 skill의 일이 아니다(eval-experiment).
+description: lophn eval experiment나 `npm run eval`을 돌리고, 진행을 보고, agent의 질문에 답하고 judge item을 채점하고(item마다 새 subagent), 멈춘 run을 알아채고, 실행 기록(run.md)을 쓸 때 쓴다. eval을 돌리는 agent session(runner)이 읽는다. 해석과 원인 추정은 이 skill의 일이 아니다(eval-experiment).
 ---
 
 # eval 돌리기 (runner)
@@ -14,14 +14,14 @@ runner는 eval CLI를 돌리고, 진행을 보고, 사람 역할의 답과 judge
 1. `tests/eval/experiments/<id>/spec.json`을 읽고 시나리오, `budget_usd`, `trials`(base, max)를 확인한다. 바꾸지 않는다. 이유: spec은 돌리기 전에 정한 규칙이다.
 2. gate를 미리 본다. 실패하면 거기서 멈추고 단계 이름(`check`, `e2e`, `dry-run`)과 출력 마지막 줄을 보고한다.
    ```
-   deno task eval:gate <id> [--checkout <path>] [--base <rev>]
+   npm run eval:gate -- <id> [--checkout <path>] [--base <rev>]
    ```
 3. experiment를 background로 돌린다. caller가 variant를 주면 `--checkout`을 그대로 쓴다.
    ```
-   deno task eval:experiment <id> [--checkout <path>] [--base <rev>] [--budget <usd>]
+   npm run eval:experiment -- <id> [--checkout <path>] [--base <rev>] [--budget <usd>]
    ```
    `eval:experiment`도 gate를 먼저 돌린다(`--skip-gate`는 쓰지 않는다). `--budget`은 caller가 줄 때만 쓴다. `eval:experiment`는 `.env`를 읽고 `eval:gate`는 읽지 않는다.
-   판단 case를 그냥 돌리는 `deno task eval --scenario <id>... [--trials N] [--model <name>] [--effort <value>] [--budget <usd>]`도 2, 3만 다르고 나머지는 같다(spec과 `result.json`이 없어 `run.md`는 시나리오별 stdout 줄을 적는다).
+   판단 case를 그냥 돌리는 `npm run eval -- --scenario <id>... [--trials N] [--model <name>] [--effort <value>] [--budget <usd>]`도 2, 3만 다르고 나머지는 같다(spec과 `result.json`이 없어 `run.md`는 시나리오별 stdout 줄을 적는다).
 4. 도는 동안 아래 "진행 확인"을 하면서 질문에 답하고 채점한다.
 5. process가 끝나면 stdout 마지막 줄 `[verdict] <decision>`을 본다. 이유 줄(들여쓴 줄)은 그 위에 있다.
    - 이유에 `채점 대기`가 있거나 `[pending] <run> n건`이 찍혔으면 아래 "채점하기"로 비운 뒤 **같은 명령을 다시 돈다**. 끝난 trial은 그대로 두고 판정을 다시 계산한다(정책이 더 돌리라고 하면 trial이 더 돈다). 이유: `inconclusive`는 이어 돌릴 수 있다.
@@ -52,25 +52,25 @@ runner는 eval CLI를 돌리고, 진행을 보고, 사람 역할의 답과 judge
 
 1. 전문을 받는다.
    ```
-   deno task eval:answer <run> show <key>
+   npm run eval:answer -- <run> show <key>
    ```
 2. **새 subagent** 하나를 띄운다. fork가 아니다(이 session의 context를 주지 않는다). prompt는 그 stdout 전문이다. 한 글자도 더하지 않는다(시나리오 이름, 진행, 가설, 다른 질문의 답을 쓰지 않는다). subagent_type은 `haiku-xhigh`(`claude-haiku-5-5`) 하나로 고정한다. 이유: 한 run 안에서 model이 섞이면 grader가 달라 scorecard가 따로 보인다.
 3. 그 subagent의 마지막 글이 `[["label"], ["a", "b"]]` 꼴 JSON(질문마다 배열 하나)인지 본다. code fence만 벗기고 다른 것은 고치지 않는다. 아니면 새 subagent로 한 번 더 시킨다.
 4. 넣는다. `--model`은 실제로 쓴 subagent의 model 이름이다.
    ```
-   deno task eval:answer <run> set <key> --model claude-haiku-5-5 <<'JSON'
+   npm run eval:answer -- <run> set <key> --model claude-haiku-5-5 <<'JSON'
    [["label"]]
    JSON
    ```
 
-질문마다 subagent 하나다. 한 subagent에 질문 여럿을 몰지 않고, 앞 subagent를 이어 쓰지 않는다. 이유: 사람 역할은 질문, 요구 카드, 앞서 자기가 한 답만 아는 사람이다. 돌리는 쪽의 가설과 진행에 끌리면 안 된다. `답 거절`이 뜨면 답이 지워진 것이니 새 subagent로 그 key에 다시 답한다. `deno task eval:answer <run>`은 목록(`답함`/`대기`)을 낸다.
+질문마다 subagent 하나다. 한 subagent에 질문 여럿을 몰지 않고, 앞 subagent를 이어 쓰지 않는다. 이유: 사람 역할은 질문, 요구 카드, 앞서 자기가 한 답만 아는 사람이다. 돌리는 쪽의 가설과 진행에 끌리면 안 된다. `답 거절`이 뜨면 답이 지워진 것이니 새 subagent로 그 key에 다시 답한다. `npm run eval:answer -- <run>`은 목록(`답함`/`대기`)을 낸다.
 
 ## 채점하기 (`채점 대기 <run> <key>`, 또는 trial이 끝난 뒤 몰아서)
 
 ```
-deno task eval:judge <run>
-deno task eval:judge <run> show <key>
-deno task eval:judge <run> set <key> --model claude-haiku-5-5 <<'JSON'
+npm run eval:judge -- <run>
+npm run eval:judge -- <run> show <key>
+npm run eval:judge -- <run> set <key> --model claude-haiku-5-5 <<'JSON'
 {"verdict": "...", "quote": "..."}
 JSON
 ```
@@ -90,7 +90,7 @@ activation 동의(`activations.consents`를 읽어 `activation.consent`)와 shel
 - `result.json`, `tests/eval/runs/*.json`, `.dev-data/eval/`(대기 file과 답 file 포함)을 손으로 고치지 않는다. 판정과 기록의 정본이다. `eval:judge`, `eval:answer`로만 적는다.
 - 떨어진 trial만 골라 다시 돌리지 않는다. 몇 번 돌릴지는 program의 trial 정책이 정한다. 통과할 때까지 돌리면 결과를 고르는 일이 된다.
 - `budget_usd`나 `--budget`을 올리지 않는다. 돈과 시간 상한은 program이 지킨다.
-- 시킨 것 말고 다른 experiment나 `deno task eval --all`을 돌리지 않는다. 진짜 provider는 비용이 든다.
+- 시킨 것 말고 다른 experiment나 `npm run eval -- --all`을 돌리지 않는다. 진짜 provider는 비용이 든다.
 - `~/.claude/`(`harness install` 포함)와 `~/.lophn`을 건드리지 않는다. 사람의 환경이다.
 - `.env`를 열거나 key를 찍거나 옮기지 않는다. key가 없으면 `eval:experiment`는 `ANTHROPIC_API_KEY가 없다`며 1로 끝나고 `eval`은 trial을 돌지 않고 0으로 끝난다. 그대로 보고한다.
 - 해석하지 않는다. 원인 추정, 판정 뒤집기, 다음 고칠 것을 쓰지 않는다. experimenter의 일이다.
@@ -117,7 +117,7 @@ activation 동의(`activations.consents`를 읽어 `activation.consent`)와 shel
 
 ## 이 skill이 기대는 것
 
-- 명령: `deno task eval`, `eval:experiment`, `eval:gate`, `eval:judge`, `eval:answer` (`deno.json`, `tests/eval/run.ts`, `tests/eval/experiment/mod.ts`)
+- 명령: `npm run eval`, `eval:experiment`, `eval:gate`, `eval:judge`, `eval:answer` (`package.json`, `tests/eval/run.ts`, `tests/eval/experiment/mod.ts`)
 - stdout 줄: `[trial]`, `[budget]`, `[gate]`, `[pending]`, `[verdict]`, `답 대기`, `답 거절`, `채점 대기` (`tests/eval/runner/`, `tests/eval/judge/`, `tests/eval/human/`)
 - 기록: `tests/eval/experiments/<id>/{spec,result}.json`, `tests/eval/runs/<run>.json`, `.dev-data/eval/<run>/`
 - 역할: runner(이 skill)는 `run.md`, experimenter(`eval-experiment`)는 `report.md`를 쓴다

@@ -107,7 +107,7 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 - 앱: App Engineer가 직접 짓기(선언, 코드, 앱 test), release 준비와 검사, preview, activation, 실행, data, 앱 log, 사람이 넣는 앱 secret과 OAuth sign-in(값은 앱에 주지 않는다)
 - domain: kind 파일과 검사, `DOMAIN.md`, skill, artifact, 앱 tool의 domain
 - grant와 approval, event, rewind
-- workflow: project에 정의(`workflow.yaml`, `workflow.md`, 고르는 artifact), instance와 report, 사람 step, workflow마다의 desk. PM이 쓴 code(`flow.ts`)가 sandbox 안에서 agent와 앱 tool을 부르는 flow
+- workflow: project에 정의(`workflow.yaml`, `workflow.md`, 고르는 artifact), instance와 report, 사람 step, workflow마다의 desk. PM이 쓴 code(`flow.ts`)가 agent와 앱 tool을 부르는 flow
 - job: agent가 만들어 정해진 때 agent 호출, 앱 tool 호출, workflow 시작을 돌린다. 놓친 차례를 사람에게 묻고(hold), 사람은 화면에서 보고 끄고 지운다(`architecture/job.md`)
 
 **그다음**

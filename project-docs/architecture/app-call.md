@@ -44,7 +44,7 @@
 
 ## 지키는 것
 
-- tool 선언은 MCP tool 정의(`name`, `title`, `description`, `inputSchema`, 선택 `outputSchema`)에 lophn 칸 셋을 더한 것이다. `effect`(`read`, `write`, `external`)는 program이 강제하고(write 줄, runtime 권한, 기록), `public`은 다른 domain에 보이는지, `domain`은 그 tool이 다루는 객체의 domain(그 앱의 domain 이름)이다. `domain`은 필수이고 앱의 active domain 이름이 아니면 release 준비, `declaration.check`, activation 직전 재검사가 거절한다(`architecture/domain.md`). 이름은 1~64자 `[A-Za-z0-9_.-]`이고 schema의 root는 `object`다(인자가 없으면 `inputSchema: null`).
+- tool 선언은 MCP tool 정의(`name`, `title`, `description`, `inputSchema`, 선택 `outputSchema`)에 lophn 칸 셋을 더한 것이다. `effect`(`read`, `write`, `external`)는 program이 강제하고(write 줄, 기록), `public`은 다른 domain에 보이는지, `domain`은 그 tool이 다루는 객체의 domain(그 앱의 domain 이름)이다. `domain`은 필수이고 앱의 active domain 이름이 아니면 release 준비, `declaration.check`, activation 직전 재검사가 거절한다(`architecture/domain.md`). 이름은 1~64자 `[A-Za-z0-9_.-]`이고 schema의 root는 `object`다(인자가 없으면 `inputSchema: null`).
   - MCP annotation(`readOnlyHint`, `destructiveHint`, `openWorldHint`)은 effect에서 만들어(`toMcpTool`) 바깥에 보일 때만 싣는다. 힌트일 뿐이고 강제하지 않는다.
 - 모든 tool 호출은 core를 지난다. 화면에서 앱으로, 앱에서 앱으로 가는 직통 통로를 두지 않는다.
   - 막기, 기록, write 줄이 core 한 곳에 있어야 changeset이 빠지지 않는다.
@@ -89,13 +89,13 @@
 - 앱 호출 사슬은 같은 앱이 다시 나오면(call_loop) 또는 깊이 한도를 넘으면 handler에 가기 전에 막는다. 앱끼리 서로 부르다 줄이 영영 풀리지 않는 것을 막는다.
 - 앱 log는 앱마다 `<data root>/apps/<app>/logs/app.log`와 돌린 앞 file `app.log.1` 둘이다(`appLogFile`, `packages/protocol/apps/app-storage.ts`). file 하나는 8 MiB까지이고 앱마다 합쳐 16 MiB다. 줄을 더해 8 MiB를 넘게 되면 `app.log`를 `app.log.1`로 옮기고(앞 `.1`은 버린다) 새 `app.log`에 쓴다. 모양은 `packages/protocol/apps/app-log.ts`가 정한다.
   - JSON Lines이고 줄마다 `{ at, invocation, text }`다. `invocation`은 아는 줄에만 있고 아니면 null이다. 앱 안에서 SDK가 invocation 문맥으로 찍는 줄(`reportProblem`, 잡히지 않은 예외)만 invocation을 싣고, 그 밖의 stdout·stderr 줄은 null이라 시각으로 찾는다.
-  - 쓰는 쪽은 app supervisor 하나다. 앱 process는 data root를 fs grant로 열지 못해 log file에 닿지 않는다. supervisor는 lophn의 코드라 `--allow-all`로 떠서 `<data root>/apps`에 쓴다.
+  - 쓰는 쪽은 app supervisor 하나다. 앱 process에 log를 쓰게 하지 않고 supervisor가 `<data root>/apps`에 쓴다.
   - 줄의 출처는 다섯이고 `text`의 꼴이 다르다. 앱의 stdout·stderr 한 줄은 그대로(머리 `[inv=<id>] `만 떼어 `invocation`으로), SDK `reportProblem(name, message?, details?)`은 `error <name>[: <message>][ <details JSON>]`, 잡히지 않은 예외는 `exception <name>: <message>` 한 줄에 이어 봉인된 bundle의 source map으로 원래 source 줄로 푼 frame마다 `  at <path>:<line>:<column>`, 화면 오류는 `view_error <observation> <name>: <message>`, 앱 process의 비정상 종료는 `process_exit <근거>: <message>`다(근거는 `unexpected_exit`, `v8_oom`, `start_failed`, `ready_timeout`, `crash_loop`). 의도한 정지는 쓰지 않는다. preview 자식(release 준비의 handler 검사 포함)의 출력과 오류는 쓰지 않는다. 화면 오류도 live 화면의 것만 쓴다.
   - 줄마다 redaction을 하고 그 뒤에 300자로 자른다. 순서가 바뀌면 자른 줄에 secret 일부가 남는다. supervisor의 redaction은 credential pattern과, core에서 받아 앱에 건넨 secret 값(`apps.secret_value`)을 지운다. log가 disk에 남으므로 바깥 응답에 되돌아온 secret을 앱이 찍어도 file에 남지 않게 하려는 것이다.
   - 읽기는 core route `apps/logs`(`app.logs`)다. core가 두 file을 바로 읽어 `invocation`, `since`(포함), `until`(제외)로 거르고 가장 최근 `limit`줄(기본 200, 최대 1000)을 오래된 것부터 준다. supervisor를 거치지 않으므로 앱이 멈췄거나 crash loop여도 읽힌다. 읽을 때 알려진 secret 값으로 한 번 더 지우고, 안전하게 만들지 못한 줄이 있으면 읽기 전체가 `unavailable`이다.
   - actor는 user, coding_agent, agent, app이다. lophn과 App Engineer는 tool `app.logs`로, coding agent는 CLI `app logs`로 같은 route를 부른다. 앱 상태(`app.status`)와 호출 기록(`app.invocations`)도 같은 식으로 읽어, 앱을 진단하는 쪽은 이 셋을 본다.
-- 앱이 바깥으로 나가는 길은 SDK 셋(`@lophn/cap-net`, `@lophn/cap-secret`, `@lophn/cap-fs`)뿐이고, 어느 길이든 선언 사실 ∩ 사람의 grant 안이다. 앱 process의 Deno 권한에는 외부 net이 없다.
-  - net: 요청은 앱 supervisor의 broker(`net/fetch`)가 보낸다. supervisor는 lophn의 코드라 `--allow-all`로 뜬다. 앱 process가 아니라 broker가 요청마다 목적지(host·port)를 선언 사실 ∩ grant로 검사한다. redirect는 한 단계마다 같은 검사를 다시 받고, 플랫폼 port는 grant가 있어도 막는다. 이 검사가 틀리면 supervisor가 아무 곳이나 간다.
+- 앱 process는 권한을 막지 않는다(사람이 정했다). SDK 셋(`@lophn/cap-net`, `@lophn/cap-secret`, `@lophn/cap-fs`)으로 나가는 일은 선언에 적고, net과 secret은 broker가 요청마다 선언 사실 ∩ 사람의 grant를 본다. fs는 선언이 무엇에 닿는지 보이는 값일 뿐 막지 않는다.
+  - net: SDK의 요청은 앱 supervisor의 broker(`net/fetch`)가 보낸다. broker가 요청마다 목적지(host·port)를 선언 사실 ∩ grant로 검사한다. 앱 process의 network는 막지 않으므로 이 검사는 이 client를 지나는 요청에만 걸린다. redirect는 한 단계마다 같은 검사를 다시 받고, 플랫폼 port는 grant가 있어도 막는다. 이 검사가 틀리면 supervisor가 아무 곳이나 간다.
   - loopback 목적지는 http, 그 밖은 https다. 사람이 켠 같은 컴퓨터의 서비스를 부르려는 것이고 기계 밖으로 나가지 않는다. https에서 http로 내려가는 redirect는 거절한다.
   - 앱은 요청에 본문(글 또는 bytes, 풀어 쓴 크기 10 MiB까지)과 header(32개까지)를 싣는다. `Authorization`·`Cookie`·`Host`·`Content-Length`·`Proxy-Authorization`은 schema(`brokerNetFetchInputSchema`)가 거절하고 `GET`·`HEAD`에는 본문이 없다. 인증은 앱이 아니라 secret 길이 붙인다. redirect가 301·302(GET·HEAD 아님)·303이면 `GET`으로 바꾸고 본문과 `content-type`을 버리며, 307·308은 method와 본문을 그대로 다시 보낸다. 앱 header는 처음 목적지와 같은 origin의 hop에만 실린다. 응답은 지금처럼 1 MiB 이하의 글·JSON이다.
   - secret: 앱의 `useSecret`은 이름과 목적지를 말할 뿐 값을 읽지 못한다. broker가 secret 이름 선언 사실 ∩ grant와 그 목적지의 `net.fetch` 허락을 검사하면, supervisor가 core route `apps.secret_value`로 값을 한 번 받는다. 이 route는 supervisor의 machine 자격만 부르고, 부른 supervisor가 지금 보는 live 자식과 맞을 때, core가 현재 선언 사실 ∩ active grant로 다시 판정해 통과할 때, 알려진 값 registry가 그 값을 알 때만 값을 준다. 모르는 값은 redaction이 지우지 못해서다.
@@ -103,8 +103,8 @@
   - OAuth secret: 선언의 `secret.use`에 `oauth`(authorize·token 끝점, scope, 추가 authorize parameter)가 있으면 그 이름의 값은 사람이 sign-in해 받은 access token이다. 사람이 앱 Access 탭에서 client id와 client secret(선택)을 넣고 [Sign in]을 누르면 core가 loopback callback을 열고 authorize URL(PKCE)을 만들고 shell이 OS browser로 연다. core가 background에서 callback을 받아 token으로 바꾸고 화면은 상태(`apps/oauth_state`)를 다시 읽는다. 끝점은 https이거나 loopback http다.
   - OAuth secret의 값은 `apps.secret_value`가 보내기 직전에 core가 refresh한다(남은 시간 5분 이하, 이름마다 한 번에 하나, 발급자 호출 대기열). 발급자가 400·401·`invalid_grant`로 거절하면 access·refresh·meta를 지우고 상태를 `failed`(`refresh_rejected`)로 두며 앱은 `conflict`("oauth sign-in required")를 받는다. 닿지 못하거나 5xx면 지금 token이 만료 전일 때 그 token을 보내고, 만료 뒤면 `unavailable`이다. client id나 선언의 끝점·scope·parameter가 바뀌면 옛 token을 쓰지 않는다(상태 `none`).
   - refresh token, meta, client id·secret은 `app-oauth.<이름>.refresh|.meta|.client_id|.client`에 두고 어느 호출로도 보내지 않는다(`core/secrets/file-attach.ts`). OAuth가 없는 secret의 값도 사람이 같은 탭에서 보호된 입력 창으로 넣는다.
-  - fs: 앱 process의 Deno `--allow-read`·`--allow-write`가 선언 사실 ∩ grant한 경로다. 운영 bundle은 읽기만 되고 source, 다른 앱 DB, 플랫폼 credential, 앱 log file은 어느 grant로도 열리지 않는다.
-  - live 자식만 바깥에 닿는다. 준비 모드와 preview의 자식이 같은 통로를 부르면 broker가 거절한다(`liveOnly`). SDK의 stand-in이 그 자리를 채운다.
+  - fs: `@lophn/cap-fs`는 OS가 허락하는 파일을 어디든 읽고 쓴다. 선언의 `fs.read`·`fs.write`(경로)는 앱이 무엇에 닿는지 보이는 값이고 `checkDeclaration`이 그것을 요구한다. 운영 bundle의 사본은 file 0444·폴더 0555다.
+  - broker는 live 자식의 요청만 받는다. 준비 모드와 preview의 자식이 같은 통로를 부르면 거절한다(`liveOnly`). SDK의 stand-in이 그 자리를 채운다.
 
 ## 왜 이 모양인가
 
@@ -118,11 +118,11 @@
 - **agent에게는 앱 tool이 그대로 tool로 보인다**(`<domain>_<tool>`, tool 이름의 `.`은 `_`, 예: `calendar_event_list`). 내장 tool의 `<자원>_<동사>`와 같은 꼴이다. domain 이름은 모든 domain에서 하나이고 `_`가 없어 앱 id 없이 겹치지 않는다. 내장 자원 이름과 `mcp`는 domain 이름으로 쓰지 못하고(`RESERVED_DOMAIN_NAMES`), 한 앱 안에서 이름이 같아지는 두 tool은 선언 검사가 거절한다. hash는 64자를 넘을 때만 붙인다. 앱 tool은 deferral이 켜진 session에서 이름만 알리고 domain 묶음으로 불러온다(`architecture/agent-definition.md`). 앱 할당과 release 선언 사실(tool 이름)의 교집합만 tool 정의가 되고 사람이 뺀 tool은 요청에 아예 없다. 효과(read, write, external)와 `outputSchema`는 tool 정의에 싣지 않고 core가 release의 선언에서 읽어 줄 세우기와 기록에 쓴다. 조사한 harness 모두 정의에 효과를 싣지 않고 호출 때 판정한다. tool 이름은 parse하지 않고 정의 목록이 (앱, tool)을 안다.
 - **선언은 MCP tool 모양 하나다.** 화면 bridge(`window.lophnApp.callTool`), SDK(`tool(name, handler)`), agent tool, coding agent MCP가 모두 같은 이름과 schema를 쓴다. lophn 칸(`effect`, `public`)은 MCP 정의 밖에 두고, 바깥에는 annotation으로만 보인다.
 - **session rewind가 앱 data를 저절로 되돌리지 않는다.** 시점 단위라 그 사이 다른 쪽의 변경도 함께 사라지기 때문이다. 사람이 앱을 골랐을 때만, 함께 되돌아갈 목록을 보인 뒤 같은 rewind로 간다(Claude Code의 rewind 메뉴가 코드와 대화를 따로 고르게 하는 것과 같다).
-- **바깥 net의 목적지 검사는 OS 권한이 아니라 broker가 요청마다 한다.** 앱 process에는 net이 없고 supervisor는 lophn의 코드라 `--allow-all`로 떠서 OS 권한으로는 목적지를 가둘 수 없다. 그래서 요청마다 현재 선언 사실 ∩ grant를 읽는 쪽을 골랐다.
+- **바깥 net의 목적지 검사는 broker가 요청마다 한다.** 앱 process의 OS 권한을 막지 않으므로(사람이 정했다) process 권한으로는 목적지를 가둘 수 없다. 그래서 SDK 요청마다 현재 선언 사실 ∩ grant를 읽는 쪽을 골랐다.
 - **secret은 값을 앱에 주지 않고 전송 직전에 붙인다.** 앱이 값을 쥐면 응답, 오류, log로 새는 길을 앱 코드마다 막아야 한다. 앱은 쓰겠다는 요청만 내고, 값은 core가 supervisor에게 한 번 주어 붙인다.
 - **OAuth access token은 선언한 secret 이름 그대로 둔다.** 그러면 broker의 판정, `apps.secret_value`, supervisor의 Bearer 붙이기가 OAuth를 몰라도 된다. OAuth가 더하는 것은 값을 보내기 직전의 refresh 하나다. 앱이 token을 받아 직접 refresh하면 refresh token이 앱 코드에 닿는다.
 - **refresh 거절만 sign-in을 끝낸다.** MCP OAuth는 400 이상을 모두 거절로 보지만 앱 OAuth는 400·401·`invalid_grant`만 그렇게 본다(provider 구독 OAuth와 같다). 발급자의 일시 오류로 사람이 다시 sign-in해야 하는 일을 막으려는 것이다.
 - **client는 사람이 그 서비스에 만든 것을 넣는다.** Google 같은 곳은 자동 등록이 없고, lophn이 자기 client를 들고 다니려면 서비스마다 심사를 받아야 한다. OAuth는 표준 authorization code와 PKCE로만 열고 서비스에 맞춘 것은 선언의 추가 parameter(`access_type=offline` 같은 것)뿐이다.
-- **앱 log를 앱마다 file로 남기고 쓰는 쪽을 supervisor 하나로 했다.** 앱 안에서 쓰게 하면 앱 code가 log를 지우거나 고칠 수 있고, 권한을 열어야 한다. supervisor는 이미 앱의 stdout·stderr를 쥐고 있고 lophn의 코드라, 앱이 쓴 줄과 lophn이 아는 사실(비정상 종료, 화면 오류)을 같은 file에 같은 redaction으로 쌓는다. 메모리 buffer가 아니라 file인 것은 앱이 죽거나 supervisor가 다시 뜬 뒤에도 원인을 읽어야 해서다.
+- **앱 log를 앱마다 file로 남기고 쓰는 쪽을 supervisor 하나로 했다.** 앱 안에서 쓰게 하면 앱 code가 log를 지우거나 고칠 수 있다. supervisor는 이미 앱의 stdout·stderr를 쥐고 있고 lophn의 코드라, 앱이 쓴 줄과 lophn이 아는 사실(비정상 종료, 화면 오류)을 같은 file에 같은 redaction으로 쌓는다. 메모리 buffer가 아니라 file인 것은 앱이 죽거나 supervisor가 다시 뜬 뒤에도 원인을 읽어야 해서다.
 - **저장하는 problem 모델 대신 log를 primitive로 둔다.** 오류를 상태 machine(열림, 닫힘), 묶음, 보고 표로 올리면 계약과 tool이 앱 쪽 진단보다 무거워진다. lophn은 줄을 남기고 읽게만 하고, 무엇이 문제인지 읽고 판단하는 일은 agent가 한다.
 - **예외 stack은 쓸 때 원래 source 줄로 푼다.** 봉인된 bundle 사본은 agent의 file 범위 밖이라 agent가 stack의 bundle 위치를 직접 풀 수 없다. 당시 release의 source map으로 supervisor가 풀어 읽을 수 있는 줄만 남긴다.

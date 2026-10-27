@@ -15,7 +15,7 @@ lead는 task를 골라 worker에게 맡기고, 결과를 review해 그 계획의
 
 1. 계약(protocol, port, shell IPC, preload, design 공용 부품)은 고정한 뒤 lead만 고친다. worker는 바꿀 것을 보고에 요청으로 적고, lead가 작은 commit으로 고쳐 영향받는 `running` worker에게 SendMessage로 알린다.
 2. 단위마다 소유 path만 고친다. 남의 file은 import만 한다. 남이 쓰는 export는 더하기만 하고, 안 쓰게 된 것은 보고하면 lead가 합친 뒤 지운다.
-3. 공용 등록 file은 lead가 합친다: `package.json`, `packages/protocol/**/mod.ts`의 목록, core 조립 목록(`packages/core/main/daemon/wiring/`), wording 생성물(`packages/design/wording/`), gallery `tools/wireframes/pages/index.ts`. worker는 "등록할 것"을 보고에 적는다.
+3. 공용 등록 file은 lead가 합친다: `package.json`(workspaces), `packages/protocol/**/mod.ts`의 목록, core 조립 목록(`packages/core/main/daemon/wiring/`), wording 생성물(`packages/design/wording/`), gallery `tools/wireframes/pages/index.ts`. worker는 "등록할 것"을 보고에 적는다.
 4. 옛것과 새것이 잠시 같이 있어도 된다. 호환 장치(옛 이름 읽기, 옛 경로)는 만들지 않는다. 여러 영역이 쓰던 옛 계약은 마지막 cleanup이 지운다.
 5. main과 plan branch는 늘 빠른 check가 통과한다. main에는 land.sh(rebase, full check, core 기동)를 거친 것만 올라간다.
 6. wave는 앞 wave가 모두 merged일 때 연다. 동시에 도는 worker 수는 정하지 않는다. `status.py ready`가 낸 task는 다 띄워도 된다(core type check 하나가 약 2.6GB다. 기계가 버거우면 lead가 줄인다). full check는 동시에 2개까지다.

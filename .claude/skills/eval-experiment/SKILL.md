@@ -17,7 +17,7 @@ experimenter는 program이 낸 판정을 **해석**한다. 판정을 뒤집지 �
 4. 떨어졌거나 이상한 시나리오의 run 요약 `tests/eval/runs/<run>.json`: check verdict, judge item, 수치. run id는 `result.json`의 `baseline_runs`, `variant_runs`
 5. 필요한 trial만 전체 기록: `.dev-data/eval/<run>/trial-<n>.json`(`{ trial, judge, source }`), `trial-<n>.core.log`(core log), `trial-<n>.repeat.json`(되풀이 진단). 크다. 어느 trial을 왜 여는지 정하고 연다.
 
-run 둘을 견줄 때는 `deno task eval:scorecard diff <idA> <idB>`가 있다.
+run 둘을 견줄 때는 `npm run eval:scorecard -- diff <idA> <idB>`가 있다.
 
 ## 해석할 것
 
@@ -44,7 +44,7 @@ run 둘을 견줄 때는 `deno task eval:scorecard diff <idA> <idB>`가 있다.
 
 - **판정을 뒤집지 않는다.** 판정은 program이 계산한다. 이의가 있으면 `report.md`의 "판정 이의"에 무엇이 어떤 근거로 틀렸는지 쓰고 사람이 정하게 한다. `result.json`을 고치지 않고, 규칙(`default@1`)을 결과에 맞춰 바꾸자고 하지 않는다. 이유: 규칙은 돌리기 전에 정한 것이다.
 - **harness를 직접 고치지 않는다.** 다음 고칠 것은 제안으로 쓴다(어느 component, 어느 줄, 왜). 흐름은 experimenter, planner와 사람, 고침 순서다.
-- **eval을 돌리지 않는다.** `deno task eval`, `eval:experiment`는 진짜 provider를 불러 돈이 든다. 더 돌려야 하면 `report.md`에 "무엇을 왜 더 돌려야 하나"를 쓴다.
+- **eval을 돌리지 않는다.** `npm run eval`, `npm run eval:experiment`는 진짜 provider를 불러 돈이 든다. 더 돌려야 하면 `report.md`에 "무엇을 왜 더 돌려야 하나"를 쓴다.
 - 새 시나리오를 만들지 않는다(이 계획 밖이다). 필요하면 "이런 case가 필요하다"고 제안으로 쓴다.
 
 ## 다음 spec 초안
@@ -68,7 +68,7 @@ run 둘을 견줄 때는 `deno task eval:scorecard diff <idA> <idB>`가 있다.
 
 ## 이 skill이 기대는 것
 
-- 명령: `deno task eval:scorecard diff` (`tests/eval/scorecard/main.ts`)
+- 명령: `npm run eval:scorecard -- diff` (`tests/eval/scorecard/main.ts`)
 - 기록: `tests/eval/experiments/<id>/{spec,result}.json`, `run.md`(runner), `report.md`(이 skill), `tests/eval/runs/<run>.json`, `.dev-data/eval/<run>/trial-<n>.{json,core.log,repeat.json}`
 - 칸 이름: `tests/eval/experiment/spec/types.ts`의 `ExperimentSpec`, `ExperimentResult`, `tests/eval/types.ts`의 `JudgeItem`
 - 규칙과 역할: 판정 `default@1`(`tests/eval/experiment/verdict/`), runner와 experimenter 구분(`eval-run` skill)

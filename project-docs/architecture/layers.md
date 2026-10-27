@@ -30,21 +30,21 @@ core 코드를 어떻게 나누고 어느 쪽으로만 기대게 하는지, 그 
 - 화살표 방향으로만 import한다. 거꾸로 가는 import가 문제다.
 - feature module끼리는 import하지 않는다. 마지막 예외(problems → apps)는 test runner와 함께 없어졌다. release의 data 검사는 apps 안의 release 준비가 하고(`packages/core/apps/releases/prepare/checks.ts`), 앱 log와 예외 stack 풀이도 apps 안에 있다(`packages/core/apps/runtime/observations/`). `domains`는 projects·apps를 import하지 않는다. 그릇 확인은 wiring이 꽂는 port다(`architecture/domain.md`).
 - `runs`는 lophn-agent와 다른 feature module을 import하지 않는다. agent 이름 풀기, 메시지 넣기, turn 읽기, 앱 tool 호출은 `runs/ports.ts`의 port이고 `core/main/daemon/wiring/runs.ts`가 끼운다(`architecture/run.md`).
-- `workflows`도 lophn-agent와 다른 feature module을 import하지 않는다. 정의 file 읽기, project 이름 풀기, turn 멈추기와 읽기, flow process 띄우기와 멈추기(`WorkflowFlows`)는 `workflows/ports.ts`의 port이고 `core/main/daemon/wiring/workflows.ts`와 `workflows-files.ts`가 끼운다(`architecture/workflow.md`). flow process를 띄우는 host와 `workflow.check`는 runs와 apps(SDK 설치 사본, import map)를 같이 알아야 해서 `core/main/flow-host/`에 두고 `core/main/daemon/wiring/flows.ts`가 끼운다.
+- `workflows`도 lophn-agent와 다른 feature module을 import하지 않는다. 정의 file 읽기, project 이름 풀기, turn 멈추기와 읽기, flow process 띄우기와 멈추기(`WorkflowFlows`)는 `workflows/ports.ts`의 port이고 `core/main/daemon/wiring/workflows.ts`와 `workflows-files.ts`가 끼운다(`architecture/workflow.md`). flow process를 띄우는 host와 `workflow.check`는 runs와 apps(SDK 설치 사본)를 같이 알아야 해서 `core/main/flow-host/`에 두고 `core/main/daemon/wiring/flows.ts`가 끼운다.
 - `jobs`도 lophn-agent와 다른 feature module을 import하지 않는다. agent·앱·project 이름 풀기와 시간대는 `jobs/ports.ts`의 port(`jobs.targets`, `jobs.zone`)이고 `core/main/daemon/wiring/jobs-registration.ts`가 꽂는다. scheduler가 run과 workflow instance를 시작하고 읽는 길(`runService`, `workflowService`, `ReadWorkflowInstance`)은 `core/main/daemon/wiring/jobs.ts`가 끼운다. 그래서 jobs의 규칙은 runs와 workflows의 표를 SQL로 읽지 않는다(`architecture/job.md`).
 - lophn-agent는 feature module과 role 층이 tool과 규칙을 꽂는 harness라 그들 아래에 둔다. role 이름, place 종류, feature module의 route를 몰라야 하는 쪽이다.
 - agent-roles는 lophn의 role 층이다. role, role별 tool 목록, role prompt와 내장 skill, place 정보, role 규칙이 든 tool, credential의 role 몫을 갖는다. feature module과 같은 높이이고 서로 import하지 않는다.
 
 ## 실행 때 import가 뜻하는 것
 
-Deno는 실행할 때 tree shaking을 하지 않는다. 파일 하나를 import하면 그 파일이 import하는 것을 끝까지 따라가 모두 읽고 top-level 코드를 실행한다. `import type`만 지워진다.
+Node는 실행할 때 tree shaking을 하지 않는다. 파일 하나를 import하면 그 파일이 import하는 것을 끝까지 따라가 모두 읽고 top-level 코드를 실행한다. `import type`만 지워진다.
 
-core는 daemon main thread, writer·reader Worker, I/O child process(`platform/io`), agent runtime child process로 나뉘어 돈다. lophn 자신의 코드가 도는 process는 개발과 설치 모두 `--allow-all`이다: daemon, writer·reader Worker, I/O child, agent runtime, apps supervisor, kinds worker, 정비 자식, data job, release 준비 runner와 app-build child. lophn 자신의 코드라 좁히지 않고, 개발·test와 같은 권한이어야 test한 것이 그대로 배포된다(`shell/main/desktop/core/supervise.ts`). 권한을 좁혀 띄우는 것은 AI가 쓴 코드를 돌리는 process뿐이다: 앱 process와 preview, flow, 선언 검사·추출, release 준비의 선언 eval. 그래서 import는 type 의존일 뿐 아니라 "이 process에 무엇이 실리나"를 정한다. 쓰지 않는 코드가 graph에 붙으면:
+core는 daemon main thread, writer·reader Worker, I/O child process(`platform/io`), agent runtime child process로 나뉘어 돈다. lophn 자신의 코드가 도는 process도, AI가 쓴 코드를 돌리는 앱·flow process도 권한을 막지 않는다(사람이 정했다). 그래도 import는 그 process에 무엇이 실리나를 정한다. 쓰지 않는 코드가 graph에 붙으면:
 
-- 그 코드의 top-level이 권한 밖 일(환경 변수, 파일)을 하거나 Worker에 없는 API를 쓰면 process가 시작부터 죽는다. type check가 못 잡는다.
+- 그 코드의 top-level이 파일·환경 변수를 읽거나 Worker에 없는 API를 쓰면 process가 시작부터 죽는다. type check가 못 잡는다.
 - 상관없는 module을 고쳤는데 엉뚱한 process가 깨진다. 원인을 찾기 어렵다.
 - graph가 클수록 순환 import가 생기고, 초기화 순서 때문에 값이 `undefined`로 보이는 버그가 난다.
-- 권한을 좁힌 process가 필요 없는 DB·파일 코드를 갖게 된다.
+- process마다 필요 없는 DB·파일 코드가 실린다.
 
 ## 규칙과 그 이유
 

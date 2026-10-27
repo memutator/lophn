@@ -17,7 +17,7 @@ packages/design  (package @lophn/ui)          범용 kit. 사용자 앱도 그�
         │ workspace import (repo 안)
         ├──────────────────────────────▶ packages/shell/renderer   lophn 화면
         │                                   parts/<component>/      lophn 전용 부품(Avatar, VendorIcon, TabStrip)
-        │ 판 고정 사본(lophn-sdk:)
+        │ 판 고정 사본(file:)
         └──────────────────────────────▶ 사용자 앱 src/screens/    @lophn/ui/<분류>로 import
 packages/sdk/app-ui  (package @lophn/app-ui)  앱 bridge를 쓰는 UI만: ToolButton, useTool, AppErrorBoundary
 
@@ -58,10 +58,10 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 
 ## 사용자 앱에 닿는 길
 
-1. 앱 template(`packages/core/apps/packages/template/app/package.json.tmpl`)이 `@lophn/ui`, `@lophn/app-ui`, `@lophn/wording`, `@lophn/declaration`을 `file:.lophn/sdk/<이름>/1.0.0`으로 적는다. 사본 안 component가 bare import하는 npm 의존(react, radix, lucide, `@lezer/markdown`, catppuccin icon, d3)은 SDK 사본의 `package.json`이 같은 판으로 적고, npm이 앱의 `node_modules`에 깐다.
-2. 설치 사본은 data root의 `sdk/<이름 뒤쪽>/<판>`(`packageInstallPath`, 예: `sdk/ui/1.0.0`)이다. read-only다(file 0444, 폴더 0555). 앱 폴더와 release staging은 그 사본을 `.lophn/sdk/...`에 실제 file로 복사한 뒤(`syncAppSdk`) npm으로 깐다. npm이 `node_modules/@lophn/*`를 그 사본으로 symlink하고, 실제 경로가 `node_modules` 밖이라 Node가 `.ts`를 그대로 돈다. agent shell의 `npm`은 의존을 까기 전에 사본을 먼저 맞춘다(`packages/core/apps/packages/npm-entry.ts`).
+1. 앱 template(`packages/core/apps/packages/template/app/`)이 `@lophn/ui`(root와 sub-path 11개)와 `@lophn/app-ui`, `@lophn/wording`, `@lophn/declaration`을 `package.json`의 `file:.lophn/<설치 경로>`(`appSdkDependency`)로 적는다. 사본 안 component가 bare import하는 npm 의존(react, radix, lucide, `@lezer/markdown`, catppuccin icon json, d3)은 그 사본의 `package.json`이 정확한 판으로 갖고 있다.
+2. 설치 사본은 data root의 `sdk/<이름 뒤쪽>/<판>`(`packageInstallPath`, 예: `sdk/ui/1.0.0`)에 있고 file 0444·폴더 0555다. `syncAppSdk`가 앱 `package.json`이 거는 사본을 앱 폴더의 `.lophn/sdk`로 복사한 뒤, lock이 있으면 `npm ci`, 없으면 `npm install`로 의존을 받는다. npm은 `node_modules/@lophn/*`를 `.lophn/sdk` 사본으로 잇는 symlink로 깔고, Node는 symlink의 실제 경로가 `node_modules` 밖일 때만 그 `.ts`를 돌린다. 사본의 npm 의존과 사본끼리의 `file:` 의존은 앱 `node_modules`에서 풀린다. release 준비는 staging에서 같은 일을 한다. agent shell의 `npm`은 의존을 까기 전에 사본을 먼저 맞춘다(`packages/core/apps/packages/npm-entry.ts`). 그래서 agent가 SDK 의존을 더한 뒤 바로 `npm install`이 그 사본을 찾는다.
 3. 화면 build(`releases/ui-build/build.ts`)는 `FIXED_UI_DEPENDENCIES`(`@lophn/declaration`, `@lophn/ui`, `@lophn/app-ui`, `@lophn/wording`, `react`, `react-dom`)를 esbuild `external`로 둔다. `@lophn/ui/overlay` 같은 sub-path도 같이 external이다. 이 밖의 package는 build가 거절한다.
-4. release 준비(`releases/prepare/from-source.ts`)가 잠근 import의 설치 사본을 `readSdkCopies`로 읽어 release bundle에 굳힌다. 실행 중인 앱은 그 bundle의 사본만 본다.
+4. release 준비(`releases/prepare/from-source.ts`)가 staging의 `.lophn/sdk` 사본과 `node_modules`(symlink는 `node_modules/.lophn-links.json` 목록)를 release bundle에 굳힌다. 실행 중인 앱은 그 bundle의 사본만 본다.
 5. 앱을 고치는 agent는 template의 `AGENTS.md`(lophn-managed 절)에서 화면 component는 `@lophn/ui/<분류>`, 앱 bridge component는 `@lophn/app-ui`, 앱 CSS는 `tokens.css`의 변수만 쓰라고 안내받는다.
 
 이 길이 지키는 것은 "사용자가 고친 것이 shell을 깨지 않고, lophn의 UI update가 사용자 앱을 깨지 않는다"다.
@@ -71,17 +71,17 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 
 설치 사본과 앱 template은 core 기동(`main/daemon/wiring/sdk-install.ts`)이 repo의 `packages/`에서 깐다. 같은 byte면 그대로 두고 다르면 지우고 다시 쓴다. 사본 밖 protocol을 가리키는 sdk(declaration, cap-store, cap-problem)는 그 file을 사본 안 `vendor/`에 담고 specifier를 바꾼다. release bundle은 npm package의 `node_modules/<이름>` symlink를 따라 복사하지 않고 목록(`node_modules/.lophn-links.json`)으로 굳히며, bundle 사본을 봉인할 때 연결을 다시 만든다.
 
-내장 sdk는 package catalog에 등록하지 않는다. coding agent는 import map이 가리키는 설치 사본의 `guide.md`를 읽는다. coding agent의 `package list`·`package show`는 사용자 package 몫이다. 모든 role의 `package.list`는 `builtin` 칸에 설치 사본의 `@lophn/*` 이름과 판을 싣고, `package.get`은 `@lophn/` 이름이면 설치 사본의 판과 guide를 읽는다(route `packages.builtin`). `@lophn/ui`는 `guide.md`가 없어 분류 `mod.ts`의 export 이름과 "언제 쓰나" 줄을 분류별로 모으고, 줄마다 props를 붙여 guide로 준다(`apps/packages/builtin.ts`). props는 같은 export 문이 내보내는 type(`SelectProps` 등)의 정의를 component source에서 주석째 옮긴 것이고, `extends`가 가리키는 같은 file의 type(`NativeInput` 등)도 붙인다. 내보낸 type이 없는 component는 `export function`의 인자 type이다. 쓰는 예는 싣지 않는다. 앱을 고치는 agent는 설치 사본을 file tool로 읽지 못해 이 guide가 props를 아는 길이다.
+내장 sdk는 package catalog에 등록하지 않는다. coding agent는 설치 사본의 `guide.md`를 읽는다. coding agent의 `package list`·`package show`는 사용자 package 몫이다. 모든 role의 `package.list`는 `builtin` 칸에 설치 사본의 `@lophn/*` 이름과 판을 싣고, `package.get`은 `@lophn/` 이름이면 설치 사본의 판과 guide를 읽는다(route `packages.builtin`). `@lophn/ui`는 `guide.md`가 없어 분류 `mod.ts`의 export 이름과 "언제 쓰나" 줄을 분류별로 모으고, 줄마다 props를 붙여 guide로 준다(`apps/packages/builtin.ts`). props는 같은 export 문이 내보내는 type(`SelectProps` 등)의 정의를 component source에서 주석째 옮긴 것이고, `extends`가 가리키는 같은 file의 type(`NativeInput` 등)도 붙인다. 내보낸 type이 없는 component는 `export function`의 인자 type이다. 쓰는 예는 싣지 않는다. 앱을 고치는 agent는 설치 사본을 file tool로 읽지 못해 이 guide가 props를 아는 길이다.
 
 ## artifact에 닿는 길
 
-봉한 artifact view는 모듈을 import하지 못하고 바깥 library도 받지 않는다(`architecture/artifact.md`). 그래서 kit을 판을 고정한 browser build 하나로 묶어 가상 path로 준다. 사용자 앱의 `lophn-sdk:` 사본과 상관없는 길이다.
+봉한 artifact view는 모듈을 import하지 못하고 바깥 library도 받지 않는다(`architecture/artifact.md`). 그래서 kit을 판을 고정한 browser build 하나로 묶어 가상 path로 준다. 사용자 앱의 `.lophn/sdk` 사본과 상관없는 길이다.
 
 1. 제품 build(`packages/shell/renderer/build.ts`)가 화면 셋(esm)과 함께 `artifact-kit/entry.tsx`를 IIFE로 묶어 `dist/artifact-kit/entry.js`와 `entry.css`를 낸다. 판은 repo의 lock이 잠근 그대로다. minify하지 않는다: CSS Modules의 class 이름이 `.chart_diagram` 꼴로 남아야 AI가 쓴 page의 CSS와 부딪히지 않는다. `entry.css`에는 component CSS만 있다. token은 artifact 문서에 appearance가 이미 넣는다.
 2. 전역은 `LophnKit.renderGraph(element, {nodes, edges, locale?, timeZone?})` 하나다. 같은 element에 다시 부르면 갱신한다. 그 네 칸만 받고 상태 prop(`onRetry`, `empty`)은 entry가 채운다. 다른 component는 내놓지 않는다.
 3. shell main의 봉한 scheme이 이 둘을 모든 artifact view에 `_lophn/kit.js`, `_lophn/kit.css`로 준다. artifact HTML은 plain `<script>`와 stylesheet로 부른다. 쓰는 법은 skill `guide-artifact`에 있고, workflow artifact에만 걸린 것은 PM skill `guide-workflows`에 있다.
 
-check:full은 renderer build를 돌리지 않는다. kit을 바꾸면 `deno run -A packages/shell/renderer/build.ts`로 이 entry가 서는지 본다.
+check:full은 renderer build를 돌리지 않는다. kit을 바꾸면 `node packages/shell/renderer/build.ts`로 이 entry가 서는지 본다.
 
 ## gallery가 정본이다
 
@@ -92,7 +92,7 @@ check:full은 renderer build를 돌리지 않는다. kit을 바꾸면 `deno run 
 
 ## 지키는 check
 
-`deno task check`의 step `kit`(`tools/check-kit.ts`)이 셋을 본다.
+`npm run check`의 step `kit`(`tools/check-kit.ts`)이 셋을 본다.
 
 1. `tools/wireframes`의 CSS file은 `drafts/` 안과 gallery 자신의 틀 둘(`gallery.module.css`, `pages/kit/kit.module.css`)에만 있다. 스타일을 새로 쓰는 순간이 component를 새로 만드는 순간이라 복사본 금지를 가장 단순하게 잡는다. 무대 배치처럼 몇 줄이면 token 변수를 쓴 inline style로 쓴다.
 2. 분류 `mod.ts`가 값으로 내보내는 PascalCase 이름(component, Context, Provider)마다 `pages/kit/` 아래 file에 한 번은 나온다. 상수, helper 함수, hook, type(`export type { … }` 문 포함)은 세지 않는다.

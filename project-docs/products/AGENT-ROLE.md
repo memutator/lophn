@@ -121,7 +121,7 @@ K1~K5는 coding agent 연결 장치가 남긴 규칙이다. 지금은 Router가 
 - K1. 맡긴 글(call 본문)을 첫 prompt로 받으면, coding agent는 연결된 앱 source에서 일한다.
 - K2. coding agent는 구현, 디버깅, 수정, 앱 test, preview를 한다. release 준비와 activation은 App Engineer의 일이다.
 - K3. 일이 끝나면, coding agent는 CLI로 한 일과 남은 일을 App Engineer에게 메시지로 알린다. session의 끝은 터미널 process의 끝이다.
-- K4. 맡은 일에 필요하면 coding agent가 선언(`lophn.ts`)을 코드보다 먼저 직접 고치고, `deno.json`의 import map도 같은 정확한 version으로 함께 고친다. 막혔을 때만 CLI로 App Engineer에게 메시지를 보낸다. 맡긴 session이 닫혀 있으면 그 앱의 App Engineer 새 session이 받는다.
+- K4. 맡은 일에 필요하면 coding agent가 선언(`lophn.ts`)을 코드보다 먼저 직접 고치고, `package.json`의 의존도 같은 정확한 version으로 함께 고친다. 막혔을 때만 CLI로 App Engineer에게 메시지를 보낸다. 맡긴 session이 닫혀 있으면 그 앱의 App Engineer 새 session이 받는다.
 - K5. session이 끝나면, 그 session의 token은 lophn이 거둔다.
 
 ### 사람
@@ -252,7 +252,7 @@ program은 스스로 정해 agent를 부르지 않는다. 앱 오류와 문서�
 - E8. 다른 domain이 쓰는 공개 tool을 지운 release는 program이 막지 않는다. `release.prepare`의 결과에 그 tool과 쓰는 domain을 싣는다.
 - E9. workflow instance에서 사람의 시작, 참가자의 report `next`, 고치기의 `hand_now`가 step을 말하면, program이 그 step의 담당(사람 step이면 `with` agent)에게 step 메시지를 넣는다. 담당을 풀 수 없으면 넣지 않고 그 사실을 instance의 줄로 남긴다. 무엇을 넘길지 program이 정하지 않는다.
 - E10. 정해진 때 job의 차례가 오면, program이 job에 적힌 일을 한다: agent를 run으로 부르거나, 만든 agent의 할당 안에서 앱 tool을 부르거나, workflow instance를 시작한다. 이것은 사람이 agent에게 시킨 일(J1)의 실행이고 program이 스스로 정한 반응이 아니다. lophn이 꺼진 사이나 컴퓨터가 잠든 사이 놓친 차례(차례 시각보다 10분 넘게 늦은 차례)를 `hold`로 둔 job은 program이 대기 목록에 card를 올리고 사람이 [Start now]나 [Skip]을 고른다. 자동 재시도는 없다.
-- E11. 사람이나 job이 flow instance를 시작하면, program이 그 workflow 폴더의 `flow.ts`를 sandbox 안 process 하나로 띄우고 code의 요청(agent run, 앱 tool 호출, report)을 그대로 한다. 앱 tool은 그 project Project Manager의 할당 안에서만 된다. code가 끝나면 끝 code와 stderr 끝 줄을 남기고 instance를 닫는다. 성공인지 판정하지 않고 다시 띄우지 않는다.
+- E11. 사람이나 job이 flow instance를 시작하면, program이 그 workflow 폴더의 `flow.ts`를 process 하나로 띄우고 code의 요청(agent run, 앱 tool 호출, report)을 그대로 한다. 앱 tool은 그 project Project Manager의 할당 안에서만 된다. code가 끝나면 끝 code와 stderr 끝 줄을 남기고 instance를 닫는다. 성공인지 판정하지 않고 다시 띄우지 않는다.
 
 ## 7. 하지 않는 것
 

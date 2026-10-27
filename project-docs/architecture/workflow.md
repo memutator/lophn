@@ -1,6 +1,6 @@
 # workflow
 
-workflow는 사람과 agent가 step을 넘기며 도는 일(`kind: agent`)이거나, PM이 쓴 code가 agent와 앱 tool을 불러 가며 도는 일(`kind: flow`)이다. project의 PM이 정의를 쓰고, 사람이나 job이 instance를 시작하고, 참가자나 flow의 code가 step마다 report를 낸다. lophn은 말한 대로 기록하고 말한 곳에 전할 뿐이다. 이 문서는 정의가 어디에 무엇으로 있고, instance와 그 줄이 어떻게 바뀌고, step 메시지가 누구에게 어떻게 가고, 켤 때와 멈출 때 무엇을 하는지, 누가 정의를 쓰는지, artifact가 instance를 어떻게 그리는지, flow의 code를 어떻게 띄우고 무엇을 허락하는지를 정한다. 이 경계가 흐려지면 lophn이 순서나 결과를 판정하기 시작해 agent가 다룰 예외를 막거나, 멈춘 instance가 계속 넘기거나, 켤 때 같은 step이나 flow가 두 번 돌거나, AI가 짠 flow code가 PM의 할당과 sandbox 밖에서 바깥 효과를 낸다. 계약은 `packages/protocol/workflows`, 규칙은 `packages/core/workflows`(workflows), 끼우는 곳은 `packages/core/main/daemon/wiring/workflows.ts`와 `workflows-files.ts`, flow process를 띄우는 host와 `workflow.check`는 `packages/core/main/flow-host/`(끼우는 곳 `wiring/flows.ts`), flow code가 쓰는 SDK는 `packages/sdk/flow`(`@lophn/flow`), 사람이 쓰는 입구는 `packages/coding-agent/cli/commands/workflow.ts`다.
+workflow는 사람과 agent가 step을 넘기며 도는 일(`kind: agent`)이거나, PM이 쓴 code가 agent와 앱 tool을 불러 가며 도는 일(`kind: flow`)이다. project의 PM이 정의를 쓰고, 사람이나 job이 instance를 시작하고, 참가자나 flow의 code가 step마다 report를 낸다. lophn은 말한 대로 기록하고 말한 곳에 전할 뿐이다. 이 문서는 정의가 어디에 무엇으로 있고, instance와 그 줄이 어떻게 바뀌고, step 메시지가 누구에게 어떻게 가고, 켤 때와 멈출 때 무엇을 하는지, 누가 정의를 쓰는지, artifact가 instance를 어떻게 그리는지, flow의 code를 어떻게 띄우고 무엇을 허락하는지를 정한다. 이 경계가 흐려지면 lophn이 순서나 결과를 판정하기 시작해 agent가 다룰 예외를 막거나, 멈춘 instance가 계속 넘기거나, 켤 때 같은 step이나 flow가 두 번 돌거나, AI가 짠 flow code가 PM의 할당 밖에서 바깥 효과를 낸다. 계약은 `packages/protocol/workflows`, 규칙은 `packages/core/workflows`(workflows), 끼우는 곳은 `packages/core/main/daemon/wiring/workflows.ts`와 `workflows-files.ts`, flow process를 띄우는 host와 `workflow.check`는 `packages/core/main/flow-host/`(끼우는 곳 `wiring/flows.ts`), flow code가 쓰는 SDK는 `packages/sdk/flow`(`@lophn/flow`), 사람이 쓰는 입구는 `packages/coding-agent/cli/commands/workflow.ts`다.
 
 ## 흐름
 
@@ -23,7 +23,7 @@ workflow는 사람과 agent가 step을 넘기며 도는 일(`kind: agent`)이거
  켤 때: router가 돌던 turn을 닫은 뒤 reconcile (넘긴 step을 잃었으면 lophn_restarted 줄, 도는 flow는 닫는다)
 
  flow: start ─ CreateWorkflowInstance(handoff 없음) ─ WorkflowFlows.launch ─▶ flow host (core/main/flow-host)
-   deno run <sandbox flag> <data>/sdk/flow/<v>/entry.ts <workflow 폴더>/flow.ts   instance마다 process 하나
+   node <data>/sdk/flow/<v>/entry.ts <workflow 폴더>/flow.ts   instance마다 process 하나
    stdin ◀── start, response          stdout ──▶ agent | tool | report 요청 (JSON 줄)
    agent·tool ─▶ RunService.start(…, {instance, PM}) ─ wait ─▶ 응답    report ─▶ service.report(…, by program)
    stderr ─▶ redaction ─▶ <data>/flows/<instance>.log + 끝 10줄
@@ -94,9 +94,9 @@ flow
 - program report는 넘기지 않는다. `running`일 때만 지금 step을 그 report의 step으로 옮기고 `next: end`면 `ended`로 닫는다. `stopped`나 `ended` 뒤의 report는 줄만 남고 다시 `running`이 되지 않는다. step 이름이 선언에 있는지 보지 않는다.
 - flow의 앱 tool 호출은 그 project PM의 지금 할당과 맡은 domain 안에서만 된다(`architecture/app-call.md`의 flow caller). code를 쓴 것이 PM이라 code로 PM의 할당을 넓히지 못한다. 사람이 PM에게 그 앱을 할당해야 flow가 그 tool을 쓴다. flow가 부르는 agent는 누구든 되고, 입력은 unattended이며, 받은 agent는 자기 할당으로만 일한다.
 - origin과 flow 자격은 route 입력이 아니다. flow process에는 credential을 주지 않고 통로로 온 요청을 core가 그 instance의 이름으로 한다.
-- stderr는 줄마다 redaction을 거쳐 `<data>/flows/<instance>.log`에 쌓인다(1 MiB에서 멈춘다). PM의 workflow 폴더 밖이라 flow가 읽지 못한다. process가 끝나면 host는 그 instance가 연 running run을 취소하고(`cancelOfInstance`) `program_exited` 줄에 끝 code(신호로 죽으면 null)와 stderr 끝 10줄(줄마다 500자)을 남긴다. 그때 instance가 `running`이면 `ended`로 닫는다(by lophn). 남은 참가자가 없어 아무도 이어 갈 수 없다. lophn은 성공인지 판정하지 않는다.
+- stderr는 줄마다 redaction을 거쳐 `<data>/flows/<instance>.log`에 쌓인다(1 MiB에서 멈춘다). PM의 workflow 폴더 밖에 둔다. process가 끝나면 host는 그 instance가 연 running run을 취소하고(`cancelOfInstance`) `program_exited` 줄에 끝 code(신호로 죽으면 null)와 stderr 끝 10줄(줄마다 500자)을 남긴다. 그때 instance가 `running`이면 `ended`로 닫는다(by lophn). 남은 참가자가 없어 아무도 이어 갈 수 없다. lophn은 성공인지 판정하지 않는다.
 - core가 꺼질 때 host는 process를 모두 끝내지만 줄을 쓰지 않는다. instance는 `running`으로 남아 다음 켤 때 닫힌다(위 "켤 때와 멈춤").
-- PM은 instance를 시작하지 못한다. 쓴 `flow.ts`는 `workflow.check`(`CheckWorkflow`, PM만)로 본다. 설치된 `@lophn/flow`에 대고 `deno check`만 돌려(실행하지 않는다) 오류 줄을 돌려준다(`packages/core/main/flow-host/check.ts`). 원격·npm import는 오류다.
+- PM은 instance를 시작하지 못한다. 쓴 `flow.ts`는 `workflow.check`(`CheckWorkflow`, PM만)로 본다. 설치된 `@lophn/flow`에 대고 platform의 `tsc --noEmit`만 돌려(실행하지 않는다) 오류 줄을 돌려준다(`packages/core/main/flow-host/check.ts`). 원격·npm import는 오류다.
 - SDK `@lophn/flow`는 `input`, `instance`, `agent(...)`, `tool(...)`, `report(...)` 다섯을 낸다. protocol과 Zod를 import하지 않고 통로 모양을 손으로 옮겼다. 다른 SDK처럼 `<data>/sdk`에 깔린다. 쓰는 법은 PM의 내장 skill `guide-workflows`의 "Flow workflows"다.
 
 쓰기 범위
@@ -133,5 +133,5 @@ artifact
 - module은 lophn-agent와 다른 feature module을 import하지 않는다. 정의 file 읽기, project 이름 풀기, turn 멈추기와 읽기, 기록 command 부르기, flow process 띄우기와 멈추기는 `ports.ts`의 port이고 wiring이 끼운다(`architecture/layers.md`).
 - flow의 code는 workflow 폴더에 둔다. 선언, 글, code가 한 폴더에 모이고, 쓰는 것은 PM의 file 쓰기라 rewind로 되돌아간다. 앱으로 두지 않은 것은 앱 tool의 120초 제한과 write 직렬화 밖에서 오래 도는 entry와 앱이 agent를 부르는 SDK를 새로 만들어야 해서다(roadmap `workflow.md` 2026-10-23).
 - flow는 instance마다 process 하나이고 다시 띄우지 않는다. 다시 띄우면 바깥 효과가 두 번 난다. 실패 처리와 다시 하기는 code의 일이다.
-- flow는 AI가 짠 code라 앱과 같은 sandbox에 넣고 바깥 효과를 앱 tool과 agent로만 내게 한다. 그래야 invocation 기록, 할당, rewind가 그대로 선다. 앱 supervisor(`createSupervisor`)는 쓰지 않는다. 끝난 child를 다시 띄우고 stdout을 frame 통로로 쓰기 때문이다.
+- flow는 AI가 짠 code라 앱 process처럼 권한 제한 없이 띄운다(사람이 정했다). SDK가 내는 길은 앱 tool과 agent뿐이라 바깥 효과는 그 길로 내라고 guide와 skill이 말한다. 그래야 invocation 기록, 할당, rewind가 그대로 선다. 앱 supervisor(`createSupervisor`)는 쓰지 않는다. 끝난 child를 다시 띄우고 stdout을 frame 통로로 쓰기 때문이다.
 - flow의 앱 tool은 PM의 할당으로 판정한다. job이 만든 agent의 할당을 넘지 못하는 것과 같은 까닭이다(`architecture/approval.md`). code에 credential을 주지 않으므로 code가 다른 자격을 빌릴 길도 없다.

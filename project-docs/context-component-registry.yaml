@@ -10,7 +10,7 @@
 # - components: 조각. 첫 role의 절에 둔다.
 #   - id: 영어 kebab-case. 파일 전체에서 하나.
 #   - kind: 꼴과 실리는 방식. instruction(늘 실리는 지침), skill(작업 종류에 따라 실림), doc(필요할 때 읽는 설명),
-#     catalog(ID 목록), record(쌓이고 닫히는 기록), plan(진행 중인 계획), tool(agent가 돌리는 script·CLI·deno task).
+#     catalog(ID 목록), record(쌓이고 닫히는 기록), plan(진행 중인 계획), tool(agent가 돌리는 script·CLI·npm script).
 #   - roles: 이 조각을 읽는(돌리는) role. 첫 것이 주로 읽는 role이고 그 절에 둔다. 쓰는 쪽이 아니라 읽는 쪽이다.
 #     worker는 lead가 넘긴 것(worker-prompt, task-brief)과 거기서 가리키는 것을 읽는다.
 #   - path: 저장소 root 기준. 폴더면 끝에 /.
@@ -41,7 +41,7 @@ roles:
     description: wireframe gallery와 화면 모양, 화면 문구를 고친다.
 
   - id: runner
-    description: eval experiment나 deno task eval을 돌리고, 질문 답과 judge 채점을 item마다 새 subagent에게 시키고, run.md에 사실을 적는다.
+    description: eval experiment나 npm run eval을 돌리고, 질문 답과 judge 채점을 item마다 새 subagent에게 시키고, run.md에 사실을 적는다.
 
   - id: experimenter
     description: eval experiment의 판정을 해석하고 원인을 가르고, 의심스러운 judge 판단을 짚고, 다음 spec 초안을 쓴다.
@@ -64,7 +64,7 @@ components:
     roles: [all]
     description: 바뀐 package만 골라 fmt, lint, deps, source, modules, type check, style, wording, kit, shell(fmt, lint, main, main test), test, wording·token 생성물 비교를 돈다. docs(문서 속 path)는 늘 돈다. 끝내기 전에 돌린다. 전체는 check:full.
     path: tools/check.ts
-    run: deno task check
+    run: npm run check
     change_reasons:
       paths: [package.json, tools/]
       note: check 단계를 더하거나 뺄 때.
@@ -141,7 +141,7 @@ components:
     roles: [planner]
     description: boundary-catalog의 ID·참조·칸과 module-catalog의 path·boundary·빠진 폴더를 본다. check의 modules 단계.
     path: tools/check-modules.ts
-    run: deno run --allow-read --allow-env tools/check-modules.ts
+    run: node tools/check-modules.ts
     change_reasons:
       note: 두 catalog의 꼴이 바뀔 때.
 
@@ -150,7 +150,7 @@ components:
     roles: [planner]
     description: AGENTS.md, .claude/skills/, project-docs/(change-log, issues/archived, plan/, products/roadmap/ 제외)의 backtick 저장소 path와 이 registry의 path·boundary·role이 있는지 본다. check의 docs 단계.
     path: tools/check-docs.ts
-    run: deno run --allow-read --allow-env tools/check-docs.ts
+    run: node tools/check-docs.ts
     change_reasons:
       note: 문서나 registry의 꼴이 바뀔 때.
 
@@ -242,7 +242,7 @@ components:
   - id: architecture-workflow
     kind: doc
     roles: [planner, lead]
-    description: project에 정의한 workflow의 instance와 줄, 넘기기와 step 입력, 켤 때와 멈춤, PM의 쓰기 범위, workflow artifact와 kit, flow code의 sandbox process와 SDK, `workflow.check`.
+    description: project에 정의한 workflow의 instance와 줄, 넘기기와 step 입력, 켤 때와 멈춤, PM의 쓰기 범위, workflow artifact와 kit, flow code의 process와 SDK, `workflow.check`.
     path: project-docs/architecture/workflow.md
     change_reasons:
       boundaries: [workflows, router, agent-roles, coding-agent-cli]
@@ -383,7 +383,7 @@ components:
     roles: [planner]
     description: 바뀐 file에서 module-catalog, boundary, registry의 change_reasons를 따라 다시 볼 context 조각을 이유와 함께 뽑는다. 자기 module이 없는 자식 boundary로 넓힌다. 같은 범위에서 이미 고친 조각은 따로 보인다.
     path: tools/context-review.ts
-    run: deno run --allow-read --allow-run --allow-env tools/context-review.ts --range <git range>
+    run: node tools/context-review.ts --range <git range>
     change_reasons:
       paths: [project-docs/module-catalog.yaml, project-docs/boundary-catalog.yaml]
       note: registry나 catalog의 꼴이 바뀔 때.
@@ -429,7 +429,7 @@ components:
   - id: tool-lead
     kind: tool
     roles: [lead]
-    description: lead worktree 열기(lead.sh, branch plan/<계획>), task worktree 만들기(launch.sh), worker prompt(prompt.py), plan branch로 rebase·check·ff-merge(merge.sh, merge-fix.sh), plan branch를 main에 올리기(land.sh. check:full과 e2e:deps, deno task e2e 뒤), route 중복 검사와 core 두 번 기동(boot.sh).
+    description: lead worktree 열기(lead.sh, branch plan/<계획>), task worktree 만들기(launch.sh), worker prompt(prompt.py), plan branch로 rebase·check·ff-merge(merge.sh, merge-fix.sh), plan branch를 main에 올리기(land.sh. check:full과 e2e:deps, npm run e2e 뒤), route 중복 검사와 core 두 번 기동(boot.sh).
     path: project-docs/plan/tools/lead/
     run: project-docs/plan/tools/lead/lead.sh <계획> / launch.sh <계획> <id>... / prompt.py <계획> <id> <branch> "<알아 둘 것>" / merge.sh <계획> <id> / land.sh <계획>
     change_reasons:
@@ -441,7 +441,7 @@ components:
     roles: [lead]
     description: 새 worktree가 npm ci 없이 check를 돌게 shell main의 node_modules를 main checkout에서 잇는다.
     path: tools/worktree-prep.ts
-    run: deno run -A tools/worktree-prep.ts <worktree 경로>
+    run: node tools/worktree-prep.ts <worktree 경로>
     change_reasons:
       boundaries: [shell]
 
@@ -450,7 +450,7 @@ components:
     roles: [lead, worker]
     description: core E2E. flow마다 core daemon과 child를 띄우고 fake server를 provider로 붙인다. 앱 flow는 template 앱을 제품 길로 띄운다. lead가 새 flow를 10번 연속 돌리고, land.sh가 main에 올리기 전에 돈다. 전체 10분 예산.
     path: tests/e2e/
-    run: deno task e2e:deps 한 번 뒤 deno task e2e
+    run: npm run e2e:deps 한 번 뒤 npm run e2e
     change_reasons:
       boundaries: [server, supervision, models, app-releases, external-coding-agent, app-runtime]
       paths: [tests/support/]
@@ -460,7 +460,7 @@ components:
     roles: [lead]
     description: 진짜 Anthropic·OpenAI를 부르는 provider live 시험과, live 전용 root(.dev-data/live/home)에 사람이 저장한 ChatGPT 구독 로그인으로 도는 구독 OAuth 시험. 사람이 key를 주거나 login했을 때만 돈다. 둘 다 없으면 이유를 찍고 0으로 끝난다. LOPHN_LIVE_RECORD=1이면 응답만 tests/fixtures/provider/에 쓰고 사람이 diff를 보고 commit한다.
     path: tests/live/
-    run: deno task test:live / deno task test:live:login
+    run: npm run test:live / npm run test:live:login
     change_reasons:
       boundaries: [models]
       paths: [packages/core/lophn-agent/models/snapshot.json, packages/core/lophn-agent/providers/reported-models.ts]
@@ -470,7 +470,7 @@ components:
     roles: [planner, lead]
     description: 진짜 model로 판단 case를 돌리는 eval runner와 scorecard. 시나리오마다 재료로 world를 되살리고 real 참가자에게만 model을 붙여 돌린 뒤 program check로 채점하고 judge item과 사람 역할의 질문은 대기 file로 남겨 eval을 돌리는 agent가 채운다. experiment는 commit된 spec으로 판정을 tests/eval/experiments/<id>/result.json에 쓴다. run 요약은 tests/eval/runs/, scorecard는 tests/eval/scorecards/에 쓰고 commit한다. key가 없으면 재료 hash와 fixture만 확인하고 0으로 끝난다. 사람이 진짜 provider 호출을 허락했을 때만 key로 돈다.
     path: tests/eval/
-    run: deno task eval (--scenario <id> | --all) [--model m] [--trials N] [--budget usd] / deno task eval:experiment <id> [--checkout path] / deno task eval:gate <id> / deno task eval:judge <run> / deno task eval:answer <run> / deno task eval:scorecard [diff <runA> <runB>]
+    run: npm run eval -- (--scenario <id> | --all) [--model m] [--trials N] [--budget usd] / npm run eval:experiment -- <id> [--checkout path] / npm run eval:gate -- <id> / npm run eval:judge -- <run> / npm run eval:answer -- <run> / npm run eval:scorecard [-- diff <runA> <runB>]
     change_reasons:
       paths: [tests/support/core/, packages/protocol/lophn-agent/]
       note: 읽는 route, call 모양, tool 정의 file, 요청 body blob 배치가 바뀔 때.
@@ -508,7 +508,7 @@ components:
     roles: [worker]
     description: package 사이 import, core 층 규칙(module → core/main 금지, 바닥 → 위층 금지, harness → role 층·feature module 금지, role 층 ↔ feature module 금지, feature module 방향과 이름 있는 예외), harness 폴더의 feature module protocol import와 role 이름(남은 file 목록), tool 정의 file의 import 범위, 의존성 판 고정을 본다. check의 deps 단계.
     path: tools/check-deps.ts
-    run: deno task check
+    run: npm run check
     change_reasons:
       boundaries: [core, lophn-agent, agent-roles, agent-tool-spi]
       note: architecture/layers.md의 규칙이나 예외가 바뀔 때.
@@ -518,7 +518,7 @@ components:
     roles: [worker]
     description: 주석과 test 이름의 요구 ID, task 번호, TODO·FIXME, 옛 말, core main graph의 bare fetch(`EXTERNAL_FETCH`), shell이 문자열로 부르는 route 가운데 `SHELL_ROUTES`에 없는 것(`SHELL_ROUTE`)을 잡는다. check의 source 단계.
     path: tools/check-source.ts
-    run: deno task check
+    run: npm run check
     change_reasons:
       paths: [packages/shell/main/desktop/core/routes.ts]
       note: 쓰지 않기로 한 말이나 꼴이 늘 때. shell이 core route를 부르는 꼴이 바뀔 때.
@@ -528,7 +528,7 @@ components:
     roles: [worker, designer]
     description: 개발용 실행. core와 shell을 같이, core만, 또는 mock source로 shell만 띄운다. data root는 .dev-data/.
     path: tools/dev.ts
-    run: deno task dev / dev:core / dev:mock
+    run: npm run dev / npm run dev:core / npm run dev:mock
     change_reasons:
       boundaries: [core, shell]
 
@@ -546,7 +546,7 @@ components:
     roles: [worker]
     description: mapping대로 파일과 폴더를 옮기고 옮긴 자리를 가리키는 import와 설정 경로를 고친다. 리팩터링에서 module을 옮길 때.
     path: tools/move-files.ts
-    run: deno run --allow-read --allow-write --allow-run --allow-env tools/move-files.ts <mapping.json> [--dry-run]
+    run: node tools/move-files.ts <mapping.json> [--dry-run]
     change_reasons:
       note: import나 설정 경로의 꼴이 바뀔 때.
 
@@ -555,7 +555,7 @@ components:
     roles: [worker]
     description: Linux .deb 설치 묶음을 만들고(package-linux.ts), 설치된 묶음을 실제로 확인한다(verify-linux-install.ts).
     path: tools/package-linux.ts
-    run: deno run -A tools/package-linux.ts / deno run -A tools/verify-linux-install.ts
+    run: node tools/package-linux.ts / node tools/verify-linux-install.ts
     change_reasons:
       boundaries: [shell, core, coding-agent-cli]
 
@@ -564,7 +564,7 @@ components:
     roles: [worker]
     description: 판을 낼 때 models.dev api.json을 실행 때 갱신과 같은 변환(modelsDevEntries)으로 바꿔 동봉 model catalog snapshot을 새로 쓴다. models.dev에 없는 정의의 항목은 옮긴다.
     path: tools/models-snapshot.ts
-    run: deno run --allow-net=models.dev --allow-read --allow-write tools/models-snapshot.ts [--from <api.json>]
+    run: node tools/models-snapshot.ts [--from <api.json>]
     change_reasons:
       boundaries: [models]
 
@@ -615,7 +615,7 @@ components:
     roles: [designer]
     description: wireframe gallery를 build한다. Kit 묶음은 design component를 분류별로, Screens는 renderer 화면을, Drafts는 승인 전 실험을 그린다. 화면 task의 본보기가 여기서 나온다.
     path: tools/wireframes/
-    run: deno task wireframes
+    run: npm run wireframes
     change_reasons:
       boundaries: [design, shell]
       paths: [tools/check-kit.ts]
@@ -625,6 +625,6 @@ components:
     roles: [designer, worker]
     description: wording catalog에서 placeholders를 다시 만든다. 문구·key 검사(check-wording.ts)와 CSS 구조 검사(check-style.ts)는 check의 wording·style 단계다.
     path: packages/design/wording/generate.ts
-    run: deno task wording
+    run: npm run wording
     change_reasons:
       boundaries: [design]

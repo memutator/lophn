@@ -6,17 +6,17 @@ test는 적게 쓰고, 깨지면 정말 곤란한 것만 가장 싼 층에서 �
 
 | 층 | 진짜 | 가짜 | 자리 | 돌리는 명령 |
 |---|---|---|---|---|
-| unit | 함수 하나 | 없음 | 코드 옆 `*_test.ts` | `deno task check` |
-| harness loop | loop, tool 실행, Gate·hook | scripted model | `tests/harness/loop/` | `deno task check` |
-| harness wire | provider adapter, 실패 분류, 호출당 idle | 녹화·손 fixture를 `fetch`로 재생 | `tests/harness/wire/` | `deno task check` |
-| core E2E | core daemon, agent runtime·worker·app child 전부 | HTTP fake server | `tests/e2e/` | `deno task e2e` |
-| provider live | 진짜 provider와 model | 없음 | `tests/live/` | `deno task test:live` |
-| eval (test 아님) | core, 진짜 model(`real` 참가자만), judge(eval을 돌리는 agent의 subagent) | 나머지 참가자는 model 없음 | `tests/eval/` | `deno task eval`, `deno task eval:experiment <id>` |
+| unit | 함수 하나 | 없음 | 코드 옆 `*_test.ts` | `npm run check` |
+| harness loop | loop, tool 실행, Gate·hook | scripted model | `tests/harness/loop/` | `npm run check` |
+| harness wire | provider adapter, 실패 분류, 호출당 idle | 녹화·손 fixture를 `fetch`로 재생 | `tests/harness/wire/` | `npm run check` |
+| core E2E | core daemon, agent runtime·worker·app child 전부 | HTTP fake server | `tests/e2e/` | `npm run e2e` |
+| provider live | 진짜 provider와 model | 없음 | `tests/live/` | `npm run test:live` |
+| eval (test 아님) | core, 진짜 model(`real` 참가자만), judge(eval을 돌리는 agent의 subagent) | 나머지 참가자는 model 없음 | `tests/eval/` | `npm run eval`, `npm run eval:experiment -- <id>` |
 
-- test는 `node:test`(`test`, `t.test`)와 `node:assert/strict`로 쓴다. runtime이 Deno인 동안은 `deno test`가 그대로 돌린다. Node로 뒤집으면 `node --test`가 같은 file을 돈다(`project-docs/products/roadmap/node-runtime.md`).
-- `tools/check.ts`는 `tests`를 package 하나로 본다. 어느 package가 바뀌어도 `tests`의 fmt, lint, `deno check`, harness와 support의 `*_test.ts`가 같이 돈다.
-- `tests/e2e`와 `tests/live`는 check의 type check에는 들고 `deno test`에는 들지 않는다(`tools/check.ts`의 `NOT_IN_CHECK`). `deno task e2e`는 `--no-check`라 e2e의 type 오류는 check만 잡는다. - test discovery에서는 `deno.json`의 `test.exclude`를 쓰지 않고 `--ignore`로 뺀다. `test.exclude`에 든 폴더는 인자로 직접 줘도 돌지 않아 `deno task e2e`가 못 돈다. CLI `--ignore`는 root `deno.json`의 `exclude`를 대체하므로 check는 그 목록(`DENO_EXCLUDED`)을 같이 준다.
-- `deno task e2e`는 `--parallel` 없이 file 순서대로 돈다. flow마다 core를 띄운다. E2E file 수의 상한은 없고 시간 예산이 있다: 전체가 10분 안에 끝나야 한다. 넘으면 행을 harness로 내리거나 같은 준비를 쓰는 file로 묶는다.
+- test는 `node:test`(`test`, `t.test`)와 `node:assert/strict`로 쓴다. lophn의 TypeScript는 Electron의 Node(`ELECTRON_RUN_AS_NODE=1`)로 도므로 test도 그 binary의 `--test`가 돈다. plain node에는 core가 쓰는 `Temporal`이 없다.
+- `tools/check.ts`는 `tests`를 package 하나로 본다. 어느 package가 바뀌어도 `tests`의 fmt, lint, `tsc --noEmit`, harness와 support의 `*_test.ts`가 같이 돈다.
+- `tests/e2e`와 `tests/live`는 check의 type check에는 들고 `--test`에는 들지 않는다(`tools/check.ts`의 `NOT_IN_CHECK`). test file 목록은 git이 아는 file에서 고른다(`git ls-files`).
+- `npm run e2e`는 `--test-concurrency=1`로 file을 하나씩 돈다. flow마다 core를 띄운다. E2E file 수의 상한은 없고 시간 예산이 있다: 전체가 10분 안에 끝나야 한다. 넘으면 행을 harness로 내리거나 같은 준비를 쓰는 file로 묶는다.
 
 ## 가짜 셋
 
@@ -28,7 +28,7 @@ test는 적게 쓰고, 깨지면 정말 곤란한 것만 가장 싼 층에서 �
 
 - **scripted model**(`tests/support/loop/model.ts`): provider wire를 모르고 answer, tools, partial, failed, hang을 낸다. queue는 엄격하다. 남은 step이나 넘친 호출은 실패다. 받은 요청을 깊은 복사로 기록한다. 시간은 `manualClock`과 harness의 `wait`·`fireDeadline`으로 다루고 기다리지 않는다.
 - **녹화 재생**(`tests/support/wire/`): `replayFetch`가 fixture를 호출 순서대로 돌려주고 받은 요청을 기록한다. fixture는 `tests/fixtures/provider/<provider>/<case>.sse|.json`과 선택 `<case>.meta.json`(`status`, `headers`, `disconnect`)이다. 요청은 저장하지 않는다. 손 fixture는 짧은 SSE이고, live가 녹화한 것은 `live-<행>` 이름으로 같은 폴더에 둔다.
-- **fake server**(`tests/support/fake-server/`): `Deno.serve`로 loopback, port 0에 뜬다. 한 protocol(`anthropic-messages`, path `/messages`)만 말한다. 대답은 text, tool(인자 문자열 그대로), error, silent, cut, stall, raw 일곱이다. step의 대답은 값 대신 함수(`ReplyFn`: 받은 요청과 journal → 대답)여도 된다. 앞 요청에서 받은 id(call, release)를 다음 tool 인자에 넣을 때 쓴다. 요청은 `match`로 줄(lane)에 나눌 수 있다. session 둘(Project Manager와 Operator 같은)이 같이 model을 부르면 줄마다 queue가 따로다. 요청을 읽는 helper(`systemText`, `toolNames`, `lastUserText`, `lastToolResult`, `idIn`)는 `probe.ts`에 있다. 받은 요청을 모두 journal에 남기고, 기대와 다른 요청이나 빈 queue에는 HTTP 400(`invalid_request_error`)과 차이 설명으로 답한다. 500 계열은 제품이 retry해 test가 헷갈리기 때문이다. `aborted(n)`은 server가 응답을 붙들고 있는 동안 client가 끊은 때만 풀린다. 응답 event의 꼴은 `shape_test.ts`가 fixture와 견준다.
+- **fake server**(`tests/support/fake-server/`): `node:http` 위의 `serve` adapter(`packages/core/server/serve.ts`)로 loopback, port 0에 뜬다. 한 protocol(`anthropic-messages`, path `/messages`)만 말한다. 대답은 text, tool(인자 문자열 그대로), error, silent, cut, stall, raw 일곱이다. step의 대답은 값 대신 함수(`ReplyFn`: 받은 요청과 journal → 대답)여도 된다. 앞 요청에서 받은 id(call, release)를 다음 tool 인자에 넣을 때 쓴다. 요청은 `match`로 줄(lane)에 나눌 수 있다. session 둘(Project Manager와 Operator 같은)이 같이 model을 부르면 줄마다 queue가 따로다. 요청을 읽는 helper(`systemText`, `toolNames`, `lastUserText`, `lastToolResult`, `idIn`)는 `probe.ts`에 있다. 받은 요청을 모두 journal에 남기고, 기대와 다른 요청이나 빈 queue에는 HTTP 400(`invalid_request_error`)과 차이 설명으로 답한다. 500 계열은 제품이 retry해 test가 헷갈리기 때문이다. `aborted(n)`은 server가 응답을 붙들고 있는 동안 client가 끊은 때만 풀린다. 응답 event의 꼴은 `shape_test.ts`가 fixture와 견준다.
 
 fake로 가는 길은 제품의 길뿐이다: `providers/connect`(key 없는 loopback provider, `auth_kind: "none"`)와 기동 전 `<data root>/settings.json`(`lophn-agent.model.catalog_auto_update: false`). 제품에 test 전용 flag나 env를 두지 않는다.
 
@@ -47,7 +47,7 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 | `fake-oauth/` | `startFakeIssuer`(device code·PKCE loopback 발급자), `connectOAuthProvider` |
 | `annotation/` | `uploadScreenshot` |
 
-- `bootCore`는 daemon을 `deno run --allow-all packages/core/main/daemon/main.ts --port=0`으로 pipe에 띄우고 stdout 첫 frame(hello)에서 user token을 받는다. env는 비운 뒤 `LOPHN_HOME`, 빈 `HOME`, `PATH`, `DENO_DIR`과 `env` 옵션에 준 것만 준다.
+- `bootCore`는 daemon을 Electron의 Node(`ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron packages/core/main/daemon/main.ts --port=0`)로 pipe에 띄우고 stdout 첫 frame(hello)에서 user token을 받는다. env는 비운 뒤 `LOPHN_HOME`, 빈 `HOME`, `PATH`와 `env` 옵션에 준 것만 준다.
 - `kill()`(SIGKILL)과 `stop()`(stdin을 닫음)은 `/proc/*/environ`에 그 `LOPHN_HOME`이 든 process가 없어질 때까지 기다린다. child가 남으면 그 pid만 끄고 실패한다. Linux 전용이다.
 - 기다림은 신호를 읽는 poll(제한 30초, 맞으면 바로 돌아옴)이나 fake server의 `arrived`·`aborted`다. 고정 sleep을 쓰지 않는다.
 
@@ -57,19 +57,19 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 
 - App Engineer의 tool 호출 하나에는 시간 한도가 없다(한도 timer는 model 호출만 끊는다). 상한은 core 쪽이다: 준비는 360초 뒤 `failed {stage: "build"}`, activation은 120초 뒤 `running`. helper는 turn 하나를 480초까지 기다리고, 맞으면 바로 돌아온다. 견본 앱의 `activateTestApp` 한 번은 약 8초다.
 
-제품 template에는 견본 업무가 없다(빈 `tools`, 자리 표시 `home` 화면 하나). `createAppSource`가 복사한 template 위에 test 몫의 견본(`tests/support/app/sample/`: `add_item`·`list_items`, `items` 화면과 표)을 먼저 얹고 `home` 화면을 지운다. 흐름별 차이(큰 write, sandbox 밖 읽기, crash, migration)는 그 위에 얹는 patch다. patch가 더하는 tool의 `domain`은 `sampleDomain(dir)`(견본 선언의 첫 domain = 앱 slug)으로 채운다. source 폴더의 마지막 조각은 `source`라 slug가 아니다.
+제품 template에는 견본 업무가 없다(빈 `tools`, 자리 표시 `home` 화면 하나). `createAppSource`가 복사한 template 위에 test 몫의 견본(`tests/support/app/sample/`: `add_item`·`list_items`, `items` 화면과 표)을 먼저 얹고 `home` 화면을 지운다. 흐름별 차이(큰 write, crash, migration)는 그 위에 얹는 patch다. patch가 더하는 tool의 `domain`은 `sampleDomain(dir)`(견본 선언의 첫 domain = 앱 slug)으로 채운다. source 폴더의 마지막 조각은 `source`라 slug가 아니다.
 
-- 바깥 net·secret 행(`app-call_test.ts`의 `net-fetch-loopback`)은 loopback `Deno.serve` 서버를 test가 띄우고, `Calls` 앱에 `cap-net`·`cap-secret`을 쓰는 patch(`patch-net.ts`)를 얹어 앱이 broker를 지나 그 서버를 부르게 한다. 서버가 받은 요청의 `Authorization`, 호출 결과, ledger의 invocation으로 단정한다.
+- 바깥 net·secret 행(`app-call_test.ts`의 `net-fetch-loopback`)은 loopback `serve` 서버를 test가 띄우고, `Calls` 앱에 `cap-net`·`cap-secret`을 쓰는 patch(`patch-net.ts`)를 얹어 앱이 broker를 지나 그 서버를 부르게 한다. 서버가 받은 요청의 `Authorization`, 호출 결과, ledger의 invocation으로 단정한다.
 - agent가 앱 tool을 부르는 행은 사람이 앱을 할당한 Operator로 부른다(`agentAssignmentSet {entries: [{app, removed_tools: []}]}`, compare `{revision: 0}`. `app-call_test.ts`, `app-data-rewind_test.ts`, `operator_test.ts`). 할당한 앱의 tool만 tool 목록에 뜬다(`project-docs/architecture/approval.md` "할당").
 - 허락을 묻게 하는 행(turn request)은 file 쓰기가 아니라 `shellAsk`의 `shell_run "rm -r <폴더>"`로 묻는다. file 쓰기는 묻지 않는다(`project-docs/architecture/approval.md`). 실행 여부는 폴더가 남았나로 disk에서 본다.
 - Gateway 연결은 principal마다 4개 한도라 event가 필요한 test만 `connectGateway`를 스스로 열고 닫는다.
-- release 준비가 받는 npm·jsr·esbuild 의존은 `deno task e2e:deps`가 `.dev-data/e2e/deno-dir` 하나에 미리 받는다. 앱 E2E의 core는 `appCoreEnv()`로 그 `DENO_DIR`을 받고, E2E 중 network는 loopback뿐이다.
+- release 준비가 받는 npm 의존은 `npm run e2e:deps`가 `.dev-data/e2e/npm-cache` 하나에 미리 받는다. 앱 E2E의 core는 `appCoreEnv()`로 그 cache(`npm_config_cache`, `npm_config_offline=true`)를 받고, E2E 중 network는 loopback뿐이다.
 - 앱 socket 폴더는 `XDG_RUNTIME_DIR` 아래 data root마다 나뉜다. 같은 사용자의 core가 여럿 떠도 서로의 socket을 지우지 않는다.
 
 ## E2E 실행 폴더
 
 ```
-/tmp/lophn-e2e-<random>/          createRun이 Deno.makeTempDir로 system 임시 폴더에 만든다
+/tmp/lophn-e2e-<random>/          createRun이 mkdtemp로 system 임시 폴더에 만든다
   home/       LOPHN_HOME (0700). settings.json은 기동 전에 둔다
   work/       project 폴더, 앱 source. data root 밖. 폴더마다 git init·commit
   user-home/  core의 HOME (빈 폴더)
@@ -82,13 +82,13 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 
 ## 돌리는 때
 
-- `deno task check`(작업 중, 끝내기 전)와 `check:full`(merge 전): unit, harness, support의 test.
-- `deno task e2e`: lead가 merge 전에 새 flow를 10번 연속 돌리고, `land.sh`가 main에 올리기 전에 돈다. 앱 E2E 전에 `deno task e2e:deps`를 한 번 돌린다. 끝난 뒤 그 run의 `/tmp/lophn-e2e-*`와 core process가 없어야 한다.
-- `deno task test:live`: 사람이 key(`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`)를 줄 때만. key는 shell env나 루트의 `.env`(git이 무시한다)에서 읽고, 같은 이름이면 shell이 이긴다. `deno task e2e`와 check는 `.env`를 읽지 않는다. 돌 것이 없으면(key도 live root도 없음) 이유를 찍고 0으로 끝난다. key가 있는 provider의 file과, live root가 있으면 `chatgpt_test.ts`가 돈다. 한 file의 호출은 10번 이하, 호출당 90초다. `LOPHN_LIVE_RECORD=1`이면 응답만(key와 계정 id를 지우고) fixture로 쓰고, 사람이 diff를 보고 commit한다. `providers/`·`models/`를 고친 계획이 land하기 전, provider나 model을 더할 때, 판을 닫기 전에 돈다.
-  - ChatGPT 구독은 key가 아니라 사람의 진짜 로그인이다. `deno task test:live:login`이 core를 live 전용 root `.dev-data/live/home`(log와 user-home은 `.dev-data/live/run`)에 띄워 로그인을 한 번 저장하고(같은 컴퓨터의 browser가 필요하다), 계정 model 목록 응답 모양과 기본 model을 찍는다. `test:live`는 그 root에 core를 띄워 구독 token으로 turn 하나를 돌리고 계정 model 목록과 `billing_route == subscription`을 단정한다. 갱신은 token 만료 5분 전 안에만 일어나 단정은 그때만 돈다(로그인하고 약 55분 뒤 한 번 더 돌린다. 아니면 "확인하지 못했다"를 찍는다). 쓸 수 없는 credential이면 test가 실패한다.
+- `npm run check`(작업 중, 끝내기 전)와 `check:full`(merge 전): unit, harness, support의 test.
+- `npm run e2e`: lead가 merge 전에 새 flow를 10번 연속 돌리고, `land.sh`가 main에 올리기 전에 돈다. 앱 E2E 전에 `npm run e2e:deps`를 한 번 돌린다. 끝난 뒤 그 run의 `/tmp/lophn-e2e-*`와 core process가 없어야 한다.
+- `npm run test:live`: 사람이 key(`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`)를 줄 때만. key는 shell env나 루트의 `.env`(git이 무시한다)에서 읽고, 같은 이름이면 shell이 이긴다. `npm run e2e`와 check는 `.env`를 읽지 않는다. 돌 것이 없으면(key도 live root도 없음) 이유를 찍고 0으로 끝난다. key가 있는 provider의 file과, live root가 있으면 `chatgpt_test.ts`가 돈다. 한 file의 호출은 10번 이하, 호출당 90초다. `LOPHN_LIVE_RECORD=1`이면 응답만(key와 계정 id를 지우고) fixture로 쓰고, 사람이 diff를 보고 commit한다. `providers/`·`models/`를 고친 계획이 land하기 전, provider나 model을 더할 때, 판을 닫기 전에 돈다.
+  - ChatGPT 구독은 key가 아니라 사람의 진짜 로그인이다. `npm run test:live:login`이 core를 live 전용 root `.dev-data/live/home`(log와 user-home은 `.dev-data/live/run`)에 띄워 로그인을 한 번 저장하고(같은 컴퓨터의 browser가 필요하다), 계정 model 목록 응답 모양과 기본 model을 찍는다. `test:live`는 그 root에 core를 띄워 구독 token으로 turn 하나를 돌리고 계정 model 목록과 `billing_route == subscription`을 단정한다. 갱신은 token 만료 5분 전 안에만 일어나 단정은 그때만 돈다(로그인하고 약 55분 뒤 한 번 더 돌린다. 아니면 "확인하지 못했다"를 찍는다). 쓸 수 없는 credential이면 test가 실패한다.
   - 이 root는 복사하지 않는다(refresh token이 갱신 때마다 회전한다). core 하나만 띄우고 두 task를 동시에 돌리지 않는다. 코드는 root를 지우지 않으며 지우려면 사람이 `chmod -R u+w .dev-data/live && rm -rf .dev-data/live`를 한다. 이 root는 schema가 바뀌면 못 뜨고 그때 지우고 다시 로그인한다.
-- `deno task eval`: 사람이 진짜 provider 호출을 허락했을 때만. `.env`의 `ANTHROPIC_API_KEY`를 읽고, 없으면 재료 hash와 fixture만 확인하고 0으로 끝난다. role 지침, tool 설명, skill, assembly를 바꾼 계획이 land하기 전에 그 component를 본 case를 다시 돌리고, `deno task eval:scorecard`로 scorecard를 다시 쓴다. harness를 고친 것은 commit한 spec으로 `deno task eval:experiment <id>`가 판정한다(`.claude/skills/eval-run/SKILL.md`). 둘 다 judge item과 `ask`가 대기로 남아 eval을 돌리는 agent가 `eval:judge`, `eval:answer`로 채워야 끝난다. run 요약(`tests/eval/runs/`), scorecard(`tests/eval/scorecards/`), experiment 기록(`tests/eval/experiments/`)은 commit한다. `tests/eval`의 `*_test.ts`는 순수 unit이라 `deno task check`가 돌린다.
-- `deno task dev`: `tools/dev.ts`가 앱 전에 core를 한 번 띄워 고정 port(기본 7499)의 fake server를 `providers/connect`로 심는다. `LOPHN_LIVE_PROVIDER=1`이면 심지 않는다.
+- `npm run eval`: 사람이 진짜 provider 호출을 허락했을 때만. `.env`의 `ANTHROPIC_API_KEY`를 읽고, 없으면 재료 hash와 fixture만 확인하고 0으로 끝난다. role 지침, tool 설명, skill, assembly를 바꾼 계획이 land하기 전에 그 component를 본 case를 다시 돌리고, `npm run eval:scorecard`로 scorecard를 다시 쓴다. harness를 고친 것은 commit한 spec으로 `npm run eval:experiment -- <id>`가 판정한다(`.claude/skills/eval-run/SKILL.md`). 둘 다 judge item과 `ask`가 대기로 남아 eval을 돌리는 agent가 `eval:judge`, `eval:answer`로 채워야 끝난다. run 요약(`tests/eval/runs/`), scorecard(`tests/eval/scorecards/`), experiment 기록(`tests/eval/experiments/`)은 commit한다. `tests/eval`의 `*_test.ts`는 순수 unit이라 `npm run check`가 돌린다.
+- `npm run dev`: `tools/dev.ts`가 앱 전에 core를 한 번 띄워 고정 port(기본 7499)의 fake server를 `providers/connect`로 심는다. `LOPHN_LIVE_PROVIDER=1`이면 심지 않는다.
 
 ## case 고르는 규칙
 

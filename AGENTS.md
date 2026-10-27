@@ -42,12 +42,12 @@
 * protocol을 바꾸면 쓰는 쪽을 같은 변경에서 고친다. `v2` 경로나 `FooV2` type을 만들지 않는다.
 * 주석은 "왜"만 쓴다. 죽은 코드는 지운다.
 * 의존성은 판을 정확히 고정한다.
-* 끝내기 전에 `deno task check`를 돌린다.
+* 끝내기 전에 `npm run check`를 돌린다.
 
 ## 사람에게 묻는 것
 
 * push, force push, 기록 지우기, 병합 안 된 branch 삭제
-* 실제 model provider 호출(개발은 `deno task dev`가 띄우는 fake, test는 `tests/support/fake-server`와 녹화 재생)
+* 실제 model provider 호출(개발은 `npm run dev`가 띄우는 fake, test는 `tests/support/fake-server`와 녹화 재생)
 * 사람의 `~/.lophn`을 건드리는 일(개발은 `.dev-data/`)
 
 ## 호환성

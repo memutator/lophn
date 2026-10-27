@@ -3,7 +3,15 @@
 // 사본의 모양: manifest.json, declaration.json, import-map.json(상대 경로는 사본 root 기준), 앱 코드와 build한
 // screens/, 설치 SDK 사본 sdk/<이름>/<version>/, 앱 deno.lock, migrations/<from>-<to>.sql. 자식의 읽기 허락은
 // 사본 root를 덮는다(`appFlags`의 bundle). 파일은 async로만 읽는다(core module graph).
-import { err, ok, type Result, sha256Hex } from "../../../../base/mod.ts";
+import { readFile, stat } from "node:fs/promises";
+
+import {
+  err,
+  errorCode,
+  ok,
+  type Result,
+  sha256Hex,
+} from "../../../../base/mod.ts";
 import {
   type BundleManifest,
   bundleManifestSchema,
@@ -76,7 +84,7 @@ export async function dataChangesOf(
     if (match === null) continue;
     let text: string;
     try {
-      text = await Deno.readTextFile(`${parts.root}/${file.path}`);
+      text = await readFile(`${parts.root}/${file.path}`, "utf8");
     } catch {
       return unavailable("migration file cannot be read");
     }
@@ -120,9 +128,9 @@ export async function readBundleCopy(
   const root = copy.value;
   let manifestText: string;
   try {
-    manifestText = await Deno.readTextFile(`${root}/${MANIFEST_COPY_NAME}`);
+    manifestText = await readFile(`${root}/${MANIFEST_COPY_NAME}`, "utf8");
   } catch (thrown) {
-    return thrown instanceof Deno.errors.NotFound
+    return errorCode(thrown) === "ENOENT"
       ? ok(undefined)
       : unavailable("bundle copy cannot be read");
   }
@@ -140,10 +148,11 @@ export async function readBundleCopy(
   }
   let declarationText: string;
   try {
-    declarationText = await Deno.readTextFile(
+    declarationText = await readFile(
       `${root}/${DECLARATION_COPY_NAME}`,
+      "utf8",
     );
-    await Deno.stat(`${root}/${IMPORT_MAP_COPY_NAME}`);
+    await stat(`${root}/${IMPORT_MAP_COPY_NAME}`);
   } catch {
     return unavailable("bundle copy is incomplete");
   }
@@ -268,7 +277,7 @@ export function createCopyPreviewBundles(options: {
           );
           if (file === undefined) return undefined;
           try {
-            const bytes = await Deno.readFile(`${parts.root}/${file.path}`);
+            const bytes = await readFile(`${parts.root}/${file.path}`);
             return await sha256Hex(bytes) === file.hash ? bytes : undefined;
           } catch {
             return undefined;

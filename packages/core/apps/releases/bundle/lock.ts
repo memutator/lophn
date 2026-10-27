@@ -2,6 +2,8 @@
 // `lophn-sdk:<name>@<version>/<경로>`는 bundle 안 설치 사본(`packageInstallPath`)의 `./<설치 경로>/<경로>`로
 // 바뀌고, npm·jsr는 정확한 pin만 남는다(받아서 bundle에 담는 것은 prepare/from-source.ts다).
 // 범위 version과 원격 import는 잠그지 못하고 거절이다.
+import { readdir, readFile } from "node:fs/promises";
+
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { packageNameSchema } from "../../../../protocol/apps/mod.ts";
 import { packageInstallPath } from "../../packages/install.ts";
@@ -136,14 +138,14 @@ async function collect(
   prefix: string,
   files: { path: string; bytes: Uint8Array }[],
 ): Promise<void> {
-  for await (const entry of Deno.readDir(directory)) {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = `${prefix}/${entry.name}`;
-    if (entry.isDirectory) {
+    if (entry.isDirectory()) {
       await collect(`${directory}/${entry.name}`, path, files);
-    } else if (entry.isFile) {
+    } else if (entry.isFile()) {
       files.push({
         path,
-        bytes: await Deno.readFile(`${directory}/${entry.name}`),
+        bytes: await readFile(`${directory}/${entry.name}`),
       });
     }
   }

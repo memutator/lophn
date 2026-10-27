@@ -1,4 +1,6 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import { err, ok } from "../../../../base/mod.ts";
 import type {
   ActivationDataResult,
@@ -119,30 +121,33 @@ function fake(restoredSchema: number) {
   return { ports, calls, failures, unavailable };
 }
 
-Deno.test("activation이 실패하면 복구본으로 되돌리고 이전 release가 남는다", async () => {
+test("activation이 실패하면 복구본으로 되돌리고 이전 release가 남는다", async () => {
   const restored = fake(1);
   const outcome = await runActivation(restored.ports, release);
-  assertEquals(outcome, {
+  assert.deepStrictEqual(outcome, {
     status: "failed",
     code: "migration_failed",
     previous: "started",
   });
-  assertEquals(restored.failures, [{
+  assert.deepStrictEqual(restored.failures, [{
     code: "migration_failed",
     summary:
       "the data change failed: step 1-2 was rolled back: NOT NULL constraint failed",
     restored: true,
   }]);
-  assert(restored.calls.includes("restore"));
-  assert(restored.calls.includes(`run:${OLD}`));
-  assert(!restored.calls.includes("complete"));
-  assertEquals(restored.calls.at(-1), "open");
+  assert.ok(restored.calls.includes("restore"));
+  assert.ok(restored.calls.includes(`run:${OLD}`));
+  assert.ok(!restored.calls.includes("complete"));
+  assert.deepStrictEqual(restored.calls.at(-1), "open");
 
   // 복원된 schema가 확인되지 않으면 이전 코드를 시작하지 않고 앱을 사용할 수 없는 상태로 둔다.
   const unconfirmed = fake(0);
   const stuck = await runActivation(unconfirmed.ports, release);
-  assertEquals(stuck, { status: "unavailable", code: "restore_failed" });
-  assertEquals(unconfirmed.unavailable, ["restore_failed"]);
-  assertEquals(unconfirmed.failures, []);
-  assert(!unconfirmed.calls.includes(`run:${OLD}`));
+  assert.deepStrictEqual(stuck, {
+    status: "unavailable",
+    code: "restore_failed",
+  });
+  assert.deepStrictEqual(unconfirmed.unavailable, ["restore_failed"]);
+  assert.deepStrictEqual(unconfirmed.failures, []);
+  assert.ok(!unconfirmed.calls.includes(`run:${OLD}`));
 });

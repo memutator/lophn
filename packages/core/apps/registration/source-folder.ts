@@ -1,6 +1,10 @@
 // 앱의 source 폴더를 `app.create`가 commit된 뒤 core가 만들어 잇고, `app.connect_source`가 받는 폴더를 확인한다.
 // tx 안에서는 파일과 git을 만질 수 없고 폴더 자리가 앱 id에 달려 있어서(id는 tx 안에서 정해진다) writer 앞에서 한다.
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { spawn } from "node:child_process";
+import { lstat, realpath, rename, rm } from "node:fs/promises";
+import process from "node:process";
+
+import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
 import {
   type App,
   appConnectSource,
@@ -26,25 +30,37 @@ type ScaffoldTarget = Pick<App, "id" | "slug" | "name">;
 
 // 사람의 git 설정(서명, hook, 이름)을 읽지 않는다.
 async function git(dir: string, ...args: string[]): Promise<Result<string>> {
-  const out = await new Deno.Command("git", {
-    args: ["-C", dir, ...args],
-    env: { GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" },
-    stdin: "null",
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
-  return out.success ? ok(new TextDecoder().decode(out.stdout).trim()) : err({
-    code: "unavailable",
-    message: `git ${args[0]} failed: ${new TextDecoder().decode(out.stderr)}`,
+  const child = spawn("git", ["-C", dir, ...args], {
+    // Node는 env를 통째로 바꾸므로 부모 환경을 직접 합친다(Deno는 원래 합친다).
+    env: {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_CONFIG_NOSYSTEM: "1",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
   });
+  let stdout = "";
+  let stderr = "";
+  child.stdout?.setEncoding("utf8");
+  child.stdout?.on("data", (chunk: string) => stdout += chunk);
+  child.stderr?.setEncoding("utf8");
+  child.stderr?.on("data", (chunk: string) => stderr += chunk);
+  // exit가 아니라 close를 기다린다. stdout·stderr의 남은 byte를 다 받은 뒤에 판정한다.
+  const code = await new Promise<number | null>((resolve, reject) => {
+    child.on("error", reject);
+    child.on("close", resolve);
+  });
+  return code === 0
+    ? ok(stdout.trim())
+    : err({ code: "unavailable", message: `git ${args[0]} failed: ${stderr}` });
 }
 
 async function exists(path: string): Promise<boolean> {
   try {
-    await Deno.lstat(path);
+    await lstat(path);
     return true;
   } catch (thrown) {
-    if (thrown instanceof Deno.errors.NotFound) return false;
+    if (errorCode(thrown) === "ENOENT") return false;
     throw thrown;
   }
 }
@@ -70,7 +86,7 @@ async function scaffold(
       const files = await builtinTemplate(`${dataRoot}/templates/app`);
       if (!files.ok) return files;
       const staging = `${dir}.new`;
-      await Deno.remove(staging, { recursive: true }).catch(() => {});
+      await rm(staging, { recursive: true }).catch(() => {});
       const made = await scaffoldApp({
         files: files.value,
         dir: staging,
@@ -91,7 +107,7 @@ async function scaffold(
         const done = await git(staging, ...step);
         if (!done.ok) return done;
       }
-      await Deno.rename(staging, dir);
+      await rename(staging, dir);
     }
     // 개발용 import map은 이 장치의 위치를 담는 파생물(.lophn/, ignore)이라 자리가 정해진 뒤에 쓴다.
     const mapped = await scaffoldApp({
@@ -122,16 +138,16 @@ async function requireCommittedRepository(
   try {
     let real: string;
     try {
-      real = await Deno.realPath(path);
+      real = await realpath(path);
     } catch (thrown) {
-      if (thrown instanceof Deno.errors.NotFound) {
+      if (errorCode(thrown) === "ENOENT") {
         return invalid("the source folder does not exist");
       }
       throw thrown;
     }
     const top = await git(real, "rev-parse", "--show-toplevel");
     if (!top.ok) return invalid("the source folder is not a git repository");
-    if (await Deno.realPath(top.value) !== real) {
+    if (await realpath(top.value) !== real) {
       return invalid("the source folder is not the top of a git repository");
     }
     const head = await git(real, "rev-parse", "--verify", "HEAD");

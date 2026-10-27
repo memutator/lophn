@@ -10,6 +10,9 @@
 //      열지 않고 backup 파일의 byte를 blob 준비 통로로 흘리기만 한다.
 //   3. 이전 release로 돌아가기 요청(`activation_requests`)과 사람이 허락한 동의 줄(`activation_consents`)을 sweep이 읽어 시작한다.
 // Bus·호출 접수(drain)·changeset은 다른 module의 port라 조립이 `attach`로 늦게 끼운다.
+import { type FileHandle, mkdir, open } from "node:fs/promises";
+import process from "node:process";
+
 import {
   canonicalize,
   type Clock,
@@ -216,7 +219,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
       grants: grants.value,
       targetCommands: () => undefined,
     });
-    const home = Deno.env.get("HOME") ?? "";
+    const home = process.env.HOME ?? "";
     const roots = protectedRoots(
       home,
       deps.dataRoot,
@@ -277,11 +280,11 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     if (!requirements.ok) return requirements;
     const dataPath = appDataFolder(deps.dataRoot, app);
     try {
-      await Deno.mkdir(dataPath, { recursive: true });
+      await mkdir(dataPath, { recursive: true });
     } catch {
       return unavailable("app data area cannot be made");
     }
-    const home = Deno.env.get("HOME") ?? "";
+    const home = process.env.HOME ?? "";
     const flags = bundleFlags(copy.value, {
       requirements: requirements.value,
       dataPath,
@@ -508,9 +511,9 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
         // backup byte를 보호 blob으로 보존한다. 준비 주체는 record_backup을 내는 자격과 같다.
         const ctx = machine();
         if (!ctx.ok) return ctx;
-        let file: Deno.FsFile;
+        let file: FileHandle;
         try {
-          file = await Deno.open(
+          file = await open(
             `${
               appDataFolder(deps.dataRoot, attempt.app)
             }/backups/backup-${attempt.attempt}`,
@@ -521,8 +524,8 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
         const prepared = await deps.prepareBlob({
           principal: ctx.value.principal,
           purpose: BACKUP_BLOB_PURPOSE,
-          bytes: file.readable,
-        });
+          bytes: file.readableWebStream() as ReadableStream<Uint8Array>,
+        }).finally(() => file.close().catch(() => {}));
         if (!prepared.ok) return prepared;
         if (prepared.value.hash !== done.value.backup_hash) {
           return unavailable("preserved backup differs from the backup file");

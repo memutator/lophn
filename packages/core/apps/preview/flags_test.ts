@@ -1,4 +1,6 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import { previewFlagsViolation } from "./flags.ts";
 import type { PreviewLaunch } from "./model.ts";
 
@@ -18,7 +20,7 @@ const launch = (args: string[]) =>
 // contract: preview는 자기 일회용 폴더 안에만 쓰고 운영 data를 읽지 못하며 net을 열지 못한다(AI가 만든 코드의 sandbox 경계).
 // 현실적 회귀: 검사가 DB file 경로를 폴더 자체와 비교해 실제 bundle의 preview가 늘 거절됐다.
 // 왜 지금 못 잡나: 이 규칙을 flag 표로 보는 test가 없고 손 확인에서 처음 드러났다.
-Deno.test("preview flags는 일회용 폴더 안의 쓰기만 받고 그 밖 쓰기와 운영 data 읽기와 net은 거절한다", () => {
+test("preview flags는 일회용 폴더 안의 쓰기만 받고 그 밖 쓰기와 운영 data 읽기와 net은 거절한다", () => {
   const db = `${dataPath}/app.sqlite`;
   const rows: [string, string[], boolean][] = [
     ["DB file과 socket", [
@@ -35,7 +37,7 @@ Deno.test("preview flags는 일회용 폴더 안의 쓰기만 받고 그 밖 쓰
     ["net", ["--allow-net=example.com"], false],
   ];
   for (const [name, args, ok] of rows) {
-    assertEquals(
+    assert.deepStrictEqual(
       previewFlagsViolation(launch(args)) === undefined,
       ok,
       name,

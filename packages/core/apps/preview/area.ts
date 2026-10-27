@@ -1,6 +1,8 @@
 // preview의 disposable 영역. `apps/<app ID>/preview/<process nonce>/`에 만들고
 // fixture를 `app.sqlite`로 놓는다. 운영 DB·backup·files는 어떤 경로로도 복사하지 않는다. 종료 확인 뒤
 // 폐기한다. core 안에서 쓰므로 동기 파일 I/O를 쓰지 않는다.
+import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
+
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   appFolder,
@@ -39,16 +41,16 @@ export function createFsPreviewArea(dataRoot: string): PreviewArea {
         return err({ code: "invalid_input", message: "preview id is invalid" });
       }
       try {
-        await Deno.mkdir(directory, { recursive: true, mode: DIRECTORY_MODE });
-        await Deno.mkdir(`${directory}/files`, { mode: DIRECTORY_MODE });
+        await mkdir(directory, { recursive: true, mode: DIRECTORY_MODE });
+        await mkdir(`${directory}/files`, { mode: DIRECTORY_MODE });
         if (fixture !== null) {
-          await Deno.writeFile(`${directory}/app.sqlite`, fixture, {
-            createNew: true,
+          await writeFile(`${directory}/app.sqlite`, fixture, {
+            flag: "wx",
             mode: FILE_MODE,
           });
         }
       } catch {
-        await Deno.remove(directory, { recursive: true }).catch(() => {});
+        await rm(directory, { recursive: true }).catch(() => {});
         return err({
           code: "unavailable",
           message: "preview data area could not be created",
@@ -59,14 +61,20 @@ export function createFsPreviewArea(dataRoot: string): PreviewArea {
     async discard(app, nonce) {
       const directory = directoryOf(app, nonce);
       if (directory === undefined) return;
-      await Deno.remove(directory, { recursive: true }).catch(() => {});
+      await rm(directory, { recursive: true }).catch(() => {});
     },
     async discardAll() {
       let apps: string[];
       try {
         apps = [];
-        for await (const entry of Deno.readDir(`${dataRoot}/apps`)) {
-          if (entry.isDirectory && appIdSchema.safeParse(entry.name).success) {
+        for (
+          const entry of await readdir(`${dataRoot}/apps`, {
+            withFileTypes: true,
+          })
+        ) {
+          if (
+            entry.isDirectory() && appIdSchema.safeParse(entry.name).success
+          ) {
             apps.push(entry.name);
           }
         }
@@ -74,7 +82,7 @@ export function createFsPreviewArea(dataRoot: string): PreviewArea {
         return;
       }
       for (const app of apps) {
-        await Deno.remove(`${appFolder(dataRoot, app)}/preview`, {
+        await rm(`${appFolder(dataRoot, app)}/preview`, {
           recursive: true,
         }).catch(() => {});
       }

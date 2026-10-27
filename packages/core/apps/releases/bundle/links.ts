@@ -1,6 +1,8 @@
 // bundle 안 symlink 목록. npm package는 `node_modules/<이름>`을 `.deno/` 안 실제 폴더로 잇는 symlink로 깔리는데,
 // bundle은 정규 file만 담으므로 vendor.ts가 이 목록 file 하나로 굳히고 seal.ts가 사본에서 다시 만든다.
 // 내려받은 package가 만든 연결이 사본 밖을 가리키면 앱 process의 읽기 허락을 우회하므로 읽을 때 거절한다.
+import { mkdir, symlink } from "node:fs/promises";
+
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { relativePathSchema } from "../../../../protocol/projects/mod.ts";
 
@@ -84,7 +86,7 @@ export async function createLinks(
 ): Promise<void> {
   for (const link of links) {
     const path = `${copyPath}/${link.path}`;
-    await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
-    await Deno.symlink(link.target, path);
+    await mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+    await symlink(link.target, path);
   }
 }

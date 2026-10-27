@@ -1,5 +1,7 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { test } from "node:test";
+
 import { err, ok } from "../../../base/mod.ts";
 import { domainProvisioningPort } from "../../../protocol/domains/mod.ts";
 import {
@@ -68,17 +70,17 @@ function open() {
   };
 }
 
-Deno.test("app.create는 앱 이름의 domain을 함께 만들고, 이미 그 이름이 있으면 앱도 남지 않는다", () => {
+test("app.create는 앱 이름의 domain을 함께 만들고, 이미 그 이름이 있으면 앱도 남지 않는다", () => {
   const { create, domains, apps } = open();
   const first = create("first");
-  assertEquals(first.ok, true);
-  assertEquals(domains, [{
+  assert.deepStrictEqual(first.ok, true);
+  assert.deepStrictEqual(domains, [{
     name: "first",
     title: "App first",
     purpose: "does things",
     owner: { kind: "app", id: first.value!.id },
   }]);
-  assertEquals(create("first").error?.code, "conflict");
-  assertEquals(apps(), 1);
-  assertEquals(domains.length, 1);
+  assert.deepStrictEqual(create("first").error?.code, "conflict");
+  assert.deepStrictEqual(apps(), 1);
+  assert.deepStrictEqual(domains.length, 1);
 });

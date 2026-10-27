@@ -1,5 +1,7 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { test } from "node:test";
+
 import { ok, type Result } from "../../../../base/mod.ts";
 import {
   type RequestContext,
@@ -29,7 +31,7 @@ const ctxOf = (actor: string): RequestContext => ({
   credential_ref: actor,
 });
 
-Deno.test("사람이 동의하기 전에는 선언이 넓어진 release가 activate되지 않는다", async () => {
+test("사람이 동의하기 전에는 선언이 넓어진 release가 activate되지 않는다", async () => {
   const db = new DatabaseSync(":memory:");
   for (const step of [...appsSchemaSteps, ...releasesSchemaSteps]) {
     db.exec(step.sql);
@@ -131,31 +133,31 @@ Deno.test("사람이 동의하기 전에는 선언이 넓어진 release가 activ
     );
 
   // release.activate의 판정은 시작하지 않고 기다리는 줄 하나를 만든다. 다시 불러도 하나다.
-  assertEquals(await activate(), ok("waiting_consent"));
-  assertEquals(await activate(), ok("waiting_consent"));
-  assertEquals(started, []);
-  assertEquals(waitingConsents(tx.sql).length, 1);
+  assert.deepStrictEqual(await activate(), ok("waiting_consent"));
+  assert.deepStrictEqual(await activate(), ok("waiting_consent"));
+  assert.deepStrictEqual(started, []);
+  assert.deepStrictEqual(waitingConsents(tx.sql).length, 1);
 
   // 사람이 아니면 허락하지 못한다.
   for (
     const actor of ["machine", "coding_agent:ses_01hzzzzzzzzzzzzzzzzzzzzzza"]
   ) {
     const done = call("consent", actor, { release: REL, choice: "allow" });
-    assertEquals(!done.ok && done.error.code, "forbidden");
+    assert.deepStrictEqual(!done.ok && done.error.code, "forbidden");
   }
-  assertEquals(allowedConsents(tx.sql), []);
+  assert.deepStrictEqual(allowedConsents(tx.sql), []);
 
   // 허락한 뒤 비교가 바뀌었으면 시작하지 않고 새 비교로 다시 묻는다.
-  assertEquals(allow().ok, true);
-  assertEquals(allowedConsents(tx.sql).length, 1);
+  assert.deepStrictEqual(allow().ok, true);
+  assert.deepStrictEqual(allowedConsents(tx.sql).length, 1);
   comparison = { ...comparison, added_resources: ["api.example.com", "x.io"] };
   await handlers.consented(allowedConsents(tx.sql)[0]);
-  assertEquals(started, []);
-  assertEquals(allowedConsents(tx.sql), []);
-  assertEquals(waitingConsents(tx.sql).length, 1);
+  assert.deepStrictEqual(started, []);
+  assert.deepStrictEqual(allowedConsents(tx.sql), []);
+  assert.deepStrictEqual(waitingConsents(tx.sql).length, 1);
 
   // 지금 비교를 허락하면 그 release를 시작한다.
-  assertEquals(allow().ok, true);
+  assert.deepStrictEqual(allow().ok, true);
   await handlers.consented(allowedConsents(tx.sql)[0]);
-  assertEquals(started, [REL]);
+  assert.deepStrictEqual(started, [REL]);
 });

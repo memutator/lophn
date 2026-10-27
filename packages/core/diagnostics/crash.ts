@@ -38,21 +38,18 @@ export function crashDiagnostic(input: {
   };
 }
 
-type CrashEvent = {
-  preventDefault(): void;
-  error?: unknown;
-  reason?: unknown;
-};
-type CrashTarget = {
-  addEventListener(
-    type: "unhandledrejection" | "error",
-    listener: (event: CrashEvent) => void,
+type CrashEvents = {
+  on(
+    event: "uncaughtException" | "unhandledRejection",
+    listener: (cause: unknown) => void,
   ): void;
-  removeEventListener(
-    type: "unhandledrejection" | "error",
-    listener: (event: CrashEvent) => void,
+  off(
+    event: "uncaughtException" | "unhandledRejection",
+    listener: (cause: unknown) => void,
   ): void;
 };
+// 처리 못한 예외는 전역이 들고 있는 process event가 알린다. 전역을 넘겨받아 그 process에 붙는다.
+type CrashTarget = { process: CrashEvents };
 
 // 처리 못한 예외로 죽기 전에 분류 한 줄을 남긴다. 원문은 stderr에만 가고(fallback이다),
 // 기록이 실패하거나 기한을 넘기면 삼키고 그대로 종료한다. 돌려주는 함수가 listener를 푼다.
@@ -64,9 +61,9 @@ export function installCrashHandler(options: {
   exit(code: number): void;
   deadlineMs?: number;
 }): () => void {
+  const events = options.target.process;
   let crashing = false;
-  const handle = (event: CrashEvent, cause: unknown) => {
-    event.preventDefault();
+  const handle = (cause: unknown) => {
     // 기록하는 중에 또 죽으면 기다리지 않는다.
     if (crashing) return options.exit(1);
     crashing = true;
@@ -84,13 +81,11 @@ export function installCrashHandler(options: {
       options.exit(1);
     })();
   };
-  const onRejection = (event: CrashEvent) => handle(event, event.reason);
-  const onError = (event: CrashEvent) => handle(event, event.error);
-  options.target.addEventListener("unhandledrejection", onRejection);
-  options.target.addEventListener("error", onError);
+  events.on("unhandledRejection", handle);
+  events.on("uncaughtException", handle);
   return () => {
-    options.target.removeEventListener("unhandledrejection", onRejection);
-    options.target.removeEventListener("error", onError);
+    events.off("unhandledRejection", handle);
+    events.off("uncaughtException", handle);
   };
 }
 

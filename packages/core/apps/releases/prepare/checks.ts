@@ -3,6 +3,7 @@
 // core가 import하지 않는 모듈이고, 앱이 쓴 migration SQL은 release 준비 자식에서만 돈다.
 // 부르는 곳은 packages/core/main/worker/release-job.ts 하나다.
 
+import { mkdir } from "node:fs/promises";
 import {
   type BundleManifest,
   type DataChange,
@@ -125,7 +126,7 @@ async function migrateOnce(
 async function freshDatabase(
   dataArea: string,
 ): Promise<{ path: string } | { error: string }> {
-  await Deno.mkdir(dataArea, { recursive: true });
+  await mkdir(dataArea, { recursive: true });
   const path = `${dataArea}/app.sqlite`;
   const opened = openAppDatabase(path);
   if (!opened.ok) return { error: opened.error.message };

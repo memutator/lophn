@@ -1,19 +1,21 @@
 // 준비 자식이 쓰는 신뢰된 도구의 위치와 최소 환경이다. AI가 쓴 앱 코드의 실수가 퍼지지 않게
 // 자식에게는 필요한 환경 변수 몇 개만 넘긴다(`clearEnv`).
+import { spawn } from "node:child_process";
+import process from "node:process";
 
 export function denoDirOf(): string {
-  const set = Deno.env.get("DENO_DIR");
+  const set = process.env.DENO_DIR;
   if (set) return set;
-  const cache = Deno.env.get("XDG_CACHE_HOME");
+  const cache = process.env.XDG_CACHE_HOME;
   if (cache) return `${cache}/deno`;
-  return `${Deno.env.get("HOME") ?? "/tmp"}/.cache/deno`;
+  return `${process.env.HOME ?? "/tmp"}/.cache/deno`;
 }
 
 // 자식에게 넘기는 환경이다. 이 밖의 환경(credential·사람의 설정)은 자식에 없다.
 export function buildEnvironment(tmp: string): Record<string, string> {
   const env: Record<string, string> = { TMPDIR: tmp };
   for (const name of ["HOME", "PATH", "DENO_DIR", "XDG_CACHE_HOME"]) {
-    const value = Deno.env.get(name);
+    const value = process.env[name];
     if (value !== undefined) env[name] = value;
   }
   return env;
@@ -31,19 +33,21 @@ export async function cacheBuildTools(
   env: Record<string, string>,
   signal?: AbortSignal,
 ): Promise<boolean> {
-  const done = await new Deno.Command(deno, {
-    args: [
-      "cache",
-      "--no-lock",
-      `--config=${REPO}/deno.json`,
-      `${REPO}/packages/core/apps/releases/ui-build/app-build.ts`,
-    ],
+  const child = spawn(deno, [
+    "cache",
+    "--no-lock",
+    `--config=${REPO}/deno.json`,
+    `${REPO}/packages/core/apps/releases/ui-build/app-build.ts`,
+  ], {
     env,
-    clearEnv: true,
-    stdin: "null",
-    stdout: "null",
-    stderr: "null",
+    stdio: ["ignore", "ignore", "ignore"],
     signal,
-  }).output();
-  return done.success;
+  });
+  return await new Promise<boolean>((resolve, reject) => {
+    child.on("error", (error) => {
+      // abort는 자식을 SIGTERM으로 끝내고 close가 온다. 종료 code로 판정해 false를 돌려준다.
+      if (error.name !== "AbortError") reject(error);
+    });
+    child.on("close", (code) => resolve(code === 0));
+  });
 }

@@ -1,4 +1,7 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { test } from "node:test";
 import { sha256Hex } from "../../../../base/mod.ts";
 import type {
   BundleManifest,
@@ -14,13 +17,14 @@ async function migrationOk(
   dataSchema: number,
   previousSchema: number | null,
 ) {
-  const root = await Deno.makeTempDir();
-  const area = await Deno.makeTempDir();
+  // mkdtemp의 prefix는 구분자로 끝나야 임시 폴더가 tmpdir 안에 생긴다(join은 끝 구분자를 지운다).
+  const root = await mkdtemp(`${tmpdir()}/`);
+  const area = await mkdtemp(`${tmpdir()}/`);
   try {
-    await Deno.mkdir(`${root}/migrations`);
+    await mkdir(`${root}/migrations`);
     const dataChanges: DataChange[] = [];
     for (const [name, sql] of Object.entries(steps)) {
-      await Deno.writeTextFile(`${root}/migrations/${name}.sql`, sql);
+      await writeFile(`${root}/migrations/${name}.sql`, sql);
       const [from, to] = name.split("-").map(Number);
       dataChanges.push({
         from,
@@ -38,12 +42,12 @@ async function migrationOk(
     });
     return outcome;
   } finally {
-    await Deno.remove(root, { recursive: true });
-    await Deno.remove(area, { recursive: true });
+    await rm(root, { recursive: true });
+    await rm(area, { recursive: true });
   }
 }
 
-Deno.test("migration 단계가 실패하거나 schema에 닿지 못하는 bundle은 migration 검사에서 떨어진다", async () => {
+test("migration 단계가 실패하거나 schema에 닿지 못하는 bundle은 migration 검사에서 떨어진다", async () => {
   const add = "ALTER TABLE notes ADD COLUMN done INTEGER NOT NULL DEFAULT 0";
   const cases: [
     string,
@@ -78,16 +82,16 @@ Deno.test("migration 단계가 실패하거나 schema에 닿지 못하는 bundle
   ];
   for (const [label, steps, dataSchema, previous, expected, reasons] of cases) {
     const outcome = await migrationOk(steps, dataSchema, previous);
-    assertEquals(outcome.ok, expected, label);
+    assert.deepStrictEqual(outcome.ok, expected, label);
     if (!outcome.ok) {
       for (const text of reasons ?? []) {
-        assertStringIncludes(outcome.reason, text, label);
+        assert.ok(outcome.reason.includes(text), label);
       }
     }
   }
 });
 
-Deno.test("선언한 @me package와 내장 SDK의 import는 의존성 검사를 통과하고 선언하지 않은 @me import는 떨어진다", () => {
+test("선언한 @me package와 내장 SDK의 import는 의존성 검사를 통과하고 선언하지 않은 @me import는 떨어진다", () => {
   const declared: BundleManifest["dependencies"] = [
     { name: "@me/date-range", version: "1.0.0", source: "package" },
     { name: "@lophn/ui", version: "0.3.0", source: "sdk" },
@@ -98,7 +102,7 @@ Deno.test("선언한 @me package와 내장 SDK의 import는 의존성 검사를 
     ["선언 안 한 @me", { "@me/other": "./sdk/@me/other/1.0.0/mod.ts" }, false],
   ];
   for (const [label, imports, expected] of cases) {
-    assertEquals(
+    assert.deepStrictEqual(
       checkDependencies({ dependencies: declared, imports }).ok,
       expected,
       label,

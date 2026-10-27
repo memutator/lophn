@@ -2,6 +2,10 @@
 // commit의 tree object만 읽는다. working tree 변경·uncommitted 파일·symlink 자체·
 // git 관리 정보·개발 credential·agent 도구·임시 설정은 bundle에 넣지 않는다.
 // git 권한은 source 경계의 read뿐이다. argv 배열만 쓰고 shell은 쓰지 않는다.
+import { Buffer } from "node:buffer";
+import { spawn } from "node:child_process";
+import type { Stats } from "node:fs";
+import { realpath, stat } from "node:fs/promises";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 
 type ExtractedFile = {
@@ -56,17 +60,20 @@ function decode(result: Result<Uint8Array, unknown>): string {
 export function gitCommandRunner(): GitRunner {
   return {
     async run(args) {
-      const command = new Deno.Command("git", {
-        args: [...args],
-        stdin: "null",
-        stdout: "piped",
-        stderr: "null",
+      const child = spawn("git", [...args], {
+        stdio: ["ignore", "pipe", "ignore"],
       });
-      const output = await command.output();
-      if (!output.success) {
+      const chunks: Buffer[] = [];
+      child.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
+      const code = await new Promise<number>((resolve, reject) => {
+        // spawn 실패(ENOENT 등)를 듣지 않으면 unhandled 'error'로 process가 죽는다. 던져서 git 실행 실패로 다룬다.
+        child.on("error", reject);
+        child.on("close", (code) => resolve(code ?? 1));
+      });
+      if (code !== 0) {
         return err({ code: "invalid_input", message: "git failed" });
       }
-      return ok(output.stdout);
+      return ok(new Uint8Array(Buffer.concat(chunks)));
     },
   };
 }
@@ -76,17 +83,17 @@ async function requireRepository(
   git: GitRunner,
   root: string,
 ): Promise<Result<string, ExtractFailure>> {
-  let stat: Deno.FileInfo;
+  let info: Stats;
   try {
-    stat = await Deno.stat(root);
+    info = await stat(root);
   } catch {
     return fail("source_outside_boundary");
   }
-  if (!stat.isDirectory) return fail("source_outside_boundary");
+  if (!info.isDirectory()) return fail("source_outside_boundary");
   // symlink로 들어온 root도 realpath가 git root와 같으면 같은 경계다.
   let real: string;
   try {
-    real = await Deno.realPath(root);
+    real = await realpath(root);
   } catch {
     return fail("source_outside_boundary");
   }
@@ -104,7 +111,7 @@ async function requireRepository(
   if (!top.ok) return fail("git_failed");
   let topReal: string;
   try {
-    topReal = await Deno.realPath(decode(top).trim());
+    topReal = await realpath(decode(top).trim());
   } catch {
     return fail("source_outside_boundary");
   }

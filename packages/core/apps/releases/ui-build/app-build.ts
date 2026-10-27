@@ -12,10 +12,12 @@ import {
   mkdir,
   readdir,
   readFile,
+  realpath,
   rm,
   writeFile,
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SCREEN_KEY = /^[a-z0-9][a-z0-9-]*$/;
@@ -69,7 +71,7 @@ function guard(roots: readonly string[]): esbuild.Plugin {
         ) return undefined;
         let real: string;
         try {
-          real = await Deno.realPath(args.path);
+          real = await realpath(args.path);
         } catch {
           return { errors: [{ text: "import is outside the app build area" }] };
         }
@@ -81,12 +83,12 @@ function guard(roots: readonly string[]): esbuild.Plugin {
   };
 }
 
-const [root, sdkRoot, denoDir] = Deno.args;
+const [root, sdkRoot, denoDir] = process.argv.slice(2);
 if (root === undefined || sdkRoot === undefined || denoDir === undefined) {
   throw new Error("build arguments are missing");
 }
 const allowed = await Promise.all(
-  [root, sdkRoot, denoDir].map((path) => Deno.realPath(path)),
+  [root, sdkRoot, denoDir].map((path) => realpath(path)),
 );
 const imports: Record<string, string> =
   JSON.parse(await readFile(join(root, ".lophn/import-map.json"), "utf8"))

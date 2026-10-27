@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import type { AppDeclaration } from "../declaration/mod.ts";
 import { removedPublicOf } from "./public-tools.ts";
 
@@ -19,8 +20,8 @@ const tool = (
   domain,
 } as Tool);
 
-Deno.test("공개였다가 비공개가 된 tool도 지운 것이다", () => {
+test("공개였다가 비공개가 된 tool도 지운 것이다", () => {
   const before = [tool("a", true), tool("b", true), tool("c", false)];
   const after = [tool("a", false), tool("b", true, "write"), tool("d", true)];
-  assertEquals(removedPublicOf(before, after), ["a"]);
+  assert.deepStrictEqual(removedPublicOf(before, after), ["a"]);
 });

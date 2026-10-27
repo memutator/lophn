@@ -3,6 +3,17 @@
 // 잠그고, 선언 값을 권한 좁은 Deno로 평가하고, 앱의 화면 build를 직접 돌리고, npm·jsr 의존을 한 번
 // 받아 둔 결과를 `prepareRelease`에 넘긴다. 운영 process는 network 없이 bundle 안 사본만 읽는다.
 // staging은 끝나면 늘 지운다.
+import { Buffer } from "node:buffer";
+import { spawn } from "node:child_process";
+import {
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  rmdir,
+  writeFile,
+} from "node:fs/promises";
+import process from "node:process";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { appStagingFolder } from "../../../../protocol/apps/mod.ts";
 import { devImportMap } from "../../packages/mod.ts";
@@ -75,15 +86,20 @@ async function runDeno(
   },
 ): Promise<Run | "aborted" | "timeout"> {
   if (options.signal?.aborted) return "aborted";
-  const child = new Deno.Command(deno, {
-    args: [...args],
+  const child = spawn(deno, [...args], {
     cwd: options.cwd,
-    ...(options.env === undefined ? {} : { env: options.env }),
-    ...(options.clearEnv === true ? { clearEnv: true } : {}),
-    stdin: "null",
-    stdout: "piped",
-    stderr: "piped",
-  }).spawn();
+    // clearEnv는 부모 환경을 물려주지 않는다는 뜻이라 넘길 env만 준다. Node의 env는 환경을 통째로 바꾼다.
+    ...(options.env === undefined ? {} : {
+      env: options.clearEnv === true
+        ? options.env
+        : { ...process.env, ...options.env },
+    }),
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const outChunks: Buffer[] = [];
+  const errChunks: Buffer[] = [];
+  child.stdout.on("data", (chunk: Buffer) => outChunks.push(chunk));
+  child.stderr.on("data", (chunk: Buffer) => errChunks.push(chunk));
   let stopped: "aborted" | "timeout" | undefined;
   const kill = (why: "aborted" | "timeout") => () => {
     stopped ??= why;
@@ -95,12 +111,16 @@ async function runDeno(
   const onAbort = kill("aborted");
   options.signal?.addEventListener("abort", onAbort, { once: true });
   try {
-    const output = await child.output();
+    // spawn 실패(ENOENT 등)를 듣지 않으면 unhandled 'error'로 process가 죽는다. 던져서 부르는 쪽이 실패로 다루게 한다.
+    const code = await new Promise<number>((resolve, reject) => {
+      child.on("error", reject);
+      child.on("close", (code) => resolve(code ?? 1));
+    });
     if (stopped !== undefined) return stopped;
     return {
-      code: output.code,
-      stdout: new TextDecoder().decode(output.stdout),
-      stderr: new TextDecoder().decode(output.stderr),
+      code,
+      stdout: Buffer.concat(outChunks).toString("utf8"),
+      stderr: Buffer.concat(errChunks).toString("utf8"),
     };
   } finally {
     clearTimeout(timer);
@@ -131,13 +151,17 @@ async function readBuiltScreens(
   const screens: { path: string; bytes: Uint8Array }[] = [];
   const assets: { path: string; bytes: Uint8Array }[] = [];
   const root = `${staging}/dist/screens`;
-  for await (const entry of Deno.readDir(root)) {
-    if (!entry.isDirectory) continue;
-    for await (const file of Deno.readDir(`${root}/${entry.name}`)) {
-      if (!file.isFile) continue;
+  for (const entry of await readdir(root, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    for (
+      const file of await readdir(`${root}/${entry.name}`, {
+        withFileTypes: true,
+      })
+    ) {
+      if (!file.isFile()) continue;
       const item = {
         path: `screens/${entry.name}/${file.name}`,
-        bytes: await Deno.readFile(`${root}/${entry.name}/${file.name}`),
+        bytes: await readFile(`${root}/${entry.name}/${file.name}`),
       };
       (file.name === "main.js" ? screens : assets).push(item);
     }
@@ -172,13 +196,13 @@ async function fetchExternal(
   },
 ): Promise<Result<{ path: string; bytes: Uint8Array }[], PrepareFailure>> {
   if (specifiers.length === 0) return ok([]);
-  await Deno.mkdir(directory, { recursive: true });
-  await Deno.writeTextFile(
+  await mkdir(directory, { recursive: true });
+  await writeFile(
     `${directory}/deno.json`,
     JSON.stringify({ vendor: true, nodeModulesDir: "auto" }),
   );
   // 정확한 pin 하나씩과 앱이 쓰는 하위 경로까지 불러 와야 그 module이 사본에 든다.
-  await Deno.writeTextFile(
+  await writeFile(
     `${directory}/deps.ts`,
     specifiers.map((specifier) => `import ${JSON.stringify(specifier)};\n`)
       .join(""),
@@ -249,18 +273,18 @@ export async function prepareFromSource(
   const stagingParent = appStagingFolder(input.dataRoot, input.app);
   const staging = `${stagingParent}/${crypto.randomUUID()}`;
   try {
-    await Deno.mkdir(staging, { recursive: true });
+    await mkdir(staging, { recursive: true });
     for (const file of extracted.value) {
       const target = `${staging}/${file.path}`;
-      await Deno.mkdir(target.slice(0, target.lastIndexOf("/")), {
+      await mkdir(target.slice(0, target.lastIndexOf("/")), {
         recursive: true,
       });
-      await Deno.writeFile(target, file.bytes);
+      await writeFile(target, file.bytes);
     }
-    await Deno.mkdir(`${staging}/.lophn`, { recursive: true });
+    await mkdir(`${staging}/.lophn`, { recursive: true });
     // build 도구의 임시 파일도 staging 안에만 둔다.
-    await Deno.mkdir(`${staging}/.tmp`, { recursive: true });
-    await Deno.writeTextFile(
+    await mkdir(`${staging}/.tmp`, { recursive: true });
+    await writeFile(
       `${staging}/.lophn/import-map.json`,
       JSON.stringify(devImportMap(imports, input.dataRoot, staging)),
     );
@@ -369,7 +393,7 @@ export async function prepareFromSource(
   } catch {
     return fail("staging_failed", "unavailable");
   } finally {
-    await Deno.remove(staging, { recursive: true }).catch(() => undefined);
-    await Deno.remove(stagingParent).catch(() => undefined);
+    await rm(staging, { recursive: true }).catch(() => undefined);
+    await rmdir(stagingParent).catch(() => undefined);
   }
 }

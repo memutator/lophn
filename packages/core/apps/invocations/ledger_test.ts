@@ -1,6 +1,7 @@
-import { assertEquals, assertThrows } from "@std/assert";
+import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
+import { test } from "node:test";
 import { ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { AppInvocation } from "../../../protocol/apps/calls/mod.ts";
@@ -119,7 +120,7 @@ async function write(
     started_at: AT,
     input_hash: null,
   });
-  assertEquals(begun.ok, true);
+  assert.deepStrictEqual(begun.ok, true);
   const finished = await ledger.finish(inv(value), {
     status: "succeeded",
     finished_at: LATER,
@@ -127,16 +128,16 @@ async function write(
     detail_hash: null,
     changeset,
   });
-  assertEquals(finished.ok, true);
+  assert.deepStrictEqual(finished.ok, true);
   return (finished as { value: AppInvocation }).value;
 }
 
-Deno.test("끝난 invocation은 되돌림 표시와 changeset 지우기 말고는 바뀌지 않고 지워지지도 않는다", async () => {
+test("끝난 invocation은 되돌림 표시와 changeset 지우기 말고는 바뀌지 않고 지워지지도 않는다", async () => {
   const { db, ledger, refs } = setup();
   const done = await write(ledger, 1, REL1, new Uint8Array([1, 2, 3]));
-  assertEquals(done.changeset?.size_bytes, 3);
-  assertEquals(refs(inv(1)), 1);
-  assertEquals(done.status, "succeeded");
+  assert.deepStrictEqual(done.changeset?.size_bytes, 3);
+  assert.deepStrictEqual(refs(inv(1)), 1);
+  assert.deepStrictEqual(done.status, "succeeded");
 
   // 다시 끝낼 수 없다.
   const again = await ledger.finish(inv(1), {
@@ -146,7 +147,7 @@ Deno.test("끝난 invocation은 되돌림 표시와 changeset 지우기 말고�
     detail_hash: null,
     changeset: null,
   });
-  assertEquals(!again.ok && again.error.code, "conflict");
+  assert.deepStrictEqual(!again.ok && again.error.code, "conflict");
   // 표를 직접 고치거나 지울 수 없다.
   for (
     const text of [
@@ -156,21 +157,25 @@ Deno.test("끝난 invocation은 되돌림 표시와 changeset 지우기 말고�
       "update invocations set changeset_hash = '" + "a".repeat(64) + "'",
       "delete from invocations",
     ]
-  ) assertThrows(() => db.exec(text));
+  ) assert.throws(() => db.exec(text));
 
   // 되돌림 표시는 한 번만, 같은 rewind로는 다시 해도 된다.
   const rwd = `rwd_${n(1)}` as Id<"rwd">;
-  assertEquals(ledger.markReverted([inv(1)], rwd).ok, true);
-  assertEquals(ledger.markReverted([inv(1)], rwd).ok, true);
+  assert.deepStrictEqual(ledger.markReverted([inv(1)], rwd).ok, true);
+  assert.deepStrictEqual(ledger.markReverted([inv(1)], rwd).ok, true);
   const other = ledger.markReverted([inv(1)], `rwd_${n(2)}` as Id<"rwd">);
-  assertEquals(!other.ok && other.error.code, "conflict");
+  assert.deepStrictEqual(!other.ok && other.error.code, "conflict");
   const got = ledger.get(inv(1));
-  assertEquals(got.ok && got.value?.reverted_by, rwd);
-  assertEquals(got.ok && got.value?.summary, { outcome: "succeeded" });
+  assert.deepStrictEqual(got.ok && got.value?.reverted_by, rwd);
+  assert.deepStrictEqual(got.ok && got.value?.summary, {
+    outcome: "succeeded",
+  });
 
   // session·turn으로 찾는다.
   const byTurn = ledger.list({ session: `ses_${n(1)}`, turn: `trn_${n(1)}` });
-  assertEquals(byTurn.ok && byTurn.value.map((one) => one.id), [inv(1)]);
+  assert.deepStrictEqual(byTurn.ok && byTurn.value.map((one) => one.id), [
+    inv(1),
+  ]);
 
   // 한도를 넘는 changeset은 결과를 살리고 changeset 없이 닫는다.
   const big = await write(
@@ -179,28 +184,28 @@ Deno.test("끝난 invocation은 되돌림 표시와 changeset 지우기 말고�
     REL1,
     new Uint8Array(CHANGESET_MAX_BYTES + 1),
   );
-  assertEquals(big.status, "succeeded");
-  assertEquals(big.changeset, null);
-  assertEquals(big.summary.changeset_dropped, "too_large");
+  assert.deepStrictEqual(big.status, "succeeded");
+  assert.deepStrictEqual(big.changeset, null);
+  assert.deepStrictEqual(big.summary.changeset_dropped, "too_large");
 });
 
-Deno.test("activation 뒤 changeset 지우기는 이전 release의 changeset만 지우고 invocation 기록은 남긴다", async () => {
+test("activation 뒤 changeset 지우기는 이전 release의 changeset만 지우고 invocation 기록은 남긴다", async () => {
   const { ledger, refs } = setup();
   await write(ledger, 1, REL1, new Uint8Array([1]));
   await write(ledger, 2, REL2, new Uint8Array([2, 2]));
 
   const pruned = await ledger.pruneChangesets(APP, REL2);
-  assertEquals(pruned.ok && pruned.value, 1);
+  assert.deepStrictEqual(pruned.ok && pruned.value, 1);
 
   const old = ledger.get(inv(1));
-  assertEquals(old.ok && old.value?.status, "succeeded");
-  assertEquals(old.ok && old.value?.changeset, null);
-  assertEquals(refs(inv(1)), 0);
+  assert.deepStrictEqual(old.ok && old.value?.status, "succeeded");
+  assert.deepStrictEqual(old.ok && old.value?.changeset, null);
+  assert.deepStrictEqual(refs(inv(1)), 0);
   const current = await ledger.changesetOf(inv(2));
-  assertEquals(current.ok && Array.from(current.value ?? []), [2, 2]);
-  assertEquals(refs(inv(2)), 1);
-  assertEquals((await ledger.changesetOf(inv(1))).ok, true);
+  assert.deepStrictEqual(current.ok && Array.from(current.value ?? []), [2, 2]);
+  assert.deepStrictEqual(refs(inv(2)), 1);
+  assert.deepStrictEqual((await ledger.changesetOf(inv(1))).ok, true);
   // 이미 지운 것은 다시 지울 것이 없다.
   const again = await ledger.pruneChangesets(APP, REL2);
-  assertEquals(again.ok && again.value, 0);
+  assert.deepStrictEqual(again.ok && again.value, 0);
 });

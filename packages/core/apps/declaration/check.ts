@@ -1,5 +1,8 @@
 // `declaration.check`. 앱 source의 현재 lophn.ts를 release 준비와 같은 방식(권한 좁은 Deno)으로 평가하고
 // 구조 검사와 설명 빈 칸을 본다. release를 만들지 않는다.
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { DeclarationCheckOutput } from "../../../protocol/apps/mod.ts";
 import { validateDeclaration } from "../../../protocol/apps/declaration/mod.ts";
@@ -30,7 +33,7 @@ function failed(...errors: string[]): Result<DeclarationCheckOutput> {
 
 async function importsOf(source: string): Promise<Record<string, string>> {
   try {
-    const parsed = JSON.parse(await Deno.readTextFile(`${source}/deno.json`));
+    const parsed = JSON.parse(await readFile(`${source}/deno.json`, "utf8"));
     return parsed.imports ?? {};
   } catch {
     return {};
@@ -44,15 +47,15 @@ export function checkDeclaration(deps: DeclarationCheckDeps): MemoryHandler {
     if (!source.ok) return source;
     const declarationPath = `${source.value}/lophn.ts`;
     try {
-      await Deno.stat(declarationPath);
+      await stat(declarationPath);
     } catch {
       return failed("lophn.ts is missing in the app source");
     }
     const sdkRoot = `${deps.dataRoot}/sdk`;
-    const temp = await Deno.makeTempDir({ prefix: "declaration-check-" });
+    const temp = await mkdtemp(join(tmpdir(), "declaration-check-"));
     try {
       const mapPath = `${temp}/import-map.json`;
-      await Deno.writeTextFile(
+      await writeFile(
         mapPath,
         JSON.stringify(
           devImportMap(
@@ -112,7 +115,7 @@ export function checkDeclaration(deps: DeclarationCheckDeps): MemoryHandler {
         permission_review: checked.value.permissions,
       });
     } finally {
-      await Deno.remove(temp, { recursive: true }).catch(() => {});
+      await rm(temp, { recursive: true }).catch(() => {});
     }
   };
 }

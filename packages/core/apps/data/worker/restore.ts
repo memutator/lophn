@@ -2,7 +2,8 @@
 // 복원은 임시 파일에 검증한 뒤 원본과 원자적으로 교체하고, 교체가 실패하면
 // 원본을 되돌린다.
 
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import { copyFile, rename, rm } from "node:fs/promises";
+import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import { type VerifiedDatabase, verifyDatabase } from "./integrity.ts";
 import { contained } from "./paths.ts";
 
@@ -21,20 +22,20 @@ async function moveAside(
   databasePath: string,
   previous: string,
 ): Promise<void> {
-  await Deno.rename(databasePath, previous);
+  await rename(databasePath, previous);
   for (const suffix of SIDECARS) {
-    await Deno.rename(`${databasePath}${suffix}`, `${previous}${suffix}`)
+    await rename(`${databasePath}${suffix}`, `${previous}${suffix}`)
       .catch((thrown: unknown) => {
-        if (thrown instanceof Deno.errors.NotFound) return;
+        if (errorCode(thrown) === "ENOENT") return;
         throw thrown;
       });
   }
 }
 
 async function moveBack(databasePath: string, previous: string): Promise<void> {
-  await Deno.rename(previous, databasePath).catch(() => {});
+  await rename(previous, databasePath).catch(() => {});
   for (const suffix of SIDECARS) {
-    await Deno.rename(`${previous}${suffix}`, `${databasePath}${suffix}`)
+    await rename(`${previous}${suffix}`, `${databasePath}${suffix}`)
       .catch(() => {});
   }
 }
@@ -42,7 +43,7 @@ async function moveBack(databasePath: string, previous: string): Promise<void> {
 // 교체가 확인된 뒤에만 치운다. 그 전에는 원본 WAL이 previous 옆에 남아 있다.
 async function removeSidecars(databasePath: string): Promise<void> {
   for (const suffix of SIDECARS) {
-    await Deno.remove(`${databasePath}${suffix}`).catch(() => {});
+    await rm(`${databasePath}${suffix}`).catch(() => {});
   }
 }
 
@@ -69,11 +70,11 @@ export async function restoreAppBackup(
   if (!verified.ok) return verified;
   const tmp = `${dataArea}/${RESTORE_TMP}`;
   const previous = `${dataArea}/${RESTORE_PREVIOUS}`;
-  await Deno.remove(tmp).catch(() => {});
-  await Deno.copyFile(backupPath, tmp);
+  await rm(tmp).catch(() => {});
+  await copyFile(backupPath, tmp);
   const staged = await verifyDatabase(tmp);
   if (!staged.ok) {
-    await Deno.remove(tmp).catch(() => {});
+    await rm(tmp).catch(() => {});
     return staged;
   }
   let moved = false;
@@ -81,10 +82,10 @@ export async function restoreAppBackup(
     await moveAside(databasePath, previous);
     moved = true;
     hooks.beforeReplace?.();
-    await Deno.rename(tmp, databasePath);
+    await rename(tmp, databasePath);
   } catch (thrown) {
     if (moved) await moveBack(databasePath, previous);
-    await Deno.remove(tmp).catch(() => {});
+    await rm(tmp).catch(() => {});
     return err({
       code: "unavailable",
       message: thrown instanceof Error
@@ -95,12 +96,12 @@ export async function restoreAppBackup(
   const restored = await verifyDatabase(databasePath);
   if (!restored.ok) {
     // 교체 뒤 확인이 실패하면 직전 원본과 sidecar를 되돌린다.
-    await Deno.rename(databasePath, tmp).catch(() => {});
+    await rename(databasePath, tmp).catch(() => {});
     await moveBack(databasePath, previous);
-    await Deno.remove(tmp).catch(() => {});
+    await rm(tmp).catch(() => {});
     return restored;
   }
-  await Deno.remove(previous).catch(() => {});
+  await rm(previous).catch(() => {});
   await removeSidecars(previous);
   return ok({ verified: restored.value });
 }

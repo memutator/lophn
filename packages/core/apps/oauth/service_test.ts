@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { err, manualClock, ok } from "../../../base/mod.ts";
 import { APP_OAUTH_SIGN_IN_REQUIRED } from "../../../protocol/apps/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
@@ -121,7 +122,7 @@ async function run(
   return { result, store, state };
 }
 
-Deno.test("a rejected refresh signs the user out, an unreachable issuer does not", async () => {
+test("a rejected refresh signs the user out, an unreachable issuer does not", async () => {
   const rejected: Array<IssuerReply | "throws"> = [
     { kind: "error", status: 400, error: "invalid_request" },
     { kind: "error", status: 401, error: "invalid_client" },
@@ -130,22 +131,34 @@ Deno.test("a rejected refresh signs the user out, an unreachable issuer does not
   for (const reply of rejected) {
     const { result, store, state } = await run(reply, 60_000);
     const label = JSON.stringify(reply);
-    assert(!result.ok, label);
-    assertEquals(result.error.code, "conflict", label);
-    assertEquals(result.error.message, APP_OAUTH_SIGN_IN_REQUIRED, label);
-    assertEquals(store.has(NAME), false, label);
-    assertEquals(store.has(`app-oauth.${NAME}.refresh`), false, label);
-    assertEquals(store.has(`app-oauth.${NAME}.meta`), false, label);
+    assert.ok(!result.ok, label);
+    assert.deepStrictEqual(result.error.code, "conflict", label);
+    assert.deepStrictEqual(
+      result.error.message,
+      APP_OAUTH_SIGN_IN_REQUIRED,
+      label,
+    );
+    assert.deepStrictEqual(store.has(NAME), false, label);
+    assert.deepStrictEqual(
+      store.has(`app-oauth.${NAME}.refresh`),
+      false,
+      label,
+    );
+    assert.deepStrictEqual(store.has(`app-oauth.${NAME}.meta`), false, label);
     // client id는 남는다.
-    assertEquals(store.get(`app-oauth.${NAME}.client_id`), "client-1", label);
-    assert(state.ok, label);
-    assertEquals(
+    assert.deepStrictEqual(
+      store.get(`app-oauth.${NAME}.client_id`),
+      "client-1",
+      label,
+    );
+    assert.ok(state.ok, label);
+    assert.deepStrictEqual(
       (state.value as { secrets: Array<Record<string, unknown>> }).secrets[0]
         ?.["state"],
       "failed",
       label,
     );
-    assertEquals(
+    assert.deepStrictEqual(
       (state.value as { secrets: Array<Record<string, unknown>> }).secrets[0]
         ?.["reason"],
       "refresh_rejected",
@@ -160,14 +173,22 @@ Deno.test("a rejected refresh signs the user out, an unreachable issuer does not
   for (const reply of unreachable) {
     const label = JSON.stringify(reply);
     const valid = await run(reply, 60_000);
-    assert(valid.result.ok, label);
-    assertEquals(valid.result.value, { value: ACCESS }, label);
-    assertEquals(valid.store.get(NAME), ACCESS, label);
-    assertEquals(valid.store.has(`app-oauth.${NAME}.refresh`), true, label);
+    assert.ok(valid.result.ok, label);
+    assert.deepStrictEqual(valid.result.value, { value: ACCESS }, label);
+    assert.deepStrictEqual(valid.store.get(NAME), ACCESS, label);
+    assert.deepStrictEqual(
+      valid.store.has(`app-oauth.${NAME}.refresh`),
+      true,
+      label,
+    );
 
     const expired = await run(reply, -1);
-    assert(!expired.result.ok, label);
-    assertEquals(expired.result.error.code, "unavailable", label);
-    assertEquals(expired.store.has(`app-oauth.${NAME}.refresh`), true, label);
+    assert.ok(!expired.result.ok, label);
+    assert.deepStrictEqual(expired.result.error.code, "unavailable", label);
+    assert.deepStrictEqual(
+      expired.store.has(`app-oauth.${NAME}.refresh`),
+      true,
+      label,
+    );
   }
 });

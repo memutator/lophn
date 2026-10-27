@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { err, ok } from "../../../base/mod.ts";
 import type { ToolCallInput } from "../../../protocol/apps/calls/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
@@ -65,19 +66,19 @@ function setup(preview: Partial<CurrentPreview> | null) {
   return { tools: createCodingMcpTools(deps), calls, authsSeen };
 }
 
-Deno.test("MCP tools/list shows only the token's app and only to a coding agent", async () => {
+test("MCP tools/list shows only the token's app and only to a coding agent", async () => {
   const { tools } = setup(null);
   const a = await tools.list(context(`coding_agent:${S1}`, APP_A));
-  assert(a.ok);
-  assertEquals(a.value.map((t) => t.name), ["a_live"]);
+  assert.ok(a.ok);
+  assert.deepStrictEqual(a.value.map((t) => t.name), ["a_live"]);
   const b = await tools.list(context(`coding_agent:${S2}`, APP_B));
-  assert(b.ok);
-  assertEquals(b.value.map((t) => t.name), ["b"]);
+  assert.ok(b.ok);
+  assert.deepStrictEqual(b.value.map((t) => t.name), ["b"]);
   const user = await tools.list(context("user", APP_A));
-  assert(!user.ok && user.error.code === "forbidden");
+  assert.ok(!user.ok && user.error.code === "forbidden");
 });
 
-Deno.test("MCP tools/call goes to the preview only and never to the live app", async () => {
+test("MCP tools/call goes to the preview only and never to the live app", async () => {
   // preview 없음: isError이고 호출 길은 불리지 않는다.
   const none = setup(null);
   const unavailable = await none.tools.call(
@@ -85,41 +86,44 @@ Deno.test("MCP tools/call goes to the preview only and never to the live app", a
     "a_live",
     {},
   );
-  assert(unavailable.ok && unavailable.value?.isError === true);
-  assert(unavailable.value.content[0].text.startsWith("unavailable:"));
-  assertEquals(none.calls.length, 0);
+  assert.ok(unavailable.ok && unavailable.value?.isError === true);
+  assert.ok(unavailable.value.content[0].text.startsWith("unavailable:"));
+  assert.deepStrictEqual(none.calls.length, 0);
 
   // preview 있음: preview target과 previewOnly로 부른다. 목록에 없는 이름은 부르지 않는다.
   const running = setup({});
   const ctx = context(`coding_agent:${S1}`, APP_A);
   const unknown = await running.tools.call(ctx, "a_live", {});
-  assert(unknown.ok && unknown.value === null);
-  assertEquals(running.calls.length, 0);
+  assert.ok(unknown.ok && unknown.value === null);
+  assert.deepStrictEqual(running.calls.length, 0);
   const done = await running.tools.call(ctx, "a_preview", { x: 1 });
-  assert(done.ok && done.value?.isError !== true);
-  assertEquals(done.value?.structuredContent, { n: 1 });
-  assertEquals(running.calls.length, 1);
-  assertEquals(running.calls[0].target, {
+  assert.ok(done.ok && done.value?.isError !== true);
+  assert.deepStrictEqual(done.value?.structuredContent, { n: 1 });
+  assert.deepStrictEqual(running.calls.length, 1);
+  assert.deepStrictEqual(running.calls[0].target, {
     mode: "preview",
     app: APP_A,
     process_nonce: "nonce1",
   });
-  assertEquals(running.authsSeen[0], { actor: "user", previewOnly: true });
+  assert.deepStrictEqual(running.authsSeen[0], {
+    actor: "user",
+    previewOnly: true,
+  });
 
   // 인자 없는 tool(inputSchema null)은 arguments 없이도 {}로도 input 없이 부르고, 값이 있으면 앱에 보내지 않는다.
   for (const args of [undefined, {}]) {
-    const before = running.calls.length;
+    const before: number = running.calls.length;
     const none = await running.tools.call(ctx, "a_none", args as never);
-    assert(none.ok && none.value?.isError !== true);
-    assertEquals("input" in running.calls[before], false);
+    assert.ok(none.ok && none.value?.isError !== true);
+    assert.deepStrictEqual("input" in running.calls[before], false);
   }
   const extra = await running.tools.call(ctx, "a_none", { x: 1 });
-  assert(extra.ok && extra.value?.isError === true);
-  assertEquals(running.calls.length, 3);
+  assert.ok(extra.ok && extra.value?.isError === true);
+  assert.deepStrictEqual(running.calls.length, 3);
 
   // 아직 ready가 아닌 preview도 부르지 않는다.
   const starting = setup({ ready: false });
   const notReady = await starting.tools.call(ctx, "a_preview", {});
-  assert(notReady.ok && notReady.value?.isError === true);
-  assertEquals(starting.calls.length, 0);
+  assert.ok(notReady.ok && notReady.value?.isError === true);
+  assert.deepStrictEqual(starting.calls.length, 0);
 });

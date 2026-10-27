@@ -1,6 +1,7 @@
 // `packages.builtin`. 설치 사본(`<data root>/sdk`)의 내장 SDK(@lophn/*)를 읽어 목록과 안내를 돌려준다.
 // 내장 SDK는 catalog가 아니라 설치 사본이 정본이다(catalog에 등록하지 않는다).
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { readdir, readFile } from "node:fs/promises";
+import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
 import type { BuiltinPackage } from "../../../protocol/apps/package-routes.ts";
 import type { MemoryHandler } from "../../server/mod.ts";
 
@@ -21,20 +22,20 @@ function versionOrder(a: string, b: string): number {
 async function readDirNames(path: string): Promise<string[]> {
   const names: string[] = [];
   try {
-    for await (const entry of Deno.readDir(path)) {
-      if (entry.isDirectory) names.push(entry.name);
+    for (const entry of await readdir(path, { withFileTypes: true })) {
+      if (entry.isDirectory()) names.push(entry.name);
     }
   } catch (cause) {
-    if (!(cause instanceof Deno.errors.NotFound)) throw cause;
+    if (errorCode(cause) !== "ENOENT") throw cause;
   }
   return names;
 }
 
 async function readTextOrNull(path: string): Promise<string | null> {
   try {
-    return await Deno.readTextFile(path);
+    return await readFile(path, "utf8");
   } catch (cause) {
-    if (cause instanceof Deno.errors.NotFound) return null;
+    if (errorCode(cause) === "ENOENT") return null;
     throw cause;
   }
 }

@@ -1,5 +1,6 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { test } from "node:test";
 import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
 import { createSdkCommands } from "./commands.ts";
 import { sdkSchemaSteps } from "./schema.ts";
@@ -52,18 +53,24 @@ function open() {
   };
 }
 
-Deno.test("package는 처음 publish한 앱이 주인이고 다른 앱의 새 version은 forbidden이다", () => {
+test("package는 처음 publish한 앱이 주인이고 다른 앱의 새 version은 forbidden이다", () => {
   const { register } = open();
-  assertEquals(register(APP_A, "1.0.0").value?.package.owner_app, APP_A);
+  assert.deepStrictEqual(
+    register(APP_A, "1.0.0").value?.package.owner_app,
+    APP_A,
+  );
   const other = register(APP_B, "1.1.0");
-  assertEquals(other.ok, false);
-  assertEquals(other.error?.code, "forbidden");
-  assertEquals(register(APP_A, "1.1.0").ok, true);
+  assert.deepStrictEqual(other.ok, false);
+  assert.deepStrictEqual(other.error?.code, "forbidden");
+  assert.deepStrictEqual(register(APP_A, "1.1.0").ok, true);
 });
 
-Deno.test("주인이 없는 package는 다음에 publish한 앱이 주인이 된다", () => {
+test("주인이 없는 package는 다음에 publish한 앱이 주인이 된다", () => {
   const { db, register } = open();
   register(APP_A, "1.0.0");
   db.exec("UPDATE packages SET owner_app = NULL");
-  assertEquals(register(APP_B, "1.1.0").value?.package.owner_app, APP_B);
+  assert.deepStrictEqual(
+    register(APP_B, "1.1.0").value?.package.owner_app,
+    APP_B,
+  );
 });

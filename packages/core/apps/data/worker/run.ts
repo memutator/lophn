@@ -1,6 +1,8 @@
 // data worker job. supervisor가 운영 자식 종료 확인 뒤 작업별로 띄운다.
 // 한 앱 DB(`<data 영역>/app.sqlite`)에 단독 접근한다. kind와 root는 환경으로만 받고
 // credential은 받지 않는다.
+import { mkdir } from "node:fs/promises";
+import process from "node:process";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   appDataFolder,
@@ -30,7 +32,7 @@ async function runDataJobLine(
   const context = { dataArea, databasePath: `${dataArea}/app.sqlite` };
   // 첫 activation 전의 앱은 데이터 영역이 아직 없다. 이 작업이 그 영역(과 앱 폴더)만 만든다.
   try {
-    await Deno.mkdir(dataArea, { recursive: true });
+    await mkdir(dataArea, { recursive: true });
   } catch {
     return err({
       code: "unavailable",
@@ -68,18 +70,16 @@ async function runDataJobLine(
 export async function runDataWorker(root: string): Promise<void> {
   const outcome = await runDataJobLine(root, await readLine());
   if (!outcome.ok) throw new Error(outcome.error.message);
-  await Deno.stdout.write(new TextEncoder().encode(outcome.value));
+  await process.stdout.write(outcome.value);
 }
 
 async function readLine(): Promise<string> {
-  const reader = Deno.stdin.readable.pipeThrough(new TextDecoderStream())
-    .getReader();
+  // chunk 경계가 멀티바이트 문자를 가를 수 있어 stream 모드로 이어 붙인다.
+  const decoder = new TextDecoder();
   let line = "";
-  while (!line.includes("\n")) {
-    const chunk = await reader.read();
-    if (chunk.done) break;
-    line += chunk.value;
+  for await (const chunk of process.stdin) {
+    line += decoder.decode(chunk, { stream: true });
+    if (line.includes("\n")) break;
   }
-  reader.releaseLock();
   return line;
 }

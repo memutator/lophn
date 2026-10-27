@@ -2,6 +2,7 @@ export {
   asInternalError,
   ERROR_CODES,
   type ErrorCode,
+  errorCode,
   internalError,
   type LophnError,
 } from "./errors.ts";

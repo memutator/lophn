@@ -27,16 +27,20 @@ function allowLabel(choice: WaitingChoice): string {
   }
 }
 
-export function Decision(
-  { choices, requester, denying, reason, onDecide }: {
-    choices: readonly WaitingChoice[];
-    /** 요청한 agent. 없으면(activation 동의) 거절 이유 칸이 없다. */
-    requester: string | null;
-    denying?: boolean;
-    reason?: string;
-    onDecide: OnDecide;
-  },
-) {
+export function Decision({
+  choices,
+  requester,
+  denying,
+  reason,
+  onDecide,
+}: {
+  choices: readonly WaitingChoice[];
+  /** 요청한 agent. 없으면(activation 동의) 거절 이유 칸이 없다. */
+  requester: string | null;
+  denying?: boolean;
+  reason?: string;
+  onDecide: OnDecide;
+}) {
   const [open, setOpen] = useState(denying ?? false);
   const [text, setText] = useState(reason ?? "");
   const [busy, setBusy] = useState(false);
@@ -67,13 +71,14 @@ export function Decision(
               maxLength={500}
               value={text}
               onChange={(event) =>
-                setText(event.currentTarget.value.replace(/[\r\n]+/g, " "))}
+                setText(event.currentTarget.value.replace(/[\r\n]+/g, " "))
+              }
             />
           </Field>
         </div>
-        {failed
-          ? <p className={styles.error}>{t("waiting.notice.decide-failed")}</p>
-          : null}
+        {failed ? (
+          <p className={styles.error}>{t("waiting.notice.decide-failed")}</p>
+        ) : null}
         <div className={styles.actions}>
           <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
             {t("waiting.button.cancel")}
@@ -92,22 +97,21 @@ export function Decision(
   }
   return (
     <>
-      {failed
-        ? <p className={styles.error}>{t("waiting.notice.decide-failed")}</p>
-        : null}
+      {failed ? (
+        <p className={styles.error}>{t("waiting.notice.decide-failed")}</p>
+      ) : null}
       <div className={styles.actions}>
-        {canReject
-          ? (
-            <Button
-              size="sm"
-              disabled={busy}
-              onClick={() =>
-                requester === null ? send("reject") : setOpen(true)}
-            >
-              {t("waiting.button.deny")}
-            </Button>
-          )
-          : null}
+        {canReject ? (
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={() =>
+              requester === null ? send("reject") : setOpen(true)
+            }
+          >
+            {t("waiting.button.deny")}
+          </Button>
+        ) : null}
         {allows.map((choice) => (
           <Button
             key={choice}

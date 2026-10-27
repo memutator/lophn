@@ -60,14 +60,14 @@ function fakeDisk(text: string) {
           disk.text = input.text;
           disk.hash = `h${++n}`;
         }
-        return Promise.resolve(
-          { ok: false, code } as FileReply<{ hash: string }>,
-        );
+        return Promise.resolve({ ok: false, code } as FileReply<{
+          hash: string;
+        }>);
       }
       if (input.base_hash !== disk.hash) {
-        return Promise.resolve(
-          { ok: false, code: "conflict" } as FileReply<{ hash: string }>,
-        );
+        return Promise.resolve({ ok: false, code: "conflict" } as FileReply<{
+          hash: string;
+        }>);
       }
       disk.text = input.text;
       disk.hash = `h${++n}`;
@@ -75,18 +75,16 @@ function fakeDisk(text: string) {
     },
     read() {
       if (fail.read) {
-        return Promise.resolve(
-          { ok: false, code: fail.read } as FileReply<
-            { text: string; hash: string; modified_at: number }
-          >,
-        );
+        return Promise.resolve({ ok: false, code: fail.read } as FileReply<{
+          text: string;
+          hash: string;
+          modified_at: number;
+        }>);
       }
-      return Promise.resolve(
-        {
-          ok: true,
-          value: { text: disk.text, hash: disk.hash!, modified_at: 0 },
-        } as const,
-      );
+      return Promise.resolve({
+        ok: true,
+        value: { text: disk.text, hash: disk.hash!, modified_at: 0 },
+      } as const);
     },
     /** 밖(다른 편집기)이 파일을 바꾼다. */
     outside(text: string) {

@@ -32,9 +32,10 @@ const MAX_BODY_BYTES = 16 * 1024 * 1024;
 function buildRequest(etag: string | null): RequestInit {
   return {
     method: "GET",
-    headers: etag === null
-      ? { accept: "application/json" }
-      : { accept: "application/json", "if-none-match": etag },
+    headers:
+      etag === null
+        ? { accept: "application/json" }
+        : { accept: "application/json", "if-none-match": etag },
   };
 }
 
@@ -78,7 +79,7 @@ type Json = Record<string, unknown>;
 
 function obj(value: unknown): Json | undefined {
   return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? value as Json
+    ? (value as Json)
     : undefined;
 }
 
@@ -106,17 +107,19 @@ function axisOf(
   defaultValue: string | null,
   budget: OptionAxis["budget"],
 ): OptionAxis[] {
-  return [{
-    id: OPTION_AXIS_EFFORT,
-    label: "Effort",
-    values: values.map((value) => ({
-      value,
-      label: EFFORT_LABELS[value as keyof typeof EFFORT_LABELS],
-      wire: null,
-    })),
-    default_value: defaultValue,
-    budget,
-  }];
+  return [
+    {
+      id: OPTION_AXIS_EFFORT,
+      label: "Effort",
+      values: values.map((value) => ({
+        value,
+        label: EFFORT_LABELS[value as keyof typeof EFFORT_LABELS],
+        wire: null,
+      })),
+      default_value: defaultValue,
+      budget,
+    },
+  ];
 }
 
 // option 축 규칙. reasoning이 아니면 축이 없다고 확인된 것([])이다.
@@ -160,8 +163,9 @@ function ratesOf(cost: Json): PriceRate[] {
   const tiers = (Array.isArray(cost.tiers) ? cost.tiers.map(obj) : [])
     .flatMap((tier) => {
       const size = positive(obj(tier?.tier)?.size);
-      return tier !== undefined && obj(tier.tier)?.type === "context" &&
-          size !== null
+      return tier !== undefined &&
+        obj(tier.tier)?.type === "context" &&
+        size !== null
         ? [{ size, cost: tier }]
         : [];
     })
@@ -182,9 +186,7 @@ function ratesOf(cost: Json): PriceRate[] {
   });
   const rates = [rate(cost, null, tiers[0]?.size ?? null)];
   tiers.forEach((tier, index) =>
-    rates.push(
-      rate(tier.cost, tier.size + 1, tiers[index + 1]?.size ?? null),
-    )
+    rates.push(rate(tier.cost, tier.size + 1, tiers[index + 1]?.size ?? null)),
   );
   return rates;
 }
@@ -220,9 +222,13 @@ export function modelsDevEntries(
       const inputMedia = mediaOf(modalities?.input);
       const outputMedia = mediaOf(modalities?.output);
       if (
-        model === undefined || context === null || output === null ||
-        !inputMedia.includes("text") || !outputMedia.includes("text")
-      ) continue;
+        model === undefined ||
+        context === null ||
+        output === null ||
+        !inputMedia.includes("text") ||
+        !outputMedia.includes("text")
+      )
+        continue;
       const cost = obj(model.cost);
       const rates = cost === undefined ? [] : ratesOf(cost);
       const entry = {
@@ -241,13 +247,16 @@ export function modelsDevEntries(
         source_revision: `models.dev@${at.slice(0, 10)}`,
         checked_at: at,
         received_at: at,
-        price_basis: cost?.input === undefined ? null : {
-          currency: "USD",
-          rates,
-          source: "models.dev",
-          revision: `models.dev@${at.slice(0, 10)}`,
-          checked_at: at,
-        },
+        price_basis:
+          cost?.input === undefined
+            ? null
+            : {
+                currency: "USD",
+                rates,
+                source: "models.dev",
+                revision: `models.dev@${at.slice(0, 10)}`,
+                checked_at: at,
+              },
       };
       if (catalogEntrySchema.safeParse(entry).success) entries.push(entry);
     }
@@ -257,10 +266,7 @@ export function modelsDevEntries(
 
 // 응답 body를 해석한다. 잘못된 JSON은 갱신 전체 거절 사유다.
 // at은 호출한 쪽 clock의 시각이다.
-export function parseCatalogBody(
-  body: string,
-  at: string,
-): Result<unknown[]> {
+export function parseCatalogBody(body: string, at: string): Result<unknown[]> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(body);

@@ -23,7 +23,8 @@ function fixedMs(spec: JobSpec): number | null {
 
 function localDate(ms: number, zone: string): Temporal.PlainDate {
   return Temporal.Instant.fromEpochMilliseconds(ms)
-    .toZonedDateTimeISO(zone).toPlainDate();
+    .toZonedDateTimeISO(zone)
+    .toPlainDate();
 }
 
 // local 날짜와 시각 → 시각. 서머타임 규칙이 한 곳에 있다.
@@ -35,14 +36,17 @@ function resolveLocal(
   zone: string,
 ): number {
   const [hour, minute] = at.split(":").map(Number) as [number, number];
-  const resolved = Temporal.ZonedDateTime.from({
-    year: date.year,
-    month: date.month,
-    day: date.day,
-    hour,
-    minute,
-    timeZone: zone,
-  }, { disambiguation: "compatible" });
+  const resolved = Temporal.ZonedDateTime.from(
+    {
+      year: date.year,
+      month: date.month,
+      day: date.day,
+      hour,
+      minute,
+      timeZone: zone,
+    },
+    { disambiguation: "compatible" },
+  );
   if (resolved.hour === hour && resolved.minute === minute) {
     return resolved.epochMilliseconds;
   }

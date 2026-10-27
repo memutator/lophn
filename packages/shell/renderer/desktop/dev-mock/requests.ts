@@ -3,15 +3,18 @@
 import type { ConnectionState, CoreSource } from "../connection/connection.ts";
 import { createFakeWaiting } from "../connection/waiting/fake-source.ts";
 
-const PROVIDERS = [{
-  id: "pvd_01h455vb4pex5v6nkc6gd5fd01",
-  name: "Claude",
-  credential: { state: "available" },
-}, {
-  id: "pvd_01h455vb4pex5v6nkc6gd5fd02",
-  name: "ChatGPT",
-  credential: { state: "available" },
-}];
+const PROVIDERS = [
+  {
+    id: "pvd_01h455vb4pex5v6nkc6gd5fd01",
+    name: "Claude",
+    credential: { state: "available" },
+  },
+  {
+    id: "pvd_01h455vb4pex5v6nkc6gd5fd02",
+    name: "ChatGPT",
+    credential: { state: "available" },
+  },
+];
 
 /** 항상 ready인 core 통로. provider 목록만 읽히고 나머지 호출은 unavailable이다. */
 export function mockCore(): CoreSource {

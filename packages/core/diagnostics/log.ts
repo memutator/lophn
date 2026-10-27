@@ -54,10 +54,12 @@ export function createSafeLog(options: {
   }
   function start() {
     if (draining) return;
-    draining = Promise.resolve().then(drain).finally(() => {
-      draining = undefined;
-      if (queue.length && !closed) start();
-    });
+    draining = Promise.resolve()
+      .then(drain)
+      .finally(() => {
+        draining = undefined;
+        if (queue.length && !closed) start();
+      });
   }
   return {
     admit(value) {
@@ -74,9 +76,10 @@ export function createSafeLog(options: {
         addLoss(1);
         return false;
       }
-      const location = diagnostic.kind === "lophn_internal"
-        ? locations.get(diagnostic.payload.location)
-        : null;
+      const location =
+        diagnostic.kind === "lophn_internal"
+          ? locations.get(diagnostic.payload.location)
+          : null;
       if (diagnostic.kind === "lophn_internal" && !location) {
         addLoss(1);
         return false;
@@ -86,9 +89,10 @@ export function createSafeLog(options: {
         component: diagnostic.payload.component,
         kind: "log",
         code: diagnostic.kind,
-        error_type: diagnostic.kind === "lophn_internal"
-          ? diagnostic.payload.error_class
-          : null,
+        error_type:
+          diagnostic.kind === "lophn_internal"
+            ? diagnostic.payload.error_class
+            : null,
         location: location ?? null,
         message: descriptions[diagnostic.kind],
         redaction: {
@@ -96,11 +100,13 @@ export function createSafeLog(options: {
           status: "partial",
           content: null,
           redacted_items: [],
-          omissions: [{
-            location: "payload",
-            reason: "private",
-            message: "Only registered classification is retained.",
-          }],
+          omissions: [
+            {
+              location: "payload",
+              reason: "private",
+              message: "Only registered classification is retained.",
+            },
+          ],
         },
       };
       const bytes = encoder.encode(JSON.stringify(record) + "\n");

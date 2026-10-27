@@ -6,9 +6,11 @@ import { secretNameSchema } from "../secrets/secrets.ts";
 const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",
 });
-const positiveIntegerSchema = z.number().int().positive().max(
-  Number.MAX_SAFE_INTEGER,
-);
+const positiveIntegerSchema = z
+  .number()
+  .int()
+  .positive()
+  .max(Number.MAX_SAFE_INTEGER);
 
 export const PROVIDER_PROTOCOLS = [
   "anthropic-messages",
@@ -45,10 +47,11 @@ function unique(values: readonly string[]): boolean {
 }
 
 // 발급자 주소는 정의 data다. loopback http는 fake 발급자(test, 개발)만 쓴다.
-const issuerUrlSchema = z.string().refine(
-  (value) => isHttpsUrl(value) || loopback(value),
-  { message: "expected an https or loopback url" },
-);
+const issuerUrlSchema = z
+  .string()
+  .refine((value) => isHttpsUrl(value) || loopback(value), {
+    message: "expected an https or loopback url",
+  });
 const scopesSchema = z.array(nonblankSchema).min(1).refine(unique, {
   message: "scopes repeat",
 });
@@ -100,21 +103,27 @@ function definitionShape(value: {
   models_endpoint: string | null;
   oauth: OAuthDefinition | null;
 }): boolean {
-  return unique(value.protocols) && unique(value.auth_kinds) &&
+  return (
+    unique(value.protocols) &&
+    unique(value.auth_kinds) &&
     (value.models_endpoint === null || isHttpsUrl(value.models_endpoint)) &&
-    value.auth_kinds.includes("oauth") === (value.oauth !== null);
+    value.auth_kinds.includes("oauth") === (value.oauth !== null)
+  );
 }
 
-export const providerDefinitionSchema = z.strictObject(definitionFields).refine(
-  definitionShape,
-  { message: "provider definition auth and oauth do not agree" },
-);
-export const providerDefinitionOutputSchema = z.object({
-  ...definitionFields,
-  oauth: oauthDefinitionOutputSchema.nullable(),
-}).refine(definitionShape, {
-  message: "provider definition auth and oauth do not agree",
-});
+export const providerDefinitionSchema = z
+  .strictObject(definitionFields)
+  .refine(definitionShape, {
+    message: "provider definition auth and oauth do not agree",
+  });
+export const providerDefinitionOutputSchema = z
+  .object({
+    ...definitionFields,
+    oauth: oauthDefinitionOutputSchema.nullable(),
+  })
+  .refine(definitionShape, {
+    message: "provider definition auth and oauth do not agree",
+  });
 export type ProviderDefinition = z.infer<typeof providerDefinitionSchema>;
 
 // secret 원값은 받지 않는다. 파일 저장소(secrets.json)의 이름이 곧 key라 이름만 담는다.
@@ -188,24 +197,32 @@ function credentialShape(value: {
 }): boolean {
   const secret = (value.kind === "none") === (value.secret_ref === null);
   const waiting = value.state === "usage_wait";
-  const reason = value.state === "available"
-    ? value.unavailable_reason === null
-    : value.unavailable_reason !== null;
-  return secret && reason && waiting === (value.until !== null) &&
-    unique(value.model_blocks.map((block) => block.model_name));
+  const reason =
+    value.state === "available"
+      ? value.unavailable_reason === null
+      : value.unavailable_reason !== null;
+  return (
+    secret &&
+    reason &&
+    waiting === (value.until !== null) &&
+    unique(value.model_blocks.map((block) => block.model_name))
+  );
 }
 
-export const providerCredentialSchema = z.strictObject(credentialFields).refine(
-  credentialShape,
-  { message: "credential state, secret and model blocks do not agree" },
-);
-const providerCredentialOutputSchema = z.object({
-  ...credentialFields,
-  secret_ref: providerSecretRefOutputSchema.nullable(),
-  model_blocks: z.array(modelBlockOutputSchema),
-}).refine(credentialShape, {
-  message: "credential state, secret and model blocks do not agree",
-});
+export const providerCredentialSchema = z
+  .strictObject(credentialFields)
+  .refine(credentialShape, {
+    message: "credential state, secret and model blocks do not agree",
+  });
+const providerCredentialOutputSchema = z
+  .object({
+    ...credentialFields,
+    secret_ref: providerSecretRefOutputSchema.nullable(),
+    model_blocks: z.array(modelBlockOutputSchema),
+  })
+  .refine(credentialShape, {
+    message: "credential state, secret and model blocks do not agree",
+  });
 export type ProviderCredential = z.infer<typeof providerCredentialSchema>;
 
 function loopback(value: string): boolean {
@@ -232,19 +249,23 @@ function providerShape(value: {
   credential: ProviderCredential;
 }): boolean {
   const remote = isHttpsUrl(value.endpoint);
-  return value.definition.protocols.includes(value.protocol) &&
+  return (
+    value.definition.protocols.includes(value.protocol) &&
     (remote || loopback(value.endpoint)) &&
     value.definition.auth_kinds.includes(value.credential.kind) &&
-    (!remote || value.credential.kind !== "none");
+    (!remote || value.credential.kind !== "none")
+  );
 }
 
-export const providerRecordSchema = z.object({
-  ...providerFields,
-  definition: providerDefinitionOutputSchema,
-  credential: providerCredentialOutputSchema,
-}).refine(providerShape, {
-  message: "provider endpoint, protocol and credential do not agree",
-});
+export const providerRecordSchema = z
+  .object({
+    ...providerFields,
+    definition: providerDefinitionOutputSchema,
+    credential: providerCredentialOutputSchema,
+  })
+  .refine(providerShape, {
+    message: "provider endpoint, protocol and credential do not agree",
+  });
 export type ProviderRecord = z.infer<typeof providerRecordSchema>;
 
 export const OAUTH_REFRESH_LEAD_MS = 5 * 60_000;

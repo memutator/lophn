@@ -20,22 +20,26 @@ export function settingsListHandler(
         message: "settings list is not valid",
       });
     }
-    const asked = input.data.keys === undefined
-      ? undefined
-      : new Set(input.data.keys);
+    const asked =
+      input.data.keys === undefined ? undefined : new Set(input.data.keys);
     const chosen = store.chosen();
-    const settings = store.registry.declarations()
+    const settings = store.registry
+      .declarations()
       .filter((one) => asked === undefined || asked.has(one.key))
-      .map((one): SettingEntry => ({
-        key: one.key,
-        type: z.toJSONSchema(one.type, {
-          unrepresentable: "any",
-        }) as SettingEntry["type"],
-        ...(one.default === undefined ? {} : { default: one.default as never }),
-        ...(chosen[one.key] === undefined
-          ? {}
-          : { chosen: chosen[one.key] as never }),
-      }));
+      .map(
+        (one): SettingEntry => ({
+          key: one.key,
+          type: z.toJSONSchema(one.type, {
+            unrepresentable: "any",
+          }) as SettingEntry["type"],
+          ...(one.default === undefined
+            ? {}
+            : { default: one.default as never }),
+          ...(chosen[one.key] === undefined
+            ? {}
+            : { chosen: chosen[one.key] as never }),
+        }),
+      );
     return ok({ settings });
   };
 }

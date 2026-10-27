@@ -18,7 +18,9 @@ export async function appCoreEnv(): Promise<Record<string, string>> {
       filled = true;
       break;
     }
-  } catch { /* 없다 */ }
+  } catch {
+    /* 없다 */
+  }
   if (!filled) {
     throw new Error(`${denoDir}가 비었다. deno task e2e:deps를 먼저 돌려라`);
   }

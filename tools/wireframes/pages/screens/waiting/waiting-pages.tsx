@@ -96,14 +96,17 @@ function Toasts() {
 }
 
 // 문서 탭 하나가 열린 project 창의 위쪽 바에 대기 목록 층을 둔다.
-function Over(
-  { items, initial, toasts = false, steps = [] }: {
-    items: Items;
-    initial: WaitingLayerProps["initial"];
-    toasts?: boolean;
-    steps?: readonly Step[];
-  },
-) {
+function Over({
+  items,
+  initial,
+  toasts = false,
+  steps = [],
+}: {
+  items: Items;
+  initial: WaitingLayerProps["initial"];
+  toasts?: boolean;
+  steps?: readonly Step[];
+}) {
   const [client] = useState(() => createEventClient(createFakeWaiting(items)));
   useDrive(() => runSteps(steps));
   return (
@@ -165,10 +168,7 @@ export const WaitingFinished = () => (
 export const WaitingPermission = () => {
   const items = [SHELL_COMMAND(), EXTERNAL_CALL()];
   return (
-    <Over
-      items={items}
-      initial={{ open: true, expanded: items.map(idOf) }}
-    />
+    <Over items={items} initial={{ open: true, expanded: items.map(idOf) }} />
   );
 };
 

@@ -13,14 +13,17 @@ export function ReloadedToast({ onDismiss }: { onDismiss: () => void }) {
 }
 
 /** 고치는 중에 디스크가 바뀌었다. 어느 쪽을 남길지 고르고 디스크 쪽과 비교해 볼 수 있다. */
-export function ConflictToast(
-  { comparing, onKeepMine, onUseDisk, onCompare }: {
-    comparing: boolean;
-    onKeepMine: () => void;
-    onUseDisk: () => void;
-    onCompare: () => void;
-  },
-) {
+export function ConflictToast({
+  comparing,
+  onKeepMine,
+  onUseDisk,
+  onCompare,
+}: {
+  comparing: boolean;
+  onKeepMine: () => void;
+  onUseDisk: () => void;
+  onCompare: () => void;
+}) {
   return (
     <EditorConflictToast
       comparing={comparing}

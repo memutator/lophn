@@ -156,7 +156,8 @@ function createCallBodyPreparer(deps: {
     } else if (name === callCancel.name) {
       texts.push(CANCEL_TEXT);
     } else if (
-      name === archiveSession.name || name === deleteSession.name ||
+      name === archiveSession.name ||
+      name === deleteSession.name ||
       name === closeSession.name
     ) {
       // 받은 call이 receiver_ended로 닫히며 보낸 session에 가는 알림이다.
@@ -201,9 +202,8 @@ export const routerWiring: WiringFactory = () => {
       });
       // 앱을 받는 일은 그 앱의 App Engineer가 맡는다.
       const agentOfApp = (app: string): Result<AgentRef> => {
-        const found = ledgerSnapshot(
-          ctx.ledgerPath,
-          (lookup) => appExists(lookup.sql, app),
+        const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+          appExists(lookup.sql, app),
         );
         if (!found.ok) return found;
         return found.value
@@ -215,9 +215,10 @@ export const routerWiring: WiringFactory = () => {
         const found = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
           const owner = domainOwnerOf(lookup.sql, domain);
           if (owner === null) return null;
-          const status = owner.kind === "project"
-            ? projectStatusOf(lookup.sql, owner.id)
-            : appStatusOf(lookup.sql, owner.id);
+          const status =
+            owner.kind === "project"
+              ? projectStatusOf(lookup.sql, owner.id)
+              : appStatusOf(lookup.sql, owner.id);
           return status === "active" ? owner : null;
         });
         if (!found.ok) return found;
@@ -233,24 +234,21 @@ export const routerWiring: WiringFactory = () => {
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       // 사람 메시지는 본문 준비와 입력함 적용을 거쳐야 turn이 열린다. API server와 같은 접은 writer가 그 층을 가진다.
       const run = async (route: { name: string }, input: unknown) => {
-        const done = await ctx.writer.command(
-          ANNOTATION_DELIVERY_CONTEXT,
-          {
-            command: route.name,
-            input,
-            idempotency_key: crypto.randomUUID(),
-            compare: {},
-            prepared: [],
-          },
-        );
+        const done = await ctx.writer.command(ANNOTATION_DELIVERY_CONTEXT, {
+          command: route.name,
+          input,
+          idempotency_key: crypto.randomUUID(),
+          compare: {},
+          prepared: [],
+        });
         return done.ok ? ok(done.value.result) : done;
       };
       const refKey = (agent: AgentRef) =>
         agent.role === "app_engineer"
           ? `app:${agent.app}`
           : agent.role === "project_manager"
-          ? `prj:${agent.project}`
-          : agent.role;
+            ? `prj:${agent.project}`
+            : agent.role;
       // 지정된 session이 agent의 열린 session인지 본다. 아니면 conflict다.
       const checkOpenSession = async (
         session: string,
@@ -263,9 +261,11 @@ export const routerWiring: WiringFactory = () => {
           { session },
         );
         if (!found.ok) return found;
-        const { agent: actual, lifecycle } = (found.value as {
-          session: { agent: AgentRef; lifecycle: string };
-        }).session;
+        const { agent: actual, lifecycle } = (
+          found.value as {
+            session: { agent: AgentRef; lifecycle: string };
+          }
+        ).session;
         const same = refKey(actual) === refKey(agent);
         return same && lifecycle === "open"
           ? ok(undefined)
@@ -333,15 +333,13 @@ export const routerWiring: WiringFactory = () => {
             domainArtifactsFolder(ctx.root.path, input.domain),
           ).catch(() => null);
           if (root !== null) {
-            const found = ledgerSnapshot(
-              ctx.ledgerPath,
-              (lookup) =>
-                lastArtifactWriter(lookup.sql, {
-                  root,
-                  name: input.name,
-                  owner: owner.value,
-                  roles: [agent.role, "operator"],
-                }),
+            const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+              lastArtifactWriter(lookup.sql, {
+                root,
+                name: input.name,
+                owner: owner.value,
+                roles: [agent.role, "operator"],
+              }),
             );
             if (!found.ok) return found;
             if (found.value !== null) {
@@ -395,11 +393,9 @@ export const routerWiring: WiringFactory = () => {
         publish: (event) => ctx.bus.publish(event),
       });
       // 보낸 session에 이유를 돌려줄 글을 준비하지 못하면 알림 없이 닫는다.
-      const prepared = await prepareTexts(
-        ctx.bodyPrepare,
-        ROUTER_CONTEXT,
-        [FAILURE_TEXTS.lophn_restarted],
-      );
+      const prepared = await prepareTexts(ctx.bodyPrepare, ROUTER_CONTEXT, [
+        FAILURE_TEXTS.lophn_restarted,
+      ]);
       const done = await ctx.writer.command(ROUTER_CONTEXT, {
         command: callsRecover.name,
         input: { notify: prepared.ok },
@@ -438,32 +434,34 @@ export const routerWiring: WiringFactory = () => {
           const { content } = body.value as {
             content: { parts: { kind: string; text?: string }[] };
           };
-          const text = content.parts.flatMap((part) =>
-            part.kind === "text" ? [part.text ?? ""] : []
-          ).join("\n");
-          apply([{
-            topic: INBOX_PUT_TOPIC,
-            data: {
-              session: pending.session,
-              input: {
-                kind: "message",
-                from: { kind: "human" },
-                call: null,
-                reply_to: null,
-                body: text,
-                refs: pending.refs,
-                delivery: "next_turn",
-                message: pending.id,
-                reply: null,
-                outcome: null,
-                event: null,
-                notice: null,
-                step: null,
-                unattended: false,
+          const text = content.parts
+            .flatMap((part) => (part.kind === "text" ? [part.text ?? ""] : []))
+            .join("\n");
+          apply([
+            {
+              topic: INBOX_PUT_TOPIC,
+              data: {
+                session: pending.session,
+                input: {
+                  kind: "message",
+                  from: { kind: "human" },
+                  call: null,
+                  reply_to: null,
+                  body: text,
+                  refs: pending.refs,
+                  delivery: "next_turn",
+                  message: pending.id,
+                  reply: null,
+                  outcome: null,
+                  event: null,
+                  notice: null,
+                  step: null,
+                  unattended: false,
+                },
+                at: pending.created_at,
               },
-              at: pending.created_at,
             },
-          }]);
+          ]);
         }
       }
       return ok(undefined);

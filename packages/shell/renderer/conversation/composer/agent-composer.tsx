@@ -48,10 +48,7 @@ interface AgentComposerProps {
   /** model 단추·picker와 `/` 명령 창이 읽는 통로. */
   source: Pick<
     AgentTabSource,
-    | "commands"
-    | "model"
-    | "chooseModel"
-    | "setModelOption"
+    "commands" | "model" | "chooseModel" | "setModelOption"
   >;
   /** null이면 아직 만들지 않은 새 session이다. */
   session: string | null;
@@ -135,7 +132,10 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     onRun: props.onCommand,
     onProblem: props.onProblem,
   });
-  const canSend = !locked && !offline && !tooLong &&
+  const canSend =
+    !locked &&
+    !offline &&
+    !tooLong &&
     (draft.text.trim().length > 0 || draft.attachments.length > 0);
 
   const attach = (added: readonly Attachment[], missed: number) => {
@@ -171,7 +171,8 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
   const dragOver = (event: DragEvent<HTMLElement>) => {
     const types = event.dataTransfer.types;
     if (
-      locked || (!types.includes(PATH_DRAG_TYPE) && !types.includes("Files"))
+      locked ||
+      (!types.includes(PATH_DRAG_TYPE) && !types.includes("Files"))
     ) {
       return;
     }
@@ -194,9 +195,10 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
   };
   // 이미지 파일은 붙여 넣은 이미지처럼 그림으로 붙고, 그 밖은 경로 chip이다.
   const attachPath = async (path: string) => {
-    const image = IMAGE_PATH.test(path) && props.readImage !== undefined
-      ? await props.readImage(path)
-      : null;
+    const image =
+      IMAGE_PATH.test(path) && props.readImage !== undefined
+        ? await props.readImage(path)
+        : null;
     if (image === null) attach([{ kind: "file", path }], 0);
     else attachFiles([image]);
   };
@@ -229,7 +231,8 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     slash.onKeyDown(event);
     if (event.defaultPrevented) return;
     if (
-      event.key !== "Enter" || event.shiftKey ||
+      event.key !== "Enter" ||
+      event.shiftKey ||
       event.nativeEvent.isComposing ||
       !(event.target as HTMLElement).matches("[data-composer-input]")
     ) {
@@ -240,18 +243,14 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
   };
 
   return (
-    <div
-      className={styles.composer}
-      data-agent-composer=""
-      onKeyDown={keyDown}
-    >
-      {offline
-        ? <p className={styles.note}>{t("conversation.notice.offline")}</p>
-        : null}
+    <div className={styles.composer} data-agent-composer="" onKeyDown={keyDown}>
+      {offline ? (
+        <p className={styles.note}>{t("conversation.notice.offline")}</p>
+      ) : null}
       <div className={styles.boxWrap}>
-        {slash.menu === null
-          ? null
-          : <div className={styles.slash}>{slash.menu}</div>}
+        {slash.menu === null ? null : (
+          <div className={styles.slash}>{slash.menu}</div>
+        )}
         <div
           className={styles.box}
           data-composer-box=""
@@ -285,7 +284,8 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
                   event.currentTarget.selectionStart,
                   event.currentTarget.selectionEnd,
                 ],
-              })}
+              })
+            }
             onSelect={keepSelection}
             onPaste={(event) => {
               const files = [...event.clipboardData.files];
@@ -294,33 +294,23 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
               attachFiles(files);
             }}
           />
-          {skipped
-            ? (
-              <p
-                className={styles.problem}
-                data-attach-skipped=""
-                role="status"
-              >
-                {t("conversation.error.attach-skipped")}
-              </p>
-            )
-            : null}
-          {tooLong
-            ? (
-              <p className={styles.problem} data-too-long="" role="status">
-                {t("conversation.error.too-long")}
-              </p>
-            )
-            : null}
-          {working && slash.menu === null
-            ? (
-              <p className={styles.working} data-working-note="">
-                {t("conversation.notice.working-next-turn", {
-                  agent: props.agentName,
-                })}
-              </p>
-            )
-            : null}
+          {skipped ? (
+            <p className={styles.problem} data-attach-skipped="" role="status">
+              {t("conversation.error.attach-skipped")}
+            </p>
+          ) : null}
+          {tooLong ? (
+            <p className={styles.problem} data-too-long="" role="status">
+              {t("conversation.error.too-long")}
+            </p>
+          ) : null}
+          {working && slash.menu === null ? (
+            <p className={styles.working} data-working-note="">
+              {t("conversation.notice.working-next-turn", {
+                agent: props.agentName,
+              })}
+            </p>
+          ) : null}
           <div className={styles.row} data-composer-row="">
             <Tooltip content={t("conversation.button.attach")}>
               <IconButton
@@ -345,20 +335,18 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
             />
             <span className={styles.spacer} />
             <ModelPicker {...picker} />
-            {working
-              ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  icon={conversationIcons.stop}
-                  data-stop=""
-                  disabled={offline}
-                  onClick={props.onStop}
-                >
-                  {t("conversation.button.stop")}
-                </Button>
-              )
-              : null}
+            {working ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={conversationIcons.stop}
+                data-stop=""
+                disabled={offline}
+                onClick={props.onStop}
+              >
+                {t("conversation.button.stop")}
+              </Button>
+            ) : null}
             <IconButton
               icon={conversationIcons.send}
               label={t("conversation.button.send")}
@@ -374,9 +362,11 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
       <div className={styles.scope} data-composer-scope="">
         <span className={styles.place} data-place-kind={props.place.kind}>
           <Icon
-            icon={props.place.kind === "app"
-              ? workspaceIcons.appPanel
-              : workspaceIcons.folder}
+            icon={
+              props.place.kind === "app"
+                ? workspaceIcons.appPanel
+                : workspaceIcons.folder
+            }
             pixels={iconPixels("small")}
           />
           {props.place.name}
@@ -407,18 +397,16 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
             />
           )}
         </Popover>
-        {props.skip === undefined
-          ? null
-          : (
-            <span className={styles.skip} data-composer-skip="">
-              <Switch
-                label={t("conversation.label.skip-permissions")}
-                size="sm"
-                checked={props.skip.on}
-                onCheckedChange={props.skip.onChange}
-              />
-            </span>
-          )}
+        {props.skip === undefined ? null : (
+          <span className={styles.skip} data-composer-skip="">
+            <Switch
+              label={t("conversation.label.skip-permissions")}
+              size="sm"
+              checked={props.skip.on}
+              onCheckedChange={props.skip.onChange}
+            />
+          </span>
+        )}
       </div>
     </div>
   );

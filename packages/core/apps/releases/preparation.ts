@@ -106,9 +106,9 @@ export function createPreparationService(
         return known.job.commit === job.commit
           ? ok(snapshotOf(job.app, job.request_key, known))
           : err({
-            code: "conflict",
-            message: "the request key is used for another commit",
-          });
+              code: "conflict",
+              message: "the request key is used for another commit",
+            });
       }
       const controller = new AbortController();
       const entry: Entry = {

@@ -18,8 +18,10 @@ export type Deps = {
 };
 
 // 이 repo의 root. tests/eval/versions/에서 세 단계 위다.
-export const REPO_ROOT = new URL("../../../", import.meta.url).pathname
-  .replace(/\/$/, "");
+export const REPO_ROOT = new URL("../../../", import.meta.url).pathname.replace(
+  /\/$/,
+  "",
+);
 export const REGISTRY_DIR = new URL("../registry", import.meta.url).pathname;
 
 export const TEXT_KINDS: readonly VersionKind[] = [
@@ -135,9 +137,9 @@ export async function registerAuthored(
     if (ref.n <= maxN(entries)) {
       return err({
         code: "invalid_input",
-        message: `${ref.kind}:${ref.name}@${ref.n}의 n은 ${
-          maxN(entries)
-        }보다 커야 한다`,
+        message: `${ref.kind}:${ref.name}@${ref.n}의 n은 ${maxN(
+          entries,
+        )}보다 커야 한다`,
       });
     }
     await append(dir, entries, entryOf(ref, hash, content));
@@ -157,7 +159,7 @@ export async function latestEntry(
 ): Promise<RegistryEntry | null> {
   const entries = await readEntries(dir, kind, name);
   return entries.reduce<RegistryEntry | null>(
-    (best, e) => best === null || e.n > best.n ? e : best,
+    (best, e) => (best === null || e.n > best.n ? e : best),
     null,
   );
 }

@@ -22,12 +22,13 @@ interface Row {
 export function ConflictCompare({ disk, mine }: ConflictCompareProps) {
   const rows = useMemo(
     () =>
-      compareLines(disk, mine).map((line): Row =>
-        line.kind === "same"
-          ? { disk: line.text, mine: line.text, changed: false }
-          : line.kind === "delete"
-          ? { disk: line.text, mine: null, changed: true }
-          : { disk: null, mine: line.text, changed: true }
+      compareLines(disk, mine).map(
+        (line): Row =>
+          line.kind === "same"
+            ? { disk: line.text, mine: line.text, changed: false }
+            : line.kind === "delete"
+              ? { disk: line.text, mine: null, changed: true }
+              : { disk: null, mine: line.text, changed: true },
       ),
     [disk, mine],
   );

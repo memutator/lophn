@@ -8,9 +8,9 @@ import { commandCall } from "../../command-call.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
 import type { DomainActions, DomainOpResult } from "../source.ts";
 
-const failed = (
-  reply: { error?: { code: string; message: string } },
-): DomainOpResult => ({
+const failed = (reply: {
+  error?: { code: string; message: string };
+}): DomainOpResult => ({
   ok: false,
   code: reply.error?.code ?? "internal",
   message: reply.error?.message ?? "",
@@ -29,23 +29,27 @@ export function coreDomainActions(core: CoreSource): DomainActions {
       body: { domain },
     });
     if (!read.ok) return failed(read);
-    const revision =
-      (read.value as { domain: { revision: string } }).domain.revision;
-    const reply = await core.call(commandCall(route, {
-      input: { domain },
-      compare: { base_revision: revision },
-      key: `domain-${route.method}-${crypto.randomUUID()}`,
-    }));
+    const revision = (read.value as { domain: { revision: string } }).domain
+      .revision;
+    const reply = await core.call(
+      commandCall(route, {
+        input: { domain },
+        compare: { base_revision: revision },
+        key: `domain-${route.method}-${crypto.randomUUID()}`,
+      }),
+    );
     return reply.ok ? { ok: true } : failed(reply);
   }
 
   return {
     async createDomain(owner, draft) {
-      const reply = await core.call(commandCall(domainCreate, {
-        input: { ...draft, owner: { kind: owner.kind, id: owner.id } },
-        compare: {},
-        key: `domain-create-${crypto.randomUUID()}`,
-      }));
+      const reply = await core.call(
+        commandCall(domainCreate, {
+          input: { ...draft, owner: { kind: owner.kind, id: owner.id } },
+          compare: {},
+          key: `domain-create-${crypto.randomUUID()}`,
+        }),
+      );
       return reply.ok ? { ok: true } : failed(reply);
     },
     archiveDomain: (domain) => move(domainArchive, domain),

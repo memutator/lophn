@@ -70,13 +70,14 @@ export type ProcessApplyResponse = z.infer<typeof processApplyResponseSchema>;
 
 // 시작 입력에서 direct_socket을 빼고 control_socket을 더한 것이다.
 const { direct_socket, ...kept } = appStartInputSchema.shape;
-const appProcessStartInputSchema = z.strictObject({
-  ...kept,
-  control_socket: direct_socket,
-}).refine(
-  (value) => value.mode !== "live" || value.release !== null,
-  { message: "live start needs a release" },
-);
+const appProcessStartInputSchema = z
+  .strictObject({
+    ...kept,
+    control_socket: direct_socket,
+  })
+  .refine((value) => value.mode !== "live" || value.release !== null, {
+    message: "live start needs a release",
+  });
 export type AppProcessStartInput = z.infer<typeof appProcessStartInputSchema>;
 
 // 한 줄 JSON. 줄바꿈이 들어간 값은 시작 입력이 아니다.

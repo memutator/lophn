@@ -47,19 +47,22 @@ export function queryOf(filters: Filters, now: Date): OrdersQuery {
 }
 
 // `call`은 앱 view의 `lophnApp.callTool`이다.
-export function OrdersFilters(
-  { now, call }: {
-    now: Date;
-    call: (command: string, input: OrdersQuery) => Promise<unknown>;
-  },
-) {
+export function OrdersFilters({
+  now,
+  call,
+}: {
+  now: Date;
+  call: (command: string, input: OrdersQuery) => Promise<unknown>;
+}) {
   const [filters, setFilters] = useState(DEFAULT);
   const update = (next: Filters) => {
     setFilters(next);
     void call("list-orders", queryOf(next, now));
   };
-  const dirty = filters.range.preset !== DEFAULT.range.preset ||
-    filters.statuses.length > 0 || filters.text !== "";
+  const dirty =
+    filters.range.preset !== DEFAULT.range.preset ||
+    filters.statuses.length > 0 ||
+    filters.text !== "";
   return (
     <FilterBar dirty={dirty} onReset={() => update(DEFAULT)}>
       <DateRangeFilter

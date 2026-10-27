@@ -36,9 +36,9 @@ export const blobPurposeDefinitionSchema = z.strictObject({
   purpose: purposeName,
   max_size_bytes: size.max(BLOB_PREPARE_MAX_BYTES),
 });
-type BlobPurposeDefinition<P extends string = string> =
-  & z.infer<typeof blobPurposeDefinitionSchema>
-  & { purpose: P };
+type BlobPurposeDefinition<P extends string = string> = z.infer<
+  typeof blobPurposeDefinitionSchema
+> & { purpose: P };
 
 export function defineBlobPurpose<const P extends string>(
   definition: BlobPurposeDefinition<P>,
@@ -47,9 +47,7 @@ export function defineBlobPurpose<const P extends string>(
   return definition;
 }
 
-const BLOB_RETENTION_CATEGORIES = [
-  "model_call_body",
-] as const;
+const BLOB_RETENTION_CATEGORIES = ["model_call_body"] as const;
 const blobRetentionCategorySchema = z.enum(BLOB_RETENTION_CATEGORIES);
 export type BlobRetentionCategory = z.infer<typeof blobRetentionCategorySchema>;
 
@@ -110,42 +108,42 @@ export const blobReadInputSchema = z.strictObject({
 });
 export type BlobReadInput = z.infer<typeof blobReadInputSchema>;
 
-const base64 = z.string().regex(
-  /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
-).max(4 * Math.ceil(BLOB_READ_MAX_BYTES / 3));
+const base64 = z
+  .string()
+  .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/)
+  .max(4 * Math.ceil(BLOB_READ_MAX_BYTES / 3));
 
-const BLOB_UNAVAILABLE_REASONS = [
-  "pruned",
-  "missing",
-  "corrupt",
-] as const;
+const BLOB_UNAVAILABLE_REASONS = ["pruned", "missing", "corrupt"] as const;
 const blobUnavailableReasonSchema = z.enum(BLOB_UNAVAILABLE_REASONS);
 
 export const blobReadResultSchema = z.discriminatedUnion("status", [
-  z.object({
-    status: z.literal("available"),
-    hash: sha256Schema,
-    size_bytes: size,
-    offset_bytes: size,
-    length_bytes: size.max(BLOB_READ_MAX_BYTES),
-    truncated: z.boolean(),
-    bytes: base64,
-  }).refine(
-    (value) =>
-      value.offset_bytes <= value.size_bytes &&
-      value.length_bytes <= value.size_bytes - value.offset_bytes,
-    { message: "invalid returned byte range" },
-  ).refine(
-    (value) => {
-      const padding = value.bytes.endsWith("==")
-        ? 2
-        : value.bytes.endsWith("=")
-        ? 1
-        : 0;
-      return value.bytes.length / 4 * 3 - padding === value.length_bytes;
-    },
-    { message: "bytes do not match returned length" },
-  ),
+  z
+    .object({
+      status: z.literal("available"),
+      hash: sha256Schema,
+      size_bytes: size,
+      offset_bytes: size,
+      length_bytes: size.max(BLOB_READ_MAX_BYTES),
+      truncated: z.boolean(),
+      bytes: base64,
+    })
+    .refine(
+      (value) =>
+        value.offset_bytes <= value.size_bytes &&
+        value.length_bytes <= value.size_bytes - value.offset_bytes,
+      { message: "invalid returned byte range" },
+    )
+    .refine(
+      (value) => {
+        const padding = value.bytes.endsWith("==")
+          ? 2
+          : value.bytes.endsWith("=")
+            ? 1
+            : 0;
+        return (value.bytes.length / 4) * 3 - padding === value.length_bytes;
+      },
+      { message: "bytes do not match returned length" },
+    ),
   z.object({
     status: z.literal("unavailable"),
     hash: sha256Schema,

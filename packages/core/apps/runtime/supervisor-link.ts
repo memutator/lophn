@@ -52,11 +52,11 @@ const APPLY_REQUEST_TIMEOUT_MS = APPLY_TIMEOUT_MS + 5_000;
 type WorkerResponse =
   | { type: "worker_response"; request_id: string; ok: true; payload: unknown }
   | {
-    type: "worker_response";
-    request_id: string;
-    ok: false;
-    error: { code: string; message: string };
-  };
+      type: "worker_response";
+      request_id: string;
+      ok: false;
+      error: { code: string; message: string };
+    };
 
 // pipe로 frame을 쓰는 함수들. false면 보내지 못한 것이다.
 export type SupervisorSenders = {
@@ -105,10 +105,12 @@ export function createSupervisorChannel(): SupervisorChannel {
     request(op, payload, timeoutMs = REQUEST_TIMEOUT_MS, body) {
       const sender = senders;
       if (sender === null) {
-        return Promise.resolve(err({
-          code: "unavailable",
-          message: "app supervisor is not ready",
-        }));
+        return Promise.resolve(
+          err({
+            code: "unavailable",
+            message: "app supervisor is not ready",
+          }),
+        );
       }
       counter += 1;
       const id = `apps-request-${counter}`;
@@ -117,11 +119,13 @@ export function createSupervisorChannel(): SupervisorChannel {
         const timer = setTimeout(() => {
           pending.delete(id);
           if (channel !== undefined) sender.sendAbort(channel).catch(() => {});
-          resolve(err({
-            code: "unavailable",
-            message: "app supervisor did not answer in time",
-            details: SENT,
-          }));
+          resolve(
+            err({
+              code: "unavailable",
+              message: "app supervisor did not answer in time",
+              details: SENT,
+            }),
+          );
         }, timeoutMs);
         pending.set(id, (answer) => {
           clearTimeout(timer);
@@ -162,11 +166,13 @@ export function createSupervisorChannel(): SupervisorChannel {
           if (!settle) return;
           pending.delete(id);
           if (channel !== undefined) sender.sendAbort(channel).catch(() => {});
-          settle(err({
-            code: "unavailable",
-            message: "request could not be sent to the app supervisor",
-            ...(started ? { details: SENT } : {}),
-          }));
+          settle(
+            err({
+              code: "unavailable",
+              message: "request could not be sent to the app supervisor",
+              ...(started ? { details: SENT } : {}),
+            }),
+          );
         })();
       });
     },
@@ -180,11 +186,13 @@ export function createSupervisorChannel(): SupervisorChannel {
       if (!settle) return false;
       pending.delete(response.request_id);
       settle(
-        response.ok ? ok(response.payload) : err({
-          code: response.error.code as "unavailable",
-          // supervisor가 준 이유를 그대로 싣는다. 이 오류는 op 처리기가 던진 code·message뿐이다.
-          message: response.error.message,
-        }),
+        response.ok
+          ? ok(response.payload)
+          : err({
+              code: response.error.code as "unavailable",
+              // supervisor가 준 이유를 그대로 싣는다. 이 오류는 op 처리기가 던진 code·message뿐이다.
+              message: response.error.message,
+            }),
       );
       return true;
     },
@@ -204,9 +212,7 @@ export function createSupervisorChannel(): SupervisorChannel {
 
 function shaped<T>(
   schema: {
-    safeParse(
-      value: unknown,
-    ): { success: true; data: T } | { success: false };
+    safeParse(value: unknown): { success: true; data: T } | { success: false };
   },
   answer: Result<unknown>,
 ): Result<T> {
@@ -249,15 +255,15 @@ export type SupervisorClient = {
   activationPrepare(desired: DesiredApp): Promise<
     Result<
       | {
-        ok: true;
-        processNonce: string;
-        attestation: {
-          release: string;
-          bundleHash: string;
-          tools: string[];
-          dataSchema: number;
-        };
-      }
+          ok: true;
+          processNonce: string;
+          attestation: {
+            release: string;
+            bundleHash: string;
+            tools: string[];
+            dataSchema: number;
+          };
+        }
       | { ok: false; reason: string }
     >
   >;
@@ -370,15 +376,15 @@ export function createSupervisorClient(
       return ok(
         answer.value.ok
           ? {
-            ok: true as const,
-            processNonce: answer.value.process_nonce,
-            attestation: {
-              release: answer.value.attestation.release,
-              bundleHash: answer.value.attestation.bundle_hash,
-              tools: answer.value.attestation.tools,
-              dataSchema: answer.value.attestation.data_schema,
-            },
-          }
+              ok: true as const,
+              processNonce: answer.value.process_nonce,
+              attestation: {
+                release: answer.value.attestation.release,
+                bundleHash: answer.value.attestation.bundle_hash,
+                tools: answer.value.attestation.tools,
+                dataSchema: answer.value.attestation.data_schema,
+              },
+            }
           : { ok: false as const, reason: answer.value.reason },
       );
     },
@@ -442,7 +448,7 @@ export function createAppProcessLink(
       // 큰 입력은 control frame에 담기지 않는다. 다시 해도 안 되므로 일시 장애로 알리지 않는다.
       if (
         new TextEncoder().encode(JSON.stringify(request)).length >
-          CALL_BODY_MAX_BYTES
+        CALL_BODY_MAX_BYTES
       ) {
         return {
           sent: false,
@@ -512,8 +518,9 @@ export function runtimeObservationOf(
   if (wire.release === null) return null;
   // 자식이 없고 붙일 근거(crash loop 같은 멈춘 이유)도 없으면 관측이 아니다.
   if (wire.process_nonce === "" && wire.reason === undefined) return null;
-  const reason = wire.ready ? wire.reason : (wire.reason ??
-    (wire.process_nonce === "" ? NOT_RUNNING : STARTING));
+  const reason = wire.ready
+    ? wire.reason
+    : (wire.reason ?? (wire.process_nonce === "" ? NOT_RUNNING : STARTING));
   return {
     app: wire.app,
     release: wire.release,

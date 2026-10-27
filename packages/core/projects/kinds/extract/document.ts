@@ -22,7 +22,9 @@ function readYaml(text: string): unknown {
 // 글 앞머리 `---` 칸의 yaml 글. 없으면 null.
 function frontmatterOf(text: string): string | null {
   const withoutBom = text.startsWith("﻿") ? text.slice(1) : text;
-  const lines = withoutBom.replaceAll("\r\n", "\n").replaceAll("\r", "\n")
+  const lines = withoutBom
+    .replaceAll("\r\n", "\n")
+    .replaceAll("\r", "\n")
     .split("\n");
   if (!FRONT_START.test(lines[0] ?? "")) return null;
   for (let index = 1; index < lines.length; index += 1) {

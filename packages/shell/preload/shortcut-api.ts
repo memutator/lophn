@@ -22,18 +22,15 @@ interface ShortcutTransport {
 }
 
 export function createShortcutApi(transport: ShortcutTransport): ShortcutApi {
-  return Object.freeze(
-    {
-      subscribe(listener) {
-        const callback = (_event: unknown, payload: unknown) => {
-          if (isWindowShortcut(payload)) listener(payload);
-        };
-        transport.on(WINDOW_SHORTCUT_CHANNEL, callback);
-        return () =>
-          transport.removeListener(WINDOW_SHORTCUT_CHANNEL, callback);
-      },
-    } satisfies ShortcutApi,
-  );
+  return Object.freeze({
+    subscribe(listener) {
+      const callback = (_event: unknown, payload: unknown) => {
+        if (isWindowShortcut(payload)) listener(payload);
+      };
+      transport.on(WINDOW_SHORTCUT_CHANNEL, callback);
+      return () => transport.removeListener(WINDOW_SHORTCUT_CHANNEL, callback);
+    },
+  } satisfies ShortcutApi);
 }
 
 /**
@@ -53,17 +50,15 @@ export function createIntentApi(transport: ShortcutTransport): IntentApi {
     }
     for (const listener of listeners) listener(intent);
   });
-  return Object.freeze(
-    {
-      subscribe(listener) {
-        listeners.add(listener);
-        if (held !== null) {
-          const intent = held;
-          held = null;
-          listener(intent);
-        }
-        return () => void listeners.delete(listener);
-      },
-    } satisfies IntentApi,
-  );
+  return Object.freeze({
+    subscribe(listener) {
+      listeners.add(listener);
+      if (held !== null) {
+        const intent = held;
+        held = null;
+        listener(intent);
+      }
+      return () => void listeners.delete(listener);
+    },
+  } satisfies IntentApi);
 }

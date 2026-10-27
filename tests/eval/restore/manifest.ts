@@ -5,8 +5,7 @@ import { idSchema } from "../../../packages/protocol/base/mod.ts";
 import type { MaterialKind, MaterialManifest } from "../types.ts";
 import { contentHash } from "./hash.ts";
 
-export const MATERIALS_ROOT = new URL("../materials", import.meta.url)
-  .pathname;
+export const MATERIALS_ROOT = new URL("../materials", import.meta.url).pathname;
 
 export type MaterialFile = { path: string; bytes: Uint8Array };
 export type Material = {
@@ -36,14 +35,14 @@ export function splitRef(ref: string): { name: string; n: number } {
 
 async function readFiles(dir: string, prefix = ""): Promise<MaterialFile[]> {
   const found: MaterialFile[] = [];
-  for (
-    const entry of await readdir(`${dir}/${prefix}`, { withFileTypes: true })
-  ) {
+  for (const entry of await readdir(`${dir}/${prefix}`, {
+    withFileTypes: true,
+  })) {
     const path = `${prefix}${entry.name}`;
-    if (entry.isDirectory()) found.push(...await readFiles(dir, `${path}/`));
+    if (entry.isDirectory()) found.push(...(await readFiles(dir, `${path}/`)));
     else found.push({ path, bytes: await readFile(`${dir}/${path}`) });
   }
-  return found.sort((a, b) => a.path < b.path ? -1 : 1);
+  return found.sort((a, b) => (a.path < b.path ? -1 : 1));
 }
 
 export async function loadMaterial(
@@ -64,7 +63,7 @@ export async function loadMaterial(
 export async function verifyMaterial(
   material: Material,
 ): Promise<Result<void>> {
-  if (await contentHash(material.files) !== material.manifest.content_hash) {
+  if ((await contentHash(material.files)) !== material.manifest.content_hash) {
     return err({
       code: "conflict",
       message: `material ${material.ref} content hash differs`,
@@ -99,10 +98,7 @@ export async function writeMaterial(
     await writeFile(path, file.bytes);
   }
   const content_hash = await contentHash(files);
-  await writeFile(
-    `${dir}/material.json`,
-    json({ ...manifest, content_hash }),
-  );
+  await writeFile(`${dir}/material.json`, json({ ...manifest, content_hash }));
   return ok(undefined);
 }
 

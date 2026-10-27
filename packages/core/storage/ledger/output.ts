@@ -34,16 +34,18 @@ function copyJson(raw: unknown, ancestors = new Set<object>()): Json {
       if (
         Object.keys(raw).some((key) => {
           const index = Number(key);
-          return !Number.isSafeInteger(index) || index < 0 ||
+          return (
+            !Number.isSafeInteger(index) ||
+            index < 0 ||
             index >= raw.length ||
-            String(index) !== key;
+            String(index) !== key
+          );
         })
       ) {
         throw new TypeError("output rejects extra array properties");
       }
-      return Array.from(
-        { length: raw.length },
-        (_, index) => copyJson(raw[index], ancestors),
+      return Array.from({ length: raw.length }, (_, index) =>
+        copyJson(raw[index], ancestors),
       );
     }
     const prototype = Object.getPrototypeOf(raw);
@@ -71,7 +73,9 @@ export function validateOutput<S extends z.ZodType>(
     const copied: Json = JSON.parse(canonicalize(copyJson(raw)));
     if (overrides !== undefined) {
       if (
-        copied === null || typeof copied !== "object" || Array.isArray(copied)
+        copied === null ||
+        typeof copied !== "object" ||
+        Array.isArray(copied)
       ) {
         return err(internalError());
       }

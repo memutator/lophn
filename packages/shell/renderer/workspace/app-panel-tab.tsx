@@ -41,9 +41,11 @@ interface AppPanelPickerProps {
 }
 
 /** 앱을 아직 고르지 않은 앱 패널 탭의 본문. native view가 없어 shell이 다 그린다. */
-export function AppPanelPicker(
-  { onChoose, onOpenAppSpace, onClose }: AppPanelPickerProps,
-) {
+export function AppPanelPicker({
+  onChoose,
+  onOpenAppSpace,
+  onClose,
+}: AppPanelPickerProps) {
   const deps = useAppViews();
   const [read, setRead] = useState<ScreensRead | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -80,10 +82,7 @@ export function AppPanelPicker(
     );
   } else {
     body = (
-      <Loading
-        loading={read === null}
-        placeholder={<Skeleton lines={4} />}
-      >
+      <Loading loading={read === null} placeholder={<Skeleton lines={4} />}>
         <List>
           {(read?.ok ? read.value : []).flatMap((app) => {
             const screens = panelScreens(app);
@@ -98,10 +97,7 @@ export function AppPanelPicker(
                     {t("app-panel.notice.app-space-only", { app: app.name })}
                   </span>
                   {onOpenAppSpace === undefined ? null : (
-                    <Button
-                      size="sm"
-                      onClick={() => onOpenAppSpace(app.app)}
-                    >
+                    <Button size="sm" onClick={() => onOpenAppSpace(app.app)}>
                       {t("app-panel.button.open-app-space")}
                     </Button>
                   )}
@@ -120,7 +116,8 @@ export function AppPanelPicker(
                     app: app.app,
                     screen: screen.key,
                     title: app.name,
-                  })}
+                  })
+                }
               />
             ));
           })}
@@ -149,9 +146,13 @@ interface AppPanelTabProps {
 type Facts = AppRead | null;
 
 /** 고른 앱 화면 하나를 panel 크기로 연 탭 본문. */
-export function AppPanelTab(
-  { app, screen, shown, keepKey, onOpenAppSpace }: AppPanelTabProps,
-) {
+export function AppPanelTab({
+  app,
+  screen,
+  shown,
+  keepKey,
+  onOpenAppSpace,
+}: AppPanelTabProps) {
   const deps = useAppViews();
   const [facts, setFacts] = useState<Facts>(null);
   const [attempt, setAttempt] = useState(0);
@@ -171,23 +172,20 @@ export function AppPanelTab(
   const notice = (message: string, space: boolean) => (
     <div className={styles.notice} data-app-panel-notice="">
       <p className={styles.note}>{message}</p>
-      {space && onOpenAppSpace !== undefined
-        ? (
-          <Button
-            size="sm"
-            onClick={() => onOpenAppSpace(app)}
-          >
-            {t("app-panel.button.open-app-space")}
-          </Button>
-        )
-        : null}
+      {space && onOpenAppSpace !== undefined ? (
+        <Button size="sm" onClick={() => onOpenAppSpace(app)}>
+          {t("app-panel.button.open-app-space")}
+        </Button>
+      ) : null}
     </div>
   );
 
   if (deps === null) return notice(t("common.empty.not-ready"), false);
   if (facts === null) {
     return (
-      <Loading loading placeholder={<Skeleton lines={3} />}>{null}</Loading>
+      <Loading loading placeholder={<Skeleton lines={3} />}>
+        {null}
+      </Loading>
     );
   }
   if (!facts.ok && facts.code === "unavailable") {
@@ -212,7 +210,8 @@ export function AppPanelTab(
         viewSession={state?.view_session ?? null}
         health={state?.viewHealth}
         onReopen={(view_session) =>
-          void deps.views.reopenView({ view_session }).catch(() => {})}
+          void deps.views.reopenView({ view_session }).catch(() => {})
+        }
       />
       <div className={styles.view}>
         <EmbeddedView
@@ -230,7 +229,8 @@ export function AppPanelTab(
             // 패널을 선언하지 않은 화면은 줄여 열지 않고 앱 공간으로 안내한다.
             code === "invalid_input" || code === "forbidden"
               ? notice(t("app-panel.notice.not-panel"), true)
-              : null}
+              : null
+          }
         />
       </div>
     </div>

@@ -34,12 +34,15 @@ function stateOf(live: LiveText) {
 
 // snapshot에서 출발해 delta를 차례로 접는다. 표의 기대는 그 조각을 접은 뒤의 글이다.
 test("retry된 attempt의 글은 live 글에 남지 않고 겹친 delta는 두 번 붙지 않는다", () => {
-  const start = liveFromWriting({
-    turn: "trn_01h455vb4pex5v6nkc6gd5f001",
-    model_call: "mcl_01h455vb4pex5v6nkc6gd5f001",
-    text: "Hel",
-    reasoning: "",
-  }, AT);
+  const start = liveFromWriting(
+    {
+      turn: "trn_01h455vb4pex5v6nkc6gd5f001",
+      model_call: "mcl_01h455vb4pex5v6nkc6gd5f001",
+      text: "Hel",
+      reasoning: "",
+    },
+    AT,
+  );
   if (start === null) {
     throw new Error("snapshot writing must start a live text");
   }

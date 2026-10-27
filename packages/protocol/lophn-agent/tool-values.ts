@@ -88,9 +88,9 @@ const appToolBindingOutputSchema = z.object({
 });
 
 // 외부 이름은 ext_<server>_<tool>, 영문·숫자·밑줄·하이픈 64자 이하.
-const canonicalExternalToolSchema = z.string().regex(
-  /^ext_[A-Za-z0-9_-]{1,60}$/,
-);
+const canonicalExternalToolSchema = z
+  .string()
+  .regex(/^ext_[A-Za-z0-9_-]{1,60}$/);
 
 const extensionFields = {
   server_name: nonempty.max(64),
@@ -183,12 +183,18 @@ function callShape(value: Call) {
   if (value.attempt === 0 && value.retry_of !== null) return false;
   if (value.retry_at !== null && value.attempt !== 1) return false;
   if (value.state === "requested") {
-    return value.started_at === null && value.finished_at === null &&
-      value.outcome === null;
+    return (
+      value.started_at === null &&
+      value.finished_at === null &&
+      value.outcome === null
+    );
   }
   if (value.state === "started") {
-    return value.started_at !== null && value.finished_at === null &&
-      value.outcome === null;
+    return (
+      value.started_at !== null &&
+      value.finished_at === null &&
+      value.outcome === null
+    );
   }
   if (value.finished_at === null || value.outcome === null) return false;
   if (value.outcome.kind === "success" && value.output === null) return false;
@@ -206,17 +212,20 @@ const toolCallOutputFields = {
   outcome: toolOutcomeOutputSchema.nullable(),
 };
 
-export const toolCallOutputSchema = z.object(toolCallOutputFields).refine(
-  callShape,
-  { message: "tool call state, outcome and retry do not agree" },
-);
+export const toolCallOutputSchema = z
+  .object(toolCallOutputFields)
+  .refine(callShape, {
+    message: "tool call state, outcome and retry do not agree",
+  });
 export type ToolCall = z.infer<typeof toolCallOutputSchema>;
 
 // 목록에 실어 보내는 call 하나. display는 저장하지 않는다.
-export const listedToolCallOutputSchema = z.object({
-  ...toolCallOutputFields,
-  display: toolCallDisplaySchema,
-}).refine(callShape, {
-  message: "tool call state, outcome and retry do not agree",
-});
+export const listedToolCallOutputSchema = z
+  .object({
+    ...toolCallOutputFields,
+    display: toolCallDisplaySchema,
+  })
+  .refine(callShape, {
+    message: "tool call state, outcome and retry do not agree",
+  });
 export type ListedToolCall = z.infer<typeof listedToolCallOutputSchema>;

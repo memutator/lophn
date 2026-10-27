@@ -76,14 +76,12 @@ export function useViewCover(
  * bounds를 받기 전의 view를 붙이지 않으므로 처음부터 안 보이는 view는 숨길 것이 없다. 층만
  * 바뀌면 view를 숨기지 않고 새 층을 다시 보낸다(effect를 다시 돌리면 hide로 깜빡인다).
  */
-export function useViewBounds(
-  input: {
-    views: LophnShellViewsApi;
-    viewSession: string | null;
-    shown: boolean;
-    ref: { readonly current: HTMLElement | null };
-  },
-): void {
+export function useViewBounds(input: {
+  views: LophnShellViewsApi;
+  viewSession: string | null;
+  shown: boolean;
+  ref: { readonly current: HTMLElement | null };
+}): void {
   const { views, viewSession, shown, ref } = input;
   const covers = useContext(ViewCoversContext);
   const layer = useContext(ViewLayerContext);
@@ -95,7 +93,8 @@ export function useViewBounds(
     const element = ref.current;
     if (viewSession === null || element === null || !shown) return;
     const hide = () =>
-      void views.setViewsHidden({ view_sessions: [viewSession] })
+      void views
+        .setViewsHidden({ view_sessions: [viewSession] })
         .catch(() => {});
     const list = covers ?? fallbackCovers;
     const relay = startBoundsRelay({
@@ -104,7 +103,8 @@ export function useViewBounds(
       onCoversChange: list.subscribe,
       layer: () => layerRef.current,
       send: (bounds: Rect, layer: number) =>
-        void views.setViewBounds({ view_session: viewSession, bounds, layer })
+        void views
+          .setViewBounds({ view_session: viewSession, bounds, layer })
           .catch(() => {}),
       hide,
       frame: {
@@ -197,7 +197,8 @@ export function EmbeddedView(props: EmbeddedViewProps) {
           state,
         });
       } else {
-        void views.closeView({ view_session: state.view_session })
+        void views
+          .closeView({ view_session: state.view_session })
           .catch(() => {});
       }
     };
@@ -210,9 +211,10 @@ export function EmbeddedView(props: EmbeddedViewProps) {
       setPhase("ready");
       stateListener.current?.(state);
     };
-    const kept = keepKey === undefined || keeps === null
-      ? undefined
-      : keeps.take<AppFrameViewState>(keepKey, signature);
+    const kept =
+      keepKey === undefined || keeps === null
+        ? undefined
+        : keeps.take<AppFrameViewState>(keepKey, signature);
     if (kept !== undefined) {
       show(kept.state);
     } else {
@@ -280,22 +282,22 @@ export function EmbeddedView(props: EmbeddedViewProps) {
       data-phase={phase}
       data-shown={shown}
     >
-      {phase === "failed"
-        ? (props.renderFailure?.(failure, retry) ?? (
+      {phase === "failed" ? (
+        (props.renderFailure?.(failure, retry) ?? (
           <ErrorState target={label} onRetry={retry} />
         ))
-        : (
-          <Loading
-            loading={phase === "opening"}
-            placeholder={
-              <div className={styles.placeholder} aria-busy="true">
-                <Skeleton lines={3} />
-              </div>
-            }
-          >
-            {null}
-          </Loading>
-        )}
+      ) : (
+        <Loading
+          loading={phase === "opening"}
+          placeholder={
+            <div className={styles.placeholder} aria-busy="true">
+              <Skeleton lines={3} />
+            </div>
+          }
+        >
+          {null}
+        </Loading>
+      )}
     </div>
   );
 }

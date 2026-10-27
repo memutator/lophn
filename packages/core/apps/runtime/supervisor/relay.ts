@@ -64,9 +64,11 @@ function unavailable(message: string): { sent: false; error: LophnError } {
 // 앱이 handler에 닿기 전에 거절한 본문(`{error: {code, message}}`)을 오류로 읽는다.
 function rejectionOf(status: number, body: string): LophnError {
   try {
-    const error = (JSON.parse(body) as {
-      error?: { code?: unknown; message?: unknown };
-    }).error;
+    const error = (
+      JSON.parse(body) as {
+        error?: { code?: unknown; message?: unknown };
+      }
+    ).error;
     const codes = [
       "invalid_input",
       "unauthorized",
@@ -79,12 +81,15 @@ function rejectionOf(status: number, body: string): LophnError {
     if (code !== undefined) {
       return {
         code,
-        message: typeof error?.message === "string"
-          ? error.message
-          : "the app process refused the request",
+        message:
+          typeof error?.message === "string"
+            ? error.message
+            : "the app process refused the request",
       };
     }
-  } catch { /* 본문이 JSON이 아니다 */ }
+  } catch {
+    /* 본문이 JSON이 아니다 */
+  }
   return {
     code: status === 400 ? "invalid_input" : "unavailable",
     message: "the app process refused the request",
@@ -93,7 +98,7 @@ function rejectionOf(status: number, body: string): LophnError {
 
 // 앱이 handler(또는 적용)에 닿기 전에 거절한 응답이다. 효과가 없었다.
 function refused(status: number): boolean {
-  return status >= 400 && status < 500 || status === 503;
+  return (status >= 400 && status < 500) || status === 503;
 }
 
 export function createRelay(deps: {
@@ -144,7 +149,9 @@ export function createRelay(deps: {
             JSON.parse(reply.body),
           );
           if (parsed.success) return { sent: true, response: parsed.data };
-        } catch { /* 아래에서 결과 모름이 된다 */ }
+        } catch {
+          /* 아래에서 결과 모름이 된다 */
+        }
         return { sent: true, response: null };
       }
       if (refused(reply.status)) {
@@ -172,9 +179,10 @@ export function createRelay(deps: {
           ok: false,
           error: {
             code: "unavailable",
-            message: reply.kind === "lost"
-              ? "the app process did not answer the apply"
-              : "the app process did not accept the connection",
+            message:
+              reply.kind === "lost"
+                ? "the app process did not answer the apply"
+                : "the app process did not accept the connection",
           },
         };
       }
@@ -184,7 +192,9 @@ export function createRelay(deps: {
             JSON.parse(reply.body),
           );
           if (parsed.success) return { ok: true, value: parsed.data };
-        } catch { /* 아래에서 unavailable이 된다 */ }
+        } catch {
+          /* 아래에서 unavailable이 된다 */
+        }
       }
       return {
         ok: false,

@@ -26,9 +26,10 @@ function fromRow(row: SqlRow): Result<Rewind> {
     from_invocation: row.from_invocation,
     requested_by: row.requested_by,
     status: row.status,
-    reason: row.reason_code === null
-      ? null
-      : { code: row.reason_code, message: row.reason_message },
+    reason:
+      row.reason_code === null
+        ? null
+        : { code: row.reason_code, message: row.reason_message },
     invocations,
     started_at: row.started_at,
     finished_at: row.finished_at,
@@ -78,9 +79,9 @@ export function loadRewinds(
   }
   params.push(filter.limit);
   const rows = sql.all(
-    `SELECT * FROM app_rewinds WHERE ${
-      where.join(" AND ")
-    } ORDER BY id DESC LIMIT ?`,
+    `SELECT * FROM app_rewinds WHERE ${where.join(
+      " AND ",
+    )} ORDER BY id DESC LIMIT ?`,
     params,
   );
   const rewinds: Rewind[] = [];
@@ -150,9 +151,7 @@ export function finishRewind(
 }
 
 // core가 rewind 도중 죽어 applying으로 남은 행. 접수 닫힘은 메모리라 재시작하면 저절로 열린다.
-export function closeInterruptedRewinds(
-  deps: { sql: Sql; now(): At },
-): number {
+export function closeInterruptedRewinds(deps: { sql: Sql; now(): At }): number {
   const changed = deps.sql.run(
     `UPDATE app_rewinds
      SET status = 'cancelled', reason_code = 'core_restarted',

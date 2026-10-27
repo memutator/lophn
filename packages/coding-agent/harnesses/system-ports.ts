@@ -64,10 +64,12 @@ export async function runProbe(
   const finished = new Promise<Result<ProbeOutput>>((resolve) => {
     // 실행 파일이 없거나 권한이 없으면 Node는 여기로 온다(Deno는 spawn이 던졌다).
     child.on("error", () => {
-      resolve(err({
-        code: "unavailable",
-        message: "probe를 실행하지 못했다(실행 권한 또는 파일)",
-      }));
+      resolve(
+        err({
+          code: "unavailable",
+          message: "probe를 실행하지 못했다(실행 권한 또는 파일)",
+        }),
+      );
     });
     child.on("close", (code) => {
       resolve(ok({ exit: code, text: `${stdout()}\n${stderr()}` }));

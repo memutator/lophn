@@ -254,25 +254,25 @@ export type HumanRecord = {
 // 동의는 session이 없고 turn request는 비교가 없어 갈래로 나눈다.
 export type HumanDecision =
   | {
-    at: string;
-    path: "consent";
-    app: string;
-    release: string;
-    comparison: ActivationComparison; // 사람이 본 비교 그대로
-    choice: "allow" | "reject";
-    rule: "allow" | "reject" | null; // 시나리오 규칙. null이면 규칙 없음
-    error: string | null;
-  }
+      at: string;
+      path: "consent";
+      app: string;
+      release: string;
+      comparison: ActivationComparison; // 사람이 본 비교 그대로
+      choice: "allow" | "reject";
+      rule: "allow" | "reject" | null; // 시나리오 규칙. null이면 규칙 없음
+      error: string | null;
+    }
   | {
-    at: string;
-    path: "turn";
-    session: string;
-    request: string; // apr_...
-    subject: TurnRequest["subject"];
-    choice: "once" | "always" | "reject";
-    rule: "once" | "always" | "reject" | null;
-    error: string | null;
-  };
+      at: string;
+      path: "turn";
+      session: string;
+      request: string; // apr_...
+      subject: TurnRequest["subject"];
+      choice: "once" | "always" | "reject";
+      rule: "once" | "always" | "reject" | null;
+      error: string | null;
+    };
 
 // run 요약(commit)에는 답 글을 넣지 않는다.
 export type HumanSummary = {
@@ -426,7 +426,10 @@ export function parseRef(text: string, kind?: VersionKind): VersionRef {
   const at = text.lastIndexOf("@");
   const n = Number(text.slice(at + 1));
   if (
-    at < 1 || !Number.isInteger(n) || n < 1 || !/^\d+$/.test(text.slice(at + 1))
+    at < 1 ||
+    !Number.isInteger(n) ||
+    n < 1 ||
+    !/^\d+$/.test(text.slice(at + 1))
   ) {
     throw new Error(`invalid version ref: ${text}`);
   }

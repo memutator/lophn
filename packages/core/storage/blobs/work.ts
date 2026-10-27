@@ -77,10 +77,14 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
   async function discard(file: FileHandle, path: string): Promise<void> {
     try {
       await file.close();
-    } catch { /* 이미 닫힌 파일 */ }
+    } catch {
+      /* 이미 닫힌 파일 */
+    }
     try {
       await rm(path);
-    } catch { /* 이미 사라진 파일 */ }
+    } catch {
+      /* 이미 사라진 파일 */
+    }
   }
 
   // 같은 파일 시스템의 hard link가 원자적 설치다. 기존 파일을 덮어쓰지 않는다.
@@ -109,7 +113,9 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
       } finally {
         try {
           await handle?.close();
-        } catch { /* 이미 닫힌 directory */ }
+        } catch {
+          /* 이미 닫힌 directory */
+        }
       }
     }
   }
@@ -118,7 +124,7 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
     root: deps.root,
     async prepare(input, bytes) {
       const tmpDir = tmpDirFor(deps.root);
-      if (!await ensureDir(tmpDir)) {
+      if (!(await ensureDir(tmpDir))) {
         return err({
           code: "unavailable",
           message: "임시 directory를 열 수 없다",
@@ -181,7 +187,7 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
         0,
         target.length - digest.slice(2).length - 1,
       );
-      if (!await ensureDir(objectsDir)) {
+      if (!(await ensureDir(objectsDir))) {
         await discard(handle, temporary);
         return err({
           code: "unavailable",
@@ -206,10 +212,14 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
       // link 설치 뒤 임시 이름만 떨어뜨린다. 설치 파일은 남는다.
       try {
         await handle.close();
-      } catch { /* 이미 닫힌 파일 */ }
+      } catch {
+        /* 이미 닫힌 파일 */
+      }
       try {
         await rm(temporary);
-      } catch { /* 이미 사라진 파일 */ }
+      } catch {
+        /* 이미 사라진 파일 */
+      }
       await syncDirs([tmpDir, objectsDir]);
       const observed = await observeBlob(deps.root, digest);
       if (!observed.ok) return observed;
@@ -238,9 +248,7 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
 function openTemporary(path: string): Promise<Result<FileHandle>> {
   return (async () => {
     try {
-      return ok(
-        await open(path, "wx+", 0o600),
-      );
+      return ok(await open(path, "wx+", 0o600));
     } catch {
       return err({ code: "unavailable", message: "임시 파일을 열 수 없다" });
     }
@@ -267,9 +275,9 @@ async function readBlobRange(
   offset: number,
   length: number,
 ): Promise<Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>> {
-  const path = `${root}/${BLOB_STORE_OBJECTS_DIR}/${hash.slice(0, 2)}/${
-    hash.slice(2)
-  }`;
+  const path = `${root}/${BLOB_STORE_OBJECTS_DIR}/${hash.slice(0, 2)}/${hash.slice(
+    2,
+  )}`;
   try {
     const file = await open(path, "r");
     try {

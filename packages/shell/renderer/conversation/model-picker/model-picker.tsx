@@ -25,17 +25,20 @@ export type {
 } from "./types.ts";
 
 function same(first: PickerModelRef, second: PickerModelRef): boolean {
-  return first.provider === second.provider &&
-    first.modelName === second.modelName;
+  return (
+    first.provider === second.provider && first.modelName === second.modelName
+  );
 }
 
-function ModelRow(
-  { row, current, onPick }: {
-    row: PickerModelRef;
-    current: boolean;
-    onPick: (model: PickerModelRef) => void;
-  },
-) {
+function ModelRow({
+  row,
+  current,
+  onPick,
+}: {
+  row: PickerModelRef;
+  current: boolean;
+  onPick: (model: PickerModelRef) => void;
+}) {
   return (
     <div
       role="option"
@@ -51,14 +54,9 @@ function ModelRow(
       }}
     >
       <span className={styles.check}>
-        {current
-          ? (
-            <Icon
-              icon={conversationIcons.current}
-              pixels={iconPixels("base")}
-            />
-          )
-          : null}
+        {current ? (
+          <Icon icon={conversationIcons.current} pixels={iconPixels("base")} />
+        ) : null}
       </span>
       <span className={styles.name}>{row.modelName}</span>
     </div>
@@ -66,17 +64,16 @@ function ModelRow(
 }
 
 /** 고른 model의 option 축만 보인다. 없으면 없다고 말한다. */
-export function OptionAxes(
-  { selection, onChange }: {
-    selection: Pick<ModelPickerProps, "axes" | "optionValues">;
-    onChange: (axis: string, value: string) => void;
-  },
-) {
+export function OptionAxes({
+  selection,
+  onChange,
+}: {
+  selection: Pick<ModelPickerProps, "axes" | "optionValues">;
+  onChange: (axis: string, value: string) => void;
+}) {
   if (selection.axes.length === 0) {
     return (
-      <p className={styles.note}>
-        {t("conversation.notice.no-model-options")}
-      </p>
+      <p className={styles.note}>{t("conversation.notice.no-model-options")}</p>
     );
   }
   return selection.axes.map((axis) => (
@@ -126,8 +123,8 @@ function LayerLine({ layer }: { layer: ModelPickerProps["layer"] }) {
 // 단추 글은 model 이름 뒤에 값이 있는 축의 표시 이름을 catalog가 준 순서대로 이어 붙인 것이다.
 function buttonText(props: ModelPickerProps): string {
   const values = props.axes.flatMap((axis) => {
-    const chosen = axis.values.find((item) =>
-      item.value === props.optionValues[axis.id]
+    const chosen = axis.values.find(
+      (item) => item.value === props.optionValues[axis.id],
     );
     return chosen ? [chosen.label] : [];
   });
@@ -141,14 +138,16 @@ function providerNameOf(props: ModelPickerProps): string | undefined {
 }
 
 /** Popover 안 목록. `inChat`이면 층 줄이 있다(칸 모양 trigger는 층 줄을 칸 아래에 둔다). */
-function PickerBody(
-  { props, inChat, onManage }: {
-    props: ModelPickerProps;
-    inChat: boolean;
-    /** Manage models 줄. null이면 줄이 없다(기본 model 대화창 안의 picker). */
-    onManage: (() => void) | null;
-  },
-) {
+function PickerBody({
+  props,
+  inChat,
+  onManage,
+}: {
+  props: ModelPickerProps;
+  inChat: boolean;
+  /** Manage models 줄. null이면 줄이 없다(기본 model 대화창 안의 picker). */
+  onManage: (() => void) | null;
+}) {
   const { layout, current, follow } = props;
   const ready = props.axesReady !== false;
   const empty = layout.providers.length === 0 && follow === undefined;
@@ -188,27 +187,23 @@ function PickerBody(
             }}
           >
             <span className={styles.check}>
-              {follow.on
-                ? (
-                  <Icon
-                    icon={conversationIcons.current}
-                    pixels={iconPixels("base")}
-                  />
-                )
-                : null}
+              {follow.on ? (
+                <Icon
+                  icon={conversationIcons.current}
+                  pixels={iconPixels("base")}
+                />
+              ) : null}
             </span>
             <span className={styles.name}>{follow.label}</span>
           </div>
         )}
-        {empty
-          ? (
-            <p className={styles.note}>
-              {props.query.trim() === ""
-                ? t("conversation.notice.no-shown-models")
-                : t("conversation.notice.no-models")}
-            </p>
-          )
-          : null}
+        {empty ? (
+          <p className={styles.note}>
+            {props.query.trim() === ""
+              ? t("conversation.notice.no-shown-models")
+              : t("conversation.notice.no-models")}
+          </p>
+        ) : null}
         {layout.providers.map((group) => (
           <div
             key={group.provider}
@@ -228,23 +223,19 @@ function PickerBody(
           </div>
         ))}
       </div>
-      {ready && current.modelName !== ""
-        ? (
-          <div className={styles.axes} data-picker-section="axes">
-            <OptionAxes selection={props} onChange={props.onOptionChange} />
-          </div>
-        )
-        : null}
-      {onManage === null
-        ? null
-        : (
-          <div className={styles.foot} data-picker-section="foot">
-            <PopoverRow onSelect={onManage}>
-              <Icon icon={commonIcons.settings} pixels={iconPixels("base")} />
-              {t("conversation.button.manage-models")}
-            </PopoverRow>
-          </div>
-        )}
+      {ready && current.modelName !== "" ? (
+        <div className={styles.axes} data-picker-section="axes">
+          <OptionAxes selection={props} onChange={props.onOptionChange} />
+        </div>
+      ) : null}
+      {onManage === null ? null : (
+        <div className={styles.foot} data-picker-section="foot">
+          <PopoverRow onSelect={onManage}>
+            <Icon icon={commonIcons.settings} pixels={iconPixels("base")} />
+            {t("conversation.button.manage-models")}
+          </PopoverRow>
+        </div>
+      )}
     </div>
   );
 }
@@ -253,13 +244,15 @@ function PickerBody(
  * trigger만 다른 Popover 하나. Manage models 줄은 `useManageModels()`가 null이 아닐 때만 있다. 누르면 목록을 닫고
  * Manage models 창을 연다.
  */
-function PickerPopover(
-  { props, trigger, inChat }: {
-    props: ModelPickerProps;
-    trigger: ReactElement;
-    inChat: boolean;
-  },
-) {
+function PickerPopover({
+  props,
+  trigger,
+  inChat,
+}: {
+  props: ModelPickerProps;
+  trigger: ReactElement;
+  inChat: boolean;
+}) {
   const manage = useManageModels();
   return (
     <Popover
@@ -270,10 +263,14 @@ function PickerPopover(
       <PickerBody
         props={props}
         inChat={inChat}
-        onManage={manage === null ? null : () => {
-          props.onOpenChange(false);
-          manage.open();
-        }}
+        onManage={
+          manage === null
+            ? null
+            : () => {
+                props.onOpenChange(false);
+                manage.open();
+              }
+        }
       />
     </Popover>
   );
@@ -299,14 +296,16 @@ export function ModelPicker(props: ModelPickerProps): ReactNode {
  * 칸 모양 trigger(고른 model과 provider, vendor 아이콘). 따르는 칸은 따르기 줄의 글을 보인다. 바꾼 칸(`reset`)에는
  * Changed와 [Reset]이 붙고, 지금 model의 층 한 줄이 칸 아래에 있다.
  */
-export function ModelPickerField(
-  { props, label, reset }: {
-    props: ModelPickerProps;
-    label: string;
-    /** 바꾼 칸이면 값을 되돌리는 길. 따르는 중이거나 되돌릴 위 층이 없으면 없다. */
-    reset?: { readonly note?: string; readonly onReset: () => void };
-  },
-) {
+export function ModelPickerField({
+  props,
+  label,
+  reset,
+}: {
+  props: ModelPickerProps;
+  label: string;
+  /** 바꾼 칸이면 값을 되돌리는 길. 따르는 중이거나 되돌릴 위 층이 없으면 없다. */
+  reset?: { readonly note?: string; readonly onReset: () => void };
+}) {
   const provider = providerNameOf(props);
   const vendor = provider === undefined ? undefined : vendorOf(provider);
   const following = props.follow?.on === true;
@@ -323,44 +322,40 @@ export function ModelPickerField(
             data-model-button=""
           >
             <span className={styles.fieldValue}>
-              {following
-                ? <span className={styles.name}>{props.follow?.label}</span>
-                : props.current.modelName === ""
-                ? (
-                  <span className={styles.fieldEmpty}>
-                    {t("agents.label.no-model-chosen")}
-                  </span>
-                )
-                : (
-                  <>
-                    {vendor === undefined
-                      ? null
-                      : <VendorIcon vendor={vendor} size={14} />}
-                    <span className={styles.name}>
-                      {props.current.modelName}
-                    </span>
-                    {provider === undefined
-                      ? null
-                      : <span className={styles.provider}>{provider}</span>}
-                  </>
-                )}
+              {following ? (
+                <span className={styles.name}>{props.follow?.label}</span>
+              ) : props.current.modelName === "" ? (
+                <span className={styles.fieldEmpty}>
+                  {t("agents.label.no-model-chosen")}
+                </span>
+              ) : (
+                <>
+                  {vendor === undefined ? null : (
+                    <VendorIcon vendor={vendor} size={14} />
+                  )}
+                  <span className={styles.name}>{props.current.modelName}</span>
+                  {provider === undefined ? null : (
+                    <span className={styles.provider}>{provider}</span>
+                  )}
+                </>
+              )}
             </span>
             <Icon icon={conversationIcons.expand} pixels={iconPixels("base")} />
           </button>
         }
       />
       <LayerLine layer={props.layer} />
-      {props.axesReady !== false && props.current.modelName !== ""
-        ? <OptionAxes selection={props} onChange={props.onOptionChange} />
-        : null}
+      {props.axesReady !== false && props.current.modelName !== "" ? (
+        <OptionAxes selection={props} onChange={props.onOptionChange} />
+      ) : null}
       {reset === undefined ? null : (
         <p className={styles.changedRow}>
           <span className={styles.changed}>
             {t("conversation.label.model-changed")}
           </span>
-          {reset.note === undefined
-            ? null
-            : <span className={styles.changedNote}>{reset.note}</span>}
+          {reset.note === undefined ? null : (
+            <span className={styles.changedNote}>{reset.note}</span>
+          )}
           <Button size="sm" variant="ghost" onClick={reset.onReset}>
             {t("conversation.button.model-reset")}
           </Button>

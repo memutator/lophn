@@ -31,9 +31,10 @@ export function AgentTab(props: AgentTabProps) {
     () =>
       slice.factory({
         assignment: agent,
-        place: place === null
-          ? { kind: "global", id: "" }
-          : { kind: "project", id: place },
+        place:
+          place === null
+            ? { kind: "global", id: "" }
+            : { kind: "project", id: place },
       }),
     [slice.factory, agent, place],
   );

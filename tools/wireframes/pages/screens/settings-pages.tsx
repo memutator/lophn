@@ -59,10 +59,7 @@ export const SettingsShellRulesAdd = () => (
     pane="shell-rules"
     steps={[
       () =>
-        type(
-          '[data-layer="global"] [data-add-rule] input',
-          "npm publish *",
-        ),
+        type('[data-layer="global"] [data-add-rule] input', "npm publish *"),
       () =>
         press('[data-layer="global"] [data-add-rule] button[role="combobox"]'),
       () => click('[role="option"]', "Ask"),

@@ -15,7 +15,8 @@ export async function loadCriterion(ref: string): Promise<Criterion> {
   }
   const { verdicts, pass } = criterion;
   if (
-    !verdicts.includes("cannot_tell") || pass.includes("cannot_tell") ||
+    !verdicts.includes("cannot_tell") ||
+    pass.includes("cannot_tell") ||
     !pass.every((verdict) => verdicts.includes(verdict))
   ) {
     throw new Error(`criterion ${ref}의 verdicts나 pass가 틀렸다`);

@@ -9,7 +9,7 @@ export async function restoreAppProject(
   ctx: SetupContext,
   slug: string,
 ): Promise<Id<"prj">> {
-  const project = await openAppProject(ctx.core, slug) as Id<"prj">;
+  const project = (await openAppProject(ctx.core, slug)) as Id<"prj">;
   ctx.world.projects[appProjectName(slug)] = project;
   return project;
 }

@@ -26,11 +26,11 @@ export type AppChild = {
 
 type ProbeResult =
   | {
-    ok: true;
-    tools: string[];
-    dataSchema: number;
-    bundleHash: string;
-  }
+      ok: true;
+      tools: string[];
+      dataSchema: number;
+      bundleHash: string;
+    }
   | { ok: false; reason: string };
 
 export type DesiredApp = {
@@ -52,21 +52,21 @@ export type DesiredApp = {
 // 프로세스 실패의 근거가 되는 사실. 조립이 앱 log 한 줄로 쓴다.
 export type SupervisorEvent =
   | {
-    kind: "exit";
-    app: string;
-    desired: DesiredApp;
-    processNonce: string;
-    // 정지 요청 전에 의도된 종료로 표시한 종료다.
-    intended: boolean;
-    exitCode: number | null;
-  }
+      kind: "exit";
+      app: string;
+      desired: DesiredApp;
+      processNonce: string;
+      // 정지 요청 전에 의도된 종료로 표시한 종료다.
+      intended: boolean;
+      exitCode: number | null;
+    }
   | {
-    kind: "start_failed";
-    app: string;
-    desired: DesiredApp;
-    processNonce?: string;
-    reason: { code: string; summary: string };
-  }
+      kind: "start_failed";
+      app: string;
+      desired: DesiredApp;
+      processNonce?: string;
+      reason: { code: string; summary: string };
+    }
   | { kind: "crash_loop"; app: string; desired: DesiredApp; exits: number };
 
 export type SupervisorDeps = {
@@ -157,8 +157,11 @@ type Tracked = {
 
 // 진행 호출이 끝날 시간을 주는 정지. daemon 종료·core 단절은 바로 끝낸다.
 function graceful(reason: StopReason): boolean {
-  return reason === "user_stop" || reason === "release_change" ||
-    reason === "restart";
+  return (
+    reason === "user_stop" ||
+    reason === "release_change" ||
+    reason === "restart"
+  );
 }
 
 const CRASH_LOOP = {
@@ -230,15 +233,15 @@ export type ControlTarget = {
 // 후보 시작의 결과다. 준비 모드의 자식이 hash·handler·schema·연결 검사를 통과했다는 확인이다.
 type CandidateStart =
   | {
-    ok: true;
-    processNonce: string;
-    attestation: {
-      release: string;
-      bundleHash: string;
-      tools: string[];
-      dataSchema: number;
-    };
-  }
+      ok: true;
+      processNonce: string;
+      attestation: {
+        release: string;
+        bundleHash: string;
+        tools: string[];
+        dataSchema: number;
+      };
+    }
   | { ok: false; reason: string };
 
 function startLine(input: {
@@ -281,9 +284,8 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       if (!result.ok) runtime.recordFailed = result.error.message;
       return result.ok;
     } catch (error) {
-      runtime.recordFailed = error instanceof Error
-        ? error.message
-        : "record failed";
+      runtime.recordFailed =
+        error instanceof Error ? error.message : "record failed";
       return false;
     }
   }
@@ -291,7 +293,9 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
   function emit(event: SupervisorEvent): void {
     try {
       deps.onEvent?.(event);
-    } catch { /* 관측 전달 실패가 supervisor를 멈추지 않는다 */ }
+    } catch {
+      /* 관측 전달 실패가 supervisor를 멈추지 않는다 */
+    }
   }
 
   function runtimeOf(app: string): AppRuntime {
@@ -320,11 +324,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
     tracked.intended = reason;
     if (graceful(reason) && deps.requestStop) {
       try {
-        await deps.requestStop(
-          tracked.child,
-          tracked.control,
-          tracked.desired,
-        );
+        await deps.requestStop(tracked.child, tracked.control, tracked.desired);
       } catch {
         // 요청이 닿지 않아도 유예 뒤 강제 종료가 이어진다.
       }
@@ -444,7 +444,8 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
     }
     const declared = [...desired.tools].sort();
     const reported = [...probe.tools].sort();
-    const commandsMatch = declared.length === reported.length &&
+    const commandsMatch =
+      declared.length === reported.length &&
       declared.every((key, index) => key === reported[index]);
     if (!commandsMatch || probe.dataSchema !== desired.dataSchema) {
       await failStart(runtime, tracked, {
@@ -566,10 +567,12 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       method: "record_unavailable",
       app: desired.app,
       release: desired.release,
-      ...(exited === undefined ? {} : {
-        process_nonce: exited.child.identity.processNonce,
-        started_at: startedAt(exited.child.identity.startedAtMs),
-      }),
+      ...(exited === undefined
+        ? {}
+        : {
+            process_nonce: exited.child.identity.processNonce,
+            started_at: startedAt(exited.child.identity.startedAtMs),
+          }),
       reason: CRASH_LOOP,
     });
   }
@@ -595,9 +598,11 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       if (!confirmed) return;
     }
     if (
-      runtime.tracked && runtime.tracked.desired.release === desired.release &&
+      runtime.tracked &&
+      runtime.tracked.desired.release === desired.release &&
       runtime.tracked.desired.bundleHash === desired.bundleHash
-    ) return;
+    )
+      return;
     if (runtime.tracked) {
       const confirmed = await stopTracked(runtime, "release_change");
       if (!confirmed) return;
@@ -682,9 +687,14 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       await enqueue(runtime, async () => {
         const tracked = runtime.tracked;
         if (
-          closed || tracked === undefined || tracked.intended !== undefined ||
-          !tracked.probed || tracked.opened || tracked.attestation === undefined
-        ) return;
+          closed ||
+          tracked === undefined ||
+          tracked.intended !== undefined ||
+          !tracked.probed ||
+          tracked.opened ||
+          tracked.attestation === undefined
+        )
+          return;
         opened = await openTracked(runtime, tracked, tracked.attestation);
         // 채택된 release의 자식이 열렸다. 붙들기를 풀 때 이 자식을 이전 상태로 되돌리지 않는다.
         if (opened) runtime.desired = tracked.desired;
@@ -702,7 +712,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
     async coreClosed() {
       closed = true;
       const stops = [...apps.values()].map((runtime) =>
-        enqueue(runtime, () => stopTracked(runtime, "core_eof"))
+        enqueue(runtime, () => stopTracked(runtime, "core_eof")),
       );
       await Promise.all(stops);
     },
@@ -725,9 +735,12 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       const runtime = apps.get(app);
       const tracked = runtime?.tracked;
       if (
-        tracked === undefined || tracked.intended !== undefined ||
-        !tracked.probed || !tracked.opened
-      ) return undefined;
+        tracked === undefined ||
+        tracked.intended !== undefined ||
+        !tracked.probed ||
+        !tracked.opened
+      )
+        return undefined;
       return {
         socket: tracked.control,
         release: tracked.desired.release,
@@ -755,8 +768,8 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
         ...(tracked !== undefined && tracked.intended !== undefined
           ? { reason: TERMINATING }
           : runtime.held && desired?.runEnabled
-          ? { reason: runtime.held }
-          : {}),
+            ? { reason: runtime.held }
+            : {}),
         ...(runtime.recordFailed ? { recordFailed: runtime.recordFailed } : {}),
       };
     },
@@ -764,7 +777,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       closed = true;
       await Promise.all(
         [...apps.values()].map((runtime) =>
-          enqueue(runtime, () => stopTracked(runtime, "daemon_shutdown"))
+          enqueue(runtime, () => stopTracked(runtime, "daemon_shutdown")),
         ),
       );
     },

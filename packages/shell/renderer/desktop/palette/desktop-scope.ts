@@ -17,10 +17,10 @@ export interface FileOpen {
 export type DesktopTarget =
   | { readonly kind: "project"; readonly id: string }
   | {
-    readonly kind: "file";
-    readonly project: string;
-    readonly file: FileOpen;
-  }
+      readonly kind: "file";
+      readonly project: string;
+      readonly file: FileOpen;
+    }
   | { readonly kind: "app"; readonly id: string }
   | { readonly kind: "settings" }
   | { readonly kind: "launcher" };
@@ -78,24 +78,24 @@ export function desktopScope(
     ],
     search: search
       ? async (query) =>
-        (await search(query)).map((hit) => {
-          const title = input.catalog.projects.find((row) =>
-            row.id === hit.project
-          )?.title;
-          return {
-            group: "files" as const,
-            key: `file:${hit.project}:${hit.file}:${hit.line}`,
-            label: `${hit.path}:${hit.line}`,
-            detail: title === undefined ? hit.text : `${title} · ${hit.text}`,
-            icon: "file" as const,
-            found: true,
-            target: {
-              kind: "file" as const,
-              project: hit.project,
-              file: { path: hit.file, line: hit.line },
-            },
-          };
-        })
+          (await search(query)).map((hit) => {
+            const title = input.catalog.projects.find(
+              (row) => row.id === hit.project,
+            )?.title;
+            return {
+              group: "files" as const,
+              key: `file:${hit.project}:${hit.file}:${hit.line}`,
+              label: `${hit.path}:${hit.line}`,
+              detail: title === undefined ? hit.text : `${title} · ${hit.text}`,
+              icon: "file" as const,
+              found: true,
+              target: {
+                kind: "file" as const,
+                project: hit.project,
+                file: { path: hit.file, line: hit.line },
+              },
+            };
+          })
       : undefined,
     choose: input.go,
   };

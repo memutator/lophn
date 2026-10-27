@@ -28,8 +28,7 @@ const SOURCES = {
   },
   // turn이 고정한 resolved agent 전체 값이다. 표 열이 없어 참조 행이 곧 근거다.
   turn_resolved: {
-    sql:
-      "select owner_key as turn, hash from blob_refs where owner_kind = 'turn' and field = 'resolved' and owner_key = ?",
+    sql: "select owner_key as turn, hash from blob_refs where owner_kind = 'turn' and field = 'resolved' and owner_key = ?",
     owner: "turn",
     field: "resolved",
   },
@@ -39,8 +38,7 @@ const SOURCES = {
     field: "input",
   },
   model_call_output: {
-    sql:
-      "select id, turn, output as hash from model_calls where id = ? and turn is not null",
+    sql: "select id, turn, output as hash from model_calls where id = ? and turn is not null",
     owner: "model_call",
     field: "output",
   },
@@ -69,9 +67,13 @@ async function loadStored(
   source: Source,
   id: string,
 ): Promise<
-  Result<
-    { turn: string; hash: string; size: number; asOf: string; value: unknown }
-  >
+  Result<{
+    turn: string;
+    hash: string;
+    size: number;
+    asOf: string;
+    value: unknown;
+  }>
 > {
   const found = environment.snapshot<Found | undefined>((sql, asOfSeq) => {
     const row = sql.get(source.sql, [id]);
@@ -87,7 +89,8 @@ async function loadStored(
     if (
       ref?.["hash"] !== hash ||
       (typeof size !== "bigint" && typeof size !== "number")
-    ) return unavailable();
+    )
+      return unavailable();
     return ok({
       turn: String(row["turn"]),
       hash,

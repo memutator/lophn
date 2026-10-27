@@ -43,7 +43,9 @@ export function createWorkerChannel(
   function leave(id: string): ((answer: Result<unknown>) => void) | undefined {
     const settle = pending.get(id);
     pending.delete(id);
-    if (pending.size === 0) { for (const wake of idle.splice(0)) wake(); }
+    if (pending.size === 0) {
+      for (const wake of idle.splice(0)) wake();
+    }
     return settle;
   }
 
@@ -122,9 +124,7 @@ export function createWorkerChannel(
       if (replacing !== null) {
         const left = await untilReplaced(replacing, timeoutMs);
         if (left === undefined) {
-          return unavailable(
-            "worker를 바꾸는 중이라 시간 안에 닿지 못했다",
-          );
+          return unavailable("worker를 바꾸는 중이라 시간 안에 닿지 못했다");
         }
         budget = left;
       }
@@ -159,10 +159,12 @@ export function createWorkerChannel(
       const settle = leave(message.request_id);
       if (!settle) return;
       settle(
-        message.ok ? ok(message.payload) : err({
-          code: message.error.code,
-          message: "worker가 요청을 거절했다",
-        }),
+        message.ok
+          ? ok(message.payload)
+          : err({
+              code: message.error.code,
+              message: "worker가 요청을 거절했다",
+            }),
       );
     },
     bind(next) {

@@ -20,8 +20,11 @@ function hasWordStartingWith(text: string, separator: RegExp, query: string) {
 function matches(entry: CommandEntry, query: string): boolean {
   if (query === "") return true;
   const name = entry.name.toLowerCase();
-  return name.startsWith(query) || hasWordStartingWith(name, /-/, query) ||
-    hasWordStartingWith(entry.description.toLowerCase(), /\s+/, query);
+  return (
+    name.startsWith(query) ||
+    hasWordStartingWith(name, /-/, query) ||
+    hasWordStartingWith(entry.description.toLowerCase(), /\s+/, query)
+  );
 }
 
 // `query`는 `/` 뒤에 사람이 지금까지 친 글자다. 빈 문자열이면 전부다.
@@ -36,8 +39,8 @@ export function listCommands(
   const titles = { builtin: "Commands", skill: "Skills" } as const;
   const groups: CommandGroup[] = [];
   for (const source of GROUP_ORDER) {
-    const entries = registry.entries.filter((entry) =>
-      entry.source === source && matches(entry, needle)
+    const entries = registry.entries.filter(
+      (entry) => entry.source === source && matches(entry, needle),
     );
     if (entries.length > 0) {
       groups.push({ source, title: titles[source], entries });

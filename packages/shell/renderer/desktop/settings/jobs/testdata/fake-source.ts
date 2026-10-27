@@ -207,7 +207,7 @@ export function fakeJobs(options: Partial<FakeJobsOptions> = {}) {
   const runs = options.runs ?? RUNS;
   const names = options.names ?? NAMES;
   const change = (job: string, next: (one: JobView) => JobView) => {
-    jobs = jobs.map((one) => one.id === job ? next(one) : one);
+    jobs = jobs.map((one) => (one.id === job ? next(one) : one));
     return Promise.resolve({ ok: true as const, value: null });
   };
   const source: JobsSource = {

@@ -20,8 +20,12 @@ type DaemonAddress = {
 
 // loopback host만 받는다.
 function loopbackHost(host: string): boolean {
-  return host === "127.0.0.1" || host === "localhost" || host === "[::1]" ||
-    host === "::1";
+  return (
+    host === "127.0.0.1" ||
+    host === "localhost" ||
+    host === "[::1]" ||
+    host === "::1"
+  );
 }
 
 type ParsedAddress = { scheme: string; host: string; port: string };
@@ -65,9 +69,7 @@ function acceptAddress(
 }
 
 // 현재 daemon 연결 정보는 H/run/location.json의 위치 metadata다. credential은 없다.
-function runMetadataAddress(
-  value: unknown,
-): Result<DaemonAddress> {
+function runMetadataAddress(value: unknown): Result<DaemonAddress> {
   const parsed = runMetadataSchema.safeParse(value);
   if (!parsed.success) {
     return err({ code: "not_found", message: "위치 metadata가 올바르지 않다" });
@@ -86,14 +88,17 @@ function installSettingsAddress(
 ): Result<DaemonAddress> {
   const port = settings?.port;
   if (
-    typeof port !== "number" || !Number.isInteger(port) || port < 1 ||
+    typeof port !== "number" ||
+    !Number.isInteger(port) ||
+    port < 1 ||
     port > 65535
   ) {
     return err({ code: "not_found", message: "설치 설정에 port가 없다" });
   }
-  const host = typeof settings?.host === "string" && settings.host !== ""
-    ? settings.host
-    : "127.0.0.1";
+  const host =
+    typeof settings?.host === "string" && settings.host !== ""
+      ? settings.host
+      : "127.0.0.1";
   if (!loopbackHost(host)) {
     return err({
       code: "invalid_input",
@@ -159,8 +164,10 @@ export function discoverDaemonAddress(sources: {
 }): Result<DaemonAddress> {
   let runMetadata: unknown;
   if (
-    sources.option === undefined && sources.env === undefined &&
-    sources.dataRoot !== undefined && sources.dataRoot !== ""
+    sources.option === undefined &&
+    sources.env === undefined &&
+    sources.dataRoot !== undefined &&
+    sources.dataRoot !== ""
   ) {
     const text = sources.readText(
       `${sources.dataRoot.replace(/\/$/, "")}/run/location.json`,

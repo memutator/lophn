@@ -33,14 +33,16 @@ const stateText = (job: JobView): string =>
     ? t("jobs.label.waiting-decision")
     : nextText(job, new Date());
 
-export function JobPanel(
-  { project, source, onOpenSettings }: {
-    project: string;
-    source: JobsSource;
-    /** Settings › System › Scheduled jobs를 연다. */
-    onOpenSettings: () => void;
-  },
-) {
+export function JobPanel({
+  project,
+  source,
+  onOpenSettings,
+}: {
+  project: string;
+  source: JobsSource;
+  /** Settings › System › Scheduled jobs를 연다. */
+  onOpenSettings: () => void;
+}) {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   const [notice, setNotice] = useState<string | null>(null);
   const load = useCallback(() => {
@@ -78,59 +80,60 @@ export function JobPanel(
   if (loaded.state === "loading") return null;
   return (
     <>
-      {notice === null
-        ? null
-        : <p className={styles.notice} role="alert">{notice}</p>}
-      {loaded.jobs.length === 0
-        ? (
-          <div data-jobs-empty="">
-            <p className={sidebar.empty}>{t("jobs.empty.sidebar")}</p>
-            <p className={sidebar.empty}>{t("jobs.empty.sidebar-ask")}</p>
-          </div>
-        )
-        : (
-          <ul
-            className={sidebar.list}
-            role="list"
-            aria-label={t("jobs.label.sidebar-tab")}
-          >
-            {loaded.jobs.map((job) => (
-              <li key={job.id} className={styles.row} data-job={job.id}>
-                <button
-                  type="button"
-                  className={styles.main}
-                  onClick={onOpenSettings}
-                >
-                  <span className={styles.title}>{job.title}</span>
-                  <span className={styles.meta}>
-                    <span>
-                      {scheduleText(job.every, job.at)} · {stateText(job)}
-                    </span>
-                    {job.last_run?.state === "failed"
-                      ? (
-                        <StatusMark
-                          tone={STATE.failed.tone}
-                          label={t(STATE.failed.label)}
-                        />
-                      )
-                      : null}
+      {notice === null ? null : (
+        <p className={styles.notice} role="alert">
+          {notice}
+        </p>
+      )}
+      {loaded.jobs.length === 0 ? (
+        <div data-jobs-empty="">
+          <p className={sidebar.empty}>{t("jobs.empty.sidebar")}</p>
+          <p className={sidebar.empty}>{t("jobs.empty.sidebar-ask")}</p>
+        </div>
+      ) : (
+        <ul
+          className={sidebar.list}
+          role="list"
+          aria-label={t("jobs.label.sidebar-tab")}
+        >
+          {loaded.jobs.map((job) => (
+            <li key={job.id} className={styles.row} data-job={job.id}>
+              <button
+                type="button"
+                className={styles.main}
+                onClick={onOpenSettings}
+              >
+                <span className={styles.title}>{job.title}</span>
+                <span className={styles.meta}>
+                  <span>
+                    {scheduleText(job.every, job.at)} · {stateText(job)}
                   </span>
-                </button>
-                <div className={styles.switchSlot}>
-                  <Switch
-                    size="sm"
-                    label={job.enabled
+                  {job.last_run?.state === "failed" ? (
+                    <StatusMark
+                      tone={STATE.failed.tone}
+                      label={t(STATE.failed.label)}
+                    />
+                  ) : null}
+                </span>
+              </button>
+              <div className={styles.switchSlot}>
+                <Switch
+                  size="sm"
+                  label={
+                    job.enabled
                       ? t("settings.label.value-on")
-                      : t("settings.label.value-off")}
-                    checked={job.enabled}
-                    onCheckedChange={(enabled) =>
-                      void setEnabled(job.id, enabled)}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+                      : t("settings.label.value-off")
+                  }
+                  checked={job.enabled}
+                  onCheckedChange={(enabled) =>
+                    void setEnabled(job.id, enabled)
+                  }
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
       <div className={styles.footer}>
         <Button size="sm" variant="ghost" onClick={onOpenSettings}>
           {t("jobs.button.open-all")}

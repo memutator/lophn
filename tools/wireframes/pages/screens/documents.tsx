@@ -51,17 +51,21 @@ const textOf = (path: string) => fakeTextOf(path) ?? "";
  * 문서 칸 본문. 확장자로 viewer를 고른다. `info`가 있으면 오른쪽에 info panel이 본문 위로 떠서 열린다(본문 폭은 그대로).
  * 다른 칸은 덮지 않는다. `file`은 이 탭의 시작 상태(저장 상태, 밖에서 바뀐 알림, 열린 줄)다.
  */
-export function DocumentPane(
-  { path, info, editing, onEditing, file }: {
-    path: string;
-    info: InfoPanel | null;
-    onInfo?: (panel: InfoPanel) => void;
-    onToggleInfo?: () => void;
-    editing: boolean;
-    onEditing: () => void;
-    file?: FileInit;
-  },
-) {
+export function DocumentPane({
+  path,
+  info,
+  editing,
+  onEditing,
+  file,
+}: {
+  path: string;
+  info: InfoPanel | null;
+  onInfo?: (panel: InfoPanel) => void;
+  onToggleInfo?: () => void;
+  editing: boolean;
+  onEditing: () => void;
+  file?: FileInit;
+}) {
   const kind = fileKindOf(path);
   const text = textOf(path);
   const facts = factsOf(
@@ -90,18 +94,16 @@ export function DocumentPane(
     setStatus("saved");
     setComparing(false);
   };
-  const toasts = conflict
-    ? (
-      <ConflictToast
-        comparing={comparing}
-        onCompare={() => setComparing(!comparing)}
-        onKeepMine={resolve}
-        onUseDisk={resolve}
-      />
-    )
-    : reloaded
-    ? <ReloadedToast onDismiss={() => setReloaded(false)} />
-    : null;
+  const toasts = conflict ? (
+    <ConflictToast
+      comparing={comparing}
+      onCompare={() => setComparing(!comparing)}
+      onKeepMine={resolve}
+      onUseDisk={resolve}
+    />
+  ) : reloaded ? (
+    <ReloadedToast onDismiss={() => setReloaded(false)} />
+  ) : null;
   return (
     <FileFrame
       path={path}
@@ -119,8 +121,9 @@ export function DocumentPane(
         currentKey: current,
         onJump: (section) => {
           setCurrent(section.key);
-          const heading = [...article.current?.querySelectorAll("h1, h2") ?? []]
-            .find((element) => element.textContent?.trim() === section.title);
+          const heading = [
+            ...(article.current?.querySelectorAll("h1, h2") ?? []),
+          ].find((element) => element.textContent?.trim() === section.title);
           heading?.scrollIntoView({ block: "start", behavior: "smooth" });
         },
       }}
@@ -128,25 +131,25 @@ export function DocumentPane(
       onDelete={() => Promise.resolve(true)}
       toasts={toasts}
     >
-      {conflict && comparing
-        ? <ConflictCompare />
-        : kind === "markdown"
-        ? (
-          <MarkdownPane
-            text={text}
-            label={path}
-            editing={editing}
-            width={width}
-            scrollRef={scroller}
-            articleRef={article}
-            editorRef={editor}
-          />
-        )
-        : kind === "text"
-        ? <TextEditor path={path} line={file?.line} />
-        : kind === "image"
-        ? <ImageViewer path={path} />
-        : <PdfViewer path={path} />}
+      {conflict && comparing ? (
+        <ConflictCompare />
+      ) : kind === "markdown" ? (
+        <MarkdownPane
+          text={text}
+          label={path}
+          editing={editing}
+          width={width}
+          scrollRef={scroller}
+          articleRef={article}
+          editorRef={editor}
+        />
+      ) : kind === "text" ? (
+        <TextEditor path={path} line={file?.line} />
+      ) : kind === "image" ? (
+        <ImageViewer path={path} />
+      ) : (
+        <PdfViewer path={path} />
+      )}
     </FileFrame>
   );
 }

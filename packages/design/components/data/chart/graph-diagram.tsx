@@ -24,13 +24,15 @@ export interface GraphDiagramProps extends ChartStateProps, ChartLocaleProps {
 // 화살표 끝 크기. 선 1px에 맞춘 작은 삼각형이다.
 const ARROW = GEOMETRY.pad;
 
-function GraphPlot(
-  { width, nodes, edges }: {
-    width: number;
-    nodes: readonly GraphNode[];
-    edges: readonly GraphEdge[];
-  },
-) {
+function GraphPlot({
+  width,
+  nodes,
+  edges,
+}: {
+  width: number;
+  nodes: readonly GraphNode[];
+  edges: readonly GraphEdge[];
+}) {
   const layout = useMemo(() => layoutGraph(nodes, edges), [nodes, edges]);
   // url(#…) 안에서 깨지지 않도록 React id의 기호를 뺀다.
   const marker = `arrow-${useId().replace(/[^A-Za-z0-9_-]/g, "")}`;
@@ -154,9 +156,11 @@ function GraphPlot(
             box={box}
             width={svgWidth}
             title={current.label}
-            rows={current.note === undefined
-              ? []
-              : [{ name: current.note, value: "" }]}
+            rows={
+              current.note === undefined
+                ? []
+                : [{ name: current.note, value: "" }]
+            }
           />
         )}
       </svg>
@@ -165,9 +169,13 @@ function GraphPlot(
 }
 
 // node와 edge로 된 도표. 층 배치는 결정적이고 node는 중립색이라 표 보기를 두지 않는다.
-export function GraphDiagram(
-  { nodes, edges, locale, timeZone, ...state }: GraphDiagramProps,
-) {
+export function GraphDiagram({
+  nodes,
+  edges,
+  locale,
+  timeZone,
+  ...state
+}: GraphDiagramProps) {
   const check = useMemo(() => checkGraph({ nodes, edges }), [nodes, edges]);
   return (
     <ChartFrame
@@ -186,7 +194,8 @@ export function GraphDiagram(
             nodes={check.value.nodes}
             edges={check.value.edges}
           />
-        )}
+        )
+      }
     </ChartFrame>
   );
 }

@@ -103,7 +103,8 @@ function cutToFit(text: string): string {
   const sliced = encoded.subarray(Math.max(0, encoded.byteLength - MAX_BYTES));
   let start = 0;
   while (
-    start < sliced.length && (sliced[start]! & 0b1100_0000) === 0b1000_0000
+    start < sliced.length &&
+    (sliced[start]! & 0b1100_0000) === 0b1000_0000
   ) {
     start++;
   }

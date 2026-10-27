@@ -61,10 +61,7 @@ function replaceControlTokens(
 export function defuseTransmittedText(text: string): string {
   const normalized = text.replace(GLUE, "").replace(TILDE_LIKE, "~");
   const withoutTokens = replaceControlTokens(normalized);
-  return withoutTokens.replace(
-    MARKER_RUN,
-    (run) => run.split("").join(" "),
-  );
+  return withoutTokens.replace(MARKER_RUN, (run) => run.split("").join(" "));
 }
 
 // machine이 확인한 출처 밖 슬롯. 종류·주소·수집 시각만 밖에 두고, 자료 유래

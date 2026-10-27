@@ -92,14 +92,18 @@ export async function dataChangesOf(
     const to = Number(match[2]);
     const loss = lossOfStepSql(text);
     if (!loss.ok) return loss;
-    const described = text.split("\n").map((line) => line.trim()).filter(
-      (line) => line.length > 0,
-    ).filter((line, index, lines) =>
-      line.startsWith("--") &&
-      lines.slice(0, index).every((before) => before.startsWith("--"))
-    ).map((line) => line.replace(/^--\s*/, "")).filter((line) =>
-      !line.startsWith("loss:")
-    ).join(" ");
+    const described = text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .filter(
+        (line, index, lines) =>
+          line.startsWith("--") &&
+          lines.slice(0, index).every((before) => before.startsWith("--")),
+      )
+      .map((line) => line.replace(/^--\s*/, ""))
+      .filter((line) => !line.startsWith("loss:"))
+      .join(" ");
     const change = dataChangeSchema.safeParse({
       from,
       to,
@@ -143,7 +147,7 @@ export async function readBundleCopy(
     return unavailable("bundle manifest is invalid");
   }
   // bundle hash는 manifest의 정규 byte의 sha256이다. 다르면 이 사본은 그 hash가 아니다.
-  if (await sha256Hex(manifestText) !== bundleHash) {
+  if ((await sha256Hex(manifestText)) !== bundleHash) {
     return unavailable("bundle copy does not match its hash");
   }
   let declarationText: string;
@@ -181,9 +185,10 @@ export async function readBundleCopy(
     importMap: `${root}/${IMPORT_MAP_COPY_NAME}`,
     tools: declaration.value.tools,
     screens: Object.fromEntries(
-      declaration.value.screens.map((
-        screen,
-      ) => [screen.key, [...screen.sizes]]),
+      declaration.value.screens.map((screen) => [
+        screen.key,
+        [...screen.sizes],
+      ]),
     ),
     dataSchema: dataSchemaOf(manifest),
   });
@@ -272,13 +277,13 @@ export function createCopyPreviewBundles(options: {
         screens: parts.screens,
         dataSchema: parts.dataSchema,
         async fixture(path) {
-          const file = parts.manifest.files.find((entry) =>
-            entry.path === path
+          const file = parts.manifest.files.find(
+            (entry) => entry.path === path,
           );
           if (file === undefined) return undefined;
           try {
             const bytes = await readFile(`${parts.root}/${file.path}`);
-            return await sha256Hex(bytes) === file.hash ? bytes : undefined;
+            return (await sha256Hex(bytes)) === file.hash ? bytes : undefined;
           } catch {
             return undefined;
           }

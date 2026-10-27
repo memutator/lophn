@@ -33,37 +33,43 @@ export async function readSkills(
     ...(place === null
       ? {}
       : isAppPlace(place)
-      ? { app: place }
-      : { project: place }),
+        ? { app: place }
+        : { project: place }),
   });
   if (!result.ok) return result;
   return {
     ok: true,
-    value: result.value.skills.filter((skill) =>
-      skill.source !== "builtin" || role === null ||
-      (BUILTIN_SKILLS.find((one) => one.name === skill.name)?.roles as
-        | readonly Role[]
-        | undefined)?.includes(role)
-    ).map((skill) => ({
-      name: skill.name,
-      detail: skill.description,
-      layer: skill.source,
-      ...(skill.domain === null ? {} : { domain: skill.domain }),
-      on: skill.enabled,
-      builtIn: skill.source === "builtin",
-    })),
+    value: result.value.skills
+      .filter(
+        (skill) =>
+          skill.source !== "builtin" ||
+          role === null ||
+          (
+            BUILTIN_SKILLS.find((one) => one.name === skill.name)?.roles as
+              | readonly Role[]
+              | undefined
+          )?.includes(role),
+      )
+      .map((skill) => ({
+        name: skill.name,
+        detail: skill.description,
+        layer: skill.source,
+        ...(skill.domain === null ? {} : { domain: skill.domain }),
+        on: skill.enabled,
+        builtIn: skill.source === "builtin",
+      })),
   };
 }
 
 /** 전역 MCP server. 켜졌는지가 서버 설정의 enabled다. */
 async function readGlobalServers(link: Link): Promise<ReadResult<McpRow[]>> {
-  const result = await link.memory<
-    { settings: { key: string; default?: unknown; chosen?: unknown }[] }
-  >("settings", "list", { keys: [MCP_SERVERS] });
+  const result = await link.memory<{
+    settings: { key: string; default?: unknown; chosen?: unknown }[];
+  }>("settings", "list", { keys: [MCP_SERVERS] });
   if (!result.ok) return result;
   const entry = result.value.settings.find((one) => one.key === MCP_SERVERS);
   const found = entry?.chosen ?? entry?.default;
-  const servers = Array.isArray(found) ? found as McpServer[] : [];
+  const servers = Array.isArray(found) ? (found as McpServer[]) : [];
   return {
     ok: true,
     value: servers.map((server) => ({
@@ -87,24 +93,26 @@ async function readProjectSettings(
   link: Link,
   project: string,
 ): Promise<ReadResult<ProjectSettings>> {
-  return await link.read<{
-    mcp_servers: McpServer[];
-    skills_off: string[];
-    mcp_off: string[];
-    hash: string | null;
-  }>("project-extension-settings", "read", { project }).then((result) =>
-    result.ok
-      ? {
-        ok: true as const,
-        value: {
-          servers: result.value.mcp_servers,
-          skillsOff: result.value.skills_off,
-          mcpOff: result.value.mcp_off,
-          hash: result.value.hash,
-        },
-      }
-      : result
-  );
+  return await link
+    .read<{
+      mcp_servers: McpServer[];
+      skills_off: string[];
+      mcp_off: string[];
+      hash: string | null;
+    }>("project-extension-settings", "read", { project })
+    .then((result) =>
+      result.ok
+        ? {
+            ok: true as const,
+            value: {
+              servers: result.value.mcp_servers,
+              skillsOff: result.value.skills_off,
+              mcpOff: result.value.mcp_off,
+              hash: result.value.hash,
+            },
+          }
+        : result,
+    );
 }
 
 /** project 층 설정을 읽어 edit로 고친 새 내용 전체를 쓴다. 읽은 뒤 바뀌었으면 conflict로 거절된다. */
@@ -145,19 +153,21 @@ export async function readServers(
   return {
     ok: true,
     value: [
-      ...global.value.filter((row) => !overridden.has(row.name)).map((
-        row,
-      ) => ({
-        ...row,
-        on: row.on && !project.value.mcpOff.includes(row.name),
-      })),
-      ...project.value.servers.map((server): McpRow => ({
-        name: server.name,
-        detail: detailOf(server),
-        layer: "project",
-        on: server.enabled,
-        status: null,
-      })),
+      ...global.value
+        .filter((row) => !overridden.has(row.name))
+        .map((row) => ({
+          ...row,
+          on: row.on && !project.value.mcpOff.includes(row.name),
+        })),
+      ...project.value.servers.map(
+        (server): McpRow => ({
+          name: server.name,
+          detail: detailOf(server),
+          layer: "project",
+          on: server.enabled,
+          status: null,
+        }),
+      ),
     ],
   };
 }

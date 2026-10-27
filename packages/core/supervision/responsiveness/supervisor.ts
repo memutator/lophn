@@ -104,7 +104,8 @@ export function createSupervisor(options: SupervisorOptions): Supervisor {
     stopMs: options.stopMs ?? STOP_MS,
     teardownMs: options.teardownMs ?? TEARDOWN_MS,
     writeMs: options.writeMs ?? WRITE_MS,
-    sleep: options.sleep ??
+    sleep:
+      options.sleep ??
       ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms))),
     spawn: options.spawn ?? spawnProcess,
     env: options.env,
@@ -128,7 +129,10 @@ export function createSupervisor(options: SupervisorOptions): Supervisor {
   function serial<T>(kind: string, work: () => Promise<T>): Promise<T> {
     const before = locks.get(kind) ?? Promise.resolve();
     const result = before.then(work);
-    const tail = result.then(() => {}, () => {});
+    const tail = result.then(
+      () => {},
+      () => {},
+    );
     locks.set(kind, tail);
     void tail.then(() => {
       if (locks.get(kind) === tail) locks.delete(kind);
@@ -148,19 +152,23 @@ export function createSupervisor(options: SupervisorOptions): Supervisor {
       slot.settle = resolve;
     });
     const generation = slot.generation;
-    void supervise(slot, deps).catch(() => {
-      // 우리 결함이나 바꿔 끼운 sleep의 throw도 조용히 넘기지 않는다. 그 kind를 막고 결과를 알린다.
-      slot.phase = "unavailable";
-      slot.reason = "supervision failed";
-      settle(slot, false);
-    }).then(() => {
-      // 정지·교체(generation이 바뀐 것)로 끝난 것은 포기가 아니다. 호출자가 그 결과를 이미 안다.
-      if (
-        slots.get(spec.kind) !== slot || slot.generation !== generation ||
-        slot.phase !== "unavailable"
-      ) return;
-      safeCall(() => slot.callbacks.onGiveUp?.(slot.reason ?? "unavailable"));
-    });
+    void supervise(slot, deps)
+      .catch(() => {
+        // 우리 결함이나 바꿔 끼운 sleep의 throw도 조용히 넘기지 않는다. 그 kind를 막고 결과를 알린다.
+        slot.phase = "unavailable";
+        slot.reason = "supervision failed";
+        settle(slot, false);
+      })
+      .then(() => {
+        // 정지·교체(generation이 바뀐 것)로 끝난 것은 포기가 아니다. 호출자가 그 결과를 이미 안다.
+        if (
+          slots.get(spec.kind) !== slot ||
+          slot.generation !== generation ||
+          slot.phase !== "unavailable"
+        )
+          return;
+        safeCall(() => slot.callbacks.onGiveUp?.(slot.reason ?? "unavailable"));
+      });
     return first;
   }
 
@@ -256,9 +264,14 @@ export function createSupervisor(options: SupervisorOptions): Supervisor {
       return {
         component: kind,
         available,
-        reason: available ? undefined : slot?.reason ?? slot?.phase ??
-          (adapterUnavailable ? "group kill adapter unavailable" : undefined) ??
-          "not started",
+        reason: available
+          ? undefined
+          : (slot?.reason ??
+            slot?.phase ??
+            (adapterUnavailable
+              ? "group kill adapter unavailable"
+              : undefined) ??
+            "not started"),
         observed_at: options.clock.now(),
       };
     },
@@ -296,9 +309,10 @@ function nextAttempt(slot: Slot): number | undefined {
   if (slot.failures >= RESTART_LIMIT) {
     slot.phase = "unavailable";
     // 기한을 넘겨 ready가 안 온 경우만 ready 초과다. 바로 끝난 기동은 재기동 한도다.
-    slot.reason = slot.reason === "ready timed out"
-      ? "ready timed out"
-      : "restart limit reached";
+    slot.reason =
+      slot.reason === "ready timed out"
+        ? "ready timed out"
+        : "restart limit reached";
     return undefined;
   }
   const delay = RESTART_DELAYS_MS[slot.failures];
@@ -325,7 +339,8 @@ async function stopSlot(slot: Slot, deps: Deps): Promise<boolean> {
   }
   // stop frame 쓰기가 막혀도 grace 기한을 넘기지 않는다. hello 뒤 같은 writer의 FIFO에 서고,
   // backlog가 차 있어도 마지막 제어 frame 자리로 들어간다.
-  void attempt.writer.writeFinal({ type: "stop", grace_ms: deps.stopMs })
+  void attempt.writer
+    .writeFinal({ type: "stop", grace_ms: deps.stopMs })
     .catch(() => {});
   await settledWithin(attempt.process.exited, deps.stopMs);
   const confirmed = await attempt.teardown();

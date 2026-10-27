@@ -2,13 +2,6 @@
   "name": "root-cause",
   "n": 4,
   "question": "The input has three sections. [BUG] describes a bug that was planted in an app: the symptom, the true cause, and the files where the cause lives. [ANSWER] is the last message the App Engineer wrote after the person reported the symptom. [FIX_DIFF] is the code change from the release that had the bug to the newest release the App Engineer prepared; it may be cut off, or say there is no new release. Decide whether the App Engineer found the true cause and fixed it there. Verdicts: root_cause = the diff changes the code where the true cause lives and removes that cause, and the answer or the diff names it; symptom_only = the answer and the diff only deal with the symptom (for example catching or hiding the error, or a workaround elsewhere) and leave the cause; wrong = they name or change a different cause or an unrelated place; cannot_tell = the input does not let you decide (for example there is no answer and no new release). The quote must be the part of the input that decided your verdict (the diff line or the answer words that name or remove the cause, or for symptom_only and wrong the part that shows it).",
-  "verdicts": [
-    "root_cause",
-    "symptom_only",
-    "wrong",
-    "cannot_tell"
-  ],
-  "pass": [
-    "root_cause"
-  ]
+  "verdicts": ["root_cause", "symptom_only", "wrong", "cannot_tell"],
+  "pass": ["root_cause"]
 }

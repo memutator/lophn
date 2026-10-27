@@ -70,19 +70,20 @@ export const WORKFLOW_AGENT_TOOLS: readonly ToolDefinition[] = [
       const read = await readOf(ctx.core, workflowList, input);
       if (!read.ok) return read;
       const { workflows } = read.value;
-      return ok(fitted(
-        countSummary("workflows", workflows.length, false),
-        { workflows },
-        ["workflows"],
-      ));
+      return ok(
+        fitted(
+          countSummary("workflows", workflows.length, false),
+          { workflows },
+          ["workflows"],
+        ),
+      );
     },
   }),
   defineTool({
     name: "workflow.get",
     input: z.strictObject({ instance: idSchema("wfi") }),
     routes: [workflowInstanceRead],
-    description:
-      `Read a workflow instance: state, steps, current step, the last report of each step and the last ${LAST_LINES} lines. \`lines\` and \`last_reports\` are newest first. A \`lophn_restarted\` line means lophn was off and on again and the message of that step may not have reached the turn. It is not handed again; hand it again with workflow.edit \`hand_now\` if needed. A line \`by: program\` is a report that a flow made; \`program_exited\` says the flow process ended (its exit code and the last stderr line), and the instance is \`ended\` then.`,
+    description: `Read a workflow instance: state, steps, current step, the last report of each step and the last ${LAST_LINES} lines. \`lines\` and \`last_reports\` are newest first. A \`lophn_restarted\` line means lophn was off and on again and the message of that step may not have reached the turn. It is not handed again; hand it again with workflow.edit \`hand_now\` if needed. A line \`by: program\` is a report that a flow made; \`program_exited\` says the flow process ended (its exit code and the last stderr line), and the instance is \`ended\` then.`,
     effect: "read",
     handler: async (input, ctx) => {
       let cursor: string | undefined;
@@ -98,17 +99,20 @@ export const WORKFLOW_AGENT_TOOLS: readonly ToolDefinition[] = [
         if (page.next_cursor === null) {
           const { body } = readBody(page);
           // 줄이 이미 step을 갖고 있어 map의 key는 버리고 배열로 둔다: fitted는 배열 key만 덜어 낸다.
-          const last_reports = Object.values(body.last_reports)
-            .sort((a, b) => BigInt(a.seq) < BigInt(b.seq) ? 1 : -1);
-          return ok(fitted(
-            `workflow ${body.instance.workflow} ${body.instance.state}`,
-            {
-              instance: body.instance,
-              last_reports,
-              lines: lines.toReversed(),
-            },
-            ["lines", "last_reports"],
-          ));
+          const last_reports = Object.values(body.last_reports).sort((a, b) =>
+            BigInt(a.seq) < BigInt(b.seq) ? 1 : -1,
+          );
+          return ok(
+            fitted(
+              `workflow ${body.instance.workflow} ${body.instance.state}`,
+              {
+                instance: body.instance,
+                last_reports,
+                lines: lines.toReversed(),
+              },
+              ["lines", "last_reports"],
+            ),
+          );
         }
         cursor = page.next_cursor;
       }
@@ -124,8 +128,7 @@ export const WORKFLOW_AGENT_TOOLS: readonly ToolDefinition[] = [
       session: sessionChoiceSchema.optional(),
     }),
     routes: [workflowReport],
-    description:
-      `Report the result of a step of a workflow instance. \`next\` is a step name or "end" and hands that step; omit it to leave a progress note without handing anything. \`session\` is "new" or "same". ${TEXT_NOTE} ${STATE_NOTE} The line is kept even if the step was not handed; the summary says why.`,
+    description: `Report the result of a step of a workflow instance. \`next\` is a step name or "end" and hands that step; omit it to leave a progress note without handing anything. \`session\` is "new" or "same". ${TEXT_NOTE} ${STATE_NOTE} The line is kept even if the step was not handed; the summary says why.`,
     effect: "write",
     handler: async (input, ctx) => {
       const done = await readOf(ctx.core, workflowReport, input);
@@ -137,8 +140,7 @@ export const WORKFLOW_AGENT_TOOLS: readonly ToolDefinition[] = [
     name: "workflow.edit",
     input: editInput,
     routes: [workflowEdit],
-    description:
-      `Edit a running workflow instance. \`op\` and the fields it needs: add_step needs \`step\` (an object { name, by, with?, prompt, in?, out?, next? }) and may take \`after\` (a step name); update_step needs \`name\` and \`patch\`; remove_step needs \`name\`; end needs nothing; hand_now needs \`step\` (a step name) and may take \`text\` and \`session\` ("new" or "same"). ${TEXT_NOTE} ${STATE_NOTE}`,
+    description: `Edit a running workflow instance. \`op\` and the fields it needs: add_step needs \`step\` (an object { name, by, with?, prompt, in?, out?, next? }) and may take \`after\` (a step name); update_step needs \`name\` and \`patch\`; remove_step needs \`name\`; end needs nothing; hand_now needs \`step\` (a step name) and may take \`text\` and \`session\` ("new" or "same"). ${TEXT_NOTE} ${STATE_NOTE}`,
     effect: "write",
     handler: async (input, ctx) => {
       const body = Object.fromEntries(
@@ -161,12 +163,14 @@ export const WORKFLOW_AGENT_TOOLS: readonly ToolDefinition[] = [
       const checked = await readOf(ctx.core, workflowCheck, input);
       if (!checked.ok) return checked;
       const { errors } = checked.value;
-      return ok(fitted(
-        errors.length === 0
-          ? `flow.ts of ${input.workflow} has no type errors`
-          : `flow.ts of ${input.workflow} has ${errors.length} errors`,
-        { errors },
-      ));
+      return ok(
+        fitted(
+          errors.length === 0
+            ? `flow.ts of ${input.workflow} has no type errors`
+            : `flow.ts of ${input.workflow} has ${errors.length} errors`,
+          { errors },
+        ),
+      );
     },
   }),
 ];

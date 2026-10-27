@@ -37,8 +37,11 @@ function inFlight(drafts: DraftStore): Set<string> {
 function needsBody(drafts: DraftStore, message: string): boolean {
   const state = drafts.body(message);
   if (state === undefined) return true;
-  return state.state === "failed" && !SETTLED.has(state.code) &&
-    !inFlight(drafts).has(message);
+  return (
+    state.state === "failed" &&
+    !SETTLED.has(state.code) &&
+    !inFlight(drafts).has(message)
+  );
 }
 
 /** 아직 읽지 않았거나 다시 읽을 본문을 읽어 창 메모리에 둔다. */
@@ -72,9 +75,6 @@ export async function loadBodies(
     }
   };
   await Promise.all(
-    Array.from(
-      { length: Math.min(BODY_READS_AT_ONCE, wanted.length) },
-      reader,
-    ),
+    Array.from({ length: Math.min(BODY_READS_AT_ONCE, wanted.length) }, reader),
   );
 }

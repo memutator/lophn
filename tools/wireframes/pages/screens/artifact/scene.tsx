@@ -49,18 +49,23 @@ const PICKED = {
   Rent: { n: 2 },
 };
 
-export function ArtifactScene(
-  { tab, missing = false, annotate = false }: {
-    tab: keyof typeof PANES;
-    missing?: boolean;
-    annotate?: boolean;
-  },
-) {
+export function ArtifactScene({
+  tab,
+  missing = false,
+  annotate = false,
+}: {
+  tab: keyof typeof PANES;
+  missing?: boolean;
+  annotate?: boolean;
+}) {
   const title = tab === "file" ? FILE_TAB.title : SPENDING.title;
-  const fakes = useMemo(() => ({
-    artifact: fakeArtifactApi({ missing, artifacts: [...ARTIFACTS], title }),
-    annotate: fakeAnnotate({ items: annotate ? ANNOTATIONS : [] }),
-  }), []);
+  const fakes = useMemo(
+    () => ({
+      artifact: fakeArtifactApi({ missing, artifacts: [...ARTIFACTS], title }),
+      annotate: fakeAnnotate({ items: annotate ? ANNOTATIONS : [] }),
+    }),
+    [],
+  );
   const [region, setRegion] = useState<HTMLElement | null>(null);
   const [annotating, setAnnotating] = useState<AnnotateState | null>(null);
   useEffect(() => fakes.annotate.subscribeState(setAnnotating), [fakes]);
@@ -76,9 +81,7 @@ export function ArtifactScene(
   // 탭이 mount되면 view 자리가 생긴다.
   useEffect(() => {
     const timer = setInterval(() => {
-      const found = document.querySelector<HTMLElement>(
-        "[data-artifact-page]",
-      );
+      const found = document.querySelector<HTMLElement>("[data-artifact-page]");
       if (found !== null) {
         setRegion(found);
         clearInterval(timer);
@@ -95,28 +98,32 @@ export function ArtifactScene(
         artifact={fakes.artifact.api}
         annotate={fakes.annotate}
       />
-      {region === null || missing ? null : createPortal(
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            overflow: "auto",
-            background: "var(--color-surface-base)",
-          }}
-        >
-          <SpendingView
-            title={title}
-            picked={annotating?.on
-              ? Object.fromEntries(
-                Object.entries(PICKED).filter(([, mark]) =>
-                  annotating.items.some((item) => item.n === mark.n)
-                ),
-              )
-              : {}}
-          />
-        </div>,
-        region,
-      )}
+      {region === null || missing
+        ? null
+        : createPortal(
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                overflow: "auto",
+                background: "var(--color-surface-base)",
+              }}
+            >
+              <SpendingView
+                title={title}
+                picked={
+                  annotating?.on
+                    ? Object.fromEntries(
+                        Object.entries(PICKED).filter(([, mark]) =>
+                          annotating.items.some((item) => item.n === mark.n),
+                        ),
+                      )
+                    : {}
+                }
+              />
+            </div>,
+            region,
+          )}
     </>
   );
 }

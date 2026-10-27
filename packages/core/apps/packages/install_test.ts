@@ -13,8 +13,10 @@ import { test } from "node:test";
 import { sha256Hex } from "../../../base/mod.ts";
 import { installSdkCopies, removeInstallCopy } from "./install.ts";
 
-const REPO_PACKAGES = new URL("../../../", import.meta.url).pathname
-  .replace(/\/$/, "");
+const REPO_PACKAGES = new URL("../../../", import.meta.url).pathname.replace(
+  /\/$/,
+  "",
+);
 
 async function withTemp(run: (dir: string) => Promise<void>) {
   const dir = await mkdtemp(join(tmpdir(), "install-test-"));
@@ -75,11 +77,10 @@ test("설치 사본은 읽기 전용이고 다시 깔면 같고 소스가 바뀌
 
     const first = await installSdkCopies({ dataRoot, packagesRoot });
     assert.ok(first.ok);
-    assert.deepStrictEqual(first.value.map((item) => item.name), [
-      "@lophn/demo",
-      "@lophn/ui",
-      "@lophn/wording",
-    ]);
+    assert.deepStrictEqual(
+      first.value.map((item) => item.name),
+      ["@lophn/demo", "@lophn/ui", "@lophn/wording"],
+    );
     // 판 폴더(`sdk/<이름>/<판>`)부터 아래가 사본이다. 위 두 단은 새 판을 놓으려고 쓸 수 있다.
     const copies = first.value.map((item) => item.install_path);
     const snapshotAll = async () =>
@@ -91,10 +92,7 @@ test("설치 사본은 읽기 전용이고 다시 깔면 같고 소스가 바뀌
     assert.ok((await installSdkCopies({ dataRoot, packagesRoot })).ok);
     assert.deepStrictEqual(await snapshotAll(), before);
 
-    await writeFile(
-      `${packagesRoot}/sdk/demo/mod.ts`,
-      "export const a = 2;\n",
-    );
+    await writeFile(`${packagesRoot}/sdk/demo/mod.ts`, "export const a = 2;\n");
     assert.ok((await installSdkCopies({ dataRoot, packagesRoot })).ok);
     assert.deepStrictEqual(
       await readFile(`${dataRoot}/sdk/demo/1.0.0/mod.ts`, "utf8"),

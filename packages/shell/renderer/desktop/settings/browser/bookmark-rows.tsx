@@ -33,11 +33,11 @@ export function BookmarkRows({ source }: { source: BrowserSettingsSource }) {
       setLoaded((was) =>
         read.ok
           ? read.value
-          // 다시 읽다 실패해도 보이던 목록은 그대로 둔다.
-          : was?.state === "ok" || was?.state === "corrupt"
-          ? was
-          : { state: "failed" }
-      )
+          : // 다시 읽다 실패해도 보이던 목록은 그대로 둔다.
+            was?.state === "ok" || was?.state === "corrupt"
+            ? was
+            : { state: "failed" },
+      ),
     );
   }, [source]);
   useEffect(() => {
@@ -119,9 +119,12 @@ function BookmarkLine({ bookmark, source, onChanged }: BookmarkLineProps) {
     else if (event.key === "Escape") setEditing(false);
   };
 
-  const errorLine = error === null
-    ? null
-    : <p className={styles.rejected} role="alert">{error}</p>;
+  const errorLine =
+    error === null ? null : (
+      <p className={styles.rejected} role="alert">
+        {error}
+      </p>
+    );
 
   if (editing) {
     return (
@@ -131,8 +134,7 @@ function BookmarkLine({ bookmark, source, onChanged }: BookmarkLineProps) {
             <Input
               value={title}
               autoFocus
-              onChange={(event) =>
-                setTitle(event.target.value)}
+              onChange={(event) => setTitle(event.target.value)}
               onKeyDown={onKeyDown}
             />
           </Field>
@@ -140,8 +142,7 @@ function BookmarkLine({ bookmark, source, onChanged }: BookmarkLineProps) {
             <Input
               value={url}
               spellCheck={false}
-              onChange={(event) =>
-                setUrl(event.target.value)}
+              onChange={(event) => setUrl(event.target.value)}
               onKeyDown={onKeyDown}
             />
           </Field>
@@ -152,8 +153,7 @@ function BookmarkLine({ bookmark, source, onChanged }: BookmarkLineProps) {
             <Button
               variant="primary"
               data-bookmark-save=""
-              onClick={() =>
-                void save()}
+              onClick={() => void save()}
             >
               {t("settings.button.bookmark-save")}
             </Button>

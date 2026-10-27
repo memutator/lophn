@@ -51,12 +51,10 @@ export function loadJobs(
   const clause = where.length === 0 ? "" : ` WHERE ${where.join(" AND ")}`;
   params.push(filter.limit);
   const jobs: JobRecord[] = [];
-  for (
-    const row of sql.all(
-      `SELECT * FROM jobs${clause} ORDER BY id LIMIT ?`,
-      params,
-    )
-  ) {
+  for (const row of sql.all(
+    `SELECT * FROM jobs${clause} ORDER BY id LIMIT ?`,
+    params,
+  )) {
     const job = withLastRun(sql, row);
     if (!job.ok) return job;
     jobs.push(job.value);
@@ -169,14 +167,18 @@ export function loadJobRuns(
   page: { after?: string; limit: number },
 ): Result<JobRunRecord[]> {
   return page.after === undefined
-    ? jobRunsOf(sql.all(
-      "SELECT * FROM job_runs WHERE job = ? ORDER BY id DESC LIMIT ?",
-      [job, page.limit],
-    ))
-    : jobRunsOf(sql.all(
-      "SELECT * FROM job_runs WHERE job = ? AND id < ? ORDER BY id DESC LIMIT ?",
-      [job, page.after, page.limit],
-    ));
+    ? jobRunsOf(
+        sql.all(
+          "SELECT * FROM job_runs WHERE job = ? ORDER BY id DESC LIMIT ?",
+          [job, page.limit],
+        ),
+      )
+    : jobRunsOf(
+        sql.all(
+          "SELECT * FROM job_runs WHERE job = ? AND id < ? ORDER BY id DESC LIMIT ?",
+          [job, page.after, page.limit],
+        ),
+      );
 }
 
 export function loadHolds(sql: Query): Result<JobRunRecord[]> {
@@ -186,10 +188,12 @@ export function loadHolds(sql: Query): Result<JobRunRecord[]> {
 }
 
 export function loadOpenRuns(sql: Query): Result<JobRunRecord[]> {
-  return jobRunsOf(sql.all(
-    "SELECT * FROM job_runs WHERE state IN ('queued', 'running') ORDER BY id",
-    [],
-  ));
+  return jobRunsOf(
+    sql.all(
+      "SELECT * FROM job_runs WHERE state IN ('queued', 'running') ORDER BY id",
+      [],
+    ),
+  );
 }
 
 // claimed_at은 sj-jobs-due만 읽고 쓴다.
@@ -237,26 +241,24 @@ const RUN_FIELDS = [
 export function replaceJobRun(
   sql: Write,
   id: string,
-  fields: Partial<
-    {
-      state: JobRunState;
-      due_at: string;
-      missed_count: number;
-      reason: string | null;
-      run: string | null;
-      instance: string | null;
-      session: string | null;
-      started_at: string | null;
-      ended_at: string | null;
-    }
-  >,
+  fields: Partial<{
+    state: JobRunState;
+    due_at: string;
+    missed_count: number;
+    reason: string | null;
+    run: string | null;
+    instance: string | null;
+    session: string | null;
+    started_at: string | null;
+    ended_at: string | null;
+  }>,
 ): void {
   const given = RUN_FIELDS.filter((name) => fields[name] !== undefined);
   if (given.length === 0) return;
   sql.run(
-    `UPDATE job_runs SET ${
-      given.map((name) => `${name} = ?`).join(", ")
-    } WHERE id = ?`,
+    `UPDATE job_runs SET ${given
+      .map((name) => `${name} = ?`)
+      .join(", ")} WHERE id = ?`,
     [...given.map((name) => fields[name]!), id],
   );
 }

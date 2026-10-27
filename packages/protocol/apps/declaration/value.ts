@@ -61,18 +61,16 @@ export function validateDeclaration(
   const connectionItems = value.app_connections;
   const dependencyItems = value.sdk_dependencies;
   if (
-    !Array.isArray(value.screens) || !Array.isArray(value.tools) ||
-    !Array.isArray(permissionItems) || !Array.isArray(connectionItems) ||
+    !Array.isArray(value.screens) ||
+    !Array.isArray(value.tools) ||
+    !Array.isArray(permissionItems) ||
+    !Array.isArray(connectionItems) ||
     !Array.isArray(dependencyItems)
   ) {
     return invalid("declaration collections must be arrays");
   }
 
-  const declared = validateScreensAndTools(
-    value.screens,
-    value.tools,
-    domains,
-  );
+  const declared = validateScreensAndTools(value.screens, value.tools, domains);
   if (!declared.ok) return declared;
   const screens = declared.value.screens;
   const tools = declared.value.tools;
@@ -87,11 +85,11 @@ export function validateDeclaration(
   ]);
   for (const item of permissionItems) {
     if (!isObject(item)) return invalid("permission must be an object");
-    const bad = exactKeys(item, ["kind", "reason", "scope"], [
-      "kind",
-      "reason",
-      "scope",
-    ]);
+    const bad = exactKeys(
+      item,
+      ["kind", "reason", "scope"],
+      ["kind", "reason", "scope"],
+    );
     if (bad) return invalid(`permission ${bad}`);
     if (!kinds.has(item.kind as PermissionKind)) {
       return invalid("permission kind is not a declaration requirement");
@@ -108,19 +106,22 @@ export function validateDeclaration(
   if (
     unique(
       permissions.map((permission) =>
-        scopeKey(permission.kind, permission.scope)
+        scopeKey(permission.kind, permission.scope),
       ),
       "permission",
     )
-  ) return invalid("duplicate permission");
+  )
+    return invalid("duplicate permission");
   // secret 이름 하나에 인증 방식 하나다. OAuth 상태가 이름마다 하나라서다.
   if (
     unique(
-      permissions.filter((permission) => permission.kind === "secret.use")
+      permissions
+        .filter((permission) => permission.kind === "secret.use")
         .map((permission) => (permission.scope as { name: string }).name),
       "secret",
     )
-  ) return invalid("duplicate permission");
+  )
+    return invalid("duplicate permission");
 
   const uses = validateUses(connectionItems, dependencyItems, owner);
   if (!uses.ok) return uses;
@@ -135,13 +136,13 @@ export function validateDeclaration(
     permissions: [...permissions].sort((left, right) =>
       scopeKey(left.kind, left.scope) < scopeKey(right.kind, right.scope)
         ? -1
-        : 1
+        : 1,
     ),
     app_connections: [...connections].sort((left, right) =>
-      left.app < right.app ? -1 : left.app > right.app ? 1 : 0
+      left.app < right.app ? -1 : left.app > right.app ? 1 : 0,
     ),
     sdk_dependencies: [...dependencies].sort((left, right) =>
-      left.name < right.name ? -1 : left.name > right.name ? 1 : 0
+      left.name < right.name ? -1 : left.name > right.name ? 1 : 0,
     ),
   };
   return {

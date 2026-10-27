@@ -126,9 +126,11 @@ type ViewData = Pick<
 
 export function AgentView(props: AgentViewProps) {
   // 열린 session과 새 session은 읽는 것이 다르다. session이 바뀌면 화면 상태도 새로 시작한다.
-  return props.session === null
-    ? <NewSession key="new" {...props} />
-    : <OpenSession key={props.session} {...props} session={props.session} />;
+  return props.session === null ? (
+    <NewSession key="new" {...props} />
+  ) : (
+    <OpenSession key={props.session} {...props} session={props.session} />
+  );
 }
 
 function NewSession(props: AgentViewProps) {
@@ -193,13 +195,12 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
   }, [source, drafts, messageIds]);
 
   // 보낸 말이 확정 메시지로 대화에 오면 임시로 보이던 것을 지운다.
-  const sentId = draft.outgoing?.phase === "accepted"
-    ? draft.outgoing.id
-    : null;
-  const arrived = sentId !== null && (
-    messages.some((message) => message.id === sentId) ||
-    (thread?.queued.some((item) => item.id === sentId) ?? false)
-  );
+  const sentId =
+    draft.outgoing?.phase === "accepted" ? draft.outgoing.id : null;
+  const arrived =
+    sentId !== null &&
+    (messages.some((message) => message.id === sentId) ||
+      (thread?.queued.some((item) => item.id === sentId) ?? false));
   useEffect(() => {
     if (arrived) drafts.save(key, { outgoing: null });
   }, [arrived, key, drafts]);
@@ -225,8 +226,11 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
     void data.reload();
     if (session === null || drafts.draft(session).text !== "") return;
     const found = messages.find((item) => item.id === message);
-    const text = textOfBody(drafts.body(message)) ?? found?.text ??
-      drafts.textOf(message) ?? "";
+    const text =
+      textOfBody(drafts.body(message)) ??
+      found?.text ??
+      drafts.textOf(message) ??
+      "";
     if (text !== "") {
       drafts.save(session, { text, selection: [text.length, text.length] });
     }
@@ -302,7 +306,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
       images.push(uploaded.value.id);
     }
     const files = attachments.flatMap((item) =>
-      item.kind === "file" ? [item.path] : []
+      item.kind === "file" ? [item.path] : [],
     );
     const text = composeAttachmentText(
       drafts.draft(target).text,
@@ -371,8 +375,9 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           }
           clear();
           if (session !== null) {
-            void perform(() => source.renameSession(session, argument))
-              .then(() => refresh());
+            void perform(() => source.renameSession(session, argument)).then(
+              () => refresh(),
+            );
           }
           return;
         }
@@ -382,15 +387,17 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
         case "archive":
           clear();
           if (session !== null) {
-            void perform(() => source.archiveSession(session))
-              .then(() => refresh());
+            void perform(() => source.archiveSession(session)).then(() =>
+              refresh(),
+            );
           }
           return;
         case "compact":
           clear();
           if (session !== null) {
-            void perform(() => source.compactSession(session))
-              .then(() => data.reload());
+            void perform(() => source.compactSession(session)).then(() =>
+              data.reload(),
+            );
           }
           return;
         case "fork":
@@ -412,7 +419,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
       const target = await ensureSession();
       if (target !== null) {
         await perform(() =>
-          source.runCommand(target, command, argument, newId("cmd", now()))
+          source.runCommand(target, command, argument, newId("cmd", now())),
         );
       }
     })();
@@ -421,20 +428,18 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
   if (agent === undefined) {
     return (
       <section className={styles.view} data-agent-view="">
-        {data.failed
-          ? (
-            <div className={styles.failed} data-load-failed="">
-              <p>{t("conversation.error.load-failed")}</p>
-              <IconButton
-                icon={retryIcon}
-                label={t("common.button.retry")}
-                variant="secondary"
-                size="sm"
-                onClick={() => void refresh()}
-              />
-            </div>
-          )
-          : null}
+        {data.failed ? (
+          <div className={styles.failed} data-load-failed="">
+            <p>{t("conversation.error.load-failed")}</p>
+            <IconButton
+              icon={retryIcon}
+              label={t("common.button.retry")}
+              variant="secondary"
+              size="sm"
+              onClick={() => void refresh()}
+            />
+          </div>
+        ) : null}
       </section>
     );
   }
@@ -449,33 +454,41 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
   }
 
   // 방금 만든 session이 목록에 오기 전에는 제목 없는 줄로 둔다. 아직 만들지 않은 새 session은 줄이 없다.
-  const shown: SessionEntry | null = session === null ? null : entry ?? {
-    id: session,
-    title: null,
-    status: "idle",
-    activeAt: new Date(now()).toISOString(),
-    archived: false,
-    skip: false,
-  };
+  const shown: SessionEntry | null =
+    session === null
+      ? null
+      : (entry ?? {
+          id: session,
+          title: null,
+          status: "idle",
+          activeAt: new Date(now()).toISOString(),
+          archived: false,
+          skip: false,
+        });
   const empty = messages.length === 0 && draft.outgoing === null;
   // 보낸 말을 받기 전부터 turn이 끝날 때까지 일하는 중이다. 질문·승인을 기다리는 동안은 카드가 대신 말한다.
-  const sending = draft.outgoing?.phase === "sending" ||
-    draft.outgoing?.phase === "accepted";
-  const working = active?.phase === "working" || (active === null && sending)
-    ? {
-      clock: active === null ? null : active.elapsed !== null
-        ? {
-          activeMs: active.elapsed.activeMs,
-          at: Date.parse(active.elapsed.at),
+  const sending =
+    draft.outgoing?.phase === "sending" || draft.outgoing?.phase === "accepted";
+  const working =
+    active?.phase === "working" || (active === null && sending)
+      ? {
+          clock:
+            active === null
+              ? null
+              : active.elapsed !== null
+                ? {
+                    activeMs: active.elapsed.activeMs,
+                    at: Date.parse(active.elapsed.at),
+                  }
+                : active.startedAt === null
+                  ? null
+                  : { activeMs: 0, at: Date.parse(active.startedAt) },
         }
-        : active.startedAt === null
-        ? null
-        : { activeMs: 0, at: Date.parse(active.startedAt) },
-    }
-    : null;
-  const hint = empty && props.hint !== undefined
-    ? props.hint
-    : t("conversation.placeholder.ask", { agent: agent.name });
+      : null;
+  const hint =
+    empty && props.hint !== undefined
+      ? props.hint
+      : t("conversation.placeholder.ask", { agent: agent.name });
   const approval = thread?.pending.approval ?? null;
   const asked = thread?.pending.questions ?? null;
   const accepted = (call: Promise<SourceResult<void>>) =>
@@ -497,27 +510,23 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
         onChanged={() => void refresh()}
         detail={<ViewDetailSelect value={detail} onChange={setDetail} />}
       />
-      {offline || data.failed
-        ? (
-          <p className={styles.stale} data-stale="">
-            {data.checkedAt === null
-              ? t("conversation.notice.stale-never")
-              : t("conversation.notice.stale", {
+      {offline || data.failed ? (
+        <p className={styles.stale} data-stale="">
+          {data.checkedAt === null
+            ? t("conversation.notice.stale-never")
+            : t("conversation.notice.stale", {
                 age: formatRelativeTime(
                   new Date(data.checkedAt),
                   new Date(now()),
                 ),
               })}
-          </p>
-        )
-        : null}
-      {problem === null
-        ? null
-        : (
-          <p className={styles.problem} data-problem={problem}>
-            {t(PROBLEM_TEXT[problem])}
-          </p>
-        )}
+        </p>
+      ) : null}
+      {problem === null ? null : (
+        <p className={styles.problem} data-problem={problem}>
+          {t(PROBLEM_TEXT[problem])}
+        </p>
+      )}
       <div className={styles.stage}>
         <AgentThread
           key={key}
@@ -540,7 +549,8 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
               layer?.kind === "rewind" && layer.message === message
                 ? null
                 : { kind: "rewind", message },
-            )}
+            )
+          }
           onFork={(message) => void fork(message)}
           onCheck={() => void check()}
           onResend={() => void sendAgain()}
@@ -551,34 +561,28 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           onOpenSession={host.openSession}
           artifacts={host.artifacts}
         />
-        {layer === null
-          ? null
-          : (
-            <div className={styles.layer} data-panel-layer={layer.kind}>
-              {layer.kind === "rewind" && session !== null
-                ? (
-                  <RewindPanel
-                    source={source}
-                    session={session}
-                    message={layer.message}
-                    excerpt={excerptOf(drafts.body(layer.message))}
-                    onClose={() => setLayer(null)}
-                    onRewound={() => rewound(layer.message)}
-                  />
-                )
-                : null}
-              {layer.kind === "permissions" && permissions !== null
-                ? (
-                  <PermissionsView
-                    agent={agent.name}
-                    permissions={permissions}
-                    onClose={() => setLayer(null)}
-                    onEdit={host.openPermissions}
-                  />
-                )
-                : null}
-            </div>
-          )}
+        {layer === null ? null : (
+          <div className={styles.layer} data-panel-layer={layer.kind}>
+            {layer.kind === "rewind" && session !== null ? (
+              <RewindPanel
+                source={source}
+                session={session}
+                message={layer.message}
+                excerpt={excerptOf(drafts.body(layer.message))}
+                onClose={() => setLayer(null)}
+                onRewound={() => rewound(layer.message)}
+              />
+            ) : null}
+            {layer.kind === "permissions" && permissions !== null ? (
+              <PermissionsView
+                agent={agent.name}
+                permissions={permissions}
+                onClose={() => setLayer(null)}
+                onEdit={host.openPermissions}
+              />
+            ) : null}
+          </div>
+        )}
       </div>
       <div className={styles.bottom}>
         {approval === null || session === null ? null : (
@@ -589,24 +593,28 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
             onDecide={(choice, reason) =>
               accepted(
                 source.decidePermission(session, approval.id, choice, reason),
-              )}
+              )
+            }
           />
         )}
-        {asked === null || asked.questions === null || session === null
-          ? null
-          : (
-            <QuestionCard
-              key={asked.group}
-              agent={agent.name}
-              questions={asked.questions}
-              onSubmit={(answers) =>
-                accepted(source.answerQuestions({
+        {asked === null ||
+        asked.questions === null ||
+        session === null ? null : (
+          <QuestionCard
+            key={asked.group}
+            agent={agent.name}
+            questions={asked.questions}
+            onSubmit={(answers) =>
+              accepted(
+                source.answerQuestions({
                   session,
                   toolCall: asked.toolCall,
                   answers,
-                }))}
-            />
-          )}
+                }),
+              )
+            }
+          />
+        )}
         <QueuedMessages
           items={thread?.queued ?? []}
           disabled={offline}
@@ -630,13 +638,17 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           place={agent.place}
           permissionSummary={agent.permissionSummary}
           permissions={permissions}
-          skip={session === null || entry === null || readOnly ? undefined : {
-            on: entry.skip,
-            onChange: (on) =>
-              void perform(() => source.changeSkip(session, on)).then((ok) =>
-                ok ? refresh() : undefined
-              ),
-          }}
+          skip={
+            session === null || entry === null || readOnly
+              ? undefined
+              : {
+                  on: entry.skip,
+                  onChange: (on) =>
+                    void perform(() => source.changeSkip(session, on)).then(
+                      (ok) => (ok ? refresh() : undefined),
+                    ),
+                }
+          }
           onDraft={(patch) => drafts.save(key, patch)}
           onLoadPermissions={() => void loadPermissions()}
           onEditPermissions={host.openPermissions}

@@ -16,7 +16,7 @@ function fakeChild() {
     payload: { type: "ready" },
   });
   let exit!: (code: number | null) => void;
-  const exited = new Promise<number | null>((resolve) => exit = resolve);
+  const exited = new Promise<number | null>((resolve) => (exit = resolve));
   let said = false;
   const pipe = {
     bufferedBytes: 0,
@@ -49,9 +49,10 @@ function fakeChild() {
 
 // 위험: ready 직후 되풀이해 죽는 child는 한도에 닿아야 하고, 오래 버틴 child의 끝은 연속 실패가 아니다.
 test("ready 뒤 60초를 버틴 child가 끝나야 재기동 횟수가 0으로 돌아간다", async () => {
-  for (
-    const [survivedMs, failures] of [[STABLE_MS, 0], [STABLE_MS - 1, 2]]
-  ) {
+  for (const [survivedMs, failures] of [
+    [STABLE_MS, 0],
+    [STABLE_MS - 1, 2],
+  ]) {
     const clock = manualClock(0);
     const child = fakeChild();
     const slot = makeSlot(
@@ -67,7 +68,7 @@ test("ready 뒤 60초를 버틴 child가 끝나야 재기동 횟수가 0으로 �
       },
     );
     slot.failures = 2;
-    const ready = new Promise<boolean>((resolve) => slot.settle = resolve);
+    const ready = new Promise<boolean>((resolve) => (slot.settle = resolve));
     const running = runOnce(slot, {
       clock,
       denoCommand: "deno",

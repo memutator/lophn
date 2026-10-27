@@ -16,9 +16,10 @@ export const lineFlash = StateField.define<DecorationSet>({
     if (transaction.docChanged) value = Decoration.none;
     for (const effect of transaction.effects) {
       if (effect.is(flash)) {
-        value = effect.value === null
-          ? Decoration.none
-          : Decoration.set([hitLine.range(effect.value)]);
+        value =
+          effect.value === null
+            ? Decoration.none
+            : Decoration.set([hitLine.range(effect.value)]);
       }
     }
     return value;

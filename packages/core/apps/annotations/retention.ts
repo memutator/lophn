@@ -43,12 +43,14 @@ export function deleteAnnotations(
 
 export function sweep(tx: Tx): Result<number> {
   const cutoff = new Date(Date.parse(tx.now()) - SWEEP_GRACE_MS).toISOString();
-  const ids = tx.sql.all(
-    `SELECT a.id FROM annotations a JOIN annotation_batches b ON b.id = a.batch
+  const ids = tx.sql
+    .all(
+      `SELECT a.id FROM annotations a JOIN annotation_batches b ON b.id = a.batch
      WHERE b.sent_at < ? AND NOT EXISTS
        (SELECT 1 FROM annotation_refs r WHERE r.annotation = a.id)`,
-    [cutoff],
-  ).map((row) => String(row["id"]));
+      [cutoff],
+    )
+    .map((row) => String(row["id"]));
   const deleted = deleteAnnotations(tx, ids);
   return deleted.ok ? ok(ids.length) : deleted;
 }

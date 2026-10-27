@@ -85,40 +85,41 @@ export function GeneralPanel({ source, onPane }: GeneralPanelProps) {
   }
   const entries = loaded.state === "ready" ? loaded.entries : [];
   const groups = groupEntries(entries);
-  const missing = entries.find((entry) =>
-    isRequiredEmpty(entry) && !closed.has(entry.key)
+  const missing = entries.find(
+    (entry) => isRequiredEmpty(entry) && !closed.has(entry.key),
   );
   return (
     <div data-general="">
       <h1 className={styles.paneTitle}>{t("settings.label.tab-general")}</h1>
       <p className={styles.lead}>{t("settings.intro.general")}</p>
-      {missing === undefined
-        ? null
-        : (
-          <div className={styles.toastSlot} data-required-empty={missing.key}>
-            <Toast
-              title={t("settings.title.not-set", { name: nameOf(missing.key) })}
-              body={t("settings.note.not-set")}
-              actions={[{
+      {missing === undefined ? null : (
+        <div className={styles.toastSlot} data-required-empty={missing.key}>
+          <Toast
+            title={t("settings.title.not-set", { name: nameOf(missing.key) })}
+            body={t("settings.note.not-set")}
+            actions={[
+              {
                 id: "choose",
                 label: t("settings.button.choose-in-agents"),
-              }]}
-              onAction={() => {
-                setClosed(new Set([...closed, missing.key]));
-                onPane("agents");
-              }}
-              onClose={() => setClosed(new Set([...closed, missing.key]))}
-              timer={NO_TIMER}
-            />
-          </div>
-        )}
+              },
+            ]}
+            onAction={() => {
+              setClosed(new Set([...closed, missing.key]));
+              onPane("agents");
+            }}
+            onClose={() => setClosed(new Set([...closed, missing.key]))}
+            timer={NO_TIMER}
+          />
+        </div>
+      )}
       <Loading
         loading={loaded.state === "loading"}
         placeholder={<Skeleton lines={5} />}
       >
-        {groups.length === 0
-          ? <p className={styles.notReady}>{t("settings.empty.general")}</p>
-          : groups.map((group) => (
+        {groups.length === 0 ? (
+          <p className={styles.notReady}>{t("settings.empty.general")}</p>
+        ) : (
+          groups.map((group) => (
             <section key={group.owner} className={styles.groupBlock}>
               <h2 className={styles.groupTitle}>{groupTitle(group.owner)}</h2>
               <ul className={styles.lines}>
@@ -127,15 +128,14 @@ export function GeneralPanel({ source, onPane }: GeneralPanelProps) {
                 ))}
               </ul>
             </section>
-          ))}
+          ))
+        )}
       </Loading>
     </div>
   );
 }
 
-function SettingItem(
-  { entry, save }: { entry: SettingEntry; save: Save },
-) {
+function SettingItem({ entry, save }: { entry: SettingEntry; save: Save }) {
   const control = controlOf(entry.type);
   const [rejected, setRejected] = useState<string | null>(null);
   const help = helpOf(entry.key);
@@ -152,30 +152,28 @@ function SettingItem(
     <div className={styles.lineMain}>
       {label}
       {help === null ? null : <span className={styles.lineHelp}>{help}</span>}
-      {control.kind === "range" && rangeText(control) !== null
-        ? <span className={styles.lineHelp}>{rangeText(control)}</span>
-        : null}
-      {control.kind === "list"
-        ? <Tokens entry={entry} change={change} />
-        : null}
-      {rejected === null
-        ? null
-        : (
-          <span className={styles.rejected} role="alert" data-rejected="">
-            <Icon icon={connectionFailedIcon} pixels={iconPixels("base")} />
-            {rejected}
-          </span>
-        )}
+      {control.kind === "range" && rangeText(control) !== null ? (
+        <span className={styles.lineHelp}>{rangeText(control)}</span>
+      ) : null}
+      {control.kind === "list" ? (
+        <Tokens entry={entry} change={change} />
+      ) : null}
+      {rejected === null ? null : (
+        <span className={styles.rejected} role="alert" data-rejected="">
+          <Icon icon={connectionFailedIcon} pixels={iconPixels("base")} />
+          {rejected}
+        </span>
+      )}
       <span className={styles.caption}>
         <span className={styles.mono}>{entry.key}</span>
         {" · "}
         {entry.hasChosen
           ? t("settings.label.chosen-default", {
-            value: defaultText(entry),
-          })
+              value: defaultText(entry),
+            })
           : isRequiredEmpty(entry)
-          ? t("settings.label.value-not-set")
-          : t("settings.label.default")}
+            ? t("settings.label.value-not-set")
+            : t("settings.label.default")}
       </span>
     </div>
   );
@@ -186,42 +184,42 @@ function SettingItem(
       data-setting={entry.key}
       data-changed={entry.hasChosen}
     >
-      {control.kind === "list" || control.kind === "fixed"
-        ? (
-          <>
-            {main(<span className={styles.lineName}>{name}</span>)}
-            <div className={styles.lineControl}>
-              {control.kind === "list"
-                ? <AddEntry entry={entry} change={change} />
-                : <span data-value="">{fixedText(entry)}</span>}
-              <ResetButton entry={entry} reset={reset} />
-            </div>
-          </>
-        )
-        : (
-          <NamedControl
-            name={name}
-            invalid={rejected !== null}
-            labelClass={styles.lineName}
-          >
-            {({ label, provide }) => (
-              <>
-                {main(label)}
-                <div className={styles.lineControl}>
-                  {provide(
-                    <Control
-                      entry={entry}
-                      control={control}
-                      change={change}
-                      rejected={rejected !== null}
-                    />,
-                  )}
-                  <ResetButton entry={entry} reset={reset} />
-                </div>
-              </>
+      {control.kind === "list" || control.kind === "fixed" ? (
+        <>
+          {main(<span className={styles.lineName}>{name}</span>)}
+          <div className={styles.lineControl}>
+            {control.kind === "list" ? (
+              <AddEntry entry={entry} change={change} />
+            ) : (
+              <span data-value="">{fixedText(entry)}</span>
             )}
-          </NamedControl>
-        )}
+            <ResetButton entry={entry} reset={reset} />
+          </div>
+        </>
+      ) : (
+        <NamedControl
+          name={name}
+          invalid={rejected !== null}
+          labelClass={styles.lineName}
+        >
+          {({ label, provide }) => (
+            <>
+              {main(label)}
+              <div className={styles.lineControl}>
+                {provide(
+                  <Control
+                    entry={entry}
+                    control={control}
+                    change={change}
+                    rejected={rejected !== null}
+                  />,
+                )}
+                <ResetButton entry={entry} reset={reset} />
+              </div>
+            </>
+          )}
+        </NamedControl>
+      )}
     </li>
   );
 }
@@ -230,15 +228,19 @@ function fixedText(entry: SettingEntry): string {
   return isRequiredEmpty(entry)
     ? t("settings.label.value-not-set")
     : defaultText({
-      ...entry,
-      hasDefault: true,
-      defaultValue: currentValue(entry),
-    });
+        ...entry,
+        hasDefault: true,
+        defaultValue: currentValue(entry),
+      });
 }
 
-function ResetButton(
-  { entry, reset }: { entry: SettingEntry; reset: () => Promise<void> },
-) {
+function ResetButton({
+  entry,
+  reset,
+}: {
+  entry: SettingEntry;
+  reset: () => Promise<void>;
+}) {
   if (!entry.hasChosen) return null;
   return (
     <div className={styles.endSlot}>
@@ -249,23 +251,28 @@ function ResetButton(
   );
 }
 
-function Control(
-  { entry, control, change, rejected }: {
-    entry: SettingEntry;
-    control: Exclude<Control, { kind: "list" | "fixed" }>;
-    change: (value: unknown) => Promise<void>;
-    rejected: boolean;
-  },
-) {
+function Control({
+  entry,
+  control,
+  change,
+  rejected,
+}: {
+  entry: SettingEntry;
+  control: Exclude<Control, { kind: "list" | "fixed" }>;
+  change: (value: unknown) => Promise<void>;
+  rejected: boolean;
+}) {
   const value = currentValue(entry);
   switch (control.kind) {
     case "boolean":
       return (
         <div className={styles.endSlot}>
           <Switch
-            label={value === true
-              ? t("settings.label.value-on")
-              : t("settings.label.value-off")}
+            label={
+              value === true
+                ? t("settings.label.value-on")
+                : t("settings.label.value-off")
+            }
             checked={value === true}
             onCheckedChange={(next) => void change(next)}
           />
@@ -297,14 +304,17 @@ function Control(
   }
 }
 
-function RangeInput(
-  { start, control, rejected, change }: {
-    start: string;
-    control: Extract<Control, { kind: "range" }>;
-    rejected: boolean;
-    change: (value: unknown) => Promise<void>;
-  },
-) {
+function RangeInput({
+  start,
+  control,
+  rejected,
+  change,
+}: {
+  start: string;
+  control: Extract<Control, { kind: "range" }>;
+  rejected: boolean;
+  change: (value: unknown) => Promise<void>;
+}) {
   const [text, setText] = useState(start);
   function commit(): void {
     const value = numberOf(text);
@@ -330,15 +340,16 @@ function RangeInput(
 
 function entriesOf(entry: SettingEntry): readonly string[] {
   const value = currentValue(entry);
-  return Array.isArray(value) ? value as string[] : [];
+  return Array.isArray(value) ? (value as string[]) : [];
 }
 
-function Tokens(
-  { entry, change }: {
-    entry: SettingEntry;
-    change: (value: unknown) => Promise<void>;
-  },
-) {
+function Tokens({
+  entry,
+  change,
+}: {
+  entry: SettingEntry;
+  change: (value: unknown) => Promise<void>;
+}) {
   const items = entriesOf(entry);
   if (items.length === 0) return null;
   return (
@@ -358,12 +369,13 @@ function Tokens(
   );
 }
 
-function AddEntry(
-  { entry, change }: {
-    entry: SettingEntry;
-    change: (value: unknown) => Promise<void>;
-  },
-) {
+function AddEntry({
+  entry,
+  change,
+}: {
+  entry: SettingEntry;
+  change: (value: unknown) => Promise<void>;
+}) {
   const [text, setText] = useState("");
   const items = entriesOf(entry);
   function add(): void {

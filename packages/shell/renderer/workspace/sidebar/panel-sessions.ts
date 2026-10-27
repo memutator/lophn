@@ -25,9 +25,11 @@ export function openedProjectManagerSession(
   entries: readonly SessionEntry[],
   project: string,
 ): string | null {
-  const found = entries.filter((entry) =>
-    entry.ended === null && entry.agent?.role === "project_manager" &&
-    entry.agent.project === project
+  const found = entries.filter(
+    (entry) =>
+      entry.ended === null &&
+      entry.agent?.role === "project_manager" &&
+      entry.agent.project === project,
   );
   return found.length === 0 ? null : found[found.length - 1].session;
 }
@@ -47,8 +49,8 @@ function agentRowOf(
       : undefined;
   }
   if (agent.role === "operator") {
-    return agents.find((row) =>
-      row.role === "operator" && row.assignment === agent.agent
+    return agents.find(
+      (row) => row.role === "operator" && row.assignment === agent.agent,
     );
   }
   return undefined;
@@ -80,18 +82,21 @@ export function panelSessions(
     if (row === undefined) return [];
     // session store는 제목과 시각을 싣지 않는다. 대화 source가 읽어 준 것이 있으면 그것을 쓴다.
     const read = known.get(entry.session);
-    return [{
-      id: entry.session,
-      title: read?.title ?? t("conversation.label.session-untitled"),
-      agent: row.assignment,
-      status: entry.state === "waiting"
-        ? "waiting"
-        : entry.state === "running"
-        ? "working"
-        : "idle",
-      open: entry.ended === null,
-      at: read?.at ?? 0,
-    }];
+    return [
+      {
+        id: entry.session,
+        title: read?.title ?? t("conversation.label.session-untitled"),
+        agent: row.assignment,
+        status:
+          entry.state === "waiting"
+            ? "waiting"
+            : entry.state === "running"
+              ? "working"
+              : "idle",
+        open: entry.ended === null,
+        at: read?.at ?? 0,
+      },
+    ];
   });
 }
 
@@ -101,7 +106,7 @@ export function runOpenedSessions(
 ): ReadonlySet<string> {
   return new Set(
     records.flatMap((record) =>
-      record.session_opened && record.session !== null ? [record.session] : []
+      record.session_opened && record.session !== null ? [record.session] : [],
     ),
   );
 }
@@ -117,16 +122,18 @@ export function panelRuns(
     if (record.kind !== "agent" || !("agent" in record.target)) return [];
     const row = agentRowOf(record.target.agent, agents, project);
     if (row === undefined) return [];
-    return [{
-      id: record.id,
-      agent: row.assignment,
-      title: record.job?.title ?? null,
-      state: record.state,
-      at: Date.parse(record.created_at),
-      session: record.session_opened
-        ? sessions.find((item) => item.id === record.session) ?? null
-        : null,
-    }];
+    return [
+      {
+        id: record.id,
+        agent: row.assignment,
+        title: record.job?.title ?? null,
+        state: record.state,
+        at: Date.parse(record.created_at),
+        session: record.session_opened
+          ? (sessions.find((item) => item.id === record.session) ?? null)
+          : null,
+      },
+    ];
   });
 }
 
@@ -142,8 +149,8 @@ export function sessionDot(
   return entry.state === "waiting"
     ? "waiting"
     : entry.state === "running"
-    ? "working"
-    : entry.unseen !== null
-    ? "finished"
-    : null;
+      ? "working"
+      : entry.unseen !== null
+        ? "finished"
+        : null;
 }

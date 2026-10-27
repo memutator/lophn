@@ -58,12 +58,14 @@ export function nameOf(el: Element): string | null {
     .join(" ");
   const control = el as Element & { labels?: NodeListOf<HTMLLabelElement> };
   const linked = control.labels?.[0]?.textContent;
-  return clean(el.getAttribute("aria-label"), NAME_MAX) ??
+  return (
+    clean(el.getAttribute("aria-label"), NAME_MAX) ??
     clean(labelled, NAME_MAX) ??
     clean(el.getAttribute("alt"), NAME_MAX) ??
     clean(linked, NAME_MAX) ??
     clean(el.getAttribute("title"), NAME_MAX) ??
-    clean(el.textContent, NAME_MAX);
+    clean(el.textContent, NAME_MAX)
+  );
 }
 
 /** 보이는 글. 자기 글이 없으면 가까운 윗 요소의 글을 쓴다. */

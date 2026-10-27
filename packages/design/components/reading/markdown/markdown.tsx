@@ -37,10 +37,12 @@ function linkOnClick(
   open: ((href: string) => void) | undefined,
   href: string,
 ): ((event: MouseEvent) => void) | undefined {
-  return open === undefined ? undefined : (event: MouseEvent) => {
-    event.preventDefault();
-    open(href);
-  };
+  return open === undefined
+    ? undefined
+    : (event: MouseEvent) => {
+        event.preventDefault();
+        open(href);
+      };
 }
 
 const HEADING_CLASS = [styles.h1, styles.h2, styles.h3, styles.h4];
@@ -54,9 +56,11 @@ function inlines(
     switch (inline.kind) {
       case "text": {
         const rendered = context.renderText?.(inline.text, "text");
-        return rendered === undefined
-          ? inline.text
-          : <Fragment key={index}>{rendered}</Fragment>;
+        return rendered === undefined ? (
+          inline.text
+        ) : (
+          <Fragment key={index}>{rendered}</Fragment>
+        );
       }
       case "emphasis":
         return <em key={index}>{inlines(inline.children, context)}</em>;
@@ -66,9 +70,13 @@ function inlines(
         return <del key={index}>{inlines(inline.children, context)}</del>;
       case "code": {
         const rendered = context.renderText?.(inline.text, "code");
-        return rendered === undefined
-          ? <code key={index} className={styles.inlineCode}>{inline.text}</code>
-          : <Fragment key={index}>{rendered}</Fragment>;
+        return rendered === undefined ? (
+          <code key={index} className={styles.inlineCode}>
+            {inline.text}
+          </code>
+        ) : (
+          <Fragment key={index}>{rendered}</Fragment>
+        );
       }
       case "break":
         return <br key={index} />;
@@ -90,18 +98,18 @@ function inlines(
             </a>
           );
         }
-        return inline.src === undefined
-          ? <span key={index}>{inline.alt}</span>
-          : (
-            <img
-              key={index}
-              className={styles.image}
-              src={inline.src}
-              alt={inline.alt}
-              loading="lazy"
-              referrerPolicy="no-referrer"
-            />
-          );
+        return inline.src === undefined ? (
+          <span key={index}>{inline.alt}</span>
+        ) : (
+          <img
+            key={index}
+            className={styles.image}
+            src={inline.src}
+            alt={inline.alt}
+            loading="lazy"
+            referrerPolicy="no-referrer"
+          />
+        );
       }
       case "link": {
         // <a> 안에 button(artifact path link)이나 a(image link)를 넣지 않는다.
@@ -197,18 +205,24 @@ function block(item: Block, index: number, context: RenderContext): ReactNode {
       );
     case "list": {
       const items = item.items.map((entry, at) => listItem(entry, at, context));
-      return item.ordered
-        ? (
-          <ol key={index} className={styles.list} start={item.start}>
-            {items}
-          </ol>
-        )
-        : <ul key={index} className={styles.list}>{items}</ul>;
+      return item.ordered ? (
+        <ol key={index} className={styles.list} start={item.start}>
+          {items}
+        </ol>
+      ) : (
+        <ul key={index} className={styles.list}>
+          {items}
+        </ul>
+      );
     }
     case "rule":
       return <hr key={index} className={styles.rule} />;
     case "html":
-      return <pre key={index} className={styles.html}>{item.text}</pre>;
+      return (
+        <pre key={index} className={styles.html}>
+          {item.text}
+        </pre>
+      );
     case "table":
       return (
         <div key={index} className={styles.tableScroll}>
@@ -247,26 +261,26 @@ function blocks(
 }
 
 // Lezer Markdown을 React 글과 element로만 그린다. raw HTML은 실행하지 않는다.
-export function Markdown(
-  {
-    source,
-    resolveImage,
-    onOpenLink,
-    variant = "reading",
-    images = "show",
-    renderText,
-    clipboard = systemClipboard,
-  }: MarkdownProps,
-) {
+export function Markdown({
+  source,
+  resolveImage,
+  onOpenLink,
+  variant = "reading",
+  images = "show",
+  renderText,
+  clipboard = systemClipboard,
+}: MarkdownProps) {
   const document = useMemo(
     () => parseMarkdown(source, { resolveImage }),
     [source, resolveImage],
   );
   return (
     <div
-      className={variant === "chat"
-        ? `${styles.markdown} ${styles.chat}`
-        : styles.markdown}
+      className={
+        variant === "chat"
+          ? `${styles.markdown} ${styles.chat}`
+          : styles.markdown
+      }
     >
       {blocks(document.blocks, { onOpenLink, clipboard, images, renderText })}
     </div>

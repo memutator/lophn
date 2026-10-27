@@ -38,35 +38,41 @@ export function createChildPreparationRunner(options: {
       const deno = options.deno();
       // 빈 deno-dir(새 기계)에서 build 도구를 받는 시간이 자식의 준비 상한에 들지 않게 자식 밖에서 미리 받는다.
       const env = buildEnvironment(process.env.TMPDIR ?? "/tmp");
-      if (!await cacheBuildTools(deno, env, signal)) {
+      if (!(await cacheBuildTools(deno, env, signal))) {
         return err({ stage: "build", reason: "build tools are unavailable" });
       }
       // 자식은 lophn의 준비 code만 돌고 앱 source는 실행되지 않는다. 환경은 필요한 이름 몇 개만 넘긴다.
       // Node는 env를 주면 부모 환경을 통째로 대체한다(Deno의 clearEnv와 같다).
-      const child = spawn(deno, [
-        "run",
-        "--quiet",
-        "--no-prompt",
-        `--config=${REPO}/deno.json`,
-        "--allow-all",
-        JOB,
-        JSON.stringify({
-          dataRoot: options.dataRoot,
-          app: job.app,
-          sourceRoot: job.source_path,
-          commit: job.commit,
-          previousSchema: job.previous_schema,
-        }),
-      ], {
-        env,
-        stdio: ["ignore", "pipe", "ignore"],
-      });
+      const child = spawn(
+        deno,
+        [
+          "run",
+          "--quiet",
+          "--no-prompt",
+          `--config=${REPO}/deno.json`,
+          "--allow-all",
+          JOB,
+          JSON.stringify({
+            dataRoot: options.dataRoot,
+            app: job.app,
+            sourceRoot: job.source_path,
+            commit: job.commit,
+            previousSchema: job.previous_schema,
+          }),
+        ],
+        {
+          env,
+          stdio: ["ignore", "pipe", "ignore"],
+        },
+      );
       let stopped = false;
       const stop = () => {
         stopped = true;
         try {
           child.kill("SIGKILL");
-        } catch { /* 이미 끝났다 */ }
+        } catch {
+          /* 이미 끝났다 */
+        }
       };
       if (signal.aborted) stop();
       signal.addEventListener("abort", stop, { once: true });
@@ -119,7 +125,8 @@ function readOutcome(
       reason?: string;
     };
     if (
-      parsed.ok === true && typeof parsed.bundle_hash === "string" &&
+      parsed.ok === true &&
+      typeof parsed.bundle_hash === "string" &&
       typeof parsed.declaration_hash === "string"
     ) {
       return ok({
@@ -131,6 +138,8 @@ function readOutcome(
       const stage = FAILURE_STAGES.find((known) => known === parsed.stage);
       return err({ stage: stage ?? "build", reason: parsed.reason });
     }
-  } catch { /* 결과 줄이 없다 */ }
+  } catch {
+    /* 결과 줄이 없다 */
+  }
   return err({ stage: "build", reason: "the preparation process failed" });
 }

@@ -90,10 +90,7 @@ function digestOf(token: string): Uint8Array {
   return new Uint8Array(createHash("sha256").update(token).digest());
 }
 
-function constantTimeDigestEqual(
-  left: Uint8Array,
-  right: Uint8Array,
-): boolean {
+function constantTimeDigestEqual(left: Uint8Array, right: Uint8Array): boolean {
   if (left.length !== 32 || right.length !== 32) return false;
   let difference = 0;
   for (let i = 0; i < 32; i++) difference |= left[i] ^ right[i];
@@ -103,8 +100,10 @@ function constantTimeDigestEqual(
 function randomValue(random: RandomSource): string {
   const bytes = new Uint8Array(32);
   random.fill(bytes);
-  return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-")
-    .replaceAll("/", "_").replaceAll("=", "");
+  return btoa(String.fromCharCode(...bytes))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
 }
 
 export class CredentialRegistry {
@@ -132,67 +131,82 @@ export class CredentialRegistry {
       const kind = actorKind(input.actor);
       const parsed = parsedScope.success
         ? authenticatedContextSchema.safeParse({
-          principal: input.principal,
-          actor: input.actor,
-          scope: parsedScope.data,
-          conditions: input.conditions,
-          credential_ref: "pending",
-          ...(input.expires_at === undefined
-            ? {}
-            : { expires_at: input.expires_at }),
-        })
+            principal: input.principal,
+            actor: input.actor,
+            scope: parsedScope.data,
+            conditions: input.conditions,
+            credential_ref: "pending",
+            ...(input.expires_at === undefined
+              ? {}
+              : { expires_at: input.expires_at }),
+          })
         : undefined;
       if (
         !parsed?.success ||
-        (kind !== "user" && kind !== "machine" && kind !== "app" &&
-          kind !== "agent" && kind !== "coding_agent")
-      ) return invalid();
+        (kind !== "user" &&
+          kind !== "machine" &&
+          kind !== "app" &&
+          kind !== "agent" &&
+          kind !== "coding_agent")
+      )
+        return invalid();
       const context: AuthenticatedContext = parsed.data;
       // agent의 앱 조건(App Engineer의 담당 앱)은 target을 앱에 고정하지 않는다. 앱 없는 대상(SDK 계약,
       // handoff 고정 근거)도 닿아야 하고, 범위는 ledger의 target 판정이 앱 조건으로 가른다.
       if (
-        kind !== "agent" && context.conditions.app !== undefined &&
+        kind !== "agent" &&
+        context.conditions.app !== undefined &&
         context.scope.targets.app !== context.conditions.app
-      ) return invalid();
+      )
+        return invalid();
       if (
         kind === "user" &&
         (input.principal !== "user" || !context.conditions.process)
-      ) return invalid();
+      )
+        return invalid();
       if (
         kind === "machine" &&
-        (!context.conditions.task || !context.conditions.process ||
+        (!context.conditions.task ||
+          !context.conditions.process ||
           context.scope.targets.task !== context.conditions.task ||
           context.scope.operations.length === 0 ||
           Object.keys(context.scope.targets).length === 0)
-      ) return invalid();
+      )
+        return invalid();
       // app 자격은 supervisor가 고정 app·release·process·mode로 요청한다.
       // 조건에 없는 target을 넓혀도 같은 조건으로 고정한다.
       if (kind === "app") {
         // release는 live에 필수다. 준비 전 bundle의 preview는 release 없이 bundle hash로 고정한다.
-        const releaseless = context.conditions.release === undefined &&
+        const releaseless =
+          context.conditions.release === undefined &&
           context.conditions.mode !== undefined &&
           context.conditions.mode !== "live" &&
           context.conditions.bundle_hash !== undefined;
         if (
           !context.conditions.app ||
           (!context.conditions.release && !releaseless) ||
-          !context.conditions.process || !context.conditions.mode
-        ) return invalid();
+          !context.conditions.process ||
+          !context.conditions.mode
+        )
+          return invalid();
         if (
           context.scope.targets.app !== context.conditions.app ||
           context.scope.targets.release !== context.conditions.release ||
           context.scope.targets.process !== context.conditions.process ||
           context.scope.targets.mode !== context.conditions.mode
-        ) return invalid();
+        )
+          return invalid();
       }
       // agent credential은 session 하나와 그 안에서 도는 turn 하나에 묶인다. actor가 그 session이다.
       if (kind === "agent") {
         if (
-          !context.conditions.turn || !context.conditions.session ||
+          !context.conditions.turn ||
+          !context.conditions.session ||
           context.conditions.session !== input.actor.slice("agent:".length) ||
           context.scope.targets.session !== context.conditions.session ||
           context.scope.targets.turn !== context.conditions.turn
-        ) return invalid();
+        )
+          return invalid();
       }
       // coding token은 session 하나가 받은 앱 하나에 묶인다. 만료는 없고 session이 끝날 때 거둔다.
       if (kind === "coding_agent") {
@@ -203,7 +217,8 @@ export class CredentialRegistry {
       if (
         context.expires_at !== undefined &&
         Date.parse(context.expires_at) <= this.#options.clock.nowMs()
-      ) return invalid();
+      )
+        return invalid();
       const ceiling: CredentialScope = {
         operations: operationCeiling(input.actor, this.#options.operations),
         targets: {},
@@ -216,7 +231,8 @@ export class CredentialRegistry {
         if (
           !conditionsMatch(context.conditions, current.value.conditions) ||
           !scopeWithin(context.scope, current.value.scope)
-        ) return invalid();
+        )
+          return invalid();
       }
       if (kind === "user") {
         if (this.#userIssued) {
@@ -232,9 +248,10 @@ export class CredentialRegistry {
       const credential_ref = randomValue(this.#options.random);
       const digest = digestOf(token);
       if (
-        token === credential_ref || this.#records.has(credential_ref) ||
+        token === credential_ref ||
+        this.#records.has(credential_ref) ||
         [...this.#records.values()].some((record) =>
-          constantTimeDigestEqual(record.digest, digest)
+          constantTimeDigestEqual(record.digest, digest),
         )
       ) {
         if (userReserved) this.#userIssued = false;
@@ -262,9 +279,7 @@ export class CredentialRegistry {
 
   async authenticate(
     bearer: string,
-  ): Promise<
-    Result<AuthenticatedContext & { scope: CredentialScope }>
-  > {
+  ): Promise<Result<AuthenticatedContext & { scope: CredentialScope }>> {
     try {
       if (typeof bearer !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(bearer)) {
         return this.#denied();
@@ -337,10 +352,12 @@ export class CredentialRegistry {
     record: CredentialRecord,
   ): Result<AuthenticatedContext & { scope: CredentialScope }> {
     if (
-      record.state !== "active" || record.epoch !== this.#options.epoch ||
+      record.state !== "active" ||
+      record.epoch !== this.#options.epoch ||
       (record.context.expires_at !== undefined &&
         Date.parse(record.context.expires_at) <= this.#options.clock.nowMs())
-    ) return this.#denied();
+    )
+      return this.#denied();
     const context = structuredClone(record.context);
     try {
       const live = this.#options.live ?? this.#options.current;
@@ -349,7 +366,8 @@ export class CredentialRegistry {
         if (
           !current.ok ||
           !conditionsMatch(context.conditions, current.value.conditions)
-        ) return this.#denied();
+        )
+          return this.#denied();
         context.scope = intersectScope(context.scope, current.value.scope);
       }
       return ok(context);

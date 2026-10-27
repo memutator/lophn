@@ -45,11 +45,12 @@ export interface RunRow {
 }
 
 function Dot({ status }: { status: PanelSession["status"] }) {
-  const label = status === "waiting"
-    ? t("project-workspace.label.agent-waiting")
-    : status === "working"
-    ? t("common.label.tab-working")
-    : undefined;
+  const label =
+    status === "waiting"
+      ? t("project-workspace.label.agent-waiting")
+      : status === "working"
+        ? t("common.label.tab-working")
+        : undefined;
   return (
     <span
       className={styles.sessionDot}
@@ -60,16 +61,19 @@ function Dot({ status }: { status: PanelSession["status"] }) {
   );
 }
 
-export function SessionItem(
-  { session, agentName, hideWhen, onSession }: {
-    session: PanelSession;
-    /** true면 오른쪽 시각을 보이지 않는다(run 아래 session 줄은 run 줄에 시각이 있다). */
-    hideWhen?: boolean;
-    /** 있으면 제목 아래에 "agent · 시각"을 보인다(Recent). */
-    agentName?: string;
-    onSession: (session: PanelSession) => void;
-  },
-) {
+export function SessionItem({
+  session,
+  agentName,
+  hideWhen,
+  onSession,
+}: {
+  session: PanelSession;
+  /** true면 오른쪽 시각을 보이지 않는다(run 아래 session 줄은 run 줄에 시각이 있다). */
+  hideWhen?: boolean;
+  /** 있으면 제목 아래에 "agent · 시각"을 보인다(Recent). */
+  agentName?: string;
+  onSession: (session: PanelSession) => void;
+}) {
   const when = formatRelativeTime(new Date(session.at), new Date());
   return (
     <li className={styles.li}>
@@ -82,13 +86,15 @@ export function SessionItem(
         <Dot status={session.status} />
         <span className={styles.sessionText}>
           <span className={styles.label}>{session.title}</span>
-          {agentName === undefined
-            ? null
-            : <span className={styles.sessionMeta}>{agentName} · {when}</span>}
+          {agentName === undefined ? null : (
+            <span className={styles.sessionMeta}>
+              {agentName} · {when}
+            </span>
+          )}
         </span>
-        {agentName === undefined && hideWhen !== true
-          ? <span className={styles.sessionWhen}>{when}</span>
-          : null}
+        {agentName === undefined && hideWhen !== true ? (
+          <span className={styles.sessionWhen}>{when}</span>
+        ) : null}
       </button>
     </li>
   );
@@ -100,29 +106,28 @@ function RunMeta({ run }: { run: RunRow }) {
   return (
     <span className={styles.sessionMeta}>
       {run.via === null ? when : `${run.via} · ${when}`}
-      {run.state === "failed" || run.state === "cancelled"
-        ? (
-          <>
-            {" · "}
-            <span className={styles.runState} data-tone={run.state}>
-              {run.state === "failed"
-                ? t("run-list.label.failed")
-                : t("run-list.label.cancelled")}
-            </span>
-          </>
-        )
-        : null}
+      {run.state === "failed" || run.state === "cancelled" ? (
+        <>
+          {" · "}
+          <span className={styles.runState} data-tone={run.state}>
+            {run.state === "failed"
+              ? t("run-list.label.failed")
+              : t("run-list.label.cancelled")}
+          </span>
+        </>
+      ) : null}
     </span>
   );
 }
 
 // session 줄이 있는 run은 점을 그리지 않는다. 그 줄의 점이 상태를 보인다.
-export function RunList(
-  { runs, onSession }: {
-    runs: readonly RunRow[];
-    onSession: (session: PanelSession) => void;
-  },
-) {
+export function RunList({
+  runs,
+  onSession,
+}: {
+  runs: readonly RunRow[];
+  onSession: (session: PanelSession) => void;
+}) {
   return (
     <ul className={styles.list} role="list">
       {runs.map((run) => (
@@ -133,35 +138,30 @@ export function RunList(
           data-run-state={run.state}
         >
           <div className={`${styles.li} ${styles.runRow}`}>
-            {run.profile === null
-              ? (
-                <span className={styles.runIcon}>
-                  <Icon
-                    icon={settingsIcons.tools}
-                    pixels={iconPixels("small")}
-                  />
-                </span>
-              )
-              : <Avatar profile={run.profile} size="sm" />}
+            {run.profile === null ? (
+              <span className={styles.runIcon}>
+                <Icon icon={settingsIcons.tools} pixels={iconPixels("small")} />
+              </span>
+            ) : (
+              <Avatar profile={run.profile} size="sm" />
+            )}
             <span className={styles.sessionText}>
               <span className={styles.label}>{run.name}</span>
               <RunMeta run={run} />
             </span>
-            {run.session === null && run.state === "running"
-              ? <Dot status="working" />
-              : null}
+            {run.session === null && run.state === "running" ? (
+              <Dot status="working" />
+            ) : null}
           </div>
-          {run.session === null
-            ? null
-            : (
-              <ul className={`${styles.list} ${styles.sessions}`} role="list">
-                <SessionItem
-                  session={run.session}
-                  hideWhen
-                  onSession={onSession}
-                />
-              </ul>
-            )}
+          {run.session === null ? null : (
+            <ul className={`${styles.list} ${styles.sessions}`} role="list">
+              <SessionItem
+                session={run.session}
+                hideWhen
+                onSession={onSession}
+              />
+            </ul>
+          )}
         </li>
       ))}
     </ul>

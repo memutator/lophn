@@ -25,7 +25,9 @@ export const START_MS = Date.UTC(2026, 0, 1);
 export type HarnessTool = {
   name: string;
   effect: "read" | "write" | "external";
-  run(args: unknown):
+  run(
+    args: unknown,
+  ):
     | { status: ToolDone["status"]; code: string; summary: string }
     | Promise<{ status: ToolDone["status"]; code: string; summary: string }>;
 };
@@ -160,10 +162,14 @@ export function loopHarness(init: {
         if (signal.aborted) return resolve("aborted");
         const fire = () => resolve("elapsed");
         firing.add(fire);
-        signal.addEventListener("abort", () => {
-          firing.delete(fire);
-          resolve("aborted");
-        }, { once: true });
+        signal.addEventListener(
+          "abort",
+          () => {
+            firing.delete(fire);
+            resolve("aborted");
+          },
+          { once: true },
+        );
       }),
     // tool retry 대기가 정확히 1000ms가 된다.
     random: () => 0.5,

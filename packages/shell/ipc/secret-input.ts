@@ -19,20 +19,28 @@ export const SECRET_INPUT_MAX_BYTES = 64 * 1024;
 const secretName = z.string().regex(/^[A-Za-z0-9_.:-]+$/);
 const purpose = z.enum(["app", "provider", "mcp"]);
 
-export const secretInputOpenSchema = z.object({
-  /** 저장할 secret 이름. */
-  name: secretName,
-  purpose,
-  /** 창에 보일 대상 이름(앱, provider, MCP server). 창은 글로만 그린다. */
-  subject: z.string().min(1).max(80).regex(/^[^\p{Cc}]+$/u),
-}).strict();
+export const secretInputOpenSchema = z
+  .object({
+    /** 저장할 secret 이름. */
+    name: secretName,
+    purpose,
+    /** 창에 보일 대상 이름(앱, provider, MCP server). 창은 글로만 그린다. */
+    subject: z
+      .string()
+      .min(1)
+      .max(80)
+      .regex(/^[^\p{Cc}]+$/u),
+  })
+  .strict();
 
-export const secretInputSubmitSchema = z.object({
-  value: z.string().refine((value) => {
-    const size = new TextEncoder().encode(value).byteLength;
-    return size >= 1 && size <= SECRET_INPUT_MAX_BYTES;
-  }),
-}).strict();
+export const secretInputSubmitSchema = z
+  .object({
+    value: z.string().refine((value) => {
+      const size = new TextEncoder().encode(value).byteLength;
+      return size >= 1 && size <= SECRET_INPUT_MAX_BYTES;
+    }),
+  })
+  .strict();
 
 export type SecretInputOpen = z.infer<typeof secretInputOpenSchema>;
 type SecretInputSubmit = z.infer<typeof secretInputSubmitSchema>;
@@ -43,9 +51,9 @@ export type SecretInputOpenReply =
   | { ok: true; result: "stored" | "cancelled" }
   // conflict: 이미 열린 보호 창이 있다.
   | {
-    ok: false;
-    code: "invalid_input" | "forbidden" | "conflict" | "unavailable";
-  };
+      ok: false;
+      code: "invalid_input" | "forbidden" | "conflict" | "unavailable";
+    };
 
 export type SecretInputDisplay = {
   name: string;

@@ -73,24 +73,22 @@ interface SettingsScreenProps {
 // 표를 보이는 항목은 기둥을 더 넓게 쓴다.
 const WIDE: ReadonlySet<SettingsPane> = new Set(["coding", "diagnostics"]);
 
-export function SettingsScreen(
-  {
-    pane,
-    onPane,
-    source,
-    providers,
-    agents,
-    onInstructions,
-    coding,
-    diagnostics,
-    shellRules,
-    appearance,
-    browser,
-    jobs,
-    onOpenSession,
-    onProject,
-  }: SettingsScreenProps,
-) {
+export function SettingsScreen({
+  pane,
+  onPane,
+  source,
+  providers,
+  agents,
+  onInstructions,
+  coding,
+  diagnostics,
+  shellRules,
+  appearance,
+  browser,
+  jobs,
+  onOpenSession,
+  onProject,
+}: SettingsScreenProps) {
   // Agents의 [Add server]는 server form을 가진 Tools and skills 항목으로 옮긴다(form을 두 벌 두지 않는다).
   // Agents의 [Edit]은 전역 지침 편집기를 여는 shell 통로로 간다. 통로가 바뀌어도 Agents를 다시 읽지 않는다.
   const instructions = useRef(onInstructions);
@@ -99,21 +97,23 @@ export function SettingsScreen(
   toPane.current = onPane;
   const agentsSource = useMemo<AgentsSettingsSource | undefined>(
     () =>
-      agents === undefined ? undefined : {
-        ...agents,
-        addServer: () => {
-          toPane.current("tools");
-          return Promise.resolve({ ok: true, value: null });
-        },
-        openInstructions: () => {
-          const open = instructions.current;
-          if (open === undefined) {
-            return Promise.resolve({ ok: false, code: "unavailable" });
-          }
-          open();
-          return Promise.resolve({ ok: true, value: null });
-        },
-      },
+      agents === undefined
+        ? undefined
+        : {
+            ...agents,
+            addServer: () => {
+              toPane.current("tools");
+              return Promise.resolve({ ok: true, value: null });
+            },
+            openInstructions: () => {
+              const open = instructions.current;
+              if (open === undefined) {
+                return Promise.resolve({ ok: false, code: "unavailable" });
+              }
+              open();
+              return Promise.resolve({ ok: true, value: null });
+            },
+          },
     [agents],
   );
 
@@ -126,9 +126,7 @@ export function SettingsScreen(
     >
       <div className={`${styles.column} ${WIDE.has(pane) ? styles.wide : ""}`}>
         {body ?? (
-          <p className={styles.notReady}>
-            {t("common.empty.not-ready")}
-          </p>
+          <p className={styles.notReady}>{t("common.empty.not-ready")}</p>
         )}
       </div>
     </section>
@@ -141,40 +139,50 @@ export function SettingsScreen(
       case "appearance":
         return appearance && <AppearancePanel source={appearance} />;
       case "browser":
-        return browser && (
-          <div className={styles.panel}>
-            <BrowserPanel source={browser} />
-          </div>
+        return (
+          browser && (
+            <div className={styles.panel}>
+              <BrowserPanel source={browser} />
+            </div>
+          )
         );
       case "providers":
-        return providers && (
-          <div className={styles.panel}>
-            <ProviderList source={providers} />
-          </div>
+        return (
+          providers && (
+            <div className={styles.panel}>
+              <ProviderList source={providers} />
+            </div>
+          )
         );
       case "agents":
-        return agentsSource && (
-          <div className={styles.panel}>
-            <AgentsPanel source={agentsSource} />
-          </div>
+        return (
+          agentsSource && (
+            <div className={styles.panel}>
+              <AgentsPanel source={agentsSource} />
+            </div>
+          )
         );
       case "tools":
-        return agentsSource && (
-          <div className={styles.panel}>
-            <ExtensionsPanel source={agentsSource} />
-          </div>
+        return (
+          agentsSource && (
+            <div className={styles.panel}>
+              <ExtensionsPanel source={agentsSource} />
+            </div>
+          )
         );
       case "coding":
         return coding && <CodingConnectionsPanel source={coding} />;
       case "shell-rules":
         return shellRules && <ShellRulesPanel source={shellRules} />;
       case "jobs":
-        return jobs && (
-          <JobsPanel
-            source={jobs}
-            onOpenSession={onOpenSession}
-            onOpenProject={(project) => onProject?.(project)}
-          />
+        return (
+          jobs && (
+            <JobsPanel
+              source={jobs}
+              onOpenSession={onOpenSession}
+              onOpenProject={(project) => onProject?.(project)}
+            />
+          )
         );
       case "diagnostics":
         return diagnostics && <DiagnosticsPanel source={diagnostics} />;

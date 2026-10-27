@@ -53,9 +53,10 @@ export function createTurnStarter(deps: { inbox: Inbox }): TurnStarter {
 }
 
 // 입력함과 turn starter를 `TurnSource` 한 입구로 묶는다. runtime child가 감독 pipe로 부르는 core 쪽 구현이다.
-export function createTurnSource(
-  deps: { inbox: Inbox; starter: TurnStarter },
-): TurnSource {
+export function createTurnSource(deps: {
+  inbox: Inbox;
+  starter: TurnStarter;
+}): TurnSource {
   const { inbox, starter } = deps;
   return {
     next: () => Promise.resolve(ok(starter.next())),
@@ -65,12 +66,16 @@ export function createTurnSource(
       return Promise.resolve(ok(undefined));
     },
     steering: (session) =>
-      Promise.resolve(ok(
-        inbox.pendingSteering(session).map((input): SteeringInput => ({
-          id: input.message as string,
-          input,
-        })),
-      )),
+      Promise.resolve(
+        ok(
+          inbox.pendingSteering(session).map(
+            (input): SteeringInput => ({
+              id: input.message as string,
+              input,
+            }),
+          ),
+        ),
+      ),
     settled(session, count) {
       inbox.settleSteering(session, count);
       return Promise.resolve(ok(undefined));
@@ -84,18 +89,16 @@ export function createTurnSource(
 export function createLophnInputTransport(deps: {
   // `message`가 null인 입력(call·reply·reaction·notice·step)을 받는 session 기록에 쓴다. 배달하는 tx에서
   // 부르고 wiring이 places-sessions 쪽 쓰기 helper를 끼운다.
-  record(
-    tx: Tx,
-    session: Id<"ses">,
-    input: RoutedInput,
-  ): Result<Id<"msg">>;
+  record(tx: Tx, session: Id<"ses">, input: RoutedInput): Result<Id<"msg">>;
 }): InputTransport {
   // 받는 session이 지금 turn을 돌고 있는지는 정본인 turns 표로 본다(입력함의 running은 main에 있다).
   function running(tx: Tx, session: Id<"ses">): boolean {
-    return tx.sql.get(
-      "select 1 as found from turns where session = ? and state = 'running'",
-      [session],
-    ) !== undefined;
+    return (
+      tx.sql.get(
+        "select 1 as found from turns where session = ? and state = 'running'",
+        [session],
+      ) !== undefined
+    );
   }
 
   function put(tx: Tx, session: Id<"ses">, input: RoutedInput): Result<void> {
@@ -124,7 +127,7 @@ export function createLophnInputTransport(deps: {
       const idle = !running(tx, target.session);
       const stored = put(tx, target.session, input);
       if (!stored.ok) return stored;
-      return ok(idle ? "delivered" as const : "queued" as const);
+      return ok(idle ? ("delivered" as const) : ("queued" as const));
     },
     cancel(tx, target, call, unattended) {
       if (target === null || target.transport !== "lophn") {

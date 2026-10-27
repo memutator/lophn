@@ -21,22 +21,27 @@ export function annotationUploadHandler(relay: {
   return (ctx, rawInput, body) => {
     const input = annotationUploadScreenshot.input.safeParse(rawInput);
     if (
-      !input.success || input.data.bytes > ANNOTATION_SCREENSHOT_MAX_BYTES ||
+      !input.success ||
+      input.data.bytes > ANNOTATION_SCREENSHOT_MAX_BYTES ||
       (body.length !== undefined && input.data.bytes !== body.length)
     ) {
       body.bytes.cancel().catch(() => {});
-      return Promise.resolve(err({
-        code: "invalid_input",
-        message: "upload input does not match the body",
-      }));
+      return Promise.resolve(
+        err({
+          code: "invalid_input",
+          message: "upload input does not match the body",
+        }),
+      );
     }
     const prepare = relay.current;
     if (!prepare) {
       body.bytes.cancel().catch(() => {});
-      return Promise.resolve(err({
-        code: "unavailable",
-        message: "blob 준비 중계가 아직 없다",
-      }));
+      return Promise.resolve(
+        err({
+          code: "unavailable",
+          message: "blob 준비 중계가 아직 없다",
+        }),
+      );
     }
     const mismatch = { value: false };
     return prepare({
@@ -47,10 +52,10 @@ export function annotationUploadHandler(relay: {
     }).then((prepared) =>
       !prepared.ok && mismatch.value
         ? err({
-          code: "invalid_input" as const,
-          message: "upload input does not match the body",
-        })
-        : prepared
+            code: "invalid_input" as const,
+            message: "upload input does not match the body",
+          })
+        : prepared,
     );
   };
 }

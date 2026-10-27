@@ -9,9 +9,9 @@ import type { Route } from "../../../../protocol/base/mod.ts";
 // approvals의 route는 core 등록이 내므로 protocol 전체 목록(ALL_ROUTES)에 없다. 사람 화면이 부르는 것만 더한다:
 // turn request 결정, 에이전트 할당 읽기·바꾸기.
 export const SHELL_ROUTES: readonly Route[] = [
-  ...ALL_ROUTES as readonly Route[],
+  ...(ALL_ROUTES as readonly Route[]),
   turnRequestDecide as Route,
-  ...AGENT_ASSIGNMENT_ROUTES as readonly Route[],
+  ...(AGENT_ASSIGNMENT_ROUTES as readonly Route[]),
 ];
 
 const BY_NAME = new Map<string, Route>();

@@ -82,9 +82,8 @@ class Reader {
 
   urlText(node: Node): string {
     const raw = this.text(node);
-    const bare = raw.startsWith("<") && raw.endsWith(">")
-      ? raw.slice(1, -1)
-      : raw;
+    const bare =
+      raw.startsWith("<") && raw.endsWith(">") ? raw.slice(1, -1) : raw;
     return unescapeText(bare);
   }
 
@@ -188,9 +187,10 @@ class Reader {
     const { from, to, raw } = this.target(node);
     return {
       kind: "image",
-      src: raw === undefined
-        ? undefined
-        : safeUrl(raw, "image", this.options.resolveImage),
+      src:
+        raw === undefined
+          ? undefined
+          : safeUrl(raw, "image", this.options.resolveImage),
       alt: plainText(this.inlines(node, from, to)),
     };
   }
@@ -213,7 +213,9 @@ class Reader {
       case "FencedCode":
       case "CodeBlock": {
         const info = node.getChild("CodeInfo");
-        const text = node.getChildren("CodeText").map((part) => this.text(part))
+        const text = node
+          .getChildren("CodeText")
+          .map((part) => this.text(part))
           .join("");
         // fence info는 언어 이름 뒤에 옵션을 더 쓸 수 있다(```ts title=app.ts). label은 첫 낱말만 쓴다.
         const language = info
@@ -272,9 +274,8 @@ class Reader {
       };
     });
     const mark = node.getChild("ListItem")?.getChild("ListMark");
-    const start = ordered && mark
-      ? Number.parseInt(this.text(mark), 10)
-      : undefined;
+    const start =
+      ordered && mark ? Number.parseInt(this.text(mark), 10) : undefined;
     return { kind: "list", ordered, start, items };
   }
 
@@ -285,17 +286,20 @@ class Reader {
         trimEdges(content);
         return content;
       });
-    const delimiter = childNodes(node).find((child) =>
-      child.name === "TableDelimiter"
+    const delimiter = childNodes(node).find(
+      (child) => child.name === "TableDelimiter",
     );
     const align: Align[] = delimiter
-      ? this.text(delimiter).replace(/^\||\|$/g, "").split("|").map((part) => {
-        const spec = part.trim();
-        if (spec.startsWith(":") && spec.endsWith(":")) return "center";
-        if (spec.endsWith(":")) return "right";
-        if (spec.startsWith(":")) return "left";
-        return undefined;
-      })
+      ? this.text(delimiter)
+          .replace(/^\||\|$/g, "")
+          .split("|")
+          .map((part) => {
+            const spec = part.trim();
+            if (spec.startsWith(":") && spec.endsWith(":")) return "center";
+            if (spec.endsWith(":")) return "right";
+            if (spec.startsWith(":")) return "left";
+            return undefined;
+          })
       : [];
     return {
       kind: "table",

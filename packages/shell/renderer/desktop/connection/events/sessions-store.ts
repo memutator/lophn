@@ -75,11 +75,12 @@ export function createSessionsStore(
     for (const [session, record] of records) {
       sessions.push({
         session,
-        state: record.pending.size > 0
-          ? "waiting"
-          : record.turnActive
-          ? "running"
-          : record.base,
+        state:
+          record.pending.size > 0
+            ? "waiting"
+            : record.turnActive
+              ? "running"
+              : record.base,
         archived: record.ended === "archived",
         ended: record.ended,
         agent: record.agent,
@@ -163,8 +164,8 @@ export function createSessionsStore(
     for (const snapshot of snapshots) {
       next.set(snapshot.session, {
         base: snapshot.state === "unknown" ? "unknown" : "idle",
-        turnActive: snapshot.state === "running" ||
-          snapshot.state === "waiting",
+        turnActive:
+          snapshot.state === "running" || snapshot.state === "waiting",
         pending: new Set([
           ...snapshot.turn_requests.map((request) => request.id),
           ...snapshot.questions.map((question) => question.group),

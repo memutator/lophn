@@ -11,11 +11,15 @@ import { confirmationRefSchema } from "./confirmation-handle.ts";
 const encoder = new TextEncoder();
 
 // UTF-8 1~128 bytes.
-export const idempotencyKeySchema = z.string().refine((value) => {
-  const bytes = encoder.encode(value).length;
-  return bytes >= IDEMPOTENCY_KEY_MIN_BYTES &&
-    bytes <= IDEMPOTENCY_KEY_MAX_BYTES;
-}, { message: "invalid idempotency key" });
+export const idempotencyKeySchema = z.string().refine(
+  (value) => {
+    const bytes = encoder.encode(value).length;
+    return (
+      bytes >= IDEMPOTENCY_KEY_MIN_BYTES && bytes <= IDEMPOTENCY_KEY_MAX_BYTES
+    );
+  },
+  { message: "invalid idempotency key" },
+);
 
 const opaqueRefSchema = z.string().min(1);
 
@@ -38,11 +42,13 @@ const commandRequestFields = {
 
 type CompareSchema<R extends CommandRequestRoute> = [
   Extract<R["compare"], z.ZodType>,
-] extends [never] ? z.ZodObject<Record<string, never>>
+] extends [never]
+  ? z.ZodObject<Record<string, never>>
   : Extract<R["compare"], z.ZodType>;
 
 type ConfirmationSchema<R extends CommandRequestRoute> =
-  R["confirmation"] extends "required" ? typeof confirmationRefSchema
+  R["confirmation"] extends "required"
+    ? typeof confirmationRefSchema
     : z.ZodOptional<typeof confirmationRefSchema>;
 
 type CommandRequestObject<R extends CommandRequestRoute> = z.ZodObject<{

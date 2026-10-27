@@ -20,9 +20,12 @@ export interface ProjectSelectorProps {
 }
 
 // 상단 바 왼쪽 경로의 project 조각. 고르면 그 project를 이 창에서 연다.
-export function ProjectSelector(
-  { options, active, onSelect, onOpenChange }: ProjectSelectorProps,
-) {
+export function ProjectSelector({
+  options,
+  active,
+  onSelect,
+  onOpenChange,
+}: ProjectSelectorProps) {
   return (
     <PathMenu
       kind="project"

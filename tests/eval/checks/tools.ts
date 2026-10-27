@@ -18,22 +18,21 @@ export function toolCount(
     kind: "program",
     id,
     run({ trial }) {
-      const n =
-        effectiveToolCalls(trial).filter((c) =>
+      const n = effectiveToolCalls(trial).filter(
+        (c) =>
           tools.includes(c.call.tool) &&
           (!opts.success || c.call.outcome?.kind === "success") &&
-          Object.entries(opts.input ?? {}).every(([k, v]) =>
-            (c.input as Record<string, unknown> | null)?.[k] === v
-          )
-        ).length;
-      const input = opts.input === undefined
-        ? ""
-        : ` ${JSON.stringify(opts.input)}`;
+          Object.entries(opts.input ?? {}).every(
+            ([k, v]) => (c.input as Record<string, unknown> | null)?.[k] === v,
+          ),
+      ).length;
+      const input =
+        opts.input === undefined ? "" : ` ${JSON.stringify(opts.input)}`;
       return {
         pass: countOk(n, opts.count),
-        reason: `${name}${input} ${opts.success ? "성공 " : ""}${n}번 (기대 ${
-          countText(opts.count)
-        })`,
+        reason: `${name}${input} ${opts.success ? "성공 " : ""}${n}번 (기대 ${countText(
+          opts.count,
+        )})`,
       };
     },
   };
@@ -49,14 +48,15 @@ export function toolsCalled(
     id,
     run({ trial }) {
       const called = new Set(effectiveToolCalls(trial).map((c) => c.call.tool));
-      const missing = tools.filter((t) =>
-        ![t].flat().some((name) => called.has(name))
-      ).map((t) => [t].flat().join("|"));
+      const missing = tools
+        .filter((t) => ![t].flat().some((name) => called.has(name)))
+        .map((t) => [t].flat().join("|"));
       return {
         pass: missing.length === 0,
-        reason: missing.length === 0
-          ? "모두 불림"
-          : `안 불린 tool: ${missing.join(", ")}`,
+        reason:
+          missing.length === 0
+            ? "모두 불림"
+            : `안 불린 tool: ${missing.join(", ")}`,
       };
     },
   };
@@ -69,15 +69,17 @@ export function noWriteTools(id: string): ProgramCheck {
     run({ trial }) {
       const writes = [
         ...new Set(
-          effectiveToolCalls(trial).filter((c) => c.call.effect !== "read")
+          effectiveToolCalls(trial)
+            .filter((c) => c.call.effect !== "read")
             .map((c) => c.call.tool),
         ),
       ];
       return {
         pass: writes.length === 0,
-        reason: writes.length === 0
-          ? "쓰기 tool 없음"
-          : `쓰기 tool 불림: ${writes.join(", ")}`,
+        reason:
+          writes.length === 0
+            ? "쓰기 tool 없음"
+            : `쓰기 tool 불림: ${writes.join(", ")}`,
       };
     },
   };

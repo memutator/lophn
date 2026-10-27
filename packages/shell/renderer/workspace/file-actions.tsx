@@ -14,9 +14,13 @@ interface FileConfirmProps {
   readonly onClose: () => void;
 }
 
-export function FileConfirm(
-  { title, text, confirm, onConfirm, onClose }: FileConfirmProps,
-) {
+export function FileConfirm({
+  title,
+  text,
+  confirm,
+  onConfirm,
+  onClose,
+}: FileConfirmProps) {
   return (
     <Dialog
       open

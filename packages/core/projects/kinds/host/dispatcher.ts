@@ -89,7 +89,7 @@ export function createKindsDispatcher(
   function compare(domain: string, response: KindsSyncResponse) {
     const now = new Set(
       response.violations.map((v) =>
-        JSON.stringify([v.source, v.kind, v.path, v.field, v.rule])
+        JSON.stringify([v.source, v.kind, v.path, v.field, v.rule]),
       ),
     );
     const before = known.get(domain);
@@ -141,9 +141,12 @@ export function createKindsDispatcher(
     }
     let running = inflight.get(domain);
     if (running === undefined) {
-      running = run(domain, force).catch((): Result<KindsSyncResponse> =>
-        err({ code: "unavailable", message: "kinds sync failed" })
-      ).finally(() => inflight.delete(domain));
+      running = run(domain, force)
+        .catch(
+          (): Result<KindsSyncResponse> =>
+            err({ code: "unavailable", message: "kinds sync failed" }),
+        )
+        .finally(() => inflight.delete(domain));
       inflight.set(domain, running);
     }
     return await running;

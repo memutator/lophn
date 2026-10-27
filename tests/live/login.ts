@@ -24,8 +24,8 @@ const MODEL_ENV = "LOPHN_LIVE_CHATGPT_MODEL";
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function login(core: Core): Promise<number> {
-  const known = (await core.call(providerList, {})).providers.find((item) =>
-    item.definition.oauth?.product === "chatgpt"
+  const known = (await core.call(providerList, {})).providers.find(
+    (item) => item.definition.oauth?.product === "chatgpt",
   );
   if (known !== undefined) {
     if (known.credential.state === "available") {
@@ -78,9 +78,13 @@ async function login(core: Core): Promise<number> {
   const read = async () =>
     (await core.call(providerRead, { provider })).provider.credential
       .reported_models;
-  const fromCore = await until("계정 model 목록", async () => {
-    return (await read()) ?? undefined;
-  }, 15_000).catch(() => null);
+  const fromCore = await until(
+    "계정 model 목록",
+    async () => {
+      return (await read()) ?? undefined;
+    },
+    15_000,
+  ).catch(() => null);
   console.log(
     fromCore === null
       ? "core가 계정 model 목록을 아직 읽지 못했다(첫 model 호출 때 다시 읽는다)."
@@ -97,9 +101,9 @@ async function login(core: Core): Promise<number> {
   const catalog = await core.call(modelCatalogRead, {
     provider_definition: "openai",
   });
-  const usable = catalog.entries.filter((entry) =>
-    entry.supports_tools !== false
-  ).map((entry) => entry.model_name);
+  const usable = catalog.entries
+    .filter((entry) => entry.supports_tools !== false)
+    .map((entry) => entry.model_name);
   const overlap = names === null ? [] : usable.filter((n) => names.includes(n));
   console.log(
     `계정 model ∩ catalog(tool 지원): ${overlap.length}개` +
@@ -157,16 +161,16 @@ async function diagnose(
   }
   const top = json as Record<string, unknown>;
   console.log(`최상위 칸: ${Object.keys(top ?? {}).join(", ")}`);
-  const items = Array.isArray(top?.["data"]) ? top["data"] as unknown[] : [];
+  const items = Array.isArray(top?.["data"]) ? (top["data"] as unknown[]) : [];
   const first = items[0] as Record<string, unknown> | undefined;
   console.log(
-    `data 항목 ${items.length}개, 첫 항목 칸: ${
-      Object.keys(first ?? {}).join(", ")
-    }`,
+    `data 항목 ${items.length}개, 첫 항목 칸: ${Object.keys(first ?? {}).join(
+      ", ",
+    )}`,
   );
   const kinds = new Set(
     items.map((item) =>
-      String((item as Record<string, unknown>)?.["visibility"])
+      String((item as Record<string, unknown>)?.["visibility"]),
     ),
   );
   console.log(`visibility 값 종류: ${[...kinds].join(", ")}`);

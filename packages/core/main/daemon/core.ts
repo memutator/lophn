@@ -168,7 +168,7 @@ async function open(
   ctx.provide("epoch", epoch);
   const operations = [];
   for (const wiring of wirings) {
-    operations.push(...await wiring.operations?.(ctx) ?? []);
+    operations.push(...((await wiring.operations?.(ctx)) ?? []));
   }
   ctx.provide("operations", operations);
   for (const wiring of wirings) wiring.prepare?.(ctx);
@@ -194,7 +194,7 @@ async function open(
   let shutdownRun: Promise<void> | undefined;
   const shutdown = () => {
     // 같은 시각의 두 종료 요청도 실제 종료가 끝날 때까지 같은 barrier를 기다린다.
-    return shutdownRun ??= (async () => {
+    return (shutdownRun ??= (async () => {
       if (ctx.stopped) return;
       ctx.stopped = true;
       const stoppedAt: StoppedConditions = {
@@ -224,7 +224,7 @@ async function open(
         await runtime.close();
         stoppedAt.writerStopped = true;
         for (const wiring of wirings) {
-          if (await wiring.stopped?.(ctx, stoppedAt) === "handled") break;
+          if ((await wiring.stopped?.(ctx, stoppedAt)) === "handled") break;
         }
       } finally {
         try {
@@ -237,7 +237,7 @@ async function open(
           }
         }
       }
-    })();
+    })());
   };
   ctx.provide("shutdown", shutdown);
 
@@ -265,12 +265,12 @@ async function open(
   for (const built of builts) built.reads?.(runtime.reads);
   const merged = <T>(
     pick: (built: Built) => Iterable<readonly [string, T]> | undefined,
-  ) => new Map(builts.flatMap((built) => [...pick(built) ?? []]));
+  ) => new Map(builts.flatMap((built) => [...(pick(built) ?? [])]));
   // 쓰기 앞 처리기는 안쪽에서 바깥으로 접는다(앞 wiring이 안쪽이다). API server와 core 안 호출이 같은 것을 쓴다.
   ctx.provide(
     "writer",
     builts.reduce(
-      (inner, built) => built.writer ? built.writer(inner) : inner,
+      (inner, built) => (built.writer ? built.writer(inner) : inner),
       runtime.writer,
     ),
   );
@@ -338,16 +338,16 @@ async function open(
   const parent = options.parent;
   const hello = parent
     ? greet(
-      parent,
-      ctx.registry,
-      runtime,
-      server.port,
-      epoch,
-      (scope) => ctx.registry.issue(scope),
-      (token) => writeUserToken(root.run, token),
-      allRoutes,
-      ctx.eventNames,
-    )
+        parent,
+        ctx.registry,
+        runtime,
+        server.port,
+        epoch,
+        (scope) => ctx.registry.issue(scope),
+        (token) => writeUserToken(root.run, token),
+        allRoutes,
+        ctx.eventNames,
+      )
     : Promise.resolve(ok(undefined));
   const core: Core = {
     port: server.port,
@@ -362,22 +362,29 @@ async function open(
     return greeted;
   }
   core.done = parent
-    ? watchParent(parent, () => core.shutdown(), {
-      confirmation: (body) => runtime.confirmation(body),
-      reply: (message) => writeParent(parent, message),
-    }, {
-      ...shellViewLog(root.path),
-      // 보내는 쪽 값을 믿지 않고 core가 component·location을 정한다.
-      internal: (diagnostic) =>
-        void ctx.diagnosticsWrite({
-          ...diagnostic,
-          payload: {
-            ...diagnostic.payload,
-            component: "platform/shell-main",
-            location: CRASH_LOCATIONS.shellMain,
-          },
-        }).catch(() => {}),
-    })
+    ? watchParent(
+        parent,
+        () => core.shutdown(),
+        {
+          confirmation: (body) => runtime.confirmation(body),
+          reply: (message) => writeParent(parent, message),
+        },
+        {
+          ...shellViewLog(root.path),
+          // 보내는 쪽 값을 믿지 않고 core가 component·location을 정한다.
+          internal: (diagnostic) =>
+            void ctx
+              .diagnosticsWrite({
+                ...diagnostic,
+                payload: {
+                  ...diagnostic.payload,
+                  component: "platform/shell-main",
+                  location: CRASH_LOCATIONS.shellMain,
+                },
+              })
+              .catch(() => {}),
+        },
+      )
     : Promise.resolve();
   return ok(core);
 }
@@ -407,9 +414,9 @@ function memoryRouteMismatch(
   handlers: ReadonlyMap<string, unknown>,
 ): string[] {
   const registered = new Set(
-    routes.filter((route) => route.kind === "memory").map((route) =>
-      `${route.resource}/${route.method}`
-    ),
+    routes
+      .filter((route) => route.kind === "memory")
+      .map((route) => `${route.resource}/${route.method}`),
   );
   return [
     ...[...registered].filter((key) => !handlers.has(key)),

@@ -80,14 +80,12 @@ async function chmodOrFail(
 
 // bundle byte·manifest·정규 선언 JSON을 사본에 쓴다. 파일은 0444로 좁히지만 폴더는 열어 둔다.
 // 연결(symlink)은 만들지 않는다: 준비 자식의 좁힌 권한으로는 만들 수 없어, 권한이 있는 core가 `sealCopy`로 마친다.
-export async function writeBundle(
-  input: {
-    copyPath: string;
-    manifest: BundleManifest;
-    declarationJson: Uint8Array;
-    bundleFiles: readonly { path: string; bytes: Uint8Array }[];
-  },
-): Promise<Result<void, SealFailure>> {
+export async function writeBundle(input: {
+  copyPath: string;
+  manifest: BundleManifest;
+  declarationJson: Uint8Array;
+  bundleFiles: readonly { path: string; bytes: Uint8Array }[];
+}): Promise<Result<void, SealFailure>> {
   // 사본 폴더를 만들기 전에 거른다. 사본 밖을 가리키는 연결은 아무것도 만들지 않고 거절한다.
   const linksFile = input.bundleFiles.find((file) => file.path === LINKS_PATH);
   const links = linksFile ? decodeLinks(linksFile.bytes) : ok([]);

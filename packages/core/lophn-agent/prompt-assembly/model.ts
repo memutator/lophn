@@ -5,11 +5,7 @@ import type { Role } from "../../../protocol/lophn-agent/places.ts";
 // 자료·tool 결과의 포장(`~~~data`)은 safety가 하고 이 층은 이미 포장된 문자열을 순서대로 놓기만 한다.
 
 // `assembleTurnPrompt`의 system 층. 순서대로 role, instructions, skills, place이고 자주 안 바뀌는 것이 앞이다.
-type TurnLayerKind =
-  | "role"
-  | "instructions"
-  | "skills"
-  | "place";
+type TurnLayerKind = "role" | "instructions" | "skills" | "place";
 
 // system 쪽 층. 경계 표시가 달린 층의 끝이 cache 경계 하나다.
 export type SystemLayerKind = TurnLayerKind;
@@ -29,11 +25,11 @@ export type HistoryPart =
   | { kind: "tool_result"; id: string; text: string }
   // tool 결과 안의 이미지다. id는 tool_result와 같은 tool_use id이고 provider adapter가 image block으로 바꾼다.
   | {
-    kind: "tool_result_image";
-    id: string;
-    media_type: string;
-    data_base64: string;
-  }
+      kind: "tool_result_image";
+      id: string;
+      media_type: string;
+      data_base64: string;
+    }
   // tool.load가 불러온 tool의 wire 이름이다. id는 tool_result와 같고 adapter가 tool reference나 글로 바꾼다.
   | { kind: "tool_result_reference"; id: string; names: string[] }
   | { kind: "reasoning"; text: string };

@@ -45,36 +45,38 @@ if (!opened.ok) {
   let chain = Promise.resolve();
   worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
     const data = event.data;
-    chain = chain.then(() =>
-      handle(connection, deps, commands, registration, data)
-    ).catch(
-      () => {
+    chain = chain
+      .then(() => handle(connection, deps, commands, registration, data))
+      .catch(() => {
         worker.postMessage({
           id: data.id,
           op: "failed",
           body: internalError(),
         });
-      },
-    );
+      });
   };
 }
 
-type WorkerMessage = WriterRequest | {
-  id: number;
-  op: "record-credential";
-  context: unknown;
-} | {
-  // 테스트 manual clock을 민 시각. writer clock이 그 시각을 따라간다.
-  id: number;
-  op: "note-time";
-  nowMs: number;
-} | {
-  id: number;
-  op: "confirmation";
-  action: "issue" | "close-window" | "clear" | "consume";
-  request?: unknown;
-  windowId?: string;
-};
+type WorkerMessage =
+  | WriterRequest
+  | {
+      id: number;
+      op: "record-credential";
+      context: unknown;
+    }
+  | {
+      // 테스트 manual clock을 민 시각. writer clock이 그 시각을 따라간다.
+      id: number;
+      op: "note-time";
+      nowMs: number;
+    }
+  | {
+      id: number;
+      op: "confirmation";
+      action: "issue" | "close-window" | "clear" | "consume";
+      request?: unknown;
+      windowId?: string;
+    };
 
 async function handle(
   connection: LedgerConnection,
@@ -90,24 +92,20 @@ async function handle(
     const registry = registration.confirmationRegistry;
     if (data.action === "clear") {
       registry.clear();
-      worker.postMessage(
-        {
-          id: data.id,
-          op: "confirmation",
-          body: { ok: true, value: null },
-        } as never,
-      );
+      worker.postMessage({
+        id: data.id,
+        op: "confirmation",
+        body: { ok: true, value: null },
+      } as never);
       return;
     }
     if (data.action === "close-window") {
       registry.closeWindow(data.windowId ?? "");
-      worker.postMessage(
-        {
-          id: data.id,
-          op: "confirmation",
-          body: { ok: true, value: null },
-        } as never,
-      );
+      worker.postMessage({
+        id: data.id,
+        op: "confirmation",
+        body: { ok: true, value: null },
+      } as never);
       return;
     }
     if (data.action === "consume") {
@@ -115,26 +113,28 @@ async function handle(
       const use = data.request as Parameters<typeof registry.reserve>[0];
       const reserved = registry.reserve(use);
       if (reserved.ok) registry.consume(use.ref);
-      worker.postMessage(
-        {
-          id: data.id,
-          op: "confirmation",
-          body: reserved.ok ? { ok: true, value: null } : reserved,
-        } as never,
-      );
+      worker.postMessage({
+        id: data.id,
+        op: "confirmation",
+        body: reserved.ok ? { ok: true, value: null } : reserved,
+      } as never);
       return;
     }
     const parsed = confirmationHandleRegisterSchema.safeParse(data.request);
-    const issued = parsed.success ? registry.issue(parsed.data) : {
-      ok: false as const,
-      error: {
-        code: "invalid_input" as const,
-        message: "확인 등록이 올바르지 않다",
-      },
-    };
-    worker.postMessage(
-      { id: data.id, op: "confirmation", body: issued } as never,
-    );
+    const issued = parsed.success
+      ? registry.issue(parsed.data)
+      : {
+          ok: false as const,
+          error: {
+            code: "invalid_input" as const,
+            message: "확인 등록이 올바르지 않다",
+          },
+        };
+    worker.postMessage({
+      id: data.id,
+      op: "confirmation",
+      body: issued,
+    } as never);
     return;
   }
   if (data.op === "record-credential") {
@@ -146,12 +146,12 @@ async function handle(
     const recorded = parsed.success
       ? recordCredential(connection, parsed.data)
       : {
-        ok: false as const,
-        error: {
-          code: "invalid_input" as const,
-          message: "credential 기록이 올바르지 않다",
-        },
-      };
+          ok: false as const,
+          error: {
+            code: "invalid_input" as const,
+            message: "credential 기록이 올바르지 않다",
+          },
+        };
     worker.postMessage({
       id: data.id,
       op: recorded.ok ? "recorded" : "failed",
@@ -187,12 +187,7 @@ async function handle(
     worker.postMessage({
       id: data.id,
       op: "read-result",
-      body: readOwnResult(
-        connection,
-        deps.checkCredential,
-        data.ctx,
-        data.key,
-      ),
+      body: readOwnResult(connection, deps.checkCredential, data.ctx, data.key),
     });
     return;
   }

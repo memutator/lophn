@@ -55,15 +55,15 @@ type TurnPromptDeps = { pack: WirePacker };
 
 export type TurnPromptResult =
   | {
-    status: "ready";
-    request: PromptRequest;
-    // 이번 turn이 본 판. 호출하는 쪽이 session 기록에 써 다음 turn의 seen으로 쓴다.
-    basis: SeenBasis;
-    diff: BasisDiff | null;
-    cache_boundaries: CacheBoundary[];
-    input_budget: number;
-    measured_tokens: number;
-  }
+      status: "ready";
+      request: PromptRequest;
+      // 이번 turn이 본 판. 호출하는 쪽이 session 기록에 써 다음 turn의 seen으로 쓴다.
+      basis: SeenBasis;
+      diff: BasisDiff | null;
+      cache_boundaries: CacheBoundary[];
+      input_budget: number;
+      measured_tokens: number;
+    }
   | { status: "blocked"; reason: BlockedReason; message: string };
 
 const INSTRUCTION_TITLE = {
@@ -77,7 +77,7 @@ function instructionsBlock(texts: InstructionTexts): string {
   const sections = INSTRUCTION_LAYERS.flatMap((layer) =>
     texts[layer].trim() === ""
       ? []
-      : [`## ${INSTRUCTION_TITLE[layer]}\n${texts[layer]}`]
+      : [`## ${INSTRUCTION_TITLE[layer]}\n${texts[layer]}`],
   );
   return sections.length === 0
     ? ""
@@ -117,46 +117,53 @@ function noticesOf(diff: BasisDiff, input: TurnPromptInput): string[] {
         body: [
           "The instructions changed. The new text of each changed layer:",
           ...body,
-        ]
-          .join("\n\n"),
+        ].join("\n\n"),
       }),
     );
   }
   if (diff.tools !== null) {
-    notices.push(noticeInput({
-      kind: "tools_changed",
-      body: changeText("The tools changed.", diff.tools, wire),
-    }));
+    notices.push(
+      noticeInput({
+        kind: "tools_changed",
+        body: changeText("The tools changed.", diff.tools, wire),
+      }),
+    );
   }
   if (diff.kinds !== null) {
     const kinds = input.place.kinds;
     notices.push(
       kinds === null
         ? noticeInput({
-          kind: "kinds_changed",
-          body: "The kinds were removed.",
-        })
-        : [
-          noticeInput({
             kind: "kinds_changed",
-            body: "The kinds changed. The new text follows.",
-          }),
-          renderKindText(kinds.text, "full"),
-        ].join("\n"),
+            body: "The kinds were removed.",
+          })
+        : [
+            noticeInput({
+              kind: "kinds_changed",
+              body: "The kinds changed. The new text follows.",
+            }),
+            renderKindText(kinds.text, "full"),
+          ].join("\n"),
     );
   }
   if (diff.agents !== null) {
-    notices.push(noticeInput({
-      kind: "agents_changed",
-      body: changeText("The agents you can call changed.", diff.agents),
-    }));
+    notices.push(
+      noticeInput({
+        kind: "agents_changed",
+        body: changeText("The agents you can call changed.", diff.agents),
+      }),
+    );
   }
   return notices;
 }
 
 function changed(diff: BasisDiff): boolean {
-  return diff.instructions.length > 0 || diff.tools !== null ||
-    diff.kinds !== null || diff.agents !== null;
+  return (
+    diff.instructions.length > 0 ||
+    diff.tools !== null ||
+    diff.kinds !== null ||
+    diff.agents !== null
+  );
 }
 
 // notice는 대화 끝에 덧붙인다. 마지막이 user message가 아니면 새 user message로 둔다.
@@ -168,10 +175,13 @@ function appendNotices(
   const parts = notices.map((text) => ({ kind: "text" as const, text }));
   const last = messages[messages.length - 1];
   if (last !== undefined && last.role === "user") {
-    return [...messages.slice(0, -1), {
-      role: "user",
-      parts: [...last.parts, ...parts],
-    }];
+    return [
+      ...messages.slice(0, -1),
+      {
+        role: "user",
+        parts: [...last.parts, ...parts],
+      },
+    ];
   }
   return [...messages, { role: "user", parts }];
 }
@@ -205,7 +215,8 @@ export async function assembleTurnPrompt(
     ["skills", skillListText(input.skills)],
     ["place", input.place.text],
   ];
-  const system: SystemBlock[] = texts.filter(([, text]) => text !== "")
+  const system: SystemBlock[] = texts
+    .filter(([, text]) => text !== "")
     .map(([layer, text]) => ({ layer, text, cache: CACHED.includes(layer) }));
 
   const tools: PromptTool[] = input.tools
@@ -214,7 +225,8 @@ export async function assembleTurnPrompt(
       description: t.description,
       input_schema: JSON.parse(canonicalize(t.input_schema)),
       ...(t.deferred === true ? { deferred: true } : {}),
-    })).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+    }))
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
   const basis = await basisOf({
     instructions: input.instructions,

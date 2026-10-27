@@ -21,7 +21,7 @@ type Deferred<T> = { promise: Promise<T>; resolve: (value: T) => void };
 
 function deferred<T>(): Deferred<T> {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((r) => resolve = r);
+  const promise = new Promise<T>((r) => (resolve = r));
   return { promise, resolve };
 }
 
@@ -89,9 +89,13 @@ export function createFakeHandler(options: { fallback?: Reply } = {}) {
     // client가 끊은 것만 aborted로 센다. close()로 놓아 준 것도 client 끊김이 아니다.
     const held: Held = { on: false };
     const gone = abort(n);
-    request.signal.addEventListener("abort", () => {
-      if (held.on && !closing.signal.aborted) gone.resolve();
-    }, { once: true });
+    request.signal.addEventListener(
+      "abort",
+      () => {
+        if (held.on && !closing.signal.aborted) gone.resolve();
+      },
+      { once: true },
+    );
     arrival(n).resolve(entry);
 
     const miss = (message: string) => {
@@ -112,9 +116,8 @@ export function createFakeHandler(options: { fallback?: Reply } = {}) {
         try {
           reply = step.reply(entry, entries);
         } catch (error) {
-          const message = error instanceof Error
-            ? error.message
-            : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           return miss(`reply function threw: ${message}`);
         }
       } else {
@@ -130,7 +133,7 @@ export function createFakeHandler(options: { fallback?: Reply } = {}) {
       if (!until.aborted) {
         held.on = true;
         await new Promise<void>((resolve) =>
-          until.addEventListener("abort", () => resolve(), { once: true })
+          until.addEventListener("abort", () => resolve(), { once: true }),
         );
         held.on = false;
       }

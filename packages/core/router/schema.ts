@@ -25,9 +25,9 @@ create table agent_calls (
   receiver_session text,
   reply text not null check (reply in (${list(CALL_REPLIES)})),
   state text not null check (state in (${list(CALL_STATES)})),
-  fail_reason text check (fail_reason is null or fail_reason in (${
-      list(CALL_FAIL_REASONS)
-    })),
+  fail_reason text check (fail_reason is null or fail_reason in (${list(
+    CALL_FAIL_REASONS,
+  )})),
   dedup text,
   consumed integer not null default 0 check (consumed in (0, 1)),
   unattended integer not null default 0 check (unattended in (0, 1)),

@@ -24,9 +24,10 @@ export function checkExternalUrl(value: unknown): string | undefined {
 }
 
 /** 기록에 남기는 것만. */
-export function externalLinkRecord(
-  url: string,
-): { origin: string; path: string } {
+export function externalLinkRecord(url: string): {
+  origin: string;
+  path: string;
+} {
   const parsed = new URL(url);
   return { origin: parsed.origin, path: parsed.pathname };
 }
@@ -41,13 +42,14 @@ export function createExternalLinks(deps: ExternalLinkDeps) {
   return {
     /** `app:open-external` 하나. 입력은 `{url}`만이다. */
     async open(view: BoundView, value: unknown): Promise<CallOutcome<null>> {
-      const input = typeof value === "object" && value !== null &&
-          !Array.isArray(value)
-        ? value as Record<string, unknown>
-        : undefined;
-      const url = input !== undefined && Object.keys(input).join(",") === "url"
-        ? checkExternalUrl(input.url)
-        : undefined;
+      const input =
+        typeof value === "object" && value !== null && !Array.isArray(value)
+          ? (value as Record<string, unknown>)
+          : undefined;
+      const url =
+        input !== undefined && Object.keys(input).join(",") === "url"
+          ? checkExternalUrl(input.url)
+          : undefined;
       if (url === undefined) {
         return {
           ok: false,
@@ -55,7 +57,8 @@ export function createExternalLinks(deps: ExternalLinkDeps) {
         };
       }
       const { origin, path } = externalLinkRecord(url);
-      const where = `app=${view.target.app} mode=${view.target.mode} ` +
+      const where =
+        `app=${view.target.app} mode=${view.target.mode} ` +
         `origin=${origin} path=${path}`;
       try {
         await deps.open(url);

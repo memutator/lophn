@@ -73,29 +73,35 @@ function agentPanelOf(
   });
   const builtins = agents
     .filter((agent) => agent.role !== "operator")
-    .sort((a, b) =>
-      (BUILTIN_ORDER[a.role] ?? 9) - (BUILTIN_ORDER[b.role] ?? 9)
+    .sort(
+      (a, b) => (BUILTIN_ORDER[a.role] ?? 9) - (BUILTIN_ORDER[b.role] ?? 9),
     );
   const names = new Map(agents.map((a) => [a.assignment, a]));
   return {
     builtins: builtins.map(group),
     operators: agents.filter((agent) => agent.role === "operator").map(group),
     // job이 시간마다 run을 만들어도 sidebar가 자라지 않게 새것 몇 개만 보인다.
-    runs: [...runs].sort((a, b) => b.at - a.at)
+    runs: [...runs]
+      .sort((a, b) => b.at - a.at)
       .flatMap((run) => {
         const agent = names.get(run.agent);
-        return agent === undefined ? [] : [{
-          id: run.id,
-          name: run.title ?? agent.name,
-          via: run.title === null ? null : agent.name,
-          profile: agent.profile,
-          state: run.state,
-          at: run.at,
-          session: run.session,
-        }];
+        return agent === undefined
+          ? []
+          : [
+              {
+                id: run.id,
+                name: run.title ?? agent.name,
+                via: run.title === null ? null : agent.name,
+                profile: agent.profile,
+                state: run.state,
+                at: run.at,
+                session: run.session,
+              },
+            ];
       })
       .slice(0, RECENT_LIMIT),
-    recent: byRecent.filter((s) => !s.open && names.has(s.agent))
+    recent: byRecent
+      .filter((s) => !s.open && names.has(s.agent))
       .slice(0, RECENT_LIMIT)
       .map((session) => ({
         session,

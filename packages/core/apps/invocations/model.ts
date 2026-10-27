@@ -80,7 +80,7 @@ export function redactSummary(
 // 요약 상한은 redaction 뒤 UTF-8 크기로 본다.
 export function checkSummary(summary: AppInvocation["summary"]): Result<void> {
   return new TextEncoder().encode(JSON.stringify(summary)).length <=
-      INVOCATION_SUMMARY_MAX_BYTES
+    INVOCATION_SUMMARY_MAX_BYTES
     ? ok(undefined)
     : invalid("invocation summary exceeds the limit");
 }

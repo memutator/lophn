@@ -160,13 +160,17 @@ export function assembleTrace(input: TraceInput): TurnTrace {
   const toolMs = sum(tools.map((t) => t.duration_ms));
   // active는 사람 기다림을 뺀 누적값이고, wall은 시작부터 끝까지다. 끝나지 않은 turn은 wall을 모른다.
   const active = turn === null ? modelMs + toolMs : turn.elapsed_active_ms;
-  const wall = turn !== null && turn.state === "finished" &&
-      turn.started_at !== null && turn.finished_at !== null
-    ? Math.max(0, Date.parse(turn.finished_at) - Date.parse(turn.started_at))
-    : active;
-  const firstOutput = [...models]
-    .sort((a, b) => a.attempt_order - b.attempt_order)
-    .find((m) => m.first_output_ms !== null)?.first_output_ms ?? null;
+  const wall =
+    turn !== null &&
+    turn.state === "finished" &&
+    turn.started_at !== null &&
+    turn.finished_at !== null
+      ? Math.max(0, Date.parse(turn.finished_at) - Date.parse(turn.started_at))
+      : active;
+  const firstOutput =
+    [...models]
+      .sort((a, b) => a.attempt_order - b.attempt_order)
+      .find((m) => m.first_output_ms !== null)?.first_output_ms ?? null;
   return {
     turn: turn?.id ?? input.call.turn,
     session: turn?.session ?? input.call.session,
@@ -210,11 +214,12 @@ export function mergeTraces(
     turn: null,
     session,
     state: null,
-    started_at: traces.find((trace) => trace.started_at !== null)?.started_at ??
-      null,
-    finished_at: finished && traces.length > 0
-      ? traces[traces.length - 1]!.finished_at
-      : null,
+    started_at:
+      traces.find((trace) => trace.started_at !== null)?.started_at ?? null,
+    finished_at:
+      finished && traces.length > 0
+        ? traces[traces.length - 1]!.finished_at
+        : null,
     basis: null,
     events: [...seqs].sort((a, b) => (BigInt(a) < BigInt(b) ? -1 : 1)),
     messages: all((t) => t.messages),

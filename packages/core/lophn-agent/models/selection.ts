@@ -28,9 +28,7 @@ type NamedLimits = {
 };
 
 // 첫 성공 호출에서 unverified 표시를 해제하는 것은 호출 기록의 몫이다.
-function verificationOf(
-  listed: boolean | null,
-): "verified" | "unverified" {
+function verificationOf(listed: boolean | null): "verified" | "unverified" {
   return listed === true ? "verified" : "unverified";
 }
 
@@ -159,14 +157,12 @@ export function resolveSelection(
       price_basis: entry?.price_basis ?? null,
       basis: {
         source: "catalog",
-        context_limit: entry?.context_limit !== undefined
-          ? "catalog"
-          : "unknown",
+        context_limit:
+          entry?.context_limit !== undefined ? "catalog" : "unknown",
         input_limit: entry?.input_limit !== undefined ? "catalog" : "unknown",
         output_limit: entry?.output_limit !== undefined ? "catalog" : "unknown",
-        supports_tools: entry?.supports_tools !== undefined
-          ? "catalog"
-          : "unknown",
+        supports_tools:
+          entry?.supports_tools !== undefined ? "catalog" : "unknown",
         model_listed: listed === true ? "provider_list" : "unknown",
       },
     };

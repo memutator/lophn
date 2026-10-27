@@ -38,19 +38,27 @@ test("tool 선언은 이름 규칙, object root, public, 알 수 없는 칸을 �
     ["name too long", [{ ...tool, name: "a".repeat(65) }]],
     ["empty name", [{ ...tool, name: "" }]],
     ["duplicate name", [tool, { ...tool }]],
-    ["array input root", [{
-      ...tool,
-      inputSchema: { type: "array", items: { type: "string" } },
-    }]],
+    [
+      "array input root",
+      [
+        {
+          ...tool,
+          inputSchema: { type: "array", items: { type: "string" } },
+        },
+      ],
+    ],
     ["string output root", [{ ...tool, outputSchema: { type: "string" } }]],
     ["missing public", [{ ...tool, public: undefined }]],
     ["missing domain", [{ ...tool, domain: undefined }]],
     ["domain not a slug", [{ ...tool, domain: "Items_1" }]],
     ["reserved domain", [{ ...tool, domain: "file" }]],
-    ["same agent tool name", [
-      { ...tool, name: "event.list" },
-      { ...tool, name: "event_list" },
-    ]],
+    [
+      "same agent tool name",
+      [
+        { ...tool, name: "event.list" },
+        { ...tool, name: "event_list" },
+      ],
+    ],
     ["project_scope", [{ ...tool, project_scope: false }]],
     ["old key field", [{ ...tool, key: "x" }]],
   ];
@@ -72,23 +80,25 @@ test("tool 선언은 이름 규칙, object root, public, 알 수 없는 칸을 �
     validateDeclaration(declarationWith([tool]), { domains: ["items"] }).ok,
   );
 
-  const accepted = validateDeclaration(declarationWith([
-    {
-      ...tool,
-      name: "add.item-1_x",
-      effect: "external",
-      public: true,
-      inputSchema: objectSchema,
-      outputSchema: objectSchema,
-    },
-    tool,
-  ]));
+  const accepted = validateDeclaration(
+    declarationWith([
+      {
+        ...tool,
+        name: "add.item-1_x",
+        effect: "external",
+        public: true,
+        inputSchema: objectSchema,
+        outputSchema: objectSchema,
+      },
+      tool,
+    ]),
+  );
   assert.ok(accepted.ok);
   const tools: ToolDeclaration[] = accepted.value.tools;
-  assert.deepStrictEqual(tools.map((item) => item.name), [
-    "add.item-1_x",
-    "list_items",
-  ]);
+  assert.deepStrictEqual(
+    tools.map((item) => item.name),
+    ["add.item-1_x", "list_items"],
+  );
 
   const none = toMcpTool(tools[1]);
   assert.deepStrictEqual(none.inputSchema, {

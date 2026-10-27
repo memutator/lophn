@@ -46,9 +46,7 @@ export type GcDeps = {
   listReferences?(): Promise<Result<readonly { hash: string }[]>>;
   // 미참조 확인 기록 관측. 처음 확인 시각만 남긴 worker 관리 파일이다.
   // 유예기간 판정은 이 기록만 본다: 기록 없는 hash는 지금부터 미참조다.
-  listUnreferenced(): Promise<
-    Result<ReadonlyMap<string, number>>
-  >;
+  listUnreferenced(): Promise<Result<ReadonlyMap<string, number>>>;
   // 미참조 확인 기록 남기기. 알 수 있는 관측(collectGarbage)만 부른다.
   // 처음 확인한 시각. 이미 있으면 바꾸지 않는다.
   recordUnreferenced?(hash: string, atMs: number): Promise<Result<void>>;
@@ -127,7 +125,7 @@ export async function observeBlobGc(
       parseRecord(refreshed.value.get(blob.hash)),
       now,
       grace,
-    )
+    ),
   );
   return ok({
     installed: installed.value.length,
@@ -146,9 +144,7 @@ export async function observeBlobGc(
 // 조립·I/O worker의 scheduler)이 세운다. 관측과 삭제 사이의 경합(writer
 // 정지 뒤 참조가 늘지 않음)도 부르는 쪽의 몫이다. 참조된 blob은 blocked에
 // 세고 지우지 않는다.
-export async function collectGarbage(
-  deps: GcDeps,
-): Promise<Result<GcOutcome>> {
+export async function collectGarbage(deps: GcDeps): Promise<Result<GcOutcome>> {
   const installed = await deps.listInstalled();
   if (!installed.ok) return installed;
   if (deps.listReferences === undefined) {
@@ -209,7 +205,7 @@ export async function collectGarbage(
         parseRecord(refreshed.value.get(blob.hash)),
         now,
         grace,
-      )
+      ),
     );
   const deleted: string[] = [];
   const failed: { hash: string; code: string }[] = [];
@@ -242,9 +238,7 @@ export async function trimCapacity(
   assignment: ReadonlyMap<string, { category: string; permanent: boolean }>,
 ): Promise<Result<GcOutcome>> {
   // 할당 밖 category는 fail-closed다. 잘못된 category로 지우지 않는다.
-  const categories = new Set(
-    Object.keys(BLOB_CAPACITY_MAX_BYTES),
-  );
+  const categories = new Set(Object.keys(BLOB_CAPACITY_MAX_BYTES));
   for (const [hash, known] of assignment) {
     if (!categories.has(known.category)) {
       return err({
@@ -277,9 +271,9 @@ export async function trimCapacity(
     if (!preparation.ok) return preparation;
     preparing = referencedOf(preparation.value);
   }
-  const explicit = Object.entries(BLOB_CAPACITY_MAX_BYTES).map((
-    [category, maxBytes],
-  ) => ({ category, maxBytes }));
+  const explicit = Object.entries(BLOB_CAPACITY_MAX_BYTES).map(
+    ([category, maxBytes]) => ({ category, maxBytes }),
+  );
   const used = new Map<string, number>();
   for (const blob of installed.value) {
     const known = assignment.get(blob.hash);
@@ -306,13 +300,14 @@ export async function trimCapacity(
     .filter((entry): entry is NonNullable<typeof entry> => entry !== undefined)
     // 준비 중(등록 또는 tmp 파일 시각)과 미참조 확인 기록의 유예기간 안인
     // blob은 정리 대상에서 뺀다(유예기간은 기록의 시각부터 센다).
-    .filter((entry) =>
-      !preparing.has(entry.hash) &&
-      unreferencedGracePassed(
-        parseRecord(records.value.get(entry.hash)),
-        now,
-        grace,
-      )
+    .filter(
+      (entry) =>
+        !preparing.has(entry.hash) &&
+        unreferencedGracePassed(
+          parseRecord(records.value.get(entry.hash)),
+          now,
+          grace,
+        ),
     );
   const targets = trimTargets(usage, candidates);
   const deleted: string[] = [];

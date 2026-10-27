@@ -9,10 +9,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 
 export type PreparationRegistry = {
   // 준비 결과를 등록한다. 수명은 등록 시각부터 10분이다.
-  register(
-    prepared: PreparedBlob,
-    nowMs: number,
-  ): Result<void>;
+  register(prepared: PreparedBlob, nowMs: number): Result<void>;
   // 살아 있는 준비 참조면 등록값을 답한다. 만기·없음은 not_found다.
   live(
     prepared: Pick<PreparedBlob, "hash" | "principal" | "purpose">,
@@ -36,8 +33,7 @@ export function createPreparationRegistry(): PreparationRegistry {
   >();
   return {
     register(prepared, nowMs) {
-      const key =
-        `${prepared.principal}\u0000${prepared.purpose}\u0000${prepared.hash}`;
+      const key = `${prepared.principal}\u0000${prepared.purpose}\u0000${prepared.hash}`;
       // 만기 참조는 prune 전이라도 없는 것이다. 같은 hash를 다시 준비할 수 있다.
       const found = refs.get(key);
       if (
@@ -50,8 +46,7 @@ export function createPreparationRegistry(): PreparationRegistry {
       return ok(undefined);
     },
     live(prepared, nowMs) {
-      const key =
-        `${prepared.principal}\u0000${prepared.purpose}\u0000${prepared.hash}`;
+      const key = `${prepared.principal}\u0000${prepared.purpose}\u0000${prepared.hash}`;
       const found = refs.get(key);
       if (found === undefined) return ok(false);
       if (nowMs - found.registeredAtMs >= BLOB_PREPARATION_TTL_MS) {
@@ -60,8 +55,7 @@ export function createPreparationRegistry(): PreparationRegistry {
       return ok(true);
     },
     find(prepared, nowMs) {
-      const key =
-        `${prepared.principal}\u0000${prepared.purpose}\u0000${prepared.hash}`;
+      const key = `${prepared.principal}\u0000${prepared.purpose}\u0000${prepared.hash}`;
       const found = refs.get(key);
       if (found === undefined) return undefined;
       return nowMs - found.registeredAtMs >= BLOB_PREPARATION_TTL_MS

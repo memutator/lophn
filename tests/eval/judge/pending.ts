@@ -29,11 +29,9 @@ export async function writePending(
   entry: PendingJudge,
 ): Promise<void> {
   await mkdir(folder(evalDir, entry.run), { recursive: true });
-  await writeFile(
-    pendingPath(evalDir, entry.run, entry.key),
-    text(entry),
-    { flag: "wx" },
-  );
+  await writeFile(pendingPath(evalDir, entry.run, entry.key), text(entry), {
+    flag: "wx",
+  });
 }
 
 // 채점이 들어올 때 쓴다. 이미 있는 entry만 고친다.
@@ -41,10 +39,7 @@ export async function rewritePending(
   evalDir: string,
   entry: PendingJudge,
 ): Promise<void> {
-  await writeFile(
-    pendingPath(evalDir, entry.run, entry.key),
-    text(entry),
-  );
+  await writeFile(pendingPath(evalDir, entry.run, entry.key), text(entry));
 }
 
 export async function readPending(
@@ -53,18 +48,18 @@ export async function readPending(
 ): Promise<PendingJudge[]> {
   const entries: PendingJudge[] = [];
   try {
-    for (
-      const e of await readdir(folder(evalDir, run), { withFileTypes: true })
-    ) {
+    for (const e of await readdir(folder(evalDir, run), {
+      withFileTypes: true,
+    })) {
       if (!e.isFile() || !e.name.endsWith(".json")) continue;
-      entries.push(JSON.parse(
-        await readFile(`${folder(evalDir, run)}/${e.name}`, "utf8"),
-      ));
+      entries.push(
+        JSON.parse(await readFile(`${folder(evalDir, run)}/${e.name}`, "utf8")),
+      );
     }
   } catch (e) {
     if (errorCode(e) !== "ENOENT") throw e;
   }
-  return entries.sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+  return entries.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
 }
 
 export function outstanding(entries: PendingJudge[]): PendingJudge[] {

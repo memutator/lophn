@@ -76,7 +76,8 @@ function closeLeftovers(
     if (
       run.value.state === "running" &&
       job.value.action.kind === "workflow_start"
-    ) continue;
+    )
+      continue;
     replaceJobRun(tx.sql, run.value.id, {
       state: "interrupted",
       ended_at: now,
@@ -147,8 +148,7 @@ function turnFor(
   const count = turns?.count ?? 0;
   const interrupted = closed.has(id) ? 1 : 0;
   // 기준은 가장 오래된 온 차례(next_due_at)다. 잠든 사이 여럿이 쌓여도 잡힌다.
-  const late = came &&
-    Date.parse(now) - Date.parse(job.next_due_at!) > LATE_MS;
+  const late = came && Date.parse(now) - Date.parse(job.next_due_at!) > LATE_MS;
   const missedNow = startup || late;
   const missed = missedNow ? count + interrupted : Math.max(count - 1, 0);
   const dueAt = turns?.last ?? closed.get(id)!;
@@ -253,11 +253,13 @@ export function createDueCommands(): {
           closed = result.value;
         }
         const ids = new Set([
-          ...tx.sql.all(
-            `SELECT id FROM jobs
+          ...tx.sql
+            .all(
+              `SELECT id FROM jobs
              WHERE enabled = 1 AND next_due_at IS NOT NULL AND next_due_at <= ?`,
-            [now],
-          ).map((row) => row.id as string),
+              [now],
+            )
+            .map((row) => row.id as string),
           ...closed.keys(),
         ]);
         for (const id of [...ids].sort()) {
@@ -322,7 +324,8 @@ export function createDueCommands(): {
           return fail("not_found", "job run not found");
         }
         if (
-          current.value.state !== "queued" && current.value.state !== "running"
+          current.value.state !== "queued" &&
+          current.value.state !== "running"
         ) {
           return fail("conflict", "job run is not open");
         }

@@ -89,7 +89,9 @@ function socketPathsOf(app: string): { broker: string; control: string } {
   for (const path of [made.broker, made.control]) {
     try {
       rmSync(path);
-    } catch { /* 없으면 지울 것이 없다 */ }
+    } catch {
+      /* 없으면 지울 것이 없다 */
+    }
   }
   return made;
 }
@@ -99,7 +101,9 @@ function removeSocketDirectory(): void {
   if (socketDirectory === undefined) return;
   try {
     rmSync(socketDirectory, { recursive: true });
-  } catch { /* 이미 없으면 지울 것이 없다 */ }
+  } catch {
+    /* 이미 없으면 지울 것이 없다 */
+  }
 }
 
 async function readBody(response: Response): Promise<unknown> {
@@ -114,25 +118,30 @@ const credential: { value: string } = { value: "" };
 
 // release 준비는 core가 data root(LOPHN_HOME)와 함께 띄우는 이 supervisor가 요청마다 자식으로 돌린다.
 // 진행은 이 프로세스의 메모리다(apps/releases).
-const preparation = dataRoot === undefined
-  ? undefined
-  : createPreparationService(createChildPreparationRunner({
-    dataRoot,
-    deno: () => process.env.LOPHN_DENO ?? Deno.execPath(),
-  }));
+const preparation =
+  dataRoot === undefined
+    ? undefined
+    : createPreparationService(
+        createChildPreparationRunner({
+          dataRoot,
+          deno: () => process.env.LOPHN_DENO ?? Deno.execPath(),
+        }),
+      );
 
 const assembled = assembleSupervisor({
   ...(dataRoot === undefined ? {} : { dataRoot }),
   ...(preparation === undefined ? {} : { preparation }),
   // activation의 backup·migration·restore는 종료 확인 뒤 앱 전용 data worker가 한다.
-  ...(dataRoot === undefined ? {} : {
-    data: createChildDataRunner({
-      dataRoot,
-      deno: () => process.env.LOPHN_DENO ?? Deno.execPath(),
-      denoDir: process.env.DENO_DIR ??
-        `${process.env.HOME ?? "/tmp"}/.cache/deno`,
-    }),
-  }),
+  ...(dataRoot === undefined
+    ? {}
+    : {
+        data: createChildDataRunner({
+          dataRoot,
+          deno: () => process.env.LOPHN_DENO ?? Deno.execPath(),
+          denoDir:
+            process.env.DENO_DIR ?? `${process.env.HOME ?? "/tmp"}/.cache/deno`,
+        }),
+      }),
   clock: systemClock,
   ids: createIdSource({
     clock: systemClock,
@@ -152,17 +161,14 @@ const assembled = assembleSupervisor({
   wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   spawn: (launch) => spawnApp(launch),
   async post(path, bearer, body) {
-    const response = await fetch(
-      `http://127.0.0.1:${port.value}/${path}`,
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${bearer}`,
-        },
-        body: JSON.stringify(body),
+    const response = await fetch(`http://127.0.0.1:${port.value}/${path}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${bearer}`,
       },
-    );
+      body: JSON.stringify(body),
+    });
     return { status: response.status, body: await readBody(response) };
   },
   control: unixControlTransport,
@@ -187,7 +193,7 @@ const link = attachControlLink(assembled.supervisor, stdin, {
 // supervisor가 예상 밖으로 죽어도 detached 앱 자식을 남기지 않는다.
 // 정지는 한 번만 돈다. 신호와 crash가 겹쳐도 같은 promise를 기다린다.
 let stopping: Promise<void> | undefined;
-const stopOnce = () => stopping ??= assembled.supervisor.stop();
+const stopOnce = () => (stopping ??= assembled.supervisor.stop());
 const shutdown = () => {
   void stopOnce().finally(() => {
     removeSocketDirectory();
@@ -200,11 +206,13 @@ installCrashHandler({
   target: globalThis,
   // core에 한 줄 보내고 앱 자식을 정지한 뒤 종료한다. core가 component·location을 정해 log에 쓴다.
   write: async () => {
-    await send(crashDiagnostic({
-      component: "platform/app-supervisor",
-      location: CRASH_LOCATIONS.appSupervisor,
-      at: systemClock.now(),
-    })).catch(() => {});
+    await send(
+      crashDiagnostic({
+        component: "platform/app-supervisor",
+        location: CRASH_LOCATIONS.appSupervisor,
+        at: systemClock.now(),
+      }),
+    ).catch(() => {});
     await stopOnce();
   },
   stderr: Deno.stderr.writable,

@@ -66,9 +66,10 @@ export function createProviderReads(): {
         if (!loaded.ok) return loaded;
         const after = cursorAfter(input.cursor);
         if (!after.ok) return after;
-        const start = after.value === null
-          ? 0
-          : loaded.value.findIndex((record) => record.id === after.value) + 1;
+        const start =
+          after.value === null
+            ? 0
+            : loaded.value.findIndex((record) => record.id === after.value) + 1;
         if (after.value !== null && start === 0) {
           return invalidCursor();
         }
@@ -77,9 +78,10 @@ export function createProviderReads(): {
         return ok({
           providers: page.map(publicProvider),
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: next < loaded.value.length
-            ? cursorOf(page[page.length - 1]!.id)
-            : null,
+          next_cursor:
+            next < loaded.value.length
+              ? cursorOf(page[page.length - 1]!.id)
+              : null,
         });
       },
     },

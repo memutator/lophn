@@ -24,19 +24,21 @@ async function moveAside(
 ): Promise<void> {
   await rename(databasePath, previous);
   for (const suffix of SIDECARS) {
-    await rename(`${databasePath}${suffix}`, `${previous}${suffix}`)
-      .catch((thrown: unknown) => {
+    await rename(`${databasePath}${suffix}`, `${previous}${suffix}`).catch(
+      (thrown: unknown) => {
         if (errorCode(thrown) === "ENOENT") return;
         throw thrown;
-      });
+      },
+    );
   }
 }
 
 async function moveBack(databasePath: string, previous: string): Promise<void> {
   await rename(previous, databasePath).catch(() => {});
   for (const suffix of SIDECARS) {
-    await rename(`${previous}${suffix}`, `${databasePath}${suffix}`)
-      .catch(() => {});
+    await rename(`${previous}${suffix}`, `${databasePath}${suffix}`).catch(
+      () => {},
+    );
   }
 }
 
@@ -61,9 +63,7 @@ export async function restoreAppBackup(
   backupPath: string,
   hooks: RestoreHooks = {},
 ): Promise<Result<RestoredDatabase>> {
-  if (
-    !contained(dataArea, databasePath) || !contained(dataArea, backupPath)
-  ) {
+  if (!contained(dataArea, databasePath) || !contained(dataArea, backupPath)) {
     return err({ code: "invalid_input", message: "path leaves the data area" });
   }
   const verified = await verifyDatabase(backupPath);
@@ -88,9 +88,10 @@ export async function restoreAppBackup(
     await rm(tmp).catch(() => {});
     return err({
       code: "unavailable",
-      message: thrown instanceof Error
-        ? "restore replace failed"
-        : "restore replace failed",
+      message:
+        thrown instanceof Error
+          ? "restore replace failed"
+          : "restore replace failed",
     });
   }
   const restored = await verifyDatabase(databasePath);

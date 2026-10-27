@@ -97,10 +97,12 @@ export function openSecretStore(deps: {
 
   function sync(): Promise<Result<void>> {
     if (stopped) {
-      return Promise.resolve(err({
-        code: "unavailable",
-        message: "secret 저장소가 닫혔다",
-      }));
+      return Promise.resolve(
+        err({
+          code: "unavailable",
+          message: "secret 저장소가 닫혔다",
+        }),
+      );
     }
     if (running !== undefined) {
       again = true;

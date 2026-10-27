@@ -43,9 +43,7 @@ const DEFAULT_PROJECTS: readonly ProjectItem[] = [
     purpose: "Keep the monthly food spending under the plan.",
     revision: "7",
     archived: false,
-    folders: [
-      folderItem("/home/mina/budget", "Monthly sheets and receipts"),
-    ],
+    folders: [folderItem("/home/mina/budget", "Monthly sheets and receipts")],
   },
   {
     id: OLD_NOTES,
@@ -87,7 +85,7 @@ export function fakeProjects(options: FakeProjectsOptions = {}) {
 
   function replace(project: ProjectItem): ProjectItem {
     const next = { ...project, revision: String(Number(project.revision) + 1) };
-    rows = rows.map((row) => row.id === next.id ? next : row);
+    rows = rows.map((row) => (row.id === next.id ? next : row));
     return next;
   }
   const failure = (): SourceResult<never> | null =>
@@ -112,11 +110,13 @@ export function fakeProjects(options: FakeProjectsOptions = {}) {
           ...project,
           title: change.title ?? project.title,
           purpose: change.purpose ?? project.purpose,
-          folders: change.folders?.map((folder) => ({
-            ...folder,
-            found: project.folders.find((item) => item.path === folder.path)
-              ?.found ?? true,
-          })) ?? project.folders,
+          folders:
+            change.folders?.map((folder) => ({
+              ...folder,
+              found:
+                project.folders.find((item) => item.path === folder.path)
+                  ?.found ?? true,
+            })) ?? project.folders,
         }),
       });
     },
@@ -140,7 +140,7 @@ export function fakeProjects(options: FakeProjectsOptions = {}) {
         value: replace({
           ...project,
           folders: project.folders.map((item) =>
-            item.path === folder ? { ...item, path, found: true } : item
+            item.path === folder ? { ...item, path, found: true } : item,
           ),
         }),
       });
@@ -149,9 +149,10 @@ export function fakeProjects(options: FakeProjectsOptions = {}) {
       calls.push(["pick"]);
       return Promise.resolve({
         ok: true,
-        path: options.picked === undefined
-          ? "/home/mina/Documents/new-project"
-          : options.picked,
+        path:
+          options.picked === undefined
+            ? "/home/mina/Documents/new-project"
+            : options.picked,
       });
     },
     listFolders(path) {

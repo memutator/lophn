@@ -14,8 +14,7 @@ function sameOrigin(a: string, b: string): boolean {
   try {
     const left = new URL(a);
     const right = new URL(b);
-    return left.protocol === right.protocol &&
-      left.host === right.host;
+    return left.protocol === right.protocol && left.host === right.host;
   } catch {
     return false;
   }

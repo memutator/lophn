@@ -46,10 +46,12 @@ function targetsOf(sql: Query): JobTargets {
       const place = placeOfAgentRef(agent);
       return ok({
         agent,
-        place: place === undefined
-          ? deps.operators.operator((agent as { agent: string }).agent as never)
-            ?.place ?? null
-          : place,
+        place:
+          place === undefined
+            ? (deps.operators.operator(
+                (agent as { agent: string }).agent as never,
+              )?.place ?? null)
+            : place,
       });
     },
     resolveApp(ref) {

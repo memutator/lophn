@@ -54,6 +54,8 @@ export function toolForWireName(
 export function inputJsonSchema(
   definition: ToolDefinition,
 ): Record<string, unknown> {
-  return definition.inputSchema ??
-    z.toJSONSchema(definition.input) as Record<string, unknown>;
+  return (
+    definition.inputSchema ??
+    (z.toJSONSchema(definition.input) as Record<string, unknown>)
+  );
 }

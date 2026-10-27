@@ -14,8 +14,8 @@ const PEM_FLAVORS = ["", "RSA ", "EC ", "OPENSSH ", "DSA ", "ENCRYPTED "];
 const PEM_BODY =
   "-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----[\\s\\S]*?-----END (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----";
 
-const PEM_HEADERS = PEM_FLAVORS.map((flavor) =>
-  `-----BEGIN ${flavor}PRIVATE KEY-----`
+const PEM_HEADERS = PEM_FLAVORS.map(
+  (flavor) => `-----BEGIN ${flavor}PRIVATE KEY-----`,
 );
 const PEM_FOOTER =
   /-----END (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----/;
@@ -39,18 +39,18 @@ const CREDENTIAL_PATTERNS: readonly CredentialPattern[] = [
 // 넣지 않는다.
 type CredentialStreamRule =
   | {
-    // match가 시작하는 고정 prefix 묶음.
-    prefixes: readonly string[];
-    // prefix 뒤 글자 하나가 match를 이어 갈 수 있는가와, 끝까지 이어질 수 있는 최대 글자 수.
-    continues: (char: string) => boolean;
-    maxAfter: number;
-  }
+      // match가 시작하는 고정 prefix 묶음.
+      prefixes: readonly string[];
+      // prefix 뒤 글자 하나가 match를 이어 갈 수 있는가와, 끝까지 이어질 수 있는 최대 글자 수.
+      continues: (char: string) => boolean;
+      maxAfter: number;
+    }
   | {
-    // match가 시작하는 고정 prefix 묶음.
-    prefixes: readonly string[];
-    // 글자 하나로 판정할 수 없는 "그 뒤 글". 지금은 PEM의 완성된 footer 부재다.
-    tail: (text: string, from: number) => boolean;
-  };
+      // match가 시작하는 고정 prefix 묶음.
+      prefixes: readonly string[];
+      // 글자 하나로 판정할 수 없는 "그 뒤 글". 지금은 PEM의 완성된 footer 부재다.
+      tail: (text: string, from: number) => boolean;
+    };
 
 const isAlnum = (char: string) => /[A-Za-z0-9]/.test(char);
 const isAnthropicTail = (char: string) => /[A-Za-z0-9_-]/.test(char);
@@ -80,8 +80,8 @@ const CREDENTIAL_STREAM_RULES: readonly CredentialStreamRule[] = [
 ];
 
 // hash 입력은 규칙 본문 그대로다. 이름·순서가 바뀌면 revision도 바뀐다.
-const PATTERN_SOURCE = CREDENTIAL_PATTERNS.map((entry) =>
-  `${entry.name}:${entry.pattern.source}`
+const PATTERN_SOURCE = CREDENTIAL_PATTERNS.map(
+  (entry) => `${entry.name}:${entry.pattern.source}`,
 ).join("\n");
 
 let revision: string | undefined;
@@ -112,9 +112,11 @@ export function matchCredential(
       name: entry.name,
     };
     if (
-      !best || candidate.index < best.index ||
+      !best ||
+      candidate.index < best.index ||
       (candidate.index === best.index && candidate.length > best.length)
-    ) best = candidate;
+    )
+      best = candidate;
   }
   return best;
 }

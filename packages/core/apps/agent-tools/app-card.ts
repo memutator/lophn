@@ -4,7 +4,7 @@ export function cardViewDeclared(
   screens: readonly { key: string; sizes: readonly string[] }[],
   view: string,
 ): boolean {
-  return screens.some((screen) =>
-    screen.key === view && screen.sizes.includes("card")
+  return screens.some(
+    (screen) => screen.key === view && screen.sizes.includes("card"),
   );
 }

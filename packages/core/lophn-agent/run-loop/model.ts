@@ -64,10 +64,9 @@ type Lookup = {
 };
 
 export function loadTurn(lookup: Lookup, id: string): TurnRow | undefined {
-  const row = lookup.sql.get(
-    `select ${TURN_COLUMNS} from turns where id = ?`,
-    [id],
-  );
+  const row = lookup.sql.get(`select ${TURN_COLUMNS} from turns where id = ?`, [
+    id,
+  ]);
   return row === undefined ? undefined : turnRowOf(row);
 }
 
@@ -89,10 +88,10 @@ export function turnRecordOf(row: TurnRow): TurnRecord {
     },
     finished_at: row.finished_at,
     outcome: finished
-      ? {
-        kind: row.outcome_kind,
-        reason: row.outcome_reason,
-      } as TurnRecord["outcome"]
+      ? ({
+          kind: row.outcome_kind,
+          reason: row.outcome_reason,
+        } as TurnRecord["outcome"])
       : null,
     result: row.result,
     state_seq: row.state_seq,

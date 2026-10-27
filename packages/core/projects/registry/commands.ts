@@ -86,9 +86,9 @@ function checkNewSubfolders(
 ): Result<void> {
   for (const folder of folders) {
     const known = new Set(
-      before.find((item) => item.path === folder.path)?.subfolders.map((sub) =>
-        sub.path
-      ),
+      before
+        .find((item) => item.path === folder.path)
+        ?.subfolders.map((sub) => sub.path),
     );
     for (const sub of folder.subfolders) {
       if (known.has(sub.path)) continue;
@@ -171,20 +171,20 @@ export function createProjectCommands(): {
           purpose: input.purpose ?? before.purpose,
           folders,
         };
-        const access = authorizeProject(
-          tx.port,
-          ctx,
-          projectApi.edit.name,
-          { kind: "command", before, after: next },
-        );
+        const access = authorizeProject(tx.port, ctx, projectApi.edit.name, {
+          kind: "command",
+          before,
+          after: next,
+        });
         if (!access.ok) return access;
         if (before.revision !== compare.base_revision) {
           return conflict("project revision changed");
         }
-        const changed = (["name", "title", "purpose", "folders"] as const)
-          .some((field) =>
-            input[field] !== undefined && !sameJson(input[field], before[field])
-          );
+        const changed = (["name", "title", "purpose", "folders"] as const).some(
+          (field) =>
+            input[field] !== undefined &&
+            !sameJson(input[field], before[field]),
+        );
         if (!changed) return invalid("edit does not change project");
         const resolver = resolverOf(tx);
         if (!resolver.ok) return resolver;
@@ -224,8 +224,8 @@ export function createProjectCommands(): {
         if (!current.ok) return current;
         if (current.value === null) return notFound();
         const before = current.value;
-        const target = before.folders.find((folder) =>
-          folder.path === input.folder_path
+        const target = before.folders.find(
+          (folder) => folder.path === input.folder_path,
         );
         if (target === undefined) return notFound();
         if (input.new_path === input.folder_path) {
@@ -233,7 +233,7 @@ export function createProjectCommands(): {
         }
         // 하위 폴더와 설명은 그대로 따라간다.
         const folders = before.folders.map((folder) =>
-          folder === target ? { ...folder, path: input.new_path } : folder
+          folder === target ? { ...folder, path: input.new_path } : folder,
         );
         const roots = validateFolderRoots(folders);
         if (!roots.ok) {

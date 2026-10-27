@@ -24,13 +24,16 @@ async function temp(
 }
 
 async function run(root: string, query: string, extra = {}) {
-  const found = await scan({
-    scope: [{ folder_path: root, start: root }],
-    query,
-    cursor: undefined,
-    limit: 100,
-    ...extra,
-  }, deps);
+  const found = await scan(
+    {
+      scope: [{ folder_path: root, start: root }],
+      query,
+      cursor: undefined,
+      limit: 100,
+      ...extra,
+    },
+    deps,
+  );
   assert.ok(found.ok);
   return found.value;
 }
@@ -49,10 +52,10 @@ test("gitignore가 뺀 파일, .git 안, 연결 폴더 밖으로 나가는 symli
   await symlink(join(outside, "secret.txt"), join(root, "link.txt"));
   await symlink(outside, join(root, "linkdir"));
   const { matches } = await run(root, "needle");
-  assert.deepStrictEqual(matches.map((m) => m.path), [
-    "kept.txt",
-    "sub/b.txt",
-  ]);
+  assert.deepStrictEqual(
+    matches.map((m) => m.path),
+    ["kept.txt", "sub/b.txt"],
+  );
 });
 
 test("NFC가 다른 한글 질의와 대소문자가 다른 질의도 같은 줄을 찾고 경로 순서 다음 줄 순서로 나온다", async () => {
@@ -63,20 +66,29 @@ test("NFC가 다른 한글 질의와 대소문자가 다른 질의도 같은 줄
   });
   const nfd = "한글".normalize("NFD");
   const korean = await run(root, nfd);
-  assert.deepStrictEqual(korean.matches.map((m) => [m.path, m.line]), [
-    ["a/c.txt", 1],
-    ["b.txt", 2],
-  ]);
+  assert.deepStrictEqual(
+    korean.matches.map((m) => [m.path, m.line]),
+    [
+      ["a/c.txt", 1],
+      ["b.txt", 2],
+    ],
+  );
   const first = await run(root, "HeLLo", { limit: 2 });
-  assert.deepStrictEqual(first.matches.map((m) => [m.path, m.line]), [
-    ["a.txt", 2],
-    ["a.txt", 3],
-  ]);
+  assert.deepStrictEqual(
+    first.matches.map((m) => [m.path, m.line]),
+    [
+      ["a.txt", 2],
+      ["a.txt", 3],
+    ],
+  );
   assert.ok(first.next !== null);
   const rest = await run(root, "HeLLo", { cursor: first.next });
-  assert.deepStrictEqual(rest.matches.map((m) => [m.path, m.line]), [
-    ["a/c.txt", 1],
-    ["b.txt", 2],
-  ]);
+  assert.deepStrictEqual(
+    rest.matches.map((m) => [m.path, m.line]),
+    [
+      ["a/c.txt", 1],
+      ["b.txt", 2],
+    ],
+  );
   assert.deepStrictEqual(rest.next, null);
 });

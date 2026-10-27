@@ -18,10 +18,12 @@ export interface Outgoing {
   readonly checked: boolean;
 }
 
-type SendReply = { readonly ok: true } | {
-  readonly ok: false;
-  readonly code: string;
-};
+type SendReply =
+  | { readonly ok: true }
+  | {
+      readonly ok: false;
+      readonly code: string;
+    };
 
 /** 사람이 다음에 할 수 있는 일. */
 export type DeliveryAction = "wait" | "none" | "edit" | "check" | "resend";
@@ -81,8 +83,10 @@ export function deliveryAction(outgoing: Outgoing): DeliveryAction {
  * 접수될 수 있어 잠근다. 못 보냄은 글이 그대로 남아 고쳐 보낼 수 있다.
  */
 export function composerLocked(outgoing: Outgoing | null): boolean {
-  return outgoing !== null &&
-    (outgoing.phase === "sending" || outgoing.phase === "unconfirmed");
+  return (
+    outgoing !== null &&
+    (outgoing.phase === "sending" || outgoing.phase === "unconfirmed")
+  );
 }
 
 /**

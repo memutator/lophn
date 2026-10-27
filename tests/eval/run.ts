@@ -10,6 +10,6 @@ process.exit(
   command === "experiment"
     ? await runExperimentCommand(rest)
     : command === "gate"
-    ? await runGateCommand(rest)
-    : await main(process.argv.slice(2)),
+      ? await runGateCommand(rest)
+      : await main(process.argv.slice(2)),
 );

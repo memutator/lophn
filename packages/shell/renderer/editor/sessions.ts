@@ -53,9 +53,8 @@ export class EditorSessions {
       }),
       this.files.onCloseRequest((request) => {
         void this.closeWindow((answer) =>
-          this.files.answerClose(request, answer)
-        )
-          .then((answer) => this.files.answerClose(request, answer));
+          this.files.answerClose(request, answer),
+        ).then((answer) => this.files.answerClose(request, answer));
       }),
     );
   }
@@ -125,7 +124,7 @@ export class EditorSessions {
       });
     }
     const opening = this.#open(path, name, create).finally(() =>
-      this.#opening.delete(path)
+      this.#opening.delete(path),
     );
     this.#opening.set(path, opening);
     return opening;
@@ -265,7 +264,8 @@ export class EditorSessions {
     if (
       next.unsettled === this.#reported.unsettled &&
       next.open === this.#reported.open
-    ) return;
+    )
+      return;
     this.#reported = next;
     this.files.counts(next);
   }

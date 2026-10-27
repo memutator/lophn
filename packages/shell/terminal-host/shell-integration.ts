@@ -66,8 +66,7 @@ function fishQuote(text: string): string {
 }
 
 // bash가 -l로 뜰 때 읽는 순서(man bash INVOCATION)를 따른다. login_shell option은 읽기 전용이라 켜지 못한다.
-const BASH_INIT =
-  `# lophn shell integration: login bash처럼 profile을 읽은 뒤 함수를 정의한다.
+const BASH_INIT = `# lophn shell integration: login bash처럼 profile을 읽은 뒤 함수를 정의한다.
 if [ -f /etc/profile ]; then . /etc/profile; fi
 if [ -f "$HOME/.bash_profile" ]; then
   . "$HOME/.bash_profile"

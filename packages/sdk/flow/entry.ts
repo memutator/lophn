@@ -14,7 +14,7 @@ Deno.stdout.write = (p) => Deno.stderr.write(p);
 Deno.stdout.writeSync = (p) => Deno.stderr.writeSync(p);
 
 function die(error: unknown): never {
-  toStderr(error instanceof Error ? error.stack ?? String(error) : error);
+  toStderr(error instanceof Error ? (error.stack ?? String(error)) : error);
   Deno.exit(1);
 }
 

@@ -24,14 +24,16 @@ type Loaded =
   | { readonly state: "loading" }
   | { readonly state: "failed" }
   | {
-    readonly state: "ready";
-    readonly jobs: readonly JobView[];
-    readonly names: JobNames;
-  };
+      readonly state: "ready";
+      readonly jobs: readonly JobView[];
+      readonly names: JobNames;
+    };
 
-export function JobsPanel(
-  { source, onOpenSession, onOpenProject }: JobsPanelProps,
-) {
+export function JobsPanel({
+  source,
+  onOpenSession,
+  onOpenProject,
+}: JobsPanelProps) {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   const [histories, setHistories] = useState<Readonly<Record<string, History>>>(
     {},
@@ -40,13 +42,16 @@ export function JobsPanel(
   const [deleting, setDeleting] = useState<JobView | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const loadRuns = useCallback((job: string) => {
-    void source.runs(job).then((read) => {
-      setHistories((now) =>
-        job in now ? { ...now, [job]: read.ok ? read.value : "failed" } : now
-      );
-    });
-  }, [source]);
+  const loadRuns = useCallback(
+    (job: string) => {
+      void source.runs(job).then((read) => {
+        setHistories((now) =>
+          job in now ? { ...now, [job]: read.ok ? read.value : "failed" } : now,
+        );
+      });
+    },
+    [source],
+  );
 
   const load = useCallback(() => {
     void source.list().then((read) => {
@@ -75,10 +80,7 @@ export function JobsPanel(
   };
 
   // 성공해도 실패해도 다시 읽는다. not_found는 agent가 먼저 지운 것이라 알리지 않고 줄이 사라지게 둔다.
-  async function write(
-    sending: Promise<SourceResult<null>>,
-    failure: string,
-  ) {
+  async function write(sending: Promise<SourceResult<null>>, failure: string) {
     const sent = await sending;
     if (!sent.ok && sent.code !== "not_found") setNotice(failure);
     load();
@@ -101,29 +103,22 @@ export function JobsPanel(
     <div data-jobs="">
       <h1 className={settings.paneTitle}>{t("settings.label.tab-jobs")}</h1>
       <p className={settings.lead}>{t("jobs.note.intro")}</p>
-      {notice === null
-        ? null
-        : (
-          <div className={settings.toastSlot} data-jobs-notice="">
-            <Toast
-              title={notice}
-              tone="error"
-              onClose={() => setNotice(null)}
-            />
-          </div>
-        )}
+      {notice === null ? null : (
+        <div className={settings.toastSlot} data-jobs-notice="">
+          <Toast title={notice} tone="error" onClose={() => setNotice(null)} />
+        </div>
+      )}
       <Loading loading={names === null} placeholder={<Skeleton lines={4} />}>
         <ul className={settings.lines}>
-          {jobs.length === 0
-            ? (
-              <li
-                className={`${settings.line} ${settings.lineHelp}`}
-                data-jobs-empty=""
-              >
-                {t("jobs.empty.list")}
-              </li>
-            )
-            : jobs.map((job) => (
+          {jobs.length === 0 ? (
+            <li
+              className={`${settings.line} ${settings.lineHelp}`}
+              data-jobs-empty=""
+            >
+              {t("jobs.empty.list")}
+            </li>
+          ) : (
+            jobs.map((job) => (
               <JobLine
                 key={job.id}
                 job={job}
@@ -134,13 +129,15 @@ export function JobsPanel(
                   void write(
                     source.setEnabled(job.id, enabled),
                     t("jobs.error.save"),
-                  )}
+                  )
+                }
                 onEdit={() => setEditing(job)}
                 onDelete={() => setDeleting(job)}
                 onOpenSession={onOpenSession}
                 onOpenProject={onOpenProject}
               />
-            ))}
+            ))
+          )}
         </ul>
       </Loading>
       {editing === null ? null : (

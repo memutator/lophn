@@ -98,11 +98,7 @@ function resolveAction(tx: Tx, input: JobActionInput): Result<JobAction> {
 
 // agent는 자기와 같은 agent가 만든 job만 본다. 남의 job은 있는지도 알리지 않는다(not_found).
 // user는 어느 job이든 한다.
-function loadOwned(
-  tx: Tx,
-  ctx: RequestContext,
-  id: string,
-): Result<JobRecord> {
+function loadOwned(tx: Tx, ctx: RequestContext, id: string): Result<JobRecord> {
   const actor = parseActor(ctx.actor);
   let me: AgentRef | undefined;
   if (actor?.kind === "agent") {
@@ -138,9 +134,9 @@ export function createJobCommands(): {
         if (actor?.kind !== "agent") {
           return fail("forbidden", "only an agent creates a job");
         }
-        const creator = tx.port(jobTargetsPort).creatorOf(
-          actor.id as Id<"ses">,
-        );
+        const creator = tx
+          .port(jobTargetsPort)
+          .creatorOf(actor.id as Id<"ses">);
         if (creator === undefined || !CREATOR_ROLES.includes(creator.role)) {
           return fail(
             "forbidden",
@@ -166,13 +162,13 @@ export function createJobCommands(): {
           enabled,
           next_due_at: enabled
             ? firstDue(
-              {
-                every: input.every,
-                at,
-                zone: tx.port(jobZonePort).zone(),
-              },
-              now,
-            )
+                {
+                  every: input.every,
+                  at,
+                  zone: tx.port(jobZonePort).zone(),
+                },
+                now,
+              )
             : null,
           created_at: now,
         });
@@ -200,8 +196,8 @@ export function createJobCommands(): {
         }
         const now = tx.now();
         // 켜지는 순간이거나 주기나 시각이 바뀌면 그 순간부터 새로 센다. 놓친 것으로 치지 않는다.
-        const recount = every !== job.every || at !== job.at ||
-          (enabled && !job.enabled);
+        const recount =
+          every !== job.every || at !== job.at || (enabled && !job.enabled);
         replaceJob(tx.sql, job.id, {
           title: input.title ?? job.title,
           every,
@@ -212,8 +208,8 @@ export function createJobCommands(): {
           next_due_at: !enabled
             ? null
             : recount
-            ? firstDue({ every, at, zone: tx.port(jobZonePort).zone() }, now)
-            : job.next_due_at,
+              ? firstDue({ every, at, zone: tx.port(jobZonePort).zone() }, now)
+              : job.next_due_at,
           updated_at: now,
         });
         changed(tx, job.id);

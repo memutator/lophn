@@ -108,22 +108,26 @@ export function selectE2e(input: SelectInput): E2eSelection {
       continue;
     }
     if (
-      file.startsWith("tests/support/") || file === "deno.json" ||
+      file.startsWith("tests/support/") ||
+      file === "deno.json" ||
       file === "deno.lock"
-    ) return everything(`${file} → 모든 e2e의 바닥`);
+    )
+      return everything(`${file} → 모든 e2e의 바닥`);
     // e2e는 fake model을 쓰므로 진짜 model이 읽는 글은 e2e에 닿지 않는다.
     if (TEXT_GROUPS.includes(classifyPath(file).group)) continue;
     if (
       !file.startsWith("packages/") ||
       /^packages\/(shell|design)\//.test(file)
-    ) continue;
+    )
+      continue;
 
     let module: SelectInput["modules"][number] | undefined;
     for (const m of input.modules) {
       if (
         (file === m.path || file.startsWith(m.path + "/")) &&
         (module === undefined || m.path.length > module.path.length)
-      ) module = m;
+      )
+        module = m;
     }
     if (module === undefined) return everything(`${file} → module 없음`);
     const boundary = module.boundary;
@@ -135,7 +139,8 @@ export function selectE2e(input: SelectInput): E2eSelection {
     const scope = descendants(boundary, input.tree);
     for (const e of input.e2e) {
       if (
-        e.boundaries.includes("*") || e.boundaries.some((b) => scope.has(b))
+        e.boundaries.includes("*") ||
+        e.boundaries.some((b) => scope.has(b))
       ) {
         picked.add(e.file);
         reasons.add(`${file} → ${module.path} → ${boundary} → ${e.file}`);

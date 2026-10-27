@@ -69,12 +69,13 @@ const PALETTE_ITEMS: readonly PaletteItem[] = [
 ];
 
 // 단추를 누르면 열리는 modal 하나. 닫으면 inert가 풀린다.
-function Opens(
-  { label, children }: {
-    label: string;
-    children: (open: boolean, setOpen: (open: boolean) => void) => ReactNode;
-  },
-) {
+function Opens({
+  label,
+  children,
+}: {
+  label: string;
+  children: (open: boolean, setOpen: (open: boolean) => void) => ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -116,7 +117,9 @@ export function KitOverlay() {
             >
               <PopoverRow onSelect={NOOP}>Grocery budget</PopoverRow>
               <PopoverRow onSelect={NOOP}>Home office</PopoverRow>
-              <PopoverRow onSelect={NOOP} disabled>phroner</PopoverRow>
+              <PopoverRow onSelect={NOOP} disabled>
+                phroner
+              </PopoverRow>
             </Popover>
           )}
         </Stage>
@@ -237,13 +240,13 @@ export function KitOverlay() {
             <Opens label="Open image">
               {(open, setOpen) => (
                 <ImagePreview
-                  src={open
-                    ? `data:image/svg+xml;utf8,${
-                      encodeURIComponent(
-                        '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="300"><rect width="480" height="300" fill="#2a78d6"/><circle cx="140" cy="130" r="60" fill="#fab219"/></svg>',
-                      )
-                    }`
-                    : null}
+                  src={
+                    open
+                      ? `data:image/svg+xml;utf8,${encodeURIComponent(
+                          '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="300"><rect width="480" height="300" fill="#2a78d6"/><circle cx="140" cy="130" r="60" fill="#fab219"/></svg>',
+                        )}`
+                      : null
+                  }
                   alt="screenshot.png"
                   onClose={() => setOpen(false)}
                   container={container}
@@ -401,10 +404,13 @@ export function KitOverlay() {
           <Toast
             title="eval: 2 documents don't match the contract"
             body="Open the Violations tab to see which ones."
-            actions={[{ id: "view", label: "View" }, {
-              id: "later",
-              label: "Later",
-            }]}
+            actions={[
+              { id: "view", label: "View" },
+              {
+                id: "later",
+                label: "Later",
+              },
+            ]}
             {...stop}
           />
         </Row>

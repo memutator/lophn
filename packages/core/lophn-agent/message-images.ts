@@ -38,8 +38,10 @@ const RIFF = [0x52, 0x49, 0x46, 0x46];
 const WEBP = [0x57, 0x45, 0x42, 0x50];
 
 function matchesAt(bytes: Uint8Array, at: number, magic: number[]): boolean {
-  return bytes.length >= at + magic.length &&
-    magic.every((value, index) => bytes[at + index] === value);
+  return (
+    bytes.length >= at + magic.length &&
+    magic.every((value, index) => bytes[at + index] === value)
+  );
 }
 
 // 내용의 첫 byte로 형식을 정한다. svg 같은 그 밖의 형식은 null이다.
@@ -134,7 +136,10 @@ export function messageImageUploadHandler(deps: MessageImageDeps) {
 }
 
 export function messageImageFileHandler(deps: MessageImageDeps) {
-  return async (_ctx: AuthenticatedContext, rawInput: unknown): Promise<
+  return async (
+    _ctx: AuthenticatedContext,
+    rawInput: unknown,
+  ): Promise<
     Result<{
       contentType: ImageType;
       length: number;

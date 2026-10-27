@@ -39,9 +39,10 @@ export function appBundleCopy(
   app: string,
   bundleHash: string,
 ): string {
-  return `${appFolder(dataRoot, app)}/bundles/${
-    segment(bundleHash, "bundle hash")
-  }`;
+  return `${appFolder(dataRoot, app)}/bundles/${segment(
+    bundleHash,
+    "bundle hash",
+  )}`;
 }
 
 export function appStagingFolder(dataRoot: string, app: string): string {

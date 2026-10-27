@@ -16,18 +16,16 @@ export const publishAfterCommit: PublishAgentEvent = (tx, event) =>
 
 // 끝난 turn의 session 기록에서 이 turn이 가진 message다.
 function messagesOf(tx: Tx, turn: string): string[] {
-  return tx.sql.all(
-    "select id from messages where turn = ? order by created_seq",
-    [turn],
-  ).map((row) => String(row["id"]));
+  return tx.sql
+    .all("select id from messages where turn = ? order by created_seq", [turn])
+    .map((row) => String(row["id"]));
 }
 
 // 끝내는 handler가 같은 tx에서 active를 마감한 뒤의 값을 싣는다.
 function activeMsOf(tx: Tx, turn: string): number | null {
-  const row = tx.sql.get(
-    "select elapsed_active_ms from turns where id = ?",
-    [turn],
-  );
+  const row = tx.sql.get("select elapsed_active_ms from turns where id = ?", [
+    turn,
+  ]);
   return row === undefined ? null : Number(row["elapsed_active_ms"]);
 }
 
@@ -47,9 +45,13 @@ export function publishTurnEnded(
       outcome,
       messages: messagesOf(tx, turn.id),
       active_ms: activeMsOf(tx, turn.id),
-      error: outcome.kind === "failed"
-        ? { code: outcome.reason, message: outcome.reason.replaceAll("_", " ") }
-        : null,
+      error:
+        outcome.kind === "failed"
+          ? {
+              code: outcome.reason,
+              message: outcome.reason.replaceAll("_", " "),
+            }
+          : null,
     },
   } as AgentEvent);
 }

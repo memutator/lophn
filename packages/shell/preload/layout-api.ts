@@ -16,28 +16,26 @@ interface LophnLayoutApi {
 }
 
 export function createLayoutApi(transport: LayoutTransport): LophnLayoutApi {
-  return Object.freeze(
-    {
-      read: async (input) => {
-        try {
-          return await transport.invoke(
-            LAYOUT_READ_CHANNEL,
-            input,
-          ) as LayoutReadResult;
-        } catch {
-          return { ok: false, code: "unreadable", message: "" };
-        }
-      },
-      save: async (input) => {
-        try {
-          return await transport.invoke(
-            LAYOUT_SAVE_CHANNEL,
-            input,
-          ) as LayoutSaveResult;
-        } catch {
-          return { ok: false, code: "unwritable", message: "" };
-        }
-      },
-    } satisfies LophnLayoutApi,
-  );
+  return Object.freeze({
+    read: async (input) => {
+      try {
+        return (await transport.invoke(
+          LAYOUT_READ_CHANNEL,
+          input,
+        )) as LayoutReadResult;
+      } catch {
+        return { ok: false, code: "unreadable", message: "" };
+      }
+    },
+    save: async (input) => {
+      try {
+        return (await transport.invoke(
+          LAYOUT_SAVE_CHANNEL,
+          input,
+        )) as LayoutSaveResult;
+      } catch {
+        return { ok: false, code: "unwritable", message: "" };
+      }
+    },
+  } satisfies LophnLayoutApi);
 }

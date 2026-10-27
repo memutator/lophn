@@ -116,9 +116,8 @@ export function overlayRegistry(
     });
   }
   function drag(node: HTMLElement, surface: OverlaySurface) {
-    node.addEventListener(
-      "pointerdown",
-      (event) => node.setPointerCapture(event.pointerId),
+    node.addEventListener("pointerdown", (event) =>
+      node.setPointerCapture(event.pointerId),
     );
     node.addEventListener("pointermove", (event) => {
       if (!node.hasPointerCapture(event.pointerId) || !current) return;
@@ -222,11 +221,14 @@ export function overlayRegistry(
     }
   }
   const subscribe = () =>
-    api.subscribe((event) => {
-      if (!disposed && "surfaces" in event) update(event);
-    }, (error) => {
-      if (!disposed) onError(error);
-    });
+    api.subscribe(
+      (event) => {
+        if (!disposed && "surfaces" in event) update(event);
+      },
+      (error) => {
+        if (!disposed) onError(error);
+      },
+    );
   let unsubscribe = subscribe();
   return {
     update,

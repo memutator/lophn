@@ -48,13 +48,18 @@ export function electronAppViews(input: ElectronAppViewsInput): {
   const views: AppViewHost = {
     hasWindow: (ref) => live(ref) !== undefined,
     create({ partition, allowNavigation, onHealth }) {
-      const view = new WebContentsView(surfaceOptions({
-        webPreferences: {
-          ...webPreferences(input.packaged),
-          partition,
-          preload: input.preload,
-        },
-      }, input.headless));
+      const view = new WebContentsView(
+        surfaceOptions(
+          {
+            webPreferences: {
+              ...webPreferences(input.packaged),
+              partition,
+              preload: input.preload,
+            },
+          },
+          input.headless,
+        ),
+      );
       const contents = view.webContents;
       contents.setWindowOpenHandler(() => ({ action: "deny" }));
       const guard = (event: NavigationEvent) => {
@@ -111,8 +116,11 @@ export function electronAppViews(input: ElectronAppViewsInput): {
     },
     focused(adapter) {
       const view = native.get(adapter);
-      return view !== undefined && !view.webContents.isDestroyed() &&
-        view.webContents.isFocused();
+      return (
+        view !== undefined &&
+        !view.webContents.isDestroyed() &&
+        view.webContents.isFocused()
+      );
     },
     // 그 view의 webContents만 찍는다. 창·overlay·다른 view는 담지 않는다. 긴 변이 1,600px를
     // 넘으면 비율대로 줄인다.
@@ -163,7 +171,7 @@ export function electronAppViews(input: ElectronAppViewsInput): {
     return {
       denyPermissions() {
         session.setPermissionRequestHandler((_contents, _permission, done) =>
-          done(false)
+          done(false),
         );
         session.setPermissionCheckHandler(() => false);
         session.setDevicePermissionHandler(() => false);
@@ -173,25 +181,31 @@ export function electronAppViews(input: ElectronAppViewsInput): {
       },
       onBeforeRequest(listener) {
         session.webRequest.onBeforeRequest((details, callback) =>
-          listener({
-            url: details.url,
-            resourceType: details.resourceType,
-            ...(details.webContentsId === undefined
-              ? {}
-              : { webContentsId: details.webContentsId }),
-          }, callback)
+          listener(
+            {
+              url: details.url,
+              resourceType: details.resourceType,
+              ...(details.webContentsId === undefined
+                ? {}
+                : { webContentsId: details.webContentsId }),
+            },
+            callback,
+          ),
         );
       },
       onBeforeSendHeaders(listener) {
         session.webRequest.onBeforeSendHeaders((details, callback) =>
-          listener({
-            url: details.url,
-            resourceType: details.resourceType,
-            requestHeaders: details.requestHeaders,
-            ...(details.webContentsId === undefined
-              ? {}
-              : { webContentsId: details.webContentsId }),
-          }, callback)
+          listener(
+            {
+              url: details.url,
+              resourceType: details.resourceType,
+              requestHeaders: details.requestHeaders,
+              ...(details.webContentsId === undefined
+                ? {}
+                : { webContentsId: details.webContentsId }),
+            },
+            callback,
+          ),
         );
       },
       handleProtocol(scheme, handler) {

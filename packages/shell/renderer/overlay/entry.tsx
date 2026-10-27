@@ -35,8 +35,12 @@ if (root) {
     status.hidden = true;
     registry.retryReady();
   });
-  globalThis.addEventListener("pagehide", () => {
-    registry.dispose();
-    status.remove();
-  }, { once: true });
+  globalThis.addEventListener(
+    "pagehide",
+    () => {
+      registry.dispose();
+      status.remove();
+    },
+    { once: true },
+  );
 }

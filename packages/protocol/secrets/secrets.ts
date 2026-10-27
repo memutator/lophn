@@ -24,25 +24,39 @@ export const secretAdapterContextSchema = authenticatedContextSchema.refine(
 export const secretDestinationSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("https"),
-    origin: z.url().refine((value) => {
-      if (!URL.canParse(value)) return false;
-      const url = new URL(value);
-      return url.protocol === "https:" && url.origin === value &&
-        url.username === "" && url.password === "";
-    }, { message: "destination must be a fixed HTTPS origin" }),
+    origin: z.url().refine(
+      (value) => {
+        if (!URL.canParse(value)) return false;
+        const url = new URL(value);
+        return (
+          url.protocol === "https:" &&
+          url.origin === value &&
+          url.username === "" &&
+          url.password === ""
+        );
+      },
+      { message: "destination must be a fixed HTTPS origin" },
+    ),
   }),
   // 같은 기계의 loopback 목적지(127.0.0.1, ::1, localhost)의 HTTP origin이다. 값이 이 기계 밖으로
   // 나가지 않는 로컬 model 서버(Ollama·LM Studio·llama.cpp)에 쓴다. HTTPS 목적지와 같은 취급이
   // 아니다: kind가 달라 서로 대신하지 못한다.
   z.strictObject({
     kind: z.literal("loopback_http"),
-    origin: z.url().refine((value) => {
-      if (!URL.canParse(value)) return false;
-      const url = new URL(value);
-      return url.protocol === "http:" && url.origin === value &&
-        url.username === "" && url.password === "" &&
-        ["127.0.0.1", "[::1]", "localhost"].includes(url.hostname);
-    }, { message: "destination must be a fixed loopback HTTP origin" }),
+    origin: z.url().refine(
+      (value) => {
+        if (!URL.canParse(value)) return false;
+        const url = new URL(value);
+        return (
+          url.protocol === "http:" &&
+          url.origin === value &&
+          url.username === "" &&
+          url.password === "" &&
+          ["127.0.0.1", "[::1]", "localhost"].includes(url.hostname)
+        );
+      },
+      { message: "destination must be a fixed loopback HTTP origin" },
+    ),
   }),
 ]);
 export type SecretDestination = z.infer<typeof secretDestinationSchema>;

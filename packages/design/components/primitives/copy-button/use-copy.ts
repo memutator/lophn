@@ -37,21 +37,27 @@ export function useCopy(
     const handle = timer.set(() => setCopied(false), COPIED_MS);
     return () => timer.clear(handle);
   }, [copied, timer]);
-  const copy = useCallback((text: string) => {
-    const id = ++attempt.current;
-    const settle = (ok: boolean) => {
-      if (!mounted.current || id !== attempt.current) return;
-      setFailed(!ok);
-      setCopied(ok);
-    };
-    let pending: Promise<void>;
-    try {
-      pending = Promise.resolve(clipboard.writeText(text));
-    } catch {
-      settle(false);
-      return;
-    }
-    pending.then(() => settle(true), () => settle(false));
-  }, [clipboard]);
+  const copy = useCallback(
+    (text: string) => {
+      const id = ++attempt.current;
+      const settle = (ok: boolean) => {
+        if (!mounted.current || id !== attempt.current) return;
+        setFailed(!ok);
+        setCopied(ok);
+      };
+      let pending: Promise<void>;
+      try {
+        pending = Promise.resolve(clipboard.writeText(text));
+      } catch {
+        settle(false);
+        return;
+      }
+      pending.then(
+        () => settle(true),
+        () => settle(false),
+      );
+    },
+    [clipboard],
+  );
   return { failed, copied, copy };
 }

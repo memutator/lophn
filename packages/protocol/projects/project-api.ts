@@ -40,16 +40,18 @@ const editFields = {
   // 하위 폴더도 folders 안에 담겨 통째로 바뀐다.
   folders: projectFoldersSchema.optional(),
 };
-const projectEditInputSchema = z.strictObject({
-  project: projectIdSchema,
-  ...editFields,
-}).refine(
-  (value) =>
-    Object.keys(editFields).some((field) =>
-      value[field as keyof typeof editFields] !== undefined
-    ),
-  { message: "edit must change at least one field" },
-);
+const projectEditInputSchema = z
+  .strictObject({
+    project: projectIdSchema,
+    ...editFields,
+  })
+  .refine(
+    (value) =>
+      Object.keys(editFields).some(
+        (field) => value[field as keyof typeof editFields] !== undefined,
+      ),
+    { message: "edit must change at least one field" },
+  );
 const projectRefInputSchema = z.strictObject({
   project: projectIdSchema,
 });

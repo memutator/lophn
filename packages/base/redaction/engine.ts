@@ -25,10 +25,7 @@ const PROTECTED_INPUT_MESSAGE =
 
 export type RedactionEngine = {
   registry: KnownSecretRegistry;
-  redact(
-    input: RedactionInput,
-    body: string,
-  ): Promise<RedactionResult>;
+  redact(input: RedactionInput, body: string): Promise<RedactionResult>;
   // 저장 때 redaction한 자료를 현재 규칙으로 다시 검사한다.
   recheck(input: RedactionInput, body: string): Promise<RedactionResult>;
   // 삭제·차단 감사. 값·hash·일부를 남기지 않는다.
@@ -82,11 +79,13 @@ function blocked(revision: string): RedactionResult {
     status: "omitted",
     content: null,
     redacted_items: [],
-    omissions: [{
-      location: "submission",
-      reason: "secret_detected",
-      message: PROTECTED_INPUT_MESSAGE,
-    }],
+    omissions: [
+      {
+        location: "submission",
+        reason: "secret_detected",
+        message: PROTECTED_INPUT_MESSAGE,
+      },
+    ],
   };
 }
 
@@ -189,9 +188,10 @@ export function createRedactionEngine(
         return omitted(revision, {
           location: structured.location,
           reason: structured.reason,
-          message: structured.reason === "limit_exceeded"
-            ? "Structure exceeds the redaction limit."
-            : "Structure could not be redacted with certainty.",
+          message:
+            structured.reason === "limit_exceeded"
+              ? "Structure exceeds the redaction limit."
+              : "Structure could not be redacted with certainty.",
         });
       }
       value = structured.value;
@@ -201,9 +201,10 @@ export function createRedactionEngine(
     if (timedOut()) return timedOutResult(revision);
 
     const textLocations: string[] = [];
-    const rendered = typeof value === "string"
-      ? redactStructuredText(value, "body", textLocations)
-      : JSON.stringify(value);
+    const rendered =
+      typeof value === "string"
+        ? redactStructuredText(value, "body", textLocations)
+        : JSON.stringify(value);
     const cleaned = replaceKnownAndPatterns(
       rendered,
       registry,
@@ -253,13 +254,13 @@ export function createRedactionEngine(
     const items: RedactedItem[] = [
       ...new Set([...redactedLocations, ...droppedFields]),
     ].map((location) => ({ location }));
-    const omissions: RedactionOmission[] = [...new Set(droppedFields)].map((
-      location,
-    ) => ({
-      location,
-      reason: "private",
-      message: "A declared private or undeclared field was omitted.",
-    }));
+    const omissions: RedactionOmission[] = [...new Set(droppedFields)].map(
+      (location) => ({
+        location,
+        reason: "private",
+        message: "A declared private or undeclared field was omitted.",
+      }),
+    );
     return {
       rule_revision: revision,
       status: omissions.length > 0 ? "partial" : "passed",

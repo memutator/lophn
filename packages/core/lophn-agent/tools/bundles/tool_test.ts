@@ -17,23 +17,26 @@ test("tool.load는 그 session의 숨긴 tool만 펼친다", async () => {
       input: z.strictObject({}),
       routes: [],
       handler: () =>
-        Promise.resolve(ok({
-          status: "success" as const,
-          summary: name,
-          content: null,
-          complete: true,
-          source: null,
-          continuation: null,
-          pending: [],
-        })),
+        Promise.resolve(
+          ok({
+            status: "success" as const,
+            summary: name,
+            content: null,
+            complete: true,
+            source: null,
+            continuation: null,
+            pending: [],
+          }),
+        ),
     });
   const ctx = {
     // 숨긴 것은 release.get, job.create, job.list, calendar_event_list다. job.extra와 file.read는 이미 실렸고
     // app.create는 이 session 목록에 없다.
     listed: [
       ...TOOL_TOOLS,
-      ...["release.get", "job.create", "job.list", "calendar_event_list"]
-        .map(stub),
+      ...["release.get", "job.create", "job.list", "calendar_event_list"].map(
+        stub,
+      ),
       ...["job.extra", "file.read"].map(stub),
     ],
     deferred: new Set([

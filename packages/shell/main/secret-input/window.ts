@@ -63,9 +63,7 @@ export interface SecretInputBrowserWindow {
 interface SecretInputSession {
   readonly partition: string;
   /** 권한 요청은 기본 거절. */
-  setPermissionRequestHandler(
-    handler: () => void,
-  ): void;
+  setPermissionRequestHandler(handler: () => void): void;
   /** download를 막는다. */
   on(
     event: "will-download",
@@ -117,9 +115,10 @@ export interface OpenedSecretInput {
 let serial = 0;
 
 /** 부모보다 넓지 않게, 최대 480px. */
-function secretInputSize(
-  parent: { width: number; height: number },
-): { width: number; height: number } {
+function secretInputSize(parent: { width: number; height: number }): {
+  width: number;
+  height: number;
+} {
   const width = Math.max(
     320,
     Math.min(SECRET_INPUT_MAX_WIDTH, parent.width - CHROME),
@@ -139,20 +138,23 @@ function secretInputConfig(input: {
   headless?: HeadlessMode;
 }): SecretInputWindowConfig {
   const size = secretInputSize(input.parent.getContentSize());
-  return surfaceOptions({
-    parent: input.parent,
-    modal: true,
-    width: size.width,
-    height: size.height,
-    show: false,
-    frame: false,
-    autoHideMenuBar: true,
-    webPreferences: {
-      ...webPreferences(input.packaged),
-      preload: input.preload,
-      partition: input.partition,
+  return surfaceOptions(
+    {
+      parent: input.parent,
+      modal: true,
+      width: size.width,
+      height: size.height,
+      show: false,
+      frame: false,
+      autoHideMenuBar: true,
+      webPreferences: {
+        ...webPreferences(input.packaged),
+        preload: input.preload,
+        partition: input.partition,
+      },
     },
-  }, input.headless ?? SHELL_OFF);
+    input.headless ?? SHELL_OFF,
+  );
 }
 
 /**
@@ -174,13 +176,15 @@ export function openSecretInputWindow(input: {
   const partition = `secret-input-${windowId}`;
   const session = input.host.sessionFor(partition);
   hardenSession(session);
-  const window = input.host.create(secretInputConfig({
-    parent: input.parent,
-    preload: input.preload,
-    packaged: input.packaged,
-    partition,
-    headless,
-  }));
+  const window = input.host.create(
+    secretInputConfig({
+      parent: input.parent,
+      preload: input.preload,
+      packaged: input.packaged,
+      partition,
+      headless,
+    }),
+  );
   hardenContents(window.webContents, input.onCrashed);
   const release = blockAppInput(input.host.appContents(input.parent.id));
   window.on("closed", () => {

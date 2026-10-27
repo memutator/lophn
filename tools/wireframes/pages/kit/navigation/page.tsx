@@ -17,19 +17,27 @@ const WITH_ICONS = [
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
-function Demo(
-  { size, selected = "connections", disabled = false }: {
-    size?: "sm" | "md" | "lg";
-    selected?: string;
-    disabled?: boolean;
-  },
-) {
+function Demo({
+  size,
+  selected = "connections",
+  disabled = false,
+}: {
+  size?: "sm" | "md" | "lg";
+  selected?: string;
+  disabled?: boolean;
+}) {
   return (
     <Tabs defaultValue={selected}>
       <TabList>
-        <Tab value="connections" size={size}>Connections</Tab>
-        <Tab value="general" size={size}>General</Tab>
-        <Tab value="update" size={size} disabled={disabled}>Update</Tab>
+        <Tab value="connections" size={size}>
+          Connections
+        </Tab>
+        <Tab value="general" size={size}>
+          General
+        </Tab>
+        <Tab value="update" size={size} disabled={disabled}>
+          Update
+        </Tab>
       </TabList>
       <TabPanel value="connections">
         <p className={kit.note}>Connections panel</p>
@@ -44,12 +52,13 @@ function Demo(
   );
 }
 
-function Nav(
-  { items, current }: {
-    items: typeof PLAIN | typeof WITH_ICONS;
-    current?: string;
-  },
-) {
+function Nav({
+  items,
+  current,
+}: {
+  items: typeof PLAIN | typeof WITH_ICONS;
+  current?: string;
+}) {
   return (
     <div style={{ width: "var(--layout-container-card)" }}>
       <Sidebar items={items} current={current} onSelect={() => {}} />

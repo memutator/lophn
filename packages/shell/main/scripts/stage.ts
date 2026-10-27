@@ -20,8 +20,8 @@ const mainRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(mainRoot, "..", "..");
 const out = path.join(mainRoot, "build", "stage");
 const skipRendererBuild = process.argv.includes("--skip-renderer-build");
-const targetPlatform =
-  (process.env.LOPHN_TARGET_PLATFORM ?? process.platform) as NodeJS.Platform;
+const targetPlatform = (process.env.LOPHN_TARGET_PLATFORM ??
+  process.platform) as NodeJS.Platform;
 
 function log(msg: string): void {
   console.log(`[stage] ${msg}`);
@@ -115,20 +115,16 @@ function stageCorePackages(): void {
     if (!fs.existsSync(srcPkg)) {
       throw new Error(`core package missing: packages/${pkg}`);
     }
-    copyTree(
-      srcPkg,
-      path.join(dst, pkg),
-      (rel) => {
-        // Skip tests, dist, node_modules
-        return (
-          rel.endsWith("_test.ts") ||
-          rel.endsWith(".test.ts") ||
-          rel.includes("node_modules") ||
-          rel.includes("dist") ||
-          rel.startsWith(".")
-        );
-      },
-    );
+    copyTree(srcPkg, path.join(dst, pkg), (rel) => {
+      // Skip tests, dist, node_modules
+      return (
+        rel.endsWith("_test.ts") ||
+        rel.endsWith(".test.ts") ||
+        rel.includes("node_modules") ||
+        rel.includes("dist") ||
+        rel.startsWith(".")
+      );
+    });
   }
 
   // Copy deno.json and deno.lock for dependency resolution
@@ -182,9 +178,9 @@ function stageBin(): string {
   let version = "unknown";
   if (targetPlatform === process.platform) {
     version =
-      execFileSync(path.join(bin, exe), ["--version"], { encoding: "utf8" })
-        .split("\n")[0] ??
-        version;
+      execFileSync(path.join(bin, exe), ["--version"], {
+        encoding: "utf8",
+      }).split("\n")[0] ?? version;
   }
   log(`deno binary: ${src} (${version})`);
   return version;

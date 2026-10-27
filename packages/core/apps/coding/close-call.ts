@@ -12,12 +12,15 @@ export const CODING_REACTION_TEXTS = {
   not_started: "The coding session could not start.",
 } as const;
 
-export function closeCall(tx: Tx, input: {
-  call: string;
-  // 띄우지 못한 줄의 call은 session이 없다.
-  session: string | null;
-  app: string;
-}): Result<void> {
+export function closeCall(
+  tx: Tx,
+  input: {
+    call: string;
+    // 띄우지 못한 줄의 call은 session이 없다.
+    session: string | null;
+    app: string;
+  },
+): Result<void> {
   const store = createCallStore();
   const record = store.read(tx, input.call as never);
   // 이미 끝난 call(취소, Router가 먼저 닫음)은 그대로 두고 알리지 않는다.

@@ -45,20 +45,20 @@ interface Common {
 
 export type WaitingEntry =
   // coding은 harness가 물어 온 것이다. 답은 터미널에서 한다.
-  | Common & {
-    readonly kind: "permission" | "coding";
-    readonly request: TurnRequest;
-  }
-  | Common & { readonly kind: "question"; readonly request: QuestionRequest }
+  | (Common & {
+      readonly kind: "permission" | "coding";
+      readonly request: TurnRequest;
+    })
+  | (Common & { readonly kind: "question"; readonly request: QuestionRequest })
   // 터미널을 열었는데 첫 hook 신호가 없다. folder trust 같은 확인에서 멈췄을 수 있다. id는 start:<session>이다.
-  | Common & { readonly kind: "coding_start" }
+  | (Common & { readonly kind: "coding_start" })
   // id는 release다. 같은 release는 한 줄이다.
-  | Common & {
-    readonly kind: "activation";
-    readonly request: ActivationConsent;
-  }
+  | (Common & {
+      readonly kind: "activation";
+      readonly request: ActivationConsent;
+    })
   // 놓친 차례를 사람이 정한다. id는 job run이다. session도 request도 없는 job 표의 줄이다.
-  | Common & { readonly kind: "job_hold"; readonly hold: JobHold };
+  | (Common & { readonly kind: "job_hold"; readonly hold: JobHold });
 
 /** 사람이 보지 않는 사이 turn이 끝난 터미널 탭의 coding agent. */
 export interface FinishedTerminal {
@@ -97,7 +97,12 @@ const WAITING_CONDITION: EventCondition = {
 const STARTING_QUIET_MS = 5000;
 
 function folderName(path: string): string {
-  return path.split(/[\\/]/).filter((part) => part !== "").at(-1) ?? "";
+  return (
+    path
+      .split(/[\\/]/)
+      .filter((part) => part !== "")
+      .at(-1) ?? ""
+  );
 }
 
 /** `setTimeout` 꼴. 전역을 읽지 않으려고 인자로 받는다. */
@@ -109,8 +114,7 @@ export interface Timer {
 /** 첫 신호가 SessionStarted인 harness만 터미널 시작 뒤 첫 신호를 기다릴 수 있다. */
 function startsWithSessionStart(harness: string | undefined): boolean {
   const table = HOOK_EVENT_TABLE[harness as HarnessId];
-  return table !== undefined &&
-    Object.values(table).includes("SessionStarted");
+  return table !== undefined && Object.values(table).includes("SessionStarted");
 }
 
 interface WaitingStore {
@@ -135,10 +139,7 @@ export function createWaitingStore(
   // main이 push하는 runtime에서만 안다. 창이 뜨기 전에 끝난 turn은 다음 push 때 보인다.
   const finished = new Map<string, FinishedTerminal>();
   // session의 agent와 place는 SessionStarted와 snapshot에 실려 온다.
-  const sessions = new Map<
-    string,
-    { agent: CallAgent; place: Place | null }
-  >();
+  const sessions = new Map<string, { agent: CallAgent; place: Place | null }>();
 
   // 첫 신호를 기다리는 coding session(runtime이나 snapshot에서 알았다). 항목이 뜬 뒤에도 끝날 때까지 남는다.
   const waitingStart = new Map<string, unknown>();
@@ -369,13 +370,11 @@ export function createWaitingStore(
     publish();
   }
 
-  function replace(
-    read: {
-      snapshots: SessionSnapshot[];
-      consents: ActivationConsent[];
-      holds: JobHold[] | null;
-    },
-  ) {
+  function replace(read: {
+    snapshots: SessionSnapshot[];
+    consents: ActivationConsent[];
+    holds: JobHold[] | null;
+  }) {
     // snapshot에서 첫 신호를 들은 session이거나 없는 session은 기다리지 않는다.
     for (const session of [...waitingStart.keys()]) {
       const snapshot = read.snapshots.find((one) => one.session === session);
@@ -389,14 +388,15 @@ export function createWaitingStore(
       } else stopWaitingStart(snapshot.session);
     }
     // coding_start는 snapshot에 없다. hold를 못 읽었으면 지금의 hold 항목도 그대로 둔다.
-    const kept = [...entries.values()].filter((entry) =>
-      entry.kind === "coding_start" ||
-      (read.holds === null && entry.kind === "job_hold")
+    const kept = [...entries.values()].filter(
+      (entry) =>
+        entry.kind === "coding_start" ||
+        (read.holds === null && entry.kind === "job_hold"),
     );
     const next = replaceTurnRequests(read.snapshots);
     for (const one of read.consents) next.push(consent(one));
     for (const one of read.holds ?? []) next.push(jobHold(one));
-    next.sort((a, b) => a.receivedAt < b.receivedAt ? -1 : 1);
+    next.sort((a, b) => (a.receivedAt < b.receivedAt ? -1 : 1));
     entries = new Map();
     for (const entry of next) put(entry);
     for (const entry of kept) put(entry);

@@ -7,13 +7,14 @@ export function outcomeOf(
   runComponents: VersionRef[],
 ): Outcome {
   const pending = trial.checks.filter((c) => c.pending).map((c) => c.id);
-  const failed = trial.settle.kind !== "idle" ||
+  const failed =
+    trial.settle.kind !== "idle" ||
     trial.checks.some((c) => !c.pass && !c.pending);
   const state: OutcomeState = failed
     ? "fail"
     : pending.length > 0
-    ? "pending"
-    : "pass";
+      ? "pending"
+      : "pass";
   return {
     index: trial.index,
     passed: state === "pass",

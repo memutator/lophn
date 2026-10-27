@@ -47,11 +47,12 @@ type ExecFile = (
 const defaultExec: ExecFile = (file, args, options) =>
   new Promise((resolve) => {
     execFile(file, args, options, (error, stdout) => {
-      const code = error === null
-        ? 0
-        : typeof (error as { code?: unknown }).code === "number"
-        ? (error as { code: number }).code
-        : null;
+      const code =
+        error === null
+          ? 0
+          : typeof (error as { code?: unknown }).code === "number"
+            ? (error as { code: number }).code
+            : null;
       resolve({ code, stdout: String(stdout) });
     });
   });
@@ -93,9 +94,7 @@ export function childCliRunner(options: {
     }
     const error = (body as { error?: { code?: unknown; message?: unknown } })
       ?.error;
-    if (
-      typeof error?.code === "string" && typeof error.message === "string"
-    ) {
+    if (typeof error?.code === "string" && typeof error.message === "string") {
       return { ok: false, message: error.message };
     }
     return { ok: true, data: body };
@@ -124,9 +123,7 @@ export type HarnessSettings = {
   refresh(): Promise<CodingReply<readonly HarnessSettingsView[]>>;
 };
 
-function reasonOf(
-  facts: ReturnType<HarnessCatalog["facts"]>,
-): string | null {
+function reasonOf(facts: ReturnType<HarnessCatalog["facts"]>): string | null {
   const reasons: string[] = [];
   if (!facts.can_launch) {
     reasons.push("lophn has no way to pass the first prompt to it.");
@@ -184,12 +181,11 @@ export function createHarnessSettings(
   // core가 닿지 않으면 알리기만 실패로 둔다. Settings 표시는 그대로다.
   async function report(detections: Detection[]): Promise<boolean> {
     try {
-      const sent = await deps.core()?.internal(
-        "memory",
-        "coding_agent_harnesses",
-        "report",
-        { detections },
-      );
+      const sent = await deps
+        .core()
+        ?.internal("memory", "coding_agent_harnesses", "report", {
+          detections,
+        });
       return sent?.ok === true;
     } catch {
       return false;

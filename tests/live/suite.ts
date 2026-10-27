@@ -72,12 +72,14 @@ const MESSAGES: Record<Row, PromptMessage[]> = {
     { role: "user", parts: [text("이 이미지를 설명해 줘")] },
     {
       role: "assistant",
-      parts: [{
-        kind: "tool_use",
-        id: "call_image",
-        name: "image_read",
-        input: { path: "pixel.png" },
-      }],
+      parts: [
+        {
+          kind: "tool_use",
+          id: "call_image",
+          name: "image_read",
+          input: { path: "pixel.png" },
+        },
+      ],
     },
     {
       role: "user",
@@ -92,12 +94,16 @@ const MESSAGES: Record<Row, PromptMessage[]> = {
       ],
     },
   ],
-  truncation: [{
-    role: "user",
-    parts: [text(
-      "Think carefully, then explain step by step: in how many ways can 12 people sit around a round table if A and B must not sit next to each other?",
-    )],
-  }],
+  truncation: [
+    {
+      role: "user",
+      parts: [
+        text(
+          "Think carefully, then explain step by step: in how many ways can 12 people sit around a round table if A and B must not sit next to each other?",
+        ),
+      ],
+    },
+  ],
 };
 
 export async function callLive(
@@ -107,9 +113,10 @@ export async function callLive(
 ): Promise<ModelCallOutput> {
   const model = row === "truncation" ? config.truncationModel : config.model;
   const definition = builtinProviderDefinition(config.provider);
-  const entry = model === undefined
-    ? undefined
-    : snapshotCatalogEntry(config.provider, model);
+  const entry =
+    model === undefined
+      ? undefined
+      : snapshotCatalogEntry(config.provider, model);
   if (!definition.ok || model === undefined || entry === undefined) {
     throw new Error(`no snapshot entry for ${config.provider}/${model}`);
   }
@@ -143,8 +150,8 @@ export async function callLive(
         path === routePath(providerRead)
           ? ok({ provider, as_of_seq: "0", next_cursor: null })
           : path === routePath(userModelInfoRead)
-          ? ok({ seq: "0", items: [], as_of_seq: "0", next_cursor: null })
-          : err({ code: "not_found", message: path }),
+            ? ok({ seq: "0", items: [], as_of_seq: "0", next_cursor: null })
+            : err({ code: "not_found", message: path }),
       ),
     attach,
     catalog: () => Promise.resolve(ok([entry])),
@@ -160,18 +167,21 @@ export async function callLive(
     tools: TOOLS,
     messages: MESSAGES[row],
   });
-  const called = await binding.invoke({
-    callId: "mcl_live",
-    turn: null,
-    session: null,
-    purpose: "judgment",
-    model: binding.call,
-    endpoint: binding.endpoint,
-    inputHash: "h",
-    contextBasisHash: "h",
-    body: packed.body as Record<string, unknown>,
-    usageRevision: binding.usageRevision,
-  }, AbortSignal.timeout(CALL_TIMEOUT_MS));
+  const called = await binding.invoke(
+    {
+      callId: "mcl_live",
+      turn: null,
+      session: null,
+      purpose: "judgment",
+      model: binding.call,
+      endpoint: binding.endpoint,
+      inputHash: "h",
+      contextBasisHash: "h",
+      body: packed.body as Record<string, unknown>,
+      usageRevision: binding.usageRevision,
+    },
+    AbortSignal.timeout(CALL_TIMEOUT_MS),
+  );
   if (!called.ok) throw new Error(`invoke failed: ${called.error.message}`);
   return called.value;
 }
@@ -181,7 +191,8 @@ export function assertLive(row: Row, output: ModelCallOutput): void {
   const { outcome } = output;
   const shown = JSON.stringify(outcome);
   assert.ok(
-    outcome.http_status !== null && outcome.http_status >= 200 &&
+    outcome.http_status !== null &&
+      outcome.http_status >= 200 &&
       outcome.http_status < 300,
     `HTTP not 2xx: ${shown}`,
   );

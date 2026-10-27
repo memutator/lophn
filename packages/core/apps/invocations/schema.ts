@@ -3,7 +3,8 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // CHECK 목록은 protocol 원본에서 만든다. kind가 늘어도 기록이 말없이 실패하지 않는다.
 const CALLER_KINDS = appToolCallerSchema.options
-  .map((o) => `'${o.shape.kind.value}'`).join(", ");
+  .map((o) => `'${o.shape.kind.value}'`)
+  .join(", ");
 
 // invocation 기록 표. app·release는 물리 FK를 두지 않는다(참조하는 releases 표는 다른 조립이다).
 // JSON 값(operation·caller·summary)은 TEXT에 둔다. session·turn은 caller에서 뽑은 찾기용 칸이다.
@@ -30,9 +31,10 @@ const FROZEN_COLUMNS = [
   "detail_hash",
 ];
 
-export const invocationsSchemaSteps: readonly SchemaStep[] = [{
-  id: "apps.invocations.tables",
-  sql: `
+export const invocationsSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "apps.invocations.tables",
+    sql: `
     CREATE TABLE invocations (
       id TEXT PRIMARY KEY NOT NULL,
       app TEXT NOT NULL,
@@ -73,11 +75,9 @@ export const invocationsSchemaSteps: readonly SchemaStep[] = [{
     CREATE INDEX invocations_status_id ON invocations (status, id);
     CREATE TRIGGER invocations_terminal_no_update BEFORE UPDATE ON invocations
     WHEN OLD.status <> 'running' AND (
-      ${
-    FROZEN_COLUMNS.map((column) => `NEW.${column} IS NOT OLD.${column}`).join(
-      "\n      OR ",
-    )
-  }
+      ${FROZEN_COLUMNS.map(
+        (column) => `NEW.${column} IS NOT OLD.${column}`,
+      ).join("\n      OR ")}
       OR (NEW.changeset_hash IS NOT NULL AND NEW.changeset_hash IS NOT OLD.changeset_hash)
       OR (NEW.changeset_size IS NOT NULL AND NEW.changeset_size IS NOT OLD.changeset_size)
       OR (OLD.reverted_by IS NOT NULL AND NEW.reverted_by IS NOT OLD.reverted_by)
@@ -86,4 +86,5 @@ export const invocationsSchemaSteps: readonly SchemaStep[] = [{
     CREATE TRIGGER invocations_no_delete BEFORE DELETE ON invocations
     BEGIN SELECT RAISE(ABORT, 'invocations are recorded, not deleted'); END;
   `,
-}];
+  },
+];

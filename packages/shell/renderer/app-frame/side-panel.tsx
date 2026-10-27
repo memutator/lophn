@@ -59,10 +59,10 @@ export function sidePanelPlacement(
 /** agent 탭이 보이는 것. agent는 열린 agent와 그 session(null은 새 session), manage는 editor로 열어 둔 agent, runs는 이 앱의 Background 목록이다. */
 export type AgentPaneState =
   | {
-    readonly mode: "agent";
-    readonly assignment: string;
-    readonly session: string | null;
-  }
+      readonly mode: "agent";
+      readonly assignment: string;
+      readonly session: string | null;
+    }
   | { readonly mode: "manage"; readonly agent: string | null }
   | { readonly mode: "runs" };
 
@@ -119,18 +119,16 @@ export function SidePanel(props: SidePanelProps): ReactElement | null {
   useViewCover(ref, props.placement === "overlay");
   const { state, coding, tab } = props;
   if (props.tabs.length === 0) return null;
-  const vendor = coding === undefined
-    ? undefined
-    : vendorOf(coding.tab.product);
-  const agentBody = state === null
-    ? null
-    : state.mode === "manage"
-    ? <ManageBody {...props} agent={state.agent} />
-    : state.mode === "runs"
-    ? <RunsBody {...props} />
-    : props.agentViewSource === undefined
-    ? <NotReady />
-    : (
+  const vendor =
+    coding === undefined ? undefined : vendorOf(coding.tab.product);
+  const agentBody =
+    state === null ? null : state.mode === "manage" ? (
+      <ManageBody {...props} agent={state.agent} />
+    ) : state.mode === "runs" ? (
+      <RunsBody {...props} />
+    ) : props.agentViewSource === undefined ? (
+      <NotReady />
+    ) : (
       <AgentBody
         key={state.assignment}
         {...props}
@@ -139,7 +137,7 @@ export function SidePanel(props: SidePanelProps): ReactElement | null {
         session={state.session}
       />
     );
-  const shown = (name: PanelTab) => tab === name ? "" : styles.hidden;
+  const shown = (name: PanelTab) => (tab === name ? "" : styles.hidden);
   return (
     <aside
       ref={ref}
@@ -151,59 +149,57 @@ export function SidePanel(props: SidePanelProps): ReactElement | null {
       style={{ width: `${SIDE_PANEL_WIDTH}px` }}
     >
       <Head {...props} />
-      {props.tabs.includes("details")
-        ? (
-          <div className={`${styles.details} ${shown("details")}`}>
-            {props.details}
-          </div>
-        )
-        : null}
-      {agentBody === null
-        ? null
-        : <div className={`${styles.body} ${shown("agent")}`}>{agentBody}</div>}
-      {coding !== undefined
-        ? (
-          <div className={`${styles.body} ${shown("terminal")}`}>
-            <TerminalTab
-              key={coding.tab.key}
-              tabKey={coding.tab.key}
-              project={coding.tab.project}
-              folderRef={null}
-              active={tab === "terminal" && props.placement !== "hidden"}
-              deps={coding.deps}
-              coding={{
-                product: coding.tab.product,
-                session: coding.tab.session,
-                app: props.app,
-              }}
-            />
-          </div>
-        )
-        : null}
-      {props.opened && coding !== undefined
-        ? (
-          <div className={styles.toast} data-agent-pane-toast="">
-            <Toast
-              title={t("app-space.title.coding-opened", {
-                product: coding.tab.product,
-              })}
-              lead={vendor === undefined
-                ? undefined
-                : <VendorIcon vendor={vendor} size={16} />}
-              actions={[{
+      {props.tabs.includes("details") ? (
+        <div className={`${styles.details} ${shown("details")}`}>
+          {props.details}
+        </div>
+      ) : null}
+      {agentBody === null ? null : (
+        <div className={`${styles.body} ${shown("agent")}`}>{agentBody}</div>
+      )}
+      {coding !== undefined ? (
+        <div className={`${styles.body} ${shown("terminal")}`}>
+          <TerminalTab
+            key={coding.tab.key}
+            tabKey={coding.tab.key}
+            project={coding.tab.project}
+            folderRef={null}
+            active={tab === "terminal" && props.placement !== "hidden"}
+            deps={coding.deps}
+            coding={{
+              product: coding.tab.product,
+              session: coding.tab.session,
+              app: props.app,
+            }}
+          />
+        </div>
+      ) : null}
+      {props.opened && coding !== undefined ? (
+        <div className={styles.toast} data-agent-pane-toast="">
+          <Toast
+            title={t("app-space.title.coding-opened", {
+              product: coding.tab.product,
+            })}
+            lead={
+              vendor === undefined ? undefined : (
+                <VendorIcon vendor={vendor} size={16} />
+              )
+            }
+            actions={[
+              {
                 id: "show",
                 label: t("app-space.button.show-terminal"),
-              }]}
-              onAction={() => {
-                props.onTab("terminal");
-                props.onOpenedClose();
-              }}
-              onClose={props.onOpenedClose}
-              timer={STAY}
-            />
-          </div>
-        )
-        : null}
+              },
+            ]}
+            onAction={() => {
+              props.onTab("terminal");
+              props.onOpenedClose();
+            }}
+            onClose={props.onOpenedClose}
+            timer={STAY}
+          />
+        </div>
+      ) : null}
     </aside>
   );
 }
@@ -218,21 +214,22 @@ function useTerminalDot(coding: PaneTerminal | undefined, deps?: TerminalDeps) {
   );
   if (coding === undefined) return null;
   const entry = sessions.find((item) => item.session === coding.session);
-  const dot: TabDot | null = phase?.kind === "ended" ||
-      (entry !== undefined && entry.ended !== null)
-    ? "ended"
-    : entry?.state === "waiting"
-    ? "waiting"
-    : null;
+  const dot: TabDot | null =
+    phase?.kind === "ended" || (entry !== undefined && entry.ended !== null)
+      ? "ended"
+      : entry?.state === "waiting"
+        ? "waiting"
+        : null;
   return dot;
 }
 
 function Head(props: SidePanelProps): ReactElement {
   const { state, agents, coding } = props;
   const dot = useTerminalDot(coding?.tab, coding?.deps);
-  const agent = state?.mode === "agent"
-    ? agents.find((item) => item.assignment === state.assignment)
-    : undefined;
+  const agent =
+    state?.mode === "agent"
+      ? agents.find((item) => item.assignment === state.assignment)
+      : undefined;
   const items: Record<PanelTab, TabItem | null> = {
     details: {
       key: "details",
@@ -241,25 +238,45 @@ function Head(props: SidePanelProps): ReactElement {
         <Icon icon={appSpaceIcons.appDetails} pixels={iconPixels("small")} />
       ),
     },
-    agent: state === null ? null : {
-      key: "agent",
-      title: state.mode === "manage"
-        ? t("app-space.button.manage-agents")
-        : state.mode === "runs"
-        ? t("run-list.heading.background")
-        : agent?.name ?? t("app-space.heading.agents"),
-      icon: agent === undefined
-        ? <Icon icon={conversationIcons.dock} pixels={iconPixels("small")} />
-        : <Avatar profile={agent.profile} size="sm" />,
-    },
-    terminal: coding === undefined ? null : {
-      key: "terminal",
-      title: coding.tab.title,
-      ...(vendorOf(coding.tab.product) === undefined ? {} : {
-        icon: <VendorIcon vendor={vendorOf(coding.tab.product)!} size={14} />,
-      }),
-      dot,
-    },
+    agent:
+      state === null
+        ? null
+        : {
+            key: "agent",
+            title:
+              state.mode === "manage"
+                ? t("app-space.button.manage-agents")
+                : state.mode === "runs"
+                  ? t("run-list.heading.background")
+                  : (agent?.name ?? t("app-space.heading.agents")),
+            icon:
+              agent === undefined ? (
+                <Icon
+                  icon={conversationIcons.dock}
+                  pixels={iconPixels("small")}
+                />
+              ) : (
+                <Avatar profile={agent.profile} size="sm" />
+              ),
+          },
+    terminal:
+      coding === undefined
+        ? null
+        : {
+            key: "terminal",
+            title: coding.tab.title,
+            ...(vendorOf(coding.tab.product) === undefined
+              ? {}
+              : {
+                  icon: (
+                    <VendorIcon
+                      vendor={vendorOf(coding.tab.product)!}
+                      size={14}
+                    />
+                  ),
+                }),
+            dot,
+          },
   };
   const tabs = props.tabs.flatMap((name) => items[name] ?? []);
   return (
@@ -306,9 +323,11 @@ function AgentBody(
     // 사용량 화면은 아직 이 칸에 없다.
     showUsage: () => {},
     closeTab: () => props.onCloseTab("agent"),
-    ...(props.onSettings === undefined ? {} : {
-      openConnections: () => props.onSettings?.("providers"),
-    }),
+    ...(props.onSettings === undefined
+      ? {}
+      : {
+          openConnections: () => props.onSettings?.("providers"),
+        }),
   };
   return (
     <div className={styles.agent}>
@@ -317,7 +336,8 @@ function AgentBody(
         drafts={shared ?? local}
         session={props.session}
         onSessionChange={(session) =>
-          onState({ mode: "agent", assignment, session })}
+          onState({ mode: "agent", assignment, session })
+        }
         host={host}
       />
     </div>
@@ -347,23 +367,22 @@ function RunsBody(props: SidePanelProps) {
   const runs = props.runs ?? [];
   return (
     <div className={styles.runs} data-runs-pane="">
-      {runs.length === 0
-        ? (
-          <p className={styles.state} data-runs-empty="">
-            {t("run-list.empty.none")}
-          </p>
-        )
-        : (
-          <RunList
-            runs={runs}
-            onSession={(session) =>
-              props.onState({
-                mode: "agent",
-                assignment: session.agent,
-                session: session.id,
-              })}
-          />
-        )}
+      {runs.length === 0 ? (
+        <p className={styles.state} data-runs-empty="">
+          {t("run-list.empty.none")}
+        </p>
+      ) : (
+        <RunList
+          runs={runs}
+          onSession={(session) =>
+            props.onState({
+              mode: "agent",
+              assignment: session.agent,
+              session: session.id,
+            })
+          }
+        />
+      )}
     </div>
   );
 }

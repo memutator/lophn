@@ -144,7 +144,8 @@ function requireIdleSession(tx: Tx, session: string): Result<void> {
       "select 1 as found from turns where session = ? and state = 'running' limit 1",
       [session],
     ) !== undefined
-  ) return reject("conflict", "stop the running work before rewinding");
+  )
+    return reject("conflict", "stop the running work before rewinding");
   return ok(undefined);
 }
 
@@ -221,18 +222,17 @@ function foldable(tx: Tx, session: string, checkpoint: string): Result<void> {
   );
   if (boundary === undefined) return ok(undefined);
   const from = Number(boundary["created_seq"]);
-  return hiddenRanges(tx, session).some((range) =>
-      Number(range.through_seq) >= from
-    )
+  return hiddenRanges(tx, session).some(
+    (range) => Number(range.through_seq) >= from,
+  )
     ? reject("invalid_input", "the range to fold holds hidden messages")
     : ok(undefined);
 }
 
 function boundaryOf(tx: Tx, target: RewindTarget): string {
-  const found = tx.sql.get(
-    "select created_seq from messages where id = ?",
-    [target.checkpoint],
-  );
+  const found = tx.sql.get("select created_seq from messages where id = ?", [
+    target.checkpoint,
+  ]);
   return String(found!["created_seq"]);
 }
 
@@ -287,8 +287,8 @@ export function createSessionRewindCommands(deps: RevertDeps): {
     const existing = loadRevert(tx, input.id);
     if (existing !== undefined) {
       return existing.session === input.session &&
-          existing.checkpoint === input.checkpoint &&
-          existing.choice === input.choice
+        existing.checkpoint === input.checkpoint &&
+        existing.choice === input.choice
         ? ok(headerOf(existing, true))
         : reject("conflict", "rewind id already used for other input");
     }
@@ -340,7 +340,8 @@ export function createSessionRewindCommands(deps: RevertDeps): {
     if (
       plan.preview.preview_hash !== input.preview_hash ||
       (needsAccept(plan) && !input.accept_remaining)
-    ) return block(tx, request, plan);
+    )
+      return block(tx, request, plan);
     if (input.choice !== "summarize") {
       const cancelled = effects.cancelWaiting(tx, { session: input.session });
       if (!cancelled.ok) return cancelled;
@@ -390,7 +391,8 @@ export function createSessionRewindCommands(deps: RevertDeps): {
       releaseReverted(tx, row.id, entry.source, entry.path);
     }
     const results = countsOf(
-      tx.sql.all("select result from revert_items where revert = ?", [row.id])
+      tx.sql
+        .all("select result from revert_items where revert = ?", [row.id])
         .map((item) => String(item["result"]) as RevertItem["result"]),
     );
     tx.emit(revertAmended, row.id, {

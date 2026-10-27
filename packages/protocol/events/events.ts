@@ -28,24 +28,24 @@ type EventEnvelope = z.infer<typeof eventEnvelopeBaseSchema>;
 
 // envelope의 seq·actor·turn·at은 그대로 두고 등록 event의 type·subject·payload만 좁힌 값.
 // 노출 판단 hook이 받는 값은 이 모양이다(EventVisibilityDefinition).
-export type EventEnvelopeFor<D extends EventDefinition> =
-  & Omit<
-    EventEnvelope,
-    "type" | "subject" | "payload"
-  >
-  & {
-    type: D["type"];
-    subject: z.output<D["subject"]>;
-    payload: z.output<D["payload"]>;
-  };
+export type EventEnvelopeFor<D extends EventDefinition> = Omit<
+  EventEnvelope,
+  "type" | "subject" | "payload"
+> & {
+  type: D["type"];
+  subject: z.output<D["subject"]>;
+  payload: z.output<D["payload"]>;
+};
 
 // 특정 event의 payload를 좁힌 envelope.
 
-const eventBatchLimitSchema = z.number().refine(
-  (n): n is number =>
-    Number.isSafeInteger(n) && n >= 1 && n <= EVENT_BATCH_MAX_COUNT,
-  { message: "invalid event batch limit" },
-);
+const eventBatchLimitSchema = z
+  .number()
+  .refine(
+    (n): n is number =>
+      Number.isSafeInteger(n) && n >= 1 && n <= EVENT_BATCH_MAX_COUNT,
+    { message: "invalid event batch limit" },
+  );
 
 const filterSchema = {
   types: z.array(eventTypeSchema).optional(),
@@ -59,11 +59,13 @@ const eventsListInputSchema = z.strictObject({
   ...filterSchema,
 });
 
-const eventsListOutputSchema = withReadCommon(z.object({
-  events: z.array(eventEnvelopeBaseSchema).max(EVENT_BATCH_MAX_COUNT),
-  scanned_through_seq: seqSchema,
-  head_seq: seqSchema,
-}));
+const eventsListOutputSchema = withReadCommon(
+  z.object({
+    events: z.array(eventEnvelopeBaseSchema).max(EVENT_BATCH_MAX_COUNT),
+    scanned_through_seq: seqSchema,
+    head_seq: seqSchema,
+  }),
+);
 
 export const eventsList = defineRead({
   resource: "events",

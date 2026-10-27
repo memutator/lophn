@@ -24,10 +24,12 @@ import {
 } from "./desktop-window.ts";
 
 // shell tsc는 base를 보지 않으므로 Result 모양만 여기서 맞춘다.
-export type CallResult = { ok: true; value: unknown } | {
-  ok: false;
-  error: { code: string; message: string };
-};
+export type CallResult =
+  | { ok: true; value: unknown }
+  | {
+      ok: false;
+      error: { code: string; message: string };
+    };
 
 /** 영역 하나를 등록한 결과. `main.ts`가 끝날 때 거꾸로 `stop()`을 부른다. */
 export type Registered = { stop(): void };
@@ -115,8 +117,8 @@ export function createShellContext(): ShellContext {
 
   const windowRef = (window: BrowserWindow) => `window-${window.id}`;
   const windowOfRef = (ref: string) =>
-    [...windows].find((window) =>
-      !window.isDestroyed() && windowRef(window) === ref
+    [...windows].find(
+      (window) => !window.isDestroyed() && windowRef(window) === ref,
     ) ?? appWindowRefs.get(ref);
 
   let stopped = false;
@@ -136,9 +138,9 @@ export function createShellContext(): ShellContext {
     return session
       ? session.internal(kind, resource, method, body)
       : Promise.resolve({
-        ok: false,
-        error: { code: "unavailable", message: "core is not ready" },
-      });
+          ok: false,
+          error: { code: "unavailable", message: "core is not ready" },
+        });
   };
 
   const ctx: ShellContext = {
@@ -178,8 +180,8 @@ export function createShellContext(): ShellContext {
     windowRef,
     windowOfRef,
     shellWindowOf: (sender) =>
-      [...windows].find((window) =>
-        !window.isDestroyed() && window.webContents === sender
+      [...windows].find(
+        (window) => !window.isDestroyed() && window.webContents === sender,
       ),
     rendererDist: () => {
       // packaged는 설치 묶음의 desktop/이다.

@@ -208,9 +208,7 @@ export function KitFeedback() {
           <AppRoot>{status({ ...READY, failed: true })}</AppRoot>
         </Row>
         <Row label="Stale (read an hour ago)">
-          <AppRoot>
-            {status(READY, new Date("2026-10-06T17:30:00Z"))}
-          </AppRoot>
+          <AppRoot>{status(READY, new Date("2026-10-06T17:30:00Z"))}</AppRoot>
         </Row>
       </Section>
     </Page>

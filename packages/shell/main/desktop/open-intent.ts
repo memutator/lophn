@@ -27,7 +27,7 @@ const WINDOW: OpenIntent = { kind: "window" };
 export function readOpenIntent(argv: readonly string[]): OpenIntent {
   if (argv.includes(QUIT_FLAG)) return { kind: "quit" };
   const flags = argv.flatMap((arg, index) =>
-    arg === OPEN_APP_FLAG || arg.startsWith(`${OPEN_APP_FLAG}=`) ? [index] : []
+    arg === OPEN_APP_FLAG || arg.startsWith(`${OPEN_APP_FLAG}=`) ? [index] : [],
   );
   if (flags.length !== 1) return WINDOW;
   const app = argv[flags[0]! + 1];

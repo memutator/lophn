@@ -65,13 +65,15 @@ export function observeInvocations(
       };
     });
   } catch {
-    return [{
-      target: "invocations",
-      baseSeq: "0",
-      outcome: "unknown",
-      evidence: [],
-      reason: "invocation_tables_unreadable",
-    }];
+    return [
+      {
+        target: "invocations",
+        baseSeq: "0",
+        outcome: "unknown",
+        evidence: [],
+        reason: "invocation_tables_unreadable",
+      },
+    ];
   }
 }
 

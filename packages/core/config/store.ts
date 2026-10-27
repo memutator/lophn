@@ -102,9 +102,11 @@ export function createSettingsStore(options: {
     before: Record<string, unknown>,
     after: Record<string, unknown>,
   ): string[] =>
-    [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(
-      (key) => JSON.stringify(before[key]) !== JSON.stringify(after[key]),
-    ).sort();
+    [...new Set([...Object.keys(before), ...Object.keys(after)])]
+      .filter(
+        (key) => JSON.stringify(before[key]) !== JSON.stringify(after[key]),
+      )
+      .sort();
 
   // 시작할 때와 watch가 부른다. 거절이면 이전 값을 그대로 둔다.
   const reload = (): void => {
@@ -128,7 +130,9 @@ export function createSettingsStore(options: {
 
   const write = (next: Record<string, unknown>): boolean => {
     const sorted = Object.fromEntries(
-      Object.keys(next).sort().map((key) => [key, next[key]]),
+      Object.keys(next)
+        .sort()
+        .map((key) => [key, next[key]]),
     );
     const text = `${JSON.stringify(sorted, null, 2)}\n`;
     const temp = `${path}.${crypto.randomUUID()}.tmp`;

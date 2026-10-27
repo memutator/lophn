@@ -61,8 +61,9 @@ export async function runSteps(ctx: StepsContext): Promise<Settle> {
       const called = await core.call(appCallTool, {
         target: { mode: "live", app, release: null },
         tool: step.api,
-        ...(step.input !== undefined &&
-          { input: step.input as ToolCallInput["input"] }),
+        ...(step.input !== undefined && {
+          input: step.input as ToolCallInput["input"],
+        }),
         caller: { kind: "person", view_session: "eval" },
       });
       const { outcome } = called;
@@ -84,9 +85,9 @@ export async function runSteps(ctx: StepsContext): Promise<Settle> {
       } else {
         settle = { kind: "timeout", unstarted: idle.unstarted };
         log(
-          `멈추지 않아 timeout: running ${idle.running.join(",")} unstarted ${
-            idle.unstarted.join(",")
-          }`,
+          `멈추지 않아 timeout: running ${idle.running.join(",")} unstarted ${idle.unstarted.join(
+            ",",
+          )}`,
         );
         break;
       }

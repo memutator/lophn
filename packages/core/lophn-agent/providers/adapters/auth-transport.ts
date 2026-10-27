@@ -96,9 +96,8 @@ export function createAuthTransport(options: {
 }
 
 function kindValue(kind: AuthKind, value: Uint8Array | string): string {
-  const text = typeof value === "string"
-    ? value
-    : new TextDecoder().decode(value);
+  const text =
+    typeof value === "string" ? value : new TextDecoder().decode(value);
   if (kind === "bearer") return `Bearer ${text}`;
   return text;
 }

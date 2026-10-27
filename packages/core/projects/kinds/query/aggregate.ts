@@ -11,18 +11,15 @@ const invalid = (message: string): Result<never> =>
   err({ code: "invalid_input", message });
 
 // count는 field가 있으면 null이 아닌 값의 수다. sum은 number 칸만, min·max는 number·date·string 칸만이다.
-function compute(
-  aggregate: Aggregate,
-  rows: readonly Row[],
-): Value {
+function compute(aggregate: Aggregate, rows: readonly Row[]): Value {
   if (aggregate.op === "count") {
     return aggregate.field === undefined
       ? rows.length
       : rows.filter((row) => valueAt(row, aggregate.field!) !== null).length;
   }
-  const values = rows.map((row) => valueAt(row, aggregate.field!)).filter((
-    value,
-  ): value is number | string => value !== null);
+  const values = rows
+    .map((row) => valueAt(row, aggregate.field!))
+    .filter((value): value is number | string => value !== null);
   if (aggregate.op === "sum") {
     return values.reduce<number>(
       (total, value) => total + (value as number),
@@ -35,9 +32,9 @@ function compute(
 
 const nameOf = (aggregate: Aggregate): string =>
   aggregate.as ??
-    (aggregate.op === "count" && aggregate.field === undefined
-      ? "count"
-      : `${aggregate.op}_${aggregate.field}`);
+  (aggregate.op === "count" && aggregate.field === undefined
+    ? "count"
+    : `${aggregate.op}_${aggregate.field}`);
 
 export function aggregateRows(
   rows: readonly Row[],
@@ -56,9 +53,8 @@ export function aggregateRows(
     const info = infos.get(aggregate.field);
     if (info === undefined) return invalid(`unknown field ${aggregate.field}`);
     if (aggregate.op === "count") continue;
-    const allowed = aggregate.op === "sum"
-      ? ["number"]
-      : ["number", "date", "string"];
+    const allowed =
+      aggregate.op === "sum" ? ["number"] : ["number", "date", "string"];
     if (info.list || !allowed.includes(info.type)) {
       return invalid(
         `${aggregate.op} cannot be used on field ${aggregate.field}`,
@@ -85,16 +81,20 @@ export function aggregateRows(
   if (groupBy === undefined && buckets.size === 0) {
     buckets.set("null", { group: null, rows: [] });
   }
-  const groups = [...buckets.values()].sort((a, b) =>
-    (a.group === null ? 1 : 0) - (b.group === null ? 1 : 0) ||
-    compareValues(a.group, b.group)
+  const groups = [...buckets.values()].sort(
+    (a, b) =>
+      (a.group === null ? 1 : 0) - (b.group === null ? 1 : 0) ||
+      compareValues(a.group, b.group),
   );
-  return ok(groups.map((bucket) => ({
-    group: bucket.group,
-    values: Object.fromEntries(
-      aggregates.map((
-        aggregate,
-      ) => [nameOf(aggregate), compute(aggregate, bucket.rows)]),
-    ),
-  })));
+  return ok(
+    groups.map((bucket) => ({
+      group: bucket.group,
+      values: Object.fromEntries(
+        aggregates.map((aggregate) => [
+          nameOf(aggregate),
+          compute(aggregate, bucket.rows),
+        ]),
+      ),
+    })),
+  );
 }

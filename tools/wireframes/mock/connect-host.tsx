@@ -9,17 +9,22 @@ import { fakeAgents } from "../../../packages/shell/renderer/desktop/settings/ag
 import { fakeProviders } from "../../../packages/shell/renderer/desktop/settings/providers/testdata/fake-providers.ts";
 import { CUSTOM_PROVIDER } from "../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 
-export function GalleryConnectHost(
-  { providers, agents, children }: {
-    providers?: ProviderSettingsSource;
-    agents?: AgentsSettingsSource;
-    children: ReactNode;
-  },
-) {
-  const fallback = useMemo(() => ({
-    providers: fakeProviders({ customId: CUSTOM_PROVIDER }).source,
-    agents: fakeAgents().source,
-  }), []);
+export function GalleryConnectHost({
+  providers,
+  agents,
+  children,
+}: {
+  providers?: ProviderSettingsSource;
+  agents?: AgentsSettingsSource;
+  children: ReactNode;
+}) {
+  const fallback = useMemo(
+    () => ({
+      providers: fakeProviders({ customId: CUSTOM_PROVIDER }).source,
+      agents: fakeAgents().source,
+    }),
+    [],
+  );
   return (
     <ConnectProviderHost
       providers={providers ?? fallback.providers}

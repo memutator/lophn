@@ -35,32 +35,31 @@ export function placeFoldersOf(
   const { sql } = lookup;
   const kind = found["place_kind"];
   const id = String(found["place_id"]);
-  const place: PlaceFacts["place"] = kind === "project" || kind === "app"
-    ? { kind, id }
-    : null;
+  const place: PlaceFacts["place"] =
+    kind === "project" || kind === "app" ? { kind, id } : null;
   const facts: PlaceFacts = {
     role,
     place,
-    projectFolders: place?.kind === "project"
-      ? projectFolderPaths(sql, place.id)
-      : [],
+    projectFolders:
+      place?.kind === "project" ? projectFolderPaths(sql, place.id) : [],
     appSource: place?.kind === "app" ? appSourcePath(sql, place.id) : null,
-    domains: place === null
-      ? []
-      : domainsOfOwner(sql, { kind: place.kind, id } as never, "active").map((
-        d,
-      ) => ({
-        id: d.id,
-        folder: domainFolder(dataRoot, d.id),
-        artifactsFolder: domainArtifactsFolder(dataRoot, d.id),
-      })),
-    dataFolder: place === null
-      ? null
-      : placeDataFolder(dataRoot, { kind: place.kind, id } as never),
+    domains:
+      place === null
+        ? []
+        : domainsOfOwner(sql, { kind: place.kind, id } as never, "active").map(
+            (d) => ({
+              id: d.id,
+              folder: domainFolder(dataRoot, d.id),
+              artifactsFolder: domainArtifactsFolder(dataRoot, d.id),
+            }),
+          ),
+    dataFolder:
+      place === null
+        ? null
+        : placeDataFolder(dataRoot, { kind: place.kind, id } as never),
     allProjectFolders: [],
-    workflowsFolder: place?.kind === "project"
-      ? workflowsFolder(dataRoot, place.id)
-      : null,
+    workflowsFolder:
+      place?.kind === "project" ? workflowsFolder(dataRoot, place.id) : null,
   };
   return placeScope(facts).write;
 }

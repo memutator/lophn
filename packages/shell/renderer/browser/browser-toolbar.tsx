@@ -87,38 +87,46 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
 
   const command = (name: "back" | "forward" | "reload") => {
     if (viewSession === null) return;
-    void browser.command({ view_session: viewSession, command: name })
+    void browser
+      .command({ view_session: viewSession, command: name })
       .catch(() => {});
   };
   const submit = () => {
     if (viewSession === null || draft === null) return;
     // 거절이면 현재 url로 되돌린다. 받아들이면 state push가 새 url을 준다.
-    void browser.navigate({ view_session: viewSession, input: draft })
+    void browser
+      .navigate({ view_session: viewSession, input: draft })
       .catch(() => {})
       .finally(() => setDraft(null));
   };
   const openExternal = () => {
-    const shell = (globalThis as {
-      lophnShell?: { openExternal?(url: string): Promise<unknown> };
-    }).lophnShell;
+    const shell = (
+      globalThis as {
+        lophnShell?: { openExternal?(url: string): Promise<unknown> };
+      }
+    ).lophnShell;
     void shell?.openExternal?.(state.url);
   };
 
   // DevTools가 닫혀 있으면 열기 하나, 열려 있으면 자리 고르기와 닫기. 지금 자리는 잠근다.
-  const devtoolsItems = props.devtools === null
-    ? [{
-      id: "open" as DevtoolsAction,
-      label: t("browser.button.inspect"),
-      icon: browserIcons.inspect,
-      disabled: viewSession === null,
-    }]
-    : DEVTOOLS_ITEMS.filter((item) => !detached || item.id !== "float")
-      .map((item) => ({
-        id: item.id as DevtoolsAction,
-        label: t(item.label),
-        icon: item.icon,
-        disabled: item.id === props.devtools,
-      }));
+  const devtoolsItems =
+    props.devtools === null
+      ? [
+          {
+            id: "open" as DevtoolsAction,
+            label: t("browser.button.inspect"),
+            icon: browserIcons.inspect,
+            disabled: viewSession === null,
+          },
+        ]
+      : DEVTOOLS_ITEMS.filter((item) => !detached || item.id !== "float").map(
+          (item) => ({
+            id: item.id as DevtoolsAction,
+            label: t(item.label),
+            icon: item.icon,
+            disabled: item.id === props.devtools,
+          }),
+        );
   const pick = (id: string) => {
     const found = devtoolsItems.find((item) => item.id === id);
     if (found !== undefined && !found.disabled) props.onDevtools(found.id);
@@ -143,7 +151,8 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
           (mac
             ? event.metaKey && !event.ctrlKey
             : event.ctrlKey && !event.metaKey) &&
-          !event.altKey && !event.shiftKey
+          !event.altKey &&
+          !event.shiftKey
         ) {
           event.preventDefault();
           setKeyPresses((count) => count + 1);
@@ -218,22 +227,21 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
         disabled={state.url === ""}
         onClick={openExternal}
       />
-      {openMenu === null
-        ? (
-          <Menu
-            items={devtoolsItems.map((item) => ({
-              id: item.id,
-              label: item.label,
-              leading: <MenuIcon icon={item.icon} />,
-              disabled: item.disabled,
-            }))}
-            onSelect={pick}
-            onOpenChange={props.onMenuOpenChange}
-            placement="beside"
-            trigger={moreButton()}
-          />
-        )
-        : moreButton((event) => {
+      {openMenu === null ? (
+        <Menu
+          items={devtoolsItems.map((item) => ({
+            id: item.id,
+            label: item.label,
+            leading: <MenuIcon icon={item.icon} />,
+            disabled: item.disabled,
+          }))}
+          onSelect={pick}
+          onOpenChange={props.onMenuOpenChange}
+          placement="beside"
+          trigger={moreButton()}
+        />
+      ) : (
+        moreButton((event) => {
           void openMenu(
             event.currentTarget,
             t("browser.button.more"),
@@ -245,7 +253,8 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
           ).then((picked) => {
             if (picked !== null) pick(picked);
           });
-        })}
+        })
+      )}
     </div>
   );
 }

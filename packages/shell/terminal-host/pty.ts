@@ -91,16 +91,17 @@ function requireNodePty(): NodePty {
   // 묶인 host는 CJS라 module의 require가 있다. 전역 eval("require")는 CJS module
   // 안에서 보이지 않아 실제 host에서 늘 시작 실패가 됐다. 묶지 않고 돌 때는 실행한
   // script 자리에서 찾는다.
-  const req = typeof require === "function"
-    ? require
-    : createRequire(process.argv[1] ?? `${process.cwd()}/`);
+  const req =
+    typeof require === "function"
+      ? require
+      : createRequire(process.argv[1] ?? `${process.cwd()}/`);
   return req("node-pty") as NodePty;
 }
 
 function assertNotInherited(options: PtySpawnOptions): void {
   if (options.controlFd === undefined) return;
-  const leaked = Object.values(options.env).some((value) =>
-    value === String(options.controlFd)
+  const leaked = Object.values(options.env).some(
+    (value) => value === String(options.controlFd),
   );
   if (leaked) {
     throw new Error("control fd must not be passed to the shell child");

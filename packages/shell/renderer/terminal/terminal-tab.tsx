@@ -62,13 +62,17 @@ const opening = new Set<string>();
 function sameRuntime(a: Phase, b: Phase): boolean {
   if (a.kind !== b.kind) return false;
   if (a.kind === "live" && b.kind === "live") {
-    return a.runtime.generation === b.runtime.generation &&
-      a.runtime.state === b.runtime.state;
+    return (
+      a.runtime.generation === b.runtime.generation &&
+      a.runtime.state === b.runtime.state
+    );
   }
   if (a.kind === "ended" && b.kind === "ended") {
-    return a.ending === b.ending &&
+    return (
+      a.ending === b.ending &&
       a.runtime?.generation === b.runtime?.generation &&
-      a.runtime?.exit_code === b.runtime?.exit_code;
+      a.runtime?.exit_code === b.runtime?.exit_code
+    );
   }
   return false;
 }
@@ -76,30 +80,39 @@ function sameRuntime(a: Phase, b: Phase): boolean {
 // 프로젝트 작업대의 터미널 탭. PTY는 host가 갖고 이 화면은 보이고 입력을 넘길
 // 뿐이다. 탭을 숨기거나 옮겨도 shell은 그대로이고 다시 그리면 같은 runtime에
 // 붙는다.
-export function TerminalTab(
-  { tabKey, project, folderRef, active, deps, onStarted, naming, coding }:
-    TerminalTabProps,
-) {
+export function TerminalTab({
+  tabKey,
+  project,
+  folderRef,
+  active,
+  deps,
+  onStarted,
+  naming,
+  coding,
+}: TerminalTabProps) {
   const { store, bridge } = deps;
   const subscribe = useCallback(
     (listener: () => void) => store.subscribe(listener),
     [store],
   );
-  const entry: TerminalEntry | undefined = useSyncExternalStore(
-    subscribe,
-    () => store.get(tabKey),
+  const entry: TerminalEntry | undefined = useSyncExternalStore(subscribe, () =>
+    store.get(tabKey),
   );
   // agent와 제목은 store version이 알린다. 숨은 탭은 이 화면이 없어 다시 고를 때까지 이름이 그대로다.
   useSyncExternalStore(subscribe, () => store.version());
   const agentTitle = store.agentTitleOf(tabKey);
-  const nextName = naming === undefined ? null : tabName({
-    person: naming.name.person,
-    agentTitle,
-    auto: naming.name.auto,
-  });
+  const nextName =
+    naming === undefined
+      ? null
+      : tabName({
+          person: naming.name.person,
+          agentTitle,
+          auto: naming.name.auto,
+        });
   useEffect(() => {
     if (
-      naming !== undefined && nextName !== null &&
+      naming !== undefined &&
+      nextName !== null &&
       nextName !== naming.name.shown
     ) {
       naming.onName(nextName);
@@ -120,82 +133,94 @@ export function TerminalTab(
   const size = useObservedSize(screenRef);
   activeRef.current = active;
 
-  const setPhase = useCallback((next: Phase) => {
-    const current = store.get(tabKey)?.phase ?? IDLE;
-    if (!sameRuntime(current, next)) store.update(tabKey, { phase: next });
-  }, [store, tabKey]);
+  const setPhase = useCallback(
+    (next: Phase) => {
+      const current = store.get(tabKey)?.phase ?? IDLE;
+      if (!sameRuntime(current, next)) store.update(tabKey, { phase: next });
+    },
+    [store, tabKey],
+  );
 
-  const apply = useCallback((value: TerminalSnapshotReply) => {
-    const step = acceptOutput(
-      lastSeqRef.current,
-      value.runtime.generation,
-      value.output,
-    );
-    store.noteRuntime(value.runtime);
-    // 다시 쓰는 출력의 질의(DA1 등)에 xterm이 답하면 그 답이 PTY에 사람의 입력으로 들어간다.
-    const replay = replayRef.current;
-    replayRef.current = false;
-    for (const text of step.writes) {
-      if (replay) viewRef.current?.replay(text);
-      else viewRef.current?.write(text);
-    }
-    lastSeqRef.current = step.lastSeq;
-    if (step.missing || value.runtime.dropped_output) setMissing(true);
-    setPhase(phaseOfRuntime(value.runtime));
-  }, [store, setPhase]);
-
-  const begin = useCallback((runtime: TerminalRuntime) => {
-    lastSeqRef.current = 0;
-    replayRef.current = false;
-    lastSize.current = "";
-    store.noteRuntime(runtime);
-    setMissing(false);
-    viewRef.current?.reset();
-    store.update(tabKey, {
-      requested: true,
-      terminalRef: runtime.terminal_ref,
-      generation: runtime.generation,
-      folderRef: runtime.folder_ref,
-      phase: phaseOfRuntime(runtime),
-    });
-    onStarted?.({
-      title: folderTitle(runtime.cwd_at_start),
-      folderRef: runtime.folder_ref,
-    });
-  }, [store, tabKey, onStarted]);
-
-  const open = useCallback(async (folder: string | null) => {
-    // coding 탭은 main이 연 runtime에만 붙는다. 새 PTY는 사람이 열지 않는다.
-    if (coding !== undefined || opening.has(tabKey)) return;
-    if (!bridge) {
-      store.update(tabKey, {
-        phase: { kind: "refused", reason: "unavailable" },
-      });
-      return;
-    }
-    opening.add(tabKey);
-    store.update(tabKey, {
-      requested: true,
-      folderRef: folder,
-      phase: { kind: "opening" },
-    });
-    try {
-      const reply = await bridge.open(
-        folder === null ? { project } : { project, folder_ref: folder },
+  const apply = useCallback(
+    (value: TerminalSnapshotReply) => {
+      const step = acceptOutput(
+        lastSeqRef.current,
+        value.runtime.generation,
+        value.output,
       );
-      if (!reply.ok) {
+      store.noteRuntime(value.runtime);
+      // 다시 쓰는 출력의 질의(DA1 등)에 xterm이 답하면 그 답이 PTY에 사람의 입력으로 들어간다.
+      const replay = replayRef.current;
+      replayRef.current = false;
+      for (const text of step.writes) {
+        if (replay) viewRef.current?.replay(text);
+        else viewRef.current?.write(text);
+      }
+      lastSeqRef.current = step.lastSeq;
+      if (step.missing || value.runtime.dropped_output) setMissing(true);
+      setPhase(phaseOfRuntime(value.runtime));
+    },
+    [store, setPhase],
+  );
+
+  const begin = useCallback(
+    (runtime: TerminalRuntime) => {
+      lastSeqRef.current = 0;
+      replayRef.current = false;
+      lastSize.current = "";
+      store.noteRuntime(runtime);
+      setMissing(false);
+      viewRef.current?.reset();
+      store.update(tabKey, {
+        requested: true,
+        terminalRef: runtime.terminal_ref,
+        generation: runtime.generation,
+        folderRef: runtime.folder_ref,
+        phase: phaseOfRuntime(runtime),
+      });
+      onStarted?.({
+        title: folderTitle(runtime.cwd_at_start),
+        folderRef: runtime.folder_ref,
+      });
+    },
+    [store, tabKey, onStarted],
+  );
+
+  const open = useCallback(
+    async (folder: string | null) => {
+      // coding 탭은 main이 연 runtime에만 붙는다. 새 PTY는 사람이 열지 않는다.
+      if (coding !== undefined || opening.has(tabKey)) return;
+      if (!bridge) {
         store.update(tabKey, {
           phase: { kind: "refused", reason: "unavailable" },
         });
-      } else if (reply.value.ok) {
-        begin(reply.value.runtime);
-      } else {
-        store.update(tabKey, { phase: phaseOfReply(reply.value) });
+        return;
       }
-    } finally {
-      opening.delete(tabKey);
-    }
-  }, [bridge, store, tabKey, project, begin, coding !== undefined]);
+      opening.add(tabKey);
+      store.update(tabKey, {
+        requested: true,
+        folderRef: folder,
+        phase: { kind: "opening" },
+      });
+      try {
+        const reply = await bridge.open(
+          folder === null ? { project } : { project, folder_ref: folder },
+        );
+        if (!reply.ok) {
+          store.update(tabKey, {
+            phase: { kind: "refused", reason: "unavailable" },
+          });
+        } else if (reply.value.ok) {
+          begin(reply.value.runtime);
+        } else {
+          store.update(tabKey, { phase: phaseOfReply(reply.value) });
+        }
+      } finally {
+        opening.delete(tabKey);
+      }
+    },
+    [bridge, store, tabKey, project, begin, coding !== undefined],
+  );
 
   // 사람이 누른 다시 시작. 옛 입력을 다시 보내지 않고 새 generation으로 연다.
   const restart = useCallback(async () => {
@@ -231,16 +256,19 @@ export function TerminalTab(
     const off = view.onData((text) => {
       const current = store.get(tabKey);
       if (
-        !activeRef.current || !bridge || !current?.terminalRef ||
+        !activeRef.current ||
+        !bridge ||
+        !current?.terminalRef ||
         current.phase.kind !== "live"
-      ) return;
+      )
+        return;
       const ref = {
         terminal_ref: current.terminalRef,
         generation: current.generation,
       };
       for (const part of splitInput(text)) {
         inputChain.current = inputChain.current.then(() =>
-          bridge.input({ ...ref, text: part })
+          bridge.input({ ...ref, text: part }),
         );
       }
     });
@@ -271,8 +299,9 @@ export function TerminalTab(
     if (current?.terminalRef && bridge) {
       const terminalRef = current.terminalRef;
       replayRef.current = true;
-      void bridge.snapshot({ terminal_ref: terminalRef, after_seq: 0 }).then(
-        (reply) => {
+      void bridge
+        .snapshot({ terminal_ref: terminalRef, after_seq: 0 })
+        .then((reply) => {
           if (reply.ok && reply.value.ok && "output" in reply.value) {
             if (reply.value.runtime.generation !== current.generation) {
               store.update(tabKey, {
@@ -283,8 +312,7 @@ export function TerminalTab(
           } else {
             setPhase({ kind: "ended", ending: "unknown", runtime: null });
           }
-        },
-      );
+        });
     } else if (current?.requested && current.phase.kind === "opening") {
       void open(current.folderRef ?? folderRef);
     } else if (!current && coding === undefined) {
@@ -297,9 +325,10 @@ export function TerminalTab(
 
   // 살아 있는 동안 host buffer를 이어 읽는다. 끝나면 멈춘다.
   const liveRuntime = phase.kind === "live" ? phase.runtime : null;
-  const liveKey = liveRuntime && entry?.terminalRef
-    ? `${entry.terminalRef}:${liveRuntime.generation}`
-    : null;
+  const liveKey =
+    liveRuntime && entry?.terminalRef
+      ? `${entry.terminalRef}:${liveRuntime.generation}`
+      : null;
   useEffect(() => {
     if (!liveKey || !bridge || !entry?.terminalRef) return;
     const terminalRef = entry.terminalRef;
@@ -357,23 +386,18 @@ export function TerminalTab(
       columns: dims.columns,
       rows: dims.rows,
     });
-  }, [
-    liveKey,
-    bridge,
-    boundRef,
-    boundGeneration,
-    size?.width,
-    size?.height,
-  ]);
+  }, [liveKey, bridge, boundRef, boundGeneration, size?.width, size?.height]);
 
-  const showScreen = phase.kind === "live" ||
-    (phase.kind === "ended" && phase.runtime !== null);
+  const showScreen =
+    phase.kind === "live" || (phase.kind === "ended" && phase.runtime !== null);
 
   // 보일 출력이 있으면 그 아래 한 줄, 없으면 탭 가운데 자리표시다.
   const variant = showScreen ? "bar" : "center";
   let banner = null;
-  const codingEnded = coding !== undefined &&
-    (coding.ended === true || phase.kind === "idle" ||
+  const codingEnded =
+    coding !== undefined &&
+    (coding.ended === true ||
+      phase.kind === "idle" ||
       (phase.kind === "ended" && phase.ending === "exited"));
   if (codingEnded && phase.kind !== "live") {
     banner = <ExitBanner variant={variant} state={{ kind: "session_ended" }} />;
@@ -394,9 +418,11 @@ export function TerminalTab(
       <ExitBanner
         variant={variant}
         state={{ kind: "refused", reason: phase.reason }}
-        onRestart={phase.reason === "no_folder" || coding !== undefined
-          ? undefined
-          : () => void open(entry?.folderRef ?? folderRef)}
+        onRestart={
+          phase.reason === "no_folder" || coding !== undefined
+            ? undefined
+            : () => void open(entry?.folderRef ?? folderRef)
+        }
       />
     );
   }
@@ -409,14 +435,12 @@ export function TerminalTab(
       data-coding-session={coding?.session}
     >
       {missing && showScreen ? <MissingOutput /> : null}
-      {phase.kind === "choose"
-        ? (
-          <FolderChoice
-            folders={phase.folders}
-            onChoose={(folder) => void open(folder)}
-          />
-        )
-        : null}
+      {phase.kind === "choose" ? (
+        <FolderChoice
+          folders={phase.folders}
+          onChoose={(folder) => void open(folder)}
+        />
+      ) : null}
       <div
         ref={screenRef}
         className={styles.screen}
@@ -428,9 +452,9 @@ export function TerminalTab(
         <div ref={hostRef} className={styles.screenHost} />
         <canvas ref={edgeRef} className={styles.edge} aria-hidden="true" />
       </div>
-      {showScreen || phase.kind === "choose" || banner
-        ? null
-        : <div className={styles.fill} />}
+      {showScreen || phase.kind === "choose" || banner ? null : (
+        <div className={styles.fill} />
+      )}
       {banner}
     </div>
   );

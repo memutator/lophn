@@ -31,38 +31,53 @@ const RELEASE_STATUSES = [
 export const releaseStatusValueSchema = z.enum(RELEASE_STATUSES);
 
 // schema 단계 값. from은 출발점, to는 도착점이며 to > from이다.
-export const dataChangeSchema = z.object({
-  from: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  to: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  script_hash: sha256Schema,
-  description: z.string().min(1),
-  // 단계 파일 머리의 `-- loss:` 선언. release 준비가 읽어 싣는다.
-  loss: z.array(lossStepSchema).optional(),
-}).refine((value) => value.to > value.from, {
-  message: "data change to is not after from",
-});
+export const dataChangeSchema = z
+  .object({
+    from: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+    to: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+    script_hash: sha256Schema,
+    description: z.string().min(1),
+    // 단계 파일 머리의 `-- loss:` 선언. release 준비가 읽어 싣는다.
+    loss: z.array(lossStepSchema).optional(),
+  })
+  .refine((value) => value.to > value.from, {
+    message: "data change to is not after from",
+  });
 export type DataChange = z.infer<typeof dataChangeSchema>;
 
 // bundle 안의 manifest이며 release에 별도 mutable 표로 복제하지 않는다.
 export const bundleManifestSchema = z.object({
   entrypoint: relativePathSchema,
-  files: z.array(z.object({
-    path: relativePathSchema,
-    hash: sha256Schema,
-  })).max(RELEASE_FILE_MAX_COUNT).refine(
-    (files) => new Set(files.map((file) => file.path)).size === files.length,
-    { message: "bundle manifest file path is duplicated" },
-  ),
+  files: z
+    .array(
+      z.object({
+        path: relativePathSchema,
+        hash: sha256Schema,
+      }),
+    )
+    .max(RELEASE_FILE_MAX_COUNT)
+    .refine(
+      (files) => new Set(files.map((file) => file.path)).size === files.length,
+      { message: "bundle manifest file path is duplicated" },
+    ),
   // 옛 이름. dependencies가 대신한다.
-  sdk_dependencies: z.array(z.object({
-    name: z.string().min(1),
-    version: z.string().min(1),
-  })).default([]),
-  dependencies: z.array(z.object({
-    name: z.string().min(1),
-    version: packageVersionNameSchema,
-    source: z.enum(["sdk", "package", "npm", "jsr"]),
-  })).default([]),
+  sdk_dependencies: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        version: z.string().min(1),
+      }),
+    )
+    .default([]),
+  dependencies: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        version: packageVersionNameSchema,
+        source: z.enum(["sdk", "package", "npm", "jsr"]),
+      }),
+    )
+    .default([]),
 });
 export type BundleManifest = z.infer<typeof bundleManifestSchema>;
 
@@ -172,7 +187,4 @@ export const releaseActivate = defineCommand({
   ],
 });
 
-export const RELEASE_ROUTES = [
-  releasePrepare,
-  releaseActivate,
-] as const;
+export const RELEASE_ROUTES = [releasePrepare, releaseActivate] as const;

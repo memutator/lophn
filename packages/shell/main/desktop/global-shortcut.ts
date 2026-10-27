@@ -34,9 +34,8 @@ export function installGlobalPalette(
   const log = options.log ?? defaultLog;
   let registered = false;
   try {
-    registered = options.port.register(
-      GLOBAL_PALETTE_ACCELERATOR,
-      () => options.onPalette(),
+    registered = options.port.register(GLOBAL_PALETTE_ACCELERATOR, () =>
+      options.onPalette(),
     );
   } catch {
     registered = false;

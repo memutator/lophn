@@ -41,15 +41,14 @@ test("kind별 동시 수 한도를 넘겨 띄우지 않고, 한 kind가 차도 �
   const c = Array.from({ length: 3 }, (_, i) => manualJob(`c${i}`, "long"));
   const results = [...j, ...c].map((x) => pool.submit(x.job));
   await settle();
-  assert.deepStrictEqual(j.map((x) => x.job.started), [
-    true,
-    true,
-    true,
-    true,
-    false,
-    false,
-  ]);
-  assert.deepStrictEqual(c.map((x) => x.job.started), [true, true, false]);
+  assert.deepStrictEqual(
+    j.map((x) => x.job.started),
+    [true, true, true, true, false, false],
+  );
+  assert.deepStrictEqual(
+    c.map((x) => x.job.started),
+    [true, true, false],
+  );
   assert.deepStrictEqual(pool.running(), { judgment: 4, long: 2 });
 
   j[0].finish();

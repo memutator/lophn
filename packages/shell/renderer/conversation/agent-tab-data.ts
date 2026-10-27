@@ -39,8 +39,10 @@ const running = (turn: TurnView | null) =>
   turn !== null && turn.phase !== "ended";
 
 function has(view: ThreadView, id: string): boolean {
-  return view.entries.some((entry) => entry.id === id) ||
-    view.queued.some((queued) => queued.id === id);
+  return (
+    view.entries.some((entry) => entry.id === id) ||
+    view.queued.some((queued) => queued.id === id)
+  );
 }
 
 function withEntries(
@@ -56,10 +58,10 @@ function withEntries(
 /** 사람이 답할 것이 남았으면 waiting이다. */
 function settle(view: ThreadView): ThreadView {
   if (view.turn === null || view.turn.phase === "ended") return view;
-  const phase = view.pending.approval !== null ||
-      view.pending.questions !== null
-    ? "waiting"
-    : "working";
+  const phase =
+    view.pending.approval !== null || view.pending.questions !== null
+      ? "waiting"
+      : "working";
   return phase === view.turn.phase
     ? view
     : { ...view, turn: { ...view.turn, phase } };
@@ -142,35 +144,38 @@ function foldEvent(
         ...view,
         turn: started,
         queued: view.queued.filter((item) => item.id !== input_message),
-        entries: queued === undefined ? view.entries : [
-          ...view.entries,
-          {
-            kind: "message",
-            id: queued.id,
-            at: queued.at,
-            actor: "user",
-            sender: null,
-            call: null,
-            replyTo: null,
-            delivery: "next_turn",
-            turn,
-            text: queued.text,
-          },
-        ],
+        entries:
+          queued === undefined
+            ? view.entries
+            : [
+                ...view.entries,
+                {
+                  kind: "message",
+                  id: queued.id,
+                  at: queued.at,
+                  actor: "user",
+                  sender: null,
+                  call: null,
+                  replyTo: null,
+                  delivery: "next_turn",
+                  turn,
+                  text: queued.text,
+                },
+              ],
       };
-      const stale = next.live !== null && next.live.turn !== turn
-        ? next.live.modelCall
-        : null;
+      const stale =
+        next.live !== null && next.live.turn !== turn
+          ? next.live.modelCall
+          : null;
       return {
         ...next,
         live: stale === null ? next.live : null,
-        dropped: stale === null
-          ? next.dropped
-          : { ...next.dropped, modelCall: stale },
+        dropped:
+          stale === null ? next.dropped : { ...next.dropped, modelCall: stale },
         entries: next.entries.map((entry) =>
           entry.kind === "message" && entry.id === input_message
             ? { ...entry, turn }
-            : entry
+            : entry,
         ),
       };
     }
@@ -188,24 +193,30 @@ function foldEvent(
     case "MessageRecorded": {
       const { turn, message, model_call: modelCall } = event.payload;
       const live = view.live;
-      return withEntries({
-        ...view,
-        live: live?.modelCall === modelCall ? null : live,
-        dropped: { ...view.dropped, modelCall },
-      }, [{
-        kind: "message",
-        id: message,
-        at: event.at,
-        actor: "agent",
-        sender: null,
-        call: null,
-        replyTo: null,
-        delivery: "next_turn",
-        turn,
-        text: live !== null && live.modelCall === modelCall && live.text !== ""
-          ? live.text
-          : null,
-      }]);
+      return withEntries(
+        {
+          ...view,
+          live: live?.modelCall === modelCall ? null : live,
+          dropped: { ...view.dropped, modelCall },
+        },
+        [
+          {
+            kind: "message",
+            id: message,
+            at: event.at,
+            actor: "agent",
+            sender: null,
+            call: null,
+            replyTo: null,
+            delivery: "next_turn",
+            turn,
+            text:
+              live !== null && live.modelCall === modelCall && live.text !== ""
+                ? live.text
+                : null,
+          },
+        ],
+      );
     }
     case "TurnResumed": {
       const { turn, active_ms } = event.payload;
@@ -234,54 +245,65 @@ function foldEvent(
         turn,
         text: null,
       }));
-      const tail: ThreadEntry = outcome.kind === "failed" && error !== null
-        ? {
-          kind: "provider-error",
-          id: `error-${turn}`,
-          at: event.at,
-          turn,
-          code: error.code,
-          message: error.message,
-        }
-        : {
-          kind: "turn-end",
-          id: `end-${turn}`,
-          at: event.at,
-          turn,
-          outcome: outcome.kind === "completed"
-            ? "completed"
-            : outcome.kind === "failed"
-            ? "failed"
-            : "stopped",
-          activeMs: times.activeMs,
-          waitedMs: times.waitedMs,
-        };
-      return withEntries({
-        ...view,
-        turn: { id: turn, phase: "ended", startedAt, elapsed: null },
-        pending: { approval: null, questions: null },
-        live: view.live?.turn === turn ? null : view.live,
-        dropped: { ...view.dropped, turn },
-      }, [...answers, tail]);
+      const tail: ThreadEntry =
+        outcome.kind === "failed" && error !== null
+          ? {
+              kind: "provider-error",
+              id: `error-${turn}`,
+              at: event.at,
+              turn,
+              code: error.code,
+              message: error.message,
+            }
+          : {
+              kind: "turn-end",
+              id: `end-${turn}`,
+              at: event.at,
+              turn,
+              outcome:
+                outcome.kind === "completed"
+                  ? "completed"
+                  : outcome.kind === "failed"
+                    ? "failed"
+                    : "stopped",
+              activeMs: times.activeMs,
+              waitedMs: times.waitedMs,
+            };
+      return withEntries(
+        {
+          ...view,
+          turn: { id: turn, phase: "ended", startedAt, elapsed: null },
+          pending: { approval: null, questions: null },
+          live: view.live?.turn === turn ? null : view.live,
+          dropped: { ...view.dropped, turn },
+        },
+        [...answers, tail],
+      );
     }
     case "ToolCallStarted": {
       const { tool_call: toolCall, tool, turn, display } = event.payload;
-      const live = view.live !== null && view.live.turn === turn
-        ? view.live
-        : null;
-      const cleared: ThreadView = live === null ? view : {
-        ...view,
-        live: null,
-        dropped: { ...view.dropped, modelCall: live.modelCall },
-      };
+      const live =
+        view.live !== null && view.live.turn === turn ? view.live : null;
+      const cleared: ThreadView =
+        live === null
+          ? view
+          : {
+              ...view,
+              live: null,
+              dropped: { ...view.dropped, modelCall: live.modelCall },
+            };
       if (
-        tool === "ask" || tool === "call" || tool === "file.write" ||
+        tool === "ask" ||
+        tool === "call" ||
+        tool === "file.write" ||
         tool === "file.edit"
-      ) return cleared;
+      )
+        return cleared;
       // 같은 event를 두 번 접어도 같은 결과다.
-      const known = cleared.entries.some((entry) =>
-        entry.kind === "tools" &&
-        entry.calls.some((call) => call.id === toolCall)
+      const known = cleared.entries.some(
+        (entry) =>
+          entry.kind === "tools" &&
+          entry.calls.some((call) => call.id === toolCall),
       );
       if (known) return cleared;
       // 끝에 이어진 tools 줄에 이 call을 더해 다시 묶는다. 사이에 메시지가 있으면 거기서 묶음이 끊긴다.
@@ -289,7 +311,7 @@ function foldEvent(
       while (from > 0 && cleared.entries[from - 1]!.kind === "tools") from -= 1;
       const tail = cleared.entries.slice(from);
       const calls: ToolCallView[] = [
-        ...tail.flatMap((entry) => entry.kind === "tools" ? entry.calls : []),
+        ...tail.flatMap((entry) => (entry.kind === "tools" ? entry.calls : [])),
         {
           id: toolCall,
           tool,
@@ -315,19 +337,26 @@ function foldEvent(
         if (
           entry.kind !== "tools" ||
           !entry.calls.some((call) => call.id === toolCall)
-        ) return entry;
+        )
+          return entry;
         found = true;
         return {
           ...entry,
-          calls: entry.calls.map((call): ToolCallView =>
-            call.id !== toolCall ? call : {
-              ...call,
-              state: outcome,
-              durationMs: call.startedAt === null ? null : Math.max(
-                0,
-                Date.parse(event.at) - Date.parse(call.startedAt),
-              ),
-            }
+          calls: entry.calls.map(
+            (call): ToolCallView =>
+              call.id !== toolCall
+                ? call
+                : {
+                    ...call,
+                    state: outcome,
+                    durationMs:
+                      call.startedAt === null
+                        ? null
+                        : Math.max(
+                            0,
+                            Date.parse(event.at) - Date.parse(call.startedAt),
+                          ),
+                  },
           ),
         };
       });
@@ -348,25 +377,33 @@ function foldEvent(
       const { request, outcome } = event.payload;
       const approval = view.pending.approval;
       if (approval?.id !== request) return view;
-      return settle(withEntries({
-        ...view,
-        pending: { ...view.pending, approval: null },
-      }, [{
-        kind: "approval-result",
-        id: request,
-        at: event.at,
-        result: {
-          request,
-          subject: approval.subject,
-          outcome: outcome === "allow"
-            ? "allowed"
-            : outcome === "reject"
-            ? "denied"
-            : "cancelled",
-          choice: null,
-          reason: null,
-        },
-      }]));
+      return settle(
+        withEntries(
+          {
+            ...view,
+            pending: { ...view.pending, approval: null },
+          },
+          [
+            {
+              kind: "approval-result",
+              id: request,
+              at: event.at,
+              result: {
+                request,
+                subject: approval.subject,
+                outcome:
+                  outcome === "allow"
+                    ? "allowed"
+                    : outcome === "reject"
+                      ? "denied"
+                      : "cancelled",
+                choice: null,
+                reason: null,
+              },
+            },
+          ],
+        ),
+      );
     }
     case "QuestionAsked": {
       const { group, tool_call } = event.payload;
@@ -383,20 +420,27 @@ function foldEvent(
       const { group, outcome } = event.payload;
       const asked = view.pending.questions;
       if (asked?.group !== group) return view;
-      return settle(withEntries({
-        ...view,
-        pending: { ...view.pending, questions: null },
-      }, [{
-        kind: "questions",
-        id: group,
-        at: event.at,
-        group,
-        outcome,
-        lines: (asked.questions ?? []).map((question) => ({
-          header: question.header,
-          answer: null,
-        })),
-      }]));
+      return settle(
+        withEntries(
+          {
+            ...view,
+            pending: { ...view.pending, questions: null },
+          },
+          [
+            {
+              kind: "questions",
+              id: group,
+              at: event.at,
+              group,
+              outcome,
+              lines: (asked.questions ?? []).map((question) => ({
+                header: question.header,
+                answer: null,
+              })),
+            },
+          ],
+        ),
+      );
     }
     default:
       return view;
@@ -420,8 +464,8 @@ function statusOf(known: KnownSession): SessionStatus {
   return known.state === "waiting"
     ? "waiting"
     : known.state === "running"
-    ? "working"
-    : "idle";
+      ? "working"
+      : "idle";
 }
 
 interface AgentTabList {
@@ -445,7 +489,7 @@ export function useAgentTabList(source: AgentTabSource): AgentTabList {
   const sequence = useRef(0);
 
   const refresh = useCallback(async () => {
-    const token = sequence.current += 1;
+    const token = (sequence.current += 1);
     const [agent, sessions] = await Promise.all([
       source.agent(),
       source.sessions(),
@@ -499,9 +543,11 @@ export function useAgentTabData(
   const list = useAgentTabList(source);
   const stream = useSessionEvents(session);
   const known = useSessions().sessions;
-  const [base, setBase] = useState<
-    { session: string; view: ThreadView; mark: number } | null
-  >(null);
+  const [base, setBase] = useState<{
+    session: string;
+    view: ThreadView;
+    mark: number;
+  } | null>(null);
   const [checkedAt, setCheckedAt] = useState<number | null>(null);
   const [threadFailed, setThreadFailed] = useState(false);
   const [gone, setGone] = useState(false);
@@ -513,13 +559,15 @@ export function useAgentTabData(
   const eventCount = useRef(0);
   eventCount.current = stream.count;
   // 접은 결과와 접은 개수를 기억해 새 event만 접는다. delta가 초당 여럿 와도 앞 event를 다시 접지 않는다.
-  const foldedRef = useRef<
-    | { base: ThreadView; ctx: FoldContext; upTo: number; view: ThreadView }
-    | null
-  >(null);
+  const foldedRef = useRef<{
+    base: ThreadView;
+    ctx: FoldContext;
+    upTo: number;
+    view: ThreadView;
+  } | null>(null);
 
   const readThread = useCallback(async () => {
-    const token = sequence.current += 1;
+    const token = (sequence.current += 1);
     const mark = eventCount.current;
     const result = await source.thread(session);
     if (token !== sequence.current) return;
@@ -535,10 +583,10 @@ export function useAgentTabData(
   useEffect(() => {
     void readThread();
   }, [readThread]);
-  useEffect(() => source.changed?.(() => void readThread()), [
-    source,
-    readThread,
-  ]);
+  useEffect(
+    () => source.changed?.(() => void readThread()),
+    [source, readThread],
+  );
 
   // 끊겼다 다시 붙으면 놓친 진행을 하나씩 다시 보이지 않고 현재 기록으로 맞춘다.
   const previous = useRef(stream.status);
@@ -560,21 +608,24 @@ export function useAgentTabData(
     seen.current = stream.count;
   }, [stream, readThread]);
 
-  const ctx = useMemo<FoldContext>(() => ({
-    roleOf: (other) => {
-      const role = known.find((one) => one.session === other)?.agent?.role;
-      return role === undefined || role === "coding_agent" ? null : role;
-    },
-  }), [known]);
+  const ctx = useMemo<FoldContext>(
+    () => ({
+      roleOf: (other) => {
+        const role = known.find((one) => one.session === other)?.agent?.role;
+        return role === undefined || role === "coding_agent" ? null : role;
+      },
+    }),
+    [known],
+  );
 
   const folded = useMemo(() => {
     if (base === null || base.session !== session) return null;
     const previous = foldedRef.current;
     // base와 ctx가 그대로면 앞 view에 새 event만 접는다. 둘이 바뀌면 snapshot 뒤의 event를 다시 접는다.
-    const view = previous !== null && previous.base === base.view &&
-        previous.ctx === ctx
-      ? foldEvents(previous.view, stream.since(previous.upTo), ctx)
-      : foldEvents(base.view, stream.since(base.mark), ctx);
+    const view =
+      previous !== null && previous.base === base.view && previous.ctx === ctx
+        ? foldEvents(previous.view, stream.since(previous.upTo), ctx)
+        : foldEvents(base.view, stream.since(base.mark), ctx);
     foldedRef.current = { base: base.view, ctx, upTo: stream.count, view };
     return view;
   }, [base, session, ctx, stream]);
@@ -601,16 +652,17 @@ export function useAgentTabData(
   const thread = useMemo(() => {
     if (folded === null) return null;
     const questions = folded.pending.questions;
-    const filled = questions?.questions === null
-      ? asked.get(questions.toolCall)
-      : undefined;
-    return filled === undefined || questions === null ? folded : {
-      ...folded,
-      pending: {
-        ...folded.pending,
-        questions: { ...questions, questions: filled },
-      },
-    };
+    const filled =
+      questions?.questions === null ? asked.get(questions.toolCall) : undefined;
+    return filled === undefined || questions === null
+      ? folded
+      : {
+          ...folded,
+          pending: {
+            ...folded.pending,
+            questions: { ...questions, questions: filled },
+          },
+        };
   }, [folded, asked]);
 
   return {

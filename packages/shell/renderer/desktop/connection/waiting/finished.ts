@@ -30,9 +30,10 @@ export function finishedRows(
     id: `terminal:${terminal.terminalRef}`,
     target: { kind: "terminal", terminal_ref: terminal.terminalRef },
     face: { kind: "vendor", harness: terminal.harness },
-    label: terminal.harness in HARNESS_ADAPTERS
-      ? HARNESS_ADAPTERS[terminal.harness as HarnessId].label
-      : terminal.harness,
+    label:
+      terminal.harness in HARNESS_ADAPTERS
+        ? HARNESS_ADAPTERS[terminal.harness as HarnessId].label
+        : terminal.harness,
     title: terminal.title,
   }));
   for (const entry of sessions) {

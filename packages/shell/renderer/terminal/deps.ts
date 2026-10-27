@@ -33,37 +33,45 @@ let requests = 0;
  */
 function overlayCloseConfirm(api: OverlayApi): () => Promise<boolean> {
   const waiting = new Map<string, (value: boolean) => void>();
-  const consumer = overlayConsumer(api, (result) => {
-    if (result.type === "pointer") return;
-    const resolve = waiting.get(result.requestId);
-    if (!resolve) return;
-    waiting.delete(result.requestId);
-    resolve(result.type === "selected" && result.choiceId === CLOSE_CHOICE);
-  }, () => {
-    for (const resolve of waiting.values()) resolve(false);
-    waiting.clear();
-  });
+  const consumer = overlayConsumer(
+    api,
+    (result) => {
+      if (result.type === "pointer") return;
+      const resolve = waiting.get(result.requestId);
+      if (!resolve) return;
+      waiting.delete(result.requestId);
+      resolve(result.type === "selected" && result.choiceId === CLOSE_CHOICE);
+    },
+    () => {
+      for (const resolve of waiting.values()) resolve(false);
+      waiting.clear();
+    },
+  );
   return async () => {
     const requestId = `terminal-close-${++requests}`;
-    const opener = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : document.body;
+    const opener =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : document.body;
     const answer = new Promise<boolean>((resolve) => {
       waiting.set(requestId, resolve);
     });
-    const opened = await consumer.open({
-      requestId,
-      kind: "dialog",
-      anchorRect: centerAnchor(),
-      model: {
-        label: t("terminal.title.close"),
-        text: t("terminal.dialog.close-text"),
-        choices: [
-          { id: KEEP_CHOICE, label: t("terminal.button.keep-open") },
-          { id: CLOSE_CHOICE, label: t("terminal.button.close-terminal") },
-        ],
+    const opened = await consumer.open(
+      {
+        requestId,
+        kind: "dialog",
+        anchorRect: centerAnchor(),
+        model: {
+          label: t("terminal.title.close"),
+          text: t("terminal.dialog.close-text"),
+          choices: [
+            { id: KEEP_CHOICE, label: t("terminal.button.keep-open") },
+            { id: CLOSE_CHOICE, label: t("terminal.button.close-terminal") },
+          ],
+        },
       },
-    }, opener);
+      opener,
+    );
     if (!opened.ok) {
       waiting.delete(requestId);
       return false;
@@ -112,7 +120,10 @@ export async function closeTerminalTab(
     terminal_ref: ref.terminal_ref,
     after_seq: Number.MAX_SAFE_INTEGER,
   });
-  const live = current.ok && current.value.ok && "output" in current.value &&
+  const live =
+    current.ok &&
+    current.value.ok &&
+    "output" in current.value &&
     current.value.runtime.generation === ref.generation &&
     endingOf(current.value.runtime) === null;
   if (!live) {

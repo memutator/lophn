@@ -32,7 +32,7 @@ async function call<T>(
 ): Promise<T> {
   let reply: ViewReply<T>;
   try {
-    reply = await transport.invoke(channel, input) as ViewReply<T>;
+    reply = (await transport.invoke(channel, input)) as ViewReply<T>;
   } catch {
     throw new Error("unavailable");
   }
@@ -42,27 +42,25 @@ async function call<T>(
 
 // transport는 closure 안에 남는다. 붙이기·숨기기·폐기는 main이 하고 여기서는 요청만 보낸다.
 export function createViewsApi(transport: ViewsTransport): LophnShellViewsApi {
-  return Object.freeze(
-    {
-      openApp: (input) =>
-        call<AppFrameViewState>(transport, VIEW_OPEN_APP_CHANNEL, input),
-      setViewBounds: (input) =>
-        call<VisibilityResult>(transport, VIEW_BOUNDS_CHANNEL, input),
-      setViewsHidden: (input) =>
-        call<VisibilityResult>(transport, VIEWS_HIDDEN_CHANNEL, input),
-      closeView: async (input) => {
-        await call<null>(transport, VIEW_CLOSE_CHANNEL, input);
-      },
-      reopenView: (input) =>
-        call<AppFrameViewState>(transport, VIEW_REOPEN_CHANNEL, input),
-      subscribeViewState(listener) {
-        const callback = (_event: unknown, payload: unknown) => {
-          const parsed = appFrameViewStateSchema.safeParse(payload);
-          if (parsed.success) listener(parsed.data);
-        };
-        transport.on(VIEW_STATE_CHANNEL, callback);
-        return () => transport.removeListener(VIEW_STATE_CHANNEL, callback);
-      },
-    } satisfies LophnShellViewsApi,
-  );
+  return Object.freeze({
+    openApp: (input) =>
+      call<AppFrameViewState>(transport, VIEW_OPEN_APP_CHANNEL, input),
+    setViewBounds: (input) =>
+      call<VisibilityResult>(transport, VIEW_BOUNDS_CHANNEL, input),
+    setViewsHidden: (input) =>
+      call<VisibilityResult>(transport, VIEWS_HIDDEN_CHANNEL, input),
+    closeView: async (input) => {
+      await call<null>(transport, VIEW_CLOSE_CHANNEL, input);
+    },
+    reopenView: (input) =>
+      call<AppFrameViewState>(transport, VIEW_REOPEN_CHANNEL, input),
+    subscribeViewState(listener) {
+      const callback = (_event: unknown, payload: unknown) => {
+        const parsed = appFrameViewStateSchema.safeParse(payload);
+        if (parsed.success) listener(parsed.data);
+      };
+      transport.on(VIEW_STATE_CHANNEL, callback);
+      return () => transport.removeListener(VIEW_STATE_CHANNEL, callback);
+    },
+  } satisfies LophnShellViewsApi);
 }

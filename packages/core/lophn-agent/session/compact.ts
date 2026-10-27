@@ -50,20 +50,22 @@ type Compaction = { through_seq: string; summary_call: string };
 
 function compactionOf(session: SessionRow): Compaction | null {
   return session.compaction_through_seq === null ||
-      session.compaction_summary_call === null
+    session.compaction_summary_call === null
     ? null
     : {
-      through_seq: session.compaction_through_seq,
-      summary_call: session.compaction_summary_call,
-    };
+        through_seq: session.compaction_through_seq,
+        summary_call: session.compaction_summary_call,
+      };
 }
 
 // 이미 덮은 구간 뒤에 새 확정 메시지가 있는지. 없으면 요약할 것이 없다.
 function hasMessageAfterSpan(tx: Tx, session: SessionRow): boolean {
-  return tx.sql.get(
-    "select 1 as found from messages where session = ? and created_seq > ? limit 1",
-    [session.id, BigInt(session.compaction_through_seq ?? "0")],
-  ) !== undefined;
+  return (
+    tx.sql.get(
+      "select 1 as found from messages where session = ? and created_seq > ? limit 1",
+      [session.id, BigInt(session.compaction_through_seq ?? "0")],
+    ) !== undefined
+  );
 }
 
 // 이 session에 묶인 요약 call로 끝까지 성공한(완전 출력이 있는) 것이다. 시작·실패·취소·부분 출력 call과
@@ -176,7 +178,8 @@ export function createCompactCommands(): {
         }
         const request = openCompactRequest(tx, session.id);
         if (
-          request === undefined || request.request_seq !== compare.request_seq
+          request === undefined ||
+          request.request_seq !== compare.request_seq
         ) {
           return reject("conflict", "no such open Compact request");
         }
@@ -210,12 +213,7 @@ export function createCompactCommands(): {
         tx.sql.run(
           `update sessions set compaction_through_seq = ?,
              compaction_summary_call = ?, state_seq = ? where id = ?`,
-          [
-            BigInt(after.through_seq),
-            after.summary_call,
-            seq,
-            session.id,
-          ],
+          [BigInt(after.through_seq), after.summary_call, seq, session.id],
         );
         closeRequest(tx, request.request_seq, "compacted", null);
         publishCompact(tx, session.id, "CompactEnded", { ok: true });
@@ -233,16 +231,19 @@ export function createCompactCommands(): {
         ctx,
         input: Input<typeof failSessionCompact>,
         compare,
-      ): Result<
-        { id: string; request_seq: string; reason: typeof input.reason }
-      > {
+      ): Result<{
+        id: string;
+        request_seq: string;
+        reason: typeof input.reason;
+      }> {
         const machine = requireMachine(ctx);
         if (!machine.ok) return machine;
         const session = loadSession(tx, input.session);
         if (session === undefined) return sessionNotFound();
         const request = openCompactRequest(tx, session.id);
         if (
-          request === undefined || request.request_seq !== compare.request_seq
+          request === undefined ||
+          request.request_seq !== compare.request_seq
         ) {
           return reject("conflict", "no such open Compact request");
         }

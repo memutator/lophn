@@ -75,16 +75,20 @@ export function agentRuntimePolicies(
   const kinds = new Map(routes.map((route) => [route.name, route.kind]));
   const agent = [...new Set([...EXTERNAL_TOOL_OPERATIONS, ...agentOperations])];
   return [
-    ...RUNTIME_MACHINE_OPERATIONS.map((name): OperationPolicy => ({
-      name,
-      actors: ["machine"],
-      kind: "command",
-    })),
-    ...agent.map((name): OperationPolicy => ({
-      name,
-      actors: ["agent"],
-      kind: kinds.get(name) === "read" ? "read" : "command",
-    })),
+    ...RUNTIME_MACHINE_OPERATIONS.map(
+      (name): OperationPolicy => ({
+        name,
+        actors: ["machine"],
+        kind: "command",
+      }),
+    ),
+    ...agent.map(
+      (name): OperationPolicy => ({
+        name,
+        actors: ["agent"],
+        kind: kinds.get(name) === "read" ? "read" : "command",
+      }),
+    ),
   ];
 }
 
@@ -114,9 +118,10 @@ function agentCredentialIssuer(
 
 // 발급 판정이 읽는 route뿐이다. 요청한 turn과 session을 core 자신의 기록과 대조한다.
 const LINK_READS: ReadonlyMap<string, ReadRoute> = new Map(
-  ([turnRead, agentSessionRead] as ReadRoute[]).map((
+  ([turnRead, agentSessionRead] as ReadRoute[]).map((route) => [
+    routePath(route),
     route,
-  ) => [routePath(route), route]),
+  ]),
 );
 
 export type AgentRuntimeChild = {
@@ -200,8 +205,8 @@ export async function startAgentRuntimeChild(
       const route = LINK_READS.get(path);
       return route === undefined
         ? Promise.resolve(
-          err({ code: "invalid_input", message: "route is not open" }),
-        )
+            err({ code: "invalid_input", message: "route is not open" }),
+          )
         : deps.read(route, current.value, body);
     },
     process: AGENT_RUNTIME_PROCESS,
@@ -209,11 +214,14 @@ export async function startAgentRuntimeChild(
     conditionsFor: deps.conditionsFor,
   });
 
-  const pipe = deps.turns === undefined ? undefined : createTurnPipe({
-    source: deps.turns,
-    publish: deps.publish ?? (() => {}),
-    output: deps.output ?? (() => {}),
-  });
+  const pipe =
+    deps.turns === undefined
+      ? undefined
+      : createTurnPipe({
+          source: deps.turns,
+          publish: deps.publish ?? (() => {}),
+          output: deps.output ?? (() => {}),
+        });
 
   // 자식의 blob 준비 요청은 시작마다 새 handler가 받는다. 자식이 끝나면 열린 준비를 닫는다.
   let blob: ChildBlobPrepare | undefined;
@@ -246,25 +254,31 @@ export async function startAgentRuntimeChild(
           return;
         }
         if (message.type === "secret_send_request") {
-          void deps.secrets.answer(message, () => alive).then((response) => {
-            if (response !== undefined && alive) {
-              return deps.io.send(AGENT_RUNTIME_KIND, response);
-            }
-          }).catch(() => {});
+          void deps.secrets
+            .answer(message, () => alive)
+            .then((response) => {
+              if (response !== undefined && alive) {
+                return deps.io.send(AGENT_RUNTIME_KIND, response);
+              }
+            })
+            .catch(() => {});
           return;
         }
         const piped = pipe?.onMessage(message);
         if (piped?.handled) {
-          void piped.response?.then((response) =>
-            deps.io.send(AGENT_RUNTIME_KIND, response)
-          ).catch(() => {});
+          void piped.response
+            ?.then((response) => deps.io.send(AGENT_RUNTIME_KIND, response))
+            .catch(() => {});
           return;
         }
-        void link.onMessage(message).then((response) => {
-          if (response !== undefined) {
-            return deps.io.send(AGENT_RUNTIME_KIND, response);
-          }
-        }).catch(() => {});
+        void link
+          .onMessage(message)
+          .then((response) => {
+            if (response !== undefined) {
+              return deps.io.send(AGENT_RUNTIME_KIND, response);
+            }
+          })
+          .catch(() => {});
       },
       onFrame: (frame: Frame) => handler.onFrame(frame),
       onStderr: (line: string) => deps.stderr?.(line),
@@ -274,7 +288,8 @@ export async function startAgentRuntimeChild(
         alive = false;
         handler.close();
         deps.registry.endBy("process", AGENT_RUNTIME_PROCESS);
-        void (deps.interruptTurns?.() ?? Promise.resolve()).catch(() => {})
+        void (deps.interruptTurns?.() ?? Promise.resolve())
+          .catch(() => {})
           .finally(() => deps.inbox?.endAll());
         if (blob === handler) {
           handler = newBlob();

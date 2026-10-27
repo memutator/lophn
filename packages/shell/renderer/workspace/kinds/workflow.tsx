@@ -15,9 +15,10 @@ export function workflowTab(name: string, instance?: string): TabItem {
     key: `workflow:${name}`,
     kind: "workflow",
     title: name,
-    fields: instance === undefined
-      ? { workflow: name }
-      : { workflow: name, instance },
+    fields:
+      instance === undefined
+        ? { workflow: name }
+        : { workflow: name, instance },
   };
 }
 
@@ -73,20 +74,23 @@ export const workflowKind: TabKindDef = {
           source={host.props.source}
           onInstance={(next) =>
             host.patchTab(tab.key, () => ({
-              fields: next === null
-                ? { workflow }
-                : { workflow, instance: next },
-            }))}
+              fields:
+                next === null ? { workflow } : { workflow, instance: next },
+            }))
+          }
           onOpenArtifact={(view, picked) =>
             openWorkflowArtifact(host, {
               project: host.projectId,
               workflow,
               view,
               instance: picked,
-            })}
-          onOpenConversation={host.agentView === null
-            ? null
-            : (session) => host.agentView?.openSession(session)}
+            })
+          }
+          onOpenConversation={
+            host.agentView === null
+              ? null
+              : (session) => host.agentView?.openSession(session)
+          }
         />
       </PaddedTab>
     );

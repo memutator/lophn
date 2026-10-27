@@ -202,8 +202,8 @@ test("멈추면 사람이 본 글이 turn이 끝나기 전에 agent message로 �
   });
   assert.ok(stopped.ok);
 
-  const record = recorded.findIndex((entry) =>
-    entry.command === "RecordMessage"
+  const record = recorded.findIndex(
+    (entry) => entry.command === "RecordMessage",
   );
   const stop = recorded.findIndex((entry) => entry.command === "StopTurn");
   assert.ok(record >= 0 && stop >= 0 && record < stop);

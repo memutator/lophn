@@ -194,15 +194,17 @@ const CLOSED_TABS_MAX = 10;
 
 // OS 파일 선택기. 창에 통로가 없으면 Document 항목을 두지 않는다.
 function filePicker(): (() => Promise<string | null>) | undefined {
-  const bridge = (globalThis as {
-    lophnFolders?: {
-      pickFile(): Promise<{ ok: boolean; path?: string | null }>;
-    };
-  }).lophnFolders;
+  const bridge = (
+    globalThis as {
+      lophnFolders?: {
+        pickFile(): Promise<{ ok: boolean; path?: string | null }>;
+      };
+    }
+  ).lophnFolders;
   if (!bridge || typeof bridge.pickFile !== "function") return undefined;
   return async () => {
     const reply = await bridge.pickFile();
-    return reply.ok ? reply.path ?? null : null;
+    return reply.ok ? (reply.path ?? null) : null;
   };
 }
 
@@ -243,29 +245,33 @@ export function Workspace(props: WorkspaceProps) {
     onProjectInstructions,
   });
   // sidebar session 줄의 제목과 시각. session store는 싣지 않아 agent마다 대화 source의 session 목록에서 읽는다.
-  const [knownSessions, setKnownSessions] = useState<KnownSessions>(
-    new Map(),
-  );
+  const [knownSessions, setKnownSessions] = useState<KnownSessions>(new Map());
   const sessionIds = sessionStates.map((entry) => entry.session).join();
   useEffect(() => {
     if (agentViewSource === undefined) return;
     let live = true;
-    void Promise.all(sidebarAgents.agents.map(async (row) => {
-      const read = await agentViewSource({
-        assignment: row.assignment,
-        place: row.role === "lophn"
-          ? { kind: "global", id: "" }
-          : { kind: "project", id: projectId },
-      }).sessions();
-      return read.ok ? read.value : [];
-    })).then((lists) => {
+    void Promise.all(
+      sidebarAgents.agents.map(async (row) => {
+        const read = await agentViewSource({
+          assignment: row.assignment,
+          place:
+            row.role === "lophn"
+              ? { kind: "global", id: "" }
+              : { kind: "project", id: projectId },
+        }).sessions();
+        return read.ok ? read.value : [];
+      }),
+    ).then((lists) => {
       if (!live) return;
       setKnownSessions(
         new Map(
-          lists.flat().map((entry) => [entry.id, {
-            title: entry.title,
-            at: Date.parse(entry.activeAt) || 0,
-          }]),
+          lists.flat().map((entry) => [
+            entry.id,
+            {
+              title: entry.title,
+              at: Date.parse(entry.activeAt) || 0,
+            },
+          ]),
         ),
       );
     });
@@ -289,8 +295,8 @@ export function Workspace(props: WorkspaceProps) {
         [...inProject.value, ...lophn.value].map((run) => [run.id, run]),
       );
       setRunRecords(
-        [...byId.values()].sort((a, b) =>
-          Date.parse(b.created_at) - Date.parse(a.created_at)
+        [...byId.values()].sort(
+          (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at),
         ),
       );
     });
@@ -301,12 +307,12 @@ export function Workspace(props: WorkspaceProps) {
   // 배치를 다 읽은 project. 시작 route는 이 project의 배치가 선 뒤에 연다.
   const [readyProject, setReadyProject] = useState<string | null>(null);
   // 상단 바 selector의 목록. null은 아직 안 읽었거나 읽는 중이다. 실패와 읽는 중에는 합치지 않는다.
-  const [workflowList, setWorkflowList] = useState<
-    ReadResult<readonly WorkflowEntryView[]> | null
-  >(null);
-  const [projectList, setProjectList] = useState<
-    ReadResult<readonly { id: string; title: string }[]> | null
-  >(null);
+  const [workflowList, setWorkflowList] = useState<ReadResult<
+    readonly WorkflowEntryView[]
+  > | null>(null);
+  const [projectList, setProjectList] = useState<ReadResult<
+    readonly { id: string; title: string }[]
+  > | null>(null);
   // 자리(desk)마다 view 하나. 화면이 그리고 고치는 것은 보이는 자리의 view뿐이다.
   const [desks, setDesks] = useState(() => desksFromView(emptyView()));
   const view = activeView(desks);
@@ -352,12 +358,14 @@ export function Workspace(props: WorkspaceProps) {
           // 거절은 무시한다. conflict는 이미 떠 있는 것이고 나머지는 탭이 layout의 detached로 남는다.
           // transfer가 없어 terminal은 PTY에 다시 붙지 못한다(재시작과 같다).
           for (const item of restored.detached) {
-            void props.detached?.open({
-              project: projectId,
-              tab: item.tab,
-              transfer: null,
-              bounds: item.bounds,
-            }).catch(() => {});
+            void props.detached
+              ?.open({
+                project: projectId,
+                tab: item.tab,
+                transfer: null,
+                bounds: item.bounds,
+              })
+              .catch(() => {});
           }
         }
       }
@@ -375,23 +383,24 @@ export function Workspace(props: WorkspaceProps) {
     { key: DEFAULT_DESK, label: t("project-workspace.label.desk-default") },
     ...(workflowList?.ok === true
       ? workflowList.value.map((entry) => ({
-        key: entry.name,
-        label: entry.name,
-        invalid: entry.invalid,
-      }))
-      : Object.keys(desks.desks).filter((key) => key !== DEFAULT_DESK).map((
-        key,
-      ) => ({ key, label: key }))),
+          key: entry.name,
+          label: entry.name,
+          invalid: entry.invalid,
+        }))
+      : Object.keys(desks.desks)
+          .filter((key) => key !== DEFAULT_DESK)
+          .map((key) => ({ key, label: key }))),
   ];
-  const listedProjects = (projectList?.ok === true ? projectList.value : [])
-    .map((item) => ({ id: item.id, label: item.title }));
+  const listedProjects = (
+    projectList?.ok === true ? projectList.value : []
+  ).map((item) => ({ id: item.id, label: item.title }));
   // 지금 project가 목록에 없으면(목록을 못 읽었거나 막 보관됨) 앞에 둔다.
   const projectOptions = listedProjects.some((item) => item.id === projectId)
     ? listedProjects
     : [
-      { id: projectId, label: loaded.project?.title ?? "" },
-      ...listedProjects,
-    ];
+        { id: projectId, label: loaded.project?.title ?? "" },
+        ...listedProjects,
+      ];
   const focused = view.panes[view.focusedPane];
   const contentWidth = mainSize?.width ?? bodyWidth;
 
@@ -416,10 +425,12 @@ export function Workspace(props: WorkspaceProps) {
   };
 
   const persist = (next: WorkspaceDesks) => {
-    void source.saveLayout(toStoredLayout({
-      project: projectId,
-      desks: mapDeskTabs(next, withPosition),
-    }));
+    void source.saveLayout(
+      toStoredLayout({
+        project: projectId,
+        desks: mapDeskTabs(next, withPosition),
+      }),
+    );
   };
   const persistRef = useRef(persist);
   persistRef.current = persist;
@@ -443,12 +454,15 @@ export function Workspace(props: WorkspaceProps) {
     persistLater();
   };
 
-  useEffect(() => () => {
-    if (positionTimer.current === null) return;
-    clearTimeout(positionTimer.current);
-    positionTimer.current = null;
-    persistRef.current(latestDesks.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (positionTimer.current === null) return;
+      clearTimeout(positionTimer.current);
+      positionTimer.current = null;
+      persistRef.current(latestDesks.current);
+    },
+    [],
+  );
 
   // layout에서 사라진 탭의 view를 닫는다. 탭을 닫는 길이 여럿이라 길마다 닫지 않고 차이로 본다.
   useEffect(() => {
@@ -456,41 +470,49 @@ export function Workspace(props: WorkspaceProps) {
     const live = new Set(allDeskTabs(desks).map((tab) => tab.key));
     for (const key of keeps.keys()) if (!live.has(key)) keeps.release(key);
     // detached 탭의 <webview>는 그 창이 갖는다. 여기 남기면 page가 두 창에 산다.
-    const shown = new Set([
-      ...view.panes.flatMap((pane) => pane.tabs),
-      ...view.floats.map((float) => float.tab),
-    ].map((tab) => tab.key));
+    const shown = new Set(
+      [
+        ...view.panes.flatMap((pane) => pane.tabs),
+        ...view.floats.map((float) => float.tab),
+      ].map((tab) => tab.key),
+    );
     for (const key of webviews.keys()) {
       if (!shown.has(key)) webviews.release(key);
     }
   }, [desks, keeps, webviews]);
   // 떠나면 남은 것을 모두 닫는다. 자식의 cleanup이 부모 뒤에 보관하므로 한 틱 미룬다.
-  useEffect(() => () => {
-    queueMicrotask(() => {
-      for (const key of keeps.keys()) keeps.release(key);
-    });
-  }, [keeps]);
+  useEffect(
+    () => () => {
+      queueMicrotask(() => {
+        for (const key of keeps.keys()) keeps.release(key);
+      });
+    },
+    [keeps],
+  );
 
   // detached 창을 보이는 자리에 맞춘다. 창이 없는 key(다른 자리에 있다가 지금 보이게 된 것)는 연다.
   const syncDetached = (next: WorkspaceDesks) => {
     const api = props.detached;
     if (api === undefined) return;
     const items = activeView(next).detached;
-    void api.showOnly({ keys: items.map((item) => item.tab.key) }).then(
-      ({ missing }) => {
+    void api
+      .showOnly({ keys: items.map((item) => item.tab.key) })
+      .then(({ missing }) => {
         for (const key of missing) {
           const item = items.find((candidate) => candidate.tab.key === key);
           if (item === undefined) continue;
           // 거절은 무시한다. 복원과 같다.
-          void api.open({
-            project: projectId,
-            tab: slimDetachedTab(item.tab),
-            transfer: null,
-            bounds: item.bounds,
-          }).catch(() => {});
+          void api
+            .open({
+              project: projectId,
+              tab: slimDetachedTab(item.tab),
+              transfer: null,
+              bounds: item.bounds,
+            })
+            .catch(() => {});
         }
-      },
-    ).catch(() => {});
+      })
+      .catch(() => {});
   };
 
   // 자리 state를 바꾸는 유일한 길이다. latest(보이는 자리의 view)도 같이 맞춘다.
@@ -516,7 +538,7 @@ export function Workspace(props: WorkspaceProps) {
     const nameOf = (tab: TabItem) =>
       tab.kind === "agent" && tab.title === ""
         ? sidebarAgents.agents.find((row) => row.assignment === agentOf(tab))
-          ?.name
+            ?.name
         : undefined;
     if (!allDeskTabs(desks).some((tab) => nameOf(tab) !== undefined)) return;
     commit(
@@ -554,7 +576,7 @@ export function Workspace(props: WorkspaceProps) {
     const detachedKeys = (from: WorkspaceDesks) =>
       new Set(
         Object.values(from.desks).flatMap((item) =>
-          item.detached.map((entry) => entry.tab.key)
+          item.detached.map((entry) => entry.tab.key),
         ),
       );
     const still = detachedKeys(next);
@@ -622,7 +644,7 @@ export function Workspace(props: WorkspaceProps) {
       return;
     }
     const pane = current.panes.findIndex((item) =>
-      item.tabs.some((candidate) => candidate.key === key)
+      item.tabs.some((candidate) => candidate.key === key),
     );
     updateAt(at, closeTab(current, pane, key));
   };
@@ -634,11 +656,15 @@ export function Workspace(props: WorkspaceProps) {
     // 사는 자리가 있는 탭(workflow)은 그 자리로 건너가서 연다. 이미 어느 자리에 열려 있으면 아래가 그 자리로 간다.
     const home = tabKindOf(tab.kind)?.homeDesk?.(tab);
     if (
-      home !== undefined && home !== latestDesks.current.active &&
+      home !== undefined &&
+      home !== latestDesks.current.active &&
       options?.select !== false &&
       deskOfTab(latestDesks.current, tab.key) === undefined
     ) {
-      switchTo(home, openTabIn(emptyView(), tab, () => false));
+      switchTo(
+        home,
+        openTabIn(emptyView(), tab, () => false),
+      );
     }
     const all = latestDesks.current;
     const at = deskOfTab(all, tab.key);
@@ -658,10 +684,10 @@ export function Workspace(props: WorkspaceProps) {
         panes: current.panes.map((item, index) =>
           index === target
             ? {
-              tabs: [...item.tabs, tab],
-              selected: item.selected ?? tab.key,
-            }
-            : item
+                tabs: [...item.tabs, tab],
+                selected: item.selected ?? tab.key,
+              }
+            : item,
         ),
       });
       return;
@@ -681,12 +707,10 @@ export function Workspace(props: WorkspaceProps) {
 
   // 그 사이 바뀐 배치의 탭 필드를 바꾼다.
   const patchTab: TabHost["patchTab"] = (key, patch, options) => {
-    const next = mapDeskTabs(
-      latestDesks.current,
-      (tab) =>
-        tab.key === key
-          ? { ...tab, ...(typeof patch === "function" ? patch(tab) : patch) }
-          : tab,
+    const next = mapDeskTabs(latestDesks.current, (tab) =>
+      tab.key === key
+        ? { ...tab, ...(typeof patch === "function" ? patch(tab) : patch) }
+        : tab,
     );
     if (options?.later === true) {
       commit(next, false);
@@ -729,10 +753,9 @@ export function Workspace(props: WorkspaceProps) {
       sessionStates,
       sidebarAgents.agents,
       projectId,
-    )
-      .find((item) => item.id === session);
-    const row = sidebarAgents.agents.find((item) =>
-      item.assignment === entry?.agent
+    ).find((item) => item.id === session);
+    const row = sidebarAgents.agents.find(
+      (item) => item.assignment === entry?.agent,
     );
     if (row === undefined || agentViewSource === undefined) return false;
     openAgent(host, { agent: row.assignment, name: row.name, session });
@@ -789,7 +812,8 @@ export function Workspace(props: WorkspaceProps) {
       if (openSessionTab(session)) started.current.session = session;
     }
     if (
-      projectManager !== undefined && started.current.pm !== projectManager &&
+      projectManager !== undefined &&
+      started.current.pm !== projectManager &&
       openProjectManager(reactionEnv)
     ) {
       started.current.pm = projectManager;
@@ -809,12 +833,10 @@ export function Workspace(props: WorkspaceProps) {
     if (terminal === undefined || request.runtime.project !== projectId) return;
     openCodingTerminal(host, request);
   });
-  useBridgeOpenRequests(
-    terminal?.bridge ?? null,
-    (request) =>
-      terminal === undefined
-        ? false
-        : openBridgeUrl(hostRef.current, terminal.store, request),
+  useBridgeOpenRequests(terminal?.bridge ?? null, (request) =>
+    terminal === undefined
+      ? false
+      : openBridgeUrl(hostRef.current, terminal.store, request),
   );
   // 대기 목록 카드가 터미널 session을 고르면 그 탭을 고른다.
   useEffect(() => {
@@ -833,7 +855,7 @@ export function Workspace(props: WorkspaceProps) {
         return;
       }
       const pane = latest.current.panes.findIndex((item) =>
-        item.tabs.some((tab) => tab.key === key)
+        item.tabs.some((tab) => tab.key === key),
       );
       if (pane < 0) return;
       setFloatFocused(false);
@@ -841,7 +863,7 @@ export function Workspace(props: WorkspaceProps) {
         ...latest.current,
         focusedPane: pane,
         panes: latest.current.panes.map((item, index) =>
-          index === pane ? { ...item, selected: key } : item
+          index === pane ? { ...item, selected: key } : item,
         ),
       });
     });
@@ -856,8 +878,10 @@ export function Workspace(props: WorkspaceProps) {
     if (isDetached(latest.current, key)) return;
     const def = tabKindOf(first.kind);
     if (def?.noDetach === true) return;
-    const transfer = await (def?.transfer?.(first, hostRef.current) ??
-      { value: null, views: [] });
+    const transfer = await (def?.transfer?.(first, hostRef.current) ?? {
+      value: null,
+      views: [],
+    });
     if (transfer === null) return;
     // transfer가 탭 값을 바꿨을 수 있고 그 사이 탭이 닫혔을 수 있다.
     const tab = findTab(mapTabs(latest.current, withPosition), key);
@@ -898,7 +922,8 @@ export function Workspace(props: WorkspaceProps) {
     } else if (event.kind === "opened") {
       update(openDetachedTab(visible, event.tab as TabItem, event.bounds));
     } else if (
-      event.kind === "docked" || event.kind === "changed" ||
+      event.kind === "docked" ||
+      event.kind === "changed" ||
       event.kind === "closed"
     ) {
       const at = deskOfTab(all, event.key);
@@ -921,7 +946,7 @@ export function Workspace(props: WorkspaceProps) {
           detached: current.detached.map((item) =>
             item.tab.key === event.key
               ? { ...item, tab: event.tab as TabItem }
-              : item
+              : item,
           ),
         });
       } else updateAt(at, closeDetached(current, event.key));
@@ -935,9 +960,12 @@ export function Workspace(props: WorkspaceProps) {
     [props.detached],
   );
   // project를 떠나면 이 project의 detached 창을 닫는다. 상태는 layout의 detached로 남아 다시 열 때 되살아난다.
-  useEffect(() => () => {
-    void props.detached?.close({ key: null }).catch(() => {});
-  }, [projectId, props.detached]);
+  useEffect(
+    () => () => {
+      void props.detached?.close({ key: null }).catch(() => {});
+    },
+    [projectId, props.detached],
+  );
 
   const renderTab = (tab: TabItem, active: boolean): ReactNode | null =>
     tabKindOf(tab.kind)?.render?.(tab, active, host) ?? null;
@@ -948,8 +976,12 @@ export function Workspace(props: WorkspaceProps) {
   // 탭 줄이 그리는 탭: 아이콘은 kind가 정하고(파일 종류, agent의 profile, harness vendor) 이름 뒤에 상태 점이 붙는다.
   const stripTab = (tab: TabItem): StripTab => {
     const def = tabKindOf(tab.kind);
-    const icon = def === undefined ? undefined : def.iconOf?.(tab, host) ??
-      <Icon icon={def.icon} pixels={iconPixels("small")} />;
+    const icon =
+      def === undefined
+        ? undefined
+        : (def.iconOf?.(tab, host) ?? (
+            <Icon icon={def.icon} pixels={iconPixels("small")} />
+          ));
     return {
       key: tab.key,
       title: tab.title,
@@ -963,9 +995,9 @@ export function Workspace(props: WorkspaceProps) {
 
   // 사람이 닫은 탭. 창 전체에서 최근 몇 개를 기억해 Ctrl/Cmd+Shift+T가 되살린다. 이름 바꾸기·
   // 휴지통으로 사라진 탭은 사람이 닫은 것이 아니라서 넣지 않는다.
-  const closedTabs = useRef<
-    { tab: TabItem; pane: number; index: number }[]
-  >([]);
+  const closedTabs = useRef<{ tab: TabItem; pane: number; index: number }[]>(
+    [],
+  );
   const rememberClosed = (key: string) => {
     const current = latest.current;
     const float = current.floats.find((item) => item.tab.key === key);
@@ -979,7 +1011,7 @@ export function Workspace(props: WorkspaceProps) {
       index = Number.MAX_SAFE_INTEGER;
     } else {
       pane = current.panes.findIndex((item) =>
-        item.tabs.some((candidate) => candidate.key === key)
+        item.tabs.some((candidate) => candidate.key === key),
       );
       if (pane < 0) return;
       const tabs = current.panes[pane]!.tabs;
@@ -1001,9 +1033,10 @@ export function Workspace(props: WorkspaceProps) {
   // 확인이 필요한 kind는 사람이 확인해야 닫는다. 취소하면 탭을 유지한다.
   // pane이 null이면 floated 탭이다.
   const close = (pane: number | null, key: string) => {
-    const tab = pane === null
-      ? view.floats.find((item) => item.tab.key === key)?.tab
-      : view.panes[pane]?.tabs.find((item) => item.key === key);
+    const tab =
+      pane === null
+        ? view.floats.find((item) => item.tab.key === key)?.tab
+        : view.panes[pane]?.tabs.find((item) => item.key === key);
     const confirm = tab ? tabKindOf(tab.kind)?.beforeClose?.(tab, host) : null;
     if (!confirm) {
       rememberClosed(key);
@@ -1038,7 +1071,7 @@ export function Workspace(props: WorkspaceProps) {
 
   const relativePath = (path: string): string => {
     const folder = (loaded.project?.folders ?? []).find((item) =>
-      path.startsWith(`${item.path.replace(/\/+$/, "")}/`)
+      path.startsWith(`${item.path.replace(/\/+$/, "")}/`),
     );
     return folder === undefined
       ? path
@@ -1052,9 +1085,10 @@ export function Workspace(props: WorkspaceProps) {
   };
 
   // Explorer 자리를 열고 그 파일을 알린다. 접힌 sidebar도 펼친다.
-  const [reveal, setReveal] = useState<
-    { readonly path: string; readonly nonce: number } | null
-  >(null);
+  const [reveal, setReveal] = useState<{
+    readonly path: string;
+    readonly nonce: number;
+  } | null>(null);
   const expandSidebar = () => {
     setSidebar((current) => ({ ...current, collapsedByUser: false }));
     setUserChoseWidth(true);
@@ -1073,9 +1107,10 @@ export function Workspace(props: WorkspaceProps) {
 
   // path 자신이거나 그 폴더 안에 있는 열린 파일 탭.
   const tabsAt = (path: string) =>
-    allDeskTabs(latestDesks.current).filter((tab) =>
-      tab.kind === "document_editor" &&
-      (tab.key === path || tab.key.startsWith(`${path}/`))
+    allDeskTabs(latestDesks.current).filter(
+      (tab) =>
+        tab.kind === "document_editor" &&
+        (tab.key === path || tab.key.startsWith(`${path}/`)),
     );
 
   // 저장이 남은 파일은 지금 있는 close guard 흐름(beforeClose)으로 사람에게 묻는다. 하나라도 거절하면 false다.
@@ -1141,7 +1176,7 @@ export function Workspace(props: WorkspaceProps) {
             ...view,
             focusedPane: target.pane,
             panes: view.panes.map((item, index) =>
-              index === target.pane ? { ...item, selected: target.key } : item
+              index === target.pane ? { ...item, selected: target.key } : item,
             ),
           });
         } else if (target.kind === "document") openDocumentRow(target.document);
@@ -1169,7 +1204,7 @@ export function Workspace(props: WorkspaceProps) {
           }
         }
       },
-    })
+    }),
   );
 
   // 작업대 단축키. 표(ipc/keybindings.ts)가 key를 정하고 여기서는 command를 한다. main이 먼저
@@ -1186,7 +1221,7 @@ export function Workspace(props: WorkspaceProps) {
         ...latest.current,
         focusedPane: paneAt,
         panes: latest.current.panes.map((item, index) =>
-          index === paneAt ? { ...item, selected: key } : item
+          index === paneAt ? { ...item, selected: key } : item,
         ),
       });
       focusPaneBody(paneAt);
@@ -1212,8 +1247,8 @@ export function Workspace(props: WorkspaceProps) {
         while (closedTabs.current.length > 0) {
           const [last, ...rest] = closedTabs.current;
           closedTabs.current = rest;
-          const open = deskOfTab(latestDesks.current, last!.tab.key) !==
-            undefined;
+          const open =
+            deskOfTab(latestDesks.current, last!.tab.key) !== undefined;
           if (open) continue;
           update(reopenTab(latest.current, last!.tab, last!.pane, last!.index));
           focusPaneBody(latest.current.focusedPane);
@@ -1279,13 +1314,14 @@ export function Workspace(props: WorkspaceProps) {
         if (terminal === undefined) return;
         const panes = current.panes.map((item, index) => ({ item, index }));
         // 지금 칸의 터미널을 먼저 찾고, 없으면 다른 칸의 터미널로 간다.
-        const found = [...panes.slice(at), ...panes.slice(0, at)].flatMap((
-          { item, index },
-        ) =>
-          item.tabs.filter((tab) => tab.kind === "terminal").map((tab) => ({
-            index,
-            key: tab.key,
-          }))
+        const found = [...panes.slice(at), ...panes.slice(0, at)].flatMap(
+          ({ item, index }) =>
+            item.tabs
+              .filter((tab) => tab.kind === "terminal")
+              .map((tab) => ({
+                index,
+                key: tab.key,
+              })),
         )[0];
         if (found === undefined) openTerminalTab(hostRef.current);
         else {
@@ -1300,17 +1336,19 @@ export function Workspace(props: WorkspaceProps) {
   };
   const runRef = useRef(runCommand);
   runRef.current = runCommand;
-  useKeybindings(
-    palette.platform === "mac" ? "mac" : "other",
-    (command, arg) => runRef.current(command, arg),
+  useKeybindings(palette.platform === "mac" ? "mac" : "other", (command, arg) =>
+    runRef.current(command, arg),
   );
   useMainCommand((command) => runRef.current(command));
 
   const canDetach = (tab: TabItem) => tabKindOf(tab.kind)?.noDetach !== true;
-  const detachProps = props.detached === undefined ? {} : {
-    onDetach: (_pane: number, key: string) => void detach(key),
-    canDetach,
-  };
+  const detachProps =
+    props.detached === undefined
+      ? {}
+      : {
+          onDetach: (_pane: number, key: string) => void detach(key),
+          canDetach,
+        };
 
   const currentTab = focused?.tabs.find((tab) => tab.key === focused.selected);
 
@@ -1341,27 +1379,26 @@ export function Workspace(props: WorkspaceProps) {
                       }}
                       onOpenChange={readListsOnOpen}
                     />
-                    {deskOptions.length > 1
-                      ? (
-                        <>
-                          <PathSep />
-                          <DeskSelector
-                            options={deskOptions}
-                            active={desks.active}
-                            onOpenChange={readListsOnOpen}
-                            onSelect={(key) =>
-                              switchTo(
-                                key,
-                                openTabIn(
-                                  emptyView(),
-                                  workflowTab(key),
-                                  () => false,
-                                ),
-                              )}
-                          />
-                        </>
-                      )
-                      : null}
+                    {deskOptions.length > 1 ? (
+                      <>
+                        <PathSep />
+                        <DeskSelector
+                          options={deskOptions}
+                          active={desks.active}
+                          onOpenChange={readListsOnOpen}
+                          onSelect={(key) =>
+                            switchTo(
+                              key,
+                              openTabIn(
+                                emptyView(),
+                                workflowTab(key),
+                                () => false,
+                              ),
+                            )
+                          }
+                        />
+                      </>
+                    ) : null}
                     <MinimizedBar
                       items={view.floats.filter((item) => item.minimized)}
                       stripTab={stripTab}
@@ -1381,24 +1418,24 @@ export function Workspace(props: WorkspaceProps) {
                   <span className={styles.trailing}>
                     <WaitingLayer
                       onOpenSession={(session) =>
-                        runToastAction({ kind: "session", session })}
+                        runToastAction({ kind: "session", session })
+                      }
                       onAnswerInTerminal={(session) =>
-                        void terminal?.store.focusSession(session)}
+                        void terminal?.store.focusSession(session)
+                      }
                     />
-                    {noticesHidden && hasNotices
-                      ? (
-                        <Tooltip
-                          content={t("project-workspace.button.show-notices")}
-                        >
-                          <IconButton
-                            icon={workspaceIcons.notices}
-                            label={t("project-workspace.button.show-notices")}
-                            data-show-notices=""
-                            onClick={() => setNoticesHidden(false)}
-                          />
-                        </Tooltip>
-                      )
-                      : null}
+                    {noticesHidden && hasNotices ? (
+                      <Tooltip
+                        content={t("project-workspace.button.show-notices")}
+                      >
+                        <IconButton
+                          icon={workspaceIcons.notices}
+                          label={t("project-workspace.button.show-notices")}
+                          data-show-notices=""
+                          onClick={() => setNoticesHidden(false)}
+                        />
+                      </Tooltip>
+                    ) : null}
                     <PaletteButton />
                   </span>
                 }
@@ -1407,15 +1444,15 @@ export function Workspace(props: WorkspaceProps) {
             <div className={styles.main}>
               {sidebarShown.mode === "hidden" ? null : (
                 <ProjectSidebar
-                  mode={sidebarShown.mode === "collapsed"
-                    ? "collapsed"
-                    : "open"}
+                  mode={
+                    sidebarShown.mode === "collapsed" ? "collapsed" : "open"
+                  }
                   width={sidebarShown.width}
                   project={loaded.project}
                   source={source}
                   agents={sidebarAgents.agents}
-                  sessions={allSessions.filter((item) =>
-                    !runOpened.has(item.id)
+                  sessions={allSessions.filter(
+                    (item) => !runOpened.has(item.id),
                   )}
                   runs={panelRuns(
                     runRecords,
@@ -1427,30 +1464,36 @@ export function Workspace(props: WorkspaceProps) {
                     <ArtifactPanel
                       domains={domains}
                       onOpen={(domain, name) =>
-                        openArtifact(host, domain, name)}
+                        openArtifact(host, domain, name)
+                      }
                     />
                   }
                   jobs={props.jobs}
                   onOpenJobs={() => onSettings("jobs")}
-                  current={currentTab?.kind === "document_editor"
-                    ? currentTab.key
-                    : null}
+                  current={
+                    currentTab?.kind === "document_editor"
+                      ? currentTab.key
+                      : null
+                  }
                   onToggle={toggleSidebar}
                   onSettings={() => onSettings()}
                   reveal={reveal}
                   focusExplorer={explorerFocus}
                   onOpenFile={(path, keep) =>
-                    openFile(host, path, { preview: keep !== true })}
+                    openFile(host, path, { preview: keep !== true })
+                  }
                   onMove={moveFile}
                   onTrash={trashFile}
                   onRail={onRail}
-                  onAgent={(agent) => openAgent(host, {
-                    agent: agent.assignment,
-                    name: agent.name,
-                  })}
+                  onAgent={(agent) =>
+                    openAgent(host, {
+                      agent: agent.assignment,
+                      name: agent.name,
+                    })
+                  }
                   onSession={(session) => {
-                    const row = sidebarAgents.agents.find((agent) =>
-                      agent.assignment === session.agent
+                    const row = sidebarAgents.agents.find(
+                      (agent) => agent.assignment === session.agent,
                     );
                     if (row !== undefined) {
                       openAgent(host, {
@@ -1463,9 +1506,9 @@ export function Workspace(props: WorkspaceProps) {
                   onManage={() => openAgents(host)}
                   onOpenDomainDoc={(domain) => void openDomainDoc(domain)}
                   onOpenWorkflow={(workflow) => openWorkflow(host, workflow)}
-                  activeWorkflow={desks.active === DEFAULT_DESK
-                    ? undefined
-                    : desks.active}
+                  activeWorkflow={
+                    desks.active === DEFAULT_DESK ? undefined : desks.active
+                  }
                   onResizeStart={(event) => {
                     const start = sidebar.chosenWidth;
                     const startShown = sidebarShown.width;
@@ -1493,22 +1536,18 @@ export function Workspace(props: WorkspaceProps) {
                 />
               )}
               <div className={styles.content} ref={mainRef}>
-                {noticesHidden
-                  ? null
-                  : (
-                    <div className={styles.notices} data-notices="">
-                      {loaded.failed
-                        ? (
-                          <NoticeCard
-                            tone="error"
-                            data={{ "data-load-failed": "" }}
-                            text={t("project-workspace.error.load-failed")}
-                            onDismiss={hideNotices}
-                          />
-                        )
-                        : null}
-                    </div>
-                  )}
+                {noticesHidden ? null : (
+                  <div className={styles.notices} data-notices="">
+                    {loaded.failed ? (
+                      <NoticeCard
+                        tone="error"
+                        data={{ "data-load-failed": "" }}
+                        text={t("project-workspace.error.load-failed")}
+                        onDismiss={hideNotices}
+                      />
+                    ) : null}
+                  </div>
+                )}
                 <Panes
                   view={view}
                   focusedPane={inFloats ? null : view.focusedPane}
@@ -1525,13 +1564,14 @@ export function Workspace(props: WorkspaceProps) {
                       ...view,
                       focusedPane: pane,
                       panes: view.panes.map((item, index) =>
-                        index === pane ? { ...item, selected: key } : item
+                        index === pane ? { ...item, selected: key } : item,
                       ),
                     });
                   }}
                   onClose={close}
                   onCloseMany={(pane, scope, key) =>
-                    void closeMany(pane, scope, key)}
+                    void closeMany(pane, scope, key)
+                  }
                   onPin={(key) => update(pinTab(latest.current, key))}
                   onFloat={(_pane, key) => {
                     if (mainSize === undefined) return;
@@ -1559,40 +1599,47 @@ export function Workspace(props: WorkspaceProps) {
                     }
                   }}
                   onMove={(key, toPane, before) =>
-                    update(moveTab(view, key, toPane, before))}
+                    update(moveTab(view, key, toPane, before))
+                  }
                   onRatio={(ratio) => update({ ...view, splitRatio: ratio })}
                   newTab={
                     <NewTabMenu
-                      {...(pickFile === undefined ? {} : {
-                        onDocument: () =>
-                          void pickFile().then((path) => {
-                            if (path !== null) openFile(host, path);
-                          }),
-                      })}
+                      {...(pickFile === undefined
+                        ? {}
+                        : {
+                            onDocument: () =>
+                              void pickFile().then((path) => {
+                                if (path !== null) openFile(host, path);
+                              }),
+                          })}
                       {...(terminal === undefined
                         ? {}
                         : { onTerminal: () => openTerminalTab(host) })}
                       {...(browserApi === null
                         ? {}
                         : { onBrowser: () => openBrowserTab(host) })}
-                      {...(agentView === null ? {} : {
-                        agents: sidebarAgents.agents.map((agent) => ({
-                          id: agent.assignment,
-                          name: agent.name,
-                          profile: agent.profile,
-                        })),
-                        onAgent: (id: string) => {
-                          const row = sidebarAgents.agents.find((agent) =>
-                            agent.assignment === id
-                          );
-                          if (row !== undefined) {
-                            openAgent(host, { agent: id, name: row.name });
-                          }
-                        },
-                      })}
-                      {...(source.searchSource === undefined ? {} : {
-                        onSearch: () => openSearchShortcut(host),
-                      })}
+                      {...(agentView === null
+                        ? {}
+                        : {
+                            agents: sidebarAgents.agents.map((agent) => ({
+                              id: agent.assignment,
+                              name: agent.name,
+                              profile: agent.profile,
+                            })),
+                            onAgent: (id: string) => {
+                              const row = sidebarAgents.agents.find(
+                                (agent) => agent.assignment === id,
+                              );
+                              if (row !== undefined) {
+                                openAgent(host, { agent: id, name: row.name });
+                              }
+                            },
+                          })}
+                      {...(source.searchSource === undefined
+                        ? {}
+                        : {
+                            onSearch: () => openSearchShortcut(host),
+                          })}
                       {...(host.appScreens
                         ? { onAppPanel: () => openAppPanel(host) }
                         : {})}
@@ -1628,10 +1675,12 @@ export function Workspace(props: WorkspaceProps) {
                     focusPaneBody(latest.current.focusedPane);
                   }}
                   onClose={(key) => close(null, key)}
-                  {...(props.detached === undefined ? {} : {
-                    onDetach: (key: string) => void detach(key),
-                    canDetach,
-                  })}
+                  {...(props.detached === undefined
+                    ? {}
+                    : {
+                        onDetach: (key: string) => void detach(key),
+                        canDetach,
+                      })}
                   webviews={<WebviewLayer host={webviews} />}
                 />
               </div>

@@ -26,19 +26,17 @@ export interface ToolButtonProps {
 }
 
 // 선언한 tool 하나의 버튼. 실행 중에는 다시 누를 수 없고 실패는 버튼 옆에 남는다.
-export function ToolButton(
-  {
-    tool,
-    input = null,
-    children,
-    app,
-    onDone,
-    onFailed,
-    variant = "secondary",
-    size = "md",
-    disabled = false,
-  }: ToolButtonProps,
-) {
+export function ToolButton({
+  tool,
+  input = null,
+  children,
+  app,
+  onDone,
+  onFailed,
+  variant = "secondary",
+  size = "md",
+  disabled = false,
+}: ToolButtonProps) {
   const { state, run } = useTool(tool, app);
   const label = children ?? tool.title;
   const pending = state.status === "pending";

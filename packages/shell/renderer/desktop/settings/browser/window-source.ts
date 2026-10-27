@@ -40,7 +40,7 @@ export function windowBrowserSettings(
       for (const row of LINK_ROWS) {
         const stored = read.value.get(row.settingKey);
         values[row.id] = row.options.some((o) => o.value === stored)
-          ? stored as string
+          ? (stored as string)
           : LINK_DEFAULT;
       }
       return { ok: true, value: values as LinkValues };

@@ -46,9 +46,12 @@ export function judgeEntry(e: VerdictEntry): EntryJudgment {
   const bv = poolVerdict(bt);
 
   if (
-    e.remaining > 0 || vt.trials === 0 || vt.pending > 0 ||
+    e.remaining > 0 ||
+    vt.trials === 0 ||
+    vt.pending > 0 ||
     (e.role !== "case" && bt.trials === 0 && bt.pending > 0)
-  ) return out("incomplete");
+  )
+    return out("incomplete");
 
   if (e.role === "target") {
     if (vv !== "pass") return out("fail");

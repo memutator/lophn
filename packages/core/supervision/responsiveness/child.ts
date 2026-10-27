@@ -74,8 +74,7 @@ const FRAME_HEADER_BYTES = 9;
 // 넘으면 protocol 실패로 끝낸다(무제한 queue 없음). 처리 중 최대 frame 하나와 대기 최대 frame
 // 하나가 함께 들어가는 크기다.
 const READ_AHEAD_MAX_FRAMES = 256;
-const READ_AHEAD_MAX_BYTES = 2 *
-  (STREAM_CHUNK_MAX_BYTES + FRAME_HEADER_BYTES);
+const READ_AHEAD_MAX_BYTES = 2 * (STREAM_CHUNK_MAX_BYTES + FRAME_HEADER_BYTES);
 
 type Work =
   | { kind: "hello"; message: Hello; bytes: number }
@@ -87,8 +86,9 @@ const encoder = new TextEncoder();
 function frameBytes(frame: Frame): number {
   if (frame.kind === "bytes") return FRAME_HEADER_BYTES + frame.payload.length;
   if (frame.kind === "json") {
-    return FRAME_HEADER_BYTES +
-      encoder.encode(JSON.stringify(frame.payload)).length;
+    return (
+      FRAME_HEADER_BYTES + encoder.encode(JSON.stringify(frame.payload)).length
+    );
   }
   return FRAME_HEADER_BYTES;
 }
@@ -164,9 +164,10 @@ export function startChild(
     const bytes = frameBytes(frame);
     if (!helloRead) {
       // hello 전에는 bytes도 다른 json도 받지 않는다. 최초 메시지는 hello 하나뿐이다.
-      const parsed = frame.kind === "json"
-        ? parentMessageSchema.safeParse(frame.payload)
-        : undefined;
+      const parsed =
+        frame.kind === "json"
+          ? parentMessageSchema.safeParse(frame.payload)
+          : undefined;
       if (!parsed?.success || parsed.data.type !== "hello") {
         throw new Error("message arrived before hello");
       }

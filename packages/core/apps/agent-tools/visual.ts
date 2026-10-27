@@ -50,9 +50,11 @@ export const VISUAL_TOOLS: readonly ToolDefinition[] = [
         ctx.tool_call,
       );
       if (!posted.ok) return posted;
-      return ok(fitted(`showed the ${view} card of ${app}`, {
-        message: posted.value.message,
-      }));
+      return ok(
+        fitted(`showed the ${view} card of ${app}`, {
+          message: posted.value.message,
+        }),
+      );
     },
   }),
 ];

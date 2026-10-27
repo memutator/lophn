@@ -33,10 +33,13 @@ export function createTurnSourceLink(options: {
   // 응답을 기다리는 기한. 지나면 읽지 못한 것이다.
   timeoutMs?: number;
 }): TurnSourceLink {
-  const pending = new Map<string, {
-    resolve(answer: Answer | null): void;
-    timer: ReturnType<typeof setTimeout>;
-  }>();
+  const pending = new Map<
+    string,
+    {
+      resolve(answer: Answer | null): void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  >();
   const timeoutMs = options.timeoutMs ?? 10_000;
   let sequence = 0;
 
@@ -99,20 +102,24 @@ export function createTurnSourceLink(options: {
     },
     events: {
       publish(event: AgentEvent) {
-        void options.send({
-          type: "agent_event",
-          event: event as Record<string, unknown>,
-        }).catch(() => {});
+        void options
+          .send({
+            type: "agent_event",
+            event: event as Record<string, unknown>,
+          })
+          .catch(() => {});
       },
       output(batch) {
         // 상한을 넘는 조각은 순서대로 나눠 보낸다. 넘는 message 하나만 거절되면 core가 이은 글에서
         // secret이 갈려 지워지지 않는다.
         for (let at = 0; at < batch.text.length; at += MODEL_OUTPUT_UNITS_MAX) {
-          void options.send({
-            type: "model_output",
-            ...batch,
-            text: batch.text.slice(at, at + MODEL_OUTPUT_UNITS_MAX),
-          }).catch(() => {});
+          void options
+            .send({
+              type: "model_output",
+              ...batch,
+              text: batch.text.slice(at, at + MODEL_OUTPUT_UNITS_MAX),
+            })
+            .catch(() => {});
         }
       },
     },

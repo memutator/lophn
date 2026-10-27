@@ -9,11 +9,11 @@ import type { HarnessDetection } from "../../../protocol/coding-agent/harnesses.
 type PendingRequest =
   | { kind: "open"; session: string }
   | {
-    kind: "input";
-    session: string;
-    text: string;
-    call: string | null;
-  }
+      kind: "input";
+      session: string;
+      text: string;
+      call: string | null;
+    }
   | { kind: "stop"; session: string };
 
 export type CodingMemory = {

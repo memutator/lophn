@@ -74,7 +74,9 @@ function writeAt(
     }
     const nested = list[segment.index];
     if (
-      nested === null || typeof nested !== "object" || Array.isArray(nested)
+      nested === null ||
+      typeof nested !== "object" ||
+      Array.isArray(nested)
     ) {
       list[segment.index] = {};
     }
@@ -94,7 +96,7 @@ function subtreeHasPrivate(
   if (value === null || typeof value !== "object") return false;
   if (Array.isArray(value)) {
     return value.some((item, index) =>
-      subtreeHasPrivate(item, privateFields, `${location}[${index}]`)
+      subtreeHasPrivate(item, privateFields, `${location}[${index}]`),
     );
   }
   return Object.keys(value).some((key) =>
@@ -102,7 +104,7 @@ function subtreeHasPrivate(
       (value as Record<string, unknown>)[key],
       privateFields,
       location === "" ? key : `${location}.${key}`,
-    )
+    ),
   );
 }
 

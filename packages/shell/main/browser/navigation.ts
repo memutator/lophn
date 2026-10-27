@@ -2,17 +2,18 @@
 export type NavigationDecision =
   | { allow: true }
   | {
-    allow: false;
-    reason: "unparseable" | "scheme" | "credentials";
-    /** OS로 넘길 수 있는 scheme(mailto, tel). 넘기는 쪽이 fresh activation을 요구한다. */
-    external?: true;
-  };
+      allow: false;
+      reason: "unparseable" | "scheme" | "credentials";
+      /** OS로 넘길 수 있는 scheme(mailto, tel). 넘기는 쪽이 fresh activation을 요구한다. */
+      external?: true;
+    };
 
 const SUBFRAME_SCHEMES = new Set(["data:", "blob:", "about:"]);
 
-export function decideNavigation(
-  input: { url: string; isMainFrame: boolean },
-): NavigationDecision {
+export function decideNavigation(input: {
+  url: string;
+  isMainFrame: boolean;
+}): NavigationDecision {
   let url: URL;
   try {
     url = new URL(input.url);

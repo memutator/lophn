@@ -37,14 +37,14 @@ export const TOOL_FILES: readonly string[] = [
 export type FileGroup =
   | { group: "none" }
   | {
-    group:
-      | "core"
-      | "assembly"
-      | "runtime"
-      | "instruction"
-      | "template"
-      | "tool";
-  }
+      group:
+        | "core"
+        | "assembly"
+        | "runtime"
+        | "instruction"
+        | "template"
+        | "tool";
+    }
   | { group: "skill"; name: string };
 
 const ROLES = "packages/core/agent-roles/roles";
@@ -66,9 +66,11 @@ const CORE = /^packages\/(base|protocol|core|sdk|coding-agent)\//;
 export function classifyPath(rel: string): FileGroup {
   const none = { group: "none" } as const;
   if (
-    rel.split("/").includes("node_modules") || NO_PACKAGE.test(rel) ||
+    rel.split("/").includes("node_modules") ||
+    NO_PACKAGE.test(rel) ||
     /_test\.tsx?$/.test(rel)
-  ) return none;
+  )
+    return none;
   if (!rel.startsWith("packages/")) {
     return rel === "deno.json" || rel === "deno.lock"
       ? { group: "core" }
@@ -101,7 +103,10 @@ export async function walkFiles(dir: string, prefix = ""): Promise<string[]> {
       if (entry.isDirectory()) {
         if (SKIP_DIRS.has(entry.name)) continue;
         found.push(
-          ...await walkFiles(`${dir}/${entry.name}`, `${prefix}${entry.name}/`),
+          ...(await walkFiles(
+            `${dir}/${entry.name}`,
+            `${prefix}${entry.name}/`,
+          )),
         );
       } else if (entry.isFile()) found.push(`${prefix}${entry.name}`);
     }
@@ -136,8 +141,8 @@ export async function hashGroup(
   root: string,
   group: "core" | "assembly" | "runtime",
 ): Promise<string> {
-  const files = (await listFiles(root)).filter((f) =>
-    classifyPath(f).group === group
+  const files = (await listFiles(root)).filter(
+    (f) => classifyPath(f).group === group,
   );
   return hashPaths(root, files);
 }
@@ -176,9 +181,11 @@ export async function coreVersion(deps: Deps = {}): Promise<VersionRef> {
 // `tests/eval/checks/**`의 file(`_test.ts` 제외) 전체의 버전.
 export async function checksVersion(deps: Deps = {}): Promise<VersionRef> {
   const root = deps.checksRoot ?? deps.root ?? REPO_ROOT;
-  const files =
-    (await walkFiles(`${root}/tests/eval/checks`, "tests/eval/checks/"))
-      .filter((f) => !f.endsWith("_test.ts")).sort();
+  const files = (
+    await walkFiles(`${root}/tests/eval/checks`, "tests/eval/checks/")
+  )
+    .filter((f) => !f.endsWith("_test.ts"))
+    .sort();
   const { ref } = await resolveVersion(deps.registryDir ?? REGISTRY_DIR, {
     kind: "checks",
     name: "checks",

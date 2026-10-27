@@ -84,19 +84,13 @@ const INSTRUCTIONS_SEED = {
     fileName: "AGENTS.md",
     path: "AGENTS.md",
   },
-  text:
-    "# Instructions\n\nKeep answers short and name the document you changed.",
+  text: "# Instructions\n\nKeep answers short and name the document you changed.",
 };
 
 // 시드 파일 통로. 작업대 목록이 아직 문서 id로 열고 경로로도 열 수 있게 둘 다 같은 글로 채운다.
 function seededEditor(): EditorDeps {
   const texts: Record<string, string> = {};
-  for (
-    const seeded of [
-      ...Object.values(SEED_DOCUMENTS),
-      INSTRUCTIONS_SEED,
-    ]
-  ) {
+  for (const seeded of [...Object.values(SEED_DOCUMENTS), INSTRUCTIONS_SEED]) {
     texts[seeded.info.id] = seeded.text;
     if (seeded.info.path !== null) texts[seeded.info.path] = seeded.text;
   }

@@ -16,7 +16,9 @@ const id = (prefix: string, n: number) =>
 const tokenRoutes = [
   CODING_MCP_OPERATION,
   ...CODING_CLI_COMMANDS.flatMap((command) =>
-    command.auth === "coding_token" && command.route ? [command.route.name] : []
+    command.auth === "coding_token" && command.route
+      ? [command.route.name]
+      : [],
   ),
 ];
 const OUTSIDE = "approvals.decide";
@@ -27,11 +29,13 @@ test("coding token은 그 앱 하나만 열고 회수하면 새 호출이 거절
     random: cryptoRandom,
     clock: manualClock(Date.parse("2026-10-16T00:00:00Z")),
     operations: [
-      ...tokenRoutes.map((name): OperationPolicy => ({
-        name,
-        actors: ["coding_agent"],
-        kind: "read",
-      })),
+      ...tokenRoutes.map(
+        (name): OperationPolicy => ({
+          name,
+          actors: ["coding_agent"],
+          kind: "read",
+        }),
+      ),
       { name: OUTSIDE, actors: ["user"], kind: "command" },
     ],
   });

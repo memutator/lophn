@@ -168,15 +168,16 @@ export async function prepareBundleBlobs(
     return invalid("guide hash changed during preparation");
   }
   // 준비 참조를 받으면 안내 blob을 register_version이 같은 transaction에서 등록한다.
-  const guideBlob = guidePrepared.value.preparation === undefined
-    ? undefined
-    : {
-      preparation: guidePrepared.value.preparation,
-      principal,
-      purpose: "sdk_guide",
-      hash: guidePrepared.value.hash,
-      size_bytes: guidePrepared.value.size_bytes,
-    };
+  const guideBlob =
+    guidePrepared.value.preparation === undefined
+      ? undefined
+      : {
+          preparation: guidePrepared.value.preparation,
+          principal,
+          purpose: "sdk_guide",
+          hash: guidePrepared.value.hash,
+          size_bytes: guidePrepared.value.size_bytes,
+        };
   return ok({ bundleHash, guideHash, guideBlob });
 }
 
@@ -204,7 +205,7 @@ async function copiedPaths(
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = prefix ? `${prefix}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
-      found.push(...await copiedPaths(`${directory}/${entry.name}`, path));
+      found.push(...(await copiedPaths(`${directory}/${entry.name}`, path)));
     } else found.push(path);
   }
   return found;
@@ -223,7 +224,8 @@ export async function sameInstallCopy(
       if (
         bytes.length !== file.bytes.length ||
         bytes.some((byte, index) => byte !== file.bytes[index])
-      ) return false;
+      )
+        return false;
     }
     return true;
   } catch {
@@ -281,7 +283,7 @@ async function installCopy(
   const path = packageInstallPath(name, version);
   if (!path.ok) return path;
   const target = `${dataRoot}/${path.value}`;
-  if (!await sameInstallCopy(target, files)) {
+  if (!(await sameInstallCopy(target, files))) {
     await removeInstallCopy(target);
     const written = await writeInstallCopy(target, files);
     if (!written.ok) return written;
@@ -314,9 +316,8 @@ async function installSource(
   const dir = `${packagesRoot}/${source}`;
   const identity = await readIdentity(dir);
   if (!identity.ok) return identity;
-  const collected = await collectSourceFiles(
-    dir,
-    (path) => keepSourceFile(path, skip),
+  const collected = await collectSourceFiles(dir, (path) =>
+    keepSourceFile(path, skip),
   );
   if (!collected.ok) return collected;
   const vendored = await vendorFiles(
@@ -338,17 +339,13 @@ async function installSource(
 export async function installSdkCopies(deps: {
   dataRoot: string;
   packagesRoot: string;
-}): Promise<
-  Result<{ name: string; version: string; install_path: string }[]>
-> {
+}): Promise<Result<{ name: string; version: string; install_path: string }[]>> {
   const sources: { source: string; skip: readonly string[] }[] = [];
   try {
     const names: string[] = [];
-    for (
-      const entry of await readdir(`${deps.packagesRoot}/sdk`, {
-        withFileTypes: true,
-      })
-    ) {
+    for (const entry of await readdir(`${deps.packagesRoot}/sdk`, {
+      withFileTypes: true,
+    })) {
       if (entry.isDirectory()) names.push(entry.name);
     }
     for (const name of names.sort()) {

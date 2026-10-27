@@ -23,11 +23,13 @@ test("못 본 turn 끝은 탭이 보이거나 다음 turn이 시작하면 지우
   const notices = createSessionNotices({
     who: (session) =>
       Promise.resolve(
-        session === "ses_coding" ? null : {
-          session,
-          agent: "lophn",
-          profile: { kind: "icon", icon: "dock" },
-        },
+        session === "ses_coding"
+          ? null
+          : {
+              session,
+              agent: "lophn",
+              profile: { kind: "icon", icon: "dock" },
+            },
       ),
     bodyOf: () => Promise.resolve(undefined),
     looking: () => looking,
@@ -52,11 +54,10 @@ test("못 본 turn 끝은 탭이 보이거나 다음 turn이 시작하면 지우
   await ended("ses_a", "completed");
   await ended("ses_b", "failed");
   await notices.event({ type: "QuestionAsked", session: "ses_a" });
-  assert.deepEqual(sent.map((notice) => notice.kind), [
-    "finished",
-    "failed",
-    "permission",
-  ]);
+  assert.deepEqual(
+    sent.map((notice) => notice.kind),
+    ["finished", "failed", "permission"],
+  );
   // 물음은 점이 아니라 waiting 상태가 보인다.
   assert.deepEqual(sessionsOf(notices.unseen()), ["ses_a", "ses_b"]);
 

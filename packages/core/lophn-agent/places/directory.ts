@@ -36,9 +36,10 @@ export function createSessionDirectory(
   // 없는 place는 보관한 place와 같이 새 입력을 받지 못한다.
   function placeArchived(place: Place | null): boolean {
     if (place === null) return false;
-    const info = place.kind === "project"
-      ? deps.projects.project(place.id as Id<"prj">)
-      : deps.apps.app(place.id as Id<"app">);
+    const info =
+      place.kind === "project"
+        ? deps.projects.project(place.id as Id<"prj">)
+        : deps.apps.app(place.id as Id<"app">);
     return info === null || info.archived;
   }
 
@@ -82,14 +83,18 @@ export function createSessionDirectory(
       return started.ok ? ok(targetOf(started.value)) : started;
     },
     listOpen() {
-      return deps.sql().all(
-        `select ${SESSION_COLUMNS} from sessions
+      return deps
+        .sql()
+        .all(
+          `select ${SESSION_COLUMNS} from sessions
          where lifecycle = 'open' order by created_seq`,
-        [],
-      ).map(sessionRowOf).map((row) => ({
-        ...targetOf(row),
-        name: deps.roles.nameOf(agentRefOf(row)),
-      }));
+          [],
+        )
+        .map(sessionRowOf)
+        .map((row) => ({
+          ...targetOf(row),
+          name: deps.roles.nameOf(agentRefOf(row)),
+        }));
     },
   };
 }

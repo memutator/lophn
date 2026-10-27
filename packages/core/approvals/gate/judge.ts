@@ -25,9 +25,7 @@ export function judge(
 ): Judgment {
   if (call.kind === "shell") {
     const normalized = normalize(call.command);
-    const candidates = [
-      ...new Set([normalized, ...shellPieces(call.command)]),
-    ];
+    const candidates = [...new Set([normalized, ...shellPieces(call.command)])];
     const verdicts = candidates.map((text) => shellVerdict(shell, text));
     const denied = verdicts.find((verdict) => verdict.action === "deny");
     if (denied) {

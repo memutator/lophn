@@ -12,15 +12,16 @@ const id = (prefix: string, n: number) =>
 const [APP_A, APP_B] = [id("app", 1), id("app", 2)];
 const [S1, S2] = [id("ses", 1), id("ses", 2)];
 
-const tool = (name: string, inputSchema?: null): ToolDeclaration => ({
-  name,
-  inputSchema,
-  title: name,
-  description: name,
-  effect: "read",
-  public: false,
-  domain: "items",
-} as unknown as ToolDeclaration);
+const tool = (name: string, inputSchema?: null): ToolDeclaration =>
+  ({
+    name,
+    inputSchema,
+    title: name,
+    description: name,
+    effect: "read",
+    public: false,
+    domain: "items",
+  }) as unknown as ToolDeclaration;
 
 const context = (actor: string, app: string): AuthenticatedContext => ({
   principal: actor,
@@ -41,25 +42,31 @@ function setup(preview: Partial<CurrentPreview> | null) {
         : ok({ app: ctx.conditions.app }),
     previews: {
       current: (app) =>
-        Promise.resolve(ok(
-          preview === null || app !== APP_A ? null : {
-            process_nonce: "nonce1",
-            ready: true,
-            bundle_hash: "h",
-            tools: [tool("a_preview"), tool("a_none", null)],
-            ...preview,
-          },
-        )),
+        Promise.resolve(
+          ok(
+            preview === null || app !== APP_A
+              ? null
+              : {
+                  process_nonce: "nonce1",
+                  ready: true,
+                  bundle_hash: "h",
+                  tools: [tool("a_preview"), tool("a_none", null)],
+                  ...preview,
+                },
+          ),
+        ),
     },
     activeTools: (app) => ok(app === APP_A ? [tool("a_live")] : [tool("b")]),
     calls: {
       call(input, auth) {
         calls.push(input);
         authsSeen.push(auth);
-        return Promise.resolve(ok({
-          invocation: null,
-          outcome: { status: "succeeded", result: { n: 1 } },
-        }));
+        return Promise.resolve(
+          ok({
+            invocation: null,
+            outcome: { status: "succeeded", result: { n: 1 } },
+          }),
+        );
       },
     },
   };
@@ -70,10 +77,16 @@ test("MCP tools/list shows only the token's app and only to a coding agent", asy
   const { tools } = setup(null);
   const a = await tools.list(context(`coding_agent:${S1}`, APP_A));
   assert.ok(a.ok);
-  assert.deepStrictEqual(a.value.map((t) => t.name), ["a_live"]);
+  assert.deepStrictEqual(
+    a.value.map((t) => t.name),
+    ["a_live"],
+  );
   const b = await tools.list(context(`coding_agent:${S2}`, APP_B));
   assert.ok(b.ok);
-  assert.deepStrictEqual(b.value.map((t) => t.name), ["b"]);
+  assert.deepStrictEqual(
+    b.value.map((t) => t.name),
+    ["b"],
+  );
   const user = await tools.list(context("user", APP_A));
   assert.ok(!user.ok && user.error.code === "forbidden");
 });

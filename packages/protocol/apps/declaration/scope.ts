@@ -20,10 +20,7 @@ import {
 } from "./types.ts";
 import { canonicalJson } from "./json.ts";
 
-function lexicalPath(
-  value: unknown,
-  listen: boolean,
-): string | undefined {
+function lexicalPath(value: unknown, listen: boolean): string | undefined {
   if (typeof value !== "string" || value === "" || /\p{Cc}/u.test(value)) {
     return "path must be an absolute lexical path";
   }
@@ -42,9 +39,10 @@ function lexicalPath(
 
 function ipv4(value: string): boolean {
   if (!/^\d{1,3}(?:\.\d{1,3}){3}$/.test(value)) return false;
-  return value.split(".").every((part) =>
-    part === "0" || !part.startsWith("0")
-  ) && value.split(".").every((part) => Number(part) <= 255);
+  return (
+    value.split(".").every((part) => part === "0" || !part.startsWith("0")) &&
+    value.split(".").every((part) => Number(part) <= 255)
+  );
 }
 
 function dotted(value: string): boolean {
@@ -57,13 +55,16 @@ function ipv6(value: string): boolean {
   }
   const halves = value.split("::");
   if (halves.length > 2) return false;
-  const expand = (part: string): string[] => part === "" ? [] : part.split(":");
+  const expand = (part: string): string[] =>
+    part === "" ? [] : part.split(":");
   const left = expand(halves[0]!);
   const right = halves.length === 2 ? expand(halves[1]!) : [];
   const groups = [...left, ...right];
   if (groups.some((group) => group === "")) return false;
   const last = groups.at(-1);
-  const embedded = last !== undefined && ipv4(last) &&
+  const embedded =
+    last !== undefined &&
+    ipv4(last) &&
     (halves.length === 1 || right.at(-1) === last);
   if (last !== undefined && dotted(last) && !embedded) return false;
   const count = groups.length + (embedded ? 1 : 0);
@@ -73,7 +74,7 @@ function ipv6(value: string): boolean {
   return groups.every((group, index) =>
     index === groups.length - 1 && embedded
       ? true
-      : /^[0-9A-Fa-f]{1,4}$/.test(group)
+      : /^[0-9A-Fa-f]{1,4}$/.test(group),
   );
 }
 
@@ -86,20 +87,25 @@ export function hostOf(value: unknown): string | undefined {
   if (dotted(value)) return ipv4(value) ? undefined : "invalid host";
   if (ipv6(value)) return;
   if (
-    value.includes(":") || value.includes("*") || value.startsWith(".") ||
+    value.includes(":") ||
+    value.includes("*") ||
+    value.startsWith(".") ||
     value.endsWith(".")
   ) {
     return "invalid host";
   }
-  return /^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(?:\.(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*$/
-      .test(value)
+  return /^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(?:\.(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*$/.test(
+    value,
+  )
     ? undefined
     : "invalid host";
 }
 
 function portOf(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isSafeInteger(value) &&
-      value >= 1 && value <= 65535
+  return typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value >= 1 &&
+    value <= 65535
     ? value
     : undefined;
 }
@@ -115,9 +121,12 @@ function oauthEndpoint(value: unknown): boolean {
   }
   if (url.username || url.password) return false;
   if (url.protocol === "https:") return true;
-  return url.protocol === "http:" &&
-    (url.hostname === "localhost" || url.hostname === "127.0.0.1" ||
-      url.hostname === "[::1]");
+  return (
+    url.protocol === "http:" &&
+    (url.hostname === "localhost" ||
+      url.hostname === "127.0.0.1" ||
+      url.hostname === "[::1]")
+  );
 }
 
 // secret.use의 oauth 블록 검사와 정규화. activation의 선언 비교가 순서만 바뀐 선언을 같게 보도록
@@ -140,10 +149,14 @@ export function oauthScope(value: unknown): ValidationResult<OAuthDeclaration> {
   }
   const scopes = value.scopes;
   if (
-    !Array.isArray(scopes) || scopes.length > 32 ||
-    scopes.some((scope) =>
-      typeof scope !== "string" || scope.length < 1 || scope.length > 200 ||
-      /[\s\p{Cc}"\\]/u.test(scope)
+    !Array.isArray(scopes) ||
+    scopes.length > 32 ||
+    scopes.some(
+      (scope) =>
+        typeof scope !== "string" ||
+        scope.length < 1 ||
+        scope.length > 200 ||
+        /[\s\p{Cc}"\\]/u.test(scope),
     )
   ) {
     return invalid("oauth scopes must be up to 32 plain tokens");
@@ -171,7 +184,9 @@ export function oauthScope(value: unknown): ValidationResult<OAuthDeclaration> {
         return invalid("oauth params key is invalid or reserved");
       }
       if (
-        typeof item !== "string" || item.length < 1 || item.length > 256 ||
+        typeof item !== "string" ||
+        item.length < 1 ||
+        item.length > 256 ||
         /\p{Cc}/u.test(item)
       ) {
         return invalid("oauth params value is invalid");
@@ -191,8 +206,8 @@ export function permissionScope(
   const keys = kind.startsWith("fs.")
     ? ["path", "recursive"]
     : kind.startsWith("net.")
-    ? ["host", "port"]
-    : ["name", "oauth"];
+      ? ["host", "port"]
+      : ["name", "oauth"];
   const unexpected = exactKeys(
     value,
     keys,
@@ -238,7 +253,9 @@ export function scopeKey(kind: string, scope: PermissionScope): string {
 
 export function screenPath(value: unknown): string | undefined {
   if (
-    typeof value !== "string" || !value.startsWith("/") || value.includes("\\")
+    typeof value !== "string" ||
+    !value.startsWith("/") ||
+    value.includes("\\")
   ) {
     return "screen path must be an internal absolute path";
   }
@@ -261,7 +278,7 @@ export function semver(value: unknown): value is string {
   const match = SEMVER.exec(value);
   const pre = match?.[4];
   if (pre === undefined) return true;
-  return pre.split(".").every((part) =>
-    /^\d+$/.test(part) ? numericId(part) : true
-  );
+  return pre
+    .split(".")
+    .every((part) => (/^\d+$/.test(part) ? numericId(part) : true));
 }

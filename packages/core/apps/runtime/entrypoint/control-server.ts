@@ -35,8 +35,10 @@ export function startControlServer(
   const exit = options.exit ?? ((code: number) => Deno.exit(code));
   let exiting = false;
   const handler: HttpHandler = async (request) => {
-    const known = request.path === PROCESS_PATHS.call ||
-      request.path === PROCESS_PATHS.apply || CONTROLS.includes(request.path);
+    const known =
+      request.path === PROCESS_PATHS.call ||
+      request.path === PROCESS_PATHS.apply ||
+      CONTROLS.includes(request.path);
     if (!known) {
       return jsonResponse(404, {
         error: { code: "not_found", message: "unknown path" },

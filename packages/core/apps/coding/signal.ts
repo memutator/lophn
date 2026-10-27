@@ -6,9 +6,7 @@ import { ok, type Result } from "../../../base/mod.ts";
 import { idSchema } from "../../../protocol/base/ids.ts";
 import { jsonValueSchema } from "../../../protocol/base/json-values.ts";
 import { defineCommand } from "../../../protocol/base/mod.ts";
-import {
-  codingOptionsSchema,
-} from "../../../protocol/coding-agent/harness-id.ts";
+import { codingOptionsSchema } from "../../../protocol/coding-agent/harness-id.ts";
 import {
   harnessDetectionSchema,
   harnessIdSchema,

@@ -118,15 +118,17 @@ export function lockAppImports(
   );
   const byName = (a: SdkRef, b: SdkRef) =>
     a.name === b.name
-      ? a.version < b.version ? -1 : 1
+      ? a.version < b.version
+        ? -1
+        : 1
       : a.name < b.name
-      ? -1
-      : 1;
+        ? -1
+        : 1;
   return ok({
     imports: sorted,
     packages: [...packages.values()].sort(byName),
     external: [...external.values()].sort((a, b) =>
-      a.source === b.source ? byName(a, b) : a.source < b.source ? -1 : 1
+      a.source === b.source ? byName(a, b) : a.source < b.source ? -1 : 1,
     ),
   });
 }

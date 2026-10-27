@@ -6,13 +6,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -80,13 +75,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -154,13 +144,8 @@
     "input_limit": 200000,
     "output_limit": 64000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -231,13 +216,8 @@
     "input_limit": 200000,
     "output_limit": 64000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -308,13 +288,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -392,13 +367,8 @@
     "input_limit": 200000,
     "output_limit": 64000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -456,13 +426,8 @@
     "input_limit": 200000,
     "output_limit": 64000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -520,13 +485,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -589,13 +549,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -663,13 +618,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -737,13 +687,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -811,13 +756,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -885,13 +825,8 @@
     "input_limit": 200000,
     "output_limit": 64000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -962,13 +897,8 @@
     "input_limit": 200000,
     "output_limit": 64000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -1039,13 +969,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -1108,13 +1033,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -1182,13 +1102,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -1256,13 +1171,8 @@
     "input_limit": 1000000,
     "output_limit": 393216,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -1320,13 +1230,8 @@
     "input_limit": 1000000,
     "output_limit": 393216,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -1384,13 +1289,8 @@
     "input_limit": 1000000,
     "output_limit": 393216,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -1448,12 +1348,8 @@
     "input_limit": 1000000,
     "output_limit": 393216,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -1511,16 +1407,8 @@
     "input_limit": 131072,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text", "image"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -1564,16 +1452,8 @@
     "input_limit": 131072,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text", "image"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -1617,13 +1497,8 @@
     "input_limit": 128000,
     "output_limit": 64000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -1667,15 +1542,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -1709,14 +1577,8 @@
     "input_limit": 32768,
     "output_limit": 32768,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "image"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -1750,15 +1612,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -1792,15 +1647,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -1844,15 +1692,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -1915,14 +1756,8 @@
     "input_limit": 65536,
     "output_limit": 32768,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "image"],
     "options": [
       {
         "id": "effort",
@@ -1975,14 +1810,8 @@
     "input_limit": 131072,
     "output_limit": 32768,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "image"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -2016,15 +1845,8 @@
     "input_limit": 131072,
     "output_limit": 32768,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text", "image"],
     "options": [
       {
         "id": "effort",
@@ -2077,14 +1899,8 @@
     "input_limit": 65536,
     "output_limit": 65536,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "image"],
     "options": [
       {
         "id": "effort",
@@ -2137,15 +1953,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -2208,14 +2017,8 @@
     "input_limit": 65536,
     "output_limit": 4096,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "image"],
     "options": [
       {
         "id": "effort",
@@ -2268,15 +2071,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -2339,16 +2135,8 @@
     "input_limit": 131072,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text",
-      "audio"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text", "audio"],
     "options": [
       {
         "id": "effort",
@@ -2411,15 +2199,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -2487,15 +2268,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -2563,15 +2337,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -2634,15 +2401,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -2705,15 +2465,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -2776,15 +2529,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -2842,15 +2588,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -2908,15 +2647,8 @@
     "input_limit": 1048576,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -2974,12 +2706,8 @@
     "input_limit": 2048,
     "output_limit": 1,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -3013,15 +2741,8 @@
     "input_limit": 8192,
     "output_limit": 1,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -3055,15 +2776,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -3121,15 +2835,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -3192,13 +2899,8 @@
     "input_limit": 262144,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -3215,13 +2917,8 @@
     "input_limit": 262144,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -3238,14 +2935,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "audio"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "audio"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -3279,14 +2970,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "audio"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "audio"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -3320,12 +3005,8 @@
     "input_limit": 4096,
     "output_limit": 4096,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -3359,12 +3040,8 @@
     "input_limit": 131072,
     "output_limit": 8192,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -3381,12 +3058,8 @@
     "input_limit": 131072,
     "output_limit": 8192,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -3403,12 +3076,8 @@
     "input_limit": 131072,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -3442,12 +3111,8 @@
     "input_limit": 131072,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -3481,12 +3146,8 @@
     "input_limit": 512,
     "output_limit": 512,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": true,
     "deprecated": false,
@@ -3520,12 +3181,8 @@
     "input_limit": 512,
     "output_limit": 512,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": true,
     "deprecated": false,
@@ -3559,12 +3216,8 @@
     "input_limit": 131072,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -3622,12 +3275,8 @@
     "input_limit": 131072,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -3685,12 +3334,8 @@
     "input_limit": 131072,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -3748,13 +3393,8 @@
     "input_limit": 131072,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -3802,13 +3442,8 @@
     "input_limit": 131042,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -3871,12 +3506,8 @@
     "input_limit": 40960,
     "output_limit": 8192,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -3912,12 +3543,8 @@
     "input_limit": 16385,
     "output_limit": 4096,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": true,
@@ -3951,12 +3578,8 @@
     "input_limit": 8192,
     "output_limit": 8192,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": true,
@@ -3990,13 +3613,8 @@
     "input_limit": 128000,
     "output_limit": 4096,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": true,
@@ -4030,13 +3648,8 @@
     "input_limit": 1047576,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -4070,13 +3683,8 @@
     "input_limit": 1047576,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -4110,13 +3718,8 @@
     "input_limit": 1047576,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": true,
@@ -4150,13 +3753,8 @@
     "input_limit": 128000,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -4190,13 +3788,8 @@
     "input_limit": 128000,
     "output_limit": 4096,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": true,
@@ -4230,13 +3823,8 @@
     "input_limit": 128000,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -4270,13 +3858,8 @@
     "input_limit": 128000,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -4310,13 +3893,8 @@
     "input_limit": 128000,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -4350,13 +3928,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -4419,13 +3992,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -4488,13 +4056,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -4557,13 +4120,8 @@
     "input_limit": 272000,
     "output_limit": 272000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -4611,13 +4169,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -4680,13 +4233,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -4754,13 +4302,8 @@
     "input_limit": 128000,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -4808,13 +4351,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -4872,13 +4410,8 @@
     "input_limit": 128000,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": true,
@@ -4912,13 +4445,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -4986,13 +4514,8 @@
     "input_limit": 100000,
     "output_limit": 32000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -5060,13 +4583,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -5144,13 +4662,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -5218,13 +4731,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -5292,13 +4800,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -5366,13 +4869,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -5450,13 +4948,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -5524,13 +5017,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -5613,13 +5101,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -5702,13 +5185,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -5791,13 +5269,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -5880,13 +5353,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -5964,13 +5432,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -6053,13 +5516,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -6142,13 +5600,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -6226,13 +5679,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -6315,13 +5763,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -6394,15 +5837,8 @@
     "input_limit": 96000,
     "output_limit": 32000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio"
-    ],
-    "output_media": [
-      "text",
-      "audio"
-    ],
+    "input_media": ["text", "image", "audio"],
+    "output_media": ["text", "audio"],
     "options": [
       {
         "id": "effort",
@@ -6470,13 +5906,8 @@
     "input_limit": 200000,
     "output_limit": 100000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -6534,13 +5965,8 @@
     "input_limit": 200000,
     "output_limit": 100000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -6598,13 +6024,8 @@
     "input_limit": 200000,
     "output_limit": 100000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -6662,12 +6083,8 @@
     "input_limit": 200000,
     "output_limit": 100000,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -6725,13 +6142,8 @@
     "input_limit": 200000,
     "output_limit": 100000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -6789,13 +6201,8 @@
     "input_limit": 200000,
     "output_limit": 100000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -6853,12 +6260,8 @@
     "input_limit": 8191,
     "output_limit": 3072,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -6892,12 +6295,8 @@
     "input_limit": 8191,
     "output_limit": 1536,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -6931,12 +6330,8 @@
     "input_limit": 8192,
     "output_limit": 1536,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -6970,12 +6365,8 @@
     "input_limit": 131072,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -7009,12 +6400,8 @@
     "input_limit": 131072,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -7048,12 +6435,8 @@
     "input_limit": 131072,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -7087,12 +6470,8 @@
     "input_limit": 262144,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -7150,12 +6529,8 @@
     "input_limit": 262144,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -7213,12 +6588,8 @@
     "input_limit": 32768,
     "output_limit": 29491,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -7252,14 +6623,8 @@
     "input_limit": 1000000,
     "output_limit": 65535,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -7293,13 +6658,8 @@
     "input_limit": 300000,
     "output_limit": 5120,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -7333,12 +6693,8 @@
     "input_limit": 128000,
     "output_limit": 5120,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -7372,13 +6728,8 @@
     "input_limit": 1000000,
     "output_limit": 32000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -7412,13 +6763,8 @@
     "input_limit": 300000,
     "output_limit": 5120,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -7452,12 +6798,8 @@
     "input_limit": 32768,
     "output_limit": 4096,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -7491,13 +6833,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -7565,13 +6902,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -7639,13 +6971,8 @@
     "input_limit": 200000,
     "output_limit": 64000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -7679,13 +7006,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -7768,13 +7090,8 @@
     "input_limit": 200000,
     "output_limit": 32000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -7808,13 +7125,8 @@
     "input_limit": 200000,
     "output_limit": 64000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -7848,13 +7160,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -7932,13 +7239,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -8021,13 +7323,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -8100,13 +7397,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -8179,13 +7471,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -8253,13 +7540,8 @@
     "input_limit": 1000000,
     "output_limit": 64000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -8303,13 +7585,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -8387,13 +7664,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -8466,13 +7738,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -8540,12 +7807,8 @@
     "input_limit": 262144,
     "output_limit": 80000,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -8579,14 +7842,8 @@
     "input_limit": 262144,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -8630,14 +7887,8 @@
     "input_limit": 262144,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -8681,14 +7932,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -8722,14 +7967,8 @@
     "input_limit": 262144,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -8802,14 +8041,8 @@
     "input_limit": 262144,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -8887,14 +8120,8 @@
     "input_limit": 262144,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -8972,13 +8199,8 @@
     "input_limit": 128000,
     "output_limit": 2048,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -9012,12 +8234,8 @@
     "input_limit": 128000,
     "output_limit": 8192,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -9051,12 +8269,8 @@
     "input_limit": 256000,
     "output_limit": 8192,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -9090,13 +8304,8 @@
     "input_limit": 192000,
     "output_limit": 64000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -9130,12 +8339,8 @@
     "input_limit": 128000,
     "output_limit": 4000,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -9169,12 +8374,8 @@
     "input_limit": 128000,
     "output_limit": 4000,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -9208,12 +8409,8 @@
     "input_limit": 128000,
     "output_limit": 4000,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -9247,12 +8444,8 @@
     "input_limit": 256000,
     "output_limit": 64000,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -9286,12 +8479,8 @@
     "input_limit": 163840,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -9325,12 +8514,8 @@
     "input_limit": 163840,
     "output_limit": 115200,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -9364,12 +8549,8 @@
     "input_limit": 163840,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -9403,12 +8584,8 @@
     "input_limit": 64000,
     "output_limit": 16000,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -9442,12 +8619,8 @@
     "input_limit": 163840,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -9481,12 +8654,8 @@
     "input_limit": 163840,
     "output_limit": 147456,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -9520,12 +8689,8 @@
     "input_limit": 163840,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -9559,12 +8724,8 @@
     "input_limit": 163840,
     "output_limit": 147456,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -9598,12 +8759,8 @@
     "input_limit": 1048576,
     "output_limit": 943717,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -9661,12 +8818,8 @@
     "input_limit": 1048576,
     "output_limit": 943718,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -9729,13 +8882,8 @@
     "input_limit": 1048576,
     "output_limit": 262144,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -9798,12 +8946,8 @@
     "input_limit": 1048576,
     "output_limit": 384000,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -9861,12 +9005,8 @@
     "input_limit": 1048576,
     "output_limit": 393216,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -9929,13 +9069,8 @@
     "input_limit": 1048576,
     "output_limit": 393216,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -9998,13 +9133,8 @@
     "input_limit": 512000,
     "output_limit": 460800,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -10038,14 +9168,8 @@
     "input_limit": 262144,
     "output_limit": 256000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -10079,13 +9203,8 @@
     "input_limit": 1048576,
     "output_limit": 943718,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -10148,15 +9267,8 @@
     "input_limit": 1048576,
     "output_limit": 65535,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -10190,14 +9302,8 @@
     "input_limit": 32768,
     "output_limit": 8192,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "image"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -10231,15 +9337,8 @@
     "input_limit": 1048576,
     "output_limit": 65535,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -10273,15 +9372,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -10325,14 +9417,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -10376,15 +9462,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -10452,14 +9531,8 @@
     "input_limit": 131072,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "image"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -10493,14 +9566,8 @@
     "input_limit": 65536,
     "output_limit": 32768,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "image"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -10534,14 +9601,8 @@
     "input_limit": 131072,
     "output_limit": 32768,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "image"],
     "options": [
       {
         "id": "effort",
@@ -10599,14 +9660,8 @@
     "input_limit": 65536,
     "output_limit": 58982,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "image"],
     "options": [
       {
         "id": "effort",
@@ -10664,15 +9719,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -10740,14 +9788,8 @@
     "input_limit": 65536,
     "output_limit": 58982,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "image"],
     "options": [
       {
         "id": "effort",
@@ -10805,15 +9847,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -10881,15 +9916,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -10957,15 +9985,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -11033,15 +10054,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -11104,15 +10118,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -11175,15 +10182,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -11246,15 +10246,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -11312,15 +10305,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -11378,15 +10364,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -11444,14 +10423,8 @@
     "input_limit": 65536,
     "output_limit": 58982,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "image"],
     "options": [
       {
         "id": "effort",
@@ -11509,12 +10482,8 @@
     "input_limit": 8192,
     "output_limit": 2048,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -11548,13 +10517,8 @@
     "input_limit": 131072,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -11588,13 +10552,8 @@
     "input_limit": 131072,
     "output_limit": 117964,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -11628,13 +10587,8 @@
     "input_limit": 131072,
     "output_limit": 16384,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -11668,14 +10622,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -11709,14 +10657,8 @@
     "input_limit": 262144,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -11750,14 +10692,8 @@
     "input_limit": 262144,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -11791,14 +10727,8 @@
     "input_limit": 262144,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -11832,14 +10762,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "audio"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "audio"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -11873,14 +10797,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "audio"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "audio"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -11914,12 +10832,8 @@
     "input_limit": 8192,
     "output_limit": 3686,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -11953,12 +10867,8 @@
     "input_limit": 131000,
     "output_limit": 117900,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -11992,12 +10902,8 @@
     "input_limit": 131072,
     "output_limit": 117964,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -12055,12 +10961,8 @@
     "input_limit": 128000,
     "output_limit": 50000,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -12123,12 +11025,8 @@
     "input_limit": 260000,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -12191,12 +11089,8 @@
     "input_limit": 262144,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -12230,14 +11124,8 @@
     "input_limit": 131072,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -12271,12 +11159,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -12310,12 +11194,8 @@
     "input_limit": 128000,
     "output_limit": 4096,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -12349,12 +11229,8 @@
     "input_limit": 128000,
     "output_limit": 8192,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -12388,12 +11264,8 @@
     "input_limit": 65536,
     "output_limit": 8192,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -12427,12 +11299,8 @@
     "input_limit": 128000,
     "output_limit": 8192,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -12466,12 +11334,8 @@
     "input_limit": 8000,
     "output_limit": 6000,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -12505,12 +11369,8 @@
     "input_limit": 1048756,
     "output_limit": 262144,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -12544,12 +11404,8 @@
     "input_limit": 131072,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -12583,12 +11439,8 @@
     "input_limit": 131072,
     "output_limit": 117964,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -12622,12 +11474,8 @@
     "input_limit": 60000,
     "output_limit": 54000,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -12661,12 +11509,8 @@
     "input_limit": 131072,
     "output_limit": 117964,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -12700,12 +11544,8 @@
     "input_limit": 131072,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -12739,13 +11579,8 @@
     "input_limit": 1048576,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -12779,13 +11614,8 @@
     "input_limit": 1310720,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -12819,13 +11649,8 @@
     "input_limit": 163840,
     "output_limit": 16384,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -12859,13 +11684,8 @@
     "input_limit": 131072,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -12928,14 +11748,8 @@
     "input_limit": 1048576,
     "output_limit": 943718,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -13003,14 +11817,8 @@
     "input_limit": 1048576,
     "output_limit": 943718,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -13078,14 +11886,8 @@
     "input_limit": 1048576,
     "output_limit": 943718,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -13153,14 +11955,8 @@
     "input_limit": 1048576,
     "output_limit": 943718,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -13233,14 +12029,8 @@
     "input_limit": 1048576,
     "output_limit": 943718,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -13313,15 +12103,8 @@
     "input_limit": 1048576,
     "output_limit": 943718,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -13384,15 +12167,8 @@
     "input_limit": 1048576,
     "output_limit": 943718,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -13465,12 +12241,8 @@
     "input_limit": 16384,
     "output_limit": 14745,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -13504,12 +12276,8 @@
     "input_limit": 65535,
     "output_limit": 8000,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -13543,13 +12311,8 @@
     "input_limit": 1000192,
     "output_limit": 40000,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -13583,12 +12346,8 @@
     "input_limit": 1000000,
     "output_limit": 40000,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -13622,12 +12381,8 @@
     "input_limit": 204800,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -13661,12 +12416,8 @@
     "input_limit": 65536,
     "output_limit": 2048,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -13700,12 +12451,8 @@
     "input_limit": 204800,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -13739,12 +12486,8 @@
     "input_limit": 204800,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -13778,12 +12521,8 @@
     "input_limit": 204800,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -13817,14 +12556,8 @@
     "input_limit": 1048576,
     "output_limit": 512000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -13858,12 +12591,8 @@
     "input_limit": 256000,
     "output_limit": 204800,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -13897,12 +12626,8 @@
     "input_limit": 262144,
     "output_limit": 209715,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -13936,13 +12661,8 @@
     "input_limit": 262144,
     "output_limit": 209715,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -13976,13 +12696,8 @@
     "input_limit": 131072,
     "output_limit": 104857,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -14016,13 +12731,8 @@
     "input_limit": 262144,
     "output_limit": 209715,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -14056,12 +12766,8 @@
     "input_limit": 128000,
     "output_limit": 102400,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -14095,12 +12801,8 @@
     "input_limit": 131072,
     "output_limit": 104857,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -14134,13 +12836,8 @@
     "input_limit": 262144,
     "output_limit": 209715,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -14174,13 +12871,8 @@
     "input_limit": 1048576,
     "output_limit": 262144,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -14233,13 +12925,8 @@
     "input_limit": 131072,
     "output_limit": 104857,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -14273,13 +12960,8 @@
     "input_limit": 262144,
     "output_limit": 209715,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -14332,13 +13014,8 @@
     "input_limit": 131072,
     "output_limit": 104857,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -14372,12 +13049,8 @@
     "input_limit": 131072,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -14411,12 +13084,8 @@
     "input_limit": 32768,
     "output_limit": 26214,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -14450,12 +13119,8 @@
     "input_limit": 32768,
     "output_limit": 16384,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -14489,13 +13154,8 @@
     "input_limit": 262144,
     "output_limit": 209715,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -14548,13 +13208,8 @@
     "input_limit": 128000,
     "output_limit": 102400,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -14588,13 +13243,8 @@
     "input_limit": 256000,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -14628,12 +13278,8 @@
     "input_limit": 65536,
     "output_limit": 52428,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -14667,13 +13313,8 @@
     "input_limit": 32768,
     "output_limit": 26214,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "audio"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "audio"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -14707,13 +13348,8 @@
     "input_limit": 32000,
     "output_limit": 4096,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -14747,13 +13383,8 @@
     "input_limit": 32000,
     "output_limit": 4096,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -14787,12 +13418,8 @@
     "input_limit": 131072,
     "output_limit": 98304,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -14826,12 +13453,8 @@
     "input_limit": 262144,
     "output_limit": 98304,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -14865,12 +13488,8 @@
     "input_limit": 262144,
     "output_limit": 98304,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -14904,13 +13523,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -14944,13 +13558,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -14984,13 +13593,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -15024,14 +13628,8 @@
     "input_limit": 1048576,
     "output_limit": 943718,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -15094,12 +13692,8 @@
     "input_limit": 81920,
     "output_limit": 38000,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -15133,12 +13727,8 @@
     "input_limit": 262144,
     "output_limit": 131072,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -15172,13 +13762,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -15236,13 +13821,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -15300,12 +13880,8 @@
     "input_limit": 131072,
     "output_limit": 16384,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -15339,12 +13915,8 @@
     "input_limit": 131072,
     "output_limit": 16384,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -15378,12 +13950,8 @@
     "input_limit": 131072,
     "output_limit": 117964,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -15417,12 +13985,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -15456,15 +14020,8 @@
     "input_limit": 256000,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -15498,12 +14055,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -15561,12 +14114,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -15624,12 +14173,8 @@
     "input_limit": 262144,
     "output_limit": 182520,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -15687,12 +14232,8 @@
     "input_limit": 1000000,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -15750,13 +14291,8 @@
     "input_limit": 131072,
     "output_limit": 117964,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -15790,13 +14326,8 @@
     "input_limit": 128000,
     "output_limit": 8192,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -15830,12 +14361,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -15869,12 +14396,8 @@
     "input_limit": 1000000,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -15908,14 +14431,8 @@
     "input_limit": 1048576,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -15949,14 +14466,8 @@
     "input_limit": 1000000,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -15990,12 +14501,8 @@
     "input_limit": 16385,
     "output_limit": 4096,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -16029,12 +14536,8 @@
     "input_limit": 4095,
     "output_limit": 3685,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -16068,12 +14571,8 @@
     "input_limit": 16385,
     "output_limit": 4096,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -16107,12 +14606,8 @@
     "input_limit": 4095,
     "output_limit": 3685,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -16146,12 +14641,8 @@
     "input_limit": 8191,
     "output_limit": 4096,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -16185,13 +14676,8 @@
     "input_limit": 128000,
     "output_limit": 4096,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -16225,13 +14711,8 @@
     "input_limit": 1047576,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -16265,13 +14746,8 @@
     "input_limit": 1047576,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -16305,13 +14781,8 @@
     "input_limit": 1047576,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -16345,13 +14816,8 @@
     "input_limit": 128000,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -16385,13 +14851,8 @@
     "input_limit": 128000,
     "output_limit": 4096,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -16425,13 +14886,8 @@
     "input_limit": 128000,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -16465,13 +14921,8 @@
     "input_limit": 128000,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -16505,13 +14956,8 @@
     "input_limit": 128000,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -16545,13 +14991,8 @@
     "input_limit": 128000,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -16585,13 +15026,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -16654,14 +15090,8 @@
     "input_limit": 400000,
     "output_limit": 128000,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "image"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -16695,14 +15125,8 @@
     "input_limit": 400000,
     "output_limit": 128000,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "image"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -16736,13 +15160,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -16805,13 +15224,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -16874,13 +15288,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -16928,13 +15337,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -16997,13 +15401,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -17061,13 +15460,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -17130,13 +15524,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -17194,13 +15583,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -17268,13 +15652,8 @@
     "input_limit": 128000,
     "output_limit": 32000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -17308,13 +15687,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -17377,13 +15751,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -17441,13 +15810,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -17515,13 +15879,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -17599,14 +15958,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text", "image"],
     "options": [
       {
         "id": "effort",
@@ -17674,13 +16027,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -17748,13 +16096,8 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -17822,13 +16165,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -17896,13 +16234,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -17980,13 +16313,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -18054,13 +16382,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -18143,13 +16466,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -18232,13 +16550,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -18321,13 +16634,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -18410,13 +16718,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -18499,13 +16802,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -18588,13 +16886,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -18672,13 +16965,8 @@
     "input_limit": 1050000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -18756,13 +17044,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -18845,13 +17128,8 @@
     "input_limit": 1050000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -18934,13 +17212,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -19023,13 +17296,8 @@
     "input_limit": 1050000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -19112,13 +17380,8 @@
     "input_limit": 922000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -19196,13 +17459,8 @@
     "input_limit": 1050000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -19280,14 +17538,8 @@
     "input_limit": 128000,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "audio"
-    ],
-    "output_media": [
-      "text",
-      "audio"
-    ],
+    "input_media": ["text", "audio"],
+    "output_media": ["text", "audio"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -19321,14 +17573,8 @@
     "input_limit": 128000,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "audio"
-    ],
-    "output_media": [
-      "text",
-      "audio"
-    ],
+    "input_media": ["text", "audio"],
+    "output_media": ["text", "audio"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -19362,13 +17608,8 @@
     "input_limit": 400000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -19402,12 +17643,8 @@
     "input_limit": 131072,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -19465,12 +17702,8 @@
     "input_limit": 131072,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -19528,12 +17761,8 @@
     "input_limit": 131072,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -19591,13 +17820,8 @@
     "input_limit": 200000,
     "output_limit": 100000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -19631,13 +17855,8 @@
     "input_limit": 200000,
     "output_limit": 100000,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -19671,13 +17890,8 @@
     "input_limit": 200000,
     "output_limit": 100000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -19711,12 +17925,8 @@
     "input_limit": 200000,
     "output_limit": 100000,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -19750,12 +17960,8 @@
     "input_limit": 200000,
     "output_limit": 100000,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -19803,13 +18009,8 @@
     "input_limit": 200000,
     "output_limit": 100000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -19843,13 +18044,8 @@
     "input_limit": 200000,
     "output_limit": 100000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -19883,13 +18079,8 @@
     "input_limit": 200000,
     "output_limit": 100000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -19937,16 +18128,8 @@
     "input_limit": 2000000,
     "output_limit": 2000000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text",
-      "image"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text", "image"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -19963,12 +18146,8 @@
     "input_limit": 128000,
     "output_limit": 128000,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -19985,13 +18164,8 @@
     "input_limit": 200000,
     "output_limit": 8000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -20025,12 +18199,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -20047,12 +18217,8 @@
     "input_limit": 2000000,
     "output_limit": 200000,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -20069,14 +18235,8 @@
     "input_limit": 32768,
     "output_limit": 8192,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -20110,15 +18270,8 @@
     "input_limit": 36864,
     "output_limit": 8192,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -20186,13 +18339,8 @@
     "input_limit": 127072,
     "output_limit": 114364,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -20226,12 +18374,8 @@
     "input_limit": 128000,
     "output_limit": 115200,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -20265,13 +18409,8 @@
     "input_limit": 200000,
     "output_limit": 8000,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -20305,13 +18444,8 @@
     "input_limit": 200000,
     "output_limit": 8000,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -20345,13 +18479,8 @@
     "input_limit": 128000,
     "output_limit": 115200,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -20385,12 +18514,8 @@
     "input_limit": 1048576,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -20424,12 +18549,8 @@
     "input_limit": 262144,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -20463,12 +18584,8 @@
     "input_limit": 262144,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -20502,12 +18619,8 @@
     "input_limit": 262144,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -20541,13 +18654,8 @@
     "input_limit": 262144,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -20605,12 +18713,8 @@
     "input_limit": 32768,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -20644,12 +18748,8 @@
     "input_limit": 32768,
     "output_limit": 29491,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -20683,12 +18783,8 @@
     "input_limit": 32768,
     "output_limit": 29491,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -20722,12 +18818,8 @@
     "input_limit": 1000000,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -20771,13 +18863,8 @@
     "input_limit": 128000,
     "output_limit": 115200,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -20811,12 +18898,8 @@
     "input_limit": 40960,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -20850,12 +18933,8 @@
     "input_limit": 262144,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -20889,12 +18968,8 @@
     "input_limit": 128000,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -20928,12 +19003,8 @@
     "input_limit": 40960,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -20967,12 +19038,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -21006,12 +19073,8 @@
     "input_limit": 131072,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -21045,12 +19108,8 @@
     "input_limit": 262144,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -21084,12 +19143,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -21123,12 +19178,8 @@
     "input_limit": 1000000,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -21182,12 +19233,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -21221,12 +19268,8 @@
     "input_limit": 262144,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -21260,12 +19303,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -21299,13 +19338,8 @@
     "input_limit": 262144,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -21339,13 +19373,8 @@
     "input_limit": 262144,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -21379,13 +19408,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -21419,13 +19443,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -21459,14 +19478,8 @@
     "input_limit": 262144,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -21500,14 +19513,8 @@
     "input_limit": 262144,
     "output_limit": 81920,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -21541,14 +19548,8 @@
     "input_limit": 262144,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -21582,14 +19583,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -21623,14 +19618,8 @@
     "input_limit": 262144,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -21664,14 +19653,8 @@
     "input_limit": 1000000,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -21705,14 +19688,8 @@
     "input_limit": 1000000,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -21756,14 +19733,8 @@
     "input_limit": 1000000,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -21807,14 +19778,8 @@
     "input_limit": 262144,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -21848,14 +19813,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -21889,14 +19848,8 @@
     "input_limit": 1000000,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -21940,14 +19893,8 @@
     "input_limit": 1000000,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -21991,14 +19938,8 @@
     "input_limit": 991808,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -22052,12 +19993,8 @@
     "input_limit": 1000000,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -22091,13 +20028,8 @@
     "input_limit": 1000000,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -22141,12 +20073,8 @@
     "input_limit": 1048576,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -22204,14 +20132,8 @@
     "input_limit": 1000000,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -22274,14 +20196,8 @@
     "input_limit": 1000000,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -22315,14 +20231,8 @@
     "input_limit": 1000000,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -22390,14 +20300,8 @@
     "input_limit": 1000000,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -22465,15 +20369,8 @@
     "input_limit": 1000000,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -22507,12 +20404,8 @@
     "input_limit": 1048576,
     "output_limit": 943718,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -22580,14 +20473,8 @@
     "input_limit": 16384,
     "output_limit": 14745,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -22621,12 +20508,8 @@
     "input_limit": 65536,
     "output_limit": 58982,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -22660,12 +20543,8 @@
     "input_limit": 256000,
     "output_limit": 128000,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -22699,12 +20578,8 @@
     "input_limit": 256000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -22738,13 +20613,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -22802,13 +20672,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -22876,13 +20741,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -22950,13 +20810,8 @@
     "input_limit": 262144,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -23009,12 +20864,8 @@
     "input_limit": 8192,
     "output_limit": 7372,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -23048,12 +20899,8 @@
     "input_limit": 131072,
     "output_limit": 16384,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -23087,12 +20934,8 @@
     "input_limit": 131072,
     "output_limit": 16384,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -23126,13 +20969,8 @@
     "input_limit": 1000000,
     "output_limit": 900000,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -23166,13 +21004,8 @@
     "input_limit": 1000000,
     "output_limit": 4000,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -23206,12 +21039,8 @@
     "input_limit": 262144,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -23245,14 +21074,8 @@
     "input_limit": 256000,
     "output_limit": 230400,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -23310,14 +21133,8 @@
     "input_limit": 1000000,
     "output_limit": 64000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -23375,12 +21192,8 @@
     "input_limit": 131072,
     "output_limit": 117964,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -23414,12 +21227,8 @@
     "input_limit": 8192,
     "output_limit": 4096,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -23453,12 +21262,8 @@
     "input_limit": 8192,
     "output_limit": 4096,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -23492,12 +21297,8 @@
     "input_limit": 8192,
     "output_limit": 4096,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -23531,12 +21332,8 @@
     "input_limit": 192000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -23594,12 +21391,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -23657,12 +21450,8 @@
     "input_limit": 1048576,
     "output_limit": 64000,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -23720,12 +21509,8 @@
     "input_limit": 131072,
     "output_limit": 117964,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -23759,12 +21544,8 @@
     "input_limit": 32768,
     "output_limit": 29491,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -23798,12 +21579,8 @@
     "input_limit": 1024000,
     "output_limit": 819200,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -23837,14 +21614,8 @@
     "input_limit": 524288,
     "output_limit": 471859,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -23917,14 +21688,8 @@
     "input_limit": 524288,
     "output_limit": 262144,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -23997,14 +21762,8 @@
     "input_limit": 1048576,
     "output_limit": 262144,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -24077,14 +21836,8 @@
     "input_limit": 1048576,
     "output_limit": 262144,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -24157,13 +21910,8 @@
     "input_limit": 262144,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -24197,12 +21945,8 @@
     "input_limit": 6144,
     "output_limit": 5529,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -24236,12 +21980,8 @@
     "input_limit": 524288,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -24319,12 +22059,8 @@
     "input_limit": 131072,
     "output_limit": 117964,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -24392,12 +22128,8 @@
     "input_limit": 524288,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -24475,12 +22207,8 @@
     "input_limit": 1040000,
     "output_limit": 8192,
     "supports_tools": false,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -24514,13 +22242,8 @@
     "input_limit": 2000000,
     "output_limit": 1800000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -24564,13 +22287,8 @@
     "input_limit": 2000000,
     "output_limit": 1800000,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -24643,13 +22361,8 @@
     "input_limit": 1000000,
     "output_limit": 900000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -24722,13 +22435,8 @@
     "input_limit": 500000,
     "output_limit": 450000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -24796,13 +22504,8 @@
     "input_limit": 500000,
     "output_limit": 450000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -24875,13 +22578,8 @@
     "input_limit": 500000,
     "output_limit": 450000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -24954,13 +22652,8 @@
     "input_limit": 256000,
     "output_limit": 230400,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -25004,15 +22697,8 @@
     "input_limit": 1050000,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -25046,12 +22732,8 @@
     "input_limit": 1050000,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -25085,15 +22767,8 @@
     "input_limit": 1050000,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -25127,15 +22802,8 @@
     "input_limit": 1050000,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -25169,15 +22837,8 @@
     "input_limit": 1048576,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -25211,12 +22872,8 @@
     "input_limit": 262144,
     "output_limit": 235929,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -25250,12 +22907,8 @@
     "input_limit": 131072,
     "output_limit": 98304,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -25289,12 +22942,8 @@
     "input_limit": 131072,
     "output_limit": 98304,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -25328,13 +22977,8 @@
     "input_limit": 65536,
     "output_limit": 16384,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -25368,12 +23012,8 @@
     "input_limit": 204800,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -25407,14 +23047,8 @@
     "input_limit": 131072,
     "output_limit": 32768,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -25448,12 +23082,8 @@
     "input_limit": 204800,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -25487,12 +23117,8 @@
     "input_limit": 200000,
     "output_limit": 117964,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -25526,12 +23152,8 @@
     "input_limit": 204800,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -25565,12 +23187,8 @@
     "input_limit": 202752,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -25604,12 +23222,8 @@
     "input_limit": 204800,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -25643,12 +23257,8 @@
     "input_limit": 1048576,
     "output_limit": 943718,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -25706,12 +23316,8 @@
     "input_limit": 1048576,
     "output_limit": 943718,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -25769,14 +23375,8 @@
     "input_limit": 1048576,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -25834,14 +23434,8 @@
     "input_limit": 1048576,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -25899,12 +23493,8 @@
     "input_limit": 1000000,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -25962,14 +23552,8 @@
     "input_limit": 202752,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -26003,13 +23587,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -26077,13 +23656,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -26166,13 +23740,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -26240,13 +23809,8 @@
     "input_limit": 1000000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -26314,13 +23878,8 @@
     "input_limit": 1048576,
     "output_limit": 943718,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -26383,12 +23942,8 @@
     "input_limit": 1048576,
     "output_limit": 393216,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -26451,12 +24006,8 @@
     "input_limit": 1048576,
     "output_limit": 943718,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -26519,15 +24070,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -26585,15 +24129,8 @@
     "input_limit": 1048576,
     "output_limit": 65536,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "audio",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -26661,14 +24198,8 @@
     "input_limit": 1048576,
     "output_limit": 943718,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -26731,13 +24262,8 @@
     "input_limit": 1050000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -26815,13 +24341,8 @@
     "input_limit": 1050000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -26904,13 +24425,8 @@
     "input_limit": 400000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -26978,13 +24494,8 @@
     "input_limit": 1050000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -27062,13 +24573,8 @@
     "input_limit": 1050000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -27151,13 +24657,8 @@
     "input_limit": 262144,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -27191,13 +24692,8 @@
     "input_limit": 500000,
     "output_limit": 450000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -27270,14 +24766,8 @@
     "input_limit": 1048576,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image",
-      "video"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -27335,12 +24825,8 @@
     "input_limit": 1048576,
     "output_limit": 131072,
     "supports_tools": true,
-    "input_media": [
-      "text"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -27398,13 +24884,8 @@
     "input_limit": 1000000,
     "output_limit": 30000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [],
     "preview": false,
     "deprecated": false,
@@ -27448,13 +24929,8 @@
     "input_limit": 1000000,
     "output_limit": 30000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,
@@ -27498,13 +24974,8 @@
     "input_limit": 1000000,
     "output_limit": 30000,
     "supports_tools": false,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -27577,13 +25048,8 @@
     "input_limit": 1000000,
     "output_limit": 30000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -27656,13 +25122,8 @@
     "input_limit": 500000,
     "output_limit": 500000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -27730,13 +25191,8 @@
     "input_limit": 500000,
     "output_limit": 500000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -27809,13 +25265,8 @@
     "input_limit": 500000,
     "output_limit": 500000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": [
       {
         "id": "effort",
@@ -27888,13 +25339,8 @@
     "input_limit": 256000,
     "output_limit": 256000,
     "supports_tools": true,
-    "input_media": [
-      "text",
-      "image"
-    ],
-    "output_media": [
-      "text"
-    ],
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
     "options": null,
     "preview": false,
     "deprecated": false,

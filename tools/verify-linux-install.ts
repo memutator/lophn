@@ -82,28 +82,24 @@ async function isDir(path: string): Promise<boolean> {
 
 async function checkLayout(): Promise<void> {
   const missing: string[] = [];
-  for (
-    const file of [
-      layout.deno,
-      layout.desktopBinary,
-      layout.chromeSandbox,
-      `${layout.platform}/deno.json`,
-      `${layout.platform}/deno.lock`,
-      `${layout.platform}/packages/core/main/daemon/main.ts`,
-      `${layout.desktop}/desktop/index.html`,
-    ]
-  ) {
-    if (!await isFile(file)) missing.push(file);
+  for (const file of [
+    layout.deno,
+    layout.desktopBinary,
+    layout.chromeSandbox,
+    `${layout.platform}/deno.json`,
+    `${layout.platform}/deno.lock`,
+    `${layout.platform}/packages/core/main/daemon/main.ts`,
+    `${layout.desktop}/desktop/index.html`,
+  ]) {
+    if (!(await isFile(file))) missing.push(file);
   }
-  for (
-    const dir of [
-      layout.platform + "/vendor",
-      layout.platform + "/node_modules",
-      layout.skills,
-      layout.sdk,
-    ]
-  ) {
-    if (!await isDir(dir)) missing.push(dir);
+  for (const dir of [
+    layout.platform + "/vendor",
+    layout.platform + "/node_modules",
+    layout.skills,
+    layout.sdk,
+  ]) {
+    if (!(await isDir(dir))) missing.push(dir);
   }
   for (const name of ["lophn-desktop", "lophn"]) {
     try {
@@ -185,18 +181,16 @@ async function startCore(home: string, data: string) {
   const hello = await Promise.race([
     core.hello,
     new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("hello timeout")), 60_000)
+      setTimeout(() => reject(new Error("hello timeout")), 60_000),
     ),
   ]);
   return { core, hello };
 }
 
-async function stopCore(
-  core: {
-    stop(graceMs?: number): void;
-    child: { pid?: number; exitCode: number | null };
-  },
-) {
+async function stopCore(core: {
+  stop(graceMs?: number): void;
+  child: { pid?: number; exitCode: number | null };
+}) {
   core.stop(5_000);
   for (let i = 0; i < 60 && core.child.exitCode === null; i++) {
     await new Promise((resolve) => setTimeout(resolve, 250));
@@ -220,8 +214,8 @@ async function checkCoreOffline(): Promise<void> {
       (s) => s.size,
       () => -1,
     );
-    const ledgerId = await readFile(`${data}/ledger-id`, "utf8").catch(() =>
-      ""
+    const ledgerId = await readFile(`${data}/ledger-id`, "utf8").catch(
+      () => "",
     );
     await rm(`${home}/.cache/lophn/deno`, { recursive: true });
     const second = await startCore(home, data).catch((error) => error as Error);
@@ -233,8 +227,10 @@ async function checkCoreOffline(): Promise<void> {
       (s) => s.size,
       () => -1,
     );
-    const sameId = ledgerId !== "" &&
-      ledgerId === await readFile(`${data}/ledger-id`, "utf8").catch(() => "");
+    const sameId =
+      ledgerId !== "" &&
+      ledgerId ===
+        (await readFile(`${data}/ledger-id`, "utf8").catch(() => ""));
     record(
       "R8 cache 삭제 뒤에도 H 유지·재시작",
       before > 0 && after > 0 && sameId ? "pass" : "fail",
@@ -251,13 +247,14 @@ await checkLaunchers();
 await checkCoreOffline();
 
 const failed = results.filter((item) => item.verdict === "fail").length;
-const unverified =
-  results.filter((item) => item.verdict === "unverified").length;
+const unverified = results.filter(
+  (item) => item.verdict === "unverified",
+).length;
 console.log(
   failed > 0
     ? `\n실패 ${failed}건: Linux 배포는 사용 가능이 아니다.`
     : unverified > 0
-    ? `\n미확인 ${unverified}건: Ubuntu 설치에서 다시 확인하기 전에는 Linux 배포를 사용 가능으로 표시하지 않는다.`
-    : "\n모든 항목 통과: 이 설치는 확인됐다(앱 호출은 flow install-lophn E2E가 따로 본다).",
+      ? `\n미확인 ${unverified}건: Ubuntu 설치에서 다시 확인하기 전에는 Linux 배포를 사용 가능으로 표시하지 않는다.`
+      : "\n모든 항목 통과: 이 설치는 확인됐다(앱 호출은 flow install-lophn E2E가 따로 본다).",
 );
 process.exit(failed > 0 ? 1 : unverified > 0 ? 2 : 0);

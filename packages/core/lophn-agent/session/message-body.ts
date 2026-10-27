@@ -144,19 +144,22 @@ export function createMessageBodyPreparer(deps: {
       envelope.command !== sendMessage.name &&
       envelope.command !== receiveMessage.name &&
       envelope.command !== recordMessage.name
-    ) return ok(envelope);
+    )
+      return ok(envelope);
     const kind = parseActor(ctx.actor)?.kind;
     const record = envelope.input as { content?: unknown };
     // 사람은 글만, machine은 글과 reasoning, agent는 글과 카드다(MessageContent).
-    const schema = kind === "agent"
-      ? agentMessageContentInputSchema
-      : kind === "machine"
-      ? machineMessageContentInputSchema
-      : userMessageContentInputSchema;
+    const schema =
+      kind === "agent"
+        ? agentMessageContentInputSchema
+        : kind === "machine"
+          ? machineMessageContentInputSchema
+          : userMessageContentInputSchema;
     // 답 글에 reasoning이 붙으면 64KiB를 넘기 쉽다. agent와 같은 상한을 쓴다.
-    const max = kind === "agent" || kind === "machine"
-      ? MESSAGE_CONTENT_MAX_BYTES
-      : MESSAGE_TEXT_CONTENT_MAX_BYTES;
+    const max =
+      kind === "agent" || kind === "machine"
+        ? MESSAGE_CONTENT_MAX_BYTES
+        : MESSAGE_TEXT_CONTENT_MAX_BYTES;
     const redacted = redactValue(
       createProductRedactor(deps.known?.()),
       record.content,

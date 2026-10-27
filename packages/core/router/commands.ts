@@ -34,7 +34,8 @@ export const callsRecover = defineCommand({
 function agentSession(ctx: RequestContext): Result<string> {
   const actor = parseActor(ctx.actor);
   if (
-    actor === undefined || actor.kind !== "agent" ||
+    actor === undefined ||
+    actor.kind !== "agent" ||
     !idSchema("ses").safeParse(actor.id).success
   ) {
     return err({ code: "forbidden", message: "only an agent session calls" });
@@ -116,8 +117,7 @@ const recoverCallsCommand: CommandDefinition<typeof callsRecover> = {
     if (!failed.ok) return failed;
     const environment = routerEnvironment();
     if (!environment.ok) return environment;
-    const interrupted = environment.value.interruptRunningTurns?.(tx) ??
-      ok(0);
+    const interrupted = environment.value.interruptRunningTurns?.(tx) ?? ok(0);
     if (!interrupted.ok) return interrupted;
     return ok({ failed: failed.value, interrupted: interrupted.value });
   },

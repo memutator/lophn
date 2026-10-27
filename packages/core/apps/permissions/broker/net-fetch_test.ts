@@ -29,14 +29,16 @@ function setup(
   const service = createNetFetchService({
     access: {
       current: () =>
-        Promise.resolve(ok({
-          release: "r1",
-          scope: {
-            access: granted.map((scope) => ({ kind: "net.fetch", scope })),
-            app_calls: [],
-          },
-          tools: ["demo.run"],
-        })),
+        Promise.resolve(
+          ok({
+            release: "r1",
+            scope: {
+              access: granted.map((scope) => ({ kind: "net.fetch", scope })),
+              app_calls: [],
+            },
+            tools: ["demo.run"],
+          }),
+        ),
     },
     ...(secrets === undefined ? {} : { secrets }),
     transport: (input, init) => {
@@ -97,9 +99,9 @@ test("redirect from https down to loopback http is refused", async () => {
     (url) =>
       url.protocol === "https:"
         ? new Response(null, {
-          status: 302,
-          headers: { location: "http://127.0.0.1:8080/y" },
-        })
+            status: 302,
+            headers: { location: "http://127.0.0.1:8080/y" },
+          })
         : new Response("ok"),
   );
   const result = await fetch("api.example.com", 443);
@@ -117,9 +119,9 @@ test("secret value is attached only to the same invocation's exact destination",
     (url) =>
       url.pathname === "/hop"
         ? new Response(null, {
-          status: 302,
-          headers: { location: "http://127.0.0.1:9090/y" },
-        })
+            status: 302,
+            headers: { location: "http://127.0.0.1:9090/y" },
+          })
         : new Response("ok"),
     (invocation, host, port) =>
       invocation === INV1 && host === "127.0.0.1" && port === 8080
@@ -148,9 +150,7 @@ test("app headers cannot carry credentials, and the secret is the only Authoriza
     () => new Response("ok"),
     () => "TOKEN",
   );
-  for (
-    const name of ["Authorization", "cookie", "HOST", "Content-Length"]
-  ) {
+  for (const name of ["Authorization", "cookie", "HOST", "Content-Length"]) {
     const refused = await fetch("127.0.0.1", 8080, "/x", INV1, {
       method: "POST",
       body: "x",

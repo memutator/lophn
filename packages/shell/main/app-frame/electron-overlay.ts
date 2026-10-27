@@ -37,11 +37,9 @@ export function electronOverlays(headless: HeadlessMode = SHELL_OFF) {
     if (!adapter) {
       adapter = {
         denyPermissions() {
-          session.setPermissionRequestHandler((
-            _contents,
-            _permission,
-            callback,
-          ) => callback(false));
+          session.setPermissionRequestHandler(
+            (_contents, _permission, callback) => callback(false),
+          );
           session.setPermissionCheckHandler(() => false);
           session.setDevicePermissionHandler(() => false);
         },
@@ -64,15 +62,13 @@ export function electronOverlays(headless: HeadlessMode = SHELL_OFF) {
       message: "caller is not a live window surface",
     },
   };
-  for (
-    const [channel, method] of [
-      ["shell:overlay-open", "open"],
-      ["shell:overlay-close", "close"],
-      ["shell:overlay-update", "update"],
-      ["overlay:result", "result"],
-      ["overlay:subscribe", "subscribe"],
-    ] as const
-  ) {
+  for (const [channel, method] of [
+    ["shell:overlay-open", "open"],
+    ["shell:overlay-close", "close"],
+    ["shell:overlay-update", "update"],
+    ["overlay:result", "result"],
+    ["overlay:subscribe", "subscribe"],
+  ] as const) {
     ipcMain.handle(channel, (event, input: unknown) => {
       const owner = [...windows].find((window) => window.owns(event.sender));
       return owner ? owner[method](event as IpcEvent, input) : denied;
@@ -108,8 +104,8 @@ export function electronOverlays(headless: HeadlessMode = SHELL_OFF) {
         packaged,
         headless,
         body: () => {
-          const [width = 1, height = TOP_BAR_HEIGHT + 1] = window
-            .getContentSize();
+          const [width = 1, height = TOP_BAR_HEIGHT + 1] =
+            window.getContentSize();
           return {
             x: 0,
             y: TOP_BAR_HEIGHT,
@@ -139,28 +135,32 @@ export function electronOverlays(headless: HeadlessMode = SHELL_OFF) {
           const view = new WebContentsView(surfaceOptions(config, headless));
           const wc = view.webContents;
           sessionPolicy(wc.session);
-          const releaseSecurity = security.contents({
-            setWindowOpenHandler: (handler) => wc.setWindowOpenHandler(handler),
-            onNavigation(listener) {
-              wc.on("will-navigate", listener);
-              wc.on("will-redirect", listener);
-              wc.on("will-frame-navigate", listener);
-              return () => {
-                wc.removeListener("will-navigate", listener);
-                wc.removeListener("will-redirect", listener);
-                wc.removeListener("will-frame-navigate", listener);
-              };
+          const releaseSecurity = security.contents(
+            {
+              setWindowOpenHandler: (handler) =>
+                wc.setWindowOpenHandler(handler),
+              onNavigation(listener) {
+                wc.on("will-navigate", listener);
+                wc.on("will-redirect", listener);
+                wc.on("will-frame-navigate", listener);
+                return () => {
+                  wc.removeListener("will-navigate", listener);
+                  wc.removeListener("will-redirect", listener);
+                  wc.removeListener("will-frame-navigate", listener);
+                };
+              },
+              onWebview(listener) {
+                wc.on("will-attach-webview", listener);
+                return () => wc.removeListener("will-attach-webview", listener);
+              },
+              onDevtools(listener) {
+                wc.on("devtools-opened", listener);
+                return () => wc.removeListener("devtools-opened", listener);
+              },
+              closeDevTools: () => wc.closeDevTools(),
             },
-            onWebview(listener) {
-              wc.on("will-attach-webview", listener);
-              return () => wc.removeListener("will-attach-webview", listener);
-            },
-            onDevtools(listener) {
-              wc.on("devtools-opened", listener);
-              return () => wc.removeListener("devtools-opened", listener);
-            },
-            closeDevTools: () => wc.closeDevTools(),
-          }, packaged);
+            packaged,
+          );
           const adapter: OverlayView = {
             webContents: contents(view.webContents),
             setBackgroundColor: (color) => view.setBackgroundColor(color),

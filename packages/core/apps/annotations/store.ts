@@ -47,17 +47,17 @@ function readOf(row: Record<string, unknown>, root: string | null) {
     n: Number(row["n"]),
     kind: String(row["kind"]),
     note: String(row["note"]),
-    screenshot: hash === null
-      ? null
-      : { hash: String(hash), size_bytes: Number(row["screenshot_size"]) },
+    screenshot:
+      hash === null
+        ? null
+        : { hash: String(hash), size_bytes: Number(row["screenshot_size"]) },
     component: row["component"] === null ? null : String(row["component"]),
     element: json(row["element"]),
     rect: json(row["rect"]),
     view: json(row["view"]),
     release: row["release"] === null ? null : String(row["release"]),
-    screenshot_path: hash === null || root === null
-      ? null
-      : objectPathFor(root, String(hash)),
+    screenshot_path:
+      hash === null || root === null ? null : objectPathFor(root, String(hash)),
   } as AnnotationRead;
 }
 
@@ -84,9 +84,9 @@ export function loadBatch(
 ): { batch: AnnotationBatch; annotations: AnnotationRead[] } | null {
   const row = sql.get("SELECT * FROM annotation_batches WHERE id = ?", [id]);
   if (row === undefined) return null;
-  const ids = sql.all("SELECT id FROM annotations WHERE batch = ? ORDER BY n", [
-    id,
-  ]).map((item) => String(item["id"]));
+  const ids = sql
+    .all("SELECT id FROM annotations WHERE batch = ? ORDER BY n", [id])
+    .map((item) => String(item["id"]));
   return {
     batch: {
       id,

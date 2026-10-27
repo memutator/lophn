@@ -18,10 +18,7 @@ type TextLimit = {
 
 // direction head는 문서·목록, tail은 log다. 멀티바이트 문자와 JSON 문자열
 // 경계를 넘지 않게 UTF-8 code point와 줄 경계에서만 자른다.
-export function limitText(
-  text: string,
-  direction: "head" | "tail",
-): TextLimit {
+export function limitText(text: string, direction: "head" | "tail"): TextLimit {
   const encoded = new TextEncoder().encode(text);
   const lines = text.split("\n");
   const originalBytes = encoded.byteLength;
@@ -37,9 +34,8 @@ export function limitText(
       omittedCount: 0,
     };
   }
-  const kept = direction === "head"
-    ? keepHead(text, lines)
-    : keepTail(text, lines);
+  const kept =
+    direction === "head" ? keepHead(text, lines) : keepTail(text, lines);
   return {
     text: kept,
     complete: false,
@@ -66,9 +62,10 @@ function cutBytes(
 ): string {
   const bytes = new TextEncoder().encode(text);
   if (bytes.byteLength <= TEXT_MAX_BYTES) return text;
-  const slice = direction === "head"
-    ? bytes.slice(0, TEXT_MAX_BYTES)
-    : bytes.slice(bytes.byteLength - TEXT_MAX_BYTES);
+  const slice =
+    direction === "head"
+      ? bytes.slice(0, TEXT_MAX_BYTES)
+      : bytes.slice(bytes.byteLength - TEXT_MAX_BYTES);
   const decoded = new TextDecoder("utf-8", { fatal: false }).decode(slice);
   // 잘린 멀티바이트가 교체 문자로 남으면 그 문자를 버린다.
   const clean = decoded.includes("�")
@@ -134,8 +131,8 @@ export function fitJson(
   // omitted 표시가 들어갈 자리를 먼저 비운다.
   const reserve = 256;
   const arrays = () =>
-    arrayKeys.filter((key) =>
-      Array.isArray(copy[key]) && (copy[key] as unknown[]).length > 0
+    arrayKeys.filter(
+      (key) => Array.isArray(copy[key]) && (copy[key] as unknown[]).length > 0,
     );
   while (jsonBytes(copy) + reserve > TEXT_MAX_BYTES) {
     const keys = arrays();
@@ -150,7 +147,7 @@ export function fitJson(
     const longest = keys.reduce((best, key) =>
       (copy[key] as unknown[]).length > (copy[best] as unknown[]).length
         ? key
-        : best
+        : best,
     );
     const items = copy[longest] as unknown[];
     const drop = Math.max(1, Math.floor(items.length / 4));

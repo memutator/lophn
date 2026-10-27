@@ -11,10 +11,7 @@ export function credentialRoots(home: string): string[] {
 
 // macOS 로그인 keychain과 사용자 keychain 폴더. 다른 OS에는 없다.
 export function keychainRoots(home: string): string[] {
-  return [
-    `${home}/Library/Keychains`,
-    "/Library/Keychains",
-  ];
+  return [`${home}/Library/Keychains`, "/Library/Keychains"];
 }
 
 export function protectedRoots(

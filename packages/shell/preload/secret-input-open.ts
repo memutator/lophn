@@ -18,10 +18,10 @@ export function createSecretInputOpener(
 ): SecretInputOpenApi["open"] {
   return async (input: SecretInputOpen) => {
     try {
-      return await transport.invoke(
+      return (await transport.invoke(
         SECRET_INPUT_OPEN_CHANNEL,
         input,
-      ) as SecretInputOpenReply;
+      )) as SecretInputOpenReply;
     } catch {
       return { ok: false, code: "unavailable" };
     }

@@ -42,20 +42,23 @@ import { titleOnReceive } from "./session-title.ts";
 // 사람 메시지를 session의 입력함에 넣는 Router 입구다(`core/router`의 `route`가 이 모양을 만족한다).
 // 같은 Tx 안에서 부르고, 실패하면 접수한 메시지도 함께 되돌아간다.
 type MessageRouter = {
-  route(tx: Tx, input: {
-    from: CallFrom;
-    to: CallToInput | CallTo;
-    reply: CallReply;
-    body: string;
-    refs: CallRef[];
-    reply_to: null;
-    dedup: null;
-    options: null;
-    kind: "message";
-    delivery: InputDelivery;
-    message: Id<"msg">;
-    unattended?: boolean;
-  }): Result<{ session: string | null }>;
+  route(
+    tx: Tx,
+    input: {
+      from: CallFrom;
+      to: CallToInput | CallTo;
+      reply: CallReply;
+      body: string;
+      refs: CallRef[];
+      reply_to: null;
+      dedup: null;
+      options: null;
+      kind: "message";
+      delivery: InputDelivery;
+      message: Id<"msg">;
+      unattended?: boolean;
+    },
+  ): Result<{ session: string | null }>;
 };
 
 export type SendMessageDeps = {
@@ -106,27 +109,29 @@ function registerBody(
     owner_key: message,
     field: MESSAGE_BODY_FIELD,
     registered_seq: seq,
-    source: existing === undefined
-      ? { kind: "prepared", blob: body.evidence }
-      : { kind: "existing", reference: existing },
+    source:
+      existing === undefined
+        ? { kind: "prepared", blob: body.evidence }
+        : { kind: "existing", reference: existing },
   });
   return registered.ok ? ok(undefined) : registered;
 }
 
 // 제목을 정하는 글. 글 part만 읽고 줄 구분은 줄바꿈이다.
 function textOf(content: Input<typeof sendMessage>["content"]): string {
-  return content.parts.flatMap((part) =>
-    part.kind === "text" ? [part.text] : []
-  )
+  return content.parts
+    .flatMap((part) => (part.kind === "text" ? [part.text] : []))
     .join("\n");
 }
 
 // 이 session에 도는 turn이 있는지. steer가 도는 turn 안으로 들어가는지 가른다.
 function hasRunningTurn(tx: Tx, session: string): boolean {
-  return tx.sql.get(
-    "select 1 as found from turns where session = ? and state = 'running'",
-    [session],
-  ) !== undefined;
+  return (
+    tx.sql.get(
+      "select 1 as found from turns where session = ? and state = 'running'",
+      [session],
+    ) !== undefined
+  );
 }
 
 // 접수한 메시지의 순서 칸이다. ledger event 없이 쓰므로 표 안에서 이어 센다.
@@ -170,25 +175,27 @@ function writeHuman(
     [input.id],
   );
   if (existing !== undefined) {
-    const same = String(existing["session"]) === input.session &&
+    const same =
+      String(existing["session"]) === input.session &&
       String(existing["body"]) === body.hash &&
       String(existing["from_kind"]) === "human";
     return same
       ? ok({
-        replayed: true,
-        text,
-        state_seq: String(existing["created_seq"]),
-      })
+          replayed: true,
+          text,
+          state_seq: String(existing["created_seq"]),
+        })
       : reject("conflict", "message id already used for other input");
   }
   const session = loadSession(tx, input.session);
   if (session === undefined) return sessionNotFound();
-  const firstRequest = tx.sql.get(
-    `select 1 as found from messages
+  const firstRequest =
+    tx.sql.get(
+      `select 1 as found from messages
      where session = ? and from_kind = 'human' and delivery = 'next_turn'
      limit 1`,
-    [session.id],
-  ) === undefined;
+      [session.id],
+    ) === undefined;
   const seq = nextCreatedSeq(tx);
   tx.sql.run(
     `insert into messages (id, session, from_kind, from_ref, call, reply_to,
@@ -308,18 +315,20 @@ export function unstartedHumanMessages(
     [],
   );
   const hidden = new Map<string, ReturnType<typeof hiddenRanges>>();
-  return rows.filter((row) => {
-    const session = String(row["session"]);
-    if (!hidden.has(session)) {
-      hidden.set(session, hiddenRanges({ sql }, session));
-    }
-    return !inHiddenRange(hidden.get(session)!, String(row["created_seq"]));
-  }).map((row) => ({
-    id: String(row["id"]),
-    session: String(row["session"]),
-    refs: JSON.parse(String(row["refs"])) as CallRef[],
-    created_at: String(row["created_at"]),
-  }));
+  return rows
+    .filter((row) => {
+      const session = String(row["session"]);
+      if (!hidden.has(session)) {
+        hidden.set(session, hiddenRanges({ sql }, session));
+      }
+      return !inHiddenRange(hidden.get(session)!, String(row["created_seq"]));
+    })
+    .map((row) => ({
+      id: String(row["id"]),
+      session: String(row["session"]),
+      refs: JSON.parse(String(row["refs"])) as CallRef[],
+      created_at: String(row["created_at"]),
+    }));
 }
 
 // 사람의 단추 한 번으로 새 session을 여는 요청이다(request.ts). Router가 session을 열고 입력을 넣은 뒤
@@ -335,7 +344,8 @@ function recordAgent(
   input: Input<typeof recordMessage>,
 ): Result<{ message: string; state_seq: string }> {
   const actor = parseActor(ctx.actor);
-  const allowed = actor?.kind === "machine" ||
+  const allowed =
+    actor?.kind === "machine" ||
     (actor?.kind === "agent" && actor.id === input.session);
   if (!allowed) {
     return reject(
@@ -356,7 +366,8 @@ function recordAgent(
     [input.id],
   );
   if (existing !== undefined) {
-    const same = String(existing["session"]) === input.session &&
+    const same =
+      String(existing["session"]) === input.session &&
       String(existing["body"]) === body.hash &&
       String(existing["from_kind"]) === "agent" &&
       String(existing["from_ref"]) === input.session &&

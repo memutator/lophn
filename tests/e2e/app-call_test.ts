@@ -124,10 +124,14 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
       definition: { name: "Caller", body: "use the app" },
     });
     const operator = { role: "operator", agent } as const;
-    await c.call(agentAssignmentSet, {
-      agent: operator,
-      entries: [{ app: id, removed_tools: [] }],
-    }, { revision: 0 });
+    await c.call(
+      agentAssignmentSet,
+      {
+        agent: operator,
+        entries: [{ app: id, removed_tools: [] }],
+      },
+      { revision: 0 },
+    );
 
     await t.test("agent-calls-app", async () => {
       fake.reset();

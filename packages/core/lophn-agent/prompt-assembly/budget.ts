@@ -45,7 +45,8 @@ export function measureWire(pack: WirePack, request: PromptRequest): number {
   for (const message of request.messages) {
     for (const part of message.parts) {
       if (
-        part.kind === "tool_result_image" && json.includes(part.data_base64)
+        part.kind === "tool_result_image" &&
+        json.includes(part.data_base64)
       ) {
         total += IMAGE_TOKENS - part.data_base64.length;
       }

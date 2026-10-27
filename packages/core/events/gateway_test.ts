@@ -38,7 +38,7 @@ function fakeSocket() {
   return {
     sent,
     closed,
-    setBuffered: (bytes: number) => buffered = bytes,
+    setBuffered: (bytes: number) => (buffered = bytes),
     socket: {
       send: (text: string) => {
         sent.push(gatewayServerFrameSchema.parse(JSON.parse(text)));
@@ -53,10 +53,12 @@ test("느린 구독자는 끊기고 다시 붙으면 snapshot부터 다시 읽�
   const bus = createBus();
   const first = fakeSocket();
   const session = createGatewaySession(first.socket, bus);
-  session.receive(JSON.stringify({
-    type: "watch",
-    conditions: [{ session: SES_A }, { types: ["SettingsChanged"] }],
-  }));
+  session.receive(
+    JSON.stringify({
+      type: "watch",
+      conditions: [{ session: SES_A }, { types: ["SettingsChanged"] }],
+    }),
+  );
   // ready가 먼저 오고, 조건에 맞는 event만 한 번씩 온다(두 조건에 다 맞아도 한 번).
   bus.publish(turnStarted(SES_A));
   bus.publish(turnStarted(SES_B));

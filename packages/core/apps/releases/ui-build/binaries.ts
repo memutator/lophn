@@ -33,16 +33,20 @@ export async function cacheBuildTools(
   env: Record<string, string>,
   signal?: AbortSignal,
 ): Promise<boolean> {
-  const child = spawn(deno, [
-    "cache",
-    "--no-lock",
-    `--config=${REPO}/deno.json`,
-    `${REPO}/packages/core/apps/releases/ui-build/app-build.ts`,
-  ], {
-    env,
-    stdio: ["ignore", "ignore", "ignore"],
-    signal,
-  });
+  const child = spawn(
+    deno,
+    [
+      "cache",
+      "--no-lock",
+      `--config=${REPO}/deno.json`,
+      `${REPO}/packages/core/apps/releases/ui-build/app-build.ts`,
+    ],
+    {
+      env,
+      stdio: ["ignore", "ignore", "ignore"],
+      signal,
+    },
+  );
   return await new Promise<boolean>((resolve, reject) => {
     child.on("error", (error) => {
       // abort는 자식을 SIGTERM으로 끝내고 close가 온다. 종료 code로 판정해 false를 돌려준다.

@@ -21,9 +21,7 @@ import { objectPathFor } from "../mod.ts";
 
 // GC 관측의 설치 blob 파일 목록. hash 폴더 2자 아래 나머지 62자다.
 // core는 파일을 열지 않는다. 관측 실패는 없다고 본다.
-export async function listInstalledBlobs(
-  root: string,
-): Promise<
+export async function listInstalledBlobs(root: string): Promise<
   Result<
     readonly {
       hash: string;
@@ -42,8 +40,8 @@ export async function listInstalledBlobs(
   }[] = [];
   let prefixes: string[];
   try {
-    prefixes = readdirSync(objects, { withFileTypes: true }).map((entry) =>
-      entry.name
+    prefixes = readdirSync(objects, { withFileTypes: true }).map(
+      (entry) => entry.name,
     );
   } catch {
     return ok([]);
@@ -51,8 +49,9 @@ export async function listInstalledBlobs(
   for (const prefix of prefixes) {
     let names: string[];
     try {
-      names = readdirSync(`${objects}/${prefix}`, { withFileTypes: true })
-        .map((entry) => entry.name);
+      names = readdirSync(`${objects}/${prefix}`, { withFileTypes: true }).map(
+        (entry) => entry.name,
+      );
     } catch {
       continue;
     }
@@ -87,8 +86,11 @@ export type StoppedConditions = {
 
 // 세 조건이 모두 관측됐는지. 하나라도 거짓이면 유지보수는 아무것도 하지 않는다.
 function fullyStopped(conditions: StoppedConditions): boolean {
-  return conditions.preparationsBlocked && conditions.commandsBlocked &&
-    conditions.writerStopped;
+  return (
+    conditions.preparationsBlocked &&
+    conditions.commandsBlocked &&
+    conditions.writerStopped
+  );
 }
 
 // 정지 유지보수 deps. 목록 관측은 실제 파일·ledger에서 잡아 넣는다.
@@ -224,9 +226,7 @@ function maintenanceObservation(deps: MaintenanceDeps): GcDeps {
       }
       for (const name of names) {
         try {
-          const info = await stat(
-            `${deps.root}/${BLOB_STORE_TMP_DIR}/${name}`,
-          );
+          const info = await stat(`${deps.root}/${BLOB_STORE_TMP_DIR}/${name}`);
           if (!info.isFile()) continue;
           entries.push({ name, observedAtMs: info.mtime?.getTime() ?? 0 });
         } catch {
@@ -292,8 +292,8 @@ async function readRecordDir(
   const found = new Map<string, unknown>();
   let prefixes: string[];
   try {
-    prefixes = readdirSync(dir, { withFileTypes: true }).map((entry) =>
-      entry.name
+    prefixes = readdirSync(dir, { withFileTypes: true }).map(
+      (entry) => entry.name,
     );
   } catch {
     return ok(found);

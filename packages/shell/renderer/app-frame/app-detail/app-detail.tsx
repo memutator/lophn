@@ -28,21 +28,21 @@ interface AppDetailProps {
 
 const systemNow = () => new Date();
 
-export function AppDetail(
-  {
-    app,
-    name,
-    source,
-    onInstructions,
-    onOpenDomainDoc,
-    onOpenSession,
-    now = systemNow,
-  }: AppDetailProps,
-) {
+export function AppDetail({
+  app,
+  name,
+  source,
+  onInstructions,
+  onOpenDomainDoc,
+  onOpenSession,
+  now = systemNow,
+}: AppDetailProps) {
   return (
     <div className={styles.root} data-app-detail={app}>
       <div className={styles.top}>
-        <h3 className={styles.name} data-app-detail-name="">{name}</h3>
+        <h3 className={styles.name} data-app-detail-name="">
+          {name}
+        </h3>
         {onInstructions ? <InstructionsButton onOpen={onInstructions} /> : null}
       </div>
       <DomainsSection app={app} source={source} onOpenDoc={onOpenDomainDoc} />

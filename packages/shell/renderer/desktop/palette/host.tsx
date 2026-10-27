@@ -68,13 +68,15 @@ function activeElement(): HTMLElement {
  * Desktop이 창마다 하나 둔다. 팔레트 키는 지금 공간의 scope를 열고, 런처 복귀 키는
  * onLauncher를 부른다. scope가 없는 곳(런처)에서 팔레트 키는 아무것도 열지 않는다.
  */
-export function PaletteProvider(
-  { deps, onLauncher, children }: {
-    deps: PaletteDeps | undefined;
-    onLauncher: () => void;
-    children: ReactNode;
-  },
-) {
+export function PaletteProvider({
+  deps,
+  onLauncher,
+  children,
+}: {
+  deps: PaletteDeps | undefined;
+  onLauncher: () => void;
+  children: ReactNode;
+}) {
   const scopes = useRef<PaletteScope<unknown>[]>([]);
   const opener = useRef<PaletteOpener | null>(null);
   const launcher = useRef(onLauncher);
@@ -83,32 +85,35 @@ export function PaletteProvider(
   const search = deps?.search;
   const available = deps !== undefined;
   const commands = useRef(new Set<(command: MainCommand) => void>());
-  const hub = useMemo<PaletteHub>(() => ({
-    platform,
-    search,
-    available,
-    onCommand(listener) {
-      commands.current.add(listener);
-      return () => void commands.current.delete(listener);
-    },
-    register(scope) {
-      scopes.current = [...scopes.current, scope];
-      return () => {
-        scopes.current = scopes.current.filter((item) => item !== scope);
-      };
-    },
-    toggle(element) {
-      const current = opener.current;
-      const scope = scopes.current.at(-1);
-      if (!current) return;
-      if (current.open || scope) void current.toggle(scope!, element);
-    },
-    openGlobal(scope) {
-      const current = opener.current;
-      if (!current || current.open) return;
-      void current.toggle(scope, activeElement());
-    },
-  }), [platform, search, available]);
+  const hub = useMemo<PaletteHub>(
+    () => ({
+      platform,
+      search,
+      available,
+      onCommand(listener) {
+        commands.current.add(listener);
+        return () => void commands.current.delete(listener);
+      },
+      register(scope) {
+        scopes.current = [...scopes.current, scope];
+        return () => {
+          scopes.current = scopes.current.filter((item) => item !== scope);
+        };
+      },
+      toggle(element) {
+        const current = opener.current;
+        const scope = scopes.current.at(-1);
+        if (!current) return;
+        if (current.open || scope) void current.toggle(scope!, element);
+      },
+      openGlobal(scope) {
+        const current = opener.current;
+        if (!current || current.open) return;
+        void current.toggle(scope, activeElement());
+      },
+    }),
+    [platform, search, available],
+  );
   // 통로가 있을 때만 연다. 창이 닫히면 열린 팔레트와 shortcut 구독을 함께 놓는다.
   useEffect(() => {
     if (!deps) return;

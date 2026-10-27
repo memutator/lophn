@@ -29,7 +29,9 @@ export type LayoutResult =
  */
 export function parseLayoutFile(value: unknown): LayoutResult {
   if (
-    typeof value === "object" && value !== null && "schema_version" in value &&
+    typeof value === "object" &&
+    value !== null &&
+    "schema_version" in value &&
     typeof (value as { schema_version: unknown }).schema_version === "number"
   ) {
     const version = (value as { schema_version: number }).schema_version;
@@ -69,9 +71,11 @@ function skipUnregisteredTabs(value: unknown): unknown {
 }
 
 function skipInDesk(value: unknown): unknown {
-  const desk = value as
-    | { panes?: unknown; floats?: unknown; detached?: unknown }
-    | null;
+  const desk = value as {
+    panes?: unknown;
+    floats?: unknown;
+    detached?: unknown;
+  } | null;
   if (typeof desk !== "object" || desk === null) return value;
   const registered = (tab: unknown): boolean => {
     const kind = (tab as { kind?: unknown } | null)?.kind;
@@ -87,8 +91,8 @@ function skipInDesk(value: unknown): unknown {
       if (kept.length === tabs.length) return pane;
       changed = true;
       const selected = (pane as { selected_tab?: unknown }).selected_tab;
-      const stillThere = kept.some((tab: unknown) =>
-        (tab as { key?: unknown } | null)?.key === selected
+      const stillThere = kept.some(
+        (tab: unknown) => (tab as { key?: unknown } | null)?.key === selected,
       );
       const first = (kept[0] as { key?: unknown } | undefined)?.key ?? null;
       return {
@@ -101,7 +105,7 @@ function skipInDesk(value: unknown): unknown {
   let floats = desk.floats;
   if (Array.isArray(floats)) {
     const kept = floats.filter((float: unknown) =>
-      registered((float as { tab?: unknown } | null)?.tab)
+      registered((float as { tab?: unknown } | null)?.tab),
     );
     if (kept.length !== floats.length) {
       changed = true;
@@ -111,7 +115,7 @@ function skipInDesk(value: unknown): unknown {
   let detached = desk.detached;
   if (Array.isArray(detached)) {
     const kept = detached.filter((item: unknown) =>
-      registered((item as { tab?: unknown } | null)?.tab)
+      registered((item as { tab?: unknown } | null)?.tab),
     );
     if (kept.length !== detached.length) {
       changed = true;

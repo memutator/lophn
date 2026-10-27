@@ -8,7 +8,12 @@ function inside(path: string, parent: string): boolean {
 
 function listOf(flag: string): string[] {
   const at = flag.indexOf("=");
-  return at < 0 ? [] : flag.slice(at + 1).split(",").filter((v) => v !== "");
+  return at < 0
+    ? []
+    : flag
+        .slice(at + 1)
+        .split(",")
+        .filter((v) => v !== "");
 }
 
 // 운영 data 자리: `.../apps/<app>/preview/<nonce>` 옆의 `.../apps/<app>/data`다.
@@ -42,8 +47,9 @@ export function previewFlagsViolation(
     if (name === "--allow-write") {
       // 앱 DB file(-wal·-shm 포함)이 폴더 안에 있다. `..`로 폴더 밖을 가리키는 path는 안으로 치지 않는다.
       if (
-        listOf(flag).some((path) =>
-          !inside(path, launch.dataPath) || path.split("/").includes("..")
+        listOf(flag).some(
+          (path) =>
+            !inside(path, launch.dataPath) || path.split("/").includes(".."),
         )
       ) {
         return "preview can write only its disposable directory";

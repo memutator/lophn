@@ -128,11 +128,14 @@ export function createNoticeWiring(
   // 탭을 가진 창을 모르면 마지막으로 focus를 받은 창이다(detached 창은 건너뛴다).
   function reveal(target: NoticeTarget): void {
     const live = [...ctx.windows].filter((window) => !window.isDestroyed());
-    const owner = target.kind === "terminal"
-      ? focus.contentsOf(target.terminal_ref)
-      : visibility.owner(target.session);
-    const window = live.find((item) => item.webContents.id === owner) ??
-      live.filter((item) => !ctx.detached.has(item)).at(-1) ?? live.at(-1);
+    const owner =
+      target.kind === "terminal"
+        ? focus.contentsOf(target.terminal_ref)
+        : visibility.owner(target.session);
+    const window =
+      live.find((item) => item.webContents.id === owner) ??
+      live.filter((item) => !ctx.detached.has(item)).at(-1) ??
+      live.at(-1);
     if (window === undefined) {
       ctx.desktop.show();
       return;
@@ -224,7 +227,9 @@ export function createNoticeWiring(
     });
     const agent = snapshots?.snapshots[0]?.agent;
     if (
-      agent === undefined || agent === null || agent.role === "coding_agent"
+      agent === undefined ||
+      agent === null ||
+      agent.role === "coding_agent"
     ) {
       return null;
     }
@@ -232,13 +237,14 @@ export function createNoticeWiring(
       read("read", agentDefinitionRead, { agent }),
       read("read", agentSessionRead, { session }),
     ]);
-    const name = definition?.effective.name.value ??
-      word(AGENT_LABELS[agent.role]);
+    const name =
+      definition?.effective.name.value ?? word(AGENT_LABELS[agent.role]);
     const profile = definition?.effective.profile.value;
     // 올린 이미지는 renderer만 읽을 주소가 있어 이름 첫 글자로 갈음한다(Agent 화면 머리와 같다).
-    const face: AvatarFace = profile?.kind === "icon"
-      ? { kind: "icon", icon: profile.icon }
-      : { kind: "initial", text: [...name][0] };
+    const face: AvatarFace =
+      profile?.kind === "icon"
+        ? { kind: "icon", icon: profile.icon }
+        : { kind: "initial", text: [...name][0] };
     const title = record?.session.title ?? undefined;
     return {
       session,
@@ -253,7 +259,7 @@ export function createNoticeWiring(
     for (const message of messages.toReversed()) {
       const body = await read("read", messageBody, { message });
       const text = body?.content.parts
-        .flatMap((part) => part.kind === "text" ? [part.text] : [])
+        .flatMap((part) => (part.kind === "text" ? [part.text] : []))
         .join("\n");
       const found = excerpt(text);
       if (found !== undefined) return found;
@@ -275,8 +281,8 @@ export function createNoticeWiring(
         subject?.kind === "shell"
           ? subject.command
           : subject?.kind === "harness"
-          ? subject.summary ?? subject.tool
-          : subject?.tool,
+            ? (subject.summary ?? subject.tool)
+            : subject?.tool,
       );
     }
     const asked = await read("memory", askRead, {
@@ -321,10 +327,10 @@ export function createNoticeWiring(
   });
   ctx.relay.events.push((event) => void sessions.event(event));
   ctx.windowHooks.created.push((window) =>
-    window.on("focus", () => sessions.recheck())
+    window.on("focus", () => sessions.recheck()),
   );
   ctx.windowHooks.closed.push(({ contentsId }) =>
-    visibility.forget(contentsId)
+    visibility.forget(contentsId),
   );
 
   const registry = ctx.overlays.overlayRegistry();
@@ -340,10 +346,8 @@ export function createNoticeWiring(
     const parsed = checkInput(noticeTargetSchema, input);
     if (parsed.ok) reveal(parsed.value);
   });
-  ctx.ipc.handle(
-    NOTICE_UNSEEN_GET_CHANNEL,
-    (event: IpcEvent) =>
-      checkCaller(registry, event).ok ? sessions.unseen() : [],
+  ctx.ipc.handle(NOTICE_UNSEEN_GET_CHANNEL, (event: IpcEvent) =>
+    checkCaller(registry, event).ok ? sessions.unseen() : [],
   );
 
   return {

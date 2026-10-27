@@ -45,31 +45,37 @@ export function useSettled(
   }, []);
   const clear = useCallback(() => setRows([]), []);
 
-  useEffect(() =>
-    client.subscribe({
-      types: [
-        "TurnRequestClosed",
-        "QuestionResolved",
-        "ActivationConsentClosed",
-      ],
-    }, (message) => {
-      if (message.kind !== "event") return;
-      const event = message.event;
-      let id: string | null = null;
-      let cancelled = false;
-      if (event.type === "TurnRequestClosed") {
-        id = event.payload.request;
-        cancelled = event.payload.outcome === "cancelled";
-      } else if (event.type === "QuestionResolved") {
-        id = event.payload.group;
-        cancelled = event.payload.outcome === "cancelled";
-      } else if (event.type === "ActivationConsentClosed") {
-        id = event.payload.release;
-        cancelled = event.payload.outcome === "cancelled";
-      }
-      const entry = id === null ? undefined : known.current.get(id);
-      if (cancelled && entry) add(entry, "cancelled");
-    }), [client, add]);
+  useEffect(
+    () =>
+      client.subscribe(
+        {
+          types: [
+            "TurnRequestClosed",
+            "QuestionResolved",
+            "ActivationConsentClosed",
+          ],
+        },
+        (message) => {
+          if (message.kind !== "event") return;
+          const event = message.event;
+          let id: string | null = null;
+          let cancelled = false;
+          if (event.type === "TurnRequestClosed") {
+            id = event.payload.request;
+            cancelled = event.payload.outcome === "cancelled";
+          } else if (event.type === "QuestionResolved") {
+            id = event.payload.group;
+            cancelled = event.payload.outcome === "cancelled";
+          } else if (event.type === "ActivationConsentClosed") {
+            id = event.payload.release;
+            cancelled = event.payload.outcome === "cancelled";
+          }
+          const entry = id === null ? undefined : known.current.get(id);
+          if (cancelled && entry) add(entry, "cancelled");
+        },
+      ),
+    [client, add],
+  );
 
   return { rows, add, clear };
 }

@@ -52,55 +52,60 @@ interface SettingsFrameProps {
 
 const noop = () => {};
 
-export function SettingsFrame(
-  {
-    pane = "general",
-    requiredEmpty = false,
-    appearance,
-    providers,
-    noDefaultModel = false,
-    browser,
-    jobs,
-    customList,
-    steps = [],
-  }: SettingsFrameProps = {},
-) {
+export function SettingsFrame({
+  pane = "general",
+  requiredEmpty = false,
+  appearance,
+  providers,
+  noDefaultModel = false,
+  browser,
+  jobs,
+  customList,
+  steps = [],
+}: SettingsFrameProps = {}) {
   const mock = useMemo(() => devMock("?mock")!, []);
   const [client] = useState(() => createEventClient(createFakeWaiting([])));
   // mock의 settings에는 필수 설정이 빈 항목이 하나 있어 General 위에 toast가 뜬다.
   const settings = useMemo(
-    () => requiredEmpty ? mock.settings : fakeSettings().source,
+    () => (requiredEmpty ? mock.settings : fakeSettings().source),
     [mock, requiredEmpty],
   );
   // host가 Settings 화면과 같은 provider·기본 model source를 읽어야 연결 뒤에 새 provider를 찾는다.
-  const panels = useMemo(() => ({
-    ...mock.settingsPanels,
-    ...(appearance === undefined
-      ? {}
-      : { appearance: fakeAppearance({ values: appearance }).source }),
-    ...(providers === undefined
-      ? {}
-      : { providers: fakeProviders({ preset: providers }).source }),
-    ...(noDefaultModel
-      ? { agents: fakeAgents({ noDefaultModel }).source }
-      : {}),
-    ...(browser === undefined
-      ? {}
-      : { browser: fakeBrowserSettings(browser).source }),
-    ...(jobs === undefined ? {} : { jobs: fakeJobs(jobs).source }),
-    // 같은 id의 custom provider를 두 fake가 알아야 연결 뒤 목록 읽기가 그 provider를 찾는다.
-    ...(customList === undefined ? {} : {
-      providers: fakeProviders({ preset: providers, customId: CUSTOM_PROVIDER })
-        .source,
-      agents: fakeAgents({
-        editor: {
-          providers: "custom",
-          customListed: false,
-          refreshFails: customList === "empty",
-        },
-      }).source,
+  const panels = useMemo(
+    () => ({
+      ...mock.settingsPanels,
+      ...(appearance === undefined
+        ? {}
+        : { appearance: fakeAppearance({ values: appearance }).source }),
+      ...(providers === undefined
+        ? {}
+        : { providers: fakeProviders({ preset: providers }).source }),
+      ...(noDefaultModel
+        ? { agents: fakeAgents({ noDefaultModel }).source }
+        : {}),
+      ...(browser === undefined
+        ? {}
+        : { browser: fakeBrowserSettings(browser).source }),
+      ...(jobs === undefined ? {} : { jobs: fakeJobs(jobs).source }),
+      // 같은 id의 custom provider를 두 fake가 알아야 연결 뒤 목록 읽기가 그 provider를 찾는다.
+      ...(customList === undefined
+        ? {}
+        : {
+            providers: fakeProviders({
+              preset: providers,
+              customId: CUSTOM_PROVIDER,
+            }).source,
+            agents: fakeAgents({
+              editor: {
+                providers: "custom",
+                customListed: false,
+                refreshFails: customList === "empty",
+              },
+            }).source,
+          }),
     }),
-  }), [mock, appearance, providers, noDefaultModel, browser, jobs, customList]);
+    [mock, appearance, providers, noDefaultModel, browser, jobs, customList],
+  );
   useDrive(() => runSteps(steps));
   return (
     <EventsProvider client={client}>

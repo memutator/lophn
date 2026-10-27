@@ -138,9 +138,11 @@ test("보관한 앱으로 보내면 거절되고 아무것도 저장되지 않�
   assert.deepStrictEqual(sent.error.code, "conflict");
   assert.deepStrictEqual(world.delivered.length, 0);
   assert.deepStrictEqual(world.blobs.length, 0);
-  for (
-    const table of ["annotation_batches", "annotations", "annotation_refs"]
-  ) {
+  for (const table of [
+    "annotation_batches",
+    "annotations",
+    "annotation_refs",
+  ]) {
     assert.deepStrictEqual(
       world.sql.get(`SELECT count(*) AS n FROM ${table}`, [])!.n,
       0,
@@ -162,11 +164,9 @@ test("보낸 묶음은 저장되어 id로 읽히고 메모·component 겹·scree
     sent.value.annotations,
   );
   assert.deepStrictEqual(world.blobs.length, 1);
-  const read = createAnnotationReads().get.handle(
-    snapshotOf(world.sql),
-    USER,
-    { batch: sent.value.batch } as never,
-  );
+  const read = createAnnotationReads().get.handle(snapshotOf(world.sql), USER, {
+    batch: sent.value.batch,
+  } as never);
   assert.ok(read.ok);
   const [first, second] = read.value.annotations;
   assert.deepStrictEqual(first!.note, "total is off");
@@ -188,10 +188,12 @@ test("메모와 요소 글에 든 닫는 tag는 escape되어 메시지의 tag를
   const sent = await world.send(USER, {
     target: { kind: "app", app: APP },
     session: null,
-    annotations: [input(1, {
-      note: forged,
-      element: { role: "row", name: forged, text: forged },
-    })],
+    annotations: [
+      input(1, {
+        note: forged,
+        element: { role: "row", name: forged, text: forged },
+      }),
+    ],
   } as never);
   assert.ok(sent.ok);
   // 진짜 tag는 여는 것과 닫는 것 한 쌍뿐이다.
@@ -227,12 +229,15 @@ test("annotations.get: PM·Operator는 자기 project의 file과 자기 project�
     const sent = await world.send(USER, {
       target,
       session: null,
-      annotations: [input(1, {
-        release: target.kind === "app" ? input(1).release : null,
-        view: target.kind === "app"
-          ? { screen: "orders", path: "/orders" }
-          : { screen: null, path: "/" },
-      })],
+      annotations: [
+        input(1, {
+          release: target.kind === "app" ? input(1).release : null,
+          view:
+            target.kind === "app"
+              ? { screen: "orders", path: "/orders" }
+              : { screen: null, path: "/" },
+        }),
+      ],
     } as never);
     assert.ok(sent.ok);
     return sent.value.annotations[0]!;
@@ -294,20 +299,17 @@ test("annotations.get: PM·Operator는 자기 project의 file과 자기 project�
   assert.ok(own.ok && own.value.annotations[0]!.screenshot_path !== null);
   for (const id of [mine, theirs, ofApp, file, app]) {
     assert.ok(
-      createAnnotationReads().get.handle(
-        snapshotOf(world.sql),
-        USER,
-        { annotation: id } as never,
-      ).ok,
+      createAnnotationReads().get.handle(snapshotOf(world.sql), USER, {
+        annotation: id,
+      } as never).ok,
     );
   }
   assert.deepStrictEqual(
-    (createAnnotationReads().get.handle(
-      snapshotOf(world.sql),
-      USER,
-      { annotation: mine } as never,
-    ) as { value: { annotations: { target: unknown }[] } }).value
-      .annotations[0]!.target,
+    (
+      createAnnotationReads().get.handle(snapshotOf(world.sql), USER, {
+        annotation: mine,
+      } as never) as { value: { annotations: { target: unknown }[] } }
+    ).value.annotations[0]!.target,
     { kind: "artifact", domain: DOMAIN_OF_PROJECT, name: "orders" },
   );
   world.close();

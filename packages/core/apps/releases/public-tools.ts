@@ -52,6 +52,6 @@ export function removedPublicToolsOf(
   return ok(
     [...byTool]
       .map(([tool, names]) => ({ tool, domains: [...names].sort() }))
-      .sort((a, b) => a.tool < b.tool ? -1 : 1),
+      .sort((a, b) => (a.tool < b.tool ? -1 : 1)),
   );
 }

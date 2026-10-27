@@ -21,7 +21,7 @@ async function readScenarios(dir: string): Promise<Scenario[]> {
   try {
     for (const e of await readdir(dir, { withFileTypes: true })) {
       const path = `${dir}/${e.name}`;
-      if (e.isDirectory()) found.push(...await readScenarios(path));
+      if (e.isDirectory()) found.push(...(await readScenarios(path)));
       else if (e.name.endsWith(".scenario.ts")) {
         found.push((await import(path)).default as Scenario);
       }
@@ -52,9 +52,8 @@ if (args[0] === "diff") {
   const current: Current = {
     scenarios: await readScenarios(SCENARIOS_DIR),
     versions: await currentVersions({ root: ROOT, registryDir: REGISTRY_DIR }),
-    judge: judge === null
-      ? null
-      : { kind: "judge", name: judge.name, n: judge.n },
+    judge:
+      judge === null ? null : { kind: "judge", name: judge.name, n: judge.n },
     model,
   };
   const runs = await readRuns(RUNS_DIR);

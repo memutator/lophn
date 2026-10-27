@@ -26,7 +26,10 @@ export function foregroundOf(deps: ForegroundDeps): string[] | null {
     }
     // comm에 공백과 `)`가 들어갈 수 있어 마지막 `)` 뒤부터 센다. state가 3번째 칸이라 tpgid는 8번째다.
     const stat = deps.readFile(`/proc/${deps.pid}/stat`);
-    const rest = stat.slice(stat.lastIndexOf(")") + 1).trim().split(" ");
+    const rest = stat
+      .slice(stat.lastIndexOf(")") + 1)
+      .trim()
+      .split(" ");
     const tpgid = Number(rest[5]);
     if (!Number.isInteger(tpgid) || tpgid <= 0 || tpgid === deps.pid) {
       return null;

@@ -65,21 +65,21 @@ export function Floats(props: FloatsProps): ReactElement {
   // raise가 요소를 재배열하면 안의 focus와 scroll(terminal, editor)이 날아가므로 key 순으로 고정한다.
   const ordered = floats
     .map((item, index) => ({ item, layer: index + 1 }))
-    .sort((a, b) => a.item.tab.key < b.item.tab.key ? -1 : 1);
+    .sort((a, b) => (a.item.tab.key < b.item.tab.key ? -1 : 1));
   return (
     <div className={styles.floats} data-floats="">
       {props.webviews}
       {measured
         ? ordered.map(({ item, layer }) => (
-          <FloatEntry
-            key={item.tab.key}
-            {...props}
-            item={item}
-            area={area}
-            layer={layer}
-            active={props.focused && layer - 1 === top}
-          />
-        ))
+            <FloatEntry
+              key={item.tab.key}
+              {...props}
+              item={item}
+              area={area}
+              layer={layer}
+              active={props.focused && layer - 1 === top}
+            />
+          ))
         : null}
     </div>
   );
@@ -93,24 +93,22 @@ interface FloatEntryProps extends FloatsProps {
   active: boolean;
 }
 
-function FloatEntry(
-  {
-    item,
-    area,
-    layer,
-    active,
-    stripTab,
-    renderTab,
-    renderKept,
-    onRaise,
-    onRect,
-    onMinimize,
-    onDock,
-    onDetach,
-    canDetach,
-    onClose,
-  }: FloatEntryProps,
-) {
+function FloatEntry({
+  item,
+  area,
+  layer,
+  active,
+  stripTab,
+  renderTab,
+  renderKept,
+  onRaise,
+  onRect,
+  onMinimize,
+  onDock,
+  onDetach,
+  canDetach,
+  onClose,
+}: FloatEntryProps) {
   const { tab } = item;
   const strip = stripTab(tab);
   // 이동·resize 중 미리보기. 놓을 때만 onRect로 올린다.
@@ -179,9 +177,11 @@ function FloatEntry(
         hidden={item.minimized}
         onRaise={() => onRaise(tab.key)}
         onMoveStart={(event) =>
-          drag(event, (dx, dy) => movedRect(base, dx, dy, area))}
+          drag(event, (dx, dy) => movedRect(base, dx, dy, area))
+        }
         onResizeStart={(edge: FloatEdge, event) =>
-          drag(event, (dx, dy) => resizedRect(base, edge, dx, dy, area))}
+          drag(event, (dx, dy) => resizedRect(base, edge, dx, dy, area))
+        }
         actions={
           <>
             {action(
@@ -198,11 +198,11 @@ function FloatEntry(
             )}
             {onDetach && !item.minimized && (canDetach?.(tab) ?? true)
               ? action(
-                "detach",
-                workspaceIcons.detach,
-                t("project-workspace.button.float-detach"),
-                () => onDetach(tab.key),
-              )
+                  "detach",
+                  workspaceIcons.detach,
+                  t("project-workspace.button.float-detach"),
+                  () => onDetach(tab.key),
+                )
               : null}
             {action(
               "close",
@@ -214,15 +214,15 @@ function FloatEntry(
         }
       >
         <ViewLayerProvider value={layer}>
-          {kept !== null
-            ? <div className={styles.kept}>{kept}</div>
-            : (
-              <div className={styles.body}>
-                {renderTab(tab, active) ?? (
-                  <h1 className={styles.heading}>{tab.title}</h1>
-                )}
-              </div>
-            )}
+          {kept !== null ? (
+            <div className={styles.kept}>{kept}</div>
+          ) : (
+            <div className={styles.body}>
+              {renderTab(tab, active) ?? (
+                <h1 className={styles.heading}>{tab.title}</h1>
+              )}
+            </div>
+          )}
         </ViewLayerProvider>
       </FloatPanel>
     </div>

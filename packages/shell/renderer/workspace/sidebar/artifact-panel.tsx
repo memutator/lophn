@@ -13,12 +13,13 @@ import {
 import type { DomainView } from "../source.ts";
 import styles from "./artifact-panel.module.css";
 
-function Rows(
-  { items, onOpen }: {
-    items: readonly DomainArtifactItem[];
-    onOpen: (domain: string, name: string) => void;
-  },
-) {
+function Rows({
+  items,
+  onOpen,
+}: {
+  items: readonly DomainArtifactItem[];
+  onOpen: (domain: string, name: string) => void;
+}) {
   return (
     <ul className={styles.rows} aria-label={t("artifact.label.list")}>
       {items.map((item) => (
@@ -46,12 +47,13 @@ function Rows(
   );
 }
 
-export function ArtifactPanel(
-  { domains, onOpen }: {
-    domains: readonly DomainView[];
-    onOpen: (domain: string, name: string) => void;
-  },
-) {
+export function ArtifactPanel({
+  domains,
+  onOpen,
+}: {
+  domains: readonly DomainView[];
+  onOpen: (domain: string, name: string) => void;
+}) {
   const { items } = useArtifactList(domains.map((domain) => domain.id));
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   if (items.length === 0) {
@@ -83,11 +85,11 @@ export function ArtifactPanel(
               <span className={styles.groupTitle}>{domain.title}</span>
               <span className={styles.groupCount}>{own.length}</span>
             </button>
-            {isFolded
-              ? null
-              : own.length === 0
-              ? <p className={styles.empty}>{t("artifact.empty.none")}</p>
-              : <Rows items={own} onOpen={onOpen} />}
+            {isFolded ? null : own.length === 0 ? (
+              <p className={styles.empty}>{t("artifact.empty.none")}</p>
+            ) : (
+              <Rows items={own} onOpen={onOpen} />
+            )}
           </section>
         );
       })}

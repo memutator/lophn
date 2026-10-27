@@ -33,8 +33,10 @@ export function inProgress(
   attempt: string,
 ): Result<ReleaseRecord & { activation: ActivationAttempt }> {
   if (
-    release === null || release.status !== "activating" ||
-    release.activation === null || release.activation.attempt !== attempt
+    release === null ||
+    release.status !== "activating" ||
+    release.activation === null ||
+    release.activation.attempt !== attempt
   ) {
     return conflict("no such activation is in progress");
   }

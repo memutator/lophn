@@ -7,9 +7,8 @@ export function withAlwaysRules(
   place: Place | null,
   patterns: readonly string[],
 ): ShellRulesSetting {
-  const layer = place?.kind === "project"
-    ? value.projects[place.id] ?? []
-    : value.global;
+  const layer =
+    place?.kind === "project" ? (value.projects[place.id] ?? []) : value.global;
   const next = [...layer];
   for (const pattern of patterns) {
     if (

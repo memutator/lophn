@@ -99,10 +99,13 @@ function definitionRowOf(value: BuiltinDefinition): ProviderDefinitionRow {
     name: value.display_name,
     hint: null,
     ways: waysOf(value.auth_kinds),
-    signIn: value.oauth === null ? null : {
-      product: PRODUCTS[value.oauth.product] ?? value.display_name,
-      button: value.oauth.product === "chatgpt" ? "continue" : "sign-in",
-    },
+    signIn:
+      value.oauth === null
+        ? null
+        : {
+            product: PRODUCTS[value.oauth.product] ?? value.display_name,
+            button: value.oauth.product === "chatgpt" ? "continue" : "sign-in",
+          },
     custom: false,
   };
 }
@@ -121,9 +124,10 @@ async function listProviders(
   const rows: ProviderValue[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < PAGE_LIMIT; page += 1) {
-    const read: SourceResult<
-      { providers: ProviderValue[]; next_cursor: string | null }
-    > = await call(
+    const read: SourceResult<{
+      providers: ProviderValue[];
+      next_cursor: string | null;
+    }> = await call(
       core,
       "read",
       "providers",
@@ -188,13 +192,11 @@ export function coreProviderSettingsSource(
   core: CoreSource,
   deps: Partial<ProviderDeps> = {},
 ): ProviderSettingsSource {
-  const openSecret = "openSecret" in deps
-    ? deps.openSecret
-    : windowSecretInputOpener();
+  const openSecret =
+    "openSecret" in deps ? deps.openSecret : windowSecretInputOpener();
   const openLink = "openLink" in deps ? deps.openLink : windowLinkOpener();
-  const requestHandle = "requestHandle" in deps
-    ? deps.requestHandle
-    : windowDecisionHandle();
+  const requestHandle =
+    "requestHandle" in deps ? deps.requestHandle : windowDecisionHandle();
   const now = deps.now ?? Date.now;
   const random = deps.random ?? (() => crypto.randomUUID().slice(0, 8));
   const providerId = deps.providerId ?? (() => newProviderId(now()));
@@ -400,8 +402,8 @@ export function coreProviderSettingsSource(
     async connect(definition, way, progress) {
       const read = await listDefinitions();
       if (!read.ok) return read;
-      const found = read.value.definitions.find((entry) =>
-        entry.key === definition
+      const found = read.value.definitions.find(
+        (entry) => entry.key === definition,
       );
       if (found === undefined) return UNAVAILABLE;
       if (way === "oauth") return await signIn(found, progress);

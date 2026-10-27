@@ -62,11 +62,12 @@ export function createSkillsRead(deps: SkillsReadDeps): {
         const lookups = deps.lookups(snapshot.sql);
         let off = [...lookups.skillsOff()];
         let domains: DomainStore[] = [];
-        const place: AgentPlace | null = input.project !== undefined
-          ? { kind: "project", id: input.project }
-          : input.app !== undefined
-          ? { kind: "app", id: input.app }
-          : null;
+        const place: AgentPlace | null =
+          input.project !== undefined
+            ? { kind: "project", id: input.project }
+            : input.app !== undefined
+              ? { kind: "app", id: input.app }
+              : null;
         if (place !== null) {
           if (!lookups.placeExists(place)) {
             return err({
@@ -90,9 +91,8 @@ export function createSkillsRead(deps: SkillsReadDeps): {
               const text = deps.files.read(
                 deps.projectLayer.extensionsFile(root.value, input.project),
               );
-              const parsed = text === null
-                ? null
-                : parseProjectExtensions(text);
+              const parsed =
+                text === null ? null : parseProjectExtensions(text);
               if (parsed !== null && parsed.ok) {
                 off = [...new Set([...off, ...parsed.value.skills_off])];
               }

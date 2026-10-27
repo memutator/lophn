@@ -14,11 +14,7 @@ export {
   RELEASE_SOURCE_MAX_BYTES,
 };
 
-type LimitName =
-  | "source_bytes"
-  | "bundle_bytes"
-  | "file_count"
-  | "elapsed_ms";
+type LimitName = "source_bytes" | "bundle_bytes" | "file_count" | "elapsed_ms";
 
 export type LimitFailure = {
   code: "limit_exceeded";
@@ -35,9 +31,7 @@ type PreparationUsage = {
   elapsed_ms: number;
 };
 
-function exceededLimit(
-  usage: PreparationUsage,
-): LimitFailure | undefined {
+function exceededLimit(usage: PreparationUsage): LimitFailure | undefined {
   const limits: [LimitName, number, number][] = [
     ["source_bytes", usage.source_bytes, RELEASE_SOURCE_MAX_BYTES],
     ["bundle_bytes", usage.bundle_bytes, RELEASE_BUNDLE_MAX_BYTES],

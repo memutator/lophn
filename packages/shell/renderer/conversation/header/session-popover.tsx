@@ -117,9 +117,9 @@ function StatusDot({ status }: { status: SessionStatus }): ReactElement {
 function moveBetweenRows(event: KeyboardEvent<HTMLElement>): void {
   if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
   const rows = [
-    ...event.currentTarget.closest("[role=listbox]")?.querySelectorAll<
-      HTMLElement
-    >("[role=option]") ?? [],
+    ...(event.currentTarget
+      .closest("[role=listbox]")
+      ?.querySelectorAll<HTMLElement>("[role=option]") ?? []),
   ];
   const at = rows.indexOf(event.currentTarget);
   const next = rows[at + (event.key === "ArrowDown" ? 1 : -1)];
@@ -177,9 +177,11 @@ export function SessionSwitcher(props: SessionSwitcherProps): ReactElement {
 }
 
 /** header 왼쪽의 "[avatar] 이름 ·". */
-export function AgentFace(
-  { agent }: { agent: SessionSwitcherProps["agent"] },
-): ReactElement {
+export function AgentFace({
+  agent,
+}: {
+  agent: SessionSwitcherProps["agent"];
+}): ReactElement {
   return (
     <>
       <Avatar profile={agent.profile} size="md" />
@@ -215,11 +217,11 @@ function Switcher(
   });
 
   const byRecent = [...props.sessions].sort((a, b) =>
-    b.activeAt.localeCompare(a.activeAt)
+    b.activeAt.localeCompare(a.activeAt),
   );
   const needle = query.trim().toLowerCase();
-  const live = byRecent.filter((entry) =>
-    !entry.archived && titleOf(entry).toLowerCase().includes(needle)
+  const live = byRecent.filter(
+    (entry) => !entry.archived && titleOf(entry).toLowerCase().includes(needle),
   );
   const archived = byRecent.filter((entry) => entry.archived);
   const queued = props.queuedCoding ?? [];
@@ -319,9 +321,13 @@ function Switcher(
           moveBetweenRows(event);
         }}
       >
-        <span className={styles.check} data-check>{here ? "✓" : ""}</span>
+        <span className={styles.check} data-check>
+          {here ? "✓" : ""}
+        </span>
         <StatusDot status={entry.status} />
-        <span className={styles.sessionTitle} data-session-title>{title}</span>
+        <span className={styles.sessionTitle} data-session-title>
+          {title}
+        </span>
         <span className={styles.when} data-session-when>
           {sinceLabel(entry.activeAt, now)}
         </span>
@@ -383,25 +389,18 @@ function Switcher(
         })}
       >
         {queued.length === 0 ? null : (
-          <div
-            role="group"
-            aria-label={t("conversation.label.coding-queued")}
-          >
+          <div role="group" aria-label={t("conversation.label.coding-queued")}>
             <p className={styles.groupHead} data-session-group>
               {t("conversation.label.coding-queued")}
             </p>
             {queued.map((item) => {
               const vendor = vendorOf(item.product);
               return (
-                <div
-                  key={item.id}
-                  className={styles.queued}
-                  data-queued-coding
-                >
+                <div key={item.id} className={styles.queued} data-queued-coding>
                   <span className={styles.queuedIcon}>
-                    {vendor === undefined
-                      ? null
-                      : <VendorIcon vendor={vendor} />}
+                    {vendor === undefined ? null : (
+                      <VendorIcon vendor={vendor} />
+                    )}
                   </span>
                   <span className={styles.sessionTitle}>{item.product}</span>
                 </div>
@@ -409,24 +408,26 @@ function Switcher(
             })}
           </div>
         )}
-        {live.length === 0
-          ? (
-            <p className={styles.noMatch} data-no-match>
-              {t("conversation.notice.session-no-match")}
-            </p>
-          )
-          : GROUPS.map(({ group, head }) => {
-            const inGroup = live.filter((entry) =>
-              groupOf(entry.activeAt, now) === group
+        {live.length === 0 ? (
+          <p className={styles.noMatch} data-no-match>
+            {t("conversation.notice.session-no-match")}
+          </p>
+        ) : (
+          GROUPS.map(({ group, head }) => {
+            const inGroup = live.filter(
+              (entry) => groupOf(entry.activeAt, now) === group,
             );
             if (inGroup.length === 0) return null;
             return (
               <div key={group} role="group" aria-label={t(head)}>
-                <p className={styles.groupHead} data-session-group>{t(head)}</p>
+                <p className={styles.groupHead} data-session-group>
+                  {t(head)}
+                </p>
                 {inGroup.map(row)}
               </div>
             );
-          })}
+          })
+        )}
       </div>
       <div className={styles.foot}>
         {archived.length > 0 && (
@@ -455,8 +456,7 @@ function Switcher(
                   aria-label={t("conversation.label.read-session", {
                     title: titleOf(entry),
                   })}
-                  onClick={() =>
-                    props.onSwitch(entry.id)}
+                  onClick={() => props.onSwitch(entry.id)}
                 >
                   <span className={styles.sessionTitle} data-session-title>
                     {titleOf(entry)}

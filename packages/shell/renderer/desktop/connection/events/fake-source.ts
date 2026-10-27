@@ -56,7 +56,8 @@ export function createFakeSource(initial: FakeSnapshot = EMPTY): FakeSource {
       if (
         parsed.success &&
         !conditions.some((c) => matchesCondition(c, parsed.data))
-      ) return;
+      )
+        return;
     }
     for (const listener of [...eventListeners]) listener(message);
   }
@@ -88,8 +89,8 @@ export function createFakeSource(initial: FakeSnapshot = EMPTY): FakeSource {
           ok: true,
           value: {
             ...COMMON,
-            snapshots: snapshot.snapshots.filter((s) =>
-              !wanted || wanted.includes(s.session)
+            snapshots: snapshot.snapshots.filter(
+              (s) => !wanted || wanted.includes(s.session),
             ),
           },
         });

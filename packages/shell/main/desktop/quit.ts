@@ -23,11 +23,12 @@ function quitPrompt(work: QuitWork): QuitPrompt | undefined {
   const terminals = work.runningTerminals() > 0;
   const saves = work.pendingSaves() > 0;
   if (!terminals && !saves) return undefined;
-  const detail: PlainKey = terminals && saves
-    ? "common.quit.terminals-and-saves"
-    : terminals
-    ? "common.quit.terminals"
-    : "common.quit.saves";
+  const detail: PlainKey =
+    terminals && saves
+      ? "common.quit.terminals-and-saves"
+      : terminals
+        ? "common.quit.terminals"
+        : "common.quit.saves";
   return {
     title: word("common.title.quit"),
     detail: word(detail),

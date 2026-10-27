@@ -54,10 +54,12 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
     },
     decide(ctx, body) {
       if (ctx.actor !== "user") {
-        return Promise.resolve(err({
-          code: "forbidden",
-          message: "only the user decides a request",
-        }));
+        return Promise.resolve(
+          err({
+            code: "forbidden",
+            message: "only the user decides a request",
+          }),
+        );
       }
       const input = turnRequestDecide.input.safeParse(body);
       if (!input.success) {

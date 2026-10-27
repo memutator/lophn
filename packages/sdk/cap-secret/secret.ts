@@ -38,8 +38,13 @@ export type SecretStandIn = SecretClient & {
 // broker(net.fetch)가 http를 허락하는 host와 같은 규칙이다. SDK는 apps 구현을 import하지 않는다.
 function isLoopback(host: string): boolean {
   const lower = host.toLowerCase();
-  return lower === "localhost" || lower === "::1" || lower === "::" ||
-    lower === "0.0.0.0" || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(lower);
+  return (
+    lower === "localhost" ||
+    lower === "::1" ||
+    lower === "::" ||
+    lower === "0.0.0.0" ||
+    /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(lower)
+  );
 }
 
 function invalid(message: string): CapabilityError {
@@ -77,8 +82,7 @@ export function createSecretStandIn(
         return Promise.reject(
           new CapabilityError({
             code: "forbidden",
-            message:
-              `secret.use {"name":"${request.name}"} is not permitted. Declare this permission in the declaration and ask the person to grant it.`,
+            message: `secret.use {"name":"${request.name}"} is not permitted. Declare this permission in the declaration and ask the person to grant it.`,
             permission: "secret.use",
             scope: { name: request.name },
           }),
@@ -142,10 +146,10 @@ export function createSecretClient(deps: SecretClientDeps = {}): SecretClient {
         const failure = fromBroker(response.body, requested);
         throw failure.code === "unavailable"
           ? new CapabilityError({
-            code: failure.code,
-            message: failure.message,
-            outcome: "unknown",
-          })
+              code: failure.code,
+              message: failure.message,
+              outcome: "unknown",
+            })
           : failure;
       }
       const used = (response.body as { used?: unknown } | null)?.used;

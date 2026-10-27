@@ -20,17 +20,21 @@ export function fileSearch(
       if (!catalog.ok) return [];
       projects = catalog.value.projects.map((row) => row.id);
     } else projects = [place.id];
-    const found = await Promise.all(projects.map(async (project) => {
-      const result = await files.search({ project, query });
-      if (!result.ok) return [];
-      return result.value.slice(0, PER_PROJECT).map((match): FileFound => ({
-        project,
-        path: match.path,
-        file: `${match.folder.replace(/\/+$/, "")}/${match.path}`,
-        line: match.line,
-        text: match.text.trim(),
-      }));
-    }));
+    const found = await Promise.all(
+      projects.map(async (project) => {
+        const result = await files.search({ project, query });
+        if (!result.ok) return [];
+        return result.value.slice(0, PER_PROJECT).map(
+          (match): FileFound => ({
+            project,
+            path: match.path,
+            file: `${match.folder.replace(/\/+$/, "")}/${match.path}`,
+            line: match.line,
+            text: match.text.trim(),
+          }),
+        );
+      }),
+    );
     return found.flat();
   };
 }

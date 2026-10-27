@@ -100,8 +100,7 @@ async function assignExternalToolNames(
     if (taken.has(name)) {
       return err({
         code: "conflict",
-        message:
-          `tool 호출 이름 ${name} (${pair.server}.${pair.original})이 겹쳐 등록을 거절한다`,
+        message: `tool 호출 이름 ${name} (${pair.server}.${pair.original})이 겹쳐 등록을 거절한다`,
       });
     }
     taken.set(name, key);
@@ -112,8 +111,8 @@ async function assignExternalToolNames(
 
 // 입력 검사다. 서버가 준 JSON Schema를 그대로 보이고(zod JSON Schema 변환 없이), 실행 검사는 object인지만 본다.
 const OBJECT_INPUT: z.ZodType = z.unknown().superRefine((value, context) => {
-  const plain = typeof value === "object" && value !== null &&
-    !Array.isArray(value);
+  const plain =
+    typeof value === "object" && value !== null && !Array.isArray(value);
   if (!plain) {
     context.addIssue({
       code: "custom",
@@ -144,11 +143,13 @@ export async function buildMcpTools(
   if (selection === null) return ok([]);
   const selectedServers = new Set(selection.servers);
   const selectedPairs = new Set(selection.tools.map(pairKey));
-  const offered = source.tools.filter((entry) =>
-    selectedServers.has(entry.server) &&
-    selectedPairs.has(
-      pairKey({ server_name: entry.server, original_tool: entry.original }),
-    ) && source.servers.has(entry.server)
+  const offered = source.tools.filter(
+    (entry) =>
+      selectedServers.has(entry.server) &&
+      selectedPairs.has(
+        pairKey({ server_name: entry.server, original_tool: entry.original }),
+      ) &&
+      source.servers.has(entry.server),
   );
   const names = await assignExternalToolNames(
     offered.map((entry) => ({
@@ -176,15 +177,17 @@ export async function buildMcpTools(
         tool: entry.original,
         effect,
       }),
-      ...(call === undefined ? {} : {
-        handler: async (input, ctx) =>
-          await invoke(call, {
-            server: entry.server,
-            original: entry.original,
-            input,
-            requestKey: ctx.tool_call,
+      ...(call === undefined
+        ? {}
+        : {
+            handler: async (input, ctx) =>
+              await invoke(call, {
+                server: entry.server,
+                original: entry.original,
+                input,
+                requestKey: ctx.tool_call,
+              }),
           }),
-      }),
       operations: [EXTERNAL_TOOL_CONTRACT],
     };
     tools.push({
@@ -213,9 +216,7 @@ type McpInvokeCall = {
 
 // 이 ToolCall의 호출 통로다. 실제 연결은 agent runtime 조립이 낸다(mcp-connections). 연결이 없거나 사라진 이름은
 // err이다(없는 tool과 같은 답).
-export type McpToolCall = (
-  call: McpInvokeCall,
-) => Promise<Result<unknown>>;
+export type McpToolCall = (call: McpInvokeCall) => Promise<Result<unknown>>;
 
 async function invoke(
   call: McpToolCall,
@@ -227,17 +228,15 @@ async function invoke(
   }
   const limited = limitJson(sent.value);
   // 상한을 넘은 결과는 content를 비우고 complete만 남긴다(limitJson). 결과는 감싸지 않는다.
-  return ok(
-    {
-      status: "success",
-      summary: `tool ${request.original} of server ${request.server} finished`,
-      content: limited.content as ToolResult["content"],
-      complete: limited.complete,
-      source: null,
-      continuation: null,
-      pending: [],
-    } satisfies ToolResult,
-  );
+  return ok({
+    status: "success",
+    summary: `tool ${request.original} of server ${request.server} finished`,
+    content: limited.content as ToolResult["content"],
+    complete: limited.complete,
+    source: null,
+    continuation: null,
+    pending: [],
+  } satisfies ToolResult);
 }
 
 // 정의가 handler를 들지 않은 tool(MCP)의 handler 표다. 호출 이름 → handler.

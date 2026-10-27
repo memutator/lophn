@@ -46,26 +46,28 @@ export async function readHiddenGroups(
   env: Env,
   session: string,
 ): Promise<HiddenGroup[]> {
-  const read = await env.pages(
-    rewindList,
-    { session },
-    (out) => out.reverts,
-  );
+  const read = await env.pages(rewindList, { session }, (out) => out.reverts);
   // 읽지 못하면 접지 않는다. 대화는 그대로 보인다.
   if (!read.ok) return [];
-  const hiding = read.value.flatMap((row) =>
-    row.kind === "rewind" &&
+  const hiding = read.value
+    .flatMap((row) =>
+      row.kind === "rewind" &&
       (row.choice === "restore_all" || row.choice === "messages_only") &&
-      (row.outcome === "applied" || row.outcome === "partial" ||
+      (row.outcome === "applied" ||
+        row.outcome === "partial" ||
         row.outcome === "uncertain") &&
-      row.boundary_seq !== null && row.result_seq !== null
-      ? [{
-        row,
-        from: BigInt(row.boundary_seq),
-        through: BigInt(row.result_seq),
-      }]
-      : []
-  ).sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : 0));
+      row.boundary_seq !== null &&
+      row.result_seq !== null
+        ? [
+            {
+              row,
+              from: BigInt(row.boundary_seq),
+              through: BigInt(row.result_seq),
+            },
+          ]
+        : [],
+    )
+    .sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : 0));
   const groups: { from: bigint; through: bigint; rewinds: RewindRow[] }[] = [];
   for (const item of hiding) {
     const last = groups.at(-1);
@@ -101,24 +103,28 @@ export function hiddenFacts(group: HiddenGroup): {
   left: RewindResultView[];
 } {
   const latest = [...group.rewinds].sort((a, b) =>
-    BigInt(a.result_seq!) < BigInt(b.result_seq!) ? 1 : -1
+    BigInt(a.result_seq!) < BigInt(b.result_seq!) ? 1 : -1,
   )[0]!;
   return {
     checkpoint: latest.checkpoint!,
     choice: latest.choice as "restore_all" | "messages_only",
-    restored:
-      latest.items.filter((item) =>
-        item.class === "file" && item.result === "restored"
-      ).length,
-    left: latest.items.filter((item) =>
-      LEFT_RESULTS.has(item.result) ||
-      (item.result === "unchanged" && item.reason !== null)
-    ).map((item): RewindResultView => ({
-      kind: item.class,
-      target: item.target,
-      result: item.result as RewindResultView["result"],
-      reason: item.reason,
-    })),
+    restored: latest.items.filter(
+      (item) => item.class === "file" && item.result === "restored",
+    ).length,
+    left: latest.items
+      .filter(
+        (item) =>
+          LEFT_RESULTS.has(item.result) ||
+          (item.result === "unchanged" && item.reason !== null),
+      )
+      .map(
+        (item): RewindResultView => ({
+          kind: item.class,
+          target: item.target,
+          result: item.result as RewindResultView["result"],
+          reason: item.reason,
+        }),
+      ),
   };
 }
 
@@ -141,19 +147,21 @@ export async function readRewindPoints(
   const started = new Set(turns.value.map((turn) => turn.input_message));
   return {
     ok: true,
-    value: messages.value.filter((message) =>
-      message.from.kind === "human" && message.delivery === "next_turn" &&
-      started.has(message.id) &&
-      groupAt(hidden, message.created_seq) === undefined
-    ).map((message) => message.id),
+    value: messages.value
+      .filter(
+        (message) =>
+          message.from.kind === "human" &&
+          message.delivery === "next_turn" &&
+          started.has(message.id) &&
+          groupAt(hidden, message.created_seq) === undefined,
+      )
+      .map((message) => message.id),
   };
 }
 
 // ---------------------------------------------------------------- 사전 검사
 
-function operationText(
-  operation: { kind: string; tool?: string },
-): string {
+function operationText(operation: { kind: string; tool?: string }): string {
   return operation.kind === "tool" && operation.tool !== undefined
     ? operation.tool
     : operation.kind;
@@ -197,15 +205,18 @@ async function appViewOf(
   const name = await env.read(appGet, { app });
   const mine = new Set(invocations);
   const { items, blocked } = plan.value.plan;
-  const writes = items.filter((item) => mine.has(item.invocation)).map((
-    item,
-  ): RewindWrite => ({
-    at: item.started_at,
-    text: operationText(item.operation),
-    unknown: blocked?.invocation === item.invocation,
-  }));
+  const writes = items
+    .filter((item) => mine.has(item.invocation))
+    .map(
+      (item): RewindWrite => ({
+        at: item.started_at,
+        text: operationText(item.operation),
+        unknown: blocked?.invocation === item.invocation,
+      }),
+    );
   const others = await Promise.all(
-    items.filter((item) => !mine.has(item.invocation) && item.reverts_db)
+    items
+      .filter((item) => !mine.has(item.invocation) && item.reverts_db)
       .map(async (item) => ({
         by: await callerName(env, item.caller),
         text: operationText(item.operation),
@@ -218,9 +229,9 @@ async function appViewOf(
       name: name.ok ? name.value.app.name : app,
       writes,
       others,
-      outside: items.filter((item) => item.external).map((item) =>
-        operationText(item.operation)
-      ),
+      outside: items
+        .filter((item) => item.external)
+        .map((item) => operationText(item.operation)),
     },
   };
 }
@@ -238,11 +249,14 @@ export async function previewRewind(
   });
   if (!read.ok) return read;
   const { restore, skip, app_writes } = read.value;
-  const files = [...restore, ...skip].filter((item) => item.class === "file")
-    .map((item): RewindFileView => ({
-      path: item.target,
-      skipped: item.reason,
-    }));
+  const files = [...restore, ...skip]
+    .filter((item) => item.class === "file")
+    .map(
+      (item): RewindFileView => ({
+        path: item.target,
+        skipped: item.reason,
+      }),
+    );
   const apps: RewindApp[] = [];
   for (const entry of app_writes) {
     const view = await appViewOf(env, entry.app, entry.invocations);
@@ -278,9 +292,9 @@ export async function rewindSession(
   });
   if (!preview.ok) return preview;
   // 결과를 몰라 다시 눌러도 같은 id와 key로 보내 core가 한 번만 접수한다.
-  const same = `${session}:${message}:${scope}:${
-    [...choice.apps].sort().join()
-  }`;
+  const same = `${session}:${message}:${scope}:${[...choice.apps]
+    .sort()
+    .join()}`;
   let id = ids.get(same);
   if (id === undefined) {
     id = newId("rwd", env.now());

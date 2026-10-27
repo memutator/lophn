@@ -27,18 +27,21 @@ function open() {
   const domains: Record<string, unknown>[] = [];
   const ports = new Map<unknown, unknown>([
     [TargetAuthorization, () => ok(undefined)],
-    [domainProvisioningPort, {
-      create(input: { name: string }) {
-        if (domains.some((d) => d.name === input.name)) {
-          return err({
-            code: "conflict",
-            message: "domain name already exists",
-          });
-        }
-        domains.push(input);
-        return ok({ id: `dom_${domains.length}` });
+    [
+      domainProvisioningPort,
+      {
+        create(input: { name: string }) {
+          if (domains.some((d) => d.name === input.name)) {
+            return err({
+              code: "conflict",
+              message: "domain name already exists",
+            });
+          }
+          domains.push(input);
+          return ok({ id: `dom_${domains.length}` });
+        },
       },
-    }],
+    ],
   ]);
   const tx = {
     sql: {
@@ -74,12 +77,14 @@ test("app.create는 앱 이름의 domain을 함께 만들고, 이미 그 이름�
   const { create, domains, apps } = open();
   const first = create("first");
   assert.deepStrictEqual(first.ok, true);
-  assert.deepStrictEqual(domains, [{
-    name: "first",
-    title: "App first",
-    purpose: "does things",
-    owner: { kind: "app", id: first.value!.id },
-  }]);
+  assert.deepStrictEqual(domains, [
+    {
+      name: "first",
+      title: "App first",
+      purpose: "does things",
+      owner: { kind: "app", id: first.value!.id },
+    },
+  ]);
   assert.deepStrictEqual(create("first").error?.code, "conflict");
   assert.deepStrictEqual(apps(), 1);
   assert.deepStrictEqual(domains.length, 1);

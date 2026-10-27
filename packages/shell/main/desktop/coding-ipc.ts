@@ -30,9 +30,7 @@ interface CodingIpcMain {
   removeHandler(channel: string): void;
 }
 
-function refused(
-  code: "forbidden" | "invalid_input",
-): CodingReply<never> {
+function refused(code: "forbidden" | "invalid_input"): CodingReply<never> {
   return { ok: false, error: { code, message: "request was refused" } };
 }
 

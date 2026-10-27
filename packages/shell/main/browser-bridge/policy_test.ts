@@ -114,9 +114,12 @@ test("link target splits local and web hosts", () => {
   for (const url of web) {
     assert.equal(linkTarget(url, prefs), "system_browser", url);
   }
-  for (
-    const url of ["file:///x", "javascript:1", "https://u:p@localhost/", "/rel"]
-  ) {
+  for (const url of [
+    "file:///x",
+    "javascript:1",
+    "https://u:p@localhost/",
+    "/rel",
+  ]) {
     assert.equal(linkTarget(url, prefs), null, url);
   }
 });

@@ -41,8 +41,7 @@ const scenario: Scenario = {
             call: {
               to: LOPHN,
               reply: "none",
-              body:
-                "가계부 앱의 합계 기능을 다른 앱에서도 쓰게 공통 package로 빼는 게 좋을지 판단이 필요합니다.",
+              body: "가계부 앱의 합계 기능을 다른 앱에서도 쓰게 공통 package로 빼는 게 좋을지 판단이 필요합니다.",
             },
           },
         ]),

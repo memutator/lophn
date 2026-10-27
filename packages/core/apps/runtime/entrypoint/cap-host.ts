@@ -88,9 +88,9 @@ type CapHostPort = {
 // 정규 입력의 sha256이다. 호출 경계는 이미 입력을 검증하고 default를 채웠고, 입력이 없으면 정규 JSON
 // null이다. 선언의 `canonicalInputHash`와 같은 값이다.
 export function inputHashOf(input: unknown): string {
-  return createHash("sha256").update(
-    canonicalJson(input === undefined ? null : input as JsonValue),
-  ).digest("hex");
+  return createHash("sha256")
+    .update(canonicalJson(input === undefined ? null : (input as JsonValue)))
+    .digest("hex");
 }
 
 function aborted(signal: AbortSignal): Error {
@@ -119,18 +119,21 @@ export function createCapHost(deps: {
       return new Promise<BrokerResponse>((resolve, reject) => {
         const onAbort = () => reject(aborted(signal));
         signal.addEventListener("abort", onAbort, { once: true });
-        request.then(resolve, reject).finally(() =>
-          signal.removeEventListener("abort", onAbort)
-        );
+        request
+          .then(resolve, reject)
+          .finally(() => signal.removeEventListener("abort", onAbort));
       });
     },
     call() {
       const context = deps.current();
       if (
-        context === null || context.tool === undefined ||
+        context === null ||
+        context.tool === undefined ||
         context.tool === null ||
-        context.inputHash === undefined || context.inputHash === null
-      ) return null;
+        context.inputHash === undefined ||
+        context.inputHash === null
+      )
+        return null;
       return {
         command: context.tool,
         inputHash: context.inputHash,

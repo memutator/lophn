@@ -20,13 +20,15 @@ import styles from "./data-table.module.css";
 const ORIGINAL = "original";
 const columnValue = (id: string) => `column:${id}`;
 
-export function SortControl<Row>(
-  { columns, sort, onSort }: {
-    columns: readonly TableColumn<Row>[];
-    sort: SortState | null;
-    onSort: (next: SortState | null) => void;
-  },
-) {
+export function SortControl<Row>({
+  columns,
+  sort,
+  onSort,
+}: {
+  columns: readonly TableColumn<Row>[];
+  sort: SortState | null;
+  onSort: (next: SortState | null) => void;
+}) {
   const options = [
     { value: ORIGINAL, label: t("common.label.original-order") },
     ...columns.map((column) => ({
@@ -43,8 +45,8 @@ export function SortControl<Row>(
           options={options}
           value={sort ? columnValue(sort.columnId) : ORIGINAL}
           onValueChange={(value) => {
-            const column = columns.find((item) =>
-              columnValue(item.id) === value
+            const column = columns.find(
+              (item) => columnValue(item.id) === value,
             );
             onSort(column ? { columnId: column.id, direction } : null);
           }}
@@ -53,18 +55,23 @@ export function SortControl<Row>(
       <IconButton
         size="sm"
         variant="secondary"
-        icon={direction === "ascending"
-          ? ArrowUpNarrowWide
-          : ArrowDownWideNarrow}
-        label={direction === "ascending"
-          ? t("common.button.sort-ascending")
-          : t("common.button.sort-descending")}
+        icon={
+          direction === "ascending" ? ArrowUpNarrowWide : ArrowDownWideNarrow
+        }
+        label={
+          direction === "ascending"
+            ? t("common.button.sort-ascending")
+            : t("common.button.sort-descending")
+        }
         data-direction={direction}
         disabled={!sort}
-        onClick={() => sort && onSort({
-          columnId: sort.columnId,
-          direction: direction === "ascending" ? "descending" : "ascending",
-        })}
+        onClick={() =>
+          sort &&
+          onSort({
+            columnId: sort.columnId,
+            direction: direction === "ascending" ? "descending" : "ascending",
+          })
+        }
       />
     </div>
   );
@@ -72,13 +79,15 @@ export function SortControl<Row>(
 
 // 열 목록은 Columns 버튼에 붙어 뜨는 popover다. 도구 줄 흐름을 밀지 않고,
 // 바깥 click·Escape로 닫히며 focus는 연 버튼으로 돌아온다.
-export function ColumnPicker<Row>(
-  { columns, shown, onToggle }: {
-    columns: readonly TableColumn<Row>[];
-    shown: ReadonlySet<string>;
-    onToggle: (id: string, show: boolean) => void;
-  },
-) {
+export function ColumnPicker<Row>({
+  columns,
+  shown,
+  onToggle,
+}: {
+  columns: readonly TableColumn<Row>[];
+  shown: ReadonlySet<string>;
+  onToggle: (id: string, show: boolean) => void;
+}) {
   return (
     <Popover
       trigger={
@@ -103,13 +112,15 @@ export function ColumnPicker<Row>(
   );
 }
 
-export function Pager(
-  { slice, total, onPage }: {
-    slice: PageSlice;
-    total: number;
-    onPage: (page: number) => void;
-  },
-) {
+export function Pager({
+  slice,
+  total,
+  onPage,
+}: {
+  slice: PageSlice;
+  total: number;
+  onPage: (page: number) => void;
+}) {
   return (
     <div className={styles.pager}>
       <span className={styles.range}>

@@ -54,7 +54,8 @@ export function customModelsEndpoint(
 ): string | null {
   const { definition } = provider;
   if (
-    definition.oauth !== null || builtinProviderDefinition(definition.key).ok
+    definition.oauth !== null ||
+    builtinProviderDefinition(definition.key).ok
   ) {
     return null;
   }

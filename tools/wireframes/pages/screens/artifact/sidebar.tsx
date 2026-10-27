@@ -18,10 +18,12 @@ export function ArtifactSidebar({ empty = false }: { empty?: boolean }) {
   const artifact = useMemo(
     () =>
       fakeArtifactApi({
-        perDomain: empty ? {} : {
-          [FINANCES!.id]: ARTIFACTS,
-          [RESEARCH!.id]: RESEARCH_ARTIFACTS,
-        },
+        perDomain: empty
+          ? {}
+          : {
+              [FINANCES!.id]: ARTIFACTS,
+              [RESEARCH!.id]: RESEARCH_ARTIFACTS,
+            },
       }).api,
     [],
   );

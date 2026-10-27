@@ -77,29 +77,39 @@ test("a stopped instance is not handed: report with next records the line only a
       return lines.value.length;
     };
     const report = () =>
-      commands.apply.handle(tx, ctx, {
-        instance: WFI,
-        change: {
-          kind: "report",
-          step: "a",
-          text: "done a",
-          next: "b",
-          session: "new",
+      commands.apply.handle(
+        tx,
+        ctx,
+        {
+          instance: WFI,
+          change: {
+            kind: "report",
+            step: "a",
+            text: "done a",
+            next: "b",
+            session: "new",
+          },
+          by: { kind: "agent", session: SES },
+          handoff: plan("b"),
         },
-        by: { kind: "agent", session: SES },
-        handoff: plan("b"),
-      }, { state_seq: seq() });
+        { state_seq: seq() },
+      );
 
-    const created = commands.create.handle(tx, ctx, {
-      id: WFI,
-      project: PRJ,
-      workflow: "demo",
-      input: "go",
-      participants: { pm: { role: "lophn" } },
-      steps: [],
-      started_by: { kind: "user" },
-      handoff: { ...plan("a"), cause: "start" },
-    }, {});
+    const created = commands.create.handle(
+      tx,
+      ctx,
+      {
+        id: WFI,
+        project: PRJ,
+        workflow: "demo",
+        input: "go",
+        participants: { pm: { role: "lophn" } },
+        steps: [],
+        started_by: { kind: "user" },
+        handoff: { ...plan("a"), cause: "start" },
+      },
+      {},
+    );
     assert.ok(created.ok);
     assert.deepStrictEqual(delivered.length, 1);
 
@@ -108,12 +118,17 @@ test("a stopped instance is not handed: report with next records the line only a
     assert.ok(before.ok && before.value.handed?.outcome === "handed");
     assert.deepStrictEqual(delivered.length, 2);
 
-    const stop = commands.apply.handle(tx, ctx, {
-      instance: WFI,
-      change: { kind: "stop" },
-      by: { kind: "user" },
-      handoff: null,
-    }, { state_seq: seq() });
+    const stop = commands.apply.handle(
+      tx,
+      ctx,
+      {
+        instance: WFI,
+        change: { kind: "stop" },
+        by: { kind: "user" },
+        handoff: null,
+      },
+      { state_seq: seq() },
+    );
     assert.ok(stop.ok);
     const lines = count();
 
@@ -123,12 +138,17 @@ test("a stopped instance is not handed: report with next records the line only a
     assert.deepStrictEqual(delivered.length, 2);
     assert.deepStrictEqual(count(), lines + 1);
 
-    const handNow = commands.apply.handle(tx, ctx, {
-      instance: WFI,
-      change: { kind: "edit", edit: { op: "hand_now", step: "b" } },
-      by: { kind: "user" },
-      handoff: plan("b"),
-    }, { state_seq: seq() });
+    const handNow = commands.apply.handle(
+      tx,
+      ctx,
+      {
+        instance: WFI,
+        change: { kind: "edit", edit: { op: "hand_now", step: "b" } },
+        by: { kind: "user" },
+        handoff: plan("b"),
+      },
+      { state_seq: seq() },
+    );
     assert.ok(!handNow.ok);
     assert.deepStrictEqual(handNow.error.code, "conflict");
     assert.deepStrictEqual(delivered.length, 2);

@@ -21,22 +21,23 @@ function resolverFor(
   account: Account = { kind: "none", reported_models: null },
 ) {
   // 구독 OAuth provider는 내장 ChatGPT 정의를 쓴다(record 모양 검사가 oauth 정의를 요구한다).
-  const subscription = account.kind === "oauth"
-    ? builtinProviderDefinition("openai")
-    : null;
+  const subscription =
+    account.kind === "oauth" ? builtinProviderDefinition("openai") : null;
   if (subscription && !subscription.ok) throw new Error("no openai definition");
   const provider: ProviderRecord = {
     id: "pvd_00000000000000000000000000",
     name: "mine",
-    definition: subscription?.ok ? subscription.value : {
-      key: definitionKey,
-      display_name: definitionKey,
-      protocols: ["openai-chat-completions"],
-      auth_kinds: ["none"],
-      models_endpoint: null,
-      oauth: null,
-      revision: "test",
-    },
+    definition: subscription?.ok
+      ? subscription.value
+      : {
+          key: definitionKey,
+          display_name: definitionKey,
+          protocols: ["openai-chat-completions"],
+          auth_kinds: ["none"],
+          models_endpoint: null,
+          oauth: null,
+          revision: "test",
+        },
     endpoint: subscription
       ? "https://chatgpt.example/v1"
       : "http://127.0.0.1:1",
@@ -45,7 +46,7 @@ function resolverFor(
       : "openai-chat-completions",
     credential: {
       kind: account.kind,
-      secret_ref: account.kind === "oauth" ? { name: "sub" } as never : null,
+      secret_ref: account.kind === "oauth" ? ({ name: "sub" } as never) : null,
       revision: 1,
       state: "available",
       unavailable_reason: null,
@@ -64,8 +65,8 @@ function resolverFor(
         path === routePath(providerRead)
           ? ok({ provider, as_of_seq: "0", next_cursor: null })
           : path === routePath(userModelInfoRead)
-          ? ok({ seq: "0", items: [], as_of_seq: "0", next_cursor: null })
-          : err({ code: "not_found", message: path }),
+            ? ok({ seq: "0", items: [], as_of_seq: "0", next_cursor: null })
+            : err({ code: "not_found", message: path }),
       ),
     attach: {} as never,
     catalog: () => Promise.resolve(ok(bundledSnapshot.entries)),
@@ -120,7 +121,10 @@ test("직접 적은 이름은 받고, 구독 OAuth 계정의 허락 목록 밖 �
     },
   ];
   for (const row of cases) {
-    const bound = await resolverFor(row.definition, row.account)({
+    const bound = await resolverFor(
+      row.definition,
+      row.account,
+    )({
       model: choice(row.name),
     });
     assert.deepStrictEqual(bound.ok, row.accepted, JSON.stringify(bound));

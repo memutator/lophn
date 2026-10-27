@@ -42,7 +42,8 @@ class Reader {
 
   skip(length: number): void {
     if (
-      !Number.isSafeInteger(length) || this.pos + length > this.bytes.length
+      !Number.isSafeInteger(length) ||
+      this.pos + length > this.bytes.length
     ) {
       throw new Malformed("truncated changeset");
     }
@@ -98,7 +99,8 @@ function invert(bytes: Uint8Array): Uint8Array {
     out.push(bytes.subarray(headerStart, reader.pos));
 
     while (
-      !reader.done && bytes[reader.pos] !== TABLE_CHANGESET &&
+      !reader.done &&
+      bytes[reader.pos] !== TABLE_CHANGESET &&
       bytes[reader.pos] !== TABLE_PATCHSET
     ) {
       const op = reader.byte();
@@ -141,9 +143,7 @@ function invertChangeset(bytes: Uint8Array): Result<Uint8Array> {
 /**
  * 오래된 것부터 담은 changeset을 최신부터 뒤집어 적용 순서대로 돌려준다.
  */
-export function invertAll(
-  changesets: Uint8Array[],
-): Result<Uint8Array[]> {
+export function invertAll(changesets: Uint8Array[]): Result<Uint8Array[]> {
   const inverted: Uint8Array[] = [];
   for (let i = changesets.length - 1; i >= 0; i--) {
     const one = invertChangeset(changesets[i]);

@@ -51,9 +51,10 @@ export function createSocketDirectory(
   if (!Number.isSafeInteger(deps.uid) || deps.uid < 0) {
     return fail("uid is not valid");
   }
-  const base = deps.xdgRuntimeDir && deps.xdgRuntimeDir.length > 0
-    ? `${deps.xdgRuntimeDir}/lophn`
-    : `${deps.tempParent}/lophn-${deps.uid}`;
+  const base =
+    deps.xdgRuntimeDir && deps.xdgRuntimeDir.length > 0
+      ? `${deps.xdgRuntimeDir}/lophn`
+      : `${deps.tempParent}/lophn-${deps.uid}`;
   const directory = `${base}/${socketRootKey(deps.dataRoot)}`;
   const brokerSocket = `${directory}/b-${deps.randomName()}.sock`;
   const controlSocket = `${directory}/a-${deps.randomName()}.sock`;

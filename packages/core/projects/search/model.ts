@@ -89,10 +89,13 @@ export function decodeCursor(text: string): Result<Cursor> {
   try {
     const value = JSON.parse(decodeURIComponent(text));
     if (
-      Array.isArray(value) && value.length === 3 &&
-      Number.isInteger(value[0]) && value[0] >= 0 &&
+      Array.isArray(value) &&
+      value.length === 3 &&
+      Number.isInteger(value[0]) &&
+      value[0] >= 0 &&
       typeof value[1] === "string" &&
-      Number.isInteger(value[2]) && value[2] >= 1
+      Number.isInteger(value[2]) &&
+      value[2] >= 1
     ) {
       return ok({ folder: value[0], path: value[1], line: value[2] });
     }

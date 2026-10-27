@@ -45,7 +45,11 @@ function InvalidMark() {
 
 /** 상단 바 왼쪽 경로의 `/`. project 조각과 desk 조각 사이에 둔다. */
 export function PathSep() {
-  return <span className={styles.sep} aria-hidden="true">/</span>;
+  return (
+    <span className={styles.sep} aria-hidden="true">
+      /
+    </span>
+  );
 }
 
 interface PathMenuProps {
@@ -64,9 +68,15 @@ interface PathMenuProps {
 }
 
 // project·desk selector가 같이 쓰는 경로 조각: 이름과 chevron 단추 하나, 누르면 목록 menu.
-export function PathMenu(
-  { kind, label, icon, items, active, onSelect, onOpenChange }: PathMenuProps,
-) {
+export function PathMenu({
+  kind,
+  label,
+  icon,
+  items,
+  active,
+  onSelect,
+  onOpenChange,
+}: PathMenuProps) {
   const current = items.find((item) => item.id === active) ?? items[0];
   return (
     <Menu
@@ -91,9 +101,9 @@ export function PathMenu(
           <span className={styles.item}>
             <span className={styles.name}>{item.label}</span>
             {item.invalid === true ? <InvalidMark /> : null}
-            {item.id === active
-              ? <Icon icon={conversationIcons.current} pixels={pixels} />
-              : null}
+            {item.id === active ? (
+              <Icon icon={conversationIcons.current} pixels={pixels} />
+            ) : null}
           </span>
         ),
       }))}
@@ -104,9 +114,12 @@ export function PathMenu(
 }
 
 // 상단 바 왼쪽 경로의 자리(desk) 조각. 틀린 선언은 오류 표시가 붙지만 고를 수 있다(선언을 고치는 동안에도 자리는 열 수 있어야 한다).
-export function DeskSelector(
-  { options, active, onSelect, onOpenChange }: DeskSelectorProps,
-) {
+export function DeskSelector({
+  options,
+  active,
+  onSelect,
+  onOpenChange,
+}: DeskSelectorProps) {
   return (
     <PathMenu
       kind="desk"

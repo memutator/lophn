@@ -55,42 +55,51 @@ const BASE64 =
   /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 // 전송부가 exact host·port·redirect와 grant를 매번 검사한다. 앱은 결과만 받는다.
-export const brokerNetFetchInputSchema = z.strictObject({
-  ...childFields,
-  invocation: invocationIdSchema.nullable(),
-  command: toolKeySchema,
-  host: z.string().min(1),
-  port: z.number().int().min(1).max(65535),
-  method: z.string().min(1),
-  path: z.string().min(1),
-  headers: z.record(
-    z.string().regex(/^[A-Za-z0-9-]{1,64}$/),
-    z.string().max(4096).refine((value) => !/[\r\n\0]/.test(value)),
-  ).optional(),
-  body: z.union([
-    z.string(),
-    z.strictObject({ base64: z.string().regex(BASE64) }),
-  ]).optional(),
-}).superRefine((value, context) => {
-  const headers = Object.keys(value.headers ?? {});
-  if (headers.length > NET_FETCH_HEADERS_MAX) {
-    context.addIssue({ code: "custom", message: "too many headers" });
-  }
-  if (
-    headers.some((key) =>
-      NET_FETCH_FORBIDDEN_HEADERS.includes(key.toLowerCase())
-    )
-  ) {
-    context.addIssue({ code: "custom", message: "header is not allowed" });
-  }
-  if (value.body === undefined) return;
-  if (["GET", "HEAD"].includes(value.method.toUpperCase())) {
-    context.addIssue({ code: "custom", message: "GET and HEAD have no body" });
-  }
-  if (fetchBodyBytes(value.body) > NET_FETCH_BODY_MAX_BYTES) {
-    context.addIssue({ code: "custom", message: "body is too large" });
-  }
-});
+export const brokerNetFetchInputSchema = z
+  .strictObject({
+    ...childFields,
+    invocation: invocationIdSchema.nullable(),
+    command: toolKeySchema,
+    host: z.string().min(1),
+    port: z.number().int().min(1).max(65535),
+    method: z.string().min(1),
+    path: z.string().min(1),
+    headers: z
+      .record(
+        z.string().regex(/^[A-Za-z0-9-]{1,64}$/),
+        z
+          .string()
+          .max(4096)
+          .refine((value) => !/[\r\n\0]/.test(value)),
+      )
+      .optional(),
+    body: z
+      .union([z.string(), z.strictObject({ base64: z.string().regex(BASE64) })])
+      .optional(),
+  })
+  .superRefine((value, context) => {
+    const headers = Object.keys(value.headers ?? {});
+    if (headers.length > NET_FETCH_HEADERS_MAX) {
+      context.addIssue({ code: "custom", message: "too many headers" });
+    }
+    if (
+      headers.some((key) =>
+        NET_FETCH_FORBIDDEN_HEADERS.includes(key.toLowerCase()),
+      )
+    ) {
+      context.addIssue({ code: "custom", message: "header is not allowed" });
+    }
+    if (value.body === undefined) return;
+    if (["GET", "HEAD"].includes(value.method.toUpperCase())) {
+      context.addIssue({
+        code: "custom",
+        message: "GET and HEAD have no body",
+      });
+    }
+    if (fetchBodyBytes(value.body) > NET_FETCH_BODY_MAX_BYTES) {
+      context.addIssue({ code: "custom", message: "body is too large" });
+    }
+  });
 export const brokerNetFetchOutputSchema = z.object({
   status: z.number().int().min(100).max(599),
   body: jsonValueSchema,

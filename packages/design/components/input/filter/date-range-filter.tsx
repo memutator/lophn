@@ -17,7 +17,7 @@ import {
 import styles from "./filter.module.css";
 
 const PRESET_LABELS = {
-  "today": "common.label.range-today",
+  today: "common.label.range-today",
   "last-7-days": "common.label.range-last-7-days",
   "last-30-days": "common.label.range-last-30-days",
   "last-90-days": "common.label.range-last-90-days",
@@ -50,9 +50,12 @@ export interface DateRangeFilterProps {
 }
 
 // 기간 고르기. 정한 기간 줄과 그 아래 직접 기간(시작·끝 날짜와 [Apply])이다.
-export function DateRangeFilter(
-  { value, onChange, now, defaultOpen = false }: DateRangeFilterProps,
-) {
+export function DateRangeFilter({
+  value,
+  onChange,
+  now,
+  defaultOpen = false,
+}: DateRangeFilterProps) {
   const [open, setOpen] = useState(defaultOpen);
   const [draft, setDraft] = useState(() => resolveRange(value, now));
   const choose = (next: DateRange) => {
@@ -74,10 +77,7 @@ export function DateRangeFilter(
     >
       <div className={styles.panel} {...componentMark("DateRangeFilter")}>
         {RANGE_PRESETS.map((preset) => (
-          <PopoverRow
-            key={preset}
-            onSelect={() => choose({ preset })}
-          >
+          <PopoverRow key={preset} onSelect={() => choose({ preset })}>
             <span className={styles.rowLabel} data-preset={preset}>
               {t(PRESET_LABELS[preset])}
             </span>
@@ -93,9 +93,7 @@ export function DateRangeFilter(
             choose({ preset: "custom", ...draft });
           }}
         >
-          <p className={styles.customTitle}>
-            {t("common.label.range-custom")}
-          </p>
+          <p className={styles.customTitle}>{t("common.label.range-custom")}</p>
           <div className={styles.customRow}>
             <Field label={t("common.label.date-from")}>
               <Input
@@ -103,7 +101,8 @@ export function DateRangeFilter(
                 type="date"
                 value={draft.from}
                 onChange={(event) =>
-                  setDraft({ ...draft, from: event.currentTarget.value })}
+                  setDraft({ ...draft, from: event.currentTarget.value })
+                }
               />
             </Field>
             <Field label={t("common.label.date-to")}>
@@ -112,7 +111,8 @@ export function DateRangeFilter(
                 type="date"
                 value={draft.to}
                 onChange={(event) =>
-                  setDraft({ ...draft, to: event.currentTarget.value })}
+                  setDraft({ ...draft, to: event.currentTarget.value })
+                }
               />
             </Field>
           </div>

@@ -16,8 +16,11 @@ const layout = z.strictObject({
     id: z.string().refine((value) => idOf("prj", value) !== null),
   }),
   // 비면 첫 말을 보내기 전의 새 session이다.
-  session: z.string().refine((value) => idOf("ses", value) !== null)
-    .nullable().optional(),
+  session: z
+    .string()
+    .refine((value) => idOf("ses", value) !== null)
+    .nullable()
+    .optional(),
 });
 
 type AgentLayout = z.infer<typeof layout>;

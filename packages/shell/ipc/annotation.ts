@@ -34,12 +34,14 @@ export const annotateStateSchema = z.strictObject({
   view_session: viewSession,
   on: z.boolean(),
   phase: z.enum(["idle", "sending"]),
-  items: z.array(z.strictObject({
-    n: z.number().int().min(1),
-    kind,
-    note: z.string(),
-    label: z.string(),
-  })),
+  items: z.array(
+    z.strictObject({
+      n: z.number().int().min(1),
+      kind,
+      note: z.string(),
+      label: z.string(),
+    }),
+  ),
 });
 
 // "N annotations sent" toast의 재료.

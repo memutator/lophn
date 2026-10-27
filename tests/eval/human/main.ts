@@ -61,10 +61,11 @@ try {
   selected = JSON.parse(Buffer.concat(chunks).toString("utf8"));
   if (
     !Array.isArray(selected) ||
-    !selected.every((s) =>
-      Array.isArray(s) && s.every((v) => typeof v === "string")
+    !selected.every(
+      (s) => Array.isArray(s) && s.every((v) => typeof v === "string"),
     )
-  ) throw new Error("not string[][]");
+  )
+    throw new Error("not string[][]");
 } catch {
   fail(2, `stdin은 JSON string[][]여야 한다(질문 ${need}개, 배열 ${need}개)`);
 }

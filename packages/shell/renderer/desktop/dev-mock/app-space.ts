@@ -34,8 +34,7 @@ export function mockViews(root?: HTMLElement): LophnShellViewsApi {
         "position:fixed;display:none;align-items:center;justify-content:center;" +
         "box-sizing:border-box;background:var(--color-surface-base);" +
         "color:var(--color-text-muted);font:14px var(--font-sans, sans-serif);z-index:1";
-      box.textContent =
-        `App view (${input.size}, ${input.screen}) is not drawn in mock mode`;
+      box.textContent = `App view (${input.size}, ${input.screen}) is not drawn in mock mode`;
       (root ?? document.body).append(box);
       boxes.set(session, box);
       const state: AppFrameViewState = {
@@ -95,14 +94,16 @@ export function mockAppViews(views: LophnShellViewsApi): AppViewsDeps {
     app: (app) => {
       const name = (apps as Record<string, string>)[app];
       return Promise.resolve(
-        name === undefined ? { ok: false, code: "not_found" as const } : {
-          ok: true as const,
-          value: {
-            name,
-            release: "rel_01h455vb4pex5v6nkc6gd5fd01",
-            archived: false,
-          },
-        },
+        name === undefined
+          ? { ok: false, code: "not_found" as const }
+          : {
+              ok: true as const,
+              value: {
+                name,
+                release: "rel_01h455vb4pex5v6nkc6gd5fd01",
+                archived: false,
+              },
+            },
       );
     },
     screens: () =>
@@ -111,11 +112,13 @@ export function mockAppViews(views: LophnShellViewsApi): AppViewsDeps {
         value: Object.entries(apps).map(([app, name]) => ({
           app,
           name,
-          screens: [{
-            key: "home",
-            label: "Home",
-            sizes: ["full", "panel", "card"] as const,
-          }],
+          screens: [
+            {
+              key: "home",
+              label: "Home",
+              sizes: ["full", "panel", "card"] as const,
+            },
+          ],
         })),
       }),
   };

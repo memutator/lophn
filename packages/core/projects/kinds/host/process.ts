@@ -113,7 +113,7 @@ export function createKindsProcess(deps: KindsProcessDeps): KindsProcess {
     started = true;
     gaveUp = false;
     deps.channel.bind((payload) =>
-      deps.supervisor.send(KINDS_WORKER_KIND, payload).then((sent) => sent.ok)
+      deps.supervisor.send(KINDS_WORKER_KIND, payload).then((sent) => sent.ok),
     );
     return true;
   }

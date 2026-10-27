@@ -44,8 +44,10 @@ function invalid(message: string): Result<never> {
 
 // 안내 글은 세 절이고 이 byte가 guide_hash가 된다.
 function guideText(guide: PackagePublishInput["guide"]): string {
-  return `# Purpose\n\n${guide.purpose.trim()}\n\n# API\n\n${guide.api.trim()}\n\n` +
-    `# Examples\n\n${guide.examples.trim()}\n`;
+  return (
+    `# Purpose\n\n${guide.purpose.trim()}\n\n# API\n\n${guide.api.trim()}\n\n` +
+    `# Examples\n\n${guide.examples.trim()}\n`
+  );
 }
 
 export function publishPackage(deps: PublishDeps): MemoryHandler {
@@ -127,7 +129,7 @@ export function publishPackage(deps: PublishDeps): MemoryHandler {
 
     // 읽기 전용 설치 사본. 같은 byte의 사본이 이미 있으면(재시도) 그대로 둔다.
     const target = `${deps.dataRoot}/${path.value}`;
-    if (!await sameInstallCopy(target, files)) {
+    if (!(await sameInstallCopy(target, files))) {
       await removeInstallCopy(target);
       const copied = await writeInstallCopy(target, files);
       if (!copied.ok) return copied;

@@ -24,12 +24,10 @@ export function checkSpecAgainst(
   const add = (code: Problem["code"], text: string) =>
     found.push({ code, text });
 
-  for (
-    const [label, goals] of [["target", spec.target], [
-      "cases",
-      spec.cases,
-    ]] as const
-  ) {
+  for (const [label, goals] of [
+    ["target", spec.target],
+    ["cases", spec.cases],
+  ] as const) {
     for (const g of goals) {
       const scenario = ctx.scenarios.find((s) => s.id === g.scenario);
       if (!scenario) {
@@ -62,8 +60,8 @@ export function checkSpecAgainst(
       );
     }
     if (
-      !run.components.some((c) =>
-        c.kind === from.kind && c.name === from.name && c.n === from.n
+      !run.components.some(
+        (c) => c.kind === from.kind && c.name === from.name && c.n === from.n,
       )
     ) {
       add(

@@ -7,16 +7,14 @@ import type {
 import type { Id } from "../../../protocol/base/ids.ts";
 
 // 한 호출을 기록하는 데 필요한 값. 입력과 출력 본문은 담지 않는다.
-export type CallRecordBase =
-  & Pick<
-    AppInvocation,
-    "mode" | "operation" | "caller" | "effect" | "input_hash"
-  >
-  & {
-    id: Id<"inv">;
-    app: Id<"app">;
-    release: Id<"rel">;
-  };
+export type CallRecordBase = Pick<
+  AppInvocation,
+  "mode" | "operation" | "caller" | "effect" | "input_hash"
+> & {
+  id: Id<"inv">;
+  app: Id<"app">;
+  release: Id<"rel">;
+};
 
 export type Settled = {
   status: "succeeded" | "failed" | "unknown";

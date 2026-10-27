@@ -53,9 +53,8 @@ export function messageReceived(
   call: string | null,
   body: string,
 ): void {
-  const record = call === null
-    ? null
-    : createCallStore().read(tx, call as never);
+  const record =
+    call === null ? null : createCallStore().read(tx, call as never);
   emitAgent(tx, {
     session,
     type: "MessageReceived",

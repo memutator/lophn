@@ -44,9 +44,13 @@ interface SurfaceViewProps {
 }
 
 // owner의 label·text·choice는 React text로만 그린다. 고르기는 api.result로만 돌아가고 command를 보내지 않는다.
-function SurfaceView(
-  { surface, host, actions, timer, clock }: SurfaceViewProps,
-) {
+function SurfaceView({
+  surface,
+  host,
+  actions,
+  timer,
+  clock,
+}: SurfaceViewProps) {
   // Radix menu는 고른 뒤 같은 event 안에서 닫힘도 알린다. 고른 결과 하나만 보낸다.
   const picking = useRef(false);
   const select = (choiceId: string) => {
@@ -95,11 +99,12 @@ function SurfaceView(
             label: choice.label,
             disabled: choice.disabled,
             // browser favicon(data URL). 장식이라 이름은 label이 맡는다.
-            leading: choice.image === undefined ? undefined : (
-              <MenuIcon>
-                <img className={styles.image} src={choice.image} alt="" />
-              </MenuIcon>
-            ),
+            leading:
+              choice.image === undefined ? undefined : (
+                <MenuIcon>
+                  <img className={styles.image} src={choice.image} alt="" />
+                </MenuIcon>
+              ),
           }))}
           onSelect={select}
           placement="beside"
@@ -162,13 +167,15 @@ function SurfaceView(
             body={text}
             lead={surface.model.lead && leadOf(surface.model.lead)}
             tone={surface.model.tone}
-            actions={third
-              ? [first, second, third]
-              : second
-              ? [first, second]
-              : first
-              ? [first]
-              : []}
+            actions={
+              third
+                ? [first, second, third]
+                : second
+                  ? [first, second]
+                  : first
+                    ? [first]
+                    : []
+            }
             onAction={select}
             onClose={actions.close}
             timer={timer}
@@ -188,37 +195,41 @@ function leadOf(lead: OverlayLead) {
     return <Avatar profile={lead.profile} size="sm" />;
   }
   const vendor = harnessVendorOf(lead.harness);
-  return vendor === undefined
-    ? undefined
-    : <VendorIcon vendor={vendor} size={16} />;
+  return vendor === undefined ? undefined : (
+    <VendorIcon vendor={vendor} size={16} />
+  );
 }
 
 const PALETTE_ICONS: Record<PaletteIcon, IconProps["icon"]> = paletteIcons;
 
 // 검색 palette는 검색어를 연 쪽에 돌려주고 연 쪽이 바꾼 행을 같은 표면에 다시 그린다.
 // 검색어와 고른 줄은 Palette 안에 남아 행이 바뀌어도 입력이 끊기지 않는다.
-function PaletteSurface(
-  { surface, host, actions, onOpenChange, select }: {
-    surface: OverlaySurface;
-    host: HTMLElement;
-    actions: SurfaceActions;
-    onOpenChange: (open: boolean) => void;
-    select: (choiceId: string) => void;
-  },
-) {
+function PaletteSurface({
+  surface,
+  host,
+  actions,
+  onOpenChange,
+  select,
+}: {
+  surface: OverlaySurface;
+  host: HTMLElement;
+  actions: SurfaceActions;
+  onOpenChange: (open: boolean) => void;
+  select: (choiceId: string) => void;
+}) {
   const [model, setModel] = useState(surface.model);
   useEffect(() => actions.watch((next) => setModel(next.model)), [actions]);
-  const items = model.choices.filter((choice) => !choice.disabled).map((
-    choice,
-  ) => ({
-    id: choice.id,
-    label: choice.label,
-    group: choice.group,
-    detail: choice.detail,
-    hint: choice.hint,
-    icon: choice.icon ? PALETTE_ICONS[choice.icon] : undefined,
-    image: choice.image,
-  }));
+  const items = model.choices
+    .filter((choice) => !choice.disabled)
+    .map((choice) => ({
+      id: choice.id,
+      label: choice.label,
+      group: choice.group,
+      detail: choice.detail,
+      hint: choice.hint,
+      icon: choice.icon ? PALETTE_ICONS[choice.icon] : undefined,
+      image: choice.image,
+    }));
   return (
     <Palette
       container={host}
@@ -234,12 +245,13 @@ function PaletteSurface(
 }
 
 // host마다 React root 하나를 둔다. 지울 때 Radix focus 복귀는 이미 꺼져 있어 focus를 옮기지 않는다.
-export function surfaceMount(
-  { timer = systemTimer, clock = systemClock }: {
-    timer?: Timer;
-    clock?: Clock;
-  } = {},
-): SurfaceMount {
+export function surfaceMount({
+  timer = systemTimer,
+  clock = systemClock,
+}: {
+  timer?: Timer;
+  clock?: Clock;
+} = {}): SurfaceMount {
   return (host, surface, actions) => {
     const root = createRoot(host);
     root.render(

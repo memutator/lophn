@@ -20,7 +20,7 @@ export async function installTemplate(
 ): Promise<Result<TemplateInstallResult>> {
   const sorted = sortTemplateFiles(files);
   const target = `${deps.dataRoot}/templates/app`;
-  if (!await sameInstallCopy(target, sorted)) {
+  if (!(await sameInstallCopy(target, sorted))) {
     await removeInstallCopy(target);
     const copied = await writeInstallCopy(target, sorted);
     if (!copied.ok) return copied;

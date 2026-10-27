@@ -68,10 +68,12 @@ export function createAgentStore(
     operatorIds(place) {
       try {
         return ok(
-          files.list(agentsFolderOf(place))
-            .filter((name) =>
-              name.endsWith(".md") &&
-              idSchema("agt").safeParse(name.slice(0, -3)).success
+          files
+            .list(agentsFolderOf(place))
+            .filter(
+              (name) =>
+                name.endsWith(".md") &&
+                idSchema("agt").safeParse(name.slice(0, -3)).success,
             )
             .map((name) => name.slice(0, -3)),
         );

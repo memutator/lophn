@@ -17,12 +17,12 @@ export function foldJudge(
   entries: PendingJudge[],
 ): TrialResult[] {
   return trials.map((t) => {
-    const mine = entries.filter((e) =>
-      e.kind === "check" && e.trial === t.index
+    const mine = entries.filter(
+      (e) => e.kind === "check" && e.trial === t.index,
     );
     if (mine.length === 0) return t;
-    const judge = t.judge.map((j) =>
-      mine.find((e) => e.item.check === j.check)?.item ?? j
+    const judge = t.judge.map(
+      (j) => mine.find((e) => e.item.check === j.check)?.item ?? j,
     );
     const checks = t.checks.map((c) => {
       const e = mine.find((e) => e.item.check === c.id);
@@ -52,9 +52,11 @@ async function readJson(path: string) {
 }
 
 // 요약이 아직 없으면(runner가 시나리오 끝에 쓴다) 아무것도 쓰지 않고 false.
-export async function foldRun(
-  args: { evalDir: string; runsDir: string; run: string },
-): Promise<boolean> {
+export async function foldRun(args: {
+  evalDir: string;
+  runsDir: string;
+  run: string;
+}): Promise<boolean> {
   const { evalDir, runsDir, run } = args;
   const summaryPath = `${runsDir}/${run}.json`;
   const summary = await readJson(summaryPath);

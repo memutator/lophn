@@ -34,21 +34,20 @@ async function call(
   if (value?.ok === true) return { ok: true };
   return {
     ok: false,
-    code: typeof value?.code === "string" && CODES.has(value.code)
-      ? value.code as Extract<AppWindowReply, { ok: false }>["code"]
-      : "unavailable",
+    code:
+      typeof value?.code === "string" && CODES.has(value.code)
+        ? (value.code as Extract<AppWindowReply, { ok: false }>["code"])
+        : "unavailable",
   };
 }
 
 export function createAppWindowsApi(
   transport: AppWindowTransport,
 ): LophnAppWindowsApi {
-  return Object.freeze(
-    {
-      openWindow: (input) => call(transport, APP_WINDOW_OPEN_CHANNEL, input),
-      addShortcut: (input) => call(transport, APP_SHORTCUT_ADD_CHANNEL, input),
-      removeShortcut: (input) =>
-        call(transport, APP_SHORTCUT_REMOVE_CHANNEL, input),
-    } satisfies LophnAppWindowsApi,
-  );
+  return Object.freeze({
+    openWindow: (input) => call(transport, APP_WINDOW_OPEN_CHANNEL, input),
+    addShortcut: (input) => call(transport, APP_SHORTCUT_ADD_CHANNEL, input),
+    removeShortcut: (input) =>
+      call(transport, APP_SHORTCUT_REMOVE_CHANNEL, input),
+  } satisfies LophnAppWindowsApi);
 }

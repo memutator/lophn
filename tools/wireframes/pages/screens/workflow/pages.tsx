@@ -43,14 +43,16 @@ const PROJECT = FAKE_WORKFLOWS[0].project;
 const [DOC_TAB] = stripTabsOf([documentTab("loop/findings/F-009.md")]);
 
 /** workflow 탭 한 개가 선 창. 탭 줄 아래 본문은 실제 칸처럼 여백 없이 붙고 page가 스스로 여백을 둔다. */
-function WorkflowWindow(
-  { name, instance = null, source: given }: {
-    name: string;
-    /** 탭이 처음 고른 instance. */
-    instance?: string | null;
-    source?: WorkspaceSource;
-  },
-) {
+function WorkflowWindow({
+  name,
+  instance = null,
+  source: given,
+}: {
+  name: string;
+  /** 탭이 처음 고른 instance. */
+  instance?: string | null;
+  source?: WorkspaceSource;
+}) {
   const source = useMemo(() => given ?? fakeWorkspaceSource(), [given]);
   const client = useMemo(() => createEventClient(createFakeSource()), []);
   const [selected, setSelected] = useState(instance);
@@ -160,11 +162,14 @@ export function StartDialogFlow() {
 }
 
 export function StartFailed() {
-  const source = useMemo(() => ({
-    ...fakeWorkspaceSource(),
-    startWorkflow: () =>
-      Promise.resolve({ ok: false as const, message: "internal" }),
-  }), []);
+  const source = useMemo(
+    () => ({
+      ...fakeWorkspaceSource(),
+      startWorkflow: () =>
+        Promise.resolve({ ok: false as const, message: "internal" }),
+    }),
+    [],
+  );
   useDrive(async () => {
     await fillStartDialog();
     await click('[role="dialog"] button', "Start");

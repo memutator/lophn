@@ -73,10 +73,12 @@ export type LoopState = {
   };
 };
 
-type TurnResult = { kind: "continue" } | {
-  kind: "end";
-  end: LoopEnd;
-};
+type TurnResult =
+  | { kind: "continue" }
+  | {
+      kind: "end";
+      end: LoopEnd;
+    };
 
 const continueTurn: TurnResult = { kind: "continue" };
 
@@ -122,7 +124,7 @@ async function finishWith(
   limit: Record<string, unknown> | null,
   facts?: ConfirmedFacts,
 ): Promise<TurnResult> {
-  const confirmed = facts ?? await confirmedFacts(state);
+  const confirmed = facts ?? (await confirmedFacts(state));
   // 끝난 순간까지의 active를 `TurnEnded`가 싣게 한다. 마지막 checkpoint 뒤에 흐른 시간이 빠지지 않게 한다.
   await state.deps.ports.checkpoint(state.limiter.snapshot());
   const finished = await state.deps.ports.finish({
@@ -176,8 +178,10 @@ async function abortEnd(state: LoopState): Promise<TurnResult> {
 }
 
 function sameSteering(a: PendingInputs, b: PendingInputs): boolean {
-  return a.steering.length === b.steering.length &&
-    a.steering.every((item, index) => item.id === b.steering[index].id);
+  return (
+    a.steering.length === b.steering.length &&
+    a.steering.every((item, index) => item.id === b.steering[index].id)
+  );
 }
 
 // ---- prompt 조립 ----
@@ -224,10 +228,12 @@ function historyOf(
   const messages: HistoryMessage[] = [];
   const conversation = sessionMaterial(context.session);
   if (conversation.compact_summary !== null) {
-    pushHistory(messages, "user", [{
-      kind: "text",
-      text: `${SUMMARY_HEADING}\n${conversation.compact_summary}`,
-    }]);
+    pushHistory(messages, "user", [
+      {
+        kind: "text",
+        text: `${SUMMARY_HEADING}\n${conversation.compact_summary}`,
+      },
+    ]);
   }
   for (const message of conversation.history) {
     pushHistory(messages, message.role, message.parts);
@@ -243,7 +249,11 @@ function historyOf(
     ...context.notices,
   ];
   if (tail.length > 0) {
-    pushHistory(messages, "user", tail.map((text) => ({ kind: "text", text })));
+    pushHistory(
+      messages,
+      "user",
+      tail.map((text) => ({ kind: "text", text })),
+    );
   }
   return messages;
 }
@@ -280,12 +290,13 @@ async function prepare(
 
 function makeGate(state: LoopState, applied: ReadonlySet<string>): Gate {
   return async (server) => {
-    if (await stopped(state) !== null) return "stopped";
+    if ((await stopped(state)) !== null) return "stopped";
     if (state.limiter.check() !== null) return "limit_reached";
     if (
       state.flags.providerRevoked ||
       (server !== null && state.flags.revokedServers.has(server))
-    ) return "configuration_revoked";
+    )
+      return "configuration_revoked";
     const pending = await state.deps.ports.inputs();
     if (pending.ok && pending.value.steering.some((s) => !applied.has(s.id))) {
       return "superseded";
@@ -316,17 +327,18 @@ async function callModel(
   prepared: Prepared,
 ): Promise<ModelStep> {
   const { deps, limiter } = state;
-  const body = deps.ports.model.pack(prepared.prompt.request)
-    .body as Record<string, unknown>;
+  const body = deps.ports.model.pack(prepared.prompt.request).body as Record<
+    string,
+    unknown
+  >;
   let previous: string | null = null;
   let retries = 0;
   for (;;) {
     const request: ModelCallRequest = {
       prompt: prepared.prompt,
       body,
-      applied: previous === null
-        ? prepared.inputs.steering.map((s) => s.id)
-        : [],
+      applied:
+        previous === null ? prepared.inputs.steering.map((s) => s.id) : [],
       kind: previous === null ? "initial" : "retry",
       retry_of: previous,
     };
@@ -437,7 +449,8 @@ function record(state: LoopState, results: readonly CallResult[]): void {
     const call = result.tool_call ?? `${result.key}:unconfirmed`;
     const info = state.deps.ports.tools.info(result.name);
     if (
-      result.status === "success" && info !== undefined &&
+      result.status === "success" &&
+      info !== undefined &&
       info.effect !== "read"
     ) {
       facts.changes.push(call);
@@ -471,10 +484,13 @@ export async function runTurn(state: LoopState): Promise<TurnResult> {
   if (step.kind === "end") return step.end;
   // 보낸 steering은 이 call에 반영됐다. 이후 이력에서 이어진다.
   const steering = prepared.inputs.steering.map((item) =>
-    inputText(item.input)
+    inputText(item.input),
   );
   if (steering.length > 0) {
-    appendUser(state, steering.map((text) => ({ kind: "text", text })));
+    appendUser(
+      state,
+      steering.map((text) => ({ kind: "text", text })),
+    );
   }
   if (step.kind === "restart") return continueTurn;
   const attempt = step.attempt;
@@ -485,11 +501,12 @@ export async function runTurn(state: LoopState): Promise<TurnResult> {
     }
     // 불완전한 응답의 tool은 하나도 시작하지 않고 잘림 사실만 다음 판단에 전한다.
     const why = attempt.outcome.finish_reason ?? "unknown";
-    appendUser(state, [{
-      kind: "text",
-      text:
-        `[machine] The previous response was cut off (${why}). None of its tool calls were started. Continue from what is confirmed.`,
-    }]);
+    appendUser(state, [
+      {
+        kind: "text",
+        text: `[machine] The previous response was cut off (${why}). None of its tool calls were started. Continue from what is confirmed.`,
+      },
+    ]);
     await ports.checkpoint(limiter.snapshot());
     return continueTurn;
   }
@@ -581,8 +598,8 @@ async function conclude(
 ): Promise<TurnResult> {
   const { deps } = state;
   const pending = await deps.ports.inputs();
-  const fresh = pending.ok &&
-    pending.value.steering.some((item) => !applied.has(item.id));
+  const fresh =
+    pending.ok && pending.value.steering.some((item) => !applied.has(item.id));
   if (!fresh) {
     const finished = await finishWith(
       state,

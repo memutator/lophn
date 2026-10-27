@@ -130,13 +130,15 @@ test("selectRuns reruns only scenarios whose valid run saw X@a, drops stale runs
   const r = selectRuns(spec(["t"]), runs, current);
   assert.ok(r.ok);
   const { entries, keep, excluded } = r.value;
-  assert.deepStrictEqual(entries.map((e) => `${e.role}:${e.scenario}`), [
-    "target:t",
-    "case:c",
-    "guard:g",
-  ]);
+  assert.deepStrictEqual(
+    entries.map((e) => `${e.role}:${e.scenario}`),
+    ["target:t", "case:c", "guard:g"],
+  );
   assert.deepStrictEqual(entries[0].baseline_runs, ["r0", "r1"]);
-  assert.deepStrictEqual(entries[0].baseline.map((o) => o.index), [0, 0, 1]);
+  assert.deepStrictEqual(
+    entries[0].baseline.map((o) => o.index),
+    [0, 0, 1],
+  );
   assert.deepStrictEqual(entries[0].checks, ["c1"]);
   assert.deepStrictEqual(entries[1].baseline_runs, []);
   assert.deepStrictEqual(entries[2].checks, null);

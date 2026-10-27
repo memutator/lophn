@@ -40,8 +40,11 @@ function bareHost(hostname: string): string {
 
 function isLoopback(host: string): boolean {
   const bare = bareHost(host);
-  return bare === "localhost" || bare === "::1" ||
-    /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(bare);
+  return (
+    bare === "localhost" ||
+    bare === "::1" ||
+    /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(bare)
+  );
 }
 
 /**
@@ -50,9 +53,13 @@ function isLoopback(host: string): boolean {
  * custom scheme host를 그대로 두므로 여기서 소문자로 맞춘다.
  */
 export function ownAppUrl(url: URL, appLabel: string): boolean {
-  return url.protocol === `${APP_SCHEME}:` &&
+  return (
+    url.protocol === `${APP_SCHEME}:` &&
     url.hostname.toLowerCase() === appLabel &&
-    url.username === "" && url.password === "" && url.port === "";
+    url.username === "" &&
+    url.password === "" &&
+    url.port === ""
+  );
 }
 
 function effectivePort(url: URL): number {
@@ -74,8 +81,8 @@ function grantedUrl(
   const host = bareHost(url.hostname);
   const port = effectivePort(url);
   if (isLoopback(host) && platformPorts.includes(port)) return false;
-  return hosts.some((grant) =>
-    bareHost(grant.host) === host && grant.port === port
+  return hosts.some(
+    (grant) => bareHost(grant.host) === host && grant.port === port,
   );
 }
 
@@ -118,7 +125,7 @@ function origin(scheme: "https" | "wss", grant: FetchHost): string {
  */
 export function appContentSecurityPolicy(hosts: readonly FetchHost[]): string {
   const sorted = [...hosts].sort((a, b) =>
-    a.host === b.host ? a.port - b.port : a.host < b.host ? -1 : 1
+    a.host === b.host ? a.port - b.port : a.host < b.host ? -1 : 1,
   );
   const https = sorted.map((grant) => origin("https", grant));
   const wss = sorted.map((grant) => origin("wss", grant));

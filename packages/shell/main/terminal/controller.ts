@@ -31,24 +31,19 @@ interface MainIpc {
  * terminal 채널 열 개를 ipcMain에 등록한다. sender·frame·URL·입력 검사는
  * TerminalIpc가 본다.
  */
-export function registerTerminalIpc(
-  register: MainIpc,
-  ipc: TerminalIpc,
-): void {
-  for (
-    const [channel, method] of [
-      [TERMINAL_OPEN_CHANNEL, "open"],
-      [TERMINAL_INPUT_CHANNEL, "input"],
-      [TERMINAL_RESIZE_CHANNEL, "resize"],
-      [TERMINAL_CLOSE_CHANNEL, "close"],
-      [TERMINAL_RESTART_CHANNEL, "restart"],
-      [TERMINAL_SNAPSHOT_CHANNEL, "snapshot"],
-      [TERMINAL_FOCUS_CHANNEL, "focus"],
-      [TERMINAL_FOCUS_SESSION_CHANNEL, "focusSession"],
-      [TERMINAL_LINK_CHANNEL, "link"],
-      [TERMINAL_BRIDGE_ACK_CHANNEL, "bridgeAck"],
-    ] as const
-  ) {
+export function registerTerminalIpc(register: MainIpc, ipc: TerminalIpc): void {
+  for (const [channel, method] of [
+    [TERMINAL_OPEN_CHANNEL, "open"],
+    [TERMINAL_INPUT_CHANNEL, "input"],
+    [TERMINAL_RESIZE_CHANNEL, "resize"],
+    [TERMINAL_CLOSE_CHANNEL, "close"],
+    [TERMINAL_RESTART_CHANNEL, "restart"],
+    [TERMINAL_SNAPSHOT_CHANNEL, "snapshot"],
+    [TERMINAL_FOCUS_CHANNEL, "focus"],
+    [TERMINAL_FOCUS_SESSION_CHANNEL, "focusSession"],
+    [TERMINAL_LINK_CHANNEL, "link"],
+    [TERMINAL_BRIDGE_ACK_CHANNEL, "bridgeAck"],
+  ] as const) {
     const invoke = ipc[method] as unknown as (
       event: never,
       input: never,
@@ -61,20 +56,18 @@ export function registerTerminalIpc(
 }
 
 export function removeTerminalIpc(register: MainIpc): void {
-  for (
-    const channel of [
-      TERMINAL_OPEN_CHANNEL,
-      TERMINAL_INPUT_CHANNEL,
-      TERMINAL_RESIZE_CHANNEL,
-      TERMINAL_CLOSE_CHANNEL,
-      TERMINAL_RESTART_CHANNEL,
-      TERMINAL_SNAPSHOT_CHANNEL,
-      TERMINAL_FOCUS_CHANNEL,
-      TERMINAL_FOCUS_SESSION_CHANNEL,
-      TERMINAL_LINK_CHANNEL,
-      TERMINAL_BRIDGE_ACK_CHANNEL,
-    ]
-  ) {
+  for (const channel of [
+    TERMINAL_OPEN_CHANNEL,
+    TERMINAL_INPUT_CHANNEL,
+    TERMINAL_RESIZE_CHANNEL,
+    TERMINAL_CLOSE_CHANNEL,
+    TERMINAL_RESTART_CHANNEL,
+    TERMINAL_SNAPSHOT_CHANNEL,
+    TERMINAL_FOCUS_CHANNEL,
+    TERMINAL_FOCUS_SESSION_CHANNEL,
+    TERMINAL_LINK_CHANNEL,
+    TERMINAL_BRIDGE_ACK_CHANNEL,
+  ]) {
     register.removeHandler(channel);
   }
 }
@@ -163,7 +156,10 @@ export class TerminalFocusTable {
   ): boolean {
     const entry = this.#focused.get(terminalRef);
     if (!entry || entry.contents !== contentsId) return false;
-    return generation === undefined || entry.generation === undefined ||
-      entry.generation === generation;
+    return (
+      generation === undefined ||
+      entry.generation === undefined ||
+      entry.generation === generation
+    );
   }
 }

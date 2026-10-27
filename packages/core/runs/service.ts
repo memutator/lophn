@@ -33,31 +33,31 @@ type ResolvedAgentStart = {
 };
 type Settlement =
   | {
-    state: "done";
-    result?: unknown;
-    turn?: Id<"trn">;
-    invocation?: string | null;
-  }
+      state: "done";
+      result?: unknown;
+      turn?: Id<"trn">;
+      invocation?: string | null;
+    }
   | {
-    state: "failed";
-    reason: RunFailReason;
-    message: string;
-    turn?: Id<"trn">;
-    invocation?: string | null;
-  };
+      state: "failed";
+      reason: RunFailReason;
+      message: string;
+      turn?: Id<"trn">;
+      invocation?: string | null;
+    };
 
 // ended: 입력을 가져간 turn이 끝났다. running: 아직 turn이 없거나 돌고 있거나 알 수 없다.
 type TurnState = "ended" | "running" | "none";
 
 // job이 연 run과 flow instance가 연 run을 가르는 칸이다.
-function originColumns(
-  origin: RunOrigin | undefined,
-): { job: Id<"job"> | null; instance: Id<"wfi"> | null } {
+function originColumns(origin: RunOrigin | undefined): {
+  job: Id<"job"> | null;
+  instance: Id<"wfi"> | null;
+} {
   return {
     job: origin !== undefined && "job" in origin ? origin.job : null,
-    instance: origin !== undefined && "instance" in origin
-      ? origin.instance
-      : null,
+    instance:
+      origin !== undefined && "instance" in origin ? origin.instance : null,
   };
 }
 
@@ -187,11 +187,12 @@ export function createRunService(deps: {
     }
 
     // 이름을 다 푼 뒤에만 session을 열고 run을 만든다. 첫 시도가 아무것도 남기면 안 된다.
-    const resolved = input.kind === "agent_resolved"
-      ? ok({ agent: input.agent, place: input.place })
-      : input.agent !== undefined
-      ? await agents.resolve(input.agent)
-      : await agents.agentOf(input.session! as Id<"ses">);
+    const resolved =
+      input.kind === "agent_resolved"
+        ? ok({ agent: input.agent, place: input.place })
+        : input.agent !== undefined
+          ? await agents.resolve(input.agent)
+          : await agents.agentOf(input.session! as Id<"ses">);
     if (!resolved.ok) return resolved;
     const { agent, place } = resolved.value;
 
@@ -263,10 +264,7 @@ export function createRunService(deps: {
     if (!called.ok) {
       await settle(
         run,
-        fail(
-          "tool_denied",
-          `${called.error.code}: ${called.error.message}`,
-        ),
+        fail("tool_denied", `${called.error.code}: ${called.error.message}`),
       );
       return;
     }
@@ -349,10 +347,7 @@ export function createRunService(deps: {
         : startAgent(input, origin);
     },
 
-    async wait(
-      id: Id<"run">,
-      timeout_ms: number,
-    ): Promise<Result<RunRecord>> {
+    async wait(id: Id<"run">, timeout_ms: number): Promise<Result<RunRecord>> {
       // 걸고 나서 읽는다. 읽는 사이에 끝나도 놓치지 않는다.
       let finish = () => {};
       const released = new Promise<void>((resolve) => {
@@ -384,14 +379,16 @@ export function createRunService(deps: {
       }
     },
 
-    async turnEnded(
-      event: { turn: string; messages: readonly string[] },
-    ): Promise<void> {
+    async turnEnded(event: {
+      turn: string;
+      messages: readonly string[];
+    }): Promise<void> {
       for (const run of await runningRuns()) {
         if (
           run.input_message !== null &&
           event.messages.includes(run.input_message)
-        ) await settleFromTurn(run);
+        )
+          await settleFromTurn(run);
       }
     },
 

@@ -51,14 +51,12 @@ test("webview attach takes only our partition from the shell and hardens it", ()
   assert.equal(ok.params.disablewebsecurity, undefined);
   assert.equal(ok.params.src, "https://a.example/");
 
-  for (
-    const src of [
-      "file:///etc/passwd",
-      "lophn-app://x/index.html",
-      "javascript:alert(1)",
-      "data:text/html,<p>x</p>",
-    ]
-  ) {
+  for (const src of [
+    "file:///etc/passwd",
+    "lophn-app://x/index.html",
+    "javascript:alert(1)",
+    "data:text/html,<p>x</p>",
+  ]) {
     assert.equal(
       attach({ partition: BROWSER_PARTITION, src }).params.src,
       "about:blank",

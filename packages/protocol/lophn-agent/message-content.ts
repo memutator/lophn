@@ -86,12 +86,14 @@ export const messageContentSchema = z.object({
 });
 
 // 사람 메시지는 글만 받는다.
-export const userMessageContentInputSchema = z.strictObject({
-  schema_version: z.literal(1),
-  parts: z.array(textPartInputSchema).min(1),
-}).refine((value) => withinBytes(value, MESSAGE_TEXT_CONTENT_MAX_BYTES), {
-  message: "message content is too large",
-});
+export const userMessageContentInputSchema = z
+  .strictObject({
+    schema_version: z.literal(1),
+    parts: z.array(textPartInputSchema).min(1),
+  })
+  .refine((value) => withinBytes(value, MESSAGE_TEXT_CONTENT_MAX_BYTES), {
+    message: "message content is too large",
+  });
 // agent 답은 글과 앱 카드를 받는다.
 export const agentMessageContentInputSchema = z.strictObject({
   schema_version: z.literal(1),

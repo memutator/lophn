@@ -91,9 +91,11 @@ export const browserKind: TabKindDef = {
     const state = (transfer.value as { state?: BrowserViewState } | null)
       ?.state;
     if (
-      tab.fields?.native !== true || session === undefined ||
+      tab.fields?.native !== true ||
+      session === undefined ||
       state?.view_session !== session
-    ) return;
+    )
+      return;
     host.viewKeeps.put(tab.key, { session, signature: KEEP_SIGNATURE, state });
   },
   // 다른 탭으로 가도 page가 살아 있도록 keep만 쓴다. 숨김은 BrowserTab이 shown으로 맡는다.
@@ -104,10 +106,11 @@ export const browserKind: TabKindDef = {
     // dock되지 않게 한다). pane 탭은 0이다.
     const floated =
       host.view.floats.findIndex((item) => item.tab.key === tab.key) + 1;
-    const layer = floated > 0 ||
-        !host.view.detached.some((item) => item.tab.key === tab.key)
-      ? floated
-      : 1;
+    const layer =
+      floated > 0 ||
+      !host.view.detached.some((item) => item.tab.key === tab.key)
+        ? floated
+        : 1;
     return (
       <BrowserTab
         url={typeof url === "string" ? url : ""}
@@ -120,45 +123,60 @@ export const browserKind: TabKindDef = {
         onAdopted={() =>
           host.patchTab(tab.key, (current) => ({
             fields: { ...current.fields, adopt: undefined },
-          }))}
+          }))
+        }
         // 크기를 준 popup만 native view로 floated 탭에 뜬다(opener를 지킨다). 크기 없는 것은 main이
         // 거절하고 open-tab으로 알린다.
         onPopup={(event) => {
-          host.openFloat({
-            key: newKey(),
-            kind: "browser",
-            title: nameOf("", ""),
-            fields: { url: "", adopt: event.view_session, native: true },
-            transient: true,
-          }, event.placement.kind === "floated" ? event.placement : undefined);
+          host.openFloat(
+            {
+              key: newKey(),
+              kind: "browser",
+              title: nameOf("", ""),
+              fields: { url: "", adopt: event.view_session, native: true },
+              transient: true,
+            },
+            event.placement.kind === "floated" ? event.placement : undefined,
+          );
         }}
         onOpenTab={(next) =>
-          host.openTab({
-            key: newKey(),
-            kind: "browser",
-            title: nameOf("", next),
-            fields: { url: next },
-          }, { after: tab.key })}
+          host.openTab(
+            {
+              key: newKey(),
+              kind: "browser",
+              title: nameOf("", next),
+              fields: { url: next },
+            },
+            { after: tab.key },
+          )
+        }
         // native popup을 dock하면 지금 주소의 webview 탭으로 다시 연다(page가 다시 load된다).
         onDocked={() =>
           host.patchTab(tab.key, (current) => ({
             fields: { ...current.fields, adopt: undefined, native: undefined },
-          }))}
+          }))
+        }
         onCloseRequested={() => host.removeTab(tab.key)}
         onOpenInNewTab={(next) => openBrowserTab(host, next)}
         // DevTools 자리는 fields에 둔다(저장하지 않는다). Float·Dock으로 다시 mount되어도 남는다.
         devtools={readDevtools(tab.fields?.devtools)}
         onDevtools={(next, later) =>
-          setDevtools(host, tab.key, next, { later: later === true })}
+          setDevtools(host, tab.key, next, { later: later === true })
+        }
         onState={(state) =>
-          host.patchTab(tab.key, (current) => ({
-            title: nameOf(state.title, state.url),
-            fields: {
-              ...current.fields,
-              url: state.url,
-              favicon: state.favicon,
-            },
-          }), { later: true })}
+          host.patchTab(
+            tab.key,
+            (current) => ({
+              title: nameOf(state.title, state.url),
+              fields: {
+                ...current.fields,
+                url: state.url,
+                favicon: state.favicon,
+              },
+            }),
+            { later: true },
+          )
+        }
       />
     );
   },

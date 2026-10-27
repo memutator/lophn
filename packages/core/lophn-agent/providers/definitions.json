@@ -2,12 +2,8 @@
   {
     "key": "anthropic",
     "display_name": "Anthropic",
-    "protocols": [
-      "anthropic-messages"
-    ],
-    "auth_kinds": [
-      "api_key"
-    ],
+    "protocols": ["anthropic-messages"],
+    "auth_kinds": ["api_key"],
     "models_endpoint": "https://api.anthropic.com/v1/models",
     "oauth": null,
     "revision": "2026-10"
@@ -15,14 +11,8 @@
   {
     "key": "openai",
     "display_name": "OpenAI",
-    "protocols": [
-      "openai-responses",
-      "openai-chat-completions"
-    ],
-    "auth_kinds": [
-      "api_key",
-      "oauth"
-    ],
+    "protocols": ["openai-responses", "openai-chat-completions"],
+    "auth_kinds": ["api_key", "oauth"],
     "models_endpoint": "https://api.openai.com/v1/models",
     "oauth": {
       "product": "chatgpt",
@@ -45,13 +35,8 @@
   {
     "key": "xai",
     "display_name": "xAI",
-    "protocols": [
-      "openai-chat-completions"
-    ],
-    "auth_kinds": [
-      "api_key",
-      "oauth"
-    ],
+    "protocols": ["openai-chat-completions"],
+    "auth_kinds": ["api_key", "oauth"],
     "models_endpoint": "https://api.x.ai/v1/models",
     "oauth": {
       "product": "supergrok",
@@ -72,12 +57,8 @@
   {
     "key": "openrouter",
     "display_name": "OpenRouter",
-    "protocols": [
-      "openai-chat-completions"
-    ],
-    "auth_kinds": [
-      "api_key"
-    ],
+    "protocols": ["openai-chat-completions"],
+    "auth_kinds": ["api_key"],
     "models_endpoint": "https://openrouter.ai/api/v1/models",
     "oauth": null,
     "revision": "2026-10"
@@ -85,12 +66,8 @@
   {
     "key": "groq",
     "display_name": "Groq",
-    "protocols": [
-      "openai-chat-completions"
-    ],
-    "auth_kinds": [
-      "api_key"
-    ],
+    "protocols": ["openai-chat-completions"],
+    "auth_kinds": ["api_key"],
     "models_endpoint": "https://api.groq.com/openai/v1/models",
     "oauth": null,
     "revision": "2026-10"
@@ -98,12 +75,8 @@
   {
     "key": "deepseek",
     "display_name": "DeepSeek",
-    "protocols": [
-      "openai-chat-completions"
-    ],
-    "auth_kinds": [
-      "api_key"
-    ],
+    "protocols": ["openai-chat-completions"],
+    "auth_kinds": ["api_key"],
     "models_endpoint": "https://api.deepseek.com/models",
     "oauth": null,
     "revision": "2026-10"
@@ -111,12 +84,8 @@
   {
     "key": "google-gemini",
     "display_name": "Google Gemini",
-    "protocols": [
-      "openai-chat-completions"
-    ],
-    "auth_kinds": [
-      "api_key"
-    ],
+    "protocols": ["openai-chat-completions"],
+    "auth_kinds": ["api_key"],
     "models_endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/models",
     "oauth": null,
     "revision": "2026-10"

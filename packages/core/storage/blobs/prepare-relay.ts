@@ -195,7 +195,7 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
   function nextChannel(): number {
     // 1..0x7fffffff만 쓴다. 0x80000000 위는 보호 입력 중계의 channel이다(secret-input.ts).
     for (let tries = 0; tries < 0x7fffffff; tries++) {
-      channelCounter = channelCounter % 0x7fffffff + 1;
+      channelCounter = (channelCounter % 0x7fffffff) + 1;
       if (!byChannel.has(channelCounter) && !incoming.has(channelCounter)) {
         return channelCounter;
       }
@@ -258,7 +258,7 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
       stream: for (;;) {
         // worker가 받아들일 자리가 생길 때까지 읽지 않는다. 자식에게 credit을 다시
         // 주는 것은 이 읽기라서, worker가 받아야 자식이 더 보낸다.
-        if (!await until(pending, ready, creditMs)) {
+        if (!(await until(pending, ready, creditMs))) {
           await abort();
           return UNAVAILABLE("blob 준비를 받는 쪽이 멈췄다");
         }
@@ -291,7 +291,7 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
         }
         let offset = 0;
         while (offset < chunk.length) {
-          if (!await until(pending, ready, creditMs)) {
+          if (!(await until(pending, ready, creditMs))) {
             await abort();
             return UNAVAILABLE("blob 준비를 받는 쪽이 멈췄다");
           }
@@ -326,7 +326,7 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
       await deps.sendEnd(channel);
       closed = true;
       if (
-        !await until(pending, () => pending.answer !== undefined, responseMs)
+        !(await until(pending, () => pending.answer !== undefined, responseMs))
       ) {
         await abort();
         return UNAVAILABLE("blob 준비 응답이 없다");
@@ -373,7 +373,9 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
       forget(requestId, channel);
       try {
         reader.releaseLock();
-      } catch { /* 읽기가 아직 끝나지 않은 stream */ }
+      } catch {
+        /* 읽기가 아직 끝나지 않은 stream */
+      }
     }
   }
 
@@ -399,7 +401,7 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
           payload: { hash, offset, length, channel },
         });
         if (
-          !await until(pending, () => pending.answer !== undefined, readMs)
+          !(await until(pending, () => pending.answer !== undefined, readMs))
         ) {
           return UNAVAILABLE("blob 읽기 응답이 없다");
         }

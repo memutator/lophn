@@ -33,7 +33,7 @@ const NODE_AGENT_FILES = new URL(
   "../../../lophn-agent/agents/adapters/node-fs.ts",
   import.meta.url,
 ).href;
-const { createNodeAgentFiles } = await import(NODE_AGENT_FILES) as {
+const { createNodeAgentFiles } = (await import(NODE_AGENT_FILES)) as {
   createNodeAgentFiles(): AgentFileSystem;
 };
 

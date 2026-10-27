@@ -63,54 +63,63 @@ const checkpointFields = {
   files_restorable: z.boolean(),
   files_reason: checkpointFilesReasonSchema.nullable(),
 };
-function filesCoupled(
-  value: { files_restorable: boolean; files_reason: string | null },
-): boolean {
+function filesCoupled(value: {
+  files_restorable: boolean;
+  files_reason: string | null;
+}): boolean {
   return value.files_restorable === (value.files_reason === null);
 }
 const filesCoupledMessage = {
   message: "files_reason is set exactly when files are not restorable",
 };
-export const checkpointSchema = z.object(checkpointFields).refine(
-  filesCoupled,
-  filesCoupledMessage,
-);
+export const checkpointSchema = z
+  .object(checkpointFields)
+  .refine(filesCoupled, filesCoupledMessage);
 export type Checkpoint = z.infer<typeof checkpointSchema>;
 
 // FileState: 파일이 있었나와 내용 hash. blob은 session 저장소 항목 key(내용 sha256)이고
 // `before`에서 exists이고 한도 안일 때만 있다. null이면 pre-image를 못 둔 것이다(unrecorded).
-function fileStateOk(
-  value: { exists: boolean; sha256: string | null; blob: string | null },
-): boolean {
+function fileStateOk(value: {
+  exists: boolean;
+  sha256: string | null;
+  blob: string | null;
+}): boolean {
   return value.exists
     ? value.sha256 !== null &&
-      (value.blob === null || value.blob === value.sha256)
+        (value.blob === null || value.blob === value.sha256)
     : value.sha256 === null && value.blob === null;
 }
 const fileStateMessage = { message: "file state fields disagree with exists" };
-const fileStateSchema = z.object({
-  exists: z.boolean(),
-  sha256: sha256Schema.nullable(),
-  blob: sha256Schema.nullable(),
-}).refine(fileStateOk, fileStateMessage);
-const fileStateInputSchema = z.strictObject({
-  exists: z.boolean(),
-  sha256: sha256Schema.nullable(),
-  blob: sha256Schema.nullable(),
-}).refine(fileStateOk, fileStateMessage);
+const fileStateSchema = z
+  .object({
+    exists: z.boolean(),
+    sha256: sha256Schema.nullable(),
+    blob: sha256Schema.nullable(),
+  })
+  .refine(fileStateOk, fileStateMessage);
+const fileStateInputSchema = z
+  .strictObject({
+    exists: z.boolean(),
+    sha256: sha256Schema.nullable(),
+    blob: sha256Schema.nullable(),
+  })
+  .refine(fileStateOk, fileStateMessage);
 export type FileState = z.infer<typeof fileStateSchema>;
 
-function afterStateOk(
-  value: { exists: boolean; sha256: string | null },
-): boolean {
+function afterStateOk(value: {
+  exists: boolean;
+  sha256: string | null;
+}): boolean {
   return value.exists === (value.sha256 !== null);
 }
-const afterFileStateInputSchema = z.strictObject({
-  exists: z.boolean(),
-  sha256: sha256Schema.nullable(),
-}).refine(afterStateOk, {
-  message: "after state needs a hash exactly when the file exists",
-});
+const afterFileStateInputSchema = z
+  .strictObject({
+    exists: z.boolean(),
+    sha256: sha256Schema.nullable(),
+  })
+  .refine(afterStateOk, {
+    message: "after state needs a hash exactly when the file exists",
+  });
 
 // file tool에 열린 허용 폴더(절대 경로). 쓴 파일은 이 폴더 안의 상대 경로 `path`로 가리킨다.
 const rootSchema = z.string().min(1).max(4096);
@@ -127,26 +136,32 @@ type ResultShape = ItemShape & {
 function itemResultOk(value: ResultShape): boolean {
   switch (value.plan) {
     case "restore":
-      return classOk(value) &&
+      return (
+        classOk(value) &&
         (value.result === "restored"
           ? value.reason === null
-          : value.result === "skipped" && value.reason === "edited_outside");
+          : value.result === "skipped" && value.reason === "edited_outside")
+      );
     case "skip":
-      return (value.result === "skipped" ||
-        (value.result === "unchanged" &&
-          value.reason === "already_reverted")) &&
-        previewItemOk(value);
+      return (
+        (value.result === "skipped" ||
+          (value.result === "unchanged" &&
+            value.reason === "already_reverted")) &&
+        previewItemOk(value)
+      );
     case "remain":
       return value.result === "remained" && previewItemOk(value);
   }
 }
 
-const revertItemSchema = z.object({
-  ...previewItemFields,
-  result: revertResultSchema,
-}).refine(itemResultOk, {
-  message: "revert item result disagrees with its plan or reason",
-});
+const revertItemSchema = z
+  .object({
+    ...previewItemFields,
+    result: revertResultSchema,
+  })
+  .refine(itemResultOk, {
+    message: "revert item result disagrees with its plan or reason",
+  });
 export type RevertItem = z.infer<typeof revertItemSchema>;
 
 // 결과 event는 항목 목록을 싣지 않고 결과별 수만 싣는다. 목록은 rewind/list가 읽는다.
@@ -177,64 +192,74 @@ const rewindAppRequestSchema = z.object({
 export type RewindAppRequest = z.infer<typeof rewindAppRequestSchema>;
 
 // Revert: rewind 한 번의 시도다(결과 기록).
-const revertRecordSchema = z.object({
-  id: idSchema("rwd"),
-  session: idSchema("ses"),
-  kind: z.literal("rewind"),
-  choice: rewindChoiceSchema,
-  checkpoint: idSchema("msg"),
-  boundary_seq: seqSchema,
-  summary_call: idSchema("mcl").nullable(),
-  outcome: rewindOutcomeSchema,
-  items: z.array(revertItemSchema),
-  apps: z.array(rewindAppRequestSchema),
-  preview_hash: sha256Schema,
-  result_seq: seqSchema.nullable(),
-}).refine((value) => {
-  if ((value.choice === "summarize") !== (value.summary_call !== null)) {
-    return false;
-  }
-  if ((value.outcome === "applying") !== (value.result_seq === null)) {
-    return false;
-  }
-  const ordinals = new Set(value.items.map((item) => item.ordinal));
-  if (ordinals.size !== value.items.length) return false;
-  // blocked는 아무것도 하지 않아 항목이 없다.
-  return value.outcome !== "blocked" || value.items.length === 0;
-}, { message: "revert record fields disagree with its outcome" });
+const revertRecordSchema = z
+  .object({
+    id: idSchema("rwd"),
+    session: idSchema("ses"),
+    kind: z.literal("rewind"),
+    choice: rewindChoiceSchema,
+    checkpoint: idSchema("msg"),
+    boundary_seq: seqSchema,
+    summary_call: idSchema("mcl").nullable(),
+    outcome: rewindOutcomeSchema,
+    items: z.array(revertItemSchema),
+    apps: z.array(rewindAppRequestSchema),
+    preview_hash: sha256Schema,
+    result_seq: seqSchema.nullable(),
+  })
+  .refine(
+    (value) => {
+      if ((value.choice === "summarize") !== (value.summary_call !== null)) {
+        return false;
+      }
+      if ((value.outcome === "applying") !== (value.result_seq === null)) {
+        return false;
+      }
+      const ordinals = new Set(value.items.map((item) => item.ordinal));
+      if (ordinals.size !== value.items.length) return false;
+      // blocked는 아무것도 하지 않아 항목이 없다.
+      return value.outcome !== "blocked" || value.items.length === 0;
+    },
+    { message: "revert record fields disagree with its outcome" },
+  );
 export type RevertRecord = z.infer<typeof revertRecordSchema>;
 
 // file tool이 쓰기 직전에 pre-image를 남기는 기록이다. core의 `StageRewindFile`·`RecordRewindWrite`가
 // 허용 폴더를 확인한 뒤 이 command를 machine 자격으로 낸다. agent는 이 command를 직접 부르지 못한다.
-const recordRewindFileInputSchema = z.strictObject({
-  session: idSchema("ses"),
-  turn: idSchema("trn"),
-  tool_call: idSchema("tcl"),
-  root: rootSchema,
-  path: relativePathSchema,
-  before: fileStateInputSchema,
-  // before 내용의 크기. 파일이 없었으면 null.
-  before_size_bytes: z.number().int().nonnegative().nullable(),
-  after: afterFileStateInputSchema,
-  moved_from: relativePathSchema.nullable(),
-}).refine(
-  (value) => value.before.exists === (value.before_size_bytes !== null),
-  { message: "before_size_bytes is set exactly when the file existed" },
-);
+const recordRewindFileInputSchema = z
+  .strictObject({
+    session: idSchema("ses"),
+    turn: idSchema("trn"),
+    tool_call: idSchema("tcl"),
+    root: rootSchema,
+    path: relativePathSchema,
+    before: fileStateInputSchema,
+    // before 내용의 크기. 파일이 없었으면 null.
+    before_size_bytes: z.number().int().nonnegative().nullable(),
+    after: afterFileStateInputSchema,
+    moved_from: relativePathSchema.nullable(),
+  })
+  .refine(
+    (value) => value.before.exists === (value.before_size_bytes !== null),
+    { message: "before_size_bytes is set exactly when the file existed" },
+  );
 
-const recordRewindFileOutputSchema = z.object({
-  tool_call: idSchema("tcl"),
-  path: relativePathSchema,
-  checkpoint: idSchema("msg"),
-  // 한도로 pre-image를 두지 못해 blob 없이 남겼으면 false다. 쓰기는 막지 않는다.
-  recorded: z.boolean(),
-  files_restorable: z.boolean(),
-  files_reason: checkpointFilesReasonSchema.nullable(),
-  replayed: z.boolean(),
-}).refine(
-  (value) => filesCoupled(value) && (value.recorded || !value.files_restorable),
-  { message: "an unrecorded pre-image lowers the checkpoint" },
-);
+const recordRewindFileOutputSchema = z
+  .object({
+    tool_call: idSchema("tcl"),
+    path: relativePathSchema,
+    checkpoint: idSchema("msg"),
+    // 한도로 pre-image를 두지 못해 blob 없이 남겼으면 false다. 쓰기는 막지 않는다.
+    recorded: z.boolean(),
+    files_restorable: z.boolean(),
+    files_reason: checkpointFilesReasonSchema.nullable(),
+    replayed: z.boolean(),
+  })
+  .refine(
+    (value) =>
+      filesCoupled(value) && (value.recorded || !value.files_restorable),
+    { message: "an unrecorded pre-image lowers the checkpoint" },
+  );
 
 export const recordRewindFile = defineCommand({
   resource: "rewind",
@@ -283,10 +308,12 @@ export const recordRewindWrite = defineMemory({
 // 풀고, 항목마다 한 번만 고친다.
 const amendRevertInstallInputSchema = z.strictObject({
   revert: idSchema("rwd"),
-  paths: z.array(relativePathSchema).min(1).refine(
-    (paths) => new Set(paths).size === paths.length,
-    { message: "duplicate path" },
-  ),
+  paths: z
+    .array(relativePathSchema)
+    .min(1)
+    .refine((paths) => new Set(paths).size === paths.length, {
+      message: "duplicate path",
+    }),
 });
 
 export const amendRevertInstall = defineCommand({
@@ -374,12 +401,14 @@ export const takeRewindSummaryRequest = defineMemory({
   input: z.strictObject({}),
   // 요약할 요청이 없으면 null이다. 가져간 요청은 다시 나오지 않는다.
   output: z.object({
-    request: z.object({
-      id: summaryRequestIdSchema,
-      session: idSchema("ses"),
-      // 요약을 시작할 메시지의 생성 seq다.
-      from_seq: seqSchema,
-    }).nullable(),
+    request: z
+      .object({
+        id: summaryRequestIdSchema,
+        session: idSchema("ses"),
+        // 요약을 시작할 메시지의 생성 seq다.
+        from_seq: seqSchema,
+      })
+      .nullable(),
   }),
   actors: ["machine"],
   errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
@@ -410,11 +439,13 @@ export const finishRewindSummary = defineMemory({
 
 // rewind menu가 session의 checkpoint를 고르는 데 쓴다. 숨긴 구간 안의 checkpoint는 고를 수
 // 없으므로 hidden으로 알린다. created_seq는 메시지의 생성 seq다.
-const checkpointEntrySchema = z.object({
-  ...checkpointFields,
-  created_seq: seqSchema,
-  hidden: z.boolean(),
-}).refine(filesCoupled, filesCoupledMessage);
+const checkpointEntrySchema = z
+  .object({
+    ...checkpointFields,
+    created_seq: seqSchema,
+    hidden: z.boolean(),
+  })
+  .refine(filesCoupled, filesCoupledMessage);
 
 export const rewindCheckpoints = defineRead({
   resource: "rewind",
@@ -424,9 +455,11 @@ export const rewindCheckpoints = defineRead({
     session: idSchema("ses"),
     cursor: readCursorSchema.optional(),
   }),
-  output: withReadCommon(z.object({
-    checkpoints: z.array(checkpointEntrySchema),
-  })),
+  output: withReadCommon(
+    z.object({
+      checkpoints: z.array(checkpointEntrySchema),
+    }),
+  ),
   actors: readActors,
   errors: [...readErrors],
 });
@@ -441,12 +474,14 @@ export const rewindList = defineRead({
   method: "list",
   name: "ListReverts",
   input: rewindListInputSchema,
-  output: withReadCommon(z.object({
-    reverts: z.array(revertRecordSchema),
-    // 숨김 구간의 시작 seq(가장 앞선 boundary_seq). 숨긴 구간이 없으면 null이다. 각 숨김 구간은 rewind의
-    // boundary_seq부터 result_seq까지다(그 뒤에 접수한 메시지는 숨기지 않는다).
-    hidden_from_seq: seqSchema.nullable(),
-  })),
+  output: withReadCommon(
+    z.object({
+      reverts: z.array(revertRecordSchema),
+      // 숨김 구간의 시작 seq(가장 앞선 boundary_seq). 숨긴 구간이 없으면 null이다. 각 숨김 구간은 rewind의
+      // boundary_seq부터 result_seq까지다(그 뒤에 접수한 메시지는 숨기지 않는다).
+      hidden_from_seq: seqSchema.nullable(),
+    }),
+  ),
   actors: readActors,
   errors: [...readErrors],
 });

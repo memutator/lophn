@@ -50,12 +50,17 @@ function withCodingSessions(
         "select app, ended from coding_sessions where session = ?",
         [session],
       );
-      return row === undefined ? null : {
-        session,
-        transport: "harness",
-        agent: { role: "coding_agent", app: String(row["app"]) as Id<"app"> },
-        accepting: Number(row["ended"]) === 0,
-      };
+      return row === undefined
+        ? null
+        : {
+            session,
+            transport: "harness",
+            agent: {
+              role: "coding_agent",
+              app: String(row["app"]) as Id<"app">,
+            },
+            accepting: Number(row["ended"]) === 0,
+          };
     },
     // 목록과 find가 같은 harness 대상을 말해야 목록에서 고른 id가 to:{session}으로 그대로 닿는다.
     listOpen() {
@@ -124,7 +129,7 @@ const environment: RouterEnvironment = {
           line.waiting.map((waiting) => ({
             call: waiting.call as Id<"cal">,
             app: line.app as Id<"app">,
-          }))
+          })),
         ),
     };
     return {
@@ -144,10 +149,11 @@ const environment: RouterEnvironment = {
       };
     }
     const row = loadSession(view, target.session as never);
-    const running = view.sql.get(
-      "select 1 as found from turns where session = ? and state = 'running'",
-      [target.session],
-    ) !== undefined;
+    const running =
+      view.sql.get(
+        "select 1 as found from turns where session = ? and state = 'running'",
+        [target.session],
+      ) !== undefined;
     return {
       place: row === undefined ? null : placeOf(row),
       state: running ? "running" : "idle",

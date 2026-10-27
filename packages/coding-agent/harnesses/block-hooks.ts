@@ -14,8 +14,8 @@ function blockLines(
   begin: string,
   end: string,
 ): [number, number] | null | undefined {
-  const from = lines.flatMap((one, i) => one.trim() === begin ? [i] : []);
-  const to = lines.flatMap((one, i) => one.trim() === end ? [i] : []);
+  const from = lines.flatMap((one, i) => (one.trim() === begin ? [i] : []));
+  const to = lines.flatMap((one, i) => (one.trim() === end ? [i] : []));
   if (from.length === 0 && to.length === 0) return null;
   if (from.length !== 1 || to.length !== 1 || from[0] > to[0]) return undefined;
   return [from[0], to[0]];
@@ -142,15 +142,20 @@ export function hermesHooksText(
         const gap = text === "" ? "" : text.endsWith("\n") ? "" : "\n";
         next = `${text}${gap}${build("", true).join("\n")}\n`;
       } else {
-        if (bare(lines[top]).replace(/^hooks\s*:/, "").trim() !== "") {
+        if (
+          bare(lines[top])
+            .replace(/^hooks\s*:/, "")
+            .trim() !== ""
+        ) {
           return null;
         }
         const after = lines.slice(top + 1);
         const firstAt = after.findIndex(significant);
         // 다음 의미 있는 줄이 들여쓴 줄이면 block mapping이고, 아니면 값이 빈 `hooks:`다.
-        const body = firstAt !== -1 && /^\s/.test(after[firstAt])
-          ? after[firstAt]
-          : undefined;
+        const body =
+          firstAt !== -1 && /^\s/.test(after[firstAt])
+            ? after[firstAt]
+            : undefined;
         if (body?.trim().startsWith("-")) return null;
         const indent = body === undefined ? "  " : body.match(/^\s*/)![0];
         const mine = new RegExp(`^${indent}(${input.events.join("|")})\\s*:`);
@@ -162,13 +167,17 @@ export function hermesHooksText(
   }
   try {
     const hooks = (parseYaml(next) as { hooks?: unknown } | null)?.hooks;
-    const ok = isObject(hooks) && input.events.every((event) => {
-      const list = hooks[event];
-      return Array.isArray(list) &&
-        list.some((one) =>
-          isObject(one) && one.command === input.command(event)
+    const ok =
+      isObject(hooks) &&
+      input.events.every((event) => {
+        const list = hooks[event];
+        return (
+          Array.isArray(list) &&
+          list.some(
+            (one) => isObject(one) && one.command === input.command(event),
+          )
         );
-    });
+      });
     return ok ? next : null;
   } catch {
     return null;

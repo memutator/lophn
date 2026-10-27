@@ -83,15 +83,23 @@ const COLUMNS: readonly TableColumn<Order>[] = [
   },
 ];
 
-export function OrdersApp(
-  { initial = "overview", now }: { initial?: OrdersPage; now: Date },
-) {
+export function OrdersApp({
+  initial = "overview",
+  now,
+}: {
+  initial?: OrdersPage;
+  now: Date;
+}) {
   const [page, setPage] = useState<OrdersPage>(initial);
   const [order, setOrder] = useState<Order>();
   return (
     <AppShell
       title={TEXT.app}
-      actions={<Button variant="primary" size="sm">{TEXT.newOrder}</Button>}
+      actions={
+        <Button variant="primary" size="sm">
+          {TEXT.newOrder}
+        </Button>
+      }
       nav={
         <Sidebar
           current={page}
@@ -155,14 +163,14 @@ export function OrdersApp(
           }
           detail={
             <div style={{ padding: "var(--space-6)" }}>
-              {order
-                ? (
-                  <Card>
-                    <p>{order.customer}</p>
-                    <p>{order.id}</p>
-                  </Card>
-                )
-                : <p>{TEXT.pick}</p>}
+              {order ? (
+                <Card>
+                  <p>{order.customer}</p>
+                  <p>{order.id}</p>
+                </Card>
+              ) : (
+                <p>{TEXT.pick}</p>
+              )}
             </div>
           }
         />

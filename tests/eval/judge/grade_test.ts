@@ -65,26 +65,28 @@ test("foldJudge merges recorded grades into the trial, keeps waiting ones pendin
     quote: "Build a budget app",
     model: "m",
   });
-  const trials = [{
-    index: 1,
-    checks: [
-      {
-        id: "chk",
-        kind: "judge",
-        pass: false,
-        pending: true,
-        reason: "채점 대기",
-      },
-      {
-        id: "other",
-        kind: "judge",
-        pass: false,
-        pending: true,
-        reason: "채점 대기",
-      },
-    ],
-    judge: [pending, other],
-  }] as unknown as TrialResult[];
+  const trials = [
+    {
+      index: 1,
+      checks: [
+        {
+          id: "chk",
+          kind: "judge",
+          pass: false,
+          pending: true,
+          reason: "채점 대기",
+        },
+        {
+          id: "other",
+          kind: "judge",
+          pass: false,
+          pending: true,
+          reason: "채점 대기",
+        },
+      ],
+      judge: [pending, other],
+    },
+  ] as unknown as TrialResult[];
   const entry = (item: typeof pending): PendingJudge => ({
     key: judgeKey(1, item.check),
     run: "r",
@@ -104,7 +106,10 @@ test("foldJudge merges recorded grades into the trial, keeps waiting ones pendin
   assert.deepStrictEqual(t.judge[0].verdict, "all");
   assert.deepStrictEqual(t.checks[1].pass, false);
   assert.deepStrictEqual(t.checks[1].pending, true);
-  assert.deepStrictEqual(outstanding(entries).map((e) => e.key), ["t1-other"]);
+  assert.deepStrictEqual(
+    outstanding(entries).map((e) => e.key),
+    ["t1-other"],
+  );
 
   const bad = gradeItem(pending, criterion, {
     verdict: "all",
@@ -143,19 +148,18 @@ test("foldRun writes the summary and the full record only when they exist, and a
     await mkdir(runsDir);
     const trial = {
       index: 1,
-      checks: [{
-        id: "chk",
-        kind: "judge",
-        pass: false,
-        pending: true,
-        reason: "",
-      }],
+      checks: [
+        {
+          id: "chk",
+          kind: "judge",
+          pass: false,
+          pending: true,
+          reason: "",
+        },
+      ],
       judge: [pending],
     };
-    await writeFile(
-      `${runsDir}/r.json`,
-      JSON.stringify({ trials: [trial] }),
-    );
+    await writeFile(`${runsDir}/r.json`, JSON.stringify({ trials: [trial] }));
     await writeFile(
       `${evalDir}/r/trial-1.json`,
       JSON.stringify({ judge: [pending] }),

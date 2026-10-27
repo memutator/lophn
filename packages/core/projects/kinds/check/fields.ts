@@ -7,12 +7,13 @@ const valuesOf = (value: unknown): unknown[] =>
   Array.isArray(value)
     ? value
     : value === null || value === undefined
-    ? []
-    : [value];
+      ? []
+      : [value];
 
 // 같은 kind 안에서 유일해야 하는 칸: unique를 단 칸과 key 칸(ref가 key로 가리킨다). path는 늘 유일하다.
 function uniqueFields(kind: Kind): string[] {
-  const names = Object.entries(kind.fields).filter(([, field]) => field.unique)
+  const names = Object.entries(kind.fields)
+    .filter(([, field]) => field.unique)
     .map(([name]) => name);
   if (kind.key !== "path" && !names.includes(kind.key)) names.push(kind.key);
   return names;
@@ -73,15 +74,15 @@ export function checkItems(
     for (const [name, field] of Object.entries(kind.fields)) {
       const targets = field.type === "ref" ? keysOf.get(field.to!) : undefined;
       // 가리키는 kind가 없으면 kinds 파일 오류이고 그 kind의 item이 없다는 뜻이 아니므로 건너뛴다.
-      const targetDeclared = field.type === "ref" &&
-        kinds.some((other) => other.name === field.to);
-      const pattern = field.pattern === undefined
-        ? undefined
-        : new RegExp(field.pattern);
+      const targetDeclared =
+        field.type === "ref" && kinds.some((other) => other.name === field.to);
+      const pattern =
+        field.pattern === undefined ? undefined : new RegExp(field.pattern);
       for (const item of mine) {
         const values = valuesOf(item.fields[name]);
         if (
-          field.type === "ref" && targetDeclared &&
+          field.type === "ref" &&
+          targetDeclared &&
           values.some((value) => !(targets?.has(String(value)) ?? false))
         ) {
           violate(

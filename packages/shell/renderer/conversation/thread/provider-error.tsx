@@ -15,9 +15,11 @@ interface ProviderErrorProps {
   source: Pick<AgentTabSource, "retryTurn">;
 }
 
-export function ProviderError(
-  { turn, message, source }: ProviderErrorProps,
-): ReactElement {
+export function ProviderError({
+  turn,
+  message,
+  source,
+}: ProviderErrorProps): ReactElement {
   const [state, setState] = useState<"idle" | "sending" | "failed">("idle");
   const retry = async () => {
     setState("sending");
@@ -32,13 +34,11 @@ export function ProviderError(
           label={t("conversation.notice.request-failed")}
         />
         <p className={styles.errorDetail}>{message}</p>
-        {state === "failed"
-          ? (
-            <p className={styles.errorDetail}>
-              {t("conversation.notice.retry-failed")}
-            </p>
-          )
-          : null}
+        {state === "failed" ? (
+          <p className={styles.errorDetail}>
+            {t("conversation.notice.retry-failed")}
+          </p>
+        ) : null}
       </div>
       <Button
         size="sm"

@@ -65,8 +65,11 @@ function samePlace(left: AgentPlace | null, right: AgentPlace | null) {
 // 서버가 가는 곳의 origin이 청한 목적지와 같은지 본다.
 function sameOrigin(url: string, destination: SecretFileUse["destination"]) {
   const own = secretDestinationOf(url);
-  return own !== undefined && own.kind === destination.kind &&
-    own.origin === destination.origin;
+  return (
+    own !== undefined &&
+    own.kind === destination.kind &&
+    own.origin === destination.origin
+  );
 }
 
 // OAuth로 로그인하는 http 서버만 McpOAuthServer가 된다.
@@ -120,8 +123,8 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
   ): Promise<Result<McpRuntimeServer>> {
     const loaded = await deps.registered();
     if (!loaded.ok) return loaded;
-    const found = loaded.value.find((entry) =>
-      entry.server.name === name && samePlace(entry.place, place)
+    const found = loaded.value.find(
+      (entry) => entry.server.name === name && samePlace(entry.place, place),
     );
     if (found === undefined) {
       return err({ code: "not_found", message: "등록한 서버가 아니다" });
@@ -225,16 +228,16 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
     if (!loaded.ok) return loaded;
     const servers = [];
     for (const { name, place } of parsed.data.servers) {
-      const found = loaded.value.find((entry) =>
-        entry.server.name === name && samePlace(entry.place, place)
+      const found = loaded.value.find(
+        (entry) => entry.server.name === name && samePlace(entry.place, place),
       );
-      const server = found === undefined
-        ? undefined
-        : oauthServerOf(place, found.server);
+      const server =
+        found === undefined ? undefined : oauthServerOf(place, found.server);
       // 등록하지 않았거나 OAuth가 아닌 서버는 로그인할 것이 없다.
-      const report = server === undefined
-        ? { state: "none" as const, reason: null }
-        : await oauth.report(server);
+      const report =
+        server === undefined
+          ? { state: "none" as const, reason: null }
+          : await oauth.report(server);
       servers.push({ name, place, ...report });
     }
     return ok({ servers });
@@ -260,9 +263,12 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
       // 이 이름을 자기 접근 token으로 가진 켜진 서버만 쓴다. token은 로그인한 서버의 URL origin에만 간다.
       const match = loaded.value.find((entry) => {
         const server = oauthServerOf(entry.place, entry.server);
-        return server !== undefined && entry.server.enabled &&
+        return (
+          server !== undefined &&
+          entry.server.enabled &&
           mcpTokenNames(server.key).access === use.name &&
-          sameOrigin(server.serverUrl, use.destination);
+          sameOrigin(server.serverUrl, use.destination)
+        );
       });
       if (match === undefined) {
         return err({
@@ -318,43 +324,49 @@ export function openCallbackListener(): Promise<Result<CallbackListener>> {
       },
     );
   } catch {
-    return Promise.resolve(err({
-      code: "unavailable",
-      message: "loopback callback port를 열 수 없다",
-    }));
+    return Promise.resolve(
+      err({
+        code: "unavailable",
+        message: "loopback callback port를 열 수 없다",
+      }),
+    );
   }
   const port = http.addr.port;
-  return Promise.resolve(ok({
-    port: () => port,
-    receive(signal: AbortSignal) {
-      const aborted = new Promise<null>((resolve) => {
-        if (signal.aborted) resolve(null);
-        else {signal.addEventListener("abort", () => resolve(null), {
-            once: true,
-          });}
-      });
-      return Promise.race([incoming, aborted]).then(
-        (how): Result<Callback> => {
-          if (settled === "refused") {
-            return err({
-              code: "forbidden",
-              message: "발급자가 로그인을 거절했다",
+  return Promise.resolve(
+    ok({
+      port: () => port,
+      receive(signal: AbortSignal) {
+        const aborted = new Promise<null>((resolve) => {
+          if (signal.aborted) resolve(null);
+          else {
+            signal.addEventListener("abort", () => resolve(null), {
+              once: true,
             });
           }
-          if (how === null || settled === null) {
-            return err({
-              code: "unavailable",
-              message: "callback이 오지 않았다",
-            });
-          }
-          return ok(settled);
-        },
-      );
-    },
-    close(): Promise<void> {
-      return Promise.resolve(http.shutdown());
-    },
-  }));
+        });
+        return Promise.race([incoming, aborted]).then(
+          (how): Result<Callback> => {
+            if (settled === "refused") {
+              return err({
+                code: "forbidden",
+                message: "발급자가 로그인을 거절했다",
+              });
+            }
+            if (how === null || settled === null) {
+              return err({
+                code: "unavailable",
+                message: "callback이 오지 않았다",
+              });
+            }
+            return ok(settled);
+          },
+        );
+      },
+      close(): Promise<void> {
+        return Promise.resolve(http.shutdown());
+      },
+    }),
+  );
 }
 
 type Callback = {

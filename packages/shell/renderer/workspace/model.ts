@@ -43,8 +43,8 @@ export function sidebarView(
   if (windowWidth < BREAKPOINT_SM) {
     return { mode: "hidden", width: 0 };
   }
-  const collapsed = state.collapsedByUser ||
-    (!userChoseWidth && windowWidth < BREAKPOINT_MD);
+  const collapsed =
+    state.collapsedByUser || (!userChoseWidth && windowWidth < BREAKPOINT_MD);
   if (collapsed) {
     return { mode: "collapsed", width: SIDEBAR_COLLAPSED };
   }
@@ -178,17 +178,18 @@ export function moveTab(
   const found = view.panes[fromPane]!.tabs.find((item) => item.key === key)!;
   const tab = { ...found, preview: false };
   const panes = view.panes.map((pane, index) => {
-    const rest = index === fromPane
-      ? pane.tabs.filter((item) => item.key !== key)
-      : pane.tabs;
+    const rest =
+      index === fromPane
+        ? pane.tabs.filter((item) => item.key !== key)
+        : pane.tabs;
     if (index === toPane) {
-      const at = before == null
-        ? -1
-        : rest.findIndex((item) => item.key === before);
+      const at =
+        before == null ? -1 : rest.findIndex((item) => item.key === before);
       return {
-        tabs: at < 0
-          ? [...rest, tab]
-          : [...rest.slice(0, at), tab, ...rest.slice(at)],
+        tabs:
+          at < 0
+            ? [...rest, tab]
+            : [...rest.slice(0, at), tab, ...rest.slice(at)],
         selected: key,
       };
     }
@@ -270,7 +271,7 @@ export function reopenTab(
 // pane 전용이다. floats까지 보려면 findTab.
 function holderOf(view: WorkspaceView, key: string): number {
   return view.panes.findIndex((pane) =>
-    pane.tabs.some((tab) => tab.key === key)
+    pane.tabs.some((tab) => tab.key === key),
   );
 }
 
@@ -291,47 +292,47 @@ export function openTabIn(
   if (isFloated(view, tab.key)) return restoreFloat(view, tab.key);
   const holder = holderOf(view, tab.key);
   const afterHolder = after === undefined ? -1 : holderOf(view, after);
-  const target = holder >= 0
-    ? holder
-    : afterHolder >= 0
-    ? afterHolder
-    : view.focusedPane;
+  const target =
+    holder >= 0 ? holder : afterHolder >= 0 ? afterHolder : view.focusedPane;
   const panes = view.panes.map((pane, index) => {
     if (index !== target) return pane;
     if (holder >= 0) {
       return {
-        tabs: tab.preview === true
-          ? pane.tabs
-          : pane.tabs.map((item) =>
-            item.key === tab.key && item.preview
-              ? { ...item, preview: false }
-              : item
-          ),
+        tabs:
+          tab.preview === true
+            ? pane.tabs
+            : pane.tabs.map((item) =>
+                item.key === tab.key && item.preview
+                  ? { ...item, preview: false }
+                  : item,
+              ),
         selected: tab.key,
       };
     }
-    const old = tab.preview === true
-      ? pane.tabs.find((item) => item.preview === true)
-      : undefined;
+    const old =
+      tab.preview === true
+        ? pane.tabs.find((item) => item.preview === true)
+        : undefined;
     if (old === undefined) {
       const at = pane.tabs.findIndex((item) => item.key === after);
       return {
-        tabs: at < 0
-          ? [...pane.tabs, tab]
-          : [...pane.tabs.slice(0, at + 1), tab, ...pane.tabs.slice(at + 1)],
+        tabs:
+          at < 0
+            ? [...pane.tabs, tab]
+            : [...pane.tabs.slice(0, at + 1), tab, ...pane.tabs.slice(at + 1)],
         selected: tab.key,
       };
     }
     if (!isUnsaved(old.key)) {
       return {
-        tabs: pane.tabs.map((item) => item.key === old.key ? tab : item),
+        tabs: pane.tabs.map((item) => (item.key === old.key ? tab : item)),
         selected: tab.key,
       };
     }
     return {
       tabs: [
         ...pane.tabs.map((item) =>
-          item.key === old.key ? { ...item, preview: false } : item
+          item.key === old.key ? { ...item, preview: false } : item,
         ),
         tab,
       ],
@@ -345,15 +346,16 @@ export function openTabIn(
 export function pinTab(view: WorkspaceView, key: string): WorkspaceView {
   if (
     !view.panes.some((pane) =>
-      pane.tabs.some((tab) => tab.key === key && tab.preview)
+      pane.tabs.some((tab) => tab.key === key && tab.preview),
     )
-  ) return view;
+  )
+    return view;
   return {
     ...view,
     panes: view.panes.map((pane) => ({
       ...pane,
       tabs: pane.tabs.map((tab) =>
-        tab.key === key ? { ...tab, preview: false } : tab
+        tab.key === key ? { ...tab, preview: false } : tab,
       ),
     })),
   };
@@ -405,12 +407,11 @@ export function closeTab(
   const panes = view.panes.map((item, index) =>
     index === pane
       ? normalizePane({
-        tabs: item.tabs.filter((tab) => tab.key !== key),
-        selected: item.selected === key
-          ? neighbourOf(item.tabs, key)
-          : item.selected,
-      })
-      : item
+          tabs: item.tabs.filter((tab) => tab.key !== key),
+          selected:
+            item.selected === key ? neighbourOf(item.tabs, key) : item.selected,
+        })
+      : item,
   );
   return dropEmptyPane({ ...view, panes });
 }
@@ -441,18 +442,24 @@ function newFloat(
   size?: FloatArea,
 ): FloatItem {
   // 크기를 먼저 최소·area 안으로 맞춘 뒤 그 크기로 가운데에 둔다.
-  const { width, height } = clampFloatRect({
-    x: 0,
-    y: 0,
-    width: size?.width ?? area.width * FLOAT_SHARE,
-    height: size?.height ?? area.height * FLOAT_SHARE,
-  }, area);
-  const rect = clampFloatRect({
-    x: Math.round((area.width - width) / 2),
-    y: Math.round((area.height - height) / 2),
-    width,
-    height,
-  }, area);
+  const { width, height } = clampFloatRect(
+    {
+      x: 0,
+      y: 0,
+      width: size?.width ?? area.width * FLOAT_SHARE,
+      height: size?.height ?? area.height * FLOAT_SHARE,
+    },
+    area,
+  );
+  const rect = clampFloatRect(
+    {
+      x: Math.round((area.width - width) / 2),
+      y: Math.round((area.height - height) / 2),
+      width,
+      height,
+    },
+    area,
+  );
   return { tab, rect, minimized: false, originPane };
 }
 
@@ -499,9 +506,8 @@ export function floatTab(
 export function dockTab(view: WorkspaceView, key: string): WorkspaceView {
   const item = view.floats.find((float) => float.tab.key === key);
   if (item === undefined) return view;
-  const target = item.originPane < view.panes.length
-    ? item.originPane
-    : view.focusedPane;
+  const target =
+    item.originPane < view.panes.length ? item.originPane : view.focusedPane;
   const { transient: _transient, ...rest } = item.tab;
   const tab = { ...rest, preview: false };
   return {
@@ -532,7 +538,7 @@ export function minimizeTab(
   return {
     ...floated,
     floats: floated.floats.map((float) =>
-      float.tab.key === key ? { ...float, minimized: true, dockedAt } : float
+      float.tab.key === key ? { ...float, minimized: true, dockedAt } : float,
     ),
   };
 }
@@ -549,15 +555,13 @@ function changeFloat(
   if (next === item) return view;
   return {
     ...view,
-    floats: view.floats.map((float, index) => index === at ? next : float),
+    floats: view.floats.map((float, index) => (index === at ? next : float)),
   };
 }
 
 export function minimizeFloat(view: WorkspaceView, key: string): WorkspaceView {
-  return changeFloat(
-    view,
-    key,
-    (item) => item.minimized ? item : { ...item, minimized: true },
+  return changeFloat(view, key, (item) =>
+    item.minimized ? item : { ...item, minimized: true },
   );
 }
 
@@ -609,10 +613,13 @@ export function detachTab(
     const closed = closeTab(view, pane, key);
     return {
       ...closed,
-      detached: [...closed.detached, {
-        tab: { ...found, preview: false },
-        bounds,
-      }],
+      detached: [
+        ...closed.detached,
+        {
+          tab: { ...found, preview: false },
+          bounds,
+        },
+      ],
     };
   }
   const float = view.floats.find((item) => item.tab.key === key);
@@ -620,10 +627,13 @@ export function detachTab(
   return {
     ...view,
     floats: view.floats.filter((item) => item !== float),
-    detached: [...view.detached, {
-      tab: { ...float.tab, preview: false },
-      bounds,
-    }],
+    detached: [
+      ...view.detached,
+      {
+        tab: { ...float.tab, preview: false },
+        bounds,
+      },
+    ],
   };
 }
 
@@ -655,17 +665,14 @@ export function attachDetached(
     panes: view.panes.map((pane, index) =>
       index === view.focusedPane
         ? { tabs: [...pane.tabs, attached], selected: key }
-        : pane
+        : pane,
     ),
     detached: view.detached.filter((detached) => detached !== item),
   };
 }
 
 /** detached 항목을 버린다(탭을 닫는다). */
-export function closeDetached(
-  view: WorkspaceView,
-  key: string,
-): WorkspaceView {
+export function closeDetached(view: WorkspaceView, key: string): WorkspaceView {
   if (!isDetached(view, key)) return view;
   return {
     ...view,
@@ -681,8 +688,11 @@ export function setFloatRect(
 ): WorkspaceView {
   const clamped = clampFloatRect(rect, area);
   return changeFloat(view, key, (item) => {
-    const same = item.rect.x === clamped.x && item.rect.y === clamped.y &&
-      item.rect.width === clamped.width && item.rect.height === clamped.height;
+    const same =
+      item.rect.x === clamped.x &&
+      item.rect.y === clamped.y &&
+      item.rect.width === clamped.width &&
+      item.rect.height === clamped.height;
     return same ? item : { ...item, rect: clamped };
   });
 }
@@ -801,7 +811,7 @@ export function storableView(view: WorkspaceView): WorkspaceView {
     normalizePane({
       tabs: pane.tabs.filter((tab) => tab.transient !== true),
       selected: pane.selected,
-    })
+    }),
   );
   return dropEmptyPane({
     ...view,
@@ -874,8 +884,8 @@ export function deskOfTab(
   key: string,
 ): string | undefined {
   if (findTab(activeView(desks), key) !== undefined) return desks.active;
-  return Object.entries(desks.desks).find(([, view]) =>
-    findTab(view, key) !== undefined
+  return Object.entries(desks.desks).find(
+    ([, view]) => findTab(view, key) !== undefined,
   )?.[0];
 }
 
@@ -920,8 +930,8 @@ function withoutKeys(
     next = isDetached(next, key)
       ? closeDetached(next, key)
       : isFloated(next, key)
-      ? closeFloat(next, key)
-      : closeTab(next, holderOf(next, key), key);
+        ? closeFloat(next, key)
+        : closeTab(next, holderOf(next, key), key);
   }
   return next;
 }
@@ -954,11 +964,11 @@ export function openAcrossDesks(
   isUnsaved: (key: string) => boolean,
   after?: string,
 ): WorkspaceDesks {
-  const at = deskOfTab(desks, tab.key) ??
+  const at =
+    deskOfTab(desks, tab.key) ??
     (after === undefined ? undefined : deskOfTab(desks, after));
-  const next = at === undefined || at === desks.active
-    ? desks
-    : { ...desks, active: at };
+  const next =
+    at === undefined || at === desks.active ? desks : { ...desks, active: at };
   return setActiveView(
     next,
     openTabIn(activeView(next), tab, isUnsaved, after),
@@ -970,8 +980,8 @@ export function vanishedDesks(
   desks: WorkspaceDesks,
   liveKeys: readonly string[],
 ): string[] {
-  return Object.keys(desks.desks).filter((key) =>
-    key !== DEFAULT_DESK && !liveKeys.includes(key)
+  return Object.keys(desks.desks).filter(
+    (key) => key !== DEFAULT_DESK && !liveKeys.includes(key),
   );
 }
 
@@ -995,10 +1005,10 @@ export function mergeDeskIntoDefault(
       panes: base.panes.map((pane, index) =>
         index === focus
           ? normalizePane({
-            tabs: [...pane.tabs, { ...tab, preview: false }],
-            selected: pane.selected,
-          })
-          : pane
+              tabs: [...pane.tabs, { ...tab, preview: false }],
+              selected: pane.selected,
+            })
+          : pane,
       ),
     };
   };
@@ -1018,11 +1028,14 @@ export function mergeDeskIntoDefault(
     }
     base = {
       ...base,
-      floats: [...base.floats, {
-        ...float,
-        tab: { ...float.tab, preview: false },
-        originPane: Math.min(float.originPane, base.panes.length - 1),
-      }],
+      floats: [
+        ...base.floats,
+        {
+          ...float,
+          tab: { ...float.tab, preview: false },
+          originPane: Math.min(float.originPane, base.panes.length - 1),
+        },
+      ],
     };
   }
   for (const item of gone.detached) {
@@ -1033,10 +1046,13 @@ export function mergeDeskIntoDefault(
     }
     base = {
       ...base,
-      detached: [...base.detached, {
-        ...item,
-        tab: { ...item.tab, preview: false },
-      }],
+      detached: [
+        ...base.detached,
+        {
+          ...item,
+          tab: { ...item.tab, preview: false },
+        },
+      ],
     };
   }
   const rest = Object.fromEntries(
@@ -1108,10 +1124,6 @@ export type DragOutcome =
 /**
  * drag 연결. drag-end의 마지막 DTO만 적용하고 drag-cancel은 버린다.
  */
-export function applyDrag<T>(
-  start: T,
-  last: T,
-  outcome: DragOutcome,
-): T {
+export function applyDrag<T>(start: T, last: T, outcome: DragOutcome): T {
   return outcome.type === "drag-end" ? last : start;
 }

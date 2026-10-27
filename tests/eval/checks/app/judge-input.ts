@@ -22,9 +22,10 @@ export function askedAgainInput(
   request: string,
 ): (input: CheckInput) => string {
   return ({ trial }) => {
-    const questions = toolCallsOf(trial, "ask").flatMap((c) =>
-      (c.input as { questions?: AskInput["questions"] } | null)?.questions ??
-        []
+    const questions = toolCallsOf(trial, "ask").flatMap(
+      (c) =>
+        (c.input as { questions?: AskInput["questions"] } | null)?.questions ??
+        [],
     );
     return asksGapInput(request, questions);
   };
@@ -41,13 +42,14 @@ export function cardCoveredInput(
       const found = await findApp(input.core, app);
       const read = await input.core.call(appTools, { app: found.id });
       declaration = [
-        ...read.tools.map((a) =>
-          `- ${a.name} (${a.effect}): ${a.description} input=${
-            JSON.stringify(a.inputSchema)
-          }`
+        ...read.tools.map(
+          (a) =>
+            `- ${a.name} (${a.effect}): ${a.description} input=${JSON.stringify(
+              a.inputSchema,
+            )}`,
         ),
-        ...read.facts.app_connections.map((c) =>
-          `connection: ${c.app} -> ${c.tools.join(", ")}`
+        ...read.facts.app_connections.map(
+          (c) => `connection: ${c.app} -> ${c.tools.join(", ")}`,
         ),
       ].join("\n");
     }
@@ -92,21 +94,22 @@ async function lastAnswer(
   trial: TrialRecord,
   app: string,
 ): Promise<string> {
-  const session = trial.sessions.findLast((s) =>
-    s.agent.role === "app_engineer" && s.place?.name === app
+  const session = trial.sessions.findLast(
+    (s) => s.agent.role === "app_engineer" && s.place?.name === app,
   )?.session as Id<"ses"> | undefined;
   if (session === undefined) return "(no answer)";
   const { messages } = await core.call(receivedMessageList, { session });
-  const last = messages.filter((m) =>
-    m.from.kind === "agent" && m.from.session === session
-  ).reduce<(typeof messages)[number] | null>(
-    (a, m) =>
-      a === null || BigInt(m.created_seq) > BigInt(a.created_seq) ? m : a,
-    null,
-  );
+  const last = messages
+    .filter((m) => m.from.kind === "agent" && m.from.session === session)
+    .reduce<(typeof messages)[number] | null>(
+      (a, m) =>
+        a === null || BigInt(m.created_seq) > BigInt(a.created_seq) ? m : a,
+      null,
+    );
   if (last === null) return "(no answer)";
   const { content } = await core.call(messageBody, { message: last.id });
-  const text = content.parts.flatMap((p) => p.kind === "text" ? [p.text] : [])
+  const text = content.parts
+    .flatMap((p) => (p.kind === "text" ? [p.text] : []))
     .join("\n");
   return text === "" ? "(no answer)" : text;
 }
@@ -119,7 +122,9 @@ async function fixDiff(core: Core, app: string): Promise<string> {
   const from = sorted[0];
   const to = sorted.at(-1);
   if (
-    got.source_path === null || from === undefined || to === undefined ||
+    got.source_path === null ||
+    from === undefined ||
+    to === undefined ||
     from.code_commit === to.code_commit
   ) {
     return "(no new release)";

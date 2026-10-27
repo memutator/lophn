@@ -26,13 +26,13 @@ export function gatewayAllowed(ctx: AuthenticatedContext): boolean {
 
 // upgrade는 GET /gateway, subprotocol lophn.gateway.1만 받는다.
 // Host·Origin·Bearer는 HTTP와 같은 gate를 이미 통과한 뒤다.
-export function acceptSocket(
-  request: Request,
-): { ok: true; response: Response; socket: WebSocket } | {
-  ok: false;
-  status: number;
-  body: unknown;
-} {
+export function acceptSocket(request: Request):
+  | { ok: true; response: Response; socket: WebSocket }
+  | {
+      ok: false;
+      status: number;
+      body: unknown;
+    } {
   if (request.method !== "GET") {
     const error = failure({
       code: "invalid_input",
@@ -43,9 +43,10 @@ export function acceptSocket(
   const offered = request.headers.get("sec-websocket-protocol");
   if (
     offered === null ||
-    !offered.split(",").map((part) => part.trim()).includes(
-      GATEWAY_SUBPROTOCOL,
-    )
+    !offered
+      .split(",")
+      .map((part) => part.trim())
+      .includes(GATEWAY_SUBPROTOCOL)
   ) {
     const error = failure({
       code: "invalid_input",
@@ -64,17 +65,22 @@ export function attachSession(
   _ctx: AuthenticatedContext,
   deps: SocketDeps,
 ): void {
-  const session = createGatewaySession({
-    send: (text) => {
-      if (socket.readyState === WebSocket.OPEN) socket.send(text);
+  const session = createGatewaySession(
+    {
+      send: (text) => {
+        if (socket.readyState === WebSocket.OPEN) socket.send(text);
+      },
+      close: (code) => {
+        try {
+          socket.close(code);
+        } catch {
+          /* already closed */
+        }
+      },
+      bufferedAmount: () => socket.bufferedAmount,
     },
-    close: (code) => {
-      try {
-        socket.close(code);
-      } catch { /* already closed */ }
-    },
-    bufferedAmount: () => socket.bufferedAmount,
-  }, deps.bus);
+    deps.bus,
+  );
   const remove = deps.frames?.add(session);
   let ended = false;
   // 닫힘·오류는 구독을 풀고 연결 자리를 한 번만 돌려준다.

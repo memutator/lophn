@@ -86,11 +86,7 @@ export async function runTrial(
   const live = { stop: () => held.core?.stop() ?? Promise.resolve() };
   deps.live.add(live);
   try {
-    const { run, core, ctx } = await prepareTrialWorld(
-      deps,
-      scenario,
-      held,
-    );
+    const { run, core, ctx } = await prepareTrialWorld(deps, scenario, held);
 
     await attachRealModels(core, {
       key: deps.key,
@@ -99,15 +95,18 @@ export async function runTrial(
       real: scenario.real.map((p) => agentRefOf(ctx.world, p)),
     });
 
-    const human = scenario.human === undefined ? undefined : createHumanRole({
-      port: core,
-      clock: deps.clock,
-      spec: scenario.human,
-      evalDir: deps.evalDir,
-      run: deps.runId,
-      trial: index,
-      log: deps.log,
-    });
+    const human =
+      scenario.human === undefined
+        ? undefined
+        : createHumanRole({
+            port: core,
+            clock: deps.clock,
+            spec: scenario.human,
+            evalDir: deps.evalDir,
+            run: deps.runId,
+            trial: index,
+            log: deps.log,
+          });
     const spend = createSpendGuard({
       limitUsd: deps.trialBudgetUsd,
       roleSpend: () => roleSpendUsd(core),
@@ -135,15 +134,19 @@ export async function runTrial(
     // ask의 질문 글은 기다리는 동안에만 읽히므로 core를 끄기 전에 모은다.
     // callApi 같은 step이 깨운 role agent도 기록에 든다. 후보 가운데 t0 뒤 turn이 없는 것은 버린다.
     const rootIds = [...roots.values()];
-    const extra = new Set(extraRoots(
-      (await core.call(sessionSnapshotsList, {})).snapshots,
-      rootIds,
-    ));
-    const records = (await collectSessions(
-      { port: core, readBlob: diskBlobReader(run.home) },
-      [...new Set([...rootIds, ...extra])],
-      startedAt,
-    )).filter((r) => !extra.has(r.session) || r.turns.length > 0);
+    const extra = new Set(
+      extraRoots(
+        (await core.call(sessionSnapshotsList, {})).snapshots,
+        rootIds,
+      ),
+    );
+    const records = (
+      await collectSessions(
+        { port: core, readBlob: diskBlobReader(run.home) },
+        [...new Set([...rootIds, ...extra])],
+        startedAt,
+      )
+    ).filter((r) => !extra.has(r.session) || r.turns.length > 0);
     const trial: TrialRecord = {
       index,
       started_at: startedAt,
@@ -161,19 +164,20 @@ export async function runTrial(
     const judge: JudgeItem[] = [];
     for (const check of scenario.checks) {
       if (check.kind !== "judge") continue;
-      const failedPremise = check.premise.filter((id) =>
-        !checks.find((c) => c.id === id)?.pass
+      const failedPremise = check.premise.filter(
+        (id) => !checks.find((c) => c.id === id)?.pass,
       );
       if (settle.kind === "timeout" || failedPremise.length > 0) {
         checks.push({
           id: check.id,
           kind: "judge",
           pass: false,
-          reason: settle.kind === "timeout"
-            ? "timeout이라 judge를 부르지 않았다"
-            : `전제 check가 떨어져 judge를 부르지 않았다: ${
-              failedPremise.join(", ")
-            }`,
+          reason:
+            settle.kind === "timeout"
+              ? "timeout이라 judge를 부르지 않았다"
+              : `전제 check가 떨어져 judge를 부르지 않았다: ${failedPremise.join(
+                  ", ",
+                )}`,
         });
         continue;
       }
@@ -222,8 +226,10 @@ export async function runTrial(
     // 확인과 저장이 겹치면 동시 trial이 둘 다 저장하므로 함께 줄 세운다.
     const saved: { name: string; n: number }[] = [];
     if (
-      deps.saveEnabled && scenario.save !== undefined &&
-      settle.kind === "idle" && checks.every((c) => c.pass || c.pending)
+      deps.saveEnabled &&
+      scenario.save !== undefined &&
+      settle.kind === "idle" &&
+      checks.every((c) => c.pass || c.pending)
     ) {
       await serial(async () => {
         if (deps.saved.length > 0) return;
@@ -255,13 +261,16 @@ export async function runTrial(
     });
 
     // 같은 호출을 되풀이한 곳의 진단. 채점 대기 item만 두고 통과 판정에는 들지 않는다.
-    const repeats = await queueRepeats({
-      evalDir: deps.evalDir,
-      run: deps.runId,
-      clock: deps.clock,
-      criterion: deps.repeatCriterion,
-      judge: deps.judge,
-    }, trial);
+    const repeats = await queueRepeats(
+      {
+        evalDir: deps.evalDir,
+        run: deps.runId,
+        clock: deps.clock,
+        criterion: deps.repeatCriterion,
+        judge: deps.judge,
+      },
+      trial,
+    );
     if (repeats.length > 0) {
       await writeFile(
         `${deps.evalDir}/${deps.runId}/trial-${index}.repeat.json`,
@@ -290,8 +299,9 @@ export async function runTrial(
           copyFile(
             `${held.run!.dir}/core.log`,
             `${deps.evalDir}/${deps.runId}/trial-${index}.core.log`,
-          )
-        ).catch(() => {});
+          ),
+        )
+        .catch(() => {});
       // 후보 재료(save)는 다 통과한 trial만 쓴다. 떨어진 trial이 만든 앱도 사람이 볼 수 있게 source를 남긴다.
       await copyAppSources(
         held.run.home,
@@ -313,7 +323,7 @@ export async function runTrial(
 async function copyAppSources(home: string, dest: string): Promise<void> {
   for (const app of await readdir(`${home}/apps`, { withFileTypes: true })) {
     const source = `${home}/apps/${app.name}/source`;
-    if (!app.isDirectory() || !await exists(source)) continue;
+    if (!app.isDirectory() || !(await exists(source))) continue;
     await mkdir(`${dest}/${app.name}`, { recursive: true });
     const copied = spawnSync("cp", [
       "-r",

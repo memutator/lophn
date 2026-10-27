@@ -31,10 +31,12 @@ test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 domain�
     db.exec(step.sql);
   }
   const grant = (agent: unknown) =>
-    db.prepare("INSERT INTO agent_assignments VALUES (?, ?)").run(
-      JSON.stringify(agent),
-      JSON.stringify([{ app: APP, removed_tools: [] }]),
-    );
+    db
+      .prepare("INSERT INTO agent_assignments VALUES (?, ?)")
+      .run(
+        JSON.stringify(agent),
+        JSON.stringify([{ app: APP, removed_tools: [] }]),
+      );
   db.exec(`CREATE TABLE agent_assignments (agent TEXT, entries TEXT);
     CREATE TABLE invocations (app TEXT, caller_kind TEXT, operation TEXT, session TEXT)`);
   db.prepare(

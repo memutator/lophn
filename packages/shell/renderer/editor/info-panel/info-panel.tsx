@@ -26,20 +26,18 @@ export interface FileInfoPanelProps {
   now?: () => number;
 }
 
-export function FileInfoPanel(
-  {
-    tab,
-    onTab,
-    path,
-    size,
-    modifiedAt,
-    outside,
-    outline,
-    currentKey,
-    onJump,
-    now = Date.now,
-  }: FileInfoPanelProps,
-) {
+export function FileInfoPanel({
+  tab,
+  onTab,
+  path,
+  size,
+  modifiedAt,
+  outside,
+  outline,
+  currentKey,
+  onJump,
+  now = Date.now,
+}: FileInfoPanelProps) {
   return (
     <aside className={styles.panel} aria-label={t("document.title.info")}>
       <Tabs value={tab} onValueChange={(value) => onTab(value as InfoTabId)}>
@@ -65,9 +63,9 @@ export function FileInfoPanel(
               </>
             )}
           </dl>
-          {outside
-            ? <p className={styles.note}>{t("document.notice.info-outside")}</p>
-            : null}
+          {outside ? (
+            <p className={styles.note}>{t("document.notice.info-outside")}</p>
+          ) : null}
           {outline === null || outline.length === 0 ? null : (
             <>
               <h3 className={styles.caption}>
@@ -85,12 +83,12 @@ export function FileInfoPanel(
                         section.level - 1
                       })`,
                     }}
-                    aria-current={section.key === currentKey
-                      ? "location"
-                      : undefined}
-                    className={section.key === currentKey
-                      ? styles.current
-                      : undefined}
+                    aria-current={
+                      section.key === currentKey ? "location" : undefined
+                    }
+                    className={
+                      section.key === currentKey ? styles.current : undefined
+                    }
                   >
                     <Button
                       variant="ghost"

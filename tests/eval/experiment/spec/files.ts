@@ -76,8 +76,7 @@ export async function writeResult(
   if (old.ok && old.value && old.value.decision !== "inconclusive") {
     return err({
       code: "conflict",
-      message:
-        `experiment ${result.id} already decided (${old.value.decision}); write a new spec`,
+      message: `experiment ${result.id} already decided (${old.value.decision}); write a new spec`,
     });
   }
   await writeFile(

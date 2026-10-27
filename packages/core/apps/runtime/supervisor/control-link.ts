@@ -86,9 +86,8 @@ export function attachControlLink(
     request: PendingRequest,
     body?: Uint8Array,
   ): Promise<void> {
-    const handler = credential === undefined
-      ? undefined
-      : options.ops[request.op];
+    const handler =
+      credential === undefined ? undefined : options.ops[request.op];
     if (!handler) {
       await options.send({
         type: "worker_response",

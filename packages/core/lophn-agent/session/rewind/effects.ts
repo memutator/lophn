@@ -14,10 +14,12 @@ export function createRewindEffects(deps: {
       if (!isFinishedSummaryCall(lookup, input.session, input.call)) {
         return false;
       }
-      return lookup.sql.get(
-        "select 1 as found from reverts where summary_call = ? and outcome != 'blocked'",
-        [input.call],
-      ) === undefined;
+      return (
+        lookup.sql.get(
+          "select 1 as found from reverts where summary_call = ? and outcome != 'blocked'",
+          [input.call],
+        ) === undefined
+      );
     },
 
     // 숨기는 구간에서 기다리던 권한 요청과 질문을 취소한다. 취소하지 못하면 오류를 돌려 rewind 전체가

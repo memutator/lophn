@@ -9,7 +9,9 @@ import {
 
 // tool 이름(정본 또는 wire 이름)이 바깥 글을 돌려주는 tool이면 그 출처다.
 export function untrustedSource(tool: string): UntrustedSource | null {
-  return UNTRUSTED_SOURCES.find((source) =>
-    source === tool || toWireToolName(source) === tool
-  ) ?? null;
+  return (
+    UNTRUSTED_SOURCES.find(
+      (source) => source === tool || toWireToolName(source) === tool,
+    ) ?? null
+  );
 }

@@ -46,9 +46,11 @@ export function ConnectDialog(props: ConnectDialogProps): ReactNode {
 type Props = ConnectDialogProps & { definition: ProviderDefinitionRow };
 
 function OpenDialog(props: Props): ReactNode {
-  return props.definition.custom
-    ? <CustomDialog {...props} />
-    : <MethodDialog {...props} />;
+  return props.definition.custom ? (
+    <CustomDialog {...props} />
+  ) : (
+    <MethodDialog {...props} />
+  );
 }
 
 /** 고르기 화면 아래에 보일 실패. 구독 로그인의 거절과 기한 지남은 따로 알린다. */
@@ -60,9 +62,12 @@ function failureOf(code: string): Failure {
   return "connect-failed";
 }
 
-function MethodDialog(
-  { source, definition, onClose, onConnected }: Props,
-): ReactNode {
+function MethodDialog({
+  source,
+  definition,
+  onClose,
+  onConnected,
+}: Props): ReactNode {
   const [failed, setFailed] = useState<Failure | null>(null);
   const [busy, setBusy] = useState(false);
   // 구독 로그인을 기다리는 동안의 device code. 기다리지 않으면 undefined다.
@@ -77,12 +82,13 @@ function MethodDialog(
     setFailed(null);
     const stop = new AbortController();
     signIn.current = stop;
-    const started = way === "oauth"
-      ? await source.connect(definition.key, way, {
-        signal: stop.signal,
-        started: (info) => setWaiting(info),
-      })
-      : await source.connect(definition.key, way);
+    const started =
+      way === "oauth"
+        ? await source.connect(definition.key, way, {
+            signal: stop.signal,
+            started: (info) => setWaiting(info),
+          })
+        : await source.connect(definition.key, way);
     signIn.current = null;
     if (stop.signal.aborted) return;
     setBusy(false);
@@ -109,44 +115,45 @@ function MethodDialog(
       title={t("settings.title.connect-provider", { name: definition.name })}
       actions={<Button onClick={close}>{t("settings.button.cancel")}</Button>}
     >
-      {waiting === undefined
-        ? (
-          <MethodsBody
-            definition={definition}
-            busy={busy}
-            failed={failed}
-            onChoose={(way) => void choose(way)}
-          />
-        )
-        : <WaitingBody definition={definition} userCode={waiting.userCode} />}
+      {waiting === undefined ? (
+        <MethodsBody
+          definition={definition}
+          busy={busy}
+          failed={failed}
+          onChoose={(way) => void choose(way)}
+        />
+      ) : (
+        <WaitingBody definition={definition} userCode={waiting.userCode} />
+      )}
     </Dialog>
   );
 }
 
 /** 구독 로그인을 기다리는 동안 보이는 본문. */
-function WaitingBody(
-  { definition, userCode }: {
-    definition: ProviderDefinitionRow;
-    userCode: string | null;
-  },
-): ReactNode {
+function WaitingBody({
+  definition,
+  userCode,
+}: {
+  definition: ProviderDefinitionRow;
+  userCode: string | null;
+}): ReactNode {
   return (
     <div className={styles.stack}>
       <ProviderName name={definition.name} />
-      {userCode === null
-        ? (
-          <p className={styles.lead}>
-            {t("settings.notice.sign-in-browser", {
-              product: definition.signIn?.product ?? definition.name,
-            })}
+      {userCode === null ? (
+        <p className={styles.lead}>
+          {t("settings.notice.sign-in-browser", {
+            product: definition.signIn?.product ?? definition.name,
+          })}
+        </p>
+      ) : (
+        <>
+          <p className={styles.lead}>{t("settings.notice.sign-in-code")}</p>
+          <p className={styles.code} data-user-code="">
+            {userCode}
           </p>
-        )
-        : (
-          <>
-            <p className={styles.lead}>{t("settings.notice.sign-in-code")}</p>
-            <p className={styles.code} data-user-code="">{userCode}</p>
-          </>
-        )}
+        </>
+      )}
       <p className={styles.lead} role="status">
         {t("settings.status.sign-in-waiting")}
       </p>
@@ -155,14 +162,17 @@ function WaitingBody(
 }
 
 /** 로그인 방법 고르기. 연결 창과 gallery의 정적 창이 같이 쓴다. */
-function MethodsBody(
-  { definition, busy = false, failed = null, onChoose = () => {} }: {
-    definition: ProviderDefinitionRow;
-    busy?: boolean;
-    failed?: Failure | null;
-    onChoose?: (way: Exclude<AuthWay, "none">) => void;
-  },
-): ReactNode {
+function MethodsBody({
+  definition,
+  busy = false,
+  failed = null,
+  onChoose = () => {},
+}: {
+  definition: ProviderDefinitionRow;
+  busy?: boolean;
+  failed?: Failure | null;
+  onChoose?: (way: Exclude<AuthWay, "none">) => void;
+}): ReactNode {
   return (
     <div className={styles.stack}>
       <ProviderName name={definition.name} />
@@ -181,25 +191,26 @@ function MethodsBody(
           </li>
         ))}
       </ul>
-      {failed === null
-        ? null
-        : (
-          <p className={styles.notice} role="status" data-notice={failed}>
-            {t(`settings.error.${failed}`)}
-          </p>
-        )}
+      {failed === null ? null : (
+        <p className={styles.notice} role="status" data-notice={failed}>
+          {t(`settings.error.${failed}`)}
+        </p>
+      )}
     </div>
   );
 }
 
-function MethodButton(
-  { definition, way, busy, onChoose }: {
-    definition: ProviderDefinitionRow;
-    way: Exclude<AuthWay, "none">;
-    busy: boolean;
-    onChoose: () => void;
-  },
-): ReactNode {
+function MethodButton({
+  definition,
+  way,
+  busy,
+  onChoose,
+}: {
+  definition: ProviderDefinitionRow;
+  way: Exclude<AuthWay, "none">;
+  busy: boolean;
+  onChoose: () => void;
+}): ReactNode {
   return (
     <button
       type="button"
@@ -270,13 +281,15 @@ interface CustomFields {
 }
 
 /** Custom provider form. 연결 창과 gallery의 정적 창이 같이 쓴다. 오류는 사람이 그 칸에 무언가 쓴 뒤에만 보인다. */
-function CustomProviderBody(
-  { fields, failed = false, onChange = () => {} }: {
-    fields: CustomFields;
-    failed?: boolean;
-    onChange?: (fields: CustomFields) => void;
-  },
-): ReactNode {
+function CustomProviderBody({
+  fields,
+  failed = false,
+  onChange = () => {},
+}: {
+  fields: CustomFields;
+  failed?: boolean;
+  onChange?: (fields: CustomFields) => void;
+}): ReactNode {
   const idOk = ID_SHAPE.test(fields.id);
   const urlOk = baseUrlOk(fields.baseUrl);
   return (
@@ -285,37 +298,42 @@ function CustomProviderBody(
       <Field
         label={t("settings.label.custom-id")}
         help={t("settings.notice.custom-id-help")}
-        error={fields.id !== "" && !idOk
-          ? t("settings.error.custom-id")
-          : undefined}
+        error={
+          fields.id !== "" && !idOk ? t("settings.error.custom-id") : undefined
+        }
       >
         <Input
           value={fields.id}
           data-custom-field="id"
           autoComplete="off"
           onChange={(event) =>
-            onChange({ ...fields, id: event.currentTarget.value })}
+            onChange({ ...fields, id: event.currentTarget.value })
+          }
         />
       </Field>
       <Field
         label={t("settings.label.custom-name")}
-        error={fields.name !== "" && fields.name.trim() === ""
-          ? t("settings.error.custom-name")
-          : undefined}
+        error={
+          fields.name !== "" && fields.name.trim() === ""
+            ? t("settings.error.custom-name")
+            : undefined
+        }
       >
         <Input
           value={fields.name}
           data-custom-field="name"
           autoComplete="off"
           onChange={(event) =>
-            onChange({ ...fields, name: event.currentTarget.value })}
+            onChange({ ...fields, name: event.currentTarget.value })
+          }
         />
       </Field>
       <Field label={t("settings.label.custom-api")}>
         <Select
           value={fields.protocol}
           onValueChange={(value) =>
-            onChange({ ...fields, protocol: value as CustomProtocol })}
+            onChange({ ...fields, protocol: value as CustomProtocol })
+          }
           options={CUSTOM_PROTOCOLS.map((protocol) => ({
             value: protocol,
             label: t(`settings.label.api-${protocol}`),
@@ -325,44 +343,37 @@ function CustomProviderBody(
       <Field
         label={t("settings.label.custom-url")}
         help={t("settings.notice.custom-url-help")}
-        error={fields.baseUrl !== "" && !urlOk
-          ? t("settings.error.custom-url")
-          : undefined}
+        error={
+          fields.baseUrl !== "" && !urlOk
+            ? t("settings.error.custom-url")
+            : undefined
+        }
       >
         <Input
           value={fields.baseUrl}
           data-custom-field="url"
           autoComplete="off"
           onChange={(event) =>
-            onChange({ ...fields, baseUrl: event.currentTarget.value })}
+            onChange({ ...fields, baseUrl: event.currentTarget.value })
+          }
         />
       </Field>
-      {needsKey(fields.baseUrl)
-        ? (
-          <ProtectedKeyNote
-            title={t("agents.label.providers-custom-key-title")}
-            text={t("agents.notice.providers-custom-key")}
-          />
-        )
-        : null}
-      {failed
-        ? (
-          <p
-            className={styles.notice}
-            role="status"
-            data-notice="connect-failed"
-          >
-            {t("settings.error.connect-failed")}
-          </p>
-        )
-        : null}
+      {needsKey(fields.baseUrl) ? (
+        <ProtectedKeyNote
+          title={t("agents.label.providers-custom-key-title")}
+          text={t("agents.notice.providers-custom-key")}
+        />
+      ) : null}
+      {failed ? (
+        <p className={styles.notice} role="status" data-notice="connect-failed">
+          {t("settings.error.connect-failed")}
+        </p>
+      ) : null}
     </div>
   );
 }
 
-function CustomDialog(
-  { source, onClose, onConnected }: Props,
-): ReactNode {
+function CustomDialog({ source, onClose, onConnected }: Props): ReactNode {
   const [fields, setFields] = useState<CustomFields>({
     id: "",
     name: "",
@@ -372,7 +383,9 @@ function CustomDialog(
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const valid = ID_SHAPE.test(fields.id) && fields.name.trim() !== "" &&
+  const valid =
+    ID_SHAPE.test(fields.id) &&
+    fields.name.trim() !== "" &&
     baseUrlOk(fields.baseUrl);
 
   async function connect(): Promise<void> {

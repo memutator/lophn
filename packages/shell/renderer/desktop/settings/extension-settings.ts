@@ -88,9 +88,10 @@ export async function authStates(
   });
   if (!read.ok) return null;
   return new Map(
-    read.value.servers.map((
-      entry,
-    ) => [entry.name, { state: entry.state, reason: entry.reason }]),
+    read.value.servers.map((entry) => [
+      entry.name,
+      { state: entry.state, reason: entry.reason },
+    ]),
   );
 }
 
@@ -105,9 +106,10 @@ export async function secretStates(
   }>(core, "memory", "secrets", "status", { names });
   if (!read.ok) return null;
   return new Map(
-    read.value.secrets.map((
-      status,
-    ) => [status.name, status.configured ? "set" : "missing"]),
+    read.value.secrets.map((status) => [
+      status.name,
+      status.configured ? "set" : "missing",
+    ]),
   );
 }
 
@@ -122,8 +124,8 @@ export async function readExtensionSettings(
   return {
     ok: true,
     value: {
-      folders: Array.isArray(folders) ? folders as string[] : [],
-      servers: Array.isArray(servers) ? servers as McpServerValue[] : [],
+      folders: Array.isArray(folders) ? (folders as string[]) : [],
+      servers: Array.isArray(servers) ? (servers as McpServerValue[]) : [],
     },
   };
 }

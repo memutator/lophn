@@ -13,8 +13,8 @@ export type TemplateFailure = {
 
 // 저장소의 템플릿 원본 폴더. 파일 이름 끝의 `.tmpl`은 저장소 도구(fmt·lint·check·test)가 템플릿 소스를
 // 앱으로 읽지 않게 하는 표시이고, 설치와 앱 만들기는 이 접미를 뗀다.
-export const BUILTIN_TEMPLATE_DIRECTORY =
-  new URL("./app/", import.meta.url).pathname;
+export const BUILTIN_TEMPLATE_DIRECTORY = new URL("./app/", import.meta.url)
+  .pathname;
 
 const SUFFIX = ".tmpl";
 
@@ -32,10 +32,9 @@ export const REQUIRED_TEMPLATE_FILES = [
 export function sortTemplateFiles(
   files: readonly TemplateFile[],
 ): TemplateFile[] {
-  return [...files].sort((
-    a,
-    b,
-  ) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  return [...files].sort((a, b) =>
+    a.path < b.path ? -1 : a.path > b.path ? 1 : 0,
+  );
 }
 
 // 폴더의 파일을 읽는다. symlink는 건너뛴다.
@@ -49,9 +48,10 @@ export async function readTemplateDirectory(
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
       if (entry.isDirectory()) await visit(`${dir}/${entry.name}`, path);
       else if (entry.isFile()) {
-        const name = options.stripSuffix && path.endsWith(SUFFIX)
-          ? path.slice(0, -SUFFIX.length)
-          : path;
+        const name =
+          options.stripSuffix && path.endsWith(SUFFIX)
+            ? path.slice(0, -SUFFIX.length)
+            : path;
         files.push({
           path: name,
           bytes: await readFile(`${dir}/${entry.name}`),

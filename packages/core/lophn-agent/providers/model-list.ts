@@ -97,11 +97,11 @@ export function withProviderModelList(
         const done = await refresh(ctx, parsed.data.provider);
         return done.ok
           ? ok({
-            result: done.value,
-            replayed: false,
-            first_seq: null,
-            last_seq: null,
-          })
+              result: done.value,
+              replayed: false,
+              first_seq: null,
+              last_seq: null,
+            })
           : done;
       }
       const done = await writer.command(ctx, envelope);

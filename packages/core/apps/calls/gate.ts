@@ -79,10 +79,12 @@ export async function callAllowed(
   const grants = await deps.appGrantsOf(caller.app);
   if (!grants.ok) return grants;
   return ok(
-    grants.value.some((grant) =>
-      grant.status === "active" && grant.scope.kind === "app.call" &&
-      grant.scope.app === target.app &&
-      grant.scope.app_tools.includes(target.tool)
+    grants.value.some(
+      (grant) =>
+        grant.status === "active" &&
+        grant.scope.kind === "app.call" &&
+        grant.scope.app === target.app &&
+        grant.scope.app_tools.includes(target.tool),
     ),
   );
 }

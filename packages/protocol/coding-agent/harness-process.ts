@@ -28,8 +28,9 @@ function matches(
   if (script !== undefined && rule.packages?.some((p) => script.includes(p))) {
     return true;
   }
-  return code !== undefined && rule.code !== undefined &&
-    code.includes(rule.code);
+  return (
+    code !== undefined && rule.code !== undefined && code.includes(rule.code)
+  );
 }
 
 export function harnessOfProcess(argv: readonly string[]): HarnessId | null {

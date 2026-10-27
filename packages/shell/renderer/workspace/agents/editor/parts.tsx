@@ -48,14 +48,17 @@ const STATUS_LABEL: Record<"off" | "connected" | "needs-sign-in", MessageKey> =
   };
 
 /** 토글. 이름은 줄 왼쪽에 따로 있어서 Switch의 라벨은 눈에는 숨기고 읽기용으로만 둔다. */
-function RowToggle(
-  { label, checked, disabled, onChange }: {
-    label: string;
-    checked: boolean;
-    disabled?: boolean;
-    onChange: (on: boolean) => void;
-  },
-) {
+function RowToggle({
+  label,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (on: boolean) => void;
+}) {
   return (
     <span className={`${styles.toggleCell} ${styles.hiddenLabel}`}>
       <Switch
@@ -79,10 +82,13 @@ interface SkillListProps {
 }
 
 /** skill 목록. 줄마다 어느 층의 것인지 chip으로 보이고, 오른쪽 끝 토글은 보고 있는 층에서의 켬·끔이다. 내장 skill은 토글 대신 Built-in 표시다. */
-export function SkillList(
-  { items, offNames = [], lockOff = false, showLayer = true, onToggle }:
-    SkillListProps,
-) {
+export function SkillList({
+  items,
+  offNames = [],
+  lockOff = false,
+  showLayer = true,
+  onToggle,
+}: SkillListProps) {
   return (
     <ul className={styles.toggleList}>
       {items.map((item) => (
@@ -95,25 +101,25 @@ export function SkillList(
             <span className={styles.toggleName}>{item.name}</span>
             <span className={styles.toggleDetail}>{item.detail}</span>
           </span>
-          {showLayer && !item.builtIn
-            ? <span className={styles.chip}>{t(LAYER_LABEL[item.layer])}</span>
-            : <span />}
-          {item.builtIn
-            ? (
-              <span className={styles.toggleCell}>
-                <span className={styles.chip} data-built-in="">
-                  {t("agents.label.built-in")}
-                </span>
+          {showLayer && !item.builtIn ? (
+            <span className={styles.chip}>{t(LAYER_LABEL[item.layer])}</span>
+          ) : (
+            <span />
+          )}
+          {item.builtIn ? (
+            <span className={styles.toggleCell}>
+              <span className={styles.chip} data-built-in="">
+                {t("agents.label.built-in")}
               </span>
-            )
-            : (
-              <RowToggle
-                label={item.name}
-                checked={item.on && !offNames.includes(item.name)}
-                disabled={lockOff && !item.on}
-                onChange={(on) => onToggle(item.name, on)}
-              />
-            )}
+            </span>
+          ) : (
+            <RowToggle
+              label={item.name}
+              checked={item.on && !offNames.includes(item.name)}
+              disabled={lockOff && !item.on}
+              onChange={(on) => onToggle(item.name, on)}
+            />
+          )}
         </li>
       ))}
     </ul>
@@ -135,10 +141,13 @@ interface McpListProps {
 }
 
 /** MCP server 목록. 이름 옆 점이 연결 상태다. */
-export function McpList(
-  { items, offNames = [], lockOff = false, showLayer = true, onToggle }:
-    McpListProps,
-) {
+export function McpList({
+  items,
+  offNames = [],
+  lockOff = false,
+  showLayer = true,
+  onToggle,
+}: McpListProps) {
   return (
     <ul className={styles.toggleList}>
       {items.map((item) => {
@@ -153,8 +162,8 @@ export function McpList(
                     on && item.status === "connected"
                       ? styles.dotConnected
                       : on && item.status === "needs-sign-in"
-                      ? styles.dotNeedsSignIn
-                      : ""
+                        ? styles.dotNeedsSignIn
+                        : ""
                   }`}
                   role="img"
                   aria-label={text}
@@ -165,19 +174,16 @@ export function McpList(
                 {text === "" ? item.detail : `${item.detail} · ${text}`}
               </span>
             </span>
-            {showLayer
-              ? (
-                <span className={styles.chip}>
-                  {t(LAYER_LABEL[item.layer])}
-                </span>
-              )
-              : <span />}
+            {showLayer ? (
+              <span className={styles.chip}>{t(LAYER_LABEL[item.layer])}</span>
+            ) : (
+              <span />
+            )}
             <RowToggle
               label={item.name}
               checked={on}
               disabled={lockOff && !item.on}
-              onChange={(next) =>
-                onToggle(item.name, next)}
+              onChange={(next) => onToggle(item.name, next)}
             />
           </li>
         );
@@ -212,14 +218,19 @@ interface ProfileFieldProps {
 }
 
 /** profile 칸: 미리보기, icon grid, 이미지 올리기. */
-export function ProfileField(
-  { value, imageSrc, canUpload, onChange, onUpload }: ProfileFieldProps,
-) {
+export function ProfileField({
+  value,
+  imageSrc,
+  canUpload,
+  onChange,
+  onUpload,
+}: ProfileFieldProps) {
   const [grid, setGrid] = useState(true);
   const file = useRef<HTMLInputElement>(null);
-  const shown: AvatarProfile = value.kind === "icon"
-    ? { kind: "icon", icon: value.icon }
-    : { kind: "image", src: imageSrc(value.image) };
+  const shown: AvatarProfile =
+    value.kind === "icon"
+      ? { kind: "icon", icon: value.icon }
+      : { kind: "image", src: imageSrc(value.image) };
   return (
     <fieldset className={styles.group} data-field="profile">
       <legend className={styles.legend}>
@@ -261,41 +272,37 @@ export function ProfileField(
             >
               {t("project-workspace.button.agent-editor-upload-image")}
             </Button>
-            {value.kind === "image"
-              ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onChange({ kind: "icon", icon: "roles" })}
-                >
-                  {t("agents.button.remove-image")}
-                </Button>
-              )
-              : null}
-          </div>
-          {grid
-            ? (
-              <div
-                className={styles.iconGrid}
-                role="group"
-                aria-label={t("project-workspace.label.agent-editor-icons")}
+            {value.kind === "image" ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onChange({ kind: "icon", icon: "roles" })}
               >
-                {AVATAR_ICON_IDS.map((id) => (
-                  <button
-                    key={id}
-                    type="button"
-                    className={styles.iconCell}
-                    data-icon-option={id}
-                    aria-label={t(ICON_LABEL[id])}
-                    aria-pressed={value.kind === "icon" && value.icon === id}
-                    onClick={() => onChange({ kind: "icon", icon: id })}
-                  >
-                    <Avatar profile={{ kind: "icon", icon: id }} size="sm" />
-                  </button>
-                ))}
-              </div>
-            )
-            : null}
+                {t("agents.button.remove-image")}
+              </Button>
+            ) : null}
+          </div>
+          {grid ? (
+            <div
+              className={styles.iconGrid}
+              role="group"
+              aria-label={t("project-workspace.label.agent-editor-icons")}
+            >
+              {AVATAR_ICON_IDS.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={styles.iconCell}
+                  data-icon-option={id}
+                  aria-label={t(ICON_LABEL[id])}
+                  aria-pressed={value.kind === "icon" && value.icon === id}
+                  onClick={() => onChange({ kind: "icon", icon: id })}
+                >
+                  <Avatar profile={{ kind: "icon", icon: id }} size="sm" />
+                </button>
+              ))}
+            </div>
+          ) : null}
           <p className={styles.note}>
             {canUpload
               ? t("agents.notice.profile-help")
@@ -325,43 +332,42 @@ interface InstructionsBlockProps {
 }
 
 /** 지침 블록: project 지침(읽기)과 이 agent의 지침(고침)을 같이 보인다. */
-export function InstructionsBlock(
-  { project, head, note, value, help, issues, onChange, onEditProject }:
-    InstructionsBlockProps,
-) {
+export function InstructionsBlock({
+  project,
+  head,
+  note,
+  value,
+  help,
+  issues,
+  onChange,
+  onEditProject,
+}: InstructionsBlockProps) {
   return (
     <fieldset className={styles.group} data-field="instructions">
       <legend className={styles.legend}>
         {t("project-workspace.label.agent-editor-instructions")}
       </legend>
-      {project === null
-        ? null
-        : (
-          <div className={styles.projectInstr} data-project-instructions="">
-            <div className={styles.projectInstrHead}>
-              <span>{head}</span>
-              <Button size="sm" onClick={onEditProject}>
-                {t("project-workspace.button.agent-editor-edit-project")}
-              </Button>
-            </div>
-            {project.text.trim() === ""
-              ? (
-                <p className={styles.projectInstrEmpty}>
-                  {t("project-workspace.empty.agent-editor-no-project")}
-                </p>
-              )
-              : (
-                <pre className={styles.projectInstrBody}>
-                {project.text.split("\n").slice(0, PROJECT_LINES).join("\n")}
-                </pre>
-              )}
+      {project === null ? null : (
+        <div className={styles.projectInstr} data-project-instructions="">
+          <div className={styles.projectInstrHead}>
+            <span>{head}</span>
+            <Button size="sm" onClick={onEditProject}>
+              {t("project-workspace.button.agent-editor-edit-project")}
+            </Button>
           </div>
-        )}
+          {project.text.trim() === "" ? (
+            <p className={styles.projectInstrEmpty}>
+              {t("project-workspace.empty.agent-editor-no-project")}
+            </p>
+          ) : (
+            <pre className={styles.projectInstrBody}>
+              {project.text.split("\n").slice(0, PROJECT_LINES).join("\n")}
+            </pre>
+          )}
+        </div>
+      )}
       {note === undefined ? null : <p className={styles.note}>{note}</p>}
-      <Field
-        label={t("agents.label.agent-instructions")}
-        help={help}
-      >
+      <Field label={t("agents.label.agent-instructions")} help={help}>
         <Textarea
           rows={7}
           value={value}
@@ -374,22 +380,26 @@ export function InstructionsBlock(
 }
 
 /** 보호 입력으로 받는다는 안내. 값은 이 창에서 치지 않는다. */
-export function ProtectedKeyNote(
-  { title, text, action }: {
-    title: string;
-    text: string;
-    action?: { label: string; onClick: () => void };
-  },
-) {
+export function ProtectedKeyNote({
+  title,
+  text,
+  action,
+}: {
+  title: string;
+  text: string;
+  action?: { label: string; onClick: () => void };
+}) {
   return (
     <div className={styles.protected}>
       <span className={styles.protectedText}>
         <span className={styles.protectedTitle}>{title}</span>
         <span>{text}</span>
       </span>
-      {action === undefined
-        ? null
-        : <Button size="sm" onClick={action.onClick}>{action.label}</Button>}
+      {action === undefined ? null : (
+        <Button size="sm" onClick={action.onClick}>
+          {action.label}
+        </Button>
+      )}
     </div>
   );
 }

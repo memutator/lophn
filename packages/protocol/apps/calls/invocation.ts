@@ -22,13 +22,15 @@ export const appInvocationOperationSchema = z.discriminatedUnion("kind", [
     kind: z.literal("start"),
     reason: z.enum(["activation", "restart"]),
   }),
-  z.object({
-    kind: z.literal("data_change"),
-    from: sequence,
-    to: sequence,
-  }).refine((value) => value.to > value.from, {
-    message: "data_change to is not after from",
-  }),
+  z
+    .object({
+      kind: z.literal("data_change"),
+      from: sequence,
+      to: sequence,
+    })
+    .refine((value) => value.to > value.from, {
+      message: "data_change to is not after from",
+    }),
 ]);
 
 const appInvocationStatusSchema = z.enum([
@@ -47,35 +49,39 @@ const changesetSummarySchema = z.strictObject({
 });
 
 // caller가 null이면 앱 시작과 data_change다.
-export const appInvocationSchema = z.object({
-  id: invocationIdSchema,
-  app: appIdSchema,
-  release: releaseIdSchema,
-  mode: runtimeModeSchema,
-  operation: appInvocationOperationSchema,
-  caller: appToolCallerSchema.nullable(),
-  effect: invocationEffectSchema,
-  status: appInvocationStatusSchema,
-  started_at: atSchema.nullable(),
-  finished_at: atSchema.nullable(),
-  input_hash: sha256Schema.nullable(),
-  summary: invocationSummarySchema,
-  detail_hash: sha256Schema.nullable(),
-  changeset: changesetSummarySchema.nullable(),
-  reverted_by: idSchema("rwd").nullable(),
-}).refine((value) => value.changeset === null || value.effect !== "read", {
-  message: "a read has no changeset",
-}).refine(
-  (value) => (value.finished_at !== null) === (value.status !== "running"),
-  {
-    message: "finished_at is set only when not running",
-  },
-).refine(
-  (value) =>
-    value.reverted_by === null ||
-    ["succeeded", "failed", "unknown"].includes(value.status),
-  { message: "reverted_by needs a succeeded, failed or unknown invocation" },
-);
+export const appInvocationSchema = z
+  .object({
+    id: invocationIdSchema,
+    app: appIdSchema,
+    release: releaseIdSchema,
+    mode: runtimeModeSchema,
+    operation: appInvocationOperationSchema,
+    caller: appToolCallerSchema.nullable(),
+    effect: invocationEffectSchema,
+    status: appInvocationStatusSchema,
+    started_at: atSchema.nullable(),
+    finished_at: atSchema.nullable(),
+    input_hash: sha256Schema.nullable(),
+    summary: invocationSummarySchema,
+    detail_hash: sha256Schema.nullable(),
+    changeset: changesetSummarySchema.nullable(),
+    reverted_by: idSchema("rwd").nullable(),
+  })
+  .refine((value) => value.changeset === null || value.effect !== "read", {
+    message: "a read has no changeset",
+  })
+  .refine(
+    (value) => (value.finished_at !== null) === (value.status !== "running"),
+    {
+      message: "finished_at is set only when not running",
+    },
+  )
+  .refine(
+    (value) =>
+      value.reverted_by === null ||
+      ["succeeded", "failed", "unknown"].includes(value.status),
+    { message: "reverted_by needs a succeeded, failed or unknown invocation" },
+  );
 export type AppInvocation = z.infer<typeof appInvocationSchema>;
 
 const readActors = ["user", "coding_agent", "agent", "machine"] as const;
@@ -102,9 +108,11 @@ export const appInvocationsInputSchema = z.strictObject({
   cursor: z.string().min(1).optional(),
   limit: z.number().int().min(1).max(APP_INVOCATIONS_MAX_COUNT).optional(),
 });
-const appInvocationsOutputSchema = withReadCommon(z.object({
-  invocations: z.array(appInvocationSchema),
-}));
+const appInvocationsOutputSchema = withReadCommon(
+  z.object({
+    invocations: z.array(appInvocationSchema),
+  }),
+);
 export const appInvocations = defineRead({
   resource: "apps",
   method: "invocations",
@@ -118,9 +126,11 @@ export const appInvocations = defineRead({
 const appInvocationInputSchema = z.strictObject({
   invocation: invocationIdSchema,
 });
-const appInvocationOutputSchema = withReadCommon(z.object({
-  invocation: appInvocationSchema.nullable(),
-}));
+const appInvocationOutputSchema = withReadCommon(
+  z.object({
+    invocation: appInvocationSchema.nullable(),
+  }),
+);
 export const appInvocation = defineRead({
   resource: "apps",
   method: "invocation",

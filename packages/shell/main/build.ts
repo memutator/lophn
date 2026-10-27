@@ -53,10 +53,7 @@ const entries: BuildEntry[] = [
   { in: join(shell, "preload/artifact.ts"), out: "preload-artifact" },
 ];
 
-function build(
-  outdir: string,
-  extra: BuildEntry[] = [],
-): Promise<void> {
+function build(outdir: string, extra: BuildEntry[] = []): Promise<void> {
   return esbuild
     .build({ ...shared, entryPoints: [...entries, ...extra], outdir })
     .then(() => {});

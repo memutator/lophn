@@ -13,16 +13,15 @@ export const DEFAULT_READING_WIDTH: ReadingWidth = "default";
 // 저장된 값이 정한 세 폭이 아니면 기본 폭으로 읽는다.
 export function readingWidthOf(value: unknown): ReadingWidth {
   return READING_WIDTHS.includes(value as ReadingWidth)
-    ? value as ReadingWidth
+    ? (value as ReadingWidth)
     : DEFAULT_READING_WIDTH;
 }
 
 export function useReadingWidth(
   setting: ReadingWidthSetting,
 ): [ReadingWidth, (width: ReadingWidth) => void] {
-  const width = useSyncExternalStore(
-    setting.subscribe,
-    () => readingWidthOf(setting.read()),
+  const width = useSyncExternalStore(setting.subscribe, () =>
+    readingWidthOf(setting.read()),
   );
   const change = useCallback(
     (next: ReadingWidth) => setting.write(next),

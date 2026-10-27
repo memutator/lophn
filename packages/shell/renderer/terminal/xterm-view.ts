@@ -179,12 +179,13 @@ function paletteColor(
   if (index < 232) {
     const i = index - 16;
     return rgb(
-      CUBE[Math.floor(i / 36)] << 16 | CUBE[Math.floor(i / 6) % 6] << 8 |
+      (CUBE[Math.floor(i / 36)] << 16) |
+        (CUBE[Math.floor(i / 6) % 6] << 8) |
         CUBE[i % 6],
     );
   }
   const gray = 8 + (index - 232) * 10;
-  return rgb(gray << 16 | gray << 8 | gray);
+  return rgb((gray << 16) | (gray << 8) | gray);
 }
 
 function rgb(value: number): string {
@@ -233,7 +234,8 @@ function paintEdges(
   if (edge.width !== width) edge.width = width;
   if (edge.height !== height) edge.height = height;
   context.clearRect(0, 0, width, height);
-  const grid = term.element?.querySelector(".xterm-screen")
+  const grid = term.element
+    ?.querySelector(".xterm-screen")
     ?.getBoundingClientRect();
   if (grid === undefined || grid.width === 0) return;
   // 경계를 device pixel에 맞춘다. 소수점 경계는 같은 색 띠 사이에 옅은 선을 남긴다.
@@ -242,9 +244,10 @@ function paintEdges(
   const top = px(grid.top - box.top);
   const right = px(grid.right - box.left);
   const bottom = px(grid.bottom - box.top);
-  const rowAt = (y: number) => top + Math.round((bottom - top) * y / term.rows);
+  const rowAt = (y: number) =>
+    top + Math.round(((bottom - top) * y) / term.rows);
   const colAt = (x: number) =>
-    left + Math.round((right - left) * x / term.cols);
+    left + Math.round(((right - left) * x) / term.cols);
   const cell = buffer.getNullCell();
   const fill = (
     x: number,
@@ -255,9 +258,8 @@ function paintEdges(
     y1: number,
   ) => {
     const found = buffer.getLine(buffer.viewportY + y)?.getCell(x, cell);
-    const color = found === undefined
-      ? undefined
-      : cellBackground(found, theme);
+    const color =
+      found === undefined ? undefined : cellBackground(found, theme);
     if (color === undefined || x1 <= x0 || y1 <= y0) return;
     context.fillStyle = color;
     context.fillRect(x0, y0, x1 - x0, y1 - y0);
@@ -311,8 +313,8 @@ function adoptInlineStyles(root: HTMLElement): () => void {
   return () => {
     observer.disconnect();
     const removed = new Set(sheets.values());
-    document.adoptedStyleSheets = document.adoptedStyleSheets.filter((sheet) =>
-      !removed.has(sheet)
+    document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
+      (sheet) => !removed.has(sheet),
     );
   };
 }
@@ -350,7 +352,7 @@ export function createXtermView(
     term.options.theme = next;
   };
   const swallowed = SWALLOWED_OSC.map((ident) =>
-    term.parser.registerOscHandler(ident, () => true)
+    term.parser.registerOscHandler(ident, () => true),
   );
   const fitAddon = new parts.FitAddon();
   term.loadAddon(fitAddon);
@@ -362,11 +364,12 @@ export function createXtermView(
       for (const listener of linkListeners) listener(uri);
     }),
   );
-  const release = typeof MutationObserver === "function" &&
-      typeof CSSStyleSheet === "function" &&
-      "adoptedStyleSheets" in host.ownerDocument
-    ? adoptInlineStyles(host)
-    : () => {};
+  const release =
+    typeof MutationObserver === "function" &&
+    typeof CSSStyleSheet === "function" &&
+    "adoptedStyleSheets" in host.ownerDocument
+      ? adoptInlineStyles(host)
+      : () => {};
   term.open(host);
   // 셀 색(truecolor)은 DOM renderer가 style 속성으로 칠하는데 shell CSP가 그 속성을 막는다. WebGL renderer는
   // canvas에 그려 속성이 필요 없다. WebGL2가 없거나 context를 잃으면 addon을 버려 DOM renderer로 돌아가고,
@@ -378,9 +381,10 @@ export function createXtermView(
   } catch {
     webgl.dispose();
   }
-  const unwatch = typeof getComputedStyle === "function"
-    ? watchTokens(host, retheme)
-    : () => {};
+  const unwatch =
+    typeof getComputedStyle === "function"
+      ? watchTokens(host, retheme)
+      : () => {};
   // 화면을 다시 그릴 때마다(출력, buffer 바꿈, resize, theme) 여백도 다시 칠한다.
   const rendered = term.onRender(() => paintEdges(term, edge, theme));
   // 다시 쓰는 출력이 끝나기 전에 나온 응답을 거른다. write 큐는 순서대로 처리되므로 callback이 불릴 때까지가

@@ -19,61 +19,71 @@ const NAME = /^[a-z][a-z0-9_]{0,39}$/;
 const RESERVED_FIELDS = ["path", "file"];
 
 export const kindNameSchema = z.string().regex(NAME);
-export const fieldNameSchema = z.string().regex(NAME).refine(
-  (name) => !RESERVED_FIELDS.includes(name),
-  { message: "path and file are reserved field names" },
-);
+export const fieldNameSchema = z
+  .string()
+  .regex(NAME)
+  .refine((name) => !RESERVED_FIELDS.includes(name), {
+    message: "path and file are reserved field names",
+  });
 // 조건·정렬·집계가 가리키는 칸: 선언한 칸이거나 예약 칸.
 export const fieldRefSchema = z.string().regex(NAME);
 
 // violation과 오류의 message는 한 줄이다.
-export const kindMessageSchema = z.string().min(1).regex(/^[^\r\n]+$/);
+export const kindMessageSchema = z
+  .string()
+  .min(1)
+  .regex(/^[^\r\n]+$/);
 
-export const kindFieldSchema = z.strictObject({
-  type: z.enum(KIND_FIELD_TYPES),
-  required: z.boolean().optional(),
-  unique: z.boolean().optional(),
-  list: z.boolean().optional(),
-  values: z.array(z.string().min(1)).min(1).optional(),
-  pattern: z.string().min(1).optional(),
-  to: kindNameSchema.optional(),
-  from: z.literal("path").optional(),
-  capture: z.string().min(1).optional(),
-}).superRefine((field, ctx) => {
-  const need = (ok: boolean, path: string, message: string) => {
-    if (!ok) ctx.addIssue({ code: "custom", path: [path], message });
-  };
-  need(
-    (field.type === "enum") === (field.values !== undefined),
-    "values",
-    "values is for enum fields only, and enum needs it",
-  );
-  need(
-    (field.type === "ref") === (field.to !== undefined),
-    "to",
-    "to is for ref fields only, and ref needs it",
-  );
-  need(
-    field.pattern === undefined || field.type === "string",
-    "pattern",
-    "pattern is for string fields only",
-  );
-  need(
-    (field.from !== undefined) === (field.capture !== undefined),
-    "capture",
-    "capture goes with from: path",
-  );
-  need(
-    field.from === undefined || field.list !== true,
-    "list",
-    "a path capture is one value, so it cannot be a list",
-  );
-});
+export const kindFieldSchema = z
+  .strictObject({
+    type: z.enum(KIND_FIELD_TYPES),
+    required: z.boolean().optional(),
+    unique: z.boolean().optional(),
+    list: z.boolean().optional(),
+    values: z.array(z.string().min(1)).min(1).optional(),
+    pattern: z.string().min(1).optional(),
+    to: kindNameSchema.optional(),
+    from: z.literal("path").optional(),
+    capture: z.string().min(1).optional(),
+  })
+  .superRefine((field, ctx) => {
+    const need = (ok: boolean, path: string, message: string) => {
+      if (!ok) ctx.addIssue({ code: "custom", path: [path], message });
+    };
+    need(
+      (field.type === "enum") === (field.values !== undefined),
+      "values",
+      "values is for enum fields only, and enum needs it",
+    );
+    need(
+      (field.type === "ref") === (field.to !== undefined),
+      "to",
+      "to is for ref fields only, and ref needs it",
+    );
+    need(
+      field.pattern === undefined || field.type === "string",
+      "pattern",
+      "pattern is for string fields only",
+    );
+    need(
+      (field.from !== undefined) === (field.capture !== undefined),
+      "capture",
+      "capture goes with from: path",
+    );
+    need(
+      field.from === undefined || field.list !== true,
+      "list",
+      "a path capture is one value, so it cannot be a list",
+    );
+  });
 export type KindField = z.infer<typeof kindFieldSchema>;
 
 export const kindSchema = z.strictObject({
   name: kindNameSchema,
-  summary: z.string().max(200).regex(/^[^\r\n]*\S[^\r\n]*$/),
+  summary: z
+    .string()
+    .max(200)
+    .regex(/^[^\r\n]*\S[^\r\n]*$/),
   files: z.array(z.string().min(1)).min(1).max(20),
   // 칸 이름이거나 예약 칸(path, file). 선언 여부는 checkKindsStructure가 본다.
   key: z.string().regex(NAME),
@@ -147,17 +157,19 @@ export function kindWatchFolders(kinds: Kind[]): KindWatchFolder[] {
       byPath.get(folder.path) === true || folder.recursive,
     );
   }
-  const deep = [...byPath].filter(([, recursive]) => recursive).map(([path]) =>
-    path
-  );
+  const deep = [...byPath]
+    .filter(([, recursive]) => recursive)
+    .map(([path]) => path);
   return [...byPath]
-    .filter(([path]) =>
-      !deep.some((root) =>
-        root !== path && (root === "" || path.startsWith(`${root}/`))
-      )
+    .filter(
+      ([path]) =>
+        !deep.some(
+          (root) =>
+            root !== path && (root === "" || path.startsWith(`${root}/`)),
+        ),
     )
     .map(([path, recursive]) => ({ path, recursive }))
-    .sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+    .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
 // folder가 path(project 기준 파일 경로)를 덮는가. recursive가 아니면 path의 부모 폴더가 folder와 같을 때,
@@ -172,9 +184,13 @@ export function folderCovers(folder: KindWatchFolder, path: string): boolean {
 // ---------- 구조 검사 ----------
 
 function badGlob(glob: string): boolean {
-  return glob.trim() === "" || glob.startsWith("/") ||
+  return (
+    glob.trim() === "" ||
+    glob.startsWith("/") ||
     /^[A-Za-z]:/.test(glob) ||
-    glob.includes("\\") || glob.split("/").includes("..");
+    glob.includes("\\") ||
+    glob.split("/").includes("..")
+  );
 }
 
 // 순수 함수다. 앞에 맞던 kind를 지우지 않는 규칙이 이 판정에 기댄다. message는 kind·칸 이름과 규칙만 싣는다.

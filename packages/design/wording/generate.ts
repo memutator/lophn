@@ -58,8 +58,9 @@ export function render(
   catalog: Record<string, string>,
   command = "deno run -A generate.ts",
 ): string {
-  const entries = Object.entries(catalog).map(([key, message]) =>
-    `  ${JSON.stringify(key)}: ${field(placeholdersOf(message))};`
+  const entries = Object.entries(catalog).map(
+    ([key, message]) =>
+      `  ${JSON.stringify(key)}: ${field(placeholdersOf(message))};`,
   );
   return [
     `// en.ts에서 생성한다. 직접 고치지 않고 \`${command} --check\`로 맞춘다.`,
@@ -99,8 +100,9 @@ const camel = (name: string) =>
 
 function renderArea(name: string, catalog: Record<string, string>): string {
   const type = `${camel(name)}Placeholders`;
-  const entries = Object.entries(catalog).map(([key, message]) =>
-    `  ${JSON.stringify(key)}: ${field(placeholdersOf(message))};`
+  const entries = Object.entries(catalog).map(
+    ([key, message]) =>
+      `  ${JSON.stringify(key)}: ${field(placeholdersOf(message))};`,
   );
   const area = camel(name).replace(/^./, (c) => c.toLowerCase());
   return [

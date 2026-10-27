@@ -22,8 +22,7 @@ function Guides({ depth }: { depth: number }) {
       key={level}
       className={styles.guide}
       style={{
-        left:
-          `calc(var(--space-2) + var(--tree-indent) * ${level} + var(--icon-size-small) / 2)`,
+        left: `calc(var(--space-2) + var(--tree-indent) * ${level} + var(--icon-size-small) / 2)`,
       }}
     />
   ));
@@ -50,22 +49,20 @@ interface RowProps {
   onDragEnd: () => void;
 }
 
-export function Row(
-  {
-    row,
-    current,
-    selected,
-    dropping,
-    tabStop,
-    onActivate,
-    onSelect,
-    onMenu,
-    onDragStart,
-    onDragOver,
-    onDrop,
-    onDragEnd,
-  }: RowProps,
-) {
+export function Row({
+  row,
+  current,
+  selected,
+  dropping,
+  tabStop,
+  onActivate,
+  onSelect,
+  onMenu,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+}: RowProps) {
   return (
     <div
       role="treeitem"
@@ -130,9 +127,15 @@ interface NameRowProps {
 }
 
 /** 새 파일·폴더와 이름 바꾸기가 쓰는 tree 안 입력. Enter는 확정, Esc와 focus 잃음은 취소다. */
-export function NameRow(
-  { depth, folder, initial, range, problem, onSubmit, onCancel }: NameRowProps,
-) {
+export function NameRow({
+  depth,
+  folder,
+  initial,
+  range,
+  problem,
+  onSubmit,
+  onCancel,
+}: NameRowProps) {
   const input = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState(initial);
   const [asked, setAsked] = useState(false);
@@ -147,8 +150,10 @@ export function NameRow(
 
   const empty = value.trim() === "";
   const message = empty
-    ? asked ? t("project-workspace.error.explorer-name-required") : null
-    : problem(value) ?? failure;
+    ? asked
+      ? t("project-workspace.error.explorer-name-required")
+      : null
+    : (problem(value) ?? failure);
 
   const submit = async () => {
     if (busy.current) return;

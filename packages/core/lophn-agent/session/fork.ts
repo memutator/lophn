@@ -39,13 +39,14 @@ type ForkOutput = {
 function originalsOf(tx: Tx, source: string, through: bigint) {
   // redo를 쓰면 다시 보이는 메시지라 그때부터 복사한다.
   const hidden = hiddenRanges(tx, source);
-  return tx.sql.all(
-    `select ${MESSAGE_COLUMNS} from messages
+  return tx.sql
+    .all(
+      `select ${MESSAGE_COLUMNS} from messages
      where session = ? and created_seq <= ? order by created_seq`,
-    [source, through],
-  ).map(messageRowOf).filter((message) =>
-    !inHiddenRange(hidden, message.created_seq)
-  );
+      [source, through],
+    )
+    .map(messageRowOf)
+    .filter((message) => !inHiddenRange(hidden, message.created_seq));
 }
 
 // 같은 ID의 재전송은 처음 결과다. 출처와 지점이 다르면 다른 입력이다.

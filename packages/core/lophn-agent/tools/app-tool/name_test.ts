@@ -12,7 +12,7 @@ test("앱 tool 이름은 <domain>_<tool>이고 64자를 넘을 때만 hash가 �
   assert.deepStrictEqual(long, await appToolName("notes", "x".repeat(80)));
   assert.deepStrictEqual(long.length, 64);
   assert.deepStrictEqual(
-    long === await appToolName("notes", "x".repeat(81)),
+    long === (await appToolName("notes", "x".repeat(81))),
     false,
   );
 });

@@ -51,9 +51,13 @@ const specOf = (tab: TabItem): TabSpec => ({
 const stripTab = (tab: TabItem) => stripTabsOf([specOf(tab)])[0]!;
 
 /** 상단 바. 왼쪽에 `project ▾ / desk ▾`를 두고 오른쪽은 palette 단추다. */
-export function DeskBar(
-  { platform, leading }: { platform: WindowPlatform; leading: ReactNode },
-) {
+export function DeskBar({
+  platform,
+  leading,
+}: {
+  platform: WindowPlatform;
+  leading: ReactNode;
+}) {
   return (
     <div className={workspace.topBar}>
       <TopBar
@@ -70,16 +74,21 @@ export function DeskBar(
 }
 
 /** 왼쪽 경로: project, workflow가 있으면 `/ desk`. desk 목록이 기본 자리뿐이면 desk 조각을 그리지 않는다. */
-export function PathLeading(
-  { projects, project, onProject, desks, desk, onDesk }: {
-    projects: readonly ProjectOption[];
-    project: string;
-    onProject: (id: string) => void;
-    desks: readonly DeskOption[];
-    desk: string;
-    onDesk: (key: string) => void;
-  },
-) {
+export function PathLeading({
+  projects,
+  project,
+  onProject,
+  desks,
+  desk,
+  onDesk,
+}: {
+  projects: readonly ProjectOption[];
+  project: string;
+  onProject: (id: string) => void;
+  desks: readonly DeskOption[];
+  desk: string;
+  onDesk: (key: string) => void;
+}) {
   return (
     <>
       <ProjectSelector
@@ -87,14 +96,12 @@ export function PathLeading(
         active={project}
         onSelect={onProject}
       />
-      {desks.length > 1
-        ? (
-          <>
-            <PathSep />
-            <DeskSelector options={desks} active={desk} onSelect={onDesk} />
-          </>
-        )
-        : null}
+      {desks.length > 1 ? (
+        <>
+          <PathSep />
+          <DeskSelector options={desks} active={desk} onSelect={onDesk} />
+        </>
+      ) : null}
     </>
   );
 }
@@ -112,16 +119,14 @@ export interface DeskWindowProps {
   readonly platform?: WindowPlatform;
 }
 
-export function DeskWindow(
-  {
-    options,
-    projects = PROJECTS,
-    active: first = DEFAULT_KEY,
-    collapsed: firstCollapsed = false,
-    width,
-    platform = "linux",
-  }: DeskWindowProps,
-) {
+export function DeskWindow({
+  options,
+  projects = PROJECTS,
+  active: first = DEFAULT_KEY,
+  collapsed: firstCollapsed = false,
+  width,
+  platform = "linux",
+}: DeskWindowProps) {
   const [active, setActive] = useState(first);
   const [project, setProject] = useState(projects[0]!.id);
   const [collapsed, setCollapsed] = useState(firstCollapsed);
@@ -133,7 +138,9 @@ export function DeskWindow(
   const area = useObservedSize(content);
 
   const renderTab = (tab: TabItem): ReactNode =>
-    tab.kind === "terminal" ? <TerminalBody /> : (
+    tab.kind === "terminal" ? (
+      <TerminalBody />
+    ) : (
       <DocumentPane
         path={tab.key}
         info={null}
@@ -154,10 +161,13 @@ export function DeskWindow(
           left: 0,
           overflow: "hidden",
           background: "var(--color-surface-base)",
-          ...(width === undefined ? { right: 0 } : {
-            width,
-            borderRight: "var(--border-width) solid var(--color-border-base)",
-          }),
+          ...(width === undefined
+            ? { right: 0 }
+            : {
+                width,
+                borderRight:
+                  "var(--border-width) solid var(--color-border-base)",
+              }),
         }}
       >
         <DeskBar
@@ -195,8 +205,8 @@ export function DeskWindow(
           <div ref={content} className={workspace.content}>
             <div className={paneStyles.panes}>
               {view.panes.map((pane, index) => {
-                const tab = pane.tabs.find((item) =>
-                  item.key === pane.selected
+                const tab = pane.tabs.find(
+                  (item) => item.key === pane.selected,
                 );
                 return (
                   <section key={index} className={paneStyles.pane}>
@@ -209,19 +219,20 @@ export function DeskWindow(
                           ...v,
                           focusedPane: index,
                           panes: v.panes.map((item, at) =>
-                            at === index ? { ...item, selected: key } : item
+                            at === index ? { ...item, selected: key } : item,
                           ),
-                        }))}
+                        }))
+                      }
                       onClose={(key) => update((v) => closeTab(v, index, key))}
                     />
                     <div className={`${paneStyles.body} ${paneStyles.flush}`}>
-                      {tab === undefined
-                        ? (
-                          <p style={{ padding: "var(--space-8)" }}>
-                            {t("project-workspace.empty.no-tabs")}
-                          </p>
-                        )
-                        : renderTab(tab)}
+                      {tab === undefined ? (
+                        <p style={{ padding: "var(--space-8)" }}>
+                          {t("project-workspace.empty.no-tabs")}
+                        </p>
+                      ) : (
+                        renderTab(tab)
+                      )}
                     </div>
                   </section>
                 );
@@ -235,9 +246,11 @@ export function DeskWindow(
               renderTab={renderTab}
               renderKept={() => null}
               onRaise={(key) => update((v) => raiseFloat(v, key))}
-              onRect={(key, rect) => area === undefined
-                ? undefined
-                : update((v) => setFloatRect(v, key, rect, area))}
+              onRect={(key, rect) =>
+                area === undefined
+                  ? undefined
+                  : update((v) => setFloatRect(v, key, rect, area))
+              }
               onMinimize={(key) => update((v) => minimizeFloat(v, key))}
               onDock={(key) => update((v) => dockTab(v, key))}
               onClose={(key) => update((v) => closeFloat(v, key))}

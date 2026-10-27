@@ -40,10 +40,10 @@ function titleOf(app: string): string {
 }
 
 function escapeHtml(text: string): string {
-  return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(
-    ">",
-    "&gt;",
-  );
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }
 
 // 치환 표시 `{{TITLE}}`·`{{APP}}`는 formatter가 안쪽 공백을 넣어도 같다. 코드의 따옴표 친 `"{{TITLE}}"`은 JSON
@@ -51,9 +51,8 @@ function escapeHtml(text: string): string {
 function fill(path: string, text: string, app: string, title: string): string {
   return text
     .replace(/"\{\{\s*TITLE\s*\}\}"/g, () => JSON.stringify(title))
-    .replace(
-      /\{\{\s*TITLE\s*\}\}/g,
-      () => path.endsWith(".html") ? escapeHtml(title) : title,
+    .replace(/\{\{\s*TITLE\s*\}\}/g, () =>
+      path.endsWith(".html") ? escapeHtml(title) : title,
     )
     .replace(/\{\{\s*APP\s*\}\}/g, () => app);
 }
@@ -87,13 +86,13 @@ export async function scaffoldApp(
       await mkdir(target.slice(0, slash), { recursive: true });
       const bytes = TEXT.test(file.path)
         ? new TextEncoder().encode(
-          fill(
-            file.path,
-            new TextDecoder().decode(file.bytes),
-            input.app,
-            title,
-          ),
-        )
+            fill(
+              file.path,
+              new TextDecoder().decode(file.bytes),
+              input.app,
+              title,
+            ),
+          )
         : file.bytes;
       await writeFile(target, bytes);
       written.push(file.path);

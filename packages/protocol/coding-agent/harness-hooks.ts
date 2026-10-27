@@ -14,22 +14,22 @@ export type HarnessHook =
   //   named: `{lophn: {event: [handler]}}` (Antigravity, PreToolUse·PostToolUse만 nested)
   // `path`가 lophn 전용 file이든 사람의 설정이든 같은 방식으로 우리 항목만 고친다.
   | {
-    format: "json";
-    path: string;
-    shape: "nested" | "flat" | "copilot" | "kiro" | "named";
-    timeout?: number;
-    // event → matcher. 값이 ""여도 matcher 칸을 쓴다.
-    matchers?: Readonly<Record<string, string>>;
-  }
+      format: "json";
+      path: string;
+      shape: "nested" | "flat" | "copilot" | "kiro" | "named";
+      timeout?: number;
+      // event → matcher. 값이 ""여도 matcher 칸을 쓴다.
+      matchers?: Readonly<Record<string, string>>;
+    }
   // Claude 꼴이고 JSONC다. 주석과 우리 항목 밖의 byte를 그대로 둔다(Devin).
   | { format: "jsonc"; path: string }
   // 표시한 block을 끝에 두는 TOML(Kimi). `[[hooks]]` 항목.
   | {
-    format: "toml_block";
-    path: string;
-    timeout: number;
-    matchers?: Readonly<Record<string, string>>;
-  }
+      format: "toml_block";
+      path: string;
+      timeout: number;
+      matchers?: Readonly<Record<string, string>>;
+    }
   // Muse: hook을 정의한 managed file(`path`)과 그 file을 가리키고 env 이름을 허용하는 `settings`.
   | { format: "managed_json"; path: string; settings: string; timeout: number }
   // Hermes: `path`(config.yaml)의 `hooks:`에 shell hook, `allowlist`에 trust 기록.
@@ -181,6 +181,10 @@ export const HOOK_STDOUT: readonly {
 
 export function hookStdout(harness: string, event: string): string | null {
   const rows = HOOK_STDOUT.filter((row) => row.harness === harness);
-  return (rows.find((row) => row.event === event) ??
-    rows.find((row) => row.event === "*"))?.stdout ?? null;
+  return (
+    (
+      rows.find((row) => row.event === event) ??
+      rows.find((row) => row.event === "*")
+    )?.stdout ?? null
+  );
 }

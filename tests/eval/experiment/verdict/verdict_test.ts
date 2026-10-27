@@ -9,11 +9,8 @@ const to = { kind: "instruction", name: "lophn", n: 4 } as const;
 // "p"=통과 "f"=떨어짐 "?"=judge 채점 대기(떨어진 것은 없다) "F"=program check가 떨어졌고 judge는 아직 대기
 function outs(s: string): Outcome[] {
   return [...s].map((c, index) => {
-    const state: OutcomeState = c === "p"
-      ? "pass"
-      : c === "f" || c === "F"
-      ? "fail"
-      : "pending";
+    const state: OutcomeState =
+      c === "p" ? "pass" : c === "f" || c === "F" ? "fail" : "pending";
     return {
       index,
       passed: state === "pass",
@@ -141,10 +138,7 @@ test("decide splits adopt, reject and inconclusive by the default@1 rule", () =>
     },
     {
       name: "failed program check stays failed while judge is pending",
-      entries: [
-        entry("t", "target", "FFF", "fff"),
-        ...okEntries().slice(1),
-      ],
+      entries: [entry("t", "target", "FFF", "fff"), ...okEntries().slice(1)],
       decision: "reject",
       status: ["t", "fail"],
     },
@@ -159,7 +153,10 @@ test("decide splits adopt, reject and inconclusive by the default@1 rule", () =>
       assert.deepStrictEqual(s.weaker, row.weaker ?? false, row.name);
     }
     if (row.reason) {
-      assert(r.value.reasons.some((x) => x.includes(row.reason!)), row.name);
+      assert(
+        r.value.reasons.some((x) => x.includes(row.reason!)),
+        row.name,
+      );
     }
   }
 });

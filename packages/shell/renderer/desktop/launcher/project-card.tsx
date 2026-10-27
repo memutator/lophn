@@ -21,16 +21,16 @@ interface ProjectCardProps {
 
 // 카드: 폴더 아이콘·이름 한 줄과 ⋯ 메뉴, 목적 두 줄, 폴더 수나 "Folder not found"와 새 위치 고르기 한 줄.
 // 카드 전체가 작업대로 가는 단추다. 폴더 경로와 편집은 [Details] dialog에 둔다.
-export function ProjectCard(
-  { card, onOpen, onDetails, onArchive, onRelocate }: ProjectCardProps,
-) {
+export function ProjectCard({
+  card,
+  onOpen,
+  onDetails,
+  onArchive,
+  onRelocate,
+}: ProjectCardProps) {
   const missing = missingFolder(card);
   return (
-    <article
-      className={styles.card}
-      data-card="project"
-      data-project={card.id}
-    >
+    <article className={styles.card} data-card="project" data-project={card.id}>
       <div className={styles.cardHead}>
         <button
           type="button"
@@ -60,34 +60,33 @@ export function ProjectCard(
               },
             ]}
             onSelect={(id) =>
-              id === "details" ? onDetails(card) : onArchive(card)}
+              id === "details" ? onDetails(card) : onArchive(card)
+            }
           />
         </span>
       </div>
-      {card.purpose.trim() === ""
-        ? null
-        : <p className={styles.cardPurpose}>{card.purpose}</p>}
-      {missing !== undefined
-        ? (
-          <div className={styles.cardMissing} data-status="missing">
-            <StatusMark
-              tone="warning"
-              label={t("launcher.label.folder-missing")}
-            />
-            <Button
-              size="sm"
-              data-relocate=""
-              onClick={() => onRelocate(card, missing.path)}
-            >
-              {t("launcher.button.choose-location")}
-            </Button>
-          </div>
-        )
-        : (
-          <p className={styles.cardStatus} data-status="ok">
-            {t("launcher.label.folder-count", { count: card.folders.length })}
-          </p>
-        )}
+      {card.purpose.trim() === "" ? null : (
+        <p className={styles.cardPurpose}>{card.purpose}</p>
+      )}
+      {missing !== undefined ? (
+        <div className={styles.cardMissing} data-status="missing">
+          <StatusMark
+            tone="warning"
+            label={t("launcher.label.folder-missing")}
+          />
+          <Button
+            size="sm"
+            data-relocate=""
+            onClick={() => onRelocate(card, missing.path)}
+          >
+            {t("launcher.button.choose-location")}
+          </Button>
+        </div>
+      ) : (
+        <p className={styles.cardStatus} data-status="ok">
+          {t("launcher.label.folder-count", { count: card.folders.length })}
+        </p>
+      )}
     </article>
   );
 }

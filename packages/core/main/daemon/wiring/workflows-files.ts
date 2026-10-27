@@ -36,11 +36,9 @@ export function createWorkflowFiles(dataRoot: string): WorkflowFiles {
     async list(project) {
       const names: string[] = [];
       try {
-        for (
-          const e of await readdir(workflowsFolder(dataRoot, project), {
-            withFileTypes: true,
-          })
-        ) {
+        for (const e of await readdir(workflowsFolder(dataRoot, project), {
+          withFileTypes: true,
+        })) {
           if (e.isDirectory() && workflowNameSchema.safeParse(e.name).success) {
             names.push(e.name);
           }
@@ -58,16 +56,21 @@ export function createWorkflowFiles(dataRoot: string): WorkflowFiles {
       for (const name of names) {
         const entry = (view: "static" | "instance") =>
           isFile(
-            `${
-              workflowArtifactFolder(dataRoot, project, name, view)
-            }/${WORKFLOW_ARTIFACT_ENTRY}`,
+            `${workflowArtifactFolder(
+              dataRoot,
+              project,
+              name,
+              view,
+            )}/${WORKFLOW_ARTIFACT_ENTRY}`,
           );
         files.push({
           name,
           declaration: await readDeclaration(
-            `${
-              workflowFolder(dataRoot, project, name)
-            }/${WORKFLOW_DECLARATION_FILE}`,
+            `${workflowFolder(
+              dataRoot,
+              project,
+              name,
+            )}/${WORKFLOW_DECLARATION_FILE}`,
           ),
           flow: await isFile(
             `${workflowFolder(dataRoot, project, name)}/${WORKFLOW_FLOW_FILE}`,

@@ -25,11 +25,16 @@ export type SettledItem = {
 export function observedOf(
   files: readonly PreparedFile[],
 ): Map<string, FileStat> {
-  return new Map(files.map((file) => [file.path, {
-    exists: file.observed_sha256 !== null || file.link,
-    sha256: file.observed_sha256,
-    link: file.link,
-  }]));
+  return new Map(
+    files.map((file) => [
+      file.path,
+      {
+        exists: file.observed_sha256 !== null || file.link,
+        sha256: file.observed_sha256,
+        link: file.link,
+      },
+    ]),
+  );
 }
 
 // 복원할 파일이 준비를 받쳐 주면 restored다. 받쳐 주지 않으면 복원했다고 쓰지 않고 설치가 건너뛴
@@ -50,9 +55,8 @@ export function settleItems(
     const none = { restored_sha256: null, restored: null };
     if (item.plan === "remain") return { item, result: "remained", ...none };
     if (item.plan === "skip") {
-      const result = item.reason === "already_reverted"
-        ? "unchanged"
-        : "skipped";
+      const result =
+        item.reason === "already_reverted" ? "unchanged" : "skipped";
       return { item, result, ...none };
     }
     const unit = units.get(item.target);
@@ -89,8 +93,12 @@ export function countsOf(
 
 // 건너뜀이나 남는 영향이 하나라도 있었나.
 export function leftSomething(counts: RevertResultCounts): boolean {
-  return counts.skipped > 0 || counts.remained > 0 || counts.failure > 0 ||
-    counts.uncertain > 0;
+  return (
+    counts.skipped > 0 ||
+    counts.remained > 0 ||
+    counts.failure > 0 ||
+    counts.uncertain > 0
+  );
 }
 
 export function insertItems(
@@ -126,15 +134,13 @@ function unitRows(
 ): { tool_call: string; path: string }[] {
   const reach = new Set(paths);
   const rows = new Map<string, { tool_call: string; path: string }>();
-  for (let grew = true; grew;) {
+  for (let grew = true; grew; ) {
     grew = false;
     for (const tool_call of source) {
-      for (
-        const row of tx.sql.all(
-          "select path, moved_from from rewind_files where tool_call = ?",
-          [tool_call],
-        )
-      ) {
+      for (const row of tx.sql.all(
+        "select path, moved_from from rewind_files where tool_call = ?",
+        [tool_call],
+      )) {
         const path = String(row["path"]);
         if (!reach.has(path) || rows.has(`${tool_call}\n${path}`)) continue;
         rows.set(`${tool_call}\n${path}`, { tool_call, path });
@@ -147,11 +153,7 @@ function unitRows(
 }
 
 // 복원한 단위의 기록에 되돌려짐을 표시한다. 이미 표시된 기록(앞선 Undo)은 건드리지 않는다.
-export function markReverted(
-  tx: Tx,
-  revert: string,
-  unit: JudgedFile,
-): void {
+export function markReverted(tx: Tx, revert: string, unit: JudgedFile): void {
   for (const row of unitRows(tx, unit.source, [unit.path])) {
     tx.sql.run(
       `update rewind_files set reverted_by = ?

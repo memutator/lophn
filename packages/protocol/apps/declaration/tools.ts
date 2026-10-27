@@ -22,9 +22,7 @@ import { screenPath } from "./scope.ts";
 const TOOL_NAME = /^[A-Za-z0-9_.-]{1,64}$/;
 
 function blankDescription(schema: InputSchema): string | undefined {
-  if (
-    Object.hasOwn(schema, "description") && !nonBlank(schema.description)
-  ) {
+  if (Object.hasOwn(schema, "description") && !nonBlank(schema.description)) {
     return "description must be nonblank";
   }
   if (schema.properties) {
@@ -50,12 +48,11 @@ export function validateScreensAndTools(
   const screens: ScreenDeclaration[] = [];
   for (const item of screenItems) {
     if (!isObject(item)) return invalid("screen must be an object");
-    const bad = exactKeys(item, ["key", "label", "path", "sizes"], [
-      "key",
-      "label",
-      "path",
-      "sizes",
-    ]);
+    const bad = exactKeys(
+      item,
+      ["key", "label", "path", "sizes"],
+      ["key", "label", "path", "sizes"],
+    );
     if (bad) return invalid(`screen ${bad}`);
     if (!nonBlank(item.key) || !nonBlank(item.label)) {
       return invalid("screen key and label must be nonblank");
@@ -65,8 +62,8 @@ export function validateScreensAndTools(
       return invalid("screen sizes must be nonempty");
     }
     if (
-      item.sizes.some((size) =>
-        size !== "full" && size !== "panel" && size !== "card"
+      item.sizes.some(
+        (size) => size !== "full" && size !== "panel" && size !== "card",
       )
     ) {
       return invalid("screen size is unsupported");
@@ -81,31 +78,40 @@ export function validateScreensAndTools(
       sizes: [...item.sizes] as ScreenSize[],
     });
   }
-  if (unique(screens.map((screen) => screen.key), "screen")) {
+  if (
+    unique(
+      screens.map((screen) => screen.key),
+      "screen",
+    )
+  ) {
     return invalid("duplicate screen");
   }
 
   const tools: ToolDeclaration[] = [];
   for (const item of toolItems) {
     if (!isObject(item)) return invalid("tool must be an object");
-    const bad = exactKeys(item, [
-      "description",
-      "domain",
-      "effect",
-      "inputSchema",
-      "name",
-      "outputSchema",
-      "public",
-      "title",
-    ], [
-      "description",
-      "domain",
-      "effect",
-      "inputSchema",
-      "name",
-      "public",
-      "title",
-    ]);
+    const bad = exactKeys(
+      item,
+      [
+        "description",
+        "domain",
+        "effect",
+        "inputSchema",
+        "name",
+        "outputSchema",
+        "public",
+        "title",
+      ],
+      [
+        "description",
+        "domain",
+        "effect",
+        "inputSchema",
+        "name",
+        "public",
+        "title",
+      ],
+    );
     if (bad) return invalid(`tool ${bad}`);
     if (typeof item.name !== "string" || !TOOL_NAME.test(item.name)) {
       return invalid(
@@ -118,7 +124,8 @@ export function validateScreensAndTools(
       );
     }
     if (
-      item.effect !== "read" && item.effect !== "write" &&
+      item.effect !== "read" &&
+      item.effect !== "write" &&
       item.effect !== "external"
     ) {
       return invalid(`tool ${item.name} effect is unsupported`);
@@ -134,9 +141,10 @@ export function validateScreensAndTools(
         `tool ${item.name} domain ${item.domain} is not a domain of this app`,
       );
     }
-    const inputSchema = item.inputSchema === null
-      ? ({ ok: true, value: null } as const)
-      : objectSchema(item.inputSchema, `tool ${item.name} inputSchema`);
+    const inputSchema =
+      item.inputSchema === null
+        ? ({ ok: true, value: null } as const)
+        : objectSchema(item.inputSchema, `tool ${item.name} inputSchema`);
     if (!inputSchema.ok) return inputSchema;
     const tool: ToolDeclaration = {
       name: item.name,
@@ -157,7 +165,12 @@ export function validateScreensAndTools(
     }
     tools.push(tool);
   }
-  if (unique(tools.map((tool) => tool.name), "tool")) {
+  if (
+    unique(
+      tools.map((tool) => tool.name),
+      "tool",
+    )
+  ) {
     return invalid("duplicate tool");
   }
   // agent tool 이름은 `<domain>_<tool의 . → _>`라 `event.list`와 `event_list`는 같은 이름이 된다.
@@ -229,8 +242,11 @@ export function toMcpTool(tool: ToolDeclaration): McpTool {
     name: tool.name,
     title: tool.title,
     description: tool.description,
-    inputSchema: tool.inputSchema ??
-      { type: "object", properties: {}, additionalProperties: false },
+    inputSchema: tool.inputSchema ?? {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
     annotations: toolAnnotations(tool),
   };
   if (tool.outputSchema) mcp.outputSchema = tool.outputSchema;

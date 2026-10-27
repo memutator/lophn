@@ -19,7 +19,7 @@ export function withPublicOnly(
   const load: AppToolkit["load"] = async (agent) => {
     const loaded = await toolkit.load(agent);
     if (!loaded.ok) return loaded;
-    const mine = await deps.callerDomains(agent) ?? [];
+    const mine = (await deps.callerDomains(agent)) ?? [];
     // 같은 load 안에서 같은 (앱, domain 이름)을 다시 읽지 않는다.
     const ids = new Map<string, Promise<string | null>>();
     const views = [];

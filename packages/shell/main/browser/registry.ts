@@ -78,8 +78,8 @@ export interface DevtoolsContents extends AppViewContents {
   toWindow(on: boolean, title: string): void;
 }
 
-export interface BrowserViewHost extends
-  Pick<
+export interface BrowserViewHost
+  extends Pick<
     AppViewHost,
     "hasWindow" | "attach" | "detach" | "focused" | "focusShell"
   > {
@@ -255,11 +255,13 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
 
   function firstLoaded(entry: Entry, loaded: Promise<void>): void {
     const contents = entry.contents;
-    void loaded.catch(() => {}).then(() => {
-      if (entries.get(entry.view_session) !== entry) return;
-      if (entry.contents !== contents || entry.ready) return;
-      placement.loaded(entry);
-    });
+    void loaded
+      .catch(() => {})
+      .then(() => {
+        if (entries.get(entry.view_session) !== entry) return;
+        if (entry.contents !== contents || entry.ready) return;
+        placement.loaded(entry);
+      });
   }
 
   // 소유 창은 opener의 창이다. renderer가 adopt하지 않은 view는 그 창이 닫힐 때까지 남는다.
@@ -417,9 +419,7 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
       if (address === null) return failure("invalid_input", "address is empty");
       const decision = decideNavigation({ url: address, isMainFrame: true });
       if (!decision.allow) {
-        if (
-          decision.external && deps.activation.fresh(entry.contents.id)
-        ) {
+        if (decision.external && deps.activation.fresh(entry.contents.id)) {
           deps.openExternal(address);
           return { ok: true, value: state(entry) };
         }
@@ -437,7 +437,8 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
       const entry = ownedEntry(window, view_session);
       if (entry === undefined) return notOpen();
       if (
-        command === "reload" && reopenable(entry.health) &&
+        command === "reload" &&
+        reopenable(entry.health) &&
         guests.has(view_session)
       ) {
         // guest는 <webview>가 contents를 가진다. reload가 page process를 다시 띄운다.

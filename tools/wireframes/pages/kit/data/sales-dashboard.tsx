@@ -32,7 +32,10 @@ export const VISITS = [
   {
     key: "north",
     label: "North",
-    points: [{ x: 120, y: 14 }, { x: 140, y: 18 }],
+    points: [
+      { x: 120, y: 14 },
+      { x: 140, y: 18 },
+    ],
   },
   { key: "online", label: "Online", points: [{ x: 210, y: 30 }] },
 ];
@@ -49,13 +52,15 @@ export const STEPS = {
   ],
 };
 
-export function SalesDashboard(
-  { loading, failed, reload }: {
-    loading: boolean;
-    failed: boolean;
-    reload: () => void;
-  },
-) {
+export function SalesDashboard({
+  loading,
+  failed,
+  reload,
+}: {
+  loading: boolean;
+  failed: boolean;
+  reload: () => void;
+}) {
   const state = {
     loading,
     failed: failed ? "sales" : undefined,

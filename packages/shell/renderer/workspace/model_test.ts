@@ -56,15 +56,19 @@ const viewOf = (pane: PaneState): WorkspaceView => ({
 test("저장 안 된 preview 탭은 다음 preview가 바꿔 쓰지 않고 고정 탭으로 남는다", () => {
   const view = viewOf({ tabs: [tab("a"), tab("b", true)], selected: "b" });
   const replaced = openTabIn(view, tab("c", true), () => false);
-  assert.deepStrictEqual(replaced.panes[0]!.tabs.map((item) => item.key), [
-    "a",
-    "c",
-  ]);
+  assert.deepStrictEqual(
+    replaced.panes[0]!.tabs.map((item) => item.key),
+    ["a", "c"],
+  );
 
   const kept = openTabIn(view, tab("c", true), (key) => key === "b");
   assert.deepStrictEqual(
     kept.panes[0]!.tabs.map((item) => [item.key, item.preview === true]),
-    [["a", false], ["b", false], ["c", true]],
+    [
+      ["a", false],
+      ["b", false],
+      ["c", true],
+    ],
   );
 });
 
@@ -72,27 +76,22 @@ test("Close Saved는 저장 안 된 탭을 대상에서 뺀다", () => {
   const pane = { tabs: [tab("a"), tab("b"), tab("c")], selected: "a" };
   assert.deepStrictEqual(
     closeTargets(pane, "saved", "a", (key) => key === "b"),
-    [
-      "a",
-      "c",
-    ],
+    ["a", "c"],
   );
 });
 
 test("같은 칸에서 순서를 바꿔도 탭이 사라지거나 늘지 않는다", () => {
   const view = viewOf({ tabs: [tab("a"), tab("b"), tab("c")], selected: "a" });
   const moved = moveTab(view, "a", 0, null);
-  assert.deepStrictEqual(moved.panes[0]!.tabs.map((item) => item.key), [
-    "b",
-    "c",
-    "a",
-  ]);
+  assert.deepStrictEqual(
+    moved.panes[0]!.tabs.map((item) => item.key),
+    ["b", "c", "a"],
+  );
   const front = moveTab(moved, "a", 0, "b");
-  assert.deepStrictEqual(front.panes[0]!.tabs.map((item) => item.key), [
-    "a",
-    "b",
-    "c",
-  ]);
+  assert.deepStrictEqual(
+    front.panes[0]!.tabs.map((item) => item.key),
+    ["a", "b", "c"],
+  );
 });
 
 test("한 칸에서 왼쪽·오른쪽으로 옮겨 나눠도 탭이 사라지거나 늘지 않고 다시 연 탭은 한 번만 생긴다", () => {
@@ -144,10 +143,10 @@ test("float, dock, minimize, restore, raise, detach, attach, close를 이어서 
     v.panes.some((pane) => pane.tabs.some((t) => t.key === key))
       ? "pane"
       : v.floats.some((float) => float.tab.key === key)
-      ? "float"
-      : isDetached(v, key)
-      ? "detached"
-      : undefined;
+        ? "float"
+        : isDetached(v, key)
+          ? "detached"
+          : undefined;
   // 셋째는 이 step이 닫는 key, 넷째는 이 step이 새로 여는 key, 다섯째는 step 뒤 key의 자리다.
   const steps: [
     string,
@@ -168,30 +167,21 @@ test("float, dock, minimize, restore, raise, detach, attach, close를 이어서 
       (v) => detachTab(v, "b", bounds),
       undefined,
       undefined,
-      [
-        "b",
-        "detached",
-      ],
+      ["b", "detached"],
     ],
     [
       "detach minimized a",
       (v) => detachTab(v, "a", bounds),
       undefined,
       undefined,
-      [
-        "a",
-        "detached",
-      ],
+      ["a", "detached"],
     ],
     [
       "detach floated g",
       (v) => detachTab(v, "g", bounds),
       undefined,
       undefined,
-      [
-        "g",
-        "detached",
-      ],
+      ["g", "detached"],
     ],
     ["detach b again", (v) => detachTab(v, "b", bounds)],
     ["detach unknown", (v) => detachTab(v, "zzz", bounds)],
@@ -216,40 +206,37 @@ test("float, dock, minimize, restore, raise, detach, attach, close를 이어서 
       (v) => reopenTab(v, tab("b"), 0, 0),
       undefined,
       undefined,
-      [
-        "b",
-        "detached",
-      ],
+      ["b", "detached"],
     ],
     [
       "floatTab detached b",
       (v) => floatTab(v, "b", area),
       undefined,
       undefined,
-      [
-        "b",
-        "detached",
-      ],
+      ["b", "detached"],
     ],
     [
       "openFloat detached b",
       (v) => openFloat(v, tab("b"), area),
       undefined,
       undefined,
-      [
-        "b",
-        "detached",
-      ],
+      ["b", "detached"],
     ],
-    ["dock detached b", (v) => dockTab(v, "b"), undefined, undefined, [
-      "b",
-      "detached",
-    ]],
+    [
+      "dock detached b",
+      (v) => dockTab(v, "b"),
+      undefined,
+      undefined,
+      ["b", "detached"],
+    ],
     ["closeFloat detached b", (v) => closeFloat(v, "b")],
-    ["attach b", (v) => attachDetached(v, "b"), undefined, undefined, [
-      "b",
-      "pane",
-    ]],
+    [
+      "attach b",
+      (v) => attachDetached(v, "b"),
+      undefined,
+      undefined,
+      ["b", "pane"],
+    ],
     [
       "attach a (바뀐 탭)",
       (v) => attachDetached(v, "a", { ...tab("a"), title: "A" }),
@@ -273,19 +260,20 @@ test("float, dock, minimize, restore, raise, detach, attach, close를 이어서 
       (v) => detachTab(v, "f", bounds),
       undefined,
       undefined,
-      [
-        "f",
-        "detached",
-      ],
+      ["f", "detached"],
     ],
     ["close g", (v) => closeDetached(v, "g"), "g"],
     ["float b", (v) => floatTab(v, "b", area)],
     ["close d", (v) => closeFloat(v, "d"), "d"],
     ["dock a", (v) => dockTab(v, "a")],
-    ["close pane tab c", (v) => {
-      const at = v.panes.findIndex((p) => p.tabs.some((t) => t.key === "c"));
-      return closeTab(v, at, "c");
-    }, "c"],
+    [
+      "close pane tab c",
+      (v) => {
+        const at = v.panes.findIndex((p) => p.tabs.some((t) => t.key === "c"));
+        return closeTab(v, at, "c");
+      },
+      "c",
+    ],
     ["close detached i", (v) => closeDetached(v, "i"), "i"],
     ["float unknown", (v) => floatTab(v, "zzz", area)],
   ];
@@ -348,19 +336,26 @@ test("transient 탭은 저장할 view에 없다", () => {
     ],
   };
   const stored = storableView(view);
-  assert.deepStrictEqual(allTabs(stored).map((t) => t.key), ["a", "f"]);
+  assert.deepStrictEqual(
+    allTabs(stored).map((t) => t.key),
+    ["a", "f"],
+  );
   assert.deepStrictEqual(stored.panes.length, 1);
   assert.deepStrictEqual(stored.panes[0]!.selected, "a");
   assert.deepStrictEqual(stored.focusedPane, 0);
   // dock·attach하면 고른 것이니 저장해도 된다.
   const attached = attachDetached(view, "t4");
   assert.deepStrictEqual(
-    allTabs(storableView(attached)).map((t) => t.key).includes("t4"),
+    allTabs(storableView(attached))
+      .map((t) => t.key)
+      .includes("t4"),
     true,
   );
   const docked = dockTab(view, "t3");
   assert.deepStrictEqual(
-    allTabs(storableView(docked)).map((t) => t.key).includes("t3"),
+    allTabs(storableView(docked))
+      .map((t) => t.key)
+      .includes("t3"),
     true,
   );
 });
@@ -403,10 +398,16 @@ test("자리에서 float, detach하고 자리를 바꾸고 건너 열고 합쳐�
         [{ tabs: [tab("a1", true), tab("a2")], selected: "a1" }],
         [float("af", true), float("af2", true)],
       ),
-      beta: view([{ tabs: [], selected: null }], [], [{
-        tab: tab("bd"),
-        bounds,
-      }]),
+      beta: view(
+        [{ tabs: [], selected: null }],
+        [],
+        [
+          {
+            tab: tab("bd"),
+            bounds,
+          },
+        ],
+      ),
     },
   };
   const known = new Set(allDeskTabs(start).map((t) => t.key));
@@ -417,17 +418,15 @@ test("자리에서 float, detach하고 자리를 바꾸고 건너 열고 합쳐�
     const place = v.panes.some((p) => p.tabs.some((t) => t.key === key))
       ? "pane"
       : v.floats.some((f) => f.tab.key === key)
-      ? "float"
-      : "detached";
+        ? "float"
+        : "detached";
     return `${at}/${place}`;
   };
   const onActive =
     (fn: (v: WorkspaceView) => WorkspaceView) => (d: WorkspaceDesks) =>
       setActiveView(d, fn(activeView(d)));
   const seed = view(
-    [
-      { tabs: [tab("a1"), tab("g1"), tab("d3")], selected: "a1" },
-    ],
+    [{ tabs: [tab("a1"), tab("g1"), tab("d3")], selected: "a1" }],
     [float("df")],
     [{ tab: tab("bd"), bounds }],
   );
@@ -439,14 +438,18 @@ test("자리에서 float, detach하고 자리를 바꾸고 건너 열고 합쳐�
     [string, string][]?,
     string?,
   ][] = [
-    ["float d1", onActive((v) => floatTab(v, "d1", area)), , [[
-      "d1",
-      `${DEFAULT_DESK}/float`,
-    ]]],
-    ["detach d2", onActive((v) => detachTab(v, "d2", bounds)), , [[
-      "d2",
-      `${DEFAULT_DESK}/detached`,
-    ]]],
+    [
+      "float d1",
+      onActive((v) => floatTab(v, "d1", area)),
+      ,
+      [["d1", `${DEFAULT_DESK}/float`]],
+    ],
+    [
+      "detach d2",
+      onActive((v) => detachTab(v, "d2", bounds)),
+      ,
+      [["d2", `${DEFAULT_DESK}/detached`]],
+    ],
     [
       "있는 자리로 (seed는 무시)",
       (d) => switchDesk(d, "alpha", seed),
@@ -458,13 +461,12 @@ test("자리에서 float, detach하고 자리를 바꾸고 건너 열고 합쳐�
       "없는 자리로 (다른 자리에 있는 탭은 빠진다)",
       (d) => switchDesk(d, "gamma", seed),
       "g1",
-      [["g1", "gamma/pane"], ["a1", "alpha/pane"], [
-        "d3",
-        `${DEFAULT_DESK}/pane`,
-      ], [
-        "bd",
-        "beta/detached",
-      ]],
+      [
+        ["g1", "gamma/pane"],
+        ["a1", "alpha/pane"],
+        ["d3", `${DEFAULT_DESK}/pane`],
+        ["bd", "beta/detached"],
+      ],
       "gamma",
     ],
     [
@@ -605,9 +607,9 @@ test("자리에서 float, detach하고 자리를 바꾸고 건너 열고 합쳐�
       );
     }
     if (name.startsWith("새 탭이 after로")) {
-      const keys = activeView(desks).panes.flatMap((p) => p.tabs).map((t) =>
-        t.key
-      );
+      const keys = activeView(desks)
+        .panes.flatMap((p) => p.tabs)
+        .map((t) => t.key);
       assert.deepStrictEqual(keys[keys.indexOf("a1") + 1], "n2", name);
     }
     if (name.startsWith("보이는 자리 합치기")) {

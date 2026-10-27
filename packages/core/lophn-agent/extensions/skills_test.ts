@@ -26,10 +26,10 @@ const skillFile = (
 function treeOf(files: Record<string, string>): SkillFiles {
   const kind = (path: string) =>
     path in files
-      ? "file" as const
+      ? ("file" as const)
       : Object.keys(files).some((one) => one.startsWith(`${path}/`))
-      ? "dir" as const
-      : null;
+        ? ("dir" as const)
+        : null;
   const list = (dir: string) => {
     const names = new Set<string>();
     for (const path of Object.keys(files)) {
@@ -190,24 +190,33 @@ test("a skill that can be turned off goes off, and a human skill of the same nam
   ];
   const canOff = () => true;
   assert.deepStrictEqual(
-    mergeSkillLayers(candidates, ["maker"], [], canOff).map((one) =>
-      one.enabled
+    mergeSkillLayers(candidates, ["maker"], [], canOff).map(
+      (one) => one.enabled,
     ),
     [false],
   );
   const replaced = mergeSkillLayers(
-    [...candidates, {
-      name: "maker",
-      source: "global" as const,
-      bundle_path: "/g/maker",
-      domain: null,
-    }],
+    [
+      ...candidates,
+      {
+        name: "maker",
+        source: "global" as const,
+        bundle_path: "/g/maker",
+        domain: null,
+      },
+    ],
     [],
     [],
     canOff,
   );
-  assert.deepStrictEqual(replaced.map((one) => one.source), ["global"]);
-  assert.deepStrictEqual(replaced.map((one) => one.enabled), [true]);
+  assert.deepStrictEqual(
+    replaced.map((one) => one.source),
+    ["global"],
+  );
+  assert.deepStrictEqual(
+    replaced.map((one) => one.enabled),
+    [true],
+  );
 });
 
 test("the agent gets only the skills it chose, all when it chose none, and a built-in that cannot be turned off always", async () => {
@@ -277,10 +286,13 @@ test("same-name skills in a global layer and domains go to the agent by the doma
     global: () => Promise.resolve({ roots: ["/g"], off: [] }),
     place: () =>
       Promise.resolve({
-        domain_stores: [{ domain: "dom_a", folder: "/a" }, {
-          domain: "dom_b",
-          folder: "/b",
-        }],
+        domain_stores: [
+          { domain: "dom_a", folder: "/a" },
+          {
+            domain: "dom_b",
+            folder: "/b",
+          },
+        ],
         off: [],
       }),
   };
@@ -348,9 +360,9 @@ test("a skill that names a role does not show up in the prompt and / menu of oth
     ["operator", app, "human"],
   ];
   const kindsYaml = (rows: readonly { name: string; description: string }[]) =>
-    rows.filter((row) => row.name === "kinds-yaml").map((row) =>
-      row.description
-    );
+    rows
+      .filter((row) => row.name === "kinds-yaml")
+      .map((row) => row.description);
   for (const [role, place, expected] of table) {
     const prompt = discoverSkills(files, sources, { role, off: [] }).entries;
     assert.deepStrictEqual(kindsYaml(prompt), [expected], `prompt of ${role}`);

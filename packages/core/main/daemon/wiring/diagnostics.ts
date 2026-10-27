@@ -31,10 +31,12 @@ export const diagnosticsWiring: WiringFactory = () => {
     name: "diagnostics",
     prepare(ctx) {
       // core와 ledger는 여기서 짓는다. 나머지 구성 요소는 owner의 wiring이 componentChecks에 더한다.
-      ctx.componentChecks.push(...createComponentChecks({
-        ready: () => ctx.ready,
-        runtime: () => ctx.peek.runtime,
-      }));
+      ctx.componentChecks.push(
+        ...createComponentChecks({
+          ready: () => ctx.ready,
+          runtime: () => ctx.peek.runtime,
+        }),
+      );
       const source: StatusSource = {
         get ready() {
           return ctx.ready;
@@ -75,9 +77,12 @@ export const diagnosticsWiring: WiringFactory = () => {
             request_id: requestId,
             op: DIAGNOSTICS_WRITE_OP,
             payload: { records: [diagnostic], dropped: 0 },
-          }).then((sent) => {
-            if (!sent.ok) settle(false);
-          }, () => settle(false));
+          }).then(
+            (sent) => {
+              if (!sent.ok) settle(false);
+            },
+            () => settle(false),
+          );
         });
       });
 
@@ -89,20 +94,26 @@ export const diagnosticsWiring: WiringFactory = () => {
           revision: "1",
           scope: "stderr",
         };
-        return createProductRedactor(ctx.peek.knownSecrets)(
-          source,
-          "text/plain",
-          text,
-        ) ?? createProductRedactor()(source, "text/plain", text) ?? "";
+        return (
+          createProductRedactor(ctx.peek.knownSecrets)(
+            source,
+            "text/plain",
+            text,
+          ) ??
+          createProductRedactor()(source, "text/plain", text) ??
+          ""
+        );
       };
       uninstallCrash = installCrashHandler({
         target: globalThis,
         write: () =>
-          ctx.diagnosticsWrite(crashDiagnostic({
-            component: "platform/core",
-            location: CRASH_LOCATIONS.daemon,
-            at: ctx.clock.now(),
-          })),
+          ctx.diagnosticsWrite(
+            crashDiagnostic({
+              component: "platform/core",
+              location: CRASH_LOCATIONS.daemon,
+              at: ctx.clock.now(),
+            }),
+          ),
         stderr: Deno.stderr.writable,
         redact,
         exit: process.exit,
@@ -113,10 +124,12 @@ export const diagnosticsWiring: WiringFactory = () => {
         createLogRecordSource(ctx.root.path, ctx.clock),
       );
       return ok({
-        memory: [[
-          key(diagnosticsStatus),
-          diagnosticsStatusHandler(() => ctx.componentChecks, ctx.clock),
-        ]],
+        memory: [
+          [
+            key(diagnosticsStatus),
+            diagnosticsStatusHandler(() => ctx.componentChecks, ctx.clock),
+          ],
+        ],
         reads: (reads) => reads.set(key(diagnosticsList), list),
       });
     },

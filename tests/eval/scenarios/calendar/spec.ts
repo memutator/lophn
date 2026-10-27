@@ -17,25 +17,21 @@ export const PKG_EXPORTS = ["toDate", "formatLocal", "weekRange", "DateParts"];
 // ---- 요구 카드 ----
 
 // 일반 사용자. 도구 이름도 입출력도 모르고 원하는 것만 안다.
-export const CARD_USER =
-  `원하는 것: 일정을 넣어 두고, 보고, 지울 수 있는 캘린더 앱. 일정 시작 전에 알림
+export const CARD_USER = `원하는 것: 일정을 넣어 두고, 보고, 지울 수 있는 캘린더 앱. 일정 시작 전에 알림
 정해 둔 답: 알림은 일정 시작 10분 전. 한 주는 월요일부터 일요일까지
 모르는 것: 그 밖의 전부(색, 화면 모양, 반복 일정 같은 것) → "추천대로 해 줘"`;
 
 // 개발자. 모델은 정해 두었고 화면과 나머지는 맡긴다.
-export const CARD_DEV =
-  `원하는 것: Event(단발 일정)와 Schedule(반복 정의)을 나눈 캘린더 앱. 일정 시작 전에 알림
+export const CARD_DEV = `원하는 것: Event(단발 일정)와 Schedule(반복 정의)을 나눈 캘린더 앱. 일정 시작 전에 알림
 정해 둔 답: Schedule은 iCalendar RRULE 방식의 반복 정의로 FREQ, INTERVAL, BYDAY, UNTIL 또는 COUNT를 받음. occurrence는 기본으로 저장하지 않고 캘린더 GUI가 Schedule에서 계산해 가상으로 그림. 어떤 occurrence에 구체적인 액션(완료, 연기나 일정 변경, skip이나 보류)이 생기면 그때 실제 instance로 저장하고 그 Schedule에 연결함. 반복 없는 일정은 그냥 Event. 알림은 일정 시작 10분 전. 한 주는 월요일부터 일요일까지
 모르는 것: 그 밖의 전부(색, 화면 배치, 이름) → "추천대로 해 줘"`;
 
-export const CARD_MAINTAIN =
-  `원하는 것: 반복 일정. event.add에 repeat 입력("none" 또는 "weekly", 주지 않으면 "none")을 더한다
+export const CARD_MAINTAIN = `원하는 것: 반복 일정. event.add에 repeat 입력("none" 또는 "weekly", 주지 않으면 "none")을 더한다
 정해 둔 답: 반복은 매주(weekly)만. weekly이면 start부터 매주 같은 요일·같은 시각으로 모두 4번 나타난다. 지금 있는 일정과 tool 이름·입력, 알림은 시작 10분 전, 한 주는 월요일~일요일 그대로
 모르는 것: 그 밖의 전부 → "추천대로 해 줘"`;
 
 // 사람 역할이 없는 단위지만 카드를 둔다: App Engineer가 ask하면 답할 사람이 없어 상한까지 멈춘다.
-export const CARD_DIAGNOSE =
-  `원하는 것: 이 문제가 다시 나지 않게 고쳐 줘. 이미 쓰는 tool의 이름과 입력은 바꾸지 마
+export const CARD_DIAGNOSE = `원하는 것: 이 문제가 다시 나지 않게 고쳐 줘. 이미 쓰는 tool의 이름과 입력은 바꾸지 마
 모르는 것: 그 밖의 전부 → "추천대로 해 줘"`;
 
 // ---- 사람 말 ----
@@ -46,8 +42,7 @@ export const SAY_USER =
 export const SAY_DEV =
   "캘린더 앱 만들어 줘. 모델은 Event랑 Schedule을 분리해서 잡아. Event는 단발 일정이고, Schedule은 반복 정의야. 반복 형식은 iCalendar RRULE 스타일로 FREQ, INTERVAL, BYDAY, UNTIL 또는 COUNT를 받아. Schedule의 occurrence는 기본으로 저장하지 않고, 캘린더 GUI가 Schedule에서 계산해서 가상으로 그려. occurrence에 구체적인 액션(완료, 연기나 일정 변경, skip이나 보류)이 생기면 그때 실제 instance로 저장하고 Schedule에 연결해. 일정 시작 전에 알림도 줘.";
 
-export const SAY_MAINTAIN =
-  `캘린더 앱에 반복 일정 기능을 더해 줘. event.add 입력에 repeat("none" 또는 "weekly")를 더해 줘. 주지 않으면 "none"이고 지금처럼 일정 하나만 만들어. "weekly"이면 start부터 매주 같은 요일·같은 시각으로 일정이 나타나게 해 줘. event.list에도 나와야 해.`;
+export const SAY_MAINTAIN = `캘린더 앱에 반복 일정 기능을 더해 줘. event.add 입력에 repeat("none" 또는 "weekly")를 더해 줘. 주지 않으면 "none"이고 지금처럼 일정 하나만 만들어. "weekly"이면 start부터 매주 같은 요일·같은 시각으로 일정이 나타나게 해 줘. event.list에도 나와야 해.`;
 
 export const SAY_API =
   "다음 주 화요일 3시에 치과 일정 넣고 이번 주 일정 알려 줘";
@@ -71,9 +66,8 @@ export const D = (
 ): Start => ({ year, month, day, hour, minute });
 
 type Row = { title?: unknown; start?: unknown };
-const rowsOf = (
-  result: unknown,
-): Row[] => ((result as { rows?: Row[] } | null)?.rows ?? []);
+const rowsOf = (result: unknown): Row[] =>
+  (result as { rows?: Row[] } | null)?.rows ?? [];
 
 // 줄 수와 순서에 기대지 않고 필요한 일정이 있는지만 본다.
 const hasEvent = (title: string, start: string) => (result: unknown) =>
@@ -104,19 +98,21 @@ const SEED = [
   { title: "점심 약속", start: "2099-03-04T12:00" },
   { title: "독서 모임", start: "2099-03-06T19:00" },
 ];
-export const SEED_CALLS: ApiStep[] = [{
-  api: "event.list",
-  input: { range: "all" },
-  expect: (result: unknown) => {
-    const rows = rowsOf(result);
-    const at = SEED.map((s) =>
-      rows.findIndex((r) => r.title === s.title && r.start === s.start)
-    );
-    return at.every((i, k) => i >= 0 && (k === 0 || i > at[k - 1]!))
-      ? null
-      : "seed 일정 셋이 start 빠른 순으로 있지 않음";
+export const SEED_CALLS: ApiStep[] = [
+  {
+    api: "event.list",
+    input: { range: "all" },
+    expect: (result: unknown) => {
+      const rows = rowsOf(result);
+      const at = SEED.map((s) =>
+        rows.findIndex((r) => r.title === s.title && r.start === s.start),
+      );
+      return at.every((i, k) => i >= 0 && (k === 0 || i > at[k - 1]!))
+        ? null
+        : "seed 일정 셋이 start 빠른 순으로 있지 않음";
+    },
   },
-}];
+];
 
 const REPEAT_STARTS = [
   "2099-05-04T07:00",
@@ -134,7 +130,8 @@ export const REPEAT_SCRIPT: ApiStep[] = [
     api: "event.list",
     input: { range: "all" },
     expect: (result: unknown) => {
-      const starts = rowsOf(result).filter((r) => r.title === "운동")
+      const starts = rowsOf(result)
+        .filter((r) => r.title === "운동")
         .map((r) => r.start);
       const missing = REPEAT_STARTS.filter((s) => !starts.includes(s));
       return missing.length === 0

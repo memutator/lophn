@@ -20,10 +20,12 @@ export function deleteSessionModelCalls(
 ): Result<void> {
   const scope =
     "(turn in (select id from turns where session = ?) or (turn is null and session = ?))";
-  const calls = tx.sql.all(
-    `select id from model_calls where ${scope} order by attempt_order desc`,
-    [session, session],
-  ).map((row) => String(row["id"]));
+  const calls = tx.sql
+    .all(
+      `select id from model_calls where ${scope} order by attempt_order desc`,
+      [session, session],
+    )
+    .map((row) => String(row["id"]));
   const refs = eraseBlobRefs(tx, "model_call", calls);
   if (!refs.ok) return refs;
   for (const call of calls) {

@@ -49,16 +49,17 @@ export function foldDelta(
   delta: Delta,
   at: string,
 ): LiveText {
-  const base: LiveText = live === null || live.modelCall !== delta.model_call
-    ? {
-      turn: delta.turn,
-      modelCall: delta.model_call,
-      text: "",
-      reasoning: "",
-      at,
-      gap: false,
-    }
-    : live;
+  const base: LiveText =
+    live === null || live.modelCall !== delta.model_call
+      ? {
+          turn: delta.turn,
+          modelCall: delta.model_call,
+          text: "",
+          reasoning: "",
+          at,
+          gap: false,
+        }
+      : live;
   const current = base[delta.kind];
   if (delta.offset > current.length) {
     return base.gap ? base : { ...base, gap: true };
@@ -87,7 +88,8 @@ export function closeOpenFence(text: string): string {
       open = fence;
       continue;
     }
-    const closes = line.trim() === fence &&
+    const closes =
+      line.trim() === fence &&
       fence[0] === open[0] &&
       fence.length >= open.length;
     if (closes) open = null;

@@ -8,15 +8,16 @@ export type PopupPlacement =
 export type PopupDecision =
   | { action: "allow"; url: string; placement: PopupPlacement }
   | {
-    action: "deny";
-    reason: "unparseable" | "scheme" | "credentials" | "no-activation";
-    external?: true;
-  };
+      action: "deny";
+      reason: "unparseable" | "scheme" | "credentials" | "no-activation";
+      external?: true;
+    };
 
 /** `width`, `height`만 읽는다. 양의 정수(소수는 내림)가 아니면 없는 것이다. */
-export function parseWindowFeatures(
-  features: string,
-): { width?: number; height?: number } {
+export function parseWindowFeatures(features: string): {
+  width?: number;
+  height?: number;
+} {
   const out: { width?: number; height?: number } = {};
   for (const part of features.split(",")) {
     const eq = part.indexOf("=");
@@ -31,9 +32,11 @@ export function parseWindowFeatures(
   return out;
 }
 
-export function decidePopup(
-  input: { url: string; features: string; activated: boolean },
-): PopupDecision {
+export function decidePopup(input: {
+  url: string;
+  features: string;
+  activated: boolean;
+}): PopupDecision {
   const nav = decideNavigation({ url: input.url, isMainFrame: true });
   if (!nav.allow) {
     return nav.external
@@ -45,8 +48,9 @@ export function decidePopup(
   return {
     action: "allow",
     url: input.url,
-    placement: width !== undefined && height !== undefined
-      ? { kind: "floated", width, height }
-      : { kind: "docked" },
+    placement:
+      width !== undefined && height !== undefined
+        ? { kind: "floated", width, height }
+        : { kind: "docked" },
   };
 }

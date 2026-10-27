@@ -27,10 +27,7 @@ export interface ColoredSeries extends Series {
 }
 
 // 더할 수 있는 값(선, 막대)만 기타로 합친다. 모두 null인 자리만 null로 남는다.
-function fold(
-  series: readonly Series[],
-  length: number,
-): (number | null)[] {
+function fold(series: readonly Series[], length: number): (number | null)[] {
   return Array.from({ length }, (_, index) => {
     let sum: number | null = null;
     for (const item of series) {
@@ -49,8 +46,8 @@ export function foldsFinite(
   const folded = series.filter((item) => slotOf(domain, item.key) === "other");
   let length = 0;
   for (const item of folded) length = Math.max(length, item.values.length);
-  return fold(folded, length).every((value) =>
-    value === null || Number.isFinite(value)
+  return fold(folded, length).every(
+    (value) => value === null || Number.isFinite(value),
   );
 }
 
@@ -82,8 +79,9 @@ export function colorSeries(
 }
 
 // 범례는 2계열부터, 직접 라벨은 4계열까지(겹치지 않을 때만).
-export function labelPolicy(
-  count: number,
-): { legend: boolean; directLabels: boolean } {
+export function labelPolicy(count: number): {
+  legend: boolean;
+  directLabels: boolean;
+} {
   return { legend: count >= 2, directLabels: count >= 1 && count <= 4 };
 }

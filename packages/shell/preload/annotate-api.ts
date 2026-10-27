@@ -19,7 +19,7 @@ async function call<T>(
 ): Promise<T> {
   let reply: AnnotateReply<T>;
   try {
-    reply = await transport.invoke(channel, input) as AnnotateReply<T>;
+    reply = (await transport.invoke(channel, input)) as AnnotateReply<T>;
   } catch {
     throw new Error("unavailable");
   }
@@ -30,22 +30,20 @@ async function call<T>(
 export function createAnnotateApi(
   transport: ViewsTransport,
 ): LophnShellAnnotateApi {
-  return Object.freeze(
-    {
-      setMode: (input) =>
-        call<AnnotateState>(transport, ANNOTATE_MODE_CHANNEL, input),
-      remove: (input) =>
-        call<AnnotateState>(transport, ANNOTATE_REMOVE_CHANNEL, input),
-      send: (input) =>
-        call<AnnotateSendResult>(transport, ANNOTATE_SEND_CHANNEL, input),
-      subscribeState(listener) {
-        const callback = (_event: unknown, payload: unknown) => {
-          const parsed = annotateStateSchema.safeParse(payload);
-          if (parsed.success) listener(parsed.data);
-        };
-        transport.on(ANNOTATE_STATE_CHANNEL, callback);
-        return () => transport.removeListener(ANNOTATE_STATE_CHANNEL, callback);
-      },
-    } satisfies LophnShellAnnotateApi,
-  );
+  return Object.freeze({
+    setMode: (input) =>
+      call<AnnotateState>(transport, ANNOTATE_MODE_CHANNEL, input),
+    remove: (input) =>
+      call<AnnotateState>(transport, ANNOTATE_REMOVE_CHANNEL, input),
+    send: (input) =>
+      call<AnnotateSendResult>(transport, ANNOTATE_SEND_CHANNEL, input),
+    subscribeState(listener) {
+      const callback = (_event: unknown, payload: unknown) => {
+        const parsed = annotateStateSchema.safeParse(payload);
+        if (parsed.success) listener(parsed.data);
+      };
+      transport.on(ANNOTATE_STATE_CHANNEL, callback);
+      return () => transport.removeListener(ANNOTATE_STATE_CHANNEL, callback);
+    },
+  } satisfies LophnShellAnnotateApi);
 }

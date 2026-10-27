@@ -112,13 +112,17 @@ function posixDirname(path: string): string {
 
 // `from`(사본 안 파일 경로)에서 `to`(사본 안 대상 경로)까지의 상대 specifier.
 function relativeSpecifier(from: string, to: string): string {
-  const base = posixDirname(from).split("/").filter((part) => part !== "");
+  const base = posixDirname(from)
+    .split("/")
+    .filter((part) => part !== "");
   const target = to.split("/");
   let shared = 0;
   while (
-    shared < base.length && shared < target.length - 1 &&
+    shared < base.length &&
+    shared < target.length - 1 &&
     base[shared] === target[shared]
-  ) shared += 1;
+  )
+    shared += 1;
   const up = base.length - shared;
   const parts = [...Array(up).fill(".."), ...target.slice(shared)];
   const joined = parts.join("/");

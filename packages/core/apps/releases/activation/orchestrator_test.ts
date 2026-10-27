@@ -129,12 +129,14 @@ test("activation이 실패하면 복구본으로 되돌리고 이전 release가 
     code: "migration_failed",
     previous: "started",
   });
-  assert.deepStrictEqual(restored.failures, [{
-    code: "migration_failed",
-    summary:
-      "the data change failed: step 1-2 was rolled back: NOT NULL constraint failed",
-    restored: true,
-  }]);
+  assert.deepStrictEqual(restored.failures, [
+    {
+      code: "migration_failed",
+      summary:
+        "the data change failed: step 1-2 was rolled back: NOT NULL constraint failed",
+      restored: true,
+    },
+  ]);
   assert.ok(restored.calls.includes("restore"));
   assert.ok(restored.calls.includes(`run:${OLD}`));
   assert.ok(!restored.calls.includes("complete"));

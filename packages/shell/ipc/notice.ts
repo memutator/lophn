@@ -6,7 +6,11 @@ import type { AvatarFace, OverlayLead } from "./overlay.ts";
 
 const ULID = "[0-7][0-9a-hjkmnp-tv-z]{25}";
 const session = z.string().regex(new RegExp(`^ses_${ULID}$`));
-const terminalRef = z.string().min(1).max(80).regex(/^[A-Za-z0-9_-]+$/);
+const terminalRef = z
+  .string()
+  .min(1)
+  .max(80)
+  .regex(/^[A-Za-z0-9_-]+$/);
 
 /** 알림이 가리키는 탭. 누르면 이 탭을 고른다. */
 export const noticeTargetSchema = z.discriminatedUnion("kind", [
@@ -15,10 +19,12 @@ export const noticeTargetSchema = z.discriminatedUnion("kind", [
 ]);
 
 /** 그 Agent session 탭이 이 창에 보이는지. 창은 보낸 webContents로 안다. */
-export const noticeVisibleSchema = z.object({
-  session,
-  visible: z.boolean(),
-}).strict();
+export const noticeVisibleSchema = z
+  .object({
+    session,
+    visible: z.boolean(),
+  })
+  .strict();
 
 export type NoticeTarget = z.infer<typeof noticeTargetSchema>;
 export type NoticeVisible = z.infer<typeof noticeVisibleSchema>;

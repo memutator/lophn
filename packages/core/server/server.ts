@@ -157,22 +157,27 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
 
     async function respond(request: Request, port: number): Promise<Response> {
       if (headerBytes(request) > MAX_HEADER_BYTES) {
-        return json(failure({
-          code: "invalid_input",
-          message: "headers exceed limit",
-        }));
+        return json(
+          failure({
+            code: "invalid_input",
+            message: "headers exceed limit",
+          }),
+        );
       }
 
       const url = new URL(request.url);
       const origin = request.headers.has("origin")
         ? request.headers.get("origin")
         : null;
-      const decision = await gateRequest({
-        url: request.url,
-        origin,
-        authorization: request.headers.get("authorization"),
-        port,
-      }, options.credentials);
+      const decision = await gateRequest(
+        {
+          url: request.url,
+          origin,
+          authorization: request.headers.get("authorization"),
+          port,
+        },
+        options.credentials,
+      );
       if (!decision.ok) {
         // 무인증·Origin 거부는 안전 log만. ledger event는 없다.
         options.logger?.warn({
@@ -183,17 +188,21 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
       }
       if (isSubscribePath(url.pathname)) {
         if (!options.bus) {
-          return json(failure({
-            code: "unavailable",
-            message: "gateway unavailable",
-          }));
+          return json(
+            failure({
+              code: "unavailable",
+              message: "gateway unavailable",
+            }),
+          );
         }
         // 자격은 연결 때 한 번 본다.
         if (!gatewayAllowed(decision.context)) {
-          return json(failure({
-            code: "forbidden",
-            message: "gateway not allowed for this credential",
-          }));
+          return json(
+            failure({
+              code: "forbidden",
+              message: "gateway not allowed for this credential",
+            }),
+          );
         }
         // event 연결 한도(32·principal당 4)는 upgrade 전에 결정한다. queue 없다.
         const connection = admission.enterEvent(decision.context.principal);
@@ -223,17 +232,21 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
         if (url.pathname === CODING_MCP_PATH) {
           return options.mcp
             ? await options.mcp.handle(decision.context, request)
-            : json(failure({
-              code: "unavailable",
-              message: "mcp unavailable",
-            }));
+            : json(
+                failure({
+                  code: "unavailable",
+                  message: "mcp unavailable",
+                }),
+              );
         }
         const entry = registry.lookup(url.pathname);
         if (!entry) {
-          return json(failure({
-            code: "not_found",
-            message: "route not found",
-          }));
+          return json(
+            failure({
+              code: "not_found",
+              message: "route not found",
+            }),
+          );
         }
         const result = await dispatchHttp(
           request,
@@ -244,10 +257,8 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
         if ("stream" in result) {
           streaming = true;
           return new Response(
-            held(
-              result.stream,
-              options.streamIdleMs ?? STREAM_IDLE_MS,
-              () => arrival.value.release(),
+            held(result.stream, options.streamIdleMs ?? STREAM_IDLE_MS, () =>
+              arrival.value.release(),
             ),
             {
               status: result.status,
@@ -296,33 +307,36 @@ function held(
     finished = true;
     done();
   };
-  return new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      clearTimeout(timer);
-      try {
-        const next = await reader.read();
-        if (next.done) {
+  return new ReadableStream<Uint8Array>(
+    {
+      async pull(controller) {
+        clearTimeout(timer);
+        try {
+          const next = await reader.read();
+          if (next.done) {
+            finish();
+            controller.close();
+            return;
+          }
+          controller.enqueue(next.value);
+          // 이 조각을 소비자가 가져가 다음 pull을 부를 때까지의 대기를 잰다.
+          timer = setTimeout(() => {
+            reader.cancel().catch(() => undefined);
+            controller.error(new Error("stream consumer stalled"));
+            finish();
+          }, idleMs);
+        } catch (thrown) {
           finish();
-          controller.close();
-          return;
+          controller.error(thrown);
         }
-        controller.enqueue(next.value);
-        // 이 조각을 소비자가 가져가 다음 pull을 부를 때까지의 대기를 잰다.
-        timer = setTimeout(() => {
-          reader.cancel().catch(() => undefined);
-          controller.error(new Error("stream consumer stalled"));
-          finish();
-        }, idleMs);
-      } catch (thrown) {
+      },
+      async cancel(reason) {
         finish();
-        controller.error(thrown);
-      }
+        await reader.cancel(reason).catch(() => undefined);
+      },
     },
-    async cancel(reason) {
-      finish();
-      await reader.cancel(reason).catch(() => undefined);
-    },
-  }, { highWaterMark: 0 });
+    { highWaterMark: 0 },
+  );
 }
 
 // 회수·정지 제어만 예약 영역으로 입장시킨다. caller의 priority 주장은

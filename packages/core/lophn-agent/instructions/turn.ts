@@ -24,11 +24,11 @@ export type TurnInstructionLayer = {
 type TurnInstructions =
   | { status: "ready"; layers: TurnInstructionLayer[] }
   | {
-    status: "blocked";
-    layer: InstructionLayerKind;
-    reason: "unavailable" | "invalid" | "too_large";
-    message: string;
-  };
+      status: "blocked";
+      layer: InstructionLayerKind;
+      reason: "unavailable" | "invalid" | "too_large";
+      message: string;
+    };
 
 // 그 agent가 맡은 domain 하나. purpose는 예산을 넘어 본문을 뺄 때 한 줄로 싣는다.
 export type TurnDomain = { id: string; name: string; purpose: string };
@@ -101,7 +101,8 @@ export async function readTurnInstructions(
           used = DOMAIN_TEXT_BUDGET + 1;
           parts.push(
             [`## ${domain.name}`, domain.purpose, "full text: read DOMAIN.md"]
-              .filter((line) => line.trim() !== "").join("\n"),
+              .filter((line) => line.trim() !== "")
+              .join("\n"),
           );
         }
       }

@@ -13,11 +13,9 @@ async function allRefs(): Promise<string[]> {
   const refs: string[] = [];
   for (const name of await readdir(MATERIALS_ROOT, { withFileTypes: true })) {
     if (!name.isDirectory()) continue;
-    for (
-      const n of await readdir(`${MATERIALS_ROOT}/${name.name}`, {
-        withFileTypes: true,
-      })
-    ) {
+    for (const n of await readdir(`${MATERIALS_ROOT}/${name.name}`, {
+      withFileTypes: true,
+    })) {
       if (n.isDirectory()) refs.push(`${name.name}@${n.name}`);
     }
   }

@@ -55,13 +55,15 @@ function readRecorded(sql: Sql): Recorded[] {
     [],
   );
   if (exists === undefined) return [];
-  return sql.all(
-    "select version, content_hash from schema_migrations order by version",
-    [],
-  ).map((row) => ({
-    version: Number(row["version"]),
-    contentHash: String(row["content_hash"]),
-  }));
+  return sql
+    .all(
+      "select version, content_hash from schema_migrations order by version",
+      [],
+    )
+    .map((row) => ({
+      version: Number(row["version"]),
+      contentHash: String(row["content_hash"]),
+    }));
 }
 
 type StartFailureReason = (typeof START_FAILURE_REASONS)[number];
@@ -69,8 +71,9 @@ type StartFailureReason = (typeof START_FAILURE_REASONS)[number];
 // migration이 시작하지 못하는 세 경우를 구별한다. 그 밖은 other다.
 export function startFailureReason(error: LophnError): StartFailureReason {
   const reason = error.details?.["start_failure"];
-  return reason === "newer_schema" || reason === "history_mismatch" ||
-      reason === "damaged_original"
+  return reason === "newer_schema" ||
+    reason === "history_mismatch" ||
+    reason === "damaged_original"
     ? reason
     : "other";
 }
@@ -99,9 +102,7 @@ function checkHistory(
   }
   for (const [index, row] of recorded.entries()) {
     const step = steps[index];
-    if (
-      row.version !== step.version || row.contentHash !== step.contentHash
-    ) {
+    if (row.version !== step.version || row.contentHash !== step.contentHash) {
       return startFailure(
         "history_mismatch",
         "적용된 schema 내용이 설치본과 달라 정상 시작을 거절한다",
@@ -150,7 +151,8 @@ export async function applyMigrations(
     if (!checked.ok) return checked;
     const unapplied = steps.length - recorded.length;
     if (
-      unapplied > 0 && deps.recovery !== undefined &&
+      unapplied > 0 &&
+      deps.recovery !== undefined &&
       // 새 설치(변환 전 schema 0)는 남길 변환 전 자료가 없어 복구본을 만들지 않는다.
       recorded.length > 0
     ) {

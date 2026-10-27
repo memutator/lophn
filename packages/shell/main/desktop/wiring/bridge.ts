@@ -34,9 +34,7 @@ function isAlive(pid: number): boolean {
   }
 }
 
-export function createBridgeWiring(
-  ctx: ShellContext,
-): {
+export function createBridgeWiring(ctx: ShellContext): {
   bridge: TerminalBridge;
   /** bridge가 선 per-run 폴더. hook socket이 같은 폴더에 선다. 꺼졌으면 null. */
   runDir: Promise<string | null>;
@@ -45,9 +43,9 @@ export function createBridgeWiring(
   // URL을 잃지 않으려고 bridge가 꺼져도 link 클릭은 OS browser로 연다.
   function openExternal(url: string) {
     if (checkExternalUrl(url) === undefined || ctx.headless.headless) return;
-    shell.openExternal(url).catch(() =>
-      ctx.log("cannot hand the link to the OS")
-    );
+    shell
+      .openExternal(url)
+      .catch(() => ctx.log("cannot hand the link to the OS"));
   }
   const off = {
     bridge: {
@@ -71,14 +69,16 @@ export function createBridgeWiring(
   let stopped = false;
   let server: Promise<{ stop(): Promise<void> | void } | null> | null = null;
   let settleDir: (dir: string | null) => void = () => {};
-  const runDirReady = new Promise<string | null>((resolve) =>
-    settleDir = resolve
+  const runDirReady = new Promise<string | null>(
+    (resolve) => (settleDir = resolve),
   );
   const removeDir = () => {
     if (runDir === null) return;
     try {
       rmSync(runDir, { recursive: true, force: true });
-    } catch { /* 지우지 못해도 다음 실행이 정리한다 */ }
+    } catch {
+      /* 지우지 못해도 다음 실행이 정리한다 */
+    }
   };
 
   function setup() {
@@ -135,9 +135,9 @@ export function createBridgeWiring(
         return linkPrefsOf(listed.ok ? listed.value : undefined);
       },
       windows: () =>
-        [...ctx.windows].filter((window) => !window.isDestroyed()).map((
-          window,
-        ) => window.webContents),
+        [...ctx.windows]
+          .filter((window) => !window.isDestroyed())
+          .map((window) => window.webContents),
       openExternal,
       timers: {
         after: (ms, runLater) => {
@@ -153,26 +153,32 @@ export function createBridgeWiring(
       socket,
       handleLine: bridge.handleLine,
       log: ctx.log,
-    }).then((started) => {
-      live = bridge;
-      settleDir(dir);
-      return started;
-    }, (cause) => {
-      ctx.log(`browser bridge is off: cannot listen (${String(cause)})`);
-      removeDir();
-      settleDir(null);
-      return null;
-    });
+    }).then(
+      (started) => {
+        live = bridge;
+        settleDir(dir);
+        return started;
+      },
+      (cause) => {
+        ctx.log(`browser bridge is off: cannot listen (${String(cause)})`);
+        removeDir();
+        settleDir(null);
+        return null;
+      },
+    );
   }
-  app.whenReady().then(setup).catch((cause) => {
-    ctx.log(`browser bridge is off: ${String(cause)}`);
-    settleDir(null);
-  });
+  app
+    .whenReady()
+    .then(setup)
+    .catch((cause) => {
+      ctx.log(`browser bridge is off: ${String(cause)}`);
+      settleDir(null);
+    });
 
   const current = () => live ?? off.bridge;
   return {
     bridge: {
-      issue: () => live && !stopped ? live.issue() : null,
+      issue: () => (live && !stopped ? live.issue() : null),
       bind: (key, terminalRef) => current().bind(key, terminalRef),
       revoke: (terminalRef) => current().revoke(terminalRef),
       openLink: (input) => current().openLink(input),

@@ -36,9 +36,10 @@ export function createDomainReads(): {
         });
         if (!loaded.ok) return loaded;
         // cursor는 마지막으로 본 id다. 목록이 작아 다 읽고 거른다.
-        const rest = loaded.value.filter((domain) =>
-          visible(ctx, domain.owner) &&
-          (input.cursor === undefined || domain.id > input.cursor)
+        const rest = loaded.value.filter(
+          (domain) =>
+            visible(ctx, domain.owner) &&
+            (input.cursor === undefined || domain.id > input.cursor),
         );
         const limit = input.limit ?? PAGE;
         const page = rest.slice(0, limit);

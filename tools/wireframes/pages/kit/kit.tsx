@@ -8,13 +8,15 @@ export function Page({ children }: { children: ReactNode }) {
   return <div className={styles.page}>{children}</div>;
 }
 
-export function Section(
-  { title, note, children }: {
-    title: string;
-    note?: string;
-    children: ReactNode;
-  },
-) {
+export function Section({
+  title,
+  note,
+  children,
+}: {
+  title: string;
+  note?: string;
+  children: ReactNode;
+}) {
   return (
     <section className={styles.section}>
       <h2 className={styles.sectionTitle}>{title}</h2>
@@ -25,9 +27,13 @@ export function Section(
 }
 
 /** 이름(mono)과 그 모양 한 줄. */
-export function Row(
-  { label, children }: { label: string; children: ReactNode },
-) {
+export function Row({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
   return (
     <div className={styles.row}>
       <span className={styles.label}>{label}</span>
@@ -40,13 +46,15 @@ export function Row(
  * 열린 overlay를 담는 상자. transform 때문에 portal의 fixed 배치가 이 상자를 기준으로 하고,
  * 안의 component는 `container`로 이 상자에 그려진다.
  */
-export function Stage(
-  { height, center = false, children }: {
-    height: number;
-    center?: boolean;
-    children: (container: HTMLElement) => ReactNode;
-  },
-) {
+export function Stage({
+  height,
+  center = false,
+  children,
+}: {
+  height: number;
+  center?: boolean;
+  children: (container: HTMLElement) => ReactNode;
+}) {
   const [element, setElement] = useState<HTMLElement | null>(null);
   return (
     <div
@@ -60,9 +68,13 @@ export function Stage(
 }
 
 /** 예제 하나를 담는 무대. */
-export function Example(
-  { children, height }: { children: ReactNode; height?: number },
-) {
+export function Example({
+  children,
+  height,
+}: {
+  children: ReactNode;
+  height?: number;
+}) {
   return (
     <div
       className={styles.sdkStage}

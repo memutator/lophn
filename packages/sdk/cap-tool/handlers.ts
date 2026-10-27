@@ -33,10 +33,7 @@ function live(): AppToolPort {
   return currentPort() ?? installed;
 }
 
-export function tool(
-  name: string,
-  handle: RegisteredHandler["handle"],
-): void {
+export function tool(name: string, handle: RegisteredHandler["handle"]): void {
   live().register({ tool: name, handle });
 }
 
@@ -52,5 +49,7 @@ export function runWith<T>(
 }
 
 export function registeredTools(): readonly string[] {
-  return live().handlers().map((handler) => handler.tool);
+  return live()
+    .handlers()
+    .map((handler) => handler.tool);
 }

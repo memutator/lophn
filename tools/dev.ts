@@ -109,9 +109,10 @@ function planRendererBuild(root: string): SpawnPlan {
  * 실패한다(사람이 한 번에 하나만 띄우는 개발 도구라 고정 port를 쓴다).
  */
 function startDevFake(portText: string | undefined) {
-  const port = portText === undefined || portText === ""
-    ? DEFAULT_FAKE_PORT
-    : Number(portText);
+  const port =
+    portText === undefined || portText === ""
+      ? DEFAULT_FAKE_PORT
+      : Number(portText);
   const fake = createFakeHandler({
     fallback: { kind: "text", text: "fake model: ok" },
   });
@@ -422,19 +423,17 @@ async function launch(
   }
 
   if (mode === "dev" || mode === "dev:mock") {
-    if (!await hasFile(`${options.root}/packages/shell/main/package.json`)) {
+    if (!(await hasFile(`${options.root}/packages/shell/main/package.json`))) {
       console.error(
         `deno task ${mode}: packages/shell/main이 없다. shell main이 core를 띄우므로 shell 없이는 ${mode}를 띄울 수 없다. core만 필요하면 deno task dev:core를 쓴다.`,
       );
       group.stop();
       return { ok: false };
     }
-    for (
-      const [plan, what] of [
-        [planRendererBuild(options.root), "renderer"],
-        [planShellBuild(options.root), "shell main"],
-      ] as const
-    ) {
+    for (const [plan, what] of [
+      [planRendererBuild(options.root), "renderer"],
+      [planShellBuild(options.root), "shell main"],
+    ] as const) {
       const built = spawn(plan, "build");
       group.add(built);
       if (!(await exitStatus(built)).success) {
@@ -462,9 +461,9 @@ async function launch(
   }
 
   // dev:core는 인자의 --port=<n>을 그대로 core에 흘려 보낸다.
-  const portArg = process.argv.slice(2).find((arg) =>
-    arg.startsWith("--port=")
-  );
+  const portArg = process.argv
+    .slice(2)
+    .find((arg) => arg.startsWith("--port="));
   const port = portArg === undefined ? undefined : Number(portArg.slice(7));
   const child = spawn(
     planCore(options.root, { dataRoot, port, env: parentEnv }),
@@ -492,14 +491,16 @@ async function hasFile(path: string): Promise<boolean> {
 
 if (import.meta.main) {
   // tools/의 부모가 저장소 루트다.
-  const root = new URL("..", new URL("./", import.meta.url)).pathname
-    .replace(/\/$/, "");
+  const root = new URL("..", new URL("./", import.meta.url)).pathname.replace(
+    /\/$/,
+    "",
+  );
   const args = process.argv.slice(2);
   const mode: Mode = args.includes("dev:core")
     ? "dev:core"
     : args.includes("dev:mock")
-    ? "dev:mock"
-    : "dev";
+      ? "dev:mock"
+      : "dev";
   const run = await runDev(mode, { root });
   if (!run.ok) process.exit(1);
 }

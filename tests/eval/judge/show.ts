@@ -7,7 +7,7 @@ export function renderForAgent(
   entry: PendingJudge,
 ): string {
   const { criterion, item } = entry;
-  return `${def.prompt}\n<question>${criterion.question}</question>\n<allowed_verdicts>${
-    criterion.verdicts.join(", ")
-  }</allowed_verdicts>\n<input>\n${item.input}\n</input>`;
+  return `${def.prompt}\n<question>${criterion.question}</question>\n<allowed_verdicts>${criterion.verdicts.join(
+    ", ",
+  )}</allowed_verdicts>\n<input>\n${item.input}\n</input>`;
 }

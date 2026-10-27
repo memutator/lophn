@@ -24,7 +24,9 @@ self.onmessage = async (event: MessageEvent) => {
       modules.map((url) => import(url)),
     );
     const registrations = loaded.flatMap((module) =>
-      module.createReaderRegistration ? [module.createReaderRegistration()] : []
+      module.createReaderRegistration
+        ? [module.createReaderRegistration()]
+        : [],
     );
     // 알려진 secret 값은 이 Worker의 보호 메모리(이 closure)에만 있다. handler에는 일치 검사만
     // 하는 matcher를 port로 준다. 값은 core가 pool로 보내는 등록·회수 message로만 바뀐다.
@@ -38,10 +40,13 @@ self.onmessage = async (event: MessageEvent) => {
         return ready;
       },
     });
-    const definitions = new Map<string, {
-      read: ReadDefinition;
-      ports: ReadonlyMap<unknown, unknown>;
-    }>();
+    const definitions = new Map<
+      string,
+      {
+        read: ReadDefinition;
+        ports: ReadonlyMap<unknown, unknown>;
+      }
+    >();
     // writer의 tx port처럼 어느 registration이 등록한 port든 모든 read가 쓴다. 같은 key를 두 곳에서 등록하면
     // 조용히 덮이지 않게 기동 때 던진다.
     const sharedPorts = new Map<unknown, unknown>();
@@ -74,13 +79,15 @@ self.onmessage = async (event: MessageEvent) => {
     }
     const connection = opened.value;
     self.onmessage = (request: MessageEvent) => {
-      const change = (request.data as {
-        known?: {
-          id: number;
-          op: "register" | "revoke" | "ready" | "unready";
-          values: string[];
-        };
-      }).known;
+      const change = (
+        request.data as {
+          known?: {
+            id: number;
+            op: "register" | "revoke" | "ready" | "unready";
+            values: string[];
+          };
+        }
+      ).known;
       if (change !== undefined) {
         if (change.op === "register") known.register(change.values);
         else if (change.op === "revoke") known.revoke(change.values);

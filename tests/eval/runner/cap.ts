@@ -6,10 +6,7 @@ export type Cap = {
 };
 
 // log를 주면 더할 때마다 합계를 찍는다.
-export function createCap(
-  limitUsd: number,
-  log?: (line: string) => void,
-): Cap {
+export function createCap(limitUsd: number, log?: (line: string) => void): Cap {
   let sum = 0;
   return {
     add: (usd) => {

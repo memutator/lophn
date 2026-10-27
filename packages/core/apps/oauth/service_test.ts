@@ -21,10 +21,7 @@ const NOW = 1_000_000;
 
 // refresh 거절은 token을 지우고 sign-in으로 돌려보낸다. 닿지 못함·5xx는 만료 전 token을 지키고, 만료 뒤에는 unavailable이다.
 // 이 규칙이 틀리면 사람이 sign-in을 잃거나 죽은 token이 앱에 간다.
-async function run(
-  reply: IssuerReply | "throws",
-  expiresInMs: number,
-) {
+async function run(reply: IssuerReply | "throws", expiresInMs: number) {
   const issuer = createFakeIssuerHandler();
   if (reply !== "throws") issuer.script({ refresh_token: [reply] });
   const store = new Map<string, string>([
@@ -62,21 +59,26 @@ async function run(
         return Promise.resolve(ok({}) as never);
       },
     },
-    fetch: reply === "throws"
-      ? () => Promise.reject(new Error("unreachable"))
-      : (url, init) => issuer.handle(new Request(url, init)),
+    fetch:
+      reply === "throws"
+        ? () => Promise.reject(new Error("unreachable"))
+        : (url, init) => issuer.handle(new Request(url, init)),
     openListener: () =>
       Promise.resolve(err({ code: "unavailable", message: "x" })),
     declared: () =>
-      Promise.resolve(ok([{
-        name: NAME,
-        oauth: {
-          authorization_endpoint: AUTHORIZE,
-          token_endpoint: TOKEN,
-          scopes: SCOPES,
-        },
-        granted: true,
-      }])),
+      Promise.resolve(
+        ok([
+          {
+            name: NAME,
+            oauth: {
+              authorization_endpoint: AUTHORIZE,
+              token_endpoint: TOKEN,
+              scopes: SCOPES,
+            },
+            granted: true,
+          },
+        ]),
+      ),
     nowMs: clock.nowMs,
   });
   const handler = secretValueHandler({
@@ -153,14 +155,16 @@ test("a rejected refresh signs the user out, an unreachable issuer does not", as
     );
     assert.ok(state.ok, label);
     assert.deepStrictEqual(
-      (state.value as { secrets: Array<Record<string, unknown>> }).secrets[0]
-        ?.["state"],
+      (state.value as { secrets: Array<Record<string, unknown>> }).secrets[0]?.[
+        "state"
+      ],
       "failed",
       label,
     );
     assert.deepStrictEqual(
-      (state.value as { secrets: Array<Record<string, unknown>> }).secrets[0]
-        ?.["reason"],
+      (state.value as { secrets: Array<Record<string, unknown>> }).secrets[0]?.[
+        "reason"
+      ],
       "refresh_rejected",
       label,
     );

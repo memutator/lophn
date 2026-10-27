@@ -42,8 +42,8 @@ export function createPreviewExternalService(
       if (refused) return Promise.resolve(refused);
       if (
         isLoopbackHost(host) ||
-        !scope.net.some((entry) =>
-          entry.host === host && entry.port === input.port
+        !scope.net.some(
+          (entry) => entry.host === host && entry.port === input.port,
         )
       ) {
         return Promise.resolve(refuse("net.fetch", target));

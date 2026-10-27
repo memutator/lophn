@@ -33,8 +33,9 @@ interface AppIpcDeps {
 
 function isMainFrame(event: IpcEvent): CallerFrame | undefined {
   const frame = event.senderFrame;
-  return frame !== null && frame.parent === null &&
-      frame === event.sender.mainFrame
+  return frame !== null &&
+    frame.parent === null &&
+    frame === event.sender.mainFrame
     ? frame
     : undefined;
 }
@@ -46,8 +47,10 @@ function senderView(
 ): BoundView | undefined {
   const event = value as IpcEvent | undefined;
   if (
-    event?.sender === undefined || event.sender === null ||
-    typeof event.sender.id !== "number" || event.sender.isDestroyed()
+    event?.sender === undefined ||
+    event.sender === null ||
+    typeof event.sender.id !== "number" ||
+    event.sender.isDestroyed()
   ) {
     return undefined;
   }

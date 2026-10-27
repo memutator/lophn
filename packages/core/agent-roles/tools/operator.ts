@@ -76,8 +76,8 @@ async function resolvePlace(
     }
     const read = await readOf(ctx.core, projectList, {});
     if (!read.ok) return read;
-    const found = read.value.projects.find((project) =>
-      project.id === value || project.name === value
+    const found = read.value.projects.find(
+      (project) => project.id === value || project.name === value,
     );
     return found === undefined
       ? notFound("project not found")
@@ -87,8 +87,8 @@ async function resolvePlace(
   if (ctx.place?.kind === "app" && ctx.place.id === value) return ok(ctx.place);
   const read = await readOf(ctx.core, appList, {});
   if (!read.ok) return read;
-  const found = read.value.apps.find((app) =>
-    app.id === value || app.slug === value || app.name === value
+  const found = read.value.apps.find(
+    (app) => app.id === value || app.slug === value || app.name === value,
   );
   return found === undefined
     ? notFound("app not found")
@@ -98,11 +98,13 @@ async function resolvePlace(
 export const OPERATOR_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "operator.create",
-    input: operatorDefinition.extend({
-      place: operatorPlace,
-      name: agentNameSchema,
-      domains: domainNames.optional(),
-    }).strict(),
+    input: operatorDefinition
+      .extend({
+        place: operatorPlace,
+        name: agentNameSchema,
+        domains: domainNames.optional(),
+      })
+      .strict(),
     routes: [projectList, appList, domainList, operatorCreate],
     description:
       "Create an Operator in your own place (Project Manager: your project, App Engineer: your app). Give its name, profile, model, skills, domains (names of the domains in your place), mcp_off and instructions (body). Its grants are given by the person.",
@@ -134,10 +136,13 @@ export const OPERATOR_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "operator.update",
     defer: true,
-    input: operatorDefinition.partial().extend({
-      operator: agentNameSchema,
-      domains: domainNames.optional(),
-    }).strict(),
+    input: operatorDefinition
+      .partial()
+      .extend({
+        operator: agentNameSchema,
+        domains: domainNames.optional(),
+      })
+      .strict(),
     routes: [
       agentDefinitionList,
       agentDefinitionRead,
@@ -154,8 +159,8 @@ export const OPERATOR_TOOLS: readonly ToolDefinition[] = [
         place: ctx.place,
       });
       if (!listed.ok) return listed;
-      const row = listed.value.agents.find((entry) =>
-        entry.kind === "operator" && entry.name === operator
+      const row = listed.value.agents.find(
+        (entry) => entry.kind === "operator" && entry.name === operator,
       );
       if (row === undefined || row.place === null) {
         return notFound("Operator not found");
@@ -169,7 +174,9 @@ export const OPERATOR_TOOLS: readonly ToolDefinition[] = [
       if (!current.ok) return current;
       const { definition, hash } = current.value;
       if (
-        row.agent.role !== "operator" || definition === null || hash === null
+        row.agent.role !== "operator" ||
+        definition === null ||
+        hash === null
       ) {
         return invalid("the Operator file is broken");
       }

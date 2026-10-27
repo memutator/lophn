@@ -26,10 +26,11 @@ function utf8Bytes(value: string): number {
   return new TextEncoder().encode(value).length;
 }
 
-const summarySchema = z.string().refine(
-  (value) => utf8Bytes(value) <= SUMMARY_MAX_BYTES,
-  { message: "summary exceeds 2048 UTF-8 bytes" },
-);
+const summarySchema = z
+  .string()
+  .refine((value) => utf8Bytes(value) <= SUMMARY_MAX_BYTES, {
+    message: "summary exceeds 2048 UTF-8 bytes",
+  });
 
 const tabBase = {
   key: viewString,
@@ -89,16 +90,11 @@ const viewTabOutputSchema = z.discriminatedUnion("kind", [
   z.object({ ...tabBase, kind: z.literal("agent") }),
 ]);
 
-const tabPageOutputSchema = z.array(viewTabOutputSchema).max(
-  TAB_PAGE_SIZE,
-);
+const tabPageOutputSchema = z.array(viewTabOutputSchema).max(TAB_PAGE_SIZE);
 
 // 문서 선택은 판·절·줄 범위만. 선택 본문은 없다.
 
-const errors = [...ERROR_CODES] as [
-  ErrorCode,
-  ...ErrorCode[],
-];
+const errors = [...ERROR_CODES] as [ErrorCode, ...ErrorCode[]];
 
 const workspacePublish = defineMemory({
   resource: "workspace",

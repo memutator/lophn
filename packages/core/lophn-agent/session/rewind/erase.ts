@@ -32,5 +32,8 @@ export function eraseSessionStore(
   store: Pick<RewindStore, "removeSession">,
   session: string,
 ): Promise<boolean> {
-  return store.removeSession(session).then(() => true, () => false);
+  return store.removeSession(session).then(
+    () => true,
+    () => false,
+  );
 }

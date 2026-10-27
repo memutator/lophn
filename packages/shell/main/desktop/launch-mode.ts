@@ -23,7 +23,7 @@ export function resolveLaunchMode(
   input: LaunchModeInput | readonly string[] = {},
 ): LaunchMode {
   // 빈 입력은 프로세스 argv로 폴백한다.
-  const argv = isArgvList(input) ? input : input.argv ?? process.argv;
+  const argv = isArgvList(input) ? input : (input.argv ?? process.argv);
   const atLogin = !isArgvList(input) && input.openedAtLogin === true;
   return { tray: atLogin || argv.includes(TRAY_INTENT) };
 }
@@ -34,6 +34,7 @@ function isArgvList(
   // 문자열 배열은 `argv`가 없다. 입력 객체가 argv를 가지면 객체다.
   if ("argv" in input) return false;
   // 배열 이외의 입력 객체는 argv가 없어도 객체다.
-  return Array.isArray(input) &&
-    input.every((item) => typeof item === "string");
+  return (
+    Array.isArray(input) && input.every((item) => typeof item === "string")
+  );
 }

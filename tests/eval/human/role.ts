@@ -146,7 +146,7 @@ export function createHumanRole(deps: HumanDeps): HumanRole {
             earlier.push({
               question: question.question,
               answer: answers[i].answer,
-            })
+            }),
           );
         } else if (CLOSED.includes(sent.error.code)) {
           seenQuestions.add(key);

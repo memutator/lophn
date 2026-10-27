@@ -26,10 +26,10 @@ function notFound(): Result<never> {
 }
 
 function escapeLike(value: string): string {
-  return value.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll(
-    "_",
-    "\\_",
-  );
+  return value
+    .replaceAll("\\", "\\\\")
+    .replaceAll("%", "\\%")
+    .replaceAll("_", "\\_");
 }
 
 // 정렬은 id 오름차순이다. cursor는 base64 {after_id}다(provider read와 같은 길).
@@ -86,10 +86,13 @@ function loadRows(
 // 알려진 token이 하나도 없으면 합계도 전부 모름이고 판 기록은 없다(unknown,
 // cost·billing_route와 같은 표기). 빈 문자열은 schema를 넘지 못한다.
 function sumTokens(list: readonly { usage: TokenUsage }[]): TokenUsage {
-  const known = list.filter((row) =>
-    row.usage.input !== null || row.usage.output !== null ||
-    row.usage.cache_read !== null || row.usage.cache_write !== null ||
-    row.usage.reasoning !== null
+  const known = list.filter(
+    (row) =>
+      row.usage.input !== null ||
+      row.usage.output !== null ||
+      row.usage.cache_read !== null ||
+      row.usage.cache_write !== null ||
+      row.usage.reasoning !== null,
   );
   const first = known[0]?.usage ?? null;
   if (first === null) {
@@ -166,7 +169,8 @@ function decimalSum(a: string, b: string): string {
   const [bInt, bFrac = ""] = b.split(".");
   const width = Math.max(aFrac.length, bFrac.length);
   const scale = 10n ** BigInt(width);
-  const total = BigInt(aInt) * scale +
+  const total =
+    BigInt(aInt) * scale +
     (aFrac === "" ? 0n : BigInt(aFrac.padEnd(width, "0"))) +
     BigInt(bInt) * scale +
     (bFrac === "" ? 0n : BigInt(bFrac.padEnd(width, "0")));
@@ -222,17 +226,17 @@ export function createUsageReads(): {
           clauses.push("id > ?");
           params.push(after.value);
         }
-        const clause = clauses.length === 0
-          ? ""
-          : `where ${clauses.join(" and ")}`;
+        const clause =
+          clauses.length === 0 ? "" : `where ${clauses.join(" and ")}`;
         const loaded = loadRows(snapshot.sql, { clause, params });
         if (!loaded.ok) return loaded;
         const page = loaded.value.slice(0, PAGE);
-        const followUp = after.value === null && page.length === PAGE
-          ? cursorOf(page[page.length - 1]!.id)
-          : page.length === PAGE
-          ? cursorOf(page[page.length - 1]!.id)
-          : null;
+        const followUp =
+          after.value === null && page.length === PAGE
+            ? cursorOf(page[page.length - 1]!.id)
+            : page.length === PAGE
+              ? cursorOf(page[page.length - 1]!.id)
+              : null;
         return ok({
           calls: page,
           as_of_seq: snapshot.as_of_seq,
@@ -251,10 +255,7 @@ export function createUsageReads(): {
             message: "role filter is not supported on model call records yet",
           });
         }
-        const clauses: string[] = [
-          "started_at >= ?",
-          "started_at < ?",
-        ];
+        const clauses: string[] = ["started_at >= ?", "started_at < ?"];
         const params: unknown[] = [input.from_at, input.through_at];
         if (input.turn !== undefined) {
           clauses.push("turn = ?");
@@ -286,13 +287,14 @@ export function createUsageReads(): {
         );
         const records = rows.map((row) => callFromRow(row as CallRow));
         // 전체 token이 하나도 없는 call은 unknown_call이다.
-        const unknown =
-          records.filter((record) =>
-            record.usage.input === null && record.usage.output === null &&
+        const unknown = records.filter(
+          (record) =>
+            record.usage.input === null &&
+            record.usage.output === null &&
             record.usage.cache_read === null &&
             record.usage.cache_write === null &&
-            record.usage.reasoning === null
-          ).length;
+            record.usage.reasoning === null,
+        ).length;
         const total: UsageTotal = {
           group: {
             turn: input.turn ?? null,

@@ -12,9 +12,10 @@ const list = (values: readonly string[]) =>
 // - 끝난 instance를 막는 trigger는 없다. ended는 기록일 뿐이라 running으로 돌아올 수 있고,
 //   stopped의 넘기기는 command가 거절한다.
 // - 줄은 기록이라 고치거나 지우지 않는다. body는 started·report의 글, data는 kind별 나머지 칸이다.
-export const workflowsSchemaSteps: readonly SchemaStep[] = [{
-  id: "workflows.tables",
-  sql: `
+export const workflowsSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "workflows.tables",
+    sql: `
     CREATE TABLE workflow_instances (
       id TEXT PRIMARY KEY NOT NULL,
       project TEXT NOT NULL,
@@ -51,4 +52,5 @@ export const workflowsSchemaSteps: readonly SchemaStep[] = [{
     CREATE TRIGGER workflow_lines_stay BEFORE DELETE ON workflow_lines
     BEGIN SELECT RAISE(ABORT, 'a workflow line is not deleted'); END;
   `,
-}];
+  },
+];

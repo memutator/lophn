@@ -58,12 +58,12 @@ export const secretsWiring: WiringFactory = () => {
           allowance: (allowed) => {
             if (allowed.purpose !== "app_secret") {
               return allowed.purpose === "provider_credential" ||
-                  allowed.purpose === "external_mcp_credential"
+                allowed.purpose === "external_mcp_credential"
                 ? ok(undefined)
                 : err({
-                  code: "forbidden",
-                  message: "secret 전송을 허용하지 않는다",
-                });
+                    code: "forbidden",
+                    message: "secret 전송을 허용하지 않는다",
+                  });
             }
             const opened = openConnection(ctx.ledgerPath);
             if (!opened.ok) return opened;
@@ -83,10 +83,12 @@ export const secretsWiring: WiringFactory = () => {
           },
           processes: (context) => {
             const process = context.conditions.process;
-            return process !== undefined &&
+            return (
+              process !== undefined &&
               (ctx.peek.io?.observation(process).available === true ||
                 ctx.peek.appsSupervision?.observation(process).available ===
-                  true);
+                  true)
+            );
           },
           destinations: createSecretDestinations({
             providers(name) {

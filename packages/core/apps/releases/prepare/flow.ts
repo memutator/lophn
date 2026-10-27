@@ -76,10 +76,7 @@ export type PrepareDeps = {
 function fail(
   reason: string,
   code: PrepareFailure["code"] = "invalid_input",
-): Result<
-  never,
-  PrepareFailure
-> {
+): Result<never, PrepareFailure> {
   return err({ code, reason });
 }
 
@@ -130,16 +127,21 @@ export async function prepareRelease(
   const sdkCopies = input.sdkCopies ?? [];
   const vendorCopies = input.vendorCopies ?? [];
   const entryFiles = input.entryFiles ?? [];
-  const lockedMap = input.lockedImports === undefined ? [] : [{
-    path: "import-map.json",
-    bytes: new TextEncoder().encode(
-      JSON.stringify({ imports: input.lockedImports }),
-    ),
-  }];
+  const lockedMap =
+    input.lockedImports === undefined
+      ? []
+      : [
+          {
+            path: "import-map.json",
+            bytes: new TextEncoder().encode(
+              JSON.stringify({ imports: input.lockedImports }),
+            ),
+          },
+        ];
   // 플랫폼이 더하는 파일의 path를 앱 source가 차지하고 있으면 거절한다.
   const reserved = new Set(
-    [...sdkCopies, ...vendorCopies, ...entryFiles, ...lockedMap].map((file) =>
-      file.path
+    [...sdkCopies, ...vendorCopies, ...entryFiles, ...lockedMap].map(
+      (file) => file.path,
     ),
   );
   if (extracted.value.some((file) => reserved.has(file.path))) {
@@ -147,8 +149,13 @@ export async function prepareRelease(
   }
   const countedFiles = counter.addBundle(
     0,
-    input.screens.length * 2 + assets.length + sdkCopies.length +
-      vendorCopies.length + lockedMap.length + entryFiles.length + 1,
+    input.screens.length * 2 +
+      assets.length +
+      sdkCopies.length +
+      vendorCopies.length +
+      lockedMap.length +
+      entryFiles.length +
+      1,
   );
   if (countedFiles) return fromLimit(countedFiles);
   if (deps.cancelled?.()) return fail("cancelled");
@@ -162,7 +169,9 @@ export async function prepareRelease(
     input.declarationSource,
     (value) => {
       if (
-        typeof value === "object" && value !== null && "name" in value &&
+        typeof value === "object" &&
+        value !== null &&
+        "name" in value &&
         typeof (value as { name: unknown }).name === "string"
       ) {
         return { ok: true, value: { name: (value as { name: string }).name } };
@@ -215,15 +224,20 @@ export async function prepareRelease(
   if (!copy.ok) return fail(copy.error.message);
   // 같은 hash의 봉인 사본이 이미 있으면 같은 byte다. 다시 쓰지 않는다. 봉인(0555)이 끝나지 않은 사본은 끊긴
   // 준비가 남긴 것이거나 core가 아직 봉인하지 않은 것이라 지우고 다시 쓴다. 봉인(연결 만들기)은 core가 한다.
-  const found = await stat(copy.value).then((info) => info, () => null);
+  const found = await stat(copy.value).then(
+    (info) => info,
+    () => null,
+  );
   const existing = found !== null && ((found.mode ?? 0) & 0o222) === 0;
   if (found !== null && !existing) await removePartial(copy.value);
-  const sealed = existing ? { ok: true as const } : await writeBundle({
-    copyPath: copy.value,
-    manifest: manifest.value,
-    declarationJson: declarationBytes,
-    bundleFiles: files.filter((file) => file.path !== "declaration.json"),
-  });
+  const sealed = existing
+    ? { ok: true as const }
+    : await writeBundle({
+        copyPath: copy.value,
+        manifest: manifest.value,
+        declarationJson: declarationBytes,
+        bundleFiles: files.filter((file) => file.path !== "declaration.json"),
+      });
   if (!sealed.ok) {
     await removePartial(copy.value);
     return fail(sealed.error.message, sealed.error.code);

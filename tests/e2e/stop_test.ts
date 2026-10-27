@@ -59,7 +59,7 @@ async function filesUnder(dir: string): Promise<string[]> {
   const found: string[] = [];
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const path = `${dir}/${entry.name}`;
-    if (entry.isDirectory()) found.push(...await filesUnder(path));
+    if (entry.isDirectory()) found.push(...(await filesUnder(path)));
     else found.push(path);
   }
   return found;
@@ -71,18 +71,20 @@ test("사람이 멈추면 진행 중인 model 요청이 끊기고 응답의 tool
   let core: Core | undefined;
   try {
     // tool call 하나를 말하다가(인자의 앞 절반만 보내고) 멈춘 응답이다. 사람이 멈추지 않으면 끝나지 않는다.
-    fake.script([{
-      reply: {
-        kind: "stall",
-        partial: {
-          tool: {
-            id: "t1",
-            name: "file_write",
-            arguments: JSON.stringify({ path: "stopped.md", content: "x" }),
+    fake.script([
+      {
+        reply: {
+          kind: "stall",
+          partial: {
+            tool: {
+              id: "t1",
+              name: "file_write",
+              arguments: JSON.stringify({ path: "stopped.md", content: "x" }),
+            },
           },
         },
       },
-    }]);
+    ]);
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
     const proj = `${run.work}/proj`;
@@ -95,8 +97,8 @@ test("사람이 멈추면 진행 중인 model 요청이 끊기고 응답의 tool
 
     await say(core, session, "write stopped.md");
     await within("model 요청이 도착함", fake.arrived(1));
-    const running = (await turnsOf(core, session)).find((turn) =>
-      turn.state === "running"
+    const running = (await turnsOf(core, session)).find(
+      (turn) => turn.state === "running",
     );
     assert.ok(running, "running turn이 있어야 한다");
     await stopTurn(core, running.id);
@@ -125,9 +127,12 @@ test("사람이 멈추면 진행 중인 model 요청이 끊기고 응답의 tool
 
 // 새 행이 같이 쓰는 준비다: core, fake 연결, project 폴더 하나. 행이 fake.script를 부른다.
 async function inProject(
-  body: (
-    t: { core: Core; fake: FakeServer; proj: string; project: string },
-  ) => Promise<void>,
+  body: (t: {
+    core: Core;
+    fake: FakeServer;
+    proj: string;
+    project: string;
+  }) => Promise<void>,
 ): Promise<void> {
   const run = await createRun();
   const fake = await startFakeServer();
@@ -147,8 +152,8 @@ async function inProject(
 }
 
 async function runningTurn(core: Core, session: string) {
-  const running = (await turnsOf(core, session)).find((turn) =>
-    turn.state === "running"
+  const running = (await turnsOf(core, session)).find(
+    (turn) => turn.state === "running",
   );
   assert.ok(running, "running turn이 있어야 한다");
   return running;
@@ -162,32 +167,37 @@ const textReply = { reply: { kind: "text", text: "ok" } } as const;
 test("shell이 도는 중 멈추면 shell process group이 죽는다", async () => {
   await inProject(async ({ core, fake, proj, project }) => {
     // /proc에서 찾을 표지다. core.ids의 무작위 값에서 숫자 다섯 자리를 만든다.
-    const marker = `2999.${
-      [...core.ids.newId("key").slice(-5)].map((c) => c.charCodeAt(0) % 10)
-        .join("")
-    }`;
+    const marker = `2999.${[...core.ids.newId("key").slice(-5)]
+      .map((c) => c.charCodeAt(0) % 10)
+      .join("")}`;
     const alive = async () => {
       const found: number[] = [];
       for (const entry of await readdir("/proc", { withFileTypes: true })) {
         if (!/^\d+$/.test(entry.name)) continue;
-        const argv = await readFile(`/proc/${entry.name}/cmdline`, "utf8")
-          .catch(() => "");
+        const argv = await readFile(
+          `/proc/${entry.name}/cmdline`,
+          "utf8",
+        ).catch(() => "");
         if (argv.includes(`sleep ${marker}`)) found.push(Number(entry.name));
       }
       return found;
     };
-    fake.script([{
-      reply: {
-        kind: "tool",
-        calls: [{
-          id: "sh1",
-          name: "shell_run",
-          arguments: JSON.stringify({
-            command: `touch started && sleep ${marker}`,
-          }),
-        }],
+    fake.script([
+      {
+        reply: {
+          kind: "tool",
+          calls: [
+            {
+              id: "sh1",
+              name: "shell_run",
+              arguments: JSON.stringify({
+                command: `touch started && sleep ${marker}`,
+              }),
+            },
+          ],
+        },
       },
-    }]);
+    ]);
     const session = await openSession(core, {
       role: "project_manager",
       project,
@@ -196,7 +206,10 @@ test("shell이 도는 중 멈추면 shell process group이 죽는다", async () 
     await until(
       "shell이 started를 씀",
       async () =>
-        await stat(`${proj}/started`).then(() => true, () => undefined),
+        await stat(`${proj}/started`).then(
+          () => true,
+          () => undefined,
+        ),
     );
     assert.ok(
       (await alive()).length > 0,
@@ -206,9 +219,8 @@ test("shell이 도는 중 멈추면 shell process group이 죽는다", async () 
     const ended = await waitTurnEnd(core, session);
 
     // process: shell group이 통째로 죽었다.
-    await until(
-      "shell process가 사라짐",
-      async () => (await alive()).length === 0 ? true : undefined,
+    await until("shell process가 사라짐", async () =>
+      (await alive()).length === 0 ? true : undefined,
     );
     // ledger: 사람이 멈춘 이유로 닫히고 shell call은 success가 아니다.
     assert.deepStrictEqual(ended.outcome, {
@@ -280,9 +292,13 @@ for (const how of ["archive", "delete"] as const) {
         session,
       });
       const [turn] = await turnsOf(core, session);
-      await core.call(how === "archive" ? archiveSession : deleteSession, {
-        session,
-      }, { state_seq: current.state_seq });
+      await core.call(
+        how === "archive" ? archiveSession : deleteSession,
+        {
+          session,
+        },
+        { state_seq: current.state_seq },
+      );
       await within("요청이 끊김", fake.aborted(1));
       const next = await openSession(core, pm);
       await say(core, next, "hello");

@@ -30,41 +30,57 @@ export const FILE_VIEW_MAX_BYTES = 64 * 1024 * 1024;
 
 // 절대 경로 문자열. 정규화, 폴더 밖 판정, 데이터 root의 secret 파일 거절(`forbidden`)은 main의
 // 몫이고 schema는 모양만 본다.
-const path = z.string().max(4096).regex(/^(\/|[A-Za-z]:[\\/])/);
+const path = z
+  .string()
+  .max(4096)
+  .regex(/^(\/|[A-Za-z]:[\\/])/);
 // 내용의 sha256 hex. 읽을 때 준 hash가 쓸 때의 base_hash다.
 const hash = z.string().regex(/^[0-9a-f]{64}$/);
 
 export const fileListSchema = z.object({ path }).strict();
 export const fileReadSchema = z.object({ path }).strict();
 export const fileReadBytesSchema = z.object({ path }).strict();
-export const fileWriteSchema = z.object({
-  path,
-  /** null이면 새 파일이다. 이미 있으면 `conflict`. */
-  base_hash: hash.nullable(),
-  text: z.string().refine((text) =>
-    new TextEncoder().encode(text).byteLength <= FILE_TEXT_MAX_BYTES
-  ),
-}).strict();
+export const fileWriteSchema = z
+  .object({
+    path,
+    /** null이면 새 파일이다. 이미 있으면 `conflict`. */
+    base_hash: hash.nullable(),
+    text: z
+      .string()
+      .refine(
+        (text) =>
+          new TextEncoder().encode(text).byteLength <= FILE_TEXT_MAX_BYTES,
+      ),
+  })
+  .strict();
 export const fileRenameSchema = z.object({ from: path, to: path }).strict();
 export const fileDeleteSchema = z.object({ path }).strict();
-export const fileCreateSchema = z.object({
-  path,
-  kind: z.enum(["file", "folder"]),
-}).strict();
+export const fileCreateSchema = z
+  .object({
+    path,
+    kind: z.enum(["file", "folder"]),
+  })
+  .strict();
 export const fileRevealSchema = z.object({ path }).strict();
-export const fileWatchSchema = z.object({
-  paths: z.array(path).max(256),
-}).strict();
-export const fileCountsSchema = z.object({
-  /** 디스크 저장이 끝나지 않은 파일 수(쓰는 중, 실패, 불명, 충돌). */
-  unsettled: z.number().int().min(0).max(10_000),
-  /** 열려 있는 파일 수. */
-  open: z.number().int().min(0).max(10_000),
-}).strict();
-export const fileCloseAnswerSchema = z.object({
-  request: z.number().int().positive(),
-  answer: z.enum(["allow", "stay", "asking"]),
-}).strict();
+export const fileWatchSchema = z
+  .object({
+    paths: z.array(path).max(256),
+  })
+  .strict();
+export const fileCountsSchema = z
+  .object({
+    /** 디스크 저장이 끝나지 않은 파일 수(쓰는 중, 실패, 불명, 충돌). */
+    unsettled: z.number().int().min(0).max(10_000),
+    /** 열려 있는 파일 수. */
+    open: z.number().int().min(0).max(10_000),
+  })
+  .strict();
+export const fileCloseAnswerSchema = z
+  .object({
+    request: z.number().int().positive(),
+    answer: z.enum(["allow", "stay", "asking"]),
+  })
+  .strict();
 
 export type FileEntry = { name: string; kind: "file" | "folder" };
 export type FileList = { entries: FileEntry[] };
@@ -110,24 +126,26 @@ export interface FilesApi {
   /** base_hash가 지금 디스크와 다르면 `conflict`이고 디스크는 그대로다. */
   write(input: FileWrite): Promise<FileReply<FileWritten>>;
   /** 비어 있는 새 파일이나 폴더를 만든다. 없는 위쪽 폴더도 만든다. 이미 있으면 `conflict`이고 아무것도 덮어쓰지 않는다. */
-  create(
-    input: { path: string; kind: "file" | "folder" },
-  ): Promise<FileReply<Record<PropertyKey, never>>>;
+  create(input: {
+    path: string;
+    kind: "file" | "folder";
+  }): Promise<FileReply<Record<PropertyKey, never>>>;
   /** `to`가 이미 있으면 `conflict`, 폴더를 자기 안으로 옮기면 `invalid_input`. */
-  rename(
-    input: { from: string; to: string },
-  ): Promise<FileReply<Record<PropertyKey, never>>>;
+  rename(input: {
+    from: string;
+    to: string;
+  }): Promise<FileReply<Record<PropertyKey, never>>>;
   /** OS 휴지통으로 보낸다. 비어 있지 않은 폴더도 된다. 휴지통을 못 쓰면 `unavailable`이고 아무것도 지우지 않는다. */
-  delete(
-    input: { path: string },
-  ): Promise<FileReply<Record<PropertyKey, never>>>;
+  delete(input: {
+    path: string;
+  }): Promise<FileReply<Record<PropertyKey, never>>>;
   /** OS 파일 관리자에서 그 파일을 보인다. */
-  reveal(
-    input: { path: string },
-  ): Promise<FileReply<Record<PropertyKey, never>>>;
-  watch(
-    input: { paths: string[] },
-  ): Promise<FileReply<Record<PropertyKey, never>>>;
+  reveal(input: {
+    path: string;
+  }): Promise<FileReply<Record<PropertyKey, never>>>;
+  watch(input: {
+    paths: string[];
+  }): Promise<FileReply<Record<PropertyKey, never>>>;
   /** 밖에서 바뀐 파일. 해제는 반환 함수다. */
   onChanged(listener: (change: FileChanged) => void): () => void;
   counts(input: FileCounts): void;

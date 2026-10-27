@@ -20,7 +20,8 @@ import { ColumnPicker, Pager, SortControl } from "./toolbar.tsx";
 import styles from "./data-table.module.css";
 
 export interface DataTableProps<Row>
-  extends Omit<TableProps<Row>, "columns" | "rows">, DataStateProps {
+  extends Omit<TableProps<Row>, "columns" | "rows">,
+    DataStateProps {
   // 열의 value는 typed getter다. 문자열 식이나 script를 받지 않는다.
   columns: readonly TableColumn<Row>[];
   rows: readonly Row[];
@@ -39,34 +40,28 @@ export interface DataTableProps<Row>
   layout?: "fill" | "inline";
 }
 
-export function DataTable<Row>(
-  {
-    columns,
-    rows,
-    sort: sortValue,
-    defaultSort = null,
-    onSortChange,
-    pageSize,
-    page: pageValue,
-    onPageChange,
-    visibleColumns: visibleValue,
-    onVisibleColumnsChange,
-    layout = "inline",
-    loading,
-    failed,
-    onRetry,
-    empty,
-    timer,
-    locale = "en",
-    diagnostics = false,
-    ...table
-  }: DataTableProps<Row>,
-) {
-  const [sort, setSort] = useControllable(
-    sortValue,
-    defaultSort,
-    onSortChange,
-  );
+export function DataTable<Row>({
+  columns,
+  rows,
+  sort: sortValue,
+  defaultSort = null,
+  onSortChange,
+  pageSize,
+  page: pageValue,
+  onPageChange,
+  visibleColumns: visibleValue,
+  onVisibleColumnsChange,
+  layout = "inline",
+  loading,
+  failed,
+  onRetry,
+  empty,
+  timer,
+  locale = "en",
+  diagnostics = false,
+  ...table
+}: DataTableProps<Row>) {
+  const [sort, setSort] = useControllable(sortValue, defaultSort, onSortChange);
   const [page, setPage] = useControllable(pageValue, 0, onPageChange);
   const [visible, setVisible] = useControllable<readonly string[] | undefined>(
     visibleValue,
@@ -82,9 +77,8 @@ export function DataTable<Row>(
   );
   const size = validPageSize(pageSize);
   const slice = pageSlice(sorted.length, page, size);
-  const pageRows = size === undefined
-    ? sorted
-    : sorted.slice(slice.start, slice.end);
+  const pageRows =
+    size === undefined ? sorted : sorted.slice(slice.start, slice.end);
   const onSort = (next: SortState | null) => {
     setSort(next);
     // 정렬이 바뀌면 처음부터 다시 읽는다.
@@ -106,7 +100,8 @@ export function DataTable<Row>(
           columns={pickable}
           shown={new Set(shown.map((column) => column.id))}
           onToggle={(id, show) =>
-            setVisible(toggleColumn(pickable, visible, id, show))}
+            setVisible(toggleColumn(pickable, visible, id, show))
+          }
         />
       </div>
       <div className={styles.body}>
@@ -129,14 +124,16 @@ export function DataTable<Row>(
           />
         </DataState>
       </div>
-      {size !== undefined && rows.length > 0 && !loading &&
+      {size !== undefined &&
+        rows.length > 0 &&
+        !loading &&
         failed === undefined && (
-        <Pager
-          slice={slice}
-          total={sorted.length}
-          onPage={(next) => setPage(clampPage(next, sorted.length, size))}
-        />
-      )}
+          <Pager
+            slice={slice}
+            total={sorted.length}
+            onPage={(next) => setPage(clampPage(next, sorted.length, size))}
+          />
+        )}
     </div>
   );
 }

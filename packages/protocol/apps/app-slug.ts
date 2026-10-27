@@ -5,7 +5,9 @@ const SLUG_MAX = 63;
  * `fallback`은 소문자와 숫자만 쓴다. agent tool과 런처의 New app이 같은 규칙을 쓴다.
  */
 export function appSlugOf(name: string, fallback: string): string {
-  const slug = name.toLowerCase().normalize("NFKD")
+  const slug = name
+    .toLowerCase()
+    .normalize("NFKD")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^[^a-z]+/, "")
     .replace(/-+$/, "")

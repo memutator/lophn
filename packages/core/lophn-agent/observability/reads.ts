@@ -65,15 +65,13 @@ function inPeriod(input: Read, at: string | null): boolean {
     return true;
   }
   if (at === null) return false;
-  return (input.from_at === undefined || at >= input.from_at) &&
-    (input.through_at === undefined || at < input.through_at);
+  return (
+    (input.from_at === undefined || at >= input.from_at) &&
+    (input.through_at === undefined || at < input.through_at)
+  );
 }
 
-function roleMatches(
-  lookup: Lookup,
-  input: Read,
-  session: string,
-): boolean {
+function roleMatches(lookup: Lookup, input: Read, session: string): boolean {
   if (input.role === undefined) return true;
   const row = lookup.sql.get("select role from sessions where id = ?", [
     session,
@@ -87,10 +85,9 @@ const TURN_COLUMNS = `id, session, state, basis, started_at, finished_at,
 type TurnRow = TurnFacts & { input_message: string };
 
 function loadTurn(lookup: Lookup, id: string): TurnRow | undefined {
-  const row = lookup.sql.get(
-    `select ${TURN_COLUMNS} from turns where id = ?`,
-    [id],
-  );
+  const row = lookup.sql.get(`select ${TURN_COLUMNS} from turns where id = ?`, [
+    id,
+  ]);
   if (row === undefined) return undefined;
   const kind = text(row["outcome_kind"]);
   return {
@@ -100,10 +97,13 @@ function loadTurn(lookup: Lookup, id: string): TurnRow | undefined {
     basis: text(row["basis"]),
     started_at: text(row["started_at"]),
     finished_at: text(row["finished_at"]),
-    outcome: kind === null ? null : {
-      kind,
-      reason: String(row["outcome_reason"]),
-    } as TurnFacts["outcome"],
+    outcome:
+      kind === null
+        ? null
+        : ({
+            kind,
+            reason: String(row["outcome_reason"]),
+          } as TurnFacts["outcome"]),
     result: text(row["result"]),
     elapsed_active_ms: Number(row["elapsed_active_ms"]),
     input_message: String(row["input_message"]),
@@ -117,8 +117,9 @@ function eventsOf(rows: readonly SqlRow[]): EventFacts[] {
 }
 
 function loadTurnEvents(lookup: Lookup, turn: string): EventFacts[] {
-  return eventsOf(lookup.sql.all(
-    `select seq from events where seq in (
+  return eventsOf(
+    lookup.sql.all(
+      `select seq from events where seq in (
          select seq from events where subject = ?
          union select seq from events where turn = ?
          union select seq from events where subject in
@@ -128,19 +129,22 @@ function loadTurnEvents(lookup: Lookup, turn: string): EventFacts[] {
          union select seq from events where subject in
            (select id from messages where turn = ?)
        ) order by seq`,
-    [turn, turn, turn, turn, turn],
-  ));
+      [turn, turn, turn, turn, turn],
+    ),
+  );
 }
 
 function loadCallEvents(lookup: Lookup, call: string): EventFacts[] {
-  return eventsOf(lookup.sql.all(
-    `select seq from events where seq in (
+  return eventsOf(
+    lookup.sql.all(
+      `select seq from events where seq in (
        select seq from events where subject = ?
        union select seq from events where subject in
          (select id from tool_calls where model_call = ?)
      ) order by seq`,
-    [call, call],
-  ));
+      [call, call],
+    ),
+  );
 }
 
 const MODEL_COLUMNS = `id, attempt_order, state,
@@ -162,29 +166,27 @@ function modelsOf(rows: readonly SqlRow[]): ModelFacts[] {
 }
 
 // 호출 순서(model 시도 번호, 응답 안 순서, 재시도 번호)로 읽는다. 샘플링은 없다.
-function toolsOf(
-  lookup: Lookup,
-  where: string,
-  param: string,
-): ToolFacts[] {
-  return lookup.sql.all(
-    `select t.id, t.state, json_extract(t.outcome, '$.kind') as outcome_kind,
+function toolsOf(lookup: Lookup, where: string, param: string): ToolFacts[] {
+  return lookup.sql
+    .all(
+      `select t.id, t.state, json_extract(t.outcome, '$.kind') as outcome_kind,
        json_extract(t.decision, '$.decision') as decision,
        t.extension is not null as external, t.duration_ms, t.input, t.output
      from tool_calls t left join model_calls m on m.id = t.model_call
      where ${where}
      order by coalesce(m.attempt_order, 0), t.response_order, t.attempt, t.id`,
-    [param],
-  ).map((row) => ({
-    id: String(row["id"]),
-    state: String(row["state"]) as ToolFacts["state"],
-    outcome_kind: text(row["outcome_kind"]) as ToolFacts["outcome_kind"],
-    decision: text(row["decision"]) as ToolFacts["decision"],
-    external: Number(row["external"]) === 1,
-    duration_ms: count(row["duration_ms"]),
-    input: String(row["input"]),
-    output: text(row["output"]),
-  }));
+      [param],
+    )
+    .map((row) => ({
+      id: String(row["id"]),
+      state: String(row["state"]) as ToolFacts["state"],
+      outcome_kind: text(row["outcome_kind"]) as ToolFacts["outcome_kind"],
+      decision: text(row["decision"]) as ToolFacts["decision"],
+      external: Number(row["external"]) === 1,
+      duration_ms: count(row["duration_ms"]),
+      input: String(row["input"]),
+      output: text(row["output"]),
+    }));
 }
 
 function loadMessages(
@@ -192,11 +194,13 @@ function loadMessages(
   turn: string,
   input: string,
 ): MessageFacts[] {
-  return lookup.sql.all(
-    `select id, body from messages where turn = ? or id = ?
+  return lookup.sql
+    .all(
+      `select id, body from messages where turn = ? or id = ?
      order by created_seq`,
-    [turn, input],
-  ).map((row) => ({ id: String(row["id"]), body: String(row["body"]) }));
+      [turn, input],
+    )
+    .map((row) => ({ id: String(row["id"]), body: String(row["body"]) }));
 }
 
 function loadRefs(
@@ -235,13 +239,15 @@ function loadRefs(
 // 시작 event는 있는데 기록 행이 없는 호출. 같은 transaction에 쓰이므로 정상에서는 없다.
 function loadUnrecorded(lookup: Lookup, turn: string) {
   const subjects = (type: string, table: string) =>
-    lookup.sql.all(
-      `select subject from events
+    lookup.sql
+      .all(
+        `select subject from events
        where type = ? and json_extract(payload, '$.turn') = ?
          and subject not in (select id from ${table})
        order by seq`,
-      [type, turn],
-    ).map((row) => String(row["subject"]));
+        [type, turn],
+      )
+      .map((row) => String(row["subject"]));
   return {
     models: subjects("ModelCallStarted", "model_calls"),
     tools: subjects("ToolCallRequested", "tool_calls"),
@@ -249,11 +255,13 @@ function loadUnrecorded(lookup: Lookup, turn: string) {
 }
 
 function traceOfTurn(lookup: Lookup, turn: TurnRow): TurnTrace {
-  const models = modelsOf(lookup.sql.all(
-    `select ${MODEL_COLUMNS} from model_calls where turn = ?
+  const models = modelsOf(
+    lookup.sql.all(
+      `select ${MODEL_COLUMNS} from model_calls where turn = ?
      order by attempt_order`,
-    [turn.id],
-  ));
+      [turn.id],
+    ),
+  );
   const tools = toolsOf(lookup, "t.turn = ?", turn.id);
   const messages = loadMessages(lookup, turn.id, turn.input_message);
   return assembleTrace({
@@ -283,10 +291,12 @@ function turnTarget(
 ): Result<TurnTrace> {
   const turn = loadTurn(lookup, id);
   if (
-    turn === undefined || !allowed(ctx, turn.session) ||
+    turn === undefined ||
+    !allowed(ctx, turn.session) ||
     !roleMatches(lookup, input, turn.session) ||
     !inPeriod(input, turn.started_at)
-  ) return notFound();
+  )
+    return notFound();
   return ok(traceOfTurn(lookup, turn));
 }
 
@@ -306,27 +316,30 @@ function callTarget(
   const turn = text(row["turn"]);
   const owner = turn === null ? undefined : loadTurn(lookup, turn);
   const session = owner?.session ?? text(row["session"]);
-  const visible = session === null
-    ? ownSession(ctx) === null && input.role === undefined
-    : allowed(ctx, session) && roleMatches(lookup, input, session);
+  const visible =
+    session === null
+      ? ownSession(ctx) === null && input.role === undefined
+      : allowed(ctx, session) && roleMatches(lookup, input, session);
   if (!visible || !inPeriod(input, text(row["started_at"]))) return notFound();
   const models = modelsOf([row]);
   const tools = toolsOf(lookup, "t.model_call = ?", id);
-  return ok(assembleTrace({
-    turn: null,
-    call: { turn, session },
-    events: loadCallEvents(lookup, id),
-    messages: [],
-    models,
-    tools,
-    refs: loadRefs(lookup, {
+  return ok(
+    assembleTrace({
       turn: null,
-      models: [id],
-      tools: tools.map((t) => t.id),
+      call: { turn, session },
+      events: loadCallEvents(lookup, id),
       messages: [],
+      models,
+      tools,
+      refs: loadRefs(lookup, {
+        turn: null,
+        models: [id],
+        tools: tools.map((t) => t.id),
+        messages: [],
+      }),
+      unrecorded: { models: [], tools: [] },
     }),
-    unrecorded: { models: [], tools: [] },
-  }));
+  );
 }
 
 function cursorAfter(cursor: string | undefined): Result<number> {
@@ -355,9 +368,11 @@ function sessionTarget(
     id,
   ]);
   if (
-    session === undefined || !allowed(ctx, id) ||
+    session === undefined ||
+    !allowed(ctx, id) ||
     (input.role !== undefined && session["role"] !== input.role)
-  ) return notFound();
+  )
+    return notFound();
   const after = cursorAfter(input.cursor);
   if (!after.ok) return after;
   const limit = input.limit ?? PAGE;
@@ -378,14 +393,15 @@ function sessionTarget(
   );
   const page = rows.slice(0, limit);
   const traces = page.map((row) =>
-    traceOfTurn(lookup, loadTurn(lookup, String(row["id"]))!)
+    traceOfTurn(lookup, loadTurn(lookup, String(row["id"]))!),
   );
   const last = page[page.length - 1];
   return ok({
     trace: mergeTraces(id, traces),
-    next: rows.length > limit && last !== undefined
-      ? btoa(JSON.stringify({ after_seq: Number(last["pos"]) }))
-      : null,
+    next:
+      rows.length > limit && last !== undefined
+        ? btoa(JSON.stringify({ after_seq: Number(last["pos"]) }))
+        : null,
   });
 }
 
@@ -397,14 +413,18 @@ export function createTraceReads(): {
       route: agentTraceRead,
       handle(snapshot, ctx, input) {
         const target = input.target;
-        const found = target.kind === "session"
-          ? sessionTarget(snapshot, ctx, input, target.session)
-          : (() => {
-            const traced = target.kind === "turn"
-              ? turnTarget(snapshot, ctx, input, target.turn)
-              : callTarget(snapshot, ctx, input, target.model_call);
-            return traced.ok ? ok({ trace: traced.value, next: null }) : traced;
-          })();
+        const found =
+          target.kind === "session"
+            ? sessionTarget(snapshot, ctx, input, target.session)
+            : (() => {
+                const traced =
+                  target.kind === "turn"
+                    ? turnTarget(snapshot, ctx, input, target.turn)
+                    : callTarget(snapshot, ctx, input, target.model_call);
+                return traced.ok
+                  ? ok({ trace: traced.value, next: null })
+                  : traced;
+              })();
         if (!found.ok) return found;
         return ok({
           trace: found.value.trace,

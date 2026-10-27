@@ -72,13 +72,11 @@ test("봉한 scheme은 root 밖을 가리키는 path와 일반 file이 아닌 �
       assert.notEqual(await response.text(), "secret", path);
     }
     // URL 파서가 먼저 정리해 주는 `..`도 해석기 자체가 거절해야 한다.
-    for (
-      const path of [
-        "../out/secret.txt",
-        "%2e%2e/out/secret.txt",
-        "a/../../out",
-      ]
-    ) {
+    for (const path of [
+      "../out/secret.txt",
+      "%2e%2e/out/secret.txt",
+      "a/../../out",
+    ]) {
       assert.equal(await resolveInsideRoot(root, path), null, path);
     }
     for (const path of ["/", "/index.html", "/inner-link"]) {

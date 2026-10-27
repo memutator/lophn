@@ -7,10 +7,7 @@ import { nextTrials } from "./policy.ts";
 
 const policy = { base: 1, max: 3 };
 
-const out = (
-  state: "pass" | "fail" | "pending",
-  cost = 1,
-): Outcome => ({
+const out = (state: "pass" | "fail" | "pending", cost = 1): Outcome => ({
   index: 0,
   passed: state === "pass",
   state,

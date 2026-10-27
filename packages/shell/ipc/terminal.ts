@@ -1,66 +1,90 @@
 // terminal host와 shell renderer 사이 경계. renderer는 PTY를 직접 갖지 않는다.
 import { z } from "zod";
 
-const ref = z.string().min(1).max(80).regex(/^[A-Za-z0-9_-]+$/);
+const ref = z
+  .string()
+  .min(1)
+  .max(80)
+  .regex(/^[A-Za-z0-9_-]+$/);
 const generation = z.number().int().positive();
 
-export const terminalOpenSchema = z.object({
-  project: ref,
-  folder_ref: ref.optional(),
-}).strict();
+export const terminalOpenSchema = z
+  .object({
+    project: ref,
+    folder_ref: ref.optional(),
+  })
+  .strict();
 
-export const terminalInputSchema = z.object({
-  terminal_ref: ref,
-  generation,
-  text: z.string().max(8192),
-}).strict();
+export const terminalInputSchema = z
+  .object({
+    terminal_ref: ref,
+    generation,
+    text: z.string().max(8192),
+  })
+  .strict();
 
-export const terminalResizeSchema = z.object({
-  terminal_ref: ref,
-  generation,
-  columns: z.number().int().min(1).max(512),
-  rows: z.number().int().min(1).max(256),
-}).strict();
+export const terminalResizeSchema = z
+  .object({
+    terminal_ref: ref,
+    generation,
+    columns: z.number().int().min(1).max(512),
+    rows: z.number().int().min(1).max(256),
+  })
+  .strict();
 
-export const terminalCloseSchema = z.object({
-  terminal_ref: ref,
-  generation,
-}).strict();
+export const terminalCloseSchema = z
+  .object({
+    terminal_ref: ref,
+    generation,
+  })
+  .strict();
 
-export const terminalRestartSchema = z.object({
-  terminal_ref: ref,
-  generation,
-}).strict();
+export const terminalRestartSchema = z
+  .object({
+    terminal_ref: ref,
+    generation,
+  })
+  .strict();
 
-export const terminalSnapshotSchema = z.object({
-  terminal_ref: ref,
-  /** 이 seq 뒤의 chunk만 받는다. 없으면 살아 있는 buffer 전체다. */
-  after_seq: z.number().int().min(0).optional(),
-}).strict();
+export const terminalSnapshotSchema = z
+  .object({
+    terminal_ref: ref,
+    /** 이 seq 뒤의 chunk만 받는다. 없으면 살아 있는 buffer 전체다. */
+    after_seq: z.number().int().min(0).optional(),
+  })
+  .strict();
 
 /** 사람이 고른 탭이 이 터미널인지. main의 focus 표가 입력 검사에 쓴다. */
-export const terminalFocusSchema = z.object({
-  terminal_ref: ref,
-  generation,
-  focused: z.boolean(),
-}).strict();
+export const terminalFocusSchema = z
+  .object({
+    terminal_ref: ref,
+    generation,
+    focused: z.boolean(),
+  })
+  .strict();
 
 /** 대기 목록에서 누른 coding session의 터미널 탭을 고른다. */
-export const terminalFocusSessionSchema = z.object({
-  session: z.string().regex(/^ses_[0-7][0-9a-hjkmnp-tv-z]{25}$/),
-}).strict();
+export const terminalFocusSessionSchema = z
+  .object({
+    session: z.string().regex(/^ses_[0-7][0-9a-hjkmnp-tv-z]{25}$/),
+  })
+  .strict();
 
 /** terminal에서 Ctrl/Cmd-click한 link. 어디에서 열지는 main이 정한다. */
-export const terminalLinkSchema = z.object({
-  terminal_ref: ref,
-  url: z.string().max(8192),
-}).strict();
+export const terminalLinkSchema = z
+  .object({
+    terminal_ref: ref,
+    url: z.string().max(8192),
+  })
+  .strict();
 
 /** main이 push한 bridge 요청에 renderer가 browser 탭을 열었는지 답한다. */
-export const terminalBridgeAckSchema = z.object({
-  request: z.string().min(1).max(64),
-  opened: z.boolean(),
-}).strict();
+export const terminalBridgeAckSchema = z
+  .object({
+    request: z.string().min(1).max(64),
+    opened: z.boolean(),
+  })
+  .strict();
 
 export type TerminalOpen = { project: string; folder_ref?: string };
 export type TerminalInput = {
@@ -190,12 +214,12 @@ export type TerminalSnapshotReply = {
 export type TerminalCall<T> =
   | { ok: true; value: T }
   | {
-    ok: false;
-    error: {
-      code: "invalid_input" | "forbidden" | "unavailable";
-      message: string;
+      ok: false;
+      error: {
+        code: "invalid_input" | "forbidden" | "unavailable";
+        message: string;
+      };
     };
-  };
 
 /** preload가 shell renderer에 여는 터미널 통로. renderer는 PTY를 직접 갖지 않는다. */
 export interface TerminalApi {

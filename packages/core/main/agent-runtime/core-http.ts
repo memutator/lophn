@@ -41,14 +41,15 @@ async function post(
     return err({ code: "unavailable", message: "unexpected core reply" });
   }
   if (response.status === 200) return ok(parsed);
-  const error = (parsed as {
-    error?: {
-      code?: string;
-      message?: string;
-      details?: Record<string, unknown>;
-    };
-  })
-    .error;
+  const error = (
+    parsed as {
+      error?: {
+        code?: string;
+        message?: string;
+        details?: Record<string, unknown>;
+      };
+    }
+  ).error;
   return err({
     code: (error?.code ?? "internal") as "internal",
     message: error?.message ?? "core error",

@@ -22,7 +22,7 @@ export interface ActivityEntry {
 }
 
 const RAIL_ACTIONS = ["terminal", "browser", "agent", "search"] as const;
-export type RailAction = typeof RAIL_ACTIONS[number];
+export type RailAction = (typeof RAIL_ACTIONS)[number];
 
 const RAIL_ICONS: Readonly<Record<RailAction, IconProps["icon"]>> = {
   terminal: workspaceIcons.terminal,
@@ -31,18 +31,23 @@ const RAIL_ICONS: Readonly<Record<RailAction, IconProps["icon"]>> = {
   search: paletteIcons.search,
 };
 
-export function ActivityBar(
-  { entries, selected, open, onSelect, onRail, onSettings }: {
-    entries: readonly ActivityEntry[];
-    /** 마지막으로 고른 panel. */
-    selected: SidebarTab;
-    /** panel이 열려 있다. 접히면 열린 항목 표시가 없다. */
-    open: boolean;
-    onSelect: (key: SidebarTab) => void;
-    onRail: (action: RailAction) => void;
-    onSettings: () => void;
-  },
-) {
+export function ActivityBar({
+  entries,
+  selected,
+  open,
+  onSelect,
+  onRail,
+  onSettings,
+}: {
+  entries: readonly ActivityEntry[];
+  /** 마지막으로 고른 panel. */
+  selected: SidebarTab;
+  /** panel이 열려 있다. 접히면 열린 항목 표시가 없다. */
+  open: boolean;
+  onSelect: (key: SidebarTab) => void;
+  onRail: (action: RailAction) => void;
+  onSettings: () => void;
+}) {
   const labels: Readonly<Record<RailAction, string>> = {
     terminal: t("project-workspace.label.rail-terminal"),
     browser: t("project-workspace.label.rail-browser"),
@@ -89,8 +94,7 @@ export function ActivityBar(
               className={styles.activityButton}
               aria-label={labels[action]}
               data-rail-action={action}
-              onClick={() =>
-                onRail(action)}
+              onClick={() => onRail(action)}
             >
               <Icon icon={RAIL_ICONS[action]} pixels={iconPixels("large")} />
             </button>

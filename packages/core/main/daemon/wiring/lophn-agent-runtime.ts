@@ -143,7 +143,10 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
       const key = (route: { resource: string; method: string }) =>
         `${route.resource}/${route.method}`;
       return ok({
-        memory: [[key(steerQueuedNow), steerNow], [key(removeQueued), remove]],
+        memory: [
+          [key(steerQueuedNow), steerNow],
+          [key(removeQueued), remove],
+        ],
       });
     },
     // agent runtime(machine)과 turn의 agent 자격이 닿는 operation.
@@ -151,7 +154,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
       agentRuntimePolicies(
         ctx.allRoutes,
         ROLES.flatMap((role) =>
-          roleOperations(role, agentTools({ file: FILE_HOOKS }))
+          roleOperations(role, agentTools({ file: FILE_HOOKS })),
         ),
       ),
     // agent runtime child. API가 열린 뒤에 띄워 hello 직후의 읽기가 닿는다. 띄우지 못해도 core는
@@ -178,9 +181,10 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
             input: {
               provider: provider.id,
               expires_at: "expires_at" in result ? result.expires_at : null,
-              unavailable_reason: "unavailable_reason" in result
-                ? result.unavailable_reason
-                : null,
+              unavailable_reason:
+                "unavailable_reason" in result
+                  ? result.unavailable_reason
+                  : null,
             },
             idempotency_key: crypto.randomUUID(),
             compare: { revision: provider.revision },
@@ -204,10 +208,12 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           roleOperations(role, agentTools({ file: FILE_HOOKS })),
         conditionsFor: agentConditions,
         diagnostic: (message) =>
-          void ctx.diagnosticsWrite({
-            ...message,
-            payload: { ...message.payload, component: AGENT_RUNTIME_KIND },
-          }).catch(() => {}),
+          void ctx
+            .diagnosticsWrite({
+              ...message,
+              payload: { ...message.payload, component: AGENT_RUNTIME_KIND },
+            })
+            .catch(() => {}),
         stderr: (line) => console.error(`agent runtime: ${line}`),
         registry: ctx.registry,
         record: (context) => runtime.record(context),
@@ -256,15 +262,15 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           if (
             outcome.reason !== "user_stopped" &&
             outcome.reason !== "session_ended"
-          ) return;
-          void ctx.io.send(
-            AGENT_RUNTIME_KIND,
-            {
+          )
+            return;
+          void ctx.io
+            .send(AGENT_RUNTIME_KIND, {
               type: "turn_stop",
               turn: event.payload.turn,
               reason: outcome.reason,
-            } satisfies ParentMessage,
-          ).catch(() => {});
+            } satisfies ParentMessage)
+            .catch(() => {});
         },
         close() {},
       });

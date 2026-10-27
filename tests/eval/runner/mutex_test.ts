@@ -8,7 +8,7 @@ test("serial: 앞 호출이 끝나기 전에 다음 호출을 시작하지 않�
   let finishFirst!: () => void;
   const first = serial(async () => {
     log.push("a start");
-    await new Promise<void>((r) => finishFirst = r);
+    await new Promise<void>((r) => (finishFirst = r));
     log.push("a end");
     throw new Error("a failed");
   });

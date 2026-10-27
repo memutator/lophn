@@ -3,9 +3,7 @@
 // 앱 자리에는 project 층이 없어 project 층 model 고르기, skill 켬·끔, server 켬·끔은 unavailable로 답한다.
 // profile 이미지는 byte route(upload·file)로 올리고 읽는다. 읽은 이미지는 blob URL로 기억하고, 목록과 상세를
 // 읽을 때 미리 받아 두어 imageSrc는 기다리지 않고 답한다.
-import type {
-  AgentDefinitionRow,
-} from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import type { AgentDefinitionRow } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import {
   builtinAgentChange,
   operatorChange,
@@ -101,7 +99,7 @@ function newOperatorId(bytes: Uint8Array): string {
 }
 
 const placeOf = (place: string) => ({
-  kind: isAppPlace(place) ? "app" as const : "project" as const,
+  kind: isAppPlace(place) ? ("app" as const) : ("project" as const),
   id: place,
 });
 
@@ -122,11 +120,14 @@ function toRow(row: AgentDefinitionRow): AgentListRow {
     kind: row.kind,
     name: row.name,
     profile: row.profile,
-    model: row.model === null ? null : {
-      provider: row.model.provider,
-      model_name: row.model.model_name,
-      source: row.model.source,
-    },
+    model:
+      row.model === null
+        ? null
+        : {
+            provider: row.model.provider,
+            model_name: row.model.model_name,
+            source: row.model.source,
+          },
     issues: row.issues,
     counts: row.counts,
   };
@@ -136,16 +137,14 @@ export function coreAgentsSource(
   core: CoreSource,
   deps: Partial<AgentsDeps> = {},
 ): AgentsSource {
-  const instructions = "instructions" in deps
-    ? deps.instructions
-    : windowInstructions();
+  const instructions =
+    "instructions" in deps ? deps.instructions : windowInstructions();
   const files = "files" in deps ? deps.files : windowFiles();
   const random = deps.random ?? (() => crypto.randomUUID());
-  const bytes = deps.bytes ??
-    (() => crypto.getRandomValues(new Uint8Array(26)));
-  const openSecret = "openSecret" in deps
-    ? deps.openSecret
-    : windowSecretInputOpener();
+  const bytes =
+    deps.bytes ?? (() => crypto.getRandomValues(new Uint8Array(26)));
+  const openSecret =
+    "openSecret" in deps ? deps.openSecret : windowSecretInputOpener();
   const link: Link = createLink(core, random);
 
   // 읽은 profile 이미지의 blob URL. 키는 `<agent key>/<이미지 이름>`이다. 이름은 `avatar.<ext>` 하나뿐이라
@@ -201,21 +200,24 @@ export function coreAgentsSource(
     const found: DomainView[] = [];
     let cursor: string | undefined;
     for (let page = 0; page < PAGE_LIMIT; page += 1) {
-      const result = await link.read<
-        { domains: DomainView[]; next_cursor: string | null }
-      >("domains", "list", {
+      const result = await link.read<{
+        domains: DomainView[];
+        next_cursor: string | null;
+      }>("domains", "list", {
         owner: placeOf(place),
         status: "active",
         ...(cursor === undefined ? {} : { cursor }),
       });
       if (!result.ok) return result;
-      found.push(...result.value.domains.map((one) => ({
-        id: one.id,
-        name: one.name,
-        title: one.title,
-        purpose: one.purpose,
-        status: one.status,
-      })));
+      found.push(
+        ...result.value.domains.map((one) => ({
+          id: one.id,
+          name: one.name,
+          title: one.title,
+          purpose: one.purpose,
+          status: one.status,
+        })),
+      );
       if (result.value.next_cursor === null) break;
       cursor = result.value.next_cursor;
     }
@@ -231,9 +233,10 @@ export function coreAgentsSource(
     }[] = [];
     let cursor: string | undefined;
     for (let page = 0; page < PAGE_LIMIT; page += 1) {
-      const result = await link.read<
-        { providers: typeof rows; next_cursor: string | null }
-      >("providers", "list", cursor === undefined ? {} : { cursor });
+      const result = await link.read<{
+        providers: typeof rows;
+        next_cursor: string | null;
+      }>("providers", "list", cursor === undefined ? {} : { cursor });
       if (!result.ok) return result;
       rows.push(...result.value.providers);
       if (result.value.next_cursor === null) break;
@@ -243,20 +246,20 @@ export function coreAgentsSource(
   };
 
   const hiddenModels = async () => {
-    const result = await link.read<
-      { hidden: { items: HiddenModel[]; settings_seq: string } }
-    >("hidden-models", "read", {});
+    const result = await link.read<{
+      hidden: { items: HiddenModel[]; settings_seq: string };
+    }>("hidden-models", "read", {});
     return result.ok
       ? {
-        ok: true as const,
-        value: {
-          items: result.value.hidden.items.map((item) => ({
-            provider: item.provider,
-            model_name: item.model_name,
-          })),
-          seq: result.value.hidden.settings_seq,
-        },
-      }
+          ok: true as const,
+          value: {
+            items: result.value.hidden.items.map((item) => ({
+              provider: item.provider,
+              model_name: item.model_name,
+            })),
+            seq: result.value.hidden.settings_seq,
+          },
+        }
       : result;
   };
 
@@ -265,15 +268,13 @@ export function coreAgentsSource(
     const result = await link.read<UserModels>("user-model-info", "read", {});
     return result.ok
       ? {
-        ok: true,
-        value: { seq: result.value.seq, items: result.value.items },
-      }
+          ok: true,
+          value: { seq: result.value.seq, items: result.value.items },
+        }
       : result;
   };
 
-  const list = async (
-    place: string,
-  ): Promise<ReadResult<AgentListRow[]>> => {
+  const list = async (place: string): Promise<ReadResult<AgentListRow[]>> => {
     const result = await link.read<{ agents: AgentDefinitionRow[] }>(
       "agent-definitions",
       "list",
@@ -285,7 +286,7 @@ export function coreAgentsSource(
       rows.map((row) =>
         row.profile.kind === "image"
           ? loadImage(place, row.assignment, row.profile.image)
-          : undefined
+          : undefined,
       ),
     );
     return { ok: true, value: rows };
@@ -354,9 +355,10 @@ export function coreAgentsSource(
     if (!read.ok) return read;
     const value = read.value;
     const where = value.place;
-    const placeView: PlaceView = where === null
-      ? { kind: "none", id: null, name: "" }
-      : { kind: where.kind, id: where.id, name: await nameOf(where.id) };
+    const placeView: PlaceView =
+      where === null
+        ? { kind: "none", id: null, name: "" }
+        : { kind: where.kind, id: where.id, name: await nameOf(where.id) };
     const skills = await readSkills(link, where?.id ?? null, value.role);
     if (!skills.ok) return skills;
     const servers = await readServers(link, where?.id ?? null);
@@ -393,10 +395,12 @@ export function coreAgentsSource(
   const instructionsOf = async (
     place: string,
   ): Promise<{ text: string; project: string } | null> =>
-    isAppPlace(place) ? null : {
-      text: await readInstructions(instructions, files, place),
-      project: await nameOf(place),
-    };
+    isAppPlace(place)
+      ? null
+      : {
+          text: await readInstructions(instructions, files, place),
+          project: await nameOf(place),
+        };
 
   return {
     list,
@@ -411,9 +415,13 @@ export function coreAgentsSource(
       const servers = await readServers(link, project);
       if (!servers.ok) return servers;
       const global = await readGlobalModel(link);
-      const chosen = isAppPlace(project) ? null : await link.read<
-        { model: ModelChoice | null }
-      >("project-model", "read", { project });
+      const chosen = isAppPlace(project)
+        ? null
+        : await link.read<{ model: ModelChoice | null }>(
+            "project-model",
+            "read",
+            { project },
+          );
       const text = await instructionsOf(project);
       const view: AgentsOverview = {
         agents: agents.value.filter((row) => row.role !== "lophn"),
@@ -435,9 +443,10 @@ export function coreAgentsSource(
       const entries: CatalogEntry[] = [];
       let cursor: string | undefined;
       for (let page = 0; page < CATALOG_PAGE_LIMIT; page += 1) {
-        const catalog = await link.read<
-          { entries: CatalogEntry[]; next_cursor: string | null }
-        >(
+        const catalog = await link.read<{
+          entries: CatalogEntry[];
+          next_cursor: string | null;
+        }>(
           "agent-model-catalog",
           "read",
           cursor === undefined ? {} : { cursor },
@@ -451,7 +460,7 @@ export function coreAgentsSource(
       if (!hidden.ok) return hidden;
       const view: ModelsView = {
         providers: registered.value.map((provider) =>
-          providerChoiceOf(provider, entries)
+          providerChoiceOf(provider, entries),
         ),
         catalog: entries,
         hidden: hidden.value.items,
@@ -510,28 +519,32 @@ export function coreAgentsSource(
         ...placeOf(project),
         name: await nameOf(project),
       };
-      const projects = await link.read<
-        { projects: { id: string; title: string }[] }
-      >("projects", "list", {});
-      const apps = await link.read<
-        { apps: { id: string; name: string; status: string }[] }
-      >(
-        "apps",
-        "list",
-        {},
-      );
+      const projects = await link.read<{
+        projects: { id: string; title: string }[];
+      }>("projects", "list", {});
+      const apps = await link.read<{
+        apps: { id: string; name: string; status: string }[];
+      }>("apps", "list", {});
       const others: PlaceChoice[] = [
         ...(projects.ok
-          ? projects.value.projects.map((one): PlaceChoice => ({
-            kind: "project",
-            id: one.id,
-            name: one.title,
-          }))
+          ? projects.value.projects.map(
+              (one): PlaceChoice => ({
+                kind: "project",
+                id: one.id,
+                name: one.title,
+              }),
+            )
           : []),
         ...(apps.ok
-          ? apps.value.apps.filter((one) => one.status === "active").map((
-            one,
-          ): PlaceChoice => ({ kind: "app", id: one.id, name: one.name }))
+          ? apps.value.apps
+              .filter((one) => one.status === "active")
+              .map(
+                (one): PlaceChoice => ({
+                  kind: "app",
+                  id: one.id,
+                  name: one.name,
+                }),
+              )
           : []),
       ].filter((one) => one.id !== project);
       const skills = await readSkills(link, project, "operator");
@@ -552,9 +565,10 @@ export function coreAgentsSource(
           name: { value: "", source: "global" },
           profile: { value: DEFAULT_PROFILE, source: "global" },
         },
-        inheritedModel: global.ok && global.value !== null
-          ? { value: global.value, source: "global" }
-          : null,
+        inheritedModel:
+          global.ok && global.value !== null
+            ? { value: global.value, source: "global" }
+            : null,
         issues: [],
         skills: skills.value,
         mcpServers: servers.value,
@@ -565,9 +579,7 @@ export function coreAgentsSource(
     },
 
     async saveAgent(project, input: SaveInput): Promise<SaveResult> {
-      const failed = (
-        reply: { code: string; error: unknown },
-      ): SaveResult => ({
+      const failed = (reply: { code: string; error: unknown }): SaveResult => ({
         ok: false,
         message: reply.code,
         issues: reply.code === "invalid_input" ? issuesOf(reply.error) : [],
@@ -597,29 +609,30 @@ export function coreAgentsSource(
       const ref = refOf(project, input.assignment);
       if (ref === null) return { ok: false, message: "not_found", issues: [] };
       // 이번 저장에서 새로 생긴 server를 가리려고 저장 전 정의의 server 이름을 읽는다.
-      const before = operator && (draft.mcp_servers ?? []).length > 0
-        ? await link.read<{ definition: AgentDraft | null }>(
-          "agent-definitions",
-          "read",
-          { agent: ref },
-        )
-        : null;
+      const before =
+        operator && (draft.mcp_servers ?? []).length > 0
+          ? await link.read<{ definition: AgentDraft | null }>(
+              "agent-definitions",
+              "read",
+              { agent: ref },
+            )
+          : null;
       const compare = { hash: input.hash };
       const saved = operator
         ? await link.command(operatorChange, {
-          input: { agent: input.assignment, definition: draft },
-          compare,
-        })
+            input: { agent: input.assignment, definition: draft },
+            compare,
+          })
         : await link.command(builtinAgentChange, {
-          input: { agent: ref, definition: builtInDefinition(draft) },
-          compare,
-        });
+            input: { agent: ref, definition: builtInDefinition(draft) },
+            compare,
+          });
       if (!saved.ok) return failed(saved);
       // 저장 전 정의를 읽지 못했으면 어느 server가 새 것인지 몰라 값을 묻지 않는다.
       if (before === null || before.ok) {
         await enterNewCredentials(
           draft.mcp_servers ?? [],
-          before?.ok ? before.value.definition?.mcp_servers ?? [] : [],
+          before?.ok ? (before.value.definition?.mcp_servers ?? []) : [],
         );
       }
       return {
@@ -657,8 +670,8 @@ export function coreAgentsSource(
       if (!uploaded.ok) {
         return { ok: false, message: uploaded.error?.code ?? "internal" };
       }
-      const image =
-        (uploaded.value as { profile: { image: string } }).profile.image;
+      const image = (uploaded.value as { profile: { image: string } }).profile
+        .image;
       images.set(`${key}/${image}`, URL.createObjectURL(file));
       return { ok: true, value: { image } };
     },
@@ -695,7 +708,7 @@ export function coreAgentsSource(
           return {
             ...current,
             servers: current.servers.map((server) =>
-              server.name === name ? { ...server, enabled: on } : server
+              server.name === name ? { ...server, enabled: on } : server,
             ),
           };
         }

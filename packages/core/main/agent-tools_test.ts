@@ -23,10 +23,7 @@ test("App Engineer의 credential 상한에 app.link_source tool이 부르는 rou
   );
   assert.ok(!manager.includes(appConnectSource.name));
   // 앱 place의 Operator는 App Engineer의 쓰기 route에 닿지 못하고 자기 앱 하나에 묶인다.
-  const operator = roleOperations(
-    "operator",
-    agentTools({ file: FILE_HOOKS }),
-  );
+  const operator = roleOperations("operator", agentTools({ file: FILE_HOOKS }));
   assert.ok(!operator.includes(appConnectSource.name));
   const ids = { session: "s", turn: "t", process: "p" };
   assert.deepStrictEqual(
@@ -45,8 +42,14 @@ test("role 목록의 모든 이름에 정의가 있고 모든 정의가 어느 r
     agentTools({ file: FILE_HOOKS }).map((tool) => tool.name),
   );
   const listed = new Set(ROLES.flatMap((role) => builtinToolNames(role)));
-  assert.deepStrictEqual([...listed].filter((name) => !defined.has(name)), []);
-  assert.deepStrictEqual([...defined].filter((name) => !listed.has(name)), []);
+  assert.deepStrictEqual(
+    [...listed].filter((name) => !defined.has(name)),
+    [],
+  );
+  assert.deepStrictEqual(
+    [...defined].filter((name) => !listed.has(name)),
+    [],
+  );
 });
 
 // tool 입력 하나라도 JSON Schema로 바뀌지 않으면 그 role의 turn이 준비 단계에서 조용히 멈춘다.

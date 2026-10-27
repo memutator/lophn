@@ -42,9 +42,9 @@ function extraLines(
     const sum = (pick: (h: (typeof humans)[number]) => number) =>
       humans.reduce((n, h) => n + pick(h), 0);
     lines.push(
-      `  사람 역할: 답한 질문 ${sum((h) => h.answered)}(default ${
-        sum((h) => h.fallback)
-      }), 결정 ${sum((h) => h.decisions)}`,
+      `  사람 역할: 답한 질문 ${sum((h) => h.answered)}(default ${sum(
+        (h) => h.fallback,
+      )}), 결정 ${sum((h) => h.decisions)}`,
     );
   }
   if (saved.length > 0) {
@@ -77,7 +77,9 @@ export async function main(args: string[]): Promise<number> {
   const budget = Number(values.budget);
   const trialBudget = Number(values["trial-budget"]);
   if (
-    !Number.isInteger(trials) || trials < 1 || !(budget > 0) ||
+    !Number.isInteger(trials) ||
+    trials < 1 ||
+    !(budget > 0) ||
     !(trialBudget > 0)
   ) {
     console.log(
@@ -95,9 +97,9 @@ export async function main(args: string[]): Promise<number> {
       const hit = found.find((f) => f.scenario.id === id);
       if (hit === undefined) {
         console.log(
-          `모르는 시나리오 ${id}. 있는 것: ${
-            found.map((f) => f.scenario.id).join(", ")
-          }`,
+          `모르는 시나리오 ${id}. 있는 것: ${found
+            .map((f) => f.scenario.id)
+            .join(", ")}`,
         );
         return 2;
       }
@@ -149,20 +151,22 @@ export async function main(args: string[]): Promise<number> {
   const stopSignals = installSignals(pool, deps.live, console.log);
 
   const runs: (ScenarioRun & { scenario: Discovered["scenario"] })[] =
-    await Promise.all(selected.map(async ({ scenario }) => ({
-      scenario,
-      ...await runScenario({
+    await Promise.all(
+      selected.map(async ({ scenario }) => ({
         scenario,
-        runId: ids.newId("run"),
-        deps,
-        pool,
-        next: (results) => results.length === 0 ? trials : 0,
-        materials: materials.get(scenario.id) ?? [],
-        core,
-        checks,
-        runsDir: RUNS_DIR,
-      }),
-    })));
+        ...(await runScenario({
+          scenario,
+          runId: ids.newId("run"),
+          deps,
+          pool,
+          next: (results) => (results.length === 0 ? trials : 0),
+          materials: materials.get(scenario.id) ?? [],
+          core,
+          checks,
+          runsDir: RUNS_DIR,
+        })),
+      })),
+    );
   stopSignals();
 
   for (const { scenario, record, saved } of runs) {
@@ -171,7 +175,7 @@ export async function main(args: string[]): Promise<number> {
     const failed = [
       ...new Set(
         results.flatMap((t) =>
-          t.checks.filter((c) => !c.pass && !c.pending).map((c) => c.id)
+          t.checks.filter((c) => !c.pass && !c.pending).map((c) => c.id),
         ),
       ),
     ];
@@ -201,8 +205,8 @@ export async function main(args: string[]): Promise<number> {
       halted === "budget"
         ? ": 상한에 걸려 멈췄다"
         : halted === "stopped"
-        ? ": 신호로 멈췄다"
-        : ""
+          ? ": 신호로 멈췄다"
+          : ""
     }`,
   );
   return runs.some((r) => r.failed !== null) ? 1 : 0;

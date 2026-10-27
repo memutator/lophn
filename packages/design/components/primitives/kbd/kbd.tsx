@@ -9,7 +9,11 @@ export interface KbdProps {
 export function Kbd({ keys }: KbdProps) {
   return (
     <kbd className={styles.combo} {...componentMark("Kbd")}>
-      {keys.map((key) => <kbd key={key} className={styles.key}>{key}</kbd>)}
+      {keys.map((key) => (
+        <kbd key={key} className={styles.key}>
+          {key}
+        </kbd>
+      ))}
     </kbd>
   );
 }

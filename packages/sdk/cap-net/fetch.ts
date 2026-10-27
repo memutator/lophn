@@ -71,7 +71,9 @@ function check(request: NetRequest, method: string): void {
     throw invalid("host must be an exact host name");
   }
   if (
-    !Number.isInteger(request.port) || request.port < 1 || request.port > 65535
+    !Number.isInteger(request.port) ||
+    request.port < 1 ||
+    request.port > 65535
   ) {
     throw invalid("port must be an integer from 1 to 65535");
   }
@@ -89,9 +91,10 @@ function check(request: NetRequest, method: string): void {
   }
   if (request.body === undefined) return;
   if (READ_METHODS.has(method)) throw invalid("GET and HEAD have no body");
-  const size = typeof request.body === "string"
-    ? new TextEncoder().encode(request.body).length
-    : request.body.byteLength;
+  const size =
+    typeof request.body === "string"
+      ? new TextEncoder().encode(request.body).length
+      : request.body.byteLength;
   if (size > BODY_MAX_BYTES) throw invalid("body is too large");
 }
 
@@ -165,7 +168,8 @@ function asResponse(body: unknown): NetResponse {
 }
 
 export function createNetClient(deps: NetClientDeps = {}): NetClient {
-  const sleep = deps.sleep ??
+  const sleep =
+    deps.sleep ??
     ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   return {
     async fetch(request, options = {}) {
@@ -206,10 +210,12 @@ export function createNetClient(deps: NetClientDeps = {}): NetClient {
           response = await attemptOnce(host, body, timeoutMs);
         } catch (error) {
           last = unknownUnlessRead(
-            error instanceof CapabilityError ? error : new CapabilityError({
-              code: "unavailable",
-              message: "net fetch could not reach the broker",
-            }),
+            error instanceof CapabilityError
+              ? error
+              : new CapabilityError({
+                  code: "unavailable",
+                  message: "net fetch could not reach the broker",
+                }),
             read,
           );
           continue;

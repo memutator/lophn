@@ -114,9 +114,8 @@ export function fakeConnections(
     installed: [],
     saved: [],
   };
-  let hooks = options.hooks?.ok === false
-    ? []
-    : [...(options.hooks?.value ?? HOOKS)];
+  let hooks =
+    options.hooks?.ok === false ? [] : [...(options.hooks?.value ?? HOOKS)];
   let defaults: CodingDefaults = { harness: "claude", model: "" };
   const source: CodingConnectionsSource = {
     watch(listener) {
@@ -148,7 +147,7 @@ export function fakeConnections(
         status: "installed",
         files: [],
       };
-      hooks = hooks.map((hook) => hook.harness_id === id ? done : hook);
+      hooks = hooks.map((hook) => (hook.harness_id === id ? done : hook));
       return Promise.resolve({ ok: true, value: done });
     },
     defaults() {

@@ -70,9 +70,10 @@ export function createBrowserIpc(deps: BrowserIpcDeps): BrowserIpcHandlers {
   function callerWindow(event: IpcEvent): BrowserReply<string> {
     const caller = checkCaller(deps.registry, event);
     if (!caller.ok) return caller;
-    const window = caller.value.origin.host === DESKTOP_HOST
-      ? deps.windowOf(event.sender)
-      : undefined;
+    const window =
+      caller.value.origin.host === DESKTOP_HOST
+        ? deps.windowOf(event.sender)
+        : undefined;
     if (window === undefined) {
       return {
         ok: false,

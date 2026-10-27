@@ -44,14 +44,17 @@ function fittedValue(axis: OptionAxis, requested: string): string {
   const targets = names.filter((name) => name !== "off");
   if (targets.length === 0) return names[0];
   const wanted = rank(requested);
-  const weaker = wanted < 0
-    ? []
-    : targets.filter((name) => rank(name) < wanted);
+  const weaker =
+    wanted < 0 ? [] : targets.filter((name) => rank(name) < wanted);
   const pool = weaker.length > 0 ? weaker : targets;
   return pool.reduce((best, name) =>
     weaker.length > 0
-      ? (rank(name) > rank(best) ? name : best)
-      : (rank(name) < rank(best) ? name : best)
+      ? rank(name) > rank(best)
+        ? name
+        : best
+      : rank(name) < rank(best)
+        ? name
+        : best,
   );
 }
 
@@ -97,19 +100,19 @@ export function selectableModels(input: {
   catalog: readonly CatalogEntry[];
   reported: readonly string[] | null;
 }): SelectableModel[] {
-  const own = input.catalog.filter((entry) =>
-    entry.provider_definition === input.definition
+  const own = input.catalog.filter(
+    (entry) => entry.provider_definition === input.definition,
   );
   const base: SelectableModel[] =
     input.reported === null || input.reported.length === 0
       ? own.map((entry) => ({ model_name: entry.model_name, entry }))
       : [...new Set(input.reported)].map((model_name) => ({
-        model_name,
-        entry: own.find((entry) => entry.model_name === model_name) ?? null,
-      }));
+          model_name,
+          entry: own.find((entry) => entry.model_name === model_name) ?? null,
+        }));
   const listed = new Set(base.map((model) => model.model_name));
-  const typed = own.filter((entry) =>
-    entry.source === "user" && !listed.has(entry.model_name)
+  const typed = own.filter(
+    (entry) => entry.source === "user" && !listed.has(entry.model_name),
   );
   return [
     ...base,

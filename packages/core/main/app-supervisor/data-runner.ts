@@ -36,25 +36,31 @@ export function createChildDataRunner(options: {
         return err({ code: "invalid_input", message: "data job is invalid" });
       }
       // Node는 env를 주면 부모 환경을 통째로 대체한다(Deno의 clearEnv와 같다).
-      const child = spawn(options.deno(), [
-        "run",
-        "--quiet",
-        "--no-prompt",
-        `--config=${REPO}/deno.json`,
-        "--allow-all",
-        JOB,
-        options.dataRoot,
-      ], {
-        env: {
-          ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
-          DENO_DIR: options.denoDir,
+      const child = spawn(
+        options.deno(),
+        [
+          "run",
+          "--quiet",
+          "--no-prompt",
+          `--config=${REPO}/deno.json`,
+          "--allow-all",
+          JOB,
+          options.dataRoot,
+        ],
+        {
+          env: {
+            ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
+            DENO_DIR: options.denoDir,
+          },
+          stdio: ["pipe", "pipe", "ignore"],
         },
-        stdio: ["pipe", "pipe", "ignore"],
-      });
+      );
       const timer = setTimeout(() => {
         try {
           child.kill("SIGKILL");
-        } catch { /* 이미 끝났다 */ }
+        } catch {
+          /* 이미 끝났다 */
+        }
       }, options.limitMs ?? JOB_LIMIT_MS);
       try {
         const output = await new Promise<{

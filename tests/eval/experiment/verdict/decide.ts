@@ -16,24 +16,25 @@ function noteOf(
   vt: Tally,
   bt: Tally,
 ): string {
-  const pend = (
-    t: Tally,
-  ) => (t.pending > 0 ? ` (+${t.pending} 채점 대기)` : "");
-  const head = `variant ${frac(vt)}${pend(vt)}, baseline ${frac(bt)}${
-    pend(bt)
-  }`;
+  const pend = (t: Tally) =>
+    t.pending > 0 ? ` (+${t.pending} 채점 대기)` : "";
+  const head = `variant ${frac(vt)}${pend(vt)}, baseline ${frac(bt)}${pend(
+    bt,
+  )}`;
   const why = {
-    ok: e.role === "target"
-      ? "나아졌다"
-      : weaker
-      ? "통과율이 기준보다 낮다"
-      : "통과",
+    ok:
+      e.role === "target"
+        ? "나아졌다"
+        : weaker
+          ? "통과율이 기준보다 낮다"
+          : "통과",
     fail: "통과하지 못했다",
     not_improved: "나아지지 않았다",
     worse: "나빠졌다",
-    incomplete: e.remaining > 0
-      ? `끝나지 않았다(남은 trial ${e.remaining})`
-      : "끝나지 않았다",
+    incomplete:
+      e.remaining > 0
+        ? `끝나지 않았다(남은 trial ${e.remaining})`
+        : "끝나지 않았다",
   }[status];
   return `${head}: ${why}`;
 }
@@ -53,8 +54,8 @@ export function decide(input: VerdictInput): Result<ExperimentResult> {
     ...spec.cases.map((g) => ({ ...g, role: "case" as const })),
   ];
   for (const g of goals) {
-    const e = entries.find((x) =>
-      x.scenario === g.scenario && x.role === g.role
+    const e = entries.find(
+      (x) => x.scenario === g.scenario && x.role === g.role,
     );
     if (!e) {
       return err({
@@ -87,23 +88,27 @@ export function decide(input: VerdictInput): Result<ExperimentResult> {
   }));
   const decision = decisionOf(scenarios.map((s) => s.status));
 
-  const summary = (["target", "case", "guard"] as const).map((role) => {
-    const of = scenarios.filter((s) => s.role === role);
-    return `${role} ${
-      of.filter((s) => s.status === "ok").length
-    }/${of.length} ok`;
-  }).join(", ");
+  const summary = (["target", "case", "guard"] as const)
+    .map((role) => {
+      const of = scenarios.filter((s) => s.role === role);
+      return `${role} ${
+        of.filter((s) => s.status === "ok").length
+      }/${of.length} ok`;
+    })
+    .join(", ");
   const weakerCount = scenarios.filter((s) => s.weaker).length;
   const reasons = [
     `${decision}: ${summary}${
       weakerCount > 0 ? ` (weaker ${weakerCount})` : ""
     }`,
-    ...scenarios.filter((s) => s.status !== "ok" || s.weaker)
+    ...scenarios
+      .filter((s) => s.status !== "ok" || s.weaker)
       .map((s) => `${s.role} ${s.scenario}: ${s.note}`),
   ];
   if (decision === "inconclusive") {
     for (const s of scenarios) {
-      const n = s.variant.pending +
+      const n =
+        s.variant.pending +
         (s.role !== "case" && s.baseline.trials === 0 ? s.baseline.pending : 0);
       if (n > 0) {
         reasons.push(
@@ -116,13 +121,14 @@ export function decide(input: VerdictInput): Result<ExperimentResult> {
   const mixed = input.changed.length !== 1;
   if (refText(main.to) !== refText(spec.change.to)) {
     reasons.push(
-      `spec의 to는 ${refText(spec.change.to)}인데 variant는 ${
-        refText(main.to)
-      }이다`,
+      `spec의 to는 ${refText(spec.change.to)}인데 variant는 ${refText(
+        main.to,
+      )}이다`,
     );
   }
   if (mixed) {
-    const rest = input.changed.filter((c) => c !== main)
+    const rest = input.changed
+      .filter((c) => c !== main)
       .map((c) => `${refText(c.from)}→${refText(c.to)}`);
     reasons.push(`섞인 변경이다: ${rest.join(", ")}`);
   }
@@ -131,9 +137,9 @@ export function decide(input: VerdictInput): Result<ExperimentResult> {
   }
   if (input.excluded.length > 0) {
     reasons.push(
-      `기준이 낡아 빠진 시나리오 ${input.excluded.length}개: ${
-        input.excluded.map((x) => x.scenario).join(", ")
-      }`,
+      `기준이 낡아 빠진 시나리오 ${input.excluded.length}개: ${input.excluded
+        .map((x) => x.scenario)
+        .join(", ")}`,
     );
   }
 

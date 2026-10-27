@@ -214,30 +214,29 @@ const PROJECT = {
 };
 
 // 사용자가 올린 이미지를 대신하는 둥근 사진 모양.
-const PHOTO = `data:image/svg+xml,${
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" fill="#b9d3ee"/><circle cx="28" cy="12" r="5" fill="#f6d77a"/><path d="M0 40V28c6-7 12-7 18-1 6-8 14-8 22 1v12z" fill="#5f8f6a"/></svg>',
-  )
-}`;
+const PHOTO = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" fill="#b9d3ee"/><circle cx="28" cy="12" r="5" fill="#f6d77a"/><path d="M0 40V28c6-7 12-7 18-1 6-8 14-8 22 1v12z" fill="#5f8f6a"/></svg>',
+)}`;
 
 const avatarOf = (profile: AgentProfile): AvatarProfile =>
   profile.image === true
     ? { kind: "image", src: PHOTO }
     : { kind: "icon", icon: profile.icon };
 
-const AGENTS: readonly SidebarAgent[] = AGENT_ROWS
-  .filter((row) => row.id !== "operators")
-  .map((row) => ({
-    assignment: row.id,
-    role: row.operator === true
-      ? "operator" as const
+const AGENTS: readonly SidebarAgent[] = AGENT_ROWS.filter(
+  (row) => row.id !== "operators",
+).map((row) => ({
+  assignment: row.id,
+  role:
+    row.operator === true
+      ? ("operator" as const)
       : row.id === "lophn"
-      ? "lophn" as const
-      : "project_manager" as const,
-    name: row.name,
-    profile: avatarOf(row.profile),
-    waiting: false,
-  }));
+        ? ("lophn" as const)
+        : ("project_manager" as const),
+  name: row.name,
+  profile: avatarOf(row.profile),
+  waiting: false,
+}));
 
 // 열린 탭이 있는 session. 나머지는 Recent에만 오른다.
 const OPEN = new Set([
@@ -269,14 +268,16 @@ const agentIdOf = (name: string) =>
 const PANEL_SESSIONS: readonly PanelSession[] = SESSIONS.flatMap((row) => {
   const agent = agentIdOf(row.agent);
   if (agent === undefined || row.group === "archived") return [];
-  return [{
-    id: row.id,
-    title: row.title,
-    agent,
-    status: row.state,
-    open: OPEN.has(row.id),
-    at: whenMs(row.when),
-  }];
+  return [
+    {
+      id: row.id,
+      title: row.title,
+      agent,
+      status: row.state,
+      open: OPEN.has(row.id),
+      at: whenMs(row.when),
+    },
+  ];
 });
 
 const panelSessionOf = (
@@ -284,14 +285,16 @@ const panelSessionOf = (
   open: boolean,
 ): PanelSession | null => {
   const agent = agentIdOf(row.agent);
-  return agent === undefined ? null : {
-    id: row.id,
-    title: row.title,
-    agent,
-    status: row.state,
-    open,
-    at: whenMs(row.when),
-  };
+  return agent === undefined
+    ? null
+    : {
+        id: row.id,
+        title: row.title,
+        agent,
+        status: row.state,
+        open,
+        at: whenMs(row.when),
+      };
 };
 
 // job이 연 run의 제목. `mock/agents-data.ts`의 RUNS id로 건다.
@@ -305,14 +308,16 @@ const PANEL_RUNS: readonly PanelRun[] = RUNS.flatMap((run) => {
   const agent = agentIdOf(run.agent);
   if (agent === undefined) return [];
   const row = RUN_SESSIONS.find((item) => item.id === run.session);
-  return [{
-    id: run.id,
-    agent,
-    title: RUN_JOB_TITLES[run.id] ?? null,
-    state: run.state,
-    at: whenMs(run.when),
-    session: row === undefined ? null : panelSessionOf(row, true),
-  }];
+  return [
+    {
+      id: run.id,
+      agent,
+      title: RUN_JOB_TITLES[run.id] ?? null,
+      state: run.state,
+      at: whenMs(run.when),
+      session: row === undefined ? null : panelSessionOf(row, true),
+    },
+  ];
 });
 
 const DEMO_SOURCE = fakeWorkspaceSource();
@@ -449,9 +454,8 @@ function useSidebarScript(
       }
       if (spec.hoverAgent !== undefined) {
         const row = await waitFor(`[data-agent="${spec.hoverAgent}"]`);
-        const plus = row?.parentElement?.querySelector<HTMLElement>(
-          "span:last-child",
-        );
+        const plus =
+          row?.parentElement?.querySelector<HTMLElement>("span:last-child");
         if (plus) plus.style.opacity = "1";
       }
       if (spec.scrollToAgents === true) {
@@ -474,9 +478,8 @@ const GROCERY_ID = "prj_grocery";
 
 const job = (
   n: number,
-  fields:
-    & Pick<JobView, "title" | "creator" | "every" | "at" | "action">
-    & Partial<JobView>,
+  fields: Pick<JobView, "title" | "creator" | "every" | "at" | "action"> &
+    Partial<JobView>,
 ): JobView => ({
   id: `job_${n}`,
   missed_policy: "run",
@@ -605,14 +608,15 @@ export function PageSidebar(props: SidebarProps) {
               path.startsWith(`${FAKE_PROJECT_FOLDER}/`)
                 ? path.slice(FAKE_PROJECT_FOLDER.length + 1)
                 : path,
-            )}
+            )
+          }
           onMove={(from, to) => DEMO_SOURCE.rename(from, to)}
           onTrash={(path) => DEMO_SOURCE.trash(path)}
           onRail={props.onRail}
           onAgent={(agent) => props.onAgent(agent.assignment)}
           onSession={(session) => {
-            const row = [...SESSIONS, ...RUN_SESSIONS].find((item) =>
-              item.id === session.id
+            const row = [...SESSIONS, ...RUN_SESSIONS].find(
+              (item) => item.id === session.id,
             );
             if (row) props.onSession?.(row);
           }}
@@ -639,18 +643,21 @@ type NewTabPick =
  * 탭 줄 끝의 + menu. 실제 `NewTabMenu`이고 Agent ▸(agent 목록)는 같은 menu가 다음 단계로 바뀐다.
  * Agents(관리 탭) 항목은 없다.
  */
-export function PageNewTabMenu(
-  { onPick, startOpen = false }: {
-    onPick: (pick: NewTabPick) => void;
-    /** menu를 연 채 시작한다(page가 열린 menu를 보인다). */
-    startOpen?: boolean;
-  },
-) {
+export function PageNewTabMenu({
+  onPick,
+  startOpen = false,
+}: {
+  onPick: (pick: NewTabPick) => void;
+  /** menu를 연 채 시작한다(page가 열린 menu를 보인다). */
+  startOpen?: boolean;
+}) {
   useEffect(() => {
     if (!startOpen) return;
-    document.querySelector<HTMLElement>("[data-new-tab]")?.dispatchEvent(
-      new PointerEvent("pointerdown", { bubbles: true, button: 0 }),
-    );
+    document
+      .querySelector<HTMLElement>("[data-new-tab]")
+      ?.dispatchEvent(
+        new PointerEvent("pointerdown", { bubbles: true, button: 0 }),
+      );
   }, []);
   return (
     <NewTabMenu
@@ -667,9 +674,10 @@ export function PageNewTabMenu(
           id === "lophn"
             ? "agent-lophn"
             : id === "engineer"
-            ? "agent-project-manager"
-            : `agent-operator:${id}`,
-        )}
+              ? "agent-project-manager"
+              : `agent-operator:${id}`,
+        )
+      }
       onSearch={() => onPick("search")}
       onAppPanel={() => onPick("app-panel")}
     />

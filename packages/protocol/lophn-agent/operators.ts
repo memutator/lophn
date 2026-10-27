@@ -7,11 +7,14 @@ import {
 import { mcpServerSchema } from "./mcp-settings.ts";
 
 // agent 층 MCP 서버. 이름이 같은 서버는 둘 수 없다.
-const mcpServersSchema = z.array(mcpServerSchema).max(32).refine(
-  (servers) =>
-    new Set(servers.map((server) => server.name)).size === servers.length,
-  { message: "mcp server names must be unique" },
-);
+const mcpServersSchema = z
+  .array(mcpServerSchema)
+  .max(32)
+  .refine(
+    (servers) =>
+      new Set(servers.map((server) => server.name)).size === servers.length,
+    { message: "mcp server names must be unique" },
+  );
 
 // Operator 정의: 이름, profile, model, skill 고르기, domain, MCP 끄기, agent 층 MCP 서버와 지침(body)이다.
 // agent 할당은 사람만 정하므로 정의에 없다(approvals/assignment.ts).
@@ -53,7 +56,6 @@ const builtinKeys = {
   body: true,
 } as const;
 export const builtinDefinitionSchema = agentDefinitionSchema.pick(builtinKeys);
-export const builtinDefinitionOutputSchema = agentDefinitionOutputSchema.pick(
-  builtinKeys,
-);
+export const builtinDefinitionOutputSchema =
+  agentDefinitionOutputSchema.pick(builtinKeys);
 export type BuiltinDefinition = z.infer<typeof builtinDefinitionSchema>;

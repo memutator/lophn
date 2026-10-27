@@ -75,22 +75,24 @@ const electronTray: TrayFactory = {
     return {
       setToolTip: (text) => tray.setToolTip(text),
       setMenu: (items, onSelect) =>
-        tray.setContextMenu(Menu.buildFromTemplate(
-          items.map((item) =>
-            item.type === "separator"
-              ? { type: "separator" as const }
-              : item.type === "notice"
-              ? { label: item.label, enabled: false }
-              : {
-                type: item.type,
-                label: item.label,
-                ...(item.type === "checkbox"
-                  ? { checked: item.checked, enabled: item.enabled }
-                  : {}),
-                click: () => onSelect(item.id),
-              }
+        tray.setContextMenu(
+          Menu.buildFromTemplate(
+            items.map((item) =>
+              item.type === "separator"
+                ? { type: "separator" as const }
+                : item.type === "notice"
+                  ? { label: item.label, enabled: false }
+                  : {
+                      type: item.type,
+                      label: item.label,
+                      ...(item.type === "checkbox"
+                        ? { checked: item.checked, enabled: item.enabled }
+                        : {}),
+                      click: () => onSelect(item.id),
+                    },
+            ),
           ),
-        )),
+        ),
       onClick: (handler) => tray.on("click", () => handler()),
       destroy: () => tray.destroy(),
     };
@@ -119,9 +121,10 @@ export function register(
       const parent = BrowserWindow.fromWebContents(sender);
       const options = {
         title: request.title,
-        properties: request.kind === "folder"
-          ? ["openDirectory" as const, "createDirectory" as const]
-          : ["openFile" as const],
+        properties:
+          request.kind === "folder"
+            ? ["openDirectory" as const, "createDirectory" as const]
+            : ["openFile" as const],
       };
       const result = parent
         ? await dialog.showOpenDialog(parent, options)
@@ -174,9 +177,12 @@ export function register(
   const quitFlow = createQuitFlow({
     work: {
       runningTerminals: () =>
-        coding.terminals.runtimes().filter((runtime) =>
-          runtime.state === "running" || runtime.state === "starting"
-        ).length,
+        coding.terminals
+          .runtimes()
+          .filter(
+            (runtime) =>
+              runtime.state === "running" || runtime.state === "starting",
+          ).length,
       pendingSaves: () => ctx.closeGuards.pendingSaves(),
     },
     confirm: async (prompt) => {
@@ -235,24 +241,28 @@ export function register(
   app.on("web-contents-created", (_event, contents) => {
     listenShortcuts(contents, process.platform, (shortcut, send) => {
       // browser 탭의 <webview> guest는 창의 자식 view가 아니라서 host를 통해 창을 찾는다.
-      const host = contents.getType() === "webview"
-        ? contents.hostWebContents
-        : null;
-      const window = [...windows].find((window) =>
-        !window.isDestroyed() &&
-        (window.webContents === contents ||
-          (host !== null && window.webContents === host) ||
-          window.contentView.children.some((view) =>
-            view instanceof WebContentsView && view.webContents === contents
-          ))
+      const host =
+        contents.getType() === "webview" ? contents.hostWebContents : null;
+      const window = [...windows].find(
+        (window) =>
+          !window.isDestroyed() &&
+          (window.webContents === contents ||
+            (host !== null && window.webContents === host) ||
+            window.contentView.children.some(
+              (view) =>
+                view instanceof WebContentsView &&
+                view.webContents === contents,
+            )),
       );
       if (!window) return false;
       // shell renderer 자신의 키는 macOS(menu가 먼저 가져간다)에서만 main이 삼킨다. 다른 OS는
       // renderer의 keydown이 받아야 터미널에서 Ctrl+W 같은 키를 shell로 보낼 수 있다.
       if (
-        window.webContents === contents && process.platform !== "darwin" &&
+        window.webContents === contents &&
+        process.platform !== "darwin" &&
         isMainCommand(shortcut)
-      ) return false;
+      )
+        return false;
       if (send) window.webContents.send(WINDOW_SHORTCUT_CHANNEL, shortcut);
       return true;
     });
@@ -264,23 +274,22 @@ export function register(
   const mode = resolveLaunchMode({
     argv: process.argv,
     // macOS login item은 argv를 넘기지 못해 OS가 알려 준 로그인 시작으로 안다.
-    openedAtLogin: process.platform === "darwin" &&
+    openedAtLogin:
+      process.platform === "darwin" &&
       app.getLoginItemSettings().wasOpenedAtLogin === true,
   });
 
   if (instance.acquired) {
     app.whenReady().then(() => {
       const serve = createShellHandler({ distDir: ctx.rendererDist() });
-      protocol.handle(
-        "lophn-shell",
-        (request) =>
-          serve(request).then(
-            (res) =>
-              new Response(res.body ? Buffer.from(res.body) : null, {
-                status: res.status,
-                headers: res.headers,
-              }),
-          ),
+      protocol.handle("lophn-shell", (request) =>
+        serve(request).then(
+          (res) =>
+            new Response(res.body ? Buffer.from(res.body) : null, {
+              status: res.status,
+              headers: res.headers,
+            }),
+        ),
       );
       // headless는 사람 화면의 tray 영역에도 아무것도 올리지 않는다.
       if (!headless.headless) {

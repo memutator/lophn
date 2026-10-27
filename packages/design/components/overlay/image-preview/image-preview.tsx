@@ -16,9 +16,12 @@ export interface ImagePreviewProps {
 }
 
 // 그림 하나를 창 가운데에 크게 보인다. 바깥을 누르거나 Esc나 [x]로 닫는다.
-export function ImagePreview(
-  { src, alt, onClose, container }: ImagePreviewProps,
-) {
+export function ImagePreview({
+  src,
+  alt,
+  onClose,
+  container,
+}: ImagePreviewProps) {
   const focus = useReturnFocus(true);
   return (
     <Radix.Root
@@ -39,9 +42,9 @@ export function ImagePreview(
           {...componentMark("ImagePreview")}
         >
           <Radix.Title className={styles.title}>{alt}</Radix.Title>
-          {src === null
-            ? null
-            : <img className={styles.image} src={src} alt={alt} />}
+          {src === null ? null : (
+            <img className={styles.image} src={src} alt={alt} />
+          )}
           <span className={styles.close}>
             <IconButton
               icon={X}

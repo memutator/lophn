@@ -72,7 +72,8 @@ export const agentsKind: TabKindDef = {
           onAgent={(assignment) =>
             host.patchTab(tab.key, () => ({
               fields: assignment === null ? undefined : { agent: assignment },
-            }))}
+            }))
+          }
           onEditInstructions={agents.editInstructions}
           onAddExtension={agents.openExtensions}
           onChanged={agents.changed}

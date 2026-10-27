@@ -12,10 +12,8 @@ import { ROLE_TABLE } from "./role-table.ts";
 type EnsureDeps = { files: AgentFileSystem; root: string };
 
 function ensure(deps: EnsureDeps, ref: AgentRef): Result<void> {
-  const store = createAgentStore(
-    deps.files,
-    deps.root,
-    (place) => ROLE_TABLE.agentsFolderOf(deps.root, place),
+  const store = createAgentStore(deps.files, deps.root, (place) =>
+    ROLE_TABLE.agentsFolderOf(deps.root, place),
   );
   const slot = ROLE_TABLE.slotOf(deps.root, ref)!;
   const current = store.read(slot);

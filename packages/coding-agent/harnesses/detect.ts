@@ -54,9 +54,10 @@ export function discover(
 ): Found {
   const home = ports.home.replace(/\/$/, "");
   const dirs = [
-    ...(ports.path ?? "").split(":").filter((dir) => dir !== "").map((
-      dir,
-    ) => ({ dir, source: "PATH" })),
+    ...(ports.path ?? "")
+      .split(":")
+      .filter((dir) => dir !== "")
+      .map((dir) => ({ dir, source: "PATH" })),
     ...FALLBACK_DIRS.map((dir) => ({
       dir: `${home}/${dir}`,
       source: `fallback:${dir}`,
@@ -78,8 +79,8 @@ export function discover(
       });
     }
   }
-  const selected = candidates.find((one) => one.executable_result === "ok")
-    ?.path ?? null;
+  const selected =
+    candidates.find((one) => one.executable_result === "ok")?.path ?? null;
   if (selected !== null) return { discovery: "detected", candidates, selected };
   return {
     discovery: candidates.length === 0 ? "absent" : "unknown",
@@ -98,9 +99,7 @@ async function probeOne(
   adapter: HarnessAdapter,
   executable: string,
   ports: DetectPorts,
-): Promise<
-  { version: HarnessVersion; results: HarnessProbeResult[] }
-> {
+): Promise<{ version: HarnessVersion; results: HarnessProbeResult[] }> {
   const results: HarnessProbeResult[] = [];
   let version = unknownVersion("이 제품은 version 확인 방법이 없다");
   const run = async (argv: readonly string[]) => {
@@ -133,16 +132,17 @@ async function probeOne(
     if (done === null) {
       version = unknownVersion("version 확인이 끝나지 않았다");
     } else {
-      const first = done.text.split("\n").find((line) => line.trim() !== "") ??
-        "";
+      const first =
+        done.text.split("\n").find((line) => line.trim() !== "") ?? "";
       const found = SEMVER.exec(first);
-      version = done.exit === 0 && found !== null
-        ? { result: "verified", value: found[1], reason: null }
-        : {
-          result: "error",
-          value: null,
-          reason: `version 확인이 종료 ${done.exit}로 끝났다`,
-        };
+      version =
+        done.exit === 0 && found !== null
+          ? { result: "verified", value: found[1], reason: null }
+          : {
+              result: "error",
+              value: null,
+              reason: `version 확인이 종료 ${done.exit}로 끝났다`,
+            };
     }
   }
   return { version, results };
@@ -161,11 +161,7 @@ async function detectOne(
   );
   let results: HarnessProbeResult[] = [];
   if (input.probe && found.selected !== null) {
-    ({ version, results } = await probeOne(
-      adapter,
-      found.selected,
-      ports,
-    ));
+    ({ version, results } = await probeOne(adapter, found.selected, ports));
   }
   return {
     harness_id: adapter.id,

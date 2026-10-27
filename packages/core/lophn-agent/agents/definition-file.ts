@@ -123,11 +123,13 @@ function schemaIssues(error: z.ZodError): AgentDefinitionIssue[] {
     } else if (issue.code === "invalid_key") {
       addIssue(found, parent, "unknown_field");
     } else if (
-      issue.code === "custom" && issue.message.startsWith("duplicate")
+      issue.code === "custom" &&
+      issue.message.startsWith("duplicate")
     ) {
       addIssue(found, parent, "duplicate");
     } else if (
-      issue.code === "custom" && issue.message.includes("body is over")
+      issue.code === "custom" &&
+      issue.message.includes("body is over")
     ) {
       addIssue(found, "body", "too_large");
     } else {
@@ -155,7 +157,8 @@ function checkDefinition(
   if (operator && text.trim() === "") addIssue(issues, "body", "required");
 
   const name = raw.name;
-  const nameMissing = operator &&
+  const nameMissing =
+    operator &&
     (name === undefined || (typeof name === "string" && name.trim() === ""));
   const schema = operator ? operatorDefinitionSchema : builtinDefinitionSchema;
   const shaped = schema.safeParse({ ...raw, body: text });
@@ -169,7 +172,9 @@ function checkDefinition(
   if (nameMissing) {
     addIssue(issues, "name", "required");
   } else if (
-    operator && typeof name === "string" && roles.isReservedName(name)
+    operator &&
+    typeof name === "string" &&
+    roles.isReservedName(name)
   ) {
     addIssue(issues, "name", "reserved_name");
   }
@@ -211,9 +216,10 @@ function orderedFrontmatter(value: Plain): Plain {
   for (const key of EMPTY_DEFAULT_LISTS) {
     const list = value[key] as Plain[] | undefined;
     if (list === undefined || list.length === 0) continue;
-    out[key] = key === "mcp_off"
-      ? list.map((item) => pick(item, ["server_name", "original_tool"]))
-      : list;
+    out[key] =
+      key === "mcp_off"
+        ? list.map((item) => pick(item, ["server_name", "original_tool"]))
+        : list;
   }
   if (value.skip !== undefined) out.skip = value.skip;
   return out;

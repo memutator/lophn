@@ -88,8 +88,7 @@ export const AGENT_ROWS: readonly AgentRow[] = [
 ];
 
 export const profileOf = (name: string): AgentProfile =>
-  AGENT_ROWS.find((row) => row.name === name)?.profile ??
-    { icon: "dock" };
+  AGENT_ROWS.find((row) => row.name === name)?.profile ?? { icon: "dock" };
 
 const nameOf = (id: string) =>
   AGENT_ROWS.find((row) => row.id === id)?.name ?? "lophn";

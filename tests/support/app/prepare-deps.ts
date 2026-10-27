@@ -35,18 +35,22 @@ const REPO = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
 const PACKAGES = `${REPO}/packages/`;
 
 async function git(cwd: string, ...args: string[]): Promise<string> {
-  const child = spawn("git", [
-    "-c",
-    "user.name=e2e",
-    "-c",
-    "user.email=e2e@example.invalid",
-    "-c",
-    "commit.gpgsign=false",
-    ...args,
-  ], {
-    cwd,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const child = spawn(
+    "git",
+    [
+      "-c",
+      "user.name=e2e",
+      "-c",
+      "user.email=e2e@example.invalid",
+      "-c",
+      "commit.gpgsign=false",
+      ...args,
+    ],
+    {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
   const stdout: string[] = [];
   const stderr: string[] = [];
   child.stdout!.setEncoding("utf8");
@@ -107,14 +111,16 @@ try {
   // release 준비의 `deno cache`는 vendor 모드라 jsr 파일을 deno-dir이 아니라 staging의 vendor/로 바로 받고, 그때마다
   // jsr.io에서 meta.json을 다시 받는다(npm은 deno-dir을 거친다). 그래서 vendor 없이 같은 npm·jsr 값을 먼저 받아
   // deno-dir에 채워 두어야 network 없이 준비가 된다.
-  const imports = (JSON.parse(
-    await readFile(`${sourceRoot}/deno.json`, "utf8"),
-  ) as { imports: Record<string, string> }).imports;
+  const imports = (
+    JSON.parse(await readFile(`${sourceRoot}/deno.json`, "utf8")) as {
+      imports: Record<string, string>;
+    }
+  ).imports;
   const specifiers = [
     ...new Set(
-      Object.values(imports).filter((value) =>
-        value.startsWith("npm:") || value.startsWith("jsr:")
-      ).map((value) => value.replace(/\/$/, "")),
+      Object.values(imports)
+        .filter((value) => value.startsWith("npm:") || value.startsWith("jsr:"))
+        .map((value) => value.replace(/\/$/, "")),
     ),
   ].sort();
   const warmDir = `${dataRoot}/warm`;
@@ -122,18 +128,19 @@ try {
   await writeFile(`${warmDir}/deno.json`, "{}");
   await writeFile(
     `${warmDir}/deps.ts`,
-    specifiers.map((specifier) => `import ${JSON.stringify(specifier)};\n`)
+    specifiers
+      .map((specifier) => `import ${JSON.stringify(specifier)};\n`)
       .join(""),
   );
-  const cached = spawn(Deno.execPath(), [
-    "cache",
-    "--no-lock",
-    `${warmDir}/deps.ts`,
-  ], {
-    cwd: warmDir,
-    env: { ...process.env, DENO_DIR: denoDir },
-    stdio: ["ignore", "inherit", "inherit"],
-  });
+  const cached = spawn(
+    Deno.execPath(),
+    ["cache", "--no-lock", `${warmDir}/deps.ts`],
+    {
+      cwd: warmDir,
+      env: { ...process.env, DENO_DIR: denoDir },
+      stdio: ["ignore", "inherit", "inherit"],
+    },
+  );
   const cachedCode = await new Promise<number | null>((resolve, reject) => {
     cached.on("error", reject);
     cached.on("close", (exitCode) => resolve(exitCode));
@@ -141,7 +148,7 @@ try {
   if (cachedCode !== 0) throw new Error("npm·jsr 의존을 받지 못했다");
 
   // prepareFromSource는 이미 받아 둔 esbuild 실행 파일만 build 자식에 허락한다. 제품에서는 release-runner가 하는 일이다.
-  if (!await cacheBuildTools(Deno.execPath(), buildEnvironment(dataRoot))) {
+  if (!(await cacheBuildTools(Deno.execPath(), buildEnvironment(dataRoot)))) {
     throw new Error("build 도구를 받지 못했다");
   }
   const prepared = await prepareFromSource({

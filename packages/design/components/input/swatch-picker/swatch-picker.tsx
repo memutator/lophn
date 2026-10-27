@@ -21,9 +21,12 @@ export interface SwatchPickerProps {
 }
 
 // 방향키와 선택은 같은 name의 native radio가 맡는다.
-export function SwatchPicker(
-  { options, value, onValueChange, label }: SwatchPickerProps,
-) {
+export function SwatchPicker({
+  options,
+  value,
+  onValueChange,
+  label,
+}: SwatchPickerProps) {
   const field = useField("SwatchPicker");
   const name = useId();
   return (
@@ -44,8 +47,7 @@ export function SwatchPicker(
               checked={option.value === value}
               aria-label={option.label}
               className={styles.input}
-              onChange={() =>
-                onValueChange(option.value)}
+              onChange={() => onValueChange(option.value)}
             />
             <span
               className={styles.swatch}

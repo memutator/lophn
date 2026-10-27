@@ -26,11 +26,9 @@ import { Example, kit, Page, Section } from "../kit.tsx";
 
 const EXAMPLE_NOW = new Date("2026-10-06T15:30:00Z");
 // 견본 그림. 바깥 파일 없이 그린다.
-const SAMPLE_IMAGE = `data:image/svg+xml;utf8,${
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="90"><rect width="120" height="90" fill="#2a78d6"/><circle cx="40" cy="40" r="18" fill="#fab219"/></svg>',
-  )
-}`;
+const SAMPLE_IMAGE = `data:image/svg+xml;utf8,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="90"><rect width="120" height="90" fill="#2a78d6"/><circle cx="40" cy="40" r="18" fill="#fab219"/></svg>',
+)}`;
 const NOOP = () => {};
 
 // Field가 넘기는 id·오류 상태를 FieldContext로 읽어 보이는 최소 입력.
@@ -346,10 +344,7 @@ export function KitInput() {
       >
         <Example>
           <div className={kit.panel}>
-            <OrdersFilters
-              now={EXAMPLE_NOW}
-              call={() => Promise.resolve()}
-            />
+            <OrdersFilters now={EXAMPLE_NOW} call={() => Promise.resolve()} />
           </div>
         </Example>
       </Section>

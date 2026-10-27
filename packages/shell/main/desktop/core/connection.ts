@@ -91,7 +91,9 @@ export interface CoreConnection {
    * 사람 결정 handle을 비공개 pipe로 등록한다. 응답에 짝 id가 없으므로 한 번에 하나씩 보내고,
    * core가 발급하지 않으면 답이 없으므로 기한 안에 오지 않으면 unavailable이다.
    */
-  registerConfirmation(request: unknown): Promise<
+  registerConfirmation(
+    request: unknown,
+  ): Promise<
     | { ok: true; confirmation: string; expiresAt: string }
     | { ok: false; error: { code: string; message: string } }
   >;
@@ -144,8 +146,8 @@ export function startCoreConnection(
       session,
       epoch: hello.core_epoch,
       // core 프로세스가 끝났으면 다시 붙을 곳이 없다.
-      reconnectPolicy: options.reconnect ??
-        backoffReconnect(() => core.phase !== "stopped"),
+      reconnectPolicy:
+        options.reconnect ?? backoffReconnect(() => core.phase !== "stopped"),
       // token은 이 closure에만 묶여 URL·renderer로 나가지 않는다.
       // Node의 WebSocket(undici)은 headers 옵션으로 Bearer를 싣는다.
       headers: () => ({ Authorization: `Bearer ${hello.user_token}` }),
@@ -191,9 +193,8 @@ export function startCoreConnection(
 
   // 새로 구독하는 renderer(런처로 돌아옴·창 다시 읽기)는 지금 상태를 한 번 묻는다. push는
   // 상태가 바뀔 때와 창이 load를 끝낼 때뿐이라 이미 지난 상태는 이 답으로만 받는다.
-  options.ipc.handle(
-    CORE_STATE_GET_CHANNEL,
-    () => Promise.resolve({ ...state }),
+  options.ipc.handle(CORE_STATE_GET_CHANNEL, () =>
+    Promise.resolve({ ...state }),
   );
 
   // 이 renderer의 조건을 통째로 바꾼다. sender 검사는 call과 같다.

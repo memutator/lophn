@@ -42,27 +42,31 @@ export const instanceStepSchema = z.strictObject({
 });
 export type InstanceStep = z.infer<typeof instanceStepSchema>;
 
-const currentSchema = z.object({
-  step: stepNameSchema,
-  human_turn: z.boolean(),
-}).nullable();
+const currentSchema = z
+  .object({
+    step: stepNameSchema,
+    human_turn: z.boolean(),
+  })
+  .nullable();
 
-export const workflowInstanceSchema = z.object({
-  id: idSchema("wfi"),
-  project: idSchema("prj"),
-  workflow: workflowNameSchema,
-  input: z.string(),
-  state: workflowStateSchema,
-  participants: z.record(participantKeySchema, participantSchema), // 시작할 때 선언에서 옮긴 것
-  steps: z.array(instanceStepSchema), // 순서 있음. agent가 고친다
-  current: currentSchema,
-  started_by: startedBySchema,
-  created_at: atSchema,
-  finished_at: atSchema.nullable(),
-  state_seq: seqSchema,
-}).refine((v) => (v.finished_at !== null) === (v.state !== "running"), {
-  message: "only finished instances have finished_at",
-});
+export const workflowInstanceSchema = z
+  .object({
+    id: idSchema("wfi"),
+    project: idSchema("prj"),
+    workflow: workflowNameSchema,
+    input: z.string(),
+    state: workflowStateSchema,
+    participants: z.record(participantKeySchema, participantSchema), // 시작할 때 선언에서 옮긴 것
+    steps: z.array(instanceStepSchema), // 순서 있음. agent가 고친다
+    current: currentSchema,
+    started_by: startedBySchema,
+    created_at: atSchema,
+    finished_at: atSchema.nullable(),
+    state_seq: seqSchema,
+  })
+  .refine((v) => (v.finished_at !== null) === (v.state !== "running"), {
+    message: "only finished instances have finished_at",
+  });
 export type WorkflowInstance = z.infer<typeof workflowInstanceSchema>;
 
 export const NOT_HANDED_REASONS = [
@@ -218,33 +222,41 @@ export const workflowLineSchema = z.discriminatedUnion("kind", [
 ]);
 export type WorkflowLine = z.infer<typeof workflowLineSchema>;
 
-export const workflowEntrySchema = z.object({
-  key: z.string(), // 그 순간 project 이름으로 만든 보이는 글
-  project: idSchema("prj"),
-  name: workflowNameSchema,
-  state: z.enum(["ok", "invalid"]),
-  kind: z.enum(["agent", "flow"]).nullable(),
-  startable: z.boolean(),
-  problem: z.object({
-    reason: z.enum([
-      "no_declaration",
-      "invalid_yaml",
-      "invalid_declaration",
-      "no_flow_file",
-    ]),
-    message: z.string(),
-  }).nullable(),
-  participants: z.record(participantKeySchema, participantSchema).nullable(),
-  steps: z.array(z.object({
-    name: stepNameSchema,
-    by: participantKeySchema,
-    with: z.string().nullable(),
-    next: z.array(stepNextSchema),
-  })).nullable(),
-  artifacts: z.object({ static: z.boolean(), instance: z.boolean() }),
-}).refine((v) => (v.problem !== null) === !v.startable, {
-  message: "only unstartable workflows have a problem",
-});
+export const workflowEntrySchema = z
+  .object({
+    key: z.string(), // 그 순간 project 이름으로 만든 보이는 글
+    project: idSchema("prj"),
+    name: workflowNameSchema,
+    state: z.enum(["ok", "invalid"]),
+    kind: z.enum(["agent", "flow"]).nullable(),
+    startable: z.boolean(),
+    problem: z
+      .object({
+        reason: z.enum([
+          "no_declaration",
+          "invalid_yaml",
+          "invalid_declaration",
+          "no_flow_file",
+        ]),
+        message: z.string(),
+      })
+      .nullable(),
+    participants: z.record(participantKeySchema, participantSchema).nullable(),
+    steps: z
+      .array(
+        z.object({
+          name: stepNameSchema,
+          by: participantKeySchema,
+          with: z.string().nullable(),
+          next: z.array(stepNextSchema),
+        }),
+      )
+      .nullable(),
+    artifacts: z.object({ static: z.boolean(), instance: z.boolean() }),
+  })
+  .refine((v) => (v.problem !== null) === !v.startable, {
+    message: "only unstartable workflows have a problem",
+  });
 export type WorkflowEntry = z.infer<typeof workflowEntrySchema>;
 
 export const workflowInstanceSummarySchema = z.object({

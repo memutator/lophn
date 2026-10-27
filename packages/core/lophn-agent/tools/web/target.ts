@@ -10,17 +10,21 @@ function denied(message: string): Result<never> {
 function ipv4(host: string): number[] | null {
   const parts = host.split(".");
   if (parts.length !== 4) return null;
-  const numbers = parts.map((
-    part,
-  ) => (/^\d{1,3}$/.test(part) ? Number(part) : NaN));
+  const numbers = parts.map((part) =>
+    /^\d{1,3}$/.test(part) ? Number(part) : NaN,
+  );
   return numbers.every((n) => n >= 0 && n <= 255) ? numbers : null;
 }
 
 function privateV4([a, b]: number[]): boolean {
-  return a === 127 || a === 10 || a === 0 ||
+  return (
+    a === 127 ||
+    a === 10 ||
+    a === 0 ||
     (a === 172 && b! >= 16 && b! <= 31) ||
     (a === 192 && b === 168) ||
-    (a === 169 && b === 254);
+    (a === 169 && b === 254)
+  );
 }
 
 function privateV6(host: string): boolean {
@@ -59,8 +63,10 @@ export function checkFetchTarget(url: string): Result<URL> {
   const host = parsed.hostname.toLowerCase().replace(/\.$/, "");
   const v4 = ipv4(host);
   if (
-    host === "localhost" || host.endsWith(".localhost") ||
-    (v4 !== null && privateV4(v4)) || (host.startsWith("[") && privateV6(host))
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    (v4 !== null && privateV4(v4)) ||
+    (host.startsWith("[") && privateV6(host))
   ) {
     return denied("local and private addresses are not allowed");
   }

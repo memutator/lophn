@@ -12,7 +12,7 @@ const COMMAND_LINE = /^const COMMAND = ("(?:[^"\\\n]|\\.)*");$/m;
 
 export function placedPluginCommand(text: string | null): string | undefined {
   const found = text?.match(COMMAND_LINE)?.[1];
-  return found === undefined ? undefined : JSON.parse(found) as string;
+  return found === undefined ? undefined : (JSON.parse(found) as string);
 }
 
 // harness 하나가 이 형식의 plugin 본문을 가지는지다.
@@ -107,8 +107,9 @@ export default function (pi: any) {
   pi.on("agent_end", (event: any) => {
     answer = answerOf(event?.messages);
   });
-${
-    events.map((event) =>
+${events
+  .map(
+    (event) =>
       `  pi.on("${event}", (event: any, ctx: any) => {
     let session_id: string | undefined;
     try {
@@ -123,9 +124,9 @@ ${
         event === "agent_settled" ? "\n      lophn_message: answer," : ""
       }
     });${event === "agent_settled" ? "\n    answer = undefined;" : ""}
-  });`
-    ).join("\n")
-  }
+  });`,
+  )
+  .join("\n")}
 }
 `;
 }

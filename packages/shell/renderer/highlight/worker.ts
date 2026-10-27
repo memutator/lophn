@@ -11,19 +11,20 @@ import type { HighlightReply, HighlightRequest } from "./messages.ts";
 
 // css-variables theme가 내는 변수 이름이 design token(`--code-…`)의 이름과 같아 색은 design이 정한다.
 const core = createHighlighterCore({
-  themes: [createCssVariablesTheme({
-    name: "lophn",
-    variablePrefix: "--code-",
-  })],
+  themes: [
+    createCssVariablesTheme({
+      name: "lophn",
+      variablePrefix: "--code-",
+    }),
+  ],
   langs: [],
   engine: createJavaScriptRegexEngine({ forgiving: true }),
 });
 
 // vscode-textmate FontStyle bit: 1 italic, 2 bold, 4 underline. -1(NotSet)은 style이 없다.
 function toToken(token: ThemedToken): CodeToken {
-  const fontStyle = token.fontStyle !== undefined && token.fontStyle > 0
-    ? token.fontStyle
-    : 0;
+  const fontStyle =
+    token.fontStyle !== undefined && token.fontStyle > 0 ? token.fontStyle : 0;
   return {
     text: token.content,
     color: token.color,
@@ -33,9 +34,10 @@ function toToken(token: ThemedToken): CodeToken {
   };
 }
 
-async function highlight(
-  { code, language }: HighlightRequest,
-): Promise<readonly CodeLine[] | null> {
+async function highlight({
+  code,
+  language,
+}: HighlightRequest): Promise<readonly CodeLine[] | null> {
   const lang = language.toLowerCase();
   if (!Object.hasOwn(bundledLanguages, lang)) return null;
   try {

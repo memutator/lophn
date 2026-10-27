@@ -25,11 +25,9 @@ import type {
 export type ConnectProviderApi = {
   // Connect provider 대화창을 연다. 연결이 끝나면 새로 생긴 provider id(찾지 못하면 null)로 onConnected를 부른다.
   // custom provider의 목록을 읽어 찾았으면 notice에 그 한 줄이 온다(다른 창이 이미 보였으면 없다).
-  open(
-    options?: {
-      onConnected?: (providerId: string | null, notice?: string) => void;
-    },
-  ): void;
+  open(options?: {
+    onConnected?: (providerId: string | null, notice?: string) => void;
+  }): void;
 };
 
 export const ConnectProviderContext = createContext<ConnectProviderApi | null>(
@@ -67,9 +65,11 @@ interface ConnectProviderHostProps {
 // 한 번 읽는다: 찾았으면 한 줄("N개 찾음")을 다음에 뜨는 창에 보이고(Settings → Providers는 읽은 결과를 onListed로도 받아 그 줄에 보인다), 목록이 없으면 그 provider의 Add model form과 함께
 // Manage models를 먼저 연다. 그다음 전역 기본 model이 없으면 고르게 한다. key 연결은 보호 창이 따로 끝내므로 ConnectDialog가 끝났을 때는 아직 연결이 없을 수 있다: 그러면 창이 다시 focus를
 // 받을 때 한 번만 더 읽고, 그래도 없으면 null로 끝낸다.
-export function ConnectProviderHost(
-  { providers, agents, children }: ConnectProviderHostProps,
-): ReactNode {
+export function ConnectProviderHost({
+  providers,
+  agents,
+  children,
+}: ConnectProviderHostProps): ReactNode {
   const [choosing, setChoosing] = useState(false);
   const [target, setTarget] = useState<ProviderDefinitionRow | null>(null);
   const [pickDefault, setPickDefault] = useState(false);
@@ -105,8 +105,8 @@ export function ConnectProviderHost(
       const refreshed = await agents.editor.refreshModels(id);
       const after = refreshed ? await agents.editor.models() : null;
       const count = after?.ok
-        ? after.value.providers.find((item) => item.id === id)?.reportedModels
-          ?.length ?? 0
+        ? (after.value.providers.find((item) => item.id === id)?.reportedModels
+            ?.length ?? 0)
         : 0;
       return { name: provider.name, count };
     },
@@ -155,10 +155,13 @@ export function ConnectProviderHost(
         });
         return;
       }
-      const notice = listed === null ? undefined : t(
-        "conversation.notice.models-found",
-        { count: listed.count, provider: listed.name },
-      );
+      const notice =
+        listed === null
+          ? undefined
+          : t("conversation.notice.models-found", {
+              count: listed.count,
+              provider: listed.name,
+            });
       return chooseDefault(id, onConnected, notice);
     },
     [readList, chooseDefault],
@@ -177,7 +180,7 @@ export function ConnectProviderHost(
         const retry = () => {
           stopWaiting.current = null;
           void newProvider(before).then((id) =>
-            settle(id, onConnected, onListed)
+            settle(id, onConnected, onListed),
           );
         };
         globalThis.addEventListener?.("focus", retry, { once: true });
@@ -188,17 +191,20 @@ export function ConnectProviderHost(
     [newProvider, settle],
   );
 
-  const api = useMemo<ConnectProviderApi>(() => ({
-    open(options) {
-      opened.current = { before: null, onConnected: options?.onConnected };
-      void providers.connected().then((read) => {
-        opened.current.before = read.ok
-          ? read.value.map((row) => row.id)
-          : null;
-      });
-      setChoosing(true);
-    },
-  }), [providers]);
+  const api = useMemo<ConnectProviderApi>(
+    () => ({
+      open(options) {
+        opened.current = { before: null, onConnected: options?.onConnected };
+        void providers.connected().then((read) => {
+          opened.current.before = read.ok
+            ? read.value.map((row) => row.id)
+            : null;
+        });
+        setChoosing(true);
+      },
+    }),
+    [providers],
+  );
 
   return (
     <ConnectProviderContext.Provider value={api}>
@@ -208,18 +214,16 @@ export function ConnectProviderHost(
         <ManageModelsHost source={agents.editor} apiRef={manage}>
           {children}
         </ManageModelsHost>
-        {choosing
-          ? (
-            <ConnectProviderDialog
-              source={providers}
-              onChoose={(definition) => {
-                setChoosing(false);
-                setTarget(definition);
-              }}
-              onClose={() => setChoosing(false)}
-            />
-          )
-          : null}
+        {choosing ? (
+          <ConnectProviderDialog
+            source={providers}
+            onChoose={(definition) => {
+              setChoosing(false);
+              setTarget(definition);
+            }}
+            onClose={() => setChoosing(false)}
+          />
+        ) : null}
         <ConnectDialog
           source={providers}
           definition={target}
@@ -231,20 +235,18 @@ export function ConnectProviderHost(
             else afterConnect(before, onConnected);
           }}
         />
-        {pickDefault
-          ? (
-            <DefaultModelDialog
-              agents={agents}
-              notice={defaultNotice ?? undefined}
-              onClose={() => {
-                setPickDefault(false);
-                const done = afterDefault.current;
-                afterDefault.current = null;
-                done?.();
-              }}
-            />
-          )
-          : null}
+        {pickDefault ? (
+          <DefaultModelDialog
+            agents={agents}
+            notice={defaultNotice ?? undefined}
+            onClose={() => {
+              setPickDefault(false);
+              const done = afterDefault.current;
+              afterDefault.current = null;
+              done?.();
+            }}
+          />
+        ) : null}
       </AfterConnectContext.Provider>
     </ConnectProviderContext.Provider>
   );

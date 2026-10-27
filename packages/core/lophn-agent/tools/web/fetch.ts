@@ -31,7 +31,10 @@ function htmlToText(html: string): string {
       .replace(/<!--[\s\S]*?-->/g, "")
       .replace(/<\/(p|div|li|tr|h[1-6]|br)>|<br\s*\/?>/gi, "\n")
       .replace(/<[^>]*>/g, ""),
-  ).replace(/[ \t]+/g, " ").replace(/\n\s*\n+/g, "\n\n").trim();
+  )
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s*\n+/g, "\n\n")
+    .trim();
 }
 
 async function readCapped(

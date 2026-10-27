@@ -16,9 +16,12 @@ interface CreateAppDialogProps {
 }
 
 // 새 앱 창: 이름과 한 줄 목적. 만들면 그 앱의 App Engineer와 이어서 시작한다.
-export function CreateAppDialog(
-  { open, source, onClose, onCreated }: CreateAppDialogProps,
-) {
+export function CreateAppDialog({
+  open,
+  source,
+  onClose,
+  onCreated,
+}: CreateAppDialogProps) {
   const [name, setName] = useState("");
   const [purpose, setPurpose] = useState("");
   const [touched, setTouched] = useState(false);
@@ -87,9 +90,11 @@ export function CreateAppDialog(
         <p className={styles.note}>{t("launcher.dialog.new-app-note")}</p>
         <Field
           label={t("launcher.label.name")}
-          error={touched && !usableTitle(name)
-            ? t("launcher.error.name-required")
-            : undefined}
+          error={
+            touched && !usableTitle(name)
+              ? t("launcher.error.name-required")
+              : undefined
+          }
         >
           <Input
             value={name}
@@ -101,9 +106,11 @@ export function CreateAppDialog(
         <Field
           label={t("launcher.label.purpose")}
           help={t("launcher.field.app-purpose-help")}
-          error={touched && !usableTitle(purpose)
-            ? t("launcher.error.purpose-required")
-            : undefined}
+          error={
+            touched && !usableTitle(purpose)
+              ? t("launcher.error.purpose-required")
+              : undefined
+          }
         >
           <Input
             value={purpose}
@@ -111,13 +118,11 @@ export function CreateAppDialog(
             onChange={(event) => setPurpose(event.currentTarget.value)}
           />
         </Field>
-        {failure !== null
-          ? (
-            <p className={styles.error} role="alert" data-create-failed="">
-              {failure}
-            </p>
-          )
-          : null}
+        {failure !== null ? (
+          <p className={styles.error} role="alert" data-create-failed="">
+            {failure}
+          </p>
+        ) : null}
       </div>
     </Dialog>
   );

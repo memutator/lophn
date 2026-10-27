@@ -15,13 +15,17 @@ export interface ReadingFrameProps {
 }
 
 // 읽기 본문 600/680/800px과 목차 220px. 별도 메타 패널은 두지 않는다.
-export function ReadingFrame(
-  { width, header, toc, children }: ReadingFrameProps,
-) {
+export function ReadingFrame({
+  width,
+  header,
+  toc,
+  children,
+}: ReadingFrameProps) {
   const { ref, pane, pad } = usePane();
-  const placement = pane === undefined
-    ? "head"
-    : tocPlacement(pane - panePaddingPixels(pane) * 2, width);
+  const placement =
+    pane === undefined
+      ? "head"
+      : tocPlacement(pane - panePaddingPixels(pane) * 2, width);
   return (
     <div
       ref={ref}

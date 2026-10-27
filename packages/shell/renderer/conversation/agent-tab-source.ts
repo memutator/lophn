@@ -72,10 +72,10 @@ export type BodyPart =
   | { readonly kind: "app_card"; readonly app: string; readonly view: string }
   /** agent 답 앞의 reasoning 요약. 글은 redaction을 거쳤고 없으면 ""다. 복사 글과 model 이력에는 들지 않는다. */
   | {
-    readonly kind: "reasoning";
-    readonly text: string;
-    readonly durationMs: number | null;
-  };
+      readonly kind: "reasoning";
+      readonly text: string;
+      readonly durationMs: number | null;
+    };
 
 // ---- 보낸 쪽 ----
 
@@ -85,10 +85,10 @@ export type BodyPart =
  */
 export type Sender =
   | {
-    readonly kind: "agent";
-    readonly role: AgentRole | null;
-    readonly name: string | null;
-  }
+      readonly kind: "agent";
+      readonly role: AgentRole | null;
+      readonly name: string | null;
+    }
   | { readonly kind: "coding"; readonly product: string | null }
   | { readonly kind: "program"; readonly label: string | null };
 
@@ -292,9 +292,10 @@ export function turnEndTimes(
   finishedAt: string,
   activeMs: number | null,
 ): { activeMs: number; waitedMs: number } {
-  const wall = startedAt === null
-    ? null
-    : Math.max(0, Date.parse(finishedAt) - Date.parse(startedAt));
+  const wall =
+    startedAt === null
+      ? null
+      : Math.max(0, Date.parse(finishedAt) - Date.parse(startedAt));
   const active = activeMs ?? wall ?? 0;
   const waited = wall === null ? 0 : Math.max(0, wall - active);
   return { activeMs: active, waitedMs: waited };
@@ -559,13 +560,11 @@ export interface AgentTabSource {
   stop(turn: string, key: string): Promise<SourceResult<void>>;
   /** 실패한 turn의 입력을 같은 session에 다시 보낸다. */
   retryTurn(turn: string): Promise<SourceResult<void>>;
-  answerQuestions(
-    input: {
-      session: string;
-      toolCall: string;
-      answers: readonly QuestionAnswer[];
-    },
-  ): Promise<SourceResult<void>>;
+  answerQuestions(input: {
+    session: string;
+    toolCall: string;
+    answers: readonly QuestionAnswer[];
+  }): Promise<SourceResult<void>>;
   /** waiting 목록의 결정과 같은 route다. 거절은 이유를 한 줄 적을 수 있다. */
   decidePermission(
     session: string,
@@ -578,9 +577,7 @@ export interface AgentTabSource {
 
   // session
   /** 첫 말을 보내기 전에 만든다. */
-  openSession(
-    input: { id: string },
-  ): Promise<SourceResult<void>>;
+  openSession(input: { id: string }): Promise<SourceResult<void>>;
   renameSession(session: string, title: string): Promise<SourceResult<void>>;
   archiveSession(session: string): Promise<SourceResult<void>>;
   /** 사람만 바꾼다. 바꾼 값은 다음 turn부터다(turn mode는 turn을 시작할 때 정한다). */
@@ -588,9 +585,11 @@ export interface AgentTabSource {
   /** 되돌릴 수 없다. 도는 turn이 있으면 conflict다. 받는 곳이 이 session인 열린 call은 실패한다. */
   deleteSession(session: string): Promise<SourceResult<void>>;
   /** 같은 agent의 새 session `id`로 복사한다. through가 null이면 마지막 확정 메시지까지다. */
-  forkSession(
-    input: { id: string; session: string; through: string | null },
-  ): Promise<SourceResult<void>>;
+  forkSession(input: {
+    id: string;
+    session: string;
+    through: string | null;
+  }): Promise<SourceResult<void>>;
   /** 사람이 부른 요약. 실패해도 session과 원문은 그대로다. */
   compactSession(session: string): Promise<SourceResult<void>>;
 

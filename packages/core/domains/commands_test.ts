@@ -68,9 +68,14 @@ function open() {
         owner,
       }),
     archive: (id: string, revision: string) =>
-      call(commands.archive.handle, USER, { domain: id }, {
-        base_revision: revision,
-      }),
+      call(
+        commands.archive.handle,
+        USER,
+        { domain: id },
+        {
+          base_revision: revision,
+        },
+      ),
   };
 }
 

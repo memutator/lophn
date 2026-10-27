@@ -19,10 +19,11 @@ const readCallRead: ReadDefinition<typeof callRead> = {
     if (!read.ok) return read;
     const record = read.value;
     const actor = parseActor(ctx.actor);
-    const involved = actor?.kind !== "agent" || (record !== null && (
-      (record.from.kind === "agent" && record.from.session === actor.id) ||
-      record.receiver_session === actor.id
-    ));
+    const involved =
+      actor?.kind !== "agent" ||
+      (record !== null &&
+        ((record.from.kind === "agent" && record.from.session === actor.id) ||
+          record.receiver_session === actor.id));
     if (record === null || !involved) {
       return err({ code: "not_found", message: "call not found" });
     }
@@ -59,22 +60,19 @@ const sendableRead: ReadDefinition<typeof callSendable> = {
     }
     const environment = routerEnvironment();
     if (!environment.ok) return environment;
-    const { directory, transport } = environment.value.deps(
-      snapshot,
-      () => "",
-    );
+    const { directory, transport } = environment.value.deps(snapshot, () => "");
     const sessions = [];
     for (const target of directory.listOpen()) {
       if (target.session === actor.id || !target.accepting) continue;
       const described = environment.value.describe?.(snapshot, target);
-      const state = STATES.find((one) => one === described?.state) ??
-        "unknown";
+      const state = STATES.find((one) => one === described?.state) ?? "unknown";
       sessions.push({
         session: target.session,
         role: target.agent.role,
-        place: described !== undefined
-          ? (described.place as Place | null)
-          : placeOf(target.agent),
+        place:
+          described !== undefined
+            ? (described.place as Place | null)
+            : placeOf(target.agent),
         name: target.name,
         state,
       });

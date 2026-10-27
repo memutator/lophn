@@ -34,9 +34,9 @@ export function modelRetryDelayMs(
 }
 
 // tool 자동 retry는 읽기에만 허용한다. 쓰기와 external은 다시 부르지 않는다.
-export function toolMayRetry(
-  tool: { effect: "read" | "write" | "external" },
-): boolean {
+export function toolMayRetry(tool: {
+  effect: "read" | "write" | "external";
+}): boolean {
   return tool.effect === "read";
 }
 
@@ -48,11 +48,14 @@ const RETRYABLE_TOOL_CODES: ReadonlySet<string> = new Set([
   "uncertain",
 ]);
 
-export function toolFailureRetryable(
-  attempt: { status: string; code: string },
-): boolean {
-  return (attempt.status === "failure" || attempt.status === "uncertain") &&
-    RETRYABLE_TOOL_CODES.has(attempt.code);
+export function toolFailureRetryable(attempt: {
+  status: string;
+  code: string;
+}): boolean {
+  return (
+    (attempt.status === "failure" || attempt.status === "uncertain") &&
+    RETRYABLE_TOOL_CODES.has(attempt.code)
+  );
 }
 
 // 1초에 ±10% jitter. random은 [0, 1)이다.

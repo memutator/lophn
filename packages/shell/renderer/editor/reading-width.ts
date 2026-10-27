@@ -40,8 +40,8 @@ export function coreSettingsPort(core: CoreSource): SettingsPort {
         body: { keys: [READING_WIDTH_KEY] },
       });
       if (!reply.ok) return null;
-      const setting = (reply.value as SettingsList).settings.find((item) =>
-        item.key === READING_WIDTH_KEY
+      const setting = (reply.value as SettingsList).settings.find(
+        (item) => item.key === READING_WIDTH_KEY,
       );
       return setting?.chosen ?? setting?.default ?? null;
     },

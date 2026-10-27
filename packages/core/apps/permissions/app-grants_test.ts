@@ -31,9 +31,10 @@ function open() {
         db.prepare(sql).all(...params) as Record<string, never>[],
     },
     newId: () =>
-      `grt_01hzzzzzzzzzzzzzzzzzzzz${
-        String(++n).padStart(3, "0")
-      }` as `grt_${string}`,
+      `grt_01hzzzzzzzzzzzzzzzzzzzz${String(++n).padStart(
+        3,
+        "0",
+      )}` as `grt_${string}`,
     now: () => "2026-10-16T00:00:00.000Z",
   };
   return { db, tx };
@@ -59,7 +60,9 @@ test("넓어진 선언은 사람이 허락하기 전에 앱 grant가 되지 않�
       return loaded.value;
     };
     const hosts = () =>
-      active().map((grant) => (grant.scope as { host: string }).host).sort();
+      active()
+        .map((grant) => (grant.scope as { host: string }).host)
+        .sort();
 
     // 처음에는 허락으로 만든다.
     assert.ok(syncAppGrants(tx, APP, one, "granted").ok);

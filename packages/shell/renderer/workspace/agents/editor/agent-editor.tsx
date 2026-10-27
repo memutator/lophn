@@ -68,11 +68,11 @@ type Loaded =
   | { readonly kind: "loading" }
   | { readonly kind: "failed" }
   | {
-    readonly kind: "ready";
-    readonly detail: AgentDetail;
-    readonly definition: AgentDraft;
-    readonly issues: readonly AgentDefinitionIssue[];
-  };
+      readonly kind: "ready";
+      readonly detail: AgentDetail;
+      readonly definition: AgentDraft;
+      readonly issues: readonly AgentDefinitionIssue[];
+    };
 
 type GrantsLoaded =
   | { readonly kind: "loading" }
@@ -99,9 +99,13 @@ function Loading(): ReactElement {
 }
 
 // 지우기는 확인을 한 번 받은 뒤에만 부른다. 저장은 확인이 없다.
-function DeleteOperator(
-  { name, onDelete }: { name: string; onDelete: () => void },
-) {
+function DeleteOperator({
+  name,
+  onDelete,
+}: {
+  name: string;
+  onDelete: () => void;
+}) {
   const [asking, setAsking] = useState(false);
   return (
     <div className={styles.danger}>
@@ -168,9 +172,10 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   useEffect(() => {
     let live = true;
     setState({ kind: "loading" });
-    const opened = agent === null
-      ? source.newOperator(project ?? "")
-      : source.readAgent(project, agent);
+    const opened =
+      agent === null
+        ? source.newOperator(project ?? "")
+        : source.readAgent(project, agent);
     void opened.then((result) => {
       if (!live) return;
       if (!result.ok) {
@@ -195,11 +200,12 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   }, [source, project, agent, attempt]);
 
   // Operator가 고를 domain은 놓인 곳 그릇의 것이다. 새 Operator는 놓을 곳을 바꾸면 다시 읽는다.
-  const placeId = state.kind !== "ready"
-    ? null
-    : state.detail.assignment === null
-    ? place.slice(place.indexOf(":") + 1)
-    : state.detail.place.id;
+  const placeId =
+    state.kind !== "ready"
+      ? null
+      : state.detail.assignment === null
+        ? place.slice(place.indexOf(":") + 1)
+        : state.detail.place.id;
   useEffect(() => {
     setDomains(null);
     if (placeId === null || placeId === "") return;
@@ -248,79 +254,88 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   const fresh = detail.assignment === null;
   const edit = (next: AgentDraft) =>
     setState((current) =>
-      current.kind === "ready" ? { ...current, definition: next } : current
+      current.kind === "ready" ? { ...current, definition: next } : current,
     );
   const name = definition.name ?? detail.effective.name.value;
   const shown: AvatarProfile = (() => {
     const profile = definition.profile ?? detail.effective.profile.value;
-    return profile.kind === "icon" ? { kind: "icon", icon: profile.icon } : {
-      kind: "image",
-      src: detail.assignment === null
-        ? ""
-        : source.imageSrc(project, detail.assignment, profile.image),
-    };
+    return profile.kind === "icon"
+      ? { kind: "icon", icon: profile.icon }
+      : {
+          kind: "image",
+          src:
+            detail.assignment === null
+              ? ""
+              : source.imageSrc(project, detail.assignment, profile.image),
+        };
   })();
 
   // 새 Operator의 놓을 곳을 바꾸면 그 곳에서 보이는 skill·MCP·지침을 다시 읽고, 그 곳 domain이 아닌 값은 정의에서 뺀다.
   const changePlace = (next: string) => {
     setPlace(next);
-    void source.newOperator(next.slice(next.indexOf(":") + 1)).then(
-      (result) => {
+    void source
+      .newOperator(next.slice(next.indexOf(":") + 1))
+      .then((result) => {
         if (!result.ok) return;
         const { skills, mcpServers, instructions } = result.value;
         setState((current) =>
-          current.kind !== "ready" ? current : {
-            ...current,
-            detail: { ...current.detail, skills, mcpServers, instructions },
-            definition: withoutPlaceFields(current.definition),
-          }
+          current.kind !== "ready"
+            ? current
+            : {
+                ...current,
+                detail: { ...current.detail, skills, mcpServers, instructions },
+                definition: withoutPlaceFields(current.definition),
+              },
         );
-      },
-    );
+      });
   };
 
   const save = () => {
     // 그릇에 없어진 domain은 저장에서 뺀다(칸은 안내만 보인다). 비면 칸 자체를 뺀다.
     const { domains: chosen = [], ...rest } = definition;
     const here = domains?.map((one) => one.id);
-    const stay = here === undefined
-      ? chosen
-      : chosen.filter((id) => here.includes(id));
-    void source.saveAgent(project, {
-      assignment: detail.assignment,
-      draftId: detail.draftId,
-      place: fresh ? place.slice(place.indexOf(":") + 1) : null,
-      definition: stay.length === 0 ? rest : { ...rest, domains: stay },
-      hash: detail.hash,
-    }).then((result) => {
-      if (result.ok) {
-        setNotice(null);
-        props.onChanged();
-        props.onDone();
-        return;
-      }
-      setState((current) =>
-        current.kind === "ready"
-          ? { ...current, issues: result.issues }
-          : current
-      );
-      setNotice(
-        result.issues.length > 0 ? null : result.message === "conflict"
-          ? {
-            title: "agents.title.save-conflict",
-            body: "project-workspace.notice.agents-save-conflict",
-          }
-          : {
-            title: "agents.title.save-failed",
-            body: "project-workspace.notice.agents-save-failed",
-          },
-      );
-    });
+    const stay =
+      here === undefined ? chosen : chosen.filter((id) => here.includes(id));
+    void source
+      .saveAgent(project, {
+        assignment: detail.assignment,
+        draftId: detail.draftId,
+        place: fresh ? place.slice(place.indexOf(":") + 1) : null,
+        definition: stay.length === 0 ? rest : { ...rest, domains: stay },
+        hash: detail.hash,
+      })
+      .then((result) => {
+        if (result.ok) {
+          setNotice(null);
+          props.onChanged();
+          props.onDone();
+          return;
+        }
+        setState((current) =>
+          current.kind === "ready"
+            ? { ...current, issues: result.issues }
+            : current,
+        );
+        setNotice(
+          result.issues.length > 0
+            ? null
+            : result.message === "conflict"
+              ? {
+                  title: "agents.title.save-conflict",
+                  body: "project-workspace.notice.agents-save-conflict",
+                }
+              : {
+                  title: "agents.title.save-failed",
+                  body: "project-workspace.notice.agents-save-failed",
+                },
+        );
+      });
   };
 
   const remove = () => {
     if (detail.assignment === null || detail.hash === null) return;
-    void source.deleteAgent(project ?? "", detail.assignment, detail.hash)
+    void source
+      .deleteAgent(project ?? "", detail.assignment, detail.hash)
       .then((result) => {
         if (!result.ok) {
           setNotice({
@@ -372,10 +387,12 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
       const fresh = await source.grants(project, assignment);
       if (fresh.ok) revision.current = fresh.value.revision;
       setGrants(
-        fresh.ok ? { kind: "ready", view: fresh.value } : {
-          kind: "ready",
-          view: before,
-        },
+        fresh.ok
+          ? { kind: "ready", view: fresh.value }
+          : {
+              kind: "ready",
+              view: before,
+            },
       );
       setNotice({
         title: "agents.title.change-failed",
@@ -399,9 +416,9 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
       <h1 className={styles.title}>
         <Avatar profile={shown} size="md" />
         {fresh ? t("project-workspace.heading.agents-new-operator") : name}
-        {fresh
-          ? null
-          : <span className={styles.chip}>{t(ROLE_LABEL[detail.role])}</span>}
+        {fresh ? null : (
+          <span className={styles.chip}>{t(ROLE_LABEL[detail.role])}</span>
+        )}
       </h1>
       <Tabs value={tab} onValueChange={(value) => setTab(value as Section)}>
         <TabList>
@@ -424,7 +441,8 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             imageSrc={(image) =>
               detail.assignment === null
                 ? ""
-                : source.imageSrc(project, detail.assignment, image)}
+                : source.imageSrc(project, detail.assignment, image)
+            }
             onChange={edit}
             onUpload={upload}
             onEditProjectInstructions={props.onEditProjectInstructions}
@@ -442,35 +460,31 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             {t("project-workspace.notice.agent-editor-model-help")}{" "}
             {t("agents.notice.stored-in-lophn")}
           </p>
-          {detail.kind === "operator" && !fresh
-            ? <DeleteOperator name={name} onDelete={remove} />
-            : null}
+          {detail.kind === "operator" && !fresh ? (
+            <DeleteOperator name={name} onDelete={remove} />
+          ) : null}
         </TabPanel>
         <TabPanel value="grants">
           {grants.kind === "loading" ? <Loading /> : null}
-          {grants.kind === "failed"
-            ? (
-              <ErrorState
-                target={t("agents.label.grants-target")}
-                onRetry={() => setTab("definition")}
+          {grants.kind === "failed" ? (
+            <ErrorState
+              target={t("agents.label.grants-target")}
+              onRetry={() => setTab("definition")}
+            />
+          ) : null}
+          {grants.kind === "ready" ? (
+            <>
+              <GrantsPanel
+                agentName={name}
+                entries={grants.view.entries}
+                catalog={grants.view.catalog}
+                onChange={changeGrants}
               />
-            )
-            : null}
-          {grants.kind === "ready"
-            ? (
-              <>
-                <GrantsPanel
-                  agentName={name}
-                  entries={grants.view.entries}
-                  catalog={grants.view.catalog}
-                  onChange={changeGrants}
-                />
-                <p className={`${styles.note} ${styles.stored}`}>
-                  {t("agents.notice.grants-apply-now")}
-                </p>
-              </>
-            )
-            : null}
+              <p className={`${styles.note} ${styles.stored}`}>
+                {t("agents.notice.grants-apply-now")}
+              </p>
+            </>
+          ) : null}
         </TabPanel>
       </Tabs>
     </div>

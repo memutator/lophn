@@ -23,8 +23,10 @@ export type PaletteShortcut = keyof typeof WINDOW_SHORTCUTS;
 export type WindowShortcut = PaletteShortcut | MainCommand;
 
 export function isWindowShortcut(value: unknown): value is WindowShortcut {
-  return typeof value === "string" &&
-    (Object.hasOwn(WINDOW_SHORTCUTS, value) || isMainCommand(value));
+  return (
+    typeof value === "string" &&
+    (Object.hasOwn(WINDOW_SHORTCUTS, value) || isMainCommand(value))
+  );
 }
 
 export interface ShortcutApi {
@@ -42,11 +44,13 @@ export const DESKTOP_INTENT_CHANNEL = "shell:intent";
  */
 const DESKTOP_INTENTS = ["global-palette"] as const;
 
-export type DesktopIntent = typeof DESKTOP_INTENTS[number];
+export type DesktopIntent = (typeof DESKTOP_INTENTS)[number];
 
 export function isDesktopIntent(value: unknown): value is DesktopIntent {
-  return typeof value === "string" &&
-    (DESKTOP_INTENTS as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (DESKTOP_INTENTS as readonly string[]).includes(value)
+  );
 }
 
 export interface IntentApi {

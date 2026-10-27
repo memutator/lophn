@@ -26,9 +26,10 @@ function valueOrDefault<S extends z.ZodType>(
   setting: SettingDeclaration<S>,
   chosen: unknown,
 ): z.output<S> | undefined {
-  const picked = chosen !== undefined && setting.type.safeParse(chosen).success
-    ? chosen
-    : setting.default;
+  const picked =
+    chosen !== undefined && setting.type.safeParse(chosen).success
+      ? chosen
+      : setting.default;
   return picked === undefined ? undefined : setting.type.parse(picked);
 }
 

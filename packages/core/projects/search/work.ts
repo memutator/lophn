@@ -60,9 +60,9 @@ export async function scan(
     const resume = index === input.cursor?.folder ? input.cursor : undefined;
     const walk: Walk = { root, after: resume?.path };
     // 시작 폴더 위쪽 .gitignore도 적용된다.
-    const segments = relative(folder_path, start).split(/[\\/]/).filter(
-      (part) => part !== "",
-    );
+    const segments = relative(folder_path, start)
+      .split(/[\\/]/)
+      .filter((part) => part !== "");
     let dir = folder_path;
     let rel = "";
     const rules: GitignoreRule[] = [];
@@ -76,9 +76,11 @@ export async function scan(
       const read = await readMatches(file.abs, needle);
       for (const found of read) {
         if (
-          resume !== undefined && file.rel === resume.path &&
+          resume !== undefined &&
+          file.rel === resume.path &&
           found.line <= resume.line
-        ) continue;
+        )
+          continue;
         matches.push({ folder_path, path: file.rel, ...found });
         if (matches.length > input.limit) {
           const last = matches[input.limit - 1]!;
@@ -135,22 +137,24 @@ async function* files(
   }
   const own = await gitignoreOf(dir, rel);
   const rules = own === null ? inherited : [...inherited, own];
-  const keyed = entries.filter((entry) => !isSkippedName(entry.name)).map(
-    (entry) => ({
+  const keyed = entries
+    .filter((entry) => !isSkippedName(entry.name))
+    .map((entry) => ({
       entry,
       key: sortKey(entry.name, entry.isDirectory()),
-    }),
-  );
-  keyed.sort((left, right) => left.key < right.key ? -1 : 1);
+    }));
+  keyed.sort((left, right) => (left.key < right.key ? -1 : 1));
   for (const { entry } of keyed) {
     const abs = join(dir, entry.name);
     const path = rel === "" ? entry.name : `${rel}/${entry.name}`;
     if (entry.isDirectory()) {
       const prefix = `${path}/`;
       if (
-        walk.after !== undefined && prefix < walk.after &&
+        walk.after !== undefined &&
+        prefix < walk.after &&
         !walk.after.startsWith(prefix)
-      ) continue;
+      )
+        continue;
       if (gitignoreExcludes(prefix, rules)) continue;
       yield* files(walk, abs, path, rules);
       continue;

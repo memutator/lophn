@@ -7,9 +7,8 @@ export function projectsDataArea(root: string): string {
 
 // place의 data 폴더. project는 `<data>/projects/<prj>`, 앱은 `<data>/apps/<app>`다.
 export function placeDataFolder(root: string, place: Place): string {
-  const area = place.kind === "project"
-    ? projectsDataArea(root)
-    : `${root}/apps`;
+  const area =
+    place.kind === "project" ? projectsDataArea(root) : `${root}/apps`;
   return `${area}/${place.id}`;
 }
 

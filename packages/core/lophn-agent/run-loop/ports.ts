@@ -28,10 +28,12 @@ export type StopReason = "user_stopped" | "restarted" | "session_ended";
 
 // 멈춤이 이미 확정됐는지. 멈춤·session 끝남·꺼짐은 core가 turn을 끝내므로 loop는 FinishTurn을
 // 다시 부르지 않고 새 진입만 막는다.
-export type StopCheck = { stopped: false } | {
-  stopped: true;
-  reason: StopReason;
-};
+export type StopCheck =
+  | { stopped: false }
+  | {
+      stopped: true;
+      reason: StopReason;
+    };
 
 // steering 입력 하나. id는 그 입력의 session 기록 message다(반영 기록의 key).
 export type SteeringInput = { id: string; input: RoutedInput };
@@ -199,10 +201,12 @@ export type FinishRequest = {
 };
 
 // 정상 종료는 미반영 steering이 없을 때만 확정된다. 있으면 종료하지 않고 다음 판단으로 간다.
-type FinishResult = { finished: true } | {
-  finished: false;
-  reason: "pending_input";
-};
+type FinishResult =
+  | { finished: true }
+  | {
+      finished: false;
+      reason: "pending_input";
+    };
 
 export type TurnPorts = {
   stop(): Promise<StopCheck>;
@@ -246,10 +250,10 @@ export type LoopEnd =
   | { kind: "stopped"; reason: StopReason }
   // 끝낼 이유는 확정했지만 FinishTurn을 확정하지 못했다. 끝남으로 가정하지 않는다.
   | {
-    kind: "finish_failed";
-    outcome: FinishRequest["outcome"];
-    error: { code: string; message: string };
-  };
+      kind: "finish_failed";
+      outcome: FinishRequest["outcome"];
+      error: { code: string; message: string };
+    };
 
 export type TurnLoopHandle = {
   done: Promise<LoopEnd>;

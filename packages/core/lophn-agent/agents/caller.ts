@@ -24,8 +24,8 @@ export function agentCallerRule(
     target !== null && operatorPlaceAllowed(role, own, target)
       ? ok(undefined)
       : err({
-        code: "forbidden",
-        message: "an agent works only in its own place",
-      })
+          code: "forbidden",
+          message: "an agent works only in its own place",
+        }),
   );
 }

@@ -54,8 +54,8 @@ export function formatRelativeTime(
 ): string {
   const seconds = Math.round((value.getTime() - now.getTime()) / 1000);
   const abs = Math.abs(seconds);
-  const [unit, size] = UNITS.find(([, unitSize]) => abs >= unitSize) ??
-    UNITS[UNITS.length - 1];
+  const [unit, size] =
+    UNITS.find(([, unitSize]) => abs >= unitSize) ?? UNITS[UNITS.length - 1];
   return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(
     Math.round(seconds / size),
     unit,

@@ -25,22 +25,22 @@ function reject(
   return err({ code, message });
 }
 
-type FilesReason = NonNullable<
-  Output<typeof recordRewindFile>["files_reason"]
->;
+type FilesReason = NonNullable<Output<typeof recordRewindFile>["files_reason"]>;
 
 type Held = { message: string };
 
 // 기록이 있는 checkpoint를 오래된 것부터 읽는다(메시지의 생성 순서).
 function checkpointsWithRecords(tx: Tx, session: string): Held[] {
-  return tx.sql.all(
-    `select c.message as message
+  return tx.sql
+    .all(
+      `select c.message as message
        from checkpoints c join messages m on m.id = c.message
       where c.session = ?
         and exists (select 1 from rewind_files f where f.checkpoint = c.message)
       order by m.created_seq`,
-    [session],
-  ).map((row) => ({ message: String(row["message"]) }));
+      [session],
+    )
+    .map((row) => ({ message: String(row["message"]) }));
 }
 
 // session 안 서로 다른 저장물의 크기 합이다. 같은 내용은 한 번만 센다.
@@ -56,11 +56,7 @@ function storedBytes(tx: Tx, session: string): number {
   return Number(row?.["total"] ?? 0);
 }
 
-function lower(
-  tx: Tx,
-  checkpoint: string,
-  reason: FilesReason,
-): void {
+function lower(tx: Tx, checkpoint: string, reason: FilesReason): void {
   // 처음 이유를 지킨다.
   tx.sql.run(
     `update checkpoints set files_restorable = 0, files_reason = ?
@@ -113,9 +109,10 @@ function result(
     checkpoint: stored.checkpoint,
     recorded: stored.recorded,
     files_restorable: restorable,
-    files_reason: restorable || row?.["files_reason"] == null
-      ? null
-      : String(row["files_reason"]) as FilesReason,
+    files_reason:
+      restorable || row?.["files_reason"] == null
+        ? null
+        : (String(row["files_reason"]) as FilesReason),
     replayed,
   });
 }
@@ -134,10 +131,9 @@ export function createRecordRewindFile(): CommandDefinition<
       if (parseActor(ctx.actor)?.kind !== "machine") {
         return reject("forbidden", "only core records a write");
       }
-      const call = tx.sql.get(
-        "select turn from tool_calls where id = ?",
-        [input.tool_call],
-      );
+      const call = tx.sql.get("select turn from tool_calls where id = ?", [
+        input.tool_call,
+      ]);
       if (call === undefined) {
         return reject("invalid_input", "tool call not found");
       }
@@ -150,11 +146,17 @@ export function createRecordRewindFile(): CommandDefinition<
         [input.tool_call, input.path],
       );
       if (existing !== undefined) {
-        return result(tx, input, {
-          checkpoint: String(existing["checkpoint"]),
-          recorded: Number(existing["before_exists"]) === 0 ||
-            existing["before_blob"] !== null,
-        }, true);
+        return result(
+          tx,
+          input,
+          {
+            checkpoint: String(existing["checkpoint"]),
+            recorded:
+              Number(existing["before_exists"]) === 0 ||
+              existing["before_blob"] !== null,
+          },
+          true,
+        );
       }
       const turn = tx.sql.get(
         "select session, input_message, state from turns where id = ?",
@@ -215,10 +217,15 @@ export function createRecordRewindFile(): CommandDefinition<
       );
       if (reason !== null) lower(tx, checkpoint, reason);
       const pruned = enforceLimits(tx, session);
-      return result(tx, input, {
-        checkpoint,
-        recorded: reason === null && !pruned.includes(checkpoint),
-      }, false);
+      return result(
+        tx,
+        input,
+        {
+          checkpoint,
+          recorded: reason === null && !pruned.includes(checkpoint),
+        },
+        false,
+      );
     },
   };
 }
@@ -227,11 +234,12 @@ export function createRecordRewindFile(): CommandDefinition<
 export type RecorderPorts = {
   // core가 그 파일의 지금 내용을 읽어 pre-image로 session 저장소에 두고 before 상태를 돌려준다. 내용은 오가지
   // 않는다. 허용 폴더가 아니거나 읽지 못하면 오류다.
-  stage(
-    input: { session: string; turn: string; root: string; path: string },
-  ): Promise<
-    Result<{ before: FileState; before_size_bytes: number | null }>
-  >;
+  stage(input: {
+    session: string;
+    turn: string;
+    root: string;
+    path: string;
+  }): Promise<Result<{ before: FileState; before_size_bytes: number | null }>>;
   // 쓴 직후 파일 내용. 파일이 없으면 null. root는 허용 폴더(절대 경로)고 path는 그 안의 상대 경로다.
   read(root: string, path: string): Promise<Uint8Array | null>;
   // 쓴 결과를 core에 기록한다(RecordRewindWrite).
@@ -282,30 +290,34 @@ export async function recordBeforeWrite(
     run(): Promise<Result<void>>;
   },
 ): Promise<Result<RecordedWrite>> {
-  const staged = await ports.stage({
-    session: write.session,
-    turn: write.turn,
-    root: write.root,
-    path: write.moved_from ?? write.path,
-  }).catch(() => undefined);
+  const staged = await ports
+    .stage({
+      session: write.session,
+      turn: write.turn,
+      root: write.root,
+      path: write.moved_from ?? write.path,
+    })
+    .catch(() => undefined);
   const written = await write.run();
   if (!written.ok) return written;
   const after = await observe(ports.read, write.root, write.path);
   if (staged === undefined || !staged.ok || after === null) {
     return ok({ recorded: false });
   }
-  const recorded = await ports.record({
-    session: write.session,
-    turn: write.turn,
-    tool_call: write.tool_call,
-    root: write.root,
-    path: write.path,
-    before: staged.value.before,
-    before_size_bytes: staged.value.before_size_bytes,
-    after: after.exists
-      ? { exists: true, sha256: after.sha256 }
-      : { exists: false, sha256: null },
-    moved_from: write.moved_from,
-  }).catch(() => undefined);
+  const recorded = await ports
+    .record({
+      session: write.session,
+      turn: write.turn,
+      tool_call: write.tool_call,
+      root: write.root,
+      path: write.path,
+      before: staged.value.before,
+      before_size_bytes: staged.value.before_size_bytes,
+      after: after.exists
+        ? { exists: true, sha256: after.sha256 }
+        : { exists: false, sha256: null },
+      moved_from: write.moved_from,
+    })
+    .catch(() => undefined);
   return ok({ recorded: recorded?.ok === true && recorded.value.recorded });
 }

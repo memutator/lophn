@@ -28,9 +28,7 @@ export type BridgeDeps = {
   log(message: string): void;
 };
 
-export function createBridge(
-  deps: BridgeDeps,
-): TerminalBridge & {
+export function createBridge(deps: BridgeDeps): TerminalBridge & {
   handleLine(line: string): Promise<"pane" | "declined">;
 } {
   const keys = new Map<string, string>(); // key -> terminal_ref
@@ -63,10 +61,11 @@ export function createBridge(
   return {
     issue() {
       const key = deps.ids.key();
-      const env = bridgeEnv(
-        deps.env as Record<string, string | undefined>,
-        { shim: deps.paths.shim, socket: deps.paths.socket, key },
-      );
+      const env = bridgeEnv(deps.env as Record<string, string | undefined>, {
+        shim: deps.paths.shim,
+        socket: deps.paths.socket,
+        key,
+      });
       return env === null ? null : { key, env };
     },
     bind(key, terminalRef) {
@@ -86,8 +85,9 @@ export function createBridge(
       const prefs = await deps.readPrefs();
       if (
         linkTarget(url, prefs) === "browser_tab" &&
-        await offer(terminal_ref, url)
-      ) return;
+        (await offer(terminal_ref, url))
+      )
+        return;
       deps.openExternal(url);
     },
     ack(request, opened) {
@@ -100,7 +100,7 @@ export function createBridge(
       if (terminalRef === undefined) return "declined";
       const prefs = await deps.readPrefs();
       if (linkTarget(request.url, prefs) !== "browser_tab") return "declined";
-      return await offer(terminalRef, request.url) ? "pane" : "declined";
+      return (await offer(terminalRef, request.url)) ? "pane" : "declined";
     },
   };
 }

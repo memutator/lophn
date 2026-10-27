@@ -32,9 +32,7 @@ type TurnCredentialOptions = {
   issuer: AgentCredentialIssuer;
   // agent actor가 닿을 수 있는 operation 이름. 인증 경계의 발급 상한 안이어야 한다. 함수이면 session의
   // 역할마다 정한다.
-  operations:
-    | readonly string[]
-    | ((role: string) => readonly string[]);
+  operations: readonly string[] | ((role: string) => readonly string[]);
   // 감독 pipe가 정한 runtime process 이름.
   process: string;
 };
@@ -159,9 +157,9 @@ export async function beginTurn(
   input: BeginTurnInput,
 ): Promise<
   | {
-    ok: true;
-    value: { started: StartTurnResult; credential: AgentTurnCredential };
-  }
+      ok: true;
+      value: { started: StartTurnResult; credential: AgentTurnCredential };
+    }
   | { ok: false; started: boolean; error: { code: string; message: string } }
 > {
   const started = await deps.startTurn(input);

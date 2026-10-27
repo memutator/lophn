@@ -46,17 +46,17 @@ function tableColumns(view: TableView): TableColumn<TableRow>[] {
   return view.headers.map(({ header, kind }, index) =>
     kind === "number"
       ? {
-        id: `cell-${index}`,
-        header,
-        kind,
-        value: (row) => row.cells[index] as number | undefined,
-      }
+          id: `cell-${index}`,
+          header,
+          kind,
+          value: (row) => row.cells[index] as number | undefined,
+        }
       : {
-        id: `cell-${index}`,
-        header,
-        kind,
-        value: (row) => row.cells[index] as string | undefined,
-      }
+          id: `cell-${index}`,
+          header,
+          kind,
+          value: (row) => row.cells[index] as string | undefined,
+        },
   );
 }
 
@@ -99,19 +99,17 @@ interface FrameProps extends ChartStateProps, ChartLocaleProps {
 
 // 차트 공통 틀: 상태(loading·error·empty·그릴 수 없음) → 범례·표 보기 전환 → plot.
 // 표 보기는 모든 차트에 있어 낮은 대비 slot(light aqua·yellow·magenta)의 값도 글로 읽는다.
-export function ChartFrame(
-  {
-    problem,
-    isEmpty,
-    defaultIcon,
-    legend,
-    table,
-    children,
-    locale = "en",
-    timeZone,
-    ...state
-  }: FrameProps,
-) {
+export function ChartFrame({
+  problem,
+  isEmpty,
+  defaultIcon,
+  legend,
+  table,
+  children,
+  locale = "en",
+  timeZone,
+  ...state
+}: FrameProps) {
   const [view, setView] = useState<"chart" | "table">("chart");
   const showTable = view === "table" && table !== undefined;
   const content = (width: number) => {
@@ -173,8 +171,7 @@ export function ChartFrame(
                   size="sm"
                   variant="ghost"
                   aria-pressed={showTable}
-                  onClick={() =>
-                    setView(showTable ? "chart" : "table")}
+                  onClick={() => setView(showTable ? "chart" : "table")}
                 >
                   {showTable
                     ? t("common.button.show-chart")

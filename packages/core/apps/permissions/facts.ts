@@ -114,7 +114,8 @@ export function compareFacts(
 ): DeclarationGap {
   const active = grants.filter((grant) => grant.status === "active");
   const covered = new Set(
-    active.filter((grant) => grant.scope.kind !== "app.call")
+    active
+      .filter((grant) => grant.scope.kind !== "app.call")
       .map((grant) => canonicalize(grant.scope)),
   );
   const calls = new Map<string, Set<string>>();
@@ -142,7 +143,7 @@ export function compareFacts(
     }
   }
   added.sort((a, b) =>
-    `${a.app}:${a.tool}`.localeCompare(`${b.app}:${b.tool}`)
+    `${a.app}:${a.tool}`.localeCompare(`${b.app}:${b.tool}`),
   );
   return {
     added_resources: [...resources.keys()].sort(),

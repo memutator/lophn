@@ -22,16 +22,14 @@ export interface PopoverProps {
 }
 
 // modal이 아니라서 바깥 click·focus 이동·Escape에 닫히고 trigger로 focus를 돌린다.
-export function Popover(
-  {
-    trigger,
-    children,
-    container,
-    placement = "beside",
-    returnFocus = true,
-    ...state
-  }: PopoverProps,
-) {
+export function Popover({
+  trigger,
+  children,
+  container,
+  placement = "beside",
+  returnFocus = true,
+  ...state
+}: PopoverProps) {
   return (
     <Radix.Root {...state}>
       <Radix.Trigger asChild>{trigger}</Radix.Trigger>

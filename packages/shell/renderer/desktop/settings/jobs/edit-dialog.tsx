@@ -16,19 +16,23 @@ const UNITS = [
   { value: "d", label: "jobs.label.unit-days" },
 ] as const;
 
-export function EditDialog(
-  { job, onSave, onClose }: {
-    job: JobView;
-    onSave: (patch: Required<JobPatch>) => void;
-    onClose: () => void;
-  },
-) {
+export function EditDialog({
+  job,
+  onSave,
+  onClose,
+}: {
+  job: JobView;
+  onSave: (patch: Required<JobPatch>) => void;
+  onClose: () => void;
+}) {
   const [title, setTitle] = useState(job.title);
   const [count, setCount] = useState(job.every.slice(0, -1));
   const [unit, setUnit] = useState(job.every.slice(-1));
   const [time, setTime] = useState(job.at ?? "09:00");
   const [missed, setMissed] = useState<string>(job.missed_policy);
-  const valid = title.trim() !== "" && /^[1-9][0-9]{0,4}$/.test(count) &&
+  const valid =
+    title.trim() !== "" &&
+    /^[1-9][0-9]{0,4}$/.test(count) &&
     (unit !== "d" || time !== "");
   return (
     <Dialog
@@ -48,7 +52,8 @@ export function EditDialog(
                 every: `${count}${unit}`,
                 at: unit === "d" ? time : null,
                 missed_policy: missed as MissedPolicy,
-              })}
+              })
+            }
           >
             {t("settings.button.save")}
           </Button>
@@ -82,17 +87,15 @@ export function EditDialog(
             />
           </Field>
         </div>
-        {unit === "d"
-          ? (
-            <Field label={t("jobs.label.at")} help={t("jobs.note.at-help")}>
-              <Input
-                type="time"
-                value={time}
-                onChange={(event) => setTime(event.target.value)}
-              />
-            </Field>
-          )
-          : null}
+        {unit === "d" ? (
+          <Field label={t("jobs.label.at")} help={t("jobs.note.at-help")}>
+            <Input
+              type="time"
+              value={time}
+              onChange={(event) => setTime(event.target.value)}
+            />
+          </Field>
+        ) : null}
         <Field label={t("jobs.label.if-missed")}>
           <Select
             options={MISSED_OPTIONS.map((one) => ({

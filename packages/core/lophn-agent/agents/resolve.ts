@@ -120,9 +120,10 @@ export async function resolveAgent(
   if (operator && definition === null) {
     return err({ code: "not_found", message: "operator definition not found" });
   }
-  const given = operator && definition !== null && "name" in definition
-    ? definition.name
-    : undefined;
+  const given =
+    operator && definition !== null && "name" in definition
+      ? definition.name
+      : undefined;
   if (operator && (given === undefined || given.trim().length === 0)) {
     return invalid([{ field: "name", code: "required" }]);
   }
@@ -139,29 +140,33 @@ export async function resolveAgent(
   }
 
   const body = definition?.body ?? "";
-  const profile = definition !== null && "profile" in definition
-    ? definition.profile
-    : undefined;
+  const profile =
+    definition !== null && "profile" in definition
+      ? definition.profile
+      : undefined;
   const chosenSkills = definition?.skills ?? [];
   const mcpOff = definition?.mcp_off ?? [];
-  const chosenDomains = definition !== null && "domains" in definition
-    ? definition.domains ?? []
-    : [];
+  const chosenDomains =
+    definition !== null && "domains" in definition
+      ? (definition.domains ?? [])
+      : [];
   const domains = workingDomains(environment.domains, chosenDomains);
   const skills = receivedSkills(environment.skills, chosenSkills, domains);
-  const mcp = environment.mcp.filter((tool) =>
-    !mcpOff.some((off) =>
-      off.server_name === tool.server_name &&
-      (off.original_tool === undefined ||
-        off.original_tool === tool.original_tool)
-    )
+  const mcp = environment.mcp.filter(
+    (tool) =>
+      !mcpOff.some(
+        (off) =>
+          off.server_name === tool.server_name &&
+          (off.original_tool === undefined ||
+            off.original_tool === tool.original_tool),
+      ),
   );
 
   const value: Omit<ResolvedAgent, "hash"> = {
     agent: copy(agent),
     role,
     place: copy(place),
-    name: operator ? given as string : roles.builtinName(role) as string,
+    name: operator ? (given as string) : (roles.builtinName(role) as string),
     profile: copy(profile ?? environment.default_profile),
     agent_instructions: await sha256Hex(body),
     model: copy(chosen[0] as ModelChoice),
@@ -201,9 +206,9 @@ export function receivedSkills(
 ): string[] {
   return [
     ...new Set(
-      available.filter((skill) => skillReceived(skill, chosen, domains)).map((
-        skill,
-      ) => skill.name),
+      available
+        .filter((skill) => skillReceived(skill, chosen, domains))
+        .map((skill) => skill.name),
     ),
   ];
 }
@@ -212,9 +217,7 @@ function copy<T>(value: T): T {
   return structuredClone(value);
 }
 
-function invalid(
-  issues: AgentDefinitionIssue[],
-): Result<never, LophnError> {
+function invalid(issues: AgentDefinitionIssue[]): Result<never, LophnError> {
   return err({
     code: "invalid_input",
     message: "agent cannot be resolved",

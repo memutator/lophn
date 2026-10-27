@@ -43,9 +43,11 @@ export interface FilterBarProps {
 }
 
 // 그 결과 위에 놓는 한 줄. 칸이 좁으면 다음 줄로 넘긴다.
-export function FilterBar(
-  { children, dirty = false, onReset }: FilterBarProps,
-) {
+export function FilterBar({
+  children,
+  dirty = false,
+  onReset,
+}: FilterBarProps) {
   return (
     <div className={styles.bar} role="group" {...componentMark("FilterBar")}>
       {children}

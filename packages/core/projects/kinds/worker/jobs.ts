@@ -48,15 +48,14 @@ export function createKindsJobs(deps: KindsJobDeps) {
   const tails = new Map<string, Promise<void>>();
   const pending = new Map<string, Promise<unknown>>();
 
-  function enqueue<T>(
-    domain: string,
-    key: string,
-    run: () => T,
-  ): Promise<T> {
+  function enqueue<T>(domain: string, key: string, run: () => T): Promise<T> {
     const joined = pending.get(key);
     if (joined !== undefined) return joined as Promise<T>;
     const turn = (tails.get(domain) ?? Promise.resolve()).then(run);
-    const tail = turn.then(() => {}, () => {});
+    const tail = turn.then(
+      () => {},
+      () => {},
+    );
     tails.set(domain, tail);
     pending.set(key, turn);
     const done = () => {
@@ -87,9 +86,10 @@ export function createKindsJobs(deps: KindsJobDeps) {
     const applied = readApplied(sql, request.domain);
     return {
       status: state.status,
-      kinds: state.status.using === "none" || applied === undefined
-        ? null
-        : kindsOfText(applied.text),
+      kinds:
+        state.status.using === "none" || applied === undefined
+          ? null
+          : kindsOfText(applied.text),
       changed,
     };
   }
@@ -105,12 +105,15 @@ export function createKindsJobs(deps: KindsJobDeps) {
     return scanned.ok ? ok(read(request, scanned.value.changed)) : scanned;
   }
 
-  const job = <Req extends KindsJobRequest, T>(
-    op: string,
-    run: (request: Req) => Result<T>,
-  ) =>
-  (request: Req): Promise<Result<T>> =>
-    enqueue(request.domain, JSON.stringify([op, request]), () => run(request));
+  const job =
+    <Req extends KindsJobRequest, T>(
+      op: string,
+      run: (request: Req) => Result<T>,
+    ) =>
+    (request: Req): Promise<Result<T>> =>
+      enqueue(request.domain, JSON.stringify([op, request]), () =>
+        run(request),
+      );
 
   return {
     sync: job("sync", (request: KindsJobRequest): Result<KindsSyncResponse> => {
@@ -139,32 +142,38 @@ export function createKindsJobs(deps: KindsJobDeps) {
         kinds: loaded.kinds,
       });
     }),
-    list: job("list", (
-      request: KindsJobRequest & { query: Parameters<typeof listItems>[3] },
-    ) => {
-      const loaded = read(request, false);
-      if (loaded.kinds === null) {
-        return err({ code: "not_found", message: "no kinds file is in use" });
-      }
-      return listItems(
-        deps.store().sql,
-        request.domain,
-        loaded.kinds,
-        request.query,
-      );
-    }),
-    check: job("check", (
-      request: KindsJobRequest & {
-        query: Parameters<typeof listViolations>[2];
+    list: job(
+      "list",
+      (
+        request: KindsJobRequest & { query: Parameters<typeof listItems>[3] },
+      ) => {
+        const loaded = read(request, false);
+        if (loaded.kinds === null) {
+          return err({ code: "not_found", message: "no kinds file is in use" });
+        }
+        return listItems(
+          deps.store().sql,
+          request.domain,
+          loaded.kinds,
+          request.query,
+        );
       },
-    ) => {
-      const loaded = read(request, false);
-      const page = listViolations(
-        deps.store().sql,
-        request.domain,
-        request.query,
-      );
-      return page.ok ? ok({ status: loaded.status, ...page.value }) : page;
-    }),
+    ),
+    check: job(
+      "check",
+      (
+        request: KindsJobRequest & {
+          query: Parameters<typeof listViolations>[2];
+        },
+      ) => {
+        const loaded = read(request, false);
+        const page = listViolations(
+          deps.store().sql,
+          request.domain,
+          request.query,
+        );
+        return page.ok ? ok({ status: loaded.status, ...page.value }) : page;
+      },
+    ),
   };
 }

@@ -18,8 +18,10 @@ function atDefault(
   const without = schema.safeParse({ ...record, [field]: undefined });
   if (!without.success) return false;
   const data = without.data as Record<string, unknown> | undefined;
-  return data?.[field] !== undefined &&
-    canonicalize(data[field]) === canonicalize(value);
+  return (
+    data?.[field] !== undefined &&
+    canonicalize(data[field]) === canonicalize(value)
+  );
 }
 
 // route가 선언한 binding field만 내용 기준으로 묶는다. field 순서는 선언 순서를 따른다.

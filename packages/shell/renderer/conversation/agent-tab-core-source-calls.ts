@@ -39,11 +39,13 @@ export function cancelCallOf(
   env: Env,
   call: string,
 ): Promise<SourceResult<void>> {
-  return env.command(callCancel, {
-    input: { call },
-    compare: {},
-    key: `calls-cancel-${call}`,
-  }).then(dropValue);
+  return env
+    .command(callCancel, {
+      input: { call },
+      compare: {},
+      key: `calls-cancel-${call}`,
+    })
+    .then(dropValue);
 }
 
 // ---------------------------------------------------------------- call 블록
@@ -52,7 +54,7 @@ type Json = Record<string, unknown>;
 
 export function asRecord(value: unknown): Json | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? value as Json
+    ? (value as Json)
     : null;
 }
 
@@ -73,17 +75,19 @@ async function toLabel(env: Env, to: Json): Promise<string> {
     const role = roleLabel(read.value.agent.role);
     return read.value.title === null ? role : `${role} · ${read.value.title}`;
   }
-  const role = typeof to["role"] === "string"
-    ? roleLabel(to["role"] as Parameters<typeof roleLabel>[0])
-    : "";
+  const role =
+    typeof to["role"] === "string"
+      ? roleLabel(to["role"] as Parameters<typeof roleLabel>[0])
+      : "";
   const place = asRecord(to["place"]);
-  const where = typeof to["name"] === "string"
-    ? to["name"]
-    : typeof place?.["project"] === "string"
-    ? place["project"]
-    : typeof place?.["app"] === "string"
-    ? place["app"]
-    : "";
+  const where =
+    typeof to["name"] === "string"
+      ? to["name"]
+      : typeof place?.["project"] === "string"
+        ? place["project"]
+        : typeof place?.["app"] === "string"
+          ? place["app"]
+          : "";
   return [role, where].filter((part) => part !== "").join(" · ");
 }
 
@@ -99,10 +103,10 @@ export async function callViewOf(
   const read = await readCall(env, call);
   if (!read.ok) return null;
   const body = typeof given["body"] === "string" ? given["body"] : "";
-  const reply = typeof given["reply"] === "string" &&
-      REPLIES.includes(given["reply"])
-    ? given["reply"] as CallReply
-    : "none";
+  const reply =
+    typeof given["reply"] === "string" && REPLIES.includes(given["reply"])
+      ? (given["reply"] as CallReply)
+      : "none";
   return {
     call,
     to: await toLabel(env, asRecord(given["to"]) ?? {}),

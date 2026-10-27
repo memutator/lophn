@@ -7,15 +7,9 @@ import { assignmentRegistration } from "./assignment/mod.ts";
 
 export function createCoreRegistration() {
   return {
-    schemaSteps: [
-      ...assignmentRegistration.schemaSteps,
-    ],
-    commands: [
-      ...assignmentRegistration.commands,
-    ],
-    reads: [
-      ...assignmentRegistration.reads,
-    ],
+    schemaSteps: [...assignmentRegistration.schemaSteps],
+    commands: [...assignmentRegistration.commands],
+    reads: [...assignmentRegistration.reads],
     // handler는 wiring이 route 이름으로 붙인다.
     memoryRoutes: [turnRequestDecide, toolGateCheck],
   };

@@ -79,9 +79,7 @@ export type FileOpResult =
 
 /** `runs/list`의 거르기 칸. 같은 이름의 `ListRuns` 입력으로 간다. */
 export interface RunFilter {
-  readonly place?:
-    | { readonly project: string }
-    | { readonly app: string };
+  readonly place?: { readonly project: string } | { readonly app: string };
   readonly agent?: CallAgent;
 }
 
@@ -104,11 +102,11 @@ export interface WorkflowEntryView {
   /** 시작 dialog의 step 고르기. */
   readonly steps:
     | readonly {
-      readonly name: string;
-      readonly by: string;
-      readonly with: string | null;
-      readonly next: readonly string[];
-    }[]
+        readonly name: string;
+        readonly by: string;
+        readonly with: string | null;
+        readonly next: readonly string[];
+      }[]
     | null;
   readonly artifacts: {
     readonly static: boolean;
@@ -136,40 +134,38 @@ export type WorkflowLineBy =
 export type WorkflowStartedBy =
   | { readonly kind: "user" }
   | {
-    readonly kind: "job";
-    readonly job: string;
-    readonly title: string | null;
-  };
+      readonly kind: "job";
+      readonly job: string;
+      readonly title: string | null;
+    };
 
 /** instance 줄. 줄은 instance 안에서 1부터 이어 센다(seq는 글). */
-export type WorkflowLineView =
-  & {
-    readonly instance: string;
-    readonly seq: string;
-    readonly at: string;
-    readonly by: WorkflowLineBy;
-  }
-  & (
-    | {
+export type WorkflowLineView = {
+  readonly instance: string;
+  readonly seq: string;
+  readonly at: string;
+  readonly by: WorkflowLineBy;
+} & (
+  | {
       readonly kind: "started";
       /** flow는 시작 step이 없다. */
       readonly step: string | null;
       readonly text: string;
     }
-    | {
+  | {
       readonly kind: "report";
       readonly step: string;
       readonly text: string;
       readonly next: string | null;
       readonly session: "new" | "same";
     }
-    | {
+  | {
       readonly kind: "edit";
       readonly op: string;
       readonly step: string | null;
       readonly detail: unknown;
     }
-    | {
+  | {
       readonly kind: "handed";
       readonly step: string;
       readonly participant: string;
@@ -178,26 +174,26 @@ export type WorkflowLineView =
       readonly cause: "start" | "report" | "edit";
       readonly session: "new" | "same" | null;
     }
-    | {
+  | {
       readonly kind: "not_handed";
       readonly step: string;
       readonly reason: string;
       readonly message: string;
     }
-    | { readonly kind: "ended" }
-    | { readonly kind: "stopped" }
-    | {
+  | { readonly kind: "ended" }
+  | { readonly kind: "stopped" }
+  | {
       readonly kind: "lophn_restarted";
       /** flow는 step도 받은 쪽도 없다. */
       readonly step: string | null;
       readonly receiver: string | null;
     }
-    | {
+  | {
       readonly kind: "program_exited";
       readonly code: number | null;
       readonly stderr_tail: string;
     }
-  );
+);
 
 /** 시작할 때 선언에서 옮긴 instance. `state_seq`는 화면이 쓰지 않아 뺐다. */
 export interface WorkflowInstanceView {
@@ -295,9 +291,11 @@ export interface WorkspaceSource extends DomainActions {
    * `workflow`는 entry의 key다. 넘기지 못해도(not_handed) 줄이 남으므로 결과는 instance id만 돌려주고
    * 화면이 instance를 다시 읽어 보인다.
    */
-  startWorkflow(
-    input: { workflow: string; text: string; step?: string },
-  ): Promise<ReadResult<{ instance: string }>>;
+  startWorkflow(input: {
+    workflow: string;
+    text: string;
+    step?: string;
+  }): Promise<ReadResult<{ instance: string }>>;
   stopWorkflow(instance: string): Promise<ReadResult<null>>;
   /** 팔레트 파일 묶음. 문서로 잡힌 파일만 탭으로 열 수 있다. */
   files(project: string): Promise<ReadResult<readonly FileRow[]>>;

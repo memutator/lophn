@@ -24,43 +24,53 @@ function blockOf(annotation: Annotation): string {
     ["Element", elementText(annotation.element)],
     [
       "Area",
-      `x=${percent(rect.x_ratio)} y=${Math.round(rect.y_px)}px w=${
-        percent(rect.width_ratio)
-      } h=${Math.round(rect.height_px)}px`,
+      `x=${percent(rect.x_ratio)} y=${Math.round(rect.y_px)}px w=${percent(
+        rect.width_ratio,
+      )} h=${Math.round(rect.height_px)}px`,
     ],
     [
       "Screenshot",
       annotation.screenshot === null
         ? "not captured."
         : `open with image.read path "annotation:${annotation.id}". The selected ${
-          annotation.kind === "element" ? "element" : "area"
-        } is outlined in blue and marked ${annotation.n}.`,
+            annotation.kind === "element" ? "element" : "area"
+          } is outlined in blue and marked ${annotation.n}.`,
     ],
   ];
-  const body = lines.flatMap(([label, value]) =>
-    value === undefined ? [] : [`${label}: ${value}`]
-  ).join("\n");
+  const body = lines
+    .flatMap(([label, value]) =>
+      value === undefined ? [] : [`${label}: ${value}`],
+    )
+    .join("\n");
   const { target } = annotation;
-  const place = target.kind === "app"
-    ? {
-      app: target.app,
-      release: annotation.release ?? undefined,
-      view: annotation.view.screen ?? undefined,
-    }
-    : {
-      project: target.kind === "file" ? target.project : undefined,
-      artifact: target.kind === "artifact" ? target.name : undefined,
-      view: annotation.view.path,
-    };
-  return renderTag("annotation", {
-    n: annotation.n,
-    kind: annotation.kind,
-    ...place,
-  }, body);
+  const place =
+    target.kind === "app"
+      ? {
+          app: target.app,
+          release: annotation.release ?? undefined,
+          view: annotation.view.screen ?? undefined,
+        }
+      : {
+          project: target.kind === "file" ? target.project : undefined,
+          artifact: target.kind === "artifact" ? target.name : undefined,
+          view: annotation.view.path,
+        };
+  return renderTag(
+    "annotation",
+    {
+      n: annotation.n,
+      kind: annotation.kind,
+      ...place,
+    },
+    body,
+  );
 }
 
 export function renderAnnotationMessage(
   annotations: readonly Annotation[],
 ): string {
-  return [...annotations].sort((a, b) => a.n - b.n).map(blockOf).join("\n");
+  return [...annotations]
+    .sort((a, b) => a.n - b.n)
+    .map(blockOf)
+    .join("\n");
 }

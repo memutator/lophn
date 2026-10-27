@@ -44,8 +44,9 @@ export function declarationSdkNames(text: string): string[] {
       break;
     }
   }
-  return [...text.slice(open, close).matchAll(/\bname:\s*["']([^"']+)["']/g)]
-    .map((m) => m[1]!);
+  return [
+    ...text.slice(open, close).matchAll(/\bname:\s*["']([^"']+)["']/g),
+  ].map((m) => m[1]!);
 }
 
 const escapeRe = (text: string) =>
@@ -56,10 +57,13 @@ const escapeRe = (text: string) =>
 export function importsPackage(line: string, name: string): boolean {
   if (/^\s*(\/\/|\/\*|\*)/.test(line)) return false;
   const spec = `["']${escapeRe(name)}(?:/[^"']*)?["']`;
-  return new RegExp(`^\\s*(?:(?:import|export)\\b.*?|\\}\\s*)from\\s*${spec}`)
-    .test(line) ||
+  return (
+    new RegExp(`^\\s*(?:(?:import|export)\\b.*?|\\}\\s*)from\\s*${spec}`).test(
+      line,
+    ) ||
     new RegExp(`^\\s*import\\s*${spec}`).test(line) ||
-    new RegExp(`\\bimport\\(\\s*${spec}\\s*\\)`).test(line);
+    new RegExp(`\\bimport\\(\\s*${spec}\\s*\\)`).test(line)
+  );
 }
 
 // 한 줄이 name을 정의하는 줄인가. `import { name }`은 정의가 아니다.
@@ -88,7 +92,8 @@ function outputOf(
         code: code ?? -1,
         stdout: Buffer.concat(stdout),
         stderr: Buffer.concat(stderr),
-      }));
+      }),
+    );
   });
 }
 
@@ -136,9 +141,10 @@ async function grepFiles(
 ): Promise<Set<string>> {
   const out = await git(dir, ["grep", "-l", "-I", "-F", "-e", needle, commit]);
   return new Set(
-    out.split("\n").filter((l) => l !== "").map((l) =>
-      l.slice(commit.length + 1)
-    ),
+    out
+      .split("\n")
+      .filter((l) => l !== "")
+      .map((l) => l.slice(commit.length + 1)),
   );
 }
 
@@ -191,8 +197,8 @@ export function reuseChecks(spec: ReuseSpec): ProgramCheck[] {
     reuseCheck("reuse-app-connection", spec, async (core, src) => {
       const target = await findApp(core, notify.app);
       const declaration = await core.call(appTools, { app: src.app.id });
-      const hit = declaration.facts.app_connections.some((c) =>
-        c.app === target.id && c.tools.includes(notify.api)
+      const hit = declaration.facts.app_connections.some(
+        (c) => c.app === target.id && c.tools.includes(notify.api),
       );
       return {
         pass: hit,
@@ -210,19 +216,18 @@ export function reuseChecks(spec: ReuseSpec): ProgramCheck[] {
         ":(exclude)deno.lock",
         ":(exclude)tests",
       ]);
-      const importing = lines.filter((h) =>
-        !isTest(h.path) && importsPackage(h.text, pkg.name)
+      const importing = lines.filter(
+        (h) => !isTest(h.path) && importsPackage(h.text, pkg.name),
       );
       const connecting = await grepFiles(src.dir, src.commit, "connectTools");
       const naming = await grepFiles(src.dir, src.commit, notify.api);
-      const calling = [...connecting].filter((f) =>
-        naming.has(f) && !isTest(f)
+      const calling = [...connecting].filter(
+        (f) => naming.has(f) && !isTest(f),
       );
       const pass = importing.length > 0 && calling.length > 0;
       return {
         pass,
-        reason:
-          `${pkg.name} import ${importing.length}줄, ${notify.api} 호출 file ${calling.length}개`,
+        reason: `${pkg.name} import ${importing.length}줄, ${notify.api} 호출 file ${calling.length}개`,
       };
     }),
     reuseCheck("reuse-no-recreate", spec, async (_core, src) => {
@@ -236,9 +241,10 @@ export function reuseChecks(spec: ReuseSpec): ProgramCheck[] {
       }
       return {
         pass: defined.length === 0,
-        reason: defined.length === 0
-          ? "package의 export를 다시 정의하지 않음"
-          : `다시 정의함: ${defined.join(", ")}`,
+        reason:
+          defined.length === 0
+            ? "package의 export를 다시 정의하지 않음"
+            : `다시 정의함: ${defined.join(", ")}`,
       };
     }),
     reuseCheck("reuse-usage", spec, async (core, src) => {
@@ -253,15 +259,14 @@ export function reuseChecks(spec: ReuseSpec): ProgramCheck[] {
         name: pkg.name,
         version: last.version,
       });
-      const hit = usages.some((u) =>
-        u.app === src.app.id && u.release === src.release
+      const hit = usages.some(
+        (u) => u.app === src.app.id && u.release === src.release,
       );
       return {
         pass: hit,
-        reason:
-          `${pkg.name}@${last.version} 사용처 ${usages.length}개 중 이 앱의 active release ${
-            hit ? "있음" : "없음"
-          }`,
+        reason: `${pkg.name}@${last.version} 사용처 ${usages.length}개 중 이 앱의 active release ${
+          hit ? "있음" : "없음"
+        }`,
       };
     }),
   ];

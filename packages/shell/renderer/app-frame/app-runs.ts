@@ -39,14 +39,12 @@ export function useAppRuns(
       const result = await read();
       // 실패하면 빈 목록이다(`useAppAgents`가 실패를 무시하는 것과 같다).
       const records = result.ok ? result.value : [];
-      const known = new Map<
-        string,
-        { title: string | null; at: number }
-      >();
+      const known = new Map<string, { title: string | null; at: number }>();
       if (agentViewSource !== undefined) {
         await Promise.all(
-          agents.filter((agent) => agent.role !== "lophn").map(
-            async (agent) => {
+          agents
+            .filter((agent) => agent.role !== "lophn")
+            .map(async (agent) => {
               const sessionsRead = await agentViewSource({
                 assignment: agent.assignment,
                 place: { kind: "app", id: app },
@@ -58,8 +56,7 @@ export function useAppRuns(
                   at: Date.parse(entry.activeAt) || 0,
                 });
               }
-            },
-          ),
+            }),
         );
       }
       if (live) setLoaded({ records, known });
@@ -71,9 +68,9 @@ export function useAppRuns(
 
   return useMemo(() => {
     const operators = new Map(
-      agents.filter((agent) => agent.role === "operator").map((
-        agent,
-      ) => [agent.assignment, agent]),
+      agents
+        .filter((agent) => agent.role === "operator")
+        .map((agent) => [agent.assignment, agent]),
     );
     const engineer = agents.find((agent) => agent.role === "app_engineer");
     return [...loaded.records]
@@ -82,35 +79,41 @@ export function useAppRuns(
         const at = Date.parse(record.created_at);
         if ("tool" in record.target) {
           return record.target.app === app
-            ? [{
-              id: record.id,
-              name: record.job?.title ?? record.target.tool,
-              via: record.job === null ? null : record.target.tool,
-              profile: null,
-              state: record.state,
-              at,
-              session: null,
-            }]
+            ? [
+                {
+                  id: record.id,
+                  name: record.job?.title ?? record.target.tool,
+                  via: record.job === null ? null : record.target.tool,
+                  profile: null,
+                  state: record.state,
+                  at,
+                  session: null,
+                },
+              ]
             : [];
         }
         const target = record.target.agent;
-        const agent = target.role === "app_engineer" && target.app === app
-          ? engineer
-          : target.role === "operator"
-          ? operators.get(target.agent)
-          : undefined;
+        const agent =
+          target.role === "app_engineer" && target.app === app
+            ? engineer
+            : target.role === "operator"
+              ? operators.get(target.agent)
+              : undefined;
         if (agent === undefined) return [];
-        return [{
-          id: record.id,
-          name: record.job?.title ?? agent.name,
-          via: record.job === null ? null : agent.name,
-          profile: agent.profile,
-          state: record.state,
-          at,
-          session: record.session_opened && record.session !== null
-            ? panelSessionOf(record.session, agent, at, loaded, sessions)
-            : null,
-        }];
+        return [
+          {
+            id: record.id,
+            name: record.job?.title ?? agent.name,
+            via: record.job === null ? null : agent.name,
+            profile: agent.profile,
+            state: record.state,
+            at,
+            session:
+              record.session_opened && record.session !== null
+                ? panelSessionOf(record.session, agent, at, loaded, sessions)
+                : null,
+          },
+        ];
       });
   }, [loaded, sessions, agents, app]);
 }
@@ -128,11 +131,12 @@ function panelSessionOf(
     id,
     title: read?.title ?? t("conversation.label.session-untitled"),
     agent: agent.assignment,
-    status: entry?.state === "waiting"
-      ? "waiting"
-      : entry?.state === "running"
-      ? "working"
-      : "idle",
+    status:
+      entry?.state === "waiting"
+        ? "waiting"
+        : entry?.state === "running"
+          ? "working"
+          : "idle",
     open: entry !== undefined && entry.ended === null,
     // 대화 source가 시각을 모르면 run을 시작한 때다.
     at: read?.at ?? runAt,

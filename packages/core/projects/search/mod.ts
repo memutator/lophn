@@ -40,18 +40,20 @@ export function projectSearchRead(
         if (!decoded.ok) return decoded;
         start = decoded.value;
       }
-      const found = await scan({
-        scope: scope.value,
-        query,
-        cursor: start,
-        limit: pageLimit(limit),
-      }, deps);
+      const found = await scan(
+        {
+          scope: scope.value,
+          query,
+          cursor: start,
+          limit: pageLimit(limit),
+        },
+        deps,
+      );
       if (!found.ok) return found;
       return ok({
         matches: found.value.matches,
-        next_cursor: found.value.next === null
-          ? null
-          : encodeCursor(found.value.next),
+        next_cursor:
+          found.value.next === null ? null : encodeCursor(found.value.next),
         as_of_seq: loaded.value.asOfSeq,
       });
     },

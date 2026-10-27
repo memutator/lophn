@@ -36,12 +36,14 @@ function nextGrantCursor(
   status: AppGrant["status"] | undefined,
   limit: number,
 ): string {
-  return btoa(JSON.stringify({
-    offset,
-    app: app ?? null,
-    status: status ?? null,
-    limit,
-  }));
+  return btoa(
+    JSON.stringify({
+      offset,
+      app: app ?? null,
+      status: status ?? null,
+      limit,
+    }),
+  );
 }
 
 function grantPageOffset(
@@ -137,9 +139,10 @@ export function createGrantsReads(): {
         return ok({
           grants: page,
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: next < head
-            ? nextGrantCursor(next, input.app, input.status, limit)
-            : null,
+          next_cursor:
+            next < head
+              ? nextGrantCursor(next, input.app, input.status, limit)
+              : null,
         });
       },
     },

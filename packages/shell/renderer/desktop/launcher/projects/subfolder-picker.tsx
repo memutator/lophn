@@ -33,9 +33,14 @@ const childPath = (parent: string, name: string) =>
   parent === ROOT ? name : `${parent}/${name}`;
 
 // 등록 폴더 안만 한 단계씩 읽어 펼친다. OS 폴더 선택기가 아니라 목록이라 등록 폴더 밖으로 나갈 길이 없다.
-export function SubfolderPicker(
-  { open, root, added, source, onClose, onAdd }: SubfolderPickerProps,
-) {
+export function SubfolderPicker({
+  open,
+  root,
+  added,
+  source,
+  onClose,
+  onAdd,
+}: SubfolderPickerProps) {
   const [children, setChildren] = useState<Children>({});
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(
     new Set([ROOT]),
@@ -112,23 +117,20 @@ export function SubfolderPicker(
               data-pick={path}
               onClick={() => setSelected(path)}
             >
-              <Icon
-                icon={launcherIcons.project}
-                pixels={iconPixels("base")}
-              />
+              <Icon icon={launcherIcons.project} pixels={iconPixels("base")} />
               <span>{`${name}/`}</span>
-              {isAdded
-                ? (
-                  <span className={styles.caption}>
-                    {t("projects.label.added")}
-                  </span>
-                )
-                : null}
+              {isAdded ? (
+                <span className={styles.caption}>
+                  {t("projects.label.added")}
+                </span>
+              ) : null}
             </button>
           </div>
-          {isOpen
-            ? <ul role="group" className={styles.group}>{rows(path)}</ul>
-            : null}
+          {isOpen ? (
+            <ul role="group" className={styles.group}>
+              {rows(path)}
+            </ul>
+          ) : null}
         </li>
       );
     });
@@ -161,16 +163,16 @@ export function SubfolderPicker(
       }
     >
       <div className={formStyles.form}>
-        <p className={formStyles.note}>
-          {t("projects.notice.pick-subfolder")}
-        </p>
+        <p className={formStyles.note}>{t("projects.notice.pick-subfolder")}</p>
         <ul className={styles.tree} role="tree">
           <li>
             <div className={`${styles.row} ${styles.root}`}>
               <Icon icon={launcherIcons.project} pixels={iconPixels("base")} />
               <span className={styles.mono}>{root}</span>
             </div>
-            <ul role="group" className={styles.group}>{rows(ROOT)}</ul>
+            <ul role="group" className={styles.group}>
+              {rows(ROOT)}
+            </ul>
           </li>
         </ul>
         <Field label={t("projects.label.subfolder-description")}>

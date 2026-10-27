@@ -19,8 +19,10 @@ const EXPERIMENT_NAMES: Record<string, string> = {
 /** 문서 경로. 객체 id에서 원본 문서의 경로를 만든다. */
 export const findingPath = (id: string) => `loop/findings/${id}.md`;
 export const experimentPath = (id: string) =>
-  `eval/experiments/${id}-${(EXPERIMENT_NAMES[id] ?? "").replace(/ /g, "-")}.md`
-    .replace(/-\.md$/, ".md");
+  `eval/experiments/${id}-${(EXPERIMENT_NAMES[id] ?? "").replace(/ /g, "-")}.md`.replace(
+    /-\.md$/,
+    ".md",
+  );
 
 /**
  * 탭을 여는 요청. 문서 탭의 key는 파일 경로라서 이미 열린 파일이면 그 탭을 고른다. project 밖 파일은 절대 경로다.
@@ -30,7 +32,9 @@ export const documentTab = (path: string, file?: FileInit): TabSpec => ({
   key: `doc:${path}`,
   kind: "document",
   // scenario의 yaml은 파일 이름이 모두 r1.yaml이라 scenario 이름까지 보인다.
-  title: path.split("/").slice(/^eval\/scenarios\//.test(path) ? -2 : -1)
+  title: path
+    .split("/")
+    .slice(/^eval\/scenarios\//.test(path) ? -2 : -1)
     .join("/"),
   sub: path,
   file,

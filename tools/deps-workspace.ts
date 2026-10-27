@@ -66,9 +66,7 @@ export async function readMembers(
   return membersOf(workspace, configs);
 }
 
-function workspaceMatcher(
-  workspace: string[],
-): (directory: string) => boolean {
+function workspaceMatcher(workspace: string[]): (directory: string) => boolean {
   const patterns = workspace.map(glob);
   return (directory) => patterns.some((pattern) => pattern.test(directory));
 }
@@ -95,25 +93,32 @@ export function resolveWorkspace(
   specifier: string,
   members: Member[],
 ): string | undefined {
-  const member = members.filter((member) =>
-    member.name &&
-    (specifier === member.name || specifier.startsWith(member.name + "/"))
-  ).sort((a, b) => b.name!.length - a.name!.length)[0];
+  const member = members
+    .filter(
+      (member) =>
+        member.name &&
+        (specifier === member.name || specifier.startsWith(member.name + "/")),
+    )
+    .sort((a, b) => b.name!.length - a.name!.length)[0];
   if (!member) return;
-  const key = specifier === member.name
-    ? "."
-    : `.${specifier.slice(member.name!.length)}`;
-  const exports = typeof member.exports === "string"
-    ? { ".": member.exports }
-    : member.exports ?? {};
+  const key =
+    specifier === member.name
+      ? "."
+      : `.${specifier.slice(member.name!.length)}`;
+  const exports =
+    typeof member.exports === "string"
+      ? { ".": member.exports }
+      : (member.exports ?? {});
   let target = exports[key];
   if (!target) {
     for (const [pattern, value] of Object.entries(exports)) {
       const star = pattern.indexOf("*");
       if (
-        star < 0 || !key.startsWith(pattern.slice(0, star)) ||
+        star < 0 ||
+        !key.startsWith(pattern.slice(0, star)) ||
         !key.endsWith(pattern.slice(star + 1))
-      ) continue;
+      )
+        continue;
       const match = key.slice(star, key.length - (pattern.length - star - 1));
       target = value.replaceAll("*", match);
       break;

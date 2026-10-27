@@ -210,21 +210,21 @@ export function loadSession(
 }
 
 // 열린 session 전부. archive한 session은 빼고 연 순서다.
-export function openSessions(
-  lookup: {
-    sql: { all: (query: string, params: SqlParams) => SqlRow[] };
-  },
-): AgentSessionRow[] {
-  return lookup.sql.all(
-    `select ${SESSION_COLUMNS} from sessions where lifecycle = 'open' order by created_seq`,
-    [],
-  ).map(sessionRowOf);
+export function openSessions(lookup: {
+  sql: { all: (query: string, params: SqlParams) => SqlRow[] };
+}): AgentSessionRow[] {
+  return lookup.sql
+    .all(
+      `select ${SESSION_COLUMNS} from sessions where lifecycle = 'open' order by created_seq`,
+      [],
+    )
+    .map(sessionRowOf);
 }
 
 export function placeOf(row: AgentSessionRow): Place | null {
   return row.place_kind === null || row.place_id === null
     ? null
-    : { kind: row.place_kind, id: row.place_id } as Place;
+    : ({ kind: row.place_kind, id: row.place_id } as Place);
 }
 
 export function agentRefOf(row: AgentSessionRow): AgentRef {
@@ -232,9 +232,10 @@ export function agentRefOf(row: AgentSessionRow): AgentRef {
 }
 
 // 같은 agent인지 가르는 조건. 정체성 열은 role이 정한다.
-export function agentClause(
-  agent: AgentRef,
-): { sql: string; params: string[] } {
+export function agentClause(agent: AgentRef): {
+  sql: string;
+  params: string[];
+} {
   const { role, column, value } = agentIdentityOf(agent);
   return column === null
     ? { sql: "role = ?", params: [role] }
@@ -246,7 +247,7 @@ export function modelSelectionOf(
 ): AgentSession["model_selection"] {
   return row.model_selection === null
     ? null
-    : JSON.parse(row.model_selection) as AgentSession["model_selection"];
+    : (JSON.parse(row.model_selection) as AgentSession["model_selection"]);
 }
 
 export function agentSessionOf(row: AgentSessionRow): AgentSession {
@@ -256,21 +257,22 @@ export function agentSessionOf(row: AgentSessionRow): AgentSession {
     place: placeOf(row),
     title: row.title,
     lifecycle: row.lifecycle,
-    forked_from: row.forked_from_session === null ||
-        row.forked_from_through_seq === null
-      ? null
-      : {
-        session: row.forked_from_session,
-        through_seq: row.forked_from_through_seq,
-      },
+    forked_from:
+      row.forked_from_session === null || row.forked_from_through_seq === null
+        ? null
+        : {
+            session: row.forked_from_session,
+            through_seq: row.forked_from_through_seq,
+          },
     model_selection: modelSelectionOf(row),
-    compaction: row.compaction_through_seq === null ||
-        row.compaction_summary_call === null
-      ? null
-      : {
-        through_seq: row.compaction_through_seq,
-        summary_call: row.compaction_summary_call,
-      },
+    compaction:
+      row.compaction_through_seq === null ||
+      row.compaction_summary_call === null
+        ? null
+        : {
+            through_seq: row.compaction_through_seq,
+            summary_call: row.compaction_summary_call,
+          },
     skip: row.skip,
     state_seq: row.state_seq,
   } as AgentSession;
@@ -355,11 +357,12 @@ export function loadMessage(
 
 // 받은 봉투의 보낸 쪽. 사람과 program은 근거가 없고, 나머지는 보낸 session이다.
 export function receivedMessageOf(row: MessageRow): ReceivedMessage {
-  const from = row.from_kind === "human"
-    ? { kind: "human" as const }
-    : row.from_kind === "program"
-    ? { kind: "program" as const }
-    : { kind: row.from_kind, session: row.from_ref! };
+  const from =
+    row.from_kind === "human"
+      ? { kind: "human" as const }
+      : row.from_kind === "program"
+        ? { kind: "program" as const }
+        : { kind: row.from_kind, session: row.from_ref! };
   return {
     id: row.id,
     session: row.session,
@@ -370,9 +373,10 @@ export function receivedMessageOf(row: MessageRow): ReceivedMessage {
     reply: row.reply,
     event: row.event,
     fail_reason: row.fail_reason,
-    step: row.step_instance === null
-      ? null
-      : { instance: row.step_instance, step: row.step_name! },
+    step:
+      row.step_instance === null
+        ? null
+        : { instance: row.step_instance, step: row.step_name! },
     turn: row.turn,
     delivery: row.delivery,
     body: row.body,
@@ -399,10 +403,12 @@ export function openCompactRequest(
 
 // 도는 turn이 있는지.
 export function hasUnfinishedTurn(lookup: Lookup, session: string): boolean {
-  return lookup.sql.get(
-    "select 1 as found from turns where session = ? and state = 'running' limit 1",
-    [session],
-  ) !== undefined;
+  return (
+    lookup.sql.get(
+      "select 1 as found from turns where session = ? and state = 'running' limit 1",
+      [session],
+    ) !== undefined
+  );
 }
 
 // 도는 turn의 model 요청에 반영한 steer(입력함에서 지금 올린 것 포함)를 그 turn이 가져간 것으로 적는다. 반영은 StartModelCall과 같은 tx다.
@@ -418,10 +424,10 @@ export function takeSteering(
     return err({ code: "not_found", message: "model call not found" });
   }
   for (const message of input.messages) {
-    tx.sql.run(
-      "update messages set turn = ? where id = ? and turn is null",
-      [call["turn"], message],
-    );
+    tx.sql.run("update messages set turn = ? where id = ? and turn is null", [
+      call["turn"],
+      message,
+    ]);
   }
   return ok(undefined);
 }

@@ -13,9 +13,11 @@ export function lineDiff(a: string, b: string, context = 2): string {
   while (head < x.length && head < y.length && x[head] === y[head]) head++;
   let tail = 0;
   while (
-    tail < x.length - head && tail < y.length - head &&
+    tail < x.length - head &&
+    tail < y.length - head &&
     x[x.length - 1 - tail] === y[y.length - 1 - tail]
-  ) tail++;
+  )
+    tail++;
   const xm = x.slice(head, x.length - tail);
   const ym = y.slice(head, y.length - tail);
 
@@ -23,9 +25,10 @@ export function lineDiff(a: string, b: string, context = 2): string {
   const lcs = new Uint32Array((xm.length + 1) * w);
   for (let i = xm.length - 1; i >= 0; i--) {
     for (let j = ym.length - 1; j >= 0; j--) {
-      lcs[i * w + j] = xm[i] === ym[j]
-        ? lcs[(i + 1) * w + j + 1] + 1
-        : Math.max(lcs[(i + 1) * w + j], lcs[i * w + j + 1]);
+      lcs[i * w + j] =
+        xm[i] === ym[j]
+          ? lcs[(i + 1) * w + j + 1] + 1
+          : Math.max(lcs[(i + 1) * w + j], lcs[i * w + j + 1]);
     }
   }
   const ops: Op[] = x.slice(0, head).map((s) => ({ t: " ", s }));
@@ -39,7 +42,8 @@ export function lineDiff(a: string, b: string, context = 2): string {
     } else if (
       j >= ym.length ||
       (i < xm.length && lcs[(i + 1) * w + j] >= lcs[i * w + j + 1])
-    ) ops.push({ t: "-", s: xm[i++] });
+    )
+      ops.push({ t: "-", s: xm[i++] });
     else ops.push({ t: "+", s: ym[j++] });
   }
   ops.push(...x.slice(x.length - tail).map((s) => ({ t: " " as const, s })));
@@ -52,7 +56,8 @@ export function lineDiff(a: string, b: string, context = 2): string {
       let m = Math.max(0, k - context);
       m <= Math.min(ops.length - 1, k + context);
       m++
-    ) keep[m] = true;
+    )
+      keep[m] = true;
   });
   if (!ops.some((op) => op.t !== " ")) return "";
   const out: string[] = [];
@@ -88,9 +93,9 @@ async function contentDiff(
   const fa = contentFiles(x);
   const fb = contentFiles(y);
   const blocks: string[] = [];
-  for (
-    const path of [...new Set([...Object.keys(fa), ...Object.keys(fb)])].sort()
-  ) {
+  for (const path of [
+    ...new Set([...Object.keys(fa), ...Object.keys(fb)]),
+  ].sort()) {
     const d = lineDiff(fa[path] ?? "", fb[path] ?? "");
     if (d !== "") {
       blocks.push(
@@ -152,11 +157,14 @@ function checkSection(a: RunRecord, b: RunRecord): string[] {
   const text = (v?: { passed: number; of: number }) =>
     v === undefined ? "-" : `${v.passed}/${v.of}`;
   const verdicts = (r: RunRecord, id: string) =>
-    r.trials.flatMap((t) => t.judge).filter((j) => j.check === id).map((j) =>
-      j.state === "pending"
-        ? "대기"
-        : `${j.verdict ?? "error"}(${j.model ?? "-"})`
-    );
+    r.trials
+      .flatMap((t) => t.judge)
+      .filter((j) => j.check === id)
+      .map((j) =>
+        j.state === "pending"
+          ? "대기"
+          : `${j.verdict ?? "error"}(${j.model ?? "-"})`,
+      );
   const lines = ["| check | a | b | |", "|---|---|---|---|"];
   for (const id of new Set([...ta.keys(), ...tb.keys()])) {
     const sa = text(ta.get(id));
@@ -230,11 +238,9 @@ function metricsSection(a: RunRecord, b: RunRecord): string[] {
 // 다른 model이 채점한 run은 grader가 달라 따로 보인다.
 function judgeModelChange(a: RunRecord, b: RunRecord): string[] {
   const models = (r: RunRecord) =>
-    [
-      ...new Set(
-        r.trials.flatMap((t) => t.judge).map((j) => j.model ?? "대기"),
-      ),
-    ].sort().join(", ");
+    [...new Set(r.trials.flatMap((t) => t.judge).map((j) => j.model ?? "대기"))]
+      .sort()
+      .join(", ");
   const [x, y] = [models(a), models(b)];
   return x === y ? [] : [`judge model ${x || "-"} / ${y || "-"}`];
 }
@@ -244,8 +250,8 @@ export async function diffRuns(
   b: RunRecord,
   deps: { registryDir: string },
 ): Promise<string> {
-  const sameScenario = a.scenario.name === b.scenario.name &&
-    a.scenario.n === b.scenario.n;
+  const sameScenario =
+    a.scenario.name === b.scenario.name && a.scenario.n === b.scenario.n;
   const other = [
     ...versionChanges("materials", a.materials, b.materials),
     ...versionChanges("core", [a.core], [b.core]),

@@ -26,7 +26,8 @@ export async function createLogFiles(root: string): Promise<{
   const rootInfo = await lstat(canonical);
   const directoryInfo = await lstat(directory);
   if (
-    !rootInfo.isDirectory() || !directoryInfo.isDirectory() ||
+    !rootInfo.isDirectory() ||
+    !directoryInfo.isDirectory() ||
     directoryInfo.isSymbolicLink()
   ) {
     throw new Error("unsafe log directory");
@@ -36,14 +37,17 @@ export async function createLogFiles(root: string): Promise<{
     (_, i) => `${directory}/platform-${i}.jsonl`,
   );
   async function guard() {
-    if (await realpath(canonical) !== canonical) {
+    if ((await realpath(canonical)) !== canonical) {
       throw new Error("unsafe root");
     }
     const current = await lstat(directory);
     if (
-      !current.isDirectory() || current.isSymbolicLink() ||
-      current.ino !== directoryInfo.ino || current.dev !== directoryInfo.dev
-    ) throw new Error("log directory changed");
+      !current.isDirectory() ||
+      current.isSymbolicLink() ||
+      current.ino !== directoryInfo.ino ||
+      current.dev !== directoryInfo.dev
+    )
+      throw new Error("log directory changed");
     for (const path of paths) {
       try {
         const info = await lstat(path);
@@ -101,13 +105,16 @@ export async function createLogFiles(root: string): Promise<{
         }
         file = await open(
           paths[0],
-          constants.O_WRONLY | constants.O_APPEND |
-            constants.O_CREAT | constants.O_NOFOLLOW,
+          constants.O_WRONLY |
+            constants.O_APPEND |
+            constants.O_CREAT |
+            constants.O_NOFOLLOW,
           0o600,
         );
         const info = await file.stat();
         if (
-          !info.isFile() || info.nlink !== 1 ||
+          !info.isFile() ||
+          info.nlink !== 1 ||
           info.size + bytes.length > LOG_FILE_MAX_BYTES
         ) {
           throw new Error("unsafe log file");
@@ -120,9 +127,11 @@ export async function createLogFiles(root: string): Promise<{
             bytes.length - offset,
           );
           if (
-            !Number.isSafeInteger(bytesWritten) || bytesWritten < 1 ||
+            !Number.isSafeInteger(bytesWritten) ||
+            bytesWritten < 1 ||
             bytesWritten > bytes.length - offset
-          ) throw new Error("invalid log write count");
+          )
+            throw new Error("invalid log write count");
           offset += bytesWritten;
         }
       } finally {

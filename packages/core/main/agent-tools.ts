@@ -20,9 +20,9 @@ const DECLARED_ORDER = new Map<string, number>(
   TOOL_ORDER.map((name, at) => [name, at]),
 );
 
-export function agentTools(
-  hooks: { file: FileHooks },
-): readonly ToolDefinition[] {
+export function agentTools(hooks: {
+  file: FileHooks;
+}): readonly ToolDefinition[] {
   const all = [
     ...createFileTools(hooks.file),
     ...SHELL_TOOLS,

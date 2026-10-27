@@ -10,11 +10,13 @@ export const codingMessageSend = defineMemory({
   method: "send_message",
   name: "coding.send_message",
   input: z.strictObject({
-    body: z.string().refine(
-      (value) =>
-        /\S/.test(value) && [...value].length <= MESSAGE_MAX_CODE_POINTS,
-      { message: "message length" },
-    ),
+    body: z
+      .string()
+      .refine(
+        (value) =>
+          /\S/.test(value) && [...value].length <= MESSAGE_MAX_CODE_POINTS,
+        { message: "message length" },
+      ),
   }),
   output: z.object({ accepted: z.literal(true) }),
   actors: ["coding_agent"],

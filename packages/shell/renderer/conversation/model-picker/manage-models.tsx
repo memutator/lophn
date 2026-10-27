@@ -29,11 +29,7 @@ export interface ManageModelsProps {
   onClose: () => void;
   /** [Connect provider]. 연결 대화창이 이 창 위에 열린다. */
   onConnect: () => void;
-  onToggleModel: (
-    provider: string,
-    modelName: string,
-    hidden: boolean,
-  ) => void;
+  onToggleModel: (provider: string, modelName: string, hidden: boolean) => void;
   /** provider toggle. 그 provider의 지금 model 전부를 끄거나(hidden) 켠다. */
   onToggleProvider: (provider: string, hidden: boolean) => void;
   /** custom provider의 목록을 다시 읽는다. 성공하면 true다. 실패해도 앞 목록은 그대로다. */
@@ -62,9 +58,10 @@ interface FormTarget {
 /** context 한도의 짧은 글: 131072는 128K, 1000000은 1M. 1024의 배수는 1024로, 아니면 1000으로 센다. */
 function shortLimit(limit: number): string {
   const scaled = (binary: number, decimal: number, mark: string) => {
-    const value = limit % binary === 0
-      ? limit / binary
-      : Math.round(limit / decimal * 10) / 10;
+    const value =
+      limit % binary === 0
+        ? limit / binary
+        : Math.round((limit / decimal) * 10) / 10;
     return `${value}${mark}`;
   };
   if (limit >= 1_000_000) return scaled(1_048_576, 1_000_000, "M");
@@ -76,30 +73,25 @@ function shortLimit(limit: number): string {
 function ModelFacts({ model }: { model: ManageModelView }) {
   return (
     <>
-      {model.inputMedia === null
-        ? null
-        : (
-          <span className={styles.media} data-manage-section="media">
-            {model.inputMedia.map((media) => {
-              const name = t(`conversation.label.media-${media}`);
-              return (
-                <Tooltip key={media} content={name}>
-                  <span
-                    className={styles.mediaIcon}
-                    role="img"
-                    aria-label={name}
-                    tabIndex={0}
-                  >
-                    <Icon
-                      icon={modelIcons[media]}
-                      pixels={iconPixels("base")}
-                    />
-                  </span>
-                </Tooltip>
-              );
-            })}
-          </span>
-        )}
+      {model.inputMedia === null ? null : (
+        <span className={styles.media} data-manage-section="media">
+          {model.inputMedia.map((media) => {
+            const name = t(`conversation.label.media-${media}`);
+            return (
+              <Tooltip key={media} content={name}>
+                <span
+                  className={styles.mediaIcon}
+                  role="img"
+                  aria-label={name}
+                  tabIndex={0}
+                >
+                  <Icon icon={modelIcons[media]} pixels={iconPixels("base")} />
+                </span>
+              </Tooltip>
+            );
+          })}
+        </span>
+      )}
       {model.contextLimit === null ? null : (
         <Tooltip
           content={t("conversation.label.model-context", {
@@ -116,14 +108,17 @@ function ModelFacts({ model }: { model: ManageModelView }) {
 }
 
 /** Switch의 라벨은 눈에는 숨기고 화면 읽기용으로만 둔다. */
-function Toggle(
-  { label, on, disabled, onChange }: {
-    label: string;
-    on: boolean;
-    disabled?: boolean;
-    onChange: (on: boolean) => void;
-  },
-) {
+function Toggle({
+  label,
+  on,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  on: boolean;
+  disabled?: boolean;
+  onChange: (on: boolean) => void;
+}) {
   return (
     <span className={`${styles.toggleCell} ${styles.hiddenLabel}`}>
       <Switch
@@ -136,19 +131,24 @@ function Toggle(
   );
 }
 
-function ProviderGroup(
-  { provider, query, busy, props, onRefresh, onForm }: {
-    provider: ManageProviderView;
-    query: string;
-    busy: boolean;
-    props: ManageModelsProps;
-    onRefresh: (provider: string) => void;
-    onForm: (target: FormTarget) => void;
-  },
-) {
+function ProviderGroup({
+  provider,
+  query,
+  busy,
+  props,
+  onRefresh,
+  onForm,
+}: {
+  provider: ManageProviderView;
+  query: string;
+  busy: boolean;
+  props: ManageModelsProps;
+  onRefresh: (provider: string) => void;
+  onForm: (target: FormTarget) => void;
+}) {
   const needle = query.trim().toLowerCase();
-  const shown = provider.models.filter((model) =>
-    needle === "" || model.modelName.toLowerCase().includes(needle)
+  const shown = provider.models.filter(
+    (model) => needle === "" || model.modelName.toLowerCase().includes(needle),
   );
   // 검색 중에는 맞는 model이 없는 묶음을 숨긴다.
   if (needle !== "" && shown.length === 0) return null;
@@ -161,19 +161,17 @@ function ProviderGroup(
     >
       <div className={styles.groupHead}>
         <ProviderHeading label={provider.name} />
-        {provider.refreshable
-          ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              data-refresh-models=""
-              disabled={busy}
-              onClick={() => onRefresh(provider.id)}
-            >
-              {t("conversation.button.refresh-models")}
-            </Button>
-          )
-          : null}
+        {provider.refreshable ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            data-refresh-models=""
+            disabled={busy}
+            onClick={() => onRefresh(provider.id)}
+          >
+            {t("conversation.button.refresh-models")}
+          </Button>
+        ) : null}
         <Toggle
           label={t("conversation.label.provider-toggle", {
             provider: provider.name,
@@ -183,13 +181,11 @@ function ProviderGroup(
           onChange={(on) => props.onToggleProvider(provider.id, !on)}
         />
       </div>
-      {provider.models.length === 0
-        ? (
-          <p className={styles.note}>
-            {t("conversation.notice.no-listed-models")}
-          </p>
-        )
-        : null}
+      {provider.models.length === 0 ? (
+        <p className={styles.note}>
+          {t("conversation.notice.no-listed-models")}
+        </p>
+      ) : null}
       {shown.map((model) => (
         <div
           key={model.modelName}
@@ -198,48 +194,45 @@ function ProviderGroup(
         >
           <span className={styles.name}>{model.modelName}</span>
           <ModelFacts model={model} />
-          {provider.editable
-            ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                data-edit-model=""
-                onClick={() =>
-                  onForm({
-                    provider: provider.id,
-                    modelName: model.modelName,
-                    info: model.info,
-                  })}
-              >
-                {t("conversation.button.edit-model")}
-              </Button>
-            )
-            : null}
+          {provider.editable ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              data-edit-model=""
+              onClick={() =>
+                onForm({
+                  provider: provider.id,
+                  modelName: model.modelName,
+                  info: model.info,
+                })
+              }
+            >
+              {t("conversation.button.edit-model")}
+            </Button>
+          ) : null}
           <Toggle
             label={model.modelName}
             on={!model.hidden}
             onChange={(on) =>
-              props.onToggleModel(provider.id, model.modelName, !on)}
+              props.onToggleModel(provider.id, model.modelName, !on)
+            }
           />
         </div>
       ))}
-      {provider.editable && needle === ""
-        ? (
-          <div className={styles.addModel} data-manage-section="add-model">
-            <p className={styles.note}>
-              {t("conversation.notice.custom-model")}
-            </p>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() =>
-                onForm({ provider: provider.id, modelName: null, info: null })}
-            >
-              {t("conversation.button.add-model")}
-            </Button>
-          </div>
-        )
-        : null}
+      {provider.editable && needle === "" ? (
+        <div className={styles.addModel} data-manage-section="add-model">
+          <p className={styles.note}>{t("conversation.notice.custom-model")}</p>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() =>
+              onForm({ provider: provider.id, modelName: null, info: null })
+            }
+          >
+            {t("conversation.button.add-model")}
+          </Button>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -252,7 +245,7 @@ export function ManageModelsDialog(props: ManageModelsProps) {
   const [form, setForm] = useState<FormTarget | null>(() =>
     props.initialForm === undefined
       ? null
-      : { ...props.initialForm, modelName: null, info: null }
+      : { ...props.initialForm, modelName: null, info: null },
   );
   const refresh = async (provider: string) => {
     setBusy(true);
@@ -300,27 +293,23 @@ export function ManageModelsDialog(props: ManageModelsProps) {
               onChange={(event) => setQuery(event.currentTarget.value)}
             />
           </Field>
-          {refreshFailed || props.loadFailed
-            ? (
-              <p
-                className={styles.note}
-                role="status"
-                data-manage-section="problem"
-              >
-                {props.loadFailed
-                  ? t("conversation.error.load-models")
-                  : t("conversation.error.refresh-models")}
-              </p>
-            )
-            : null}
+          {refreshFailed || props.loadFailed ? (
+            <p
+              className={styles.note}
+              role="status"
+              data-manage-section="problem"
+            >
+              {props.loadFailed
+                ? t("conversation.error.load-models")
+                : t("conversation.error.refresh-models")}
+            </p>
+          ) : null}
           <div className={styles.list}>
-            {props.providers !== null && props.providers.length === 0
-              ? (
-                <p className={styles.note}>
-                  {t("conversation.notice.no-providers")}
-                </p>
-              )
-              : null}
+            {props.providers !== null && props.providers.length === 0 ? (
+              <p className={styles.note}>
+                {t("conversation.notice.no-providers")}
+              </p>
+            ) : null}
             {(props.providers ?? []).map((provider) => (
               <ProviderGroup
                 key={provider.id}
@@ -342,9 +331,11 @@ export function ManageModelsDialog(props: ManageModelsProps) {
           lead={form.lead}
           onClose={() => setForm(null)}
           onSave={(modelName, info) =>
-            props.onSaveInfo(form.provider, modelName, info)}
+            props.onSaveInfo(form.provider, modelName, info)
+          }
           onRemove={() =>
-            props.onRemoveInfo(form.provider, form.modelName ?? "")}
+            props.onRemoveInfo(form.provider, form.modelName ?? "")
+          }
         />
       )}
     </>

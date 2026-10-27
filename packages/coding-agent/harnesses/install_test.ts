@@ -14,9 +14,13 @@ function memory(
   dirs = new Set<string>(),
 ): InstallPorts {
   const below = (dir: string) =>
-    [...files.keys(), ...dirs].filter((path) =>
-      path.startsWith(`${dir}/`) && !path.slice(dir.length + 1).includes("/")
-    ).map((path) => path.slice(dir.length + 1));
+    [...files.keys(), ...dirs]
+      .filter(
+        (path) =>
+          path.startsWith(`${dir}/`) &&
+          !path.slice(dir.length + 1).includes("/"),
+      )
+      .map((path) => path.slice(dir.length + 1));
   return {
     read: (path) => Promise.resolve(files.get(path) ?? null),
     write: (path, text) => {
@@ -24,7 +28,8 @@ function memory(
       return Promise.resolve();
     },
     list: (dir) => {
-      const exists = dirs.has(dir) ||
+      const exists =
+        dirs.has(dir) ||
         [...files.keys()].some((path) => path.startsWith(`${dir}/`));
       return Promise.resolve(exists ? below(dir) : null);
     },
@@ -138,10 +143,9 @@ test("설치는 lophn이 놓은 지운 skill의 얇은 사본만 지우고, 사�
     },
     {
       name: "사람이 본문을 고침",
-      files: [[
-        `${skills}/lophn-repair/SKILL.md`,
-        thin("lophn-repair") + "내 메모\n",
-      ]],
+      files: [
+        [`${skills}/lophn-repair/SKILL.md`, thin("lophn-repair") + "내 메모\n"],
+      ],
       left: [`${skills}/lophn-repair/SKILL.md`],
       skill: "unchanged",
     },
@@ -250,9 +254,11 @@ trust_level = "trusted"
   const config = files.get(configFile)!;
   assert.deepStrictEqual(config.startsWith(original), true);
   const added = [
-    ...config.slice(original.length).matchAll(
-      /\[hooks\.state\."([^"]+)"\]\ntrusted_hash = "sha256:[0-9a-f]{64}"/g,
-    ),
+    ...config
+      .slice(original.length)
+      .matchAll(
+        /\[hooks\.state\."([^"]+)"\]\ntrusted_hash = "sha256:[0-9a-f]{64}"/g,
+      ),
   ].map((one) => one[1]);
   assert.deepStrictEqual(
     added.length,
@@ -339,8 +345,7 @@ test("hook이 있는 모든 harness는 설치 뒤 dry_run이 unchanged이고 다
 // 현실적 회귀: toml을 다시 쓰다 주석과 사람의 `[[hooks]]`가 사라지거나, 다시 설치할 때 block이 두 개가 된다.
 test("kimi 설치는 config.toml의 표시한 block만 바꾸고 나머지는 그대로 둔다", async () => {
   const path = "/home/u/.kimi-code/config.toml";
-  const mine =
-    `# 내 설정\ndefault_model = "k"\n\n[[hooks]]\nevent = "Stop"\ncommand = "mine"\ntimeout = 5\n`;
+  const mine = `# 내 설정\ndefault_model = "k"\n\n[[hooks]]\nevent = "Stop"\ncommand = "mine"\ntimeout = 5\n`;
   const files = new Map([[path, mine]]);
   const kimi = { harness: "kimi", home: "/home/u", now: NOW } as const;
   await installGlobal(memory(files), { ...kimi, dryRun: false });
@@ -421,8 +426,7 @@ test("devin 설치는 JSONC의 주석과 사람의 hook을 그대로 두고 우�
 test("hermes 설치는 config.yaml의 표시한 block과 allowlist의 우리 승인만 바꾼다", async () => {
   const config = "/home/u/.hermes/config.yaml";
   const allowlist = "/home/u/.hermes/shell-hooks-allowlist.json";
-  const original =
-    `# 내 설정\nmodel: x\nhooks:\n  # 내 hook\n  pre_tool_call:\n    - command: "mine"\nplugins:\n  enabled: []\n`;
+  const original = `# 내 설정\nmodel: x\nhooks:\n  # 내 hook\n  pre_tool_call:\n    - command: "mine"\nplugins:\n  enabled: []\n`;
   const other = {
     event: "pre_tool_call",
     command: "mine",
@@ -462,10 +466,9 @@ test("hermes 설치는 config.yaml의 표시한 block과 allowlist의 우리 승
     true,
   );
 
-  const clash = new Map([[
-    config,
-    "hooks:\n  on_session_start:\n    - command: mine\n",
-  ]]);
+  const clash = new Map([
+    [config, "hooks:\n  on_session_start:\n    - command: mine\n"],
+  ]);
   const refused = await installGlobal(memory(clash), {
     ...hermes,
     dryRun: false,
@@ -483,14 +486,16 @@ test("hermes 설치는 config.yaml의 표시한 block과 allowlist의 우리 승
 test("muse 설치는 settings.json의 사람의 key를 보존하고 다른 managed 파일은 덮지 않는다", async () => {
   const settings = "/home/u/.config/muse/settings.json";
   const muse = { harness: "muse", home: "/home/u", now: NOW } as const;
-  const files = new Map([[
-    settings,
-    JSON.stringify({
-      schema_version: 1,
-      model: "m",
-      managed_hooks_env_vars: ["MINE"],
-    }),
-  ]]);
+  const files = new Map([
+    [
+      settings,
+      JSON.stringify({
+        schema_version: 1,
+        model: "m",
+        managed_hooks_env_vars: ["MINE"],
+      }),
+    ],
+  ]);
   await installGlobal(memory(files), { ...muse, dryRun: false });
   const doc = JSON.parse(files.get(settings)!);
   assert.deepStrictEqual(doc.model, "m");
@@ -533,13 +538,16 @@ test("cline 설치는 사람의 script를 덮지 않고 우리 script만 실행 
   const files = new Map<string, string>();
   const modes: string[] = [];
   const ports = memory(files);
-  await installGlobal({
-    ...ports,
-    write: (path, text, executable) => {
-      if (executable === true) modes.push(path);
-      return ports.write(path, text);
+  await installGlobal(
+    {
+      ...ports,
+      write: (path, text, executable) => {
+        if (executable === true) modes.push(path);
+        return ports.write(path, text);
+      },
     },
-  }, { ...cline, dryRun: false });
+    { ...cline, dryRun: false },
+  );
   assert.deepStrictEqual(
     modes.length,
     Object.keys(HOOK_EVENT_TABLE.cline).length,

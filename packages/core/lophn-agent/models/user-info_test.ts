@@ -76,11 +76,16 @@ const catalogEntry = (context_limit: number): CatalogEntry => ({
 test("저장한 user 정보는 catalog가 바뀌어도 같은 열쇠의 catalog 항목을 이긴다", () => {
   const { db, sql, tx, commands } = open();
   try {
-    const saved = commands.saveUserInfo.handle(tx, user, {
-      provider_definition: DEFINITION,
-      model_name: MODEL,
-      info: info({ context_limit: 1_000_000 }),
-    }, { seq: "0" });
+    const saved = commands.saveUserInfo.handle(
+      tx,
+      user,
+      {
+        provider_definition: DEFINITION,
+        model_name: MODEL,
+        info: info({ context_limit: 1_000_000 }),
+      },
+      { seq: "0" },
+    );
     assert.ok(saved.ok);
     // refresh 앞뒤로 derived catalog의 내용이 달라도 사람이 적은 항목이 남는다.
     for (const catalogContext of [8000, 64000]) {
@@ -114,20 +119,23 @@ test("user 항목의 effort 값은 저장 검사를 통과해 chat 요청의 rea
     };
     // 정보를 적기 전에는 effort를 고를 수 없다.
     assert.deepStrictEqual(
-      commands.changeDefault.handle(tx, user, { default: choice }, {})
-        .ok,
+      commands.changeDefault.handle(tx, user, { default: choice }, {}).ok,
       false,
     );
     const save = (overrides: Partial<UserModelInfo>, seq: string) =>
-      commands.saveUserInfo.handle(tx, user, {
-        provider_definition: DEFINITION,
-        model_name: MODEL,
-        info: info(overrides),
-      }, { seq });
+      commands.saveUserInfo.handle(
+        tx,
+        user,
+        {
+          provider_definition: DEFINITION,
+          model_name: MODEL,
+          info: info(overrides),
+        },
+        { seq },
+      );
     assert.ok(save({}, "0").ok);
     assert.ok(
-      commands.changeDefault.handle(tx, user, { default: choice }, {})
-        .ok,
+      commands.changeDefault.handle(tx, user, { default: choice }, {}).ok,
     );
 
     const provider = {
@@ -165,8 +173,12 @@ test("user 항목의 effort 값은 저장 검사를 통과해 chat 요청의 rea
           path === routePath(providerRead)
             ? ok({ provider, as_of_seq: "0", next_cursor: null })
             : path === routePath(userModelInfoRead)
-            ? ok({ ...loadUserModels(sql), as_of_seq: "0", next_cursor: null })
-            : err({ code: "not_found", message: path }),
+              ? ok({
+                  ...loadUserModels(sql),
+                  as_of_seq: "0",
+                  next_cursor: null,
+                })
+              : err({ code: "not_found", message: path }),
         ),
       catalog: () => Promise.resolve(ok([])),
     });
@@ -208,26 +220,41 @@ test("seq가 낡은 저장과 지움은 쓰지 않고, 내장 정의 key는 거�
   const { db, sql, tx, commands } = open();
   try {
     const key = { provider_definition: DEFINITION, model_name: MODEL };
-    const stale = commands.saveUserInfo.handle(tx, user, {
-      ...key,
-      info: info(),
-    }, { seq: "7" });
+    const stale = commands.saveUserInfo.handle(
+      tx,
+      user,
+      {
+        ...key,
+        info: info(),
+      },
+      { seq: "7" },
+    );
     assert.ok(!stale.ok);
     assert.deepStrictEqual(stale.error.code, "conflict");
     assert.deepStrictEqual(loadUserModels(sql).items, []);
 
-    const builtin = commands.saveUserInfo.handle(tx, user, {
-      provider_definition: "anthropic",
-      model_name: MODEL,
-      info: info(),
-    }, { seq: "0" });
+    const builtin = commands.saveUserInfo.handle(
+      tx,
+      user,
+      {
+        provider_definition: "anthropic",
+        model_name: MODEL,
+        info: info(),
+      },
+      { seq: "0" },
+    );
     assert.ok(!builtin.ok);
     assert.deepStrictEqual(builtin.error.code, "invalid_input");
 
-    const saved = commands.saveUserInfo.handle(tx, user, {
-      ...key,
-      info: info(),
-    }, { seq: "0" });
+    const saved = commands.saveUserInfo.handle(
+      tx,
+      user,
+      {
+        ...key,
+        info: info(),
+      },
+      { seq: "0" },
+    );
     assert.ok(saved.ok);
     assert.deepStrictEqual(saved.value.seq, "1");
 

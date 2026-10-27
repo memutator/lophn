@@ -34,9 +34,11 @@ test("fake 발급자가 device 로그인과 서명한 id_token을 낸다", async
     ],
   });
 
-  const started = await (await issuer.handle(
-    form("/device/code", { client_id: "e2e-client", scope: "openid" }),
-  )).json();
+  const started = await (
+    await issuer.handle(
+      form("/device/code", { client_id: "e2e-client", scope: "openid" }),
+    )
+  ).json();
   const poll = {
     grant_type: GRANT,
     client_id: "e2e-client",
@@ -48,9 +50,9 @@ test("fake 발급자가 device 로그인과 서명한 id_token을 낸다", async
 
   const jwt = await issuer.idToken({ aud: "e2e-client", nonce: "n-1" });
   const [header, payload, signature] = jwt.split(".");
-  const jwks = await (await issuer.handle(
-    new Request("http://issuer.test/jwks"),
-  )).json();
+  const jwks = await (
+    await issuer.handle(new Request("http://issuer.test/jwks"))
+  ).json();
   const key = await crypto.subtle.importKey(
     "jwk",
     jwks.keys[0],
@@ -81,18 +83,20 @@ test("fake 발급자가 device 로그인과 서명한 id_token을 낸다", async
     [verified, claims.iss, claims.aud, claims.nonce, jwks.keys[0].kid],
     [true, issuer.url, "e2e-client", "n-1", "e2e"],
   );
-  assert.deepStrictEqual([empty.status, emptyBody.error], [
-    400,
-    "invalid_request",
-  ]);
+  assert.deepStrictEqual(
+    [empty.status, emptyBody.error],
+    [400, "invalid_request"],
+  );
   const journal = issuer.journal();
   assert.deepStrictEqual(
     journal.map((entry) => [entry.n, entry.path, entry.step]),
-    [[1, "/device/code", 0], [2, "/token", 0], [3, "/token", 1], [
-      4,
-      "/jwks",
-      null,
-    ], [5, "/token", null]],
+    [
+      [1, "/device/code", 0],
+      [2, "/token", 0],
+      [3, "/token", 1],
+      [4, "/jwks", null],
+      [5, "/token", null],
+    ],
   );
   assert.deepStrictEqual(journal[1]!.form["device_code"], "dev-1");
   assert.deepStrictEqual(journal[4]!.mismatch, emptyBody.error_description);

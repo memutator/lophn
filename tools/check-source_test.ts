@@ -29,7 +29,7 @@ test("core main graph의 bare fetch는 check가 막는다", async () => {
       "export const c = () => fetch('u');\n",
     );
     const issues = (await checkSource(root)).filter((i) =>
-      i.file.startsWith("packages/core/x/")
+      i.file.startsWith("packages/core/x/"),
     );
     assert.deepStrictEqual(
       issues.map((i) => `${i.file}:${i.line}:${i.rule}`),
@@ -60,10 +60,13 @@ test("DOM tag의 title 속성은 check가 막고 component prop과 document.titl
         "",
       ].join("\n"),
     );
-    const issues = (await checkSource(root)).filter((i) =>
-      i.rule === "NATIVE_TITLE"
+    const issues = (await checkSource(root)).filter(
+      (i) => i.rule === "NATIVE_TITLE",
     );
-    assert.deepStrictEqual(issues.map((i) => i.line), [5, 9]);
+    assert.deepStrictEqual(
+      issues.map((i) => i.line),
+      [5, 9],
+    );
   } finally {
     await rm(root, { recursive: true });
   }

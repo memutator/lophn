@@ -24,16 +24,16 @@ export type Phase =
   | { readonly kind: "opening" }
   /** 등록 폴더가 여럿이다. 고르기 전에는 시작하지 않는다. */
   | {
-    readonly kind: "choose";
-    readonly folders: readonly TerminalFolderChoice[];
-  }
+      readonly kind: "choose";
+      readonly folders: readonly TerminalFolderChoice[];
+    }
   | { readonly kind: "refused"; readonly reason: Refusal }
   | { readonly kind: "live"; readonly runtime: TerminalRuntime }
   | {
-    readonly kind: "ended";
-    readonly ending: Ending;
-    readonly runtime: TerminalRuntime | null;
-  }
+      readonly kind: "ended";
+      readonly ending: Ending;
+      readonly runtime: TerminalRuntime | null;
+    }
   /**
    * 복원한 탭이거나 runtime을 다시 찾지 못했다. 사람이 누르기 전에는 PTY를
    * 만들지 않는다.
@@ -87,13 +87,13 @@ type StatusTone = "neutral" | "warning" | "serious" | "critical";
 type EndingWording =
   | { key: "terminal.status.exited"; values: { code: string } }
   | {
-    key:
-      | "terminal.status.ended"
-      | "terminal.status.start-failed"
-      | "terminal.status.unknown"
-      | "terminal.status.stop-unconfirmed";
-    values?: undefined;
-  };
+      key:
+        | "terminal.status.ended"
+        | "terminal.status.start-failed"
+        | "terminal.status.unknown"
+        | "terminal.status.stop-unconfirmed";
+      values?: undefined;
+    };
 
 /** 끝난 모양의 문구와 색조. exit code는 확인된 값만 보인다. */
 export function endingWording(
@@ -105,12 +105,12 @@ export function endingWording(
       return exitCode === null
         ? { wording: { key: "terminal.status.ended" }, tone: "neutral" }
         : {
-          wording: {
-            key: "terminal.status.exited",
-            values: { code: String(exitCode) },
-          },
-          tone: exitCode === 0 ? "neutral" : "warning",
-        };
+            wording: {
+              key: "terminal.status.exited",
+              values: { code: String(exitCode) },
+            },
+            tone: exitCode === 0 ? "neutral" : "warning",
+          };
     case "start_failed":
       return {
         wording: { key: "terminal.status.start-failed" },
@@ -208,13 +208,15 @@ export function stripStatusGlyphs(title: string): string {
  * 탭에 보일 이름. 사람이 붙인 이름, 그다음 coding agent가 도는 동안의 터미널 제목(`agentTitle`,
  * agent가 없으면 null), 없으면 자동 이름이다. 일반 shell은 prompt가 제목을 계속 바꾸므로 제목을 쓰지 않는다.
  */
-export function tabName(
-  { person, agentTitle, auto }: {
-    person: string | null;
-    agentTitle: string | null;
-    auto: string;
-  },
-): string {
+export function tabName({
+  person,
+  agentTitle,
+  auto,
+}: {
+  person: string | null;
+  agentTitle: string | null;
+  auto: string;
+}): string {
   if (person !== null) return person;
   const stripped = agentTitle === null ? "" : stripStatusGlyphs(agentTitle);
   return stripped.length > 0 ? stripped : auto;

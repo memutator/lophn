@@ -43,11 +43,11 @@ export function secretAllowanceOver(
       targetCommands: () => undefined,
     });
     return secretAllowed(
-        scope,
-        source.platformPorts?.() ?? [],
-        request.name,
-        request.destination,
-      )
+      scope,
+      source.platformPorts?.() ?? [],
+      request.name,
+      request.destination,
+    )
       ? ok(undefined)
       : err(DENIED);
   };

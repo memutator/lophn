@@ -7,9 +7,10 @@ import type { Role } from "./places.ts";
 // 전역에서 끈 skill의 정확한 이름이다. 전역 등록
 // 목록 쪽의 끄기라서 agent 정의의 `skills`(받을 것을 고른다)와 따로이고 여기서 끈 skill은 agent가 골라도 받지 못한다. 지금 발견되지
 // 않는 이름도 그대로 둔다: 그 skill이 다시 나타나도 끈 채다. 와일드카드·패턴은 이름 규칙이 거절한다.
-export const skillNameSchema = z.string().max(64).regex(
-  /^[a-z0-9]+(-[a-z0-9]+)*$/,
-);
+export const skillNameSchema = z
+  .string()
+  .max(64)
+  .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);
 export const SKILLS_OFF_MAX = 256;
 
 // skill의 층은 내장, 전역, domain이다. 끄기는 전역, project, agent 세 층에서 한다. 같은 이름은 마지막 층이
@@ -95,22 +96,26 @@ export type SkillEntry = z.infer<typeof skillEntrySchema>;
 // agent 설정 화면이 보는 skill 목록이다. `project`나 `app`을 주면 전역과 내장에 그 그릇의 domain 층을 더한다. 같은 이름은
 // 마지막 층이 덮고 가려진 쪽은 목록에 두지 않는다. 끈 skill도 목록에 남고 enabled만 false다. can_disable이
 // false인 내장 skill은 끌 수 없다.
-const skillsReadInputSchema = z.strictObject({
-  project: idSchema("prj").optional(),
-  app: idSchema("app").optional(),
-}).refine((input) => input.project === undefined || input.app === undefined, {
-  message: "pass project or app, not both",
-});
+const skillsReadInputSchema = z
+  .strictObject({
+    project: idSchema("prj").optional(),
+    app: idSchema("app").optional(),
+  })
+  .refine((input) => input.project === undefined || input.app === undefined, {
+    message: "pass project or app, not both",
+  });
 
 export const skillsRead = defineRead({
   resource: "skills",
   method: "read",
   name: "ReadSkills",
   input: skillsReadInputSchema,
-  output: withReadCommon(z.object({
-    skills: z.array(skillEntrySchema),
-    skills_off: z.array(z.string()),
-  })),
+  output: withReadCommon(
+    z.object({
+      skills: z.array(skillEntrySchema),
+      skills_off: z.array(z.string()),
+    }),
+  ),
   actors: ["user", "machine"],
   errors: [
     "invalid_input",

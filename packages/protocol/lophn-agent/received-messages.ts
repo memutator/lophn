@@ -46,9 +46,11 @@ export const receivedMessageList = defineRead({
     turn: idSchema("trn").optional(),
     cursor: readCursorSchema.optional(),
   }),
-  output: withReadCommon(z.object({
-    messages: z.array(receivedMessageSchema),
-  })),
+  output: withReadCommon(
+    z.object({
+      messages: z.array(receivedMessageSchema),
+    }),
+  ),
   actors: readActors,
   errors: [...readErrors],
 });

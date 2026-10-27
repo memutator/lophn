@@ -22,24 +22,29 @@ import styles from "./chart.module.css";
 // 리뷰 probe와 테스트가 이 자리에서 geometry를 부른다.
 export { barItems } from "./bar-layout.ts";
 
-export function BarPlot(
-  { width, categories, series, stacked, format, kind }: {
-    width: number;
-    // 범주 이름. 분포에서는 구간 이름이다.
-    categories: readonly string[];
-    series: readonly ColoredSeries[];
-    stacked: boolean;
-    format: ChartLocale;
-    kind: "bar" | "stacked" | "distribution";
-  },
-) {
+export function BarPlot({
+  width,
+  categories,
+  series,
+  stacked,
+  format,
+  kind,
+}: {
+  width: number;
+  // 범주 이름. 분포에서는 구간 이름이다.
+  categories: readonly string[];
+  series: readonly ColoredSeries[];
+  stacked: boolean;
+  format: ChartLocale;
+  kind: "bar" | "stacked" | "distribution";
+}) {
   const values = stacked
     ? categories.flatMap((_, index) =>
-      stackTotals(series.map((item) => item.values[index] ?? null))
-    )
+        stackTotals(series.map((item) => item.values[index] ?? null)),
+      )
     : series.flatMap((item) =>
-      item.values.filter((value): value is number => value !== null)
-    );
+        item.values.filter((value): value is number => value !== null),
+      );
   const probe = valueScale(values, plotBox(width, 0, 0));
   const left = axisGutter(
     probe.ticks(4).map((tick) => axisNumber(tick, format)),
@@ -127,11 +132,13 @@ export function BarPlot(
           box={box}
           width={width}
           title={categories[current.category]}
-          rows={[{
-            name: series[current.series].label,
-            value: exactNumber(current.value, format),
-            slot: current.slot,
-          }]}
+          rows={[
+            {
+              name: series[current.series].label,
+              value: exactNumber(current.value, format),
+              slot: current.slot,
+            },
+          ]}
         />
       )}
     </svg>

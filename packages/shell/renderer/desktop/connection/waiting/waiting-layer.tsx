@@ -38,9 +38,11 @@ export interface WaitingLayerProps {
   };
 }
 
-export function WaitingLayer(
-  { onOpenSession, onAnswerInTerminal, initial }: WaitingLayerProps,
-) {
+export function WaitingLayer({
+  onOpenSession,
+  onAnswerInTerminal,
+  initial,
+}: WaitingLayerProps) {
   const { entries } = useWaiting();
   const finished = useFinished(initial?.finished);
   // 배지는 "볼 것이 있다"는 뜻이라 끝난 줄도 센다.
@@ -88,35 +90,36 @@ export function WaitingLayer(
           onClick={() => setOpen(!open)}
         />
       </Tooltip>
-      {count > 0
-        ? <span className={styles.badge} aria-hidden>{count}</span>
-        : null}
-      {open
-        ? (
-          <div className={styles.floating}>
-            <WaitingPanel
-              entries={entries}
-              settled={settled}
-              finished={finished}
-              initial={initial}
-              onOpenSession={(session) => {
-                setOpen(false);
-                onOpenSession(session);
-              }}
-              onAnswerInTerminal={(session) => {
-                setOpen(false);
-                onAnswerInTerminal(session);
-              }}
-              onShowFinished={(target) => {
-                setOpen(false);
-                // main이 그 탭이 있는 창을 앞으로 가져오고 탭을 고른다(toast를 누를 때와 같다).
-                (globalThis as { lophnNotice?: LophnNoticeApi }).lophnNotice
-                  ?.open(target);
-              }}
-            />
-          </div>
-        )
-        : null}
+      {count > 0 ? (
+        <span className={styles.badge} aria-hidden>
+          {count}
+        </span>
+      ) : null}
+      {open ? (
+        <div className={styles.floating}>
+          <WaitingPanel
+            entries={entries}
+            settled={settled}
+            finished={finished}
+            initial={initial}
+            onOpenSession={(session) => {
+              setOpen(false);
+              onOpenSession(session);
+            }}
+            onAnswerInTerminal={(session) => {
+              setOpen(false);
+              onAnswerInTerminal(session);
+            }}
+            onShowFinished={(target) => {
+              setOpen(false);
+              // main이 그 탭이 있는 창을 앞으로 가져오고 탭을 고른다(toast를 누를 때와 같다).
+              (
+                globalThis as { lophnNotice?: LophnNoticeApi }
+              ).lophnNotice?.open(target);
+            }}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

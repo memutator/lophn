@@ -13,7 +13,9 @@ export function Card({ children }: CardProps) {
   if (useContext(InsideCard)) throw new Error("Card cannot be nested");
   return (
     <InsideCard.Provider value>
-      <div className={styles.card} {...componentMark("Card")}>{children}</div>
+      <div className={styles.card} {...componentMark("Card")}>
+        {children}
+      </div>
     </InsideCard.Provider>
   );
 }

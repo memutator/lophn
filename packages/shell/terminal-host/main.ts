@@ -26,41 +26,41 @@ type FolderCheck =
 
 export type HostRequest =
   | {
-    id: string;
-    type: "open";
-    project: string;
-    folder_ref?: string;
-    folders: readonly FolderRecord[];
-    columns: number;
-    rows: number;
-    /** shell env에 더할 값. 다시 시작해도 같은 값을 쓴다. */
-    env?: Record<string, string>;
-  }
+      id: string;
+      type: "open";
+      project: string;
+      folder_ref?: string;
+      folders: readonly FolderRecord[];
+      columns: number;
+      rows: number;
+      /** shell env에 더할 값. 다시 시작해도 같은 값을 쓴다. */
+      env?: Record<string, string>;
+    }
   | {
-    // core가 보낸 plan을 main이 다시 검사해 넘긴다. host가 plan을 한 번 더 검사한다.
-    id: string;
-    type: "open-coding";
-    plan: unknown;
-    columns: number;
-    rows: number;
-  }
+      // core가 보낸 plan을 main이 다시 검사해 넘긴다. host가 plan을 한 번 더 검사한다.
+      id: string;
+      type: "open-coding";
+      plan: unknown;
+      columns: number;
+      rows: number;
+    }
   | {
-    id: string;
-    type: "input";
-    terminal_ref: string;
-    generation: number;
-    text: string;
-    /** core 요청으로 넣는 글이다. 첫 prompt 전달 표시를 바꾼다. 사람이 친 입력에는 없다. */
-    from_core?: boolean;
-  }
+      id: string;
+      type: "input";
+      terminal_ref: string;
+      generation: number;
+      text: string;
+      /** core 요청으로 넣는 글이다. 첫 prompt 전달 표시를 바꾼다. 사람이 친 입력에는 없다. */
+      from_core?: boolean;
+    }
   | {
-    id: string;
-    type: "resize";
-    terminal_ref: string;
-    generation: number;
-    columns: number;
-    rows: number;
-  }
+      id: string;
+      type: "resize";
+      terminal_ref: string;
+      generation: number;
+      columns: number;
+      rows: number;
+    }
   | { id: string; type: "close"; terminal_ref: string; generation: number }
   | { id: string; type: "restart"; terminal_ref: string; generation: number }
   | { id: string; type: "snapshot"; terminal_ref: string; after_seq?: number }
@@ -129,9 +129,10 @@ function createHost(deps: HostDeps): Host {
       return reject("spawn_failed", "coding launch is not available");
     }
     const claimed = (request.plan as { session?: unknown } | null)?.session;
-    const known = typeof claimed === "string"
-      ? sessions.get(bySession.get(claimed) ?? "")
-      : undefined;
+    const known =
+      typeof claimed === "string"
+        ? sessions.get(bySession.get(claimed) ?? "")
+        : undefined;
     if (known) return { ok: true, runtime: { ...known.runtime } };
     const prepared = coding.prepare(request.plan, {
       env: deps.env,
@@ -311,10 +312,7 @@ function createHost(deps: HostDeps): Host {
     return session;
   }
 
-  async function restart(
-    session: Session,
-    id: string,
-  ): Promise<TerminalReply> {
+  async function restart(session: Session, id: string): Promise<TerminalReply> {
     const ended = await stop(session, deps.sleep);
     if (ended.ok && ended.runtime.state === "unknown") return ended;
     const next = start(session, {
@@ -322,10 +320,12 @@ function createHost(deps: HostDeps): Host {
       type: "open",
       project: session.runtime.project,
       folder_ref: session.runtime.folder_ref,
-      folders: [{
-        folder_ref: session.runtime.folder_ref,
-        path: session.runtime.cwd_at_start,
-      }],
+      folders: [
+        {
+          folder_ref: session.runtime.folder_ref,
+          path: session.runtime.cwd_at_start,
+        },
+      ],
       columns: session.runtime.columns,
       rows: session.runtime.rows,
     });
@@ -365,15 +365,15 @@ function createHost(deps: HostDeps): Host {
         return {
           ok: true,
           runtime: { ...session.runtime },
-          output: snap.chunks.filter((chunk) => chunk.seq > after).map((
-            chunk,
-          ) => ({
-            terminal_ref: session.runtime.terminal_ref,
-            generation: session.runtime.generation,
-            seq: chunk.seq,
-            chunk: chunk.text,
-            dropped_output: snap.dropped,
-          })),
+          output: snap.chunks
+            .filter((chunk) => chunk.seq > after)
+            .map((chunk) => ({
+              terminal_ref: session.runtime.terminal_ref,
+              generation: session.runtime.generation,
+              seq: chunk.seq,
+              chunk: chunk.text,
+              dropped_output: snap.dropped,
+            })),
         };
       }
       const session = sessionAt(request.terminal_ref, request.generation);
@@ -470,7 +470,8 @@ async function stop(
   sleep: (ms: number) => Promise<void> = defaultSleep,
 ): Promise<TerminalReply> {
   if (
-    session.runtime.state !== "running" && session.runtime.state !== "starting"
+    session.runtime.state !== "running" &&
+    session.runtime.state !== "starting"
   ) {
     return { ok: true, runtime: { ...session.runtime } };
   }
@@ -490,7 +491,7 @@ async function stop(
   } catch {
     // group 확인이 종료의 근거다.
   }
-  const confirmed = await settle("SIGHUP") || await settle("SIGKILL");
+  const confirmed = (await settle("SIGHUP")) || (await settle("SIGKILL"));
   return settleRuntime(session, confirmed);
 }
 
@@ -515,7 +516,8 @@ function settleRuntime(session: Session, confirmed: boolean): TerminalReply {
 /** host 종료 때의 동기 정리. 기다릴 수 없으므로 신호 직후의 관측만 쓴다. */
 function finish(session: Session): TerminalReply {
   if (
-    session.runtime.state !== "running" && session.runtime.state !== "starting"
+    session.runtime.state !== "running" &&
+    session.runtime.state !== "starting"
   ) {
     return { ok: true, runtime: { ...session.runtime } };
   }
@@ -524,11 +526,13 @@ function finish(session: Session): TerminalReply {
   } catch {
     // group 확인이 종료의 근거다.
   }
-  const killed = session.group?.kill("SIGHUP") ??
-    { confirmed: false as const, reason: "no_group" };
+  const killed = session.group?.kill("SIGHUP") ?? {
+    confirmed: false as const,
+    reason: "no_group",
+  };
   const confirmed = killed.confirmed
     ? killed
-    : session.group?.kill("SIGKILL") ?? killed;
+    : (session.group?.kill("SIGKILL") ?? killed);
   return settleRuntime(session, confirmed.confirmed);
 }
 
@@ -538,10 +542,10 @@ function pickFolder(
 ):
   | { ok: true; folder_ref: string; path: string }
   | {
-    ok: false;
-    reason: "no_folder" | "choose_folder" | "unreadable";
-    message: string;
-  } {
+      ok: false;
+      reason: "no_folder" | "choose_folder" | "unreadable";
+      message: string;
+    } {
   if (folders.length === 0) {
     return {
       ok: false,

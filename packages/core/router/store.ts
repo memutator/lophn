@@ -17,8 +17,7 @@ export type SqlView = {
   port<T>(key: PortKey<T>): T;
 };
 
-const COLUMNS =
-  `call, from_session, "to", receiver_session, reply, state, fail_reason, dedup,
+const COLUMNS = `call, from_session, "to", receiver_session, reply, state, fail_reason, dedup,
    unattended, created_at, state_at`;
 
 function recordOf(row: Record<string, unknown>): Result<AgentCallRecord> {
@@ -149,19 +148,23 @@ export function createCallStore(): CallStore {
       return ok(undefined);
     },
     lost(tx) {
-      return many(tx.sql.all(
-        `select ${COLUMNS} from agent_calls
+      return many(
+        tx.sql.all(
+          `select ${COLUMNS} from agent_calls
          where state = 'accepted' and consumed = 0 order by created_at, call`,
-        [],
-      ));
+          [],
+        ),
+      );
     },
     openReceivedBy(tx, session) {
-      return many(tx.sql.all(
-        `select ${COLUMNS} from agent_calls
+      return many(
+        tx.sql.all(
+          `select ${COLUMNS} from agent_calls
          where state = 'accepted' and receiver_session = ?
          order by created_at, call`,
-        [session],
-      ));
+          [session],
+        ),
+      );
     },
   };
 }

@@ -10,9 +10,10 @@ const projectId = z.string().regex(new RegExp(`^prj_${ULID}$`));
 const domainId = z.string().regex(new RegExp(`^dom_${ULID}$`));
 const workflowInstanceId = z.string().regex(new RegExp(`^wfi_${ULID}$`));
 // artifact 이름(폴더 이름). protocol slugSchema의 사본이다.
-export const artifactNameSchema = z.string().max(63).regex(
-  /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/,
-);
+export const artifactNameSchema = z
+  .string()
+  .max(63)
+  .regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/);
 // workflow 이름(폴더 이름). protocol workflowNameSchema의 사본이다.
 export const workflowNameSchema = artifactNameSchema;
 const noControl = (value: string) => !/\p{Cc}/u.test(value);
@@ -28,60 +29,72 @@ export const ARTIFACT_EVENT_CHANNEL = "shell:artifact-event";
 // artifact는 domain의 artifacts 폴더 안 이름이고, file은 사람이 고른 절대 path의 .html이다(domain이 없다).
 // workflow는 project의 workflow artifact다. view가 instance일 때만 instance가 있고 그때는 꼭 있다.
 export const artifactSourceSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("artifact"),
-    domain: domainId,
-    name: artifactNameSchema,
-  })
+  z
+    .object({
+      kind: z.literal("artifact"),
+      domain: domainId,
+      name: artifactNameSchema,
+    })
     .strict(),
-  z.object({
-    kind: z.literal("file"),
-    project: projectId,
-    path: z.string().min(1).max(4096).refine(noControl),
-  }).strict(),
-  z.object({
-    kind: z.literal("workflow"),
-    project: projectId,
-    workflow: workflowNameSchema,
-    view: z.enum(["static", "instance"]),
-    instance: workflowInstanceId.optional(),
-  }).strict().refine((s) =>
-    (s.view === "instance") === (s.instance !== undefined)
-  ),
+  z
+    .object({
+      kind: z.literal("file"),
+      project: projectId,
+      path: z.string().min(1).max(4096).refine(noControl),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("workflow"),
+      project: projectId,
+      workflow: workflowNameSchema,
+      view: z.enum(["static", "instance"]),
+      instance: workflowInstanceId.optional(),
+    })
+    .strict()
+    .refine((s) => (s.view === "instance") === (s.instance !== undefined)),
 ]);
 
-export const artifactOpenSchema = z.object({ source: artifactSourceSchema })
+export const artifactOpenSchema = z
+  .object({ source: artifactSourceSchema })
   .strict();
-export const artifactReloadSchema = z.object({ view_session: viewSession })
+export const artifactReloadSchema = z
+  .object({ view_session: viewSession })
   .strict();
 export const artifactListSchema = z.object({ domain: domainId }).strict();
 
-export const artifactViewStateSchema = z.object({
-  view_session: viewSession,
-  source: artifactSourceSchema,
-  // 입구 file의 절대 path. Edit source가 연다.
-  file: z.string(),
-  // page의 title. load 전에는 빈 글이다.
-  title: z.string(),
-  loading: z.boolean(),
-  health: z.enum(["ok", "unresponsive", "crashed"]),
-}).strict();
+export const artifactViewStateSchema = z
+  .object({
+    view_session: viewSession,
+    source: artifactSourceSchema,
+    // 입구 file의 절대 path. Edit source가 연다.
+    file: z.string(),
+    // page의 title. load 전에는 빈 글이다.
+    title: z.string(),
+    loading: z.boolean(),
+    health: z.enum(["ok", "unresponsive", "crashed"]),
+  })
+  .strict();
 
 // open-link: 사용자 입력 직후 page에서 누른 http/https link. renderer가 browser 탭으로 연다.
 export const artifactEventSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("open-link"),
-    view_session: viewSession,
-    url: z.string(),
-  }).strict(),
+  z
+    .object({
+      kind: z.literal("open-link"),
+      view_session: viewSession,
+      url: z.string(),
+    })
+    .strict(),
 ]);
 
-export const artifactListItemSchema = z.object({
-  name: z.string(),
-  title: z.string(),
-  description: z.string(),
-  modified: z.string(),
-}).strict();
+export const artifactListItemSchema = z
+  .object({
+    name: z.string(),
+    title: z.string(),
+    description: z.string(),
+    modified: z.string(),
+  })
+  .strict();
 
 export type ArtifactSource = z.infer<typeof artifactSourceSchema>;
 export type ArtifactOpen = z.infer<typeof artifactOpenSchema>;

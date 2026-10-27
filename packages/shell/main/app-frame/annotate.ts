@@ -137,9 +137,10 @@ export function createAnnotate(deps: AnnotateDeps) {
   ): AnnotateReply<{ input: T; port: AnnotateViewPort; state: ViewState }> {
     const caller = checkCaller(deps.registry, event);
     if (!caller.ok) return caller;
-    const window = caller.value.origin.host === DESKTOP_HOST
-      ? deps.windowOf(event.sender)
-      : undefined;
+    const window =
+      caller.value.origin.host === DESKTOP_HOST
+        ? deps.windowOf(event.sender)
+        : undefined;
     if (window === undefined) {
       return fail("forbidden", "caller is not a desktop window");
     }
@@ -170,7 +171,7 @@ export function createAnnotate(deps: AnnotateDeps) {
 
   function lost(code: string, message: string): AnnotateReply<never> {
     const known = KNOWN_CODES.includes(code);
-    return fail(known ? code as AnnotateErrorCode : "unavailable", message);
+    return fail(known ? (code as AnnotateErrorCode) : "unavailable", message);
   }
 
   async function uploadShot(png: Uint8Array): Promise<unknown | null> {
@@ -212,9 +213,10 @@ export function createAnnotate(deps: AnnotateDeps) {
         return fail("conflict", "annotations are being sent");
       }
       port.send(ANNOTATE_PAGE_REMOVE, { n: request.n });
-      state.items = request.n === "all"
-        ? []
-        : state.items.filter(({ picked }) => picked.n !== request.n);
+      state.items =
+        request.n === "all"
+          ? []
+          : state.items.filter(({ picked }) => picked.n !== request.n);
       for (const n of [...state.releases.keys()]) {
         if (!state.items.some(({ picked }) => picked.n === n)) {
           state.releases.delete(n);
@@ -270,20 +272,19 @@ export function createAnnotate(deps: AnnotateDeps) {
         }
         const { target } = port;
         const sent = await deps.core.call("memory", "annotations", "send", {
-          target: target.kind === "app"
-            ? { kind: "app", app: target.app }
-            : target,
+          target:
+            target.kind === "app" ? { kind: "app", app: target.app } : target,
           session: request.session,
           annotations,
         });
         reply = sent.ok
           ? {
-            ok: true,
-            value: {
-              sent: annotations.length,
-              session: (sent.value as { session: string }).session,
-            },
-          }
+              ok: true,
+              value: {
+                sent: annotations.length,
+                session: (sent.value as { session: string }).session,
+              },
+            }
           : lost(sent.error.code, sent.error.message);
       } catch {
         reply = fail("unavailable", "annotations could not be sent");

@@ -31,11 +31,11 @@ export type CommandSuccess = {
 
 export type WriterRequest =
   | {
-    id: number;
-    op: "command";
-    ctx: AuthenticatedContext;
-    envelope: CommandEnvelope;
-  }
+      id: number;
+      op: "command";
+      ctx: AuthenticatedContext;
+      envelope: CommandEnvelope;
+    }
   | { id: number; op: "read-result"; ctx: AuthenticatedContext; key: string }
   // core가 관측한 준비 참조를 writer 메모리에 알린다. 파일을 넘기지 않는다.
   | { id: number; op: "blob-prepared"; prepared: PreparedBlob; nowMs: number }
@@ -56,10 +56,10 @@ export type StoredCommandResult = {
 export type WriterResponse =
   | { id: number; op: "command"; body: Result<CommandSuccess, LophnError> }
   | {
-    id: number;
-    op: "read-result";
-    body: Result<StoredCommandResult | null, LophnError>;
-  }
+      id: number;
+      op: "read-result";
+      body: Result<StoredCommandResult | null, LophnError>;
+    }
   | { id: number; op: "closed" }
   | { id: number; op: "blob-noted" }
   | { id: number; op: "failed"; body: LophnError };

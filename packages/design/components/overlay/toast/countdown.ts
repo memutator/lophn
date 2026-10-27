@@ -19,9 +19,12 @@ export interface CountdownOptions {
 
 // hover·focus는 각각 멈추고 둘 다 풀려야 남은 시간만 이어 간다. 전체 시간·adapter가 바뀌어도
 // 이미 지난 시간은 그대로 둔다. 지운 handle의 늦은 callback은 무시한다.
-export function useCountdown(
-  { total, timer, clock, onDone }: CountdownOptions,
-) {
+export function useCountdown({
+  total,
+  timer,
+  clock,
+  onDone,
+}: CountdownOptions) {
   const done = useRef(onDone);
   done.current = onDone;
   const state = useRef({
@@ -43,9 +46,8 @@ export function useCountdown(
   };
   const resume = () => {
     const now = state.current;
-    if (
-      now.total === undefined || now.running || now.hovered || now.focused
-    ) return;
+    if (now.total === undefined || now.running || now.hovered || now.focused)
+      return;
     const running: Running = {
       timer: now.timer,
       clock: now.clock,
@@ -53,11 +55,14 @@ export function useCountdown(
       value: undefined,
     };
     now.running = running;
-    running.value = running.timer.set(() => {
-      if (state.current.running !== running) return;
-      state.current.running = undefined;
-      done.current();
-    }, Math.max(0, now.total - now.elapsed));
+    running.value = running.timer.set(
+      () => {
+        if (state.current.running !== running) return;
+        state.current.running = undefined;
+        done.current();
+      },
+      Math.max(0, now.total - now.elapsed),
+    );
   };
   useEffect(() => {
     pause();

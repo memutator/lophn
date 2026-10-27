@@ -38,8 +38,7 @@ export function openConnection(file: string): DatabaseSync {
     if (error instanceof Deno.errors.NotCapable) {
       throw new CapabilityError({
         code: "forbidden",
-        message:
-          `fs.write {"path":"${file}"} is outside the app data area. Keep the database in the app data path.`,
+        message: `fs.write {"path":"${file}"} is outside the app data area. Keep the database in the app data path.`,
         permission: "fs.write",
         scope: { path: file, recursive: false },
       });
@@ -65,16 +64,15 @@ export function closeConnection(file: string): void {
 
 // 표마다 session을 건다. 이미 건 표는 건너뛴다.
 function attach(connection: Connection): void {
-  const rows = connection.db.prepare(
-    "select name from sqlite_master where type = 'table' and name not like 'sqlite_%' and name != ?",
-  ).all(SCHEMA_TABLE);
+  const rows = connection.db
+    .prepare(
+      "select name from sqlite_master where type = 'table' and name not like 'sqlite_%' and name != ?",
+    )
+    .all(SCHEMA_TABLE);
   for (const row of rows) {
     const name = String(row["name"]);
     if (connection.sessions.has(name)) continue;
-    connection.sessions.set(
-      name,
-      connection.db.createSession({ table: name }),
-    );
+    connection.sessions.set(name, connection.db.createSession({ table: name }));
   }
 }
 

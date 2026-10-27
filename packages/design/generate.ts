@@ -35,9 +35,11 @@ export function renderVars(flat: readonly FlatToken[]): string {
 export function renderTokenNames(flat: readonly FlatToken[]): string {
   return [
     `// ${notice}`,
-    `export const tokenNames = ${
-      JSON.stringify(flat.map((token) => token.name), null, 2)
-    } as const;`,
+    `export const tokenNames = ${JSON.stringify(
+      flat.map((token) => token.name),
+      null,
+      2,
+    )} as const;`,
     "export type TokenName = (typeof tokenNames)[number];",
     "",
   ].join("\n");
@@ -70,9 +72,12 @@ export async function generate(): Promise<Record<string, string>> {
   return {
     "tokens.css": `/* ${notice} */\n${renderCss(flat)}`,
     "vars.ts": await formatVars(renderVars(flat), "vars.ts"),
-    "token-names.ts": await formatVars(renderTokenNames(flat), "token-names.ts"),
-    "values.json": JSON.stringify({ _generated: notice, tokens }, null, 2) +
-      "\n",
+    "token-names.ts": await formatVars(
+      renderTokenNames(flat),
+      "token-names.ts",
+    ),
+    "values.json":
+      JSON.stringify({ _generated: notice, tokens }, null, 2) + "\n",
   };
 }
 
@@ -83,7 +88,7 @@ export async function staleFiles(
   const stale: string[] = [];
   for (const [file, expected] of Object.entries(outputs)) {
     try {
-      if (await readFile(new URL(file, directory), "utf8") !== expected) {
+      if ((await readFile(new URL(file, directory), "utf8")) !== expected) {
         stale.push(file);
       }
     } catch (error) {
@@ -104,10 +109,7 @@ if (import.meta.main) {
     }
   } else {
     for (const [file, content] of Object.entries(outputs)) {
-      await writeFile(
-        new URL(`./generated/${file}`, import.meta.url),
-        content,
-      );
+      await writeFile(new URL(`./generated/${file}`, import.meta.url), content);
     }
   }
 }

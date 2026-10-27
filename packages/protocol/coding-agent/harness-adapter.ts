@@ -116,7 +116,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     interrupt_keys: ["escape", "ctrl-c"],
     skill_dir: null,
   },
-  "omp": {
+  omp: {
     id: "omp",
     label: "Oh My Pi",
     commands: ["omp"],
@@ -128,7 +128,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     interrupt_keys: ["escape", "ctrl-c"],
     skill_dir: null,
   },
-  "cursor": {
+  cursor: {
     id: "cursor",
     label: "Cursor",
     commands: ["cursor-agent"],
@@ -140,7 +140,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     interrupt_keys: ["escape", "ctrl-c"],
     skill_dir: null,
   },
-  "copilot": {
+  copilot: {
     id: "copilot",
     label: "GitHub Copilot CLI",
     commands: ["copilot"],
@@ -152,7 +152,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     interrupt_keys: ["escape", "ctrl-c"],
     skill_dir: null,
   },
-  "kimi": {
+  kimi: {
     id: "kimi",
     label: "Kimi Code",
     commands: ["kimi", "kimi-code"],
@@ -164,7 +164,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     interrupt_keys: ["escape", "ctrl-c"],
     skill_dir: null,
   },
-  "kiro": {
+  kiro: {
     id: "kiro",
     label: "Kiro CLI",
     commands: ["kiro-cli"],
@@ -176,7 +176,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     interrupt_keys: ["escape", "ctrl-c"],
     skill_dir: null,
   },
-  "antigravity": {
+  antigravity: {
     id: "antigravity",
     label: "Antigravity",
     commands: ["agy"],
@@ -188,7 +188,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     interrupt_keys: ["escape", "ctrl-c"],
     skill_dir: null,
   },
-  "grok": {
+  grok: {
     id: "grok",
     label: "Grok",
     commands: ["grok"],
@@ -201,7 +201,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     interrupt_keys: ["ctrl-c"],
     skill_dir: null,
   },
-  "droid": {
+  droid: {
     id: "droid",
     label: "Droid",
     commands: ["droid"],
@@ -213,7 +213,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     interrupt_keys: ["escape", "ctrl-c"],
     skill_dir: null,
   },
-  "amp": {
+  amp: {
     id: "amp",
     label: "Amp",
     commands: ["amp"],
@@ -225,7 +225,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     interrupt_keys: ["escape", "ctrl-c"],
     skill_dir: null,
   },
-  "devin": {
+  devin: {
     id: "devin",
     label: "Devin",
     commands: ["devin"],
@@ -237,7 +237,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     interrupt_keys: ["escape", "ctrl-c"],
     skill_dir: null,
   },
-  "qwen": {
+  qwen: {
     id: "qwen",
     label: "Qwen Code",
     commands: ["qwen"],
@@ -249,7 +249,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     interrupt_keys: ["escape", "ctrl-c"],
     skill_dir: null,
   },
-  "qoder": {
+  qoder: {
     id: "qoder",
     label: "Qoder CLI",
     commands: ["qodercli"],
@@ -261,7 +261,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     interrupt_keys: ["escape", "ctrl-c"],
     skill_dir: null,
   },
-  "muse": {
+  muse: {
     id: "muse",
     label: "Muse",
     commands: ["muse"],
@@ -273,7 +273,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     interrupt_keys: ["escape", "ctrl-c"],
     skill_dir: null,
   },
-  "codebuddy": {
+  codebuddy: {
     id: "codebuddy",
     label: "CodeBuddy Code",
     commands: ["codebuddy", "cbc"],
@@ -309,7 +309,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     interrupt_keys: ["escape", "ctrl-c"],
     skill_dir: null,
   },
-  "mimocode": {
+  mimocode: {
     id: "mimocode",
     label: "MiMo Code",
     commands: ["mimo"],
@@ -321,7 +321,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     interrupt_keys: ["escape", "ctrl-c"],
     skill_dir: null,
   },
-  "cline": {
+  cline: {
     id: "cline",
     label: "Cline",
     commands: ["cline"],
@@ -333,7 +333,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     interrupt_keys: ["escape", "ctrl-c"],
     skill_dir: null,
   },
-  "letta": {
+  letta: {
     id: "letta",
     label: "Letta Code",
     commands: ["letta"],
@@ -345,7 +345,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     interrupt_keys: ["escape", "ctrl-c"],
     skill_dir: null,
   },
-  "kilo": {
+  kilo: {
     id: "kilo",
     label: "Kilo Code CLI",
     commands: ["kilo", "kilocode"],

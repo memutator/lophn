@@ -161,7 +161,8 @@ export function createRewindStore(dataRoot: string): RewindStore {
     async sessions() {
       try {
         return (await readdir(join(dataRoot, "rewind")))
-          .filter((name) => SESSION.test(name)).sort();
+          .filter((name) => SESSION.test(name))
+          .sort();
       } catch (error) {
         if (missing(error)) return [];
         throw error;

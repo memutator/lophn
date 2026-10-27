@@ -18,9 +18,12 @@ interface QueuedMessagesProps {
   disabled?: boolean;
 }
 
-export function QueuedMessages(
-  { items, onSendNow, onRemove, disabled }: QueuedMessagesProps,
-): ReactElement | null {
+export function QueuedMessages({
+  items,
+  onSendNow,
+  onRemove,
+  disabled,
+}: QueuedMessagesProps): ReactElement | null {
   if (items.length === 0) return null;
   return (
     <ul
@@ -43,8 +46,7 @@ export function QueuedMessages(
             size="sm"
             disabled={disabled}
             data-send-now=""
-            onClick={() =>
-              onSendNow(item.id)}
+            onClick={() => onSendNow(item.id)}
           >
             {t("conversation.button.send-now")}
           </Button>
@@ -53,8 +55,7 @@ export function QueuedMessages(
             label={t("conversation.button.queued-remove")}
             size="sm"
             disabled={disabled}
-            onClick={() =>
-              onRemove(item.id)}
+            onClick={() => onRemove(item.id)}
           />
         </li>
       ))}

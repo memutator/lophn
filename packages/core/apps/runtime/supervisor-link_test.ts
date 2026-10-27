@@ -22,7 +22,7 @@ test("frame 한도를 넘는 rewind 적용도 한 번에 되돌린다", async ()
     async read(buffer: Uint8Array) {
       while (pipe.length === 0) {
         if (closed) return null;
-        await new Promise<void>((resolve) => wake = resolve);
+        await new Promise<void>((resolve) => (wake = resolve));
       }
       const head = pipe[0];
       const count = Math.min(buffer.length, head.length);
@@ -92,14 +92,12 @@ test("frame 한도를 넘는 rewind 적용도 한 번에 되돌린다", async ()
     },
   });
 
-  const changesets = Array.from(
-    { length: 40 },
-    (_, i) => `${i}`.padStart(8, "0").repeat(1024),
+  const changesets = Array.from({ length: 40 }, (_, i) =>
+    `${i}`.padStart(8, "0").repeat(1024),
   );
-  const applied = await createAppProcessLink(channel).apply(
-    "app_1" as never,
-    { changesets },
-  );
+  const applied = await createAppProcessLink(channel).apply("app_1" as never, {
+    changesets,
+  });
   closed = true;
   wake?.();
   await link.closed;

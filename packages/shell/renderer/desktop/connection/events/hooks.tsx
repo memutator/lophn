@@ -36,23 +36,30 @@ function useStores(): Stores {
 }
 
 /** 창마다 한 번 마운트한다. */
-export function EventsProvider(
-  { client, children }: { client: EventClient; children: ReactNode },
-) {
-  const stores = useMemo<Stores>(() => ({
-    client,
-    waiting: createWaitingStore(
+export function EventsProvider({
+  client,
+  children,
+}: {
+  client: EventClient;
+  children: ReactNode;
+}) {
+  const stores = useMemo<Stores>(
+    () => ({
       client,
-      () => new Date().toISOString(),
-      (globalThis as { lophnTerminal?: TerminalApi }).lophnTerminal ?? null,
-      { set: setTimeout, clear: clearTimeout },
-    ),
-    sessions: createSessionsStore(
-      client,
-      (globalThis as { lophnNotice?: LophnNoticeApi }).lophnNotice ?? null,
-    ),
-    sessionEvents: createSessionEventsStore(client),
-  }), [client]);
+      waiting: createWaitingStore(
+        client,
+        () => new Date().toISOString(),
+        (globalThis as { lophnTerminal?: TerminalApi }).lophnTerminal ?? null,
+        { set: setTimeout, clear: clearTimeout },
+      ),
+      sessions: createSessionsStore(
+        client,
+        (globalThis as { lophnNotice?: LophnNoticeApi }).lophnNotice ?? null,
+      ),
+      sessionEvents: createSessionEventsStore(client),
+    }),
+    [client],
+  );
   useEffect(() => {
     const stops = [stores.waiting.start(), stores.sessions.start()];
     return () => stops.forEach((stop) => stop());

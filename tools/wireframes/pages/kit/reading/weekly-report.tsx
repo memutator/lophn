@@ -29,9 +29,7 @@ export const REPORT = {
   ].join("\n"),
 };
 
-export function WeeklyReport(
-  { clipboard }: { clipboard?: Clipboard },
-) {
+export function WeeklyReport({ clipboard }: { clipboard?: Clipboard }) {
   const outline = useMemo(() => parseMarkdown(REPORT.body).outline, []);
   const [active, setActive] = useState(outline[0]?.id);
   const header = (

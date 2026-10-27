@@ -21,23 +21,25 @@ export function runtimeEntry(packagesUrl: string): RuntimeEntry {
   const module = JSON.stringify(
     `${packagesUrl}core/apps/runtime/entrypoint/main.ts`,
   );
-  const source =
-    `// lophn이 만든 진입 파일이다. 앱 code는 \`@lophn/app\`(main.ts)이다.
+  const source = `// lophn이 만든 진입 파일이다. 앱 code는 \`@lophn/app\`(main.ts)이다.
 import { run } from ${module};
 
 await run();
 `;
   return {
     entrypoint: RUNTIME_ENTRY_PATH,
-    files: [{
-      path: RUNTIME_ENTRY_PATH,
-      bytes: new TextEncoder().encode(source),
-    }, {
-      path: RUNTIME_CONFIG_PATH,
-      bytes: new TextEncoder().encode(
-        JSON.stringify({ vendor: true, nodeModulesDir: "manual" }),
-      ),
-    }],
+    files: [
+      {
+        path: RUNTIME_ENTRY_PATH,
+        bytes: new TextEncoder().encode(source),
+      },
+      {
+        path: RUNTIME_CONFIG_PATH,
+        bytes: new TextEncoder().encode(
+          JSON.stringify({ vendor: true, nodeModulesDir: "manual" }),
+        ),
+      },
+    ],
     imports: { "@lophn/base": `${packagesUrl}base/mod.ts` },
   };
 }

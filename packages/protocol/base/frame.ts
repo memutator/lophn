@@ -37,11 +37,12 @@ function validateHeader(length: number, kind: number, channel: number) {
 // 길이는 prefix 자체를 제외한 kind(1) + channel(4) + payload의 bytes다.
 export function encodeFrame(frame: Frame): Uint8Array {
   const kind = FRAME_KINDS[frame.kind];
-  const payload = frame.kind === "json"
-    ? encoder.encode(JSON.stringify(frame.payload))
-    : frame.kind === "bytes"
-    ? frame.payload
-    : new Uint8Array();
+  const payload =
+    frame.kind === "json"
+      ? encoder.encode(JSON.stringify(frame.payload))
+      : frame.kind === "bytes"
+        ? frame.payload
+        : new Uint8Array();
   validateHeader(5 + payload.length, kind, frame.channel);
   if (frame.kind === "json") JSON.parse(decoder.decode(payload));
   const bytes = new Uint8Array(9 + payload.length);

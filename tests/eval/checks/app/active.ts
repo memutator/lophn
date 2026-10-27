@@ -22,12 +22,16 @@ export function appActive(id: string, opts: { app: string }): ProgramCheck {
       }
       const runtime = await core.call(appRuntime, { app: app.id });
       const seen = runtime.observation;
-      const up = runtime.state.state === "running" && seen !== null &&
-        seen.ready && seen.accepting;
+      const up =
+        runtime.state.state === "running" &&
+        seen !== null &&
+        seen.ready &&
+        seen.accepting;
       return up
         ? { pass: true, reason: `release ${release.number} 실행 중` }
         : { pass: false, reason: `runtime ${runtime.state.state}, 준비 안 됨` };
-    }, 60_000));
+    }, 60_000),
+  );
 }
 
 // 고친 새 release가 active이고 옛 것은 superseded다.

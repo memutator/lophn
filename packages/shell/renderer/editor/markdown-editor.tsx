@@ -55,14 +55,12 @@ interface FindState {
   readonly replace: boolean;
 }
 
-export function MarkdownEditor(
-  {
-    initialText,
-    label,
-    onChange,
-    ref,
-  }: MarkdownEditorProps,
-) {
+export function MarkdownEditor({
+  initialText,
+  label,
+  onChange,
+  ref,
+}: MarkdownEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const latest = useRef({ onChange });
@@ -127,11 +125,8 @@ export function MarkdownEditor(
   useEffect(() => {
     const editor = view.current;
     if (!editor) return;
-    const index = current < matches.length
-      ? current
-      : matches.length > 0
-      ? 0
-      : -1;
+    const index =
+      current < matches.length ? current : matches.length > 0 ? 0 : -1;
     const match = index >= 0 ? matches[index] : undefined;
     editor.dispatch({
       effects: [
@@ -146,16 +141,19 @@ export function MarkdownEditor(
     });
   }, [matches, current, find.open]);
 
-  const step = useCallback((direction: 1 | -1) => {
-    const next = stepMatch(current, matches.length, direction);
-    setCurrent(next);
-    const match = matches[next];
-    if (view.current && match) {
-      view.current.dispatch({
-        selection: EditorSelection.single(match.from, match.to),
-      });
-    }
-  }, [current, matches]);
+  const step = useCallback(
+    (direction: 1 | -1) => {
+      const next = stepMatch(current, matches.length, direction);
+      setCurrent(next);
+      const match = matches[next];
+      if (view.current && match) {
+        view.current.dispatch({
+          selection: EditorSelection.single(match.from, match.to),
+        });
+      }
+    },
+    [current, matches],
+  );
 
   const closeFind = useCallback(() => {
     setFind({ open: false, replace: false });
@@ -166,58 +164,68 @@ export function MarkdownEditor(
     const editor = view.current;
     const selected = editor
       ? editor.state.sliceDoc(
-        editor.state.selection.main.from,
-        editor.state.selection.main.to,
-      )
+          editor.state.selection.main.from,
+          editor.state.selection.main.to,
+        )
       : "";
     if (selected && !selected.includes("\n")) setQuery(selected);
     setFind({ open: true, replace });
   }, []);
 
-  const replaceOne = useCallback((replacement: string) => {
-    const editor = view.current;
-    const match = matches[current];
-    if (!editor || !match) return;
-    editor.dispatch({
-      changes: { from: match.from, to: match.to, insert: replacement },
-      selection: EditorSelection.cursor(match.from + replacement.length),
-      userEvent: "input.replace",
-    });
-  }, [matches, current]);
+  const replaceOne = useCallback(
+    (replacement: string) => {
+      const editor = view.current;
+      const match = matches[current];
+      if (!editor || !match) return;
+      editor.dispatch({
+        changes: { from: match.from, to: match.to, insert: replacement },
+        selection: EditorSelection.cursor(match.from + replacement.length),
+        userEvent: "input.replace",
+      });
+    },
+    [matches, current],
+  );
 
-  const replaceEvery = useCallback((replacement: string) => {
-    const editor = view.current;
-    if (!editor || matches.length === 0) return;
-    const text = editor.state.doc.toString();
-    const change = minimalChange(
-      text,
-      replaceAll(text, matches, replacement).text,
-    );
-    if (change) {
-      editor.dispatch({ changes: change, userEvent: "input.replace.all" });
-    }
-  }, [matches]);
+  const replaceEvery = useCallback(
+    (replacement: string) => {
+      const editor = view.current;
+      if (!editor || matches.length === 0) return;
+      const text = editor.state.doc.toString();
+      const change = minimalChange(
+        text,
+        replaceAll(text, matches, replacement).text,
+      );
+      if (change) {
+        editor.dispatch({ changes: change, userEvent: "input.replace.all" });
+      }
+    },
+    [matches],
+  );
 
   const revealLine = useCallback((line: number) => {
     if (view.current) flashLine(view.current, line);
   }, []);
 
-  useImperativeHandle(ref, () => ({
-    focus: () => view.current?.focus(),
-    revealLine,
-    lineTop(line: number) {
-      const editor = view.current;
-      if (!editor || line < 1 || line > editor.state.doc.lines) return null;
-      const block = editor.lineBlockAt(editor.state.doc.line(line).from);
-      return editor.documentTop + block.top;
-    },
-    replaceText(text: string) {
-      const editor = view.current;
-      if (!editor) return;
-      const change = minimalChange(editor.state.doc.toString(), text);
-      if (change) editor.dispatch({ changes: change });
-    },
-  }), [revealLine]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => view.current?.focus(),
+      revealLine,
+      lineTop(line: number) {
+        const editor = view.current;
+        if (!editor || line < 1 || line > editor.state.doc.lines) return null;
+        const block = editor.lineBlockAt(editor.state.doc.line(line).from);
+        return editor.documentTop + block.top;
+      },
+      replaceText(text: string) {
+        const editor = view.current;
+        if (!editor) return;
+        const change = minimalChange(editor.state.doc.toString(), text);
+        if (change) editor.dispatch({ changes: change });
+      },
+    }),
+    [revealLine],
+  );
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const mod = event.metaKey || event.ctrlKey;
@@ -240,24 +248,22 @@ export function MarkdownEditor(
       onKeyDownCapture={onKeyDown}
       data-markdown-editor=""
     >
-      {find.open
-        ? (
-          <FindBar
-            query={query}
-            onQuery={setQuery}
-            caseSensitive={caseSensitive}
-            onCaseSensitive={setCaseSensitive}
-            label={findLabel(current, matches.length)}
-            hasMatches={matches.length > 0}
-            onNext={() => step(1)}
-            onPrevious={() => step(-1)}
-            onClose={closeFind}
-            replace={find.replace}
-            onReplace={replaceOne}
-            onReplaceAll={replaceEvery}
-          />
-        )
-        : null}
+      {find.open ? (
+        <FindBar
+          query={query}
+          onQuery={setQuery}
+          caseSensitive={caseSensitive}
+          onCaseSensitive={setCaseSensitive}
+          label={findLabel(current, matches.length)}
+          hasMatches={matches.length > 0}
+          onNext={() => step(1)}
+          onPrevious={() => step(-1)}
+          onClose={closeFind}
+          replace={find.replace}
+          onReplace={replaceOne}
+          onReplaceAll={replaceEvery}
+        />
+      ) : null}
       <div className={styles.area}>
         <div className={styles.host} ref={host} />
       </div>

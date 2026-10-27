@@ -29,10 +29,14 @@ export function declared(
 
 /** 화면 확인용 대표 선언: 불리언, 숫자 범위, 선택지, 목록이 한 번씩 있다. */
 export const SAMPLE_DECLARED: readonly SettingEntry[] = [
-  declared("agents.model.catalog_auto_update", { type: "boolean" }, {
-    default: true,
-    chosen: false,
-  }),
+  declared(
+    "agents.model.catalog_auto_update",
+    { type: "boolean" },
+    {
+      default: true,
+      chosen: false,
+    },
+  ),
   declared(
     "agents.run.max_tool_calls",
     { type: "integer", minimum: 1, maximum: 200 },
@@ -86,9 +90,10 @@ export function fakeSettings(options: FakeSettingsOptions = {}) {
         const reason = options.rejects?.[change.key];
         return reason === undefined ? [] : [{ key: change.key, reason }];
       });
-      const result: SettingsUpdateResult = rejected.length > 0
-        ? { changed: [], rejected }
-        : { changed: changes.map((change) => change.key), rejected: [] };
+      const result: SettingsUpdateResult =
+        rejected.length > 0
+          ? { changed: [], rejected }
+          : { changed: changes.map((change) => change.key), rejected: [] };
       if (rejected.length === 0) {
         entries = entries.map((entry) => {
           const change = changes.find((one) => one.key === entry.key);

@@ -32,7 +32,7 @@ export async function prepareTrialWorld(
   held: Held = {},
 ): Promise<{ run: Run; core: Core; ctx: SetupContext }> {
   const { variant } = deps;
-  const run = held.run = await createRun();
+  const run = (held.run = await createRun());
   let core: Core;
   try {
     core = held.core = await variant.boot(run, await bootOptionsOf(scenario));
@@ -40,7 +40,7 @@ export async function prepareTrialWorld(
     throw new Error(explainBreak(variant, "boot", messageOf(error)));
   }
   try {
-    const ctx = held.ctx = await beginRestore(core);
+    const ctx = (held.ctx = await beginRestore(core));
     const restored = await restoreWorld(ctx, scenario.world);
     if (!restored.ok) {
       throw new Error(`되살리기 실패: ${restored.error.message}`);

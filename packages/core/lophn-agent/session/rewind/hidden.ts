@@ -27,15 +27,20 @@ export type HiddenRange = { from_seq: string; through_seq: string };
 // choice가 restore_all·messages_only이고 outcome이 applied·partial·uncertain인 rewind만 숨긴다.
 // blocked·summarize는 숨기지 않는다.
 function hides(row: RevertRow): boolean {
-  return (row.choice === "restore_all" || row.choice === "messages_only") &&
-    (row.outcome === "applied" || row.outcome === "partial" ||
+  return (
+    (row.choice === "restore_all" || row.choice === "messages_only") &&
+    (row.outcome === "applied" ||
+      row.outcome === "partial" ||
       row.outcome === "uncertain") &&
-    row.boundary_seq !== null && row.result_seq !== null;
+    row.boundary_seq !== null &&
+    row.result_seq !== null
+  );
 }
 
 // 겹치거나 이어진 숨김 구간은 하나로 합친다(가장 앞선 boundary_seq가 시작이다). 오래된 쪽부터다.
 export function hiddenRangesOf(rows: readonly RevertRow[]): HiddenRange[] {
-  const ranges = rows.filter(hides)
+  const ranges = rows
+    .filter(hides)
     .map((row) => ({
       from: Number(row.boundary_seq),
       through: Number(row.result_seq),
@@ -59,8 +64,8 @@ export function inHiddenRange(
   seq: string,
 ): boolean {
   const at = Number(seq);
-  return ranges.some((range) =>
-    at >= Number(range.from_seq) && at <= Number(range.through_seq)
+  return ranges.some(
+    (range) => at >= Number(range.from_seq) && at <= Number(range.through_seq),
   );
 }
 
@@ -78,17 +83,22 @@ export type FoldedRange = {
 export function foldsOf(rows: readonly RevertRow[]): FoldedRange[] {
   const hiding = rows.filter(hides);
   return rows
-    .filter((row) =>
-      row.choice === "summarize" &&
-      row.outcome === "applied" && row.boundary_seq !== null &&
-      row.result_seq !== null && row.summary_call !== null
+    .filter(
+      (row) =>
+        row.choice === "summarize" &&
+        row.outcome === "applied" &&
+        row.boundary_seq !== null &&
+        row.result_seq !== null &&
+        row.summary_call !== null,
     )
-    .filter((fold) =>
-      !hiding.some((hidden) =>
-        Number(hidden.result_seq) > Number(fold.result_seq) &&
-        Number(hidden.boundary_seq) > Number(fold.boundary_seq) &&
-        Number(hidden.boundary_seq) <= Number(fold.result_seq)
-      )
+    .filter(
+      (fold) =>
+        !hiding.some(
+          (hidden) =>
+            Number(hidden.result_seq) > Number(fold.result_seq) &&
+            Number(hidden.boundary_seq) > Number(fold.boundary_seq) &&
+            Number(hidden.boundary_seq) <= Number(fold.result_seq),
+        ),
     )
     .sort((left, right) => Number(left.result_seq) - Number(right.result_seq))
     .map((fold) => ({
@@ -100,21 +110,23 @@ export function foldsOf(rows: readonly RevertRow[]): FoldedRange[] {
 }
 
 function rowsOf(lookup: Lookup, session: string): RevertRow[] {
-  const text = (value: unknown) => value === null ? null : String(value);
-  return lookup.sql.all(
-    `select id, 'rewind' as kind, choice, outcome, cast(boundary_seq as text) as boundary_seq,
+  const text = (value: unknown) => (value === null ? null : String(value));
+  return lookup.sql
+    .all(
+      `select id, 'rewind' as kind, choice, outcome, cast(boundary_seq as text) as boundary_seq,
             cast(result_seq as text) as result_seq, summary_call
        from reverts where session = ? order by rowid`,
-    [session],
-  ).map((row) => ({
-    id: String(row["id"]),
-    kind: String(row["kind"]) as RevertRow["kind"],
-    choice: text(row["choice"]) as RevertRow["choice"],
-    outcome: String(row["outcome"]) as RevertRow["outcome"],
-    boundary_seq: text(row["boundary_seq"]),
-    result_seq: text(row["result_seq"]),
-    summary_call: text(row["summary_call"]),
-  }));
+      [session],
+    )
+    .map((row) => ({
+      id: String(row["id"]),
+      kind: String(row["kind"]) as RevertRow["kind"],
+      choice: text(row["choice"]) as RevertRow["choice"],
+      outcome: String(row["outcome"]) as RevertRow["outcome"],
+      boundary_seq: text(row["boundary_seq"]),
+      result_seq: text(row["result_seq"]),
+      summary_call: text(row["summary_call"]),
+    }));
 }
 
 export function hiddenRanges(lookup: Lookup, session: string): HiddenRange[] {
@@ -141,8 +153,8 @@ export function assertCheckpointVisible(
   );
   return found !== undefined && inHiddenRange(ranges, String(found["seq"]))
     ? err({
-      code: "invalid_input",
-      message: "this message is already in the hidden range",
-    })
+        code: "invalid_input",
+        message: "this message is already in the hidden range",
+      })
     : ok(undefined);
 }

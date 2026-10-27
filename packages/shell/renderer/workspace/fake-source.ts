@@ -44,10 +44,7 @@ const PHRONER: readonly Node[] = [
     folder("rubrics", file("query-hygiene.json")),
     folder("scenarios", folder("query-leave-still", file("r1.yaml"))),
   ),
-  folder(
-    "loop",
-    folder("findings", file("F-009.md"), file("F-010.md")),
-  ),
+  folder("loop", folder("findings", file("F-009.md"), file("F-010.md"))),
   folder("reports", file("weekly-12.pdf")),
   file("LOPHN.md"),
 ];
@@ -244,9 +241,8 @@ function instanceOf(
     current,
     started_by: startedBy,
     created_at: minutesAgo(startedMinutesAgo),
-    finished_at: finishedMinutesAgo === null
-      ? null
-      : minutesAgo(finishedMinutesAgo),
+    finished_at:
+      finishedMinutesAgo === null ? null : minutesAgo(finishedMinutesAgo),
   };
 }
 
@@ -750,9 +746,8 @@ function flowInstanceOf(
     current,
     started_by: startedBy,
     created_at: minutesAgo(startedMinutesAgo),
-    finished_at: finishedMinutesAgo === null
-      ? null
-      : minutesAgo(finishedMinutesAgo),
+    finished_at:
+      finishedMinutesAgo === null ? null : minutesAgo(finishedMinutesAgo),
   };
 }
 
@@ -952,8 +947,8 @@ const clone = (nodes: readonly Node[]): Tree[] =>
 const parts = (path: string) => path.split("/").filter((part) => part !== "");
 
 function mountOf(mounts: readonly Mount[], path: string): Mount | undefined {
-  return mounts.find((item) =>
-    path === item.path || path.startsWith(`${item.path}/`)
+  return mounts.find(
+    (item) => path === item.path || path.startsWith(`${item.path}/`),
   );
 }
 
@@ -1022,7 +1017,7 @@ export function fakeWorkspaceSource(
     change: (detail: WorkflowInstanceDetailView) => WorkflowInstanceDetailView,
   ) => {
     instances = instances.map((detail) =>
-      detail.instance.id === id ? change(detail) : detail
+      detail.instance.id === id ? change(detail) : detail,
     );
   };
   const dirOf = (path: string) => path.slice(0, path.lastIndexOf("/"));
@@ -1060,16 +1055,21 @@ export function fakeWorkspaceSource(
       }
       return Promise.resolve({
         ok: true,
-        value: nodes.map((node) => ({
-          name: node.name,
-          kind: node.children === undefined
-            ? "file" as const
-            : "folder" as const,
-        })).sort((a, b) =>
-          a.kind !== b.kind
-            ? a.kind === "folder" ? -1 : 1
-            : a.name.localeCompare(b.name)
-        ),
+        value: nodes
+          .map((node) => ({
+            name: node.name,
+            kind:
+              node.children === undefined
+                ? ("file" as const)
+                : ("folder" as const),
+          }))
+          .sort((a, b) =>
+            a.kind !== b.kind
+              ? a.kind === "folder"
+                ? -1
+                : 1
+              : a.name.localeCompare(b.name),
+          ),
       });
     },
     create(path, kind) {
@@ -1128,11 +1128,12 @@ export function fakeWorkspaceSource(
       Promise.resolve({
         ok: true,
         value: instances
-          .filter((detail) =>
-            (filter.workflow === undefined ||
-              detail.instance.workflow === filter.workflow) &&
-            (filter.state === undefined ||
-              detail.instance.state === filter.state)
+          .filter(
+            (detail) =>
+              (filter.workflow === undefined ||
+                detail.instance.workflow === filter.workflow) &&
+              (filter.state === undefined ||
+                detail.instance.state === filter.state),
           )
           .map(summaryOf),
       }),
@@ -1145,8 +1146,8 @@ export function fakeWorkspaceSource(
       );
     },
     startWorkflow({ workflow, text, step }) {
-      const entry = (options.workflows ?? FAKE_WORKFLOWS).find((item) =>
-        item.key === workflow
+      const entry = (options.workflows ?? FAKE_WORKFLOWS).find(
+        (item) => item.key === workflow,
       );
       if (entry === undefined) {
         return Promise.resolve({ ok: false, message: "not_found" });
@@ -1159,7 +1160,7 @@ export function fakeWorkspaceSource(
       if (isFlow && step !== undefined) {
         return Promise.resolve({ ok: false, message: "invalid_input" });
       }
-      const first = isFlow ? null : step ?? entry.steps[0]?.name;
+      const first = isFlow ? null : (step ?? entry.steps[0]?.name);
       if (!isFlow && !entry.steps.some((item) => item.name === first)) {
         return Promise.resolve({ ok: false, message: "not_found" });
       }
@@ -1183,19 +1184,24 @@ export function fakeWorkspaceSource(
         created_at: at,
         finished_at: null,
       };
-      instances = [{
-        instance,
-        last_reports: {},
-        lines: [{
-          instance: id,
-          seq: "1",
-          at,
-          by: { kind: "user" },
-          kind: "started",
-          step: first,
-          text,
-        }],
-      }, ...instances];
+      instances = [
+        {
+          instance,
+          last_reports: {},
+          lines: [
+            {
+              instance: id,
+              seq: "1",
+              at,
+              by: { kind: "user" },
+              kind: "started",
+              step: first,
+              text,
+            },
+          ],
+        },
+        ...instances,
+      ];
       return Promise.resolve({ ok: true, value: { instance: id } });
     },
     stopWorkflow(id) {

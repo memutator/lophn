@@ -30,14 +30,14 @@ export function devImportMap(
   const mapped: Record<string, string> = {};
   for (const [key, value] of Object.entries(imports)) {
     const sdk = /^lophn-sdk:(@[^/@]+\/[^/@]+)@([^/@]+)(?:\/(.*))?$/.exec(value);
-    const installed = sdk === null
-      ? undefined
-      : packageInstallPath(sdk[1], sdk[2]);
-    mapped[key] = sdk !== null && installed?.ok === true
-      ? new URL(`${installed.value}/${sdk[3] ?? ""}`, dataBase).href
-      : value.startsWith("./") || value.startsWith("../")
-      ? new URL(value, appBase).href
-      : value;
+    const installed =
+      sdk === null ? undefined : packageInstallPath(sdk[1], sdk[2]);
+    mapped[key] =
+      sdk !== null && installed?.ok === true
+        ? new URL(`${installed.value}/${sdk[3] ?? ""}`, dataBase).href
+        : value.startsWith("./") || value.startsWith("../")
+          ? new URL(value, appBase).href
+          : value;
   }
   return { imports: mapped };
 }

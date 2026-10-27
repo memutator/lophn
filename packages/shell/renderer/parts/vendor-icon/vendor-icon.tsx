@@ -74,9 +74,10 @@ export type Vendor = keyof typeof RAW_ICONS;
 
 // svg의 <title>은 native tooltip을 띄운다. 이름은 둘레의 label이 말하니 inline할 때 한 번 뗀다.
 const ICONS = Object.fromEntries(
-  Object.entries(RAW_ICONS).map((
-    [vendor, svg],
-  ) => [vendor, svg.replace(/<title>[\s\S]*?<\/title>/, "")]),
+  Object.entries(RAW_ICONS).map(([vendor, svg]) => [
+    vendor,
+    svg.replace(/<title>[\s\S]*?<\/title>/, ""),
+  ]),
 ) as Record<Vendor, string>;
 
 /** harness 이름이나 provider 이름으로 아이콘을 고른다. 모르는 이름이면 undefined. */
@@ -114,14 +115,16 @@ export function harnessVendorOf(harness: string): Vendor | undefined {
   return PROVIDER_VENDORS.has(vendor) ? undefined : vendor;
 }
 
-export function VendorIcon(
-  { vendor, size = 16, label }: {
-    vendor: Vendor;
-    size?: number;
-    /** 아이콘만 있고 옆에 이름이 없을 때 읽는 이름. */
-    label?: string;
-  },
-) {
+export function VendorIcon({
+  vendor,
+  size = 16,
+  label,
+}: {
+  vendor: Vendor;
+  size?: number;
+  /** 아이콘만 있고 옆에 이름이 없을 때 읽는 이름. */
+  label?: string;
+}) {
   return (
     <span
       className={styles.icon}

@@ -49,9 +49,8 @@ export function windowOpenHandler(
       createWindow(options) {
         // Electron은 createWindow에 늘 만들어 둔 contents를 준다. 옵션 type에는 빠져 있다.
         const popup = (options as { webContents?: WebContents }).webContents!;
-        hooks.popup.open(
-          decision.placement,
-          (popupHooks) => input.adopt(popup, popupHooks),
+        hooks.popup.open(decision.placement, (popupHooks) =>
+          input.adopt(popup, popupHooks),
         );
         return popup;
       },

@@ -147,28 +147,26 @@ function useEntry(
   return entry;
 }
 
-export function AppSpace(
-  {
-    app,
-    source,
-    views,
-    detail,
-    agents,
-    agentViewSource,
-    runs,
-    onInstructions,
-    onDomainDoc,
-    onSettings,
-    windowWidth,
-    onLauncher,
-    annotate: annotateApi,
-    overlay,
-    session,
-    appEngineer,
-    onOpenSession,
-    terminal,
-  }: AppSpaceProps,
-) {
+export function AppSpace({
+  app,
+  source,
+  views,
+  detail,
+  agents,
+  agentViewSource,
+  runs,
+  onInstructions,
+  onDomainDoc,
+  onSettings,
+  windowWidth,
+  onLauncher,
+  annotate: annotateApi,
+  overlay,
+  session,
+  appEngineer,
+  onOpenSession,
+  terminal,
+}: AppSpaceProps) {
   const [attempt, setAttempt] = useState(0);
   const { record, run, setRun } = useAppRecord(source, app, attempt);
   const row = record.state === "ready" ? record.row : null;
@@ -203,14 +201,14 @@ export function AppSpace(
     agentViewSource,
     paneShown && pane.mode === "runs",
   );
-  const terminalShown = terminal !== undefined && coding !== null &&
-    agents !== undefined;
+  const terminalShown =
+    terminal !== undefined && coding !== null && agents !== undefined;
   const tabs: PanelTab[] = [
     ...(detailsOpen ? ["details" as const] : []),
     ...(paneShown ? ["agent" as const] : []),
     ...(terminalShown ? ["terminal" as const] : []),
   ];
-  const shownTab = tabs.includes(panelTab) ? panelTab : tabs[0] ?? null;
+  const shownTab = tabs.includes(panelTab) ? panelTab : (tabs[0] ?? null);
   const placement = sidePanelPlacement(
     panelOpen && shownTab !== null,
     contentSize?.width ?? width,
@@ -240,17 +238,23 @@ export function AppSpace(
   // 그 agent의 가장 최근 열린 session. lophn이 맡긴 일을 받은 session도 여기 있어서, 고르면 빈 새 session 대신
   // 이어 가던 대화가 열린다. 새 session은 header의 session 목록에서 연다.
   const latestSession = (assignment: string): string | null =>
-    sessions.filter((item) =>
-      item.ended === null && item.agent !== null &&
-      item.agent.role !== "coding_agent" &&
-      keyOf(item.agent) === assignment &&
-      (item.agent.role !== "app_engineer" || item.agent.app === app)
-    ).at(-1)?.session ?? null;
+    sessions
+      .filter(
+        (item) =>
+          item.ended === null &&
+          item.agent !== null &&
+          item.agent.role !== "coding_agent" &&
+          keyOf(item.agent) === assignment &&
+          (item.agent.role !== "app_engineer" || item.agent.app === app),
+      )
+      .at(-1)?.session ?? null;
 
   function openAgent(assignment: string): void {
     // 보고 있는 agent를 다시 고르면 패널을 닫는다.
     if (
-      panelVisible && shownTab === "agent" && pane?.mode === "agent" &&
+      panelVisible &&
+      shownTab === "agent" &&
+      pane?.mode === "agent" &&
       pane.assignment === assignment
     ) {
       setPanelOpen(false);
@@ -259,7 +263,7 @@ export function AppSpace(
     setPane((current) =>
       current?.mode === "agent" && current.assignment === assignment
         ? current
-        : { mode: "agent", assignment, session: latestSession(assignment) }
+        : { mode: "agent", assignment, session: latestSession(assignment) },
     );
     showTab("agent");
   }
@@ -325,12 +329,13 @@ export function AppSpace(
     setOpened(true);
     // 패널이 안 보이면 열되, 열린 탭이 없던 때만 agent를 보인다.
     if (!panelVisible || shownTab === null) {
-      setPane((current) =>
-        current ?? {
-          mode: "agent",
-          assignment: "app_engineer",
-          session: latestSession("app_engineer"),
-        }
+      setPane(
+        (current) =>
+          current ?? {
+            mode: "agent",
+            assignment: "app_engineer",
+            session: latestSession("app_engineer"),
+          },
       );
       setPanelTab("agent");
     }
@@ -382,10 +387,10 @@ export function AppSpace(
   }, [annotateOn]);
 
   async function sendAnnotations(): Promise<void> {
-    const receiver = pane?.mode === "agent" &&
-        pane.assignment === "app_engineer"
-      ? pane.session
-      : null;
+    const receiver =
+      pane?.mode === "agent" && pane.assignment === "app_engineer"
+        ? pane.session
+        : null;
     const sent = await annotating.send(receiver);
     if (sent === null) return;
     toastKind.current = "sent";
@@ -413,7 +418,8 @@ export function AppSpace(
   } else if (row !== null && row.release === null) {
     body = <p className={styles.state}>{t("app-space.empty.no-version")}</p>;
   } else if (
-    entry.state === "unavailable" || (row !== null && views === undefined)
+    entry.state === "unavailable" ||
+    (row !== null && views === undefined)
   ) {
     body = (
       <p className={styles.state} data-screen-not-ready="">
@@ -421,7 +427,9 @@ export function AppSpace(
       </p>
     );
   } else if (
-    row !== null && row.release !== null && entry.state === "ready" &&
+    row !== null &&
+    row.release !== null &&
+    entry.state === "ready" &&
     views !== undefined
   ) {
     embedded = true;
@@ -475,38 +483,41 @@ export function AppSpace(
           }}
           {...(annotateApi !== undefined && embedded && viewSession !== null
             ? {
-              annotate: {
-                on: annotateOn,
-                onToggle: () => annotating.setMode(!annotateOn),
-              },
-            }
+                annotate: {
+                  on: annotateOn,
+                  onToggle: () => annotating.setMode(!annotateOn),
+                },
+              }
             : {})}
           decisions={
             <WaitingLayer
               onOpenSession={showSession}
               onAnswerInTerminal={(target) =>
-                void terminal?.store.focusSession(target)}
+                void terminal?.store.focusSession(target)
+              }
             />
           }
-          agentSelect={agents
-            ? (
+          agentSelect={
+            agents ? (
               <AgentSelect
                 agents={agentList.agents}
                 paneOpen={panelVisible && shownTab === "agent"}
                 onOpenAgent={openAgent}
-                {...(runs === undefined ? {} : {
-                  onRuns: () => {
-                    setPane({ mode: "runs" });
-                    showTab("agent");
-                  },
-                })}
+                {...(runs === undefined
+                  ? {}
+                  : {
+                      onRuns: () => {
+                        setPane({ mode: "runs" });
+                        showTab("agent");
+                      },
+                    })}
                 onManage={() => {
                   setPane({ mode: "manage", agent: null });
                   showTab("agent");
                 }}
               />
-            )
-            : null}
+            ) : null
+          }
         />
       </div>
       <ViewCoversProvider value={covers}>
@@ -514,37 +525,35 @@ export function AppSpace(
           <div className={styles.column}>
             <div className={styles.view}>
               {body}
-              {toast.dom === null
-                ? null
-                : (
-                  <div className={styles.viewToast} data-view-toast="">
-                    <Toast
-                      title={toast.dom.title}
-                      {...(toast.dom.body === undefined
-                        ? {}
-                        : { body: toast.dom.body })}
-                      actions={toast.dom.action
+              {toast.dom === null ? null : (
+                <div className={styles.viewToast} data-view-toast="">
+                  <Toast
+                    title={toast.dom.title}
+                    {...(toast.dom.body === undefined
+                      ? {}
+                      : { body: toast.dom.body })}
+                    actions={
+                      toast.dom.action
                         ? [{ id: "act", label: toast.dom.action.label }]
-                        : []}
-                      onAction={() => toast.dom?.action?.run()}
-                      onClose={toast.hide}
-                      timer={STAY}
-                    />
-                  </div>
-                )}
+                        : []
+                    }
+                    onAction={() => toast.dom?.action?.run()}
+                    onClose={toast.hide}
+                    timer={STAY}
+                  />
+                </div>
+              )}
             </div>
-            {annotateOn && annotations.length > 0
-              ? (
-                <AnnotationPanel
-                  items={annotations}
-                  sending={annotating.state?.phase === "sending"}
-                  failure={annotating.failure}
-                  onRemove={annotating.remove}
-                  onClear={() => annotating.remove("all")}
-                  onSend={() => void sendAnnotations()}
-                />
-              )
-              : null}
+            {annotateOn && annotations.length > 0 ? (
+              <AnnotationPanel
+                items={annotations}
+                sending={annotating.state?.phase === "sending"}
+                failure={annotating.failure}
+                onRemove={annotating.remove}
+                onClear={() => annotating.remove("all")}
+                onSend={() => void sendAnnotations()}
+              />
+            ) : null}
           </div>
           <SidePanel
             tabs={tabs}
@@ -552,8 +561,8 @@ export function AppSpace(
             onTab={setPanelTab}
             onCloseTab={closeTab}
             placement={placement}
-            details={detail && row
-              ? (
+            details={
+              detail && row ? (
                 <AppDetail
                   app={app}
                   name={row.name}
@@ -562,8 +571,8 @@ export function AppSpace(
                   onOpenDomainDoc={onDomainDoc}
                   onOpenSession={showSession}
                 />
-              )
-              : null}
+              ) : null
+            }
             state={paneShown ? pane : null}
             app={app}
             appName={row?.name ?? ""}

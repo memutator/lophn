@@ -95,14 +95,16 @@ export const appsOAuthState = defineMemory({
   name: "apps.oauth_state",
   input: z.strictObject({ app: appIdSchema }),
   output: z.strictObject({
-    secrets: z.array(z.strictObject({
-      name: secretNameSchema,
-      client_id: z.string().nullable(),
-      client_secret_set: z.boolean(),
-      state: z.enum(APP_OAUTH_STATES),
-      // failed일 때만 값이 있다.
-      reason: z.enum(APP_OAUTH_FAILURES).nullable(),
-    })),
+    secrets: z.array(
+      z.strictObject({
+        name: secretNameSchema,
+        client_id: z.string().nullable(),
+        client_secret_set: z.boolean(),
+        state: z.enum(APP_OAUTH_STATES),
+        // failed일 때만 값이 있다.
+        reason: z.enum(APP_OAUTH_FAILURES).nullable(),
+      }),
+    ),
   }),
   actors: ["user"],
   errors: ["invalid_input", "not_found", "unavailable"],

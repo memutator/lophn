@@ -51,19 +51,27 @@ export function fakeFileSearchSource(): FileSearchSource {
   return {
     search({ query, folder }) {
       const words = query.trim().toLowerCase();
-      const matches: FileMatch[] = words === "" ? [] : CORPUS.flatMap((row) => {
-        const start = row.text.toLowerCase().indexOf(words);
-        const inFolder = folder === undefined ||
-          `${FAKE_SEARCH_FOLDER}/${row.path}`.startsWith(`${folder}/`);
-        return start === -1 || !inFolder ? [] : [{
-          folder: FAKE_SEARCH_FOLDER,
-          path: row.path,
-          line: row.line,
-          text: row.text,
-          start,
-          end: start + words.length,
-        }];
-      });
+      const matches: FileMatch[] =
+        words === ""
+          ? []
+          : CORPUS.flatMap((row) => {
+              const start = row.text.toLowerCase().indexOf(words);
+              const inFolder =
+                folder === undefined ||
+                `${FAKE_SEARCH_FOLDER}/${row.path}`.startsWith(`${folder}/`);
+              return start === -1 || !inFolder
+                ? []
+                : [
+                    {
+                      folder: FAKE_SEARCH_FOLDER,
+                      path: row.path,
+                      line: row.line,
+                      text: row.text,
+                      start,
+                      end: start + words.length,
+                    },
+                  ];
+            });
       return Promise.resolve({ ok: true, value: matches });
     },
   };

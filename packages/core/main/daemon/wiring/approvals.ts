@@ -61,13 +61,13 @@ function ownTurn(
   input: { session: string; turn: string },
 ): Result<void> {
   return who.actor === `agent:${input.session}` &&
-      who.conditions.session === input.session &&
-      who.conditions.turn === input.turn
+    who.conditions.session === input.session &&
+    who.conditions.turn === input.turn
     ? ok(undefined)
     : err({
-      code: "forbidden",
-      message: "the credential belongs to another session or turn",
-    });
+        code: "forbidden",
+        message: "the credential belongs to another session or turn",
+      });
 }
 
 // runtime이 Gate가 걸리는 tool을 실행하기 직전에 부르는 입구다. 판정, 묻기, 사람 결정 기다리기를 모두 여기서 한다.
@@ -122,7 +122,7 @@ export const approvalsWiring: WiringFactory = () => {
       };
       const shellRulesNow = () =>
         ctx.peek.settings?.get(shellRulesSetting) ??
-          DEFAULT_SHELL_RULES_SETTING;
+        DEFAULT_SHELL_RULES_SETTING;
       const service = createApprovals({
         assignmentOf,
         // 판정마다 읽어 사람이 Settings에서 고친 값이 다음 호출부터 쓰인다.
@@ -144,9 +144,9 @@ export const approvalsWiring: WiringFactory = () => {
         return Promise.resolve(
           !written.ok || written.value.rejected.length > 0
             ? err({
-              code: "internal",
-              message: "the shell rule could not be saved",
-            })
+                code: "internal",
+                message: "the shell rule could not be saved",
+              })
             : ok(undefined),
         );
       });
@@ -158,26 +158,31 @@ export const approvalsWiring: WiringFactory = () => {
       ctx.provide("questionWaits", waits);
       // turn이 끝나거나 session이 닫히면 기다리던 turn request와 질문을 cancelled로 푼다.
       // 사람이 기다리는 session에 메시지를 보내면 질문은 그 메시지로 풀린다.
-      stopWatching = bus.subscribe([{
-        types: ["TurnEnded", "SessionEnded", "MessageReceived"],
-      }], {
-        send(event) {
-          if (!("session" in event)) return;
-          if (event.type === "TurnEnded") {
-            service.cancelTurnRequests(event.session, "turn_ended");
-            waits.cancel(event.session, event.payload.turn);
-          } else if (event.type === "SessionEnded") {
-            service.cancelTurnRequests(event.session, "session_closed");
-            waits.cancel(event.session);
-          } else if (
-            event.type === "MessageReceived" &&
-            event.payload.from.kind === "human"
-          ) {
-            waits.humanMessage(event.session, event.payload.body);
-          }
+      stopWatching = bus.subscribe(
+        [
+          {
+            types: ["TurnEnded", "SessionEnded", "MessageReceived"],
+          },
+        ],
+        {
+          send(event) {
+            if (!("session" in event)) return;
+            if (event.type === "TurnEnded") {
+              service.cancelTurnRequests(event.session, "turn_ended");
+              waits.cancel(event.session, event.payload.turn);
+            } else if (event.type === "SessionEnded") {
+              service.cancelTurnRequests(event.session, "session_closed");
+              waits.cancel(event.session);
+            } else if (
+              event.type === "MessageReceived" &&
+              event.payload.from.kind === "human"
+            ) {
+              waits.humanMessage(event.session, event.payload.body);
+            }
+          },
+          close() {},
         },
-        close() {},
-      });
+      );
       const gating = new Set<string>();
       releaseWaits = () => {
         waits.cancelAll();
@@ -200,9 +205,11 @@ export const approvalsWiring: WiringFactory = () => {
             { session },
           );
           if (!found.ok) return found;
-          const { agent, place } = (found.value as {
-            session: { agent: { role: string }; place: Place | null };
-          }).session;
+          const { agent, place } = (
+            found.value as {
+              session: { agent: { role: string }; place: Place | null };
+            }
+          ).session;
           return agent.role === "coding_agent"
             ? err({ code: "forbidden", message: "not a lophn agent" })
             : ok({ agent: agent as AgentRef, place });

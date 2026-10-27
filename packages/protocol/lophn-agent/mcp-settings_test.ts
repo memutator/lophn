@@ -41,9 +41,12 @@ test("MCP 설정은 mcp. 밖의 secret 이름과 stdio env의 secret을 받지 �
     ],
     [
       "header mcp-oauth.",
-      http({ kind: "none" }, {
-        "x-token": secret("mcp-oauth.global.srv.access"),
-      }),
+      http(
+        { kind: "none" },
+        {
+          "x-token": secret("mcp-oauth.global.srv.access"),
+        },
+      ),
       false,
     ],
     [

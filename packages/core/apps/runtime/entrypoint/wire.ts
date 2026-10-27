@@ -20,11 +20,11 @@ type InvocationCaller =
   | { kind: "person"; view_session: string }
   | { kind: "agent"; session: string; turn: string; tool_call: string }
   | {
-    kind: "app";
-    app: string;
-    release: string;
-    parent_invocation: string | null;
-  }
+      kind: "app";
+      app: string;
+      release: string;
+      parent_invocation: string | null;
+    }
   | { kind: "program"; job: string; job_run: string }
   | { kind: "flow"; instance: string };
 
@@ -51,9 +51,10 @@ function caller(value: unknown): InvocationCaller | undefined {
       }
       const app = id(source.app, "app");
       const release = id(source.release, "rel");
-      const parent = source.parent_invocation === null
-        ? null
-        : id(source.parent_invocation, "inv");
+      const parent =
+        source.parent_invocation === null
+          ? null
+          : id(source.parent_invocation, "inv");
       if (!app || !release || parent === undefined) return;
       return { kind: "app", app, release, parent_invocation: parent };
     }
@@ -91,12 +92,14 @@ export type ProcessCall = {
 export function parseProcessCall(value: unknown): ProcessCall | undefined {
   const source = record(value);
   if (
-    !source || exact(source, ["invocation", "tool", "input", "context"], [
-      "invocation",
-      "tool",
-      "context",
-    ])
-  ) return;
+    !source ||
+    exact(
+      source,
+      ["invocation", "tool", "input", "context"],
+      ["invocation", "tool", "context"],
+    )
+  )
+    return;
   const invocation = id(source.invocation, "inv");
   const tool = appToolKey(source.tool);
   if (!invocation || !tool) return;
@@ -104,28 +107,24 @@ export function parseProcessCall(value: unknown): ProcessCall | undefined {
   const context = record(source.context);
   if (
     !context ||
-    exact(context, [
-      "app",
-      "release",
-      "mode",
-      "effect",
-      "caller",
-    ])
-  ) return;
+    exact(context, ["app", "release", "mode", "effect", "caller"])
+  )
+    return;
   const app = id(context.app, "app");
   const release = context.release === null ? null : id(context.release, "rel");
-  const mode = context.mode === "live" || context.mode === "preview"
-    ? context.mode
-    : undefined;
-  const effect = context.effect === "read" || context.effect === "write" ||
-      context.effect === "external"
-    ? context.effect
-    : undefined;
+  const mode =
+    context.mode === "live" || context.mode === "preview"
+      ? context.mode
+      : undefined;
+  const effect =
+    context.effect === "read" ||
+    context.effect === "write" ||
+    context.effect === "external"
+      ? context.effect
+      : undefined;
   const from = context.caller === null ? null : caller(context.caller);
-  if (
-    !app || release === undefined || !mode ||
-    !effect || from === undefined
-  ) return;
+  if (!app || release === undefined || !mode || !effect || from === undefined)
+    return;
   return {
     invocation,
     tool,
@@ -144,7 +143,8 @@ export function parseProcessApply(
   if (
     !Array.isArray(list) ||
     !list.every((item) => typeof item === "string" && BASE64.test(item))
-  ) return;
+  )
+    return;
   return { changesets: list as string[] };
 }
 

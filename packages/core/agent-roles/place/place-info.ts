@@ -102,9 +102,10 @@ function appLines(
   if (app.source !== null) lines.push(`${indent}Source folder: ${app.source}`);
   lines.push(`${indent}Declaration: ${app.declaration}`);
   if (release !== null) {
-    const tools = release.tool_names.length > 0
-      ? [...release.tool_names].sort(cmp).join(", ")
-      : "none";
+    const tools =
+      release.tool_names.length > 0
+        ? [...release.tool_names].sort(cmp).join(", ")
+        : "none";
     lines.push(`${indent}Active release: ${release.version}. tools: ${tools}`);
   }
   return lines;
@@ -137,14 +138,15 @@ function placeLines(data: PlaceData): string[] {
 function agentLines(agents: readonly PlaceAgent[]): string[] {
   if (agents.length === 0) return [];
   const sorted = [...agents].sort((a, b) =>
-    cmp(`${a.role}\0${a.name}`, `${b.role}\0${b.name}`)
+    cmp(`${a.role}\0${a.name}`, `${b.role}\0${b.name}`),
   );
   return [
     "Agents you can call (use these names as the `to` of a call)",
-    ...sorted.map((a) =>
-      `- ${ROLE_LABEL[a.role]} ${a.name}${
-        a.place === null ? "" : ` (${a.place})`
-      }: ${a.line}`
+    ...sorted.map(
+      (a) =>
+        `- ${ROLE_LABEL[a.role]} ${a.name}${
+          a.place === null ? "" : ` (${a.place})`
+        }: ${a.line}`,
     ),
   ];
 }
@@ -230,11 +232,13 @@ function mapLines(
   for (const d of [...domains].sort((a, b) => cmp(a.name, b.name))) {
     lines.push(`- ${d.name} (${d.owner}): ${oneLine(d.purpose)}`);
     if (level === "bare") continue;
-    const tools = [...d.tools].sort((a, b) => cmp(a.key, b.key)).map((t) =>
-      level === "full"
-        ? `${t.key} (${t.effect}) ${oneLine(t.description)}`
-        : `${t.key} (${t.effect})`
-    );
+    const tools = [...d.tools]
+      .sort((a, b) => cmp(a.key, b.key))
+      .map((t) =>
+        level === "full"
+          ? `${t.key} (${t.effect}) ${oneLine(t.description)}`
+          : `${t.key} (${t.effect})`,
+      );
     if (tools.length > 0) lines.push(`  Public tools: ${tools.join("; ")}`);
     const usedBy = unique(d.usedBy.map((u) => `${u.tool} ← ${u.domain}`));
     if (usedBy.length > 0) {

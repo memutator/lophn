@@ -38,10 +38,9 @@ test("kind 읽기: agent는 자격 그릇이 owner인 domain만 읽는다", asyn
     conditions: Record<string, string>,
     domain: string,
   ) =>
-    handler(
-      { actor, conditions } as unknown as AuthenticatedContext,
-      { domain },
-    );
+    handler({ actor, conditions } as unknown as AuthenticatedContext, {
+      domain,
+    });
   const code = async (result: ReturnType<typeof call>) => {
     const done = await result;
     return done.ok ? "ok" : done.error.code;
@@ -67,9 +66,7 @@ test("kind 읽기: agent는 자격 그릇이 owner인 domain만 읽는다", asyn
     "not_found",
   );
   assert.deepStrictEqual(
-    await code(
-      call(AGENT, { app: "app_a" }, "dom_01hzzzzzzzzzzzzzzzzzzzzzzc"),
-    ),
+    await code(call(AGENT, { app: "app_a" }, "dom_01hzzzzzzzzzzzzzzzzzzzzzzc")),
     "ok",
   );
   assert.deepStrictEqual(

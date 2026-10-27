@@ -15,15 +15,13 @@ export function matcherFor(pattern: string): PathMatcher {
 }
 
 // 경로에 glob이 맞는 kind들(kinds 순서).
-export function kindMatcher(
-  kinds: readonly Kind[],
-): (path: string) => Kind[] {
+export function kindMatcher(kinds: readonly Kind[]): (path: string) => Kind[] {
   const compiled = kinds.map((kind) => ({
     kind,
     tests: kind.files.map(matcherFor),
   }));
   return (path) =>
-    compiled.filter(({ tests }) => tests.some((test) => test(path))).map((
-      { kind },
-    ) => kind);
+    compiled
+      .filter(({ tests }) => tests.some((test) => test(path)))
+      .map(({ kind }) => kind);
 }

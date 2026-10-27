@@ -24,13 +24,12 @@ export function Field({ label, help, error, children }: FieldProps) {
         data-invalid={invalid || undefined}
         {...componentMark("Field")}
       >
-        <label htmlFor={id} className={styles.label}>{label}</label>
+        <label htmlFor={id} className={styles.label}>
+          {label}
+        </label>
         {children}
         {message !== undefined && (
-          <p
-            className={styles.message}
-            data-tone={invalid ? "error" : "help"}
-          >
+          <p className={styles.message} data-tone={invalid ? "error" : "help"}>
             {invalid && (
               <Icon
                 icon={CircleX}

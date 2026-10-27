@@ -32,7 +32,8 @@ export function nextTrials(state: TrialState, policy: Policy): number {
   }
 
   if (state.variant.some((o) => goalState(o, null) === "pending")) return 0;
-  const same = poolVerdict(tallyOf(state.variant, null)) ===
+  const same =
+    poolVerdict(tallyOf(state.variant, null)) ===
     poolVerdict(tallyOf(state.baseline, null));
   return same ? 0 : policy.max - n;
 }

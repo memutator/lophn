@@ -7,7 +7,7 @@ export async function contentHash(
 ): Promise<string> {
   const encoder = new TextEncoder();
   const chunks: Uint8Array[] = [];
-  for (const file of [...files].sort((a, b) => a.path < b.path ? -1 : 1)) {
+  for (const file of [...files].sort((a, b) => (a.path < b.path ? -1 : 1))) {
     chunks.push(encoder.encode(`${file.path}\n${file.bytes.length}\n`));
     chunks.push(file.bytes);
     chunks.push(encoder.encode("\n"));

@@ -2,10 +2,12 @@
 // 쓴다. renderer allowlist를 거치지 않으므로 renderer IPC는 이 통로를 부르지 못한다.
 import { contentBasis } from "./handle.ts";
 
-export type Called<T = unknown> = { ok: true; value: T } | {
-  ok: false;
-  error: { code: string; message: string; details?: unknown };
-};
+export type Called<T = unknown> =
+  | { ok: true; value: T }
+  | {
+      ok: false;
+      error: { code: string; message: string; details?: unknown };
+    };
 
 export interface DecisionCore {
   internal(
@@ -28,7 +30,10 @@ export type Read =
   | { ok: true; value: Canonical }
   | { ok: false; error: { code: string; message: string } };
 
-export function failed(code: string, message: string): {
+export function failed(
+  code: string,
+  message: string,
+): {
   ok: false;
   error: { code: string; message: string };
 } {
@@ -64,6 +69,6 @@ export function bindingOf(
 
 export function record(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : {};
 }

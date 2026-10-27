@@ -159,10 +159,10 @@ export function createSupervisor(options: {
       const type = (message as { type?: unknown } | null)?.type;
       // 사람이 누른 열기·다시 시작만 죽은 host 뒤를 살린다. input·resize·close·
       // snapshot 같은 자동 경로는 죽은 host에 닿지 않는다.
-      const current = type === "open" || type === "open-coding" ||
-          type === "restart"
-        ? revive()
-        : ensure();
+      const current =
+        type === "open" || type === "open-coding" || type === "restart"
+          ? revive()
+          : ensure();
       if (!current || current.killed || !current.stdin) {
         return Promise.resolve({
           ok: false,
@@ -175,9 +175,8 @@ export function createSupervisor(options: {
       let body: unknown = message;
       if (type === "restart") {
         const ref = (message as { terminal_ref?: unknown }).terminal_ref;
-        const terminal = typeof ref === "string"
-          ? runtimes.get(ref)
-          : undefined;
+        const terminal =
+          typeof ref === "string" ? runtimes.get(ref) : undefined;
         if (!terminal) {
           return Promise.resolve({
             ok: false,
@@ -247,9 +246,8 @@ async function readLines(
 ): Promise<void> {
   let buffer = "";
   for await (const piece of stream) {
-    buffer += typeof piece === "string"
-      ? piece
-      : new TextDecoder().decode(piece);
+    buffer +=
+      typeof piece === "string" ? piece : new TextDecoder().decode(piece);
     let nl = buffer.indexOf("\n");
     while (nl >= 0) {
       const line = buffer.slice(0, nl);

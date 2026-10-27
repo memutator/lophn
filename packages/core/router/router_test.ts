@@ -42,9 +42,11 @@ function setup(sessions: Record<string, TargetSession>) {
       return ok(undefined);
     },
     byDedup: (_tx, sender, dedup) =>
-      [...rows.values()].find((row) =>
-        row.from.kind === "agent" && row.from.session === sender &&
-        row.dedup === dedup
+      [...rows.values()].find(
+        (row) =>
+          row.from.kind === "agent" &&
+          row.from.session === sender &&
+          row.dedup === dedup,
       ) ?? null,
     read: (_tx, call) => rows.get(call) ?? null,
     move: (_tx, call, to, reason) => {
@@ -57,8 +59,8 @@ function setup(sessions: Record<string, TargetSession>) {
     setReceiver: () => ok(undefined),
     lost: () => [],
     openReceivedBy: (_tx, session) =>
-      [...rows.values()].filter((row) =>
-        row.state === "accepted" && row.receiver_session === session
+      [...rows.values()].filter(
+        (row) => row.state === "accepted" && row.receiver_session === session,
       ),
   };
   const directory: SessionDirectory = {
@@ -113,7 +115,10 @@ test("a call to a closed session fails as closed and delivers no input to either
   assert.ok(routed.ok);
   assert.deepStrictEqual(routed.value.state, "failed");
   assert.deepStrictEqual(routed.value.fail_reason, "closed");
-  assert.deepStrictEqual(delivered.filter((one) => one.to === RECEIVER), []);
+  assert.deepStrictEqual(
+    delivered.filter((one) => one.to === RECEIVER),
+    [],
+  );
   // 즉시 난 실패는 tool 결과로만 알린다. 같은 실패를 입력으로 또 받지 않는다.
   assert.deepStrictEqual(delivered, []);
 });
@@ -134,11 +139,15 @@ test("a late reply to an ended call returns closed and sends nothing", () => {
     state: "cancelled",
   });
   delivered.length = 0;
-  const late = router.reply(tx, { session: RECEIVER }, {
-    call: routed.value.call,
-    body: "done",
-    refs: [],
-  });
+  const late = router.reply(
+    tx,
+    { session: RECEIVER },
+    {
+      call: routed.value.call,
+      body: "done",
+      refs: [],
+    },
+  );
   assert.deepStrictEqual(late, ok({ delivered: false, closed: true }));
   assert.deepStrictEqual(delivered, []);
 });
@@ -225,12 +234,16 @@ test("attended turn이 보낸 call은 attended로 열린다. unattended가 atten
     // 답은 call 행이 아니라 답한 turn의 표시를 따른다.
     for (const replyMark of [undefined, true]) {
       const { tx, router, delivered, call } = open();
-      const sent = router.reply(tx, { session: RECEIVER }, {
-        call,
-        body: "done",
-        refs: [],
-        unattended: replyMark,
-      });
+      const sent = router.reply(
+        tx,
+        { session: RECEIVER },
+        {
+          call,
+          body: "done",
+          refs: [],
+          unattended: replyMark,
+        },
+      );
       assert.ok(sent.ok && sent.value.delivered);
       assert.deepStrictEqual(delivered.at(-1)!.to, SENDER);
       assert.deepStrictEqual(
@@ -254,9 +267,13 @@ test("attended turn이 보낸 call은 attended로 열린다. unattended가 atten
     // 보낸 쪽의 취소 알림도 그렇다.
     {
       const { tx, router, cancelled, call } = open();
-      const done = router.cancel(tx, { kind: "agent", session: SENDER }, {
-        call: call as never,
-      });
+      const done = router.cancel(
+        tx,
+        { kind: "agent", session: SENDER },
+        {
+          call: call as never,
+        },
+      );
       assert.ok(done.ok);
       assert.deepStrictEqual(cancelled, [mark]);
     }

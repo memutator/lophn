@@ -25,12 +25,12 @@ function compactionOf(
   session: NonNullable<ReturnType<typeof loadSession>>,
 ): Found["compaction"] | undefined {
   return session.compaction_through_seq === null ||
-      session.compaction_summary_call === null
+    session.compaction_summary_call === null
     ? undefined
     : {
-      through_seq: session.compaction_through_seq,
-      summary_call: session.compaction_summary_call,
-    };
+        through_seq: session.compaction_through_seq,
+        summary_call: session.compaction_summary_call,
+      };
 }
 
 // "Summarize from here"가 접은 구간이다. 접수된(applied) 요약 rewind만 있다.
@@ -45,10 +45,12 @@ function foldOf(
         and outcome = 'applied'`,
     [revert, session],
   );
-  return row === undefined ? undefined : {
-    through_seq: String(row["through_seq"]),
-    summary_call: String(row["summary_call"]),
-  };
+  return row === undefined
+    ? undefined
+    : {
+        through_seq: String(row["through_seq"]),
+        summary_call: String(row["summary_call"]),
+      };
 }
 
 function absent(): Result<never> {
@@ -76,9 +78,10 @@ export function sessionSummaryRead(
         if (session === undefined || !sessionVisible(ctx, session)) {
           return ok(undefined);
         }
-        const compaction = revert === undefined
-          ? compactionOf(session)
-          : foldOf(sql, id, revert);
+        const compaction =
+          revert === undefined
+            ? compactionOf(session)
+            : foldOf(sql, id, revert);
         if (compaction === undefined) return ok(undefined);
         const ref = sql.get(
           `select hash, size_bytes from blob_refs
@@ -90,7 +93,8 @@ export function sessionSummaryRead(
         if (
           typeof hash !== "string" ||
           (typeof size !== "bigint" && typeof size !== "number")
-        ) return unavailable();
+        )
+          return unavailable();
         return ok({
           compaction,
           hash,

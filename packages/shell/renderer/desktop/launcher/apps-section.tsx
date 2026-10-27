@@ -24,9 +24,13 @@ interface AppsSectionProps {
 
 // 프로젝트 section 아래의 앱 section. 보관하지 않은 앱만 카드로 보이고, 카드 전체가 그 앱 공간으로
 // 가는 단추다. 보관은 ⋯ 메뉴에 있다.
-export function AppsSection(
-  { apps, onApp, onNew, onArchive, onRetry }: AppsSectionProps,
-) {
+export function AppsSection({
+  apps,
+  onApp,
+  onNew,
+  onArchive,
+  onRetry,
+}: AppsSectionProps) {
   const newApp = t("launcher.button.new-app");
   let body: ReactNode;
   if (apps.state === "loading") {
@@ -60,11 +64,7 @@ export function AppsSection(
       <ul className={styles.grid} data-cards="apps">
         {apps.items.map((row) => (
           <li key={row.id}>
-            <article
-              className={styles.card}
-              data-card="app"
-              data-app={row.id}
-            >
+            <article className={styles.card} data-card="app" data-app={row.id}>
               <div className={styles.cardHead}>
                 <button
                   type="button"
@@ -81,11 +81,13 @@ export function AppsSection(
                 <span className={styles.cardAside}>
                   <CardMenu
                     name={row.name}
-                    items={[{
-                      id: "archive",
-                      label: t("launcher.button.archive"),
-                      icon: commonIcons.archive,
-                    }]}
+                    items={[
+                      {
+                        id: "archive",
+                        label: t("launcher.button.archive"),
+                        icon: commonIcons.archive,
+                      },
+                    ]}
                     onSelect={() => onArchive(row)}
                   />
                 </span>
@@ -102,9 +104,9 @@ export function AppsSection(
       <div className={styles.sectionHead}>
         <h2 className={styles.sectionTitle}>
           {t("launcher.heading.apps")}
-          {apps.state === "ready" && apps.items.length > 0
-            ? <span className={styles.count}>{apps.items.length}</span>
-            : null}
+          {apps.state === "ready" && apps.items.length > 0 ? (
+            <span className={styles.count}>{apps.items.length}</span>
+          ) : null}
         </h2>
         <Tooltip content={newApp}>
           <IconButton

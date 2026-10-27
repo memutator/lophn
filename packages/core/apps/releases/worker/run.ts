@@ -23,9 +23,7 @@ type ReleaseWorkerOptions = {
   cancelled?: () => boolean;
 };
 
-function createReleaseWorker(
-  options: ReleaseWorkerOptions,
-): ChildSession {
+function createReleaseWorker(options: ReleaseWorkerOptions): ChildSession {
   const session = startChild(options.streams, {
     onHello(hello) {
       if (hello.kind !== RELEASE_WORKER_KIND) {
@@ -39,10 +37,10 @@ function createReleaseWorker(
     },
     async onParent(message) {
       if (message.type !== "worker_request") return;
-      const parsed = (message as unknown as { request_id?: string })
-          .request_id !== undefined
-        ? { success: true as const, data: message as WorkerRequest }
-        : { success: false as const };
+      const parsed =
+        (message as unknown as { request_id?: string }).request_id !== undefined
+          ? { success: true as const, data: message as WorkerRequest }
+          : { success: false as const };
       if (!parsed.success) {
         await session.send({
           type: "worker_response",
@@ -77,12 +75,15 @@ function createReleaseWorker(
 function isPrepareInput(value: unknown): value is PrepareReleaseInput {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;
-  return typeof record.app === "string" &&
+  return (
+    typeof record.app === "string" &&
     typeof record.sourceRoot === "string" &&
     typeof record.commit === "string" &&
     typeof record.entrypoint === "string" &&
     typeof record.declarationSource === "string" &&
-    Array.isArray(record.screens) && Array.isArray(record.dependencies);
+    Array.isArray(record.screens) &&
+    Array.isArray(record.dependencies)
+  );
 }
 
 async function acceptRelease(
@@ -112,8 +113,10 @@ async function acceptRelease(
 
 export async function runReleaseWorker(root: string): Promise<void> {
   // Only the entry owns console routing. Helper modules never change global console.
-  console.log = console.info = console.debug = (...args: unknown[]) =>
-    console.error(...args);
+  console.log =
+    console.info =
+    console.debug =
+      (...args: unknown[]) => console.error(...args);
   let stopped = false;
   const session = await createReleaseWorker({
     root,

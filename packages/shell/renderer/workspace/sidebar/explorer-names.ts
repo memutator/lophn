@@ -19,9 +19,12 @@ function partsOf(raw: string, nested: boolean): readonly string[] | null {
   const name = raw.trim().replace(/\/+$/, "");
   if (name === "") return [];
   const parts = nested ? name.split("/") : [name];
-  const bad = parts.some((part) =>
-    part.trim() === "" || BAD.has(part.trim()) || part.includes("/") ||
-    part.includes("\0")
+  const bad = parts.some(
+    (part) =>
+      part.trim() === "" ||
+      BAD.has(part.trim()) ||
+      part.includes("/") ||
+      part.includes("\0"),
   );
   return bad ? null : parts.map((part) => part.trim());
 }
@@ -58,7 +61,8 @@ export function checkRename(
   if (parts === null) return { problem: "invalid", parts: [] };
   if (parts.length === 0) return { problem: "required", parts };
   const old = path.slice(path.lastIndexOf("/") + 1);
-  const taken = parts[0] !== old &&
+  const taken =
+    parts[0] !== old &&
     entriesOf(parentOf(path))?.some((entry) => entry.name === parts[0]);
   return { problem: taken ? "exists" : null, parts };
 }

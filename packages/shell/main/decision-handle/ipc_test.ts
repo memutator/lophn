@@ -52,7 +52,7 @@ test("화면을 누르지 않은 결정 요청은 handle을 받지 못한다", a
   // 일반 shell 창이 아닌 sender(보호 창, overlay, 앱 view)는 창으로 풀리지 않는다.
   const none = setup(() => undefined);
   assert.deepEqual(
-    (await none.call("overlay", REQUEST) as { error: { code: string } }).error
+    ((await none.call("overlay", REQUEST)) as { error: { code: string } }).error
       .code,
     "forbidden",
   );
@@ -60,10 +60,10 @@ test("화면을 누르지 않은 결정 요청은 handle을 받지 못한다", a
 
   // 고정되지 않은 결정은 shell 창이어도 받지 못한다.
   const shell = setup(() => "window-1");
-  const unknown = await shell.call("shell", {
+  const unknown = (await shell.call("shell", {
     ...REQUEST,
     decision: "delete_everything",
-  }) as { error: { code: string } };
+  })) as { error: { code: string } };
   assert.equal(unknown.error.code, "forbidden");
   assert.equal(shell.registered.length, 0);
 

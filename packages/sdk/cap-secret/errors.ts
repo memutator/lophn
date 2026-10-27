@@ -48,7 +48,7 @@ const CODES = new Set<string>([
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : undefined;
 }
 
@@ -59,27 +59,30 @@ export function fromBroker(
   requested: { permission: string; scope: Record<string, unknown> },
 ): CapabilityError {
   const error = record(record(body)?.error);
-  const code = typeof error?.code === "string" && CODES.has(error.code)
-    ? error.code as CapabilityErrorCode
-    : "unavailable";
+  const code =
+    typeof error?.code === "string" && CODES.has(error.code)
+      ? (error.code as CapabilityErrorCode)
+      : "unavailable";
   if (code !== "forbidden") {
     return new CapabilityError({
       code,
-      message: typeof error?.message === "string"
-        ? error.message
-        : "broker request failed",
+      message:
+        typeof error?.message === "string"
+          ? error.message
+          : "broker request failed",
     });
   }
   const details = record(error?.details);
-  const permission = typeof details?.permission === "string"
-    ? details.permission
-    : requested.permission;
+  const permission =
+    typeof details?.permission === "string"
+      ? details.permission
+      : requested.permission;
   const scope = record(details?.scope) ?? requested.scope;
   return new CapabilityError({
     code,
-    message: `${permission} ${
-      JSON.stringify(scope)
-    } is not permitted. Declare this permission in the declaration and ask the person to grant it.`,
+    message: `${permission} ${JSON.stringify(
+      scope,
+    )} is not permitted. Declare this permission in the declaration and ask the person to grant it.`,
     permission,
     scope,
   });

@@ -60,15 +60,18 @@ export function Gallery() {
   const located = id === null ? undefined : locate(id);
   const page = located?.page;
   useEffect(() => {
-    document.title = page === undefined
-      ? "lophn wireframes"
-      : `${page.title} · lophn wireframes`;
+    document.title =
+      page === undefined
+        ? "lophn wireframes"
+        : `${page.title} · lophn wireframes`;
     scrollTo(0, 0);
   }, [page]);
   return (
     <div className={styles.shell}>
       <header className={styles.header}>
-        <a className={styles.brand} href="#/">lophn wireframes</a>
+        <a className={styles.brand} href="#/">
+          lophn wireframes
+        </a>
         <div className={styles.themes} role="group" aria-label="Theme">
           {THEMES.map((item) => (
             <Button
@@ -85,9 +88,11 @@ export function Gallery() {
       </header>
       <div className={styles.body}>
         <Toc current={located} />
-        {located === undefined
-          ? <Index missing={id} />
-          : <PageView located={located} theme={theme} />}
+        {located === undefined ? (
+          <Index missing={id} />
+        ) : (
+          <PageView located={located} theme={theme} />
+        )}
       </div>
     </div>
   );
@@ -185,27 +190,31 @@ function PageView({ located, theme }: { located: Located; theme: Theme }) {
   };
   return (
     <main className={styles.page}>
-      <a className={styles.back} href="#/">← 목록</a>
+      <a className={styles.back} href="#/">
+        ← 목록
+      </a>
       <h1 className={styles.title}>{page.title}</h1>
       <p className={styles.description}>{page.description}</p>
-      {group.inline
-        ? <div className={styles.inline}>{page.render()}</div>
-        : <Frame page={page} theme={theme} />}
+      {group.inline ? (
+        <div className={styles.inline}>{page.render()}</div>
+      ) : (
+        <Frame page={page} theme={theme} />
+      )}
       <nav className={styles.nav}>
-        {previous === undefined
-          ? <span />
-          : (
-            <Button variant="secondary" onClick={go(previous)}>
-              ← {previous.title}
-            </Button>
-          )}
-        {next === undefined
-          ? <span />
-          : (
-            <Button variant="secondary" onClick={go(next)}>
-              {next.title} →
-            </Button>
-          )}
+        {previous === undefined ? (
+          <span />
+        ) : (
+          <Button variant="secondary" onClick={go(previous)}>
+            ← {previous.title}
+          </Button>
+        )}
+        {next === undefined ? (
+          <span />
+        ) : (
+          <Button variant="secondary" onClick={go(next)}>
+            {next.title} →
+          </Button>
+        )}
       </nav>
     </main>
   );

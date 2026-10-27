@@ -161,7 +161,9 @@ function supervise(
     if (!helloSent) rejectHello(error);
     try {
       child.kill();
-    } catch { /* 이미 끝남 */ }
+    } catch {
+      /* 이미 끝남 */
+    }
   };
 
   child.stdout.on("data", (chunk) => {
@@ -236,7 +238,9 @@ function supervise(
         child.stdin.write(
           encodeFrame({ kind: "json", channel: 0, payload: message }),
         );
-      } catch { /* pipe가 이미 닫힘 */ }
+      } catch {
+        /* pipe가 이미 닫힘 */
+      }
       // grace가 지나도 core가 끝나지 않으면 강제로 끝낸다.
       timers.setTimeout(() => {
         if (phase !== "stopped") {
@@ -264,7 +268,8 @@ function supervise(
       if (
         !parsed.success ||
         parsed.data.type !== "confirmation_handle_register"
-      ) return false;
+      )
+        return false;
       try {
         child.stdin.write(
           encodeFrame({ kind: "json", channel: 0, payload: parsed.data }),

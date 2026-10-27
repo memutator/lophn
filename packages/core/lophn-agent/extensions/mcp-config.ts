@@ -14,11 +14,9 @@ type McpConfigProblem = {
 };
 
 // 검사가 읽는 칸만 적은 서버 모양이다.
-export type McpServerShape =
-  & { name: string; enabled: boolean }
-  & (
-    | { transport: "stdio"; stdio: { executable: string } }
-    | {
+export type McpServerShape = { name: string; enabled: boolean } & (
+  | { transport: "stdio"; stdio: { executable: string } }
+  | {
       transport: "http";
       http: {
         url: string;
@@ -29,7 +27,7 @@ export type McpServerShape =
           | { kind: "oauth2"; issuer: string };
       };
     }
-  );
+);
 
 type McpConfigCheck<T extends McpServerShape = McpServerShape> = {
   // 연결 대상 서버다. 문제가 있는 서버는 빠진다(그 서버만 연결 안 함).
@@ -39,9 +37,7 @@ type McpConfigCheck<T extends McpServerShape = McpServerShape> = {
 
 // HTTP 목적지를 본다. HTTPS가 기본이고 평문 HTTP는 loopback뿐이다.
 // redirect·TLS는 연결할 때 adapter가 본다.
-function httpEndpointReason(
-  url: unknown,
-): string | null {
+function httpEndpointReason(url: unknown): string | null {
   if (typeof url !== "string" || url.length === 0) {
     return "http url이 없다";
   }
@@ -71,7 +67,8 @@ function stdioReason(server: McpServerShape): string | null {
     return "stdio executable이 없다";
   }
   if (
-    !stdio.executable.startsWith("/") && !/^[A-Za-z]:\\/.test(stdio.executable)
+    !stdio.executable.startsWith("/") &&
+    !/^[A-Za-z]:\\/.test(stdio.executable)
   ) {
     return "stdio executable은 절대 경로다";
   }
@@ -96,10 +93,10 @@ function httpReason(server: McpServerShape): string | null {
 
 // 서버 한 대의 누락·상충을 본다. 계약 schema를 지난 값이다.
 function serverConfigReason(server: McpServerShape): string | null {
-  const nameProblem = typeof server.name !== "string" ||
-      server.name.length === 0
-    ? "server name이 없다"
-    : null;
+  const nameProblem =
+    typeof server.name !== "string" || server.name.length === 0
+      ? "server name이 없다"
+      : null;
   if (nameProblem !== null) return nameProblem;
   return stdioReason(server) ?? httpReason(server);
 }
@@ -122,9 +119,10 @@ export function checkMcpConfig<T extends McpServerShape>(
     const reason = serverConfigReason(server);
     if (reason !== null) {
       problems.push({
-        server: typeof server.name === "string" && server.name.length > 0
-          ? server.name
-          : "(이름 없음)",
+        server:
+          typeof server.name === "string" && server.name.length > 0
+            ? server.name
+            : "(이름 없음)",
         reason,
       });
       continue;

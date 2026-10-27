@@ -42,10 +42,9 @@ const isAbsolute = (path: string) =>
 /** 절대 경로가 들어 있는 연결 폴더(가장 깊은 것). 상대 경로는 첫 연결 폴더다. */
 function rootOf(path: string): FileRoot | undefined {
   if (!isAbsolute(path)) return ROOTS[0];
-  return [...ROOTS].filter((root) => path.startsWith(`${root.path}/`)).sort((
-    a,
-    b,
-  ) => b.path.length - a.path.length)[0];
+  return [...ROOTS]
+    .filter((root) => path.startsWith(`${root.path}/`))
+    .sort((a, b) => b.path.length - a.path.length)[0];
 }
 
 /** 연결한 폴더 밖의 파일인가. */

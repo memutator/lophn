@@ -46,7 +46,7 @@ export async function readPdf(
   const size = bytes.length;
   let all: { totalPages: number; text: string[] };
   try {
-    const lib = await import(UNPDF) as Unpdf;
+    const lib = (await import(UNPDF)) as Unpdf;
     all = await lib.extractText(await lib.getDocumentProxy(bytes), {
       mergePages: false,
     });
@@ -63,9 +63,10 @@ export async function readPdf(
     ...(text.length > MAX_PAGE_CHARS ? { truncated: true } : {}),
   }));
   const fitted = fitJson({ total_pages: all.totalPages, pages }, ["pages"]);
-  const kept = fitted.content === null
-    ? 0
-    : (fitted.content as { pages: unknown[] }).pages.length;
+  const kept =
+    fitted.content === null
+      ? 0
+      : (fitted.content as { pages: unknown[] }).pages.length;
   const end = from + kept - 1;
   const wanted = Math.min(last ?? from, all.totalPages);
   return ok({

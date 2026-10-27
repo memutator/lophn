@@ -57,7 +57,7 @@ type Json = Record<string, unknown>;
 
 function record(value: unknown): Json | undefined {
   return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? value as Json
+    ? (value as Json)
     : undefined;
 }
 
@@ -97,8 +97,10 @@ async function currentPreview(
   const nonce = text(observation?.process_nonce);
   const bundleHash = text(observation?.bundle_hash);
   if (
-    observation === undefined || nonce === undefined ||
-    bundleHash === undefined || observation.ready !== true
+    observation === undefined ||
+    nonce === undefined ||
+    bundleHash === undefined ||
+    observation.ready !== true
   ) {
     return failure("unavailable", "preview is not running");
   }
@@ -123,8 +125,11 @@ async function currentLive(
   const nonce = text(observation?.process_nonce);
   const release = text(observation?.release);
   if (
-    observation === undefined || observation.mode !== "live" ||
-    observation.ready !== true || nonce === undefined || release === undefined
+    observation === undefined ||
+    observation.mode !== "live" ||
+    observation.ready !== true ||
+    nonce === undefined ||
+    release === undefined
   ) {
     return failure("unavailable", "app is not running");
   }
@@ -144,7 +149,9 @@ function fetchScope(grant: Json | undefined): FetchHost | undefined {
   const host = text(scope.host);
   const port = scope.port;
   if (
-    host === undefined || typeof port !== "number" || !Number.isInteger(port)
+    host === undefined ||
+    typeof port !== "number" ||
+    !Number.isInteger(port)
   ) {
     return;
   }
@@ -177,7 +184,8 @@ export function createAppConnector(call: CoreCaller) {
       const requirement = record(item);
       const scope = record(requirement?.scope);
       if (
-        requirement?.kind === "net.fetch" && typeof scope?.host === "string" &&
+        requirement?.kind === "net.fetch" &&
+        typeof scope?.host === "string" &&
         typeof scope.port === "number"
       ) {
         declared.add(key({ host: scope.host.toLowerCase(), port: scope.port }));
@@ -199,7 +207,8 @@ export function createAppConnector(call: CoreCaller) {
         const found = await currentPreview(call, target.app);
         if (!found.ok) return found;
         if (
-          !followRelease && target.release !== null &&
+          !followRelease &&
+          target.release !== null &&
           found.value.release !== target.release
         ) {
           return failure("conflict", "the preview runs another release");
@@ -259,10 +268,12 @@ export function createAppConnector(call: CoreCaller) {
             return { ok: true, value: hosts };
           }
           const declared = await declaredHosts(app, release);
-          return declared === undefined ? { ok: true, value: [] } : {
-            ok: true,
-            value: hosts.filter((host) => declared.has(key(host))),
-          };
+          return declared === undefined
+            ? { ok: true, value: [] }
+            : {
+                ok: true,
+                value: hosts.filter((host) => declared.has(key(host))),
+              };
         }
       }
       return failure("unavailable", "grants are unavailable");

@@ -49,8 +49,8 @@ test("구독 token으로 model을 한 번 부르고 갱신이 있으면 회전�
   const core = await bootLiveCore();
   let stopped = false;
   try {
-    const chatgpt = (await core.call(providerList, {})).providers.find((item) =>
-      item.definition.oauth?.product === "chatgpt"
+    const chatgpt = (await core.call(providerList, {})).providers.find(
+      (item) => item.definition.oauth?.product === "chatgpt",
     );
     // root가 있다는 것은 gate가 이미 봤다. 쓸 수 없는 root를 조용히 넘기면 만료를 숨긴다.
     assert.ok(
@@ -64,10 +64,14 @@ test("구독 token으로 model을 한 번 부르고 갱신이 있으면 회전�
     await settle(core);
     const session = await openSession(core, { role: "lophn" });
     await say(core, session, "Reply with the single word: ok");
-    const turn = await until("turn이 끝남", async () => {
-      const first = (await turnsOf(core, session))[0];
-      return first?.state === "finished" ? first : undefined;
-    }, TURN_MS);
+    const turn = await until(
+      "turn이 끝남",
+      async () => {
+        const first = (await turnsOf(core, session))[0];
+        return first?.state === "finished" ? first : undefined;
+      },
+      TURN_MS,
+    );
     assert.deepStrictEqual(
       turn.outcome?.kind,
       "completed",
@@ -83,10 +87,14 @@ test("구독 token으로 model을 한 번 부르고 갱신이 있으면 회전�
     }
 
     // 목록은 token을 건넨 뒤 뒤에서 읽는다.
-    const models = await until("계정 model 목록", async () => {
-      const read = await core.call(providerRead, { provider });
-      return read.provider.credential.reported_models ?? undefined;
-    }, 20_000);
+    const models = await until(
+      "계정 model 목록",
+      async () => {
+        const read = await core.call(providerRead, { provider });
+        return read.provider.credential.reported_models ?? undefined;
+      },
+      20_000,
+    );
     const catalog = await core.call(modelCatalogRead, {
       provider_definition: "openai",
     });
@@ -100,9 +108,9 @@ test("구독 token으로 model을 한 번 부르고 갱신이 있으면 회전�
     stopped = true;
     if (!due) {
       console.log(
-        `갱신 시점이 아니라 확인하지 못했다(만료까지 ${
-          Math.round((expiresBefore - Date.now()) / 60_000)
-        }분). 만료 5분 전 안에 다시 돌려라.`,
+        `갱신 시점이 아니라 확인하지 못했다(만료까지 ${Math.round(
+          (expiresBefore - Date.now()) / 60_000,
+        )}분). 만료 5분 전 안에 다시 돌려라.`,
       );
       return;
     }

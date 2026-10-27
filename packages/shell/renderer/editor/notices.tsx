@@ -33,9 +33,13 @@ interface ConflictToastProps {
 }
 
 /** 고치는 중에 디스크가 바뀌었다. 어느 쪽을 남길지 고르고 디스크 쪽과 비교해 볼 수 있다. */
-export function ConflictToast(
-  { comparing, onKeepMine, onUseDisk, onCompare, onClose }: ConflictToastProps,
-) {
+export function ConflictToast({
+  comparing,
+  onKeepMine,
+  onUseDisk,
+  onCompare,
+  onClose,
+}: ConflictToastProps) {
   const choose = (id: string) => {
     if (id === "compare") onCompare();
     else if (id === "disk") onUseDisk();
@@ -70,13 +74,15 @@ export function ConflictToast(
 }
 
 /** 열거나 지우지 못했다는 알림(error)과 짧은 안내(neutral). */
-export function NoticeToast(
-  { title, tone = "error", onClose }: {
-    title: string;
-    tone?: "neutral" | "error";
-    onClose: () => void;
-  },
-) {
+export function NoticeToast({
+  title,
+  tone = "error",
+  onClose,
+}: {
+  title: string;
+  tone?: "neutral" | "error";
+  onClose: () => void;
+}) {
   return (
     <TabToast>
       <Toast tone={tone} title={title} onClose={onClose} />

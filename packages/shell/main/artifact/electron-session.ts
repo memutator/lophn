@@ -10,7 +10,7 @@ export function electronArtifactSession(): ArtifactSessionHandle {
   return {
     denyPermissions() {
       session.setPermissionRequestHandler((_contents, _permission, done) =>
-        done(false)
+        done(false),
       );
       session.setPermissionCheckHandler(() => false);
       session.setDevicePermissionHandler(() => false);

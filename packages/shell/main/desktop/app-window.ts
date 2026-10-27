@@ -29,10 +29,7 @@ export interface AppWindowConfig {
 }
 
 /** 시스템 제목 표시줄이 있는 창. 끌 shell 상단 바가 없어서다. preload는 없다. */
-function appWindowConfig(
-  packaged: boolean,
-  appName: string,
-): AppWindowConfig {
+function appWindowConfig(packaged: boolean, appName: string): AppWindowConfig {
   return {
     width: MIN_WINDOW_WIDTH,
     height: MIN_WINDOW_HEIGHT,
@@ -78,7 +75,7 @@ interface Current {
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : undefined;
 }
 
@@ -87,8 +84,10 @@ function currentApp(reply: CallResult): Current | undefined {
   if (!reply.ok) return undefined;
   const app = record(record(reply.value)?.app);
   if (
-    app === undefined || app.status !== "active" ||
-    typeof app.active_release !== "string" || typeof app.name !== "string"
+    app === undefined ||
+    app.status !== "active" ||
+    typeof app.active_release !== "string" ||
+    typeof app.name !== "string"
   ) {
     return undefined;
   }

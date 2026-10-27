@@ -29,23 +29,31 @@ const NAV = [
 ];
 
 // AppShell은 넣은 영역의 폭을 보고 모양을 바꾼다. 폭이 다른 상자에 넣어 셋을 나란히 보인다.
-function ShellBox(
-  { width, nav = true, actions = true }: {
-    width: string;
-    nav?: boolean;
-    actions?: boolean;
-  },
-) {
+function ShellBox({
+  width,
+  nav = true,
+  actions = true,
+}: {
+  width: string;
+  nav?: boolean;
+  actions?: boolean;
+}) {
   return (
     <div className={kit.frameStage} style={{ width, height: 240 }}>
       <AppShell
         title="Orders"
-        actions={actions
-          ? <Button variant="primary" size="sm">New order</Button>
-          : undefined}
-        nav={nav
-          ? <Sidebar items={NAV} current="overview" onSelect={() => {}} />
-          : undefined}
+        actions={
+          actions ? (
+            <Button variant="primary" size="sm">
+              New order
+            </Button>
+          ) : undefined
+        }
+        nav={
+          nav ? (
+            <Sidebar items={NAV} current="overview" onSelect={() => {}} />
+          ) : undefined
+        }
       >
         <Slot>screen</Slot>
       </AppShell>

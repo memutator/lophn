@@ -32,45 +32,59 @@ export type ChannelMode = z.infer<typeof runtimeModeSchema>;
 export const screenSizeSchema = z.enum(["full", "panel", "card"]);
 
 // tool key. 존재·grant 판정은 runtime이다. 선언 tool 이름은 toolNameSchema가 검사한다.
-export const toolKeySchema = z.string().refine(
-  (value) =>
-    value.length > 0 && value.trim() === value && !/\p{Cc}/u.test(value) &&
-    !value.includes("*"),
-  {
-    message:
-      "tool key cannot be empty, padded, a wildcard, or contain controls",
-  },
-);
+export const toolKeySchema = z
+  .string()
+  .refine(
+    (value) =>
+      value.length > 0 &&
+      value.trim() === value &&
+      !/\p{Cc}/u.test(value) &&
+      !value.includes("*"),
+    {
+      message:
+        "tool key cannot be empty, padded, a wildcard, or contain controls",
+    },
+  );
 
 // tool 이름. MCP tool 이름 문자 집합이고 선언 검사(declaration/tools.ts)와 같은 규칙이다.
 export const toolNameSchema = z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/, {
   message: "tool name must be 1-64 characters of letters, digits, _ - .",
 });
 
-export const screenKeySchema = z.string().min(1).refine(
-  (value) => value.trim().length > 0 && !/\p{Cc}/u.test(value),
-  { message: "screen key cannot be blank or contain controls" },
-);
+export const screenKeySchema = z
+  .string()
+  .min(1)
+  .refine((value) => value.trim().length > 0 && !/\p{Cc}/u.test(value), {
+    message: "screen key cannot be blank or contain controls",
+  });
 
-export const processNonceSchema = z.string().min(1).refine(
-  (value) => !/\p{Cc}/u.test(value),
-  { message: "process nonce contains a control character" },
-);
+export const processNonceSchema = z
+  .string()
+  .min(1)
+  .refine((value) => !/\p{Cc}/u.test(value), {
+    message: "process nonce contains a control character",
+  });
 
-export const opaqueSchema = z.string().min(1).refine(
-  (value) => !/\p{Cc}/u.test(value),
-  { message: "opaque value contains a control character" },
-);
+export const opaqueSchema = z
+  .string()
+  .min(1)
+  .refine((value) => !/\p{Cc}/u.test(value), {
+    message: "opaque value contains a control character",
+  });
 
 export const grantIdSchema = idSchema("grt");
 export const invocationIdSchema = idSchema("inv");
 export const turnIdSchema = idSchema("trn");
 export const toolCallIdSchema = idSchema("tcl");
 
-export const endpointSchema = z.string().min(1).refine(
-  (value) => new TextEncoder().encode(value).byteLength < SOCKET_PATH_MAX_BYTES,
-  { message: "socket path must be under 104 UTF-8 bytes" },
-);
+export const endpointSchema = z
+  .string()
+  .min(1)
+  .refine(
+    (value) =>
+      new TextEncoder().encode(value).byteLength < SOCKET_PATH_MAX_BYTES,
+    { message: "socket path must be under 104 UTF-8 bytes" },
+  );
 
 export {
   actorSchema,

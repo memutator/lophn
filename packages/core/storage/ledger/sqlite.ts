@@ -70,8 +70,11 @@ class ConnectionUnavailable extends Error {
 
 function cell(value: unknown): SqlParam {
   if (
-    value === null || typeof value === "number" || typeof value === "bigint" ||
-    typeof value === "string" || value instanceof Uint8Array
+    value === null ||
+    typeof value === "number" ||
+    typeof value === "bigint" ||
+    typeof value === "string" ||
+    value instanceof Uint8Array
   ) {
     return value;
   }
@@ -125,11 +128,10 @@ export function createSql(db: DatabaseSync, alive: () => boolean): Sql {
       });
     },
     all(sql, params) {
-      return checked(
-        db,
-        alive,
-        sql,
-        () => statement(db, sql).all(...params).map(row),
+      return checked(db, alive, sql, () =>
+        statement(db, sql)
+          .all(...params)
+          .map(row),
       );
     },
   };

@@ -159,7 +159,9 @@ export function checkSource(
     const before = source.slice(0, index);
     const attribute = /(?:^|[\s])([a-z-]+)\s*=\s*$/.exec(before);
     if (
-      attribute && TEXT_ATTRIBUTES.has(attribute[1]) && visibleText(part.text)
+      attribute &&
+      TEXT_ATTRIBUTES.has(attribute[1]) &&
+      visibleText(part.text)
     ) {
       add(
         index,
@@ -190,9 +192,9 @@ export function checkSource(
         index,
         "error",
         "placeholder-mismatch",
-        `${part.text}의 값이 문장의 placeholder와 다르다: 필요 {${
-          expected.join(", ")
-        }}, 넘김 {${given.join(", ")}}`,
+        `${part.text}의 값이 문장의 placeholder와 다르다: 필요 {${expected.join(
+          ", ",
+        )}}, 넘김 {${given.join(", ")}}`,
       );
     }
   }
@@ -299,7 +301,8 @@ async function collect(root: string): Promise<string[]> {
         }
         await visit(path);
       } else if (
-        entry.name.endsWith(".tsx") && !entry.name.endsWith("_test.tsx")
+        entry.name.endsWith(".tsx") &&
+        !entry.name.endsWith("_test.tsx")
       ) {
         // 테스트의 fixture 문구는 사용자 화면이 아니다.
         files.push(path);

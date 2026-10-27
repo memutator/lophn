@@ -10,9 +10,11 @@ export async function listSendable(
   const read = await ctx.router.sendable();
   if (!read.ok) return read;
   const { sessions, queued_coding } = read.value;
-  return ok(fitted(
-    `${sessions.length} sessions can be called`,
-    { sessions, queued_coding },
-    ["sessions", "queued_coding"],
-  ));
+  return ok(
+    fitted(
+      `${sessions.length} sessions can be called`,
+      { sessions, queued_coding },
+      ["sessions", "queued_coding"],
+    ),
+  );
 }

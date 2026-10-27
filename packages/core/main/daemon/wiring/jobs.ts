@@ -50,8 +50,8 @@ const runPlaceOf = (place: Place | null): RunPlace | null =>
   place === null
     ? null
     : place.kind === "project"
-    ? { project: place.id }
-    : { app: place.id };
+      ? { project: place.id }
+      : { app: place.id };
 
 const route = (r: { resource: string; method: string }) =>
   `${r.resource}/${r.method}`;
@@ -129,10 +129,10 @@ export const jobsWiring: WiringFactory = () => {
             );
             return started.ok
               ? ok({
-                run: null,
-                instance: started.value.instance.id as Id<"wfi">,
-                session: null,
-              })
+                  run: null,
+                  instance: started.value.instance.id as Id<"wfi">,
+                  session: null,
+                })
               : started;
           }
           const origin: RunOrigin = {
@@ -141,37 +141,37 @@ export const jobsWiring: WiringFactory = () => {
             creator: job.creator as AgentRef,
             creator_place: placeOfAgentRef(job.creator) ?? null,
           };
-          const input = action.input === undefined
-            ? {}
-            : { input: action.input };
+          const input =
+            action.input === undefined ? {} : { input: action.input };
           const started = await ctx.runService.start(
             action.kind === "agent_run"
               ? {
-                kind: "agent_resolved",
-                agent: action.agent,
-                place: runPlaceOf(action.agent_place),
-                prompt: action.prompt,
-                ...input,
-                ...(action.schema === undefined
-                  ? {}
-                  : { schema: action.schema }),
-              }
+                  kind: "agent_resolved",
+                  agent: action.agent,
+                  place: runPlaceOf(action.agent_place),
+                  prompt: action.prompt,
+                  ...input,
+                  ...(action.schema === undefined
+                    ? {}
+                    : { schema: action.schema }),
+                }
               : {
-                kind: "tool",
-                app: action.app,
-                tool: action.tool,
-                ...input,
-              },
+                  kind: "tool",
+                  app: action.app,
+                  tool: action.tool,
+                  ...input,
+                },
             origin,
           );
           return started.ok
             ? ok({
-              run: started.value.id as Id<"run">,
-              instance: null,
-              session: action.kind === "agent_run"
-                ? started.value.session as Id<"ses"> | null
-                : null,
-            })
+                run: started.value.id as Id<"run">,
+                instance: null,
+                session:
+                  action.kind === "agent_run"
+                    ? (started.value.session as Id<"ses"> | null)
+                    : null,
+              })
             : started;
         },
         // wait는 최대 60초만 기다린다(run.md). runService.close()가 걸린 wait를 풀어 주므로 closing이면 멈춘다.

@@ -38,14 +38,14 @@ export class DetachedRegistry {
   }
 
   byParentKey(parent: string, key: string): DetachedEntry | undefined {
-    return [...this.#entries.values()].find((entry) =>
-      entry.parent === parent && entry.key === key
+    return [...this.#entries.values()].find(
+      (entry) => entry.parent === parent && entry.key === key,
     );
   }
 
   childrenOf(parent: string): DetachedEntry[] {
-    return [...this.#entries.values()].filter((entry) =>
-      entry.parent === parent
+    return [...this.#entries.values()].filter(
+      (entry) => entry.parent === parent,
     );
   }
 

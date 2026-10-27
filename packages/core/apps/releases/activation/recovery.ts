@@ -37,7 +37,7 @@ export async function rollback(
   backupHash: string | null,
   startSchema: number | null,
 ): Promise<ActivationOutcome> {
-  if (!await quiesce(ports, attempt.app)) {
+  if (!(await quiesce(ports, attempt.app))) {
     return await stuck(
       ports,
       attempt,
@@ -48,7 +48,8 @@ export async function rollback(
   if (backupHash !== null) {
     const restored = await ports.data.restore(attempt, backupHash);
     if (
-      !restored.ok || !restored.value.integrity_ok ||
+      !restored.ok ||
+      !restored.value.integrity_ok ||
       (startSchema !== null && restored.value.data_schema !== startSchema)
     ) {
       return await stuck(
@@ -75,7 +76,8 @@ export async function rollback(
     // 변경 전에 실패했다. 실제 DB가 온전하고 시작 때와 같은지 확인한다.
     const actual = await ports.data.inspect(attempt);
     if (
-      !actual.ok || !actual.value.integrity_ok ||
+      !actual.ok ||
+      !actual.value.integrity_ok ||
       (startSchema !== null && actual.value.data_schema !== startSchema)
     ) {
       return await stuck(
@@ -219,36 +221,40 @@ export function observeReleaseActivations(
       [],
     );
     if (table.length === 0) return [];
-    return sql.all(
-      `SELECT id, app,
+    return sql
+      .all(
+        `SELECT id, app,
               json_extract(activation, '$.attempt') AS attempt,
               json_extract(activation, '$.backup_hash') AS backup_hash
          FROM releases WHERE status = 'activating' ORDER BY id`,
-      [],
-    ).map((row): Observation => {
-      const id = String(row.id);
-      return {
-        target: id,
+        [],
+      )
+      .map((row): Observation => {
+        const id = String(row.id);
+        return {
+          target: id,
+          baseSeq: "0",
+          outcome: "unknown",
+          evidence: [
+            `releases:${id}:activating`,
+            `releases:${id}:attempt:${String(row.attempt)}`,
+            row.backup_hash === null
+              ? `releases:${id}:backup:none`
+              : `releases:${id}:backup:recorded`,
+          ],
+          reason: "activation_not_settled",
+        };
+      });
+  } catch {
+    return [
+      {
+        target: "releases",
         baseSeq: "0",
         outcome: "unknown",
-        evidence: [
-          `releases:${id}:activating`,
-          `releases:${id}:attempt:${String(row.attempt)}`,
-          row.backup_hash === null
-            ? `releases:${id}:backup:none`
-            : `releases:${id}:backup:recorded`,
-        ],
-        reason: "activation_not_settled",
-      };
-    });
-  } catch {
-    return [{
-      target: "releases",
-      baseSeq: "0",
-      outcome: "unknown",
-      evidence: [],
-      reason: "release_tables_unreadable",
-    }];
+        evidence: [],
+        reason: "release_tables_unreadable",
+      },
+    ];
   }
 }
 

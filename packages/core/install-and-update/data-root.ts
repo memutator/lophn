@@ -38,7 +38,7 @@ async function ownerOnly(path: string, uid: number): Promise<boolean> {
 }
 
 async function ensure(path: string, uid: number): Promise<boolean> {
-  if (!await ownerOnly(path, uid)) return false;
+  if (!(await ownerOnly(path, uid))) return false;
   try {
     await mkdir(path, { mode: OWNER_ONLY, recursive: false });
   } catch (thrown) {
@@ -54,14 +54,16 @@ async function ensure(path: string, uid: number): Promise<boolean> {
 }
 
 // LOPHN_HOME이 있으면 그 경로, 없으면 ~/.lophn. 설정 override가 아니라 시작 전 선택이다.
-export async function resolveDataRoot(
-  env: { home?: string; lophnHome?: string },
-): Promise<Result<DataRoot>> {
-  const requested = env.lophnHome && env.lophnHome.length > 0
-    ? env.lophnHome
-    : env.home
-    ? `${env.home}/.lophn`
-    : undefined;
+export async function resolveDataRoot(env: {
+  home?: string;
+  lophnHome?: string;
+}): Promise<Result<DataRoot>> {
+  const requested =
+    env.lophnHome && env.lophnHome.length > 0
+      ? env.lophnHome
+      : env.home
+        ? `${env.home}/.lophn`
+        : undefined;
   if (requested === undefined || !requested.startsWith("/")) return refused();
   // 요청 경로 자체가 symlink면 다른 곳으로 열린다. 그 경로는 거절한다.
   try {
@@ -83,9 +85,9 @@ export async function resolveDataRoot(
     }
   }
   const uid = process.getuid?.() ?? null;
-  if (uid === null || !await ensure(real, uid)) return refused();
+  if (uid === null || !(await ensure(real, uid))) return refused();
   for (const name of MANAGED) {
-    if (!await ensure(`${real}/${name}`, uid)) return refused();
+    if (!(await ensure(`${real}/${name}`, uid))) return refused();
   }
   return ok({ path: real, run: `${real}/run`, apps: `${real}/apps` });
 }

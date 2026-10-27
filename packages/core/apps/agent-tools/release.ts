@@ -41,11 +41,11 @@ export const RELEASE_TOOLS: readonly ToolDefinition[] = [
         activated_at: release.activated_at,
         failure: release.failure,
       }));
-      return ok(fitted(
-        countSummary("releases", releases.length, more),
-        { releases },
-        ["releases"],
-      ));
+      return ok(
+        fitted(countSummary("releases", releases.length, more), { releases }, [
+          "releases",
+        ]),
+      );
     },
   }),
   defineTool({
@@ -62,9 +62,11 @@ export const RELEASE_TOOLS: readonly ToolDefinition[] = [
       if (!read.ok) return read;
       const record = read.value.release;
       if (record === null) return notFound("release not found");
-      return ok(fitted(`release ${record.id} is ${record.status}`, {
-        release: record,
-      }));
+      return ok(
+        fitted(`release ${record.id} is ${record.status}`, {
+          release: record,
+        }),
+      );
     },
   }),
   defineTool({
@@ -87,18 +89,22 @@ export const RELEASE_TOOLS: readonly ToolDefinition[] = [
       if (!done.ok) return done;
       const out = done.value;
       if (out.status === "failed") {
-        return ok(fitted(
-          `release preparation failed at ${out.stage}: ${out.reason}`,
-          out,
-        ));
+        return ok(
+          fitted(
+            `release preparation failed at ${out.stage}: ${out.reason}`,
+            out,
+          ),
+        );
       }
       const removed = out.removed_public_tools.length;
-      return ok(fitted(
-        `prepared release #${out.release.number} (${out.release.id})${
-          removed === 0 ? "" : `, removes ${removed} public tools in use`
-        }`,
-        out,
-      ));
+      return ok(
+        fitted(
+          `prepared release #${out.release.number} (${out.release.id})${
+            removed === 0 ? "" : `, removes ${removed} public tools in use`
+          }`,
+          out,
+        ),
+      );
     },
   }),
   defineTool({
@@ -119,9 +125,10 @@ export const RELEASE_TOOLS: readonly ToolDefinition[] = [
       );
       if (!done.ok) return done;
       const out = done.value;
-      const summary = out.status === "failed"
-        ? `release ${release} failed: ${out.failure.code}: ${out.failure.summary}`
-        : `release ${release} is ${out.status}`;
+      const summary =
+        out.status === "failed"
+          ? `release ${release} failed: ${out.failure.code}: ${out.failure.summary}`
+          : `release ${release} is ${out.status}`;
       return ok(fitted(summary, out));
     },
   }),

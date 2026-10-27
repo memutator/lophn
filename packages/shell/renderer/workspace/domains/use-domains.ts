@@ -19,16 +19,15 @@ type Loaded<T> =
 export type DomainNotice =
   | { readonly kind: "archived"; readonly domain: DomainView }
   | {
-    readonly kind: "refused";
-    readonly domain: DomainView;
-    readonly reason: string;
-  };
+      readonly kind: "refused";
+      readonly domain: DomainView;
+      readonly reason: string;
+    };
 
 export function useDomains<T extends DomainView>(
   owner: DomainOwner,
   load: () => Promise<
-    | { readonly ok: true; readonly value: readonly T[] }
-    | { readonly ok: false }
+    { readonly ok: true; readonly value: readonly T[] } | { readonly ok: false }
   >,
   actions: DomainActions,
 ) {

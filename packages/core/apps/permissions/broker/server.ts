@@ -56,17 +56,15 @@ function routes(services: BrokerServices): Map<string, Handler> {
   const table = new Map<string, Handler>();
   const { ready, net, secrets, exceptions, appsCall } = services;
   if (ready) {
-    table.set(
-      BROKER_ROUTES.ready,
-      (child, body) => Promise.resolve(ready.ready(child, body)),
+    table.set(BROKER_ROUTES.ready, (child, body) =>
+      Promise.resolve(ready.ready(child, body)),
     );
   }
   if (net) table.set(BROKER_ROUTES.netFetch, (c, b) => net.request(c, b));
   if (secrets) table.set(BROKER_ROUTES.secretsUse, (c, b) => secrets.use(c, b));
   if (exceptions) {
-    table.set(
-      BROKER_ROUTES.problemsObserve,
-      (c, b) => exceptions.observe(c, b),
+    table.set(BROKER_ROUTES.problemsObserve, (c, b) =>
+      exceptions.observe(c, b),
     );
   }
   if (appsCall) {
@@ -136,7 +134,7 @@ export function createBrokerEndpoint(options: {
       const text = await request.text();
       if (
         new TextEncoder().encode(text).length >
-          (BODY_MAX_BYTES_BY_PATH.get(path) ?? BROKER_BODY_MAX_BYTES)
+        (BODY_MAX_BYTES_BY_PATH.get(path) ?? BROKER_BODY_MAX_BYTES)
       ) {
         return failed({ code: "invalid_input", message: "body is too large" });
       }
@@ -172,10 +170,7 @@ export function createBrokerEndpoint(options: {
 
 // 앱마다 하나인 broker endpoint 목록이다. 앱 단위 차단과 자식 종료 정리를 맡는다.
 export type BrokerHub = {
-  register(
-    session: BrokerSession,
-    services: BrokerServices,
-  ): BrokerEndpoint;
+  register(session: BrokerSession, services: BrokerServices): BrokerEndpoint;
   // 그 앱의 모든 연결을 새 요청부터 막는다. 자식 종료 확인은 supervisor가 한다.
   blockApp(app: string): number;
   unregister(processNonce: string): void;

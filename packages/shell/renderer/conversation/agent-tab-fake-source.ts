@@ -196,49 +196,84 @@ function toolCall(
 
 // report 장면: 탐색 묶음 하나와 description을 제목으로 쓰는 command 하나.
 const REPORT_CALLS: readonly ToolCallView[] = [
-  toolCall(1, 41, {
-    tool: "file.read",
-    category: "read",
-    title: "Read docs/reports/2026-w39.md",
-  }, { durationMs: 900 }),
-  toolCall(2, 41, {
-    tool: "file.read",
-    category: "read",
-    title: "Read eval/findings.md",
-  }, { durationMs: 700 }),
-  toolCall(3, 41, {
-    tool: "file.grep",
-    category: "search",
-    title: "Search regression in eval",
-  }, { durationMs: 2_400 }),
-  toolCall(4, 41, {
-    tool: "file.glob",
-    category: "list",
-    title: "List eval/runs/*.json",
-  }, { durationMs: 300 }),
-  toolCall(5, 42, {
-    tool: "shell.run",
-    category: "command",
-    title: "Count regressions per scenario",
-  }, { durationMs: 3_100 }),
+  toolCall(
+    1,
+    41,
+    {
+      tool: "file.read",
+      category: "read",
+      title: "Read docs/reports/2026-w39.md",
+    },
+    { durationMs: 900 },
+  ),
+  toolCall(
+    2,
+    41,
+    {
+      tool: "file.read",
+      category: "read",
+      title: "Read eval/findings.md",
+    },
+    { durationMs: 700 },
+  ),
+  toolCall(
+    3,
+    41,
+    {
+      tool: "file.grep",
+      category: "search",
+      title: "Search regression in eval",
+    },
+    { durationMs: 2_400 },
+  ),
+  toolCall(
+    4,
+    41,
+    {
+      tool: "file.glob",
+      category: "list",
+      title: "List eval/runs/*.json",
+    },
+    { durationMs: 300 },
+  ),
+  toolCall(
+    5,
+    42,
+    {
+      tool: "shell.run",
+      category: "command",
+      title: "Count regressions per scenario",
+    },
+    { durationMs: 3_100 },
+  ),
 ];
 
 // working 장면: 끝난 command와 도는 command 하나.
 const WORKING_CALLS: readonly ToolCallView[] = [
-  toolCall(6, 41, {
-    tool: "shell.run",
-    category: "command",
-    title: "Run the weekly eval",
-  }, { durationMs: 4_200 }),
-  toolCall(7, 41, {
-    tool: "shell.run",
-    category: "command",
-    title: "Check the run log",
-  }, {
-    state: "running",
-    startedAt: new Date(NOW - 5_000).toISOString(),
-    durationMs: null,
-  }),
+  toolCall(
+    6,
+    41,
+    {
+      tool: "shell.run",
+      category: "command",
+      title: "Run the weekly eval",
+    },
+    { durationMs: 4_200 },
+  ),
+  toolCall(
+    7,
+    41,
+    {
+      tool: "shell.run",
+      category: "command",
+      title: "Check the run log",
+    },
+    {
+      state: "running",
+      startedAt: new Date(NOW - 5_000).toISOString(),
+      durationMs: null,
+    },
+  ),
 ];
 
 function inputBody(value: unknown): ToolCallBodyView {
@@ -519,8 +554,7 @@ function sceneData(scene: AgentTabScene): SceneData {
         [messageId(2)]: [
           {
             kind: "text",
-            text:
-              "F-011 is a regression on query-recipe-gap. Here is the run from Eval board.",
+            text: "F-011 is a regression on query-recipe-gap. Here is the run from Eval board.",
           },
           { kind: "app_card", app: appId(1), view: "run" },
         ],
@@ -533,32 +567,38 @@ function sceneData(scene: AgentTabScene): SceneData {
           }),
           agent(4, 42),
         );
-        bodies[messageId(4)] = [{
-          kind: "text",
-          text:
-            "Got it. I will add the exp-008 numbers when I reach the regression section.",
-        }];
+        bodies[messageId(4)] = [
+          {
+            kind: "text",
+            text: "Got it. I will add the exp-008 numbers when I reach the regression section.",
+          },
+        ];
       }
       return {
         agent: LOPHN,
         title: "Week 41 summary",
         entries,
         turn: working(),
-        live: scene === "working"
-          ? {
-            turn: turn1,
-            modelCall: fakeId("mcl", 1),
-            text: LIVE_TEXT,
-            reasoning: "",
-            at: at(42),
-            gap: false,
-          }
-          : null,
-        queued: steer ? [] : [{
-          id: messageId(5),
-          at: at(42),
-          text: "Also add the exp-008 numbers to the report.",
-        }],
+        live:
+          scene === "working"
+            ? {
+                turn: turn1,
+                modelCall: fakeId("mcl", 1),
+                text: LIVE_TEXT,
+                reasoning: "",
+                at: at(42),
+                gap: false,
+              }
+            : null,
+        queued: steer
+          ? []
+          : [
+              {
+                id: messageId(5),
+                at: at(42),
+                text: "Also add the exp-008 numbers to the report.",
+              },
+            ],
         bodies,
         toolBodies: WORKING_TOOL_BODIES,
       };
@@ -567,36 +607,43 @@ function sceneData(scene: AgentTabScene): SceneData {
       return {
         agent: LOPHN,
         title: "Week 41 summary",
-        entries: [user(1, 41, REQUEST), {
-          kind: "provider-error",
-          id: "error-1",
-          at: at(42),
-          turn: turn1,
-          code: "request_rejected",
-          message:
-            "OpenAI rejected the request (400): the Priority speed option is not enabled for this account. Nothing was changed.",
-        }],
+        entries: [
+          user(1, 41, REQUEST),
+          {
+            kind: "provider-error",
+            id: "error-1",
+            at: at(42),
+            turn: turn1,
+            code: "request_rejected",
+            message:
+              "OpenAI rejected the request (400): the Priority speed option is not enabled for this account. Nothing was changed.",
+          },
+        ],
         turn: { id: turn1, phase: "ended", startedAt: at(41), elapsed: null },
       };
     case "sender-chips": {
       const notice = envelope(
         { kind: "program", label: null },
         CODING_ENDED_TEXT,
-        [{
-          kind: "session",
-          text: "Claude Code · Eval board",
-          target: sessionId(9),
-        }],
+        [
+          {
+            kind: "session",
+            text: "Claude Code · Eval board",
+            target: sessionId(9),
+          },
+        ],
         null,
       );
       const lophn = envelope(
         { kind: "agent", role: "lophn", name: "lophn" },
         "Keep the scenario names in Eval board as they are. A person asked for that, so do not rename them in the fix.",
-        [{
-          kind: "annotation",
-          text: "Scenario list",
-          target: fakeId("ann", 12),
-        }],
+        [
+          {
+            kind: "annotation",
+            text: "Scenario list",
+            target: fakeId("ann", 12),
+          },
+        ],
         { id: SESSION_EARLIER, title: "Weekly report" },
       );
       const coding = envelope(
@@ -616,12 +663,7 @@ function sceneData(scene: AgentTabScene): SceneData {
         agent: APP_ENGINEER,
         title: "Eval board keeps crashing",
         entries: [
-          received(
-            1,
-            30,
-            CODING_ENDED_TEXT,
-            notice.sender,
-          ),
+          received(1, 30, CODING_ENDED_TEXT, notice.sender),
           received(
             2,
             36,
@@ -656,27 +698,31 @@ function sceneData(scene: AgentTabScene): SceneData {
         ],
         turn: working(),
         bodies: {
-          [messageId(2)]: [{
-            kind: "text",
-            text:
-              "I will ask the Eval analyst to look for what they have in common, and go on with the report meanwhile.",
-          }],
-          [messageId(3)]: [{
-            kind: "text",
-            text:
-              "While that runs, I am drafting the sections that do not need it. I cancelled the check on the eval context, because the answer changed nothing.",
-          }],
+          [messageId(2)]: [
+            {
+              kind: "text",
+              text: "I will ask the Eval analyst to look for what they have in common, and go on with the report meanwhile.",
+            },
+          ],
+          [messageId(3)]: [
+            {
+              kind: "text",
+              text: "While that runs, I am drafting the sections that do not need it. I cancelled the check on the eval context, because the answer changed nothing.",
+            },
+          ],
         },
       };
     case "call-replies": {
       const answer = envelope(
         { kind: "agent", role: "operator", name: "Eval analyst" },
         "The 3 regressions share one cause: query-recipe-gap, sched-edit and wake-plant all call the lookup right after a plan edit.",
-        [{
-          kind: "file",
-          text: "eval/experiments/exp-008-query-tools.md",
-          target: "eval/experiments/exp-008-query-tools.md",
-        }],
+        [
+          {
+            kind: "file",
+            text: "eval/experiments/exp-008-query-tools.md",
+            target: "eval/experiments/exp-008-query-tools.md",
+          },
+        ],
         { id: sessionId(8), title: "Regression on query-recipe-gap" },
       );
       const notice = envelope(
@@ -748,11 +794,12 @@ function sceneData(scene: AgentTabScene): SceneData {
         },
         bodies: {
           [messageId(2)]: [{ kind: "text", text: QUESTION_LEAD }],
-          [messageId(3)]: [{
-            kind: "text",
-            text:
-              "Thanks. I am writing the report into docs/reports/ with the sections you picked.",
-          }],
+          [messageId(3)]: [
+            {
+              kind: "text",
+              text: "Thanks. I am writing the report into docs/reports/ with the sections you picked.",
+            },
+          ],
         },
       };
     case "question-ended":
@@ -783,11 +830,12 @@ function sceneData(scene: AgentTabScene): SceneData {
         turn: working(),
         bodies: {
           [messageId(2)]: [{ kind: "text", text: QUESTION_LEAD }],
-          [messageId(4)]: [{
-            kind: "text",
-            text:
-              "Understood. docs/reports/ with the regressions section only.",
-          }],
+          [messageId(4)]: [
+            {
+              kind: "text",
+              text: "Understood. docs/reports/ with the regressions section only.",
+            },
+          ],
         },
       };
     case "approval":
@@ -948,16 +996,19 @@ function modelView(
     (!off.includes(name) || name === scenario.current.modelName);
   const kind = picker.providers ?? "built_in";
   const builtIn = kind === "none" ? [] : LAYOUT_ALL.providers;
-  const custom: PickerProviderGroup[] = kind === "custom"
-    ? [{
-      provider: CUSTOM_PROVIDER,
-      label: "Local server",
-      models: CUSTOM_MODELS.map((modelName) => ({
-        provider: CUSTOM_PROVIDER,
-        modelName,
-      })),
-    }]
-    : [];
+  const custom: PickerProviderGroup[] =
+    kind === "custom"
+      ? [
+          {
+            provider: CUSTOM_PROVIDER,
+            label: "Local server",
+            models: CUSTOM_MODELS.map((modelName) => ({
+              provider: CUSTOM_PROVIDER,
+              modelName,
+            })),
+          },
+        ]
+      : [];
   const groups = [...builtIn, ...custom];
   // provider가 없으면 고른 model도 없다(core가 current null일 때 내는 값과 같다).
   const none = kind === "none";
@@ -996,14 +1047,19 @@ function filterGroups(
 ): readonly SlashGroupView[] {
   const needle = query.toLowerCase();
   const startsWord = (text: string, separator: RegExp) =>
-    text.toLowerCase().split(separator).some((word) => word.startsWith(needle));
+    text
+      .toLowerCase()
+      .split(separator)
+      .some((word) => word.startsWith(needle));
   return ALL_COMMANDS.map((group) => ({
     ...group,
-    entries: group.entries.filter((entry) =>
-      (hasSession || !NEEDS_SESSION.has(entry.name)) &&
-      (needle === "" || entry.name.startsWith(needle) ||
-        startsWord(entry.name, /-/) ||
-        startsWord(entry.description, /\s+/))
+    entries: group.entries.filter(
+      (entry) =>
+        (hasSession || !NEEDS_SESSION.has(entry.name)) &&
+        (needle === "" ||
+          entry.name.startsWith(needle) ||
+          startsWord(entry.name, /-/) ||
+          startsWord(entry.description, /\s+/)),
     ),
   })).filter((group) => group.entries.length > 0);
 }
@@ -1039,36 +1095,40 @@ export function createFakeAgentTabSource(
   );
   const envelopes = new Map(Object.entries(data.envelopes ?? {}));
   const models = new Map<string, PickerScenario>();
-  let sessions: SessionEntry[] = options.scene === "empty" ? [] : [
-    {
-      id: SESSION_MAIN,
-      title: data.title,
-      status: data.turn?.phase === "waiting"
-        ? "waiting"
-        : data.turn?.phase === "working"
-        ? "working"
-        : "idle",
-      activeAt: at(-5),
-      archived: false,
-      skip: options.scene === "skip",
-    },
-    {
-      id: SESSION_EARLIER,
-      title: "Release notes check",
-      status: "idle",
-      activeAt: at(-2 * 24 * 60),
-      archived: false,
-      skip: false,
-    },
-    {
-      id: SESSION_ARCHIVED,
-      title: data.title,
-      status: "idle",
-      activeAt: at(-12 * 24 * 60),
-      archived: true,
-      skip: false,
-    },
-  ];
+  let sessions: SessionEntry[] =
+    options.scene === "empty"
+      ? []
+      : [
+          {
+            id: SESSION_MAIN,
+            title: data.title,
+            status:
+              data.turn?.phase === "waiting"
+                ? "waiting"
+                : data.turn?.phase === "working"
+                  ? "working"
+                  : "idle",
+            activeAt: at(-5),
+            archived: false,
+            skip: options.scene === "skip",
+          },
+          {
+            id: SESSION_EARLIER,
+            title: "Release notes check",
+            status: "idle",
+            activeAt: at(-2 * 24 * 60),
+            archived: false,
+            skip: false,
+          },
+          {
+            id: SESSION_ARCHIVED,
+            title: data.title,
+            status: "idle",
+            activeAt: at(-12 * 24 * 60),
+            archived: true,
+            skip: false,
+          },
+        ];
   const threads = new Map<string, ThreadView>();
   if (options.scene !== "empty") {
     threads.set(SESSION_MAIN, {
@@ -1110,14 +1170,14 @@ export function createFakeAgentTabSource(
   };
   const patchSession = (session: string, patch: Partial<SessionEntry>) => {
     sessions = sessions.map((item) =>
-      item.id === session ? { ...item, ...patch } : item
+      item.id === session ? { ...item, ...patch } : item,
     );
   };
   const sessionOfTurn = (turn: string) =>
     [...threads].find(([, view]) => view.turn?.id === turn)?.[0];
   const sessionOfQueued = (queued: string) =>
     [...threads].find(([, view]) =>
-      view.queued.some((item) => item.id === queued)
+      view.queued.some((item) => item.id === queued),
     )?.[0];
   const scenarioOf = (session: string | null) =>
     models.get(session ?? "new") ?? SCENARIOS[picker.current ?? ""] ?? SONNET;
@@ -1189,8 +1249,8 @@ export function createFakeAgentTabSource(
     send({ session, id, text, delivery }) {
       bodies.set(id, [{ kind: "text", text }]);
       const view = thread(session);
-      const running = view.turn?.phase === "working" ||
-        view.turn?.phase === "waiting";
+      const running =
+        view.turn?.phase === "working" || view.turn?.phase === "waiting";
       if (session && sessions.some((item) => item.id === session)) {
         const known = sessions.find((item) => item.id === session)!;
         const title = splitAttachmentText(text).text;
@@ -1216,12 +1276,14 @@ export function createFakeAgentTabSource(
             at: startedAt,
           },
         ],
-        turn: running ? current.turn : {
-          id: turn,
-          phase: "working",
-          startedAt,
-          elapsed: { activeMs: 0, at: startedAt },
-        },
+        turn: running
+          ? current.turn
+          : {
+              id: turn,
+              phase: "working",
+              startedAt,
+              elapsed: { activeMs: 0, at: startedAt },
+            },
       }));
     },
     sendQueuedNow(queued) {
@@ -1259,15 +1321,18 @@ export function createFakeAgentTabSource(
         turn: { ...view.turn!, phase: "ended" },
         live: null,
         pending: EMPTY_THREAD.pending,
-        entries: [...view.entries, {
-          kind: "turn-end",
-          id: nextId("end"),
-          at: at(52),
-          turn,
-          outcome: "stopped",
-          activeMs: 4000,
-          waitedMs: 0,
-        }],
+        entries: [
+          ...view.entries,
+          {
+            kind: "turn-end",
+            id: nextId("end"),
+            at: at(52),
+            turn,
+            outcome: "stopped",
+            activeMs: 4000,
+            waitedMs: 0,
+          },
+        ],
       }));
     },
     retryTurn(turn) {
@@ -1277,8 +1342,8 @@ export function createFakeAgentTabSource(
         ...view,
         turn: { ...view.turn!, phase: "working" },
         live: null,
-        entries: view.entries.filter((entry) =>
-          entry.kind !== "provider-error"
+        entries: view.entries.filter(
+          (entry) => entry.kind !== "provider-error",
         ),
       }));
     },
@@ -1289,17 +1354,20 @@ export function createFakeAgentTabSource(
         ...view,
         turn: view.turn && { ...view.turn, phase: "working" },
         pending: { ...view.pending, questions: null },
-        entries: [...view.entries, {
-          kind: "questions",
-          id: asked.group,
-          at: at(51),
-          group: asked.group,
-          outcome: "submitted",
-          lines: (asked.questions ?? []).map((question) => ({
-            header: question.header,
-            answer: answerText(answers, question),
-          })),
-        }],
+        entries: [
+          ...view.entries,
+          {
+            kind: "questions",
+            id: asked.group,
+            at: at(51),
+            group: asked.group,
+            outcome: "submitted",
+            lines: (asked.questions ?? []).map((question) => ({
+              header: question.header,
+              answer: answerText(answers, question),
+            })),
+          },
+        ],
       }));
     },
     decidePermission(session, request, choice, reason) {
@@ -1310,24 +1378,27 @@ export function createFakeAgentTabSource(
         ...view,
         turn: view.turn && { ...view.turn, phase: "working" },
         pending: { ...view.pending, approval: null },
-        entries: [...view.entries, {
-          kind: "approval-result",
-          id: request,
-          at: at(51),
-          result: {
-            request,
-            subject: approval.subject,
-            outcome: denied ? "denied" : "allowed",
-            choice: choice === "reject" ? null : choice,
-            reason: reason ?? null,
+        entries: [
+          ...view.entries,
+          {
+            kind: "approval-result",
+            id: request,
+            at: at(51),
+            result: {
+              request,
+              subject: approval.subject,
+              outcome: denied ? "denied" : "allowed",
+              choice: choice === "reject" ? null : choice,
+              reason: reason ?? null,
+            },
           },
-        }],
+        ],
       }));
     },
     cancelCall(call) {
       for (const [session, view] of threads) {
-        const found = view.entries.some((entry) =>
-          entry.kind === "call" && entry.call.call === call
+        const found = view.entries.some(
+          (entry) => entry.kind === "call" && entry.call.call === call,
         );
         if (!found) continue;
         return change(session, (current) => ({
@@ -1335,13 +1406,13 @@ export function createFakeAgentTabSource(
           entries: current.entries.map((entry) =>
             entry.kind === "call" && entry.call.call === call
               ? {
-                ...entry,
-                call: {
-                  ...entry.call,
-                  status: { state: "cancelled", reason: null },
-                },
-              }
-              : entry
+                  ...entry,
+                  call: {
+                    ...entry.call,
+                    status: { state: "cancelled", reason: null },
+                  },
+                }
+              : entry,
           ),
         }));
       }
@@ -1349,14 +1420,17 @@ export function createFakeAgentTabSource(
     },
 
     openSession({ id }) {
-      sessions = [...sessions, {
-        id,
-        title: null,
-        status: "idle",
-        activeAt: at(0),
-        archived: false,
-        skip: false,
-      }];
+      sessions = [
+        ...sessions,
+        {
+          id,
+          title: null,
+          status: "idle",
+          activeAt: at(0),
+          archived: false,
+          skip: false,
+        },
+      ];
       threads.set(id, EMPTY_THREAD);
       const picked = models.get("new");
       if (picked !== undefined) {
@@ -1391,16 +1465,17 @@ export function createFakeAgentTabSource(
       const origin = sessions.find((item) => item.id === session);
       if (origin === undefined) return fail("not_found");
       const entries = thread(session).entries;
-      const last = through === null
-        ? entries.length
-        : entries.findIndex((entry) => entry.id === through) + 1;
+      const last =
+        through === null
+          ? entries.length
+          : entries.findIndex((entry) => entry.id === through) + 1;
       // fork는 skip을 가져가지 않는다.
       sessions = [...sessions, { ...origin, id, status: "idle", skip: false }];
       threads.set(id, {
         ...EMPTY_THREAD,
-        entries: entries.slice(0, last).filter((entry) =>
-          entry.kind === "message"
-        ),
+        entries: entries
+          .slice(0, last)
+          .filter((entry) => entry.kind === "message"),
       });
       notify();
       return DONE;
@@ -1416,10 +1491,12 @@ export function createFakeAgentTabSource(
       }
       return ok(
         thread(session).entries.flatMap((entry) =>
-          entry.kind === "message" && entry.actor === "user" &&
-            entry.delivery === "next_turn" && !hidden.has(entry.id)
+          entry.kind === "message" &&
+          entry.actor === "user" &&
+          entry.delivery === "next_turn" &&
+          !hidden.has(entry.id)
             ? [entry.id]
-            : []
+            : [],
         ),
       );
     },
@@ -1431,17 +1508,20 @@ export function createFakeAgentTabSource(
       const hidden = view.entries.slice(from);
       return change(session, (current) => ({
         ...current,
-        entries: [...current.entries.slice(0, from), {
-          kind: "hidden",
-          id: nextId("rwd"),
-          at: at(53),
-          checkpoint: message,
-          choice: choice.files ? "restore_all" : "messages_only",
-          count: hidden.length,
-          restored: choice.files ? REWIND_PREVIEW.files.length : 0,
-          left: [],
-          entries: hidden,
-        }],
+        entries: [
+          ...current.entries.slice(0, from),
+          {
+            kind: "hidden",
+            id: nextId("rwd"),
+            at: at(53),
+            checkpoint: message,
+            choice: choice.files ? "restore_all" : "messages_only",
+            count: hidden.length,
+            restored: choice.files ? REWIND_PREVIEW.files.length : 0,
+            left: [],
+            entries: hidden,
+          },
+        ],
       }));
     },
 

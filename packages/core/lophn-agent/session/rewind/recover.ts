@@ -39,13 +39,11 @@ export function uninstalledCandidates(lookup: Lookup): UninstalledCandidate[] {
   );
   for (const revert of latest) {
     const id = String(revert["id"]);
-    for (
-      const item of lookup.sql.all(
-        `select target, restored_sha256 from revert_items
+    for (const item of lookup.sql.all(
+      `select target, restored_sha256 from revert_items
           where revert = ? and class = 'file' and plan = 'restore' and result = 'restored'`,
-        [id],
-      )
-    ) {
+      [id],
+    )) {
       const path = String(item["target"]);
       const records = lookup.sql.all(
         `select root, after_exists, after_sha256, moved_from from rewind_files
@@ -72,13 +70,13 @@ export function uninstalledCandidates(lookup: Lookup): UninstalledCandidate[] {
         path,
         after: {
           exists: Number(last["after_exists"]) === 1,
-          sha256: last["after_sha256"] === null
-            ? null
-            : String(last["after_sha256"]),
+          sha256:
+            last["after_sha256"] === null ? null : String(last["after_sha256"]),
         },
-        restored_sha256: item["restored_sha256"] === null
-          ? null
-          : String(item["restored_sha256"]),
+        restored_sha256:
+          item["restored_sha256"] === null
+            ? null
+            : String(item["restored_sha256"]),
       });
     }
   }
@@ -89,8 +87,11 @@ function sameState(
   stat: FileStat,
   state: { exists: boolean; sha256: string | null },
 ): boolean {
-  return !stat.link && stat.exists === state.exists &&
-    (!state.exists || stat.sha256 === state.sha256);
+  return (
+    !stat.link &&
+    stat.exists === state.exists &&
+    (!state.exists || stat.sha256 === state.sha256)
+  );
 }
 
 // 파일이 아직 agent가 마지막으로 쓴 상태이고 복원이 만들 상태와 다른 경로, 곧 설치되지 않은 경로다.
@@ -112,7 +113,6 @@ export async function findUninstalled(
       exists: candidate.restored_sha256 !== null,
       sha256: candidate.restored_sha256,
     };
-    return sameState(stat, candidate.after) &&
-      !sameState(stat, restored);
+    return sameState(stat, candidate.after) && !sameState(stat, restored);
   });
 }

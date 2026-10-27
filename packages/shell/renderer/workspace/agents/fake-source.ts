@@ -70,22 +70,22 @@ export {
 
 type FakeCall =
   | {
-    method: "saveAgent";
-    assignment: string | null;
-    hash: string | null;
-    definition: AgentDraft;
-  }
+      method: "saveAgent";
+      assignment: string | null;
+      hash: string | null;
+      definition: AgentDraft;
+    }
   | { method: "deleteAgent"; assignment: string; hash: string }
   | { method: "uploadImage"; assignment: string; name: string }
   | { method: "setProjectModel"; choice: ModelChoice | null }
   | { method: "setSkill"; name: string; on: boolean }
   | { method: "setMcp"; name: string; on: boolean }
   | {
-    method: "setGrants";
-    assignment: string;
-    entries: readonly AssignmentEntry[];
-    revision: number;
-  }
+      method: "setGrants";
+      assignment: string;
+      entries: readonly AssignmentEntry[];
+      revision: number;
+    }
   | { method: "setHidden"; items: readonly HiddenModel[] }
   | { method: "refreshModels"; provider: string }
   | { method: "saveModelInfo"; item: UserModelItem; seq: string }
@@ -221,14 +221,17 @@ export function createFakeAgentsSource(
   let created = 0;
 
   const stored = new Map<string, Stored>(
-    FAKE_AGENTS.map((agent) => [agent.key, {
-      role: agent.role,
-      place: agent.place,
-      name: agent.name,
-      summary: agent.summary,
-      definition: agent.definition,
-      hash: nextHash(),
-    }]),
+    FAKE_AGENTS.map((agent) => [
+      agent.key,
+      {
+        role: agent.role,
+        place: agent.place,
+        name: agent.name,
+        summary: agent.summary,
+        definition: agent.definition,
+        hash: nextHash(),
+      },
+    ]),
   );
   const grants = new Map<string, readonly AssignmentEntry[]>(
     Object.entries(FAKE_GRANTS),
@@ -261,9 +264,10 @@ export function createFakeAgentsSource(
     return ok(userModels);
   };
 
-  let saveFailure:
-    | { issues: readonly AgentDefinitionIssue[]; code: string }
-    | null = null;
+  let saveFailure: {
+    issues: readonly AgentDefinitionIssue[];
+    code: string;
+  } | null = null;
   let changeFailure: string | null = null;
   let overviewFailure: string | null = null;
 
@@ -279,12 +283,12 @@ export function createFakeAgentsSource(
     ...GLOBAL_SKILLS,
     ...(atProject
       ? PROJECT_SKILLS.map((row) => ({
-        ...row,
-        on: !projectSkillOff.has(row.name),
-      }))
+          ...row,
+          on: !projectSkillOff.has(row.name),
+        }))
       : item.place === "none"
-      ? []
-      : APP_SKILLS),
+        ? []
+        : APP_SKILLS),
   ];
   const mcpFor = (atProject: boolean): McpRow[] => [
     ...GLOBAL_MCP,
@@ -303,13 +307,14 @@ export function createFakeAgentsSource(
     const atProject = item.place === "project";
     const picked = definition.skills ?? [];
     const mcpOff = (definition.mcp_off ?? []).map((entry) => entry.server_name);
-    const skills = skillsFor(item, atProject).filter((row) =>
-      row.on &&
-      (picked.length === 0 || row.builtIn || picked.includes(row.name))
+    const skills = skillsFor(item, atProject).filter(
+      (row) =>
+        row.on &&
+        (picked.length === 0 || row.builtIn || picked.includes(row.name)),
     ).length;
-    const own =
-      (definition.mcp_servers ?? []).filter((server) => server.enabled)
-        .length;
+    const own = (definition.mcp_servers ?? []).filter(
+      (server) => server.enabled,
+    ).length;
     const mcp =
       mcpFor(atProject).filter((row) => row.on && !mcpOff.includes(row.name))
         .length + own;
@@ -320,16 +325,18 @@ export function createFakeAgentsSource(
       role: item.role,
       kind: builtIn ? "built_in" : "operator",
       name: item.name,
-      profile: definition.profile ??
+      profile:
+        definition.profile ??
         (builtIn
           ? { kind: "icon", icon: BUILT_IN_ICON[item.role] }
           : DEFAULT_PROFILE),
       model: {
         provider: model.provider,
         model_name: model.model_name,
-        source: definition.model === undefined
-          ? inheritedModel(item).source
-          : "agent",
+        source:
+          definition.model === undefined
+            ? inheritedModel(item).source
+            : "agent",
       },
       issues: [],
       counts: {
@@ -343,8 +350,8 @@ export function createFakeAgentsSource(
     item.place === "none"
       ? { kind: "none" as const, id: null, name: "All of lophn" }
       : item.place === "app"
-      ? { kind: "app" as const, id: APP_ID, name: APP_NAME }
-      : { kind: "project" as const, id: PROJECT, name: PROJECT_NAME };
+        ? { kind: "app" as const, id: APP_ID, name: APP_NAME }
+        : { kind: "project" as const, id: PROJECT, name: PROJECT_NAME };
 
   const detailOf = (key: string): AgentDetail => {
     const item = stored.get(key)!;
@@ -367,18 +374,19 @@ export function createFakeAgentsSource(
       issues: [],
       skills: skillsFor(item, atProject),
       mcpServers: mcpFor(atProject),
-      instructions: item.role === "lophn" || item.place === "app"
-        ? null
-        : { text: LOPHN_MD, project: PROJECT_NAME },
+      instructions:
+        item.role === "lophn" || item.place === "app"
+          ? null
+          : { text: LOPHN_MD, project: PROJECT_NAME },
       places: [],
     };
   };
 
   const here = (project: string) => {
     const app = isAppPlace(project);
-    return [...stored].filter(([, item]) =>
-      item.place === "none" ||
-      item.place === (app ? "app" : "project")
+    return [...stored].filter(
+      ([, item]) =>
+        item.place === "none" || item.place === (app ? "app" : "project"),
     );
   };
 
@@ -408,16 +416,19 @@ export function createFakeAgentsSource(
         return Promise.resolve({ ok: false, message });
       }
       const atProject = !isAppPlace(project);
-      return Promise.resolve(ok({
-        agents: here(project).filter(([, item]) => item.place !== "none")
-          .map(([key, item]) => rowOf(key, item)),
-        instructions: atProject
-          ? { text: LOPHN_MD, project: PROJECT_NAME }
-          : { text: "", project: null },
-        projectModel: { chosen: projectModel, inherited: GLOBAL_MODEL },
-        skills: skillsFor({ role: "operator" } as Stored, atProject),
-        mcpServers: mcpFor(atProject),
-      }));
+      return Promise.resolve(
+        ok({
+          agents: here(project)
+            .filter(([, item]) => item.place !== "none")
+            .map(([key, item]) => rowOf(key, item)),
+          instructions: atProject
+            ? { text: LOPHN_MD, project: PROJECT_NAME }
+            : { text: "", project: null },
+          projectModel: { chosen: projectModel, inherited: GLOBAL_MODEL },
+          skills: skillsFor({ role: "operator" } as Stored, atProject),
+          mcpServers: mcpFor(atProject),
+        }),
+      );
     },
 
     models(): Promise<ReadResult<ModelsView>> {
@@ -430,37 +441,41 @@ export function createFakeAgentsSource(
         reportedModels: null,
         refreshable: false,
       });
-      return Promise.resolve(ok({
-        providers: [
-          ...(kind === "none"
-            ? []
-            : [builtIn(ANTHROPIC, "Anthropic", "anthropic")]),
-          ...(kind === "several"
-            ? [
-              builtIn(OPENAI, "OpenAI", "openai"),
-              builtIn(XAI, "xAI", "xai"),
-            ]
-            : []),
-          ...(kind === "custom"
-            ? [{
-              id: CUSTOM_PROVIDER,
-              name: "Local server",
-              definition: CUSTOM_DEFINITION,
-              kind: "api_key",
-              reportedModels: customListed
-                ? ["llama-3.3-70b", "qwen-3-coder"]
-                : null,
-              refreshable: true,
-            }]
-            : []),
-        ],
-        catalog: [
-          ...CATALOG,
-          ...OTHER_CATALOG,
-          ...userModels.items.map(userEntryOf),
-        ],
-        hidden,
-      }));
+      return Promise.resolve(
+        ok({
+          providers: [
+            ...(kind === "none"
+              ? []
+              : [builtIn(ANTHROPIC, "Anthropic", "anthropic")]),
+            ...(kind === "several"
+              ? [
+                  builtIn(OPENAI, "OpenAI", "openai"),
+                  builtIn(XAI, "xAI", "xai"),
+                ]
+              : []),
+            ...(kind === "custom"
+              ? [
+                  {
+                    id: CUSTOM_PROVIDER,
+                    name: "Local server",
+                    definition: CUSTOM_DEFINITION,
+                    kind: "api_key",
+                    reportedModels: customListed
+                      ? ["llama-3.3-70b", "qwen-3-coder"]
+                      : null,
+                    refreshable: true,
+                  },
+                ]
+              : []),
+          ],
+          catalog: [
+            ...CATALOG,
+            ...OTHER_CATALOG,
+            ...userModels.items.map(userEntryOf),
+          ],
+          hidden,
+        }),
+      );
     },
 
     refreshModels(provider) {
@@ -492,18 +507,22 @@ export function createFakeAgentsSource(
     saveModelInfo(item, seq) {
       calls.push({ method: "saveModelInfo", item, seq });
       const record: UserModelRecord = { ...item, saved_at: SAVED_AT };
-      return Promise.resolve(changeUserModels(seq, [
-        ...userModels.items.filter((one) => !sameKey(one, item)),
-        record,
-      ]));
+      return Promise.resolve(
+        changeUserModels(seq, [
+          ...userModels.items.filter((one) => !sameKey(one, item)),
+          record,
+        ]),
+      );
     },
 
     removeModelInfo(key, seq) {
       calls.push({ method: "removeModelInfo", key, seq });
-      return Promise.resolve(changeUserModels(
-        seq,
-        userModels.items.filter((one) => !sameKey(one, key)),
-      ));
+      return Promise.resolve(
+        changeUserModels(
+          seq,
+          userModels.items.filter((one) => !sameKey(one, key)),
+        ),
+      );
     },
 
     readAgent(_project, key) {
@@ -517,8 +536,8 @@ export function createFakeAgentsSource(
     newOperator(project) {
       const inherited = projectModel ?? GLOBAL_MODEL;
       const app = isAppPlace(project);
-      return Promise.resolve(ok(
-        {
+      return Promise.resolve(
+        ok({
           assignment: null,
           draftId: `agt_${`nw${created + 1}`.padStart(26, "0")}`,
           role: "operator",
@@ -544,8 +563,8 @@ export function createFakeAgentsSource(
             { kind: "project", id: PROJECT, name: PROJECT_NAME },
             { kind: "app", id: APP_ID, name: APP_NAME },
           ],
-        } satisfies AgentDetail,
-      ));
+        } satisfies AgentDetail),
+      );
     },
 
     saveAgent(_project, input: SaveInput): Promise<SaveResult> {
@@ -560,9 +579,8 @@ export function createFakeAgentsSource(
         saveFailure = null;
         return Promise.resolve({ ok: false, message: code, issues });
       }
-      const existing = input.assignment === null
-        ? undefined
-        : stored.get(input.assignment);
+      const existing =
+        input.assignment === null ? undefined : stored.get(input.assignment);
       if (input.assignment !== null) {
         if (existing === undefined) {
           return Promise.resolve({
@@ -580,12 +598,15 @@ export function createFakeAgentsSource(
         }
       }
       created += 1;
-      const key = input.assignment ?? input.draftId ??
+      const key =
+        input.assignment ??
+        input.draftId ??
         `agt_${`nw${created}`.padStart(26, "0")}`;
       const hash = nextHash();
       stored.set(key, {
         role: existing?.role ?? "operator",
-        place: existing?.place ??
+        place:
+          existing?.place ??
           (input.place !== null && isAppPlace(input.place) ? "app" : "project"),
         name: input.definition.name ?? existing?.name ?? "",
         summary: existing?.summary ?? "",
@@ -647,17 +668,20 @@ export function createFakeAgentsSource(
 
     grants(_project, key): Promise<ReadResult<GrantsView>> {
       const item = stored.get(key);
-      const agentDomains = item === undefined || item.place === "none"
-        ? []
-        : domainNamesOf(
-          item.definition.domains ?? [],
-          item.place === "app" ? APP_DOMAINS : PROJECT_DOMAINS,
-        );
-      return Promise.resolve(ok({
-        entries: grants.get(key) ?? [],
-        catalog: { apps: appsFor(GRANT_CATALOG.apps, agentDomains) },
-        revision: grantRevisions.get(key) ?? 0,
-      }));
+      const agentDomains =
+        item === undefined || item.place === "none"
+          ? []
+          : domainNamesOf(
+              item.definition.domains ?? [],
+              item.place === "app" ? APP_DOMAINS : PROJECT_DOMAINS,
+            );
+      return Promise.resolve(
+        ok({
+          entries: grants.get(key) ?? [],
+          catalog: { apps: appsFor(GRANT_CATALOG.apps, agentDomains) },
+          revision: grantRevisions.get(key) ?? 0,
+        }),
+      );
     },
 
     setGrants(_project, key, entries, revision) {

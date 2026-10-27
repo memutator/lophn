@@ -84,8 +84,7 @@ test("project를 떠났다 돌아온 detached terminal은 PTY 참조를 한 번�
     "shell:detached-take",
     contentsOf(3, "app://desktop/"),
     null,
-  )
-    .value as DetachedTaken;
+  ).value as DetachedTaken;
   assert.deepEqual(taken.transfer, { value: RUNTIME, views: [] });
 
   // 한 번 쓰면 지워진다. 다시 닫고 열어도 다른 창이 같은 PTY를 받지 않는다.
@@ -96,8 +95,7 @@ test("project를 떠났다 돌아온 detached terminal은 PTY 참조를 한 번�
     "shell:detached-take",
     contentsOf(4, "app://desktop/"),
     null,
-  )
-    .value as DetachedTaken;
+  ).value as DetachedTaken;
   assert.equal(again.transfer, null);
 });
 

@@ -32,15 +32,13 @@ type HttpAuth = {
 // 헤더 이름이다. 값은 부르는 쪽이 결정한다. redirect의 다른 origin은 adapter가
 // 거른다.
 export function authHeaders(
-  auth:
-    & {
-      kind: McpAuthKind;
-    }
-    & (
-      | { kind: "none" }
-      | { kind: "bearer"; token: string }
-      | { kind: "api_key"; token: string; header_name: string }
-    ),
+  auth: {
+    kind: McpAuthKind;
+  } & (
+    | { kind: "none" }
+    | { kind: "bearer"; token: string }
+    | { kind: "api_key"; token: string; header_name: string }
+  ),
 ): HttpAuth {
   if (auth.kind === "none") return { headers: {}, kind: auth.kind };
   if (auth.kind === "bearer") {
@@ -65,9 +63,7 @@ function pkceVerifier(random: RandomSource = cryptoRandom): string {
 }
 
 // RFC 7636 S256 challenge다. verifier의 SHA-256을 base64url로 인코딩한다.
-async function pkceChallengeS256(
-  verifier: string,
-): Promise<string> {
+async function pkceChallengeS256(verifier: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(verifier),
@@ -78,10 +74,10 @@ async function pkceChallengeS256(
 function base64url(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll(
-    "=",
-    "",
-  );
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
 }
 
 // 사람이 시작한 브라우저 열기 port다. 실제 브라우저를 열지 않고 열 URL을
@@ -138,9 +134,7 @@ const RESERVED_PARAMS: readonly string[] = [
   "grant_type",
 ];
 
-function authorizationUrl(
-  input: OAuthStartInput,
-): Result<URL> {
+function authorizationUrl(input: OAuthStartInput): Result<URL> {
   let endpoint: URL;
   try {
     endpoint = new URL(input.authorizationEndpoint);
@@ -250,9 +244,10 @@ async function exchangeToken(
 function jsonRecord(bytes: Uint8Array): Record<string, unknown> | null {
   try {
     const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes));
-    return parsed !== null && typeof parsed === "object" &&
-        !Array.isArray(parsed)
-      ? parsed as Record<string, unknown>
+    return parsed !== null &&
+      typeof parsed === "object" &&
+      !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
       : null;
   } catch {
     return null;
@@ -554,9 +549,10 @@ export function createMcpAuth(options: {
       return ok({
         access_token: exchanged.value.access_token,
         refresh_token: exchanged.value.refresh_token,
-        expires_at_ms: exchanged.value.expires_in === null
-          ? null
-          : options.nowMs() + exchanged.value.expires_in * 1000,
+        expires_at_ms:
+          exchanged.value.expires_in === null
+            ? null
+            : options.nowMs() + exchanged.value.expires_in * 1000,
         token_endpoint: held.tokenEndpoint,
         client_id: held.clientId,
       });

@@ -52,10 +52,10 @@ function signatureOf(source: ArtifactSource): string {
   return source.kind === "artifact"
     ? `artifact\n${source.domain}\n${source.name}`
     : source.kind === "file"
-    ? `file\n${source.project}\n${source.path}`
-    : `workflow\n${source.project}\n${source.workflow}\n${source.view}\n${
-      source.instance ?? ""
-    }`;
+      ? `file\n${source.project}\n${source.path}`
+      : `workflow\n${source.project}\n${source.workflow}\n${source.view}\n${
+          source.instance ?? ""
+        }`;
 }
 
 export function ArtifactTab(props: ArtifactTabProps) {
@@ -92,11 +92,12 @@ function OpenTab(
   const last = useRef<ArtifactViewState | null>(null);
   const reported = useRef<string | null>(null);
   const signature = signatureOf(source);
-  const name = source.kind === "artifact"
-    ? source.name
-    : source.kind === "file"
-    ? fileNameOf(source.path)
-    : source.workflow;
+  const name =
+    source.kind === "artifact"
+      ? source.name
+      : source.kind === "file"
+        ? fileNameOf(source.path)
+        : source.workflow;
   const nameRef = useRef(name);
   nameRef.current = name;
   const report = (next: ArtifactViewState) => {
@@ -224,9 +225,10 @@ function OpenTab(
   }
 
   const title = state?.title || name;
-  const folder = source.kind === "file"
-    ? source.path.slice(0, Math.max(0, source.path.lastIndexOf("/"))) || "/"
-    : null;
+  const folder =
+    source.kind === "file"
+      ? source.path.slice(0, Math.max(0, source.path.lastIndexOf("/"))) || "/"
+      : null;
   const ready = state !== null && !missing;
   const reload = () => {
     if (viewSession !== null) {
@@ -271,27 +273,23 @@ function OpenTab(
         </span>
       </div>
       <div ref={region} className={styles.region} data-artifact-page="">
-        {missing
-          ? (
-            <EmptyState
-              icon={artifactIcons.missing}
-              message={t("artifact.empty.missing", { name })}
-              action={{
-                label: t("common.button.retry"),
-                onSelect: () => setAttempt((count) => count + 1),
-              }}
-            />
-          )
-          : failed
-          ? (
-            <ErrorState
-              target={t("artifact.label.kind")}
-              onRetry={() => setAttempt((count) => count + 1)}
-            />
-          )
-          : crashed
-          ? <ErrorState target={t("artifact.label.kind")} onRetry={reload} />
-          : null}
+        {missing ? (
+          <EmptyState
+            icon={artifactIcons.missing}
+            message={t("artifact.empty.missing", { name })}
+            action={{
+              label: t("common.button.retry"),
+              onSelect: () => setAttempt((count) => count + 1),
+            }}
+          />
+        ) : failed ? (
+          <ErrorState
+            target={t("artifact.label.kind")}
+            onRetry={() => setAttempt((count) => count + 1)}
+          />
+        ) : crashed ? (
+          <ErrorState target={t("artifact.label.kind")} onRetry={reload} />
+        ) : null}
       </div>
       {toast.dom === null ? null : (
         <div className={styles.toasts}>
@@ -303,21 +301,19 @@ function OpenTab(
           />
         </div>
       )}
-      {panelOpen
-        ? (
-          <AnnotationPanel
-            items={items}
-            sending={annotating.state?.phase === "sending"}
-            failure={annotating.failure}
-            onRemove={annotating.remove}
-            onClear={() => annotating.remove("all")}
-            onSend={() => void sendAnnotations()}
-            sendLabel={t("artifact.button.send-annotations")}
-            note={t("artifact.text.annotations-note")}
-            panelRef={panel}
-          />
-        )
-        : null}
+      {panelOpen ? (
+        <AnnotationPanel
+          items={items}
+          sending={annotating.state?.phase === "sending"}
+          failure={annotating.failure}
+          onRemove={annotating.remove}
+          onClear={() => annotating.remove("all")}
+          onSend={() => void sendAnnotations()}
+          sendLabel={t("artifact.button.send-annotations")}
+          note={t("artifact.text.annotations-note")}
+          panelRef={panel}
+        />
+      ) : null}
     </div>
   );
 }

@@ -3,9 +3,10 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 // coding session과 앱 줄의 표. 값은 lophn이 꺼지면 의미를 잃어 recover가 켤 때 정리한다.
 // 메모리가 아니라 ledger에 두는 이유: command는 writer Worker에서 돌고 reader는 `CodingSessionLookup`과
 // 줄을 읽어야 하는데, 둘이 같은 메모리를 볼 수 없고 tx가 되돌아가면 표도 같이 되돌아가야 하기 때문이다.
-export const codingSchemaSteps: readonly SchemaStep[] = [{
-  id: "coding-agent.sessions.tables",
-  sql: `
+export const codingSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "coding-agent.sessions.tables",
+    sql: `
     CREATE TABLE coding_sessions (
       session TEXT PRIMARY KEY NOT NULL,
       app TEXT NOT NULL,
@@ -42,4 +43,5 @@ export const codingSchemaSteps: readonly SchemaStep[] = [{
       text TEXT NOT NULL
     ) STRICT;
     CREATE INDEX coding_inputs_session ON coding_inputs(session, id);`,
-}];
+  },
+];

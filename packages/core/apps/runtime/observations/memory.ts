@@ -44,7 +44,10 @@ export type RssReader = (pid: number) => Promise<RssReading | undefined>;
 function startTicksOf(stat: string): string | undefined {
   const close = stat.lastIndexOf(")");
   if (close < 0) return undefined;
-  const fields = stat.slice(close + 1).trim().split(/\s+/);
+  const fields = stat
+    .slice(close + 1)
+    .trim()
+    .split(/\s+/);
   // ')' 뒤 첫 field가 state(3번째)이므로 22번째는 인덱스 19다.
   const ticks = fields[19];
   return ticks !== undefined && /^\d+$/.test(ticks) ? ticks : undefined;

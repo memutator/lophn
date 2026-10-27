@@ -15,11 +15,13 @@ export function deleteSessionToolCalls(
   session: string,
   eraseBlobRefs: EraseBlobRefs,
 ): Result<void> {
-  const calls = tx.sql.all(
-    `select id from tool_calls
+  const calls = tx.sql
+    .all(
+      `select id from tool_calls
      where turn in (select id from turns where session = ?) order by attempt desc`,
-    [session],
-  ).map((row) => String(row["id"]));
+      [session],
+    )
+    .map((row) => String(row["id"]));
   const refs = eraseBlobRefs(tx, "tool_call", calls);
   if (!refs.ok) return refs;
   for (const call of calls) {

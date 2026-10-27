@@ -58,11 +58,16 @@ export function observeFiles(
         stat = LINKED;
       } else {
         const info = lstatSync(full);
-        stat = !info.isFile() || info.nlink > 1 ? LINKED : {
-          exists: true,
-          sha256: createHash("sha256").update(readFileSync(full)).digest("hex"),
-          link: false,
-        };
+        stat =
+          !info.isFile() || info.nlink > 1
+            ? LINKED
+            : {
+                exists: true,
+                sha256: createHash("sha256")
+                  .update(readFileSync(full))
+                  .digest("hex"),
+                link: false,
+              };
       }
     } catch (error) {
       if (!missing(error)) throw error;

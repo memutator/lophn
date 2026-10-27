@@ -162,12 +162,14 @@ export function computedImports(source: string): number[] {
   const list = tokens(source);
   return list.flatMap((token, index) => {
     if (
-      token.string || token.value !== "import" ||
+      token.string ||
+      token.value !== "import" ||
       [".", "?"].includes(list[index - 1]?.value) ||
       list[index + 1]?.value !== "("
-    ) return [];
+    )
+      return [];
     return list[index + 2]?.string &&
-        [")", ","].includes(list[index + 3]?.value)
+      [")", ","].includes(list[index + 3]?.value)
       ? []
       : [token.line];
   });
@@ -185,29 +187,30 @@ function importSites(list: Token[]): { token: Token; line: number }[] {
     if (token.value === "import" && next.string) specifier = next;
     else if (token.value === "import" && next.value === "(") {
       if (
-        list[index + 2]?.string && [")", ","].includes(list[index + 3]?.value)
+        list[index + 2]?.string &&
+        [")", ","].includes(list[index + 3]?.value)
       ) {
         specifier = list[index + 2];
       }
     } else if (next.value !== "." && next.value !== "(") {
-      if (
-        token.value === "export" && !["{", "*", "type"].includes(next.value)
-      ) continue;
+      if (token.value === "export" && !["{", "*", "type"].includes(next.value))
+        continue;
       let depth = 0;
       for (let cursor = index + 1; cursor < list.length; cursor++) {
         const item = list[cursor];
         if (!item.string && ["{", "["].includes(item.value)) depth++;
         if (!item.string && ["}", "]"].includes(item.value)) depth--;
         if (
-          depth === 0 && item.value === "from" && !item.string &&
+          depth === 0 &&
+          item.value === "from" &&
+          !item.string &&
           list[cursor + 1]?.string
         ) {
           specifier = list[cursor + 1];
           break;
         }
-        if (
-          depth === 0 && [";", "=", "import", "export"].includes(item.value)
-        ) break;
+        if (depth === 0 && [";", "=", "import", "export"].includes(item.value))
+          break;
       }
     }
     if (specifier) imports.push({ token: specifier, line: token.line });
@@ -237,17 +240,26 @@ export function readSpecifierSites(source: string): SpecifierSite[] {
   const word = (index: number, value: string) =>
     !list[index]?.string && list[index]?.value === value;
   const meta = (index: number, last: string) =>
-    word(index, "import") && word(index + 1, ".") && word(index + 2, "meta") &&
-    word(index + 3, ".") && word(index + 4, last);
+    word(index, "import") &&
+    word(index + 1, ".") &&
+    word(index + 2, "meta") &&
+    word(index + 3, ".") &&
+    word(index + 4, last);
   for (let index = 0; index < list.length; index++) {
     if (
-      word(index, "new") && word(index + 1, "URL") && word(index + 2, "(") &&
-      list[index + 3]?.string && word(index + 4, ",") && meta(index + 5, "url")
+      word(index, "new") &&
+      word(index + 1, "URL") &&
+      word(index + 2, "(") &&
+      list[index + 3]?.string &&
+      word(index + 4, ",") &&
+      meta(index + 5, "url")
     ) {
       sites.push(site(list[index + 3], list[index + 3].line));
     } else if (
-      meta(index, "resolve") && word(index + 5, "(") &&
-      list[index + 6]?.string && word(index + 7, ")")
+      meta(index, "resolve") &&
+      word(index + 5, "(") &&
+      list[index + 6]?.string &&
+      word(index + 7, ")")
     ) {
       sites.push(site(list[index + 6], list[index + 6].line));
     }
@@ -257,7 +269,7 @@ export function readSpecifierSites(source: string): SpecifierSite[] {
 
 // 모든 문자열 literal의 자리다. 옮긴 경로를 문자열로 쓰는 곳을 찾는 데 쓴다.
 export function readStringSites(source: string): SpecifierSite[] {
-  return tokens(source).filter((token) => token.string).map((token) =>
-    site(token, token.line)
-  );
+  return tokens(source)
+    .filter((token) => token.string)
+    .map((token) => site(token, token.line));
 }

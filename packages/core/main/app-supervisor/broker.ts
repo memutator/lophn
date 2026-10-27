@@ -134,7 +134,9 @@ export function createSupervisorBroker(deps: {
       deps.childExited?.(processNonce);
       try {
         await found?.shutdown();
-      } catch { /* 이미 닫힌 listener다 */ }
+      } catch {
+        /* 이미 닫힌 listener다 */
+      }
     },
     blockApp: (app) => hub.blockApp(app),
   };

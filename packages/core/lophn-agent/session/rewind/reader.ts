@@ -14,7 +14,7 @@ export function createRewindReads() {
     observe(files) {
       const byRoot = new Map<string, string[]>();
       for (const file of files) {
-        byRoot.set(file.root, [...byRoot.get(file.root) ?? [], file.path]);
+        byRoot.set(file.root, [...(byRoot.get(file.root) ?? []), file.path]);
       }
       const seen = new Map<string, FileStat>();
       for (const [root, paths] of byRoot) {

@@ -10,12 +10,14 @@ import { type Material, textOf } from "./manifest.ts";
 
 const specSchema = z.strictObject({
   project: z.string(),
-  domain: domainCreate.input.pick({
-    id: true,
-    name: true,
-    title: true,
-    purpose: true,
-  }).required({ id: true }),
+  domain: domainCreate.input
+    .pick({
+      id: true,
+      name: true,
+      title: true,
+      purpose: true,
+    })
+    .required({ id: true }),
 });
 
 // kind 파일은 domain 폴더에 있으므로 project 안에 domain을 먼저 만든다. 고정 id는 사람만 정할 수 있고(Core.call은 user token),

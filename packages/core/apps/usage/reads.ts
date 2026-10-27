@@ -41,9 +41,12 @@ export function createUsageReads(): ReadDefinition<typeof appUsage> {
         if (!users.ok) return users;
         for (const user of users.value) uses.push({ app, ...user });
       }
-      uses.sort((a, b) =>
-        order(a.app, b.app) || order(a.tool, b.tool) ||
-        order(a.domain, b.domain) || order(a.source, b.source)
+      uses.sort(
+        (a, b) =>
+          order(a.app, b.app) ||
+          order(a.tool, b.tool) ||
+          order(a.domain, b.domain) ||
+          order(a.source, b.source),
       );
       return ok({
         uses,

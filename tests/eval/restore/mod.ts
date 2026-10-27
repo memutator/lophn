@@ -99,9 +99,8 @@ export function agentRefOf(
     case "lophn":
       return { role };
     case "project_manager": {
-      const project = place !== undefined && "project" in place
-        ? place.project
-        : undefined;
+      const project =
+        place !== undefined && "project" in place ? place.project : undefined;
       return { role, project: found(world.projects[project ?? ""], project) };
     }
     case "app_engineer": {

@@ -31,15 +31,17 @@ test("bundle 사본 읽기는 앱의 domain에 없는 tool을 거절한다", asy
         name: "Items",
         description: "Keeps items.",
         screens: [],
-        tools: [{
-          name: "list_notes",
-          title: "List items",
-          description: "Lists the items.",
-          inputSchema: null,
-          effect: "read",
-          domain: "items",
-          public: false,
-        }],
+        tools: [
+          {
+            name: "list_notes",
+            title: "List items",
+            description: "Lists the items.",
+            inputSchema: null,
+            effect: "read",
+            domain: "items",
+            public: false,
+          },
+        ],
         permissions: [],
         app_connections: [],
         sdk_dependencies: [],
@@ -55,11 +57,8 @@ test("bundle 사본 읽기는 앱의 domain에 없는 tool을 거절한다", asy
     assert.deepStrictEqual(outside.error.code, "unavailable");
     const empty = await read([]);
     assert.ok(!empty.ok);
-    const unreadable = await readBundleCopy(
-      root,
-      APP,
-      hash,
-      () => Promise.resolve(err({ code: "unavailable", message: "no ledger" })),
+    const unreadable = await readBundleCopy(root, APP, hash, () =>
+      Promise.resolve(err({ code: "unavailable", message: "no ledger" })),
     );
     assert.ok(!unreadable.ok);
   } finally {

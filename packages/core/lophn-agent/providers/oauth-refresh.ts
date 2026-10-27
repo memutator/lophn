@@ -69,7 +69,9 @@ export function createProviderRefresher(deps: {
       const latest = await deps.readProvider(provider.id);
       if (!latest.ok || latest.value === null) return;
       await deps.recordModels(latest.value, models);
-    })().catch(() => {}).finally(() => reads.delete(provider.id));
+    })()
+      .catch(() => {})
+      .finally(() => reads.delete(provider.id));
     reads.set(provider.id, read);
   }
 
@@ -79,9 +81,10 @@ export function createProviderRefresher(deps: {
     if (oauth === null || !stored.ok) {
       return err({ code: "unavailable", message: "저장된 token이 없다" });
     }
-    const clientId = oauth.product === "chatgpt"
-      ? stored.value.meta.client_id
-      : oauth.client_id;
+    const clientId =
+      oauth.product === "chatgpt"
+        ? stored.value.meta.client_id
+        : oauth.client_id;
     if (clientId === null) {
       return err({
         code: "unavailable",
@@ -176,9 +179,11 @@ export function createProviderRefresher(deps: {
       if (!read.ok) return read;
       const provider = read.value;
       if (
-        provider === null || provider.credential.kind !== "oauth" ||
+        provider === null ||
+        provider.credential.kind !== "oauth" ||
         provider.credential.state === "revoked"
-      ) return undefined;
+      )
+        return undefined;
       const expires = Date.parse(provider.credential.expires_at ?? "");
       if (Number.isFinite(expires) && expires - deps.nowMs() > deps.leadMs) {
         // 연결 직후 첫 읽기가 실패했으면 여기서 다시 읽는다.
@@ -190,7 +195,7 @@ export function createProviderRefresher(deps: {
       const running = flights.get(provider.id);
       if (running !== undefined) return await running;
       const flight = refresh(provider).finally(() =>
-        flights.delete(provider.id)
+        flights.delete(provider.id),
       );
       flights.set(provider.id, flight);
       const refreshed = await flight;

@@ -3,10 +3,12 @@
 // 신호를 보낸 직후의 동기 대기는 프로세스를 멈춰 자식이 신호를 처리하지 못한다.
 // 확인은 호출자가 이벤트 루프를 돌린 뒤 alive()로 한다.
 
-type KillResult = { confirmed: true } | {
-  confirmed: false;
-  reason: string;
-};
+type KillResult =
+  | { confirmed: true }
+  | {
+      confirmed: false;
+      reason: string;
+    };
 
 export interface ProcessGroup {
   readonly pid: number;
@@ -45,6 +47,9 @@ function alive(target: number): boolean {
 }
 
 function isGone(error: unknown): boolean {
-  return error instanceof Error && "code" in error &&
-    (error as { code?: string }).code === "ESRCH";
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error as { code?: string }).code === "ESRCH"
+  );
 }

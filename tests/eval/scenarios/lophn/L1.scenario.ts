@@ -34,32 +34,34 @@ const scenario: Scenario = {
   fixtures: {
     right: [
       fixtureTrial([
-        fixtureSession(LOPHN, [{
-          tool: "ask",
-          effect: "read",
-          input: {
-            questions: [{
-              question: "무엇을 기록하고 싶으세요?",
-              header: "기록 대상",
-              options: [
-                { label: "지출", description: "쓴 돈을 기록한다" },
+        fixtureSession(LOPHN, [
+          {
+            tool: "ask",
+            effect: "read",
+            input: {
+              questions: [
                 {
-                  label: "수입과 지출",
-                  description: "들어오고 나간 돈을 모두 기록한다",
+                  question: "무엇을 기록하고 싶으세요?",
+                  header: "기록 대상",
+                  options: [
+                    { label: "지출", description: "쓴 돈을 기록한다" },
+                    {
+                      label: "수입과 지출",
+                      description: "들어오고 나간 돈을 모두 기록한다",
+                    },
+                  ],
+                  multiSelect: false,
                 },
               ],
-              multiSelect: false,
-            }],
+            },
           },
-        }]),
+        ]),
       ]),
     ],
     wrong: [
       {
         trial: fixtureTrial([
-          fixtureSession(LOPHN, [
-            fixtureAppCreate("가계부2"),
-          ]),
+          fixtureSession(LOPHN, [fixtureAppCreate("가계부2")]),
         ]),
         fails: ["asked", "no-app-create"],
       },

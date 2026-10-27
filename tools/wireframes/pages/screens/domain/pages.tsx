@@ -66,8 +66,10 @@ async function fill(at: number, text: string) {
     undefined,
     at,
   );
-  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!
-    .call(element, text);
+  Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  )!.set!.call(element, text);
   element.dispatchEvent(new Event("input", { bubbles: true }));
   await wait(30);
 }

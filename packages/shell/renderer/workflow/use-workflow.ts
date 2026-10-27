@@ -34,17 +34,21 @@ export interface UseWorkflow {
   stop(): void;
 }
 
-export function useWorkflow(
-  { source, project, workflow, instance, onInstance }: {
-    source: WorkspaceSource;
-    /** prj id. */
-    project: string;
-    /** workflow 이름(slug). */
-    workflow: string;
-    instance: string | null;
-    onInstance: (instance: string | null) => void;
-  },
-): UseWorkflow {
+export function useWorkflow({
+  source,
+  project,
+  workflow,
+  instance,
+  onInstance,
+}: {
+  source: WorkspaceSource;
+  /** prj id. */
+  project: string;
+  /** workflow 이름(slug). */
+  workflow: string;
+  instance: string | null;
+  onInstance: (instance: string | null) => void;
+}): UseWorkflow {
   const [definitions, setDefinitions] = useState<Definitions>({
     state: "loading",
   });
@@ -57,11 +61,14 @@ export function useWorkflow(
   const [reads, setReads] = useState(0);
   const haveDefinitions = useRef(false);
 
-  const unreadable = useCallback((body: string) =>
-    setNotice({
-      title: t("workflow.title.read-failed", { workflow }),
-      body,
-    }), [workflow]);
+  const unreadable = useCallback(
+    (body: string) =>
+      setNotice({
+        title: t("workflow.title.read-failed", { workflow }),
+        body,
+      }),
+    [workflow],
+  );
 
   useEffect(() => {
     let live = true;
@@ -113,7 +120,8 @@ export function useWorkflow(
     if (
       (payload.project === project && payload.workflow === workflow) ||
       changed === instance
-    ) setReads((count) => count + 1);
+    )
+      setReads((count) => count + 1);
   });
 
   const entry = definitions.state === "ready" ? definitions.entry : null;
@@ -121,9 +129,8 @@ export function useWorkflow(
     definitions,
     instances,
     // 고른 instance를 바꾼 직후 앞 instance의 값이 남아 보이지 않게 한다.
-    detail: instance !== null && detail?.instance.id === instance
-      ? detail
-      : null,
+    detail:
+      instance !== null && detail?.instance.id === instance ? detail : null,
     notice,
     closeNotice: () => setNotice(null),
     refresh() {

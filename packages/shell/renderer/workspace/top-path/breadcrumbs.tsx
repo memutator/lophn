@@ -20,9 +20,11 @@ export function Breadcrumbs({ crumbs }: BreadcrumbsProps) {
           const last = index === crumbs.length - 1;
           return (
             <li key={index} className={styles.item}>
-              {index > 0
-                ? <span className={styles.sep} aria-hidden="true">/</span>
-                : null}
+              {index > 0 ? (
+                <span className={styles.sep} aria-hidden="true">
+                  /
+                </span>
+              ) : null}
               <span
                 className={`${styles.crumb} ${last ? styles.current : ""}`}
                 data-crumb=""

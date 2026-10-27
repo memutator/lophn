@@ -30,9 +30,9 @@ export function checkSpecLocked(
   }
   if (facts.cases_missing_at_spec_commit.length > 0) {
     return conflict(
-      `case scenarios are not in the spec commit: ${
-        facts.cases_missing_at_spec_commit.join(", ")
-      }`,
+      `case scenarios are not in the spec commit: ${facts.cases_missing_at_spec_commit.join(
+        ", ",
+      )}`,
     );
   }
   return ok({ spec_commit: facts.spec_commit });

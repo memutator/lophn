@@ -44,7 +44,9 @@ export function createGatewaySession(
   function write(frame: GatewayServerFrame) {
     try {
       socket.send(JSON.stringify(frame));
-    } catch { /* 연결이 이미 닫혔다 */ }
+    } catch {
+      /* 연결이 이미 닫혔다 */
+    }
   }
 
   function terminate(code: number, reason?: "slow_consumer" | "shutdown") {
@@ -54,7 +56,9 @@ export function createGatewaySession(
     if (reason) write({ type: "closed", reason });
     try {
       socket.close(code);
-    } catch { /* 연결이 이미 닫혔다 */ }
+    } catch {
+      /* 연결이 이미 닫혔다 */
+    }
   }
 
   return {
@@ -83,7 +87,9 @@ export function createGatewaySession(
           write({ type: "closed", reason });
           try {
             socket.close(CLOSE_POLICY_VIOLATION);
-          } catch { /* 연결이 이미 닫혔다 */ }
+          } catch {
+            /* 연결이 이미 닫혔다 */
+          }
         },
       });
       write({ type: "ready" });

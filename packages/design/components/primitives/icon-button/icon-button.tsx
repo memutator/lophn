@@ -25,17 +25,15 @@ export interface IconButtonProps extends NativeButton {
 }
 
 // 같은 크기의 Button과 높이가 같은 정사각 버튼이다.
-export function IconButton(
-  {
-    icon,
-    label,
-    variant = "ghost",
-    size = "md",
-    type = "button",
-    ref,
-    ...rest
-  }: IconButtonProps,
-) {
+export function IconButton({
+  icon,
+  label,
+  variant = "ghost",
+  size = "md",
+  type = "button",
+  ref,
+  ...rest
+}: IconButtonProps) {
   return (
     <button
       {...rest}

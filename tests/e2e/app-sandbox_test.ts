@@ -44,8 +44,8 @@ test("E2E activate된 앱 process는 선언 밖의 파일 읽기·쓰기와 netw
     const outside = `${core.run.work}/outside`;
     await mkdir(outside);
     const journalBefore = fake.journal().length;
-    const nonce = (await core.call(appRuntime, { app: app.app }))
-      .observation?.process_nonce;
+    const nonce = (await core.call(appRuntime, { app: app.app })).observation
+      ?.process_nonce;
     assert.ok(nonce !== undefined);
 
     const call = (tool: string, input?: Record<string, string>) =>
@@ -64,11 +64,13 @@ test("E2E activate된 앱 process는 선언 밖의 파일 읽기·쓰기와 netw
     const outcome = escaped.outcome;
     assert.ok(outcome.status === "succeeded", JSON.stringify(outcome));
     const rows = (outcome.result as { rows: unknown[] }).rows;
-    assert.deepStrictEqual(rows, [{
-      secrets: "blocked",
-      outside: "blocked",
-      url: "blocked",
-    }]);
+    assert.deepStrictEqual(rows, [
+      {
+        secrets: "blocked",
+        outside: "blocked",
+        url: "blocked",
+      },
+    ]);
     assert.deepStrictEqual(
       (await call("list_items")).outcome.status,
       "succeeded",
@@ -90,9 +92,10 @@ test("E2E activate된 앱 process는 선언 밖의 파일 읽기·쓰기와 netw
     assert.deepStrictEqual(await readFile(secrets), before);
     // fake: 앱의 fetch가 닿지 않았다
     assert.deepStrictEqual(
-      fake.journal().slice(journalBefore).filter((entry) =>
-        entry.path === "/probe"
-      ),
+      fake
+        .journal()
+        .slice(journalBefore)
+        .filter((entry) => entry.path === "/probe"),
       [],
     );
   } finally {

@@ -63,9 +63,11 @@ export const activationConsents = defineRead({
   method: "consents",
   name: "activations.consents",
   input: z.strictObject({ app: appIdSchema.optional() }),
-  output: withReadCommon(z.object({
-    consents: z.array(activationConsentSchema),
-  })),
+  output: withReadCommon(
+    z.object({
+      consents: z.array(activationConsentSchema),
+    }),
+  ),
   actors: ["user", "machine"],
   errors: [
     "invalid_input",

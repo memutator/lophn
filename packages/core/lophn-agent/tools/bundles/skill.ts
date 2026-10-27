@@ -20,10 +20,12 @@ export const SKILL_TOOLS: readonly ToolDefinition[] = [
       const read = await ctx.skills.read(ctx.session, name, path);
       if (!read.ok) return read;
       const limited = limitText(read.value, "head");
-      return ok(fitted(`skill ${name}${path === undefined ? "" : ` ${path}`}`, {
-        text: limited.text,
-        ...(limited.complete ? {} : { omitted_bytes: limited.omittedCount }),
-      }));
+      return ok(
+        fitted(`skill ${name}${path === undefined ? "" : ` ${path}`}`, {
+          text: limited.text,
+          ...(limited.complete ? {} : { omitted_bytes: limited.omittedCount }),
+        }),
+      );
     },
   }),
 ];

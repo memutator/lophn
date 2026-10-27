@@ -105,7 +105,7 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
         return;
       case "fork":
         void forkAndOpen(source, session.id, host.openForked).then((result) =>
-          setProblem(!result.ok)
+          setProblem(!result.ok),
         );
         return;
       case "archive":
@@ -116,56 +116,50 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
   const archived = session?.archived === true;
   const items = archived ? ARCHIVED_ITEMS : MORE_ITEMS;
 
-  const lead = renaming
-    ? (
-      <span className={styles.face}>
-        <AgentFace agent={agent} />
-        <input
-          className={styles.renameInput}
-          data-header-rename
-          aria-label={t("conversation.label.rename-session", {
-            title: session?.title ?? t("conversation.label.session-untitled"),
-          })}
-          value={draft}
-          autoFocus
-          onFocus={(event) => event.currentTarget.select()}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={renameKeys}
-        />
-      </span>
-    )
-    : (
-      <SessionSwitcher
-        agent={agent}
-        current={session}
-        sessions={props.sessions}
-        queuedCoding={props.queuedCoding}
-        now={props.now}
-        onSwitch={host.switchSession}
-        onNew={host.newSession}
-        onRename={rename}
-        onArchive={(id) => void settle(source.archiveSession(id))}
-        onDelete={(id) => void settle(source.deleteSession(id))}
+  const lead = renaming ? (
+    <span className={styles.face}>
+      <AgentFace agent={agent} />
+      <input
+        className={styles.renameInput}
+        data-header-rename
+        aria-label={t("conversation.label.rename-session", {
+          title: session?.title ?? t("conversation.label.session-untitled"),
+        })}
+        value={draft}
+        autoFocus
+        onFocus={(event) => event.currentTarget.select()}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={renameKeys}
       />
-    );
+    </span>
+  ) : (
+    <SessionSwitcher
+      agent={agent}
+      current={session}
+      sessions={props.sessions}
+      queuedCoding={props.queuedCoding}
+      now={props.now}
+      onSwitch={host.switchSession}
+      onNew={host.newSession}
+      onRename={rename}
+      onArchive={(id) => void settle(source.archiveSession(id))}
+      onDelete={(id) => void settle(source.deleteSession(id))}
+    />
+  );
 
   return (
     <div className={styles.gap} data-agent-header>
       <ViewBar lead={<div className={styles.lead}>{lead}</div>}>
-        {problem
-          ? (
-            <span className={styles.problem} role="alert">
-              {t("conversation.error.action-failed")}
-            </span>
-          )
-          : null}
-        {archived
-          ? (
-            <span className={styles.archivedMark} data-archived-mark>
-              {t("conversation.label.archived")}
-            </span>
-          )
-          : null}
+        {problem ? (
+          <span className={styles.problem} role="alert">
+            {t("conversation.error.action-failed")}
+          </span>
+        ) : null}
+        {archived ? (
+          <span className={styles.archivedMark} data-archived-mark>
+            {t("conversation.label.archived")}
+          </span>
+        ) : null}
         {props.detail}
         {session === null ? null : (
           <Menu

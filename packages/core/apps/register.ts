@@ -89,9 +89,7 @@ const unattachedGuideBodyRead = {
 
 // 앱 process 같은 core 메모리를 읽는 route는 등록 때 unavailable로 올리고 core 조립
 // (wiring/apps.ts)이 handler로 덮는다. reader Worker는 이 메모리를 볼 수 없다.
-function unattachedRead<
-  R extends typeof appRewindPlan | typeof appRewinds,
->(
+function unattachedRead<R extends typeof appRewindPlan | typeof appRewinds>(
   route: R,
 ) {
   return {
@@ -269,11 +267,6 @@ export function createReaderRegistration(): ReaderRegistration {
       sdkReads.usage,
     ],
     // 선언 port의 고정 값이다. grants.list의 표시 자료가 같은 key로 읽는다.
-    ports: new Map<unknown, unknown>([
-      [
-        currentFacts,
-        releaseFacts,
-      ],
-    ]),
+    ports: new Map<unknown, unknown>([[currentFacts, releaseFacts]]),
   };
 }

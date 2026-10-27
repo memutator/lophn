@@ -74,8 +74,10 @@ function authorizationTarget(target: AppAccessTarget): AuthorizationTarget {
 
 // 읽기·보관 경계가 same-owner 거절인 forbidden·not_found를 한 방식으로 건너뛴다.
 export function denied(result: Result<unknown>): boolean {
-  return !result.ok &&
-    (result.error.code === "forbidden" || result.error.code === "not_found");
+  return (
+    !result.ok &&
+    (result.error.code === "forbidden" || result.error.code === "not_found")
+  );
 }
 
 function synchronousResult<T>(value: unknown): Result<T> {
@@ -92,9 +94,12 @@ function synchronousResult<T>(value: unknown): Result<T> {
   if ("ok" in value && value.ok === false && "error" in value) {
     const error = value.error;
     if (
-      typeof error === "object" && error !== null &&
-      "code" in error && ERROR_CODES.some((code) => code === error.code) &&
-      "message" in error && typeof error.message === "string"
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      ERROR_CODES.some((code) => code === error.code) &&
+      "message" in error &&
+      typeof error.message === "string"
     ) {
       return value as Result<T>;
     }

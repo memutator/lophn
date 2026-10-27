@@ -44,7 +44,7 @@ const participantName = (instance: WorkflowInstanceView, key: string) => {
   const participant = instance.participants[key];
   return participant === undefined
     ? key
-    : participant.name ?? t(roleKey(participant.role));
+    : (participant.name ?? t(roleKey(participant.role)));
 };
 
 // step 담당 글. 사람 step은 "You, with Project Manager"다.
@@ -53,10 +53,12 @@ function assignee(
   step: WorkflowInstanceView["steps"][number],
 ) {
   const by = participantName(instance, step.by);
-  return step.with === null ? by : t("workflow.label.assignee-with", {
-    by,
-    with: participantName(instance, step.with),
-  });
+  return step.with === null
+    ? by
+    : t("workflow.label.assignee-with", {
+        by,
+        with: participantName(instance, step.with),
+      });
 }
 
 // agent가 낸 줄은 session으로 참가자를 찾는다. 그 session에 step을 넘긴 줄(handed)이 단서다.
@@ -72,8 +74,8 @@ function whoOf(
     return jobWho(by.kind === "job" ? by.title : null);
   }
   const session = line.by.session;
-  const handed = detail.lines.find((item) =>
-    item.kind === "handed" && item.receiver === session
+  const handed = detail.lines.find(
+    (item) => item.kind === "handed" && item.receiver === session,
   );
   return handed?.kind === "handed"
     ? participantName(detail.instance, handed.participant)
@@ -148,17 +150,21 @@ function noteOf(
   });
 }
 
-export function InstanceView(
-  { detail, hasArtifact, onStop, onOpenArtifact, onOpenConversation }: {
-    detail: WorkflowInstanceDetailView;
-    /** workflow에 instance artifact가 있다. */
-    hasArtifact: boolean;
-    onStop: () => void;
-    onOpenArtifact: () => void;
-    /** 사람 차례일 때 그 step을 받은 agent의 session을 연다. 없으면 단추를 그리지 않는다. */
-    onOpenConversation: ((session: string) => void) | null;
-  },
-) {
+export function InstanceView({
+  detail,
+  hasArtifact,
+  onStop,
+  onOpenArtifact,
+  onOpenConversation,
+}: {
+  detail: WorkflowInstanceDetailView;
+  /** workflow에 instance artifact가 있다. */
+  hasArtifact: boolean;
+  onStop: () => void;
+  onOpenArtifact: () => void;
+  /** 사람 차례일 때 그 step을 받은 agent의 session을 연다. 없으면 단추를 그리지 않는다. */
+  onOpenConversation: ((session: string) => void) | null;
+}) {
   const { instance } = detail;
   const turn = turnOf(detail);
   const notes = headLines(detail);
@@ -175,41 +181,35 @@ export function InstanceView(
             when: whenOf(instance.created_at),
           })}
         </span>
-        {instance.started_by.kind === "job"
-          ? (
-            <span className={styles.when} data-started-by="job">
-              {instance.started_by.title === null
-                ? t("workflow.label.started-by-job-untitled")
-                : t("workflow.label.started-by-job", {
+        {instance.started_by.kind === "job" ? (
+          <span className={styles.when} data-started-by="job">
+            {instance.started_by.title === null
+              ? t("workflow.label.started-by-job-untitled")
+              : t("workflow.label.started-by-job", {
                   title: instance.started_by.title,
                 })}
-            </span>
-          )
-          : null}
+          </span>
+        ) : null}
         <span className={styles.actions}>
-          {hasArtifact
-            ? (
-              <Button
-                size="sm"
-                icon={browserIcons.openExternal}
-                onClick={onOpenArtifact}
-              >
-                {t("workflow.button.open-instance-artifact")}
-              </Button>
-            )
-            : null}
-          {instance.state === "running"
-            ? (
-              <Button
-                size="sm"
-                icon={conversationIcons.stop}
-                onClick={onStop}
-                data-stop=""
-              >
-                {t("workflow.button.stop")}
-              </Button>
-            )
-            : null}
+          {hasArtifact ? (
+            <Button
+              size="sm"
+              icon={browserIcons.openExternal}
+              onClick={onOpenArtifact}
+            >
+              {t("workflow.button.open-instance-artifact")}
+            </Button>
+          ) : null}
+          {instance.state === "running" ? (
+            <Button
+              size="sm"
+              icon={conversationIcons.stop}
+              onClick={onStop}
+              data-stop=""
+            >
+              {t("workflow.button.stop")}
+            </Button>
+          ) : null}
         </span>
       </div>
       <div>
@@ -241,20 +241,18 @@ export function InstanceView(
           )}
         </div>
       )}
-      {notes.length === 0
-        ? null
-        : (
-          <ul className={styles.notes} aria-label={t("workflow.label.notes")}>
-            {notes.map((line) => (
-              <li key={line.seq}>
-                {noteOf(detail, line)} · {whenOf(line.at)}
-                {line.kind === "program_exited" && line.stderr_tail !== ""
-                  ? <CodeBlock code={line.stderr_tail} />
-                  : null}
-              </li>
-            ))}
-          </ul>
-        )}
+      {notes.length === 0 ? null : (
+        <ul className={styles.notes} aria-label={t("workflow.label.notes")}>
+          {notes.map((line) => (
+            <li key={line.seq}>
+              {noteOf(detail, line)} · {whenOf(line.at)}
+              {line.kind === "program_exited" && line.stderr_tail !== "" ? (
+                <CodeBlock code={line.stderr_tail} />
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
       <ol className={styles.steps} aria-label={t("workflow.label.steps")}>
         {stepRows(detail).map((row) => (
           <li
@@ -272,13 +270,11 @@ export function InstanceView(
                 {
                   // flow의 step은 program이 맡는다. 참가자가 아니라 담당 글이 없다.
                   row.step.by === FLOW_STEP_BY &&
-                    instance.participants[row.step.by] === undefined
-                    ? null
-                    : (
-                      <span className={styles.stepWho}>
-                        {assignee(instance, row.step)}
-                      </span>
-                    )
+                  instance.participants[row.step.by] === undefined ? null : (
+                    <span className={styles.stepWho}>
+                      {assignee(instance, row.step)}
+                    </span>
+                  )
                 }
                 <span className={styles.stepStatus}>
                   {t(STEP_KEY[row.shown])}
@@ -286,9 +282,7 @@ export function InstanceView(
               </div>
               {row.report === undefined ? null : (
                 <>
-                  <p className={styles.report}>
-                    {textOf(detail, row.report)}
-                  </p>
+                  <p className={styles.report}>{textOf(detail, row.report)}</p>
                   <span className={styles.reportWho}>
                     {t("workflow.label.report-by", {
                       who: whoOf(detail, row.report),
@@ -297,17 +291,15 @@ export function InstanceView(
                   </span>
                 </>
               )}
-              {row.notice === null
-                ? null
-                : (
-                  <p className={styles.notice} data-notice="">
-                    <Icon
-                      icon={editorIcons.problem}
-                      pixels={iconPixels("base")}
-                    />
-                    <span>{textOf(detail, row.notice)}</span>
-                  </p>
-                )}
+              {row.notice === null ? null : (
+                <p className={styles.notice} data-notice="">
+                  <Icon
+                    icon={editorIcons.problem}
+                    pixels={iconPixels("base")}
+                  />
+                  <span>{textOf(detail, row.notice)}</span>
+                </p>
+              )}
               {row.lines.length === 0 ? null : (
                 <details open={row.current}>
                   <summary className={styles.lineToggle}>

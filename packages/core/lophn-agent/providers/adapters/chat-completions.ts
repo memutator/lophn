@@ -82,10 +82,12 @@ function pairedMessages(
     }
     if (record.role === "assistant") {
       if (Array.isArray(record.tool_calls)) {
-        const kept = record.tool_calls.filter((call) =>
-          call === null || typeof call !== "object" ||
-          typeof (call as { id?: unknown }).id !== "string" ||
-          answered.has((call as { id: string }).id)
+        const kept = record.tool_calls.filter(
+          (call) =>
+            call === null ||
+            typeof call !== "object" ||
+            typeof (call as { id?: unknown }).id !== "string" ||
+            answered.has((call as { id: string }).id),
         );
         // 짝 없는 tool_call만 있던 턴(빈 tool_calls)은 제거다.
         if (kept.length === 0) continue;
@@ -208,7 +210,9 @@ function applyDeltaToolCalls(
     };
     const index = piece.index;
     if (
-      typeof index !== "number" || !Number.isInteger(index) || index < 0 ||
+      typeof index !== "number" ||
+      !Number.isInteger(index) ||
+      index < 0 ||
       index >= MAX_CHAT_TOOL_CALLS
     ) {
       out.sawUnknownEvent = true;
@@ -274,9 +278,8 @@ function applyFrame(out: ChatStreamResult, frame: SseFrame): void {
   if (record.error !== undefined) {
     const error = record.error as { code?: unknown; message?: unknown };
     out.errorType = typeof error.code === "string" ? error.code : "?";
-    out.errorMessage = typeof error.message === "string"
-      ? error.message
-      : undefined;
+    out.errorMessage =
+      typeof error.message === "string" ? error.message : undefined;
     return;
   }
   const usage = record.usage;
@@ -320,18 +323,21 @@ function chatUsage(raw: Record<string, unknown>): TokenUsage {
     | { reasoning_tokens?: unknown }
     | undefined;
   const promptTokens = asCount(raw.prompt_tokens);
-  const cached = asCount(promptDetails?.cached_tokens) ??
+  const cached =
+    asCount(promptDetails?.cached_tokens) ??
     asCount(raw.prompt_cache_hit_tokens) ??
     asCount(raw.cached_tokens);
-  const input = promptTokens !== null && cached !== null
-    ? Math.max(0, promptTokens - cached)
-    : promptTokens;
+  const input =
+    promptTokens !== null && cached !== null
+      ? Math.max(0, promptTokens - cached)
+      : promptTokens;
   return {
     input,
     output: asCount(raw.completion_tokens),
     cache_read: cached,
     cache_write: asCount(raw.cache_write_tokens),
-    reasoning: asCount(completionDetails?.reasoning_tokens) ??
+    reasoning:
+      asCount(completionDetails?.reasoning_tokens) ??
       asCount(raw.reasoning_tokens),
     // Chat도 cache를 input 합계 안에 둔다.
     cache_in_input: true,

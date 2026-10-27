@@ -48,9 +48,11 @@ export function command<R extends CommandRoute>(
 export function windowSecretInputOpener():
   | SecretInputOpenApi["open"]
   | undefined {
-  const shell = (globalThis as {
-    lophnShell?: { openSecretInput?: SecretInputOpenApi["open"] };
-  }).lophnShell;
+  const shell = (
+    globalThis as {
+      lophnShell?: { openSecretInput?: SecretInputOpenApi["open"] };
+    }
+  ).lophnShell;
   return typeof shell?.openSecretInput === "function"
     ? (input) => shell.openSecretInput!(input)
     : undefined;

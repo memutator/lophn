@@ -57,27 +57,31 @@ export async function createSkillSnapshot(
   session: SkillSession,
 ): Promise<SkillSnapshot> {
   const global = await deps.global();
-  const layer = session.place === null
-    ? {
-      domain_stores: [] as readonly DomainStore[],
-      off: [] as readonly string[],
-    }
-    : await deps.place(session.place);
-  const found = discoverSkills(deps.port, {
-    bundled: deps.builtin_root,
-    registered: global.roots,
-    personal: deps.personal_store,
-    domains: layer.domain_stores,
-  }, {
-    role: session.role,
-    off: [...new Set([...global.off, ...layer.off])],
-  });
+  const layer =
+    session.place === null
+      ? {
+          domain_stores: [] as readonly DomainStore[],
+          off: [] as readonly string[],
+        }
+      : await deps.place(session.place);
+  const found = discoverSkills(
+    deps.port,
+    {
+      bundled: deps.builtin_root,
+      registered: global.roots,
+      personal: deps.personal_store,
+      domains: layer.domain_stores,
+    },
+    {
+      role: session.role,
+      off: [...new Set([...global.off, ...layer.off])],
+    },
+  );
   // 일하는 domain 밖의 domain skill과, 고른 이름이 있으면 그 밖의 skill은 꺼진다. 끌 수 없는 내장 skill은 남는다.
-  const domains = session.domains ??
-    layer.domain_stores.map((store) => store.domain);
-  const entries: readonly SkillEntry[] = pickSkills(
-    found.entries,
-    (entry) => skillReceived(entry, session.skills, domains),
+  const domains =
+    session.domains ?? layer.domain_stores.map((store) => store.domain);
+  const entries: readonly SkillEntry[] = pickSkills(found.entries, (entry) =>
+    skillReceived(entry, session.skills, domains),
   ).map((entry) => ({
     ...entry,
     enabled: entry.enabled && skillReceived(entry, session.skills, domains),
@@ -123,9 +127,9 @@ export async function createSkillSnapshot(
       return Promise.resolve(
         file === undefined
           ? err({
-            code: "not_found",
-            message: `skill ${name} has no file ${path}`,
-          })
+              code: "not_found",
+              message: `skill ${name} has no file ${path}`,
+            })
           : ok(file),
       );
     },
@@ -156,8 +160,11 @@ function readFixed(port: SkillFiles, entry: SkillEntry): Fixed | null {
     const files = new Map<string, string>();
     for (const name of port.list(entry.bundle_path) ?? []) {
       if (
-        name.startsWith(".") || name === SKILL_MANIFEST || !name.endsWith(".md")
-      ) continue;
+        name.startsWith(".") ||
+        name === SKILL_MANIFEST ||
+        !name.endsWith(".md")
+      )
+        continue;
       const path = joinPath(entry.bundle_path, name);
       if (port.kind(path) !== "file") continue;
       const read = port.read(path, SKILL_BODY_MAX_BYTES);

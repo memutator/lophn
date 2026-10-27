@@ -17,9 +17,11 @@ function setup(prefs: LinkPrefs = DEFAULT_LINK_PREFS) {
     env: {},
     ids: { key: () => KEY, request: () => `req-${++requests}` },
     readPrefs: () => Promise.resolve(prefs),
-    windows: () => [{
-      send: (channel, payload) => sent.push({ channel, payload }),
-    }],
+    windows: () => [
+      {
+        send: (channel, payload) => sent.push({ channel, payload }),
+      },
+    ],
     openExternal: () => {},
     timers: {
       after: (_ms, run) => {

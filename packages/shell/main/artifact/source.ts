@@ -19,12 +19,12 @@ export type ArtifactSource =
   | { kind: "artifact"; domain: string; name: string }
   | { kind: "file"; project: string; path: string }
   | {
-    kind: "workflow";
-    project: string;
-    workflow: string;
-    view: "static" | "instance";
-    instance?: string;
-  };
+      kind: "workflow";
+      project: string;
+      workflow: string;
+      view: "static" | "instance";
+      instance?: string;
+    };
 
 export type ResolvedSource = {
   root: string;

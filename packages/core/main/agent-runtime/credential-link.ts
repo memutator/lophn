@@ -51,9 +51,10 @@ export function createCredentialLink(options: {
           });
         }
         const id = `agent-credential-${++sequence}`;
-        const answered = new Promise<
-          { credential: string; credential_ref: string } | null
-        >((resolve) => {
+        const answered = new Promise<{
+          credential: string;
+          credential_ref: string;
+        } | null>((resolve) => {
           const timer = setTimeout(() => {
             if (pending.delete(id)) resolve(null);
           }, timeoutMs);

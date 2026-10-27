@@ -36,9 +36,9 @@ export function verifyMigrated(
   }
   let integrity: string[];
   try {
-    integrity = sql.all("select * from pragma_integrity_check", []).map(
-      (row) => String(row["integrity_check"]),
-    );
+    integrity = sql
+      .all("select * from pragma_integrity_check", [])
+      .map((row) => String(row["integrity_check"]));
   } catch {
     return err({
       code: "unavailable",
@@ -53,10 +53,9 @@ export function verifyMigrated(
   }
   let triggers: string[];
   try {
-    triggers = sql.all(
-      "select name from sqlite_master where type = 'trigger'",
-      [],
-    ).map((row) => String(row["name"]));
+    triggers = sql
+      .all("select name from sqlite_master where type = 'trigger'", [])
+      .map((row) => String(row["name"]));
   } catch {
     return err({
       code: "unavailable",

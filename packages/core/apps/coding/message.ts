@@ -6,10 +6,13 @@ import type { Tx } from "../../../protocol/server/mod.ts";
 import { createCallStore, routerFor } from "../../router/mod.ts";
 import { loadSession } from "./store.ts";
 
-export function applyMessage(tx: Tx, input: {
-  session: string;
-  body: string;
-}): Result<void> {
+export function applyMessage(
+  tx: Tx,
+  input: {
+    session: string;
+    body: string;
+  },
+): Result<void> {
   const row = loadSession(tx.sql, input.session);
   if (row === null || row.ended) {
     return err({ code: "forbidden", message: "the coding session ended" });

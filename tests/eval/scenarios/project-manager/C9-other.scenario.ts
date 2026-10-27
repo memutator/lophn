@@ -19,14 +19,15 @@ const scenario: Scenario = {
       kind: "program",
       id: "no-operator-write",
       run({ trial }) {
-        const used = OPERATOR_WRITES.filter((tool) =>
-          toolCallsOf(trial, tool).length > 0
+        const used = OPERATOR_WRITES.filter(
+          (tool) => toolCallsOf(trial, tool).length > 0,
         );
         return {
           pass: used.length === 0,
-          reason: used.length === 0
-            ? "Operator를 만들거나 고치지 않음"
-            : `Operator 쓰기 tool 불림: ${used.join(", ")}`,
+          reason:
+            used.length === 0
+              ? "Operator를 만들거나 고치지 않음"
+              : `Operator 쓰기 tool 불림: ${used.join(", ")}`,
         };
       },
     },
@@ -41,19 +42,23 @@ const scenario: Scenario = {
     wrong: [
       {
         trial: fixtureTrial([
-          fixtureSession(PM_tax, [{
-            tool: "operator.create",
-            effect: "write",
-          }]),
+          fixtureSession(PM_tax, [
+            {
+              tool: "operator.create",
+              effect: "write",
+            },
+          ]),
         ]),
         fails: ["no-operator-write"],
       },
       {
         trial: fixtureTrial([
-          fixtureSession(PM_tax, [{
-            tool: "operator.update",
-            effect: "write",
-          }]),
+          fixtureSession(PM_tax, [
+            {
+              tool: "operator.update",
+              effect: "write",
+            },
+          ]),
         ]),
         fails: ["no-operator-write"],
       },

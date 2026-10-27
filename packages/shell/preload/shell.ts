@@ -29,8 +29,8 @@ import { createTerminalApi } from "./terminal-api.ts";
 import { createViewsApi } from "./views-api.ts";
 import { createWindowControlsApi } from "./window-controls-api.ts";
 
-const location =
-  (globalThis as unknown as { location: { host: string } }).location;
+const location = (globalThis as unknown as { location: { host: string } })
+  .location;
 const role = location.host === "overlay" ? "overlay" : "shell";
 // 보호 창 열기, 앱 view 열기·bounds·숨김·폐기는 desktop 창 본문만 갖는다. overlay view에는
 // 열지 않는다.
@@ -38,41 +38,40 @@ contextBridge.exposeInMainWorld(
   "lophnShell",
   role === "shell"
     ? Object.freeze({
-      ...createShellApi(ipcRenderer, role),
-      // secret 값을 받는 보호 입력 창 열기. 값은 이 창을 지나지 않는다.
-      openSecretInput: createSecretInputOpener(ipcRenderer),
-      // 창 없는 사람 결정의 handle. main이 정본을 core에서 다시 읽고 handle만 돌려준다.
-      async requestDecisionHandle(
-        request: DecisionHandleRequest,
-      ): Promise<DecisionHandleReply> {
-        try {
-          return await ipcRenderer.invoke(
-            DECISION_HANDLE_CHANNEL,
-            request,
-          ) as DecisionHandleReply;
-        } catch {
-          return {
-            error: {
-              code: "unavailable",
-              message: "결정 handle을 받지 못했다",
-            },
-          };
-        }
-      },
-      // shell 크롬의 외부 링크는 확인 없이 OS browser로 연다. URL 검사는 main이 한다.
-      async openExternal(url: string): Promise<OpenExternalReply> {
-        try {
-          return await ipcRenderer.invoke(
-            OPEN_EXTERNAL_CHANNEL,
-            { url },
-          ) as OpenExternalReply;
-        } catch {
-          return { ok: false, code: "unavailable" };
-        }
-      },
-      ...createViewsApi(ipcRenderer),
-      ...createAnnotateApi(ipcRenderer),
-    })
+        ...createShellApi(ipcRenderer, role),
+        // secret 값을 받는 보호 입력 창 열기. 값은 이 창을 지나지 않는다.
+        openSecretInput: createSecretInputOpener(ipcRenderer),
+        // 창 없는 사람 결정의 handle. main이 정본을 core에서 다시 읽고 handle만 돌려준다.
+        async requestDecisionHandle(
+          request: DecisionHandleRequest,
+        ): Promise<DecisionHandleReply> {
+          try {
+            return (await ipcRenderer.invoke(
+              DECISION_HANDLE_CHANNEL,
+              request,
+            )) as DecisionHandleReply;
+          } catch {
+            return {
+              error: {
+                code: "unavailable",
+                message: "결정 handle을 받지 못했다",
+              },
+            };
+          }
+        },
+        // shell 크롬의 외부 링크는 확인 없이 OS browser로 연다. URL 검사는 main이 한다.
+        async openExternal(url: string): Promise<OpenExternalReply> {
+          try {
+            return (await ipcRenderer.invoke(OPEN_EXTERNAL_CHANNEL, {
+              url,
+            })) as OpenExternalReply;
+          } catch {
+            return { ok: false, code: "unavailable" };
+          }
+        },
+        ...createViewsApi(ipcRenderer),
+        ...createAnnotateApi(ipcRenderer),
+      })
     : createShellApi(ipcRenderer, role),
 );
 // 터미널과 창 shortcut, main이 시키는 것은 desktop renderer만 쓴다. overlay view에는 열지 않는다.
@@ -118,10 +117,7 @@ if (role === "shell") {
   // 파일 읽고 쓰기·watch. 경로는 renderer가 보내고 디스크는 main이 만진다.
   contextBridge.exposeInMainWorld("lophnFiles", createFilesApi(ipcRenderer));
   // 작업대 layout. 탭과 정보 패널만 보내고 main이 다시 검사한다.
-  contextBridge.exposeInMainWorld(
-    "lophnLayout",
-    createLayoutApi(ipcRenderer),
-  );
+  contextBridge.exposeInMainWorld("lophnLayout", createLayoutApi(ipcRenderer));
   // browser 탭. 주소·명령·bookmark 요청만 보내고 view와 저장은 main이 한다.
   contextBridge.exposeInMainWorld(
     "lophnBrowser",

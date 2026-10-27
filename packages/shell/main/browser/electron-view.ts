@@ -63,9 +63,7 @@ function hookBrowserContents(
     });
     if (decision.allow) return;
     event.preventDefault();
-    if (
-      event.isMainFrame && decision.external && hooks.activation.fresh(id)
-    ) {
+    if (event.isMainFrame && decision.external && hooks.activation.fresh(id)) {
       hooks.openExternal(event.url);
     }
   };
@@ -79,7 +77,8 @@ function hookBrowserContents(
     else if (
       (input.type === "keyDown" || input.type === "rawKeyDown") &&
       !input.modifiers?.includes("isautorepeat")
-    ) hooks.activation.mark(id);
+    )
+      hooks.activation.mark(id);
   });
   const mac = process.platform === "darwin";
   contents.on("before-input-event", (event, input) => {
@@ -87,8 +86,11 @@ function hookBrowserContents(
       ? input.meta && !input.control
       : input.control && !input.meta;
     if (
-      input.type === "keyDown" && input.key.toLowerCase() === "d" && primary &&
-      !input.shift && !input.alt
+      input.type === "keyDown" &&
+      input.key.toLowerCase() === "d" &&
+      primary &&
+      !input.shift &&
+      !input.alt
     ) {
       event.preventDefault();
       if (!input.isAutoRepeat) hooks.onBookmarkKey();
@@ -106,9 +108,8 @@ function hookBrowserContents(
   });
   // page의 window.close()다. Electron이 이어서 contents를 부순다.
   // Electron이 내지만 type에는 없는 event다.
-  (contents as unknown as NodeJS.EventEmitter).on(
-    "close",
-    () => hooks.onClose(),
+  (contents as unknown as NodeJS.EventEmitter).on("close", () =>
+    hooks.onClose(),
   );
   contents.on("render-process-gone", () => hooks.onHealth("gone"));
   contents.on("unresponsive", () => hooks.onHealth("unresponsive"));
@@ -132,10 +133,7 @@ export function electronBrowserViews(
   }
 
   // popup은 Electron이 만든 contents를 그대로 감싼다. window.opener가 이어져야 해서 새로 만들지 못한다.
-  function wrap(
-    view: WebContentsView,
-    hooks: BrowserHooks,
-  ): BrowserContents {
+  function wrap(view: WebContentsView, hooks: BrowserHooks): BrowserContents {
     const adapter = adapt(view.webContents, hooks, () => {
       native.delete(adapter);
     });
@@ -157,9 +155,15 @@ export function electronBrowserViews(
         hooks,
         adopt: (popup, popupHooks) =>
           wrap(new WebContentsView({ webContents: popup }), popupHooks),
-        overrides: surfaceOptions({
-          webPreferences: { ...webPreferences(input.packaged), devTools: true },
-        }, input.headless),
+        overrides: surfaceOptions(
+          {
+            webPreferences: {
+              ...webPreferences(input.packaged),
+              devTools: true,
+            },
+          },
+          input.headless,
+        ),
       }),
     );
     // Electron이 부순 뒤에도 state를 읽는다(page의 window.close() 직후).
@@ -179,7 +183,9 @@ export function electronBrowserViews(
       let next = "";
       try {
         next = new URL(url).origin;
-      } catch { /* 빈 page */ }
+      } catch {
+        /* 빈 page */
+      }
       if (next === origin) return;
       origin = next;
       faviconPage += 1;
@@ -194,9 +200,8 @@ export function electronBrowserViews(
       const page = faviconPage;
       void faviconData(url, (target) => contents.session.fetch(target)).then(
         (data) => {
-          if (
-            data === null || page !== faviconPage || contents.isDestroyed()
-          ) return;
+          if (data === null || page !== faviconPage || contents.isDestroyed())
+            return;
           favicon = data;
           hooks.onChange();
         },
@@ -263,13 +268,18 @@ export function electronBrowserViews(
     create(hooks) {
       // crash한 native popup을 다시 열 때 쓴다. browser view만 packaged에서도 DevTools를 연다.
       return wrap(
-        new WebContentsView(surfaceOptions({
-          webPreferences: {
-            ...webPreferences(input.packaged),
-            partition: BROWSER_PARTITION,
-            devTools: true,
-          },
-        }, input.headless)),
+        new WebContentsView(
+          surfaceOptions(
+            {
+              webPreferences: {
+                ...webPreferences(input.packaged),
+                partition: BROWSER_PARTITION,
+                devTools: true,
+              },
+            },
+            input.headless,
+          ),
+        ),
         hooks,
       );
     },
@@ -290,8 +300,11 @@ export function electronBrowserViews(
     focused(adapter) {
       // Electron이 부순 view는 webContents가 비어 있다.
       const contents = native.get(adapter)?.webContents;
-      return contents !== undefined && !contents.isDestroyed() &&
-        contents.isFocused();
+      return (
+        contents !== undefined &&
+        !contents.isDestroyed() &&
+        contents.isFocused()
+      );
     },
     focusShell(ref) {
       const window = live(ref);

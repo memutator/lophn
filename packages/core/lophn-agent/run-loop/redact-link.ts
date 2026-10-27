@@ -117,10 +117,12 @@ export function createRedactLink(options: {
           const spans = await windowSpans(
             text.slice(start, start + REDACT_UNITS_MAX),
           );
-          return spans === null ? null : spans.map((span) => ({
-            index: start + span.index,
-            length: span.length,
-          }));
+          return spans === null
+            ? null
+            : spans.map((span) => ({
+                index: start + span.index,
+                length: span.length,
+              }));
         }),
       );
       const spans: Span[] = [];

@@ -17,21 +17,26 @@ export async function connectOAuthProvider(
   issuer: FakeIssuer,
   fake: { url: string },
   options: { expires_in?: number } = {},
-): Promise<
-  { provider: string; access: string; refresh: string; device_code: string }
-> {
+): Promise<{
+  provider: string;
+  access: string;
+  refresh: string;
+  device_code: string;
+}> {
   const provider = core.ids.newId("pvd");
   const access = core.ids.newId("key");
   const refresh = core.ids.newId("key");
   const device_code = core.ids.newId("key");
   issuer.script({
     device: { device_code, user_code: "E2E-CODE" },
-    device_code: [{
-      kind: "tokens",
-      access,
-      refresh,
-      expires_in: options.expires_in,
-    }],
+    device_code: [
+      {
+        kind: "tokens",
+        access,
+        refresh,
+        expires_in: options.expires_in,
+      },
+    ],
   });
   const started = await core.call(loginBegin, {
     provider,
@@ -41,13 +46,17 @@ export async function connectOAuthProvider(
     protocol: "anthropic-messages",
   });
   // interval(0.1초) 전에 부르면 core가 발급자에 묻지 않고 pending을 돌려준다.
-  await until("로그인이 끝남", async () => {
-    const step = await core.call(loginComplete, {
-      provider,
-      login: started.login,
-    });
-    return step.state === "connected" ? step : undefined;
-  }, DEVICE_LOGIN_MS);
+  await until(
+    "로그인이 끝남",
+    async () => {
+      const step = await core.call(loginComplete, {
+        provider,
+        login: started.login,
+      });
+      return step.state === "connected" ? step : undefined;
+    },
+    DEVICE_LOGIN_MS,
+  );
   await core.call(modelDefaultChange, {
     default: { provider, model_name: MODEL_NAME, option_values: {} },
   });

@@ -21,15 +21,19 @@ function setup() {
   const db = new DatabaseSync(":memory:");
   for (const step of providerSchemaSteps) db.exec(step.sql);
   const provider = (id: string, endpoint: string) =>
-    db.prepare(
-      `insert into providers values (?, ?, 'x', '{}', ?, 'openai-chat-completions', 1)`,
-    ).run(id, id, endpoint);
+    db
+      .prepare(
+        `insert into providers values (?, ?, 'x', '{}', ?, 'openai-chat-completions', 1)`,
+      )
+      .run(id, id, endpoint);
   const credential = (id: string, name: string, state: string) =>
-    db.prepare(
-      `insert into provider_credentials
+    db
+      .prepare(
+        `insert into provider_credentials
          (provider, kind, secret_name, revision, state, unavailable_reason)
        values (?, 'api_key', ?, 1, ?, ?)`,
-    ).run(id, name, state, state === "available" ? null : "authentication");
+      )
+      .run(id, name, state, state === "available" ? null : "authentication");
   provider("p1", "https://api.example.com/v1");
   credential("p1", "provider.p1", "available");
   provider("p2", "https://revoked.example.com");
@@ -98,9 +102,10 @@ test("attach는 허락한 provider endpoint origin이 아닌 목적지에 값을
     ["d", "provider.p3", "http://api.lan.example.com"],
   ] as const;
   for (const [label, name, origin] of denied) {
-    const destination = label === "d"
-      ? { kind: "loopback_http" as const, origin }
-      : https(origin);
+    const destination =
+      label === "d"
+        ? { kind: "loopback_http" as const, origin }
+        : https(origin);
     const got = await run(name, destination as ReturnType<typeof https>);
     assert.deepStrictEqual(
       [

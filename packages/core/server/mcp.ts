@@ -52,9 +52,12 @@ function rpcError(
   message: string,
   status = 200,
 ): Response {
-  return Response.json({ jsonrpc: "2.0", id, error: { code, message } }, {
-    status,
-  });
+  return Response.json(
+    { jsonrpc: "2.0", id, error: { code, message } },
+    {
+      status,
+    },
+  );
 }
 
 function rpcResult(id: RpcId, result: unknown): Response {
@@ -140,7 +143,8 @@ export function createMcpEndpoint(tools: McpTools): McpEndpoint {
       }
       case "tools/call": {
         if (
-          !isObject(params) || typeof params.name !== "string" ||
+          !isObject(params) ||
+          typeof params.name !== "string" ||
           (params.arguments !== undefined && !isObject(params.arguments))
         ) {
           return rpcError(id, INVALID_PARAMS, "name and arguments required");

@@ -46,14 +46,12 @@ export function useObservedSize(
   useLayoutEffect(() => {
     const element = ref.current;
     if (!element) return;
-    return source.observe(
-      element,
-      (next) =>
-        setSize((current) =>
-          current?.width === next.width && current.height === next.height
-            ? current
-            : next
-        ),
+    return source.observe(element, (next) =>
+      setSize((current) =>
+        current?.width === next.width && current.height === next.height
+          ? current
+          : next,
+      ),
     );
   }, [ref, source]);
   return size;

@@ -43,11 +43,14 @@ import { startFakeServer } from "../support/fake-server/mod.ts";
 const caller = { kind: "person", view_session: "e2e" } as const;
 
 // 앱 process가 죽었을 때 코드가 정한 unknown 이유다. core가 다시 켜진 이유(core_restarted)는 다른 행이 본다.
-const unknownReasons: readonly string[] = (toolCallOutputSchema.shape.outcome
-  .options.find((option) => option.shape.status.value === "unknown") as
+const unknownReasons: readonly string[] =
+  (toolCallOutputSchema.shape.outcome.options.find(
+    (option) => option.shape.status.value === "unknown",
+  ) as
     | { shape: { reason: { options: readonly string[] } } }
-    | undefined)!.shape.reason.options.filter((reason) =>
-    reason !== "core_restarted");
+    | undefined)!.shape.reason.options.filter(
+    (reason) => reason !== "core_restarted",
+  );
 
 // 앱 bundle 경로가 든 cmdline의 process. 앱 process는 env를 비워 띄워지므로 LOPHN_HOME으로는 찾지 못한다. bundle 경로는 run마다
 // 다르다.
@@ -58,7 +61,9 @@ async function appPids(bundle: string): Promise<number[]> {
     try {
       const argv = await readFile(`/proc/${entry.name}/cmdline`, "utf8");
       if (argv.includes(bundle)) found.push(Number(entry.name));
-    } catch { /* 그 사이 끝났다 */ }
+    } catch {
+      /* 그 사이 끝났다 */
+    }
   }
   return found;
 }
@@ -66,8 +71,10 @@ async function appPids(bundle: string): Promise<number[]> {
 async function nonceOf(core: Core, app: TestApp): Promise<string | undefined> {
   const now = await core.call(appRuntime, { app: app.app });
   const seen = now.observation;
-  return now.state.state === "running" && seen !== null && seen.ready &&
-      seen.accepting
+  return now.state.state === "running" &&
+    seen !== null &&
+    seen.ready &&
+    seen.accepting
     ? seen.process_nonce
     : undefined;
 }
@@ -76,23 +83,26 @@ async function nonceOf(core: Core, app: TestApp): Promise<string | undefined> {
 // 요청이 끊기면 거절로 끝나므로 잡는다(끝나지 않은 요청을 test 밖에 남기지 않는다).
 async function startSlowWrite(core: Core, app: TestApp, title: string) {
   const seen = new Set(
-    (await core.call(appInvocations, { app: app.app })).invocations.map((
-      item,
-    ) => item.id),
+    (await core.call(appInvocations, { app: app.app })).invocations.map(
+      (item) => item.id,
+    ),
   );
   let early: unknown;
-  const call = core.call(appCallTool, {
-    target: { mode: "live", app: app.app, release: null },
-    tool: "slow_write",
-    input: { title },
-    caller,
-  }).catch((error) => {
-    early = String(error);
-    return undefined;
-  }).then((answered) => {
-    early ??= answered;
-    return answered;
-  });
+  const call = core
+    .call(appCallTool, {
+      target: { mode: "live", app: app.app, release: null },
+      tool: "slow_write",
+      input: { title },
+      caller,
+    })
+    .catch((error) => {
+      early = String(error);
+      return undefined;
+    })
+    .then((answered) => {
+      early ??= answered;
+      return answered;
+    });
   const running = await until("slow_write가 running으로 보임", async () => {
     if (early !== undefined) {
       throw new Error(`slow_write가 먼저 끝났다: ${JSON.stringify(early)}`);
@@ -105,9 +115,8 @@ async function startSlowWrite(core: Core, app: TestApp, title: string) {
     return invocations.find((item) => !seen.has(item.id));
   });
   // running은 core가 보내기 전에 남기는 기록이다. 앱이 row를 넣기 전에 죽이면 "다시 보내지 않았다"를 센 수로 볼 수 없다.
-  await until(
-    "slow_write의 row가 들어감",
-    async () => (await countSlow(core, app)) === 1 ? true : undefined,
+  await until("slow_write의 row가 들어감", async () =>
+    (await countSlow(core, app)) === 1 ? true : undefined,
   );
   return { call, invocation: running.id };
 }
@@ -166,8 +175,8 @@ async function withSlowApp(row: (slow: Slow) => Promise<void>): Promise<void> {
       slug: "slow",
       patch: slowPatch,
     });
-    const release = (await core.call(appRuntime, { app: app.app }))
-      .observation!.release!;
+    const release = (await core.call(appRuntime, { app: app.app })).observation!
+      .release!;
     const record = (await core.call(releasesGetRecord, { release })).release;
     assert.ok(record !== null);
     const bundle = `${run.home}/apps/${app.app}/bundles/${record.bundle_hash}`;
@@ -208,9 +217,8 @@ test("E2E 앱 write 도중 core가 죽었다 켜지면 그 호출은 unknown으�
     await slow.core.kill();
     await sent.call;
     // core.kill이 확인하는 LOPHN_HOME process에 앱 process는 들지 않으므로 따로 본다. 옛 process가 남으면 새 process와 한 DB를 연다.
-    await until(
-      "옛 앱 process가 없어짐",
-      async () => (await appPids(bundle)).length === 0 ? true : undefined,
+    await until("옛 앱 process가 없어짐", async () =>
+      (await appPids(bundle)).length === 0 ? true : undefined,
     );
     slow.core = await bootCore(slow.run, { env: slow.env });
     const core = slow.core;
@@ -222,10 +230,12 @@ test("E2E 앱 write 도중 core가 죽었다 켜지면 그 호출은 unknown으�
     assert.deepStrictEqual(closed.summary["reason"], "core_restarted");
     // route
     assert.deepStrictEqual(
-      (await core.call(appRewindPlan, {
-        app: app.app,
-        from_invocation: sent.invocation,
-      })).plan.blocked,
+      (
+        await core.call(appRewindPlan, {
+          app: app.app,
+          from_invocation: sent.invocation,
+        })
+      ).plan.blocked,
       { reason: "unrecoverable_write", invocation: sent.invocation },
     );
     assert.deepStrictEqual(await countSlow(core, app), 1);
@@ -256,10 +266,12 @@ test("E2E 앱 write 도중 앱 process만 죽으면 그 호출은 unknown으로 
     );
     // route
     assert.deepStrictEqual(
-      (await core.call(appRewindPlan, {
-        app: app.app,
-        from_invocation: sent.invocation,
-      })).plan.blocked,
+      (
+        await core.call(appRewindPlan, {
+          app: app.app,
+          from_invocation: sent.invocation,
+        })
+      ).plan.blocked,
       { reason: "unrecoverable_write", invocation: sent.invocation },
     );
     assert.deepStrictEqual(await countSlow(core, app), 1);
@@ -297,9 +309,11 @@ test("E2E 앱 process가 거듭 죽으면 자동 재시작이 멈추고 Gateway�
       conditions: [{ types: ["AppRestartHalted"] }],
     });
     let seen = await waitRunning(core, app);
-    const record = (await core.call(releasesGetRecord, {
-      release: seen.release!,
-    })).release;
+    const record = (
+      await core.call(releasesGetRecord, {
+        release: seen.release!,
+      })
+    ).release;
     assert.ok(record !== null);
     const bundle = `${run.home}/apps/${app.app}/bundles/${record.bundle_hash}`;
 
@@ -317,14 +331,21 @@ test("E2E 앱 process가 거듭 죽으면 자동 재시작이 멈추고 Gateway�
       );
       if (exit <= CRASH_LIMIT) {
         const before = seen.process_nonce;
-        seen = await until("앱이 다시 running이 됨", async () => {
-          const now = await core!.call(appRuntime, { app: app.app });
-          const next = now.observation;
-          return now.state.state === "running" && next !== null &&
-              next.ready && next.accepting && next.process_nonce !== before
-            ? next
-            : undefined;
-        }, 60_000);
+        seen = await until(
+          "앱이 다시 running이 됨",
+          async () => {
+            const now = await core!.call(appRuntime, { app: app.app });
+            const next = now.observation;
+            return now.state.state === "running" &&
+              next !== null &&
+              next.ready &&
+              next.accepting &&
+              next.process_nonce !== before
+              ? next
+              : undefined;
+          },
+          60_000,
+        );
       }
     }
     const halted = await gateway.next(
@@ -341,9 +362,12 @@ test("E2E 앱 process가 거듭 죽으면 자동 재시작이 멈추고 Gateway�
     assert.deepStrictEqual(halted.event.subject, app.app);
     assert.deepStrictEqual(halted.event.payload.crashes, CRASH_LIMIT + 1);
     assert.deepStrictEqual(
-      gateway.frames().filter((frame) =>
-        frame.type === "event" && frame.event.type === "AppRestartHalted"
-      ).length,
+      gateway
+        .frames()
+        .filter(
+          (frame) =>
+            frame.type === "event" && frame.event.type === "AppRestartHalted",
+        ).length,
       1,
     );
     // process: 멈춘 뒤 다시 띄우지 않았다.

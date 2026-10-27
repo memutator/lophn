@@ -105,9 +105,9 @@ export async function runGate(
     if (sel.files.length === 0) {
       return { ok: true, skipped: true, detail: "고른 e2e 없음" };
     }
-    const noContract = e2eTests.filter((t) => t.boundaries.includes("*")).map((
-      t,
-    ) => t.file);
+    const noContract = e2eTests
+      .filter((t) => t.boundaries.includes("*"))
+      .map((t) => t.file);
     const info = [
       `고른 e2e ${sel.files.length}개`,
       ...sel.reasons.slice(0, 10),

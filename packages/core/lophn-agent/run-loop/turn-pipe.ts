@@ -58,20 +58,20 @@ export function createTurnPipe(options: {
     }
     return result.ok
       ? {
-        type: "turn_source_response",
-        request_id: message.request_id,
-        ok: true,
-        value: result.value ?? null,
-      }
+          type: "turn_source_response",
+          request_id: message.request_id,
+          ok: true,
+          value: result.value ?? null,
+        }
       : {
-        type: "turn_source_response",
-        request_id: message.request_id,
-        ok: false,
-        error: {
-          code: result.error.code,
-          message: result.error.message.slice(0, 200),
-        },
-      };
+          type: "turn_source_response",
+          request_id: message.request_id,
+          ok: false,
+          error: {
+            code: result.error.code,
+            message: result.error.message.slice(0, 200),
+          },
+        };
   }
 
   return {

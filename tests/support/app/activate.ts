@@ -162,13 +162,17 @@ export async function aeTurn(
   const from = fake.journal().length;
   await say(core, app.ae, `App ${app.app}: ${text}`);
   const requestsOf = () =>
-    fake.journal().slice(from).filter((entry) => entry.lane === lane.name);
+    fake
+      .journal()
+      .slice(from)
+      .filter((entry) => entry.lane === lane.name);
   const turn = await explaining(
     async () => {
       const requests = requestsOf();
-      const missed = requests.filter((entry) => entry.mismatch !== null).map((
-        entry,
-      ) => entry.mismatch).join(" / ");
+      const missed = requests
+        .filter((entry) => entry.mismatch !== null)
+        .map((entry) => entry.mismatch)
+        .join(" / ");
       return `turn ${index}: ${
         (await turnsOf(core, app.ae))[index]?.state ?? "없음"
       }, lane 요청 ${requests.length}개${
@@ -176,10 +180,14 @@ export async function aeTurn(
       }, ${await appStateOf(core, app.app)}`;
     },
     () =>
-      until(`App Engineer turn ${index}이 끝남`, async () => {
-        const found = (await turnsOf(core, app.ae))[index];
-        return found?.state === "finished" ? found : undefined;
-      }, AE_TURN_WAIT_MS),
+      until(
+        `App Engineer turn ${index}이 끝남`,
+        async () => {
+          const found = (await turnsOf(core, app.ae))[index];
+          return found?.state === "finished" ? found : undefined;
+        },
+        AE_TURN_WAIT_MS,
+      ),
   );
   return { turn, requests: requestsOf() };
 }
@@ -198,9 +206,9 @@ export function aeToolResult(turn: AeTurn, id: string): AeToolResult {
     if (text !== undefined) return JSON.parse(text) as AeToolResult;
   }
   throw new Error(
-    `tool call ${id}의 결과가 없다 (turn outcome ${
-      JSON.stringify(turn.turn.outcome)
-    })`,
+    `tool call ${id}의 결과가 없다 (turn outcome ${JSON.stringify(
+      turn.turn.outcome,
+    )})`,
   );
 }
 
@@ -279,16 +287,17 @@ export async function deliverRelease(
         // 여기서 던지면 fake가 400으로 답해 turn이 실패하므로 값으로만 가른다.
         reply: (request: JournalEntry) => {
           const result = lastToolResult(request, prepareId(n));
-          const out = result === undefined
-            ? undefined
-            : (JSON.parse(result) as AeToolResult).content as {
-              status?: string;
-              release?: { id: string };
-            };
+          const out =
+            result === undefined
+              ? undefined
+              : ((JSON.parse(result) as AeToolResult).content as {
+                  status?: string;
+                  release?: { id: string };
+                });
           return out?.status === "prepared"
             ? tool(activateId(n), "release_activate", {
-              release: out.release!.id,
-            })
+                release: out.release!.id,
+              })
             : { kind: "text" as const, text: "preparation failed" };
         },
       },
@@ -342,15 +351,21 @@ export async function waitRunning(
   return await explaining(
     () => appStateOf(core, app.app),
     () =>
-      until("앱 process가 running·ready·accepting이 됨", async () => {
-        const now = await core.call(appRuntime, { app: app.app });
-        const seen = now.observation;
-        return now.state.state === "running" && seen !== null && seen.ready &&
+      until(
+        "앱 process가 running·ready·accepting이 됨",
+        async () => {
+          const now = await core.call(appRuntime, { app: app.app });
+          const seen = now.observation;
+          return now.state.state === "running" &&
+            seen !== null &&
+            seen.ready &&
             seen.accepting &&
             (release === undefined || seen.release === release)
-          ? seen
-          : undefined;
-      }, RUNNING_WAIT_MS),
+            ? seen
+            : undefined;
+        },
+        RUNNING_WAIT_MS,
+      ),
   );
 }
 

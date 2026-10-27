@@ -3,15 +3,18 @@
 // Chromium 안쪽 frame을 쓴다). `<webview>` guest는 따로인 webContents라 여기 오지 않는다.
 import { SHELL_SCHEME } from "./security.ts";
 
-export type ShellNavigation = { allow: true } | {
-  allow: false;
-  /** main frame의 http·https link다. open-external로 넘긴다. */
-  external?: true;
-};
+export type ShellNavigation =
+  | { allow: true }
+  | {
+      allow: false;
+      /** main frame의 http·https link다. open-external로 넘긴다. */
+      external?: true;
+    };
 
-export function decideShellNavigation(
-  input: { url: string; isMainFrame: boolean },
-): ShellNavigation {
+export function decideShellNavigation(input: {
+  url: string;
+  isMainFrame: boolean;
+}): ShellNavigation {
   if (!input.isMainFrame) return { allow: true };
   let url: URL;
   try {

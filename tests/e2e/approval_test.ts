@@ -36,8 +36,9 @@ function toolResultOf(fake: FakeServer, id: string): string {
   };
   const last = body.messages.at(-1)!;
   assert.deepStrictEqual(last.role, "user");
-  const block = (last.content as { type: string; tool_use_id?: string }[])
-    .find((item) => item.type === "tool_result" && item.tool_use_id === id);
+  const block = (last.content as { type: string; tool_use_id?: string }[]).find(
+    (item) => item.type === "tool_result" && item.tool_use_id === id,
+  );
   assert.ok(block, `둘째 요청에 ${id}의 tool_result가 없다`);
   return JSON.stringify((block as { content?: unknown }).content ?? null);
 }
@@ -82,7 +83,10 @@ test("묻는 shell 명령은 허락 전에 실행되지 않고, once면 실행�
     const once = await askAndDecide(core, fake, project, folder, "a", "once");
     assert.deepStrictEqual(once.before, true);
     assert.deepStrictEqual(await once.ask.exists(), false);
-    assert.deepStrictEqual(once.calls.map((c) => c.outcome?.kind), ["success"]);
+    assert.deepStrictEqual(
+      once.calls.map((c) => c.outcome?.kind),
+      ["success"],
+    );
 
     const rejected = await askAndDecide(
       core,
@@ -94,9 +98,10 @@ test("묻는 shell 명령은 허락 전에 실행되지 않고, once면 실행�
     );
     assert.deepStrictEqual(rejected.before, true);
     assert.deepStrictEqual(await rejected.ask.exists(), true);
-    assert.deepStrictEqual(rejected.calls.map((c) => c.outcome), [
-      { kind: "not_executed", code: "rejected" },
-    ]);
+    assert.deepStrictEqual(
+      rejected.calls.map((c) => c.outcome),
+      [{ kind: "not_executed", code: "rejected" }],
+    );
     assert.notDeepStrictEqual(rejected.result, once.result);
   } finally {
     await core?.kill().catch(() => {});
@@ -113,15 +118,17 @@ const ASK_CALL = {
   id: "a1",
   name: "ask",
   arguments: JSON.stringify({
-    questions: [{
-      question: "Which?",
-      header: "Pick",
-      options: [
-        { label: "A", description: "first" },
-        { label: "B", description: "second" },
-      ],
-      multiSelect: false,
-    }],
+    questions: [
+      {
+        question: "Which?",
+        header: "Pick",
+        options: [
+          { label: "A", description: "first" },
+          { label: "B", description: "second" },
+        ],
+        multiSelect: false,
+      },
+    ],
   }),
 };
 
@@ -176,9 +183,10 @@ test("ask: 사람의 답과 기다리는 중 보낸 말이 tool 결과로 돌아
     });
     assert.ok(answered.result.includes("submitted"), answered.result);
     assert.ok(answered.result.includes("A"), answered.result);
-    assert.deepStrictEqual(answered.calls.map((c) => c.outcome?.kind), [
-      "success",
-    ]);
+    assert.deepStrictEqual(
+      answered.calls.map((c) => c.outcome?.kind),
+      ["success"],
+    );
     assert.deepStrictEqual(answered.questions, []);
     assert.ok(
       !answered.closed.ok && answered.closed.error.code === "not_found",
@@ -189,9 +197,10 @@ test("ask: 사람의 답과 기다리는 중 보낸 말이 tool 결과로 돌아
     });
     assert.ok(spoken.result.includes("human_message"), spoken.result);
     assert.ok(spoken.result.includes("take B please"), spoken.result);
-    assert.deepStrictEqual(spoken.calls.map((c) => c.outcome?.kind), [
-      "success",
-    ]);
+    assert.deepStrictEqual(
+      spoken.calls.map((c) => c.outcome?.kind),
+      ["success"],
+    );
     assert.deepStrictEqual(spoken.questions, []);
     // 그 말은 tool 결과가 됐을 뿐 새 turn을 열지 않는다.
     assert.deepStrictEqual((await turnsOf(core, spoken.session)).length, 1);

@@ -28,9 +28,11 @@ async function main(): Promise<void> {
   // 요청의 ledger는 LOPHN_HOME 아래만 읽는다. 밖이면
   // 관측 실패로 보고 아무것도 지우지 않는다(fail-closed).
   if (
-    home === undefined || !request.ledger.startsWith(`${home}/`) ||
+    home === undefined ||
+    !request.ledger.startsWith(`${home}/`) ||
     request.ledger.split("/").includes("..")
-  ) fail("유지보수 ledger가 데이터 root 밖이다");
+  )
+    fail("유지보수 ledger가 데이터 root 밖이다");
   const opened = openReaderConnection(request.ledger);
   if (!opened.ok) fail(opened.error.message);
   const reader = opened.value;
@@ -58,29 +60,29 @@ type BlobRefRow = { hash: string; owner_kind: string; field: string };
 // 로 페이지를 이어 읽되, 한 read-only snapshot 안에서만 읽는다. 중간에
 // 실패하거나 행 모양이 다르면 관측 실패다: 일부만 보고 지우지 않는다
 // (fail-closed).
-function readBlobRefs(
-  reader: {
-    begin(): string;
-    end(): void;
-    sql: {
-      all(
-        query: string,
-        params: readonly unknown[],
-      ): readonly Record<string, unknown>[];
-    };
-  },
-): Promise<Result<readonly BlobRefRow[]>> {
+function readBlobRefs(reader: {
+  begin(): string;
+  end(): void;
+  sql: {
+    all(
+      query: string,
+      params: readonly unknown[],
+    ): readonly Record<string, unknown>[];
+  };
+}): Promise<Result<readonly BlobRefRow[]>> {
   try {
     reader.begin();
   } catch {
-    return Promise.resolve(err({
-      code: "unavailable",
-      message: "고정 blob_refs snapshot을 열지 못했다",
-    }));
+    return Promise.resolve(
+      err({
+        code: "unavailable",
+        message: "고정 blob_refs snapshot을 열지 못했다",
+      }),
+    );
   }
   try {
     const found: BlobRefRow[] = [];
-    let cursor: BlobRefRow & { owner_key: string } | undefined;
+    let cursor: (BlobRefRow & { owner_key: string }) | undefined;
     for (;;) {
       const rows = reader.sql.all(
         `select owner_kind, owner_key, field, hash from blob_refs
@@ -88,13 +90,9 @@ function readBlobRefs(
             or (owner_kind, owner_key, field, hash) > (?, ?, ?, ?)
          order by owner_kind, owner_key, field, hash
          limit ${BLOB_REFS_PAGE}`,
-        cursor === undefined ? [null, "", "", "", ""] : [
-          1,
-          cursor.owner_kind,
-          cursor.owner_key,
-          cursor.field,
-          cursor.hash,
-        ],
+        cursor === undefined
+          ? [null, "", "", "", ""]
+          : [1, cursor.owner_kind, cursor.owner_key, cursor.field, cursor.hash],
       );
       for (const row of rows) {
         if (
@@ -103,10 +101,12 @@ function readBlobRefs(
           typeof row["owner_key"] !== "string" ||
           typeof row["field"] !== "string"
         ) {
-          return Promise.resolve(err({
-            code: "unavailable",
-            message: "blob_refs 행을 읽지 못했다",
-          }));
+          return Promise.resolve(
+            err({
+              code: "unavailable",
+              message: "blob_refs 행을 읽지 못했다",
+            }),
+          );
         }
         const parsed: BlobRefRow & { owner_key: string } = {
           hash: row["hash"],
@@ -121,10 +121,12 @@ function readBlobRefs(
     }
     return Promise.resolve(ok(found));
   } catch {
-    return Promise.resolve(err({
-      code: "unavailable",
-      message: "고정 blob_refs를 읽지 못했다",
-    }));
+    return Promise.resolve(
+      err({
+        code: "unavailable",
+        message: "고정 blob_refs를 읽지 못했다",
+      }),
+    );
   } finally {
     reader.end();
   }
@@ -144,14 +146,17 @@ function parseRequest(raw: string): Request | undefined {
     typeof record["ledger"] !== "string" ||
     typeof record["nowMs"] !== "number" ||
     !Array.isArray(record["fields"]) ||
-    conditions === null || typeof conditions !== "object"
-  ) return undefined;
+    conditions === null ||
+    typeof conditions !== "object"
+  )
+    return undefined;
   const flags = conditions as Record<string, unknown>;
   if (
     typeof flags["preparationsBlocked"] !== "boolean" ||
     typeof flags["commandsBlocked"] !== "boolean" ||
     typeof flags["writerStopped"] !== "boolean"
-  ) return undefined;
+  )
+    return undefined;
   return {
     ledger: record["ledger"],
     nowMs: record["nowMs"],

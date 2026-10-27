@@ -39,11 +39,7 @@ const scenario: Scenario = {
   real: [AE],
   limits: { idle_ms: 60 * 60_000 },
   human: { card: CARD_DIAGNOSE, approve: { activation: "allow" } },
-  steps: [
-    callApi(APP, BUG.api, BUG.input),
-    say(AE, SAY_DIAGNOSE),
-    untilIdle(),
-  ],
+  steps: [callApi(APP, BUG.api, BUG.input), say(AE, SAY_DIAGNOSE), untilIdle()],
   checks: [
     ...diagnosisChecks({ app: APP, bug: BUG }),
     {
@@ -60,12 +56,14 @@ const scenario: Scenario = {
         fixtureSession(AE, [STATUS, LOGS, INVOCATIONS, EDIT, ...REST]),
       ]),
     ],
-    wrong: [{
-      trial: fixtureTrial([
-        fixtureSession(AE, [STATUS, EDIT, LOGS, INVOCATIONS, ...REST]),
-      ]),
-      fails: ["read-before-fix"],
-    }],
+    wrong: [
+      {
+        trial: fixtureTrial([
+          fixtureSession(AE, [STATUS, EDIT, LOGS, INVOCATIONS, ...REST]),
+        ]),
+        fails: ["read-before-fix"],
+      },
+    ],
   },
 };
 export default scenario;

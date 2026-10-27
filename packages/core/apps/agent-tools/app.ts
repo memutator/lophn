@@ -39,11 +39,9 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
       const read = await readOf(ctx.core, appList, {});
       if (!read.ok) return read;
       const { body, more } = readBody(read.value);
-      return ok(fitted(
-        countSummary("apps", body.apps.length, more),
-        body,
-        ["apps"],
-      ));
+      return ok(
+        fitted(countSummary("apps", body.apps.length, more), body, ["apps"]),
+      );
     },
   }),
   defineTool({
@@ -84,17 +82,16 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
           ...entry,
           tools: entry.tools.filter((tool) => {
             const id = ids.get(tool.domain);
-            return tool.public ||
-              (id !== undefined && ctx.domains.includes(id));
+            return (
+              tool.public || (id !== undefined && ctx.domains.includes(id))
+            );
           }),
         });
       }
       const { body } = readBody({ ...read.value, apps });
-      return ok(fitted(
-        countSummary("apps", body.apps.length, false),
-        body,
-        ["apps"],
-      ));
+      return ok(
+        fitted(countSummary("apps", body.apps.length, false), body, ["apps"]),
+      );
     },
   }),
   defineTool({
@@ -162,12 +159,14 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
       const checked = await readOf(ctx.core, declarationCheck, { app });
       if (!checked.ok) return checked;
       const { errors, warnings, permission_review } = checked.value;
-      return ok(fitted(
-        errors.length === 0
-          ? `declaration of app ${app} has no errors`
-          : `declaration of app ${app} has ${errors.length} errors`,
-        { errors, warnings, permission_review },
-      ));
+      return ok(
+        fitted(
+          errors.length === 0
+            ? `declaration of app ${app} has no errors`
+            : `declaration of app ${app} has ${errors.length} errors`,
+          { errors, warnings, permission_review },
+        ),
+      );
     },
   }),
 ];

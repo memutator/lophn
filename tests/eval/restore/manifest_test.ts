@@ -17,10 +17,12 @@ test("재료 file이 한 byte라도 달라지면 hash 확인이 거절하고 이
       parent: null,
       produced_by: null,
     };
-    const files = [{
-      path: "apps.json",
-      bytes: new TextEncoder().encode("[]\n"),
-    }];
+    const files = [
+      {
+        path: "apps.json",
+        bytes: new TextEncoder().encode("[]\n"),
+      },
+    ];
     assert.ok((await writeMaterial(root, "m", 1, manifest, files)).ok);
     assert.ok((await verifyMaterial(await loadMaterial(root, "m@1"))).ok);
 

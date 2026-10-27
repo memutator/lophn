@@ -36,8 +36,10 @@ export function readHost(): CapHost | undefined {
   if (
     typeof candidate.post !== "function" ||
     typeof candidate.call !== "function" ||
-    (candidate.mode !== "live" && candidate.mode !== "preview" &&
+    (candidate.mode !== "live" &&
+      candidate.mode !== "preview" &&
       candidate.mode !== "test")
-  ) return;
+  )
+    return;
   return candidate as CapHost;
 }

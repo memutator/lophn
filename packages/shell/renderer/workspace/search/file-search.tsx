@@ -55,23 +55,23 @@ function group(matches: readonly FileMatch[]) {
   const files = new Map<string, FileMatch[]>();
   for (const match of matches) {
     const key = absolute(match);
-    files.set(key, [...files.get(key) ?? [], match]);
+    files.set(key, [...(files.get(key) ?? []), match]);
   }
   return [...files];
 }
 
-function folderOptions(
-  folders: readonly ProjectFolderView[],
-  chosen: string,
-) {
+function folderOptions(folders: readonly ProjectFolderView[], chosen: string) {
   const options = [
     { value: ALL, label: t("file-search.label.all-folders") },
-    ...rootChoices(folders).filter((root) => root.found).map((root) => ({
-      value: root.path,
-      label: root.parent === undefined
-        ? root.name
-        : `${root.parent} / ${root.name}`,
-    })),
+    ...rootChoices(folders)
+      .filter((root) => root.found)
+      .map((root) => ({
+        value: root.path,
+        label:
+          root.parent === undefined
+            ? root.name
+            : `${root.parent} / ${root.name}`,
+      })),
   ];
   // 복원한 폴더가 이제 없어도 고른 값은 그대로 보인다.
   return chosen === ALL || options.some((item) => item.value === chosen)
@@ -112,16 +112,20 @@ export function FileSearch(props: FileSearchProps) {
       return;
     }
     let live = true;
-    void search.search({
-      project,
-      query: settled,
-      ...(folder === ALL ? {} : { folder }),
-    }).then((read) => {
-      if (!live) return;
-      setFound(
-        read.ok ? { state: "done", matches: read.value } : { state: "failed" },
-      );
-    });
+    void search
+      .search({
+        project,
+        query: settled,
+        ...(folder === ALL ? {} : { folder }),
+      })
+      .then((read) => {
+        if (!live) return;
+        setFound(
+          read.ok
+            ? { state: "done", matches: read.value }
+            : { state: "failed" },
+        );
+      });
     return () => {
       live = false;
     };
@@ -138,9 +142,8 @@ export function FileSearch(props: FileSearchProps) {
     onState?.({ query, folder: next === ALL ? "" : next });
   };
 
-  const matches = found.state === "done" && query.trim() !== ""
-    ? found.matches
-    : [];
+  const matches =
+    found.state === "done" && query.trim() !== "" ? found.matches : [];
   const files = group(matches);
   return (
     <div className={styles.finder}>
@@ -169,23 +172,23 @@ export function FileSearch(props: FileSearchProps) {
           {query.trim() === ""
             ? t("file-search.notice.type-text")
             : found.state === "failed"
-            ? t("file-search.notice.unavailable")
-            : found.state === "done"
-            ? t("file-search.label.matches", {
-              matches: matches.length,
-              files: files.length,
-            })
-            : ""}
+              ? t("file-search.notice.unavailable")
+              : found.state === "done"
+                ? t("file-search.label.matches", {
+                    matches: matches.length,
+                    files: files.length,
+                  })
+                : ""}
         </p>
         <div className={styles.finderResults}>
-          {found.state === "done" && matches.length === 0 &&
-              query.trim() !== ""
-            ? (
-              <p className={styles.finderEmpty}>
-                {t("file-search.notice.no-matches")}
-              </p>
-            )
-            : files.map(([path, rows]) => (
+          {found.state === "done" &&
+          matches.length === 0 &&
+          query.trim() !== "" ? (
+            <p className={styles.finderEmpty}>
+              {t("file-search.notice.no-matches")}
+            </p>
+          ) : (
+            files.map(([path, rows]) => (
               <section key={path} className={styles.finderFile}>
                 <Tooltip content={path}>
                   <h2 className={styles.finderPath}>
@@ -214,7 +217,8 @@ export function FileSearch(props: FileSearchProps) {
                   );
                 })}
               </section>
-            ))}
+            ))
+          )}
         </div>
       </div>
     </div>

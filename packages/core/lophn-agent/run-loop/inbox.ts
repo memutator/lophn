@@ -46,9 +46,11 @@ function head(entries: readonly Entry[]): Entry | undefined {
     const human = entry.input.kind === "message";
     const foundHuman = found?.input.kind === "message";
     if (
-      found === undefined || (human && !foundHuman) ||
+      found === undefined ||
+      (human && !foundHuman) ||
       (human === foundHuman && entry.order < found.order)
-    ) found = entry;
+    )
+      found = entry;
   }
   return found;
 }
@@ -66,10 +68,13 @@ export function createInbox(): Inbox {
         return;
       }
       counter += 1;
-      queued.set(session, [...(queued.get(session) ?? []), {
-        order: counter,
-        input: asNextTurn(input),
-      }]);
+      queued.set(session, [
+        ...(queued.get(session) ?? []),
+        {
+          order: counter,
+          input: asNextTurn(input),
+        },
+      ]);
     },
     next(session) {
       return head(queued.get(session) ?? [])?.input;
@@ -122,10 +127,13 @@ export function createInbox(): Inbox {
       steering.delete(session);
       for (const input of left) {
         counter += 1;
-        queued.set(session, [...(queued.get(session) ?? []), {
-          order: counter,
-          input: asNextTurn(input),
-        }]);
+        queued.set(session, [
+          ...(queued.get(session) ?? []),
+          {
+            order: counter,
+            input: asNextTurn(input),
+          },
+        ]);
       }
     },
     isRunning(session) {
@@ -140,11 +148,14 @@ export function createInbox(): Inbox {
         const first = head(entries);
         if (first !== undefined) heads.push({ session, entry: first });
       }
-      return heads.sort((a, b) => {
-        const human = Number(b.entry.input.kind === "message") -
-          Number(a.entry.input.kind === "message");
-        return human !== 0 ? human : a.entry.order - b.entry.order;
-      }).map((item) => item.session);
+      return heads
+        .sort((a, b) => {
+          const human =
+            Number(b.entry.input.kind === "message") -
+            Number(a.entry.input.kind === "message");
+          return human !== 0 ? human : a.entry.order - b.entry.order;
+        })
+        .map((item) => item.session);
     },
     clear(session) {
       queued.delete(session);

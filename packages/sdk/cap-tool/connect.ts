@@ -82,15 +82,17 @@ function failure(message: string, code: AppErrorCode = "unavailable") {
 
 function plain(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : undefined;
 }
 
 function failed(response: PortResponse): AppResult<never> {
   const error = plain(plain(response.body)?.["error"]);
   if (
-    error !== undefined && typeof error["code"] === "string" &&
-    CODES.includes(error["code"]) && typeof error["message"] === "string"
+    error !== undefined &&
+    typeof error["code"] === "string" &&
+    CODES.includes(error["code"]) &&
+    typeof error["message"] === "string"
   ) {
     const details = plain(error["details"]);
     return {
@@ -129,11 +131,11 @@ function outcomeOf(value: unknown): ToolOutcome | undefined {
     }
     case "unknown":
       return typeof outcome["reason"] === "string" &&
-          UNKNOWN_REASONS.includes(outcome["reason"])
+        UNKNOWN_REASONS.includes(outcome["reason"])
         ? {
-          status: "unknown",
-          reason: outcome["reason"] as UnknownReason,
-        }
+            status: "unknown",
+            reason: outcome["reason"] as UnknownReason,
+          }
         : undefined;
     default:
       return;
@@ -142,9 +144,10 @@ function outcomeOf(value: unknown): ToolOutcome | undefined {
 
 function host(): HostPort | undefined {
   const found = (globalThis as Record<symbol, unknown>)[CAP_HOST];
-  return found !== null && typeof found === "object" &&
-      typeof (found as Partial<HostPort>).post === "function"
-    ? found as HostPort
+  return found !== null &&
+    typeof found === "object" &&
+    typeof (found as Partial<HostPort>).post === "function"
+    ? (found as HostPort)
     : undefined;
 }
 

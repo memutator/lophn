@@ -32,8 +32,13 @@ interface Themed {
 }
 
 function isThemed(value: unknown): value is Themed {
-  return typeof value === "object" && value !== null && "light" in value &&
-    "dark" in value && typeof (value as Themed).light === "string";
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "light" in value &&
+    "dark" in value &&
+    typeof (value as Themed).light === "string"
+  );
 }
 
 function themed(
@@ -45,7 +50,7 @@ function themed(
   }
   if (typeof source !== "object" || source === null) return [];
   return Object.entries(source).flatMap(([key, child]) =>
-    themed(child, [...path, key])
+    themed(child, [...path, key]),
   );
 }
 
@@ -74,15 +79,13 @@ const COLOR_GROUPS: readonly {
   },
   {
     title: "Status",
-    note:
-      "marker는 점·막대, text는 글자 색이다. 색만으로 뜻을 전하지 않고 아이콘과 글자를 함께 쓴다.",
+    note: "marker는 점·막대, text는 글자 색이다. 색만으로 뜻을 전하지 않고 아이콘과 글자를 함께 쓴다.",
     source: tokens.status,
     path: ["status"],
   },
   {
     title: "Chart",
-    note:
-      "series 여덟 색과 기타. light의 일부 색은 라벨이나 표를 함께 보여야 한다(lightNeedsLabelOrTable).",
+    note: "series 여덟 색과 기타. light의 일부 색은 라벨이나 표를 함께 보여야 한다(lightNeedsLabelOrTable).",
     source: tokens.chart,
     path: ["chart"],
   },
@@ -163,8 +166,8 @@ export function TokensType() {
             return (
               <div key={step} className={kit.typeSample}>
                 <span className={kit.typeMeta}>
-                  --type-{name}-size {tokens.type[step].size}{" "}
-                  / --type-{name}-line {tokens.type[step].line}
+                  --type-{name}-size {tokens.type[step].size} / --type-{name}
+                  -line {tokens.type[step].line}
                 </span>
                 <p
                   className={kit.typeText}
@@ -220,8 +223,8 @@ export function TokensType() {
         </Row>
         <Row label="--font-mono">
           <span className={kit.mono}>
-            {tokens.font.mono}{" "}
-            — deno task check · eval.findings.find(&#123; about: "C-049" &#125;)
+            {tokens.font.mono} — deno task check · eval.findings.find(&#123;
+            about: "C-049" &#125;)
           </span>
         </Row>
         <Row label="--font-numeric tabular-nums">
@@ -377,7 +380,9 @@ export function TokensSpace() {
                 className={kit.box}
                 style={{ borderRadius: `var(--radius-${name})` }}
               />
-              <span className={kit.hex}>--radius-{name} {value}</span>
+              <span className={kit.hex}>
+                --radius-{name} {value}
+              </span>
             </div>
           ))}
         </div>

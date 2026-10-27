@@ -135,9 +135,10 @@ type PreparerDeps = {
   // turn의 agent credential token으로 부르는 loopback.
   agentCall(token: string): CoreCall;
   // resolved agent의 model 선택을 검증해 model 묶음으로 만든다(catalog·계정·adapter).
-  resolveModel(
-    input: { model: ModelChoice; purpose?: "judgment" | "organizing" },
-  ): Promise<Result<ModelBinding>>;
+  resolveModel(input: {
+    model: ModelChoice;
+    purpose?: "judgment" | "organizing";
+  }): Promise<Result<ModelBinding>>;
   toolkit: Toolkit;
   // ToolContext의 바깥 연결. 끼우지 않으면 tool 호출은 닫힌 채 실패한다.
   // `core`는 이 turn의 agent 자격 loopback이고 `skills`는 resolved agent가 켠 skill 이름이다.
@@ -150,7 +151,10 @@ type PreparerDeps = {
   // 제품 고정 규칙을 포함한 role 지침 글.
   rolePrompt(role: string): Promise<Result<string>>;
   // prompt의 place 정보와 file tool이 닿는 폴더를 turn의 agent 자격 읽기로 모은다. role 규칙은 role 층이 쥔다.
-  placeData(call: CoreCall, resolved: ResolvedAgent): Promise<
+  placeData(
+    call: CoreCall,
+    resolved: ResolvedAgent,
+  ): Promise<
     Result<{
       place: TurnPromptInput["place"];
       scope: { read: string[]; write: string[]; base?: string };
@@ -176,9 +180,7 @@ type PreparedTurn = {
   turn: string;
   session: string;
   begin: BeginTurnInput;
-  startTurn(input: BeginTurnInput): Promise<
-    Result<StartTurnResult>
-  >;
+  startTurn(input: BeginTurnInput): Promise<Result<StartTurnResult>>;
   // StartTurn은 확정됐지만 credential을 받지 못했을 때 turn을 failed(configuration_unavailable)로 닫는다.
   closeStarted(): Promise<void>;
   // StartTurn이 확정되고 credential을 받은 뒤에 loop 재료를 만든다.
@@ -227,7 +229,7 @@ type Seen = { basis: SeenBasis; compaction: string | null };
 
 async function hashesOf(
   definitions: readonly ToolDefinition[],
-): Promise<(string)[][]> {
+): Promise<string[][]> {
   return await Promise.all(
     definitions.map(async (tool) => [tool.name, await definitionHash(tool)]),
   );
@@ -255,9 +257,7 @@ function toolsNotice(
     lines.push(`Available from a new session: ${added.join(", ")}.`);
   }
   if (removed.length > 0) {
-    lines.push(
-      `No longer available: ${removed.join(", ")}.`,
-    );
+    lines.push(`No longer available: ${removed.join(", ")}.`);
   }
   lines.push(
     "This session keeps the tool list above; added tools can be called from a new session.",
@@ -290,7 +290,8 @@ export function promptSkills(
   resolved: Pick<ResolvedAgent, "skills" | "domains">,
 ) {
   const enabled = (entry: SkillEntry) =>
-    entry.enabled && resolved.skills.includes(entry.name) &&
+    entry.enabled &&
+    resolved.skills.includes(entry.name) &&
     (entry.domain === null || resolved.domains.includes(entry.domain));
   return pickSkills(entries, enabled).map((entry) => ({
     name: entry.name,
@@ -337,10 +338,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
   const seenBySession = new Map<string, Seen>();
 
   // 등록된 외부 MCP tool이다. 읽지 못하면 서버 자체가 없는 것과 같은 답이다(fails closed).
-  async function loadMcp(
-    session: string,
-    options: McpSourceOptions = {},
-  ) {
+  async function loadMcp(session: string, options: McpSourceOptions = {}) {
     const kit = deps.toolkit.mcp?.(session);
     if (kit === undefined) return { kit, source: null };
     const source = await kit.source(session, options);
@@ -377,23 +375,24 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
 
     // 허락된 앱의 tool이다. 선언이나 할당을 읽지 못하면 그 앱은 없는 것과 같다.
     const apiKit = deps.toolkit.appTool;
-    const loadedApi = apiKit === undefined
-      ? null
-      : await apiKit.load(session.agent);
-    const appTool = apiKit === undefined || loadedApi === null || !loadedApi.ok
-      ? null
-      : {
-        tools: await buildAppTools(loadedApi.value),
-      };
+    const loadedApi =
+      apiKit === undefined ? null : await apiKit.load(session.agent);
+    const appTool =
+      apiKit === undefined || loadedApi === null || !loadedApi.ok
+        ? null
+        : {
+            tools: await buildAppTools(loadedApi.value),
+          };
 
     const model = await deps.resolveModel({ model: agent.model });
     if (!model.ok) return model;
 
     // 켤지는 session의 첫 turn이 정하고 그 뒤로는 바꾸지 않는다.
     const fixedNow = fixedBySession.get(start.session);
-    const deferral = fixedNow === undefined
-      ? model.value.deferrable
-      : fixedNow.deferred !== null;
+    const deferral =
+      fixedNow === undefined
+        ? model.value.deferrable
+        : fixedNow.deferred !== null;
 
     // role이 고정한 목록에 이 turn이 닿는 tool과 앱 tool, 외부 MCP tool을 더한다. 숨기지 않는 session에는 tool.load가 없다.
     const plain: readonly ToolDefinition[] = [
@@ -408,15 +407,18 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     // 숨기는 것은 defer 표시가 있는 내장 tool과 앱 tool, 외부 MCP tool 전부다.
     const deferred: ReadonlySet<string> | null = !deferral
       ? null
-      : fixedNow?.deferred ?? new Set(
-        plain.filter((tool) => tool.defer === true || tool.origin !== "builtin")
-          .map((tool) => tool.name),
-      );
-    const current = deferred === null
-      ? plain
-      : plain.map((tool) =>
-        tool.name === "tool.load" ? describeToolLoad(tool, deferred) : tool
-      );
+      : (fixedNow?.deferred ??
+        new Set(
+          plain
+            .filter((tool) => tool.defer === true || tool.origin !== "builtin")
+            .map((tool) => tool.name),
+        ));
+    const current =
+      deferred === null
+        ? plain
+        : plain.map((tool) =>
+            tool.name === "tool.load" ? describeToolLoad(tool, deferred) : tool,
+          );
     const seat: TurnSeat = { turn, session: start.session };
     return ok({
       agent,
@@ -455,10 +457,9 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const fixed = fixedBySession.get(seat.session)!;
     const legacy = new Map<string, ToolHandler>([
       ...toolkit.handlers(seat, agentCall),
-      ...(m.mcpKit === undefined ? [] : createMcpToolHandlers(
-        external,
-        m.mcpKit.call(seat.session),
-      )),
+      ...(m.mcpKit === undefined
+        ? []
+        : createMcpToolHandlers(external, m.mcpKit.call(seat.session))),
     ]);
     const reach = new Set<string>([
       ...external.map((tool) => tool.target),
@@ -518,12 +519,14 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         externalByName.get(definition.name)?.server ?? null,
       extension: (definition) => {
         const found = externalByName.get(definition.name);
-        return found === undefined ? null : {
-          server_name: found.server,
-          configuration_revision: 0,
-          original_tool: found.original,
-          canonical_name: found.definition.name,
-        };
+        return found === undefined
+          ? null
+          : {
+              server_name: found.server,
+              configuration_revision: 0,
+              original_tool: found.original,
+              canonical_name: found.definition.name,
+            };
       },
     };
     // prompt 재료는 turn을 시작할 때 한 번만 읽고 call마다 같은 값을 쓴다. 이전 대화는 일하는 turn이 있는
@@ -544,13 +547,14 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       scope.read.push(...placed.value.scope.read);
       scope.write.push(...placed.value.scope.write);
       scope.base = placed.value.scope.base;
-      const compaction = read.value.compaction === null
-        ? null
-        : String(read.value.compaction.through_seq);
-      const notices = m.current.length === 0 ||
-          await keyOf(m.current) === fixed.key
-        ? []
-        : [noticeText(toolsNotice(fixed.definitions, m.current))];
+      const compaction =
+        read.value.compaction === null
+          ? null
+          : String(read.value.compaction.through_seq);
+      const notices =
+        m.current.length === 0 || (await keyOf(m.current)) === fixed.key
+          ? []
+          : [noticeText(toolsNotice(fixed.definitions, m.current))];
       return ok({
         prompt: {
           role_prompt: role.value,
@@ -706,8 +710,8 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
 
     // 이번 turn의 resolved agent. 층을 합친 값을 turn 기준에 고정한다. model이 어느 층에도 없거나 정의가
     // 틀렸으면 필수 선택이 비었다는 뜻이라 이 turn만 시작하지 않는다.
-    const skills = (await deps.skills?.(session.place, session.agent.role)) ??
-      [];
+    const skills =
+      (await deps.skills?.(session.place, session.agent.role)) ?? [];
     let mcp: LoadedMcp | undefined;
     const made = await resolveTurnAgent(machine, {
       session: start.session,
@@ -728,12 +732,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     });
     if (!made.ok) return made;
     if (made.value.kind === "cannot_start") {
-      return await closeUnstarted(
-        start,
-        made.value,
-        limits.value,
-        mode,
-      );
+      return await closeUnstarted(start, made.value, limits.value, mode);
     }
     const agent = made.value.agent;
 
@@ -741,8 +740,8 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const instructions = await readTurnInstructions(
       {
         ...deps.instructions,
-        files: deps.instructionFilesFor?.(start.session) ??
-          deps.instructions.files,
+        files:
+          deps.instructionFilesFor?.(start.session) ?? deps.instructions.files,
       },
       { role: session.agent.role },
       await readTurnDomains(machine, agent),
@@ -766,20 +765,20 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       start,
       session,
       agent,
-      mcp ?? await loadMcp(start.session, { place: agent.place }),
+      mcp ?? (await loadMcp(start.session, { place: agent.place })),
       turn,
     );
     if (!found.ok) {
       // model을 쓸 수 없으면 그 turn만 시작하지 않는다. 다른 일은 그대로다.
       return found.error.code === "unavailable" ||
-          found.error.code === "not_found" ||
-          found.error.code === "invalid_input"
+        found.error.code === "not_found" ||
+        found.error.code === "invalid_input"
         ? await closeUnstarted(
-          start,
-          { reason: "configuration_unavailable", why: "model_required" },
-          limits.value,
-          mode,
-        )
+            start,
+            { reason: "configuration_unavailable", why: "model_required" },
+            limits.value,
+            mode,
+          )
         : found;
     }
     const m = found.value;
@@ -858,12 +857,12 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
                 ? {}
                 : { basis_size: input.basisSize }),
               ...(input.resolved === undefined ||
-                  input.resolvedSize === undefined
+              input.resolvedSize === undefined
                 ? {}
                 : {
-                  resolved: input.resolved,
-                  resolved_size: input.resolvedSize,
-                }),
+                    resolved: input.resolved,
+                    resolved_size: input.resolvedSize,
+                  }),
               limits: input.limits,
               mode: input.mode,
             },
@@ -872,10 +871,10 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           );
           return started.ok
             ? ok({
-              turn: started.value.id,
-              state_seq: started.value.state_seq,
-              basis: started.value.basis,
-            })
+                turn: started.value.id,
+                state_seq: started.value.state_seq,
+                basis: started.value.basis,
+              })
             : started;
         },
         async closeStarted() {

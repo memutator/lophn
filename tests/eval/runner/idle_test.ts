@@ -24,7 +24,7 @@ test("waitUntilIdle: quiet must last quietMs before idle", async () => {
   const h = harness((call) =>
     call < 2
       ? { ...quiet, unstarted: [{ session: "ses_a", message: "msg_a" }] }
-      : quiet
+      : quiet,
   );
   const result = await waitUntilIdle(h.read, h, {
     quietMs: 1_000,
@@ -85,10 +85,12 @@ test("waitUntilIdle: stuckMs cuts an input that never became a turn, timeoutMs t
   };
   const stuck = harness(() => stuckInput);
   assert.deepStrictEqual(
-    (await waitUntilIdle(stuck.read, stuck, {
-      timeoutMs: 100_000,
-      stuckMs: 2_000,
-    })).kind,
+    (
+      await waitUntilIdle(stuck.read, stuck, {
+        timeoutMs: 100_000,
+        stuckMs: 2_000,
+      })
+    ).kind,
     "timeout",
   );
   assert.deepStrictEqual(stuck.clock.nowMs(), 2_000);

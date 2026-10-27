@@ -70,7 +70,7 @@ export function createWorkflowService(deps: {
   ): Promise<Result<Output<typeof workflowInstanceApply>>> {
     let seen: string | null = null;
     let last: Result<never> | null = null;
-    for (let attempt = 0;; attempt++) {
+    for (let attempt = 0; ; attempt++) {
       const read = await store.read(instance as Id<"wfi">);
       if (!read.ok) return read;
       const state = read.value;
@@ -95,12 +95,15 @@ export function createWorkflowService(deps: {
     // flow instance는 started 줄에 step이 없다. process는 다시 띄우지 않고 닫는다(바깥 효과가 두 번 나지 않게).
     const started = lines.find((l) => l.kind === "started");
     if (started?.kind === "started" && started.step === null) {
-      const closed = await store.apply({
-        instance: id,
-        change: { kind: "flow_restarted" },
-        by: { kind: "lophn" },
-        handoff: null,
-      }, { state_seq: instance.state_seq });
+      const closed = await store.apply(
+        {
+          instance: id,
+          change: { kind: "flow_restarted" },
+          by: { kind: "lophn" },
+          handoff: null,
+        },
+        { state_seq: instance.state_seq },
+      );
       if (!closed.ok) skip(id, closed.error.code);
       return;
     }
@@ -108,10 +111,13 @@ export function createWorkflowService(deps: {
     const handed = lines[at];
     if (handed?.kind !== "handed") return;
     // 이미 남겼거나 그 step이 restart 전에 report했으면 또 남기지 않는다.
-    const done = lines.slice(at + 1).some((l) =>
-      l.kind === "lophn_restarted" ||
-      (l.kind === "report" && l.step === handed.step)
-    );
+    const done = lines
+      .slice(at + 1)
+      .some(
+        (l) =>
+          l.kind === "lophn_restarted" ||
+          (l.kind === "report" && l.step === handed.step),
+      );
     if (done) return;
     const found = await turns.stepTurn(
       handed.receiver as Id<"ses">,
@@ -121,26 +127,32 @@ export function createWorkflowService(deps: {
     if (!found.ok) return skip(id, found.error.code);
     const turn = found.value;
     if (turn === null) return;
-    const lost = turn.turn === null ||
+    const lost =
+      turn.turn === null ||
       (turn.outcome?.kind === "interrupted" &&
         turn.outcome.reason === "restarted");
     if (!lost) return;
-    const applied = await store.apply({
-      instance: id,
-      change: {
-        kind: "lophn_restarted",
-        step: handed.step,
-        receiver: handed.receiver,
+    const applied = await store.apply(
+      {
+        instance: id,
+        change: {
+          kind: "lophn_restarted",
+          step: handed.step,
+          receiver: handed.receiver,
+        },
+        by: { kind: "lophn" },
+        handoff: null,
       },
-      by: { kind: "lophn" },
-      handoff: null,
-    }, { state_seq: instance.state_seq });
+      { state_seq: instance.state_seq },
+    );
     if (!applied.ok) skip(id, applied.error.code);
   }
 
-  async function programExited(
-    input: { instance: Id<"wfi">; code: number | null; stderr_tail: string },
-  ): Promise<Result<void>> {
+  async function programExited(input: {
+    instance: Id<"wfi">;
+    code: number | null;
+    stderr_tail: string;
+  }): Promise<Result<void>> {
     const done = await apply(input.instance, ({ instance }) =>
       ok({
         instance: instance.id,
@@ -151,7 +163,8 @@ export function createWorkflowService(deps: {
         },
         by: { kind: "lophn" },
         handoff: null,
-      }));
+      }),
+    );
     return done.ok ? ok(undefined) : done;
   }
 
@@ -172,7 +185,7 @@ export function createWorkflowService(deps: {
       if (!listed.ok) return listed;
       return ok({
         workflows: listed.value.map((file) =>
-          entryOf(project.value.id, `${project.value.name}/${file.name}`, file)
+          entryOf(project.value.id, `${project.value.name}/${file.name}`, file),
         ),
       });
     },
@@ -262,8 +275,11 @@ export function createWorkflowService(deps: {
         const next = input.next ?? null;
         // stopped·end·next 없음은 넘기지 않는다. stopped의 report는 줄만 남는다.
         // flow(program)의 report도 넘기지 않는다. next는 current를 옮기고 닫는 데만 쓴다.
-        const hands = by.kind !== "program" && instance.state !== "stopped" &&
-          next !== null && next !== "end";
+        const hands =
+          by.kind !== "program" &&
+          instance.state !== "stopped" &&
+          next !== null &&
+          next !== "end";
         const session = input.session ?? "new";
         return ok({
           instance: instance.id,
@@ -277,13 +293,13 @@ export function createWorkflowService(deps: {
           by,
           handoff: hands
             ? planHandoff({
-              instance,
-              step: next,
-              cause: "report",
-              session,
-              received: input.text,
-              sameSession: sameSessionIn(lines),
-            })
+                instance,
+                step: next,
+                cause: "report",
+                session,
+                received: input.text,
+                sameSession: sameSessionIn(lines),
+              })
             : null,
         });
       });
@@ -301,8 +317,8 @@ export function createWorkflowService(deps: {
         let handoff = null;
         if (edit.op === "hand_now") {
           const session = edit.session ?? "new";
-          const lastReport = lines.findLast((l): l is ReportLine =>
-            l.kind === "report"
+          const lastReport = lines.findLast(
+            (l): l is ReportLine => l.kind === "report",
           );
           handoff = planHandoff({
             instance,
@@ -333,7 +349,7 @@ export function createWorkflowService(deps: {
         }
         sessions = [
           ...new Set(
-            lines.flatMap((l) => l.kind === "handed" ? [l.receiver] : []),
+            lines.flatMap((l) => (l.kind === "handed" ? [l.receiver] : [])),
           ),
         ];
         return ok({

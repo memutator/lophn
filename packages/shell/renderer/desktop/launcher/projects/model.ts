@@ -81,7 +81,7 @@ export function changeFolder(
   return {
     ...draft,
     folders: draft.folders.map((folder) =>
-      folder.path === path ? change(folder) : folder
+      folder.path === path ? change(folder) : folder,
     ),
   };
 }
@@ -95,7 +95,7 @@ export function changeSubfolder(
   return changeFolder(draft, path, (folder) => ({
     ...folder,
     subfolders: folder.subfolders.map((item) =>
-      item.path === sub ? change(item) : item
+      item.path === sub ? change(item) : item,
     ),
   }));
 }
@@ -109,23 +109,28 @@ export function addSubfolder(
     ...folder,
     subfolders: folder.subfolders.some((item) => item.path === sub.path)
       ? folder.subfolders.map((item) =>
-        item.path === sub.path ? { ...sub, removed: false } : item
-      )
+          item.path === sub.path ? { ...sub, removed: false } : item,
+        )
       : [...folder.subfolders, { ...sub, removed: false }],
   }));
 }
 
 /** 새로 고른 폴더를 초안에 더한다. 이미 있으면 그대로다. */
 export function addFolder(draft: Draft, path: string): Draft {
-  return draft.folders.some((folder) => folder.path === path) ? draft : {
-    ...draft,
-    folders: [...draft.folders, {
-      path,
-      description: "",
-      found: true,
-      subfolders: [],
-    }],
-  };
+  return draft.folders.some((folder) => folder.path === path)
+    ? draft
+    : {
+        ...draft,
+        folders: [
+          ...draft.folders,
+          {
+            path,
+            description: "",
+            found: true,
+            subfolders: [],
+          },
+        ],
+      };
 }
 
 export function removeFolder(draft: Draft, path: string): Draft {

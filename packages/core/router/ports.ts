@@ -47,9 +47,10 @@ export type RoutedInput = {
   // kind가 call일 때 답 방식.
   reply: CallReply | null;
   // kind가 reply일 때 그 call의 끝난 상태와 이유.
-  outcome:
-    | { state: Exclude<CallState, "accepted">; reason: CallFailReason | null }
-    | null;
+  outcome: {
+    state: Exclude<CallState, "accepted">;
+    reason: CallFailReason | null;
+  } | null;
   // kind가 reaction이면 그 사실 이름.
   event: string | null;
   // kind가 notice면 그 종류.

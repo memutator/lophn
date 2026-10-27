@@ -63,10 +63,14 @@ export async function eventually(
 ): Promise<CheckOutcome> {
   let last: CheckOutcome = { pass: false, reason: "읽지 못함" };
   try {
-    return await until("check가 통과함", async () => {
-      last = await read();
-      return last.pass ? last : undefined;
-    }, timeoutMs);
+    return await until(
+      "check가 통과함",
+      async () => {
+        last = await read();
+        return last.pass ? last : undefined;
+      },
+      timeoutMs,
+    );
   } catch {
     return last;
   }

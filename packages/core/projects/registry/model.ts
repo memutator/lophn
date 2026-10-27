@@ -56,7 +56,7 @@ function split(path: CanonicalRoot, style: PathStyle): Result<string[]> {
   }
   const parts = path.slice(2).split("\\");
   return parts.length < 2 ||
-      parts.some((part) => part === "" || part.includes("/"))
+    parts.some((part) => part === "" || part.includes("/"))
     ? invalidRoot()
     : ok(parts);
 }

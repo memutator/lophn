@@ -45,7 +45,8 @@ function resolveLaunch(
   }
   const detection = memory.detections.get(harness);
   if (
-    detection === undefined || detection.discovery !== "detected" ||
+    detection === undefined ||
+    detection.discovery !== "detected" ||
     detection.selected_executable === null
   ) {
     return startFailure("not_connected", `${harness} is not connected`);
@@ -87,8 +88,8 @@ export function openSession(
     env: {},
   });
   if (!plan.ok) return plan;
-  const pastes = HARNESS_ADAPTERS[launch.value.harness].prompt?.kind ===
-    "paste_after_hook";
+  const pastes =
+    HARNESS_ADAPTERS[launch.value.harness].prompt?.kind === "paste_after_hook";
   insertSession(tx.sql, {
     session,
     app: line.app,
@@ -105,8 +106,9 @@ export function openSession(
     external_session: null,
     prompt_pending: false,
     paste_until: pastes
-      ? new Date(Date.parse(tx.now()) + PASTE_AFTER_HOOK_DEADLINE_MS)
-        .toISOString()
+      ? new Date(
+          Date.parse(tx.now()) + PASTE_AFTER_HOOK_DEADLINE_MS,
+        ).toISOString()
       : null,
   });
   const request = memory.request({ kind: "open", session });

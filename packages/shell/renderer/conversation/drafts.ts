@@ -101,7 +101,7 @@ export class DraftStore {
     this.#notify();
   }
 
-  subscribe = (listener: () => void): () => void => {
+  subscribe = (listener: () => void): (() => void) => {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
   };

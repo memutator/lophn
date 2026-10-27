@@ -14,8 +14,9 @@ export const DEFAULT_DESK = "_default";
 // 탭 값은 등록된 kind의 schema가 정한다(kinds/registry.ts). tagged union이고 preview(mode)는 복원 파일에서
 // 제외된다. 등록되지 않은 kind는 이 schema가 거절하고, 파일을 읽는
 // parseLayoutFile이 먼저 그런 탭을 건너뛴다.
-const layoutTabSchema: z.ZodType<LayoutTab> = z.unknown().transform(
-  (value, ctx) => {
+const layoutTabSchema: z.ZodType<LayoutTab> = z
+  .unknown()
+  .transform((value, ctx) => {
     const kind = tabKindOf((value as { kind?: unknown } | null)?.kind);
     if (kind === undefined) {
       ctx.addIssue({ code: "custom", message: "unknown tab kind" });
@@ -27,21 +28,22 @@ const layoutTabSchema: z.ZodType<LayoutTab> = z.unknown().transform(
       return z.NEVER;
     }
     return parsed.data as LayoutTab;
-  },
-) as unknown as z.ZodType<LayoutTab>;
+  }) as unknown as z.ZodType<LayoutTab>;
 
 export type { LayoutTab };
 
 // 칸은 탭 목록과 그 안의 선택뿐이다.
-const layoutPaneSchema = z.strictObject({
-  tabs: z.array(layoutTabSchema).max(200),
-  selected_tab: tabKey.nullable(),
-}).refine(
-  (pane) =>
-    pane.selected_tab === null ||
-    pane.tabs.some((tab) => tab.key === pane.selected_tab),
-  { message: "selected_tab is not in tabs" },
-);
+const layoutPaneSchema = z
+  .strictObject({
+    tabs: z.array(layoutTabSchema).max(200),
+    selected_tab: tabKey.nullable(),
+  })
+  .refine(
+    (pane) =>
+      pane.selected_tab === null ||
+      pane.tabs.some((tab) => tab.key === pane.selected_tab),
+    { message: "selected_tab is not in tabs" },
+  );
 
 // 정수 rectangle. 창 bounds와 floated 탭의 rect, detached 창 bounds가 같이 쓴다. 과도한 크기는 받지 않는다.
 const windowBounds = z.strictObject({
@@ -70,45 +72,51 @@ const layoutDetachedSchema = z.strictObject({
 });
 
 // 자리 하나. 판 3의 최상위 칸과 같은 값이 자리마다 있다.
-const deskSchema = z.strictObject({
-  panes: z.array(layoutPaneSchema).min(1).max(2),
-  split_ratio: z.number().finite().gt(0).lt(1),
-  focused_pane: z.number().int().min(0).max(1),
-  floats: z.array(layoutFloatSchema).max(20),
-  detached: z.array(layoutDetachedSchema).max(20),
-}).refine(
-  (desk) => desk.focused_pane < desk.panes.length,
-  { message: "focused_pane is not a valid pane index" },
-);
+const deskSchema = z
+  .strictObject({
+    panes: z.array(layoutPaneSchema).min(1).max(2),
+    split_ratio: z.number().finite().gt(0).lt(1),
+    focused_pane: z.number().int().min(0).max(1),
+    floats: z.array(layoutFloatSchema).max(20),
+    detached: z.array(layoutDetachedSchema).max(20),
+  })
+  .refine((desk) => desk.focused_pane < desk.panes.length, {
+    message: "focused_pane is not a valid pane index",
+  });
 
 export type WorkspaceDesk = z.infer<typeof deskSchema>;
 
 // 자리 key. workflow 이름이거나 DEFAULT_DESK다.
-export const deskKey = z.string().min(1).max(200).refine(
-  (key) => ![...key].some((ch) => ch <= "\u001f" || ch === "\u007f"),
-  { message: "desk key has a control character" },
-);
+export const deskKey = z
+  .string()
+  .min(1)
+  .max(200)
+  .refine((key) => ![...key].some((ch) => ch <= "\u001f" || ch === "\u007f"), {
+    message: "desk key has a control character",
+  });
 
 // WorkspaceLayout. 승인·credential·앱 업무 상태·preview·transient 탭은 schema에 없다.
-export const workspaceLayoutSchema = z.strictObject({
-  schema_version: z.literal(LAYOUT_SCHEMA_VERSION),
-  project: z.string().regex(/^prj_[0-7][0-9a-hjkmnp-tv-z]{25}$/),
-  window_bounds: windowBounds,
-  active_desk: deskKey,
-  desks: z.record(deskKey, deskSchema),
-}).refine(
-  (layout) => {
-    const count = Object.keys(layout.desks).length;
-    return count >= 1 && count <= 200;
-  },
-  { message: "desks must have 1 to 200 entries" },
-).refine(
-  (layout) => Object.hasOwn(layout.desks, DEFAULT_DESK),
-  { message: "desks has no default desk" },
-).refine(
-  (layout) => Object.hasOwn(layout.desks, layout.active_desk),
-  { message: "active_desk is not in desks" },
-);
+export const workspaceLayoutSchema = z
+  .strictObject({
+    schema_version: z.literal(LAYOUT_SCHEMA_VERSION),
+    project: z.string().regex(/^prj_[0-7][0-9a-hjkmnp-tv-z]{25}$/),
+    window_bounds: windowBounds,
+    active_desk: deskKey,
+    desks: z.record(deskKey, deskSchema),
+  })
+  .refine(
+    (layout) => {
+      const count = Object.keys(layout.desks).length;
+      return count >= 1 && count <= 200;
+    },
+    { message: "desks must have 1 to 200 entries" },
+  )
+  .refine((layout) => Object.hasOwn(layout.desks, DEFAULT_DESK), {
+    message: "desks has no default desk",
+  })
+  .refine((layout) => Object.hasOwn(layout.desks, layout.active_desk), {
+    message: "active_desk is not in desks",
+  });
 
 export type WorkspaceLayout = z.infer<typeof workspaceLayoutSchema>;
 

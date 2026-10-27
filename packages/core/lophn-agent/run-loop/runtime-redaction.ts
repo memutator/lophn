@@ -28,12 +28,13 @@ function spansOf(text: string, known: KnownSecretMatch): Span[] {
   while (rest.length > 0) {
     const pattern = matchCredential(rest);
     const secret = known.match(rest);
-    const found = pattern && secret
-      ? (secret.index < pattern.index ||
+    const found =
+      pattern && secret
+        ? secret.index < pattern.index ||
           (secret.index === pattern.index && secret.length > pattern.length)
-        ? secret
-        : pattern)
-      : pattern ?? secret;
+          ? secret
+          : pattern
+        : (pattern ?? secret);
     if (!found) break;
     spans.push({ index: offset + found.index, length: found.length });
     offset += found.index + found.length;
@@ -52,11 +53,12 @@ function holdFrom(
 ): number | null {
   const knownFrom = known.prefixFrom(text);
   const credentialFrom = credentialPrefixFrom(text);
-  const hold = knownFrom === undefined
-    ? credentialFrom
-    : credentialFrom === undefined
-    ? knownFrom
-    : Math.min(knownFrom, credentialFrom);
+  const hold =
+    knownFrom === undefined
+      ? credentialFrom
+      : credentialFrom === undefined
+        ? knownFrom
+        : Math.min(knownFrom, credentialFrom);
   if (hold === undefined) return null;
   for (const span of spans) {
     if (span.index < hold && hold < span.index + span.length) return span.index;

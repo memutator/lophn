@@ -18,16 +18,21 @@ export function useToastHandler(host: ReactionHost): void {
   const latest = useRef(host);
   latest.current = host;
   const { setOpen } = useWaitingPanel();
-  useEffect(() =>
-    registerToastActionHandler((action: ToastAction) => {
-      const current = latest.current;
-      switch (action.kind) {
-        case "waiting":
-          setOpen(true);
-          return true;
-        case "session":
-          // session이 없는 쪽은 앱 재시작 중단 toast다. 앱 공간으로 가는 기본 처리기가 맡는다.
-          return action.session !== null && current.openSession(action.session);
-      }
-    }), [setOpen]);
+  useEffect(
+    () =>
+      registerToastActionHandler((action: ToastAction) => {
+        const current = latest.current;
+        switch (action.kind) {
+          case "waiting":
+            setOpen(true);
+            return true;
+          case "session":
+            // session이 없는 쪽은 앱 재시작 중단 toast다. 앱 공간으로 가는 기본 처리기가 맡는다.
+            return (
+              action.session !== null && current.openSession(action.session)
+            );
+        }
+      }),
+    [setOpen],
+  );
 }

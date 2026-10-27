@@ -38,9 +38,9 @@ export function flatten(source: unknown = tokens): FlatToken[] {
 // token 정의 CSS. generate.ts(tokens.css)와 shell main(artifact 문서)이 같이 쓴다.
 export function renderCss(flat: readonly FlatToken[]): string {
   const light = flat.map((token) => `  ${token.name}: ${token.light};`);
-  const dark = flat.filter((token) => token.dark !== undefined).map((token) =>
-    `  ${token.name}: ${token.dark};`
-  );
+  const dark = flat
+    .filter((token) => token.dark !== undefined)
+    .map((token) => `  ${token.name}: ${token.dark};`);
   return [
     ":root {",
     "  color-scheme: light;",

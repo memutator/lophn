@@ -43,20 +43,29 @@ const unavailable = {
 
 // main이 보낸 runtime인지 모양만 본다. 값 검사는 main이 보낼 때 한다.
 function isRuntime(value: unknown): value is TerminalRuntime {
-  return typeof value === "object" && value !== null &&
-    typeof (value as { terminal_ref?: unknown }).terminal_ref === "string";
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { terminal_ref?: unknown }).terminal_ref === "string"
+  );
 }
 
 function isBridgeOpen(value: unknown): value is TerminalBridgeOpen {
   if (typeof value !== "object" || value === null) return false;
   const open = value as Record<string, unknown>;
-  return typeof open.request === "string" &&
-    typeof open.terminal_ref === "string" && typeof open.url === "string";
+  return (
+    typeof open.request === "string" &&
+    typeof open.terminal_ref === "string" &&
+    typeof open.url === "string"
+  );
 }
 
 function isReveal(value: unknown): value is TerminalReveal {
-  return typeof value === "object" && value !== null &&
-    typeof (value as { terminal_ref?: unknown }).terminal_ref === "string";
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { terminal_ref?: unknown }).terminal_ref === "string"
+  );
 }
 
 export function createTerminalApi(transport: TerminalTransport): TerminalApi {
@@ -65,46 +74,43 @@ export function createTerminalApi(transport: TerminalTransport): TerminalApi {
     input: unknown,
   ): Promise<TerminalCall<T>> {
     try {
-      return await transport.invoke(channel, input) as TerminalCall<T>;
+      return (await transport.invoke(channel, input)) as TerminalCall<T>;
     } catch {
       return unavailable;
     }
   }
-  return Object.freeze(
-    {
-      open: (input) => invoke(TERMINAL_OPEN_CHANNEL, input),
-      input: (input) => invoke(TERMINAL_INPUT_CHANNEL, input),
-      resize: (input) => invoke(TERMINAL_RESIZE_CHANNEL, input),
-      close: (input) => invoke(TERMINAL_CLOSE_CHANNEL, input),
-      restart: (input) => invoke(TERMINAL_RESTART_CHANNEL, input),
-      snapshot: (input) => invoke(TERMINAL_SNAPSHOT_CHANNEL, input),
-      focus: (input) => invoke(TERMINAL_FOCUS_CHANNEL, input),
-      focusSession: (input) => invoke(TERMINAL_FOCUS_SESSION_CHANNEL, input),
-      openLink: (input) => invoke(TERMINAL_LINK_CHANNEL, input),
-      ackBridgeOpen: (input) => invoke(TERMINAL_BRIDGE_ACK_CHANNEL, input),
-      onBridgeOpen(listener) {
-        const callback = (_event: unknown, payload: unknown) => {
-          if (isBridgeOpen(payload)) listener(payload);
-        };
-        transport.on(TERMINAL_BRIDGE_OPEN_CHANNEL, callback);
-        return () =>
-          transport.removeListener(TERMINAL_BRIDGE_OPEN_CHANNEL, callback);
-      },
-      onReveal(listener) {
-        const callback = (_event: unknown, payload: unknown) => {
-          if (isReveal(payload)) listener(payload);
-        };
-        transport.on(TERMINAL_REVEAL_CHANNEL, callback);
-        return () =>
-          transport.removeListener(TERMINAL_REVEAL_CHANNEL, callback);
-      },
-      onRuntime(listener) {
-        const callback = (_event: unknown, payload: unknown) => {
-          if (isRuntime(payload)) listener(payload);
-        };
-        transport.on(TERMINAL_STATE_CHANNEL, callback);
-        return () => transport.removeListener(TERMINAL_STATE_CHANNEL, callback);
-      },
-    } satisfies TerminalApi,
-  );
+  return Object.freeze({
+    open: (input) => invoke(TERMINAL_OPEN_CHANNEL, input),
+    input: (input) => invoke(TERMINAL_INPUT_CHANNEL, input),
+    resize: (input) => invoke(TERMINAL_RESIZE_CHANNEL, input),
+    close: (input) => invoke(TERMINAL_CLOSE_CHANNEL, input),
+    restart: (input) => invoke(TERMINAL_RESTART_CHANNEL, input),
+    snapshot: (input) => invoke(TERMINAL_SNAPSHOT_CHANNEL, input),
+    focus: (input) => invoke(TERMINAL_FOCUS_CHANNEL, input),
+    focusSession: (input) => invoke(TERMINAL_FOCUS_SESSION_CHANNEL, input),
+    openLink: (input) => invoke(TERMINAL_LINK_CHANNEL, input),
+    ackBridgeOpen: (input) => invoke(TERMINAL_BRIDGE_ACK_CHANNEL, input),
+    onBridgeOpen(listener) {
+      const callback = (_event: unknown, payload: unknown) => {
+        if (isBridgeOpen(payload)) listener(payload);
+      };
+      transport.on(TERMINAL_BRIDGE_OPEN_CHANNEL, callback);
+      return () =>
+        transport.removeListener(TERMINAL_BRIDGE_OPEN_CHANNEL, callback);
+    },
+    onReveal(listener) {
+      const callback = (_event: unknown, payload: unknown) => {
+        if (isReveal(payload)) listener(payload);
+      };
+      transport.on(TERMINAL_REVEAL_CHANNEL, callback);
+      return () => transport.removeListener(TERMINAL_REVEAL_CHANNEL, callback);
+    },
+    onRuntime(listener) {
+      const callback = (_event: unknown, payload: unknown) => {
+        if (isRuntime(payload)) listener(payload);
+      };
+      transport.on(TERMINAL_STATE_CHANNEL, callback);
+      return () => transport.removeListener(TERMINAL_STATE_CHANNEL, callback);
+    },
+  } satisfies TerminalApi);
 }

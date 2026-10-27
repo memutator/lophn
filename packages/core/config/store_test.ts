@@ -44,11 +44,13 @@ async function withStore(
 
 test("틀린 설정 값은 이유와 함께 거절되고 파일은 그대로다", async () => {
   await withStore((store, file, published) => {
-    const first = store.update([{
-      key: "t.flag",
-      action: "set",
-      value: false,
-    }]);
+    const first = store.update([
+      {
+        key: "t.flag",
+        action: "set",
+        value: false,
+      },
+    ]);
     assert.ok(first.ok);
     assert.deepStrictEqual(first.value, { changed: ["t.flag"], rejected: [] });
     assert.deepStrictEqual(published, [["t.flag"]]);

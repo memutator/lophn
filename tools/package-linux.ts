@@ -108,8 +108,9 @@ async function stagePlatform(pkg: string, work: string): Promise<void> {
   // desktop 화면 build 전용 member(packages/shell/renderer)와 개발 도구 member(tools/*)는 묶음에 없으므로 workspace에서 뺀다.
   // vendor와 node_modules를 설치 안에 두어 시작이 의존성을 받지 않는다.
   const config = JSON.parse(await readFile(`${repo}/deno.json`, "utf8"));
-  config.workspace = config.workspace.filter((member: string) =>
-    !member.startsWith("./packages/shell") && !member.startsWith("./tools/")
+  config.workspace = config.workspace.filter(
+    (member: string) =>
+      !member.startsWith("./packages/shell") && !member.startsWith("./tools/"),
   );
   for (const key of ["tasks", "fmt", "lint", "test", "exclude"]) {
     delete config[key];
@@ -157,10 +158,7 @@ async function exists(path: string): Promise<boolean> {
 
 async function stageSystem(pkg: string): Promise<void> {
   await mkdir(`${pkg}/usr/bin`, { recursive: true });
-  await symlink(
-    DESKTOP_LAUNCHER_TARGET,
-    `${pkg}${LINUX_LAUNCHERS.desktop}`,
-  );
+  await symlink(DESKTOP_LAUNCHER_TARGET, `${pkg}${LINUX_LAUNCHERS.desktop}`);
   await write(
     `${pkg}${LINUX_LAUNCHERS.cli}`,
     cliLauncher(layout, HOOK_STDOUT),
@@ -179,10 +177,9 @@ async function stageSystem(pkg: string): Promise<void> {
 async function stageDebian(pkg: string, version: string): Promise<void> {
   const installedKb = Number(
     (await output("du", ["-sk", `${pkg}/opt`, `${pkg}/usr`]))
-      .trim().split("\n").reduce(
-        (sum, line) => sum + Number(line.split("\t")[0]),
-        0,
-      ),
+      .trim()
+      .split("\n")
+      .reduce((sum, line) => sum + Number(line.split("\t")[0]), 0),
   );
   const control = `${pkg}/DEBIAN`;
   await write(
@@ -202,8 +199,9 @@ async function main(): Promise<void> {
   const out = option("--out") ?? `${repo}/build/linux`;
   const work = `${out}/work`;
   const pkg = `${out}/pkg`;
-  const version: string =
-    JSON.parse(await readFile(`${shellMain}/package.json`, "utf8")).version;
+  const version: string = JSON.parse(
+    await readFile(`${shellMain}/package.json`, "utf8"),
+  ).version;
   await rm(out, { recursive: true }).catch(() => undefined);
   await mkdir(work, { recursive: true });
 
@@ -212,10 +210,11 @@ async function main(): Promise<void> {
     await run("deno", ["task", "build"], {
       cwd: `${repo}/packages/shell/renderer`,
     });
-    await run(`${shellMain}/node_modules/.bin/electron-builder`, [
-      "--linux",
-      "dir",
-    ], { cwd: shellMain });
+    await run(
+      `${shellMain}/node_modules/.bin/electron-builder`,
+      ["--linux", "dir"],
+      { cwd: shellMain },
+    );
   }
 
   // Electron 앱을 /opt/lophn/에 풀고 Chromium sandbox 실행 파일을 4755로 둔다.

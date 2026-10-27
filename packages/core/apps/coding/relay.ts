@@ -2,9 +2,7 @@
 // `ApplyCodingSignal` command를 내는 일이다. session 상태는 writer 쪽 표에 있으므로 여기에는 감지 보고 사본만 둔다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
-import type {
-  CodingOptions,
-} from "../../../protocol/coding-agent/harness-id.ts";
+import type { CodingOptions } from "../../../protocol/coding-agent/harness-id.ts";
 import type { HarnessDetection } from "../../../protocol/coding-agent/harnesses.ts";
 import type { CodingTokens } from "../../../protocol/coding-agent/token.ts";
 import { CODING_TOKEN_ENV } from "../../../protocol/coding-agent/token.ts";

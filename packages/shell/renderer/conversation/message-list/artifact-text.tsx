@@ -33,11 +33,12 @@ export function useArtifactReload(
       const name = match[2]!;
       const id = `${domain}/${name}`;
       if (
-        artifacts.names.some((one) =>
-          one.domain === domain && one.name === name
+        artifacts.names.some(
+          (one) => one.domain === domain && one.name === name,
         ) ||
         asked.current.has(id)
-      ) continue;
+      )
+        continue;
       asked.current.add(id);
       artifacts.reload();
     }
@@ -45,16 +46,19 @@ export function useArtifactReload(
 }
 
 /** 글 안 artifact path 하나. 누르면 그 탭을 열고, hover하면 title·description과 열기 안내가 보인다. */
-export function ArtifactLink(
-  { artifacts, domain, name, label }: {
-    artifacts: ArtifactsSlice;
-    domain: string;
-    name: string;
-    label: string;
-  },
-): ReactElement {
-  const item = artifacts.items.find((one) =>
-    one.domain === domain && one.name === name
+export function ArtifactLink({
+  artifacts,
+  domain,
+  name,
+  label,
+}: {
+  artifacts: ArtifactsSlice;
+  domain: string;
+  name: string;
+  label: string;
+}): ReactElement {
+  const item = artifacts.items.find(
+    (one) => one.domain === domain && one.name === name,
   );
   return (
     <Tooltip
@@ -108,12 +112,15 @@ export function artifactPieces(
 }
 
 /** 사람 글. markdown으로 읽지 않고 글 그대로 보이며, artifact path만 link가 된다. */
-export function ArtifactText(
-  { text, artifacts }: { text: string; artifacts?: ArtifactsSlice | undefined },
-): ReactElement {
+export function ArtifactText({
+  text,
+  artifacts,
+}: {
+  text: string;
+  artifacts?: ArtifactsSlice | undefined;
+}): ReactElement {
   useArtifactReload(text, artifacts);
-  const pieces = artifacts === undefined
-    ? undefined
-    : artifactPieces(text, artifacts);
+  const pieces =
+    artifacts === undefined ? undefined : artifactPieces(text, artifacts);
   return <p className={styles.text}>{pieces ?? text}</p>;
 }

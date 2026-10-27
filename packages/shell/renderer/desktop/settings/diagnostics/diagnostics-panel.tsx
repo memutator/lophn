@@ -34,9 +34,10 @@ export function DiagnosticsPanel({ source }: DiagnosticsPanelProps) {
     );
   }
 
-  const view = loaded.state === "ready" || loaded.state === "checking"
-    ? loaded.view
-    : null;
+  const view =
+    loaded.state === "ready" || loaded.state === "checking"
+      ? loaded.view
+      : null;
   return (
     <div data-diagnostics="">
       <h1 className={styles.paneTitle}>
@@ -48,8 +49,8 @@ export function DiagnosticsPanel({ source }: DiagnosticsPanelProps) {
           {view === null
             ? t("settings.diagnostics.not-run")
             : t("settings.diagnostics.last-run", {
-              time: clockText(view.checkedAt),
-            })}
+                time: clockText(view.checkedAt),
+              })}
         </span>
         <Button
           icon={retryIcon}
@@ -60,16 +61,14 @@ export function DiagnosticsPanel({ source }: DiagnosticsPanelProps) {
           {t("settings.button.run-checks")}
         </Button>
       </div>
-      {loaded.state === "failed"
-        ? (
-          <p className={styles.rejected} role="alert" data-check="failed">
-            {t("settings.diagnostics.check-failed")}
-          </p>
-        )
-        : null}
-      {loaded.state === "checking" && view === null
-        ? <Skeleton lines={4} />
-        : null}
+      {loaded.state === "failed" ? (
+        <p className={styles.rejected} role="alert" data-check="failed">
+          {t("settings.diagnostics.check-failed")}
+        </p>
+      ) : null}
+      {loaded.state === "checking" && view === null ? (
+        <Skeleton lines={4} />
+      ) : null}
       {view === null ? null : (
         <div className={styles.tableScroll}>
           <table className={styles.table}>
@@ -92,9 +91,11 @@ export function DiagnosticsPanel({ source }: DiagnosticsPanelProps) {
                   <td>
                     <StatusMark
                       tone={item.available ? "good" : "critical"}
-                      label={item.available
-                        ? t("settings.label.available-yes")
-                        : t("settings.label.available-no")}
+                      label={
+                        item.available
+                          ? t("settings.label.available-yes")
+                          : t("settings.label.available-no")
+                      }
                     />
                   </td>
                   <td>

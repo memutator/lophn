@@ -123,23 +123,19 @@ export function appFlags(
 
   const read = fsOf(ordered.value, "fs.read");
   const write = fsOf(ordered.value, "fs.write");
-  const sockets = [app.brokerSocket, app.controlSocket].filter((path) =>
-    path !== undefined
+  const sockets = [app.brokerSocket, app.controlSocket].filter(
+    (path) => path !== undefined,
   );
   const allowRead = [app.bundle, app.data, ...sockets, ...read.allow];
-  const allowWrite = [
-    ...databaseFiles(app.data),
-    ...sockets,
-    ...write.allow,
-  ];
+  const allowWrite = [...databaseFiles(app.data), ...sockets, ...write.allow];
   const denyRead = [...protectedDenies, ...read.deny, ...write.deny];
   const denyWrite = [...protectedDenies, ...write.deny];
   // IPv6 host는 대괄호로 쓴다. `::1:4517`은 Deno가 빈 host로 읽어 프로세스가 시작하지 않는다
   // (Deno 2.9.7 실측).
   const denyNet = LOOPBACK.flatMap((host) =>
     platform.ports.map((port) =>
-      host.includes(":") ? `[${host}]:${port}` : `${host}:${port}`
-    )
+      host.includes(":") ? `[${host}]:${port}` : `${host}:${port}`,
+    ),
   );
 
   const parts = [
@@ -151,9 +147,9 @@ export function appFlags(
     // 외부 host는 이 flag에 없다. --deny-net은 플랫폼 port를 한 번 더 막는 방어선이다.
     sockets.length === 2
       ? flag("allow-net", [
-        SOCKET_HOST,
-        ...sockets.map((path) => `unix:${path}`),
-      ])
+          SOCKET_HOST,
+          ...sockets.map((path) => `unix:${path}`),
+        ])
       : ok(undefined),
     flag("deny-net", denyNet),
   ];
@@ -168,9 +164,10 @@ export function appFlags(
 
 // 시작마다 새로 정한 broker·control socket의 Deno flag. 읽기·쓰기에 더해 socket 듣기·연결과 가상 host의 net
 // 허락이다. 외부 host는 넣지 않는다. 같은 flag 이름을 여러 번 주면 Deno가 합친다(Deno 2.9.7 실측).
-export function socketFlags(
-  sockets: { brokerSocket: string; controlSocket: string },
-): Result<string[]> {
+export function socketFlags(sockets: {
+  brokerSocket: string;
+  controlSocket: string;
+}): Result<string[]> {
   const paths = [sockets.brokerSocket, sockets.controlSocket];
   const read = flag("allow-read", paths);
   if (!read.ok) return read;

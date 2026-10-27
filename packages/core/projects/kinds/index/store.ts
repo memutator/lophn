@@ -21,9 +21,11 @@ export function openIndexStore(path: string): IndexStore {
   try {
     db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL;");
     // 정본이 아니므로 migration 기록 없이, 표가 없을 때만 한 번에 만든다.
-    const created = db.prepare(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'kinds_state'",
-    ).get();
+    const created = db
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'kinds_state'",
+      )
+      .get();
     if (created === undefined) {
       db.exec("BEGIN IMMEDIATE");
       try {
@@ -107,10 +109,9 @@ export function readApplied(
   sql: Sql,
   domain: string,
 ): { hash: string; text: string } | undefined {
-  const row = sql.get(
-    "SELECT hash, text FROM kinds_applied WHERE domain = ?",
-    [domain],
-  );
+  const row = sql.get("SELECT hash, text FROM kinds_applied WHERE domain = ?", [
+    domain,
+  ]);
   return row === undefined
     ? undefined
     : { hash: text(row, "hash"), text: text(row, "text") };
@@ -133,31 +134,35 @@ export function writeApplied(
 }
 
 export function readIndexedFiles(sql: Sql, domain: string): IndexedFile[] {
-  return sql.all(
-    "SELECT path, size, mtime_ms, kind, status FROM kinds_files WHERE domain = ?",
-    [domain],
-  ).map((row) => ({
-    path: text(row, "path"),
-    size: Number(row.size),
-    mtime_ms: Number(row.mtime_ms),
-    kind: textOrNull(row, "kind"),
-    status: text(row, "status") as FileOutcome["status"],
-  }));
+  return sql
+    .all(
+      "SELECT path, size, mtime_ms, kind, status FROM kinds_files WHERE domain = ?",
+      [domain],
+    )
+    .map((row) => ({
+      path: text(row, "path"),
+      size: Number(row.size),
+      mtime_ms: Number(row.mtime_ms),
+      kind: textOrNull(row, "kind"),
+      status: text(row, "status") as FileOutcome["status"],
+    }));
 }
 
 // kind의 item을 추출 순서(ord)로 읽는다.
 export function readItems(sql: Sql, domain: string, kind: string): Item[] {
-  return sql.all(
-    `SELECT kind, key, path, file, fields FROM kinds_items
+  return sql
+    .all(
+      `SELECT kind, key, path, file, fields FROM kinds_items
      WHERE domain = ? AND kind = ? ORDER BY ord`,
-    [domain, kind],
-  ).map((row) => ({
-    kind: text(row, "kind"),
-    key: text(row, "key"),
-    path: text(row, "path"),
-    file: text(row, "file"),
-    fields: JSON.parse(text(row, "fields")),
-  }));
+      [domain, kind],
+    )
+    .map((row) => ({
+      kind: text(row, "kind"),
+      key: text(row, "key"),
+      path: text(row, "path"),
+      file: text(row, "file"),
+      fields: JSON.parse(text(row, "fields")),
+    }));
 }
 
 // index에서 빠진(읽지 못했거나 type이 맞지 않은) 문서 수
@@ -181,15 +186,16 @@ export function readViolations(
      WHERE domain = ? AND (? IS NULL OR kind = ?) ORDER BY ord LIMIT ?`,
     [domain, options.kind ?? null, options.kind ?? null, options.limit ?? -1],
   );
-  return rows.map((row) =>
-    ({
-      source: text(row, "source"),
-      rule: text(row, "rule"),
-      kind: textOrNull(row, "kind"),
-      path: textOrNull(row, "path"),
-      field: textOrNull(row, "field"),
-      message: text(row, "message"),
-    }) as Violation
+  return rows.map(
+    (row) =>
+      ({
+        source: text(row, "source"),
+        rule: text(row, "rule"),
+        kind: textOrNull(row, "kind"),
+        path: textOrNull(row, "path"),
+        field: textOrNull(row, "field"),
+        message: text(row, "message"),
+      }) as Violation,
   );
 }
 

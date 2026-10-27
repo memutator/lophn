@@ -106,8 +106,9 @@ function toolResultOf(fake: FakeServer, id: string): string {
   };
   const last = body.messages.at(-1)!;
   assert.deepStrictEqual(last.role, "user");
-  const block = (last.content as { type: string; tool_use_id?: string }[])
-    .find((item) => item.type === "tool_result" && item.tool_use_id === id);
+  const block = (last.content as { type: string; tool_use_id?: string }[]).find(
+    (item) => item.type === "tool_result" && item.tool_use_id === id,
+  );
   assert.ok(block, `둘째 요청에 ${id}의 tool_result가 없다`);
   return JSON.stringify((block as { content?: unknown }).content ?? null);
 }
@@ -125,7 +126,10 @@ async function outcomesOf(core: Core, turn: string) {
 }
 
 async function exists(path: string): Promise<boolean> {
-  return await lstat(path).then(() => true, () => false);
+  return await lstat(path).then(
+    () => true,
+    () => false,
+  );
 }
 
 function callTool(to: unknown) {
@@ -139,7 +143,7 @@ function callTool(to: unknown) {
 async function messagesOf(core: Core, session: string) {
   const { messages } = await core.call(receivedMessageList, { session });
   return [...messages].sort((a, b) =>
-    BigInt(a.created_seq) < BigInt(b.created_seq) ? -1 : 1
+    BigInt(a.created_seq) < BigInt(b.created_seq) ? -1 : 1,
   );
 }
 
@@ -178,19 +182,22 @@ async function openCallWaitingPermission(
     body: "clean up",
     refs: [],
   });
-  fake.script([
-    {
-      reply: {
-        kind: "tool",
-        calls: [{ id: "t1", name: "call", arguments: callBody }],
+  fake.script(
+    [
+      {
+        reply: {
+          kind: "tool",
+          calls: [{ id: "t1", name: "call", arguments: callBody }],
+        },
       },
+      textReply("sent"),
+      textReply("failed noted"),
+    ],
+    {
+      name: "lophn",
+      match: (request) => toolNames(request).includes("app_create"),
     },
-    textReply("sent"),
-    textReply("failed noted"),
-  ], {
-    name: "lophn",
-    match: (request) => toolNames(request).includes("app_create"),
-  });
+  );
   fake.script([{ reply: ask.reply("w1") }], {
     name: "pm",
     match: (request) =>
@@ -220,17 +227,21 @@ async function rewindMessagesOnly(
     checkpoint,
     choice: "messages_only",
   });
-  await core.call(sessionRewind, {
-    id: core.ids.newId("rwd"),
-    session,
-    checkpoint,
-    choice: "messages_only",
-    accept_remaining: true,
-    preview_hash: preview.preview_hash,
-    summary_call: null,
-    files: [],
-    apps: [],
-  }, { session_state: "open", active_turn: null, applying_rewind: null });
+  await core.call(
+    sessionRewind,
+    {
+      id: core.ids.newId("rwd"),
+      session,
+      checkpoint,
+      choice: "messages_only",
+      accept_remaining: true,
+      preview_hash: preview.preview_hash,
+      summary_call: null,
+      files: [],
+      apps: [],
+    },
+    { session_state: "open", active_turn: null, applying_rewind: null },
+  );
 }
 
 test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨다", async (t) => {
@@ -264,9 +275,9 @@ test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨�
 
         // 거절된 message는 흔적이 없다. agent의 대답은 같은 session의 message로 따로 남는다.
         assert.deepStrictEqual(
-          (await messagesOf(c, session)).filter((item) =>
-            item.from.kind === "human"
-          ).map((item) => item.id),
+          (await messagesOf(c, session))
+            .filter((item) => item.from.kind === "human")
+            .map((item) => item.id),
           [message],
         );
         const { session: read } = await c.call(agentSessionRead, { session });
@@ -337,11 +348,10 @@ test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨�
           copied.map((item) => item.body),
           origin.slice(0, 3).map((item) => item.body),
         );
-        assert.deepStrictEqual(copied.map((item) => item.turn), [
-          null,
-          null,
-          null,
-        ]);
+        assert.deepStrictEqual(
+          copied.map((item) => item.turn),
+          [null, null, null],
+        );
         assert.deepStrictEqual(await ownTurnsOf(c, forked.id), []);
         const { session: original } = await c.call(agentSessionRead, {
           session,
@@ -368,8 +378,8 @@ test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨�
         await rewindMessagesOnly(c, session, second.message);
         const third = await say(c, session, "three");
         await waitTurnEnd(c, session, 2);
-        const sent = (await messagesOf(c, session)).find((item) =>
-          item.id === third.message
+        const sent = (await messagesOf(c, session)).find(
+          (item) => item.id === third.message,
         )!;
 
         // 숨긴 구간(two와 그 대답 a2)은 빠지고 [one, a1, three]만 간다.
@@ -478,7 +488,7 @@ test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨�
           "t-read": { kind: "success", code: "ok" },
         });
         // disk
-        assert.ok(!await exists(`${folder}/new.md`));
+        assert.ok(!(await exists(`${folder}/new.md`)));
       },
     );
 
@@ -490,18 +500,18 @@ test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨�
         async () => {
           const name = `${how}-call`;
           const { src, dst, request, call, ask } =
-            await openCallWaitingPermission(
-              c,
-              f,
-              name,
-            );
+            await openCallWaitingPermission(c, f, name);
           const [turn] = await ownTurnsOf(c, dst);
           const { session: current } = await c.call(agentSessionRead, {
             session: dst,
           });
-          await c.call(how === "archive" ? archiveSession : deleteSession, {
-            session: dst,
-          }, { state_seq: current.state_seq });
+          await c.call(
+            how === "archive" ? archiveSession : deleteSession,
+            {
+              session: dst,
+            },
+            { state_seq: current.state_seq },
+          );
           // 보낸 쪽이 늦은 실패를 새 입력으로 받아 둘째 turn을 돈다.
           await waitTurnEnd(c, src, 1);
 

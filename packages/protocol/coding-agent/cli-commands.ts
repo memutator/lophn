@@ -50,10 +50,12 @@ function withCommon(input: z.ZodType): z.ZodType {
     throw new Error("cli input must be an object");
   }
   const shape = { ...input.shape } as Record<string, z.ZodType>;
-  return z.strictObject({ ...cliCommonSchema.shape, ...shape }).refine(
-    (value) => value.input === undefined || value.input_file === undefined,
-    { message: "input and input_file are exclusive" },
-  );
+  return z
+    .strictObject({ ...cliCommonSchema.shape, ...shape })
+    .refine(
+      (value) => value.input === undefined || value.input_file === undefined,
+      { message: "input and input_file are exclusive" },
+    );
 }
 
 function token(
@@ -91,9 +93,11 @@ export const harnessInstallInputSchema = z.strictObject({
   harness: harnessIdSchema,
   dry_run: z.boolean().optional(),
   // 개발 실행의 hook command다. hook command는 shell 문자열이 되므로 공백·따옴표·`..` 없는 절대 경로만 받는다.
-  command: z.string().regex(/^\/[\w./-]+$/).refine((path) =>
-    !path.includes("..")
-  ).optional(),
+  command: z
+    .string()
+    .regex(/^\/[\w./-]+$/)
+    .refine((path) => !path.includes(".."))
+    .optional(),
 });
 // `files`는 쓴(`dry_run`이면 쓸) 절대 경로다.
 const harnessInstallOutputSchema = z.strictObject({
@@ -116,10 +120,12 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
   {
     name: "hook",
     auth: "local",
-    input: withCommon(z.strictObject({
-      harness: harnessIdSchema,
-      event: z.string().min(1).max(HOOK_EVENT_MAX_CHARS),
-    })),
+    input: withCommon(
+      z.strictObject({
+        harness: harnessIdSchema,
+        event: z.string().min(1).max(HOOK_EVENT_MAX_CHARS),
+      }),
+    ),
     output: z.unknown(),
   },
   token("app show", appGet, appGet.input, appGet.output),
@@ -165,9 +171,13 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
     "agent run",
     z.strictObject({
       prompt: z.string().min(1),
-      agent: z.string().min(1).optional().describe(
-        "lophn | pm:<project> | ae:<app> | operator:<이름> | operator:<project 또는 app>/<이름> | NamedAgent JSON (없으면 lophn)",
-      ),
+      agent: z
+        .string()
+        .min(1)
+        .optional()
+        .describe(
+          "lophn | pm:<project> | ae:<app> | operator:<이름> | operator:<project 또는 app>/<이름> | NamedAgent JSON (없으면 lophn)",
+        ),
       session: idSchema("ses").optional(),
       schema: z.string().min(1).optional().describe("출력 JSON Schema 글"),
       async: z.boolean().optional(),
@@ -183,18 +193,9 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
       input: jsonValueSchema.optional(),
     }),
   ),
-  user(
-    "run wait",
-    z.strictObject({ run: idSchema("run") }),
-  ),
-  user(
-    "run show",
-    z.strictObject({ run: idSchema("run") }),
-  ),
-  user(
-    "run cancel",
-    z.strictObject({ run: idSchema("run") }),
-  ),
+  user("run wait", z.strictObject({ run: idSchema("run") })),
+  user("run show", z.strictObject({ run: idSchema("run") })),
+  user("run cancel", z.strictObject({ run: idSchema("run") })),
   // workflow 명령도 route를 표에 두지 않는다(`cli/commands/workflow.ts`가 `protocol/workflows`의 route를 부른다).
   // 문자열 검사는 core의 route schema가 한다. 여기는 id와 `new | same`만 좁힌다.
   user(
@@ -202,9 +203,11 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
     z.strictObject({
       workflow: z.string().min(1).describe("<project 이름>/<name>"),
       text: z.string().min(1),
-      step: z.string().min(1).optional().describe(
-        "첫 step 이름 (없으면 선언의 시작 step)",
-      ),
+      step: z
+        .string()
+        .min(1)
+        .optional()
+        .describe("첫 step 이름 (없으면 선언의 시작 step)"),
     }),
   ),
   user(

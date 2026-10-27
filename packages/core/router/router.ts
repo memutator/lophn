@@ -74,10 +74,7 @@ type Resolved =
   | { ok: true; to: CallTo; target: TargetSession }
   | { ok: false; reason: CallFailReason; to: CallTo | null };
 
-function failed(
-  reason: CallFailReason,
-  to: CallTo | null,
-): Resolved {
+function failed(reason: CallFailReason, to: CallTo | null): Resolved {
   return { ok: false, reason, to };
 }
 
@@ -117,7 +114,8 @@ export function createRouter(deps: RouterDeps): Router {
         if (
           addressing.to.kind !== "open_session" &&
           addressing.to.agent.role === "coding_agent"
-        ) return notCoding();
+        )
+          return notCoding();
         to = addressing.to;
         break;
       case "session":
@@ -132,13 +130,14 @@ export function createRouter(deps: RouterDeps): Router {
             ? ok(failed("not_found", null))
             : agent;
         }
-        to = addressing.form === "named"
-          ? { kind: "new_session", agent: agent.value }
-          : {
-            kind: "open_session_or_new",
-            session: addressing.session,
-            agent: agent.value,
-          };
+        to =
+          addressing.form === "named"
+            ? { kind: "new_session", agent: agent.value }
+            : {
+                kind: "open_session_or_new",
+                session: addressing.session,
+                agent: agent.value,
+              };
       }
     }
     if (to.kind === "new_session") {
@@ -157,10 +156,7 @@ export function createRouter(deps: RouterDeps): Router {
     return open(tx, from, to.agent, to);
   }
 
-  function inputOf(
-    input: RouteInput,
-    call: string | null,
-  ): RoutedInput {
+  function inputOf(input: RouteInput, call: string | null): RoutedInput {
     return {
       kind: input.kind,
       from: input.from,
@@ -169,9 +165,10 @@ export function createRouter(deps: RouterDeps): Router {
       body: input.body,
       refs: input.refs,
       delivery: input.kind === "message" ? input.delivery : "next_turn",
-      message: input.message === undefined || input.message === null
-        ? null
-        : (input.message as Id<"msg">),
+      message:
+        input.message === undefined || input.message === null
+          ? null
+          : (input.message as Id<"msg">),
       reply: input.kind === "call" ? input.reply : null,
       outcome: null,
       event: input.event ?? null,
@@ -289,10 +286,10 @@ export function createRouter(deps: RouterDeps): Router {
       input.options,
     );
     if (!delivered.ok) return delivered;
-    const state: CallState = delivered.value === "delivered" &&
-        input.reply === "none"
-      ? "done"
-      : "accepted";
+    const state: CallState =
+      delivered.value === "delivered" && input.reply === "none"
+        ? "done"
+        : "accepted";
     const receiver = target.session;
     if (call !== null && from.kind === "agent") {
       const stored = store.insert(
@@ -334,25 +331,31 @@ export function createRouter(deps: RouterDeps): Router {
     // 받을 session이 없어졌으면 답은 보낸 쪽 기록에만 남는다.
     let delivered = false;
     if (target !== null && target.accepting) {
-      const sent = transport.deliver(tx, target, {
-        kind: "reply",
-        from: { kind: "agent", session: from.session },
-        call: calId(record.call),
-        reply_to: calId(record.call),
-        body: input.body,
-        refs: input.refs,
-        delivery: "next_turn",
-        message: null,
-        reply: null,
-        outcome: asReceiver && record.reply === "result"
-          ? { state: "done", reason: null }
-          : null,
-        event: null,
-        notice: null,
-        step: null,
-        // 답의 표시는 답한 turn에서 온다. 사람이 끼어든 attended turn의 답은 attended다.
-        unattended: input.unattended === true,
-      }, null);
+      const sent = transport.deliver(
+        tx,
+        target,
+        {
+          kind: "reply",
+          from: { kind: "agent", session: from.session },
+          call: calId(record.call),
+          reply_to: calId(record.call),
+          body: input.body,
+          refs: input.refs,
+          delivery: "next_turn",
+          message: null,
+          reply: null,
+          outcome:
+            asReceiver && record.reply === "result"
+              ? { state: "done", reason: null }
+              : null,
+          event: null,
+          notice: null,
+          step: null,
+          // 답의 표시는 답한 turn에서 온다. 사람이 끼어든 attended turn의 답은 attended다.
+          unattended: input.unattended === true,
+        },
+        null,
+      );
       if (!sent.ok) return sent;
       delivered = true;
     }
@@ -373,7 +376,9 @@ export function createRouter(deps: RouterDeps): Router {
       return err({ code: "not_found", message: "call not found" });
     }
     // 보낸 agent는 자기가 보낸 것만, 사람은 모두 취소한다.
-    const own = by.kind === "agent" && record.from.kind === "agent" &&
+    const own =
+      by.kind === "agent" &&
+      record.from.kind === "agent" &&
       record.from.session === by.session;
     if (by.kind !== "human" && !own) {
       return err({ code: "forbidden", message: "not your call" });
@@ -381,9 +386,10 @@ export function createRouter(deps: RouterDeps): Router {
     if (isFinished(record.state)) return ok(record);
     const moved = store.move(tx, calId(record.call), "cancelled", null);
     if (!moved.ok) return moved;
-    const target = record.receiver_session === null
-      ? null
-      : directory.find(sesId(record.receiver_session));
+    const target =
+      record.receiver_session === null
+        ? null
+        : directory.find(sesId(record.receiver_session));
     const cancelled = transport.cancel(
       tx,
       target,
@@ -437,9 +443,12 @@ export function createRouter(deps: RouterDeps): Router {
     close,
     failReceivedBy(tx, session) {
       // 끝나는 session 자신이 보낸 call의 알림은 받을 곳이 없다.
-      const records = store.openReceivedBy(tx, sesId(session)).filter((
-        record,
-      ) => !(record.from.kind === "agent" && record.from.session === session));
+      const records = store
+        .openReceivedBy(tx, sesId(session))
+        .filter(
+          (record) =>
+            !(record.from.kind === "agent" && record.from.session === session),
+        );
       const done = failAll(tx, records, "receiver_ended", true);
       return done.ok ? ok(undefined) : done;
     },

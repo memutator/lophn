@@ -33,8 +33,7 @@ export function clientHintHeaders(
   const major = /\b(?:Chrome|Chromium)\/(\d+)\./.exec(userAgent)?.[1];
   if (major === undefined) return {};
   return {
-    "sec-ch-ua":
-      `"Chromium";v="${major}", "Google Chrome";v="${major}", "Not=A?Brand";v="24"`,
+    "sec-ch-ua": `"Chromium";v="${major}", "Google Chrome";v="${major}", "Not=A?Brand";v="24"`,
     "sec-ch-ua-mobile": "?0",
     "sec-ch-ua-platform": `"${platformName(platform)}"`,
   };

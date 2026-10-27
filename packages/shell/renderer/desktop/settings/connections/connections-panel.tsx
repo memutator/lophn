@@ -41,16 +41,20 @@ type Loaded =
   | { readonly state: "loading" }
   | { readonly state: "failed" }
   | {
-    readonly state: "ready";
-    readonly harnesses: readonly HarnessSettingsView[];
-  };
+      readonly state: "ready";
+      readonly harnesses: readonly HarnessSettingsView[];
+    };
 
 const EMPTY_DEFAULTS: CodingDefaults = { harness: null, model: "" };
 
 /** 제품 이름 앞에 vendor 아이콘을 붙인다. 아이콘은 이름이 아니라 harness id로 고른다. */
-function ProductName(
-  { harness, label }: { harness: HarnessName; label: string },
-) {
+function ProductName({
+  harness,
+  label,
+}: {
+  harness: HarnessName;
+  label: string;
+}) {
   const vendor = harnessVendorOf(harness);
   return (
     <span className={styles.productName}>
@@ -60,9 +64,9 @@ function ProductName(
   );
 }
 
-export function CodingConnectionsPanel(
-  { source }: CodingConnectionsPanelProps,
-) {
+export function CodingConnectionsPanel({
+  source,
+}: CodingConnectionsPanelProps) {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   const [detecting, setDetecting] = useState(false);
   const [detectFailed, setDetectFailed] = useState(false);
@@ -133,7 +137,7 @@ export function CodingConnectionsPanel(
   }
   const harnesses = loaded.state === "ready" ? loaded.harnesses : [];
   const rows = sortedByFound(harnesses).filter((harness) =>
-    matchesQuery(harness, query)
+    matchesQuery(harness, query),
   );
   return (
     <div data-coding="">
@@ -152,20 +156,16 @@ export function CodingConnectionsPanel(
           {t("settings.button.detect-again")}
         </Button>
       </div>
-      {detectFailed
-        ? (
-          <p className={styles.rejected} role="alert" data-detect="failed">
-            {t("settings.error.coding-detect")}
-          </p>
-        )
-        : null}
-      {installFailed
-        ? (
-          <p className={styles.rejected} role="alert" data-hooks="failed">
-            {t("settings.error.coding-hooks-install")}
-          </p>
-        )
-        : null}
+      {detectFailed ? (
+        <p className={styles.rejected} role="alert" data-detect="failed">
+          {t("settings.error.coding-detect")}
+        </p>
+      ) : null}
+      {installFailed ? (
+        <p className={styles.rejected} role="alert" data-hooks="failed">
+          {t("settings.error.coding-hooks-install")}
+        </p>
+      ) : null}
       <Loading
         loading={loaded.state === "loading"}
         placeholder={<Skeleton lines={5} />}
@@ -187,8 +187,8 @@ export function CodingConnectionsPanel(
                 <HarnessRow
                   key={harness.harness_id}
                   harness={harness}
-                  hook={hooks.find((hook) =>
-                    hook.harness_id === harness.harness_id
+                  hook={hooks.find(
+                    (hook) => hook.harness_id === harness.harness_id,
                   )}
                   installing={installing === harness.harness_id}
                   onInstall={() => void installHooks(harness.harness_id)}
@@ -197,13 +197,11 @@ export function CodingConnectionsPanel(
             </tbody>
           </table>
         </div>
-        {rows.length === 0
-          ? (
-            <p className={styles.lineHelp} data-search="empty">
-              {t("settings.empty.coding-search")}
-            </p>
-          )
-          : null}
+        {rows.length === 0 ? (
+          <p className={styles.lineHelp} data-search="empty">
+            {t("settings.empty.coding-search")}
+          </p>
+        ) : null}
         <p className={`${styles.lineHelp} ${styles.groupBlock}`}>
           {t("settings.note.coding-signal")}
         </p>
@@ -242,20 +240,16 @@ export function CodingConnectionsPanel(
                 {t("settings.button.save")}
               </Button>
             </div>
-            {saved === "saved"
-              ? (
-                <p className={styles.lineHelp} role="status" data-saved="">
-                  {t("settings.note.coding-defaults-saved")}
-                </p>
-              )
-              : null}
-            {saved === "failed"
-              ? (
-                <p className={styles.rejected} role="alert" data-saved="failed">
-                  {t("settings.error.coding-defaults")}
-                </p>
-              )
-              : null}
+            {saved === "saved" ? (
+              <p className={styles.lineHelp} role="status" data-saved="">
+                {t("settings.note.coding-defaults-saved")}
+              </p>
+            ) : null}
+            {saved === "failed" ? (
+              <p className={styles.rejected} role="alert" data-saved="failed">
+                {t("settings.error.coding-defaults")}
+              </p>
+            ) : null}
           </div>
         </section>
       </Loading>
@@ -263,14 +257,17 @@ export function CodingConnectionsPanel(
   );
 }
 
-function HarnessRow(
-  { harness, hook, installing, onInstall }: {
-    harness: HarnessSettingsView;
-    hook: HarnessHookView | undefined;
-    installing: boolean;
-    onInstall: () => void;
-  },
-) {
+function HarnessRow({
+  harness,
+  hook,
+  installing,
+  onInstall,
+}: {
+  harness: HarnessSettingsView;
+  hook: HarnessHookView | undefined;
+  installing: boolean;
+  onInstall: () => void;
+}) {
   const found = shown(harness);
   const version = versionText(harness);
   return (
@@ -284,39 +281,43 @@ function HarnessRow(
             tone={discoveryTone(harness)}
             label={discoveryText(harness)}
           />
-          {version === null
-            ? null
-            : <span className={styles.caption}>{version}</span>}
+          {version === null ? null : (
+            <span className={styles.caption}>{version}</span>
+          )}
         </div>
       </td>
       <td>
-        {found
-          ? (
-            <StatusMark
-              tone={harness.can_deliver_messages ? "good" : "warning"}
-              label={harness.can_deliver_messages
+        {found ? (
+          <StatusMark
+            tone={harness.can_deliver_messages ? "good" : "warning"}
+            label={
+              harness.can_deliver_messages
                 ? t("settings.label.coding-signal-yes")
-                : t("settings.label.coding-signal-no")}
-            />
-          )
-          : <span className={styles.dim}>-</span>}
+                : t("settings.label.coding-signal-no")
+            }
+          />
+        ) : (
+          <span className={styles.dim}>-</span>
+        )}
       </td>
       <td>
-        {found
-          ? (
-            <div className={styles.cell}>
-              <StatusMark
-                tone={harness.can_launch ? "good" : "critical"}
-                label={harness.can_launch
+        {found ? (
+          <div className={styles.cell}>
+            <StatusMark
+              tone={harness.can_launch ? "good" : "critical"}
+              label={
+                harness.can_launch
                   ? t("settings.label.coding-launch-yes")
-                  : t("settings.label.coding-launch-no")}
-              />
-              {harness.reason === null
-                ? null
-                : <span className={styles.caption}>{harness.reason}</span>}
-            </div>
-          )
-          : <span className={styles.dim}>-</span>}
+                  : t("settings.label.coding-launch-no")
+              }
+            />
+            {harness.reason === null ? null : (
+              <span className={styles.caption}>{harness.reason}</span>
+            )}
+          </div>
+        ) : (
+          <span className={styles.dim}>-</span>
+        )}
       </td>
       <td>
         <HookCell hook={hook} installing={installing} onInstall={onInstall} />
@@ -326,13 +327,15 @@ function HarnessRow(
 }
 
 /** 전역 hook 상태. 안 놓였을 때만 [Install hooks]가 있고, hook이 없는 제품은 "-"다. */
-function HookCell(
-  { hook, installing, onInstall }: {
-    hook: HarnessHookView | undefined;
-    installing: boolean;
-    onInstall: () => void;
-  },
-) {
+function HookCell({
+  hook,
+  installing,
+  onInstall,
+}: {
+  hook: HarnessHookView | undefined;
+  installing: boolean;
+  onInstall: () => void;
+}) {
   const text = hook === undefined ? null : hookText(hook);
   if (hook === undefined || text === null) {
     return <span className={styles.dim}>-</span>;
@@ -340,29 +343,29 @@ function HookCell(
   return (
     <div className={styles.cell}>
       <StatusMark tone={hookTone(hook)} label={text} />
-      {hook.status === "missing"
-        ? (
-          <Button
-            disabled={installing}
-            data-action="install-hooks"
-            onClick={onInstall}
-          >
-            {t("settings.button.install-hooks")}
-          </Button>
-        )
-        : null}
+      {hook.status === "missing" ? (
+        <Button
+          disabled={installing}
+          data-action="install-hooks"
+          onClick={onInstall}
+        >
+          {t("settings.button.install-hooks")}
+        </Button>
+      ) : null}
     </div>
   );
 }
 
 /** 기본 제품 고르기. 제품마다 아이콘이 붙은 줄이다. 맡길 수 없는 제품은 목록에 없다. */
-function ProductPicker(
-  { harnesses, value, onChange }: {
-    harnesses: readonly HarnessSettingsView[];
-    value: HarnessName | null;
-    onChange: (harness: HarnessName | null) => void;
-  },
-) {
+function ProductPicker({
+  harnesses,
+  value,
+  onChange,
+}: {
+  harnesses: readonly HarnessSettingsView[];
+  value: HarnessName | null;
+  onChange: (harness: HarnessName | null) => void;
+}) {
   const legend = t("settings.label.coding-default-product");
   return (
     <fieldset className={styles.productPicker}>

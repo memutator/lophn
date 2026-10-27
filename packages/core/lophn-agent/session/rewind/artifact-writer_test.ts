@@ -13,14 +13,13 @@ const ROOT_B = "/data/projects/prj_b/artifacts";
 function setup() {
   const db = new DatabaseSync(":memory:");
   db.exec("pragma foreign_keys = off");
-  for (
-    const step of [
-      ...conversationSchemaSteps,
-      ...turnSchemaSteps,
-      ...toolsSchemaSteps,
-      ...revertSchemaSteps,
-    ]
-  ) db.exec(step.sql);
+  for (const step of [
+    ...conversationSchemaSteps,
+    ...turnSchemaSteps,
+    ...toolsSchemaSteps,
+    ...revertSchemaSteps,
+  ])
+    db.exec(step.sql);
   const sql: Sql = {
     run: (query, params) => db.prepare(query).run(...params),
     get: (query, params) => db.prepare(query).get(...params) as never,

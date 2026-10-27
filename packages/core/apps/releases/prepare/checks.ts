@@ -39,16 +39,15 @@ export function checkDependencies(input: {
   imports: Record<string, string>;
 }): CheckOutcome {
   const { dependencies } = input;
-  const inexact = dependencies.filter((item) =>
-    !EXACT_VERSION.test(item.version)
-  )
+  const inexact = dependencies
+    .filter((item) => !EXACT_VERSION.test(item.version))
     .map((item) => `${item.name}@${item.version}`);
   if (inexact.length > 0) {
     return {
       ok: false,
-      reason: `dependencies without an exact version: ${
-        listed(inexact)
-      }. Pin each one to an exact version.`,
+      reason: `dependencies without an exact version: ${listed(
+        inexact,
+      )}. Pin each one to an exact version.`,
     };
   }
   const undeclared: string[] = [];
@@ -56,27 +55,30 @@ export function checkDependencies(input: {
     if (value.startsWith("file:") || /^\.\.?\//.test(value)) {
       const copy = SDK_COPY.exec(value);
       if (copy === null) continue;
-      const found = dependencies.some((item) =>
-        item.name.split("/").pop() === copy[1] && item.version === copy[2]
+      const found = dependencies.some(
+        (item) =>
+          item.name.split("/").pop() === copy[1] && item.version === copy[2],
       );
       if (!found) undeclared.push(specifier);
       continue;
     }
     const registry = REGISTRY_IMPORT.exec(value);
-    const found = registry !== null &&
-      dependencies.some((item) =>
-        item.source === registry[1] && item.name === registry[2] &&
-        item.version === registry[3]
+    const found =
+      registry !== null &&
+      dependencies.some(
+        (item) =>
+          item.source === registry[1] &&
+          item.name === registry[2] &&
+          item.version === registry[3],
       );
     if (!found) undeclared.push(specifier);
   }
   if (undeclared.length > 0) {
     return {
       ok: false,
-      reason:
-        `imports that do not point at a declared dependency with its exact version: ${
-          listed(undeclared)
-        }. Declare the package with an exact version in the app's imports.`,
+      reason: `imports that do not point at a declared dependency with its exact version: ${listed(
+        undeclared,
+      )}. Declare the package with an exact version in the app's imports.`,
     };
   }
   return { ok: true };
@@ -116,9 +118,9 @@ async function migrateOnce(
   }
   if (migrated.value.restored) {
     const { failed } = migrated.value;
-    return `Migration ${where} failed: ${
-      rolledBackStepText(failed)
-    }. Fix that step's SQL; every new table needs a PRIMARY KEY.`;
+    return `Migration ${where} failed: ${rolledBackStepText(
+      failed,
+    )}. Fix that step's SQL; every new table needs a PRIMARY KEY.`;
   }
   return null;
 }
@@ -148,8 +150,7 @@ export async function checkMigration(input: {
   if (previousSchema !== null && previousSchema > dataSchema) {
     return {
       ok: false,
-      reason:
-        `The data schema ${dataSchema} is lower than ${previousSchema}, the schema of the active release. A data schema cannot move backward.`,
+      reason: `The data schema ${dataSchema} is lower than ${previousSchema}, the schema of the active release. A data schema cannot move backward.`,
     };
   }
   const scripts: MigrationScript[] = [];
@@ -158,8 +159,7 @@ export async function checkMigration(input: {
     if (!script.ok) {
       return {
         ok: false,
-        reason:
-          `Migration ${change.from}-${change.to} cannot be used: ${script.error.message}.`,
+        reason: `Migration ${change.from}-${change.to} cannot be used: ${script.error.message}.`,
       };
     }
     scripts.push(script.value);
@@ -191,8 +191,7 @@ export async function checkMigration(input: {
   if (seedFailed !== null) {
     return {
       ok: false,
-      reason:
-        `The migrations do not reach schema ${previousSchema}, the schema of the active release. ${seedFailed}`,
+      reason: `The migrations do not reach schema ${previousSchema}, the schema of the active release. ${seedFailed}`,
     };
   }
   const upgradeFailed = await migrateOnce(

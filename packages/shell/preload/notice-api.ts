@@ -39,39 +39,38 @@ export function createNoticeApi(transport: NoticeTransport): LophnNoticeApi {
     transport.on(channel, callback);
     return () => transport.removeListener(channel, callback);
   }
-  return Object.freeze(
-    {
-      visible: async (input) => {
-        await transport.invoke(NOTICE_VISIBLE_CHANNEL, input).catch(() => {});
-      },
-      open: async (target) => {
-        await transport.invoke(NOTICE_OPEN_CHANNEL, target).catch(() => {});
-      },
-      unseen: async () => {
-        const sessions = await transport.invoke(NOTICE_UNSEEN_GET_CHANNEL)
-          .catch(() => []);
-        return Array.isArray(sessions) ? sessions as UnseenSession[] : [];
-      },
-      onUnseen: (listener) =>
-        listen(
-          NOTICE_UNSEEN_CHANNEL,
-          (payload): payload is UnseenSession[] => Array.isArray(payload),
-          listener,
-        ),
-      onToast: (listener) =>
-        listen(
-          NOTICE_TOAST_CHANNEL,
-          (payload): payload is Parameters<typeof listener>[0] =>
-            isRecord(payload) && typeof payload.id === "string",
-          listener,
-        ),
-      onReveal: (listener) =>
-        listen(
-          NOTICE_REVEAL_CHANNEL,
-          (payload): payload is { session: string } =>
-            isRecord(payload) && typeof payload.session === "string",
-          listener,
-        ),
-    } satisfies LophnNoticeApi,
-  );
+  return Object.freeze({
+    visible: async (input) => {
+      await transport.invoke(NOTICE_VISIBLE_CHANNEL, input).catch(() => {});
+    },
+    open: async (target) => {
+      await transport.invoke(NOTICE_OPEN_CHANNEL, target).catch(() => {});
+    },
+    unseen: async () => {
+      const sessions = await transport
+        .invoke(NOTICE_UNSEEN_GET_CHANNEL)
+        .catch(() => []);
+      return Array.isArray(sessions) ? (sessions as UnseenSession[]) : [];
+    },
+    onUnseen: (listener) =>
+      listen(
+        NOTICE_UNSEEN_CHANNEL,
+        (payload): payload is UnseenSession[] => Array.isArray(payload),
+        listener,
+      ),
+    onToast: (listener) =>
+      listen(
+        NOTICE_TOAST_CHANNEL,
+        (payload): payload is Parameters<typeof listener>[0] =>
+          isRecord(payload) && typeof payload.id === "string",
+        listener,
+      ),
+    onReveal: (listener) =>
+      listen(
+        NOTICE_REVEAL_CHANNEL,
+        (payload): payload is { session: string } =>
+          isRecord(payload) && typeof payload.session === "string",
+        listener,
+      ),
+  } satisfies LophnNoticeApi);
 }

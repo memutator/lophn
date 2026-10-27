@@ -3,7 +3,11 @@ import { componentMark } from "../../_shared/shared.ts";
 import styles from "./list.module.css";
 
 export function List({ children }: { children: ReactNode }) {
-  return <ul className={styles.list} {...componentMark("List")}>{children}</ul>;
+  return (
+    <ul className={styles.list} {...componentMark("List")}>
+      {children}
+    </ul>
+  );
 }
 
 export interface ListItemProps {
@@ -28,18 +32,18 @@ export function ListItem({ title, meta, selected, onSelect }: ListItemProps) {
       data-selected={selected || undefined}
       {...componentMark("ListItem")}
     >
-      {onSelect
-        ? (
-          <button
-            type="button"
-            className={styles.body}
-            aria-current={selected ? "true" : undefined}
-            onClick={onSelect}
-          >
-            {body}
-          </button>
-        )
-        : <div className={styles.body}>{body}</div>}
+      {onSelect ? (
+        <button
+          type="button"
+          className={styles.body}
+          aria-current={selected ? "true" : undefined}
+          onClick={onSelect}
+        >
+          {body}
+        </button>
+      ) : (
+        <div className={styles.body}>{body}</div>
+      )}
     </li>
   );
 }

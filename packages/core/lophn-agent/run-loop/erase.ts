@@ -10,9 +10,9 @@ type EraseBlobRefs = (
 
 // session의 turn id다. 다른 concern의 지움이 turn 기준으로 행을 찾을 때 core가 쓴다.
 function sessionTurnIds(tx: Tx, session: string): string[] {
-  return tx.sql.all("select id from turns where session = ?", [session]).map((
-    row,
-  ) => String(row["id"]));
+  return tx.sql
+    .all("select id from turns where session = ?", [session])
+    .map((row) => String(row["id"]));
 }
 
 // session을 delete할 때 그 session의 turn 기록과 turn의 근거·결과 본문 참조를 지운다. 끝난 turn만

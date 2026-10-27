@@ -25,30 +25,28 @@ export function createWindowControlsApi(
 ): WindowControlsApi {
   async function call(action: WindowAction): Promise<WindowControlReply> {
     try {
-      return await transport.invoke(WINDOW_CONTROL_CHANNEL, {
+      return (await transport.invoke(WINDOW_CONTROL_CHANNEL, {
         action,
-      }) as WindowControlReply;
+      })) as WindowControlReply;
     } catch {
       return { ok: false, code: "unavailable" };
     }
   }
-  return Object.freeze(
-    {
-      state: () => call("state"),
-      minimize: () => call("minimize"),
-      toggleMaximize: () => call("toggle-maximize"),
-      close: () => call("close"),
-      subscribe(listener) {
-        const callback = (_event: unknown, payload: unknown) => {
-          const maximized = (payload as { maximized?: unknown } | null)
-            ?.maximized;
-          if (typeof maximized === "boolean") {
-            listener({ maximized } satisfies WindowState);
-          }
-        };
-        transport.on(WINDOW_STATE_CHANNEL, callback);
-        return () => transport.removeListener(WINDOW_STATE_CHANNEL, callback);
-      },
-    } satisfies WindowControlsApi,
-  );
+  return Object.freeze({
+    state: () => call("state"),
+    minimize: () => call("minimize"),
+    toggleMaximize: () => call("toggle-maximize"),
+    close: () => call("close"),
+    subscribe(listener) {
+      const callback = (_event: unknown, payload: unknown) => {
+        const maximized = (payload as { maximized?: unknown } | null)
+          ?.maximized;
+        if (typeof maximized === "boolean") {
+          listener({ maximized } satisfies WindowState);
+        }
+      };
+      transport.on(WINDOW_STATE_CHANNEL, callback);
+      return () => transport.removeListener(WINDOW_STATE_CHANNEL, callback);
+    },
+  } satisfies WindowControlsApi);
 }

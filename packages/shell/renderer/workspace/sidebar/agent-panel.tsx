@@ -23,11 +23,14 @@ interface AgentPanelProps {
   onManage: () => void;
 }
 
-function Group(
-  { group, onAgent, onNewSession, onSession }: {
-    group: AgentGroup;
-  } & Pick<AgentPanelProps, "onAgent" | "onNewSession" | "onSession">,
-) {
+function Group({
+  group,
+  onAgent,
+  onNewSession,
+  onSession,
+}: {
+  group: AgentGroup;
+} & Pick<AgentPanelProps, "onAgent" | "onNewSession" | "onSession">) {
   const { agent, sessions } = group;
   return (
     <li className={styles.agentGroup} data-agent-group={agent.assignment}>
@@ -52,26 +55,28 @@ function Group(
           />
         </span>
       </div>
-      {sessions.length === 0
-        ? null
-        : (
-          <ul className={`${styles.list} ${styles.sessions}`} role="list">
-            {sessions.map((session) => (
-              <SessionItem
-                key={session.id}
-                session={session}
-                onSession={onSession}
-              />
-            ))}
-          </ul>
-        )}
+      {sessions.length === 0 ? null : (
+        <ul className={`${styles.list} ${styles.sessions}`} role="list">
+          {sessions.map((session) => (
+            <SessionItem
+              key={session.id}
+              session={session}
+              onSession={onSession}
+            />
+          ))}
+        </ul>
+      )}
     </li>
   );
 }
 
-export function AgentPanel(
-  { view, onAgent, onNewSession, onSession, onManage }: AgentPanelProps,
-) {
+export function AgentPanel({
+  view,
+  onAgent,
+  onNewSession,
+  onSession,
+  onManage,
+}: AgentPanelProps) {
   const rowProps = { onAgent, onNewSession, onSession };
   return (
     <>
@@ -101,16 +106,14 @@ export function AgentPanel(
           ))}
         </ul>
       </section>
-      {view.runs.length === 0
-        ? null
-        : (
-          <section className={styles.section} data-runs="">
-            <h2 className={styles.sectionLabel}>
-              {t("run-list.heading.background")}
-            </h2>
-            <RunList runs={view.runs} onSession={onSession} />
-          </section>
-        )}
+      {view.runs.length === 0 ? null : (
+        <section className={styles.section} data-runs="">
+          <h2 className={styles.sectionLabel}>
+            {t("run-list.heading.background")}
+          </h2>
+          <RunList runs={view.runs} onSession={onSession} />
+        </section>
+      )}
       <section className={styles.section} data-recent="">
         <h2 className={styles.sectionLabel}>
           {t("project-workspace.label.recent")}

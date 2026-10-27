@@ -75,11 +75,7 @@ const RUNS_SETTLE_CONTEXT: AuthenticatedContext = {
   principal: RUNS_SETTLE_PRINCIPAL,
   actor: "machine",
   scope: {
-    operations: [
-      runCreate.name,
-      runSettle.name,
-      messageRemoveQueued.name,
-    ],
+    operations: [runCreate.name, runSettle.name, messageRemoveQueued.name],
     targets: {},
   },
   conditions: {},
@@ -90,8 +86,8 @@ const runPlaceOf = (place: Place | null): RunPlace | null =>
   place === null
     ? null
     : place.kind === "project"
-    ? { project: place.id }
-    : { app: place.id };
+      ? { project: place.id }
+      : { app: place.id };
 
 const route = (r: { resource: string; method: string }) =>
   `${r.resource}/${r.method}`;
@@ -152,9 +148,8 @@ export const runsWiring: WiringFactory = () => {
               agent,
               place: runPlaceOf(
                 place === undefined
-                  ? deps.operators.operator(
-                    (agent as { agent: string }).agent,
-                  )?.place ?? null
+                  ? (deps.operators.operator((agent as { agent: string }).agent)
+                      ?.place ?? null)
                   : place,
               ),
             });
@@ -234,16 +229,16 @@ export const runsWiring: WiringFactory = () => {
             message: last,
           });
           if (!body.ok) return body;
-          const text = body.value.content.parts.flatMap((part) =>
-            part.kind === "text" ? [part.text] : []
-          ).join("\n");
+          const text = body.value.content.parts
+            .flatMap((part) => (part.kind === "text" ? [part.text] : []))
+            .join("\n");
           // 마지막 응답은 글이 비어도 message로 남는다. 그때 run은 답이 없는 것으로 끝나야 한다.
           return ok(text.trim() === "" ? null : text);
         },
         // turn을 닫은 TurnEnded가 agent runtime의 구독으로 child에 turn_stop을 보낸다.
         // state_seq가 checkpoint로 움직여 compare가 어긋나면 다시 읽어 건다.
         async stop(turn: Id<"trn">) {
-          for (let attempt = 0;; attempt++) {
+          for (let attempt = 0; ; attempt++) {
             const record = await readTurn(turn);
             if (!record.ok) return record;
             if (record.value.turn.state !== "running") return ok(undefined);
@@ -274,9 +269,8 @@ export const runsWiring: WiringFactory = () => {
 
       const tools = {
         resolveApp(app: string) {
-          const found = ledgerSnapshot(
-            ctx.ledgerPath,
-            (lookup) => placeDepsOf(lookup.sql).apps.appByName(app),
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            placeDepsOf(lookup.sql).apps.appByName(app),
           );
           if (!found.ok) return Promise.resolve(found);
           return Promise.resolve(
@@ -318,28 +312,28 @@ export const runsWiring: WiringFactory = () => {
           // 자격의 agent·place는 job을 만든 쪽, instance의 project PM이다.
           return origin === undefined
             ? ctx.appCallPath.call(
-              { ...call, caller: { kind: "person", view_session: run } },
-              { actor: "user" },
-            )
+                { ...call, caller: { kind: "person", view_session: run } },
+                { actor: "user" },
+              )
             : ctx.appCallPath.call(
-              {
-                ...call,
-                caller: {
-                  kind: "program",
-                  job: origin.job,
-                  job_run: origin.job_run,
+                {
+                  ...call,
+                  caller: {
+                    kind: "program",
+                    job: origin.job,
+                    job_run: origin.job_run,
+                  },
                 },
-              },
-              {
-                actor: "program",
-                program: {
-                  job: origin.job,
-                  job_run: origin.job_run,
-                  agent: origin.creator,
-                  place: origin.creator_place,
+                {
+                  actor: "program",
+                  program: {
+                    job: origin.job,
+                    job_run: origin.job_run,
+                    agent: origin.creator,
+                    place: origin.creator_place,
+                  },
                 },
-              },
-            );
+              );
         },
       };
 
@@ -391,20 +385,19 @@ export const runsWiring: WiringFactory = () => {
       });
       service = built;
       ctx.provide("runService", built);
-      const handler = (
-        call: (input: never) => Promise<Result<RunRecord>>,
-      ): MemoryHandler =>
-      async (_who, input) => {
-        const done = await call(input as never);
-        return done.ok ? ok({ run: done.value }) : done;
-      };
+      const handler =
+        (call: (input: never) => Promise<Result<RunRecord>>): MemoryHandler =>
+        async (_who, input) => {
+          const done = await call(input as never);
+          return done.ok ? ok({ run: done.value }) : done;
+        };
       return ok({
         memory: [
           [route(runStart), handler((i) => built.start(i))],
           [
             route(runWait),
             handler((i: { run: Id<"run">; timeout_ms: number }) =>
-              built.wait(i.run, i.timeout_ms)
+              built.wait(i.run, i.timeout_ms),
             ),
           ],
           [

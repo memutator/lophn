@@ -29,36 +29,39 @@ export const runtimeReasonSchema = z.object(runtimeReasonFields);
 export type RuntimeReason = z.infer<typeof runtimeReasonSchema>;
 
 // 화면 상태 projection. ledger에 저장하지 않는다.
-const runtimeStateSchema = z.object({
-  state: runtimeStateValueSchema,
-  termination_pending: z.boolean(),
-  reason: runtimeReasonSchema.optional(),
-}).refine(
-  (value) => value.state !== "unavailable" || value.reason !== undefined,
-  { message: "unavailable state needs a reason" },
-);
+const runtimeStateSchema = z
+  .object({
+    state: runtimeStateValueSchema,
+    termination_pending: z.boolean(),
+    reason: runtimeReasonSchema.optional(),
+  })
+  .refine(
+    (value) => value.state !== "unavailable" || value.reason !== undefined,
+    { message: "unavailable state needs a reason" },
+  );
 export type RuntimeState = z.infer<typeof runtimeStateSchema>;
 
 const RUNTIME_MODES = ["live", "preview"] as const;
 
 // 현재 supervisor 연결의 메모리 값. 관측이 없으면 null이다.
 // live는 release가 필수이고, ready가 아니면 reason이 필수다.
-const runtimeObservationSchema = z.object({
-  app: appIdSchema,
-  release: releaseIdSchema.nullable(),
-  mode: z.enum(RUNTIME_MODES),
-  process_nonce: z.string().min(1),
-  endpoint: z.string().min(1).nullable(),
-  ready: z.boolean(),
-  accepting: z.boolean(),
-  reason: runtimeReasonSchema.optional(),
-}).refine(
-  (value) => value.mode !== "live" || value.release !== null,
-  { message: "live observation needs a release" },
-).refine(
-  (value) => value.ready || value.reason !== undefined,
-  { message: "observation that is not ready needs a reason" },
-);
+const runtimeObservationSchema = z
+  .object({
+    app: appIdSchema,
+    release: releaseIdSchema.nullable(),
+    mode: z.enum(RUNTIME_MODES),
+    process_nonce: z.string().min(1),
+    endpoint: z.string().min(1).nullable(),
+    ready: z.boolean(),
+    accepting: z.boolean(),
+    reason: runtimeReasonSchema.optional(),
+  })
+  .refine((value) => value.mode !== "live" || value.release !== null, {
+    message: "live observation needs a release",
+  })
+  .refine((value) => value.ready || value.reason !== undefined, {
+    message: "observation that is not ready needs a reason",
+  });
 export type RuntimeObservation = z.infer<typeof runtimeObservationSchema>;
 
 const readyAttestationFields = {
@@ -104,21 +107,23 @@ const observationIdentity = {
   started_at: atSchema.optional(),
 };
 
-export const appRecordStartedInputSchema = z.strictObject({
-  app: appIdSchema,
-  ...observationIdentity,
-  attestation: readyAttestationInputSchema.refine(
-    (value) => value.release !== null,
-    { message: "AppStarted needs a live release" },
-  ),
-  // 앱 시작이 DB를 바꿨을 때의 changeset(base64). 앱 시작 invocation에 붙는다.
-  start_changeset: z.string().nullable().optional(),
-}).refine(
-  (value) =>
-    value.process_nonce === value.attestation.process_nonce &&
-    value.started_at !== undefined,
-  { message: "started observation needs its child identity" },
-);
+export const appRecordStartedInputSchema = z
+  .strictObject({
+    app: appIdSchema,
+    ...observationIdentity,
+    attestation: readyAttestationInputSchema.refine(
+      (value) => value.release !== null,
+      { message: "AppStarted needs a live release" },
+    ),
+    // 앱 시작이 DB를 바꿨을 때의 changeset(base64). 앱 시작 invocation에 붙는다.
+    start_changeset: z.string().nullable().optional(),
+  })
+  .refine(
+    (value) =>
+      value.process_nonce === value.attestation.process_nonce &&
+      value.started_at !== undefined,
+    { message: "started observation needs its child identity" },
+  );
 const appRecordStoppedInputSchema = z.strictObject({
   app: appIdSchema,
   release: releaseIdSchema,
@@ -176,12 +181,14 @@ export const appRuntime = defineRead({
   method: "runtime",
   name: "app.runtime",
   input: appInputSchema,
-  output: withReadCommon(z.object({
-    app: appIdSchema,
-    state: runtimeStateSchema,
-    observation: runtimeObservationSchema.nullable(),
-    observed_at: atSchema.nullable(),
-  })),
+  output: withReadCommon(
+    z.object({
+      app: appIdSchema,
+      state: runtimeStateSchema,
+      observation: runtimeObservationSchema.nullable(),
+      observed_at: atSchema.nullable(),
+    }),
+  ),
   // machine은 agent runtime이 사람 허락 뒤 재검사할 때 프로세스 nonce를 읽는다.
   // 그 순간 run은 waiting_user라 agent credential이 없다.
   actors: [...readActors, "machine"],

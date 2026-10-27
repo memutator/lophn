@@ -55,9 +55,9 @@ function parseErrors(stderr: string, folder: string): string[] {
   }
   return cleaned.length > MAX_ERRORS
     ? [
-      ...cleaned.slice(0, MAX_ERRORS),
-      `… and ${cleaned.length - MAX_ERRORS} more`,
-    ]
+        ...cleaned.slice(0, MAX_ERRORS),
+        `… and ${cleaned.length - MAX_ERRORS} more`,
+      ]
     : cleaned;
 }
 
@@ -85,7 +85,9 @@ function runCheck(
     const timer = setTimeout(() => {
       try {
         child.kill("SIGTERM");
-      } catch { /* 이미 끝났다 */ }
+      } catch {
+        /* 이미 끝났다 */
+      }
     }, LIMIT_MS);
     child.stderr!.on("data", (chunk: Uint8Array) => {
       stderr += decoder.decode(chunk, { stream: true });
@@ -101,8 +103,9 @@ function runCheck(
 
 export function checkWorkflow(deps: CheckWorkflowDeps): MemoryHandler {
   return async (_ctx, raw) => {
-    const [projectRef, name] = (raw as { workflow: string }).workflow
-      .split("/");
+    const [projectRef, name] = (raw as { workflow: string }).workflow.split(
+      "/",
+    );
     const project = await deps.resolveProject(projectRef!);
     if (!project.ok) return project;
     const folder = workflowFolder(deps.dataRoot, project.value.id, name!);
@@ -120,8 +123,7 @@ export function checkWorkflow(deps: CheckWorkflowDeps): MemoryHandler {
         JSON.stringify(
           devImportMap(
             {
-              [FLOW_SDK_NAME]:
-                `lophn-sdk:${FLOW_SDK_NAME}@${FLOW_SDK_VERSION}/mod.ts`,
+              [FLOW_SDK_NAME]: `lophn-sdk:${FLOW_SDK_NAME}@${FLOW_SDK_VERSION}/mod.ts`,
             },
             deps.dataRoot,
             deps.dataRoot,
@@ -132,16 +134,19 @@ export function checkWorkflow(deps: CheckWorkflowDeps): MemoryHandler {
       try {
         // deno check는 권한 flag를 받지 않는다. code를 실행하지 않으니 필요 없고, 원격·npm import와 config와
         // lock을 꺼서 SDK를 import map으로만 푼다.
-        output = await runCheck([
-          "check",
-          "--no-config",
-          "--no-remote",
-          "--no-npm",
-          "--cached-only",
-          "--no-lock",
-          `--import-map=${mapPath}`,
-          flowPath,
-        ], folder);
+        output = await runCheck(
+          [
+            "check",
+            "--no-config",
+            "--no-remote",
+            "--no-npm",
+            "--cached-only",
+            "--no-lock",
+            `--import-map=${mapPath}`,
+            flowPath,
+          ],
+          folder,
+        );
       } catch {
         return err({
           code: "unavailable",

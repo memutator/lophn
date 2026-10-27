@@ -30,9 +30,12 @@ export interface SelectProps {
 }
 
 // 열고 닫기·키보드 선택·focus 복귀는 Radix Select가 맡는다.
-export function Select(
-  { options, placeholder, size = "md", ...state }: SelectProps,
-) {
+export function Select({
+  options,
+  placeholder,
+  size = "md",
+  ...state
+}: SelectProps) {
   const field = useField("Select");
   return (
     <Radix.Root {...state}>

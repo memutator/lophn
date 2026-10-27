@@ -41,9 +41,8 @@ export function createRunReads(): {
         return ok({
           runs: page,
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: loaded.value.length > PAGE
-            ? page[page.length - 1]!.id
-            : null,
+          next_cursor:
+            loaded.value.length > PAGE ? page[page.length - 1]!.id : null,
         });
       },
     },

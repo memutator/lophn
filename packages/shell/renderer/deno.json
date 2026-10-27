@@ -28,11 +28,7 @@
     "jsx": "react-jsx",
     "jsxImportSource": "react",
     "jsxImportSourceTypes": "@types/react",
-    "lib": [
-      "ES2023",
-      "DOM",
-      "deno.ns"
-    ]
+    "lib": ["ES2023", "DOM", "deno.ns"]
   },
   "tasks": {
     "build": "deno run --allow-read --allow-write --allow-run --allow-env build.ts"

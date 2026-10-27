@@ -31,10 +31,13 @@ export function scopeWithin(
   scope: CredentialScope,
   ceiling: CredentialScope,
 ): boolean {
-  return scope.operations.every((name) => ceiling.operations.includes(name)) &&
-    Object.entries(ceiling.targets).every(([key, limit]) =>
-      Object.hasOwn(scope.targets, key) && matches(limit, scope.targets[key])
-    );
+  return (
+    scope.operations.every((name) => ceiling.operations.includes(name)) &&
+    Object.entries(ceiling.targets).every(
+      ([key, limit]) =>
+        Object.hasOwn(scope.targets, key) && matches(limit, scope.targets[key]),
+    )
+  );
 }
 
 export function intersectScope(
@@ -50,7 +53,7 @@ export function intersectScope(
       const left = Array.isArray(targets[key]) ? targets[key] : [targets[key]];
       const right = Array.isArray(limit) ? limit : [limit];
       const common = left.filter((item) =>
-        right.some((other) => same(item, other))
+        right.some((other) => same(item, other)),
       );
       targets[key] = common;
       disjoint ||= common.length === 0;
@@ -72,18 +75,21 @@ export function operationCeiling(
 ): string[] {
   const parts = parseActor(actor);
   if (!parts) return [];
-  return policies.filter((policy) =>
-    policy.actors.includes(parts.kind) &&
-    (parts.kind !== "machine" || policy.kind === "command")
-  ).map((policy) => policy.name);
+  return policies
+    .filter(
+      (policy) =>
+        policy.actors.includes(parts.kind) &&
+        (parts.kind !== "machine" || policy.kind === "command"),
+    )
+    .map((policy) => policy.name);
 }
 
 export function conditionsMatch(
   initial: CredentialConditions,
   current: CredentialConditions,
 ): boolean {
-  return Object.entries(current).every(([key, value]) =>
-    initial[key as keyof CredentialConditions] === value
+  return Object.entries(current).every(
+    ([key, value]) => initial[key as keyof CredentialConditions] === value,
   );
 }
 
@@ -129,9 +135,11 @@ export function authorize(
   for (const key of Object.keys(ctx.scope.targets)) {
     // 고정 조건이 아닌 domain key는 owner가 판정한다. __proto__ own key는 gate가 거절한다.
     if (
-      options?.domain === "skip" && key !== "__proto__" &&
+      options?.domain === "skip" &&
+      key !== "__proto__" &&
       !(CONDITION_TARGET_KEYS as readonly string[]).includes(key)
-    ) continue;
+    )
+      continue;
     const limit = ctx.scope.targets[key];
     if (!Object.hasOwn(target, key) || !matches(limit, target[key])) {
       return err({ code: "forbidden", message: "target forbidden" });
@@ -139,7 +147,8 @@ export function authorize(
   }
   for (const key of CONDITION_TARGET_KEYS) {
     if (
-      ctx.conditions[key] !== undefined && target[key] !== undefined &&
+      ctx.conditions[key] !== undefined &&
+      target[key] !== undefined &&
       ctx.conditions[key] !== target[key]
     ) {
       return err({ code: "forbidden", message: "condition forbidden" });

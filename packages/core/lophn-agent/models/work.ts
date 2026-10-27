@@ -221,9 +221,8 @@ export function createCatalogRefresher(
     }
     const nowMs = input.clock.nowMs();
     // servable catalog가 있을 때만 조건부 GET을 보낸다. 없으면 ETag 없이 받는다.
-    const etag = current.value.entries.length > 0
-      ? current.value.state.etag
-      : null;
+    const etag =
+      current.value.entries.length > 0 ? current.value.state.etag : null;
     const result = await fetchCatalog(etag, input.fetch);
     if (result.kind === "unchanged") {
       const next = stateAfterChecked(current.value.state, nowMs);
@@ -306,14 +305,12 @@ export function createCatalogRefresher(
 }
 
 // 갱신 시점 판정(24시간). 마지막 확인이 없으면 갱신한다.
-function refreshDueAt(
-  state: CatalogState,
-  nowMs: number,
-): boolean {
+function refreshDueAt(state: CatalogState, nowMs: number): boolean {
   if (!state.auto_update) return false;
   if (state.last_checked_at === null) return true;
-  return nowMs - Date.parse(state.last_checked_at) >=
-    CATALOG_REFRESH_INTERVAL_MS;
+  return (
+    nowMs - Date.parse(state.last_checked_at) >= CATALOG_REFRESH_INTERVAL_MS
+  );
 }
 
 // read 응답 한도(READ_MAX_ROWS 500) 안에 두는 한 page의 row 예산이다. 중첩 배열의 항목도 row로 센다.
@@ -356,7 +353,8 @@ export function createCatalogRead(
     ): Result<Output<typeof modelCatalogRead>> {
       const actor = parseActor(ctx.actor);
       if (
-        actor === undefined || !modelCatalogRead.actors.includes(actor.kind)
+        actor === undefined ||
+        !modelCatalogRead.actors.includes(actor.kind)
       ) {
         return err({
           code: "forbidden",
@@ -382,23 +380,25 @@ export function createCatalogRead(
       // user 층이 같은 열쇠의 항목을 이긴다. 나머지 항목의 순서는 그대로 둔다(cursor가 위치다).
       const typed = deps.userEntries(snapshot.sql);
       const typedKeys = new Set(
-        typed.map((entry) =>
-          `${entry.provider_definition}\u0000${entry.model_name}`
+        typed.map(
+          (entry) => `${entry.provider_definition}\u0000${entry.model_name}`,
         ),
       );
       const merged = [
-        ...catalog.filter((entry) =>
-          !typedKeys.has(
-            `${entry.provider_definition}\u0000${entry.model_name}`,
-          )
+        ...catalog.filter(
+          (entry) =>
+            !typedKeys.has(
+              `${entry.provider_definition}\u0000${entry.model_name}`,
+            ),
         ),
         ...typed,
       ];
-      const visible = merged.filter((entry) =>
-        (input.provider_definition === undefined ||
-          entry.provider_definition === input.provider_definition) &&
-        (input.model_name === undefined ||
-          entry.model_name === input.model_name)
+      const visible = merged.filter(
+        (entry) =>
+          (input.provider_definition === undefined ||
+            entry.provider_definition === input.provider_definition) &&
+          (input.model_name === undefined ||
+            entry.model_name === input.model_name),
       );
       // catalog 전체는 read 응답 한도(500 row)를 크게 넘으므로 항목을 row 예산만큼 끊어 cursor로 잇는다.
       // cursor는 필터를 거친 목록의 위치다. 필터는 매 요청이 같이 보낸다.

@@ -28,7 +28,7 @@ test("정의 읽기의 model 출처는 agent, project, global 순서다", () => 
       skills: () => [],
       mcp: () => [],
       modelDefault: () => choice("global-model"),
-      projectModel: (place) => place?.kind === "project" ? project : null,
+      projectModel: (place) => (place?.kind === "project" ? project : null),
     };
     const files: AgentFileSystem = {
       read: () => agentFile,
@@ -55,18 +55,18 @@ test("정의 읽기의 model 출처는 agent, project, global 순서다", () => 
   const own =
     "---\nmodel:\n  provider: pvd_00000000000000000000000000\n  model_name: agent-model\n  option_values: {}\n---\nbody\n";
   const agent = read(own, choice("project-model"));
-  assert.deepEqual([agent?.value.model_name, agent?.source], [
-    "agent-model",
-    "agent",
-  ]);
+  assert.deepEqual(
+    [agent?.value.model_name, agent?.source],
+    ["agent-model", "agent"],
+  );
   const project = read(null, choice("project-model"));
-  assert.deepEqual([project?.value.model_name, project?.source], [
-    "project-model",
-    "project",
-  ]);
+  assert.deepEqual(
+    [project?.value.model_name, project?.source],
+    ["project-model", "project"],
+  );
   const global = read(null, null);
-  assert.deepEqual([global?.value.model_name, global?.source], [
-    "global-model",
-    "global",
-  ]);
+  assert.deepEqual(
+    [global?.value.model_name, global?.source],
+    ["global-model", "global"],
+  );
 });

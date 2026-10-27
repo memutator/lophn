@@ -115,7 +115,8 @@ export function installAnnotate(transport: AnnotateTransport): void {
       if (drag !== null) {
         const box = boxBetween(drag.x, drag.y, p);
         if (
-          drag.box !== null || Math.max(box.width, box.height) >= DRAG_THRESHOLD
+          drag.box !== null ||
+          Math.max(box.width, box.height) >= DRAG_THRESHOLD
         ) {
           drag.box = box;
           overlay.hover(null);
@@ -172,7 +173,7 @@ export function installAnnotate(transport: AnnotateTransport): void {
 
   const frames = () =>
     new Promise<void>((done) =>
-      requestAnimationFrame(() => requestAnimationFrame(() => done()))
+      requestAnimationFrame(() => requestAnimationFrame(() => done())),
     );
 
   // 보낼 때 main이 부른다. mode가 꺼져 있어도 그 annotation만 그려 자를 범위를 알려 준다.

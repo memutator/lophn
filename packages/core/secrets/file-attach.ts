@@ -37,8 +37,10 @@ const PROVIDER_OAUTH_PREFIX = "provider-oauth.";
 // 앞머리가 정하는 용도다. 어느 호출에도 보내지 않는 이름은 undefined다.
 function purposeOf(name: string): SecretPurpose | undefined {
   if (
-    name.startsWith(APP_OAUTH_PREFIX) || name.startsWith(PROVIDER_OAUTH_PREFIX)
-  ) return undefined;
+    name.startsWith(APP_OAUTH_PREFIX) ||
+    name.startsWith(PROVIDER_OAUTH_PREFIX)
+  )
+    return undefined;
   if (name.startsWith("provider.")) return "provider_credential";
   if (name.startsWith("mcp.") || name.startsWith("mcp-oauth.")) {
     return "external_mcp_credential";
@@ -96,8 +98,10 @@ function sameDestination(
   allowed: SecretDestination,
   next: SecretDestination,
 ): boolean {
-  return allowed.kind === next.kind &&
-    new URL(allowed.origin).host === new URL(next.origin).host;
+  return (
+    allowed.kind === next.kind &&
+    new URL(allowed.origin).host === new URL(next.origin).host
+  );
 }
 
 function admit(context: AuthenticatedContext): Result<void> {

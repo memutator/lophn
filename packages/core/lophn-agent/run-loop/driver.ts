@@ -101,10 +101,11 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
       }
       const first = await deps.source.began(start.session);
       const credential: AgentTurnCredential = begun.value.credential;
-      const { provider, deps: loopDeps, input } = turn.loop(
-        credential,
-        inputsOf(start.session, first),
-      );
+      const {
+        provider,
+        deps: loopDeps,
+        input,
+      } = turn.loop(credential, inputsOf(start.session, first));
       const handle = startTurnLoop(loopDeps, input);
       active.set(turn.turn, {
         session: start.session,

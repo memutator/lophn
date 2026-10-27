@@ -91,9 +91,9 @@ async function skillNames(root: string): Promise<string[]> {
   const names: string[] = [];
   for (const base of SKILL_ROOTS) {
     try {
-      for (
-        const e of await readdir(`${root}/${base}`, { withFileTypes: true })
-      ) {
+      for (const e of await readdir(`${root}/${base}`, {
+        withFileTypes: true,
+      })) {
         if (e.isDirectory()) names.push(e.name);
       }
     } catch (e) {
@@ -202,10 +202,7 @@ export async function currentVersions(
   );
   const versions = new Map<string, VersionRef>();
   for (const m of measured) {
-    versions.set(
-      `${m.kind}:${m.name}`,
-      (await resolveVersion(dir, m)).ref,
-    );
+    versions.set(`${m.kind}:${m.name}`, (await resolveVersion(dir, m)).ref);
   }
   const core = await coreVersion(deps);
   const checks = await checksVersion(deps);
@@ -215,9 +212,7 @@ export async function currentVersions(
 }
 
 // 성공한 skill.read가 연 이름. guide도 `guide-<topic>` skill이라 여기 든다. 중복 없이.
-export function openedOf(
-  toolCalls: CollectedToolCall[],
-): { skills: string[] } {
+export function openedOf(toolCalls: CollectedToolCall[]): { skills: string[] } {
   const skills = new Set<string>();
   for (const c of toolCalls) {
     if (c.call.outcome?.kind !== "success") continue;
@@ -235,8 +230,11 @@ type Body = { model: string; system: Block[]; tools: { name?: unknown }[] };
 function bodyOf(request: unknown): Body {
   const b = request as Partial<Body> | null;
   if (
-    b === null || typeof b !== "object" || typeof b.model !== "string" ||
-    !Array.isArray(b.system) || !Array.isArray(b.tools)
+    b === null ||
+    typeof b !== "object" ||
+    typeof b.model !== "string" ||
+    !Array.isArray(b.system) ||
+    !Array.isArray(b.tools)
   ) {
     throw new InvalidInput("model call request is not an Anthropic body");
   }
@@ -253,7 +251,8 @@ export async function seenComponents(
 ): Promise<Result<VersionRef[]>> {
   const root = deps.root ?? REPO_ROOT;
   const dir = deps.registryDir ?? REGISTRY_DIR;
-  const calls = sessions.flatMap((s) => s.model_calls)
+  const calls = sessions
+    .flatMap((s) => s.model_calls)
     .filter((c) => c.call.purpose === "judgment");
   if (calls.length === 0) return ok([]);
   try {
@@ -273,9 +272,8 @@ export async function seenComponents(
       const body = bodyOf(c.request);
       add(await measureModel(body.model));
       const first = body.system[0]?.text;
-      const role = typeof first === "string"
-        ? roleByText.get(first)
-        : undefined;
+      const role =
+        typeof first === "string" ? roleByText.get(first) : undefined;
       if (role === undefined) {
         throw new InvalidInput(
           `system[0] matches no role prompt: ${String(first).slice(0, 80)}`,
@@ -292,12 +290,14 @@ export async function seenComponents(
         }
         add({ kind: "tool", name, hash: file.hash });
       }
-      const skills = body.system.map((b) => b.text).find((t): t is string =>
-        typeof t === "string" && t.startsWith("# Skills")
-      );
+      const skills = body.system
+        .map((b) => b.text)
+        .find(
+          (t): t is string => typeof t === "string" && t.startsWith("# Skills"),
+        );
       for (const line of skills?.split("\n").slice(2) ?? []) {
         const m = /^- ([^:]+): (.*)$/.exec(line);
-        if (m === null || await skillFolder(root, m[1]) === null) continue;
+        if (m === null || (await skillFolder(root, m[1])) === null) continue;
         add(await measureSkillDescription(m[1], m[2]));
       }
     }

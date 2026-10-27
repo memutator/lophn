@@ -79,7 +79,8 @@ export function createIoScheduler(): IoScheduler {
         return err({ code: "invalid_input" as const, message: "invalid job" });
       }
       if (
-        closed || queued >= IO_QUEUE_LIMIT ||
+        closed ||
+        queued >= IO_QUEUE_LIMIT ||
         (counts.get(principal) ?? 0) >= IO_PRINCIPAL_LIMIT
       ) {
         return err({
@@ -89,7 +90,7 @@ export function createIoScheduler(): IoScheduler {
       }
       let settle: (value: Result<T>) => void = () => {};
       let settled = false;
-      const result = new Promise<Result<T>>((resolve) => settle = resolve);
+      const result = new Promise<Result<T>>((resolve) => (settle = resolve));
       function finish(value: Result<T>) {
         if (settled) return;
         settled = true;

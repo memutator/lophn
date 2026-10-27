@@ -57,6 +57,5 @@ export type CodingTransport = {
   stop(tx: Tx, input: { call: CallId }): Result<void>;
   lines(): readonly CodingAppLine[];
 };
-export const CodingTransport: PortKey<CodingTransport> = definePort<
-  CodingTransport
->("CodingTransport");
+export const CodingTransport: PortKey<CodingTransport> =
+  definePort<CodingTransport>("CodingTransport");

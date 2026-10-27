@@ -33,9 +33,12 @@ export function readHost(): StoreHost | undefined {
   if (!port || typeof port !== "object") return;
   const candidate = port as Partial<StoreHost>;
   if (
-    typeof candidate.dataPath !== "string" || candidate.dataPath.length === 0 ||
-    (candidate.mode !== "live" && candidate.mode !== "preview" &&
+    typeof candidate.dataPath !== "string" ||
+    candidate.dataPath.length === 0 ||
+    (candidate.mode !== "live" &&
+      candidate.mode !== "preview" &&
       candidate.mode !== "test")
-  ) return;
+  )
+    return;
   return candidate as StoreHost;
 }

@@ -44,13 +44,16 @@ export function jobFromRow(
     missed_policy: row.missed_policy,
     enabled: Number(row.enabled) === 1,
     next_due_at: row.next_due_at,
-    last_run: lastRun === null ? null : {
-      job_run: lastRun.id,
-      state: lastRun.state,
-      due_at: lastRun.due_at,
-      started_at: lastRun.started_at,
-      ended_at: lastRun.ended_at,
-    },
+    last_run:
+      lastRun === null
+        ? null
+        : {
+            job_run: lastRun.id,
+            state: lastRun.state,
+            due_at: lastRun.due_at,
+            started_at: lastRun.started_at,
+            ended_at: lastRun.ended_at,
+          },
     created_at: row.created_at,
     updated_at: row.updated_at,
   });
@@ -71,9 +74,10 @@ function creatorFromRow(row: Record<string, unknown>): unknown {
 }
 
 // creatorFromRow와 짝이다. Operator는 job을 만들지 못하므로 표에 넣으면 CHECK가 막는다.
-export function creatorColumns(
-  ref: AgentRef,
-): { creator_role: string; creator_id: string | null } {
+export function creatorColumns(ref: AgentRef): {
+  creator_role: string;
+  creator_id: string | null;
+} {
   switch (ref.role) {
     case "lophn":
       return { creator_role: "lophn", creator_id: null };

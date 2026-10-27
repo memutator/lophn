@@ -4,12 +4,14 @@ import { idSchema } from "./ids.ts";
 
 // actor 문자열의 모양만 정한다. 인증은 core의 몫이다.
 function prefixed(kind: string, id: z.ZodType<string>) {
-  return z.string().refine(
-    (value) =>
-      value.startsWith(`${kind}:`) &&
-      id.safeParse(value.slice(kind.length + 1)).success,
-    { message: "invalid actor" },
-  );
+  return z
+    .string()
+    .refine(
+      (value) =>
+        value.startsWith(`${kind}:`) &&
+        id.safeParse(value.slice(kind.length + 1)).success,
+      { message: "invalid actor" },
+    );
 }
 
 // coding agent는 옛 연결(`cac`)과 coding session(`ses`) 두 꼴의 principal을 쓴다.

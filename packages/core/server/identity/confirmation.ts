@@ -149,10 +149,10 @@ export class ConfirmationRegistry {
 function base64url(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll(
-    "=",
-    "",
-  );
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
 }
 
 // 대상·내용은 발급 때 고정한 문자열 그대로다. 다른 모양은 다른 대상이다.

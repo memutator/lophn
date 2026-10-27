@@ -23,21 +23,24 @@ function faceOf(
   agent: CallAgent | null,
   kind: CardView["kind"],
 ): AvatarProfile {
-  const icon = agent !== null
-    ? FACES[agent.role]
-    : kind === "activation"
-    ? "apps"
-    : "dock";
+  const icon =
+    agent !== null
+      ? FACES[agent.role]
+      : kind === "activation"
+        ? "apps"
+        : "dock";
   return { kind: "icon", icon };
 }
 
-export function Head(
-  { view, agent, toggle }: {
-    view: CardView;
-    agent: CallAgent | null;
-    toggle?: { open: boolean; onToggle: () => void };
-  },
-) {
+export function Head({
+  view,
+  agent,
+  toggle,
+}: {
+  view: CardView;
+  agent: CallAgent | null;
+  toggle?: { open: boolean; onToggle: () => void };
+}) {
   return (
     <div className={styles.who}>
       <span className={styles.face}>
@@ -50,12 +53,16 @@ export function Head(
       </div>
       <div className={styles.side}>
         <span className={styles.age}>{view.age}</span>
-        {toggle === undefined ? <span className={styles.slot} /> : (
+        {toggle === undefined ? (
+          <span className={styles.slot} />
+        ) : (
           <IconButton
             icon={toggle.open ? commonIcons.collapse : commonIcons.expand}
-            label={toggle.open
-              ? t("waiting.label.hide-details")
-              : t("waiting.label.show-details")}
+            label={
+              toggle.open
+                ? t("waiting.label.hide-details")
+                : t("waiting.label.show-details")
+            }
             size="sm"
             aria-expanded={toggle.open}
             onClick={toggle.onToggle}

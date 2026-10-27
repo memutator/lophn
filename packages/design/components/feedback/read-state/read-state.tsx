@@ -36,39 +36,35 @@ export function isStale({ updatedAt, now, staleAfterMs }: Freshness): boolean {
 
 // 읽기 결과의 loading(300ms 뒤 skeleton) → error → empty → 내용 중 하나만 그리고, 오래된 내용에는
 // 마지막 갱신의 나이를 붙인다.
-export function ReadState(
-  {
-    loading = false,
-    failed,
-    onRetry,
-    isEmpty,
-    empty,
-    freshness,
-    placeholder = <Skeleton lines={3} />,
-    timer,
-    children,
-  }: ReadStateProps,
-) {
+export function ReadState({
+  loading = false,
+  failed,
+  onRetry,
+  isEmpty,
+  empty,
+  freshness,
+  placeholder = <Skeleton lines={3} />,
+  timer,
+  children,
+}: ReadStateProps) {
   return (
     <Loading loading={loading} placeholder={placeholder} timer={timer}>
-      {failed !== undefined
-        ? <ErrorState target={failed} onRetry={onRetry} />
-        : isEmpty
-        ? (
-          <EmptyState
-            icon={empty.icon ?? Inbox}
-            message={empty.message}
-            action={empty.action}
-          />
-        )
-        : (
-          <div className={styles.content} {...componentMark("ReadState")}>
-            {freshness && isStale(freshness) && (
-              <StaleNote updatedAt={freshness.updatedAt} now={freshness.now} />
-            )}
-            {children}
-          </div>
-        )}
+      {failed !== undefined ? (
+        <ErrorState target={failed} onRetry={onRetry} />
+      ) : isEmpty ? (
+        <EmptyState
+          icon={empty.icon ?? Inbox}
+          message={empty.message}
+          action={empty.action}
+        />
+      ) : (
+        <div className={styles.content} {...componentMark("ReadState")}>
+          {freshness && isStale(freshness) && (
+            <StaleNote updatedAt={freshness.updatedAt} now={freshness.now} />
+          )}
+          {children}
+        </div>
+      )}
     </Loading>
   );
 }

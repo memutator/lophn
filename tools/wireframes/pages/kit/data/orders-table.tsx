@@ -32,16 +32,20 @@ export const ORDER_COLUMNS: readonly TableColumn<Order>[] = [
   },
 ];
 
-export function OrdersTable(
-  { orders, now, loading, failed, reload }: {
-    orders: readonly Order[];
-    // 상대 시각의 기준은 앱의 clock에서 받는다.
-    now: Date;
-    loading: boolean;
-    failed: boolean;
-    reload: () => void;
-  },
-) {
+export function OrdersTable({
+  orders,
+  now,
+  loading,
+  failed,
+  reload,
+}: {
+  orders: readonly Order[];
+  // 상대 시각의 기준은 앱의 clock에서 받는다.
+  now: Date;
+  loading: boolean;
+  failed: boolean;
+  reload: () => void;
+}) {
   return (
     <DataTable
       columns={ORDER_COLUMNS}

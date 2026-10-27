@@ -30,11 +30,12 @@ export function placeScope(facts: PlaceFacts): FolderScope {
   }
   if (place === null) return { read: [], write: [] };
   // 사람의 폴더(project 폴더, 앱 source)가 domain 폴더보다 앞에 남는다. 상대 path의 기준이 첫 폴더라서다.
-  const own = place.kind === "project"
-    ? [...facts.projectFolders]
-    : facts.appSource === null
-    ? []
-    : [facts.appSource];
+  const own =
+    place.kind === "project"
+      ? [...facts.projectFolders]
+      : facts.appSource === null
+        ? []
+        : [facts.appSource];
   const withBase = (read: string[], write: string[]): FolderScope => {
     const base = own[0] ?? facts.dataFolder ?? undefined;
     return { read, write, ...(base === undefined ? {} : { base }) };
@@ -48,9 +49,8 @@ export function placeScope(facts: PlaceFacts): FolderScope {
   ) {
     const folders = [...own, ...domainFolders];
     // workflows/는 그 project의 PM만 읽고 쓴다. 이 분기가 규칙의 유일한 자리다. facts에는 role과 상관없이 채워진다.
-    if (
-      role === "project_manager" && facts.workflowsFolder !== null
-    ) folders.push(facts.workflowsFolder);
+    if (role === "project_manager" && facts.workflowsFolder !== null)
+      folders.push(facts.workflowsFolder);
     return withBase(folders, [...folders]);
   }
   // Operator는 domain의 `artifacts/`만 쓴다. DOMAIN.md·kinds.yaml·skills/는 열지 않는다. project의 폴더는 쓰고

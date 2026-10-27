@@ -24,12 +24,12 @@ type CodingLaunch = {
 
 type PrepareContext = {
   env: Readonly<Record<string, string | undefined>>;
-  checkFolder: (
-    path: string,
-  ) => { ok: true; path: string } | {
-    ok: false;
-    reason: "not_directory" | "unreadable";
-  };
+  checkFolder: (path: string) =>
+    | { ok: true; path: string }
+    | {
+        ok: false;
+        reason: "not_directory" | "unreadable";
+      };
 };
 
 type PrepareResult =

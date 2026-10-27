@@ -167,9 +167,8 @@ test("E2E core 재시작 직전에 받아 turn을 열지 못한 사람 message�
     });
 
     await say(core, session, "first request");
-    await until(
-      "첫 model 요청이 도착함",
-      () => Promise.resolve(fake.journal().length >= 1 ? true : undefined),
+    await until("첫 model 요청이 도착함", () =>
+      Promise.resolve(fake.journal().length >= 1 ? true : undefined),
     );
     // turn이 도는 중이라 입력함에만 쌓인다.
     const queued = (await say(core, session, "queued request")).message;

@@ -51,16 +51,20 @@ export function projection(
       : base;
   }
   if (base.state !== "unavailable") return base;
-  const current = observation !== null && observation.mode === "live" &&
+  const current =
+    observation !== null &&
+    observation.mode === "live" &&
     observation.release === app.active_release;
   if (!current) return base;
   if (observation.ready && observation.accepting) {
     return { state: "running", termination_pending: false };
   }
   // ready=false 관측은 contract가 reason을 필수로 한다. 그 근거를 그대로 보인다.
-  return observation.reason === undefined ? base : {
-    state: "unavailable",
-    termination_pending: false,
-    reason: observation.reason,
-  };
+  return observation.reason === undefined
+    ? base
+    : {
+        state: "unavailable",
+        termination_pending: false,
+        reason: observation.reason,
+      };
 }

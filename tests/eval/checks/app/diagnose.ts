@@ -36,10 +36,15 @@ export function diagnosisChecks(spec: DiagnoseSpec): ProgramCheck[] {
         const calls = appEngineerCalls(trial, spec.app);
         const fix = calls.findIndex((c) => FIX_TOOLS.includes(c.call.tool));
         if (fix === -1) return { pass: false, reason: "고친 흔적이 없음" };
-        const read = calls.slice(0, fix).filter((c) =>
-          c.call.outcome?.kind === "success" &&
-          (c.call.tool === "app.status" || EVIDENCE_TOOLS.includes(c.call.tool))
-        ).map((c) => c.call.tool);
+        const read = calls
+          .slice(0, fix)
+          .filter(
+            (c) =>
+              c.call.outcome?.kind === "success" &&
+              (c.call.tool === "app.status" ||
+                EVIDENCE_TOOLS.includes(c.call.tool)),
+          )
+          .map((c) => c.call.tool);
         const pass = read.some((t) => EVIDENCE_TOOLS.includes(t));
         return {
           pass,
@@ -59,15 +64,21 @@ export function diagnosisChecks(spec: DiagnoseSpec): ProgramCheck[] {
       const first = sorted[0];
       const runtime = await core.call(appRuntime, { app: app.id });
       const seen = runtime.observation;
-      const up = runtime.state.state === "running" && seen !== null &&
-        seen.ready && seen.accepting;
-      const pass = active !== undefined && active.number >= 2 &&
-        first?.status === "superseded" && up;
+      const up =
+        runtime.state.state === "running" &&
+        seen !== null &&
+        seen.ready &&
+        seen.accepting;
+      const pass =
+        active !== undefined &&
+        active.number >= 2 &&
+        first?.status === "superseded" &&
+        up;
       return {
         pass,
-        reason: `release ${
-          sorted.map((r) => `${r.number}:${r.status}`).join(" ")
-        }, runtime ${runtime.state.state}${up ? " ready" : ""}`,
+        reason: `release ${sorted
+          .map((r) => `${r.number}:${r.status}`)
+          .join(" ")}, runtime ${runtime.state.state}${up ? " ready" : ""}`,
       };
     }),
     // 선언을 고쳐 문제를 덮지 않았다: 옛 release의 tool이 모두 남고 bug.api의 effect와 input이 같다.
@@ -98,24 +109,25 @@ export function diagnosisChecks(spec: DiagnoseSpec): ProgramCheck[] {
         release: got.active_release,
       });
       const names = new Set(now.tools.map((a) => a.name));
-      const lost = old.tools.filter((a) => !names.has(a.name)).map((a) =>
-        a.name
-      );
+      const lost = old.tools
+        .filter((a) => !names.has(a.name))
+        .map((a) => a.name);
       const shape = (items: typeof old.tools) => {
         const a = items.find((x) => x.name === bug.api);
         return a === undefined
           ? null
           : canonicalize({ effect: a.effect, input: a.inputSchema });
       };
-      const sameShape = shape(old.tools) !== null &&
-        shape(old.tools) === shape(now.tools);
+      const sameShape =
+        shape(old.tools) !== null && shape(old.tools) === shape(now.tools);
       return {
         pass: lost.length === 0 && sameShape,
-        reason: lost.length > 0
-          ? `사라진 tool: ${lost.join(", ")}`
-          : sameShape
-          ? "tool이 모두 남고 bug api의 effect와 input이 같음"
-          : `${bug.api}의 effect나 input이 바뀜`,
+        reason:
+          lost.length > 0
+            ? `사라진 tool: ${lost.join(", ")}`
+            : sameShape
+              ? "tool이 모두 남고 bug api의 effect와 input이 같음"
+              : `${bug.api}의 effect나 input이 바뀜`,
       };
     }),
     // supervisor가 log 줄을 늦게 쓰므로 호출한 뒤 잠깐 기다려 읽는다.
@@ -123,32 +135,35 @@ export function diagnosisChecks(spec: DiagnoseSpec): ProgramCheck[] {
       const app = await findApp(core, spec.app);
       const since = new Date().toISOString();
       const outcome = await callApi(core, app.id, bug.api, bug.input);
-      const answered = outcome.status === "succeeded" &&
+      const answered =
+        outcome.status === "succeeded" &&
         exampleMatches(bug.expectAfterFix, outcome.result);
       if (!answered) {
         return {
           pass: false,
-          reason: `고친 뒤 호출이 기대와 다름: ${
-            oneLine(JSON.stringify(outcome), 200)
-          }`,
+          reason: `고친 뒤 호출이 기대와 다름: ${oneLine(
+            JSON.stringify(outcome),
+            200,
+          )}`,
         };
       }
       await new Promise((resolve) => setTimeout(resolve, 3000));
       const { lines } = await core.call(appLogs, { app: app.id, since });
-      const errors = lines.filter((l) =>
-        l.text.startsWith("error ") || l.text.startsWith("exception ")
+      const errors = lines.filter(
+        (l) => l.text.startsWith("error ") || l.text.startsWith("exception "),
       );
       return errors.length === 0
         ? {
-          pass: true,
-          reason: "고친 뒤 같은 호출이 기대대로 답하고 새 오류 줄이 없음",
-        }
+            pass: true,
+            reason: "고친 뒤 같은 호출이 기대대로 답하고 새 오류 줄이 없음",
+          }
         : {
-          pass: false,
-          reason: `고친 뒤 호출이 답했지만 새 오류 줄: ${
-            oneLine(errors.map((l) => l.text).join(" | "), 200)
-          }`,
-        };
+            pass: false,
+            reason: `고친 뒤 호출이 답했지만 새 오류 줄: ${oneLine(
+              errors.map((l) => l.text).join(" | "),
+              200,
+            )}`,
+          };
     }),
   ];
 }

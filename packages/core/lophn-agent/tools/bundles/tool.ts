@@ -28,8 +28,8 @@ export const TOOL_TOOLS: readonly ToolDefinition[] = [
       const loaded = new Set<string>();
       // 하나라도 틀리면 전체가 실패한다.
       for (const name of input.names) {
-        const matched = hidden.filter((tool) =>
-          wire(tool) === name || wire(tool).startsWith(`${name}_`)
+        const matched = hidden.filter(
+          (tool) => wire(tool) === name || wire(tool).startsWith(`${name}_`),
         );
         if (matched.length === 0) {
           const shown = ctx.listed.some((tool) => wire(tool) === name);
@@ -42,12 +42,14 @@ export const TOOL_TOOLS: readonly ToolDefinition[] = [
         for (const tool of matched) loaded.add(wire(tool));
       }
       // names는 이력에 앞 turn 호출을 되살릴 때 쓰는 요청 그대로의 입력이다.
-      return Promise.resolve(ok(
-        fitted(`loaded ${loaded.size} tools`, {
-          names: input.names,
-          tool_reference: [...loaded].sort(),
-        }),
-      ));
+      return Promise.resolve(
+        ok(
+          fitted(`loaded ${loaded.size} tools`, {
+            names: input.names,
+            tool_reference: [...loaded].sort(),
+          }),
+        ),
+      );
     },
   }),
 ];

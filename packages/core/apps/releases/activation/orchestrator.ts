@@ -57,7 +57,7 @@ async function advance(
   release: ReleaseRecord,
 ): Promise<ActivationOutcome> {
   // 1. 새 호출 접수를 닫고 비운다.
-  if (!await drain(ports, attempt)) {
+  if (!(await drain(ports, attempt))) {
     return await rollback(
       ports,
       attempt,
@@ -68,7 +68,7 @@ async function advance(
   }
   // 2. 이전 자식의 종료를 확인한다. 확인 전에는 데이터 작업도 새 자식도 없다.
   ports.progress(attempt.app, "stop");
-  if (!await ports.supervisor.stopCurrent(attempt.app)) {
+  if (!(await ports.supervisor.stopCurrent(attempt.app))) {
     return unavailable("termination_unconfirmed");
   }
   // 3. 종료한 앱 DB의 실제 schema와 무결성을 읽는다. 이 schema가 migration의 출발점이고 복구본의 기준이다.

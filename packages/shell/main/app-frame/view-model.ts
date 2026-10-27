@@ -115,16 +115,20 @@ const RELEASE_ID = /^rel_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const SIZES: readonly string[] = ["full", "panel", "card"];
 const MODES: readonly string[] = ["live", "preview"];
 const SAFE_TEXT = (value: unknown): value is string =>
-  typeof value === "string" && value.trim().length > 0 &&
+  typeof value === "string" &&
+  value.trim().length > 0 &&
   !/\p{Cc}/u.test(value);
 
 export function boundsValid(value: unknown): value is ViewBounds {
   if (typeof value !== "object" || value === null) return false;
   const bounds = value as Record<string, unknown>;
   const keys = Object.keys(bounds).sort().join(",");
-  return keys === "height,width,x,y" &&
+  return (
+    keys === "height,width,x,y" &&
     [bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isInteger) &&
-    (bounds.width as number) >= 0 && (bounds.height as number) >= 0;
+    (bounds.width as number) >= 0 &&
+    (bounds.height as number) >= 0
+  );
 }
 
 /** 넓이가 없는 bounds다. 붙일 자리가 없으니 보이지 않는 view로 둔다. */
@@ -148,18 +152,24 @@ export function checkOpen(value: unknown): AppFrameOpen | undefined {
   const input = value as Record<string, unknown>;
   const keys = Object.keys(input);
   if (
-    keys.some((key) => !OPEN_KEYS.has(key)) || keys.length !== OPEN_KEYS.size
+    keys.some((key) => !OPEN_KEYS.has(key)) ||
+    keys.length !== OPEN_KEYS.size
   ) {
     return undefined;
   }
   if (
-    typeof input.app !== "string" || !APP_ID.test(input.app) ||
+    typeof input.app !== "string" ||
+    !APP_ID.test(input.app) ||
     !MODES.includes(input.mode as string) ||
-    !(input.release === null ||
-      (typeof input.release === "string" && RELEASE_ID.test(input.release))) ||
+    !(
+      input.release === null ||
+      (typeof input.release === "string" && RELEASE_ID.test(input.release))
+    ) ||
     (input.mode === "live" && input.release === null) ||
-    !SAFE_TEXT(input.screen) || !SIZES.includes(input.size as string) ||
-    !SAFE_TEXT(input.parentWindow) || !boundsValid(input.bounds)
+    !SAFE_TEXT(input.screen) ||
+    !SIZES.includes(input.size as string) ||
+    !SAFE_TEXT(input.parentWindow) ||
+    !boundsValid(input.bounds)
   ) {
     return undefined;
   }
@@ -176,17 +186,22 @@ export interface Bound {
 function sameHosts(a: readonly FetchHost[], b: readonly FetchHost[]): boolean {
   const key = (host: FetchHost) => `${host.host} ${host.port}`;
   const left = new Set(a.map(key));
-  return a.length === b.length && b.every((host) => left.has(key(host))) &&
-    left.size === new Set(b.map(key)).size;
+  return (
+    a.length === b.length &&
+    b.every((host) => left.has(key(host))) &&
+    left.size === new Set(b.map(key)).size
+  );
 }
 
 // release·프로세스·bundle·host가 같으면 같은 묶음이다.
 export function sameConnection(entry: Bound, next: Bound): boolean {
-  return entry.partition === next.partition &&
+  return (
+    entry.partition === next.partition &&
     entry.binding.release === next.binding.release &&
     entry.binding.bundleHash === next.binding.bundleHash &&
     entry.binding.processNonce === next.binding.processNonce &&
-    sameHosts(entry.hosts, next.hosts);
+    sameHosts(entry.hosts, next.hosts)
+  );
 }
 
 /** registry가 view 하나에 쥐는 것 중 밖으로 보이는 값. */

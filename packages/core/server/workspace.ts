@@ -79,7 +79,8 @@ export function createWorkspaceRelay(): WorkspaceRelay {
     };
     // 같은 main이 한 창의 publish를 다시 보내면 대체한다. 다른 값은 관여하지 않는다.
     if (
-      !windows.has(record.window_ref) && windows.size >= WORKSPACE_MAX_WINDOWS
+      !windows.has(record.window_ref) &&
+      windows.size >= WORKSPACE_MAX_WINDOWS
     ) {
       return err({ code: "conflict", message: "workspace window limit" });
     }
@@ -148,17 +149,20 @@ export function createWorkspaceRelay(): WorkspaceRelay {
       next_page: page + 1 < window.tab_pages.length ? page + 1 : undefined,
       tab_page: window.tab_pages[page],
     };
-    const redacted = await engine.redact({
-      source: {
-        concern: "platform/api",
-        revision: "workspace-relay",
-        scope: "session_input",
+    const redacted = await engine.redact(
+      {
+        source: {
+          concern: "platform/api",
+          revision: "workspace-relay",
+          scope: "session_input",
+        },
+        media_type: "application/json",
+        audience: "model",
+        safe_fields: [...VISIBLE_VIEW_FIELDS],
+        private_fields: [],
       },
-      media_type: "application/json",
-      audience: "model",
-      safe_fields: [...VISIBLE_VIEW_FIELDS],
-      private_fields: [],
-    }, JSON.stringify(payload));
+      JSON.stringify(payload),
+    );
     if (redacted.status === "omitted" || redacted.content === null) {
       return absent("unavailable", "redaction omitted");
     }

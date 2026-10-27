@@ -9,9 +9,10 @@ export type NoticeRoute = "none" | "toast" | "os";
  * 사람이 그 탭을 보고 있으면(focus를 가진 창에 보인다) 알리지 않는다. 아니면 toast를 띄울 수 있는 창에
  * focus가 있을 때는 그 창의 toast, 아니면 OS 알림이다.
  */
-export function routeNotice(
-  input: { looking: boolean; toastable: boolean },
-): NoticeRoute {
+export function routeNotice(input: {
+  looking: boolean;
+  toastable: boolean;
+}): NoticeRoute {
   if (input.looking) return "none";
   return input.toastable ? "toast" : "os";
 }
@@ -76,11 +77,12 @@ export function createSessionNotices(deps: SessionNoticesDeps): SessionNotices {
       forget(session);
       return;
     }
-    const kind = event.type === "TurnEnded"
-      ? turnEndKind(event.payload)
-      : event.type === "TurnRequestOpened" || event.type === "QuestionAsked"
-      ? "permission"
-      : null;
+    const kind =
+      event.type === "TurnEnded"
+        ? turnEndKind(event.payload)
+        : event.type === "TurnRequestOpened" || event.type === "QuestionAsked"
+          ? "permission"
+          : null;
     if (kind === null) return;
     const who = await deps.who(session);
     if (who === null) return;
@@ -112,13 +114,13 @@ export function createSessionNotices(deps: SessionNoticesDeps): SessionNotices {
 
 // TurnEnded의 outcome은 `{ kind, reason }`이다(protocol lophn-agent/turn-values.ts `turnOutcomeOutputSchema`).
 function turnEndKind(payload: unknown): "finished" | "failed" | null {
-  const kind = (payload as { outcome?: { kind?: string } } | undefined)
-    ?.outcome?.kind;
+  const kind = (payload as { outcome?: { kind?: string } } | undefined)?.outcome
+    ?.kind;
   return kind === "completed"
     ? "finished"
     : kind === "failed"
-    ? "failed"
-    : null;
+      ? "failed"
+      : null;
 }
 
 /** 창마다 보이는 Agent session 탭 표. 탭 화면이 보이고 사라질 때 알린다. */

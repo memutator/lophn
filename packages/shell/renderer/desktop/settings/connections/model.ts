@@ -89,6 +89,8 @@ export function matchesQuery(
   query: string,
 ): boolean {
   const needle = query.trim().toLowerCase();
-  return harness.label.toLowerCase().includes(needle) ||
-    harness.harness_id.includes(needle);
+  return (
+    harness.label.toLowerCase().includes(needle) ||
+    harness.harness_id.includes(needle)
+  );
 }

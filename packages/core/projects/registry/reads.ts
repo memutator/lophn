@@ -46,7 +46,7 @@ function allowed(
 function requireReadActor(ctx: RequestContext): Result<void> {
   const kind = parseActor(ctx.actor)?.kind;
   return kind !== undefined &&
-      (projectApi.list.actors as readonly string[]).includes(kind)
+    (projectApi.list.actors as readonly string[]).includes(kind)
     ? ok(undefined)
     : err({ code: "forbidden", message: "project read actor forbidden" });
 }
@@ -64,7 +64,7 @@ function projectAt(
     project.folders.map((folder) => ({
       project: project.id,
       path: folder.path,
-    }))
+    })),
   );
   const found = deepestRegisteredRoot(path, roots);
   if (!found.ok) return found;
@@ -94,12 +94,7 @@ export function createProjectReads(deps: ProjectReadDeps): {
           if (input.status !== undefined && project.status !== input.status) {
             continue;
           }
-          const access = allowed(
-            snapshot,
-            ctx,
-            projectApi.list.name,
-            project,
-          );
+          const access = allowed(snapshot, ctx, projectApi.list.name, project);
           if (!access.ok) return access;
           if (access.value !== null) visible.push(access.value);
         }
@@ -122,17 +117,18 @@ export function createProjectReads(deps: ProjectReadDeps): {
         return ok({
           projects: page.map((project) => recordOf(project, deps.folders)),
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: next < visible.length
-            ? nextProjectCursor(next, basis)
-            : null,
+          next_cursor:
+            next < visible.length ? nextProjectCursor(next, basis) : null,
           // undefined 필드는 platform 출력 검사에서 거절된다. 없으면 key를 뺀다.
           ...(next < visible.length
             ? {
-              omitted: [{
-                reason: "page_limit" as const,
-                count: visible.length - next,
-              }],
-            }
+                omitted: [
+                  {
+                    reason: "page_limit" as const,
+                    count: visible.length - next,
+                  },
+                ],
+              }
             : {}),
         });
       },
@@ -263,9 +259,10 @@ export function projectInfoOf(
   folders: Pick<FolderResolver, "exists">,
   which: { id: string } | { name: string },
 ): Result<ProjectInfoOf | null> {
-  const project = "id" in which
-    ? loadProject(sql, which.id)
-    : loadProjectByName(sql, which.name);
+  const project =
+    "id" in which
+      ? loadProject(sql, which.id)
+      : loadProjectByName(sql, which.name);
   if (!project.ok) return project;
   return ok(project.value === null ? null : infoOf(project.value, folders));
 }

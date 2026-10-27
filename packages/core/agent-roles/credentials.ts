@@ -58,9 +58,13 @@ export function roleOperations(
   definitions: readonly ToolDefinition[],
 ): readonly string[] {
   if (!isRole(role)) return [];
-  const tools = selectTools(builtinToolNames(role), {
-    input_media: ["image"],
-  }, definitions);
+  const tools = selectTools(
+    builtinToolNames(role),
+    {
+      input_media: ["image"],
+    },
+    definitions,
+  );
   return [
     ...new Set([
       ...runOperations(tools),
@@ -71,8 +75,9 @@ export function roleOperations(
       ...PLACE_READS,
       // image.read가 annotation screenshot 경로를 읽는다. role만으로는 Operator의 place를 알 수 없어 범위는
       // 읽기 쪽이 자격의 app·project 조건으로 닫는다(둘 다 없으면 forbidden).
-      ...(role === "app_engineer" || role === "project_manager" ||
-          role === "operator"
+      ...(role === "app_engineer" ||
+      role === "project_manager" ||
+      role === "operator"
         ? [annotationsGet.name]
         : []),
       ...AGENT_BASE_OPERATIONS,
@@ -111,6 +116,7 @@ export function agentConditions(input: {
   if (
     (input.role === "project_manager" || input.role === "operator") &&
     input.place?.kind === "project"
-  ) return { ...base, project: input.place.id };
+  )
+    return { ...base, project: input.place.id };
   return base;
 }

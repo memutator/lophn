@@ -43,11 +43,13 @@ const files: PlaceFiles = {
   workflowsFolder: (project) => `/data/${project}/workflows`,
   ensureDir: () => Promise.resolve(),
   listArtifacts: (folder) =>
-    Promise.resolve([{
-      name: folder.includes(DOM_A) ? "a-page" : "b-page",
-      title: "T",
-      description: "",
-    }]),
+    Promise.resolve([
+      {
+        name: folder.includes(DOM_A) ? "a-page" : "b-page",
+        title: "T",
+        description: "",
+      },
+    ]),
 };
 
 function agent(role: string, place: unknown, domains: string[]) {
@@ -160,28 +162,34 @@ test("lophn의 지도에는 공개 tool만 실리고 package는 주인 앱 줄�
       domains: [domain(DOM_A, "alpha"), domain(DOM_B, "beta")],
     },
     "/apps/tool_index": {
-      apps: [{
-        app: APP,
-        name: "Ledger",
-        description: "keeps the books",
-        tools: [tool("show", true), tool("hidden", false)],
-      }],
+      apps: [
+        {
+          app: APP,
+          name: "Ledger",
+          description: "keeps the books",
+          tools: [tool("show", true), tool("hidden", false)],
+        },
+      ],
     },
     "/apps/usage": {
       uses: [{ app: APP, tool: "show", domain: DOM_B, source: "grant" }],
     },
     "/packages/list": {
-      packages: [{
-        id: id("pkg", "1"),
-        name: "@me/ui",
-        description: "ui",
-        owner_app: APP,
-        versions: [{
-          version: "1.0.0",
-          bundle_hash: "b".repeat(64),
-          guide_hash: "c".repeat(64),
-        }],
-      }],
+      packages: [
+        {
+          id: id("pkg", "1"),
+          name: "@me/ui",
+          description: "ui",
+          owner_app: APP,
+          versions: [
+            {
+              version: "1.0.0",
+              bundle_hash: "b".repeat(64),
+              guide_hash: "c".repeat(64),
+            },
+          ],
+        },
+      ],
     },
   });
   const read = await placeData(call, agent("lophn", null, []), files);
@@ -206,12 +214,14 @@ test("project의 workflows 폴더는 그 place의 PM의 prompt와 쓰기 범위�
         purpose: "p",
         revision: "1",
         status: "active",
-        folders: [{
-          path: "/p1",
-          description: "d",
-          subfolders: [],
-          found: true,
-        }],
+        folders: [
+          {
+            path: "/p1",
+            description: "d",
+            subfolders: [],
+            found: true,
+          },
+        ],
       },
     },
     "/calls/sendable": { sessions: [], queued_coding: [] },

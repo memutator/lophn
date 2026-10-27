@@ -61,10 +61,12 @@ function registerGuide(
   });
   if (registered.ok) return ok(undefined);
   const code = registered.error.code;
-  return code === "conflict" ? registered : err({
-    code: "invalid_input",
-    message: "guide blob is not a prepared blob of this caller",
-  });
+  return code === "conflict"
+    ? registered
+    : err({
+        code: "invalid_input",
+        message: "guide blob is not a prepared blob of this caller",
+      });
 }
 
 type RegisterInput = Parameters<
@@ -162,8 +164,8 @@ export function createSdkCommands(): {
         const packageId = current["id"] as string;
         const description = current["description"] as string;
         // 주인이 없는 package는 지금 publish하는 앱이 주인이 된다.
-        const owner = (current["owner_app"] as Package["owner_app"]) ??
-          input.owner_app;
+        const owner =
+          (current["owner_app"] as Package["owner_app"]) ?? input.owner_app;
         if (owner !== input.owner_app) {
           return forbidden("a package is versioned by its owner app");
         }
@@ -177,7 +179,8 @@ export function createSdkCommands(): {
         if (stored !== undefined) {
           // 같은 name·version은 byte·guide hash·permission을 덮지 않는다. 모두 같으면
           // 같은 사실이므로 그대로 접수하고(재시도), 하나라도 다르면 conflict다.
-          const same = stored["bundle_hash"] === input.bundle_hash &&
+          const same =
+            stored["bundle_hash"] === input.bundle_hash &&
             stored["guide_hash"] === input.guide_hash &&
             stored["permissions"] === JSON.stringify(input.permissions ?? []);
           if (!same) return conflict("published version bytes are immutable");

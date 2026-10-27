@@ -27,8 +27,9 @@ export function selectionLabel(
   if (selected.length === 0 || selected.length === options.length) {
     return t("common.label.all-of", { dimension });
   }
-  const first = options.find((option) => option.value === selected[0])
-    ?.label ?? selected[0];
+  const first =
+    options.find((option) => option.value === selected[0])?.label ??
+    selected[0];
   if (selected.length === 1) return first;
   return t("common.label.first-and-more", {
     first,
@@ -48,21 +49,19 @@ export interface MultiSelectFilterProps {
 }
 
 // 여러 값 고르기. 체크박스 목록과 [Select all]·[Clear], 많으면 검색 칸이다.
-export function MultiSelectFilter(
-  {
-    dimension,
-    options,
-    value,
-    onChange,
-    searchable = options.length > SEARCH_AFTER,
-    defaultOpen,
-  }: MultiSelectFilterProps,
-) {
+export function MultiSelectFilter({
+  dimension,
+  options,
+  value,
+  onChange,
+  searchable = options.length > SEARCH_AFTER,
+  defaultOpen,
+}: MultiSelectFilterProps) {
   const [query, setQuery] = useState("");
   const chosen = new Set(value);
   const needle = query.trim().toLowerCase();
   const shown = options.filter((option) =>
-    option.label.toLowerCase().includes(needle)
+    option.label.toLowerCase().includes(needle),
   );
   const toggle = (item: string, on: boolean) => {
     const next = new Set(chosen);
@@ -96,16 +95,18 @@ export function MultiSelectFilter(
           </div>
         )}
         <div className={styles.options}>
-          {shown.length === 0
-            ? <p className={styles.none}>{t("common.palette.no-results")}</p>
-            : shown.map((option) => (
+          {shown.length === 0 ? (
+            <p className={styles.none}>{t("common.palette.no-results")}</p>
+          ) : (
+            shown.map((option) => (
               <Checkbox
                 key={option.value}
                 label={option.label}
                 checked={chosen.has(option.value)}
                 onCheckedChange={(on) => toggle(option.value, on)}
               />
-            ))}
+            ))
+          )}
         </div>
         <div className={styles.footer}>
           <Button

@@ -14,23 +14,24 @@ import type { WorkspacePlaceholders } from "./catalog/workspace.placeholders.ts"
 import type { WorkspaceSettingsPlaceholders } from "./catalog/workspace-settings.placeholders.ts";
 import type { MessageKey } from "./en.ts";
 
-export type PlaceholderKinds =
-  & AgentsPlaceholders
-  & AppSpacePlaceholders
-  & ArtifactPlaceholders
-  & BrowserPlaceholders
-  & CommonPlaceholders
-  & ConversationPlaceholders
-  & DataPlaceholders
-  & DomainPlaceholders
-  & ProjectPlaceholders
-  & WorkflowPlaceholders
-  & WorkspacePlaceholders
-  & WorkspaceSettingsPlaceholders;
+export type PlaceholderKinds = AgentsPlaceholders &
+  AppSpacePlaceholders &
+  ArtifactPlaceholders &
+  BrowserPlaceholders &
+  CommonPlaceholders &
+  ConversationPlaceholders &
+  DataPlaceholders &
+  DomainPlaceholders &
+  ProjectPlaceholders &
+  WorkflowPlaceholders &
+  WorkspacePlaceholders &
+  WorkspaceSettingsPlaceholders;
 
-type ValueFor<T> = T extends "plural" | "number" ? number
-  : T extends "date" ? Date
-  : string;
+type ValueFor<T> = T extends "plural" | "number"
+  ? number
+  : T extends "date"
+    ? Date
+    : string;
 
 export type ValuesOf<K extends MessageKey> = {
   [P in keyof PlaceholderKinds[K]]: ValueFor<PlaceholderKinds[K][P]>;
@@ -38,5 +39,6 @@ export type ValuesOf<K extends MessageKey> = {
 
 export type HasPlaceholders<K extends MessageKey> = [
   keyof PlaceholderKinds[K],
-] extends [never] ? false
+] extends [never]
+  ? false
   : true;

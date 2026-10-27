@@ -28,11 +28,13 @@ export const annotationsWiring: WiringFactory = () => {
   let timer: ReturnType<typeof setInterval> | undefined;
   return {
     name: "annotations",
-    operations: () => [{
-      name: annotationSweep.name,
-      actors: ["machine"],
-      kind: "command",
-    }],
+    operations: () => [
+      {
+        name: annotationSweep.name,
+        actors: ["machine"],
+        kind: "command",
+      },
+    ],
     records: () => [ANNOTATIONS_CONTEXT],
     build(ctx) {
       const run: RunCommand = async (caller, route, input, prepared) => {
@@ -51,22 +53,28 @@ export const annotationsWiring: WiringFactory = () => {
         delivery: () => ctx.peek.annotationDelivery,
       });
       return ok({
-        memory: [[
-          `${annotationSend.resource}/${annotationSend.method}`,
-          (caller, raw) => {
-            const input = annotationSend.input.safeParse(raw);
-            return input.success
-              ? annotations.send(caller, input.data)
-              : Promise.resolve(err({
-                code: "invalid_input" as const,
-                message: "annotation input is not valid",
-              }));
-          },
-        ]],
-        uploads: [[
-          `${annotationUploadScreenshot.resource}/${annotationUploadScreenshot.method}`,
-          annotationUploadHandler({ current: ctx.prepareRelay }),
-        ]],
+        memory: [
+          [
+            `${annotationSend.resource}/${annotationSend.method}`,
+            (caller, raw) => {
+              const input = annotationSend.input.safeParse(raw);
+              return input.success
+                ? annotations.send(caller, input.data)
+                : Promise.resolve(
+                    err({
+                      code: "invalid_input" as const,
+                      message: "annotation input is not valid",
+                    }),
+                  );
+            },
+          ],
+        ],
+        uploads: [
+          [
+            `${annotationUploadScreenshot.resource}/${annotationUploadScreenshot.method}`,
+            annotationUploadHandler({ current: ctx.prepareRelay }),
+          ],
+        ],
       });
     },
     // 시작 때와 하루에 한 번 정리한다.

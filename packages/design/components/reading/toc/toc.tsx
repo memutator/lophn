@@ -46,8 +46,7 @@ export function Toc({ items, activeId, onSelect }: TocProps) {
               type="button"
               className={styles.tocButton}
               aria-current={item.id === activeId ? "location" : undefined}
-              onClick={() =>
-                onSelect(item.id)}
+              onClick={() => onSelect(item.id)}
             >
               {item.title}
             </button>

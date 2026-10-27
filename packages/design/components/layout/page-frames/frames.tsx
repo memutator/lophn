@@ -25,17 +25,20 @@ interface FrameProps {
 }
 
 function Head({ header }: { header?: ReactNode }) {
-  return header === undefined
-    ? null
-    : <header className={styles.head}>{header}</header>;
+  return header === undefined ? null : (
+    <header className={styles.head}>{header}</header>
+  );
 }
 
-function Column(
-  { frame, name, header, children }: FrameProps & {
-    frame: ColumnFrame;
-    name: string;
-  },
-) {
+function Column({
+  frame,
+  name,
+  header,
+  children,
+}: FrameProps & {
+  frame: ColumnFrame;
+  name: string;
+}) {
   const { ref, pad } = usePane();
   return (
     <div
@@ -83,9 +86,13 @@ export function DashboardFrame({ header, children }: FrameProps) {
 
 export type DashboardSpan = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 
-export function DashboardCell(
-  { span, children }: { span: DashboardSpan; children: ReactNode },
-) {
+export function DashboardCell({
+  span,
+  children,
+}: {
+  span: DashboardSpan;
+  children: ReactNode;
+}) {
   return (
     <div
       className={styles.cell}
@@ -107,9 +114,12 @@ export interface ListDetailFrameProps {
 }
 
 // 목록 360px과 나머지 상세. 전체 폭이다. 640px 미만 칸은 한 쪽씩 보인다.
-export function ListDetailFrame(
-  { list, detail, active = "list", onBack }: ListDetailFrameProps,
-) {
+export function ListDetailFrame({
+  list,
+  detail,
+  active = "list",
+  onBack,
+}: ListDetailFrameProps) {
   const { ref, pad } = usePane();
   const narrow = pad === "narrow";
   return (

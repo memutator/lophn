@@ -44,20 +44,26 @@ interface ViewChromeProps {
   onReopen?: (view_session: string) => void;
 }
 
-export function ViewChrome(
-  { name, mode, connection, viewSession, health, onReopen }: ViewChromeProps,
-) {
+export function ViewChrome({
+  name,
+  mode,
+  connection,
+  viewSession,
+  health,
+  onReopen,
+}: ViewChromeProps) {
   const state = connection === null ? null : CONNECTION[connection];
-  const broken = health === undefined || health === "ok"
-    ? null
-    : HEALTH[health];
+  const broken =
+    health === undefined || health === "ok" ? null : HEALTH[health];
   return (
     <div
       className={styles.chrome}
       data-view-chrome=""
       data-view-session={viewSession ?? undefined}
     >
-      <span className={styles.name} data-view-app-name="">{name}</span>
+      <span className={styles.name} data-view-app-name="">
+        {name}
+      </span>
       <span className={styles.mode} data-view-mode={mode}>
         {t(
           mode === "live"

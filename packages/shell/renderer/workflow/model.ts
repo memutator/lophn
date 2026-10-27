@@ -90,8 +90,8 @@ export interface StepRow {
 export function stepRows(detail: WorkflowInstanceDetailView): StepRow[] {
   const { instance, last_reports, lines } = detail;
   return instance.steps.map((step) => {
-    const stepLines = lines.filter((line) =>
-      "step" in line && line.step === step.name
+    const stepLines = lines.filter(
+      (line) => "step" in line && line.step === step.name,
     );
     const report = last_reports[step.name];
     const current = instance.current?.step === step.name;
@@ -99,11 +99,11 @@ export function stepRows(detail: WorkflowInstanceDetailView): StepRow[] {
       ? instance.current?.human_turn === true
         ? "human"
         : instance.state === "stopped"
-        ? "stopped"
-        : "current"
+          ? "stopped"
+          : "current"
       : report === undefined
-      ? "waiting"
-      : "reported";
+        ? "waiting"
+        : "reported";
     const last = stepLines.at(-1);
     const notice =
       last?.kind === "not_handed" || last?.kind === "lophn_restarted"
@@ -117,11 +117,13 @@ export function stepRows(detail: WorkflowInstanceDetailView): StepRow[] {
 export const headLines = (
   detail: WorkflowInstanceDetailView,
 ): WorkflowLineView[] =>
-  detail.lines.filter((line) =>
-    line.kind === "ended" || line.kind === "stopped" ||
-    line.kind === "program_exited" ||
-    ((line.kind === "edit" || line.kind === "lophn_restarted") &&
-      line.step === null)
+  detail.lines.filter(
+    (line) =>
+      line.kind === "ended" ||
+      line.kind === "stopped" ||
+      line.kind === "program_exited" ||
+      ((line.kind === "edit" || line.kind === "lophn_restarted") &&
+        line.step === null),
   );
 
 /** 사람 차례이면 지금 step을 가장 나중에 받은 줄(받은 참가자와 대화 session). */
@@ -130,8 +132,8 @@ export function turnOf(
 ): Extract<WorkflowLineView, { kind: "handed" }> | null {
   const { instance, lines } = detail;
   if (instance.current?.human_turn !== true) return null;
-  const handed = lines.findLast((line) =>
-    line.kind === "handed" && line.step === instance.current?.step
+  const handed = lines.findLast(
+    (line) => line.kind === "handed" && line.step === instance.current?.step,
   );
   return handed?.kind === "handed" ? handed : null;
 }

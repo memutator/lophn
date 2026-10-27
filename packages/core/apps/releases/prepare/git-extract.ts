@@ -97,12 +97,7 @@ async function requireRepository(
   } catch {
     return fail("source_outside_boundary");
   }
-  const rev = await git.run([
-    "-C",
-    real,
-    "rev-parse",
-    "--is-inside-work-tree",
-  ]);
+  const rev = await git.run(["-C", real, "rev-parse", "--is-inside-work-tree"]);
   // 디렉터리인데 work tree가 아니면 git 저장소가 아니다. 경계 밖이다.
   if (!rev.ok || decode(rev).trim() !== "true") {
     return fail("source_outside_boundary");
@@ -180,20 +175,12 @@ export async function extractCommit(
   input: ExtractInput,
 ): Promise<Result<ExtractedFile[], ExtractFailure>> {
   if (!validCommit(input.commit)) return fail("commit_unknown");
-  const inside =
-    await (input.boundary ?? ((root) => requireRepository(git, root)))(
-      input.sourceRoot,
-    );
+  const inside = await (
+    input.boundary ?? ((root) => requireRepository(git, root))
+  )(input.sourceRoot);
   if (!inside.ok) return inside;
   const root = inside.value;
-  const tree = await git.run([
-    "-C",
-    root,
-    "ls-tree",
-    "-r",
-    "-z",
-    input.commit,
-  ]);
+  const tree = await git.run(["-C", root, "ls-tree", "-r", "-z", input.commit]);
   if (!tree.ok) return fail("commit_unknown");
   const clean = await rejectDirtyTree(git, root);
   if (!clean.ok) return clean;

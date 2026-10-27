@@ -105,9 +105,11 @@ export function createKindsWatch(deps: KindsWatchDeps): KindsWatch {
   // 읽고 여는 일은 부른 순서대로 하나씩 돈다.
   let chain: Promise<unknown> = Promise.resolve();
   const enqueue = (run: () => Promise<void>): Promise<void> => {
-    const next = chain.then(async () => {
-      if (!stopped) await run();
-    }).catch((error) => deps.log?.(`kinds watch: ${String(error)}`));
+    const next = chain
+      .then(async () => {
+        if (!stopped) await run();
+      })
+      .catch((error) => deps.log?.(`kinds watch: ${String(error)}`));
     chain = next;
     return next;
   };
@@ -121,21 +123,24 @@ export function createKindsWatch(deps: KindsWatchDeps): KindsWatch {
   }
 
   function catchUp(domain: string) {
-    void deps.catchUp(domain).then((synced) => {
-      if (stopped) return;
-      if (!synced.ok) {
-        deps.log?.(`kinds sync ${domain}: ${synced.error.message}`);
-        return;
-      }
-      const entry = entries.get(domain);
-      if (
-        entry !== undefined &&
-        synced.value.status.applied_hash !== entry.applied
-      ) {
-        entry.stale = true;
-        void enqueue(refreshAll);
-      }
-    }, (error) => deps.log?.(`kinds sync ${domain}: ${String(error)}`));
+    void deps.catchUp(domain).then(
+      (synced) => {
+        if (stopped) return;
+        if (!synced.ok) {
+          deps.log?.(`kinds sync ${domain}: ${synced.error.message}`);
+          return;
+        }
+        const entry = entries.get(domain);
+        if (
+          entry !== undefined &&
+          synced.value.status.applied_hash !== entry.applied
+        ) {
+          entry.stale = true;
+          void enqueue(refreshAll);
+        }
+      },
+      (error) => deps.log?.(`kinds sync ${domain}: ${String(error)}`),
+    );
   }
 
   async function open(domain: string, roots: string[]) {
@@ -180,8 +185,9 @@ export function createKindsWatch(deps: KindsWatchDeps): KindsWatch {
     // 폴더가 없으면 감시가 열리지 않아 처음 쓴 kinds.yaml을 놓치므로 먼저 만든다. 못 만들면 incomplete라 다음에 다시 시도한다.
     const kindsDir = domainFolder(deps.dataRoot, domain);
     try {
-      await (deps.ensureDir ??
-        ((path) => mkdir(path, { recursive: true })))(kindsDir);
+      await (deps.ensureDir ?? ((path) => mkdir(path, { recursive: true })))(
+        kindsDir,
+      );
     } catch (error) {
       entry.incomplete = true;
       deps.log?.(`kinds watch: ${kindsDir}: ${String(error)}`);
@@ -213,9 +219,12 @@ export function createKindsWatch(deps: KindsWatchDeps): KindsWatch {
     for (const { domain, roots } of active) {
       const existing = entries.get(domain);
       if (
-        existing !== undefined && !existing.incomplete && !existing.stale &&
+        existing !== undefined &&
+        !existing.incomplete &&
+        !existing.stale &&
         existing.roots === roots.join("\n")
-      ) continue;
+      )
+        continue;
       await open(domain, roots);
     }
   }

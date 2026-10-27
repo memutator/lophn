@@ -20,31 +20,32 @@ export interface ChatMarkdownProps {
 }
 
 /** markdown 글 전체(원문)에서 모르는 artifact path를 찾아 목록을 다시 읽는다. code 안 path도 본다. */
-export function ChatMarkdown(
-  { text, artifacts }: ChatMarkdownProps,
-): ReactElement {
+export function ChatMarkdown({
+  text,
+  artifacts,
+}: ChatMarkdownProps): ReactElement {
   useArtifactReload(text, artifacts);
   const open = windowLinkOpener();
-  const renderText = artifacts === undefined ? undefined : (
-    piece: string,
-    kind: "text" | "code",
-  ): ReactNode => {
-    if (kind === "text") return artifactPieces(piece, artifacts);
-    // agent는 path를 backtick에 넣는 일이 많다. inline code 전체가 path이면 그것도 link로 둔다.
-    const mentions = artifactMentions(piece, artifacts.names);
-    const one = mentions[0];
-    return mentions.length === 1 && one !== undefined && one.start === 0 &&
-        one.end === piece.length
-      ? (
-        <ArtifactLink
-          artifacts={artifacts}
-          domain={one.domain}
-          name={one.name}
-          label={piece}
-        />
-      )
-      : undefined;
-  };
+  const renderText =
+    artifacts === undefined
+      ? undefined
+      : (piece: string, kind: "text" | "code"): ReactNode => {
+          if (kind === "text") return artifactPieces(piece, artifacts);
+          // agent는 path를 backtick에 넣는 일이 많다. inline code 전체가 path이면 그것도 link로 둔다.
+          const mentions = artifactMentions(piece, artifacts.names);
+          const one = mentions[0];
+          return mentions.length === 1 &&
+            one !== undefined &&
+            one.start === 0 &&
+            one.end === piece.length ? (
+            <ArtifactLink
+              artifacts={artifacts}
+              domain={one.domain}
+              name={one.name}
+              label={piece}
+            />
+          ) : undefined;
+        };
   return (
     <Markdown
       source={text}

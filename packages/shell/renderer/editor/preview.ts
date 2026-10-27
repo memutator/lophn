@@ -17,29 +17,29 @@ export type Span =
   | { kind: "rule"; from: number; to: number }
   | { kind: "lang"; at: number; name: string }
   | {
-    kind: "image";
-    from: number;
-    to: number;
-    src: string;
-    alt: string;
-    replace: boolean;
-  };
+      kind: "image";
+      from: number;
+      to: number;
+      src: string;
+      alt: string;
+      replace: boolean;
+    };
 
 /** 통째로 그리는 block. CodeMirror는 block decoration을 state에서만 받는다. */
 export type Block =
   | {
-    kind: "table";
-    from: number;
-    to: number;
-    rows: string[][];
-    align: Align[];
-  }
+      kind: "table";
+      from: number;
+      to: number;
+      rows: string[][];
+      align: Align[];
+    }
   | {
-    kind: "frontmatter";
-    from: number;
-    to: number;
-    fields: [string, string][];
-  };
+      kind: "frontmatter";
+      from: number;
+      to: number;
+      fields: [string, string][];
+    };
 
 export type Align = "left" | "center" | "right" | null;
 
@@ -65,9 +65,7 @@ function touches(
 }
 
 /** 파일 맨 위 frontmatter(`---` … `---`) 범위. */
-function frontmatterRange(
-  doc: Text,
-): { from: number; to: number } | null {
+function frontmatterRange(doc: Text): { from: number; to: number } | null {
   if (doc.lines < 2 || doc.line(1).text.trimEnd() !== "---") return null;
   for (let number = 2; number <= doc.lines; number += 1) {
     const text = doc.line(number).text.trimEnd();
@@ -102,32 +100,31 @@ function unquote(value: string): string {
 }
 
 /** 표 원문의 칸. 두 번째 줄은 정렬로 읽는다. */
-function parseTable(
-  source: string,
-): { rows: string[][]; align: Align[] } {
+function parseTable(source: string): { rows: string[][]; align: Align[] } {
   const lines = source.split("\n").filter((line) => line.trim() !== "");
   const cells = (line: string) => {
     let text = line.trim();
     if (text.startsWith("|")) text = text.slice(1);
     if (text.endsWith("|") && !text.endsWith("\\|")) text = text.slice(0, -1);
-    return text.split(/(?<!\\)\|/).map((cell) =>
-      cell.trim().replace(/\\\|/g, "|")
-    );
+    return text
+      .split(/(?<!\\)\|/)
+      .map((cell) => cell.trim().replace(/\\\|/g, "|"));
   };
   const rows: string[][] = [];
   let align: Align[] = [];
   lines.forEach((line, index) => {
     if (
-      index === 1 && /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/.test(line)
+      index === 1 &&
+      /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/.test(line)
     ) {
       align = cells(line).map((cell) =>
         cell.startsWith(":") && cell.endsWith(":")
           ? "center"
           : cell.endsWith(":")
-          ? "right"
-          : cell.startsWith(":")
-          ? "left"
-          : null
+            ? "right"
+            : cell.startsWith(":")
+              ? "left"
+              : null,
       );
     } else rows.push(cells(line));
   });
@@ -255,7 +252,8 @@ export function previewSpans(
         return false;
       }
       if (
-        name === "URL" && node.node.parent?.name !== "Link" &&
+        name === "URL" &&
+        node.node.parent?.name !== "Link" &&
         node.node.parent?.name !== "Image"
       ) {
         spans.push({
@@ -271,9 +269,10 @@ export function previewSpans(
         const active = touches(ranges, node.from, node.to);
         const url = node.node.getChild("URL");
         const marks = node.node.getChildren("LinkMark");
-        const alt = marks.length >= 2
-          ? doc.sliceString(marks[0]!.to, marks[1]!.from)
-          : "";
+        const alt =
+          marks.length >= 2
+            ? doc.sliceString(marks[0]!.to, marks[1]!.from)
+            : "";
         if (active) {
           spans.push({
             kind: "mark",
@@ -301,9 +300,10 @@ export function previewSpans(
         const active = touches(ranges, line.from, line.to);
         const task = node.node.getChild("Task")?.getChild("TaskMarker") ?? null;
         if (task && !active) {
-          const end = doc.sliceString(task.to, task.to + 1) === " "
-            ? task.to + 1
-            : task.to;
+          const end =
+            doc.sliceString(task.to, task.to + 1) === " "
+              ? task.to + 1
+              : task.to;
           spans.push({
             kind: "task",
             from: mark.from,
@@ -312,7 +312,8 @@ export function previewSpans(
             line: line.from,
           });
         } else if (
-          !active && /^[-*+]$/.test(doc.sliceString(mark.from, mark.to))
+          !active &&
+          /^[-*+]$/.test(doc.sliceString(mark.from, mark.to))
         ) {
           spans.push({ kind: "bullet", from: mark.from, to: mark.to });
         } else {
@@ -326,7 +327,7 @@ export function previewSpans(
         return;
       }
       if (name === "Blockquote") {
-        for (let position = node.from; position <= node.to;) {
+        for (let position = node.from; position <= node.to; ) {
           const line = lineOf(position);
           spans.push({ kind: "line", from: line.from, cls: "cm-lp-quote" });
           if (line.to + 1 > node.to) break;
@@ -355,8 +356,8 @@ export function previewSpans(
         const last = lineOf(node.to).number;
         for (let number = first; number <= last; number += 1) {
           const line = doc.line(number);
-          const edge = name === "FencedCode" &&
-            (number === first || number === last);
+          const edge =
+            name === "FencedCode" && (number === first || number === last);
           const classes = ["cm-lp-codeblock"];
           if (number === first) classes.push("cm-lp-codeblock-first");
           if (number === last) classes.push("cm-lp-codeblock-last");

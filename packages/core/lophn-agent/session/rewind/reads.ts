@@ -42,9 +42,11 @@ function cursorAfter(cursor: string | undefined): Result<number> {
   try {
     const parsed = JSON.parse(atob(cursor)) as { after?: unknown };
     if (
-      typeof parsed.after !== "number" || !Number.isSafeInteger(parsed.after) ||
+      typeof parsed.after !== "number" ||
+      !Number.isSafeInteger(parsed.after) ||
       parsed.after < 0
-    ) throw new TypeError("cursor");
+    )
+      throw new TypeError("cursor");
     return ok(parsed.after);
   } catch {
     return err({ code: "invalid_input", message: "invalid cursor" });
@@ -54,9 +56,11 @@ function cursorAfter(cursor: string | undefined): Result<number> {
 const cursorOf = (after: number): string => btoa(JSON.stringify({ after }));
 
 function sessionExists(lookup: Lookup, session: string): boolean {
-  return lookup.sql.get("select 1 as found from sessions where id = ?", [
-    session,
-  ]) !== undefined;
+  return (
+    lookup.sql.get("select 1 as found from sessions where id = ?", [
+      session,
+    ]) !== undefined
+  );
 }
 
 export function createSessionRewindReads(deps: PlanDeps): {
@@ -88,12 +92,15 @@ export function createSessionRewindReads(deps: PlanDeps): {
           restore: preview.restore,
           skip: preview.skip,
           remain: preview.remain,
-          app_writes: target.choice === "restore_all"
-            ? snapshot.port(appWritesPort).writesAfter(
-              input.session as never,
-              String(boundary!["created_seq"]) as never,
-            )
-            : [],
+          app_writes:
+            target.choice === "restore_all"
+              ? snapshot
+                  .port(appWritesPort)
+                  .writesAfter(
+                    input.session as never,
+                    String(boundary!["created_seq"]) as never,
+                  )
+              : [],
           preview_hash: preview.preview_hash,
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
@@ -125,16 +132,18 @@ export function createSessionRewindReads(deps: PlanDeps): {
             message: String(row["message"]),
             session: String(row["session"]),
             files_restorable: Number(row["files_restorable"]) === 1,
-            files_reason: row["files_reason"] === null
-              ? null
-              : String(row["files_reason"]) as Checkpoint["files_reason"],
+            files_reason:
+              row["files_reason"] === null
+                ? null
+                : (String(row["files_reason"]) as Checkpoint["files_reason"]),
             created_seq: String(row["created_seq"]),
             hidden: inHiddenRange(hidden, String(row["order_seq"])),
           })),
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: rows.length > PAGE && last !== undefined
-            ? cursorOf(Number(last["order_seq"]))
-            : null,
+          next_cursor:
+            rows.length > PAGE && last !== undefined
+              ? cursorOf(Number(last["order_seq"]))
+              : null,
         });
       },
     },
@@ -156,7 +165,8 @@ export function createSessionRewindReads(deps: PlanDeps): {
         );
         const page = rows.slice(0, PAGE);
         const last = page[page.length - 1];
-        const text = (value: unknown) => value === null ? null : String(value);
+        const text = (value: unknown) =>
+          value === null ? null : String(value);
         return ok({
           reverts: page.map((row) => ({
             id: String(row["id"]),
@@ -174,9 +184,10 @@ export function createSessionRewindReads(deps: PlanDeps): {
           })),
           hidden_from_seq: hiddenFromSeq(snapshot, input.session),
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: rows.length > PAGE && last !== undefined
-            ? cursorOf(Number(last["position"]))
-            : null,
+          next_cursor:
+            rows.length > PAGE && last !== undefined
+              ? cursorOf(Number(last["position"]))
+              : null,
         });
       },
     },
@@ -184,32 +195,37 @@ export function createSessionRewindReads(deps: PlanDeps): {
 }
 
 function itemsOf(lookup: Lookup, revert: string): RevertItem[] {
-  return lookup.sql.all(
-    `select ordinal, class, target, source, plan, result, reason
+  return lookup.sql
+    .all(
+      `select ordinal, class, target, source, plan, result, reason
        from revert_items where revert = ? order by ordinal`,
-    [revert],
-  ).map((row) => ({
-    ordinal: Number(row["ordinal"]),
-    class: String(row["class"]) as RevertItem["class"],
-    target: String(row["target"]),
-    source: JSON.parse(String(row["source"])) as string[],
-    plan: String(row["plan"]) as RevertItem["plan"],
-    result: String(row["result"]) as RevertItem["result"],
-    reason: row["reason"] === null
-      ? null
-      : String(row["reason"]) as RevertItem["reason"],
-  }));
+      [revert],
+    )
+    .map((row) => ({
+      ordinal: Number(row["ordinal"]),
+      class: String(row["class"]) as RevertItem["class"],
+      target: String(row["target"]),
+      source: JSON.parse(String(row["source"])) as string[],
+      plan: String(row["plan"]) as RevertItem["plan"],
+      result: String(row["result"]) as RevertItem["result"],
+      reason:
+        row["reason"] === null
+          ? null
+          : (String(row["reason"]) as RevertItem["reason"]),
+    }));
 }
 
 function appsOf(lookup: Lookup, revert: string): RevertRecord["apps"] {
-  return lookup.sql.all(
-    `select app, from_invocation, result, reason
+  return lookup.sql
+    .all(
+      `select app, from_invocation, result, reason
        from rewind_apps where revert = ? order by rowid`,
-    [revert],
-  ).map((row) => ({
-    app: String(row["app"]),
-    from_invocation: String(row["from_invocation"]),
-    result: String(row["result"]) as RevertRecord["apps"][number]["result"],
-    reason: row["reason"] === null ? null : String(row["reason"]),
-  }));
+      [revert],
+    )
+    .map((row) => ({
+      app: String(row["app"]),
+      from_invocation: String(row["from_invocation"]),
+      result: String(row["result"]) as RevertRecord["apps"][number]["result"],
+      reason: row["reason"] === null ? null : String(row["reason"]),
+    }));
 }

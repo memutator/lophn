@@ -27,9 +27,10 @@ async function readBounded(
       if (next.done) break;
       const room = maxBytes - total;
       if (room <= 0) break;
-      const piece = next.value.byteLength > room
-        ? next.value.subarray(0, room)
-        : next.value;
+      const piece =
+        next.value.byteLength > room
+          ? next.value.subarray(0, room)
+          : next.value;
       chunks.push(piece);
       total += piece.byteLength;
       if (total >= maxBytes) break;
@@ -50,8 +51,7 @@ async function readBounded(
 // content-type 없이 보낸다(2026-10-26 실제 응답). content-type이 없는 성공 응답도 SSE로 읽는다.
 function isEventStream(headers: Headers): boolean {
   const type = headers.get("content-type");
-  return type === null ||
-    type.toLowerCase().startsWith("text/event-stream");
+  return type === null || type.toLowerCase().startsWith("text/event-stream");
 }
 
 // option 값이 요구하는 header(예: Anthropic fast mode의 beta header)를 요청에 더한다.
@@ -111,7 +111,9 @@ export function createFetchTransport(
     }
     const headers = response.headers;
     if (
-      response.status >= 200 && response.status < 300 && isEventStream(headers)
+      response.status >= 200 &&
+      response.status < 300 &&
+      isEventStream(headers)
     ) {
       return ok({
         status: response.status,

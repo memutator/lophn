@@ -38,9 +38,9 @@ function cannot(reason: CannotStart["reason"], why: CannotStart["why"]) {
 }
 
 function issueFields(error: { details?: unknown }): string[] {
-  const issues =
-    (error.details as { issues?: AgentDefinitionIssue[] } | undefined)
-      ?.issues;
+  const issues = (
+    error.details as { issues?: AgentDefinitionIssue[] } | undefined
+  )?.issues;
   return (issues ?? []).map((issue) => issue.field);
 }
 
@@ -92,9 +92,10 @@ export async function resolveTurnAgent(
       .filter((entry) => entry.original_tool === undefined)
       .map((entry) => entry.server_name),
   );
-  const ownServers = definition !== null && "mcp_servers" in definition
-    ? definition.mcp_servers ?? []
-    : [];
+  const ownServers =
+    definition !== null && "mcp_servers" in definition
+      ? (definition.mcp_servers ?? [])
+      : [];
   const mcp = await input.mcp(serversOff, place, ownServers);
 
   // 정의 읽기의 model은 agent 정의가 먼저이고 비면 전역 기본이다. 출처가 전역일 때만 전역 층의 값이다.

@@ -35,7 +35,10 @@ export const storageWiring: WiringFactory = () => {
     schemaSteps: LEDGER_SCHEMA_STEPS,
     prepare(ctx) {
       // 읽기 의존은 runtime보다 먼저 만들어 둔다. relay는 build에서 채운다.
-      ctx.provide("blobRead", blobReadDeps(() => ctx.assembled.blobFields));
+      ctx.provide(
+        "blobRead",
+        blobReadDeps(() => ctx.assembled.blobFields),
+      );
     },
     build(ctx) {
       const gauge = createBufferGauge();
@@ -83,9 +86,13 @@ export const storageWiring: WiringFactory = () => {
     // 끝내고 종료를 계속한다. 실패는 diagnostics 로그만 남긴다.
     async stopped(ctx, conditions) {
       if (
-        !(conditions.preparationsBlocked && conditions.commandsBlocked &&
-          conditions.writerStopped)
-      ) return;
+        !(
+          conditions.preparationsBlocked &&
+          conditions.commandsBlocked &&
+          conditions.writerStopped
+        )
+      )
+        return;
       await runStoppedMaintenance({
         dataRoot: ctx.root.path,
         ledgerPath: ctx.ledgerPath,
@@ -100,9 +107,7 @@ export const storageWiring: WiringFactory = () => {
 // 바이트 흐름. core가 relay를 만들어 I/O worker의 callback으로 넣는다.
 // 준비 성공은 writer 메모리에도 알려 등록 판정이 같은 참조를 보게 한다.
 // 바이트는 core가 열지 않는다. I/O worker의 blob.read가 읽고 core는 결과만 받는다.
-function blobReadDeps(
-  fields: () => readonly BlobFieldDefinition[],
-): BlobRead {
+function blobReadDeps(fields: () => readonly BlobFieldDefinition[]): BlobRead {
   const reader: { current?: BlobRead["deps"]["read"] } = {};
   return {
     deps: {
@@ -112,13 +117,15 @@ function blobReadDeps(
       read(hash, offset, length) {
         const current = reader.current;
         if (!current) {
-          return Promise.resolve(err({
-            code: "unavailable",
-            message: "blob 읽기 통로가 없다",
-          }));
+          return Promise.resolve(
+            err({
+              code: "unavailable",
+              message: "blob 읽기 통로가 없다",
+            }),
+          );
         }
         return current(hash, offset, length).catch(() =>
-          err({ code: "unavailable", message: "blob을 읽지 못했다" })
+          err({ code: "unavailable", message: "blob을 읽지 못했다" }),
         );
       },
     },
@@ -131,10 +138,7 @@ function blobReadDeps(
 function blobRelayFor(
   io: Supervisor,
   clock: Clock,
-  note: (
-    prepared: PreparedRelayResult,
-    nowMs: number,
-  ) => Promise<Result<void>>,
+  note: (prepared: PreparedRelayResult, nowMs: number) => Promise<Result<void>>,
   gauge: BufferGauge,
 ): BlobRelay {
   const registry = createPreparationRegistry();
@@ -177,16 +181,18 @@ function blobRelayFor(
     prune: (nowMs) => relay.prune(nowMs),
     live: (prepared, nowMs) => relay.live(prepared, nowMs),
     prepare: (call: BlobPrepareCall) =>
-      relay.prepare(
-        {
-          principal: call.principal,
-          purpose: call.purpose,
-          expectedHash: call.expectedHash,
-        },
-        call.bytes,
-      ).catch(() =>
-        err({ code: "unavailable", message: "blob 준비를 넘기지 못했다" })
-      ),
+      relay
+        .prepare(
+          {
+            principal: call.principal,
+            purpose: call.purpose,
+            expectedHash: call.expectedHash,
+          },
+          call.bytes,
+        )
+        .catch(() =>
+          err({ code: "unavailable", message: "blob 준비를 넘기지 못했다" }),
+        ),
     readBytes: (hash, offset, length) => relay.readBytes(hash, offset, length),
   };
 }
@@ -208,36 +214,32 @@ async function runStoppedMaintenance(input: {
   nowMs: number;
 }): Promise<void> {
   const signal = AbortSignal.timeout(MAINTENANCE_TIMEOUT_MS);
-  const entry = new URL(
-    "../../worker/maintenance-entry.ts",
-    import.meta.url,
-  )
+  const entry = new URL("../../worker/maintenance-entry.ts", import.meta.url)
     .pathname;
   let success: boolean;
   try {
-    const child = spawn(Deno.execPath(), [
-      "run",
-      "--allow-all",
-      "--no-prompt",
-      entry,
-    ], {
-      // lophn 자신의 process다. 권한을 좁혀도 막는 것이 없고, Deno의 node:*는
-      // 좁힌 권한을 더 요구해 child만 깨진다.
-      stdio: ["ignore", "ignore", "ignore"],
-      // Node는 env를 주면 부모 환경을 통째로 대체한다(Deno의 clearEnv와 같다).
-      env: {
-        ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
-        ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
-        LOPHN_HOME: input.dataRoot,
-        LOPHN_MAINTENANCE: JSON.stringify({
-          ledger: input.ledgerPath,
-          conditions: input.conditions,
-          fields: input.fields,
-          nowMs: input.nowMs,
-        }),
+    const child = spawn(
+      Deno.execPath(),
+      ["run", "--allow-all", "--no-prompt", entry],
+      {
+        // lophn 자신의 process다. 권한을 좁혀도 막는 것이 없고, Deno의 node:*는
+        // 좁힌 권한을 더 요구해 child만 깨진다.
+        stdio: ["ignore", "ignore", "ignore"],
+        // Node는 env를 주면 부모 환경을 통째로 대체한다(Deno의 clearEnv와 같다).
+        env: {
+          ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
+          ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
+          LOPHN_HOME: input.dataRoot,
+          LOPHN_MAINTENANCE: JSON.stringify({
+            ledger: input.ledgerPath,
+            conditions: input.conditions,
+            fields: input.fields,
+            nowMs: input.nowMs,
+          }),
+        },
+        signal,
       },
-      signal,
-    });
+    );
     success = await new Promise<boolean>((resolve, reject) => {
       child.on("error", reject);
       child.on("close", (code) => resolve(code === 0));

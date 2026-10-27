@@ -22,9 +22,10 @@ const systemSaveClock: SaveClock = {
 
 /** main 파일 통로의 이 파일 하나. */
 export interface SavePort {
-  write(
-    input: { base_hash: string | null; text: string },
-  ): Promise<FileReply<FileWritten>>;
+  write(input: {
+    base_hash: string | null;
+    text: string;
+  }): Promise<FileReply<FileWritten>>;
   read(): Promise<FileReply<FileText>>;
 }
 
@@ -93,9 +94,7 @@ export class SaveSession {
   }
 
   /** 편집기 글을 바꿔야 할 때(밖에서 바뀐 파일을 다시 읽음, 디스크 쪽을 고름)의 알림. */
-  onReplace(
-    listener: (text: string, cause: ReplaceCause) => void,
-  ): () => void {
+  onReplace(listener: (text: string, cause: ReplaceCause) => void): () => void {
     this.#replacers.add(listener);
     return () => this.#replacers.delete(listener);
   }

@@ -77,9 +77,10 @@ function forbidden(message: string): Result<never> {
   return err({ code: "forbidden", message });
 }
 
-export function createAppCalls(
-  deps: AppCallsDeps,
-): { path: AppToolCallPath; intake: AppIntake } {
+export function createAppCalls(deps: AppCallsDeps): {
+  path: AppToolCallPath;
+  intake: AppIntake;
+} {
   const queue = createWriteQueue();
   const intake = createIntake({
     queue,
@@ -371,20 +372,23 @@ export function createAppCalls(
   ): Promise<Result<ToolCallOutput>> {
     const settled = unknownSettled();
     const finishedAt = deps.clock.now();
-    const closed = base.effect === "read"
-      ? await deps.ledger.recordOnce(closedRow(base, {
-        status: "unknown",
-        started_at: startedAt,
-        finished_at: finishedAt,
-        summary: settled.summary,
-      }))
-      : await deps.ledger.finish(base.id, {
-        status: "unknown",
-        finished_at: finishedAt,
-        summary: settled.summary,
-        detail_hash: null,
-        changeset: null,
-      });
+    const closed =
+      base.effect === "read"
+        ? await deps.ledger.recordOnce(
+            closedRow(base, {
+              status: "unknown",
+              started_at: startedAt,
+              finished_at: finishedAt,
+              summary: settled.summary,
+            }),
+          )
+        : await deps.ledger.finish(base.id, {
+            status: "unknown",
+            finished_at: finishedAt,
+            summary: settled.summary,
+            detail_hash: null,
+            changeset: null,
+          });
     if (!closed.ok) return closed;
     return ok({ invocation: base.id, outcome: settled.outcome });
   }
@@ -395,12 +399,14 @@ export function createAppCalls(
     startedAt: string,
     settled: Settled,
   ): Promise<Result<ToolCallOutput>> {
-    const recorded = await deps.ledger.recordOnce(closedRow(base, {
-      status: settled.status,
-      started_at: startedAt,
-      finished_at: deps.clock.now(),
-      summary: settled.summary,
-    }));
+    const recorded = await deps.ledger.recordOnce(
+      closedRow(base, {
+        status: settled.status,
+        started_at: startedAt,
+        finished_at: deps.clock.now(),
+        summary: settled.summary,
+      }),
+    );
     if (!recorded.ok) return recorded;
     return ok({ invocation: base.id, outcome: settled.outcome });
   }

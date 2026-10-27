@@ -4,23 +4,29 @@ import { parseRef, type VersionRef } from "../../types.ts";
 import { EXPERIMENT_KINDS, type ExperimentSpec } from "./types.ts";
 
 const text = z.string().refine((s) => s.trim() !== "", "must not be empty");
-const goal = z.object({
-  scenario: text,
-  checks: z.array(text).min(1).optional(),
-}).strict();
+const goal = z
+  .object({
+    scenario: text,
+    checks: z.array(text).min(1).optional(),
+  })
+  .strict();
 
-const schema = z.object({
-  id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
-  hypothesis: text,
-  start_run: text,
-  model: text,
-  change: z.object({ from: z.string(), to: z.string() }).strict(),
-  target: z.array(goal),
-  cases: z.array(goal),
-  judgment: z.object({ rule: z.string() }).strict(),
-  trials: z.object({ base: z.number().int(), max: z.number().int() }).strict(),
-  budget_usd: z.number(),
-}).strict();
+const schema = z
+  .object({
+    id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
+    hypothesis: text,
+    start_run: text,
+    model: text,
+    change: z.object({ from: z.string(), to: z.string() }).strict(),
+    target: z.array(goal),
+    cases: z.array(goal),
+    judgment: z.object({ rule: z.string() }).strict(),
+    trials: z
+      .object({ base: z.number().int(), max: z.number().int() })
+      .strict(),
+    budget_usd: z.number(),
+  })
+  .strict();
 
 function ref(label: string, value: string, problems: string[]) {
   try {
@@ -45,8 +51,8 @@ export function parseSpec(
   const parsed = schema.safeParse(value);
   if (!parsed.success) {
     return fail(
-      parsed.error.issues.map((i) =>
-        `${i.path.join(".") || "(spec)"}: ${i.message}`
+      parsed.error.issues.map(
+        (i) => `${i.path.join(".") || "(spec)"}: ${i.message}`,
       ),
     );
   }

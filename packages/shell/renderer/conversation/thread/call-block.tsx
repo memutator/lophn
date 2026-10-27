@@ -45,27 +45,27 @@ function statusText(
     case "accepted":
       return reply === "conversation"
         ? {
-          tone: "neutral",
-          label: t("conversation.label.call-working-together"),
-          detail: t("conversation.notice.call-working-together", { to }),
-        }
+            tone: "neutral",
+            label: t("conversation.label.call-working-together"),
+            detail: t("conversation.notice.call-working-together", { to }),
+          }
         : {
-          tone: "neutral",
-          label: t("conversation.label.call-in-progress"),
-          detail: t("conversation.notice.call-waiting", { to }),
-        };
+            tone: "neutral",
+            label: t("conversation.label.call-in-progress"),
+            detail: t("conversation.notice.call-waiting", { to }),
+          };
     case "done":
       return reply === "none"
         ? {
-          tone: "good",
-          label: t("conversation.label.call-delivered"),
-          detail: t("conversation.notice.call-delivered"),
-        }
+            tone: "good",
+            label: t("conversation.label.call-delivered"),
+            detail: t("conversation.notice.call-delivered"),
+          }
         : {
-          tone: "good",
-          label: t("conversation.label.call-answered"),
-          detail: t("conversation.notice.call-answered"),
-        };
+            tone: "good",
+            label: t("conversation.label.call-answered"),
+            detail: t("conversation.notice.call-answered"),
+          };
     case "failed":
       return {
         tone: "critical",
@@ -89,9 +89,12 @@ interface CallBlockProps {
   defaultOpen?: boolean;
 }
 
-export function CallBlock(
-  { call, source, onOpenSession, defaultOpen = false }: CallBlockProps,
-): ReactElement {
+export function CallBlock({
+  call,
+  source,
+  onOpenSession,
+  defaultOpen = false,
+}: CallBlockProps): ReactElement {
   const [open, setOpen] = useState(defaultOpen);
   // thread를 읽은 때의 상태에서 시작하고, 열 때와 취소한 뒤에 다시 읽는다.
   const [status, setStatus] = useState<CallStatus>(call.status);
@@ -138,58 +141,48 @@ export function CallBlock(
           <span className={styles.callTo}>
             {t("conversation.title.call-handed", { to: call.to })}
           </span>
-          <span className={styles.callMode}>
-            {t(REPLY_LABEL[call.reply])}
-          </span>
+          <span className={styles.callMode}>{t(REPLY_LABEL[call.reply])}</span>
         </button>
-        {call.session !== null && onOpenSession !== undefined
-          ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              data-call-open=""
-              onClick={() => onOpenSession(call.session!)}
-            >
-              {t("conversation.button.call-open")}
-            </Button>
-          )
-          : null}
-        {status.state === "accepted"
-          ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={cancelling}
-              onClick={() => void cancel()}
-            >
-              {t("conversation.button.call-cancel")}
-            </Button>
-          )
-          : null}
+        {call.session !== null && onOpenSession !== undefined ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            data-call-open=""
+            onClick={() => onOpenSession(call.session!)}
+          >
+            {t("conversation.button.call-open")}
+          </Button>
+        ) : null}
+        {status.state === "accepted" ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={cancelling}
+            onClick={() => void cancel()}
+          >
+            {t("conversation.button.call-cancel")}
+          </Button>
+        ) : null}
       </div>
       <p className={styles.callTask}>{call.task}</p>
-      {cancelFailed && status.state === "accepted"
-        ? (
+      {cancelFailed && status.state === "accepted" ? (
+        <p className={styles.callAsOf}>
+          {t("conversation.notice.call-cancel-failed")}
+        </p>
+      ) : null}
+      {open ? (
+        <div className={styles.callStatus} data-call-status="">
+          <StatusMark tone={text.tone} label={text.label} />
+          <p className={styles.callDetail}>{text.detail}</p>
           <p className={styles.callAsOf}>
-            {t("conversation.notice.call-cancel-failed")}
+            {t(
+              failed
+                ? "conversation.notice.call-unreadable"
+                : "conversation.notice.call-as-of",
+            )}
           </p>
-        )
-        : null}
-      {open
-        ? (
-          <div className={styles.callStatus} data-call-status="">
-            <StatusMark tone={text.tone} label={text.label} />
-            <p className={styles.callDetail}>{text.detail}</p>
-            <p className={styles.callAsOf}>
-              {t(
-                failed
-                  ? "conversation.notice.call-unreadable"
-                  : "conversation.notice.call-as-of",
-              )}
-            </p>
-          </div>
-        )
-        : null}
+        </div>
+      ) : null}
     </div>
   );
 }

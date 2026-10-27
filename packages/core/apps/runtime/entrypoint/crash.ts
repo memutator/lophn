@@ -9,15 +9,16 @@ export function installCrashExit(deps: {
 }): void {
   let exiting = false;
   const fail = (reason: unknown) => {
-    const text = reason instanceof Error
-      ? `${reason.name}: ${reason.message}\n${reason.stack ?? ""}`
-      : String(reason);
+    const text =
+      reason instanceof Error
+        ? `${reason.name}: ${reason.message}\n${reason.stack ?? ""}`
+        : String(reason);
     deps.writeStderr(text);
     if (exiting) return;
     exiting = true;
-    void (deps.beforeExit?.() ?? Promise.resolve()).catch(() => {}).then(() =>
-      deps.exit(1)
-    );
+    void (deps.beforeExit?.() ?? Promise.resolve())
+      .catch(() => {})
+      .then(() => deps.exit(1));
   };
   const target = deps.target ?? globalThis;
   target.addEventListener("error", (event) => {

@@ -34,11 +34,13 @@ export function fakeAnnotate(
     setMode: ({ view_session, on }) =>
       Promise.resolve(push({ ...state, view_session, on })),
     remove: ({ view_session, n }) =>
-      Promise.resolve(push({
-        ...state,
-        view_session,
-        items: n === "all" ? [] : state.items.filter((item) => item.n !== n),
-      })),
+      Promise.resolve(
+        push({
+          ...state,
+          view_session,
+          items: n === "all" ? [] : state.items.filter((item) => item.n !== n),
+        }),
+      ),
     send: ({ view_session }) => {
       if (options.sendFails !== undefined) {
         return Promise.reject(new Error(options.sendFails));

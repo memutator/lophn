@@ -57,38 +57,42 @@ const activationAttemptSchema = z.object({
 });
 export type ActivationAttempt = z.infer<typeof activationAttemptSchema>;
 
-export const releaseRecordSchema = z.object({
-  id: releaseIdSchema,
-  app: appIdSchema,
-  number: z.number().int().positive().max(MAX),
-  code_commit: z.string().regex(/^[0-9a-f]{40}$/),
-  bundle_hash: sha256Schema,
-  declaration_hash: sha256Schema,
-  data_schema: z.number().int().nonnegative().max(MAX),
-  data_changes: z.array(dataChangeSchema),
-  created_by: actorSchema,
-  created_at: atSchema,
-  status: releaseStatusValueSchema,
-  activation: activationAttemptSchema.nullable(),
-  // active, superseded이면 값이 있다.
-  activated_at: atSchema.nullable(),
-  failure: activationFailureSchema.nullable(),
-}).refine(
-  (value) =>
-    value.status === "activating" || value.status === "failed"
-      ? value.activation !== null
-      : true,
-  { message: "activating and failed need an activation" },
-).refine(
-  (value) => value.status === "failed" ? value.failure !== null : true,
-  { message: "failed release needs a failure" },
-).refine(
-  (value) =>
-    value.status === "active" || value.status === "superseded"
-      ? value.activated_at !== null
-      : true,
-  { message: "active and superseded need activated_at" },
-);
+export const releaseRecordSchema = z
+  .object({
+    id: releaseIdSchema,
+    app: appIdSchema,
+    number: z.number().int().positive().max(MAX),
+    code_commit: z.string().regex(/^[0-9a-f]{40}$/),
+    bundle_hash: sha256Schema,
+    declaration_hash: sha256Schema,
+    data_schema: z.number().int().nonnegative().max(MAX),
+    data_changes: z.array(dataChangeSchema),
+    created_by: actorSchema,
+    created_at: atSchema,
+    status: releaseStatusValueSchema,
+    activation: activationAttemptSchema.nullable(),
+    // active, superseded이면 값이 있다.
+    activated_at: atSchema.nullable(),
+    failure: activationFailureSchema.nullable(),
+  })
+  .refine(
+    (value) =>
+      value.status === "activating" || value.status === "failed"
+        ? value.activation !== null
+        : true,
+    { message: "activating and failed need an activation" },
+  )
+  .refine(
+    (value) => (value.status === "failed" ? value.failure !== null : true),
+    { message: "failed release needs a failure" },
+  )
+  .refine(
+    (value) =>
+      value.status === "active" || value.status === "superseded"
+        ? value.activated_at !== null
+        : true,
+    { message: "active and superseded need activated_at" },
+  );
 export type ReleaseRecord = z.infer<typeof releaseRecordSchema>;
 
 // 불변 prepared Release 확정. core가 준비와 검사를 마친 봉인 사본에서 모은 입력만 확정한다.
@@ -137,30 +141,23 @@ export const activationComparisonSchema = z.object({
   // 선언한 다른 앱의 tool 가운데 active grant가 덮지 않는 것.
   added_tools: z.array(addedToolSchema),
   // 이번 activation이 지나는 migration 단계 가운데 loss가 비지 않은 것.
-  loss_steps: z.array(z.object({
-    from: z.number().int().nonnegative().max(MAX),
-    to: z.number().int().nonnegative().max(MAX),
-    loss: z.array(lossStepSchema),
-  })),
+  loss_steps: z.array(
+    z.object({
+      from: z.number().int().nonnegative().max(MAX),
+      to: z.number().int().nonnegative().max(MAX),
+      loss: z.array(lossStepSchema),
+    }),
+  ),
 });
 export type ActivationComparison = z.infer<typeof activationComparisonSchema>;
 
 // running은 메모리, waiting_consent는 동의 표(activation_consents)다. 끝난 것은 release의 status(active, failed)로 본다.
-const ACTIVATION_PHASES = [
-  "waiting_consent",
-  "running",
-] as const;
+const ACTIVATION_PHASES = ["waiting_consent", "running"] as const;
 const activationPhaseSchema = z.enum(ACTIVATION_PHASES);
 export type ActivationPhase = z.infer<typeof activationPhaseSchema>;
 
 // running일 때 지금 하는 단계다: 새 호출 멈춤, 도는 호출 기다림, 이전 process 종료, migration, 시작 확인.
-const ACTIVATION_STEPS = [
-  "hold",
-  "drain",
-  "stop",
-  "migrate",
-  "start",
-] as const;
+const ACTIVATION_STEPS = ["hold", "drain", "stop", "migrate", "start"] as const;
 const activationStepSchema = z.enum(ACTIVATION_STEPS);
 export type ActivationStep = z.infer<typeof activationStepSchema>;
 
@@ -310,9 +307,11 @@ export const activationsQueue = defineRead({
   method: "queue",
   name: "activations.queue",
   input: z.strictObject({ app: appIdSchema.optional() }),
-  output: withReadCommon(z.object({
-    entries: z.array(activationQueueEntrySchema),
-  })),
+  output: withReadCommon(
+    z.object({
+      entries: z.array(activationQueueEntrySchema),
+    }),
+  ),
   actors: ["user", "agent", "coding_agent", "machine"],
   errors: readErrors,
 });

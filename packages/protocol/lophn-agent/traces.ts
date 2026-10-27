@@ -96,23 +96,28 @@ const turnTraceSchema = z.object({
 });
 export type TurnTrace = z.infer<typeof turnTraceSchema>;
 
-const agentTraceReadInputSchema = z.strictObject({
-  target: traceTargetSchema,
-  role: agentRoleSchema.optional(),
-  from_at: atSchema.optional(),
-  through_at: atSchema.optional(),
-  cursor: z.string().min(1).optional(),
-  limit: z.number().int().positive().max(100).optional(),
-}).refine(
-  (value) =>
-    value.from_at === undefined || value.through_at === undefined ||
-    value.from_at < value.through_at,
-  { message: "empty or inverted period" },
-);
+const agentTraceReadInputSchema = z
+  .strictObject({
+    target: traceTargetSchema,
+    role: agentRoleSchema.optional(),
+    from_at: atSchema.optional(),
+    through_at: atSchema.optional(),
+    cursor: z.string().min(1).optional(),
+    limit: z.number().int().positive().max(100).optional(),
+  })
+  .refine(
+    (value) =>
+      value.from_at === undefined ||
+      value.through_at === undefined ||
+      value.from_at < value.through_at,
+    { message: "empty or inverted period" },
+  );
 
-const agentTraceReadOutputSchema = withReadCommon(z.object({
-  trace: turnTraceSchema,
-}));
+const agentTraceReadOutputSchema = withReadCommon(
+  z.object({
+    trace: turnTraceSchema,
+  }),
+);
 
 export const agentTraceRead = defineRead({
   resource: "agent-traces",
@@ -129,17 +134,19 @@ const CALL_COST_KINDS = COST_KINDS;
 const decimal = z.string().regex(/^(0|[1-9][0-9]{0,17})(\.[0-9]{1,6})?$/);
 const currency = z.string().regex(/^[A-Z]{3}$/);
 
-const usageGroupSchema = z.strictObject({
-  turn: idSchema("trn").nullable(),
-  session: idSchema("ses").nullable(),
-  role: agentRoleSchema.nullable(),
-  model: nonempty.nullable(),
-  from_at: atSchema,
-  through_at: atSchema,
-  currency: currency.nullable(),
-}).refine((value) => value.from_at < value.through_at, {
-  message: "empty or inverted period",
-});
+const usageGroupSchema = z
+  .strictObject({
+    turn: idSchema("trn").nullable(),
+    session: idSchema("ses").nullable(),
+    role: agentRoleSchema.nullable(),
+    model: nonempty.nullable(),
+    from_at: atSchema,
+    through_at: atSchema,
+    currency: currency.nullable(),
+  })
+  .refine((value) => value.from_at < value.through_at, {
+    message: "empty or inverted period",
+  });
 
 const tokenTotalSchema = z.strictObject({
   known: tokenUsageSchema,
@@ -153,35 +160,40 @@ const costTotalSchema = z.strictObject({
   calls: count,
 });
 
-export const usageTotalSchema = z.object({
-  group: usageGroupSchema,
-  calls: count,
-  tokens: tokenTotalSchema,
-  costs: z.array(costTotalSchema),
-  missing_records: count,
-  complete: z.boolean(),
-}).refine(
-  (value) => value.complete === (value.missing_records === 0),
-  { message: "complete usage has no missing records" },
-);
+export const usageTotalSchema = z
+  .object({
+    group: usageGroupSchema,
+    calls: count,
+    tokens: tokenTotalSchema,
+    costs: z.array(costTotalSchema),
+    missing_records: count,
+    complete: z.boolean(),
+  })
+  .refine((value) => value.complete === (value.missing_records === 0), {
+    message: "complete usage has no missing records",
+  });
 export type UsageTotal = z.infer<typeof usageTotalSchema>;
 
-const agentUsageReadInputSchema = z.strictObject({
-  turn: idSchema("trn").optional(),
-  session: idSchema("ses").optional(),
-  role: agentRoleSchema.optional(),
-  model: nonempty.optional(),
-  from_at: atSchema,
-  through_at: atSchema,
-  currency: currency.optional(),
-  cursor: z.string().min(1).optional(),
-}).refine((value) => value.from_at < value.through_at, {
-  message: "empty or inverted period",
-});
+const agentUsageReadInputSchema = z
+  .strictObject({
+    turn: idSchema("trn").optional(),
+    session: idSchema("ses").optional(),
+    role: agentRoleSchema.optional(),
+    model: nonempty.optional(),
+    from_at: atSchema,
+    through_at: atSchema,
+    currency: currency.optional(),
+    cursor: z.string().min(1).optional(),
+  })
+  .refine((value) => value.from_at < value.through_at, {
+    message: "empty or inverted period",
+  });
 
-const agentUsageReadOutputSchema = withReadCommon(z.object({
-  totals: z.array(usageTotalSchema),
-}));
+const agentUsageReadOutputSchema = withReadCommon(
+  z.object({
+    totals: z.array(usageTotalSchema),
+  }),
+);
 
 export const agentUsageRead = defineRead({
   resource: "agent-usage",
@@ -193,9 +205,6 @@ export const agentUsageRead = defineRead({
   errors: readErrors,
 });
 
-export const TRACE_ROUTES = [
-  agentTraceRead,
-  agentUsageRead,
-] as const;
+export const TRACE_ROUTES = [agentTraceRead, agentUsageRead] as const;
 
 // trace는 원본 참조 view다. 품질 점수·network export·본문 복제는 두지 않는다.

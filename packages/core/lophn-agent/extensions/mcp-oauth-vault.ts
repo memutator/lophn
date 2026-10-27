@@ -29,9 +29,7 @@ export type McpTokenNames = { access: string; refresh: string; meta: string };
 
 // 서버 하나의 token 이름이다. 서버 이름과 place에서 정해진다: 설정 schema는 `mcp-oauth.` 이름을 받지 않으므로
 // 설정이 다른 서버의 token을 가리킬 수 없다.
-export function mcpTokenNames(
-  key: McpAuthKey,
-): McpTokenNames {
+export function mcpTokenNames(key: McpAuthKey): McpTokenNames {
   const base = `mcp-oauth.${scopeOf(key.place)}.${key.name}`;
   return {
     access: `${base}.access`,
@@ -94,10 +92,12 @@ function metaOf(text: string): Meta | null {
     (record["expires_at_ms"] !== null &&
       typeof record["expires_at_ms"] !== "number") ||
     typeof record["token_endpoint"] !== "string" ||
-    binding === undefined || binding === null ||
+    binding === undefined ||
+    binding === null ||
     typeof binding !== "object" ||
     !Object.values(binding).every((v) => typeof v === "string")
-  ) return null;
+  )
+    return null;
   return {
     expires_at_ms: record["expires_at_ms"] as number | null,
     token_endpoint: record["token_endpoint"],
@@ -117,9 +117,8 @@ export function mcpOAuthSecretDestinations(
   if (!meta.ok) return [];
   const parsed = metaOf(meta.value);
   const serverUrl = parsed?.binding["server_url"];
-  const destination = serverUrl === undefined
-    ? undefined
-    : secretDestinationOf(serverUrl);
+  const destination =
+    serverUrl === undefined ? undefined : secretDestinationOf(serverUrl);
   return destination === undefined ? [] : [destination];
 }
 

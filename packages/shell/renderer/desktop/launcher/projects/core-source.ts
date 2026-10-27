@@ -117,17 +117,17 @@ function slugOf(title: string): string {
   const start = /^[a-z]/.test(words)
     ? words
     : words === ""
-    ? "project"
-    : `project-${words}`;
+      ? "project"
+      : `project-${words}`;
   return start.slice(0, SLUG_MAX).replace(/-+$/, "");
 }
 
 function slugAttempt(base: string, attempt: number): string {
   if (attempt === 1) return base;
   const suffix = `-${attempt}`;
-  return `${
-    base.slice(0, SLUG_MAX - suffix.length).replace(/-+$/, "")
-  }${suffix}`;
+  return `${base
+    .slice(0, SLUG_MAX - suffix.length)
+    .replace(/-+$/, "")}${suffix}`;
 }
 
 export async function createProject(
@@ -137,21 +137,23 @@ export async function createProject(
   const base = slugOf(draft.title);
   let last: SourceResult<ProjectItem> = { ok: false, code: "conflict" };
   for (let attempt = 1; attempt <= NAME_ATTEMPTS; attempt += 1) {
-    const reply = await core.call(commandCall(projectApi.register, {
-      input: {
-        id: draft.id,
-        name: slugAttempt(base, attempt),
-        title: draft.title,
-        purpose: draft.purpose,
-        folders: draft.folders.map((folder) => ({
-          path: folder.path,
-          description: folder.description,
-          subfolders: [],
-        })),
-      },
-      compare: {},
-      key: `projects-create-${draft.id}-${attempt}`,
-    }));
+    const reply = await core.call(
+      commandCall(projectApi.register, {
+        input: {
+          id: draft.id,
+          name: slugAttempt(base, attempt),
+          title: draft.title,
+          purpose: draft.purpose,
+          folders: draft.folders.map((folder) => ({
+            path: folder.path,
+            description: folder.description,
+            subfolders: [],
+          })),
+        },
+        compare: {},
+        key: `projects-create-${draft.id}-${attempt}`,
+      }),
+    );
     if (reply.ok) {
       return { ok: true, value: projectItemOf(reply.value as ProjectValue) };
     }
@@ -167,12 +169,14 @@ async function write<R extends CommandRoute>(
   input: unknown,
   baseRevision: string,
 ): Promise<SourceResult<ProjectItem>> {
-  const reply = await core.call(commandCall(route, {
-    input: input as CommandBody<R>["input"],
-    // 쓰는 route는 모두 base_revision 하나만 비교한다.
-    compare: { base_revision: baseRevision } as CompareOf<R>,
-    key: `projects-${route.method}-${crypto.randomUUID()}`,
-  }));
+  const reply = await core.call(
+    commandCall(route, {
+      input: input as CommandBody<R>["input"],
+      // 쓰는 route는 모두 base_revision 하나만 비교한다.
+      compare: { base_revision: baseRevision } as CompareOf<R>,
+      key: `projects-${route.method}-${crypto.randomUUID()}`,
+    }),
+  );
   return reply.ok
     ? { ok: true, value: projectItemOf(reply.value as ProjectValue) }
     : failed(reply);
@@ -219,11 +223,16 @@ export function coreProjectsSource(
       const chosen = await pick("relocate");
       if (!chosen.ok) return chosen;
       if (chosen.path === null) return { ok: true, value: null };
-      return write(core, projectApi.relinkFolder, {
-        project: project.id,
-        folder_path: folder,
-        new_path: chosen.path,
-      }, project.revision);
+      return write(
+        core,
+        projectApi.relinkFolder,
+        {
+          project: project.id,
+          folder_path: folder,
+          new_path: chosen.path,
+        },
+        project.revision,
+      );
     },
 
     async pickFolder() {
@@ -236,11 +245,11 @@ export function coreProjectsSource(
       const reply = await files.list({ path });
       return reply.ok
         ? {
-          ok: true,
-          value: reply.value.entries
-            .filter((entry) => entry.kind === "folder")
-            .map((entry) => entry.name),
-        }
+            ok: true,
+            value: reply.value.entries
+              .filter((entry) => entry.kind === "folder")
+              .map((entry) => entry.name),
+          }
         : { ok: false, code: reply.code };
     },
 

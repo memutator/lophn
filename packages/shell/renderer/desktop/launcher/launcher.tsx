@@ -67,29 +67,29 @@ const noop = () => {};
 
 // 48px 바 아래 1040px 가운데 기둥에 프로젝트 section, 그 아래 앱 section, 맨 아래 접힌 Archived 묶음. 준비 전·실패는
 // 기둥 대신 연결 화면을 보이고, 단절은 마지막 화면 위에 한 줄을 더한다. 카드는 실제 read 결과로만 채운다.
-export function Launcher(
-  {
-    source,
-    formatTime,
-    onSettings,
-    platform,
-    projects,
-    onProject,
-    apps,
-    onApp,
-    onNewApp,
-    newProjectId,
-    onOpenSession = noop,
-    onAnswerInTerminal = noop,
-    agentViewSource,
-    lophnRequest,
-  }: LauncherProps,
-) {
+export function Launcher({
+  source,
+  formatTime,
+  onSettings,
+  platform,
+  projects,
+  onProject,
+  apps,
+  onApp,
+  onNewApp,
+  newProjectId,
+  onOpenSession = noop,
+  onAnswerInTerminal = noop,
+  agentViewSource,
+  lophnRequest,
+}: LauncherProps) {
   const connection = useConnection(source);
   const retry = () => retryConnection(source);
   const failure = failureOf(connection);
-  const gated = connection.state === "starting" ||
-    connection.state === "failed" || failure !== null;
+  const gated =
+    connection.state === "starting" ||
+    connection.state === "failed" ||
+    failure !== null;
 
   // lophn 패널. 오른쪽 아래 단추가 열고 열린 동안 단추는 숨는다. session은 undefined(아직 안 고름)일 때만 가장 최근 열린
   // session으로 고르고, 닫았다 열어도 그대로다.
@@ -106,9 +106,9 @@ export function Launcher(
   const openLophn = () => {
     if (lophnSession === undefined) {
       setLophnSession(
-        sessions.filter((item) =>
-          item.ended === null && item.agent?.role === "lophn"
-        ).at(-1)?.session ?? null,
+        sessions
+          .filter((item) => item.ended === null && item.agent?.role === "lophn")
+          .at(-1)?.session ?? null,
       );
     }
     setLophnOpen(true);
@@ -123,65 +123,63 @@ export function Launcher(
       <TopBar
         platform={platform}
         leading={<Wordmark>{t("launcher.label.wordmark")}</Wordmark>}
-        trailing={gated ? undefined : (
-          <span className={styles.topActions}>
-            <WaitingLayer
-              onOpenSession={onOpenSession}
-              onAnswerInTerminal={onAnswerInTerminal}
-            />
-            <SettingsEntry onSettings={onSettings} />
-          </span>
-        )}
+        trailing={
+          gated ? undefined : (
+            <span className={styles.topActions}>
+              <WaitingLayer
+                onOpenSession={onOpenSession}
+                onAnswerInTerminal={onAnswerInTerminal}
+              />
+              <SettingsEntry onSettings={onSettings} />
+            </span>
+          )
+        }
       />
       <main className={styles.scroll}>
-        {failure !== null
-          ? <StartFailureScreen failure={failure} onRetry={retry} />
-          : gated
-          ? <ConnectionGate connection={connection} onRetry={retry} />
-          : (
-            <div className={styles.page} data-column="launcher">
-              <ConnectionNotice
-                connection={connection}
-                onRetry={retry}
-                formatTime={formatTime}
-              />
-              <LauncherBody
-                ready={connection.state === "ready"}
-                projects={projects}
-                apps={apps}
-                onProject={onProject ?? noop}
-                onApp={onApp ?? noop}
-                onNewApp={onNewApp ?? noop}
-                newProjectId={newProjectId}
-              />
-            </div>
-          )}
-      </main>
-      {!gated && agentViewSource !== undefined && !lophnOpen
-        ? (
-          <div className={styles.lophnEntry}>
-            <Button
-              size="lg"
-              icon={conversationIcons.dock}
-              data-entry="lophn"
-              onClick={openLophn}
-            >
-              {t("launcher.button.lophn")}
-            </Button>
+        {failure !== null ? (
+          <StartFailureScreen failure={failure} onRetry={retry} />
+        ) : gated ? (
+          <ConnectionGate connection={connection} onRetry={retry} />
+        ) : (
+          <div className={styles.page} data-column="launcher">
+            <ConnectionNotice
+              connection={connection}
+              onRetry={retry}
+              formatTime={formatTime}
+            />
+            <LauncherBody
+              ready={connection.state === "ready"}
+              projects={projects}
+              apps={apps}
+              onProject={onProject ?? noop}
+              onApp={onApp ?? noop}
+              onNewApp={onNewApp ?? noop}
+              newProjectId={newProjectId}
+            />
           </div>
-        )
-        : null}
-      {!gated && agentViewSource !== undefined && lophnOpen
-        ? (
-          <LophnPanel
-            factory={agentViewSource}
-            session={lophnSession ?? null}
-            onSession={setLophnSession}
-            onClose={() => setLophnOpen(false)}
-            onSettings={onSettings}
-          />
-        )
-        : null}
+        )}
+      </main>
+      {!gated && agentViewSource !== undefined && !lophnOpen ? (
+        <div className={styles.lophnEntry}>
+          <Button
+            size="lg"
+            icon={conversationIcons.dock}
+            data-entry="lophn"
+            onClick={openLophn}
+          >
+            {t("launcher.button.lophn")}
+          </Button>
+        </div>
+      ) : null}
+      {!gated && agentViewSource !== undefined && lophnOpen ? (
+        <LophnPanel
+          factory={agentViewSource}
+          session={lophnSession ?? null}
+          onSession={setLophnSession}
+          onClose={() => setLophnOpen(false)}
+          onSettings={onSettings}
+        />
+      ) : null}
     </div>
   );
 }
@@ -198,10 +196,15 @@ interface BodyProps {
 
 // 프로젝트 카드 묶음과 앱 카드 묶음, 그 아래 접힌 Archived 묶음. project와 앱을 다루는 유일한 화면이라
 // 보관·복원·폴더 다시 잡기·detail이 여기 있다. 아무것도 없으면 비었음 상태 하나만 보인다.
-function LauncherBody(
-  { ready, projects, apps, onProject, onApp, onNewApp, newProjectId }:
-    BodyProps,
-) {
+function LauncherBody({
+  ready,
+  projects,
+  apps,
+  onProject,
+  onApp,
+  onNewApp,
+  newProjectId,
+}: BodyProps) {
   // 보관한 것까지 모두 읽고 화면에서 가른다.
   const [cards, setCards] = useState<Loaded<ProjectItem>>(
     projects ? { state: "loading" } : { state: "ready", items: [] },
@@ -241,12 +244,12 @@ function LauncherBody(
     setCards((current) =>
       current.state === "ready"
         ? {
-          state: "ready",
-          items: current.items.map((item) =>
-            item.id === project.id ? project : item
-          ),
-        }
-        : current
+            state: "ready",
+            items: current.items.map((item) =>
+              item.id === project.id ? project : item,
+            ),
+          }
+        : current,
     );
 
   // 쓰기가 실패하면(대개 다른 창이 먼저 고쳤다) 최신을 다시 읽는다.
@@ -283,20 +286,18 @@ function LauncherBody(
   const activeApps = appItems.filter((item) => !item.archived);
   const detailed = projectItems.find((item) => item.id === detail);
 
-  const registerDialog = projects
-    ? (
-      <RegisterDialog
-        open={registering}
-        source={projects}
-        newProjectId={newProjectId}
-        onClose={() => setRegistering(false)}
-        onRegistered={() => {
-          setRegistering(false);
-          void loadProjects();
-        }}
-      />
-    )
-    : null;
+  const registerDialog = projects ? (
+    <RegisterDialog
+      open={registering}
+      source={projects}
+      newProjectId={newProjectId}
+      onClose={() => setRegistering(false)}
+      onRegistered={() => {
+        setRegistering(false);
+        void loadProjects();
+      }}
+    />
+  ) : null;
 
   const register = t("launcher.button.register-project");
 
@@ -353,87 +354,81 @@ function LauncherBody(
 
   return (
     <>
-      {projects
-        ? (
-          <section className={styles.section} data-section="projects">
-            <div className={styles.sectionHead}>
-              <h2 className={styles.sectionTitle}>
-                {t("launcher.heading.projects")}
-                {activeProjects.length > 0
-                  ? (
-                    <span className={styles.count}>
-                      {activeProjects.length}
-                    </span>
-                  )
-                  : null}
-              </h2>
-              <Tooltip content={register}>
-                <IconButton
-                  icon={launcherIcons.register}
-                  label={register}
-                  data-register-project=""
-                  onClick={() => setRegistering(true)}
-                />
-              </Tooltip>
-            </div>
-            {projectBody}
-            {registerDialog}
-            {detailed
-              ? (
-                <ProjectDetailDialog
-                  source={projects}
-                  project={detailed}
-                  onChanged={replaceProject}
-                  onLatest={() => void loadProjects()}
-                  onRelocate={relocate}
-                  onClose={() => setDetail(null)}
-                />
-              )
-              : null}
-          </section>
-        )
-        : null}
-      {apps
-        ? (
-          <AppsSection
-            apps={rows.state === "ready"
+      {projects ? (
+        <section className={styles.section} data-section="projects">
+          <div className={styles.sectionHead}>
+            <h2 className={styles.sectionTitle}>
+              {t("launcher.heading.projects")}
+              {activeProjects.length > 0 ? (
+                <span className={styles.count}>{activeProjects.length}</span>
+              ) : null}
+            </h2>
+            <Tooltip content={register}>
+              <IconButton
+                icon={launcherIcons.register}
+                label={register}
+                data-register-project=""
+                onClick={() => setRegistering(true)}
+              />
+            </Tooltip>
+          </div>
+          {projectBody}
+          {registerDialog}
+          {detailed ? (
+            <ProjectDetailDialog
+              source={projects}
+              project={detailed}
+              onChanged={replaceProject}
+              onLatest={() => void loadProjects()}
+              onRelocate={relocate}
+              onClose={() => setDetail(null)}
+            />
+          ) : null}
+        </section>
+      ) : null}
+      {apps ? (
+        <AppsSection
+          apps={
+            rows.state === "ready"
               ? { state: "ready", items: activeApps }
-              : rows}
-            onApp={onApp}
-            onNew={() => setCreatingApp(true)}
-            onArchive={(app) => void setAppArchived(app, true)}
-            onRetry={() => {
-              setRows({ state: "loading" });
-              void loadApps();
-            }}
-          />
-        )
-        : null}
-      {apps
-        ? (
-          <CreateAppDialog
-            open={creatingApp}
-            source={apps}
-            onClose={() => setCreatingApp(false)}
-            onCreated={(created) => {
-              setCreatingApp(false);
-              onNewApp(created.id);
-            }}
-          />
-        )
-        : null}
+              : rows
+          }
+          onApp={onApp}
+          onNew={() => setCreatingApp(true)}
+          onArchive={(app) => void setAppArchived(app, true)}
+          onRetry={() => {
+            setRows({ state: "loading" });
+            void loadApps();
+          }}
+        />
+      ) : null}
+      {apps ? (
+        <CreateAppDialog
+          open={creatingApp}
+          source={apps}
+          onClose={() => setCreatingApp(false)}
+          onCreated={(created) => {
+            setCreatingApp(false);
+            onNewApp(created.id);
+          }}
+        />
+      ) : null}
       <ArchivedSection
         items={[
-          ...projectItems.filter((item) => item.archived).map((item) => ({
-            kind: "project" as const,
-            id: item.id,
-            name: item.title,
-          })),
-          ...appItems.filter((item) => item.archived).map((item) => ({
-            kind: "app" as const,
-            id: item.id,
-            name: item.name,
-          })),
+          ...projectItems
+            .filter((item) => item.archived)
+            .map((item) => ({
+              kind: "project" as const,
+              id: item.id,
+              name: item.title,
+            })),
+          ...appItems
+            .filter((item) => item.archived)
+            .map((item) => ({
+              kind: "app" as const,
+              id: item.id,
+              name: item.name,
+            })),
         ]}
         onRestore={(item) => {
           if (item.kind === "project") {

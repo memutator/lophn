@@ -41,12 +41,14 @@ function setup() {
       Promise.resolve({
         ok: true,
         value: {
-          tools: [{
-            name: "add",
-            title: "Add",
-            effect: "write",
-            hasInput: true,
-          }],
+          tools: [
+            {
+              name: "add",
+              title: "Add",
+              effect: "write",
+              hasInput: true,
+            },
+          ],
         },
       }),
     call,
@@ -70,12 +72,14 @@ test("페이지가 보낸 앱·release·caller 주장은 쓰이지 않는다", a
     input: { a: 1 },
   });
   assert.deepEqual(done, { ok: true, value: 1 });
-  assert.deepEqual(sent, [{
-    target: { mode: "live", app: APP, release: RELEASE },
-    tool: "add",
-    input: { a: 1 },
-    caller: { kind: "person", view_session: "view-1" },
-  }]);
+  assert.deepEqual(sent, [
+    {
+      target: { mode: "live", app: APP, release: RELEASE },
+      tool: "add",
+      input: { a: 1 },
+      caller: { kind: "person", view_session: "view-1" },
+    },
+  ]);
 });
 
 test("선언에 없는 tool은 core까지 가지 않는다", async () => {

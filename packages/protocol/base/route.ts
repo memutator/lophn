@@ -11,13 +11,7 @@ export const ACTOR_KINDS = [
 
 export type ActorKind = (typeof ACTOR_KINDS)[number];
 
-const ROUTE_KINDS = [
-  "command",
-  "read",
-  "file",
-  "memory",
-  "upload",
-] as const;
+const ROUTE_KINDS = ["command", "read", "file", "memory", "upload"] as const;
 
 type RouteKind = (typeof ROUTE_KINDS)[number];
 
@@ -129,9 +123,10 @@ function define<K extends RouteKind, I extends z.ZodType, O>(
         "confirmation requires both confirmation and a binding field list",
       );
     }
-    const shape = options.input instanceof z.ZodObject
-      ? options.input.shape as Record<string, z.ZodType>
-      : undefined;
+    const shape =
+      options.input instanceof z.ZodObject
+        ? (options.input.shape as Record<string, z.ZodType>)
+        : undefined;
     for (const field of options.binding) {
       if (!shape || !(field in shape)) {
         throw new Error(`confirmation binding field is not in input: ${field}`);
@@ -147,20 +142,14 @@ export function defineCommand<
   C extends z.ZodType = z.ZodObject<Record<string, never>>,
 >(
   options: Omit<DefineOptions<I, O>, "compare"> & { compare?: C },
-):
-  & Omit<
+): Omit<
+  CommandRoute<I, O>,
+  "compare" | "confirmation" | "binding" | "confirmation_kind"
+> & { compare?: C } & Partial<ConfirmationDeclaration<I>> {
+  return define("command", options) as Omit<
     CommandRoute<I, O>,
     "compare" | "confirmation" | "binding" | "confirmation_kind"
-  >
-  & { compare?: C }
-  & Partial<ConfirmationDeclaration<I>> {
-  return define("command", options) as
-    & Omit<
-      CommandRoute<I, O>,
-      "compare" | "confirmation" | "binding" | "confirmation_kind"
-    >
-    & { compare?: C }
-    & Partial<ConfirmationDeclaration<I>>;
+  > & { compare?: C } & Partial<ConfirmationDeclaration<I>>;
 }
 
 export function defineRead<I extends z.ZodType, O extends z.ZodType>(
@@ -174,15 +163,13 @@ export function defineRead<I extends z.ZodType, O extends z.ZodType>(
 
 // 성공은 원본 바이트와 Content-Type이다. 실패는 JSON 오류.
 export function defineFile<I extends z.ZodType>(
-  options:
-    & Omit<DefineOptions<I, { contentType: string }>, "output">
-    & { contentType: string }
-    & Partial<ConfirmationDeclaration<I>>,
+  options: Omit<DefineOptions<I, { contentType: string }>, "output"> & {
+    contentType: string;
+  } & Partial<ConfirmationDeclaration<I>>,
 ): FileRoute<I> & Partial<ConfirmationDeclaration<I>> {
   const { contentType, ...rest } = options;
-  return define("file", { ...rest, output: { contentType } }) as
-    & FileRoute<I>
-    & Partial<ConfirmationDeclaration<I>>;
+  return define("file", { ...rest, output: { contentType } }) as FileRoute<I> &
+    Partial<ConfirmationDeclaration<I>>;
 }
 
 // ledger를 쓰지 않는 core 메모리 route(shell/workspace 현재 보기 relay).
@@ -195,7 +182,8 @@ export function defineMemory<I extends z.ZodType, O extends z.ZodType>(
 ): MemoryRoute<I, O> {
   const given = options as DefineOptions<I, O>;
   if (
-    given.confirmation !== undefined || given.binding !== undefined ||
+    given.confirmation !== undefined ||
+    given.binding !== undefined ||
     given.confirmation_kind !== undefined
   ) {
     throw new Error("memory route cannot require a confirmation handle");
@@ -206,18 +194,18 @@ export function defineMemory<I extends z.ZodType, O extends z.ZodType>(
 // 바이트 body를 받는 route. 사람 결정 handle·CAS는 받지 않는다(바이트는 쓰기 ledger를
 // 거치지 않는다). 입력 JSON은 `x-lophn-input` header의 base64url이다.
 export function defineUpload<I extends z.ZodType, O extends z.ZodType>(
-  options:
-    & Omit<
-      DefineOptions<I, O>,
-      "compare" | "confirmation" | "binding" | "confirmation_kind"
-    >
-    & { max_bytes: number },
+  options: Omit<
+    DefineOptions<I, O>,
+    "compare" | "confirmation" | "binding" | "confirmation_kind"
+  > & { max_bytes: number },
 ): UploadRoute<I, O> {
   const { max_bytes, ...rest } = options;
   const given = options as DefineOptions<I, O>;
   if (
-    given.confirmation !== undefined || given.binding !== undefined ||
-    given.confirmation_kind !== undefined || given.compare !== undefined
+    given.confirmation !== undefined ||
+    given.binding !== undefined ||
+    given.confirmation_kind !== undefined ||
+    given.compare !== undefined
   ) {
     throw new Error("upload route cannot require a confirmation handle or CAS");
   }

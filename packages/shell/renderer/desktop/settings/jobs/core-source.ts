@@ -68,11 +68,9 @@ export function coreJobsSource(core: CoreSource): JobsSource {
       const [projects, apps, agents] = await Promise.all([
         readProjects(core),
         coreAppsSource(core).list(),
-        call<
-          {
-            agents: { agent: { role: string; agent?: string }; name: string }[];
-          }
-        >(
+        call<{
+          agents: { agent: { role: string; agent?: string }; name: string }[];
+        }>(
           core,
           "read",
           agentDefinitionList.resource,
@@ -89,12 +87,12 @@ export function coreJobsSource(core: CoreSource): JobsSource {
           : {},
         operators: agents.ok
           ? Object.fromEntries(
-            agents.value.agents.flatMap((row) =>
-              row.agent.role === "operator"
-                ? [[row.agent.agent!, row.name]]
-                : []
-            ),
-          )
+              agents.value.agents.flatMap((row) =>
+                row.agent.role === "operator"
+                  ? [[row.agent.agent!, row.name]]
+                  : [],
+              ),
+            )
           : {},
       };
       return { ok: true, value: { jobs: jobs.value, names } };
@@ -103,24 +101,30 @@ export function coreJobsSource(core: CoreSource): JobsSource {
     runs: (job) => readAll<JobRunView>(core, jobRunList, { job }, "job_runs"),
 
     setEnabled: (job, enabled) =>
-      write(command(core, jobUpdate, {
-        input: { job, enabled },
-        compare: {},
-        key: key(jobUpdate.method),
-      })),
+      write(
+        command(core, jobUpdate, {
+          input: { job, enabled },
+          compare: {},
+          key: key(jobUpdate.method),
+        }),
+      ),
 
     update: (job, patch) =>
-      write(command(core, jobUpdate, {
-        input: { job, ...patch },
-        compare: {},
-        key: key(jobUpdate.method),
-      })),
+      write(
+        command(core, jobUpdate, {
+          input: { job, ...patch },
+          compare: {},
+          key: key(jobUpdate.method),
+        }),
+      ),
 
     remove: (job) =>
-      write(command(core, jobDelete, {
-        input: { job },
-        compare: {},
-        key: key(jobDelete.method),
-      })),
+      write(
+        command(core, jobDelete, {
+          input: { job },
+          compare: {},
+          key: key(jobDelete.method),
+        }),
+      ),
   };
 }

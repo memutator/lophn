@@ -68,9 +68,10 @@ export function readingBox(pane: number, width: ReadingWidth): ReadingBox {
   const padding = panePaddingPixels(pane);
   const inner = Math.max(0, pane - padding * 2);
   const toc = tocPlacement(inner, width);
-  const group = toc === "side"
-    ? tocSideMinimum(width)
-    : Math.min(readingPixels(width), inner);
+  const group =
+    toc === "side"
+      ? tocSideMinimum(width)
+      : Math.min(readingPixels(width), inner);
   const body = toc === "side" ? readingPixels(width) : group;
   const left = padding + (inner - group) / 2;
   return {

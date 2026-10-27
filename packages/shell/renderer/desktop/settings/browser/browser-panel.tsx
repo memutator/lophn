@@ -25,25 +25,23 @@ export function BrowserPanel({ source }: BrowserPanelProps) {
 
   return (
     <div data-browser-settings="">
-      {result === null
-        ? null
-        : (
-          <div className={styles.toastSlot} data-browser-clear-result={result}>
-            <Toast
-              title={result === "cleared"
+      {result === null ? null : (
+        <div className={styles.toastSlot} data-browser-clear-result={result}>
+          <Toast
+            title={
+              result === "cleared"
                 ? t("settings.notice.browser-cleared")
-                : t("settings.error.browser-clear-failed")}
-              tone={result === "cleared" ? "neutral" : "error"}
-              duration="brief"
-              onClose={() => setResult(null)}
-            />
-          </div>
-        )}
+                : t("settings.error.browser-clear-failed")
+            }
+            tone={result === "cleared" ? "neutral" : "error"}
+            duration="brief"
+            onClose={() => setResult(null)}
+          />
+        </div>
+      )}
       <h1 className={styles.paneTitle}>{t("settings.label.tab-browser")}</h1>
       <section>
-        <h2 className={styles.groupTitle}>
-          {t("settings.heading.bookmarks")}
-        </h2>
+        <h2 className={styles.groupTitle}>{t("settings.heading.bookmarks")}</h2>
         <BookmarkRows source={source} />
       </section>
       <section className={styles.groupBlock}>

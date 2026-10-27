@@ -24,22 +24,25 @@ test("project 폴더 밖을 가리키는 symlink는 paths와 read에 나오지 �
     const files = openProjectFiles([project], [{ path: "", recursive: true }]);
     assert.deepStrictEqual(files.paths(), ["docs/a.md"]);
     assert.deepStrictEqual(files.read("docs/a.md"), "inside");
-    for (
-      const path of [
-        "docs/link.md",
-        "docs/linkdir/b.md",
-        "linked/b.md",
-        ".git/config.md",
-      ]
-    ) {
+    for (const path of [
+      "docs/link.md",
+      "docs/linkdir/b.md",
+      "linked/b.md",
+      ".git/config.md",
+    ]) {
       assert.deepStrictEqual(files.read(path), null, path);
     }
 
     // 폴더 자체가 밖을 가리키면 그 폴더는 보지 않는다.
-    const linked = openProjectFiles([project], [{
-      path: "linked",
-      recursive: true,
-    }]);
+    const linked = openProjectFiles(
+      [project],
+      [
+        {
+          path: "linked",
+          recursive: true,
+        },
+      ],
+    );
     assert.deepStrictEqual(linked.paths(), []);
   } finally {
     await rm(base, { recursive: true });

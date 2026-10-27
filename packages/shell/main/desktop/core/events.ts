@@ -66,9 +66,7 @@ export interface ReconnectPolicy {
 const RECONNECT_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 15_000] as const;
 
 /** 1s에서 15s까지 두 배씩 늘리고 그 뒤로는 15s마다 시도한다. */
-export function backoffReconnect(
-  allowed?: () => boolean,
-): ReconnectPolicy {
+export function backoffReconnect(allowed?: () => boolean): ReconnectPolicy {
   return {
     delay: (attempt) =>
       RECONNECT_DELAYS_MS[Math.min(attempt, RECONNECT_DELAYS_MS.length - 1)]!,
@@ -139,10 +137,12 @@ export function openGateway(options: GatewayOptions): Gateway {
 
   const sendWatch = () => {
     if (!opened || socket === undefined) return;
-    socket.send(JSON.stringify({
-      type: "watch",
-      conditions: merged(options.own(), watchers),
-    }));
+    socket.send(
+      JSON.stringify({
+        type: "watch",
+        conditions: merged(options.own(), watchers),
+      }),
+    );
   };
 
   const scheduleRetry = () => {

@@ -35,7 +35,7 @@ export async function prepareVariant(
 
   // gate의 e2e가 variant의 tests/support/app/deps.ts로 이 폴더를 읽는다. 현재 checkout 것을 symlink로 이으면
   // 앱 release 준비의 esbuild가 떨어지므로 variant가 자기 deps를 받는다.
-  if (!await io.nonEmpty(`${path}/${E2E_DENO_DIR}`)) {
+  if (!(await io.nonEmpty(`${path}/${E2E_DENO_DIR}`))) {
     const deps = await io.run([Deno.execPath(), "task", "e2e:deps"], path);
     if (deps.code !== 0) {
       return err({

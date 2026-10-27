@@ -1,7 +1,11 @@
 import { EXPERIMENTS_DIR, type LockFacts } from "../experiment/spec/mod.ts";
 import { denoGit, type Git } from "../versions/mod.ts";
 
-const ok = (run: () => Promise<unknown>) => run().then(() => true, () => false);
+const ok = (run: () => Promise<unknown>) =>
+  run().then(
+    () => true,
+    () => false,
+  );
 
 // spec이 고침보다 먼저 commit됐는지 판정할 사실을 git으로 모은다. 판정은 checkSpecLocked가 한다.
 // spec_dirty는 spec.json만 본다: 돌린 뒤 생기는 result.json이 이어 돌리기를 막으면 안 된다.
@@ -13,12 +17,12 @@ export async function collectLockFacts(args: {
 }): Promise<LockFacts> {
   const specPath = `${EXPERIMENTS_DIR}/${args.id}/spec.json`;
   const base = denoGit(args.current);
-  const variant: Git = args.variant === args.current
-    ? base
-    : denoGit(args.variant);
+  const variant: Git =
+    args.variant === args.current ? base : denoGit(args.variant);
 
-  const commit = (await base(["log", "-1", "--format=%H", "--", specPath]))
-    .trim();
+  const commit = (
+    await base(["log", "-1", "--format=%H", "--", specPath])
+  ).trim();
   if (commit === "") {
     return {
       spec_commit: null,
@@ -34,7 +38,7 @@ export async function collectLockFacts(args: {
   const missing: string[] = [];
   for (const c of args.cases) {
     const rel = c.path.slice(args.current.length + 1);
-    if (!await ok(() => base(["cat-file", "-e", `${commit}:${rel}`]))) {
+    if (!(await ok(() => base(["cat-file", "-e", `${commit}:${rel}`])))) {
       missing.push(c.id);
     }
   }
@@ -43,14 +47,14 @@ export async function collectLockFacts(args: {
     spec_dirty:
       (await base(["status", "--porcelain", "--", specPath])).trim() !== "",
     spec_commit_on_current: await ok(() =>
-      base(["merge-base", "--is-ancestor", commit, "HEAD"])
+      base(["merge-base", "--is-ancestor", commit, "HEAD"]),
     ),
     variant_has_spec_commit: await ok(() =>
-      variant(["merge-base", "--is-ancestor", commit, "HEAD"])
+      variant(["merge-base", "--is-ancestor", commit, "HEAD"]),
     ),
     variant_spec_same:
-      await variant(["show", `HEAD:${specPath}`]).catch(() => null) ===
-        specAtCommit,
+      (await variant(["show", `HEAD:${specPath}`]).catch(() => null)) ===
+      specAtCommit,
     cases_missing_at_spec_commit: missing,
   };
 }

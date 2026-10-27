@@ -33,11 +33,14 @@ export const workPlaceOutputSchema = z.discriminatedUnion(
 );
 
 // apps/declaration command key와 같은 local 모양. 존재·grant 판정은 runtime이다.
-export const toolKeySchema = z.string().min(1).refine(
-  (value) =>
-    value.trim().length > 0 && !/\p{Cc}/u.test(value) && !value.includes("*"),
-  { message: "tool key cannot be blank, a wildcard, or contain controls" },
-);
+export const toolKeySchema = z
+  .string()
+  .min(1)
+  .refine(
+    (value) =>
+      value.trim().length > 0 && !/\p{Cc}/u.test(value) && !value.includes("*"),
+    { message: "tool key cannot be blank, a wildcard, or contain controls" },
+  );
 
 const APP_COMMAND_EFFECTS = ["read", "write", "external"] as const;
 
@@ -56,20 +59,22 @@ function uniqueList<T>(values: readonly T[]): boolean {
 }
 
 // 현재 grant·역할 판정이 아니라 StartRun에 싣는 condition의 local shape.
-const agentAppScopeEntrySchema = z.strictObject(agentAppScopeEntryFields)
+const agentAppScopeEntrySchema = z
+  .strictObject(agentAppScopeEntryFields)
+  .refine((value) => uniqueList(value.tools) && uniqueList(value.effects), {
+    message: "duplicate tool or effect",
+  })
   .refine(
-    (value) => uniqueList(value.tools) && uniqueList(value.effects),
-    { message: "duplicate tool or effect" },
-  ).refine(
     (value) => !value.revert_required || value.effects.includes("write"),
     { message: "revert_required applies only when a write tool is present" },
   );
 
-const agentAppScopeEntryOutputSchema = z.object(agentAppScopeEntryFields)
+const agentAppScopeEntryOutputSchema = z
+  .object(agentAppScopeEntryFields)
+  .refine((value) => uniqueList(value.tools) && uniqueList(value.effects), {
+    message: "duplicate tool or effect",
+  })
   .refine(
-    (value) => uniqueList(value.tools) && uniqueList(value.effects),
-    { message: "duplicate tool or effect" },
-  ).refine(
     (value) => !value.revert_required || value.effects.includes("write"),
     { message: "revert_required applies only when a write tool is present" },
   );
@@ -97,32 +102,39 @@ function scopeShape(value: {
   const apps = value.apps;
   if (value.role === "project_manager" && apps.length !== 0) return false;
   if (value.role === "operator") {
-    return apps.every((entry) =>
-      entry.effects.length === 1 && entry.effects[0] === "read" &&
-      entry.confirm_allowed === false && entry.revert_required === false
+    return apps.every(
+      (entry) =>
+        entry.effects.length === 1 &&
+        entry.effects[0] === "read" &&
+        entry.confirm_allowed === false &&
+        entry.revert_required === false,
     );
   }
   if (value.role === "app_engineer") {
-    return apps.every((entry) =>
-      entry.effects.every((effect) => effect !== "external") &&
-      (!entry.effects.includes("write") || entry.revert_required === true)
+    return apps.every(
+      (entry) =>
+        entry.effects.every((effect) => effect !== "external") &&
+        (!entry.effects.includes("write") || entry.revert_required === true),
     );
   }
   return true;
 }
 
 // CE는 앱 command 실행이 없고, Operator는 confirm=false read만, AE write는 undo가 필요하다.
-export const agentAppScopeSchema = z.strictObject(agentAppScopeFields).refine(
-  (value) => uniqueList(value.apps.map((entry) => entry.app)),
-  { message: "duplicate app" },
-).refine(scopeShape, {
-  message: "role scope shape is outside the local bound",
-});
+export const agentAppScopeSchema = z
+  .strictObject(agentAppScopeFields)
+  .refine((value) => uniqueList(value.apps.map((entry) => entry.app)), {
+    message: "duplicate app",
+  })
+  .refine(scopeShape, {
+    message: "role scope shape is outside the local bound",
+  });
 
-export const agentAppScopeOutputSchema = z.object(agentAppScopeOutputFields)
-  .refine(
-    (value) => uniqueList(value.apps.map((entry) => entry.app)),
-    { message: "duplicate app" },
-  ).refine(scopeShape, {
+export const agentAppScopeOutputSchema = z
+  .object(agentAppScopeOutputFields)
+  .refine((value) => uniqueList(value.apps.map((entry) => entry.app)), {
+    message: "duplicate app",
+  })
+  .refine(scopeShape, {
     message: "role scope shape is outside the local bound",
   });

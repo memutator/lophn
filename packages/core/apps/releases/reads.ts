@@ -54,12 +54,14 @@ function nextCursor(
   input: { app?: string; status?: string },
   limit: number,
 ): string {
-  return btoa(JSON.stringify({
-    offset,
-    app: input.app ?? null,
-    status: input.status ?? null,
-    limit,
-  }));
+  return btoa(
+    JSON.stringify({
+      offset,
+      app: input.app ?? null,
+      status: input.status ?? null,
+      limit,
+    }),
+  );
 }
 
 function pageOffset(
@@ -230,21 +232,24 @@ export function createReleaseReads(): {
         );
         if (!allowed.ok) return allowed;
         if (!allowed.value) return notFound();
-        const baseId = release.status === "active"
-          ? release.activation?.previous_release ?? null
-          : null;
-        const base = baseId === null
-          ? loadActiveRelease(snapshot.sql, release.app)
-          : loadRelease(snapshot.sql, baseId);
+        const baseId =
+          release.status === "active"
+            ? (release.activation?.previous_release ?? null)
+            : null;
+        const base =
+          baseId === null
+            ? loadActiveRelease(snapshot.sql, release.app)
+            : loadRelease(snapshot.sql, baseId);
         if (!base.ok) return base;
         const grants = loadGrants(snapshot.sql, {
           app: release.app,
           status: "active",
         });
         if (!grants.ok) return grants;
-        const previous = base.value === null || base.value.id === release.id
-          ? null
-          : { id: base.value.id, data_schema: base.value.data_schema };
+        const previous =
+          base.value === null || base.value.id === release.id
+            ? null
+            : { id: base.value.id, data_schema: base.value.data_schema };
         return ok({
           comparison: compareForActivation({
             previous,
@@ -262,9 +267,9 @@ export function createReleaseReads(): {
 
 // activation 줄의 지금 상태다. 도는 것은 core 메모리라 ledger snapshot이 아니라 driver가 준다.
 type ActivationQueueSource = {
-  entries(app: string | undefined): Promise<
-    Result<{ entries: ActivationQueueEntry[]; as_of_seq: string }>
-  >;
+  entries(
+    app: string | undefined,
+  ): Promise<Result<{ entries: ActivationQueueEntry[]; as_of_seq: string }>>;
 };
 
 export function createActivationQueueRead(

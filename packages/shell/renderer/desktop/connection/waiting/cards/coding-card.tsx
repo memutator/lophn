@@ -6,13 +6,15 @@ import type { CardView } from "../model.ts";
 import styles from "../waiting.module.css";
 import { Head } from "./head.tsx";
 
-export function CodingCard(
-  { entry, view, onAnswerInTerminal }: {
-    entry: WaitingEntry;
-    view: CardView;
-    onAnswerInTerminal: (session: string) => void;
-  },
-) {
+export function CodingCard({
+  entry,
+  view,
+  onAnswerInTerminal,
+}: {
+  entry: WaitingEntry;
+  view: CardView;
+  onAnswerInTerminal: (session: string) => void;
+}) {
   return (
     <article className={styles.request} data-kind="coding">
       <Head view={view} agent={entry.agent} />

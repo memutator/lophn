@@ -94,10 +94,11 @@ const rows: Row[] = [
     // 실패는 session에 흔적이 없어 요약 call이 끝난 것으로 본다.
     async settled(core, session) {
       const { calls } = await core.call(modelCallList, { session });
-      return calls.some((call) =>
+      return calls.some(
+        (call) =>
           call.purpose === "conversation_compression" &&
-          call.state === "finished"
-        )
+          call.state === "finished",
+      )
         ? true
         : undefined;
     },
@@ -125,7 +126,7 @@ test("E2E compact는 성공하면 다음 요청이 요약을 쓰고 실패해도
   const fake = await startFakeServer();
   let core: Core | undefined;
   try {
-    const live = core = await bootCore(run);
+    const live = (core = await bootCore(run));
     await connectFakeProvider(live, fake);
     for (const row of rows) {
       fake.reset();
@@ -144,10 +145,14 @@ test("E2E compact는 성공하면 다음 요청이 요약을 쓰고 실패해도
         pids: await runtimePids(live.run.home),
       };
 
-      await live.call(requestSessionCompact, { session }, {
-        state: "open",
-        state_seq: read.state_seq,
-      });
+      await live.call(
+        requestSessionCompact,
+        { session },
+        {
+          state: "open",
+          state_seq: read.state_seq,
+        },
+      );
       await waitFor("요약 요청이 처리됨", () => row.settled(live, session));
 
       await say(live, session, `SECOND-${row.name}`);

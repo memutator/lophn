@@ -26,9 +26,10 @@ const CHILD = new URL("./extract-child.ts", import.meta.url);
 
 // 선언 판정 결과의 검사기 모양. wrapper(mod.ts)가 다시 내보내는 contracts
 // ValidationResult와 같은 모양이다.
-type DeclarationValidator = (
-  value: unknown,
-) => { ok: boolean; value?: { name: string } };
+type DeclarationValidator = (value: unknown) => {
+  ok: boolean;
+  value?: { name: string };
+};
 
 // 정규 JSON 문자열을 선언 정본으로 검사한다. 검사기는 caller가 주입한다.
 function validateExtracted(

@@ -26,18 +26,19 @@ test("고른 domain의 비공개 tool만 붙일 수 있고 public tool은 어느
     app("app_closed", [tool("d4", "secret4", false)]),
   ];
   const seen = (domains: readonly string[]) =>
-    appsFor(apps, domains).map((
-      one,
-    ) => [one.app, one.tools.map((a) => a.tool)]);
+    appsFor(apps, domains).map((one) => [
+      one.app,
+      one.tools.map((a) => a.tool),
+    ]);
 
   assert.deepStrictEqual(seen(["d1"]), [
     ["app_mine", ["open1", "secret1", "open2"]],
     ["app_other", ["open3"]],
   ]);
-  assert.deepStrictEqual(seen([]), [["app_mine", ["open1", "open2"]], [
-    "app_other",
-    ["open3"],
-  ]]);
+  assert.deepStrictEqual(seen([]), [
+    ["app_mine", ["open1", "open2"]],
+    ["app_other", ["open3"]],
+  ]);
 });
 
 test("고른 domain이 없으면 그릇의 모든 domain을 고른 것으로 보고, 그릇에 없는 id는 센 것에서 뺀다", () => {

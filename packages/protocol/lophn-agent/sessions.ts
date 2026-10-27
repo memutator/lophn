@@ -30,7 +30,8 @@ function sessionTitleLength(text: string): number {
 }
 
 // 비어 있거나 공백뿐인 제목은 제목이 아니다. 길이는 앞뒤 공백을 뺀 글로 센다. 번호 이름("Conversation N")은 만들지 않는다.
-export const sessionTitleSchema = z.string()
+export const sessionTitleSchema = z
+  .string()
   .refine((value) => value.trim().length > 0, {
     message: "expected a nonblank title",
   })
@@ -72,12 +73,15 @@ const sessionFields = {
   state_seq: seqSchema,
 };
 
-const sessionRecordSchema = z.object(sessionFields).refine((value) => {
-  const closed = value.state === "closed";
-  if ((value.closed_reason !== null) !== closed) return false;
-  if ((value.closed_at !== null) !== closed) return false;
-  return value.forked_from === null || value.forked_from.session !== value.id;
-}, { message: "session close or fork origin is not coupled" });
+const sessionRecordSchema = z.object(sessionFields).refine(
+  (value) => {
+    const closed = value.state === "closed";
+    if ((value.closed_reason !== null) !== closed) return false;
+    if ((value.closed_at !== null) !== closed) return false;
+    return value.forked_from === null || value.forked_from.session !== value.id;
+  },
+  { message: "session close or fork origin is not coupled" },
+);
 
 // 열기: assignment가 enabled일 때만(paused·withdrawn 거절). 자리가 role 규칙(AE=담당 app,
 // Operator=scope, lophn=project/app, CE=project)에 맞는지는 assignment를 아는 owner가 검사한다.
@@ -112,13 +116,15 @@ const deleteSessionCompareSchema = stateSeqCompareSchema;
 
 // Fork: 같은 agent·같은 자리의 새 session. 사람이 고른 지점(through_seq)까지의 확정 메시지만
 // 복사한다.
-const forkSessionInputSchema = z.strictObject({
-  id: idSchema("ses"),
-  source: idSchema("ses"),
-  through_seq: seqSchema,
-}).refine((value) => value.id !== value.source, {
-  message: "a session cannot fork from itself",
-});
+const forkSessionInputSchema = z
+  .strictObject({
+    id: idSchema("ses"),
+    source: idSchema("ses"),
+    through_seq: seqSchema,
+  })
+  .refine((value) => value.id !== value.source, {
+    message: "a session cannot fork from itself",
+  });
 
 // Compact는 두 걸음이다. 사람이 요청하면(RequestSessionCompact) runtime이 앞 구간을 요약하는 model
 // call을 하고, 끝까지 성공한 그 call을 구간과 함께 session에 이어(CompactSession) 요청을 끝낸다.
@@ -266,9 +272,11 @@ export const forkSession = defineCommand({
     id: idSchema("ses"),
     state: z.literal("open"),
     forked_from: forkOriginOutputSchema,
-    copied_messages: z.number().int().nonnegative().max(
-      Number.MAX_SAFE_INTEGER,
-    ),
+    copied_messages: z
+      .number()
+      .int()
+      .nonnegative()
+      .max(Number.MAX_SAFE_INTEGER),
     state_seq: seqSchema,
   }),
   actors: ["user"],
@@ -398,16 +406,18 @@ export const sessionList = defineRead({
   method: "list",
   name: "ListSessions",
   input: sessionListInputSchema,
-  output: withReadCommon(z.object({ sessions: z.array(sessionRecordSchema) }))
-    .refine(
-      (value) =>
-        seqSchema.safeParse(value.as_of_seq).success &&
-        value.sessions.every((session) =>
+  output: withReadCommon(
+    z.object({ sessions: z.array(sessionRecordSchema) }),
+  ).refine(
+    (value) =>
+      seqSchema.safeParse(value.as_of_seq).success &&
+      value.sessions.every(
+        (session) =>
           seqSchema.safeParse(session.state_seq).success &&
-          BigInt(session.state_seq) <= BigInt(value.as_of_seq)
-        ),
-      { message: "session state is newer than read snapshot" },
-    ),
+          BigInt(session.state_seq) <= BigInt(value.as_of_seq),
+      ),
+    { message: "session state is newer than read snapshot" },
+  ),
   actors: ["user", "agent", "machine", "coding_agent"],
   errors: [...readErrors],
 });
@@ -419,14 +429,18 @@ export const sessionCompactRequests = defineRead({
   method: "compact-requests",
   name: "ListSessionCompactRequests",
   input: z.strictObject({}),
-  output: withReadCommon(z.object({
-    requests: z.array(z.object({
-      session: idSchema("ses"),
-      agent: agentRefOutputSchema,
-      place: placeOutputSchema.nullable(),
-      request_seq: seqSchema,
-    })),
-  })),
+  output: withReadCommon(
+    z.object({
+      requests: z.array(
+        z.object({
+          session: idSchema("ses"),
+          agent: agentRefOutputSchema,
+          place: placeOutputSchema.nullable(),
+          request_seq: seqSchema,
+        }),
+      ),
+    }),
+  ),
   actors: ["machine"],
   errors: [...readErrors],
 });
@@ -443,11 +457,13 @@ export const sessionSummary = defineRead({
     session: idSchema("ses"),
     revert: idSchema("rwd").optional(),
   }),
-  output: withReadCommon(z.object({
-    session: idSchema("ses"),
-    compaction: compactionOutputSchema,
-    text: z.string(),
-  })),
+  output: withReadCommon(
+    z.object({
+      session: idSchema("ses"),
+      compaction: compactionOutputSchema,
+      text: z.string(),
+    }),
+  ),
   actors: ["user", "agent", "machine"],
   errors: [...readErrors],
 });

@@ -119,23 +119,26 @@ export function syncAppGrants(
     ...calls.map((grant) => (grant.scope as { app: string }).app),
   ]);
   for (const target of [...targets].sort()) {
-    const mine = calls.filter((grant) =>
-      (grant.scope as { app: string }).app === target
+    const mine = calls.filter(
+      (grant) => (grant.scope as { app: string }).app === target,
     );
     const declared = want.calls.get(target) ?? [];
     const have = new Set(
-      mine.flatMap((grant) =>
-        (grant.scope as { app_tools: string[] }).app_tools
+      mine.flatMap(
+        (grant) => (grant.scope as { app_tools: string[] }).app_tools,
       ),
     );
     const tools = allowed
       ? declared
       : declared.filter((tool) => have.has(tool));
-    const desired = tools.length === 0 ? undefined : canonicalize({
-      kind: "app.call",
-      app: target,
-      app_tools: tools,
-    });
+    const desired =
+      tools.length === 0
+        ? undefined
+        : canonicalize({
+            kind: "app.call",
+            app: target,
+            app_tools: tools,
+          });
     let kept = false;
     for (const grant of mine) {
       if (!kept && canonicalize(grant.scope) === desired) {
@@ -146,9 +149,11 @@ export function syncAppGrants(
       if (!done.ok) return done;
     }
     if (desired !== undefined && !kept) {
-      const done = create(
-        { kind: "app.call", app: target, app_tools: tools } as AppGrantScope,
-      );
+      const done = create({
+        kind: "app.call",
+        app: target,
+        app_tools: tools,
+      } as AppGrantScope);
       if (!done.ok) return done;
     }
   }
@@ -179,7 +184,7 @@ export function createGrantCommands(): {
         });
         if (!access.ok) {
           return access.error.code === "forbidden" ||
-              access.error.code === "not_found"
+            access.error.code === "not_found"
             ? absent()
             : access;
         }

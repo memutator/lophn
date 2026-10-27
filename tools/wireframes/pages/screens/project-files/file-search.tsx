@@ -11,29 +11,33 @@ import { fileKey, PROJECT_DIR } from "../../../mock/project-files/file-data.ts";
 const WORKSPACE = fakeWorkspaceSource();
 const SEARCH = fakeFileSearchSource();
 
-export function FileSearch(
-  { open, initialQuery = "", initialFolder, opened }: {
-    open: (tab: TabSpec, other?: boolean) => void;
-    initialQuery?: string;
-    /** 첫 연결 폴더 안의 하위 폴더(상대 경로). 없으면 모든 폴더다. */
-    initialFolder?: string;
-    /** 방금 연 결과(경로:줄)를 눌린 모양으로 보인다. */
-    opened?: string;
-  },
-) {
+export function FileSearch({
+  open,
+  initialQuery = "",
+  initialFolder,
+  opened,
+}: {
+  open: (tab: TabSpec, other?: boolean) => void;
+  initialQuery?: string;
+  /** 첫 연결 폴더 안의 하위 폴더(상대 경로). 없으면 모든 폴더다. */
+  initialFolder?: string;
+  /** 방금 연 결과(경로:줄)를 눌린 모양으로 보인다. */
+  opened?: string;
+}) {
   return (
     <SearchScreen
       project="prj_gallery"
       workspace={WORKSPACE}
       search={SEARCH}
       initialQuery={initialQuery}
-      initialFolder={initialFolder === undefined ||
-          initialFolder === "All folders"
-        ? ""
-        : `${PROJECT_DIR}/${initialFolder}`}
-      initialOpened={opened === undefined
-        ? undefined
-        : `${PROJECT_DIR}/${opened}`}
+      initialFolder={
+        initialFolder === undefined || initialFolder === "All folders"
+          ? ""
+          : `${PROJECT_DIR}/${initialFolder}`
+      }
+      initialOpened={
+        opened === undefined ? undefined : `${PROJECT_DIR}/${opened}`
+      }
       onOpen={(path, line) => open(documentTab(fileKey(path), { line }))}
     />
   );

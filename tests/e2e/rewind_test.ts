@@ -66,7 +66,11 @@ const writeTwice = (
   fake: FakeServer,
   project: string,
   name: string,
-) => writeFiles(core, fake, project, [[name, "v1"], [name, "v2"]]);
+) =>
+  writeFiles(core, fake, project, [
+    [name, "v1"],
+    [name, "v2"],
+  ]);
 
 async function rewindToBefore(
   core: Core,
@@ -80,17 +84,21 @@ async function rewindToBefore(
     choice: "restore_all",
   });
   // files를 비워 보내면 core의 처리기가 관측하고 준비한다.
-  const header = await core.call(sessionRewind, {
-    id: core.ids.newId("rwd"),
-    session,
-    checkpoint,
-    choice: "restore_all",
-    accept_remaining: accept,
-    preview_hash: preview.preview_hash,
-    summary_call: null,
-    files: [],
-    apps: [],
-  }, { session_state: "open", active_turn: null, applying_rewind: null });
+  const header = await core.call(
+    sessionRewind,
+    {
+      id: core.ids.newId("rwd"),
+      session,
+      checkpoint,
+      choice: "restore_all",
+      accept_remaining: accept,
+      preview_hash: preview.preview_hash,
+      summary_call: null,
+      files: [],
+      apps: [],
+    },
+    { session_state: "open", active_turn: null, applying_rewind: null },
+  );
   const { reverts } = await core.call(rewindList, { session });
   const revert = reverts.find((item) => item.id === header.id);
   return { preview, header, revert };
@@ -128,10 +136,10 @@ test("session rewind는 agent가 고친 file을 첫 상태로 되돌리고, 사�
       restored.preview.restore.map((item) => item.target),
       ["a.md"],
     );
-    assert.deepStrictEqual([restored.preview.skip, restored.preview.remain], [
-      [],
-      [],
-    ]);
+    assert.deepStrictEqual(
+      [restored.preview.skip, restored.preview.remain],
+      [[], []],
+    );
 
     // 행 2: 사람이 그 사이 고친 b.md는 건너뛴다.
     const second = await writeTwice(core, fake, project, "b.md");
@@ -179,7 +187,10 @@ test("session rewind는 재시작 뒤에도 되돌리고, 새 file의 사람 편
     const { project } = await openProject(core, folder);
     const read = (name: string) => readFile(`${folder}/${name}`, "utf8");
     const exists = (name: string) =>
-      stat(`${folder}/${name}`).then(() => true, () => false);
+      stat(`${folder}/${name}`).then(
+        () => true,
+        () => false,
+      );
 
     // after-restart: pre-image 기록이 재시작을 넘는다.
     const old = await writeTwice(core, fake, project, "a.md");
@@ -195,14 +206,12 @@ test("session rewind는 재시작 뒤에도 되돌리고, 새 file의 사람 편
     );
     assert.deepStrictEqual(
       restarted.preview.restore.map((item) => item.target),
-      [
-        "a.md",
-      ],
+      ["a.md"],
     );
-    assert.deepStrictEqual([restarted.preview.skip, restarted.preview.remain], [
-      [],
-      [],
-    ]);
+    assert.deepStrictEqual(
+      [restarted.preview.skip, restarted.preview.remain],
+      [[], []],
+    );
 
     // created-file: agent가 만든 file은 지우되, 그 사이 사람이 고친 것은 남긴다.
     const made = await writeFiles(core, fake, project, [
@@ -211,17 +220,18 @@ test("session rewind는 재시작 뒤에도 되돌리고, 새 file의 사람 편
     ]);
     await writeFile(`${folder}/new2.md`, "human edit");
     const created = await rewindToBefore(core, made.session, made.checkpoint);
-    assert.deepStrictEqual([await exists("new.md"), await read("new2.md")], [
-      false,
-      "human edit",
-    ]);
     assert.deepStrictEqual(
-      created.revert?.items.map((item) => [
-        item.target,
-        item.result,
-        item.reason,
-      ]).sort(),
-      [["new.md", "restored", null], ["new2.md", "skipped", "created_edited"]],
+      [await exists("new.md"), await read("new2.md")],
+      [false, "human edit"],
+    );
+    assert.deepStrictEqual(
+      created.revert?.items
+        .map((item) => [item.target, item.result, item.reason])
+        .sort(),
+      [
+        ["new.md", "restored", null],
+        ["new2.md", "skipped", "created_edited"],
+      ],
     );
     assert.deepStrictEqual(
       created.preview.skip.map((item) => [item.target, item.reason]),
@@ -246,10 +256,10 @@ test("session rewind는 재시작 뒤에도 되돌리고, 새 file의 사람 편
       [blocked.revert?.outcome, blocked.revert?.items],
       ["blocked", []],
     );
-    assert.deepStrictEqual([await read("c.md"), await read("d.md")], [
-      "v2",
-      "human edit",
-    ]);
+    assert.deepStrictEqual(
+      [await read("c.md"), await read("d.md")],
+      ["v2", "human edit"],
+    );
     assert.deepStrictEqual(
       blocked.preview.skip.map((item) => [item.target, item.reason]),
       [["d.md", "edited_outside"]],
@@ -268,17 +278,21 @@ test("session rewind는 재시작 뒤에도 되돌리고, 새 file의 사람 편
     });
     const { message } = await say(core, session, "write rules");
     const { request } = await waitPermission(core, session);
-    const busy = await core.tryCall(sessionRewind, {
-      id: core.ids.newId("rwd"),
-      session,
-      checkpoint: message,
-      choice: "messages_only",
-      accept_remaining: true,
-      preview_hash: "0".repeat(64),
-      summary_call: null,
-      files: [],
-      apps: [],
-    }, { session_state: "open", active_turn: null, applying_rewind: null });
+    const busy = await core.tryCall(
+      sessionRewind,
+      {
+        id: core.ids.newId("rwd"),
+        session,
+        checkpoint: message,
+        choice: "messages_only",
+        accept_remaining: true,
+        preview_hash: "0".repeat(64),
+        summary_call: null,
+        files: [],
+        apps: [],
+      },
+      { session_state: "open", active_turn: null, applying_rewind: null },
+    );
     assert.deepStrictEqual(busy.ok ? "ok" : busy.error.code, "conflict");
     await decide(core, session, request, "once");
     const turn = await waitTurnEnd(core, session);

@@ -12,9 +12,8 @@ export function domainNamesOf(
   chosen: readonly string[],
   container: readonly DomainView[],
 ): string[] {
-  return container.filter((one) =>
-    chosen.length === 0 || chosen.includes(one.id)
-  )
+  return container
+    .filter((one) => chosen.length === 0 || chosen.includes(one.id))
     .map((one) => one.name);
 }
 
@@ -28,8 +27,8 @@ export function appsFor(
   agentDomains: readonly string[],
 ): GrantApp[] {
   return apps.flatMap((app) => {
-    const tools = app.tools.filter((tool) =>
-      tool.public || agentDomains.includes(tool.domain)
+    const tools = app.tools.filter(
+      (tool) => tool.public || agentDomains.includes(tool.domain),
     );
     return tools.length === 0 ? [] : [{ ...app, tools }];
   });
@@ -42,7 +41,7 @@ export function setEntry(
 ): AssignmentEntry[] {
   const found = entries.some((one) => one.app === entry.app);
   return found
-    ? entries.map((one) => one.app === entry.app ? entry : one)
+    ? entries.map((one) => (one.app === entry.app ? entry : one))
     : [...entries, entry];
 }
 

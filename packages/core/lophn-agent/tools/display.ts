@@ -32,8 +32,9 @@ export async function toolCallDisplay(
   const chars = Array.from(title);
   return {
     category: made.category,
-    title: chars.length > TITLE_MAX_CHARS
-      ? `${chars.slice(0, TITLE_MAX_CHARS - 1).join("")}…`
-      : title,
+    title:
+      chars.length > TITLE_MAX_CHARS
+        ? `${chars.slice(0, TITLE_MAX_CHARS - 1).join("")}…`
+        : title,
   };
 }

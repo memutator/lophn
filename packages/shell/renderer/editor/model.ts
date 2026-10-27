@@ -34,7 +34,7 @@ export function isInsideFolders(
   folders: readonly string[],
 ): boolean {
   return folders.some((folder) =>
-    path.startsWith(folder.endsWith("/") ? folder : `${folder}/`)
+    path.startsWith(folder.endsWith("/") ? folder : `${folder}/`),
   );
 }
 

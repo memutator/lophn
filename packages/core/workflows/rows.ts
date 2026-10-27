@@ -18,9 +18,10 @@ export function instanceFromRow(
     state: row.state,
     participants: JSON.parse(String(row.participants)),
     steps: JSON.parse(String(row.steps)),
-    current: row.current_step === null
-      ? null
-      : { step: row.current_step, human_turn: Number(row.human_turn) === 1 },
+    current:
+      row.current_step === null
+        ? null
+        : { step: row.current_step, human_turn: Number(row.human_turn) === 1 },
     started_by: JSON.parse(String(row.started_by)),
     created_at: row.created_at,
     finished_at: row.finished_at,
@@ -52,16 +53,24 @@ export function lineFromRow(
 
 // 남길 줄: instance, seq, at은 appendLine이 채운다.
 export type NewLine = WorkflowLine extends infer L
-  ? L extends unknown ? Omit<L, "instance" | "seq" | "at"> : never
+  ? L extends unknown
+    ? Omit<L, "instance" | "seq" | "at">
+    : never
   : never;
 
 // 줄을 step, body(started·report의 글), data(나머지 칸)로 가른다.
-export function lineColumns(
-  line: NewLine,
-): { step: string | null; body: string | null; data: string | null } {
-  const { kind: _kind, by: _by, step, text, ...rest } = line as
-    & Record<string, unknown>
-    & { step?: string | null; text?: string };
+export function lineColumns(line: NewLine): {
+  step: string | null;
+  body: string | null;
+  data: string | null;
+} {
+  const {
+    kind: _kind,
+    by: _by,
+    step,
+    text,
+    ...rest
+  } = line as Record<string, unknown> & { step?: string | null; text?: string };
   return {
     step: step ?? null,
     body: text ?? null,

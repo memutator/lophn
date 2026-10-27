@@ -45,9 +45,11 @@ async function runDataJobLine(
   }
   const bundles = `${appFolder(root, input.app)}/bundles/`;
   if (
-    input.bundle_path === undefined || !input.bundle_path.startsWith(bundles) ||
+    input.bundle_path === undefined ||
+    !input.bundle_path.startsWith(bundles) ||
     input.bundle_path.slice(bundles.length).includes("/") ||
-    input.data_changes === undefined || input.invocation === undefined
+    input.data_changes === undefined ||
+    input.invocation === undefined
   ) {
     return invalid("migration needs its own bundle and data changes");
   }
@@ -57,12 +59,15 @@ async function runDataJobLine(
     if (!loaded.ok) return loaded;
     scripts.push(loaded.value);
   }
-  const outcome = await runDataJob({
-    ...context,
-    scripts,
-    appliedAt: new Date().toISOString(),
-    invocation: input.invocation,
-  }, line);
+  const outcome = await runDataJob(
+    {
+      ...context,
+      scripts,
+      appliedAt: new Date().toISOString(),
+      invocation: input.invocation,
+    },
+    line,
+  );
   return outcome.ok ? ok(outcome.value) : err(outcome.error);
 }
 

@@ -102,7 +102,8 @@ function scan(store: IndexStore, input: ScanInput): { changed: boolean } {
   const { domain, clock } = input;
   const state = readState(store.sql, domain);
   if (
-    !input.force && state !== undefined &&
+    !input.force &&
+    state !== undefined &&
     clock.nowMs() - state.scanned_ms < FRESH_MS
   ) {
     return { changed: false };
@@ -119,13 +120,15 @@ function scan(store: IndexStore, input: ScanInput): { changed: boolean } {
   let nextApplied: { hash: string; text: string } | null | undefined;
   if (sameKinds) {
     status = state.status;
-    kinds = status.using === "none" || applied === undefined
-      ? null
-      : kindsOfText(applied.text);
+    kinds =
+      status.using === "none" || applied === undefined
+        ? null
+        : kindsOfText(applied.text);
   } else {
-    const previous = applied === undefined
-      ? null
-      : { hash: applied.hash, kinds: kindsOfText(applied.text) };
+    const previous =
+      applied === undefined
+        ? null
+        : { hash: applied.hash, kinds: kindsOfText(applied.text) };
     const application = applyKindsFile({
       text,
       previous: previous?.kinds
@@ -134,8 +137,8 @@ function scan(store: IndexStore, input: ScanInput): { changed: boolean } {
       files: (candidate) => {
         const files = guarded(() => input.open(kindWatchFolders(candidate)));
         const matching = kindMatcher(candidate);
-        return guarded(() => files.paths()).filter((path) =>
-          matching(path).length > 0
+        return guarded(() => files.paths()).filter(
+          (path) => matching(path).length > 0,
         );
       },
     });
@@ -147,11 +150,12 @@ function scan(store: IndexStore, input: ScanInput): { changed: boolean } {
       applied_hash: application.hash,
     };
     kinds = application.kinds;
-    nextApplied = application.state === "valid"
-      ? { hash: application.hash!, text: text! }
-      : application.state === "none"
-      ? null
-      : undefined;
+    nextApplied =
+      application.state === "valid"
+        ? { hash: application.hash!, text: text! }
+        : application.state === "none"
+          ? null
+          : undefined;
   }
 
   const stats = new Map<string, { size: number; mtime_ms: number }>();
@@ -168,26 +172,32 @@ function scan(store: IndexStore, input: ScanInput): { changed: boolean } {
   }
 
   const indexed = readIndexedFiles(store.sql, domain);
-  const unchanged = state !== undefined && sameKinds &&
+  const unchanged =
+    state !== undefined &&
+    sameKinds &&
     indexed.length === stats.size &&
     indexed.every((file) => {
       const stat = stats.get(file.path);
-      return stat !== undefined && stat.size === file.size &&
-        stat.mtime_ms === file.mtime_ms;
+      return (
+        stat !== undefined &&
+        stat.size === file.size &&
+        stat.mtime_ms === file.mtime_ms
+      );
     });
   if (unchanged) {
     store.transaction((sql) =>
-      writeState(sql, domain, { ...state, scanned_ms: clock.nowMs() })
+      writeState(sql, domain, { ...state, scanned_ms: clock.nowMs() }),
     );
     return { changed: false };
   }
 
-  const extracted: Extracted = kinds === null || files === undefined
-    ? { items: [], files: new Map(), violations: [] }
-    : extractItems(kinds, {
-      paths: () => [...stats.keys()],
-      read: (path) => guarded(() => files.read(path)),
-    });
+  const extracted: Extracted =
+    kinds === null || files === undefined
+      ? { items: [], files: new Map(), violations: [] }
+      : extractItems(kinds, {
+          paths: () => [...stats.keys()],
+          read: (path) => guarded(() => files.read(path)),
+        });
   const violations = sortViolations([
     ...status.errors.map(kindsFileViolation),
     ...extracted.violations,

@@ -43,9 +43,10 @@ function runFromRow(row: Record<string, unknown>): Result<RunRecord> {
     instance: row.instance,
     state: row.state,
     result: row.result === null ? null : JSON.parse(String(row.result)),
-    error: row.error_reason === null
-      ? null
-      : { reason: row.error_reason, message: row.error_message },
+    error:
+      row.error_reason === null
+        ? null
+        : { reason: row.error_reason, message: row.error_message },
     created_at: row.created_at,
     finished_at: row.finished_at,
     state_seq: String(row.state_seq),
@@ -146,12 +147,10 @@ export function listRuns(
   const clause = where.length === 0 ? "" : ` WHERE ${where.join(" AND ")}`;
   params.push(filter.limit);
   const runs: RunRecord[] = [];
-  for (
-    const row of sql.all(
-      `SELECT * FROM runs${clause} ORDER BY id DESC LIMIT ?`,
-      params,
-    )
-  ) {
+  for (const row of sql.all(
+    `SELECT * FROM runs${clause} ORDER BY id DESC LIMIT ?`,
+    params,
+  )) {
     const run = runFromRow(row);
     if (!run.ok) return run;
     runs.push(run.value);

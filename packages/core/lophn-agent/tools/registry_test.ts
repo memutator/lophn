@@ -16,15 +16,17 @@ function fixture(gateVerdict: "run" | "deny" = "run") {
   const asked: string[] = [];
   const handler = (name: string) => () => {
     ran.push(name);
-    return Promise.resolve(ok({
-      status: "success" as const,
-      summary: name,
-      content: null,
-      complete: true,
-      source: null,
-      continuation: null,
-      pending: [],
-    }));
+    return Promise.resolve(
+      ok({
+        status: "success" as const,
+        summary: name,
+        content: null,
+        complete: true,
+        source: null,
+        continuation: null,
+        pending: [],
+      }),
+    );
   };
   const definitions = [
     defineTool({
@@ -63,32 +65,36 @@ function fixture(gateVerdict: "run" | "deny" = "run") {
     operator: ["file.read"],
     app_engineer: ["file.read", "operator.update"],
   };
-  const context = (role: "operator" | "app_engineer"): ToolContext => ({
-    listed: selectTools(NAMES[role], MODEL, definitions),
-    agent: { role: "operator", agent: "agt_01J00000000000000000000000" },
-    session: "ses_01J00000000000000000000000",
-    turn: "trn_01J00000000000000000000000",
-    tool_call: "tcl_01J00000000000000000000000",
-    gate: {
-      check: (input: { call: { kind: string } }) => {
-        asked.push(input.call.kind);
-        return Promise.resolve(
-          ok(
-            gateVerdict === "run"
-              ? { kind: "run" as const }
-              : { kind: "denied" as const, reason: "not_assigned" as const },
-          ),
-        );
+  const context = (role: "operator" | "app_engineer"): ToolContext =>
+    ({
+      listed: selectTools(NAMES[role], MODEL, definitions),
+      agent: { role: "operator", agent: "agt_01J00000000000000000000000" },
+      session: "ses_01J00000000000000000000000",
+      turn: "trn_01J00000000000000000000000",
+      tool_call: "tcl_01J00000000000000000000000",
+      gate: {
+        check: (input: { call: { kind: string } }) => {
+          asked.push(input.call.kind);
+          return Promise.resolve(
+            ok(
+              gateVerdict === "run"
+                ? { kind: "run" as const }
+                : { kind: "denied" as const, reason: "not_assigned" as const },
+            ),
+          );
+        },
       },
-    },
-  } as unknown as ToolContext);
+    }) as unknown as ToolContext;
   return { ran, asked, context };
 }
 
 test("role의 고정 목록에 없는 tool은 목록에도 실행에도 나오지 않는다", async () => {
   const { ran, context } = fixture();
   const ctx = context("operator");
-  assert.deepStrictEqual(ctx.listed.map((tool) => tool.name), ["file.read"]);
+  assert.deepStrictEqual(
+    ctx.listed.map((tool) => tool.name),
+    ["file.read"],
+  );
 
   const missing = await executeToolCall(ctx, "ticket_create", {});
   assert.deepStrictEqual(missing.outcome.code, "not_found");

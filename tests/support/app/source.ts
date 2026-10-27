@@ -16,19 +16,23 @@ const GIT_ENV = {
 };
 
 async function git(cwd: string, ...args: string[]): Promise<string> {
-  const child = spawn("git", [
-    "-c",
-    "user.name=e2e",
-    "-c",
-    "user.email=e2e@example.invalid",
-    "-c",
-    "commit.gpgsign=false",
-    ...args,
-  ], {
-    cwd,
-    env: { ...process.env, ...GIT_ENV },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const child = spawn(
+    "git",
+    [
+      "-c",
+      "user.name=e2e",
+      "-c",
+      "user.email=e2e@example.invalid",
+      "-c",
+      "commit.gpgsign=false",
+      ...args,
+    ],
+    {
+      cwd,
+      env: { ...process.env, ...GIT_ENV },
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
   const stdout: string[] = [];
   const stderr: string[] = [];
   child.stdout!.setEncoding("utf8");
@@ -96,9 +100,7 @@ export async function createAppSource(
     for (const file of files) {
       await rm(`${dir}/${file.path}`).catch(() => {});
     }
-    await rm(`${dir}/src/screens/home`, { recursive: true }).catch(
-      () => {},
-    );
+    await rm(`${dir}/src/screens/home`, { recursive: true }).catch(() => {});
     const scaffolded = await scaffoldApp({
       files,
       dir,

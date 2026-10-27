@@ -78,7 +78,7 @@ export function fakeApps(options: FakeAppsOptions = {}) {
         archived,
         revision: String(Number(app.revision) + 1),
       };
-      rows = rows.map((row) => row.id === app.id ? next : row);
+      rows = rows.map((row) => (row.id === app.id ? next : row));
       return Promise.resolve({ ok: true, value: next });
     },
     entryScreen(app, release): Promise<SourceResult<string>> {

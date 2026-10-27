@@ -28,19 +28,17 @@ test("flow process flags allow only reading the workflow folder and the SDK", ()
     paths.workflowFolder,
     paths.sdkRoot,
   ]);
-  for (
-    const banned of [
-      "--allow-write",
-      "--allow-net",
-      "--allow-run",
-      "--allow-env",
-      "--allow-all",
-      "-A",
-      "--allow-sys",
-      "--allow-ffi",
-      "--allow-import",
-    ]
-  ) {
+  for (const banned of [
+    "--allow-write",
+    "--allow-net",
+    "--allow-run",
+    "--allow-env",
+    "--allow-all",
+    "-A",
+    "--allow-sys",
+    "--allow-ffi",
+    "--allow-import",
+  ]) {
     assert.ok(!flags.value.some((f) => f.startsWith(banned)), banned);
   }
 });

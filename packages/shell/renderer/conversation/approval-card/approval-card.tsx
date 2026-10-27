@@ -28,10 +28,13 @@ interface ApprovalCardProps {
   reason?: string;
 }
 
-export function ApprovalCard(
-  { agent, request, onDecide, denying = false, reason: initialReason = "" }:
-    ApprovalCardProps,
-): ReactElement {
+export function ApprovalCard({
+  agent,
+  request,
+  onDecide,
+  denying = false,
+  reason: initialReason = "",
+}: ApprovalCardProps): ReactElement {
   const { subject } = request;
   const effect = effectOf(subject);
   const [denyOpen, setDenyOpen] = useState(denying);
@@ -62,23 +65,21 @@ export function ApprovalCard(
           {titleOf(subject, agent)}
         </p>
         <dl className={styles.facts}>
-          {subject.kind === "shell"
-            ? (
-              <>
-                <dt>{t("conversation.label.approval-command")}</dt>
-                <dd>
-                  <pre className={styles.pre}>{subject.command}</pre>
-                </dd>
-              </>
-            )
-            : (
-              <>
-                <dt>{t("conversation.label.approval-target")}</dt>
-                <dd>{targetOf(subject)}</dd>
-                <dt>{t("conversation.label.approval-effect")}</dt>
-                <dd>{effect}</dd>
-              </>
-            )}
+          {subject.kind === "shell" ? (
+            <>
+              <dt>{t("conversation.label.approval-command")}</dt>
+              <dd>
+                <pre className={styles.pre}>{subject.command}</pre>
+              </dd>
+            </>
+          ) : (
+            <>
+              <dt>{t("conversation.label.approval-target")}</dt>
+              <dd>{targetOf(subject)}</dd>
+              <dt>{t("conversation.label.approval-effect")}</dt>
+              <dd>{effect}</dd>
+            </>
+          )}
           {request.always_patterns.length === 0 ? null : (
             <>
               <dt>{t("conversation.label.approval-always")}</dt>
@@ -93,70 +94,62 @@ export function ApprovalCard(
           )}
         </dl>
       </div>
-      {denyOpen
-        ? (
-          <div className={styles.reasonRow}>
-            <input
-              className={styles.reasonInput}
-              aria-label={t("conversation.label.approval-reason")}
-              placeholder={t("conversation.label.approval-reason-placeholder", {
-                agent,
-              })}
-              maxLength={500}
-              autoFocus={initialReason === ""}
-              value={reason}
-              onChange={(event) => setReason(event.currentTarget.value)}
-            />
-          </div>
-        )
-        : null}
+      {denyOpen ? (
+        <div className={styles.reasonRow}>
+          <input
+            className={styles.reasonInput}
+            aria-label={t("conversation.label.approval-reason")}
+            placeholder={t("conversation.label.approval-reason-placeholder", {
+              agent,
+            })}
+            maxLength={500}
+            autoFocus={initialReason === ""}
+            value={reason}
+            onChange={(event) => setReason(event.currentTarget.value)}
+          />
+        </div>
+      ) : null}
       <footer className={styles.foot}>
         <p className={failed ? `${styles.note} ${styles.error}` : styles.note}>
           {failed
             ? t("conversation.notice.decide-failed")
             : t("conversation.notice.approval-paused", { agent })}
         </p>
-        {denyOpen
-          ? (
-            <>
+        {denyOpen ? (
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => setDenyOpen(false)}
+            >
+              {t("common.button.back")}
+            </Button>
+            <Button size="sm" variant="danger" disabled={busy} onClick={deny}>
+              {t("conversation.button.approval-deny")}
+            </Button>
+          </>
+        ) : (
+          <>
+            {choices.map((choice) => (
               <Button
+                key={choice}
                 size="sm"
-                variant="ghost"
+                variant={choice === "once" ? "primary" : "secondary"}
                 disabled={busy}
-                onClick={() => setDenyOpen(false)}
+                onClick={() =>
+                  choice === "reject" ? setDenyOpen(true) : decide(choice)
+                }
               >
-                {t("common.button.back")}
-              </Button>
-              <Button
-                size="sm"
-                variant="danger"
-                disabled={busy}
-                onClick={deny}
-              >
-                {t("conversation.button.approval-deny")}
-              </Button>
-            </>
-          )
-          : (
-            <>
-              {choices.map((choice) => (
-                <Button
-                  key={choice}
-                  size="sm"
-                  variant={choice === "once" ? "primary" : "secondary"}
-                  disabled={busy}
-                  onClick={() =>
-                    choice === "reject" ? setDenyOpen(true) : decide(choice)}
-                >
-                  {choice === "once"
-                    ? t("conversation.button.approval-allow-once")
-                    : choice === "always"
+                {choice === "once"
+                  ? t("conversation.button.approval-allow-once")
+                  : choice === "always"
                     ? t("conversation.button.approval-allow-always")
                     : t("conversation.button.approval-deny")}
-                </Button>
-              ))}
-            </>
-          )}
+              </Button>
+            ))}
+          </>
+        )}
       </footer>
     </section>
   );
@@ -194,27 +187,31 @@ function scopeLabel(choice: ApprovalResultView["choice"]): string | null {
  * 결정 뒤 대화에 남는 한 줄. 허락, 거절, 일이 끝나 취소된 것(거절이 아니다)을 구별한다. 만료는 없다.
  * 허락 범위는 이 창에서 결정했을 때만 안다.
  */
-export function ApprovalResult(
-  { result }: { result: ApprovalResultView },
-): ReactElement {
+export function ApprovalResult({
+  result,
+}: {
+  result: ApprovalResultView;
+}): ReactElement {
   const detail = [
     scopeLabel(result.choice),
     result.reason === null
       ? null
       : t("conversation.label.approval-reason-given", {
-        reason: result.reason,
-      }),
+          reason: result.reason,
+        }),
     result.outcome === "cancelled"
       ? t("conversation.label.approval-cancelled-detail")
       : null,
-  ].filter((part): part is string => part !== null).join(" · ");
+  ]
+    .filter((part): part is string => part !== null)
+    .join(" · ");
   return (
     <div className={styles.result}>
       <StatusMark tone={TONES[result.outcome]} label={markLabel(result)} />
       <span className={styles.resultTitle}>{targetOf(result.subject)}</span>
-      {detail === ""
-        ? null
-        : <span className={styles.resultDetail}>{detail}</span>}
+      {detail === "" ? null : (
+        <span className={styles.resultDetail}>{detail}</span>
+      )}
     </div>
   );
 }

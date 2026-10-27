@@ -45,14 +45,14 @@ export function register(ctx: ShellContext): BrowserWiring {
   // 그 전에 partition을 만들면 저장이 데이터 root 밖에 생긴다.
   let session: ReturnType<typeof installBrowserSession> | undefined;
   const ensureSession = () =>
-    session ??= installBrowserSession(electronBrowserSession(), {
+    (session ??= installBrowserSession(electronBrowserSession(), {
       activation,
       product: app.getName(),
       platform: process.platform,
-    });
+    }));
 
   const orderOf = windowViewOrders<BrowserWindow, WebContentsView>((window) =>
-    overlays.raise(window)
+    overlays.raise(window),
   );
   const host = electronBrowserViews({
     windowOf: (ref) => windowOfRef(ref),
@@ -127,10 +127,8 @@ export function register(ctx: ShellContext): BrowserWiring {
     });
     contents.on("did-attach-webview", (_event, guest) => {
       const view_session = guestViewSession(guest.id);
-      views.addGuest(
-        windowRef(window),
-        view_session,
-        (hooks) => host.guest(guest, hooks),
+      views.addGuest(windowRef(window), view_session, (hooks) =>
+        host.guest(guest, hooks),
       );
       guest.once("destroyed", () => views.forgetGuest(view_session));
     });

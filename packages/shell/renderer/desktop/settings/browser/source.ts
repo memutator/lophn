@@ -14,9 +14,11 @@ export interface BrowserSettingsSource {
   clearData(): Promise<SourceResult<null>>;
   /** bookmark 목록. 파일이 깨져 있으면 오류가 아니라 `corrupt` 상태다. 실패한 code는 BookmarkReason이다. */
   bookmarks(): Promise<SourceResult<BookmarkList>>;
-  updateBookmark(
-    input: { id: string; title: string; url: string },
-  ): Promise<SourceResult<null>>;
+  updateBookmark(input: {
+    id: string;
+    title: string;
+    url: string;
+  }): Promise<SourceResult<null>>;
   removeBookmark(id: string): Promise<SourceResult<null>>;
   /** terminal에서 연 주소와 Ctrl/Cmd-click한 link를 열 곳. core 선언 설정이다. */
   links(): Promise<SourceResult<LinkValues>>;

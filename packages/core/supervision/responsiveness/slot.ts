@@ -41,12 +41,7 @@ export type ChildCallbacks = {
 };
 
 // stopped: 종료가 확인된 정지. unavailable: 한도 초과·protocol 위반·종료 미확인.
-type Phase =
-  | "starting"
-  | "ready"
-  | "stopping"
-  | "stopped"
-  | "unavailable";
+type Phase = "starting" | "ready" | "stopping" | "stopped" | "unavailable";
 
 // 한 번의 기동. 종료가 확인될 때까지 slot이 이것을 쥐고 있어 같은 kind의 새 child와 겹치지 않는다.
 export type Attempt = {
@@ -103,5 +98,7 @@ export function isLive(slot: Slot, attempt: Attempt): boolean {
 export function safeCall(fn: () => void) {
   try {
     fn();
-  } catch { /* 안전 실패: callback 예외가 teardown·상태 변경을 막지 않는다 */ }
+  } catch {
+    /* 안전 실패: callback 예외가 teardown·상태 변경을 막지 않는다 */
+  }
 }

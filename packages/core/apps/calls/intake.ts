@@ -33,9 +33,10 @@ type CallIntake = AppIntake & {
   chainApps(parent: Id<"inv"> | null): Id<"app">[];
 };
 
-export function createIntake(
-  deps: { queue: WriteQueue; timers: Timers },
-): CallIntake {
+export function createIntake(deps: {
+  queue: WriteQueue;
+  timers: Timers;
+}): CallIntake {
   const closed = new Set<Id<"app">>();
   const held = new Map<Id<"app">, (() => void)[]>();
   const flights = new Map<Id<"inv">, Flight>();
@@ -43,8 +44,8 @@ export function createIntake(
 
   // preview 호출은 운영 앱의 drain과 정지에 걸리지 않는다.
   function liveOf(app: Id<"app">): Flight[] {
-    return [...flights.values()].filter((f) =>
-      f.app === app && f.mode === "live"
+    return [...flights.values()].filter(
+      (f) => f.app === app && f.mode === "live",
     );
   }
 
@@ -103,9 +104,8 @@ export function createIntake(
       let cursor = parent === null ? undefined : flights.get(parent);
       while (cursor) {
         apps.push(cursor.app);
-        cursor = cursor.parent === null
-          ? undefined
-          : flights.get(cursor.parent);
+        cursor =
+          cursor.parent === null ? undefined : flights.get(cursor.parent);
       }
       return apps;
     },

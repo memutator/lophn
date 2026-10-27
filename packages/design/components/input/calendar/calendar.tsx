@@ -46,14 +46,18 @@ const KEY_STEPS: Record<string, (day: string) => string> = {
 };
 
 // 보이는 달은 focus한 날의 달이다. 방향키는 날을, PageUp·PageDown은 달을 옮긴다. 탭 순서에는 focus한 날 하나만 든다.
-export function Calendar(
-  { selected, onPick, now, min, max, locale = "en", autoFocus = false }:
-    CalendarProps,
-) {
+export function Calendar({
+  selected,
+  onPick,
+  now,
+  min,
+  max,
+  locale = "en",
+  autoFocus = false,
+}: CalendarProps) {
   const today = toDay(now);
-  const span = typeof selected === "string"
-    ? { from: selected, to: selected }
-    : selected;
+  const span =
+    typeof selected === "string" ? { from: selected, to: selected } : selected;
   const [focus, setFocus] = useState(span?.from ?? today);
   const grid = useRef<HTMLTableElement>(null);
   const keyed = useRef(autoFocus);
@@ -66,7 +70,8 @@ export function Calendar(
   useEffect(() => {
     if (!keyed.current) return;
     keyed.current = false;
-    grid.current?.querySelector<HTMLButtonElement>(`[data-day="${focus}"]`)
+    grid.current
+      ?.querySelector<HTMLButtonElement>(`[data-day="${focus}"]`)
       ?.focus({ preventScroll: true });
   }, [focus]);
 
@@ -76,8 +81,8 @@ export function Calendar(
     min !== undefined && day < min
       ? min
       : max !== undefined && day > max
-      ? max
-      : day;
+        ? max
+        : day;
   const month = monthOf(focus);
   const weeks = monthWeeks(month);
   const title = formatDate(dateOf(`${month}-01`), locale, {
@@ -102,7 +107,9 @@ export function Calendar(
           disabled={min !== undefined && month <= monthOf(min)}
           onClick={() => setFocus(clamp(shiftDayByMonth(focus, -1)))}
         />
-        <p className={styles.title} aria-live="polite">{title}</p>
+        <p className={styles.title} aria-live="polite">
+          {title}
+        </p>
         <IconButton
           icon={ChevronRight}
           size="sm"
@@ -136,10 +143,10 @@ export function Calendar(
           {weeks.map((week) => (
             <tr key={week[0]}>
               {week.map((day) => {
-                const edge = span !== undefined &&
-                  (day === span.from || day === span.to);
-                const between = span !== undefined && day > span.from &&
-                  day < span.to;
+                const edge =
+                  span !== undefined && (day === span.from || day === span.to);
+                const between =
+                  span !== undefined && day > span.from && day < span.to;
                 return (
                   <td
                     key={day}

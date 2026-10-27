@@ -35,10 +35,12 @@ export function createDiagnosticIngress(options: {
       try {
         authority = options.currentAuthority();
         if (
-          !authority?.principal || !authority.process || !authority.task ||
+          !authority?.principal ||
+          !authority.process ||
+          !authority.task ||
           !authority.scope.includes(DIAGNOSTICS_WRITE_OP) ||
-          parsed.data.payload.records.some((record) =>
-            !authority!.permits(record)
+          parsed.data.payload.records.some(
+            (record) => !authority!.permits(record),
           )
         ) {
           return err({

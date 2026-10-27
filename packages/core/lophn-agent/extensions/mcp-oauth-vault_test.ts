@@ -19,7 +19,7 @@ function memoryFs(): SecretFs {
   return {
     readText: (path) =>
       files.has(path) ? Promise.resolve(files.get(path)!) : missing(),
-    mode: (path) => files.has(path) ? Promise.resolve(0o600) : missing(),
+    mode: (path) => (files.has(path) ? Promise.resolve(0o600) : missing()),
     chmod: () => Promise.resolve(),
     writeNew(path, text) {
       files.set(path, text);

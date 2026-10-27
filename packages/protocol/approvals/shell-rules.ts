@@ -17,10 +17,13 @@ import { idSchema } from "../base/ids.ts";
 export const SHELL_RULE_ACTIONS = ["allow", "ask", "deny"] as const;
 
 // 한 줄이다. 사람이 쓰므로 길이만 막는다.
-export const shellPatternSchema = z.string().min(1).max(500).refine(
-  (value) => value.trim() !== "" && !/[\r\n]/.test(value),
-  { message: "shell pattern is one non-blank line" },
-);
+export const shellPatternSchema = z
+  .string()
+  .min(1)
+  .max(500)
+  .refine((value) => value.trim() !== "" && !/[\r\n]/.test(value), {
+    message: "shell pattern is one non-blank line",
+  });
 
 export const shellRuleSchema = z.strictObject({
   pattern: shellPatternSchema,
@@ -51,7 +54,7 @@ export const PRODUCT_SHELL_RULES: { floor: ShellRule[]; ask: ShellRule[] } = {
   floor: [
     ...["", "sudo "].flatMap((sudo) => [
       ...RM_FLAGS.flatMap((flags) =>
-        RM_EVERYTHING.map((target) => `${sudo}rm ${flags} ${target}`)
+        RM_EVERYTHING.map((target) => `${sudo}rm ${flags} ${target}`),
       ),
       `${sudo}mkfs*`,
       `${sudo}dd * of=/dev/*`,

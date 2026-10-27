@@ -42,6 +42,6 @@ export function baselineOutcomes(
     run.trials
       .map((t) => outcomeOf(t, run.components))
       .filter((o) => o.components.some((c) => same(c, from)))
-      .sort((a, b) => a.index - b.index)
+      .sort((a, b) => a.index - b.index),
   );
 }

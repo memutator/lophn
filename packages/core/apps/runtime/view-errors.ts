@@ -16,9 +16,9 @@ export function viewErrorText(
   return input.message === null ? head : `${head}: ${input.message}`;
 }
 
-export function viewErrorLogHandler(
-  deps: { request: SupervisorChannel["request"] },
-): MemoryHandler {
+export function viewErrorLogHandler(deps: {
+  request: SupervisorChannel["request"];
+}): MemoryHandler {
   return async (_ctx, value) => {
     const input = value as AppLogViewErrorInput;
     // preview 화면 오류는 아직 log에 쓰지 않는다.
@@ -30,9 +30,11 @@ export function viewErrorLogHandler(
     });
     if (!answer.ok) return answer;
     const parsed = appendLogOutputSchema.safeParse(answer.value);
-    return parsed.success ? ok({ written: parsed.data.written }) : err({
-      code: "unavailable",
-      message: "app supervisor answered badly",
-    });
+    return parsed.success
+      ? ok({ written: parsed.data.written })
+      : err({
+          code: "unavailable",
+          message: "app supervisor answered badly",
+        });
   };
 }

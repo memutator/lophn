@@ -20,9 +20,11 @@ interface TopBarProps {
 
 // 36px 끌기 바. macOS 신호등 80px을 비우고 Windows·Linux는 오른쪽 끝에 창 단추 셋(46px 셋, 138px)을
 // 직접 그린다. 조작 요소만 끌기에서 뺀다.
-export function TopBar(
-  { leading, trailing, platform = currentPlatform() }: TopBarProps,
-) {
+export function TopBar({
+  leading,
+  trailing,
+  platform = currentPlatform(),
+}: TopBarProps) {
   return (
     <header className={styles.bar} data-platform={platform}>
       <div className={styles.leading}>{leading}</div>

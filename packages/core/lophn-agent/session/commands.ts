@@ -95,8 +95,8 @@ export function createConversationCommands(deps: ConversationDeps): {
         if (!user.ok) return user;
         const existing = loadSession(tx, input.id);
         if (existing !== undefined) {
-          const same = canonicalize(agentRefOf(existing)) ===
-            canonicalize(input.agent);
+          const same =
+            canonicalize(agentRefOf(existing)) === canonicalize(input.agent);
           if (!same) return reject("conflict", "session id already used");
           if (existing.lifecycle !== "open") {
             return reject("conflict", "session changed since it was opened");
@@ -190,7 +190,8 @@ export function createConversationCommands(deps: ConversationDeps): {
         const bodies = deps.eraseBlobRefs(
           tx,
           MESSAGE_BODY_OWNER_KIND,
-          tx.sql.all("select id from messages where session = ?", [session.id])
+          tx.sql
+            .all("select id from messages where session = ?", [session.id])
             .map((row) => String(row["id"])),
         );
         if (!bodies.ok) return bodies;
@@ -272,10 +273,11 @@ export function createConversationCommands(deps: ConversationDeps): {
           return reject("conflict", "session changed");
         }
         const seq = nextSessionSeq(tx);
-        tx.sql.run(
-          "update sessions set skip = ?, state_seq = ? where id = ?",
-          [input.skip ? 1 : 0, seq, session.id],
-        );
+        tx.sql.run("update sessions set skip = ?, state_seq = ? where id = ?", [
+          input.skip ? 1 : 0,
+          seq,
+          session.id,
+        ]);
         return ok({
           id: session.id,
           skip: input.skip,

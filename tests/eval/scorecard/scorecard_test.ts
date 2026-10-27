@@ -62,13 +62,15 @@ function run(id: string, startedAt: string, over: Partial<RunRecord> = {}) {
     },
     model: "claude-a",
     source: { commit: "abc", dirty: false },
-    trials: [{
-      index: 0,
-      settle: { kind: "idle", unstarted: [] },
-      checks: [{ id: "relayed", kind: "program", pass: true, reason: "" }],
-      judge: [],
-      metrics,
-    }],
+    trials: [
+      {
+        index: 0,
+        settle: { kind: "idle", unstarted: [] },
+        checks: [{ id: "relayed", kind: "program", pass: true, reason: "" }],
+        judge: [],
+        metrics,
+      },
+    ],
     ...over,
   } as RunRecord;
 }
@@ -106,24 +108,26 @@ test("지금 version을 본 run 가운데 가장 늦은 것을 고르고 다르�
   const [row, none] = pickRows(runs, current);
   assert.deepStrictEqual(row.run, "valid-late"); // 가장 늦은 old-instruction이 아니다
   assert.deepStrictEqual(row.stale, []);
-  assert.deepStrictEqual([none.run, none.stale, none.trials], [null, [
-    "run 없음",
-  ], 0]);
+  assert.deepStrictEqual(
+    [none.run, none.stale, none.trials],
+    [null, ["run 없음"], 0],
+  );
 
   // 유효한 run이 없으면 가장 늦은 run을 낡음으로 보인다.
-  const stale = pickRows([
-    runs[0],
-    run(
-      "checks-moved",
-      "2026-10-02",
-      { grader: checksMoved },
-    ),
-  ], current)[0];
+  const stale = pickRows(
+    [runs[0], run("checks-moved", "2026-10-02", { grader: checksMoved })],
+    current,
+  )[0];
   assert.deepStrictEqual(stale.run, "old-instruction");
   assert.deepStrictEqual(stale.stale, ["instruction:lophn@3 → @4"]);
 
-  const checks = pickRows([run("checks-only", "2026-10-02", {
-    grader: checksMoved,
-  })], current)[0];
+  const checks = pickRows(
+    [
+      run("checks-only", "2026-10-02", {
+        grader: checksMoved,
+      }),
+    ],
+    current,
+  )[0];
   assert.deepStrictEqual(checks.stale, ["checks@3 → @4"]);
 });

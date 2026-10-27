@@ -36,9 +36,9 @@ async function crash(core: Core): Promise<number> {
     const current = await runtimePids(core.run.home);
     if (current.length === 0 || current.includes(old)) return;
     const health = await core.call(platformHealth, {});
-    return health.observations.find((item) =>
-        item.component === "agent-runtime"
-      )?.available
+    return health.observations.find(
+      (item) => item.component === "agent-runtime",
+    )?.available
       ? true
       : undefined;
   });
@@ -46,11 +46,7 @@ async function crash(core: Core): Promise<number> {
 }
 
 // a: turn 도중 child가 crash하면 그 turn은 restarted로 닫히고 session은 새 입력을 받는다.
-async function crashMidTurn(
-  core: Core,
-  fake: FakeServer,
-  folder: string,
-) {
+async function crashMidTurn(core: Core, fake: FakeServer, folder: string) {
   fake.script([
     {
       reply: {

@@ -45,51 +45,49 @@ const TAB_MIME = "application/x-lophn-tab";
 
 type DropMark = { readonly key: string; readonly side: "before" | "after" };
 
-export function TabStrip(
-  {
-    tabs,
-    selected,
-    focused = true,
-    compact = false,
-    onSelect,
-    onClose,
-    onPin,
-    onMenu,
-    onReorder,
-    renaming = null,
-    onRenaming,
-    onRename,
-    end,
-  }: {
-    tabs: readonly TabItem[];
-    selected: string;
-    /** 두 칸 중 키보드가 가 있는 칸이다. 고른 탭 강조선이 focus 색이 된다. */
-    focused?: boolean;
-    /** sidebar 위쪽 같은 작은 줄. 탭이 폭을 나눠 가진다. */
-    compact?: boolean;
-    onSelect?: (key: string) => void;
-    /** 있으면 탭마다 닫기 ×가 생기고 가운데 클릭으로도 닫힌다. */
-    onClose?: (key: string) => void;
-    /** preview 탭을 double-click하면 고정한다. */
-    onPin?: (key: string) => void;
-    /** 탭 오른쪽 클릭. 화면 좌표를 준다. */
-    onMenu?: (key: string, at: { x: number; y: number }) => void;
-    /** 탭을 끌어 놓았다. before 탭 앞에 넣고 null이면 끝이다. 다른 줄에서 끌어 온 탭도 온다. */
-    onReorder?: (key: string, before: string | null) => void;
-    /** 이름을 바꾸는 중인 탭 key. 탭 menu의 Rename도 이 값으로 입력을 연다. */
-    renaming?: string | null;
-    /** 이름 바꾸기를 시작(key)하거나 끝냈다(null). */
-    onRenaming?: (key: string | null) => void;
-    /** 입력을 확정했다. 빈 이름은 null이고 자동 이름으로 돌아간다. */
-    onRename?: (key: string, name: string | null) => void;
-    /** 줄 끝(새 탭 단추, 칸 닫기 등). */
-    end?: ReactNode;
-  },
-) {
+export function TabStrip({
+  tabs,
+  selected,
+  focused = true,
+  compact = false,
+  onSelect,
+  onClose,
+  onPin,
+  onMenu,
+  onReorder,
+  renaming = null,
+  onRenaming,
+  onRename,
+  end,
+}: {
+  tabs: readonly TabItem[];
+  selected: string;
+  /** 두 칸 중 키보드가 가 있는 칸이다. 고른 탭 강조선이 focus 색이 된다. */
+  focused?: boolean;
+  /** sidebar 위쪽 같은 작은 줄. 탭이 폭을 나눠 가진다. */
+  compact?: boolean;
+  onSelect?: (key: string) => void;
+  /** 있으면 탭마다 닫기 ×가 생기고 가운데 클릭으로도 닫힌다. */
+  onClose?: (key: string) => void;
+  /** preview 탭을 double-click하면 고정한다. */
+  onPin?: (key: string) => void;
+  /** 탭 오른쪽 클릭. 화면 좌표를 준다. */
+  onMenu?: (key: string, at: { x: number; y: number }) => void;
+  /** 탭을 끌어 놓았다. before 탭 앞에 넣고 null이면 끝이다. 다른 줄에서 끌어 온 탭도 온다. */
+  onReorder?: (key: string, before: string | null) => void;
+  /** 이름을 바꾸는 중인 탭 key. 탭 menu의 Rename도 이 값으로 입력을 연다. */
+  renaming?: string | null;
+  /** 이름 바꾸기를 시작(key)하거나 끝냈다(null). */
+  onRenaming?: (key: string | null) => void;
+  /** 입력을 확정했다. 빈 이름은 null이고 자동 이름으로 돌아간다. */
+  onRename?: (key: string, name: string | null) => void;
+  /** 줄 끝(새 탭 단추, 칸 닫기 등). */
+  end?: ReactNode;
+}) {
   const list = useRef<HTMLDivElement>(null);
-  const [thumb, setThumb] = useState<
-    { left: number; width: number } | null
-  >(null);
+  const [thumb, setThumb] = useState<{ left: number; width: number } | null>(
+    null,
+  );
   const [drop, setDrop] = useState<DropMark | "end" | null>(null);
 
   const measure = () => {
@@ -97,17 +95,17 @@ export function TabStrip(
     if (!element) return;
     const { scrollWidth, clientWidth, scrollLeft } = element;
     if (scrollWidth <= clientWidth + 1) {
-      setThumb((now) => now === null ? now : null);
+      setThumb((now) => (now === null ? now : null));
       return;
     }
     const next = {
-      left: scrollLeft / scrollWidth * clientWidth,
-      width: clientWidth * clientWidth / scrollWidth,
+      left: (scrollLeft / scrollWidth) * clientWidth,
+      width: (clientWidth * clientWidth) / scrollWidth,
     };
     setThumb((now) =>
       now !== null && now.left === next.left && now.width === next.width
         ? now
-        : next
+        : next,
     );
   };
 
@@ -177,10 +175,12 @@ export function TabStrip(
     const box = over.getBoundingClientRect();
     const side = event.clientX < box.left + box.width / 2 ? "before" : "after";
     setDrop((now) =>
-      typeof now === "object" && now !== null &&
-        now.key === over.dataset.tabKey && now.side === side
+      typeof now === "object" &&
+      now !== null &&
+      now.key === over.dataset.tabKey &&
+      now.side === side
         ? now
-        : { key: over.dataset.tabKey!, side }
+        : { key: over.dataset.tabKey!, side },
     );
   };
 
@@ -197,7 +197,7 @@ export function TabStrip(
     const at = tabs.findIndex((tab) => tab.key === mark.key);
     onReorder(
       key,
-      mark.side === "before" ? mark.key : tabs[at + 1]?.key ?? null,
+      mark.side === "before" ? mark.key : (tabs[at + 1]?.key ?? null),
     );
   };
 
@@ -234,9 +234,9 @@ export function TabStrip(
             const editing = tab.key === renaming;
             const tip = tab.dot
               ? t("project-workspace.label.tab-tooltip", {
-                title: tab.title,
-                state: dotLabel(tab.dot),
-              })
+                  title: tab.title,
+                  state: dotLabel(tab.dot),
+                })
               : tab.title;
             return (
               <Tooltip
@@ -286,73 +286,67 @@ export function TabStrip(
                   }}
                   onDragEnd={() => setDrop(null)}
                 >
-                  {tab.icon === undefined
-                    ? null
-                    : <span className={styles.icon}>{tab.icon}</span>}
-                  {editing
-                    ? (
-                      <RenameInput
-                        title={tab.title}
-                        onDone={(name) => {
-                          if (name !== undefined) onRename?.(tab.key, name);
-                          onRenaming?.(null);
-                        }}
-                      />
-                    )
-                    : <span className={styles.title}>{tab.title}</span>}
-                  {onClose === undefined && !dot
-                    ? null
-                    : (
-                      <span className={styles.slot}>
-                        {dot
-                          ? <TabStateDot dot={dot} className={styles.dot} />
-                          : null}
-                        {onClose === undefined ? null : (
-                          <button
-                            type="button"
-                            className={styles.close}
-                            aria-label={t("common.button.close")}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onClose(tab.key);
-                            }}
-                          >
-                            {tab.unsaved
-                              ? (
-                                <span
-                                  className={styles.mark}
-                                  role="img"
-                                  aria-label={t(
-                                    "project-workspace.label.tab-unsaved",
-                                  )}
-                                />
-                              )
-                              : null}
-                            <Icon
-                              icon={X}
-                              pixels={iconPixels("small")}
-                              className={styles.cross}
+                  {tab.icon === undefined ? null : (
+                    <span className={styles.icon}>{tab.icon}</span>
+                  )}
+                  {editing ? (
+                    <RenameInput
+                      title={tab.title}
+                      onDone={(name) => {
+                        if (name !== undefined) onRename?.(tab.key, name);
+                        onRenaming?.(null);
+                      }}
+                    />
+                  ) : (
+                    <span className={styles.title}>{tab.title}</span>
+                  )}
+                  {onClose === undefined && !dot ? null : (
+                    <span className={styles.slot}>
+                      {dot ? (
+                        <TabStateDot dot={dot} className={styles.dot} />
+                      ) : null}
+                      {onClose === undefined ? null : (
+                        <button
+                          type="button"
+                          className={styles.close}
+                          aria-label={t("common.button.close")}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onClose(tab.key);
+                          }}
+                        >
+                          {tab.unsaved ? (
+                            <span
+                              className={styles.mark}
+                              role="img"
+                              aria-label={t(
+                                "project-workspace.label.tab-unsaved",
+                              )}
                             />
-                          </button>
-                        )}
-                      </span>
-                    )}
+                          ) : null}
+                          <Icon
+                            icon={X}
+                            pixels={iconPixels("small")}
+                            className={styles.cross}
+                          />
+                        </button>
+                      )}
+                    </span>
+                  )}
                 </div>
               </Tooltip>
             );
           })}
         </div>
-        {thumb === null
-          ? null
-          : (
-            <div className={styles.track} aria-hidden="true">
-              <div
-                className={styles.thumb}
-                style={{ left: thumb.left, width: thumb.width }}
-                onPointerDown={dragThumb}
-              />
-            </div>
-          )}
+        {thumb === null ? null : (
+          <div className={styles.track} aria-hidden="true">
+            <div
+              className={styles.thumb}
+              style={{ left: thumb.left, width: thumb.width }}
+              onPointerDown={dragThumb}
+            />
+          </div>
+        )}
       </div>
       {end === undefined ? null : <div className={styles.end}>{end}</div>}
     </div>
@@ -360,12 +354,13 @@ export function TabStrip(
 }
 
 // Enter나 blur는 확정(빈 이름은 null), Escape는 취소(undefined)다. unmount 때 blur가 한 번 더 와도 두 번 확정하지 않는다.
-function RenameInput(
-  { title, onDone }: {
-    title: string;
-    onDone: (name: string | null | undefined) => void;
-  },
-) {
+function RenameInput({
+  title,
+  onDone,
+}: {
+  title: string;
+  onDone: (name: string | null | undefined) => void;
+}) {
   const done = useRef(false);
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -390,9 +385,7 @@ function RenameInput(
         // 터미널과 작업대 단축키로 키가 새지 않게 한다.
         event.stopPropagation();
         if (event.key === "Enter") {
-          finish(
-            event.currentTarget.value.trim() || null,
-          );
+          finish(event.currentTarget.value.trim() || null);
         } else if (event.key === "Escape") finish(undefined);
       }}
     />

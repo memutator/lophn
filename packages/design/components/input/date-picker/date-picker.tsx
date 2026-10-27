@@ -35,18 +35,16 @@ const DAY_FORMAT: Intl.DateTimeFormatOptions = {
 };
 
 // 칸은 Select와 같은 모양이고 누르면 Calendar가 뜬다. 날을 누르면 닫힌다.
-export function DatePicker(
-  {
-    value,
-    onValueChange,
-    now,
-    min,
-    max,
-    locale = "en",
-    size = "md",
-    disabled,
-  }: DatePickerProps,
-) {
+export function DatePicker({
+  value,
+  onValueChange,
+  now,
+  min,
+  max,
+  locale = "en",
+  size = "md",
+  disabled,
+}: DatePickerProps) {
   const field = useField("DatePicker");
   const [open, setOpen] = useState(false);
   const date = parseDay(value);

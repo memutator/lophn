@@ -58,14 +58,16 @@ function recorded(
   release: string,
   nonce: string,
 ): boolean {
-  return tx.sql.get(
-    `SELECT 1 AS found FROM events
+  return (
+    tx.sql.get(
+      `SELECT 1 AS found FROM events
      WHERE subject = ? AND type = ?
        AND json_extract(payload, '$.release') = ?
        AND json_extract(payload, '$.process_nonce') = ?
      LIMIT 1`,
-    [app, type, release, nonce],
-  ) !== undefined;
+      [app, type, release, nonce],
+    ) !== undefined
+  );
 }
 
 // AppUnavailable payload에는 자식 신원이 없다. 마지막 관측이 같은 release·같은
@@ -90,8 +92,11 @@ function sameAsLast(
     release: string;
     reason: { code: string; summary: string };
   };
-  return payload.release === release && payload.reason.code === reason.code &&
-    payload.reason.summary === reason.summary;
+  return (
+    payload.release === release &&
+    payload.reason.code === reason.code &&
+    payload.reason.summary === reason.summary
+  );
 }
 
 function liveObservation(
@@ -212,7 +217,8 @@ export function createRuntimeCommands(): {
             process_nonce: nonce,
             ready: true,
             accepting: true,
-          }));
+          }),
+        );
       },
     },
     recordStopped: {
@@ -267,7 +273,8 @@ export function createRuntimeCommands(): {
             ready: false,
             accepting: false,
             reason: input.reason,
-          }));
+          }),
+        );
       },
     },
   };

@@ -14,15 +14,13 @@ export type CatalogRefresherHandle = CatalogRefresher;
 
 // agent runtime 안의 catalog 갱신 연결. 갱신은 turn을 막지 않는 single-flight이고
 // network·시각·파일은 주입한다.
-export function startCatalogRefresher(
-  input: {
-    dataRoot: string;
-    autoUpdate: boolean;
-    fetch?: typeof fetch;
-    files?: FilesLike;
-    clock?: { nowMs(): number };
-  },
-): CatalogRefresherHandle {
+export function startCatalogRefresher(input: {
+  dataRoot: string;
+  autoUpdate: boolean;
+  fetch?: typeof fetch;
+  files?: FilesLike;
+  clock?: { nowMs(): number };
+}): CatalogRefresherHandle {
   const work: CatalogWorkInput = {
     dataRoot: input.dataRoot,
     autoUpdate: input.autoUpdate,
@@ -44,13 +42,8 @@ export function startCatalogRefresher(
 
 // 동봉 snapshot은 모듈로 묶인 자산이라 기동 때 파일을 읽지 않는다.
 async function snapshotFromBundle() {
-  const { parseEntries } = await import(
-    "./mod.ts"
-  );
-  const bundled = await import(
-    "./snapshot.json",
-    { with: { type: "json" } }
-  );
+  const { parseEntries } = await import("./mod.ts");
+  const bundled = await import("./snapshot.json", { with: { type: "json" } });
   const entries = parseEntries(JSON.stringify(bundled.default));
   if (entries === undefined) {
     throw new Error("동봉 snapshot을 해석하지 못했다");
@@ -58,9 +51,10 @@ async function snapshotFromBundle() {
   return entries;
 }
 
-function httpFetch(
-  impl: typeof fetch,
-): (url: string, init: unknown) => Promise<{
+function httpFetch(impl: typeof fetch): (
+  url: string,
+  init: unknown,
+) => Promise<{
   status: number;
   etag: string | null;
   bytes: Uint8Array;

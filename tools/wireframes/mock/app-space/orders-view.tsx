@@ -32,14 +32,17 @@ export interface ViewMarks {
   readonly area?: AreaMark;
 }
 
-function Target(
-  { id, marks, children, memoSide }: {
-    id: TargetId;
-    marks: ViewMarks;
-    children: ReactNode;
-    memoSide?: "right";
-  },
-) {
+function Target({
+  id,
+  marks,
+  children,
+  memoSide,
+}: {
+  id: TargetId;
+  marks: ViewMarks;
+  children: ReactNode;
+  memoSide?: "right";
+}) {
   const picked = marks.picked?.[id];
   const hovering = marks.hover?.id === id;
   return (
@@ -48,15 +51,13 @@ function Target(
         picked ? styles.picked : hovering ? styles.hover : ""
       }`}
     >
-      {hovering && !picked
-        ? <span className={styles.hoverLabel}>{marks.hover?.label}</span>
-        : null}
+      {hovering && !picked ? (
+        <span className={styles.hoverLabel}>{marks.hover?.label}</span>
+      ) : null}
       {picked ? <span className={styles.badge}>{picked.n}</span> : null}
       {children}
       {picked?.memo === undefined ? null : (
-        <span
-          className={`${styles.memo} ${memoSide ? styles.memoRight : ""}`}
-        >
+        <span className={`${styles.memo} ${memoSide ? styles.memoRight : ""}`}>
           <textarea
             readOnly
             rows={2}
@@ -79,7 +80,9 @@ export function OrdersView({ marks = {} }: { marks?: ViewMarks }) {
     <div className={styles.appView} data-app-view="orders">
       <div className={styles.appHead}>
         <h1 className={styles.appTitle}>Orders</h1>
-        <Button variant="primary" size="sm">New order</Button>
+        <Button variant="primary" size="sm">
+          New order
+        </Button>
       </div>
       <StatRow>
         <StatTile label="Open" value={12} />
@@ -100,20 +103,24 @@ export function OrdersView({ marks = {} }: { marks?: ViewMarks }) {
             <span>{row.customer}</span>
             <span>{row.status}</span>
             <span className={styles.num}>
-              {index === 1
-                ? <Target id="total" marks={marks}>{row.total}</Target>
-                : row.total}
+              {index === 1 ? (
+                <Target id="total" marks={marks}>
+                  {row.total}
+                </Target>
+              ) : (
+                row.total
+              )}
             </span>
             <span>
-              {row.status === "Open"
-                ? index === 1
-                  ? (
-                    <Target id="ship" marks={marks} memoSide="right">
-                      <Button size="sm">Mark shipped</Button>
-                    </Target>
-                  )
-                  : <Button size="sm">Mark shipped</Button>
-                : null}
+              {row.status === "Open" ? (
+                index === 1 ? (
+                  <Target id="ship" marks={marks} memoSide="right">
+                    <Button size="sm">Mark shipped</Button>
+                  </Target>
+                ) : (
+                  <Button size="sm">Mark shipped</Button>
+                )
+              ) : null}
             </span>
           </div>
         ))}
@@ -130,9 +137,9 @@ export function OrdersView({ marks = {} }: { marks?: ViewMarks }) {
             height: `${area.height}%`,
           }}
         >
-          {area.n === undefined
-            ? null
-            : <span className={styles.badge}>{area.n}</span>}
+          {area.n === undefined ? null : (
+            <span className={styles.badge}>{area.n}</span>
+          )}
         </div>
       )}
     </div>

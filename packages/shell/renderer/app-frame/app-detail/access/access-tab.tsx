@@ -30,8 +30,8 @@ const problemTitle = (problem: Problem) =>
   problem === "revoke"
     ? t("app-detail.error.revoke-failed")
     : problem === "secret"
-    ? t("app-detail.error.secret-failed")
-    : t("app-detail.error.sign-in-failed");
+      ? t("app-detail.error.secret-failed")
+      : t("app-detail.error.sign-in-failed");
 
 export function AccessTab({ app, source, now }: AccessTabProps) {
   // 이 화면에서 거두기를 접수한 grant.
@@ -45,7 +45,8 @@ export function AccessTab({ app, source, now }: AccessTabProps) {
   });
   const value = read.loaded.state === "ready" ? read.loaded.value : null;
   const cleaning = value !== null && stillCleaning(value, requested);
-  const waiting = value !== null &&
+  const waiting =
+    value !== null &&
     value.resources.some((row) => row.secret?.oauth?.state === "in_progress");
   useEffect(() => setPolling(cleaning || waiting), [cleaning, waiting]);
 
@@ -125,8 +126,8 @@ const asked = (row: Row, requested: ReadonlySet<string>) =>
   requested.has(row.grant) || row.revoking;
 
 function stillCleaning(view: AccessView, requested: ReadonlySet<string>) {
-  return [...view.resources, ...view.appTools].some((row) =>
-    asked(row, requested) && !row.revoked
+  return [...view.resources, ...view.appTools].some(
+    (row) => asked(row, requested) && !row.revoked,
   );
 }
 
@@ -155,9 +156,13 @@ function RevokeSteps({ stage }: { stage: RevokeStage }) {
   );
 }
 
-function RevokeEnd(
-  { stage, onRevoke }: { stage: RevokeStage | null; onRevoke: () => void },
-) {
+function RevokeEnd({
+  stage,
+  onRevoke,
+}: {
+  stage: RevokeStage | null;
+  onRevoke: () => void;
+}) {
   if (stage === null) {
     return (
       <Button size="sm" data-revoke-button="" onClick={onRevoke}>
@@ -165,142 +170,139 @@ function RevokeEnd(
       </Button>
     );
   }
-  return stage === "cleaned"
-    ? <StatusMark tone="good" label={t("app-detail.label.revoked")} />
-    : <StatusMark tone="warning" label={t("app-detail.label.cleaning-up")} />;
+  return stage === "cleaned" ? (
+    <StatusMark tone="good" label={t("app-detail.label.revoked")} />
+  ) : (
+    <StatusMark tone="warning" label={t("app-detail.label.cleaning-up")} />
+  );
 }
 
-function stageOf(
-  row: Row,
-  requested: ReadonlySet<string>,
-): RevokeStage | null {
+function stageOf(row: Row, requested: ReadonlySet<string>): RevokeStage | null {
   if (!asked(row, requested)) return null;
   return row.revoked ? "cleaned" : "requested";
 }
 
-function AccessBody(
-  { view, requested, onRevoke, secretActions }: {
-    view: AccessView;
-    requested: ReadonlySet<string>;
-    onRevoke: (grant: string) => void;
-    secretActions: (name: string) => SecretActions;
-  },
-) {
+function AccessBody({
+  view,
+  requested,
+  onRevoke,
+  secretActions,
+}: {
+  view: AccessView;
+  requested: ReadonlySet<string>;
+  onRevoke: (grant: string) => void;
+  secretActions: (name: string) => SecretActions;
+}) {
   // 다른 때에 거둔 grant는 더 이 앱의 접근이 아니므로 보이지 않는다.
-  const resources = view.resources.filter((row) =>
-    !row.revoked || asked(row, requested)
+  const resources = view.resources.filter(
+    (row) => !row.revoked || asked(row, requested),
   );
-  const appTools = view.appTools.filter((row) =>
-    !row.revoked || asked(row, requested)
+  const appTools = view.appTools.filter(
+    (row) => !row.revoked || asked(row, requested),
   );
   return (
     <>
       <Section title={t("app-detail.heading.outside-resources")}>
-        {resources.length === 0
-          ? <p className={styles.muted}>{t("app-detail.note.no-resources")}</p>
-          : (
-            <ul className={styles.list} data-resources="">
-              {resources.map((row) => {
-                const stage = stageOf(row, requested);
-                if (row.secret !== undefined) {
-                  return (
-                    <SecretRow
-                      key={row.grant}
-                      name={row.name}
-                      info={row.secret}
-                      actions={secretActions(row.name)}
-                      steps={stage === null
-                        ? null
-                        : <RevokeSteps stage={stage} />}
-                      revoke={
-                        <RevokeEnd
-                          stage={stage}
-                          onRevoke={() => onRevoke(row.grant)}
-                        />
-                      }
-                    />
-                  );
-                }
+        {resources.length === 0 ? (
+          <p className={styles.muted}>{t("app-detail.note.no-resources")}</p>
+        ) : (
+          <ul className={styles.list} data-resources="">
+            {resources.map((row) => {
+              const stage = stageOf(row, requested);
+              if (row.secret !== undefined) {
                 return (
-                  <li
+                  <SecretRow
                     key={row.grant}
-                    className={styles.item}
-                    data-resource={row.kind}
-                  >
-                    <div className={styles.rowText}>
-                      <span className={styles.rowTitle}>
-                        <Pill>{resourceKindText(row.kind)}</Pill>{" "}
-                        <Mono>{row.name}</Mono>
-                      </span>
-                      <span className={styles.muted}>
-                        {resourceDetail(row.kind, row.grantedAt)}
-                      </span>
-                      {stage === null ? null : <RevokeSteps stage={stage} />}
-                    </div>
-                    <RevokeEnd
-                      stage={stage}
-                      onRevoke={() => onRevoke(row.grant)}
-                    />
-                  </li>
+                    name={row.name}
+                    info={row.secret}
+                    actions={secretActions(row.name)}
+                    steps={
+                      stage === null ? null : <RevokeSteps stage={stage} />
+                    }
+                    revoke={
+                      <RevokeEnd
+                        stage={stage}
+                        onRevoke={() => onRevoke(row.grant)}
+                      />
+                    }
+                  />
                 );
-              })}
-            </ul>
-          )}
-        {resources.some((row) => row.secret !== undefined)
-          ? (
-            <p className={styles.muted}>
-              {t("app-detail.note.resource-secret")}
-            </p>
-          )
-          : null}
+              }
+              return (
+                <li
+                  key={row.grant}
+                  className={styles.item}
+                  data-resource={row.kind}
+                >
+                  <div className={styles.rowText}>
+                    <span className={styles.rowTitle}>
+                      <Pill>{resourceKindText(row.kind)}</Pill>{" "}
+                      <Mono>{row.name}</Mono>
+                    </span>
+                    <span className={styles.muted}>
+                      {resourceDetail(row.kind, row.grantedAt)}
+                    </span>
+                    {stage === null ? null : <RevokeSteps stage={stage} />}
+                  </div>
+                  <RevokeEnd
+                    stage={stage}
+                    onRevoke={() => onRevoke(row.grant)}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {resources.some((row) => row.secret !== undefined) ? (
+          <p className={styles.muted}>{t("app-detail.note.resource-secret")}</p>
+        ) : null}
       </Section>
       <Section title={t("app-detail.heading.other-apps")}>
-        {appTools.length === 0
-          ? <p className={styles.muted}>{t("app-detail.note.no-other-apps")}</p>
-          : (
-            <ul className={styles.list} data-tools="">
-              {appTools.map((row) => {
-                const stage = stageOf(row, requested);
-                return (
-                  <li
-                    key={row.grant}
-                    className={styles.item}
-                    data-tool-grant={row.app}
-                  >
-                    <div className={styles.rowText}>
-                      <span className={styles.rowTitle}>
-                        {row.appName ??
-                          t("app-detail.label.caller-app-unnamed")}
-                        {" › "}
-                        {row.tools.map((item, index) => (
+        {appTools.length === 0 ? (
+          <p className={styles.muted}>{t("app-detail.note.no-other-apps")}</p>
+        ) : (
+          <ul className={styles.list} data-tools="">
+            {appTools.map((row) => {
+              const stage = stageOf(row, requested);
+              return (
+                <li
+                  key={row.grant}
+                  className={styles.item}
+                  data-tool-grant={row.app}
+                >
+                  <div className={styles.rowText}>
+                    <span className={styles.rowTitle}>
+                      {row.appName ?? t("app-detail.label.caller-app-unnamed")}
+                      {" › "}
+                      {row.tools.map((item, index) => (
+                        <span key={item.tool}>
+                          {index === 0 ? "" : ", "}
+                          <Mono>{item.tool}</Mono>
+                        </span>
+                      ))}
+                    </span>
+                    <span className={styles.muted}>
+                      {t("app-detail.note.may-call")}
+                      {row.tools.map((item) =>
+                        item.effect === null ? null : (
                           <span key={item.tool}>
-                            {index === 0 ? "" : ", "}
-                            <Mono>{item.tool}</Mono>
+                            {" "}
+                            <EffectPill effect={item.effect} />
                           </span>
-                        ))}
-                      </span>
-                      <span className={styles.muted}>
-                        {t("app-detail.note.may-call")}
-                        {row.tools.map((item) =>
-                          item.effect === null ? null : (
-                            <span key={item.tool}>
-                              {" "}
-                              <EffectPill effect={item.effect} />
-                            </span>
-                          )
-                        )}
-                      </span>
-                      {stage === null ? null : <RevokeSteps stage={stage} />}
-                    </div>
-                    <RevokeEnd
-                      stage={stage}
-                      onRevoke={() => onRevoke(row.grant)}
-                    />
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+                        ),
+                      )}
+                    </span>
+                    {stage === null ? null : <RevokeSteps stage={stage} />}
+                  </div>
+                  <RevokeEnd
+                    stage={stage}
+                    onRevoke={() => onRevoke(row.grant)}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </Section>
     </>
   );

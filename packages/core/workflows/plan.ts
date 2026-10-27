@@ -21,10 +21,7 @@ const unresolved = (
   message,
 });
 
-function nameOf(
-  participant: Participant,
-  project: string,
-): Resolved {
+function nameOf(participant: Participant, project: string): Resolved {
   const { role, place, name } = participant;
   switch (role) {
     case "lophn":
@@ -105,9 +102,10 @@ export function planHandoff(input: {
     participant: key,
     human_turn: human,
     delivery: {
-      to: same === null
-        ? resolved.named
-        : { ...resolved.named, session: same, fallback: "new" },
+      to:
+        same === null
+          ? resolved.named
+          : { ...resolved.named, session: same, fallback: "new" },
       body: stepBody({ step, received }),
     },
     unresolved: null,
@@ -115,9 +113,13 @@ export function planHandoff(input: {
 }
 
 // 고정 영어 label이라 받는 쪽 이력의 글이 바뀌지 않는다.
-export function stepBody(
-  { step, received }: { step: InstanceStep; received: string },
-): string {
+export function stepBody({
+  step,
+  received,
+}: {
+  step: InstanceStep;
+  received: string;
+}): string {
   const lines = [step.prompt, ""];
   if (step.in !== "") lines.push(`Receives: ${step.in}`);
   lines.push("Received:", received);

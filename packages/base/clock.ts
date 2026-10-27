@@ -12,11 +12,13 @@ function pad(n: number, width: number): string {
 
 export function formatAt(ms: number): string {
   const d = new Date(ms);
-  const at = `${pad(d.getUTCFullYear(), 4)}-${pad(d.getUTCMonth() + 1, 2)}-${
-    pad(d.getUTCDate(), 2)
-  }T${pad(d.getUTCHours(), 2)}:${pad(d.getUTCMinutes(), 2)}:${
-    pad(d.getUTCSeconds(), 2)
-  }.${pad(d.getUTCMilliseconds(), 3)}Z`;
+  const at = `${pad(d.getUTCFullYear(), 4)}-${pad(d.getUTCMonth() + 1, 2)}-${pad(
+    d.getUTCDate(),
+    2,
+  )}T${pad(d.getUTCHours(), 2)}:${pad(d.getUTCMinutes(), 2)}:${pad(
+    d.getUTCSeconds(),
+    2,
+  )}.${pad(d.getUTCMilliseconds(), 3)}Z`;
   if (!AT.test(at)) {
     throw new Error("clock instant is outside YYYY-MM-DDTHH:mm:ss.sssZ");
   }

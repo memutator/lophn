@@ -56,9 +56,9 @@ export function sendIntent(ctx: ShellContext, intent: DesktopIntent): void {
 
 // detached 창은 건너뛴다: 전역 키와 tray가 탭 하나만 든 창으로 가지 않게 한다.
 function recentWindow(ctx: ShellContext): BrowserWindow | undefined {
-  return [...ctx.windows].filter((window) =>
-    !window.isDestroyed() && !ctx.detached.has(window)
-  ).at(-1);
+  return [...ctx.windows]
+    .filter((window) => !window.isDestroyed() && !ctx.detached.has(window))
+    .at(-1);
 }
 
 /** 가장 최근 창을 앞으로 가져온다. 창이 없으면 새 기본 창을 연다. */
@@ -80,9 +80,8 @@ export function openDesktopWindow(
   let created: BrowserWindow | undefined;
   // 개발 확인 전용(`deno task dev:mock`). renderer가 주소의 `mock`을 보고 core 대신 메모리 가짜
   // 통로로 모든 화면을 채운다. `LOPHN_SHELL_START`의 시작 자리와 함께 쓴다.
-  const desktopUrl = process.env.LOPHN_DEV_MOCK === "1"
-    ? `${DESKTOP_URL}?mock`
-    : DESKTOP_URL;
+  const desktopUrl =
+    process.env.LOPHN_DEV_MOCK === "1" ? `${DESKTOP_URL}?mock` : DESKTOP_URL;
   openWindow({
     platform: process.platform,
     packaged: app.isPackaged,
@@ -94,21 +93,26 @@ export function openDesktopWindow(
     // `instructions:global`·`instructions:project:<id>`는 그 [Instructions] 편집기부터 연다.
     ...(start?.bounds ? { bounds: start.bounds } : {}),
     detached: start !== undefined,
-    url: start !== undefined
-      ? `${desktopUrl}${start.hash}`
-      : process.env.LOPHN_DEV_SEED === "1"
-      ? `${DESKTOP_URL}?dev-seed=1`
-      : /^project:prj_[0-9a-z]{26}$/.test(process.env.LOPHN_SHELL_START ?? "")
-      ? `${desktopUrl}#project=${process.env.LOPHN_SHELL_START!.slice(8)}`
-      : /^instructions:(global|project:prj_[0-9a-z]{26})$/.test(
-          process.env.LOPHN_SHELL_START ?? "",
-        )
-      ? `${desktopUrl}#instructions=${process.env.LOPHN_SHELL_START!.slice(13)}`
-      : process.env.LOPHN_SHELL_START === "settings"
-      ? `${desktopUrl}#settings`
-      : /^app:app_[0-9a-z]{26}$/.test(process.env.LOPHN_SHELL_START ?? "")
-      ? `${desktopUrl}#app=${process.env.LOPHN_SHELL_START!.slice(4)}`
-      : desktopUrl,
+    url:
+      start !== undefined
+        ? `${desktopUrl}${start.hash}`
+        : process.env.LOPHN_DEV_SEED === "1"
+          ? `${DESKTOP_URL}?dev-seed=1`
+          : /^project:prj_[0-9a-z]{26}$/.test(
+                process.env.LOPHN_SHELL_START ?? "",
+              )
+            ? `${desktopUrl}#project=${process.env.LOPHN_SHELL_START!.slice(8)}`
+            : /^instructions:(global|project:prj_[0-9a-z]{26})$/.test(
+                  process.env.LOPHN_SHELL_START ?? "",
+                )
+              ? `${desktopUrl}#instructions=${process.env.LOPHN_SHELL_START!.slice(13)}`
+              : process.env.LOPHN_SHELL_START === "settings"
+                ? `${desktopUrl}#settings`
+                : /^app:app_[0-9a-z]{26}$/.test(
+                      process.env.LOPHN_SHELL_START ?? "",
+                    )
+                  ? `${desktopUrl}#app=${process.env.LOPHN_SHELL_START!.slice(4)}`
+                  : desktopUrl,
     windows: {
       create: (config: WindowConfig) => {
         const window = new BrowserWindow(
@@ -148,7 +152,8 @@ export function openDesktopWindow(
           window.webContents.once("did-finish-load", () =>
             console.log(
               `[lophn] headless ${shotName} visible=${window.isVisible()}`,
-            ));
+            ),
+          );
         }
         capturePaints(window.webContents, shotName, headless, {
           write: (path, data) => writeFileSync(path, data),
@@ -199,9 +204,8 @@ function wrap(window: BrowserWindow): CreatedWindow {
     setTitle: (title) => window.setTitle(title),
     loadURL: (url) => window.loadURL(url),
     onPageTitleUpdated: (handler) => {
-      window.on(
-        "page-title-updated",
-        (event) => handler(() => event.preventDefault()),
+      window.on("page-title-updated", (event) =>
+        handler(() => event.preventDefault()),
       );
     },
   };

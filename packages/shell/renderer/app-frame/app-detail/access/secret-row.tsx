@@ -23,15 +23,19 @@ export interface SecretActions {
 }
 
 /** 이름 줄. [Revoke]는 오른쪽 끝에 그대로 있고 plain 줄의 [Set value]가 그 왼쪽에 붙는다. */
-function Head(
-  { name, hint, steps, revoke, children }: {
-    name: string;
-    hint: ReactNode;
-    steps: ReactNode;
-    revoke: ReactNode;
-    children?: ReactNode;
-  },
-) {
+function Head({
+  name,
+  hint,
+  steps,
+  revoke,
+  children,
+}: {
+  name: string;
+  hint: ReactNode;
+  steps: ReactNode;
+  revoke: ReactNode;
+  children?: ReactNode;
+}) {
   return (
     <div className={styles.line}>
       <div className={appDetail.rowText}>
@@ -51,22 +55,26 @@ function Head(
 }
 
 /** 설정 한 칸. 왼쪽에 이름과 값, 오른쪽 끝 열에 행동. */
-function Setting(
-  { label, children, action, below, alignEnd }: {
-    label?: string;
-    children: ReactNode;
-    action: ReactNode;
-    below?: string;
-    alignEnd?: boolean;
-  },
-) {
+function Setting({
+  label,
+  children,
+  action,
+  below,
+  alignEnd,
+}: {
+  label?: string;
+  children: ReactNode;
+  action: ReactNode;
+  below?: string;
+  alignEnd?: boolean;
+}) {
   return (
     <div className={styles.setting}>
       <div className={styles.line}>
         <div className={styles.settingText}>
-          {label === undefined
-            ? null
-            : <span className={styles.caption}>{label}</span>}
+          {label === undefined ? null : (
+            <span className={styles.caption}>{label}</span>
+          )}
           {children}
         </div>
         <div
@@ -75,16 +83,20 @@ function Setting(
           {action}
         </div>
       </div>
-      {below === undefined
-        ? null
-        : <span className={appDetail.muted}>{below}</span>}
+      {below === undefined ? null : (
+        <span className={appDetail.muted}>{below}</span>
+      )}
     </div>
   );
 }
 
-function ClientId(
-  { value, onSave }: { value: string | null; onSave: (id: string) => void },
-) {
+function ClientId({
+  value,
+  onSave,
+}: {
+  value: string | null;
+  onSave: (id: string) => void;
+}) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
   if (value === null || editing) {
@@ -93,13 +105,11 @@ function ClientId(
         alignEnd
         action={
           <>
-            {value === null
-              ? null
-              : (
-                <Button size="sm" onClick={() => setEditing(false)}>
-                  {t("app-detail.button.cancel")}
-                </Button>
-              )}
+            {value === null ? null : (
+              <Button size="sm" onClick={() => setEditing(false)}>
+                {t("app-detail.button.cancel")}
+              </Button>
+            )}
             <Button
               size="sm"
               disabled={text.trim() === ""}
@@ -166,18 +176,14 @@ function ClientSecret({ set, onSet }: { set: boolean; onSet: () => void }) {
   );
 }
 
-function SignIn(
-  { oauth, actions }: { oauth: OAuth; actions: SecretActions },
-) {
+function SignIn({ oauth, actions }: { oauth: OAuth; actions: SecretActions }) {
   const { state, clientId } = oauth;
-  const action = state === "in_progress"
-    ? (
+  const action =
+    state === "in_progress" ? (
       <Button size="sm" onClick={actions.cancelSignIn}>
         {t("app-detail.button.cancel")}
       </Button>
-    )
-    : state === "none"
-    ? (
+    ) : state === "none" ? (
       <Button
         size="sm"
         variant="primary"
@@ -186,17 +192,17 @@ function SignIn(
       >
         {t("app-detail.button.sign-in")}
       </Button>
-    )
-    : (
+    ) : (
       <Button size="sm" onClick={actions.signIn}>
         {t("app-detail.button.sign-in-again")}
       </Button>
     );
-  const below = state !== "none"
-    ? undefined
-    : clientId === null
-    ? t("app-detail.note.oauth-needs-client-id")
-    : t("app-detail.note.oauth-opens-browser");
+  const below =
+    state !== "none"
+      ? undefined
+      : clientId === null
+        ? t("app-detail.note.oauth-needs-client-id")
+        : t("app-detail.note.oauth-opens-browser");
   const status = oauthStatus(state, oauth.reason);
   return (
     <Setting action={action} below={below}>
@@ -208,15 +214,19 @@ function SignIn(
 /**
  * revoke는 줄 오른쪽 끝의 [Revoke]나 거두기 상태, steps는 거두기 단계다. 거두기를 접수한 줄은 설정 칸을 보이지 않는다.
  */
-export function SecretRow(
-  { name, info, actions, revoke, steps }: {
-    name: string;
-    info: SecretInfo;
-    actions: SecretActions;
-    revoke: ReactNode;
-    steps: ReactNode;
-  },
-) {
+export function SecretRow({
+  name,
+  info,
+  actions,
+  revoke,
+  steps,
+}: {
+  name: string;
+  info: SecretInfo;
+  actions: SecretActions;
+  revoke: ReactNode;
+  steps: ReactNode;
+}) {
   const { oauth } = info;
   const revoking = steps !== null;
   if (oauth === null) {
@@ -225,9 +235,11 @@ export function SecretRow(
         <div className={styles.stack}>
           <Head
             name={name}
-            hint={info.configured
-              ? t("app-detail.label.secret-set")
-              : t("app-detail.label.secret-not-set")}
+            hint={
+              info.configured
+                ? t("app-detail.label.secret-set")
+                : t("app-detail.label.secret-not-set")
+            }
             steps={steps}
             revoke={revoke}
           >

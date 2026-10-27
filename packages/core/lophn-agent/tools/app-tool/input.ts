@@ -21,9 +21,8 @@ export function toolInput(schema: InputSchema | null): {
   const validator = z.unknown().superRefine((value, context) => {
     const fail = (message: string) =>
       context.addIssue({ code: "custom", message });
-    if (
-      typeof value !== "object" || value === null || Array.isArray(value)
-    ) return fail("input must be an object");
+    if (typeof value !== "object" || value === null || Array.isArray(value))
+      return fail("input must be an object");
     if (schema === null) {
       if (Object.keys(value).length > 0) fail("this tool takes no input");
       return;

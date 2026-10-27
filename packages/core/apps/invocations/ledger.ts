@@ -56,8 +56,7 @@ function conflict(message: string): Result<never> {
   return err({ code: "conflict", message });
 }
 
-const CLOSED_COLUMNS =
-  `status = ?, finished_at = ?, summary = ?, detail_hash = ?,
+const CLOSED_COLUMNS = `status = ?, finished_at = ?, summary = ?, detail_hash = ?,
   changeset_hash = ?, changeset_size = ?`;
 
 export function createInvocationLedger(
@@ -212,13 +211,16 @@ export function createInvocationLedger(
       const sized = checkSummary(summary);
       if (!sized.ok) return Promise.resolve(sized);
       const row = { ...parsed.data, summary };
-      return Promise.resolve(deps.transaction((tx) => {
-        const known = loadInvocation(tx.sql, row.id);
-        if (!known.ok) return known;
-        if (known.value !== null) return conflict("invocation already exists");
-        insertInvocation(tx, row);
-        return ok(row);
-      }));
+      return Promise.resolve(
+        deps.transaction((tx) => {
+          const known = loadInvocation(tx.sql, row.id);
+          if (!known.ok) return known;
+          if (known.value !== null)
+            return conflict("invocation already exists");
+          insertInvocation(tx, row);
+          return ok(row);
+        }),
+      );
     },
 
     get: (id) => loadInvocation(deps.sql, id),
@@ -257,26 +259,28 @@ export function createInvocationLedger(
     },
 
     pruneChangesets(app, keepRelease) {
-      return Promise.resolve(deps.transaction((tx) => {
-        const rows = tx.sql.all(
-          `SELECT id FROM invocations
+      return Promise.resolve(
+        deps.transaction((tx) => {
+          const rows = tx.sql.all(
+            `SELECT id FROM invocations
            WHERE app = ? AND release <> ? AND changeset_hash IS NOT NULL`,
-          [app, keepRelease],
-        );
-        if (rows.length === 0) return ok(0);
-        const erased = eraseBlobRefs(
-          tx,
-          CHANGESET_OWNER_KIND,
-          rows.map((row) => String(row.id)),
-        );
-        if (!erased.ok) return erased;
-        tx.sql.run(
-          `UPDATE invocations SET changeset_hash = NULL, changeset_size = NULL
+            [app, keepRelease],
+          );
+          if (rows.length === 0) return ok(0);
+          const erased = eraseBlobRefs(
+            tx,
+            CHANGESET_OWNER_KIND,
+            rows.map((row) => String(row.id)),
+          );
+          if (!erased.ok) return erased;
+          tx.sql.run(
+            `UPDATE invocations SET changeset_hash = NULL, changeset_size = NULL
            WHERE app = ? AND release <> ? AND changeset_hash IS NOT NULL`,
-          [app, keepRelease],
-        );
-        return ok(rows.length);
-      }));
+            [app, keepRelease],
+          );
+          return ok(rows.length);
+        }),
+      );
     },
 
     unfinished() {

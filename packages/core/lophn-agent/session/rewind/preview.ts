@@ -54,20 +54,24 @@ function assemblePreview(input: PreviewInput): PreviewResult {
   const listed = (plan: PreviewItem["plan"]) =>
     items.filter((item) => item.plan === plan);
   const watched = restoreAll ? pathsOf(input.judged) : [];
-  const preview_hash = createHash("sha256").update(canonicalize({
-    choice: input.choice,
-    checkpoint: input.checkpoint,
-    items,
-    current: watched.map((path) => {
-      const stat = input.current.get(path);
-      return {
-        path,
-        exists: stat?.exists ?? false,
-        sha256: stat?.sha256 ?? null,
-        link: stat?.link ?? false,
-      };
-    }),
-  })).digest("hex");
+  const preview_hash = createHash("sha256")
+    .update(
+      canonicalize({
+        choice: input.choice,
+        checkpoint: input.checkpoint,
+        items,
+        current: watched.map((path) => {
+          const stat = input.current.get(path);
+          return {
+            path,
+            exists: stat?.exists ?? false,
+            sha256: stat?.sha256 ?? null,
+            link: stat?.link ?? false,
+          };
+        }),
+      }),
+    )
+    .digest("hex");
   return {
     restore: listed("restore"),
     skip: listed("skip"),
@@ -149,29 +153,30 @@ function reject(
 }
 
 function recordOf(row: Record<string, unknown>): JudgeRecord {
-  const text = (value: unknown) => value === null ? null : String(value);
+  const text = (value: unknown) => (value === null ? null : String(value));
   return {
     tool_call: String(row["tool_call"]),
     root: String(row["root"]),
     path: String(row["path"]),
     seq: String(row["seq"]),
-    before: Number(row["before_exists"]) === 1
-      ? {
-        exists: true,
-        sha256: text(row["before_sha256"]),
-        blob: text(row["before_blob"]),
-      }
-      : { exists: false, sha256: null, blob: null },
-    after: Number(row["after_exists"]) === 1
-      ? { exists: true, sha256: text(row["after_sha256"]) }
-      : { exists: false, sha256: null },
+    before:
+      Number(row["before_exists"]) === 1
+        ? {
+            exists: true,
+            sha256: text(row["before_sha256"]),
+            blob: text(row["before_blob"]),
+          }
+        : { exists: false, sha256: null, blob: null },
+    after:
+      Number(row["after_exists"]) === 1
+        ? { exists: true, sha256: text(row["after_sha256"]) }
+        : { exists: false, sha256: null },
     moved_from: text(row["moved_from"]),
     reverted_by: text(row["reverted_by"]),
   };
 }
 
-const RECORD_COLUMNS =
-  `f.tool_call as tool_call, f.root as root, f.path as path, f.seq as seq, f.before_exists as before_exists,
+const RECORD_COLUMNS = `f.tool_call as tool_call, f.root as root, f.path as path, f.seq as seq, f.before_exists as before_exists,
    f.before_sha256 as before_sha256, f.before_blob as before_blob, f.after_exists as after_exists,
    f.after_sha256 as after_sha256, f.moved_from as moved_from, f.reverted_by as reverted_by`;
 
@@ -182,8 +187,9 @@ function externalFacts(
   session: string,
   boundary: string,
 ): PreviewFact[] {
-  const calls = lookup.sql.all(
-    `select t.id as id
+  const calls = lookup.sql
+    .all(
+      `select t.id as id
        from tool_calls t
        join turns r on r.id = t.turn
        join messages m on m.id = r.input_message
@@ -191,13 +197,18 @@ function externalFacts(
         and t.effect = 'external' and t.tool not like 'app\\_\\_%' escape '\\'
         and json_extract(t.outcome, '$.kind') = 'success'
       order by t.id`,
-    [session, Number(boundary)],
-  ).map((row) => String(row["id"]));
-  return calls.length === 0 ? [] : [{
-    target: "external_request",
-    reason: "external_effect",
-    source: calls,
-  }];
+      [session, Number(boundary)],
+    )
+    .map((row) => String(row["id"]));
+  return calls.length === 0
+    ? []
+    : [
+        {
+          target: "external_request",
+          reason: "external_effect",
+          source: calls,
+        },
+      ];
 }
 
 function gather(lookup: Lookup, target: RewindTarget): Result<Gathered> {
@@ -219,19 +230,22 @@ function gather(lookup: Lookup, target: RewindTarget): Result<Gathered> {
     );
   }
   const records = restoreAll
-    ? lookup.sql.all(
-      `select ${RECORD_COLUMNS}
+    ? lookup.sql
+        .all(
+          `select ${RECORD_COLUMNS}
          from rewind_files f
          join checkpoints c on c.message = f.checkpoint
          join messages m on m.id = c.message
         where c.session = ? and m.created_seq >= ?
         order by f.seq`,
-      [target.session, Number(boundary)],
-    ).map(recordOf)
+          [target.session, Number(boundary)],
+        )
+        .map(recordOf)
     : [];
-  const facts = target.choice === "summarize"
-    ? []
-    : externalFacts(lookup, target.session, boundary);
+  const facts =
+    target.choice === "summarize"
+      ? []
+      : externalFacts(lookup, target.session, boundary);
   return ok({ records, facts });
 }
 
@@ -246,7 +260,7 @@ function observedFiles(records: readonly JudgeRecord[]): FileRef[] {
   return [...found.values()].sort((left, right) =>
     left.root === right.root
       ? left.path.localeCompare(right.path)
-      : left.root.localeCompare(right.root)
+      : left.root.localeCompare(right.root),
   );
 }
 

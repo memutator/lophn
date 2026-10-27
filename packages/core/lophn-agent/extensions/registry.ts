@@ -69,7 +69,7 @@ export function createExtensionRegistry(
   const skills = new Map<string, SkillListing>();
   const servers = new Map<string, readonly McpRuntimeServer[]>();
   const global = deps.global.servers.map((server) =>
-    runtimeServerOfLayer(server, null)
+    runtimeServerOfLayer(server, null),
   );
 
   // 틀린 파일은 그 project 층이 없는 것과 같다. 연결하지 않는 쪽으로 닫는다.
@@ -95,13 +95,20 @@ export function createExtensionRegistry(
       const off = [
         ...new Set([...deps.global.skillsOff, ...projectOf(place).skills_off]),
       ];
-      const listing = discoverSkills(deps.skillFiles, {
-        ...deps.global.skills,
-        domains: deps.domains(place).map((domain) => ({
-          domain: domain.id,
-          folder: deps.projectLayer.domains.skillsFolder(deps.root, domain.id),
-        })),
-      }, { role, off });
+      const listing = discoverSkills(
+        deps.skillFiles,
+        {
+          ...deps.global.skills,
+          domains: deps.domains(place).map((domain) => ({
+            domain: domain.id,
+            folder: deps.projectLayer.domains.skillsFolder(
+              deps.root,
+              domain.id,
+            ),
+          })),
+        },
+        { role, off },
+      );
       skills.set(skillKey(place, role), listing);
       return listing;
     },
@@ -113,7 +120,7 @@ export function createExtensionRegistry(
         { servers: global, off: [] },
         {
           servers: own.mcp_servers.map((server) =>
-            runtimeServerOfLayer(server, place)
+            runtimeServerOfLayer(server, place),
           ),
           off: own.mcp_off,
         },

@@ -267,12 +267,14 @@ export function createLiveTurns(deps: {
       }
       if (event.type === "TurnRequestClosed") {
         const state = times.get(event.session);
-        return state === undefined ? null : waitEnds(
-          state,
-          event.payload.request,
-          event,
-          event.payload.outcome !== "cancelled",
-        );
+        return state === undefined
+          ? null
+          : waitEnds(
+              state,
+              event.payload.request,
+              event,
+              event.payload.outcome !== "cancelled",
+            );
       }
       if (event.type === "QuestionAsked") {
         const state = times.get(event.session);
@@ -283,12 +285,14 @@ export function createLiveTurns(deps: {
       }
       if (event.type === "QuestionResolved") {
         const state = times.get(event.session);
-        return state === undefined ? null : waitEnds(
-          state,
-          event.payload.group,
-          event,
-          event.payload.outcome !== "cancelled",
-        );
+        return state === undefined
+          ? null
+          : waitEnds(
+              state,
+              event.payload.group,
+              event,
+              event.payload.outcome !== "cancelled",
+            );
       }
       if (event.type === "TurnEnded") {
         ended.set(event.session, event.payload.turn);

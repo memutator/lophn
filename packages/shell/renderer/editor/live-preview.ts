@@ -163,9 +163,8 @@ class ImageWidget extends WidgetType {
     image.alt = this.alt;
     image.src = this.src;
     image.referrerPolicy = "no-referrer";
-    image.addEventListener(
-      "load",
-      () => wrap.classList.remove("cm-lp-image-loading"),
+    image.addEventListener("load", () =>
+      wrap.classList.remove("cm-lp-image-loading"),
     );
     image.addEventListener("error", fallback);
     wrap.appendChild(image);
@@ -185,9 +184,11 @@ class TableWidget extends WidgetType {
     this.from = from;
   }
   override eq(other: TableWidget): boolean {
-    return other.from === this.from &&
+    return (
+      other.from === this.from &&
       JSON.stringify(other.rows) === JSON.stringify(this.rows) &&
-      other.align.join() === this.align.join();
+      other.align.join() === this.align.join()
+    );
   }
   toDOM(view: EditorView): HTMLElement {
     const wrap = document.createElement("div");
@@ -204,7 +205,8 @@ class TableWidget extends WidgetType {
       });
       (index === 0
         ? table.createTHead()
-        : (table.tBodies[0] ?? table.createTBody())).appendChild(tr);
+        : (table.tBodies[0] ?? table.createTBody())
+      ).appendChild(tr);
     });
     wrap.appendChild(table);
     // 그린 표를 누르면 커서가 들어가 원문이 보인다.
@@ -230,8 +232,10 @@ class FrontmatterWidget extends WidgetType {
     this.from = from;
   }
   override eq(other: FrontmatterWidget): boolean {
-    return other.from === this.from &&
-      JSON.stringify(other.fields) === JSON.stringify(this.fields);
+    return (
+      other.from === this.from &&
+      JSON.stringify(other.fields) === JSON.stringify(this.fields)
+    );
   }
   toDOM(view: EditorView): HTMLElement {
     // key/value 두 열.
@@ -314,8 +318,10 @@ function spanDecorations(
         break;
       case "lang":
         out.push(
-          Decoration.widget({ widget: new LangWidget(span.name), side: 1 })
-            .range(span.at),
+          Decoration.widget({
+            widget: new LangWidget(span.name),
+            side: 1,
+          }).range(span.at),
         );
         break;
       case "image": {
@@ -352,7 +358,7 @@ const focusField = StateField.define<boolean>({
 const focusTracking: Extension = [
   focusField,
   EditorView.focusChangeEffect.of((_state, focusing) =>
-    setFocused.of(focusing)
+    setFocused.of(focusing),
   ),
 ];
 
@@ -365,11 +371,13 @@ function inlinePreview(resolveImage: (src: string) => string | null) {
       }
       update(update: ViewUpdate) {
         if (
-          update.docChanged || update.viewportChanged ||
-          update.selectionSet || update.focusChanged ||
+          update.docChanged ||
+          update.viewportChanged ||
+          update.selectionSet ||
+          update.focusChanged ||
           syntaxTree(update.startState) !== syntaxTree(update.state) ||
           update.transactions.some((transaction) =>
-            transaction.effects.some((effect) => effect.is(setFocused))
+            transaction.effects.some((effect) => effect.is(setFocused)),
           )
         ) {
           this.decorations = this.build(update.view);
@@ -397,11 +405,12 @@ function blockDecorations(state: EditorState): DecorationSet {
   return Decoration.set(
     previewBlocks(state, state.field(focusField)).map((block: Block) =>
       Decoration.replace({
-        widget: block.kind === "table"
-          ? new TableWidget(block.rows, block.align, block.from)
-          : new FrontmatterWidget(block.fields, block.from),
+        widget:
+          block.kind === "table"
+            ? new TableWidget(block.rows, block.align, block.from)
+            : new FrontmatterWidget(block.fields, block.from),
         block: true,
-      }).range(block.from, block.to)
+      }).range(block.from, block.to),
     ),
     true,
   );
@@ -411,18 +420,21 @@ const blockPreview = StateField.define<DecorationSet>({
   create: blockDecorations,
   update(value, transaction: Transaction) {
     if (
-      transaction.docChanged || transaction.selection ||
+      transaction.docChanged ||
+      transaction.selection ||
       transaction.effects.some((effect) => effect.is(setFocused)) ||
       syntaxTree(transaction.startState) !== syntaxTree(transaction.state)
-    ) return blockDecorations(transaction.state);
+    )
+      return blockDecorations(transaction.state);
     return value;
   },
   provide: (field) => EditorView.decorations.from(field),
 });
 
-export const setFindMatches = StateEffect.define<
-  { matches: readonly Match[]; current: number }
->();
+export const setFindMatches = StateEffect.define<{
+  matches: readonly Match[];
+  current: number;
+}>();
 
 const matchMark = Decoration.mark({ class: "cm-lp-match" });
 const currentMark = Decoration.mark({
@@ -442,7 +454,7 @@ const findField = StateField.define<DecorationSet>({
               (index === effect.value.current ? currentMark : matchMark).range(
                 match.from,
                 match.to,
-              )
+              ),
             ),
           true,
         );
@@ -500,7 +512,8 @@ export function minimalChange(
     tail < max - start &&
     from.charCodeAt(from.length - 1 - tail) ===
       to.charCodeAt(to.length - 1 - tail)
-  ) tail += 1;
+  )
+    tail += 1;
   return {
     from: start,
     to: from.length - tail,

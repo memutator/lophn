@@ -29,11 +29,10 @@ export async function find<T extends HTMLElement = HTMLElement>(
   at = 0,
 ): Promise<T> {
   for (let tries = 0; tries < 200; tries += 1) {
-    const found = [...document.querySelectorAll<T>(selector)].filter((
-      element,
-    ) =>
-      (text === undefined || matches(element, text)) &&
-      !(element as unknown as { disabled?: boolean }).disabled
+    const found = [...document.querySelectorAll<T>(selector)].filter(
+      (element) =>
+        (text === undefined || matches(element, text)) &&
+        !(element as unknown as { disabled?: boolean }).disabled,
     );
     const one = found.at(at);
     if (one) return one;
@@ -73,9 +72,10 @@ export async function type(
   enter = false,
 ): Promise<void> {
   const element = await find<HTMLInputElement | HTMLTextAreaElement>(selector);
-  const proto = element instanceof HTMLTextAreaElement
-    ? HTMLTextAreaElement.prototype
-    : HTMLInputElement.prototype;
+  const proto =
+    element instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype;
   Object.getOwnPropertyDescriptor(proto, "value")!.set!.call(element, text);
   element.dispatchEvent(new Event("input", { bubbles: true }));
   if (enter) {

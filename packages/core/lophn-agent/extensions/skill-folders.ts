@@ -52,16 +52,16 @@ export function productSkillStores(
   deps: SkillStoreDeps,
 ): SkillStores {
   const root = dataRootOfEnv();
-  const project = root === null || place === null
-    ? null
-    : deps.projectLayer.projectOf(place);
+  const project =
+    root === null || place === null ? null : deps.projectLayer.projectOf(place);
   return {
     bundled: deps.bundledSkillsRoot,
     personal: root === null ? null : `${root}/skills`,
     place,
-    project_file: project === null
-      ? null
-      : deps.projectLayer.extensionsFile(root!, project),
+    project_file:
+      project === null
+        ? null
+        : deps.projectLayer.extensionsFile(root!, project),
     root,
     layer: deps.projectLayer,
   };
@@ -106,15 +106,19 @@ export async function registeredSkillEntries(
 ): Promise<readonly SkillEntry[]> {
   const { roots, off } = await globalSkillSettings(machine);
   const port = productFiles(roots, stores);
-  return discoverSkills(port, {
-    bundled: stores.bundled,
-    registered: roots,
-    personal: stores.personal,
-    domains: await domainStores(machine, stores),
-  }, {
-    role,
-    off: [...new Set([...off, ...projectOff(port, stores.project_file)])],
-  }).entries;
+  return discoverSkills(
+    port,
+    {
+      bundled: stores.bundled,
+      registered: roots,
+      personal: stores.personal,
+      domains: await domainStores(machine, stores),
+    },
+    {
+      role,
+      off: [...new Set([...off, ...projectOff(port, stores.project_file)])],
+    },
+  ).entries;
 }
 
 // turn 시작에 skill 판을 고정하는 재료다(`createSkillSnapshot`). place마다 폴더가 달라 port는 data root 아래
@@ -185,16 +189,19 @@ function productFiles(
     if (stores.root === null) return false;
     const { layer } = stores;
     const root = stores.root;
-    return inArea(
-      path,
-      layer.settingsFolderArea(root),
-      layer.projectIdOfFolder,
-      (id) => lexical(path) === lexical(layer.extensionsFile(root, id)),
-    ) || inArea(
-      path,
-      layer.domains.folderArea(root),
-      layer.domains.domainIdOfFolder,
-      (id) => under(layer.domains.skillsFolder(root, id), path),
+    return (
+      inArea(
+        path,
+        layer.settingsFolderArea(root),
+        layer.projectIdOfFolder,
+        (id) => lexical(path) === lexical(layer.extensionsFile(root, id)),
+      ) ||
+      inArea(
+        path,
+        layer.domains.folderArea(root),
+        layer.domains.domainIdOfFolder,
+        (id) => under(layer.domains.skillsFolder(root, id), path),
+      )
     );
   };
   const allowed = (path: string): boolean =>

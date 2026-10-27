@@ -2,9 +2,10 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // position은 0부터 연속이다. 행 교체는 Project 구성 변경 transaction 안에서만 한다.
 // 하위 폴더 path는 연결 폴더 기준 상대 경로다.
-export const projectsSchemaSteps: readonly SchemaStep[] = [{
-  id: "projects.registry.tables",
-  sql: `
+export const projectsSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "projects.registry.tables",
+    sql: `
     CREATE TABLE projects (
       id TEXT PRIMARY KEY NOT NULL,
       name TEXT NOT NULL UNIQUE,
@@ -51,4 +52,5 @@ export const projectsSchemaSteps: readonly SchemaStep[] = [{
       FOREIGN KEY (project, folder_path) REFERENCES project_folders(project, path)
     ) STRICT;
   `,
-}];
+  },
+];

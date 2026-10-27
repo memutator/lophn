@@ -74,7 +74,7 @@ function setup(opts: { captureFails?: boolean; uploadFails?: boolean } = {}) {
             n,
             crop: { x: 0, y: 0, width: 50, height: 50 },
             viewport: { width: 100, height: 100 },
-          })
+          }),
         );
       }
     },
@@ -85,10 +85,10 @@ function setup(opts: { captureFails?: boolean; uploadFails?: boolean } = {}) {
   };
   const annotate = createAnnotate({
     registry,
-    windowOf: (sender) => sender === shell ? "window-1" : undefined,
-    owner: (view) => view === "view-1" ? "window-1" : undefined,
-    view: (view) => view === "view-1" ? port : undefined,
-    senderView: (id) => id === 2 ? port : undefined,
+    windowOf: (sender) => (sender === shell ? "window-1" : undefined),
+    owner: (view) => (view === "view-1" ? "window-1" : undefined),
+    view: (view) => (view === "view-1" ? port : undefined),
+    senderView: (id) => (id === 2 ? port : undefined),
     pushState: () => {},
     core: {
       call: (_kind, _resource, _method, body) => {
@@ -101,15 +101,15 @@ function setup(opts: { captureFails?: boolean; uploadFails?: boolean } = {}) {
           opts.uploadFails
             ? { ok: false, error: { code: "unavailable", message: "down" } }
             : {
-              ok: true,
-              value: {
-                preparation: "p",
-                principal: "u",
-                purpose: "annotation_screenshot",
-                hash: "a".repeat(64),
-                size_bytes: 3,
+                ok: true,
+                value: {
+                  preparation: "p",
+                  principal: "u",
+                  purpose: "annotation_screenshot",
+                  hash: "a".repeat(64),
+                  size_bytes: 3,
+                },
               },
-            },
         );
       },
     },
@@ -145,7 +145,10 @@ test("앱 view가 아닌 sender가 보낸 고르기 IPC는 무시되고, 앱·re
   };
   assert.deepEqual(body.target, { kind: "app", app: APP });
   assert.equal(body.session, SESSION);
-  assert.deepEqual(body.annotations.map((a) => a.note), ["mine"]);
+  assert.deepEqual(
+    body.annotations.map((a) => a.note),
+    ["mine"],
+  );
   assert.equal(body.annotations[0]?.release, RELEASE);
   assert.deepEqual(body.annotations[0]?.view, {
     screen: "orders",
@@ -166,9 +169,12 @@ test("capture나 upload가 실패해도 모은 목록과 메모는 screenshot �
       annotations: { n: number; note: string; screenshot: unknown }[];
     };
     // 지운 번호는 묶음 안에서 1..N으로 메운다.
-    assert.deepEqual(annotations.map((a) => [a.n, a.note, a.screenshot]), [
-      [1, "a", null],
-      [2, "c", null],
-    ]);
+    assert.deepEqual(
+      annotations.map((a) => [a.n, a.note, a.screenshot]),
+      [
+        [1, "a", null],
+        [2, "c", null],
+      ],
+    );
   }
 });

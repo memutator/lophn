@@ -18,9 +18,7 @@ const keyOf = (folder: WatchFolder) =>
 // 있지 않으면 window_ms 짜리 창을 연다. 창은 첫 신호로 열리고 뒤 신호가 늘이지 않는다(계속 바뀌어도
 // window_ms마다 rescan한다). 창이 닫히면 rescan을 한 번 부르고 집합을 비운다. 힌트일 뿐이라 놓쳐도
 // 다음 sync가 따라잡는다.
-export function createChangeDetector(
-  deps: ChangeDetectorDeps,
-): ChangeDetector {
+export function createChangeDetector(deps: ChangeDetectorDeps): ChangeDetector {
   const windowMs = deps.window_ms ?? DEFAULT_WINDOW_MS;
   let targets = new Map<string, readonly WatchFolder[]>();
   let merged = new Map<string, WatchFolder>();
@@ -56,9 +54,9 @@ export function createChangeDetector(
       }
       if (pending.size === 0) disarm();
       return {
-        start: [...merged].filter(([key]) => !before.has(key)).map(([, f]) =>
-          f
-        ),
+        start: [...merged]
+          .filter(([key]) => !before.has(key))
+          .map(([, f]) => f),
         stop: [...before].filter(([key]) => !merged.has(key)).map(([, f]) => f),
       };
     },
@@ -66,9 +64,10 @@ export function createChangeDetector(
       for (const [key, folders] of targets) {
         if (
           paths.some((path) =>
-            folders.some((folder) => folderCovers(folder, path))
+            folders.some((folder) => folderCovers(folder, path)),
           )
-        ) pending.add(key);
+        )
+          pending.add(key);
       }
       if (pending.size > 0 && !armed) {
         armed = true;

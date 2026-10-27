@@ -223,16 +223,20 @@ function locateInFolders(
 
 const NO_LAYOUT: LayoutRead = { ok: false, message: "layout is unavailable" };
 
-function layoutBridge(): {
-  read(input: { project: string }): Promise<LayoutReadResult>;
-  save(input: unknown): Promise<LayoutSaveResult>;
-} | undefined {
-  return (globalThis as {
-    lophnLayout?: {
+function layoutBridge():
+  | {
       read(input: { project: string }): Promise<LayoutReadResult>;
       save(input: unknown): Promise<LayoutSaveResult>;
-    };
-  }).lophnLayout;
+    }
+  | undefined {
+  return (
+    globalThis as {
+      lophnLayout?: {
+        read(input: { project: string }): Promise<LayoutReadResult>;
+        save(input: unknown): Promise<LayoutSaveResult>;
+      };
+    }
+  ).lophnLayout;
 }
 
 const filesBridge = () => (globalThis as { lophnFiles?: FilesApi }).lophnFiles;
@@ -286,9 +290,9 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
       const read = await readProjects(core, "active");
       return read.ok
         ? {
-          ok: true,
-          value: read.value.map(({ id, title }) => ({ id, title })),
-        }
+            ok: true,
+            value: read.value.map(({ id, title }) => ({ id, title })),
+          }
         : { ok: false, message: read.code };
     },
 
@@ -351,7 +355,10 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
         },
       );
       if (!read.ok) return read;
-      const titles = await titlesFor(core, read.value.map((run) => run.job));
+      const titles = await titlesFor(
+        core,
+        read.value.map((run) => run.job),
+      );
       return {
         ok: true as const,
         value: read.value.map((run): RunRecordView => {
@@ -364,9 +371,10 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
             session_opened: run.session_opened,
             state: run.state,
             created_at: run.created_at,
-            job: run.job === null || title === undefined
-              ? null
-              : { id: run.job, title },
+            job:
+              run.job === null || title === undefined
+                ? null
+                : { id: run.job, title },
           };
         }),
       };
@@ -401,16 +409,10 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
     async workflowInstances(filter: WorkflowInstanceFilter) {
       const read = await collect<
         WorkflowInstanceListValue["instances"][number]
-      >(
-        core,
-        "workflow_instances",
-        "list",
-        { ...filter },
-        (value) => {
-          const page = value as WorkflowInstanceListValue;
-          return { items: page.instances, next: page.next_cursor };
-        },
-      );
+      >(core, "workflow_instances", "list", { ...filter }, (value) => {
+        const page = value as WorkflowInstanceListValue;
+        return { items: page.instances, next: page.next_cursor };
+      });
       if (!read.ok) return read;
       const titles = await titlesFor(
         core,
@@ -418,18 +420,20 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
       );
       return {
         ok: true as const,
-        value: read.value.map((entry): WorkflowInstanceSummaryView => ({
-          id: entry.id,
-          project: entry.project,
-          workflow: entry.workflow,
-          state: entry.state,
-          current: entry.current,
-          input: entry.input,
-          started_by: startedByOf(entry.started_by, titles),
-          created_at: entry.created_at,
-          finished_at: entry.finished_at,
-          last_line: entry.last_line,
-        })),
+        value: read.value.map(
+          (entry): WorkflowInstanceSummaryView => ({
+            id: entry.id,
+            project: entry.project,
+            workflow: entry.workflow,
+            state: entry.state,
+            current: entry.current,
+            input: entry.input,
+            started_by: startedByOf(entry.started_by, titles),
+            created_at: entry.created_at,
+            finished_at: entry.finished_at,
+            last_line: entry.last_line,
+          }),
+        ),
       };
     },
 
@@ -508,10 +512,11 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
           const page = value as FileListValue;
           return {
             items: page.targets.flatMap((target) =>
-              target.kind === "project_file" && target.project === id &&
-                typeof target.path === "string"
+              target.kind === "project_file" &&
+              target.project === id &&
+              typeof target.path === "string"
                 ? [target.path]
-                : []
+                : [],
             ),
             next: page.next_cursor,
           };
@@ -543,12 +548,14 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
         const document = byPath.get(path);
         const located = locateInFolders(path, view.value.folders);
         return document && located !== null
-          ? [{
-            folder: located.folder,
-            path: located.relative,
-            document: document.id,
-            title: document.title,
-          }]
+          ? [
+              {
+                folder: located.folder,
+                path: located.relative,
+                document: document.id,
+                title: document.title,
+              },
+            ]
           : [];
       });
       return { ok: true, value: rows };

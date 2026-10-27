@@ -38,51 +38,50 @@ export function createFilesApi(transport: FilesTransport): FilesApi {
     input: unknown,
   ): Promise<FileReply<T>> {
     try {
-      return await transport.invoke(channel, input) as FileReply<T>;
+      return (await transport.invoke(channel, input)) as FileReply<T>;
     } catch {
       return { ok: false, code: "unavailable" };
     }
   }
-  return Object.freeze(
-    {
-      list: (input) => invoke(FILE_LIST_CHANNEL, input),
-      read: (input) => invoke(FILE_READ_CHANNEL, input),
-      readBytes: (input) => invoke(FILE_READ_BYTES_CHANNEL, input),
-      write: (input) => invoke(FILE_WRITE_CHANNEL, input),
-      rename: (input) => invoke(FILE_RENAME_CHANNEL, input),
-      create: (input) => invoke(FILE_CREATE_CHANNEL, input),
-      delete: (input) => invoke(FILE_DELETE_CHANNEL, input),
-      reveal: (input) => invoke(FILE_REVEAL_CHANNEL, input),
-      watch: (input) => invoke(FILE_WATCH_CHANNEL, input),
-      onChanged(listener) {
-        const callback = (_event: unknown, payload: unknown) => {
-          const change = payload as FileChanged | null;
-          if (
-            change && typeof change.path === "string" &&
-            (change.hash === null || typeof change.hash === "string")
-          ) {
-            listener({ path: change.path, hash: change.hash });
-          }
-        };
-        transport.on(FILE_CHANGED_CHANNEL, callback);
-        return () => transport.removeListener(FILE_CHANGED_CHANNEL, callback);
-      },
-      counts(input) {
-        transport.send(FILE_COUNTS_CHANNEL, input);
-      },
-      onCloseRequest(listener) {
-        const callback = (_event: unknown, payload: unknown) => {
-          if (typeof payload === "number" && Number.isInteger(payload)) {
-            listener(payload);
-          }
-        };
-        transport.on(FILE_CLOSE_REQUEST_CHANNEL, callback);
-        return () =>
-          transport.removeListener(FILE_CLOSE_REQUEST_CHANNEL, callback);
-      },
-      answerClose(request: number, answer: CloseAnswer) {
-        transport.send(FILE_CLOSE_ANSWER_CHANNEL, { request, answer });
-      },
-    } satisfies FilesApi,
-  );
+  return Object.freeze({
+    list: (input) => invoke(FILE_LIST_CHANNEL, input),
+    read: (input) => invoke(FILE_READ_CHANNEL, input),
+    readBytes: (input) => invoke(FILE_READ_BYTES_CHANNEL, input),
+    write: (input) => invoke(FILE_WRITE_CHANNEL, input),
+    rename: (input) => invoke(FILE_RENAME_CHANNEL, input),
+    create: (input) => invoke(FILE_CREATE_CHANNEL, input),
+    delete: (input) => invoke(FILE_DELETE_CHANNEL, input),
+    reveal: (input) => invoke(FILE_REVEAL_CHANNEL, input),
+    watch: (input) => invoke(FILE_WATCH_CHANNEL, input),
+    onChanged(listener) {
+      const callback = (_event: unknown, payload: unknown) => {
+        const change = payload as FileChanged | null;
+        if (
+          change &&
+          typeof change.path === "string" &&
+          (change.hash === null || typeof change.hash === "string")
+        ) {
+          listener({ path: change.path, hash: change.hash });
+        }
+      };
+      transport.on(FILE_CHANGED_CHANNEL, callback);
+      return () => transport.removeListener(FILE_CHANGED_CHANNEL, callback);
+    },
+    counts(input) {
+      transport.send(FILE_COUNTS_CHANNEL, input);
+    },
+    onCloseRequest(listener) {
+      const callback = (_event: unknown, payload: unknown) => {
+        if (typeof payload === "number" && Number.isInteger(payload)) {
+          listener(payload);
+        }
+      };
+      transport.on(FILE_CLOSE_REQUEST_CHANNEL, callback);
+      return () =>
+        transport.removeListener(FILE_CLOSE_REQUEST_CHANNEL, callback);
+    },
+    answerClose(request: number, answer: CloseAnswer) {
+      transport.send(FILE_CLOSE_ANSWER_CHANNEL, { request, answer });
+    },
+  } satisfies FilesApi);
 }

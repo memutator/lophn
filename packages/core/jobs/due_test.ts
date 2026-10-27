@@ -10,9 +10,10 @@ import { jobsSchemaSteps } from "./schema.ts";
 import { insertJob, insertJobRun, loadJobRuns } from "./store.ts";
 
 const T = (hour: number, minute = 0) =>
-  `2026-10-22T${String(hour).padStart(2, "0")}:${
-    String(minute).padStart(2, "0")
-  }:00.000Z`;
+  `2026-10-22T${String(hour).padStart(2, "0")}:${String(minute).padStart(
+    2,
+    "0",
+  )}:00.000Z`;
 const MACHINE = { actor: "machine" } as never;
 const USER = { actor: "user" } as never;
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
@@ -59,11 +60,7 @@ function setup() {
     });
     return id;
   };
-  const runRow = (
-    jobId: string,
-    state: "running" | "held",
-    dueAt: string,
-  ) => {
+  const runRow = (jobId: string, state: "running" | "held", dueAt: string) => {
     const id = tx.newId("jbr");
     insertJobRun(sql, {
       id,
@@ -99,7 +96,7 @@ function setup() {
     runRow,
     claim,
     runs,
-    setNow: (at: string) => now = at,
+    setNow: (at: string) => (now = at),
   };
 }
 
@@ -110,7 +107,10 @@ test("missed turns fold into one job run and the job runs once", () => {
     t.setNow(T(5, 30));
     const run = t.job(TOOL, "run", T(1));
     const first = t.claim(true);
-    assert.deepStrictEqual(first.start.map((turn) => turn.job.id), [run]);
+    assert.deepStrictEqual(
+      first.start.map((turn) => turn.job.id),
+      [run],
+    );
     assert.deepStrictEqual(first.start[0]!.job_run.state, "queued");
     assert.deepStrictEqual(first.start[0]!.job_run.missed_count, 5);
     assert.deepStrictEqual(first.next_due_at, T(6));
@@ -126,11 +126,17 @@ test("missed turns fold into one job run and the job runs once", () => {
     h.setNow(T(5, 30));
     const hold = h.job(TOOL, "hold", T(1));
     assert.deepStrictEqual(h.claim(true).start, []);
-    assert.deepStrictEqual(h.runs(hold).map((r) => r.state), ["held"]);
+    assert.deepStrictEqual(
+      h.runs(hold).map((r) => r.state),
+      ["held"],
+    );
     h.setNow(T(8, 30));
     h.claim(true);
     const rows = h.runs(hold);
-    assert.deepStrictEqual(rows.map((r) => r.state), ["held"]);
+    assert.deepStrictEqual(
+      rows.map((r) => r.state),
+      ["held"],
+    );
     assert.deepStrictEqual(rows[0]!.missed_count, 8);
   } finally {
     h.db.close();
@@ -144,10 +150,10 @@ test("missed turns fold into one job run and the job runs once", () => {
     const claimed = c.claim(true);
     assert.deepStrictEqual(claimed.start.length, 1);
     assert.deepStrictEqual(claimed.start[0]!.job_run.missed_count, 1);
-    assert.deepStrictEqual(c.runs(cut).map((r) => r.state), [
-      "interrupted",
-      "queued",
-    ]);
+    assert.deepStrictEqual(
+      c.runs(cut).map((r) => r.state),
+      ["interrupted", "queued"],
+    );
   } finally {
     c.db.close();
   }
@@ -163,10 +169,13 @@ test("a job does not run again while its previous turn is running", () => {
       t.runRow(job, "running", T(0));
       const live = t.claim(false);
       assert.deepStrictEqual(live.start, []);
-      assert.deepStrictEqual(t.runs(job).map((r) => [r.state, r.reason]), [
-        ["running", null],
-        ["skipped", "overlap"],
-      ]);
+      assert.deepStrictEqual(
+        t.runs(job).map((r) => [r.state, r.reason]),
+        [
+          ["running", null],
+          ["skipped", "overlap"],
+        ],
+      );
 
       // 켤 때: agent_run·tool_run의 줄만 닫힌다. workflow_start는 instance가 계속 돈다.
       t.setNow(T(3, 30));
@@ -210,7 +219,10 @@ test("a turn handled over 10 minutes late counts as missed and hold asks", () =>
     const hold = t.job(TOOL, "hold", T(9));
     t.setNow(T(9, 10));
     assert.deepStrictEqual(t.claim(false).start.length, 1);
-    assert.deepStrictEqual(t.runs(hold).map((r) => r.state), ["queued"]);
+    assert.deepStrictEqual(
+      t.runs(hold).map((r) => r.state),
+      ["queued"],
+    );
   } finally {
     t.db.close();
   }
@@ -221,7 +233,10 @@ test("a turn handled over 10 minutes late counts as missed and hold asks", () =>
     h.setNow(T(13, 5));
     assert.deepStrictEqual(h.claim(false).start, []);
     const rows = h.runs(hold);
-    assert.deepStrictEqual(rows.map((r) => r.state), ["held"]);
+    assert.deepStrictEqual(
+      rows.map((r) => r.state),
+      ["held"],
+    );
     assert.deepStrictEqual(rows[0]!.missed_count, 5);
   } finally {
     h.db.close();
@@ -234,7 +249,10 @@ test("a turn handled over 10 minutes late counts as missed and hold asks", () =>
     const claimed = r.claim(false);
     assert.deepStrictEqual(claimed.start.length, 1);
     assert.deepStrictEqual(claimed.start[0]!.job_run.missed_count, 5);
-    assert.deepStrictEqual(r.runs(run).map((x) => x.state), ["queued"]);
+    assert.deepStrictEqual(
+      r.runs(run).map((x) => x.state),
+      ["queued"],
+    );
   } finally {
     r.db.close();
   }

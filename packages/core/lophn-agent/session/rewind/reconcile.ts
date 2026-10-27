@@ -20,7 +20,7 @@ export async function reconcileRewindInstalls(
   deps: RewindReconcileDeps,
 ): Promise<number> {
   const seen = deps.snapshot((lookup): UninstalledCandidate[] =>
-    uninstalledCandidates(lookup)
+    uninstalledCandidates(lookup),
   );
   if (!seen.ok) return 0;
   let amended = 0;
@@ -29,7 +29,7 @@ export async function reconcileRewindInstalls(
     const byRevert = new Map<string, string[]>();
     for (const candidate of missing) {
       byRevert.set(candidate.revert, [
-        ...byRevert.get(candidate.revert) ?? [],
+        ...(byRevert.get(candidate.revert) ?? []),
         candidate.path,
       ]);
     }

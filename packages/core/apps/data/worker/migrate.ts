@@ -37,10 +37,10 @@ type MigrateInput = {
 type MigrateOutcome =
   | { result: ActivationDataResult; restored: false }
   | {
-    result: ActivationDataResult;
-    restored: true;
-    failed: { step: string; message: string };
-  };
+      result: ActivationDataResult;
+      restored: true;
+      failed: { step: string; message: string };
+    };
 
 function unavailable(message: string): Result<never> {
   return err({ code: "unavailable", message });
@@ -86,7 +86,7 @@ export async function scriptFromBundle(
 // 공개한 script 내용이 hash와 다르면 그 release 준비는 거절한다.
 
 async function scriptMatches(script: MigrationScript): Promise<boolean> {
-  return await sha256Hex(script.sql) === plain(script.change.script_hash);
+  return (await sha256Hex(script.sql)) === plain(script.change.script_hash);
 }
 
 // 연속 경로를 순서대로 적용한다. 단계 실패는 그 단계 transaction rollback에 더해
@@ -95,7 +95,7 @@ export async function migrateAppDatabase(
   input: MigrateInput,
 ): Promise<Result<MigrateOutcome>> {
   for (const script of input.scripts) {
-    if (!await scriptMatches(script)) {
+    if (!(await scriptMatches(script))) {
       return err({
         code: "invalid_input",
         message: "published migration script changed",
@@ -116,8 +116,9 @@ export async function migrateAppDatabase(
     return path;
   }
   const byKey = new Map(
-    input.scripts.map((script) =>
-      [`${script.change.from}:${script.change.to}`, script] as const
+    input.scripts.map(
+      (script) =>
+        [`${script.change.from}:${script.change.to}`, script] as const,
     ),
   );
   let failed: { step: string; message: string } | null = null;

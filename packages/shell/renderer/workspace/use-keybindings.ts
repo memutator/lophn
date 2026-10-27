@@ -10,8 +10,10 @@ import {
 } from "../../ipc/keybindings.ts";
 
 function inTerminal(target: EventTarget | null): boolean {
-  return target instanceof Element &&
-    target.closest("[data-terminal-screen]") !== null;
+  return (
+    target instanceof Element &&
+    target.closest("[data-terminal-screen]") !== null
+  );
 }
 
 /**
@@ -28,14 +30,17 @@ export function useKeybindings(
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
       if (event.isComposing) return;
-      const hit = matchKey({
-        key: event.key,
-        code: event.code,
-        ctrl: event.ctrlKey,
-        meta: event.metaKey,
-        alt: event.altKey,
-        shift: event.shiftKey,
-      }, platform);
+      const hit = matchKey(
+        {
+          key: event.key,
+          code: event.code,
+          ctrl: event.ctrlKey,
+          meta: event.metaKey,
+          alt: event.altKey,
+          shift: event.shiftKey,
+        },
+        platform,
+      );
       if (hit === null || (hit.shell && inTerminal(event.target))) return;
       event.preventDefault();
       event.stopPropagation();

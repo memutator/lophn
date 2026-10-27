@@ -37,12 +37,15 @@ test("helper가 만든 봉투는 route의 봉투 schema를 통과한다", () => 
   const cases = [
     [plain, { input: {}, compare: {}, key: "probe-key" }],
     [compared, { input: {}, compare: { revision: 2 }, key: "probe-key" }],
-    [confirmed, {
-      input: { item: "x" },
-      compare: {},
-      key: "probe-key",
-      confirmation: REF,
-    }],
+    [
+      confirmed,
+      {
+        input: { item: "x" },
+        compare: {},
+        key: "probe-key",
+        confirmation: REF,
+      },
+    ],
   ] as const;
   for (const [route, body] of cases) {
     const parsed = commandRequestSchema(route as never).safeParse(

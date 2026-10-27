@@ -20,10 +20,7 @@ const LAUNCH =
 
 type Collected = { text: string; truncated: boolean };
 
-function concat(
-  a: Uint8Array,
-  b: Uint8Array,
-): Uint8Array<ArrayBuffer> {
+function concat(a: Uint8Array, b: Uint8Array): Uint8Array<ArrayBuffer> {
   const out = new Uint8Array(a.length + b.length);
   out.set(a, 0);
   out.set(b, a.length);
@@ -35,8 +32,8 @@ function trimPartialEnd(bytes: Uint8Array): Uint8Array {
   for (let i = bytes.length - 1; i >= Math.max(0, bytes.length - 4); i--) {
     const b = bytes[i]!;
     if (b < 0x80) return bytes;
-    if (b >= 0xC0) {
-      const need = b >= 0xF0 ? 4 : b >= 0xE0 ? 3 : 2;
+    if (b >= 0xc0) {
+      const need = b >= 0xf0 ? 4 : b >= 0xe0 ? 3 : 2;
       return i + need > bytes.length ? bytes.slice(0, i) : bytes;
     }
   }
@@ -45,7 +42,7 @@ function trimPartialEnd(bytes: Uint8Array): Uint8Array {
 
 function trimPartialStart(bytes: Uint8Array): Uint8Array {
   let i = 0;
-  while (i < 3 && i < bytes.length && (bytes[i]! & 0xC0) === 0x80) i++;
+  while (i < 3 && i < bytes.length && (bytes[i]! & 0xc0) === 0x80) i++;
   return bytes.slice(i);
 }
 
@@ -69,20 +66,15 @@ export async function collect(
     const rest = tail.slice(tail.length - (total - head.length));
     return { text: decoder.decode(concat(head, rest)), truncated: false };
   }
-  const headPart = limitText(
-    decoder.decode(trimPartialEnd(head)),
-    "head",
-  );
-  const tailPart = limitText(
-    decoder.decode(trimPartialStart(tail)),
-    "tail",
-  );
+  const headPart = limitText(decoder.decode(trimPartialEnd(head)), "head");
+  const tailPart = limitText(decoder.decode(trimPartialStart(tail)), "tail");
   const encoder = new TextEncoder();
-  const omitted = total - encoder.encode(headPart.text).length -
+  const omitted =
+    total -
+    encoder.encode(headPart.text).length -
     encoder.encode(tailPart.text).length;
   return {
-    text:
-      `${headPart.text}\n[… ${omitted} bytes omitted; redirect output to a file and read it with file.read …]\n${tailPart.text}`,
+    text: `${headPart.text}\n[… ${omitted} bytes omitted; redirect output to a file and read it with file.read …]\n${tailPart.text}`,
     truncated: true,
   };
 }
@@ -132,7 +124,7 @@ export async function runShell(
   const exited = new Promise<number>((resolve) => {
     child.on("exit", (code, signal) => {
       // 신호로 끝나면 shell 관례대로 128 + 신호 번호를 쓴다. Node는 그때 code가 null이다.
-      resolve(signal === null ? code ?? 0 : 128 + constants.signals[signal]);
+      resolve(signal === null ? (code ?? 0) : 128 + constants.signals[signal]);
     });
   });
 
@@ -168,7 +160,7 @@ export async function runShell(
     Promise.race([
       promise,
       new Promise<T>((resolve) =>
-        setTimeout(() => resolve(fallback), DRAIN_GRACE_MS)
+        setTimeout(() => resolve(fallback), DRAIN_GRACE_MS),
       ),
     ]);
   const [stdout, stderr] = await Promise.all([
@@ -190,8 +182,8 @@ export async function runShell(
     summary: timedOut
       ? `timed out after ${timeoutMs} ms`
       : stopped
-      ? "stopped before it finished"
-      : `exit code ${code}`,
+        ? "stopped before it finished"
+        : `exit code ${code}`,
     content,
     complete: !truncated && !timedOut && !stopped,
     source: null,

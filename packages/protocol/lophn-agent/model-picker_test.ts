@@ -15,14 +15,22 @@ const catalog = [a1, b1, a2];
 
 test("selectableModels: 알려 준 목록이 있으면 그 목록, 없거나 비면 그 정의의 catalog이고 다른 정의는 섞이지 않는다", () => {
   const cases: [string, readonly string[] | null, unknown][] = [
-    ["null이면 그 정의의 catalog 전부", null, [
-      { model_name: "m1", entry: a1 },
-      { model_name: "m2", entry: a2 },
-    ]],
-    ["빈 목록도 거르지 않는다", [], [
-      { model_name: "m1", entry: a1 },
-      { model_name: "m2", entry: a2 },
-    ]],
+    [
+      "null이면 그 정의의 catalog 전부",
+      null,
+      [
+        { model_name: "m1", entry: a1 },
+        { model_name: "m2", entry: a2 },
+      ],
+    ],
+    [
+      "빈 목록도 거르지 않는다",
+      [],
+      [
+        { model_name: "m1", entry: a1 },
+        { model_name: "m2", entry: a2 },
+      ],
+    ],
     [
       "일부만 catalog와 겹치면 안 겹친 것은 entry null, catalog에만 있는 m2는 빠진다",
       ["x", "m1"],
@@ -31,10 +39,14 @@ test("selectableModels: 알려 준 목록이 있으면 그 목록, 없거나 비
         { model_name: "m1", entry: a1 },
       ],
     ],
-    ["중복 이름은 한 번만, 목록 순서대로", ["m1", "m1", "x", "m1"], [
-      { model_name: "m1", entry: a1 },
-      { model_name: "x", entry: null },
-    ]],
+    [
+      "중복 이름은 한 번만, 목록 순서대로",
+      ["m1", "m1", "x", "m1"],
+      [
+        { model_name: "m1", entry: a1 },
+        { model_name: "x", entry: null },
+      ],
+    ],
   ];
   for (const [label, reported, want] of cases) {
     assert.deepStrictEqual(
@@ -67,8 +79,11 @@ test("selectableModels: 사람이 정보를 적은 항목은 알려 준 목록�
     ],
   );
   assert.deepStrictEqual(
-    selectableModels({ definition: "a", catalog: withUser, reported: null })
-      .map((model) => model.model_name),
+    selectableModels({
+      definition: "a",
+      catalog: withUser,
+      reported: null,
+    }).map((model) => model.model_name),
     ["m1", "m2", "typed"],
   );
 });

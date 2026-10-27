@@ -37,8 +37,8 @@ export type FrameWriter = {
 const FRAME_HEADER_BYTES = 9;
 // 막힌 sink에 계속 써도 payload·promise가 무한히 쌓이지 않는다. 넘치면 그 writer는 fault다.
 const WRITE_BACKLOG_MAX_FRAMES = 256;
-const WRITE_BACKLOG_MAX_BYTES = 2 *
-  (STREAM_CHUNK_MAX_BYTES + FRAME_HEADER_BYTES);
+const WRITE_BACKLOG_MAX_BYTES =
+  2 * (STREAM_CHUNK_MAX_BYTES + FRAME_HEADER_BYTES);
 // 일반 frame이 상한까지 차도 마지막 제어 frame 하나는 들어갈 자리.
 const FINAL_RESERVE_FRAMES = 1;
 const FINAL_RESERVE_BYTES = CONTROL_MAX_BYTES + FRAME_HEADER_BYTES;
@@ -109,9 +109,8 @@ export function createFrameWriter(
       queuedBytes -= item.bytes.length;
       active = item;
       const guard: WriteGuard = { abandoned: false };
-      const timer = options.writeMs === undefined
-        ? undefined
-        : armTimer(options.writeMs);
+      const timer =
+        options.writeMs === undefined ? undefined : armTimer(options.writeMs);
       let timedOut = false;
       try {
         const writing = writeAll(writer, item.bytes, guard);
@@ -127,9 +126,7 @@ export function createFrameWriter(
           if (raced === "timeout") {
             timedOut = true;
             guard.abandoned = true;
-            throw new Error(
-              `frame write timed out after ${options.writeMs}ms`,
-            );
+            throw new Error(`frame write timed out after ${options.writeMs}ms`);
           }
         }
         item.resolve();
@@ -165,10 +162,10 @@ export function createFrameWriter(
       return Promise.reject(error);
     }
     const now = backlog();
-    const frameLimit = WRITE_BACKLOG_MAX_FRAMES -
-      (final ? 0 : FINAL_RESERVE_FRAMES);
-    const byteLimit = WRITE_BACKLOG_MAX_BYTES -
-      (final ? 0 : FINAL_RESERVE_BYTES);
+    const frameLimit =
+      WRITE_BACKLOG_MAX_FRAMES - (final ? 0 : FINAL_RESERVE_FRAMES);
+    const byteLimit =
+      WRITE_BACKLOG_MAX_BYTES - (final ? 0 : FINAL_RESERVE_BYTES);
     if (now.frames + 1 > frameLimit || now.bytes + bytes.length > byteLimit) {
       // 순서를 지키지 못하는 frame을 빼고 계속 쓰지 않는다. 그 writer 전체를 fail-closed한다.
       fault = new Error("frame write backlog exceeded");

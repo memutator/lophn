@@ -10,24 +10,24 @@ export const LAYOUT_READ_CHANNEL = "shell:layout-read";
 export type LayoutSaveResult =
   | { ok: true }
   | {
-    ok: false;
-    code: "invalid_input" | "unwritable" | "forbidden";
-    message: string;
-  };
+      ok: false;
+      code: "invalid_input" | "unwritable" | "forbidden";
+      message: string;
+    };
 
 export type LayoutReadResult =
   | {
-    ok: true;
-    available: true;
-    layout: unknown;
-  }
+      ok: true;
+      available: true;
+      layout: unknown;
+    }
   | {
-    ok: true;
-    available: false;
-    reason: "unsupported_schema" | "corrupt" | "absent";
-  }
+      ok: true;
+      available: false;
+      reason: "unsupported_schema" | "corrupt" | "absent";
+    }
   | {
-    ok: false;
-    code: "unwritable" | "unreadable" | "forbidden";
-    message: string;
-  };
+      ok: false;
+      code: "unwritable" | "unreadable" | "forbidden";
+      message: string;
+    };

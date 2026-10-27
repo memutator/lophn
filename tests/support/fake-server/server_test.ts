@@ -46,10 +46,12 @@ test("fake server 응답을 adapter parser가 제 모양대로 판정한다", as
   const text = await read((await ask({ kind: "text", text: "안녕" })).response);
   const args = '{"path":"a.txt"}';
   const tool = await read(
-    (await ask({
-      kind: "tool",
-      calls: [{ id: "toolu_1", name: "read", arguments: args }],
-    })).response,
+    (
+      await ask({
+        kind: "tool",
+        calls: [{ id: "toolu_1", name: "read", arguments: args }],
+      })
+    ).response,
   );
   const cut = await read(
     (await ask({ kind: "cut", partial: { text: "안" } })).response,
@@ -81,19 +83,23 @@ function post(
 test("함수 대답은 앞 tool 결과의 id를 잇고, 줄은 대답을 가르고, 던진 함수는 400이다", async () => {
   const ticket = "tkt_0123456789abcdefghjkmnpqrs";
   const fake = createFakeHandler();
-  fake.script([{
-    reply: (request) => {
-      const id = idIn(lastToolResult(request) ?? "", "tkt");
-      return {
-        kind: "tool",
-        calls: [{
-          id: "toolu_2",
-          name: "ticket_get",
-          arguments: JSON.stringify({ id }),
-        }],
-      };
+  fake.script([
+    {
+      reply: (request) => {
+        const id = idIn(lastToolResult(request) ?? "", "tkt");
+        return {
+          kind: "tool",
+          calls: [
+            {
+              id: "toolu_2",
+              name: "ticket_get",
+              arguments: JSON.stringify({ id }),
+            },
+          ],
+        };
+      },
     },
-  }]);
+  ]);
   fake.script([{ reply: { kind: "text", text: "pm" } }], {
     name: "pm",
     match: (request) => toolNames(request).includes("operator_create"),
@@ -103,10 +109,12 @@ test("함수 대답은 앞 tool 결과의 id를 잇고, 줄은 대답을 가르�
     match: (request) => toolNames(request).includes("ticket_create"),
   });
   const result = (content: string) => ({
-    messages: [{
-      role: "user",
-      content: [{ type: "tool_result", tool_use_id: "toolu_1", content }],
-    }],
+    messages: [
+      {
+        role: "user",
+        content: [{ type: "tool_result", tool_use_id: "toolu_1", content }],
+      },
+    ],
   });
 
   // 요청 순서가 줄 등록 순서와 달라도 각 줄의 대답을 받는다.
@@ -114,22 +122,31 @@ test("함수 대답은 앞 tool 결과의 id를 잇고, 줄은 대답을 가르�
   await post(fake, { tools: [{ name: "operator_create" }] });
   const chained = await read(await post(fake, result(`created ${ticket}`)));
 
-  fake.script([{
-    reply: () => {
-      throw new Error("boom");
+  fake.script([
+    {
+      reply: () => {
+        throw new Error("boom");
+      },
     },
-  }]);
+  ]);
   const threw = await post(fake, {});
 
   assert.deepStrictEqual(
     [
-      fake.journal().slice(0, 3).map((e) => [e.lane, e.step]),
+      fake
+        .journal()
+        .slice(0, 3)
+        .map((e) => [e.lane, e.step]),
       chained.tools[0]?.args,
       threw.status,
       fake.journal()[3]?.mismatch,
     ],
     [
-      [["engineer", 0], ["pm", 0], [null, 0]],
+      [
+        ["engineer", 0],
+        ["pm", 0],
+        [null, 0],
+      ],
       JSON.stringify({ id: ticket }),
       400,
       "reply function threw: boom",

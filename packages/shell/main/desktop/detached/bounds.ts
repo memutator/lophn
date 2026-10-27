@@ -21,9 +21,12 @@ export function clampToWorkAreas(
 ): WindowBounds {
   const first = workAreas[0];
   if (first === undefined) return bounds;
-  const fits = workAreas.some((area) =>
-    bounds.x >= area.x && bounds.y >= area.y &&
-    right(bounds) <= right(area) && bottom(bounds) <= bottom(area)
+  const fits = workAreas.some(
+    (area) =>
+      bounds.x >= area.x &&
+      bounds.y >= area.y &&
+      right(bounds) <= right(area) &&
+      bottom(bounds) <= bottom(area),
   );
   if (fits) return bounds;
   let area = first;

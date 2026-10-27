@@ -106,7 +106,7 @@ function stepsOf(tab: TabSpec): readonly Step[] {
   }
   if (chat.switcher === "edit") {
     steps.push(() =>
-      click("[data-session-popover] [role=option] button[aria-label=Delete]")
+      click("[data-session-popover] [role=option] button[aria-label=Delete]"),
     );
   }
   if (chat.modelDemo !== undefined) {
@@ -114,7 +114,7 @@ function stepsOf(tab: TabSpec): readonly Step[] {
   }
   if (chat.modelDemo === "manage") {
     steps.push(() => click("[data-picker-section=foot] button"));
-    steps.push(...chat.afterManage ?? []);
+    steps.push(...(chat.afterManage ?? []));
   }
   if (chat.slash !== undefined) {
     const slash = chat.slash;
@@ -131,15 +131,17 @@ const NOW = Date.parse("2026-10-06T09:05:00Z");
 const now = () => NOW;
 
 /** Agent 탭. */
-export function Conversation(
-  { tab, open, handlers }: {
-    tab: TabSpec;
-    open: Open;
-    answer?: string | null;
-    onAnswer?: (answer: string) => void;
-    handlers: SessionHandlers;
-  },
-) {
+export function Conversation({
+  tab,
+  open,
+  handlers,
+}: {
+  tab: TabSpec;
+  open: Open;
+  answer?: string | null;
+  onAnswer?: (answer: string) => void;
+  handlers: SessionHandlers;
+}) {
   const { scene, archived } = sceneOf(tab);
   const source = useMemo(
     () => createFakeAgentTabSource({ scene, picker: tab.chat?.picker }),

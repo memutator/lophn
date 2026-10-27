@@ -99,9 +99,8 @@ async function writeStderr(
   cause: unknown,
 ) {
   try {
-    const text = cause instanceof Error
-      ? cause.stack ?? cause.message
-      : String(cause);
+    const text =
+      cause instanceof Error ? (cause.stack ?? cause.message) : String(cause);
     const writer = options.stderr.getWriter();
     try {
       await writer.write(

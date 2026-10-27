@@ -62,9 +62,10 @@ export interface FileAdapter {
   read(path: string): Promise<FileReply<FileText>>;
   readBytes(path: string): Promise<FileReply<FileBytes>>;
   write(owner: number, input: FileWrite): Promise<FileReply<FileWritten>>;
-  create(
-    input: { path: string; kind: "file" | "folder" },
-  ): Promise<FileReply<Empty>>;
+  create(input: {
+    path: string;
+    kind: "file" | "folder";
+  }): Promise<FileReply<Empty>>;
   rename(input: { from: string; to: string }): Promise<FileReply<Empty>>;
   delete(input: { path: string }): Promise<FileReply<Empty>>;
   reveal(input: { path: string }): Promise<FileReply<Empty>>;
@@ -157,8 +158,10 @@ async function realPath(path: string): Promise<string> {
 }
 
 function inside(path: string, folder: string): boolean {
-  return path === folder ||
-    path.startsWith(folder.endsWith(sep) ? folder : folder + sep);
+  return (
+    path === folder ||
+    path.startsWith(folder.endsWith(sep) ? folder : folder + sep)
+  );
 }
 
 export function createFileAdapter(options: FileAdapterOptions): FileAdapter {
@@ -174,7 +177,7 @@ export function createFileAdapter(options: FileAdapterOptions): FileAdapter {
     if (!isAbsolute(path)) return { ok: false, code: "invalid_input" };
     const clean = resolve(path);
     try {
-      if (await realPath(clean) === await realPath(secrets)) {
+      if ((await realPath(clean)) === (await realPath(secrets))) {
         return { ok: false, code: "forbidden" };
       }
     } catch {
@@ -233,7 +236,7 @@ export function createFileAdapter(options: FileAdapterOptions): FileAdapter {
   async function poll() {
     for (const [owner, seen] of watched) {
       for (const [path, before] of seen) {
-        if (await stamp(path) === before.stamp) continue;
+        if ((await stamp(path)) === before.stamp) continue;
         const now = await look(path);
         // 기다리는 사이 watch 목록이 바뀌었으면 이 판정은 버린다.
         if (seen.get(path) !== before) continue;
@@ -281,21 +284,25 @@ export function createFileAdapter(options: FileAdapterOptions): FileAdapter {
               kind = target.isDirectory()
                 ? "folder"
                 : target.isFile()
-                ? "file"
-                : null;
-            } catch { /* 끊긴 link는 보이지 않는다 */ }
+                  ? "file"
+                  : null;
+            } catch {
+              /* 끊긴 link는 보이지 않는다 */
+            }
           }
           if (kind !== null) entries.push({ name: item.name, kind });
         }
         // 폴더 먼저, 그다음 이름순.
         entries.sort((a, b) =>
           a.kind !== b.kind
-            ? a.kind === "folder" ? -1 : 1
+            ? a.kind === "folder"
+              ? -1
+              : 1
             : a.name < b.name
-            ? -1
-            : a.name > b.name
-            ? 1
-            : 0
+              ? -1
+              : a.name > b.name
+                ? 1
+                : 0,
         );
         return { ok: true, value: { entries } };
       });
@@ -323,9 +330,8 @@ export function createFileAdapter(options: FileAdapterOptions): FileAdapter {
     async readBytes(path) {
       return await guarded(path, async (clean) => {
         const dot = clean.lastIndexOf(".");
-        const type = dot < 0
-          ? undefined
-          : CONTENT_TYPES[clean.slice(dot).toLowerCase()];
+        const type =
+          dot < 0 ? undefined : CONTENT_TYPES[clean.slice(dot).toLowerCase()];
         if (type === undefined) return fail("unsupported");
         const info = await stat(clean);
         if (!info.isFile()) return fail("unsupported");
@@ -351,9 +357,8 @@ export function createFileAdapter(options: FileAdapterOptions): FileAdapter {
           if ((current === null ? null : sha256(current)) !== input.base_hash) {
             return fail("conflict");
           }
-          const mode = current === null
-            ? 0o644
-            : (await stat(clean)).mode & 0o777;
+          const mode =
+            current === null ? 0o644 : (await stat(clean)).mode & 0o777;
           // 같은 폴더의 임시 파일에 쓰고 rename으로 바꾼다. 중간에 끊겨도 원본이 남는다.
           const temp = join(
             dirname(clean),
@@ -370,7 +375,8 @@ export function createFileAdapter(options: FileAdapterOptions): FileAdapter {
           const own = watched.get(owner);
           if (own?.has(clean)) own.set(clean, await look(clean));
           return { ok: true, value: { hash: sha256(bytes) } };
-        }));
+        }),
+      );
     },
 
     // 없을 때만 만든다. 파일은 `wx`로 열어 이미 있으면 EEXIST(conflict)이고, 폴더는 끝 조각을
@@ -396,9 +402,13 @@ export function createFileAdapter(options: FileAdapterOptions): FileAdapter {
           return fail("invalid_input");
         }
         // 대문자만 바꾸는 이름 바꾸기는 대소문자를 가리지 않는 디스크에서 자기 자신과 부딪힌다.
-        const caseOnly = dirname(from) === dirname(to.path) &&
+        const caseOnly =
+          dirname(from) === dirname(to.path) &&
           basename(from).toLowerCase() === basename(to.path).toLowerCase();
-        const taken = await lstat(to.path).then(() => true, () => false);
+        const taken = await lstat(to.path).then(
+          () => true,
+          () => false,
+        );
         if (taken && !caseOnly) return fail("conflict");
         await ops.rename(from, to.path);
         return { ok: true, value: {} };
@@ -433,7 +443,7 @@ export function createFileAdapter(options: FileAdapterOptions): FileAdapter {
         if (!accepted.ok) return fail(accepted.code);
         next.set(
           accepted.path,
-          watched.get(owner)?.get(accepted.path) ?? await look(accepted.path),
+          watched.get(owner)?.get(accepted.path) ?? (await look(accepted.path)),
         );
       }
       if (next.size === 0) watched.delete(owner);

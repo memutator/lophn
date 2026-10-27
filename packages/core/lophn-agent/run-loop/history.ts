@@ -15,12 +15,14 @@ export function historyResultParts(
 ): HistoryPart[] {
   const image = imageOf(result.result.content);
   const references = referencesOf(result.result.content);
-  const content = image === null && references === null
-    ? result.result.content
-    : Object.fromEntries(
-      Object.entries(result.result.content as Record<string, unknown>)
-        .filter(([key]) => key !== "image" && key !== "tool_reference"),
-    );
+  const content =
+    image === null && references === null
+      ? result.result.content
+      : Object.fromEntries(
+          Object.entries(
+            result.result.content as Record<string, unknown>,
+          ).filter(([key]) => key !== "image" && key !== "tool_reference"),
+        );
   const text = JSON.stringify({
     status: result.status,
     code: result.code,
@@ -38,11 +40,14 @@ export function historyResultParts(
     text: source === null ? text : wrapUntrusted(source, text),
   };
   if (references !== null) {
-    return [part, {
-      kind: "tool_result_reference",
-      id: result.key,
-      names: references,
-    }];
+    return [
+      part,
+      {
+        kind: "tool_result_reference",
+        id: result.key,
+        names: references,
+      },
+    ];
   }
   return image === null
     ? [part]
@@ -80,8 +85,8 @@ export function omitOldImages(
 ): HistoryMessage[] {
   const images = history.flatMap((message) =>
     message.parts.flatMap((part) =>
-      part.kind === "tool_result_image" ? [part] : []
-    )
+      part.kind === "tool_result_image" ? [part] : [],
+    ),
   );
   const old = new Set(images.slice(0, Math.max(0, images.length - keep)));
   if (old.size === 0) return [...history];

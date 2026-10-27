@@ -38,29 +38,26 @@ function redactUrls(
   location: string,
   redacted: string[],
 ): string {
-  return value.replace(
-    /[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]*/gi,
-    (url) => {
-      let changed = false;
-      let rewritten = url.replace(
-        /^([a-z][a-z0-9+.-]*:\/\/)([^/@\s]+)@/i,
-        (_match, scheme: string) => {
-          changed = true;
-          return `${scheme}${REDACTION_REPLACEMENT}@`;
-        },
-      );
-      rewritten = rewritten.replace(
-        /([?&])([^=&#]+)=([^&#]*)/g,
-        (pair, sep: string, name: string) => {
-          if (!AUTH_QUERY.test(name)) return pair;
-          changed = true;
-          return `${sep}${name}=${REDACTION_REPLACEMENT}`;
-        },
-      );
-      if (changed) redacted.push(location);
-      return rewritten;
-    },
-  );
+  return value.replace(/[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]*/gi, (url) => {
+    let changed = false;
+    let rewritten = url.replace(
+      /^([a-z][a-z0-9+.-]*:\/\/)([^/@\s]+)@/i,
+      (_match, scheme: string) => {
+        changed = true;
+        return `${scheme}${REDACTION_REPLACEMENT}@`;
+      },
+    );
+    rewritten = rewritten.replace(
+      /([?&])([^=&#]+)=([^&#]*)/g,
+      (pair, sep: string, name: string) => {
+        if (!AUTH_QUERY.test(name)) return pair;
+        changed = true;
+        return `${sep}${name}=${REDACTION_REPLACEMENT}`;
+      },
+    );
+    if (changed) redacted.push(location);
+    return rewritten;
+  });
 }
 
 function walk(
@@ -79,7 +76,9 @@ function walk(
     return { ok: false, reason: "limit_exceeded", location };
   }
   if (
-    value === null || typeof value === "boolean" || typeof value === "number"
+    value === null ||
+    typeof value === "boolean" ||
+    typeof value === "number"
   ) {
     return { ok: true, value, redacted };
   }

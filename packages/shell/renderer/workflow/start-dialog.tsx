@@ -9,14 +9,16 @@ import { t } from "@lophn/wording";
 import type { WorkflowEntryView } from "../workspace/source.ts";
 import styles from "./start-dialog.module.css";
 
-export function StartDialog(
-  { entry, onCancel, onStart }: {
-    entry: WorkflowEntryView;
-    onCancel: () => void;
-    /** 성공하면 true. 이 dialog를 닫는 것은 부른 쪽이다. */
-    onStart: (text: string, step: string | undefined) => Promise<boolean>;
-  },
-) {
+export function StartDialog({
+  entry,
+  onCancel,
+  onStart,
+}: {
+  entry: WorkflowEntryView;
+  onCancel: () => void;
+  /** 성공하면 true. 이 dialog를 닫는 것은 부른 쪽이다. */
+  onStart: (text: string, step: string | undefined) => Promise<boolean>;
+}) {
   const isFlow = entry.kind === "flow";
   const steps = entry.steps ?? [];
   const [text, setText] = useState("");
@@ -40,7 +42,7 @@ export function StartDialog(
             onClick={() => {
               setStarting(true);
               void onStart(text, isFlow ? undefined : step).finally(() =>
-                setStarting(false)
+                setStarting(false),
               );
             }}
           >

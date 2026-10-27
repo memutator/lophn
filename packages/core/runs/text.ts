@@ -2,13 +2,15 @@ import { z } from "zod";
 import type { JsonValue } from "../../protocol/base/mod.ts";
 
 // agent에게 넣는 글. 고정 영어 문장이다.
-export function runMessageText(
-  { prompt, input, schema }: {
-    prompt: string;
-    input?: JsonValue | undefined;
-    schema?: Record<string, JsonValue> | undefined;
-  },
-): string {
+export function runMessageText({
+  prompt,
+  input,
+  schema,
+}: {
+  prompt: string;
+  input?: JsonValue | undefined;
+  schema?: Record<string, JsonValue> | undefined;
+}): string {
   const parts = [prompt];
   if (input !== undefined) {
     parts.push(`Input (JSON):\n${JSON.stringify(input, null, 2)}`);
@@ -30,9 +32,11 @@ export function readAnswer(
   let body = text.trim();
   const lines = body.split("\n");
   if (
-    lines.length >= 2 && lines[0]!.startsWith("```") &&
+    lines.length >= 2 &&
+    lines[0]!.startsWith("```") &&
     lines[lines.length - 1]!.trim() === "```"
-  ) body = lines.slice(1, -1).join("\n");
+  )
+    body = lines.slice(1, -1).join("\n");
   let value: JsonValue;
   try {
     value = JSON.parse(body) as JsonValue;

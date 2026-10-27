@@ -11,16 +11,18 @@ export const ACTIVATION_CONSENT_TOPIC = "activation_consent";
 // event 이름은 protocol의 남지 않는 event와 같다. subject는 release다.
 export function pushConsentEvent(
   tx: Pick<Tx, "port" | "now">,
-  event: {
-    type: "ActivationConsentRequested";
-    app: string;
-    release: string;
-  } | {
-    type: "ActivationConsentClosed";
-    app: string;
-    release: string;
-    outcome: "allow" | "reject" | "cancelled";
-  },
+  event:
+    | {
+        type: "ActivationConsentRequested";
+        app: string;
+        release: string;
+      }
+    | {
+        type: "ActivationConsentClosed";
+        app: string;
+        release: string;
+        outcome: "allow" | "reject" | "cancelled";
+      },
 ): void {
   const { type, ...payload } = event;
   tx.port(afterCommit).push(ACTIVATION_CONSENT_TOPIC, {
@@ -34,35 +36,39 @@ export function pushConsentEvent(
 type Query = Pick<Sql, "get" | "all">;
 
 // 사람을 기다리는 줄. 오래된 것부터 준다.
-export function waitingConsents(
-  sql: Query,
-  app?: string,
-): ActivationConsent[] {
-  return sql.all(
-    `SELECT release, app, comparison, requested_at FROM activation_consents
+export function waitingConsents(sql: Query, app?: string): ActivationConsent[] {
+  return sql
+    .all(
+      `SELECT release, app, comparison, requested_at FROM activation_consents
       WHERE allowed_at IS NULL AND (? IS NULL OR app = ?)
       ORDER BY requested_at, release`,
-    [app ?? null, app ?? null],
-  ).map((row) => ({
-    app: String(row.app),
-    release: String(row.release),
-    comparison: JSON.parse(String(row.comparison)),
-    requested_at: String(row.requested_at),
-  } as ActivationConsent));
+      [app ?? null, app ?? null],
+    )
+    .map(
+      (row) =>
+        ({
+          app: String(row.app),
+          release: String(row.release),
+          comparison: JSON.parse(String(row.comparison)),
+          requested_at: String(row.requested_at),
+        }) as ActivationConsent,
+    );
 }
 
 // 사람이 허락했고 아직 시작하지 않은 줄. comparison은 저장된 정규 값 그대로다.
 export function allowedConsents(
   sql: Query,
 ): { release: string; comparison: string }[] {
-  return sql.all(
-    `SELECT c.release AS release, c.comparison AS comparison
+  return sql
+    .all(
+      `SELECT c.release AS release, c.comparison AS comparison
        FROM activation_consents c JOIN releases r ON r.id = c.release
       WHERE c.allowed_at IS NOT NULL AND r.status = 'prepared'
       ORDER BY c.allowed_at, c.release`,
-    [],
-  ).map((row) => ({
-    release: String(row.release),
-    comparison: String(row.comparison),
-  }));
+      [],
+    )
+    .map((row) => ({
+      release: String(row.release),
+      comparison: String(row.comparison),
+    }));
 }

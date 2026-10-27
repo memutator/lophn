@@ -124,26 +124,33 @@ export type TurnMode = z.infer<typeof turnModeSchema>;
 
 // 고정한 resolved agent는 hash와 칸별 출처만 기준에 두고 전체 값은 blob이다.
 
-export const turnRecordSchema = z.object({
-  id: idSchema("trn"),
-  session: idSchema("ses"),
-  // 이 turn을 시작한 입력의 메시지.
-  input_message: idSchema("msg"),
-  state: turnStateSchema,
-  basis: sha256Schema,
-  started_at: atSchema,
-  limits: turnLimitsOutputSchema,
-  mode: turnModeSchema,
-  elapsed: turnElapsedOutputSchema,
-  finished_at: atSchema.nullable(),
-  outcome: turnOutcomeOutputSchema.nullable(),
-  result: sha256Schema.nullable(),
-  state_seq: seqSchema,
-}).refine((value) => {
-  const finished = value.state === "finished";
-  return (value.finished_at !== null) === finished &&
-    (value.outcome !== null) === finished &&
-    (value.result !== null) === finished;
-}, { message: "turn state fields are not coupled" });
+export const turnRecordSchema = z
+  .object({
+    id: idSchema("trn"),
+    session: idSchema("ses"),
+    // 이 turn을 시작한 입력의 메시지.
+    input_message: idSchema("msg"),
+    state: turnStateSchema,
+    basis: sha256Schema,
+    started_at: atSchema,
+    limits: turnLimitsOutputSchema,
+    mode: turnModeSchema,
+    elapsed: turnElapsedOutputSchema,
+    finished_at: atSchema.nullable(),
+    outcome: turnOutcomeOutputSchema.nullable(),
+    result: sha256Schema.nullable(),
+    state_seq: seqSchema,
+  })
+  .refine(
+    (value) => {
+      const finished = value.state === "finished";
+      return (
+        (value.finished_at !== null) === finished &&
+        (value.outcome !== null) === finished &&
+        (value.result !== null) === finished
+      );
+    },
+    { message: "turn state fields are not coupled" },
+  );
 
 export type TurnRecord = z.infer<typeof turnRecordSchema>;

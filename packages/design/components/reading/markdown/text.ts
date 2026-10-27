@@ -23,7 +23,10 @@ export function decodeEntity(entity: string): string {
   if (body.startsWith("#")) {
     const hex = body[1] === "x" || body[1] === "X";
     const code = Number.parseInt(body.slice(hex ? 2 : 1), hex ? 16 : 10);
-    const valid = Number.isInteger(code) && code > 0 && code <= 0x10ffff &&
+    const valid =
+      Number.isInteger(code) &&
+      code > 0 &&
+      code <= 0x10ffff &&
       (code < 0xd800 || code > 0xdfff);
     return valid ? String.fromCodePoint(code) : REPLACEMENT;
   }

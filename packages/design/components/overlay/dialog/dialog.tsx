@@ -21,18 +21,16 @@ export interface DialogProps {
 }
 
 // modal: backdrop 위 dialog 층에 두고 focus를 가둔 뒤 닫히면 연 자리로 돌려준다.
-export function Dialog(
-  {
-    open,
-    onOpenChange,
-    title,
-    children,
-    actions,
-    width = "default",
-    container,
-    returnFocus = true,
-  }: DialogProps,
-) {
+export function Dialog({
+  open,
+  onOpenChange,
+  title,
+  children,
+  actions,
+  width = "default",
+  container,
+  returnFocus = true,
+}: DialogProps) {
   const focus = useReturnFocus(returnFocus);
   return (
     <Radix.Root open={open} onOpenChange={onOpenChange}>

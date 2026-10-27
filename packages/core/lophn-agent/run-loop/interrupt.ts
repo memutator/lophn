@@ -22,21 +22,24 @@ export function interruptRunningTurns(
   reason: InterruptReason,
   session?: Id<"ses">,
 ): Result<number> {
-  const rows = (session === undefined
-    ? tx.sql.all(
-      `select ${TURN_COLUMNS} from turns where state = 'running' order by started_at`,
-      [],
-    )
-    : tx.sql.all(
-      `select ${TURN_COLUMNS} from turns where state = 'running' and session = ?
+  const rows = (
+    session === undefined
+      ? tx.sql.all(
+          `select ${TURN_COLUMNS} from turns where state = 'running' order by started_at`,
+          [],
+        )
+      : tx.sql.all(
+          `select ${TURN_COLUMNS} from turns where state = 'running' and session = ?
        order by started_at`,
-      [session],
-    )).map(turnRowOf);
+          [session],
+        )
+  ).map(turnRowOf);
   for (const row of rows) {
     // 모델이 쓴 본문이 없으므로 machine이 확정한 사실만 결과로 정리한다.
     const outcome = { kind: "interrupted" as const, reason };
     const facts = { turn: row.id, session: row.session, outcome };
-    const result = createHash("sha256").update(canonicalize(facts), "utf8")
+    const result = createHash("sha256")
+      .update(canonicalize(facts), "utf8")
       .digest("hex");
     const current = loadTurn(tx, row.id);
     if (current === undefined) continue;

@@ -27,7 +27,7 @@ type Args = {
   checkout: string | null;
 };
 
-const message = (e: unknown) => e instanceof Error ? e.message : String(e);
+const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export async function measureAssembly(
   deps: { port: ReplayPort; startFake?: () => Promise<FakeServer> },
@@ -62,12 +62,14 @@ export async function measureAssembly(
   let settle: Settle;
   try {
     fake.script(replies.map((reply) => ({ reply })));
-    settle = (await deps.port.run({
-      scenario,
-      checkout: args.checkout,
-      model: args.model,
-      endpoint: fake.url,
-    })).settle;
+    settle = (
+      await deps.port.run({
+        scenario,
+        checkout: args.checkout,
+        model: args.model,
+        endpoint: fake.url,
+      })
+    ).settle;
   } catch (error) {
     return { ...withSession, reason: `replay failed: ${message(error)}` };
   } finally {
@@ -85,8 +87,9 @@ export async function measureAssembly(
   ]);
   const key = (call: Boundary[]) =>
     JSON.stringify(call.map((b) => [b.layer, b.prefix_hash]));
-  const identical =
-    recordedSide.filter((call, k) => key(call) === key(replayedSide[k])).length;
+  const identical = recordedSide.filter(
+    (call, k) => key(call) === key(replayedSide[k]),
+  ).length;
 
   const reasons: string[] = [];
   if (divergence !== null) reasons.push(divergence.reason);

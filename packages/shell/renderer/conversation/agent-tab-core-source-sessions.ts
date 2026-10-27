@@ -137,9 +137,10 @@ export async function readFace(
     role,
     name,
     // 올린 이미지는 renderer가 읽을 수 있는 주소가 없어 이름 첫 글자로 그린다.
-    profile: profile.kind === "icon"
-      ? { kind: "icon", icon: profile.icon }
-      : { kind: "initial", text: name.slice(0, 1) },
+    profile:
+      profile.kind === "icon"
+        ? { kind: "icon", icon: profile.icon }
+        : { kind: "initial", text: name.slice(0, 1) },
     place: { kind: place?.kind ?? "project", name: named.value },
     permissionSummary: t("conversation.label.permission-summary", {
       count: apps.value.length,
@@ -163,8 +164,8 @@ function statusOf(state: string | undefined): SessionStatus {
   return state === "waiting"
     ? "waiting"
     : state === "running"
-    ? "working"
-    : "idle";
+      ? "working"
+      : "idle";
 }
 
 export function createActiveTimes(): Map<
@@ -221,14 +222,16 @@ export async function readSessions(
   );
   return {
     ok: true,
-    value: listed.value.map((session, index): SessionEntry => ({
-      id: session.id,
-      title: session.title,
-      status: statusOf(states.get(session.id)),
-      activeAt: active[index] ?? env.nowIso(),
-      archived: session.lifecycle === "archived",
-      skip: session.skip,
-    })),
+    value: listed.value.map(
+      (session, index): SessionEntry => ({
+        id: session.id,
+        title: session.title,
+        status: statusOf(states.get(session.id)),
+        activeAt: active[index] ?? env.nowIso(),
+        archived: session.lifecycle === "archived",
+        skip: session.skip,
+      }),
+    ),
   };
 }
 
@@ -326,9 +329,10 @@ export async function forkSessionOf(
     (out) => out.messages,
   );
   if (!messages.ok) return messages;
-  const point = input.through === null
-    ? messages.value.at(-1)
-    : messages.value.find((message) => message.id === input.through);
+  const point =
+    input.through === null
+      ? messages.value.at(-1)
+      : messages.value.find((message) => message.id === input.through);
   if (point === undefined) return { ok: false, code: "invalid_input" };
   return dropValue(
     await env.command(forkSession, {

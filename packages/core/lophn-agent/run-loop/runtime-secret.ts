@@ -58,17 +58,20 @@ export function createAgentRuntimeSecrets(deps: {
       const parsed = secretSendRequestSchema.safeParse(message);
       if (!parsed.success) return undefined;
       const request = parsed.data;
-      const failed = (
-        error: { code: string; message: string },
-      ): SecretSendResponse => ({
+      const failed = (error: {
+        code: string;
+        message: string;
+      }): SecretSendResponse => ({
         type: "secret_send_response",
         request_id: request.request_id,
         ok: false,
         error: {
-          code: error.code === "forbidden" || error.code === "conflict" ||
-              error.code === "invalid_input"
-            ? error.code
-            : "unavailable",
+          code:
+            error.code === "forbidden" ||
+            error.code === "conflict" ||
+            error.code === "invalid_input"
+              ? error.code
+              : "unavailable",
           message: error.message.slice(0, 200),
         },
       });
@@ -80,8 +83,9 @@ export function createAgentRuntimeSecrets(deps: {
           message: "secret 전송을 허용하지 않는다",
         });
       }
-      const prepared = await deps.mcpOAuth?.(request.use) ??
-        await deps.providerOAuth?.(request.use);
+      const prepared =
+        (await deps.mcpOAuth?.(request.use)) ??
+        (await deps.providerOAuth?.(request.use));
       if (prepared !== undefined && !prepared.ok) return failed(prepared.error);
       let value: SecretValue | undefined;
       const sent = await deps.attach.send(
@@ -97,11 +101,12 @@ export function createAgentRuntimeSecrets(deps: {
         },
       );
       if (!sent.ok) return failed(sent.error);
-      const text = typeof value === "string"
-        ? value
-        : value === undefined
-        ? ""
-        : new TextDecoder().decode(value);
+      const text =
+        typeof value === "string"
+          ? value
+          : value === undefined
+            ? ""
+            : new TextDecoder().decode(value);
       value = undefined;
       if (text === "" || !wholly(deps.known(), text)) {
         return failed({
@@ -123,6 +128,7 @@ export function createAgentRuntimeSecrets(deps: {
 function wholly(known: KnownSecretMatch | undefined, text: string): boolean {
   if (known === undefined || !known.ready) return false;
   const found = known.match(text);
-  return found !== undefined && found.index === 0 &&
-    found.length === text.length;
+  return (
+    found !== undefined && found.index === 0 && found.length === text.length
+  );
 }

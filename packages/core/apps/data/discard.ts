@@ -14,7 +14,7 @@ export function discardBackups(tx: Tx, app: string): Result<void> {
     tx,
     BACKUP_BLOB_OWNER_KIND,
     rows.map((row) =>
-      backupBlobOwnerKey(String(row.release), String(row.attempt))
+      backupBlobOwnerKey(String(row.release), String(row.attempt)),
     ),
   );
 }

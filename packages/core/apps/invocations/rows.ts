@@ -45,9 +45,8 @@ export function invocationFromRow(
     input_hash: row.input_hash ?? null,
     summary: summary.value,
     detail_hash: row.detail_hash ?? null,
-    changeset: hash === null
-      ? null
-      : { hash, size_bytes: Number(row.changeset_size) },
+    changeset:
+      hash === null ? null : { hash, size_bytes: Number(row.changeset_size) },
     reverted_by: row.reverted_by ?? null,
   });
   return parsed.success ? ok(parsed.data) : invalidStored();

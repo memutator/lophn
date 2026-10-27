@@ -26,10 +26,7 @@ export function loadVersions(sql: Query, packageId: string): PackageVersion[] {
 }
 
 // 이름 → catalog 값(잡힌 version 포함). 없는 이름은 null이다.
-export function loadPackage(
-  sql: Query,
-  name: string,
-): Result<Package | null> {
+export function loadPackage(sql: Query, name: string): Result<Package | null> {
   const row = loadPackageRow(sql, name);
   if (row === undefined) return ok(null);
   const versions = loadVersions(sql, row["id"] as string);

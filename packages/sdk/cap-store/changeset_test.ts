@@ -36,9 +36,10 @@ function changesetOf(seed: string, change: string): Uint8Array {
 }
 
 function titles(db: DatabaseSync): string[] {
-  return db.prepare("select title from todo order by id").all().map((row) =>
-    String(row["title"])
-  );
+  return db
+    .prepare("select title from todo order by id")
+    .all()
+    .map((row) => String(row["title"]));
 }
 
 test("write 동안의 변경이 changeset으로 나오고 lophn_data_schema 표의 변경은 빠진다", async () => {
@@ -92,16 +93,19 @@ test("PRIMARY KEY 없는 표를 만드는 migration은 실패하고 그 단계�
   const store = openStore({ path: ":memory:" });
   try {
     // node:assert/strict의 rejects는 오류를 돌려주지 않아 직접 받는다.
-    const error = await store.migrate([{
-      from: 0,
-      to: 1,
-      sql:
-        "create table ok (id integer primary key); create table loose (x text)",
-      loss: [],
-    }]).then(
-      () => assert.fail("migrate should reject"),
-      (error: unknown) => error,
-    );
+    const error = await store
+      .migrate([
+        {
+          from: 0,
+          to: 1,
+          sql: "create table ok (id integer primary key); create table loose (x text)",
+          loss: [],
+        },
+      ])
+      .then(
+        () => assert.fail("migrate should reject"),
+        (error: unknown) => error,
+      );
     assert.ok(error instanceof CapabilityError);
     assert.deepStrictEqual(error.code, "invalid_input");
     assert.deepStrictEqual(
@@ -110,7 +114,8 @@ test("PRIMARY KEY 없는 표를 만드는 migration은 실패하고 그 단계�
     );
     assert.deepStrictEqual(store.schema(), 0);
     assert.deepStrictEqual(
-      store.db.prepare("select name from sqlite_master where name = 'ok'")
+      store.db
+        .prepare("select name from sqlite_master where name = 'ok'")
         .get(),
       undefined,
     );

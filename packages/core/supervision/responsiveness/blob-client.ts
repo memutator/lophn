@@ -64,7 +64,7 @@ export function createBlobPrepareClient(
 
   function nextChannel(): number {
     for (let tries = 0; tries < 0xffffffff; tries++) {
-      counter = counter % 0xffffffff + 1;
+      counter = (counter % 0xffffffff) + 1;
       if (!byChannel.has(counter)) return counter;
     }
     throw new Error("no free blob prepare channel");
@@ -121,7 +121,9 @@ export function createBlobPrepareClient(
     } finally {
       try {
         reader.releaseLock();
-      } catch { /* 이미 닫힌 stream */ }
+      } catch {
+        /* 이미 닫힌 stream */
+      }
     }
   }
 
@@ -258,12 +260,14 @@ export function createBlobPrepareClient(
         const pending = byRequest.get(message.request_id);
         if (!pending) return true;
         // 모양이 틀린 결과는 성공으로 받지 않는다.
-        pending.result = parsed.success ? parsed.data : {
-          type: "blob_prepare_result",
-          request_id: message.request_id,
-          ok: false,
-          error: { code: "unavailable", message: "invalid prepare result" },
-        };
+        pending.result = parsed.success
+          ? parsed.data
+          : {
+              type: "blob_prepare_result",
+              request_id: message.request_id,
+              ok: false,
+              error: { code: "unavailable", message: "invalid prepare result" },
+            };
         wake(pending);
         return true;
       }

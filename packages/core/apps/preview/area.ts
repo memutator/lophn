@@ -67,13 +67,12 @@ export function createFsPreviewArea(dataRoot: string): PreviewArea {
       let apps: string[];
       try {
         apps = [];
-        for (
-          const entry of await readdir(`${dataRoot}/apps`, {
-            withFileTypes: true,
-          })
-        ) {
+        for (const entry of await readdir(`${dataRoot}/apps`, {
+          withFileTypes: true,
+        })) {
           if (
-            entry.isDirectory() && appIdSchema.safeParse(entry.name).success
+            entry.isDirectory() &&
+            appIdSchema.safeParse(entry.name).success
           ) {
             apps.push(entry.name);
           }

@@ -21,20 +21,21 @@ const previewInputSchema = z.strictObject({
 });
 
 // preview 프로세스의 현재 관측. RuntimeObservation의 mode=preview 값이다.
-const previewObservationSchema = z.object({
-  app: appIdSchema,
-  release: releaseIdSchema.nullable(),
-  bundle_hash: sha256Schema,
-  mode: z.literal("preview"),
-  process_nonce: processNonceSchema,
-  endpoint: z.string().min(1).nullable(),
-  ready: z.boolean(),
-  accepting: z.literal(false),
-  reason: runtimeReasonSchema.optional(),
-}).refine(
-  (value) => value.ready || value.reason !== undefined,
-  { message: "observation that is not ready needs a reason" },
-);
+const previewObservationSchema = z
+  .object({
+    app: appIdSchema,
+    release: releaseIdSchema.nullable(),
+    bundle_hash: sha256Schema,
+    mode: z.literal("preview"),
+    process_nonce: processNonceSchema,
+    endpoint: z.string().min(1).nullable(),
+    ready: z.boolean(),
+    accepting: z.literal(false),
+    reason: runtimeReasonSchema.optional(),
+  })
+  .refine((value) => value.ready || value.reason !== undefined, {
+    message: "observation that is not ready needs a reason",
+  });
 export type PreviewObservation = z.infer<typeof previewObservationSchema>;
 
 const readActors = ["user", "coding_agent", "agent", "machine"] as const;

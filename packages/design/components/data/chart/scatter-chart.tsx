@@ -39,25 +39,39 @@ interface Placed {
   readonly cy: number;
 }
 
-function ScatterPlot(
-  { width, groups, domain, xLabel, yLabel, format }: {
-    width: number;
-    groups: readonly ScatterGroup[];
-    domain: readonly string[];
-    xLabel: string;
-    yLabel: string;
-    format: ChartLocale;
-  },
-) {
+function ScatterPlot({
+  width,
+  groups,
+  domain,
+  xLabel,
+  yLabel,
+  format,
+}: {
+  width: number;
+  groups: readonly ScatterGroup[];
+  domain: readonly string[];
+  xLabel: string;
+  yLabel: string;
+  format: ChartLocale;
+}) {
   const points = groups.flatMap((group) => group.points);
-  const probe = extentScale(points.map((point) => point.y), [1, 0]);
+  const probe = extentScale(
+    points.map((point) => point.y),
+    [1, 0],
+  );
   const left = axisGutter(
     probe.ticks(4).map((tick) => axisNumber(tick, format)),
     width,
   );
   const box = plotBox(width, left, GEOMETRY.pad + GEOMETRY.point);
-  const x = extentScale(points.map((point) => point.x), [box.left, box.right]);
-  const y = extentScale(points.map((point) => point.y), [box.bottom, box.top]);
+  const x = extentScale(
+    points.map((point) => point.x),
+    [box.left, box.right],
+  );
+  const y = extentScale(
+    points.map((point) => point.y),
+    [box.bottom, box.top],
+  );
   const placed: Placed[] = groups.flatMap((group, index) =>
     group.points.map((point) => ({
       group: index,
@@ -66,7 +80,7 @@ function ScatterPlot(
       y: point.y,
       cx: x(point.x),
       cy: y(point.y),
-    }))
+    })),
   );
   const { active, setActive, plotProps } = useActive(placed.length);
   const current = active === null ? undefined : placed[active];
@@ -134,36 +148,35 @@ function ScatterPlot(
 }
 
 // 산점. 모든 쌍이 맞닿으므로 3계열까지만 그린다. 점은 radius 4px과 표면 ring이다.
-export function ScatterChart(
-  {
-    groups,
-    domain,
-    xLabel,
-    yLabel,
-    locale = "en",
-    timeZone,
-    ...state
-  }: ScatterChartProps,
-) {
-  const shape = useMemo(() => checkScatterShape({ groups, domain }), [
-    groups,
-    domain,
-  ]);
-  const check = useMemo(() => checkScatter({ groups, domain }), [
-    groups,
-    domain,
-  ]);
+export function ScatterChart({
+  groups,
+  domain,
+  xLabel,
+  yLabel,
+  locale = "en",
+  timeZone,
+  ...state
+}: ScatterChartProps) {
+  const shape = useMemo(
+    () => checkScatterShape({ groups, domain }),
+    [groups, domain],
+  );
+  const check = useMemo(
+    () => checkScatter({ groups, domain }),
+    [groups, domain],
+  );
   const format = { locale, timeZone };
   // 축이 넘치는 값 범위는 그리지 않는다. 표 보기는 받은 유한 값을 그대로 읽는다.
-  const ready = check.ok &&
+  const ready =
+    check.ok &&
     pointsDrawable(check.value.groups.flatMap((group) => group.points));
   const legend = shape.ok
     ? shape.value.domain.flatMap((key) => {
-      const group = shape.value.groups.find((item) => item.key === key);
-      return group
-        ? [{ label: group.label, slot: slotOf(shape.value.domain, key) }]
-        : [];
-    })
+        const group = shape.value.groups.find((item) => item.key === key);
+        return group
+          ? [{ label: group.label, slot: slotOf(shape.value.domain, key) }]
+          : [];
+      })
     : [];
   return (
     <ChartFrame
@@ -171,29 +184,34 @@ export function ScatterChart(
       locale={locale}
       timeZone={timeZone}
       problem={check.ok ? (ready ? undefined : "invalid") : check.problem}
-      isEmpty={shape.ok &&
-        shape.value.groups.every((group) => group.points.length === 0)}
+      isEmpty={
+        shape.ok &&
+        shape.value.groups.every((group) => group.points.length === 0)
+      }
       defaultIcon={ChartScatter}
       legend={legend}
-      table={shape.ok &&
-          (ready || !check.ok && check.problem === "too-many-groups")
-        ? {
-          headers: [
-            { header: t("common.heading.group"), kind: "text" },
-            { header: xLabel, kind: "number" },
-            { header: yLabel, kind: "number" },
-          ],
-          rows: shape.value.groups.flatMap((group, index) =>
-            group.points.map((point, at) => ({
-              key: `${index}-${at}`,
-              cells: [group.label, point.x, point.y],
-            }))
-          ),
-        }
-        : undefined}
+      table={
+        shape.ok &&
+        (ready || (!check.ok && check.problem === "too-many-groups"))
+          ? {
+              headers: [
+                { header: t("common.heading.group"), kind: "text" },
+                { header: xLabel, kind: "number" },
+                { header: yLabel, kind: "number" },
+              ],
+              rows: shape.value.groups.flatMap((group, index) =>
+                group.points.map((point, at) => ({
+                  key: `${index}-${at}`,
+                  cells: [group.label, point.x, point.y],
+                })),
+              ),
+            }
+          : undefined
+      }
     >
       {(width) =>
-        check.ok && ready && (
+        check.ok &&
+        ready && (
           <ScatterPlot
             width={width}
             groups={check.value.groups}
@@ -202,7 +220,8 @@ export function ScatterChart(
             yLabel={yLabel}
             format={format}
           />
-        )}
+        )
+      }
     </ChartFrame>
   );
 }

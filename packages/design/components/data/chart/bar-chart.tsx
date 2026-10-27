@@ -26,18 +26,16 @@ export interface BarChartProps extends ChartStateProps, ChartLocaleProps {
 }
 
 // 막대와 누적 막대. 막대는 최대 24px, data 끝 radius 4px, 사이 2px이다.
-export function BarChart(
-  {
-    categories,
-    series,
-    domain,
-    stacked = false,
-    xLabel,
-    locale = "en",
-    timeZone,
-    ...state
-  }: BarChartProps,
-) {
+export function BarChart({
+  categories,
+  series,
+  domain,
+  stacked = false,
+  xLabel,
+  locale = "en",
+  timeZone,
+  ...state
+}: BarChartProps) {
   const check = useMemo(
     () => checkBars({ categories, series, domain }),
     [categories, series, domain],
@@ -46,47 +44,48 @@ export function BarChart(
     () =>
       check.ok
         ? colorSeries(
-          check.value.series,
-          check.value.domain,
-          t("common.label.other"),
-        )
+            check.value.series,
+            check.value.domain,
+            t("common.label.other"),
+          )
         : [],
     [check],
   );
   // 기타 합산이나 누적 합이 넘치면 그리지 않고 표도 만들지 않는다.
   const ready = check.ok && seriesDrawable(colored, stacked);
-  const table: TableView | undefined = check.ok && ready
-    ? {
-      headers: [
-        { header: xLabel, kind: "text" },
-        ...colored.map((item) => ({
-          header: item.label,
-          kind: "number" as const,
-        })),
-      ],
-      rows: check.value.categories.map((category, index) => ({
-        key: String(index),
-        cells: [
-          category,
-          ...colored.map((item) => item.values[index] ?? undefined),
-        ],
-      })),
-    }
-    : undefined;
+  const table: TableView | undefined =
+    check.ok && ready
+      ? {
+          headers: [
+            { header: xLabel, kind: "text" },
+            ...colored.map((item) => ({
+              header: item.label,
+              kind: "number" as const,
+            })),
+          ],
+          rows: check.value.categories.map((category, index) => ({
+            key: String(index),
+            cells: [
+              category,
+              ...colored.map((item) => item.values[index] ?? undefined),
+            ],
+          })),
+        }
+      : undefined;
   return (
     <ChartFrame
       {...state}
       locale={locale}
       timeZone={timeZone}
       problem={check.ok ? (ready ? undefined : "invalid") : check.problem}
-      isEmpty={check.ok &&
-        (categories.length === 0 || series.length === 0)}
+      isEmpty={check.ok && (categories.length === 0 || series.length === 0)}
       defaultIcon={ChartColumn}
       legend={colored}
       table={table}
     >
       {(width) =>
-        check.ok && ready && (
+        check.ok &&
+        ready && (
           <BarPlot
             width={width}
             categories={check.value.categories}
@@ -95,7 +94,8 @@ export function BarChart(
             format={{ locale, timeZone }}
             kind={stacked ? "stacked" : "bar"}
           />
-        )}
+        )
+      }
     </ChartFrame>
   );
 }

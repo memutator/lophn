@@ -9,15 +9,16 @@ type WireBlock = { text?: unknown; cache_control?: unknown };
 function layerNames(texts: string[]): string[] {
   const seen = new Map<string, number>();
   return texts.map((text, i) => {
-    const base = i === 0
-      ? "role"
-      : text.startsWith("# Instructions")
-      ? "instructions"
-      : text.startsWith("# Skills")
-      ? "skills"
-      : i === texts.length - 1
-      ? "place"
-      : `block${i}`;
+    const base =
+      i === 0
+        ? "role"
+        : text.startsWith("# Instructions")
+          ? "instructions"
+          : text.startsWith("# Skills")
+            ? "skills"
+            : i === texts.length - 1
+              ? "place"
+              : `block${i}`;
     const n = (seen.get(base) ?? 0) + 1;
     seen.set(base, n);
     return n === 1 ? base : `${base}#${n}`;

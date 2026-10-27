@@ -59,11 +59,15 @@ export function useOverlayMenu(): OpenMenu | null {
       pending.current = null;
       current?.settle(id);
     };
-    const made = overlayConsumer(overlay, (result) => {
-      if (result.type === "pointer" || result.type === "query") return;
-      if (pending.current?.requestId !== result.requestId) return;
-      settle(result.type === "selected" ? result.choiceId ?? null : null);
-    }, () => settle(null));
+    const made = overlayConsumer(
+      overlay,
+      (result) => {
+        if (result.type === "pointer" || result.type === "query") return;
+        if (pending.current?.requestId !== result.requestId) return;
+        settle(result.type === "selected" ? (result.choiceId ?? null) : null);
+      },
+      () => settle(null),
+    );
     consumer.current = made;
     return () => {
       const identity = pending.current?.identity;
@@ -91,15 +95,20 @@ export function useOverlayMenu(): OpenMenu | null {
       const requestId = `browser-menu-${++serial}`;
       const shown = choices.slice(0, MENU_LIMIT);
       let settle!: (id: string | null) => void;
-      const answer = new Promise<string | null>((resolve) => settle = resolve);
+      const answer = new Promise<string | null>(
+        (resolve) => (settle = resolve),
+      );
       const mine: Pending = { requestId, identity: null, settle };
       pending.current = mine;
-      const opened = await made.open({
-        requestId,
-        kind,
-        anchorRect,
-        model: { label, choices: shown },
-      }, trigger);
+      const opened = await made.open(
+        {
+          requestId,
+          kind,
+          anchorRect,
+          model: { label, choices: shown },
+        },
+        trigger,
+      );
       if (pending.current !== mine) {
         // 여는 사이 다른 open이 이 요청을 밀어냈다. 이미 열린 표면은 남기지 않는다.
         if (opened.ok) void made.close(opened.value);

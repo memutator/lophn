@@ -32,15 +32,17 @@ test("attended turn에서 ask 규칙에 걸린 shell 명령은 사람이 허락�
     ...SHELL_TOOLS[0]!,
     handler: () => {
       ran++;
-      return Promise.resolve(ok({
-        status: "success" as const,
-        summary: "ran",
-        content: null,
-        complete: true,
-        source: null,
-        continuation: null,
-        pending: [],
-      }));
+      return Promise.resolve(
+        ok({
+          status: "success" as const,
+          summary: "ran",
+          content: null,
+          complete: true,
+          source: null,
+          continuation: null,
+          pending: [],
+        }),
+      );
     },
   };
   const agent = { role: "lophn" as const };
@@ -77,11 +79,14 @@ test("attended turn에서 ask 규칙에 걸린 shell 명령은 사람이 허락�
     }
     assert.deepStrictEqual(ran, 0);
     const [request] = approvals.turnRequests(SES);
-    const decided = await approvals.decide({ actor: "user" }, {
-      session: SES,
-      request: request!.id,
-      choice,
-    });
+    const decided = await approvals.decide(
+      { actor: "user" },
+      {
+        session: SES,
+        request: request!.id,
+        choice,
+      },
+    );
     assert.ok(decided.ok);
     return await running;
   };

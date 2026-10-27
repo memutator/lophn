@@ -6,9 +6,10 @@ export function normalizeAddress(text: string): string | null {
   if (t === "") return null;
   if (t.includes("://") || KEEP_SCHEMES.test(t)) return t;
   const host = (t.split(/[/?#]/, 1)[0] ?? "").replace(/:\d*$/, "");
-  const withScheme = (host === "localhost" || host === "127.0.0.1")
-    ? `http://${t}`
-    : `https://${t}`;
+  const withScheme =
+    host === "localhost" || host === "127.0.0.1"
+      ? `http://${t}`
+      : `https://${t}`;
   try {
     new URL(withScheme);
   } catch {

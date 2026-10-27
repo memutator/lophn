@@ -125,11 +125,11 @@ type HttpResult =
   | { status: number; json: unknown }
   | { status: number; bytes: Uint8Array; contentType: string }
   | {
-    status: number;
-    stream: ReadableStream<Uint8Array>;
-    length: number;
-    contentType: string;
-  };
+      status: number;
+      stream: ReadableStream<Uint8Array>;
+      length: number;
+      contentType: string;
+    };
 
 function routeKey(route: { resource: string; method: string }): string {
   return `${route.resource}/${route.method}`;
@@ -150,10 +150,12 @@ function actorAllowed(
 ): Result<void, RequestFailure> {
   const kind = actorKind(ctx.actor);
   if (!kind || !route.actors.includes(kind)) {
-    return err(failure({
-      code: "forbidden",
-      message: "operation forbidden",
-    }));
+    return err(
+      failure({
+        code: "forbidden",
+        message: "operation forbidden",
+      }),
+    );
   }
   return ok(undefined);
 }
@@ -161,9 +163,13 @@ function actorAllowed(
 function actorKind(actor: string): Route["actors"][number] | undefined {
   const kind = actor.split(":", 1)[0];
   if (
-    kind === "user" || kind === "coding_agent" || kind === "agent" ||
-    kind === "app" || kind === "machine"
-  ) return kind;
+    kind === "user" ||
+    kind === "coding_agent" ||
+    kind === "agent" ||
+    kind === "app" ||
+    kind === "machine"
+  )
+    return kind;
   return undefined;
 }
 
@@ -273,7 +279,8 @@ async function upload(
   if (!scoped.ok) return fromFailure(scoped.error);
   const type = request.headers.get("content-type");
   if (
-    type === null || type.split(";", 1)[0].trim().toLowerCase() !== UPLOAD_TYPE
+    type === null ||
+    type.split(";", 1)[0].trim().toLowerCase() !== UPLOAD_TYPE
   ) {
     return rejected({
       code: "invalid_input",
@@ -306,11 +313,13 @@ async function upload(
   if (!handler) {
     return rejected({ code: "unavailable", message: "upload unavailable" });
   }
-  const source = request.body ?? new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.close();
-    },
-  });
+  const source =
+    request.body ??
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.close();
+      },
+    });
   const result = await handler(ctx, input.data, {
     bytes: exactLength(source, length, route.max_bytes),
     length,
@@ -328,8 +337,9 @@ const UPLOAD_TYPE = "application/octet-stream";
 function decodeInputHeader(value: string): Uint8Array | undefined {
   if (!/^[A-Za-z0-9_-]*$/.test(value)) return undefined;
   try {
-    const padded = value.replaceAll("-", "+").replaceAll("_", "/") +
-      "=".repeat((4 - value.length % 4) % 4);
+    const padded =
+      value.replaceAll("-", "+").replaceAll("_", "/") +
+      "=".repeat((4 - (value.length % 4)) % 4);
     const text = atob(padded);
     return Uint8Array.from(text, (char) => char.charCodeAt(0));
   } catch {
@@ -390,11 +400,9 @@ async function command(
       : { confirmation: request.confirmation }),
   };
   const result = await (deps.admitCommand
-    ? deps.admitCommand(
-      ctx,
-      route.name,
-      () => sendCommand(deps.writer!, ctx, envelope, route),
-    )
+    ? deps.admitCommand(ctx, route.name, () =>
+        sendCommand(deps.writer!, ctx, envelope, route),
+      )
     : sendCommand(deps.writer, ctx, envelope, route));
   return result;
 }
@@ -469,9 +477,8 @@ function fileConfirmation(value: unknown): {
     return { input: value, confirmation: undefined };
   }
   const record = value as Record<string, unknown>;
-  const confirmation = typeof record.confirmation === "string"
-    ? record.confirmation
-    : undefined;
+  const confirmation =
+    typeof record.confirmation === "string" ? record.confirmation : undefined;
   if (!("confirmation" in record)) return { input: value, confirmation };
   const { confirmation: _dropped, ...input } = record;
   return { input, confirmation };
@@ -521,7 +528,9 @@ async function fileStream(
   if (!answer.ok) return rejected(commonWorkerError(answer.error));
   const { body, contentType, length } = answer.value;
   if (
-    !validMediaType(contentType) || !Number.isSafeInteger(length) || length < 0
+    !validMediaType(contentType) ||
+    !Number.isSafeInteger(length) ||
+    length < 0
   ) {
     await body.cancel().catch(() => undefined);
     return rejected(asInternalError(new Error(`file stream ${route.name}`)));
@@ -534,8 +543,9 @@ async function fileStream(
 const MEDIA_TYPE = /^[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+$/;
 
 function validMediaType(value: unknown): value is string {
-  return typeof value === "string" && value.length <= 255 &&
-    MEDIA_TYPE.test(value);
+  return (
+    typeof value === "string" && value.length <= 255 && MEDIA_TYPE.test(value)
+  );
 }
 
 // worker 오류는 코드만 믿고 message·details는 버린다. worker 문장이 caller에게 새지 않는다

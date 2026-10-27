@@ -123,17 +123,18 @@ export async function prepareRestore(input: {
       if (prepared.has(path)) continue;
       const seen = input.current.get(path) ?? GONE;
       const write = restoring
-        ? file.actions.find((action) =>
-          action.kind === "write" && action.path === path
-        )
+        ? file.actions.find(
+            (action) => action.kind === "write" && action.path === path,
+          )
         : undefined;
       prepared.set(path, {
         path,
         observed_sha256: seen.sha256,
         link: seen.link,
-        staged: write?.kind === "write"
-          ? await staged(input.store, input.session, write.blob)
-          : false,
+        staged:
+          write?.kind === "write"
+            ? await staged(input.store, input.session, write.blob)
+            : false,
       });
     }
   }
@@ -205,11 +206,17 @@ export function restorable(
   file: JudgedFile,
   prepared: ReadonlyMap<string, PreparedFile>,
 ): boolean {
-  return file.plan === "restore" && file.actions.every((action) => {
-    const ready = prepared.get(action.path);
-    return ready !== undefined && !ready.link &&
-      (action.kind === "delete" || ready.staged);
-  });
+  return (
+    file.plan === "restore" &&
+    file.actions.every((action) => {
+      const ready = prepared.get(action.path);
+      return (
+        ready !== undefined &&
+        !ready.link &&
+        (action.kind === "delete" || ready.staged)
+      );
+    })
+  );
 }
 
 // Rewind command가 확정된 뒤 restorable한 plan=restore 경로를 복원한다. 경로마다 쓰기 직전에 지금
@@ -241,7 +248,7 @@ async function installUnit(
     const contents = new Map<string, Uint8Array>();
     for (const action of file.actions) {
       const prepared = byPath.get(action.path);
-      if (!await unchanged(file.root, action.path, prepared)) return false;
+      if (!(await unchanged(file.root, action.path, prepared))) return false;
       if (action.kind === "write") {
         contents.set(
           action.path,

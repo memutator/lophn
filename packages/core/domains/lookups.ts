@@ -32,15 +32,16 @@ export function domainsOfOwner(
   owner: DomainOwner,
   status?: "active" | "archived",
 ): DomainInfo[] {
-  const rows = status === undefined
-    ? sql.all(
-      `SELECT ${COLUMNS} FROM domains WHERE owner_kind = ? AND owner_id = ? ORDER BY name`,
-      [owner.kind, owner.id],
-    )
-    : sql.all(
-      `SELECT ${COLUMNS} FROM domains WHERE owner_kind = ? AND owner_id = ? AND status = ? ORDER BY name`,
-      [owner.kind, owner.id, status],
-    );
+  const rows =
+    status === undefined
+      ? sql.all(
+          `SELECT ${COLUMNS} FROM domains WHERE owner_kind = ? AND owner_id = ? ORDER BY name`,
+          [owner.kind, owner.id],
+        )
+      : sql.all(
+          `SELECT ${COLUMNS} FROM domains WHERE owner_kind = ? AND owner_id = ? AND status = ? ORDER BY name`,
+          [owner.kind, owner.id, status],
+        );
   return rows.map(infoOf);
 }
 
@@ -53,16 +54,16 @@ export function domainOwnerOf(
 
 // 그릇의 domain id 전부(보관한 것 포함). active만 필요하면 `domainsOfOwner(sql, owner, "active")`다.
 export function domainIdsOfOwner(sql: ReadSql, owner: DomainOwner): string[] {
-  return sql.all(
-    "SELECT id FROM domains WHERE owner_kind = ? AND owner_id = ? ORDER BY id",
-    [owner.kind, owner.id],
-  ).map((row) => String(row["id"]));
+  return sql
+    .all(
+      "SELECT id FROM domains WHERE owner_kind = ? AND owner_id = ? ORDER BY id",
+      [owner.kind, owner.id],
+    )
+    .map((row) => String(row["id"]));
 }
 
 export function activeDomainIds(sql: ReadSql): string[] {
-  return sql.all(
-    "SELECT id FROM domains WHERE status = 'active' ORDER BY id",
-    [],
-  )
+  return sql
+    .all("SELECT id FROM domains WHERE status = 'active' ORDER BY id", [])
     .map((row) => String(row["id"]));
 }

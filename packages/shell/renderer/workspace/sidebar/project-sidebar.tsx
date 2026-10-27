@@ -129,38 +129,36 @@ interface ProjectSidebarProps {
   onResizeStart?: (event: ReactPointerEvent<HTMLElement>) => void;
 }
 
-export function ProjectSidebar(
-  {
-    mode,
-    width,
-    project,
-    source,
-    agents,
-    sessions,
-    runs,
-    artifactPanel = null,
-    onOpenDomainDoc,
-    onOpenWorkflow,
-    activeWorkflow,
-    jobs,
-    onOpenJobs,
-    current = null,
-    initialTab = "explorer",
-    reveal = null,
-    focusExplorer = 0,
-    onOpenFile,
-    onMove,
-    onTrash,
-    onRail,
-    onAgent,
-    onNewSession,
-    onSession,
-    onManage,
-    onToggle,
-    onSettings,
-    onResizeStart,
-  }: ProjectSidebarProps,
-) {
+export function ProjectSidebar({
+  mode,
+  width,
+  project,
+  source,
+  agents,
+  sessions,
+  runs,
+  artifactPanel = null,
+  onOpenDomainDoc,
+  onOpenWorkflow,
+  activeWorkflow,
+  jobs,
+  onOpenJobs,
+  current = null,
+  initialTab = "explorer",
+  reveal = null,
+  focusExplorer = 0,
+  onOpenFile,
+  onMove,
+  onTrash,
+  onRail,
+  onAgent,
+  onNewSession,
+  onSession,
+  onManage,
+  onToggle,
+  onSettings,
+  onResizeStart,
+}: ProjectSidebarProps) {
   // 고른 탭은 화면 상태일 뿐이라 저장하지 않는다.
   const [tab, setTab] = useState<SidebarTab>(initialTab);
   useEffect(() => {
@@ -205,86 +203,74 @@ export function ProjectSidebar(
       {collapsed ? null : (
         <div className={styles.panel}>
           <div className={styles.body} data-sidebar-tab={tab}>
-            {tab === "explorer"
-              ? folders.length === 0
-                ? (
-                  <p className={styles.empty}>
-                    {t("project-workspace.empty.no-folders")}
-                  </p>
-                )
-                : (
-                  <Explorer
-                    // 프로젝트가 바뀌면 고른 루트와 펼침을 새로 시작한다.
-                    key={project?.id}
-                    source={source}
-                    folders={folders}
-                    current={current}
-                    reveal={reveal}
-                    focusAsked={focusAsked}
-                    onFocusAsked={() => setFocusAsked(false)}
-                    onOpenFile={onOpenFile}
-                    onMove={onMove}
-                    onTrash={onTrash}
-                  />
-                )
-              : null}
-            {tab === "agent"
-              ? (
-                <AgentPanel
-                  view={panel}
-                  onAgent={onAgent}
-                  onNewSession={onNewSession}
-                  onSession={onSession}
-                  onManage={onManage}
+            {tab === "explorer" ? (
+              folders.length === 0 ? (
+                <p className={styles.empty}>
+                  {t("project-workspace.empty.no-folders")}
+                </p>
+              ) : (
+                <Explorer
+                  // 프로젝트가 바뀌면 고른 루트와 펼침을 새로 시작한다.
+                  key={project?.id}
+                  source={source}
+                  folders={folders}
+                  current={current}
+                  reveal={reveal}
+                  focusAsked={focusAsked}
+                  onFocusAsked={() => setFocusAsked(false)}
+                  onOpenFile={onOpenFile}
+                  onMove={onMove}
+                  onTrash={onTrash}
                 />
               )
-              : null}
+            ) : null}
+            {tab === "agent" ? (
+              <AgentPanel
+                view={panel}
+                onAgent={onAgent}
+                onNewSession={onNewSession}
+                onSession={onSession}
+                onManage={onManage}
+              />
+            ) : null}
             {tab === "artifact" ? artifactPanel : null}
-            {tab === "domain" && project !== null
-              ? (
-                <DomainPanel
-                  key={project.id}
-                  project={project.id}
-                  source={source}
-                  onOpenDoc={onOpenDomainDoc ?? (() => {})}
-                />
-              )
-              : null}
-            {tab === "workflow" && project !== null
-              ? (
-                <WorkflowPanel
-                  key={project.id}
-                  project={project.id}
-                  source={source}
-                  active={activeWorkflow}
-                  onOpen={onOpenWorkflow ?? (() => {})}
-                />
-              )
-              : null}
-            {tab === "jobs" && project !== null && jobs
-              ? (
-                <JobPanel
-                  key={project.id}
-                  project={project.id}
-                  source={jobs}
-                  onOpenSettings={onOpenJobs ?? (() => {})}
-                />
-              )
-              : null}
+            {tab === "domain" && project !== null ? (
+              <DomainPanel
+                key={project.id}
+                project={project.id}
+                source={source}
+                onOpenDoc={onOpenDomainDoc ?? (() => {})}
+              />
+            ) : null}
+            {tab === "workflow" && project !== null ? (
+              <WorkflowPanel
+                key={project.id}
+                project={project.id}
+                source={source}
+                active={activeWorkflow}
+                onOpen={onOpenWorkflow ?? (() => {})}
+              />
+            ) : null}
+            {tab === "jobs" && project !== null && jobs ? (
+              <JobPanel
+                key={project.id}
+                project={project.id}
+                source={jobs}
+                onOpenSettings={onOpenJobs ?? (() => {})}
+              />
+            ) : null}
           </div>
         </div>
       )}
-      {onResizeStart && !collapsed
-        ? (
-          <div
-            className={styles.resizer}
-            data-sidebar-resizer=""
-            role="separator"
-            aria-orientation="vertical"
-            onPointerDown={onResizeStart}
-          />
-        )
-        : null}
+      {onResizeStart && !collapsed ? (
+        <div
+          className={styles.resizer}
+          data-sidebar-resizer=""
+          role="separator"
+          aria-orientation="vertical"
+          onPointerDown={onResizeStart}
+        />
+      ) : null}
     </nav>
   );
 }

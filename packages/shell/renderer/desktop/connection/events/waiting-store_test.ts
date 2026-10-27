@@ -80,14 +80,16 @@ const ids = (store: ReturnType<typeof createWaitingStore>) =>
 
 test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요청은 남지 않는다", async () => {
   const source = createFakeSource({
-    snapshots: [{
-      session: SES,
-      agent: { role: "lophn" },
-      place: null,
-      state: "waiting",
-      turn_requests: [permission(1)],
-      questions: [],
-    }],
+    snapshots: [
+      {
+        session: SES,
+        agent: { role: "lophn" },
+        place: null,
+        state: "waiting",
+        turn_requests: [permission(1)],
+        questions: [],
+      },
+    ],
     consents: [consent()],
   });
   const store = createWaitingStore(
@@ -111,14 +113,16 @@ test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요청�
   // 끊긴 사이 1번과 동의는 해결됐다. 다시 붙을 때 읽은 snapshot이 목록을 통째로 맞춘다.
   source.disconnect();
   source.reconnect({
-    snapshots: [{
-      session: SES,
-      agent: { role: "lophn" },
-      place: null,
-      state: "waiting",
-      turn_requests: [permission(3)],
-      questions: [{ group: id("qgr", 4), turn: TURN, tool_call: CALL }],
-    }],
+    snapshots: [
+      {
+        session: SES,
+        agent: { role: "lophn" },
+        place: null,
+        state: "waiting",
+        turn_requests: [permission(3)],
+        questions: [{ group: id("qgr", 4), turn: TURN, tool_call: CALL }],
+      },
+    ],
     consents: [],
   });
   // snapshot을 읽는 동안 온 event는 맞춘 뒤에 적용된다.

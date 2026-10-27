@@ -16,11 +16,11 @@ export type Step =
   | { kind: "answer"; text: string }
   | { kind: "tools"; calls: ToolCall[]; text: string }
   | {
-    kind: "partial";
-    text: string;
-    finish_reason: string | null;
-    calls: ToolCall[];
-  }
+      kind: "partial";
+      text: string;
+      finish_reason: string | null;
+      calls: ToolCall[];
+    }
   | { kind: "failed"; code: FailureCode; retry_at: string | null }
   | { kind: "hang" };
 
@@ -42,9 +42,10 @@ export const partial = (
   calls: opts.calls ?? [],
 });
 
-export const failed = (
-  opts: { code: FailureCode; retry_at?: string },
-): Step => ({
+export const failed = (opts: {
+  code: FailureCode;
+  retry_at?: string;
+}): Step => ({
   kind: "failed",
   code: opts.code,
   retry_at: opts.retry_at ?? null,
@@ -163,14 +164,15 @@ export function scriptedModel(steps: readonly Step[]) {
       return requests[i].prompt.request.tools.map((tool) => tool.name);
     },
     systemText(i: number): string {
-      return requests[i].prompt.request.system.map((block) => block.text)
+      return requests[i].prompt.request.system
+        .map((block) => block.text)
         .join("\n");
     },
     lastToolResult(i: number): { id: string; text: string } | undefined {
       const results = messagesOf(i).flatMap((message) =>
         message.parts.flatMap((part) =>
-          part.kind === "tool_result" ? [{ id: part.id, text: part.text }] : []
-        )
+          part.kind === "tool_result" ? [{ id: part.id, text: part.text }] : [],
+        ),
       );
       return results[results.length - 1];
     },
@@ -179,8 +181,8 @@ export function scriptedModel(steps: readonly Step[]) {
         message.role !== "user"
           ? []
           : message.parts.flatMap((part) =>
-            part.kind === "text" ? [part.text] : []
-          )
+              part.kind === "text" ? [part.text] : [],
+            ),
       );
     },
     // step이 남았거나 호출이 더 왔으면 실패한다.

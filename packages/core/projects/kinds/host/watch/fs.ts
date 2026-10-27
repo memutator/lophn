@@ -21,12 +21,13 @@ const keyOf = (folder: WatchFolder) =>
 // `access`를 뺀 event의 경로를 root 기준 상대 경로(`/` 구분)로 바꿔 detector.signal에 넘긴다.
 // event를 저장하지 않고, watcher가 오류로 끝나면 그 폴더만 닫는다(힌트를 놓칠 뿐이다).
 // watchFs는 시험이 바꿔 끼운다(제품은 Deno.watchFs).
-export function startFsWatch(
-  options: { root: string; detector: ChangeDetector; watchFs: WatchFs },
-): FsWatch {
-  const root = options.root.length > 1
-    ? options.root.replace(/\/+$/, "")
-    : options.root;
+export function startFsWatch(options: {
+  root: string;
+  detector: ChangeDetector;
+  watchFs: WatchFs;
+}): FsWatch {
+  const root =
+    options.root.length > 1 ? options.root.replace(/\/+$/, "") : options.root;
   const prefix = root.endsWith("/") ? root : `${root}/`;
   const watchers = new Map<string, FsWatcherLike>();
 
@@ -37,9 +38,9 @@ export function startFsWatch(
     try {
       for await (const event of watcher) {
         if (event.kind === "access") continue;
-        const paths = event.paths.map(relative).filter((path) =>
-          path !== undefined
-        );
+        const paths = event.paths
+          .map(relative)
+          .filter((path) => path !== undefined);
         if (paths.length > 0) options.detector.signal(paths);
       }
     } catch {

@@ -49,10 +49,11 @@ function duplicateName(
   if (!others.ok) return others;
   const key = agentNameKey(name);
   return ok(
-    others.value.some((other) =>
-      (other.ref as { agent: string }).agent !== self &&
-      other.definition !== null &&
-      agentNameKey(nameOf(context.roles, other)) === key
+    others.value.some(
+      (other) =>
+        (other.ref as { agent: string }).agent !== self &&
+        other.definition !== null &&
+        agentNameKey(nameOf(context.roles, other)) === key,
     ),
   );
 }

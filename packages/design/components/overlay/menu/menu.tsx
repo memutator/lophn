@@ -39,30 +39,34 @@ export interface MenuProps {
 }
 
 // 항목 앞(leading)에 놓는 아이콘 칸. icon을 주면 design 아이콘을, 아니면 children(FileIcon 같은 요소)을 칸에 맞춰 감싼다.
-export function MenuIcon(
-  { icon, children }: { icon?: IconProps["icon"]; children?: ReactNode },
-) {
+export function MenuIcon({
+  icon,
+  children,
+}: {
+  icon?: IconProps["icon"];
+  children?: ReactNode;
+}) {
   return (
     <span className={styles.icon} {...componentMark("MenuIcon")}>
-      {icon === undefined
-        ? children
-        : <Icon icon={icon} pixels={iconPixels("base")} />}
+      {icon === undefined ? (
+        children
+      ) : (
+        <Icon icon={icon} pixels={iconPixels("base")} />
+      )}
     </span>
   );
 }
 
 // 키보드 이동·Escape·focus 복귀는 Radix DropdownMenu가 맡는다. dialog 안에서도 popover 층에 뜬다.
-export function Menu(
-  {
-    trigger,
-    items,
-    onSelect,
-    container,
-    placement = "beside",
-    returnFocus = true,
-    ...state
-  }: MenuProps,
-) {
+export function Menu({
+  trigger,
+  items,
+  onSelect,
+  container,
+  placement = "beside",
+  returnFocus = true,
+  ...state
+}: MenuProps) {
   return (
     <Radix.Root {...state}>
       <Radix.Trigger asChild>{trigger}</Radix.Trigger>
@@ -76,9 +80,9 @@ export function Menu(
         >
           {items.map((item) => (
             <Fragment key={item.id}>
-              {item.separatorBefore === true
-                ? <Radix.Separator className={styles.separator} />
-                : null}
+              {item.separatorBefore === true ? (
+                <Radix.Separator className={styles.separator} />
+              ) : null}
               <Radix.Item
                 className={styles.item}
                 disabled={item.disabled}

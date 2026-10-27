@@ -30,7 +30,9 @@ function lastUser(request: JournalEntry): Message | undefined {
 export function lastUserText(request: JournalEntry): string {
   const content = lastUser(request)?.content;
   if (typeof content === "string") return content;
-  return (content ?? []).filter((b) => b.type === "text").map((b) => b.text)
+  return (content ?? [])
+    .filter((b) => b.type === "text")
+    .map((b) => b.text)
     .join("");
 }
 
@@ -41,10 +43,11 @@ export function lastToolResult(
 ): string | undefined {
   const content = lastUser(request)?.content;
   if (!Array.isArray(content)) return undefined;
-  const results = content.filter((b) =>
-    b.type === "tool_result" &&
-    (toolUseId === undefined ||
-      (b as { tool_use_id?: string }).tool_use_id === toolUseId)
+  const results = content.filter(
+    (b) =>
+      b.type === "tool_result" &&
+      (toolUseId === undefined ||
+        (b as { tool_use_id?: string }).tool_use_id === toolUseId),
   );
   const last = results.at(-1);
   return last === undefined ? undefined : textOf(last.content);

@@ -26,17 +26,15 @@ export interface ButtonProps extends NativeButton {
 }
 
 // danger도 클릭을 호출자에게 넘길 뿐이다. 위험 결정의 확인은 그 concern이 연다.
-export function Button(
-  {
-    variant = "secondary",
-    size = "md",
-    icon,
-    children,
-    type = "button",
-    ref,
-    ...rest
-  }: ButtonProps,
-) {
+export function Button({
+  variant = "secondary",
+  size = "md",
+  icon,
+  children,
+  type = "button",
+  ref,
+  ...rest
+}: ButtonProps) {
   return (
     <button
       {...rest}

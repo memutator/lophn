@@ -62,11 +62,7 @@ export function labelOf(target: Element): string {
 const pathOf = (win: Window) =>
   (win.location.pathname + win.location.hash).slice(0, PATH_MAX);
 
-export function pickElement(
-  target: Element,
-  n: number,
-  win: Window,
-): Picked {
+export function pickElement(target: Element, n: number, win: Window): Picked {
   const box = target.getBoundingClientRect();
   return {
     n,

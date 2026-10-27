@@ -27,9 +27,11 @@ export function composeAttachmentText(
 }
 
 /** 글 끝의 첨부 줄을 떼어 낸다. 글 사이의 같은 모양은 그대로 둔다. */
-export function splitAttachmentText(
-  text: string,
-): { text: string; files: string[]; images: string[] } {
+export function splitAttachmentText(text: string): {
+  text: string;
+  files: string[];
+  images: string[];
+} {
   const lines = text.split("\n");
   const files: string[] = [];
   const images: string[] = [];

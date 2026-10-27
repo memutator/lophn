@@ -35,11 +35,15 @@ function shape(sse: string) {
 
 const rows: [string, string, Reply][] = [
   ["text", "anthropic/text-end_turn", { kind: "text", text: "Hello" }],
-  ["tool", "anthropic/tool-use", {
-    kind: "tool",
-    text: "Reading.",
-    calls: [{ id: "toolu_1", name: "read_file", arguments: '{"path":"a"}' }],
-  }],
+  [
+    "tool",
+    "anthropic/tool-use",
+    {
+      kind: "tool",
+      text: "Reading.",
+      calls: [{ id: "toolu_1", name: "read_file", arguments: '{"path":"a"}' }],
+    },
+  ],
   ["cut", "anthropic/cut-no-stop", { kind: "cut", partial: { text: "Part" } }],
 ];
 

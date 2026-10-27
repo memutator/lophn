@@ -103,8 +103,8 @@ export function trimTargets(
   const targets: string[] = [];
   for (const [category, excess] of byCategory) {
     const ordered = candidates
-      .filter((candidate) =>
-        candidate.category === category && !candidate.permanent
+      .filter(
+        (candidate) => candidate.category === category && !candidate.permanent,
       )
       .sort((a, b) => a.registeredAtMs - b.registeredAtMs);
     let remaining = excess;

@@ -15,13 +15,7 @@
     "jsx": "react-jsx",
     "jsxImportSource": "react",
     "jsxImportSourceTypes": "@types/react",
-    "lib": [
-      "ES2023",
-      "DOM",
-      "deno.ns"
-    ],
-    "types": [
-      "./css-modules.d.ts"
-    ]
+    "lib": ["ES2023", "DOM", "deno.ns"],
+    "types": ["./css-modules.d.ts"]
   }
 }

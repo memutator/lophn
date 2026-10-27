@@ -72,16 +72,16 @@ export function createActivationQueue() {
       app: string | undefined,
       heldCalls: (app: string) => number,
     ): ActivationQueueEntry[] {
-      return [...entries.values()].filter((entry) =>
-        app === undefined || entry.app === app
-      ).map((entry) => ({
-        app: entry.app,
-        release: entry.release,
-        phase: "running",
-        step: entry.step,
-        held_calls: heldCalls(entry.app),
-        migration_steps: entry.migrationSteps,
-      }));
+      return [...entries.values()]
+        .filter((entry) => app === undefined || entry.app === app)
+        .map((entry) => ({
+          app: entry.app,
+          release: entry.release,
+          phase: "running",
+          step: entry.step,
+          held_calls: heldCalls(entry.app),
+          migration_steps: entry.migrationSteps,
+        }));
     },
     async settled(): Promise<void> {
       while (jobs.size > 0) await Promise.all([...jobs.values()]);

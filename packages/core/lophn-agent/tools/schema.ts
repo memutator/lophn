@@ -26,9 +26,10 @@ export function checkInput(
   const path = issue === undefined ? "" : issue.path.join(".");
   return err({
     code: "invalid_input",
-    message: issue === undefined
-      ? "tool input does not match the definition"
-      : `tool input does not match the definition at ${path || "input"}`,
+    message:
+      issue === undefined
+        ? "tool input does not match the definition"
+        : `tool input does not match the definition at ${path || "input"}`,
     path,
   });
 }

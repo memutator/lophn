@@ -72,10 +72,12 @@ function unavailableProvider(): Result<never> {
 
 // StartModelCall은 machine 전용 기록이다. actor 종류는 route가 이미 본다.
 function requireMachine(ctx: RequestContext): Result<void> {
-  return parseActor(ctx.actor)?.kind === "machine" ? ok(undefined) : err({
-    code: "forbidden",
-    message: "model call records are machine only",
-  });
+  return parseActor(ctx.actor)?.kind === "machine"
+    ? ok(undefined)
+    : err({
+        code: "forbidden",
+        message: "model call records are machine only",
+      });
 }
 
 function loadCall(tx: Tx, id: string): Result<CallRow> {
@@ -98,9 +100,10 @@ function checkRevision(
   row: CallRow,
   compare: { state_seq: string },
 ): Result<void> {
-  const stored = typeof row.state_seq === "bigint"
-    ? row.state_seq.toString()
-    : String(row.state_seq);
+  const stored =
+    typeof row.state_seq === "bigint"
+      ? row.state_seq.toString()
+      : String(row.state_seq);
   if (stored !== compare.state_seq) {
     return conflict("model call state changed");
   }
@@ -158,14 +161,10 @@ function storeStart(
 
 // 연결된 provider는 StartModelCall의 unavailable 근원이다. Disconnect한 provider에는 새 호출을 시작하지
 // 않는다. 문맥 구간 기준은 call 자격 검사의 몫이다(run-loop).
-function checkProvider(
-  tx: Tx,
-  call: ModelCallRecord,
-): Result<void> {
-  const row = tx.sql.get(
-    "select id from providers where id = ?",
-    [call.model.provider],
-  );
+function checkProvider(tx: Tx, call: ModelCallRecord): Result<void> {
+  const row = tx.sql.get("select id from providers where id = ?", [
+    call.model.provider,
+  ]);
   return row === undefined ? unavailableProvider() : ok(undefined);
 }
 
@@ -196,10 +195,9 @@ export function createUsageCommands(deps: UsageDeps = {}): {
         if (!registered.ok) return registered;
         // 같은 id 재시작은 시도마다 한 번이다. 유니크 PK가 막기 전에
         // conflict로 내보낸다(저장 실패 rollback은 internal로 새지 않는다).
-        const existing = tx.sql.get(
-          "select id from model_calls where id = ?",
-          [call.value.id],
-        );
+        const existing = tx.sql.get("select id from model_calls where id = ?", [
+          call.value.id,
+        ]);
         if (existing !== undefined) {
           return conflict("model call attempt already recorded");
         }
@@ -219,22 +217,20 @@ export function createUsageCommands(deps: UsageDeps = {}): {
         storeStart(tx, call.value, Number(input.state_seq), seq);
         // 준비한 input·basis blob의 영구 참조는 시작 기록과 같은 transaction이다.
         if (input.blob_sizes !== undefined) {
-          for (
-            const [field, hash, size, purpose] of [
-              [
-                "input",
-                call.value.input,
-                input.blob_sizes.input,
-                TURN_BLOB_PURPOSES.model_call_input,
-              ],
-              [
-                "context_basis",
-                call.value.context_basis,
-                input.blob_sizes.context_basis,
-                TURN_BLOB_PURPOSES.model_call_basis,
-              ],
-            ] as const
-          ) {
+          for (const [field, hash, size, purpose] of [
+            [
+              "input",
+              call.value.input,
+              input.blob_sizes.input,
+              TURN_BLOB_PURPOSES.model_call_input,
+            ],
+            [
+              "context_basis",
+              call.value.context_basis,
+              input.blob_sizes.context_basis,
+              TURN_BLOB_PURPOSES.model_call_basis,
+            ],
+          ] as const) {
             const registered = registerPreparedBlob(tx, ctx, {
               owner_kind: "model_call",
               owner_key: call.value.id,

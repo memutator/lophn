@@ -23,11 +23,13 @@ export async function shellAsk(
     command,
     reply: (id) => ({
       kind: "tool",
-      calls: [{
-        id,
-        name: "shell_run",
-        arguments: JSON.stringify({ command }),
-      }],
+      calls: [
+        {
+          id,
+          name: "shell_run",
+          arguments: JSON.stringify({ command }),
+        },
+      ],
     }),
     exists: async () => {
       try {

@@ -61,9 +61,7 @@ function openFile(
   try {
     const stat = fstatSync(fd);
     if (!stat.isFile()) return unavailable();
-    const bytes = new Uint8Array(
-      Math.min(stat.size, maxBytes),
-    );
+    const bytes = new Uint8Array(Math.min(stat.size, maxBytes));
     let read = 0;
     while (read < bytes.length) {
       const count = readSync(fd, bytes, read, bytes.length - read, null);
@@ -124,8 +122,8 @@ function bodyOf(text: string): string | null {
   const lines = text.split("\n");
   let body = text;
   if (lines[0]?.trimEnd() === "---") {
-    const close = lines.findIndex((line, at) =>
-      at > 0 && line.trimEnd() === "---"
+    const close = lines.findIndex(
+      (line, at) => at > 0 && line.trimEnd() === "---",
     );
     if (close === -1) return null;
     body = lines.slice(close + 1).join("\n");
@@ -203,7 +201,8 @@ function readInstruction(
   }
   const project = requested ?? own;
   if (project === null) return ok(null);
-  const folder = deps.projectFirstFolder(snapshot.sql, project) ??
+  const folder =
+    deps.projectFirstFolder(snapshot.sql, project) ??
     deps.projectDataFolder(root.value, project);
   return openFile(`${folder}/${FILE_NAME}`);
 }
@@ -212,9 +211,7 @@ function readInstruction(
 // ledger writer를 붙잡지 않는다. `as_of_seq`는 읽은 때의 ledger 위치다.
 function instructionsGetHandler(
   deps: InstructionReadDeps,
-): ReadDefinition<
-  typeof instructionsGet
-> {
+): ReadDefinition<typeof instructionsGet> {
   return {
     route: instructionsGet,
     handle(snapshot, ctx, input) {
@@ -289,10 +286,7 @@ export function createInstructionReads(
   deps: InstructionReadDeps,
 ): ReaderRegistration {
   return {
-    reads: [
-      instructionsGetHandler(deps),
-      instructionPreviewHandler(),
-    ],
+    reads: [instructionsGetHandler(deps), instructionPreviewHandler()],
     ports: new Map(),
   };
 }

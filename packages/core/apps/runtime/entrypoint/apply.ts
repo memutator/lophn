@@ -23,7 +23,7 @@ export async function handleApply(
   if (!apply) return fail(400, "invalid_input", "apply request is invalid");
   // 적용하는 동안 다른 호출은 없다(core가 접수를 닫았다). 늦게 온 write와 session이 겹치지 않게 문도 지난다.
   const outcome = await state.exclusive(() =>
-    Promise.resolve(state.store.apply(apply.changesets.map(decodeChangeset)))
+    Promise.resolve(state.store.apply(apply.changesets.map(decodeChangeset))),
   );
   return {
     status: 200,

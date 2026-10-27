@@ -14,9 +14,7 @@ type SseOver = {
   limit: number;
 };
 
-type SsePush =
-  | { ok: true; frames: SseFrame[] }
-  | { ok: false; over: SseOver };
+type SsePush = { ok: true; frames: SseFrame[] } | { ok: false; over: SseOver };
 
 type SseParser = {
   push(chunk: Uint8Array): SsePush;

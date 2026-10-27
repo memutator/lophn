@@ -49,41 +49,63 @@ test("agent는 자기 session에 붙은 이미지만 풀고 경로 문자는 거
   );
   if (!uploaded.ok) throw new Error("upload failed");
   const image = uploaded.value.id;
-  assert.deepStrictEqual([...stored.keys()], [
-    `/data/message-images/${A}/${image}.png`,
-  ]);
+  assert.deepStrictEqual(
+    [...stored.keys()],
+    [`/data/message-images/${A}/${image}.png`],
+  );
 
   const path = messageImagePathHandler(deps);
   const cases: [string, AuthenticatedContext, unknown, string | "ok"][] = [
     ["own session", who(`agent:${A}`, A), { session: A, image }, "ok"],
-    ["other session's credential", who(`agent:${B}`, B), {
-      session: A,
-      image,
-    }, "forbidden"],
-    ["credential session differs from actor", who(`agent:${B}`, A), {
-      session: B,
-      image,
-    }, "forbidden"],
-    ["same id under another session", who(`agent:${B}`, B), {
-      session: B,
-      image,
-    }, "not_found"],
-    ["traversal in id", who(`agent:${A}`, A), {
-      session: A,
-      image: "../../x",
-    }, "invalid_input"],
-    ["traversal in session", who(`agent:${A}`, A), {
-      session: "../x",
-      image,
-    }, "invalid_input"],
+    [
+      "other session's credential",
+      who(`agent:${B}`, B),
+      {
+        session: A,
+        image,
+      },
+      "forbidden",
+    ],
+    [
+      "credential session differs from actor",
+      who(`agent:${B}`, A),
+      {
+        session: B,
+        image,
+      },
+      "forbidden",
+    ],
+    [
+      "same id under another session",
+      who(`agent:${B}`, B),
+      {
+        session: B,
+        image,
+      },
+      "not_found",
+    ],
+    [
+      "traversal in id",
+      who(`agent:${A}`, A),
+      {
+        session: A,
+        image: "../../x",
+      },
+      "invalid_input",
+    ],
+    [
+      "traversal in session",
+      who(`agent:${A}`, A),
+      {
+        session: "../x",
+        image,
+      },
+      "invalid_input",
+    ],
   ];
   for (const [name, ctx, input, expected] of cases) {
     const got = await path(ctx, input);
-    assert.deepStrictEqual(
-      got.ok ? "ok" : got.error.code,
-      expected,
-      name,
-    );
+    assert.deepStrictEqual(got.ok ? "ok" : got.error.code, expected, name);
   }
 });
 
@@ -101,9 +123,8 @@ test("형식이나 길이가 선언과 다른 이미지는 저장되지 않는�
     { session: A, content_type: "image/png", bytes: PNG.length + 1 },
     body(PNG),
   );
-  assert.deepStrictEqual([wrongType.ok, wrongLength.ok, stored.size], [
-    false,
-    false,
-    0,
-  ]);
+  assert.deepStrictEqual(
+    [wrongType.ok, wrongLength.ok, stored.size],
+    [false, false, 0],
+  );
 });

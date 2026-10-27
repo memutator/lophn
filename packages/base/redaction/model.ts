@@ -15,10 +15,10 @@ const REDACTION_AUDIENCES = [
   "model",
   "external",
 ] as const;
-type RedactionAudience = typeof REDACTION_AUDIENCES[number];
+type RedactionAudience = (typeof REDACTION_AUDIENCES)[number];
 
 export const REDACTION_STATUSES = ["passed", "partial", "omitted"] as const;
-type RedactionStatus = typeof REDACTION_STATUSES[number];
+type RedactionStatus = (typeof REDACTION_STATUSES)[number];
 
 export const OMISSION_REASONS = [
   "private",
@@ -28,7 +28,7 @@ export const OMISSION_REASONS = [
   "redaction_failed",
   "uncertain",
 ] as const;
-type OmissionReason = typeof OMISSION_REASONS[number];
+type OmissionReason = (typeof OMISSION_REASONS)[number];
 
 // 단독 `*`와 구간 중간 `*`는 원값 경로가 아니다.
 const FIELD_PATH_PATTERN =

@@ -91,8 +91,8 @@ function requestKind(resourceType: string): RequestKind {
   return resourceType === "mainFrame"
     ? "mainFrame"
     : resourceType === "subFrame"
-    ? "subFrame"
-    : "other";
+      ? "subFrame"
+      : "other";
 }
 
 function ownUrl(url: string, appLabel: string): boolean {
@@ -124,7 +124,9 @@ export function createAppSessions(deps: AppSessionsDeps) {
       // 지금 view에 묶이지 않은 contents(폐기·교체된 view, worker 등)는 아무 데도 못 간다.
       handle.onBeforeRequest((details, callback) => {
         const view = deps.viewOf(details.webContentsId);
-        const allowed = view !== undefined && view.appLabel === appLabel &&
+        const allowed =
+          view !== undefined &&
+          view.appLabel === appLabel &&
           requestAllowed({
             url: details.url,
             kind: requestKind(details.resourceType),
@@ -142,7 +144,8 @@ export function createAppSessions(deps: AppSessionsDeps) {
         }
         const view = deps.viewOf(details.webContentsId);
         if (
-          view !== undefined && view.appLabel === appLabel &&
+          view !== undefined &&
+          view.appLabel === appLabel &&
           ownUrl(details.url, appLabel)
         ) {
           headers[VIEW_HEADER] = view.token;

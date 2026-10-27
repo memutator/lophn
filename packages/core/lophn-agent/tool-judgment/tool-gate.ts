@@ -46,12 +46,15 @@ export function createToolGate(deps: ToolGateDeps): ToolGate {
       }
       if (judgment.kind === "run") return ok({ kind: "run" });
 
-      const opened = deps.approvals.openTurnRequest({
-        session: call.session,
-        turn: call.turn,
-        tool_call: call.toolCall,
-        place: call.place,
-      }, call.call);
+      const opened = deps.approvals.openTurnRequest(
+        {
+          session: call.session,
+          turn: call.turn,
+          tool_call: call.toolCall,
+          place: call.place,
+        },
+        call.call,
+      );
       if (!opened.ok) return opened;
       // 물은 입력을 그대로 실행한다. 허락 뒤 다시 판정하거나 비교하지 않는다.
       const outcome = await deps.approvals.waitTurnDecision(opened.value.id);

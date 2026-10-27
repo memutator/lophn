@@ -21,11 +21,7 @@ export const COMMANDS_GROUP: SlashGroupView = {
     builtin("new", "New session", "Start a new session with this agent"),
     builtin("rename", "Rename", "Rename this session"),
     builtin("archive", "Archive", "Archive this session"),
-    builtin(
-      "compact",
-      "Compact",
-      "Summarize this session to free up context",
-    ),
+    builtin("compact", "Compact", "Summarize this session to free up context"),
     builtin("fork", "Fork", "Copy this session into a new one"),
     builtin("mcp", "MCP", "Show MCP server status"),
     builtin("skills", "Skills", "Turn skills on or off for this agent"),
@@ -45,25 +41,16 @@ export const SKILLS_GROUP: SlashGroupView = {
   source: "skill",
   title: "Skills",
   entries: [
-    skill(
-      "eval-metrics",
-      "Compute pass rate and regressions",
-    ),
+    skill("eval-metrics", "Compute pass rate and regressions"),
     skill(
       "new-app",
       "Start a new app with the person: find out what it should do, check what already exists, then register it and hand it to its App Engineer.",
     ),
-    skill(
-      "release-notes",
-      "Draft release notes from merged changes",
-    ),
+    skill("release-notes", "Draft release notes from merged changes"),
     skill(
       "repair-app",
       "Find out what went wrong in one of the person's apps from its status, log and failed calls, tell the person what you found, and hand the fix to that app's App Engineer.",
     ),
-    skill(
-      "weekly-report",
-      "Write the weekly eval report",
-    ),
+    skill("weekly-report", "Write the weekly eval report"),
   ],
 };

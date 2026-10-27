@@ -60,8 +60,10 @@ export const SEARCH_DEBOUNCE_MS = 150;
 
 function matches(entry: PaletteEntry<unknown>, words: string): boolean {
   if (words === "" || entry.found) return true;
-  return entry.label.toLocaleLowerCase().includes(words) ||
-    (entry.detail ?? "").toLocaleLowerCase().includes(words);
+  return (
+    entry.label.toLocaleLowerCase().includes(words) ||
+    (entry.detail ?? "").toLocaleLowerCase().includes(words)
+  );
 }
 
 /**
@@ -105,22 +107,21 @@ export function paletteModel<T>(
   groupLabel: (group: PaletteGroup) => string,
 ): { model: OverlayModel; targets: Map<string, T> } {
   const targets = new Map<string, T>();
-  const choices = rows.filter((row) => row.label.trim() !== "").map((
-    row,
-    index,
-  ) => {
-    const id = `${row.group}-${serial}-${index}`;
-    targets.set(id, row.target);
-    return {
-      id,
-      label: clip(row.label, 256),
-      group: clip(groupLabel(row.group), 64),
-      icon: row.icon,
-      ...(row.image ? { image: row.image } : {}),
-      ...(row.detail ? { detail: clip(row.detail, 256) } : {}),
-      ...(row.hint ? { hint: clip(row.hint, 32) } : {}),
-    };
-  });
+  const choices = rows
+    .filter((row) => row.label.trim() !== "")
+    .map((row, index) => {
+      const id = `${row.group}-${serial}-${index}`;
+      targets.set(id, row.target);
+      return {
+        id,
+        label: clip(row.label, 256),
+        group: clip(groupLabel(row.group), 64),
+        icon: row.icon,
+        ...(row.image ? { image: row.image } : {}),
+        ...(row.detail ? { detail: clip(row.detail, 256) } : {}),
+        ...(row.hint ? { hint: clip(row.hint, 32) } : {}),
+      };
+    });
   return {
     model: { label: clip(title, 256), search: true, choices },
     targets,

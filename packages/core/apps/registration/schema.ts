@@ -4,9 +4,10 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 // 같은 이름 공간이라 place_names 예약이 unique를 지키고, 표에는 한 번 더 unique를 둔다.
 // planning_version·active_release는 아직 없는 versions·releases 표를 참조하므로
 // 물리 FK를 두지 않는다. 보관은 삭제가 아니라 status다.
-export const appsSchemaSteps: readonly SchemaStep[] = [{
-  id: "apps.registration.tables",
-  sql: `
+export const appsSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "apps.registration.tables",
+    sql: `
     CREATE TABLE apps (
       id TEXT PRIMARY KEY NOT NULL,
       slug TEXT NOT NULL UNIQUE,
@@ -38,4 +39,5 @@ export const appsSchemaSteps: readonly SchemaStep[] = [{
     WHEN EXISTS (SELECT 1 FROM apps WHERE id = NEW.id OR slug = NEW.slug)
     BEGIN SELECT RAISE(ABORT, 'app identity already exists'); END;
   `,
-}];
+  },
+];

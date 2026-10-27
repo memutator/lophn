@@ -63,7 +63,9 @@ function identityOf(info: Stats): Identity {
 }
 
 const sameIdentity = (a: Identity, b: Identity): boolean =>
-  a.dev === b.dev && a.ino === b.ino && a.size === b.size &&
+  a.dev === b.dev &&
+  a.ino === b.ino &&
+  a.size === b.size &&
   a.mtime === b.mtime;
 
 // 폴더 밖을 가리키거나 일반 파일이 아니면 undefined. 읽기 직전의 최종 검사에도 쓴다.
@@ -79,10 +81,7 @@ function openable(source: Source): Stats | undefined {
 }
 
 // 읽는 사이 identity·size·mtime이 바뀌었거나 너무 크면 null이다(그 파일은 이번 scan에서 읽지 못한 것).
-function readChecked(
-  source: Source,
-  maxBytes: number,
-): Uint8Array | null {
+function readChecked(source: Source, maxBytes: number): Uint8Array | null {
   const before = openable(source);
   if (before === undefined || before.size > maxBytes) return null;
   try {
@@ -102,16 +101,12 @@ function collect(
   options: KindsFileOptions,
 ): Map<string, Source> {
   const limits = limitsOf(options);
-  const excluded = (options.exclude ?? []).map((path) =>
-    realRootOf(path) ?? path
+  const excluded = (options.exclude ?? []).map(
+    (path) => realRootOf(path) ?? path,
   );
   const found = new Map<string, Source>();
 
-  const walk = (
-    root: string,
-    relative: string,
-    recursive: boolean,
-  ): void => {
+  const walk = (root: string, relative: string, recursive: boolean): void => {
     const directory = relative === "" ? root : `${root}/${relative}`;
     let entries: Dirent[];
     try {

@@ -7,9 +7,9 @@ export function renderForAgent(
   def: HumanDefinition,
   q: PendingQuestion,
 ): string {
-  return `${def.prompt}\n<requirement_card>\n${q.card}\n</requirement_card>\n<earlier_answers>\n${
-    earlierText(q.earlier)
-  }\n</earlier_answers>\n<questions>\n${
-    questionsText(q.questions)
-  }\n</questions>`;
+  return `${def.prompt}\n<requirement_card>\n${q.card}\n</requirement_card>\n<earlier_answers>\n${earlierText(
+    q.earlier,
+  )}\n</earlier_answers>\n<questions>\n${questionsText(
+    q.questions,
+  )}\n</questions>`;
 }

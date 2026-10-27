@@ -130,14 +130,14 @@ async function showPage(
 }
 
 const showDeno = (fake: Fake) =>
-  showPage(fake, DENO.key, [
-    "https://deno.com/blog",
-    "https://deno.com/",
-  ], "Deno, the next-generation JavaScript runtime");
+  showPage(
+    fake,
+    DENO.key,
+    ["https://deno.com/blog", "https://deno.com/"],
+    "Deno, the next-generation JavaScript runtime",
+  );
 
-function DenoTab(
-  { fake, then }: { fake: Fake; then?: () => Promise<void> },
-) {
+function DenoTab({ fake, then }: { fake: Fake; then?: () => Promise<void> }) {
   useDrive(async () => {
     await showDeno(fake);
     await then?.();
@@ -265,10 +265,7 @@ export function BrowserDevtoolsRight() {
 /** DevTools를 page 아래에 붙였다. */
 export function BrowserDevtoolsBottom() {
   return (
-    <DenoTab
-      fake={useFake()}
-      then={placeDevtools("Dock DevTools to bottom")}
-    />
+    <DenoTab fake={useFake()} then={placeDevtools("Dock DevTools to bottom")} />
   );
 }
 

@@ -48,17 +48,21 @@ export function checkDeclarationGraph(
       );
     }
     for (const { specifier, line } of readImports(source)) {
-      const relative = specifier.startsWith("./") ||
-        specifier.startsWith("../");
+      const relative =
+        specifier.startsWith("./") || specifier.startsWith("../");
       const target = normalize(`${directory(file)}/${specifier}`);
-      const module = relative && specifier.endsWith(".ts") &&
-        !target.endsWith("_test.ts") && sources.has(target);
-      const allowed = module &&
+      const module =
+        relative &&
+        specifier.endsWith(".ts") &&
+        !target.endsWith("_test.ts") &&
+        sources.has(target);
+      const allowed =
+        module &&
         (CONTRACT_FILES.has(file)
           ? CONTRACT_FILES.has(target)
           : inside(file, SDK)
-          ? CONTRACT_FILES.has(target) || inside(target, SDK)
-          : wrapperImport(file, target));
+            ? CONTRACT_FILES.has(target) || inside(target, SDK)
+            : wrapperImport(file, target));
       if (!allowed) {
         add(
           file,

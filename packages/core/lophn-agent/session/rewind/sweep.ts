@@ -9,14 +9,13 @@ type Lookup = { sql: Pick<Sql, "get" | "all"> };
 // row가 가리키는 저장물의 key다: 쓰기 직전 pre-image(`before_blob`).
 function liveStoreKeys(lookup: Lookup, session: string): Set<string> {
   const keys = new Set<string>();
-  for (
-    const row of lookup.sql.all(
-      `select distinct f.before_blob as key
+  for (const row of lookup.sql.all(
+    `select distinct f.before_blob as key
          from rewind_files f join checkpoints c on c.message = f.checkpoint
         where c.session = ? and f.before_blob is not null`,
-      [session],
-    )
-  ) keys.add(String(row["key"]));
+    [session],
+  ))
+    keys.add(String(row["key"]));
   return keys;
 }
 

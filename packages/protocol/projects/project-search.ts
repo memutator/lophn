@@ -33,10 +33,12 @@ export const projectSearch = defineRead({
   method: "search",
   name: "project.search",
   input: projectSearchInputSchema,
-  output: withReadCommon(z.object({
-    matches: z.array(projectSearchMatchSchema),
-    next_cursor: z.string().min(1).nullable(),
-  })),
+  output: withReadCommon(
+    z.object({
+      matches: z.array(projectSearchMatchSchema),
+      next_cursor: z.string().min(1).nullable(),
+    }),
+  ),
   actors: ["user"],
   errors: [
     "invalid_input",

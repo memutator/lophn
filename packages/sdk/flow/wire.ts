@@ -49,7 +49,7 @@ type Store = Record<symbol, unknown>;
 
 export function currentPort(): FlowPort | undefined {
   const port = (globalThis as Store)[FLOW_PORT];
-  return port && typeof port === "object" ? port as FlowPort : undefined;
+  return port && typeof port === "object" ? (port as FlowPort) : undefined;
 }
 
 const pending = new Map<string, (outcome: Outcome) => void>();
@@ -82,9 +82,11 @@ function request(body: RequestBody): Promise<Outcome> {
   try {
     bytes = new TextEncoder().encode(JSON.stringify({ ...body, id }) + "\n");
   } catch (error) {
-    return Promise.resolve(valueError(
-      `request is not JSON: ${error instanceof Error ? error.message : error}`,
-    ));
+    return Promise.resolve(
+      valueError(
+        `request is not JSON: ${error instanceof Error ? error.message : error}`,
+      ),
+    );
   }
   // 넘는 줄을 보내면 host가 통로가 깨진 줄로 보고 process를 죽인다.
   if (bytes.length > LINE_MAX_BYTES) {
@@ -93,12 +95,13 @@ function request(body: RequestBody): Promise<Outcome> {
   return new Promise((resolve) => {
     pending.set(id, resolve);
     writes++;
-    writing = writing.then(() => writeAll(bytes)).catch((error) =>
-      fail(1, `stdout write failed: ${error}`)
-    ).finally(() => {
-      writes--;
-      wake?.();
-    });
+    writing = writing
+      .then(() => writeAll(bytes))
+      .catch((error) => fail(1, `stdout write failed: ${error}`))
+      .finally(() => {
+        writes--;
+        wake?.();
+      });
   });
 }
 
@@ -110,9 +113,8 @@ function onLine(line: string): void {
     console.error("flow: ignored a line that is not JSON");
     return;
   }
-  const resolve = message?.type === "response"
-    ? pending.get(message.id)
-    : undefined;
+  const resolve =
+    message?.type === "response" ? pending.get(message.id) : undefined;
   if (!resolve) {
     console.error("flow: ignored an unknown line or response id");
     return;
@@ -122,9 +124,7 @@ function onLine(line: string): void {
   wake?.();
 }
 
-async function readLines(
-  onFirst: (line: string) => void,
-): Promise<void> {
+async function readLines(onFirst: (line: string) => void): Promise<void> {
   let buffer = "";
   let first = true;
   const stream = Deno.stdin.readable.pipeThrough(new TextDecoderStream());
@@ -154,9 +154,11 @@ export function connect(): Promise<void> {
         return fail(2, "flow: first line is not JSON");
       }
       if (
-        start?.type !== "start" || typeof start.instance !== "string" ||
+        start?.type !== "start" ||
+        typeof start.instance !== "string" ||
         typeof start.input !== "string"
-      ) return fail(2, "flow: first line is not a start message");
+      )
+        return fail(2, "flow: first line is not a start message");
       const port: FlowPort = {
         instance: start.instance,
         input: start.input,
@@ -173,7 +175,7 @@ export function connect(): Promise<void> {
 export async function settled(): Promise<void> {
   for (;;) {
     while (pending.size > 0 || writes > 0) {
-      await new Promise<void>((resolve) => wake = resolve);
+      await new Promise<void>((resolve) => (wake = resolve));
     }
     await new Promise((resolve) => setTimeout(resolve, 0));
     if (pending.size === 0 && writes === 0) return;

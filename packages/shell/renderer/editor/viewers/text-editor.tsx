@@ -59,8 +59,10 @@ function tokenMarks(view: EditorView): DecorationSet {
         if (node.name === "String" || node.name === "QuotedLiteral") {
           add(node.from, node.to, "str");
         } else if (
-          node.name === "Number" || node.name === "True" ||
-          node.name === "False" || node.name === "Null" ||
+          node.name === "Number" ||
+          node.name === "True" ||
+          node.name === "False" ||
+          node.name === "Null" ||
           (node.name === "Literal" &&
             NUMBER.test(view.state.sliceDoc(node.from, node.to)))
         ) {
@@ -89,9 +91,13 @@ const tokens: Extension = ViewPlugin.fromClass(
   { decorations: (plugin) => plugin.decorations },
 );
 
-export function TextEditor(
-  { initialText, label, language, onChange, ref }: TextEditorProps,
-) {
+export function TextEditor({
+  initialText,
+  label,
+  language,
+  onChange,
+  ref,
+}: TextEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const latest = useRef({ onChange });
@@ -113,8 +119,8 @@ export function TextEditor(
           ...(language === "json"
             ? [json()]
             : language === "yaml"
-            ? [yaml()]
-            : []),
+              ? [yaml()]
+              : []),
           tokens,
           lineFlash,
           EditorView.contentAttributes.of({
@@ -137,18 +143,22 @@ export function TextEditor(
     // view는 한 번 만든다. 바깥 글 바뀜은 replaceText가 밀어 넣는다.
   }, []);
 
-  useImperativeHandle(ref, () => ({
-    focus: () => view.current?.focus(),
-    revealLine(line: number) {
-      if (view.current) flashLine(view.current, line);
-    },
-    replaceText(text: string) {
-      const editor = view.current;
-      if (!editor) return;
-      const change = minimalChange(editor.state.doc.toString(), text);
-      if (change) editor.dispatch({ changes: change });
-    },
-  }), []);
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => view.current?.focus(),
+      revealLine(line: number) {
+        if (view.current) flashLine(view.current, line);
+      },
+      replaceText(text: string) {
+        const editor = view.current;
+        if (!editor) return;
+        const change = minimalChange(editor.state.doc.toString(), text);
+        if (change) editor.dispatch({ changes: change });
+      },
+    }),
+    [],
+  );
 
   return <div className={styles.editor} ref={host} data-text-editor="" />;
 }

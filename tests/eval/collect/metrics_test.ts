@@ -65,14 +65,16 @@ test("Anthropic·OpenAI 모양 usage는 같은 input_total과 cache hit rate를 
 });
 
 test("막힘은 tool 분모에 들고 미실행은 분모에서 빠진다", () => {
-  const m = metricsOf(session({
-    tool_calls: [
-      tool("a", { kind: "success", code: "ok" }),
-      tool("b", { kind: "not_executed", code: "denied" }, "deny"),
-      tool("c", { kind: "not_executed", code: "stopped" }),
-      tool("d", { kind: "failure", code: "invalid_input" }),
-    ],
-  }));
+  const m = metricsOf(
+    session({
+      tool_calls: [
+        tool("a", { kind: "success", code: "ok" }),
+        tool("b", { kind: "not_executed", code: "denied" }, "deny"),
+        tool("c", { kind: "not_executed", code: "stopped" }),
+        tool("d", { kind: "failure", code: "invalid_input" }),
+      ],
+    }),
+  );
   assert.deepStrictEqual(m.tools.counted, 3);
   assert.deepStrictEqual(m.tools.excluded, 1);
   assert.deepStrictEqual(m.tools.success, 1);

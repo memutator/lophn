@@ -24,13 +24,17 @@ export function revealInReading(
   const wanted = plainLine(
     lines[Math.min(Math.max(1, line), lines.length) - 1] ?? "",
   );
-  const found = wanted.length < 2
-    ? undefined
-    : [...article.querySelectorAll(BLOCKS)]
-      .find((element) => (element.textContent ?? "").includes(wanted));
+  const found =
+    wanted.length < 2
+      ? undefined
+      : [...article.querySelectorAll(BLOCKS)].find((element) =>
+          (element.textContent ?? "").includes(wanted),
+        );
   if (found instanceof HTMLElement) {
-    const top = found.getBoundingClientRect().top -
-      scroller.getBoundingClientRect().top + scroller.scrollTop;
+    const top =
+      found.getBoundingClientRect().top -
+      scroller.getBoundingClientRect().top +
+      scroller.scrollTop;
     scroller.scrollTop = Math.max(0, top - scroller.clientHeight / 3);
     found.setAttribute("data-hit", "");
     setTimeout(() => found.removeAttribute("data-hit"), FLASH_MS);

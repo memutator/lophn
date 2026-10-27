@@ -56,8 +56,8 @@ function broken(what: string): Result<never> {
 function portList(ports: unknown): TxPortRegistration[] {
   if (!ports) return [];
   const values = Array.isArray(ports) ? ports : Object.values(ports);
-  return values.filter((port): port is TxPortRegistration =>
-    !!port && typeof port === "object"
+  return values.filter(
+    (port): port is TxPortRegistration => !!port && typeof port === "object",
   );
 }
 
@@ -105,15 +105,13 @@ export function assemble(
     const fromLophnAgent = asLoose(team.lophnAgentDefinitions);
     // 한 모듈이 등록을 여러 키로 내보낼 수 있다. 첫 키만 고르면 뒤 등록의
     // schema·route가 core에 안 들어간다.
-    const registrations = [
-      asLoose(direct),
-      fromLedger,
-      fromLophnAgent,
-    ].filter((item): item is Loose => item !== undefined);
+    const registrations = [asLoose(direct), fromLedger, fromLophnAgent].filter(
+      (item): item is Loose => item !== undefined,
+    );
     for (const registration of registrations) {
-      for (
-        const step of registration.schemaSteps ?? registration.schema ?? []
-      ) {
+      for (const step of registration.schemaSteps ??
+        registration.schema ??
+        []) {
         if (typeof step.id !== "string" || typeof step.sql !== "string") {
           return broken("schema step");
         }
@@ -179,7 +177,7 @@ export function assemble(
       for (const port of portList(registration.ports)) {
         assembled.ports.push(port);
       }
-      assembled.blobFields.push(...registration.blobFields ?? []);
+      assembled.blobFields.push(...(registration.blobFields ?? []));
     }
   }
   return { ok: true, value: assembled };

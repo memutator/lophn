@@ -47,9 +47,12 @@ function settledOf(read: AppRead, release: string | null): Settled | null {
     : "contract_changed";
 }
 
-export function AppCardBlock(
-  { card, message, block, label }: AppCardBlockProps,
-) {
+export function AppCardBlock({
+  card,
+  message,
+  block,
+  label,
+}: AppCardBlockProps) {
   const deps = useAppViews();
   const [facts, setFacts] = useState<AppRead | null>(null);
   const [settled, setSettled] = useState<Settled | null>(null);
@@ -95,7 +98,9 @@ export function AppCardBlock(
   if (settled !== null) return notice(settled);
   if (facts === null) {
     return (
-      <Loading loading placeholder={<Skeleton lines={3} />}>{null}</Loading>
+      <Loading loading placeholder={<Skeleton lines={3} />}>
+        {null}
+      </Loading>
     );
   }
   if (!facts.ok) {
@@ -119,7 +124,8 @@ export function AppCardBlock(
         viewSession={state?.view_session ?? null}
         health={state?.viewHealth}
         onReopen={(view_session) =>
-          void deps.views.reopenView({ view_session }).catch(() => {})}
+          void deps.views.reopenView({ view_session }).catch(() => {})
+        }
       />
       <div className={styles.appCardView}>
         <EmbeddedView

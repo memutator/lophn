@@ -150,14 +150,12 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     type: "ToolCallStarted" | "ToolCallEnded" | "MessageRecorded",
     payload: Record<string, unknown>,
   ) {
-    deps.events.publish(
-      {
-        session: seat.session,
-        type,
-        at: clock.now(),
-        payload: { turn: seat.turn, ...payload },
-      } as Parameters<AgentEventSink["publish"]>[0],
-    );
+    deps.events.publish({
+      session: seat.session,
+      type,
+      at: clock.now(),
+      payload: { turn: seat.turn, ...payload },
+    } as Parameters<AgentEventSink["publish"]>[0]);
   }
 
   // ---- 멈춤·입력 ----
@@ -169,10 +167,10 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       return { stopped: false };
     }
     const outcome = read.value.turn.outcome;
-    const reason = outcome?.kind === "interrupted" &&
-        STOP_REASONS.has(outcome.reason)
-      ? outcome.reason
-      : "user_stopped";
+    const reason =
+      outcome?.kind === "interrupted" && STOP_REASONS.has(outcome.reason)
+        ? outcome.reason
+        : "user_stopped";
     return { stopped: true, reason };
   }
 
@@ -205,16 +203,13 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       safeBody.value,
     );
     if (!inputBlob.ok) return inputBlob;
-    const basisBlob = await store(
-      TURN_BLOB_PURPOSES.model_call_basis,
-      {
-        seen: request.prompt.basis,
-        diff: request.prompt.diff,
-        cache_boundaries: request.prompt.cache_boundaries,
-        input_budget: request.prompt.input_budget,
-        measured_tokens: request.prompt.measured_tokens,
-      },
-    );
+    const basisBlob = await store(TURN_BLOB_PURPOSES.model_call_basis, {
+      seen: request.prompt.basis,
+      diff: request.prompt.diff,
+      cache_boundaries: request.prompt.cache_boundaries,
+      input_budget: request.prompt.input_budget,
+      measured_tokens: request.prompt.measured_tokens,
+    });
     if (!basisBlob.ok) return basisBlob;
     const id = ids.newId("mcl");
     const startedAt = clock.now();
@@ -274,35 +269,42 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     // reasoning delta)까지다. 읽을 글 없이 암호화만 와도 빈 조각으로 시작·끝이 온다.
     let reasoningFirstMs: number | null = null;
     let reasoningLastMs: number | null = null;
-    const invoked = await model.invoke({
-      callId: id,
-      turn: seat.turn,
-      session: seat.session,
-      purpose: "judgment",
-      model: model.call,
-      endpoint: model.endpoint,
-      inputHash: inputBlob.value.hash,
-      contextBasisHash: basisBlob.value.hash,
-      body: safeBody.value as Record<string, unknown>,
-      usageRevision: model.usageRevision,
-      onDelta: (delta) => {
-        if (delta.kind === "reasoning") {
-          const at = clock.nowMs();
-          reasoningFirstMs ??= at;
-          reasoningLastMs = at;
-        }
-        live.push(delta);
+    const invoked = await model.invoke(
+      {
+        callId: id,
+        turn: seat.turn,
+        session: seat.session,
+        purpose: "judgment",
+        model: model.call,
+        endpoint: model.endpoint,
+        inputHash: inputBlob.value.hash,
+        contextBasisHash: basisBlob.value.hash,
+        body: safeBody.value as Record<string, unknown>,
+        usageRevision: model.usageRevision,
+        onDelta: (delta) => {
+          if (delta.kind === "reasoning") {
+            const at = clock.nowMs();
+            reasoningFirstMs ??= at;
+            reasoningLastMs = at;
+          }
+          live.push(delta);
+        },
       },
-    }, signal);
+      signal,
+    );
     // 이 attempt의 delta는 이 뒤로 없다. 보내지 않은 묶음은 버린다.
     live.stop();
     const output = invoked.ok ? invoked.value : undefined;
-    lastReasoning = output?.reasoning == null ? null : {
-      text: output.reasoning,
-      duration_ms: reasoningFirstMs === null || reasoningLastMs === null
+    lastReasoning =
+      output?.reasoning == null
         ? null
-        : reasoningLastMs - reasoningFirstMs,
-    };
+        : {
+            text: output.reasoning,
+            duration_ms:
+              reasoningFirstMs === null || reasoningLastMs === null
+                ? null
+                : reasoningLastMs - reasoningFirstMs,
+          };
     const outcome = output?.outcome ?? {
       kind: "failed" as const,
       code: "credential_unavailable" as const,
@@ -314,14 +316,18 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     const usage = output?.usage ?? EMPTY_USAGE(model.usageRevision);
     const price = model.call.price_basis;
     const charged = price === null ? undefined : estimatedCost(usage, price);
-    const cost: CallCost = charged?.amount == null ? UNKNOWN_COST : {
-      kind: "estimated",
-      amount: charged.amount,
-      currency: "USD",
-      basis: (charged.rate_basis ?? {}) as Record<string, never>,
-      confirmed_at: clock.now(),
-    };
-    const kept = output !== undefined &&
+    const cost: CallCost =
+      charged?.amount == null
+        ? UNKNOWN_COST
+        : {
+            kind: "estimated",
+            amount: charged.amount,
+            currency: "USD",
+            basis: (charged.rate_basis ?? {}) as Record<string, never>,
+            confirmed_at: clock.now(),
+          };
+    const kept =
+      output !== undefined &&
       (output.text.length > 0 || output.toolCalls.length > 0);
     let outputBlob: { hash: string; size: number } | null = null;
     if (kept || outcome.kind === "partial") {
@@ -359,7 +365,8 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     // 글이 없는 reasoning 응답은 turn.ts의 answer 조건(tool call이 없거나 글이 있다)에
     // 걸리지 않는다. 그 응답도 agent message 하나이므로 tool call보다 먼저 여기서 남긴다.
     if (
-      outcome.kind === "complete" && output.text.trim() === "" &&
+      outcome.kind === "complete" &&
+      output.text.trim() === "" &&
       output.toolCalls.length > 0
     ) {
       const recorded = await recordReply(id, "");
@@ -406,15 +413,17 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
         response_key: call.key,
         response_order: call.order,
         tool: definition?.name ?? call.name,
-        definition_revision: definition === undefined
-          ? "unlisted"
-          : await definitionHash(definition),
+        definition_revision:
+          definition === undefined
+            ? "unlisted"
+            : await definitionHash(definition),
         effect: definition?.effect ?? "read",
         confirm: false,
         // 외부 MCP tool의 원래 서버·tool 쌍이다. 내장·없는 tool은 null이다.
-        extension: definition === undefined
-          ? null
-          : deps.tools.extension?.(definition) ?? null,
+        extension:
+          definition === undefined
+            ? null
+            : (deps.tools.extension?.(definition) ?? null),
         input: inputBlob.value.hash,
         input_size: inputBlob.value.size,
         retry_of: call.retry_of,
@@ -479,9 +488,10 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     };
   }
 
-  function endedOutcome(
-    outcome: { kind: string; code: string },
-  ): "ok" | "error" | "denied" | "cancelled" {
+  function endedOutcome(outcome: {
+    kind: string;
+    code: string;
+  }): "ok" | "error" | "denied" | "cancelled" {
     if (outcome.kind === "success") return "ok";
     if (outcome.kind === "not_executed") {
       if (outcome.code === "cancelled") return "cancelled";
@@ -519,26 +529,24 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     let bookkeeping: string | null = null;
     const gated = { ran: false };
     // 결정과 시작은 handler가 돌기 직전에 남긴다. 실패하면 tool을 실행하지 않는다.
-    const ctx = paused(
-      { ...deps.tools.context(id), signal },
-      pause,
-      gated,
-    );
+    const ctx = paused({ ...deps.tools.context(id), signal }, pause, gated);
     const listed = ctx.listed.map((tool) =>
-      tool !== definition || tool.handler === undefined ? tool : {
-        ...tool,
-        handler: async (input: unknown, context: ToolContext) => {
-          const entered = recorded.ok
-            ? await enter(id, seq, gated.ran)
-            : ok(undefined);
-          if (!entered.ok) {
-            bookkeeping = entered.error.message;
-            return entered;
-          }
-          if (recorded.ok) seq += 2;
-          return await tool.handler!(input, context);
-        },
-      }
+      tool !== definition || tool.handler === undefined
+        ? tool
+        : {
+            ...tool,
+            handler: async (input: unknown, context: ToolContext) => {
+              const entered = recorded.ok
+                ? await enter(id, seq, gated.ran)
+                : ok(undefined);
+              if (!entered.ok) {
+                bookkeeping = entered.error.message;
+                return entered;
+              }
+              if (recorded.ok) seq += 2;
+              return await tool.handler!(input, context);
+            },
+          },
     );
     const executed = await executeToolCall(
       { ...ctx, listed },
@@ -663,10 +671,12 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       },
       `${id}:start`,
     );
-    return started.ok ? ok(undefined) : err({
-      code: started.error.code,
-      message: "the start could not be recorded",
-    });
+    return started.ok
+      ? ok(undefined)
+      : err({
+          code: started.error.code,
+          message: "the start could not be recorded",
+        });
   }
 
   // 진입하지 않고 끝나는 call(없는 tool·잘못된 인자·미실행)이다. 시작하지 않았으므로 event는 없다.

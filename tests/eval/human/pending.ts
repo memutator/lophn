@@ -42,11 +42,9 @@ export async function writeQuestion(
   entry: PendingQuestion,
 ): Promise<void> {
   await mkdir(folder(evalDir, entry.run), { recursive: true });
-  await writeFile(
-    questionPath(evalDir, entry.run, entry.key),
-    text(entry),
-    { flag: "wx" },
-  );
+  await writeFile(questionPath(evalDir, entry.run, entry.key), text(entry), {
+    flag: "wx",
+  });
 }
 
 export async function readQuestions(
@@ -55,9 +53,9 @@ export async function readQuestions(
 ): Promise<{ question: PendingQuestion; answered: boolean }[]> {
   const names: string[] = [];
   try {
-    for (
-      const e of await readdir(folder(evalDir, run), { withFileTypes: true })
-    ) {
+    for (const e of await readdir(folder(evalDir, run), {
+      withFileTypes: true,
+    })) {
       if (e.isFile()) names.push(e.name);
     }
   } catch (e) {

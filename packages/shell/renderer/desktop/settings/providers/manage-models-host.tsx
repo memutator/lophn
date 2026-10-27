@@ -46,9 +46,11 @@ interface ManageModelsHostProps {
 // picker의 Manage models 줄이 여는 창 하나를 화면 전체 위에 둔다. 자료는 열 때와 바꿀 때마다 source에서 읽는다.
 // 끄고 켜는 일은 쓰는 사이에 목록이 어긋나지 않게 하나씩 차례로 보낸다. 연결 대화창은 이 창을 닫지 않고 그 위에 열고,
 // 연결이 끝나면 새 provider의 묶음을 맨 위에 보인다. 열 때마다 창을 새로 세운다(key): 열 때 정한 form이 이미 열린 창에도 서게 한다.
-export function ManageModelsHost(
-  { source, apiRef, children }: ManageModelsHostProps,
-): ReactNode {
+export function ManageModelsHost({
+  source,
+  apiRef,
+  children,
+}: ManageModelsHostProps): ReactNode {
   const connect = useConnectProvider();
   const [open, setOpen] = useState(false);
   const [models, setModels] = useState<ModelsView | null>(null);
@@ -64,9 +66,12 @@ export function ManageModelsHost(
   const userSeq = useRef("");
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const alive = useRef(true);
-  useEffect(() => () => {
-    alive.current = false;
-  }, []);
+  useEffect(
+    () => () => {
+      alive.current = false;
+    },
+    [],
+  );
 
   const load = useCallback(async (): Promise<void> => {
     const [read, readUser] = await Promise.all([
@@ -85,19 +90,22 @@ export function ManageModelsHost(
     setUser(readUser.value);
   }, [source]);
 
-  const api = useMemo<ManageModelsApi>(() => ({
-    open(options) {
-      setFirst(options?.first ?? null);
-      setLanding((now) => ({
-        key: now.key + 1,
-        notice: options?.notice,
-        addModel: options?.addModel,
-      }));
-      closed.current = options?.onClosed;
-      setOpen(true);
-      void load();
-    },
-  }), [load]);
+  const api = useMemo<ManageModelsApi>(
+    () => ({
+      open(options) {
+        setFirst(options?.first ?? null);
+        setLanding((now) => ({
+          key: now.key + 1,
+          notice: options?.notice,
+          addModel: options?.addModel,
+        }));
+        closed.current = options?.onClosed;
+        setOpen(true);
+        void load();
+      },
+    }),
+    [load],
+  );
   if (apiRef !== undefined) apiRef.current = api;
 
   const change = (
@@ -107,7 +115,7 @@ export function ManageModelsHost(
     queue.current = queue.current.then(async () => {
       const next = setHidden(hidden.current, targets, hide);
       hidden.current = next;
-      setModels((now) => now === null ? now : { ...now, hidden: next });
+      setModels((now) => (now === null ? now : { ...now, hidden: next }));
       const written = await source.setHidden(next);
       // 저장하지 못하면 core에 있는 값으로 되돌린다.
       if (!written.ok) await load();
@@ -119,8 +127,9 @@ export function ManageModelsHost(
     provider: string,
     change: (definition: string) => ReturnType<AgentsSource["saveModelInfo"]>,
   ): Promise<ModelInfoOutcome> => {
-    const definition = models?.providers.find((item) => item.id === provider)
-      ?.definition;
+    const definition = models?.providers.find(
+      (item) => item.id === provider,
+    )?.definition;
     if (definition === undefined) return "failed";
     const changed = await change(definition);
     if (changed.ok || changed.message === "conflict") await load();
@@ -138,59 +147,70 @@ export function ManageModelsHost(
   return (
     <ManageModelsContext.Provider value={api}>
       {children}
-      {open
-        ? (
-          <ManageModelsDialog
-            key={landing.key}
-            providers={providers}
-            notice={landing.notice}
-            initialForm={landing.addModel}
-            loadFailed={loadFailed}
-            onClose={() => {
-              setOpen(false);
-              const done = closed.current;
-              closed.current = undefined;
-              done?.();
-            }}
-            onConnect={() =>
-              connect?.open({
-                onConnected: (id, notice) => {
-                  setFirst(id);
-                  setLanding((now) => ({ key: now.key, notice }));
-                  void load();
-                },
-              })}
-            onToggleModel={(provider, modelName, hide) =>
-              change([{ provider, model_name: modelName }], hide)}
-            onToggleProvider={(provider, hide) =>
-              change(
-                modelsOf(provider).map((model) => ({
-                  provider,
-                  model_name: model.modelName,
-                })),
-                hide,
-              )}
-            onRefresh={async (provider) => {
-              const refreshed = await source.refreshModels(provider);
-              if (refreshed) await load();
-              return refreshed;
-            }}
-            onSaveInfo={(provider, modelName, info) =>
-              changeInfo(provider, (definition) =>
-                source.saveModelInfo({
+      {open ? (
+        <ManageModelsDialog
+          key={landing.key}
+          providers={providers}
+          notice={landing.notice}
+          initialForm={landing.addModel}
+          loadFailed={loadFailed}
+          onClose={() => {
+            setOpen(false);
+            const done = closed.current;
+            closed.current = undefined;
+            done?.();
+          }}
+          onConnect={() =>
+            connect?.open({
+              onConnected: (id, notice) => {
+                setFirst(id);
+                setLanding((now) => ({ key: now.key, notice }));
+                void load();
+              },
+            })
+          }
+          onToggleModel={(provider, modelName, hide) =>
+            change([{ provider, model_name: modelName }], hide)
+          }
+          onToggleProvider={(provider, hide) =>
+            change(
+              modelsOf(provider).map((model) => ({
+                provider,
+                model_name: model.modelName,
+              })),
+              hide,
+            )
+          }
+          onRefresh={async (provider) => {
+            const refreshed = await source.refreshModels(provider);
+            if (refreshed) await load();
+            return refreshed;
+          }}
+          onSaveInfo={(provider, modelName, info) =>
+            changeInfo(provider, (definition) =>
+              source.saveModelInfo(
+                {
                   provider_definition: definition,
                   model_name: modelName,
                   info,
-                }, userSeq.current))}
-            onRemoveInfo={(provider, modelName) =>
-              changeInfo(provider, (definition) =>
-                source.removeModelInfo({
+                },
+                userSeq.current,
+              ),
+            )
+          }
+          onRemoveInfo={(provider, modelName) =>
+            changeInfo(provider, (definition) =>
+              source.removeModelInfo(
+                {
                   provider_definition: definition,
                   model_name: modelName,
-                }, userSeq.current))}
-          />
-        )
-        : null}
+                },
+                userSeq.current,
+              ),
+            )
+          }
+        />
+      ) : null}
     </ManageModelsContext.Provider>
   );
 }

@@ -76,9 +76,10 @@ export function coreAppRead(core: CoreSource): AppViewsDeps["app"] {
       const code = reply.error?.code;
       return {
         ok: false,
-        code: code === "not_found" || code === "forbidden"
-          ? "not_found"
-          : "unavailable",
+        code:
+          code === "not_found" || code === "forbidden"
+            ? "not_found"
+            : "unavailable",
       };
     }
     const value = (reply.value as AppGetValue).app;
@@ -114,9 +115,9 @@ const APP_PAGE_LIMIT = 10;
  * 판이 채택된 앱의 선언(`apps.tools`)을 읽는다. 하나를 읽지 못한 앱은 없는 앱과 같게 빠지고,
  * 목록을 읽지 못하면 실패다.
  */
-export function coreAppScreens(core: CoreSource): NonNullable<
-  AppViewsDeps["screens"]
-> {
+export function coreAppScreens(
+  core: CoreSource,
+): NonNullable<AppViewsDeps["screens"]> {
   return async () => {
     const listed: AppListValue["apps"] = [];
     let cursor: string | undefined;
@@ -125,9 +126,10 @@ export function coreAppScreens(core: CoreSource): NonNullable<
         kind: "read",
         resource: "apps",
         method: "list",
-        body: cursor === undefined
-          ? { status: "active" }
-          : { status: "active", cursor },
+        body:
+          cursor === undefined
+            ? { status: "active" }
+            : { status: "active", cursor },
       });
       if (!reply.ok) return { ok: false };
       const value = reply.value as AppListValue;

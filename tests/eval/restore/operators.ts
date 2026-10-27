@@ -18,9 +18,13 @@ export async function restoreOperators(
     const id = material.manifest.ids[definition.name] as Id<"agt">;
     await ctx.core.call(operatorCreate, {
       id,
-      place: "app" in place
-        ? { kind: "app", id: restored(ctx.world.apps, place.app) }
-        : { kind: "project", id: restored(ctx.world.projects, place.project) },
+      place:
+        "app" in place
+          ? { kind: "app", id: restored(ctx.world.apps, place.app) }
+          : {
+              kind: "project",
+              id: restored(ctx.world.projects, place.project),
+            },
       definition,
     });
     ctx.world.operators[definition.name] = id;

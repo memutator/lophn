@@ -12,14 +12,14 @@ type CrashEvidence = (typeof CRASH_EVIDENCE)[number];
 
 export type CrashEvent =
   | {
-    kind: "exit";
-    // 정지 요청 전에 의도된 종료로 표시한 종료다.
-    intended: boolean;
-    // 신호로 죽었으면 null이다.
-    exitCode: number | null;
-    // 자식 stderr의 마지막 부분. V8 OOM 근거를 찾는 데만 쓰고 줄에 싣지 않는다.
-    stderrTail: string;
-  }
+      kind: "exit";
+      // 정지 요청 전에 의도된 종료로 표시한 종료다.
+      intended: boolean;
+      // 신호로 죽었으면 null이다.
+      exitCode: number | null;
+      // 자식 stderr의 마지막 부분. V8 OOM 근거를 찾는 데만 쓰고 줄에 싣지 않는다.
+      stderrTail: string;
+    }
   | { kind: "start_failed"; reason: { code: string; summary: string } }
   | { kind: "crash_loop"; exits: number };
 

@@ -8,11 +8,11 @@ import type { SettingEntry, SettingRejectReason } from "../source.ts";
 export type Control =
   | { readonly kind: "boolean" }
   | {
-    readonly kind: "range";
-    readonly min: number | null;
-    readonly max: number | null;
-    readonly integer: boolean;
-  }
+      readonly kind: "range";
+      readonly min: number | null;
+      readonly max: number | null;
+      readonly integer: boolean;
+    }
   | { readonly kind: "choice"; readonly options: readonly string[] }
   | { readonly kind: "list" }
   | { readonly kind: "fixed" };
@@ -30,7 +30,7 @@ function constsOf(schemas: unknown): readonly string[] | null {
   if (!Array.isArray(schemas)) return null;
   const values = schemas.map((schema) => (schema as Schema | null)?.const);
   return values.every((value) => typeof value === "string")
-    ? values as string[]
+    ? (values as string[])
     : null;
 }
 
@@ -45,7 +45,8 @@ export function controlOf(type: Schema): Control {
     };
   }
   if (
-    Array.isArray(type.enum) && type.enum.every((v) => typeof v === "string")
+    Array.isArray(type.enum) &&
+    type.enum.every((v) => typeof v === "string")
   ) {
     return { kind: "choice", options: type.enum as string[] };
   }
@@ -106,9 +107,7 @@ interface SettingGroup {
 }
 
 /** 첫 구간별로 묶는다. 묶음과 묶음 안은 선언 순서를 지킨다. */
-export function groupEntries(
-  entries: readonly SettingEntry[],
-): SettingGroup[] {
+export function groupEntries(entries: readonly SettingEntry[]): SettingGroup[] {
   const groups = new Map<string, SettingEntry[]>();
   for (const entry of entries) {
     if (!shownInGeneral(entry.key)) continue;

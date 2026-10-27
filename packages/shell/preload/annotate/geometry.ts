@@ -43,7 +43,8 @@ export function boxOf(rect: Rect, view: View): Box {
 export function cropOf(box: Box, view: View): Box {
   const left = Math.min(box.x, box.x - BADGE_OFFSET) - CROP_MARGIN;
   const top = Math.min(box.y, box.y - BADGE_OFFSET) - CROP_MARGIN;
-  const right = Math.max(box.x + box.width, box.x - BADGE_OFFSET + BADGE_SIZE) +
+  const right =
+    Math.max(box.x + box.width, box.x - BADGE_OFFSET + BADGE_SIZE) +
     CROP_MARGIN;
   const bottom =
     Math.max(box.y + box.height, box.y - BADGE_OFFSET + BADGE_SIZE) +

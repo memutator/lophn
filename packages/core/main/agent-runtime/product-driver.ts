@@ -132,8 +132,9 @@ function productToolkit(options: {
             owner: { kind: "app", id: app as never },
           });
           if (!read.ok) return null;
-          return read.value.domains.find((one) => one.name === name)?.id ??
-            null;
+          return (
+            read.value.domains.find((one) => one.name === name)?.id ?? null
+          );
         },
       },
     ),
@@ -146,7 +147,8 @@ function placeFiles(): PlaceFiles {
   const home = process.env.LOPHN_HOME;
   const root = home !== undefined && isAbsolute(home) ? home : null;
   return {
-    domainFolder: (domain) => root === null ? null : domainFolder(root, domain),
+    domainFolder: (domain) =>
+      root === null ? null : domainFolder(root, domain),
     dataFolder: (place) =>
       root === null ? null : placeDataFolder(root, place as never),
     workflowsFolder: (project) =>
@@ -255,9 +257,8 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       // LOPHN.md와 agent 정의 본문은 core의 GetInstructions로 그 session의 이름으로 읽는다.
       // core가 session의 place로 어느 파일인지 정한다.
       instructionFilesFor: (session) =>
-        instructionFilesOverCore(
-          session,
-          (input) => readOf(calls.machine, instructionsGet, input),
+        instructionFilesOverCore(session, (input) =>
+          readOf(calls.machine, instructionsGet, input),
         ),
       redact: calls.redact,
       // 그 agent 자리의 skill 폴더와 등록한 skill 폴더만 검사한다. 내장 skill은 그 role에 선언된 것만이다. 설정이 없으면

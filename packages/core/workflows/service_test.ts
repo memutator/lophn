@@ -59,16 +59,21 @@ test("reconcile closes a running flow instance without launching again and leave
       return loaded.value.state;
     };
 
-    const created = commands.create.handle(tx, ctx, {
-      id: FLOW,
-      project: PRJ,
-      workflow: "demo",
-      input: "go",
-      participants: {},
-      steps: [],
-      started_by: { kind: "user" },
-      handoff: null,
-    }, {});
+    const created = commands.create.handle(
+      tx,
+      ctx,
+      {
+        id: FLOW,
+        project: PRJ,
+        workflow: "demo",
+        input: "go",
+        participants: {},
+        steps: [],
+        started_by: { kind: "user" },
+        handoff: null,
+      },
+      {},
+    );
     assert.ok(created.ok);
     insertInstance(sql, {
       id: AGENT,
@@ -104,12 +109,14 @@ test("reconcile closes a running flow instance without launching again and leave
           assert.ok(
             instance.ok && instance.value !== null && lines.ok && reports.ok,
           );
-          return Promise.resolve(ok({
-            instance: instance.value,
-            lines: lines.value,
-            last_reports: reports.value,
-            next_cursor: null,
-          } as never));
+          return Promise.resolve(
+            ok({
+              instance: instance.value,
+              lines: lines.value,
+              last_reports: reports.value,
+              next_cursor: null,
+            } as never),
+          );
         },
         running: () => Promise.resolve(runningInstances(sql)),
       },

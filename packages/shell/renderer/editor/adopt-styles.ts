@@ -10,8 +10,10 @@ export function adoptHeadStyles(document: Document): void {
   if (
     typeof MutationObserver !== "function" ||
     typeof CSSStyleSheet !== "function" ||
-    !("adoptedStyleSheets" in document) || !document.head
-  ) return;
+    !("adoptedStyleSheets" in document) ||
+    !document.head
+  )
+    return;
   installed.add(document);
   const sheets = new Map<HTMLStyleElement, CSSStyleSheet>();
   const adopt = (element: HTMLStyleElement) => {

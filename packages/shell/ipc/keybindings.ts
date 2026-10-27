@@ -126,18 +126,22 @@ const TAB_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
 
 export const KEYBINDINGS: readonly Binding[] = [
   ...FIXED,
-  ...TAB_NUMBERS.map((arg): Binding => ({
-    command: "tab.nth",
-    arg,
-    other: [`Alt+Digit${arg}`],
-    mac: [`Ctrl+Digit${arg}`],
-  })),
-  ...PANES.map((arg): Binding => ({
-    command: "pane.focus",
-    arg,
-    other: [`Ctrl+Digit${arg}`],
-    mac: [`Cmd+Digit${arg}`],
-  })),
+  ...TAB_NUMBERS.map(
+    (arg): Binding => ({
+      command: "tab.nth",
+      arg,
+      other: [`Alt+Digit${arg}`],
+      mac: [`Ctrl+Digit${arg}`],
+    }),
+  ),
+  ...PANES.map(
+    (arg): Binding => ({
+      command: "pane.focus",
+      arg,
+      other: [`Ctrl+Digit${arg}`],
+      mac: [`Cmd+Digit${arg}`],
+    }),
+  ),
 ];
 
 interface Chord {
@@ -197,17 +201,26 @@ export interface KeyHit {
 
 function chordMatches(chord: Chord, input: KeyInput): boolean {
   if (
-    chord.ctrl !== input.ctrl || chord.meta !== input.meta ||
-    chord.alt !== input.alt || chord.shift !== input.shift
-  ) return false;
+    chord.ctrl !== input.ctrl ||
+    chord.meta !== input.meta ||
+    chord.alt !== input.alt ||
+    chord.shift !== input.shift
+  )
+    return false;
   if (input.code === chord.code) return true;
   return chord.letter !== null && input.key.toLowerCase() === chord.letter;
 }
 
 // Ctrl 하나만 누른 글자 키. macOS에서는 Cmd를 쓰므로 해당 없다.
 function shellOwns(chord: Chord, platform: KeyPlatform): boolean {
-  return platform === "other" && chord.letter !== null && chord.ctrl &&
-    !chord.alt && !chord.shift && !chord.meta;
+  return (
+    platform === "other" &&
+    chord.letter !== null &&
+    chord.ctrl &&
+    !chord.alt &&
+    !chord.shift &&
+    !chord.meta
+  );
 }
 
 /** 키 입력에 맞는 바인딩. `main`이면 main이 받는 것만 본다. */
@@ -219,7 +232,7 @@ export function matchKey(
   for (const { binding, mac, other } of COMPILED) {
     if (only === "main" && !binding.main?.includes(platform)) continue;
     const chord = (platform === "mac" ? mac : other).find((item) =>
-      chordMatches(item, input)
+      chordMatches(item, input),
     );
     if (chord === undefined) continue;
     return {
@@ -232,8 +245,8 @@ export function matchKey(
 }
 
 export function isMainCommand(value: unknown): value is MainCommand {
-  return KEYBINDINGS.some((binding) =>
-    binding.command === value && binding.main !== undefined
+  return KEYBINDINGS.some(
+    (binding) => binding.command === value && binding.main !== undefined,
   );
 }
 
@@ -246,8 +259,7 @@ const GLYPHS: Readonly<Record<string, string>> = {
 
 /** 사람이 읽는 키 이름. macOS는 ⌃⌥⇧⌘ 기호를 붙여 쓰고 다른 OS는 Ctrl+Shift+처럼 +로 잇는다. */
 function chordLabel(chord: Chord, platform: KeyPlatform): string {
-  const key = GLYPHS[chord.code] ??
-    chord.code.replace(/^(Key|Digit)/, "");
+  const key = GLYPHS[chord.code] ?? chord.code.replace(/^(Key|Digit)/, "");
   if (platform === "mac") {
     return `${chord.ctrl ? "⌃" : ""}${chord.alt ? "⌥" : ""}${
       chord.shift ? "⇧" : ""
@@ -267,8 +279,8 @@ export function commandLabel(
   platform: KeyPlatform,
   arg?: number,
 ): string | null {
-  const found = COMPILED.find(({ binding }) =>
-    binding.command === command && binding.arg === arg
+  const found = COMPILED.find(
+    ({ binding }) => binding.command === command && binding.arg === arg,
   );
   const chord = found?.[platform][0];
   return chord === undefined ? null : chordLabel(chord, platform);

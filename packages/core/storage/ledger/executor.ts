@@ -202,7 +202,8 @@ function reserveConfirmation(
   envelope: CommandEnvelope,
 ): Result<void> {
   if (
-    envelope.confirmation === undefined && envelope.decisionName === undefined
+    envelope.confirmation === undefined &&
+    envelope.decisionName === undefined
   ) {
     return ok(undefined);
   }
@@ -217,8 +218,11 @@ function reserveConfirmation(
   const decision = envelope.decisionName;
   const binding = envelope.decision;
   if (
-    !parsedRef.success || decision === undefined || binding === undefined ||
-    typeof binding.target !== "string" || typeof binding.content !== "string"
+    !parsedRef.success ||
+    decision === undefined ||
+    binding === undefined ||
+    typeof binding.target !== "string" ||
+    typeof binding.content !== "string"
   ) {
     return err({ code: "forbidden", message: "사람 결정 확인이 없다" });
   }
@@ -332,7 +336,8 @@ export async function executeCommand(
   const definition = commands.get(envelope.command);
   // dispatch 전용 command는 직접 호출에서 없는 command와 같은 답이다(존재·approval 상태를 새지 않는다).
   if (
-    definition === undefined || definition.route.kind !== "command" ||
+    definition === undefined ||
+    definition.route.kind !== "command" ||
     definition.dispatchOnly === true
   ) {
     return err({ code: "invalid_input", message: "등록되지 않은 command다" });
@@ -348,25 +353,30 @@ export async function executeCommand(
     return err({ code: "invalid_input", message: "input이 schema와 다르다" });
   }
   const compareSchema = definition.route.compare;
-  const parsedCompare = compareSchema === undefined
-    ? { success: true as const, data: envelope.compare }
-    : compareSchema.safeParse(envelope.compare);
+  const parsedCompare =
+    compareSchema === undefined
+      ? { success: true as const, data: envelope.compare }
+      : compareSchema.safeParse(envelope.compare);
   if (!parsedCompare.success) {
     return err({ code: "invalid_input", message: "compare가 schema와 다르다" });
   }
   const limits = withinCommandLimits(countCas(parsedCompare.data));
   if (!limits.ok) return limits;
-  const binding = definition.route.confirmation === "required"
-    ? await confirmationBinding(definition.route, parsedInput.data)
-    : undefined;
+  const binding =
+    definition.route.confirmation === "required"
+      ? await confirmationBinding(definition.route, parsedInput.data)
+      : undefined;
   if (definition.route.confirmation === "required" && binding === undefined) {
     return err({ code: "forbidden", message: "사람 결정 확인이 없다" });
   }
-  const confirmed: CommandEnvelope = binding === undefined ? envelope : {
-    ...envelope,
-    decisionName: definition.route.name,
-    decision: binding,
-  };
+  const confirmed: CommandEnvelope =
+    binding === undefined
+      ? envelope
+      : {
+          ...envelope,
+          decisionName: definition.route.name,
+          decision: binding,
+        };
   const digest = await digestOf(definition.route.name, {
     input: parsedInput.data,
     compare: parsedCompare.data,
@@ -419,7 +429,8 @@ export function readOwnResult(
   if (row === undefined) return ok(null);
   if (
     typeof row["result"] !== "string" ||
-    typeof row["fingerprint"] !== "string" || typeof row["at"] !== "string"
+    typeof row["fingerprint"] !== "string" ||
+    typeof row["at"] !== "string"
   ) {
     return err(internalError());
   }

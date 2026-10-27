@@ -74,12 +74,14 @@ export function applyKindsFile(input: {
   const parsed = parseKindsText(text);
   let errors: KindsFileError[];
   if (!parsed.ok) {
-    errors = [{
-      rule: "kinds_syntax",
-      kind: null,
-      field: null,
-      message: parsed.message,
-    }];
+    errors = [
+      {
+        rule: "kinds_syntax",
+        kind: null,
+        field: null,
+        message: parsed.message,
+      },
+    ];
   } else {
     errors = checkKindsStructure(parsed.file);
     // 문서가 나중에 겹치는 것은 문서 위반(overlap)이다. kinds 파일 오류는 파일이 바뀔 때만 낸다.

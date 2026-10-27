@@ -14,12 +14,10 @@ const JOB_RUN = "jbr_01hzzzzzzzzzzzzzzzzzzzzzza" as Id<"jbr">;
 const INSTANCE = "wfi_01hzzzzzzzzzzzzzzzzzzzzzza" as Id<"wfi">;
 
 // 차례가 온 순간의 겹침 판정이 지금 instance 상태를 보려면 끝난 instance의 줄을 claim 앞에서 닫아야 한다.
-for (
-  const [state, closedAs] of [["ended", "done"], [
-    "stopped",
-    "cancelled",
-  ]] as const
-) {
+for (const [state, closedAs] of [
+  ["ended", "done"],
+  ["stopped", "cancelled"],
+] as const) {
   test(`a workflow job run stays open while its instance runs and closes as ${closedAs} once it is ${state}`, async () => {
     const calls: string[] = [];
     const timers: { run: () => void; ms: number }[] = [];

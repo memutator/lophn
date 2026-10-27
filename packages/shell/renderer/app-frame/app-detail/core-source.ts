@@ -161,20 +161,20 @@ function stepsOf(entry: ActivationQueueEntry | undefined): ActivationStep[] {
   const at = entry?.step == null ? -1 : STEP_ORDER.indexOf(entry.step);
   return STEP_ORDER.map((key, index) => ({
     key,
-    state: at < 0
-      ? "wait"
-      : index < at
-      ? "done"
-      : index === at
-      ? "now"
-      : "wait",
-    count: entry === undefined
-      ? null
-      : key === "hold"
-      ? (entry.held_calls > 0 ? entry.held_calls : null)
-      : key === "migrate"
-      ? (entry.migration_steps > 0 ? entry.migration_steps : null)
-      : null,
+    state:
+      at < 0 ? "wait" : index < at ? "done" : index === at ? "now" : "wait",
+    count:
+      entry === undefined
+        ? null
+        : key === "hold"
+          ? entry.held_calls > 0
+            ? entry.held_calls
+            : null
+          : key === "migrate"
+            ? entry.migration_steps > 0
+              ? entry.migration_steps
+              : null
+            : null,
   }));
 }
 
@@ -184,9 +184,11 @@ function versionView(
   queue: readonly ActivationQueueEntry[],
 ): VersionView {
   const newest = [...releases].sort((a, b) => b.number - a.number);
-  const activations = releases.flatMap((release) =>
-    release.activated_at === null ? [] : [release.activated_at]
-  ).sort();
+  const activations = releases
+    .flatMap((release) =>
+      release.activated_at === null ? [] : [release.activated_at],
+    )
+    .sort();
   const card = (release: ReleaseRecord): ReleaseCard => ({
     id: release.id,
     number: release.number,
@@ -194,34 +196,43 @@ function versionView(
     dataSchema: release.data_schema,
     appliedAt: release.activated_at,
     // 이 release 다음에 활성이 된 release의 시각이 물러난 시각이다.
-    replacedAt: release.status === "superseded" && release.activated_at !== null
-      ? (activations.find((at) => at > release.activated_at!) ?? null)
-      : null,
+    replacedAt:
+      release.status === "superseded" && release.activated_at !== null
+        ? (activations.find((at) => at > release.activated_at!) ?? null)
+        : null,
   });
   const current = newest.find((release) => release.id === active) ?? null;
   const entry = queue[0];
-  const activating = entry === undefined
-    ? newest.find((release) => release.status === "activating")
-    : newest.find((release) => release.id === entry.release);
-  const failed = newest.find((release) =>
-    release.status === "failed" &&
-    release.number > (current?.number ?? 0)
+  const activating =
+    entry === undefined
+      ? newest.find((release) => release.status === "activating")
+      : newest.find((release) => release.id === entry.release);
+  const failed = newest.find(
+    (release) =>
+      release.status === "failed" && release.number > (current?.number ?? 0),
   );
   return {
     active: current === null ? null : card(current),
-    applying: activating === undefined ? null : {
-      id: activating.id,
-      number: activating.number,
-      phase: entry?.phase ?? "running",
-      steps: stepsOf(entry),
-    },
-    failed: activating !== undefined || failed === undefined ? null : {
-      id: failed.id,
-      number: failed.number,
-      triedAt: failed.activation?.started_at ?? null,
-      reason: failed.failure?.summary ?? "",
-    },
-    earlier: newest.filter((release) => release.status === "superseded")
+    applying:
+      activating === undefined
+        ? null
+        : {
+            id: activating.id,
+            number: activating.number,
+            phase: entry?.phase ?? "running",
+            steps: stepsOf(entry),
+          },
+    failed:
+      activating !== undefined || failed === undefined
+        ? null
+        : {
+            id: failed.id,
+            number: failed.number,
+            triedAt: failed.activation?.started_at ?? null,
+            reason: failed.failure?.summary ?? "",
+          },
+    earlier: newest
+      .filter((release) => release.status === "superseded")
       .map(card),
   };
 }
@@ -238,14 +249,17 @@ function secretInfo(
   const oauth = scope.oauth;
   return {
     configured,
-    oauth: oauth === undefined ? null : {
-      authorizeHost: new URL(oauth.authorization_endpoint).host,
-      scopes: oauth.scopes,
-      clientId: line?.client_id ?? null,
-      clientSecretSet: line?.client_secret_set ?? false,
-      state: line?.state ?? "none",
-      reason: line?.reason ?? null,
-    },
+    oauth:
+      oauth === undefined
+        ? null
+        : {
+            authorizeHost: new URL(oauth.authorization_endpoint).host,
+            scopes: oauth.scopes,
+            clientId: line?.client_id ?? null,
+            clientSecretSet: line?.client_secret_set ?? false,
+            state: line?.state ?? "none",
+            reason: line?.reason ?? null,
+          },
   };
 }
 
@@ -260,13 +274,14 @@ function resourceOf(grant: AppGrant, secret?: SecretInfo): ResourceRow | null {
   };
   const kind = kinds[scope.kind];
   if (kind === undefined) return null;
-  const name = "path" in scope
-    ? scope.path
-    : "host" in scope
-    ? `${scope.host}:${scope.port}`
-    : "name" in scope
-    ? scope.name
-    : "";
+  const name =
+    "path" in scope
+      ? scope.path
+      : "host" in scope
+        ? `${scope.host}:${scope.port}`
+        : "name" in scope
+          ? scope.name
+          : "";
   return {
     grant: grant.id,
     kind,
@@ -317,8 +332,9 @@ function lookups(core: CoreSource) {
     appName(app: string): Promise<string | null> {
       let found = apps.get(app);
       if (found === undefined) {
-        found = read<{ app: { name: string } }>(core, "apps", "get", { app })
-          .then((result) => result.ok ? result.value.app.name : null);
+        found = read<{ app: { name: string } }>(core, "apps", "get", {
+          app,
+        }).then((result) => (result.ok ? result.value.app.name : null));
         apps.set(app, found);
       }
       return found;
@@ -332,7 +348,7 @@ function lookups(core: CoreSource) {
           "get_record",
           { release },
         ).then((result) =>
-          result.ok ? (result.value.release?.number ?? null) : null
+          result.ok ? (result.value.release?.number ?? null) : null,
         );
         releases.set(release, found);
       }
@@ -346,10 +362,10 @@ function lookups(core: CoreSource) {
         }>(core, "sessions", "read", { session }).then((result) =>
           result.ok
             ? {
-              role: result.value.session.agent.role,
-              title: result.value.session.title,
-            }
-            : null
+                role: result.value.session.agent.role,
+                title: result.value.session.title,
+              }
+            : null,
         );
         sessions.set(session, found);
       }
@@ -395,17 +411,17 @@ async function callerOf(
 
 const startReason = (operation: AppInvocation["operation"]) =>
   operation.kind === "start" && operation.reason === "restart"
-    ? "restart" as const
-    : "activation" as const;
+    ? ("restart" as const)
+    : ("activation" as const);
 
 const kindOf = (operation: AppInvocation["operation"]) =>
-  operation.kind === "tool" ? "tool" as const : operation.kind;
+  operation.kind === "tool" ? ("tool" as const) : operation.kind;
 
 function rewindOutcome(item: RewindPlan["items"][number]) {
   if (item.external) return "stays" as const;
   return item.reverts_db || item.effect === "read"
-    ? "undone" as const
-    : "cannot" as const;
+    ? ("undone" as const)
+    : ("cannot" as const);
 }
 
 interface AppDetailDeps {
@@ -425,9 +441,8 @@ export function coreAppDetailSource(
   core: CoreSource,
   deps: Partial<AppDetailDeps> = {},
 ): AppDetailSource {
-  const openSecret = "openSecret" in deps
-    ? deps.openSecret
-    : windowSecretInputOpener();
+  const openSecret =
+    "openSecret" in deps ? deps.openSecret : windowSecretInputOpener();
   const openLink = "openLink" in deps ? deps.openLink : windowLinkOpener();
   return {
     ...coreDomainActions(core),
@@ -508,9 +523,10 @@ export function coreAppDetailSource(
       }
       const comparison = compared.value.comparison;
       const names = lookups(core);
-      const previous = comparison.previous_release === null
-        ? null
-        : await names.releaseNumber(comparison.previous_release);
+      const previous =
+        comparison.previous_release === null
+          ? null
+          : await names.releaseNumber(comparison.previous_release);
       const addedTools = await Promise.all(
         comparison.added_tools.map(async (item) => ({
           app: item.app,
@@ -556,32 +572,35 @@ export function coreAppDetailSource(
       if (!result.ok) return result;
       const names = lookups(core);
       const secrets = result.value.flatMap((grant) =>
-        grant.scope.kind === "secret.use" ? [grant.scope] : []
+        grant.scope.kind === "secret.use" ? [grant.scope] : [],
       );
       const none = Promise.resolve({ ok: true, value: null } as const);
       const [status, oauth, appName] = await Promise.all([
-        secrets.length === 0 ? none : call<{ secrets: SecretFileStatus[] }>(
-          core,
-          "memory",
-          "secrets",
-          "status",
-          { names: secrets.map((scope) => scope.name) },
-        ),
+        secrets.length === 0
+          ? none
+          : call<{ secrets: SecretFileStatus[] }>(
+              core,
+              "memory",
+              "secrets",
+              "status",
+              { names: secrets.map((scope) => scope.name) },
+            ),
         secrets.some((scope) => scope.oauth !== undefined)
           ? call<z.output<typeof appsOAuthState.output>>(
-            core,
-            "memory",
-            "apps",
-            "oauth_state",
-            { app },
-          )
+              core,
+              "memory",
+              "apps",
+              "oauth_state",
+              { app },
+            )
           : none,
         names.appName(app),
       ]);
       if (!status.ok) return status;
       if (!oauth.ok) return oauth;
       const configured = new Set(
-        status.value?.secrets.filter((item) => item.configured)
+        status.value?.secrets
+          .filter((item) => item.configured)
           .map((item) => item.name),
       );
       const lines = new Map(
@@ -596,10 +615,10 @@ export function coreAppDetailSource(
             grant,
             scope.kind === "secret.use"
               ? secretInfo(
-                scope,
-                configured.has(scope.name),
-                lines.get(scope.name),
-              )
+                  scope,
+                  configured.has(scope.name),
+                  lines.get(scope.name),
+                )
               : undefined,
           );
           if (row !== null) resources.push(row);
@@ -715,9 +734,10 @@ export function coreAppDetailSource(
             startReason(invocation.operation),
             names,
           ),
-          tool: invocation.operation.kind === "tool"
-            ? invocation.operation.tool
-            : null,
+          tool:
+            invocation.operation.kind === "tool"
+              ? invocation.operation.tool
+              : null,
           kind: kindOf(invocation.operation),
           effect: invocation.effect,
           state: stateOf(invocation),
@@ -731,10 +751,12 @@ export function coreAppDetailSource(
       // 새것부터. 아직 시작하지 않은 호출(시각 없음)은 맨 위에 둔다.
       rows.sort((a, b) =>
         a.at === null
-          ? (b.at === null ? 0 : -1)
+          ? b.at === null
+            ? 0
+            : -1
           : b.at === null
-          ? 1
-          : b.at.localeCompare(a.at)
+            ? 1
+            : b.at.localeCompare(a.at),
       );
       return { ok: true, value: { rows } };
     },
@@ -771,9 +793,10 @@ export function coreAppDetailSource(
         value: {
           from,
           items,
-          blocked: plan.blocked === null
-            ? null
-            : { invocation: plan.blocked.invocation },
+          blocked:
+            plan.blocked === null
+              ? null
+              : { invocation: plan.blocked.invocation },
         },
       };
     },
@@ -804,7 +827,8 @@ export function coreAppDetailSource(
       return {
         ok: true,
         value: {
-          running: result.value.plan.items.filter((item) => item.running)
+          running: result.value.plan.items
+            .filter((item) => item.running)
             .map((item) => ({
               invocation: item.invocation,
               tool: item.operation.kind === "tool" ? item.operation.tool : null,

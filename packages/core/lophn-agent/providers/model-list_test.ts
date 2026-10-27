@@ -60,12 +60,14 @@ test("custom provider 목록 읽기는 실패하면 앞 목록을 남기고 성�
         revision: record.revision + 1,
         credential: { ...record.credential, reported_models: input.models },
       };
-      return Promise.resolve(ok({
-        result: { provider: record },
-        replayed: false,
-        first_seq: null,
-        last_seq: null,
-      }));
+      return Promise.resolve(
+        ok({
+          result: { provider: record },
+          replayed: false,
+          first_seq: null,
+          last_seq: null,
+        }),
+      );
     },
   } as Writer;
   const listed = withProviderModelList(writer, {
@@ -92,9 +94,12 @@ test("custom provider 목록 읽기는 실패하면 앞 목록을 남기고 성�
   const failures: [string, () => Response][] = [
     ["200이 아님", () => new Response("{}", { status: 500 })],
     ["파싱 실패", () => new Response("<html>")],
-    ["던짐", () => {
-      throw new Error("deadline");
-    }],
+    [
+      "던짐",
+      () => {
+        throw new Error("deadline");
+      },
+    ],
   ];
   for (const [name, fail] of failures) {
     answer = fail;

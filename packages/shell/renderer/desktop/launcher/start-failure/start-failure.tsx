@@ -14,9 +14,10 @@ interface StartFailureProps {
   onRetry: () => void;
 }
 
-export function StartFailureScreen(
-  { failure, onRetry }: StartFailureProps,
-): ReactElement {
+export function StartFailureScreen({
+  failure,
+  onRetry,
+}: StartFailureProps): ReactElement {
   const [open, setOpen] = useState(false);
   const detailsId = useId();
   return (
@@ -28,9 +29,9 @@ export function StartFailureScreen(
       />
       <h1 className={styles.title}>{t(failure.title)}</h1>
       <p className={styles.text}>{t(failure.text)}</p>
-      {failure.update === undefined
-        ? null
-        : <p className={styles.textSmall}>{t(failure.update)}</p>}
+      {failure.update === undefined ? null : (
+        <p className={styles.textSmall}>{t(failure.update)}</p>
+      )}
       <Button
         variant="primary"
         icon={retryIcon}
@@ -55,13 +56,11 @@ export function StartFailureScreen(
                 : "launcher.button.show-details",
             )}
           </Button>
-          {open
-            ? (
-              <p className={styles.details} id={detailsId} data-details="">
-                {t(failure.details)}
-              </p>
-            )
-            : null}
+          {open ? (
+            <p className={styles.details} id={detailsId} data-details="">
+              {t(failure.details)}
+            </p>
+          ) : null}
         </>
       )}
     </div>

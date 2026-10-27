@@ -2,9 +2,10 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // 앱 데이터 작업의 ledger 기록. DB 파일 자체는 data worker가 열고, 여기 표는
 // backup·변경·복원의 참조와 결과만 담는다(apps/data command).
-export const dataSchemaSteps: readonly SchemaStep[] = [{
-  id: "apps.data.records",
-  sql: `
+export const dataSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "apps.data.records",
+    sql: `
     CREATE TABLE app_data_records (
       app TEXT NOT NULL,
       release TEXT NOT NULL,
@@ -19,4 +20,5 @@ export const dataSchemaSteps: readonly SchemaStep[] = [{
     ) STRICT;
     CREATE INDEX app_data_records_app ON app_data_records(app, kind);
   `,
-}];
+  },
+];

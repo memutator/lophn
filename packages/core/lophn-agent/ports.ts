@@ -63,9 +63,7 @@ export interface AppWrites {
 // agent tool(call, reply, cancel, session.list)이 Router를 부르는 길이다.
 // 구현은 core의 calls.* route를 부르는 CoreCall이다.
 export interface CallRouting {
-  send(
-    input: Input<typeof callSend>,
-  ): Promise<Result<Output<typeof callSend>>>;
+  send(input: Input<typeof callSend>): Promise<Result<Output<typeof callSend>>>;
   reply(
     input: Input<typeof callReply>,
   ): Promise<Result<Output<typeof callReply>>>;

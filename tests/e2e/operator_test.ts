@@ -89,20 +89,26 @@ async function operatorWith(
   const ref = { role: "operator", agent } as const;
   if (entries !== null) {
     // 새 Operator의 revision은 0이다.
-    await core.call(agentAssignmentSet, { agent: ref, entries }, {
-      revision: 0,
-    });
+    await core.call(
+      agentAssignmentSet,
+      { agent: ref, entries },
+      {
+        revision: 0,
+      },
+    );
   }
   return { session: await openSession(core, ref), ref };
 }
 
 const addItem = (name: string) => (title: string) => ({
   kind: "tool" as const,
-  calls: [{
-    id: "t1",
-    name,
-    arguments: JSON.stringify({ title }),
-  }],
+  calls: [
+    {
+      id: "t1",
+      name,
+      arguments: JSON.stringify({ title }),
+    },
+  ],
 });
 
 // 요청의 app tool 중 이름이 `_add_item`으로 끝나는 것을 고른다.
@@ -113,9 +119,9 @@ const callAddItem = (title: string) => (request: JournalEntry) => {
 };
 
 const appToolsOf = (fake: FakeServer, index = 0) =>
-  toolNames(fake.journal()[index]).filter((name) =>
-    !RESERVED_DOMAIN_NAMES.includes(name.split("_")[0])
-  ).sort();
+  toolNames(fake.journal()[index])
+    .filter((name) => !RESERVED_DOMAIN_NAMES.includes(name.split("_")[0]))
+    .sort();
 
 // 앱 화면의 사람이 읽는 list_items 결과를 글로 돌려준다.
 async function itemsOf(core: Core, app: string): Promise<string> {
@@ -169,23 +175,17 @@ test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할당에
 
     // assigned: 앱을 할당하면 선언된 tool이 tool 목록에 오르고, 부르면 core를 지나 앱이 실행하고 기록이 남는다.
     fake.reset();
-    fake.script([
-      { reply: callAddItem("op-first") },
-      text,
-    ]);
+    fake.script([{ reply: callAddItem("op-first") }, text]);
     const first = await operatorWith(core, appPlace, "Assigned", assignAll);
     await say(core, first.session, "add op-first");
     await waitTurnEnd(core, first.session);
     // fake
-    assert.deepStrictEqual(
-      appToolsOf(fake),
-      [
-        "notes-shelf_shelf_count",
-        "notes-shelf_shelf_list",
-        "notes_add_item",
-        "notes_list_items",
-      ],
-    );
+    assert.deepStrictEqual(appToolsOf(fake), [
+      "notes-shelf_shelf_count",
+      "notes-shelf_shelf_list",
+      "notes_add_item",
+      "notes_list_items",
+    ]);
     // ledger
     const written = await sessionWrites(core, id, first.session);
     assert.deepStrictEqual(written.length, 1);
@@ -204,17 +204,20 @@ test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할당에
       },
       text,
     ]);
-    const removed = await operatorWith(core, appPlace, "Removed", [{
-      app: id,
-      removed_tools: ["add_item"],
-    }]);
+    const removed = await operatorWith(core, appPlace, "Removed", [
+      {
+        app: id,
+        removed_tools: ["add_item"],
+      },
+    ]);
     await say(core, removed.session, "add op-removed");
     await waitTurnEnd(core, removed.session);
     // fake
-    assert.deepStrictEqual(
-      appToolsOf(fake),
-      ["notes-shelf_shelf_count", "notes-shelf_shelf_list", "notes_list_items"],
-    );
+    assert.deepStrictEqual(appToolsOf(fake), [
+      "notes-shelf_shelf_count",
+      "notes-shelf_shelf_list",
+      "notes_list_items",
+    ]);
     assert.ok(lastToolResult(fake.journal()[1], "t1")?.includes("not_found"));
     // ledger
     assert.deepStrictEqual(await sessionWrites(core, id, removed.session), []);
@@ -229,12 +232,10 @@ test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할당에
     const mine = domains.find((item) => item.name === slug)!;
     const other = domains.find((item) => item.name === second)!;
     // 사람이 editor로 저장하는 것처럼 보통 파일로 쓴다.
-    for (
-      const [domain, rule] of [[mine, "Zebra rule"], [
-        other,
-        "Quokka rule",
-      ]] as const
-    ) {
+    for (const [domain, rule] of [
+      [mine, "Zebra rule"],
+      [other, "Quokka rule"],
+    ] as const) {
       await mkdir(domainFolder(core.run.home, domain.id), {
         recursive: true,
       });
@@ -245,23 +246,20 @@ test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할당에
     }
     fake.reset();
     fake.script([text]);
-    const narrowed = await operatorWith(
-      core,
-      appPlace,
-      "Narrowed",
-      assignAll,
-      [mine.id],
-    );
+    const narrowed = await operatorWith(core, appPlace, "Narrowed", assignAll, [
+      mine.id,
+    ]);
     await say(core, narrowed.session, "hello");
     await waitTurnEnd(core, narrowed.session);
     // fake
     const system = systemText(fake.journal()[0]);
     assert.ok(system.includes("Zebra rule"));
     assert.ok(!system.includes("Quokka rule"));
-    assert.deepStrictEqual(
-      appToolsOf(fake),
-      ["notes-shelf_shelf_count", "notes_add_item", "notes_list_items"],
-    );
+    assert.deepStrictEqual(appToolsOf(fake), [
+      "notes-shelf_shelf_count",
+      "notes_add_item",
+      "notes_list_items",
+    ]);
 
     // no-assignment: 할당 없이 만든 Operator에는 활성 앱이 있어도 app tool이 하나도 없다.
     fake.reset();
@@ -282,12 +280,16 @@ test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할당에
     const added = await operatorWith(core, appPlace, "AssignmentAdded", null);
     await say(core, added.session, "first");
     await waitTurnEnd(core, added.session, 0);
-    await core.call(agentAssignmentSet, {
-      agent: added.ref,
-      entries: assignAll,
-    }, {
-      revision: 0,
-    });
+    await core.call(
+      agentAssignmentSet,
+      {
+        agent: added.ref,
+        entries: assignAll,
+      },
+      {
+        revision: 0,
+      },
+    );
     await say(core, added.session, "second");
     await waitTurnEnd(core, added.session, 1);
     // fake
@@ -316,15 +318,17 @@ test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할당에
       {
         reply: {
           kind: "tool",
-          calls: [{
-            id: "t1",
-            name: "operator_create",
-            arguments: JSON.stringify({
-              place: { project },
-              name: "pm-made",
-              body: "do the assigned work",
-            }),
-          }],
+          calls: [
+            {
+              id: "t1",
+              name: "operator_create",
+              arguments: JSON.stringify({
+                place: { project },
+                name: "pm-made",
+                body: "do the assigned work",
+              }),
+            },
+          ],
         },
       },
       text,
@@ -345,9 +349,11 @@ test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할당에
     assert.deepStrictEqual(madeRead.assignment.entries, []);
     assert.deepStrictEqual(madeRead.revision, 0);
     // fake: operator_create 입력에 할당·mcp_servers·skip 칸이 없다.
-    const createTool = (fake.journal()[0].body as {
-      tools: { name: string; input_schema: { properties: object } }[];
-    }).tools.find((tool) => tool.name === "operator_create");
+    const createTool = (
+      fake.journal()[0].body as {
+        tools: { name: string; input_schema: { properties: object } }[];
+      }
+    ).tools.find((tool) => tool.name === "operator_create");
     assert.ok(createTool !== undefined);
     const keys = Object.keys(createTool.input_schema.properties);
     assert.ok(!keys.includes("mcp_servers") && !keys.includes("skip"));

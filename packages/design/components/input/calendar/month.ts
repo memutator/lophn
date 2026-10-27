@@ -36,13 +36,9 @@ export function weekdayOf(day: string): number {
 export function monthWeeks(month: string): string[][] {
   const [year, index] = month.split("-").map(Number);
   const offset = new Date(year, index - 1, 1).getDay();
-  return Array.from(
-    { length: 6 },
-    (_, week) =>
-      Array.from(
-        { length: 7 },
-        (_, weekday) =>
-          toDay(new Date(year, index - 1, 1 - offset + week * 7 + weekday)),
-      ),
+  return Array.from({ length: 6 }, (_, week) =>
+    Array.from({ length: 7 }, (_, weekday) =>
+      toDay(new Date(year, index - 1, 1 - offset + week * 7 + weekday)),
+    ),
   );
 }

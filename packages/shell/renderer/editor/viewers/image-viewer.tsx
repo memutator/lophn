@@ -19,7 +19,8 @@ export function ImageViewer({ url, label, onSize }: ImageViewerProps) {
             onSize?.({
               width: event.currentTarget.naturalWidth,
               height: event.currentTarget.naturalHeight,
-            })}
+            })
+          }
         />
       </div>
     </div>

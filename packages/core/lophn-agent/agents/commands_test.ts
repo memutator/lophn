@@ -22,7 +22,7 @@ const tx = { sql: {} } as unknown as Tx;
 const lookups: AgentLookups = {
   placeExists: (place) => place.id === PROJECT,
   places: () => [{ kind: "project", id: PROJECT }],
-  domains: (place) => place?.id === PROJECT ? [DOMAIN] : [],
+  domains: (place) => (place?.id === PROJECT ? [DOMAIN] : []),
   skills: () => [],
   mcp: () => [],
   modelDefault: () => null,
@@ -73,10 +73,8 @@ test("Operator만 사람이 만들고 지운다: built-in 정의는 이름·삭�
     assert.equal(changed.error.code, "not_found");
 
     // Operator 삭제는 Operator 파일만 지운다. built-in 파일은 ensure가 만든 채로 남는다.
-    const store = createAgentStore(
-      files,
-      root,
-      (p) => ROLE_TABLE.agentsFolderOf(root, p),
+    const store = createAgentStore(files, root, (p) =>
+      ROLE_TABLE.agentsFolderOf(root, p),
     );
     const manager = ROLE_TABLE.slotOf(root, {
       role: "project_manager",
@@ -148,10 +146,8 @@ test("옛 hash로 Operator를 고치면 충돌이고 파일은 그대로다", as
     );
     assert.ok(!stale.ok);
     assert.equal(stale.error.code, "conflict");
-    const store = createAgentStore(
-      files,
-      root,
-      (p) => ROLE_TABLE.agentsFolderOf(root, p),
+    const store = createAgentStore(files, root, (p) =>
+      ROLE_TABLE.agentsFolderOf(root, p),
     );
     const kept = store.read(
       ROLE_TABLE.slotOf(
@@ -193,10 +189,9 @@ test("정의가 그 place 그릇의 것이 아닌 domain id를 고르면 저장�
     const refused = create([DOMAIN, OTHER_DOMAIN]);
     assert.ok(!refused.ok);
     assert.equal(refused.error.code, "invalid_input");
-    assert.deepEqual(
-      (refused.error.details as { issues: unknown[] }).issues,
-      [{ field: "domains.1", code: "unknown" }],
-    );
+    assert.deepEqual((refused.error.details as { issues: unknown[] }).issues, [
+      { field: "domains.1", code: "unknown" },
+    ]);
     assert.ok(create([DOMAIN]).ok);
   } finally {
     await rm(root, { recursive: true });

@@ -58,9 +58,9 @@ test("E2E kind 파일이 가리키는 문서에 새 위반이 생기면 Gateway�
     await mkdir(`${folder}/notes`, { recursive: true });
     await writeFile(`${folder}/notes/a.md`, INVALID_NOTE);
     const { project } = await openProject(c, folder, "notes-project");
-    const g = gateway = await connectGateway(c, {
+    const g = (gateway = await connectGateway(c, {
       conditions: [{ types: ["KindViolationFound"] }],
-    });
+    }));
     const domain = c.ids.newId("dom");
     const total = async () =>
       (await c.call(kindCheck, { domain, query: {} })).total;
@@ -76,9 +76,8 @@ test("E2E kind 파일이 가리키는 문서에 새 위반이 생기면 Gateway�
         purpose: "Notes kept in this project",
         owner: { kind: "project", id: project },
       });
-      await until(
-        "kind 파일이 적용됨",
-        async () => (await total()) === 1 ? true : undefined,
+      await until("kind 파일이 적용됨", async () =>
+        (await total()) === 1 ? true : undefined,
       );
       // 그 전에 Bus가 낸 event frame은 이 ready보다 먼저 와 있다.
       await g.watch([{ types: ["KindViolationFound"] }]);
@@ -95,9 +94,7 @@ test("E2E kind 파일이 가리키는 문서에 새 위반이 생기면 Gateway�
       });
       // event
       assert.deepStrictEqual(
-        g.frames().filter(
-          (frame) => frame.type === "event" && found(frame),
-        ),
+        g.frames().filter((frame) => frame.type === "event" && found(frame)),
         [],
       );
     });
@@ -105,9 +102,8 @@ test("E2E kind 파일이 가리키는 문서에 새 위반이 생기면 Gateway�
     await t.test("new-violation-notifies-once", async () => {
       await writeFile(`${folder}/notes/b.md`, INVALID_NOTE);
       // 감시에만 기대지 않는다. 감시는 힌트이고 놓쳐도 읽기 앞 sync가 따라잡는 것이 계약이다.
-      await until(
-        "새 위반이 보임",
-        async () => (await total()) === 2 ? true : undefined,
+      await until("새 위반이 보임", async () =>
+        (await total()) === 2 ? true : undefined,
       );
       const frame = await g.next("event", found);
       await g.watch([{ types: ["KindViolationFound"] }]);

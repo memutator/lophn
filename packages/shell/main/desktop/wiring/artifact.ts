@@ -106,12 +106,12 @@ export function register(
   // 요청이 다시 시도한다.
   let sealed: Promise<void> | undefined;
   const ensureSession = () =>
-    sealed ??= sealArtifactSession(electronArtifactSession(), serve).catch(
+    (sealed ??= sealArtifactSession(electronArtifactSession(), serve).catch(
       (error) => {
         sealed = undefined;
         throw error;
       },
-    );
+    ));
 
   const host = electronArtifactViews({
     windowOf: (ref) => windowOfRef(ref),
@@ -136,14 +136,18 @@ export function register(
     ensureSession,
     registerRoot: roots.register,
     watch: (input, onChange) =>
-      watchFolder(input, {
-        watch: (dir, options, listener) =>
-          watch(dir, options, () => listener()),
-        timer: {
-          set: (fn, ms) => setTimeout(fn, ms),
-          clear: (handle) => clearTimeout(handle as NodeJS.Timeout),
+      watchFolder(
+        input,
+        {
+          watch: (dir, options, listener) =>
+            watch(dir, options, () => listener()),
+          timer: {
+            set: (fn, ms) => setTimeout(fn, ms),
+            clear: (handle) => clearTimeout(handle as NodeJS.Timeout),
+          },
         },
-      }, onChange),
+        onChange,
+      ),
     ids: { viewSession: () => `artifact-${randomUUID()}` },
     pushState: sendTo(ARTIFACT_STATE_CHANNEL),
     pushEvent: sendTo(ARTIFACT_EVENT_CHANNEL),

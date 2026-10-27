@@ -15,16 +15,16 @@ const CODING_TOKEN_OPERATIONS = [
     CODING_CLI_COMMANDS.flatMap((command) =>
       command.auth === "coding_token" && command.route
         ? [command.route.name]
-        : []
+        : [],
     ),
   ),
 ];
 
 // session마다 앱 하나에 묶인 token을 새로 만든다. token은 registry 메모리에만 있고 lophn이 꺼지면
 // 사라진다. session이 끝나면 revoke가 거둔다. 만료도 자동 재발급도 없다.
-export function createCodingTokens(
-  options: { registry: CredentialRegistry },
-): CodingTokens {
+export function createCodingTokens(options: {
+  registry: CredentialRegistry;
+}): CodingTokens {
   const refs = new Map<string, string>();
   return {
     issue({ session, app }): Result<{ token: string; credential_ref: string }> {

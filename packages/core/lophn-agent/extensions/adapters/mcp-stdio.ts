@@ -70,9 +70,7 @@ export type StdioSpawnInput = {
 
 // Deno 2.9.7의 node:child_process는 env를 명시해도 부모의 NODE_V8_COVERAGE를 child에 복사한다.
 // 그 이름을 own key로 두되 값이 없으면 복사도 전달도 하지 않는다. 서버 설정이 직접 넘긴 경우만 그대로 간다.
-function narrowEnv(
-  env: Record<string, string>,
-): Record<string, string> {
+function narrowEnv(env: Record<string, string>): Record<string, string> {
   return { NODE_V8_COVERAGE: undefined, ...env } as unknown as Record<
     string,
     string
@@ -81,11 +79,10 @@ function narrowEnv(
 
 // 절대 executable과 인자를 shell 없이 시작한다. cwd는 등록 값이고
 // model 입력에서 받지 않는다.
-export function spawnStdioMcp(
-  input: StdioSpawnInput,
-): Result<StdioSpawn> {
+export function spawnStdioMcp(input: StdioSpawnInput): Result<StdioSpawn> {
   if (
-    !input.executable.startsWith("/") && !/^[A-Za-z]:\\/.test(input.executable)
+    !input.executable.startsWith("/") &&
+    !/^[A-Za-z]:\\/.test(input.executable)
   ) {
     return err({
       code: "invalid_input",
@@ -97,10 +94,12 @@ export function spawnStdioMcp(
     child = spawn(input.executable, [...input.args], {
       cwd: input.cwd ?? undefined,
       // 부모 env를 물려받지 않고 네 값과 그 서버에 지정한 env만 넣는다. env를 주면 부모 env를 상속하지 않는다.
-      env: narrowEnv(stdioChildEnv(
-        input.env,
-        input.ambient ?? ((name) => process.env[name]),
-      )),
+      env: narrowEnv(
+        stdioChildEnv(
+          input.env,
+          input.ambient ?? ((name) => process.env[name]),
+        ),
+      ),
       stdio: ["pipe", "pipe", "pipe"],
     });
   } catch {
@@ -146,9 +145,14 @@ export function spawnStdioMcp(
       // stdin 닫기가 서버의 정상 종료 신호다(MCP stdio 수명).
       try {
         await stdin.close();
-      } catch { /* 이미 닫혔다 */ }
+      } catch {
+        /* 이미 닫혔다 */
+      }
       const exitedWithinGrace = await Promise.race([
-        exited.then(() => true, () => false),
+        exited.then(
+          () => true,
+          () => false,
+        ),
         new Promise<false>((resolve) => {
           setTimeout(() => resolve(false), STDIO_KILL_GRACE_MS);
         }),
@@ -156,7 +160,9 @@ export function spawnStdioMcp(
       if (!exitedWithinGrace) {
         try {
           child.kill("SIGKILL");
-        } catch { /* 이미 끝났다 */ }
+        } catch {
+          /* 이미 끝났다 */
+        }
       }
       await exited.catch(() => undefined);
       await stderr.done;
@@ -165,7 +171,9 @@ export function spawnStdioMcp(
       closed = true;
       try {
         child.kill("SIGKILL");
-      } catch { /* 이미 끝났다 */ }
+      } catch {
+        /* 이미 끝났다 */
+      }
       await exited.catch(() => undefined);
       await stderr.done;
     },
@@ -193,7 +201,9 @@ function limitStderr(
         }
         // 상한을 넘으면 읽어서 버린다(drain 없으면 자식이 멈춘다).
       }
-    } catch { /* 끊긴 pipe는 조용히 넘어간다 */ }
+    } catch {
+      /* 끊긴 pipe는 조용히 넘어간다 */
+    }
   })();
   return { text: () => text, done };
 }

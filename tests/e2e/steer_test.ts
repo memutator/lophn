@@ -51,16 +51,18 @@ test("turn이 허락을 기다리는 중 보낸 steer는 다음 model 요청에 
     const first = (await say(core, session, "write the rules")).message;
     const { request } = await waitPermission(core, session);
     // `say`는 next_turn만 보내므로 steer는 직접 보낸다.
-    const second = (await core.call(sendMessage, {
-      id: core.ids.newId("msg"),
-      session,
-      content: {
-        schema_version: 1,
-        parts: [{ kind: "text", text: "steer text" }],
-      },
-      delivery: "steer",
-      refs: [],
-    })).message;
+    const second = (
+      await core.call(sendMessage, {
+        id: core.ids.newId("msg"),
+        session,
+        content: {
+          schema_version: 1,
+          parts: [{ kind: "text", text: "steer text" }],
+        },
+        delivery: "steer",
+        refs: [],
+      })
+    ).message;
     await decide(core, session, request, "once");
     const turn = await waitTurnEnd(core, session);
 
@@ -79,9 +81,7 @@ test("turn이 허락을 기다리는 중 보낸 steer는 다음 model 요청에 
     // 단정 2: 새 turn이 열리지 않았고 steer는 그 turn에 들어갔다.
     assert.deepStrictEqual(
       (await turnsOf(core, session)).map((item) => item.id),
-      [
-        turn.id,
-      ],
+      [turn.id],
     );
     const { messages } = await core.call(receivedMessageList, { session });
     assert.deepStrictEqual(

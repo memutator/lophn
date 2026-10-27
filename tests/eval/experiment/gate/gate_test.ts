@@ -102,7 +102,7 @@ function fakeDeps(opts: { checkCode?: number; failDry?: string } = {}) {
     run: (cmd) => {
       calls.push(cmd.slice(0, 3).join(" "));
       return Promise.resolve({
-        code: cmd[2] === "check" ? opts.checkCode ?? 0 : 0,
+        code: cmd[2] === "check" ? (opts.checkCode ?? 0) : 0,
         output: "",
       });
     },
@@ -134,7 +134,10 @@ test("runGate stops at the first failed stage and names the scenario whose dry r
     a.deps,
   );
   assert.deepStrictEqual(stopped.ok, false);
-  assert.deepStrictEqual(stopped.stages.map((s) => s.name), ["check"]);
+  assert.deepStrictEqual(
+    stopped.stages.map((s) => s.name),
+    ["check"],
+  );
   assert.deepStrictEqual(a.calls, ["deno task check"]);
 
   const b = fakeDeps({ failDry: "s2" });

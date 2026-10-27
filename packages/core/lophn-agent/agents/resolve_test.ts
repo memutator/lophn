@@ -44,9 +44,8 @@ test("정의 파일에 tool을 적어도 role이 고정한 tool 목록은 바뀌
     assert.ok(!written.ok);
 
     // 정의가 있어도 없어도 결과 tools는 role이 고정한 목록이다.
-    const definition = role === "operator"
-      ? { name: "reviewer", body: "review" }
-      : { body: "" };
+    const definition =
+      role === "operator" ? { name: "reviewer", body: "review" } : { body: "" };
     const resolved = await resolveAgent({
       agent: REFS[role],
       place: PLACES[role],

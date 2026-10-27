@@ -9,39 +9,60 @@ import {
 import { defineTabKind } from "./kind.ts";
 import { idOf, tabKey } from "./values.ts";
 
-const layout = z.strictObject({
-  kind: z.literal("artifact"),
-  key: tabKey,
-  domain: z.string().refine((value) => idOf("dom", value) !== null).optional(),
-  name: artifactNameSchema.optional(),
-  project: z.string().refine((value) => idOf("prj", value) !== null).optional(),
-  path: z.string().min(1).max(4096).optional(),
-  workflow: workflowNameSchema.optional(),
-  view: z.enum(["static", "instance"]).optional(),
-  instance: z.string().refine((value) => idOf("wfi", value) !== null)
-    .optional(),
-}).refine(
-  (tab) => {
-    const artifact = tab.domain !== undefined && tab.name !== undefined &&
-      tab.project === undefined && tab.path === undefined &&
-      tab.workflow === undefined && tab.view === undefined &&
-      tab.instance === undefined;
-    const file = tab.project !== undefined && tab.path !== undefined &&
-      tab.domain === undefined && tab.name === undefined &&
-      tab.workflow === undefined && tab.view === undefined &&
-      tab.instance === undefined;
-    const workflow = tab.project !== undefined && tab.workflow !== undefined &&
-      tab.view !== undefined &&
-      tab.path === undefined && tab.domain === undefined &&
-      tab.name === undefined &&
-      (tab.view === "instance") === (tab.instance !== undefined);
-    return artifact || file || workflow;
-  },
-  {
-    message:
-      "exactly one of (domain, name), (project, path) and (project, workflow, view[, instance])",
-  },
-);
+const layout = z
+  .strictObject({
+    kind: z.literal("artifact"),
+    key: tabKey,
+    domain: z
+      .string()
+      .refine((value) => idOf("dom", value) !== null)
+      .optional(),
+    name: artifactNameSchema.optional(),
+    project: z
+      .string()
+      .refine((value) => idOf("prj", value) !== null)
+      .optional(),
+    path: z.string().min(1).max(4096).optional(),
+    workflow: workflowNameSchema.optional(),
+    view: z.enum(["static", "instance"]).optional(),
+    instance: z
+      .string()
+      .refine((value) => idOf("wfi", value) !== null)
+      .optional(),
+  })
+  .refine(
+    (tab) => {
+      const artifact =
+        tab.domain !== undefined &&
+        tab.name !== undefined &&
+        tab.project === undefined &&
+        tab.path === undefined &&
+        tab.workflow === undefined &&
+        tab.view === undefined &&
+        tab.instance === undefined;
+      const file =
+        tab.project !== undefined &&
+        tab.path !== undefined &&
+        tab.domain === undefined &&
+        tab.name === undefined &&
+        tab.workflow === undefined &&
+        tab.view === undefined &&
+        tab.instance === undefined;
+      const workflow =
+        tab.project !== undefined &&
+        tab.workflow !== undefined &&
+        tab.view !== undefined &&
+        tab.path === undefined &&
+        tab.domain === undefined &&
+        tab.name === undefined &&
+        (tab.view === "instance") === (tab.instance !== undefined);
+      return artifact || file || workflow;
+    },
+    {
+      message:
+        "exactly one of (domain, name), (project, path) and (project, workflow, view[, instance])",
+    },
+  );
 
 type ArtifactLayout = z.infer<typeof layout>;
 export const artifactKind = defineTabKind<ArtifactLayout>({

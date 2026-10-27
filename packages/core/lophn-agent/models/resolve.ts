@@ -53,9 +53,8 @@ function anthropicMaxTokens(
   const thinking = request_patch.thinking as
     | { budget_tokens?: unknown }
     | undefined;
-  const budget = typeof thinking?.budget_tokens === "number"
-    ? thinking.budget_tokens
-    : 0;
+  const budget =
+    typeof thinking?.budget_tokens === "number" ? thinking.budget_tokens : 0;
   return Math.min(outputLimit, OUTPUT_CAP + budget);
 }
 
@@ -152,7 +151,8 @@ export function createModelResolver(deps: ModelResolverDeps) {
     if (credential.kind !== "none") {
       const destination = secretDestinationOf(provider.endpoint);
       if (
-        credential.secret_ref === null || deps.attach === undefined ||
+        credential.secret_ref === null ||
+        deps.attach === undefined ||
         destination === undefined
       ) {
         return err({
@@ -168,7 +168,7 @@ export function createModelResolver(deps: ModelResolverDeps) {
         operation: "model.call",
         // OAuth access token은 Bearer다. API key는 protocol이 정한다: Anthropic은 x-api-key, OpenAI 계열은 Bearer다.
         ...(credential.kind === "api_key" &&
-            provider.protocol === "anthropic-messages"
+        provider.protocol === "anthropic-messages"
           ? { headerName: "x-api-key", kind: "api_key" as AuthKind }
           : { headerName: "authorization", kind: "bearer" as AuthKind }),
       });
@@ -179,16 +179,19 @@ export function createModelResolver(deps: ModelResolverDeps) {
     // 사람이 적은 정보가 user 층이라 같은 열쇠의 catalog 항목을 이긴다.
     const typed = await readOf(deps.machine, userModelInfoRead, {});
     if (!typed.ok) return typed;
-    const record = typed.value.items.find((item) =>
-      item.provider_definition === provider.definition.key &&
-      item.model_name === selection.model_name
+    const record = typed.value.items.find(
+      (item) =>
+        item.provider_definition === provider.definition.key &&
+        item.model_name === selection.model_name,
     );
-    const found = record !== undefined
-      ? withDefaultLimits(userEntryOf(record))
-      : catalog.value.find((candidate) =>
-        candidate.provider_definition === provider.definition.key &&
-        candidate.model_name === selection.model_name
-      );
+    const found =
+      record !== undefined
+        ? withDefaultLimits(userEntryOf(record))
+        : catalog.value.find(
+            (candidate) =>
+              candidate.provider_definition === provider.definition.key &&
+              candidate.model_name === selection.model_name,
+          );
     // catalog에 없는 이름은 어느 provider에서든 한계와 option 축을 알 수 없다. 직접 적은 이름은 받고 기본 한계로
     // 돌며 option은 고를 수 없다. 이름이 틀렸으면 provider 호출이 거절한다. 거절하는 것은 구독 계정의 허락 목록
     // 밖 이름뿐이고 resolveSelection의 modelListed가 본다.
@@ -198,9 +201,8 @@ export function createModelResolver(deps: ModelResolverDeps) {
       {
         purpose: input.purpose ?? "judgment",
         provider: selection.provider,
-        credential_revision: credential.kind === "none"
-          ? null
-          : credential.revision,
+        credential_revision:
+          credential.kind === "none" ? null : credential.revision,
         model_name: selection.model_name,
         option_values: selection.option_values,
         needs_tools: true,
@@ -210,16 +212,12 @@ export function createModelResolver(deps: ModelResolverDeps) {
         // false는 구독 계정의 허락 목록 밖이다. true는 catalog나 provider가 알려 준 목록에 있는 이름이고, 아무도
         // 올리지 않은 직접 적은 이름은 null(미확인)이다.
         modelListed: (name) =>
-          !entitlementAllows(
-              credential.kind,
-              credential.reported_models,
-              name,
-            )
+          !entitlementAllows(credential.kind, credential.reported_models, name)
             ? false
             : (found !== undefined && found.source !== "user") ||
                 credential.reported_models?.includes(name) === true
-            ? true
-            : null,
+              ? true
+              : null,
       },
       unlisted ? UNLISTED_LIMITS : undefined,
     );
@@ -248,35 +246,35 @@ export function createModelResolver(deps: ModelResolverDeps) {
     });
     const requestPatch = limits.request_patch;
     const images = limits.input_media.includes("image");
-    const pack = provider.protocol === "anthropic-messages"
-      ? anthropicPacker({
-        model: limits.sent_model_name,
-        images,
-        maxTokens: anthropicMaxTokens(requestPatch, limits.output_limit),
-        requestPatch,
-      })
-      : provider.protocol === "openai-responses"
-      ? responsesPacker({
-        model: limits.sent_model_name,
-        images,
-        maxTokens: cappedOutput(limits),
-        requestPatch,
-      })
-      : chatPacker({
-        model: limits.sent_model_name,
-        images,
-        maxTokens: cappedOutput(limits),
-        provider: provider.definition.key,
-        requestPatch,
-      });
+    const pack =
+      provider.protocol === "anthropic-messages"
+        ? anthropicPacker({
+            model: limits.sent_model_name,
+            images,
+            maxTokens: anthropicMaxTokens(requestPatch, limits.output_limit),
+            requestPatch,
+          })
+        : provider.protocol === "openai-responses"
+          ? responsesPacker({
+              model: limits.sent_model_name,
+              images,
+              maxTokens: cappedOutput(limits),
+              requestPatch,
+            })
+          : chatPacker({
+              model: limits.sent_model_name,
+              images,
+              maxTokens: cappedOutput(limits),
+              provider: provider.definition.key,
+              requestPatch,
+            });
 
     const call: CallModel = {
       provider: selection.provider,
       name: selection.model_name,
       protocol: provider.protocol,
-      credential_revision: credential.kind === "none"
-        ? null
-        : credential.revision,
+      credential_revision:
+        credential.kind === "none" ? null : credential.revision,
       // 고른 값과 default를 채운 뒤 요청에 실제로 실은 값을 따로 남긴다.
       option_values: {
         requested: selection.option_values,
@@ -291,11 +289,12 @@ export function createModelResolver(deps: ModelResolverDeps) {
       catalog_basis: limits.basis as Record<string, never>,
       price_basis: limits.price_basis,
       // API key는 API 과금이고 인증 없는 연결은 청구를 모른다.
-      billing_route: credential.kind === "api_key"
-        ? "api"
-        : credential.kind === "oauth"
-        ? "subscription"
-        : "unknown",
+      billing_route:
+        credential.kind === "api_key"
+          ? "api"
+          : credential.kind === "oauth"
+            ? "subscription"
+            : "unknown",
     };
     return ok({
       call,
@@ -313,9 +312,11 @@ export function createModelResolver(deps: ModelResolverDeps) {
         });
         if (!again.ok) return false;
         const current = again.value.provider.credential;
-        return current.kind === credential.kind &&
+        return (
+          current.kind === credential.kind &&
           current.secret_ref?.name === credential.secret_ref?.name &&
-          current.logged_in_at === credential.logged_in_at;
+          current.logged_in_at === credential.logged_in_at
+        );
       },
     });
   };

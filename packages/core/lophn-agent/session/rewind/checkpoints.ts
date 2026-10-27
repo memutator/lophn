@@ -39,12 +39,13 @@ export function createCheckpoint(
   if (row === undefined) {
     return err({ code: "internal", message: "checkpoint was not stored" });
   }
-  return ok(checkpointSchema.parse({
-    message: String(row["message"]),
-    session: String(row["session"]),
-    files_restorable: Number(row["files_restorable"]) === 1,
-    files_reason: row["files_reason"] === null
-      ? null
-      : String(row["files_reason"]),
-  }));
+  return ok(
+    checkpointSchema.parse({
+      message: String(row["message"]),
+      session: String(row["session"]),
+      files_restorable: Number(row["files_restorable"]) === 1,
+      files_reason:
+        row["files_reason"] === null ? null : String(row["files_reason"]),
+    }),
+  );
 }

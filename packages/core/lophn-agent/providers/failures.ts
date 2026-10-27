@@ -25,9 +25,7 @@ type ResetSource = {
 
 // 숫자가 아닌 reset header 값은 시각이든 무엇이든 버린다. 값이 안전하지 않으면
 // 미상과 같다.
-function retryAfterMs(
-  source: ResetSource,
-): number | null {
+function retryAfterMs(source: ResetSource): number | null {
   const msHeader = source.headers["retry-after-ms"];
   if (msHeader !== undefined) {
     const n = numberHeaders(msHeader);
@@ -39,9 +37,10 @@ function retryAfterMs(
     if (parsed !== null) return parsed;
   }
   // reset header는 provider별 이름이 갈린다. 알려진 이름만 숫자로 본다.
-  for (
-    const name of ["x-ratelimit-reset", "anthropic-ratelimit-unified-reset"]
-  ) {
+  for (const name of [
+    "x-ratelimit-reset",
+    "anthropic-ratelimit-unified-reset",
+  ]) {
     const value = source.headers[name];
     if (value === undefined) continue;
     if (name === "anthropic-ratelimit-unified-reset") {
@@ -103,8 +102,8 @@ function messageResetMs(message: string | undefined): number | null {
     if (unit.startsWith("s")) return n * 1000;
     return n * 60_000;
   }
-  const resets = /resets in\s+(\d+)\s*(ms|s|seconds?|m|minutes?|h|hr|hours?)/i
-    .exec(message);
+  const resets =
+    /resets in\s+(\d+)\s*(ms|s|seconds?|m|minutes?|h|hr|hours?)/i.exec(message);
   if (resets !== null) {
     const n = Number(resets[1]);
     const unit = resets[2].toLowerCase();
@@ -180,9 +179,10 @@ const SUBSCRIPTION_CODES: Readonly<
   chatpass_v2_invalid_authorization_context: "authentication",
 };
 
-function subscriptionReason(
-  input: { code?: string; message?: string },
-): "quota" | "plan_access" | "authentication" | null {
+function subscriptionReason(input: {
+  code?: string;
+  message?: string;
+}): "quota" | "plan_access" | "authentication" | null {
   if (input.code !== undefined && input.code in SUBSCRIPTION_CODES) {
     return SUBSCRIPTION_CODES[input.code]!;
   }
@@ -264,9 +264,10 @@ const SAFE_PROVIDER_CODE = /^[A-Za-z0-9_.:-]{1,64}$/;
 function failureVerdict(input: FailureInput): FailureVerdict {
   const core = coreVerdict(input);
   // 구조화 code만 안전한 토큰이면 남긴다. 본문 문구와 원문은 남기지 않는다.
-  const code = input.code !== undefined && SAFE_PROVIDER_CODE.test(input.code)
-    ? input.code
-    : null;
+  const code =
+    input.code !== undefined && SAFE_PROVIDER_CODE.test(input.code)
+      ? input.code
+      : null;
   return { ...core, provider_code: code };
 }
 
@@ -372,10 +373,12 @@ function fromStructuredCode(input: FailureInput): CoreVerdict | null {
   if (codeOf(RATE_CODES, code) !== null) {
     // 429는 reset 근거(header·문구)로 갈린다. 429가 아니면 reset 근거 없이 temporary다.
     // stream 안 code는 status가 0이라 여기서 받지 않으면 unknown이 되어 retry하지 않는다.
-    return input.status === 429 ? rateVerdict(input) : {
-      code: "temporary",
-      ...blank,
-    };
+    return input.status === 429
+      ? rateVerdict(input)
+      : {
+          code: "temporary",
+          ...blank,
+        };
   }
   // 모르는 코드는 다음 단계로 내려간다. 인증 실패로 추측하지 않는다.
   return null;
@@ -557,9 +560,10 @@ function errorFactsFromBody(text: string | null): ErrorFacts {
   if (typeof error === "string") {
     return { message: error.slice(0, FRAGMENT_MAX_CHARS) };
   }
-  const holder = error !== null && typeof error === "object"
-    ? error as Record<string, unknown>
-    : root;
+  const holder =
+    error !== null && typeof error === "object"
+      ? (error as Record<string, unknown>)
+      : root;
   const facts: ErrorFacts = {};
   // code가 type보다 구체적이다(OpenAI는 error.code, Anthropic은 error.type).
   if (typeof holder.code === "string" && holder.code !== "") {
@@ -592,9 +596,10 @@ export function classifyHttpFailure(input: {
   return failureVerdict({
     kind: "http",
     status: input.status,
-    headers: input.headers instanceof Headers
-      ? headersRecord(input.headers)
-      : input.headers,
+    headers:
+      input.headers instanceof Headers
+        ? headersRecord(input.headers)
+        : input.headers,
     code: facts.code,
     message: facts.message,
     nowMs: input.nowMs,
@@ -622,9 +627,8 @@ export function classifyStreamFailure(input: {
   message?: string;
   nowMs: number;
 }): FailureVerdict {
-  const status = input.type === undefined
-    ? undefined
-    : STREAM_TYPE_STATUS[input.type];
+  const status =
+    input.type === undefined ? undefined : STREAM_TYPE_STATUS[input.type];
   const verdict = failureVerdict({
     kind: "stream_error",
     // status를 모르는 type은 status 단계를 건너뛴다. 단절로 보지도 않는다.

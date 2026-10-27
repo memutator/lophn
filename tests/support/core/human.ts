@@ -43,8 +43,8 @@ export async function until<T>(
 export async function settle(core: Core): Promise<void> {
   await until("agent runtime이 ready가 됨", async () => {
     const health = await core.call(platformHealth, {});
-    const runtime = health.observations.find((item) =>
-      item.component === "agent-runtime"
+    const runtime = health.observations.find(
+      (item) => item.component === "agent-runtime",
     );
     return runtime?.available ? true : undefined;
   });
@@ -88,10 +88,10 @@ export async function connectFakeProvider(
 
 function slug(folder: string): string {
   const last = folder.split("/").filter(Boolean).pop() ?? "project";
-  const name = last.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(
-    /^-+|-+$/g,
-    "",
-  );
+  const name = last
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
   return /^[a-z]/.test(name) ? name : `p-${name}`;
 }
 
@@ -142,7 +142,7 @@ export async function turnsOf(core: Core, session: string): Promise<Turn[]> {
   return [...turns].sort((a, b) =>
     a.started_at === b.started_at
       ? a.id.localeCompare(b.id)
-      : a.started_at.localeCompare(b.started_at)
+      : a.started_at.localeCompare(b.started_at),
   );
 }
 

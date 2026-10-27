@@ -80,9 +80,7 @@ test("E2E 등록하면 PM·AE 정의가 하나 생기고 lophn이 앱을 등록�
       assert.deepStrictEqual(before[0].agent, built);
       assert.deepStrictEqual(before[0].kind, "built_in");
 
-      await stat(
-        `${run.home}/projects/${project}/agents/project-manager.md`,
-      );
+      await stat(`${run.home}/projects/${project}/agents/project-manager.md`);
       await assertNoSecondBuiltIn(c, place, "Project Manager", built);
     });
 
@@ -149,28 +147,31 @@ test("E2E 등록하면 PM·AE 정의가 하나 생기고 lophn이 앱을 등록�
       const engineer = sessions[0].id;
       await waitTurnEnd(c, engineer);
       // 목록에는 App Engineer 자신의 답도 있어, call로 온 것만 본다.
-      const messages = (await c.call(receivedMessageList, {
-        session: engineer,
-      })).messages.filter((message) => message.call !== null);
+      const messages = (
+        await c.call(receivedMessageList, {
+          session: engineer,
+        })
+      ).messages.filter((message) => message.call !== null);
       assert.deepStrictEqual(messages.length, 1);
       assert.deepStrictEqual(messages[0].from, {
         kind: "agent",
         session: lophn,
       });
       const read = await c.call(messageBody, { message: messages[0].id });
-      assert.deepStrictEqual(read.content.parts, [{
-        kind: "text",
-        text: body,
-      }]);
+      assert.deepStrictEqual(read.content.parts, [
+        {
+          kind: "text",
+          text: body,
+        },
+      ]);
 
       // fake가 받은 요청
       const journal = fake.journal();
       assert.deepStrictEqual(journal.length, 3);
-      assert.deepStrictEqual(journal.map((entry) => entry.mismatch), [
-        null,
-        null,
-        null,
-      ]);
+      assert.deepStrictEqual(
+        journal.map((entry) => entry.mismatch),
+        [null, null, null],
+      );
     });
   } finally {
     await core?.kill().catch(() => {});

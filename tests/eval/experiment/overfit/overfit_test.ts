@@ -10,9 +10,7 @@ import { findOverfit } from "./mod.ts";
 const scenario = {
   id: "L4-app",
   n: 1,
-  real: [
-    { role: "operator", place: { app: "가계부" }, name: "Mina" },
-  ],
+  real: [{ role: "operator", place: { app: "가계부" }, name: "Mina" }],
   human: { card: "월별 지출 합계를 보고 싶다", approve: {} },
   steps: [
     {

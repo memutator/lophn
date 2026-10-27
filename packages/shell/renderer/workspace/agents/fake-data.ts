@@ -87,15 +87,25 @@ function axis(
   };
 }
 
-const EFFORT = axis("effort", "Effort", [
-  ["low", "Low"],
-  ["medium", "Medium"],
-  ["high", "High"],
-], "medium");
-const SPEED = axis("speed", "Speed", [
-  ["standard", "Standard"],
-  ["fast", "Fast"],
-], "standard");
+const EFFORT = axis(
+  "effort",
+  "Effort",
+  [
+    ["low", "Low"],
+    ["medium", "Medium"],
+    ["high", "High"],
+  ],
+  "medium",
+);
+const SPEED = axis(
+  "speed",
+  "Speed",
+  [
+    ["standard", "Standard"],
+    ["fast", "Fast"],
+  ],
+  "standard",
+);
 
 function entry(
   name: string,
@@ -140,11 +150,9 @@ export interface FakeAgent {
   readonly definition: AgentDraft;
 }
 
-const AVATAR = `data:image/svg+xml;utf8,${
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect width="48" height="48" fill="#8a6cd6"/><circle cx="24" cy="19" r="9" fill="#fff"/><rect x="9" y="31" width="30" height="14" rx="7" fill="#fff"/></svg>',
-  )
-}`;
+const AVATAR = `data:image/svg+xml;utf8,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect width="48" height="48" fill="#8a6cd6"/><circle cx="24" cy="19" r="9" fill="#fff"/><rect x="9" y="31" width="30" height="14" rx="7" fill="#fff"/></svg>',
+)}`;
 export const AVATAR_SRC = AVATAR;
 
 export const FAKE_AGENTS: readonly FakeAgent[] = [
@@ -186,8 +194,7 @@ When a question is about one project, read that project's LOPHN.md first.`,
         model_name: "Opus 5.5",
         option_values: { effort: "high", speed: "standard" },
       },
-      body:
-        "Keep the app small. Change one tool at a time and run the app's test before you ask me to check it.",
+      body: "Keep the app small. Change one tool at a time and run the app's test before you ask me to check it.",
       skills: ["plain-writing", "cite-documents"],
       mcp_off: [{ server_name: "fetch" }],
     },
@@ -216,18 +223,20 @@ Keep answers short. Name the scenario for every regression.`,
       skills: ["plain-writing", "cite-documents", "weekly-report"],
       domains: [FINDINGS],
       mcp_off: [{ server_name: "fetch" }],
-      mcp_servers: [{
-        name: "notes-search",
-        enabled: true,
-        call_timeout_ms: 60_000,
-        transport: "stdio",
-        stdio: {
-          executable: "/usr/local/bin/notes-mcp",
-          args: [],
-          cwd: null,
-          env: {},
+      mcp_servers: [
+        {
+          name: "notes-search",
+          enabled: true,
+          call_timeout_ms: 60_000,
+          transport: "stdio",
+          stdio: {
+            executable: "/usr/local/bin/notes-mcp",
+            args: [],
+            cwd: null,
+            env: {},
+          },
         },
-      }],
+      ],
     },
   },
   {

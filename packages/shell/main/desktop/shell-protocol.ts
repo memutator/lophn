@@ -47,16 +47,17 @@ function safeJoin(root: string, pathname: string): string | null {
     return null;
   }
   if (decoded.includes("\0") || decoded.includes("\\")) return null;
-  const segments = decoded.split("/").filter((part) =>
-    part !== "" && part !== "."
-  );
+  const segments = decoded
+    .split("/")
+    .filter((part) => part !== "" && part !== ".");
   // 디코드 뒤에야 보이는 절대 경로(`/etc/passwd`의 `etc`가 아니라 `/etc`)와 `..`.
   // 세그먼트 안에 남은 "/"는 %2F처럼 인코딩됐던 구분자다.
   if (
-    segments.some((part) =>
-      part === ".." || part.includes("/") || isAbsolute(part)
+    segments.some(
+      (part) => part === ".." || part.includes("/") || isAbsolute(part),
     )
-  ) return null;
+  )
+    return null;
   const full = resolve(root, ...segments);
   const rootResolved = resolve(root);
   if (full !== rootResolved && !full.startsWith(rootResolved + sep)) {

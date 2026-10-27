@@ -81,9 +81,7 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
       live = false;
     };
   }, [source, project]);
-  const artifactList = useArtifactList(
-    domains.map((domain) => domain.id),
-  );
+  const artifactList = useArtifactList(domains.map((domain) => domain.id));
   const artifactNames = useMemo(
     () =>
       artifactList.items.map((item) => ({
@@ -116,44 +114,50 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
       : agentRow(entry, sidebarAgents.agents, project);
   };
 
-  const agentView: AgentViewSlice | null = agentViewSource === undefined
-    ? null
-    : {
-      factory: agentViewSource,
-      drafts: conversation?.drafts ?? localDrafts,
-      ...(conversation?.now === undefined ? {} : { now: conversation.now }),
-      openFile: (path) => openFile(hostRef.current(), path),
-      profileOf: (agent) =>
-        sidebarAgents.agents.find((row) => row.assignment === agent)?.profile,
-      dotOf: (session) => sessionDot(sessionStates, session),
-      openSettings: () => onSettings("tools"),
-      openConnections: () => onSettings("providers"),
-      openSession: (session) => {
-        const row = rowOfSession(session);
-        if (row === undefined) return;
-        openAgent(hostRef.current(), {
-          agent: row.assignment,
-          name: row.name,
-          session,
-        });
-      },
-      projectManagerSession: () =>
-        openedProjectManagerSession(sessionStates, project),
-      nameOf: (session) => rowOfSession(session)?.name,
-      artifacts: {
-        items: artifactList.items,
-        names: artifactNames,
-        open: (domain, name) => openArtifact(hostRef.current(), domain, name),
-        reload: artifactList.reload,
-      },
-    };
+  const agentView: AgentViewSlice | null =
+    agentViewSource === undefined
+      ? null
+      : {
+          factory: agentViewSource,
+          drafts: conversation?.drafts ?? localDrafts,
+          ...(conversation?.now === undefined ? {} : { now: conversation.now }),
+          openFile: (path) => openFile(hostRef.current(), path),
+          profileOf: (agent) =>
+            sidebarAgents.agents.find((row) => row.assignment === agent)
+              ?.profile,
+          dotOf: (session) => sessionDot(sessionStates, session),
+          openSettings: () => onSettings("tools"),
+          openConnections: () => onSettings("providers"),
+          openSession: (session) => {
+            const row = rowOfSession(session);
+            if (row === undefined) return;
+            openAgent(hostRef.current(), {
+              agent: row.assignment,
+              name: row.name,
+              session,
+            });
+          },
+          projectManagerSession: () =>
+            openedProjectManagerSession(sessionStates, project),
+          nameOf: (session) => rowOfSession(session)?.name,
+          artifacts: {
+            items: artifactList.items,
+            names: artifactNames,
+            open: (domain, name) =>
+              openArtifact(hostRef.current(), domain, name),
+            reload: artifactList.reload,
+          },
+        };
 
-  const agents: AgentsSlice | null = agentsSource === undefined ? null : {
-    source: agentsSource,
-    changed: sidebarAgents.reload,
-    editInstructions: () => onProjectInstructions?.(),
-    openExtensions: () => onSettings("tools"),
-  };
+  const agents: AgentsSlice | null =
+    agentsSource === undefined
+      ? null
+      : {
+          source: agentsSource,
+          changed: sidebarAgents.reload,
+          editInstructions: () => onProjectInstructions?.(),
+          openExtensions: () => onSettings("tools"),
+        };
 
   return {
     domains,

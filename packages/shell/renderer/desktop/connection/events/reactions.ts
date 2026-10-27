@@ -31,13 +31,15 @@ function toast(
   params: Record<string, string>,
   action?: ReactionAction,
 ): readonly Reaction[] {
-  return [{
-    id: `${kind}:${id}`,
-    titleKey: `waiting.toast-${kind}.title`,
-    bodyKey: `waiting.toast-${kind}.body`,
-    params,
-    action,
-  }];
+  return [
+    {
+      id: `${kind}:${id}`,
+      titleKey: `waiting.toast-${kind}.title`,
+      bodyKey: `waiting.toast-${kind}.body`,
+      params,
+      action,
+    },
+  ];
 }
 
 /** snapshot으로 들어온 것은 놓친 toast라 다시 띄우지 않는다. */
@@ -48,9 +50,14 @@ export function reactionsOf(
   if (origin === "snapshot") return NONE;
   switch (event.type) {
     case "ActivationConsentRequested":
-      return toast("activation", event.payload.release, {
-        app: event.payload.app,
-      }, { kind: "waiting" });
+      return toast(
+        "activation",
+        event.payload.release,
+        {
+          app: event.payload.app,
+        },
+        { kind: "waiting" },
+      );
     case "AppRestartHalted":
       // 열 session이 없어 단추는 그 앱 공간을 연다.
       return toast(
@@ -61,11 +68,9 @@ export function reactionsOf(
       );
     case "KindViolationFound":
       // 단추가 없다. 알림만 하고, 위반은 domain 화면에서 본다.
-      return toast(
-        "kind-violation",
-        `${event.subject}:${event.at}`,
-        { count: String(event.payload.count) },
-      );
+      return toast("kind-violation", `${event.subject}:${event.at}`, {
+        count: String(event.payload.count),
+      });
     default:
       return NONE;
   }

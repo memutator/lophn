@@ -33,8 +33,11 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
   const [connected, setConnected] = useState<Loaded<ProviderRow>>({
     state: "loading",
   });
-  const { available, load: loadAvailable, retry: retryAvailable } =
-    useAvailable(source);
+  const {
+    available,
+    load: loadAvailable,
+    retry: retryAvailable,
+  } = useAvailable(source);
   const [failed, setFailed] = useState(false);
   const [target, setTarget] = useState<ProviderDefinitionRow | null>(null);
   const [leaving, setLeaving] = useState<ProviderRow | null>(null);
@@ -52,8 +55,8 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
       read.ok
         ? { state: "ready", rows: read.value }
         : previous.state === "ready"
-        ? previous
-        : { state: "failed" }
+          ? previous
+          : { state: "failed" },
     );
   }, [source]);
   const reload = useCallback((): void => {
@@ -85,51 +88,45 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
         <h2 className={styles.sectionTitle}>
           {t("settings.heading.connected")}
         </h2>
-        {connected.state === "failed"
-          ? (
-            <ErrorState
-              target={t("settings.label.providers-target")}
-              onRetry={() => {
-                setConnected({ state: "loading" });
-                void loadConnected();
-              }}
-            />
-          )
-          : (
-            <Loading
-              loading={connected.state === "loading"}
-              placeholder={<Skeleton lines={3} />}
-            >
-              {connected.state === "ready" && connected.rows.length === 0
-                ? (
-                  <p className={styles.empty}>
-                    {t("settings.notice.none-connected")}
-                  </p>
-                )
-                : (
-                  <ul className={styles.group}>
-                    {(connected.state === "ready" ? connected.rows : []).map((
-                      row,
-                    ) => (
-                      <ConnectedItem
-                        key={row.id}
-                        row={row}
-                        listed={listed[row.id]}
-                        manage={manage}
-                        onDisconnect={() => setLeaving(row)}
-                      />
-                    ))}
-                  </ul>
+        {connected.state === "failed" ? (
+          <ErrorState
+            target={t("settings.label.providers-target")}
+            onRetry={() => {
+              setConnected({ state: "loading" });
+              void loadConnected();
+            }}
+          />
+        ) : (
+          <Loading
+            loading={connected.state === "loading"}
+            placeholder={<Skeleton lines={3} />}
+          >
+            {connected.state === "ready" && connected.rows.length === 0 ? (
+              <p className={styles.empty}>
+                {t("settings.notice.none-connected")}
+              </p>
+            ) : (
+              <ul className={styles.group}>
+                {(connected.state === "ready" ? connected.rows : []).map(
+                  (row) => (
+                    <ConnectedItem
+                      key={row.id}
+                      row={row}
+                      listed={listed[row.id]}
+                      manage={manage}
+                      onDisconnect={() => setLeaving(row)}
+                    />
+                  ),
                 )}
-            </Loading>
-          )}
-        {failed
-          ? (
-            <p className={styles.notice} role="status" data-notice="failed">
-              {t("agents.notice.providers-disconnect-failed")}
-            </p>
-          )
-          : null}
+              </ul>
+            )}
+          </Loading>
+        )}
+        {failed ? (
+          <p className={styles.notice} role="status" data-notice="failed">
+            {t("agents.notice.providers-disconnect-failed")}
+          </p>
+        ) : null}
       </section>
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>
@@ -188,14 +185,17 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
   );
 }
 
-function ConnectedItem(
-  { row, listed, manage, onDisconnect }: {
-    row: ProviderRow;
-    listed: ListedModels | undefined;
-    manage: ManageModelsApi | null;
-    onDisconnect: () => void;
-  },
-): ReactNode {
+function ConnectedItem({
+  row,
+  listed,
+  manage,
+  onDisconnect,
+}: {
+  row: ProviderRow;
+  listed: ListedModels | undefined;
+  manage: ManageModelsApi | null;
+  onDisconnect: () => void;
+}): ReactNode {
   const status = statusOf(row);
   return (
     <li className={styles.item} data-provider={row.id}>
@@ -208,13 +208,11 @@ function ConnectedItem(
       <Button size="sm" data-action="disconnect" onClick={onDisconnect}>
         {t("settings.button.disconnect")}
       </Button>
-      {status === null
-        ? null
-        : (
-          <p className={styles.status} data-status={status.kind}>
-            {status.text}
-          </p>
-        )}
+      {status === null ? null : (
+        <p className={styles.status} data-status={status.kind}>
+          {status.text}
+        </p>
+      )}
       {listed === undefined ? null : (
         <div
           className={styles.result}
@@ -223,12 +221,12 @@ function ConnectedItem(
           <p className={styles.resultText}>
             {listed.count > 0
               ? t("conversation.notice.models-found", {
-                count: listed.count,
-                provider: listed.name,
-              })
+                  count: listed.count,
+                  provider: listed.name,
+                })
               : t("conversation.notice.models-not-listed", {
-                provider: listed.name,
-              })}
+                  provider: listed.name,
+                })}
           </p>
           {manage === null ? null : (
             <Button
@@ -236,16 +234,19 @@ function ConnectedItem(
               data-action={listed.count > 0 ? "manage-models" : "add-model"}
               onClick={() =>
                 manage.open(
-                  listed.count > 0 ? { first: row.id } : {
-                    first: row.id,
-                    addModel: {
-                      provider: row.id,
-                      lead: t("conversation.notice.models-not-listed", {
-                        provider: listed.name,
-                      }),
-                    },
-                  },
-                )}
+                  listed.count > 0
+                    ? { first: row.id }
+                    : {
+                        first: row.id,
+                        addModel: {
+                          provider: row.id,
+                          lead: t("conversation.notice.models-not-listed", {
+                            provider: listed.name,
+                          }),
+                        },
+                      },
+                )
+              }
             >
               {listed.count > 0
                 ? t("conversation.button.manage-models")
@@ -269,9 +270,7 @@ function loginMethod(row: ProviderRow): string {
  * 쓸 수 없을 때만 그 상태와 다음 행동 한 줄을 말한다. 사용량 대기는 기다리라고, 요금제 제한은 요금제를
  * 확인하라고, 인증 문제는 Disconnect 뒤 다시 Connect하라고 한다.
  */
-function statusOf(
-  row: ProviderRow,
-): { kind: string; text: string } | null {
+function statusOf(row: ProviderRow): { kind: string; text: string } | null {
   if (row.state === "available") return null;
   if (row.state === "usage_wait") {
     return { kind: "usage-limit", text: t("settings.status.usage-limit") };

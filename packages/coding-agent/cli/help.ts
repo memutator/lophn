@@ -27,11 +27,13 @@ function fieldsOf(entry: CommandEntry): Field[] {
       required?: string[];
     };
     return Object.entries(schema.properties ?? {})
-      .filter(([name, property]) =>
-        // user 명령의 `input`은 run 입력(JSON 값)이라 감추지 않는다. 공통 칸 `input`은 string이다.
-        !COMMON.includes(name) ||
-        (entry.auth === "user" && name === "input" &&
-          property.type !== "string")
+      .filter(
+        ([name, property]) =>
+          // user 명령의 `input`은 run 입력(JSON 값)이라 감추지 않는다. 공통 칸 `input`은 string이다.
+          !COMMON.includes(name) ||
+          (entry.auth === "user" &&
+            name === "input" &&
+            property.type !== "string"),
       )
       .map(([name, property]) => ({
         name,
@@ -58,24 +60,26 @@ function userInputLines(entry: CommandEntry, fields: Field[]): string[] {
   const positional = entry.positional ?? [];
   const rank = (field: Field) =>
     positional.includes(field.name) ? 0 : field.name === "input" ? 1 : 2;
-  const lines = [...fields].sort((a, b) => rank(a) - rank(b)).map((field) => {
-    if (positional.includes(field.name)) {
-      return fieldLine(`<${field.name}>`, field);
-    }
-    if (field.name === "input") {
+  const lines = [...fields]
+    .sort((a, b) => rank(a) - rank(b))
+    .map((field) => {
+      if (positional.includes(field.name)) {
+        return fieldLine(`<${field.name}>`, field);
+      }
+      if (field.name === "input") {
+        return fieldLine(
+          "--input <json> | --input-file <path>",
+          field,
+          "run 입력으로 넘기는 JSON 값(command 칸을 담는 객체가 아니다)",
+        );
+      }
       return fieldLine(
-        "--input <json> | --input-file <path>",
+        field.type === "boolean"
+          ? `--${field.name}`
+          : `--${field.name} <${field.name === "schema" ? "json" : field.name}>`,
         field,
-        "run 입력으로 넘기는 JSON 값(command 칸을 담는 객체가 아니다)",
       );
-    }
-    return fieldLine(
-      field.type === "boolean"
-        ? `--${field.name}`
-        : `--${field.name} <${field.name === "schema" ? "json" : field.name}>`,
-      field,
-    );
-  });
+    });
   return ["입력:", ...(lines.length === 0 ? ["  없다"] : lines)];
 }
 
@@ -84,9 +88,8 @@ function line(entry: CommandEntry): string {
 }
 
 export function helpText(name?: string): string {
-  const entry = name === undefined || name === ""
-    ? undefined
-    : findCommand(name);
+  const entry =
+    name === undefined || name === "" ? undefined : findCommand(name);
   if (entry === undefined) {
     return [
       "lophn <command> [--input '<json>' | --input-file <path>] [--json]",
@@ -102,20 +105,22 @@ export function helpText(name?: string): string {
   }
   const fields = fieldsOf(entry);
   return [
-    `lophn ${entry.name}${
-      (entry.positional ?? []).map((p) => ` <${p}>`).join("")
-    }`,
+    `lophn ${entry.name}${(entry.positional ?? [])
+      .map((p) => ` <${p}>`)
+      .join("")}`,
     entry.summary,
     `종류: ${entry.mutates ? "변경" : "읽기"}`,
     entry.auth === "coding_token"
       ? `인증: 환경 변수 ${CODING_TOKEN_ENV} (coding agent session의 터미널)`
       : entry.auth === "user"
-      ? `인증: lophn이 켜져 있으면 data root의 user token file(coding agent session 안에서는 ${CODING_TOKEN_ENV})`
-      : "인증: 필요 없다(이 컴퓨터에서만 돈다)",
-    ...(entry.auth === "user" ? userInputLines(entry, fields) : [
-      `입력(--input JSON): ${fields.length === 0 ? "없다" : ""}`.trimEnd(),
-      ...fields.map((field) => fieldLine(field.name, field)),
-    ]),
+        ? `인증: lophn이 켜져 있으면 data root의 user token file(coding agent session 안에서는 ${CODING_TOKEN_ENV})`
+        : "인증: 필요 없다(이 컴퓨터에서만 돈다)",
+    ...(entry.auth === "user"
+      ? userInputLines(entry, fields)
+      : [
+          `입력(--input JSON): ${fields.length === 0 ? "없다" : ""}`.trimEnd(),
+          ...fields.map((field) => fieldLine(field.name, field)),
+        ]),
     "공통: --json 출력을 JSON 하나로, --idempotency-key 변경 명령의 재시도 key",
   ].join("\n");
 }

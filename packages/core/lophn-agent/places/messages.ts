@@ -17,11 +17,7 @@ import { loadSession, nextMessageSeq } from "../session/model.ts";
 // 본문 blob은 호출한 자격의 이름으로 준비돼 있어야 한다.
 export function createReceivedRecorder(deps: { principal(): string }) {
   return {
-    record(
-      tx: Tx,
-      session: Id<"ses">,
-      input: RoutedInput,
-    ): Result<Id<"msg">> {
+    record(tx: Tx, session: Id<"ses">, input: RoutedInput): Result<Id<"msg">> {
       if (input.message !== null) return ok(input.message);
       const row = loadSession(tx, session);
       if (row === undefined) {
@@ -84,7 +80,9 @@ export function createReceivedRecorder(deps: { principal(): string }) {
       if (!registered.ok) return registered;
       // turn을 시작하는 call, 답, step도 rewind로 돌아갈 시점이다.
       if (
-        input.kind === "call" || input.kind === "reply" || input.kind === "step"
+        input.kind === "call" ||
+        input.kind === "reply" ||
+        input.kind === "step"
       ) {
         const checkpoint = createCheckpoint(tx, {
           id,

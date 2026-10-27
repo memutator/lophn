@@ -31,9 +31,10 @@ interface CodingSettingsApi {
 export function windowCodingApi(): CodingSettingsApi | undefined {
   const bridge = (globalThis as { lophnCoding?: Partial<CodingSettingsApi> })
     .lophnCoding;
-  return bridge !== undefined && typeof bridge.harnesses === "function" &&
-      typeof bridge.refresh === "function"
-    ? bridge as CodingSettingsApi
+  return bridge !== undefined &&
+    typeof bridge.harnesses === "function" &&
+    typeof bridge.refresh === "function"
+    ? (bridge as CodingSettingsApi)
     : undefined;
 }
 
@@ -112,7 +113,7 @@ export function coreCodingConnectionsSource(
       const harness = valueOf(DEFAULT_HARNESS_KEY);
       const model = valueOf(DEFAULT_MODEL_KEY);
       const value: CodingDefaults = {
-        harness: typeof harness === "string" ? harness as HarnessName : null,
+        harness: typeof harness === "string" ? (harness as HarnessName) : null,
         model: typeof model === "string" ? model : "",
       };
       return { ok: true, value };

@@ -136,9 +136,8 @@ interface FakeProvidersOptions {
 }
 
 export function fakeProviders(options: FakeProvidersOptions = {}) {
-  const preset = options.preset === undefined
-    ? undefined
-    : PRESETS[options.preset];
+  const preset =
+    options.preset === undefined ? undefined : PRESETS[options.preset];
   let connected = [...(options.connected ?? preset?.connected ?? CONNECTED)];
   let available = [...(options.available ?? preset?.available ?? AVAILABLE)];
   let created = 0;
@@ -161,9 +160,8 @@ export function fakeProviders(options: FakeProvidersOptions = {}) {
       if (failed) return Promise.resolve(failed);
       const gone = connected.find((row) => row.id === id);
       connected = connected.filter((row) => row.id !== id);
-      const back = gone === undefined
-        ? undefined
-        : DEFINITIONS[gone.definition];
+      const back =
+        gone === undefined ? undefined : DEFINITIONS[gone.definition];
       if (back !== undefined) available = [back, ...available];
       return Promise.resolve(ok(null));
     },
@@ -177,7 +175,7 @@ export function fakeProviders(options: FakeProvidersOptions = {}) {
             "abort",
             () => resolve({ ok: false, code: "cancelled" }),
             { once: true },
-          )
+          ),
         );
       }
       const failed = fail("connect");

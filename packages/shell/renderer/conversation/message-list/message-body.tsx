@@ -37,9 +37,14 @@ interface MessageBodyProps {
  * 읽은 본문의 글과 블록을 차례로 보인다. 읽기 전이나 읽지 못했을 때 이 창이 보낸 글이 있으면 그것을,
  * 없으면 그 상태를 말한다. 빈 말로 보이지 않는다. 다 쓴 message는 live 글이 자라도 다시 그리지 않는다.
  */
-export const MessageBody = memo(function MessageBody(
-  { message, body, fallback, artifacts, plain, reasoning }: MessageBodyProps,
-): ReactElement {
+export const MessageBody = memo(function MessageBody({
+  message,
+  body,
+  fallback,
+  artifacts,
+  plain,
+  reasoning,
+}: MessageBodyProps): ReactElement {
   if (body?.state === "ready") {
     // 앱 카드는 본문 순서 그대로 글 사이 자리에 그린다.
     return (
@@ -47,21 +52,19 @@ export const MessageBody = memo(function MessageBody(
         {body.parts.map((part, index) => {
           switch (part.kind) {
             case "text":
-              return plain
-                ? (
-                  <ArtifactText
-                    key={index}
-                    text={part.text}
-                    artifacts={artifacts}
-                  />
-                )
-                : (
-                  <ChatMarkdown
-                    key={index}
-                    text={part.text}
-                    artifacts={artifacts}
-                  />
-                );
+              return plain ? (
+                <ArtifactText
+                  key={index}
+                  text={part.text}
+                  artifacts={artifacts}
+                />
+              ) : (
+                <ChatMarkdown
+                  key={index}
+                  text={part.text}
+                  artifacts={artifacts}
+                />
+              );
             case "app_card":
               return (
                 <VisualBlock
@@ -73,26 +76,26 @@ export const MessageBody = memo(function MessageBody(
                 />
               );
             case "reasoning":
-              return reasoning === true
-                ? (
-                  <Reasoning
-                    key={index}
-                    text={part.text}
-                    durationMs={part.durationMs}
-                    thinking={false}
-                    artifacts={artifacts}
-                  />
-                )
-                : null;
+              return reasoning === true ? (
+                <Reasoning
+                  key={index}
+                  text={part.text}
+                  durationMs={part.durationMs}
+                  thinking={false}
+                  artifacts={artifacts}
+                />
+              ) : null;
           }
         })}
       </div>
     );
   }
   if (fallback !== undefined) {
-    return plain
-      ? <ArtifactText text={fallback} artifacts={artifacts} />
-      : <ChatMarkdown text={fallback} artifacts={artifacts} />;
+    return plain ? (
+      <ArtifactText text={fallback} artifacts={artifacts} />
+    ) : (
+      <ChatMarkdown text={fallback} artifacts={artifacts} />
+    );
   }
   if (body?.state === "failed") {
     return (
@@ -123,90 +126,93 @@ interface UserBodyProps extends MessageBodyProps {
  * 내 말의 본문. 글 끝의 첨부 줄은 떼어 글 위에 chip과 그림으로 보인다. 잘 받은 말에는 표시가 없고, 보내지
  * 못했거나 결과를 모르면 다음 행동을 곁들인다.
  */
-export function UserBody(
-  { action, onCheck, onResend, imageUrl, onOpenFile, ...rest }: UserBodyProps,
-): ReactElement {
+export function UserBody({
+  action,
+  onCheck,
+  onResend,
+  imageUrl,
+  onOpenFile,
+  ...rest
+}: UserBodyProps): ReactElement {
   const raw = textOfBody(rest.body) ?? rest.fallback;
   const split = raw === undefined ? null : splitAttachmentText(raw);
-  const attached = split !== null &&
-    (split.files.length > 0 || split.images.length > 0);
+  const attached =
+    split !== null && (split.files.length > 0 || split.images.length > 0);
   return (
     <div className={styles.mine} data-user-body="">
-      {attached
-        ? (
-          <MessageAttachments
-            files={split.files}
-            images={split.images}
-            imageUrl={imageUrl}
-            onOpenFile={onOpenFile}
-          />
-        )
-        : null}
+      {attached ? (
+        <MessageAttachments
+          files={split.files}
+          images={split.images}
+          imageUrl={imageUrl}
+          onOpenFile={onOpenFile}
+        />
+      ) : null}
       {attached && split.text === "" ? null : (
         <MessageBody
           {...rest}
           {...(attached
             ? {
-              body: {
-                state: "ready",
-                parts: [{ kind: "text", text: split.text }],
-              },
-              fallback: split.text,
-            }
+                body: {
+                  state: "ready",
+                  parts: [{ kind: "text", text: split.text }],
+                },
+                fallback: split.text,
+              }
             : {})}
           plain
         />
       )}
-      {action === "edit"
-        ? <Notice>{t("conversation.notice.not-sent")}</Notice>
-        : null}
-      {action === "check"
-        ? (
-          <Notice
-            action={
-              <Tooltip content={t("conversation.button.check-delivery")}>
-                <IconButton
-                  icon={conversationIcons.checkDelivery}
-                  label={t("conversation.button.check-delivery")}
-                  variant="secondary"
-                  size="sm"
-                  data-check-delivery=""
-                  onClick={onCheck}
-                />
-              </Tooltip>
-            }
-          >
-            {t("conversation.notice.unconfirmed")}
-          </Notice>
-        )
-        : null}
-      {action === "resend"
-        ? (
-          <Notice
-            action={
-              <Tooltip content={t("conversation.button.resend")}>
-                <IconButton
-                  icon={conversationIcons.resend}
-                  label={t("conversation.button.resend")}
-                  variant="secondary"
-                  size="sm"
-                  data-resend=""
-                  onClick={onResend}
-                />
-              </Tooltip>
-            }
-          >
-            {t("conversation.notice.not-found")}
-          </Notice>
-        )
-        : null}
+      {action === "edit" ? (
+        <Notice>{t("conversation.notice.not-sent")}</Notice>
+      ) : null}
+      {action === "check" ? (
+        <Notice
+          action={
+            <Tooltip content={t("conversation.button.check-delivery")}>
+              <IconButton
+                icon={conversationIcons.checkDelivery}
+                label={t("conversation.button.check-delivery")}
+                variant="secondary"
+                size="sm"
+                data-check-delivery=""
+                onClick={onCheck}
+              />
+            </Tooltip>
+          }
+        >
+          {t("conversation.notice.unconfirmed")}
+        </Notice>
+      ) : null}
+      {action === "resend" ? (
+        <Notice
+          action={
+            <Tooltip content={t("conversation.button.resend")}>
+              <IconButton
+                icon={conversationIcons.resend}
+                label={t("conversation.button.resend")}
+                variant="secondary"
+                size="sm"
+                data-resend=""
+                onClick={onResend}
+              />
+            </Tooltip>
+          }
+        >
+          {t("conversation.notice.not-found")}
+        </Notice>
+      ) : null}
     </div>
   );
 }
 
-function Notice(
-  { children, action }: { children: ReactNode; action?: ReactNode },
-): ReactElement {
+function Notice({
+  children,
+  action,
+}: {
+  children: ReactNode;
+  action?: ReactNode;
+}): ReactElement {
   return (
     <div className={styles.notice}>
       <span>{children}</span>

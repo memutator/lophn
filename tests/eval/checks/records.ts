@@ -25,32 +25,36 @@ export function toolCallsOf(
   trial: TrialRecord,
   tool?: string,
 ): CollectedToolCall[] {
-  return effectiveToolCalls(trial).filter((c) =>
-    tool === undefined || c.call.tool === tool
+  return effectiveToolCalls(trial).filter(
+    (c) => tool === undefined || c.call.tool === tool,
   );
 }
 
 // tool_call id는 ULID라 id 순이 시간 순이다.
 export function sentCalls(trial: TrialRecord, where?: CallWhere): SentCall[] {
-  return trial.sessions.flatMap((s) => s.sent_calls)
+  return trial.sessions
+    .flatMap((s) => s.sent_calls)
     .sort((a, b) =>
-      a.tool_call < b.tool_call ? -1 : a.tool_call > b.tool_call ? 1 : 0
+      a.tool_call < b.tool_call ? -1 : a.tool_call > b.tool_call ? 1 : 0,
     )
     .filter((c) => where === undefined || matchWhere(c, where));
 }
 
 export function matchWhere(c: SentCall, where: CallWhere): boolean {
-  return (where.target === undefined || matchTarget(c, where.target)) &&
+  return (
+    (where.target === undefined || matchTarget(c, where.target)) &&
     (where.notTarget === undefined || !matchTarget(c, where.notTarget)) &&
-    (where.reply === undefined || c.reply === where.reply);
+    (where.reply === undefined || c.reply === where.reply)
+  );
 }
 
 type NameForm = { role: string; place?: unknown; name?: unknown };
 
 function nameForm(to: unknown): NameForm | null {
-  return typeof to === "object" && to !== null &&
-      typeof (to as { role?: unknown }).role === "string"
-    ? to as NameForm
+  return typeof to === "object" &&
+    to !== null &&
+    typeof (to as { role?: unknown }).role === "string"
+    ? (to as NameForm)
     : null;
 }
 

@@ -17,9 +17,11 @@ export const ASK_TOOLS: readonly ToolDefinition[] = [
     handler: async (input, ctx) => {
       // skip turn은 사람이 곁에 있으므로 기다린다. 사람이 없는 turn만 묻지 않는다.
       if (ctx.mode === "unattended") {
-        return ok(fitted("ask unattended: no person is present in this turn", {
-          outcome: "unattended" as const,
-        }));
+        return ok(
+          fitted("ask unattended: no person is present in this turn", {
+            outcome: "unattended" as const,
+          }),
+        );
       }
       const asked = await ctx.questions.ask(
         { session: ctx.session, turn: ctx.turn, tool_call: ctx.tool_call },

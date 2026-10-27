@@ -22,9 +22,7 @@ export type TextRedactor = (
   text: string,
 ) => string | null;
 
-export function createProductRedactor(
-  known?: KnownSecretMatch,
-): TextRedactor {
+export function createProductRedactor(known?: KnownSecretMatch): TextRedactor {
   return (_source, _mediaType, text) => {
     // 알려진 값을 아직 다 모르면 안전화를 끝낼 수 없다.
     if (known !== undefined && !known.ready) return null;
@@ -33,12 +31,13 @@ export function createProductRedactor(
     while (rest.length > 0) {
       const pattern = matchCredential(rest);
       const secret = known?.match(rest);
-      const found = pattern && secret
-        ? (secret.index < pattern.index ||
+      const found =
+        pattern && secret
+          ? secret.index < pattern.index ||
             (secret.index === pattern.index && secret.length > pattern.length)
-          ? secret
-          : pattern)
-        : pattern ?? secret;
+            ? secret
+            : pattern
+          : (pattern ?? secret);
       if (!found) {
         out += rest;
         break;

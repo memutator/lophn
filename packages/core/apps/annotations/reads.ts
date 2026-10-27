@@ -73,10 +73,12 @@ function inScope(
       return scope.project !== undefined && target.project === scope.project;
     case "artifact": {
       const owner = snapshot.port(domainLookupPort).get(target.domain)?.owner;
-      return owner !== undefined &&
+      return (
+        owner !== undefined &&
         (owner.kind === "project"
           ? scope.project === owner.id
-          : scope.app === owner.id);
+          : scope.app === owner.id)
+      );
     }
   }
 }
@@ -90,12 +92,14 @@ export function createAnnotationReads(): {
       handle(snapshot, ctx, input) {
         const scope = callerScope(snapshot, ctx);
         if (!scope.ok) return scope;
-        const found = "annotation" in input
-          ? foundByAnnotation(snapshot.sql, input.annotation)
-          : loadBatch(snapshot.sql, input.batch);
+        const found =
+          "annotation" in input
+            ? foundByAnnotation(snapshot.sql, input.annotation)
+            : loadBatch(snapshot.sql, input.batch);
         // 범위 밖 target은 묶인 호출자에게 없는 것과 같다.
         if (
-          found === null || !inScope(snapshot, scope.value, found.batch.target)
+          found === null ||
+          !inScope(snapshot, scope.value, found.batch.target)
         ) {
           return notFound();
         }

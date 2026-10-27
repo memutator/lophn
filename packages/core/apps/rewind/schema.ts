@@ -2,9 +2,10 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // 앱 data rewind 기록. 끝난 행은 바꾸지 못하고 지우지 않는다. 앱마다 applying은 하나뿐이다.
 // invocations는 되돌린 invocation id의 JSON 배열이다.
-export const rewindSchemaSteps: readonly SchemaStep[] = [{
-  id: "apps.rewind.tables",
-  sql: `
+export const rewindSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "apps.rewind.tables",
+    sql: `
     CREATE TABLE app_rewinds (
       id TEXT PRIMARY KEY NOT NULL,
       app TEXT NOT NULL,
@@ -32,4 +33,5 @@ export const rewindSchemaSteps: readonly SchemaStep[] = [{
     CREATE TRIGGER app_rewinds_no_delete BEFORE DELETE ON app_rewinds
     BEGIN SELECT RAISE(ABORT, 'rewinds are recorded, not deleted'); END;
   `,
-}];
+  },
+];

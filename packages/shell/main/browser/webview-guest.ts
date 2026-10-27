@@ -34,10 +34,11 @@ export function hardenWebviewAttach(input: {
   params.allowpopups = "on";
   if (params.src !== undefined && params.src !== "") {
     const address = normalizeAddress(params.src);
-    params.src = address !== null &&
-        decideNavigation({ url: address, isMainFrame: true }).allow
-      ? address
-      : "about:blank";
+    params.src =
+      address !== null &&
+      decideNavigation({ url: address, isMainFrame: true }).allow
+        ? address
+        : "about:blank";
   }
   return true;
 }

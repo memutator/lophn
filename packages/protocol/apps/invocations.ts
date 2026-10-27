@@ -9,6 +9,6 @@ export const INVOCATION_SUMMARY_MAX_BYTES = 16 * KIB;
 export const invocationSummarySchema = jsonObjectSchema.refine(
   (value) =>
     new TextEncoder().encode(JSON.stringify(value)).length <=
-      INVOCATION_SUMMARY_MAX_BYTES,
+    INVOCATION_SUMMARY_MAX_BYTES,
   { message: "invocation summary exceeds 16384 UTF-8 bytes" },
 );

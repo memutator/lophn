@@ -25,13 +25,15 @@ export const serverWiring: WiringFactory = () => ({
       // 파일 작업 결과 기록. 사람 요청에 결합해 받은 worker만 쓴다.
       { name: "file.record_result", actors: ["machine"], kind: "command" },
       // 사람 token 상한. user를 허용하는 route만 올라가고 다른 actor의 상한은 그대로다.
-      ...ctx.allRoutes.filter((route) => route.actors.includes("user")).map((
-        route,
-      ): OperationPolicy => ({
-        name: route.name,
-        actors: ["user"],
-        kind: route.kind === "command" ? "command" : "read",
-      })),
+      ...ctx.allRoutes
+        .filter((route) => route.actors.includes("user"))
+        .map(
+          (route): OperationPolicy => ({
+            name: route.name,
+            actors: ["user"],
+            kind: route.kind === "command" ? "command" : "read",
+          }),
+        ),
     ];
   },
   prepare(ctx) {

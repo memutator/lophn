@@ -58,18 +58,22 @@ export function validateSchemaNode(
   const arrayOnly = ["items", "minItems", "maxItems"];
   const stringOnly = ["minLength", "maxLength"];
   const numberOnly = ["minimum", "maximum"];
-  for (
-    const key of [...objectOnly, ...arrayOnly, ...stringOnly, ...numberOnly]
-  ) {
-    const allowed = type === "object"
-      ? objectOnly
-      : type === "array"
-      ? arrayOnly
-      : type === "string"
-      ? stringOnly
-      : type === "integer" || type === "number"
-      ? numberOnly
-      : [];
+  for (const key of [
+    ...objectOnly,
+    ...arrayOnly,
+    ...stringOnly,
+    ...numberOnly,
+  ]) {
+    const allowed =
+      type === "object"
+        ? objectOnly
+        : type === "array"
+          ? arrayOnly
+          : type === "string"
+            ? stringOnly
+            : type === "integer" || type === "number"
+              ? numberOnly
+              : [];
     if (Object.hasOwn(value, key) && !allowed.includes(key)) {
       return invalid(`${path}.${key} is not valid for ${type}`);
     }
@@ -93,7 +97,9 @@ export function validateSchemaNode(
       }
     }
     schema.properties = Object.fromEntries(
-      Object.keys(properties).sort().map((name) => [name, properties[name]]),
+      Object.keys(properties)
+        .sort()
+        .map((name) => [name, properties[name]]),
     );
     if (Object.hasOwn(value, "required")) {
       if (
@@ -135,7 +141,8 @@ export function validateSchemaNode(
       schema[key] = bound;
     }
     if (
-      schema.minItems !== undefined && schema.maxItems !== undefined &&
+      schema.minItems !== undefined &&
+      schema.maxItems !== undefined &&
       schema.minItems > schema.maxItems
     ) {
       return invalid(`${path} item bounds are inverted`);
@@ -151,7 +158,8 @@ export function validateSchemaNode(
       schema[key] = bound;
     }
     if (
-      schema.minLength !== undefined && schema.maxLength !== undefined &&
+      schema.minLength !== undefined &&
+      schema.maxLength !== undefined &&
       schema.minLength > schema.maxLength
     ) {
       return invalid(`${path} length bounds are inverted`);
@@ -165,7 +173,8 @@ export function validateSchemaNode(
       schema[key] = bound;
     }
     if (
-      schema.minimum !== undefined && schema.maximum !== undefined &&
+      schema.minimum !== undefined &&
+      schema.maximum !== undefined &&
       schema.minimum > schema.maximum
     ) {
       return invalid(`${path} numeric bounds are inverted`);
@@ -260,7 +269,8 @@ function checkValue(
     }
     const itemsValue: JsonValue = items;
     if (
-      schema.enum && !schema.enum.some((choice) => sameJson(choice, itemsValue))
+      schema.enum &&
+      !schema.enum.some((choice) => sameJson(choice, itemsValue))
     ) {
       return invalid(`${path} is outside enum`);
     }
@@ -305,7 +315,8 @@ function checkValue(
   }
   const normalized = normalizeJson(value);
   if (
-    schema.enum && !schema.enum.some((choice) => sameJson(choice, normalized))
+    schema.enum &&
+    !schema.enum.some((choice) => sameJson(choice, normalized))
   ) {
     return invalid(`${path} is outside enum`);
   }
@@ -318,8 +329,11 @@ export function validateInput(
 ): ValidationResult<JsonValue | undefined> {
   if (schema === null) {
     // 입력 없음, null, {}를 모두 입력 없음으로 받는다. model이 인자 없는 호출을 이 셋으로 보낸다.
-    const empty = value === undefined || value === null ||
-      (typeof value === "object" && !Array.isArray(value) &&
+    const empty =
+      value === undefined ||
+      value === null ||
+      (typeof value === "object" &&
+        !Array.isArray(value) &&
         Object.keys(value).length === 0);
     return empty
       ? { ok: true, value: undefined }
@@ -327,9 +341,10 @@ export function validateInput(
   }
   const parsed = validateSchemaNode(schema, "input");
   if (!parsed.ok) return parsed;
-  const supplied = value === undefined && Object.hasOwn(parsed.value, "default")
-    ? parsed.value.default
-    : value;
+  const supplied =
+    value === undefined && Object.hasOwn(parsed.value, "default")
+      ? parsed.value.default
+      : value;
   if (supplied === undefined) return invalid("input is required");
   const copied = asJson(supplied);
   if (copied === undefined) return invalid("input is not JSON");
@@ -347,9 +362,8 @@ export async function canonicalInputHash(
     canonicalJson(validated.value === undefined ? null : validated.value),
   );
   const digest = await crypto.subtle.digest("SHA-256", encoded);
-  const hash = Array.from(
-    new Uint8Array(digest),
-    (byte) => byte.toString(16).padStart(2, "0"),
+  const hash = Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
   ).join("");
   return { ok: true, value: hash };
 }

@@ -12,7 +12,8 @@ export function packageFromRow(
   const description = row["description"];
   const owner = row["owner_app"];
   if (
-    typeof id !== "string" || typeof name !== "string" ||
+    typeof id !== "string" ||
+    typeof name !== "string" ||
     typeof description !== "string" ||
     (owner !== null && typeof owner !== "string")
   ) {
@@ -37,8 +38,10 @@ export function versionFromRow(row: SqlRow): Result<PackageVersion> {
   const guideHash = row["guide_hash"];
   const permissions = row["permissions"];
   if (
-    typeof version !== "string" || typeof bundleHash !== "string" ||
-    typeof guideHash !== "string" || typeof permissions !== "string"
+    typeof version !== "string" ||
+    typeof bundleHash !== "string" ||
+    typeof guideHash !== "string" ||
+    typeof permissions !== "string"
   ) {
     return err({ code: "internal", message: "invalid stored package version" });
   }

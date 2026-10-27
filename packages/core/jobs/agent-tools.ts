@@ -42,8 +42,7 @@ export const JOB_AGENT_TOOLS: readonly ToolDefinition[] = [
       enabled: z.boolean().optional(),
     }),
     routes: [jobCreate],
-    description:
-      `Create a scheduled job that repeats on its own. ${SCHEDULE_NOTE} ${ACTION_NOTE} \`enabled\` defaults to true.`,
+    description: `Create a scheduled job that repeats on its own. ${SCHEDULE_NOTE} ${ACTION_NOTE} \`enabled\` defaults to true.`,
     effect: "write",
     handler: async (input, ctx) => {
       const made = await commandOf(
@@ -70,8 +69,7 @@ export const JOB_AGENT_TOOLS: readonly ToolDefinition[] = [
       enabled: z.boolean().optional(),
     }),
     routes: [jobUpdate],
-    description:
-      `Change a scheduled job. Omit a field to keep it; \`at: null\` clears the time of day; \`action\` replaces the whole action. ${RESTART_NOTE} ${SCHEDULE_NOTE} ${ACTION_NOTE} ${OWN_NOTE}`,
+    description: `Change a scheduled job. Omit a field to keep it; \`at: null\` clears the time of day; \`action\` replaces the whole action. ${RESTART_NOTE} ${SCHEDULE_NOTE} ${ACTION_NOTE} ${OWN_NOTE}`,
     effect: "write",
     handler: async (input, ctx) => {
       const body = Object.fromEntries(
@@ -93,8 +91,7 @@ export const JOB_AGENT_TOOLS: readonly ToolDefinition[] = [
     defer: true,
     input: z.strictObject({ job: jobIdSchema }),
     routes: [jobDelete],
-    description:
-      `Delete a scheduled job and its history; a run or workflow instance already running goes on. ${OWN_NOTE}`,
+    description: `Delete a scheduled job and its history; a run or workflow instance already running goes on. ${OWN_NOTE}`,
     effect: "write",
     handler: async (input, ctx) => {
       const done = await commandOf(
@@ -130,11 +127,9 @@ export const JOB_AGENT_TOOLS: readonly ToolDefinition[] = [
         if (read.value.next_cursor === null) break;
         cursor = read.value.next_cursor;
       }
-      return ok(fitted(
-        countSummary("jobs", jobs.length, false),
-        { jobs },
-        ["jobs"],
-      ));
+      return ok(
+        fitted(countSummary("jobs", jobs.length, false), { jobs }, ["jobs"]),
+      );
     },
   }),
 ];

@@ -13,8 +13,8 @@ export function insideDataArea(
   }
   const segments = relative.split("/");
   if (
-    segments.some((segment) =>
-      segment.length === 0 || segment === "." || segment === ".."
+    segments.some(
+      (segment) => segment.length === 0 || segment === "." || segment === "..",
     )
   ) {
     return err({ code: "invalid_input", message: "path leaves the data area" });

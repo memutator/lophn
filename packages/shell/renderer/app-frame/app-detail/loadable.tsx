@@ -35,13 +35,11 @@ export function Loadable<T>({ read, target, now, children }: LoadableProps<T>) {
   }
   return (
     <>
-      {loaded.staleSince
-        ? (
-          <p className={styles.muted} data-stale="">
-            <StaleNote updatedAt={loaded.staleSince} now={now()} />
-          </p>
-        )
-        : null}
+      {loaded.staleSince ? (
+        <p className={styles.muted} data-stale="">
+          <StaleNote updatedAt={loaded.staleSince} now={now()} />
+        </p>
+      ) : null}
       {children(loaded.value)}
     </>
   );

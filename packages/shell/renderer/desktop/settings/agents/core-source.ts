@@ -64,8 +64,8 @@ function previewOf(value: PreviewValue | null): string | null {
 /** 줄 밑에 보이는 한 줄: 주소 또는 실행 파일. credential은 싣지 않는다. */
 function detailOf(server: McpServerValue): string {
   return server.transport === "http"
-    ? server.http?.url ?? ""
-    : server.stdio?.executable ?? "";
+    ? (server.http?.url ?? "")
+    : (server.stdio?.executable ?? "");
 }
 
 /**
@@ -102,9 +102,8 @@ export function coreAgentsSettingsSource(
   deps: Partial<AgentsDeps> = {},
 ): AgentsSettingsSource {
   const picker = "picker" in deps ? deps.picker : windowFolderPicker();
-  const openSecret = "openSecret" in deps
-    ? deps.openSecret
-    : windowSecretInputOpener();
+  const openSecret =
+    "openSecret" in deps ? deps.openSecret : windowSecretInputOpener();
   const random = deps.random ?? (() => crypto.randomUUID().slice(0, 8));
   const link = createLink(core, random);
   const editor = coreAgentsSource(core);
@@ -115,8 +114,8 @@ export function coreAgentsSettingsSource(
     const grants = await editor.grants(null, "lophn");
     const entries = grants.ok ? grants.value.entries : [];
     return {
-      name: detail.ok ? detail.value.definition.name ?? "lophn" : "lophn",
-      model: detail.ok ? detail.value.definition.model ?? null : null,
+      name: detail.ok ? (detail.value.definition.name ?? "lophn") : "lophn",
+      model: detail.ok ? (detail.value.definition.model ?? null) : null,
       apps: entries.length,
     };
   }
@@ -177,7 +176,7 @@ export function coreAgentsSettingsSource(
       const states = await secretStates(
         core,
         serverValues.flatMap((server) =>
-          [secretOf(server)].filter((name) => name !== null)
+          [secretOf(server)].filter((name) => name !== null),
         ),
       );
       const logins = await authStates(core, serverValues);
@@ -212,10 +211,12 @@ export function coreAgentsSettingsSource(
       if (current.value.folders.includes(picked.path)) {
         return { ok: true, value: null };
       }
-      return applySetting(core, SKILL_FOLDERS, [
-        ...current.value.folders,
-        picked.path,
-      ], random);
+      return applySetting(
+        core,
+        SKILL_FOLDERS,
+        [...current.value.folders, picked.path],
+        random,
+      );
     },
 
     async setSkillEnabled(name, enabled) {
@@ -244,10 +245,12 @@ export function coreAgentsSettingsSource(
     async createServer(server) {
       const current = await readExtensionSettings(core);
       if (!current.ok) return current;
-      const added = await applySetting(core, MCP_SERVERS, [
-        ...current.value.servers,
-        server,
-      ], random);
+      const added = await applySetting(
+        core,
+        MCP_SERVERS,
+        [...current.value.servers, server],
+        random,
+      );
       if (!added.ok) return added;
       // key나 token이 필요한 server는 값을 보호 입력으로 받는다. 값은 이 화면을 지나지 않는다.
       const auth = server.transport === "http" ? server.http.auth : null;
@@ -272,7 +275,7 @@ export function coreAgentsSettingsSource(
         core,
         MCP_SERVERS,
         current.value.servers.map((server) =>
-          server.name === name ? { ...server, enabled } : server
+          server.name === name ? { ...server, enabled } : server,
         ),
         random,
       );

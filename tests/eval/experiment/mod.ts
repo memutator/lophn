@@ -26,13 +26,9 @@ export async function runExperimentCommand(args: string[]): Promise<number> {
     return 2;
   }
   const { values, positionals } = parsed;
-  const budget = values.budget === undefined
-    ? undefined
-    : Number(values.budget);
-  if (
-    positionals.length !== 1 ||
-    (budget !== undefined && !(budget > 0))
-  ) {
+  const budget =
+    values.budget === undefined ? undefined : Number(values.budget);
+  if (positionals.length !== 1 || (budget !== undefined && !(budget > 0))) {
     console.log(
       `<id>는 하나, --budget은 0보다 커야 한다.\n${EXPERIMENT_USAGE}`,
     );

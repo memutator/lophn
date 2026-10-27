@@ -56,7 +56,7 @@ interface FormState {
   priceCacheWrite: string;
 }
 
-const text = (value: number | null) => value === null ? "" : String(value);
+const text = (value: number | null) => (value === null ? "" : String(value));
 const price = (value: string | null | undefined) => value ?? "";
 
 function stateOf(modelName: string | null, info: UserModelInfo | null) {
@@ -126,11 +126,7 @@ function infoOf(
     return value;
   };
   const rate = (
-    field:
-      | "priceInput"
-      | "priceOutput"
-      | "priceCacheRead"
-      | "priceCacheWrite",
+    field: "priceInput" | "priceOutput" | "priceCacheRead" | "priceCacheWrite",
   ) => {
     const value = priceOf(form[field]);
     if (value === "invalid") {
@@ -162,11 +158,12 @@ function infoOf(
       output_media: [...form.outputMedia],
       effort: form.effortOn
         ? {
-          values: [...form.efforts],
-          default_value: form.effortDefault === ""
-            ? null
-            : form.effortDefault as EffortValue,
-        }
+            values: [...form.efforts],
+            default_value:
+              form.effortDefault === ""
+                ? null
+                : (form.effortDefault as EffortValue),
+          }
         : null,
       price: Object.values(rates).every((value) => value === null)
         ? null
@@ -176,13 +173,15 @@ function infoOf(
 }
 
 /** media 다섯 개의 icon toggle. text는 켜진 채 잠겨 있다. */
-function MediaToggles(
-  { label, value, onChange }: {
-    label: string;
-    value: readonly ModelMedia[];
-    onChange: (value: readonly ModelMedia[]) => void;
-  },
-) {
+function MediaToggles({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: readonly ModelMedia[];
+  onChange: (value: readonly ModelMedia[]) => void;
+}) {
   return (
     <div className={styles.line}>
       <span className={styles.lineLabel}>{label}</span>
@@ -203,10 +202,11 @@ function MediaToggles(
                   onChange(
                     on
                       ? value.filter((item) => item !== media)
-                      : MODEL_MEDIA.filter((item) =>
-                        item === media || value.includes(item)
-                      ),
-                  )}
+                      : MODEL_MEDIA.filter(
+                          (item) => item === media || value.includes(item),
+                        ),
+                  )
+                }
               />
             </Tooltip>
           );
@@ -221,7 +221,7 @@ const MODEL_DEFAULT = "model";
 export function ModelInfoForm(props: ModelInfoFormProps) {
   const editing = props.modelName !== null;
   const [form, setForm] = useState<FormState>(() =>
-    stateOf(props.modelName, props.info)
+    stateOf(props.modelName, props.info),
   );
   const [problems, setProblems] = useState<Problems>({});
   const [outcome, setOutcome] = useState<
@@ -251,9 +251,8 @@ export function ModelInfoForm(props: ModelInfoFormProps) {
       return;
     }
     setProblems({});
-    void finish(
-      "save-failed",
-      () => props.onSave(form.name.trim(), parsed.info),
+    void finish("save-failed", () =>
+      props.onSave(form.name.trim(), parsed.info),
     );
   };
 
@@ -276,11 +275,7 @@ export function ModelInfoForm(props: ModelInfoFormProps) {
     </Field>
   );
   const rate = (
-    field:
-      | "priceInput"
-      | "priceOutput"
-      | "priceCacheRead"
-      | "priceCacheWrite",
+    field: "priceInput" | "priceOutput" | "priceCacheRead" | "priceCacheWrite",
     label: string,
   ) => (
     <Field label={label} error={problems[field]}>
@@ -300,23 +295,23 @@ export function ModelInfoForm(props: ModelInfoFormProps) {
       onOpenChange={(open) => {
         if (!open) props.onClose();
       }}
-      title={editing
-        ? t("conversation.title.edit-model")
-        : t("conversation.title.add-model")}
+      title={
+        editing
+          ? t("conversation.title.edit-model")
+          : t("conversation.title.add-model")
+      }
       width="wide"
       actions={
         <>
-          {editing
-            ? (
-              <Button
-                variant="danger"
-                disabled={busy}
-                onClick={() => void finish("remove-failed", props.onRemove)}
-              >
-                {t("conversation.button.remove-model")}
-              </Button>
-            )
-            : null}
+          {editing ? (
+            <Button
+              variant="danger"
+              disabled={busy}
+              onClick={() => void finish("remove-failed", props.onRemove)}
+            >
+              {t("conversation.button.remove-model")}
+            </Button>
+          ) : null}
           <Button variant="secondary" onClick={props.onClose}>
             {t("common.button.cancel")}
           </Button>
@@ -327,9 +322,11 @@ export function ModelInfoForm(props: ModelInfoFormProps) {
       }
     >
       <div className={styles.form} data-model-info="">
-        {props.lead === undefined
-          ? null
-          : <p className={styles.note} role="status">{props.lead}</p>}
+        {props.lead === undefined ? null : (
+          <p className={styles.note} role="status">
+            {props.lead}
+          </p>
+        )}
         <Field label={t("conversation.label.model-name")} error={problems.name}>
           <Input
             autoComplete="off"
@@ -377,75 +374,75 @@ export function ModelInfoForm(props: ModelInfoFormProps) {
           checked={form.effortOn}
           onCheckedChange={(effortOn) => set({ effortOn })}
         />
-        {form.effortOn
-          ? (
-            <>
-              <div className={styles.line}>
-                <span className={styles.lineLabel}>
-                  {t("conversation.label.model-effort-values")}
-                </span>
-                <div
-                  className={styles.chips}
-                  role="group"
-                  aria-label={t("conversation.label.model-effort-values")}
-                >
-                  {EFFORT_VALUES.map((value) => {
-                    const on = form.efforts.includes(value);
-                    return (
-                      <Button
-                        key={value}
-                        size="sm"
-                        variant={on ? "secondary" : "ghost"}
-                        aria-pressed={on}
-                        onClick={() => {
-                          const efforts = EFFORT_VALUES.filter((item) =>
-                            item === value ? !on : form.efforts.includes(item)
-                          );
-                          // 고르지 않은 값을 기본으로 둘 수 없다.
-                          set({
-                            efforts,
-                            effortDefault: efforts.includes(
-                                form.effortDefault as EffortValue,
-                              )
-                              ? form.effortDefault
-                              : "",
-                          });
-                        }}
-                      >
-                        {EFFORT_LABELS[value]}
-                      </Button>
-                    );
-                  })}
-                </div>
+        {form.effortOn ? (
+          <>
+            <div className={styles.line}>
+              <span className={styles.lineLabel}>
+                {t("conversation.label.model-effort-values")}
+              </span>
+              <div
+                className={styles.chips}
+                role="group"
+                aria-label={t("conversation.label.model-effort-values")}
+              >
+                {EFFORT_VALUES.map((value) => {
+                  const on = form.efforts.includes(value);
+                  return (
+                    <Button
+                      key={value}
+                      size="sm"
+                      variant={on ? "secondary" : "ghost"}
+                      aria-pressed={on}
+                      onClick={() => {
+                        const efforts = EFFORT_VALUES.filter((item) =>
+                          item === value ? !on : form.efforts.includes(item),
+                        );
+                        // 고르지 않은 값을 기본으로 둘 수 없다.
+                        set({
+                          efforts,
+                          effortDefault: efforts.includes(
+                            form.effortDefault as EffortValue,
+                          )
+                            ? form.effortDefault
+                            : "",
+                        });
+                      }}
+                    >
+                      {EFFORT_LABELS[value]}
+                    </Button>
+                  );
+                })}
               </div>
-              {problems.effort === undefined
-                ? null
-                : <p className={styles.error} role="alert">{problems.effort}
-                </p>}
-              <Field label={t("conversation.label.model-effort-default")}>
-                <Select
-                  value={form.effortDefault === ""
-                    ? MODEL_DEFAULT
-                    : form.effortDefault}
-                  onValueChange={(value) =>
-                    set({
-                      effortDefault: value === MODEL_DEFAULT ? "" : value,
-                    })}
-                  options={[
-                    {
-                      value: MODEL_DEFAULT,
-                      label: t("conversation.label.model-effort-model"),
-                    },
-                    ...form.efforts.map((value) => ({
-                      value,
-                      label: EFFORT_LABELS[value],
-                    })),
-                  ]}
-                />
-              </Field>
-            </>
-          )
-          : null}
+            </div>
+            {problems.effort === undefined ? null : (
+              <p className={styles.error} role="alert">
+                {problems.effort}
+              </p>
+            )}
+            <Field label={t("conversation.label.model-effort-default")}>
+              <Select
+                value={
+                  form.effortDefault === "" ? MODEL_DEFAULT : form.effortDefault
+                }
+                onValueChange={(value) =>
+                  set({
+                    effortDefault: value === MODEL_DEFAULT ? "" : value,
+                  })
+                }
+                options={[
+                  {
+                    value: MODEL_DEFAULT,
+                    label: t("conversation.label.model-effort-model"),
+                  },
+                  ...form.efforts.map((value) => ({
+                    value,
+                    label: EFFORT_LABELS[value],
+                  })),
+                ]}
+              />
+            </Field>
+          </>
+        ) : null}
         <div
           className={styles.prices}
           role="group"
@@ -468,17 +465,15 @@ export function ModelInfoForm(props: ModelInfoFormProps) {
           </div>
           <p className={styles.note}>{t("conversation.notice.model-prices")}</p>
         </div>
-        {outcome === null
-          ? null
-          : (
-            <p className={styles.error} role="alert" data-model-info-problem="">
-              {outcome === "conflict"
-                ? t("conversation.error.model-info-conflict")
-                : outcome === "save-failed"
+        {outcome === null ? null : (
+          <p className={styles.error} role="alert" data-model-info-problem="">
+            {outcome === "conflict"
+              ? t("conversation.error.model-info-conflict")
+              : outcome === "save-failed"
                 ? t("conversation.error.model-info-failed")
                 : t("conversation.error.model-info-remove-failed")}
-            </p>
-          )}
+          </p>
+        )}
       </div>
     </Dialog>
   );

@@ -23,9 +23,11 @@ const launch = (args: string[]) =>
 test("preview flags는 일회용 폴더 안의 쓰기만 받고 그 밖 쓰기와 운영 data 읽기와 net은 거절한다", () => {
   const db = `${dataPath}/app.sqlite`;
   const rows: [string, string[], boolean][] = [
-    ["DB file과 socket", [
-      `--allow-write=${db},${db}-wal,${db}-shm,${dataPath}/s.sock`,
-    ], true],
+    [
+      "DB file과 socket",
+      [`--allow-write=${db},${db}-wal,${db}-shm,${dataPath}/s.sock`],
+      true,
+    ],
     ["폴더 자체", [`--allow-write=${dataPath}`], true],
     ["운영 data 쓰기", [`--allow-write=${live}/app.sqlite`], false],
     ["폴더 밖 쓰기 섞임", [`--allow-write=${db},${root}/x`], false],

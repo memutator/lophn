@@ -42,9 +42,9 @@ export function appViewOrder<T>(host: ViewHost<T>, raiseOverlay: () => void) {
       attached.push({ view, layer });
       host.addChildView(view);
       // 방금 붙인 view보다 layer가 큰 것을 layer 순(같으면 붙은 순)으로 다시 위에 둔다.
-      const above = attached.filter((item) =>
-        item.view !== view && item.layer > layer
-      ).sort((a, b) => a.layer - b.layer);
+      const above = attached
+        .filter((item) => item.view !== view && item.layer > layer)
+        .sort((a, b) => a.layer - b.layer);
       for (const item of above) host.addChildView(item.view);
       raiseOverlay();
     },

@@ -17,8 +17,9 @@ export async function loadChangedText(
   if (!TEXT_KINDS.includes(change.to.kind)) return ok(null);
   const files: Record<string, string>[] = [];
   for (const ref of [change.from, change.to]) {
-    const entry = (await readEntries(registryDir, ref.kind, ref.name))
-      .find((e) => e.n === ref.n);
+    const entry = (await readEntries(registryDir, ref.kind, ref.name)).find(
+      (e) => e.n === ref.n,
+    );
     if (entry === undefined) {
       return err({
         code: "not_found",

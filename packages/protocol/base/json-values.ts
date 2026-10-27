@@ -21,7 +21,9 @@ export const jsonValueSchema = z.custom<JsonValue>(validJson, {
 });
 export const jsonObjectSchema = z.custom<JsonObject>(
   (value) =>
-    value !== null && typeof value === "object" &&
-    !Array.isArray(value) && validJson(value),
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    validJson(value),
   { message: "expected canonical JSON object" },
 );

@@ -26,13 +26,13 @@ export type FixtureCall = {
 
 export type FxStep =
   | {
-    tool: string;
-    effect?: "read" | "write" | "external";
-    outcome?: "success" | "failure" | "not_executed";
-    code?: string;
-    input?: unknown;
-    output?: unknown;
-  }
+      tool: string;
+      effect?: "read" | "write" | "external";
+      outcome?: "success" | "failure" | "not_executed";
+      code?: string;
+      input?: unknown;
+      output?: unknown;
+    }
   | { call: FixtureCall };
 
 function placeName(p: Participant): PlaceName | null {
@@ -164,12 +164,13 @@ export function fixtureSession(
           tool: step.tool,
           effect: step.effect ?? "read",
           kind,
-          code: step.code ??
+          code:
+            step.code ??
             (kind === "success"
               ? "ok"
               : kind === "failure"
-              ? "failed"
-              : "denied"),
+                ? "failed"
+                : "denied"),
         }),
         input: step.input ?? null,
         output: step.output ?? null,

@@ -15,10 +15,19 @@ interface Tick {
 }
 
 // subtle 실선 격자와 왼쪽 값 label. 0 자리는 baseline으로 조금 진하다.
-export function ValueGrid(
-  { ticks, box, zero }: { ticks: readonly Tick[]; box: Box; zero?: number },
-) {
-  const labeled = valueLabelsFit(ticks.map((tick) => tick.label), box.left);
+export function ValueGrid({
+  ticks,
+  box,
+  zero,
+}: {
+  ticks: readonly Tick[];
+  box: Box;
+  zero?: number;
+}) {
+  const labeled = valueLabelsFit(
+    ticks.map((tick) => tick.label),
+    box.left,
+  );
   return (
     <g data-axis="value">
       {ticks.map((tick) => (
@@ -48,9 +57,15 @@ export function ValueGrid(
 }
 
 // 세로 격자와 아래 값 label(산점의 x 축).
-export function ColumnGrid(
-  { ticks, box, width }: { ticks: readonly Tick[]; box: Box; width: number },
-) {
+export function ColumnGrid({
+  ticks,
+  box,
+  width,
+}: {
+  ticks: readonly Tick[];
+  box: Box;
+  width: number;
+}) {
   return (
     <g data-axis="column">
       {ticks.map((tick) => (
@@ -69,9 +84,15 @@ export function ColumnGrid(
 }
 
 // 아래 축 label. SVG 안에 다 들어가고 서로 겹치지 않는 것만 그린다.
-export function BottomLabels(
-  { ticks, box, width }: { ticks: readonly Tick[]; box: Box; width: number },
-) {
+export function BottomLabels({
+  ticks,
+  box,
+  width,
+}: {
+  ticks: readonly Tick[];
+  box: Box;
+  width: number;
+}) {
   return (
     <g data-axis="category">
       {placeBottomLabels(ticks, width).map((tick) => (
@@ -98,15 +119,19 @@ interface TooltipRow {
 
 // popover 표면의 tooltip. 위치는 SVG foreignObject의 x·y·width·height로만 정하고 inline style을 쓰지 않는다.
 // 기준점이 plot 오른쪽 절반이면 왼쪽에, 아니면 오른쪽에 붙는다.
-export function Tooltip(
-  { anchor, box, width, title, rows }: {
-    anchor: number;
-    box: Box;
-    width: number;
-    title: string;
-    rows: readonly TooltipRow[];
-  },
-) {
+export function Tooltip({
+  anchor,
+  box,
+  width,
+  title,
+  rows,
+}: {
+  anchor: number;
+  box: Box;
+  width: number;
+  title: string;
+  rows: readonly TooltipRow[];
+}) {
   const left = anchor > width / 2;
   // 상자는 언제나 SVG 폭 안이고 폭은 0 이상이다.
   const x = left ? 0 : Math.min(width, Math.max(0, anchor + GEOMETRY.pad));
@@ -126,14 +151,14 @@ export function Tooltip(
           <span className={styles.tooltipTitle}>{title}</span>
           {rows.map((row, index) => (
             <Fragment key={index}>
-              {row.slot === undefined
-                ? <span className={styles.tooltipBlank} />
-                : (
-                  <span
-                    className={`${styles.series} ${styles.swatch}`}
-                    data-slot={row.slot}
-                  />
-                )}
+              {row.slot === undefined ? (
+                <span className={styles.tooltipBlank} />
+              ) : (
+                <span
+                  className={`${styles.series} ${styles.swatch}`}
+                  data-slot={row.slot}
+                />
+              )}
               <span className={styles.tooltipName}>{row.name}</span>
               <span className={styles.tooltipValue}>{row.value}</span>
             </Fragment>

@@ -29,10 +29,13 @@ test("an agent cannot change or delete a job another agent made; a user changes 
     db.exec(jobsSchemaSteps[0]!.sql);
     const sql = createSql(db, () => true);
     const ports = new Map<unknown, unknown>([
-      [jobTargetsPort, {
-        creatorOf: (session: string) => agents[session],
-        resolveApp: () => ok(APP),
-      }],
+      [
+        jobTargetsPort,
+        {
+          creatorOf: (session: string) => agents[session],
+          resolveApp: () => ok(APP),
+        },
+      ],
       [jobZonePort, { zone: () => "UTC" }],
     ]);
     const tx = {
@@ -45,12 +48,17 @@ test("an agent cannot change or delete a job another agent made; a user changes 
     const agent = (session: string) => ({ actor: `agent:${session}` }) as never;
     const user = { actor: "user" } as never;
 
-    const created = commands.create.handle(tx, agent(LOPHN_1), {
-      title: "Nightly",
-      every: "1d",
-      action: { kind: "tool_run", app: "notes", tool: "sweep" },
-      missed_policy: "run",
-    }, {} as never);
+    const created = commands.create.handle(
+      tx,
+      agent(LOPHN_1),
+      {
+        title: "Nightly",
+        every: "1d",
+        action: { kind: "tool_run", app: "notes", tool: "sweep" },
+        missed_policy: "run",
+      },
+      {} as never,
+    );
     assert.ok(created.ok);
     const job = created.value.job.id;
     sql.run(

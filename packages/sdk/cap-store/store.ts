@@ -83,17 +83,20 @@ function path(options: OpenStoreOptions): string {
 }
 
 function userTables(db: DatabaseSync): string[] {
-  return db.prepare(
-    `select name from sqlite_master
+  return db
+    .prepare(
+      `select name from sqlite_master
        where type = 'table' and name not like 'sqlite_%' and name != ?
          and sql not like 'CREATE VIRTUAL%'`,
-  ).all(SCHEMA_TABLE).map((row) => String(row["name"]));
+    )
+    .all(SCHEMA_TABLE)
+    .map((row) => String(row["name"]));
 }
 
 function primaryKeyColumns(db: DatabaseSync, table: string): number {
-  const columns = db.prepare(
-    `pragma table_info("${table.replaceAll('"', '""')}")`,
-  ).all();
+  const columns = db
+    .prepare(`pragma table_info("${table.replaceAll('"', '""')}")`)
+    .all();
   return columns.filter((column) => Number(column["pk"]) > 0).length;
 }
 
@@ -105,18 +108,21 @@ export function openStore(options: OpenStoreOptions = {}): Store {
   const store: Store = {
     db,
     schema() {
-      const table = db.prepare(
-        "select name from sqlite_master where type = 'table' and name = ?",
-      ).get(SCHEMA_TABLE);
+      const table = db
+        .prepare(
+          "select name from sqlite_master where type = 'table' and name = ?",
+        )
+        .get(SCHEMA_TABLE);
       if (!table) return 0;
-      const row = db.prepare(
-        `select data_schema from ${SCHEMA_TABLE} where id = 1`,
-      ).get();
+      const row = db
+        .prepare(`select data_schema from ${SCHEMA_TABLE} where id = 1`)
+        .get();
       return row ? Number(row["data_schema"]) : 0;
     },
     async migrate(steps, migrateOptions = {}) {
       const current = store.schema();
-      const target = migrateOptions.target ??
+      const target =
+        migrateOptions.target ??
         steps.reduce((high, step) => Math.max(high, step.to), current);
       if (target === current) return current;
       if (mode === "live") {
@@ -137,7 +143,7 @@ export function openStore(options: OpenStoreOptions = {}): Store {
         byFrom.set(step.from, step);
       }
       const path: Migration[] = [];
-      for (let cursor = current; cursor < target;) {
+      for (let cursor = current; cursor < target; ) {
         const step = byFrom.get(cursor);
         if (!step || step.to > target) {
           throw invalid("migration path is not continuous");
@@ -153,10 +159,12 @@ export function openStore(options: OpenStoreOptions = {}): Store {
           const before = new Set(userTables(db));
           db.exec(step.sql);
           const missing = tablesWithoutPrimaryKey(
-            userTables(db).filter((name) => !before.has(name)).map((name) => ({
-              name,
-              primary_key_columns: primaryKeyColumns(db, name),
-            })),
+            userTables(db)
+              .filter((name) => !before.has(name))
+              .map((name) => ({
+                name,
+                primary_key_columns: primaryKeyColumns(db, name),
+              })),
           );
           if (missing.length > 0) {
             throw invalid(

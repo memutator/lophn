@@ -43,8 +43,8 @@ function outsideBoundApp(
   if (parseActor(ctx.actor)?.kind !== "agent") return false;
   const bound = ctx.conditions.app;
   if (bound === undefined) return false;
-  const addressed = target["document"] !== undefined ||
-    target["place_kind"] !== undefined;
+  const addressed =
+    target["document"] !== undefined || target["place_kind"] !== undefined;
   if (!addressed || target["app"] !== undefined) return false;
   return !pinnedEvidence(ctx, target);
 }
@@ -56,9 +56,11 @@ function pinnedEvidence(
   const { document, version } = target;
   // 판을 주소로 준 문서 읽기만 근거다. 자리 목록·최신 판·다른 판은 근거가 아니다.
   if (typeof document !== "string" || typeof version !== "string") return false;
-  return ctx.conditions.evidence?.some((entry) =>
-    entry.document === document && entry.version === version
-  ) === true;
+  return (
+    ctx.conditions.evidence?.some(
+      (entry) => entry.document === document && entry.version === version,
+    ) === true
+  );
 }
 
 function mergeTarget(

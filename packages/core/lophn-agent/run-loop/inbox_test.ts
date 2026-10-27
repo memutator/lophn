@@ -12,10 +12,13 @@ function input(
 ): RoutedInput {
   return {
     kind,
-    from: kind === "message" ? { kind: "human" } : {
-      kind: "agent",
-      session: "ses_a1",
-    },
+    from:
+      kind === "message"
+        ? { kind: "human" }
+        : {
+            kind: "agent",
+            session: "ses_a1",
+          },
     call: null,
     reply_to: null,
     body,
@@ -46,9 +49,10 @@ test("사람 메시지가 call보다 먼저 나오고 steer는 도는 turn이 �
   inbox.setRunning(SESSION, true);
   inbox.put(SESSION, input("message", "s1", "steer"));
   assert.deepStrictEqual(inbox.next(SESSION), undefined);
-  assert.deepStrictEqual(inbox.pendingSteering(SESSION).map((i) => i.body), [
-    "s1",
-  ]);
+  assert.deepStrictEqual(
+    inbox.pendingSteering(SESSION).map((i) => i.body),
+    ["s1"],
+  );
 });
 
 test("지금 올리기와 빼기는 아직 가져가지 않은 사람 메시지에만 먹는다", () => {
@@ -65,16 +69,14 @@ test("지금 올리기와 빼기는 아직 가져가지 않은 사람 메시지�
   assert.deepStrictEqual(inbox.next(SESSION), undefined);
   assert.deepStrictEqual(
     inbox.pendingSteering(SESSION).map((i) => i.delivery),
-    [
-      "steer",
-    ],
+    ["steer"],
   );
   // 이미 steer로 넘어간 메시지와 없는 메시지는 뺄 수 없다.
   assert.deepStrictEqual(inbox.remove(SESSION, "msg_q1"), false);
-  inbox.put(
-    SESSION,
-    { ...input("message", "q2"), message: "msg_q2" } as RoutedInput,
-  );
+  inbox.put(SESSION, {
+    ...input("message", "q2"),
+    message: "msg_q2",
+  } as RoutedInput);
   assert.deepStrictEqual(inbox.remove(SESSION, "msg_q2"), true);
   assert.deepStrictEqual(inbox.next(SESSION), undefined);
 });

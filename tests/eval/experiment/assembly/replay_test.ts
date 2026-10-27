@@ -27,10 +27,14 @@ const r1 = { messages: [user("hi")] };
 const r2 = {
   messages: [
     user("hi"),
-    assistant([{ type: "thinking", thinking: "..." }, {
-      type: "text",
-      text: "looking",
-    }, use("t1", "app_list")]),
+    assistant([
+      { type: "thinking", thinking: "..." },
+      {
+        type: "text",
+        text: "looking",
+      },
+      use("t1", "app_list"),
+    ]),
     user([result("t1")]),
   ],
 };
@@ -130,7 +134,10 @@ test("scriptOf가 다음 요청의 assistant message에서 답을 되살리고 �
 test("firstDivergence가 tool 흐름이 처음 다른 call을 짚고 글 차이는 무시한다", () => {
   const noticed = {
     messages: [
-      user([{ type: "text", text: "hi" }, { type: "text", text: "<notice>" }]),
+      user([
+        { type: "text", text: "hi" },
+        { type: "text", text: "<notice>" },
+      ]),
     ],
   };
   assert.deepStrictEqual(
@@ -164,11 +171,10 @@ test("sideStat이 prefix가 깨진 call과 layer를 짚고 없어진 layer는 �
     [b("role", "r", "R"), b("place", "p3", "place B")],
   ]);
   const by = (layer: string) => stat.layers.find((l) => l.layer === layer)!;
-  assert.deepStrictEqual(stat.layers.map((l) => l.layer), [
-    "role",
-    "instructions",
-    "place",
-  ]);
+  assert.deepStrictEqual(
+    stat.layers.map((l) => l.layer),
+    ["role", "instructions", "place"],
+  );
   assert.deepStrictEqual(by("role").rate, 1);
   assert.deepStrictEqual(
     [by("instructions").stable, by("instructions").pairs],

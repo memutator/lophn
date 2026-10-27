@@ -164,20 +164,20 @@ export type AgentRole =
 export type Caller =
   | { readonly kind: "person" }
   | {
-    readonly kind: "agent";
-    readonly role: AgentRole;
-    readonly session: string;
-    /** session 이름. 읽지 못하면 null이다. */
-    readonly title: string | null;
-    readonly turn: string;
-    readonly toolCall: string;
-  }
+      readonly kind: "agent";
+      readonly role: AgentRole;
+      readonly session: string;
+      /** session 이름. 읽지 못하면 null이다. */
+      readonly title: string | null;
+      readonly turn: string;
+      readonly toolCall: string;
+    }
   | {
-    readonly kind: "app";
-    readonly app: string;
-    readonly appName: string | null;
-    readonly releaseNumber: number | null;
-  }
+      readonly kind: "app";
+      readonly app: string;
+      readonly appName: string | null;
+      readonly releaseNumber: number | null;
+    }
   | { readonly kind: "program" }
   | { readonly kind: "flow" }
   | { readonly kind: "start"; readonly reason: "activation" | "restart" };
@@ -293,10 +293,7 @@ export interface AppDetailSource extends DomainActions {
   cancelSignIn(app: string, name: string): Promise<SourceResult<true>>;
 
   activity(app: string): Promise<SourceResult<ActivityView>>;
-  rewindPlan(
-    app: string,
-    from: string,
-  ): Promise<SourceResult<RewindPlanView>>;
+  rewindPlan(app: string, from: string): Promise<SourceResult<RewindPlanView>>;
   /** 끝날 때까지 돌아오지 않는다(새 호출 멈춤, 도는 호출 기다림, 되돌림). */
   rewind(app: string, from: string): Promise<SourceResult<RewindResult>>;
   /** rewind가 도는 동안 어느 호출을 기다리는지. */

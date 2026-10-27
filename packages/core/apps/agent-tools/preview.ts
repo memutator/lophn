@@ -80,30 +80,37 @@ export const PREVIEW_TOOLS: readonly ToolDefinition[] = [
         if (!got.ok) return got;
         observation = got.value.observation;
         if (
-          observation === null || observation.ready ||
+          observation === null ||
+          observation.ready ||
           observation.reason?.code !== STARTING ||
-          ctx.clock.nowMs() >= deadline || ctx.signal?.aborted
-        ) break;
+          ctx.clock.nowMs() >= deadline ||
+          ctx.signal?.aborted
+        )
+          break;
         await sleep(PREVIEW_POLL_MS, ctx.signal);
       }
       const ready = observation?.ready === true;
       const reason = ready
         ? undefined
         : observation === null
-        ? "the preview process is gone"
-        : observation.reason?.code === STARTING
-        ? "the preview did not become ready in 60 seconds"
-        : `${observation.reason?.code}: ${observation.reason?.summary}`;
-      return ok(fitted(
-        ready ? `preview of ${app} is ready` : `preview of ${app} is not ready`,
-        {
-          app,
-          release,
-          process_nonce: nonce,
-          ready,
-          ...(reason === undefined ? {} : { reason }),
-        },
-      ));
+          ? "the preview process is gone"
+          : observation.reason?.code === STARTING
+            ? "the preview did not become ready in 60 seconds"
+            : `${observation.reason?.code}: ${observation.reason?.summary}`;
+      return ok(
+        fitted(
+          ready
+            ? `preview of ${app} is ready`
+            : `preview of ${app} is not ready`,
+          {
+            app,
+            release,
+            process_nonce: nonce,
+            ready,
+            ...(reason === undefined ? {} : { reason }),
+          },
+        ),
+      );
     },
   }),
   defineTool({
@@ -123,10 +130,11 @@ export const PREVIEW_TOOLS: readonly ToolDefinition[] = [
       if (!current.ok) return current;
       const observation = current.value.observation;
       if (observation === null) {
-        return ok(fitted(
-          `${NO_PREVIEW}; start one with preview.start`,
-          { running: false },
-        ));
+        return ok(
+          fitted(`${NO_PREVIEW}; start one with preview.start`, {
+            running: false,
+          }),
+        );
       }
       const reply = await readOf(ctx.core, appCallTool, {
         target: {
@@ -145,15 +153,17 @@ export const PREVIEW_TOOLS: readonly ToolDefinition[] = [
       });
       if (!reply.ok) return reply;
       const { outcome } = reply.value;
-      const detail = outcome.status === "denied"
-        ? ` (${outcome.denial.code})`
-        : outcome.status === "failed"
-        ? ` (${outcome.error.code})`
-        : "";
-      return ok(fitted(
-        `preview call of ${tool} ${outcome.status}${detail}`,
-        { outcome },
-      ));
+      const detail =
+        outcome.status === "denied"
+          ? ` (${outcome.denial.code})`
+          : outcome.status === "failed"
+            ? ` (${outcome.error.code})`
+            : "";
+      return ok(
+        fitted(`preview call of ${tool} ${outcome.status}${detail}`, {
+          outcome,
+        }),
+      );
     },
   }),
   defineTool({

@@ -66,10 +66,12 @@ async function removeRetiredSkills(
     const text = await ports.read(file);
     const front = text?.match(/^---\n[\s\S]*?\n---\n/)?.[0];
     if (
-      text === null || front === undefined ||
+      text === null ||
+      front === undefined ||
       !front.startsWith(`---\nname: ${name}\n`) ||
       text.slice(front.length) !== thinBody(name)
-    ) continue;
+    )
+      continue;
     if (!dryRun) {
       await ports.remove(file);
       await ports.remove(folder);
@@ -77,11 +79,8 @@ async function removeRetiredSkills(
     files.push(file);
   }
   return {
-    outcome: files.length === 0
-      ? "unchanged"
-      : dryRun
-      ? "missing"
-      : "installed",
+    outcome:
+      files.length === 0 ? "unchanged" : dryRun ? "missing" : "installed",
     files,
   };
 }
@@ -101,7 +100,9 @@ async function codexTrustOf(
   if (!isObject(hooks)) return [];
   const trusts: Trust[] = [];
   for (const event of Object.keys(HOOK_EVENT_TABLE.codex)) {
-    const groups = Array.isArray(hooks[event]) ? hooks[event] as unknown[] : [];
+    const groups = Array.isArray(hooks[event])
+      ? (hooks[event] as unknown[])
+      : [];
     for (const [groupIndex, group] of groups.entries()) {
       const handlers = (group as { hooks?: unknown } | null)?.hooks;
       if (!Array.isArray(handlers)) continue;
@@ -126,9 +127,11 @@ function withTrust(text: string, trusts: Trust[]): string {
     const lines = out.split("\n");
     const at = lines.findIndex((one) => {
       const rest = one.trim();
-      return rest === header ||
-        rest.startsWith(header) &&
-          rest.slice(header.length).trimStart().startsWith("#");
+      return (
+        rest === header ||
+        (rest.startsWith(header) &&
+          rest.slice(header.length).trimStart().startsWith("#"))
+      );
     });
     if (at === -1) {
       const gap = out === "" ? "" : out.endsWith("\n") ? "\n" : "\n\n";
@@ -137,8 +140,9 @@ function withTrust(text: string, trusts: Trust[]): string {
     }
     let end = at + 1;
     while (end < lines.length && !lines[end].trim().startsWith("[")) end++;
-    const own = lines.findIndex((one, index) =>
-      index > at && index < end && /^\s*trusted_hash\s*=/.test(one)
+    const own = lines.findIndex(
+      (one, index) =>
+        index > at && index < end && /^\s*trusted_hash\s*=/.test(one),
     );
     if (own === -1) lines.splice(at + 1, 0, line);
     else lines[own] = line;
@@ -182,9 +186,11 @@ function museSettingsText(text: string | null, managed: string): string | null {
       : [...names, TERMINAL_HOOK_ENV],
   };
   if (text !== null && sameJson(doc, next)) return text;
-  return `${
-    JSON.stringify(next, null, text?.match(/\n(\t| {2,})"/)?.[1] ?? 2)
-  }\n`;
+  return `${JSON.stringify(
+    next,
+    null,
+    text?.match(/\n(\t| {2,})"/)?.[1] ?? 2,
+  )}\n`;
 }
 
 // Hermes shell hook은 (event, command)마다 사람이 처음 쓸 때 TTY에서 승인해야 하고, 승인은 allowlist에 남는다.
@@ -210,24 +216,30 @@ function allowlistText(
   if (doc.approvals !== undefined && !Array.isArray(doc.approvals)) return null;
   const wanted = (entry: unknown) =>
     isObject(entry) &&
-    input.events.some((event) =>
-      entry.event === event && entry.command === input.command(event)
+    input.events.some(
+      (event) =>
+        entry.event === event && entry.command === input.command(event),
     );
-  const kept = ((doc.approvals as unknown[] | undefined) ?? []).filter((one) =>
-    wanted(one) ||
-    !(isObject(one) && ownedCommand("hermes", one.command))
+  const kept = ((doc.approvals as unknown[] | undefined) ?? []).filter(
+    (one) =>
+      wanted(one) || !(isObject(one) && ownedCommand("hermes", one.command)),
   );
-  const added = input.events.filter((event) =>
-    !kept.some((one) =>
-      isObject(one) && one.event === event &&
-      one.command === input.command(event)
+  const added = input.events
+    .filter(
+      (event) =>
+        !kept.some(
+          (one) =>
+            isObject(one) &&
+            one.event === event &&
+            one.command === input.command(event),
+        ),
     )
-  ).map((event) => ({
-    event,
-    command: input.command(event),
-    approved_at: input.now,
-    script_mtime_at_approval: null,
-  }));
+    .map((event) => ({
+      event,
+      command: input.command(event),
+      approved_at: input.now,
+      script_mtime_at_approval: null,
+    }));
   if (
     added.length === 0 &&
     kept.length === (doc.approvals as unknown[] | undefined)?.length
@@ -235,9 +247,11 @@ function allowlistText(
     return text;
   }
   doc.approvals = [...kept, ...added];
-  return `${
-    JSON.stringify(doc, null, text?.match(/\n(\t| {2,})"/)?.[1] ?? 2)
-  }\n`;
+  return `${JSON.stringify(
+    doc,
+    null,
+    text?.match(/\n(\t| {2,})"/)?.[1] ?? 2,
+  )}\n`;
 }
 
 // Cline은 event마다 script file 하나를 읽고, 이름이 event다. 인자를 못 받아 event 이름을 script에 박는다.
@@ -286,53 +300,70 @@ async function installHook(
       const nextHooks = make(hooksText);
       if (nextHooks === null) return { outcome: "failed", files: [] };
       const trusts = await codexTrustOf(at(spec.path), nextHooks);
-      return await editFiles(ports, [
-        { path: at(spec.path), make: () => nextHooks },
-        {
-          path: at(CODEX_CONFIG_PATH),
-          make: (text) => {
-            const state = trustedHashes(text);
-            if (state === null) return null;
-            const stale = trusts.filter(({ key, hash }) =>
-              (state[key] as { trusted_hash?: unknown } | undefined)
-                ?.trusted_hash !== hash
-            );
-            const next = withTrust(text ?? "", stale);
-            try {
-              parseToml(next);
-            } catch {
-              return null;
-            }
-            return next;
+      return await editFiles(
+        ports,
+        [
+          { path: at(spec.path), make: () => nextHooks },
+          {
+            path: at(CODEX_CONFIG_PATH),
+            make: (text) => {
+              const state = trustedHashes(text);
+              if (state === null) return null;
+              const stale = trusts.filter(
+                ({ key, hash }) =>
+                  (state[key] as { trusted_hash?: unknown } | undefined)
+                    ?.trusted_hash !== hash,
+              );
+              const next = withTrust(text ?? "", stale);
+              try {
+                parseToml(next);
+              } catch {
+                return null;
+              }
+              return next;
+            },
           },
-        },
-      ], dryRun);
+        ],
+        dryRun,
+      );
     }
     case "jsonc":
-      return await editFiles(ports, [{
-        path: at(spec.path),
-        make: (text) => {
-          const line = lineOf(commandIn(text));
-          return jsoncHooksText(text, {
-            harness,
-            events,
-            ours: (event) => ({
-              hooks: [{ type: "command", command: line(event) }],
-            }),
-          });
-        },
-      }], dryRun);
+      return await editFiles(
+        ports,
+        [
+          {
+            path: at(spec.path),
+            make: (text) => {
+              const line = lineOf(commandIn(text));
+              return jsoncHooksText(text, {
+                harness,
+                events,
+                ours: (event) => ({
+                  hooks: [{ type: "command", command: line(event) }],
+                }),
+              });
+            },
+          },
+        ],
+        dryRun,
+      );
     case "toml_block":
-      return await editFiles(ports, [{
-        path: at(spec.path),
-        make: (text) =>
-          kimiHooksText(text, {
-            events,
-            command: lineOf(commandIn(text)),
-            timeout: spec.timeout,
-            matchers: spec.matchers,
-          }),
-      }], dryRun);
+      return await editFiles(
+        ports,
+        [
+          {
+            path: at(spec.path),
+            make: (text) =>
+              kimiHooksText(text, {
+                events,
+                command: lineOf(commandIn(text)),
+                timeout: spec.timeout,
+                matchers: spec.matchers,
+              }),
+          },
+        ],
+        dryRun,
+      );
     case "managed_json": {
       const settings = at(spec.settings);
       const current = await ports.read(settings);
@@ -342,51 +373,58 @@ async function installHook(
         return {
           outcome: "failed",
           files: [],
-          conflict:
-            `Muse가 이미 다른 managed hook 파일(${managed})을 쓰고 있어 놓지 않았다`,
+          conflict: `Muse가 이미 다른 managed hook 파일(${managed})을 쓰고 있어 놓지 않았다`,
         };
       }
-      return await editFiles(ports, [
-        {
-          path: at(spec.path),
-          make: (text) =>
-            jsonHooksText(text, {
-              harness,
-              hook: {
-                format: "json",
-                path: spec.path,
-                shape: "nested",
-                timeout: spec.timeout,
-              },
-              events,
-              command: commandIn(text),
-            }),
-        },
-        {
-          path: settings,
-          make: (text) => museSettingsText(text, at(spec.path)),
-        },
-      ], dryRun);
+      return await editFiles(
+        ports,
+        [
+          {
+            path: at(spec.path),
+            make: (text) =>
+              jsonHooksText(text, {
+                harness,
+                hook: {
+                  format: "json",
+                  path: spec.path,
+                  shape: "nested",
+                  timeout: spec.timeout,
+                },
+                events,
+                command: commandIn(text),
+              }),
+          },
+          {
+            path: settings,
+            make: (text) => museSettingsText(text, at(spec.path)),
+          },
+        ],
+        dryRun,
+      );
     }
     case "yaml_hooks": {
       const yaml = await ports.read(at(spec.path));
       const line = lineOf(commandIn(yaml));
-      return await editFiles(ports, [
-        {
-          path: at(spec.path),
-          make: (text) =>
-            hermesHooksText(text, {
-              events,
-              command: line,
-              timeout: spec.timeout,
-            }),
-        },
-        {
-          path: at(spec.allowlist),
-          make: (text) =>
-            allowlistText(text, { events, command: line, now: input.now }),
-        },
-      ], dryRun);
+      return await editFiles(
+        ports,
+        [
+          {
+            path: at(spec.path),
+            make: (text) =>
+              hermesHooksText(text, {
+                events,
+                command: line,
+                timeout: spec.timeout,
+              }),
+          },
+          {
+            path: at(spec.allowlist),
+            make: (text) =>
+              allowlistText(text, { events, command: line, now: input.now }),
+          },
+        ],
+        dryRun,
+      );
     }
     case "script_dir":
       return await editFiles(
@@ -404,15 +442,22 @@ async function installHook(
         dryRun,
       );
     case "plugin_file": {
-      return await editFiles(ports, [{
-        path: at(spec.path),
-        make: (text) =>
-          pluginSource(
-            harness,
-            input.command ??
-              (dryRun ? placedPluginCommand(text) : undefined) ?? "lophn",
-          ),
-      }], dryRun);
+      return await editFiles(
+        ports,
+        [
+          {
+            path: at(spec.path),
+            make: (text) =>
+              pluginSource(
+                harness,
+                input.command ??
+                  (dryRun ? placedPluginCommand(text) : undefined) ??
+                  "lophn",
+              ),
+          },
+        ],
+        dryRun,
+      );
     }
   }
 }
@@ -441,13 +486,18 @@ export async function installGlobal(
   const home = input.home.replace(/\/+$/, "");
   const none: Step = { outcome: "not_supported", files: [] };
   try {
-    const skill = adapter.skill_dir === null
-      ? none
-      : await removeRetiredSkills(ports, home, adapter.skill_dir, input.dryRun);
+    const skill =
+      adapter.skill_dir === null
+        ? none
+        : await removeRetiredSkills(
+            ports,
+            home,
+            adapter.skill_dir,
+            input.dryRun,
+          );
     const spec = HARNESS_HOOKS[input.harness];
-    const hook: HookStep = spec === null
-      ? none
-      : await installHook(ports, { ...input, home }, spec);
+    const hook: HookStep =
+      spec === null ? none : await installHook(ports, { ...input, home }, spec);
     if (hook.conflict !== undefined) {
       return err({ code: "conflict", message: hook.conflict });
     }

@@ -75,13 +75,7 @@ interface Pending {
 export function createViewVisibility(deps: {
   frame: Pick<
     AppFrameService,
-    | "open"
-    | "setBounds"
-    | "hide"
-    | "close"
-    | "reopen"
-    | "owner"
-    | "move"
+    "open" | "setBounds" | "hide" | "close" | "reopen" | "owner" | "move"
   >;
   geometry: WindowGeometry;
   timer: FrameTimer;
@@ -97,11 +91,7 @@ export function createViewVisibility(deps: {
     const body = deps.geometry.body(item.window);
     if (body === undefined) return failure("unavailable", "window is not open");
     const dip = toDip(item.bounds, deps.geometry.zoom(item.window));
-    return deps.frame.setBounds(
-      view_session,
-      intersect(dip, body),
-      item.layer,
-    );
+    return deps.frame.setBounds(view_session, intersect(dip, body), item.layer);
   }
 
   // 한 frame에 모인 모든 view의 마지막 bounds를 함께 적용한다.
@@ -134,15 +124,18 @@ export function createViewVisibility(deps: {
       window: string,
       input: AppViewOpenRequest,
     ): Promise<Outcome<AppFrameViewState>> {
-      return deps.frame.open({
-        app: input.app,
-        mode: input.mode,
-        release: input.release ?? null,
-        screen: input.screen,
-        size: input.size,
-        parentWindow: window,
-        bounds: EMPTY_BOUNDS,
-      }, input.card);
+      return deps.frame.open(
+        {
+          app: input.app,
+          mode: input.mode,
+          release: input.release ?? null,
+          screen: input.screen,
+          size: input.size,
+          parentWindow: window,
+          bounds: EMPTY_BOUNDS,
+        },
+        input.card,
+      );
     },
 
     /** 이 frame의 마지막 bounds로 둔다. 적용한 뒤의 generation으로 끝난다. */
@@ -154,8 +147,12 @@ export function createViewVisibility(deps: {
     ): Promise<Generation> {
       if (!owned(window, view_session)) return Promise.resolve(notOpen());
       return new Promise((resolve) => {
-        const item = pending.get(view_session) ??
-          { window, bounds, layer, waiters: [] };
+        const item = pending.get(view_session) ?? {
+          window,
+          bounds,
+          layer,
+          waiters: [],
+        };
         item.bounds = bounds;
         item.layer = layer;
         item.waiters.push(resolve);

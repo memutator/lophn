@@ -23,9 +23,10 @@ export const annotationPersist = defineCommand({
   name: "AnnotationPersist",
   input: z.strictObject({
     target: annotationTargetSchema,
-    annotations: z.array(annotationInputSchema).min(1).max(
-      ANNOTATION_BATCH_MAX,
-    ),
+    annotations: z
+      .array(annotationInputSchema)
+      .min(1)
+      .max(ANNOTATION_BATCH_MAX),
   }),
   output: z.object({
     batch: annotationBatchIdSchema,
@@ -90,9 +91,9 @@ export function createAnnotationCommands(): {
         // artifact의 domain과 file의 project는 검사하지 않는다. 없거나 보관한 그릇은 전달에서 session을 열지 못해
         // 실패하고 send가 이 묶음을 지운다.
         if (input.target.kind === "app") {
-          const registered = tx.port(appRegistrationLookup).get(
-            input.target.app,
-          );
+          const registered = tx
+            .port(appRegistrationLookup)
+            .get(input.target.app);
           if (!registered.ok) return registered;
           if (registered.value === null) {
             return err({ code: "not_found", message: "app does not exist" });
@@ -164,10 +165,9 @@ export function createAnnotationCommands(): {
       route: annotationDiscard,
       handle(tx, ctx, input) {
         if (ctx.actor !== "user") return forbidden("only a person sends");
-        const ids = tx.sql.all(
-          "SELECT id FROM annotations WHERE batch = ?",
-          [input.batch],
-        ).map((row) => String(row["id"]));
+        const ids = tx.sql
+          .all("SELECT id FROM annotations WHERE batch = ?", [input.batch])
+          .map((row) => String(row["id"]));
         const deleted = deleteAnnotations(tx, ids);
         return deleted.ok ? ok({}) : deleted;
       },
@@ -180,8 +180,7 @@ export function createAnnotationCommands(): {
           if (
             tx.sql.get("SELECT 1 AS found FROM annotations WHERE id = ?", [
               id,
-            ]) ===
-              undefined
+            ]) === undefined
           ) {
             return err({
               code: "not_found",

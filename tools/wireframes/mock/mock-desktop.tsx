@@ -8,9 +8,7 @@ import {
   type DevMock,
   devMock,
 } from "../../../packages/shell/renderer/desktop/dev-mock/mod.ts";
-import {
-  PROJECT_GROCERY,
-} from "../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
+import { PROJECT_GROCERY } from "../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
 import type { CoreSource } from "../../../packages/shell/renderer/desktop/connection/connection.ts";
 import {
   LAUNCHER,
@@ -139,17 +137,17 @@ function storedTab(tab: TabSpec) {
   if (tab.kind === "artifact") {
     return tab.name !== undefined
       ? {
-        kind: tab.kind,
-        key: tab.key,
-        domain: tab.domain,
-        name: tab.name,
-      }
+          kind: tab.kind,
+          key: tab.key,
+          domain: tab.domain,
+          name: tab.name,
+        }
       : {
-        kind: tab.kind,
-        key: tab.key,
-        project: PROJECT_GROCERY,
-        path: tab.path,
-      };
+          kind: tab.kind,
+          key: tab.key,
+          project: PROJECT_GROCERY,
+          path: tab.path,
+        };
   }
   if (tab.kind === "app_panel") {
     return {
@@ -161,20 +159,17 @@ function storedTab(tab: TabSpec) {
   }
   return tab.kind === "terminal"
     ? {
-      kind: tab.kind,
-      key: tab.key,
-      project_folder: tab.folder ?? "/home/mina/Documents/grocery",
-      ...(tab.coding === undefined
-        ? {}
-        : { coding: { ...tab.coding, title: tab.title } }),
-    }
+        kind: tab.kind,
+        key: tab.key,
+        project_folder: tab.folder ?? "/home/mina/Documents/grocery",
+        ...(tab.coding === undefined
+          ? {}
+          : { coding: { ...tab.coding, title: tab.title } }),
+      }
     : { kind: tab.kind, key: tab.key, path: tab.key };
 }
 
-function layoutOf(
-  panes: readonly PaneSpec[],
-  floats: readonly FloatSpec[],
-) {
+function layoutOf(panes: readonly PaneSpec[], floats: readonly FloatSpec[]) {
   return {
     active_desk: DEFAULT_DESK,
     desks: {
@@ -211,22 +206,26 @@ export function MockDesktop(props: MockDesktopProps) {
   const { panes, floats, openTerminal, core, settingsTab, emptyLauncher } =
     props;
   const { detachedTab } = props;
-  const route = detachedTab !== undefined
-    ? openDetached(detachedTab.key)
-    : settingsTab === undefined
-    ? props.route ?? LAUNCHER
-    : openSettings(SETTINGS_PANE[settingsTab]);
+  const route =
+    detachedTab !== undefined
+      ? openDetached(detachedTab.key)
+      : settingsTab === undefined
+        ? (props.route ?? LAUNCHER)
+        : openSettings(SETTINGS_PANE[settingsTab]);
   const wiring = useMemo(() => {
     const mock = devMock("?mock") as DevMock;
-    const workspace = panes === undefined ? mock.workspace : {
-      ...mock.workspace,
-      readLayout: () =>
-        Promise.resolve({
-          ok: true as const,
-          available: true as const,
-          layout: layoutOf(panes, floats ?? []),
-        }),
-    };
+    const workspace =
+      panes === undefined
+        ? mock.workspace
+        : {
+            ...mock.workspace,
+            readLayout: () =>
+              Promise.resolve({
+                ok: true as const,
+                available: true as const,
+                layout: layoutOf(panes, floats ?? []),
+              }),
+          };
     const terminal = {
       bridge: fakeTerminal(PROJECT_GROCERY),
       store: new TerminalStore(null),
@@ -236,27 +235,36 @@ export function MockDesktop(props: MockDesktopProps) {
     if (openTerminal !== undefined) terminal.store.request(openTerminal);
     const { title, key, kind, folder } = detachedTab ?? {};
     const detached = fakeDetached(
-      detachedTab === undefined ? undefined : {
-        project: PROJECT_GROCERY,
-        tab: { key: key!, kind: kind!, title, folder } as DetachedTaken["tab"],
-        transfer: null,
-      },
+      detachedTab === undefined
+        ? undefined
+        : {
+            project: PROJECT_GROCERY,
+            tab: {
+              key: key!,
+              kind: kind!,
+              title,
+              folder,
+            } as DetachedTaken["tab"],
+            transfer: null,
+          },
     );
     return {
       mock,
       detached,
-      projects: emptyLauncher === true
-        ? {
-          ...mock.projects,
-          list: () => Promise.resolve({ ok: true as const, value: [] }),
-        }
-        : mock.projects,
-      apps: emptyLauncher === true
-        ? {
-          ...mock.apps,
-          list: () => Promise.resolve({ ok: true as const, value: [] }),
-        }
-        : mock.apps,
+      projects:
+        emptyLauncher === true
+          ? {
+              ...mock.projects,
+              list: () => Promise.resolve({ ok: true as const, value: [] }),
+            }
+          : mock.projects,
+      apps:
+        emptyLauncher === true
+          ? {
+              ...mock.apps,
+              list: () => Promise.resolve({ ok: true as const, value: [] }),
+            }
+          : mock.apps,
       workspace,
       terminal,
       conversation: { drafts: new DraftStore() },

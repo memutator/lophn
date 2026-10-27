@@ -41,26 +41,29 @@ export function createLink(core: CoreSource, random: () => string): Link {
   ): Promise<Reply<unknown>> => {
     try {
       const reply = await core.call({ kind, resource, method, body });
-      return reply.ok ? { ok: true, value: reply.value } : {
-        ok: false,
-        code: reply.error?.code ?? "internal",
-        error: reply.error,
-      };
+      return reply.ok
+        ? { ok: true, value: reply.value }
+        : {
+            ok: false,
+            code: reply.error?.code ?? "internal",
+            error: reply.error,
+          };
     } catch {
       return { ok: false, code: "unavailable", error: undefined };
     }
   };
-  const fetchValue = (kind: "read" | "memory") =>
-  async <V>(
-    resource: string,
-    method: string,
-    body: Record<string, unknown>,
-  ) => {
-    const reply = await call(kind, resource, method, body);
-    return reply.ok
-      ? { ok: true as const, value: reply.value as V }
-      : { ok: false as const, message: reply.code };
-  };
+  const fetchValue =
+    (kind: "read" | "memory") =>
+    async <V>(
+      resource: string,
+      method: string,
+      body: Record<string, unknown>,
+    ) => {
+      const reply = await call(kind, resource, method, body);
+      return reply.ok
+        ? { ok: true as const, value: reply.value as V }
+        : { ok: false as const, message: reply.code };
+    };
   return {
     read: fetchValue("read"),
     memory: fetchValue("memory"),
@@ -87,7 +90,7 @@ export function issuesOf(error: unknown): AgentDefinitionIssue[] {
   return issues.flatMap((issue) =>
     typeof issue?.field === "string" && typeof issue?.code === "string"
       ? [{ field: issue.field, code: issue.code } as AgentDefinitionIssue]
-      : []
+      : [],
   );
 }
 

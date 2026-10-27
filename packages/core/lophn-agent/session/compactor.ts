@@ -54,17 +54,17 @@ type SummaryLimit = { input: number; body: number };
 type CompactResult =
   | { kind: "idle" }
   | {
-    kind: "compacted";
-    session: string;
-    request: string;
-    summary_call: string;
-  }
+      kind: "compacted";
+      session: string;
+      request: string;
+      summary_call: string;
+    }
   | {
-    kind: "failed";
-    session: string;
-    request: string;
-    reason: CompactFailureReason;
-  };
+      kind: "failed";
+      session: string;
+      request: string;
+      reason: CompactFailureReason;
+    };
 
 type RangeSummary =
   | { kind: "idle" }
@@ -97,9 +97,10 @@ type CompactorDeps = {
   roles: AgentRoleTable;
   blobs: BlobPort;
   redact: RedactText;
-  resolveModel(
-    input: { model: ModelChoice; purpose: "organizing" },
-  ): Promise<Result<ModelBinding>>;
+  resolveModel(input: {
+    model: ModelChoice;
+    purpose: "organizing";
+  }): Promise<Result<ModelBinding>>;
 };
 
 type Request = {
@@ -172,11 +173,13 @@ export function createCompactor(
   async function nextAttempt(session: string): Promise<number | null> {
     const listed = await readOf(machine, modelCallList, { session });
     if (!listed.ok) return null;
-    return listed.value.calls.reduce(
-      (most, call) =>
-        call.turn === null ? Math.max(most, call.attempt_order) : most,
-      0,
-    ) + 1;
+    return (
+      listed.value.calls.reduce(
+        (most, call) =>
+          call.turn === null ? Math.max(most, call.attempt_order) : most,
+        0,
+      ) + 1
+    );
   }
 
   // 요약 call 하나. 시작을 기록한 뒤 보내고 끝을 기록한다. 완전한 답이 아니면 이유와 함께 던진다.
@@ -265,18 +268,21 @@ export function createCompactor(
     );
     if (!started.ok) throw new Failure("model_unavailable");
 
-    const invoked = await binding.invoke({
-      callId: id,
-      turn: null,
-      session: request.session,
-      purpose: "organizing",
-      model: binding.call,
-      endpoint: binding.endpoint,
-      inputHash: inputBlob.value.hash,
-      contextBasisHash: basisBlob.value.hash,
-      body: safeBody.value as Record<string, unknown>,
-      usageRevision: binding.usageRevision,
-    }, new AbortController().signal);
+    const invoked = await binding.invoke(
+      {
+        callId: id,
+        turn: null,
+        session: request.session,
+        purpose: "organizing",
+        model: binding.call,
+        endpoint: binding.endpoint,
+        inputHash: inputBlob.value.hash,
+        contextBasisHash: basisBlob.value.hash,
+        body: safeBody.value as Record<string, unknown>,
+        usageRevision: binding.usageRevision,
+      },
+      new AbortController().signal,
+    );
     const output = invoked.ok ? invoked.value : undefined;
     const outcome = output?.outcome ?? {
       kind: "failed" as const,
@@ -289,13 +295,16 @@ export function createCompactor(
     const usage = output?.usage ?? EMPTY_USAGE(binding.usageRevision);
     const price = binding.call.price_basis;
     const charged = price === null ? undefined : estimatedCost(usage, price);
-    const cost: CallCost = charged?.amount == null ? UNKNOWN_COST : {
-      kind: "estimated",
-      amount: charged.amount,
-      currency: "USD",
-      basis: (charged.rate_basis ?? {}) as Record<string, never>,
-      confirmed_at: clock.now(),
-    };
+    const cost: CallCost =
+      charged?.amount == null
+        ? UNKNOWN_COST
+        : {
+            kind: "estimated",
+            amount: charged.amount,
+            currency: "USD",
+            basis: (charged.rate_basis ?? {}) as Record<string, never>,
+            confirmed_at: clock.now(),
+          };
     const kept = output !== undefined && output.text.length > 0;
     let outputBlob: { hash: string; size: number } | null = null;
     if (kept || outcome.kind === "partial") {
@@ -327,9 +336,11 @@ export function createCompactor(
     );
     if (!finished.ok) throw new Failure("model_failed");
     if (
-      output === undefined || outcome.kind !== "complete" ||
+      output === undefined ||
+      outcome.kind !== "complete" ||
       output.text.trim() === ""
-    ) throw new Failure("model_failed");
+    )
+      throw new Failure("model_failed");
     return { id, text: output.text };
   }
 
@@ -446,9 +457,9 @@ export function createCompactor(
     if (summary.kind === "failed") return await fail(request, summary.reason);
     // 요약이 덮는 끝은 확정 메시지여야 한다. 마지막이 접힌 구간 요약이면 그 구간의 마지막 메시지다.
     const lastSeq = material[material.length - 1]!.seq;
-    const through = conversation.messages.filter((message) =>
-      message.seq <= lastSeq
-    ).at(-1)!;
+    const through = conversation.messages
+      .filter((message) => message.seq <= lastSeq)
+      .at(-1)!;
     const ended = await commandOf(
       machine,
       compactSession,
@@ -482,8 +493,8 @@ export function createCompactor(
       request: null,
     });
     if (!read.ok) return { kind: "idle" };
-    const material = visibleMessages(read.value).filter((message) =>
-      message.seq >= BigInt(input.from_seq)
+    const material = visibleMessages(read.value).filter(
+      (message) => message.seq >= BigInt(input.from_seq),
     );
     if (material.length === 0) {
       return { kind: "failed", reason: "nothing_to_summarize" };
@@ -511,9 +522,10 @@ export function createCompactor(
       if (summary.kind === "idle") return summary;
       await readOf(machine, finishRewindSummary, {
         id: request.id,
-        result: summary.kind === "summarized"
-          ? { kind: "summarized", summary_call: summary.summary_call }
-          : { kind: "failed", reason: summary.reason },
+        result:
+          summary.kind === "summarized"
+            ? { kind: "summarized", summary_call: summary.summary_call }
+            : { kind: "failed", reason: summary.reason },
       });
       return summary;
     },

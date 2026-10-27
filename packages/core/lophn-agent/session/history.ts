@@ -46,7 +46,7 @@ async function readRewound(
 > {
   const rows: RevertRow[] = [];
   let cursor: string | undefined;
-  for (let page = 0;; page++) {
+  for (let page = 0; ; page++) {
     if (page >= MAX_PAGES) {
       return err({
         code: "unavailable",
@@ -83,7 +83,7 @@ async function readLoads(
 ): Promise<Result<Map<string, SessionMessage[]>>> {
   const loads = new Map<string, SessionMessage[]>();
   let cursor: string | undefined;
-  for (let page = 0;; page++) {
+  for (let page = 0; ; page++) {
     if (page >= MAX_PAGES) {
       return err({
         code: "unavailable",
@@ -113,12 +113,14 @@ async function readLoads(
           seq: 0n,
           role: "assistant",
           text: "",
-          parts: [{
-            kind: "tool_use",
-            id: call.response_key,
-            name,
-            input: { names },
-          }],
+          parts: [
+            {
+              kind: "tool_use",
+              id: call.response_key,
+              name,
+              input: { names },
+            },
+          ],
         },
         {
           seq: 0n,
@@ -182,7 +184,7 @@ export async function readSessionConversation(
   // 이 turn의 입력. 입력함은 사람 메시지를 먼저 꺼내므로 접수 순서와 turn 순서가 다르다.
   let requestTurn: string | null = null;
   let cursor: string | undefined;
-  for (let page = 0;; page++) {
+  for (let page = 0; ; page++) {
     if (page >= MAX_PAGES) {
       return err({
         code: "unavailable",
@@ -203,7 +205,8 @@ export async function readSessionConversation(
       if (
         covered !== null &&
         BigInt(entry.created_seq) <= BigInt(covered.through_seq)
-      ) continue;
+      )
+        continue;
       if (inHiddenRange(hidden, entry.created_seq)) continue;
       // 받은 메시지는 model에 들어간다. session이 자기 답으로 남긴 것은 model 자신의 말이라 assistant role이다.
       heard.push({
@@ -213,9 +216,10 @@ export async function readSessionConversation(
           entry.from.kind === "agent" && entry.from.session === input.session
             ? "assistant"
             : "user",
-        folded: folds.some((fold) =>
-          BigInt(entry.created_seq) >= BigInt(fold.from_seq) &&
-          BigInt(entry.created_seq) <= BigInt(fold.through_seq)
+        folded: folds.some(
+          (fold) =>
+            BigInt(entry.created_seq) >= BigInt(fold.from_seq) &&
+            BigInt(entry.created_seq) <= BigInt(fold.through_seq),
         ),
         turn: entry.turn,
         received: entry,
@@ -227,16 +231,20 @@ export async function readSessionConversation(
   }
   // turn의 prompt는 앞 turn들이 가져간 메시지(turn 순서대로)와 이 turn의 입력이다. 아직 어느 turn도 가져가지
   // 않은 메시지는 어떤 turn의 prompt에도 들어가지 않는다. 요청이 없는 읽기(Compact)는 모든 메시지를 접수 순서로 본다.
-  const taken = input.request === null
-    ? heard
-    : heard.filter((entry) => entry.turn !== null && entry.turn !== requestTurn)
-      .sort((a, b) =>
-        a.turn! === b.turn!
-          ? (a.seq < b.seq ? -1 : 1)
-          : a.turn! < b.turn!
-          ? -1
-          : 1
-      );
+  const taken =
+    input.request === null
+      ? heard
+      : heard
+          .filter((entry) => entry.turn !== null && entry.turn !== requestTurn)
+          .sort((a, b) =>
+            a.turn! === b.turn!
+              ? a.seq < b.seq
+                ? -1
+                : 1
+              : a.turn! < b.turn!
+                ? -1
+                : 1,
+          );
 
   const built: { turn: string | null; message: SessionMessage }[] = [];
   for (let at = 0; at < taken.length; at += BODY_BATCH) {
@@ -245,7 +253,7 @@ export async function readSessionConversation(
       batch.map((entry) =>
         entry.folded
           ? Promise.resolve(ok(null))
-          : readOf(machine, messageBody, { message: entry.id })
+          : readOf(machine, messageBody, { message: entry.id }),
       ),
     );
     for (const [index, body] of bodies.entries()) {
@@ -259,9 +267,9 @@ export async function readSessionConversation(
         continue;
       }
       // 카드뿐인 답은 글이 없어 이력에 넣지 않는다. 글 없는 취소 알림은 tag만으로 뜻이 있다.
-      const text = body.value.content.parts.flatMap((part) =>
-        part.kind === "text" ? [part.text] : []
-      ).join("\n");
+      const text = body.value.content.parts
+        .flatMap((part) => (part.kind === "text" ? [part.text] : []))
+        .join("\n");
       if (entry.role === "assistant") {
         if (text.trim() !== "") {
           built.push({
@@ -288,8 +296,8 @@ export async function readSessionConversation(
     const loads = await readLoads(machine, input.session);
     if (!loads.ok) return loads;
     for (const [turn, calls] of loads.value) {
-      let at = built.findIndex((b) =>
-        b.turn === turn && b.message.role === "assistant"
+      let at = built.findIndex(
+        (b) => b.turn === turn && b.message.role === "assistant",
       );
       if (at < 0) at = built.findLastIndex((b) => b.turn === turn) + 1;
       const request = built[at - 1];
@@ -308,19 +316,23 @@ export async function readSessionConversation(
   return ok({
     compaction,
     // 되돌린 적이 없는 session은 이 두 칸을 두지 않는다.
-    ...(hidden.length === 0 ? {} : {
-      hidden: hidden.map((range) => ({
-        from_seq: BigInt(range.from_seq),
-        through_seq: BigInt(range.through_seq),
-      })),
-    }),
-    ...(folds.length === 0 ? {} : {
-      folds: folds.map((fold) => ({
-        from_seq: BigInt(fold.from_seq),
-        through_seq: BigInt(fold.through_seq),
-        text: fold.text,
-      })),
-    }),
+    ...(hidden.length === 0
+      ? {}
+      : {
+          hidden: hidden.map((range) => ({
+            from_seq: BigInt(range.from_seq),
+            through_seq: BigInt(range.through_seq),
+          })),
+        }),
+    ...(folds.length === 0
+      ? {}
+      : {
+          folds: folds.map((fold) => ({
+            from_seq: BigInt(fold.from_seq),
+            through_seq: BigInt(fold.through_seq),
+            text: fold.text,
+          })),
+        }),
     messages,
   });
 }

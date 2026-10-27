@@ -17,21 +17,21 @@ export type PlaceView =
 
 export type JobActionView =
   | {
-    readonly kind: "agent_run";
-    readonly agent: AgentRefView;
-    readonly agent_place: PlaceView | null;
-    readonly prompt: string;
-  }
+      readonly kind: "agent_run";
+      readonly agent: AgentRefView;
+      readonly agent_place: PlaceView | null;
+      readonly prompt: string;
+    }
   | {
-    readonly kind: "tool_run";
-    readonly app: string;
-    readonly tool: string;
-  }
+      readonly kind: "tool_run";
+      readonly app: string;
+      readonly tool: string;
+    }
   | {
-    readonly kind: "workflow_start";
-    readonly project: string;
-    readonly workflow: string;
-  };
+      readonly kind: "workflow_start";
+      readonly project: string;
+      readonly workflow: string;
+    };
 
 export type MissedPolicy = "run" | "hold";
 
@@ -85,9 +85,10 @@ export interface JobsSource {
   /** core 연결 상태를 듣는다. 준비되면 화면이 다시 읽는다. 해제는 반환 함수다. */
   watch(listener: (state: { readonly state: string }) => void): () => void;
   list(): Promise<
-    SourceResult<
-      { readonly jobs: readonly JobView[]; readonly names: JobNames }
-    >
+    SourceResult<{
+      readonly jobs: readonly JobView[];
+      readonly names: JobNames;
+    }>
   >;
   /** 새것이 앞이다. */
   runs(job: string): Promise<SourceResult<readonly JobRunView[]>>;

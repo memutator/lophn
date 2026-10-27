@@ -21,9 +21,14 @@ function Declared({ line }: { line: Line }) {
   );
 }
 
-export function ActivationCard(
-  { entry, view, onDecide, denying, reason, expanded = false }: DecideCardProps,
-) {
+export function ActivationCard({
+  entry,
+  view,
+  onDecide,
+  denying,
+  reason,
+  expanded = false,
+}: DecideCardProps) {
   const [open, setOpen] = useState(expanded);
   return (
     <article className={styles.request} data-kind="activation">
@@ -32,49 +37,45 @@ export function ActivationCard(
         agent={entry.agent}
         toggle={{ open, onToggle: () => setOpen(!open) }}
       />
-      {open
-        ? (
-          <div className={styles.detail}>
-            <p className={styles.detailHead}>
-              {view.first
-                ? t("waiting.label.activation-first")
-                : t("waiting.label.activation-new")}
-            </p>
-            <ul className={styles.lines}>
-              {view.added.map((line) => (
-                <Declared key={`${line.label}:${line.value}`} line={line} />
-              ))}
-            </ul>
-            {view.loss.length > 0
-              ? (
-                <>
-                  <p className={styles.detailHead}>
-                    <StatusMark
-                      tone="warning"
-                      label={t("waiting.label.loss-heading")}
-                    />
-                  </p>
-                  <ul className={styles.lines}>
-                    {view.loss.map((step) => (
-                      <li
-                        key={`${step.label}:${step.value}`}
-                        className={styles.line}
-                      >
-                        <span />
-                        <span className={styles.lineLabel}>{step.label}</span>
-                        <span className={`${styles.lineValue} ${styles.code}`}>
-                          {step.value}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )
-              : null}
-            <p className={styles.fine}>{t("waiting.notice.activation-fine")}</p>
-          </div>
-        )
-        : null}
+      {open ? (
+        <div className={styles.detail}>
+          <p className={styles.detailHead}>
+            {view.first
+              ? t("waiting.label.activation-first")
+              : t("waiting.label.activation-new")}
+          </p>
+          <ul className={styles.lines}>
+            {view.added.map((line) => (
+              <Declared key={`${line.label}:${line.value}`} line={line} />
+            ))}
+          </ul>
+          {view.loss.length > 0 ? (
+            <>
+              <p className={styles.detailHead}>
+                <StatusMark
+                  tone="warning"
+                  label={t("waiting.label.loss-heading")}
+                />
+              </p>
+              <ul className={styles.lines}>
+                {view.loss.map((step) => (
+                  <li
+                    key={`${step.label}:${step.value}`}
+                    className={styles.line}
+                  >
+                    <span />
+                    <span className={styles.lineLabel}>{step.label}</span>
+                    <span className={`${styles.lineValue} ${styles.code}`}>
+                      {step.value}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+          <p className={styles.fine}>{t("waiting.notice.activation-fine")}</p>
+        </div>
+      ) : null}
       <Decision
         choices={view.choices}
         requester={view.requester}

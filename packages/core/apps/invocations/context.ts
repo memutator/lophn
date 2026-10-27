@@ -7,11 +7,11 @@ type InvocationCaller =
   | { kind: "person"; view_session: string }
   | { kind: "agent"; session: string; turn: string; tool_call: string }
   | {
-    kind: "app";
-    app: string;
-    release: string;
-    parent_invocation: string | null;
-  }
+      kind: "app";
+      app: string;
+      release: string;
+      parent_invocation: string | null;
+    }
   | { kind: "program"; job: string; job_run: string }
   | { kind: "flow"; instance: string };
 
@@ -49,7 +49,8 @@ export function readAppToolPort(): AppToolPort | undefined {
     typeof candidate.register !== "function" ||
     typeof candidate.run !== "function" ||
     typeof candidate.current !== "function"
-  ) return;
+  )
+    return;
   return candidate as AppToolPort;
 }
 
@@ -78,8 +79,9 @@ export function readRejection(
   const message = (error as { message?: unknown }).message;
   return {
     code,
-    message: typeof message === "string" && message.length > 0
-      ? message.slice(0, REJECTION_MESSAGE_MAX_CHARS)
-      : code,
+    message:
+      typeof message === "string" && message.length > 0
+        ? message.slice(0, REJECTION_MESSAGE_MAX_CHARS)
+        : code,
   };
 }

@@ -25,7 +25,7 @@ function setup() {
   const db = new DatabaseSync(":memory:");
   // events(registered_seq의 근원)와 blob_refs 표만 쓴다.
   const ledgerSteps = LEDGER_SCHEMA_STEPS.filter((step) =>
-    ["common-tables", "erase-windows", "blob-refs"].includes(step.id)
+    ["common-tables", "erase-windows", "blob-refs"].includes(step.id),
   );
   for (const step of [...ledgerSteps, ...invocationsSchemaSteps]) {
     db.exec(step.sql);
@@ -85,11 +85,13 @@ function setup() {
       },
       read(hash, offset, length) {
         const bytes = stored.get(hash)!;
-        return Promise.resolve(ok({
-          hash,
-          sizeBytes: bytes.length,
-          bytes: bytes.slice(offset, offset + length),
-        }));
+        return Promise.resolve(
+          ok({
+            hash,
+            sizeBytes: bytes.length,
+            bytes: bytes.slice(offset, offset + length),
+          }),
+        );
       },
     },
   });
@@ -149,15 +151,14 @@ test("끝난 invocation은 되돌림 표시와 changeset 지우기 말고는 바
   });
   assert.deepStrictEqual(!again.ok && again.error.code, "conflict");
   // 표를 직접 고치거나 지울 수 없다.
-  for (
-    const text of [
-      "update invocations set status = 'failed'",
-      "update invocations set summary = '{}'",
-      "update invocations set finished_at = '2027-01-01T00:00:00.000Z'",
-      "update invocations set changeset_hash = '" + "a".repeat(64) + "'",
-      "delete from invocations",
-    ]
-  ) assert.throws(() => db.exec(text));
+  for (const text of [
+    "update invocations set status = 'failed'",
+    "update invocations set summary = '{}'",
+    "update invocations set finished_at = '2027-01-01T00:00:00.000Z'",
+    "update invocations set changeset_hash = '" + "a".repeat(64) + "'",
+    "delete from invocations",
+  ])
+    assert.throws(() => db.exec(text));
 
   // 되돌림 표시는 한 번만, 같은 rewind로는 다시 해도 된다.
   const rwd = `rwd_${n(1)}` as Id<"rwd">;

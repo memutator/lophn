@@ -18,10 +18,7 @@ import type { AgentCredentialIssuer } from "./mod.ts";
 // 중이며 요청한 session의 것인지, session이 열려 있는지, 요청한 operation이 그 session 역할의 상한 안인지를
 // core 자신의 기록으로 확인한다. 어느 하나라도 어긋나면 없는 turn과 똑같이 답하지 않는다.
 
-type CoreCall = (
-  path: string,
-  body: unknown,
-) => Promise<Result<unknown>>;
+type CoreCall = (path: string, body: unknown) => Promise<Result<unknown>>;
 
 type AgentCredentialLink = {
   // child message를 처리한다. 발급했으면 응답 message를, 그 밖(거절·종료 처리)에는 undefined를 돌려준다.
@@ -65,13 +62,14 @@ export function createAgentCredentialLink(options: {
   ): Promise<AgentCredentialResponse | undefined> {
     const turn = await read(turnRead, { turn: message.turn });
     if (
-      turn === undefined || turn.turn.state !== "running" ||
+      turn === undefined ||
+      turn.turn.state !== "running" ||
       turn.turn.session !== message.session
-    ) return undefined;
+    )
+      return undefined;
     const found = await read(agentSessionRead, { session: turn.turn.session });
-    if (
-      found === undefined || found.session.lifecycle !== "open"
-    ) return undefined;
+    if (found === undefined || found.session.lifecycle !== "open")
+      return undefined;
     const role = found.session.agent.role;
     const allowed = new Set(operationsFor(role));
     const operations = [...new Set(message.operations)];

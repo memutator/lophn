@@ -32,9 +32,10 @@ export function secretValueHandler(deps: {
   known: () => KnownSecretMatch | undefined;
   observe(app: string): Promise<Result<LiveChild | null>>;
   // 값을 보내기 직전에 부른다(앱 OAuth의 refresh). undefined면 할 일이 없다. 실패하면 값을 보내지 않는다.
-  prepare?(
-    input: { app: string; name: string },
-  ): Promise<Result<void> | undefined>;
+  prepare?(input: {
+    app: string;
+    name: string;
+  }): Promise<Result<void> | undefined>;
 }): MemoryHandler {
   return async (caller, body) => {
     const parsed = appsSecretValue.input.safeParse(body);
@@ -51,7 +52,8 @@ export function secretValueHandler(deps: {
     const child = await deps.observe(input.app);
     if (!child.ok) return child;
     if (
-      child.value === null || child.value.mode !== "live" ||
+      child.value === null ||
+      child.value.mode !== "live" ||
       child.value.release !== input.release ||
       child.value.process_nonce !== input.process_nonce
     ) {
@@ -91,11 +93,12 @@ export function secretValueHandler(deps: {
       },
     );
     if (!sent.ok) return sent;
-    const text = typeof value === "string"
-      ? value
-      : value === undefined
-      ? ""
-      : new TextDecoder().decode(value);
+    const text =
+      typeof value === "string"
+        ? value
+        : value === undefined
+          ? ""
+          : new TextDecoder().decode(value);
     value = undefined;
     if (text === "" || !wholly(deps.known(), text)) {
       return err({
@@ -108,9 +111,11 @@ export function secretValueHandler(deps: {
 }
 
 // http는 loopback host만이다(secretAllowed가 같은 규칙으로 한 번 더 본다).
-function destinationOf(
-  one: { scheme: "http" | "https"; host: string; port: number },
-): SecretDestination | undefined {
+function destinationOf(one: {
+  scheme: "http" | "https";
+  host: string;
+  port: number;
+}): SecretDestination | undefined {
   const host = one.host.toLowerCase();
   if (one.scheme === "http" && !isLoopbackHost(host)) return undefined;
   const bracketed = host.includes(":") ? `[${host}]` : host;
@@ -128,6 +133,7 @@ function destinationOf(
 function wholly(known: KnownSecretMatch | undefined, text: string): boolean {
   if (known === undefined || !known.ready) return false;
   const found = known.match(text);
-  return found !== undefined && found.index === 0 &&
-    found.length === text.length;
+  return (
+    found !== undefined && found.index === 0 && found.length === text.length
+  );
 }

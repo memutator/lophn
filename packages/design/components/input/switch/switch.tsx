@@ -22,7 +22,9 @@ export function Switch({ label, size = "md", ...state }: SwitchProps) {
       className={cx(styles.row, styles[size])}
       {...componentMark("Switch")}
     >
-      <label htmlFor={id} className={styles.label}>{label}</label>
+      <label htmlFor={id} className={styles.label}>
+        {label}
+      </label>
       <Radix.Root {...state} id={id} className={styles.track}>
         <Radix.Thumb className={styles.thumb} />
       </Radix.Root>

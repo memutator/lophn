@@ -110,10 +110,13 @@ export function createAdmission(
       clearTimeout(job.timer);
       // 슬롯을 준 시점이 입장이다. work의 처음은 여기서 시작한다.
       job.settle(true);
-      void job.work().catch(() => undefined).finally(() => {
-        active--;
-        pump();
-      });
+      void job
+        .work()
+        .catch(() => undefined)
+        .finally(() => {
+          active--;
+          pump();
+        });
     }
   }
 

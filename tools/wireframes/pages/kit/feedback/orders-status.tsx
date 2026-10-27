@@ -24,14 +24,17 @@ export function AppRoot({ children }: { children: ReactNode }) {
   return <AppErrorBoundary>{children}</AppErrorBoundary>;
 }
 
-export function OrdersStatus(
-  { result, now, reload, timer }: {
-    result: OrdersResult;
-    now: Date;
-    reload: () => void;
-    timer?: Timer;
-  },
-) {
+export function OrdersStatus({
+  result,
+  now,
+  reload,
+  timer,
+}: {
+  result: OrdersResult;
+  now: Date;
+  reload: () => void;
+  timer?: Timer;
+}) {
   return (
     <ReadState
       loading={result.loading}
@@ -50,7 +53,9 @@ export function OrdersStatus(
       timer={timer}
     >
       <ul>
-        {result.orders.map((order) => <li key={order}>{order}</li>)}
+        {result.orders.map((order) => (
+          <li key={order}>{order}</li>
+        ))}
       </ul>
     </ReadState>
   );

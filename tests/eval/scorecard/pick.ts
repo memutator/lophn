@@ -46,23 +46,28 @@ export function staleReasons(
   if (run.scenario.n !== scenario.n) {
     reasons.push(`scenario ${scenario.id}@${run.scenario.n} → @${scenario.n}`);
   }
-  reasons.push(...versionChanges(
-    "materials",
-    run.materials,
-    scenario.world.map((w) => parseRef(w, "material")),
-  ));
+  reasons.push(
+    ...versionChanges(
+      "materials",
+      run.materials,
+      scenario.world.map((w) => parseRef(w, "material")),
+    ),
+  );
 
   const judgeChecks = scenario.checks.flatMap((c) =>
-    c.kind === "judge" ? [c] : []
+    c.kind === "judge" ? [c] : [],
   );
-  reasons.push(...versionChanges(
-    "criterion",
-    run.grader.criteria,
-    judgeChecks.map((c) => parseRef(c.criterion, "criterion")),
-  ));
+  reasons.push(
+    ...versionChanges(
+      "criterion",
+      run.grader.criteria,
+      judgeChecks.map((c) => parseRef(c.criterion, "criterion")),
+    ),
+  );
   // judge check가 없는 시나리오는 judge가 바뀌어도 결과가 같다.
   if (
-    judgeChecks.length > 0 && current.judge !== null &&
+    judgeChecks.length > 0 &&
+    current.judge !== null &&
     run.grader.judge?.n !== current.judge.n
   ) {
     reasons.push(

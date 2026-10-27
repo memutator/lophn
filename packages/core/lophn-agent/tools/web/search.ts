@@ -14,7 +14,8 @@ const TIMEOUT_MS = 20_000;
 type Hit = { title: string; url: string; snippet: string };
 
 function plain(html: string): string {
-  return decodeEntities(html.replace(/<[^>]*>/g, "")).replace(/\s+/g, " ")
+  return decodeEntities(html.replace(/<[^>]*>/g, ""))
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -22,13 +23,13 @@ function parse(html: string): Hit[] {
   const hits: Hit[] = [];
   for (const block of html.split('data-type="web"').slice(1)) {
     const url = block.match(/<a href="(https?:\/\/[^"]+)"/)?.[1];
-    const title = block.match(
-      /class="title[^"]*search-snippet-title[^"]*"[^>]*>([\s\S]*?)<\/div>/,
-    )?.[1] ?? block.match(/class="title[^"]*"[^>]*title="([^"]*)"/)?.[1];
+    const title =
+      block.match(
+        /class="title[^"]*search-snippet-title[^"]*"[^>]*>([\s\S]*?)<\/div>/,
+      )?.[1] ?? block.match(/class="title[^"]*"[^>]*title="([^"]*)"/)?.[1];
     if (url === undefined || title === undefined) continue;
-    const snippet = block.match(
-      /class="content[^"]*"[^>]*>([\s\S]*?)<\/div>/,
-    )?.[1] ?? "";
+    const snippet =
+      block.match(/class="content[^"]*"[^>]*>([\s\S]*?)<\/div>/)?.[1] ?? "";
     hits.push({
       title: plain(title),
       url: decodeEntities(url),
@@ -64,11 +65,15 @@ export async function searchWeb(
     return fail("unavailable", "search failed");
   }
   const hits = parse(html);
-  const text = hits.length === 0
-    ? "No results."
-    : hits.map((hit, index) =>
-      `${index + 1}. ${hit.title}\n${hit.url}\n${hit.snippet}`
-    ).join("\n\n");
+  const text =
+    hits.length === 0
+      ? "No results."
+      : hits
+          .map(
+            (hit, index) =>
+              `${index + 1}. ${hit.title}\n${hit.url}\n${hit.snippet}`,
+          )
+          .join("\n\n");
   return ok({
     status: "success",
     summary: `${hits.length} results for ${input.query.slice(0, 100)}`,

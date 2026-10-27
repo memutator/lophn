@@ -29,18 +29,16 @@ export interface DateRangePickerProps {
 }
 
 // 첫 누름이 한쪽 끝, 둘째 누름이 다른 끝이고 둘째에 닫힌다. 거꾸로 누르면 바로 놓는다. 한쪽만 누르고 닫으면 값은 그대로다.
-export function DateRangePicker(
-  {
-    value,
-    onValueChange,
-    now,
-    min,
-    max,
-    locale = "en",
-    size = "md",
-    disabled,
-  }: DateRangePickerProps,
-) {
+export function DateRangePicker({
+  value,
+  onValueChange,
+  now,
+  min,
+  max,
+  locale = "en",
+  size = "md",
+  disabled,
+}: DateRangePickerProps) {
   const field = useField("DateRangePicker");
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<string | undefined>(undefined);

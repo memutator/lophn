@@ -29,9 +29,10 @@ import type { InvokeModelCall } from "../providers/work.ts";
 // 작은 context의 model이 창 대부분을 입력에 쓰게 한다.
 export const OUTPUT_CAP = 32000;
 
-export function cappedOutput(
-  limits: { context_limit: number; output_limit: number },
-): number {
+export function cappedOutput(limits: {
+  context_limit: number;
+  output_limit: number;
+}): number {
   return Math.min(
     OUTPUT_CAP,
     limits.output_limit,
@@ -65,8 +66,8 @@ export function deferralHeaders(
 ): Record<string, string> {
   if (!deferrable) return { ...headers };
   const name =
-    Object.keys(headers).find((key) =>
-      key.toLowerCase() === "anthropic-beta"
+    Object.keys(headers).find(
+      (key) => key.toLowerCase() === "anthropic-beta",
     ) ?? "anthropic-beta";
   const have = (headers[name] ?? "").split(",").filter((v) => v !== "");
   return {
@@ -113,8 +114,9 @@ function anthropicMessages(
         const extra = images
           ? imageBlock(part.media_type, part.data_base64)
           : { type: "text", text: IMAGE_OMITTED };
-        const result = content.find((block) =>
-          block.type === "tool_result" && block.tool_use_id === part.id
+        const result = content.find(
+          (block) =>
+            block.type === "tool_result" && block.tool_use_id === part.id,
         );
         if (result === undefined) {
           content.push({
@@ -128,21 +130,22 @@ function anthropicMessages(
             ...(typeof text === "string" && text !== ""
               ? [{ type: "text", text }]
               : Array.isArray(text)
-              ? text
-              : []),
+                ? text
+                : []),
             extra,
           ];
         }
       } else if (part.kind === "tool_result_reference") {
         // 숨긴 tool을 쓰는 요청이면 결과가 tool reference뿐이다. 아니면 결과 글 뒤에 이름을 글로 잇는다.
-        const result = content.find((block) =>
-          block.type === "tool_result" && block.tool_use_id === part.id
+        const result = content.find(
+          (block) =>
+            block.type === "tool_result" && block.tool_use_id === part.id,
         );
         const references = deferred
           ? part.names.map((name) => ({
-            type: "tool_reference",
-            tool_name: name,
-          }))
+              type: "tool_reference",
+              tool_name: name,
+            }))
           : null;
         if (result === undefined) {
           content.push({
@@ -171,7 +174,7 @@ function deferredAnthropicTools(request: PromptRequest) {
   return anthropicTools(request).map((tool, at) =>
     request.tools[at].deferred === true
       ? { ...tool, defer_loading: true }
-      : tool
+      : tool,
   );
 }
 
@@ -243,8 +246,9 @@ function responsesInput(
           : { type: "input_text", text: IMAGE_OMITTED };
         const result = items.find((item) => {
           const typed = item as { type: string; call_id?: string };
-          return typed.type === "function_call_output" &&
-            typed.call_id === part.id;
+          return (
+            typed.type === "function_call_output" && typed.call_id === part.id
+          );
         }) as { output: string | unknown[] } | undefined;
         if (result === undefined) {
           items.push({
@@ -265,8 +269,9 @@ function responsesInput(
       } else if (part.kind === "tool_result_reference") {
         const result = items.find((item) => {
           const typed = item as { type: string; call_id?: string };
-          return typed.type === "function_call_output" &&
-            typed.call_id === part.id;
+          return (
+            typed.type === "function_call_output" && typed.call_id === part.id
+          );
         }) as { output: string | unknown[] } | undefined;
         if (result === undefined) {
           items.push({
@@ -323,20 +328,22 @@ function chatMessages(
     if (message.role === "assistant") {
       // 한 turn의 agent message 여럿이 assistant message 하나의 text part 여럿으로 잇는다. 그대로 붙이면
       // 글이 맞붙으므로 줄바꿈 둘로 잇는다.
-      const text = message.parts.flatMap((part) =>
-        part.kind === "text" ? [part.text] : []
-      ).join("\n\n");
+      const text = message.parts
+        .flatMap((part) => (part.kind === "text" ? [part.text] : []))
+        .join("\n\n");
       const calls = message.parts.flatMap((part) =>
         part.kind === "tool_use"
-          ? [{
-            id: part.id,
-            type: "function" as const,
-            function: {
-              name: part.name,
-              arguments: JSON.stringify(part.input),
-            },
-          }]
-          : []
+          ? [
+              {
+                id: part.id,
+                type: "function" as const,
+                function: {
+                  name: part.name,
+                  arguments: JSON.stringify(part.input),
+                },
+              },
+            ]
+          : [],
       );
       out.push({
         role: "assistant",

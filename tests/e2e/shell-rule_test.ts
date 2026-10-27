@@ -93,7 +93,10 @@ test("shell 물음에 always로 답하면 규칙이 project 층에 남아 재시
     // 다시 묻지 않음: core가 판정마다 Settings를 다시 읽는다.
     const second = await runAgain(core, fake, session, folder, "s2", 1);
     assert.deepStrictEqual(second.exists, false);
-    assert.deepStrictEqual(second.outcomes.map((o) => o?.kind), ["success"]);
+    assert.deepStrictEqual(
+      second.outcomes.map((o) => o?.kind),
+      ["success"],
+    );
 
     // 재시작 뒤: 규칙이 settings.json에서 읽힌다.
     await core.kill();
@@ -101,7 +104,10 @@ test("shell 물음에 always로 답하면 규칙이 project 층에 남아 재시
     await settle(core);
     const third = await runAgain(core, fake, session, folder, "s3", 2);
     assert.deepStrictEqual(third.exists, false);
-    assert.deepStrictEqual(third.outcomes.map((o) => o?.kind), ["success"]);
+    assert.deepStrictEqual(
+      third.outcomes.map((o) => o?.kind),
+      ["success"],
+    );
 
     // skip이어도 floor deny. `~`는 core의 HOME(<run>/user-home)이라 판정이 틀려도 run 폴더 안이다.
     const { session: read } = await core.call(agentSessionRead, { session });
@@ -113,23 +119,29 @@ test("shell 물음에 always로 답하면 규칙이 project 층에 남아 재시
     const keep = `${run.dir}/user-home/keep`;
     await writeFile(keep, "keep");
     fake.reset();
-    fake.script([{
-      reply: {
-        kind: "tool",
-        calls: [{
-          id: "s4",
-          name: "shell_run",
-          arguments: JSON.stringify({ command: "rm -rf ~" }),
-        }],
+    fake.script([
+      {
+        reply: {
+          kind: "tool",
+          calls: [
+            {
+              id: "s4",
+              name: "shell_run",
+              arguments: JSON.stringify({ command: "rm -rf ~" }),
+            },
+          ],
+        },
       },
-    }, DONE]);
+      DONE,
+    ]);
     await say(core, session, "remove home");
     const turn = await waitTurnEnd(core, session, 3);
     assert.deepStrictEqual(turn.mode, "skip");
     const { tool_calls } = await core.call(toolCallList, { turn: turn.id });
-    assert.deepStrictEqual(tool_calls.map((c) => c.outcome), [
-      { kind: "not_executed", code: "denied" },
-    ]);
+    assert.deepStrictEqual(
+      tool_calls.map((c) => c.outcome),
+      [{ kind: "not_executed", code: "denied" }],
+    );
     assert.deepStrictEqual(await readFile(keep, "utf8"), "keep");
   } finally {
     await core?.kill().catch(() => {});

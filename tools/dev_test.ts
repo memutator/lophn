@@ -13,9 +13,11 @@ test("dev는 남긴 eval world를 열되 사람의 ~/.lophn과 그 아래는 열
     devHomeOf("/repo", { ...env, LOPHN_DEV_HOME: "/tmp/lophn-eval/run/home" }),
     { ok: true, path: "/tmp/lophn-eval/run/home" },
   );
-  for (
-    const path of ["/home/me/.lophn", "/home/me/.lophn/", "/home/me/.lophn/x"]
-  ) {
+  for (const path of [
+    "/home/me/.lophn",
+    "/home/me/.lophn/",
+    "/home/me/.lophn/x",
+  ]) {
     assert.deepStrictEqual(
       devHomeOf("/repo", { ...env, LOPHN_DEV_HOME: path }).ok,
       false,

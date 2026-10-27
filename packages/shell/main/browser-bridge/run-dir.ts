@@ -24,20 +24,23 @@ export type RunDirDeps = {
 
 export type RunDirResult =
   | {
-    ok: true;
-    value: { dir: string; socket: string; shim: string; script: string };
-  }
+      ok: true;
+      value: { dir: string; socket: string; shim: string; script: string };
+    }
   | {
-    ok: false;
-    error: { code: "invalid_input" | "unavailable"; message: string };
-  };
+      ok: false;
+      error: { code: "invalid_input" | "unavailable"; message: string };
+    };
 
 export function prepareRunDir(deps: RunDirDeps): RunDirResult {
   const xdg = deps.env.XDG_RUNTIME_DIR;
-  const base = xdg !== undefined && xdg !== ""
-    ? `${xdg}/lophn`
-    : `${deps.tmpdir}/lophn-${deps.uid}`;
-  const key = createHash("sha256").update(deps.dataRoot).digest("hex")
+  const base =
+    xdg !== undefined && xdg !== ""
+      ? `${xdg}/lophn`
+      : `${deps.tmpdir}/lophn-${deps.uid}`;
+  const key = createHash("sha256")
+    .update(deps.dataRoot)
+    .digest("hex")
     .slice(0, 12);
   const keyDir = `${base}/${key}`;
   const dir = `${keyDir}/shell-${deps.pid}`;

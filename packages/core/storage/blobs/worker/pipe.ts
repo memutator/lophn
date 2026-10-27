@@ -23,10 +23,10 @@ export type BlobPipeRequest = {
 type BlobPipeResponse =
   | { request_id: string; ok: true; payload: PreparedBlob | BlobReadPayload }
   | {
-    request_id: string;
-    ok: false;
-    error: { code: ErrorCode; message: string };
-  };
+      request_id: string;
+      ok: false;
+      error: { code: ErrorCode; message: string };
+    };
 
 // blob.read의 바이트는 JSON control frame에 담지 않는다. 256KiB 창의 base64는
 // control frame 한도(256KiB)를 넘기 때문이다. 바이트는 요청 channel의 byte chunk

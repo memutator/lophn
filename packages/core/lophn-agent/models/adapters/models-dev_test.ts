@@ -11,10 +11,12 @@ const apiJson = {
     models: {
       "gpt-5": {
         reasoning: true,
-        reasoning_options: [{
-          type: "effort",
-          values: ["minimal", "low", "medium", "high"],
-        }],
+        reasoning_options: [
+          {
+            type: "effort",
+            values: ["minimal", "low", "medium", "high"],
+          },
+        ],
         tool_call: true,
         modalities: { input: ["text", "image", "pdf"], output: ["text"] },
         limit: { context: 400000, input: 272000, output: 128000 },
@@ -39,11 +41,13 @@ const apiJson = {
         cost: {
           input: 3,
           output: 15,
-          tiers: [{
-            input: 6,
-            output: 22.5,
-            tier: { type: "context", size: 200000 },
-          }],
+          tiers: [
+            {
+              input: 6,
+              output: 22.5,
+              tier: { type: "context", size: 200000 },
+            },
+          ],
         },
       },
     },
@@ -82,24 +86,24 @@ test("models.dev 응답이 lophn 항목으로 바뀐다", () => {
   );
   const [claude, gpt5, gemini] = entries;
   assert.deepStrictEqual(
-    (gpt5.options as { values: { value: string }[]; default_value: string }[])
-      .map((axis) => [axis.values.map((v) => v.value), axis.default_value]),
+    (
+      gpt5.options as { values: { value: string }[]; default_value: string }[]
+    ).map((axis) => [axis.values.map((v) => v.value), axis.default_value]),
     [[["minimal", "low", "medium", "high"], "medium"]],
   );
   assert.deepStrictEqual(gpt5.input_media, ["text", "image", "pdf"]);
   assert.deepStrictEqual(gpt5.input_limit, 272000);
-  const axis = (claude.options as {
-    values: { value: string }[];
-    default_value: string | null;
-    budget: unknown;
-  }[])[0];
-  assert.deepStrictEqual(axis.values.map((v) => v.value), [
-    "off",
-    "low",
-    "medium",
-    "high",
-    "maximum",
-  ]);
+  const axis = (
+    claude.options as {
+      values: { value: string }[];
+      default_value: string | null;
+      budget: unknown;
+    }[]
+  )[0];
+  assert.deepStrictEqual(
+    axis.values.map((v) => v.value),
+    ["off", "low", "medium", "high", "maximum"],
+  );
   assert.deepStrictEqual(axis.default_value, null);
   assert.deepStrictEqual(axis.budget, { minimum: 1024, maximum: 64000 });
   // limit.input이 없으면 input_limit은 context 한도다(null이면 한도가 확인되지 않은 model이 된다).
@@ -111,7 +115,10 @@ test("models.dev 응답이 lophn 항목으로 바뀐다", () => {
     .rates;
   assert.deepStrictEqual(
     rates.map((r) => [r.context_from, r.context_through, r.input]),
-    [[null, 200000, "3"], [200001, null, "6"]],
+    [
+      [null, 200000, "3"],
+      [200001, null, "6"],
+    ],
   );
   // 갱신 검증을 그대로 넘는다.
   assert.deepStrictEqual(validateCatalogResponse(entries).ok, true);

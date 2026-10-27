@@ -78,14 +78,17 @@ function listChange(
 // 순수 함수다. 바뀐 것이 없으면 모든 칸이 비어 있다.
 export function diffBasis(seen: SeenBasis, now: SeenBasis): BasisDiff {
   return {
-    instructions: INSTRUCTION_LAYERS.filter((layer) =>
-      seen.instructions[layer] !== now.instructions[layer]
+    instructions: INSTRUCTION_LAYERS.filter(
+      (layer) => seen.instructions[layer] !== now.instructions[layer],
     ),
     tools: listChange(seen.tools, now.tools),
-    kinds: seen.kinds?.hash === now.kinds?.hash ? null : {
-      was: seen.kinds !== null,
-      now: now.kinds !== null,
-    },
+    kinds:
+      seen.kinds?.hash === now.kinds?.hash
+        ? null
+        : {
+            was: seen.kinds !== null,
+            now: now.kinds !== null,
+          },
     agents: listChange(seen.agents, now.agents),
   };
 }

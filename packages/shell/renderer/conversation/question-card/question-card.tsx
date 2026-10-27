@@ -37,9 +37,11 @@ interface QuestionCardProps {
   onSubmit: (answers: readonly QuestionAnswer[]) => Promise<boolean>;
 }
 
-export function QuestionCard(
-  { agent, questions, onSubmit }: QuestionCardProps,
-): ReactElement {
+export function QuestionCard({
+  agent,
+  questions,
+  onSubmit,
+}: QuestionCardProps): ReactElement {
   const root = useRef<HTMLElement>(null);
   const [picks, setPicks] = useState<Record<string, Pick>>({});
   const [index, setIndex] = useState(0);
@@ -131,13 +133,11 @@ export function QuestionCard(
         >
           <p className={styles.askHead}>
             <span className={styles.tag}>{question.header}</span>
-            {question.multiSelect
-              ? (
-                <span className={styles.multi}>
-                  {t("conversation.label.question-pick-any")}
-                </span>
-              )
-              : null}
+            {question.multiSelect ? (
+              <span className={styles.multi}>
+                {t("conversation.label.question-pick-any")}
+              </span>
+            ) : null}
           </p>
           <p className={styles.text}>{question.question}</p>
           {question.options.map((option, position) => (
@@ -173,7 +173,8 @@ export function QuestionCard(
               value={pick.text}
               onClick={(event) => event.stopPropagation()}
               onChange={(event) =>
-                change(typeOther(question, pick, event.currentTarget.value))}
+                change(typeOther(question, pick, event.currentTarget.value))
+              }
             />
           </Choice>
         </div>
@@ -184,41 +185,43 @@ export function QuestionCard(
             ? t("conversation.notice.answer-failed")
             : t("conversation.notice.question-waiting")}
         </p>
-        {last
-          ? (
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={busy || answers === null}
-              onClick={submit}
-            >
-              {t("conversation.button.question-submit")}
-            </Button>
-          )
-          : (
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={answerOf(question, pick) === null}
-              onClick={() => setIndex(index + 1)}
-            >
-              {t("conversation.button.question-next")}
-            </Button>
-          )}
+        {last ? (
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={busy || answers === null}
+            onClick={submit}
+          >
+            {t("conversation.button.question-submit")}
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={answerOf(question, pick) === null}
+            onClick={() => setIndex(index + 1)}
+          >
+            {t("conversation.button.question-next")}
+          </Button>
+        )}
       </footer>
     </section>
   );
 }
 
-function Choice(
-  { multi, checked, number, onClick, children }: {
-    multi: boolean;
-    checked: boolean;
-    number: number;
-    onClick: () => void;
-    children: ReactNode;
-  },
-) {
+function Choice({
+  multi,
+  checked,
+  number,
+  onClick,
+  children,
+}: {
+  multi: boolean;
+  checked: boolean;
+  number: number;
+  onClick: () => void;
+  children: ReactNode;
+}) {
   return (
     <div
       className={styles.choice}
@@ -256,9 +259,10 @@ interface QuestionSummaryProps {
 }
 
 /** 풀린 묶음이 대화에 남는 접힌 요약. 사람 메시지로 끝난 묶음은 늘 펼쳐 고른 답이 없음을 보인다. */
-export function QuestionSummary(
-  { outcome, lines }: QuestionSummaryProps,
-): ReactElement {
+export function QuestionSummary({
+  outcome,
+  lines,
+}: QuestionSummaryProps): ReactElement {
   const [open, setOpen] = useState(false);
   const submitted = outcome === "submitted";
   const shown = open || !submitted;
@@ -271,56 +275,50 @@ export function QuestionSummary(
         disabled={!submitted}
         onClick={() => setOpen(!open)}
       >
-        {submitted
-          ? (
-            <Icon
-              icon={open ? commonIcons.collapse : commonIcons.expand}
-              pixels={iconPixels("small")}
-            />
-          )
-          : null}
+        {submitted ? (
+          <Icon
+            icon={open ? commonIcons.collapse : commonIcons.expand}
+            pixels={iconPixels("small")}
+          />
+        ) : null}
         <span>
-          {submitted
-            ? (
-              <>
-                <span className={styles.ok}>✓</span>{" "}
-                {t("conversation.label.questions-answered", {
-                  count: lines.length,
-                })}
-              </>
-            )
-            : outcome === "cancelled"
-            ? t("conversation.label.question-cancelled")
-            : t("conversation.label.questions-ended-by-message")}
+          {submitted ? (
+            <>
+              <span className={styles.ok}>✓</span>{" "}
+              {t("conversation.label.questions-answered", {
+                count: lines.length,
+              })}
+            </>
+          ) : outcome === "cancelled" ? (
+            t("conversation.label.question-cancelled")
+          ) : (
+            t("conversation.label.questions-ended-by-message")
+          )}
         </span>
       </button>
-      {shown
-        ? (
-          <ul className={styles.summaryList}>
-            {outcome === "human_message"
-              ? (
-                <li className={styles.summaryPlain}>
-                  {t("conversation.notice.questions-ended-by-message")}
-                </li>
-              )
-              : null}
-            {lines.map((line) => (
-              <li key={line.header}>
-                <span className={styles.summaryKey}>{line.header}</span>
-                {line.answer !== null
-                  ? line.answer
-                  : (
-                    <span className={styles.summaryNone}>
-                      {submitted
-                        ? t("conversation.label.question-answered-elsewhere")
-                        : t("conversation.label.question-no-answer")}
-                    </span>
-                  )}
-              </li>
-            ))}
-          </ul>
-        )
-        : null}
+      {shown ? (
+        <ul className={styles.summaryList}>
+          {outcome === "human_message" ? (
+            <li className={styles.summaryPlain}>
+              {t("conversation.notice.questions-ended-by-message")}
+            </li>
+          ) : null}
+          {lines.map((line) => (
+            <li key={line.header}>
+              <span className={styles.summaryKey}>{line.header}</span>
+              {line.answer !== null ? (
+                line.answer
+              ) : (
+                <span className={styles.summaryNone}>
+                  {submitted
+                    ? t("conversation.label.question-answered-elsewhere")
+                    : t("conversation.label.question-no-answer")}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

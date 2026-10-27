@@ -87,10 +87,8 @@ interface AgentThreadProps {
 export function AgentThread(props: AgentThreadProps): ReactElement {
   const { entries, outgoing } = props;
   const live = useThrottledLive(props.live, props.now);
-  const shown = shownEntries(
-    entries,
-    props.detail,
-    (id) => props.drafts.body(id),
+  const shown = shownEntries(entries, props.detail, (id) =>
+    props.drafts.body(id),
   );
   const nodes = itemsOf(shown, props, entries, false, live);
   // 확정 메시지가 오면 같은 key의 줄로 바뀌어 다시 그려지지 않는다.
@@ -126,21 +124,22 @@ export function AgentThread(props: AgentThreadProps): ReactElement {
       initialScroll={props.initialScroll}
       onScroll={props.onScroll}
     >
-      {nodes.length === 0
-        ? (
-          <p className={styles.empty} data-empty-thread="">
-            {t("conversation.empty.no-messages")}
-          </p>
-        )
-        : <div className={turns.turns}>{nodes}</div>}
+      {nodes.length === 0 ? (
+        <p className={styles.empty} data-empty-thread="">
+          {t("conversation.empty.no-messages")}
+        </p>
+      ) : (
+        <div className={turns.turns}>{nodes}</div>
+      )}
     </ThreadScroll>
   );
 }
 
 function hasEntry(entries: readonly ThreadEntry[], id: string): boolean {
-  return entries.some((entry) =>
-    entry.id === id ||
-    (entry.kind === "hidden" && hasEntry(entry.entries, id))
+  return entries.some(
+    (entry) =>
+      entry.id === id ||
+      (entry.kind === "hidden" && hasEntry(entry.entries, id)),
   );
 }
 
@@ -272,16 +271,15 @@ function itemsOf(
         add(entry, <ApprovalResult key={entry.id} result={entry.result} />);
         break;
       case "turn-end": {
-        const node = entry.outcome === "failed"
-          ? (
+        const node =
+          entry.outcome === "failed" ? (
             <div key={entry.id} data-turn-failed="">
               <StatusMark
                 tone="serious"
                 label={t("conversation.label.status-stopped")}
               />
             </div>
-          )
-          : (
+          ) : (
             <WorkedFor
               key={entry.id}
               activeMs={entry.activeMs}
@@ -317,10 +315,8 @@ function itemsOf(
           >
             <div className={turns.turns}>
               {itemsOf(
-                shownEntries(
-                  entry.entries,
-                  props.detail,
-                  (id) => props.drafts.body(id),
+                shownEntries(entry.entries, props.detail, (id) =>
+                  props.drafts.body(id),
                 ),
                 props,
                 all,
@@ -368,9 +364,9 @@ function userMessage(
       {...(nested ? {} : { copyText: () => textOf(message, props) })}
       {...(actions
         ? {
-          onRewind: () => props.onRewind(message.id),
-          onFork: () => props.onFork(message.id),
-        }
+            onRewind: () => props.onRewind(message.id),
+            onFork: () => props.onFork(message.id),
+          }
         : {})}
     >
       <UserBody
@@ -390,8 +386,12 @@ function userMessage(
 
 /** 복사할 메시지 글. 본문을 읽었으면 그 글이고, 아니면 이 창이 아는 글이다. */
 function textOf(message: ThreadMessage, props: AgentThreadProps): string {
-  return textOfBody(props.drafts.body(message.id)) ?? message.text ??
-    props.drafts.textOf(message.id) ?? "";
+  return (
+    textOfBody(props.drafts.body(message.id)) ??
+    message.text ??
+    props.drafts.textOf(message.id) ??
+    ""
+  );
 }
 
 /** 묶음의 복사 글. 뒤에서부터 글이 있는 첫 message다(reasoning뿐인 message는 글을 내지 않는다). */

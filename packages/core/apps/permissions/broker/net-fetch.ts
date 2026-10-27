@@ -48,8 +48,13 @@ const NET_FETCH_MAX_REDIRECTS = 5;
 const METHODS = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"]);
 
 export function isLoopbackHost(host: string): boolean {
-  return host === "localhost" || host === "::1" || host === "::" ||
-    host === "0.0.0.0" || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host);
+  return (
+    host === "localhost" ||
+    host === "::1" ||
+    host === "::" ||
+    host === "0.0.0.0" ||
+    /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)
+  );
 }
 
 // WHATWG URL의 host는 IPv6를 대괄호로 감싼다. 선언·grant의 host 표기로 되돌린다.
@@ -178,11 +183,14 @@ export function createNetFetchService(deps: NetFetchDeps): NetFetchService {
       while (true) {
         let response: Response;
         // 목적지가 바뀐 hop은 값을 다시 찾으므로 redirect로 다른 host에 값이 새지 않는다.
-        const secret = input.invocation === null ? undefined : deps.secrets?.(
-          input.invocation,
-          urlHost(current),
-          urlPort(current),
-        );
+        const secret =
+          input.invocation === null
+            ? undefined
+            : deps.secrets?.(
+                input.invocation,
+                urlHost(current),
+                urlPort(current),
+              );
         const headers = new Headers(
           current.origin === target.origin ? appHeaders : {},
         );
@@ -232,7 +240,8 @@ export function createNetFetchService(deps: NetFetchDeps): NetFetchService {
           if (
             response.status === 303 ||
             ((response.status === 301 || response.status === 302) &&
-              currentMethod !== "GET" && currentMethod !== "HEAD")
+              currentMethod !== "GET" &&
+              currentMethod !== "HEAD")
           ) {
             currentMethod = "GET";
             currentBody = undefined;

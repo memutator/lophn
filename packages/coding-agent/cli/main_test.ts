@@ -22,7 +22,9 @@ test("hook CLI는 LPN_TERMINAL_HOOK이 없으면 아무것도 보내지 않고 s
   let sent = false;
   let read = false;
   const code = await cliMain(["hook", "claude", "Stop"], {
-    env: { get: (name) => name === "LOPHN_HOME" ? "/nonexistent" : undefined },
+    env: {
+      get: (name) => (name === "LOPHN_HOME" ? "/nonexistent" : undefined),
+    },
     fetch: () => {
       sent = true;
       return Promise.reject(new Error("must not send"));
@@ -51,8 +53,8 @@ test("app이 필수인 token 명령은 app 없이 부르면 보내지 않고 app
         name === "LOPHN_CODING_TOKEN"
           ? "coding-secret"
           : name === "LOPHN_DAEMON_URL"
-          ? "http://127.0.0.1:1"
-          : undefined,
+            ? "http://127.0.0.1:1"
+            : undefined,
     },
     fetch: () => {
       sent = true;
@@ -82,8 +84,8 @@ test("app preview start는 route 입력의 input 칸을 지우지 않고 그대�
           name === "LOPHN_CODING_TOKEN"
             ? "token"
             : name === "LOPHN_DAEMON_URL"
-            ? "http://127.0.0.1:1"
-            : undefined,
+              ? "http://127.0.0.1:1"
+              : undefined,
       },
       fetch: (_url, init) => {
         sent = JSON.parse(init.body ?? "null");
@@ -136,7 +138,7 @@ for (const json of [true, false]) {
       let authorization: string | undefined;
       await cliMain(["run", "show", RUN_ID, ...(json ? ["--json"] : [])], {
         env: {
-          get: (name) => name === "LOPHN_HOME" ? "/fake-home" : undefined,
+          get: (name) => (name === "LOPHN_HOME" ? "/fake-home" : undefined),
         },
         readText: (path) =>
           path === "/fake-home/run/user-token" ? FILE_TOKEN : undefined,

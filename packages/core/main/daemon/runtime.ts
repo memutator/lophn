@@ -93,9 +93,7 @@ export async function openRuntime(input: {
       hash: string,
       offset: number,
       length: number,
-    ): Promise<
-      Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>
-    >;
+    ): Promise<Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>>;
   };
 }): Promise<Result<CoreRuntime>> {
   const openedWriter = openProductWriter(input.ledgerPath, {
@@ -116,13 +114,17 @@ export async function openRuntime(input: {
   }
   // 격리됐다 다시 뜬 reader는 알려진 secret 값을 모른다. secret store가 현재 값을 다시 넣는다.
   const respawnHooks: (() => Promise<unknown>)[] = [];
-  const readers = await createReaderPool(input.ledgerPath, [
-    new URL("../../storage/ledger/reader-registration.ts", import.meta.url),
-    // createReaderRegistration을 내보내는 팀 read도 같은 풀로 붙는다.
-    ...readerModules,
-  ], {
-    onRespawn: () => Promise.all(respawnHooks.map((hook) => hook())),
-  });
+  const readers = await createReaderPool(
+    input.ledgerPath,
+    [
+      new URL("../../storage/ledger/reader-registration.ts", import.meta.url),
+      // createReaderRegistration을 내보내는 팀 read도 같은 풀로 붙는다.
+      ...readerModules,
+    ],
+    {
+      onRespawn: () => Promise.all(respawnHooks.map((hook) => hook())),
+    },
+  );
   if (!readers.ok) {
     await openedWriter.writer.close();
     return readers;
@@ -136,11 +138,7 @@ export async function openRuntime(input: {
       (ctx, body) => blobReadHandler(input.ledgerPath, input.blob, ctx, body),
     ],
     // reader Worker가 등록한 ledger read. 팀 read는 그 뒤에 같은 풀로 붙는다.
-    ...[
-      "commands/result",
-    ].map((
-      key,
-    ): [string, ReadHandler] => [
+    ...["commands/result"].map((key): [string, ReadHandler] => [
       key,
       (ctx, body) =>
         readers.value.read(
@@ -210,9 +208,12 @@ function openProductWriter(
     },
   );
   let nextId = 1;
-  const pending = new Map<number, {
-    resolve: (message: WriterResponse) => void;
-  }>();
+  const pending = new Map<
+    number,
+    {
+      resolve: (message: WriterResponse) => void;
+    }
+  >();
   let dead: Result<never> | undefined;
   const fail = () => {
     if (dead !== undefined) return;
@@ -359,9 +360,7 @@ type BlobReadSource = {
     hash: string,
     offset: number,
     length: number,
-  ): Promise<
-    Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>
-  >;
+  ): Promise<Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>>;
 };
 
 type BlobRefAuthorizer = (
@@ -418,7 +417,9 @@ export function currentCredential(
       [credentialRef],
     );
     if (
-      !row || row["state"] !== "active" || typeof row["context"] !== "string"
+      !row ||
+      row["state"] !== "active" ||
+      typeof row["context"] !== "string"
     ) {
       return err({ code: "unauthorized", message: "현재 credential이 없다" });
     }

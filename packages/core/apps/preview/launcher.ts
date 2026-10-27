@@ -31,11 +31,11 @@ void observationShape;
 
 type PreviewProbe =
   | {
-    ok: true;
-    tools: string[];
-    dataSchema: number;
-    bundleHash: string;
-  }
+      ok: true;
+      tools: string[];
+      dataSchema: number;
+      bundleHash: string;
+    }
   | { ok: false; reason: string };
 
 type PreviewSpawnRequest = {
@@ -191,7 +191,9 @@ export function createPreviewLauncher(
     if (graceful && deps.requestStop && entry.probed) {
       try {
         await deps.requestStop(child, entry.control, entry.launch);
-      } catch { /* 요청이 닿지 않아도 유예 뒤 강제 종료가 이어진다 */ }
+      } catch {
+        /* 요청이 닿지 않아도 유예 뒤 강제 종료가 이어진다 */
+      }
       await Promise.race([
         child.exited,
         deps.wait(deps.stopGraceMs ?? PREVIEW_STOP_GRACE_MS),
@@ -302,14 +304,15 @@ export function createPreviewLauncher(
       });
       return;
     }
-    const noHandler = launch.tools.filter((name) =>
-      !probe.tools.includes(name)
+    const noHandler = launch.tools.filter(
+      (name) => !probe.tools.includes(name),
     );
-    const undeclared = probe.tools.filter((name) =>
-      !launch.tools.includes(name)
+    const undeclared = probe.tools.filter(
+      (name) => !launch.tools.includes(name),
     );
     if (
-      noHandler.length > 0 || undeclared.length > 0 ||
+      noHandler.length > 0 ||
+      undeclared.length > 0 ||
       probe.dataSchema !== launch.dataSchema
     ) {
       const parts: string[] = [];
@@ -373,8 +376,10 @@ export function createPreviewLauncher(
     const alive = entry.child !== undefined && !entry.intended;
     const ready = alive && entry.probed;
     // 시작·실행 중 실패한 이유가 있으면 그 이유를, 정지 요청만 있으면 사용 불가를 알린다.
-    const reason = ready ? undefined : entry.reason ??
-      (entry.intended ? PREVIEW_UNAVAILABLE : PREVIEW_STARTING);
+    const reason = ready
+      ? undefined
+      : (entry.reason ??
+        (entry.intended ? PREVIEW_UNAVAILABLE : PREVIEW_STARTING));
     return {
       app: entry.launch.app,
       release: entry.launch.release,
@@ -426,7 +431,7 @@ export function createPreviewLauncher(
       slot.entry = entry;
       void enqueue(slot, async () => {
         // 이전 preview의 종료를 확인하기 전에는 같은 자리의 socket으로 새 자식을 띄우지 않는다.
-        if (previous !== undefined && !await terminate(previous)) {
+        if (previous !== undefined && !(await terminate(previous))) {
           entry.reason = {
             code: "start_failed",
             summary: "previous preview did not stop",
@@ -446,10 +451,14 @@ export function createPreviewLauncher(
     control(app, nonce) {
       const entry = slots.get(app)?.entry;
       if (
-        entry === undefined || entry.launch.nonce !== nonce ||
-        entry.child === undefined || entry.intended || !entry.probed ||
+        entry === undefined ||
+        entry.launch.nonce !== nonce ||
+        entry.child === undefined ||
+        entry.intended ||
+        !entry.probed ||
         !entry.opened
-      ) return undefined;
+      )
+        return undefined;
       return entry.control;
     },
     async stop(app, nonce) {
@@ -464,25 +473,29 @@ export function createPreviewLauncher(
         confirmed = await terminate(entry);
         if (confirmed && slot.entry === entry) slot.entry = undefined;
       });
-      return confirmed ? ok(true) : err({
-        code: "unavailable",
-        message: "preview process termination is not confirmed",
-      });
+      return confirmed
+        ? ok(true)
+        : err({
+            code: "unavailable",
+            message: "preview process termination is not confirmed",
+          });
     },
     async stopAll() {
       closed = true;
-      await Promise.all([...slots.values()].map(async (slot) => {
-        const entry = slot.entry;
-        if (entry === undefined) return;
-        // 시작 중인 자식도 대기열을 기다리지 않고 바로 끝낸다.
-        let confirmed = await terminate(entry, false);
-        // 진행 중이던 시작 작업이 늦게 만든 자식이 남지 않게 그 작업이 끝난 뒤 한 번 더 본다.
-        await slot.pending;
-        if (entry.child !== undefined) {
-          confirmed = await terminate(entry, false);
-        }
-        if (confirmed && slot.entry === entry) slot.entry = undefined;
-      }));
+      await Promise.all(
+        [...slots.values()].map(async (slot) => {
+          const entry = slot.entry;
+          if (entry === undefined) return;
+          // 시작 중인 자식도 대기열을 기다리지 않고 바로 끝낸다.
+          let confirmed = await terminate(entry, false);
+          // 진행 중이던 시작 작업이 늦게 만든 자식이 남지 않게 그 작업이 끝난 뒤 한 번 더 본다.
+          await slot.pending;
+          if (entry.child !== undefined) {
+            confirmed = await terminate(entry, false);
+          }
+          if (confirmed && slot.entry === entry) slot.entry = undefined;
+        }),
+      );
     },
   };
 }

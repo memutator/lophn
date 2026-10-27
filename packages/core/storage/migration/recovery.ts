@@ -35,11 +35,13 @@ export function recoveryStamp(at: string): Result<string> {
   const d = new Date(parsed);
   const pad = (n: number, width: number) => n.toString().padStart(width, "0");
   return ok(
-    `${pad(d.getUTCFullYear(), 4)}${pad(d.getUTCMonth() + 1, 2)}${
-      pad(d.getUTCDate(), 2)
-    }T${pad(d.getUTCHours(), 2)}${pad(d.getUTCMinutes(), 2)}${
-      pad(d.getUTCSeconds(), 2)
-    }${pad(d.getUTCMilliseconds(), 3)}Z`,
+    `${pad(d.getUTCFullYear(), 4)}${pad(d.getUTCMonth() + 1, 2)}${pad(
+      d.getUTCDate(),
+      2,
+    )}T${pad(d.getUTCHours(), 2)}${pad(d.getUTCMinutes(), 2)}${pad(
+      d.getUTCSeconds(),
+      2,
+    )}${pad(d.getUTCMilliseconds(), 3)}Z`,
   );
 }
 

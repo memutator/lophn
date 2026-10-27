@@ -13,7 +13,11 @@ test("agent가 맡지 않은 domain의 skill은 목록에서 꺼진다", () => {
   );
   assert.deepStrictEqual(
     listed.map((skill) => [skill.name, skill.enabled]),
-    [["global", true], ["mine", true], ["other", false]],
+    [
+      ["global", true],
+      ["mine", true],
+      ["other", false],
+    ],
   );
 });
 
@@ -31,8 +35,8 @@ test("같은 이름의 skill은 전역과 맡은 domain 가운데 한 줄만 나
     { name: "x", description: "x:dom_b", enabled: true },
   ]);
   assert.deepStrictEqual(
-    promptSkills(entries, { skills: ["x"], domains: [] }).map((skill) =>
-      skill.description
+    promptSkills(entries, { skills: ["x"], domains: [] }).map(
+      (skill) => skill.description,
     ),
     ["x:null"],
   );

@@ -15,44 +15,53 @@ let requests = 0;
 
 export function overlayLeaveAsker(api: OverlayApi): LeaveAsker {
   const waiting = new Map<string, (choice: LeaveChoice) => void>();
-  const consumer = overlayConsumer(api, (result) => {
-    if (result.type === "pointer" || result.type === "query") return;
-    const resolve = waiting.get(result.requestId);
-    if (!resolve) return;
-    waiting.delete(result.requestId);
-    const chosen = result.type === "selected" ? result.choiceId : null;
-    resolve(
-      chosen === DISCARD ? "discard" : chosen === CHECK ? "check" : "keep",
-    );
-  }, () => {
-    for (const resolve of waiting.values()) resolve("keep");
-    waiting.clear();
-  });
+  const consumer = overlayConsumer(
+    api,
+    (result) => {
+      if (result.type === "pointer" || result.type === "query") return;
+      const resolve = waiting.get(result.requestId);
+      if (!resolve) return;
+      waiting.delete(result.requestId);
+      const chosen = result.type === "selected" ? result.choiceId : null;
+      resolve(
+        chosen === DISCARD ? "discard" : chosen === CHECK ? "check" : "keep",
+      );
+    },
+    () => {
+      for (const resolve of waiting.values()) resolve("keep");
+      waiting.clear();
+    },
+  );
   return {
     async ask(name) {
       const requestId = `editor-leave-${++requests}`;
-      const opener = document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : document.body;
+      const opener =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : document.body;
       const answer = new Promise<LeaveChoice>((resolve) => {
         waiting.set(requestId, resolve);
       });
-      const opened = await consumer.open({
-        requestId,
-        kind: "dialog",
-        anchorRect: centerAnchor(),
-        model: {
-          label: t("document.title.unsaved"),
-          text: name === null
-            ? t("document.dialog.unsaved-many")
-            : t("document.dialog.unsaved-one", { name }),
-          choices: [
-            { id: KEEP, label: t("document.button.keep-editing") },
-            { id: CHECK, label: t("document.button.check-again") },
-            { id: DISCARD, label: t("document.button.discard-changes") },
-          ],
+      const opened = await consumer.open(
+        {
+          requestId,
+          kind: "dialog",
+          anchorRect: centerAnchor(),
+          model: {
+            label: t("document.title.unsaved"),
+            text:
+              name === null
+                ? t("document.dialog.unsaved-many")
+                : t("document.dialog.unsaved-one", { name }),
+            choices: [
+              { id: KEEP, label: t("document.button.keep-editing") },
+              { id: CHECK, label: t("document.button.check-again") },
+              { id: DISCARD, label: t("document.button.discard-changes") },
+            ],
+          },
         },
-      }, opener);
+        opener,
+      );
       if (!opened.ok) {
         waiting.delete(requestId);
         return "keep";

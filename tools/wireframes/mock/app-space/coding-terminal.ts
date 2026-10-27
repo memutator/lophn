@@ -37,11 +37,12 @@ const ASK = [
 ].join("\n");
 
 function screen(scene: CodingScene): string {
-  const text = scene === "running"
-    ? `${HEAD}\n\n${WORK}\n\n✻ Running the tests… (42s · esc to interrupt)\n\n> `
-    : scene === "permission"
-    ? `${HEAD}\n\n${WORK}\n${ASK}`
-    : `${HEAD}\n\n${WORK}\n\n● Done. Discounted totals now round to the nearest cent.\n`;
+  const text =
+    scene === "running"
+      ? `${HEAD}\n\n${WORK}\n\n✻ Running the tests… (42s · esc to interrupt)\n\n> `
+      : scene === "permission"
+        ? `${HEAD}\n\n${WORK}\n${ASK}`
+        : `${HEAD}\n\n${WORK}\n\n● Done. Discounted totals now round to the nearest cent.\n`;
   return text.replaceAll("\n", "\r\n");
 }
 

@@ -8,5 +8,5 @@ export async function transferEditor(
   sessions: Pick<EditorSessions, "flush">,
   path: string,
 ): Promise<TabTransfer | null> {
-  return await sessions.flush(path) ? { value: null, views: [] } : null;
+  return (await sessions.flush(path)) ? { value: null, views: [] } : null;
 }

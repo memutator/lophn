@@ -45,11 +45,13 @@ export function coreShellRulesSource(core: CoreSource): ShellRulesSource {
       const ids = [
         ...new Set([...named.keys(), ...Object.keys(value.value.projects)]),
       ];
-      const projects = ids.map((id) => ({
-        id,
-        name: named.get(id) ?? id,
-        rules: value.value.projects[id] ?? [],
-      })).sort((a, b) => a.name.localeCompare(b.name));
+      const projects = ids
+        .map((id) => ({
+          id,
+          name: named.get(id) ?? id,
+          rules: value.value.projects[id] ?? [],
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
       return { ok: true, value: { global: value.value.global, projects } };
     },
 

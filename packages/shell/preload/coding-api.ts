@@ -29,7 +29,7 @@ const unavailable = (): CodingReply<never> => ({
 export function createCodingApi(transport: CodingTransport): CodingApi {
   async function call<T>(input: unknown): Promise<CodingReply<T>> {
     try {
-      return await transport.invoke(CODING_CHANNEL, input) as CodingReply<T>;
+      return (await transport.invoke(CODING_CHANNEL, input)) as CodingReply<T>;
     } catch {
       return unavailable();
     }
@@ -47,25 +47,25 @@ export function createCodingApi(transport: CodingTransport): CodingApi {
     return () => transport.removeListener(channel, callback);
   }
   const isAsk = (payload: unknown): payload is HookAsk =>
-    typeof payload === "object" && payload !== null &&
+    typeof payload === "object" &&
+    payload !== null &&
     typeof (payload as HookAsk).request === "string" &&
     Array.isArray((payload as HookAsk).files);
   const isResult = (payload: unknown): payload is HookResult =>
-    typeof payload === "object" && payload !== null &&
+    typeof payload === "object" &&
+    payload !== null &&
     typeof (payload as HookResult).ok === "boolean" &&
     Array.isArray((payload as HookResult).files);
-  return Object.freeze(
-    {
-      harnesses: () => call({ op: "harnesses" }),
-      refresh: () => call({ op: "refresh" }),
-      hookStatus: () => call({ op: "hook_status" }),
-      installHooks: (harness) => call({ op: "install_hooks", harness }),
-      answerHookAsk: ({ request, accepted }) =>
-        call({ op: "hook_answer", request, accepted }),
-      onHookAsk: (listener) =>
-        subscribe(CODING_HOOK_ASK_CHANNEL, isAsk, listener),
-      onHookResult: (listener) =>
-        subscribe(CODING_HOOK_RESULT_CHANNEL, isResult, listener),
-    } satisfies CodingApi,
-  );
+  return Object.freeze({
+    harnesses: () => call({ op: "harnesses" }),
+    refresh: () => call({ op: "refresh" }),
+    hookStatus: () => call({ op: "hook_status" }),
+    installHooks: (harness) => call({ op: "install_hooks", harness }),
+    answerHookAsk: ({ request, accepted }) =>
+      call({ op: "hook_answer", request, accepted }),
+    onHookAsk: (listener) =>
+      subscribe(CODING_HOOK_ASK_CHANNEL, isAsk, listener),
+    onHookResult: (listener) =>
+      subscribe(CODING_HOOK_RESULT_CHANNEL, isResult, listener),
+  } satisfies CodingApi);
 }

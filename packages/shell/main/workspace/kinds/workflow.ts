@@ -10,7 +10,9 @@ const layout = z.strictObject({
   kind: z.literal("workflow"),
   key: tabKey,
   workflow: workflowNameSchema,
-  instance: z.string().refine((value) => idOf("wfi", value) !== null)
+  instance: z
+    .string()
+    .refine((value) => idOf("wfi", value) !== null)
     .optional(),
 });
 

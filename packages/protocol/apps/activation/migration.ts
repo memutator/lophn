@@ -8,13 +8,15 @@ const lossKindSchema = z.enum(LOSS_KINDS);
 
 const nameSchema = z.string().regex(/\S/);
 
-export const lossStepSchema = z.object({
-  kind: lossKindSchema,
-  table: nameSchema,
-  column: nameSchema.optional(),
-}).refine(
-  (value) => (value.kind === "drop_table") === (value.column === undefined),
-  { message: "drop_table has no column, the other kinds need one" },
-);
+export const lossStepSchema = z
+  .object({
+    kind: lossKindSchema,
+    table: nameSchema,
+    column: nameSchema.optional(),
+  })
+  .refine(
+    (value) => (value.kind === "drop_table") === (value.column === undefined),
+    { message: "drop_table has no column, the other kinds need one" },
+  );
 
 // SDK migration API의 한 단계.

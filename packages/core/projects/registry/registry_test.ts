@@ -41,12 +41,15 @@ function setup() {
   const ports = new Map<unknown, unknown>([
     [TargetAuthorization, () => ok(undefined)],
     [folderResolverPort, resolver],
-    [projectManagerProvisioningPort, {
-      create: (_tx: Tx, project: string) => {
-        managers.push(project);
-        return ok(undefined);
+    [
+      projectManagerProvisioningPort,
+      {
+        create: (_tx: Tx, project: string) => {
+          managers.push(project);
+          return ok(undefined);
+        },
       },
-    }],
+    ],
   ]);
   const tx = {
     sql,
@@ -78,11 +81,13 @@ test("하위 폴더는 연결한 폴더 밖을 거절한다", () => {
       commands.register.handle(
         tx,
         user,
-        input([{
-          path: root,
-          description: "",
-          subfolders: [{ path: sub, description: "" }],
-        }]),
+        input([
+          {
+            path: root,
+            description: "",
+            subfolders: [{ path: sub, description: "" }],
+          },
+        ]),
         {},
       );
 
@@ -108,11 +113,13 @@ test("하위 폴더는 연결한 폴더 밖을 거절한다", () => {
       user,
       {
         project: PROJECT,
-        folders: [{
-          path: root,
-          description: "",
-          subfolders: [{ path: "escape", description: "" }],
-        }],
+        folders: [
+          {
+            path: root,
+            description: "",
+            subfolders: [{ path: "escape", description: "" }],
+          },
+        ],
       } as never,
       { base_revision: registered.value.revision },
     );

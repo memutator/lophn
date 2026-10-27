@@ -38,7 +38,9 @@ export function ControlSizes() {
             gap: "var(--space-5)",
           }}
         >
-          <Button variant="primary" size={size}>{TEXT.save}</Button>
+          <Button variant="primary" size={size}>
+            {TEXT.save}
+          </Button>
           <IconButton icon={Search} label={TEXT.search} size={size} />
           <Field label={TEXT.name}>
             <Input size={size} />

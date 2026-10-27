@@ -29,9 +29,12 @@ export const appPanelKind: TabKindDef = {
   fromStored(stored, { key }) {
     const { app, surface, title } = stored;
     if (
-      typeof app !== "string" || !APP_ID.test(app) ||
-      typeof surface !== "string" || surface.length < 1
-    ) return null;
+      typeof app !== "string" ||
+      !APP_ID.test(app) ||
+      typeof surface !== "string" ||
+      surface.length < 1
+    )
+      return null;
     return {
       key,
       kind: "app_panel",
@@ -42,10 +45,14 @@ export const appPanelKind: TabKindDef = {
   },
   toStored(tab) {
     if (
-      tab.app === undefined || !APP_ID.test(tab.app) ||
-      tab.screen === undefined || tab.screen.length < 1 ||
-      tab.screen.length > 128 || !TAB_KEY.test(tab.key)
-    ) return null;
+      tab.app === undefined ||
+      !APP_ID.test(tab.app) ||
+      tab.screen === undefined ||
+      tab.screen.length < 1 ||
+      tab.screen.length > 128 ||
+      !TAB_KEY.test(tab.key)
+    )
+      return null;
     return {
       kind: "app_panel",
       key: tab.key,
@@ -58,22 +65,27 @@ export const appPanelKind: TabKindDef = {
   transfer(tab, host) {
     const kept = host.viewKeeps.lookup<AppFrameViewState>(tab.key);
     return Promise.resolve(
-      kept === undefined ? { value: null, views: [] } : {
-        value: { signature: kept.signature, state: kept.state },
-        views: [kept.session],
-      },
+      kept === undefined
+        ? { value: null, views: [] }
+        : {
+            value: { signature: kept.signature, state: kept.state },
+            views: [kept.session],
+          },
     );
   },
   // 받는 창의 EmbeddedView가 mount될 때 take로 이 view를 이어 쓴다(signature가 같아야 한다).
   receive(tab, transfer, host) {
     const [session] = transfer.views;
-    const value = transfer.value as
-      | { signature?: unknown; state?: Partial<AppFrameViewState> }
-      | null;
+    const value = transfer.value as {
+      signature?: unknown;
+      state?: Partial<AppFrameViewState>;
+    } | null;
     if (
-      session === undefined || typeof value?.signature !== "string" ||
+      session === undefined ||
+      typeof value?.signature !== "string" ||
       value.state?.view_session !== session
-    ) return;
+    )
+      return;
     host.viewKeeps.put(tab.key, {
       session,
       signature: value.signature,
@@ -92,7 +104,8 @@ export const appPanelKind: TabKindDef = {
               app: choice.app,
               screen: choice.screen,
               title: choice.title,
-            })}
+            })
+          }
           onOpenAppSpace={onOpenApp}
           onClose={() => host.removeTab(tab.key)}
         />

@@ -18,17 +18,19 @@ export function binValues(values: readonly number[], count: number): Bin[] {
   if (low === high) return [{ start: low, end: high, count: values.length }];
   const scale = scaleLinear().domain([low, high]).nice(count);
   const [first, last] = scale.domain();
-  const edges = [...new Set([first, ...scale.ticks(count), last])]
-    .sort((a, b) => a - b);
+  const edges = [...new Set([first, ...scale.ticks(count), last])].sort(
+    (a, b) => a - b,
+  );
   const bins = edges.slice(0, -1).map((start, index) => ({
     start,
     end: edges[index + 1],
     count: 0,
   }));
   for (const value of values) {
-    const index = bins.findIndex((bin, at) =>
-      value >= bin.start &&
-      (value < bin.end || (at === bins.length - 1 && value <= bin.end))
+    const index = bins.findIndex(
+      (bin, at) =>
+        value >= bin.start &&
+        (value < bin.end || (at === bins.length - 1 && value <= bin.end)),
     );
     if (index >= 0) bins[index].count += 1;
   }

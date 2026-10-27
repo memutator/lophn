@@ -3,9 +3,10 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 // 앱 grant 표. scope는 정규 JSON 문자열이다. activation이 한 번에 만들고 사람이 거둔다.
 // 같은 (app, kind, scope)의 active grant는 하나다(partial unique). 내용 열은 불변이고 active에서
 // revoked로 한 번만 간다.
-export const permissionsSchemaSteps: readonly SchemaStep[] = [{
-  id: "apps.permissions.tables",
-  sql: `
+export const permissionsSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "apps.permissions.tables",
+    sql: `
     CREATE TABLE grants (
       id TEXT PRIMARY KEY NOT NULL,
       app TEXT NOT NULL REFERENCES apps(id),
@@ -32,4 +33,5 @@ export const permissionsSchemaSteps: readonly SchemaStep[] = [{
     CREATE TRIGGER grants_no_delete BEFORE DELETE ON grants
     BEGIN SELECT RAISE(ABORT, 'grants are revoked, not deleted'); END;
   `,
-}];
+  },
+];

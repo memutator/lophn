@@ -7,9 +7,13 @@ export const TOOLS = {
   archive: { name: "archive-shipped", title: "Archive shipped orders" },
 } satisfies Record<string, ToolSpec>;
 
-export function OrderActions(
-  { app, selected }: { app?: AppBridge; selected: () => string[] },
-) {
+export function OrderActions({
+  app,
+  selected,
+}: {
+  app?: AppBridge;
+  selected: () => string[];
+}) {
   return (
     <div
       style={{

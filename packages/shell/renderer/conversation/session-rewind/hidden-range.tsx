@@ -17,16 +17,17 @@ interface HiddenRangeProps
 export function HiddenRange(props: HiddenRangeProps): ReactElement {
   const [open, setOpen] = useState(false);
   const entries = useId();
-  const result = props.choice !== "restore_all"
-    ? null
-    : props.left.length > 0
-    ? t("conversation.rewind.result-left", {
-      restored: props.restored,
-      left: props.left.length,
-    })
-    : props.restored > 0
-    ? t("conversation.rewind.result-restored", { count: props.restored })
-    : null;
+  const result =
+    props.choice !== "restore_all"
+      ? null
+      : props.left.length > 0
+        ? t("conversation.rewind.result-left", {
+            restored: props.restored,
+            left: props.left.length,
+          })
+        : props.restored > 0
+          ? t("conversation.rewind.result-restored", { count: props.restored })
+          : null;
   return (
     <div className={styles.range} data-hidden-range="">
       <div className={styles.head}>
@@ -49,35 +50,33 @@ export function HiddenRange(props: HiddenRangeProps): ReactElement {
           </Button>
         </span>
       </div>
-      {result === null
-        ? null
-        : <p className={styles.result} data-hidden-result="">{result}</p>}
-      {props.left.length === 0
-        ? null
-        : (
-          <ul className={styles.left} data-hidden-left="">
-            {props.left.map((item) => {
-              const reason = reasonText(item.reason);
-              return (
-                <li key={`${item.kind}:${item.target}:${item.result}`}>
-                  <span
-                    className={item.kind === "file" ? styles.mono : undefined}
-                  >
-                    {itemLabel(item)}
-                  </span>
-                  {reason === null ? null : <>{" "}{reason}</>}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      {open
-        ? (
-          <div className={styles.entries} id={entries} data-hidden-entries="">
-            {props.children}
-          </div>
-        )
-        : null}
+      {result === null ? null : (
+        <p className={styles.result} data-hidden-result="">
+          {result}
+        </p>
+      )}
+      {props.left.length === 0 ? null : (
+        <ul className={styles.left} data-hidden-left="">
+          {props.left.map((item) => {
+            const reason = reasonText(item.reason);
+            return (
+              <li key={`${item.kind}:${item.target}:${item.result}`}>
+                <span
+                  className={item.kind === "file" ? styles.mono : undefined}
+                >
+                  {itemLabel(item)}
+                </span>
+                {reason === null ? null : <> {reason}</>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {open ? (
+        <div className={styles.entries} id={entries} data-hidden-entries="">
+          {props.children}
+        </div>
+      ) : null}
     </div>
   );
 }

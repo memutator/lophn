@@ -43,9 +43,12 @@ export function createTxPortLookup(
       const key = registration?.key;
       const create = registration?.create;
       if (
-        key === null || typeof key !== "object" ||
-        typeof key.name !== "string" || key.name.length === 0 ||
-        typeof create !== "function" || seen.has(key)
+        key === null ||
+        typeof key !== "object" ||
+        typeof key.name !== "string" ||
+        key.name.length === 0 ||
+        typeof create !== "function" ||
+        seen.has(key)
       ) {
         throw new Error("invalid port registration");
       }
@@ -103,7 +106,8 @@ export function createTxPortLookup(
 // then 접근 자체가 던지거나 then이 함수면 동기 port로 받지 않는다.
 function awaitable(value: unknown): boolean {
   if (
-    value === null || (typeof value !== "object" && typeof value !== "function")
+    value === null ||
+    (typeof value !== "object" && typeof value !== "function")
   ) {
     return false;
   }
@@ -113,7 +117,10 @@ function awaitable(value: unknown): boolean {
 
 function observe(value: unknown): void {
   try {
-    void Promise.resolve(value).then(() => undefined, () => undefined);
+    void Promise.resolve(value).then(
+      () => undefined,
+      () => undefined,
+    );
   } catch {
     // 관측 실패도 성공으로 바꾸지 않는다.
   }

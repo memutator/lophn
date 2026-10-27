@@ -44,7 +44,9 @@ export type Run = {
 
 export type Input<R extends Route> = z.input<R["input"]>;
 export type Output<R extends Route> = R extends { output: infer O }
-  ? O extends z.ZodType ? z.output<O> : never
+  ? O extends z.ZodType
+    ? z.output<O>
+    : never
   : never;
 // route 객체는 compare schema의 구체 type을 잃어 ZodType으로만 안다. 값은 envelope 검사가 거른다.
 type Compare<R extends Route> = R extends { compare?: z.ZodType }
@@ -132,10 +134,10 @@ const rpcFetch: RpcFetch = async (input, init) => {
 
 function encodeInput(input: unknown): string {
   const bytes = new TextEncoder().encode(JSON.stringify(input));
-  return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll(
-    "/",
-    "_",
-  ).replaceAll("=", "");
+  return btoa(String.fromCharCode(...bytes))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
 }
 
 async function writeSettings(
@@ -220,15 +222,16 @@ export async function startCore(
   }
 
   const tryCall: Core["tryCall"] = async (route, input, compare) => {
-    const body = route.kind === "command"
-      ? {
-        input,
-        idempotency_key: ids.newId("idk"),
-        compare: compare ?? {},
-        prepared: [],
-      }
-      : input;
-    return await rpc.call(route, body as never) as Result<never>;
+    const body =
+      route.kind === "command"
+        ? {
+            input,
+            idempotency_key: ids.newId("idk"),
+            compare: compare ?? {},
+            prepared: [],
+          }
+        : input;
+    return (await rpc.call(route, body as never)) as Result<never>;
   };
 
   const core: Core = {
@@ -264,10 +267,12 @@ export async function startCore(
       const parsed = errorBodySchema.safeParse(json);
       return {
         ok: false,
-        error: parsed.success ? parsed.data.error : {
-          code: "internal",
-          message: `status ${response.status}`,
-        },
+        error: parsed.success
+          ? parsed.data.error
+          : {
+              code: "internal",
+              message: `status ${response.status}`,
+            },
       };
     },
     kill: () => end(() => spawned.signal("SIGKILL")),

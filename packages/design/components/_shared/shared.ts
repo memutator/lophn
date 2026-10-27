@@ -22,9 +22,9 @@ export function controlIconPixels(size: ControlSize): number {
 
 // annotation이 가리킨 요소에서 "어느 SDK component인가"를 읽는 표시. 읽는 쪽은 이 속성 하나만 본다.
 // 호출자의 `...rest`가 덮지 못하도록 root 요소의 `{...rest}` 뒤에 둔다.
-export function componentMark(
-  name: string,
-): { "data-lophn-component": string } {
+export function componentMark(name: string): {
+  "data-lophn-component": string;
+} {
   return { "data-lophn-component": name };
 }
 
@@ -66,10 +66,10 @@ export type Placement = "beside" | "corner";
 
 export function placementProps(placement: Placement) {
   return placement === "corner"
-    ? { align: "start", sideOffset: 0, avoidCollisions: false } as const
-    : {
-      align: "start",
-      sideOffset: pixels(tokens.space[2]),
-      collisionPadding: pixels(tokens.space[2]),
-    } as const;
+    ? ({ align: "start", sideOffset: 0, avoidCollisions: false } as const)
+    : ({
+        align: "start",
+        sideOffset: pixels(tokens.space[2]),
+        collisionPadding: pixels(tokens.space[2]),
+      } as const);
 }

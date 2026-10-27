@@ -196,7 +196,10 @@ test("classifyPath는 component, tool, runtime, core를 가르고 shell·design�
 // TOOL_FILES에 없는 tool이 model 요청에 실리면 seenComponents가 돈을 쓴 trial을 기록 단계에서 멈춘다(domain tool이 그랬다).
 test("role이 받는 agent tool은 모두 TOOL_FILES의 source file에 정의돼 있다", async () => {
   const table = await toolFileTable(REPO_ROOT);
-  assert.deepStrictEqual(TOOL_ORDER.filter((name) => !table.has(name)), []);
+  assert.deepStrictEqual(
+    TOOL_ORDER.filter((name) => !table.has(name)),
+    [],
+  );
 });
 
 test("texts를 주면 seenComponents가 variant의 role prompt body를 거절하지 않는다", async () => {

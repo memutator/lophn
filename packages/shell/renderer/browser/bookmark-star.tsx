@@ -45,27 +45,31 @@ export function BookmarkStar(props: BookmarkStarProps) {
     props.onOpenChange(next);
   };
   const add = () =>
-    bookmarks.add({
-      title: title || hostOf(url),
-      url,
-      ...(props.favicon === undefined ? {} : { favicon: props.favicon }),
-    }).catch((error) => onNotice(bookmarkReasonText(error)));
+    bookmarks
+      .add({
+        title: title || hostOf(url),
+        url,
+        ...(props.favicon === undefined ? {} : { favicon: props.favicon }),
+      })
+      .catch((error) => onNotice(bookmarkReasonText(error)));
   const press = () => {
     if (disabled) return;
     if (existing === undefined) void add();
     else if (props.openOverlay !== null && anchor.current !== null) {
       const { id } = existing;
-      void props.openOverlay(
-        anchor.current,
-        existing.title || hostOf(existing.url),
-        [{ id: "remove", label: t("settings.button.bookmark-remove") }],
-        "popover",
-      ).then((picked) => {
-        if (picked !== "remove") return;
-        bookmarks.remove(id).catch((error) =>
-          onNotice(bookmarkReasonText(error))
-        );
-      });
+      void props
+        .openOverlay(
+          anchor.current,
+          existing.title || hostOf(existing.url),
+          [{ id: "remove", label: t("settings.button.bookmark-remove") }],
+          "popover",
+        )
+        .then((picked) => {
+          if (picked !== "remove") return;
+          bookmarks
+            .remove(id)
+            .catch((error) => onNotice(bookmarkReasonText(error)));
+        });
     } else change(true);
   };
   const latest = useRef(press);
@@ -80,9 +84,7 @@ export function BookmarkStar(props: BookmarkStarProps) {
   }, [open, existing === undefined]);
 
   return (
-    <span
-      className={existing === undefined ? undefined : styles.filled}
-    >
+    <span className={existing === undefined ? undefined : styles.filled}>
       <Popover
         open={shown}
         // 채우기 전의 누름은 trigger onClick이 더한다. 열고 닫기는 채운 별만 한다.
@@ -96,9 +98,11 @@ export function BookmarkStar(props: BookmarkStarProps) {
           <IconButton
             ref={anchor}
             icon={browserIcons.star}
-            label={existing === undefined
-              ? t("browser.button.bookmark-add")
-              : t("browser.button.bookmark-edit")}
+            label={
+              existing === undefined
+                ? t("browser.button.bookmark-add")
+                : t("browser.button.bookmark-edit")
+            }
             size="sm"
             disabled={disabled}
             onClick={existing === undefined ? () => void add() : undefined}
@@ -126,9 +130,12 @@ interface StarPopoverProps {
   onClose(): void;
 }
 
-function StarPopover(
-  { bookmark, bookmarks, onNotice, onClose }: StarPopoverProps,
-) {
+function StarPopover({
+  bookmark,
+  bookmarks,
+  onNotice,
+  onClose,
+}: StarPopoverProps) {
   const [draft, setDraft] = useState(bookmark.title);
   const sent = useRef(bookmark.title);
   // 닫히며 지워질 때도 마지막 값을 보내려고 최신 값을 ref에 둔다.
@@ -167,9 +174,9 @@ function StarPopover(
           onClick={() => {
             // 지우는 중이라 고친 title은 보내지 않는다.
             sent.current = latest.current.draft;
-            bookmarks.remove(bookmark.id).catch((error) =>
-              onNotice(bookmarkReasonText(error))
-            );
+            bookmarks
+              .remove(bookmark.id)
+              .catch((error) => onNotice(bookmarkReasonText(error)));
             onClose();
           }}
         >

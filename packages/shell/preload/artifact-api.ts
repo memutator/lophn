@@ -22,7 +22,7 @@ async function call<T>(
 ): Promise<T> {
   let reply: ArtifactReply<T>;
   try {
-    reply = await transport.invoke(channel, input) as ArtifactReply<T>;
+    reply = (await transport.invoke(channel, input)) as ArtifactReply<T>;
   } catch {
     throw new Error("unavailable");
   }
@@ -44,34 +44,30 @@ function subscribe<T>(
   return () => transport.removeListener(channel, callback);
 }
 
-export function createArtifactApi(
-  transport: ViewsTransport,
-): LophnArtifactApi {
-  return Object.freeze(
-    {
-      open: (input) =>
-        call<ArtifactViewState>(transport, ARTIFACT_OPEN_CHANNEL, input),
-      reload: (input) => call<null>(transport, ARTIFACT_RELOAD_CHANNEL, input),
-      list: (input) =>
-        call<{ artifacts: ArtifactListItem[] }>(
-          transport,
-          ARTIFACT_LIST_CHANNEL,
-          input,
-        ),
-      subscribeState: (listener) =>
-        subscribe(
-          transport,
-          ARTIFACT_STATE_CHANNEL,
-          (payload) => artifactViewStateSchema.safeParse(payload),
-          listener,
-        ),
-      subscribeEvent: (listener: (event: ArtifactEvent) => void) =>
-        subscribe(
-          transport,
-          ARTIFACT_EVENT_CHANNEL,
-          (payload) => artifactEventSchema.safeParse(payload),
-          listener,
-        ),
-    } satisfies LophnArtifactApi,
-  );
+export function createArtifactApi(transport: ViewsTransport): LophnArtifactApi {
+  return Object.freeze({
+    open: (input) =>
+      call<ArtifactViewState>(transport, ARTIFACT_OPEN_CHANNEL, input),
+    reload: (input) => call<null>(transport, ARTIFACT_RELOAD_CHANNEL, input),
+    list: (input) =>
+      call<{ artifacts: ArtifactListItem[] }>(
+        transport,
+        ARTIFACT_LIST_CHANNEL,
+        input,
+      ),
+    subscribeState: (listener) =>
+      subscribe(
+        transport,
+        ARTIFACT_STATE_CHANNEL,
+        (payload) => artifactViewStateSchema.safeParse(payload),
+        listener,
+      ),
+    subscribeEvent: (listener: (event: ArtifactEvent) => void) =>
+      subscribe(
+        transport,
+        ARTIFACT_EVENT_CHANNEL,
+        (payload) => artifactEventSchema.safeParse(payload),
+        listener,
+      ),
+  } satisfies LophnArtifactApi);
 }

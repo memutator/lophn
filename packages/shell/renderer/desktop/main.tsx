@@ -98,63 +98,65 @@ interface DesktopProps {
 
 // toast 행동의 기본 처리. 지금 보이는 화면이 처리하지 못한 행동(그 화면이 false를 돌렸다)을 다른 화면으로 가서
 // 연다. 화면의 처리기보다 먼저 등록돼야(목록에서 뒤에 서야) 화면이 먼저 처리하니, 화면보다 앞에 그린다.
-function DefaultToastHandler(
-  { openSession, goApp }: {
-    openSession: (session: string) => void;
-    goApp: (app: string) => void;
-  },
-) {
+function DefaultToastHandler({
+  openSession,
+  goApp,
+}: {
+  openSession: (session: string) => void;
+  goApp: (app: string) => void;
+}) {
   const { setOpen } = useWaitingPanel();
   const latest = useRef({ openSession, goApp });
   latest.current = { openSession, goApp };
-  useEffect(() =>
-    registerToastActionHandler((action) => {
-      const current = latest.current;
-      switch (action.kind) {
-        case "waiting":
-          setOpen(true);
-          return true;
-        case "session":
-          if (action.session !== null) {
-            current.openSession(action.session);
+  useEffect(
+    () =>
+      registerToastActionHandler((action) => {
+        const current = latest.current;
+        switch (action.kind) {
+          case "waiting":
+            setOpen(true);
             return true;
-          }
-          // 열린 session이 없는 반응(앱 재시작 중단)은 그 앱 공간으로 간다.
-          if (action.app === undefined) return false;
-          current.goApp(action.app);
-          return true;
-      }
-    }), [setOpen]);
+          case "session":
+            if (action.session !== null) {
+              current.openSession(action.session);
+              return true;
+            }
+            // 열린 session이 없는 반응(앱 재시작 중단)은 그 앱 공간으로 간다.
+            if (action.app === undefined) return false;
+            current.goApp(action.app);
+            return true;
+        }
+      }),
+    [setOpen],
+  );
   return null;
 }
 
 // 새 기본 창의 첫 화면. 공간 이동은 이 상태가 기억한다.
-export function Desktop(
-  {
-    source,
-    initial = LAUNCHER,
-    formatTime,
-    workspace,
-    windowWidth = 1280,
-    editor,
-    terminal,
-    catalog,
-    palette,
-    projects,
-    intents,
-    instructions,
-    apps,
-    settings,
-    settingsPanels,
-    appDetail,
-    views,
-    annotate,
-    agentViewSource,
-    overlay,
-    hookPrompt,
-    detached,
-  }: DesktopProps,
-) {
+export function Desktop({
+  source,
+  initial = LAUNCHER,
+  formatTime,
+  workspace,
+  windowWidth = 1280,
+  editor,
+  terminal,
+  catalog,
+  palette,
+  projects,
+  intents,
+  instructions,
+  apps,
+  settings,
+  settingsPanels,
+  appDetail,
+  views,
+  annotate,
+  agentViewSource,
+  overlay,
+  hookPrompt,
+  detached,
+}: DesktopProps) {
   const [route, setRoute] = useState<Route>(initial);
   // 런처의 lophn 패널이 열 session. route가 바뀔 때마다 새 객체라 같은 session도 다시 연다.
   const lophnRequest = useMemo(
@@ -173,14 +175,15 @@ export function Desktop(
   const settingsSpace = (pane?: SettingsPane) => {
     // Settings 자신과, Settings에서 연 전역 지침 편집기는 앞 자리가 아니다. 한 번 쓰고 끝나는 시작값(열 파일,
     // Project Manager)은 버려 돌아올 때 다시 일어나지 않게 한다.
-    const global = route.space === "instructions" &&
-      route.instructions?.layer === "global";
+    const global =
+      route.space === "instructions" && route.instructions?.layer === "global";
     if (route.space !== "settings" && !global) {
-      beforeSettings.current = route.space === "project" && route.project
-        ? openProject(route.project, { session: route.session })
-        : route.space === "app" && route.app
-        ? openApp(route.app, route.session)
-        : route;
+      beforeSettings.current =
+        route.space === "project" && route.project
+          ? openProject(route.project, { session: route.session })
+          : route.space === "app" && route.app
+            ? openApp(route.app, route.session)
+            : route;
     }
     setVisits((value) => value + 1);
     setRoute(openSettings(pane));
@@ -189,9 +192,8 @@ export function Desktop(
   // domain 지침(DOMAIN.md)을 연 앱 공간. [Back]이 그 앱 공간으로 돌아간다. 한 번 쓰고 끝나는 시작값(session)은 버린다.
   const beforeDomainDoc = useRef<Route | null>(null);
   const openDomainDoc = (domain: string) => {
-    beforeDomainDoc.current = route.space === "app" && route.app
-      ? openApp(route.app)
-      : null;
+    beforeDomainDoc.current =
+      route.space === "app" && route.app ? openApp(route.app) : null;
     setRoute(openInstructions({ layer: "domain", place: domain }));
   };
   // 전역 팔레트에서 고른 대상. Workspace 팔레트와 같은 목적지로만 간다.
@@ -209,8 +211,9 @@ export function Desktop(
   const known = useRef(sessions);
   known.current = sessions;
   const openSession = (session: string) => {
-    const place = known.current.find((entry) => entry.session === session)
-      ?.place;
+    const place = known.current.find(
+      (entry) => entry.session === session,
+    )?.place;
     if (place?.kind === "project") {
       setRoute(openProject(place.id, { session }));
     } else if (place?.kind === "app") setRoute(openApp(place.id, session));
@@ -230,7 +233,8 @@ export function Desktop(
   const answerInTerminal = (session: string) => {
     void (async () => {
       if (
-        terminal !== undefined && await terminal.store.focusSession(session)
+        terminal !== undefined &&
+        (await terminal.store.focusSession(session))
       ) {
         return;
       }
@@ -255,12 +259,15 @@ export function Desktop(
   useEffect(() => {
     if (!overlay) return;
     const root = document.documentElement;
-    const off = overlay.subscribe((event) => {
-      if ("type" in event && event.type === "modal") {
-        if (event.open) root.dataset.overlayModal = "";
-        else delete root.dataset.overlayModal;
-      }
-    }, () => {});
+    const off = overlay.subscribe(
+      (event) => {
+        if ("type" in event && event.type === "modal") {
+          if (event.open) root.dataset.overlayModal = "";
+          else delete root.dataset.overlayModal;
+        }
+      },
+      () => {},
+    );
     return () => {
       off();
       delete root.dataset.overlayModal;
@@ -284,13 +291,17 @@ export function Desktop(
         onOpenProject={(project) => setRoute(openProject(project))}
         onSettings={settingsSpace}
         jobs={settingsPanels?.jobs}
-        onProjectInstructions={instructions
-          ? () =>
-            setRoute(openInstructions({
-              layer: "project",
-              place: route.project!,
-            }))
-          : undefined}
+        onProjectInstructions={
+          instructions
+            ? () =>
+                setRoute(
+                  openInstructions({
+                    layer: "project",
+                    place: route.project!,
+                  }),
+                )
+            : undefined
+        }
         onOpenApp={apps ? appSpace : undefined}
         editor={editor}
         terminal={terminal}
@@ -303,8 +314,8 @@ export function Desktop(
     );
   } else if (route.space === "detached") {
     // 창이 detached 탭 하나만 그리므로 core가 준비되기 전에 런처로 떨어지지 않는다.
-    space = detached && workspace && live
-      ? (
+    space =
+      detached && workspace && live ? (
         <DetachedSpace
           api={detached}
           workspace={workspace}
@@ -312,11 +323,13 @@ export function Desktop(
           terminal={terminal}
           agentViewSource={agentViewSource}
         />
-      )
-      : null;
+      ) : null;
   } else if (
-    route.space === "instructions" && route.instructions && instructions &&
-    editor && live
+    route.space === "instructions" &&
+    route.instructions &&
+    instructions &&
+    editor &&
+    live
   ) {
     space = (
       <InstructionsEntry
@@ -324,11 +337,13 @@ export function Desktop(
         source={instructions}
         editor={editor}
         // 전역 지침은 settings에서 왔으니 settings로 돌아간다.
-        onBack={route.instructions.layer === "global"
-          ? () => settingsSpace()
-          : route.instructions.layer === "domain"
-          ? () => setRoute(beforeDomainDoc.current ?? LAUNCHER)
-          : launcher}
+        onBack={
+          route.instructions.layer === "global"
+            ? () => settingsSpace()
+            : route.instructions.layer === "domain"
+              ? () => setRoute(beforeDomainDoc.current ?? LAUNCHER)
+              : launcher
+        }
       />
     );
   } else if (route.space === "app" && route.app && apps && live) {
@@ -340,9 +355,11 @@ export function Desktop(
         views={views}
         detail={appDetail}
         agents={workspace?.agentsSource}
-        runs={workspace === undefined
-          ? undefined
-          : () => workspace.runs({ place: { app: route.app! } })}
+        runs={
+          workspace === undefined
+            ? undefined
+            : () => workspace.runs({ place: { app: route.app! } })
+        }
         agentViewSource={agentViewSource}
         onSettings={settingsSpace}
         onDomainDoc={instructions ? openDomainDoc : undefined}
@@ -367,13 +384,16 @@ export function Desktop(
         onBack={() => setRoute(beforeSettings.current ?? LAUNCHER)}
         onProject={(project) => setRoute(openProject(project))}
         onOpenFile={(project, file) =>
-          setRoute(openProject(project, { open: file }))}
+          setRoute(openProject(project, { open: file }))
+        }
         onApp={appSpace}
         settings={settings}
         settingsPanels={settingsPanels}
-        onInstructions={instructions
-          ? () => setRoute(openInstructions({ layer: "global" }))
-          : undefined}
+        onInstructions={
+          instructions
+            ? () => setRoute(openInstructions({ layer: "global" }))
+            : undefined
+        }
         onOpenSession={openSession}
         onAnswerInTerminal={answerInTerminal}
       />
@@ -404,32 +424,26 @@ export function Desktop(
         goApp={(app) => setRoute(openApp(app))}
       />
       {space}
-      {overlay && route.space !== "detached"
-        ? <ToastHost overlay={overlay} />
-        : null}
-      {overlay && hookPrompt
-        ? <HookPromptHost overlay={overlay} coding={hookPrompt} />
-        : null}
-      {intents && route.space !== "detached"
-        ? (
-          <DesktopIntents
-            intents={intents}
-            catalog={catalog}
-            go={go}
-          />
-        )
-        : null}
+      {overlay && route.space !== "detached" ? (
+        <ToastHost overlay={overlay} />
+      ) : null}
+      {overlay && hookPrompt ? (
+        <HookPromptHost overlay={overlay} coding={hookPrompt} />
+      ) : null}
+      {intents && route.space !== "detached" ? (
+        <DesktopIntents intents={intents} catalog={catalog} go={go} />
+      ) : null}
     </PaletteProvider>
   );
   // model picker 같은 곳에서도 provider 연결 화면을 열 수 있게 화면 전체를 감싼다.
-  return settingsPanels?.providers && settingsPanels.agents
-    ? (
-      <ConnectProviderHost
-        providers={settingsPanels.providers}
-        agents={settingsPanels.agents}
-      >
-        {tree}
-      </ConnectProviderHost>
-    )
-    : tree;
+  return settingsPanels?.providers && settingsPanels.agents ? (
+    <ConnectProviderHost
+      providers={settingsPanels.providers}
+      agents={settingsPanels.agents}
+    >
+      {tree}
+    </ConnectProviderHost>
+  ) : (
+    tree
+  );
 }

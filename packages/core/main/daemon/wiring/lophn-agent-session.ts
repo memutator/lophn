@@ -99,7 +99,7 @@ export const lophnAgentRewindWiring: WiringFactory = () => {
           writes: {
             writesAfter: (session, seq) => {
               const read = snapshot((lookup) =>
-                appWritesOf(lookup).writesAfter(session, seq)
+                appWritesOf(lookup).writesAfter(session, seq),
               );
               return read.ok ? read.value : [];
             },
@@ -120,9 +120,9 @@ export const lophnAgentRewindWiring: WiringFactory = () => {
             );
             return asked.ok
               ? ok({
-                status: asked.value.status,
-                reason: asked.value.reason?.code ?? null,
-              })
+                  status: asked.value.status,
+                  reason: asked.value.reason?.code ?? null,
+                })
               : asked;
           },
         },
@@ -139,7 +139,7 @@ export const lophnAgentRewindWiring: WiringFactory = () => {
         store,
         foldersOf: (session) => {
           const read = snapshot((lookup) =>
-            placeFoldersOf(lookup, ctx.root.path, session)
+            placeFoldersOf(lookup, ctx.root.path, session),
           );
           return read.ok ? read.value : [];
         },

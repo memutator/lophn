@@ -36,14 +36,12 @@ async function seal(
 
 async function walk(root: string, base = ""): Promise<string[]> {
   const found: string[] = [];
-  for (
-    const entry of await readdir(`${root}/${base}`, {
-      withFileTypes: true,
-    })
-  ) {
+  for (const entry of await readdir(`${root}/${base}`, {
+    withFileTypes: true,
+  })) {
     const path = base ? `${base}/${entry.name}` : entry.name;
     found.push(path);
-    if (entry.isDirectory()) found.push(...await walk(root, path));
+    if (entry.isDirectory()) found.push(...(await walk(root, path)));
   }
   return found;
 }
@@ -72,11 +70,14 @@ test("bundle에 같은 file이 두 번 들어가지 않고 사본에서 연결�
 
     const read = await readVendorFiles(work);
     assert.ok(read.ok);
-    assert.deepStrictEqual(read.value.map((file) => file.path), [
-      "node_modules/.deno/a@1.0.0/node_modules/a/index.js",
-      "node_modules/.deno/b@2.0.0/node_modules/b/index.js",
-      LINKS_PATH,
-    ]);
+    assert.deepStrictEqual(
+      read.value.map((file) => file.path),
+      [
+        "node_modules/.deno/a@1.0.0/node_modules/a/index.js",
+        "node_modules/.deno/b@2.0.0/node_modules/b/index.js",
+        LINKS_PATH,
+      ],
+    );
 
     const copy = `${work}/copy`;
     const sealed = await seal(copy, read.value);
@@ -118,18 +119,18 @@ test("사본 밖을 가리키는 연결은 사본에 만들어지지 않는다",
   const work = await mkdtemp(join(tmpdir(), "lophn-vendor-"));
   try {
     const copy = `${work}/deep/copy`;
-    for (
-      const target of [
-        "../../../outside",
-        "/etc",
-        "../x/../../../outside",
-      ]
-    ) {
+    for (const target of [
+      "../../../outside",
+      "/etc",
+      "../x/../../../outside",
+    ]) {
       const links = [{ path: "node_modules/evil", target }];
-      const sealed = await seal(copy, [{
-        path: LINKS_PATH,
-        bytes: encode(JSON.stringify(links)),
-      }]);
+      const sealed = await seal(copy, [
+        {
+          path: LINKS_PATH,
+          bytes: encode(JSON.stringify(links)),
+        },
+      ]);
       assert.ok(!sealed.ok, target);
       assert.deepStrictEqual(sealed.error.code, "invalid_input");
     }

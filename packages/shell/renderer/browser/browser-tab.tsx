@@ -108,18 +108,15 @@ export function BrowserTab(props: BrowserTabProps) {
     );
   }
   return (
-    <OpenTab
-      {...props}
-      views={views}
-      browser={browser}
-      webviews={webviews}
-    />
+    <OpenTab {...props} views={views} browser={browser} webviews={webviews} />
   );
 }
 
-function DockNative(
-  props: { keeps: ViewKeeps; keepKey: string; onDocked(): void },
-) {
+function DockNative(props: {
+  keeps: ViewKeeps;
+  keepKey: string;
+  onDocked(): void;
+}) {
   const first = useRef(props);
   useEffect(() => {
     const { keeps, keepKey, onDocked } = first.current;
@@ -153,9 +150,11 @@ function OpenTab(
   });
   const [failed, setFailed] = useState(false);
   // 값이 올 때마다 새로 띄우도록 번호를 key로 쓴다. null이면 알림 없음.
-  const [notice, setNotice] = useState<
-    { n: number; text: string; error: boolean } | null
-  >(null);
+  const [notice, setNotice] = useState<{
+    n: number;
+    text: string;
+    error: boolean;
+  } | null>(null);
   const [bookmarkKey, setBookmarkKey] = useState(0);
   const bookmarks = useBookmarks();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -302,7 +301,8 @@ function OpenTab(
     });
     const offEvents = browser.subscribeEvents((event) => {
       if (
-        event.kind === "popup-blocked" && event.view_session === viewSession
+        event.kind === "popup-blocked" &&
+        event.view_session === viewSession
       ) {
         setNotice((last) => ({
           n: (last?.n ?? 0) + 1,
@@ -316,7 +316,8 @@ function OpenTab(
       } else if (event.kind === "close" && event.view_session === viewSession) {
         callbacks.current.onCloseRequested();
       } else if (
-        event.kind === "bookmark-key" && event.view_session === viewSession
+        event.kind === "bookmark-key" &&
+        event.view_session === viewSession
       ) {
         setBookmarkKey((count) => count + 1);
       }
@@ -345,20 +346,23 @@ function OpenTab(
     shownDevtools.current = devtools;
     if (before !== null && before.session !== devtools?.session) {
       if (closedByMain.current !== before.session) {
-        void browser.devtools.close({ devtools_session: before.session })
+        void browser.devtools
+          .close({ devtools_session: before.session })
           .catch(() => {});
       }
       closedByMain.current = null;
     }
     if (devtools === null) return;
-    const wasWindow = before?.session === devtools.session &&
-      before.place === "window";
+    const wasWindow =
+      before?.session === devtools.session && before.place === "window";
     const isWindow = devtools.place === "window";
     if (wasWindow !== isWindow) {
-      void browser.devtools.window({
-        devtools_session: devtools.session,
-        window: isWindow,
-      }).catch(() => {});
+      void browser.devtools
+        .window({
+          devtools_session: devtools.session,
+          window: isWindow,
+        })
+        .catch(() => {});
     }
   }, [browser, devtools]);
 
@@ -366,7 +370,8 @@ function OpenTab(
     if (viewSession === null) return;
     return browser.subscribeEvents((event) => {
       if (
-        event.kind === "devtools-closed" && event.view_session === viewSession
+        event.kind === "devtools-closed" &&
+        event.view_session === viewSession
       ) {
         closedByMain.current = event.devtools_session;
         callbacks.current.onDevtools(null);
@@ -398,10 +403,11 @@ function OpenTab(
   };
 
   // 탭 안 자리(오른쪽·아래)만 page 옆에 DevTools 칸을 둔다.
-  const docked = devtools !== null &&
-      (devtools.place === "right" || devtools.place === "bottom")
-    ? devtools
-    : null;
+  const docked =
+    devtools !== null &&
+    (devtools.place === "right" || devtools.place === "bottom")
+      ? devtools
+      : null;
   const resize = (event: ReactPointerEvent<HTMLDivElement>) => {
     const box = body.current?.getBoundingClientRect();
     if (docked === null || box === undefined || event.button !== 0) return;
@@ -437,13 +443,15 @@ function OpenTab(
 
   const reload = () => {
     if (viewSession === null) return;
-    void browser.command({ view_session: viewSession, command: "reload" })
+    void browser
+      .command({ view_session: viewSession, command: "reload" })
       .catch(() => {});
   };
 
   const navigate = (url: string) => {
     if (viewSession === null) return;
-    void browser.navigate({ view_session: viewSession, input: url })
+    void browser
+      .navigate({ view_session: viewSession, input: url })
       .catch(() => {});
   };
 
@@ -457,7 +465,8 @@ function OpenTab(
         bookmarks={bookmarks}
         bookmarkKey={bookmarkKey}
         onNotice={(text) =>
-          setNotice((last) => ({ n: (last?.n ?? 0) + 1, text, error: true }))}
+          setNotice((last) => ({ n: (last?.n ?? 0) + 1, text, error: true }))
+        }
         onNavigate={navigate}
         onMenuOpenChange={setMenuOpen}
         native={native}
@@ -481,25 +490,21 @@ function OpenTab(
         data-devtools-place={docked?.place ?? "none"}
       >
         <div ref={region} className={styles.region} data-browser-page="">
-          {failed
-            ? (
-              <ErrorState
-                target={t("browser.label.page")}
-                // 가져오지 못한 popup은 빈 webview 탭으로 다시 연다.
-                onRetry={props.onDocked}
-              />
-            )
-            : state.health === "crashed"
-            ? <ErrorState target={t("browser.label.page")} onRetry={reload} />
-            : state.url === "" && viewSession !== null
-            ? (
-              <BlankTabPage
-                bookmarks={bookmarks}
-                onOpen={navigate}
-                onOpenInNewTab={props.onOpenInNewTab}
-              />
-            )
-            : null}
+          {failed ? (
+            <ErrorState
+              target={t("browser.label.page")}
+              // 가져오지 못한 popup은 빈 webview 탭으로 다시 연다.
+              onRetry={props.onDocked}
+            />
+          ) : state.health === "crashed" ? (
+            <ErrorState target={t("browser.label.page")} onRetry={reload} />
+          ) : state.url === "" && viewSession !== null ? (
+            <BlankTabPage
+              bookmarks={bookmarks}
+              onOpen={navigate}
+              onOpenInNewTab={props.onOpenInNewTab}
+            />
+          ) : null}
         </div>
         {docked === null ? null : (
           <>
@@ -507,9 +512,9 @@ function OpenTab(
               className={styles.devtoolsDivider}
               role="separator"
               aria-label={t("browser.label.devtools-resize")}
-              aria-orientation={docked.place === "right"
-                ? "vertical"
-                : "horizontal"}
+              aria-orientation={
+                docked.place === "right" ? "vertical" : "horizontal"
+              }
               onPointerDown={resize}
             />
             <div

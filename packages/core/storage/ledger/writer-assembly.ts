@@ -92,7 +92,7 @@ export async function assembleWriter(
       commands.push(command);
     }
     ports.push(...portList(loose?.ports));
-    blobFields.push(...loose?.blobFields ?? []);
+    blobFields.push(...(loose?.blobFields ?? []));
   }
   if (
     commands.some((c) => c.dispatchOnly === true && c.dispatchable !== true)
@@ -160,16 +160,14 @@ function teamRegistration(team: TeamModule): Loose | undefined {
   const fromLedger = team.createLedgerRegistration
     ? team.createLedgerRegistration({} as never)
     : undefined;
-  const sources = [
-    direct,
-    fromLedger,
-    team.lophnAgentDefinitions,
-  ].filter(defined);
+  const sources = [direct, fromLedger, team.lophnAgentDefinitions].filter(
+    defined,
+  );
   if (sources.length === 0) return undefined;
   return {
     commands: sources.flatMap((value) => (value as Loose).commands ?? []),
     ports: sources.flatMap((value) =>
-      toArray((value as Loose).ports)
+      toArray((value as Loose).ports),
     ) as TxPortRegistration[],
     blobFields: sources.flatMap((value) => (value as Loose).blobFields ?? []),
   };
@@ -196,8 +194,10 @@ function portList(ports: unknown): TxPortRegistration[] {
     const key = (port as TxPortRegistration).key;
     const create = (port as TxPortRegistration).create;
     return (
-      key !== null && typeof key === "object" &&
-      typeof key.name === "string" && key.name.length > 0 &&
+      key !== null &&
+      typeof key === "object" &&
+      typeof key.name === "string" &&
+      key.name.length > 0 &&
       typeof create === "function"
     );
   });
@@ -220,9 +220,7 @@ function checkCredential(
       message: "credential 기록을 읽지 못했다",
     });
   }
-  if (
-    !row || row["state"] !== "active" || typeof row["context"] !== "string"
-  ) {
+  if (!row || row["state"] !== "active" || typeof row["context"] !== "string") {
     return err({ code: "unauthorized", message: "현재 credential이 없다" });
   }
   let parsed: unknown;

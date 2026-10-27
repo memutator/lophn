@@ -15,14 +15,16 @@ import {
 import { isAllowed, lookupCall } from "./allowlist.ts";
 import { routeByName } from "./routes.ts";
 
-type CallResult<T = unknown> = { ok: true; value: T } | {
-  ok: false;
-  error: {
-    code: string;
-    message: string;
-    details?: Record<string, unknown>;
-  };
-};
+type CallResult<T = unknown> =
+  | { ok: true; value: T }
+  | {
+      ok: false;
+      error: {
+        code: string;
+        message: string;
+        details?: Record<string, unknown>;
+      };
+    };
 
 /** 바이트 body·stream 응답 route용 fetch. 응답 본문은 소비자가 당겨 읽는다. */
 export type StreamFetch = (
@@ -34,13 +36,11 @@ export type StreamFetch = (
     /** 끊기면 응답 stream도 끊는다. */
     signal?: AbortSignal;
   },
-) => Promise<
-  {
-    status: number;
-    headers: Headers;
-    body: ReadableStream<Uint8Array> | null;
-  }
->;
+) => Promise<{
+  status: number;
+  headers: Headers;
+  body: ReadableStream<Uint8Array> | null;
+}>;
 
 /** file route의 응답. 상태가 200이 아니어도 core가 준 그대로다. */
 interface FileStream {
@@ -139,10 +139,10 @@ function encodeInput(input: unknown): string {
   const bytes = new TextEncoder().encode(JSON.stringify(input));
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll(
-    "=",
-    "",
-  );
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
 }
 
 async function drain(
@@ -179,9 +179,10 @@ async function failure(
   const bytes = await drain(body, 64 * 1024).catch(() => "too_large" as const);
   let json: unknown;
   try {
-    json = bytes === "too_large"
-      ? undefined
-      : JSON.parse(new TextDecoder().decode(bytes));
+    json =
+      bytes === "too_large"
+        ? undefined
+        : JSON.parse(new TextDecoder().decode(bytes));
   } catch {
     json = undefined;
   }
@@ -240,11 +241,12 @@ export function openSession(input: SessionInput): CoreSession {
     async fileStream(resource, method, body, signal) {
       const opened = await openFile(resource, method, body, signal);
       if (opened.ok) return opened.value;
-      const status = opened.error.code === "forbidden"
-        ? 403
-        : opened.error.code === "invalid_input"
-        ? 400
-        : 503;
+      const status =
+        opened.error.code === "forbidden"
+          ? 403
+          : opened.error.code === "invalid_input"
+            ? 400
+            : 503;
       return { status, headers: new Headers(), body: null };
     },
     upload(resource, method, body, bytes) {
@@ -309,8 +311,8 @@ export function openSession(input: SessionInput): CoreSession {
         ok: true,
         value: {
           bytes,
-          contentType: response.headers.get("content-type") ??
-            "application/octet-stream",
+          contentType:
+            response.headers.get("content-type") ?? "application/octet-stream",
         },
       };
     } catch {
@@ -349,23 +351,26 @@ export function openSession(input: SessionInput): CoreSession {
     if (response.status !== 200) {
       return await failure(response.status, response.body);
     }
-    const raw = await drain(response.body, 64 * 1024).catch(() =>
-      "too_large" as const
+    const raw = await drain(response.body, 64 * 1024).catch(
+      () => "too_large" as const,
     );
     let json: unknown;
     try {
-      json = raw === "too_large"
-        ? undefined
-        : JSON.parse(new TextDecoder().decode(raw));
+      json =
+        raw === "too_large"
+          ? undefined
+          : JSON.parse(new TextDecoder().decode(raw));
     } catch {
       json = undefined;
     }
-    const output = (route.output as {
-      safeParse(value: unknown): {
-        success: boolean;
-        data?: unknown;
-      };
-    }).safeParse(json);
+    const output = (
+      route.output as {
+        safeParse(value: unknown): {
+          success: boolean;
+          data?: unknown;
+        };
+      }
+    ).safeParse(json);
     if (!output.success) {
       return {
         ok: false,

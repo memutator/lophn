@@ -12,9 +12,10 @@ export function appAssignees(
   app: string,
 ): Result<AppAssignee[]> {
   const assignees: AppAssignee[] = [];
-  for (
-    const row of sql.all("select agent, entries from agent_assignments", [])
-  ) {
+  for (const row of sql.all(
+    "select agent, entries from agent_assignments",
+    [],
+  )) {
     let parsed;
     try {
       parsed = agentAssignmentSchema.safeParse({

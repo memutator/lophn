@@ -29,36 +29,33 @@ export function createShellApi(
     input: unknown,
   ): Promise<OverlayReply<T>> {
     try {
-      return await transport.invoke(channel, input) as OverlayReply<T>;
+      return (await transport.invoke(channel, input)) as OverlayReply<T>;
     } catch {
       return unavailable();
     }
   }
-  return Object.freeze(
-    {
-      open: (input) => invoke("shell:overlay-open", input),
-      close: (input) => invoke("shell:overlay-close", input),
-      update: (input) => invoke("shell:overlay-update", input),
-      result: (input) => invoke("overlay:result", input),
-      subscribe(listener, onError) {
-        let active = true;
-        const channel = role === "overlay"
-          ? "overlay:state"
-          : "shell:overlay-result";
-        const callback = (_event: unknown, payload: OverlayEvent) => {
-          if (active) listener(payload);
-        };
-        transport.on(channel, callback);
-        if (role === "overlay") {
-          invoke<null>("overlay:subscribe", {}).then((result) => {
-            if (active && !result.ok) onError(result.error);
-          });
-        }
-        return () => {
-          active = false;
-          transport.removeListener(channel, callback);
-        };
-      },
-    } satisfies OverlayApi,
-  );
+  return Object.freeze({
+    open: (input) => invoke("shell:overlay-open", input),
+    close: (input) => invoke("shell:overlay-close", input),
+    update: (input) => invoke("shell:overlay-update", input),
+    result: (input) => invoke("overlay:result", input),
+    subscribe(listener, onError) {
+      let active = true;
+      const channel =
+        role === "overlay" ? "overlay:state" : "shell:overlay-result";
+      const callback = (_event: unknown, payload: OverlayEvent) => {
+        if (active) listener(payload);
+      };
+      transport.on(channel, callback);
+      if (role === "overlay") {
+        invoke<null>("overlay:subscribe", {}).then((result) => {
+          if (active && !result.ok) onError(result.error);
+        });
+      }
+      return () => {
+        active = false;
+        transport.removeListener(channel, callback);
+      };
+    },
+  } satisfies OverlayApi);
 }

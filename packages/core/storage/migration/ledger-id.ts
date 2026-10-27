@@ -20,9 +20,9 @@ function isLedgerId(value: string): boolean {
 function newLedgerId(): string {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
-  return `ldg_${
-    [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("")
-  }`;
+  return `ldg_${[...bytes]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")}`;
 }
 
 async function readLedgerId(root: string): Promise<string | undefined> {
@@ -37,10 +37,7 @@ async function readLedgerId(root: string): Promise<string | undefined> {
 }
 
 // 임시 파일에 쓰고 sync한 뒤 rename한다. 반쯤 쓴 값이 식별이 되지 않는다.
-async function writeLedgerId(
-  root: string,
-  id: string,
-): Promise<Result<void>> {
+async function writeLedgerId(root: string, id: string): Promise<Result<void>> {
   if (!isLedgerId(id)) {
     return err({ code: "invalid_input", message: "ledger 식별 형식이 아니다" });
   }

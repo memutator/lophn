@@ -199,9 +199,7 @@ type Late = {
   blobRelay: BlobRelay;
   blobBuffer: BufferGauge;
   bodyPrepare: BodyPrepare;
-  prepareRelay: (
-    call: BlobPrepareCall,
-  ) => Promise<Result<PreparedRelayResult>>;
+  prepareRelay: (call: BlobPrepareCall) => Promise<Result<PreparedRelayResult>>;
   appsControl: AppsControl;
   rewindFiles: RewindFilesDeps;
   mcpAuthControl: McpAuthControl;

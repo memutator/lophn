@@ -48,13 +48,13 @@ export function register(ctx: ShellContext): Registered {
     dataRoot,
     folders: async () =>
       (await activeProjects())?.flatMap((project) =>
-        project.folders.map((folder) => folder.path)
+        project.folders.map((folder) => folder.path),
       ) ?? null,
     trash: (path) => shell.trashItem(path),
     reveal: (path) => shell.showItemInFolder(path),
     notify: (owner, change) => {
-      const window = [...ctx.windows].find((one) =>
-        !one.isDestroyed() && one.webContents.id === owner
+      const window = [...ctx.windows].find(
+        (one) => !one.isDestroyed() && one.webContents.id === owner,
       );
       window?.webContents.send(FILE_CHANGED_CHANNEL, change);
     },
@@ -64,8 +64,9 @@ export function register(ctx: ShellContext): Registered {
     firstFolder: async (project) => {
       const projects = await activeProjects();
       if (projects === null) throw new Error("core is not ready");
-      return projects.find((one) => one.id === project)?.folders[0]?.path ??
-        null;
+      return (
+        projects.find((one) => one.id === project)?.folders[0]?.path ?? null
+      );
     },
     makeDir: async (path) => {
       await mkdir(path, { recursive: true });

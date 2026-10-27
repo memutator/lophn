@@ -109,8 +109,8 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
 
 /** 항목의 이름. 상단 바 breadcrumbs가 쓴다. */
 export function paneLabel(pane: SettingsPane): string {
-  const entry = SETTINGS_GROUPS.flatMap((group) => group.panes).find((item) =>
-    item.id === pane
+  const entry = SETTINGS_GROUPS.flatMap((group) => group.panes).find(
+    (item) => item.id === pane,
   );
   return entry === undefined ? "" : t(entry.label);
 }
@@ -119,9 +119,7 @@ export function paneLabel(pane: SettingsPane): string {
  * 내장 정의가 알려 준 연결 방법만, 정해진 순서(로그인, key)로. 인증 없음은 내장 정의에 없고 직접 만든
  * custom provider의 loopback에만 있어 고르는 방법이 아니다.
  */
-export function waysOf(
-  ways: readonly AuthWay[],
-): Exclude<AuthWay, "none">[] {
+export function waysOf(ways: readonly AuthWay[]): Exclude<AuthWay, "none">[] {
   const order: Exclude<AuthWay, "none">[] = ["oauth", "api_key"];
   return order.filter((way) => ways.includes(way));
 }

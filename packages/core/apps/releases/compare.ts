@@ -25,25 +25,29 @@ export function compareForActivation(input: {
   const gap = compareFacts(input.grants, input.facts);
   const from = previous?.data_schema ?? 0;
   return {
-    previous_release: previous === null
-      ? null
-      : previous.id as ActivationComparison["previous_release"],
+    previous_release:
+      previous === null
+        ? null
+        : (previous.id as ActivationComparison["previous_release"]),
     first: previous === null,
     added_resources: gap.added_resources,
     added_tools: gap.added_tools,
-    loss_steps: input.next.data_changes.filter((change) =>
-      change.from >= from && (change.loss ?? []).length > 0
-    ).map((change) => ({
-      from: change.from,
-      to: change.to,
-      loss: [...(change.loss ?? [])],
-    })),
+    loss_steps: input.next.data_changes
+      .filter((change) => change.from >= from && (change.loss ?? []).length > 0)
+      .map((change) => ({
+        from: change.from,
+        to: change.to,
+        loss: [...(change.loss ?? [])],
+      })),
   };
 }
 
 // 첫 activation이거나 늘어난 선언, 손실 단계가 하나라도 있으면 사람에게 묻는다.
 export function asksFor(comparison: ActivationComparison): boolean {
-  return comparison.first || comparison.added_resources.length > 0 ||
+  return (
+    comparison.first ||
+    comparison.added_resources.length > 0 ||
     comparison.added_tools.length > 0 ||
-    comparison.loss_steps.length > 0;
+    comparison.loss_steps.length > 0
+  );
 }

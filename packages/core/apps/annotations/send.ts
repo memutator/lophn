@@ -44,7 +44,7 @@ export function createAnnotations(deps: AnnotationDeps) {
       annotationPersist,
       { target: input.target, annotations: input.annotations },
       input.annotations.flatMap((item) =>
-        item.screenshot === null ? [] : [item.screenshot.preparation]
+        item.screenshot === null ? [] : [item.screenshot.preparation],
       ),
     );
     if (!persisted.ok) return persisted;
@@ -56,10 +56,13 @@ export function createAnnotations(deps: AnnotationDeps) {
       n: item.n,
       kind: item.kind,
       note: item.note,
-      screenshot: item.screenshot === null ? null : {
-        hash: item.screenshot.hash,
-        size_bytes: item.screenshot.size_bytes,
-      },
+      screenshot:
+        item.screenshot === null
+          ? null
+          : {
+              hash: item.screenshot.hash,
+              size_bytes: item.screenshot.size_bytes,
+            },
       component: item.component,
       element: item.element,
       rect: item.rect,
@@ -80,11 +83,16 @@ export function createAnnotations(deps: AnnotationDeps) {
       await deps.run(ctx, annotationDiscard, { batch }, []);
       return delivered;
     }
-    const referenced = await deps.run(ctx, annotationAddRefs, {
-      annotations: [...ids],
-      owner_kind: "session_message",
-      owner_id: delivered.value.message,
-    }, []);
+    const referenced = await deps.run(
+      ctx,
+      annotationAddRefs,
+      {
+        annotations: [...ids],
+        owner_kind: "session_message",
+        owner_id: delivered.value.message,
+      },
+      [],
+    );
     if (!referenced.ok) return referenced;
     return ok({
       batch,
@@ -106,27 +114,28 @@ export function createAnnotations(deps: AnnotationDeps) {
     if (!persisted.ok) return persisted;
     const { batch, ids, text } = persisted.value;
     const { target, session } = input;
-    const delivered = target.kind === "app"
-      ? await delivery.deliver({
-        app: target.app,
-        session,
-        text,
-        annotations: ids,
-      })
-      : target.kind === "artifact"
-      ? await delivery.deliverArtifact({
-        domain: target.domain,
-        name: target.name,
-        session,
-        text,
-        annotations: ids,
-      })
-      : await delivery.deliverFile({
-        project: target.project,
-        session,
-        text,
-        annotations: ids,
-      });
+    const delivered =
+      target.kind === "app"
+        ? await delivery.deliver({
+            app: target.app,
+            session,
+            text,
+            annotations: ids,
+          })
+        : target.kind === "artifact"
+          ? await delivery.deliverArtifact({
+              domain: target.domain,
+              name: target.name,
+              session,
+              text,
+              annotations: ids,
+            })
+          : await delivery.deliverFile({
+              project: target.project,
+              session,
+              text,
+              annotations: ids,
+            });
     return await finish(ctx, batch, ids, delivered);
   }
 

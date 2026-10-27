@@ -7,9 +7,11 @@ import { type Themed, tokens } from "./tokens.ts";
 
 type Shape<T> = T extends { readonly light: string; readonly dark: string }
   ? Themed
-  : T extends readonly unknown[] ? never
-  : T extends object ? { readonly [K in keyof T]?: Shape<T[K]> }
-  : string;
+  : T extends readonly unknown[]
+    ? never
+    : T extends object
+      ? { readonly [K in keyof T]?: Shape<T[K]> }
+      : string;
 
 /** `tokens`의 일부를 덮어쓰는 값. 없는 경로나 틀린 모양은 type이 거절한다. */
 export type TokenOverride = Shape<typeof tokens>;

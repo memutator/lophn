@@ -34,9 +34,9 @@ export function missingSdkPermission(
       return {
         package: dependency.name,
         permissions: group,
-        message: `${dependency.name} needs ${
-          group.join(" or ")
-        } in the declaration permissions`,
+        message: `${dependency.name} needs ${group.join(
+          " or ",
+        )} in the declaration permissions`,
       };
     }
   }

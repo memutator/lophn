@@ -37,11 +37,14 @@ const read = (tool: string) => ({ tool, effect: "read" as const });
 const FOUR = ["app.get", "app.status", "app.logs", "app.invocations"].map(read);
 
 function readSection(trial: CheckInput["trial"]): string {
-  const text = trial.sessions.flatMap((s) => s.tool_calls)
+  const text = trial.sessions
+    .flatMap((s) => s.tool_calls)
     .filter((c) => READ_TOOLS.includes(c.call.tool))
-    .map((c) =>
-      `${c.call.tool} ${JSON.stringify(c.input)}\n${JSON.stringify(c.output)}`
-    ).join("\n");
+    .map(
+      (c) =>
+        `${c.call.tool} ${JSON.stringify(c.input)}\n${JSON.stringify(c.output)}`,
+    )
+    .join("\n");
   if (text === "") return "(nothing read)";
   return text.length > READ_MAX
     ? `${text.slice(0, READ_MAX)}\n[truncated]`
@@ -56,12 +59,14 @@ async function answerSection({ trial, core }: CheckInput): Promise<string> {
   const { messages } = await core.call(messagesList, {
     session: session.session,
   });
-  const last = messages.map((m) => m.message).filter((m) =>
-    m.actor.startsWith("agent:")
-  ).at(-1);
+  const last = messages
+    .map((m) => m.message)
+    .filter((m) => m.actor.startsWith("agent:"))
+    .at(-1);
   if (last === undefined) return "(no answer)";
   const { content } = await core.call(messageBody, { message: last.id });
-  const text = content.parts.flatMap((p) => p.kind === "text" ? [p.text] : [])
+  const text = content.parts
+    .flatMap((p) => (p.kind === "text" ? [p.text] : []))
     .join("\n");
   return text === "" ? "(no answer)" : text;
 }

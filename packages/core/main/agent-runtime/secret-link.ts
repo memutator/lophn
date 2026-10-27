@@ -24,10 +24,13 @@ export function createSecretLink(options: {
   // 응답을 기다리는 기한. 지나면 값을 받지 못한 것이다.
   timeoutMs?: number;
 }): SecretLink {
-  const pending = new Map<string, {
-    resolve(answer: Answer | null): void;
-    timer: ReturnType<typeof setTimeout>;
-  }>();
+  const pending = new Map<
+    string,
+    {
+      resolve(answer: Answer | null): void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  >();
   const timeoutMs = options.timeoutMs ?? 10_000;
   let sequence = 0;
 

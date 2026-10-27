@@ -53,10 +53,13 @@ export function overlayConsumer(
   const openers = new Map<string, Opener>();
   function complete(event: Completion, opener: Opener) {
     if (
-      disposed || openers.get(event.requestId) !== opener ||
-      !opener.identity || event.surfaceId !== opener.identity.surfaceId ||
+      disposed ||
+      openers.get(event.requestId) !== opener ||
+      !opener.identity ||
+      event.surfaceId !== opener.identity.surfaceId ||
       event.generation !== opener.identity.generation
-    ) return;
+    )
+      return;
     if (event.type === "pointer" || event.type === "query") {
       onResult(event);
       return;
@@ -65,24 +68,28 @@ export function overlayConsumer(
     if (opener.focus && opener.element.isConnected) opener.element.focus();
     onResult(event);
   }
-  const unsubscribe = api.subscribe((event) => {
-    if (disposed || !("requestId" in event)) return;
-    const opener = openers.get(event.requestId);
-    if (!opener) return;
-    if (opener.identity) complete(event, opener);
-    else {
-      const terminal = opener.terminal;
-      if (
-        terminal?.surfaceId === event.surfaceId &&
-        terminal.generation === event.generation
-      ) return;
-      if (event.type === "pointer") opener.pointer = event;
-      else if (event.type === "query") opener.query = event;
-      else opener.terminal = event;
-    }
-  }, (error) => {
-    if (!disposed) onError(error);
-  });
+  const unsubscribe = api.subscribe(
+    (event) => {
+      if (disposed || !("requestId" in event)) return;
+      const opener = openers.get(event.requestId);
+      if (!opener) return;
+      if (opener.identity) complete(event, opener);
+      else {
+        const terminal = opener.terminal;
+        if (
+          terminal?.surfaceId === event.surfaceId &&
+          terminal.generation === event.generation
+        )
+          return;
+        if (event.type === "pointer") opener.pointer = event;
+        else if (event.type === "query") opener.query = event;
+        else opener.terminal = event;
+      }
+    },
+    (error) => {
+      if (!disposed) onError(error);
+    },
+  );
   return {
     async open(input: OverlayOpen, element: HTMLElement) {
       if (disposed) return unavailable();

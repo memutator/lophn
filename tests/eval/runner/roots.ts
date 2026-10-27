@@ -7,7 +7,5 @@ export function extraRoots(
   roots: Iterable<string>,
 ): string[] {
   const known = new Set(roots);
-  return snapshots
-    .filter((s) => !known.has(s.session))
-    .map((s) => s.session);
+  return snapshots.filter((s) => !known.has(s.session)).map((s) => s.session);
 }

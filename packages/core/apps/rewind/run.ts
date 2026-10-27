@@ -88,7 +88,7 @@ export function createAppRewind(deps: RewindDeps): AppRewind {
     if (inverted.value.length > 0) {
       const applied = await deps.link.apply(app, {
         changesets: inverted.value.map((bytes) =>
-          Buffer.from(bytes).toString("base64")
+          Buffer.from(bytes).toString("base64"),
         ),
       });
       if (!applied.ok) {

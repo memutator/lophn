@@ -17,11 +17,12 @@ export function canonicalJson(value: JsonValue): string {
         return `[${value.map((item) => canonicalJson(item)).join(",")}]`;
       }
       const keys = Object.keys(value).sort();
-      return `{${
-        keys.map((key) =>
-          `${JSON.stringify(key)}:${canonicalJson(value[key] as JsonValue)}`
-        ).join(",")
-      }}`;
+      return `{${keys
+        .map(
+          (key) =>
+            `${JSON.stringify(key)}:${canonicalJson(value[key] as JsonValue)}`,
+        )
+        .join(",")}}`;
     }
     default:
       return "null";
@@ -30,7 +31,7 @@ export function canonicalJson(value: JsonValue): string {
 
 export function sortBy<T>(values: T[], id: (value: T) => string): T[] {
   return [...values].sort((left, right) =>
-    id(left) < id(right) ? -1 : id(left) > id(right) ? 1 : 0
+    id(left) < id(right) ? -1 : id(left) > id(right) ? 1 : 0,
   );
 }
 

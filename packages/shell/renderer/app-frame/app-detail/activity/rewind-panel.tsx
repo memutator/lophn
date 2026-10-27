@@ -46,9 +46,14 @@ function counts(items: readonly RewindItem[]) {
   };
 }
 
-export function RewindPanel(
-  { app, name, from, source, now, onBack }: RewindPanelProps,
-) {
+export function RewindPanel({
+  app,
+  name,
+  from,
+  source,
+  now,
+  onBack,
+}: RewindPanelProps) {
   const plan = useRead(
     () => source.rewindPlan(app, from),
     [app, from, source],
@@ -79,15 +84,13 @@ export function RewindPanel(
 
   return (
     <div className={styles.tab} data-tab-body="activity" data-rewind={stage}>
-      {failed
-        ? (
-          <PaneToast
-            title={t("app-detail.error.rewind-failed")}
-            error
-            onClose={() => setFailed(false)}
-          />
-        )
-        : null}
+      {failed ? (
+        <PaneToast
+          title={t("app-detail.error.rewind-failed")}
+          error
+          onClose={() => setFailed(false)}
+        />
+      ) : null}
       <Loadable
         read={plan}
         target={t("app-detail.label.rewind-target")}
@@ -112,29 +115,39 @@ export function RewindPanel(
   );
 }
 
-function PanelBody(
-  { view, app, name, from, source, now, stage, reason, onStart, onBack }: {
-    view: RewindPlanView;
-    app: string;
-    name: string;
-    from: string;
-    source: AppDetailSource;
-    now: () => Date;
-    stage: RewindStage;
-    reason: string | null;
-    onStart: () => void;
-    onBack: () => void;
-  },
-) {
+function PanelBody({
+  view,
+  app,
+  name,
+  from,
+  source,
+  now,
+  stage,
+  reason,
+  onStart,
+  onBack,
+}: {
+  view: RewindPlanView;
+  app: string;
+  name: string;
+  from: string;
+  source: AppDetailSource;
+  now: () => Date;
+  stage: RewindStage;
+  reason: string | null;
+  onStart: () => void;
+  onBack: () => void;
+}) {
   const items = changing(view.items);
   // 목록은 최신부터이고 고른 호출이 마지막이다.
-  const origin = view.items.find((item) => item.invocation === from) ??
-    view.items.at(-1);
+  const origin =
+    view.items.find((item) => item.invocation === from) ?? view.items.at(-1);
   const time = origin === undefined ? "" : callTime(origin.at, now());
   const total = counts(items);
-  const blockedAt = view.blocked === null
-    ? undefined
-    : view.items.find((item) => item.invocation === view.blocked?.invocation);
+  const blockedAt =
+    view.blocked === null
+      ? undefined
+      : view.items.find((item) => item.invocation === view.blocked?.invocation);
   return (
     <>
       <div className={styles.row}>
@@ -142,82 +155,59 @@ function PanelBody(
           {stage === "confirm" || stage === "running"
             ? t("app-detail.heading.rewind-before", { name, time })
             : stage === "done"
-            ? t("app-detail.heading.rewound")
-            : t("app-detail.heading.rewind-cancelled")}
+              ? t("app-detail.heading.rewound")
+              : t("app-detail.heading.rewind-cancelled")}
         </h4>
-        {stage === "running"
-          ? (
-            <StatusMark
-              tone="warning"
-              label={t("app-detail.label.in-progress")}
-            />
-          )
-          : stage === "done"
-          ? <StatusMark tone="good" label={t("app-detail.label.done")} />
-          : stage === "conflict"
-          ? (
-            <StatusMark
-              tone="critical"
-              label={t("app-detail.label.cancelled")}
-            />
-          )
-          : null}
+        {stage === "running" ? (
+          <StatusMark
+            tone="warning"
+            label={t("app-detail.label.in-progress")}
+          />
+        ) : stage === "done" ? (
+          <StatusMark tone="good" label={t("app-detail.label.done")} />
+        ) : stage === "conflict" ? (
+          <StatusMark tone="critical" label={t("app-detail.label.cancelled")} />
+        ) : null}
       </div>
 
-      {stage === "confirm"
-        ? (
-          <Note title={t("app-detail.label.everyone-together")}>
-            {t("app-detail.note.rewind-confirm", { name, time })}
-          </Note>
-        )
-        : null}
+      {stage === "confirm" ? (
+        <Note title={t("app-detail.label.everyone-together")}>
+          {t("app-detail.note.rewind-confirm", { name, time })}
+        </Note>
+      ) : null}
 
-      {stage === "confirm" && view.blocked !== null
-        ? (
-          <Note title={t("app-detail.label.rewind-blocked")}>
-            {t("app-detail.note.rewind-blocked", {
-              time: blockedAt === undefined
-                ? ""
-                : callTime(blockedAt.at, now()),
-            })}
-          </Note>
-        )
-        : null}
+      {stage === "confirm" && view.blocked !== null ? (
+        <Note title={t("app-detail.label.rewind-blocked")}>
+          {t("app-detail.note.rewind-blocked", {
+            time: blockedAt === undefined ? "" : callTime(blockedAt.at, now()),
+          })}
+        </Note>
+      ) : null}
 
-      {stage === "running"
-        ? (
-          <Progress
-            app={app}
-            from={from}
-            name={name}
-            source={source}
-            now={now}
-          />
-        )
-        : null}
+      {stage === "running" ? (
+        <Progress app={app} from={from} name={name} source={source} now={now} />
+      ) : null}
 
-      {stage === "done"
-        ? (
-          <Note title={t("app-detail.label.rewound-title", { name, time })}>
-            {t("app-detail.note.rewound", { undone: total.undone })}
-          </Note>
-        )
-        : null}
+      {stage === "done" ? (
+        <Note title={t("app-detail.label.rewound-title", { name, time })}>
+          {t("app-detail.note.rewound", { undone: total.undone })}
+        </Note>
+      ) : null}
 
-      {stage === "conflict"
-        ? (
-          <Note title={t("app-detail.label.nothing-changed")}>
-            {reason === null
-              ? t("app-detail.note.conflict-unknown")
-              : t("app-detail.note.conflict", { reason })}
-          </Note>
-        )
-        : null}
+      {stage === "conflict" ? (
+        <Note title={t("app-detail.label.nothing-changed")}>
+          {reason === null
+            ? t("app-detail.note.conflict-unknown")
+            : t("app-detail.note.conflict", { reason })}
+        </Note>
+      ) : null}
 
       <Section
-        title={stage === "done"
-          ? t("app-detail.heading.what-was-rewound")
-          : t("app-detail.heading.rewinds-together")}
+        title={
+          stage === "done"
+            ? t("app-detail.heading.what-was-rewound")
+            : t("app-detail.heading.rewinds-together")
+        }
       >
         <ul className={styles.list} data-rewind-list="">
           {items.map((item) => (
@@ -237,77 +227,74 @@ function PanelBody(
                 </span>
               </span>
               <span
-                className={item.outcome === "undone"
-                  ? styles.strong
-                  : undefined}
+                className={
+                  item.outcome === "undone" ? styles.strong : undefined
+                }
               >
                 {item.outcome !== "undone"
                   ? outcomeText(item.outcome)
                   : stage === "done"
-                  ? t("app-detail.label.outcome-done")
-                  : stage === "conflict"
-                  ? t("app-detail.label.outcome-not-changed")
-                  : outcomeText(item.outcome)}
+                    ? t("app-detail.label.outcome-done")
+                    : stage === "conflict"
+                      ? t("app-detail.label.outcome-not-changed")
+                      : outcomeText(item.outcome)}
               </span>
             </li>
           ))}
         </ul>
-        {stage === "confirm"
-          ? (
-            <p className={styles.text}>
-              {t("app-detail.note.rewind-counts", total)}
-            </p>
-          )
-          : null}
+        {stage === "confirm" ? (
+          <p className={styles.text}>
+            {t("app-detail.note.rewind-counts", total)}
+          </p>
+        ) : null}
       </Section>
 
       <div className={styles.actions}>
-        {stage === "confirm"
-          ? (
-            <>
-              <Button
-                variant="danger"
-                disabled={view.blocked !== null}
-                data-rewind-confirm=""
-                onClick={onStart}
-              >
-                {t("app-detail.button.rewind-app", { name })}
-              </Button>
-              <Button variant="ghost" onClick={onBack}>
-                {t("app-detail.button.cancel")}
-              </Button>
-            </>
-          )
-          : stage === "running"
-          ? null
-          : (
-            <Button data-rewind-back="" onClick={onBack}>
-              {t("app-detail.button.back-to-activity")}
+        {stage === "confirm" ? (
+          <>
+            <Button
+              variant="danger"
+              disabled={view.blocked !== null}
+              data-rewind-confirm=""
+              onClick={onStart}
+            >
+              {t("app-detail.button.rewind-app", { name })}
             </Button>
-          )}
+            <Button variant="ghost" onClick={onBack}>
+              {t("app-detail.button.cancel")}
+            </Button>
+          </>
+        ) : stage === "running" ? null : (
+          <Button data-rewind-back="" onClick={onBack}>
+            {t("app-detail.button.back-to-activity")}
+          </Button>
+        )}
       </div>
     </>
   );
 }
 
 /** 도는 동안: 새 호출 멈춤, 도는 호출 기다림(어느 호출인지), 한 번에 되돌림. */
-function Progress(
-  { app, from, name, source, now }: {
-    app: string;
-    from: string;
-    name: string;
-    source: AppDetailSource;
-    now: () => Date;
-  },
-) {
-  const read = useRead(() => source.rewindProgress(app, from), [
-    app,
-    from,
-    source,
-  ], { pollMs: POLL_MS, now });
-  const running = read.loaded.state === "ready"
-    ? read.loaded.value.running
-    : null;
+function Progress({
+  app,
+  from,
+  name,
+  source,
+  now,
+}: {
+  app: string;
+  from: string;
+  name: string;
+  source: AppDetailSource;
+  now: () => Date;
+}) {
+  const read = useRead(
+    () => source.rewindProgress(app, from),
+    [app, from, source],
+    { pollMs: POLL_MS, now },
+  );
+  const running =
+    read.loaded.state === "ready" ? read.loaded.value.running : null;
   const draining = running === null || running.length > 0;
   return (
     <Section title={t("app-detail.heading.progress")}>
@@ -322,20 +309,20 @@ function Progress(
             {running === null || running.length === 0
               ? t("app-detail.label.rewind-drain")
               : t("app-detail.label.rewind-drain-calls", {
-                count: running.length,
-                calls: running
-                  .map((item) =>
-                    `${item.tool ?? t("app-detail.label.call-start")}, ${
-                      callTime(item.at, now())
-                    }`
-                  )
-                  .join("; "),
-              })}
+                  count: running.length,
+                  calls: running
+                    .map(
+                      (item) =>
+                        `${item.tool ?? t("app-detail.label.call-start")}, ${callTime(
+                          item.at,
+                          now(),
+                        )}`,
+                    )
+                    .join("; "),
+                })}
           </span>
         </li>
-        <li
-          className={`${styles.step} ${draining ? styles.stepWait : ""}`}
-        >
+        <li className={`${styles.step} ${draining ? styles.stepWait : ""}`}>
           <span aria-hidden="true">{draining ? "·" : "…"}</span>
           <span>{t("app-detail.label.rewind-undo")}</span>
         </li>

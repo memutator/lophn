@@ -201,10 +201,9 @@ export function registerFilesIpc(ipc: FilesIpcMain, deps: FilesIpcDeps) {
       input,
     );
     if (!checked.ok) return;
-    deps.guardOf(ownerOf(event))?.answer(
-      checked.value.request,
-      checked.value.answer,
-    );
+    deps
+      .guardOf(ownerOf(event))
+      ?.answer(checked.value.request, checked.value.answer);
   });
 }
 

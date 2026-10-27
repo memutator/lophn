@@ -66,8 +66,9 @@ function toDate(raw: unknown): string | undefined {
   if (text === undefined || !/^\d{4}-\d{2}-\d{2}$/.test(text)) return undefined;
   const [year, month, day] = text.split("-").map(Number);
   const at = new Date(Date.UTC(year!, month! - 1, day!));
-  return at.getUTCFullYear() === year && at.getUTCMonth() === month! - 1 &&
-      at.getUTCDate() === day
+  return at.getUTCFullYear() === year &&
+    at.getUTCMonth() === month! - 1 &&
+    at.getUTCDate() === day
     ? text
     : undefined;
 }
@@ -96,15 +97,18 @@ function coerceField(field: KindField, raw: unknown): unknown {
 }
 
 function keyOf(kind: Kind, item: Omit<Item, "key">): string {
-  const value = kind.key === "path"
-    ? item.path
-    : kind.key === "file"
-    ? item.file
-    : item.fields[kind.key];
-  const text = typeof value === "string" || typeof value === "number" ||
-      typeof value === "boolean"
-    ? String(value)
-    : "";
+  const value =
+    kind.key === "path"
+      ? item.path
+      : kind.key === "file"
+        ? item.file
+        : item.fields[kind.key];
+  const text =
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+      ? String(value)
+      : "";
   return text === "" ? item.path : text;
 }
 
@@ -146,9 +150,9 @@ export function extractItems(
       violate(
         "overlap",
         null,
-        `file matches more than one kind: ${
-          matched.map((k) => k.name).join(", ")
-        }`,
+        `file matches more than one kind: ${matched
+          .map((k) => k.name)
+          .join(", ")}`,
       );
       out.files.set(path, { kind: null, status: "skipped" });
       continue;
@@ -166,11 +170,12 @@ export function extractItems(
       let raw: unknown;
       if (field.from === "path") {
         const text = capturer(field.capture!)(path)?.[name];
-        raw = text === undefined
-          ? undefined
-          : field.type === "number"
-          ? Number(text)
-          : text;
+        raw =
+          text === undefined
+            ? undefined
+            : field.type === "number"
+              ? Number(text)
+              : text;
       } else {
         raw = Object.hasOwn(document, name) ? document[name] : undefined;
       }

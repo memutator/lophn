@@ -42,7 +42,8 @@ export function removeQueuedCommand(deps: {
         return err({ code: "not_found", message: "message not found" });
       }
       if (
-        row["from_kind"] !== "human" || row["delivery"] !== "next_turn" ||
+        row["from_kind"] !== "human" ||
+        row["delivery"] !== "next_turn" ||
         row["turn"] !== null
       ) {
         return err({

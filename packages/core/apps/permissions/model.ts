@@ -11,19 +11,22 @@ type ResolvedFsScope = FsScope & {
   outsideLinks: string[];
 };
 
-export type ResolvedRequirement = {
-  kind: "fs.read" | "fs.write";
-  scope: ResolvedFsScope;
-  reason: string;
-} | {
-  kind: "net.fetch" | "net.listen";
-  scope: NetScope;
-  reason: string;
-} | {
-  kind: "secret.use";
-  scope: { name: string };
-  reason: string;
-};
+export type ResolvedRequirement =
+  | {
+      kind: "fs.read" | "fs.write";
+      scope: ResolvedFsScope;
+      reason: string;
+    }
+  | {
+      kind: "net.fetch" | "net.listen";
+      scope: NetScope;
+      reason: string;
+    }
+  | {
+      kind: "secret.use";
+      scope: { name: string };
+      reason: string;
+    };
 
 export type PathResolver = {
   // ~ 와 상대 경로를 포함한 입력을 실제 절대 경로로 푼다. 실패하면 undefined.
@@ -49,9 +52,7 @@ function fail(
   return err({ code, message });
 }
 
-function isFs(
-  scope: FsScope | NetScope | { name: string },
-): scope is FsScope {
+function isFs(scope: FsScope | NetScope | { name: string }): scope is FsScope {
   return "path" in scope;
 }
 
@@ -66,18 +67,15 @@ export function isSameOrInside(path: string, root: string): boolean {
   return path === root || path.startsWith(`${root}/`);
 }
 
-function containsProtected(
-  path: string,
-  roots: ProtectedRoots,
-): boolean {
+function containsProtected(path: string, roots: ProtectedRoots): boolean {
   const guarded = [
     ...roots.credentialRoots,
     roots.dataRoot,
     ...roots.appRoots,
     ...roots.sourceRoots,
   ];
-  return guarded.some((root) =>
-    isSameOrInside(path, root) || isSameOrInside(root, path)
+  return guarded.some(
+    (root) => isSameOrInside(path, root) || isSameOrInside(root, path),
   );
 }
 
@@ -93,7 +91,9 @@ function checkNet(
   scope: NetScope,
 ): Result<NetScope> {
   if (
-    hostOf(scope.host) !== undefined || scope.port < 1 || scope.port > 65535
+    hostOf(scope.host) !== undefined ||
+    scope.port < 1 ||
+    scope.port > 65535
   ) {
     return fail("invalid_input", "host and port must be exact");
   }
@@ -179,9 +179,7 @@ export async function resolveRequirement(
 // 요구 목록을 정규 순서로 비교한다. 중복은 거절하고 순서는 결과에 영향을 주지 않는다.
 export function canonicalOrder(
   requirements: readonly ResolvedRequirement[],
-): Result<
-  ResolvedRequirement[]
-> {
+): Result<ResolvedRequirement[]> {
   const seen = new Set<string>();
   for (const requirement of requirements) {
     const key = `${requirement.kind}:${JSON.stringify(requirement.scope)}`;
@@ -194,7 +192,7 @@ export function canonicalOrder(
     [...requirements].sort((a, b) =>
       `${a.kind}:${JSON.stringify(a.scope)}`.localeCompare(
         `${b.kind}:${JSON.stringify(b.scope)}`,
-      )
+      ),
     ),
   );
 }

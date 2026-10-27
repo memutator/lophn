@@ -39,13 +39,11 @@ import { issuerRequestDone, issuerRequestTake } from "./issuer-requests.ts";
 
 export const ROUTES = [
   // 옛 session·message route 가운데 새 route로 바뀐 것은 뺀다.
-  ...SESSION_COMMANDS.filter((route) =>
-    !([
-      openSession,
-      sessionList,
-      closeSession,
-    ] as readonly unknown[])
-      .includes(route)
+  ...SESSION_COMMANDS.filter(
+    (route) =>
+      !(
+        [openSession, sessionList, closeSession] as readonly unknown[]
+      ).includes(route),
   ),
   ...AGENT_SESSION_ROUTES,
   ...MESSAGE_ROUTES.filter((route) => route !== messagesList),

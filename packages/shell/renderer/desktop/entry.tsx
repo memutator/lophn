@@ -82,8 +82,8 @@ const editor = windowEditorDeps(core);
 // 창마다 하나인 event 연결. 대기 목록·session 상태·toast가 이 연결 하나를 나눠 쓴다.
 const events = createEventClient(mock?.events ?? core);
 // 런처의 프로젝트 카드·등록·보관과 앱 공간의 project 고르기.
-const projects = mock?.projects ??
-  coreProjectsSource(core, windowFolderPicker());
+const projects =
+  mock?.projects ?? coreProjectsSource(core, windowFolderPicker());
 // 런처의 앱 카드·보관과 앱 공간. 앱 view는 shell preload의 view 통로로 main이 붙인다.
 const apps = mock?.apps ?? coreAppsSource(core);
 // 팔레트의 project·앱 행.
@@ -107,8 +107,8 @@ const workspace = bench?.source ?? coreWorkspaceSource(core);
 // 창마다 하나인 대화 메모리. 공간을 오가도 작성 중 말이 남는다.
 const conversation = { drafts: new DraftStore() };
 // Agent 탭과 앱 공간의 Agent 칸이 agent마다 통로를 얻는 함수.
-const agentViewSource = mock?.agentViewSource ??
-  coreAgentTabSourceFactory(core);
+const agentViewSource =
+  mock?.agentViewSource ?? coreAgentTabSourceFactory(core);
 // 개발 확인용 시작 화면. `#settings`면 Settings부터 연다.
 // `#project=<id>`면 그 프로젝트 작업대부터, `#app=<id>`면 그 앱 공간부터 연다.
 // `#detached=<탭 key>`는 main이 띄우는 detached 창이다.
@@ -117,57 +117,59 @@ const agentViewSource = mock?.agentViewSource ??
 const start: Route | undefined = seed
   ? openProject(seed.project)
   : location.hash.startsWith("#project=")
-  ? openProject(location.hash.slice("#project=".length))
-  : location.hash === "#instructions=global"
-  ? openInstructions({ layer: "global" })
-  : location.hash.startsWith("#instructions=project:")
-  ? openInstructions({
-    layer: "project",
-    place: location.hash.slice("#instructions=project:".length),
-  })
-  : location.hash.startsWith("#app=")
-  ? openApp(location.hash.slice("#app=".length))
-  : location.hash.startsWith("#detached=")
-  ? openDetached(decodeURIComponent(location.hash.slice("#detached=".length)))
-  : location.hash === "#settings"
-  ? openSettings()
-  : undefined;
+    ? openProject(location.hash.slice("#project=".length))
+    : location.hash === "#instructions=global"
+      ? openInstructions({ layer: "global" })
+      : location.hash.startsWith("#instructions=project:")
+        ? openInstructions({
+            layer: "project",
+            place: location.hash.slice("#instructions=project:".length),
+          })
+        : location.hash.startsWith("#app=")
+          ? openApp(location.hash.slice("#app=".length))
+          : location.hash.startsWith("#detached=")
+            ? openDetached(
+                decodeURIComponent(location.hash.slice("#detached=".length)),
+              )
+            : location.hash === "#settings"
+              ? openSettings()
+              : undefined;
 // 창마다 하나. 탭과 host runtime의 대응만 갖고 출력은 갖지 않는다.
-const terminal = windowTerminalDeps(
-  new TerminalStore(),
-  (host, edge) => createXtermView(host, edge),
+const terminal = windowTerminalDeps(new TerminalStore(), (host, edge) =>
+  createXtermView(host, edge),
 );
 
 // 창 안 팔레트. overlay와 shortcut 통로는 desktop preload가 연다.
 const bridges = globalThis as {
-  lophnShell?:
-    & OverlayApi
-    & Partial<LophnShellViewsApi>
-    & Partial<LophnShellAnnotateApi>;
+  lophnShell?: OverlayApi &
+    Partial<LophnShellViewsApi> &
+    Partial<LophnShellAnnotateApi>;
   lophnShortcuts?: ShortcutApi;
   lophnIntents?: IntentApi;
   lophnBrowser?: LophnBrowserApi;
   lophnArtifact?: LophnArtifactApi;
   lophnDetached?: LophnDetachedApi;
 };
-const views: LophnShellViewsApi | undefined = mock?.views ??
+const views: LophnShellViewsApi | undefined =
+  mock?.views ??
   (typeof bridges.lophnShell?.openApp === "function"
-    ? bridges.lophnShell as LophnShellViewsApi
+    ? (bridges.lophnShell as LophnShellViewsApi)
     : undefined);
-const annotate: LophnShellAnnotateApi | undefined = mock?.annotate ??
+const annotate: LophnShellAnnotateApi | undefined =
+  mock?.annotate ??
   (typeof bridges.lophnShell?.setMode === "function"
-    ? bridges.lophnShell as LophnShellAnnotateApi
+    ? (bridges.lophnShell as LophnShellAnnotateApi)
     : undefined);
-const browser: LophnBrowserApi | null = mock?.browser ??
-  bridges.lophnBrowser ?? null;
+const browser: LophnBrowserApi | null =
+  mock?.browser ?? bridges.lophnBrowser ?? null;
 const artifact: LophnArtifactApi | null = bridges.lophnArtifact ?? null;
 const palette: PaletteDeps | undefined =
   bridges.lophnShell && bridges.lophnShortcuts
     ? {
-      overlay: bridges.lophnShell,
-      shortcuts: bridges.lophnShortcuts,
-      search: fileSearch(catalog, coreFileSearchSource(core)),
-    }
+        overlay: bridges.lophnShell,
+        shortcuts: bridges.lophnShortcuts,
+        search: fileSearch(catalog, coreFileSearchSource(core)),
+      }
     : undefined;
 
 // main이 묻는 전역 hook 설치 확인. desktop preload에만 있다.
@@ -175,7 +177,8 @@ const hookPrompt = (globalThis as { lophnCoding?: HookPromptApi }).lophnCoding;
 
 // 앱 패널 탭과 세션 앱 카드의 view 통로. desktop 창 preload에만 있다. 화면 선언 read로
 // 프로젝트 탭의 앱 패널 열기를 세운다.
-const appViews: AppViewsDeps | null = mock?.appViews ??
+const appViews: AppViewsDeps | null =
+  mock?.appViews ??
   (views
     ? { views, app: coreAppRead(core), screens: coreAppScreens(core) }
     : null);
@@ -212,8 +215,9 @@ mount(
                       annotate={annotate}
                       overlay={bridges.lophnShell}
                       hookPrompt={hookPrompt}
-                      instructions={mock?.instructions ??
-                        windowInstructionsSource()}
+                      instructions={
+                        mock?.instructions ?? windowInstructionsSource()
+                      }
                       agentViewSource={agentViewSource}
                       detached={bridges.lophnDetached}
                     />

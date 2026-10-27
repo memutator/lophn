@@ -3,9 +3,13 @@ import type { ReactNode } from "react";
 
 import { runSteps, type Step, useDrive } from "./drive.ts";
 
-export function Driven(
-  { steps, children }: { steps: readonly Step[]; children: ReactNode },
-) {
+export function Driven({
+  steps,
+  children,
+}: {
+  steps: readonly Step[];
+  children: ReactNode;
+}) {
   useDrive(() => runSteps(steps));
   return <>{children}</>;
 }

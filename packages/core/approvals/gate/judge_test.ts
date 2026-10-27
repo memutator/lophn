@@ -116,10 +116,13 @@ test("할당하지 않은 앱 tool과 뺀 tool은 어느 mode에서도 막는다
 });
 
 test("project 층의 allow 규칙은 floor deny를 덮지 못한다", () => {
-  const shell = rules([], [
-    { pattern: "rm -rf *", action: "allow" },
-    { pattern: "rm -rf /", action: "allow" },
-  ]);
+  const shell = rules(
+    [],
+    [
+      { pattern: "rm -rf *", action: "allow" },
+      { pattern: "rm -rf /", action: "allow" },
+    ],
+  );
   for (const mode of MODES) {
     assert.deepStrictEqual(
       judge(shellCall("rm -rf /"), null, shell, mode),

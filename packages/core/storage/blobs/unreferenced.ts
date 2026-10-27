@@ -37,9 +37,9 @@ export function unreferencedPathFor(
     });
   }
   return ok(
-    `${root}/${UNREFERENCED_DIR}/${hash.slice(0, UNREFERENCED_PREFIX_CHARS)}/${
-      hash.slice(UNREFERENCED_PREFIX_CHARS)
-    }.json`,
+    `${root}/${UNREFERENCED_DIR}/${hash.slice(0, UNREFERENCED_PREFIX_CHARS)}/${hash.slice(
+      UNREFERENCED_PREFIX_CHARS,
+    )}.json`,
   );
 }
 
@@ -50,7 +50,9 @@ export function parseUnreferencedRecord(
   if (raw === null || typeof raw !== "object") return undefined;
   const at = (raw as Record<string, unknown>)["unreferenced_at_ms"];
   if (
-    typeof at !== "number" || !Number.isFinite(at) || at < 0 ||
+    typeof at !== "number" ||
+    !Number.isFinite(at) ||
+    at < 0 ||
     Number.isInteger(at) === false
   ) {
     return undefined;

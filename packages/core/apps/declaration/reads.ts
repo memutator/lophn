@@ -48,15 +48,16 @@ export function createDeclarationReads(load: ActiveDeclarationLoader): {
     appToolIndex: {
       route: appToolIndex,
       handle(snapshot, _ctx, input) {
-        const listed = input.app === undefined
-          ? loadApps(snapshot.sql, "active")
-          : loadApp(snapshot.sql, input.app);
+        const listed =
+          input.app === undefined
+            ? loadApps(snapshot.sql, "active")
+            : loadApp(snapshot.sql, input.app);
         if (!listed.ok) return listed;
         const apps = Array.isArray(listed.value)
           ? listed.value
           : listed.value?.status === "active"
-          ? [listed.value]
-          : [];
+            ? [listed.value]
+            : [];
         const entries: AppToolIndexEntry[] = [];
         for (const app of apps) {
           const active = load(snapshot.sql, app.id);
@@ -75,12 +76,17 @@ export function createDeclarationReads(load: ActiveDeclarationLoader): {
               public: tool.public,
               domain: tool.domain,
               // 호출 모양은 앱 하나를 볼 때만 싣는다.
-              ...(input.app === undefined ? {} : {
-                inputSchema: tool.inputSchema as AppTool["inputSchema"],
-                ...(tool.outputSchema === undefined ? {} : {
-                  outputSchema: tool.outputSchema as AppTool["outputSchema"],
-                }),
-              }),
+              ...(input.app === undefined
+                ? {}
+                : {
+                    inputSchema: tool.inputSchema as AppTool["inputSchema"],
+                    ...(tool.outputSchema === undefined
+                      ? {}
+                      : {
+                          outputSchema:
+                            tool.outputSchema as AppTool["outputSchema"],
+                        }),
+                  }),
             })),
           });
         }
@@ -118,18 +124,22 @@ export function createDeclarationReads(load: ActiveDeclarationLoader): {
           declaration_hash: release.declaration_hash,
           name: declaration.name,
           description: declaration.description,
-          tools: declaration.tools.map((tool): AppTool => ({
-            name: tool.name,
-            title: tool.title,
-            description: tool.description,
-            inputSchema: tool.inputSchema as AppTool["inputSchema"],
-            ...(tool.outputSchema === undefined
-              ? {}
-              : { outputSchema: tool.outputSchema as AppTool["outputSchema"] }),
-            effect: tool.effect,
-            public: tool.public,
-            domain: tool.domain,
-          })),
+          tools: declaration.tools.map(
+            (tool): AppTool => ({
+              name: tool.name,
+              title: tool.title,
+              description: tool.description,
+              inputSchema: tool.inputSchema as AppTool["inputSchema"],
+              ...(tool.outputSchema === undefined
+                ? {}
+                : {
+                    outputSchema: tool.outputSchema as AppTool["outputSchema"],
+                  }),
+              effect: tool.effect,
+              public: tool.public,
+              domain: tool.domain,
+            }),
+          ),
           screens: declaration.screens.map((screen) => ({
             key: screen.key,
             label: screen.label,

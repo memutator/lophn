@@ -95,7 +95,7 @@ export type ExperimentOptions = CommandOptions & {
 
 const log = (line: string) => console.log(line);
 const SPEC_DIR = `${REPO_ROOT}/${EXPERIMENTS_DIR}`;
-const messageOf = (e: unknown) => e instanceof Error ? e.message : String(e);
+const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 // spec 읽기부터 고르기까지. 돈이 안 든다.
 type Begun = {
@@ -141,9 +141,9 @@ async function begin(opts: CommandOptions): Promise<Result<Begun>> {
     versions: baseline,
   });
   if (!checked.ok) {
-    const problems =
-      (checked.error.details?.problems as string[] | undefined) ??
-        [checked.error.message];
+    const problems = (checked.error.details?.problems as
+      | string[]
+      | undefined) ?? [checked.error.message];
     return err({ ...checked.error, message: problems.join("\n") });
   }
 
@@ -153,7 +153,8 @@ async function begin(opts: CommandOptions): Promise<Result<Begun>> {
     variant: variant.isCurrent ? REPO_ROOT : variant.root,
     cases: spec.cases.map((g) => ({
       id: g.scenario,
-      path: found.find((f) => f.scenario.id === g.scenario)?.path ??
+      path:
+        found.find((f) => f.scenario.id === g.scenario)?.path ??
         `${REPO_ROOT}/${g.scenario}`,
     })),
   });
@@ -165,9 +166,10 @@ async function begin(opts: CommandOptions): Promise<Result<Begun>> {
   if (!change.ok) return err({ code: "conflict", message: change.message });
   log(
     `[change] ${refText(spec.change.from)} -> @${
-      changed.find((c) =>
-        c.from.kind === spec.change.from.kind &&
-        c.from.name === spec.change.from.name
+      changed.find(
+        (c) =>
+          c.from.kind === spec.change.from.kind &&
+          c.from.name === spec.change.from.name,
       )?.to.n
     }  mixed: ${
       change.mixed.length === 0
@@ -191,9 +193,9 @@ async function begin(opts: CommandOptions): Promise<Result<Begun>> {
     return err({ code: "not_found", message: "고른 시나리오가 없다" });
   }
   log(
-    `[select] ${
-      plan.entries.map((e) => `${e.role} ${e.scenario}@${e.n}`).join("  ")
-    }`,
+    `[select] ${plan.entries
+      .map((e) => `${e.role} ${e.scenario}@${e.n}`)
+      .join("  ")}`,
   );
   for (const k of plan.keep) {
     log(`[select] keep ${k.scenario} (run ${k.runs.length}개)`);
@@ -229,23 +231,26 @@ async function gate(
   const { variant } = begun;
   const report: GateReport = await runGate(
     { checkout: variant.root, base: opts.base, scenarios },
-    defaultGateDeps({
-      catalogRoot: REPO_ROOT,
-      validateFixtures,
-      async dryRun(scenario) {
-        const held: Held = {};
-        try {
-          await prepareTrialWorld({ variant }, scenario, held);
-          log(`[gate] dry-run ${scenario.id} ok`);
-          return ok(undefined);
-        } catch (e) {
-          log(`[gate] dry-run ${scenario.id} failed`);
-          return err({ code: "unavailable", message: messageOf(e) });
-        } finally {
-          await releaseWorld(held);
-        }
+    defaultGateDeps(
+      {
+        catalogRoot: REPO_ROOT,
+        validateFixtures,
+        async dryRun(scenario) {
+          const held: Held = {};
+          try {
+            await prepareTrialWorld({ variant }, scenario, held);
+            log(`[gate] dry-run ${scenario.id} ok`);
+            return ok(undefined);
+          } catch (e) {
+            log(`[gate] dry-run ${scenario.id} failed`);
+            return err({ code: "unavailable", message: messageOf(e) });
+          } finally {
+            await releaseWorld(held);
+          }
+        },
       },
-    }, variant.root),
+      variant.root,
+    ),
   );
   for (const s of report.stages) {
     const state = s.skipped ? `skipped (${s.detail})` : s.ok ? "ok" : "failed";
@@ -258,10 +263,10 @@ async function gate(
 export async function gateCommand(opts: CommandOptions): Promise<number> {
   const begun = await begin(opts);
   if (!begun.ok) return fail(begun.error.message);
-  const scenarios = begun.value.plan.entries.map((e) =>
-    begun.value.scenarioOf.get(e.scenario)!.scenario
+  const scenarios = begun.value.plan.entries.map(
+    (e) => begun.value.scenarioOf.get(e.scenario)!.scenario,
   );
-  return await gate(begun.value, opts, scenarios) ? 0 : 1;
+  return (await gate(begun.value, opts, scenarios)) ? 0 : 1;
 }
 
 // 시나리오 재료 안의 이름(앱, project, Operator)은 과적합 경고가 시나리오 고유 이름으로 본다.
@@ -278,13 +283,11 @@ async function extraNamesOf(
   return out;
 }
 
-async function readRepeats(
-  runIds: string[],
-): Promise<RepeatFinding[]> {
+async function readRepeats(runIds: string[]): Promise<RepeatFinding[]> {
   const out: RepeatFinding[] = [];
   for (const run of runIds) {
-    const pending = (await readPending(EVAL_DIR, run)).filter((e) =>
-      e.kind === "diagnosis"
+    const pending = (await readPending(EVAL_DIR, run)).filter(
+      (e) => e.kind === "diagnosis",
     );
     try {
       for (const name of await readdir(`${EVAL_DIR}/${run}`)) {
@@ -313,8 +316,8 @@ export async function experimentCommand(
   const begun = await begin(opts);
   if (!begun.ok) return fail(begun.error.message);
   const { spec, variant, plan, runs, found } = begun.value;
-  const entryScenarios = plan.entries.map((e) =>
-    begun.value.scenarioOf.get(e.scenario)!.scenario
+  const entryScenarios = plan.entries.map(
+    (e) => begun.value.scenarioOf.get(e.scenario)!.scenario,
   );
 
   // 이어 돌리기: 판정이 난 spec은 다시 굴리지 않고, 끊긴 것은 앞서 돈 variant trial을 이어 받는다.
@@ -329,16 +332,16 @@ export async function experimentCommand(
   for (const s of old.value?.scenarios ?? []) {
     priorRuns.set(s.scenario, s.variant_runs);
   }
-  const variantOutcomes = (
-    all: RunRecord[],
-    ids: string[],
-  ): Outcome[] =>
+  const variantOutcomes = (all: RunRecord[], ids: string[]): Outcome[] =>
     ids.flatMap((id) => {
       const run = all.find((r) => r.id === id);
       return (run?.trials ?? []).map((t) => outcomeOf(t, run!.components));
     });
 
-  const flaky = flakyScenarios(runs, found.map((f) => f.scenario));
+  const flaky = flakyScenarios(
+    runs,
+    found.map((f) => f.scenario),
+  );
   const stateOf = (
     entry: Plan["entries"][number],
     variantOutcomesOf: Outcome[],
@@ -351,12 +354,12 @@ export async function experimentCommand(
   });
   const priorOf = (scenario: string) =>
     variantOutcomes(runs, priorRuns.get(scenario) ?? []);
-  const nothingToRun = plan.entries.every((e) =>
-    nextTrials(stateOf(e, priorOf(e.scenario)), spec.trials) === 0
+  const nothingToRun = plan.entries.every(
+    (e) => nextTrials(stateOf(e, priorOf(e.scenario)), spec.trials) === 0,
   );
 
   if (!nothingToRun && !opts.skipGate) {
-    if (!await gate(begun.value, opts, entryScenarios)) return 1;
+    if (!(await gate(begun.value, opts, entryScenarios))) return 1;
   }
 
   // 진단. 막지 않고 result에 남긴다.
@@ -387,13 +390,16 @@ export async function experimentCommand(
         log(`[assembly] ${run} 건너뜀: ${recorded.error.message}`);
         continue;
       }
-      const report = await measureAssembly({ port }, {
-        run,
-        trial: recorded.value,
-        scenario: begun.value.scenarioOf.get(entry.scenario)!.scenario,
-        model: spec.model,
-        checkout: variant.isCurrent ? null : variant.root,
-      });
+      const report = await measureAssembly(
+        { port },
+        {
+          run,
+          trial: recorded.value,
+          scenario: begun.value.scenarioOf.get(entry.scenario)!.scenario,
+          model: spec.model,
+          checkout: variant.isCurrent ? null : variant.root,
+        },
+      );
       assembly.push(report);
       for (const line of formatAssembly(report)) {
         log(`[assembly] ${line.replace(/^assembly /, "")}`);
@@ -418,9 +424,9 @@ export async function experimentCommand(
     );
     const { trials, usd } = estimate;
     log(
-      `[estimate] trials ${trials.min}..${trials.worst} (likely ${trials.likely}) $${
-        usd.likely.toFixed(2)
-      } (budget $${budget})${
+      `[estimate] trials ${trials.min}..${trials.worst} (likely ${trials.likely}) $${usd.likely.toFixed(
+        2,
+      )} (budget $${budget})${
         usd.worst > budget
           ? ` 예산 부족할 수 있음(최대 $${usd.worst.toFixed(2)})`
           : ""
@@ -453,32 +459,34 @@ export async function experimentCommand(
     pool = createPool({ budget: createCap(budget, log) });
     const stopSignals = installSignals(pool, deps.live, log);
 
-    await Promise.all(plan.entries.map(async (entry) => {
-      const scenario = begun.value.scenarioOf.get(entry.scenario)!.scenario;
-      const runId = ids.newId("run");
-      const prior = priorOf(entry.scenario);
-      const ran = await runScenario({
-        scenario,
-        runId,
-        deps,
-        pool: pool!,
-        next: (results) => {
-          return nextTrials(
-            stateOf(entry, [
-              ...prior,
-              ...results.map((t) => outcomeOf(t, [])),
-            ]),
-            spec.trials,
-          );
-        },
-        materials: registered.materials.get(entry.scenario) ?? [],
-        core,
-        checks,
-        runsDir: RUNS_DIR,
-      });
-      if (ran.record !== null) newRuns.set(entry.scenario, runId);
-      if (ran.failed !== null) failures.push(ran.failed);
-    }));
+    await Promise.all(
+      plan.entries.map(async (entry) => {
+        const scenario = begun.value.scenarioOf.get(entry.scenario)!.scenario;
+        const runId = ids.newId("run");
+        const prior = priorOf(entry.scenario);
+        const ran = await runScenario({
+          scenario,
+          runId,
+          deps,
+          pool: pool!,
+          next: (results) => {
+            return nextTrials(
+              stateOf(entry, [
+                ...prior,
+                ...results.map((t) => outcomeOf(t, [])),
+              ]),
+              spec.trials,
+            );
+          },
+          materials: registered.materials.get(entry.scenario) ?? [],
+          core,
+          checks,
+          runsDir: RUNS_DIR,
+        });
+        if (ran.record !== null) newRuns.set(entry.scenario, runId);
+        if (ran.failed !== null) failures.push(ran.failed);
+      }),
+    );
     stopSignals();
   }
 

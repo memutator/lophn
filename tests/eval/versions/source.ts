@@ -29,9 +29,7 @@ export function denoGit(root: string): Git {
   return async (args) => {
     const out = await output("git", ["-C", root, ...args]);
     if (out.code !== 0) {
-      throw new Error(
-        `git ${args.join(" ")}: ${out.stderr.toString("utf8")}`,
-      );
+      throw new Error(`git ${args.join(" ")}: ${out.stderr.toString("utf8")}`);
     }
     return out.stdout.toString("utf8");
   };
@@ -61,7 +59,9 @@ export async function captureSource(
   ]);
   if (status === "") return { commit, dirty: false };
   const diff = await git(["diff", "HEAD", "--", ...TARGET]);
-  const untracked = status.split("\n").filter((l) => l.startsWith("?? "))
+  const untracked = status
+    .split("\n")
+    .filter((l) => l.startsWith("?? "))
     .map((l) => l.slice(3));
   return { commit, dirty: true, diff, untracked };
 }

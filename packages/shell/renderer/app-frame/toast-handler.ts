@@ -21,14 +21,17 @@ export function useToastHandler(host: SpaceReactionHost): void {
   const latest = useRef(host);
   latest.current = host;
   const { setOpen } = useWaitingPanel();
-  useEffect(() =>
-    registerToastActionHandler((action: ToastAction) => {
-      switch (action.kind) {
-        case "waiting":
-          setOpen(true);
-          return true;
-        case "session":
-          return latest.current.openSession(action.session, action.app);
-      }
-    }), [setOpen]);
+  useEffect(
+    () =>
+      registerToastActionHandler((action: ToastAction) => {
+        switch (action.kind) {
+          case "waiting":
+            setOpen(true);
+            return true;
+          case "session":
+            return latest.current.openSession(action.session, action.app);
+        }
+      }),
+    [setOpen],
+  );
 }

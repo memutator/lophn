@@ -53,17 +53,15 @@ export type OAuthStep<T> =
 
 type Callback = Awaited<ReturnType<CallbackListener["receive"]>>;
 
-type Session<T> =
-  & {
-    provider: string;
-    target: T;
-    deadlineMs: number;
-    intervalMs: number;
-    // complete가 겹치면 두 번째는 교환을 다시 보내지 않는다.
-    busy: boolean;
-  }
-  & (
-    | {
+type Session<T> = {
+  provider: string;
+  target: T;
+  deadlineMs: number;
+  intervalMs: number;
+  // complete가 겹치면 두 번째는 교환을 다시 보내지 않는다.
+  busy: boolean;
+} & (
+  | {
       flow: "pkce_loopback";
       oauth: Extract<OAuthDefinition, { product: "chatgpt" }>;
       listener: CallbackListener;
@@ -74,13 +72,13 @@ type Session<T> =
       verifier: string;
       redirectUri: string;
     }
-    | {
+  | {
       flow: "device_code";
       oauth: Extract<OAuthDefinition, { product: "supergrok" }>;
       deviceCode: string;
       nextPollMs: number;
     }
-  );
+);
 
 export function createProviderOAuth<T>(deps: {
   http: IssuerFetch;
@@ -139,21 +137,20 @@ export function createProviderOAuth<T>(deps: {
     const verifier = randomText(32);
     const redirectUri = `http://127.0.0.1:${listener.port()}/auth/callback`;
     const url = new URL(oauth.authorization_endpoint);
-    for (
-      const [key, value] of Object.entries({
-        response_type: "code",
-        client_id: CHATGPT_REGISTER_CLIENT,
-        agent_name_hint: OAUTH_APP_NAME,
-        ext_agent_host_id: hostId.value,
-        redirect_uri: redirectUri,
-        scope: oauth.scopes.join(" "),
-        resource: oauth.resource,
-        state,
-        nonce,
-        code_challenge: await pkceChallenge(verifier),
-        code_challenge_method: "S256",
-      })
-    ) url.searchParams.set(key, value);
+    for (const [key, value] of Object.entries({
+      response_type: "code",
+      client_id: CHATGPT_REGISTER_CLIENT,
+      agent_name_hint: OAUTH_APP_NAME,
+      ext_agent_host_id: hostId.value,
+      redirect_uri: redirectUri,
+      scope: oauth.scopes.join(" "),
+      resource: oauth.resource,
+      state,
+      nonce,
+      code_challenge: await pkceChallenge(verifier),
+      code_challenge_method: "S256",
+    }))
+      url.searchParams.set(key, value);
     const login = randomText(16);
     const stop = new AbortController();
     const deadlineMs = deps.nowMs() + CHATGPT_LOGIN_MS;
@@ -206,8 +203,8 @@ export function createProviderOAuth<T>(deps: {
     const body = started.value.body;
     const deviceCode = text(body["device_code"]);
     const userCode = text(body["user_code"]);
-    const signIn = text(body["verification_uri_complete"]) ??
-      text(body["verification_uri"]);
+    const signIn =
+      text(body["verification_uri_complete"]) ?? text(body["verification_uri"]);
     if (deviceCode === null || userCode === null || signIn === null) {
       return err({
         code: "unavailable",
@@ -217,8 +214,8 @@ export function createProviderOAuth<T>(deps: {
     const now = deps.nowMs();
     const intervalMs =
       (positive(body["interval"]) ?? DEVICE_DEFAULT_INTERVAL_S) * 1000;
-    const deadlineMs = now +
-      (positive(body["expires_in"]) ?? DEVICE_DEFAULT_EXPIRES_S) * 1000;
+    const deadlineMs =
+      now + (positive(body["expires_in"]) ?? DEVICE_DEFAULT_EXPIRES_S) * 1000;
     const login = randomText(16);
     sessions.set(login, {
       provider,
@@ -342,15 +339,15 @@ export function createProviderOAuth<T>(deps: {
       await sweep();
       return oauthFlowOf(oauth) === "pkce_loopback"
         ? await beginChatGpt(
-          provider,
-          oauth as Extract<OAuthDefinition, { product: "chatgpt" }>,
-          target,
-        )
+            provider,
+            oauth as Extract<OAuthDefinition, { product: "chatgpt" }>,
+            target,
+          )
         : await beginDevice(
-          provider,
-          oauth as Extract<OAuthDefinition, { product: "supergrok" }>,
-          target,
-        );
+            provider,
+            oauth as Extract<OAuthDefinition, { product: "supergrok" }>,
+            target,
+          );
     },
     async complete(provider, login) {
       await sweep();
@@ -431,7 +428,7 @@ export function objectOf(raw: string): Record<string, unknown> {
   try {
     const value = JSON.parse(raw);
     return value !== null && typeof value === "object" && !Array.isArray(value)
-      ? value as Record<string, unknown>
+      ? (value as Record<string, unknown>)
       : {};
   } catch {
     return {};
@@ -459,8 +456,8 @@ function tokensOf(
   return {
     access,
     refresh,
-    expires_at_ms: nowMs +
-      (positive(body["expires_in"]) ?? ACCESS_DEFAULT_S) * 1000,
+    expires_at_ms:
+      nowMs + (positive(body["expires_in"]) ?? ACCESS_DEFAULT_S) * 1000,
   };
 }
 
@@ -477,15 +474,16 @@ function grantedScopes(body: Record<string, unknown>): string[] {
 function base64url(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll(
-    "=",
-    "",
-  );
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
 }
 
 function fromBase64url(value: string): Uint8Array<ArrayBuffer> {
-  const normalized = value.replaceAll("-", "+").replaceAll("_", "/") +
-    "=".repeat((4 - value.length % 4) % 4);
+  const normalized =
+    value.replaceAll("-", "+").replaceAll("_", "/") +
+    "=".repeat((4 - (value.length % 4)) % 4);
   const binary = atob(normalized);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -517,7 +515,7 @@ function jwtPart(jwt: string, index: 0 | 1): Record<string, unknown> | null {
 
 function objectOrNull(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : null;
 }
 
@@ -548,14 +546,17 @@ async function rs256Verified(
   }
 }
 
-async function verifiedSubject(http: IssuerFetch, input: {
-  idToken: string | null;
-  jwksUri: string;
-  issuer: string;
-  clientId: string;
-  nonce: string;
-  nowMs: number;
-}): Promise<Result<string>> {
+async function verifiedSubject(
+  http: IssuerFetch,
+  input: {
+    idToken: string | null;
+    jwksUri: string;
+    issuer: string;
+    clientId: string;
+    nonce: string;
+    nowMs: number;
+  },
+): Promise<Result<string>> {
   const bad = refused("id_token을 믿을 수 없다");
   if (input.idToken === null) return bad;
   const header = jwtPart(input.idToken, 0);
@@ -572,8 +573,8 @@ async function verifiedSubject(http: IssuerFetch, input: {
     ? jwks.value.body["keys"].map(objectOrNull).filter((key) => key !== null)
     : [];
   const kid = header["kid"];
-  const candidates = keys.filter((key) =>
-    key["kty"] === "RSA" && (kid === undefined || key["kid"] === kid)
+  const candidates = keys.filter(
+    (key) => key["kty"] === "RSA" && (kid === undefined || key["kid"] === kid),
   );
   let signed = false;
   for (const key of candidates) {
@@ -587,10 +588,14 @@ async function verifiedSubject(http: IssuerFetch, input: {
   const exp = claims["exp"];
   const subject = text(claims["sub"]);
   if (
-    !signed || claims["iss"] !== input.issuer ||
+    !signed ||
+    claims["iss"] !== input.issuer ||
     !audiences.includes(input.clientId) ||
-    typeof exp !== "number" || exp * 1000 <= input.nowMs ||
-    claims["nonce"] !== input.nonce || subject === null
-  ) return bad;
+    typeof exp !== "number" ||
+    exp * 1000 <= input.nowMs ||
+    claims["nonce"] !== input.nonce ||
+    subject === null
+  )
+    return bad;
   return ok(subject);
 }

@@ -7,24 +7,27 @@ import type {
 } from "../../../protocol/lophn-agent/mod.ts";
 import { estimatedCost } from "./cost.ts";
 
-function basis(
-  cache: { read: string | null; write: string | null },
-): PriceBasis {
+function basis(cache: {
+  read: string | null;
+  write: string | null;
+}): PriceBasis {
   return {
     currency: "USD",
     source: "test",
     revision: "r1",
     checked_at: "2026-10-01T00:00:00.000Z",
-    rates: [{
-      context_from: null,
-      context_through: null,
-      cache_ttl_ms: null,
-      input: "3",
-      output: "15",
-      cache_read: cache.read,
-      cache_write: cache.write,
-      reasoning: null,
-    }],
+    rates: [
+      {
+        context_from: null,
+        context_through: null,
+        cache_ttl_ms: null,
+        input: "3",
+        output: "15",
+        cache_read: cache.read,
+        cache_write: cache.write,
+        reasoning: null,
+      },
+    ],
   };
 }
 

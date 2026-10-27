@@ -23,19 +23,17 @@ interface MarkdownPaneProps {
   onScroll?: () => void;
 }
 
-export function MarkdownPane(
-  {
-    text,
-    label,
-    editing,
-    width,
-    scrollRef,
-    articleRef,
-    editorRef,
-    onChange,
-    onScroll,
-  }: MarkdownPaneProps,
-) {
+export function MarkdownPane({
+  text,
+  label,
+  editing,
+  width,
+  scrollRef,
+  articleRef,
+  editorRef,
+  onChange,
+  onScroll,
+}: MarkdownPaneProps) {
   // gallery처럼 `lophnShell`이 없는 곳에서는 undefined이고, link를 넘기지 않는다.
   const openLink = windowLinkOpener();
   return (
@@ -47,23 +45,23 @@ export function MarkdownPane(
     >
       <ReadingFrame width={width}>
         <div ref={articleRef} className={styles.article} data-document-body="">
-          {editing
-            ? (
-              <MarkdownEditor
-                ref={editorRef}
-                initialText={text}
-                label={label}
-                onChange={onChange}
-              />
-            )
-            : (
-              <Markdown
-                source={text}
-                onOpenLink={openLink === undefined
+          {editing ? (
+            <MarkdownEditor
+              ref={editorRef}
+              initialText={text}
+              label={label}
+              onChange={onChange}
+            />
+          ) : (
+            <Markdown
+              source={text}
+              onOpenLink={
+                openLink === undefined
                   ? undefined
-                  : (href) => void openLink(href)}
-              />
-            )}
+                  : (href) => void openLink(href)
+              }
+            />
+          )}
         </div>
       </ReadingFrame>
     </div>

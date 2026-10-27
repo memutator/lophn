@@ -8,10 +8,11 @@ export function operatorPlaceAllowed(
   target: Place,
 ): boolean {
   if (ownPlace === null || ownPlace.kind !== target.kind) return false;
-  const kind = role === "project_manager"
-    ? "project"
-    : role === "app_engineer"
-    ? "app"
-    : null;
+  const kind =
+    role === "project_manager"
+      ? "project"
+      : role === "app_engineer"
+        ? "app"
+        : null;
   return kind === ownPlace.kind && ownPlace.id === target.id;
 }

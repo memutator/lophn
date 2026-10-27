@@ -52,28 +52,27 @@ test("E2E Gateway에 늦게 붙은 화면은 snapshot으로 대기 중인 허락
     const { snapshots } = await core.call(sessionSnapshotsList, {
       sessions: [session],
     });
-    await decide(
-      core,
-      session,
-      snapshots[0].turn_requests[0].id,
-      "once",
-    );
+    await decide(core, session, snapshots[0].turn_requests[0].id, "once");
     const ended = (gateway: Gateway) =>
       gateway.next("event", (frame) => frame.event.type === "TurnEnded");
     await Promise.all([ended(a), ended(b)]);
 
     const requestEvents = (gateway: Gateway) =>
-      gateway.frames().filter((frame) =>
-        frame.type === "event" && frame.event.type === "TurnRequestOpened"
-      );
+      gateway
+        .frames()
+        .filter(
+          (frame) =>
+            frame.type === "event" && frame.event.type === "TurnRequestOpened",
+        );
     // event
     assert.deepStrictEqual(requestEvents(a), [asked]);
     assert.deepStrictEqual(requestEvents(b), []);
     // route
     assert.deepStrictEqual(snapshots[0].turn_requests.length, 1);
-    assert.deepStrictEqual((await turnsOf(core, session)).map((t) => t.state), [
-      "finished",
-    ]);
+    assert.deepStrictEqual(
+      (await turnsOf(core, session)).map((t) => t.state),
+      ["finished"],
+    );
     // disk
     assert.deepStrictEqual(await ask.exists(), false);
   } finally {

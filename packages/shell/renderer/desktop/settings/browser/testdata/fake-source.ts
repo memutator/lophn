@@ -72,7 +72,7 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
         return refused("duplicate");
       }
       list = list.map((b) =>
-        b.id === input.id ? { ...b, title, url: input.url } : b
+        b.id === input.id ? { ...b, title, url: input.url } : b,
       );
       changed();
       return Promise.resolve({ ok: true, value: null });

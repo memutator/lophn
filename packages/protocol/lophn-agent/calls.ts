@@ -49,10 +49,12 @@ export type CallAgent = z.infer<typeof callAgentOutputSchema>;
 // agent가 tool에 쓰는 받는 이름이다. 정확히 맞는 것만 푼다. lophn은 place가 없고 Operator는 name을 준다.
 export const namedAgentSchema = z.strictObject({
   role: z.union([roleSchema, z.literal("coding_agent")]),
-  place: z.union([
-    z.strictObject({ project: z.string().min(1) }),
-    z.strictObject({ app: z.string().min(1) }),
-  ]).optional(),
+  place: z
+    .union([
+      z.strictObject({ project: z.string().min(1) }),
+      z.strictObject({ app: z.string().min(1) }),
+    ])
+    .optional(),
   name: z.string().min(1).optional(),
 });
 export type NamedAgent = z.infer<typeof namedAgentSchema>;
@@ -116,43 +118,48 @@ function launchesCoding(to: CallTo): boolean {
 }
 
 // Router 안에서 쓰는 풀린 봉투다. from은 core가 호출자 identity로 채운다.
-const callEnvelopeSchema = z.object({
-  call: idSchema("cal"),
-  from: callFromOutputSchema,
-  to: callToSchema,
-  reply: callReplySchema,
-  body: z.string().min(1),
-  refs: z.array(callRefOutputSchema),
-  reply_to: idSchema("cal").nullable(),
-  // 보낸 쪽 tool call ID. agent가 보낸 call에만 있다.
-  dedup: z.string().min(1).nullable(),
-  options: codingOptionsSchema.nullable(),
-  // 보낸 turn의 mode가 unattended면 true. 답과 늦은 실패, 취소 알림이 이 표시를 따른다.
-  unattended: z.boolean(),
-}).refine((v) => v.options === null || launchesCoding(v.to), {
-  message: "options are only for launching a coding agent",
-}).refine((v) => v.dedup === null || v.from.kind === "agent", {
-  message: "dedup is only for an agent-originated call",
-});
+const callEnvelopeSchema = z
+  .object({
+    call: idSchema("cal"),
+    from: callFromOutputSchema,
+    to: callToSchema,
+    reply: callReplySchema,
+    body: z.string().min(1),
+    refs: z.array(callRefOutputSchema),
+    reply_to: idSchema("cal").nullable(),
+    // 보낸 쪽 tool call ID. agent가 보낸 call에만 있다.
+    dedup: z.string().min(1).nullable(),
+    options: codingOptionsSchema.nullable(),
+    // 보낸 turn의 mode가 unattended면 true. 답과 늦은 실패, 취소 알림이 이 표시를 따른다.
+    unattended: z.boolean(),
+  })
+  .refine((v) => v.options === null || launchesCoding(v.to), {
+    message: "options are only for launching a coding agent",
+  })
+  .refine((v) => v.dedup === null || v.from.kind === "agent", {
+    message: "dedup is only for an agent-originated call",
+  });
 export type CallEnvelope = z.infer<typeof callEnvelopeSchema>;
 
 // agent_calls 행이다. 내용(body, refs)은 받는 session 기록에 있다.
-const agentCallRecordSchema = z.object({
-  call: idSchema("cal"),
-  from: callFromOutputSchema,
-  to: callToSchema,
-  // 줄에 서서 기다리는 coding 맡기기와 배달 실패는 null이다.
-  receiver_session: idSchema("ses").nullable(),
-  reply: callReplySchema,
-  state: callStateSchema,
-  fail_reason: callFailReasonSchema.nullable(),
-  dedup: z.string().min(1).nullable(),
-  unattended: z.boolean(),
-  created_at: atSchema,
-  state_changed_at: atSchema,
-}).refine((v) => (v.state === "failed") === (v.fail_reason !== null), {
-  message: "fail_reason belongs to a failed call",
-});
+const agentCallRecordSchema = z
+  .object({
+    call: idSchema("cal"),
+    from: callFromOutputSchema,
+    to: callToSchema,
+    // 줄에 서서 기다리는 coding 맡기기와 배달 실패는 null이다.
+    receiver_session: idSchema("ses").nullable(),
+    reply: callReplySchema,
+    state: callStateSchema,
+    fail_reason: callFailReasonSchema.nullable(),
+    dedup: z.string().min(1).nullable(),
+    unattended: z.boolean(),
+    created_at: atSchema,
+    state_changed_at: atSchema,
+  })
+  .refine((v) => (v.state === "failed") === (v.fail_reason !== null), {
+    message: "fail_reason belongs to a failed call",
+  });
 export type AgentCallRecord = z.infer<typeof agentCallRecordSchema>;
 
 const commandErrors = [
@@ -242,19 +249,25 @@ export const callSendable = defineRead({
   method: "sendable",
   name: "ListSendableSessions",
   input: z.strictObject({}),
-  output: withReadCommon(z.object({
-    sessions: z.array(z.object({
-      session: idSchema("ses"),
-      role: z.union([roleSchema, z.literal("coding_agent")]),
-      place: placeOutputSchema.nullable(),
-      name: z.string(),
-      state: z.enum(SENDABLE_SESSION_STATES),
-    })),
-    queued_coding: z.array(z.object({
-      call: idSchema("cal"),
-      app: idSchema("app"),
-    })),
-  })),
+  output: withReadCommon(
+    z.object({
+      sessions: z.array(
+        z.object({
+          session: idSchema("ses"),
+          role: z.union([roleSchema, z.literal("coding_agent")]),
+          place: placeOutputSchema.nullable(),
+          name: z.string(),
+          state: z.enum(SENDABLE_SESSION_STATES),
+        }),
+      ),
+      queued_coding: z.array(
+        z.object({
+          call: idSchema("cal"),
+          app: idSchema("app"),
+        }),
+      ),
+    }),
+  ),
   actors: ["agent"],
   errors: [...readErrors],
 });

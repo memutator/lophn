@@ -47,7 +47,9 @@ function sourceOf(text: string): ByteSource {
 }
 
 function linesOf(path: string) {
-  return readFileSync(path, "utf8").split("\n").filter((line) => line !== "")
+  return readFileSync(path, "utf8")
+    .split("\n")
+    .filter((line) => line !== "")
     .map((line) => appLogLineSchema.parse(JSON.parse(line)));
 }
 
@@ -111,7 +113,7 @@ test("log file은 상한을 넘지 않는다. 넘치면 오래된 줄부터 버�
     assert.ok(sizeOf(current) <= APP_LOG_FILE_MAX_BYTES);
     assert.ok(sizeOf(previous) <= APP_LOG_FILE_MAX_BYTES);
     const numbers = [...linesOf(previous), ...linesOf(current)].map((line) =>
-      Number(line.text.slice(0, 8))
+      Number(line.text.slice(0, 8)),
     );
     assert.deepStrictEqual(numbers.at(-1), first - 1);
     assert.ok(numbers[0] > 0);

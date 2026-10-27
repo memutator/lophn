@@ -42,14 +42,13 @@ function setup() {
   const db = new DatabaseSync(":memory:");
   // tool call 같은 앞 표의 행은 이 시험이 판정하지 않으므로 외래 키를 켜지 않는다.
   db.exec("pragma foreign_keys = off");
-  for (
-    const step of [
-      ...conversationSchemaSteps,
-      ...turnSchemaSteps,
-      ...toolsSchemaSteps,
-      ...revertSchemaSteps,
-    ]
-  ) db.exec(step.sql);
+  for (const step of [
+    ...conversationSchemaSteps,
+    ...turnSchemaSteps,
+    ...toolsSchemaSteps,
+    ...revertSchemaSteps,
+  ])
+    db.exec(step.sql);
   const sql: Sql = {
     run: (query, params) => db.prepare(query).run(...params),
     get: (query, params) => db.prepare(query).get(...params) as never,
@@ -66,7 +65,10 @@ function setup() {
     [SESSION],
   );
   // turn을 시작한 입력 메시지 둘이다. 둘 다 checkpoint다.
-  for (const [id, seq] of [["msg_1", 1], ["msg_2", 2]] as const) {
+  for (const [id, seq] of [
+    ["msg_1", 1],
+    ["msg_2", 2],
+  ] as const) {
     sql.run(
       `insert into messages (id, session, from_kind, body, created_seq, created_at, state_seq)
        values (?, ?, 'human', ?, ?, '2026-10-16T00:00:00.000Z', ?)`,
@@ -98,9 +100,10 @@ test("rewind는 고른 시점 뒤에 file tool로 바꾼 파일만 되돌리고 
       before: string | null,
       after: string,
     ) => {
-      const blob = before === null
-        ? null
-        : (await store.put(SESSION, new TextEncoder().encode(before))).key;
+      const blob =
+        before === null
+          ? null
+          : (await store.put(SESSION, new TextEncoder().encode(before))).key;
       sql.run(
         `insert into rewind_files
            (tool_call, root, path, checkpoint, seq, before_exists, before_sha256, before_blob,
@@ -129,17 +132,21 @@ test("rewind는 고른 시점 뒤에 file tool로 바꾼 파일만 되돌리고 
       checkpoint: "msg_2",
       choice: "restore_all" as const,
     };
-    const first = planRewind({ sql }, {
-      observe: (files) => {
-        const seen = new Map();
-        for (const file of files) {
-          for (const [path, stat] of observeFiles(file.root, [file.path])) {
-            seen.set(path, stat);
+    const first = planRewind(
+      { sql },
+      {
+        observe: (files) => {
+          const seen = new Map();
+          for (const file of files) {
+            for (const [path, stat] of observeFiles(file.root, [file.path])) {
+              seen.set(path, stat);
+            }
           }
-        }
-        return seen;
+          return seen;
+        },
       },
-    }, target);
+      target,
+    );
     assert.ok(first.ok);
     const files = await prepareRestore({
       store,
@@ -150,17 +157,22 @@ test("rewind는 고른 시점 뒤에 file tool로 바꾼 파일만 되돌리고 
     const commands = createSessionRewindCommands({
       effects: { summaryOk: () => true, cancelWaiting: () => ok(undefined) },
     });
-    const done = commands.rewind.handle(tx, user, {
-      id: "rwd_1",
-      session: SESSION,
-      checkpoint: "msg_2",
-      choice: "restore_all",
-      accept_remaining: true,
-      preview_hash: first.value.preview.preview_hash,
-      summary_call: null,
-      files,
-      apps: [],
-    } as never, {} as never);
+    const done = commands.rewind.handle(
+      tx,
+      user,
+      {
+        id: "rwd_1",
+        session: SESSION,
+        checkpoint: "msg_2",
+        choice: "restore_all",
+        accept_remaining: true,
+        preview_hash: first.value.preview.preview_hash,
+        summary_call: null,
+        files,
+        apps: [],
+      } as never,
+      {} as never,
+    );
     assert.ok(done.ok);
     assert.deepStrictEqual(done.value.outcome, "applied");
     await installRestore({

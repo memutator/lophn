@@ -67,7 +67,7 @@ async function filesWith(dir: string, key: string): Promise<string[]> {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const path = `${dir}/${entry.name}`;
     if (entry.isDirectory()) {
-      found.push(...await filesWith(path, key));
+      found.push(...(await filesWith(path, key)));
     } else if (entry.isFile() && entry.name !== SECRET_FILE_NAME) {
       const text = new TextDecoder("latin1").decode(await readFile(path));
       if (text.includes(key)) found.push(path);
@@ -114,16 +114,20 @@ test("device code 로그인이 발급자 간격을 지키고 secret 셋을 저�
       provider,
       login: started.login,
     });
-    const tokenRequestsAtEarly = issuer.journal().filter((entry) =>
-      entry.path === "/token"
-    ).length;
-    await until("로그인이 끝남", async () => {
-      const step = await core.call(loginComplete, {
-        provider,
-        login: started.login,
-      });
-      return step.state === "connected" ? step : undefined;
-    }, LOGIN_MS);
+    const tokenRequestsAtEarly = issuer
+      .journal()
+      .filter((entry) => entry.path === "/token").length;
+    await until(
+      "로그인이 끝남",
+      async () => {
+        const step = await core.call(loginComplete, {
+          provider,
+          login: started.login,
+        });
+        return step.state === "connected" ? step : undefined;
+      },
+      LOGIN_MS,
+    );
 
     // 1. 발급자: device 시작 하나, 간격 전 complete는 발급자에 묻지 않음, poll 둘은 간격 이상 떨어짐.
     assert.deepStrictEqual(early.state, "pending");
@@ -179,12 +183,14 @@ test("PKCE 로그인이 loopback callback으로 끝나고 code와 token이 secre
       nonce: params.get("nonce")!,
     });
     issuer.script({
-      authorization_code: [{
-        kind: "tokens",
-        access,
-        refresh,
-        id_token: idToken,
-      }],
+      authorization_code: [
+        {
+          kind: "tokens",
+          access,
+          refresh,
+          id_token: idToken,
+        },
+      ],
     });
     const pending = await core.call(loginComplete, {
       provider,
@@ -199,13 +205,17 @@ test("PKCE 로그인이 loopback callback으로 끝나고 code와 token이 secre
       })}`,
     );
     await callback.body?.cancel();
-    await until("로그인이 끝남", async () => {
-      const step = await core.call(loginComplete, {
-        provider,
-        login: started.login,
-      });
-      return step.state === "connected" ? step : undefined;
-    }, LOGIN_MS);
+    await until(
+      "로그인이 끝남",
+      async () => {
+        const step = await core.call(loginComplete, {
+          provider,
+          login: started.login,
+        });
+        return step.state === "connected" ? step : undefined;
+      },
+      LOGIN_MS,
+    );
 
     // 1. 발급자: code 교환에 verifier와 redirect_uri가 있고 jwks를 읽음
     assert.deepStrictEqual(pending.state, "pending");
@@ -219,10 +229,9 @@ test("PKCE 로그인이 loopback callback으로 끝나고 code와 token이 secre
     assert.deepStrictEqual(form["redirect_uri"], redirect);
     assert.ok(verifier !== undefined && verifier.length > 0);
     assert.deepStrictEqual(
-      journal.filter((entry) =>
-        entry.path === "/jwks" && entry.method === "GET"
-      )
-        .length,
+      journal.filter(
+        (entry) => entry.path === "/jwks" && entry.method === "GET",
+      ).length,
       1,
     );
 
@@ -309,7 +318,9 @@ test("구독 token이 model 요청의 Bearer header로만 나간다", async () =
     // 2. ledger
     assert.deepStrictEqual(turn.outcome?.kind, "completed");
     // 3. 발급자: 만료가 멀어 갱신하지 않고 로그인 요청뿐
-    const grants = issuer.journal().filter((entry) => entry.path === "/token")
+    const grants = issuer
+      .journal()
+      .filter((entry) => entry.path === "/token")
       .map((entry) => entry.form["grant_type"]);
     assert.deepStrictEqual(grants.length, 1);
     assert.ok(!grants.includes("refresh_token"));
@@ -325,11 +336,13 @@ test("만료가 가까우면 runtime이 청할 때 core가 먼저 갱신하고 �
     const newAccess = core.ids.newId("key");
     const newRefresh = core.ids.newId("key");
     issuer.script({
-      refresh_token: [{
-        kind: "tokens",
-        access: newAccess,
-        refresh: newRefresh,
-      }],
+      refresh_token: [
+        {
+          kind: "tokens",
+          access: newAccess,
+          refresh: newRefresh,
+        },
+      ],
     });
     const session = await openSession(core, { role: "lophn" });
     fake.script([{ reply: { kind: "text", text: "ok" } }]);
@@ -337,9 +350,9 @@ test("만료가 가까우면 runtime이 청할 때 core가 먼저 갱신하고 �
     await waitTurnEnd(core, session);
 
     // 1. 발급자: refresh_token grant 하나, 로그인 때 refresh와 정의의 client_id
-    const refreshes = issuer.journal().filter((entry) =>
-      entry.form["grant_type"] === "refresh_token"
-    );
+    const refreshes = issuer
+      .journal()
+      .filter((entry) => entry.form["grant_type"] === "refresh_token");
     assert.deepStrictEqual(refreshes.length, 1);
     assert.deepStrictEqual(refreshes[0]!.form["refresh_token"], first.refresh);
     assert.deepStrictEqual(refreshes[0]!.form["client_id"], "e2e-client");
@@ -392,11 +405,7 @@ test("갱신이 거절되면 credential이 revoked이고 model 요청이 나가�
 test("구독 token은 route 출력과 secrets.json 밖 어디에도 남지 않는다", async () => {
   await withFakes(async ({ run, fake, issuer, core }) => {
     const { provider, access, refresh, device_code } =
-      await connectOAuthProvider(
-        core,
-        issuer,
-        fake,
-      );
+      await connectOAuthProvider(core, issuer, fake);
     const session = await openSession(core, { role: "lophn" });
     fake.script([{ reply: { kind: "text", text: "ok" } }]);
     await say(core, session, "hello");

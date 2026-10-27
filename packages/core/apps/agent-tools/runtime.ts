@@ -45,13 +45,15 @@ export const RUNTIME_TOOLS: readonly ToolDefinition[] = [
       if (!read.ok) return read;
       const { body } = readBody(read.value);
       const count = `${body.lines.length} lines`;
-      return ok(fitted(
-        body.truncated
-          ? `${count} (older lines exist; narrow with since, until or invocation)`
-          : count,
-        body,
-        ["lines"],
-      ));
+      return ok(
+        fitted(
+          body.truncated
+            ? `${count} (older lines exist; narrow with since, until or invocation)`
+            : count,
+          body,
+          ["lines"],
+        ),
+      );
     },
   }),
   defineTool({
@@ -67,11 +69,13 @@ export const RUNTIME_TOOLS: readonly ToolDefinition[] = [
       const read = await readOf(ctx.core, appInvocations, input);
       if (!read.ok) return read;
       const { body, more } = readBody(read.value);
-      return ok(fitted(
-        countSummary("invocations", body.invocations.length, more),
-        body,
-        ["invocations"],
-      ));
+      return ok(
+        fitted(
+          countSummary("invocations", body.invocations.length, more),
+          body,
+          ["invocations"],
+        ),
+      );
     },
   }),
 ];

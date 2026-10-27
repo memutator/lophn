@@ -65,9 +65,14 @@ function fail(
 // reason에 붙어 agent가 고칠 곳(선언, 화면 code, package 판)을 가리킨다.
 function denoHead(code: string, stderr: string, staging: string): string {
   const esc = String.fromCharCode(27);
-  const text = stderr.replace(new RegExp(`${esc}\\[[0-9;]*m`, "g"), "")
-    .replaceAll(`file://${staging}/`, "").replaceAll(`${staging}/`, "")
-    .split("\n").slice(0, 5).join("\n").trim();
+  const text = stderr
+    .replace(new RegExp(`${esc}\\[[0-9;]*m`, "g"), "")
+    .replaceAll(`file://${staging}/`, "")
+    .replaceAll(`${staging}/`, "")
+    .split("\n")
+    .slice(0, 5)
+    .join("\n")
+    .trim();
   if (text === "") return code;
   return `${code}: ${text.length > 500 ? `${text.slice(0, 500)}...` : text}`;
 }
@@ -89,11 +94,14 @@ async function runDeno(
   const child = spawn(deno, [...args], {
     cwd: options.cwd,
     // clearEnv는 부모 환경을 물려주지 않는다는 뜻이라 넘길 env만 준다. Node의 env는 환경을 통째로 바꾼다.
-    ...(options.env === undefined ? {} : {
-      env: options.clearEnv === true
-        ? options.env
-        : { ...process.env, ...options.env },
-    }),
+    ...(options.env === undefined
+      ? {}
+      : {
+          env:
+            options.clearEnv === true
+              ? options.env
+              : { ...process.env, ...options.env },
+        }),
     stdio: ["ignore", "pipe", "pipe"],
   });
   const outChunks: Buffer[] = [];
@@ -105,7 +113,9 @@ async function runDeno(
     stopped ??= why;
     try {
       child.kill("SIGKILL");
-    } catch { /* 이미 끝났다 */ }
+    } catch {
+      /* 이미 끝났다 */
+    }
   };
   const timer = setTimeout(kill("timeout"), options.limitMs);
   const onAbort = kill("aborted");
@@ -128,11 +138,11 @@ async function runDeno(
   }
 }
 
-const EVAL_DECLARATION =
-  new URL("../ui-build/eval-declaration.ts", import.meta.url)
-    .pathname;
-const APP_BUILD = new URL("../ui-build/app-build.ts", import.meta.url)
-  .pathname;
+const EVAL_DECLARATION = new URL(
+  "../ui-build/eval-declaration.ts",
+  import.meta.url,
+).pathname;
+const APP_BUILD = new URL("../ui-build/app-build.ts", import.meta.url).pathname;
 const PACKAGES_URL = new URL("../../../../", import.meta.url).href;
 const REPO = new URL("../../../../../", import.meta.url).pathname.replace(
   /\/$/,
@@ -140,24 +150,18 @@ const REPO = new URL("../../../../../", import.meta.url).pathname.replace(
 );
 
 // 화면 build 결과(dist/screens/<key>/)를 bundle 입력으로 읽는다. 진입 JS는 화면, 나머지는 자원이다.
-async function readBuiltScreens(
-  staging: string,
-): Promise<
-  {
-    screens: { path: string; bytes: Uint8Array }[];
-    assets: { path: string; bytes: Uint8Array }[];
-  }
-> {
+async function readBuiltScreens(staging: string): Promise<{
+  screens: { path: string; bytes: Uint8Array }[];
+  assets: { path: string; bytes: Uint8Array }[];
+}> {
   const screens: { path: string; bytes: Uint8Array }[] = [];
   const assets: { path: string; bytes: Uint8Array }[] = [];
   const root = `${staging}/dist/screens`;
   for (const entry of await readdir(root, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
-    for (
-      const file of await readdir(`${root}/${entry.name}`, {
-        withFileTypes: true,
-      })
-    ) {
+    for (const file of await readdir(`${root}/${entry.name}`, {
+      withFileTypes: true,
+    })) {
       if (!file.isFile()) continue;
       const item = {
         path: `screens/${entry.name}/${file.name}`,
@@ -204,21 +208,26 @@ async function fetchExternal(
   // 정확한 pin 하나씩과 앱이 쓰는 하위 경로까지 불러 와야 그 module이 사본에 든다.
   await writeFile(
     `${directory}/deps.ts`,
-    specifiers.map((specifier) => `import ${JSON.stringify(specifier)};\n`)
+    specifiers
+      .map((specifier) => `import ${JSON.stringify(specifier)};\n`)
       .join(""),
   );
-  const fetched = await runDeno(deno, [
-    "cache",
-    "--no-lock",
-    `--config=${directory}/deno.json`,
-    `${directory}/deps.ts`,
-  ], {
-    cwd: directory,
-    signal: options.signal,
-    limitMs: options.limitMs,
-    env: options.env,
-    clearEnv: true,
-  });
+  const fetched = await runDeno(
+    deno,
+    [
+      "cache",
+      "--no-lock",
+      `--config=${directory}/deno.json`,
+      `${directory}/deps.ts`,
+    ],
+    {
+      cwd: directory,
+      signal: options.signal,
+      limitMs: options.limitMs,
+      env: options.env,
+      clearEnv: true,
+    },
+  );
   if (fetched === "aborted") return fail("cancelled");
   if (fetched === "timeout") return fail("elapsed_ms");
   if (fetched.code !== 0) {
@@ -291,16 +300,20 @@ export async function prepareFromSource(
     if (aborted()) return fail("cancelled");
 
     // `deno eval`은 모든 권한으로 돌므로 쓰지 않는다. read(staging·설치 SDK)만 허락한 `deno run`이다.
-    const evaluated = await runDeno(deno, [
-      "run",
-      "--no-prompt",
-      // 앱의 deno.json(설정·task)은 읽지 않는다. 풀이는 신뢰된 import map 하나다.
-      "--no-config",
-      `--import-map=${staging}/.lophn/import-map.json`,
-      `--allow-read=${staging},${sdkRoot}`,
-      EVAL_DECLARATION,
-      `${staging}/lophn.ts`,
-    ], { cwd: staging, signal: deps.signal, limitMs });
+    const evaluated = await runDeno(
+      deno,
+      [
+        "run",
+        "--no-prompt",
+        // 앱의 deno.json(설정·task)은 읽지 않는다. 풀이는 신뢰된 import map 하나다.
+        "--no-config",
+        `--import-map=${staging}/.lophn/import-map.json`,
+        `--allow-read=${staging},${sdkRoot}`,
+        EVAL_DECLARATION,
+        `${staging}/lophn.ts`,
+      ],
+      { cwd: staging, signal: deps.signal, limitMs },
+    );
     if (evaluated === "aborted") return fail("cancelled");
     if (evaluated === "timeout") return fail("elapsed_ms");
     if (evaluated.code !== 0) {
@@ -312,22 +325,26 @@ export async function prepareFromSource(
     // 화면 build는 앱이 쓴 build script가 아니라 신뢰된 `ui-build/app-build.ts`가 한다. 앱 코드는 번들될
     // 뿐 실행되지 않는다. lophn 자신의 code라 Deno 권한을 좁히지 않는다: 좁히면 자식이 `node:*`로 받는
     // 권한 요구에서 깨진다. env는 필요한 이름만 넘긴다.
-    const built = await runDeno(deno, [
-      "run",
-      "--no-prompt",
-      `--config=${REPO}/deno.json`,
-      "--allow-all",
-      APP_BUILD,
-      staging,
-      sdkRoot,
-      denoDir,
-    ], {
-      cwd: staging,
-      signal: deps.signal,
-      limitMs,
-      env: buildEnvironment(`${staging}/.tmp`),
-      clearEnv: true,
-    });
+    const built = await runDeno(
+      deno,
+      [
+        "run",
+        "--no-prompt",
+        `--config=${REPO}/deno.json`,
+        "--allow-all",
+        APP_BUILD,
+        staging,
+        sdkRoot,
+        denoDir,
+      ],
+      {
+        cwd: staging,
+        signal: deps.signal,
+        limitMs,
+        env: buildEnvironment(`${staging}/.tmp`),
+        clearEnv: true,
+      },
+    );
     if (built === "aborted") return fail("cancelled");
     if (built === "timeout") return fail("elapsed_ms");
     if (built.code !== 0) {
@@ -342,9 +359,11 @@ export async function prepareFromSource(
     // 잠근 npm·jsr 값(하위 경로 포함)을 한 번 받아 둔다. 같은 값은 한 번만 부른다.
     const specifiers = [
       ...new Set(
-        Object.values(locked.value.imports).filter((value) =>
-          value.startsWith("npm:") || value.startsWith("jsr:")
-        ).map((value) => value.replace(/\/$/, "")),
+        Object.values(locked.value.imports)
+          .filter(
+            (value) => value.startsWith("npm:") || value.startsWith("jsr:"),
+          )
+          .map((value) => value.replace(/\/$/, "")),
       ),
     ].sort();
     const vendored = await fetchExternal(
@@ -361,35 +380,38 @@ export async function prepareFromSource(
     if (!vendored.ok) return vendored;
     if (aborted()) return fail("cancelled");
 
-    return await prepareRelease({
-      dataRoot: input.dataRoot,
-      app: input.app,
-      sourceRoot: input.sourceRoot,
-      commit: input.commit,
-      entrypoint: platformEntry.entrypoint,
-      entryFiles: platformEntry.files,
-      declarationSource: evaluated.stdout.trim(),
-      screens: screens.screens,
-      assets: screens.assets,
-      dependencies: [
-        ...locked.value.packages.map((item) => ({
-          ...item,
-          source: item.name.startsWith("@me/")
-            ? "package" as const
-            : "sdk" as const,
-        })),
-        ...locked.value.external,
-      ],
-      uiDependencies: [
-        ...locked.value.packages.filter((item) =>
-          (FIXED_UI_DEPENDENCIES as readonly string[]).includes(item.name)
-        ),
-        ...reactPins(imports),
-      ],
-      sdkCopies: copies.value,
-      vendorCopies: vendored.value,
-      lockedImports: { ...locked.value.imports, ...platformEntry.imports },
-    }, { ...deps, git, cancelled: aborted });
+    return await prepareRelease(
+      {
+        dataRoot: input.dataRoot,
+        app: input.app,
+        sourceRoot: input.sourceRoot,
+        commit: input.commit,
+        entrypoint: platformEntry.entrypoint,
+        entryFiles: platformEntry.files,
+        declarationSource: evaluated.stdout.trim(),
+        screens: screens.screens,
+        assets: screens.assets,
+        dependencies: [
+          ...locked.value.packages.map((item) => ({
+            ...item,
+            source: item.name.startsWith("@me/")
+              ? ("package" as const)
+              : ("sdk" as const),
+          })),
+          ...locked.value.external,
+        ],
+        uiDependencies: [
+          ...locked.value.packages.filter((item) =>
+            (FIXED_UI_DEPENDENCIES as readonly string[]).includes(item.name),
+          ),
+          ...reactPins(imports),
+        ],
+        sdkCopies: copies.value,
+        vendorCopies: vendored.value,
+        lockedImports: { ...locked.value.imports, ...platformEntry.imports },
+      },
+      { ...deps, git, cancelled: aborted },
+    );
   } catch {
     return fail("staging_failed", "unavailable");
   } finally {

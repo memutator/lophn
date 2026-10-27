@@ -72,8 +72,9 @@ export function visibleMessages(
   for (const message of conversation.messages) {
     if (message.seq <= covered) continue;
     if (isHidden(message.seq)) continue;
-    const fold = folds.find((entry) =>
-      message.seq >= entry.from_seq && message.seq <= entry.through_seq
+    const fold = folds.find(
+      (entry) =>
+        message.seq >= entry.from_seq && message.seq <= entry.through_seq,
     );
     if (fold === undefined) {
       visible.push(message);
@@ -98,8 +99,9 @@ export function sessionMaterial(conversation: SessionConversation): {
 } {
   const history: HistoryMessage[] = [];
   for (const message of visibleMessages(conversation)) {
-    const parts = message.parts ??
-      [{ kind: "text" as const, text: message.text }];
+    const parts = message.parts ?? [
+      { kind: "text" as const, text: message.text },
+    ];
     const last = history[history.length - 1];
     if (last !== undefined && last.role === message.role) {
       history[history.length - 1] = {
@@ -161,15 +163,18 @@ export function compactSummaryRequest(input: {
       ? []
       : ["Earlier summary:", input.previous, ""]),
     "Messages, oldest first:",
-    ...input.messages.map((message) =>
-      `[${message.role === "user" ? "Person" : "Agent"}] ${message.text}`
+    ...input.messages.map(
+      (message) =>
+        `[${message.role === "user" ? "Person" : "Agent"}] ${message.text}`,
     ),
   ]);
   return {
-    system: [{
-      layer: "role",
-      text: compactSummaryInstructions(input.cap),
-    }],
+    system: [
+      {
+        layer: "role",
+        text: compactSummaryInstructions(input.cap),
+      },
+    ],
     tools: [],
     messages: [{ role: "user", parts: [{ kind: "text", text: material }] }],
   };

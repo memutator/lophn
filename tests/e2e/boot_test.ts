@@ -116,9 +116,11 @@ async function withCore(
 async function bootWithOpenRequest(
   env: Parameters<Parameters<typeof withCore>[0]>[0],
 ): Promise<Core> {
-  env.fake.script([{
-    reply: { kind: "stall", partial: { text: "half an ans" } },
-  }]);
+  env.fake.script([
+    {
+      reply: { kind: "stall", partial: { text: "half an ans" } },
+    },
+  ]);
   const core = await env.boot();
   await connectFakeProvider(core, env.fake);
   const session = await openSession(core, { role: "lophn" });
@@ -138,8 +140,8 @@ test("같은 data root에 둘째 core는 시작하지 못하고 첫째의 data�
     const location = `${run.home}/run/location.json`;
     const processes = await processesOf(run.home);
     const metadata = await readFile(location);
-    const messages =
-      (await first.call(receivedMessageList, { session })).messages.length;
+    const messages = (await first.call(receivedMessageList, { session }))
+      .messages.length;
     const turns = (await first.call(turnList, { session })).turns.length;
 
     const second = await tryBootCore(run);
@@ -203,10 +205,7 @@ test("손상된 ledger로는 시작을 거절하고 원본을 그대로 둔다",
     const core = await boot();
     await core.stop();
     const ledger = `${run.home}/lophn.db`;
-    await writeFile(
-      ledger,
-      new TextEncoder().encode("garbage ".repeat(500)),
-    );
+    await writeFile(ledger, new TextEncoder().encode("garbage ".repeat(500)));
     for (const sidecar of ["-wal", "-shm"]) {
       await rm(ledger + sidecar).catch(() => {});
     }

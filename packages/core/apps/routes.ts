@@ -153,8 +153,8 @@ export function appToolLookupOf(
       if (stored.value === null || stored.value.release.app !== app) {
         return ok(null);
       }
-      const declared = stored.value.declaration.tools.find((entry) =>
-        entry.name === tool
+      const declared = stored.value.declaration.tools.find(
+        (entry) => entry.name === tool,
       );
       if (declared === undefined) return ok(null);
       return ok({
@@ -204,9 +204,11 @@ export function withStartInvocation(
       }
       const { app, attestation, start_changeset: changeset } = input.data;
       if (
-        typeof changeset !== "string" || changeset === "" ||
+        typeof changeset !== "string" ||
+        changeset === "" ||
         attestation.release === null
-      ) return done;
+      )
+        return done;
       const id = deps.ids.newId("inv") as Id<"inv">;
       const begun = deps.ledger.begin({
         id,
@@ -249,10 +251,12 @@ export function bundleLocatorOf(
     dir(target) {
       if (target.mode !== "live") return missing();
       const app = target.app as Id<"app">;
-      const wanted = target.release ?? (() => {
-        const active = states.activeRelease(app);
-        return active.ok ? active.value : null;
-      })();
+      const wanted =
+        target.release ??
+        (() => {
+          const active = states.activeRelease(app);
+          return active.ok ? active.value : null;
+        })();
       if (wanted === null) return missing();
       const release = loadRelease(sql, wanted);
       if (!release.ok) return release;

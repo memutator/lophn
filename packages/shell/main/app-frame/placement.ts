@@ -47,7 +47,8 @@ export function createPlacement<T extends Placed>(deps: {
         entry.bounds,
         entry.layer,
       )
-    ) return;
+    )
+      return;
     entry.attached = true;
     if (entry.placed) entry.generation += 1;
     entry.placed = true;

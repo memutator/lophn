@@ -9,9 +9,6 @@ import { TOOL_ORDER } from "../agent-roles/tool-lists.ts";
 test("every builtin tool's resource name is a reserved domain name", () => {
   for (const name of TOOL_ORDER) {
     const resource = toWireToolName(name).split("_")[0];
-    assert.ok(
-      RESERVED_DOMAIN_NAMES.includes(resource),
-      `${name}: ${resource}`,
-    );
+    assert.ok(RESERVED_DOMAIN_NAMES.includes(resource), `${name}: ${resource}`);
   }
 });

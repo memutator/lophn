@@ -48,10 +48,10 @@ function stackedItems(
   }
   // 둥근 data 끝은 그 방향에서 실제로 그린 가장 바깥 조각이 갖는다.
   const outer = (up: boolean) =>
-    drawn.findLast((item) => (item.value > 0) === up);
+    drawn.findLast((item) => item.value > 0 === up);
   const ends = new Set([outer(true), outer(false)]);
   return drawn.map((item) =>
-    ends.has(item) ? { ...item, rounded: true } : item
+    ends.has(item) ? { ...item, rounded: true } : item,
   );
 }
 
@@ -127,9 +127,10 @@ export function barHits(
       const { xs, width: bar } = groupLayout(start, width, seriesCount);
       const index = item.series;
       const left = index === 0 ? start : (xs[index - 1] + bar + xs[index]) / 2;
-      const right = index === seriesCount - 1
-        ? start + width
-        : (xs[index] + bar + xs[index + 1]) / 2;
+      const right =
+        index === seriesCount - 1
+          ? start + width
+          : (xs[index] + bar + xs[index + 1]) / 2;
       return { x: left, y: top, width: right - left, height: bottom - top };
     }
     const column = columns.get(item.category)!;

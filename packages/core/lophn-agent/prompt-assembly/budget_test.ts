@@ -7,18 +7,20 @@ function requestWith(base64: string): PromptRequest {
   return {
     system: [],
     tools: [],
-    messages: [{
-      role: "user",
-      parts: [
-        { kind: "tool_result", id: "t1", text: "{}" },
-        {
-          kind: "tool_result_image",
-          id: "t1",
-          media_type: "image/png",
-          data_base64: base64,
-        },
-      ],
-    }],
+    messages: [
+      {
+        role: "user",
+        parts: [
+          { kind: "tool_result", id: "t1", text: "{}" },
+          {
+            kind: "tool_result_image",
+            id: "t1",
+            media_type: "image/png",
+            data_base64: base64,
+          },
+        ],
+      },
+    ],
   };
 }
 

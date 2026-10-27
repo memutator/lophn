@@ -21,26 +21,28 @@ import {
 const SESSION_LIFECYCLES = ["open", "archived"] as const;
 const sessionLifecycleSchema = z.enum(SESSION_LIFECYCLES);
 
-const agentSessionSchema = z.object({
-  id: idSchema("ses"),
-  agent: agentRefOutputSchema,
-  // agent에서 나오는 편의 칸이다.
-  place: placeOutputSchema.nullable(),
-  title: sessionTitleSchema.nullable(),
-  lifecycle: sessionLifecycleSchema,
-  forked_from: forkOriginOutputSchema.nullable(),
-  // null이면 agent 기본값을 따른다. 다음 turn부터 resolve한다.
-  model_selection: modelChoiceOutputSchema.nullable(),
-  compaction: compactionOutputSchema.nullable(),
-  // 사람이 켠 동안 이 session의 turn은 허락을 묻지 않는다(deny는 막는다). 바꾸면 다음 turn부터 닿는다.
-  skip: z.boolean(),
-  state_seq: seqSchema,
-}).refine(
-  (value) =>
-    rolePlaceFits(value.agent.role, value.place) &&
-    (value.forked_from === null || value.forked_from.session !== value.id),
-  { message: "session place does not fit its role or fork origin is itself" },
-);
+const agentSessionSchema = z
+  .object({
+    id: idSchema("ses"),
+    agent: agentRefOutputSchema,
+    // agent에서 나오는 편의 칸이다.
+    place: placeOutputSchema.nullable(),
+    title: sessionTitleSchema.nullable(),
+    lifecycle: sessionLifecycleSchema,
+    forked_from: forkOriginOutputSchema.nullable(),
+    // null이면 agent 기본값을 따른다. 다음 turn부터 resolve한다.
+    model_selection: modelChoiceOutputSchema.nullable(),
+    compaction: compactionOutputSchema.nullable(),
+    // 사람이 켠 동안 이 session의 turn은 허락을 묻지 않는다(deny는 막는다). 바꾸면 다음 turn부터 닿는다.
+    skip: z.boolean(),
+    state_seq: seqSchema,
+  })
+  .refine(
+    (value) =>
+      rolePlaceFits(value.agent.role, value.place) &&
+      (value.forked_from === null || value.forked_from.session !== value.id),
+    { message: "session place does not fit its role or fork origin is itself" },
+  );
 export type AgentSession = z.infer<typeof agentSessionSchema>;
 
 const openAgentSessionInputSchema = z.strictObject({

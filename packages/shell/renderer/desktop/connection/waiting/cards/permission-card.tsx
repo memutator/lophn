@@ -20,7 +20,9 @@ export interface DecideCardProps {
 export function Facts({ view }: { view: CardView }) {
   return (
     <dl className={styles.facts}>
-      {view.facts.map((fact) => <FactRow key={fact.label} fact={fact} />)}
+      {view.facts.map((fact) => (
+        <FactRow key={fact.label} fact={fact} />
+      ))}
     </dl>
   );
 }
@@ -30,30 +32,37 @@ function FactRow({ fact }: { fact: CardView["facts"][number] }) {
     <>
       <dt>{fact.label}</dt>
       <dd className={fact.style === "code" ? styles.code : undefined}>
-        {fact.style === "effect"
-          ? (
-            <span className={styles.effect} data-effect={fact.effect}>
-              {fact.value}
-            </span>
-          )
-          : fact.value}
+        {fact.style === "effect" ? (
+          <span className={styles.effect} data-effect={fact.effect}>
+            {fact.value}
+          </span>
+        ) : (
+          fact.value
+        )}
       </dd>
     </>
   );
 }
 
-export function PermissionCard(
-  { entry, view, onDecide, denying, reason, expanded = false }: DecideCardProps,
-) {
+export function PermissionCard({
+  entry,
+  view,
+  onDecide,
+  denying,
+  reason,
+  expanded = false,
+}: DecideCardProps) {
   const [open, setOpen] = useState(expanded);
   return (
     <article className={styles.request} data-kind="permission">
       <Head
         view={view}
         agent={entry.agent}
-        toggle={view.factsPinned
-          ? undefined
-          : { open, onToggle: () => setOpen(!open) }}
+        toggle={
+          view.factsPinned
+            ? undefined
+            : { open, onToggle: () => setOpen(!open) }
+        }
       />
       {open || view.factsPinned ? <Facts view={view} /> : null}
       <Decision

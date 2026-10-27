@@ -75,7 +75,9 @@ function checkSeriesList(
   return everyDense(
     series,
     (item) =>
-      isRecord(item) && isKey(item.key) && isText(item.label) &&
+      isRecord(item) &&
+      isKey(item.key) &&
+      isText(item.label) &&
       everyDense(
         item.values,
         (value) => value === null || isFiniteNumber(value),
@@ -90,22 +92,28 @@ interface TimeSeriesInput {
   readonly domain: readonly string[];
 }
 
-export function checkTimeSeries(
-  input: { x: unknown; series: unknown; domain?: unknown },
-): Checked<TimeSeriesInput> {
+export function checkTimeSeries(input: {
+  x: unknown;
+  series: unknown;
+  domain?: unknown;
+}): Checked<TimeSeriesInput> {
   const { x, series } = input;
   if (
     !everyDense<Date>(
       x,
       (value) => value instanceof Date && isFiniteNumber(value.getTime()),
     )
-  ) return invalid;
+  )
+    return invalid;
   // 시간 축은 앞으로만 간다. 같은 시각이 둘이면 십자선이 한 값을 고를 수 없다.
   if (x.some((value, index) => index > 0 && value <= x[index - 1])) {
     return invalid;
   }
   if (!checkSeriesList(series, x.length)) return invalid;
-  const domain = checkDomain(series.map((item) => item.key), input.domain);
+  const domain = checkDomain(
+    series.map((item) => item.key),
+    input.domain,
+  );
   return domain && foldsFinite(series, domain)
     ? { ok: true, value: { x, series, domain } }
     : invalid;
@@ -117,15 +125,19 @@ interface BarInput {
   readonly domain: readonly string[];
 }
 
-export function checkBars(
-  input: { categories: unknown; series: unknown; domain?: unknown },
-): Checked<BarInput> {
+export function checkBars(input: {
+  categories: unknown;
+  series: unknown;
+  domain?: unknown;
+}): Checked<BarInput> {
   const { categories, series } = input;
-  if (
-    !everyDense<string>(categories, isText) || !unique(categories)
-  ) return invalid;
+  if (!everyDense<string>(categories, isText) || !unique(categories))
+    return invalid;
   if (!checkSeriesList(series, categories.length)) return invalid;
-  const domain = checkDomain(series.map((item) => item.key), input.domain);
+  const domain = checkDomain(
+    series.map((item) => item.key),
+    input.domain,
+  );
   return domain && foldsFinite(series, domain)
     ? { ok: true, value: { categories, series, domain } }
     : invalid;
@@ -136,15 +148,18 @@ interface DistributionInput {
   readonly bins: number;
 }
 
-export function checkDistribution(
-  input: { values: unknown; bins?: unknown },
-): Checked<DistributionInput> {
+export function checkDistribution(input: {
+  values: unknown;
+  bins?: unknown;
+}): Checked<DistributionInput> {
   const { values, bins = DEFAULT_BINS } = input;
   if (!everyDense<number>(values, isFiniteNumber)) return invalid;
   if (
-    !Number.isSafeInteger(bins) || (bins as number) < 1 ||
+    !Number.isSafeInteger(bins) ||
+    (bins as number) < 1 ||
     (bins as number) > MAX_BINS
-  ) return invalid;
+  )
+    return invalid;
   return { ok: true, value: { values, bins: bins as number } };
 }
 
@@ -158,18 +173,22 @@ function isPoint(value: unknown): value is ScatterPoint {
 }
 
 // 산점 입력의 모양만 본다. 계열 수 제한은 checkScatter가 따로 본다(표 보기는 모든 값을 그대로 쓴다).
-export function checkScatterShape(
-  input: { groups: unknown; domain?: unknown },
-): Checked<ScatterInput> {
+export function checkScatterShape(input: {
+  groups: unknown;
+  domain?: unknown;
+}): Checked<ScatterInput> {
   const { groups } = input;
   if (
     !everyDense<ScatterGroup>(
       groups,
       (group) =>
-        isRecord(group) && isKey(group.key) && isText(group.label) &&
+        isRecord(group) &&
+        isKey(group.key) &&
+        isText(group.label) &&
         everyDense(group.points, isPoint),
     )
-  ) return invalid;
+  )
+    return invalid;
   const domain = checkDomain(
     groups.map((group) => group.key),
     input.domain,
@@ -178,9 +197,10 @@ export function checkScatterShape(
 }
 
 // 산점은 모든 쌍이 맞닿으므로 domain 자체가 3 엔티티 이하여야 그린다. 넘으면 버리거나 합치지 않고 알린다.
-export function checkScatter(
-  input: { groups: unknown; domain?: unknown },
-): Checked<ScatterInput> {
+export function checkScatter(input: {
+  groups: unknown;
+  domain?: unknown;
+}): Checked<ScatterInput> {
   const shape = checkScatterShape(input);
   if (shape.ok && shape.value.domain.length > ALL_PAIRS_MAX) {
     return { ok: false, problem: "too-many-groups" };
@@ -194,23 +214,31 @@ interface GraphInput {
 }
 
 function isStatus(value: unknown): boolean {
-  return isRecord(value) && isText(value.label) && isText(value.tone) &&
-    Object.hasOwn(tokens.status, value.tone);
+  return (
+    isRecord(value) &&
+    isText(value.label) &&
+    isText(value.tone) &&
+    Object.hasOwn(tokens.status, value.tone)
+  );
 }
 
-export function checkGraph(
-  input: { nodes: unknown; edges: unknown },
-): Checked<GraphInput> {
+export function checkGraph(input: {
+  nodes: unknown;
+  edges: unknown;
+}): Checked<GraphInput> {
   const { nodes, edges } = input;
   if (
     !everyDense<GraphNode>(
       nodes,
       (node) =>
-        isRecord(node) && isKey(node.id) && isText(node.label) &&
+        isRecord(node) &&
+        isKey(node.id) &&
+        isText(node.label) &&
         (node.status === undefined || isStatus(node.status)) &&
         (node.note === undefined || isText(node.note)),
     )
-  ) return invalid;
+  )
+    return invalid;
   const ids = nodes.map((node) => node.id);
   if (!unique(ids)) return invalid;
   const known = new Set(ids);
@@ -218,10 +246,15 @@ export function checkGraph(
     !everyDense<GraphEdge>(
       edges,
       (edge) =>
-        isRecord(edge) && isKey(edge.from) && isKey(edge.to) &&
-        known.has(edge.from) && known.has(edge.to) && edge.from !== edge.to &&
+        isRecord(edge) &&
+        isKey(edge.from) &&
+        isKey(edge.to) &&
+        known.has(edge.from) &&
+        known.has(edge.to) &&
+        edge.from !== edge.to &&
         (edge.label === undefined || isText(edge.label)),
     )
-  ) return invalid;
+  )
+    return invalid;
   return { ok: true, value: { nodes, edges } };
 }

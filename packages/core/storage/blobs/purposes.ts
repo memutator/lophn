@@ -22,10 +22,7 @@ const PURPOSES_DIR = "blobs/purposes";
 const PURPOSE_PREFIX_CHARS = 2;
 
 // hash의 목적 기록 경로. sha256 64-hex 밖은 거절한다(invalid_input).
-export function purposesPathFor(
-  root: string,
-  hash: string,
-): Result<string> {
+export function purposesPathFor(root: string, hash: string): Result<string> {
   if (!isSha256Hash(hash)) {
     return err({
       code: "invalid_input",
@@ -33,9 +30,9 @@ export function purposesPathFor(
     });
   }
   return ok(
-    `${root}/${PURPOSES_DIR}/${hash.slice(0, PURPOSE_PREFIX_CHARS)}/${
-      hash.slice(PURPOSE_PREFIX_CHARS)
-    }.json`,
+    `${root}/${PURPOSES_DIR}/${hash.slice(0, PURPOSE_PREFIX_CHARS)}/${hash.slice(
+      PURPOSE_PREFIX_CHARS,
+    )}.json`,
   );
 }
 
@@ -46,8 +43,8 @@ function categoryOfPurpose(
   rules: readonly RetentionRule[],
   purpose: string,
 ): BlobRetentionCategory | undefined {
-  const found = rules.find((rule) =>
-    rule.retention.kind === "capacity" && rule.field === purpose
+  const found = rules.find(
+    (rule) => rule.retention.kind === "capacity" && rule.field === purpose,
   );
   if (found === undefined || found.retention.kind !== "capacity") {
     return undefined;
@@ -83,9 +80,10 @@ export function assignmentOf(
   const assignment = new Map<string, AssignmentEntry>();
   const permanentFallback = PERMANENT_CATEGORY;
   for (const reference of references) {
-    const rule = rules.find((candidate) =>
-      candidate.owner_kind === reference.owner_kind &&
-      candidate.field === reference.field
+    const rule = rules.find(
+      (candidate) =>
+        candidate.owner_kind === reference.owner_kind &&
+        candidate.field === reference.field,
     );
     if (rule === undefined) continue;
     if (rule.retention.kind === "permanent") {

@@ -173,9 +173,12 @@ export const appsWiring: WiringFactory = () => {
             write === undefined
               ? err({ code: "unavailable", message: "ledger is not open" })
               : ok(
-                domainsOfOwner(write.sql, { kind: "app", id: app }, "active")
-                  .map((domain) => domain.name),
-              ),
+                  domainsOfOwner(
+                    write.sql,
+                    { kind: "app", id: app },
+                    "active",
+                  ).map((domain) => domain.name),
+                ),
           );
         } catch {
           return Promise.resolve(
@@ -312,8 +315,9 @@ export const appsWiring: WiringFactory = () => {
       const rewindReads = createRewindReads({ rewind });
       const locator: BundleLocator = {
         dir: (target) =>
-          (ctx.peek.bundleLocator ??
-            bundleLocatorOf(ctx.root.path, link.sql)).dir(target),
+          (
+            ctx.peek.bundleLocator ?? bundleLocatorOf(ctx.root.path, link.sql)
+          ).dir(target),
       };
       // activation: 다른 module의 port를 끼운다. 끼우기 전에는 일하지 않는다.
       const activation = appsControl.activation;
@@ -424,9 +428,10 @@ export const appsWiring: WiringFactory = () => {
                     input,
                     compare: {},
                     idempotency_key: key,
-                    prepared: input.guide_blob === undefined
-                      ? []
-                      : [input.guide_blob.preparation],
+                    prepared:
+                      input.guide_blob === undefined
+                        ? []
+                        : [input.guide_blob.preparation],
                   },
                 );
                 return done.ok ? ok(done.value.result as never) : done;
@@ -434,10 +439,9 @@ export const appsWiring: WiringFactory = () => {
             }),
           ],
         ],
-        fileStreams: [[
-          "apps/screen_file",
-          screenFileStream(createScreenFileDeps(locator)),
-        ]],
+        fileStreams: [
+          ["apps/screen_file", screenFileStream(createScreenFileDeps(locator))],
+        ],
         reads(reads) {
           appsControl.overlayReads(reads);
           reads.set("apps/rewind_plan", mainRead(rewindReads.plan, link.sql));
@@ -498,12 +502,11 @@ export const appsWiring: WiringFactory = () => {
       });
       const current = issued.ok
         ? registry.revalidate({
-          credential_ref: issued.value.credential_ref,
-        })
+            credential_ref: issued.value.credential_ref,
+          })
         : issued;
-      const recorded = issued.ok && current.ok
-        ? await runtime.record(current.value)
-        : current;
+      const recorded =
+        issued.ok && current.ok ? await runtime.record(current.value) : current;
       if (issued.ok && current.ok && recorded.ok) {
         const started = await ctx.appsSupervision.start(
           appSupervisorSpec(),
@@ -527,14 +530,16 @@ export const appsWiring: WiringFactory = () => {
                 message.kind === "lophn_internal"
               ) {
                 // 보내는 쪽 값을 믿지 않고 core가 component·location을 정한다.
-                void ctx.diagnosticsWrite({
-                  ...message,
-                  payload: {
-                    ...message.payload,
-                    component: "platform/app-supervisor",
-                    location: CRASH_LOCATIONS.appSupervisor,
-                  },
-                }).catch(() => {});
+                void ctx
+                  .diagnosticsWrite({
+                    ...message,
+                    payload: {
+                      ...message.payload,
+                      component: "platform/app-supervisor",
+                      location: CRASH_LOCATIONS.appSupervisor,
+                    },
+                  })
+                  .catch(() => {});
                 return;
               }
               appsControl.onSupervisorMessage(message);
@@ -550,21 +555,21 @@ export const appsWiring: WiringFactory = () => {
           const supervision = ctx.appsSupervision;
           appsControl.channel.bind({
             send: (payload) =>
-              supervision.send(APPS_SUPERVISOR_KIND, payload).then((sent) =>
-                sent.ok
-              ),
+              supervision
+                .send(APPS_SUPERVISOR_KIND, payload)
+                .then((sent) => sent.ok),
             sendBytes: (channel, chunk) =>
-              supervision.sendBytes(APPS_SUPERVISOR_KIND, channel, chunk).then((
-                sent,
-              ) => sent.ok),
+              supervision
+                .sendBytes(APPS_SUPERVISOR_KIND, channel, chunk)
+                .then((sent) => sent.ok),
             sendEnd: (channel) =>
-              supervision.sendEnd(APPS_SUPERVISOR_KIND, channel).then((sent) =>
-                sent.ok
-              ),
+              supervision
+                .sendEnd(APPS_SUPERVISOR_KIND, channel)
+                .then((sent) => sent.ok),
             sendAbort: (channel) =>
-              supervision.sendAbort(APPS_SUPERVISOR_KIND, channel).then((
-                sent,
-              ) => sent.ok),
+              supervision
+                .sendAbort(APPS_SUPERVISOR_KIND, channel)
+                .then((sent) => sent.ok),
           });
         }
       }
@@ -614,8 +619,9 @@ function declaredOAuth(
       result.push({
         name: scope.name,
         oauth: scope.oauth,
-        granted: access.some((entry) =>
-          entry.kind === "secret.use" && canonicalize(entry.scope) === wanted
+        granted: access.some(
+          (entry) =>
+            entry.kind === "secret.use" && canonicalize(entry.scope) === wanted,
         ),
       });
     }

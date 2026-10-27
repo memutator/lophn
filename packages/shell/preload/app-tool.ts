@@ -20,9 +20,10 @@ function replyOf(value: unknown): AppReply<unknown> | undefined {
   const reply = value as { ok?: unknown; error?: unknown };
   if (reply.ok === true) return value as AppReply<unknown>;
   const error = reply.error as { code?: unknown; message?: unknown } | null;
-  return reply.ok === false && typeof error?.code === "string" &&
-      typeof error.message === "string"
-    ? value as AppReply<unknown>
+  return reply.ok === false &&
+    typeof error?.code === "string" &&
+    typeof error.message === "string"
+    ? (value as AppReply<unknown>)
     : undefined;
 }
 
@@ -85,7 +86,8 @@ export function createViewErrorReport(
   let count = 0;
   return (observation, name, message) => {
     if (
-      observation !== "error" && observation !== "unhandledrejection" &&
+      observation !== "error" &&
+      observation !== "unhandledrejection" &&
       observation !== "render_error"
     ) {
       return;
@@ -100,11 +102,12 @@ export function createViewErrorReport(
     try {
       transport.send(APP_VIEW_ERROR_CHANNEL, {
         observation,
-        name: shown !== undefined && /\S/.test(shown)
-          ? shown
-          : observation === "unhandledrejection"
-          ? "UnhandledRejection"
-          : "Error",
+        name:
+          shown !== undefined && /\S/.test(shown)
+            ? shown
+            : observation === "unhandledrejection"
+              ? "UnhandledRejection"
+              : "Error",
         message: text(message, MESSAGE_MAX_CHARS) ?? null,
       });
     } catch {

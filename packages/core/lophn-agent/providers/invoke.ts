@@ -213,10 +213,14 @@ function timeoutTimer(
 ): Promise<"elapsed" | "aborted"> {
   return new Promise((resolve) => {
     const id = setTimeout(() => resolve("elapsed"), ms);
-    signal.addEventListener("abort", () => {
-      clearTimeout(id);
-      resolve("aborted");
-    }, { once: true });
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(id);
+        resolve("aborted");
+      },
+      { once: true },
+    );
   });
 }
 
@@ -414,14 +418,17 @@ async function invoke(
     return doneFailed(verdict, extra);
   }
   if (collected.kind === "refused") {
-    return done({
-      kind: "failed",
-      code: "refused",
-      retry_at: null,
-      finish_reason: collected.finishReason,
-      http_status: response.status,
-      provider_code: collected.providerCode,
-    }, extra);
+    return done(
+      {
+        kind: "failed",
+        code: "refused",
+        retry_at: null,
+        finish_reason: collected.finishReason,
+        http_status: response.status,
+        provider_code: collected.providerCode,
+      },
+      extra,
+    );
   }
   if (over) {
     // 크기 상한 초과는 일시가 아니라 응답 크기 문제다. 받은 것까지 partial이다.

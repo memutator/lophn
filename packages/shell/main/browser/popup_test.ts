@@ -9,7 +9,7 @@ function setup() {
   const activation = createActivation({ nowMs: () => now });
   return {
     activation,
-    advance: (ms: number) => now += ms,
+    advance: (ms: number) => (now += ms),
     open: (url: string, features = "") =>
       decidePopup({ url, features, activated: activation.fresh(1) }),
   };

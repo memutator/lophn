@@ -24,8 +24,9 @@ export function fieldDefined(
   ownerKind: string,
   field: string,
 ): Result<BlobFieldDefinition> {
-  const found = fields.find((definition) =>
-    definition.owner_kind === ownerKind && definition.field === field
+  const found = fields.find(
+    (definition) =>
+      definition.owner_kind === ownerKind && definition.field === field,
   );
   if (found === undefined) {
     return err({
@@ -55,8 +56,11 @@ export function readWindow(
   lengthBytes: number,
 ): Result<{ offset_bytes: number; length_bytes: number; truncated: boolean }> {
   if (
-    offsetBytes < 0 || lengthBytes < 0 || !Number.isInteger(offsetBytes) ||
-    !Number.isInteger(lengthBytes) || offsetBytes > sizeBytes
+    offsetBytes < 0 ||
+    lengthBytes < 0 ||
+    !Number.isInteger(offsetBytes) ||
+    !Number.isInteger(lengthBytes) ||
+    offsetBytes > sizeBytes
   ) {
     return err({
       code: "invalid_input",

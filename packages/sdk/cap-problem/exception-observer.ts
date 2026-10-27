@@ -26,9 +26,10 @@ function missing(reason: string): ObservationMissingReason {
   return { reason };
 }
 
-function textOrMissing(
-  value: unknown,
-): { text: string | null; missing: ObservationMissingReason | null } {
+function textOrMissing(value: unknown): {
+  text: string | null;
+  missing: ObservationMissingReason | null;
+} {
   if (typeof value === "string") return { text: value, missing: null };
   return { text: null, missing: missing("not a string") };
 }
@@ -36,10 +37,10 @@ function textOrMissing(
 function observeError(reason: unknown): ExceptionObservationError {
   const error = reason instanceof Error ? reason : null;
   // 오류 이름은 문제를 묶는 key의 일부다. 비어 있으면 "UnknownError"다.
-  const name = error && typeof error.name === "string" &&
-      error.name.trim() !== ""
-    ? error.name
-    : "UnknownError";
+  const name =
+    error && typeof error.name === "string" && error.name.trim() !== ""
+      ? error.name
+      : "UnknownError";
   const message = textOrMissing(error ? error.message : reason);
   const stack = textOrMissing(error ? error.stack : undefined);
   return {
@@ -63,7 +64,7 @@ export function createExceptionObserver(
   deps: ExceptionObserverDeps,
 ): ExceptionObserver {
   const completions = new Map<string, Promise<ReportCompletion>>();
-  const install = (transport: ExceptionObserverTransport): () => void =>
+  const install = (transport: ExceptionObserverTransport): (() => void) =>
     listen(transport, deps, completions);
   return Object.assign(install, {
     completion(reportId: string) {
@@ -88,27 +89,30 @@ function listen(
   const capture = (kind: "error" | "unhandledrejection", reason: unknown) => {
     if (!installed) return;
     const reportId = deps.newId(REPORT_PREFIX);
-    const input: ExceptionObservationInput = freezeDeep(structuredClone({
-      report_id: reportId,
-      observed_at: deps.now(),
-      observation: kind,
-      error: observeError(reason),
-      error_missing_reason: null,
-      invocation: deps.currentInvocation(),
-    }));
+    const input: ExceptionObservationInput = freezeDeep(
+      structuredClone({
+        report_id: reportId,
+        observed_at: deps.now(),
+        observation: kind,
+        error: observeError(reason),
+        error_missing_reason: null,
+        invocation: deps.currentInvocation(),
+      }),
+    );
     const bytes = utf8Length(input);
     const overCount = queue.size >= REPORTING_LIMITS.sdk_pending_count;
     const overBytes = pendingBytes + bytes > REPORTING_LIMITS.sdk_pending_bytes;
-    const completion = overCount || overBytes
-      ? Promise.resolve<ReportCompletion>({
-        status: "failed",
-        reason: queueRejection(overCount),
-      })
-      : deliver(
-        () => transport(input),
-        deps.sleep,
-        "exception response lost",
-      );
+    const completion =
+      overCount || overBytes
+        ? Promise.resolve<ReportCompletion>({
+            status: "failed",
+            reason: queueRejection(overCount),
+          })
+        : deliver(
+            () => transport(input),
+            deps.sleep,
+            "exception response lost",
+          );
     if (!overCount && !overBytes) {
       queue.set(reportId, { bytes });
       pendingBytes += bytes;

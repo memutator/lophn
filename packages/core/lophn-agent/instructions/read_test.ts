@@ -35,26 +35,24 @@ function setup() {
   writeFileSync(join(folderA, "LOPHN.md"), "rules of A");
   writeFileSync(join(folderB, "LOPHN.md"), "rules of B");
   mkdirSync(join(root, "projects", PRJ_C), { recursive: true });
-  writeFileSync(
-    join(root, "projects", PRJ_C, "LOPHN.md"),
-    "rules of C",
-  );
+  writeFileSync(join(root, "projects", PRJ_C, "LOPHN.md"), "rules of C");
   const db = new DatabaseSync(join(root, "ledger.db"));
-  for (
-    const step of [
-      ...projectsSchemaSteps,
-      ...conversationSchemaSteps,
-      ...domainsSchemaSteps,
-    ]
-  ) {
+  for (const step of [
+    ...projectsSchemaSteps,
+    ...conversationSchemaSteps,
+    ...domainsSchemaSteps,
+  ]) {
     db.exec(step.sql);
   }
-  for (
-    const [id, name, folder] of [[PRJ_A, "a", folderA], [PRJ_B, "b", folderB]]
-  ) {
-    db.prepare(
-      "insert into projects values (?, ?, ?, '', '1', 'active')",
-    ).run(id, name, name);
+  for (const [id, name, folder] of [
+    [PRJ_A, "a", folderA],
+    [PRJ_B, "b", folderB],
+  ]) {
+    db.prepare("insert into projects values (?, ?, ?, '', '1', 'active')").run(
+      id,
+      name,
+      name,
+    );
     db.prepare("insert into project_folders values (?, 0, ?, '')").run(
       id,
       folder,

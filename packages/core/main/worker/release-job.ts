@@ -26,15 +26,15 @@ type ReleaseJobInput = {
 
 type ReleaseJobResult =
   | {
-    ok: true;
-    bundle_hash: string;
-    declaration_hash: string;
-  }
+      ok: true;
+      bundle_hash: string;
+      declaration_hash: string;
+    }
   | {
-    ok: false;
-    stage: "build" | "dependencies" | "migration";
-    reason: string;
-  };
+      ok: false;
+      stage: "build" | "dependencies" | "migration";
+      reason: string;
+    };
 
 function failed(
   stage: "build" | "dependencies" | "migration",
@@ -58,9 +58,9 @@ async function checkSealedCopy(
   if (!changes.ok) return failed("migration", changes.error.message);
   let imports: Record<string, string>;
   try {
-    const map = JSON.parse(
-      await readFile(parts.importMap, "utf8"),
-    ) as { imports?: Record<string, string> };
+    const map = JSON.parse(await readFile(parts.importMap, "utf8")) as {
+      imports?: Record<string, string>;
+    };
     imports = map.imports ?? {};
   } catch {
     return failed("build", "the prepared import map cannot be read");
@@ -96,7 +96,7 @@ if (import.meta.main) {
   if (!prepared.ok) {
     result = failed("build", prepared.error.reason);
   } else {
-    result = await checkSealedCopy(input, prepared.value.bundleHash) ?? {
+    result = (await checkSealedCopy(input, prepared.value.bundleHash)) ?? {
       ok: true,
       bundle_hash: prepared.value.bundleHash,
       declaration_hash: prepared.value.declarationHash,

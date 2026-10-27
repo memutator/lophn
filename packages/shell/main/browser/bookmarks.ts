@@ -17,10 +17,12 @@ import type {
 
 export type { Bookmark, BookmarkList, BookmarkReason };
 
-type Outcome<T> = { ok: true; value: T } | {
-  ok: false;
-  reason: BookmarkReason;
-};
+type Outcome<T> =
+  | { ok: true; value: T }
+  | {
+      ok: false;
+      reason: BookmarkReason;
+    };
 
 const TITLE_MAX = 200;
 const URL_MAX = 8192;
@@ -32,13 +34,15 @@ const favicon = z.string().max(FAVICON_MAX).startsWith("data:image/");
 
 const fileSchema = z.strictObject({
   version: z.literal(1),
-  bookmarks: z.array(z.strictObject({
-    id: z.string(),
-    title: z.string(),
-    url: z.string(),
-    created_at: z.string(),
-    favicon: favicon.optional(),
-  })),
+  bookmarks: z.array(
+    z.strictObject({
+      id: z.string(),
+      title: z.string(),
+      url: z.string(),
+      created_at: z.string(),
+      favicon: favicon.optional(),
+    }),
+  ),
 });
 
 /** 통과하면 저장할 href, 아니면 undefined다. http/https이고 userinfo가 없어야 한다. */
@@ -126,9 +130,11 @@ export function createBookmarkStore(
 
   return {
     list,
-    add(
-      input: { title: string; url: string; favicon?: string },
-    ): Promise<Outcome<Bookmark>> {
+    add(input: {
+      title: string;
+      url: string;
+      favicon?: string;
+    }): Promise<Outcome<Bookmark>> {
       const title = checkTitle(input.title);
       if (title === undefined) {
         return Promise.resolve({ ok: false, reason: "title" });
@@ -160,12 +166,13 @@ export function createBookmarkStore(
         };
       });
     },
-    update(
-      input: { id: string; title?: string; url?: string },
-    ): Promise<Outcome<Bookmark>> {
-      const title = input.title === undefined
-        ? undefined
-        : checkTitle(input.title);
+    update(input: {
+      id: string;
+      title?: string;
+      url?: string;
+    }): Promise<Outcome<Bookmark>> {
+      const title =
+        input.title === undefined ? undefined : checkTitle(input.title);
       if (input.title !== undefined && title === undefined) {
         return Promise.resolve({ ok: false, reason: "title" });
       }
@@ -190,7 +197,7 @@ export function createBookmarkStore(
         return {
           ok: true,
           value: {
-            bookmarks: bookmarks.map((b) => b.id === found.id ? updated : b),
+            bookmarks: bookmarks.map((b) => (b.id === found.id ? updated : b)),
             result: updated,
           },
         };

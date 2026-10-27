@@ -22,13 +22,13 @@ type RuntimeAuth =
   | { kind: "bearer"; secret: string }
   | { kind: "api_key"; secret: string; header_name: string }
   | {
-    kind: "oauth2";
-    issuer: string;
-    client_id: string;
-    scopes: string[];
-    // 이 서버(place와 이름)의 접근 token 이름이다. 로그인했는지는 보관이 말한다.
-    token: string;
-  };
+      kind: "oauth2";
+      issuer: string;
+      client_id: string;
+      scopes: string[];
+      // 이 서버(place와 이름)의 접근 token 이름이다. 로그인했는지는 보관이 말한다.
+      token: string;
+    };
 
 type Common = {
   name: string;
@@ -38,26 +38,25 @@ type Common = {
   fingerprint: string;
 };
 
-export type McpRuntimeServer =
-  & Common
-  & (
+export type McpRuntimeServer = Common &
+  (
     | {
-      transport: "stdio";
-      stdio: {
-        executable: string;
-        args: string[];
-        cwd: string | null;
-        env: Record<string, string>;
-      };
-    }
+        transport: "stdio";
+        stdio: {
+          executable: string;
+          args: string[];
+          cwd: string | null;
+          env: Record<string, string>;
+        };
+      }
     | {
-      transport: "http";
-      http: {
-        url: string;
-        headers: Record<string, RuntimeValue>;
-        auth: RuntimeAuth;
-      };
-    }
+        transport: "http";
+        http: {
+          url: string;
+          headers: Record<string, RuntimeValue>;
+          auth: RuntimeAuth;
+        };
+      }
   );
 
 // 전역, project, agent 층의 서버다. place는 그 층이 놓인 곳이고 전역은 null이다.
@@ -80,9 +79,10 @@ export function runtimeServerOfLayer(
         args: [...server.stdio.args],
         cwd: server.stdio.cwd,
         env: Object.fromEntries(
-          Object.entries(server.stdio.env).map((
-            [name, one],
-          ) => [name, one.value]),
+          Object.entries(server.stdio.env).map(([name, one]) => [
+            name,
+            one.value,
+          ]),
         ),
       },
     };
@@ -101,23 +101,24 @@ export function runtimeServerOfLayer(
             : { kind: "value", value: one.value },
         ]),
       ),
-      auth: auth.kind === "none"
-        ? { kind: "none" }
-        : auth.kind === "bearer"
-        ? { kind: "bearer", secret: auth.credential.secret }
-        : auth.kind === "api_key"
-        ? {
-          kind: "api_key",
-          secret: auth.credential.secret,
-          header_name: auth.header_name,
-        }
-        : {
-          kind: "oauth2",
-          issuer: auth.issuer,
-          client_id: auth.client_id,
-          scopes: [...auth.scopes],
-          token: mcpTokenNames({ place, name: server.name }).access,
-        },
+      auth:
+        auth.kind === "none"
+          ? { kind: "none" }
+          : auth.kind === "bearer"
+            ? { kind: "bearer", secret: auth.credential.secret }
+            : auth.kind === "api_key"
+              ? {
+                  kind: "api_key",
+                  secret: auth.credential.secret,
+                  header_name: auth.header_name,
+                }
+              : {
+                  kind: "oauth2",
+                  issuer: auth.issuer,
+                  client_id: auth.client_id,
+                  scopes: [...auth.scopes],
+                  token: mcpTokenNames({ place, name: server.name }).access,
+                },
     },
   };
 }
@@ -132,10 +133,12 @@ export function mcpSecretDestinations(
   for (const server of servers) {
     if (!server.enabled || server.transport !== "http") continue;
     const { headers, auth } = server.http;
-    const sent = Object.values(headers).some((one) =>
-      one.kind === "secret" && one.secret === name
-    ) || ((auth.kind === "bearer" || auth.kind === "api_key") &&
-      auth.secret === name);
+    const sent =
+      Object.values(headers).some(
+        (one) => one.kind === "secret" && one.secret === name,
+      ) ||
+      ((auth.kind === "bearer" || auth.kind === "api_key") &&
+        auth.secret === name);
     if (!sent) {
       continue;
     }

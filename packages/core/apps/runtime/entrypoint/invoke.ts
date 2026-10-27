@@ -62,9 +62,10 @@ export async function handleCall(
   try {
     // write·external은 이 process 안에서도 한 번에 하나다. session이 연결 단위라 겹치면 changeset에
     // 두 호출의 변경이 섞인다.
-    const done = context.effect === "read"
-      ? await run(state, call, false)
-      : await state.exclusive(() => run(state, call, true));
+    const done =
+      context.effect === "read"
+        ? await run(state, call, false)
+        : await state.exclusive(() => run(state, call, true));
     return done.status === 200
       ? { status: 200, body: fitChangeset(done.body) }
       : done;
@@ -78,8 +79,8 @@ async function run(
   call: ProcessCall,
   record: boolean,
 ): Promise<InvokeResult> {
-  const declaration = state.declaration.tools.find((tool) =>
-    tool.name === call.tool
+  const declaration = state.declaration.tools.find(
+    (tool) => tool.name === call.tool,
   );
   if (!declaration) return failed("not_found", "tool is not declared", null);
   const port = ensureAppToolPort();
@@ -140,7 +141,7 @@ async function run(
   }
   if (
     new TextEncoder().encode(JSON.stringify(result)).byteLength >
-      RESULT_MAX_BYTES
+    RESULT_MAX_BYTES
   ) {
     return failed("internal", "result exceeds the size limit", changeset);
   }

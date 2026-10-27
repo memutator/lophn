@@ -90,12 +90,14 @@ export function ShellRulesPanel({ source }: ShellRulesPanelProps) {
       failed={failed}
       onAdd={(rule) => save(`${layerKey(layer)}:add`, source.add(layer, rule))}
       onRemove={(index) =>
-        void save(`${layerKey(layer)}:${index}`, source.remove(layer, index))}
+        void save(`${layerKey(layer)}:${index}`, source.remove(layer, index))
+      }
       onAction={(index, action) =>
         void save(
           `${layerKey(layer)}:${index}`,
           source.setAction(layer, index, action),
-        )}
+        )
+      }
     />
   );
   return (
@@ -143,7 +145,7 @@ export function ShellRulesPanel({ source }: ShellRulesPanelProps) {
                 }),
                 t("settings.note.shell-rules-project"),
                 project.rules,
-              )
+              ),
             )}
           </>
         )}
@@ -152,48 +154,58 @@ export function ShellRulesPanel({ source }: ShellRulesPanelProps) {
   );
 }
 
-function BuiltIn(
-  { kind, label, rules }: {
-    kind: string;
-    label: string;
-    rules: readonly ShellRule[];
-  },
-) {
+function BuiltIn({
+  kind,
+  label,
+  rules,
+}: {
+  kind: string;
+  label: string;
+  rules: readonly ShellRule[];
+}) {
   return (
     <details className={own.builtIn} data-built-in={kind}>
       <summary className={own.summary}>{label}</summary>
       <ul className={own.patterns}>
-        {rules.map((rule) => <li key={rule.pattern}>{rule.pattern}</li>)}
+        {rules.map((rule) => (
+          <li key={rule.pattern}>{rule.pattern}</li>
+        ))}
       </ul>
     </details>
   );
 }
 
-function RuleSection(
-  { layer, title, note, rules, failed, onAdd, onRemove, onAction }: {
-    layer: ShellRuleLayer;
-    title: string;
-    note: string;
-    rules: readonly ShellRule[];
-    failed: string | null;
-    onAdd: (rule: ShellRule) => Promise<boolean>;
-    onRemove: (index: number) => void;
-    onAction: (index: number, action: ShellRuleAction) => void;
-  },
-) {
+function RuleSection({
+  layer,
+  title,
+  note,
+  rules,
+  failed,
+  onAdd,
+  onRemove,
+  onAction,
+}: {
+  layer: ShellRuleLayer;
+  title: string;
+  note: string;
+  rules: readonly ShellRule[];
+  failed: string | null;
+  onAdd: (rule: ShellRule) => Promise<boolean>;
+  onRemove: (index: number) => void;
+  onAction: (index: number, action: ShellRuleAction) => void;
+}) {
   const key = layerKey(layer);
   return (
     <section className={styles.groupBlock} data-layer={key}>
       <h2 className={styles.groupTitle}>{title}</h2>
       <p className={`${styles.lineHelp} ${own.note}`}>{note}</p>
       <ul className={styles.lines}>
-        {rules.length === 0
-          ? (
-            <li className={`${styles.line} ${styles.lineHelp}`}>
-              {t("settings.empty.shell-rules")}
-            </li>
-          )
-          : rules.map((rule, index) => (
+        {rules.length === 0 ? (
+          <li className={`${styles.line} ${styles.lineHelp}`}>
+            {t("settings.empty.shell-rules")}
+          </li>
+        ) : (
+          rules.map((rule, index) => (
             <li
               key={`${index}:${rule.pattern}`}
               className={styles.line}
@@ -208,13 +220,11 @@ function RuleSection(
                   <>
                     <div className={styles.lineMain}>
                       {label}
-                      {failed === `${key}:${index}`
-                        ? (
-                          <span className={styles.rejected} role="alert">
-                            {t("settings.error.value-not-saved")}
-                          </span>
-                        )
-                        : null}
+                      {failed === `${key}:${index}` ? (
+                        <span className={styles.rejected} role="alert">
+                          {t("settings.error.value-not-saved")}
+                        </span>
+                      ) : null}
                     </div>
                     <div className={own.control}>
                       <div className={own.select}>
@@ -223,7 +233,8 @@ function RuleSection(
                             options={actionOptions()}
                             value={rule.action}
                             onValueChange={(next) =>
-                              onAction(index, next as ShellRuleAction)}
+                              onAction(index, next as ShellRuleAction)
+                            }
                           />,
                         )}
                       </div>
@@ -240,22 +251,21 @@ function RuleSection(
                 )}
               </NamedControl>
             </li>
-          ))}
-        <AddRow
-          failed={failed === `${key}:add`}
-          onAdd={onAdd}
-        />
+          ))
+        )}
+        <AddRow failed={failed === `${key}:add`} onAdd={onAdd} />
       </ul>
     </section>
   );
 }
 
-function AddRow(
-  { failed, onAdd }: {
-    failed: boolean;
-    onAdd: (rule: ShellRule) => Promise<boolean>;
-  },
-) {
+function AddRow({
+  failed,
+  onAdd,
+}: {
+  failed: boolean;
+  onAdd: (rule: ShellRule) => Promise<boolean>;
+}) {
   const [pattern, setPattern] = useState("");
   const [action, setAction] = useState<ShellRuleAction>("allow");
   const text = pattern.trim();

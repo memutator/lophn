@@ -36,7 +36,8 @@ function zero(): Metrics {
   };
 }
 
-const rate = (read: number, total: number) => total === 0 ? null : read / total;
+const rate = (read: number, total: number) =>
+  total === 0 ? null : read / total;
 
 export function metricsOf(session: SessionRecord): Metrics {
   const m = zero();
@@ -53,11 +54,12 @@ export function metricsOf(session: SessionRecord): Metrics {
       m.tokens.cache_write += usage.cache_write ?? 0;
       m.tokens.output += usage.output ?? 0;
       m.tokens.reasoning += usage.reasoning ?? 0;
-      m.input_total += usage.input + (usage.cache_read ?? 0) +
-        (usage.cache_write ?? 0);
+      m.input_total +=
+        usage.input + (usage.cache_read ?? 0) + (usage.cache_write ?? 0);
     }
     if (
-      PRICED.includes(cost.kind) && cost.currency === "USD" &&
+      PRICED.includes(cost.kind) &&
+      cost.currency === "USD" &&
       cost.amount !== null
     ) {
       m.cost_usd += Number(cost.amount);
@@ -69,22 +71,23 @@ export function metricsOf(session: SessionRecord): Metrics {
 
   for (const turn of session.turns) {
     if (turn.finished_at !== null) {
-      m.time_ms.turns += Date.parse(turn.finished_at) -
-        Date.parse(turn.started_at);
+      m.time_ms.turns +=
+        Date.parse(turn.finished_at) - Date.parse(turn.started_at);
     }
     if (
       turn.outcome?.kind === "failed" &&
       turn.outcome.reason === "repeated_tool_failure"
-    ) m.tools.repeated_failure_turns++;
+    )
+      m.tools.repeated_failure_turns++;
   }
 
   // 재시도에 밀린 행은 뺀다. 같은 입력의 재시도 행이 되풀이로 세어지면 안 된다.
   const superseded = new Set(
     session.tool_calls.map((t) => t.call.retry_of).filter((id) => id !== null),
   );
-  const live = session.tool_calls.map((t) => t.call).filter((c) =>
-    !superseded.has(c.id)
-  );
+  const live = session.tool_calls
+    .map((t) => t.call)
+    .filter((c) => !superseded.has(c.id));
   for (const c of live) {
     const { outcome } = c;
     if (c.state !== "finished" || outcome === null) continue;
@@ -99,11 +102,14 @@ export function metricsOf(session: SessionRecord): Metrics {
     if (
       outcome.kind === "failure" &&
       (outcome.code === "invalid_input" || outcome.code === "not_found")
-    ) m.tools.format++;
+    )
+      m.tools.format++;
     if (
-      c.decision?.decision === "deny" || c.decision?.decision === "ask" ||
+      c.decision?.decision === "deny" ||
+      c.decision?.decision === "ask" ||
       (notExecuted && blockedCode)
-    ) m.tools.blocked++;
+    )
+      m.tools.blocked++;
   }
 
   const groups = new Map<string, number>();
@@ -121,8 +127,8 @@ export function metricsOf(session: SessionRecord): Metrics {
   m.agent_calls = session.sent_calls.map((s) => {
     const to = s.to as { role?: unknown } | null;
     return {
-      receiver_role: s.receiver?.role ??
-        (typeof to?.role === "string" ? to.role : null),
+      receiver_role:
+        s.receiver?.role ?? (typeof to?.role === "string" ? to.role : null),
       reply: s.reply,
       state: s.state,
       failed: s.outcome?.kind !== "success" || s.state === "failed",

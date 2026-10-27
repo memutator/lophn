@@ -26,13 +26,15 @@ export function StateMark({ shown }: { shown: Shown }) {
   );
 }
 
-export function InstanceList(
-  { instances, selected, onSelect }: {
-    instances: readonly WorkflowInstanceSummaryView[];
-    selected: string | null;
-    onSelect: (id: string) => void;
-  },
-) {
+export function InstanceList({
+  instances,
+  selected,
+  onSelect,
+}: {
+  instances: readonly WorkflowInstanceSummaryView[];
+  selected: string | null;
+  onSelect: (id: string) => void;
+}) {
   // 고른 줄이 접힌 목록 밖이면 보이게 맞춘다.
   const list = useRef<HTMLUListElement>(null);
   useEffect(() => {
@@ -69,23 +71,21 @@ export function InstanceList(
               <span>
                 {item.state === "running"
                   ? t("workflow.label.started-at", {
-                    when: whenOf(item.created_at),
-                  })
+                      when: whenOf(item.created_at),
+                    })
                   : t("workflow.label.finished-at", {
-                    when: whenOf(item.finished_at ?? item.created_at),
-                  })}
+                      when: whenOf(item.finished_at ?? item.created_at),
+                    })}
               </span>
-              {item.started_by.kind === "job"
-                ? (
-                  <span data-started-by="job">
-                    {item.started_by.title === null
-                      ? t("workflow.label.job-meta-untitled")
-                      : t("workflow.label.job-meta", {
+              {item.started_by.kind === "job" ? (
+                <span data-started-by="job">
+                  {item.started_by.title === null
+                    ? t("workflow.label.job-meta-untitled")
+                    : t("workflow.label.job-meta", {
                         title: item.started_by.title,
                       })}
-                  </span>
-                )
-                : null}
+                </span>
+              ) : null}
             </span>
           </button>
         </li>

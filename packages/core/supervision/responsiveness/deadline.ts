@@ -40,7 +40,10 @@ export async function settledWithin(
   const timer = armTimer(ms);
   try {
     return await Promise.race([
-      work.then(() => true, () => true),
+      work.then(
+        () => true,
+        () => true,
+      ),
       timer.promise.then(() => false),
     ]);
   } finally {
@@ -63,7 +66,10 @@ export async function valueWithin<T>(
   const timer = armTimer(ms);
   try {
     return await Promise.race([
-      Promise.resolve(running).then((value) => value, () => fallback),
+      Promise.resolve(running).then(
+        (value) => value,
+        () => fallback,
+      ),
       timer.promise.then(() => fallback),
     ]);
   } finally {

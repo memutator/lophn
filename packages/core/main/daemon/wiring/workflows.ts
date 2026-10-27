@@ -112,9 +112,7 @@ function withStepText(
     };
     let input:
       | Input<typeof workflowInstanceCreate>
-      | Input<
-        typeof workflowInstanceApply
-      >;
+      | Input<typeof workflowInstanceApply>;
     if (create) {
       const raw = envelope.input as Input<typeof workflowInstanceCreate>;
       input = {
@@ -127,18 +125,20 @@ function withStepText(
       const change = raw.change;
       input = {
         ...raw,
-        change: change.kind === "report"
-          ? { ...change, text: safe(change.text) }
-          : change.kind === "edit" && change.edit.op === "hand_now" &&
-              change.edit.text !== undefined
-          ? {
-            ...change,
-            edit: { ...change.edit, text: safe(change.edit.text) },
-          }
-          // process stderr는 AI가 짠 code가 쓴 글이다. 줄에 남는 글은 여기가 마지막 관문이다.
-          : change.kind === "program_exited"
-          ? { ...change, stderr_tail: safe(change.stderr_tail) }
-          : change,
+        change:
+          change.kind === "report"
+            ? { ...change, text: safe(change.text) }
+            : change.kind === "edit" &&
+                change.edit.op === "hand_now" &&
+                change.edit.text !== undefined
+              ? {
+                  ...change,
+                  edit: { ...change.edit, text: safe(change.edit.text) },
+                }
+              : // process stderr는 AI가 짠 code가 쓴 글이다. 줄에 남는 글은 여기가 마지막 관문이다.
+                change.kind === "program_exited"
+                ? { ...change, stderr_tail: safe(change.stderr_tail) }
+                : change,
         handoff: raw.handoff === null ? null : safeHandoff(raw.handoff),
       };
     }
@@ -230,32 +230,30 @@ export const workflowsWiring: WiringFactory = () => {
 
       const projects = {
         resolve(ref: string) {
-          const found = ledgerSnapshot(
-            ctx.ledgerPath,
-            (lookup) => placeDepsOf(lookup.sql).projects.projectByName(ref),
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            placeDepsOf(lookup.sql).projects.projectByName(ref),
           );
           if (!found.ok) return Promise.resolve(found);
           return Promise.resolve(
             found.value === null
               ? err({
-                code: "not_found" as const,
-                message: "project not found",
-              })
+                  code: "not_found" as const,
+                  message: "project not found",
+                })
               : ok({ id: found.value.id, name: found.value.name }),
           );
         },
         nameOf(project: Id<"prj">) {
-          const found = ledgerSnapshot(
-            ctx.ledgerPath,
-            (lookup) => placeDepsOf(lookup.sql).projects.project(project),
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            placeDepsOf(lookup.sql).projects.project(project),
           );
           if (!found.ok) return Promise.resolve(found);
           return Promise.resolve(
             found.value === null
               ? err({
-                code: "not_found" as const,
-                message: "project not found",
-              })
+                  code: "not_found" as const,
+                  message: "project not found",
+                })
               : ok(found.value.name),
           );
         },
@@ -270,7 +268,7 @@ export const workflowsWiring: WiringFactory = () => {
           });
           if (!running.ok) return running;
           for (const { id: turn } of running.value.turns) {
-            for (let attempt = 0;; attempt++) {
+            for (let attempt = 0; ; attempt++) {
               const record = await readTurn(turn as Id<"trn">);
               if (!record.ok) return record;
               if (record.value.turn.state !== "running") break;
@@ -297,9 +295,11 @@ export const workflowsWiring: WiringFactory = () => {
             { session },
           );
           if (!pages.ok) return pages;
-          const found = pages.value.flatMap((p) => p.messages).findLast((m) =>
-            m.step?.instance === instance && m.step.step === step
-          );
+          const found = pages.value
+            .flatMap((p) => p.messages)
+            .findLast(
+              (m) => m.step?.instance === instance && m.step.step === step,
+            );
           if (found === undefined) return ok(null);
           if (found.turn === null) {
             return ok({ turn: null, state: null, outcome: null });
@@ -337,9 +337,8 @@ export const workflowsWiring: WiringFactory = () => {
           return ok({ ...last, lines: pages.value.flatMap((p) => p.lines) });
         },
         running() {
-          const found = ledgerSnapshot(
-            ctx.ledgerPath,
-            (lookup) => runningInstances(lookup.sql),
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            runningInstances(lookup.sql),
           );
           return Promise.resolve(found.ok ? found.value : found);
         },
@@ -350,10 +349,12 @@ export const workflowsWiring: WiringFactory = () => {
         launch: (start) => {
           const host = ctx.peek.flowHost;
           return host === undefined
-            ? Promise.resolve(err({
-              code: "unavailable" as const,
-              message: "flow host is not running",
-            }))
+            ? Promise.resolve(
+                err({
+                  code: "unavailable" as const,
+                  message: "flow host is not running",
+                }),
+              )
             : host.launch(start);
         },
         stop: (instance) =>
@@ -377,13 +378,15 @@ export const workflowsWiring: WiringFactory = () => {
           ? { kind: "user" }
           : { kind: "agent", session: who.conditions.session as Id<"ses"> };
 
-      const handler = (
-        call: (
-          input: never,
-          who: AuthenticatedContext,
-        ) => Promise<Result<unknown>>,
-      ): MemoryHandler =>
-      (who, input) => call(input as never, who);
+      const handler =
+        (
+          call: (
+            input: never,
+            who: AuthenticatedContext,
+          ) => Promise<Result<unknown>>,
+        ): MemoryHandler =>
+        (who, input) =>
+          call(input as never, who);
 
       return ok({
         writer: (inner) =>
@@ -439,14 +442,8 @@ export const workflowsWiring: WiringFactory = () => {
             route(workflowReport),
             handler((i, who) => built.report(i, byOf(who))),
           ],
-          [
-            route(workflowEdit),
-            handler((i, who) => built.edit(i, byOf(who))),
-          ],
-          [
-            route(workflowStop),
-            handler((i, who) => built.stop(i, byOf(who))),
-          ],
+          [route(workflowEdit), handler((i, who) => built.edit(i, byOf(who)))],
+          [route(workflowStop), handler((i, who) => built.stop(i, byOf(who)))],
           [
             route(workflowCheck),
             checkWorkflow({

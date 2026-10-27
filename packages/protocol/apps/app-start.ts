@@ -34,9 +34,8 @@ function startShape(value: {
   return value.mode !== "live" || value.release !== null;
 }
 
-export const appStartInputSchema = z.strictObject(startFields).refine(
-  startShape,
-  { message: "live start needs a release" },
-);
+export const appStartInputSchema = z
+  .strictObject(startFields)
+  .refine(startShape, { message: "live start needs a release" });
 
 // 한 줄 JSON. 줄바꿈이 들어간 값은 시작 입력이 아니다.

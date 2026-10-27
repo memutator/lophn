@@ -17,9 +17,7 @@ interface DesktopIntentsProps {
   go(target: DesktopTarget): void;
 }
 
-export function DesktopIntents(
-  { intents, catalog, go }: DesktopIntentsProps,
-) {
+export function DesktopIntents({ intents, catalog, go }: DesktopIntentsProps) {
   const openGlobal = useGlobalPalette();
   const env = usePaletteEnv();
   const latest = useRef({ catalog, go, openGlobal, env });
@@ -35,12 +33,14 @@ export function DesktopIntents(
             : null;
           const { env, go, openGlobal } = latest.current;
           const search = env.search;
-          openGlobal(desktopScope({
-            catalog: loaded?.ok ? loaded.value : EMPTY_CATALOG,
-            platform: env.platform,
-            search: search ? (query) => search(query, null) : undefined,
-            go,
-          }));
+          openGlobal(
+            desktopScope({
+              catalog: loaded?.ok ? loaded.value : EMPTY_CATALOG,
+              platform: env.platform,
+              search: search ? (query) => search(query, null) : undefined,
+              go,
+            }),
+          );
         })();
       }),
     [intents],

@@ -26,7 +26,8 @@ const BUILTIN_FILES = {
 
 export const ROLE_TABLE: AgentRoleTable = {
   isOperator: (role) => role === "operator",
-  builtinName: (role) => role === "operator" ? null : BUILTIN_ROLE_NAMES[role],
+  builtinName: (role) =>
+    role === "operator" ? null : BUILTIN_ROLE_NAMES[role],
   defaultProfile: (role) => PROFILES[role],
   slotOf(root, ref, operatorPlace) {
     switch (ref.role) {
@@ -43,10 +44,12 @@ export const ROLE_TABLE: AgentRoleTable = {
           file: BUILTIN_FILES.app_engineer,
         };
       case "operator":
-        return operatorPlace === undefined ? null : {
-          folder: placeAgentsFolder(root, operatorPlace),
-          file: `${ref.agent}.md`,
-        };
+        return operatorPlace === undefined
+          ? null
+          : {
+              folder: placeAgentsFolder(root, operatorPlace),
+              file: `${ref.agent}.md`,
+            };
     }
   },
   agentsFolderOf: placeAgentsFolder,
@@ -55,15 +58,16 @@ export const ROLE_TABLE: AgentRoleTable = {
     ...places.map((place) =>
       place.kind === "project"
         ? { role: "project_manager" as const, project: place.id }
-        : { role: "app_engineer" as const, app: place.id }
+        : { role: "app_engineer" as const, app: place.id },
     ),
   ],
   operatorRef: (id) => ({ role: "operator", agent: id as never }),
-  kindOf: (role) => role === "operator" ? "operator" : "built_in",
+  kindOf: (role) => (role === "operator" ? "operator" : "built_in"),
   isReservedName(name) {
     const key = agentNameKey(name);
-    return ROLES.some((role) =>
-      role !== "operator" && agentNameKey(BUILTIN_ROLE_NAMES[role]) === key
+    return ROLES.some(
+      (role) =>
+        role !== "operator" && agentNameKey(BUILTIN_ROLE_NAMES[role]) === key,
     );
   },
 };

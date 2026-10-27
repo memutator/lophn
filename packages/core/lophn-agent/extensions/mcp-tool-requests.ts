@@ -35,7 +35,8 @@ export function createMcpToolRequests(options: {
   const waitMs = options.waitMs ?? MCP_TOOLS_WAIT_MS;
   const entries = new Map<string, Entry>();
 
-  const deadline: AuthDeadline = options.deadline ??
+  const deadline: AuthDeadline =
+    options.deadline ??
     ((ms, signal) =>
       new Promise((resolve) => {
         if (signal.aborted) return resolve("aborted");
@@ -67,10 +68,12 @@ export function createMcpToolRequests(options: {
       void deadline(waitMs, stop.signal).then((how) => {
         if (how !== "elapsed") return;
         if (entries.delete(id)) {
-          resolve(err({
-            code: "unavailable",
-            message: "MCP tool 목록을 기한 안에 읽지 못했다",
-          }));
+          resolve(
+            err({
+              code: "unavailable",
+              message: "MCP tool 목록을 기한 안에 읽지 못했다",
+            }),
+          );
         }
       });
     });

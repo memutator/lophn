@@ -55,13 +55,15 @@ function countsText(row: AgentListRow): string {
   return t("project-workspace.label.agent-counts", { skills, mcp });
 }
 
-function AgentCardView(
-  { row, imageSrc, onOpen }: {
-    row: AgentListRow;
-    imageSrc: ImageSrc;
-    onOpen: () => void;
-  },
-): ReactElement {
+function AgentCardView({
+  row,
+  imageSrc,
+  onOpen,
+}: {
+  row: AgentListRow;
+  imageSrc: ImageSrc;
+  onOpen: () => void;
+}): ReactElement {
   return (
     <li
       className={styles.card}
@@ -74,7 +76,9 @@ function AgentCardView(
         <div className={styles.cardBody}>
           <div className={styles.cardHead}>
             <Avatar profile={avatarProfile(row, imageSrc)} size="md" />
-            <h3 className={styles.name} data-agent-name="">{row.name}</h3>
+            <h3 className={styles.name} data-agent-name="">
+              {row.name}
+            </h3>
             <span className={styles.kind} data-agent-kind="">
               {t(ROLE_LABEL[row.role])}
             </span>
@@ -84,9 +88,9 @@ function AgentCardView(
               {row.model === null
                 ? t("project-workspace.label.agent-no-model")
                 : t("agents.label.card-model", {
-                  layer: row.model.source,
-                  model: row.model.model_name,
-                })}
+                    layer: row.model.source,
+                    model: row.model.model_name,
+                  })}
             </li>
             <li data-agent-counts="">{countsText(row)}</li>
           </ul>
@@ -106,14 +110,17 @@ function AgentCardView(
   );
 }
 
-function Section(
-  { name, heading, action, children }: {
-    name: string;
-    heading: string;
-    action?: ReactElement;
-    children: ReactNode;
-  },
-): ReactElement {
+function Section({
+  name,
+  heading,
+  action,
+  children,
+}: {
+  name: string;
+  heading: string;
+  action?: ReactElement;
+  children: ReactNode;
+}): ReactElement {
   return (
     <section className={styles.section} data-section={name}>
       <div className={styles.sectionHead}>
@@ -129,7 +136,9 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
   const { overview } = props;
   const builtIn = overview.agents.filter((row) => row.kind === "built_in");
   const operators = overview.agents.filter((row) => row.kind === "operator");
-  const preview = overview.instructions.text.split("\n").slice(0, PREVIEW_LINES)
+  const preview = overview.instructions.text
+    .split("\n")
+    .slice(0, PREVIEW_LINES)
     .join("\n");
   const inherited = overview.projectModel.inherited;
   return (
@@ -196,41 +205,42 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
             project: props.projectName,
           })}
         </p>
-        {preview.trim() === ""
-          ? (
-            <p className={styles.note}>
-              {t("project-workspace.empty.no-instructions")}
-            </p>
-          )
-          : (
-            <pre className={styles.preview} data-instructions-preview="">
-              {preview}
-            </pre>
-          )}
+        {preview.trim() === "" ? (
+          <p className={styles.note}>
+            {t("project-workspace.empty.no-instructions")}
+          </p>
+        ) : (
+          <pre className={styles.preview} data-instructions-preview="">
+            {preview}
+          </pre>
+        )}
         <p className={styles.note}>
           {t("project-workspace.info.instructions-file")}
         </p>
       </Section>
 
-      <Section
-        name="model"
-        heading={t("agents.heading.model-for-project")}
-      >
+      <Section name="model" heading={t("agents.heading.model-for-project")}>
         <ModelField
           models={props.models}
           source={props.source}
           label={t("project-workspace.heading.agent-editor-model")}
-          inheritLabel={inherited === null
-            ? t("project-workspace.label.agent-editor-model-unset")
-            : t("agents.label.model-inherit", {
-              layer: "global",
-              model: inherited.model_name,
-            })}
+          inheritLabel={
+            inherited === null
+              ? t("project-workspace.label.agent-editor-model-unset")
+              : t("agents.label.model-inherit", {
+                  layer: "global",
+                  model: inherited.model_name,
+                })
+          }
           inherited={inherited}
           value={overview.projectModel.chosen}
-          layer={overview.projectModel.chosen === null
-            ? (inherited === null ? null : "global")
-            : "project"}
+          layer={
+            overview.projectModel.chosen === null
+              ? inherited === null
+                ? null
+                : "global"
+              : "project"
+          }
           overrideNote={t("agents.label.model-overrides", { layer: "global" })}
           onChange={props.onProjectModel}
         />
@@ -241,27 +251,18 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
         name="skills"
         heading={t("project-workspace.heading.skills")}
         action={
-          <Button
-            size="sm"
-            icon={commonIcons.add}
-            onClick={props.onAddSkill}
-          >
+          <Button size="sm" icon={commonIcons.add} onClick={props.onAddSkill}>
             {t("project-workspace.button.add-skill")}
           </Button>
         }
       >
-        {overview.skills.length === 0
-          ? (
-            <p className={styles.note}>
-              {t("project-workspace.empty.no-skills")}
-            </p>
-          )
-          : (
-            <SkillList
-              items={overview.skills}
-              onToggle={props.onToggleSkill}
-            />
-          )}
+        {overview.skills.length === 0 ? (
+          <p className={styles.note}>
+            {t("project-workspace.empty.no-skills")}
+          </p>
+        ) : (
+          <SkillList items={overview.skills} onToggle={props.onToggleSkill} />
+        )}
         <p className={styles.note}>{t("agents.notice.skills-project")}</p>
       </Section>
 
@@ -269,27 +270,18 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
         name="mcp"
         heading={t("project-workspace.heading.mcp-servers")}
         action={
-          <Button
-            size="sm"
-            icon={commonIcons.add}
-            onClick={props.onAddServer}
-          >
+          <Button size="sm" icon={commonIcons.add} onClick={props.onAddServer}>
             {t("project-workspace.button.add-server")}
           </Button>
         }
       >
-        {overview.mcpServers.length === 0
-          ? (
-            <p className={styles.note}>
-              {t("project-workspace.empty.no-mcp-servers")}
-            </p>
-          )
-          : (
-            <McpList
-              items={overview.mcpServers}
-              onToggle={props.onToggleMcp}
-            />
-          )}
+        {overview.mcpServers.length === 0 ? (
+          <p className={styles.note}>
+            {t("project-workspace.empty.no-mcp-servers")}
+          </p>
+        ) : (
+          <McpList items={overview.mcpServers} onToggle={props.onToggleMcp} />
+        )}
       </Section>
 
       <p className={`${styles.note} ${styles.stored}`} data-stored-note="">

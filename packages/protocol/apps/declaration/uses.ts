@@ -26,11 +26,11 @@ export function validateUses(
   const connections: AppToolUseDeclaration[] = [];
   for (const item of connectionItems) {
     if (!isObject(item)) return invalid("app connection must be an object");
-    const bad = exactKeys(item, ["app", "tools", "reason"], [
-      "app",
-      "tools",
-      "reason",
-    ]);
+    const bad = exactKeys(
+      item,
+      ["app", "tools", "reason"],
+      ["app", "tools", "reason"],
+    );
     if (bad) return invalid(`app connection ${bad}`);
     if (typeof item.app !== "string" || !APP_ID.test(item.app)) {
       return invalid("app connection target must be an app ID");
@@ -42,9 +42,12 @@ export function validateUses(
       return invalid("app connection tools must be nonempty");
     }
     if (
-      item.tools.some((name) =>
-        typeof name !== "string" || name.trim() !== name ||
-        !nonBlank(name) || name.includes("*")
+      item.tools.some(
+        (name) =>
+          typeof name !== "string" ||
+          name.trim() !== name ||
+          !nonBlank(name) ||
+          name.includes("*"),
       )
     ) {
       return invalid("app connection tool must be an exact key");
@@ -57,12 +60,15 @@ export function validateUses(
     }
     connections.push({
       app: item.app,
-      tools: [...item.tools as string[]].sort(),
+      tools: [...(item.tools as string[])].sort(),
       reason: item.reason,
     });
   }
   if (
-    unique(connections.map((connection) => connection.app), "app connection")
+    unique(
+      connections.map((connection) => connection.app),
+      "app connection",
+    )
   ) {
     return invalid("duplicate app connection");
   }
@@ -81,7 +87,10 @@ export function validateUses(
     dependencies.push({ name: item.name, version: item.version });
   }
   if (
-    unique(dependencies.map((dependency) => dependency.name), "sdk dependency")
+    unique(
+      dependencies.map((dependency) => dependency.name),
+      "sdk dependency",
+    )
   ) {
     return invalid("duplicate sdk dependency");
   }

@@ -190,10 +190,7 @@ export function createWorkflowCommands(
   create: CommandDefinition<typeof workflowInstanceCreate>;
   apply: CommandDefinition<typeof workflowInstanceApply>;
 } {
-  function finish(
-    tx: Tx,
-    scope: Scope,
-  ): Result<WorkflowInstance> {
+  function finish(tx: Tx, scope: Scope): Result<WorkflowInstance> {
     const updated = updateInstance(tx.sql, scope.instance, scope.draft);
     if (!updated.ok) return updated;
     const loaded = loadInstance(tx.sql, scope.instance);
@@ -250,9 +247,10 @@ export function createWorkflowCommands(
           step: input.handoff?.step ?? null,
           text: input.input,
         });
-        const handed = input.handoff === null
-          ? ok(null)
-          : handOff(scope, router, input.handoff);
+        const handed =
+          input.handoff === null
+            ? ok(null)
+            : handOff(scope, router, input.handoff);
         if (!handed.ok) return handed;
         const instance = finish(tx, scope);
         return instance.ok

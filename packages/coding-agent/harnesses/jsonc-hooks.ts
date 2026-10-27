@@ -103,32 +103,34 @@ function appendTo(
   render: (indent: string) => string[],
 ): Edit {
   const first = node.kind === "object" ? node.members[0]?.value : node.items[0];
-  const last = node.kind === "object"
-    ? node.members.at(-1)?.value
-    : node.items.at(-1);
+  const last =
+    node.kind === "object" ? node.members.at(-1)?.value : node.items.at(-1);
   const multiline = text.slice(node.start, node.end).includes("\n");
   if (!multiline) {
-    const inner = render("").map((one) => one.replace(/\n\s*/g, " ")).join(
-      ", ",
-    );
+    const inner = render("")
+      .map((one) => one.replace(/\n\s*/g, " "))
+      .join(", ");
     return last === undefined
       ? { start: node.start + 1, end: node.end - 1, text: inner }
       : { start: last.end, end: last.end, text: `, ${inner}` };
   }
-  const indent = first === undefined
-    ? lineIndent(text, node.start) + unit
-    // 첫 항목이 줄 맨 앞에 있을 때만 그 줄의 들여쓰기를 쓴다. 객체의 member는 key가 줄 앞이다.
-    : lineIndent(
-      text,
-      node.kind === "object" ? node.members[0].keyAt : first.start,
-    );
-  const body = render(indent).map((one) => `${indent}${one}`).join(",\n");
+  const indent =
+    first === undefined
+      ? lineIndent(text, node.start) + unit
+      : // 첫 항목이 줄 맨 앞에 있을 때만 그 줄의 들여쓰기를 쓴다. 객체의 member는 key가 줄 앞이다.
+        lineIndent(
+          text,
+          node.kind === "object" ? node.members[0].keyAt : first.start,
+        );
+  const body = render(indent)
+    .map((one) => `${indent}${one}`)
+    .join(",\n");
   return last === undefined
     ? {
-      start: node.start + 1,
-      end: node.end - 1,
-      text: `\n${body}\n${lineIndent(text, node.start)}`,
-    }
+        start: node.start + 1,
+        end: node.end - 1,
+        text: `\n${body}\n${lineIndent(text, node.start)}`,
+      }
     : { start: last.end, end: last.end, text: `,\n${body}` };
 }
 
@@ -157,21 +159,22 @@ export function jsoncHooksText(
     return null;
   }
   if (root.kind !== "object") return null;
-  const unit = root.members[0] === undefined
-    ? "  "
-    : lineIndent(text, root.members[0].keyAt) || "  ";
+  const unit =
+    root.members[0] === undefined
+      ? "  "
+      : lineIndent(text, root.members[0].keyAt) || "  ";
   const edits: Edit[] = [];
   const hooksMember = root.members.find((member) => member.key === "hooks");
   if (hooksMember === undefined) {
-    edits.push(appendTo(text, root, unit, (indent) => [
-      `"hooks": ${
-        pretty(
+    edits.push(
+      appendTo(text, root, unit, (indent) => [
+        `"hooks": ${pretty(
           Object.fromEntries(events.map((e) => [e, [ours(e)]])),
           indent,
           unit,
-        )
-      }`,
-    ]));
+        )}`,
+      ]),
+    );
   } else {
     const hooks = hooksMember.value;
     if (hooks.kind !== "object") return null;
@@ -185,12 +188,14 @@ export function jsoncHooksText(
       const list = member.value;
       if (list.kind !== "array") return null;
       const owned = list.items.find((item) =>
-        ownedEntry(harness, valueOf(item))
+        ownedEntry(harness, valueOf(item)),
       );
       if (owned === undefined) {
-        edits.push(appendTo(text, list, unit, (indent) => [
-          pretty(ours(event), indent, unit),
-        ]));
+        edits.push(
+          appendTo(text, list, unit, (indent) => [
+            pretty(ours(event), indent, unit),
+          ]),
+        );
       } else if (!sameJson(valueOf(owned), ours(event))) {
         edits.push({
           start: owned.start,
@@ -201,14 +206,11 @@ export function jsoncHooksText(
     }
     if (missing.length > 0) {
       edits.push(
-        appendTo(
-          text,
-          hooks,
-          unit,
-          (indent) =>
-            missing.map((event) =>
-              `${JSON.stringify(event)}: ${pretty([ours(event)], indent, unit)}`
-            ),
+        appendTo(text, hooks, unit, (indent) =>
+          missing.map(
+            (event) =>
+              `${JSON.stringify(event)}: ${pretty([ours(event)], indent, unit)}`,
+          ),
         ),
       );
     }

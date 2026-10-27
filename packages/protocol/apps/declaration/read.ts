@@ -46,24 +46,28 @@ const appDeclarationEvidenceSchema = z.object({
 // 선언에 이미 있는 값을 계산에 쓰기 좋게 풀어 둔 것이고 새 사실이 아니다.
 const appFactsSchema = z.object({
   permissions: z.array(permissionRequirementSchema),
-  app_connections: z.array(z.object({
-    app: appIdSchema,
-    tools: z.array(z.string().min(1)),
-  })),
+  app_connections: z.array(
+    z.object({
+      app: appIdSchema,
+      tools: z.array(z.string().min(1)),
+    }),
+  ),
   tools: z.array(z.string().min(1)),
 });
 
-const appDeclarationOutputSchema = withReadCommon(z.object({
-  app: appIdSchema,
-  release: releaseIdSchema,
-  declaration_hash: sha256Schema,
-  name: z.string().min(1),
-  description: z.string().min(1),
-  tools: z.array(appToolSchema),
-  screens: z.array(appDeclarationScreenSchema),
-  facts: appFactsSchema,
-  evidence: appDeclarationEvidenceSchema,
-}));
+const appDeclarationOutputSchema = withReadCommon(
+  z.object({
+    app: appIdSchema,
+    release: releaseIdSchema,
+    declaration_hash: sha256Schema,
+    name: z.string().min(1),
+    description: z.string().min(1),
+    tools: z.array(appToolSchema),
+    screens: z.array(appDeclarationScreenSchema),
+    facts: appFactsSchema,
+    evidence: appDeclarationEvidenceSchema,
+  }),
+);
 
 export const appTools = defineRead({
   resource: "apps",
@@ -89,16 +93,18 @@ const appToolIndexEntrySchema = z.object({
   app: appIdSchema,
   name: z.string().min(1),
   description: z.string().min(1),
-  tools: z.array(z.object({
-    name: z.string().min(1),
-    title: z.string().min(1),
-    description: z.string().min(1),
-    effect: z.enum(["read", "write", "external"]),
-    public: z.boolean(),
-    domain: z.string().min(1),
-    inputSchema: jsonValueSchema.nullable().optional(),
-    outputSchema: jsonValueSchema.optional(),
-  })),
+  tools: z.array(
+    z.object({
+      name: z.string().min(1),
+      title: z.string().min(1),
+      description: z.string().min(1),
+      effect: z.enum(["read", "write", "external"]),
+      public: z.boolean(),
+      domain: z.string().min(1),
+      inputSchema: jsonValueSchema.nullable().optional(),
+      outputSchema: jsonValueSchema.optional(),
+    }),
+  ),
 });
 export type AppToolIndexEntry = z.infer<typeof appToolIndexEntrySchema>;
 

@@ -29,27 +29,21 @@ export function register(ctx: ShellContext): Registered {
   let shots = 0;
   const host: SecretInputHost = {
     create(config) {
-      const parent = [...windows].find((window) =>
-        !window.isDestroyed() && windowRef(window) === config.parent.id
+      const parent = [...windows].find(
+        (window) =>
+          !window.isDestroyed() && windowRef(window) === config.parent.id,
       );
-      const window = new BrowserWindow(
-        {
-          ...config,
-          ...(parent === undefined ? {} : { parent }),
-        } as unknown as ConstructorParameters<typeof BrowserWindow>[0],
-      );
-      capturePaints(
-        window.webContents,
-        `secret-input-${++shots}`,
-        headless,
-        {
-          write: (path, data) => writeFileSync(path, data),
-          timer: {
-            set: (callback, ms) => setTimeout(callback, ms),
-            clear: (handle) => clearTimeout(handle as NodeJS.Timeout),
-          },
+      const window = new BrowserWindow({
+        ...config,
+        ...(parent === undefined ? {} : { parent }),
+      } as unknown as ConstructorParameters<typeof BrowserWindow>[0]);
+      capturePaints(window.webContents, `secret-input-${++shots}`, headless, {
+        write: (path, data) => writeFileSync(path, data),
+        timer: {
+          set: (callback, ms) => setTimeout(callback, ms),
+          clear: (handle) => clearTimeout(handle as NodeJS.Timeout),
         },
-      );
+      });
       return window as unknown as SecretInputBrowserWindow;
     },
     sessionFor(partition) {
@@ -71,30 +65,29 @@ export function register(ctx: ShellContext): Registered {
         // 권한 요청은 모두 거절한다.
         setPermissionRequestHandler: () =>
           ses.setPermissionRequestHandler((_contents, _permission, callback) =>
-            callback(false)
+            callback(false),
           ),
         on: (_event, listener) =>
           ses.on("will-download", (event) => listener(event)),
         webRequest: {
           onBeforeRequest: (filter, listener) =>
-            ses.webRequest.onBeforeRequest(
-              filter,
-              (details, callback) => listener(details, callback),
+            ses.webRequest.onBeforeRequest(filter, (details, callback) =>
+              listener(details, callback),
             ),
         },
       };
     },
     appContents(parentId) {
-      const parent = [...windows].find((window) =>
-        !window.isDestroyed() && windowRef(window) === parentId
+      const parent = [...windows].find(
+        (window) => !window.isDestroyed() && windowRef(window) === parentId,
       );
       if (parent === undefined) return [];
       // shell 크롬 overlay 말고 부모 창에 붙은 앱·문서 view 전부의 입력을 막는다.
       return parent.contentView.children.flatMap((view) =>
         view instanceof WebContentsView &&
-          !view.webContents.getURL().startsWith("lophn-shell:")
+        !view.webContents.getURL().startsWith("lophn-shell:")
           ? [view.webContents as unknown as AppContents]
-          : []
+          : [],
       );
     },
   };
@@ -103,8 +96,8 @@ export function register(ctx: ShellContext): Registered {
     host,
     // 부모는 IPC를 보낸 desktop 창 본문이다. renderer가 보낸 값은 쓰지 않는다.
     parentOf(event: SecretInputIpcEvent): ParentWindow | undefined {
-      const window = [...windows].find((one) =>
-        !one.isDestroyed() && one.webContents.id === event.sender.id
+      const window = [...windows].find(
+        (one) => !one.isDestroyed() && one.webContents.id === event.sender.id,
       );
       if (window === undefined) return undefined;
       return {

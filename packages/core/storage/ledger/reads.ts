@@ -43,8 +43,9 @@ function synchronousResult(value: unknown): Result<unknown> {
 // 배열의 각 항목이 한 row다. 중첩된 목록도 응답 한도에 포함한다.
 function responseRows(value: unknown): number {
   if (Array.isArray(value)) {
-    return value.length +
-      value.reduce((sum, item) => sum + responseRows(item), 0);
+    return (
+      value.length + value.reduce((sum, item) => sum + responseRows(item), 0)
+    );
   }
   if (value && typeof value === "object" && !(value instanceof Uint8Array)) {
     return Object.values(value).reduce<number>(
@@ -147,7 +148,8 @@ function executeSnapshot(
         if (ports.has(key)) {
           const registered = ports.get(key);
           if (
-            typeof registered === "object" && registered !== null &&
+            typeof registered === "object" &&
+            registered !== null &&
             SNAPSHOT_PORT in registered
           ) {
             return (registered as SnapshotPort<T>)[SNAPSHOT_PORT](snapshot);
@@ -203,13 +205,13 @@ function executeSnapshot(
     return err(
       error instanceof ReadLimitExceeded
         ? {
-          code: "invalid_input",
-          message: "read 행 한도를 넘었다. 더 작은 page로 요청해야 한다",
-          details: { max_rows: READ_MAX_ROWS },
-        }
+            code: "invalid_input",
+            message: "read 행 한도를 넘었다. 더 작은 page로 요청해야 한다",
+            details: { max_rows: READ_MAX_ROWS },
+          }
         : error instanceof ReaderStorageError
-        ? { code: "unavailable", message: "reader 저장소를 사용할 수 없다" }
-        : { code: "internal", message: "read 처리에 실패했다" },
+          ? { code: "unavailable", message: "reader 저장소를 사용할 수 없다" }
+          : { code: "internal", message: "read 처리에 실패했다" },
     );
   }
 }

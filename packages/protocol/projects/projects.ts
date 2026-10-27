@@ -27,8 +27,5 @@ const projectSchema = z.object({
   folders: foldersOutputSchema,
 });
 const agentProjectSchema = z.object(projectMetadataFields);
-export const projectReadSchema = z.union([
-  projectSchema,
-  agentProjectSchema,
-]);
+export const projectReadSchema = z.union([projectSchema, agentProjectSchema]);
 export const projectInputSchema = z.strictObject({ project: projectIdSchema });

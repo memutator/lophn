@@ -43,8 +43,7 @@ const scenario: Scenario = {
             call: {
               to: AE,
               reply: "none",
-              body:
-                "캘린더 event.list의 next_week가 오류를 냅니다. 다음 주 일정을 알려 주려던 중이었습니다. 고쳐 주세요.",
+              body: "캘린더 event.list의 next_week가 오류를 냅니다. 다음 주 일정을 알려 주려던 중이었습니다. 고쳐 주세요.",
             },
           },
         ]),
@@ -53,9 +52,7 @@ const scenario: Scenario = {
     wrong: [
       {
         trial: fixtureTrial([
-          fixtureSession(OP, [
-            { call: { to: AE, reply: "result" } },
-          ]),
+          fixtureSession(OP, [{ call: { to: AE, reply: "result" } }]),
         ]),
         fails: ["call-to-calendar-ae-none"],
       },

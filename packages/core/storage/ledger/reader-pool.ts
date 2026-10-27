@@ -42,12 +42,7 @@ const KNOWN_ACK_MS = 5000;
 // 그 slot은 격리된 채 남는다(둘 다 그러면 read는 unavailable이다).
 const READER_RESPAWN_LIMIT = 6;
 const RESPAWN_BACKOFF_MS: readonly number[] = [
-  250,
-  500,
-  1000,
-  2000,
-  4000,
-  8000,
+  250, 500, 1000, 2000, 4000, 8000,
 ];
 
 type ReaderPoolOptions = {
@@ -89,10 +84,13 @@ export async function createReaderPool(
   let waiting = 0;
   // 등록·회수 확인을 기다리는 중인 방송. 확인을 보낸 slot이 남아 있는 동안만 산다.
   let nextKnown = 0;
-  const knownWaits = new Map<number, {
-    slots: Set<Slot>;
-    settle(result: Result<void>): void;
-  }>();
+  const knownWaits = new Map<
+    number,
+    {
+      slots: Set<Slot>;
+      settle(result: Result<void>): void;
+    }
+  >();
 
   // slot이 확인했거나(격리돼 더 서빙하지 않게 됐거나) 하면 그 방송의 대기에서 뺀다.
   function settleKnown(id: number, slot: Slot) {
@@ -131,7 +129,9 @@ export async function createReaderPool(
               `reader pool: respawn limit (${respawnLimit}) reached; isolated readers stay isolated`,
             );
           }
-        } catch { /* 알림 실패가 pool을 막지 않는다 */ }
+        } catch {
+          /* 알림 실패가 pool을 막지 않는다 */
+        }
       }
       return;
     }
@@ -214,10 +214,9 @@ export async function createReaderPool(
   }
 
   function newWorker(): Worker {
-    return new Worker(
-      new URL("./reader-worker.ts", import.meta.url).href,
-      { type: "module" },
-    );
+    return new Worker(new URL("./reader-worker.ts", import.meta.url).href, {
+      type: "module",
+    });
   }
 
   // worker를 기동해 ready를 기다린다. 성공하면 서빙 handler를 달고 true다. 실패(기한·오류·거절)는
@@ -281,12 +280,14 @@ export async function createReaderPool(
 
   let started: boolean[];
   try {
-    started = await Promise.all(Array.from({ length: 2 }, () => {
-      const worker = newWorker();
-      const slot: Slot = { worker, health: "healthy" };
-      slots.push(slot);
-      return boot(slot, worker);
-    }));
+    started = await Promise.all(
+      Array.from({ length: 2 }, () => {
+        const worker = newWorker();
+        const slot: Slot = { worker, health: "healthy" };
+        slots.push(slot);
+        return boot(slot, worker);
+      }),
+    );
   } catch {
     slots.forEach((slot) => {
       clearTimeout(slot.timer);
@@ -354,9 +355,12 @@ export async function createReaderPool(
         );
       }
       if (
-        closed || !slots.some((slot) => slot.health === "healthy") ||
-        waiting >= 64 || (queues.get(ctx.principal)?.length ?? 0) >= 8
-      ) return Promise.resolve(unavailable());
+        closed ||
+        !slots.some((slot) => slot.health === "healthy") ||
+        waiting >= 64 ||
+        (queues.get(ctx.principal)?.length ?? 0) >= 8
+      )
+        return Promise.resolve(unavailable());
       return new Promise((resolve) => {
         const pending = { id: ++nextId, key, ctx, input, resolve };
         const queue = queues.get(ctx.principal);

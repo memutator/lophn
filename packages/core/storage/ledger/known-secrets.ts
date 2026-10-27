@@ -16,9 +16,8 @@ export type KnownSecretMatch = {
   readonly ready: boolean;
 };
 
-export const KNOWN_SECRETS: PortKey<KnownSecretMatch> = definePort<
-  KnownSecretMatch
->("known-secrets");
+export const KNOWN_SECRETS: PortKey<KnownSecretMatch> =
+  definePort<KnownSecretMatch>("known-secrets");
 
 // core가 reader pool에 알려진 값을 넣고 빼는 통로. 모든 healthy reader가 반영을 확인한 뒤에야
 // 이어서 시작하는 read가 새 값을 안다. 값은 JSON·log·오류에 가지 않는다.

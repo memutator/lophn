@@ -18,9 +18,9 @@ export function findRepeatGroups(
   const groups: RepeatGroup[] = [];
   for (const session of trial.sessions) {
     const superseded = new Set(
-      session.tool_calls.map((t) => t.call.retry_of).filter((id) =>
-        id !== null
-      ),
+      session.tool_calls
+        .map((t) => t.call.retry_of)
+        .filter((id) => id !== null),
     );
     const bySame = new Map<string, CollectedToolCall[]>();
     for (const t of session.tool_calls) {
@@ -29,8 +29,10 @@ export function findRepeatGroups(
       if (call.state !== "finished" || outcome === null) continue;
       if (superseded.has(call.id)) continue;
       if (
-        outcome.kind === "not_executed" && !BLOCK_CODES.includes(outcome.code)
-      ) continue;
+        outcome.kind === "not_executed" &&
+        !BLOCK_CODES.includes(outcome.code)
+      )
+        continue;
       const key = `${call.tool}\n${call.input}`;
       bySame.set(key, [...(bySame.get(key) ?? []), t]);
     }

@@ -49,11 +49,7 @@ interface AutostartFiles {
 /** macOS·Windows의 Electron login item. */
 interface LoginItems {
   get(query: { path: string; args: string[] }): { openAtLogin: boolean };
-  set(settings: {
-    openAtLogin: boolean;
-    path: string;
-    args: string[];
-  }): void;
+  set(settings: { openAtLogin: boolean; path: string; args: string[] }): void;
 }
 
 export interface AutostartOs {
@@ -88,9 +84,8 @@ export function verifiedExecPath(
   },
 ): VerifiedPath {
   if (!os.packaged) return { ok: false, reason: "not_packaged" };
-  const candidate = os.platform === "linux" && os.appImage
-    ? os.appImage
-    : os.execPath;
+  const candidate =
+    os.platform === "linux" && os.appImage ? os.appImage : os.execPath;
   if (!isAbsolute(candidate, os.platform)) {
     return { ok: false, reason: "unverified_path" };
   }

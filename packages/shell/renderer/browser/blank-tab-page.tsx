@@ -13,9 +13,11 @@ interface BlankTabPageProps {
   onOpenInNewTab(url: string): void;
 }
 
-export function BlankTabPage(
-  { bookmarks, onOpen, onOpenInNewTab }: BlankTabPageProps,
-) {
+export function BlankTabPage({
+  bookmarks,
+  onOpen,
+  onOpenInNewTab,
+}: BlankTabPageProps) {
   if (bookmarks.state === "loading") return null;
   if (bookmarks.state === "corrupt") {
     return (
@@ -44,7 +46,8 @@ export function BlankTabPage(
             onClick={(event: MouseEvent) =>
               (event.ctrlKey || event.metaKey ? onOpenInNewTab : onOpen)(
                 item.url,
-              )}
+              )
+            }
             onAuxClick={(event) => {
               if (event.button === 1) onOpenInNewTab(item.url);
             }}

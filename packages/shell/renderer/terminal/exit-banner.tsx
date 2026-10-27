@@ -31,44 +31,48 @@ interface ExitBannerProps {
 
 // 출력 옆의 상태 줄. 확인된 exit code·시작 실패·결과 불명·종료 확인 실패를 다른 문구와 아이콘으로 보인다.
 // 끝난 shell을 다시 시작하는 것은 자동이 아니다(사람이 누른다).
-export function ExitBanner(
-  { state, onRestart, variant = "bar" }: ExitBannerProps,
-) {
-  const mark = state.kind === "refused"
-    ? { label: t(REFUSAL_KEY[state.reason]), tone: "critical" as const }
-    : state.kind === "session_ended"
-    ? { label: t("terminal.label.session-ended"), tone: "neutral" as const }
-    : (() => {
-      const { wording, tone } = endingWording(
-        state.ending,
-        state.exitCode,
-      );
-      const label = wording.key === "terminal.status.exited"
-        ? t(wording.key, wording.values)
-        : t(wording.key);
-      return { label, tone };
-    })();
-  const restartLabel = state.kind === "refused"
-    ? t("terminal.button.try-again")
-    : t("terminal.button.start-again");
+export function ExitBanner({
+  state,
+  onRestart,
+  variant = "bar",
+}: ExitBannerProps) {
+  const mark =
+    state.kind === "refused"
+      ? { label: t(REFUSAL_KEY[state.reason]), tone: "critical" as const }
+      : state.kind === "session_ended"
+        ? { label: t("terminal.label.session-ended"), tone: "neutral" as const }
+        : (() => {
+            const { wording, tone } = endingWording(
+              state.ending,
+              state.exitCode,
+            );
+            const label =
+              wording.key === "terminal.status.exited"
+                ? t(wording.key, wording.values)
+                : t(wording.key);
+            return { label, tone };
+          })();
+  const restartLabel =
+    state.kind === "refused"
+      ? t("terminal.button.try-again")
+      : t("terminal.button.start-again");
   const ending = state.kind === "ended" ? state.ending : state.kind;
-  const note = state.kind === "session_ended"
-    ? <span data-next-handoff="">{t("terminal.notice.next-handoff")}</span>
-    : null;
-  const restart = onRestart
-    ? (
-      <Tooltip content={restartLabel}>
-        <IconButton
-          icon={retryIcon}
-          label={restartLabel}
-          size={variant === "bar" ? "sm" : "md"}
-          variant={variant === "bar" ? "ghost" : "secondary"}
-          data-restart=""
-          onClick={onRestart}
-        />
-      </Tooltip>
-    )
-    : null;
+  const note =
+    state.kind === "session_ended" ? (
+      <span data-next-handoff="">{t("terminal.notice.next-handoff")}</span>
+    ) : null;
+  const restart = onRestart ? (
+    <Tooltip content={restartLabel}>
+      <IconButton
+        icon={retryIcon}
+        label={restartLabel}
+        size={variant === "bar" ? "sm" : "md"}
+        variant={variant === "bar" ? "ghost" : "secondary"}
+        data-restart=""
+        onClick={onRestart}
+      />
+    </Tooltip>
+  ) : null;
   if (variant === "center") {
     return (
       <div className={styles.placeholderWrap}>

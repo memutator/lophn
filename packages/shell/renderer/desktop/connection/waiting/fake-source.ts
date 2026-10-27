@@ -122,15 +122,17 @@ export const ACTIVATION = (): ActivationConsent => ({
       "fs.write:/exports/**",
     ],
     added_tools: [{ app: INVENTORY, tool: "stock.adjust" }],
-    loss_steps: [{
-      from: 3,
-      to: 4,
-      loss: [
-        { kind: "drop_table", table: "legacy_orders" },
-        { kind: "drop_column", table: "orders", column: "note" },
-        { kind: "narrow_type", table: "orders", column: "total" },
-      ],
-    }],
+    loss_steps: [
+      {
+        from: 3,
+        to: 4,
+        loss: [
+          { kind: "drop_table", table: "legacy_orders" },
+          { kind: "drop_column", table: "orders", column: "note" },
+          { kind: "narrow_type", table: "orders", column: "total" },
+        ],
+      },
+    ],
   },
   requested_at: ago(3),
 });
@@ -248,16 +250,18 @@ const QUESTION_GROUP = id("qgr", 1);
 const QUESTION_TURN = id("trn", 31);
 const QUESTION_CALL = id("tcl", 31);
 
-const QUESTION: readonly AskQuestion[] = [{
-  question:
-    "Include the three flaky scenarios in this week's regression count?",
-  header: "Regression count",
-  options: [
-    { label: "Include them", description: "Count them as failures." },
-    { label: "Leave them out", description: "Count only stable scenarios." },
-  ],
-  multiSelect: false,
-}];
+const QUESTION: readonly AskQuestion[] = [
+  {
+    question:
+      "Include the three flaky scenarios in this week's regression count?",
+    header: "Regression count",
+    options: [
+      { label: "Include them", description: "Count them as failures." },
+      { label: "Leave them out", description: "Count only stable scenarios." },
+    ],
+    multiSelect: false,
+  },
+];
 
 type Item =
   | ReturnType<typeof turnRequest>
@@ -349,11 +353,13 @@ export function createFakeWaiting(
       const snapshot = snapshotOf(LOPHN_SESSION);
       sessions.set(snapshot.session, {
         ...snapshot,
-        questions: [{
-          group: QUESTION_GROUP,
-          turn: QUESTION_TURN,
-          tool_call: QUESTION_CALL,
-        }],
+        questions: [
+          {
+            group: QUESTION_GROUP,
+            turn: QUESTION_TURN,
+            tool_call: QUESTION_CALL,
+          },
+        ],
       });
     } else if ("request" in item) {
       const snapshot = snapshotOf(item.session);
@@ -397,23 +403,23 @@ export function createFakeWaiting(
       const body = input.body as Record<string, unknown>;
       if (
         key ===
-          `read:${sessionSnapshotsList.resource}/${sessionSnapshotsList.method}`
+        `read:${sessionSnapshotsList.resource}/${sessionSnapshotsList.method}`
       ) {
         return ok({ ...COMMON, snapshots: [...sessions.values()] });
       }
       if (
         key ===
-          `read:${activationConsents.resource}/${activationConsents.method}`
+        `read:${activationConsents.resource}/${activationConsents.method}`
       ) {
         return ok({ ...COMMON, consents });
       }
       if (
         key ===
-          `memory:${turnRequestDecide.resource}/${turnRequestDecide.method}`
+        `memory:${turnRequestDecide.resource}/${turnRequestDecide.method}`
       ) {
         const session = sessions.get(String(body.session));
-        const request = session?.turn_requests.find((r) =>
-          r.id === body.request
+        const request = session?.turn_requests.find(
+          (r) => r.id === body.request,
         );
         if (!session || !request) return fail("not_found");
         const choice = body.choice as { kind: string; reason?: string };
@@ -439,7 +445,7 @@ export function createFakeWaiting(
       }
       if (
         key ===
-          `command:${activationConsent.resource}/${activationConsent.method}`
+        `command:${activationConsent.resource}/${activationConsent.method}`
       ) {
         const decided = body.input as { release: string; choice: string };
         const consent = consents.find((c) => c.release === decided.release);
@@ -460,9 +466,7 @@ export function createFakeWaiting(
       if (key === `read:${jobHolds.resource}/${jobHolds.method}`) {
         return ok({ ...COMMON, holds });
       }
-      if (
-        key === `command:${jobDecideHold.resource}/${jobDecideHold.method}`
-      ) {
+      if (key === `command:${jobDecideHold.resource}/${jobDecideHold.method}`) {
         const decided = body.input as { job_run: string; choice: string };
         const hold = holds.find((h) => h.job_run.id === decided.job_run);
         if (!hold) return fail("not_found");

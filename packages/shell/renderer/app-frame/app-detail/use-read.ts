@@ -8,11 +8,11 @@ type Loaded<T> =
   | { readonly state: "loading" }
   | { readonly state: "failed" }
   | {
-    readonly state: "ready";
-    readonly value: T;
-    /** 마지막 읽기가 실패했으면 그 값을 확인한 시각이다. */
-    readonly staleSince: Date | null;
-  };
+      readonly state: "ready";
+      readonly value: T;
+      /** 마지막 읽기가 실패했으면 그 값을 확인한 시각이다. */
+      readonly staleSince: Date | null;
+    };
 
 export interface ReadHandle<T> {
   readonly loaded: Loaded<T>;
@@ -54,9 +54,10 @@ export function useRead<T>(
         }
       });
     read();
-    const timer = options.pollMs === undefined
-      ? undefined
-      : setInterval(read, options.pollMs);
+    const timer =
+      options.pollMs === undefined
+        ? undefined
+        : setInterval(read, options.pollMs);
     return () => {
       live = false;
       if (timer !== undefined) clearInterval(timer);

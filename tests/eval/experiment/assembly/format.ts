@@ -27,7 +27,10 @@ export function formatAssembly(report: AssemblyReport): string[] {
     lines.push(
       `  ${layer}: ${pct(b?.rate ?? null)} -> ${pct(a?.rate ?? null)}`,
     );
-    for (const [side, stat] of [["baseline", b], ["variant", a]] as const) {
+    for (const [side, stat] of [
+      ["baseline", b],
+      ["variant", a],
+    ] as const) {
       const brk = stat?.first_break;
       if (brk) {
         lines.push(

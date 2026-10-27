@@ -202,7 +202,7 @@ export const APPEARANCE_DEFAULTS: AppearanceValues = {
 /** 저장된 값이 선택지 안에 있을 때만 쓴다. 아니면 기본값이다. */
 export function valueOf(row: AppearanceRow, stored: unknown): string {
   return row.options.some((option) => option.value === stored)
-    ? stored as string
+    ? (stored as string)
     : APPEARANCE_DEFAULTS[row.id];
 }
 

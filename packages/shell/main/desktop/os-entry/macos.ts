@@ -20,12 +20,14 @@ export function macBundlePath(home: string, app: string): string {
 }
 
 function xml(text: string): string {
-  return text
-    // deno-lint-ignore no-control-regex
-    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+  return (
+    text
+      // deno-lint-ignore no-control-regex
+      .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+  );
 }
 
 export function macBundleFiles(

@@ -68,10 +68,7 @@ type Ledger = {
   close(): void;
 };
 
-export function openLedger(
-  path: string,
-  deps: LedgerDeps,
-): Result<Ledger> {
+export function openLedger(path: string, deps: LedgerDeps): Result<Ledger> {
   const opened = openConnection(path);
   if (!opened.ok) return opened;
   return ok(ledger(opened.value, deps));

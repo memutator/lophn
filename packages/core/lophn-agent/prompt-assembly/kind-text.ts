@@ -22,54 +22,61 @@ export type KindRead = {
   summary: string;
   files: readonly string[];
   key: string;
-  fields: Record<string, {
-    type: string;
-    required?: boolean;
-    list?: boolean;
-    values?: readonly string[];
-    to?: string;
-  }>;
+  fields: Record<
+    string,
+    {
+      type: string;
+      required?: boolean;
+      list?: boolean;
+      values?: readonly string[];
+      to?: string;
+    }
+  >;
 };
 
 function kindEntries(
   kinds: readonly KindRead[],
 ): KindText["domains"][number]["kinds"] {
-  return [...kinds].sort((a, b) => cmp(a.name, b.name)).map((kind) => ({
-    name: kind.name,
-    summary: kind.summary,
-    files: [...kind.files],
-    key: kind.key,
-    fields: Object.entries(kind.fields).sort(([a], [b]) => cmp(a, b))
-      .map(([name, field]) => ({
-        name,
-        type: field.type,
-        required: field.required ?? false,
-        list: field.list ?? false,
-        detail: field.type === "enum"
-          ? (field.values ?? []).join(", ")
-          : field.type === "ref"
-          ? field.to ?? null
-          : null,
-      })),
-  }));
+  return [...kinds]
+    .sort((a, b) => cmp(a.name, b.name))
+    .map((kind) => ({
+      name: kind.name,
+      summary: kind.summary,
+      files: [...kind.files],
+      key: kind.key,
+      fields: Object.entries(kind.fields)
+        .sort(([a], [b]) => cmp(a, b))
+        .map(([name, field]) => ({
+          name,
+          type: field.type,
+          required: field.required ?? false,
+          list: field.list ?? false,
+          detail:
+            field.type === "enum"
+              ? (field.values ?? []).join(", ")
+              : field.type === "ref"
+                ? (field.to ?? null)
+                : null,
+        })),
+    }));
 }
 
 // domain 이름순으로 조립한다.
-export function buildKindText(
-  read: {
-    domains: readonly {
-      name: string;
-      kinds: readonly KindRead[];
-      warning: boolean;
-    }[];
-  },
-): KindText {
+export function buildKindText(read: {
+  domains: readonly {
+    name: string;
+    kinds: readonly KindRead[];
+    warning: boolean;
+  }[];
+}): KindText {
   return kindTextSchema.parse({
-    domains: [...read.domains].sort((a, b) => cmp(a.name, b.name)).map((d) => ({
-      domain: d.name,
-      kinds: kindEntries(d.kinds),
-      warning: d.warning,
-    })),
+    domains: [...read.domains]
+      .sort((a, b) => cmp(a.name, b.name))
+      .map((d) => ({
+        domain: d.name,
+        kinds: kindEntries(d.kinds),
+        warning: d.warning,
+      })),
   });
 }
 
@@ -81,7 +88,8 @@ function fullLines(kinds: KindText["domains"][number]["kinds"]): string[] {
     for (const field of kind.fields) {
       const detail = field.detail === null ? "" : ` (${field.detail})`;
       const flags = [field.required ? "required" : "", field.list ? "list" : ""]
-        .filter((flag) => flag !== "").join(", ");
+        .filter((flag) => flag !== "")
+        .join(", ");
       lines.push(
         `  - ${field.name}: ${field.type}${detail}${
           flags === "" ? "" : `, ${flags}`
@@ -103,20 +111,20 @@ export function renderKindText(text: KindText, level: KindTextLevel): string {
       lines.push(`Kinds: ${kinds.map((k) => k.name).join(", ")}`);
     } else {
       lines.push(
-        `${kinds.length} kinds. Inspect them with ${
-          toWireToolName("kind.check")
-        } and read documents with ${toWireToolName("kind.list")}.`,
+        `${kinds.length} kinds. Inspect them with ${toWireToolName(
+          "kind.check",
+        )} and read documents with ${toWireToolName("kind.list")}.`,
       );
     }
     if (warning) {
       lines.push(
-        `The kinds file has errors; ${
-          toWireToolName("kind.check")
-        } lists them. The previous version is in use.`,
+        `The kinds file has errors; ${toWireToolName(
+          "kind.check",
+        )} lists them. The previous version is in use.`,
       );
     }
   }
-  return `<${KIND_TEXT_TAG}>\n${
-    escapeTagBody(lines.join("\n"))
-  }\n</${KIND_TEXT_TAG}>`;
+  return `<${KIND_TEXT_TAG}>\n${escapeTagBody(
+    lines.join("\n"),
+  )}\n</${KIND_TEXT_TAG}>`;
 }

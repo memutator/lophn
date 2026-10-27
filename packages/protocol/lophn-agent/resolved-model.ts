@@ -25,10 +25,13 @@ export const EFFORT_LABELS = {
 } as const satisfies Record<EffortValue, string>;
 
 export const MODEL_MEDIA = ["text", "image", "audio", "video", "pdf"] as const;
-export const modelMediaSchema = z.array(z.enum(MODEL_MEDIA)).refine(
-  (values) => values.includes("text") && new Set(values).size === values.length,
-  { message: "media must include text without duplicates" },
-);
+export const modelMediaSchema = z
+  .array(z.enum(MODEL_MEDIA))
+  .refine(
+    (values) =>
+      values.includes("text") && new Set(values).size === values.length,
+    { message: "media must include text without duplicates" },
+  );
 
 const priceRateFields = {
   context_from: nonnegativeIntegerSchema.nullable(),
@@ -44,21 +47,18 @@ function rateShape(value: {
   context_from: number | null;
   context_through: number | null;
 }): boolean {
-  return value.context_from === null || value.context_through === null ||
-    value.context_from <= value.context_through;
+  return (
+    value.context_from === null ||
+    value.context_through === null ||
+    value.context_from <= value.context_through
+  );
 }
-const priceRateSchema = z.strictObject(priceRateFields).refine(
-  rateShape,
-  {
-    message: "invalid context interval",
-  },
-);
-const priceRateOutputSchema = z.object(priceRateFields).refine(
-  rateShape,
-  {
-    message: "invalid context interval",
-  },
-);
+const priceRateSchema = z.strictObject(priceRateFields).refine(rateShape, {
+  message: "invalid context interval",
+});
+const priceRateOutputSchema = z.object(priceRateFields).refine(rateShape, {
+  message: "invalid context interval",
+});
 
 function disjointRates(value: {
   rates: readonly {
@@ -66,13 +66,14 @@ function disjointRates(value: {
     context_through: number | null;
   }[];
 }): boolean {
-  const sorted = [...value.rates].sort((a, b) =>
-    (a.context_from ?? 0) - (b.context_from ?? 0)
+  const sorted = [...value.rates].sort(
+    (a, b) => (a.context_from ?? 0) - (b.context_from ?? 0),
   );
-  return sorted.every((rate, index) =>
-    index === 0 ||
-    (sorted[index - 1].context_through !== null &&
-      sorted[index - 1].context_through! < (rate.context_from ?? 0))
+  return sorted.every(
+    (rate, index) =>
+      index === 0 ||
+      (sorted[index - 1].context_through !== null &&
+        sorted[index - 1].context_through! < (rate.context_from ?? 0)),
   );
 }
 const priceBasisFields = {
@@ -82,14 +83,15 @@ const priceBasisFields = {
   revision: nonblankSchema,
   checked_at: atSchema,
 };
-export const priceBasisSchema = z.strictObject(priceBasisFields).refine(
-  disjointRates,
-  { message: "overlapping context price intervals" },
-);
-export const priceBasisOutputSchema = z.object({
-  ...priceBasisFields,
-  rates: z.array(priceRateOutputSchema).min(1),
-}).refine(disjointRates, { message: "overlapping context price intervals" });
+export const priceBasisSchema = z
+  .strictObject(priceBasisFields)
+  .refine(disjointRates, { message: "overlapping context price intervals" });
+export const priceBasisOutputSchema = z
+  .object({
+    ...priceBasisFields,
+    rates: z.array(priceRateOutputSchema).min(1),
+  })
+  .refine(disjointRates, { message: "overlapping context price intervals" });
 
 const resolvedModelFields = {
   purpose: z.enum(["judgment", "organizing"]),

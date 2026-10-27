@@ -16,11 +16,13 @@ type SchemaOf<R extends Route> = Extract<R["output"], z.ZodType>;
 
 // command는 envelope로 보내고 결과 객체로 받는다.
 // memory는 command가 아니므로 ledger envelope 없이 raw 입력·출력을 주고받는다.
-type CallBody<R extends Route> = R extends CommandRoute ? CommandRequest<R>
+type CallBody<R extends Route> = R extends CommandRoute
+  ? CommandRequest<R>
   : z.input<R["input"]>;
 
 // 성공한 command도 read처럼 등록된 결과 객체를 그대로 200으로 받는다.
-type CallResult<R extends Route> = R extends { kind: "file" } ? FileBody
+type CallResult<R extends Route> = R extends { kind: "file" }
+  ? FileBody
   : z.output<SchemaOf<R>>;
 
 export type RpcFetch = (
@@ -67,15 +69,14 @@ export function createRpcClient(options: {
       if (route.kind === "upload") {
         return fail("invalid_input", "upload route needs a byte body");
       }
-      const requestSchema: z.ZodType = route.kind === "command"
-        ? commandRequestSchema(route)
-        : route.input;
+      const requestSchema: z.ZodType =
+        route.kind === "command" ? commandRequestSchema(route) : route.input;
       const input = requestSchema.safeParse(body);
       if (!input.success) {
         return fail("invalid_input", "invalid input");
       }
       const headers: Record<string, string> = {
-        "authorization": `Bearer ${options.token}`,
+        authorization: `Bearer ${options.token}`,
       };
       const init: {
         method: string;

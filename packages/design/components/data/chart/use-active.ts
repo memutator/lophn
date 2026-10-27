@@ -6,16 +6,19 @@ export function useActive(count: number) {
   const current = active !== null && active < count ? active : null;
   const onKeyDown = (event: KeyboardEvent<SVGSVGElement>) => {
     if (count === 0) return;
-    const step = event.key === "ArrowRight" || event.key === "ArrowDown"
-      ? 1
-      : event.key === "ArrowLeft" || event.key === "ArrowUp"
-      ? -1
-      : 0;
+    const step =
+      event.key === "ArrowRight" || event.key === "ArrowDown"
+        ? 1
+        : event.key === "ArrowLeft" || event.key === "ArrowUp"
+          ? -1
+          : 0;
     if (step !== 0) {
       event.preventDefault();
       setActive(
         current === null
-          ? (step > 0 ? 0 : count - 1)
+          ? step > 0
+            ? 0
+            : count - 1
           : Math.min(count - 1, Math.max(0, current + step)),
       );
     } else if (event.key === "Escape" && current !== null) {

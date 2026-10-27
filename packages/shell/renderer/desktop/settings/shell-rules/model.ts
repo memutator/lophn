@@ -18,7 +18,7 @@ export const ACTION_OPTIONS: readonly {
 function rulesOf(value: ShellRulesSetting, layer: ShellRuleLayer) {
   return layer.kind === "global"
     ? value.global
-    : value.projects[layer.project] ?? [];
+    : (value.projects[layer.project] ?? []);
 }
 
 // 규칙이 모두 지워진 project는 키도 지운다. 지운 project의 id가 설정에 남아 목록에 계속 뜨지 않게 한다.
@@ -31,9 +31,8 @@ function withRules(
   const { [layer.project]: _old, ...others } = value.projects;
   return {
     ...value,
-    projects: rules.length === 0
-      ? others
-      : { ...others, [layer.project]: rules },
+    projects:
+      rules.length === 0 ? others : { ...others, [layer.project]: rules },
   };
 }
 
@@ -66,9 +65,8 @@ export function withAction(
   return withRules(
     value,
     layer,
-    rulesOf(value, layer).map((
-      rule,
-      at,
-    ) => (at === index ? { ...rule, action } : rule)),
+    rulesOf(value, layer).map((rule, at) =>
+      at === index ? { ...rule, action } : rule,
+    ),
   );
 }

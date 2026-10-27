@@ -92,11 +92,13 @@ export async function readBody(
         return [{ kind: "app_card", app: part.app, view: part.view }];
       // reasoning은 글과 달리 agent 답 앞의 reasoning 줄이 그린다.
       case "reasoning":
-        return [{
-          kind: "reasoning",
-          text: part.text,
-          durationMs: part.duration_ms,
-        }];
+        return [
+          {
+            kind: "reasoning",
+            text: part.text,
+            durationMs: part.duration_ms,
+          },
+        ];
     }
   });
   memo.bodies.set(message, parts);
@@ -104,7 +106,8 @@ export async function readBody(
 }
 
 function textOf(parts: readonly BodyPart[]): string {
-  return parts.flatMap((part) => part.kind === "text" ? [part.text] : [])
+  return parts
+    .flatMap((part) => (part.kind === "text" ? [part.text] : []))
     .join("\n");
 }
 
@@ -209,16 +212,18 @@ export async function readAskedQuestions(
   if (!read.ok) return read;
   return {
     ok: true,
-    value: read.value.questions.map((question, index): AskedQuestion => ({
-      id: `q${index + 1}`,
-      header: question.header,
-      question: question.question,
-      options: question.options.map((option) => ({
-        label: option.label,
-        description: option.description,
-      })),
-      multiSelect: question.multiSelect,
-    })),
+    value: read.value.questions.map(
+      (question, index): AskedQuestion => ({
+        id: `q${index + 1}`,
+        header: question.header,
+        question: question.question,
+        options: question.options.map((option) => ({
+          label: option.label,
+          description: option.description,
+        })),
+        multiSelect: question.multiSelect,
+      }),
+    ),
   };
 }
 
@@ -293,9 +298,10 @@ function turnOfCall(
   if (named !== undefined) return named;
   const at = call.started_at ?? call.finished_at;
   if (at === null) return turns.at(-1);
-  return turns.find((turn) =>
-    turn.started_at <= at &&
-    (turn.finished_at === null || at <= turn.finished_at)
+  return turns.find(
+    (turn) =>
+      turn.started_at <= at &&
+      (turn.finished_at === null || at <= turn.finished_at),
   );
 }
 
@@ -335,11 +341,11 @@ async function askEntry(
   const input = asRecord(await viewOf(env, memo, "tool_call_input", call.id));
   const output = asRecord(await viewOf(env, memo, "tool_call_output", call.id));
   const questions = Array.isArray(input?.["questions"])
-    ? input["questions"] as unknown[]
+    ? (input["questions"] as unknown[])
     : [];
   const result = asRecord(output?.["content"]) ?? output;
   const answers = Array.isArray(result?.["answers"])
-    ? result["answers"] as unknown[]
+    ? (result["answers"] as unknown[])
     : [];
   const outcome = result?.["outcome"];
   return {
@@ -347,21 +353,21 @@ async function askEntry(
     id: call.id,
     at,
     group: call.id,
-    outcome: outcome === "submitted" || outcome === "human_message"
-      ? outcome
-      : "cancelled",
+    outcome:
+      outcome === "submitted" || outcome === "human_message"
+        ? outcome
+        : "cancelled",
     lines: questions.map((question, index) => {
       const answer = asRecord(answers[index]);
       const given = Array.isArray(answer?.["answer"])
-        ? (answer["answer"] as unknown[]).filter((one) =>
-          typeof one === "string"
-        ).join(", ")
+        ? (answer["answer"] as unknown[])
+            .filter((one) => typeof one === "string")
+            .join(", ")
         : "";
       return {
         header: String(asRecord(question)?.["header"] ?? ""),
-        answer: answer?.["status"] === "answered" && given !== ""
-          ? given
-          : null,
+        answer:
+          answer?.["status"] === "answered" && given !== "" ? given : null,
       };
     }),
   };
@@ -402,7 +408,7 @@ async function toolEntries(
   const found = new Map<string, ThreadEntry[]>();
   const all = await readToolCalls(env, session);
   const retried = new Set(
-    all.flatMap((call) => call.retry_of === null ? [] : [call.retry_of]),
+    all.flatMap((call) => (call.retry_of === null ? [] : [call.retry_of])),
   );
   let run: ListedToolCall[] = [];
   let runTurn: TurnRecord | undefined;
@@ -453,9 +459,8 @@ async function toolEntries(
         await viewOf(env, memo, "tool_call_input", call.id),
         await viewOf(env, memo, "tool_call_output", call.id),
       );
-      own = view === null
-        ? null
-        : { kind: "call", id: view.call, at, call: view };
+      own =
+        view === null ? null : { kind: "call", id: view.call, at, call: view };
     } else if (call.tool === "file.write" || call.tool === "file.edit") {
       if (!ok) continue;
       own = await editEntry(env, memo, call, at);
@@ -465,10 +470,8 @@ async function toolEntries(
       put(turn, own);
       continue;
     }
-    if (
-      run.length > 0 &&
-      (runTurn?.id !== turn.id || interrupted(call, turn))
-    ) flush();
+    if (run.length > 0 && (runTurn?.id !== turn.id || interrupted(call, turn)))
+      flush();
     runTurn = turn;
     run.push(call);
   }
@@ -571,12 +574,14 @@ export async function readThread(
   const asked = sessionSnapshot?.questions[0] ?? null;
   // 늦게 붙은 화면도 쓰인 데까지 본다. 묶음 위의 시각은 그 turn의 시작이다.
   const writing = sessionSnapshot?.writing ?? null;
-  const writingAt = writing === null
-    ? null
-    : turnById.get(writing.turn)?.started_at ?? current?.started_at ?? null;
-  const live = writing === null || writingAt === null
-    ? null
-    : liveFromWriting(writing, writingAt);
+  const writingAt =
+    writing === null
+      ? null
+      : (turnById.get(writing.turn)?.started_at ?? current?.started_at ?? null);
+  const live =
+    writing === null || writingAt === null
+      ? null
+      : liveFromWriting(writing, writingAt);
 
   // 사람이 도는 중에 다음 turn으로 보낸 메시지는 입력함에 있다.
   const queued: QueuedView[] = [];
@@ -585,11 +590,13 @@ export async function readThread(
   const rows: Row[] = [];
   for (const message of messages.value) {
     const sender = await senderOf(env, memo, message.from);
-    const own = message.from.kind === "agent" &&
-      message.from.session === session;
+    const own =
+      message.from.kind === "agent" && message.from.session === session;
     if (
-      sender === null && message.turn === null &&
-      message.delivery === "next_turn" && running
+      sender === null &&
+      message.turn === null &&
+      message.delivery === "next_turn" &&
+      running
     ) {
       const body = await readBody(env, memo, message.id);
       queued.push({
@@ -626,8 +633,8 @@ export async function readThread(
   // 숨긴 줄에 든 메시지를 채운다.
   const filled = rows.map((row): Row => {
     if (row.kind !== "hidden") return row;
-    const group = [...hiddenIn.keys()].find((one) =>
-      hiddenFacts(one).checkpoint === row.entry.checkpoint
+    const group = [...hiddenIn.keys()].find(
+      (one) => hiddenFacts(one).checkpoint === row.entry.checkpoint,
     );
     return group === undefined
       ? row
@@ -720,21 +727,26 @@ export async function readThread(
     questions,
   };
 
-  const turn: TurnView | null = current === null ? null : {
-    id: current.id,
-    phase: current.state === "finished"
-      ? "ended"
-      : pending.approval !== null || pending.questions !== null
-      ? "waiting"
-      : "working",
-    startedAt: current.started_at,
-    elapsed: running && sessionSnapshot?.elapsed?.turn === current.id
-      ? {
-        activeMs: sessionSnapshot.elapsed.active_ms,
-        at: sessionSnapshot.elapsed.at,
-      }
-      : null,
-  };
+  const turn: TurnView | null =
+    current === null
+      ? null
+      : {
+          id: current.id,
+          phase:
+            current.state === "finished"
+              ? "ended"
+              : pending.approval !== null || pending.questions !== null
+                ? "waiting"
+                : "working",
+          startedAt: current.started_at,
+          elapsed:
+            running && sessionSnapshot?.elapsed?.turn === current.id
+              ? {
+                  activeMs: sessionSnapshot.elapsed.active_ms,
+                  at: sessionSnapshot.elapsed.at,
+                }
+              : null,
+        };
   return {
     ok: true,
     value: {
@@ -745,9 +757,8 @@ export async function readThread(
       live,
       dropped: {
         modelCall: null,
-        turn: current !== null && current.state === "finished"
-          ? current.id
-          : null,
+        turn:
+          current !== null && current.state === "finished" ? current.id : null,
       },
     },
   };

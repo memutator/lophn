@@ -72,11 +72,11 @@ type ReadWindow = {
 
 type ReadDecision =
   | {
-    kind: "bytes";
-    hash: string;
-    size_bytes: number;
-    window: ReadWindow;
-  }
+      kind: "bytes";
+      hash: string;
+      size_bytes: number;
+      window: ReadWindow;
+    }
   | { kind: "unavailable"; answer: BlobReadResult };
 
 function decideRead(
@@ -119,12 +119,12 @@ export function planBlobRead(
 ): Result<
   | { kind: "answer"; result: BlobReadResult }
   | {
-    kind: "bytes";
-    hash: string;
-    size_bytes: number;
-    window: ReadWindow;
-    input: BlobReadInput;
-  }
+      kind: "bytes";
+      hash: string;
+      size_bytes: number;
+      window: ReadWindow;
+      input: BlobReadInput;
+    }
 > {
   const parsed = blobReadInputSchema.safeParse(input);
   if (!parsed.success) {

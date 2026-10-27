@@ -42,11 +42,9 @@ export async function walk(
   const files: string[] = [];
   const paths: string[] = [];
   async function visit(parent: string) {
-    for (
-      const entry of await readdir(parent ? `${root}/${parent}` : root, {
-        withFileTypes: true,
-      })
-    ) {
+    for (const entry of await readdir(parent ? `${root}/${parent}` : root, {
+      withFileTypes: true,
+    })) {
       if (EXCLUDED.has(entry.name)) continue;
       const path = parent ? `${parent}/${entry.name}` : entry.name;
       paths.push(path);
@@ -66,10 +64,14 @@ const PORTABLE_TEST_IMPORTS: ReadonlySet<string> = new Set([
 
 function numberedName(segment: string): boolean {
   const name = segment.replace(/\.[^.]+$/, "").replace(/_test$/, "");
-  return name.split(/[-.]/).some((token) =>
-    /^(?:v\d+|[mw]\d+|milestone\d*)$/i.test(token)
-  ) || /^phase-?\d*$/i.test(name) || /^(?:new|old|legacy)-/i.test(name) ||
-    /-next$/i.test(name);
+  return (
+    name
+      .split(/[-.]/)
+      .some((token) => /^(?:v\d+|[mw]\d+|milestone\d*)$/i.test(token)) ||
+    /^phase-?\d*$/i.test(name) ||
+    /^(?:new|old|legacy)-/i.test(name) ||
+    /-next$/i.test(name)
+  );
 }
 
 // core 안 층. 바닥(그 밖 전부) < harness(lophn-agent) < role 층(agent-roles)·feature module(projects, apps, domains, runs) < main(조립).
@@ -182,12 +184,15 @@ function toolFileViolation(
   }
   if (role) {
     return target.startsWith(`packages/core/${CORE_ROLES}/`) &&
-        /\/(?:store|ledger|register)(?:[-./]|$)/.test(target)
+      /\/(?:store|ledger|register)(?:[-./]|$)/.test(target)
       ? `store·ledger·register를 import하지 않는다: ${specifier}`
       : undefined;
   }
-  const ok = target === SPI || target.startsWith("packages/base/") ||
-    target.startsWith("packages/protocol/") || target.startsWith(place!);
+  const ok =
+    target === SPI ||
+    target.startsWith("packages/base/") ||
+    target.startsWith("packages/protocol/") ||
+    target.startsWith(place!);
   return ok
     ? undefined
     : `feature module의 tool 정의 file은 base, protocol, 같은 폴더, ${CORE_HARNESS}/tools/spi.ts만 import: ${specifier}`;
@@ -196,7 +201,7 @@ function toolFileViolation(
 function harnessProtocol(file: string, target: string): string | undefined {
   if (!file.startsWith(HARNESS_DIR)) return;
   const top = HARNESS_FEATURE_PROTOCOLS.find((name) =>
-    target.startsWith(`packages/protocol/${name}/`)
+    target.startsWith(`packages/protocol/${name}/`),
   );
   return top && `protocol/${top} import`;
 }
@@ -229,9 +234,7 @@ function cyclicEdges(edges: Edge[]): Edge[] {
 
 // 새 계약으로 바뀌어 곧 지울 옛 file이다. 이 file의 import는 protocol 순환에 세지 않는다.
 // 쓰는 곳을 걷고 file을 지우면 여기서도 뺀다. cleanup 때 이 목록은 비어야 한다.
-const LEAVING_FILES = new Set([
-  "packages/protocol/server/registration.ts",
-]);
+const LEAVING_FILES = new Set(["packages/protocol/server/registration.ts"]);
 
 async function checkRepo(root: string): Promise<Violation[]> {
   root = normalize(root.startsWith("/") ? root : `${process.cwd()}/${root}`);
@@ -265,9 +268,8 @@ async function checkRepo(root: string): Promise<Violation[]> {
     }
   }
   for (const file of files) {
-    const own = file.split("/")[0] === "packages"
-      ? file.split("/")[1]
-      : undefined;
+    const own =
+      file.split("/")[0] === "packages" ? file.split("/")[1] : undefined;
     const portable = own === "base" || own === "protocol";
     if (portable && file.endsWith("/deno.json")) {
       const text = await readFile(`${root}/${file}`, "utf8");
@@ -287,8 +289,8 @@ async function checkRepo(root: string): Promise<Violation[]> {
     const test = file.endsWith("_test.ts");
     // test 코드는 package 규칙에서 뺀다. 여러 package를 같이 띄우는 통합 test가 있어서다.
     // core를 import하는 것만은 test도 core 안에서만 한다.
-    const testCode = /_test\.tsx?$/.test(file) ||
-      /\/(?:testing|testdata)\//.test(file);
+    const testCode =
+      /_test\.tsx?$/.test(file) || /\/(?:testing|testdata)\//.test(file);
     const source = await readFile(`${root}/${file}`, "utf8");
     sources.set(file, source);
     if (!testCode && file.startsWith(HARNESS_DIR)) {
@@ -299,8 +301,8 @@ async function checkRepo(root: string): Promise<Violation[]> {
       }
     }
     for (const { specifier, line } of readImports(source)) {
-      const relative = specifier.startsWith("./") ||
-        specifier.startsWith("../");
+      const relative =
+        specifier.startsWith("./") || specifier.startsWith("../");
       const absoluteTarget = relative
         ? normalize(`${root}/${directory(file)}/${specifier}`)
         : undefined;
@@ -309,8 +311,8 @@ async function checkRepo(root: string): Promise<Violation[]> {
           ? absoluteTarget.slice(root.length + 1)
           : undefined
         : specifier.startsWith("@lophn/")
-        ? resolveWorkspace(specifier, members)
-        : undefined;
+          ? resolveWorkspace(specifier, members)
+          : undefined;
       if (specifier.startsWith("@lophn/") && !target) {
         add(
           file,
@@ -321,7 +323,8 @@ async function checkRepo(root: string): Promise<Violation[]> {
       }
       const testImport = test && PORTABLE_TEST_IMPORTS.has(specifier);
       if (
-        portable && !testImport &&
+        portable &&
+        !testImport &&
         /^(?:npm:|jsr:|node:|https?:)/.test(specifier)
       ) {
         add(
@@ -333,7 +336,9 @@ async function checkRepo(root: string): Promise<Violation[]> {
       }
       // base와 protocol이 repo 밖에서 가져오는 것은 protocol의 zod와 test의 test 도구뿐이다.
       if (
-        portable && !relative && !specifier.startsWith("@lophn/") &&
+        portable &&
+        !relative &&
+        !specifier.startsWith("@lophn/") &&
         !testImport &&
         !(own === "protocol" && specifier === "zod")
       ) {
@@ -354,12 +359,17 @@ async function checkRepo(root: string): Promise<Violation[]> {
         ? target.split("/")[1]
         : undefined;
       if (
-        !(testCode && targetPackage !== "core") && own &&
-        own in PACKAGE_DEPENDENCIES && targetPackage &&
+        !(testCode && targetPackage !== "core") &&
+        own &&
+        own in PACKAGE_DEPENDENCIES &&
+        targetPackage &&
         targetPackage !== own &&
         !PACKAGE_DEPENDENCIES[own].includes(targetPackage) &&
-        !(targetPackage === "coding-agent" && own === "shell" &&
-          TERMINAL_HOST.some((place) => inside(file, place)))
+        !(
+          targetPackage === "coding-agent" &&
+          own === "shell" &&
+          TERMINAL_HOST.some((place) => inside(file, place))
+        )
       ) {
         add(
           file,
@@ -381,8 +391,8 @@ async function checkRepo(root: string): Promise<Violation[]> {
         if (tool) add(file, line, "tool-file", tool);
       }
       // testing/ 안은 *_test.ts와 같은 testing/ 안 파일만 import한다(제품 module graph에 test 도구가 들어가지 않게).
-      const testing = target &&
-        /^packages\/[^/]+\/(?:.+\/)?testing\//.exec(target)?.[0];
+      const testing =
+        target && /^packages\/[^/]+\/(?:.+\/)?testing\//.exec(target)?.[0];
       if (testing && !test && !inside(file, testing.slice(0, -1))) {
         add(
           file,
@@ -412,9 +422,11 @@ async function checkRepo(root: string): Promise<Violation[]> {
       `protocol 최상위 사이 순환: ${edge.from} → ${edge.to}`,
     );
   }
-  return violations.sort((a, b) =>
-    a.file.localeCompare(b.file) || a.line - b.line ||
-    a.rule.localeCompare(b.rule)
+  return violations.sort(
+    (a, b) =>
+      a.file.localeCompare(b.file) ||
+      a.line - b.line ||
+      a.rule.localeCompare(b.rule),
   );
 }
 

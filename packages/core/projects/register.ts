@@ -49,10 +49,12 @@ export function createLedgerRegistration(
       commands.unarchive,
     ],
     reads: [reads.list, reads.get, reads.resolve, reads.resolveCwd],
-    apiReads: [projectSearchRead({
-      ...(environment.projectSearch ?? UNATTACHED_SEARCH),
-      exists: (path) => folders.exists(path),
-    })],
+    apiReads: [
+      projectSearchRead({
+        ...(environment.projectSearch ?? UNATTACHED_SEARCH),
+        exists: (path) => folders.exists(path),
+      }),
+    ],
     // 하위 폴더 검사와 폴더 존재 확인. Project Manager를 만드는 port는 agent-definition이 채운다.
     ports: [{ key: folderResolverPort, create: () => folders }],
     memoryRoutes: [kindGet, kindList, kindCheck],

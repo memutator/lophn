@@ -110,10 +110,11 @@ const mcpToolSchema = z.strictObject(mcpToolFields);
 export type McpTool = z.infer<typeof mcpToolSchema>;
 
 export const agentNameSchema = nonblankSchema;
-const bodySchema = z.string().refine(
-  (value) => utf8Bytes(value) <= AGENT_BODY_MAX_BYTES,
-  { message: "body is over the instruction file limit" },
-);
+const bodySchema = z
+  .string()
+  .refine((value) => utf8Bytes(value) <= AGENT_BODY_MAX_BYTES, {
+    message: "body is over the instruction file limit",
+  });
 
 function mcpKey(entry: { server_name: string; original_tool?: string }) {
   return `${entry.server_name}\0${entry.original_tool ?? ""}`;
@@ -126,14 +127,16 @@ const skillsSchema = z.array(nonblankSchema).refine(unique, {
 const domainsSchema = z.array(idSchema("dom")).refine(unique, {
   message: "duplicate domain",
 });
-const mcpOffListSchema = z.array(mcpOffSchema).refine(
-  (entries) => unique(entries.map(mcpKey)),
-  { message: "duplicate mcp entry" },
-);
-const mcpOffListOutputSchema = z.array(mcpOffOutputSchema).refine(
-  (entries) => unique(entries.map(mcpKey)),
-  { message: "duplicate mcp entry" },
-);
+const mcpOffListSchema = z
+  .array(mcpOffSchema)
+  .refine((entries) => unique(entries.map(mcpKey)), {
+    message: "duplicate mcp entry",
+  });
+const mcpOffListOutputSchema = z
+  .array(mcpOffOutputSchema)
+  .refine((entries) => unique(entries.map(mcpKey)), {
+    message: "duplicate mcp entry",
+  });
 
 // 설정 칸. 어느 칸이 어느 agent에 있을 수 있는지(built-in은 name 없음)는 역할과 자리를 알아야 하므로
 // 파일을 읽고 쓰는 쪽이 검사한다.

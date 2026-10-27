@@ -51,25 +51,24 @@ export interface ToastProps {
 }
 
 // Radix Toast의 내부 timer 대신 주입한 timer·clock으로 남은 시간을 잰다. hover와 focus는 각각 멈춘다.
-export function Toast(
-  {
-    title,
-    body,
-    lead,
-    tone = "neutral",
-    role = tone === "error" ? "alert" : "status",
-    actions = [],
-    duration = "default",
-    onAction,
-    onClose,
-    timer = systemTimer,
-    clock = systemClock,
-  }: ToastProps,
-) {
+export function Toast({
+  title,
+  body,
+  lead,
+  tone = "neutral",
+  role = tone === "error" ? "alert" : "status",
+  actions = [],
+  duration = "default",
+  onAction,
+  onClose,
+  timer = systemTimer,
+  clock = systemClock,
+}: ToastProps) {
   const countdown = useCountdown({
-    total: tone === "error"
-      ? undefined
-      : milliseconds(tokens.toast.duration[duration]),
+    total:
+      tone === "error"
+        ? undefined
+        : milliseconds(tokens.toast.duration[duration]),
     timer,
     clock,
     onDone: onClose,

@@ -19,13 +19,15 @@ export function catalogSource(
       return {
         ok: true,
         value: {
-          projects: projectRows.value.filter((row) => !row.archived).map((
-            row,
-          ) => ({ id: row.id, title: row.title })),
-          apps: appRows.value.filter((row) => !row.archived).map((row) => ({
-            id: row.id,
-            title: row.name,
-          })),
+          projects: projectRows.value
+            .filter((row) => !row.archived)
+            .map((row) => ({ id: row.id, title: row.title })),
+          apps: appRows.value
+            .filter((row) => !row.archived)
+            .map((row) => ({
+              id: row.id,
+              title: row.name,
+            })),
         },
       };
     },

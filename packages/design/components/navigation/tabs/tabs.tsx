@@ -47,9 +47,13 @@ export function Tab({ value, children, disabled, size = "md" }: TabProps) {
   );
 }
 
-export function TabPanel(
-  { value, children }: { value: string; children: ReactNode },
-) {
+export function TabPanel({
+  value,
+  children,
+}: {
+  value: string;
+  children: ReactNode;
+}) {
   return (
     <Radix.Content
       value={value}

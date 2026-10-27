@@ -12,7 +12,9 @@ export function versionKey(run: RunRecord, trial: TrialResult): string {
     ...run.grader.criteria,
     ...(run.grader.judge ? [run.grader.judge] : []),
     run.grader.checks,
-  ].map(refText).sort();
+  ]
+    .map(refText)
+    .sort();
   return [...refs, `model:${run.model}`].join("\n");
 }
 

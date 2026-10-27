@@ -139,9 +139,10 @@ test("사람이 동의하기 전에는 선언이 넓어진 release가 activate�
   assert.deepStrictEqual(waitingConsents(tx.sql).length, 1);
 
   // 사람이 아니면 허락하지 못한다.
-  for (
-    const actor of ["machine", "coding_agent:ses_01hzzzzzzzzzzzzzzzzzzzzzza"]
-  ) {
+  for (const actor of [
+    "machine",
+    "coding_agent:ses_01hzzzzzzzzzzzzzzzzzzzzzza",
+  ]) {
     const done = call("consent", actor, { release: REL, choice: "allow" });
     assert.deepStrictEqual(!done.ok && done.error.code, "forbidden");
   }

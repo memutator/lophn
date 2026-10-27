@@ -37,16 +37,14 @@ function skipRadixDelay(event: PointerEvent<HTMLElement>) {
 }
 
 // 400ms 지연은 주입한 timer로 잰다. Radix의 열기 요청은 무시하고 닫기 요청만 받는다.
-export function Tooltip(
-  {
-    content,
-    children,
-    open,
-    placement = "beside",
-    container,
-    timer = systemTimer,
-  }: TooltipProps,
-) {
+export function Tooltip({
+  content,
+  children,
+  open,
+  placement = "beside",
+  container,
+  timer = systemTimer,
+}: TooltipProps) {
   const [shown, setShown] = useState(false);
   // 기다리는 표시 하나. 만든 timer로만 지우고, 지운 뒤의 늦은 callback은 무시한다.
   const pending = useRef<{ timer: Timer; handle: unknown } | undefined>(

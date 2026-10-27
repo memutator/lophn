@@ -32,48 +32,55 @@ type OpenMenu =
   | { kind: "chip"; key: string; x: number; y: number }
   | { kind: "more"; x: number; y: number };
 
-function Row(
-  { items, stripTab, onRestore, onDock, onClose }: MinimizedBarProps,
-) {
+function Row({
+  items,
+  stripTab,
+  onRestore,
+  onDock,
+  onClose,
+}: MinimizedBarProps) {
   const root = useRef<HTMLDivElement>(null);
   const width = useObservedSize(root)?.width ?? 0;
   const [menu, setMenu] = useState<OpenMenu | null>(null);
 
   // 모두 들어가면 +N이 없다. 아니면 +N 한 칸을 남기고 나머지를 칸이 나눈다.
-  const fit = items.length * CHIP_WIDTH <= width
-    ? items.length
-    : Math.max(0, Math.floor((width - MORE_WIDTH) / CHIP_WIDTH));
+  const fit =
+    items.length * CHIP_WIDTH <= width
+      ? items.length
+      : Math.max(0, Math.floor((width - MORE_WIDTH) / CHIP_WIDTH));
   const shown = items.slice(0, fit);
   const hidden = items.slice(fit);
 
-  const chipTab = menu?.kind === "chip"
-    ? items.find((item) => item.tab.key === menu.key)
-    : undefined;
-  const menuItems = menu?.kind === "more"
-    ? hidden.map(({ tab }) => ({
-      id: tab.key,
-      label: tab.title,
-      leading: <MenuIcon>{stripTab(tab).icon}</MenuIcon>,
-    }))
-    : chipTab === undefined
-    ? []
-    : [
-      {
-        id: "restore",
-        label: t("project-workspace.button.float-restore"),
-        leading: <MenuIcon icon={workspaceIcons.restore} />,
-      },
-      {
-        id: "dock",
-        label: t("project-workspace.button.float-dock"),
-        leading: <MenuIcon icon={workspaceIcons.dock} />,
-      },
-      {
-        id: "close",
-        label: t("project-workspace.button.float-close"),
-        leading: <MenuIcon icon={workspaceIcons.close} />,
-      },
-    ];
+  const chipTab =
+    menu?.kind === "chip"
+      ? items.find((item) => item.tab.key === menu.key)
+      : undefined;
+  const menuItems =
+    menu?.kind === "more"
+      ? hidden.map(({ tab }) => ({
+          id: tab.key,
+          label: tab.title,
+          leading: <MenuIcon>{stripTab(tab).icon}</MenuIcon>,
+        }))
+      : chipTab === undefined
+        ? []
+        : [
+            {
+              id: "restore",
+              label: t("project-workspace.button.float-restore"),
+              leading: <MenuIcon icon={workspaceIcons.restore} />,
+            },
+            {
+              id: "dock",
+              label: t("project-workspace.button.float-dock"),
+              leading: <MenuIcon icon={workspaceIcons.dock} />,
+            },
+            {
+              id: "close",
+              label: t("project-workspace.button.float-close"),
+              leading: <MenuIcon icon={workspaceIcons.close} />,
+            },
+          ];
   const choose = (id: string) => {
     if (menu?.kind === "more") onRestore(id);
     else if (chipTab === undefined) return;

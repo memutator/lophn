@@ -27,9 +27,8 @@ const codingDefinitions = {
   commands: [createSignalCommand(memory)],
   // Router의 transport는 tx마다 그 tx의 표를 본다.
   ports: [
-    defineTxPort(
-      CodingTransport,
-      (tx) => createCodingTransport(memory, () => tx.sql),
+    defineTxPort(CodingTransport, (tx) =>
+      createCodingTransport(memory, () => tx.sql),
     ),
     defineTxPort(CodingSessionLookup, (tx) => codingSessionLookup(tx.sql)),
   ],

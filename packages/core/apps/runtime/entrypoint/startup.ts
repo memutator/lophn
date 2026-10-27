@@ -47,13 +47,15 @@ export function startRuntime(deps: {
   });
   // cap-net·cap-secret·cap-store의 host다. broker 연결과 호출 문맥을 앱 코드에 내주지 않고
   // SDK가 port로만 쓴다.
-  installCapHost(createCapHost({
-    mode: parsed.mode,
-    dataPath: parsed.data_path,
-    store,
-    post: (path, body) => state.broker.post(path, body),
-    current: () => ensureAppToolPort().current(),
-  }));
+  installCapHost(
+    createCapHost({
+      mode: parsed.mode,
+      dataPath: parsed.data_path,
+      store,
+      post: (path, body) => state.broker.post(path, body),
+      current: () => ensureAppToolPort().current(),
+    }),
+  );
   // 앱 code를 불러오는 동안 등록 handler가 DB를 쓸 수 있다. 이 구간의 변경도 changeset으로 뜬다.
   store.begin();
   return { start: parsed, state };

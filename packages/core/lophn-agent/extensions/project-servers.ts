@@ -32,11 +32,9 @@ export async function collectProjectMcpEntries(
   } catch {
     return found;
   }
-  for (
-    const id of (ids ?? []).filter((name) =>
-      layer.projectIdOfFolder(name) !== null
-    ).sort()
-  ) {
+  for (const id of (ids ?? [])
+    .filter((name) => layer.projectIdOfFolder(name) !== null)
+    .sort()) {
     try {
       const text = await source.read(layer.extensionsFile(root, id));
       if (text === null) continue;

@@ -41,9 +41,11 @@ function sameTurn(
   ctx: AuthenticatedContext,
   input: { session: string; turn: string },
 ): boolean {
-  return parseActor(ctx.actor)?.kind === "agent" &&
+  return (
+    parseActor(ctx.actor)?.kind === "agent" &&
     ctx.conditions.session === input.session &&
-    ctx.conditions.turn === input.turn;
+    ctx.conditions.turn === input.turn
+  );
 }
 
 async function openRoot(
@@ -53,7 +55,7 @@ async function openRoot(
 ): Promise<boolean> {
   for (const folder of deps.foldersOf(session)) {
     try {
-      if (await realpath(folder) === root) return true;
+      if ((await realpath(folder)) === root) return true;
     } catch {
       // 없어진 폴더는 열린 폴더가 아니다.
     }
@@ -71,7 +73,7 @@ export function createRewindWriteHandlers(
     if (!sameTurn(ctx, input)) {
       return reject("forbidden", "an agent records only for its own turn");
     }
-    if (!await openRoot(deps, input.session, input.root)) {
+    if (!(await openRoot(deps, input.session, input.root))) {
       return reject("forbidden", "the folder is not open to this session");
     }
     let bytes: Uint8Array | null;
@@ -108,7 +110,7 @@ export function createRewindWriteHandlers(
     if (!sameTurn(ctx, input)) {
       return reject("forbidden", "an agent records only for its own turn");
     }
-    if (!await openRoot(deps, input.session, input.root)) {
+    if (!(await openRoot(deps, input.session, input.root))) {
       return reject("forbidden", "the folder is not open to this session");
     }
     const blob = input.before.blob;

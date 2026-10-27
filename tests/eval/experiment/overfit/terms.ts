@@ -32,7 +32,8 @@ export function scenarioTerms(
   }
   scenario.real.forEach(addParticipant);
   if (scenario.human) texts.push(scenario.human.card);
-  const names = raw.map((n) => n?.normalize("NFC").trim() ?? "")
+  const names = raw
+    .map((n) => n?.normalize("NFC").trim() ?? "")
     .filter((n) => n.length >= 2);
   return {
     names: [...new Set(names)],

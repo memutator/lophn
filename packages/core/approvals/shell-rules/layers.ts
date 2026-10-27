@@ -15,7 +15,7 @@ export function shellRuleLayers(
     layers: [
       PRODUCT_SHELL_RULES.ask,
       value.global,
-      place?.kind === "project" ? value.projects[place.id] ?? [] : [],
+      place?.kind === "project" ? (value.projects[place.id] ?? []) : [],
     ],
   };
 }

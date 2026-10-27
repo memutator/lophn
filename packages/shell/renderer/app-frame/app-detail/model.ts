@@ -180,9 +180,7 @@ export function callerText(caller: Caller): string {
 }
 
 /** 호출 이름. 앱 시작과 data 변경은 정해진 말이다. */
-export function callName(
-  row: Pick<ActivityRow, "kind" | "tool">,
-): string {
+export function callName(row: Pick<ActivityRow, "kind" | "tool">): string {
   if (row.kind === "start") return t("app-detail.label.call-start");
   if (row.kind === "data_change") return t("app-detail.label.call-data-change");
   return row.tool ?? "";
@@ -203,8 +201,13 @@ const STATE_TEXT: Record<CallState, () => string> = {
 
 /** 지금 release의 live write·external·앱 시작에서만 rewind를 시작할 수 있다. */
 export function canRewind(row: ActivityRow): boolean {
-  return !row.earlier && row.effect !== "read" && row.state === "done" &&
-    !row.undone && row.kind !== "data_change";
+  return (
+    !row.earlier &&
+    row.effect !== "read" &&
+    row.state === "done" &&
+    !row.undone &&
+    row.kind !== "data_change"
+  );
 }
 
 export function outcomeText(outcome: RewindOutcome): string {

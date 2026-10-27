@@ -53,7 +53,7 @@ export function createRunCommands(): {
           state: input.state,
           turn: input.turn,
           invocation: input.invocation,
-          result: input.state === "done" ? input.result ?? null : undefined,
+          result: input.state === "done" ? (input.result ?? null) : undefined,
           error: input.error,
           now: tx.now(),
         });

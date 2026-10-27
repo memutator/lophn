@@ -26,7 +26,8 @@ async function digest(path: string): Promise<string | null> {
   try {
     const bytes = new Uint8Array(await readFile(path));
     const hash = await crypto.subtle.digest("SHA-256", bytes);
-    return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0"))
+    return [...new Uint8Array(hash)]
+      .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
   } catch (error) {
     if (errorCode(error) === "ENOENT") return null;
@@ -35,7 +36,10 @@ async function digest(path: string): Promise<string | null> {
 }
 
 async function exists(path: string): Promise<boolean> {
-  return await lstat(path).then(() => true, () => false);
+  return await lstat(path).then(
+    () => true,
+    () => false,
+  );
 }
 
 type Row = {
@@ -107,8 +111,12 @@ async function scope(
     assert.deepStrictEqual(await Promise.all(guarded.map(digest)), before);
     assert.deepStrictEqual(
       await Promise.all(
-        [paths.derived, paths.other, `${outside}/leak.md`, `${proj}/note.md`]
-          .map(exists),
+        [
+          paths.derived,
+          paths.other,
+          `${outside}/leak.md`,
+          `${proj}/note.md`,
+        ].map(exists),
       ),
       [false, false, false, expected.note],
     );
@@ -119,12 +127,14 @@ async function scope(
     });
     assert.deepStrictEqual(
       Object.fromEntries(recorded.map((c) => [c.response_key, c.outcome])),
-      Object.fromEntries(calls.map((call) => [
-        call.id,
-        call.expect === "success"
-          ? { kind: "success", code: "ok" }
-          : { kind: "failure", code: "forbidden" },
-      ])),
+      Object.fromEntries(
+        calls.map((call) => [
+          call.id,
+          call.expect === "success"
+            ? { kind: "success", code: "ok" }
+            : { kind: "failure", code: "forbidden" },
+        ]),
+      ),
     );
 
     // fake가 받은 요청: 마지막 요청에 앞선 round의 결과까지 쌓여 있어, 낸 call id 전부가 tool_result로 돌아왔는지 본다.
@@ -135,10 +145,10 @@ async function scope(
     };
     const returned = body.messages.flatMap((message) =>
       Array.isArray(message.content)
-        ? message.content.filter((block) => block.type === "tool_result").map((
-          block: { tool_use_id: string },
-        ) => block.tool_use_id)
-        : []
+        ? message.content
+            .filter((block) => block.type === "tool_result")
+            .map((block: { tool_use_id: string }) => block.tool_use_id)
+        : [],
     );
     assert.deepStrictEqual(
       returned.sort(),
@@ -160,64 +170,83 @@ type Paths = {
 };
 
 test("E2E PM은 Deno 권한이 열린 data root의 비밀과 설정을 읽거나 쓰지 못하고, project 폴더에는 쓴다", async () => {
-  await scope((p): Row[][] => [
-    [
-      {
-        id: "t-note",
-        name: "file_write",
-        arguments: { path: "note.md", content: "hello" },
-        expect: "success",
-      },
-      {
-        id: "t-secrets-read",
-        name: "file_read",
-        arguments: { path: p.secrets },
-        expect: "forbidden",
-      },
-      {
-        id: "t-definition-read",
-        name: "file_read",
-        arguments: { path: p.definition },
-        expect: "forbidden",
-      },
-      {
-        id: "t-settings-write",
-        name: "file_write",
-        arguments: { path: p.settings, content: "{}" },
-        expect: "forbidden",
-      },
+  await scope(
+    (p): Row[][] => [
+      [
+        {
+          id: "t-note",
+          name: "file_write",
+          arguments: { path: "note.md", content: "hello" },
+          expect: "success",
+        },
+        {
+          id: "t-secrets-read",
+          name: "file_read",
+          arguments: { path: p.secrets },
+          expect: "forbidden",
+        },
+        {
+          id: "t-definition-read",
+          name: "file_read",
+          arguments: { path: p.definition },
+          expect: "forbidden",
+        },
+        {
+          id: "t-settings-write",
+          name: "file_write",
+          arguments: { path: p.settings, content: "{}" },
+          expect: "forbidden",
+        },
+      ],
+      [
+        {
+          id: "t-derived-write",
+          name: "file_write",
+          arguments: { path: p.derived, content: "x" },
+          expect: "forbidden",
+        },
+      ],
     ],
-    [{
-      id: "t-derived-write",
-      name: "file_write",
-      arguments: { path: p.derived, content: "x" },
-      expect: "forbidden",
-    }],
-  ], { note: true });
+    { note: true },
+  );
 });
 
 test("E2E PM은 다른 project 폴더와 자기 agent 정의 file에 쓰지 못한다", async () => {
-  await scope((p): Row[][] => [
-    [{
-      id: "t-other-project",
-      name: "file_write",
-      arguments: { path: p.other, content: "x" },
-      expect: "forbidden",
-    }],
-    [{
-      id: "t-definition-write",
-      name: "file_write",
-      arguments: { path: p.definition, content: "x" },
-      expect: "forbidden",
-    }],
-  ], { note: false });
+  await scope(
+    (p): Row[][] => [
+      [
+        {
+          id: "t-other-project",
+          name: "file_write",
+          arguments: { path: p.other, content: "x" },
+          expect: "forbidden",
+        },
+      ],
+      [
+        {
+          id: "t-definition-write",
+          name: "file_write",
+          arguments: { path: p.definition, content: "x" },
+          expect: "forbidden",
+        },
+      ],
+    ],
+    { note: false },
+  );
 });
 
 test("E2E PM은 project 폴더 안 symlink를 따라 밖에 쓰지 못한다", async () => {
-  await scope((): Row[][] => [[{
-    id: "t-symlink-out",
-    name: "file_write",
-    arguments: { path: "link/leak.md", content: "x" },
-    expect: "forbidden",
-  }]], { note: false });
+  await scope(
+    (): Row[][] => [
+      [
+        {
+          id: "t-symlink-out",
+          name: "file_write",
+          arguments: { path: "link/leak.md", content: "x" },
+          expect: "forbidden",
+        },
+      ],
+    ],
+    { note: false },
+  );
 });

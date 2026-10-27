@@ -81,34 +81,32 @@ interface PanesProps {
 }
 
 // 좌우 1칸 또는 2칸. 폭이 부족하면 한 칸 보기로 그린다.
-export function Panes(
-  {
-    view,
-    focusedPane,
-    bodyWidth,
-    windowWidth,
-    onSelect,
-    onClose,
-    onCloseMany,
-    onPin,
-    onFloat,
-    onMinimize,
-    onRename,
-    onDetach,
-    canDetach,
-    pathOf,
-    onCopyPath,
-    onReveal,
-    onFocus,
-    onMove,
-    onRatio,
-    onDropPath,
-    newTab,
-    stripTab,
-    renderTab,
-    renderKept,
-  }: PanesProps,
-) {
+export function Panes({
+  view,
+  focusedPane,
+  bodyWidth,
+  windowWidth,
+  onSelect,
+  onClose,
+  onCloseMany,
+  onPin,
+  onFloat,
+  onMinimize,
+  onRename,
+  onDetach,
+  canDetach,
+  pathOf,
+  onCopyPath,
+  onReveal,
+  onFocus,
+  onMove,
+  onRatio,
+  onDropPath,
+  newTab,
+  stripTab,
+  renderTab,
+  renderKept,
+}: PanesProps) {
   // 경계 drag 중 미리보기 비율. drag-end에서만 저장한다.
   const [preview, setPreview] = useState<number | null>(null);
   const shownView = preview === null ? view : { ...view, splitRatio: preview };
@@ -124,29 +122,22 @@ export function Panes(
     return (
       <>
         {position === shown.length - 1 ? newTab : null}
-        {single || shown.length === 2
-          ? (
-            <Tooltip content={label}>
-              <IconButton
-                icon={workspaceIcons.splitPane}
-                label={label}
-                size="sm"
-                data-split-pane=""
-                disabled={single
-                  ? pane.tabs.length < 2
-                  : pane.selected === null}
-                onClick={() => {
-                  if (pane.selected) {
-                    onMove(
-                      pane.selected,
-                      single ? 1 : 1 - index,
-                    );
-                  }
-                }}
-              />
-            </Tooltip>
-          )
-          : null}
+        {single || shown.length === 2 ? (
+          <Tooltip content={label}>
+            <IconButton
+              icon={workspaceIcons.splitPane}
+              label={label}
+              size="sm"
+              data-split-pane=""
+              disabled={single ? pane.tabs.length < 2 : pane.selected === null}
+              onClick={() => {
+                if (pane.selected) {
+                  onMove(pane.selected, single ? 1 : 1 - index);
+                }
+              }}
+            />
+          </Tooltip>
+        ) : null}
       </>
     );
   };
@@ -155,39 +146,37 @@ export function Panes(
     <div className={styles.panes} data-panes={layout.visiblePanes}>
       {shown.map((index, position) => {
         const width = position === 0 ? layout.leftWidth : layout.rightWidth;
-        const wide = windowWidth >= BREAKPOINT_MD &&
-          width >= PANE_PADDING_WIDE_MIN;
+        const wide =
+          windowWidth >= BREAKPOINT_MD && width >= PANE_PADDING_WIDE_MIN;
         return (
           <Fragment key={index}>
-            {position === 1
-              ? (
-                <div
-                  className={styles.divider}
-                  data-divider=""
-                  role="separator"
-                  aria-orientation="vertical"
-                  onDoubleClick={() => onRatio(SPLIT_EQUAL)}
-                  onPointerDown={(event) => {
-                    const start = view.splitRatio;
-                    const startLeft = layout.leftWidth;
-                    let last = start;
-                    startPointerDrag(event, {
-                      move: (dx) => {
-                        last = ratioFromDrag(bodyWidth, startLeft + dx);
-                        setPreview(last);
-                      },
-                      finish: (outcome) => {
-                        setPreview(null);
-                        const next = applyDrag(start, last, outcome);
-                        if (next !== start) onRatio(next);
-                      },
-                    });
-                  }}
-                >
-                  <div className={styles.grab} data-grab="" />
-                </div>
-              )
-              : null}
+            {position === 1 ? (
+              <div
+                className={styles.divider}
+                data-divider=""
+                role="separator"
+                aria-orientation="vertical"
+                onDoubleClick={() => onRatio(SPLIT_EQUAL)}
+                onPointerDown={(event) => {
+                  const start = view.splitRatio;
+                  const startLeft = layout.leftWidth;
+                  let last = start;
+                  startPointerDrag(event, {
+                    move: (dx) => {
+                      last = ratioFromDrag(bodyWidth, startLeft + dx);
+                      setPreview(last);
+                    },
+                    finish: (outcome) => {
+                      setPreview(null);
+                      const next = applyDrag(start, last, outcome);
+                      if (next !== start) onRatio(next);
+                    },
+                  });
+                }}
+              >
+                <div className={styles.grab} data-grab="" />
+              </div>
+            ) : null}
             <PaneView
               index={index}
               pane={view.panes[index]!}
@@ -249,125 +238,135 @@ interface PaneViewProps {
   onDropPath: (path: string) => void;
 }
 
-function PaneView(
-  {
-    index,
-    pane,
-    width,
-    focused,
-    wide,
-    end,
-    stripTab,
-    renderTab,
-    renderKept,
-    pathOf,
-    onSelect,
-    onClose,
-    onCloseMany,
-    onPin,
-    onFloat,
-    onMinimize,
-    onRename,
-    onDetach,
-    canDetach,
-    onCopyPath,
-    onReveal,
-    onReorder,
-    onFocus,
-    onDropPath,
-  }: PaneViewProps,
-) {
-  const [menu, setMenu] = useState<
-    { key: string; x: number; y: number } | null
-  >(null);
+function PaneView({
+  index,
+  pane,
+  width,
+  focused,
+  wide,
+  end,
+  stripTab,
+  renderTab,
+  renderKept,
+  pathOf,
+  onSelect,
+  onClose,
+  onCloseMany,
+  onPin,
+  onFloat,
+  onMinimize,
+  onRename,
+  onDetach,
+  canDetach,
+  onCopyPath,
+  onReveal,
+  onReorder,
+  onFocus,
+  onDropPath,
+}: PaneViewProps) {
+  const [menu, setMenu] = useState<{
+    key: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   // Explorer의 파일을 이 칸 위로 끄는 중이다.
   const [dropping, setDropping] = useState(false);
-  const menuTab = menu === null
-    ? undefined
-    : pane.tabs.find((tab) => tab.key === menu.key);
+  const menuTab =
+    menu === null ? undefined : pane.tabs.find((tab) => tab.key === menu.key);
   const menuPath = menuTab === undefined ? null : pathOf(menuTab);
-  const menuItems = menuTab === undefined ? [] : [
-    ...(stripTab(menuTab).renamable
-      ? [{
-        id: "rename",
-        label: t("project-workspace.button.tab-rename"),
-        leading: <MenuIcon icon={editorIcons.edit} />,
-      }]
-      : []),
-    {
-      id: "close",
-      label: t("project-workspace.button.tab-close"),
-      leading: <MenuIcon icon={workspaceIcons.close} />,
-    },
-    {
-      id: "others",
-      label: t("project-workspace.button.tab-close-others"),
-      leading: <MenuIcon icon={workspaceIcons.closeOthers} />,
-      disabled: pane.tabs.length < 2,
-    },
-    {
-      id: "right",
-      label: t("project-workspace.button.tab-close-right"),
-      leading: <MenuIcon icon={workspaceIcons.closeRight} />,
-      disabled: pane.tabs[pane.tabs.length - 1]?.key === menuTab.key,
-    },
-    {
-      id: "saved",
-      label: t("project-workspace.button.tab-close-saved"),
-      leading: <MenuIcon icon={workspaceIcons.closeSaved} />,
-    },
-    {
-      id: "all",
-      label: t("project-workspace.button.tab-close-all"),
-      leading: <MenuIcon icon={workspaceIcons.closeAll} />,
-    },
-    {
-      id: "float",
-      label: t("project-workspace.button.tab-float"),
-      leading: <MenuIcon icon={workspaceIcons.float} />,
-      separatorBefore: true,
-    },
-    {
-      id: "minimize",
-      label: t("project-workspace.button.tab-minimize"),
-      leading: <MenuIcon icon={workspaceIcons.minimize} />,
-    },
-    ...(onDetach && (canDetach?.(menuTab) ?? true)
-      ? [{
-        id: "detach",
-        label: t("project-workspace.button.tab-detach"),
-        leading: <MenuIcon icon={workspaceIcons.detach} />,
-      }]
-      : []),
-    ...(menuPath === null ? [] : [
-      {
-        id: "copy-path",
-        label: t("project-workspace.button.tab-copy-path"),
-        leading: <MenuIcon icon={workspaceIcons.copyPath} />,
-        separatorBefore: true,
-      },
-      {
-        id: "copy-relative-path",
-        label: t("project-workspace.button.tab-copy-relative-path"),
-        leading: <MenuIcon icon={workspaceIcons.copyRelativePath} />,
-      },
-      {
-        id: "reveal",
-        label: t("project-workspace.button.tab-reveal"),
-        leading: <MenuIcon icon={workspaceIcons.revealInExplorer} />,
-        separatorBefore: true,
-      },
-    ]),
-    ...(menuTab.preview === true
-      ? [{
-        id: "keep-open",
-        label: t("project-workspace.button.tab-keep-open"),
-        leading: <MenuIcon icon={workspaceIcons.keepOpen} />,
-        separatorBefore: true,
-      }]
-      : []),
-  ];
+  const menuItems =
+    menuTab === undefined
+      ? []
+      : [
+          ...(stripTab(menuTab).renamable
+            ? [
+                {
+                  id: "rename",
+                  label: t("project-workspace.button.tab-rename"),
+                  leading: <MenuIcon icon={editorIcons.edit} />,
+                },
+              ]
+            : []),
+          {
+            id: "close",
+            label: t("project-workspace.button.tab-close"),
+            leading: <MenuIcon icon={workspaceIcons.close} />,
+          },
+          {
+            id: "others",
+            label: t("project-workspace.button.tab-close-others"),
+            leading: <MenuIcon icon={workspaceIcons.closeOthers} />,
+            disabled: pane.tabs.length < 2,
+          },
+          {
+            id: "right",
+            label: t("project-workspace.button.tab-close-right"),
+            leading: <MenuIcon icon={workspaceIcons.closeRight} />,
+            disabled: pane.tabs[pane.tabs.length - 1]?.key === menuTab.key,
+          },
+          {
+            id: "saved",
+            label: t("project-workspace.button.tab-close-saved"),
+            leading: <MenuIcon icon={workspaceIcons.closeSaved} />,
+          },
+          {
+            id: "all",
+            label: t("project-workspace.button.tab-close-all"),
+            leading: <MenuIcon icon={workspaceIcons.closeAll} />,
+          },
+          {
+            id: "float",
+            label: t("project-workspace.button.tab-float"),
+            leading: <MenuIcon icon={workspaceIcons.float} />,
+            separatorBefore: true,
+          },
+          {
+            id: "minimize",
+            label: t("project-workspace.button.tab-minimize"),
+            leading: <MenuIcon icon={workspaceIcons.minimize} />,
+          },
+          ...(onDetach && (canDetach?.(menuTab) ?? true)
+            ? [
+                {
+                  id: "detach",
+                  label: t("project-workspace.button.tab-detach"),
+                  leading: <MenuIcon icon={workspaceIcons.detach} />,
+                },
+              ]
+            : []),
+          ...(menuPath === null
+            ? []
+            : [
+                {
+                  id: "copy-path",
+                  label: t("project-workspace.button.tab-copy-path"),
+                  leading: <MenuIcon icon={workspaceIcons.copyPath} />,
+                  separatorBefore: true,
+                },
+                {
+                  id: "copy-relative-path",
+                  label: t("project-workspace.button.tab-copy-relative-path"),
+                  leading: <MenuIcon icon={workspaceIcons.copyRelativePath} />,
+                },
+                {
+                  id: "reveal",
+                  label: t("project-workspace.button.tab-reveal"),
+                  leading: <MenuIcon icon={workspaceIcons.revealInExplorer} />,
+                  separatorBefore: true,
+                },
+              ]),
+          ...(menuTab.preview === true
+            ? [
+                {
+                  id: "keep-open",
+                  label: t("project-workspace.button.tab-keep-open"),
+                  leading: <MenuIcon icon={workspaceIcons.keepOpen} />,
+                  separatorBefore: true,
+                },
+              ]
+            : []),
+        ];
   const chooseMenu = (id: string) => {
     if (menuTab === undefined) return;
     if (id === "close") onClose(menuTab.key);
@@ -390,24 +389,26 @@ function PaneView(
   // 앱 패널은 고르지 않아도 칸에 남는다. 다른 탭을 고르면 숨고 닫으면 빠진다.
   const kept = renderKept
     ? pane.tabs.flatMap((tab) => {
-      const node = renderKept(tab, tab.key === pane.selected);
-      return node === null ? [] : [{ tab, node }];
-    })
+        const node = renderKept(tab, tab.key === pane.selected);
+        return node === null ? [] : [{ tab, node }];
+      })
     : [];
   const keptSelected = kept.some(({ tab }) => tab.key === pane.selected);
   const custom = keptSelected
     ? null
     : selected && renderTab
-    ? renderTab(selected, focused)
-    : null;
+      ? renderTab(selected, focused)
+      : null;
   return (
     <section
       className={`${styles.pane} ${width === null ? "" : styles.sized}`}
       data-pane={index}
       data-focused={focused ? "true" : "false"}
-      style={width === null
-        ? undefined
-        : { width: `${width}px`, flexBasis: `${width}px` }}
+      style={
+        width === null
+          ? undefined
+          : { width: `${width}px`, flexBasis: `${width}px` }
+      }
       data-drop={dropping ? "" : undefined}
       onPointerDown={onFocus}
       onFocusCapture={onFocus}
@@ -482,13 +483,12 @@ function PaneView(
         ))}
         {keptSelected
           ? null
-          : custom ?? (selected
-            ? (
+          : (custom ??
+            (selected ? (
               <div className={styles.content} data-tab-body={selected.key}>
                 <h1 className={styles.heading}>{selected.title}</h1>
               </div>
-            )
-            : (
+            ) : (
               <div className={styles.placeholderWrap}>
                 <div className={styles.placeholder} data-pane-empty="">
                   <Icon
@@ -501,7 +501,7 @@ function PaneView(
                   </p>
                 </div>
               </div>
-            ))}
+            )))}
       </div>
     </section>
   );

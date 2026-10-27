@@ -116,9 +116,10 @@ function setup() {
           domain: "dom",
         }),
       findPreview: (_app, nonce, tool) => {
-        const effect = nonce === state.preview.nonce
-          ? state.preview.effects[tool]
-          : undefined;
+        const effect =
+          nonce === state.preview.nonce
+            ? state.preview.effects[tool]
+            : undefined;
         return Promise.resolve(
           ok(effect === undefined ? null : { effect: effect as "write" }),
         );
@@ -133,7 +134,8 @@ function setup() {
     assignmentOf: (agent) =>
       ok({
         agent,
-        entries: state.assignment ??
+        entries:
+          state.assignment ??
           madeApps.map((app) => ({ app, removed_tools: [] })),
       }),
     agentDomainsOf: () =>
@@ -142,12 +144,14 @@ function setup() {
         : ok(state.domains),
     toolDomainOf: () => ok(state.toolDomainId),
     appGrantsOf: (app) =>
-      Promise.resolve(ok(
-        state.grants ??
-          madeApps.map((to) =>
-            appCallGrant(app, to, ["r.get", "w.one", "w.two"])
-          ),
-      )),
+      Promise.resolve(
+        ok(
+          state.grants ??
+            madeApps.map((to) =>
+              appCallGrant(app, to, ["r.get", "w.one", "w.two"]),
+            ),
+        ),
+      ),
     clock,
     ids,
   };
@@ -489,10 +493,10 @@ test("호출 루프와 깊이 8 초과는 handler 전에 거절되고, 접수를
   t.state.handler = async (request, app) => {
     const next = apps[apps.indexOf(app) + 1];
     if (next === undefined) return okResponse;
-    const inner = await t.path.call(
-      appCaller(app, next, request.invocation),
-      { actor: "app", app },
-    );
+    const inner = await t.path.call(appCaller(app, next, request.invocation), {
+      actor: "app",
+      app,
+    });
     assert.ok(inner.ok);
     results.push(inner.value);
     return okResponse;
@@ -504,7 +508,8 @@ test("호출 루프와 깊이 8 초과는 handler 전에 거절되고, 접수를
   // 호출 깊이 8까지 가고 아홉째는 거절된다.
   assert.deepStrictEqual(t.sent.length, 8);
   assert.deepStrictEqual(
-    results.map((r) => r.outcome.status === "denied" && r.outcome.denial.code)
+    results
+      .map((r) => r.outcome.status === "denied" && r.outcome.denial.code)
       .filter(Boolean),
     ["call_too_deep"],
   );
@@ -583,10 +588,13 @@ test("previewOnly 호출은 live로 새지 않고 preview 호출은 ledger를 �
   // live target과 사람이 아닌 호출자는 앱 process에 아무것도 보내지 않는다.
   const live = await t.path.call(person(a, "r.get"), only);
   assert.ok(!live.ok && live.error.code === "forbidden");
-  const agent = await t.path.call({
-    ...preview("r.get"),
-    caller: { kind: "agent", session: SES, turn: TRN, tool_call: TCL },
-  }, { actor: "agent", previewOnly: true });
+  const agent = await t.path.call(
+    {
+      ...preview("r.get"),
+      caller: { kind: "agent", session: SES, turn: TRN, tool_call: TCL },
+    },
+    { actor: "agent", previewOnly: true },
+  );
   assert.ok(!agent.ok && agent.error.code === "forbidden");
   assert.deepStrictEqual(t.sent.length, 0);
 
@@ -636,11 +644,14 @@ test("그 앱의 App Engineer만 그 앱의 preview tool을 부르고, 다른 �
     const t = setup();
     t.state.agent = agent;
     t.state.preview.effects["w.new"] = "write";
-    const done = await t.path.call({
-      target: { mode: "preview", app: a, process_nonce: "pv-nonce-1" },
-      tool: "w.new",
-      caller: { kind: "agent", session: SES, turn: TRN, tool_call: TCL },
-    }, { actor: "agent" });
+    const done = await t.path.call(
+      {
+        target: { mode: "preview", app: a, process_nonce: "pv-nonce-1" },
+        tool: "w.new",
+        caller: { kind: "agent", session: SES, turn: TRN, tool_call: TCL },
+      },
+      { actor: "agent" },
+    );
     if (expected === "succeeded") {
       assert.ok(done.ok && done.value.invocation === null, label);
       assert.deepStrictEqual(status(done), "succeeded", label);
@@ -660,21 +671,13 @@ test("앱이 다른 앱 tool을 부를 때 active grant app.call이 그 tool을 
   const third = newApp();
   const rows: [string, AppGrant[], string][] = [
     ["no grant", [], "gate_blocked"],
-    [
-      "other tool",
-      [appCallGrant(from, to, ["r.other"])],
-      "gate_blocked",
-    ],
+    ["other tool", [appCallGrant(from, to, ["r.other"])], "gate_blocked"],
     [
       "other target app",
       [appCallGrant(from, third, ["r.get"])],
       "gate_blocked",
     ],
-    [
-      "revoked",
-      [appCallGrant(from, to, ["r.get"], "revoked")],
-      "gate_blocked",
-    ],
+    ["revoked", [appCallGrant(from, to, ["r.get"], "revoked")], "gate_blocked"],
     ["covered", [appCallGrant(from, to, ["r.get"])], "succeeded"],
   ];
   const seen: string[] = [];
@@ -822,11 +825,7 @@ test("job과 workflow instance가 부르는 앱 tool은 만든 agent(job의 crea
 test("앱 process의 parseProcessCall은 다섯 caller 종류에서 processCallRequestSchema와 같은 판정을 한다", () => {
   const callers: [string, unknown, boolean][] = [
     ["person", { kind: "person", view_session: "v1" }, true],
-    [
-      "agent",
-      { kind: "agent", session: SES, turn: TRN, tool_call: TCL },
-      true,
-    ],
+    ["agent", { kind: "agent", session: SES, turn: TRN, tool_call: TCL }, true],
     [
       "app",
       {

@@ -2,12 +2,6 @@
   "name": "card-covered",
   "n": 5,
   "question": "The input has three sections. [CARD] is the requirement card a human holds: what the human wants and the answers the human has settled on. [DECLARATION] is what the finished app declares: each tool with its name, effect, description and input, plus the apps it connects to. [DESIGN] is DESIGN.md, the design the App Engineer wrote for the app; it may say it is missing, or be cut off. Decide whether every concrete requirement on the card (each thing the human wants and each settled answer) is carried into the DECLARATION (a tool, an input field, a connection) or into the DESIGN (the model, a journey, a screen, a tool or a rule). Different wording is fine. Something the card leaves to the agent's recommendation does not need to appear. Verdicts: all = every concrete requirement on the card is present; some_missing = at least one requirement is missing, or is carried in the opposite or a changed form; cannot_tell = the input does not let you decide. The quote must be the part of the input that decided your verdict (for some_missing, the card's words that were lost or changed; for all, the declaration or design part that carries the requirements).",
-  "verdicts": [
-    "all",
-    "some_missing",
-    "cannot_tell"
-  ],
-  "pass": [
-    "all"
-  ]
+  "verdicts": ["all", "some_missing", "cannot_tell"],
+  "pass": ["all"]
 }

@@ -36,9 +36,10 @@ export type ScenarioRun = {
 export function trialLine(trial: TrialResult): string {
   const state = outcomeOf(trial, []).state;
   if (state === "pass") return "pass";
-  const ids = state === "pending"
-    ? trial.checks.filter((c) => c.pending).map((c) => c.id)
-    : trial.checks.filter((c) => !c.pass && !c.pending).map((c) => c.id);
+  const ids =
+    state === "pending"
+      ? trial.checks.filter((c) => c.pending).map((c) => c.id)
+      : trial.checks.filter((c) => !c.pass && !c.pending).map((c) => c.id);
   if (trial.settle.kind !== "idle") ids.unshift("timeout");
   return `${state} (${ids.join(", ")})`;
 }
@@ -54,7 +55,7 @@ export async function runScenario(args: ScenarioArgs): Promise<ScenarioRun> {
   let failed: string | null = null;
   let index = 0;
 
-  for (let count = args.next([]); count > 0;) {
+  for (let count = args.next([]); count > 0; ) {
     const round = Array.from({ length: count }, () => {
       const i = index++;
       const id = `${scenario.id}#${i}`;
@@ -66,9 +67,9 @@ export async function runScenario(args: ScenarioArgs): Promise<ScenarioRun> {
           const outcome = await runTrial(trialDeps, scenario, i);
           const { result } = outcome;
           deps.log(
-            `[trial] ${id} ${trialLine(result)} $${
-              result.metrics.cost_usd.toFixed(3)
-            }`,
+            `[trial] ${id} ${trialLine(result)} $${result.metrics.cost_usd.toFixed(
+              3,
+            )}`,
           );
           return { value: outcome, cost_usd: result.metrics.cost_usd };
         },
@@ -102,12 +103,13 @@ export async function runScenario(args: ScenarioArgs): Promise<ScenarioRun> {
     started_at: startedAt,
     scenario: { kind: "scenario", name: scenario.id, n: scenario.n },
     materials: args.materials,
-    components: [...components.entries()].sort(([a], [b]) => a < b ? -1 : 1)
+    components: [...components.entries()]
+      .sort(([a], [b]) => (a < b ? -1 : 1))
       .map(([, ref]) => ref),
     core: args.core,
     grader: {
       criteria: scenario.checks.flatMap((c) =>
-        c.kind === "judge" ? [parseRef(c.criterion, "criterion")] : []
+        c.kind === "judge" ? [parseRef(c.criterion, "criterion")] : [],
       ),
       judge: hasJudge
         ? { kind: "judge", name: "judge", n: deps.judge.n }

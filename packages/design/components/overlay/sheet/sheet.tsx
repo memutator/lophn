@@ -20,18 +20,16 @@ export interface SheetProps {
 }
 
 // backdrop 없는 non-modal Dialog: Escape·바깥 click·바깥 focus 이동에 닫는다.
-export function Sheet(
-  {
-    open,
-    onOpenChange,
-    title,
-    children,
-    actions,
-    width = "default",
-    container,
-    returnFocus = true,
-  }: SheetProps,
-) {
+export function Sheet({
+  open,
+  onOpenChange,
+  title,
+  children,
+  actions,
+  width = "default",
+  container,
+  returnFocus = true,
+}: SheetProps) {
   const focus = useReturnFocus(returnFocus);
   return (
     <Radix.Root open={open} onOpenChange={onOpenChange} modal={false}>

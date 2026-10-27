@@ -98,10 +98,10 @@ export function register(
       return session
         ? session.fileStream("apps", "screen_file", input, signal)
         : Promise.resolve({
-          status: 503,
-          headers: new Headers(),
-          body: null,
-        });
+            status: 503,
+            headers: new Headers(),
+            body: null,
+          });
     }),
     // 앱 view가 loopback으로 core API에 닿지 못하게 한다. 부여된 host여도 막는다.
     platformPorts: () => {
@@ -156,8 +156,8 @@ export function register(
     createViewIpc({
       registry: overlays.overlayRegistry(),
       windowOf: (sender) => {
-        const window = [...windows].find((window) =>
-          !window.isDestroyed() && window.webContents === sender
+        const window = [...windows].find(
+          (window) => !window.isDestroyed() && window.webContents === sender,
         );
         return window === undefined ? undefined : windowRef(window);
       },
@@ -201,12 +201,12 @@ export function register(
       return session
         ? session.internal("read", "apps", "get", { app })
         : Promise.resolve({
-          ok: false,
-          error: { code: "unavailable", message: "core is not ready" },
-        });
+            ok: false,
+            error: { code: "unavailable", message: "core is not ready" },
+          });
     },
     entryScreen: createEntryScreen((app, release) =>
-      coreInternal("read", "apps", "tools", { app, release })
+      coreInternal("read", "apps", "tools", { app, release }),
     ),
     create: (config: AppWindowConfig) => {
       const window = new BrowserWindow(
@@ -278,9 +278,9 @@ export function register(
         return session
           ? session.internal("read", "apps", "get", { app })
           : Promise.resolve({
-            ok: false,
-            error: { code: "unavailable", message: "core is not ready" },
-          });
+              ok: false,
+              error: { code: "unavailable", message: "core is not ready" },
+            });
       },
       entries: {
         install: (app) => installOsEntry(osEntryEnv, app),

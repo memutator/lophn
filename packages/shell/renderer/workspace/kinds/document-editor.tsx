@@ -32,9 +32,10 @@ export function openFile(
     openArtifactFile(host, path);
     return;
   }
-  const fields = options.line === undefined
-    ? undefined
-    : { line: options.line, nonce: Date.now() };
+  const fields =
+    options.line === undefined
+      ? undefined
+      : { line: options.line, nonce: Date.now() };
   host.openTab({
     key: path,
     kind: "document_editor",
@@ -92,7 +93,8 @@ function FileTab({ tab, host }: { tab: TabItem; host: TabHost }) {
       }}
       initialPosition={tab.readPosition}
       onReadPosition={(position) =>
-        host.document.noteReadPosition(tab.key, position)}
+        host.document.noteReadPosition(tab.key, position)
+      }
     />
   );
 }

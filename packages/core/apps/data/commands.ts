@@ -160,8 +160,9 @@ export function createDataCommands(
         if (!registered.ok) {
           // 이 command가 내는 오류 목록 밖의 코드(준비 주체 불일치 등)는 입력 거절이다.
           const code = registered.error.code;
-          return code === "conflict" || code === "unavailable" ||
-              code === "invalid_input"
+          return code === "conflict" ||
+            code === "unavailable" ||
+            code === "invalid_input"
             ? registered
             : invalid("backup blob is not a prepared blob of this caller");
         }

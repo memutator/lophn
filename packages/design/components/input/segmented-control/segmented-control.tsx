@@ -20,9 +20,13 @@ export interface SegmentedControlProps {
 
 // 방향키와 선택은 같은 name의 native radio가 맡는다. 목록 위 보기 전환처럼 Field 밖에서도 쓰므로 Field는 없어도 된다.
 // 칸 폭은 가장 긴 이름에 맞춰 모두 같다. 높이는 같은 size의 Button과 같다.
-export function SegmentedControl(
-  { options, value, onValueChange, label, size = "md" }: SegmentedControlProps,
-) {
+export function SegmentedControl({
+  options,
+  value,
+  onValueChange,
+  label,
+  size = "md",
+}: SegmentedControlProps) {
   const field = useContext(FieldContext);
   const name = useId();
   return (
@@ -43,8 +47,7 @@ export function SegmentedControl(
             checked={option.value === value}
             disabled={option.disabled}
             className={styles.input}
-            onChange={() =>
-              onValueChange(option.value)}
+            onChange={() => onValueChange(option.value)}
           />
           <span className={styles.segment}>{option.label}</span>
         </label>

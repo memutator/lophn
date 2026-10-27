@@ -10,14 +10,18 @@ export const dotLabel = (dot: TabDot) =>
     ? t("project-workspace.label.tab-finished")
     : t(`common.label.tab-${dot}`);
 
-export function TabStateDot(
-  { dot, className }: { dot: TabDot; className?: string },
-) {
+export function TabStateDot({
+  dot,
+  className,
+}: {
+  dot: TabDot;
+  className?: string;
+}) {
   return (
     <span
-      className={className === undefined
-        ? styles.dot
-        : `${styles.dot} ${className}`}
+      className={
+        className === undefined ? styles.dot : `${styles.dot} ${className}`
+      }
       data-state={dot}
       role="img"
       aria-label={dotLabel(dot)}

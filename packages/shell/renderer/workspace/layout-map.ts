@@ -20,7 +20,9 @@ function readPosition(value: unknown): TabItem["readPosition"] {
   const section = (value as { section?: unknown }).section;
   const offset = (value as { scroll_offset?: unknown }).scroll_offset;
   if (
-    typeof section !== "string" || section.length < 1 || section.length > 128
+    typeof section !== "string" ||
+    section.length < 1 ||
+    section.length > 128
   ) {
     return undefined;
   }
@@ -36,8 +38,10 @@ function tabFromStored(value: unknown): TabItem | null {
   const tab = value as Record<string, unknown>;
   const kind = tabKindOf(tab.kind);
   if (
-    typeof tab.key !== "string" || tab.key.length === 0 ||
-    tab.key.length > TAB_KEY_MAX || kind === undefined
+    typeof tab.key !== "string" ||
+    tab.key.length === 0 ||
+    tab.key.length > TAB_KEY_MAX ||
+    kind === undefined
   ) {
     return null;
   }
@@ -49,9 +53,11 @@ function tabFromStored(value: unknown): TabItem | null {
 
 /** 화면 탭을 schema 필드로 줄인다. 맞출 수 없으면 그 탭만 빠진다. */
 function toStoredTab(tab: TabItem): Record<string, unknown> | null {
-  return tabKindOf(tab.kind)?.toStored(tab, {
-    position: readPosition(tab.readPosition),
-  }) ?? null;
+  return (
+    tabKindOf(tab.kind)?.toStored(tab, {
+      position: readPosition(tab.readPosition),
+    }) ?? null
+  );
 }
 
 /** 저장된 떠 있는 탭. 탭이나 rect를 맞출 수 없으면 null이다. */
@@ -61,7 +67,9 @@ function floatFromStored(value: unknown): FloatItem | null {
   const tab = tabFromStored(float.tab);
   const rect = float.rect as Record<string, unknown> | null | undefined;
   if (
-    tab === null || typeof rect !== "object" || rect === null ||
+    tab === null ||
+    typeof rect !== "object" ||
+    rect === null ||
     ![rect.x, rect.y, rect.width, rect.height].every(Number.isInteger)
   ) {
     return null;
@@ -89,7 +97,9 @@ function detachedFromStored(value: unknown): DetachedItem | null {
   const tab = tabFromStored(item.tab);
   const bounds = item.bounds as Record<string, unknown> | null | undefined;
   if (
-    tab === null || typeof bounds !== "object" || bounds === null ||
+    tab === null ||
+    typeof bounds !== "object" ||
+    bounds === null ||
     ![bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isInteger)
   ) {
     return null;
@@ -120,31 +130,30 @@ function viewOfDesk(desk: unknown): WorkspaceView | null {
     normalizePane({
       tabs: Array.isArray(pane.tabs)
         ? pane.tabs.flatMap((tab) => {
-          const item = tabFromStored(tab);
-          return item === null ? [] : [item];
-        })
+            const item = tabFromStored(tab);
+            return item === null ? [] : [item];
+          })
         : [],
       selected: pane.selected_tab ?? null,
-    })
+    }),
   );
-  const focused = typeof value.focused_pane === "number"
-    ? value.focused_pane
-    : 0;
+  const focused =
+    typeof value.focused_pane === "number" ? value.focused_pane : 0;
   return {
     panes,
     splitRatio: typeof value.split_ratio === "number" ? value.split_ratio : 0.5,
     focusedPane: focused >= 0 && focused < panes.length ? focused : 0,
     floats: Array.isArray(value.floats)
       ? value.floats.flatMap((float) => {
-        const item = floatFromStored(float);
-        return item === null ? [] : [item];
-      })
+          const item = floatFromStored(float);
+          return item === null ? [] : [item];
+        })
       : [],
     detached: Array.isArray(value.detached)
       ? value.detached.flatMap((entry) => {
-        const item = detachedFromStored(entry);
-        return item === null ? [] : [item];
-      })
+          const item = detachedFromStored(entry);
+          return item === null ? [] : [item];
+        })
       : [],
   };
 }
@@ -160,10 +169,11 @@ export function desksFromStored(layout: unknown): WorkspaceDesks | null {
     if (view !== null) desks[key] = view;
   }
   if (!Object.hasOwn(desks, DEFAULT_DESK)) return null;
-  const active = typeof value.active_desk === "string" &&
-      Object.hasOwn(desks, value.active_desk)
-    ? value.active_desk
-    : DEFAULT_DESK;
+  const active =
+    typeof value.active_desk === "string" &&
+    Object.hasOwn(desks, value.active_desk)
+      ? value.active_desk
+      : DEFAULT_DESK;
   return { active, desks };
 }
 
@@ -197,27 +207,36 @@ function storedDesk(view: WorkspaceView): StoredDesk {
     return { tabs, selected_tab: selected };
   });
   const kept = panes.length > 0 ? panes : [{ tabs: [], selected_tab: null }];
-  const ratio = view.splitRatio > 0 && view.splitRatio < 1
-    ? view.splitRatio
-    : 0.5;
-  const focused = view.focusedPane >= 0 &&
-      view.focusedPane < kept.length
-    ? view.focusedPane
-    : 0;
-  const floats = view.floats.flatMap((float) => {
-    const tab = toStoredTab(float.tab);
-    return tab === null ? [] : [{
-      tab,
-      rect: float.rect,
-      minimized: float.minimized,
-      origin_pane: float.originPane === 1 ? 1 : 0,
-      ...(float.dockedAt === undefined ? {} : { docked_at: float.dockedAt }),
-    }];
-  }).slice(0, 20);
-  const detached = view.detached.flatMap((item) => {
-    const tab = toStoredTab(item.tab);
-    return tab === null ? [] : [{ tab, bounds: item.bounds }];
-  }).slice(0, 20);
+  const ratio =
+    view.splitRatio > 0 && view.splitRatio < 1 ? view.splitRatio : 0.5;
+  const focused =
+    view.focusedPane >= 0 && view.focusedPane < kept.length
+      ? view.focusedPane
+      : 0;
+  const floats = view.floats
+    .flatMap((float) => {
+      const tab = toStoredTab(float.tab);
+      return tab === null
+        ? []
+        : [
+            {
+              tab,
+              rect: float.rect,
+              minimized: float.minimized,
+              origin_pane: float.originPane === 1 ? 1 : 0,
+              ...(float.dockedAt === undefined
+                ? {}
+                : { docked_at: float.dockedAt }),
+            },
+          ];
+    })
+    .slice(0, 20);
+  const detached = view.detached
+    .flatMap((item) => {
+      const tab = toStoredTab(item.tab);
+      return tab === null ? [] : [{ tab, bounds: item.bounds }];
+    })
+    .slice(0, 20);
   return {
     panes: kept,
     split_ratio: ratio,

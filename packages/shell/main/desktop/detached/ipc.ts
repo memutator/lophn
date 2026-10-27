@@ -39,9 +39,10 @@ interface DetachedIpcDeps {
   /** sender webContents가 본문인 창. desktop 창이 아니면 undefined다. */
   refOf(sender: CallerContents): { ref: string; detached: boolean } | undefined;
   /** detached 창을 만든다(창은 ctx.detached에도 들어간다). */
-  openWindow(
-    start: { hash: string; bounds?: DetachedBounds },
-  ): { ref: string; bounds: DetachedBounds } | undefined;
+  openWindow(start: {
+    hash: string;
+    bounds?: DetachedBounds;
+  }): { ref: string; bounds: DetachedBounds } | undefined;
   /** 창을 닫는다. 부르기 전에 항목을 silent로 표시했다. */
   closeWindow(ref: string): void;
   /** 최소화를 풀고 앞으로 가져온다. */
@@ -87,9 +88,10 @@ export function createDetachedIpc(deps: DetachedIpcDeps) {
   ): DetachedReply<{ sender: Sender; input: T }> {
     const caller = checkCaller(deps.registry, event);
     if (!caller.ok) return caller;
-    const sender = caller.value.origin.host === DESKTOP_HOST
-      ? deps.refOf(event.sender)
-      : undefined;
+    const sender =
+      caller.value.origin.host === DESKTOP_HOST
+        ? deps.refOf(event.sender)
+        : undefined;
     if (sender === undefined) {
       return fail("forbidden", "caller is not a desktop window");
     }
@@ -149,10 +151,14 @@ export function createDetachedIpc(deps: DetachedIpcDeps) {
       project: body.project,
       key: body.tab.key,
       tab: body.tab,
-      transfer: body.transfer ?? (kept === null ? null : {
-        value: kept,
-        views: [],
-      }),
+      transfer:
+        body.transfer ??
+        (kept === null
+          ? null
+          : {
+              value: kept,
+              views: [],
+            }),
       silent: false,
       hidden: false,
       resume: body.transfer === null ? kept : null,
@@ -198,8 +204,8 @@ export function createDetachedIpc(deps: DetachedIpcDeps) {
       deps.setHidden(entry.ref, hidden);
       entries.setHidden(entry.ref, hidden);
     }
-    const missing = body.keys.filter((key) =>
-      entries.byParentKey(sender.ref, key) === undefined
+    const missing = body.keys.filter(
+      (key) => entries.byParentKey(sender.ref, key) === undefined,
     );
     return { ok: true, value: { missing } };
   };
@@ -208,11 +214,12 @@ export function createDetachedIpc(deps: DetachedIpcDeps) {
     const checked = guard(event, detachedCloseSchema, input, "project");
     if (!checked.ok) return checked;
     const { sender, input: body } = checked.value;
-    const targets = body.key === null
-      ? entries.childrenOf(sender.ref)
-      : [entries.byParentKey(sender.ref, body.key)].filter((entry) =>
-        entry !== undefined
-      );
+    const targets =
+      body.key === null
+        ? entries.childrenOf(sender.ref)
+        : [entries.byParentKey(sender.ref, body.key)].filter(
+            (entry) => entry !== undefined,
+          );
     for (const entry of targets) {
       // 전부 닫는 것(null)은 project를 떠나는 길이다. 다시 열 때 이어 붙게 값을 들어 둔다.
       if (body.key === null) entries.keep(entry);
@@ -250,11 +257,7 @@ export function createDetachedIpc(deps: DetachedIpcDeps) {
     if (!deps.isAlive(entry.parent)) {
       return fail("unavailable", "the project window is gone");
     }
-    const moved = deps.moveViews(
-      sender.ref,
-      entry.parent,
-      body.transfer.views,
-    );
+    const moved = deps.moveViews(sender.ref, entry.parent, body.transfer.views);
     if (!moved.ok) return fail("unavailable", moved.error.message);
     deps.send(entry.parent, {
       kind: "docked",

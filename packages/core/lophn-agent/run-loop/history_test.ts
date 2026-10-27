@@ -49,9 +49,11 @@ test("이미지가 2개를 넘으면 오래된 것부터 빠지고 짝 글에 �
         1,
       );
       assert.deepStrictEqual(
-        parts.filter((p) =>
-          p.kind === "tool_result" && p.id === `t${i}` &&
-          p.text === (i < omitted ? `r${i}\n[image omitted]` : `r${i}`)
+        parts.filter(
+          (p) =>
+            p.kind === "tool_result" &&
+            p.id === `t${i}` &&
+            p.text === (i < omitted ? `r${i}\n[image omitted]` : `r${i}`),
         ).length,
         1,
       );

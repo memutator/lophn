@@ -63,9 +63,9 @@ export const messageDirectory = {
   find(tx: Tx, session: string): TargetSession | null {
     const environment = routerEnvironment();
     if (!environment.ok) return null;
-    return environment.value.deps(tx, () => "").directory.find(
-      session as Id<"ses">,
-    );
+    return environment.value
+      .deps(tx, () => "")
+      .directory.find(session as Id<"ses">);
   },
 };
 

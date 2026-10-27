@@ -35,12 +35,14 @@ export async function resolveVariant(
   const registryDir = `${current}/tests/eval/registry`;
   const graderDeps: Deps = { root: current, registryDir };
   const boot =
-    (root: string, isCurrent: boolean): Variant["boot"] => (run, options) =>
+    (root: string, isCurrent: boolean): Variant["boot"] =>
+    (run, options) =>
       bootCore(run, { ...options, repo: isCurrent ? undefined : root });
 
-  const path = args.checkout === undefined
-    ? current
-    : await io.realPath(args.checkout).catch(() => null);
+  const path =
+    args.checkout === undefined
+      ? current
+      : await io.realPath(args.checkout).catch(() => null);
   if (path === null) {
     return err({
       code: "invalid_input",
@@ -58,13 +60,13 @@ export async function resolveVariant(
   }
 
   const top = await io.gitToplevel(path);
-  if (top === null || await io.realPath(top) !== path) {
+  if (top === null || (await io.realPath(top)) !== path) {
     return err({
       code: "invalid_input",
       message: `git checkout의 최상위가 아니다: ${path}`,
     });
   }
-  if (!await io.exists(`${path}/packages/core/main/daemon/main.ts`)) {
+  if (!(await io.exists(`${path}/packages/core/main/daemon/main.ts`))) {
     return err({
       code: "invalid_input",
       message: `core 입구가 없다: ${path}/packages/core/main/daemon/main.ts`,

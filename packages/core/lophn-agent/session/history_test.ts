@@ -21,21 +21,23 @@ function stub(rows: Row[], request: number): CoreCall {
   const common = { as_of_seq: "100", next_cursor: null };
   return (path, body) => {
     if (path === "/sessions/read") {
-      return Promise.resolve(ok({
-        session: {
-          id: SELF,
-          agent: { role: "lophn" },
-          place: null,
-          title: null,
-          lifecycle: "open",
-          forked_from: null,
-          model_selection: null,
-          compaction: null,
-          skip: false,
-          state_seq: "1",
-        },
-        ...common,
-      }));
+      return Promise.resolve(
+        ok({
+          session: {
+            id: SELF,
+            agent: { role: "lophn" },
+            place: null,
+            title: null,
+            lifecycle: "open",
+            forked_from: null,
+            model_selection: null,
+            compaction: null,
+            skip: false,
+            state_seq: "1",
+          },
+          ...common,
+        }),
+      );
     }
     if (path === "/rewind/list") {
       return Promise.resolve(
@@ -46,43 +48,48 @@ function stub(rows: Row[], request: number): CoreCall {
       return Promise.resolve(ok({ tool_calls: [], ...common }));
     }
     if (path === "/session_messages/list") {
-      return Promise.resolve(ok({
-        messages: rows.map((row) => ({
-          id: id("msg", row.n),
-          session: SELF,
-          turn: id("trn", row.n === request ? 2 : 1),
-          delivery: "next_turn",
-          body: "0".repeat(64),
-          created_seq: String(row.n),
-          created_at: "2026-01-01T00:00:00.000Z",
-          from: row.from,
-          call: row.reply_to === null && row.from !== "human"
-            ? id("cal", row.n)
-            : null,
-          reply_to: row.reply_to,
-          refs: [],
-          reply: row.reply,
-          event: null,
-          fail_reason: null,
-          step: null,
-        })),
-        ...common,
-      }));
+      return Promise.resolve(
+        ok({
+          messages: rows.map((row) => ({
+            id: id("msg", row.n),
+            session: SELF,
+            turn: id("trn", row.n === request ? 2 : 1),
+            delivery: "next_turn",
+            body: "0".repeat(64),
+            created_seq: String(row.n),
+            created_at: "2026-01-01T00:00:00.000Z",
+            from: row.from,
+            call:
+              row.reply_to === null && row.from !== "human"
+                ? id("cal", row.n)
+                : null,
+            reply_to: row.reply_to,
+            refs: [],
+            reply: row.reply,
+            event: null,
+            fail_reason: null,
+            step: null,
+          })),
+          ...common,
+        }),
+      );
     }
     if (path === "/messages/body") {
       const message = (body as { message: string }).message;
       const row = rows.find((r) => id("msg", r.n) === message)!;
-      return Promise.resolve(ok({
-        message,
-        session: SELF,
-        body: "0".repeat(64),
-        size_bytes: 1,
-        content: {
-          schema_version: 1,
-          parts: [{ kind: "text", text: row.text }],
-        },
-        ...common,
-      }));
+      return Promise.resolve(
+        ok({
+          message,
+          session: SELF,
+          body: "0".repeat(64),
+          size_bytes: 1,
+          content: {
+            schema_version: 1,
+            parts: [{ kind: "text", text: row.text }],
+          },
+          ...common,
+        }),
+      );
     }
     throw new Error(`unexpected read ${path}`);
   };

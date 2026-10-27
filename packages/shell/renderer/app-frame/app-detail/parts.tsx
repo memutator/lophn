@@ -23,9 +23,13 @@ const TONE: Record<PillTone, string> = {
   neutral: styles.pillNeutral,
 };
 
-export function Pill(
-  { tone = "plain", children }: { tone?: PillTone; children: ReactNode },
-) {
+export function Pill({
+  tone = "plain",
+  children,
+}: {
+  tone?: PillTone;
+  children: ReactNode;
+}) {
   return <span className={`${styles.pill} ${TONE[tone]}`}>{children}</span>;
 }
 
@@ -33,9 +37,13 @@ export function EffectPill({ effect }: { effect: Effect }) {
   return <Pill tone={effect === "read" ? "plain" : effect}>{effect}</Pill>;
 }
 
-export function Section(
-  { title, children }: { title?: string; children: ReactNode },
-) {
+export function Section({
+  title,
+  children,
+}: {
+  title?: string;
+  children: ReactNode;
+}) {
   return (
     <section className={styles.section}>
       {title === undefined ? null : <h4 className={styles.heading}>{title}</h4>}
@@ -57,14 +65,18 @@ export function Facts({ rows }: { rows: readonly [string, ReactNode][] }) {
   );
 }
 
-export function Note(
-  { title, children }: { title?: string; children: ReactNode },
-) {
+export function Note({
+  title,
+  children,
+}: {
+  title?: string;
+  children: ReactNode;
+}) {
   return (
     <p className={styles.note}>
-      {title === undefined
-        ? null
-        : <span className={styles.strong}>{title}</span>}
+      {title === undefined ? null : (
+        <span className={styles.strong}>{title}</span>
+      )}
       <span>{children}</span>
     </p>
   );
@@ -75,14 +87,17 @@ export function Mono({ children }: { children: ReactNode }) {
 }
 
 /** 운영 패널 위쪽 가운데에 뜨는 알림. 시간이 지나거나 닫으면 사라진다. 실패는 error다. */
-export function PaneToast(
-  { title, body, error = false, onClose }: {
-    title: string;
-    body?: string;
-    error?: boolean;
-    onClose: () => void;
-  },
-) {
+export function PaneToast({
+  title,
+  body,
+  error = false,
+  onClose,
+}: {
+  title: string;
+  body?: string;
+  error?: boolean;
+  onClose: () => void;
+}) {
   return (
     <div className={styles.paneToast}>
       <Toast

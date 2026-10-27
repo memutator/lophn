@@ -39,10 +39,7 @@ function globMatcher(pattern: string): (path: string) => boolean {
 }
 
 // base 아래 파일을 훑는다. 허용 폴더 밖으로 나가는 symlink와 symlink 폴더는 넣지 않는다.
-async function* walk(
-  ctx: ToolContext,
-  dir: string,
-): AsyncGenerator<string> {
+async function* walk(ctx: ToolContext, dir: string): AsyncGenerator<string> {
   let entries: Dirent[];
   try {
     entries = await readdir(dir, { withFileTypes: true });
@@ -83,10 +80,7 @@ async function baseOf(
   }
 }
 
-async function* listed(
-  ctx: ToolContext,
-  base: Base,
-): AsyncGenerator<string> {
+async function* listed(ctx: ToolContext, base: Base): AsyncGenerator<string> {
   if (base.single === null) yield* walk(ctx, base.dir);
   else yield base.single;
 }
@@ -152,8 +146,7 @@ export async function grepFiles(
   const match = input.glob === undefined ? null : globMatcher(input.glob);
   const found: string[] = [];
   let more = false;
-  scan:
-  for await (const file of listed(ctx, base.value)) {
+  scan: for await (const file of listed(ctx, base.value)) {
     const name = show(base.value, file);
     if (match !== null && !match(name)) continue;
     let text: string;

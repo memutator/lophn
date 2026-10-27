@@ -73,9 +73,13 @@ test("저장하는 reasoning 글은 redaction을 거친다", async () => {
 
   const prepared = await prepare(context, envelope);
   assert.ok(prepared.ok);
-  const content = (prepared.value.input as {
-    content: { parts: { kind: string; text: string; duration_ms?: unknown }[] };
-  }).content;
+  const content = (
+    prepared.value.input as {
+      content: {
+        parts: { kind: string; text: string; duration_ms?: unknown }[];
+      };
+    }
+  ).content;
   assert.deepStrictEqual(content.parts.length, 2);
   const reasoning = content.parts[0];
   assert.deepStrictEqual(reasoning.kind, "reasoning");

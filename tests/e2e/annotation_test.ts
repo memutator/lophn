@@ -101,11 +101,13 @@ async function ship(
 
 const callImage = (annotation: string) => ({
   kind: "tool" as const,
-  calls: [{
-    id: "t_image",
-    name: "image_read",
-    arguments: JSON.stringify({ path: `annotation:${annotation}` }),
-  }],
+  calls: [
+    {
+      id: "t_image",
+      name: "image_read",
+      arguments: JSON.stringify({ path: `annotation:${annotation}` }),
+    },
+  ],
 });
 
 // 둘째 model 요청의 마지막 user message에서 tool_result 안 image block을 모은다.
@@ -117,10 +119,10 @@ function imagesIn(request: JournalEntry): { data: string }[] {
   if (!Array.isArray(content)) return [];
   return content.flatMap((block: { type: string; content?: unknown }) =>
     block.type === "tool_result" && Array.isArray(block.content)
-      ? block.content.filter((part) => part.type === "image").map((part) =>
-        part.source as { data: string }
-      )
-      : []
+      ? block.content
+          .filter((part) => part.type === "image")
+          .map((part) => part.source as { data: string })
+      : [],
   );
 }
 
@@ -161,10 +163,12 @@ const ROWS: Row[] = [
       assert.deepStrictEqual(session.agent, { role: "app_engineer", app: a });
       const messages = await humanMessagesOf(core, sent.session);
       assert.deepStrictEqual(messages.length, 1);
-      assert.deepStrictEqual(messages[0].refs, [{
-        kind: "annotation",
-        id: annotation,
-      }]);
+      assert.deepStrictEqual(messages[0].refs, [
+        {
+          kind: "annotation",
+          id: annotation,
+        },
+      ]);
 
       // fake
       const images = imagesIn(fake.journal()[1]);
@@ -204,10 +208,12 @@ const ROWS: Row[] = [
       // inbox
       const messages = await humanMessagesOf(core, session);
       assert.deepStrictEqual(messages.length, 1);
-      assert.deepStrictEqual(messages[0].refs, [{
-        kind: "annotation",
-        id: sent.annotations[0],
-      }]);
+      assert.deepStrictEqual(messages[0].refs, [
+        {
+          kind: "annotation",
+          id: sent.annotations[0],
+        },
+      ]);
       assert.deepStrictEqual(messages[0].turn, turn.id);
 
       // fake
@@ -256,15 +262,23 @@ const ROWS: Row[] = [
     name: "archived-app",
     async run(ctx) {
       const { core } = ctx;
-      const created = await core.call(appCreate, {
-        slug: "annotation-c",
-        name: "annotation-c",
-        description: "app annotation-c",
-      }, {});
+      const created = await core.call(
+        appCreate,
+        {
+          slug: "annotation-c",
+          name: "annotation-c",
+          description: "app annotation-c",
+        },
+        {},
+      );
       const c = created.id;
-      await core.call(appArchive, { app: c }, {
-        base_revision: created.revision,
-      });
+      await core.call(
+        appArchive,
+        { app: c },
+        {
+          base_revision: created.revision,
+        },
+      );
       const refused = await core.tryCall(annotationSend, {
         target: { kind: "app" as const, app: c },
         session: null,
@@ -294,11 +308,15 @@ test("annotation 묶음은 그 앱 project의 Project Manager에게만 가고 sc
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
     const app = (slug: string) =>
-      core!.call(appCreate, {
-        slug,
-        name: slug,
-        description: `app ${slug}`,
-      }, {});
+      core!.call(
+        appCreate,
+        {
+          slug,
+          name: slug,
+          description: `app ${slug}`,
+        },
+        {},
+      );
     const appA = await app("annotation-a");
     const appB = await app("annotation-b");
     const ctx: Ctx = {

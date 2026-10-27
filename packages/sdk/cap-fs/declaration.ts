@@ -15,21 +15,21 @@ export type DeclarationLike = {
 export type DeclarationCheck =
   | { ok: true }
   | {
-    ok: false;
-    error: {
-      code: "invalid_input";
-      message: string;
-      package: string;
-      // 이 중 하나 이상을 선언의 permissions에 선언해야 한다.
-      permissions: readonly string[];
+      ok: false;
+      error: {
+        code: "invalid_input";
+        message: string;
+        package: string;
+        // 이 중 하나 이상을 선언의 permissions에 선언해야 한다.
+        permissions: readonly string[];
+      };
     };
-  };
 
 export function checkDeclaration(
   declaration: DeclarationLike,
 ): DeclarationCheck {
-  const uses = (declaration.sdk_dependencies ?? []).some((dependency) =>
-    dependency.name === PACKAGE
+  const uses = (declaration.sdk_dependencies ?? []).some(
+    (dependency) => dependency.name === PACKAGE,
   );
   if (!uses) return { ok: true };
   const declared = new Set(
@@ -41,9 +41,9 @@ export function checkDeclaration(
       ok: false,
       error: {
         code: "invalid_input",
-        message: `${PACKAGE} needs ${
-          group.join(" or ")
-        } in the declaration permissions`,
+        message: `${PACKAGE} needs ${group.join(
+          " or ",
+        )} in the declaration permissions`,
         package: PACKAGE,
         permissions: group,
       },

@@ -126,9 +126,9 @@ export function shimSources(
   paths: { shim: string; script: string },
   execPath: string,
 ): { sh: string; script: string } {
-  const sh = `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec ${shellQuote(execPath)} ${
-    shellQuote(paths.script)
-  } "$@"\n`;
+  const sh = `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec ${shellQuote(execPath)} ${shellQuote(
+    paths.script,
+  )} "$@"\n`;
   return { sh, script: SCRIPT };
 }
 

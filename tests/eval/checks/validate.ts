@@ -31,9 +31,10 @@ export async function validateFixtures(
 
     if (sc.fixtures.right.length === 0) bad("right fixture 없음");
     for (const [i, trial] of sc.fixtures.right.entries()) {
-      for (
-        const r of await runProgramChecks(sc.checks, { trial, core: null })
-      ) {
+      for (const r of await runProgramChecks(sc.checks, {
+        trial,
+        core: null,
+      })) {
         if (!r.pass) bad(`right[${i}]에서 ${r.id} 떨어짐: ${r.reason}`);
       }
       for (const c of sc.checks) {

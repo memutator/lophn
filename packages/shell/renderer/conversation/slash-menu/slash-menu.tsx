@@ -90,15 +90,19 @@ function mark(text: string, query: string): ReactNode {
   return parts;
 }
 
-function Row(
-  { entry, query, working, selected, onPick }: {
-    entry: SlashEntryView;
-    query: string;
-    working: boolean;
-    selected: boolean;
-    onPick: (entry: SlashEntryView) => void;
-  },
-) {
+function Row({
+  entry,
+  query,
+  working,
+  selected,
+  onPick,
+}: {
+  entry: SlashEntryView;
+  query: string;
+  working: boolean;
+  selected: boolean;
+  onPick: (entry: SlashEntryView) => void;
+}) {
   return (
     <div
       role="option"
@@ -119,22 +123,24 @@ function Row(
       <span className={styles.description} data-slash-description="">
         {mark(entry.description, query)}
       </span>
-      {working
-        ? (
-          <span className={styles.why} data-slash-next="">
-            {t("conversation.label.next-turn")}
-          </span>
-        )
-        : null}
+      {working ? (
+        <span className={styles.why} data-slash-next="">
+          {t("conversation.label.next-turn")}
+        </span>
+      ) : null}
     </div>
   );
 }
 
 // 입력칸 위에 뜨는 메뉴. 줄을 위에서 아래로 센 번호가 highlightedIndex이고, 키보드로 옮기는 일은 부모가 한다.
-export function SlashMenu(
-  { agentName, query, working, state, highlightedIndex, onPick }:
-    SlashMenuProps,
-) {
+export function SlashMenu({
+  agentName,
+  query,
+  working,
+  state,
+  highlightedIndex,
+  onPick,
+}: SlashMenuProps) {
   const classes = styles.menu;
   if (state.kind === "unknown") {
     return (
@@ -182,13 +188,11 @@ export function SlashMenu(
           </Fragment>
         );
       })}
-      {working
-        ? (
-          <p className={styles.note} data-slash-working="">
-            {t("conversation.notice.slash-working", { agent: agentName })}
-          </p>
-        )
-        : null}
+      {working ? (
+        <p className={styles.note} data-slash-working="">
+          {t("conversation.notice.slash-working", { agent: agentName })}
+        </p>
+      ) : null}
     </div>
   );
 }

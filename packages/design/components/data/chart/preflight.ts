@@ -70,14 +70,24 @@ export function binsDrawable(count: number, bins: readonly Bin[]): boolean {
     }
     total += bin.count;
   }
-  return total === count &&
-    finiteScale(valueScale(bins.map((bin) => bin.count), NOMINAL), []);
+  return (
+    total === count &&
+    finiteScale(
+      valueScale(
+        bins.map((bin) => bin.count),
+        NOMINAL,
+      ),
+      [],
+    )
+  );
 }
 
 // 산점: x·y 축이 모두 유한하다.
 export function pointsDrawable(points: readonly ScatterPoint[]): boolean {
   const xs = points.map((point) => point.x);
   const ys = points.map((point) => point.y);
-  return finiteScale(extentScale(xs, [NOMINAL.left, NOMINAL.right]), xs) &&
-    finiteScale(extentScale(ys, [NOMINAL.bottom, NOMINAL.top]), ys);
+  return (
+    finiteScale(extentScale(xs, [NOMINAL.left, NOMINAL.right]), xs) &&
+    finiteScale(extentScale(ys, [NOMINAL.bottom, NOMINAL.top]), ys)
+  );
 }

@@ -152,10 +152,7 @@ export type McpConnections = {
     signal: AbortSignal,
   ): Promise<Result<ConnectionView>>;
   // 이 assignment의 도구 목록이다. 검증을 모두 지난 목록만 온다.
-  toolList(
-    assignment: string,
-    server: string,
-  ): Promise<Result<ToolList>>;
+  toolList(assignment: string, server: string): Promise<Result<ToolList>>;
   // 도구 호출이다. detach 뒤 새 호출은 not_executed이고 연결이 없으면
   // no_connection이다.
   call(
@@ -219,26 +216,33 @@ function attachHeaders(
 ): Promise<Result<{ sent: boolean }>> {
   const [head, ...others] = rest;
   if (head === undefined) return send(collected);
-  return secrets.send({
-    // context는 caller 주장을 믿지 않는다. supervisor가 주입하고 core가 재검사한다.
-    context: {} as never,
-    use: { name: head.secret, destination },
-    operation: "mcp.request",
-    body: { url, method: "POST" },
-  }, (value) => {
-    const text = typeof value === "string"
-      ? value
-      : new TextDecoder().decode(value);
-    return attachHeaders(secrets, destination, url, others, {
-      ...collected,
-      ...head.headers(text),
-    }, send);
-  });
+  return secrets.send(
+    {
+      // context는 caller 주장을 믿지 않는다. supervisor가 주입하고 core가 재검사한다.
+      context: {} as never,
+      use: { name: head.secret, destination },
+      operation: "mcp.request",
+      body: { url, method: "POST" },
+    },
+    (value) => {
+      const text =
+        typeof value === "string" ? value : new TextDecoder().decode(value);
+      return attachHeaders(
+        secrets,
+        destination,
+        url,
+        others,
+        {
+          ...collected,
+          ...head.headers(text),
+        },
+        send,
+      );
+    },
+  );
 }
 
-export function createMcpConnections(
-  deps: McpConnectionsDeps,
-): McpConnections {
+export function createMcpConnections(deps: McpConnectionsDeps): McpConnections {
   const entries = new Map<string, Entry>();
 
   function entryOf(assignment: string, server: string): Entry | undefined {
@@ -344,7 +348,7 @@ export function createMcpConnections(
             method: "POST",
             headers: {
               "content-type": "application/json",
-              "accept": "application/json",
+              accept: "application/json",
               ...headers,
               ...extra,
             },
@@ -487,7 +491,8 @@ export function createMcpConnections(
               if (parsed === null || typeof parsed !== "object") continue;
               const message = parsed as Record<string, unknown>;
               if (
-                typeof message.method === "string" && message.id !== undefined
+                typeof message.method === "string" &&
+                message.id !== undefined
               ) {
                 // 서버의 역방향 요청이다.
                 const writer = reverse.writable.getWriter();
@@ -504,11 +509,10 @@ export function createMcpConnections(
               // 서버의 알림이다. 도구 목록이 바뀌면 조립이 재조회할 때까지 그
               // server의 새 호출을 막는다. 다른 알림은 버려진다.
               if (
-                typeof message.method === "string" && message.id === undefined
+                typeof message.method === "string" &&
+                message.id === undefined
               ) {
-                if (
-                  message.method === "notifications/tools/list_changed"
-                ) {
+                if (message.method === "notifications/tools/list_changed") {
                   deps.onListChanged?.(server);
                 }
                 continue;
@@ -523,14 +527,16 @@ export function createMcpConnections(
                   code?: unknown;
                   message?: unknown;
                 };
-                settle(err({
-                  code: "unavailable",
-                  message: `서버가 오류로 답했다: ${
-                    typeof error.code === "number"
-                      ? `code ${error.code}`
-                      : "오류"
-                  }`,
-                }));
+                settle(
+                  err({
+                    code: "unavailable",
+                    message: `서버가 오류로 답했다: ${
+                      typeof error.code === "number"
+                        ? `code ${error.code}`
+                        : "오류"
+                    }`,
+                  }),
+                );
                 continue;
               }
               const result = message.result;
@@ -541,7 +547,9 @@ export function createMcpConnections(
               );
             }
           }
-        } catch { /* 끊긴 pipe다 */ }
+        } catch {
+          /* 끊긴 pipe다 */
+        }
         // pipe가 끊겼다다. 기다리던 요청은 응답이 오지 않는다. 재전송은
         // reconnect가 결정하고 여기서는 답을 마쳐야 pending에 남지 않는다.
         for (const [, settle] of pending) {
@@ -573,10 +581,12 @@ export function createMcpConnections(
             if (!okSent && !sent.done) {
               sent.done = true;
               pending.delete(id);
-              resolve(err({
-                code: "unavailable",
-                message: "서버에 닿지 못했다",
-              }));
+              resolve(
+                err({
+                  code: "unavailable",
+                  message: "서버에 닿지 못했다",
+                }),
+              );
             }
           });
           const onAbort = () => {
@@ -618,11 +628,14 @@ export function createMcpConnections(
       typeof record["description"] !== "string" &&
       record["description"] !== null &&
       record["description"] !== undefined
-    ) return "tool 설명이 문자열이 아니다";
+    )
+      return "tool 설명이 문자열이 아니다";
     // JSON Schema 객체다. 원격 $ref는 없다(원격 fetch 금지).
     const schema = record["inputSchema"];
     if (
-      schema === null || typeof schema !== "object" || Array.isArray(schema)
+      schema === null ||
+      typeof schema !== "object" ||
+      Array.isArray(schema)
     ) {
       return "tool 입력 설명이 JSON Schema 객체가 아니다";
     }
@@ -680,9 +693,10 @@ export function createMcpConnections(
         return ok(view(entry));
       }
       // 인증 거절에는 자동 재연결하지 않는다.
-      entry.state = connected.error.code === "forbidden"
-        ? "failed_auth"
-        : "failed_temporary";
+      entry.state =
+        connected.error.code === "forbidden"
+          ? "failed_auth"
+          : "failed_temporary";
       entry.error = connected.error.message;
       deadlineSignal.abort();
       return err(connected.error);
@@ -691,7 +705,8 @@ export function createMcpConnections(
     async toolList(assignment, server) {
       const entry = entryOf(assignment, server);
       if (
-        entry === undefined || entry.state !== "connected" ||
+        entry === undefined ||
+        entry.state !== "connected" ||
         entry.transport === null
       ) {
         return err({ code: "not_found", message: "연결이 살아 있지 않다" });
@@ -788,9 +803,10 @@ export function createMcpConnections(
       const outer = new AbortController();
       const connected = await connectOnce(entry, outer.signal, outer.signal);
       if (!connected.ok) {
-        entry.state = connected.error.code === "forbidden"
-          ? "failed_auth"
-          : "failed_temporary";
+        entry.state =
+          connected.error.code === "forbidden"
+            ? "failed_auth"
+            : "failed_temporary";
         entry.error = connected.error.message;
         outer.abort();
         return err(connected.error);
@@ -851,8 +867,8 @@ export function createMcpConnections(
       if (!init.ok) {
         // 인증 거절은 transport가 err code로 옮긴다. HTTP 401은 unavailable로
         // 감싸서 온다. 여기서 실패 이유를 구별한다.
-        const authFailed = init.error.code === "forbidden" ||
-          init.error.message.includes("401");
+        const authFailed =
+          init.error.code === "forbidden" || init.error.message.includes("401");
         await transport.close();
         return err({
           code: authFailed ? "forbidden" : "unavailable",
@@ -943,13 +959,14 @@ export function createMcpConnections(
           tools.push({
             server: entry.owner[1],
             original: name,
-            description: typeof record["description"] === "string"
-              ? record["description"]
-              : null,
+            description:
+              typeof record["description"] === "string"
+                ? record["description"]
+                : null,
             schema: record["inputSchema"] as Record<string, unknown>,
-            read_only: (record["annotations"] as
-              | { readOnlyHint?: unknown }
-              | undefined)?.readOnlyHint === true,
+            read_only:
+              (record["annotations"] as { readOnlyHint?: unknown } | undefined)
+                ?.readOnlyHint === true,
           });
         }
         const next = page["nextCursor"];
@@ -971,13 +988,17 @@ export function createMcpConnections(
       hard.abort();
     }
     // 모든 page·검증이 끝난 뒤에만 hash를 둔다.
-    const hash = await sha256Hex(JSON.stringify(tools.map((tool) => [
-      tool.server,
-      tool.original,
-      tool.description,
-      tool.schema,
-      tool.read_only,
-    ])));
+    const hash = await sha256Hex(
+      JSON.stringify(
+        tools.map((tool) => [
+          tool.server,
+          tool.original,
+          tool.description,
+          tool.schema,
+          tool.read_only,
+        ]),
+      ),
+    );
     entry.toolListHash = hash;
     return ok({ tools, hash, protocol_version: entry.protocolVersion ?? "" });
   }
@@ -1004,15 +1025,15 @@ export function createMcpConnections(
 }
 
 // 여러 신호를 하나로 묶는다.
-function mergeSignals(
-  ...sources: readonly AbortSignal[]
-): AbortSignal {
+function mergeSignals(...sources: readonly AbortSignal[]): AbortSignal {
   const control = new AbortController();
   for (const source of sources) {
     if (source.aborted) control.abort();
-    else {source.addEventListener("abort", () => control.abort(), {
+    else {
+      source.addEventListener("abort", () => control.abort(), {
         once: true,
-      });}
+      });
+    }
   }
   return control.signal;
 }

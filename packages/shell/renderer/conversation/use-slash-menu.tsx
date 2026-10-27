@@ -46,9 +46,10 @@ function entriesOf(groups: readonly SlashGroupView[]): SlashEntryView[] {
 export function useSlashMenu(input: SlashMenuInput): SlashMenuControl {
   const { source, session, text, working, onProblem } = input;
   const query = slashQuery(text);
-  const [listed, setListed] = useState<
-    { query: string; groups: readonly SlashGroupView[] } | null
-  >(null);
+  const [listed, setListed] = useState<{
+    query: string;
+    groups: readonly SlashGroupView[];
+  } | null>(null);
   const [unknown, setUnknown] = useState<SlashMenuState | null>(null);
   const [highlight, setHighlight] = useState(0);
   // Esc로 닫은 글. 글이 바뀌면 다시 열린다.
@@ -76,9 +77,11 @@ export function useSlashMenu(input: SlashMenuInput): SlashMenuControl {
     setUnknown(null);
   }, [text]);
 
-  const open = unknown !== null ||
+  const open =
+    unknown !== null ||
     (query !== null && listed?.query === query && dismissed !== text);
-  const state: SlashMenuState | null = unknown ??
+  const state: SlashMenuState | null =
+    unknown ??
     (open && listed !== null ? { kind: "list", groups: listed.groups } : null);
   const rows = state?.kind === "list" ? entriesOf(state.groups) : [];
 
@@ -92,11 +95,8 @@ export function useSlashMenu(input: SlashMenuInput): SlashMenuControl {
       return;
     }
     if (rows.length === 0) return;
-    const step = event.key === "ArrowDown"
-      ? 1
-      : event.key === "ArrowUp"
-      ? -1
-      : 0;
+    const step =
+      event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
     if (step === 0) return;
     event.preventDefault();
     setHighlight((current) => (current + step + rows.length) % rows.length);
@@ -113,22 +113,24 @@ export function useSlashMenu(input: SlashMenuInput): SlashMenuControl {
     }
     const entries = entriesOf(read.value);
     // 이름만 쳤으면 고른 줄이 우선이고, 인자를 쳤으면 이름이 같은 것이다.
-    const chosen = (spaced ? undefined : entries[highlight]) ??
+    const chosen =
+      (spaced ? undefined : entries[highlight]) ??
       entries.find((entry) => entry.name === name);
     if (chosen === undefined) setUnknown({ kind: "unknown", name });
     else latest.current.onRun(chosen, argument.trim());
   };
 
-  const menu = state === null ? null : (
-    <SlashMenu
-      agentName={input.agentName}
-      query={query ?? ""}
-      working={working}
-      state={state}
-      highlightedIndex={highlight}
-      onPick={(entry) => latest.current.onRun(entry, "")}
-    />
-  );
+  const menu =
+    state === null ? null : (
+      <SlashMenu
+        agentName={input.agentName}
+        query={query ?? ""}
+        working={working}
+        state={state}
+        highlightedIndex={highlight}
+        onPick={(entry) => latest.current.onRun(entry, "")}
+      />
+    );
 
   return { menu, onKeyDown, submit };
 }

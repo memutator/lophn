@@ -4,14 +4,11 @@
 import { type CallResult, failure, type Outcome } from "./app-connection.ts";
 import type { AppDeclaration, DeclarationSource } from "./app-call.ts";
 
-type DeclarationRead = (
-  app: string,
-  release: string,
-) => Promise<CallResult>;
+type DeclarationRead = (app: string, release: string) => Promise<CallResult>;
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : undefined;
 }
 
@@ -52,8 +49,8 @@ export function createDeclarationSource(
             name: String(tool.name),
             title: String(tool.title),
             effect: tool.effect as "read" | "write" | "external",
-            hasInput: tool.inputSchema !== null &&
-              tool.inputSchema !== undefined,
+            hasInput:
+              tool.inputSchema !== null && tool.inputSchema !== undefined,
           };
         }),
       },
@@ -71,10 +68,14 @@ export function createEntryScreen(
     const screens = Array.isArray(found.value.screens)
       ? found.value.screens
       : [];
-    const full = screens.map((item) => record(item) ?? {}).find((screen) =>
-      Array.isArray(screen.sizes) && screen.sizes.includes("full") &&
-      typeof screen.key === "string"
-    );
+    const full = screens
+      .map((item) => record(item) ?? {})
+      .find(
+        (screen) =>
+          Array.isArray(screen.sizes) &&
+          screen.sizes.includes("full") &&
+          typeof screen.key === "string",
+      );
     return full === undefined
       ? failure("unavailable", "the app has no full screen")
       : { ok: true, value: full.key as string };

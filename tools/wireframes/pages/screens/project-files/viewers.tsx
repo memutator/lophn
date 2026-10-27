@@ -17,15 +17,16 @@ import {
 } from "../../../../../packages/shell/renderer/editor/viewers/text-editor.tsx";
 
 /** text 편집기. 줄 번호 gutter와 지금 줄 표시가 있고 형식 문제 표시는 없다. `line`이면 그 줄로 scroll해 칠한다. */
-export function TextEditor(
-  { path, line }: {
-    path: string;
-    /** 검색 결과로 열린 줄. */
-    line?: number;
-    /** 커서가 있는 줄. 편집기가 커서를 정한다. */
-    caret?: number;
-  },
-) {
+export function TextEditor({
+  path,
+  line,
+}: {
+  path: string;
+  /** 검색 결과로 열린 줄. */
+  line?: number;
+  /** 커서가 있는 줄. 편집기가 커서를 정한다. */
+  caret?: number;
+}) {
   const editor = useRef<TextEditorHandle>(null);
   useEffect(() => {
     if (line !== undefined) editor.current?.revealLine(line);

@@ -43,13 +43,15 @@ function timeOf(at: string): string {
   return Number.isNaN(date.getTime()) ? "" : clock.format(date);
 }
 
-function AppChoice(
-  { app, checked, onChange }: {
-    app: RewindApp;
-    checked: boolean;
-    onChange: (checked: boolean) => void;
-  },
-): ReactElement {
+function AppChoice({
+  app,
+  checked,
+  onChange,
+}: {
+  app: RewindApp;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}): ReactElement {
   const unknown = app.writes.filter((write) => write.unknown).length;
   return (
     <div
@@ -72,53 +74,50 @@ function AppChoice(
           </span>
         )}
       </p>
-      {checked
-        ? (
-          <>
-            <ul className={styles.list}>
-              {app.writes.map((write, index) => (
-                <li key={index}>
-                  <span className={styles.when}>{timeOf(write.at)}</span>
-                  {write.text}
-                  {write.unknown
-                    ? (
-                      <span className={styles.warn}>
-                        {t("conversation.label.rewind-write-unknown")}
-                      </span>
-                    )
-                    : null}
-                </li>
-              ))}
-            </ul>
-            {app.others.length === 0 ? null : (
-              <>
-                <p className={styles.sub}>
-                  {t("conversation.label.rewind-others")}
-                </p>
-                <ul className={styles.list}>
-                  {app.others.map((other, index) => (
-                    <li key={index}>
-                      <span className={styles.who}>{other.by}</span>
-                      {other.text}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-            {app.outside.length === 0 ? null : (
-              <>
-                <p className={styles.sub}>
-                  {t("conversation.label.rewind-outside")}
-                </p>
-                <ul className={styles.list}>
-                  {app.outside.map((text, index) => <li key={index}>{text}
-                  </li>)}
-                </ul>
-              </>
-            )}
-          </>
-        )
-        : null}
+      {checked ? (
+        <>
+          <ul className={styles.list}>
+            {app.writes.map((write, index) => (
+              <li key={index}>
+                <span className={styles.when}>{timeOf(write.at)}</span>
+                {write.text}
+                {write.unknown ? (
+                  <span className={styles.warn}>
+                    {t("conversation.label.rewind-write-unknown")}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          {app.others.length === 0 ? null : (
+            <>
+              <p className={styles.sub}>
+                {t("conversation.label.rewind-others")}
+              </p>
+              <ul className={styles.list}>
+                {app.others.map((other, index) => (
+                  <li key={index}>
+                    <span className={styles.who}>{other.by}</span>
+                    {other.text}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {app.outside.length === 0 ? null : (
+            <>
+              <p className={styles.sub}>
+                {t("conversation.label.rewind-outside")}
+              </p>
+              <ul className={styles.list}>
+                {app.outside.map((text, index) => (
+                  <li key={index}>{text}</li>
+                ))}
+              </ul>
+            </>
+          )}
+        </>
+      ) : null}
     </div>
   );
 }
@@ -166,15 +165,18 @@ export function RewindPanel(props: RewindPanelProps): ReactElement {
   }, [source, session, message]);
 
   const ready = preview.state === "ready" ? preview.value : null;
-  const chosen = ready === null
-    ? []
-    : ready.apps.filter((app) => apps.includes(app.app)).map((app) => app.name);
+  const chosen =
+    ready === null
+      ? []
+      : ready.apps
+          .filter((app) => apps.includes(app.app))
+          .map((app) => app.name);
 
   // 바꾼 파일이 없으면 파일은 되돌릴 것이 없다.
   const filesOn = files && (ready?.files.length ?? 0) > 0;
 
   const setApp = (app: string, on: boolean) =>
-    setApps((now) => on ? [...now, app] : now.filter((item) => item !== app));
+    setApps((now) => (on ? [...now, app] : now.filter((item) => item !== app)));
 
   const go = async () => {
     if (busy || ready === null) return;
@@ -227,36 +229,32 @@ export function RewindPanel(props: RewindPanelProps): ReactElement {
             <p className={styles.text}>
               {t("conversation.notice.rewind-conversation")}
             </p>
-            {ready === null
-              ? null
-              : ready.files.length === 0
-              ? (
-                <p className={styles.muted}>
-                  {t("conversation.notice.rewind-no-files")}
-                </p>
-              )
-              : (
-                <>
-                  <Checkbox
-                    label={t("conversation.label.rewind-files")}
-                    checked={files}
-                    onCheckedChange={setFiles}
-                  />
-                  <ul className={styles.list} data-rewind-files>
-                    {ready.files.map((file) => {
-                      const why = reasonText(file.skipped);
-                      return (
-                        <li key={file.path}>
-                          <span className={styles.mono}>{file.path}</span>
-                          {why === null
-                            ? null
-                            : <span className={styles.warn}>{why}</span>}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </>
-              )}
+            {ready === null ? null : ready.files.length === 0 ? (
+              <p className={styles.muted}>
+                {t("conversation.notice.rewind-no-files")}
+              </p>
+            ) : (
+              <>
+                <Checkbox
+                  label={t("conversation.label.rewind-files")}
+                  checked={files}
+                  onCheckedChange={setFiles}
+                />
+                <ul className={styles.list} data-rewind-files>
+                  {ready.files.map((file) => {
+                    const why = reasonText(file.skipped);
+                    return (
+                      <li key={file.path}>
+                        <span className={styles.mono}>{file.path}</span>
+                        {why === null ? null : (
+                          <span className={styles.warn}>{why}</span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
             <p className={styles.muted}>
               {t("conversation.notice.rewind-shell-files")}
             </p>
@@ -270,54 +268,46 @@ export function RewindPanel(props: RewindPanelProps): ReactElement {
             <p className={styles.groupHead}>
               {t("conversation.label.rewind-apps-head")}
             </p>
-            {preview.state === "loading"
-              ? (
-                <p className={styles.muted} data-rewind-loading>
-                  {t("conversation.label.rewind-loading")}
+            {preview.state === "loading" ? (
+              <p className={styles.muted} data-rewind-loading>
+                {t("conversation.label.rewind-loading")}
+              </p>
+            ) : preview.state === "failed" ? (
+              <p className={styles.error} role="alert">
+                {t("conversation.rewind.preview-failed")}
+              </p>
+            ) : ready!.apps.length === 0 ? (
+              <p className={styles.muted}>
+                {t("conversation.notice.rewind-no-apps")}
+              </p>
+            ) : (
+              <>
+                <p className={styles.text}>
+                  {t("conversation.notice.rewind-apps")}
                 </p>
-              )
-              : preview.state === "failed"
-              ? (
-                <p className={styles.error} role="alert">
-                  {t("conversation.rewind.preview-failed")}
-                </p>
-              )
-              : ready!.apps.length === 0
-              ? (
-                <p className={styles.muted}>
-                  {t("conversation.notice.rewind-no-apps")}
-                </p>
-              )
-              : (
-                <>
-                  <p className={styles.text}>
-                    {t("conversation.notice.rewind-apps")}
-                  </p>
-                  {ready!.apps.map((app) => (
-                    <AppChoice
-                      key={app.app}
-                      app={app}
-                      checked={apps.includes(app.app)}
-                      onChange={(on) => setApp(app.app, on)}
-                    />
-                  ))}
-                </>
-              )}
+                {ready!.apps.map((app) => (
+                  <AppChoice
+                    key={app.app}
+                    app={app}
+                    checked={apps.includes(app.app)}
+                    onChange={(on) => setApp(app.app, on)}
+                  />
+                ))}
+              </>
+            )}
           </div>
         </div>
       </div>
       <footer className={styles.foot}>
-        {error === null
-          ? (
-            <span className={styles.summary} data-rewind-summary>
-              {ready === null ? "" : summaryOf(filesOn, chosen)}
-            </span>
-          )
-          : (
-            <span className={`${styles.summary} ${styles.error}`} role="alert">
-              {error}
-            </span>
-          )}
+        {error === null ? (
+          <span className={styles.summary} data-rewind-summary>
+            {ready === null ? "" : summaryOf(filesOn, chosen)}
+          </span>
+        ) : (
+          <span className={`${styles.summary} ${styles.error}`} role="alert">
+            {error}
+          </span>
+        )}
         <Button size="sm" disabled={busy} onClick={props.onClose}>
           {t("common.button.cancel")}
         </Button>

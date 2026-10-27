@@ -22,10 +22,12 @@ import {
 // package.register_version 입력. 검증된 설치 결과의 hash만 받는다.
 const packageRegisterVersionInputSchema = z.strictObject({
   name: packageNameSchema,
-  description: z.string().regex(/\S/).refine(
-    (value) => !/[\r\n]/.test(value),
-    { message: "description must be a single line" },
-  ),
+  description: z
+    .string()
+    .regex(/\S/)
+    .refine((value) => !/[\r\n]/.test(value), {
+      message: "description must be a single line",
+    }),
   // 새 package는 종류가 없다(null). core의 kind 열이 undefined를 못 받아 optional 대신 null로 둔다.
   kind: packageKindSchema.nullable().default(null),
   version: packageVersionNameSchema,
@@ -60,14 +62,18 @@ export const packageRegisterVersion = defineCommand({
 });
 
 // 앱 source 안 상대 위치. 절대 경로·루트 밖 `..`·빈 조각은 거절한다.
-export const sourceRelativePathSchema = z.string().min(1).refine(
-  (value) =>
-    value === "." ||
-    (!/^[\\/]|^[A-Za-z]:|\\/.test(value) && !value.includes("\u0000") &&
-      !/[\r\n]/.test(value) &&
-      value.split("/").every((part) => part !== ".." && part !== "")),
-  { message: "path must stay inside source" },
-);
+export const sourceRelativePathSchema = z
+  .string()
+  .min(1)
+  .refine(
+    (value) =>
+      value === "." ||
+      (!/^[\\/]|^[A-Za-z]:|\\/.test(value) &&
+        !value.includes("\u0000") &&
+        !/[\r\n]/.test(value) &&
+        value.split("/").every((part) => part !== ".." && part !== "")),
+    { message: "path must stay inside source" },
+  );
 
 // App Engineer가 자기 앱 code의 일부를 사용자 package로 낸다. 앱 source의 HEAD commit에서 파일을 읽는 I/O라 memory route이고,
 // core가 읽고 검사한 뒤 안에서 machine route package.register_version을 부른다. 낼 때 사람 승인은 없다.
@@ -77,10 +83,12 @@ export const packagePublishInputSchema = z.strictObject({
     message: "published package name must be @me/...",
   }),
   version: packageVersionNameSchema,
-  description: z.string().regex(/\S/).refine(
-    (value) => !/[\r\n]/.test(value),
-    { message: "description must be a single line" },
-  ),
+  description: z
+    .string()
+    .regex(/\S/)
+    .refine((value) => !/[\r\n]/.test(value), {
+      message: "description must be a single line",
+    }),
   // 앱 source HEAD commit 안의 package 폴더.
   path: relativePathSchema,
   guide: z.strictObject({
@@ -107,9 +115,11 @@ export const packagePublish = defineMemory({
 // lophn과 App Engineer는 그 폴더를 직접 읽을 수 없다. name이 없으면 설치된 것 전부(이름순)이고 guide는 null,
 // name이 있으면 packages는 그 하나이고 guide는 본문이다. 설치되지 않은 이름은 not_found다.
 export const packagesBuiltinInputSchema = z.strictObject({
-  name: packageNameSchema.refine((name) => name.startsWith("@lophn/"), {
-    message: "built-in package name must be @lophn/...",
-  }).optional(),
+  name: packageNameSchema
+    .refine((name) => name.startsWith("@lophn/"), {
+      message: "built-in package name must be @lophn/...",
+    })
+    .optional(),
 });
 export const builtinPackageSchema = z.object({
   name: packageNameSchema,
@@ -155,9 +165,11 @@ const packagesListInputSchema = z.strictObject({
   cursor: z.string().min(1).optional(),
   limit: z.number().int().min(1).max(PACKAGE_LIST_MAX_COUNT).optional(),
 });
-const packagesListOutputSchema = withReadCommon(z.object({
-  packages: z.array(packageSchema),
-}));
+const packagesListOutputSchema = withReadCommon(
+  z.object({
+    packages: z.array(packageSchema),
+  }),
+);
 export const packagesList = defineRead({
   resource: "packages",
   method: "list",
@@ -171,11 +183,13 @@ export const packagesList = defineRead({
 const packagesVersionsInputSchema = z.strictObject({
   name: packageNameSchema,
 });
-const packagesVersionsOutputSchema = withReadCommon(z.object({
-  name: packageNameSchema,
-  owner_app: idSchema("app").nullable(),
-  versions: z.array(packageVersionSchema),
-}));
+const packagesVersionsOutputSchema = withReadCommon(
+  z.object({
+    name: packageNameSchema,
+    owner_app: idSchema("app").nullable(),
+    versions: z.array(packageVersionSchema),
+  }),
+);
 export const packagesVersions = defineRead({
   resource: "packages",
   method: "versions",
@@ -215,11 +229,13 @@ const packageUsageSchema = z.object({
   app: appIdSchema,
   release: releaseIdSchema,
 });
-const packagesUsageOutputSchema = withReadCommon(z.object({
-  name: packageNameSchema,
-  version: packageVersionNameSchema,
-  usages: z.array(packageUsageSchema),
-}));
+const packagesUsageOutputSchema = withReadCommon(
+  z.object({
+    name: packageNameSchema,
+    version: packageVersionNameSchema,
+    usages: z.array(packageUsageSchema),
+  }),
+);
 export const packagesUsage = defineRead({
   resource: "packages",
   method: "usage",

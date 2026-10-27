@@ -22,15 +22,18 @@ function metaOf(entry: WorkflowEntryView, running: number): string {
   return t("workflow.label.running-count", { count: running });
 }
 
-export function WorkflowPanel(
-  { project, source, active, onOpen }: {
-    project: string;
-    source: WorkspaceSource;
-    /** 보이는 desk가 이 workflow의 것이면 그 이름. 그 줄을 고른 상태로 그린다. */
-    active?: string;
-    onOpen: (workflow: string) => void;
-  },
-) {
+export function WorkflowPanel({
+  project,
+  source,
+  active,
+  onOpen,
+}: {
+  project: string;
+  source: WorkspaceSource;
+  /** 보이는 desk가 이 workflow의 것이면 그 이름. 그 줄을 고른 상태로 그린다. */
+  active?: string;
+  onOpen: (workflow: string) => void;
+}) {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   /** workflow 이름별로 도는 instance 수. */
   const [running, setRunning] = useState<Readonly<Record<string, number>>>({});
@@ -43,9 +46,11 @@ export function WorkflowPanel(
     ]).then(([list, instances]) => {
       if (!live) return;
       if (list.ok) setLoaded({ state: "ready", entries: list.value });
-      else {setLoaded((prev) =>
-          prev.state === "ready" ? prev : { state: "failed" }
-        );}
+      else {
+        setLoaded((prev) =>
+          prev.state === "ready" ? prev : { state: "failed" },
+        );
+      }
       if (instances.ok) {
         const counts: Record<string, number> = {};
         for (const item of instances.value) {
@@ -98,9 +103,9 @@ export function WorkflowPanel(
               data-tone={entry.invalid ? "critical" : undefined}
             >
               <Icon
-                icon={entry.invalid
-                  ? editorIcons.problem
-                  : commonIcons.workflow}
+                icon={
+                  entry.invalid ? editorIcons.problem : commonIcons.workflow
+                }
                 pixels={iconPixels("base")}
               />
             </span>
@@ -113,16 +118,18 @@ export function WorkflowPanel(
                 {metaOf(entry, count)}
               </span>
             </span>
-            {count > 0
-              ? <span className={styles.workflowDot} aria-hidden="true" />
-              : null}
+            {count > 0 ? (
+              <span className={styles.workflowDot} aria-hidden="true" />
+            ) : null}
           </button>
         );
         return (
           <li key={entry.name} className={styles.li}>
-            {entry.problem === null
-              ? row
-              : <Tooltip content={entry.problem.message}>{row}</Tooltip>}
+            {entry.problem === null ? (
+              row
+            ) : (
+              <Tooltip content={entry.problem.message}>{row}</Tooltip>
+            )}
           </li>
         );
       })}

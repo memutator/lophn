@@ -62,9 +62,10 @@ export function createTurnRequests(deps: TurnRequestsDeps) {
         turn: origin.turn,
         tool_call: origin.tool_call,
         subject,
-        always_patterns: subject.kind === "shell"
-          ? alwaysPatterns(deps.shellRules(origin.place), subject.command)
-          : [],
+        always_patterns:
+          subject.kind === "shell"
+            ? alwaysPatterns(deps.shellRules(origin.place), subject.command)
+            : [],
         created_at: deps.clock.now(),
       };
       entries.set(request.id, {

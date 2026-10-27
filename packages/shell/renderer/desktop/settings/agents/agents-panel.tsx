@@ -31,10 +31,10 @@ type Loaded =
   | { readonly state: "loading" }
   | { readonly state: "failed" }
   | {
-    readonly state: "ready";
-    readonly view: AgentsSettingsView;
-    readonly models: ModelsView | null;
-  };
+      readonly state: "ready";
+      readonly view: AgentsSettingsView;
+      readonly models: ModelsView | null;
+    };
 
 type Screen = "list" | "lophn";
 
@@ -51,8 +51,8 @@ function modelLine(
   return fallback === null
     ? t("agents.label.settings-lophn-model-none")
     : t("agents.label.settings-lophn-model-default", {
-      model: label(fallback),
-    });
+        model: label(fallback),
+      });
 }
 
 export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
@@ -71,13 +71,13 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
         setLoaded((was) =>
           read.ok
             ? {
-              state: "ready",
-              view: read.value,
-              models: models.ok ? models.value : null,
-            }
+                state: "ready",
+                view: read.value,
+                models: models.ok ? models.value : null,
+              }
             : was.state === "ready"
-            ? was
-            : { state: "failed" }
+              ? was
+              : { state: "failed" },
         );
         if (read.ok) setPicked(null);
       },
@@ -142,116 +142,107 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
 
   return (
     <Loading loading={view === null} placeholder={<Skeleton lines={6} />}>
-      {view === null
-        ? null
-        : (
-          <div className={styles.page} data-agents-screen="list">
-            <h1 className={styles.title}>{t("settings.label.tab-agents")}</h1>
-            <p className={styles.lead}>
-              {t("agents.notice.settings-agents-lead")}
+      {view === null ? null : (
+        <div className={styles.page} data-agents-screen="list">
+          <h1 className={styles.title}>{t("settings.label.tab-agents")}</h1>
+          <p className={styles.lead}>
+            {t("agents.notice.settings-agents-lead")}
+          </p>
+          {failed ? (
+            <p className={styles.notice} role="status" data-notice="failed">
+              {t("settings.agents.action-failed")}
             </p>
-            {failed
-              ? (
-                <p className={styles.notice} role="status" data-notice="failed">
-                  {t("settings.agents.action-failed")}
-                </p>
-              )
-              : null}
+          ) : null}
 
-            <section>
-              <h2 className={styles.sectionTitle}>
-                {t("agents.heading.settings-default-model")}
-              </h2>
-              <p className={styles.sectionLead}>
-                {t("agents.notice.settings-default-model-help")}
+          <section>
+            <h2 className={styles.sectionTitle}>
+              {t("agents.heading.settings-default-model")}
+            </h2>
+            <p className={styles.sectionLead}>
+              {t("agents.notice.settings-default-model-help")}
+            </p>
+            <DefaultModelField
+              models={models}
+              source={source.editor}
+              value={chosen}
+              onChange={(choice) => {
+                setPicked(choice);
+                void act(() => source.changeDefaultModel(choice));
+              }}
+            />
+          </section>
+
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>
+              {t("settings.label.role-lophn")}
+            </h2>
+            <Card>
+              <div className={styles.cardHead}>
+                <h3 className={styles.cardTitle}>
+                  <Avatar profile={{ kind: "icon", icon: "dock" }} size="md" />
+                  {view.lophn.name}
+                </h3>
+                <span className={styles.chip}>
+                  {t("agents.label.settings-lophn-chip")}
+                </span>
+              </div>
+              <p className={styles.purpose}>
+                {t("agents.notice.settings-lophn-purpose")}
               </p>
-              <DefaultModelField
-                models={models}
-                source={source.editor}
-                value={chosen}
-                onChange={(choice) => {
-                  setPicked(choice);
-                  void act(() => source.changeDefaultModel(choice));
-                }}
-              />
-            </section>
-
-            <section className={styles.section}>
-              <h2 className={styles.sectionTitle}>
-                {t("settings.label.role-lophn")}
-              </h2>
-              <Card>
-                <div className={styles.cardHead}>
-                  <h3 className={styles.cardTitle}>
-                    <Avatar
-                      profile={{ kind: "icon", icon: "dock" }}
-                      size="md"
-                    />
-                    {view.lophn.name}
-                  </h3>
-                  <span className={styles.chip}>
-                    {t("agents.label.settings-lophn-chip")}
-                  </span>
-                </div>
-                <p className={styles.purpose}>
-                  {t("agents.notice.settings-lophn-purpose")}
-                </p>
-                <ul className={styles.rows}>
-                  <li data-lophn-model="">
-                    {modelLine(view.lophn, chosen, modelLabelOf(models))}
-                  </li>
-                  <li data-lophn-grants="">
-                    {t("agents.label.settings-lophn-grants", {
-                      apps: view.lophn.apps,
-                    })}
-                  </li>
-                </ul>
-                <div className={styles.actions}>
-                  <Button
-                    data-action="open-lophn"
-                    onClick={() => setScreen("lophn")}
-                  >
-                    {t("agents.button.settings-open-lophn")}
-                  </Button>
-                </div>
-              </Card>
-            </section>
-
-            <section className={styles.section}>
-              <div className={styles.sectionHead}>
-                <h2 className={styles.sectionTitle}>
-                  {t("settings.heading.agents-instructions")}
-                </h2>
+              <ul className={styles.rows}>
+                <li data-lophn-model="">
+                  {modelLine(view.lophn, chosen, modelLabelOf(models))}
+                </li>
+                <li data-lophn-grants="">
+                  {t("agents.label.settings-lophn-grants", {
+                    apps: view.lophn.apps,
+                  })}
+                </li>
+              </ul>
+              <div className={styles.actions}>
                 <Button
-                  size="sm"
-                  data-action="edit-instructions"
-                  onClick={() => void act(() => source.openInstructions())}
+                  data-action="open-lophn"
+                  onClick={() => setScreen("lophn")}
                 >
-                  {t("settings.button.edit")}
+                  {t("agents.button.settings-open-lophn")}
                 </Button>
               </div>
-              <p className={styles.sectionLead}>
-                <span className={styles.mono}>
-                  {t("agents.label.settings-instructions-path")}
-                </span>
+            </Card>
+          </section>
+
+          <section className={styles.section}>
+            <div className={styles.sectionHead}>
+              <h2 className={styles.sectionTitle}>
+                {t("settings.heading.agents-instructions")}
+              </h2>
+              <Button
+                size="sm"
+                data-action="edit-instructions"
+                onClick={() => void act(() => source.openInstructions())}
+              >
+                {t("settings.button.edit")}
+              </Button>
+            </div>
+            <p className={styles.sectionLead}>
+              <span className={styles.mono}>
+                {t("agents.label.settings-instructions-path")}
+              </span>
+            </p>
+            {view.instructionsPreview === null ? (
+              <p className={styles.empty} data-instructions-empty="">
+                {t("settings.agents.no-instructions")}
               </p>
-              {view.instructionsPreview === null
-                ? (
-                  <p className={styles.empty} data-instructions-empty="">
-                    {t("settings.agents.no-instructions")}
-                  </p>
-                )
-                : (
-                  <pre className={styles.code} data-instructions-preview="">
-                  {view.instructionsPreview}
-                  </pre>
-                )}
-              <p className={styles.note}>
-                {t("agents.notice.settings-tools-elsewhere")}
-              </p>
-            </section>
-          </div>
-        )}
+            ) : (
+              <pre className={styles.code} data-instructions-preview="">
+                {view.instructionsPreview}
+              </pre>
+            )}
+            <p className={styles.note}>
+              {t("agents.notice.settings-tools-elsewhere")}
+            </p>
+          </section>
+        </div>
+      )}
     </Loading>
   );
 }

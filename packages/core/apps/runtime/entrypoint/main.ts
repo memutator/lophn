@@ -40,14 +40,17 @@ type MainDeps = {
 
 async function main(deps: MainDeps): Promise<void> {
   const clock = deps.clock ?? systemClock;
-  const ids = deps.ids ?? createIdSource({
-    clock,
-    random: { fill: (bytes: Uint8Array) => crypto.getRandomValues(bytes) },
-  });
-  const writeStderr = deps.writeStderr ??
+  const ids =
+    deps.ids ??
+    createIdSource({
+      clock,
+      random: { fill: (bytes: Uint8Array) => crypto.getRandomValues(bytes) },
+    });
+  const writeStderr =
+    deps.writeStderr ??
     ((text: string) => Deno.stderr.writeSync(new TextEncoder().encode(text)));
   const exit = deps.exit ?? ((code: number) => Deno.exit(code));
-  const observer = await deps.importModule(OBSERVER) as ObserverFactory;
+  const observer = (await deps.importModule(OBSERVER)) as ObserverFactory;
   const install = observer.createExceptionObserver({
     now: () => clock.now(),
     newId: (prefix) => ids.newId(prefix),
@@ -63,7 +66,7 @@ async function main(deps: MainDeps): Promise<void> {
       Promise.race([
         install.settled?.() ?? Promise.resolve(),
         new Promise<void>((resolve) =>
-          setTimeout(resolve, CRASH_REPORT_WAIT_MS)
+          setTimeout(resolve, CRASH_REPORT_WAIT_MS),
         ),
       ]),
   });
@@ -78,27 +81,28 @@ async function main(deps: MainDeps): Promise<void> {
   started.state.reportCaught = (error, invocation) => {
     const message = error.message;
     const stack = error.stack ?? null;
-    void deps.reportTransport({
-      report_id: ids.newId("rpt"),
-      observed_at: clock.now(),
-      observation: "error",
-      error: {
-        name: error.name.trim() !== "" ? error.name : "Error",
-        message,
-        message_missing_reason: null,
-        stack,
-        stack_missing_reason: stack === null
-          ? { reason: "not a string" }
-          : null,
-      },
-      error_missing_reason: null,
-      invocation: {
-        id: invocation,
-        record_missing_reason: null,
-      },
-    }).catch(() => {
-      // 보고 실패가 command 결과나 프로세스 종료를 바꾸지 않는다.
-    });
+    void deps
+      .reportTransport({
+        report_id: ids.newId("rpt"),
+        observed_at: clock.now(),
+        observation: "error",
+        error: {
+          name: error.name.trim() !== "" ? error.name : "Error",
+          message,
+          message_missing_reason: null,
+          stack,
+          stack_missing_reason:
+            stack === null ? { reason: "not a string" } : null,
+        },
+        error_missing_reason: null,
+        invocation: {
+          id: invocation,
+          record_missing_reason: null,
+        },
+      })
+      .catch(() => {
+        // 보고 실패가 command 결과나 프로세스 종료를 바꾸지 않는다.
+      });
   };
   try {
     await deps.importModule(APP);
@@ -124,7 +128,7 @@ async function main(deps: MainDeps): Promise<void> {
 // export를 지우지 않는다: bundle 진입 파일은 문자열로 만들어져(`bundle/runtime-entry.ts`) import를 찾는 도구가 보지 못한다.
 export async function run(): Promise<void> {
   const reason = await boot().catch((error: unknown) =>
-    error instanceof Error ? error.message : String(error)
+    error instanceof Error ? error.message : String(error),
   );
   if (reason) {
     Deno.stderr.writeSync(new TextEncoder().encode(`${reason}\n`));
@@ -174,7 +178,9 @@ async function bundleDataSchema(bundleDir: string): Promise<number> {
       const match = /^(\d+)-(\d+)\.sql$/.exec(entry.name);
       if (match) schema = Math.max(schema, Number(match[2]));
     }
-  } catch { /* migrations 폴더가 없다 */ }
+  } catch {
+    /* migrations 폴더가 없다 */
+  }
   return schema;
 }
 
@@ -201,16 +207,17 @@ async function reportException(
   );
   // SDK의 deliver가 읽는 Result 꼴로 바꿔 넘긴다. 날 body를 넘기면 200 응답에서 ok를 못 읽어 던진다.
   if (response.status === 200) return { ok: true, value: response.body };
-  const error =
-    (response.body as { error?: { code?: unknown; message?: unknown } } | null)
-      ?.error;
+  const error = (
+    response.body as { error?: { code?: unknown; message?: unknown } } | null
+  )?.error;
   return {
     ok: false,
     error: {
       code: typeof error?.code === "string" ? error.code : "unavailable",
-      message: typeof error?.message === "string"
-        ? error.message
-        : "the exception was not accepted",
+      message:
+        typeof error?.message === "string"
+          ? error.message
+          : "the exception was not accepted",
     },
   };
 }
@@ -235,7 +242,7 @@ async function postUnix(
   ].join("\r\n");
   // Conn.write는 요청 전체보다 적게 쓰고 돌아올 수 있다. 큰 net/fetch 본문이 잘리지 않게 끝까지 쓴다.
   const bytes = new TextEncoder().encode(payload);
-  for (let sent = 0; sent < bytes.length;) {
+  for (let sent = 0; sent < bytes.length; ) {
     sent += await conn.write(bytes.subarray(sent));
   }
   const chunks: Uint8Array[] = [];

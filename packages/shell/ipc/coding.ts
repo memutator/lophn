@@ -37,7 +37,7 @@ export const HARNESS_IDS = [
   "kilo",
 ] as const;
 
-export type HarnessName = typeof HARNESS_IDS[number];
+export type HarnessName = (typeof HARNESS_IDS)[number];
 
 /** renderer가 부를 수 있는 호출. 이름이 없으면 main이 거절한다. */
 export const codingCallSchema = z.discriminatedUnion("op", [
@@ -132,12 +132,12 @@ type CodingFailureCode =
 export type CodingReply<T> =
   | { readonly ok: true; readonly value: T }
   | {
-    readonly ok: false;
-    readonly error: {
-      readonly code: CodingFailureCode;
-      readonly message: string;
+      readonly ok: false;
+      readonly error: {
+        readonly code: CodingFailureCode;
+        readonly message: string;
+      };
     };
-  };
 
 /** preload가 desktop 창 본문에 여는 통로. */
 export interface CodingApi {
@@ -146,9 +146,10 @@ export interface CodingApi {
   hookStatus(): Promise<CodingReply<readonly HarnessHookView[]>>;
   installHooks(harness: HarnessName): Promise<CodingReply<HarnessHookView>>;
   /** main이 보낸 hook 설치 확인에 답한다. */
-  answerHookAsk(
-    input: { request: string; accepted: boolean },
-  ): Promise<CodingReply<null>>;
+  answerHookAsk(input: {
+    request: string;
+    accepted: boolean;
+  }): Promise<CodingReply<null>>;
   /** main이 hook 설치를 물을 때마다 부른다. 구독 해지를 돌려준다. */
   onHookAsk(listener: (ask: HookAsk) => void): () => void;
   /** main이 hook 설치 결과를 알릴 때마다 부른다. 구독 해지를 돌려준다. */

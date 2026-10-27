@@ -54,76 +54,91 @@ export type KindsStatus = z.infer<typeof kindsStatusSchema>;
 // 크기가 곱으로 늘기 때문이다. 실행하는 쪽의 평가는 깊이 제한이 없어도 된다.
 const scalarSchema = z.union([z.string(), z.number(), z.boolean()]);
 // leaf와 group을 각각 한 모양으로 둔다(층마다 곱으로 늘기 때문이다).
-const leafSchema = z.strictObject({
-  field: fieldRefSchema,
-  op: z.enum([
-    "eq",
-    "ne",
-    "in",
-    "lt",
-    "lte",
-    "gt",
-    "gte",
-    "contains",
-    "exists",
-  ]),
-  value: z.union([scalarSchema, z.array(scalarSchema).min(1).max(100)])
-    .optional(),
-}).refine((leaf) => (leaf.op === "exists") === (leaf.value === undefined), {
-  message: "exists takes no value; other ops need one",
-});
+const leafSchema = z
+  .strictObject({
+    field: fieldRefSchema,
+    op: z.enum([
+      "eq",
+      "ne",
+      "in",
+      "lt",
+      "lte",
+      "gt",
+      "gte",
+      "contains",
+      "exists",
+    ]),
+    value: z
+      .union([scalarSchema, z.array(scalarSchema).min(1).max(100)])
+      .optional(),
+  })
+  .refine((leaf) => (leaf.op === "exists") === (leaf.value === undefined), {
+    message: "exists takes no value; other ops need one",
+  });
 const MAX_TERMS = 20;
 const combine = <T extends z.ZodType>(inner: T) =>
   z.union([
     leafSchema,
-    z.strictObject({
-      all: z.array(inner).min(1).max(MAX_TERMS).optional(),
-      any: z.array(inner).min(1).max(MAX_TERMS).optional(),
-      not: inner.optional(),
-    }).refine(
-      (c) => Object.values(c).filter((v) => v !== undefined).length === 1,
-      { message: "give exactly one of all, any, not" },
-    ),
+    z
+      .strictObject({
+        all: z.array(inner).min(1).max(MAX_TERMS).optional(),
+        any: z.array(inner).min(1).max(MAX_TERMS).optional(),
+        not: inner.optional(),
+      })
+      .refine(
+        (c) => Object.values(c).filter((v) => v !== undefined).length === 1,
+        { message: "give exactly one of all, any, not" },
+      ),
   ]);
 export const conditionSchema = combine(combine(leafSchema));
 export type KindCondition = z.infer<typeof conditionSchema>;
 
-export const aggregateSchema = z.strictObject({
-  op: z.enum(["count", "sum", "min", "max"]),
-  field: fieldRefSchema.optional(),
-  as: fieldRefSchema.optional(),
-}).refine((a) => a.op === "count" || a.field !== undefined, {
-  message: "field is required unless op is count",
-  path: ["field"],
-});
+export const aggregateSchema = z
+  .strictObject({
+    op: z.enum(["count", "sum", "min", "max"]),
+    field: fieldRefSchema.optional(),
+    as: fieldRefSchema.optional(),
+  })
+  .refine((a) => a.op === "count" || a.field !== undefined, {
+    message: "field is required unless op is count",
+    path: ["field"],
+  });
 
 // zod .default()를 쓰지 않는다. tool 입력은 파싱 결과가 입력과 달라지면 거절된다. 기본값(limit 50)은
 // handler가 적용한다.
-export const kindListQuerySchema = z.strictObject({
-  kind: kindNameSchema,
-  where: conditionSchema.optional(),
-  sort: z.array(z.strictObject({
-    field: fieldRefSchema,
-    dir: z.enum(["asc", "desc"]),
-  })).min(1).max(8).optional(),
-  fields: z.array(fieldRefSchema).min(1).max(50).optional(),
-  limit: z.number().int().min(1).max(200).optional(),
-  cursor: z.string().min(1).optional(),
-  aggregate: z.array(aggregateSchema).min(1).max(8).optional(),
-  group_by: fieldRefSchema.optional(),
-}).superRefine((q, ctx) => {
-  const bad = (path: string, message: string) =>
-    ctx.addIssue({ code: "custom", path: [path], message });
-  if (q.aggregate !== undefined) {
-    for (const name of ["sort", "fields", "limit", "cursor"] as const) {
-      if (q[name] !== undefined) {
-        bad(name, `${name} cannot be used with aggregate`);
+export const kindListQuerySchema = z
+  .strictObject({
+    kind: kindNameSchema,
+    where: conditionSchema.optional(),
+    sort: z
+      .array(
+        z.strictObject({
+          field: fieldRefSchema,
+          dir: z.enum(["asc", "desc"]),
+        }),
+      )
+      .min(1)
+      .max(8)
+      .optional(),
+    fields: z.array(fieldRefSchema).min(1).max(50).optional(),
+    limit: z.number().int().min(1).max(200).optional(),
+    cursor: z.string().min(1).optional(),
+    aggregate: z.array(aggregateSchema).min(1).max(8).optional(),
+    group_by: fieldRefSchema.optional(),
+  })
+  .superRefine((q, ctx) => {
+    const bad = (path: string, message: string) =>
+      ctx.addIssue({ code: "custom", path: [path], message });
+    if (q.aggregate !== undefined) {
+      for (const name of ["sort", "fields", "limit", "cursor"] as const) {
+        if (q[name] !== undefined) {
+          bad(name, `${name} cannot be used with aggregate`);
+        }
       }
+    } else if (q.group_by !== undefined) {
+      bad("group_by", "group_by needs aggregate");
     }
-  } else if (q.group_by !== undefined) {
-    bad("group_by", "group_by needs aggregate");
-  }
-});
+  });
 export type KindListQuery = z.infer<typeof kindListQuerySchema>;
 
 export const kindCheckQuerySchema = z.strictObject({
@@ -176,11 +191,13 @@ export const kindList = defineMemory({
     z.strictObject({
       kind: kindNameSchema,
       mode: z.literal("items"),
-      items: z.array(z.strictObject({
-        key: z.string(),
-        path: z.string().min(1),
-        fields: z.record(z.string(), z.json()),
-      })),
+      items: z.array(
+        z.strictObject({
+          key: z.string(),
+          path: z.string().min(1),
+          fields: z.record(z.string(), z.json()),
+        }),
+      ),
       total: count,
       next_cursor: z.string().nullable(),
       skipped: skippedSchema,
@@ -188,13 +205,15 @@ export const kindList = defineMemory({
     z.strictObject({
       kind: kindNameSchema,
       mode: z.literal("aggregate"),
-      groups: z.array(z.strictObject({
-        group: z.json(),
-        values: z.record(
-          z.string(),
-          z.union([z.number(), z.string(), z.null()]),
-        ),
-      })),
+      groups: z.array(
+        z.strictObject({
+          group: z.json(),
+          values: z.record(
+            z.string(),
+            z.union([z.number(), z.string(), z.null()]),
+          ),
+        }),
+      ),
       total: count,
       skipped: skippedSchema,
     }),

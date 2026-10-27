@@ -5,9 +5,10 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 // command가 같은 transaction에서 검사하고, artifact의 domain과 file의 project는 전달 단계가 확인한다.
 // annotation_refs는 이 annotation을 가리키는 session 기록(session_message)이다.
 // 하나도 없어진 annotation은 sweep이 지운다.
-export const annotationSchemaSteps: readonly SchemaStep[] = [{
-  id: "apps.annotations.tables",
-  sql: `
+export const annotationSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "apps.annotations.tables",
+    sql: `
     CREATE TABLE annotation_batches (
       id TEXT PRIMARY KEY NOT NULL,
       target_kind TEXT NOT NULL CHECK (target_kind IN ('app', 'artifact', 'file')),
@@ -52,4 +53,5 @@ export const annotationSchemaSteps: readonly SchemaStep[] = [{
     ) STRICT;
     CREATE INDEX annotation_refs_owner ON annotation_refs(owner_kind, owner_id);
   `,
-}];
+  },
+];

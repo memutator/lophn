@@ -15,12 +15,12 @@ type TrayMenuItem =
   | { type: "normal"; id: TrayItemId; label: string }
   | { type: "notice"; label: string }
   | {
-    type: "checkbox";
-    id: TrayItemId;
-    label: string;
-    checked: boolean;
-    enabled: boolean;
-  }
+      type: "checkbox";
+      id: TrayItemId;
+      label: string;
+      checked: boolean;
+      enabled: boolean;
+    }
   | { type: "separator" };
 
 const NOTICE_LABELS = {

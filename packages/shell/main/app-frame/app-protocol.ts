@@ -89,9 +89,15 @@ function plain(status: number): Response {
 
 // bundle 안 경로만. 경로 이탈·scheme·authority·빈 마디·제어 문자를 막는다.
 function safeSegment(segment: string): boolean {
-  return segment.length > 0 && segment !== "." && segment !== ".." &&
-    !segment.includes("/") && !segment.includes("\\") &&
-    !segment.includes(":") && !/\p{Cc}/u.test(segment);
+  return (
+    segment.length > 0 &&
+    segment !== "." &&
+    segment !== ".." &&
+    !segment.includes("/") &&
+    !segment.includes("\\") &&
+    !segment.includes(":") &&
+    !/\p{Cc}/u.test(segment)
+  );
 }
 
 function decode(segment: string): string | undefined {
@@ -136,9 +142,9 @@ export function appEntryUrl(
   screen: string,
   viewSession?: string,
 ): string {
-  const base = `${APP_SCHEME}://${appLabel}/${
-    encodeURIComponent(screen)
-  }/index.html`;
+  const base = `${APP_SCHEME}://${appLabel}/${encodeURIComponent(
+    screen,
+  )}/index.html`;
   return viewSession === undefined
     ? base
     : `${base}?${new URLSearchParams({ view_session: viewSession })}`;
@@ -175,7 +181,8 @@ export function createAppProtocolHandler(
     const parsed = parseAppUrl(request.url, appLabel);
     const view = deps.viewFor(request.headers.get(VIEW_HEADER), appLabel);
     if (
-      parsed === undefined || view === undefined ||
+      parsed === undefined ||
+      view === undefined ||
       parsed.screen !== view.screen
     ) {
       return plain(404);
@@ -233,18 +240,23 @@ export function createAppProtocolHandler(
 type ScreenFileOpen = (
   input: { target: ScreenTarget; screen: string; path: string },
   signal: AbortSignal,
-) => Promise<
-  { status: number; headers: Headers; body: ReadableStream<Uint8Array> | null }
->;
+) => Promise<{
+  status: number;
+  headers: Headers;
+  body: ReadableStream<Uint8Array> | null;
+}>;
 
 /** core 응답을 그대로 stream하는 upstream. MIME은 core의 Content-Type이고 허용 여부는 handler가 본다. */
 export function createCoreUpstream(open: ScreenFileOpen): Upstream {
   return async (request) => {
-    const response = await open({
-      target: request.target,
-      screen: request.screen,
-      path: request.path,
-    }, request.signal);
+    const response = await open(
+      {
+        target: request.target,
+        screen: request.screen,
+        path: request.path,
+      },
+      request.signal,
+    );
     return {
       // 입력 거절(400)은 없는 화면과 같은 404로 보인다.
       status: response.status === 400 ? 404 : response.status,

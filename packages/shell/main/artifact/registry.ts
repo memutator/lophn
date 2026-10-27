@@ -51,8 +51,8 @@ export interface ArtifactHooks {
   openLink(url: string): void;
 }
 
-export interface ArtifactViewHost extends
-  Pick<
+export interface ArtifactViewHost
+  extends Pick<
     AppViewHost,
     "hasWindow" | "attach" | "detach" | "focused" | "focusShell"
   > {
@@ -62,7 +62,9 @@ export interface ArtifactViewHost extends
 interface ArtifactViewsDeps {
   host: ArtifactViewHost;
   activation: ArtifactHooks["activation"];
-  resolve(source: ArtifactSource): Promise<
+  resolve(
+    source: ArtifactSource,
+  ): Promise<
     | { ok: true; value: ResolvedSource }
     | { ok: false; error: { code: string; message: string } }
   >;
@@ -100,9 +102,13 @@ const sameSource = (a: ArtifactSource, b: ArtifactSource) => {
   if (a.kind === "file") {
     return b.kind === "file" && a.project === b.project && a.path === b.path;
   }
-  return b.kind === "workflow" && a.project === b.project &&
-    a.workflow === b.workflow && a.view === b.view &&
-    (a.instance ?? null) === (b.instance ?? null);
+  return (
+    b.kind === "workflow" &&
+    a.project === b.project &&
+    a.workflow === b.workflow &&
+    a.view === b.view &&
+    (a.instance ?? null) === (b.instance ?? null)
+  );
 };
 
 export function createArtifactViews(deps: ArtifactViewsDeps) {
@@ -163,11 +169,14 @@ export function createArtifactViews(deps: ArtifactViewsDeps) {
   // 첫 load가 끝나면(실패도) 붙일 수 있다.
   function load(entry: Entry): void {
     const contents = entry.contents;
-    void contents.load(urlOf(entry)).catch(() => {}).then(() => {
-      if (entries.get(entry.view_session) !== entry) return;
-      if (entry.contents !== contents || entry.ready) return;
-      placement.loaded(entry);
-    });
+    void contents
+      .load(urlOf(entry))
+      .catch(() => {})
+      .then(() => {
+        if (entries.get(entry.view_session) !== entry) return;
+        if (entry.contents !== contents || entry.ready) return;
+        placement.loaded(entry);
+      });
   }
 
   function dispose(entry: Entry): void {
@@ -185,13 +194,14 @@ export function createArtifactViews(deps: ArtifactViewsDeps) {
       view_session: entry.view_session,
       // page가 보낸 값이 아니라 open 때 main이 정한 source다.
       // workflow artifact는 사람의 .html과 같은 file 길로 그 project의 PM이 받는다.
-      target: entry.source.kind === "artifact"
-        ? {
-          kind: "artifact",
-          domain: entry.source.domain,
-          name: entry.source.name,
-        }
-        : { kind: "file", project: entry.source.project },
+      target:
+        entry.source.kind === "artifact"
+          ? {
+              kind: "artifact",
+              domain: entry.source.domain,
+              name: entry.source.name,
+            }
+          : { kind: "file", project: entry.source.project },
       pageUrl: () => contents.pageUrl(),
       current,
       send(channel, payload) {
@@ -216,9 +226,10 @@ export function createArtifactViews(deps: ArtifactViewsDeps) {
         return {
           ok: false,
           error: {
-            code: code === "invalid_input" || code === "not_found"
-              ? code
-              : "unavailable",
+            code:
+              code === "invalid_input" || code === "not_found"
+                ? code
+                : "unavailable",
             message,
           },
         };
@@ -307,7 +318,8 @@ export function createArtifactViews(deps: ArtifactViewsDeps) {
           entry.source.kind === "workflow" &&
           entry.source.instance === instance &&
           entry.health === "ok"
-        ) entry.contents.reload();
+        )
+          entry.contents.reload();
       }
     },
 

@@ -22,9 +22,10 @@ export function loadApps(
   sql: Query,
   status: "active" | "archived" | undefined,
 ): Result<App[]> {
-  const rows = status === undefined
-    ? sql.all("SELECT * FROM apps ORDER BY id", [])
-    : sql.all("SELECT * FROM apps WHERE status = ? ORDER BY id", [status]);
+  const rows =
+    status === undefined
+      ? sql.all("SELECT * FROM apps ORDER BY id", [])
+      : sql.all("SELECT * FROM apps WHERE status = ? ORDER BY id", [status]);
   const apps: App[] = [];
   for (const row of rows) {
     const app = appFromRow(row);

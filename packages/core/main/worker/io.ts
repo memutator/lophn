@@ -91,15 +91,17 @@ async function createPlatformIo(
   // 자리를 다 쥔 채 chunk를 기다리고, diagnostics 요청이 자리를 기다리며 dispatch를
   // 막아 그 chunk를 못 읽는 교착이 된다. 준비는 자기 scheduler를 쓴다.
   const prepareScheduler = createIoScheduler();
-  const blob = options.blob ?? createBlobPipe({
-    work: createBlobStoreWork({
-      root: options.root,
+  const blob =
+    options.blob ??
+    createBlobPipe({
+      work: createBlobStoreWork({
+        root: options.root,
+        suffix: options.suffix ?? (() => crypto.randomUUID()),
+        // 제품 여유는 실제 관측이다.
+        quota: systemQuota(),
+      }),
       suffix: options.suffix ?? (() => crypto.randomUUID()),
-      // 제품 여유는 실제 관측이다.
-      quota: systemQuota(),
-    }),
-    suffix: options.suffix ?? (() => crypto.randomUUID()),
-  });
+    });
   // blob.prepare는 요청 json이 먼저 오고 chunk가 이어 온다. 준비는 chunk가 오는 동안
   // 이미 hash·write를 시작하고, 받아 둔 바이트는 credit window를 넘지 않는다.
   const prepares = new Map<number, PrepareStream>();
@@ -138,7 +140,7 @@ async function createPlatformIo(
   // 받은 credit은 준비마다 모아 credit message 하나로 보낸다.
   function redistribute() {
     const amounts = new Map<number, number>();
-    for (let progressed = true; progressed;) {
+    for (let progressed = true; progressed; ) {
       progressed = false;
       for (const [channel, stream] of prepares) {
         if (budget.available <= 0) break;
@@ -215,21 +217,23 @@ async function createPlatformIo(
       | { ok: false; error: { code: ErrorCode; message: string } },
   ): Promise<void> {
     if (!session.credentialUsable) return Promise.resolve();
-    return session.send(
-      response.ok
-        ? {
-          type: "worker_response",
-          request_id: requestId,
-          ok: true,
-          payload: response.payload,
-        }
-        : {
-          type: "worker_response",
-          request_id: requestId,
-          ok: false,
-          error: response.error,
-        },
-    ).catch(() => {});
+    return session
+      .send(
+        response.ok
+          ? {
+              type: "worker_response",
+              request_id: requestId,
+              ok: true,
+              payload: response.payload,
+            }
+          : {
+              type: "worker_response",
+              request_id: requestId,
+              ok: false,
+              error: response.error,
+            },
+      )
+      .catch(() => {});
   }
 
   // blob.prepare를 받는다. core의 chunk가 오는 대로 blob store가 읽어 hash·write하고,
@@ -260,45 +264,45 @@ async function createPlatformIo(
       answered: false,
     };
     prepares.set(channel, stream);
-    const body = new ReadableStream<Uint8Array>({
-      async pull(controller) {
-        for (;;) {
-          if (stream.failed) {
-            controller.error(new Error("blob prepare stream failed"));
-            return;
+    const body = new ReadableStream<Uint8Array>(
+      {
+        async pull(controller) {
+          for (;;) {
+            if (stream.failed) {
+              controller.error(new Error("blob prepare stream failed"));
+              return;
+            }
+            const chunk = stream.queue.shift();
+            if (chunk !== undefined) {
+              controller.enqueue(chunk);
+              // blob store가 가져간 만큼만 budget에 돌려주고, 기다리는 준비들이 나눠 받는다
+              // (backpressure).
+              stream.queued -= chunk.length;
+              budget.available += chunk.length;
+              redistribute();
+              return;
+            }
+            if (stream.ended) {
+              controller.close();
+              return;
+            }
+            await new Promise<void>((resolve) => {
+              stream.wake = resolve;
+            });
           }
-          const chunk = stream.queue.shift();
-          if (chunk !== undefined) {
-            controller.enqueue(chunk);
-            // blob store가 가져간 만큼만 budget에 돌려주고, 기다리는 준비들이 나눠 받는다
-            // (backpressure).
-            stream.queued -= chunk.length;
-            budget.available += chunk.length;
-            redistribute();
-            return;
-          }
-          if (stream.ended) {
-            controller.close();
-            return;
-          }
-          await new Promise<void>((resolve) => {
-            stream.wake = resolve;
-          });
-        }
+        },
+        cancel() {
+          failPrepare(stream);
+        },
       },
-      cancel() {
-        failPrepare(stream);
-      },
-    }, { highWaterMark: 0 });
-    const submission = prepareScheduler.submit(
-      "blob",
-      async () => {
-        // 이제 돌고 있다. 더 큰 credit을 받을 수 있다.
-        stream.running = true;
-        redistribute();
-        return await blob.handle(request, () => Promise.resolve(body));
-      },
+      { highWaterMark: 0 },
     );
+    const submission = prepareScheduler.submit("blob", async () => {
+      // 이제 돌고 있다. 더 큰 credit을 받을 수 있다.
+      stream.running = true;
+      redistribute();
+      return await blob.handle(request, () => Promise.resolve(body));
+    });
     if (!submission.ok) {
       failPrepare(stream);
       stream.answered = true;
@@ -362,8 +366,8 @@ async function createPlatformIo(
       };
       // blob.read는 channel이 없다. blob.prepare만 channel의 chunk를 쓴다.
       if (
-        request.op !== "blob.prepare" && request.op !== "blob.read" ||
-        request.op === "blob.prepare" && request.channel === undefined
+        (request.op !== "blob.prepare" && request.op !== "blob.read") ||
+        (request.op === "blob.prepare" && request.channel === undefined)
       ) {
         const authority = options.currentAuthority();
         if (!session.credentialUsable || !authority) {
@@ -378,9 +382,8 @@ async function createPlatformIo(
           });
           return;
         }
-        const submission = scheduler.submit(
-          authority.principal,
-          () => Promise.resolve(ingress.accept(message)),
+        const submission = scheduler.submit(authority.principal, () =>
+          Promise.resolve(ingress.accept(message)),
         );
         const result = submission.ok
           ? await submission.value.result
@@ -392,17 +395,17 @@ async function createPlatformIo(
         await session.send(
           response.ok
             ? {
-              type: "worker_response",
-              request_id: message.request_id,
-              ok: true,
-              payload: response.value,
-            }
+                type: "worker_response",
+                request_id: message.request_id,
+                ok: true,
+                payload: response.value,
+              }
             : {
-              type: "worker_response",
-              request_id: message.request_id,
-              ok: false,
-              error: response.error,
-            },
+                type: "worker_response",
+                request_id: message.request_id,
+                ok: false,
+                error: response.error,
+              },
         );
         return;
       }
@@ -445,17 +448,17 @@ async function createPlatformIo(
       await session.send(
         response.ok
           ? {
-            type: "worker_response",
-            request_id: message.request_id,
-            ok: true,
-            payload: response.payload,
-          }
+              type: "worker_response",
+              request_id: message.request_id,
+              ok: true,
+              payload: response.payload,
+            }
           : {
-            type: "worker_response",
-            request_id: message.request_id,
-            ok: false,
-            error: response.error,
-          },
+              type: "worker_response",
+              request_id: message.request_id,
+              ok: false,
+              error: response.error,
+            },
       );
     },
   });
@@ -464,8 +467,10 @@ async function createPlatformIo(
 
 export async function runPlatformIo(root: string): Promise<void> {
   // Only the entry owns console routing. Helper modules never change global console.
-  console.log = console.info = console.debug = (...args: unknown[]) =>
-    console.error(...args);
+  console.log =
+    console.info =
+    console.debug =
+      (...args: unknown[]) => console.error(...args);
   const session = await createPlatformIo({
     root,
     streams: { stdin: Deno.stdin, stdout: Deno.stdout, stderr: Deno.stderr },

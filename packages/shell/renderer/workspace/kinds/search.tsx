@@ -37,9 +37,9 @@ function openKeywordSearch(host: TabHost): void {
  * 열린 탭이 그 줄로 scroll하는 것은 파일 탭이 한다.
  */
 function openFileAt(host: TabHost, path: string, line: number): void {
-  const open = host.view.panes.flatMap((pane) => pane.tabs).find((tab) =>
-    tab.kind === "document_editor" && tab.key === path
-  );
+  const open = host.view.panes
+    .flatMap((pane) => pane.tabs)
+    .find((tab) => tab.kind === "document_editor" && tab.key === path);
   if (open === undefined) {
     host.openTab({
       key: path,
@@ -55,9 +55,9 @@ function openFileAt(host: TabHost, path: string, line: number): void {
 
 /** 바로 가기 rail과 `+`가 부르는 Search 탭 열기. 열린 검색 탭이 있으면 그 탭을 고르고 없으면 새로 연다. */
 export function openSearchShortcut(host: TabHost): void {
-  const open = host.view.panes.flatMap((pane) => pane.tabs).find((tab) =>
-    tab.kind === "search"
-  );
+  const open = host.view.panes
+    .flatMap((pane) => pane.tabs)
+    .find((tab) => tab.kind === "search");
   if (open !== undefined) {
     host.openTab(open);
     return;
@@ -105,9 +105,14 @@ export const searchKind: TabKindDef = {
         initialFolder={folder}
         onOpen={(path, line) => openFileAt(host, path, line)}
         onState={(next) =>
-          host.patchTab(tab.key, (current) => ({
-            fields: { ...current.fields, ...next },
-          }), { later: true })}
+          host.patchTab(
+            tab.key,
+            (current) => ({
+              fields: { ...current.fields, ...next },
+            }),
+            { later: true },
+          )
+        }
       />
     );
   },

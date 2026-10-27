@@ -68,16 +68,18 @@ export async function decideWaiting(
 ): Promise<DecideResult> {
   if (entry.kind === "permission") {
     if (choice === "allow") return UNAVAILABLE;
-    const reply = await core.call({
-      kind: "memory",
-      resource: turnRequestDecide.resource,
-      method: turnRequestDecide.method,
-      body: {
-        session: entry.request.session,
-        request: entry.id,
-        choice: turnChoiceOf(choice, reason),
-      },
-    }).catch(() => null);
+    const reply = await core
+      .call({
+        kind: "memory",
+        resource: turnRequestDecide.resource,
+        method: turnRequestDecide.method,
+        body: {
+          session: entry.request.session,
+          request: entry.id,
+          choice: turnChoiceOf(choice, reason),
+        },
+      })
+      .catch(() => null);
     if (!reply) return UNAVAILABLE;
     if (!reply.ok) {
       return { ok: false, code: reply.error?.code ?? "unavailable" };
@@ -87,21 +89,26 @@ export async function decideWaiting(
     const outcome = parsed.data.outcome.outcome;
     return {
       ok: true,
-      state: outcome === "allow"
-        ? "allowed"
-        : outcome === "reject"
-        ? "denied"
-        : "cancelled",
+      state:
+        outcome === "allow"
+          ? "allowed"
+          : outcome === "reject"
+            ? "denied"
+            : "cancelled",
     };
   }
   if (entry.kind === "activation") {
     if (choice !== "allow" && choice !== "reject") return UNAVAILABLE;
     // command는 입력을 봉투에 담아 보낸다. 같은 동의의 같은 결정은 같은 key라 core가 한 번만 접수한다.
-    const reply = await core.call(commandCall(activationConsent, {
-      input: { release: entry.request.release, choice },
-      compare: { requested_at: entry.request.requested_at },
-      key: `activation-consent-${entry.request.release}-${choice}`,
-    })).catch(() => null);
+    const reply = await core
+      .call(
+        commandCall(activationConsent, {
+          input: { release: entry.request.release, choice },
+          compare: { requested_at: entry.request.requested_at },
+          key: `activation-consent-${entry.request.release}-${choice}`,
+        }),
+      )
+      .catch(() => null);
     if (!reply) return UNAVAILABLE;
     if (!reply.ok) {
       return { ok: false, code: reply.error?.code ?? "unavailable" };
@@ -128,11 +135,15 @@ export async function decideJobHold(
 ): Promise<
   { readonly ok: true } | { readonly ok: false; readonly code: string }
 > {
-  const reply = await core.call(commandCall(jobDecideHold, {
-    input: { job_run: entry.id, choice },
-    compare: {},
-    key: `job-hold-${entry.id}-${choice}-${crypto.randomUUID()}`,
-  })).catch(() => null);
+  const reply = await core
+    .call(
+      commandCall(jobDecideHold, {
+        input: { job_run: entry.id, choice },
+        compare: {},
+        key: `job-hold-${entry.id}-${choice}-${crypto.randomUUID()}`,
+      }),
+    )
+    .catch(() => null);
   if (!reply) return UNAVAILABLE;
   if (!reply.ok) return { ok: false, code: reply.error?.code ?? "unavailable" };
   return jobDecideHold.output.safeParse(reply.value).success
@@ -145,12 +156,14 @@ export async function readQuestions(
   core: CoreSource,
   entry: WaitingEntry & { kind: "question" },
 ): Promise<readonly AskQuestion[] | null> {
-  const reply = await core.call({
-    kind: "memory",
-    resource: askRead.resource,
-    method: askRead.method,
-    body: { session: entry.session, tool_call: entry.request.tool_call },
-  }).catch(() => null);
+  const reply = await core
+    .call({
+      kind: "memory",
+      resource: askRead.resource,
+      method: askRead.method,
+      body: { session: entry.session, tool_call: entry.request.tool_call },
+    })
+    .catch(() => null);
   if (!reply?.ok) return null;
   const parsed = askRead.output.safeParse(reply.value);
   return parsed.success ? parsed.data.questions : null;
@@ -162,16 +175,18 @@ export async function answerQuestion(
   entry: WaitingEntry & { kind: "question" },
   answers: readonly AskAnswer[],
 ): Promise<DecideResult> {
-  const reply = await core.call({
-    kind: "memory",
-    resource: askAnswer.resource,
-    method: askAnswer.method,
-    body: {
-      session: entry.session,
-      tool_call: entry.request.tool_call,
-      answers,
-    },
-  }).catch(() => null);
+  const reply = await core
+    .call({
+      kind: "memory",
+      resource: askAnswer.resource,
+      method: askAnswer.method,
+      body: {
+        session: entry.session,
+        tool_call: entry.request.tool_call,
+        answers,
+      },
+    })
+    .catch(() => null);
   if (!reply) return UNAVAILABLE;
   if (!reply.ok) return { ok: false, code: reply.error?.code ?? "unavailable" };
   return { ok: true, state: "allowed" };

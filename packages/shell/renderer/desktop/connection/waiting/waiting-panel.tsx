@@ -59,10 +59,7 @@ const SETTLED_MARK = {
 /** 방금 결정한 줄. 허락, 거절, cancelled를 구별한다. */
 function SettledList({ rows }: { rows: readonly SettledRow[] }) {
   return (
-    <section
-      className={styles.group}
-      aria-label={t("waiting.label.settled")}
-    >
+    <section className={styles.group} aria-label={t("waiting.label.settled")}>
       <div className={styles.groupHead}>
         <span>{t("waiting.label.settled")}</span>
       </div>
@@ -76,8 +73,8 @@ function SettledList({ rows }: { rows: readonly SettledRow[] }) {
             <span className={styles.settledNote}>
               {row.state === "denied" && row.agent !== undefined
                 ? t("waiting.notice.settled-denied-reason", {
-                  agent: row.agent,
-                })
+                    agent: row.agent,
+                  })
                 : t(mark.note)}
             </span>
           </div>
@@ -88,12 +85,13 @@ function SettledList({ rows }: { rows: readonly SettledRow[] }) {
 }
 
 /** turn이 끝난 탭 한 줄. 줄 어디를 눌러도 그 탭이 열린다. */
-function FinishedList(
-  { rows, onShow }: {
-    rows: readonly FinishedRow[];
-    onShow: (target: NoticeTarget) => void;
-  },
-) {
+function FinishedList({
+  rows,
+  onShow,
+}: {
+  rows: readonly FinishedRow[];
+  onShow: (target: NoticeTarget) => void;
+}) {
   return (
     <section
       className={styles.group}
@@ -104,9 +102,10 @@ function FinishedList(
         <span>{rows.length}</span>
       </div>
       {rows.map((row) => {
-        const vendor = row.face.kind === "vendor"
-          ? harnessVendorOf(row.face.harness)
-          : undefined;
+        const vendor =
+          row.face.kind === "vendor"
+            ? harnessVendorOf(row.face.harness)
+            : undefined;
         return (
           <div
             key={row.id}
@@ -116,11 +115,11 @@ function FinishedList(
           >
             <div className={styles.who}>
               <span className={styles.face}>
-                {row.face.kind === "avatar"
-                  ? <Avatar profile={row.face.profile} size="sm" />
-                  : vendor === undefined
-                  ? null
-                  : <VendorIcon vendor={vendor} />}
+                {row.face.kind === "avatar" ? (
+                  <Avatar profile={row.face.profile} size="sm" />
+                ) : vendor === undefined ? null : (
+                  <VendorIcon vendor={vendor} />
+                )}
               </span>
               <div className={styles.whoText}>
                 <p className={styles.title}>{row.label}</p>
@@ -144,25 +143,23 @@ export interface PanelInitial {
   readonly denying?: { readonly id: string; readonly reason?: string };
 }
 
-export function WaitingPanel(
-  {
-    entries,
-    settled,
-    finished,
-    initial,
-    onOpenSession,
-    onAnswerInTerminal,
-    onShowFinished,
-  }: {
-    entries: readonly WaitingEntry[];
-    settled: Settled;
-    finished: readonly FinishedRow[];
-    initial?: PanelInitial;
-    onOpenSession: (session: string) => void;
-    onAnswerInTerminal: (session: string) => void;
-    onShowFinished: (target: NoticeTarget) => void;
-  },
-) {
+export function WaitingPanel({
+  entries,
+  settled,
+  finished,
+  initial,
+  onOpenSession,
+  onAnswerInTerminal,
+  onShowFinished,
+}: {
+  entries: readonly WaitingEntry[];
+  settled: Settled;
+  finished: readonly FinishedRow[];
+  initial?: PanelInitial;
+  onOpenSession: (session: string) => void;
+  onAnswerInTerminal: (session: string) => void;
+  onShowFinished: (target: NoticeTarget) => void;
+}) {
   const core = useEventClient().core;
 
   function decider(entry: WaitingEntry): OnDecide {
@@ -182,9 +179,8 @@ export function WaitingPanel(
       view,
       onDecide: decider(entry),
       denying: initial?.denying?.id === entry.id,
-      reason: initial?.denying?.id === entry.id
-        ? initial.denying.reason
-        : undefined,
+      reason:
+        initial?.denying?.id === entry.id ? initial.denying.reason : undefined,
       expanded: initial?.expanded?.includes(entry.id) ?? false,
     };
     switch (entry.kind) {
@@ -228,13 +224,14 @@ export function WaitingPanel(
         </span>
       </header>
       <div className={styles.panelBody}>
-        {entries.length === 0 && settled.rows.length === 0 &&
-            finished.length === 0
-          ? <p className={styles.empty}>{t("waiting.notice.empty")}</p>
-          : null}
+        {entries.length === 0 &&
+        settled.rows.length === 0 &&
+        finished.length === 0 ? (
+          <p className={styles.empty}>{t("waiting.notice.empty")}</p>
+        ) : null}
         {GROUPS.map((group) => {
           const rows = entries.filter((entry) =>
-            (group.kinds as readonly string[]).includes(entry.kind)
+            (group.kinds as readonly string[]).includes(entry.kind),
           );
           if (rows.length === 0) {
             return null;
@@ -253,9 +250,9 @@ export function WaitingPanel(
             </section>
           );
         })}
-        {finished.length > 0
-          ? <FinishedList rows={finished} onShow={onShowFinished} />
-          : null}
+        {finished.length > 0 ? (
+          <FinishedList rows={finished} onShow={onShowFinished} />
+        ) : null}
         {settled.rows.length > 0 ? <SettledList rows={settled.rows} /> : null}
       </div>
     </section>

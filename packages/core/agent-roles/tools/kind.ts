@@ -18,10 +18,7 @@ import {
 } from "../../lophn-agent/tools/spi.ts";
 
 // 읽는 domain은 이 agent의 `ctx.domains` 안이어야 한다. 하나뿐이면 생략할 수 있다. 어긋나면 core를 부르지 않는다.
-function domainOf(
-  given: string | undefined,
-  ctx: ToolContext,
-): Result<string> {
+function domainOf(given: string | undefined, ctx: ToolContext): Result<string> {
   const mine = ctx.domains;
   if (given !== undefined) {
     return mine.includes(given)
@@ -61,24 +58,24 @@ export const KIND_TOOLS: readonly ToolDefinition[] = [
       });
       if (!read.ok) return read;
       const value = read.value;
-      const skipped = value.skipped.count > 0
-        ? ` (${value.skipped.count} skipped)`
-        : "";
-      const more = value.mode === "items" && value.next_cursor !== null
-        ? " (more exist; pass next_cursor)"
-        : "";
+      const skipped =
+        value.skipped.count > 0 ? ` (${value.skipped.count} skipped)` : "";
+      const more =
+        value.mode === "items" && value.next_cursor !== null
+          ? " (more exist; pass next_cursor)"
+          : "";
       return ok(
         value.mode === "items"
           ? fitted(
-            `${value.total} ${value.kind} items${skipped}${more}`,
-            value,
-            ["items"],
-          )
+              `${value.total} ${value.kind} items${skipped}${more}`,
+              value,
+              ["items"],
+            )
           : fitted(
-            `${value.groups.length} ${value.kind} groups${skipped}`,
-            value,
-            ["groups"],
-          ),
+              `${value.groups.length} ${value.kind} groups${skipped}`,
+              value,
+              ["groups"],
+            ),
       );
     },
   }),
@@ -99,14 +96,15 @@ export const KIND_TOOLS: readonly ToolDefinition[] = [
       });
       if (!read.ok) return read;
       const value = read.value;
-      const more = value.next_cursor !== null
-        ? " (more exist; pass next_cursor)"
-        : "";
-      return ok(fitted(
-        `kinds ${value.status.state}, ${value.total} violations${more}`,
-        value,
-        ["violations"],
-      ));
+      const more =
+        value.next_cursor !== null ? " (more exist; pass next_cursor)" : "";
+      return ok(
+        fitted(
+          `kinds ${value.status.state}, ${value.total} violations${more}`,
+          value,
+          ["violations"],
+        ),
+      );
     },
   }),
 ];

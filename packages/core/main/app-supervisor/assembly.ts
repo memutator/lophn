@@ -149,12 +149,7 @@ type SupervisorIo = {
   data?: DataJobRunner;
   // broker 서비스에 더하는 어댑터와 시험 대역(외부 전송 등). 기본은 core read·route를 지나는 어댑터다.
   brokerAdapters?: Partial<
-    Pick<
-      BrokerAdapters,
-      | "netTransport"
-      | "netScheme"
-      | "secrets"
-    >
+    Pick<BrokerAdapters, "netTransport" | "netScheme" | "secrets">
   >;
 };
 
@@ -240,14 +235,14 @@ function startFieldsOf(
       data_path?: unknown;
     };
     return typeof parsed.broker_credential === "string" &&
-        parsed.broker_credential.length > 0 &&
-        typeof parsed.bundle_hash === "string" &&
-        typeof parsed.data_path === "string"
+      parsed.broker_credential.length > 0 &&
+      typeof parsed.bundle_hash === "string" &&
+      typeof parsed.data_path === "string"
       ? {
-        credential: parsed.broker_credential,
-        bundleHash: parsed.bundle_hash,
-        dataPath: parsed.data_path,
-      }
+          credential: parsed.broker_credential,
+          bundleHash: parsed.bundle_hash,
+          dataPath: parsed.data_path,
+        }
       : undefined;
   } catch {
     return undefined;
@@ -259,7 +254,7 @@ function brokerCredentialOf(startLine: string): string | undefined {
   try {
     const parsed = JSON.parse(startLine) as { broker_credential?: unknown };
     return typeof parsed.broker_credential === "string" &&
-        parsed.broker_credential.length > 0
+      parsed.broker_credential.length > 0
       ? parsed.broker_credential
       : undefined;
   } catch {
@@ -269,9 +264,7 @@ function brokerCredentialOf(startLine: string): string | undefined {
 
 function parse<T>(
   schema: {
-    safeParse(
-      value: unknown,
-    ): { success: true; data: T } | { success: false };
+    safeParse(value: unknown): { success: true; data: T } | { success: false };
   },
   payload: unknown,
 ): T {
@@ -327,14 +320,17 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       return err({ code: "unavailable", message: "core is unreachable" });
     }
     if (reply.status === 200) return ok(reply.body);
-    const refused = (reply.body as {
-      error?: { message?: unknown; details?: unknown };
-    } | null)?.error;
+    const refused = (
+      reply.body as {
+        error?: { message?: unknown; details?: unknown };
+      } | null
+    )?.error;
     return err({
       code: errorCodeOf(reply.status, reply.body),
-      message: typeof refused?.message === "string"
-        ? refused.message
-        : "core refused the request",
+      message:
+        typeof refused?.message === "string"
+          ? refused.message
+          : "core refused the request",
       ...(typeof refused?.details === "object" && refused.details !== null
         ? { details: refused.details as Record<string, unknown> }
         : {}),
@@ -350,10 +346,12 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       );
       if (!answered.ok) return answered;
       const parsed = toolCallOutputSchema.safeParse(answered.value);
-      return parsed.success ? ok(parsed.data) : err({
-        code: "unavailable",
-        message: "core answered the app call badly",
-      });
+      return parsed.success
+        ? ok(parsed.data)
+        : err({
+            code: "unavailable",
+            message: "core answered the app call badly",
+          });
     },
   };
 
@@ -385,9 +383,10 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
           ?.error;
         return err({
           code: errorCodeOf(reply.status, reply.body),
-          message: typeof refused?.message === "string"
-            ? refused.message
-            : "core refused the request",
+          message:
+            typeof refused?.message === "string"
+              ? refused.message
+              : "core refused the request",
         });
       },
     }),
@@ -397,15 +396,17 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     access: createCoreBrokerAccess(toCore),
     ready,
     appCall,
-    platformPorts: () => hello.apiPort === 0 ? [] : [hello.apiPort],
+    platformPorts: () => (hello.apiPort === 0 ? [] : [hello.apiPort]),
     exceptions: {
       frames: (child, stack) =>
-        io.dataRoot === undefined ? Promise.resolve([]) : resolveStackFrames({
-          dataRoot: io.dataRoot,
-          app: child.app,
-          bundleHash: bundleHashes.get(child.processNonce) ?? null,
-          stack,
-        }),
+        io.dataRoot === undefined
+          ? Promise.resolve([])
+          : resolveStackFrames({
+              dataRoot: io.dataRoot,
+              app: child.app,
+              bundleHash: bundleHashes.get(child.processNonce) ?? null,
+              stack,
+            }),
       append: (app, entry) => logFileOf(app)?.append(entry),
     },
     secrets,
@@ -455,7 +456,8 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       async read(buffer) {
         const count = await source.read(buffer);
         if (count !== null) {
-          const text = (tails.get(nonce) ?? "") +
+          const text =
+            (tails.get(nonce) ?? "") +
             decoder.decode(buffer.subarray(0, count), { stream: true });
           tails.set(nonce, text.slice(-STDERR_TAIL_CHARS));
         }
@@ -482,9 +484,10 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     },
   };
 
-  async function requestCredential(
-    request: { desired: DesiredApp; nonce: string },
-  ): Promise<string> {
+  async function requestCredential(request: {
+    desired: DesiredApp;
+    nonce: string;
+  }): Promise<string> {
     const requestId = `app-credential-${crypto.randomUUID()}`;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const reply = new Promise<string | undefined>((resolve) => {
@@ -537,7 +540,9 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     let parsed: unknown = null;
     try {
       parsed = JSON.parse(reply.body);
-    } catch { /* 본문이 JSON이 아니다 */ }
+    } catch {
+      /* 본문이 JSON이 아니다 */
+    }
     return ok({ status: reply.status, body: parsed });
   }
 
@@ -555,19 +560,15 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     let reason = "the app did not answer";
     while (io.clock.nowMs() < deadline) {
       if (exited) return { ok: false as const, reason: "exited before ready" };
-      const answered = await control(
-        socket,
-        CONTROL_PATHS.probe,
-        { process_nonce: nonce },
-      );
+      const answered = await control(socket, CONTROL_PATHS.probe, {
+        process_nonce: nonce,
+      });
       if (answered.ok) {
-        const attestation = answered.value.body as
-          | {
-            tools?: string[];
-            data_schema?: number;
-            bundle_hash?: string;
-          }
-          | null;
+        const attestation = answered.value.body as {
+          tools?: string[];
+          data_schema?: number;
+          bundle_hash?: string;
+        } | null;
         if (answered.value.status === 200 && attestation !== null) {
           return {
             ok: true as const,
@@ -578,17 +579,19 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         }
         // 서명·nonce·handler 불일치는 기다린다고 낫지 않는다. 준비 중(503)만 다시 본다.
         if (answered.value.status !== 503) {
-          const message = (answered.value.body as
-            | { error?: { message?: unknown } }
-            | null)?.error?.message;
+          const message = (
+            answered.value.body as { error?: { message?: unknown } } | null
+          )?.error?.message;
           return {
             ok: false as const,
             // reason에 길이 상한이 없어 앱이 준 글은 자른다.
-            reason: typeof message === "string"
-              ? `probe was rejected (${answered.value.status}): ${
-                message.slice(0, 500)
-              }`
-              : `probe was rejected (${answered.value.status})`,
+            reason:
+              typeof message === "string"
+                ? `probe was rejected (${answered.value.status}): ${message.slice(
+                    0,
+                    500,
+                  )}`
+                : `probe was rejected (${answered.value.status})`,
           };
         }
       } else {
@@ -691,14 +694,10 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     },
     probe: (child, socket) => probeChild(child, socket),
     async open(child, socket, desired) {
-      const answered = await control(
-        socket,
-        CONTROL_PATHS.open,
-        {
-          process_nonce: child.identity.processNonce,
-          release: desired.release,
-        },
-      );
+      const answered = await control(socket, CONTROL_PATHS.open, {
+        process_nonce: child.identity.processNonce,
+        release: desired.release,
+      });
       return answered.ok && answered.value.status === 200;
     },
     requestStop: (child, socket, desired) => {
@@ -728,16 +727,17 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       const memory = memories.get(event.app);
       memory?.setChild(null);
     }
-    const crash: CrashEvent = event.kind === "exit"
-      ? {
-        kind: "exit",
-        intended: event.intended,
-        exitCode: event.exitCode,
-        stderrTail: tails.get(event.processNonce) ?? "",
-      }
-      : event.kind === "start_failed"
-      ? { kind: "start_failed", reason: event.reason }
-      : { kind: "crash_loop", exits: event.exits };
+    const crash: CrashEvent =
+      event.kind === "exit"
+        ? {
+            kind: "exit",
+            intended: event.intended,
+            exitCode: event.exitCode,
+            stderrTail: tails.get(event.processNonce) ?? "",
+          }
+        : event.kind === "start_failed"
+          ? { kind: "start_failed", reason: event.reason }
+          : { kind: "crash_loop", exits: event.exits };
     const text = crashLogText(crash);
     if (text !== undefined) {
       logFileOf(event.app)?.append({ invocation: null, text });
@@ -761,8 +761,10 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     socketPaths: (app) => io.socketPaths(`preview:${app}`),
     credential: () => {
       const bytes = crypto.getRandomValues(new Uint8Array(32));
-      return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-")
-        .replaceAll("/", "_").replace(/=+$/, "");
+      return btoa(String.fromCharCode(...bytes))
+        .replaceAll("+", "-")
+        .replaceAll("/", "_")
+        .replace(/=+$/, "");
     },
     async spawn(request) {
       const sockets = socketFlags(request.sockets);
@@ -823,11 +825,10 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     },
     probe: (child, socket) => probeChild(child, socket),
     async open(child, socket, launch) {
-      const answered = await control(
-        socket,
-        CONTROL_PATHS.open,
-        { process_nonce: child.identity.processNonce, release: launch.release },
-      );
+      const answered = await control(socket, CONTROL_PATHS.open, {
+        process_nonce: child.identity.processNonce,
+        release: launch.release,
+      });
       return answered.ok && answered.value.status === 200;
     },
     requestStop: (child, socket) => stopChild(child, socket),
@@ -951,9 +952,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     },
     [SUPERVISOR_OPS.releasePreparation]: (payload) => {
       const input = parse(releasePreparationInputSchema, payload);
-      return Promise.resolve(
-        preparationOf().get(input.app, input.request_key),
-      );
+      return Promise.resolve(preparationOf().get(input.app, input.request_key));
     },
     [SUPERVISOR_OPS.releaseCancel]: async (payload) => {
       const input = parse(releasePreparationInputSchema, payload);
@@ -980,15 +979,15 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       const started = await guarded.prepare(desired);
       return started.ok
         ? {
-          ok: true,
-          process_nonce: started.processNonce,
-          attestation: {
-            release: started.attestation.release,
-            bundle_hash: started.attestation.bundleHash,
-            tools: started.attestation.tools,
-            data_schema: started.attestation.dataSchema,
-          },
-        }
+            ok: true,
+            process_nonce: started.processNonce,
+            attestation: {
+              release: started.attestation.release,
+              bundle_hash: started.attestation.bundleHash,
+              tools: started.attestation.tools,
+              data_schema: started.attestation.dataSchema,
+            },
+          }
         : { ok: false, reason: started.reason };
     },
     [SUPERVISOR_OPS.activationOpen]: async (payload) => {

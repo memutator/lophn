@@ -28,13 +28,15 @@ export const jobRecordSchema = z.object({
   missed_policy: missedPolicySchema,
   enabled: z.boolean(),
   next_due_at: atSchema.nullable(), // 꺼져 있으면 null
-  last_run: z.object({
-    job_run: jobRunIdSchema,
-    state: jobRunStateSchema,
-    due_at: atSchema,
-    started_at: atSchema.nullable(),
-    ended_at: atSchema.nullable(),
-  }).nullable(),
+  last_run: z
+    .object({
+      job_run: jobRunIdSchema,
+      state: jobRunStateSchema,
+      due_at: atSchema,
+      started_at: atSchema.nullable(),
+      ended_at: atSchema.nullable(),
+    })
+    .nullable(),
   created_at: atSchema,
   updated_at: atSchema,
 });

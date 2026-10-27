@@ -6,14 +6,17 @@ import { t } from "@lophn/wording";
 
 import { commonIcons, editorIcons, workspaceIcons } from "../../icons/mod.ts";
 
-export function DomainMenu(
-  { title, archiveBlocked = false, onOpenDoc, onArchive }: {
-    title: string;
-    archiveBlocked?: boolean;
-    onOpenDoc: () => void;
-    onArchive: () => void;
-  },
-) {
+export function DomainMenu({
+  title,
+  archiveBlocked = false,
+  onOpenDoc,
+  onArchive,
+}: {
+  title: string;
+  archiveBlocked?: boolean;
+  onOpenDoc: () => void;
+  onArchive: () => void;
+}) {
   const archive = t("domain.button.archive");
   const items: MenuItem[] = [
     {
@@ -24,13 +27,13 @@ export function DomainMenu(
     {
       id: "archive",
       leading: <MenuIcon icon={commonIcons.archive} />,
-      label: archiveBlocked
-        ? (
-          <Tooltip content={t("domain.notice.app-last")} placement="beside">
-            <span>{archive}</span>
-          </Tooltip>
-        )
-        : archive,
+      label: archiveBlocked ? (
+        <Tooltip content={t("domain.notice.app-last")} placement="beside">
+          <span>{archive}</span>
+        </Tooltip>
+      ) : (
+        archive
+      ),
       textValue: archive,
       disabled: archiveBlocked,
     },
@@ -46,7 +49,7 @@ export function DomainMenu(
     <Menu
       trigger={trigger}
       items={items}
-      onSelect={(id) => id === "doc" ? onOpenDoc() : onArchive()}
+      onSelect={(id) => (id === "doc" ? onOpenDoc() : onArchive())}
     />
   );
 }

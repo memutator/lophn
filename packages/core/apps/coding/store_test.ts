@@ -18,11 +18,10 @@ test("coding session flags stored as 1 read back true through createSql", () => 
     [],
   );
   const running = loadSession(sql, "s")!;
-  assert.deepStrictEqual([running.started, running.heard, running.running], [
-    true,
-    true,
-    true,
-  ]);
+  assert.deepStrictEqual(
+    [running.started, running.heard, running.running],
+    [true, true, true],
+  );
   assert.deepStrictEqual(stateOf(running), "running");
 
   sql.run("UPDATE coding_sessions SET running = 0", []);

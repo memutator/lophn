@@ -106,8 +106,7 @@ const STEP_NOTE_NODES: readonly GraphNode[] = [
     id: "run",
     label: "Run",
     status: { label: "Failed", tone: "critical" },
-    note:
-      "The report step could not read the quarterly export because the file was missing columns.",
+    note: "The report step could not read the quarterly export because the file was missing columns.",
   },
   {
     id: "report",
@@ -135,10 +134,13 @@ const TREE: readonly TreeNode[] = [
   {
     id: "docs",
     label: "docs",
-    children: [{ id: "docs/plan.md", label: "plan.md" }, {
-      id: "docs/notes.md",
-      label: "notes.md",
-    }],
+    children: [
+      { id: "docs/plan.md", label: "plan.md" },
+      {
+        id: "docs/notes.md",
+        label: "notes.md",
+      },
+    ],
   },
   {
     id: "eval",
@@ -147,10 +149,12 @@ const TREE: readonly TreeNode[] = [
       {
         id: "eval/experiments",
         label: "experiments",
-        children: [{
-          id: "eval/experiments/exp-008.md",
-          label: "exp-008-query-tools.md",
-        }],
+        children: [
+          {
+            id: "eval/experiments/exp-008.md",
+            label: "exp-008-query-tools.md",
+          },
+        ],
       },
     ],
   },
@@ -534,10 +538,7 @@ export function KitData() {
           </Wide>
         </Row>
       </Section>
-      <Section
-        title="BarChart"
-        note="범주별 값 비교. stacked로 쌓는다."
-      >
+      <Section title="BarChart" note="범주별 값 비교. stacked로 쌓는다.">
         <Row label="values">
           <Wide>
             <BarChart

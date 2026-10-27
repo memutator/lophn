@@ -17,7 +17,10 @@ export type SqlRow = Record<string, SqlParam>;
 
 // StatementSync adapter가 SQL을 prepare하고 positional params를 펼친다.
 export interface Sql {
-  run(sql: string, params: SqlParams): {
+  run(
+    sql: string,
+    params: SqlParams,
+  ): {
     changes: number | bigint;
     lastInsertRowid: number | bigint;
   };

@@ -20,13 +20,14 @@ const small = {
   fontVariantNumeric: "tabular-nums",
 } as const;
 
-export function SpendingView(
-  { title, picked = {} }: {
-    title: string;
-    /** 막대 label별로 고른 표시. */
-    picked?: Readonly<Record<string, BarMark>>;
-  },
-) {
+export function SpendingView({
+  title,
+  picked = {},
+}: {
+  title: string;
+  /** 막대 label별로 고른 표시. */
+  picked?: Readonly<Record<string, BarMark>>;
+}) {
   const top = Math.max(...SPENDING_BARS.map((bar) => bar.value));
   return (
     <div
@@ -99,7 +100,7 @@ export function SpendingView(
                     position: "relative",
                     display: "block",
                     width: "100%",
-                    height: `${bar.value / top * 100}%`,
+                    height: `${(bar.value / top) * 100}%`,
                   }}
                 >
                   {mark ? <span className={marks.badge}>{mark.n}</span> : null}

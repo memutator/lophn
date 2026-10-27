@@ -86,7 +86,7 @@ export class TerminalStore {
     const ref = this.#entries.get(key)?.terminalRef;
     return ref == null || !this.#agents.has(ref)
       ? null
-      : this.#titles.get(ref) ?? null;
+      : (this.#titles.get(ref) ?? null);
   }
 
   /** 터미널이 낸 제목을 적는다. 같으면 아무것도 하지 않는다. */
@@ -107,9 +107,11 @@ export class TerminalStore {
     const before = this.#agents.get(runtime.terminal_ref);
     const next = runtime.agent;
     if (
-      before?.harness === next?.harness && before?.state === next?.state &&
+      before?.harness === next?.harness &&
+      before?.state === next?.state &&
       before?.unseen === next?.unseen
-    ) return;
+    )
+      return;
     if (next === undefined) this.#agents.delete(runtime.terminal_ref);
     else this.#agents.set(runtime.terminal_ref, next);
     this.#version += 1;
@@ -249,9 +251,8 @@ export class TerminalStore {
           kept[key] = {
             terminal_ref: value.terminal_ref,
             generation: value.generation,
-            folder_ref: typeof value.folder_ref === "string"
-              ? value.folder_ref
-              : null,
+            folder_ref:
+              typeof value.folder_ref === "string" ? value.folder_ref : null,
             session: typeof value.session === "string" ? value.session : null,
           };
         }

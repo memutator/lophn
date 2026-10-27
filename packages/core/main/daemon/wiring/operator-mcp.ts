@@ -8,9 +8,8 @@ import { operatorMcpServers } from "./lophn-agent-team.ts";
 export function readOperatorMcp(
   ledgerPath: string,
 ): Promise<Result<readonly OperatorMcpEntry[]>> {
-  const read = ledgerSnapshot(
-    ledgerPath,
-    (lookup) => operatorMcpServers(lookup.sql),
+  const read = ledgerSnapshot(ledgerPath, (lookup) =>
+    operatorMcpServers(lookup.sql),
   );
   return Promise.resolve(read.ok ? read.value : read);
 }

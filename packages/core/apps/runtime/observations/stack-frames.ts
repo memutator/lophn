@@ -94,9 +94,7 @@ async function readBundleManifest(
   if (!text.ok) return text;
   try {
     const parsed: unknown = JSON.parse(text.value);
-    if (
-      typeof parsed !== "object" || parsed === null || !("files" in parsed)
-    ) {
+    if (typeof parsed !== "object" || parsed === null || !("files" in parsed)) {
       return err({ code: "invalid_input", message: "manifest 형식이 아니다" });
     }
     const record = parsed as {
@@ -110,7 +108,9 @@ async function readBundleManifest(
     const files: { path: string; hash: string }[] = [];
     for (const entry of record.files) {
       if (
-        typeof entry !== "object" || entry === null || !("path" in entry) ||
+        typeof entry !== "object" ||
+        entry === null ||
+        !("path" in entry) ||
         !("hash" in entry) ||
         typeof (entry as { path: unknown }).path !== "string" ||
         typeof (entry as { hash: unknown }).hash !== "string"
@@ -126,9 +126,8 @@ async function readBundleManifest(
       });
     }
     return ok({
-      entrypoint: typeof record.entrypoint === "string"
-        ? record.entrypoint
-        : "",
+      entrypoint:
+        typeof record.entrypoint === "string" ? record.entrypoint : "",
       files,
       sdk_dependencies: Array.isArray(record.sdk_dependencies)
         ? record.sdk_dependencies
@@ -175,7 +174,7 @@ export async function resolveStackFrames(input: {
     return [mapped];
   }
   // bundle 사본 안 TS stack은 이미 원본 상대 path·함수다. source map을 거치지 않는다.
-  return await framesInsideBundle(copy.value, input.stack) ?? [];
+  return (await framesInsideBundle(copy.value, input.stack)) ?? [];
 }
 
 // 화면 JS 파일(`/screens/<key>/main.js`). stack file은 URL이든 path든 이 꼴로 끝난다.
@@ -188,7 +187,7 @@ async function frameFromScreenMap(
   stack: string,
 ): Promise<StackFrame | null> {
   const site = stackSites(stack).find((candidate) =>
-    SCREEN_FILE.test(candidate.file)
+    SCREEN_FILE.test(candidate.file),
   );
   if (site === undefined) return null;
   const map = await readSourceMap(copy, SCREEN_FILE.exec(site.file)![1]!);
@@ -242,11 +241,13 @@ type StackSite = {
 function stackSites(stack: string): StackSite[] {
   const sites: StackSite[] = [];
   for (const line of stack.split("\n")) {
-    const withName = /^\s*at (?:async )?(.+?) \((.+):(\d+):(\d+)\)\s*$/
-      .exec(line);
-    const bare = withName === null
-      ? /^\s*at (?:async )?(.+):(\d+):(\d+)\s*$/.exec(line)
-      : null;
+    const withName = /^\s*at (?:async )?(.+?) \((.+):(\d+):(\d+)\)\s*$/.exec(
+      line,
+    );
+    const bare =
+      withName === null
+        ? /^\s*at (?:async )?(.+):(\d+):(\d+)\s*$/.exec(line)
+        : null;
     const file = withName?.[2] ?? bare?.[1];
     const lineNo = Number(withName?.[3] ?? bare?.[2]);
     const column = Number(withName?.[4] ?? bare?.[3]);
@@ -392,9 +393,7 @@ function walkAllMappings(
 }
 
 // segment VLQ fields를 모두 푼다. 필드 수는 segment마다 1·4·5다.
-function decodeSegment(
-  segment: string,
-): Result<number[], SourceMapFailure> {
+function decodeSegment(segment: string): Result<number[], SourceMapFailure> {
   const fields: number[] = [];
   let position = 0;
   while (position < segment.length) {

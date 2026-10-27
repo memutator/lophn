@@ -32,9 +32,9 @@ function backupDir(dataArea: string): string {
 async function listBackupNames(dataArea: string): Promise<string[]> {
   const names: string[] = [];
   try {
-    for (
-      const entry of await readdir(backupDir(dataArea), { withFileTypes: true })
-    ) {
+    for (const entry of await readdir(backupDir(dataArea), {
+      withFileTypes: true,
+    })) {
       if (!entry.isFile()) continue;
       if (entry.name.endsWith(PENDING_SUFFIX)) continue;
       names.push(entry.name);

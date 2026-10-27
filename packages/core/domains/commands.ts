@@ -48,12 +48,14 @@ export function createDomain(
 ): Result<DomainRecord> {
   if (
     tx.sql.get("SELECT id FROM domains WHERE name = ?", [input.name]) !==
-      undefined
-  ) return fail("conflict", "domain name already exists");
+    undefined
+  )
+    return fail("conflict", "domain name already exists");
   if (
     input.id !== undefined &&
     tx.sql.get("SELECT id FROM domains WHERE id = ?", [input.id]) !== undefined
-  ) return fail("conflict", "domain id already exists");
+  )
+    return fail("conflict", "domain id already exists");
   const id = (input.id ?? tx.newId("dom")) as DomainRecord["id"];
   const seq = tx.emit(domainCreated, id, {
     name: input.name,
@@ -83,9 +85,8 @@ export function createDomainCommands(): {
     create: {
       route: domainCreate,
       handle(tx, ctx, input) {
-        if (
-          input.id !== undefined && parseActor(ctx.actor)?.kind !== "user"
-        ) return fail("forbidden", "only a person assigns a domain id");
+        if (input.id !== undefined && parseActor(ctx.actor)?.kind !== "user")
+          return fail("forbidden", "only a person assigns a domain id");
         if (!mayCreate(ctx, input.owner)) {
           return fail("forbidden", "a domain is made in the actor's own owner");
         }

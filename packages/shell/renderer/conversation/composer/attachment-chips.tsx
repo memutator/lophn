@@ -10,13 +10,14 @@ import styles from "./agent-composer.module.css";
 
 const nameOf = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
-export function AttachmentChips(
-  { attachments, onRemove }: {
-    attachments: readonly Attachment[];
-    /** 없으면 뗄 수 없다(보내는 중). */
-    onRemove?: (item: Attachment) => void;
-  },
-): ReactElement | null {
+export function AttachmentChips({
+  attachments,
+  onRemove,
+}: {
+  attachments: readonly Attachment[];
+  /** 없으면 뗄 수 없다(보내는 중). */
+  onRemove?: (item: Attachment) => void;
+}): ReactElement | null {
   const [preview, setPreview] = useState<{ src: string; alt: string } | null>(
     null,
   );
@@ -25,30 +26,33 @@ export function AttachmentChips(
     <ul className={styles.chips} data-attachments="">
       {attachments.map((item) => {
         const name = item.kind === "file" ? nameOf(item.path) : item.name;
-        const remove = onRemove === undefined ? {} : {
-          onRemove: () => onRemove(item),
-          removeLabel: t("conversation.button.remove-attachment", { name }),
-        };
+        const remove =
+          onRemove === undefined
+            ? {}
+            : {
+                onRemove: () => onRemove(item),
+                removeLabel: t("conversation.button.remove-attachment", {
+                  name,
+                }),
+              };
         return (
           <li key={item.kind === "file" ? item.path : item.url}>
-            {item.kind === "file"
-              ? (
-                <AttachmentChip
-                  name={name}
-                  icon={<FileIcon name={name} size={16} />}
-                  path={item.path}
-                  {...remove}
-                />
-              )
-              : (
-                <AttachmentTile
-                  src={item.url}
-                  alt={name}
-                  openLabel={t("conversation.button.preview-image", { name })}
-                  onOpen={() => setPreview({ src: item.url, alt: name })}
-                  {...remove}
-                />
-              )}
+            {item.kind === "file" ? (
+              <AttachmentChip
+                name={name}
+                icon={<FileIcon name={name} size={16} />}
+                path={item.path}
+                {...remove}
+              />
+            ) : (
+              <AttachmentTile
+                src={item.url}
+                alt={name}
+                openLabel={t("conversation.button.preview-image", { name })}
+                onOpen={() => setPreview({ src: item.url, alt: name })}
+                {...remove}
+              />
+            )}
           </li>
         );
       })}

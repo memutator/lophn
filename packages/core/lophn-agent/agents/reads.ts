@@ -64,24 +64,33 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentDefinitionRow {
     place: loaded.place,
     name: nameOf(roles, loaded),
     profile: profileOf(roles, loaded),
-    model: model === null ? null : {
-      provider: model.value.provider,
-      model_name: model.value.model_name,
-      source: model.source,
-    },
+    model:
+      model === null
+        ? null
+        : {
+            provider: model.value.provider,
+            model_name: model.value.model_name,
+            source: model.source,
+          },
     issues: loaded.issues,
-    counts: broken ? { skills: null, mcp: null } : {
-      skills:
-        receivedSkills(skills, chosenSkills, domainsOf(context, loaded)).length,
-      mcp:
-        mcp.filter((tool) =>
-          !mcpOff.some((off) =>
-            off.server_name === tool.server_name &&
-            (off.original_tool === undefined ||
-              off.original_tool === tool.original_tool)
-          )
-        ).length,
-    },
+    counts: broken
+      ? { skills: null, mcp: null }
+      : {
+          skills: receivedSkills(
+            skills,
+            chosenSkills,
+            domainsOf(context, loaded),
+          ).length,
+          mcp: mcp.filter(
+            (tool) =>
+              !mcpOff.some(
+                (off) =>
+                  off.server_name === tool.server_name &&
+                  (off.original_tool === undefined ||
+                    off.original_tool === tool.original_tool),
+              ),
+          ).length,
+        },
   };
 }
 
@@ -178,11 +187,12 @@ export function createAgentReads(deps: AgentDeps): {
             },
             profile: {
               value: profile,
-              source: loaded.definition !== null &&
-                  "profile" in loaded.definition &&
-                  loaded.definition.profile !== undefined
-                ? "agent"
-                : "global",
+              source:
+                loaded.definition !== null &&
+                "profile" in loaded.definition &&
+                loaded.definition.profile !== undefined
+                  ? "agent"
+                  : "global",
             },
             model,
             domains: domainsOf(context.value, loaded),

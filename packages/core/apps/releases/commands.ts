@@ -326,8 +326,8 @@ export function createReleaseCommands(): {
         }
         const activation: ActivationAttempt = {
           ...release.activation,
-          data_change_invocation: input.invocation ??
-            release.activation.data_change_invocation,
+          data_change_invocation:
+            input.invocation ?? release.activation.data_change_invocation,
         };
         storeActivation(tx, release.id, "failed", activation, input.failure);
         tx.sql.run("DELETE FROM activation_requests WHERE release = ?", [
@@ -403,7 +403,8 @@ export function createReleaseCommands(): {
           [release.id],
         );
         if (
-          existing !== undefined && String(existing.comparison) === comparison
+          existing !== undefined &&
+          String(existing.comparison) === comparison
         ) {
           return ok({ created: false });
         }
@@ -498,7 +499,8 @@ export function createReleaseCommands(): {
         }
         const validated = validateDeclaration(input.declaration, {
           app: input.app,
-          domains: lookup.ofOwner({ kind: "app", id: input.app }, "active")
+          domains: lookup
+            .ofOwner({ kind: "app", id: input.app }, "active")
             .map((domain) => domain.name),
         });
         if (!validated.ok) return invalid(validated.error.message);
@@ -511,12 +513,12 @@ export function createReleaseCommands(): {
         const manifest = input.manifest;
         if (
           sha256(new TextDecoder().decode(manifestBytes(manifest))) !==
-            input.bundle_hash
+          input.bundle_hash
         ) {
           return invalid("manifest does not match the bundle hash");
         }
-        const pinned = manifest.files.find((file) =>
-          file.path === "declaration.json"
+        const pinned = manifest.files.find(
+          (file) => file.path === "declaration.json",
         );
         if (pinned?.hash !== input.declaration_hash) {
           return invalid(
@@ -526,7 +528,7 @@ export function createReleaseCommands(): {
         // 선언에는 SDK와 사용자 package만 적는다(npm·jsr은 선언 문법이 없다). bundle에 담긴 그 둘이 선언과 같아야 한다.
         if (
           canonicalJson(declaration.sdk_dependencies as never) !==
-            canonicalJson(manifestDependencies(manifest) as never)
+          canonicalJson(manifestDependencies(manifest) as never)
         ) {
           return invalid("manifest dependencies differ from the declaration");
         }
@@ -600,25 +602,21 @@ function requireMachine(ctx: RequestContext, route: string): Result<void> {
 }
 
 // bundle에 담긴 의존 가운데 선언에 적힌 것(SDK와 사용자 package)이다. 이름순으로 낸다.
-function manifestDependencies(
-  manifest: {
-    sdk_dependencies: readonly { name: string; version: string }[];
-    dependencies: readonly {
-      name: string;
-      version: string;
-      source: "sdk" | "package" | "npm" | "jsr";
-    }[];
-  },
-): { name: string; version: string }[] {
+function manifestDependencies(manifest: {
+  sdk_dependencies: readonly { name: string; version: string }[];
+  dependencies: readonly {
+    name: string;
+    version: string;
+    source: "sdk" | "package" | "npm" | "jsr";
+  }[];
+}): { name: string; version: string }[] {
   const byName = new Map<string, { name: string; version: string }>();
-  for (
-    const dependency of [
-      ...manifest.sdk_dependencies,
-      ...manifest.dependencies.filter((item) =>
-        item.source === "sdk" || item.source === "package"
-      ),
-    ]
-  ) {
+  for (const dependency of [
+    ...manifest.sdk_dependencies,
+    ...manifest.dependencies.filter(
+      (item) => item.source === "sdk" || item.source === "package",
+    ),
+  ]) {
     byName.set(dependency.name, {
       name: dependency.name,
       version: dependency.version,
@@ -657,9 +655,7 @@ function checkReady(
   stored: { facts: { tools: readonly string[] } },
 ): Result<void> {
   const { result, attestation } = input;
-  if (
-    result.release !== release.id || result.attempt !== activation.attempt
-  ) {
+  if (result.release !== release.id || result.attempt !== activation.attempt) {
     return conflict("the data result is for another activation");
   }
   if (!result.integrity_ok || result.data_schema !== release.data_schema) {
@@ -668,10 +664,12 @@ function checkReady(
   const records = createDataRecordStore(tx);
   const change = records.find(release.id, activation.attempt, "change");
   const backup = records.find(release.id, activation.attempt, "backup");
-  const recorded = change === null
-    ? result.invocation === null
-    : backup !== null && change.dataSchema === release.data_schema &&
-      result.invocation === change.invocation;
+  const recorded =
+    change === null
+      ? result.invocation === null
+      : backup !== null &&
+        change.dataSchema === release.data_schema &&
+        result.invocation === change.invocation;
   if (!recorded) {
     return unavailable("the data change is not recorded");
   }
@@ -700,12 +698,14 @@ export const activationAttemptGate: AttemptGate = {
     const release = progress.value;
     // 복구본은 목표보다 앞선 schema의 것이다. 복구본이 필요 없는 시도는 backup을 만들지 않는다.
     if (
-      attempt.kind === "backup" && attempt.dataSchema >= release.data_schema
+      attempt.kind === "backup" &&
+      attempt.dataSchema >= release.data_schema
     ) {
       return conflict("the release needs no data change from that schema");
     }
     if (
-      attempt.kind === "change" && attempt.dataSchema !== release.data_schema
+      attempt.kind === "change" &&
+      attempt.dataSchema !== release.data_schema
     ) {
       return conflict("the data is not at the release schema");
     }

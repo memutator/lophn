@@ -60,11 +60,13 @@ export function fakeShellRules(options: FakeShellRulesOptions = {}) {
         ok: true,
         value: {
           global: value.global,
-          projects: ids.map((id) => ({
-            id,
-            name: PROJECT_NAMES[id] ?? id,
-            rules: value.projects[id] ?? [],
-          })).sort((a, b) => a.name.localeCompare(b.name)),
+          projects: ids
+            .map((id) => ({
+              id,
+              name: PROJECT_NAMES[id] ?? id,
+              rules: value.projects[id] ?? [],
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name)),
         },
       });
     },

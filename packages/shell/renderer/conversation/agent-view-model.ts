@@ -47,19 +47,25 @@ export function shownEntries(
   bodyOf: (message: string) => BodyState | undefined,
 ): readonly ThreadEntry[] {
   return detail === "messages"
-    ? entries.filter((entry) =>
-      entry.kind !== "tools" &&
-      !(entry.kind === "turn-end" && entry.outcome === "completed") &&
-      !(entry.kind === "message" && entry.actor === "agent" &&
-        reasoningOnly(bodyOf(entry.id)))
-    )
+    ? entries.filter(
+        (entry) =>
+          entry.kind !== "tools" &&
+          !(entry.kind === "turn-end" && entry.outcome === "completed") &&
+          !(
+            entry.kind === "message" &&
+            entry.actor === "agent" &&
+            reasoningOnly(bodyOf(entry.id))
+          ),
+      )
     : entries;
 }
 
 /** 읽은 본문에 reasoning 밖의 part가 없다. */
 function reasoningOnly(body: BodyState | undefined): boolean {
-  return body?.state === "ready" &&
-    body.parts.every((part) => part.kind === "reasoning");
+  return (
+    body?.state === "ready" &&
+    body.parts.every((part) => part.kind === "reasoning")
+  );
 }
 
 /** 대화의 확정 메시지 전부. 접힌 숨긴 구간 안의 메시지도 든다(펼치면 읽으므로 본문을 읽어 둔다). */
@@ -72,8 +78,8 @@ function flatMessages(entries: readonly ThreadEntry[]): ThreadMessage[] {
     entry.kind === "message"
       ? [entry]
       : entry.kind === "hidden"
-      ? flatMessages(entry.entries)
-      : []
+        ? flatMessages(entry.entries)
+        : [],
   );
 }
 
@@ -82,7 +88,8 @@ const EXCERPT_CHARS = 60;
 /** 글 part만 이은 본문. 읽지 못했으면 null이다. */
 export function textOfBody(body: BodyState | undefined): string | null {
   if (body?.state !== "ready") return null;
-  return body.parts.flatMap((part) => part.kind === "text" ? [part.text] : [])
+  return body.parts
+    .flatMap((part) => (part.kind === "text" ? [part.text] : []))
     .join("\n");
 }
 

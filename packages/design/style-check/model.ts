@@ -77,8 +77,9 @@ const COLOR_FUNCTIONS = new Set([
   "device-cmyk",
 ]);
 const NAMED_COLORS = new Set(
-  `aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen`
-    .split(" "),
+  `aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen`.split(
+    " ",
+  ),
 );
 const SYSTEM_COLORS = new Set([
   "accentcolor",
@@ -115,9 +116,10 @@ export function checkStyles(css: string, file: string): StyleIssue[] {
   try {
     root = postcss.parse(css, { from: file });
   } catch (error) {
-    const line = typeof error === "object" && error !== null && "line" in error
-      ? Number(error.line)
-      : 1;
+    const line =
+      typeof error === "object" && error !== null && "line" in error
+        ? Number(error.line)
+        : 1;
     return [{ file, line, reason: "invalid_input: CSS parse failed" }];
   }
   const inspect = (value: string, node: Node, prop?: string, media = false) => {
@@ -127,11 +129,12 @@ export function checkStyles(css: string, file: string): StyleIssue[] {
         const fn = item.value.toLowerCase();
         if (fn === "url") return false;
         if (fn === "var") {
-          const first = item.nodes.find((child) =>
-            child.type !== "space" && child.type !== "comment"
+          const first = item.nodes.find(
+            (child) => child.type !== "space" && child.type !== "comment",
           );
           if (
-            !first || first.type !== "word" ||
+            !first ||
+            first.type !== "word" ||
             (!KNOWN_TOKENS.has(first.value) &&
               !first.value.startsWith("--radix-"))
           ) {
@@ -144,7 +147,8 @@ export function checkStyles(css: string, file: string): StyleIssue[] {
       if (item.type !== "word" || definition) return;
       const word = item.value.toLowerCase();
       if (
-        /^#[\da-f]+$/i.test(word) || NAMED_COLORS.has(word) ||
+        /^#[\da-f]+$/i.test(word) ||
+        NAMED_COLORS.has(word) ||
         SYSTEM_COLORS.has(word)
       ) {
         report(node, `invalid_input: raw color ${item.value}`);
@@ -154,11 +158,15 @@ export function checkStyles(css: string, file: string): StyleIssue[] {
         if (unit.unit === "ms" || unit.unit === "s") {
           report(node, `invalid_input: raw time ${item.value}`);
         } else if (
-          LENGTH_UNITS.has(unit.unit) && (media || Number(unit.number) !== 0)
+          LENGTH_UNITS.has(unit.unit) &&
+          (media || Number(unit.number) !== 0)
         ) {
           if (
-            media && unit.unit === "px" && BREAKPOINTS.has(Number(unit.number))
-          ) return;
+            media &&
+            unit.unit === "px" &&
+            BREAKPOINTS.has(Number(unit.number))
+          )
+            return;
           // 1px도 border.width token을 써야 테두리 override와 스타일 검사가 같은 규칙을 따른다.
           report(
             node,
@@ -167,7 +175,8 @@ export function checkStyles(css: string, file: string): StyleIssue[] {
             } ${item.value}`,
           );
         } else if (
-          (prop === "font-weight" || prop === "z-index") && unit.unit === ""
+          (prop === "font-weight" || prop === "z-index") &&
+          unit.unit === ""
         ) {
           report(node, `invalid_input: raw ${prop} ${item.value}`);
         }
@@ -178,10 +187,13 @@ export function checkStyles(css: string, file: string): StyleIssue[] {
     const prop = decl.prop.toLowerCase();
     const parent = decl.parent;
     if (
-      base && parent?.type === "atrule" && "name" in parent &&
+      base &&
+      parent?.type === "atrule" &&
+      "name" in parent &&
       parent.name.toLowerCase() === "font-face" &&
       ["src", "font-display", "font-weight"].includes(prop)
-    ) return;
+    )
+      return;
     inspect(decl.value, decl, prop);
   });
   root.walkAtRules((rule) => {

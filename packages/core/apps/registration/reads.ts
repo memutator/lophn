@@ -28,11 +28,13 @@ function nextAppCursor(
   status: "active" | "archived" | undefined,
   limit: number,
 ): string {
-  return btoa(JSON.stringify({
-    offset,
-    status: status ?? null,
-    limit,
-  }));
+  return btoa(
+    JSON.stringify({
+      offset,
+      status: status ?? null,
+      limit,
+    }),
+  );
 }
 
 function appPageOffset(
@@ -89,9 +91,8 @@ export function createAppsReads(): {
         return ok({
           apps: page,
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: next < head
-            ? nextAppCursor(next, input.status, limit)
-            : null,
+          next_cursor:
+            next < head ? nextAppCursor(next, input.status, limit) : null,
         });
       },
     },
@@ -119,6 +120,8 @@ export function createAppsReads(): {
 
 // scope가 앱을 가리지 않으면 그 app은 보지 못한다. unavailable·internal은 그대로 실패다.
 function deniedByScope(result: Result<unknown>): boolean {
-  return !result.ok &&
-    (result.error.code === "forbidden" || result.error.code === "not_found");
+  return (
+    !result.ok &&
+    (result.error.code === "forbidden" || result.error.code === "not_found")
+  );
 }

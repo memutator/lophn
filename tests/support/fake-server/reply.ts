@@ -80,14 +80,15 @@ function finish(stopReason: string, outputTokens: number): string[] {
 }
 
 function partialChunks(partial: Partial): string[] {
-  const block = "text" in partial
-    ? textBlock(0, partial.text, false)
-    : toolBlock(
-      0,
-      partial.tool,
-      partial.tool.arguments.slice(0, partial.tool.arguments.length >> 1),
-      false,
-    );
+  const block =
+    "text" in partial
+      ? textBlock(0, partial.text, false)
+      : toolBlock(
+          0,
+          partial.tool,
+          partial.tool.arguments.slice(0, partial.tool.arguments.length >> 1),
+          false,
+        );
   return [start(DEFAULT_USAGE.input), ...block];
 }
 
@@ -161,7 +162,7 @@ export function toResponse(
       start(DEFAULT_USAGE.input),
       ...lead,
       ...reply.calls.flatMap((call, i) =>
-        toolBlock(i + offset, call, call.arguments, true)
+        toolBlock(i + offset, call, call.arguments, true),
       ),
       ...finish("tool_use", DEFAULT_USAGE.output),
     ];

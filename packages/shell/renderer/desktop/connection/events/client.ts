@@ -67,7 +67,8 @@ export function createEventClient(core: CoreSource): EventClient {
     for (const { condition } of subscribers) {
       byKey.set(conditionKey(condition), condition);
     }
-    return [...byKey.entries()].sort(([a], [b]) => a < b ? -1 : 1)
+    return [...byKey.entries()]
+      .sort(([a], [b]) => (a < b ? -1 : 1))
       .map(([, condition]) => condition);
   }
 

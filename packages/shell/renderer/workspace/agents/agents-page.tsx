@@ -117,35 +117,37 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
 
   return (
     <>
-      {failed
-        ? (
-          <div className={styles.toastSlot}>
-            <Toast
-              tone="error"
-              title={t("agents.title.change-failed")}
-              body={t("project-workspace.notice.agents-change-failed")}
-              onClose={() => setFailed(false)}
-            />
-          </div>
-        )
-        : null}
+      {failed ? (
+        <div className={styles.toastSlot}>
+          <Toast
+            tone="error"
+            title={t("agents.title.change-failed")}
+            body={t("project-workspace.notice.agents-change-failed")}
+            onClose={() => setFailed(false)}
+          />
+        </div>
+      ) : null}
       <AgentsTab
         projectName={props.projectName}
         overview={overview.value}
         models={models}
         source={source}
         imageSrc={(assignment, image) =>
-          source.imageSrc(project, assignment, image)}
+          source.imageSrc(project, assignment, image)
+        }
         onOpenAgent={(assignment) => props.onAgent(assignment)}
         onNewOperator={() => setCreating(true)}
         onEditInstructions={props.onEditInstructions}
         onProjectModel={(choice: ModelChoice | null) =>
-          change(() => source.setProjectModel(project, choice))}
+          change(() => source.setProjectModel(project, choice))
+        }
         onToggleSkill={(name, on) =>
-          change(() => source.setSkill(project, name, on))}
+          change(() => source.setSkill(project, name, on))
+        }
         onAddSkill={props.onAddExtension}
         onToggleMcp={(name, on) =>
-          change(() => source.setMcp(project, name, on))}
+          change(() => source.setMcp(project, name, on))
+        }
         onAddServer={props.onAddExtension}
       />
     </>

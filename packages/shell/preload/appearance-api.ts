@@ -8,11 +8,9 @@ interface AppearanceTransport {
 export function createAppearanceApi(
   transport: AppearanceTransport,
 ): AppearanceApi {
-  return Object.freeze(
-    {
-      set(appearance) {
-        void transport.invoke(APPEARANCE_CHANNEL, appearance).catch(() => {});
-      },
-    } satisfies AppearanceApi,
-  );
+  return Object.freeze({
+    set(appearance) {
+      void transport.invoke(APPEARANCE_CHANNEL, appearance).catch(() => {});
+    },
+  } satisfies AppearanceApi);
 }

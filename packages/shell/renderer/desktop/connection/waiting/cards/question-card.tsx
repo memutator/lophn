@@ -13,14 +13,17 @@ import { Head } from "./head.tsx";
 
 type Question = WaitingEntry & { kind: "question" };
 
-export function QuestionCard(
-  { entry, view, core, onOpenSession }: {
-    entry: Question;
-    view: CardView;
-    core: CoreSource;
-    onOpenSession: (session: string) => void;
-  },
-) {
+export function QuestionCard({
+  entry,
+  view,
+  core,
+  onOpenSession,
+}: {
+  entry: Question;
+  view: CardView;
+  core: CoreSource;
+  onOpenSession: (session: string) => void;
+}) {
   // undefined는 읽는 중, null은 읽지 못함(풀렸거나 끊김)이다.
   const [questions, setQuestions] = useState<
     readonly AskQuestion[] | null | undefined
@@ -37,25 +40,27 @@ export function QuestionCard(
     };
   }, [core, entry.id]);
 
-  const only = questions?.length === 1 && !questions[0].multiSelect
-    ? questions[0]
-    : null;
-  const description = only !== null
-    ? only.question
-    : questions === undefined
-    ? view.description
-    : questions === null
-    ? t("waiting.notice.question-in-session")
-    : t("waiting.notice.question-multiple", { count: questions.length });
+  const only =
+    questions?.length === 1 && !questions[0].multiSelect ? questions[0] : null;
+  const description =
+    only !== null
+      ? only.question
+      : questions === undefined
+        ? view.description
+        : questions === null
+          ? t("waiting.notice.question-in-session")
+          : t("waiting.notice.question-multiple", { count: questions.length });
 
   async function answer(question: AskQuestion, label: string) {
     setBusy(true);
     setFailed(false);
-    const result = await answerQuestion(core, entry, [{
-      question: question.question,
-      status: "answered",
-      answer: [label],
-    }]);
+    const result = await answerQuestion(core, entry, [
+      {
+        question: question.question,
+        status: "answered",
+        answer: [label],
+      },
+    ]);
     setBusy(false);
     setFailed(!result.ok);
   }
@@ -63,9 +68,9 @@ export function QuestionCard(
   return (
     <article className={styles.request} data-kind="question">
       <Head view={{ ...view, description }} agent={entry.agent} />
-      {failed
-        ? <p className={styles.error}>{t("waiting.notice.decide-failed")}</p>
-        : null}
+      {failed ? (
+        <p className={styles.error}>{t("waiting.notice.decide-failed")}</p>
+      ) : null}
       <div className={styles.actions}>
         <Button
           size="sm"
@@ -79,16 +84,16 @@ export function QuestionCard(
         </Button>
         {only !== null
           ? [...only.options].reverse().map((option) => (
-            <Button
-              key={option.label}
-              size="sm"
-              variant={option === only.options[0] ? "primary" : "secondary"}
-              disabled={busy}
-              onClick={() => answer(only, option.label)}
-            >
-              {option.label}
-            </Button>
-          ))
+              <Button
+                key={option.label}
+                size="sm"
+                variant={option === only.options[0] ? "primary" : "secondary"}
+                disabled={busy}
+                onClick={() => answer(only, option.label)}
+              >
+                {option.label}
+              </Button>
+            ))
           : null}
       </div>
     </article>

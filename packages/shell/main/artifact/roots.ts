@@ -11,9 +11,10 @@ export function createArtifactRoots(): {
   return {
     register(realRoot, scope) {
       const input = scope ? `${realRoot}\0${scope}` : realRoot;
-      const host = `a-${
-        createHash("sha256").update(input).digest("hex").slice(0, 24)
-      }`;
+      const host = `a-${createHash("sha256")
+        .update(input)
+        .digest("hex")
+        .slice(0, 24)}`;
       roots.set(host, { root: realRoot, scope: scope || undefined });
       return host;
     },

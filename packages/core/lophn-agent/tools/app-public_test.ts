@@ -61,12 +61,18 @@ test("an agent sees the private tools of its own domains only, public tools of a
     [APP_B, ["shown"]],
   ]);
   // 집합이 없는 lophn(과 읽지 못한 agent)은 공개만 본다.
-  const publicOnly = [[APP_A, ["shown"]], [APP_B, ["shown"]]];
+  const publicOnly = [
+    [APP_A, ["shown"]],
+    [APP_B, ["shown"]],
+  ];
   assert.deepStrictEqual(await visible([]), publicOnly);
   assert.deepStrictEqual(await visible(null), publicOnly);
   // domain 이름을 읽지 못한 앱의 비공개 tool은 없다.
   assert.deepStrictEqual(
     await visible([idOf(APP_A, "items"), idOf(APP_B, "items")], [APP_A]),
-    [[APP_A, ["shown"]], [APP_B, ["items.open", "shown"]]],
+    [
+      [APP_A, ["shown"]],
+      [APP_B, ["items.open", "shown"]],
+    ],
   );
 });

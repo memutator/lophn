@@ -23,19 +23,23 @@ export async function gitBytes(
   cwd: string,
   ...args: string[]
 ): Promise<Uint8Array> {
-  const child = spawn("git", [
-    "-c",
-    "user.name=eval",
-    "-c",
-    "user.email=eval@example.invalid",
-    "-c",
-    "commit.gpgsign=false",
-    ...args,
-  ], {
-    cwd,
-    env: { ...process.env, ...GIT_ENV },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const child = spawn(
+    "git",
+    [
+      "-c",
+      "user.name=eval",
+      "-c",
+      "user.email=eval@example.invalid",
+      "-c",
+      "commit.gpgsign=false",
+      ...args,
+    ],
+    {
+      cwd,
+      env: { ...process.env, ...GIT_ENV },
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
   const stdout: Uint8Array[] = [];
   const stderr: Uint8Array[] = [];
   child.stdout.on("data", (chunk: Uint8Array) => stdout.push(chunk));

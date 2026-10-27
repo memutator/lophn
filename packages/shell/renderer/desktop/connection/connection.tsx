@@ -15,8 +15,8 @@ import styles from "./connection.module.css";
 
 /** main이 민 연결 상태를 따른다. */
 export function useConnection(source: CoreSource): ConnectionState {
-  const [connection, setConnection] = useState<ConnectionState>(() =>
-    source.current?.() ?? initialConnection
+  const [connection, setConnection] = useState<ConnectionState>(
+    () => source.current?.() ?? initialConnection,
   );
   useEffect(() => source.subscribe(setConnection), [source]);
   return connection;
@@ -43,11 +43,7 @@ export function ConnectionGate({ connection, onRetry }: ConnectionGateProps) {
   if (connection.state === "failed") {
     return (
       <div className={styles.gate}>
-        <div
-          className={styles.failed}
-          role="status"
-          data-connection="failed"
-        >
+        <div className={styles.failed} role="status" data-connection="failed">
           <Icon
             icon={connectionFailedIcon}
             pixels={iconPixels("large")}
@@ -72,9 +68,7 @@ export function ConnectionGate({ connection, onRetry }: ConnectionGateProps) {
         role="status"
         data-connection={connection.state}
       >
-        <h1 className={styles.heading}>
-          {t("launcher.connection.starting")}
-        </h1>
+        <h1 className={styles.heading}>{t("launcher.connection.starting")}</h1>
         <div className={styles.skeleton} aria-hidden="true">
           <span className={styles.block} />
           <span className={styles.lineLong}>
@@ -100,9 +94,11 @@ interface ConnectionNoticeProps {
 }
 
 // 단절은 마지막 화면을 그대로 두고 위에 한 줄로 최신 확인 못함·확인 시각·다시 연결을 보인다.
-export function ConnectionNotice(
-  { connection, onRetry, formatTime = absoluteTime }: ConnectionNoticeProps,
-) {
+export function ConnectionNotice({
+  connection,
+  onRetry,
+  formatTime = absoluteTime,
+}: ConnectionNoticeProps) {
   if (connection.state !== "stale") return null;
   return (
     <div className={styles.notice} role="status" data-connection="stale">

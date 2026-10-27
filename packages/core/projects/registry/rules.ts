@@ -26,15 +26,14 @@ export function gitignoreExcludes(
   relativePath: string,
   rules: readonly GitignoreRule[],
 ): boolean {
-  const ordered = [...rules].sort((left, right) =>
-    right.directory.length - left.directory.length
+  const ordered = [...rules].sort(
+    (left, right) => right.directory.length - left.directory.length,
   );
   for (const rule of ordered) {
     const prefix = rule.directory === "" ? "" : `${rule.directory}/`;
     if (rule.directory !== "" && !relativePath.startsWith(prefix)) continue;
-    const local = rule.directory === ""
-      ? relativePath
-      : relativePath.slice(prefix.length);
+    const local =
+      rule.directory === "" ? relativePath : relativePath.slice(prefix.length);
     const manager = ignore({ ignorecase: false });
     const lines = rule.text.split(/\r?\n/).filter((line) => line.length > 0);
     if (lines.length === 0) continue;

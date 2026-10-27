@@ -22,21 +22,19 @@ function notFound(): Result<never> {
   return err({ code: "not_found", message: "app not found" });
 }
 
-type RuntimeObservationSource = (
-  app: string,
-) => {
-  observation: RuntimeObservation | null;
-  observed_at: string | null;
-} | undefined;
+type RuntimeObservationSource = (app: string) =>
+  | {
+      observation: RuntimeObservation | null;
+      observed_at: string | null;
+    }
+  | undefined;
 
 type RuntimeReadDeps = {
   // 현재 supervisor 관측. 없으면 observation은 null이다.
   observation?: RuntimeObservationSource;
 };
 
-export function createRuntimeReads(
-  deps: RuntimeReadDeps = {},
-): {
+export function createRuntimeReads(deps: RuntimeReadDeps = {}): {
   runtime: ReadDefinition<typeof appRuntime>;
   logs: ReadDefinition<typeof appLogs>;
 } {
@@ -93,8 +91,10 @@ export function createRuntimeReads(
 }
 
 function denied(result: Result<unknown>): boolean {
-  return !result.ok &&
-    (result.error.code === "forbidden" || result.error.code === "not_found");
+  return (
+    !result.ok &&
+    (result.error.code === "forbidden" || result.error.code === "not_found")
+  );
 }
 
 // core 메인 스레드의 read handler 모양. reader pool의 read가 이 모양으로 이어진다.

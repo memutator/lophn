@@ -15,9 +15,12 @@ interface EditCardProps {
 }
 
 // 파일을 바꾼 편집 카드 "Edited <경로> +n −m"와 [Open]. 되돌리는 길은 rewind뿐이라 Undo는 없다.
-export function EditCard(
-  { path, added, removed, onOpen }: EditCardProps,
-): ReactElement {
+export function EditCard({
+  path,
+  added,
+  removed,
+  onOpen,
+}: EditCardProps): ReactElement {
   return (
     <Card>
       <div className={styles.editCard} data-edit-card="">

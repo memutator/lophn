@@ -10,15 +10,16 @@ const tool = (
   pub: boolean,
   effect = "read",
   domain = "alpha",
-): Tool => ({
-  name,
-  title: name,
-  description: name,
-  inputSchema: null,
-  effect,
-  public: pub,
-  domain,
-} as Tool);
+): Tool =>
+  ({
+    name,
+    title: name,
+    description: name,
+    inputSchema: null,
+    effect,
+    public: pub,
+    domain,
+  }) as Tool;
 
 test("공개였다가 비공개가 된 tool도 지운 것이다", () => {
   const before = [tool("a", true), tool("b", true), tool("c", false)];

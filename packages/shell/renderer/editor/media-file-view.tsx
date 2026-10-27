@@ -33,14 +33,14 @@ export function MediaFileView(props: DocumentViewProps) {
     const message = failureText(file.code);
     return (
       <FileStatus>
-        {message === null
-          ? (
-            <ErrorState
-              target={t("document.label.this-document")}
-              onRetry={() => setAttempt((value) => value + 1)}
-            />
-          )
-          : <p role="status">{message}</p>}
+        {message === null ? (
+          <ErrorState
+            target={t("document.label.this-document")}
+            onRetry={() => setAttempt((value) => value + 1)}
+          />
+        ) : (
+          <p role="status">{message}</p>
+        )}
       </FileStatus>
     );
   }
@@ -51,9 +51,11 @@ export function MediaFileView(props: DocumentViewProps) {
       path={path}
       kind={kind}
       outside={outside}
-      meta={kind === "image" && dimensions !== null
-        ? `${dimensions} · ${size}`
-        : size}
+      meta={
+        kind === "image" && dimensions !== null
+          ? `${dimensions} · ${size}`
+          : size
+      }
       line={line}
       state={null}
       info={{
@@ -65,16 +67,15 @@ export function MediaFileView(props: DocumentViewProps) {
       initialInfo={props.initialInfo}
       onDelete={onDelete}
     >
-      {kind === "image"
-        ? (
-          <ImageViewer
-            url={file.url}
-            label={label}
-            onSize={({ width, height }) =>
-              setDimensions(`${width} × ${height}`)}
-          />
-        )
-        : <PdfViewer url={file.url} label={label} />}
+      {kind === "image" ? (
+        <ImageViewer
+          url={file.url}
+          label={label}
+          onSize={({ width, height }) => setDimensions(`${width} × ${height}`)}
+        />
+      ) : (
+        <PdfViewer url={file.url} label={label} />
+      )}
     </FileFrame>
   );
 }

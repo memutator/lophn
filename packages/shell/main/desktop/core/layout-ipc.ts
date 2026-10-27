@@ -29,22 +29,23 @@ const readInput = z.strictObject({ project: projectId });
 const saveInput = z.strictObject({
   project: projectId,
   active_desk: z.string().min(1).max(200),
-  desks: z.record(
-    z.string().min(1).max(200),
-    z.strictObject({
-      panes: z.array(z.unknown()).min(1).max(2),
-      split_ratio: z.number(),
-      focused_pane: z.number().int().min(0).max(1),
-      floats: z.array(z.unknown()).max(20),
-      detached: z.array(
-        z.strictObject({ tab: z.unknown(), bounds: z.unknown() }),
-      )
-        .max(20),
+  desks: z
+    .record(
+      z.string().min(1).max(200),
+      z.strictObject({
+        panes: z.array(z.unknown()).min(1).max(2),
+        split_ratio: z.number(),
+        focused_pane: z.number().int().min(0).max(1),
+        floats: z.array(z.unknown()).max(20),
+        detached: z
+          .array(z.strictObject({ tab: z.unknown(), bounds: z.unknown() }))
+          .max(20),
+      }),
+    )
+    .refine((desks) => {
+      const count = Object.keys(desks).length;
+      return count >= 1 && count <= 200;
     }),
-  ).refine((desks) => {
-    const count = Object.keys(desks).length;
-    return count >= 1 && count <= 200;
-  }),
 });
 
 interface LayoutIpcMain {
@@ -139,14 +140,18 @@ export function registerLayoutIpc(
       }
       const live = deps.detachedBounds(event);
       const desks = Object.fromEntries(
-        Object.entries(parsed.value.desks).map(([name, desk]) => [name, {
-          ...desk,
-          detached: desk.detached.map((item) => {
-            const key = (item.tab as { key?: unknown } | null)?.key;
-            const bounds = typeof key === "string" ? live.get(key) : undefined;
-            return bounds === undefined ? item : { ...item, bounds };
-          }),
-        }]),
+        Object.entries(parsed.value.desks).map(([name, desk]) => [
+          name,
+          {
+            ...desk,
+            detached: desk.detached.map((item) => {
+              const key = (item.tab as { key?: unknown } | null)?.key;
+              const bounds =
+                typeof key === "string" ? live.get(key) : undefined;
+              return bounds === undefined ? item : { ...item, bounds };
+            }),
+          },
+        ]),
       );
       const valid = validateLayout({
         schema_version: SCHEMA_VERSION,

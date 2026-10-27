@@ -38,12 +38,13 @@ function tokenStyle(token: CodeToken): CSSProperties {
 
 // 받은 결과가 지금 code의 앞부분이면 그만큼만 색을 칠하고 나머지는 plain으로 붙인다.
 // streaming 중 새 결과가 올 때까지 plain으로 돌아가 깜빡이지 않는다.
-function CodeText(
-  { code, highlighted }: {
-    code: string;
-    highlighted: Highlighted | null;
-  },
-) {
+function CodeText({
+  code,
+  highlighted,
+}: {
+  code: string;
+  highlighted: Highlighted | null;
+}) {
   if (highlighted === null || !code.startsWith(highlighted.code)) {
     return <>{code}</>;
   }
@@ -53,7 +54,9 @@ function CodeText(
         <Fragment key={index}>
           {index === 0 ? null : "\n"}
           {line.map((token, at) => (
-            <span key={at} style={tokenStyle(token)}>{token.text}</span>
+            <span key={at} style={tokenStyle(token)}>
+              {token.text}
+            </span>
           ))}
         </Fragment>
       ))}
@@ -63,9 +66,11 @@ function CodeText(
 }
 
 // code는 React 글과 span으로만 넣어 실행하지 않는다.
-export function CodeBlock(
-  { code, language, clipboard = systemClipboard }: CodeBlockProps,
-) {
+export function CodeBlock({
+  code,
+  language,
+  clipboard = systemClipboard,
+}: CodeBlockProps) {
   const highlighter = useHighlighter();
   const [highlighted, setHighlighted] = useState<Highlighted | null>(null);
   // code가 자라는 동안에는 앞서 보낸 요청의 답도 쓴다. 늦게 온 답도 지금 code의 앞부분이면 칠할 수 있다.
@@ -105,9 +110,11 @@ export function CodeBlock(
         <code>
           <CodeText
             code={code}
-            highlighted={highlighter === null || language === undefined
-              ? null
-              : highlighted}
+            highlighted={
+              highlighter === null || language === undefined
+                ? null
+                : highlighted
+            }
           />
         </code>
       </pre>

@@ -21,29 +21,32 @@ export function useSidebarAgents(
       if (!live || !result.ok) return;
       setAgents(
         // App Engineer는 앱 공간의 agent라 project sidebar에 없다.
-        [...result.value].sort((a, b) => ORDER[a.role] - ORDER[b.role]).flatMap(
-          (row) => {
+        [...result.value]
+          .sort((a, b) => ORDER[a.role] - ORDER[b.role])
+          .flatMap((row) => {
             if (row.role === "app_engineer") return [];
-            const profile: AvatarProfile = row.profile.kind === "icon"
-              ? { kind: "icon", icon: row.profile.icon }
-              : {
-                kind: "image",
-                src: source.imageSrc(
-                  project,
-                  row.assignment,
-                  row.profile.image,
-                ),
-              };
-            return [{
-              assignment: row.assignment,
-              role: row.role,
-              name: row.name,
-              profile,
-              // 답을 기다리는 session은 conversation 쪽이 알려 줄 때 켠다.
-              waiting: false,
-            }];
-          },
-        ),
+            const profile: AvatarProfile =
+              row.profile.kind === "icon"
+                ? { kind: "icon", icon: row.profile.icon }
+                : {
+                    kind: "image",
+                    src: source.imageSrc(
+                      project,
+                      row.assignment,
+                      row.profile.image,
+                    ),
+                  };
+            return [
+              {
+                assignment: row.assignment,
+                role: row.role,
+                name: row.name,
+                profile,
+                // 답을 기다리는 session은 conversation 쪽이 알려 줄 때 켠다.
+                waiting: false,
+              },
+            ];
+          }),
       );
     });
     return () => {

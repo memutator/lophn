@@ -100,125 +100,124 @@ export function VersionsTab({ app, source, now }: VersionsTabProps) {
   );
 }
 
-function VersionBody(
-  { view, source, now, pending, onGoBack }: {
-    view: VersionView;
-    source: AppDetailSource;
-    now: () => Date;
-    pending: ReleaseCard | null;
-    onGoBack: (release: ReleaseCard) => void;
-  },
-) {
+function VersionBody({
+  view,
+  source,
+  now,
+  pending,
+  onGoBack,
+}: {
+  view: VersionView;
+  source: AppDetailSource;
+  now: () => Date;
+  pending: ReleaseCard | null;
+  onGoBack: (release: ReleaseCard) => void;
+}) {
   const { active, applying, failed, earlier } = view;
   const target = applying ?? failed ?? active;
   return (
     <>
-      {applying === null
-        ? null
-        : (
-          <Section title={t("app-detail.heading.being-applied")}>
-            <div className={styles.card} data-applying="">
-              <div className={styles.row}>
-                <span className={styles.rowTitle}>
-                  {releaseName(applying.number)}
-                </span>
-                <StatusMark
-                  tone="warning"
-                  label={t("app-detail.label.status-applying")}
-                />
-              </div>
-              <p className={styles.text}>
-                {active === null
-                  ? t("app-detail.note.applying-first")
-                  : t("app-detail.note.applying-keeps", {
+      {applying === null ? null : (
+        <Section title={t("app-detail.heading.being-applied")}>
+          <div className={styles.card} data-applying="">
+            <div className={styles.row}>
+              <span className={styles.rowTitle}>
+                {releaseName(applying.number)}
+              </span>
+              <StatusMark
+                tone="warning"
+                label={t("app-detail.label.status-applying")}
+              />
+            </div>
+            <p className={styles.text}>
+              {active === null
+                ? t("app-detail.note.applying-first")
+                : t("app-detail.note.applying-keeps", {
                     previous: releaseName(active.number),
                     next: releaseName(applying.number),
                   })}
+            </p>
+            {applying.phase === "waiting_consent" ? (
+              <p className={styles.muted} data-applying-phase={applying.phase}>
+                {t("app-detail.note.applying-waiting-consent")}
               </p>
-              {applying.phase === "waiting_consent"
-                ? (
-                  <p
-                    className={styles.muted}
-                    data-applying-phase={applying.phase}
-                  >
-                    {t("app-detail.note.applying-waiting-consent")}
-                  </p>
-                )
-                : null}
-              <ol className={styles.steps}>
-                {applying.steps.map((step) => (
-                  <li
-                    key={step.key}
-                    className={`${styles.step} ${
-                      step.state === "done"
-                        ? styles.stepDone
-                        : step.state === "wait"
+            ) : null}
+            <ol className={styles.steps}>
+              {applying.steps.map((step) => (
+                <li
+                  key={step.key}
+                  className={`${styles.step} ${
+                    step.state === "done"
+                      ? styles.stepDone
+                      : step.state === "wait"
                         ? styles.stepWait
                         : ""
-                    }`}
-                    data-step={step.key}
-                    data-step-state={step.state}
-                  >
-                    <span aria-hidden="true">
-                      {step.state === "done"
-                        ? "✓"
-                        : step.state === "now"
+                  }`}
+                  data-step={step.key}
+                  data-step-state={step.state}
+                >
+                  <span aria-hidden="true">
+                    {step.state === "done"
+                      ? "✓"
+                      : step.state === "now"
                         ? "…"
                         : "·"}
-                    </span>
-                    <span>{stepText(step, applying.number)}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          </Section>
-        )}
-      {failed === null
-        ? null
-        : (
-          <Section title={t("app-detail.heading.last-activation")}>
-            <div className={styles.card} data-failed="">
-              <div className={styles.row}>
-                <span className={styles.rowTitle}>
-                  {releaseName(failed.number)}
-                </span>
-                <StatusMark
-                  tone="critical"
-                  label={t("app-detail.label.status-failed")}
-                />
-              </div>
-              <Facts
-                rows={[
-                  ...(failed.triedAt === null ? [] : [
-                    [
-                      t("app-detail.label.fact-tried"),
-                      dateTime(failed.triedAt),
-                    ],
-                  ] as [string, string][]),
-                  [t("app-detail.label.fact-reason"), failed.reason],
-                ]}
+                  </span>
+                  <span>{stepText(step, applying.number)}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </Section>
+      )}
+      {failed === null ? null : (
+        <Section title={t("app-detail.heading.last-activation")}>
+          <div className={styles.card} data-failed="">
+            <div className={styles.row}>
+              <span className={styles.rowTitle}>
+                {releaseName(failed.number)}
+              </span>
+              <StatusMark
+                tone="critical"
+                label={t("app-detail.label.status-failed")}
               />
-              {active === null
-                ? <Note>{t("app-detail.note.failed-called")}</Note>
-                : (
-                  <Note
-                    title={t("app-detail.label.failed-still-active", {
-                      release: releaseName(active.number),
-                    })}
-                  >
-                    {t("app-detail.note.failed-unchanged")}
-                  </Note>
-                )}
             </div>
-          </Section>
-        )}
+            <Facts
+              rows={[
+                ...(failed.triedAt === null
+                  ? []
+                  : ([
+                      [
+                        t("app-detail.label.fact-tried"),
+                        dateTime(failed.triedAt),
+                      ],
+                    ] as [string, string][])),
+                [t("app-detail.label.fact-reason"), failed.reason],
+              ]}
+            />
+            {active === null ? (
+              <Note>{t("app-detail.note.failed-called")}</Note>
+            ) : (
+              <Note
+                title={t("app-detail.label.failed-still-active", {
+                  release: releaseName(active.number),
+                })}
+              >
+                {t("app-detail.note.failed-unchanged")}
+              </Note>
+            )}
+          </div>
+        </Section>
+      )}
       {active === null ? null : (
         <Section
-          title={applying === null && failed === null
-            ? t("app-detail.heading.active-release")
-            : t("app-detail.heading.active-release-named", {
-              release: releaseName(active.number),
-            })}
+          title={
+            applying === null && failed === null
+              ? t("app-detail.heading.active-release")
+              : t("app-detail.heading.active-release-named", {
+                  release: releaseName(active.number),
+                })
+          }
         >
           <div className={styles.card} data-active-release="">
             <div className={styles.row}>
@@ -269,14 +268,17 @@ function VersionBody(
 }
 
 /** 늘어난 선언과 손실 단계. 지금 활성 release면 보일 것이 있을 때만 둔다. */
-function ChangesSection(
-  { source, release, always, now }: {
-    source: AppDetailSource;
-    release: string;
-    always: boolean;
-    now: () => Date;
-  },
-) {
+function ChangesSection({
+  source,
+  release,
+  always,
+  now,
+}: {
+  source: AppDetailSource;
+  release: string;
+  always: boolean;
+  now: () => Date;
+}) {
   const read = useRead(() => source.changes(release), [source, release], {
     now,
   });
@@ -288,29 +290,33 @@ function ChangesSection(
 
 const schemaName = (schema: number) => `v${schema}`;
 
-function Earlier(
-  { earlier, current, busy, onGoBack }: {
-    earlier: readonly ReleaseCard[];
-    current: ReleaseCard | null;
-    busy: boolean;
-    onGoBack: (release: ReleaseCard) => void;
-  },
-) {
+function Earlier({
+  earlier,
+  current,
+  busy,
+  onGoBack,
+}: {
+  earlier: readonly ReleaseCard[];
+  current: ReleaseCard | null;
+  busy: boolean;
+  onGoBack: (release: ReleaseCard) => void;
+}) {
   if (earlier.length === 0) return null;
   return (
     <Section title={t("app-detail.heading.earlier-releases")}>
       <ul className={styles.list}>
         {earlier.map((release) => {
-          const same = current !== null &&
-            release.dataSchema === current.dataSchema;
+          const same =
+            current !== null && release.dataSchema === current.dataSchema;
           const reason = busy
             ? t("app-detail.note.go-back-busy")
             : same
-            ? null
-            : t("app-detail.note.go-back-schema", {
-              schema: schemaName(release.dataSchema),
-              current: current === null ? "" : schemaName(current.dataSchema),
-            });
+              ? null
+              : t("app-detail.note.go-back-schema", {
+                  schema: schemaName(release.dataSchema),
+                  current:
+                    current === null ? "" : schemaName(current.dataSchema),
+                });
           return (
             <li
               key={release.id}
@@ -321,23 +327,22 @@ function Earlier(
                 <span className={styles.rowTitle}>
                   {releaseName(release.number)}{" "}
                   <span className={styles.muted}>
-                    · {t("app-detail.label.data-schema", {
+                    ·{" "}
+                    {t("app-detail.label.data-schema", {
                       schema: schemaName(release.dataSchema),
                     })}
                   </span>
                 </span>
-                {release.replacedAt === null
-                  ? null
-                  : (
-                    <span className={styles.muted}>
-                      {t("app-detail.label.replaced", {
-                        when: dateTime(release.replacedAt),
-                      })}
-                    </span>
-                  )}
-                {reason === null
-                  ? null
-                  : <span className={styles.muted}>{reason}</span>}
+                {release.replacedAt === null ? null : (
+                  <span className={styles.muted}>
+                    {t("app-detail.label.replaced", {
+                      when: dateTime(release.replacedAt),
+                    })}
+                  </span>
+                )}
+                {reason === null ? null : (
+                  <span className={styles.muted}>{reason}</span>
+                )}
               </div>
               <Button
                 size="sm"

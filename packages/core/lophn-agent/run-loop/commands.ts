@@ -79,10 +79,9 @@ function reject(code: Code, message: string): Result<never> {
 }
 
 function requireMachine(ctx: RequestContext): Result<void> {
-  return parseActor(ctx.actor)?.kind === "machine" ? ok(undefined) : reject(
-    "forbidden",
-    "turn records are machine only",
-  );
+  return parseActor(ctx.actor)?.kind === "machine"
+    ? ok(undefined)
+    : reject("forbidden", "turn records are machine only");
 }
 
 function notFound(): Result<never> {

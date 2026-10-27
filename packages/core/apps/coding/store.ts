@@ -44,8 +44,7 @@ export type SessionRow = {
   paste_until: string | null;
 };
 
-const COLUMNS =
-  `session, app, prompt, call, harness, ended, started, heard, running, turn,
+const COLUMNS = `session, app, prompt, call, harness, ended, started, heard, running, turn,
    permissions, inflight, external_session, prompt_pending, paste_until`;
 
 // createSql이 INTEGER를 bigint로 주므로 1n === 1이 거짓이다. Number로 바꿔 비교한다.
@@ -63,9 +62,8 @@ function rowOf(row: Record<string, unknown>): SessionRow {
     turn: row.turn === null ? null : String(row.turn),
     permissions: JSON.parse(String(row.permissions)) as string[],
     inflight: Number(row.inflight) === 1,
-    external_session: row.external_session === null
-      ? null
-      : String(row.external_session),
+    external_session:
+      row.external_session === null ? null : String(row.external_session),
     prompt_pending: Number(row.prompt_pending) === 1,
     paste_until: row.paste_until === null ? null : String(row.paste_until),
   };
@@ -98,10 +96,12 @@ export function activeOfCall(sql: Reader, call: string): SessionRow | null {
 
 // 끝나지 않은 session 전부.
 export function liveSessions(sql: Reader): SessionRow[] {
-  return sql.all(
-    `SELECT ${COLUMNS} FROM coding_sessions WHERE ended = 0 ORDER BY rowid`,
-    [],
-  ).map(rowOf);
+  return sql
+    .all(
+      `SELECT ${COLUMNS} FROM coding_sessions WHERE ended = 0 ORDER BY rowid`,
+      [],
+    )
+    .map(rowOf);
 }
 
 export function insertSession(sql: Sql, row: SessionRow): void {
@@ -180,10 +180,12 @@ export function removeLine(sql: Sql, call: string): boolean {
 }
 
 export function allLines(sql: Reader): LineRow[] {
-  return sql.all(
-    "SELECT call, app, prompt, options FROM coding_lines ORDER BY rowid",
-    [],
-  ).map(lineOf);
+  return sql
+    .all(
+      "SELECT call, app, prompt, options FROM coding_lines ORDER BY rowid",
+      [],
+    )
+    .map(lineOf);
 }
 
 type InputRow = { id: number; call: string | null; text: string };

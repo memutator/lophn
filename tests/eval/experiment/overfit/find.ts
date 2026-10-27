@@ -25,8 +25,7 @@ export function findOverfit(
   extraNames: Record<string, string[]> = {},
 ): OverfitWarning[] {
   const { change, before, after } = changed;
-  const component =
-    `${change.from.kind}:${change.from.name}@${change.from.n}→@${change.to.n}`;
+  const component = `${change.from.kind}:${change.from.name}@${change.from.n}→@${change.to.n}`;
   const out: OverfitWarning[] = [];
   for (const s of scenarios) {
     const { names, phrases } = scenarioTerms(s, extraNames[s.id] ?? []);
@@ -34,9 +33,10 @@ export function findOverfit(
       ...names.map((term) => ({ term, kind: "name" as const })),
       ...phrases.map((term) => ({ term, kind: "phrase" as const })),
     ];
-    for (
-      const file of new Set([...Object.keys(before), ...Object.keys(after)])
-    ) {
+    for (const file of new Set([
+      ...Object.keys(before),
+      ...Object.keys(after),
+    ])) {
       const was = before[file] ?? "";
       const now = after[file] ?? "";
       const added = addedLines(was, now);

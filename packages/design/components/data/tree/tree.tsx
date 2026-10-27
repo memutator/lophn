@@ -30,24 +30,24 @@ export interface TreeProps {
 const EMPTY = new Set<string>();
 
 // 행 28px, 깊이당 12px·8단 상한, 현재 왼쪽 2px, 키보드 안쪽 2px focus.
-export function Tree(
-  {
-    nodes,
-    expanded,
-    onExpandedChange,
-    currentId,
-    selectedIds = EMPTY,
-    onSelectionChange,
-    onOpen,
-    label,
-  }: TreeProps,
-) {
+export function Tree({
+  nodes,
+  expanded,
+  onExpandedChange,
+  currentId,
+  selectedIds = EMPTY,
+  onSelectionChange,
+  onOpen,
+  label,
+}: TreeProps) {
   const rows = useMemo(() => visibleRows(nodes, expanded), [nodes, expanded]);
   const [focusedId, setFocusedId] = useState<string>();
   const items = useRef(new Map<string, HTMLDivElement>());
   const moved = useRef(false);
-  const focused = rows.find((row) => row.id === focusedId) ??
-    rows.find((row) => row.id === currentId) ?? rows[0];
+  const focused =
+    rows.find((row) => row.id === focusedId) ??
+    rows.find((row) => row.id === currentId) ??
+    rows[0];
 
   useLayoutEffect(() => {
     if (!moved.current || !focused) return;
@@ -109,9 +109,9 @@ export function Tree(
           role="treeitem"
           aria-level={row.depth + 1}
           aria-expanded={row.branch ? row.expanded : undefined}
-          aria-selected={onSelectionChange
-            ? selectedIds.has(row.id)
-            : undefined}
+          aria-selected={
+            onSelectionChange ? selectedIds.has(row.id) : undefined
+          }
           aria-current={row.id === currentId ? "page" : undefined}
           tabIndex={row.id === focused?.id ? 0 : -1}
           data-id={row.id}
@@ -123,10 +123,9 @@ export function Tree(
           onClick={(event) => onClick(event, row)}
         >
           {row.id === currentId && <span className={styles.marker} />}
-          {Array.from(
-            { length: row.indent },
-            (_, step) => <span key={step} className={styles.indent} />,
-          )}
+          {Array.from({ length: row.indent }, (_, step) => (
+            <span key={step} className={styles.indent} />
+          ))}
           <span className={styles.twisty}>
             {row.branch && (
               <Icon

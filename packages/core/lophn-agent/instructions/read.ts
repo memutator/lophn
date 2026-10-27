@@ -50,13 +50,11 @@ export function decodeInstructionFile(
 // 파일인지는 core가 session의 place로 정하므로 여기서 project를 보내지 않는다.
 export function instructionFilesOverCore(
   session: Id<"ses">,
-  call: (
-    input: {
-      session: Id<"ses">;
-      layer: InstructionLayerKind;
-      domain?: Id<"dom">;
-    },
-  ) => Promise<Result<{ file: InstructionReadFile | null }>>,
+  call: (input: {
+    session: Id<"ses">;
+    layer: InstructionLayerKind;
+    domain?: Id<"dom">;
+  }) => Promise<Result<{ file: InstructionReadFile | null }>>,
 ): InstructionFiles {
   return {
     async read(layer, domain) {

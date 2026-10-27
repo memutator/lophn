@@ -55,9 +55,10 @@ function mergeEntries(
       );
     }
   }
-  return [...merged.values()].sort((a, b) =>
-    a.provider_definition.localeCompare(b.provider_definition) ||
-    a.model_name.localeCompare(b.model_name)
+  return [...merged.values()].sort(
+    (a, b) =>
+      a.provider_definition.localeCompare(b.provider_definition) ||
+      a.model_name.localeCompare(b.model_name),
   );
 }
 
@@ -227,8 +228,10 @@ export function confirmedSupport(
 ): ResolvedSupport | undefined {
   if (!entry) return undefined;
   if (
-    entry.context_limit === null || entry.input_limit === null ||
-    entry.output_limit === null || entry.supports_tools === null
+    entry.context_limit === null ||
+    entry.input_limit === null ||
+    entry.output_limit === null ||
+    entry.supports_tools === null
   ) {
     return undefined;
   }

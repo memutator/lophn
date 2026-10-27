@@ -30,10 +30,7 @@ export function defineEvent<
   T extends string,
   S extends z.ZodType,
   P extends z.ZodType,
->(
-  type: T,
-  definition: { subject: S; payload: P },
-): EventDefinition<T, S, P> {
+>(type: T, definition: { subject: S; payload: P }): EventDefinition<T, S, P> {
   if (!EVENT_TYPE.test(type)) {
     throw new Error("event type must be <Entity><과거형 동사> PascalCase");
   }

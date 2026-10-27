@@ -53,9 +53,9 @@ export function answerOf(
   const text = pick.text.trim();
   if (pick.other && text === "") return null;
   const answer = [
-    ...question.options.map((option) => option.label).filter((label) =>
-      pick.labels.includes(label)
-    ),
+    ...question.options
+      .map((option) => option.label)
+      .filter((label) => pick.labels.includes(label)),
     ...(pick.other ? [text] : []),
   ];
   if (answer.length === 0) return null;

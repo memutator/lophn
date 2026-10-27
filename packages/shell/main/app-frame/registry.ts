@@ -87,10 +87,10 @@ function screenTargetOf(entry: Entry): ScreenTarget {
   return entry.target.mode === "live"
     ? { mode: "live", app: entry.target.app, release: entry.binding.release }
     : {
-      mode: "preview",
-      app: entry.target.app,
-      process_nonce: entry.binding.processNonce,
-    };
+        mode: "preview",
+        app: entry.target.app,
+        process_nonce: entry.binding.processNonce,
+      };
 }
 
 export function createAppFrame(deps: AppFrameDeps) {
@@ -99,13 +99,16 @@ export function createAppFrame(deps: AppFrameDeps) {
   const byToken = new Map<string, Entry>();
 
   function record(entry: Entry, event: ViewEvent): void {
-    deps.diagnostics.record({
-      view_session: entry.view_session,
-      generation: entry.generation,
-      app: entry.target.app,
-      release: entry.target.release,
-      mode: entry.target.mode,
-    }, event);
+    deps.diagnostics.record(
+      {
+        view_session: entry.view_session,
+        generation: entry.generation,
+        app: entry.target.app,
+        release: entry.target.release,
+        mode: entry.target.mode,
+      },
+      event,
+    );
   }
 
   const sessions = createAppSessions({
@@ -125,7 +128,8 @@ export function createAppFrame(deps: AppFrameDeps) {
       viewFor(token, appLabel): ProtocolView | undefined {
         const entry = token === null ? undefined : byToken.get(token);
         if (
-          entry === undefined || appHostLabel(entry.target.app) !== appLabel
+          entry === undefined ||
+          appHostLabel(entry.target.app) !== appLabel
         ) {
           return undefined;
         }
@@ -178,14 +182,15 @@ export function createAppFrame(deps: AppFrameDeps) {
     byToken.set(entry.token, entry);
     record(entry, "created");
     placement.mounted(entry);
-    void contents.load(appEntryUrl(label, screen, entry.view_session)).catch(
-      () => {},
-    ).then(() => {
-      // 그 사이 닫히거나 다른 contents로 바뀌었으면 옛 load 결과로 붙이지 않는다.
-      if (entries.get(entry.view_session) !== entry) return;
-      if (entry.contents !== contents) return;
-      placement.loaded(entry);
-    });
+    void contents
+      .load(appEntryUrl(label, screen, entry.view_session))
+      .catch(() => {})
+      .then(() => {
+        // 그 사이 닫히거나 다른 contents로 바뀌었으면 옛 load 결과로 붙이지 않는다.
+        if (entries.get(entry.view_session) !== entry) return;
+        if (entry.contents !== contents) return;
+        placement.loaded(entry);
+      });
   }
 
   // contents를 떼고 부순다. 이 뒤 그 contents의 요청은 어느 view에도 묶이지 않아 막힌다.
@@ -293,7 +298,8 @@ export function createAppFrame(deps: AppFrameDeps) {
     const generation = entry.generation;
     const view_session = entry.view_session;
     const current = () =>
-      entries.get(view_session) === entry && entry.contents === contents &&
+      entries.get(view_session) === entry &&
+      entry.contents === contents &&
       entry.generation === generation;
     return {
       view_session,
@@ -334,7 +340,8 @@ export function createAppFrame(deps: AppFrameDeps) {
     ): Promise<Outcome<AppFrameViewState>> {
       const input = checkOpen(value);
       if (
-        input === undefined || (input.size === "card") !== (card !== undefined)
+        input === undefined ||
+        (input.size === "card") !== (card !== undefined)
       ) {
         return failure("invalid_input", "view request is invalid");
       }
@@ -361,9 +368,10 @@ export function createAppFrame(deps: AppFrameDeps) {
         connectionState: "running",
         viewHealth: "ok",
         refreshing: undefined,
-        card: card === undefined
-          ? null
-          : { message: card.message, block: card.block },
+        card:
+          card === undefined
+            ? null
+            : { message: card.message, block: card.block },
       } as Entry;
       entries.set(entry.view_session, entry);
       mount(entry);
@@ -379,8 +387,10 @@ export function createAppFrame(deps: AppFrameDeps) {
       const input = checkOpen(value);
       // 카드는 묶인 답 자리 그대로 다른 대상으로 바꾸지 않는다.
       if (
-        entry === undefined || input === undefined ||
-        entry.card !== null || input.size === "card"
+        entry === undefined ||
+        input === undefined ||
+        entry.card !== null ||
+        input.size === "card"
       ) {
         return failure("invalid_input", "view request is invalid");
       }
@@ -391,7 +401,8 @@ export function createAppFrame(deps: AppFrameDeps) {
       const next = await bind(targetOf(input), false);
       if (!next.ok) return next;
       if (
-        entries.get(view_session) !== entry || entry.generation !== generation
+        entries.get(view_session) !== entry ||
+        entry.generation !== generation
       ) {
         return failure("conflict", "view changed while replacing");
       }

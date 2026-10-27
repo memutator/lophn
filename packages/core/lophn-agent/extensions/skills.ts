@@ -136,7 +136,9 @@ function scalarReasonOrValue(raw: string): string | { value: string } {
   const value = raw.replace(/^\s+/, "").replace(/\s+$/, "");
   if (value.length === 0) return { value: "" };
   if (
-    value.startsWith("|") || value.startsWith(">") || value.startsWith("[") ||
+    value.startsWith("|") ||
+    value.startsWith(">") ||
+    value.startsWith("[") ||
     value.startsWith("{")
   ) {
     return "skill frontmatter value is not a plain scalar";
@@ -144,7 +146,8 @@ function scalarReasonOrValue(raw: string): string | { value: string } {
   const quote = value[0];
   if (quote === '"' || quote === "'") {
     if (
-      value.length < 2 || !value.endsWith(quote) ||
+      value.length < 2 ||
+      !value.endsWith(quote) ||
       value.slice(1, -1).includes(quote)
     ) {
       return "skill frontmatter value is not a closed scalar";
@@ -178,8 +181,10 @@ function undeclaredBuiltinReason(name: string): string | null {
 // 내장 skill은 선언한 role의 agent만 갖는다. role이 null이면 모두 본다(사람 화면의 목록).
 export function builtinForRole(name: string, role: Role | null): boolean {
   const builtin = declaredBuiltin(name);
-  return builtin !== undefined &&
-    (role === null || (builtin.roles as readonly Role[]).includes(role));
+  return (
+    builtin !== undefined &&
+    (role === null || (builtin.roles as readonly Role[]).includes(role))
+  );
 }
 
 // 층 순서(내장, 전역, domain)로 늘어선 후보를 합친다. 내장과 전역은 이름마다 하나이고 마지막 층이 덮는다. domain 층은
@@ -200,10 +205,7 @@ export function mergeSkillLayers<T extends SkillCandidate>(
   const perDomain: T[] = [];
   for (const candidate of candidates) {
     const kept = byName.get(candidate.name);
-    if (
-      kept !== undefined && kept.source === "builtin" &&
-      !canDisable(kept)
-    ) {
+    if (kept !== undefined && kept.source === "builtin" && !canDisable(kept)) {
       skipped.push({
         path: candidate.bundle_path,
         reason:
@@ -235,8 +237,10 @@ export function skillReceived(
   chosen: readonly string[],
   domains: readonly string[],
 ): boolean {
-  return (skill.domain === null || domains.includes(skill.domain)) &&
-    (!skill.can_disable || chosen.length === 0 || chosen.includes(skill.name));
+  return (
+    (skill.domain === null || domains.includes(skill.domain)) &&
+    (!skill.can_disable || chosen.length === 0 || chosen.includes(skill.name))
+  );
 }
 
 // 합친 목록에서 이름마다 한 줄만 남긴다. 받는 줄 가운데 domain 층이 전역을 덮고, domain 사이는 목록에서 앞선 쪽이
@@ -322,9 +326,10 @@ export function discoverSkills(
     if (read.value === null || !read.value.complete) {
       skipped.push({
         path: manifest,
-        reason: read.value === null
-          ? "skill manifest is missing"
-          : "skill manifest is over the read limit",
+        reason:
+          read.value === null
+            ? "skill manifest is missing"
+            : "skill manifest is over the read limit",
       });
       return;
     }
@@ -362,11 +367,12 @@ export function discoverSkills(
     if (!folder.ok || folder.value !== "dir") {
       skipped.push({
         path: container,
-        reason: folder.ok && folder.value === "symlink"
-          ? "skill scope root is a symbolic link"
-          : folder.ok
-          ? "skill scope root is not a folder"
-          : "skill scope root could not be checked",
+        reason:
+          folder.ok && folder.value === "symlink"
+            ? "skill scope root is a symbolic link"
+            : folder.ok
+              ? "skill scope root is not a folder"
+              : "skill scope root could not be checked",
       });
       return;
     }
@@ -378,7 +384,8 @@ export function discoverSkills(
       });
       return;
     }
-    const names = (listed.value ?? []).filter((name) => !name.startsWith("."))
+    const names = (listed.value ?? [])
+      .filter((name) => !name.startsWith("."))
       .slice()
       .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
     for (const name of names) {
@@ -415,9 +422,10 @@ export function discoverSkills(
     scanFolder(store.folder, "domain", false, store.domain);
   }
 
-  const visible = candidates.filter((candidate) =>
-    candidate.source !== "builtin" ||
-    builtinForRole(candidate.name, options.role)
+  const visible = candidates.filter(
+    (candidate) =>
+      candidate.source !== "builtin" ||
+      builtinForRole(candidate.name, options.role),
   );
   return { entries: mergeSkillLayers(visible, options.off, skipped), skipped };
 }
@@ -430,9 +438,7 @@ export function joinPath(dir: string, name: string): string {
   return `${dir}${separator}${name}`;
 }
 
-function folderSkipReason(
-  kind: "file" | "dir" | "symlink" | null,
-): string {
+function folderSkipReason(kind: "file" | "dir" | "symlink" | null): string {
   switch (kind) {
     case "symlink":
       return "skill bundle folder is a symbolic link";

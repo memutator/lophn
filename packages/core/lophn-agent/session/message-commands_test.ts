@@ -69,10 +69,10 @@ test("재시작 때 되돌리는 사람 메시지는 turn이 가져가지 않은
   session("ses_fork_idle", true);
   message("m_copy_only", "ses_fork_idle", null);
 
-  assert.deepStrictEqual(unstartedHumanMessages(sql).map((item) => item.id), [
-    "m_queued",
-    "m_own_queued",
-  ]);
+  assert.deepStrictEqual(
+    unstartedHumanMessages(sql).map((item) => item.id),
+    ["m_queued", "m_own_queued"],
+  );
 });
 
 // 실패로 닫힌 run의 입력이 켤 때 다시 돌면 attended turn이 생겨 바깥 효과가 두 번 난다.
@@ -82,7 +82,8 @@ test("켤 때 unattended 사람 메시지는 입력함에 다시 들어가지 �
   message("m_human", "ses_run", null);
   message("m_run", "ses_run", null, "human", 1);
 
-  assert.deepStrictEqual(unstartedHumanMessages(sql).map((item) => item.id), [
-    "m_human",
-  ]);
+  assert.deepStrictEqual(
+    unstartedHumanMessages(sql).map((item) => item.id),
+    ["m_human"],
+  );
 });

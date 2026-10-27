@@ -16,14 +16,18 @@ export function compareLines(theirs: string, mine: string): DiffLine[] {
   const after = linesOf(mine);
   let head = 0;
   while (
-    head < before.length && head < after.length &&
+    head < before.length &&
+    head < after.length &&
     before[head] === after[head]
-  ) head += 1;
+  )
+    head += 1;
   let tail = 0;
   while (
-    tail < before.length - head && tail < after.length - head &&
+    tail < before.length - head &&
+    tail < after.length - head &&
     before[before.length - 1 - tail] === after[after.length - 1 - tail]
-  ) tail += 1;
+  )
+    tail += 1;
   const out: DiffLine[] = [];
   for (let index = 0; index < head; index += 1) {
     out.push({
@@ -64,16 +68,20 @@ function middle(before: string[], after: string[]): DiffLine[] {
   const m = after.length;
   if (n === 0 || m === 0 || n * m > CELL_LIMIT) {
     return [
-      ...before.map((text, index): DiffLine => ({
-        kind: "delete",
-        oldNumber: index + 1,
-        text,
-      })),
-      ...after.map((text, index): DiffLine => ({
-        kind: "add",
-        newNumber: index + 1,
-        text,
-      })),
+      ...before.map(
+        (text, index): DiffLine => ({
+          kind: "delete",
+          oldNumber: index + 1,
+          text,
+        }),
+      ),
+      ...after.map(
+        (text, index): DiffLine => ({
+          kind: "add",
+          newNumber: index + 1,
+          text,
+        }),
+      ),
     ];
   }
   // 뒤에서부터 LCS 길이 표.
@@ -81,9 +89,10 @@ function middle(before: string[], after: string[]): DiffLine[] {
   const table = new Uint32Array((n + 1) * width);
   for (let i = n - 1; i >= 0; i -= 1) {
     for (let j = m - 1; j >= 0; j -= 1) {
-      table[i * width + j] = before[i] === after[j]
-        ? table[(i + 1) * width + j + 1]! + 1
-        : Math.max(table[(i + 1) * width + j]!, table[i * width + j + 1]!);
+      table[i * width + j] =
+        before[i] === after[j]
+          ? table[(i + 1) * width + j + 1]! + 1
+          : Math.max(table[(i + 1) * width + j]!, table[i * width + j + 1]!);
     }
   }
   const out: DiffLine[] = [];

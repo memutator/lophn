@@ -15,7 +15,7 @@ type AppCalls = Registered & {
 export function register(ctx: ShellContext, views: AppViews): AppCalls {
   const appCall = createAppCall({
     declaration: createDeclarationSource((app, release) =>
-      ctx.coreInternal("read", "apps", "tools", { app, release })
+      ctx.coreInternal("read", "apps", "tools", { app, release }),
     ),
     call: ctx.coreInternal,
   });

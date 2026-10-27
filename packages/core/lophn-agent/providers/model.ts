@@ -46,9 +46,12 @@ function credentialFromRow(
     secret_ref: secretName === null ? null : { name: secretName },
     revision: Number(row["revision"]),
     state: row["state"] as ProviderCredential["state"],
-    unavailable_reason: row["unavailable_reason"] === null
-      ? null
-      : row["unavailable_reason"] as ProviderCredential["unavailable_reason"],
+    unavailable_reason:
+      row["unavailable_reason"] === null
+        ? null
+        : (row[
+            "unavailable_reason"
+          ] as ProviderCredential["unavailable_reason"]),
     until: text(row["until"]),
     expires_at: text(row["expires_at"]),
     logged_in_at: text(row["logged_in_at"]),
@@ -63,15 +66,18 @@ function modelBlocksFromRow(
   sql: Query,
   provider: string,
 ): ProviderCredential["model_blocks"] {
-  return sql.all(
-    "select model_name, reason, until from provider_credential_model_blocks where provider = ? order by model_name",
-    [provider],
-  ).map((row) => ({
-    model_name: String(row["model_name"]),
-    reason:
-      row["reason"] as ProviderCredential["model_blocks"][number]["reason"],
-    until: row["until"] === null ? null : String(row["until"]),
-  }));
+  return sql
+    .all(
+      "select model_name, reason, until from provider_credential_model_blocks where provider = ? order by model_name",
+      [provider],
+    )
+    .map((row) => ({
+      model_name: String(row["model_name"]),
+      reason: row[
+        "reason"
+      ] as ProviderCredential["model_blocks"][number]["reason"],
+      until: row["until"] === null ? null : String(row["until"]),
+    }));
 }
 
 export function assertCredential(
@@ -90,9 +96,7 @@ export function assertDefinition(
   return ok(parsed.data);
 }
 
-export function assertRecord(
-  value: ProviderRecord,
-): Result<ProviderRecord> {
+export function assertRecord(value: ProviderRecord): Result<ProviderRecord> {
   const parsed = providerRecordSchema.safeParse(value);
   if (!parsed.success) return invalidStored();
   return ok(parsed.data);

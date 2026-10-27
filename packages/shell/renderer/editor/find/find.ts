@@ -25,8 +25,8 @@ export function findMatches(
   const haystack = options.caseSensitive ? text : text.toLowerCase();
   const needle = options.caseSensitive ? query : query.toLowerCase();
   // 소문자로 바꾸면 길이가 달라지는 글자("İ")가 있으면 위치가 어긋난다. 그때는 그대로 찾는다.
-  const exact = haystack.length !== text.length ||
-    needle.length !== query.length;
+  const exact =
+    haystack.length !== text.length || needle.length !== query.length;
   const source = exact ? text : haystack;
   const target = exact ? query : needle;
   const out: Match[] = [];

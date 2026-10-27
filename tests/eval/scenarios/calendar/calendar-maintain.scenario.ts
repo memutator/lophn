@@ -75,8 +75,8 @@ const scenario: Scenario = {
         trial: fixtureTrial([
           fixtureSession(
             AE,
-            flow.filter((s) =>
-              !("tool" in s) || !s.tool.startsWith("preview.")
+            flow.filter(
+              (s) => !("tool" in s) || !s.tool.startsWith("preview."),
             ),
           ),
         ]),

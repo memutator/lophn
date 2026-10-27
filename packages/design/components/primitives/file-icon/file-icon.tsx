@@ -1,9 +1,7 @@
 // 파일 tree와 탭의 파일 종류 아이콘. @iconify-json/catppuccin(Catppuccin Icons, MIT)을 쓴다. 가는 선의 차분한 색이다.
 import { componentMark } from "../../_shared/shared.ts";
 import styles from "./file-icon.module.css";
-import icons from "@iconify-json/catppuccin/icons.json" with {
-  type: "json",
-};
+import icons from "@iconify-json/catppuccin/icons.json" with { type: "json" };
 
 interface IconSet {
   readonly icons: Readonly<
@@ -95,9 +93,9 @@ function svgOf(name: string): string | undefined {
   if (own === undefined) return undefined;
   const width = own.width ?? SET.width ?? 16;
   const height = own.height ?? SET.height ?? 16;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="100%" height="100%">${
-    themed(own.body)
-  }</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="100%" height="100%">${themed(
+    own.body,
+  )}</svg>`;
 }
 
 /** 파일 이름이나 폴더 이름으로 아이콘 이름을 고른다. 모르는 것은 기본 파일·폴더 아이콘이다. */
@@ -118,16 +116,21 @@ export function fileIconName(
   return BY_EXTENSION[extension] ?? "file";
 }
 
-export function FileIcon(
-  { name, folder = false, open = false, size = 16 }: {
-    name: string;
-    folder?: boolean;
-    open?: boolean;
-    size?: number;
-  },
-) {
-  const svg = svgOf(fileIconName(name, folder, open)) ??
-    svgOf(folder ? "folder" : "file") ?? "";
+export function FileIcon({
+  name,
+  folder = false,
+  open = false,
+  size = 16,
+}: {
+  name: string;
+  folder?: boolean;
+  open?: boolean;
+  size?: number;
+}) {
+  const svg =
+    svgOf(fileIconName(name, folder, open)) ??
+    svgOf(folder ? "folder" : "file") ??
+    "";
   return (
     <span
       aria-hidden

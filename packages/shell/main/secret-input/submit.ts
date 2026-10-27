@@ -14,8 +14,7 @@ export interface SecretCore {
     input: unknown,
     bytes: Uint8Array,
   ): Promise<
-    | { ok: true; value: unknown }
-    | { ok: false; error: { code: string } }
+    { ok: true; value: unknown } | { ok: false; error: { code: string } }
   >;
 }
 
@@ -28,16 +27,22 @@ export async function submitSecret(
     if (bytes.byteLength < 1 || bytes.byteLength > SECRET_INPUT_MAX_BYTES) {
       return { ok: false, code: "invalid_input" };
     }
-    const uploaded = await core.upload("secrets", "put", {
-      name: input.name,
-      bytes: bytes.byteLength,
-    }, bytes);
+    const uploaded = await core.upload(
+      "secrets",
+      "put",
+      {
+        name: input.name,
+        bytes: bytes.byteLength,
+      },
+      bytes,
+    );
     if (uploaded.ok) return { ok: true };
     return {
       ok: false,
-      code: uploaded.error.code === "invalid_input"
-        ? "invalid_input"
-        : "unavailable",
+      code:
+        uploaded.error.code === "invalid_input"
+          ? "invalid_input"
+          : "unavailable",
     };
   } catch {
     return { ok: false, code: "unavailable" };

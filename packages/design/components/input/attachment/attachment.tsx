@@ -7,13 +7,15 @@ import { componentMark, pixels } from "../../_shared/shared.ts";
 import styles from "./attachment.module.css";
 
 // 지우기 [x]. chip 안에서는 글자 옆 작은 단추, tile에서는 모서리에 걸친 둥근 단추다.
-function Remove(
-  { label, onRemove, badge }: {
-    label: string;
-    onRemove: () => void;
-    badge: boolean;
-  },
-) {
+function Remove({
+  label,
+  onRemove,
+  badge,
+}: {
+  label: string;
+  onRemove: () => void;
+  badge: boolean;
+}) {
   return (
     <Tooltip content={label}>
       <button
@@ -47,9 +49,14 @@ export interface AttachmentChipProps {
 }
 
 // 보낼 말에 붙였거나 보낸 말에 붙어 있는 파일 하나.
-export function AttachmentChip(
-  { name, icon, path, onOpen, onRemove, removeLabel = "" }: AttachmentChipProps,
-) {
+export function AttachmentChip({
+  name,
+  icon,
+  path,
+  onOpen,
+  onRemove,
+  removeLabel = "",
+}: AttachmentChipProps) {
   const body = (
     <>
       <span className={styles.icon}>{icon}</span>
@@ -58,16 +65,16 @@ export function AttachmentChip(
   );
   const chip = (
     <span className={styles.chip} {...componentMark("AttachmentChip")}>
-      {onOpen === undefined
-        ? <span className={styles.label}>{body}</span>
-        : (
-          <button type="button" className={styles.label} onClick={onOpen}>
-            {body}
-          </button>
-        )}
-      {onRemove === undefined
-        ? null
-        : <Remove label={removeLabel} onRemove={onRemove} badge={false} />}
+      {onOpen === undefined ? (
+        <span className={styles.label}>{body}</span>
+      ) : (
+        <button type="button" className={styles.label} onClick={onOpen}>
+          {body}
+        </button>
+      )}
+      {onRemove === undefined ? null : (
+        <Remove label={removeLabel} onRemove={onRemove} badge={false} />
+      )}
     </span>
   );
   return path === undefined ? chip : <Tooltip content={path}>{chip}</Tooltip>;
@@ -86,27 +93,31 @@ export interface AttachmentTileProps {
 }
 
 // 보낼 말에 붙인 이미지 하나. 작은 정사각 그림이고 [x]가 오른쪽 위 모서리에 걸친다.
-export function AttachmentTile(
-  { src, alt, onOpen, openLabel, onRemove, removeLabel = "" }:
-    AttachmentTileProps,
-) {
+export function AttachmentTile({
+  src,
+  alt,
+  onOpen,
+  openLabel,
+  onRemove,
+  removeLabel = "",
+}: AttachmentTileProps) {
   return (
     <span className={styles.tile} {...componentMark("AttachmentTile")}>
-      {onOpen === undefined
-        ? <img className={styles.image} src={src} alt={alt} />
-        : (
-          <button
-            type="button"
-            className={styles.open}
-            aria-label={openLabel ?? alt}
-            onClick={onOpen}
-          >
-            <img className={styles.image} src={src} alt={alt} />
-          </button>
-        )}
-      {onRemove === undefined
-        ? null
-        : <Remove label={removeLabel} onRemove={onRemove} badge />}
+      {onOpen === undefined ? (
+        <img className={styles.image} src={src} alt={alt} />
+      ) : (
+        <button
+          type="button"
+          className={styles.open}
+          aria-label={openLabel ?? alt}
+          onClick={onOpen}
+        >
+          <img className={styles.image} src={src} alt={alt} />
+        </button>
+      )}
+      {onRemove === undefined ? null : (
+        <Remove label={removeLabel} onRemove={onRemove} badge />
+      )}
     </span>
   );
 }

@@ -10,9 +10,13 @@ interface ConversationDeps {
 
 const ConversationContext = createContext<ConversationDeps | null>(null);
 
-export function ConversationProvider(
-  { deps, children }: { deps: ConversationDeps; children: ReactNode },
-) {
+export function ConversationProvider({
+  deps,
+  children,
+}: {
+  deps: ConversationDeps;
+  children: ReactNode;
+}) {
   return (
     <ConversationContext.Provider value={deps}>
       {children}

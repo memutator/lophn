@@ -10,12 +10,13 @@ import { domainNameSchema } from "../../../../protocol/domains/values.ts";
 import type { DomainDraft, DomainOpResult } from "../source.ts";
 import styles from "./create-domain-dialog.module.css";
 
-export function CreateDomainDialog(
-  { onCreate, onClose }: {
-    onCreate: (draft: DomainDraft) => Promise<DomainOpResult>;
-    onClose: () => void;
-  },
-) {
+export function CreateDomainDialog({
+  onCreate,
+  onClose,
+}: {
+  onCreate: (draft: DomainDraft) => Promise<DomainOpResult>;
+  onClose: () => void;
+}) {
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
   const [purpose, setPurpose] = useState("");
@@ -40,8 +41,8 @@ export function CreateDomainDialog(
   const nameError = nameBad
     ? t("domain.error.name-invalid")
     : refused === "conflict"
-    ? t("domain.error.name-taken")
-    : undefined;
+      ? t("domain.error.name-taken")
+      : undefined;
 
   return (
     <Dialog
@@ -91,13 +92,11 @@ export function CreateDomainDialog(
             onChange={(event) => setPurpose(event.target.value)}
           />
         </Field>
-        {refused !== null && refused !== "conflict"
-          ? (
-            <p className={styles.failed} role="alert">
-              {t("domain.error.create-failed")}
-            </p>
-          )
-          : null}
+        {refused !== null && refused !== "conflict" ? (
+          <p className={styles.failed} role="alert">
+            {t("domain.error.create-failed")}
+          </p>
+        ) : null}
       </div>
     </Dialog>
   );

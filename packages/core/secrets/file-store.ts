@@ -145,9 +145,7 @@ export function createSecretFileStore(options: {
     return ok(copy!);
   }
 
-  async function replace(
-    next: Map<string, string>,
-  ): Promise<Result<void>> {
+  async function replace(next: Map<string, string>): Promise<Result<void>> {
     const text = JSON.stringify(Object.fromEntries(next));
     try {
       await fs.writeNew(temp, text, SECRET_FILE_MODE);
@@ -185,14 +183,13 @@ export function createSecretFileStore(options: {
       return ok([...copy.values()]);
     },
     put(name, value) {
-      if (
-        !secretNameSchema.safeParse(name).success ||
-        !validValue(value)
-      ) {
-        return Promise.resolve(err({
-          code: "invalid_input" as const,
-          message: "secret 이름이나 값이 올바르지 않다",
-        }));
+      if (!secretNameSchema.safeParse(name).success || !validValue(value)) {
+        return Promise.resolve(
+          err({
+            code: "invalid_input" as const,
+            message: "secret 이름이나 값이 올바르지 않다",
+          }),
+        );
       }
       return serial(async () => {
         const current = await ready();

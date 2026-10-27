@@ -18,7 +18,8 @@ export function chooseTurn(
   choice: TurnRequestChoice;
   rule: NonNullable<ApproveRule["shell"]> | null;
 } {
-  const rule = request.subject.kind === "shell" ? approve.shell ?? null : null;
+  const rule =
+    request.subject.kind === "shell" ? (approve.shell ?? null) : null;
   if (rule === null) {
     return {
       choice: reject("no approval rule in the scenario"),
@@ -38,9 +39,7 @@ export function chooseTurn(
 }
 
 // 동의의 거절은 이유를 싣지 않는다(activation.consent 입력에 칸이 없다).
-export function chooseConsent(
-  approve: ApproveRule,
-): {
+export function chooseConsent(approve: ApproveRule): {
   choice: "allow" | "reject";
   rule: NonNullable<ApproveRule["activation"]> | null;
 } {

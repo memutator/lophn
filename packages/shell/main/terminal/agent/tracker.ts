@@ -66,7 +66,10 @@ type Entry = {
   pushed: string;
 };
 
-const fresh = (harness: string | null, fixed: boolean): Pick<
+const fresh = (
+  harness: string | null,
+  fixed: boolean,
+): Pick<
   Entry,
   "harness" | "fixed" | "heard" | "running" | "waiting" | "unseen"
 > => ({
@@ -80,13 +83,14 @@ const fresh = (harness: string | null, fixed: boolean): Pick<
 
 function agentOf(entry: Entry): TerminalAgent | undefined {
   if (entry.harness === null) return undefined;
-  const state = entry.waiting > 0
-    ? "waiting"
-    : !entry.heard
-    ? "unknown"
-    : entry.running
-    ? "running"
-    : "idle";
+  const state =
+    entry.waiting > 0
+      ? "waiting"
+      : !entry.heard
+        ? "unknown"
+        : entry.running
+          ? "running"
+          : "idle";
   return { harness: entry.harness, state, unseen: entry.unseen };
 }
 
@@ -113,7 +117,7 @@ export type AgentTracker = {
 };
 
 // Claude Code처럼 끊어도 Stop hook을 안 보내는 harness가 있어 사람이 친 key로 끊김을 본다.
-const KEY_TEXT = { "escape": "\x1b", "ctrl-c": "\x03" } as const;
+const KEY_TEXT = { escape: "\x1b", "ctrl-c": "\x03" } as const;
 
 export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
   const entries = new Map<string, Entry>();

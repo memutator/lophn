@@ -24,8 +24,11 @@ const SKIPPED = /[<>*{}]|\.\.\.|…/;
 
 // 제외 폴더는 비어 있으면 git에 없고, dist/는 build가 만드는 것(.gitignore)이라 clone에 없다.
 function skipped(path: string): boolean {
-  return SKIPPED.test(path) || path.includes("/dist/") ||
-    EXCLUDED.some((e) => path.startsWith(e));
+  return (
+    SKIPPED.test(path) ||
+    path.includes("/dist/") ||
+    EXCLUDED.some((e) => path.startsWith(e))
+  );
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -45,7 +48,7 @@ async function docs(root: string, path: string): Promise<string[]> {
   const found: string[] = [];
   for (const entry of await readdir(`${root}/${path}`)) {
     if (entry === "node_modules") continue;
-    found.push(...await docs(root, `${path}/${entry}`));
+    found.push(...(await docs(root, `${path}/${entry}`)));
   }
   return found;
 }
@@ -62,7 +65,7 @@ async function checkFile(root: string, file: string, issues: Issue[]) {
     for (const [, text] of line.matchAll(/`([^`]+)`/g)) {
       if (/\s/.test(text) || skipped(text)) continue;
       if (!PREFIXES.some((p) => text.startsWith(p))) continue;
-      if (!await exists(`${root}/${text}`)) {
+      if (!(await exists(`${root}/${text}`))) {
         issues.push({
           where: `${file}:${index + 1}`,
           message: `없는 path: ${text}`,
@@ -74,9 +77,7 @@ async function checkFile(root: string, file: string, issues: Issue[]) {
 
 // boundary ID: elements를 children까지 돈 id와 interfaces의 id.
 async function boundaryIds(root: string): Promise<Set<string>> {
-  const catalog = parse(
-    await readFile(`${root}/${BOUNDARY}`, "utf8"),
-  ) as Node;
+  const catalog = parse(await readFile(`${root}/${BOUNDARY}`, "utf8")) as Node;
   const ids = new Set<string>();
   const visit = (list: unknown) => {
     for (const node of (list ?? []) as Node[]) {
@@ -90,9 +91,7 @@ async function boundaryIds(root: string): Promise<Set<string>> {
 }
 
 async function checkRegistry(root: string, issues: Issue[]) {
-  const registry = parse(
-    await readFile(`${root}/${REGISTRY}`, "utf8"),
-  ) as Node;
+  const registry = parse(await readFile(`${root}/${REGISTRY}`, "utf8")) as Node;
   const ids = await boundaryIds(root);
   const roles = new Set(
     ((registry.roles ?? []) as Node[]).map((r) => String(r.id)),
@@ -100,7 +99,7 @@ async function checkRegistry(root: string, issues: Issue[]) {
   const add = (message: string) => issues.push({ where: REGISTRY, message });
   for (const c of (registry.components ?? []) as Node[]) {
     const id = String(c.id);
-    if (!skipped(String(c.path)) && !await exists(`${root}/${c.path}`)) {
+    if (!skipped(String(c.path)) && !(await exists(`${root}/${c.path}`))) {
       add(`${id} path가 없음: ${c.path}`);
     }
     for (const role of (c.roles ?? []) as string[]) {
@@ -111,7 +110,7 @@ async function checkRegistry(root: string, issues: Issue[]) {
       if (!ids.has(b)) add(`${id} boundary-catalog에 없는 ID: ${b}`);
     }
     for (const p of (reasons.paths ?? []) as string[]) {
-      if (!await exists(`${root}/${p}`)) add(`${id} paths에 없는 path: ${p}`);
+      if (!(await exists(`${root}/${p}`))) add(`${id} paths에 없는 path: ${p}`);
     }
   }
 }

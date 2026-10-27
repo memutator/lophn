@@ -58,23 +58,21 @@ interface SettingsSpaceProps {
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [] };
 
 // Settings 공간. 왼쪽 sidebar가 항목 목록을 들고 본문은 고른 항목 하나만 그린다. 대화는 이 화면에 기대지 않는다.
-export function SettingsSpace(
-  {
-    source,
-    settingsPane: initialPane,
-    windowWidth,
-    onLauncher,
-    onBack,
-    onProject,
-    onOpenFile,
-    onApp,
-    settings,
-    onInstructions,
-    settingsPanels,
-    onOpenSession,
-    onAnswerInTerminal,
-  }: SettingsSpaceProps,
-) {
+export function SettingsSpace({
+  source,
+  settingsPane: initialPane,
+  windowWidth,
+  onLauncher,
+  onBack,
+  onProject,
+  onOpenFile,
+  onApp,
+  settings,
+  onInstructions,
+  settingsPanels,
+  onOpenSession,
+  onAnswerInTerminal,
+}: SettingsSpaceProps) {
   const [settingsPane, setSettingsPane] = useState<SettingsPane>(
     initialPane ?? DEFAULT_PANE,
   );
@@ -85,9 +83,10 @@ export function SettingsSpace(
   const frameRef = useRef<HTMLDivElement>(null);
   const frameSize = useObservedSize(frameRef);
   const shown = sidebarView(frameSize?.width ?? windowWidth, sidebar, false);
-  const toggleLabel = shown.mode === "collapsed"
-    ? t("project-workspace.button.expand-sidebar")
-    : t("project-workspace.button.collapse-sidebar");
+  const toggleLabel =
+    shown.mode === "collapsed"
+      ? t("project-workspace.button.expand-sidebar")
+      : t("project-workspace.button.collapse-sidebar");
 
   const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
 
@@ -119,7 +118,7 @@ export function SettingsSpace(
           onOpenFile?.(target.project, target.file);
         } else if (target.kind === "app") onApp?.(target.id);
       },
-    })
+    }),
   );
 
   return (
@@ -145,7 +144,8 @@ export function SettingsSpace(
                       setSidebar((state) => ({
                         ...state,
                         collapsedByUser: shown.mode !== "collapsed",
-                      }))}
+                      }))
+                    }
                   />
                 </Tooltip>
               )}
@@ -185,23 +185,21 @@ export function SettingsSpace(
           onPane={setSettingsPane}
         />
         <div className={styles.content}>
-          {settings
-            ? (
-              <SettingsScreen
-                {...settingsPanels}
-                pane={settingsPane}
-                onPane={setSettingsPane}
-                source={settings}
-                onInstructions={onInstructions}
-                onOpenSession={onOpenSession}
-                onProject={onProject}
-              />
-            )
-            : (
-              <p className={styles.notReady} data-not-ready="settings">
-                {t("common.empty.not-ready")}
-              </p>
-            )}
+          {settings ? (
+            <SettingsScreen
+              {...settingsPanels}
+              pane={settingsPane}
+              onPane={setSettingsPane}
+              source={settings}
+              onInstructions={onInstructions}
+              onOpenSession={onOpenSession}
+              onProject={onProject}
+            />
+          ) : (
+            <p className={styles.notReady} data-not-ready="settings">
+              {t("common.empty.not-ready")}
+            </p>
+          )}
         </div>
       </div>
     </div>

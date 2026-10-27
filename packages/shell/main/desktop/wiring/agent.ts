@@ -64,12 +64,13 @@ export function createAgentWiring(options: {
   }
 
   function notify(notice_: AgentNotice): boolean {
-    const runtime = terminals.runtimes().find((item) =>
-      item.terminal_ref === notice_.terminal_ref
-    );
-    const label = notice_.harness in HARNESS_ADAPTERS
-      ? HARNESS_ADAPTERS[notice_.harness as HarnessId].label
-      : notice_.harness;
+    const runtime = terminals
+      .runtimes()
+      .find((item) => item.terminal_ref === notice_.terminal_ref);
+    const label =
+      notice_.harness in HARNESS_ADAPTERS
+        ? HARNESS_ADAPTERS[notice_.harness as HarnessId].label
+        : notice_.harness;
     const place = runtime?.title || basename(runtime?.cwd_at_start ?? "");
     return notice.show({
       kind: notice_.kind,
@@ -97,9 +98,9 @@ export function createAgentWiring(options: {
 
   terminals.on({
     foreground(change) {
-      const runtime = terminals.runtimes().find((item) =>
-        item.terminal_ref === change.terminal_ref
-      );
+      const runtime = terminals
+        .runtimes()
+        .find((item) => item.terminal_ref === change.terminal_ref);
       if (runtime?.generation !== change.generation) return;
       tracker.foreground(change.terminal_ref, change.argv);
     },
@@ -115,7 +116,7 @@ export function createAgentWiring(options: {
     },
   });
   ctx.windowHooks.created.push((window) =>
-    window.on("focus", () => tracker.windowFocused())
+    window.on("focus", () => tracker.windowFocused()),
   );
 
   // 서기 전과 꺼진 뒤에는 issue()가 null이라 그 터미널은 hook 없이 뜬다.
@@ -138,12 +139,14 @@ export function createAgentWiring(options: {
         tracker.hook(hook.terminal_ref, hook.harness, hook.event, hook.payload);
         if (hook.session === undefined) return;
         // coding session의 hook은 core가 session 상태로 센다. 못 보내도 터미널 표시는 그대로다.
-        void ctx.coreInternal("memory", "coding_agent_terminals", "hook", {
-          session: hook.session,
-          harness: hook.harness,
-          event: hook.event,
-          payload: hook.payload,
-        }).catch(() => undefined);
+        void ctx
+          .coreInternal("memory", "coding_agent_terminals", "hook", {
+            session: hook.session,
+            harness: hook.harness,
+            event: hook.event,
+            payload: hook.payload,
+          })
+          .catch(() => undefined);
       },
     });
     try {
@@ -157,10 +160,13 @@ export function createAgentWiring(options: {
       // 사람 터미널의 codex·opencode가 shared server가 아니라 이 탭의 env로 hook을 보내게 하는 함수다.
       // 쓰지 못해도 hook은 그대로 쓴다.
       try {
-        shellInit = writeShellInit({
-          mkdir: (path) => void mkdirSync(path, { recursive: true }),
-          write: (path, text) => writeFileSync(path, text, { mode: 0o600 }),
-        }, dir);
+        shellInit = writeShellInit(
+          {
+            mkdir: (path) => void mkdirSync(path, { recursive: true }),
+            write: (path, text) => writeFileSync(path, text, { mode: 0o600 }),
+          },
+          dir,
+        );
       } catch (cause) {
         ctx.log(`shell integration is off: ${String(cause)}`);
       }
@@ -172,7 +178,7 @@ export function createAgentWiring(options: {
   });
 
   const hooks: TerminalHooks = {
-    issue: () => live && !stopped ? live.issue() : null,
+    issue: () => (live && !stopped ? live.issue() : null),
     bind: (key, ref, session) => live?.bind(key, ref, session),
     revoke: (ref) => live?.revoke(ref),
   };
@@ -180,7 +186,7 @@ export function createAgentWiring(options: {
   return {
     hooks,
     tracker,
-    shellInit: () => live && !stopped ? shellInit : null,
+    shellInit: () => (live && !stopped ? shellInit : null),
     publish,
     stop() {
       stopped = true;

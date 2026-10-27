@@ -25,8 +25,8 @@ export const parentOf = (path: string) =>
 
 const sameEntries = (a: readonly FolderEntry[], b: readonly FolderEntry[]) =>
   a.length === b.length &&
-  a.every((entry, at) =>
-    entry.name === b[at].name && entry.kind === b[at].kind
+  a.every(
+    (entry, at) => entry.name === b[at].name && entry.kind === b[at].kind,
   );
 
 export function useFileTree(source: WorkspaceSource, root: string | null) {
@@ -37,35 +37,41 @@ export function useFileTree(source: WorkspaceSource, root: string | null) {
   // 폴더마다 가장 늦게 시작한 읽기만 받는다. 만들기·지우기 뒤의 읽기를 오래된 읽기가 덮지 못하게 한다.
   const sequence = useRef(new Map<string, number>());
 
-  const load = useCallback(async (path: string) => {
-    const mine = (sequence.current.get(path) ?? 0) + 1;
-    sequence.current.set(path, mine);
-    const read = await source.list(path);
-    if (sequence.current.get(path) !== mine) return;
-    const isRoot = path === latest.current.root;
-    if (!read.ok && !isRoot && latest.current.levels.has(path)) {
-      // 펼쳐 둔 하위 폴더가 사라졌다.
+  const load = useCallback(
+    async (path: string) => {
+      const mine = (sequence.current.get(path) ?? 0) + 1;
+      sequence.current.set(path, mine);
+      const read = await source.list(path);
+      if (sequence.current.get(path) !== mine) return;
+      const isRoot = path === latest.current.root;
+      if (!read.ok && !isRoot && latest.current.levels.has(path)) {
+        // 펼쳐 둔 하위 폴더가 사라졌다.
+        setLevels((current) => {
+          const next = new Map(current);
+          next.delete(path);
+          return next;
+        });
+        setExpanded((current) => {
+          const next = new Set(current);
+          next.delete(path);
+          return next;
+        });
+        return;
+      }
       setLevels((current) => {
-        const next = new Map(current);
-        next.delete(path);
-        return next;
+        const before = current.get(path);
+        if (
+          read.ok &&
+          before !== undefined &&
+          before !== "failed" &&
+          sameEntries(before, read.value)
+        )
+          return current;
+        return new Map(current).set(path, read.ok ? read.value : "failed");
       });
-      setExpanded((current) => {
-        const next = new Set(current);
-        next.delete(path);
-        return next;
-      });
-      return;
-    }
-    setLevels((current) => {
-      const before = current.get(path);
-      if (
-        read.ok && before !== undefined && before !== "failed" &&
-        sameEntries(before, read.value)
-      ) return current;
-      return new Map(current).set(path, read.ok ? read.value : "failed");
-    });
-  }, [source]);
+    },
+    [source],
+  );
 
   // 루트를 바꾸면 처음부터 다시 읽는다.
   useEffect(() => {
@@ -95,12 +101,15 @@ export function useFileTree(source: WorkspaceSource, root: string | null) {
   }, [root, refresh]);
 
   /** 폴더를 펼친다. 아직 안 읽었으면 읽는다. */
-  const expand = useCallback((path: string) => {
-    setExpanded((current) =>
-      current.has(path) ? current : new Set(current).add(path)
-    );
-    if (!latest.current.levels.has(path)) void load(path);
-  }, [load]);
+  const expand = useCallback(
+    (path: string) => {
+      setExpanded((current) =>
+        current.has(path) ? current : new Set(current).add(path),
+      );
+      if (!latest.current.levels.has(path)) void load(path);
+    },
+    [load],
+  );
 
   const collapse = useCallback((path: string) => {
     setExpanded((current) => {
@@ -111,25 +120,31 @@ export function useFileTree(source: WorkspaceSource, root: string | null) {
     });
   }, []);
 
-  const toggle = useCallback((path: string) => {
-    if (latest.current.expanded.has(path)) collapse(path);
-    else expand(path);
-  }, [expand, collapse]);
+  const toggle = useCallback(
+    (path: string) => {
+      if (latest.current.expanded.has(path)) collapse(path);
+      else expand(path);
+    },
+    [expand, collapse],
+  );
 
   const collapseAll = useCallback(() => setExpanded(new Set()), []);
 
   /** 루트에서 path의 위쪽 폴더까지 모두 펼친다. 루트 밖이면 아무것도 하지 않는다. */
-  const reveal = useCallback((path: string) => {
-    const base = latest.current.root;
-    if (base === null || !path.startsWith(`${base.replace(/\/+$/, "")}/`)) {
-      return;
-    }
-    let folder = parentOf(path);
-    while (folder.length > base.length) {
-      expand(folder);
-      folder = parentOf(folder);
-    }
-  }, [expand]);
+  const reveal = useCallback(
+    (path: string) => {
+      const base = latest.current.root;
+      if (base === null || !path.startsWith(`${base.replace(/\/+$/, "")}/`)) {
+        return;
+      }
+      let folder = parentOf(path);
+      while (folder.length > base.length) {
+        expand(folder);
+        folder = parentOf(folder);
+      }
+    },
+    [expand],
+  );
 
   const rows: FileRow[] = [];
   const walk = (folder: string, depth: number) => {

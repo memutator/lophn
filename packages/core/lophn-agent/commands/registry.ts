@@ -19,7 +19,7 @@ export type RegistrySkill = {
   selected: boolean;
 };
 
-type BuiltinId = typeof BUILTIN_COMMAND_IDS[number];
+type BuiltinId = (typeof BUILTIN_COMMAND_IDS)[number];
 
 const BUILTIN_TABLE: Record<
   BuiltinId,
@@ -52,8 +52,9 @@ const BUILTIN_NAMES: ReadonlySet<string> = new Set(BUILTIN_COMMAND_IDS);
 // 안내 skill(menu=false)은 model이 읽는 것이라 메뉴에서 뺀다. 사람은 말로 묻는다. 사람이 쓴 skill은 늘 뜬다.
 function onMenu(skill: RegistrySkill): boolean {
   if (skill.origin !== "builtin") return true;
-  return BUILTIN_SKILLS.find((builtin) => builtin.name === skill.name)?.menu ??
-    false;
+  return (
+    BUILTIN_SKILLS.find((builtin) => builtin.name === skill.name)?.menu ?? false
+  );
 }
 
 // built-in(고정 순서) 뒤에 skill(이름 사전순)이다. 끈 skill은 없는 것과 같고, built-in 이름과 같은 skill은 `/`로
@@ -61,21 +62,26 @@ function onMenu(skill: RegistrySkill): boolean {
 export function buildRegistry(
   skills: readonly RegistrySkill[],
 ): CommandEntry[] {
-  const builtins = BUILTIN_COMMAND_IDS.map((id): CommandEntry => ({
-    name: id,
-    ...BUILTIN_TABLE[id],
-    source: "builtin",
-  }));
+  const builtins = BUILTIN_COMMAND_IDS.map(
+    (id): CommandEntry => ({
+      name: id,
+      ...BUILTIN_TABLE[id],
+      source: "builtin",
+    }),
+  );
   const skillEntries = skills
-    .filter((skill) =>
-      skill.selected && !BUILTIN_NAMES.has(skill.name) && onMenu(skill)
+    .filter(
+      (skill) =>
+        skill.selected && !BUILTIN_NAMES.has(skill.name) && onMenu(skill),
     )
-    .toSorted((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
-    .map((skill): CommandEntry => ({
-      name: skill.name,
-      title: null,
-      description: skill.description,
-      source: "skill",
-    }));
+    .toSorted((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+    .map(
+      (skill): CommandEntry => ({
+        name: skill.name,
+        title: null,
+        description: skill.description,
+        source: "skill",
+      }),
+    );
   return [...builtins, ...skillEntries];
 }

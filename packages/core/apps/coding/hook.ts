@@ -119,12 +119,13 @@ function apply(
         outcome,
         messages: [],
         active_ms: null,
-        error: outcome.kind === "failed"
-          ? {
-            code: "harness_failed",
-            message: "the harness ended the turn with a failure",
-          }
-          : null,
+        error:
+          outcome.kind === "failed"
+            ? {
+                code: "harness_failed",
+                message: "the harness ended the turn with a failure",
+              }
+            : null,
       });
       // 거절된 권한은 PostToolUse가 오지 않는다. turn이 끝나면 남은 물음을 닫아야 대기가 풀리고 대기열이 흐른다.
       for (const id of row.permissions) {

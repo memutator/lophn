@@ -33,17 +33,20 @@ export function ToastProvider({ children, timer, clock }: ToastProviderProps) {
     readonly { id: string; options: ToastOptions }[]
   >([]);
   const next = useRef(0);
-  const queue = useMemo<ToastQueue>(() => ({
-    show(options) {
-      next.current += 1;
-      const id = `toast-${next.current}`;
-      setShown((list) => [...list, { id, options }]);
-      return id;
-    },
-    dismiss(id) {
-      setShown((list) => list.filter((item) => item.id !== id));
-    },
-  }), []);
+  const queue = useMemo<ToastQueue>(
+    () => ({
+      show(options) {
+        next.current += 1;
+        const id = `toast-${next.current}`;
+        setShown((list) => [...list, { id, options }]);
+        return id;
+      },
+      dismiss(id) {
+        setShown((list) => list.filter((item) => item.id !== id));
+      },
+    }),
+    [],
+  );
   return (
     <ToastContext.Provider value={queue}>
       {children}

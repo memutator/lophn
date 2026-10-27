@@ -72,9 +72,9 @@ async function titles(core: Core, app: string): Promise<string[]> {
   const { outcome } = await call(core, app, "list_items");
   assert.deepStrictEqual(outcome.status, "succeeded");
   if (outcome.status !== "succeeded") return [];
-  return (outcome.result as { rows: { title: string }[] }).rows.map((row) =>
-    row.title
-  ).sort();
+  return (outcome.result as { rows: { title: string }[] }).rows
+    .map((row) => row.title)
+    .sort();
 }
 
 async function recordOf(core: Core, release: string) {
@@ -99,7 +99,9 @@ async function appProcesses(core: Core, app: string): Promise<number> {
       if (args.some((arg) => arg.startsWith(needle) && arg.endsWith(".ts"))) {
         count += 1;
       }
-    } catch { /* 그사이 끝난 process */ }
+    } catch {
+      /* 그사이 끝난 process */
+    }
   }
   return count;
 }
@@ -161,9 +163,9 @@ test("E2E release activation은 실패하면 data와 이전 release를 그대로
         const { entries } = await core!.call(activationsQueue, {
           app: app.app,
         });
-        return entries.find((item) =>
-            item.release === release && item.step === "drain"
-          )
+        return entries.find(
+          (item) => item.release === release && item.step === "drain",
+        )
           ? true
           : undefined;
       });
@@ -223,8 +225,8 @@ test("E2E release activation은 실패하면 data와 이전 release를 그대로
     // supersedes-pending: 묻는 release A는 허락하지 않고 두고, 안 묻는 더 새 release B가 시작하면 A의 동의 줄이 닫힌다.
     const pending = await deliver([widenPatch2]);
     assert.deepStrictEqual(pending.activated.status, "waiting_consent");
-    const [stale] =
-      (await core.call(activationConsents, { app: app.app })).consents;
+    const [stale] = (await core.call(activationConsents, { app: app.app }))
+      .consents;
     assert.ok(stale !== undefined);
     const newer = await deliver([codeOnlyPatch]);
     assert.deepStrictEqual(newer.activated.status, "active");
@@ -345,8 +347,8 @@ test("E2E release activation은 실패하면 data와 이전 release를 그대로
     const slowAgain = call(core, app.app, "delay", { ms: 5000 });
     slowAgain.catch(() => {});
     // 그 App Engineer turn은 kill에 끊긴다.
-    const resuming = activateRelease(core, fake, app, resumed).catch(() =>
-      undefined
+    const resuming = activateRelease(core, fake, app, resumed).catch(
+      () => undefined,
     );
     await waitDrain(resumed);
     await reboot();

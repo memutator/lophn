@@ -79,32 +79,38 @@ function setup(expiresAtMs: number) {
           : Promise.resolve(models());
       },
       recordModels: (provider, list) =>
-        Promise.resolve(commands.recordModels.handle(
-          tx,
-          { actor: "machine" } as RequestContext,
-          { provider: provider.id, models: list } as never,
-          { revision: provider.revision },
-        )),
+        Promise.resolve(
+          commands.recordModels.handle(
+            tx,
+            { actor: "machine" } as RequestContext,
+            { provider: provider.id, models: list } as never,
+            { revision: provider.revision },
+          ),
+        ),
       record: (provider, result) =>
-        Promise.resolve(commands.refreshCredential.handle(
-          tx,
-          { actor: "machine" } as RequestContext,
-          {
-            provider: provider.id,
-            expires_at: "expires_at" in result ? result.expires_at : null,
-            unavailable_reason: "unavailable_reason" in result
-              ? result.unavailable_reason
-              : null,
-          } as never,
-          { revision: provider.revision },
-        )),
+        Promise.resolve(
+          commands.refreshCredential.handle(
+            tx,
+            { actor: "machine" } as RequestContext,
+            {
+              provider: provider.id,
+              expires_at: "expires_at" in result ? result.expires_at : null,
+              unavailable_reason:
+                "unavailable_reason" in result
+                  ? result.unavailable_reason
+                  : null,
+            } as never,
+            { revision: provider.revision },
+          ),
+        ),
       nowMs: () => NOW,
       leadMs: 5 * 60_000,
     });
   const expire = (ms: number) =>
-    db.prepare(
-      "update provider_credentials set expires_at = ? where provider = ?",
-    )
+    db
+      .prepare(
+        "update provider_credentials set expires_at = ? where provider = ?",
+      )
       .run(at(ms), ID);
   return { secrets, read, refresher, expire };
 }
@@ -117,11 +123,15 @@ const use = {
 test("갱신은 회전한 refresh token을 저장하고, invalid_grant면 credential을 revoked로 하고 token을 내주지 않는다", async () => {
   // 만료 1분 전: 회전한 refresh와 새 access를 저장하고 만료를 올린다.
   const rotated = setup(NOW + 60_000);
-  const fresh = await rotated.refresher(Response.json({
-    access_token: "NEW-ACCESS",
-    refresh_token: "NEW-REFRESH",
-    expires_in: 3600,
-  })).prepareToken(use);
+  const fresh = await rotated
+    .refresher(
+      Response.json({
+        access_token: "NEW-ACCESS",
+        refresh_token: "NEW-REFRESH",
+        expires_in: 3600,
+      }),
+    )
+    .prepareToken(use);
   assert.deepStrictEqual(fresh, ok(undefined));
   assert.deepStrictEqual(
     [
@@ -135,9 +145,9 @@ test("갱신은 회전한 refresh token을 저장하고, invalid_grant면 creden
 
   // 발급자가 grant를 거절하면 revoked가 되고 token을 내주지 않는다.
   const dead = setup(NOW + 60_000);
-  const refused = await dead.refresher(
-    Response.json({ error: "invalid_grant" }, { status: 400 }),
-  ).prepareToken(use);
+  const refused = await dead
+    .refresher(Response.json({ error: "invalid_grant" }, { status: 400 }))
+    .prepareToken(use);
   assert.deepStrictEqual(
     refused?.ok === false && refused.error.code,
     "forbidden",
@@ -150,10 +160,14 @@ test("갱신은 회전한 refresh token을 저장하고, invalid_grant면 creden
 
   // 만료가 lead보다 멀면 갱신하지 않는다.
   const later = setup(NOW + 3_600_000);
-  const untouched = await later.refresher(Response.json({
-    access_token: "NEW-ACCESS",
-    refresh_token: "NEW-REFRESH",
-  })).prepareToken(use);
+  const untouched = await later
+    .refresher(
+      Response.json({
+        access_token: "NEW-ACCESS",
+        refresh_token: "NEW-REFRESH",
+      }),
+    )
+    .prepareToken(use);
   assert.deepStrictEqual(
     [untouched, later.secrets.get(`${ACCESS}.refresh`), later.read().revision],
     [undefined, "OLD-REFRESH", 1],

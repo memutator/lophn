@@ -7,14 +7,18 @@ const ID = /^[a-z]{3}_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const CONCERN = /^[a-z][a-z0-9-]*(\/[a-z][a-z0-9-]*)+$/;
 const DECISION = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)*$/;
 
-const ownerDecisionSchema = z.object({
-  kind: z.literal("owner_decision"),
-  concern: z.string().regex(CONCERN),
-  decision: z.string().regex(DECISION),
-  targets: z.array(z.string().regex(ID)).min(1).refine((values) =>
-    new Set(values).size === values.length
-  ).optional(),
-}).strict();
+const ownerDecisionSchema = z
+  .object({
+    kind: z.literal("owner_decision"),
+    concern: z.string().regex(CONCERN),
+    decision: z.string().regex(DECISION),
+    targets: z
+      .array(z.string().regex(ID))
+      .min(1)
+      .refine((values) => new Set(values).size === values.length)
+      .optional(),
+  })
+  .strict();
 
 // 창 없는 사람 결정 handle 요청. owner_decision 참조와 같은 칸이다.
 export const decisionHandleRequestSchema = ownerDecisionSchema.omit({
@@ -26,12 +30,12 @@ export type DecisionHandleRequest = z.infer<typeof decisionHandleRequestSchema>;
 export type DecisionHandleReply =
   | { confirmation: string; expires_at: string }
   | {
-    error: {
-      code: string;
-      message: string;
-      details?: Record<string, unknown>;
+      error: {
+        code: string;
+        message: string;
+        details?: Record<string, unknown>;
+      };
     };
-  };
 
 export interface DecisionHandleApi {
   requestDecisionHandle(

@@ -104,16 +104,17 @@ test("E2E PM의 shell·skill·image·grep·operator.create가 돌고 web_fetch�
 
     // fake가 받은 요청
     const journal = fake.journal();
-    assert.deepStrictEqual([...new Set(journal.map((entry) => entry.path))], [
-      "/messages",
-    ]);
+    assert.deepStrictEqual(
+      [...new Set(journal.map((entry) => entry.path))],
+      ["/messages"],
+    );
     const body = journal[1].body as {
       messages: { role: string; content: unknown }[];
     };
     const last = body.messages[body.messages.length - 1];
     const results = last.content as { type: string; tool_use_id?: string }[];
-    const shell = results.find((b) =>
-      b.type === "tool_result" && b.tool_use_id === "shell"
+    const shell = results.find(
+      (b) => b.type === "tool_result" && b.tool_use_id === "shell",
     );
     assert.ok(shell, "둘째 요청에 shell tool_result가 없다");
     assert.ok(

@@ -18,8 +18,9 @@ function empty(rect: Rect): boolean {
 }
 
 function sameRect(a: Rect, b: Rect): boolean {
-  return a.x === b.x && a.y === b.y && a.width === b.width &&
-    a.height === b.height;
+  return (
+    a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
+  );
 }
 
 /** 가장자리를 반올림한 정수 사각형. 크기를 반올림하면 이웃 칸과 한 pixel 겹칠 수 있다. */
@@ -147,9 +148,8 @@ export function startBoundsRelay(deps: BoundsRelayDeps): {
       clips.map(rectOf),
       coversAbove(layer).map((cover) => rectOf(cover.element)),
     );
-    if (
-      last !== undefined && last.layer === layer && sameRect(last.rect, next)
-    ) return;
+    if (last !== undefined && last.layer === layer && sameRect(last.rect, next))
+      return;
     last = { rect: next, layer };
     if (empty(next)) deps.hide();
     else deps.send(next, layer);

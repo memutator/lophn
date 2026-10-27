@@ -18,9 +18,10 @@ type AppRewindCommand = {
   ): Promise<Result<Rewind>>;
 };
 
-export function createAppRewindCommand(
-  deps: { rewind: AppRewind; port: ReadSnapshot["port"] },
-): AppRewindCommand {
+export function createAppRewindCommand(deps: {
+  rewind: AppRewind;
+  port: ReadSnapshot["port"];
+}): AppRewindCommand {
   return {
     route: appRewind,
     async handle(ctx, input) {

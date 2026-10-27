@@ -44,26 +44,24 @@ interface FileFrameProps {
   children: ReactNode;
 }
 
-export function FileFrame(
-  {
-    path,
-    kind,
-    outside,
-    meta,
-    line,
-    state,
-    editing = false,
-    onEditing = () => {},
-    onConflict,
-    onRetry,
-    info,
-    initialInfo,
-    onDelete,
-    toasts,
-    onKeyDownCapture,
-    children,
-  }: FileFrameProps,
-) {
+export function FileFrame({
+  path,
+  kind,
+  outside,
+  meta,
+  line,
+  state,
+  editing = false,
+  onEditing = () => {},
+  onConflict,
+  onRetry,
+  info,
+  initialInfo,
+  onDelete,
+  toasts,
+  onKeyDownCapture,
+  children,
+}: FileFrameProps) {
   const [tab, setTab] = useState<InfoTabId | null>(initialInfo ?? null);
   const [confirming, setConfirming] = useState(false);
   const [deleteFailed, setDeleteFailed] = useState(false);
@@ -94,14 +92,12 @@ export function FileFrame(
         />
       </ViewBar>
       {toasts}
-      {deleteFailed
-        ? (
-          <NoticeToast
-            title={t("document.error.delete-failed")}
-            onClose={() => setDeleteFailed(false)}
-          />
-        )
-        : null}
+      {deleteFailed ? (
+        <NoticeToast
+          title={t("document.error.delete-failed")}
+          onClose={() => setDeleteFailed(false)}
+        />
+      ) : null}
       <div className={styles.pane}>
         {children}
         {tab === null ? null : (

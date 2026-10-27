@@ -5,10 +5,12 @@ import type { RequestContext } from "../../../protocol/server/mod.ts";
 
 const basisSchema = z.strictObject({
   seq: z.string(),
-  projects: z.array(z.strictObject({
-    id: z.string(),
-    revision: z.string(),
-  })),
+  projects: z.array(
+    z.strictObject({
+      id: z.string(),
+      revision: z.string(),
+    }),
+  ),
 });
 const conditionsSchema = z.strictObject({
   status: z.enum(["active", "archived"]).nullable(),
@@ -55,9 +57,9 @@ export function pageOffset(
   if (cursor === undefined) return ok(0);
   try {
     const bytes = Uint8Array.from(atob(cursor), (char) => char.charCodeAt(0));
-    const parsed = cursorSchema.safeParse(JSON.parse(
-      new TextDecoder("utf-8", { fatal: true }).decode(bytes),
-    ));
+    const parsed = cursorSchema.safeParse(
+      JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)),
+    );
     if (!parsed.success) return invalidCursor();
     if (
       canonicalize(parsed.data.conditions) !== canonicalize(current.conditions)

@@ -26,19 +26,17 @@ interface ReceivedMessageProps {
   children: ReactNode;
 }
 
-export function ReceivedMessage(
-  {
-    message,
-    sender,
-    time,
-    replyTo,
-    source,
-    onOpenRef,
-    onOpenSession,
-    defaultOpen = false,
-    children,
-  }: ReceivedMessageProps,
-): ReactElement {
+export function ReceivedMessage({
+  message,
+  sender,
+  time,
+  replyTo,
+  source,
+  onOpenRef,
+  onOpenSession,
+  defaultOpen = false,
+  children,
+}: ReceivedMessageProps): ReactElement {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div
@@ -54,24 +52,20 @@ export function ReceivedMessage(
         />
         <span className={styles.time}>{time}</span>
       </div>
-      {open
-        ? (
-          <SenderPanel
-            message={message}
-            sender={sender}
-            source={source}
-            onOpenRef={onOpenRef}
-            onOpenSession={onOpenSession}
-          />
-        )
-        : null}
-      {replyTo === undefined
-        ? null
-        : (
-          <p className={styles.replyTo} data-reply-to="">
-            {t("conversation.label.reply-to", { task: replyTo })}
-          </p>
-        )}
+      {open ? (
+        <SenderPanel
+          message={message}
+          sender={sender}
+          source={source}
+          onOpenRef={onOpenRef}
+          onOpenSession={onOpenSession}
+        />
+      ) : null}
+      {replyTo === undefined ? null : (
+        <p className={styles.replyTo} data-reply-to="">
+          {t("conversation.label.reply-to", { task: replyTo })}
+        </p>
+      )}
       <div className={styles.receivedBody}>{children}</div>
     </div>
   );

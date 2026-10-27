@@ -39,8 +39,7 @@ const scenario: Scenario = {
             call: {
               to: LOPHN,
               reply: "none",
-              body:
-                "세무 project의 영수증 data를 보여 줄 새 앱이 필요해 보입니다.",
+              body: "세무 project의 영수증 data를 보여 줄 새 앱이 필요해 보입니다.",
             },
           },
         ]),

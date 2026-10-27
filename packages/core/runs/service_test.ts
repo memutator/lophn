@@ -112,9 +112,8 @@ test("run의 결과는 그 입력이 연 turn의 답이고 같은 session에 먼
   answers.set(T2, "second");
   await service.turnEnded({ turn: T2, messages: [runMessage] });
   const done = rows.get(id)!;
-  assert.deepStrictEqual([done.state, done.result, done.turn], [
-    "done",
-    "second",
-    T2,
-  ]);
+  assert.deepStrictEqual(
+    [done.state, done.result, done.turn],
+    ["done", "second", T2],
+  );
 });

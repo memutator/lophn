@@ -28,9 +28,12 @@ interface ThreadScrollProps {
   children: ReactNode;
 }
 
-export function ThreadScroll(
-  { count, initialScroll, onScroll, children }: ThreadScrollProps,
-): ReactNode {
+export function ThreadScroll({
+  count,
+  initialScroll,
+  onScroll,
+  children,
+}: ThreadScrollProps): ReactNode {
   const listRef = useRef<HTMLDivElement>(null);
   const following = useRef(initialScroll === null);
   const seen = useRef(count);
@@ -93,22 +96,20 @@ export function ThreadScroll(
       >
         {children}
       </div>
-      {unseen > 0
-        ? (
-          <div className={styles.jump}>
-            <Tooltip content={t("conversation.button.jump-latest")}>
-              <IconButton
-                icon={conversationIcons.jumpLatest}
-                label={t("conversation.button.jump-latest")}
-                variant="secondary"
-                size="sm"
-                data-jump-latest={unseen}
-                onClick={jump}
-              />
-            </Tooltip>
-          </div>
-        )
-        : null}
+      {unseen > 0 ? (
+        <div className={styles.jump}>
+          <Tooltip content={t("conversation.button.jump-latest")}>
+            <IconButton
+              icon={conversationIcons.jumpLatest}
+              label={t("conversation.button.jump-latest")}
+              variant="secondary"
+              size="sm"
+              data-jump-latest={unseen}
+              onClick={jump}
+            />
+          </Tooltip>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -24,8 +24,10 @@ function clean(raw: string, max: number): string {
 }
 
 function attr(tag: string, name: string): string | null {
-  const m = new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i")
-    .exec(tag);
+  const m = new RegExp(
+    `(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`,
+    "i",
+  ).exec(tag);
   return m ? (m[1] ?? m[2] ?? null) : null;
 }
 

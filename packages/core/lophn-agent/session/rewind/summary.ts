@@ -58,9 +58,9 @@ export function rewindSummaryTarget(
         return known === undefined
           ? err({ code: "not_found", message: "message not found" })
           : err({
-            code: "invalid_input",
-            message: "this message is not a point to rewind to",
-          });
+              code: "invalid_input",
+              message: "this message is not a point to rewind to",
+            });
       }
       const running = lookup.sql.get(
         "select 1 as found from turns where session = ? and state = 'running' limit 1",
@@ -103,9 +103,7 @@ function invalid(): Result<never> {
 }
 
 export function createRewindSummaries(options: {
-  resolve(
-    input: { session: string; checkpoint: string },
-  ): Result<Target>;
+  resolve(input: { session: string; checkpoint: string }): Result<Target>;
   newId(): string;
   now(): number;
   ttlMs?: number;
@@ -126,10 +124,11 @@ export function createRewindSummaries(options: {
     if (!parsed.success) return invalid();
     const input = parsed.data;
     // 같은 곳의 요약을 두 번 누르면 기다리는 요청 하나를 그대로 돌려준다.
-    const waiting = live().find((entry) =>
-      entry.session === input.session &&
-      entry.checkpoint === input.checkpoint &&
-      entry.state.state === "waiting"
+    const waiting = live().find(
+      (entry) =>
+        entry.session === input.session &&
+        entry.checkpoint === input.checkpoint &&
+        entry.state.state === "waiting",
     );
     if (waiting !== undefined) return ok({ request: waiting.id });
     const target = options.resolve(input);
@@ -163,8 +162,8 @@ export function createRewindSummaries(options: {
     if (!takeRewindSummaryRequest.input.safeParse(value).success) {
       return invalid();
     }
-    const next = live().find((entry) =>
-      !entry.taken && entry.state.state === "waiting"
+    const next = live().find(
+      (entry) => !entry.taken && entry.state.state === "waiting",
     );
     if (next === undefined) return ok({ request: null });
     next.taken = true;
@@ -184,9 +183,10 @@ export function createRewindSummaries(options: {
     if (entry === undefined || entry.state.state !== "waiting") {
       return ok({ accepted: false });
     }
-    entry.state = parsed.data.result.kind === "summarized"
-      ? { state: "summarized", summary_call: parsed.data.result.summary_call }
-      : { state: "failed", reason: parsed.data.result.reason };
+    entry.state =
+      parsed.data.result.kind === "summarized"
+        ? { state: "summarized", summary_call: parsed.data.result.summary_call }
+        : { state: "failed", reason: parsed.data.result.reason };
     return ok({ accepted: true });
   };
 

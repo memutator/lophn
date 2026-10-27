@@ -26,14 +26,13 @@ export function register(
     },
     // 앱 view와 artifact view를 합친다. 신원은 port의 target이 정한다.
     owner: (view_session) =>
-      views.appFrame.owner(view_session) ??
-        artifact.views.owner(view_session),
+      views.appFrame.owner(view_session) ?? artifact.views.owner(view_session),
     view: (view_session) =>
       views.appFrame.annotateView(view_session) ??
-        artifact.views.annotateView(view_session),
+      artifact.views.annotateView(view_session),
     senderView: (contentsId) =>
       views.appFrame.senderAnnotateView(contentsId) ??
-        artifact.views.senderAnnotateView(contentsId),
+      artifact.views.senderAnnotateView(contentsId),
     pushState(ref, state) {
       const window = windowOfRef(ref);
       if (window !== undefined && !window.webContents.isDestroyed()) {
@@ -46,9 +45,9 @@ export function register(
         const session = core.session();
         return session === null
           ? Promise.resolve({
-            ok: false,
-            error: { code: "unavailable", message: "core is not ready" },
-          })
+              ok: false,
+              error: { code: "unavailable", message: "core is not ready" },
+            })
           : session.upload(resource, method, body, bytes);
       },
     },

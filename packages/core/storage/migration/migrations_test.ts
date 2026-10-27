@@ -69,10 +69,11 @@ test("높은 schema, 다른 hash, 손상된 원본을 구별해 알린다", asyn
     const newer = await applyMigrations(path, [step1], deps);
     assert.ok(!newer.ok);
     assert.deepStrictEqual(startFailureReason(newer.error), "newer_schema");
-    const other = await applyMigrations(path, [
-      { id: "a", sql: "create table a (id text)" },
-      step2,
-    ], deps);
+    const other = await applyMigrations(
+      path,
+      [{ id: "a", sql: "create table a (id text)" }, step2],
+      deps,
+    );
     assert.ok(!other.ok);
     assert.deepStrictEqual(startFailureReason(other.error), "history_mismatch");
     const damaged = `${root}/damaged.db`;

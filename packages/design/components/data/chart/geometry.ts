@@ -65,11 +65,12 @@ export function placeBottomLabels(
     if (size > width) continue;
     const start = Math.min(Math.max(0, tick.at - size / 2), width - size);
     if (start < edge + GEOMETRY.pad) continue;
-    const anchor = start === 0 && tick.at - size / 2 < 0
-      ? "start"
-      : start === width - size && tick.at + size / 2 > width
-      ? "end"
-      : "middle";
+    const anchor =
+      start === 0 && tick.at - size / 2 < 0
+        ? "start"
+        : start === width - size && tick.at + size / 2 > width
+          ? "end"
+          : "middle";
     const x = anchor === "start" ? 0 : anchor === "end" ? width : tick.at;
     placed.push({ ...tick, x, anchor });
     edge = start + size;
@@ -252,8 +253,8 @@ export function nearestIndex(
 // 직접 라벨은 모든 쌍이 한 줄 높이 이상 떨어질 때만 둔다. 모이는 선은 범례와 tooltip으로 읽는다.
 export function labelsFit(ys: readonly number[]): boolean {
   const sorted = [...ys].sort((a, b) => a - b);
-  return sorted.every((y, index) =>
-    index === 0 || y - sorted[index - 1] >= GEOMETRY.caption
+  return sorted.every(
+    (y, index) => index === 0 || y - sorted[index - 1] >= GEOMETRY.caption,
   );
 }
 
@@ -262,7 +263,7 @@ export function tickIndexes(count: number, span: number, label: number) {
   if (count <= 0) return [];
   const room = Math.max(1, Math.floor(span / (label + GEOMETRY.pad * 2)));
   const every = Math.max(1, Math.ceil(count / room));
-  return Array.from({ length: count }, (_, index) => index).filter((index) =>
-    (count - 1 - index) % every === 0
+  return Array.from({ length: count }, (_, index) => index).filter(
+    (index) => (count - 1 - index) % every === 0,
   );
 }

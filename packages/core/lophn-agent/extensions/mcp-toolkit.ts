@@ -79,11 +79,12 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
       void requery(assignment, server);
     }
   };
-  const connections = deps.create !== undefined
-    // 알림을 떼어 붙인다: deps 객체를 그대로 넘기고, 만들어진 연결 관리가
-    // 서버 알림을 이 모듈로 돌린다.
-    ? deps.create({ ...deps.connections, onListChanged })
-    : createMcpConnections({ ...deps.connections, onListChanged });
+  const connections =
+    deps.create !== undefined
+      ? // 알림을 떼어 붙인다: deps 객체를 그대로 넘기고, 만들어진 연결 관리가
+        // 서버 알림을 이 모듈로 돌린다.
+        deps.create({ ...deps.connections, onListChanged })
+      : createMcpConnections({ ...deps.connections, onListChanged });
 
   // (assignment → server name → 재조회 상태)다. list_changed·재연결 뒤
   // refreshing, 재조회 실패면 failed다. fresh 밖의 서버 tool은 호출이 거절된다.
@@ -147,7 +148,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
       if (own.ok) {
         layers.push({
           servers: own.value.mcp_servers.map((server) =>
-            runtimeServerOfLayer(server, place)
+            runtimeServerOfLayer(server, place),
           ),
           off: own.value.mcp_off,
         });
@@ -156,7 +157,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
     if (agent !== undefined) {
       layers.push({
         servers: agent.servers.map((server) =>
-          runtimeServerOfLayer(server, place)
+          runtimeServerOfLayer(server, place),
         ),
         off: agent.off,
       });
@@ -172,17 +173,14 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
       agent: deps.operatorRef(agent),
     });
     if (!read.ok || read.value.issues.length > 0) return undefined;
-    const definition = read.value.definition as
-      | { mcp_servers?: readonly McpServer[] }
-      | null;
+    const definition = read.value.definition as {
+      mcp_servers?: readonly McpServer[];
+    } | null;
     return { servers: definition?.mcp_servers ?? [], off: [] };
   }
 
   // 전체 tools/list를 다시 읽는다. 끝나면 fresh, 못 하면 failed다.
-  async function requery(
-    assignment: string,
-    server: string,
-  ): Promise<void> {
+  async function requery(assignment: string, server: string): Promise<void> {
     const listed = await connections.toolList(assignment, server);
     setState(assignment, server, listed.ok ? "fresh" : "failed");
   }
@@ -223,11 +221,11 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
     const assignment = `grants-${crypto.randomUUID()}`;
     const cut = new AbortController();
     const timer = new AbortController();
-    void deps.connections.deadline(LIST_SERVER_MAX_MS, timer.signal).then(
-      (how) => {
+    void deps.connections
+      .deadline(LIST_SERVER_MAX_MS, timer.signal)
+      .then((how) => {
         if (how === "elapsed") cut.abort();
-      },
-    );
+      });
     const timedOut = new Promise<McpToolServer>((resolve) => {
       cut.signal.addEventListener(
         "abort",
@@ -258,9 +256,12 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
           reason: null,
         };
       }
-      const needsSignIn = connections.views().some((view) =>
-        view.owner[0] === assignment && view.state === "failed_auth"
-      );
+      const needsSignIn = connections
+        .views()
+        .some(
+          (view) =>
+            view.owner[0] === assignment && view.state === "failed_auth",
+        );
       return unreachable(needsSignIn ? "sign_in" : "unreachable");
     };
     try {
@@ -319,9 +320,12 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
           } | null;
         };
         if (
-          shape?.mcp === undefined || shape.mcp === null ||
-          shape.mcp.servers.length === 0 || shape.mcp.tools.length === 0
-        ) return null;
+          shape?.mcp === undefined ||
+          shape.mcp === null ||
+          shape.mcp.servers.length === 0 ||
+          shape.mcp.tools.length === 0
+        )
+          return null;
         return {
           servers: [...shape.mcp.servers],
           tools: shape.mcp.tools.map((pair) => ({ ...pair })),
@@ -337,9 +341,10 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
             // 재조회가 끝날 때까지 그 server의 tool 호출을 막는다.
             return err({
               code: "unavailable",
-              message: state === "refreshing"
-                ? "서버의 tool 목록을 다시 읽는 중이라 호출을 거절한다"
-                : "서버의 tool 목록 재조회가 실패해 호출을 거절한다",
+              message:
+                state === "refreshing"
+                  ? "서버의 tool 목록을 다시 읽는 중이라 호출을 거절한다"
+                  : "서버의 tool 목록 재조회가 실패해 호출을 거절한다",
             });
           }
           const server = knownOf(assignmentId).get(invoke.server);
@@ -358,7 +363,8 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
             ? now.value.find((s) => s.name === invoke.server)
             : undefined;
           if (
-            live === undefined || !live.enabled ||
+            live === undefined ||
+            !live.enabled ||
             options?.skip?.has(invoke.server)
           ) {
             return err({
@@ -405,22 +411,24 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
             // failure다. code는 상한 종류(EXTERNAL_TOOL_ERRORS)다. 서버의
             // tool_error는 호출이 실패한 것이고 나머지는 그대로 온다.
             if (sent.kind === "failure") {
-              const code = sent.code === "tool_error"
-                ? "unavailable" as const
-                : sent.code as
-                  | "invalid_input"
-                  | "not_found"
-                  | "forbidden"
-                  | "unavailable";
+              const code =
+                sent.code === "tool_error"
+                  ? ("unavailable" as const)
+                  : (sent.code as
+                      | "invalid_input"
+                      | "not_found"
+                      | "forbidden"
+                      | "unavailable");
               return err({ code, message: sent.message });
             }
             // uncertain·not_executed다. 응답은 못 받았거나 설정이 회수됐다.
             // 모두 모른다.
             return err({
               code: "unavailable",
-              message: sent.kind === "not_executed"
-                ? "서버 설정이 회수됐다"
-                : sent.message,
+              message:
+                sent.kind === "not_executed"
+                  ? "서버 설정이 회수됐다"
+                  : sent.message,
             });
           }
         };

@@ -9,10 +9,14 @@ test("계정 model 목록 응답이 틀리면 null이고, 맞으면 숨긴 것�
     [
       "list와 visibility 없음은 남는다",
       Response.json({
-        data: [{ id: "b", visibility: "list" }, { id: "a" }, {
-          id: "c",
-          visibility: "hide",
-        }],
+        data: [
+          { id: "b", visibility: "list" },
+          { id: "a" },
+          {
+            id: "c",
+            visibility: "hide",
+          },
+        ],
       }),
       ["a", "b"],
     ],

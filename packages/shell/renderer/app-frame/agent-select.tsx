@@ -51,25 +51,35 @@ interface AgentSelectProps {
  *   부르고 menu는 닫힌다.
  * - 놓을 자리(window controls 바로 옆)는 app bar가 정하고 이 component는 select 하나만 그린다.
  */
-export function AgentSelect(
-  { agents, paneOpen, onOpenAgent, onRuns, onManage }: AgentSelectProps,
-): ReactElement {
+export function AgentSelect({
+  agents,
+  paneOpen,
+  onOpenAgent,
+  onRuns,
+  onManage,
+}: AgentSelectProps): ReactElement {
   const items: MenuItem[] = [
     ...ordered(agents).map((agent) => ({
       id: agent.assignment,
       leading: <Avatar profile={agent.profile} size="sm" />,
       label: (
-        <span className={styles.name} data-agent-name="">{agent.name}</span>
+        <span className={styles.name} data-agent-name="">
+          {agent.name}
+        </span>
       ),
       textValue: agent.name,
       data: { "data-agent": agent.assignment } as const,
     })),
-    ...(onRuns === undefined ? [] : [{
-      id: RUNS,
-      label: t("run-list.button.background"),
-      data: { "data-agent-runs": "" } as const,
-      separatorBefore: true,
-    }]),
+    ...(onRuns === undefined
+      ? []
+      : [
+          {
+            id: RUNS,
+            label: t("run-list.button.background"),
+            data: { "data-agent-runs": "" } as const,
+            separatorBefore: true,
+          },
+        ]),
     {
       id: MANAGE,
       label: t("app-space.button.manage-agents"),
@@ -86,8 +96,9 @@ export function AgentSelect(
             id === MANAGE
               ? onManage()
               : id === RUNS
-              ? onRuns?.()
-              : onOpenAgent(id)}
+                ? onRuns?.()
+                : onOpenAgent(id)
+          }
           placement="beside"
           trigger={
             <Button
@@ -117,9 +128,5 @@ const RUNS = "runs";
 function ordered(agents: readonly AppSpaceAgent[]): AppSpaceAgent[] {
   const pick = (role: AppSpaceAgentRole) =>
     agents.filter((agent) => agent.role === role);
-  return [
-    ...pick("lophn"),
-    ...pick("app_engineer"),
-    ...pick("operator"),
-  ];
+  return [...pick("lophn"), ...pick("app_engineer"), ...pick("operator")];
 }

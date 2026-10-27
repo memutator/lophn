@@ -32,14 +32,15 @@ export async function attachRealModels(
   const protocol = definition?.protocols[0];
   const modelsEndpoint = definition?.models_endpoint;
   if (
-    definition === undefined || protocol === undefined ||
-    modelsEndpoint === null || modelsEndpoint === undefined ||
+    definition === undefined ||
+    protocol === undefined ||
+    modelsEndpoint === null ||
+    modelsEndpoint === undefined ||
     !modelsEndpoint.endsWith("/models")
   ) {
     throw new Error("내장 anthropic provider 정의를 찾지 못했다");
   }
-  const endpoint = input.endpoint ??
-    modelsEndpoint.slice(0, -"/models".length);
+  const endpoint = input.endpoint ?? modelsEndpoint.slice(0, -"/models".length);
 
   const id = core.ids.newId("pvd");
   const secret = `provider.${id.slice("pvd_".length)}`;

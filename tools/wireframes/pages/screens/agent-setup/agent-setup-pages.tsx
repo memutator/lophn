@@ -156,10 +156,7 @@ export const SettingsProvidersConnectedEmptyPage = () => (
   <SettingsFrame
     pane="providers"
     customList="empty"
-    steps={[
-      ...CONNECT_CUSTOM,
-      () => click("[role=dialog] button", /^Close$/),
-    ]}
+    steps={[...CONNECT_CUSTOM, () => click("[role=dialog] button", /^Close$/)]}
   />
 );
 
@@ -189,10 +186,7 @@ export const SettingsDefaultModelPromptPage = () => (
     pane="providers"
     providers="none"
     noDefaultModel
-    steps={[
-      ...CONNECT_FIRST,
-      () => click("[role=dialog] [data-model-button]"),
-    ]}
+    steps={[...CONNECT_FIRST, () => click("[role=dialog] [data-model-button]")]}
   />
 );
 

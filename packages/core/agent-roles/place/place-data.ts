@@ -84,9 +84,9 @@ const ROLE_LINE: Record<Role, string> = {
 const MAX_PAGES = 50;
 
 async function pages<T>(
-  next: (cursor: string | undefined) => Promise<
-    Result<{ items: T[]; next_cursor: string | null }>
-  >,
+  next: (
+    cursor: string | undefined,
+  ) => Promise<Result<{ items: T[]; next_cursor: string | null }>>,
 ): Promise<Result<T[]>> {
   const items: T[] = [];
   let cursor: string | undefined;
@@ -155,7 +155,7 @@ async function readPlaceData(
   // active 앱 전체. lophn의 목록과 부를 수 있는 App Engineer 후보가 같이 쓴다.
   let activeApps: Promise<Result<App[]>> | undefined;
   const readActiveApps = () =>
-    activeApps ??= pages(async (cursor) => {
+    (activeApps ??= pages(async (cursor) => {
       const read = await readOf(call, appList, {
         status: "active",
         ...(cursor === undefined ? {} : { cursor }),
@@ -164,9 +164,11 @@ async function readPlaceData(
         ? ok({ items: read.value.apps, next_cursor: read.value.next_cursor })
         : read;
     }).then((read) => {
-      if (read.ok) { for (const a of read.value) appRecords.set(a.id, a); }
+      if (read.ok) {
+        for (const a of read.value) appRecords.set(a.id, a);
+      }
       return read;
-    });
+    }));
 
   let project: PlaceProject | null = null;
   let app: PlaceData["app"] = null;
@@ -220,7 +222,7 @@ async function readPlaceData(
         : read;
     });
     const mine = (listed.ok ? listed.value : []).filter((d) =>
-      agent.domains.includes(d.id)
+      agent.domains.includes(d.id),
     );
     for (const d of mine) {
       let folder: string | null = null;
@@ -234,7 +236,9 @@ async function readPlaceData(
           await files.ensureDir(`${root}/${DOMAIN_SKILLS_FOLDER}`);
           await files.ensureDir(artifactsFolder);
           folder = root;
-        } catch { /* 폴더가 없으면 범위에서 빠진다 */ }
+        } catch {
+          /* 폴더가 없으면 범위에서 빠진다 */
+        }
         if (folder !== null) {
           scopeDomains.push({ id: d.id, folder, artifactsFolder });
           artifacts = {
@@ -256,7 +260,8 @@ async function readPlaceData(
       if (got.ok) {
         const { status } = got.value;
         if (
-          status.state !== "none" && got.value.kinds !== null &&
+          status.state !== "none" &&
+          got.value.kinds !== null &&
           status.applied_hash !== null
         ) {
           kindDomains.push({
@@ -269,10 +274,13 @@ async function readPlaceData(
       }
     }
   }
-  const kinds: PlaceKinds | null = kindDomains.length === 0 ? null : {
-    hash: kindHashes.sort(cmp).join(","),
-    text: buildKindText({ domains: kindDomains }),
-  };
+  const kinds: PlaceKinds | null =
+    kindDomains.length === 0
+      ? null
+      : {
+          hash: kindHashes.sort(cmp).join(","),
+          text: buildKindText({ domains: kindDomains }),
+        };
 
   // lophn: 모든 project와 앱의 목록과 domain 지도. 폴더는 읽기만 열린다.
   const projectList: { name: string; purpose: string }[] = [];
@@ -287,9 +295,9 @@ async function readPlaceData(
       });
       return read.ok
         ? ok({
-          items: read.value.projects,
-          next_cursor: read.value.next_cursor,
-        })
+            items: read.value.projects,
+            next_cursor: read.value.next_cursor,
+          })
         : read;
     });
     if (!listed.ok) return listed;
@@ -323,9 +331,9 @@ async function readPlaceData(
       });
       return read.ok
         ? ok({
-          items: read.value.packages,
-          next_cursor: read.value.next_cursor,
-        })
+            items: read.value.packages,
+            next_cursor: read.value.next_cursor,
+          })
         : read;
     });
     // package는 주인 앱의 줄에 싣는다.
@@ -347,22 +355,28 @@ async function readPlaceData(
       records.find((d) => d.id === id)?.name ?? id;
     for (const d of records) {
       const ownerApp = d.owner.kind === "app" ? d.owner.id : null;
-      const tools = ownerApp === null
-        ? []
-        : (toolsOf.get(ownerApp) ?? []).filter((t) =>
-          t.public && t.domain === d.name
-        );
+      const tools =
+        ownerApp === null
+          ? []
+          : (toolsOf.get(ownerApp) ?? []).filter(
+              (t) => t.public && t.domain === d.name,
+            );
       const toolNames = new Set(tools.map((t) => t.name));
-      const uses = ownerApp === null || !usage.ok
-        ? []
-        : usage.value.uses.filter((u) =>
-          u.app === ownerApp && toolNames.has(u.tool) && u.domain !== d.id
-        );
+      const uses =
+        ownerApp === null || !usage.ok
+          ? []
+          : usage.value.uses.filter(
+              (u) =>
+                u.app === ownerApp &&
+                toolNames.has(u.tool) &&
+                u.domain !== d.id,
+            );
       map.push({
         name: d.name,
-        owner: d.owner.kind === "project"
-          ? `project ${projects.get(d.owner.id)?.name ?? d.owner.id}`
-          : `app ${appRecords.get(d.owner.id)?.name ?? d.owner.id}`,
+        owner:
+          d.owner.kind === "project"
+            ? `project ${projects.get(d.owner.id)?.name ?? d.owner.id}`
+            : `app ${appRecords.get(d.owner.id)?.name ?? d.owner.id}`,
         purpose: d.purpose,
         tools: tools.map((t) => ({
           key: t.name,
@@ -388,9 +402,8 @@ async function readPlaceData(
     const key = `${at.kind}:${at.id}`;
     if (labels.has(key)) return labels.get(key) ?? null;
     let name = at.id;
-    const read = at.kind === "project"
-      ? await projectOf(at.id)
-      : await appOf(at.id);
+    const read =
+      at.kind === "project" ? await projectOf(at.id) : await appOf(at.id);
     if (read.ok) name = read.value.name;
     const label = `${at.kind} ${name}`;
     labels.set(key, label);
@@ -407,9 +420,11 @@ async function readPlaceData(
       line: ROLE_LINE[session.role],
     };
     if (
-      found.role === role && found.name === agent.name &&
+      found.role === role &&
+      found.name === agent.name &&
       found.place === (await labelOf(place))
-    ) continue;
+    )
+      continue;
     agents.set(`${found.role}\0${found.name}\0${found.place}`, found);
   }
 
@@ -438,27 +453,25 @@ async function readPlaceData(
     });
     return read.ok
       ? ok({
-        items: read.value.projects,
-        next_cursor: read.value.next_cursor,
-      })
+          items: read.value.projects,
+          next_cursor: read.value.next_cursor,
+        })
       : read;
   });
   for (const record of projectsRead.ok ? projectsRead.value : []) {
     projects.set(record.id, record);
     labels.set(`project:${record.id}`, `project ${record.name}`);
-    await add(
-      { role: "project_manager", project: record.id },
-      record.name,
-      { kind: "project", id: record.id },
-    );
+    await add({ role: "project_manager", project: record.id }, record.name, {
+      kind: "project",
+      id: record.id,
+    });
   }
   const appsRead = await readActiveApps();
   for (const record of appsRead.ok ? appsRead.value : []) {
-    await add(
-      { role: "app_engineer", app: record.id },
-      record.name,
-      { kind: "app", id: record.id },
-    );
+    await add({ role: "app_engineer", app: record.id }, record.name, {
+      kind: "app",
+      id: record.id,
+    });
   }
   const defined = await readOf(call, agentDefinitionList, {});
   for (const row of defined.ok ? defined.value.agents : []) {
@@ -475,7 +488,9 @@ async function readPlaceData(
         try {
           await files.ensureDir(folder);
           workflowsFolder = folder;
-        } catch { /* 폴더가 없으면 범위에서 빠진다 */ }
+        } catch {
+          /* 폴더가 없으면 범위에서 빠진다 */
+        }
       } else workflowsFolder = folder;
     }
   }

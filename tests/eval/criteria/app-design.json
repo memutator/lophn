@@ -2,13 +2,6 @@
   "name": "app-design",
   "n": 2,
   "question": "The input has three sections. [CARD] is the requirement card a human holds: what the human wants and the answers the human has settled on. [JOURNEYS] and [SCREENS] are those two sections of DESIGN.md, the design the App Engineer wrote before building the app; either may say it is missing. Judge the design as written, not code. First find the main screen: the screen the app opens on (if the design does not say, the first screen it describes). Decide whether it is the screen that well-known apps of the same kind open on. For a calendar that is a grid of dates, such as a month or week view laid out by date; a list, a table, an agenda or a list grouped by day or week is not the main screen of a calendar, even when it shows dates. For other kinds of app, a list or table of records is the main screen only when well-known apps of that kind open on such a list. Then decide whether each thing the person wants on the card (for example adding, viewing and removing, and reminders) has a journey done on the main screen or on a screen reached from it. Something the card leaves to the agent's recommendation does not need to appear. Verdicts: fits = the main screen is the one well-known apps of this kind open on and every wanted thing on the card has a journey from it; wrong_main_screen = the main screen is not the one well-known apps of this kind open on; task_missing = the main screen fits but a wanted thing on the card has no journey or no place on the screens; cannot_tell = the input does not let you decide (for example both sections are missing). The quote must be the part of the input that decided your verdict (for fits and wrong_main_screen, the words that name the main screen and its layout; for task_missing, the card's words for the missing task).",
-  "verdicts": [
-    "fits",
-    "wrong_main_screen",
-    "task_missing",
-    "cannot_tell"
-  ],
-  "pass": [
-    "fits"
-  ]
+  "verdicts": ["fits", "wrong_main_screen", "task_missing", "cannot_tell"],
+  "pass": ["fits"]
 }

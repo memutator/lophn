@@ -46,12 +46,15 @@ const ICON_PIXELS: Record<AvatarSize, number> = {
  * `data-size`(sm|md|lg). icon이면 `data-icon`에 id와 안에 svg 하나, image면 `<img src>` 하나,
  * initial이면 글자 그대로. 모르는 icon id는 `data-icon="default"`로 기본 icon을 그린다.
  */
-export function Avatar(
-  { profile, size = "md", label }: AvatarProps,
-): ReactElement {
-  const knownIcon = profile.kind === "icon" && isAvatarIconId(profile.icon)
-    ? profile.icon
-    : undefined;
+export function Avatar({
+  profile,
+  size = "md",
+  label,
+}: AvatarProps): ReactElement {
+  const knownIcon =
+    profile.kind === "icon" && isAvatarIconId(profile.icon)
+      ? profile.icon
+      : undefined;
   return (
     <span
       className={styles.avatar}

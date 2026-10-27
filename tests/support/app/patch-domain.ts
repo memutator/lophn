@@ -33,9 +33,11 @@ export function domainPatch(domain: string): AppPatch {
       `${dir}/lophn.ts`,
       `      {
         name: "add_item",`,
-      `${declare("shelf_list", "List shelf", false)}${
-        declare("shelf_count", "Count shelf", true)
-      }      {
+      `${declare("shelf_list", "List shelf", false)}${declare(
+        "shelf_count",
+        "Count shelf",
+        true,
+      )}      {
         name: "add_item",`,
     );
     await replaceOnce(

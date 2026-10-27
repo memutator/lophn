@@ -24,15 +24,18 @@ export function createOperatorDirectory(
     const toInfo = (loaded: Loaded): OperatorInfo | null =>
       ROLE_TABLE.isOperator(loaded.role) && loaded.place !== null
         ? {
-          id: operatorIdOf(loaded.ref) as OperatorInfo["id"],
-          name: nameOf(ROLE_TABLE, loaded),
-          place: loaded.place,
-          domains: loaded.definition !== null && "domains" in loaded.definition
-            ? loaded.definition.domains ?? []
-            : [],
-          skip: loaded.definition !== null && "skip" in loaded.definition &&
-            loaded.definition.skip === true,
-        }
+            id: operatorIdOf(loaded.ref) as OperatorInfo["id"],
+            name: nameOf(ROLE_TABLE, loaded),
+            place: loaded.place,
+            domains:
+              loaded.definition !== null && "domains" in loaded.definition
+                ? (loaded.definition.domains ?? [])
+                : [],
+            skip:
+              loaded.definition !== null &&
+              "skip" in loaded.definition &&
+              loaded.definition.skip === true,
+          }
         : null;
     return {
       operator(id) {

@@ -29,27 +29,30 @@ import { registerSteps } from "../../../mock/launcher/register-panel.tsx";
 
 const noop = () => {};
 
-function Page(
-  { empty = false, steps = [] }: {
-    empty?: boolean;
-    steps?: readonly Step[];
-  },
-) {
+function Page({
+  empty = false,
+  steps = [],
+}: {
+  empty?: boolean;
+  steps?: readonly Step[];
+}) {
   const core = useMemo(() => mockCore(), []);
   const [client] = useState(() => createEventClient(createFakeWaiting([])));
   const projects = useMemo(
     () =>
       fakeProjects(
-        empty ? { projects: [] } : {
-          missingFolder: MISSING_FOLDER,
-          picked: "/home/mina/trips/autumn",
-        },
+        empty
+          ? { projects: [] }
+          : {
+              missingFolder: MISSING_FOLDER,
+              picked: "/home/mina/trips/autumn",
+            },
       ).source,
     [empty],
   );
   const agentViewSource = useMemo(() => mockAgentTabSource(), []);
   const apps = useMemo(
-    () => empty ? fakeApps().source : galleryApps().source,
+    () => (empty ? fakeApps().source : galleryApps().source),
     [empty],
   );
   useDrive(() => runSteps(steps));
@@ -82,9 +85,7 @@ export const LauncherLophn = () => (
 
 /** 등록 dialog를 연 런처. */
 export const LauncherRegister = () => (
-  <Page
-    steps={[() => click("[data-register-project]"), ...registerSteps()]}
-  />
+  <Page steps={[() => click("[data-register-project]"), ...registerSteps()]} />
 );
 
 /** New app dialog: 이름과 한 줄 목적. */

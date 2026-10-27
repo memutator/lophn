@@ -76,8 +76,11 @@ function checkCall(
   if (Object.keys(call).sort().join(",") !== "input,tool") return undefined;
   const tool = call.tool;
   if (
-    typeof tool !== "string" || tool.trim().length === 0 ||
-    tool.trim() !== tool || /\p{Cc}/u.test(tool) || tool.includes("*")
+    typeof tool !== "string" ||
+    tool.trim().length === 0 ||
+    tool.trim() !== tool ||
+    /\p{Cc}/u.test(tool) ||
+    tool.includes("*")
   ) {
     return undefined;
   }
@@ -101,7 +104,7 @@ function checkCall(
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : undefined;
 }
 
@@ -147,8 +150,9 @@ function outcomeOf(outcome: unknown): CallOutcome<unknown> {
     case "succeeded": {
       let size = Infinity;
       try {
-        size = new TextEncoder().encode(JSON.stringify(body.result) ?? "")
-          .byteLength;
+        size = new TextEncoder().encode(
+          JSON.stringify(body.result) ?? "",
+        ).byteLength;
       } catch {
         // 직렬화할 수 없는 값은 아래에서 거절한다.
       }
@@ -159,7 +163,7 @@ function outcomeOf(outcome: unknown): CallOutcome<unknown> {
     case "failed": {
       const error = record(body.error);
       return typeof error?.code === "string" &&
-          typeof error.message === "string"
+        typeof error.message === "string"
         ? fail(error.code, error.message)
         : fail("unavailable", "app response did not match");
     }
@@ -204,34 +208,36 @@ export function createAppCall(deps: AppCallDeps) {
       }
       const declaration = await declarationOf(view);
       if (!declaration.ok) return fail("unavailable", "app is not available");
-      const declared = declaration.value.tools.find((tool) =>
-        tool.name === call.tool
+      const declared = declaration.value.tools.find(
+        (tool) => tool.name === call.tool,
       );
       if (declared === undefined) return NOT_AVAILABLE;
       // 입력이 없는 tool은 페이지가 null로 부른다. 앱에는 입력 없이 보낸다.
-      const input = !declared.hasInput && call.input === null
-        ? undefined
-        : call.input;
+      const input =
+        !declared.hasInput && call.input === null ? undefined : call.input;
 
-      const reply = await deps.call("memory", "apps", "call_tool", {
-        target: view.target.mode === "live"
-          ? {
-            mode: "live",
-            app: view.target.app,
-            release: view.binding.release,
-          }
-          : {
-            mode: "preview",
-            app: view.target.app,
-            process_nonce: view.binding.processNonce,
-          },
-        tool: declared.name,
-        ...(input === undefined ? {} : { input }),
-        caller: { kind: "person", view_session: view.view_session },
-      }).catch(() => ({
-        ok: false as const,
-        error: { code: "unavailable", message: "core call failed" },
-      }));
+      const reply = await deps
+        .call("memory", "apps", "call_tool", {
+          target:
+            view.target.mode === "live"
+              ? {
+                  mode: "live",
+                  app: view.target.app,
+                  release: view.binding.release,
+                }
+              : {
+                  mode: "preview",
+                  app: view.target.app,
+                  process_nonce: view.binding.processNonce,
+                },
+          tool: declared.name,
+          ...(input === undefined ? {} : { input }),
+          caller: { kind: "person", view_session: view.view_session },
+        })
+        .catch(() => ({
+          ok: false as const,
+          error: { code: "unavailable", message: "core call failed" },
+        }));
       if (!reply.ok) return coreFailure(reply.error.code, declared.effect);
       return outcomeOf(record(reply.value)?.outcome);
     },

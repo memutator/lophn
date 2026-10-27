@@ -42,9 +42,9 @@ export type TxDeps = {
   ids: IdSource;
   ports: readonly TxPortRegistration[];
   // blob 참조 등록은 platform/blob-store가 맡는다. 여기서는 주입만 받는다.
-  registerBlobRef: (reference: BlobRefRegistration) => Result<
-    PermanentBlobReference
-  >;
+  registerBlobRef: (
+    reference: BlobRefRegistration,
+  ) => Result<PermanentBlobReference>;
   // 다른 owner command dispatch. 없으면 등록된 command를 부르지 않는다.
   dispatch?: CommandDispatch;
   call: TxCall;
@@ -226,17 +226,21 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
   ): string => {
     live();
     if (!subjectSchema.safeParse(subject).success) {
-      throw new TxRejected(err({
-        code: "invalid_input",
-        message: "event subject가 schema와 다르다",
-      }));
+      throw new TxRejected(
+        err({
+          code: "invalid_input",
+          message: "event subject가 schema와 다르다",
+        }),
+      );
     }
     const parsed = event.payload.safeParse(payload);
     if (!parsed.success) {
-      throw new TxRejected(err({
-        code: "invalid_input",
-        message: "event payload가 schema와 다르다",
-      }));
+      throw new TxRejected(
+        err({
+          code: "invalid_input",
+          message: "event payload가 schema와 다르다",
+        }),
+      );
     }
     // event 행도 변경 행 한도에 든다. 실행기의 command_results 한 행만 뺀다.
     const inserted = measured(true, () =>
@@ -250,7 +254,8 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
           JSON.stringify(parsed.data),
           deps.clock.now(),
         ],
-      ));
+      ),
+    );
     return formatSeq(BigInt(inserted.lastInsertRowid));
   };
   const ports: { current?: TxPortLookup } = {};

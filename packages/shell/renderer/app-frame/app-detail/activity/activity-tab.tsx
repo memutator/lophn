@@ -34,9 +34,13 @@ interface ActivityTabProps {
   onOpenSession?: (session: string) => void;
 }
 
-export function ActivityTab(
-  { app, name, source, now, onOpenSession }: ActivityTabProps,
-) {
+export function ActivityTab({
+  app,
+  name,
+  source,
+  now,
+  onOpenSession,
+}: ActivityTabProps) {
   const [open, setOpen] = useState<string | null>(null);
   const [rewind, setRewind] = useState<string | null>(null);
   if (rewind !== null) {
@@ -66,25 +70,26 @@ export function ActivityTab(
   );
 }
 
-function SessionLink(
-  { caller, onOpenSession }: {
-    caller: Extract<Caller, { kind: "agent" }>;
-    onOpenSession?: (session: string) => void;
-  },
-) {
+function SessionLink({
+  caller,
+  onOpenSession,
+}: {
+  caller: Extract<Caller, { kind: "agent" }>;
+  onOpenSession?: (session: string) => void;
+}) {
   const label = caller.title ?? t("app-detail.label.session-unnamed");
-  return onOpenSession === undefined
-    ? <span className={styles.muted}>{label}</span>
-    : (
-      <button
-        type="button"
-        className={styles.link}
-        data-open-session={caller.session}
-        onClick={() => onOpenSession(caller.session)}
-      >
-        {label}
-      </button>
-    );
+  return onOpenSession === undefined ? (
+    <span className={styles.muted}>{label}</span>
+  ) : (
+    <button
+      type="button"
+      className={styles.link}
+      data-open-session={caller.session}
+      onClick={() => onOpenSession(caller.session)}
+    >
+      {label}
+    </button>
+  );
 }
 
 function StateCell({ row }: { row: ActivityRow }) {
@@ -98,23 +103,21 @@ function StateCell({ row }: { row: ActivityRow }) {
   return <span className={styles.muted}>{text}</span>;
 }
 
-function CalledBy(
-  { row, onOpenSession }: {
-    row: ActivityRow;
-    onOpenSession?: (session: string) => void;
-  },
-) {
+function CalledBy({
+  row,
+  onOpenSession,
+}: {
+  row: ActivityRow;
+  onOpenSession?: (session: string) => void;
+}) {
   const caller = row.caller;
   switch (caller.kind) {
     case "agent":
       return (
         <span>
           {callerText(caller)} ·{" "}
-          <SessionLink
-            caller={caller}
-            onOpenSession={onOpenSession}
-          />{" "}
-          · {t("app-detail.label.turn")} <Mono>{caller.turn}</Mono> ·{" "}
+          <SessionLink caller={caller} onOpenSession={onOpenSession} /> ·{" "}
+          {t("app-detail.label.turn")} <Mono>{caller.turn}</Mono> ·{" "}
           {t("app-detail.label.tool-call")} <Mono>{caller.toolCall}</Mono>
         </span>
       );
@@ -124,9 +127,10 @@ function CalledBy(
           {caller.releaseNumber === null
             ? (caller.appName ?? t("app-detail.label.caller-app-unnamed"))
             : t("app-detail.label.called-by-app", {
-              name: caller.appName ?? t("app-detail.label.caller-app-unnamed"),
-              release: releaseName(caller.releaseNumber),
-            })}
+                name:
+                  caller.appName ?? t("app-detail.label.caller-app-unnamed"),
+                release: releaseName(caller.releaseNumber),
+              })}
         </span>
       );
     case "program":
@@ -146,36 +150,33 @@ function CalledBy(
   }
 }
 
-function Detail(
-  { row, onOpenSession }: {
-    row: ActivityRow;
-    onOpenSession?: (session: string) => void;
-  },
-) {
+function Detail({
+  row,
+  onOpenSession,
+}: {
+  row: ActivityRow;
+  onOpenSession?: (session: string) => void;
+}) {
   return (
     <div className={styles.detail} data-invocation-detail={row.id}>
       <Facts
         rows={[
           [
             t("app-detail.label.fact-called-by"),
-            <CalledBy
-              key="by"
-              row={row}
-              onOpenSession={onOpenSession}
-            />,
+            <CalledBy key="by" row={row} onOpenSession={onOpenSession} />,
           ],
           [
             t("app-detail.label.fact-input-fingerprint"),
-            row.inputHash === null
-              ? t("app-detail.label.input-none")
-              : (
-                <span key="in">
-                  <Mono>{row.inputHash}</Mono>{" "}
-                  <span className={styles.muted}>
-                    {t("app-detail.note.input-fingerprint")}
-                  </span>
+            row.inputHash === null ? (
+              t("app-detail.label.input-none")
+            ) : (
+              <span key="in">
+                <Mono>{row.inputHash}</Mono>{" "}
+                <span className={styles.muted}>
+                  {t("app-detail.note.input-fingerprint")}
                 </span>
-              ),
+              </span>
+            ),
           ],
           [
             t("app-detail.label.fact-result"),
@@ -193,25 +194,23 @@ function Detail(
   );
 }
 
-function ActivityList(
-  {
-    app,
-    source,
-    now,
-    open,
-    onOpen,
-    onRewind,
-    onOpenSession,
-  }: {
-    app: string;
-    source: AppDetailSource;
-    now: () => Date;
-    open: string | null;
-    onOpen: (id: string | null) => void;
-    onRewind: (id: string) => void;
-    onOpenSession?: (session: string) => void;
-  },
-) {
+function ActivityList({
+  app,
+  source,
+  now,
+  open,
+  onOpen,
+  onRewind,
+  onOpenSession,
+}: {
+  app: string;
+  source: AppDetailSource;
+  now: () => Date;
+  open: string | null;
+  onOpen: (id: string | null) => void;
+  onRewind: (id: string) => void;
+  onOpenSession?: (session: string) => void;
+}) {
   const read = useRead(() => source.activity(app), [app, source], { now });
   return (
     <Loadable
@@ -233,109 +232,103 @@ function ActivityList(
   );
 }
 
-function ActivityRows(
-  { view, now, open, onOpen, onRewind, onOpenSession }: {
-    view: ActivityView;
-    now: () => Date;
-    open: string | null;
-    onOpen: (id: string | null) => void;
-    onRewind: (id: string) => void;
-    onOpenSession?: (session: string) => void;
-  },
-) {
+function ActivityRows({
+  view,
+  now,
+  open,
+  onOpen,
+  onRewind,
+  onOpenSession,
+}: {
+  view: ActivityView;
+  now: () => Date;
+  open: string | null;
+  onOpen: (id: string | null) => void;
+  onRewind: (id: string) => void;
+  onOpenSession?: (session: string) => void;
+}) {
   const rows = view.rows;
   return (
     <>
       <div className={styles.filters}>
         <p className={styles.muted}>{t("app-detail.note.activity-scope")}</p>
       </div>
-      {rows.length === 0
-        ? (
-          <p className={styles.state} data-activity-empty="">
-            {t("app-detail.note.no-activity")}
-          </p>
-        )
-        : (
-          <div
-            className={styles.table}
-            role="table"
-            aria-label={t("app-detail.label.tab-activity")}
-          >
-            <div className={styles.tableHead} role="row">
-              <span>{t("app-detail.label.col-time")}</span>
-              <span>{t("app-detail.label.col-caller")}</span>
-              <span>{t("app-detail.label.col-call")}</span>
-              <span>{t("app-detail.label.col-effect")}</span>
-              <span>{t("app-detail.label.col-result")}</span>
-              <span />
-            </div>
-            {rows.map((row) => (
-              <div key={row.id} className={styles.tableBlock}>
-                <div
-                  className={`${styles.tableRow} ${
-                    row.earlier ? styles.tableRowOld : ""
-                  } ${open === row.id ? styles.tableRowOpen : ""}`}
-                  role="row"
-                  data-invocation={row.id}
-                >
-                  <span>{callTime(row.at, now())}</span>
-                  <span className={styles.cell}>
-                    <span>{callerText(row.caller)}</span>
-                    {row.caller.kind === "agent"
-                      ? (
-                        <SessionLink
-                          caller={row.caller}
-                          onOpenSession={onOpenSession}
-                        />
-                      )
-                      : null}
-                  </span>
-                  <span className={styles.cell}>
-                    <button
-                      type="button"
-                      className={styles.linkPlain}
-                      aria-expanded={open === row.id}
-                      onClick={() => onOpen(open === row.id ? null : row.id)}
-                    >
-                      <Mono>{callName(row)}</Mono>
-                    </button>
-                    <span className={styles.muted}>
-                      {row.earlier && row.releaseNumber !== null
-                        ? t("app-detail.label.from-release", {
-                          release: releaseName(row.releaseNumber),
-                        })
-                        : ""}
-                    </span>
-                  </span>
-                  <EffectPill effect={row.effect} />
-                  <StateCell row={row} />
-                  <span className={styles.cellEnd}>
-                    {canRewind(row)
-                      ? (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          data-rewind-start={row.id}
-                          onClick={() => onRewind(row.id)}
-                        >
-                          {t("app-detail.button.rewind-from-here")}
-                        </Button>
-                      )
-                      : null}
-                  </span>
-                </div>
-                {open === row.id
-                  ? (
-                    <Detail
-                      row={row}
+      {rows.length === 0 ? (
+        <p className={styles.state} data-activity-empty="">
+          {t("app-detail.note.no-activity")}
+        </p>
+      ) : (
+        <div
+          className={styles.table}
+          role="table"
+          aria-label={t("app-detail.label.tab-activity")}
+        >
+          <div className={styles.tableHead} role="row">
+            <span>{t("app-detail.label.col-time")}</span>
+            <span>{t("app-detail.label.col-caller")}</span>
+            <span>{t("app-detail.label.col-call")}</span>
+            <span>{t("app-detail.label.col-effect")}</span>
+            <span>{t("app-detail.label.col-result")}</span>
+            <span />
+          </div>
+          {rows.map((row) => (
+            <div key={row.id} className={styles.tableBlock}>
+              <div
+                className={`${styles.tableRow} ${
+                  row.earlier ? styles.tableRowOld : ""
+                } ${open === row.id ? styles.tableRowOpen : ""}`}
+                role="row"
+                data-invocation={row.id}
+              >
+                <span>{callTime(row.at, now())}</span>
+                <span className={styles.cell}>
+                  <span>{callerText(row.caller)}</span>
+                  {row.caller.kind === "agent" ? (
+                    <SessionLink
+                      caller={row.caller}
                       onOpenSession={onOpenSession}
                     />
-                  )
-                  : null}
+                  ) : null}
+                </span>
+                <span className={styles.cell}>
+                  <button
+                    type="button"
+                    className={styles.linkPlain}
+                    aria-expanded={open === row.id}
+                    onClick={() => onOpen(open === row.id ? null : row.id)}
+                  >
+                    <Mono>{callName(row)}</Mono>
+                  </button>
+                  <span className={styles.muted}>
+                    {row.earlier && row.releaseNumber !== null
+                      ? t("app-detail.label.from-release", {
+                          release: releaseName(row.releaseNumber),
+                        })
+                      : ""}
+                  </span>
+                </span>
+                <EffectPill effect={row.effect} />
+                <StateCell row={row} />
+                <span className={styles.cellEnd}>
+                  {canRewind(row) ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      data-rewind-start={row.id}
+                      onClick={() => onRewind(row.id)}
+                    >
+                      {t("app-detail.button.rewind-from-here")}
+                    </Button>
+                  ) : null}
+                </span>
               </div>
-            ))}
-          </div>
-        )}
+              {open === row.id ? (
+                <Detail row={row} onOpenSession={onOpenSession} />
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }

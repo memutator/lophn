@@ -210,8 +210,11 @@ export const RESERVED_DOMAIN_NAMES: readonly string[] = [
   "mcp",
 ];
 export function isDomainName(name: string): boolean {
-  return name.length <= 63 && DOMAIN_NAME.test(name) &&
-    !RESERVED_DOMAIN_NAMES.includes(name);
+  return (
+    name.length <= 63 &&
+    DOMAIN_NAME.test(name) &&
+    !RESERVED_DOMAIN_NAMES.includes(name)
+  );
 }
 export const SECRET_NAME = /^[A-Za-z0-9_.:-]+$/;
 export const PACKAGE_NAME = /^@(?:me|lophn)\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -262,8 +265,9 @@ export function lengthOf(value: string): number {
 }
 
 export function nonBlank(value: unknown): value is string {
-  return typeof value === "string" && value.trim() !== "" &&
-    !rejectSurrogate(value);
+  return (
+    typeof value === "string" && value.trim() !== "" && !rejectSurrogate(value)
+  );
 }
 
 export function singleLine(value: unknown): value is string {
@@ -315,11 +319,12 @@ function stableJson(value: JsonValue): string {
         return `[${value.map((item) => stableJson(item)).join(",")}]`;
       }
       const keys = Object.keys(value).sort();
-      return `{${
-        keys.map((key) =>
-          `${JSON.stringify(key)}:${stableJson(value[key] as JsonValue)}`
-        ).join(",")
-      }}`;
+      return `{${keys
+        .map(
+          (key) =>
+            `${JSON.stringify(key)}:${stableJson(value[key] as JsonValue)}`,
+        )
+        .join(",")}}`;
     }
     default:
       return "null";
@@ -335,7 +340,9 @@ function jsonType(value: JsonValue): InputType | undefined {
       return rejectSurrogate(value) ? undefined : "string";
     case "number":
       return Number.isFinite(value)
-        ? Number.isInteger(value) ? "integer" : "number"
+        ? Number.isInteger(value)
+          ? "integer"
+          : "number"
         : undefined;
     case "object":
       return Array.isArray(value) ? "array" : "object";
@@ -352,10 +359,7 @@ export function matchesType(type: InputType, value: JsonValue): boolean {
     : actual === type;
 }
 
-function copyJson(
-  value: unknown,
-  seen: Set<object>,
-): JsonValue | undefined {
+function copyJson(value: unknown, seen: Set<object>): JsonValue | undefined {
   if (value === null || typeof value === "boolean") return value;
   if (typeof value === "string") {
     return rejectSurrogate(value) ? undefined : value;

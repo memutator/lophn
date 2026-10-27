@@ -4,20 +4,27 @@ import { type ReactNode, useId } from "react";
 
 import { FieldContext } from "@lophn/ui/input";
 
-export function NamedControl(
-  { name, invalid = false, labelClass, children }: {
-    readonly name: string;
-    readonly invalid?: boolean;
-    readonly labelClass: string;
-    /** 이름 아래에 놓일 글(도움말, 오류)과 입력을 render prop으로 나눠 받는다. */
-    readonly children: (parts: {
-      readonly label: ReactNode;
-      readonly provide: (control: ReactNode) => ReactNode;
-    }) => ReactNode;
-  },
-) {
+export function NamedControl({
+  name,
+  invalid = false,
+  labelClass,
+  children,
+}: {
+  readonly name: string;
+  readonly invalid?: boolean;
+  readonly labelClass: string;
+  /** 이름 아래에 놓일 글(도움말, 오류)과 입력을 render prop으로 나눠 받는다. */
+  readonly children: (parts: {
+    readonly label: ReactNode;
+    readonly provide: (control: ReactNode) => ReactNode;
+  }) => ReactNode;
+}) {
   const id = useId();
-  const label = <label htmlFor={id} className={labelClass}>{name}</label>;
+  const label = (
+    <label htmlFor={id} className={labelClass}>
+      {name}
+    </label>
+  );
   const provide = (control: ReactNode) => (
     <FieldContext.Provider value={{ id, invalid }}>
       {control}

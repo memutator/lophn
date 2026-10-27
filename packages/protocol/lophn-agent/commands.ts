@@ -24,19 +24,26 @@ const nonempty = z.string().regex(/\S/);
 const commandNameSchema = z.string().regex(/^[a-z0-9-]{1,64}$/);
 
 // 두 출처가 같은 모양을 쓴다. built-in은 제목이 있고 이름이 BUILTIN_COMMAND_IDS에 있다. skill은 제목이 없다.
-const commandEntrySchema = z.object({
-  name: commandNameSchema,
-  // built-in 명령의 메뉴 제목(New session). skill은 제목 없이 이름을 쓴다.
-  title: nonempty.max(64).nullable(),
-  description: nonempty.max(1024),
-  source: z.enum(COMMAND_SOURCES),
-}).refine((value) => {
-  if (value.source === "builtin") {
-    return value.title !== null &&
-      (BUILTIN_COMMAND_IDS as readonly string[]).includes(value.name);
-  }
-  return value.title === null;
-}, { message: "command source, title and name do not match" });
+const commandEntrySchema = z
+  .object({
+    name: commandNameSchema,
+    // built-in 명령의 메뉴 제목(New session). skill은 제목 없이 이름을 쓴다.
+    title: nonempty.max(64).nullable(),
+    description: nonempty.max(1024),
+    source: z.enum(COMMAND_SOURCES),
+  })
+  .refine(
+    (value) => {
+      if (value.source === "builtin") {
+        return (
+          value.title !== null &&
+          (BUILTIN_COMMAND_IDS as readonly string[]).includes(value.name)
+        );
+      }
+      return value.title === null;
+    },
+    { message: "command source, title and name do not match" },
+  );
 
 export type CommandEntry = z.infer<typeof commandEntrySchema>;
 
@@ -45,9 +52,11 @@ const commandsListInputSchema = z.strictObject({
 });
 
 // 그 session의 agent 기준 목록이다: 전역 built-in, 그 agent가 쓸 수 있는 skill의 순서. 끈 skill은 없다.
-const commandsListOutputSchema = withReadCommon(z.object({
-  commands: z.array(commandEntrySchema).max(512),
-}));
+const commandsListOutputSchema = withReadCommon(
+  z.object({
+    commands: z.array(commandEntrySchema).max(512),
+  }),
+);
 
 export const commandsList = defineRead({
   resource: "commands",

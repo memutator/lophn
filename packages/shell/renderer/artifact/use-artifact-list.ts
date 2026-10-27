@@ -20,12 +20,14 @@ export function useArtifactList(domains: readonly string[]): {
     if (api === null) return;
     let live = true;
     const ids = key === "" ? [] : key.split(",");
-    Promise.all(ids.map((domain) =>
-      api.list({ domain }).then(
-        (read) => read.artifacts.map((item) => ({ ...item, domain })),
-        () => [],
-      )
-    )).then((lists) => {
+    Promise.all(
+      ids.map((domain) =>
+        api.list({ domain }).then(
+          (read) => read.artifacts.map((item) => ({ ...item, domain })),
+          () => [],
+        ),
+      ),
+    ).then((lists) => {
       if (live) setItems(lists.flat());
     });
     return () => {

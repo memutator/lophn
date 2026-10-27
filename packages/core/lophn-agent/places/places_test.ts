@@ -58,13 +58,13 @@ const deps: OpenDeps = {
     app: (id) =>
       id === OTHER_APP
         ? null
-        : ({ id, archived: archivedPlaces.has(id) }) as never,
+        : ({ id, archived: archivedPlaces.has(id) } as never),
     appByName: () => null,
   },
   operators: {
     operator: (id) =>
       id === OPERATOR
-        ? { id, name: "reviewer", place: { kind: "app", id: APP } } as never
+        ? ({ id, name: "reviewer", place: { kind: "app", id: APP } } as never)
         : null,
     operators: () => [],
   },
@@ -122,8 +122,9 @@ test("archive한 session은 입력을 받지 않고 보관한 place의 session�
   archivedPlaces.add(APP);
   assert.deepStrictEqual(directory.find(session)?.accepting, false);
   assert.deepStrictEqual(
-    sql.get("select lifecycle from sessions where id = ?", [session])
-      ?.["lifecycle"],
+    sql.get("select lifecycle from sessions where id = ?", [session])?.[
+      "lifecycle"
+    ],
     "open",
   );
   archivedPlaces.delete(APP);
@@ -159,7 +160,10 @@ test("fork는 이력만 복사하고 허락, 대기 요청, 열린 call, rewind 
   assert.ok(opened.ok);
   const source = opened.value.session;
   const body = "a".repeat(64);
-  for (const [seq, from] of [[1, "human"], [2, "agent"]] as const) {
+  for (const [seq, from] of [
+    [1, "human"],
+    [2, "agent"],
+  ] as const) {
     sql.run(
       `insert into messages (id, session, from_kind, from_ref, call, reply_to,
          refs, delivery, turn, body, created_seq, created_at, state_seq)
@@ -197,12 +201,15 @@ test("fork는 이력만 복사하고 허락, 대기 요청, 열린 call, rewind 
     "select from_kind, call, turn from messages where session = ? order by created_seq",
     ["ses_fork"],
   );
-  assert.deepStrictEqual(copies.map((row) => row["from_kind"]), [
-    "human",
-    "agent",
-  ]);
+  assert.deepStrictEqual(
+    copies.map((row) => row["from_kind"]),
+    ["human", "agent"],
+  );
   // 열린 call과 turn은 원래 session에 묶여 있어 새 session의 turn이 가져간 적이 없다.
-  assert.deepStrictEqual(copies.map((row) => row["turn"]), [null, null]);
+  assert.deepStrictEqual(
+    copies.map((row) => row["turn"]),
+    [null, null],
+  );
   const forkedRow = sql.get("select * from sessions where id = ?", [
     "ses_fork",
   ]);
@@ -224,20 +231,22 @@ test("role과 place가 맞지 않는 session은 열리지 않는다", () => {
     assert.ok(
       !rolePlaceFits(
         role as never,
-        kind === null ? null : { kind, id } as never,
+        kind === null ? null : ({ kind, id } as never),
       ),
     );
     assert.throws(() =>
-      db.prepare(
-        `insert into sessions (id, role, project, app, place_kind, place_id,
+      db
+        .prepare(
+          `insert into sessions (id, role, project, app, place_kind, place_id,
            created_seq, state_seq) values ('ses_bad', ?, ?, ?, ?, ?, 1, 1)`,
-      ).run(
-        role,
-        kind === "project" ? id : null,
-        kind === "app" ? id : null,
-        kind,
-        id,
-      )
+        )
+        .run(
+          role,
+          kind === "project" ? id : null,
+          kind === "app" ? id : null,
+          kind,
+          id,
+        ),
     );
   }
 

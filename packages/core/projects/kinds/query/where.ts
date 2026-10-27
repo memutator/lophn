@@ -8,11 +8,13 @@ type Leaf = {
   op: string;
   value?: Scalar | Scalar[];
 };
-type Condition = Leaf | {
-  all?: Condition[];
-  any?: Condition[];
-  not?: Condition;
-};
+type Condition =
+  | Leaf
+  | {
+      all?: Condition[];
+      any?: Condition[];
+      not?: Condition;
+    };
 
 export function evaluate(condition: KindCondition, row: Row): boolean {
   return test(condition as Condition, row);
@@ -34,8 +36,9 @@ export function conditionFields(condition: KindCondition): string[] {
   const walk = (c: Condition): string[] =>
     "field" in c
       ? [c.field]
-      : [...(c.all ?? []), ...(c.any ?? []), ...(c.not ? [c.not] : [])]
-        .flatMap(walk);
+      : [...(c.all ?? []), ...(c.any ?? []), ...(c.not ? [c.not] : [])].flatMap(
+          walk,
+        );
   return walk(condition as Condition);
 }
 
@@ -51,10 +54,7 @@ function evaluateLeaf(leaf: Leaf, row: Row): boolean {
   return anyItem(actual, (item) => compare(leaf.op, item, leaf.value));
 }
 
-function anyItem(
-  actual: unknown,
-  check: (item: unknown) => boolean,
-): boolean {
+function anyItem(actual: unknown, check: (item: unknown) => boolean): boolean {
   return Array.isArray(actual) ? actual.some(check) : check(actual);
 }
 

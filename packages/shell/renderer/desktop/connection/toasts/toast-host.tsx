@@ -44,27 +44,32 @@ export function ToastHost({ overlay }: { overlay: OverlayApi }) {
     function next() {
       if (stopped || active || queue.length === 0) return;
       const item = queue.shift()!;
-      const requestId = `toast-${item.id.replace(/[^A-Za-z0-9_-]/g, "-")}`
-        .slice(0, 80);
+      const requestId =
+        `toast-${item.id.replace(/[^A-Za-z0-9_-]/g, "-")}`.slice(0, 80);
       active = { item, requestId };
       const text = item.text();
-      void consumer.open({
-        requestId,
-        kind: "notification",
-        anchorRect: centerAnchor(),
-        model: {
-          label: text.title,
-          text: text.body,
-          lead: text.lead,
-          tone: "neutral",
-          choices: text.action ? [{ id: ACT, label: text.action }] : [],
-        },
-      }, document.body).then((opened) => {
-        if (stopped) {
-          if (opened.ok) void overlay.close(opened.value);
-        } else if (opened.ok) identity = opened.value;
-        else finish(requestId);
-      });
+      void consumer
+        .open(
+          {
+            requestId,
+            kind: "notification",
+            anchorRect: centerAnchor(),
+            model: {
+              label: text.title,
+              text: text.body,
+              lead: text.lead,
+              tone: "neutral",
+              choices: text.action ? [{ id: ACT, label: text.action }] : [],
+            },
+          },
+          document.body,
+        )
+        .then((opened) => {
+          if (stopped) {
+            if (opened.ok) void overlay.close(opened.value);
+          } else if (opened.ok) identity = opened.value;
+          else finish(requestId);
+        });
     }
 
     function finish(requestId: string, selected = false) {
@@ -76,13 +81,17 @@ export function ToastHost({ overlay }: { overlay: OverlayApi }) {
       next();
     }
 
-    const consumer = overlayConsumer(overlay, (result) => {
-      if (result.type === "pointer" || result.type === "query") return;
-      finish(result.requestId, result.type === "selected");
-    }, () => {
-      // overlay가 끊기면 이 toast의 결과는 오지 않는다. 다음으로 넘어간다.
-      if (active) finish(active.requestId);
-    });
+    const consumer = overlayConsumer(
+      overlay,
+      (result) => {
+        if (result.type === "pointer" || result.type === "query") return;
+        finish(result.requestId, result.type === "selected");
+      },
+      () => {
+        // overlay가 끊기면 이 toast의 결과는 오지 않는다. 다음으로 넘어간다.
+        if (active) finish(active.requestId);
+      },
+    );
 
     const unsubscribe = client.subscribe(
       { types: [...REACTION_EVENT_TYPES] },
@@ -119,7 +128,7 @@ export function ToastHost({ overlay }: { overlay: OverlayApi }) {
     });
     // main이 이 창에 그 Agent session 탭을 고르라고 한다(OS 알림이나 toast를 누름). 열기는 sidebar의 줄과 같은 길이다.
     const stopReveal = notice?.onReveal(({ session }) =>
-      runToastAction({ kind: "session", session })
+      runToastAction({ kind: "session", session }),
     );
 
     return () => {

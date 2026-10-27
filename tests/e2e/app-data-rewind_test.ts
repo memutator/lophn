@@ -77,9 +77,9 @@ async function blobs(core: Core, app: TestApp) {
 }
 
 async function titles(core: Core, app: TestApp): Promise<string[]> {
-  return rowsOf<{ title: string }>(await call(core, app, "list_items")).map((
-    row,
-  ) => row.title).sort();
+  return rowsOf<{ title: string }>(await call(core, app, "list_items"))
+    .map((row) => row.title)
+    .sort();
 }
 
 // 한 write가 100KiB라 셋의 changeset 합이 control frame(256KiB)을 넘는다.
@@ -92,21 +92,22 @@ async function addBlobs(core: Core, app: TestApp): Promise<string[]> {
 }
 
 const rewindOf = async (core: Core, app: TestApp, from: string) =>
-  (await core.call(appRewinds, { app: app.app })).rewinds.find((item) =>
-    item.from_invocation === from
+  (await core.call(appRewinds, { app: app.app })).rewinds.find(
+    (item) => item.from_invocation === from,
   );
 
-const addItemTool = (
-  title: string,
-) => ({
+const addItemTool = (title: string) => ({
   reply: (request: Parameters<typeof toolNames>[0]) => ({
     kind: "tool" as const,
-    calls: [{
-      id: "tc_add",
-      name: toolNames(request).find((name) => name.endsWith("_add_item")) ??
-        "tool_not_offered",
-      arguments: JSON.stringify({ title }),
-    }],
+    calls: [
+      {
+        id: "tc_add",
+        name:
+          toolNames(request).find((name) => name.endsWith("_add_item")) ??
+          "tool_not_offered",
+        arguments: JSON.stringify({ title }),
+      },
+    ],
   }),
 });
 
@@ -188,15 +189,17 @@ test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌�
     const both = await Promise.all(
       ["a", "b"].map((title) => call(core!, live, "add_item", { title })),
     );
-    const written = (await core.call(appInvocations, {
-      app: live.app,
-      effect: "write",
-      status: "succeeded",
-    })).invocations.filter((item) =>
-      both.some((one) => one.invocation === item.id)
-    ).sort((x, y) =>
-      `${x.started_at}${x.id}`.localeCompare(`${y.started_at}${y.id}`)
-    );
+    const written = (
+      await core.call(appInvocations, {
+        app: live.app,
+        effect: "write",
+        status: "succeeded",
+      })
+    ).invocations
+      .filter((item) => both.some((one) => one.invocation === item.id))
+      .sort((x, y) =>
+        `${x.started_at}${x.id}`.localeCompare(`${y.started_at}${y.id}`),
+      );
     // ledger
     assert.deepStrictEqual(written.length, 2);
     assert.ok(written.every((item) => item.changeset !== null));
@@ -211,9 +214,10 @@ test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌�
       app: live.app,
       from_invocation: later.id,
     });
-    assert.deepStrictEqual(single.plan.items.map((item) => item.invocation), [
-      later.id,
-    ]);
+    assert.deepStrictEqual(
+      single.plan.items.map((item) => item.invocation),
+      [later.id],
+    );
     await core.call(appRewind, { app: live.app, from_invocation: later.id });
     // app state: 먼저 시작한 호출의 item 하나만 남는다
     const kept_title = ["a", "b"][
@@ -231,16 +235,23 @@ test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌�
     });
     const operator = { role: "operator", agent } as const;
     // tool 목록은 session을 열 때 고정되므로 열기 전에 할당한다.
-    await core.call(agentAssignmentSet, {
-      agent: operator,
-      entries: [{ app: live.app, removed_tools: [] }],
-    }, { revision: 0 });
+    await core.call(
+      agentAssignmentSet,
+      {
+        agent: operator,
+        entries: [{ app: live.app, removed_tools: [] }],
+      },
+      { revision: 0 },
+    );
     for (const choose of [true, false]) {
       const title = choose ? "by-agent-chosen" : "by-agent-skipped";
       fake!.reset();
-      fake!.script([addItemTool(title), {
-        reply: { kind: "text", text: "added" },
-      }]);
+      fake!.script([
+        addItemTool(title),
+        {
+          reply: { kind: "text", text: "added" },
+        },
+      ]);
       const session = await openSession(core, operator);
       const { message } = await say(core, session, `add ${title}`);
       await waitTurnEnd(core, session);
@@ -251,9 +262,10 @@ test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌�
         sessionRewindPreview,
         { session, checkpoint: message, choice: "restore_all" },
       );
-      assert.deepStrictEqual(preview.app_writes.map((item) => item.app), [
-        live.app,
-      ]);
+      assert.deepStrictEqual(
+        preview.app_writes.map((item) => item.app),
+        [live.app],
+      );
       const header: Output<typeof sessionRewind> = await core.call(
         sessionRewind,
         {
@@ -269,10 +281,9 @@ test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌�
         },
         { session_state: "open", active_turn: null, applying_rewind: null },
       );
-      const revert: RevertRecord | undefined =
-        (await core.call(rewindList, { session })).reverts.find(
-          (item) => item.id === header.id,
-        );
+      const revert: RevertRecord | undefined = (
+        await core.call(rewindList, { session })
+      ).reverts.find((item) => item.id === header.id);
       // disk: 파일 복원은 앱 선택과 독립이다. 이 session은 file을 건드리지 않았다.
       assert.deepStrictEqual(revert?.items, []);
       const writes = preview.app_writes[0]!.invocations;
@@ -284,9 +295,9 @@ test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌�
         });
         assert.deepStrictEqual(record.status, "applied");
         assert.deepStrictEqual(
-          (await core.call(rewindList, { session })).reverts.find((item) =>
-            item.id === header.id
-          )?.apps.map((item) => [item.app, item.result]),
+          (await core.call(rewindList, { session })).reverts
+            .find((item) => item.id === header.id)
+            ?.apps.map((item) => [item.app, item.result]),
           [[live.app, "applied"]],
         );
         // app state

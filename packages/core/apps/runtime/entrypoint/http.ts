@@ -21,11 +21,14 @@ export function serveUnix(
   path: string,
   handler: HttpHandler,
 ): Deno.HttpServer<Deno.UnixAddr> {
-  return Deno.serve({
-    path,
-    transport: "unix",
-    onListen() {},
-  }, (request: Request) => handle(request, handler));
+  return Deno.serve(
+    {
+      path,
+      transport: "unix",
+      onListen() {},
+    },
+    (request: Request) => handle(request, handler),
+  );
 }
 
 async function handle(
@@ -46,9 +49,10 @@ async function handle(
     headers: request.headers,
     body: new Uint8Array(await request.arrayBuffer()),
   });
-  const body = typeof response.body === "string"
-    ? response.body
-    : new Uint8Array(response.body);
+  const body =
+    typeof response.body === "string"
+      ? response.body
+      : new Uint8Array(response.body);
   return new Response(body, {
     status: response.status,
     headers: response.headers,

@@ -44,15 +44,18 @@ export interface DocumentViewProps extends EditorDeps {
     readonly scroll_offset: number;
   };
   /** 읽던 위치. 0은 저장 위치를 적용하기 전에는 올리지 않는다. */
-  onReadPosition?: (
-    position: { section: string; scroll_offset: number },
-  ) => void;
+  onReadPosition?: (position: {
+    section: string;
+    scroll_offset: number;
+  }) => void;
   now?: () => number;
 }
 
 export function DocumentView(props: DocumentViewProps) {
   const kind = fileKindOf(props.path);
-  return kind === "image" || kind === "pdf"
-    ? <MediaFileView {...props} />
-    : <TextFileView {...props} />;
+  return kind === "image" || kind === "pdf" ? (
+    <MediaFileView {...props} />
+  ) : (
+    <TextFileView {...props} />
+  );
 }

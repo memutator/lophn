@@ -26,7 +26,7 @@ function ownerOf(ctx: ToolContext): DomainOwner | null {
   const place: { kind: string; id: string } | null = ctx.place;
   if (place === null) return null;
   return place.kind === "project" || place.kind === "app"
-    ? { kind: place.kind, id: place.id } as DomainOwner
+    ? ({ kind: place.kind, id: place.id } as DomainOwner)
     : null;
 }
 
@@ -46,11 +46,11 @@ export const DOMAIN_AGENT_TOOLS: readonly ToolDefinition[] = [
       });
       if (!read.ok) return read;
       const { body, more } = readBody(read.value);
-      return ok(fitted(
-        countSummary("domains", body.domains.length, more),
-        body,
-        ["domains"],
-      ));
+      return ok(
+        fitted(countSummary("domains", body.domains.length, more), body, [
+          "domains",
+        ]),
+      );
     },
   }),
   defineTool({
@@ -63,9 +63,11 @@ export const DOMAIN_AGENT_TOOLS: readonly ToolDefinition[] = [
     handler: async (input, ctx) => {
       const read = await readOf(ctx.core, domainGet, input);
       if (!read.ok) return read;
-      return ok(fitted(`domain ${read.value.domain.name}`, {
-        domain: read.value.domain,
-      }));
+      return ok(
+        fitted(`domain ${read.value.domain.name}`, {
+          domain: read.value.domain,
+        }),
+      );
     },
   }),
   defineTool({

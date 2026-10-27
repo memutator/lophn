@@ -93,23 +93,27 @@ function startPlatformIo(
   port: number,
   listener: Required<IoListener>,
 ): Promise<Result<void>> {
-  return io.start(
-    platformIoSpec(),
-    {
-      type: "hello",
-      core_epoch: epoch,
-      process_identity: epoch,
-      kind: "platform/io",
-      task: "diagnostics",
-      scope: { operations: [], targets: {} },
-      credential: "platform-io",
-      api_port: port,
-    },
-    listener,
-  ).then((started) =>
-    started.ok ? ok(undefined) : err({
-      code: started.code,
-      message: "platform/io worker를 시작하지 못했다",
-    })
-  );
+  return io
+    .start(
+      platformIoSpec(),
+      {
+        type: "hello",
+        core_epoch: epoch,
+        process_identity: epoch,
+        kind: "platform/io",
+        task: "diagnostics",
+        scope: { operations: [], targets: {} },
+        credential: "platform-io",
+        api_port: port,
+      },
+      listener,
+    )
+    .then((started) =>
+      started.ok
+        ? ok(undefined)
+        : err({
+            code: started.code,
+            message: "platform/io worker를 시작하지 못했다",
+          }),
+    );
 }

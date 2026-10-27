@@ -62,13 +62,17 @@ function responseOf(fixture: Fixture, signal: AbortSignal | null): Response {
     let sent = false;
     stream = new ReadableStream<Uint8Array>({
       start(controller) {
-        signal?.addEventListener("abort", () => {
-          try {
-            controller.error(abortError());
-          } catch {
-            // 이미 끝난 stream이다.
-          }
-        }, { once: true });
+        signal?.addEventListener(
+          "abort",
+          () => {
+            try {
+              controller.error(abortError());
+            } catch {
+              // 이미 끝난 stream이다.
+            }
+          },
+          { once: true },
+        );
       },
       pull(controller) {
         if (!sent) {

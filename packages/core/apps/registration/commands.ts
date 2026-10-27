@@ -81,10 +81,7 @@ function appView(app: App): Result<App> {
   return parsed.success ? ok(parsed.data) : invalid("invalid app state");
 }
 
-function accessTarget(
-  before: App | null,
-  after: App,
-): AppAccessTarget {
+function accessTarget(before: App | null, after: App): AppAccessTarget {
   return { kind: "command", before, after };
 }
 
@@ -134,11 +131,11 @@ export function createAppCommands(): {
         ]);
         if (named !== undefined) return conflict("app slug already exists");
         if (
-          input.id !== undefined && tx.sql.get(
-              "SELECT id FROM apps WHERE id = ?",
-              [input.id],
-            ) !== undefined
-        ) return conflict("app id already exists");
+          input.id !== undefined &&
+          tx.sql.get("SELECT id FROM apps WHERE id = ?", [input.id]) !==
+            undefined
+        )
+          return conflict("app id already exists");
         // 앱 이름의 domain이 같은 tx에서 함께 생긴다. 이미 그 이름이 있으면 conflict이고 앱도 남지 않는다.
         const domain = tx.port(domainProvisioningPort).create({
           name: input.slug,
@@ -200,19 +197,12 @@ export function createAppCommands(): {
       handle(tx, ctx, input, compare) {
         const actor = requireUser(ctx);
         if (!actor.ok) return actor;
-        return transition(
-          tx,
-          ctx,
-          appArchive.name,
-          input.app,
-          compare,
-          {
-            from: "active",
-            to: "archived",
-            event: appArchived,
-            payload: { run_enabled: false as const },
-          },
-        );
+        return transition(tx, ctx, appArchive.name, input.app, compare, {
+          from: "active",
+          to: "archived",
+          event: appArchived,
+          payload: { run_enabled: false as const },
+        });
       },
     },
     unarchive: {
@@ -220,20 +210,13 @@ export function createAppCommands(): {
       handle(tx, ctx, input, compare) {
         const actor = requireUser(ctx);
         if (!actor.ok) return actor;
-        return transition(
-          tx,
-          ctx,
-          appUnarchive.name,
-          input.app,
-          compare,
-          {
-            from: "archived",
-            to: "active",
-            // 보관 해제는 실행 재개의 숨은 동의가 아니다. false를 유지한다.
-            event: appUnarchived,
-            payload: { run_enabled: false as const },
-          },
-        );
+        return transition(tx, ctx, appUnarchive.name, input.app, compare, {
+          from: "archived",
+          to: "active",
+          // 보관 해제는 실행 재개의 숨은 동의가 아니다. false를 유지한다.
+          event: appUnarchived,
+          payload: { run_enabled: false as const },
+        });
       },
     },
     rename: {

@@ -35,10 +35,7 @@ export type InvocationFilter = z.infer<typeof appInvocationsInputSchema>;
  * - actor가 app이면 부른 앱의 active grant `app.call`이 그 앱의 그 tool을 덮는지 본다. 아니면 `denied(gate_blocked)`.
  */
 export interface AppToolCallPath {
-  call(
-    input: ToolCallInput,
-    auth: CallAuth,
-  ): Promise<Result<ToolCallOutput>>;
+  call(input: ToolCallInput, auth: CallAuth): Promise<Result<ToolCallOutput>>;
 }
 
 /**
@@ -50,9 +47,7 @@ export interface CallerDirectory {
     session: Id<"ses">,
     turn: Id<"trn">,
     tool_call: Id<"tcl">,
-  ): Result<
-    { agent: AgentRef; place: Place | null } | null
-  >;
+  ): Result<{ agent: AgentRef; place: Place | null } | null>;
 }
 
 /**
@@ -65,15 +60,13 @@ export interface AppToolLookup {
     app: Id<"app">,
     release: Id<"rel"> | null,
     tool: string,
-  ): Result<
-    {
-      release: Id<"rel">;
-      effect: "read" | "write" | "external";
-      // 공개 tool 여부와 tool의 domain 이름(program·flow caller의 domain 거르기 재료).
-      public: boolean;
-      domain: string;
-    } | null
-  >;
+  ): Result<{
+    release: Id<"rel">;
+    effect: "read" | "write" | "external";
+    // 공개 tool 여부와 tool의 domain 이름(program·flow caller의 domain 거르기 재료).
+    public: boolean;
+    domain: string;
+  } | null>;
   findPreview(
     app: Id<"app">,
     process_nonce: string,
@@ -115,10 +108,7 @@ export interface InvocationLedger {
   list(filter: InvocationFilter): Result<readonly AppInvocation[]>;
   changesetOf(id: Id<"inv">): Promise<Result<Uint8Array | null>>;
   /** 되돌림 표시. 기록은 지우지 않는다. */
-  markReverted(
-    ids: readonly Id<"inv">[],
-    rewind: Id<"rwd">,
-  ): Result<void>;
+  markReverted(ids: readonly Id<"inv">[], rewind: Id<"rwd">): Result<void>;
   /** activation이 끝난 뒤 이전 release의 changeset을 지운다. 지운 개수를 준다. */
   pruneChangesets(
     app: Id<"app">,
@@ -158,9 +148,7 @@ export interface AppIntake {
   whenIdle(
     app: Id<"app">,
     graceMs: number,
-  ): Promise<
-    { idle: true } | { idle: false; running: readonly Id<"inv">[] }
-  >;
+  ): Promise<{ idle: true } | { idle: false; running: readonly Id<"inv">[] }>;
   /** 끝나지 않은 호출을 결과 모름으로 닫아 부른 쪽에 돌려준다(유예 뒤 강제 정지 때). */
   abandon(app: Id<"app">): Promise<void>;
   /** 접수를 다시 열고 붙잡은 호출을 넘긴다. 넘길 때 대상 release는 그때의 활성 release다. */
@@ -175,11 +163,7 @@ export interface AppIntake {
  */
 export interface AppRewind {
   plan(app: Id<"app">, from: Id<"inv">): Result<RewindPlan>;
-  apply(
-    app: Id<"app">,
-    from: Id<"inv">,
-    by: Actor,
-  ): Promise<Result<Rewind>>;
+  apply(app: Id<"app">, from: Id<"inv">, by: Actor): Promise<Result<Rewind>>;
 }
 
 /** 구현: lead 조립(releases의 bundle 사본과 preview 영역). 쓰는 곳: app-calls-screens. */

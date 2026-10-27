@@ -75,9 +75,11 @@ function matchesOrigin(
   } catch {
     return false;
   }
-  return parsed.protocol === `${origin.scheme}:` &&
+  return (
+    parsed.protocol === `${origin.scheme}:` &&
     parsed.host === origin.host &&
-    parsed.pathname === origin.path;
+    parsed.pathname === origin.path
+  );
 }
 
 /** sender가 registry의 살아 있는 main frame이고 등록된 주소인지. */

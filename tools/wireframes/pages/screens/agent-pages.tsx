@@ -88,14 +88,8 @@ const MANAGE: FakeEditorOptions = {
 };
 
 // 대화의 picker를 열고 맨 아래 Manage models 줄을 눌러 창을 연다.
-const manage = (
-  models: FakeEditorOptions,
-  afterManage: readonly Step[] = [],
-) =>
-  weekly(
-    { stage: "report", modelDemo: "manage", afterManage },
-    { models },
-  );
+const manage = (models: FakeEditorOptions, afterManage: readonly Step[] = []) =>
+  weekly({ stage: "report", modelDemo: "manage", afterManage }, { models });
 
 /** Manage models 창. 연결된 provider 셋의 묶음마다 provider toggle과 model toggle이 있고 일부 model이 꺼져 있다. */
 export const ManageModels = () => manage(MANAGE);

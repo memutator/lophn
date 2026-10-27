@@ -32,25 +32,27 @@ function toolkit(connected: string[], projectOff: string[] = []) {
       Promise.resolve(ok({ tools: [], hash: "h", protocol_version: "v" })),
     call: () => Promise.resolve({ kind: "success", result: "done" }),
   } as unknown as McpConnections;
-  const settings = [{
-    key: "lophn-agent.extensions.mcp_servers",
-    type: {},
-    chosen: [stdioServer("shared")],
-  }];
+  const settings = [
+    {
+      key: "lophn-agent.extensions.mcp_servers",
+      type: {},
+      chosen: [stdioServer("shared")],
+    },
+  ];
   return createMcpToolkit({
     machine: (path) =>
       Promise.resolve(
         ok(
           path === "/project-extension-settings/read"
             ? {
-              project: place.id,
-              mcp_servers: [],
-              skills_off: [],
-              mcp_off: projectOff,
-              hash: null,
-              as_of_seq: "0",
-              next_cursor: null,
-            }
+                project: place.id,
+                mcp_servers: [],
+                skills_off: [],
+                mcp_off: projectOff,
+                hash: null,
+                as_of_seq: "0",
+                next_cursor: null,
+              }
             : { settings },
         ),
       ),

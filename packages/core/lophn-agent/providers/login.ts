@@ -82,13 +82,15 @@ export function withProviderLogin(
       definition,
     });
     if (!begun.ok) return begun;
-    return ok(loginBeginOutputSchema.parse({
-      login: begun.value.login,
-      flow: begun.value.flow,
-      interval_ms: begun.value.interval_ms,
-      expires_at: at(begun.value.expires_at_ms),
-      sign_in: begun.value.sign_in,
-    }));
+    return ok(
+      loginBeginOutputSchema.parse({
+        login: begun.value.login,
+        flow: begun.value.flow,
+        interval_ms: begun.value.interval_ms,
+        expires_at: at(begun.value.expires_at_ms),
+        sign_in: begun.value.sign_in,
+      }),
+    );
   }
 
   async function complete(
@@ -133,16 +135,19 @@ export function withProviderLogin(
     // 계정 model 목록은 로그인 결과를 기다리게 하지 않고 뒤에서 읽는다. 실패하면 token을 처음 건넬 때(prepareToken) 다시 읽는다.
     const endpoint = reportedModelsEndpoint(target);
     if (endpoint !== null) {
-      void readReportedModels(deps.http, endpoint, tokens.access).then(
-        (models) =>
-          models === null ? undefined : writer.command(ctx, {
-            command: recordProviderModels.name,
-            input: { provider, models },
-            idempotency_key: deps.newKey(),
-            compare: { revision: (record as ProviderRecord).revision },
-            prepared: [],
-          }),
-      ).catch(() => {});
+      void readReportedModels(deps.http, endpoint, tokens.access)
+        .then((models) =>
+          models === null
+            ? undefined
+            : writer.command(ctx, {
+                command: recordProviderModels.name,
+                input: { provider, models },
+                idempotency_key: deps.newKey(),
+                compare: { revision: (record as ProviderRecord).revision },
+                prepared: [],
+              }),
+        )
+        .catch(() => {});
     }
     return ok(
       loginCompleteOutputSchema.parse({ state: "connected", provider: record }),
@@ -186,10 +191,10 @@ export function withProviderLogin(
 function wrapped(result: Result<unknown>): Result<CommandSuccess> {
   return result.ok
     ? ok({
-      result: result.value,
-      replayed: false,
-      first_seq: null,
-      last_seq: null,
-    })
+        result: result.value,
+        replayed: false,
+        first_seq: null,
+        last_seq: null,
+      })
     : result;
 }

@@ -119,9 +119,10 @@ export function register(ctx: ShellContext): Coding {
   const harnessSettings = createHarnessSettings({
     catalog,
     core: () => core.session(),
-    cli: lophnCli === null
-      ? null
-      : childCliRunner({ command: lophnCli, env: cliEnv }),
+    cli:
+      lophnCli === null
+        ? null
+        : childCliRunner({ command: lophnCli, env: cliEnv }),
   });
   // core에 붙은 직후 감지를 한 번 읽어 알린다. 안 하면 사람이 Settings를 열기 전까지 core가 맡기기를
   // `not_connected`로 거절한다.
@@ -144,10 +145,12 @@ export function register(ctx: ShellContext): Coding {
     pick(terminalRef) {
       if (ctx.headless.headless) return null;
       const live = [...ctx.windows].filter((window) => !window.isDestroyed());
-      const owner = terminalRef === undefined
-        ? undefined
-        : terminalFocus.contentsOf(terminalRef);
-      const window = live.find((item) => item.webContents.id === owner) ??
+      const owner =
+        terminalRef === undefined
+          ? undefined
+          : terminalFocus.contentsOf(terminalRef);
+      const window =
+        live.find((item) => item.webContents.id === owner) ??
         live.filter((item) => !ctx.detached.has(item)).at(-1);
       if (window === undefined) return null;
       const contents = window.webContents;
@@ -157,9 +160,7 @@ export function register(ctx: ShellContext): Coding {
         // 창이 닫히거나 reload되면 dialog가 사라져 답이 오지 않는다.
         onGone(run) {
           const navigated = (
-            details: Electron.Event<
-              Electron.WebContentsDidStartNavigationEventParams
-            >,
+            details: Electron.Event<Electron.WebContentsDidStartNavigationEventParams>,
           ) => {
             if (details.isMainFrame && !details.isSameDocument) run();
           };
@@ -179,22 +180,25 @@ export function register(ctx: ShellContext): Coding {
   const register = {
     ask: (input: { harness: string; files: string[]; terminalRef?: string }) =>
       asker.ask({ ...input, label: harnessLabel(input.harness) }),
-    show: (
-      input: {
-        harness: string;
-        ok: boolean;
-        files: string[];
-        message?: string;
-        terminalRef?: string;
-      },
-    ) => asker.show({ ...input, label: harnessLabel(input.harness) }),
+    show: (input: {
+      harness: string;
+      ok: boolean;
+      files: string[];
+      message?: string;
+      terminalRef?: string;
+    }) => asker.show({ ...input, label: harnessLabel(input.harness) }),
   };
   // 전역 hook 등록의 묻기·놓기. coding 탭을 열 때와 사람 터미널이 harness를 처음 알아봤을 때, Settings가 쓴다.
   const installer = createHookInstaller({
-    runCli: lophnCli === null
-      ? null
-      : childCliRunner({ command: lophnCli, env: cliEnv, timeout_ms: 15_000 }),
-    hookCommand: app.isPackaged ? undefined : lophnCli ?? undefined,
+    runCli:
+      lophnCli === null
+        ? null
+        : childCliRunner({
+            command: lophnCli,
+            env: cliEnv,
+            timeout_ms: 15_000,
+          }),
+    hookCommand: app.isPackaged ? undefined : (lophnCli ?? undefined),
     hasHook: (harness) =>
       harness in HARNESS_HOOKS &&
       HARNESS_HOOKS[harness as keyof typeof HARNESS_HOOKS] !== null,
@@ -233,9 +237,8 @@ export function register(ctx: ShellContext): Coding {
   });
   // `deno task dev:mock`의 project는 renderer 메모리에만 있어 core가 그 폴더를 모른다. 그때 터미널은
   // 실행마다 비우는 mock 데이터 root 안의 빈 폴더에서 연다.
-  const mockFolder = process.env.LOPHN_DEV_MOCK === "1"
-    ? join(dataRoot, "mock-terminal")
-    : null;
+  const mockFolder =
+    process.env.LOPHN_DEV_MOCK === "1" ? join(dataRoot, "mock-terminal") : null;
   const terminalIpc = createTerminalIpc({
     registry: overlays.overlayRegistry(),
     focus: terminalFocus,
@@ -266,10 +269,10 @@ export function register(ctx: ShellContext): Coding {
     }),
   );
   ctx.windowHooks.created.push((window) =>
-    attachTerminalSurface(overlays.overlayRegistry(), window)
+    attachTerminalSurface(overlays.overlayRegistry(), window),
   );
   ctx.windowHooks.closed.push((window) =>
-    terminalFocus.forget(window.contentsId)
+    terminalFocus.forget(window.contentsId),
   );
 
   return {

@@ -2,9 +2,10 @@ import type { SchemaStep } from "../../protocol/server/mod.ts";
 
 // domain은 project나 app 하나에 속한다. owner는 다른 module의 표라 물리 FK를 두지 않는다.
 // 이름은 보관한 것까지 전 domain에서 하나다. 이름 바꾸기와 owner 옮기기는 없다. 보관은 삭제가 아니라 status다.
-export const domainsSchemaSteps: readonly SchemaStep[] = [{
-  id: "domains.tables",
-  sql: `
+export const domainsSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "domains.tables",
+    sql: `
     CREATE TABLE domains (
       id TEXT PRIMARY KEY NOT NULL,
       name TEXT NOT NULL UNIQUE,
@@ -29,4 +30,5 @@ export const domainsSchemaSteps: readonly SchemaStep[] = [{
     CREATE TRIGGER domains_no_delete BEFORE DELETE ON domains
     BEGIN SELECT RAISE(ABORT, 'domains are archived, not deleted'); END;
   `,
-}];
+  },
+];

@@ -68,7 +68,8 @@ const EXTENSIONS: ExtensionsView = {
 };
 
 export function fakeAgents(options: FakeAgentsOptions = {}) {
-  let view = options.view ??
+  let view =
+    options.view ??
     (options.noDefaultModel ? { ...VIEW, defaultModel: null } : VIEW);
   let skills: readonly SkillRow[] = (options.extensions ?? EXTENSIONS).skills;
   let servers: readonly McpRow[] = (options.extensions ?? EXTENSIONS).servers;
@@ -85,8 +86,8 @@ export function fakeAgents(options: FakeAgentsOptions = {}) {
       counts.reads += 1;
       return Promise.resolve(
         failing.read === undefined
-          ? { ok: true, value: view } as const
-          : { ok: false, code: failing.read } as const,
+          ? ({ ok: true, value: view } as const)
+          : ({ ok: false, code: failing.read } as const),
       );
     },
     changeDefaultModel(choice) {
@@ -108,8 +109,8 @@ export function fakeAgents(options: FakeAgentsOptions = {}) {
       const failed = fail("extensions");
       return Promise.resolve(
         failed === null
-          ? { ok: true, value: { skills, servers } } as const
-          : failed as SourceResult<never>,
+          ? ({ ok: true, value: { skills, servers } } as const)
+          : (failed as SourceResult<never>),
       );
     },
     addSkill() {
@@ -121,7 +122,7 @@ export function fakeAgents(options: FakeAgentsOptions = {}) {
       const failed = fail("skill");
       if (failed) return Promise.resolve(failed);
       skills = skills.map((row) =>
-        row.name === name ? { ...row, on: enabled } : row
+        row.name === name ? { ...row, on: enabled } : row,
       );
       return Promise.resolve(ok());
     },
@@ -129,15 +130,19 @@ export function fakeAgents(options: FakeAgentsOptions = {}) {
       calls.push(["create-server", server.name]);
       const failed = fail("create-server");
       if (failed) return Promise.resolve(failed);
-      servers = [...servers, {
-        name: server.name,
-        detail: server.transport === "stdio"
-          ? server.stdio.executable
-          : server.http.url,
-        layer: "global",
-        on: true,
-        status: "connected",
-      }];
+      servers = [
+        ...servers,
+        {
+          name: server.name,
+          detail:
+            server.transport === "stdio"
+              ? server.stdio.executable
+              : server.http.url,
+          layer: "global",
+          on: true,
+          status: "connected",
+        },
+      ];
       return Promise.resolve(ok());
     },
     setServerEnabled(name, enabled) {
@@ -145,7 +150,7 @@ export function fakeAgents(options: FakeAgentsOptions = {}) {
       const failed = fail("server");
       if (failed) return Promise.resolve(failed);
       servers = servers.map((row) =>
-        row.name === name ? { ...row, on: enabled } : row
+        row.name === name ? { ...row, on: enabled } : row,
       );
       return Promise.resolve(ok());
     },

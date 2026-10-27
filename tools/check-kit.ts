@@ -28,9 +28,12 @@ const CSS_ALLOWED = new Set([
 
 // 주석과 줄 끝 주석을 비워 줄 번호는 그대로 둔 text.
 function codeOf(text: string): string {
-  return text.split("\n").map((line) =>
-    line.trimStart().startsWith("//") ? "" : line.replace(/\s\/\/.*$/, "")
-  ).join("\n");
+  return text
+    .split("\n")
+    .map((line) =>
+      line.trimStart().startsWith("//") ? "" : line.replace(/\s\/\/.*$/, ""),
+    )
+    .join("\n");
 }
 
 type ExportStatement = {
@@ -52,7 +55,10 @@ function exportStatements(text: string): ExportStatement[] {
       const trimmed = part.trim();
       if (trimmed) {
         const isType = typeOnly || /^type\s/.test(trimmed);
-        const name = trimmed.replace(/^type\s+/, "").split(/\s+as\s+/).pop()!;
+        const name = trimmed
+          .replace(/^type\s+/, "")
+          .split(/\s+as\s+/)
+          .pop()!;
         names.push({
           name,
           line: lineAt(at + part.indexOf(trimmed)),
@@ -93,10 +99,13 @@ export async function checkKit(root: string): Promise<Issue[]> {
   }
 
   // 2. 분류 mod.ts의 component가 pages/kit에 나온다
-  const kitText = (await Promise.all(
-    files.filter((f) => f.startsWith(`${KIT_PAGES}/`) && /\.tsx?$/.test(f))
-      .map(read),
-  )).join("\n");
+  const kitText = (
+    await Promise.all(
+      files
+        .filter((f) => f.startsWith(`${KIT_PAGES}/`) && /\.tsx?$/.test(f))
+        .map(read),
+    )
+  ).join("\n");
   for (const category of CATEGORIES) {
     const file = `${COMPONENTS}/${category}/mod.ts`;
     let text: string;

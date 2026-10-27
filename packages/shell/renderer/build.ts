@@ -29,19 +29,19 @@ function assetPlugin(imports: Record<string, string>): esbuild.Plugin {
         const url = mapped
           ? new URL(mapped)
           : args.path.startsWith("file:")
-          ? new URL(args.path)
-          : args.path.startsWith(".") && args.importer
-          ? new URL(args.path, fileUrl(args.importer))
-          : undefined;
+            ? new URL(args.path)
+            : args.path.startsWith(".") && args.importer
+              ? new URL(args.path, fileUrl(args.importer))
+              : undefined;
         if (!url || url.protocol !== "file:") return undefined;
         const path = fileURLToPath(url);
         const loader: esbuild.Loader = path.endsWith(".svg")
           ? "text"
           : path.endsWith(".module.css")
-          ? "local-css"
-          : path.endsWith(".css")
-          ? "css"
-          : "file";
+            ? "local-css"
+            : path.endsWith(".css")
+              ? "css"
+              : "file";
         return { path, namespace: "renderer-asset", pluginData: { loader } };
       });
       build.onLoad(
@@ -120,13 +120,13 @@ async function addPackage(
   const config = JSON.parse(
     await readFile(new URL("deno.json", directory), "utf8"),
   );
-  const exports = typeof config.exports === "string"
-    ? { ".": config.exports }
-    : config.exports as Record<string, string>;
+  const exports =
+    typeof config.exports === "string"
+      ? { ".": config.exports }
+      : (config.exports as Record<string, string>);
   for (const [key, value] of Object.entries(exports)) {
-    const specifier = key === "."
-      ? config.name
-      : `${config.name}/${key.slice(2)}`;
+    const specifier =
+      key === "." ? config.name : `${config.name}/${key.slice(2)}`;
     addImport(imports, specifier, new URL(value, directory).href);
   }
   mergeImports(imports, config.imports ?? {}, new URL("deno.json", directory));
@@ -153,10 +153,7 @@ async function build(outdir = join(here, "dist")): Promise<void> {
       pathToFileURL(join(here, "deno.json")),
     );
     // 공통 UI가 쓰는 React·Radix·Lucide·d3·wording을 같은 map에서 찾는다.
-    const design = new URL(
-      "../../design/",
-      pathToFileURL(`${here}/`),
-    );
+    const design = new URL("../../design/", pathToFileURL(`${here}/`));
     await addPackage(imports, design);
     await addPackage(imports, new URL("wording/", design));
     // renderer가 import하는 protocol 런타임 code가 `@lophn/base`를 쓴다.

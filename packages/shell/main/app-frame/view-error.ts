@@ -19,12 +19,11 @@ const OBSERVATIONS: readonly string[] = [
   "render_error",
 ];
 
-type ViewErrorObservation =
-  | "error"
-  | "unhandledrejection"
-  | "render_error";
+type ViewErrorObservation = "error" | "unhandledrejection" | "render_error";
 
-function checkViewError(value: unknown):
+function checkViewError(
+  value: unknown,
+):
   | { observation: ViewErrorObservation; name: string; message: string | null }
   | undefined {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -36,11 +35,14 @@ function checkViewError(value: unknown):
   }
   if (
     !OBSERVATIONS.includes(input.observation as string) ||
-    typeof input.name !== "string" || !/\S/.test(input.name) ||
+    typeof input.name !== "string" ||
+    !/\S/.test(input.name) ||
     input.name.length > VIEW_ERROR_NAME_MAX_CHARS ||
-    !(input.message === null ||
+    !(
+      input.message === null ||
       (typeof input.message === "string" &&
-        input.message.length <= VIEW_ERROR_MESSAGE_MAX_CHARS))
+        input.message.length <= VIEW_ERROR_MESSAGE_MAX_CHARS)
+    )
   ) {
     return undefined;
   }

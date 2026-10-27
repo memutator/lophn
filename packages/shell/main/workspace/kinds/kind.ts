@@ -8,12 +8,12 @@ type PlaceholderReason = "app_unavailable";
 type RestoredTab =
   | { kind: "tab"; tab: { kind: string; key: string } }
   | {
-    kind: "placeholder";
-    key: string;
-    origin: string;
-    title: string;
-    reason: PlaceholderReason;
-  };
+      kind: "placeholder";
+      key: string;
+      origin: string;
+      title: string;
+      reason: PlaceholderReason;
+    };
 
 /** 탭 대상을 지금 기준으로 검사하는 통로. 테스트가 가짜를 끼운다. */
 interface RestoreTargets {

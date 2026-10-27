@@ -26,15 +26,20 @@ export function appEngineerCalls(
     .filter((s) => s.agent.role === "app_engineer" && s.place?.name === app)
     .flatMap((s) => s.tool_calls);
   const superseded = new Set(all.map((c) => c.call.retry_of));
-  return all.filter((c) => !superseded.has(c.call.id))
-    .sort((a, b) => a.call.id < b.call.id ? -1 : a.call.id > b.call.id ? 1 : 0);
+  return all
+    .filter((c) => !superseded.has(c.call.id))
+    .sort((a, b) =>
+      a.call.id < b.call.id ? -1 : a.call.id > b.call.id ? 1 : 0,
+    );
 }
 
 // 상대 path의 기준은 place 첫 폴더인 앱 source고, 앱 source는 `<app 폴더>/source`다.
 function isDesignPath(path: unknown): boolean {
   if (typeof path !== "string") return false;
-  return path.replace(/^\.\//, "") === "DESIGN.md" ||
-    path.endsWith("/source/DESIGN.md");
+  return (
+    path.replace(/^\.\//, "") === "DESIGN.md" ||
+    path.endsWith("/source/DESIGN.md")
+  );
 }
 
 // file tool로 쓴 DESIGN.md를 차례로 되풀이해 마지막 글을 만든다. shell.run으로 쓴 것은 세지 않는다.
@@ -47,13 +52,15 @@ export function designText(calls: CollectedToolCall[]): string | null {
     if (c.call.tool === "file.write" && typeof input.content === "string") {
       text = input.content;
     } else if (
-      c.call.tool === "file.edit" && text !== null &&
+      c.call.tool === "file.edit" &&
+      text !== null &&
       typeof input.old_string === "string" &&
       typeof input.new_string === "string"
     ) {
-      text = input.replace_all === true
-        ? text.replaceAll(input.old_string, input.new_string)
-        : text.replace(input.old_string, () => input.new_string as string);
+      text =
+        input.replace_all === true
+          ? text.replaceAll(input.old_string, input.new_string)
+          : text.replace(input.old_string, () => input.new_string as string);
     }
   }
   return text;
@@ -64,8 +71,8 @@ const headOf = (line: string) => line.slice(3).trim().toLowerCase();
 // `## ` 머리가 name으로 시작하는 첫 절의 본문. 다음 `## `이나 `# ` 머리 앞까지다.
 export function designSection(text: string, name: string): string | null {
   const lines = text.split("\n");
-  const start = lines.findIndex((l) =>
-    l.startsWith("## ") && headOf(l).startsWith(name.toLowerCase())
+  const start = lines.findIndex(
+    (l) => l.startsWith("## ") && headOf(l).startsWith(name.toLowerCase()),
   );
   if (start === -1) return null;
   const rest = lines.slice(start + 1);
@@ -75,12 +82,15 @@ export function designSection(text: string, name: string): string | null {
 
 // 머리를 위에서부터 읽으며 절을 순서대로 맞춘다. 사이의 다른 머리는 괜찮다.
 export function missingSections(text: string): string[] {
-  const heads = text.split("\n").filter((l) => l.startsWith("## ")).map(headOf);
+  const heads = text
+    .split("\n")
+    .filter((l) => l.startsWith("## "))
+    .map(headOf);
   let at = 0;
   const missing: string[] = [];
   for (const name of DESIGN_SECTIONS) {
-    const found = heads.findIndex((h, i) =>
-      i >= at && h.startsWith(name.toLowerCase())
+    const found = heads.findIndex(
+      (h, i) => i >= at && h.startsWith(name.toLowerCase()),
     );
     if (found === -1) missing.push(name);
     else at = found + 1;
@@ -108,9 +118,9 @@ export function designFirst(id: string, opts: { app: string }): ProgramCheck {
       const missing = missingSections(text);
       return missing.length === 0
         ? {
-          pass: true,
-          reason: "첫 release.prepare 앞에 일곱 절 DESIGN.md가 있음",
-        }
+            pass: true,
+            reason: "첫 release.prepare 앞에 일곱 절 DESIGN.md가 있음",
+          }
         : { pass: false, reason: `DESIGN.md에 없는 절: ${missing.join(", ")}` };
     },
   };

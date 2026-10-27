@@ -137,11 +137,11 @@ export interface ActivationPorts {
 export type ActivationOutcome =
   | { status: "active"; opened: boolean }
   | {
-    status: "failed";
-    code: string;
-    // 이전 release를 다시 준비해 열었는지. 이전 release가 없으면 null이다.
-    previous: "started" | "not_started" | null;
-  }
+      status: "failed";
+      code: string;
+      // 이전 release를 다시 준비해 열었는지. 이전 release가 없으면 null이다.
+      previous: "started" | "not_started" | null;
+    }
   | { status: "unavailable"; code: string }
   | { status: "none" };
 
@@ -174,7 +174,8 @@ export async function protectData(
 ): Promise<Protected> {
   const made = await ports.data.backup(attempt);
   if (
-    !made.ok || !made.value.result.integrity_ok ||
+    !made.ok ||
+    !made.value.result.integrity_ok ||
     made.value.result.data_schema !== attempt.startSchema
   ) {
     return { stage: "not_made" };
@@ -221,9 +222,7 @@ export async function changeData(
 }
 
 // 변경이 없는 시도의 결과다. 실제 확인한 schema와 무결성을 그대로 낸다.
-export function unchangedResult(
-  attempt: StartedAttempt,
-): ActivationDataResult {
+export function unchangedResult(attempt: StartedAttempt): ActivationDataResult {
   return {
     release: attempt.release as ActivationDataResult["release"],
     attempt: attempt.attempt as ActivationDataResult["attempt"],

@@ -21,7 +21,7 @@ export const RANGE_PRESETS: readonly RangePreset[] = [
 ];
 
 const DAYS: Partial<Record<RangePreset, number>> = {
-  "today": 1,
+  today: 1,
   "last-7-days": 7,
   "last-30-days": 30,
   "last-90-days": 90,
@@ -29,9 +29,9 @@ const DAYS: Partial<Record<RangePreset, number>> = {
 
 export function toDay(date: Date): string {
   const pad = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${
-    pad(date.getDate())
-  }`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate(),
+  )}`;
 }
 
 // 없는 날짜(2월 30일 같은)와 다른 모양은 undefined다.
@@ -58,12 +58,13 @@ export function resolveRange(
   }
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const days = DAYS[range.preset];
-  const first = days === undefined
-    ? new Date(today.getFullYear(), today.getMonth(), 1)
-    : new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate() - (days - 1),
-    );
+  const first =
+    days === undefined
+      ? new Date(today.getFullYear(), today.getMonth(), 1)
+      : new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate() - (days - 1),
+        );
   return { from: toDay(first), to: toDay(today) };
 }

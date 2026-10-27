@@ -42,8 +42,8 @@ const FIXED_ENV = ["LOPHN_HOME", "HOME", "PATH"];
 function denoDir(): string {
   const set = process.env["DENO_DIR"];
   if (set) return set;
-  const cache = process.env["XDG_CACHE_HOME"] ??
-    `${process.env["HOME"]}/.cache`;
+  const cache =
+    process.env["XDG_CACHE_HOME"] ?? `${process.env["HOME"]}/.cache`;
   return `${cache}/deno`;
 }
 
@@ -68,25 +68,29 @@ export async function spawnCore(
     if (name in env) throw new Error(`core env ${name}는 덮을 수 없다`);
   }
   // Deno.execPath()는 자기를 다시 띄우는 자리라 node-flip 계획이 바꾼다.
-  const child = spawn(Deno.execPath(), [
-    "run",
-    "--allow-all",
-    `${repo}/packages/core/main/daemon/main.ts`,
-    "--port=0",
-  ], {
-    cwd: repo,
-    // Deno의 clearEnv처럼 부모 env를 물려주지 않는다. Deno의 node:child_process는 env를 줘도
-    // 부모의 NODE_V8_COVERAGE를 자식에 복사해서(실측) 그 이름을 막아 둔다.
-    env: {
-      NODE_V8_COVERAGE: undefined,
-      LOPHN_HOME: home,
-      HOME: userHome,
-      PATH: process.env["PATH"] ?? "",
-      DENO_DIR: denoDir(),
-      ...env,
+  const child = spawn(
+    Deno.execPath(),
+    [
+      "run",
+      "--allow-all",
+      `${repo}/packages/core/main/daemon/main.ts`,
+      "--port=0",
+    ],
+    {
+      cwd: repo,
+      // Deno의 clearEnv처럼 부모 env를 물려주지 않는다. Deno의 node:child_process는 env를 줘도
+      // 부모의 NODE_V8_COVERAGE를 자식에 복사해서(실측) 그 이름을 막아 둔다.
+      env: {
+        NODE_V8_COVERAGE: undefined,
+        LOPHN_HOME: home,
+        HOME: userHome,
+        PATH: process.env["PATH"] ?? "",
+        DENO_DIR: denoDir(),
+        ...env,
+      },
+      stdio: ["pipe", "pipe", "pipe"],
     },
-    stdio: ["pipe", "pipe", "pipe"],
-  });
+  );
   // spawn 실패('error')에는 exit event가 없으니 error도 끝으로 센다.
   const exitCode = new Promise<number | null>((resolve) => {
     child.on("exit", (code) => resolve(code));
@@ -133,9 +137,7 @@ export async function spawnCore(
     throw new Error(
       `${
         error instanceof Error ? error.message : error
-      }\n--- core.log ---\n${await tail(
-        logPath,
-      )}`,
+      }\n--- core.log ---\n${await tail(logPath)}`,
     );
   } finally {
     clearTimeout(timer);
@@ -166,7 +168,7 @@ export async function spawnCore(
     const buffer = new Uint8Array(64 * 1024);
     try {
       for (;;) {
-        if (await stdout.read(buffer) === null) return;
+        if ((await stdout.read(buffer)) === null) return;
       }
     } catch {
       // core가 죽으면 pipe 오류로 끝난다.
@@ -193,9 +195,7 @@ export async function spawnCore(
 export async function processesOf(home: string): Promise<number[]> {
   const wanted = `LOPHN_HOME=${home}`;
   const found: number[] = [];
-  for (
-    const entry of await readdir("/proc", { withFileTypes: true })
-  ) {
+  for (const entry of await readdir("/proc", { withFileTypes: true })) {
     if (!/^\d+$/.test(entry.name)) continue;
     try {
       const environ = await readFile(`/proc/${entry.name}/environ`);

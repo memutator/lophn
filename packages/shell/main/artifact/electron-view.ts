@@ -48,13 +48,18 @@ export function electronArtifactViews(
   return {
     hasWindow: (ref) => live(ref) !== undefined,
     create(host, hooks: ArtifactHooks) {
-      const view = new WebContentsView(surfaceOptions({
-        webPreferences: {
-          ...webPreferences(input.packaged),
-          partition: ARTIFACT_PARTITION,
-          preload: input.preload,
-        },
-      }, input.headless));
+      const view = new WebContentsView(
+        surfaceOptions(
+          {
+            webPreferences: {
+              ...webPreferences(input.packaged),
+              partition: ARTIFACT_PARTITION,
+              preload: input.preload,
+            },
+          },
+          input.headless,
+        ),
+      );
       const contents = view.webContents;
       const id = contents.id;
 
@@ -82,7 +87,9 @@ export function electronArtifactViews(
           host,
         });
         if (
-          !decision.allow && decision.external && hooks.activation.fresh(id)
+          !decision.allow &&
+          decision.external &&
+          hooks.activation.fresh(id)
         ) {
           hooks.openLink(details.url);
         }
@@ -99,7 +106,8 @@ export function electronArtifactViews(
         else if (
           (event.type === "keyDown" || event.type === "rawKeyDown") &&
           !event.modifiers?.includes("isautorepeat")
-        ) hooks.activation.mark(id);
+        )
+          hooks.activation.mark(id);
       });
 
       const changed = () => hooks.onChange();
@@ -125,7 +133,7 @@ export function electronArtifactViews(
       const adapter: ArtifactContents = {
         id,
         load: (url) => contents.loadURL(url),
-        title: () => contents.isDestroyed() ? "" : contents.getTitle(),
+        title: () => (contents.isDestroyed() ? "" : contents.getTitle()),
         loading: () => !contents.isDestroyed() && contents.isLoading(),
         reload: () => contents.reloadIgnoringCache(),
         pageUrl: () =>
@@ -170,8 +178,11 @@ export function electronArtifactViews(
     },
     focused(adapter) {
       const contents = native.get(adapter as ArtifactContents)?.webContents;
-      return contents !== undefined && !contents.isDestroyed() &&
-        contents.isFocused();
+      return (
+        contents !== undefined &&
+        !contents.isDestroyed() &&
+        contents.isFocused()
+      );
     },
     focusShell(ref) {
       const window = live(ref);

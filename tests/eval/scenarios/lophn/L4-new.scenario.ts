@@ -51,9 +51,7 @@ const scenario: Scenario = {
     wrong: [
       {
         trial: fixtureTrial([
-          fixtureSession(LOPHN, [
-            fixtureAppCreate("캘린더"),
-          ]),
+          fixtureSession(LOPHN, [fixtureAppCreate("캘린더")]),
         ]),
         fails: ["call-after-app-create"],
       },

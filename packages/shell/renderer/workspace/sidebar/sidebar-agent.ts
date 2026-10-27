@@ -5,10 +5,7 @@ import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 /**
  * project sidebar에 보이는 역할. App Engineer는 앱 공간의 agent라 여기에 없다.
  */
-export type SidebarAgentRole =
-  | "lophn"
-  | "project_manager"
-  | "operator";
+export type SidebarAgentRole = "lophn" | "project_manager" | "operator";
 
 /** Agent 모양의 agent 줄 하나. */
 export interface SidebarAgent {

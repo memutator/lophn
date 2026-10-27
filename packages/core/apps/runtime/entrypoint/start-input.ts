@@ -41,25 +41,36 @@ export function parseAppStart(line: string): AppStart | undefined {
       "data_path",
       "broker_credential",
     ])
-  ) return;
+  )
+    return;
   const app = id(source.app, "app");
   const release = source.release === null ? null : id(source.release, "rel");
   const bundle =
     typeof source.bundle_hash === "string" && SHA.test(source.bundle_hash)
       ? source.bundle_hash
       : undefined;
-  const mode = source.mode === "live" || source.mode === "preview"
-    ? source.mode
-    : undefined;
+  const mode =
+    source.mode === "live" || source.mode === "preview"
+      ? source.mode
+      : undefined;
   const nonce = text(source.process_nonce);
   const broker = endpoint(source.broker_socket);
   const control = endpoint(source.control_socket);
   const data = nonEmpty(source.data_path);
   const credential = nonEmpty(source.broker_credential);
   if (
-    !app || release === undefined || !bundle || !mode || !nonce || !broker ||
-    !control || !data || !credential || (mode === "live" && release === null)
-  ) return;
+    !app ||
+    release === undefined ||
+    !bundle ||
+    !mode ||
+    !nonce ||
+    !broker ||
+    !control ||
+    !data ||
+    !credential ||
+    (mode === "live" && release === null)
+  )
+    return;
   return {
     app,
     release,

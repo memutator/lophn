@@ -32,23 +32,29 @@ const deliveryToSchema = z.union([
 
 // step 메시지 본문은 blob이라 tx 안에서 만들 수 없다. 본문과 받는 곳은 command 앞(wf-service)이 정하고
 // command는 그대로 Router에 넣는다. delivery와 unresolved는 정확히 하나가 있다.
-export const handoffPlanSchema = z.strictObject({
-  step: z.string(),
-  participant: participantKeySchema.nullable(),
-  human_turn: z.boolean(),
-  cause: z.enum(["start", "report", "edit"]),
-  session: sessionChoiceSchema.nullable(),
-  delivery: z.strictObject({
-    to: deliveryToSchema,
-    body: z.string(),
-  }).nullable(),
-  unresolved: z.strictObject({
-    reason: notHandedReasonSchema,
-    message: z.string(),
-  }).nullable(),
-}).refine((v) => (v.delivery === null) !== (v.unresolved === null), {
-  message: "exactly one of delivery and unresolved",
-});
+export const handoffPlanSchema = z
+  .strictObject({
+    step: z.string(),
+    participant: participantKeySchema.nullable(),
+    human_turn: z.boolean(),
+    cause: z.enum(["start", "report", "edit"]),
+    session: sessionChoiceSchema.nullable(),
+    delivery: z
+      .strictObject({
+        to: deliveryToSchema,
+        body: z.string(),
+      })
+      .nullable(),
+    unresolved: z
+      .strictObject({
+        reason: notHandedReasonSchema,
+        message: z.string(),
+      })
+      .nullable(),
+  })
+  .refine((v) => (v.delivery === null) !== (v.unresolved === null), {
+    message: "exactly one of delivery and unresolved",
+  });
 export type HandoffPlan = z.infer<typeof handoffPlanSchema>;
 
 // 같은 tx에서 상태를 바꾸고, 줄을 남기고, delivery가 있으면 Router로 넣고, 결과를 handed나 not_handed 줄로 남긴다.

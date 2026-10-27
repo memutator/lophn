@@ -35,12 +35,13 @@ interface Target {
   readonly removed: boolean;
 }
 
-function GrantRow(
-  { target, onRemoved }: {
-    target: Target;
-    onRemoved: (removed: boolean) => void;
-  },
-) {
+function GrantRow({
+  target,
+  onRemoved,
+}: {
+  target: Target;
+  onRemoved: (removed: boolean) => void;
+}) {
   return (
     <li
       className={`${styles.row} ${target.removed ? styles.removed : ""}`}
@@ -73,16 +74,21 @@ function RowHead() {
 }
 
 /** 접고 펼 수 있는 앱 카드. */
-function TargetCard(
-  { name, summary, open, onToggle, remove, children }: {
-    name: string;
-    summary: string;
-    open: boolean;
-    onToggle: () => void;
-    remove: { label: string; onClick: () => void };
-    children: ReactNode;
-  },
-) {
+function TargetCard({
+  name,
+  summary,
+  open,
+  onToggle,
+  remove,
+  children,
+}: {
+  name: string;
+  summary: string;
+  open: boolean;
+  onToggle: () => void;
+  remove: { label: string; onClick: () => void };
+  children: ReactNode;
+}) {
   return (
     <div className={styles.targetCard} data-grant-card={name}>
       <div className={styles.targetHead}>
@@ -103,14 +109,12 @@ function TargetCard(
           {remove.label}
         </Button>
       </div>
-      {open
-        ? (
-          <ul className={styles.rows}>
-            <RowHead />
-            {children}
-          </ul>
-        )
-        : null}
+      {open ? (
+        <ul className={styles.rows}>
+          <RowHead />
+          {children}
+        </ul>
+      ) : null}
     </div>
   );
 }
@@ -124,13 +128,16 @@ interface GrantsPanelProps {
 }
 
 /** 이 agent에게 붙인 앱. 붙은 것은 agent마다 다르다. */
-export function GrantsPanel(
-  { agentName, entries, catalog, onChange }: GrantsPanelProps,
-) {
+export function GrantsPanel({
+  agentName,
+  entries,
+  catalog,
+  onChange,
+}: GrantsPanelProps) {
   const [open, setOpen] = useState<readonly string[]>([]);
 
-  const apps = catalog.apps.filter((app) =>
-    appEntryOf(entries, app.app) !== undefined
+  const apps = catalog.apps.filter(
+    (app) => appEntryOf(entries, app.app) !== undefined,
   );
 
   return (
@@ -153,24 +160,26 @@ export function GrantsPanel(
                 {t("agents.button.assign-app")}
               </Button>
             }
-            items={catalog.apps.filter((app) =>
-              appEntryOf(entries, app.app) === undefined
-            ).map((app) => ({ id: app.app, label: app.name }))}
+            items={catalog.apps
+              .filter((app) => appEntryOf(entries, app.app) === undefined)
+              .map((app) => ({ id: app.app, label: app.name }))}
             onSelect={(app) =>
               onChange(
                 setEntry(entries, {
                   app: app as `app_${string}`,
                   removed_tools: [],
                 }),
-              )}
+              )
+            }
           />
         </div>
-        {apps.length === 0
-          ? <p className={styles.empty}>{t("agents.empty.grants-apps")}</p>
-          : apps.map((app) => {
+        {apps.length === 0 ? (
+          <p className={styles.empty}>{t("agents.empty.grants-apps")}</p>
+        ) : (
+          apps.map((app) => {
             const entry = appEntryOf(entries, app.app)!;
-            const used = app.tools.filter((tool) =>
-              !isRemoved(entry, tool.tool)
+            const used = app.tools.filter(
+              (tool) => !isRemoved(entry, tool.tool),
             ).length;
             return (
               <TargetCard
@@ -186,7 +195,8 @@ export function GrantsPanel(
                     open.includes(app.app)
                       ? open.filter((one) => one !== app.app)
                       : [...open, app.app],
-                  )}
+                  )
+                }
                 remove={{
                   label: t("agents.button.remove-app"),
                   onClick: () =>
@@ -210,12 +220,14 @@ export function GrantsPanel(
                           entries,
                           withToolRemoved(entry, tool.tool, removed),
                         ),
-                      )}
+                      )
+                    }
                   />
                 ))}
               </TargetCard>
             );
-          })}
+          })
+        )}
         <p className={styles.note}>{t("agents.notice.grants-mcp-layers")}</p>
       </section>
     </div>

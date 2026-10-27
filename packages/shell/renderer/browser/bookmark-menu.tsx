@@ -29,35 +29,42 @@ export function BookmarkMenu(props: BookmarkMenuProps) {
     disabled?: boolean;
     favicon?: string;
     leading?: ReactNode;
-  }[] = bookmarks.state === "corrupt"
-    ? [{
-      id: "corrupt",
-      label: t("settings.error.bookmarks-corrupt"),
-      disabled: true,
-    }]
-    : bookmarks.state === "unavailable"
-    ? [{
-      id: "unavailable",
-      label: t("settings.error.bookmarks-load-failed"),
-      disabled: true,
-    }]
-    : bookmarks.bookmarks.length === 0
-    ? [{
-      id: "empty",
-      label: t("browser.notice.no-bookmarks"),
-      disabled: true,
-    }]
-    : bookmarks.bookmarks.map((item) => ({
-      id: item.id,
-      label: item.title,
-      textValue: item.title,
-      favicon: item.favicon,
-      leading: (
-        <MenuIcon>
-          <Favicon src={item.favicon} />
-        </MenuIcon>
-      ),
-    }));
+  }[] =
+    bookmarks.state === "corrupt"
+      ? [
+          {
+            id: "corrupt",
+            label: t("settings.error.bookmarks-corrupt"),
+            disabled: true,
+          },
+        ]
+      : bookmarks.state === "unavailable"
+        ? [
+            {
+              id: "unavailable",
+              label: t("settings.error.bookmarks-load-failed"),
+              disabled: true,
+            },
+          ]
+        : bookmarks.bookmarks.length === 0
+          ? [
+              {
+                id: "empty",
+                label: t("browser.notice.no-bookmarks"),
+                disabled: true,
+              },
+            ]
+          : bookmarks.bookmarks.map((item) => ({
+              id: item.id,
+              label: item.title,
+              textValue: item.title,
+              favicon: item.favicon,
+              leading: (
+                <MenuIcon>
+                  <Favicon src={item.favicon} />
+                </MenuIcon>
+              ),
+            }));
   const label = t("browser.button.bookmarks");
   const disabled = props.viewSession === null || bookmarks.state === "loading";
   const pick = (id: string | null) => {

@@ -255,9 +255,9 @@ export function limitResult(input: {
   };
   return {
     outcome: { kind: "failed", reason: input.reason },
-    result: createHash("sha256").update(canonicalize(facts), "utf8").digest(
-      "hex",
-    ),
+    result: createHash("sha256")
+      .update(canonicalize(facts), "utf8")
+      .digest("hex"),
     facts,
   };
 }

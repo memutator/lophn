@@ -26,9 +26,14 @@ export interface StatTileProps {
 }
 
 // 라벨→4px→28px 값→4px→변화량과 방향 아이콘. 값은 계열색이 아닌 중립 글자색이다.
-export function StatTile(
-  { label, value, unit, change, changeLabel, locale = "en" }: StatTileProps,
-) {
+export function StatTile({
+  label,
+  value,
+  unit,
+  change,
+  changeLabel,
+  locale = "en",
+}: StatTileProps) {
   const direction = change === undefined ? undefined : statDirection(change);
   return (
     <div className={styles.tile} {...componentMark("StatTile")}>

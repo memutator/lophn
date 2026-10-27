@@ -37,7 +37,7 @@ export function firstCallBody(trial: TrialRecord, where?: CallWhere): string {
 
 // 사람에게 한 `ask`의 질문을 이은 목록. input이 null이면 건너뛴다.
 export function askedQuestions(trial: TrialRecord): AskInput["questions"] {
-  return toolCallsOf(trial, "ask").flatMap((c) =>
-    (c.input as AskInput | null)?.questions ?? []
+  return toolCallsOf(trial, "ask").flatMap(
+    (c) => (c.input as AskInput | null)?.questions ?? [],
   );
 }

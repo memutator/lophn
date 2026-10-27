@@ -50,8 +50,7 @@ const scenario: Scenario = {
             call: {
               to: PM_tax,
               reply: "result",
-              body:
-                "영수증 kind에 '공급자' 칸이 없습니다. 칸을 더해 주세요. 저는 그동안 일을 계속합니다.",
+              body: "영수증 kind에 '공급자' 칸이 없습니다. 칸을 더해 주세요. 저는 그동안 일을 계속합니다.",
             },
           },
         ]),

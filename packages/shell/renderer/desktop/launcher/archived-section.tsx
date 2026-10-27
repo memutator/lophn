@@ -37,9 +37,11 @@ export function ArchivedSection({ items, onRestore }: ArchivedSectionProps) {
           >
             <span className={styles.archivedName}>
               <Icon
-                icon={item.kind === "project"
-                  ? launcherIcons.project
-                  : appSpaceIcons.app}
+                icon={
+                  item.kind === "project"
+                    ? launcherIcons.project
+                    : appSpaceIcons.app
+                }
                 pixels={iconPixels("base")}
                 className={styles.cardIcon}
               />

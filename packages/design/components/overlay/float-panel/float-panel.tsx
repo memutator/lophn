@@ -43,25 +43,23 @@ const EDGES: readonly FloatEdge[] = [
 ];
 
 // 끌기 논리는 갖지 않는다: pointer 처리는 호출자가 이어받는다.
-export function FloatPanel(
-  {
-    title,
-    icon,
-    badge,
-    actions,
-    children,
-    x,
-    y,
-    width,
-    height,
-    active = false,
-    hidden = false,
-    onRaise,
-    onMoveStart,
-    onResizeStart,
-    ref,
-  }: FloatPanelProps,
-) {
+export function FloatPanel({
+  title,
+  icon,
+  badge,
+  actions,
+  children,
+  x,
+  y,
+  width,
+  height,
+  active = false,
+  hidden = false,
+  onRaise,
+  onMoveStart,
+  onResizeStart,
+  ref,
+}: FloatPanelProps) {
   return (
     <section
       ref={ref}

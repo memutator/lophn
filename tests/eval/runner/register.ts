@@ -25,11 +25,7 @@ export async function registerAll(selected: Discovered[]): Promise<{
 }> {
   const problems: string[] = [];
   const materials = new Map<string, VersionRef[]>();
-  const register = async (
-    ref: VersionRef,
-    hash: string,
-    content?: string,
-  ) => {
+  const register = async (ref: VersionRef, hash: string, content?: string) => {
     const result = await registerAuthored(REGISTRY_DIR, ref, hash, content);
     if (!result.ok) problems.push(result.error.message);
   };
@@ -56,9 +52,7 @@ export async function registerAll(selected: Discovered[]): Promise<{
     for (const material of ordered.value) {
       const verified = await verifyMaterial(material);
       if (!verified.ok) {
-        problems.push(
-          `${verified.error.message}. 내용이 바뀌었다. n을 올려라`,
-        );
+        problems.push(`${verified.error.message}. 내용이 바뀌었다. n을 올려라`);
         continue;
       }
       const ref = parseRef(material.ref, "material");

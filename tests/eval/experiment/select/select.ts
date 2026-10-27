@@ -25,10 +25,9 @@ export function selectRuns(
   if (now?.n !== from.n) {
     return err({
       code: "conflict",
-      message:
-        `${from.kind}:${from.name}@${from.n} is not the base checkout version (${
-          now ? `@${now.n}` : "absent"
-        })`,
+      message: `${from.kind}:${from.name}@${from.n} is not the base checkout version (${
+        now ? `@${now.n}` : "absent"
+      })`,
     });
   }
 
@@ -44,10 +43,10 @@ export function selectRuns(
     const role: Role | null = target
       ? "target"
       : kase
-      ? "case"
-      : b.saw.length > 0
-      ? "guard"
-      : null;
+        ? "case"
+        : b.saw.length > 0
+          ? "guard"
+          : null;
 
     if (role === null) {
       if (b.valid.length > 0) {
@@ -65,15 +64,13 @@ export function selectRuns(
       problems.push(
         b.valid.length === 0
           ? {
-            code: "conflict",
-            text:
-              `target ${scenario.id}: no baseline run. Run \`deno task eval --scenario ${scenario.id}\` first`,
-          }
+              code: "conflict",
+              text: `target ${scenario.id}: no baseline run. Run \`deno task eval --scenario ${scenario.id}\` first`,
+            }
           : {
-            code: "invalid_input",
-            text:
-              `target ${scenario.id}: no run saw ${from.kind}:${from.name}@${from.n}. The hypothesis does not reach this scenario`,
-          },
+              code: "invalid_input",
+              text: `target ${scenario.id}: no run saw ${from.kind}:${from.name}@${from.n}. The hypothesis does not reach this scenario`,
+            },
       );
       continue;
     }
@@ -105,8 +102,8 @@ export function selectRuns(
       details: { problems: problems.map((p) => p.text) },
     });
   }
-  entries.sort((a, b) =>
-    ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || byScenario(a, b)
+  entries.sort(
+    (a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || byScenario(a, b),
   );
   return ok({
     entries,

@@ -34,9 +34,8 @@ export const configWiring: WiringFactory = () => {
       } catch (error) {
         return err({
           code: "internal",
-          message: error instanceof Error
-            ? error.message
-            : "setting declaration",
+          message:
+            error instanceof Error ? error.message : "setting declaration",
         });
       }
       store = createSettingsStore({

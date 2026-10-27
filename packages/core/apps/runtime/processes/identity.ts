@@ -11,7 +11,9 @@ export function sameChild(
   recorded: ChildIdentity,
   observed: ChildIdentity,
 ): boolean {
-  return recorded.pid === observed.pid &&
+  return (
+    recorded.pid === observed.pid &&
     recorded.startedAtMs === observed.startedAtMs &&
-    recorded.processNonce === observed.processNonce;
+    recorded.processNonce === observed.processNonce
+  );
 }

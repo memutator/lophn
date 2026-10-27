@@ -42,7 +42,7 @@ const worktree = await realpath(arg).catch(() => null);
 if (!worktree) fail(`worktree가 없다: ${arg}`);
 
 const top = await git(worktree, "rev-parse", "--show-toplevel");
-if (top === null || await realpath(top) !== worktree) {
+if (top === null || (await realpath(top)) !== worktree) {
   fail(`worktree가 아니다: ${arg}`);
 }
 const common = await git(
@@ -57,7 +57,7 @@ const main = common.replace(/\/[^/]+$/, "");
 const target = `${worktree}/${MODULES}`;
 if (await exists(target)) process.exit(0);
 const source = `${main}/${MODULES}`;
-if (!await exists(source)) {
+if (!(await exists(source))) {
   fail(
     "main checkout에서 `npm --prefix packages/shell/main ci`를 먼저 돌린다.",
   );

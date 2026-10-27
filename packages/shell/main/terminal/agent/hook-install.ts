@@ -18,18 +18,18 @@ type Install = { skill: string; hook: string; files: string[] };
 
 /** terminalRef는 사람 터미널이 harness를 알아본 길에서만 있다. 묻는 창을 고르는 데 쓴다. */
 export type HookRegister = {
-  ask(
-    input: { harness: string; files: string[]; terminalRef?: string },
-  ): Promise<boolean>;
-  show(
-    input: {
-      harness: string;
-      ok: boolean;
-      files: string[];
-      message?: string;
-      terminalRef?: string;
-    },
-  ): void;
+  ask(input: {
+    harness: string;
+    files: string[];
+    terminalRef?: string;
+  }): Promise<boolean>;
+  show(input: {
+    harness: string;
+    ok: boolean;
+    files: string[];
+    message?: string;
+    terminalRef?: string;
+  }): void;
 };
 
 export type HookInstallerDeps = {
@@ -56,10 +56,12 @@ export type HookInstaller = {
 function installResult(data: unknown): Install | null {
   const value = data as Partial<Install> | null;
   if (
-    typeof value?.skill !== "string" || typeof value.hook !== "string" ||
+    typeof value?.skill !== "string" ||
+    typeof value.hook !== "string" ||
     !Array.isArray(value.files) ||
     !value.files.every((file) => typeof file === "string")
-  ) return null;
+  )
+    return null;
   return { skill: value.skill, hook: value.hook, files: value.files };
 }
 
@@ -94,7 +96,7 @@ export function createHookInstaller(deps: HookInstallerDeps): HookInstaller {
       if (found === null) return;
       if (found.skill !== "missing" && found.hook !== "missing") return;
       files = found.files;
-      if (!await register.ask({ harness, files, terminalRef })) return;
+      if (!(await register.ask({ harness, files, terminalRef }))) return;
     } catch {
       return;
     }
@@ -109,15 +111,18 @@ export function createHookInstaller(deps: HookInstallerDeps): HookInstaller {
         shown = { harness, ok: false, files, message: "unexpected result" };
       } else {
         // skill 단계는 옛 skill 사본 지우기라 지울 위치가 없는 harness는 not_supported다. 그것은 실패가 아니다.
-        const ok = (wrote.hook === "installed" || wrote.hook === "unchanged") &&
+        const ok =
+          (wrote.hook === "installed" || wrote.hook === "unchanged") &&
           wrote.skill !== "failed";
         shown = {
           harness,
           ok,
           files: wrote.files,
-          ...(ok ? {} : {
-            message: `skill ${wrote.skill}, hook ${wrote.hook}`,
-          }),
+          ...(ok
+            ? {}
+            : {
+                message: `skill ${wrote.skill}, hook ${wrote.hook}`,
+              }),
         };
       }
     } catch (error) {
@@ -138,7 +143,7 @@ export function createHookInstaller(deps: HookInstallerDeps): HookInstaller {
     const running = registering.get(harness);
     if (running !== undefined) return running;
     const started = registerOnce(harness, terminalRef).finally(() =>
-      registering.delete(harness)
+      registering.delete(harness),
     );
     registering.set(harness, started);
     return started;
@@ -150,13 +155,14 @@ export function createHookInstaller(deps: HookInstallerDeps): HookInstaller {
     files: string[],
   ): HarnessHookView => ({
     harness_id: harness,
-    status: outcome === "missing"
-      ? "missing"
-      : outcome === "unchanged" || outcome === "installed"
-      ? "installed"
-      : outcome === "failed"
-      ? "failed"
-      : "unsupported",
+    status:
+      outcome === "missing"
+        ? "missing"
+        : outcome === "unchanged" || outcome === "installed"
+          ? "installed"
+          : outcome === "failed"
+            ? "failed"
+            : "unsupported",
     files,
   });
 

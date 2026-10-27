@@ -19,10 +19,12 @@ export const releaseIdSchema = idSchema("rel");
 // 화면 이름. 입력한 이름을 보존하므로 slug 문법을 강제하지 않는다.
 const appNameSchema = z.string().min(1);
 // 한 줄 목적. 빈 문자열과 줄바꿈은 금지다.
-const appDescriptionSchema = z.string().min(1).refine(
-  (value) => !/[\r\n]/.test(value),
-  { message: "description must be a single line" },
-);
+const appDescriptionSchema = z
+  .string()
+  .min(1)
+  .refine((value) => !/[\r\n]/.test(value), {
+    message: "description must be a single line",
+  });
 
 // documents가 자리 해석에서 부르는 존재·status·slug. runtime 상태는 없다.
 const appRegistrationSchema = z.object({
@@ -55,10 +57,11 @@ const appFields = {
   run_enabled: z.boolean(),
   status: archiveStateSchema,
 };
-export const appSchema = z.object(appFields).refine(
-  (value) => value.status !== "archived" || !value.run_enabled,
-  { message: "archived app cannot enable execution" },
-);
+export const appSchema = z
+  .object(appFields)
+  .refine((value) => value.status !== "archived" || !value.run_enabled, {
+    message: "archived app cannot enable execution",
+  });
 export type App = z.infer<typeof appSchema>;
 
 export const appCompareSchema = z.strictObject({

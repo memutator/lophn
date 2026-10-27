@@ -13,8 +13,8 @@ export function factsOfDeclaration(
 ): AppFacts | undefined {
   return {
     release,
-    permissions: declaration
-      .permissions as unknown as readonly GrantPermissionRequirement[],
+    permissions:
+      declaration.permissions as unknown as readonly GrantPermissionRequirement[],
     app_connections: declaration.app_connections.map((use) => ({
       app: use.app,
       tools: [...use.tools],

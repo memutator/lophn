@@ -63,8 +63,8 @@ export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
         result.ok
           ? { state: "ready", view: result.value }
           : was.state === "ready"
-          ? was
-          : { state: "failed" }
+            ? was
+            : { state: "failed" },
       );
     });
   }, [source]);
@@ -143,20 +143,19 @@ export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
                 {t("settings.button.add-skill")}
               </Button>
             </div>
-            {view.skills.length === 0
-              ? (
-                <p className={styles.empty} data-empty="">
-                  {t("settings.agents.no-skills")}
-                </p>
-              )
-              : (
-                <SkillList
-                  items={view.skills}
-                  showLayer={false}
-                  onToggle={(name, on) =>
-                    void act(() => source.setSkillEnabled(name, on))}
-                />
-              )}
+            {view.skills.length === 0 ? (
+              <p className={styles.empty} data-empty="">
+                {t("settings.agents.no-skills")}
+              </p>
+            ) : (
+              <SkillList
+                items={view.skills}
+                showLayer={false}
+                onToggle={(name, on) =>
+                  void act(() => source.setSkillEnabled(name, on))
+                }
+              />
+            )}
             <p className={styles.note}>
               {t("agents.notice.settings-tools-skills")}
             </p>
@@ -177,31 +176,28 @@ export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
                 {t("settings.button.add-server")}
               </Button>
             </div>
-            {adding
-              ? (
-                <ServerForm
-                  scope="global"
-                  taken={view.servers.map((server) => server.name)}
-                  scrollIntoView
-                  onAdd={(server) => void add(server)}
-                  onCancel={() => setAdding(false)}
-                />
-              )
-              : null}
-            {view.servers.length === 0
-              ? (
-                <p className={styles.empty} data-empty="">
-                  {t("settings.agents.no-servers")}
-                </p>
-              )
-              : (
-                <McpList
-                  items={view.servers}
-                  showLayer={false}
-                  onToggle={(name, on) =>
-                    void act(() => source.setServerEnabled(name, on))}
-                />
-              )}
+            {adding ? (
+              <ServerForm
+                scope="global"
+                taken={view.servers.map((server) => server.name)}
+                scrollIntoView
+                onAdd={(server) => void add(server)}
+                onCancel={() => setAdding(false)}
+              />
+            ) : null}
+            {view.servers.length === 0 ? (
+              <p className={styles.empty} data-empty="">
+                {t("settings.agents.no-servers")}
+              </p>
+            ) : (
+              <McpList
+                items={view.servers}
+                showLayer={false}
+                onToggle={(name, on) =>
+                  void act(() => source.setServerEnabled(name, on))
+                }
+              />
+            )}
             <p className={styles.note}>
               {t("agents.notice.settings-tools-servers")}
             </p>

@@ -120,16 +120,7 @@ export function appendLine(
   sql.run(
     `INSERT INTO workflow_lines (instance, seq, at, kind, by, step, body, data)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      instance,
-      next,
-      at,
-      line.kind,
-      JSON.stringify(line.by),
-      step,
-      body,
-      data,
-    ],
+    [instance, next, at, line.kind, JSON.stringify(line.by), step, body, data],
   );
   return String(next);
 }
@@ -150,11 +141,13 @@ export function loadLines(
   instance: string,
   page: { after: number; limit: number | null },
 ): Result<WorkflowLine[]> {
-  return parseLines(sql.all(
-    `SELECT * FROM workflow_lines WHERE instance = ? AND seq > ?
+  return parseLines(
+    sql.all(
+      `SELECT * FROM workflow_lines WHERE instance = ? AND seq > ?
      ORDER BY seq LIMIT ?`,
-    [instance, page.after, page.limit ?? -1],
-  ));
+      [instance, page.after, page.limit ?? -1],
+    ),
+  );
 }
 
 // step마다 seq가 가장 큰 report 줄이다.
@@ -162,14 +155,16 @@ export function lastReports(
   sql: Query,
   instance: string,
 ): Result<Record<string, ReportLine>> {
-  const lines = parseLines(sql.all(
-    `SELECT * FROM workflow_lines AS l
+  const lines = parseLines(
+    sql.all(
+      `SELECT * FROM workflow_lines AS l
      WHERE instance = ? AND kind = 'report' AND seq = (
        SELECT max(seq) FROM workflow_lines
        WHERE instance = l.instance AND kind = 'report' AND step = l.step
      )`,
-    [instance],
-  ));
+      [instance],
+    ),
+  );
   if (!lines.ok) return lines;
   const reports: Record<string, ReportLine> = {};
   for (const line of lines.value) {
@@ -182,10 +177,12 @@ export function lastLine(
   sql: Query,
   instance: string,
 ): Result<WorkflowLine | null> {
-  const lines = parseLines(sql.all(
-    "SELECT * FROM workflow_lines WHERE instance = ? ORDER BY seq DESC LIMIT 1",
-    [instance],
-  ));
+  const lines = parseLines(
+    sql.all(
+      "SELECT * FROM workflow_lines WHERE instance = ? ORDER BY seq DESC LIMIT 1",
+      [instance],
+    ),
+  );
   return lines.ok ? ok(lines.value[0] ?? null) : lines;
 }
 
@@ -227,17 +224,21 @@ export function listInstances(
     params.push(filter.after);
   }
   params.push(filter.limit);
-  return parseInstances(sql.all(
-    `SELECT * FROM workflow_instances WHERE ${where.join(" AND ")}
+  return parseInstances(
+    sql.all(
+      `SELECT * FROM workflow_instances WHERE ${where.join(" AND ")}
      ORDER BY id DESC LIMIT ?`,
-    params,
-  ));
+      params,
+    ),
+  );
 }
 
 // 모든 project의 running instance.
 export function runningInstances(sql: Query): Result<WorkflowInstance[]> {
-  return parseInstances(sql.all(
-    "SELECT * FROM workflow_instances WHERE state = 'running' ORDER BY id",
-    [],
-  ));
+  return parseInstances(
+    sql.all(
+      "SELECT * FROM workflow_instances WHERE state = 'running' ORDER BY id",
+      [],
+    ),
+  );
 }

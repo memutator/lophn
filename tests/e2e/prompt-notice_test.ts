@@ -65,10 +65,10 @@ test("고친 지침은 다음 turn의 system과 notice로 닿고 AGENTS.md는 �
     assert.ok(!JSON.stringify(second.body).includes(decoy));
     // ledger: 두 turn 모두 정상으로 끝났다.
     const turns = await turnsOf(core, session);
-    assert.deepStrictEqual(turns.map((t) => t.outcome?.kind), [
-      "completed",
-      "completed",
-    ]);
+    assert.deepStrictEqual(
+      turns.map((t) => t.outcome?.kind),
+      ["completed", "completed"],
+    );
   } finally {
     await core?.kill().catch(() => {});
     await fake.close();

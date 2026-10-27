@@ -5,7 +5,10 @@ import { z } from "zod";
 
 const ULID = "[0-7][0-9a-hjkmnp-tv-z]{25}";
 const projectId = z.string().regex(new RegExp(`^prj_${ULID}$`));
-const viewSession = z.string().min(1).refine((value) => !/\p{Cc}/u.test(value));
+const viewSession = z
+  .string()
+  .min(1)
+  .refine((value) => !/\p{Cc}/u.test(value));
 const tabKey = z.string().min(1).max(4096);
 const boundsSchema = z.strictObject({
   x: z.number().int().min(-32768).max(32768),
@@ -52,8 +55,8 @@ export function slimDetachedTab<
 >(tab: T): T {
   if (tab.fields === undefined) return tab;
   const fields = Object.fromEntries(
-    Object.entries(tab.fields).filter(([, value]) =>
-      (JSON.stringify(value) ?? "").length <= 4096
+    Object.entries(tab.fields).filter(
+      ([, value]) => (JSON.stringify(value) ?? "").length <= 4096,
     ),
   );
   return { ...tab, fields };
@@ -109,11 +112,11 @@ export type DetachedEvent =
   // → project 창
   /** detached 창이 돌아왔다. transfer가 null이면 저장된 값으로만 돌아온다(창이 갑자기 닫힘). */
   | {
-    kind: "docked";
-    key: string;
-    tab: DetachedTab;
-    transfer: TabTransfer | null;
-  }
+      kind: "docked";
+      key: string;
+      tab: DetachedTab;
+      transfer: TabTransfer | null;
+    }
   /** detached 창에서 탭 값이 바뀌었다(patchTab). */
   | { kind: "changed"; key: string; tab: DetachedTab }
   /** detached 창이 project 창에 탭을 열라고 한다. */
@@ -155,17 +158,17 @@ export const detachedEventSchema = z.discriminatedUnion("kind", [
 export type DetachedReply<T> =
   | { ok: true; value: T }
   | {
-    ok: false;
-    error: {
-      code:
-        | "invalid_input"
-        | "forbidden"
-        | "not_found"
-        | "conflict"
-        | "unavailable";
-      message: string;
+      ok: false;
+      error: {
+        code:
+          | "invalid_input"
+          | "forbidden"
+          | "not_found"
+          | "conflict"
+          | "unavailable";
+        message: string;
+      };
     };
-  };
 
 /** window.lophnDetached. 거절은 code만 실은 Error다. 두 방향 모두 이 하나다. 보낸 창이 맞는 쪽이 아니면 main이 forbidden으로 거절한다. */
 export interface LophnDetachedApi {

@@ -6,22 +6,20 @@ import {
   type InstructionsApi,
 } from "../ipc/instructions.ts";
 
-export function createInstructionsApi(
-  transport: { invoke(channel: string, input: unknown): Promise<unknown> },
-): InstructionsApi {
+export function createInstructionsApi(transport: {
+  invoke(channel: string, input: unknown): Promise<unknown>;
+}): InstructionsApi {
   async function invoke<T>(
     channel: string,
     input: unknown,
   ): Promise<EditorReply<T>> {
     try {
-      return await transport.invoke(channel, input) as EditorReply<T>;
+      return (await transport.invoke(channel, input)) as EditorReply<T>;
     } catch {
       return { ok: false, code: "unavailable" };
     }
   }
-  return Object.freeze(
-    {
-      open: (input) => invoke(INSTRUCTIONS_OPEN_CHANNEL, input),
-    } satisfies InstructionsApi,
-  );
+  return Object.freeze({
+    open: (input) => invoke(INSTRUCTIONS_OPEN_CHANNEL, input),
+  } satisfies InstructionsApi);
 }

@@ -13,12 +13,7 @@ import type { ModelPickerProps, PickerModelRef } from "./model-picker/types.ts";
 const NO_MODEL: PickerModelRef = { provider: "", modelName: "" };
 
 interface ModelPickerInput {
-  source: Pick<
-    AgentTabSource,
-    | "model"
-    | "chooseModel"
-    | "setModelOption"
-  >;
+  source: Pick<AgentTabSource, "model" | "chooseModel" | "setModelOption">;
   /** null이면 아직 만들지 않은 새 session이다. */
   session: string | null;
   /** 읽거나 쓰기가 실패했다. */

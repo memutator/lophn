@@ -12,10 +12,7 @@ function invalid(message: string): Result<never> {
 }
 
 // 앱 data rewind의 시작점으로 고를 수 있는지. 되돌릴 수 없는 것은 invalid_input이다.
-function pickable(
-  from: AppInvocation,
-  active: Id<"rel">,
-): Result<void> {
+function pickable(from: AppInvocation, active: Id<"rel">): Result<void> {
   if (from.mode !== "live") {
     return invalid("only a live invocation can be rewound");
   }
@@ -80,11 +77,14 @@ export function rewindPlan(
   });
   if (!listed.ok) return listed;
   const range = listed.value
-    .filter((inv) =>
-      inv.id >= from && inv.effect !== "read" && inv.status !== "denied" &&
-      inv.operation.kind !== "data_change"
+    .filter(
+      (inv) =>
+        inv.id >= from &&
+        inv.effect !== "read" &&
+        inv.status !== "denied" &&
+        inv.operation.kind !== "data_change",
     )
-    .sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   // 목록이 잘려 `from`이 빠졌으면 일부만 되돌리게 되므로 계획을 내지 않는다.
   if (range[0]?.id !== from) {
     return err({
@@ -100,16 +100,17 @@ export function rewindPlan(
     items.push(item.value);
   }
   // 결과를 모르는 채 changeset 없이 닫힌 write는 얼마나 바뀌었는지 알 수 없다.
-  const lost = range.find((inv) =>
-    inv.status === "unknown" && inv.changeset === null
+  const lost = range.find(
+    (inv) => inv.status === "unknown" && inv.changeset === null,
   );
   return ok({
     app,
     release: active.value,
     from_invocation: from,
     items,
-    blocked: lost === undefined
-      ? null
-      : { reason: "unrecoverable_write", invocation: lost.id },
+    blocked:
+      lost === undefined
+        ? null
+        : { reason: "unrecoverable_write", invocation: lost.id },
   });
 }

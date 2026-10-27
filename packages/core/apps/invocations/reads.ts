@@ -32,8 +32,8 @@ function scopeOf(
     const verdict: Result<boolean> = access.ok
       ? ok(true)
       : appAccessDenied(access)
-      ? ok(false)
-      : access;
+        ? ok(false)
+        : access;
     seen.set(app, verdict);
     return verdict;
   };
@@ -49,7 +49,8 @@ export function createInvocationsReads(): {
       handle(snapshot, ctx, input) {
         const { cursor, limit: asked, ...filter } = input;
         if (
-          cursor !== undefined && !idSchema("inv").safeParse(cursor).success
+          cursor !== undefined &&
+          !idSchema("inv").safeParse(cursor).success
         ) {
           return err({ code: "invalid_input", message: "invalid cursor" });
         }
@@ -87,9 +88,11 @@ export function createInvocationsReads(): {
         if (!found.ok) return found;
         let invocation = found.value;
         if (invocation !== null) {
-          const allowed = scopeOf(snapshot, ctx, appInvocation.name)(
-            invocation.app,
-          );
+          const allowed = scopeOf(
+            snapshot,
+            ctx,
+            appInvocation.name,
+          )(invocation.app);
           if (!allowed.ok) return allowed;
           // 범위 밖 기록은 없는 기록과 같은 모양이다.
           if (!allowed.value) invocation = null;

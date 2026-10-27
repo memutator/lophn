@@ -26,10 +26,7 @@ type WirePlan = {
   request_headers: Record<string, string>;
 };
 
-type EffortPiece = (
-  value: string,
-  axis: OptionAxis,
-) => JsonObject | undefined;
+type EffortPiece = (value: string, axis: OptionAxis) => JsonObject | undefined;
 
 // 표에 없는 effort 값은 undefined다. 가까운 값으로 바꾸지 않는다.
 function lookup(
@@ -90,9 +87,10 @@ const responsesEffort: EffortPiece = (value) => {
   const name = lookup(REASONING_EFFORT_NAMES, value);
   if (name === undefined) return undefined;
   // 요약 글을 받으려면 요청에 summary를 실어야 한다. "none"(off)은 요약이 없다.
-  const piece: JsonObject = name === "none"
-    ? { reasoning: { effort: name } }
-    : { reasoning: { effort: name, summary: "auto" } };
+  const piece: JsonObject =
+    name === "none"
+      ? { reasoning: { effort: name } }
+      : { reasoning: { effort: name, summary: "auto" } };
   return piece;
 };
 
@@ -162,13 +160,11 @@ function invalid(message: string): Result<never> {
 // option_values는 options.ts가 default를 채운 뒤의 값이다(없는 축은 요청에 필드가 없다).
 // 없는 축·값이거나 그 호출 형식의 표에 없는 effort 값이면 다른 값으로 바꾸지 않고
 // invalid_input으로 실패한다.
-export function translateOptions(
-  input: {
-    protocol: WireProtocol;
-    entry: CatalogEntry;
-    option_values: Readonly<Record<string, string>>;
-  },
-): Result<WirePlan> {
+export function translateOptions(input: {
+  protocol: WireProtocol;
+  entry: CatalogEntry;
+  option_values: Readonly<Record<string, string>>;
+}): Result<WirePlan> {
   const { protocol, entry, option_values } = input;
   const axes = entry.options ?? [];
   const declared = new Set(axes.map((axis) => axis.id));
@@ -185,8 +181,8 @@ export function translateOptions(
   for (const axis of axes) {
     if (!Object.hasOwn(option_values, axis.id)) continue;
     const value = option_values[axis.id];
-    const declaredValue = axis.values.find((candidate) =>
-      candidate.value === value
+    const declaredValue = axis.values.find(
+      (candidate) => candidate.value === value,
     );
     if (declaredValue === undefined) {
       return invalid(`option value is not declared: ${axis.id}=${value}`);

@@ -17,11 +17,12 @@ export async function tryBootCore(
   run: Run,
   options: BootOptions = {},
 ): Promise<
-  { ok: true; core: Core } | {
-    ok: false;
-    reason: StartFailure;
-    exit: number | null;
-  }
+  | { ok: true; core: Core }
+  | {
+      ok: false;
+      reason: StartFailure;
+      exit: number | null;
+    }
 > {
   const before = await processesOf(run.home);
   const started = await startCore(run, options);
@@ -29,9 +30,9 @@ export async function tryBootCore(
   const left = await waitGone(run.home, before);
   if (left.length > 0) {
     throw new Error(
-      `시작에 실패한 core가 child를 남긴다: pid ${
-        left.join(", ")
-      } (SIGKILL로 정리함)`,
+      `시작에 실패한 core가 child를 남긴다: pid ${left.join(
+        ", ",
+      )} (SIGKILL로 정리함)`,
     );
   }
   return { ...started, reason: started.reason as StartFailure };

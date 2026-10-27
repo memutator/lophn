@@ -95,8 +95,10 @@ async function listedCall(
   let input: unknown;
   // 64 KiB를 넘는 입력은 읽지 않고 fallback이다(잘린 JSON은 해석되지 않는다).
   if (
-    definition?.display !== undefined && typeof size === "number" &&
-    size >= 1 && size <= TURN_BODY_VIEW_MAX_BYTES
+    definition?.display !== undefined &&
+    typeof size === "number" &&
+    size >= 1 &&
+    size <= TURN_BODY_VIEW_MAX_BYTES
   ) {
     const bytes = await readBodyBytes(environment, call.input, size);
     if (bytes.ok) {
@@ -155,9 +157,8 @@ export function toolCallListRead(
         clauses.push("id > ?");
         params.push(after.value);
       }
-      const where = clauses.length === 0
-        ? ""
-        : `where ${clauses.join(" and ")}`;
+      const where =
+        clauses.length === 0 ? "" : `where ${clauses.join(" and ")}`;
       const found = environment.snapshot((sql, asOf) =>
         ok({
           rows: sql.all(
@@ -166,7 +167,7 @@ export function toolCallListRead(
             [...params, limit + 1] as never,
           ),
           asOf,
-        })
+        }),
       );
       if (!found.ok) return found;
       const { rows, asOf } = found.value;
@@ -177,9 +178,10 @@ export function toolCallListRead(
           page.map((row) => listedCall(environment, row)),
         ),
         as_of_seq: asOf,
-        next_cursor: rows.length > limit && last !== undefined
-          ? cursorOf(String(last["id"]))
-          : null,
+        next_cursor:
+          rows.length > limit && last !== undefined
+            ? cursorOf(String(last["id"]))
+            : null,
       });
     },
   };

@@ -12,8 +12,5 @@ export interface Bus {
   // 메모리, 동기. 느린 구독자 때문에 막히지 않고 놓칠 수 있다.
   publish(event: BusEvent): void;
   // 해제 함수를 돌려준다. 같은 event는 sink에 한 번만 간다.
-  subscribe(
-    conditions: readonly EventCondition[],
-    sink: BusSink,
-  ): () => void;
+  subscribe(conditions: readonly EventCondition[], sink: BusSink): () => void;
 }

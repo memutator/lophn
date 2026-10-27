@@ -24,19 +24,17 @@ interface AnnotationPanelProps {
   panelRef?: RefObject<HTMLElement | null>;
 }
 
-export function AnnotationPanel(
-  {
-    items,
-    sending,
-    failure,
-    onRemove,
-    onClear,
-    onSend,
-    sendLabel = t("app-space.button.send-annotations"),
-    note = t("app-space.text.annotations-note"),
-    panelRef,
-  }: AnnotationPanelProps,
-) {
+export function AnnotationPanel({
+  items,
+  sending,
+  failure,
+  onRemove,
+  onClear,
+  onSend,
+  sendLabel = t("app-space.button.send-annotations"),
+  note = t("app-space.text.annotations-note"),
+  panelRef,
+}: AnnotationPanelProps) {
   return (
     <aside
       ref={panelRef}
@@ -73,19 +71,14 @@ export function AnnotationPanel(
               })}
               size="sm"
               disabled={sending}
-              onClick={() =>
-                onRemove(item.n)}
+              onClick={() => onRemove(item.n)}
             />
           </li>
         ))}
       </ul>
       <p className={styles.muted}>{note}</p>
       {failure === null ? null : (
-        <p
-          className={styles.failure}
-          role="alert"
-          data-annotations-failure=""
-        >
+        <p className={styles.failure} role="alert" data-annotations-failure="">
           {failure === "archived"
             ? t("app-space.error.annotations-archived")
             : t("app-space.error.annotations-failed")}

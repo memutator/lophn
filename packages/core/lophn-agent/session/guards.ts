@@ -21,18 +21,16 @@ export function sessionNotFound(): Result<never> {
 }
 
 export function requireUser(ctx: RequestContext): Result<void> {
-  return parseActor(ctx.actor)?.kind === "user" ? ok(undefined) : reject(
-    "forbidden",
-    "only a person does this",
-  );
+  return parseActor(ctx.actor)?.kind === "user"
+    ? ok(undefined)
+    : reject("forbidden", "only a person does this");
 }
 
 // Compact의 요약을 끝내는 일은 runtime(machine)이 한다. 요청만 사람이 한다.
 export function requireMachine(ctx: RequestContext): Result<void> {
-  return parseActor(ctx.actor)?.kind === "machine" ? ok(undefined) : reject(
-    "forbidden",
-    "only the runtime does this",
-  );
+  return parseActor(ctx.actor)?.kind === "machine"
+    ? ok(undefined)
+    : reject("forbidden", "only the runtime does this");
 }
 
 // null은 제한 없음, 문자열은 그 session만, undefined는 아무것도 보지 못함. user·machine은 모든

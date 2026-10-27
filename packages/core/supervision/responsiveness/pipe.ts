@@ -43,7 +43,9 @@ export function fromReadable(stream: Readable): SpawnedPipe {
     drop();
     try {
       stream.destroy();
-    } catch { /* 이미 닫힌 stream */ }
+    } catch {
+      /* 이미 닫힌 stream */
+    }
     wake();
   };
   stream.on("data", (chunk: Buffer) => {
@@ -96,7 +98,9 @@ export function fromReadable(stream: Readable): SpawnedPipe {
       drop();
       try {
         stream.destroy();
-      } catch { /* 이미 닫힌 stream */ }
+      } catch {
+        /* 이미 닫힌 stream */
+      }
       wake();
     },
   };

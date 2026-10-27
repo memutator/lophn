@@ -85,7 +85,7 @@ function mergeOwned(
   const at = list.findIndex(owned);
   if (at === -1) return [...list, ours];
   return list.flatMap((entry, index) =>
-    index === at ? [ours] : owned(entry) ? [] : [entry]
+    index === at ? [ours] : owned(entry) ? [] : [entry],
   );
 }
 
@@ -119,26 +119,31 @@ export function jsonHooksText(
 
   if (hook.shape === "named") {
     // 이름 key 하나가 통째로 우리 것이다. PreToolUse·PostToolUse만 matcher group이고 나머지는 handler 목록이다.
-    doc.lophn = Object.fromEntries(events.map((event) => {
-      const handler = handlerOf(hook, harness, event, command);
-      const matcher = hook.matchers?.[event];
-      return [
-        event,
-        event === "PreToolUse" || event === "PostToolUse"
-          ? [{
-            ...(matcher === undefined ? {} : { matcher }),
-            hooks: [handler],
-          }]
-          : [handler],
-      ];
-    }));
+    doc.lophn = Object.fromEntries(
+      events.map((event) => {
+        const handler = handlerOf(hook, harness, event, command);
+        const matcher = hook.matchers?.[event];
+        return [
+          event,
+          event === "PreToolUse" || event === "PostToolUse"
+            ? [
+                {
+                  ...(matcher === undefined ? {} : { matcher }),
+                  hooks: [handler],
+                },
+              ]
+            : [handler],
+        ];
+      }),
+    );
   } else if (hook.shape === "kiro") {
     if (doc.version === undefined) doc.version = "v1";
     if (doc.hooks !== undefined && !Array.isArray(doc.hooks)) return null;
     // 표에서 빠진 event의 옛 항목은 지운다.
-    let list = ((doc.hooks as unknown[] | undefined) ?? []).filter((entry) =>
-      !owned(entry) ||
-      events.includes((entry as { trigger?: string }).trigger ?? "")
+    let list = ((doc.hooks as unknown[] | undefined) ?? []).filter(
+      (entry) =>
+        !owned(entry) ||
+        events.includes((entry as { trigger?: string }).trigger ?? ""),
     );
     for (const event of events) {
       list = mergeOwned(

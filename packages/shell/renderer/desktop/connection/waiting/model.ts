@@ -69,17 +69,20 @@ function requesterOf(entry: WaitingEntry): string | null {
 }
 
 function metaOf(entry: WaitingEntry): string {
-  const who = entry.agent !== null
-    ? agentLabel(entry.agent)
-    : t("waiting.label.agent-lophn");
-  const place = entry.place === null
-    ? ""
-    : entry.place.kind === "project"
-    ? t("waiting.label.place-project", { id: shortId(entry.place.id) })
-    : t("waiting.label.place-app", { id: shortId(entry.place.id) });
-  const session = entry.session === null
-    ? ""
-    : t("waiting.label.session", { id: shortId(entry.session) });
+  const who =
+    entry.agent !== null
+      ? agentLabel(entry.agent)
+      : t("waiting.label.agent-lophn");
+  const place =
+    entry.place === null
+      ? ""
+      : entry.place.kind === "project"
+        ? t("waiting.label.place-project", { id: shortId(entry.place.id) })
+        : t("waiting.label.place-app", { id: shortId(entry.place.id) });
+  const session =
+    entry.session === null
+      ? ""
+      : t("waiting.label.session", { id: shortId(entry.session) });
   // activation 동의는 앱이 대상이고 요청한 agent도 session도 없다.
   if (entry.kind === "activation") return place;
   return [who, session, place].filter((part) => part !== "").join(" · ");
@@ -115,13 +118,13 @@ function toolTarget(
 ): string {
   return subject.kind === "app_tool"
     ? t("waiting.label.target-tool", {
-      app: appText(subject.app),
-      tool: subject.tool,
-    })
+        app: appText(subject.app),
+        tool: subject.tool,
+      })
     : t("waiting.label.target-mcp-tool", {
-      server: subject.server,
-      tool: subject.tool,
-    });
+        server: subject.server,
+        tool: subject.tool,
+      });
 }
 
 function permissionView(request: TurnRequest) {
@@ -139,11 +142,15 @@ function permissionView(request: TurnRequest) {
             value: subject.command,
             style: "code" as const,
           },
-          ...(request.always_patterns.length === 0 ? [] : [{
-            label: t("waiting.label.fact-always"),
-            value: request.always_patterns.join(", "),
-            style: "code" as const,
-          }]),
+          ...(request.always_patterns.length === 0
+            ? []
+            : [
+                {
+                  label: t("waiting.label.fact-always"),
+                  value: request.always_patterns.join(", "),
+                  style: "code" as const,
+                },
+              ]),
         ],
         choices,
       };
@@ -154,11 +161,12 @@ function permissionView(request: TurnRequest) {
           tool: subject.tool,
           app: appText(subject.app),
         }),
-        description: subject.effect === "read"
-          ? t("waiting.notice.tool-read", { target })
-          : subject.effect === "write"
-          ? t("waiting.notice.tool-write", { target })
-          : t("waiting.notice.tool-external", { target }),
+        description:
+          subject.effect === "read"
+            ? t("waiting.notice.tool-read", { target })
+            : subject.effect === "write"
+              ? t("waiting.notice.tool-write", { target })
+              : t("waiting.notice.tool-external", { target }),
         factsPinned: false,
         facts: toolFacts(target, subject.effect),
         choices,
@@ -222,10 +230,9 @@ function activationView(comparison: ActivationConsent["comparison"]) {
   const loss: Line[] = comparison.loss_steps.flatMap((step) =>
     step.loss.map((one) => ({
       label: t(LOSS_LABELS[one.kind]),
-      value: one.column === undefined
-        ? one.table
-        : `${one.table}.${one.column}`,
-    }))
+      value:
+        one.column === undefined ? one.table : `${one.table}.${one.column}`,
+    })),
   );
   return { added, loss, first: comparison.first };
 }

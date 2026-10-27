@@ -26,8 +26,7 @@ const encoder = new TextEncoder();
 const FAKE_MODIFIED_AT = Date.UTC(2026, 9, 16, 9);
 
 // 이미지 viewer와 pdf viewer가 보이는 stand-in. 모양은 chest 배치도와 한 쪽짜리 보고서다.
-export const FAKE_IMAGE_SVG =
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" width="640" height="360">
+export const FAKE_IMAGE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" width="640" height="360">
 <rect width="320" height="180" fill="#eef1f4"/>
 <rect x="40" y="40" width="60" height="40" fill="#b9d3ee"/>
 <rect x="120" y="100" width="40" height="40" fill="#f6d77a"/>
@@ -62,13 +61,17 @@ function bytesOf(path: string): { bytes: Uint8Array; type: string } | null {
 }
 
 /** 파일 크기(byte)와 바뀐 시각. info panel이 보인다. */
-export function factsOf(path: string, text?: string): {
+export function factsOf(
+  path: string,
+  text?: string,
+): {
   size: number;
   modifiedAt: number;
 } {
-  const size = text !== undefined
-    ? encoder.encode(text).byteLength
-    : bytesOf(path)?.bytes.byteLength ?? 1900;
+  const size =
+    text !== undefined
+      ? encoder.encode(text).byteLength
+      : (bytesOf(path)?.bytes.byteLength ?? 1900);
   return { size, modifiedAt: Date.now() - 2 * 60 * 60 * 1000 };
 }
 
@@ -167,7 +170,8 @@ export function fakeTextOf(path: string): string | undefined {
   }
   if (path === "LOPHN.md") return INSTRUCTIONS_LINES.join("\n");
   if (/\.md$/i.test(path)) {
-    const title = (path.split("/").pop() ?? path).replace(/\.md$/i, "")
+    const title = (path.split("/").pop() ?? path)
+      .replace(/\.md$/i, "")
       .replace(/-/g, " ");
     return `# ${title}\n\nPlain notes.\n`;
   }
@@ -210,11 +214,13 @@ export function fakeEditorFiles(
     readBytes({ path }) {
       const found = bytesOf(path);
       return Promise.resolve(
-        found === null ? fail("not_found") : ok({
-          bytes: found.bytes,
-          content_type: found.type,
-          modified_at: FAKE_MODIFIED_AT,
-        }),
+        found === null
+          ? fail("not_found")
+          : ok({
+              bytes: found.bytes,
+              content_type: found.type,
+              modified_at: FAKE_MODIFIED_AT,
+            }),
       );
     },
     write({ path, base_hash, text }) {

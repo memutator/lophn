@@ -63,9 +63,10 @@ function codingOf(
  */
 function codingTabIcon(tab: TabItem): ReactNode | null {
   const coding = codingOf(tab);
-  const vendor = coding === null
-    ? undefined
-    : harnessVendorOf(coding.product) ?? vendorOf(coding.product);
+  const vendor =
+    coding === null
+      ? undefined
+      : (harnessVendorOf(coding.product) ?? vendorOf(coding.product));
   return vendor === undefined ? null : <VendorIcon vendor={vendor} size={14} />;
 }
 
@@ -73,9 +74,8 @@ function codingTabIcon(tab: TabItem): ReactNode | null {
 // 사람이 띄운 agent가 coding 탭의 표지보다 지금 실제로 도는 것이라 먼저 본다.
 function agentTabIcon(tab: TabItem, host: TabHost): ReactNode | null {
   const agent = host.props.terminal?.store.agentOf(tab.key);
-  const vendor = agent === undefined
-    ? undefined
-    : harnessVendorOf(agent.harness);
+  const vendor =
+    agent === undefined ? undefined : harnessVendorOf(agent.harness);
   return vendor === undefined ? null : <VendorIcon vendor={vendor} size={14} />;
 }
 
@@ -96,29 +96,34 @@ export function openCodingTerminal(
   const terminal = host.props.terminal;
   if (!terminal) return;
   terminal.store.requestFromCore(request);
-  host.openTab({
-    key: request.tab.key,
-    kind: "terminal",
-    title: request.tab.title,
-    folder: request.tab.folder,
-    fields: {
-      auto: request.tab.title,
-      session: request.coding.session,
-      product: request.coding.product,
-      app: request.coding.app,
+  host.openTab(
+    {
+      key: request.tab.key,
+      kind: "terminal",
+      title: request.tab.title,
+      folder: request.tab.folder,
+      fields: {
+        auto: request.tab.title,
+        session: request.coding.session,
+        product: request.coding.product,
+        app: request.coding.app,
+      },
     },
-  }, { select: false });
+    { select: false },
+  );
 }
 
 // 탭의 PTY 참조. 옮길 때(transfer)와 detached 창이 조용히 닫힌 뒤 다시 열릴 때(resume) 같은 값을 쓴다.
 function runtimeOf(tab: TabItem, host: TabHost) {
   const entry = host.props.terminal?.store.get(tab.key);
-  return entry?.terminalRef == null ? null : {
-    terminal_ref: entry.terminalRef,
-    generation: entry.generation,
-    folder_ref: entry.folderRef,
-    session: entry.session,
-  };
+  return entry?.terminalRef == null
+    ? null
+    : {
+        terminal_ref: entry.terminalRef,
+        generation: entry.generation,
+        folder_ref: entry.folderRef,
+        session: entry.session,
+      };
 }
 
 export const terminalKind: TabKindDef = {
@@ -177,9 +182,12 @@ export const terminalKind: TabKindDef = {
   },
   toStored(tab) {
     if (
-      tab.folder === undefined || tab.folder.length < 1 ||
-      tab.folder.length > 4096 || !TAB_KEY.test(tab.key)
-    ) return null;
+      tab.folder === undefined ||
+      tab.folder.length < 1 ||
+      tab.folder.length > 4096 ||
+      !TAB_KEY.test(tab.key)
+    )
+      return null;
     const coding = codingOf(tab);
     const auto = autoOf(tab);
     const person = personOf(tab);
@@ -192,13 +200,15 @@ export const terminalKind: TabKindDef = {
         ? {}
         : { title: auto.slice(0, 200) }),
       ...(person === null ? {} : { name: person.slice(0, 200) }),
-      ...(coding === null ? {} : {
-        coding: {
-          session: coding.session,
-          product: coding.product,
-          ...(auto.length > 0 ? { title: auto.slice(0, 200) } : {}),
-        },
-      }),
+      ...(coding === null
+        ? {}
+        : {
+            coding: {
+              session: coding.session,
+              product: coding.product,
+              ...(auto.length > 0 ? { title: auto.slice(0, 200) } : {}),
+            },
+          }),
     };
   },
   // PTY는 main이 쥐고 있어 참조만 넘긴다. 받는 창이 snapshot을 0부터 받아 다시 그린다.
@@ -212,7 +222,8 @@ export const terminalKind: TabKindDef = {
     if (
       typeof moved?.terminal_ref !== "string" ||
       typeof moved.generation !== "number"
-    ) return;
+    )
+      return;
     host.props.terminal?.store.adopt(tab.key, {
       terminalRef: moved.terminal_ref,
       generation: moved.generation,
@@ -245,7 +256,8 @@ export const terminalKind: TabKindDef = {
               folder: info.folderRef,
               fields: { ...current.fields, auto },
             };
-          })}
+          })
+        }
       />
     );
   },

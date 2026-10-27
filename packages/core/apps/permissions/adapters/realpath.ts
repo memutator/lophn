@@ -36,11 +36,12 @@ async function walk(
 export function realPathResolver(home: string, base: string): PathResolver {
   return {
     async realPath(path) {
-      const expanded = path === "~"
-        ? home
-        : path.startsWith("~/")
-        ? `${home}/${path.slice(2)}`
-        : path;
+      const expanded =
+        path === "~"
+          ? home
+          : path.startsWith("~/")
+            ? `${home}/${path.slice(2)}`
+            : path;
       const absolute = expanded.startsWith("/")
         ? expanded
         : `${base}/${expanded}`;
@@ -58,8 +59,9 @@ export function realPathResolver(home: string, base: string): PathResolver {
       if (root === undefined) return [];
       const found: { link: string; target?: string }[] = [];
       await walk(root, found);
-      return found.filter((item) =>
-        item.target === undefined || !isSameOrInside(item.target, root)
+      return found.filter(
+        (item) =>
+          item.target === undefined || !isSameOrInside(item.target, root),
       );
     },
   };

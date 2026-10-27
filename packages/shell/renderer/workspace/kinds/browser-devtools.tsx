@@ -30,9 +30,11 @@ export function readDevtools(value: unknown): DevtoolsState | null {
   if (typeof value !== "object" || value === null) return null;
   const { session, place, size } = value as Record<string, unknown>;
   if (
-    typeof session !== "string" || typeof size !== "number" ||
+    typeof session !== "string" ||
+    typeof size !== "number" ||
     !PLACES.includes(place as DevtoolsPlace)
-  ) return null;
+  )
+    return null;
   return { session, place: place as DevtoolsPlace, size };
 }
 
@@ -50,17 +52,24 @@ export function setDevtools(
   next: DevtoolsState | null,
   options?: { readonly later?: boolean },
 ): void {
-  host.patchTab(target, (current) => ({
-    fields: { ...current.fields, devtools: next ?? undefined },
-  }), options);
+  host.patchTab(
+    target,
+    (current) => ({
+      fields: { ...current.fields, devtools: next ?? undefined },
+    }),
+    options,
+  );
   if (next?.place === "float") {
-    host.openFloat({
-      key: floatKey(target),
-      kind: "browser_devtools",
-      title: t("browser.label.devtools"),
-      fields: { devtools_session: next.session, target },
-      transient: true,
-    }, FLOAT_SIZE);
+    host.openFloat(
+      {
+        key: floatKey(target),
+        kind: "browser_devtools",
+        title: t("browser.label.devtools"),
+        fields: { devtools_session: next.session, target },
+        transient: true,
+      },
+      FLOAT_SIZE,
+    );
   } else {
     host.removeTab(floatKey(target));
   }
@@ -75,9 +84,7 @@ function devtoolsOf(host: TabHost, target: string): DevtoolsState | null {
   return readDevtools(findTab(host.view, target)?.fields?.devtools);
 }
 
-function DevtoolsFloat(
-  props: { tab: TabItem; shown: boolean; host: TabHost },
-) {
+function DevtoolsFloat(props: { tab: TabItem; shown: boolean; host: TabHost }) {
   const { tab, host } = props;
   const views = useAppViews()?.views;
   const browser = useBrowserApi();
@@ -91,7 +98,8 @@ function DevtoolsFloat(
     if (browser === null || typeof session !== "string") return;
     return browser.subscribeEvents((event) => {
       if (
-        event.kind === "devtools-closed" && event.devtools_session === session
+        event.kind === "devtools-closed" &&
+        event.devtools_session === session
       ) {
         latest.current.removeTab(tab.key);
       }

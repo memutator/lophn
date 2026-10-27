@@ -33,8 +33,8 @@ function shorten(label: string, limit = LABEL_LIMIT): string {
 
 // node 높이: status와 note가 없으면 NODE_HEIGHT이고, 있는 줄마다 늘어난다.
 export function nodeHeight(node: GraphNode): number {
-  const lines = (node.status === undefined ? 0 : 1) +
-    (node.note === undefined ? 0 : 1);
+  const lines =
+    (node.status === undefined ? 0 : 1) + (node.note === undefined ? 0 : 1);
   return NODE_HEIGHT + lines * LINE;
 }
 
@@ -91,7 +91,7 @@ function backEdges(
 ): Set<number> {
   const out = new Map<string, number[]>();
   edges.forEach((edge, index) =>
-    out.set(edge.from, [...(out.get(edge.from) ?? []), index])
+    out.set(edge.from, [...(out.get(edge.from) ?? []), index]),
   );
   const state = new Map<string, "open" | "done">();
   const back = new Set<number>();
@@ -133,9 +133,9 @@ function layers(
   for (const edge of forward) {
     incoming.set(edge.to, incoming.get(edge.to)! + 1);
   }
-  const queue = nodes.filter((node) => incoming.get(node.id) === 0).map((
-    node,
-  ) => node.id);
+  const queue = nodes
+    .filter((node) => incoming.get(node.id) === 0)
+    .map((node) => node.id);
   for (let at = 0; at < queue.length; at += 1) {
     const id = queue[at];
     for (const edge of forward) {
@@ -186,7 +186,7 @@ export function layoutGraph(
   }
   const edgeRoom = largest(
     edges.map((edge) =>
-      edge.label === undefined ? 0 : textWidth(shorten(edge.label)) + PAD * 2
+      edge.label === undefined ? 0 : textWidth(shorten(edge.label)) + PAD * 2,
     ),
   );
   const gap = Math.max(COLUMN_GAP, edgeRoom);
@@ -209,9 +209,8 @@ export function layoutGraph(
         ...node,
         shortLabel: shorten(node.label),
         shortStatus: node.status && shorten(node.status.label),
-        shortNote: node.note === undefined
-          ? undefined
-          : shorten(node.note, NOTE_LIMIT),
+        shortNote:
+          node.note === undefined ? undefined : shorten(node.note, NOTE_LIMIT),
         labelY: NODE_HEIGHT / 2,
         statusY,
         noteY,
@@ -230,27 +229,34 @@ export function layoutGraph(
   const placedEdges = edges.map((edge, index) => {
     const from = placed.get(edge.from)!;
     const to = placed.get(edge.to)!;
-    const shortLabel = edge.label === undefined
-      ? undefined
-      : shorten(edge.label);
+    const shortLabel =
+      edge.label === undefined ? undefined : shorten(edge.label);
     if (back.has(index)) {
       // 출발 node 위에서 나가 여백 줄을 가로질러 도착 node 위로 들어간다. 같은 층에서 위에 다른 node가
       // 있으면 그 node를 뚫지 않게 출발은 왼쪽 면, 도착은 오른쪽 면에서 층 사이 틈으로 돌아 나간다.
       const laneY = top - (backLane++ + 0.5) * LANE;
-      const out: Point[] = columns[from.layer][0].id === from.id
-        ? [[from.x + from.width / 2, from.y], [from.x + from.width / 2, laneY]]
-        : [
-          [from.x, from.y + from.height / 2],
-          [from.x - gap / 3, from.y + from.height / 2],
-          [from.x - gap / 3, laneY],
-        ];
-      const into: Point[] = columns[to.layer][0].id === to.id
-        ? [[to.x + to.width / 2, laneY], [to.x + to.width / 2, to.y]]
-        : [
-          [to.x + to.width + gap / 3, laneY],
-          [to.x + to.width + gap / 3, to.y + to.height / 2],
-          [to.x + to.width, to.y + to.height / 2],
-        ];
+      const out: Point[] =
+        columns[from.layer][0].id === from.id
+          ? [
+              [from.x + from.width / 2, from.y],
+              [from.x + from.width / 2, laneY],
+            ]
+          : [
+              [from.x, from.y + from.height / 2],
+              [from.x - gap / 3, from.y + from.height / 2],
+              [from.x - gap / 3, laneY],
+            ];
+      const into: Point[] =
+        columns[to.layer][0].id === to.id
+          ? [
+              [to.x + to.width / 2, laneY],
+              [to.x + to.width / 2, to.y],
+            ]
+          : [
+              [to.x + to.width + gap / 3, laneY],
+              [to.x + to.width + gap / 3, to.y + to.height / 2],
+              [to.x + to.width, to.y + to.height / 2],
+            ];
       return {
         ...edge,
         path: roundedPath([...out, ...into]),

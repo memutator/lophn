@@ -42,9 +42,9 @@ async function git(dir: string, ...args: string[]): Promise<Result<string>> {
   let stdout = "";
   let stderr = "";
   child.stdout?.setEncoding("utf8");
-  child.stdout?.on("data", (chunk: string) => stdout += chunk);
+  child.stdout?.on("data", (chunk: string) => (stdout += chunk));
   child.stderr?.setEncoding("utf8");
-  child.stderr?.on("data", (chunk: string) => stderr += chunk);
+  child.stderr?.on("data", (chunk: string) => (stderr += chunk));
   // exit가 아니라 close를 기다린다. stdout·stderr의 남은 byte를 다 받은 뒤에 판정한다.
   const code = await new Promise<number | null>((resolve, reject) => {
     child.on("error", reject);
@@ -94,16 +94,14 @@ async function scaffold(
         title: target.name,
       });
       if (!made.ok) return made;
-      for (
-        const step of [
-          ["init", "-q"],
-          ["config", "user.name", "lophn"],
-          ["config", "user.email", "lophn@localhost"],
-          ["config", "commit.gpgsign", "false"],
-          ["add", "-A"],
-          ["commit", "-q", "-m", "Start from the app template"],
-        ]
-      ) {
+      for (const step of [
+        ["init", "-q"],
+        ["config", "user.name", "lophn"],
+        ["config", "user.email", "lophn@localhost"],
+        ["config", "commit.gpgsign", "false"],
+        ["add", "-A"],
+        ["commit", "-q", "-m", "Start from the app template"],
+      ]) {
         const done = await git(staging, ...step);
         if (!done.ok) return done;
       }
@@ -132,9 +130,7 @@ function invalid(message: string): Result<never> {
 
 // 연결할 폴더는 있고, git 저장소의 맨 위이고, commit이 있어야 한다. release 준비가 같은 경계로 읽으므로
 // 연결 때 막아 준비에서 처음 알게 되지 않게 한다.
-async function requireCommittedRepository(
-  path: string,
-): Promise<Result<void>> {
+async function requireCommittedRepository(path: string): Promise<Result<void>> {
   try {
     let real: string;
     try {
@@ -147,7 +143,7 @@ async function requireCommittedRepository(
     }
     const top = await git(real, "rev-parse", "--show-toplevel");
     if (!top.ok) return invalid("the source folder is not a git repository");
-    if (await realpath(top.value) !== real) {
+    if ((await realpath(top.value)) !== real) {
       return invalid("the source folder is not the top of a git repository");
     }
     const head = await git(real, "rev-parse", "--verify", "HEAD");
@@ -184,8 +180,11 @@ export function withSourceFolder(
       }
       const done = await inner.command(ctx, envelope);
       if (
-        !done.ok || done.value.replayed || envelope.command !== appCreate.name
-      ) return done;
+        !done.ok ||
+        done.value.replayed ||
+        envelope.command !== appCreate.name
+      )
+        return done;
       const app = done.value.result as App;
       const fail = (reason: string) => {
         console.error(`app ${app.id}: source folder not prepared: ${reason}`);

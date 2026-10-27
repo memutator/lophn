@@ -67,9 +67,11 @@ export function appToolUsers(
   }
 
   return ok(
-    [...found.values()].sort((a, b) =>
-      order(a.tool, b.tool) || order(a.domain, b.domain) ||
-      order(a.source, b.source)
+    [...found.values()].sort(
+      (a, b) =>
+        order(a.tool, b.tool) ||
+        order(a.domain, b.domain) ||
+        order(a.source, b.source),
     ),
   );
 }

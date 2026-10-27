@@ -37,9 +37,11 @@ export const diagnosticsList = defineRead({
     component: z.string().min(1).optional(),
     kind: diagnosticRecordKindSchema.optional(),
   }),
-  output: withReadCommon(z.object({
-    records: z.array(diagnosticRecordSchema),
-  })),
+  output: withReadCommon(
+    z.object({
+      records: z.array(diagnosticRecordSchema),
+    }),
+  ),
   actors: ACTOR_KINDS,
   errors: readErrors,
 });
@@ -55,15 +57,17 @@ export const DIAGNOSTIC_COMPONENTS = [
   "agent-runtime",
 ] as const;
 
-const componentStatusSchema = z.strictObject({
-  component: z.enum(DIAGNOSTIC_COMPONENTS),
-  available: z.boolean(),
-  // 경로·key·값을 담지 않는다.
-  reason: z.string().min(1).optional(),
-  checked_at: atSchema,
-}).refine((value) => value.available || value.reason !== undefined, {
-  message: "unavailable component needs a safe reason",
-});
+const componentStatusSchema = z
+  .strictObject({
+    component: z.enum(DIAGNOSTIC_COMPONENTS),
+    available: z.boolean(),
+    // 경로·key·값을 담지 않는다.
+    reason: z.string().min(1).optional(),
+    checked_at: atSchema,
+  })
+  .refine((value) => value.available || value.reason !== undefined, {
+    message: "unavailable component needs a safe reason",
+  });
 export type ComponentStatus = z.infer<typeof componentStatusSchema>;
 
 // 호출할 때마다 지금 점검한다.

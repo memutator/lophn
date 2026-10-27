@@ -14,13 +14,9 @@ export interface ProjectDraft {
   readonly folders: readonly FolderDraft[];
 }
 
-type RegisterResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; code: string };
+type RegisterResult<T> = { ok: true; value: T } | { ok: false; code: string };
 
-export type FolderPick =
-  | { ok: true; path: string | null }
-  | { ok: false };
+export type FolderPick = { ok: true; path: string | null } | { ok: false };
 
 /** 등록 dialog가 쓰는 통로. ProjectsSource가 이 모양을 채운다. */
 export interface RegisterSource {

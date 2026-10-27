@@ -29,10 +29,9 @@ export const workflowDeclarationSchema = z.discriminatedUnion("kind", [
   z.looseObject({
     kind: z.literal("agent"),
     participants: z.record(participantKeySchema, declarationParticipantSchema),
-    steps: z.record(stepNameSchema, declarationStepSchema).refine(
-      hasStep,
-      NEEDS_STEP,
-    ),
+    steps: z
+      .record(stepNameSchema, declarationStepSchema)
+      .refine(hasStep, NEEDS_STEP),
   }),
   // flow는 참가자가 없고 step 이름만 읽는다(화면이 줄 때문에 쓴다).
   z.looseObject({

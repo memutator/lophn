@@ -25,39 +25,43 @@ function tool(name: string, domain: string, open: boolean) {
 test("app.tools는 맡지 않은 domain의 비공개 tool을 싣지 않고 public tool은 싣는다", async () => {
   const handler = APP_TOOLS.find((t) => t.name === "app.tools")!.handler!;
   const core = (path: string) =>
-    Promise.resolve(ok(
-      path === "/apps/tool_index"
-        ? {
-          ...common,
-          apps: [{
-            app: APP,
-            name: "Items",
-            description: "Keeps items.",
-            tools: [
-              tool("mine", "items", false),
-              tool("theirs", "other", false),
-              tool("open", "other", true),
-            ],
-          }],
-        }
-        : {
-          ...common,
-          domains: [ITEMS, OTHER].map((id, at) => ({
-            id,
-            name: ["items", "other"][at],
-            title: "t",
-            purpose: "",
-            owner: { kind: "app", id: APP },
-            revision: "1",
-            status: "active",
-          })),
-        },
-    ));
-  const names = async (domains: string[]) => {
-    const result = await handler(
-      {},
-      { core, domains } as unknown as ToolContext,
+    Promise.resolve(
+      ok(
+        path === "/apps/tool_index"
+          ? {
+              ...common,
+              apps: [
+                {
+                  app: APP,
+                  name: "Items",
+                  description: "Keeps items.",
+                  tools: [
+                    tool("mine", "items", false),
+                    tool("theirs", "other", false),
+                    tool("open", "other", true),
+                  ],
+                },
+              ],
+            }
+          : {
+              ...common,
+              domains: [ITEMS, OTHER].map((id, at) => ({
+                id,
+                name: ["items", "other"][at],
+                title: "t",
+                purpose: "",
+                owner: { kind: "app", id: APP },
+                revision: "1",
+                status: "active",
+              })),
+            },
+      ),
     );
+  const names = async (domains: string[]) => {
+    const result = await handler({}, {
+      core,
+      domains,
+    } as unknown as ToolContext);
     if (!result.ok) throw new Error("app.tools failed");
     const body = result.value.content as unknown as {
       apps: { tools: { name: string }[] }[];

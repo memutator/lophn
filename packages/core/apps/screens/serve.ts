@@ -21,8 +21,13 @@ const notFound = () =>
   err({ code: "not_found" as const, message: "screen file not found" });
 
 function badScreen(screen: string): boolean {
-  return screen.trim() === "" || screen === "." || screen === ".." ||
-    screen.includes("/") || screen.includes("\\");
+  return (
+    screen.trim() === "" ||
+    screen === "." ||
+    screen === ".." ||
+    screen.includes("/") ||
+    screen.includes("\\")
+  );
 }
 
 function badPath(path: string): boolean {

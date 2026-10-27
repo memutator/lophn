@@ -36,16 +36,13 @@ export const instructionPreview = defineRead({
   method: "preview",
   name: "PreviewGlobalInstructions",
   input: z.strictObject({}),
-  output: withReadCommon(z.object({
-    preview: instructionPreviewSchema.nullable(),
-  })),
+  output: withReadCommon(
+    z.object({
+      preview: instructionPreviewSchema.nullable(),
+    }),
+  ),
   actors: ["user"],
-  errors: [
-    "invalid_input",
-    "unauthorized",
-    "forbidden",
-    "unavailable",
-  ],
+  errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });
 
 // 지침은 4층이 이어 붙는다: 전역, project(LOPHN.md), domain(DOMAIN.md), agent. built-in role 지침은 prompt의
@@ -72,9 +69,11 @@ export const instructionsGet = defineRead({
   method: "get",
   name: "GetInstructions",
   input: instructionsGetInputSchema,
-  output: withReadCommon(z.object({
-    file: instructionReadFileSchema.nullable(),
-  })),
+  output: withReadCommon(
+    z.object({
+      file: instructionReadFileSchema.nullable(),
+    }),
+  ),
   actors: ["machine", "agent"],
   errors: [
     "invalid_input",

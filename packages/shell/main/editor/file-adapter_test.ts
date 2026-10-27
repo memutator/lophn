@@ -31,10 +31,12 @@ async function setup(
     dataRoot: join(dir, "root"),
     folders: () => Promise.resolve([dir]),
     notify: () => {},
-    trash: trash ?? (async (path) => {
-      trashed.push(path);
-      await rename(path, join(bin, `${trashed.length}`));
-    }),
+    trash:
+      trash ??
+      (async (path) => {
+        trashed.push(path);
+        await rename(path, join(bin, `${trashed.length}`));
+      }),
     reveal: () => {},
     fs,
   });
@@ -101,11 +103,11 @@ test("쓰기가 끊겨도 원본이 남고 임시 파일은 치운다", async ()
     const { dir, adapter, done } = await setup(
       broken === "writeTemp"
         ? {
-          writeTemp: async (path) => {
-            await writeFile(path, "half");
-            throw new Error("disk full");
-          },
-        }
+            writeTemp: async (path) => {
+              await writeFile(path, "half");
+              throw new Error("disk full");
+            },
+          }
         : { rename: () => Promise.reject(new Error("interrupted")) },
     );
     try {
@@ -127,9 +129,8 @@ test("쓰기가 끊겨도 원본이 남고 임시 파일은 치운다", async ()
 
 test("지우기는 휴지통으로 가고, 휴지통을 못 쓰면 아무것도 지우지 않는다", async () => {
   const { dir, adapter, trashed, bin, done } = await setup();
-  const broken = await setup(
-    undefined,
-    () => Promise.reject(new Error("no trash")),
+  const broken = await setup(undefined, () =>
+    Promise.reject(new Error("no trash")),
   );
   try {
     // 비어 있지 않은 폴더도 휴지통으로 간다.
@@ -171,16 +172,20 @@ test("새로 만들기는 이미 있는 파일과 폴더를 덮어쓰지 않고 
     const folder = join(dir, "docs");
     await mkdir(folder);
     await writeFile(join(folder, "x.md"), "mine");
-    for (
-      const [path, kind] of [[file, "file"], [file, "folder"], [
-        folder,
-        "folder",
-      ], [folder, "file"]] as const
-    ) {
-      assert.deepEqual(await adapter.create({ path, kind }), {
-        ok: false,
-        code: "conflict",
-      }, `${kind} ${path}`);
+    for (const [path, kind] of [
+      [file, "file"],
+      [file, "folder"],
+      [folder, "folder"],
+      [folder, "file"],
+    ] as const) {
+      assert.deepEqual(
+        await adapter.create({ path, kind }),
+        {
+          ok: false,
+          code: "conflict",
+        },
+        `${kind} ${path}`,
+      );
     }
     assert.equal(await readFile(file, "utf8"), "mine");
     assert.equal(await readFile(join(folder, "x.md"), "utf8"), "mine");

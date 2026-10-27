@@ -50,17 +50,18 @@ export function effectiveScope(input: EffectiveInput): EffectiveScope {
   const empty: EffectiveScope = { access: [], app_calls: [] };
   const facts = input.facts;
   if (facts === null) return empty;
-  const grants = input.grants.filter((grant) =>
-    grant.status === "active" && grant.app === input.app
+  const grants = input.grants.filter(
+    (grant) => grant.status === "active" && grant.app === input.app,
   );
 
   const access: AccessEntry[] = [];
   for (const requirement of facts.permissions) {
     if (!ACCESS_KINDS.has(requirement.kind)) continue;
     const wanted = canonicalize(requirement.scope);
-    const granted = grants.some((grant) =>
-      grant.scope.kind === requirement.kind &&
-      canonicalize(bare(grant.scope)) === wanted
+    const granted = grants.some(
+      (grant) =>
+        grant.scope.kind === requirement.kind &&
+        canonicalize(bare(grant.scope)) === wanted,
     );
     if (granted) {
       access.push({
@@ -72,13 +73,14 @@ export function effectiveScope(input: EffectiveInput): EffectiveScope {
   access.sort((a, b) =>
     `${a.kind}:${canonicalize(a.scope)}`.localeCompare(
       `${b.kind}:${canonicalize(b.scope)}`,
-    )
+    ),
   );
 
   const appCalls: { app: string; tools: string[] }[] = [];
   for (const target of sorted(facts.app_connections.map((c) => c.app))) {
     const declared = new Set(
-      facts.app_connections.filter((c) => c.app === target)
+      facts.app_connections
+        .filter((c) => c.app === target)
         .flatMap((c) => c.tools),
     );
     const live = new Set(input.targetCommands(target) ?? []);

@@ -48,14 +48,15 @@ function runKillUtility(args: string[]): Promise<AdapterResult> {
       finish("failed");
       try {
         running.kill("SIGKILL");
-      } catch { /* adapter 자체를 못 끝내도 결과는 이미 failed다 */ }
+      } catch {
+        /* adapter 자체를 못 끝내도 결과는 이미 failed다 */
+      }
     });
     running.stderr?.on("data", (chunk: Uint8Array) => {
       if (text.length >= ADAPTER_STDERR_MAX) return;
-      text += new TextDecoder().decode(chunk).slice(
-        0,
-        ADAPTER_STDERR_MAX - text.length,
-      );
+      text += new TextDecoder()
+        .decode(chunk)
+        .slice(0, ADAPTER_STDERR_MAX - text.length);
     });
     running.stderr?.on("error", () => {});
     running.on("error", () => finish("failed"));

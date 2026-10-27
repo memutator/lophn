@@ -24,8 +24,8 @@ export async function scenarioHash(scenarioPath: string): Promise<string> {
   const files: Record<string, string> = {};
   for (const e of await readdir(dir, { withFileTypes: true })) {
     if (!e.isFile()) continue;
-    const helper = !e.name.endsWith(".scenario.ts") &&
-      !e.name.endsWith("_test.ts");
+    const helper =
+      !e.name.endsWith(".scenario.ts") && !e.name.endsWith("_test.ts");
     if (e.name === own || helper) {
       files[e.name] = await readFile(`${dir}/${e.name}`, "utf8");
     }

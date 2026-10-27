@@ -128,17 +128,20 @@ export const codingSessionsWiring: WiringFactory = () => {
   let recover: (() => Promise<Result<void>>) | undefined;
   return {
     name: "coding-sessions",
-    operations: () => [{
-      name: codingSignal.name,
-      actors: ["machine"],
-      kind: "command",
-    }],
+    operations: () => [
+      {
+        name: codingSignal.name,
+        actors: ["machine"],
+        kind: "command",
+      },
+    ],
     records: () => [CODING_CONTEXT],
     build(ctx) {
       // registry는 마지막 wiring이 열므로 처음 쓸 때 만든다.
       let tokens: ReturnType<typeof createCodingTokens> | undefined;
       const relay = createCodingRelay({
-        tokens: () => tokens ??= createCodingTokens({ registry: ctx.registry }),
+        tokens: () =>
+          (tokens ??= createCodingTokens({ registry: ctx.registry })),
         async run(signal) {
           const done = await ctx.writer.command(CODING_CONTEXT, {
             command: codingSignal.name,

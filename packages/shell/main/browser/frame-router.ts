@@ -21,20 +21,15 @@ export function routeFrame(
   artifact: ArtifactFrame,
 ): Pick<
   AppFrameService,
-  | "open"
-  | "setBounds"
-  | "hide"
-  | "close"
-  | "reopen"
-  | "owner"
-  | "move"
+  "open" | "setBounds" | "hide" | "close" | "reopen" | "owner" | "move"
 > {
   return {
     open: appFrame.open,
     reopen: appFrame.reopen,
     owner: (view_session) =>
-      browser.owner(view_session) ?? artifact.owner(view_session) ??
-        appFrame.owner(view_session),
+      browser.owner(view_session) ??
+      artifact.owner(view_session) ??
+      appFrame.owner(view_session),
     // visibility가 창 본문과 교차한 ViewBounds만 넘긴다.
     setBounds(view_session, bounds, layer = 0) {
       if (browser.has(view_session)) {

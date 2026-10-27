@@ -52,14 +52,14 @@ export interface OsEntryEnv {
 export type OsEntryResult =
   | { ok: true; path: string }
   | {
-    ok: false;
-    reason:
-      | "not_packaged"
-      | "unverified_path"
-      | "invalid_app"
-      | "unsupported"
-      | "os_failed";
-  };
+      ok: false;
+      reason:
+        | "not_packaged"
+        | "unverified_path"
+        | "invalid_app"
+        | "unsupported"
+        | "os_failed";
+    };
 
 const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 // script·Exec 안에서 뜻을 갖는 글자. escape에 기대지 않고 등록을 거절한다.

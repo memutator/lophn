@@ -32,9 +32,9 @@ export async function restoreAppData(
     if (outcome.status !== "succeeded") {
       return err({
         code: "unavailable",
-        message: `app data ${material.ref}: call ${index + 1} (${call.api}) ${
-          JSON.stringify(outcome)
-        }`,
+        message: `app data ${material.ref}: call ${index + 1} (${call.api}) ${JSON.stringify(
+          outcome,
+        )}`,
       });
     }
   }

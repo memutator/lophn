@@ -97,12 +97,7 @@ export async function executeToolCall(
 ): Promise<ToolCallOutcome> {
   const definition = toolForWireName(ctx.listed, wireName);
   if (definition === undefined) {
-    return stopped(
-      wireName,
-      "failure",
-      "not_found",
-      "tool is not available",
-    );
+    return stopped(wireName, "failure", "not_found", "tool is not available");
   }
   const name = definition.name;
   const effect = definition.effect;

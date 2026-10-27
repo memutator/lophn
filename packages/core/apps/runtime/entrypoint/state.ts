@@ -18,7 +18,10 @@ function createMutex(): Mutex {
   let tail: Promise<unknown> = Promise.resolve();
   return (work) => {
     const run = tail.then(work, work);
-    tail = run.then(() => undefined, () => undefined);
+    tail = run.then(
+      () => undefined,
+      () => undefined,
+    );
     return run;
   };
 }

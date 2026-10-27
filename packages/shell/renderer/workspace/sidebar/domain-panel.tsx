@@ -13,14 +13,16 @@ import { useDomains } from "../domains/use-domains.ts";
 import type { WorkspaceSource } from "../source.ts";
 import styles from "./domain-panel.module.css";
 
-export function DomainPanel(
-  { project, source, onOpenDoc }: {
-    project: string;
-    source: WorkspaceSource;
-    /** DOMAIN.md를 편집기로 연다. */
-    onOpenDoc: (domain: string) => void;
-  },
-) {
+export function DomainPanel({
+  project,
+  source,
+  onOpenDoc,
+}: {
+  project: string;
+  source: WorkspaceSource;
+  /** DOMAIN.md를 편집기로 연다. */
+  onOpenDoc: (domain: string) => void;
+}) {
   const owner = { kind: "project" as const, id: project };
   const domains = useDomains(owner, () => source.domains(project), source);
   const [creating, setCreating] = useState(false);
@@ -46,53 +48,44 @@ export function DomainPanel(
           />
         </div>
       )}
-      {loaded.state === "failed"
-        ? (
-          <ErrorState
-            target={t("domain.label.pick")}
-            onRetry={domains.reload}
-          />
-        )
-        : null}
-      {loaded.state === "ready" && loaded.domains.length === 0
-        ? <p className={styles.empty}>{t("domain.empty.project")}</p>
-        : null}
-      {loaded.state === "ready" && loaded.domains.length > 0
-        ? (
-          <ul className={styles.rows} aria-label={t("domain.heading.list")}>
-            {loaded.domains.map((domain) => (
-              <li
-                key={domain.id}
-                className={styles.row}
-                data-domain={domain.name}
-              >
-                <span className={styles.text}>
-                  <span className={styles.rowHead}>
-                    <span className={styles.title}>{domain.title}</span>
-                    <span className={styles.name}>{domain.name}</span>
-                  </span>
-                  <span className={styles.line}>{domain.purpose}</span>
+      {loaded.state === "failed" ? (
+        <ErrorState target={t("domain.label.pick")} onRetry={domains.reload} />
+      ) : null}
+      {loaded.state === "ready" && loaded.domains.length === 0 ? (
+        <p className={styles.empty}>{t("domain.empty.project")}</p>
+      ) : null}
+      {loaded.state === "ready" && loaded.domains.length > 0 ? (
+        <ul className={styles.rows} aria-label={t("domain.heading.list")}>
+          {loaded.domains.map((domain) => (
+            <li
+              key={domain.id}
+              className={styles.row}
+              data-domain={domain.name}
+            >
+              <span className={styles.text}>
+                <span className={styles.rowHead}>
+                  <span className={styles.title}>{domain.title}</span>
+                  <span className={styles.name}>{domain.name}</span>
                 </span>
-                <span className={styles.action}>
-                  <DomainMenu
-                    title={domain.title}
-                    onOpenDoc={() => onOpenDoc(domain.id)}
-                    onArchive={() => void domains.archive(domain)}
-                  />
-                </span>
-              </li>
-            ))}
-          </ul>
-        )
-        : null}
-      {creating
-        ? (
-          <CreateDomainDialog
-            onCreate={domains.create}
-            onClose={() => setCreating(false)}
-          />
-        )
-        : null}
+                <span className={styles.line}>{domain.purpose}</span>
+              </span>
+              <span className={styles.action}>
+                <DomainMenu
+                  title={domain.title}
+                  onOpenDoc={() => onOpenDoc(domain.id)}
+                  onArchive={() => void domains.archive(domain)}
+                />
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {creating ? (
+        <CreateDomainDialog
+          onCreate={domains.create}
+          onClose={() => setCreating(false)}
+        />
+      ) : null}
     </>
   );
 }

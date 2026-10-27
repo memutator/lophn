@@ -5,8 +5,7 @@ import { say, type Scenario, untilIdle } from "../../types.ts";
 import { firstCallBody, LOPHN, PM_hr, PM_tax } from "./common.ts";
 
 const REQUEST = "세무 프로젝트 문서에서 공제 한도 자료를 모아 기획에 써 줘";
-const BODY =
-  `세무 프로젝트 문서에서 공제 한도 자료를 모아 기획에 쓴다. 사람 요청: ${REQUEST}`;
+const BODY = `세무 프로젝트 문서에서 공제 한도 자료를 모아 기획에 쓴다. 사람 요청: ${REQUEST}`;
 const WHERE = { target: PM_tax, reply: "result" } as const;
 
 const scenario: Scenario = {

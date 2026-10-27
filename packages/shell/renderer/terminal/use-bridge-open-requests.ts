@@ -24,7 +24,7 @@ export function bridgeAfter(
   terminalKey: string,
 ): string | undefined {
   const at = view.panes.findIndex((pane) =>
-    pane.tabs.some((tab) => tab.key === terminalKey)
+    pane.tabs.some((tab) => tab.key === terminalKey),
   );
   if (at < 0) return undefined;
   if (view.panes.length !== 2) return terminalKey;
@@ -41,10 +41,13 @@ export function openBridgeUrl(
   store: TerminalStore,
   request: BridgeOpenRequest,
 ): boolean {
-  const terminal = host.windowTabs().find((tab) =>
-    tab.kind === "terminal" &&
-    store.get(tab.key)?.terminalRef === request.terminal_ref
-  );
+  const terminal = host
+    .windowTabs()
+    .find(
+      (tab) =>
+        tab.kind === "terminal" &&
+        store.get(tab.key)?.terminalRef === request.terminal_ref,
+    );
   if (terminal === undefined) return false;
   let title = request.url;
   try {
@@ -53,12 +56,15 @@ export function openBridgeUrl(
     // 주소로 읽히지 않으면 url 그대로 이름이다.
   }
   const visible = allTabs(host.view).some((tab) => tab.key === terminal.key);
-  host.openTab({
-    key: `browser-bridge-${Date.now().toString(36)}-${++bridgeCount}`,
-    kind: "browser",
-    title,
-    fields: { url: request.url },
-  }, { after: visible ? bridgeAfter(host.view, terminal.key) : terminal.key });
+  host.openTab(
+    {
+      key: `browser-bridge-${Date.now().toString(36)}-${++bridgeCount}`,
+      kind: "browser",
+      title,
+      fields: { url: request.url },
+    },
+    { after: visible ? bridgeAfter(host.view, terminal.key) : terminal.key },
+  );
   return true;
 }
 

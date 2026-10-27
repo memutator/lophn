@@ -205,7 +205,8 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     }));
     if (!stored.ok) return stored;
     if (
-      !stored.value.declaration.ok || stored.value.declaration.value === null
+      !stored.value.declaration.ok ||
+      stored.value.declaration.value === null
     ) {
       return unavailable("release is unavailable");
     }
@@ -225,23 +226,24 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
       deps.dataRoot,
       [`${deps.dataRoot}/apps`],
       stored.value.sources.value.flatMap((entry) =>
-        entry.source_path === null ? [] : [entry.source_path]
+        entry.source_path === null ? [] : [entry.source_path],
       ),
     );
     const resolved: ResolvedRequirement[] = [];
     for (const entry of effective.access) {
       // 앱이 듣는 socket은 Deno flag로 한정할 수 없어 허락하지 않는다.
       if (entry.kind === "net.listen") continue;
-      const declared = facts.permissions.find((requirement) =>
-        requirement.kind === entry.kind &&
-        JSON.stringify(requirement.scope) === JSON.stringify(entry.scope)
+      const declared = facts.permissions.find(
+        (requirement) =>
+          requirement.kind === entry.kind &&
+          JSON.stringify(requirement.scope) === JSON.stringify(entry.scope),
       );
       const made = await resolveRequirement(
         {
           kind: entry.kind,
           scope: entry.scope as never,
-          reason: (declared as { reason?: string } | undefined)?.reason ??
-            "granted",
+          reason:
+            (declared as { reason?: string } | undefined)?.reason ?? "granted",
         },
         roots,
         realPathResolver(home, deps.dataRoot),
@@ -259,11 +261,8 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     const row = withLedger((sql) =>
       sql.get(
         "SELECT bundle_hash, data_schema FROM releases WHERE id = ? AND app = ?",
-        [
-          release,
-          app,
-        ],
-      )
+        [release, app],
+      ),
     );
     if (!row.ok) return row;
     if (row.value === undefined) return unavailable("release is unavailable");
@@ -293,16 +292,18 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
       protectedDenies: [...credentialRoots(home), ...keychainRoots(home)],
     });
     if (!flags.ok) return flags;
-    return ok(desiredFromBundle(copy.value, {
-      app,
-      release,
-      bundleHash,
-      runEnabled: state.runEnabled,
-      archived: state.archived,
-      dataSchema: Number(row.value.data_schema),
-      dataPath,
-      flags: flags.value,
-    }));
+    return ok(
+      desiredFromBundle(copy.value, {
+        app,
+        release,
+        bundleHash,
+        runEnabled: state.runEnabled,
+        archived: state.archived,
+        dataSchema: Number(row.value.data_schema),
+        dataPath,
+        flags: flags.value,
+      }),
+    );
   }
 
   // ---- ledger 읽기 ----
@@ -318,7 +319,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
         Number(
           sql.get("SELECT COALESCE(MAX(seq), 0) AS n FROM events", [])?.n ?? 0,
         ),
-      )
+      ),
     );
     return read.ok ? read.value : "0";
   }
@@ -345,14 +346,17 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     const grants = await grantsOf(release.app);
     if (!grants.ok) return grants;
     const { active } = read.value;
-    return ok(compareForActivation({
-      previous: active === null || active.id === release.id
-        ? null
-        : { id: active.id, data_schema: active.data_schema },
-      grants: grants.value,
-      facts: read.value.stored.facts,
-      next: { data_changes: release.data_changes },
-    }));
+    return ok(
+      compareForActivation({
+        previous:
+          active === null || active.id === release.id
+            ? null
+            : { id: active.id, data_schema: active.data_schema },
+        grants: grants.value,
+        facts: read.value.stored.facts,
+        next: { data_changes: release.data_changes },
+      }),
+    );
   }
 
   // ---- ledger command ----
@@ -497,9 +501,9 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
         const done = await job(attempt, "inspect");
         return done.ok
           ? ok({
-            data_schema: done.value.result.data_schema,
-            integrity_ok: done.value.result.integrity_ok,
-          })
+              data_schema: done.value.result.data_schema,
+              integrity_ok: done.value.result.integrity_ok,
+            })
           : done;
       },
       async backup(attempt) {
@@ -514,18 +518,21 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
         let file: FileHandle;
         try {
           file = await open(
-            `${
-              appDataFolder(deps.dataRoot, attempt.app)
-            }/backups/backup-${attempt.attempt}`,
+            `${appDataFolder(
+              deps.dataRoot,
+              attempt.app,
+            )}/backups/backup-${attempt.attempt}`,
           );
         } catch {
           return unavailable("backup file cannot be read");
         }
-        const prepared = await deps.prepareBlob({
-          principal: ctx.value.principal,
-          purpose: BACKUP_BLOB_PURPOSE,
-          bytes: file.readableWebStream() as ReadableStream<Uint8Array>,
-        }).finally(() => file.close().catch(() => {}));
+        const prepared = await deps
+          .prepareBlob({
+            principal: ctx.value.principal,
+            purpose: BACKUP_BLOB_PURPOSE,
+            bytes: file.readableWebStream() as ReadableStream<Uint8Array>,
+          })
+          .finally(() => file.close().catch(() => {}));
         if (!prepared.ok) return prepared;
         if (prepared.value.hash !== done.value.backup_hash) {
           return unavailable("preserved backup differs from the backup file");
@@ -763,24 +770,28 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
 
   function activatingRows(): Result<{ id: string; app: string }[]> {
     return withLedger((sql) =>
-      sql.all(
-        "SELECT id, app FROM releases WHERE status = 'activating' ORDER BY id",
-        [],
-      ).map((row) => ({ id: String(row.id), app: String(row.app) }))
+      sql
+        .all(
+          "SELECT id, app FROM releases WHERE status = 'activating' ORDER BY id",
+          [],
+        )
+        .map((row) => ({ id: String(row.id), app: String(row.app) })),
     );
   }
 
   function requestedRows(): Result<{ release: string; app: string }[]> {
     return withLedger((sql) =>
-      sql.all(
-        `SELECT q.release AS release, r.app AS app
+      sql
+        .all(
+          `SELECT q.release AS release, r.app AS app
            FROM activation_requests q JOIN releases r ON r.id = q.release
           ORDER BY q.requested_at, q.release`,
-        [],
-      ).map((row) => ({
-        release: String(row.release),
-        app: String(row.app),
-      }))
+          [],
+        )
+        .map((row) => ({
+          release: String(row.release),
+          app: String(row.app),
+        })),
     );
   }
 
@@ -807,8 +818,8 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     // 후보와 desired가 같으면 끝낼 자식이 없다.
     const candidate = candidates.get(app.id);
     candidates.delete(app.id);
-    const replacing = lastKeys.has(app.id) &&
-      candidate !== canonicalize(desired.value);
+    const replacing =
+      lastKeys.has(app.id) && candidate !== canonicalize(desired.value);
     if (replacing) {
       const paused = await deps.client.activationPause(app.id);
       if (!paused.ok || !paused.value) return false;

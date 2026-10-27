@@ -56,7 +56,9 @@ async function writeLine(path: string, line: string): Promise<void> {
 // 긴 마지막 답 하나가 turn 끝 신호째 버려지면 안 되어 최상위 글 field만 자른다.
 function shortened(payload: unknown): unknown {
   if (
-    typeof payload !== "object" || payload === null || Array.isArray(payload)
+    typeof payload !== "object" ||
+    payload === null ||
+    Array.isArray(payload)
   ) {
     return payload;
   }
@@ -74,8 +76,8 @@ async function runHook(
   input: Record<string, unknown>,
   ctx: RunContext,
 ): Promise<Result<unknown, LophnError>> {
-  const stdout = hookStdout(String(input.harness), String(input.event)) ??
-    undefined;
+  const stdout =
+    hookStdout(String(input.harness), String(input.event)) ?? undefined;
   const target = terminalHookOf(ctx.local.env);
   if (target === null) return ok(stdout);
   try {
@@ -87,8 +89,9 @@ async function runHook(
     const payload = shortened(text.trim() === "" ? {} : JSON.parse(text));
     if (
       new TextEncoder().encode(JSON.stringify(payload)).length >
-        HOOK_PAYLOAD_MAX_BYTES
-    ) return ok(stdout);
+      HOOK_PAYLOAD_MAX_BYTES
+    )
+      return ok(stdout);
     const line = terminalHookLineSchema.safeParse({
       v: 1,
       key: target.key,

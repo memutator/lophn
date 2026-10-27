@@ -62,9 +62,10 @@ export function paletteOpener(
     const serial = ++current.serial;
     const { scope } = current;
     const local = scope.entries();
-    const found = scope.search && query.trim() !== ""
-      ? await scope.search(query.trim()).catch(() => [])
-      : [];
+    const found =
+      scope.search && query.trim() !== ""
+        ? await scope.search(query.trim()).catch(() => [])
+        : [];
     // 그 사이 닫혔거나 더 새 검색어가 왔으면 버린다.
     if (session !== current || current.serial !== serial) return;
     const rows = arrange(scope.order, [...local, ...found], query);
@@ -75,26 +76,30 @@ export function paletteOpener(
     }
   }
 
-  const consumer = overlayConsumer(api, (result) => {
-    const current = session;
-    if (!current || result.requestId !== current.requestId) return;
-    if (result.type === "pointer") return;
-    if (result.type === "query") {
-      if (current.pending !== undefined) timer.clear(current.pending);
-      current.pending = timer.set(() => {
-        current.pending = undefined;
-        void refresh(current, result.text);
-      }, SEARCH_DEBOUNCE_MS);
-      return;
-    }
-    end(current);
-    if (result.type === "selected" && result.choiceId) {
-      const target = current.targets.get(result.choiceId);
-      if (target !== undefined) current.scope.choose(target);
-    }
-  }, () => {
-    if (session) end(session);
-  });
+  const consumer = overlayConsumer(
+    api,
+    (result) => {
+      const current = session;
+      if (!current || result.requestId !== current.requestId) return;
+      if (result.type === "pointer") return;
+      if (result.type === "query") {
+        if (current.pending !== undefined) timer.clear(current.pending);
+        current.pending = timer.set(() => {
+          current.pending = undefined;
+          void refresh(current, result.text);
+        }, SEARCH_DEBOUNCE_MS);
+        return;
+      }
+      end(current);
+      if (result.type === "selected" && result.choiceId) {
+        const target = current.targets.get(result.choiceId);
+        if (target !== undefined) current.scope.choose(target);
+      }
+    },
+    () => {
+      if (session) end(session);
+    },
+  );
 
   return {
     get open() {
@@ -123,12 +128,15 @@ export function paletteOpener(
       for (const [id, target] of first.targets) {
         current.targets.set(id, target);
       }
-      const opened = await consumer.open({
-        requestId: current.requestId,
-        kind: "palette",
-        anchorRect: anchor(),
-        model: first.model,
-      }, opener);
+      const opened = await consumer.open(
+        {
+          requestId: current.requestId,
+          kind: "palette",
+          anchorRect: anchor(),
+          model: first.model,
+        },
+        opener,
+      );
       if (!opened.ok) {
         end(current);
         return;

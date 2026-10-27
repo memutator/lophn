@@ -6,11 +6,11 @@ export type AppToolCaller =
   | { kind: "person"; view_session: string }
   | { kind: "agent"; session: string; turn: string; tool_call: string }
   | {
-    kind: "app";
-    app: string;
-    release: string;
-    parent_invocation: string | null;
-  }
+      kind: "app";
+      app: string;
+      release: string;
+      parent_invocation: string | null;
+    }
   | { kind: "program"; job: string; job_run: string }
   | { kind: "flow"; instance: string };
 
@@ -51,5 +51,5 @@ export function installPort(port: AppToolPort): AppToolPort {
 
 export function currentPort(): AppToolPort | undefined {
   const port = (globalThis as Store)[APP_TOOL_PORT];
-  return port && typeof port === "object" ? port as AppToolPort : undefined;
+  return port && typeof port === "object" ? (port as AppToolPort) : undefined;
 }

@@ -40,10 +40,7 @@ export type CoreClient = {
 };
 
 // 쓰기 응답 유실 진단이다. 원래 key와 대상 read 안내를 details에 남긴다.
-function effectUnknown(
-  idempotencyKey: string,
-  subject: string,
-): LophnError {
+function effectUnknown(idempotencyKey: string, subject: string): LophnError {
   return {
     code: "unavailable",
     message: "쓰기 응답을 잃어 효과를 모른다",
@@ -68,7 +65,8 @@ function sameAsAbsent<T>(result: Result<T>): Result<T> {
 
 export function createCoreClient(options: CoreClientOptions): CoreClient {
   const base = options.baseUrl.replace(/\/$/, "");
-  const fetchImpl: RpcFetch = options.fetch ??
+  const fetchImpl: RpcFetch =
+    options.fetch ??
     ((input, init) =>
       fetch(input, init).then(async (response) => ({
         status: response.status,

@@ -72,7 +72,7 @@ async function agentDomainNames(
     "read",
     { agent: ref },
   );
-  const chosen = read.ok ? read.value.definition?.domains ?? [] : [];
+  const chosen = read.ok ? (read.value.definition?.domains ?? []) : [];
   return domainNamesOf(chosen, container.value);
 }
 
@@ -84,9 +84,10 @@ export async function readGrants(
 ): Promise<ReadResult<GrantsView>> {
   const ref = refOf(place, key);
   if (ref === null) return { ok: false, message: "not_found" };
-  const read = await link.read<
-    { assignment: { entries: AssignmentEntry[] }; revision: number }
-  >("agent_assignments", "get", { agent: ref });
+  const read = await link.read<{
+    assignment: { entries: AssignmentEntry[] };
+    revision: number;
+  }>("agent_assignments", "get", { agent: ref });
   if (!read.ok) return read;
   const [apps, agentDomains] = await Promise.all([
     appCatalog(link),
@@ -111,13 +112,14 @@ export function saveGrants(
 ): Promise<ReadResult<{ readonly revision: number }>> {
   const ref = refOf(place, key);
   if (ref === null) return Promise.resolve(unavailable);
-  return link.command(agentAssignmentSet, {
-    input: { agent: ref, entries },
-    compare: { revision },
-  }).then(
-    (reply) =>
+  return link
+    .command(agentAssignmentSet, {
+      input: { agent: ref, entries },
+      compare: { revision },
+    })
+    .then((reply) =>
       reply.ok
         ? { ok: true, value: { revision: reply.value.revision } }
         : { ok: false, message: reply.code },
-  );
+    );
 }

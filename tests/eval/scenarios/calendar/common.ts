@@ -50,10 +50,14 @@ export async function createCalendarOperator(ctx: SetupContext): Promise<void> {
     },
   });
   // 새 Operator는 할당 줄이 없어 revision이 0이다.
-  await ctx.core.call(agentAssignmentSet, {
-    agent: { role: "operator", agent: id },
-    entries: [{ app, removed_tools: [] }],
-  }, { revision: 0 });
+  await ctx.core.call(
+    agentAssignmentSet,
+    {
+      agent: { role: "operator", agent: id },
+      entries: [{ app, removed_tools: [] }],
+    },
+    { revision: 0 },
+  );
   ctx.world.operators[OPERATOR] = id;
 }
 
@@ -71,8 +75,8 @@ export const eventInCalendar: ProgramCheck = liveCheck(
     const rows =
       (outcome.result as { rows?: { title?: string; start?: string }[] })
         .rows ?? [];
-    const hit = rows.some((r) =>
-      r.title?.includes("치과") === true && want.includes(r.start ?? "")
+    const hit = rows.some(
+      (r) => r.title?.includes("치과") === true && want.includes(r.start ?? ""),
     );
     return {
       pass: hit,
@@ -93,19 +97,22 @@ const aeTested: ProgramCheck = {
   kind: "program",
   id: "ae-tested",
   run({ trial }) {
-    const calls = appEngineerCalls(trial, APP).filter((c) =>
-      c.call.outcome?.kind === "success"
+    const calls = appEngineerCalls(trial, APP).filter(
+      (c) => c.call.outcome?.kind === "success",
     );
     const prepare = indexOfTool(calls, "release.prepare");
     if (prepare === -1) {
       return { pass: false, reason: "release.prepare가 없음" };
     }
-    const ran = calls.slice(0, prepare).some((c) =>
-      c.call.tool === "shell.run" &&
-      /\bdeno\s+(task\s+)?(test|check)\b/.test(
-        String((c.input as { command?: unknown } | null)?.command ?? ""),
-      )
-    );
+    const ran = calls
+      .slice(0, prepare)
+      .some(
+        (c) =>
+          c.call.tool === "shell.run" &&
+          /\bdeno\s+(task\s+)?(test|check)\b/.test(
+            String((c.input as { command?: unknown } | null)?.command ?? ""),
+          ),
+      );
     return {
       pass: ran,
       reason: ran
@@ -120,8 +127,8 @@ const aePreviewed: ProgramCheck = {
   kind: "program",
   id: "ae-previewed",
   run({ trial }) {
-    const calls = appEngineerCalls(trial, APP).filter((c) =>
-      c.call.outcome?.kind === "success"
+    const calls = appEngineerCalls(trial, APP).filter(
+      (c) => c.call.outcome?.kind === "success",
     );
     const activate = indexOfTool(calls, "release.activate");
     if (activate === -1) {
@@ -129,11 +136,11 @@ const aePreviewed: ProgramCheck = {
     }
     const before = calls.slice(0, activate);
     const start = indexOfTool(before, "preview.start");
-    const call = before.findIndex((c, i) =>
-      i > start && c.call.tool === "preview.call"
+    const call = before.findIndex(
+      (c, i) => i > start && c.call.tool === "preview.call",
     );
-    const stop = before.findIndex((c, i) =>
-      i > call && c.call.tool === "preview.stop"
+    const stop = before.findIndex(
+      (c, i) => i > call && c.call.tool === "preview.stop",
     );
     const pass = start !== -1 && call !== -1 && stop !== -1;
     return {
@@ -150,17 +157,18 @@ const noCodingCall: ProgramCheck = {
   kind: "program",
   id: "no-coding-call",
   run({ trial }) {
-    const n =
-      appEngineerCalls(trial, APP).filter((c) =>
+    const n = appEngineerCalls(trial, APP).filter(
+      (c) =>
         c.call.tool === "call" &&
         (c.input as { to?: { role?: unknown } } | null)?.to?.role ===
-          "coding_agent"
-      ).length;
+          "coding_agent",
+    ).length;
     return {
       pass: n === 0,
-      reason: n === 0
-        ? "coding_agent로 call을 보내지 않음"
-        : `coding_agent로 call ${n}번`,
+      reason:
+        n === 0
+          ? "coding_agent로 call을 보내지 않음"
+          : `coding_agent로 call ${n}번`,
     };
   },
 };
@@ -181,9 +189,9 @@ export function fxDesign(
   purpose: string,
   sections: readonly string[] = DESIGN_SECTIONS,
 ): FxStep {
-  const body = sections.map((name) =>
-    `## ${name}\n${name === "Purpose" ? purpose : "fixture"}\n`
-  ).join("\n");
+  const body = sections
+    .map((name) => `## ${name}\n${name === "Purpose" ? purpose : "fixture"}\n`)
+    .join("\n");
   return {
     tool: "file.write",
     effect: "write",
@@ -233,24 +241,27 @@ export function buildAppFixtures(purpose: string): Scenario["fixtures"] {
         ],
         ["design-first"],
       ),
-      wrong([fxDesign(purpose), PREPARE, ACTIVATE], [
-        "ae-tested",
-        "ae-previewed",
-      ]),
-      wrong([
-        ...flow,
-        {
-          tool: "call",
-          effect: "read",
-          outcome: "failure",
-          code: "invalid_input",
-          input: {
-            to: { role: "coding_agent", place: { app: APP } },
-            reply: "conversation",
-            body: purpose,
+      wrong(
+        [fxDesign(purpose), PREPARE, ACTIVATE],
+        ["ae-tested", "ae-previewed"],
+      ),
+      wrong(
+        [
+          ...flow,
+          {
+            tool: "call",
+            effect: "read",
+            outcome: "failure",
+            code: "invalid_input",
+            input: {
+              to: { role: "coding_agent", place: { app: APP } },
+              reply: "conversation",
+              body: purpose,
+            },
           },
-        },
-      ], ["no-coding-call"]),
+        ],
+        ["no-coding-call"],
+      ),
     ],
   };
 }

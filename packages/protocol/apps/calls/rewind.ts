@@ -33,10 +33,12 @@ const rewindPlanSchema = z.strictObject({
   release: releaseIdSchema,
   from_invocation: invocationIdSchema,
   items: z.array(rewindPlanItemSchema),
-  blocked: z.strictObject({
-    reason: z.literal("unrecoverable_write"),
-    invocation: invocationIdSchema,
-  }).nullable(),
+  blocked: z
+    .strictObject({
+      reason: z.literal("unrecoverable_write"),
+      invocation: invocationIdSchema,
+    })
+    .nullable(),
 });
 export type RewindPlan = z.infer<typeof rewindPlanSchema>;
 
@@ -47,10 +49,12 @@ export const rewindSchema = z.strictObject({
   from_invocation: invocationIdSchema,
   requested_by: actorSchema,
   status: z.enum(["applying", "applied", "cancelled"]),
-  reason: z.strictObject({
-    code: z.enum(["conflict", "app_unavailable", "core_restarted"]),
-    message: z.string(),
-  }).nullable(),
+  reason: z
+    .strictObject({
+      code: z.enum(["conflict", "app_unavailable", "core_restarted"]),
+      message: z.string(),
+    })
+    .nullable(),
   // 되돌린 목록.
   invocations: z.array(invocationIdSchema),
   started_at: atSchema,

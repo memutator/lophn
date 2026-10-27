@@ -112,11 +112,12 @@ type HookStdoutRow = { harness: string; event: string; stdout: string };
 // env 없이 일찍 끝나는 hook도 `lophn hook`과 같은 stdout을 내도록 같은 표로 `case`를 만든다. 정확한 event가 `*`보다 먼저다.
 function hookStdoutCase(rows: readonly HookStdoutRow[]): string[] {
   const quoted = (text: string) => `'${text.replaceAll("'", "'\\''")}'`;
-  return [...rows].sort((a, b) =>
-    Number(a.event === "*") - Number(b.event === "*")
-  ).map((row) =>
-    `    ${row.harness}:${row.event}) printf '%s\\n' ${quoted(row.stdout)} ;;`
-  );
+  return [...rows]
+    .sort((a, b) => Number(a.event === "*") - Number(b.event === "*"))
+    .map(
+      (row) =>
+        `    ${row.harness}:${row.event}) printf '%s\\n' ${quoted(row.stdout)} ;;`,
+    );
 }
 
 function cliScript(head: string, hookStdout: readonly HookStdoutRow[]): string {

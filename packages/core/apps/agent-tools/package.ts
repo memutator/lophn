@@ -74,18 +74,20 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
       if (!builtin.ok) return builtin;
       const apps = await readOf(ctx.core, appList, { limit: 1000 });
       const { body, more } = readBody(read.value);
-      return ok(fitted(
-        countSummary("packages", body.packages.length, more),
-        {
-          ...body,
-          packages: body.packages.map((pkg) => ({
-            ...pkg,
-            owner_app: ownerOf(apps.ok ? apps.value.apps : [], pkg.owner_app),
-          })),
-          builtin: builtin.value.packages,
-        },
-        ["packages"],
-      ));
+      return ok(
+        fitted(
+          countSummary("packages", body.packages.length, more),
+          {
+            ...body,
+            packages: body.packages.map((pkg) => ({
+              ...pkg,
+              owner_app: ownerOf(apps.ok ? apps.value.apps : [], pkg.owner_app),
+            })),
+            builtin: builtin.value.packages,
+          },
+          ["packages"],
+        ),
+      );
     },
   }),
   defineTool({
@@ -116,26 +118,28 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
         }
         const guide = read.value.guide;
         const cut = guide === null ? null : cutBytes(guide.text);
-        return ok(fitted(`package ${name}@${installed.version}`, {
-          name,
-          version: installed.version,
-          builtin: true,
-          guide: cut?.text ?? null,
-          guide_truncated: (guide?.truncated ?? false) ||
-            (cut?.truncated ?? false),
-        }));
+        return ok(
+          fitted(`package ${name}@${installed.version}`, {
+            name,
+            version: installed.version,
+            builtin: true,
+            guide: cut?.text ?? null,
+            guide_truncated:
+              (guide?.truncated ?? false) || (cut?.truncated ?? false),
+          }),
+        );
       }
       const versions = await readOf(ctx.core, packagesVersions, { name });
       if (!versions.ok) return versions;
       const all = versions.value.versions;
-      const chosen = version === undefined
-        ? [...all].sort((a, b) => newer(a.version, b.version)).at(-1)
-        : all.find((entry) => entry.version === version);
+      const chosen =
+        version === undefined
+          ? [...all].sort((a, b) => newer(a.version, b.version)).at(-1)
+          : all.find((entry) => entry.version === version);
       if (chosen === undefined) return notFound("package version not found");
       const owner = versions.value.owner_app;
-      const ownerApp = owner === null
-        ? null
-        : await readOf(ctx.core, appGet, { app: owner });
+      const ownerApp =
+        owner === null ? null : await readOf(ctx.core, appGet, { app: owner });
       const usage = await readOf(ctx.core, packagesUsage, {
         name,
         version: chosen.version,
@@ -148,34 +152,40 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
         length_bytes: TEXT_MAX_BYTES,
       });
       if (!guide.ok) return guide;
-      const text = guide.value.status === "available"
-        ? new TextDecoder().decode(
-          Uint8Array.from(atob(guide.value.bytes), (c) => c.charCodeAt(0)),
-        )
-        : null;
-      return ok(fitted(`package ${name}@${chosen.version}`, {
-        name,
-        version: chosen.version,
-        owner_app: ownerOf(
-          ownerApp?.ok ? [ownerApp.value.app] : [],
-          owner,
+      const text =
+        guide.value.status === "available"
+          ? new TextDecoder().decode(
+              Uint8Array.from(atob(guide.value.bytes), (c) => c.charCodeAt(0)),
+            )
+          : null;
+      return ok(
+        fitted(
+          `package ${name}@${chosen.version}`,
+          {
+            name,
+            version: chosen.version,
+            owner_app: ownerOf(ownerApp?.ok ? [ownerApp.value.app] : [], owner),
+            permissions: chosen.permissions ?? [],
+            other_versions: all.map((entry) => entry.version),
+            used_by: usage.value.usages,
+            guide: text,
+            guide_truncated:
+              guide.value.status === "available" && guide.value.truncated,
+          },
+          ["used_by"],
         ),
-        permissions: chosen.permissions ?? [],
-        other_versions: all.map((entry) => entry.version),
-        used_by: usage.value.usages,
-        guide: text,
-        guide_truncated: guide.value.status === "available" &&
-          guide.value.truncated,
-      }, ["used_by"]));
+      );
     },
   }),
   defineTool({
     name: "package.publish",
     defer: true,
-    input: packagePublishInputSchema.omit({
-      key: true,
-      path: true,
-    }).extend({ path: sourceRelativePathSchema }),
+    input: packagePublishInputSchema
+      .omit({
+        key: true,
+        path: true,
+      })
+      .extend({ path: sourceRelativePathSchema }),
     routes: [appGet, packagePublish],
     description:
       "Publish a folder of an app's code as a user package (@me/...). Give the version, a one line description, the guide (purpose, api, examples), and the permissions it needs. The code is the HEAD commit of the app source, so commit the folder first.",
@@ -192,10 +202,9 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
         key: ctx.tool_call,
       });
       if (!published.ok) return published;
-      return ok(fitted(
-        `published ${rest.name}@${rest.version}`,
-        published.value,
-      ));
+      return ok(
+        fitted(`published ${rest.name}@${rest.version}`, published.value),
+      );
     },
   }),
 ];

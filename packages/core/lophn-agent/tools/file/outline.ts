@@ -47,9 +47,11 @@ export async function outlineFile(
     start_line: s.subtree_range.start_line,
     end_line: s.subtree_range.end_line,
   }));
-  return ok(fitted(
-    `outline of ${input.path}: ${sections.length} sections, ${outline.line_count} lines`,
-    { title: outline.title, line_count: outline.line_count, sections },
-    ["sections"],
-  ));
+  return ok(
+    fitted(
+      `outline of ${input.path}: ${sections.length} sections, ${outline.line_count} lines`,
+      { title: outline.title, line_count: outline.line_count, sections },
+      ["sections"],
+    ),
+  );
 }

@@ -150,12 +150,7 @@ const FAILED_SERVICES: readonly [
   ["NOTION_TOKEN", "exchange_failed", "api.notion.com", ["read_content"]],
   ["SLACK_TOKEN", "refresh_rejected", "slack.com", ["chat:write"]],
   ["GITHUB_TOKEN", "expired", "github.com", ["repo"]],
-  [
-    "DROPBOX_TOKEN",
-    "store_failed",
-    "www.dropbox.com",
-    ["files.content.write"],
-  ],
+  ["DROPBOX_TOKEN", "store_failed", "www.dropbox.com", ["files.content.write"]],
 ];
 
 const SECRETS: Record<SecretsFake, readonly (readonly [string, SecretInfo])[]> =
@@ -170,16 +165,18 @@ const SECRETS: Record<SecretsFake, readonly (readonly [string, SecretInfo])[]> =
     ],
     "oauth-ready": [["GDRIVE_TOKEN", oauthRow({})]],
     "oauth-waiting": [["GDRIVE_TOKEN", oauthRow({ state: "in_progress" })]],
-    "oauth-signed-in": [[
-      "GDRIVE_TOKEN",
-      { ...oauthRow({ state: "signed_in" }), configured: true },
-    ]],
-    "oauth-failed": FAILED_SERVICES.map((
-      [name, reason, authorizeHost, scopes],
-    ) => [
-      name,
-      oauthRow({ state: "failed", reason, authorizeHost, scopes }),
-    ]),
+    "oauth-signed-in": [
+      [
+        "GDRIVE_TOKEN",
+        { ...oauthRow({ state: "signed_in" }), configured: true },
+      ],
+    ],
+    "oauth-failed": FAILED_SERVICES.map(
+      ([name, reason, authorizeHost, scopes]) => [
+        name,
+        oauthRow({ state: "failed", reason, authorizeHost, scopes }),
+      ],
+    ),
   };
 
 const YOU: Caller = { kind: "person" };
@@ -339,16 +336,20 @@ const changesTo = (fromNumber: number): ReleaseChanges => ({
   toNumber: fromNumber + 1,
   first: false,
   addedResources: ["api.shipbob.com"],
-  addedTools: [{
-    app: INVENTORY,
-    appName: "Inventory",
-    tool: "stock.reserve",
-  }],
-  lossSteps: [{
-    from: 4,
-    to: 5,
-    loss: [{ kind: "drop_column", table: "orders", column: "legacy_note" }],
-  }],
+  addedTools: [
+    {
+      app: INVENTORY,
+      appName: "Inventory",
+      tool: "stock.reserve",
+    },
+  ],
+  lossSteps: [
+    {
+      from: 4,
+      to: 5,
+      loss: [{ kind: "drop_column", table: "orders", column: "legacy_note" }],
+    },
+  ],
 });
 
 export function fakeDetail(options: FakeOptions = {}) {
@@ -385,31 +386,33 @@ export function fakeDetail(options: FakeOptions = {}) {
     const active = RELEASES.find((item) => item.id === activeId) ?? null;
     return {
       active: active === null ? null : { ...active, replacedAt: null },
-      applying: activation === "applying"
-        ? {
-          id: R8,
-          number: 8,
-          phase: "running",
-          steps: [
-            { key: "hold", state: "done", count: 2 },
-            { key: "drain", state: "now", count: null },
-            { key: "stop", state: "wait", count: null },
-            { key: "migrate", state: "wait", count: 2 },
-            { key: "start", state: "wait", count: null },
-          ],
-        }
-        : null,
-      failed: activation === "failed"
-        ? {
-          id: R8,
-          number: 8,
-          triedAt: "2026-10-15T15:07:00",
-          reason:
-            "Migration step 2 of 2 failed: NOT NULL constraint failed on orders.carrier. The database was restored from the backup.",
-        }
-        : null,
-      earlier: RELEASES.filter((item) =>
-        item.id !== activeId && item.number < 7
+      applying:
+        activation === "applying"
+          ? {
+              id: R8,
+              number: 8,
+              phase: "running",
+              steps: [
+                { key: "hold", state: "done", count: 2 },
+                { key: "drain", state: "now", count: null },
+                { key: "stop", state: "wait", count: null },
+                { key: "migrate", state: "wait", count: 2 },
+                { key: "start", state: "wait", count: null },
+              ],
+            }
+          : null,
+      failed:
+        activation === "failed"
+          ? {
+              id: R8,
+              number: 8,
+              triedAt: "2026-10-15T15:07:00",
+              reason:
+                "Migration step 2 of 2 failed: NOT NULL constraint failed on orders.carrier. The database was restored from the backup.",
+            }
+          : null,
+      earlier: RELEASES.filter(
+        (item) => item.id !== activeId && item.number < 7,
       ),
     };
   };
@@ -430,25 +433,28 @@ export function fakeDetail(options: FakeOptions = {}) {
       revoked: revoked.has(grant),
       ...(secret === undefined ? {} : { secret }),
     });
-    const secrets = options.secrets === undefined
-      ? [
-        resource(
-          GRANT_SECRET,
-          "secret",
-          "SHIPBOB_API_KEY",
-          "2026-10-15T13:58:00",
-          plain(true),
-        ),
-      ]
-      : SECRETS[options.secrets].map(([name, info], index) =>
-        resource(
-          index === 0 ? GRANT_SECRET : `grt_01h455vb4pex5v6nkc6gd5fe${index}`,
-          "secret",
-          name,
-          "2026-10-15T13:58:00",
-          info,
-        )
-      );
+    const secrets =
+      options.secrets === undefined
+        ? [
+            resource(
+              GRANT_SECRET,
+              "secret",
+              "SHIPBOB_API_KEY",
+              "2026-10-15T13:58:00",
+              plain(true),
+            ),
+          ]
+        : SECRETS[options.secrets].map(([name, info], index) =>
+            resource(
+              index === 0
+                ? GRANT_SECRET
+                : `grt_01h455vb4pex5v6nkc6gd5fe${index}`,
+              "secret",
+              name,
+              "2026-10-15T13:58:00",
+              info,
+            ),
+          );
     const appTool = (
       grant: string,
       app: string,
@@ -586,13 +592,14 @@ export function fakeDetail(options: FakeOptions = {}) {
     rewind: (_app, from) => {
       calls.push(["rewind", from]);
       const mode = options.rewind ?? "applied";
-      const result: RewindResult = mode === "conflict"
-        ? {
-          status: "cancelled",
-          reason:
-            "the row orders.1042 was changed after this call by something outside a recorded call.",
-        }
-        : { status: "applied", reason: null };
+      const result: RewindResult =
+        mode === "conflict"
+          ? {
+              status: "cancelled",
+              reason:
+                "the row orders.1042 was changed after this call by something outside a recorded call.",
+            }
+          : { status: "applied", reason: null };
       if (mode !== "pending") {
         return Promise.resolve({ ok: true, value: result });
       }
@@ -607,11 +614,13 @@ export function fakeDetail(options: FakeOptions = {}) {
     rewindProgress: () =>
       reply("rewindProgress", {
         running: rewinding
-          ? [{
-            invocation: "inv_38",
-            tool: "orders.exportToSheet",
-            at: "2026-10-15T14:38:00",
-          }]
+          ? [
+              {
+                invocation: "inv_38",
+                tool: "orders.exportToSheet",
+                at: "2026-10-15T14:38:00",
+              },
+            ]
           : [],
       }),
     stopPreview: (app, preview) => {

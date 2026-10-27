@@ -109,9 +109,8 @@ export function createSdkReads(): {
         return ok({
           packages: page,
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: next < head
-            ? nextPackageCursor(next, undefined, limit)
-            : null,
+          next_cursor:
+            next < head ? nextPackageCursor(next, undefined, limit) : null,
         });
       },
     },

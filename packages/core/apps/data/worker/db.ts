@@ -42,23 +42,28 @@ function unavailable(message: string): Result<never> {
 // SQLite 오류 글을 한 줄 300자로 줄인다. agent가 읽을 reason에 실린다.
 function oneLine(error: unknown): string {
   const text = (error instanceof Error ? error.message : String(error))
-    .replace(/\s+/g, " ").trim();
+    .replace(/\s+/g, " ")
+    .trim();
   return text.length > 300 ? `${text.slice(0, 300)}...` : text;
 }
 
 function tableNames(db: DatabaseSync): Set<string> {
   return new Set(
-    db.prepare(
-      "select name from sqlite_master where type = 'table' and name not like 'sqlite_%'",
-    ).all().map((row) => String(row["name"])),
+    db
+      .prepare(
+        "select name from sqlite_master where type = 'table' and name not like 'sqlite_%'",
+      )
+      .all()
+      .map((row) => String(row["name"])),
   );
 }
 
 function primaryKeyColumns(db: DatabaseSync, table: string): number {
   const quoted = `"${table.replaceAll('"', '""')}"`;
-  return db.prepare(`pragma table_info(${quoted})`).all().filter((column) =>
-    Number(column["pk"]) > 0
-  ).length;
+  return db
+    .prepare(`pragma table_info(${quoted})`)
+    .all()
+    .filter((column) => Number(column["pk"]) > 0).length;
 }
 
 export function openAppDatabase(path: string): Result<AppDatabase> {
@@ -77,17 +82,18 @@ export function openAppDatabase(path: string): Result<AppDatabase> {
   }
   return ok({
     schemaState() {
-      const rows = db.prepare(
-        `select data_schema, last_result, script_hash from ${APP_SCHEMA_TABLE} where id = 1`,
-      ).all();
+      const rows = db
+        .prepare(
+          `select data_schema, last_result, script_hash from ${APP_SCHEMA_TABLE} where id = 1`,
+        )
+        .all();
       const row = rows[0];
       if (row === undefined) return { ...INITIAL_SCHEMA };
       return {
         dataSchema: Number(row["data_schema"]),
         lastResult: row["last_result"] === "applied" ? "applied" : "none",
-        scriptHash: typeof row["script_hash"] === "string"
-          ? row["script_hash"]
-          : null,
+        scriptHash:
+          typeof row["script_hash"] === "string" ? row["script_hash"] : null,
       };
     },
     integrityOk() {
@@ -109,12 +115,12 @@ export function openAppDatabase(path: string): Result<AppDatabase> {
         const before = tableNames(db);
         db.exec(sql);
         const missing = tablesWithoutPrimaryKey(
-          [...tableNames(db)].filter((name) => !before.has(name)).map((
-            name,
-          ) => ({
-            name,
-            primary_key_columns: primaryKeyColumns(db, name),
-          })),
+          [...tableNames(db)]
+            .filter((name) => !before.has(name))
+            .map((name) => ({
+              name,
+              primary_key_columns: primaryKeyColumns(db, name),
+            })),
         );
         if (missing.length > 0) {
           db.exec("rollback");

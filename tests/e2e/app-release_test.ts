@@ -146,8 +146,8 @@ test("E2E App Engineer가 준비하고 preview로 확인한 template 앱은 사�
         const listed = (results.list!.content as Outcome).outcome;
         assert.deepStrictEqual(listed.status, "succeeded");
         assert.ok(
-          (listed.result as { rows: { title: string }[] }).rows.some((row) =>
-            row.title === "from preview"
+          (listed.result as { rows: { title: string }[] }).rows.some(
+            (row) => row.title === "from preview",
           ),
         );
         // ledger: preview 호출은 invocation을 남기지 않고 preview는 멈췄다.
@@ -214,9 +214,7 @@ test("E2E App Engineer가 준비하고 preview로 확인한 template 앱은 사�
         assert.ok(record !== null);
         const bundle = appBundleCopy(c.run.home, notes.app, record.bundle_hash);
         assert.ok((await countFiles(bundle)) < RELEASE_FILE_MAX_COUNT);
-        assert.ok(
-          (await stat(`${bundle}/screens/items/main.js.map`)).isFile(),
-        );
+        assert.ok((await stat(`${bundle}/screens/items/main.js.map`)).isFile());
         assert.deepStrictEqual(
           (await stat(`${c.run.home}/sdk/ui/1.0.0`)).mode & 0o222,
           0,

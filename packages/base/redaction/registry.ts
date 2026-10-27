@@ -66,7 +66,8 @@ export function createKnownSecretRegistry(): KnownSecretRegistry {
         const index = boundedIndex(text, value);
         if (index < 0) continue;
         if (
-          !best || index < best.index ||
+          !best ||
+          index < best.index ||
           (index === best.index && value.length > best.length)
         ) {
           best = { index, length: value.length };
@@ -111,6 +112,8 @@ function boundedIndex(text: string, value: string): number {
 function atWordEdge(text: string, index: number, length: number): boolean {
   const edge = (char: string | undefined) =>
     char === undefined || !/[A-Za-z0-9]/.test(char);
-  return edge(index === 0 ? undefined : text[index - 1]) &&
-    edge(index + length >= text.length ? undefined : text[index + length]);
+  return (
+    edge(index === 0 ? undefined : text[index - 1]) &&
+    edge(index + length >= text.length ? undefined : text[index + length])
+  );
 }

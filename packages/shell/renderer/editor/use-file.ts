@@ -10,10 +10,10 @@ import type { EditorSessions } from "./sessions.ts";
 type TextFile =
   | { readonly kind: "loading" }
   | {
-    readonly kind: "ready";
-    readonly session: SaveSession;
-    readonly initial: string;
-  }
+      readonly kind: "ready";
+      readonly session: SaveSession;
+      readonly initial: string;
+    }
   | { readonly kind: "too_large"; readonly text: string | null }
   | { readonly kind: "failed"; readonly code: FileFailure };
 

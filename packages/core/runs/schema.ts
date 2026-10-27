@@ -15,9 +15,10 @@ const list = (values: readonly string[]) =>
 // - result는 JSON 글이다. JSON null과 SQL NULL은 읽을 때 둘 다 null이다.
 // - state_seq는 이 표 안에서 이어 센다(기록 event를 남기지 않는다).
 // - 끝난 행은 다시 바뀌지 않는다.
-export const runsSchemaSteps: readonly SchemaStep[] = [{
-  id: "runs.tables",
-  sql: `
+export const runsSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "runs.tables",
+    sql: `
     CREATE TABLE runs (
       id TEXT PRIMARY KEY NOT NULL,
       kind TEXT NOT NULL CHECK (kind IN (${list(RUN_KINDS)})),
@@ -53,4 +54,5 @@ export const runsSchemaSteps: readonly SchemaStep[] = [{
     WHEN old.state <> 'running'
     BEGIN SELECT RAISE(ABORT, 'a finished run does not change'); END;
   `,
-}];
+  },
+];

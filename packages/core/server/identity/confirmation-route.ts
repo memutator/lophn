@@ -27,6 +27,8 @@ export async function consumeRouteConfirmation(
     return err({ code: "forbidden", message: "사람 결정 확인이 없다" });
   }
   const use = { ref: ref.data, decision: route.name, binding };
-  return await ("useOnce" in bridge ? bridge : routeConfirmation(bridge))
-    .useOnce(use);
+  return await ("useOnce" in bridge
+    ? bridge
+    : routeConfirmation(bridge)
+  ).useOnce(use);
 }

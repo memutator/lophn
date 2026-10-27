@@ -8,8 +8,10 @@ import type { CommandRoute } from "../../protocol/base/route.ts";
 import type { CoreCall } from "../ipc/core.ts";
 
 /** route가 compare를 선언하면 그 입력, 아니면 빈 객체다. */
-export type CompareOf<R> = R extends
-  { readonly compare?: infer C extends z.ZodType } ? z.input<C>
+export type CompareOf<R> = R extends {
+  readonly compare?: infer C extends z.ZodType;
+}
+  ? z.input<C>
   : Record<string, never>;
 
 export interface CommandBody<R extends CommandRoute> {

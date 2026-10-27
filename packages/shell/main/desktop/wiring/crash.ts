@@ -15,7 +15,7 @@ export function register(ctx: ShellContext): Registered {
     crashing = true;
     console.error(
       `uncaught: ${
-        cause instanceof Error ? cause.stack ?? cause.message : String(cause)
+        cause instanceof Error ? (cause.stack ?? cause.message) : String(cause)
       }`,
     );
     // 연결 전이거나 종료됐으면 false이고 stderr만 남는다.

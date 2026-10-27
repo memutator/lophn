@@ -4,12 +4,12 @@
 export type Attachment =
   | { readonly kind: "file"; readonly path: string }
   | {
-    readonly kind: "image";
-    readonly name: string;
-    readonly image: Blob;
-    /** 미리 보기 blob 주소. 이 창 안에서 첨부 하나를 가리키는 key이기도 하다. */
-    readonly url: string;
-  };
+      readonly kind: "image";
+      readonly name: string;
+      readonly image: Blob;
+      /** 미리 보기 blob 주소. 이 창 안에서 첨부 하나를 가리키는 key이기도 하다. */
+      readonly url: string;
+    };
 
 // image.read가 여는 형식과 크기.
 const IMAGE_TYPES = new Set([
@@ -61,7 +61,8 @@ export function withAttachments(
     if (
       item.kind === "file" &&
       next.some((other) => other.kind === "file" && other.path === item.path)
-    ) continue;
+    )
+      continue;
     next.push(item);
   }
   return next;

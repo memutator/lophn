@@ -79,11 +79,11 @@ export function devMock(
         const cards = await projects.list();
         return cards.ok
           ? {
-            ok: true,
-            value: cards.value.filter((item) => !item.archived).map((
-              { id, title },
-            ) => ({ id, title })),
-          }
+              ok: true,
+              value: cards.value
+                .filter((item) => !item.archived)
+                .map(({ id, title }) => ({ id, title })),
+            }
           : { ok: false, message: cards.code };
       },
       project: async (id) => {

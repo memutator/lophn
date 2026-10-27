@@ -24,22 +24,20 @@ export function createFolderApi(
     input: unknown,
   ): Promise<FolderPickReply> {
     try {
-      return await transport.invoke(channel, input) as FolderPickReply;
+      return (await transport.invoke(channel, input)) as FolderPickReply;
     } catch {
       return { ok: false, code: "unavailable" };
     }
   }
-  return Object.freeze(
-    {
-      pick: (input) => invoke(FOLDER_PICK_CHANNEL, input ?? {}),
-      pickFile: () => invoke(FILE_PICK_CHANNEL, {}),
-      pathForFile: (file) => {
-        try {
-          return paths.getPathForFile(file) || null;
-        } catch {
-          return null;
-        }
-      },
-    } satisfies FolderPickerApi,
-  );
+  return Object.freeze({
+    pick: (input) => invoke(FOLDER_PICK_CHANNEL, input ?? {}),
+    pickFile: () => invoke(FILE_PICK_CHANNEL, {}),
+    pathForFile: (file) => {
+      try {
+        return paths.getPathForFile(file) || null;
+      } catch {
+        return null;
+      }
+    },
+  } satisfies FolderPickerApi);
 }

@@ -14,18 +14,21 @@ export function fakeDomainStore(
 ) {
   let rows: readonly DomainView[] = initial;
   const set = (id: string, status: DomainView["status"]) => {
-    rows = rows.map((row) => row.id === id ? { ...row, status } : row);
+    rows = rows.map((row) => (row.id === id ? { ...row, status } : row));
   };
   const actions: DomainActions = {
     createDomain(_owner, draft) {
       if (rows.some((row) => row.name === draft.name)) {
         return Promise.resolve(fail("conflict", "domain name already exists"));
       }
-      rows = [...rows, {
-        id: `dom_fake${rows.length + 1}`,
-        ...draft,
-        status: "active",
-      }];
+      rows = [
+        ...rows,
+        {
+          id: `dom_fake${rows.length + 1}`,
+          ...draft,
+          status: "active",
+        },
+      ];
       return Promise.resolve({ ok: true });
     },
     archiveDomain(id) {

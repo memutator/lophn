@@ -59,9 +59,11 @@ function windowShortcut(
   const other = mac ? input.control : input.meta;
   if (primary && !other) {
     const letter = letterOf(input);
-    const found = CHORDS.find(({ chord }) =>
-      chord.key === letter && chord.shift === input.shift &&
-      chord.alt === input.alt
+    const found = CHORDS.find(
+      ({ chord }) =>
+        chord.key === letter &&
+        chord.shift === input.shift &&
+        chord.alt === input.alt,
     );
     if (found) return found.name;
   }
@@ -77,7 +79,7 @@ function windowShortcut(
     mac ? "mac" : "other",
     "main",
   );
-  return hit === null ? null : hit.command as WindowShortcut;
+  return hit === null ? null : (hit.command as WindowShortcut);
 }
 
 interface InputSource {

@@ -48,16 +48,18 @@ export async function runComponentChecks(
   checks: readonly ComponentCheck[],
   clock: Clock,
 ): Promise<ComponentStatus[]> {
-  return await Promise.all(checks.map(async (item) => {
-    const checkedAt = clock.now();
-    const observed = await observe(item);
-    return {
-      component: item.component,
-      available: observed.available,
-      ...(observed.available ? {} : { reason: observed.reason }),
-      checked_at: checkedAt,
-    };
-  }));
+  return await Promise.all(
+    checks.map(async (item) => {
+      const checkedAt = clock.now();
+      const observed = await observe(item);
+      return {
+        component: item.component,
+        available: observed.available,
+        ...(observed.available ? {} : { reason: observed.reason }),
+        checked_at: checkedAt,
+      };
+    }),
+  );
 }
 
 async function observe(item: ComponentCheck): Promise<Observed> {

@@ -68,9 +68,7 @@ export function openReaderConnection(path: string): Result<ReaderConnection> {
   }
 }
 
-function createReaderConnection(
-  connection: DatabaseSync,
-): ReaderConnection {
+function createReaderConnection(connection: DatabaseSync): ReaderConnection {
   let usable = true;
   const sql = createSql(connection, () => usable);
   const close = () => {
@@ -100,7 +98,7 @@ function createReaderConnection(
           sql.all(
             `select * from (${query.trim().replace(/;+\s*$/, "")}\n) limit 501`,
             params,
-          )
+          ),
         );
         countRows(rows.length);
         return rows;

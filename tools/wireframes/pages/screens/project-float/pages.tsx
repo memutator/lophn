@@ -1,8 +1,6 @@
 // 떠 있는 탭(floats)과 접힌 탭. 실제 Workspace가 floats를 가진 layout을 읽어 그린다.
 import { openProject } from "../../../../../packages/shell/renderer/desktop/router.ts";
-import {
-  APP_BUDGET,
-} from "../../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
+import { APP_BUDGET } from "../../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
 import {
   type FloatSpec,
   MockDesktop,

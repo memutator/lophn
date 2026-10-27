@@ -35,8 +35,11 @@ function textOf(outcome: ToolOutcome): McpCallResult {
         content: [{ type: "text", text: JSON.stringify(result) }],
       };
       if (
-        result !== null && typeof result === "object" && !Array.isArray(result)
-      ) mcp.structuredContent = result as Record<string, unknown>;
+        result !== null &&
+        typeof result === "object" &&
+        !Array.isArray(result)
+      )
+        mcp.structuredContent = result as Record<string, unknown>;
       return mcp;
     }
     case "failed":
@@ -53,9 +56,7 @@ function textOf(outcome: ToolOutcome): McpCallResult {
 // coding agent가 부르는 앱 tool. 부르는 길은 preview 하나뿐이고 live 앱은 어떤 경우에도 부르지 않는다.
 export function createCodingMcpTools(deps: CodingMcpDeps): McpTools {
   // 목록은 preview가 있으면 그 bundle의, 없으면 활성 release의 선언이다.
-  async function declared(
-    ctx: AuthenticatedContext,
-  ): Promise<
+  async function declared(ctx: AuthenticatedContext): Promise<
     Result<{
       app: string;
       tools: readonly ToolDeclaration[];
@@ -96,16 +97,19 @@ export function createCodingMcpTools(deps: CodingMcpDeps): McpTools {
         return ok(failed(`invalid_input: tool ${name} takes no arguments`));
       }
       // 사람 화면의 preview 호출과 같은 취급이다. 운영으로 새지 않는 것은 previewOnly가 막는다.
-      const called: Result<ToolCallOutput> = await deps.calls.call({
-        target: {
-          mode: "preview",
-          app: app as never,
-          process_nonce: preview.process_nonce,
+      const called: Result<ToolCallOutput> = await deps.calls.call(
+        {
+          target: {
+            mode: "preview",
+            app: app as never,
+            process_nonce: preview.process_nonce,
+          },
+          tool: name,
+          ...(noInput ? {} : { input: args as JsonValue }),
+          caller: { kind: "person", view_session: ctx.principal },
         },
-        tool: name,
-        ...(noInput ? {} : { input: args as JsonValue }),
-        caller: { kind: "person", view_session: ctx.principal },
-      }, { actor: "user", previewOnly: true });
+        { actor: "user", previewOnly: true },
+      );
       return ok(
         called.ok
           ? textOf(called.value.outcome)

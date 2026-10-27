@@ -50,10 +50,12 @@ export const appLogsReadInputSchema = z.strictObject({
 
 // 맞는 줄 가운데 가장 최근 limit줄을 오래된 것부터 준다. 더 오래된 맞는 줄이 남았으면 truncated다.
 // file이 없으면 lines가 비어 있다.
-export const appLogsReadOutputSchema = withReadCommon(z.object({
-  lines: z.array(appLogLineSchema).max(APP_LOG_READ_MAX_LINES),
-  truncated: z.boolean(),
-}));
+export const appLogsReadOutputSchema = withReadCommon(
+  z.object({
+    lines: z.array(appLogLineSchema).max(APP_LOG_READ_MAX_LINES),
+    truncated: z.boolean(),
+  }),
+);
 
 const VIEW_ERROR_NAME_MAX_CHARS = 256;
 const VIEW_ERROR_MESSAGE_MAX_CHARS = 16_384;

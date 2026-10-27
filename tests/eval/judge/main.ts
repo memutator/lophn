@@ -25,19 +25,24 @@ if (run === undefined) {
   fail(2, "usage: eval:judge <run> [show <key> | set <key> --model <name>]");
 }
 const known = await Promise.all(
-  [`${EVAL_DIR}/${run}`, `${RUNS_DIR}/${run}.json`]
-    .map((p) => stat(p).then(() => true, () => false)),
+  [`${EVAL_DIR}/${run}`, `${RUNS_DIR}/${run}.json`].map((p) =>
+    stat(p).then(
+      () => true,
+      () => false,
+    ),
+  ),
 );
 if (!known.some(Boolean)) fail(1, `not_found: 모르는 run ${run}`);
 const entries = await readPending(EVAL_DIR, run);
 
 if (command === undefined) {
   for (const e of entries) {
-    const state = e.item.state === "pending"
-      ? "대기"
-      : e.item.state === "error"
-      ? "오류"
-      : "채점됨";
+    const state =
+      e.item.state === "pending"
+        ? "대기"
+        : e.item.state === "error"
+          ? "오류"
+          : "채점됨";
     console.log(
       `${e.key}\t${e.kind}\t${e.item.check}\t${e.criterion.name}@${e.criterion.n}\t${state}`,
     );

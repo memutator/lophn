@@ -34,10 +34,8 @@ export function openAgentContext(
   if (!root.ok) return root;
   return ok({
     lookups: deps.lookups(sql),
-    store: createAgentStore(
-      deps.files,
-      root.value,
-      (place) => deps.roles.agentsFolderOf(root.value, place),
+    store: createAgentStore(deps.files, root.value, (place) =>
+      deps.roles.agentsFolderOf(root.value, place),
     ),
     roles: deps.roles,
   });
@@ -62,9 +60,10 @@ export type Loaded = {
 
 // agent가 일하는 domain id다. 정의가 고른 것과 그 place 그릇의 active domain의 교집합이다.
 export function domainsOf(context: AgentContext, loaded: Loaded): string[] {
-  const chosen = loaded.definition !== null && "domains" in loaded.definition
-    ? loaded.definition.domains ?? []
-    : [];
+  const chosen =
+    loaded.definition !== null && "domains" in loaded.definition
+      ? (loaded.definition.domains ?? [])
+      : [];
   return workingDomains(context.lookups.domains(loaded.place), chosen);
 }
 
@@ -127,10 +126,14 @@ function parsedAgent(
   let definition: AgentFileDefinition | null = null;
   const issues: AgentDefinitionIssue[] = [];
   if (file !== null) {
-    const parsed = parseAgentFile(file.text, {
-      role: ref.role,
-      place: place?.kind ?? null,
-    }, roles);
+    const parsed = parseAgentFile(
+      file.text,
+      {
+        role: ref.role,
+        place: place?.kind ?? null,
+      },
+      roles,
+    );
     if (parsed.ok) definition = parsed.value;
     else issues.push(...issuesOfError(parsed.error));
   }
@@ -141,16 +144,18 @@ function parsedAgent(
 export function nameOf(roles: AgentRoleTable, loaded: Loaded): string {
   const builtin = roles.builtinName(loaded.role);
   if (builtin !== null) return builtin;
-  const name = loaded.definition !== null && "name" in loaded.definition
-    ? loaded.definition.name
-    : undefined;
+  const name =
+    loaded.definition !== null && "name" in loaded.definition
+      ? loaded.definition.name
+      : undefined;
   return name ?? operatorIdOf(loaded.ref);
 }
 
 export function profileOf(roles: AgentRoleTable, loaded: Loaded) {
-  const profile = loaded.definition !== null && "profile" in loaded.definition
-    ? loaded.definition.profile
-    : undefined;
+  const profile =
+    loaded.definition !== null && "profile" in loaded.definition
+      ? loaded.definition.profile
+      : undefined;
   return profile ?? roles.defaultProfile(loaded.role);
 }
 
@@ -160,9 +165,9 @@ export function listOperators(
   within?: Place,
 ): Result<Loaded[]> {
   const found: Loaded[] = [];
-  for (
-    const place of within === undefined ? context.lookups.places() : [within]
-  ) {
+  for (const place of within === undefined
+    ? context.lookups.places()
+    : [within]) {
     const ids = context.store.operatorIds(place);
     if (!ids.ok) return ids;
     for (const id of ids.value) {

@@ -35,32 +35,30 @@ interface Props extends DataStateProps {
 }
 
 // loading(300ms 지연 뒤 skeleton) → error → empty → 내용 순서로 하나만 그린다.
-export function DataState(
-  {
-    loading = false,
-    failed,
-    onRetry,
-    empty,
-    timer,
-    defaultIcon,
-    isEmpty,
-    placeholder,
-    children,
-  }: Props,
-) {
+export function DataState({
+  loading = false,
+  failed,
+  onRetry,
+  empty,
+  timer,
+  defaultIcon,
+  isEmpty,
+  placeholder,
+  children,
+}: Props) {
   return (
     <Loading loading={loading} placeholder={placeholder} timer={timer}>
-      {failed !== undefined
-        ? <ErrorState target={failed} onRetry={onRetry} />
-        : isEmpty
-        ? (
-          <EmptyState
-            icon={empty.icon ?? defaultIcon}
-            message={empty.message}
-            action={empty.action}
-          />
-        )
-        : children}
+      {failed !== undefined ? (
+        <ErrorState target={failed} onRetry={onRetry} />
+      ) : isEmpty ? (
+        <EmptyState
+          icon={empty.icon ?? defaultIcon}
+          message={empty.message}
+          action={empty.action}
+        />
+      ) : (
+        children
+      )}
     </Loading>
   );
 }

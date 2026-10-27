@@ -78,11 +78,7 @@ export function createModelPart(env: Env): ModelPart {
   let pending: ModelChoice | null = null;
 
   async function readModels(): Promise<SourceResult<ModelsView>> {
-    const providers = await env.pages(
-      providerList,
-      {},
-      (out) => out.providers,
-    );
+    const providers = await env.pages(providerList, {}, (out) => out.providers);
     if (!providers.ok) return providers;
     let entries = catalog.get();
     if (entries === undefined) {
@@ -97,7 +93,7 @@ export function createModelPart(env: Env): ModelPart {
       ok: true,
       value: {
         providers: providers.value.map((provider) =>
-          providerChoiceOf(provider, entries)
+          providerChoiceOf(provider, entries),
         ),
         catalog: entries,
         hidden: hidden.value.hidden.items.map((item) => ({
@@ -134,9 +130,8 @@ export function createModelPart(env: Env): ModelPart {
     }
     const models = await readModels();
     if (!models.ok) return models;
-    let current: ModelChoice | null = record === null
-      ? pending
-      : record.model_selection;
+    let current: ModelChoice | null =
+      record === null ? pending : record.model_selection;
     let layer: AgentValueLayer | null = current === null ? null : "session";
     if (current === null) {
       const fallback = await defaultFor();
@@ -234,11 +229,13 @@ export function createModelPart(env: Env): ModelPart {
       if (!read.ok) return read;
       const { models, current, record } = read.value;
       let chosen: ModelChoice | null = null;
-      pickerProps(binding(models, current, query, {
-        choose: (choice) => {
-          chosen = choice;
-        },
-      })).onPick(model);
+      pickerProps(
+        binding(models, current, query, {
+          choose: (choice) => {
+            chosen = choice;
+          },
+        }),
+      ).onPick(model);
       if (chosen === null) return { ok: false, code: "invalid_input" };
       const stored = await store(session, record, chosen);
       if (!stored.ok) return stored;
@@ -253,11 +250,13 @@ export function createModelPart(env: Env): ModelPart {
       if (!read.ok) return read;
       const { models, current, record } = read.value;
       let chosen: ModelChoice | null = null;
-      pickerProps(binding(models, current, query, {
-        choose: (choice) => {
-          chosen = choice;
-        },
-      })).onOptionChange(axis, value);
+      pickerProps(
+        binding(models, current, query, {
+          choose: (choice) => {
+            chosen = choice;
+          },
+        }),
+      ).onOptionChange(axis, value);
       if (chosen === null) return { ok: false, code: "invalid_input" };
       const stored = await store(session, record, chosen);
       if (!stored.ok) return stored;

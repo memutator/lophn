@@ -10,7 +10,8 @@ export const FIXTURE_ROOT = new URL("../fixtures/provider/", import.meta.url);
 
 // 계정을 가리키는 값을 지운다. key 자체와 request·organization id가 대상이다.
 export function scrub(text: string, key: string): string {
-  return text.replaceAll(key, "REDACTED")
+  return text
+    .replaceAll(key, "REDACTED")
     .replace(
       /"(request_id|organization|organization_id|org_id)"\s*:\s*"[^"]*"/g,
       '"$1":"REDACTED"',

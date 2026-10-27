@@ -39,19 +39,19 @@ function assetPlugin(imports: Record<string, string>): esbuild.Plugin {
         const url = mapped
           ? new URL(mapped)
           : args.path.startsWith("file:")
-          ? new URL(args.path)
-          : args.path.startsWith(".") && args.importer
-          ? new URL(args.path, fileUrl(args.importer))
-          : undefined;
+            ? new URL(args.path)
+            : args.path.startsWith(".") && args.importer
+              ? new URL(args.path, fileUrl(args.importer))
+              : undefined;
         if (!url || url.protocol !== "file:") return undefined;
         const path = fileURLToPath(url);
         const loader: esbuild.Loader = path.endsWith(".svg")
           ? "text"
           : path.endsWith(".module.css")
-          ? "local-css"
-          : path.endsWith(".css")
-          ? "css"
-          : "file";
+            ? "local-css"
+            : path.endsWith(".css")
+              ? "css"
+              : "file";
         return { path, namespace: "wireframes-asset", pluginData: { loader } };
       });
       build.onLoad(
@@ -72,18 +72,16 @@ async function addPackage(
   directory: string,
 ): Promise<void> {
   const url = pathToFileURL(`${directory}/`);
-  const config = JSON.parse(
-    await readFile(new URL("deno.json", url), "utf8"),
-  );
+  const config = JSON.parse(await readFile(new URL("deno.json", url), "utf8"));
   if (config.exports !== undefined && config.name !== undefined) {
-    const exports = typeof config.exports === "string"
-      ? { ".": config.exports }
-      : config.exports as Record<string, string>;
+    const exports =
+      typeof config.exports === "string"
+        ? { ".": config.exports }
+        : (config.exports as Record<string, string>);
     const own: Record<string, string> = {};
     for (const [key, value] of Object.entries(exports)) {
-      const specifier = key === "."
-        ? config.name
-        : `${config.name}/${key.slice(2)}`;
+      const specifier =
+        key === "." ? config.name : `${config.name}/${key.slice(2)}`;
       own[specifier] = new URL(value, url).href;
     }
     mergeImports(imports, own, new URL("deno.json", url));

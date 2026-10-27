@@ -38,8 +38,8 @@ type CodingLaunchPlan = {
   title: string;
 };
 
-export const codingLaunchPlanSchema: z.ZodType<CodingLaunchPlan> = z
-  .strictObject({
+export const codingLaunchPlanSchema: z.ZodType<CodingLaunchPlan> =
+  z.strictObject({
     session: idSchema("ses"),
     app: idSchema("app"),
     harness_id: harnessIdSchema,

@@ -56,12 +56,14 @@ export const turnResult = defineRead({
   method: "result",
   name: "ReadTurnResult",
   input: turnResultInputSchema,
-  output: withReadCommon(z.object({
-    turn: idSchema("trn"),
-    state: turnStateSchema,
-    outcome: turnOutcomeOutputSchema.nullable(),
-    result: sha256Schema.nullable(),
-  })).refine(
+  output: withReadCommon(
+    z.object({
+      turn: idSchema("trn"),
+      state: turnStateSchema,
+      outcome: turnOutcomeOutputSchema.nullable(),
+      result: sha256Schema.nullable(),
+    }),
+  ).refine(
     (value) =>
       (value.outcome !== null) === (value.state === "finished") &&
       (value.result !== null) === (value.state === "finished"),
@@ -90,27 +92,30 @@ const BODY_ID_PREFIX = {
   tool_call_output: "tcl_",
 } as const;
 
-export const turnBodyInputSchema = z.strictObject({
-  kind: z.enum(TURN_BODY_KINDS),
-  id: z.union([idSchema("trn"), idSchema("mcl"), idSchema("tcl")]),
-}).refine(
-  (value) => value.id.startsWith(BODY_ID_PREFIX[value.kind]),
-  { message: "body kind and id do not match" },
-);
+export const turnBodyInputSchema = z
+  .strictObject({
+    kind: z.enum(TURN_BODY_KINDS),
+    id: z.union([idSchema("trn"), idSchema("mcl"), idSchema("tcl")]),
+  })
+  .refine((value) => value.id.startsWith(BODY_ID_PREFIX[value.kind]), {
+    message: "body kind and id do not match",
+  });
 
 export const turnBody = defineRead({
   resource: "turns",
   method: "body",
   name: "ReadTurnBody",
   input: turnBodyInputSchema,
-  output: withReadCommon(z.object({
-    kind: z.enum(TURN_BODY_KINDS),
-    id: z.union([idSchema("trn"), idSchema("mcl"), idSchema("tcl")]),
-    turn: idSchema("trn"),
-    hash: sha256Schema,
-    size_bytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-    value: z.json(),
-  })),
+  output: withReadCommon(
+    z.object({
+      kind: z.enum(TURN_BODY_KINDS),
+      id: z.union([idSchema("trn"), idSchema("mcl"), idSchema("tcl")]),
+      turn: idSchema("trn"),
+      hash: sha256Schema,
+      size_bytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+      value: z.json(),
+    }),
+  ),
   actors: ["machine"],
   errors: [...readErrors],
 });
@@ -134,27 +139,30 @@ const VIEW_ID_PREFIX = {
 
 export const TURN_BODY_VIEW_MAX_BYTES = 64 * 1024;
 
-export const turnBodyViewInputSchema = z.strictObject({
-  kind: z.enum(TURN_BODY_VIEW_KINDS),
-  id: z.union([idSchema("trn"), idSchema("tcl")]),
-}).refine(
-  (value) => value.id.startsWith(VIEW_ID_PREFIX[value.kind]),
-  { message: "body kind and id do not match" },
-);
+export const turnBodyViewInputSchema = z
+  .strictObject({
+    kind: z.enum(TURN_BODY_VIEW_KINDS),
+    id: z.union([idSchema("trn"), idSchema("tcl")]),
+  })
+  .refine((value) => value.id.startsWith(VIEW_ID_PREFIX[value.kind]), {
+    message: "body kind and id do not match",
+  });
 
 export const turnBodyView = defineRead({
   resource: "turns",
   method: "body-view",
   name: "ReadTurnBodyView",
   input: turnBodyViewInputSchema,
-  output: withReadCommon(z.object({
-    kind: z.enum(TURN_BODY_VIEW_KINDS),
-    id: z.union([idSchema("trn"), idSchema("tcl")]),
-    turn: idSchema("trn"),
-    size_bytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-    truncated: z.boolean(),
-    value: z.json(),
-  })),
+  output: withReadCommon(
+    z.object({
+      kind: z.enum(TURN_BODY_VIEW_KINDS),
+      id: z.union([idSchema("trn"), idSchema("tcl")]),
+      turn: idSchema("trn"),
+      size_bytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+      truncated: z.boolean(),
+      value: z.json(),
+    }),
+  ),
   actors: ["user"],
   errors: [...readErrors],
 });

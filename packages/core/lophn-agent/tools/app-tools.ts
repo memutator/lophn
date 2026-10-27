@@ -56,9 +56,9 @@ export async function buildAppTools(
 ): Promise<readonly AppToolEntry[]> {
   const entries: AppToolEntry[] = [];
   const names = new Set<string>();
-  const views = [...source.views].sort((a, b) => a.app < b.app ? -1 : 1);
+  const views = [...source.views].sort((a, b) => (a.app < b.app ? -1 : 1));
   for (const view of views) {
-    const declared = [...view.tools].sort((a, b) => a.name < b.name ? -1 : 1);
+    const declared = [...view.tools].sort((a, b) => (a.name < b.name ? -1 : 1));
     for (const tool of declared) {
       if (!assigned(source.entries, view.app, tool.name)) continue;
       const name = await appToolName(tool.domain, tool.name);
@@ -67,8 +67,7 @@ export async function buildAppTools(
       const shape = toolInput(tool.inputSchema as InputSchema | null);
       const definition: ToolDefinition = {
         name,
-        description:
-          `Domain ${tool.domain} of app ${view.name} (${view.app}), tool ${tool.name}: ${tool.title}. ${tool.description}`,
+        description: `Domain ${tool.domain} of app ${view.name} (${view.app}), tool ${tool.name}: ${tool.title}. ${tool.description}`,
         input: shape.validator,
         inputSchema: shape.jsonSchema,
         effect: tool.effect,
@@ -81,9 +80,7 @@ export async function buildAppTools(
             caller: callerOf(ctx),
           });
           if (!reply.ok) return reply;
-          return ok(
-            resultOf(view.name, tool.name, tool.effect, reply.value),
-          );
+          return ok(resultOf(view.name, tool.name, tool.effect, reply.value));
         },
         // 묻기는 run-loop tool gate, 막기는 core 호출 경로.
         gate: () => ({
@@ -143,14 +140,14 @@ function resultOf(
       return limited.complete
         ? toolResult("success", `${label} finished`, full)
         : toolResult(
-          "success",
-          `${label} finished`,
-          { invocation, result: null, omitted: true },
-          {
-            complete: false,
-            pending: ["the result was too large to show"],
-          },
-        );
+            "success",
+            `${label} finished`,
+            { invocation, result: null, omitted: true },
+            {
+              complete: false,
+              pending: ["the result was too large to show"],
+            },
+          );
     }
     case "failed":
       return toolResult("failure", `${label} failed`, {

@@ -11,26 +11,26 @@ import { closeOpenFence, type LiveText } from "../live-text.ts";
 /** 긴 글을 delta마다 markdown으로 다시 parse하지 않는다. */
 export const LIVE_RENDER_MS = 100;
 
-export const LiveMessage = memo(function LiveMessage(
-  { live, reasoning, artifacts }: {
-    live: LiveText;
-    reasoning: boolean;
-    artifacts: ArtifactsSlice | undefined;
-  },
-) {
+export const LiveMessage = memo(function LiveMessage({
+  live,
+  reasoning,
+  artifacts,
+}: {
+  live: LiveText;
+  reasoning: boolean;
+  artifacts: ArtifactsSlice | undefined;
+}) {
   return (
     <Said>
       <div data-live="">
-        {reasoning && live.reasoning !== ""
-          ? (
-            <Reasoning
-              text={closeOpenFence(live.reasoning)}
-              durationMs={null}
-              thinking={live.text === ""}
-              artifacts={artifacts}
-            />
-          )
-          : null}
+        {reasoning && live.reasoning !== "" ? (
+          <Reasoning
+            text={closeOpenFence(live.reasoning)}
+            durationMs={null}
+            thinking={live.text === ""}
+            artifacts={artifacts}
+          />
+        ) : null}
         {live.text === "" ? null : (
           <ChatMarkdown
             text={closeOpenFence(live.text)}
@@ -53,8 +53,8 @@ export function useThrottledLive(
 ): LiveText | null {
   const [shown, setShown] = useState<LiveText | null>(live);
   const changedAt = useRef(0);
-  const fresh = live === null || shown === null ||
-    live.modelCall !== shown.modelCall;
+  const fresh =
+    live === null || shown === null || live.modelCall !== shown.modelCall;
 
   useEffect(() => {
     if (live === shown) return;

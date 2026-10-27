@@ -18,16 +18,13 @@ export function tmpDirFor(root: string): string {
 
 // hash의 앞 2자를 폴더로, 나머지 62자를 파일 이름으로 나눈다.
 export function objectPathFor(root: string, hash: string): string {
-  return `${root}/${BLOB_STORE_OBJECTS_DIR}/${hash.slice(0, PREFIX_CHARS)}/${
-    hash.slice(PREFIX_CHARS)
-  }`;
+  return `${root}/${BLOB_STORE_OBJECTS_DIR}/${hash.slice(0, PREFIX_CHARS)}/${hash.slice(
+    PREFIX_CHARS,
+  )}`;
 }
 
 // 임시 파일은 아직 내용을 모르므로 고유 이름으로 둔다. 디렉터리 sync 대상의 이름이다.
-export function tmpPathFor(
-  tmpDir: string,
-  suffix: string,
-): string {
+export function tmpPathFor(tmpDir: string, suffix: string): string {
   return `${tmpDir}/prepare-${suffix}`;
 }
 

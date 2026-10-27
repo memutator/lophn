@@ -52,9 +52,8 @@ export function createWorkflowReads(): {
           last_reports: reports.value,
           lines,
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: loaded.value.length > LINES
-            ? lines[lines.length - 1]!.seq
-            : null,
+          next_cursor:
+            loaded.value.length > LINES ? lines[lines.length - 1]!.seq : null,
         });
       },
     },
@@ -90,9 +89,8 @@ export function createWorkflowReads(): {
         return ok({
           instances,
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: loaded.value.length > PAGE
-            ? page[page.length - 1]!.id
-            : null,
+          next_cursor:
+            loaded.value.length > PAGE ? page[page.length - 1]!.id : null,
         });
       },
     },

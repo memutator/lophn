@@ -1,24 +1,26 @@
 // fake server가 밖에 내놓는 모양. e2e-support-core, e2e-support-shape, e2e-*, dev-fake가
 // 이 이름으로 부른다.
 
-export type Partial = { text: string } | {
-  // arguments의 앞 절반만 보낸다(JSON이 끝나지 않는다).
-  tool: { id: string; name: string; arguments: string };
-};
+export type Partial =
+  | { text: string }
+  | {
+      // arguments의 앞 절반만 보낸다(JSON이 끝나지 않는다).
+      tool: { id: string; name: string; arguments: string };
+    };
 
 export type Reply =
   | { kind: "text"; text: string; usage?: { input: number; output: number } }
   | {
-    kind: "tool";
-    calls: { id: string; name: string; arguments: string }[];
-    text?: string;
-  }
+      kind: "tool";
+      calls: { id: string; name: string; arguments: string }[];
+      text?: string;
+    }
   | {
-    kind: "error";
-    status: number;
-    headers?: Record<string, string>;
-    body?: string;
-  }
+      kind: "error";
+      status: number;
+      headers?: Record<string, string>;
+      body?: string;
+    }
   // 연결을 열고 아무 byte도 안 준다. client가 끊을 때까지.
   | { kind: "silent" }
   // 일부 event 뒤 message_stop 없이 연결을 닫는다.
@@ -26,12 +28,12 @@ export type Reply =
   // 일부 event 뒤 더는 안 주고 client가 끊을 때까지 둔다.
   | { kind: "stall"; partial: Partial }
   | {
-    kind: "raw";
-    status: number;
-    headers: Record<string, string>;
-    chunks: string[];
-    end?: "close" | "hold";
-  };
+      kind: "raw";
+      status: number;
+      headers: Record<string, string>;
+      chunks: string[];
+      end?: "close" | "hold";
+    };
 
 export type JournalEntry = {
   n: number; // 1부터

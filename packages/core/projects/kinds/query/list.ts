@@ -47,9 +47,10 @@ export function listItems(
   if (unknown !== undefined) return invalid(`unknown field ${unknown}`);
 
   const rows: Row[] = readItems(sql, domain, kind.name);
-  const matched = query.where === undefined
-    ? rows
-    : rows.filter((row) => evaluate(query.where!, row));
+  const matched =
+    query.where === undefined
+      ? rows
+      : rows.filter((row) => evaluate(query.where!, row));
   const skipped = {
     count: countSkipped(sql, domain, kind.name),
     reason: SKIPPED_REASON,

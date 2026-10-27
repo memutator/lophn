@@ -24,15 +24,17 @@ interface FindBarProps {
   onReplaceAll: (replacement: string) => void;
 }
 
-function Action(
-  { icon, label, ...rest }: {
-    icon: (typeof editorIcons)[keyof typeof editorIcons];
-    label: string;
-    disabled?: boolean;
-    pressed?: boolean;
-    onClick: () => void;
-  },
-) {
+function Action({
+  icon,
+  label,
+  ...rest
+}: {
+  icon: (typeof editorIcons)[keyof typeof editorIcons];
+  label: string;
+  disabled?: boolean;
+  pressed?: boolean;
+  onClick: () => void;
+}) {
   return (
     <Tooltip content={label}>
       <IconButton
@@ -48,22 +50,20 @@ function Action(
 }
 
 // 편집 칸 위에 붙는 찾기 줄 36px·입력 28px.
-export function FindBar(
-  {
-    query,
-    onQuery,
-    caseSensitive,
-    onCaseSensitive,
-    label,
-    hasMatches,
-    onNext,
-    onPrevious,
-    onClose,
-    replace,
-    onReplace,
-    onReplaceAll,
-  }: FindBarProps,
-) {
+export function FindBar({
+  query,
+  onQuery,
+  caseSensitive,
+  onCaseSensitive,
+  label,
+  hasMatches,
+  onNext,
+  onPrevious,
+  onClose,
+  replace,
+  onReplace,
+  onReplaceAll,
+}: FindBarProps) {
   const input = useRef<HTMLInputElement>(null);
   const [replacement, setReplacement] = useState("");
   useEffect(() => {
@@ -129,44 +129,41 @@ export function FindBar(
           onClick={onClose}
         />
       </div>
-      {replace
-        ? (
-          <div className={styles.row} data-replace-row="">
-            <div className={styles.input}>
-              <Field label={t("document.label.replace-with")}>
-                <Input
-                  size="sm"
-                  value={replacement}
-                  onChange={(event) =>
-                    setReplacement(event.currentTarget.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      onReplace(replacement);
-                    } else if (event.key === "Escape") {
-                      event.preventDefault();
-                      onClose();
-                    }
-                  }}
-                  data-replace-input=""
-                />
-              </Field>
-            </div>
-            <Action
-              icon={editorIcons.replace}
-              label={t("document.button.replace")}
-              disabled={!hasMatches}
-              onClick={() => onReplace(replacement)}
-            />
-            <Action
-              icon={editorIcons.replaceAll}
-              label={t("document.button.replace-all")}
-              disabled={!hasMatches}
-              onClick={() => onReplaceAll(replacement)}
-            />
+      {replace ? (
+        <div className={styles.row} data-replace-row="">
+          <div className={styles.input}>
+            <Field label={t("document.label.replace-with")}>
+              <Input
+                size="sm"
+                value={replacement}
+                onChange={(event) => setReplacement(event.currentTarget.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    onReplace(replacement);
+                  } else if (event.key === "Escape") {
+                    event.preventDefault();
+                    onClose();
+                  }
+                }}
+                data-replace-input=""
+              />
+            </Field>
           </div>
-        )
-        : null}
+          <Action
+            icon={editorIcons.replace}
+            label={t("document.button.replace")}
+            disabled={!hasMatches}
+            onClick={() => onReplace(replacement)}
+          />
+          <Action
+            icon={editorIcons.replaceAll}
+            label={t("document.button.replace-all")}
+            disabled={!hasMatches}
+            onClick={() => onReplaceAll(replacement)}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -70,18 +70,20 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
       });
       ctx.provide("liveTurns", liveTurns);
       unsubscribe = ctx.bus.subscribe(
-        [{
-          types: [
-            "MessageRecorded",
-            "ToolCallStarted",
-            "TurnStarted",
-            "TurnEnded",
-            "TurnRequestOpened",
-            "TurnRequestClosed",
-            "QuestionAsked",
-            "QuestionResolved",
-          ],
-        }],
+        [
+          {
+            types: [
+              "MessageRecorded",
+              "ToolCallStarted",
+              "TurnStarted",
+              "TurnEnded",
+              "TurnRequestOpened",
+              "TurnRequestClosed",
+              "QuestionAsked",
+              "QuestionResolved",
+            ],
+          },
+        ],
         {
           send: (event) => {
             // coding session은 사람 기다림을 알리지 않으므로 시간은 세지 않는다. 쓰는 중인 글을 비우는
@@ -107,9 +109,10 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
         const snapshots: SessionSnapshot[] = [];
         const requests = (session: string) =>
           ctx.approvals.turnRequests(session);
-        const lophn = sessions === undefined
-          ? openSessions(lookup)
-          : sessions.flatMap((id) => loadSession(lookup, id) ?? []);
+        const lophn =
+          sessions === undefined
+            ? openSessions(lookup)
+            : sessions.flatMap((id) => loadSession(lookup, id) ?? []);
         for (const row of lophn) {
           const turn_requests = requests(row.id);
           const questions = ctx.questionWaits.list(row.id);
@@ -117,32 +120,32 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
             session: row.id,
             agent: agentRefOf(row),
             place: placeOf(row),
-            state: turn_requests.length > 0 || questions.length > 0
-              ? "waiting"
-              : hasUnfinishedTurn(lookup, row.id)
-              ? "running"
-              : "idle",
+            state:
+              turn_requests.length > 0 || questions.length > 0
+                ? "waiting"
+                : hasUnfinishedTurn(lookup, row.id)
+                  ? "running"
+                  : "idle",
             writing: liveTurns.writing(row.id),
             elapsed: liveTurns.elapsed(row.id),
             turn_requests,
             questions,
           } as SessionSnapshot);
         }
-        const coding = sessions === undefined
-          ? liveSessions(sql)
-          : sessions.flatMap((id) => loadCodingSession(sql, id) ?? []);
+        const coding =
+          sessions === undefined
+            ? liveSessions(sql)
+            : sessions.flatMap((id) => loadCodingSession(sql, id) ?? []);
         for (const row of coding) {
-          snapshots.push(
-            {
-              session: row.session,
-              agent: { role: "coding_agent", app: row.app },
-              place: codingPlace(sql, row.app),
-              state: stateOf(row),
-              harness: row.harness,
-              turn_requests: requests(row.session),
-              questions: [],
-            } satisfies SessionSnapshot,
-          );
+          snapshots.push({
+            session: row.session,
+            agent: { role: "coding_agent", app: row.app },
+            place: codingPlace(sql, row.app),
+            state: stateOf(row),
+            harness: row.harness,
+            turn_requests: requests(row.session),
+            questions: [],
+          } satisfies SessionSnapshot);
         }
         return snapshots;
       };

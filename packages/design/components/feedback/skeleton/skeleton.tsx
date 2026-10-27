@@ -20,12 +20,9 @@ export function Skeleton({ shape = "line", lines = 1 }: SkeletonProps) {
       data-skeleton={shape}
       {...componentMark("Skeleton")}
     >
-      {Array.from(
-        { length: count },
-        (_, index) => (
-          <span key={index} className={cx(styles.bone, styles[shape])} />
-        ),
-      )}
+      {Array.from({ length: count }, (_, index) => (
+        <span key={index} className={cx(styles.bone, styles[shape])} />
+      ))}
     </span>
   );
 }
@@ -39,9 +36,12 @@ export interface LoadingProps {
 }
 
 // 첫 조회 300ms 전에는 아무것도 그리지 않고, 그 뒤에는 placeholder를, 끝나면 내용을 그린다.
-export function Loading(
-  { loading, placeholder, children, timer }: LoadingProps,
-) {
+export function Loading({
+  loading,
+  placeholder,
+  children,
+  timer,
+}: LoadingProps) {
   const shown = useDelayedLoading(loading, timer);
   if (!loading) return children;
   return shown ? placeholder : null;

@@ -16,20 +16,24 @@ export function normalize(text: string): string {
 // 따옴표와 escape를 풀지 않는다(명령 parser 없음). 줄바꿈은 shell에서 `;`와 같아 나눈다.
 // 한 개 `&`는 `2>&1`이 쪼개지므로 나누지 않는다.
 export function shellPieces(command: string): string[] {
-  return command.split(/&&|\|\||;|\||\n/).map(normalize).filter((piece) =>
-    piece !== ""
-  );
+  return command
+    .split(/&&|\|\||;|\||\n/)
+    .map(normalize)
+    .filter((piece) => piece !== "");
 }
 
 // `*` 밖의 글자는 모두 escape하고, `\*`는 글자 그대로의 `*`다.
 function toSource(pattern: string): string {
-  return pattern.split(/(\\\*|\*)/).map((part) =>
-    part === "*"
-      ? ".*"
-      : part === "\\*"
-      ? "\\*"
-      : part.replace(/[.+?^${}()|[\]\\]/g, "\\$&")
-  ).join("");
+  return pattern
+    .split(/(\\\*|\*)/)
+    .map((part) =>
+      part === "*"
+        ? ".*"
+        : part === "\\*"
+          ? "\\*"
+          : part.replace(/[.+?^${}()|[\]\\]/g, "\\$&"),
+    )
+    .join("");
 }
 
 export function shellRuleMatches(pattern: string, text: string): boolean {
@@ -46,7 +50,7 @@ export function shellVerdict(
   text: string,
 ): ShellVerdict {
   const floor = shell.floor.find((rule) =>
-    shellRuleMatches(rule.pattern, text)
+    shellRuleMatches(rule.pattern, text),
   );
   if (floor) return { action: "deny", pattern: floor.pattern };
   let found: ShellVerdict = { action: "allow", pattern: null };

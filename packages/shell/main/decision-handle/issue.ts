@@ -37,7 +37,9 @@ function readCanonical(
 
 export async function issueDecisionHandle(input: {
   core: DecisionCore;
-  register(request: HandleRegistration): Promise<
+  register(
+    request: HandleRegistration,
+  ): Promise<
     | { ok: true; confirmation: string; expiresAt: string }
     | { ok: false; error: { code: string; message: string } }
   >;

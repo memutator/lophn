@@ -95,7 +95,7 @@ function groupByUnit(records: readonly JudgeRecord[]): JudgeRecord[][] {
     groups.set(key, [...(groups.get(key) ?? []), record]);
   }
   return [...groups.values()].map((group) =>
-    group.sort((left, right) => compareSeq(left.seq, right.seq))
+    group.sort((left, right) => compareSeq(left.seq, right.seq)),
   );
 }
 
@@ -154,18 +154,23 @@ function judgeUnit(
     return skip("rename_blocked");
   }
   const write = first.before.exists
-    ? [{
-      kind: "write" as const,
-      path: origin,
-      sha256: first.before.sha256!,
-      blob: first.before.blob!,
-    }]
+    ? [
+        {
+          kind: "write" as const,
+          path: origin,
+          sha256: first.before.sha256!,
+          blob: first.before.blob!,
+        },
+      ]
     : [];
   if (moved) {
-    return make("restore", null, [...write, {
-      kind: "delete",
-      path: last.path,
-    }]);
+    return make("restore", null, [
+      ...write,
+      {
+        kind: "delete",
+        path: last.path,
+      },
+    ]);
   }
   return write.length > 0
     ? make("restore", null, write, first.before.sha256)

@@ -114,12 +114,10 @@ export function callFromRow(
     decision: parseJson(row["decision"]) as ToolCall["decision"],
     state: row["state"] as ToolCall["state"],
     started_at: row["started_at"] === null ? null : String(row["started_at"]),
-    finished_at: row["finished_at"] === null
-      ? null
-      : String(row["finished_at"]),
-    duration_ms: row["duration_ms"] === null
-      ? null
-      : Number(row["duration_ms"]),
+    finished_at:
+      row["finished_at"] === null ? null : String(row["finished_at"]),
+    duration_ms:
+      row["duration_ms"] === null ? null : Number(row["duration_ms"]),
     outcome: parseJson(row["outcome"]) as ToolCall["outcome"],
   };
   return { ...record, ...overrides };

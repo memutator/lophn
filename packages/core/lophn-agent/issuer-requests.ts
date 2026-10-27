@@ -78,15 +78,14 @@ export function createIssuerRequests(options: {
     entries.delete(id);
     entry.stop.abort();
     entry.settle(
-      response === null ? undefined : new Response(
-        NO_BODY.has(response.status) ? null : response.body,
-        {
-          status: response.status,
-          ...(response.location === null
-            ? {}
-            : { headers: { location: response.location } }),
-        },
-      ),
+      response === null
+        ? undefined
+        : new Response(NO_BODY.has(response.status) ? null : response.body, {
+            status: response.status,
+            ...(response.location === null
+              ? {}
+              : { headers: { location: response.location } }),
+          }),
     );
     return true;
   }
@@ -99,9 +98,11 @@ export function createIssuerRequests(options: {
     const method = init.method ?? "GET";
     const body = method === "GET" ? "" : init.body;
     if (
-      !issuerUrlAllowed(url) || (method !== "GET" && method !== "POST") ||
+      !issuerUrlAllowed(url) ||
+      (method !== "GET" && method !== "POST") ||
       (method === "GET" && init.body !== undefined && init.body !== null) ||
-      typeof body !== "string" || body.length > ISSUER_REQUEST_BODY_MAX
+      typeof body !== "string" ||
+      body.length > ISSUER_REQUEST_BODY_MAX
     ) {
       return Promise.reject(new Error("보낼 수 없는 요청이다"));
     }

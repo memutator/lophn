@@ -14,15 +14,19 @@ import styles from "./agent-editor.module.css";
 /** 칸이 목록을 다시 읽는 통로. */
 export type ModelFieldSource = Pick<AgentsSource, "models">;
 
-function useFieldPicker(
-  { models, source, current, layer, choose }: {
-    models: ModelsView | null;
-    source?: ModelFieldSource;
-    current: ModelChoice | null;
-    layer: AgentValueLayer | null;
-    choose: (choice: ModelChoice) => void;
-  },
-): ModelPickerProps {
+function useFieldPicker({
+  models,
+  source,
+  current,
+  layer,
+  choose,
+}: {
+  models: ModelsView | null;
+  source?: ModelFieldSource;
+  current: ModelChoice | null;
+  layer: AgentValueLayer | null;
+  choose: (choice: ModelChoice) => void;
+}): ModelPickerProps {
   const [state, setState] = useState({ open: false, query: "" });
   // 연결 대화창을 거쳐 다시 열 때 onOpenChange가 옛 state를 쥐고 있어 state.open으로는 열림을 가릴 수 없다.
   const wasOpen = useRef(false);
@@ -68,19 +72,17 @@ interface ModelFieldProps {
 }
 
 /** 위 층의 값을 따르는 Model 칸(Operator 정의, project). 바꾸면 Changed와 [Reset]이 붙는다. */
-export function ModelField(
-  {
-    models,
-    source,
-    label,
-    inheritLabel,
-    inherited,
-    value,
-    layer,
-    overrideNote,
-    onChange,
-  }: ModelFieldProps,
-) {
+export function ModelField({
+  models,
+  source,
+  label,
+  inheritLabel,
+  inherited,
+  value,
+  layer,
+  overrideNote,
+  onChange,
+}: ModelFieldProps) {
   const current = value ?? inherited;
   const picker = useFieldPicker({
     models,
@@ -100,9 +102,11 @@ export function ModelField(
         },
       }}
       label={label}
-      reset={value === null
-        ? undefined
-        : { note: overrideNote, onReset: () => onChange(null) }}
+      reset={
+        value === null
+          ? undefined
+          : { note: overrideNote, onReset: () => onChange(null) }
+      }
     />
   );
 }
@@ -115,9 +119,12 @@ interface DefaultModelFieldProps {
 }
 
 /** 위 층이 없는 model 칸(Workspace 전역 기본). model과 그 model의 option 축을 고른다. */
-export function DefaultModelField(
-  { models, source, value, onChange }: DefaultModelFieldProps,
-) {
+export function DefaultModelField({
+  models,
+  source,
+  value,
+  onChange,
+}: DefaultModelFieldProps) {
   const picker = useFieldPicker({
     models,
     source,

@@ -64,7 +64,7 @@ function collectCallIds(items: readonly unknown[]): Set<string> {
 // 보내는 동안 item id 재참조가 없으므로 원문을 다시 보낸다).
 function reasoningItemOf(item: ResponsesItem): string | undefined {
   return typeof item.encrypted_content === "string" &&
-      item.encrypted_content.length > 0
+    item.encrypted_content.length > 0
     ? item.encrypted_content
     : undefined;
 }
@@ -72,9 +72,10 @@ function reasoningItemOf(item: ResponsesItem): string | undefined {
 // 입력 item을 짝에 맞게 정리한다. 짝 없는 function_call은 제거하고, 제거 뒤
 // reasoning item은 그 턴의 대응이 깨졌으므로 빼서 보내지 않는다(Codex 조사:
 // id만 replay하면 "provided without its required reasoning item" 400).
-function pairedItems(
-  items: readonly unknown[],
-): { items: unknown[]; reasoning: string[] } {
+function pairedItems(items: readonly unknown[]): {
+  items: unknown[];
+  reasoning: string[];
+} {
   const answered = collectCallIds(items);
   const output: unknown[] = [];
   const reasoning: string[] = [];
@@ -247,7 +248,9 @@ function applyFrame(out: ResponsesStreamResult, frame: SseFrame): void {
     // delta 누적은 output_item.done이 확정 신호다. added는 관측만 한다.
     const item = record.item;
     if (
-      item !== null && typeof item === "object" && !Array.isArray(item) &&
+      item !== null &&
+      typeof item === "object" &&
+      !Array.isArray(item) &&
       (item as Record<string, unknown>).type === "reasoning"
     ) {
       out.reasoning ??= "";
@@ -260,10 +263,10 @@ function applyFrame(out: ResponsesStreamResult, frame: SseFrame): void {
     if (typeof delta !== "string" || delta === "") return;
     out.reasoning ??= "";
     const itemId = typeof record.item_id === "string" ? record.item_id : "";
-    const summaryIndex = typeof record.summary_index === "number"
-      ? record.summary_index
-      : -1;
-    const samePlace = out.lastSummary?.itemId === itemId &&
+    const summaryIndex =
+      typeof record.summary_index === "number" ? record.summary_index : -1;
+    const samePlace =
+      out.lastSummary?.itemId === itemId &&
       out.lastSummary?.summaryIndex === summaryIndex;
     if (out.reasoning !== "" && !samePlace) out.reasoning += "\n\n";
     out.reasoning += delta;
@@ -278,14 +281,13 @@ function applyFrame(out: ResponsesStreamResult, frame: SseFrame): void {
       if (usage !== null && typeof usage === "object") {
         out.usage = responsesUsage(usage as Record<string, unknown>);
       }
-      const reason = (inner.incomplete_details as
-        | { reason?: unknown }
-        | undefined)?.reason;
+      const reason = (
+        inner.incomplete_details as { reason?: unknown } | undefined
+      )?.reason;
       if (typeof reason === "string") out.incompleteReason = reason;
     }
-    out.responseStatus = type === "response.completed"
-      ? "completed"
-      : "incomplete";
+    out.responseStatus =
+      type === "response.completed" ? "completed" : "incomplete";
     out.responseEnded = true;
     return;
   }
@@ -295,9 +297,8 @@ function applyFrame(out: ResponsesStreamResult, frame: SseFrame): void {
       | { code?: unknown; message?: unknown }
       | undefined;
     out.errorType = typeof error?.code === "string" ? error.code : "?";
-    out.errorMessage = typeof error?.message === "string"
-      ? error.message
-      : undefined;
+    out.errorMessage =
+      typeof error?.message === "string" ? error.message : undefined;
     out.responseStatus = "failed";
     out.responseEnded = true;
     return;
@@ -308,7 +309,8 @@ function applyFrame(out: ResponsesStreamResult, frame: SseFrame): void {
     type.startsWith("response.reasoning_summary") ||
     type.startsWith("response.reasoning_text") ||
     type.startsWith("response.output_text.annotation") ||
-    type === "response.created" || type === "response.in_progress" ||
+    type === "response.created" ||
+    type === "response.in_progress" ||
     type === "response.queued" ||
     type === "response.content_part.added" ||
     type === "response.content_part.done" ||
@@ -341,9 +343,10 @@ function responsesUsage(raw: Record<string, unknown>): TokenUsage {
     | undefined;
   const inputTokens = asCount(raw.input_tokens);
   const cached = asCount(inputDetails?.cached_tokens);
-  const input = inputTokens !== null && cached !== null
-    ? Math.max(0, inputTokens - cached)
-    : inputTokens;
+  const input =
+    inputTokens !== null && cached !== null
+      ? Math.max(0, inputTokens - cached)
+      : inputTokens;
   return {
     input,
     output: asCount(raw.output_tokens),
@@ -407,8 +410,9 @@ function verifiedJsonObject(text: string): boolean {
   if (text.trim().length === 0) return true;
   try {
     const parsed: unknown = JSON.parse(text);
-    return parsed === null || typeof parsed === "object" &&
-        !Array.isArray(parsed);
+    return (
+      parsed === null || (typeof parsed === "object" && !Array.isArray(parsed))
+    );
   } catch {
     return false;
   }

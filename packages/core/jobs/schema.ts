@@ -9,9 +9,10 @@ const list = (values: readonly string[]) =>
 // - creator_id는 lophn이면 NULL, Project Manager는 prj id, App Engineer는 app id다.
 // - job_runs.claimed_at은 scheduler에 넘긴 때다. record에 없는 안쪽 칸이다.
 // - unique index 둘은 겹침 규칙을 코드가 틀려도 표가 한 겹 더 막는다: 도는 줄(queued, running)과 기다리는 줄(held)은 job마다 하나다.
-export const jobsSchemaSteps: readonly SchemaStep[] = [{
-  id: "jobs.tables",
-  sql: `
+export const jobsSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "jobs.tables",
+    sql: `
     CREATE TABLE jobs (
       id TEXT PRIMARY KEY NOT NULL,
       title TEXT NOT NULL,
@@ -22,9 +23,9 @@ export const jobsSchemaSteps: readonly SchemaStep[] = [{
       every TEXT NOT NULL,
       at TEXT,
       action TEXT NOT NULL CHECK (json_valid(action)),
-      missed_policy TEXT NOT NULL CHECK (missed_policy IN (${
-    list(MISSED_POLICIES)
-  })),
+      missed_policy TEXT NOT NULL CHECK (missed_policy IN (${list(
+        MISSED_POLICIES,
+      )})),
       enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
       next_due_at TEXT,
       created_at TEXT NOT NULL,
@@ -51,4 +52,5 @@ export const jobsSchemaSteps: readonly SchemaStep[] = [{
       WHERE state IN ('queued', 'running');
     CREATE UNIQUE INDEX job_runs_held ON job_runs(job) WHERE state = 'held';
   `,
-}];
+  },
+];

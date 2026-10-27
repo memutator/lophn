@@ -18,11 +18,11 @@ test("hook ingress drops unknown key, oversized and malformed lines and routes a
       const line = value as { v?: number; key?: string; event?: string };
       return line.v === 1 && typeof line.key === "string"
         ? {
-          key: line.key,
-          harness: "claude",
-          event: line.event ?? "",
-          payload: {},
-        }
+            key: line.key,
+            harness: "claude",
+            event: line.event ?? "",
+            payload: {},
+          }
         : null;
     },
     onHook: (hook) => routed.push(hook),
@@ -44,13 +44,15 @@ test("hook ingress drops unknown key, oversized and malformed lines and routes a
   assert.deepEqual(routed, []);
 
   ingress.handleLine(line(KEY));
-  assert.deepEqual(routed, [{
-    terminal_ref: "term_1",
-    session: "ses_1",
-    harness: "claude",
-    event: "Stop",
-    payload: {},
-  }]);
+  assert.deepEqual(routed, [
+    {
+      terminal_ref: "term_1",
+      session: "ses_1",
+      harness: "claude",
+      event: "Stop",
+      payload: {},
+    },
+  ]);
 
   ingress.revoke("term_1");
   ingress.handleLine(line(KEY));
@@ -68,10 +70,10 @@ function trackerFor(pushed: string[]) {
       event === "Start"
         ? { type: "TurnStarted" }
         : event === "Ask"
-        ? { type: "PermissionRequested" }
-        : event === "Answer"
-        ? { type: "PermissionResolved" }
-        : { type: "TurnEnded" },
+          ? { type: "PermissionRequested" }
+          : event === "Answer"
+            ? { type: "PermissionResolved" }
+            : { type: "TurnEnded" },
     runtimeOf: () => runtime,
     publish: (rt) =>
       pushed.push(`${rt.agent?.harness ?? "-"}:${rt.agent?.state ?? "none"}`),

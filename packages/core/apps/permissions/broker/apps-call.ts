@@ -51,10 +51,12 @@ export function createAppsCallService(deps: {
       });
       if (!called.ok) return called;
       const output = brokerAppCallOutputSchema.safeParse(called.value);
-      return output.success ? ok(output.data) : err({
-        code: "internal",
-        message: "core answered the app call badly",
-      });
+      return output.success
+        ? ok(output.data)
+        : err({
+            code: "internal",
+            message: "core answered the app call badly",
+          });
     },
   };
 }

@@ -24,9 +24,14 @@ export function openDevtoolsView(input: {
   /** view나 page가 사라졌거나 사람이 따로 뜬 창을 닫았다. 한 번만 부른다. */
   onGone(): void;
 }): DevtoolsView {
-  const view = new WebContentsView(surfaceOptions({
-    webPreferences: { ...webPreferences(input.packaged), devTools: false },
-  }, input.headless));
+  const view = new WebContentsView(
+    surfaceOptions(
+      {
+        webPreferences: { ...webPreferences(input.packaged), devTools: false },
+      },
+      input.headless,
+    ),
+  );
   const contents = view.webContents;
   let ended = false;
   let window: BrowserWindow | undefined;
@@ -65,13 +70,18 @@ export function openDevtoolsView(input: {
         return;
       }
       if (window !== undefined && !window.isDestroyed()) return;
-      const opened = new BrowserWindow(surfaceOptions({
-        width: 900,
-        height: 640,
-        title: `DevTools – ${title}`,
-        autoHideMenuBar: true,
-        webPreferences: webPreferences(input.packaged),
-      }, input.headless));
+      const opened = new BrowserWindow(
+        surfaceOptions(
+          {
+            width: 900,
+            height: 640,
+            title: `DevTools – ${title}`,
+            autoHideMenuBar: true,
+            webPreferences: webPreferences(input.packaged),
+          },
+          input.headless,
+        ),
+      );
       window = opened;
       opened.contentView.addChildView(view);
       fit();

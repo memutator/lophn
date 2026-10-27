@@ -81,8 +81,8 @@ export async function wireBinding(
         path === routePath(providerRead)
           ? ok({ provider, as_of_seq: "0", next_cursor: null })
           : path === routePath(userModelInfoRead)
-          ? ok({ seq: "0", items: [], as_of_seq: "0", next_cursor: null })
-          : err({ code: "not_found", message: path }),
+            ? ok({ seq: "0", items: [], as_of_seq: "0", next_cursor: null })
+            : err({ code: "not_found", message: path }),
       ),
     catalog: () => Promise.resolve(ok(catalog)),
     fetch,
@@ -107,23 +107,28 @@ export async function callWire(
   const packed = binding.pack({
     system: [{ layer: "role", text: "You are a test agent." }],
     tools: input.tools ?? [],
-    messages: [{
-      role: "user",
-      parts: [{ kind: "text", text: input.user ?? "hello" }],
-    }],
+    messages: [
+      {
+        role: "user",
+        parts: [{ kind: "text", text: input.user ?? "hello" }],
+      },
+    ],
   });
-  const called = await binding.invoke({
-    callId: "mcl_wire",
-    turn: null,
-    session: null,
-    purpose: "judgment",
-    model: binding.call,
-    endpoint: binding.endpoint,
-    inputHash: "h",
-    contextBasisHash: "h",
-    body: packed.body as Record<string, unknown>,
-    usageRevision: binding.usageRevision,
-  }, new AbortController().signal);
+  const called = await binding.invoke(
+    {
+      callId: "mcl_wire",
+      turn: null,
+      session: null,
+      purpose: "judgment",
+      model: binding.call,
+      endpoint: binding.endpoint,
+      inputHash: "h",
+      contextBasisHash: "h",
+      body: packed.body as Record<string, unknown>,
+      usageRevision: binding.usageRevision,
+    },
+    new AbortController().signal,
+  );
   if (!called.ok) throw new Error(`invoke failed: ${called.error.message}`);
   return called.value;
 }

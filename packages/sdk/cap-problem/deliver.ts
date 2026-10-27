@@ -8,10 +8,12 @@ import type {
   ReportTransportError,
 } from "@lophn/protocol/problems/sdk-report";
 
-type Outcome = { ok: true; value: ReportAcceptance } | {
-  ok: false;
-  error: ReportTransportError;
-};
+type Outcome =
+  | { ok: true; value: ReportAcceptance }
+  | {
+      ok: false;
+      error: ReportTransportError;
+    };
 
 export function freezeDeep<T>(value: T): T {
   if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {

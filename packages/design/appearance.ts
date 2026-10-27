@@ -82,9 +82,15 @@ export function parseAppearance(input: unknown): Appearance | undefined {
   const text_size = oneOf(TEXT_SIZES, raw.text_size);
   const density = oneOf(DENSITIES, raw.density);
   if (
-    !theme || !accent || !background || !font || !code_font || !text_size ||
+    !theme ||
+    !accent ||
+    !background ||
+    !font ||
+    !code_font ||
+    !text_size ||
     !density
-  ) return undefined;
+  )
+    return undefined;
   const name = (value: unknown) =>
     typeof value === "string" && isFontName(value) ? value : "";
   return {
@@ -101,16 +107,18 @@ export function parseAppearance(input: unknown): Appearance | undefined {
 }
 
 function fontOverride(a: Appearance): TokenOverride {
-  const sans = a.font === "system"
-    ? fontStacks.sans.system
-    : a.font === "custom" && isFontName(a.font_custom)
-    ? fontStacks.sans.custom(a.font_custom)
-    : undefined;
-  const mono = a.code_font === "system"
-    ? fontStacks.mono.system
-    : a.code_font === "custom" && isFontName(a.code_font_custom)
-    ? fontStacks.mono.custom(a.code_font_custom)
-    : undefined;
+  const sans =
+    a.font === "system"
+      ? fontStacks.sans.system
+      : a.font === "custom" && isFontName(a.font_custom)
+        ? fontStacks.sans.custom(a.font_custom)
+        : undefined;
+  const mono =
+    a.code_font === "system"
+      ? fontStacks.mono.system
+      : a.code_font === "custom" && isFontName(a.code_font_custom)
+        ? fontStacks.mono.custom(a.code_font_custom)
+        : undefined;
   return {
     font: {
       ...(sans === undefined ? {} : { sans }),
@@ -140,22 +148,22 @@ export function appearanceCss(a: Appearance): string {
     for (const token of flatten(part)) merged.set(token.name, token);
   }
   const base = [...merged.values()].map((t) => `  ${t.name}: ${t.light};`);
-  const dark = [...merged.values()].filter((t) => t.dark !== undefined).map((
-    t,
-  ) => `  ${t.name}: ${t.dark};`);
+  const dark = [...merged.values()]
+    .filter((t) => t.dark !== undefined)
+    .map((t) => `  ${t.name}: ${t.dark};`);
   return [
     ...(base.length ? ["html:root {", ...base, "}"] : []),
     ...(dark.length
       ? [
-        'html[data-theme="dark"] {',
-        ...dark,
-        "}",
-        "@media (prefers-color-scheme: dark) {",
-        '  html:root:not([data-theme="light"]) {',
-        ...dark.map((line) => `  ${line}`),
-        "  }",
-        "}",
-      ]
+          'html[data-theme="dark"] {',
+          ...dark,
+          "}",
+          "@media (prefers-color-scheme: dark) {",
+          '  html:root:not([data-theme="light"]) {',
+          ...dark.map((line) => `  ${line}`),
+          "  }",
+          "}",
+        ]
       : []),
   ].join("\n");
 }

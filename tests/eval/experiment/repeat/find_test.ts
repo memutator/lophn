@@ -62,7 +62,10 @@ test("findRepeatGroups groups 3+ same tool and input per session, skips retried 
         ["e2", "call", "h6", ["not_executed", "denied"]],
         ["e3", "call", "h6", ["not_executed", "denied"]],
       ]),
-      session("s2", [["x1", "read", "h1", FAIL], ["x2", "read", "h1", FAIL]]),
+      session("s2", [
+        ["x1", "read", "h1", FAIL],
+        ["x2", "read", "h1", FAIL],
+      ]),
     ],
   } as unknown as TrialRecord;
 
@@ -74,12 +77,10 @@ test("findRepeatGroups groups 3+ same tool and input per session, skips retried 
       ["s1", "call", ["e1", "e2", "e3"]],
     ],
   );
-  assert.deepStrictEqual(groups[0].timeline.map((t) => t.call.id), [
-    "a1",
-    "a2",
-    "a3",
-    "a4",
-  ]);
+  assert.deepStrictEqual(
+    groups[0].timeline.map((t) => t.call.id),
+    ["a1", "a2", "a3", "a4"],
+  );
 
   const text = repeatKindInput(groups[0]);
   assert.deepStrictEqual(

@@ -40,9 +40,9 @@ export function withCodingMcp(plan: Plan, url: string): Result<Plan> {
         "-c",
         `mcp_servers.${name}.url=${JSON.stringify(url)}`,
         "-c",
-        `mcp_servers.${name}.bearer_token_env_var=${
-          JSON.stringify(CODING_TOKEN_ENV)
-        }`,
+        `mcp_servers.${name}.bearer_token_env_var=${JSON.stringify(
+          CODING_TOKEN_ENV,
+        )}`,
       ];
       next = {
         ...plan,
@@ -68,8 +68,10 @@ export function withCodingMcp(plan: Plan, url: string): Result<Plan> {
     }
   }
   const checked = codingLaunchPlanSchema.safeParse(next);
-  return checked.success ? ok(checked.data) : err({
-    code: "invalid_input",
-    message: "MCP를 더한 실행 계획이 올바르지 않다",
-  });
+  return checked.success
+    ? ok(checked.data)
+    : err({
+        code: "invalid_input",
+        message: "MCP를 더한 실행 계획이 올바르지 않다",
+      });
 }

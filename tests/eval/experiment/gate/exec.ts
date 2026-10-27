@@ -27,7 +27,8 @@ function outputOf(
         code: code ?? -1,
         stdout: Buffer.concat(stdout),
         stderr: Buffer.concat(stderr),
-      }));
+      }),
+    );
   });
 }
 

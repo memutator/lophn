@@ -5,14 +5,16 @@ import { ARTIFACT_SCHEME } from "./session.ts";
 export type ArtifactNavigation =
   | { allow: true }
   | {
-    allow: false;
-    /** 사용자가 누른 http/https link다. 입력이 fresh일 때만 renderer로 알린다. */
-    external?: true;
-  };
+      allow: false;
+      /** 사용자가 누른 http/https link다. 입력이 fresh일 때만 renderer로 알린다. */
+      external?: true;
+    };
 
-export function decideArtifactNavigation(
-  input: { url: string; isMainFrame: boolean; host: string },
-): ArtifactNavigation {
+export function decideArtifactNavigation(input: {
+  url: string;
+  isMainFrame: boolean;
+  host: string;
+}): ArtifactNavigation {
   let url: URL;
   try {
     url = new URL(input.url);
@@ -23,7 +25,8 @@ export function decideArtifactNavigation(
     return { allow: true };
   }
   if (
-    input.isMainFrame && (url.protocol === "http:" || url.protocol === "https:")
+    input.isMainFrame &&
+    (url.protocol === "http:" || url.protocol === "https:")
   ) {
     return { allow: false, external: true };
   }

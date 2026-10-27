@@ -69,14 +69,14 @@ export function TextFileView(props: DocumentViewProps) {
     const message = failureText(file.code);
     return (
       <FileStatus>
-        {message === null
-          ? (
-            <ErrorState
-              target={t("document.label.this-document")}
-              onRetry={() => setAttempt((value) => value + 1)}
-            />
-          )
-          : <p role="status">{message}</p>}
+        {message === null ? (
+          <ErrorState
+            target={t("document.label.this-document")}
+            onRetry={() => setAttempt((value) => value + 1)}
+          />
+        ) : (
+          <p role="status">{message}</p>
+        )}
       </FileStatus>
     );
   }
@@ -84,9 +84,9 @@ export function TextFileView(props: DocumentViewProps) {
     return (
       <FileStatus>
         <p role="status">{t("document.notice.too-large")}</p>
-        {file.text === null
-          ? null
-          : <ReadOnlyText text={file.text} label={fileNameOf(path)} />}
+        {file.text === null ? null : (
+          <ReadOnlyText text={file.text} label={fileNameOf(path)} />
+        )}
       </FileStatus>
     );
   }
@@ -97,22 +97,20 @@ export function TextFileView(props: DocumentViewProps) {
 
 const HEAD_OFFSET = 8;
 
-function ReadyTextFile(
-  {
-    path,
-    readingWidth,
-    outside = false,
-    line,
-    lineNonce,
-    onDelete,
-    initialInfo,
-    initialPosition,
-    onReadPosition,
-    now,
-    session,
-    initial,
-  }: DocumentViewProps & { session: SaveSession; initial: string },
-) {
+function ReadyTextFile({
+  path,
+  readingWidth,
+  outside = false,
+  line,
+  lineNonce,
+  onDelete,
+  initialInfo,
+  initialPosition,
+  onReadPosition,
+  now,
+  session,
+  initial,
+}: DocumentViewProps & { session: SaveSession; initial: string }) {
   const kind = fileKindOf(path) === "markdown" ? "markdown" : "text";
   const name = fileNameOf(path);
   const [text, setText] = useState(initial);
@@ -158,7 +156,7 @@ function ReadyTextFile(
   // 목차는 화면이 가진 본문에서 만든다. 편집 중에도 갱신하되 입력을 막지 않게 미룬다.
   const deferred = useDeferredValue(text);
   const sections = useMemo(
-    () => kind === "markdown" ? outlineOf(deferred) : null,
+    () => (kind === "markdown" ? outlineOf(deferred) : null),
     [deferred, kind],
   );
   const size = useMemo(
@@ -224,8 +222,8 @@ function ReadyTextFile(
     if (!scroller || !sections) return [];
     const base = scroller.getBoundingClientRect().top - scroller.scrollTop;
     if (editing) {
-      return sections.map((section) =>
-        (editorRef.current?.lineTop?.(section.line) ?? 0) - base
+      return sections.map(
+        (section) => (editorRef.current?.lineTop?.(section.line) ?? 0) - base,
       );
     }
     const headings = article?.querySelectorAll("h1, h2, h3, h4, h5, h6") ?? [];
@@ -246,7 +244,7 @@ function ReadyTextFile(
     }
     const section = sections[current] ?? sections[0];
     setCurrentKey((previous) =>
-      previous === section?.key ? previous : section?.key
+      previous === section?.key ? previous : section?.key,
     );
     const offset = scroller.scrollTop;
     if (!onPosition.current || (offset === 0 && restoreHold.current)) return;
@@ -259,8 +257,7 @@ function ReadyTextFile(
   const jump = (target: { key: string; line: number }) => {
     const scroller = scrollRef.current;
     const index =
-      sections?.findIndex((section) => section.key === target.key) ??
-        -1;
+      sections?.findIndex((section) => section.key === target.key) ?? -1;
     if (editing || !scroller || index < 0) {
       editorRef.current?.revealLine(target.line);
       return;
@@ -295,8 +292,8 @@ function ReadyTextFile(
     }
   };
 
-  const toasts: ReactNode = state === "conflict" && conflictShown
-    ? (
+  const toasts: ReactNode =
+    state === "conflict" && conflictShown ? (
       <ConflictToast
         comparing={comparing !== null}
         onCompare={() => void openCompare()}
@@ -304,17 +301,14 @@ function ReadyTextFile(
         onKeepMine={() => void session.keepMine()}
         onClose={() => setConflictShown(false)}
       />
-    )
-    : compareFailed
-    ? (
+    ) : compareFailed ? (
       <NoticeToast
         title={t("document.error.compare-failed")}
         onClose={() => setCompareFailed(false)}
       />
-    )
-    : reloaded
-    ? <ReloadedToast onClose={() => setReloaded(false)} />
-    : null;
+    ) : reloaded ? (
+      <ReloadedToast onClose={() => setReloaded(false)} />
+    ) : null;
 
   const onChange = (next: string) => {
     setText(next);

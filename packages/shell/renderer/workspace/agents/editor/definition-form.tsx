@@ -68,13 +68,15 @@ function Issues({ issues }: { issues: readonly AgentDefinitionIssue[] }) {
   ));
 }
 
-function Group(
-  { name, heading, children }: {
-    name: FieldName;
-    heading: string;
-    children: ReactNode;
-  },
-) {
+function Group({
+  name,
+  heading,
+  children,
+}: {
+  name: FieldName;
+  heading: string;
+  children: ReactNode;
+}) {
   return (
     <fieldset className={styles.group} data-field={name}>
       <legend className={styles.legend}>{heading}</legend>
@@ -86,7 +88,8 @@ function Group(
 const placeValue = (place: PlaceChoice) => `${place.kind}:${place.id}`;
 
 function instructionsHead(detail: AgentDetail, placeName: string): string {
-  const project = detail.instructions?.project ??
+  const project =
+    detail.instructions?.project ??
     (detail.place.kind === "project" ? placeName : null);
   return project === null
     ? t("agents.label.instructions-head-unknown")
@@ -109,9 +112,8 @@ function withField(
 function ownServers(definition: AgentDraft): McpRow[] {
   return (definition.mcp_servers ?? []).map((server) => ({
     name: server.name,
-    detail: server.transport === "stdio"
-      ? server.stdio.executable
-      : server.http.url,
+    detail:
+      server.transport === "stdio" ? server.stdio.executable : server.http.url,
     layer: "agent",
     on: server.enabled,
     status: null,
@@ -151,10 +153,8 @@ export function DefinitionForm(props: DefinitionFormProps) {
     props.issues.filter((issue) => fieldOf(issue) === name);
   const loose = props.issues.filter((issue) => fieldOf(issue) === null);
 
-  const set = (
-    key: Exclude<keyof AgentDraft, "body">,
-    value: unknown,
-  ) => onChange(withField(definition, key, value));
+  const set = (key: Exclude<keyof AgentDraft, "body">, value: unknown) =>
+    onChange(withField(definition, key, value));
 
   const picked = definition.skills ?? [];
   // Operator는 일할 domain을 고르고(비면 그릇의 전부), skill은 고른 domain의 것만 목록에 든다.
@@ -166,32 +166,34 @@ export function DefinitionForm(props: DefinitionFormProps) {
   const containerDomains = props.domains ?? [];
   const containerIds = containerDomains.map((one) => one.id);
   const chosenIds = (definition.domains ?? []).filter((id) =>
-    containerIds.includes(id)
+    containerIds.includes(id),
   );
-  const goneDomains = props.domains !== null &&
+  const goneDomains =
+    props.domains !== null &&
     (definition.domains ?? []).length > chosenIds.length;
   const activeIds = chosenIds.length === 0 ? containerIds : chosenIds;
   const visibleIn = (ids: readonly string[]) => (row: SkillRow) =>
     !grouped || row.domain === undefined || ids.includes(row.domain);
   const toggleDomain = (id: string, on: boolean) => {
     const next = containerIds.filter((one) =>
-      one === id ? on : chosenIds.includes(one)
+      one === id ? on : chosenIds.includes(one),
     );
-    const nowVisible = detail.skills.filter(visibleIn(
-      next.length === 0 ? containerIds : next,
-    )).map((row) => row.name);
+    const nowVisible = detail.skills
+      .filter(visibleIn(next.length === 0 ? containerIds : next))
+      .map((row) => row.name);
     const kept = picked.filter((name) => nowVisible.includes(name));
     setDropped(picked.filter((name) => !kept.includes(name)));
     onChange(withField(withField(definition, "domains", next), "skills", kept));
   };
 
   // 정의의 skills는 받을 이름이고 비면 보이는 skill을 모두 받는다. 화면은 받지 않는 줄을 꺼진 줄로 그린다.
-  const received = detail.skills.filter((row) =>
-    !row.builtIn && row.on && visibleIn(activeIds)(row)
-  ).map((row) => row.name);
-  const skillsOff = picked.length === 0
-    ? []
-    : received.filter((name) => !picked.includes(name));
+  const received = detail.skills
+    .filter((row) => !row.builtIn && row.on && visibleIn(activeIds)(row))
+    .map((row) => row.name);
+  const skillsOff =
+    picked.length === 0
+      ? []
+      : received.filter((name) => !picked.includes(name));
   const toggleSkill = (name: string, on: boolean) => {
     const base = picked.length === 0 ? received : picked;
     const next = on
@@ -199,9 +201,9 @@ export function DefinitionForm(props: DefinitionFormProps) {
       : base.filter((one) => one !== name);
     set("skills", received.every((one) => next.includes(one)) ? [] : next);
   };
-  const mcpOff = (definition.mcp_off ?? []).filter((entry) =>
-    entry.original_tool === undefined
-  ).map((entry) => entry.server_name);
+  const mcpOff = (definition.mcp_off ?? [])
+    .filter((entry) => entry.original_tool === undefined)
+    .map((entry) => entry.server_name);
   const own = ownServers(definition);
 
   // 위 층이 정한 값을 따를 때 보이는 따르기 선택지.
@@ -209,35 +211,34 @@ export function DefinitionForm(props: DefinitionFormProps) {
   const layer = inherited?.source === "project" ? "project" : "global";
   const modelName = (choice: NonNullable<typeof inherited>["value"]) =>
     choice.model_name;
-  const inheritLabel = inherited === null
-    ? t("project-workspace.label.agent-editor-model-unset")
-    : t("agents.label.model-inherit", {
-      layer,
-      model: modelName(inherited.value),
-    });
+  const inheritLabel =
+    inherited === null
+      ? t("project-workspace.label.agent-editor-model-unset")
+      : t("agents.label.model-inherit", {
+          layer,
+          model: modelName(inherited.value),
+        });
 
-  const placeText = detail.place.kind === "none"
-    ? t("agents.label.place-lophn")
-    : t(
-      detail.place.kind === "app"
-        ? "agents.label.place-named-app"
-        : "agents.label.place-named",
-      { name: detail.place.name },
-    );
+  const placeText =
+    detail.place.kind === "none"
+      ? t("agents.label.place-lophn")
+      : t(
+          detail.place.kind === "app"
+            ? "agents.label.place-named-app"
+            : "agents.label.place-named",
+          { name: detail.place.name },
+        );
   const fixedName = builtIn
-    ? (detail.role === "lophn"
+    ? detail.role === "lophn"
       ? t("agents.notice.name-fixed-lophn")
       : t("agents.notice.name-fixed-role", {
-        owner: detail.role === "app_engineer" ? "app" : "project",
-        role: detail.effective.name.value,
-      }))
+          owner: detail.role === "app_engineer" ? "app" : "project",
+          role: detail.effective.name.value,
+        })
     : null;
 
   return (
-    <form
-      className={styles.form}
-      onSubmit={(event) => event.preventDefault()}
-    >
+    <form className={styles.form} onSubmit={(event) => event.preventDefault()}>
       {builtIn ? null : (
         <>
           <ProfileField
@@ -251,68 +252,68 @@ export function DefinitionForm(props: DefinitionFormProps) {
         </>
       )}
 
-      {builtIn
-        ? (
-          <Group
-            name="name"
-            heading={t("project-workspace.label.agent-editor-name")}
-          >
-            <p className={styles.fixed} data-fixed-name="">
-              {detail.effective.name.value}
-            </p>
-            <p className={styles.note}>{fixedName}</p>
-          </Group>
-        )
-        : (
-          <div data-field="name">
-            <Field label={t("project-workspace.label.agent-editor-name")}>
-              <Input
-                value={definition.name ?? ""}
-                aria-invalid={issuesOf("name").length > 0 || undefined}
-                onChange={(event) => set("name", event.currentTarget.value)}
-              />
-            </Field>
-            <Issues issues={issuesOf("name")} />
-          </div>
-        )}
-
-      {fresh
-        ? (
-          <Field
-            label={t("agents.label.place")}
-            help={t("agents.notice.place-help")}
-          >
-            <Select
-              options={detail.places.map((place) => ({
-                value: placeValue(place),
-                label: t("agents.label.place-choice", {
-                  name: place.name,
-                  kind: place.kind,
-                }),
-              }))}
-              value={props.place}
-              onValueChange={props.onPlace}
+      {builtIn ? (
+        <Group
+          name="name"
+          heading={t("project-workspace.label.agent-editor-name")}
+        >
+          <p className={styles.fixed} data-fixed-name="">
+            {detail.effective.name.value}
+          </p>
+          <p className={styles.note}>{fixedName}</p>
+        </Group>
+      ) : (
+        <div data-field="name">
+          <Field label={t("project-workspace.label.agent-editor-name")}>
+            <Input
+              value={definition.name ?? ""}
+              aria-invalid={issuesOf("name").length > 0 || undefined}
+              onChange={(event) => set("name", event.currentTarget.value)}
             />
           </Field>
-        )
-        : (
-          <Group name="place" heading={t("agents.label.place")}>
-            <p className={styles.fixed}>{placeText}</p>
-          </Group>
-        )}
+          <Issues issues={issuesOf("name")} />
+        </div>
+      )}
+
+      {fresh ? (
+        <Field
+          label={t("agents.label.place")}
+          help={t("agents.notice.place-help")}
+        >
+          <Select
+            options={detail.places.map((place) => ({
+              value: placeValue(place),
+              label: t("agents.label.place-choice", {
+                name: place.name,
+                kind: place.kind,
+              }),
+            }))}
+            value={props.place}
+            onValueChange={props.onPlace}
+          />
+        </Field>
+      ) : (
+        <Group name="place" heading={t("agents.label.place")}>
+          <p className={styles.fixed}>{placeText}</p>
+        </Group>
+      )}
 
       <InstructionsBlock
         project={detail.instructions}
         head={instructionsHead(detail, props.placeName)}
-        note={detail.role === "lophn"
-          ? t("agents.notice.lophn-no-project")
-          : detail.place.kind === "app"
-          ? t("agents.notice.app-no-project")
-          : undefined}
+        note={
+          detail.role === "lophn"
+            ? t("agents.notice.lophn-no-project")
+            : detail.place.kind === "app"
+              ? t("agents.notice.app-no-project")
+              : undefined
+        }
         value={definition.body}
-        help={detail.instructions === null
-          ? t("agents.notice.instructions-help-lophn")
-          : t("agents.notice.instructions-help")}
+        help={
+          detail.instructions === null
+            ? t("agents.notice.instructions-help-lophn")
+            : t("agents.notice.instructions-help")
+        }
         issues={<Issues issues={issuesOf("instructions")} />}
         onChange={(body) => onChange({ ...definition, body })}
         onEditProject={props.onEditProjectInstructions}
@@ -326,96 +327,95 @@ export function DefinitionForm(props: DefinitionFormProps) {
           inheritLabel={inheritLabel}
           inherited={inherited?.value ?? null}
           value={definition.model ?? null}
-          layer={definition.model === undefined
-            ? inherited?.source ?? null
-            : "agent"}
+          layer={
+            definition.model === undefined
+              ? (inherited?.source ?? null)
+              : "agent"
+          }
           overrideNote={t("agents.label.model-overrides", { layer })}
           onChange={(choice) => set("model", choice ?? undefined)}
         />
         <Issues issues={issuesOf("model")} />
       </div>
 
-      {grouped && containerDomains.length > 0
-        ? (
-          <Group name="domains" heading={t("domain.heading.list")}>
-            <div className={styles.checks}>
-              {containerDomains.map((one) => (
-                <Checkbox
-                  key={one.id}
-                  size="sm"
-                  label={one.title}
-                  checked={chosenIds.includes(one.id)}
-                  onCheckedChange={(on) => toggleDomain(one.id, on)}
-                />
-              ))}
-            </div>
-            <p className={styles.note}>
-              {chosenIds.length > 0 ? t("domain.notice.only-chosen") : t(
-                placeIsApp
-                  ? "domain.notice.all-of-app"
-                  : "domain.notice.all-of-project",
-              )}
-            </p>
-            {goneDomains
-              ? <p className={styles.note}>{t("agents.notice.domains-gone")}</p>
-              : null}
-            <Issues issues={issuesOf("domains")} />
-          </Group>
-        )
-        : null}
+      {grouped && containerDomains.length > 0 ? (
+        <Group name="domains" heading={t("domain.heading.list")}>
+          <div className={styles.checks}>
+            {containerDomains.map((one) => (
+              <Checkbox
+                key={one.id}
+                size="sm"
+                label={one.title}
+                checked={chosenIds.includes(one.id)}
+                onCheckedChange={(on) => toggleDomain(one.id, on)}
+              />
+            ))}
+          </div>
+          <p className={styles.note}>
+            {chosenIds.length > 0
+              ? t("domain.notice.only-chosen")
+              : t(
+                  placeIsApp
+                    ? "domain.notice.all-of-app"
+                    : "domain.notice.all-of-project",
+                )}
+          </p>
+          {goneDomains ? (
+            <p className={styles.note}>{t("agents.notice.domains-gone")}</p>
+          ) : null}
+          <Issues issues={issuesOf("domains")} />
+        </Group>
+      ) : null}
 
       <Group
         name="skills"
         heading={t("project-workspace.heading.agent-editor-skills")}
       >
-        {grouped
-          ? (
-            <>
-              <SkillList
-                items={detail.skills.filter((row) => row.domain === undefined)}
-                offNames={skillsOff}
-                lockOff
-                onToggle={toggleSkill}
-              />
-              {containerDomains.filter((one) => activeIds.includes(one.id))
-                .map((one) => {
-                  const rows = detail.skills.filter((row) =>
-                    row.domain === one.id
-                  );
-                  return rows.length === 0 ? null : (
-                    <div
-                      key={one.id}
-                      className={styles.skillGroup}
-                      data-skill-domain={one.name}
-                    >
-                      <h3 className={styles.skillGroupTitle}>{one.title}</h3>
-                      <SkillList
-                        items={rows}
-                        offNames={skillsOff}
-                        lockOff
-                        onToggle={toggleSkill}
-                      />
-                    </div>
-                  );
-                })}
-            </>
-          )
-          : (
+        {grouped ? (
+          <>
             <SkillList
-              items={detail.skills}
+              items={detail.skills.filter((row) => row.domain === undefined)}
               offNames={skillsOff}
               lockOff
               onToggle={toggleSkill}
             />
-          )}
+            {containerDomains
+              .filter((one) => activeIds.includes(one.id))
+              .map((one) => {
+                const rows = detail.skills.filter(
+                  (row) => row.domain === one.id,
+                );
+                return rows.length === 0 ? null : (
+                  <div
+                    key={one.id}
+                    className={styles.skillGroup}
+                    data-skill-domain={one.name}
+                  >
+                    <h3 className={styles.skillGroupTitle}>{one.title}</h3>
+                    <SkillList
+                      items={rows}
+                      offNames={skillsOff}
+                      lockOff
+                      onToggle={toggleSkill}
+                    />
+                  </div>
+                );
+              })}
+          </>
+        ) : (
+          <SkillList
+            items={detail.skills}
+            offNames={skillsOff}
+            lockOff
+            onToggle={toggleSkill}
+          />
+        )}
         <p className={styles.note}>{t("agents.notice.skills-agent-only")}</p>
-        {dropped.length > 0
-          ? (
-            <p className={styles.note} data-skills-dropped="">
-              {t("agents.notice.skills-dropped", { names: dropped.join(", ") })}
-            </p>
-          )
-          : null}
+        {dropped.length > 0 ? (
+          <p className={styles.note} data-skills-dropped="">
+            {t("agents.notice.skills-dropped", { names: dropped.join(", ") })}
+          </p>
+        ) : null}
         <Issues issues={issuesOf("skills")} />
       </Group>
 
@@ -432,57 +432,57 @@ export function DefinitionForm(props: DefinitionFormProps) {
               set(
                 "mcp_servers",
                 (definition.mcp_servers ?? []).map((server) =>
-                  server.name === name ? { ...server, enabled: on } : server
+                  server.name === name ? { ...server, enabled: on } : server,
                 ),
               );
               return;
             }
-            const rest = (definition.mcp_off ?? []).filter((entry) =>
-              !(entry.server_name === name && entry.original_tool === undefined)
+            const rest = (definition.mcp_off ?? []).filter(
+              (entry) =>
+                !(
+                  entry.server_name === name &&
+                  entry.original_tool === undefined
+                ),
             );
             set("mcp_off", on ? rest : [...rest, { server_name: name }]);
           }}
         />
-        {builtIn || operatorId === null ? null : addServer
-          ? (
-            <ServerForm
-              scope={operatorId}
-              taken={[...detail.mcpServers, ...own].map((row) => row.name)}
-              onCancel={() => setAddServer(false)}
-              onAdd={(server: McpServer) => {
-                set("mcp_servers", [...(definition.mcp_servers ?? []), server]);
-                setAddServer(false);
-              }}
-            />
-          )
-          : (
-            <div className={styles.rightEnd}>
-              <Button
-                size="sm"
-                icon={commonIcons.add}
-                onClick={() => setAddServer(true)}
-              >
-                {t("settings.button.add-server")}
-              </Button>
-            </div>
-          )}
+        {builtIn || operatorId === null ? null : addServer ? (
+          <ServerForm
+            scope={operatorId}
+            taken={[...detail.mcpServers, ...own].map((row) => row.name)}
+            onCancel={() => setAddServer(false)}
+            onAdd={(server: McpServer) => {
+              set("mcp_servers", [...(definition.mcp_servers ?? []), server]);
+              setAddServer(false);
+            }}
+          />
+        ) : (
+          <div className={styles.rightEnd}>
+            <Button
+              size="sm"
+              icon={commonIcons.add}
+              onClick={() => setAddServer(true)}
+            >
+              {t("settings.button.add-server")}
+            </Button>
+          </div>
+        )}
         <Issues issues={issuesOf("mcp")} />
       </Group>
 
-      {detail.kind === "operator"
-        ? (
-          <Group name="skip" heading={t("agents.heading.skip")}>
-            <Checkbox
-              size="sm"
-              label={t("agents.label.skip-start")}
-              checked={definition.skip === true}
-              onCheckedChange={(on) => set("skip", on ? true : undefined)}
-            />
-            <p className={styles.note}>{t("agents.notice.skip-help")}</p>
-            <Issues issues={issuesOf("skip")} />
-          </Group>
-        )
-        : null}
+      {detail.kind === "operator" ? (
+        <Group name="skip" heading={t("agents.heading.skip")}>
+          <Checkbox
+            size="sm"
+            label={t("agents.label.skip-start")}
+            checked={definition.skip === true}
+            onCheckedChange={(on) => set("skip", on ? true : undefined)}
+          />
+          <p className={styles.note}>{t("agents.notice.skip-help")}</p>
+          <Issues issues={issuesOf("skip")} />
+        </Group>
+      ) : null}
 
       <Issues issues={loose} />
     </form>

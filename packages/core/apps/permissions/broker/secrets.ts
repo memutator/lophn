@@ -85,8 +85,8 @@ export function secretAllowed(
   if (destination.kind === "loopback_http" && !isLoopbackHost(urlHost(url))) {
     return false;
   }
-  const granted = scope.access.some((entry) =>
-    entry.kind === "secret.use" && entry.scope.name === name
+  const granted = scope.access.some(
+    (entry) => entry.kind === "secret.use" && entry.scope.name === name,
   );
   if (!granted) return false;
   return destinationAllowed(
@@ -122,7 +122,8 @@ export function createSecretUseService(deps: SecretUseDeps): SecretUseService {
       if (!access.ok) return access;
       const state = access.value;
       if (
-        state === null || !state.tools.includes(input.command) ||
+        state === null ||
+        !state.tools.includes(input.command) ||
         !secretGranted(state, input.name)
       ) {
         return refuse("secret.use", { name: input.name });

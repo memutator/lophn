@@ -8,9 +8,10 @@ import { appStatusOf } from "../../../apps/lookups.ts";
 const ports = [
   defineTxPort(ownerLookupPort, (tx) => ({
     get(owner) {
-      const status = owner.kind === "project"
-        ? projectStatusOf(tx.sql, owner.id)
-        : appStatusOf(tx.sql, owner.id);
+      const status =
+        owner.kind === "project"
+          ? projectStatusOf(tx.sql, owner.id)
+          : appStatusOf(tx.sql, owner.id);
       return status === null ? null : { status };
     },
   })),

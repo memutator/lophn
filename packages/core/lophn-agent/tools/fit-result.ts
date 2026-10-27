@@ -24,9 +24,12 @@ export function fitted(
 export function readBody<T extends { next_cursor?: string | null }>(
   value: T,
 ): { body: Omit<T, "as_of_seq" | "next_cursor" | "omitted">; more: boolean } {
-  const { as_of_seq: _seq, next_cursor, omitted: _omitted, ...body } = value as
-    & T
-    & { as_of_seq?: unknown; omitted?: unknown };
+  const {
+    as_of_seq: _seq,
+    next_cursor,
+    omitted: _omitted,
+    ...body
+  } = value as T & { as_of_seq?: unknown; omitted?: unknown };
   return {
     body: body as Omit<T, "as_of_seq" | "next_cursor" | "omitted">,
     more: (next_cursor ?? null) !== null,

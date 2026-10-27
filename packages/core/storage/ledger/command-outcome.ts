@@ -18,8 +18,12 @@ import {
 import { validateOutput } from "./output.ts";
 
 function isThenable(value: unknown): boolean {
-  return typeof value === "object" && value !== null && "then" in value &&
-    typeof (value as { then?: unknown }).then === "function";
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "then" in value &&
+    typeof (value as { then?: unknown }).then === "function"
+  );
 }
 
 const ACTOR_KINDS = [
@@ -69,7 +73,8 @@ export function loadStored(
   const first = row["first_seq"];
   const last = row["last_seq"];
   if (
-    typeof digest !== "string" || typeof result !== "string" ||
+    typeof digest !== "string" ||
+    typeof result !== "string" ||
     (first !== null && typeof first !== "bigint") ||
     (last !== null && typeof last !== "bigint")
   ) {
@@ -106,7 +111,9 @@ export function replay(row: StoredRow): Result<{
 // compare는 객체여야 한다. 기준 없는 생성은 빈 객체다. 각 기준은 handler가 현재 행과 비교한다.
 export function casAgrees(compare: unknown): Result<void> {
   if (
-    compare === null || typeof compare !== "object" || Array.isArray(compare)
+    compare === null ||
+    typeof compare !== "object" ||
+    Array.isArray(compare)
   ) {
     return err({ code: "invalid_input", message: "compare가 객체가 아니다" });
   }
@@ -122,9 +129,7 @@ export function headSeq(sql: Sql): Result<bigint> {
 }
 
 // scope.targets에 있는 고정 조건만 넘긴다. 도메인 대상은 owner handler가 본다.
-export function authorityTarget(
-  ctx: AuthenticatedContext,
-): CredentialTarget {
+export function authorityTarget(ctx: AuthenticatedContext): CredentialTarget {
   const target: CredentialTarget = {};
   for (const key of CONDITION_TARGET_KEYS) {
     const value = ctx.conditions[key];
@@ -151,7 +156,10 @@ export function handlerResult(
   if (isThenable(handled)) {
     // 붙잡힌 continuation의 거절도 관측만 하고 결과로 쓰지 않는다.
     try {
-      void (handled as Promise<unknown>).then(() => undefined, () => undefined);
+      void (handled as Promise<unknown>).then(
+        () => undefined,
+        () => undefined,
+      );
     } catch {
       // then 자체가 던져도 결과는 internal이다.
     }

@@ -16,7 +16,10 @@ const AGENT = "agent:ses_01hzzzzzzzzzzzzzzzzzzzzzza";
 test("Project Manager 자격은 다른 앱의 tool 목록을 읽지만 다른 앱의 log·호출 기록은 여전히 not_found다", () => {
   const db = new DatabaseSync(":memory:");
   for (const step of appsSchemaSteps) db.exec(step.sql);
-  for (const [id, slug] of [[APP_A, "a"], [APP_B, "b"]]) {
+  for (const [id, slug] of [
+    [APP_A, "a"],
+    [APP_B, "b"],
+  ]) {
     db.prepare(
       `INSERT INTO apps (id, slug, name, description, run_enabled, revision, status)
        VALUES (?, ?, ?, 'does things', 0, '1', 'active')`,
@@ -34,17 +37,19 @@ test("Project Manager 자격은 다른 앱의 tool 목록을 읽지만 다른 �
       declaration: {
         name: `app ${app}`,
         description: "does things",
-        tools: [{
-          name: "add",
-          title: "Add",
-          description: "adds",
-          effect: "write",
-          public: false,
-          domain: "notes",
-          inputSchema: { type: "object" },
-        }],
+        tools: [
+          {
+            name: "add",
+            title: "Add",
+            description: "adds",
+            effect: "write",
+            public: false,
+            domain: "notes",
+            inputSchema: { type: "object" },
+          },
+        ],
       },
-    } as never)
+    } as never),
   );
   const ctx: RequestContext = {
     principal: AGENT,

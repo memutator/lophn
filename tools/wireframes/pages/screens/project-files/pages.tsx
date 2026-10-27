@@ -123,13 +123,15 @@ function PathPalette({ typed }: { typed: string }) {
       open
       onOpenChange={() => {}}
       title="Open"
-      items={[{
-        id: `path:${typed}`,
-        group: "Open",
-        label: typed,
-        detail: "Outside project",
-        icon: workspaceIcons.document,
-      }]}
+      items={[
+        {
+          id: `path:${typed}`,
+          group: "Open",
+          label: typed,
+          detail: "Outside project",
+          icon: workspaceIcons.document,
+        },
+      ]}
       onSelect={() => {}}
     />
   );
@@ -168,9 +170,7 @@ export function InstructionsFile() {
   });
 }
 
-function findTab(
-  find: NonNullable<TabSpec["find"]>,
-): TabSpec {
+function findTab(find: NonNullable<TabSpec["find"]>): TabSpec {
   return { ...FILES_TAB, find };
 }
 

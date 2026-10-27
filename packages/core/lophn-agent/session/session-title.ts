@@ -39,9 +39,10 @@ function firstGraphemes(text: string, max: number): string {
 // 글 끝의 첨부 줄은 제목에 넣지 않고, 첨부만 보낸 말은 첫 파일 이름이 제목이다.
 function autoSessionTitle(text: string): string | null {
   const split = splitAttachmentText(text);
-  const body = split.text.trim() === "" && split.files.length > 0
-    ? split.files[0]!.slice(split.files[0]!.lastIndexOf("/") + 1)
-    : split.text;
+  const body =
+    split.text.trim() === "" && split.files.length > 0
+      ? split.files[0]!.slice(split.files[0]!.lastIndexOf("/") + 1)
+      : split.text;
   const flat = body.replace(LINE_BREAK_RUN, " ").trim();
   const title = firstGraphemes(flat, SESSION_AUTO_TITLE_MAX).trimEnd();
   return title === "" ? null : title;
@@ -72,7 +73,8 @@ export function titleOnReceive(input: {
   text: string;
 }): string | null {
   if (
-    input.title !== null || input.delivery !== "next_turn" ||
+    input.title !== null ||
+    input.delivery !== "next_turn" ||
     !input.first_request
   ) {
     return input.title;

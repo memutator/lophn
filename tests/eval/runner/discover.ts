@@ -12,7 +12,7 @@ async function findFiles(dir: string): Promise<string[]> {
   try {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
       const path = `${dir}/${entry.name}`;
-      if (entry.isDirectory()) found.push(...await findFiles(path));
+      if (entry.isDirectory()) found.push(...(await findFiles(path)));
       else if (entry.isFile() && entry.name.endsWith(".scenario.ts")) {
         found.push(path);
       }

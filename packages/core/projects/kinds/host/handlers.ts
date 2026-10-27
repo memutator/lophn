@@ -26,9 +26,7 @@ type HandlerDeps = {
 
 const ROUTES = { get: kindGet, list: kindList, check: kindCheck } as const;
 
-export function kindHandlers(
-  deps: HandlerDeps,
-): Map<string, MemoryHandler> {
+export function kindHandlers(deps: HandlerDeps): Map<string, MemoryHandler> {
   const handlers = new Map<string, MemoryHandler>();
   for (const op of Object.keys(ROUTES) as KindsAsk[]) {
     const route = ROUTES[op];
@@ -59,9 +57,10 @@ export function kindHandlers(
         const input = parsed.data as { domain: string; query?: unknown };
         if (kind === "agent") {
           const owner = deps.ownerOf(input.domain);
-          const mine = owner?.kind === "project"
-            ? ctx.conditions.project === owner.id
-            : owner?.kind === "app" && ctx.conditions.app === owner.id;
+          const mine =
+            owner?.kind === "project"
+              ? ctx.conditions.project === owner.id
+              : owner?.kind === "app" && ctx.conditions.app === owner.id;
           if (!mine) {
             return err({ code: "not_found", message: "domain not found" });
           }

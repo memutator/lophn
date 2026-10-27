@@ -17,9 +17,12 @@ export function issuerUrlAllowed(value: string): boolean {
   }
   if (url.username || url.password) return false;
   if (url.protocol === "https:") return true;
-  return url.protocol === "http:" &&
-    (url.hostname === "127.0.0.1" || url.hostname === "[::1]" ||
-      url.hostname === "localhost");
+  return (
+    url.protocol === "http:" &&
+    (url.hostname === "127.0.0.1" ||
+      url.hostname === "[::1]" ||
+      url.hostname === "localhost")
+  );
 }
 
 const issuerRequestSchema = z.strictObject({

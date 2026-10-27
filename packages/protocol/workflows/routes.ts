@@ -128,11 +128,13 @@ export const workflowInstanceRead = defineRead({
     ...instanceRef,
     cursor: readCursorSchema.optional(),
   }),
-  output: withReadCommon(z.object({
-    instance: workflowInstanceSchema,
-    last_reports: z.record(stepNameSchema, reportLineSchema),
-    lines: z.array(workflowLineSchema),
-  })),
+  output: withReadCommon(
+    z.object({
+      instance: workflowInstanceSchema,
+      last_reports: z.record(stepNameSchema, reportLineSchema),
+      lines: z.array(workflowLineSchema),
+    }),
+  ),
   actors: ["user", "agent", "machine"],
   errors: [...readErrors],
 });
@@ -148,9 +150,11 @@ export const workflowInstanceList = defineRead({
     state: workflowStateSchema.optional(),
     cursor: readCursorSchema.optional(),
   }),
-  output: withReadCommon(z.object({
-    instances: z.array(workflowInstanceSummarySchema),
-  })),
+  output: withReadCommon(
+    z.object({
+      instances: z.array(workflowInstanceSummarySchema),
+    }),
+  ),
   actors: ["user", "agent"],
   errors: [...readErrors],
 });

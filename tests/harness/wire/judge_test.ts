@@ -169,8 +169,8 @@ test("잘린 응답과 틀린 tool 인자는 실행 대상이 아니고 오류�
         true,
       );
       assert.deepStrictEqual(
-        Object.keys(request.headers).filter((name) =>
-          name === "authorization" || name === "x-api-key"
+        Object.keys(request.headers).filter(
+          (name) => name === "authorization" || name === "x-api-key",
         ),
         [],
       );

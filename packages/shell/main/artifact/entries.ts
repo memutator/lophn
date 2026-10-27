@@ -21,7 +21,7 @@ export async function listDataEntries(
   const entries: { name: string; size: number; modified: string }[] = [];
   try {
     // data/ 자체가 밖으로 가는 symlink면 비운다.
-    if (await fs.realpath(dir) === dir) {
+    if ((await fs.realpath(dir)) === dir) {
       for (const name of (await fs.readdir(dir)).sort()) {
         if (name === "_entries.json") continue;
         const stat = await fs.lstat(join(dir, name));

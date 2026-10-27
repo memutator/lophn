@@ -50,10 +50,13 @@ export function isCustomDefinition(
   catalog: readonly CatalogEntry[],
   definition: string,
 ) {
-  return catalog.length > 0 &&
-    !catalog.some((entry) =>
-      entry.source !== "user" && entry.provider_definition === definition
-    );
+  return (
+    catalog.length > 0 &&
+    !catalog.some(
+      (entry) =>
+        entry.source !== "user" && entry.provider_definition === definition,
+    )
+  );
 }
 
 /** core의 provider 한 줄을 화면이 쓰는 ProviderChoice로 옮긴다. */
@@ -80,27 +83,32 @@ export function entryOf(models: ModelsView, model: PickerModelRef) {
   const provider = models.providers.find((item) => item.id === model.provider);
   return provider === undefined
     ? undefined
-    : models.catalog.find((entry) =>
-      entry.provider_definition === provider.definition &&
-      entry.model_name === model.modelName
-    );
+    : models.catalog.find(
+        (entry) =>
+          entry.provider_definition === provider.definition &&
+          entry.model_name === model.modelName,
+      );
 }
 
 /** "Sonnet 5.5 · Medium": model 이름 뒤에 값이 있는 축의 표시 이름을 catalog가 준 순서대로 잇는다. */
 export function modelLabelOf(models: ModelsView | null): ModelLabel {
   return (choice) => {
-    const entry = models === null ? undefined : entryOf(models, {
-      provider: choice.provider,
-      modelName: choice.model_name,
-    });
-    const values = entry === undefined ? [] : optionAxesOf(entry).flatMap(
-      (axis) => {
-        const chosen = axis.values.find((item) =>
-          item.value === choice.option_values[axis.id]
-        );
-        return chosen === undefined ? [] : [chosen.label];
-      },
-    );
+    const entry =
+      models === null
+        ? undefined
+        : entryOf(models, {
+            provider: choice.provider,
+            modelName: choice.model_name,
+          });
+    const values =
+      entry === undefined
+        ? []
+        : optionAxesOf(entry).flatMap((axis) => {
+            const chosen = axis.values.find(
+              (item) => item.value === choice.option_values[axis.id],
+            );
+            return chosen === undefined ? [] : [chosen.label];
+          });
     return [choice.model_name, ...values].join(" · ");
   };
 }
@@ -128,30 +136,34 @@ function axesOf(
     provider: current.provider,
     modelName: current.model_name,
   });
-  return entry === undefined ? [] : optionAxesOf(entry).map((axis) => ({
-    id: axis.id,
-    label: axis.label,
-    values: axis.values,
-  }));
+  return entry === undefined
+    ? []
+    : optionAxesOf(entry).map((axis) => ({
+        id: axis.id,
+        label: axis.label,
+        values: axis.values,
+      }));
 }
 
 export function pickerProps(binding: PickerBinding): ModelPickerProps {
   const { models, state, current } = binding;
   const providers = models?.providers ?? [];
-  const available = models === null
-    ? []
-    : providers.flatMap((provider) =>
-      modelsOf(models, provider).map((entry) => ({
-        provider: provider.id,
-        model_name: entry.model_name,
-      }))
-    );
+  const available =
+    models === null
+      ? []
+      : providers.flatMap((provider) =>
+          modelsOf(models, provider).map((entry) => ({
+            provider: provider.id,
+            model_name: entry.model_name,
+          })),
+        );
   const layout = orderPicker({
     hidden: models?.hidden ?? [],
     models: available,
-    current: current === null
-      ? null
-      : { provider: current.provider, model_name: current.model_name },
+    current:
+      current === null
+        ? null
+        : { provider: current.provider, model_name: current.model_name },
     query: state.query,
   });
   const nameOf = (id: string) =>
@@ -162,20 +174,23 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
     return {
       provider: model.provider,
       model_name: model.modelName,
-      option_values: entry === undefined
-        ? {}
-        : fitOptionValues(entry, current?.option_values ?? {}).option_values,
+      option_values:
+        entry === undefined
+          ? {}
+          : fitOptionValues(entry, current?.option_values ?? {}).option_values,
     };
   };
   return {
     open: state.open,
     onOpenChange: (open) => binding.setState({ ...state, open }),
-    current: current === null
-      ? NONE
-      : { provider: current.provider, modelName: current.model_name },
-    currentLabel: current === null
-      ? t("project-workspace.label.agent-no-model")
-      : label(current),
+    current:
+      current === null
+        ? NONE
+        : { provider: current.provider, modelName: current.model_name },
+    currentLabel:
+      current === null
+        ? t("project-workspace.label.agent-no-model")
+        : label(current),
     axes: axesOf(models, current),
     optionValues: current?.option_values ?? {},
     query: state.query,
@@ -213,28 +228,31 @@ export function manageProviders(
 ): ManageProviderView[] {
   const hidden = new Set(
     models.hidden.map((item) =>
-      JSON.stringify([item.provider, item.model_name])
+      JSON.stringify([item.provider, item.model_name]),
     ),
   );
-  const views = models.providers.map((provider): ManageProviderView => ({
-    id: provider.id,
-    name: provider.name,
-    models: modelsOf(models, provider).map((selectable) => ({
-      modelName: selectable.model_name,
-      hidden: hidden.has(
-        JSON.stringify([provider.id, selectable.model_name]),
-      ),
-      inputMedia: selectable.entry?.input_media ?? null,
-      contextLimit: selectable.entry?.context_limit ?? null,
-      info:
-        user.items.find((item) =>
-          item.provider_definition === provider.definition &&
-          item.model_name === selectable.model_name
-        )?.info ?? null,
-    })),
-    refreshable: provider.refreshable,
-    editable: provider.refreshable,
-  }));
+  const views = models.providers.map(
+    (provider): ManageProviderView => ({
+      id: provider.id,
+      name: provider.name,
+      models: modelsOf(models, provider).map((selectable) => ({
+        modelName: selectable.model_name,
+        hidden: hidden.has(
+          JSON.stringify([provider.id, selectable.model_name]),
+        ),
+        inputMedia: selectable.entry?.input_media ?? null,
+        contextLimit: selectable.entry?.context_limit ?? null,
+        info:
+          user.items.find(
+            (item) =>
+              item.provider_definition === provider.definition &&
+              item.model_name === selectable.model_name,
+          )?.info ?? null,
+      })),
+      refreshable: provider.refreshable,
+      editable: provider.refreshable,
+    }),
+  );
   return [
     ...views.filter((view) => view.id === first),
     ...views.filter((view) => view.id !== first),

@@ -34,26 +34,23 @@ export interface JobLineProps {
   onOpenProject: (project: string) => void;
 }
 
-export function JobLine(
-  {
-    job,
-    names,
-    history,
-    onToggle,
-    onEnabled,
-    onEdit,
-    onDelete,
-    onOpenSession,
-    onOpenProject,
-  }: JobLineProps,
-) {
+export function JobLine({
+  job,
+  names,
+  history,
+  onToggle,
+  onEnabled,
+  onEdit,
+  onDelete,
+  onOpenSession,
+  onOpenProject,
+}: JobLineProps) {
   const now = new Date();
   const action = actionText(job.action, names);
   const last = job.last_run;
   const open = history !== undefined;
-  const project = job.action.kind === "workflow_start"
-    ? job.action.project
-    : null;
+  const project =
+    job.action.kind === "workflow_start" ? job.action.project : null;
   return (
     <li className={styles.job} data-job={job.id} data-enabled={job.enabled}>
       <div className={styles.head}>
@@ -70,27 +67,29 @@ export function JobLine(
             {creatorText(job.creator, names)} · {missedText(job.missed_policy)}
           </span>
           <span className={styles.last}>
-            {last === null
-              ? <span className={styles.meta}>{t("jobs.label.not-yet")}</span>
-              : (
-                <>
-                  <StatusMark
-                    tone={STATE[last.state].tone}
-                    label={t(STATE[last.state].label)}
-                  />
-                  <span className={styles.meta}>
-                    {whenText(last.started_at ?? last.due_at, now)}
-                  </span>
-                </>
-              )}
+            {last === null ? (
+              <span className={styles.meta}>{t("jobs.label.not-yet")}</span>
+            ) : (
+              <>
+                <StatusMark
+                  tone={STATE[last.state].tone}
+                  label={t(STATE[last.state].label)}
+                />
+                <span className={styles.meta}>
+                  {whenText(last.started_at ?? last.due_at, now)}
+                </span>
+              </>
+            )}
           </span>
         </div>
         <div className={styles.controls}>
           <div className={styles.switchSlot}>
             <Switch
-              label={job.enabled
-                ? t("settings.label.value-on")
-                : t("settings.label.value-off")}
+              label={
+                job.enabled
+                  ? t("settings.label.value-on")
+                  : t("settings.label.value-off")
+              }
               checked={job.enabled}
               onCheckedChange={onEnabled}
             />
@@ -103,9 +102,11 @@ export function JobLine(
           </Button>
           <IconButton
             icon={open ? commonIcons.collapse : commonIcons.expand}
-            label={open
-              ? t("jobs.button.hide-history")
-              : t("jobs.button.show-history")}
+            label={
+              open
+                ? t("jobs.button.hide-history")
+                : t("jobs.button.show-history")
+            }
             size="sm"
             data-job-toggle=""
             aria-expanded={open}
@@ -113,55 +114,51 @@ export function JobLine(
           />
         </div>
       </div>
-      {history === undefined
-        ? null
-        : history === "loading"
-        ? <Skeleton lines={2} />
-        : history === "failed"
-        ? <p className={styles.noHistory}>{t("jobs.error.history")}</p>
-        : history.length === 0
-        ? <p className={styles.noHistory}>{t("jobs.note.no-history")}</p>
-        : (
-          <ul className={styles.history} aria-label={t("jobs.label.history")}>
-            {history.map((row) => (
-              <li
-                key={row.id}
-                className={styles.run}
-                data-job-run={row.id}
-                data-state={row.state}
-              >
-                <StatusMark
-                  tone={STATE[row.state].tone}
-                  label={t(STATE[row.state].label)}
-                />
-                <span className={styles.runText}>{runText(row)}</span>
-                <span className={styles.runWhen}>{runWhen(row, now)}</span>
-                <span className={styles.runAction}>
-                  {row.session === null ? null : (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => onOpenSession(row.session!)}
-                    >
-                      {t("waiting.button.open-session")}
-                    </Button>
-                  )}
-                  {row.instance !== null && project !== null
-                    ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => onOpenProject(project)}
-                      >
-                        {t("jobs.button.open-project")}
-                      </Button>
-                    )
-                    : null}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+      {history === undefined ? null : history === "loading" ? (
+        <Skeleton lines={2} />
+      ) : history === "failed" ? (
+        <p className={styles.noHistory}>{t("jobs.error.history")}</p>
+      ) : history.length === 0 ? (
+        <p className={styles.noHistory}>{t("jobs.note.no-history")}</p>
+      ) : (
+        <ul className={styles.history} aria-label={t("jobs.label.history")}>
+          {history.map((row) => (
+            <li
+              key={row.id}
+              className={styles.run}
+              data-job-run={row.id}
+              data-state={row.state}
+            >
+              <StatusMark
+                tone={STATE[row.state].tone}
+                label={t(STATE[row.state].label)}
+              />
+              <span className={styles.runText}>{runText(row)}</span>
+              <span className={styles.runWhen}>{runWhen(row, now)}</span>
+              <span className={styles.runAction}>
+                {row.session === null ? null : (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => onOpenSession(row.session!)}
+                  >
+                    {t("waiting.button.open-session")}
+                  </Button>
+                )}
+                {row.instance !== null && project !== null ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => onOpenProject(project)}
+                  >
+                    {t("jobs.button.open-project")}
+                  </Button>
+                ) : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </li>
   );
 }

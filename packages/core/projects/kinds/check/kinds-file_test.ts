@@ -9,13 +9,15 @@ const valid = `kinds:
     files: [notes/*.md]
     key: file
 `;
-const validKinds: Kind[] = [{
-  name: "note",
-  summary: "a note",
-  files: ["notes/*.md"],
-  key: "file",
-  fields: {},
-}];
+const validKinds: Kind[] = [
+  {
+    name: "note",
+    summary: "a note",
+    files: ["notes/*.md"],
+    key: "file",
+    fields: {},
+  },
+];
 const previous: AppliedKinds = { hash: "previous-hash", kinds: validKinds };
 
 const noFiles = () => [];

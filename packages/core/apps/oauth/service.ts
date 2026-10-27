@@ -48,9 +48,10 @@ export type AppOAuth = {
   // "apps/oauth_client_set" | "apps/oauth_begin" | "apps/oauth_cancel" | "apps/oauth_state"
   handlers: ReadonlyMap<string, MemoryHandler>;
   // secretValueHandler의 prepare hook. OAuth 선언이 아닌 이름이면 undefined다.
-  prepare(
-    input: { app: string; name: string },
-  ): Promise<Result<void> | undefined>;
+  prepare(input: {
+    app: string;
+    name: string;
+  }): Promise<Result<void> | undefined>;
   endAll(): Promise<void>;
 };
 
@@ -67,8 +68,9 @@ function refreshRejected(
   status: number,
   body: Record<string, unknown> | null,
 ): boolean {
-  return status === 400 || status === 401 ||
-    body?.["error"] === "invalid_grant";
+  return (
+    status === 400 || status === 401 || body?.["error"] === "invalid_grant"
+  );
 }
 
 export function createAppOAuth(deps: AppOAuthDeps): AppOAuth {

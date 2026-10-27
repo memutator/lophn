@@ -19,9 +19,14 @@ export interface OverlaySecuritySession {
 function overlayTarget(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "lophn-shell:" && parsed.host === "overlay" &&
-      parsed.pathname === "/index.html" && !parsed.username &&
-      !parsed.password && !parsed.search;
+    return (
+      parsed.protocol === "lophn-shell:" &&
+      parsed.host === "overlay" &&
+      parsed.pathname === "/index.html" &&
+      !parsed.username &&
+      !parsed.password &&
+      !parsed.search
+    );
   } catch {
     return false;
   }

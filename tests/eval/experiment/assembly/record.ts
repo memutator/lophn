@@ -26,6 +26,8 @@ export async function loadRecordedTrial(
   try {
     const { trial } = JSON.parse(text) as { trial?: TrialRecord };
     if (trial !== undefined) return ok(trial);
-  } catch { /* 아래 오류로 낸다 */ }
+  } catch {
+    /* 아래 오류로 낸다 */
+  }
   return err({ code: "invalid_input", message: `${path} has no trial` });
 }

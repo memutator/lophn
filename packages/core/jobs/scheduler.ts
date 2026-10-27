@@ -130,10 +130,12 @@ export function createJobScheduler(deps: JobSchedulerDeps): JobScheduler {
     for (const turn of claimed.value.start) await launch(turn);
     const due = claimed.value.next_due_at;
     sleep(
-      due === null ? MAX_SLEEP_MS : Math.min(
-        MAX_SLEEP_MS,
-        Math.max(MIN_SLEEP_MS, Date.parse(due) - clock.nowMs()),
-      ),
+      due === null
+        ? MAX_SLEEP_MS
+        : Math.min(
+            MAX_SLEEP_MS,
+            Math.max(MIN_SLEEP_MS, Date.parse(due) - clock.nowMs()),
+          ),
     );
   }
 

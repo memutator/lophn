@@ -20,7 +20,7 @@ const NODE_AGENT_FILES = new URL(
   "../../../lophn-agent/agents/adapters/node-fs.ts",
   import.meta.url,
 ).href;
-const { createNodeAgentFiles } = await import(NODE_AGENT_FILES) as {
+const { createNodeAgentFiles } = (await import(NODE_AGENT_FILES)) as {
   createNodeAgentFiles(): AgentFileSystem;
 };
 const files = createNodeAgentFiles();
@@ -33,14 +33,14 @@ installPlaceEnvironment({
     const projects = {
       project(id: string) {
         const found = projectInfoOf(sql, ANY_FOLDER, { id });
-        return found.ok ? found.value as never : null;
+        return found.ok ? (found.value as never) : null;
       },
       projectByName(name: string) {
         // 받는 쪽은 id, 이름 어느 쪽으로 적어도 같은 project다.
         const byId = projectInfoOf(sql, ANY_FOLDER, { id: name });
         if (byId.ok && byId.value !== null) return byId.value as never;
         const found = projectInfoOf(sql, ANY_FOLDER, { name });
-        return found.ok ? found.value as never : null;
+        return found.ok ? (found.value as never) : null;
       },
     };
     const apps = {
@@ -48,10 +48,11 @@ installPlaceEnvironment({
         appOf(sql.get("select * from apps where id = ?", [id])),
       appByName: (name: string) =>
         appOf(
-          sql.get(
-            "select * from apps where id = ? or slug = ? or name = ?",
-            [name, name, name],
-          ),
+          sql.get("select * from apps where id = ? or slug = ? or name = ?", [
+            name,
+            name,
+            name,
+          ]),
         ),
     };
     const operators = operatorDirectory(sql);
@@ -71,9 +72,8 @@ function appOf(row: Record<string, unknown> | undefined) {
     name: String(row["slug"]),
     purpose: String(row["description"]),
     archived: row["status"] === "archived",
-    sourceFolder: row["source_path"] === null
-      ? null
-      : String(row["source_path"]),
+    sourceFolder:
+      row["source_path"] === null ? null : String(row["source_path"]),
   } as never;
 }
 

@@ -17,14 +17,12 @@ type Entry = { provider_definition: string; model_name: string };
 
 const args = process.argv.slice(2);
 const from = args[0] === "--from" ? args[1] : undefined;
-const apiText = from === undefined
-  ? await (await fetch("https://models.dev/api.json")).text()
-  : await readFile(from, "utf8");
+const apiText =
+  from === undefined
+    ? await (await fetch("https://models.dev/api.json")).text()
+    : await readFile(from, "utf8");
 
-const converted = modelsDevEntries(
-  JSON.parse(apiText),
-  formatAt(Date.now()),
-);
+const converted = modelsDevEntries(JSON.parse(apiText), formatAt(Date.now()));
 if (!converted.ok) throw new Error(converted.error.message);
 const fresh = (converted.value as Entry[]).map((entry) => ({
   ...entry,
@@ -34,14 +32,15 @@ const fresh = (converted.value as Entry[]).map((entry) => ({
 // models.dev에 없는 정의(예: ollama)는 지금 snapshot의 항목을 그대로 옮긴다.
 const covered = new Set(fresh.map((entry) => entry.provider_definition));
 const previous = JSON.parse(await readFile(SNAPSHOT, "utf8")) as Entry[];
-const carried = previous.filter((entry) =>
-  !covered.has(entry.provider_definition)
+const carried = previous.filter(
+  (entry) => !covered.has(entry.provider_definition),
 );
 
-const compare = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0;
-const all = [...fresh, ...carried].sort((a, b) =>
-  compare(a.provider_definition, b.provider_definition) ||
-  compare(a.model_name, b.model_name)
+const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+const all = [...fresh, ...carried].sort(
+  (a, b) =>
+    compare(a.provider_definition, b.provider_definition) ||
+    compare(a.model_name, b.model_name),
 );
 await writeFile(SNAPSHOT, JSON.stringify(all, null, 2) + "\n");
 console.log(

@@ -110,14 +110,12 @@ async function startAgentRuntime(input: {
   pump?: boolean;
   // turn 시작 재료(basis 준비, StartTurn, loop의 port)를 만드는 쪽이다. core 연결(machine 자격과 turn의
   // agent 자격 호출)을 받아 `createTurnPreparer` 같은 것을 돌려준다.
-  driver?: (
-    calls: CoreCalls,
-  ) =>
-    & { preparer: TurnPreparer }
+  driver?: (calls: CoreCalls) => {
+    preparer: TurnPreparer;
+  } & {
     // 사람이 요청한 Compact의 요약을 끝내는 일. 없으면 요약을 하지 않는다.
-    & { compactor?: Compactor }
-    // Grants 화면의 MCP tool 목록 읽기. 없으면 목록 요청에 답하지 않는다.
-    & { listMcpTools?: McpKit["listTools"] };
+    compactor?: Compactor;
+  } & { listMcpTools?: McpKit["listTools"] }; // Grants 화면의 MCP tool 목록 읽기. 없으면 목록 요청에 답하지 않는다.
 }): Promise<Result<Runtime>> {
   const streams = input.streams ?? {
     stdin: Deno.stdin.readable,
@@ -162,10 +160,11 @@ async function startAgentRuntime(input: {
     },
     {
       async onHello(hello) {
-        const read = input.read ??
+        const read =
+          input.read ??
           coreRead(
             hello.api_port,
-            () => child.credentialUsable ? hello.credential : undefined,
+            () => (child.credentialUsable ? hello.credential : undefined),
             input.fetch,
           );
         const started = await startRuntime({ hello, read });
@@ -174,23 +173,26 @@ async function startAgentRuntime(input: {
           selectorRead = read;
           // catalog 자동 갱신은 기동을 막지 않는 single-flight다. 끈 날에는 내부에서 자동 요청이
           // 나가지 않는다.
-          const machine = input.read ?? machineCall({
-            port: hello.api_port,
-            credential: () =>
-              child.credentialUsable ? hello.credential : undefined,
-            ...(input.fetch === undefined ? {} : { fetch: input.fetch }),
-          });
-          const root = runtimeDataRoot(input.dataRoot);
-          const refresher = root === undefined
-            ? undefined
-            : startCatalogRefresher({
-              dataRoot: root,
-              // 설정은 다음 기동부터 적용한다. 기동 때 한 번만 읽는다.
-              autoUpdate: await readCatalogAutoUpdate(machine),
-              ...(input.catalogFetch === undefined
-                ? {}
-                : { fetch: input.catalogFetch }),
+          const machine =
+            input.read ??
+            machineCall({
+              port: hello.api_port,
+              credential: () =>
+                child.credentialUsable ? hello.credential : undefined,
+              ...(input.fetch === undefined ? {} : { fetch: input.fetch }),
             });
+          const root = runtimeDataRoot(input.dataRoot);
+          const refresher =
+            root === undefined
+              ? undefined
+              : startCatalogRefresher({
+                  dataRoot: root,
+                  // 설정은 다음 기동부터 적용한다. 기동 때 한 번만 읽는다.
+                  autoUpdate: await readCatalogAutoUpdate(machine),
+                  ...(input.catalogFetch === undefined
+                    ? {}
+                    : { fetch: input.catalogFetch }),
+                });
           calls = {
             catalog: refresher,
             redact: redactLink.redact,
@@ -206,9 +208,9 @@ async function startAgentRuntime(input: {
                 });
                 return prepared.ok
                   ? ok({
-                    hash: prepared.value.hash,
-                    size_bytes: prepared.value.size_bytes,
-                  })
+                      hash: prepared.value.hash,
+                      size_bytes: prepared.value.size_bytes,
+                    })
                   : prepared;
               },
             },
@@ -265,7 +267,7 @@ async function startAgentRuntime(input: {
       err({
         code: "unavailable" as const,
         message: "runtime이 기동 전에 끝났다",
-      })
+      }),
     ),
   ]);
   if (!started.ok) {
@@ -276,13 +278,14 @@ async function startAgentRuntime(input: {
   let pumping: Promise<void> = Promise.resolve();
   // OAuth 발급자 호출(MCP, 구독 provider)은 core에 외부 fetch가 없어서 이 프로세스가 대신 보낸다.
   // 제품 기동만 돌린다. 이 프로세스는 --allow-all이라 Deno가 목적지를 막지 않는다.
-  const authPumping = input.pump === true
-    ? startIssuerPump({
-      call: calls!.machine,
-      fetch: input.fetch ?? fetch,
-      signal: pumpStop.signal,
-    })
-    : Promise.resolve();
+  const authPumping =
+    input.pump === true
+      ? startIssuerPump({
+          call: calls!.machine,
+          fetch: input.fetch ?? fetch,
+          signal: pumpStop.signal,
+        })
+      : Promise.resolve();
   let toolsPumping: Promise<void> = Promise.resolve();
   if (input.driver !== undefined) {
     const { compactor, preparer, listMcpTools } = input.driver(calls!);
@@ -392,8 +395,8 @@ async function readCatalogAutoUpdate(machine: CoreCall): Promise<boolean> {
     keys: [CATALOG_AUTO_UPDATE_KEY],
   });
   if (!listed.ok) return true;
-  const entry = listed.value.settings.find((one) =>
-    one.key === CATALOG_AUTO_UPDATE_KEY
+  const entry = listed.value.settings.find(
+    (one) => one.key === CATALOG_AUTO_UPDATE_KEY,
   );
   if (typeof entry?.chosen === "boolean") return entry.chosen;
   if (typeof entry?.default === "boolean") return entry.default;
@@ -409,10 +412,7 @@ function runtimeDataRoot(injected?: string): string | undefined {
 }
 
 // 감독 pipe로 제어 frame을 보낸다. 감독이 먼저 닫았으면 조용히 끝난다.
-async function send(
-  child: ChildSession,
-  message: ChildMessage,
-): Promise<void> {
+async function send(child: ChildSession, message: ChildMessage): Promise<void> {
   try {
     await child.send(message);
   } catch {

@@ -39,19 +39,21 @@ const redactionContentSchema = z.discriminatedUnion("kind", [
   blobContentSchema,
 ]);
 
-export const redactionResultSchema = z.object({
-  rule_revision: z.string().min(1),
-  status: redactionStatusSchema,
-  content: redactionContentSchema.nullable(),
-  redacted_items: z.array(redactedItemSchema),
-  omissions: z.array(redactionOmissionSchema),
-}).refine(
-  (result) => result.status !== "omitted" || result.content === null,
-  { message: "omitted result keeps no content" },
-).refine(
-  (result) => result.status === "passed" || result.omissions.length >= 1,
-  { message: "partial and omitted results name an omission" },
-);
+export const redactionResultSchema = z
+  .object({
+    rule_revision: z.string().min(1),
+    status: redactionStatusSchema,
+    content: redactionContentSchema.nullable(),
+    redacted_items: z.array(redactedItemSchema),
+    omissions: z.array(redactionOmissionSchema),
+  })
+  .refine((result) => result.status !== "omitted" || result.content === null, {
+    message: "omitted result keeps no content",
+  })
+  .refine(
+    (result) => result.status === "passed" || result.omissions.length >= 1,
+    { message: "partial and omitted results name an omission" },
+  );
 
 // 안전 필드·private 필드·표본 원값 경로. 표본 경로는 명시 경로만이다.
 

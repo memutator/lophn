@@ -37,8 +37,10 @@ function align(
   if (value.width === width) {
     return value.whole * 10n ** BigInt(width) + value.frac;
   }
-  return value.whole * 10n ** BigInt(width) +
-    value.frac * 10n ** BigInt(width - value.width);
+  return (
+    value.whole * 10n ** BigInt(width) +
+    value.frac * 10n ** BigInt(width - value.width)
+  );
 }
 
 // 십진수 문자열 더하기. 소수 자릿수는 양쪽 중 큰 값이고 값은 정확하다.
@@ -55,8 +57,8 @@ function decimalMulDiv(tokens: bigint, rate: string): string {
   const rateParts = parts(rate);
   const unitParts = parts(TOKENS_PER_UNIT);
   const width = Math.max(rateParts.width, unitParts.width);
-  const scaled = tokens * align(rateParts, width) * 10n ** 6n /
-    align(unitParts, width);
+  const scaled =
+    (tokens * align(rateParts, width) * 10n ** 6n) / align(unitParts, width);
   return trim(scaled, 6);
 }
 

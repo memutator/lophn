@@ -74,7 +74,8 @@ export function handleControl(
     }
     if (!state.ready) return error(409, "conflict", "open before ready");
     if (
-      state.identity.mode === "live" && input.release !== state.identity.release
+      state.identity.mode === "live" &&
+      input.release !== state.identity.release
     ) {
       return error(409, "conflict", "open release mismatch");
     }

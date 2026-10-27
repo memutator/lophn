@@ -86,14 +86,11 @@ test("domain A만 고른 Operator는 A의 artifacts 폴더만 연다", () => {
     },
   );
   // 앱 place에서 앱 source는 읽기만 한다
-  assert.deepStrictEqual(
-    placeScope({ ...base, place: app, domains: picked }),
-    {
-      read: ["/app", "/data/domains/dom_a/artifacts"],
-      write: ["/data/domains/dom_a/artifacts"],
-      base: "/app",
-    },
-  );
+  assert.deepStrictEqual(placeScope({ ...base, place: app, domains: picked }), {
+    read: ["/app", "/data/domains/dom_a/artifacts"],
+    write: ["/data/domains/dom_a/artifacts"],
+    base: "/app",
+  });
 });
 
 test("lophn은 모든 project 폴더를 읽기만 한다", () => {

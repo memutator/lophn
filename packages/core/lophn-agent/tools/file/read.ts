@@ -40,8 +40,8 @@ export async function readFile(
       kind === "pdf"
         ? "not a text file; use pdf.read"
         : kind === "image"
-        ? "not a text file; use image.read"
-        : "not a UTF-8 text file",
+          ? "not a text file; use image.read"
+          : "not a UTF-8 text file",
     );
   }
 

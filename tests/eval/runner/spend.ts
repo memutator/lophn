@@ -21,9 +21,11 @@ export async function roleSpendUsd(core: Core): Promise<number> {
       });
       for (const { cost } of out.calls) {
         if (
-          PRICED.includes(cost.kind) && cost.currency === "USD" &&
+          PRICED.includes(cost.kind) &&
+          cost.currency === "USD" &&
           cost.amount !== null
-        ) sum += Number(cost.amount);
+        )
+          sum += Number(cost.amount);
       }
       cursor = out.next_cursor ?? undefined;
     } while (cursor !== undefined);

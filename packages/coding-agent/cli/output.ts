@@ -72,7 +72,10 @@ async function write(
 function renderLines(value: unknown, indent = ""): string[] {
   if (typeof value === "string") {
     if (value === "") return [`${indent}""`];
-    return value.replace(/\r\n?/g, "\n").replace(/\n$/, "").split("\n")
+    return value
+      .replace(/\r\n?/g, "\n")
+      .replace(/\n$/, "")
+      .split("\n")
       .map((line) => `${indent}${line}`);
   }
   if (value === null || typeof value !== "object") {
@@ -113,13 +116,14 @@ export function createOutput(options: OutputOptions): OutputWriter {
       if (options.json) {
         await write(
           stdout,
-          `${
-            scrub(JSON.stringify({
-              error: error.details === undefined
-                ? body
-                : { ...body, details: error.details },
-            }))
-          }\n`,
+          `${scrub(
+            JSON.stringify({
+              error:
+                error.details === undefined
+                  ? body
+                  : { ...body, details: error.details },
+            }),
+          )}\n`,
         );
         return;
       }

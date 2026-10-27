@@ -9,18 +9,18 @@ function eventMatches(
   event: BusEvent,
 ): boolean {
   const session = "session" in event ? event.session : undefined;
-  return conditions.some((condition) =>
-    (condition.session === undefined || condition.session === session) &&
-    (condition.types === undefined || condition.types.includes(event.type))
+  return conditions.some(
+    (condition) =>
+      (condition.session === undefined || condition.session === session) &&
+      (condition.types === undefined || condition.types.includes(event.type)),
   );
 }
 
-export function createBus(
-  log: (message: string) => void = () => {},
-): Bus {
-  const subscriptions = new Set<
-    { conditions: readonly EventCondition[]; sink: BusSink }
-  >();
+export function createBus(log: (message: string) => void = () => {}): Bus {
+  const subscriptions = new Set<{
+    conditions: readonly EventCondition[];
+    sink: BusSink;
+  }>();
   return {
     publish(event) {
       // 순회 중에 해제되는 것을 견디려고 복사해 돈다.

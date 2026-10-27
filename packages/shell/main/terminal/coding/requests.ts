@@ -90,7 +90,8 @@ export function createCodingTerminalRequests(
   const checkFolder = deps.checkFolder ?? folderReadable;
 
   function say(body: ResultBody): Promise<void> {
-    return Promise.resolve(deps.reportResult(body)).then(() => undefined)
+    return Promise.resolve(deps.reportResult(body))
+      .then(() => undefined)
       .catch(() => undefined);
   }
 
@@ -159,9 +160,10 @@ export function createCodingTerminalRequests(
       const issued = deps.hooks?.issue() ?? null;
       const reply = await deps.supervisor.request({
         type: "open-coding",
-        plan: issued === null
-          ? plan
-          : { ...plan, env: { ...plan.env, ...issued.env } },
+        plan:
+          issued === null
+            ? plan
+            : { ...plan, env: { ...plan.env, ...issued.env } },
         columns: 80,
         rows: 24,
       });
@@ -171,10 +173,11 @@ export function createCodingTerminalRequests(
           request,
           reason === "host_lost"
             ? "host_lost"
-            : reason === "not_directory" || reason === "unreadable" ||
+            : reason === "not_directory" ||
+                reason === "unreadable" ||
                 reason === "no_folder"
-            ? "folder_missing"
-            : "spawn_failed",
+              ? "folder_missing"
+              : "spawn_failed",
         );
       }
       if (issued !== null) {
@@ -182,7 +185,7 @@ export function createCodingTerminalRequests(
       }
       deps.opened?.(reply.runtime.terminal_ref, plan.harness_id);
       let end = () => {};
-      const ended = new Promise<void>((resolve) => end = resolve);
+      const ended = new Promise<void>((resolve) => (end = resolve));
       sessions.set(plan.session, {
         terminalRef: reply.runtime.terminal_ref,
         generation: reply.runtime.generation,
@@ -268,9 +271,9 @@ export function createCodingTerminalRequests(
     reveal(session) {
       const entry = sessions.get(session);
       if (entry === undefined) return undefined;
-      const runtime = deps.supervisor.runtimes().find((item) =>
-        item.terminal_ref === entry.terminalRef
-      );
+      const runtime = deps.supervisor
+        .runtimes()
+        .find((item) => item.terminal_ref === entry.terminalRef);
       if (runtime !== undefined) deps.publish?.(runtime);
       return runtime;
     },

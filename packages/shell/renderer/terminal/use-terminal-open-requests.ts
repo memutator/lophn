@@ -20,16 +20,15 @@ function codingTabKey(terminalRef: string): string {
 }
 
 /** 새 `coding_tui` runtime이면 열기 요청으로 옮긴다. 아니면 null이다. */
-function requestOf(
-  runtime: TerminalRuntime,
-): TerminalOpenRequest | null {
+function requestOf(runtime: TerminalRuntime): TerminalOpenRequest | null {
   const coding = runtime.coding_session;
   if (runtime.launch_kind !== "coding_tui" || coding === undefined) return null;
   const product = runtime.product ?? "";
   return {
     tab: {
       key: codingTabKey(runtime.terminal_ref),
-      title: runtime.title ??
+      title:
+        runtime.title ??
         (product || t("project-workspace.label.kind-terminal")),
       folder: runtime.folder_ref,
     },

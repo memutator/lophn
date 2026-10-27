@@ -37,8 +37,10 @@ function chatgpt(): ProviderDefinition {
 }
 
 function base64url(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-")
-    .replaceAll("/", "_").replaceAll("=", "");
+  return btoa(String.fromCharCode(...bytes))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
 }
 
 const keys = await crypto.subtle.generateKey(
@@ -86,36 +88,38 @@ async function attempt(c: Case) {
         return Promise.resolve(err({ code: c.connect, message: "가짜 실패" }));
       }
       const input = envelope.input as Record<string, unknown>;
-      return Promise.resolve(ok({
-        result: {
-          provider: {
-            id: input.id,
-            name: input.name,
-            definition: input.definition,
-            endpoint: input.endpoint,
-            protocol: input.protocol,
-            credential: {
-              kind: "oauth",
-              secret_ref: {
-                name: (input.credential as { secret: string }).secret,
+      return Promise.resolve(
+        ok({
+          result: {
+            provider: {
+              id: input.id,
+              name: input.name,
+              definition: input.definition,
+              endpoint: input.endpoint,
+              protocol: input.protocol,
+              credential: {
+                kind: "oauth",
+                secret_ref: {
+                  name: (input.credential as { secret: string }).secret,
+                },
+                revision: 1,
+                state: "available",
+                unavailable_reason: null,
+                until: null,
+                expires_at: input.expires_at,
+                logged_in_at: new Date(NOW).toISOString(),
+                refreshed_at: null,
+                model_blocks: [],
+                reported_models: null,
               },
               revision: 1,
-              state: "available",
-              unavailable_reason: null,
-              until: null,
-              expires_at: input.expires_at,
-              logged_in_at: new Date(NOW).toISOString(),
-              refreshed_at: null,
-              model_blocks: [],
-              reported_models: null,
             },
-            revision: 1,
           },
-        },
-        replayed: false,
-        first_seq: null,
-        last_seq: null,
-      }));
+          replayed: false,
+          first_seq: null,
+          last_seq: null,
+        }),
+      );
     },
     readResult: () => Promise.resolve(ok(null)),
     close: () => Promise.resolve(),
@@ -135,7 +139,8 @@ async function attempt(c: Case) {
         access_token: "ACCESS-VALUE",
         refresh_token: "REFRESH-VALUE",
         expires_in: 3600,
-        scope: c.scope ??
+        scope:
+          c.scope ??
           "openid profile email offline_access resource.invoke chatgpt.tokens.use.direct",
         id_token: await idToken({
           iss: ISSUER,
@@ -149,14 +154,16 @@ async function attempt(c: Case) {
       });
     },
     openListener: () =>
-      Promise.resolve(ok({
-        port: () => 1,
-        receive: () =>
-          received.then((callback) =>
-            ok({ ...callback, iss: null, client_id: CLIENT })
-          ),
-        close: () => Promise.resolve(),
-      })),
+      Promise.resolve(
+        ok({
+          port: () => 1,
+          receive: () =>
+            received.then((callback) =>
+              ok({ ...callback, iss: null, client_id: CLIENT }),
+            ),
+          close: () => Promise.resolve(),
+        }),
+      ),
     secrets: {
       get: (name) =>
         secrets.has(name)

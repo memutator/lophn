@@ -27,15 +27,16 @@ const manager = {
 
 // agent는 자기 place의 Operator만 만들고 고친다. 사람은 범위가 없다.
 test("an agent caller is held to its own place", () => {
-  const rule = agentCallerRule(sqlOf(manager), {
-    actor: "agent:ses_0aaaaaaaaaaaaaaaaaaaaaaaaa",
-  }, ownPlaceOnly);
+  const rule = agentCallerRule(
+    sqlOf(manager),
+    {
+      actor: "agent:ses_0aaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
+    ownPlaceOnly,
+  );
   if (!rule.ok || rule.value === null) throw new Error("expected a rule");
   assert.equal(rule.value(project("prj_0aaaaaaaaaaaaaaaaaaaaaaaaa")).ok, true);
-  assert.equal(
-    rule.value(project("prj_0bbbbbbbbbbbbbbbbbbbbbbbbb")).ok,
-    false,
-  );
+  assert.equal(rule.value(project("prj_0bbbbbbbbbbbbbbbbbbbbbbbbb")).ok, false);
   assert.equal(rule.value(null).ok, false);
 
   const person = agentCallerRule(
@@ -45,8 +46,12 @@ test("an agent caller is held to its own place", () => {
   );
   assert.equal(person.ok && person.value, null);
 
-  const unknown = agentCallerRule(sqlOf(undefined), {
-    actor: "agent:ses_0bbbbbbbbbbbbbbbbbbbbbbbbb",
-  }, ownPlaceOnly);
+  const unknown = agentCallerRule(
+    sqlOf(undefined),
+    {
+      actor: "agent:ses_0bbbbbbbbbbbbbbbbbbbbbbbbb",
+    },
+    ownPlaceOnly,
+  );
   assert.equal(unknown.ok, false);
 });

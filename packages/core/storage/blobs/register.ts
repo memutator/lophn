@@ -83,12 +83,7 @@ function registerBlobRef(
     const allowed = sql.get(
       `select hash, size_bytes from blob_refs
        where owner_kind = ? and owner_key = ? and field = ? and hash = ?`,
-      [
-        existing.owner_kind,
-        existing.owner_key,
-        existing.field,
-        existing.hash,
-      ],
+      [existing.owner_kind, existing.owner_key, existing.field, existing.hash],
     );
     if (allowed === undefined) {
       return err({
@@ -130,10 +125,7 @@ function registerBlobRef(
 }
 
 // 준비 결과는 그 크기를, 기존 참조는 이미 등록된 크기를 쓴다.
-function sizeOf(
-  sql: Sql,
-  reference: BlobRefRegistration,
-): Result<number> {
+function sizeOf(sql: Sql, reference: BlobRefRegistration): Result<number> {
   if (reference.source.kind === "prepared") {
     return ok(reference.source.blob.size_bytes);
   }

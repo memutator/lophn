@@ -71,7 +71,7 @@ export async function codexHookHash(
   };
   const bytes = new TextEncoder().encode(JSON.stringify(identity));
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
-  return `sha256:${
-    Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("")
-  }`;
+  return `sha256:${Array.from(digest, (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("")}`;
 }

@@ -23,10 +23,9 @@ export type VariantIo = {
 export const denoIo: VariantIo = {
   realPath: (path) => realpath(path),
   async gitToplevel(path) {
-    const out = await denoIo.run(
-      ["git", "-C", path, "rev-parse", "--show-toplevel"],
-      path,
-    ).catch(() => null);
+    const out = await denoIo
+      .run(["git", "-C", path, "rev-parse", "--show-toplevel"], path)
+      .catch(() => null);
     return out === null || out.code !== 0 ? null : out.stdout.trim();
   },
   async exists(path) {
@@ -63,9 +62,10 @@ export const denoIo: VariantIo = {
       child.on("close", (exitCode, signal) =>
         resolve(
           signal === null
-            ? exitCode ?? 0
+            ? (exitCode ?? 0)
             : 128 + (constants.signals[signal] ?? 0),
-        ));
+        ),
+      );
     });
     const text = new TextDecoder();
     return {

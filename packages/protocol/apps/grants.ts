@@ -13,20 +13,23 @@ const grantStateSchema = z.enum(GRANT_STATES);
 // scope·요구의 교집합 판정은 runtime이고 Grant 자체는 사람이 허락한 범위만 담는다.
 
 // 새 앱 grant. activation 한 번에 만들고 approval·created_by 칸이 없다.
-export const appGrantSchema = z.object({
-  id: grantIdSchema,
-  app: appIdSchema,
-  scope: appGrantScopeSchema,
-  status: grantStateSchema,
-  created_at: atSchema,
-  revoked_at: atSchema.nullable(),
-}).refine(
-  (value) => value.scope.kind !== "app.call" || value.scope.app !== value.app,
-  { message: "app.call grant cannot target its own app" },
-).refine(
-  (value) => (value.status === "revoked") === (value.revoked_at !== null),
-  { message: "revoked_at belongs to a revoked grant" },
-);
+export const appGrantSchema = z
+  .object({
+    id: grantIdSchema,
+    app: appIdSchema,
+    scope: appGrantScopeSchema,
+    status: grantStateSchema,
+    created_at: atSchema,
+    revoked_at: atSchema.nullable(),
+  })
+  .refine(
+    (value) => value.scope.kind !== "app.call" || value.scope.app !== value.app,
+    { message: "app.call grant cannot target its own app" },
+  )
+  .refine(
+    (value) => (value.status === "revoked") === (value.revoked_at !== null),
+    { message: "revoked_at belongs to a revoked grant" },
+  );
 export type AppGrant = z.infer<typeof appGrantSchema>;
 
 // grant.create 입력. 검증된 approval만 받는다.

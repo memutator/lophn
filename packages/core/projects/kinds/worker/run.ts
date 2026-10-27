@@ -43,17 +43,17 @@ function reply(
 ): WorkerResponse {
   return result.ok
     ? {
-      type: "worker_response",
-      request_id: request.request_id,
-      ok: true,
-      payload: result.value,
-    }
+        type: "worker_response",
+        request_id: request.request_id,
+        ok: true,
+        payload: result.value,
+      }
     : {
-      type: "worker_response",
-      request_id: request.request_id,
-      ok: false,
-      error: { code: result.error.code, message: result.error.message },
-    };
+        type: "worker_response",
+        request_id: request.request_id,
+        ok: false,
+        error: { code: result.error.code, message: result.error.message },
+      };
 }
 
 // 이 process의 index store. 처음 쓸 때 열고 손상이면 지우고 한 번 다시 만든다(index는 파생이다).
@@ -64,7 +64,9 @@ function openStore(path: string): IndexStore {
     for (const suffix of ["", "-wal", "-shm", "-journal"]) {
       try {
         rmSync(`${path}${suffix}`);
-      } catch { /* 없으면 그대로 둔다 */ }
+      } catch {
+        /* 없으면 그대로 둔다 */
+      }
     }
     return openIndexStore(path);
   }
@@ -96,8 +98,8 @@ function createKindsWorker(options: KindsWorkerOptions): ChildSession {
       ? "invalid kinds request"
       : parsed.data.kinds_file !==
           domainKindsFile(dataRoot!, parsed.data.domain)
-      ? "kinds_file is not the domain's kinds file"
-      : undefined;
+        ? "kinds_file is not the domain's kinds file"
+        : undefined;
     if (!parsed.success || error !== undefined) {
       return Promise.resolve(err({ code: "invalid_input", message: error! }));
     }
@@ -126,8 +128,9 @@ function createKindsWorker(options: KindsWorkerOptions): ChildSession {
       if (hello.kind !== KINDS_WORKER_KIND) {
         throw new Error("invalid worker kind");
       }
-      const root =
-        (hello.scope.targets as Record<string, unknown>)["data_root"];
+      const root = (hello.scope.targets as Record<string, unknown>)[
+        "data_root"
+      ];
       if (typeof root !== "string" || !root.startsWith("/")) {
         throw new Error("data_root is missing");
       }
@@ -137,7 +140,9 @@ function createKindsWorker(options: KindsWorkerOptions): ChildSession {
     onStop() {
       try {
         store?.close();
-      } catch { /* 닫지 못해도 process가 끝난다 */ }
+      } catch {
+        /* 닫지 못해도 process가 끝난다 */
+      }
       store = undefined;
       return session.send({ type: "stopped" });
     },
@@ -145,13 +150,16 @@ function createKindsWorker(options: KindsWorkerOptions): ChildSession {
       if (message.type !== "worker_request") return;
       // 이 handler는 pipe에서 온 순서대로 하나씩 돈다. 일은 기다리지 않고 맡겨서 다른 domain의 일이 서로
       // 막지 않게 한다. 한 domain의 일은 jobs가 줄 세운다.
-      void dispatch(message).then(
-        (result) => result,
-        (): Result<never, LophnError> =>
-          err({ code: "unavailable", message: "kinds worker failed" }),
-      ).then((result) => session.send(reply(message, result))).catch(() => {
-        // pipe가 닫혔다. 답할 곳이 없다.
-      });
+      void dispatch(message)
+        .then(
+          (result) => result,
+          (): Result<never, LophnError> =>
+            err({ code: "unavailable", message: "kinds worker failed" }),
+        )
+        .then((result) => session.send(reply(message, result)))
+        .catch(() => {
+          // pipe가 닫혔다. 답할 곳이 없다.
+        });
     },
   });
   return session;
@@ -159,8 +167,10 @@ function createKindsWorker(options: KindsWorkerOptions): ChildSession {
 
 export async function runKindsWorker(): Promise<void> {
   // 진입점만 console을 stderr로 돌린다. stdout은 framed IPC 전용이다.
-  console.log = console.info = console.debug = (...args: unknown[]) =>
-    console.error(...args);
+  console.log =
+    console.info =
+    console.debug =
+      (...args: unknown[]) => console.error(...args);
   const session = createKindsWorker({
     streams: { stdin: Deno.stdin, stdout: Deno.stdout, stderr: Deno.stderr },
   });

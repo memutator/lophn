@@ -56,11 +56,11 @@ const requestFields = {
   app_tool: toolCallOutputSchema.shape.app_tool.optional(),
 };
 
-const recordToolRequestInputSchema = z.strictObject(requestFields)
-  .refine(
-    (value) => (value.attempt === 0) === (value.retry_of === null),
-    { message: "retry keeps the first tool call id" },
-  );
+const recordToolRequestInputSchema = z
+  .strictObject(requestFields)
+  .refine((value) => (value.attempt === 0) === (value.retry_of === null), {
+    message: "retry keeps the first tool call id",
+  });
 const recordToolRequestCompareSchema = z.strictObject({
   turn_state_seq: seqSchema,
   model_call_finished_seq: seqSchema,
@@ -128,22 +128,25 @@ export const startToolCall = defineCommand({
   errors,
 });
 
-const finishToolCallInputSchema = z.strictObject({
-  tool_call: idSchema("tcl"),
-  outcome: toolOutcomeSchema,
-  output: hash.nullable(),
-  // 준비한 output blob의 크기. 있으면 command가 영구 참조를 등록한다.
-  output_size: blobSizeSchema.optional(),
-  result: toolResultSchema.nullable(),
-  finished_at: atSchema,
-  duration_ms: durationMsSchema.nullable(),
-}).refine(
-  (value) => value.outcome.kind !== "success" || value.output !== null,
-  { message: "success needs an output hash" },
-).refine(
-  (value) => value.outcome.kind !== "not_executed" || value.output === null,
-  { message: "not_executed has no output" },
-);
+const finishToolCallInputSchema = z
+  .strictObject({
+    tool_call: idSchema("tcl"),
+    outcome: toolOutcomeSchema,
+    output: hash.nullable(),
+    // 준비한 output blob의 크기. 있으면 command가 영구 참조를 등록한다.
+    output_size: blobSizeSchema.optional(),
+    result: toolResultSchema.nullable(),
+    finished_at: atSchema,
+    duration_ms: durationMsSchema.nullable(),
+  })
+  .refine(
+    (value) => value.outcome.kind !== "success" || value.output !== null,
+    { message: "success needs an output hash" },
+  )
+  .refine(
+    (value) => value.outcome.kind !== "not_executed" || value.output === null,
+    { message: "not_executed has no output" },
+  );
 const finishToolCallCompareSchema = z.strictObject({
   state_seq: seqSchema,
 });
@@ -163,21 +166,24 @@ export const finishToolCall = defineCommand({
   errors,
 });
 
-const recordReadToolCallInputSchema = z.strictObject({
-  request: recordToolRequestInputSchema,
-  decision: toolDecisionSchema,
-  started_at: atSchema,
-  finished_at: atSchema,
-  duration_ms: durationMsSchema.nullable(),
-  outcome: toolOutcomeSchema,
-  output: hash.nullable(),
-  result: toolResultSchema,
-}).refine(
-  (value) =>
-    value.request.effect === "read" && value.request.confirm === false &&
-    value.started_at <= value.finished_at,
-  { message: "read record is a completed confirm-false read" },
-);
+const recordReadToolCallInputSchema = z
+  .strictObject({
+    request: recordToolRequestInputSchema,
+    decision: toolDecisionSchema,
+    started_at: atSchema,
+    finished_at: atSchema,
+    duration_ms: durationMsSchema.nullable(),
+    outcome: toolOutcomeSchema,
+    output: hash.nullable(),
+    result: toolResultSchema,
+  })
+  .refine(
+    (value) =>
+      value.request.effect === "read" &&
+      value.request.confirm === false &&
+      value.started_at <= value.finished_at,
+    { message: "read record is a completed confirm-false read" },
+  );
 const recordReadToolCallOutputSchema = z.object({
   tool_call: idSchema("tcl"),
 });
@@ -220,9 +226,11 @@ export const supplementToolCall = defineCommand({
 const toolCallReadInputSchema = z.strictObject({
   tool_call: idSchema("tcl"),
 });
-const toolCallReadOutputSchema = withReadCommon(z.object({
-  tool_call: toolCallOutputSchema,
-}));
+const toolCallReadOutputSchema = withReadCommon(
+  z.object({
+    tool_call: toolCallOutputSchema,
+  }),
+);
 
 export const toolCallRead = defineRead({
   resource: "tool-calls",
@@ -235,22 +243,27 @@ export const toolCallRead = defineRead({
 });
 
 // 사람 화면은 turn별로, 한 session의 모든 turn을 한 번에 읽을 때는 session으로 거른다.
-const toolCallListInputSchema = z.strictObject({
-  turn: idSchema("trn").optional(),
-  session: idSchema("ses").optional(),
-  model_call: idSchema("mcl").optional(),
-  tool: z.string().min(1).optional(),
-  cursor: z.string().min(1).optional(),
-  limit: z.number().int().positive().max(100).optional(),
-}).refine(
-  (value) =>
-    value.turn !== undefined || value.session !== undefined ||
-    value.model_call !== undefined,
-  { message: "list needs a turn, a session or a model call" },
+const toolCallListInputSchema = z
+  .strictObject({
+    turn: idSchema("trn").optional(),
+    session: idSchema("ses").optional(),
+    model_call: idSchema("mcl").optional(),
+    tool: z.string().min(1).optional(),
+    cursor: z.string().min(1).optional(),
+    limit: z.number().int().positive().max(100).optional(),
+  })
+  .refine(
+    (value) =>
+      value.turn !== undefined ||
+      value.session !== undefined ||
+      value.model_call !== undefined,
+    { message: "list needs a turn, a session or a model call" },
+  );
+const toolCallListOutputSchema = withReadCommon(
+  z.object({
+    tool_calls: z.array(listedToolCallOutputSchema),
+  }),
 );
-const toolCallListOutputSchema = withReadCommon(z.object({
-  tool_calls: z.array(listedToolCallOutputSchema),
-}));
 
 export const toolCallList = defineRead({
   resource: "tool-calls",

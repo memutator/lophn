@@ -6,11 +6,7 @@ import { withReadCommon } from "../base/envelope.ts";
 import { appIdSchema, relativePathSchema } from "../projects/mod.ts";
 
 // "Restore messages and documents" / "Restore messages only" / "Summarize from here".
-const REWIND_CHOICES = [
-  "restore_all",
-  "messages_only",
-  "summarize",
-] as const;
+const REWIND_CHOICES = ["restore_all", "messages_only", "summarize"] as const;
 export const rewindChoiceSchema = z.enum(REWIND_CHOICES);
 export type RewindChoice = z.infer<typeof rewindChoiceSchema>;
 
@@ -87,14 +83,14 @@ export function classOk(value: ItemShape): boolean {
 
 export function previewItemOk(value: ItemShape): boolean {
   // 건너뜀·남는 영향은 이유가 필수다. 복원 계획은 이유가 없다.
-  return (value.plan === "restore") === (value.reason === null) &&
-    classOk(value);
+  return (
+    (value.plan === "restore") === (value.reason === null) && classOk(value)
+  );
 }
 
-const previewItemSchema = z.object(previewItemFields).refine(
-  previewItemOk,
-  { message: "preview item fields disagree with its class or plan" },
-);
+const previewItemSchema = z.object(previewItemFields).refine(previewItemOk, {
+  message: "preview item fields disagree with its class or plan",
+});
 export type PreviewItem = z.infer<typeof previewItemSchema>;
 
 // 사람이 요청한 파일 복원 준비. 파일 쓰기·hash 계산·복원 내용 준비는 transaction 밖에서
@@ -111,49 +107,56 @@ const preparedFileSchema = z.strictObject({
   staged: z.boolean(),
 });
 export type PreparedFile = z.infer<typeof preparedFileSchema>;
-const preparedFilesSchema = z.array(preparedFileSchema).refine(
-  (files) => new Set(files.map((file) => file.path)).size === files.length,
-  { message: "duplicate prepared path" },
-);
+const preparedFilesSchema = z
+  .array(preparedFileSchema)
+  .refine(
+    (files) => new Set(files.map((file) => file.path)).size === files.length,
+    { message: "duplicate prepared path" },
+  );
 
-export const rewindHeaderOutput = z.object({
-  id: idSchema("rwd"),
-  session: idSchema("ses"),
-  outcome: rewindOutcomeSchema,
-  result_seq: seqSchema.nullable(),
-  // 같은 요청이 이미 접수되어 저장된 현재 결과를 돌려준 것이다.
-  replayed: z.boolean(),
-}).refine(
-  (value) => (value.outcome === "applying") === (value.result_seq === null),
-  { message: "only an applying rewind lacks a result event" },
-);
+export const rewindHeaderOutput = z
+  .object({
+    id: idSchema("rwd"),
+    session: idSchema("ses"),
+    outcome: rewindOutcomeSchema,
+    result_seq: seqSchema.nullable(),
+    // 같은 요청이 이미 접수되어 저장된 현재 결과를 돌려준 것이다.
+    replayed: z.boolean(),
+  })
+  .refine(
+    (value) => (value.outcome === "applying") === (value.result_seq === null),
+    { message: "only an applying rewind lacks a result event" },
+  );
 
 // session rewind: 고른 시점으로 대화를 되돌리고, 사람이 고른 앱의 data도 그 시점으로 되돌린다.
 // 앱 rewind의 계획(함께 되돌아갈 다른 변경, external 효과, 되돌릴 수 없음)은 앱 rewind 계획 route가
 // 따로 보인다. 확인은 대화 화면 안의 panel이라 confirmation handle은 없다.
-const sessionRewindInputSchema = z.strictObject({
-  id: idSchema("rwd"),
-  session: idSchema("ses"),
-  checkpoint: idSchema("msg"),
-  choice: rewindChoiceSchema,
-  // 사람이 건너뜀·남는 영향 목록을 확인했다. 목록이 있는데 false면 blocked 결과다.
-  accept_remaining: z.boolean(),
-  preview_hash: sha256Schema,
-  // choice=summarize일 때만: 완전 성공한 요약 call.
-  summary_call: idSchema("mcl").nullable(),
-  // choice=restore_all일 때만 준비한 파일 복원.
-  files: preparedFilesSchema,
-  // 사람이 고른 앱. 비면 앱 data는 그대로다.
-  apps: z.array(appIdSchema).refine(
-    (apps) => new Set(apps).size === apps.length,
-    { message: "duplicate app" },
-  ),
-}).refine(
-  (value) =>
-    (value.choice === "summarize") === (value.summary_call !== null) &&
-    (value.choice === "restore_all" || value.files.length === 0),
-  { message: "summary_call and files must match the chosen scope" },
-);
+const sessionRewindInputSchema = z
+  .strictObject({
+    id: idSchema("rwd"),
+    session: idSchema("ses"),
+    checkpoint: idSchema("msg"),
+    choice: rewindChoiceSchema,
+    // 사람이 건너뜀·남는 영향 목록을 확인했다. 목록이 있는데 false면 blocked 결과다.
+    accept_remaining: z.boolean(),
+    preview_hash: sha256Schema,
+    // choice=summarize일 때만: 완전 성공한 요약 call.
+    summary_call: idSchema("mcl").nullable(),
+    // choice=restore_all일 때만 준비한 파일 복원.
+    files: preparedFilesSchema,
+    // 사람이 고른 앱. 비면 앱 data는 그대로다.
+    apps: z
+      .array(appIdSchema)
+      .refine((apps) => new Set(apps).size === apps.length, {
+        message: "duplicate app",
+      }),
+  })
+  .refine(
+    (value) =>
+      (value.choice === "summarize") === (value.summary_call !== null) &&
+      (value.choice === "restore_all" || value.files.length === 0),
+    { message: "summary_call and files must match the chosen scope" },
+  );
 
 const sessionRewindCompareSchema = z.strictObject({
   session_state: z.literal("open"),
@@ -197,35 +200,42 @@ const sessionRewindPreviewInputSchema = z.strictObject({
 });
 
 // 이 session이 고른 시점 뒤에 앱에 한 write invocation이다.
-const appWritesSchema = z.array(z.object({
-  app: appIdSchema,
-  invocations: z.array(idSchema("inv")),
-}));
+const appWritesSchema = z.array(
+  z.object({
+    app: appIdSchema,
+    invocations: z.array(idSchema("inv")),
+  }),
+);
 
 export type SessionAppWrites = z.infer<typeof appWritesSchema>;
 
-const sessionRewindPreviewOutputSchema = withReadCommon(z.object({
-  choice: rewindChoiceSchema,
-  checkpoint: idSchema("msg"),
-  restore: z.array(previewItemSchema),
-  skip: z.array(previewItemSchema),
-  remain: z.array(previewItemSchema),
-  app_writes: appWritesSchema,
-  preview_hash: sha256Schema,
-})).refine((value) => {
-  const groups = [
-    ["restore", value.restore],
-    ["skip", value.skip],
-    ["remain", value.remain],
-  ] as const;
-  if (
-    groups.some(([plan, items]) => items.some((item) => item.plan !== plan))
-  ) {
-    return false;
-  }
-  const all = [...value.restore, ...value.skip, ...value.remain];
-  return new Set(all.map((item) => item.ordinal)).size === all.length;
-}, { message: "preview lists disagree with their plans" });
+const sessionRewindPreviewOutputSchema = withReadCommon(
+  z.object({
+    choice: rewindChoiceSchema,
+    checkpoint: idSchema("msg"),
+    restore: z.array(previewItemSchema),
+    skip: z.array(previewItemSchema),
+    remain: z.array(previewItemSchema),
+    app_writes: appWritesSchema,
+    preview_hash: sha256Schema,
+  }),
+).refine(
+  (value) => {
+    const groups = [
+      ["restore", value.restore],
+      ["skip", value.skip],
+      ["remain", value.remain],
+    ] as const;
+    if (
+      groups.some(([plan, items]) => items.some((item) => item.plan !== plan))
+    ) {
+      return false;
+    }
+    const all = [...value.restore, ...value.skip, ...value.remain];
+    return new Set(all.map((item) => item.ordinal)).size === all.length;
+  },
+  { message: "preview lists disagree with their plans" },
+);
 
 export const sessionRewindPreview = defineRead({
   resource: "rewind",

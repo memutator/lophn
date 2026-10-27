@@ -75,8 +75,11 @@ export async function connectGateway(
   ): Promise<FrameOf<T>> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
-      const found = frames.find((frame) =>
-        !taken.has(frame) && frame.type === type && match(frame as FrameOf<T>)
+      const found = frames.find(
+        (frame) =>
+          !taken.has(frame) &&
+          frame.type === type &&
+          match(frame as FrameOf<T>),
       );
       if (found !== undefined) {
         taken.add(found);
@@ -90,7 +93,7 @@ export async function connectGateway(
       let timer: ReturnType<typeof setTimeout> | undefined;
       await Promise.race([
         new Promise<void>((resolve) => wake.push(resolve)),
-        new Promise<void>((resolve) => timer = setTimeout(resolve, left)),
+        new Promise<void>((resolve) => (timer = setTimeout(resolve, left))),
       ]);
       clearTimeout(timer);
     }

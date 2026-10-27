@@ -82,7 +82,8 @@ function pairedMessages(
     if (!Array.isArray(content)) continue;
     for (const block of content) {
       if (
-        block !== null && typeof block === "object" &&
+        block !== null &&
+        typeof block === "object" &&
         (block as AnthropicBlock).type === "tool_result" &&
         typeof (block as AnthropicBlock).tool_use_id === "string"
       ) {
@@ -94,21 +95,23 @@ function pairedMessages(
     if (message === null || typeof message !== "object") return message;
     const record = message as { role?: string; content?: unknown };
     if (!Array.isArray(record.content)) return message;
-    const content = record.content.map((block) => {
-      if (block === null || typeof block !== "object") return block;
-      const typed = block as AnthropicBlock;
-      if (typed.type === "tool_use") {
-        // 짝이 없는 tool_use는 제거한다.
-        return used.has(typed.id ?? "") ? block : null;
-      }
-      if (typed.type === "thinking") {
-        return pairedThinking(typed, reasoning);
-      }
-      if (typed.type === "redacted_thinking") {
-        return pairedRedacted(typed, reasoning);
-      }
-      return block;
-    }).filter((block) => block !== null);
+    const content = record.content
+      .map((block) => {
+        if (block === null || typeof block !== "object") return block;
+        const typed = block as AnthropicBlock;
+        if (typed.type === "tool_use") {
+          // 짝이 없는 tool_use는 제거한다.
+          return used.has(typed.id ?? "") ? block : null;
+        }
+        if (typed.type === "thinking") {
+          return pairedThinking(typed, reasoning);
+        }
+        if (typed.type === "redacted_thinking") {
+          return pairedRedacted(typed, reasoning);
+        }
+        return block;
+      })
+      .filter((block) => block !== null);
     return { ...record, content };
   });
 }
@@ -235,12 +238,10 @@ function applyFrame(out: StreamResult, frame: SseFrame): void {
     const detail = error.error as
       | { type?: string; message?: string }
       | undefined;
-    out.errorType = typeof detail?.type === "string"
-      ? detail.type
-      : out.errorType;
-    out.errorMessage = typeof detail?.message === "string"
-      ? detail.message
-      : out.errorMessage;
+    out.errorType =
+      typeof detail?.type === "string" ? detail.type : out.errorType;
+    out.errorMessage =
+      typeof detail?.message === "string" ? detail.message : out.errorMessage;
     return;
   }
   let parsed: unknown;
@@ -346,9 +347,7 @@ function applyFrame(out: StreamResult, frame: SseFrame): void {
     out.messageEnded = true;
     return;
   }
-  if (
-    type === "ping" || type === "content_block_start_seen"
-  ) {
+  if (type === "ping" || type === "content_block_start_seen") {
     return;
   }
   out.sawUnknownEvent = true;
@@ -377,8 +376,8 @@ function mergeUsage(
     reasoning: next.reasoning ?? current.reasoning,
     cache_in_input: false,
     reasoning_in_output: true,
-    definition_revision: next.definition_revision ||
-      current.definition_revision,
+    definition_revision:
+      next.definition_revision || current.definition_revision,
   };
 }
 
@@ -401,8 +400,7 @@ function anthropicUsage(raw: Record<string, unknown>): TokenUsage {
 }
 
 function asCount(value: unknown): number | null {
-  return typeof value === "number" && Number.isSafeInteger(value) &&
-      value >= 0
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
     ? value
     : null;
 }
@@ -454,7 +452,8 @@ export function judge(out: StreamResult): Verdict {
   }
   // end_turn·stop_sequence·pause_turn은 정상 종료다.
   if (
-    out.stopReason === "end_turn" || out.stopReason === "stop_sequence" ||
+    out.stopReason === "end_turn" ||
+    out.stopReason === "stop_sequence" ||
     out.stopReason === "pause_turn"
   ) {
     return { kind: "complete" };
@@ -478,8 +477,9 @@ function verifiedJson(text: string): boolean {
   if (text.trim().length === 0) return true;
   try {
     const parsed: unknown = JSON.parse(text);
-    return parsed === null || typeof parsed === "object" &&
-        !Array.isArray(parsed);
+    return (
+      parsed === null || (typeof parsed === "object" && !Array.isArray(parsed))
+    );
   } catch {
     return false;
   }

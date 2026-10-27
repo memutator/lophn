@@ -31,17 +31,23 @@ export function codingAgentOperationPolicies(
   existing: readonly OperationPolicy[],
 ): OperationPolicy[] {
   const taken = new Set(
-    existing.filter((policy) => policy.actors.includes("coding_agent")).map((
-      policy,
-    ) => policy.name),
+    existing
+      .filter((policy) => policy.actors.includes("coding_agent"))
+      .map((policy) => policy.name),
   );
-  return routes.filter((route) =>
-    route.actors.includes("coding_agent") && route.resource !== "blobs" &&
-    !(READ_ONLY_RESOURCES.has(route.resource) && route.kind !== "read") &&
-    !taken.has(route.name)
-  ).map((route): OperationPolicy => ({
-    name: route.name,
-    actors: ["coding_agent"],
-    kind: route.kind === "command" ? "command" : "read",
-  }));
+  return routes
+    .filter(
+      (route) =>
+        route.actors.includes("coding_agent") &&
+        route.resource !== "blobs" &&
+        !(READ_ONLY_RESOURCES.has(route.resource) && route.kind !== "read") &&
+        !taken.has(route.name),
+    )
+    .map(
+      (route): OperationPolicy => ({
+        name: route.name,
+        actors: ["coding_agent"],
+        kind: route.kind === "command" ? "command" : "read",
+      }),
+    );
 }

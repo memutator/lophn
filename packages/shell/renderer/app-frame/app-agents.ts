@@ -17,22 +17,27 @@ export function useAppAgents(
     let live = true;
     void source.list(app).then((result) => {
       if (!live || !result.ok) return;
-      setAgents(result.value.flatMap((row) => {
-        // Project Manager는 project의 agent라 앱 공간에 오지 않는다.
-        if (row.role === "project_manager") return [];
-        const profile: AvatarProfile = row.profile.kind === "icon"
-          ? { kind: "icon", icon: row.profile.icon }
-          : {
-            kind: "image",
-            src: source.imageSrc(app, row.assignment, row.profile.image),
-          };
-        return [{
-          assignment: row.assignment,
-          role: row.role,
-          name: row.name,
-          profile,
-        }];
-      }));
+      setAgents(
+        result.value.flatMap((row) => {
+          // Project Manager는 project의 agent라 앱 공간에 오지 않는다.
+          if (row.role === "project_manager") return [];
+          const profile: AvatarProfile =
+            row.profile.kind === "icon"
+              ? { kind: "icon", icon: row.profile.icon }
+              : {
+                  kind: "image",
+                  src: source.imageSrc(app, row.assignment, row.profile.image),
+                };
+          return [
+            {
+              assignment: row.assignment,
+              role: row.role,
+              name: row.name,
+              profile,
+            },
+          ];
+        }),
+      );
     });
     return () => {
       live = false;

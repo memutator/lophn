@@ -47,22 +47,23 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
       });
       if (!sent.ok) return sent;
       const { call, state, fail_reason } = sent.value;
-      return ok(fitted(
-        fail_reason === null
-          ? `call ${call} is ${state}`
-          : `call ${call} failed: ${fail_reason}`,
-        {
-          call,
-          state,
-          fail_reason,
-          ...(fail_reason === "closed"
-            ? {
-              hint:
-                "that session is closed; call its role and place to open a new session",
-            }
-            : {}),
-        },
-      ));
+      return ok(
+        fitted(
+          fail_reason === null
+            ? `call ${call} is ${state}`
+            : `call ${call} failed: ${fail_reason}`,
+          {
+            call,
+            state,
+            fail_reason,
+            ...(fail_reason === "closed"
+              ? {
+                  hint: "that session is closed; call its role and place to open a new session",
+                }
+              : {}),
+          },
+        ),
+      );
     },
   }),
   defineTool({
@@ -78,10 +79,12 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
         ...unattendedMark(ctx.mode),
       });
       if (!sent.ok) return sent;
-      return ok(fitted(
-        sent.value.closed ? "the call is closed" : "reply delivered",
-        sent.value,
-      ));
+      return ok(
+        fitted(
+          sent.value.closed ? "the call is closed" : "reply delivered",
+          sent.value,
+        ),
+      );
     },
   }),
   defineTool({
@@ -94,10 +97,12 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
     handler: async (input, ctx) => {
       const cancelled = await ctx.router.cancel(input);
       if (!cancelled.ok) return cancelled;
-      return ok(fitted(
-        `call ${cancelled.value.call} is ${cancelled.value.state}`,
-        cancelled.value,
-      ));
+      return ok(
+        fitted(
+          `call ${cancelled.value.call} is ${cancelled.value.state}`,
+          cancelled.value,
+        ),
+      );
     },
   }),
   defineTool({

@@ -98,18 +98,19 @@ export function NewTabMenu(props: NewTabMenuProps) {
     });
   }
 
-  const items: MenuItem[] = level === "agent"
-    ? (props.agents ?? []).map((agent) => ({
-      id: `agent:${agent.id}`,
-      label: agent.name,
-      textValue: agent.name,
-      leading: (
-        <MenuIcon>
-          <Avatar profile={agent.profile} size="sm" />
-        </MenuIcon>
-      ),
-    }))
-    : root;
+  const items: MenuItem[] =
+    level === "agent"
+      ? (props.agents ?? []).map((agent) => ({
+          id: `agent:${agent.id}`,
+          label: agent.name,
+          textValue: agent.name,
+          leading: (
+            <MenuIcon>
+              <Avatar profile={agent.profile} size="sm" />
+            </MenuIcon>
+          ),
+        }))
+      : root;
 
   const select = (id: string) => {
     if (id === "agent") {

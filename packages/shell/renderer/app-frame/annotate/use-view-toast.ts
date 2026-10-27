@@ -26,22 +26,27 @@ export function useViewToast(overlay: OverlayApi | undefined): {
   hide(): void;
 } {
   const [dom, setDom] = useState<ViewToast | null>(null);
-  const open = useRef<
-    { requestId: string; identity: OverlayIdentity | null } | null
-  >(null);
+  const open = useRef<{
+    requestId: string;
+    identity: OverlayIdentity | null;
+  } | null>(null);
   const action = useRef<(() => void) | undefined>(undefined);
   const consumer = useRef<ReturnType<typeof overlayConsumer> | null>(null);
 
   useEffect(() => {
     if (overlay === undefined) return;
-    const made = overlayConsumer(overlay, (result) => {
-      if (result.type === "pointer" || result.type === "query") return;
-      if (open.current?.requestId !== result.requestId) return;
-      open.current = null;
-      if (result.type === "selected") action.current?.();
-    }, () => {
-      open.current = null;
-    });
+    const made = overlayConsumer(
+      overlay,
+      (result) => {
+        if (result.type === "pointer" || result.type === "query") return;
+        if (open.current?.requestId !== result.requestId) return;
+        open.current = null;
+        if (result.type === "selected") action.current?.();
+      },
+      () => {
+        open.current = null;
+      },
+    );
     consumer.current = made;
     return () => {
       const current = open.current;
@@ -61,39 +66,49 @@ export function useViewToast(overlay: OverlayApi | undefined): {
     }
   }, [overlay]);
 
-  const show = useCallback((toast: ViewToast) => {
-    if (overlay === undefined || consumer.current === null) {
-      setDom(toast);
-      return;
-    }
-    const previous = open.current?.identity;
-    if (previous) void overlay.close(previous);
-    const requestId = `view-toast-${++serial}`;
-    const mine: { requestId: string; identity: OverlayIdentity | null } = {
-      requestId,
-      identity: null,
-    };
-    open.current = mine;
-    action.current = toast.action?.run;
-    void consumer.current.open({
-      requestId,
-      kind: "notification",
-      anchorRect: centerAnchor(),
-      model: {
-        label: toast.title,
-        ...(toast.body === undefined ? {} : { text: toast.body }),
-        tone: "neutral",
-        choices: toast.action ? [{ id: ACT, label: toast.action.label }] : [],
-      },
-    }, document.body).then((opened) => {
-      if (open.current !== mine) {
-        if (opened.ok) void overlay.close(opened.value);
+  const show = useCallback(
+    (toast: ViewToast) => {
+      if (overlay === undefined || consumer.current === null) {
+        setDom(toast);
         return;
       }
-      if (opened.ok) mine.identity = opened.value;
-      else open.current = null;
-    });
-  }, [overlay]);
+      const previous = open.current?.identity;
+      if (previous) void overlay.close(previous);
+      const requestId = `view-toast-${++serial}`;
+      const mine: { requestId: string; identity: OverlayIdentity | null } = {
+        requestId,
+        identity: null,
+      };
+      open.current = mine;
+      action.current = toast.action?.run;
+      void consumer.current
+        .open(
+          {
+            requestId,
+            kind: "notification",
+            anchorRect: centerAnchor(),
+            model: {
+              label: toast.title,
+              ...(toast.body === undefined ? {} : { text: toast.body }),
+              tone: "neutral",
+              choices: toast.action
+                ? [{ id: ACT, label: toast.action.label }]
+                : [],
+            },
+          },
+          document.body,
+        )
+        .then((opened) => {
+          if (open.current !== mine) {
+            if (opened.ok) void overlay.close(opened.value);
+            return;
+          }
+          if (opened.ok) mine.identity = opened.value;
+          else open.current = null;
+        });
+    },
+    [overlay],
+  );
 
   return { dom: overlay === undefined ? dom : null, show, hide };
 }

@@ -16,9 +16,9 @@ const files = active.map((p) => p.file);
 if (await liveRootReady()) files.push("chatgpt_test.ts");
 if (files.length === 0) {
   console.log(
-    `돌 것이 없어 live를 돌리지 않는다. env ${
-      PROVIDERS.map((p) => p.env).join(", ")
-    } 중 하나 이상이 필요하고, ChatGPT 구독은 먼저 \`deno task test:live:login\`으로 로그인해 .dev-data/live/home을 만들어야 한다.`,
+    `돌 것이 없어 live를 돌리지 않는다. env ${PROVIDERS.map((p) => p.env).join(
+      ", ",
+    )} 중 하나 이상이 필요하고, ChatGPT 구독은 먼저 \`deno task test:live:login\`으로 로그인해 .dev-data/live/home을 만들어야 한다.`,
   );
   process.exit(0);
 }
@@ -26,12 +26,11 @@ if (files.length === 0) {
 let failed = false;
 for (const file of files) {
   // 자기 자신을 다시 띄우는 자리는 `Deno.execPath()`가 남아 다음 계획에서 바뀐다.
-  const { status } = spawnSync(Deno.execPath(), [
-    "test",
-    "--allow-all",
-    "--no-check",
-    `${import.meta.dirname}/${file}`,
-  ], { stdio: "inherit" });
+  const { status } = spawnSync(
+    Deno.execPath(),
+    ["test", "--allow-all", "--no-check", `${import.meta.dirname}/${file}`],
+    { stdio: "inherit" },
+  );
   if (status !== 0) failed = true;
 }
 process.exit(failed ? 1 : 0);

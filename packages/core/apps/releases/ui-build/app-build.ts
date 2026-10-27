@@ -35,10 +35,10 @@ function assets(imports: Record<string, string>): esbuild.Plugin {
         const url = mapped
           ? new URL(mapped)
           : args.path.startsWith("file:")
-          ? new URL(args.path)
-          : args.path.startsWith(".")
-          ? new URL(args.path, base)
-          : undefined;
+            ? new URL(args.path)
+            : args.path.startsWith(".")
+              ? new URL(args.path, base)
+              : undefined;
         if (!url || url.protocol !== "file:") return undefined;
         return { path: fileURLToPath(url), namespace: "app-asset" };
       });
@@ -47,10 +47,10 @@ function assets(imports: Record<string, string>): esbuild.Plugin {
         loader: args.path.endsWith(".svg")
           ? "text"
           : args.path.endsWith(".module.css")
-          ? "local-css"
-          : args.path.endsWith(".css")
-          ? "css"
-          : "file",
+            ? "local-css"
+            : args.path.endsWith(".css")
+              ? "css"
+              : "file",
         resolveDir: dirname(args.path),
       }));
     },
@@ -68,7 +68,8 @@ function guard(roots: readonly string[]): esbuild.Plugin {
         if (
           (args.namespace !== "file" && args.namespace !== "app-asset") ||
           !args.path.startsWith("/")
-        ) return undefined;
+        )
+          return undefined;
         let real: string;
         try {
           real = await realpath(args.path);
@@ -90,18 +91,16 @@ if (root === undefined || sdkRoot === undefined || denoDir === undefined) {
 const allowed = await Promise.all(
   [root, sdkRoot, denoDir].map((path) => realpath(path)),
 );
-const imports: Record<string, string> =
-  JSON.parse(await readFile(join(root, ".lophn/import-map.json"), "utf8"))
-    .imports;
+const imports: Record<string, string> = JSON.parse(
+  await readFile(join(root, ".lophn/import-map.json"), "utf8"),
+).imports;
 const scratch = join(root, ".lophn/build-config.json");
 await writeFile(scratch, JSON.stringify({ imports }));
 try {
   const screens: string[] = [];
-  for (
-    const entry of await readdir(join(root, "src/screens"), {
-      withFileTypes: true,
-    })
-  ) {
+  for (const entry of await readdir(join(root, "src/screens"), {
+    withFileTypes: true,
+  })) {
     if (entry.isDirectory() && SCREEN_KEY.test(entry.name)) {
       screens.push(entry.name);
     }

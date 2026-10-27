@@ -52,8 +52,7 @@ interface StatusCore {
     method: string,
     body: unknown,
   ): Promise<
-    | { ok: true; value: unknown }
-    | { ok: false; error: { code: string } }
+    { ok: true; value: unknown } | { ok: false; error: { code: string } }
   >;
 }
 
@@ -71,11 +70,14 @@ async function isConfigured(core: StatusCore, name: string): Promise<boolean> {
   });
   if (!got.ok) return false;
   const secrets = (got.value as { secrets?: unknown }).secrets;
-  return Array.isArray(secrets) &&
-    secrets.some((one) =>
-      (one as { name?: unknown; configured?: unknown }).name === name &&
-      (one as { configured?: unknown }).configured === true
-    );
+  return (
+    Array.isArray(secrets) &&
+    secrets.some(
+      (one) =>
+        (one as { name?: unknown; configured?: unknown }).name === name &&
+        (one as { configured?: unknown }).configured === true,
+    )
+  );
 }
 
 export function registerSecretInputIpc(
@@ -196,12 +198,11 @@ export function registerSecretInputIpc(
 }
 
 export function removeSecretInputIpc(ipc: SecretInputIpc): void {
-  for (
-    const channel of [
-      SECRET_INPUT_OPEN_CHANNEL,
-      SECRET_INPUT_DISPLAY_CHANNEL,
-      SECRET_INPUT_SUBMIT_CHANNEL,
-      SECRET_INPUT_CANCEL_CHANNEL,
-    ]
-  ) ipc.removeHandler(channel);
+  for (const channel of [
+    SECRET_INPUT_OPEN_CHANNEL,
+    SECRET_INPUT_DISPLAY_CHANNEL,
+    SECRET_INPUT_SUBMIT_CHANNEL,
+    SECRET_INPUT_CANCEL_CHANNEL,
+  ])
+    ipc.removeHandler(channel);
 }

@@ -15,10 +15,13 @@ function mergeObjects(
   for (const [key, incoming] of Object.entries(patch)) {
     const existing = merged[key];
     // 양쪽이 object면 안으로 들어가 합친다. 그 밖(배열·scalar)은 사람이 고른 option의 조각이 이긴다.
-    merged[key] = isJsonObject(incoming) && typeof existing === "object" &&
-        existing !== null && !Array.isArray(existing)
-      ? mergeObjects(existing as Record<string, unknown>, incoming)
-      : structuredClone(incoming);
+    merged[key] =
+      isJsonObject(incoming) &&
+      typeof existing === "object" &&
+      existing !== null &&
+      !Array.isArray(existing)
+        ? mergeObjects(existing as Record<string, unknown>, incoming)
+        : structuredClone(incoming);
   }
   return merged;
 }

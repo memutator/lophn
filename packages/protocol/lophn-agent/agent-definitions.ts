@@ -76,12 +76,7 @@ const saveCompareSchema = z.strictObject({ hash: sha256Schema.nullable() });
 const existingCompareSchema = z.strictObject({ hash: sha256Schema });
 
 // 값을 준 층. 설정의 층은 전역, project, agent이고 composer가 session 하나만 고른 model이 session이다.
-const AGENT_VALUE_LAYERS = [
-  "global",
-  "project",
-  "agent",
-  "session",
-] as const;
+const AGENT_VALUE_LAYERS = ["global", "project", "agent", "session"] as const;
 const agentValueLayerSchema = z.enum(AGENT_VALUE_LAYERS);
 export type AgentValueLayer = z.infer<typeof agentValueLayerSchema>;
 
@@ -123,11 +118,13 @@ const agentDefinitionRowSchema = z.object({
   place: placeOutputSchema.nullable(),
   name: agentNameSchema,
   profile: profileOutputSchema,
-  model: z.object({
-    provider: idSchema("pvd"),
-    model_name: z.string().min(1),
-    source: agentValueLayerSchema,
-  }).nullable(),
+  model: z
+    .object({
+      provider: idSchema("pvd"),
+      model_name: z.string().min(1),
+      source: agentValueLayerSchema,
+    })
+    .nullable(),
   issues: z.array(agentDefinitionIssueSchema),
   counts: agentCountsSchema,
 });
@@ -156,25 +153,26 @@ export const agentDefinitionRead = defineRead({
   method: "read",
   name: "ReadAgentDefinition",
   input: readAgentDefinitionInputSchema,
-  output: withReadCommon(z.object({
-    agent: agentRefOutputSchema,
-    role: roleSchema,
-    place: placeOutputSchema.nullable(),
-    definition: z.union([
-      operatorDefinitionOutputSchema,
-      builtinDefinitionOutputSchema,
-    ]).nullable(),
-    hash: sha256Schema.nullable(),
-    effective: z.object({
-      name: agentSourced(agentNameSchema),
-      profile: agentSourced(profileOutputSchema),
-      model: agentSourced(modelChoiceOutputSchema).nullable(),
-      // agent가 일하는 domain id다. 정의가 고른 것과 그 place 그릇의 active domain의 교집합이고, 고르지 않았으면
-      // 그릇의 active domain 전부다(id 순). lophn은 place가 없어 빈 목록이다.
-      domains: z.array(idSchema("dom")),
+  output: withReadCommon(
+    z.object({
+      agent: agentRefOutputSchema,
+      role: roleSchema,
+      place: placeOutputSchema.nullable(),
+      definition: z
+        .union([operatorDefinitionOutputSchema, builtinDefinitionOutputSchema])
+        .nullable(),
+      hash: sha256Schema.nullable(),
+      effective: z.object({
+        name: agentSourced(agentNameSchema),
+        profile: agentSourced(profileOutputSchema),
+        model: agentSourced(modelChoiceOutputSchema).nullable(),
+        // agent가 일하는 domain id다. 정의가 고른 것과 그 place 그릇의 active domain의 교집합이고, 고르지 않았으면
+        // 그릇의 active domain 전부다(id 순). lophn은 place가 없어 빈 목록이다.
+        domains: z.array(idSchema("dom")),
+      }),
+      issues: z.array(agentDefinitionIssueSchema),
     }),
-    issues: z.array(agentDefinitionIssueSchema),
-  })),
+  ),
   actors: readActors,
   errors: [...readErrors],
 });

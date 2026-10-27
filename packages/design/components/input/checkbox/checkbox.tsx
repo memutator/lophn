@@ -22,9 +22,12 @@ export interface CheckboxProps {
 }
 
 // 나중에 제출하는 선택이다. 바로 바뀌는 설정은 Switch를 쓴다.
-export function Checkbox(
-  { label, onCheckedChange, size = "md", ...state }: CheckboxProps,
-) {
+export function Checkbox({
+  label,
+  onCheckedChange,
+  size = "md",
+  ...state
+}: CheckboxProps) {
   const id = useId();
   return (
     <div
@@ -42,7 +45,9 @@ export function Checkbox(
           <Icon icon={Check} pixels={controlIconPixels("sm")} />
         </Radix.Indicator>
       </Radix.Root>
-      <label htmlFor={id} className={styles.label}>{label}</label>
+      <label htmlFor={id} className={styles.label}>
+        {label}
+      </label>
     </div>
   );
 }

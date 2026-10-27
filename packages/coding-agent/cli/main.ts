@@ -159,10 +159,12 @@ export async function cliMain(
   const userTokenPath = `${
     userDataRoot ?? "<data root>"
   }/run/${USER_TOKEN_FILE_NAME}`;
-  const userToken = matched?.entry.auth === "user" && token === undefined &&
-      userDataRoot !== undefined
-    ? readText(userTokenPath) || undefined
-    : undefined;
+  const userToken =
+    matched?.entry.auth === "user" &&
+    token === undefined &&
+    userDataRoot !== undefined
+      ? readText(userTokenPath) || undefined
+      : undefined;
   const output = createOutput({
     json: parsed.json,
     stdout: options.stdout,
@@ -205,18 +207,22 @@ export async function cliMain(
   if (rest.length !== slots.length) {
     return await fail({
       code: "invalid_input",
-      message: slots.length === 0
-        ? "command 뒤에 받지 않는 위치 인자가 있다"
-        : `위치 인자가 필요하다: ${slots.map((s) => `<${s}>`).join(" ")}`,
+      message:
+        slots.length === 0
+          ? "command 뒤에 받지 않는 위치 인자가 있다"
+          : `위치 인자가 필요하다: ${slots.map((s) => `<${s}>`).join(" ")}`,
     });
   }
   const cwd = options.cwd ?? process.cwd();
   const body = inputOf(parsed, cwd, readText, entry.auth === "user");
   if (!body.ok) return await fail(body.error);
-  const candidate: Record<string, unknown> = entry.auth === "user"
-    ? body.value === undefined ? {} : { input: body.value }
-    : { ...(body.value as Record<string, unknown> | undefined) };
-  slots.forEach((slot, index) => candidate[slot] = rest[index]);
+  const candidate: Record<string, unknown> =
+    entry.auth === "user"
+      ? body.value === undefined
+        ? {}
+        : { input: body.value }
+      : { ...(body.value as Record<string, unknown> | undefined) };
+  slots.forEach((slot, index) => (candidate[slot] = rest[index]));
   // flag가 위치 인자를 덮어쓰지 못하게 한다(`workflow report <step>`과 `--step`).
   if (parsed.step !== undefined && slots.includes("step")) {
     return await fail({
@@ -245,24 +251,24 @@ export async function cliMain(
   if (!checked.success) {
     return await fail({
       code: "invalid_input",
-      message: `입력이 맞지 않다: ${
-        checked.error.issues.map((issue) => describeIssue(issue, candidate))
-          .join("; ")
-      }`,
+      message: `입력이 맞지 않다: ${checked.error.issues
+        .map((issue) => describeIssue(issue, candidate))
+        .join("; ")}`,
     });
   }
   const input = Object.fromEntries(
-    Object.entries(checked.data as Record<string, unknown>).filter(([key]) =>
-      !flagKeys.includes(key)
+    Object.entries(checked.data as Record<string, unknown>).filter(
+      ([key]) => !flagKeys.includes(key),
     ),
   );
   // 자격이 있을 때만 core 주소를 찾고 client를 만든다. `user` 명령은 coding token이 먼저다.
   let client: RunContext["client"];
-  const credential = entry.auth === "user"
-    ? token ?? userToken
-    : entry.auth === "coding_token"
-    ? token
-    : undefined;
+  const credential =
+    entry.auth === "user"
+      ? (token ?? userToken)
+      : entry.auth === "coding_token"
+        ? token
+        : undefined;
   if (entry.auth === "user" && credential === undefined) {
     return await fail({
       code: "unavailable",

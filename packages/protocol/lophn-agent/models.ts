@@ -19,9 +19,11 @@ import { EFFORT_VALUES, OPTION_AXIS_EFFORT } from "./option-axes.ts";
 const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",
 });
-const positiveIntegerSchema = z.number().int().positive().max(
-  Number.MAX_SAFE_INTEGER,
-);
+const positiveIntegerSchema = z
+  .number()
+  .int()
+  .positive()
+  .max(Number.MAX_SAFE_INTEGER);
 
 // agent 정의·전역 기본값·session이 가지는 model 선택 하나(harness/model domain의 ModelChoice).
 // 계정은 provider가 고르므로 여기 없다. option_values는 축 id → 값이고 비면 모델에 맡긴다.
@@ -40,11 +42,7 @@ const CATALOG_SOURCES = [
   "lophn_patch",
   "user",
 ] as const;
-const CATALOG_FAILURES = [
-  "invalid_input",
-  "unavailable",
-  "not_found",
-] as const;
+const CATALOG_FAILURES = ["invalid_input", "unavailable", "not_found"] as const;
 
 // token 예산으로 번역되는 effort 값의 기준 예산이다. 확인된 최소·최대 안으로 제한해서 쓴다.
 export const EFFORT_BUDGET_TOKENS = {
@@ -65,10 +63,12 @@ const bodyPatchWireFields = {
   // 빈 조각은 "요청에 더할 것이 없다"는 명시 값이다(예: Standard).
   patch: jsonObjectSchema,
   // 같은 값이 요청 header도 요구할 때만 싣는다(예: Anthropic fast mode의 beta header).
-  headers: z.record(nonblankSchema, nonblankSchema).refine(
-    (headers) => Object.keys(headers).length > 0,
-    { message: "headers are empty" },
-  ).optional(),
+  headers: z
+    .record(nonblankSchema, nonblankSchema)
+    .refine((headers) => Object.keys(headers).length > 0, {
+      message: "headers are empty",
+    })
+    .optional(),
 };
 const modelIdWireFields = {
   kind: z.literal("model_id"),
@@ -153,32 +153,38 @@ function optionAxisShape(
   }
 }
 
-const optionAxisSchema = z.strictObject(optionAxisFields)
+const optionAxisSchema = z
+  .strictObject(optionAxisFields)
   .superRefine(optionAxisShape);
-const optionAxisOutputSchema = z.object({
-  ...optionAxisFields,
-  values: z.array(optionValueOutputSchema).min(1),
-  budget: z.object(optionBudgetFields).nullable(),
-}).superRefine(optionAxisShape);
+const optionAxisOutputSchema = z
+  .object({
+    ...optionAxisFields,
+    values: z.array(optionValueOutputSchema).min(1),
+    budget: z.object(optionBudgetFields).nullable(),
+  })
+  .superRefine(optionAxisShape);
 export type OptionAxis = z.infer<typeof optionAxisSchema>;
 
 function uniqueAxisIds(axes: readonly { id: string }[] | null): boolean {
-  return axes === null ||
-    new Set(axes.map((axis) => axis.id)).size === axes.length;
+  return (
+    axes === null || new Set(axes.map((axis) => axis.id)).size === axes.length
+  );
 }
 // null은 option을 아직 모른다는 뜻(고를 수 없고 option 필드도 보내지 않는다)이고 빈 배열은 없다고 확인된 것이다.
 const axesSchema = z.array(optionAxisSchema).nullable().refine(uniqueAxisIds, {
   message: "duplicate option axis",
 });
-const axesOutputSchema = z.array(optionAxisOutputSchema).nullable().refine(
-  uniqueAxisIds,
-  { message: "duplicate option axis" },
-);
+const axesOutputSchema = z
+  .array(optionAxisOutputSchema)
+  .nullable()
+  .refine(uniqueAxisIds, { message: "duplicate option axis" });
 
-const mediaList = z.array(z.enum(MODEL_MEDIA)).refine(
-  (values) => new Set(values).size === values.length,
-  { message: "duplicate media" },
-).nullable();
+const mediaList = z
+  .array(z.enum(MODEL_MEDIA))
+  .refine((values) => new Set(values).size === values.length, {
+    message: "duplicate media",
+  })
+  .nullable();
 
 const entryFields = {
   provider_definition: nonblankSchema,
@@ -230,18 +236,18 @@ const hiddenModelOutputSchema = z.object(hiddenFields);
 function uniqueHidden(
   items: readonly { provider: string; model_name: string }[],
 ): boolean {
-  return new Set(items.map((item) => `${item.provider}\0${item.model_name}`))
-    .size === items.length;
+  return (
+    new Set(items.map((item) => `${item.provider}\0${item.model_name}`))
+      .size === items.length
+  );
 }
 const duplicateHidden = { message: "duplicate hidden model" };
-const hiddenModelsItemsSchema = z.array(hiddenModelSchema).refine(
-  uniqueHidden,
-  duplicateHidden,
-);
-const hiddenOutputItemsSchema = z.array(hiddenModelOutputSchema).refine(
-  uniqueHidden,
-  duplicateHidden,
-);
+const hiddenModelsItemsSchema = z
+  .array(hiddenModelSchema)
+  .refine(uniqueHidden, duplicateHidden);
+const hiddenOutputItemsSchema = z
+  .array(hiddenModelOutputSchema)
+  .refine(uniqueHidden, duplicateHidden);
 const hiddenModelsSchema = z.strictObject({
   items: hiddenModelsItemsSchema,
   settings_seq: seqSchema,
@@ -308,12 +314,10 @@ const userPriceFields = {
 };
 
 // 사람이 고른 effort가 core가 만드는 축이 된다. label은 고정이고 wire·budget은 없다.
-export function effortAxisOf(
-  effort: {
-    values: readonly EffortValue[];
-    default_value: EffortValue | null;
-  },
-): OptionAxis {
+export function effortAxisOf(effort: {
+  values: readonly EffortValue[];
+  default_value: EffortValue | null;
+}): OptionAxis {
   return {
     id: OPTION_AXIS_EFFORT,
     label: "Effort",
@@ -342,13 +346,17 @@ const userInfoFields = {
 };
 const userModelInfoSchema = z.strictObject({
   ...userInfoFields,
-  effort: z.strictObject(userEffortFields).refine(validEffort, invalidEffort)
+  effort: z
+    .strictObject(userEffortFields)
+    .refine(validEffort, invalidEffort)
     .nullable(),
   price: z.strictObject(userPriceFields).nullable(),
 });
 const userModelInfoOutputSchema = z.object({
   ...userInfoFields,
-  effort: z.object(userEffortFields).refine(validEffort, invalidEffort)
+  effort: z
+    .object(userEffortFields)
+    .refine(validEffort, invalidEffort)
     .nullable(),
   price: z.object(userPriceFields).nullable(),
 });
@@ -426,10 +434,12 @@ export const modelCatalogRead = defineRead({
     // 앞선 응답의 next_cursor다. catalog 전체가 한 응답 한도를 넘으므로 page로 읽는다.
     cursor: z.string().min(1).optional(),
   }),
-  output: withReadCommon(z.object({
-    state: catalogStateOutputSchema,
-    entries: z.array(catalogEntryOutputSchema),
-  })),
+  output: withReadCommon(
+    z.object({
+      state: catalogStateOutputSchema,
+      entries: z.array(catalogEntryOutputSchema),
+    }),
+  ),
   actors: readActors,
   errors: [...readErrors],
 });

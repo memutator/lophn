@@ -14,8 +14,7 @@ export function appDirectSocketPath(directory: string, slot: number): string {
 
 // 모든 자리의 direct socket 경로다. MCP 실행 권한이 이 경로 각각만 허락한다.
 export function appDirectSocketPaths(directory: string): string[] {
-  return Array.from(
-    { length: APP_SOCKET_SLOTS },
-    (_, slot) => appDirectSocketPath(directory, slot),
+  return Array.from({ length: APP_SOCKET_SLOTS }, (_, slot) =>
+    appDirectSocketPath(directory, slot),
   );
 }

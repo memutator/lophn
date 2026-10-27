@@ -9,13 +9,11 @@ export function traceOf(body: unknown): string[] {
   const trace: string[] = [];
   for (const { role, content } of messages) {
     if (!Array.isArray(content)) continue;
-    for (
-      const block of content as {
-        type?: string;
-        name?: string;
-        is_error?: boolean;
-      }[]
-    ) {
+    for (const block of content as {
+      type?: string;
+      name?: string;
+      is_error?: boolean;
+    }[]) {
       if (role === "assistant" && block.type === "tool_use") {
         trace.push(`use:${block.name}`);
       } else if (role === "user" && block.type === "tool_result") {
@@ -48,8 +46,7 @@ export function firstDivergence(
   if (recorded.length !== replayed.length) {
     return {
       at: common + 1,
-      reason:
-        `request count differs: recorded ${recorded.length}, replayed ${replayed.length}`,
+      reason: `request count differs: recorded ${recorded.length}, replayed ${replayed.length}`,
     };
   }
   return null;
@@ -91,17 +88,20 @@ export function sideStat(calls: Boundary[][]): SideStat {
       const prev = calls[k - 1].find((b) => b.layer === layer);
       const cur = calls[k].find((b) => b.layer === layer);
       if (
-        prev !== undefined && cur !== undefined &&
+        prev !== undefined &&
+        cur !== undefined &&
         prev.prefix_hash === cur.prefix_hash
       ) {
         stable++;
       } else if (first_break === null) {
         first_break = {
           call: k + 1,
-          ...(prev && cur ? firstChange(prev.text, cur.text) : {
-            before: prev ? head(prev.text) : ABSENT,
-            after: cur ? head(cur.text) : ABSENT,
-          }),
+          ...(prev && cur
+            ? firstChange(prev.text, cur.text)
+            : {
+                before: prev ? head(prev.text) : ABSENT,
+                after: cur ? head(cur.text) : ABSENT,
+              }),
         };
       }
     }

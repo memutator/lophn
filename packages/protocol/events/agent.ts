@@ -34,10 +34,9 @@ function defineAgentEvent<T extends string, P extends z.ZodType>(
   return { type, payload };
 }
 
-function agentEventEnvelopeSchema<
-  T extends string,
-  P extends z.ZodType,
->(definition: AgentEventDefinition<T, P>) {
+function agentEventEnvelopeSchema<T extends string, P extends z.ZodType>(
+  definition: AgentEventDefinition<T, P>,
+) {
   return z.object({
     session: idSchema("ses"),
     type: z.literal(definition.type),
@@ -89,7 +88,8 @@ const turnEnded = defineAgentEvent(
     outcome: turnOutcomeOutputSchema,
     messages: z.array(idSchema("msg")),
     active_ms: durationMsSchema.nullable(),
-    error: z.strictObject({ code: z.string().min(1), message: z.string() })
+    error: z
+      .strictObject({ code: z.string().min(1), message: z.string() })
       .nullable(),
   }),
 );

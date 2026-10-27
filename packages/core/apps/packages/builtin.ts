@@ -43,8 +43,11 @@ async function readTextOrNull(path: string): Promise<string | null> {
 // 선언 위의 주석 줄(`//`, JSDoc)이다.
 function isComment(line: string): boolean {
   const trimmed = line.trimStart();
-  return trimmed.startsWith("//") || trimmed.startsWith("/*") ||
-    trimmed.startsWith("*");
+  return (
+    trimmed.startsWith("//") ||
+    trimmed.startsWith("/*") ||
+    trimmed.startsWith("*")
+  );
 }
 
 // source에서 `interface|type <name>` 선언 하나를 바로 위 주석과 함께 그대로 옮긴다. interface는 `}`에서, type은
@@ -98,7 +101,7 @@ function typesOf(source: string, names: readonly string[]): string[] {
 // 인자 자리에 바로 쓴 type이면 signature 한 줄이다. 인자가 없으면 null이다. 부르는 쪽이 component(PascalCase)만 넘긴다.
 function signatureOf(lines: readonly string[], name: string): string | null {
   const start = lines.findIndex((line) =>
-    line.startsWith(`export function ${name}(`)
+    line.startsWith(`export function ${name}(`),
   );
   if (start === -1) return null;
   const text = lines.slice(start).join("\n");
@@ -114,10 +117,14 @@ function signatureOf(lines: readonly string[], name: string): string | null {
     if (depth === 0) close = at;
   }
   if (colon === -1 || close === -1) return null;
-  const type = text.slice(colon + 1, close).trim().replace(/,$/, "");
+  const type = text
+    .slice(colon + 1, close)
+    .trim()
+    .replace(/,$/, "");
   if (/^\w+$/.test(type)) {
-    return declarationOf(lines, type, false) ??
-      declarationOf(lines, type, true);
+    return (
+      declarationOf(lines, type, false) ?? declarationOf(lines, type, true)
+    );
   }
   return `function ${name}(props: ${type.replace(/\s+/g, " ")})`;
 }
@@ -154,25 +161,33 @@ async function indexOfCategory(
       continue;
     }
     if (!/from "[^"]+";/.test(statement)) continue;
-    const parts = statement.slice(
-      statement.indexOf("{") + 1,
-      statement.indexOf("}"),
-    ).split(",").map((part) => part.trim()).filter((part) => part !== "");
+    const parts = statement
+      .slice(statement.indexOf("{") + 1, statement.indexOf("}"))
+      .split(",")
+      .map((part) => part.trim())
+      .filter((part) => part !== "");
     const names = parts.filter((part) => !part.startsWith("type "));
-    const types = parts.filter((part) => part.startsWith("type "))
+    const types = parts
+      .filter((part) => part.startsWith("type "))
       .map((part) => part.slice("type ".length));
     const from = /from "([^"]+)";/.exec(statement)?.[1];
     if (names.length > 0 && comment.length > 0) {
       lines.push(`- ${names.join(", ")}: ${comment.join(" ")}`);
-      const source = from === undefined ? null : await readTextOrNull(
-        new URL(from, `file://${folder}/components/${category}/`).pathname,
-      );
-      const found = source === null
-        ? []
-        : types.length > 0
-        ? typesOf(source, types)
-        : names.filter((name) => /^[A-Z][a-z]/.test(name))
-          .flatMap((name) => signatureOf(source.split("\n"), name) ?? []);
+      const source =
+        from === undefined
+          ? null
+          : await readTextOrNull(
+              new URL(from, `file://${folder}/components/${category}/`)
+                .pathname,
+            );
+      const found =
+        source === null
+          ? []
+          : types.length > 0
+            ? typesOf(source, types)
+            : names
+                .filter((name) => /^[A-Z][a-z]/.test(name))
+                .flatMap((name) => signatureOf(source.split("\n"), name) ?? []);
       if (found.length > 0) {
         lines.push("", "```ts", found.join("\n\n"), "```", "");
       }
@@ -191,9 +206,7 @@ async function guideOf(folder: string): Promise<string | null> {
   const sections: string[] = [];
   for (const category of (await readDirNames(`${folder}/components`)).sort()) {
     if (category.startsWith("_")) continue;
-    const mod = await readTextOrNull(
-      `${folder}/components/${category}/mod.ts`,
-    );
+    const mod = await readTextOrNull(`${folder}/components/${category}/mod.ts`);
     if (mod !== null) {
       sections.push(await indexOfCategory(folder, category, mod));
     }
@@ -219,7 +232,8 @@ export function readBuiltinSdk(deps: { dataRoot: string }): MemoryHandler {
         if (part.startsWith("@")) continue;
         if (name !== undefined && name !== `@lophn/${part}`) continue;
         const newest = (await readDirNames(`${sdkRoot}/${part}`))
-          .sort(versionOrder).at(-1);
+          .sort(versionOrder)
+          .at(-1);
         if (newest === undefined) continue;
         const text = await guideOf(`${sdkRoot}/${part}/${newest}`);
         found.push({
@@ -231,7 +245,7 @@ export function readBuiltinSdk(deps: { dataRoot: string }): MemoryHandler {
           text,
         });
       }
-      found.sort((a, b) => a.entry.name < b.entry.name ? -1 : 1);
+      found.sort((a, b) => (a.entry.name < b.entry.name ? -1 : 1));
       if (name === undefined) {
         return ok({ packages: found.map((one) => one.entry), guide: null });
       }

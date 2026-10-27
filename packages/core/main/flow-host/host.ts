@@ -74,7 +74,7 @@ const failure = (reason: string, message: string): FlowOutcome => ({
   message,
 });
 
-const messageOf = (e: unknown) => e instanceof Error ? e.message : String(e);
+const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export function createFlowHost(
   deps: FlowHostDeps,
@@ -87,13 +87,12 @@ export function createFlowHost(
   // 내용이 instance와 무관해 한 번만 쓴다. 동시 launch가 같은 파일을 덮어쓰지 않게 promise를 재사용한다.
   let importMapReady: Promise<string> | undefined;
   const importMap = () =>
-    importMapReady ??= (async () => {
+    (importMapReady ??= (async () => {
       await mkdir(flowsRoot, { recursive: true, mode: 0o700 });
       const path = `${flowsRoot}/import-map.json`;
       const map = devImportMap(
         {
-          [FLOW_SDK_NAME]:
-            `lophn-sdk:${FLOW_SDK_NAME}@${FLOW_SDK_VERSION}/mod.ts`,
+          [FLOW_SDK_NAME]: `lophn-sdk:${FLOW_SDK_NAME}@${FLOW_SDK_VERSION}/mod.ts`,
         },
         dataRoot,
         dataRoot,
@@ -103,7 +102,7 @@ export function createFlowHost(
     })().catch((e) => {
       importMapReady = undefined;
       throw e;
-    });
+    }));
 
   // log 쓰기가 실패해도 flow는 멈추지 않는다.
   function appendLog(instance: string, entry: Entry, text: string) {
@@ -115,9 +114,11 @@ export function createFlowHost(
       entry.logFull = true;
       data = `${at} [log truncated]\n`;
     } else entry.logBytes += bytes;
-    entry.logChain = entry.logChain.then(() =>
-      appendFile(`${flowsRoot}/${instance}.log`, data, { mode: 0o600 })
-    ).catch(() => {});
+    entry.logChain = entry.logChain
+      .then(() =>
+        appendFile(`${flowsRoot}/${instance}.log`, data, { mode: 0o600 }),
+      )
+      .catch(() => {});
   }
 
   // stderr 한 줄(과 host가 stderr에 남기는 [lophn] 줄)을 redaction을 거쳐 log와 끝 줄에 쌓는다.
@@ -150,18 +151,18 @@ export function createFlowHost(
     const started = await deps.runs.start(
       request.type === "agent"
         ? {
-          kind: "agent",
-          agent: request.agent,
-          prompt: request.prompt,
-          input: request.input,
-          schema: request.schema,
-        }
+            kind: "agent",
+            agent: request.agent,
+            prompt: request.prompt,
+            input: request.input,
+            schema: request.schema,
+          }
         : {
-          kind: "tool",
-          app: request.app,
-          tool: request.tool,
-          input: request.input,
-        },
+            kind: "tool",
+            app: request.app,
+            tool: request.tool,
+            input: request.input,
+          },
       origin,
     );
     if (!started.ok) {
@@ -194,17 +195,23 @@ export function createFlowHost(
       if (request.type === "report") {
         entry.reports = entry.reports.then(async () => {
           // lophn은 report를 믿고 기록할 뿐이다. 판정을 더하지 않는다.
-          const outcome = await guard(async (): Promise<FlowOutcome> => {
-            const done = await deps.workflows.report({
-              instance,
-              step: request.step,
-              text: request.text,
-              next: request.next,
-            }, { kind: "program" });
-            return done.ok
-              ? { ok: true, result: null }
-              : failure(done.error.code, done.error.message);
-          }, (message) => failure("internal", message));
+          const outcome = await guard(
+            async (): Promise<FlowOutcome> => {
+              const done = await deps.workflows.report(
+                {
+                  instance,
+                  step: request.step,
+                  text: request.text,
+                  next: request.next,
+                },
+                { kind: "program" },
+              );
+              return done.ok
+                ? { ok: true, result: null }
+                : failure(done.error.code, done.error.message);
+            },
+            (message) => failure("internal", message),
+          );
           entry.respond(request.id, outcome);
         });
         return;
@@ -359,7 +366,10 @@ export function createFlowHost(
       const entry = processes.get(instance);
       if (entry === undefined) return ok(undefined);
       const gone = await entry.child.terminate();
-      await guard(() => deps.runs.cancelOfInstance(instance), () => {});
+      await guard(
+        () => deps.runs.cancelOfInstance(instance),
+        () => {},
+      );
       return gone
         ? ok(undefined)
         : err({ code: "unavailable", message: "flow process did not end" });

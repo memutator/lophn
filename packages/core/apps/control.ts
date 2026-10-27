@@ -171,13 +171,13 @@ const APP_CHILD_OPERATIONS = [appCallTool.name];
 // registry 상한. 이 목록에 없는 operation은 그 actor에게 발급하지 못한다.
 export function appsOperationPolicies(): OperationPolicy[] {
   return [
-    ...[appRecordStarted, appRecordStopped, appRecordUnavailable].map((
-      route,
-    ): OperationPolicy => ({
-      name: route.name,
-      actors: ["machine"],
-      kind: "command",
-    })),
+    ...[appRecordStarted, appRecordStopped, appRecordUnavailable].map(
+      (route): OperationPolicy => ({
+        name: route.name,
+        actors: ["machine"],
+        kind: "command",
+      }),
+    ),
     // 앱 호출은 사람(전체 user 상한)과 agent, 호출한 앱 자신(child credential)이 한다. machine은 앱 child
     // credential을 발급하는 경로의 상한이다.
     {
@@ -198,20 +198,22 @@ export function appsOperationPolicies(): OperationPolicy[] {
       activationStart,
       activationAskConsent,
       releasesGetRecord,
-    ].map((route): OperationPolicy => ({
-      name: route.name,
-      actors: ["machine"],
-      kind: "command",
-    })),
+    ].map(
+      (route): OperationPolicy => ({
+        name: route.name,
+        actors: ["machine"],
+        kind: "command",
+      }),
+    ),
     { name: packageRegisterVersion.name, actors: ["machine"], kind: "command" },
     // preview는 사람(전체 user 상한)과 coding agent가 연다.
-    ...[previewsStart, previewsGet, previewsStop].map((
-      route,
-    ): OperationPolicy => ({
-      name: route.name,
-      actors: ["coding_agent"],
-      kind: "read",
-    })),
+    ...[previewsStart, previewsGet, previewsStop].map(
+      (route): OperationPolicy => ({
+        name: route.name,
+        actors: ["coding_agent"],
+        kind: "read",
+      }),
+    ),
     // 안내 원문 한 field만 읽는 좁은 읽기다. coding agent에 일반 blobs/read는 열지 않는다.
     { name: packagesGuideBody.name, actors: ["coding_agent"], kind: "read" },
   ];
@@ -345,14 +347,18 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
         const found = loadApp(opened.value.sql, id);
         if (!found.ok) return Promise.resolve(internalError());
         const app = found.value;
-        return Promise.resolve(ok(
-          app === null ? null : {
-            id: app.id,
-            status: app.status,
-            run_enabled: app.run_enabled,
-            active_release: app.active_release,
-          },
-        ));
+        return Promise.resolve(
+          ok(
+            app === null
+              ? null
+              : {
+                  id: app.id,
+                  status: app.status,
+                  run_enabled: app.run_enabled,
+                  active_release: app.active_release,
+                },
+          ),
+        );
       } catch {
         return Promise.resolve(internalError());
       } finally {
@@ -403,27 +409,27 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
 
   const previewService: PreviewService | undefined = deps.previews
     ? createPreviewService({
-      clock: deps.clock,
-      nonce: deps.previews.nonce ?? (() => crypto.randomUUID()),
-      supervisor: {
-        start: (launch) => client.previewStart(launch),
-        observe: (app, nonce) => client.previewObserve(app, nonce),
-        stop: (app, nonce) => client.previewStop(app, nonce),
-      },
-      area: createFsPreviewArea(deps.previews.dataRoot),
-      apps: {
-        async exists(app) {
-          const found = await facts.app(app);
-          return found.ok ? ok(found.value !== null) : found;
+        clock: deps.clock,
+        nonce: deps.previews.nonce ?? (() => crypto.randomUUID()),
+        supervisor: {
+          start: (launch) => client.previewStart(launch),
+          observe: (app, nonce) => client.previewObserve(app, nonce),
+          stop: (app, nonce) => client.previewStop(app, nonce),
         },
-      },
-      authorize: (ctx, operation, target) =>
-        createTargetAuthorizer(ctx)(ctx, operation, target),
-      ...(deps.previews.bundles ? { bundles: deps.previews.bundles } : {}),
-      // release → bundle 대응은 ledger의 준비된 release가 정한다. 시험이 바꿔 끼울 수 있다.
-      releases: deps.previews.releases ??
-        ledgerPreviewReleases(deps.ledgerPath),
-    })
+        area: createFsPreviewArea(deps.previews.dataRoot),
+        apps: {
+          async exists(app) {
+            const found = await facts.app(app);
+            return found.ok ? ok(found.value !== null) : found;
+          },
+        },
+        authorize: (ctx, operation, target) =>
+          createTargetAuthorizer(ctx)(ctx, operation, target),
+        ...(deps.previews.bundles ? { bundles: deps.previews.bundles } : {}),
+        // release → bundle 대응은 ledger의 준비된 release가 정한다. 시험이 바꿔 끼울 수 있다.
+        releases:
+          deps.previews.releases ?? ledgerPreviewReleases(deps.ledgerPath),
+      })
     : undefined;
 
   // 연결된 source 폴더. 없는 앱은 null이다.
@@ -441,13 +447,11 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     }
   }
   // release 준비가 읽는 앱의 사실과 그 앱의 active release의 data schema(없으면 null). 없는 앱은 null이다.
-  function preparationFacts(app: string): Result<
-    {
-      status: string;
-      source_path: string | null;
-      previous_schema: number | null;
-    } | null
-  > {
+  function preparationFacts(app: string): Result<{
+    status: string;
+    source_path: string | null;
+    previous_schema: number | null;
+  } | null> {
     const opened = openConnection(deps.ledgerPath);
     if (!opened.ok) return internalError();
     try {
@@ -517,7 +521,8 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     }
     const dataRoot = deps.activation?.dataRoot ?? deps.previews?.dataRoot;
     if (
-      deps.activation === undefined || dataRoot === undefined ||
+      deps.activation === undefined ||
+      dataRoot === undefined ||
       previewService === undefined
     ) {
       return err({
@@ -557,8 +562,8 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
         previous_schema: facts.value.previous_schema,
       });
       if (!accepted.ok) return accepted;
-      const deadline = deps.clock.nowMs() + RELEASE_PREPARATION_LIMIT_MS +
-        60_000;
+      const deadline =
+        deps.clock.nowMs() + RELEASE_PREPARATION_LIMIT_MS + 60_000;
       let snapshot = accepted.value;
       while (snapshot.status === "preparing") {
         if (deps.clock.nowMs() >= deadline) {
@@ -574,8 +579,10 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
         snapshot = read.value;
       }
       if (snapshot.status === "failed") {
-        const failure = snapshot.failure ??
-          { stage: "build" as const, reason: "the preparation failed" };
+        const failure = snapshot.failure ?? {
+          stage: "build" as const,
+          reason: "the preparation failed",
+        };
         return prepareFailed(failure.stage, failure.reason);
       }
       if (snapshot.status !== "completed" || snapshot.bundle_hash === null) {
@@ -712,29 +719,32 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     return await client.reconcile(next);
   }
 
-  const activation: ActivationDriver | null = deps.activation === undefined
-    ? null
-    : createActivationDriver({
-      clock: deps.clock,
-      ids: deps.ids ?? createIdSource({
-        clock: deps.clock,
-        random: {
-          fill: (bytes: Uint8Array) => crypto.getRandomValues(bytes),
-        },
-      }),
-      ledgerPath: deps.ledgerPath,
-      dataRoot: deps.activation.dataRoot,
-      client,
-      bound: () => channel.bound,
-      facts,
-      readers: deps.readers,
-      command: deps.activation.command,
-      machine: deps.activation.machine,
-      prepareBlob: deps.activation.prepareBlob,
-      platformPorts: deps.activation.platformPorts,
-      domainNamesOf: deps.activation.domainNamesOf,
-      reconcile: reconcileApp,
-    });
+  const activation: ActivationDriver | null =
+    deps.activation === undefined
+      ? null
+      : createActivationDriver({
+          clock: deps.clock,
+          ids:
+            deps.ids ??
+            createIdSource({
+              clock: deps.clock,
+              random: {
+                fill: (bytes: Uint8Array) => crypto.getRandomValues(bytes),
+              },
+            }),
+          ledgerPath: deps.ledgerPath,
+          dataRoot: deps.activation.dataRoot,
+          client,
+          bound: () => channel.bound,
+          facts,
+          readers: deps.readers,
+          command: deps.activation.command,
+          machine: deps.activation.machine,
+          prepareBlob: deps.activation.prepareBlob,
+          platformPorts: deps.activation.platformPorts,
+          domainNamesOf: deps.activation.domainNamesOf,
+          reconcile: reconcileApp,
+        });
 
   async function sweep(): Promise<void> {
     await activation?.sweep().catch(() => undefined);
@@ -785,18 +795,18 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
         const queue = createActivationQueueRead({
           entries: (app) => activation.queueEntries(app),
         });
-        reads.set(
-          `${queue.route.resource}/${queue.route.method}`,
-          ((ctx, body) => queue.handle(ctx, body as never)) as ReadHandler,
-        );
+        reads.set(`${queue.route.resource}/${queue.route.method}`, ((
+          ctx,
+          body,
+        ) => queue.handle(ctx, body as never)) as ReadHandler);
       }
       // 등록 때 unavailable로 올린 `/previews/*`를 supervisor 통로가 있는 service로 덮는다.
       if (previewService !== undefined) {
         for (const read of createPreviewReads(() => previewService)) {
-          reads.set(
-            `${read.route.resource}/${read.route.method}`,
-            ((ctx, body) => read.handle(ctx, body as never)) as ReadHandler,
-          );
+          reads.set(`${read.route.resource}/${read.route.method}`, ((
+            ctx,
+            body,
+          ) => read.handle(ctx, body as never)) as ReadHandler);
         }
       }
     },

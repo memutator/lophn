@@ -88,8 +88,7 @@ function specOf(name: string): CodingCliCommand {
 export function noToken(): LophnError {
   return {
     code: "unauthorized",
-    message:
-      `${CODING_TOKEN_ENV}가 없다. coding agent session의 터미널에서만 쓴다`,
+    message: `${CODING_TOKEN_ENV}가 없다. coding agent session의 터미널에서만 쓴다`,
   };
 }
 

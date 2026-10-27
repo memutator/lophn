@@ -44,9 +44,9 @@ interface FileMetaProps {
 export function FileMeta({ outside, meta, line }: FileMetaProps) {
   return (
     <span className={styles.meta}>
-      {outside
-        ? <span className={styles.outside}>{t("document.label.outside")}</span>
-        : null}
+      {outside ? (
+        <span className={styles.outside}>{t("document.label.outside")}</span>
+      ) : null}
       {meta === null ? null : <span className={styles.text}>{meta}</span>}
       {line === undefined ? null : (
         <span className={styles.lineMark}>
@@ -103,49 +103,47 @@ interface FileActionsProps {
 }
 
 /** view bar 오른쪽의 조작. */
-export function FileActions(
-  {
-    kind,
-    state,
-    editing,
-    infoOpen,
-    onEditing,
-    onInfo,
-    onDelete,
-    onConflict,
-    onRetry,
-  }: FileActionsProps,
-) {
+export function FileActions({
+  kind,
+  state,
+  editing,
+  infoOpen,
+  onEditing,
+  onInfo,
+  onDelete,
+  onConflict,
+  onRetry,
+}: FileActionsProps) {
   const editLabel = editing
     ? t("document.button.read")
     : t("document.button.edit");
   return (
     <>
-      {state === null
-        ? <span className={styles.save}>{t("document.label.view-only")}</span>
-        : <SaveMark state={state} onConflict={onConflict} onRetry={onRetry} />}
-      {kind === "markdown"
-        ? (
-          <Tooltip
-            content={
-              <span className={styles.tip}>
-                {editLabel}
-                <Kbd keys={editShortcut()} />
-              </span>
-            }
-          >
-            <IconButton
-              icon={editing ? editorIcons.read : editorIcons.edit}
-              label={editLabel}
-              size="sm"
-              aria-pressed={editing}
-              aria-keyshortcuts="Control+E Meta+E"
-              data-edit-toggle=""
-              onClick={onEditing}
-            />
-          </Tooltip>
-        )
-        : null}
+      {state === null ? (
+        <span className={styles.save}>{t("document.label.view-only")}</span>
+      ) : (
+        <SaveMark state={state} onConflict={onConflict} onRetry={onRetry} />
+      )}
+      {kind === "markdown" ? (
+        <Tooltip
+          content={
+            <span className={styles.tip}>
+              {editLabel}
+              <Kbd keys={editShortcut()} />
+            </span>
+          }
+        >
+          <IconButton
+            icon={editing ? editorIcons.read : editorIcons.edit}
+            label={editLabel}
+            size="sm"
+            aria-pressed={editing}
+            aria-keyshortcuts="Control+E Meta+E"
+            data-edit-toggle=""
+            onClick={onEditing}
+          />
+        </Tooltip>
+      ) : null}
       <IconButton
         icon={workspaceIcons.infoPanel}
         label={t("document.button.info")}
@@ -164,11 +162,13 @@ export function FileActions(
             data-document-menu=""
           />
         }
-        items={[{
-          id: "delete",
-          label: t("document.button.delete"),
-          leading: <MenuIcon icon={workspaceIcons.trash} />,
-        }]}
+        items={[
+          {
+            id: "delete",
+            label: t("document.button.delete"),
+            leading: <MenuIcon icon={workspaceIcons.trash} />,
+          },
+        ]}
         onSelect={(id) => {
           if (id === "delete") onDelete();
         }}

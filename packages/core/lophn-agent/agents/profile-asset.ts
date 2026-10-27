@@ -64,13 +64,11 @@ export type ProfileFileHandler = (
   ctx: AuthenticatedContext,
   input: unknown,
 ) => Promise<
-  Result<
-    {
-      contentType: ProfileImageType;
-      length: number;
-      body: ReadableStream<Uint8Array>;
-    }
-  >
+  Result<{
+    contentType: ProfileImageType;
+    length: number;
+    body: ReadableStream<Uint8Array>;
+  }>
 >;
 
 const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -83,8 +81,10 @@ function matchesAt(
   at: number,
   magic: readonly number[],
 ): boolean {
-  return bytes.length >= at + magic.length &&
-    magic.every((value, index) => bytes[at + index] === value);
+  return (
+    bytes.length >= at + magic.length &&
+    magic.every((value, index) => bytes[at + index] === value)
+  );
 }
 
 // 내용의 첫 byte로 형식을 정한다. png·jpg·webp가 아니면 null이다(svg도 여기서 빠진다).
@@ -267,12 +267,10 @@ export function profileImageFileHandler(
     if (!judged.ok) return judged;
     const profile = judged.value.definition?.profile;
     if (profile?.kind !== "image") return notFound("profile image not found");
-    const path = `${
-      imageFolder(
-        deps.roles.agentsFolderOf(deps.root, judged.value.place),
-        (input.data.agent as { agent: string }).agent,
-      )
-    }/${profile.image}`;
+    const path = `${imageFolder(
+      deps.roles.agentsFolderOf(deps.root, judged.value.place),
+      (input.data.agent as { agent: string }).agent,
+    )}/${profile.image}`;
     let bytes: Uint8Array | null;
     try {
       bytes = await deps.files.read(path);

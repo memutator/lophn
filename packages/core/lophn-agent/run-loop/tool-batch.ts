@@ -222,21 +222,20 @@ export async function runToolBatch(
     if (current === null) return unconfirmed();
     let retries = 0;
     while (
-      toolMayRetry(info) && toolFailureRetryable(current) &&
+      toolMayRetry(info) &&
+      toolFailureRetryable(current) &&
       retries < TOOL_RETRY_MAX
     ) {
       // 다음 진입 전에 대기와 멈춤·새 입력·한도를 다시 본다. 매 진입은 판정을 다시 한다.
       const link = control.signalFor(info.server);
       let how: "elapsed" | "aborted";
       try {
-        how = await control.wait(
-          toolRetryDelayMs(control.random),
-          link.signal,
-        );
+        how = await control.wait(toolRetryDelayMs(control.random), link.signal);
       } finally {
         link.release();
       }
-      if (how === "aborted" || await control.gate(info.server) !== null) break;
+      if (how === "aborted" || (await control.gate(info.server)) !== null)
+        break;
       retries += 1;
       const next = await once({
         ...request,
@@ -280,8 +279,8 @@ export async function runToolBatch(
     return await entered(request, info);
   }
 
-  const parallel = infos.length > 0 &&
-    infos.every((info) => info?.effect === "read");
+  const parallel =
+    infos.length > 0 && infos.every((info) => info?.effect === "read");
   if (parallel) {
     // 완료 순서와 관계없이 요청 순서로 모은다.
     const results = await Promise.all(
@@ -299,7 +298,9 @@ export async function runToolBatch(
     // 실패는 뒤 동작을 막지 않는다.
     const effect = infos[index]?.effect;
     if (
-      skip === null && effect !== undefined && effect !== "read" &&
+      skip === null &&
+      effect !== undefined &&
+      effect !== "read" &&
       result.status !== "success" &&
       (result.entries > 0 || result.status === "failure")
     ) {

@@ -6,10 +6,7 @@ import { invalid } from "./access.ts";
 import type { BrokerChild } from "./invocations.ts";
 
 export interface ReadyReceiver {
-  ready(
-    child: BrokerChild,
-    notice: { startChangeset: string | null },
-  ): void;
+  ready(child: BrokerChild, notice: { startChangeset: string | null }): void;
 }
 
 export type ReadyService = {

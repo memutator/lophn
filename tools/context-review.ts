@@ -39,8 +39,8 @@ function capture(command: string[]): Promise<Captured> {
     let stderr = "";
     child.stdout!.setEncoding("utf8");
     child.stderr!.setEncoding("utf8");
-    child.stdout!.on("data", (chunk: string) => stdout += chunk);
-    child.stderr!.on("data", (chunk: string) => stderr += chunk);
+    child.stdout!.on("data", (chunk: string) => (stdout += chunk));
+    child.stderr!.on("data", (chunk: string) => (stderr += chunk));
     child.on("error", reject);
     child.on("close", (code) => resolve({ code, stdout, stderr }));
   });
@@ -84,7 +84,12 @@ const components = ((await read(REGISTRY)).components ?? []) as Component[];
 const files = range ? await changedFiles(range) : [];
 // file마다 가장 긴 module path가 그 file의 module이다.
 const modules = new Set<string>(
-  modulesArg ? modulesArg.split(",").map((m) => m.trim()).filter(Boolean) : [],
+  modulesArg
+    ? modulesArg
+        .split(",")
+        .map((m) => m.trim())
+        .filter(Boolean)
+    : [],
 );
 for (const file of files) {
   const owner = catalog

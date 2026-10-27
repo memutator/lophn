@@ -22,9 +22,11 @@ const port = z.number().int().min(1).max(65535);
 const streamChannel = uint.min(1);
 
 // 알려진 기본 kind일 뿐 닫힌 registry가 아니다. 소유 팀이 자기 kind를 등록한다.
-const processKindSchema = z.string().regex(
-  /^(platform|documents|apps|problems|lophn-agent|coding-agent)\/[a-z][a-z0-9-]*$/,
-);
+const processKindSchema = z
+  .string()
+  .regex(
+    /^(platform|documents|apps|problems|lophn-agent|coding-agent)\/[a-z][a-z0-9-]*$/,
+  );
 
 export const helloSchema = z.strictObject({
   type: z.literal("hello"),
@@ -186,20 +188,22 @@ const TURN_SOURCE_OPS = [
   "steering",
   "settled",
 ] as const;
-export const turnSourceRequestSchema = z.strictObject({
-  type: z.literal("turn_source_request"),
-  request_id: opaque,
-  op: z.enum(TURN_SOURCE_OPS),
-  session: idSchema("ses").optional(),
-  count: count.optional(),
-}).refine(
-  (value) =>
-    value.op === "next"
-      ? value.session === undefined
-      : value.session !== undefined &&
-        (value.op === "settled") === (value.count !== undefined),
-  { message: "turn source request does not fit its op" },
-);
+export const turnSourceRequestSchema = z
+  .strictObject({
+    type: z.literal("turn_source_request"),
+    request_id: opaque,
+    op: z.enum(TURN_SOURCE_OPS),
+    session: idSchema("ses").optional(),
+    count: count.optional(),
+  })
+  .refine(
+    (value) =>
+      value.op === "next"
+        ? value.session === undefined
+        : value.session !== undefined &&
+          (value.op === "settled") === (value.count !== undefined),
+    { message: "turn source request does not fit its op" },
+  );
 const turnSourceResponseSchema = z.discriminatedUnion("ok", [
   z.strictObject({
     type: z.literal("turn_source_response"),
@@ -254,12 +258,16 @@ export const REDACT_SPANS_MAX = 4_096;
 export const redactRequestSchema = z.strictObject({
   type: z.literal("redact_request"),
   request_id: opaque,
-  windows: z.array(z.string()).min(1).max(REDACT_WINDOWS_MAX).refine(
-    (windows) =>
-      windows.reduce((sum, window) => sum + window.length, 0) <=
+  windows: z
+    .array(z.string())
+    .min(1)
+    .max(REDACT_WINDOWS_MAX)
+    .refine(
+      (windows) =>
+        windows.reduce((sum, window) => sum + window.length, 0) <=
         REDACT_UNITS_MAX,
-    { message: "redact request is too large" },
-  ),
+      { message: "redact request is too large" },
+    ),
 });
 const redactSpanSchema = z.strictObject({
   index: z.number().int().min(0),

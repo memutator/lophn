@@ -25,9 +25,10 @@ export function shellEnvironment(
     if (value !== undefined) env[name] = value;
   }
   const parentPath = env.PATH;
-  env.PATH = parentPath === undefined || parentPath === ""
-    ? dirname(deno)
-    : `${dirname(deno)}:${parentPath}`;
+  env.PATH =
+    parentPath === undefined || parentPath === ""
+      ? dirname(deno)
+      : `${dirname(deno)}:${parentPath}`;
   return env;
 }
 

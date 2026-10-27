@@ -58,9 +58,9 @@ const layerStdioSchema = z.strictObject({
 });
 
 const layerHttpSchema = z.strictObject({
-  url: z.string().regex(
-    /^(https:\/\/\S+|http:\/\/(127\.0\.0\.1|\[::1\])(:\d+)?(\/\S*)?)$/,
-  ),
+  url: z
+    .string()
+    .regex(/^(https:\/\/\S+|http:\/\/(127\.0\.0\.1|\[::1\])(:\d+)?(\/\S*)?)$/),
   headers: z.record(headerName, valueOrSecret),
   auth: layerAuthSchema,
 });
@@ -170,12 +170,7 @@ export const mcpAuthComplete = defineMemory({
 // - signed_in: 쓸 수 있는 token이 있다.
 // - failed: 마지막 시도나 갱신이 실패했고 reason이 이유다. 새로 시작하면 지워진다.
 // 등록하지 않은 서버나 OAuth가 아닌 서버는 none이다. token·verifier·state·code 값이 들어갈 칸은 없다.
-const MCP_AUTH_STATES = [
-  "none",
-  "in_progress",
-  "signed_in",
-  "failed",
-] as const;
+const MCP_AUTH_STATES = ["none", "in_progress", "signed_in", "failed"] as const;
 const MCP_AUTH_FAILURES = [
   "callback_timeout",
   "state_mismatch",
@@ -192,17 +187,21 @@ export type McpAuthFailure = z.infer<typeof mcpAuthFailureSchema>;
 const mcpAuthServerName = z.string().regex(/^[A-Za-z0-9_-]{1,32}$/);
 
 export const mcpAuthStateInputSchema = z.strictObject({
-  servers: z.array(
-    z.strictObject({ name: mcpAuthServerName, place: mcpAuthPlaceSchema }),
-  ).max(64),
+  servers: z
+    .array(
+      z.strictObject({ name: mcpAuthServerName, place: mcpAuthPlaceSchema }),
+    )
+    .max(64),
 });
 const mcpAuthStateOutputSchema = z.strictObject({
-  servers: z.array(z.strictObject({
-    name: mcpAuthServerName,
-    place: agentPlaceOutputSchema.nullable(),
-    state: mcpAuthStateSchema,
-    reason: mcpAuthFailureSchema.nullable(),
-  })),
+  servers: z.array(
+    z.strictObject({
+      name: mcpAuthServerName,
+      place: agentPlaceOutputSchema.nullable(),
+      state: mcpAuthStateSchema,
+      reason: mcpAuthFailureSchema.nullable(),
+    }),
+  ),
 });
 
 export const mcpAuthState = defineMemory({
@@ -284,11 +283,13 @@ export const mcpToolsRequestTake = defineMemory({
   name: "TakeMcpToolsRequest",
   input: z.strictObject({}),
   output: z.strictObject({
-    request: z.strictObject({
-      id: z.string().min(1).max(64),
-      place: mcpAuthPlaceSchema,
-      agent: idSchema("agt").nullable(),
-    }).nullable(),
+    request: z
+      .strictObject({
+        id: z.string().min(1).max(64),
+        place: mcpAuthPlaceSchema,
+        agent: idSchema("agt").nullable(),
+      })
+      .nullable(),
   }),
   actors: ["machine"],
   errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
@@ -316,11 +317,14 @@ const readErrors = [
   "unavailable",
 ] as const;
 
-const projectServersSchema = z.array(mcpServerSchema).max(32).refine(
-  (servers) =>
-    new Set(servers.map((server) => server.name)).size === servers.length,
-  { message: "mcp server names must be unique" },
-);
+const projectServersSchema = z
+  .array(mcpServerSchema)
+  .max(32)
+  .refine(
+    (servers) =>
+      new Set(servers.map((server) => server.name)).size === servers.length,
+    { message: "mcp server names must be unique" },
+  );
 
 // project 층의 설정이다. 같은 이름의 MCP 서버는 마지막 층(agent)이 덮고 이름이 다르면 모두 쓴다.
 // skills_off는 이 project에서 끈 skill 이름이고 mcp_off는 이 project에서 끈 전역 MCP 서버 이름이다.
@@ -333,13 +337,15 @@ export const projectExtensionSettingsRead = defineRead({
   method: "read",
   name: "ReadProjectExtensionSettings",
   input: z.strictObject({ project: idSchema("prj") }),
-  output: withReadCommon(z.object({
-    project: idSchema("prj"),
-    mcp_servers: z.array(mcpServerSchema),
-    skills_off: projectSkillsOffSchema,
-    mcp_off: projectMcpOffSchema,
-    hash: sha256Schema.nullable(),
-  })),
+  output: withReadCommon(
+    z.object({
+      project: idSchema("prj"),
+      mcp_servers: z.array(mcpServerSchema),
+      skills_off: projectSkillsOffSchema,
+      mcp_off: projectMcpOffSchema,
+      hash: sha256Schema.nullable(),
+    }),
+  ),
   actors: ["user", "machine"],
   errors: [...readErrors],
 });

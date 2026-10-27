@@ -18,6 +18,5 @@ export type TargetAuthorizer = (
 
 // Tx·ReadSnapshot·event 공개 hook의 snapshot에서 `port(TargetAuthorization)`로 꺼낸다.
 // 공용 Tx·ReadSnapshot member를 넓히지 않고 core 조립이 구현을 주입한다.
-export const TargetAuthorization: PortKey<TargetAuthorizer> = definePort<
-  TargetAuthorizer
->("TargetAuthorization");
+export const TargetAuthorization: PortKey<TargetAuthorizer> =
+  definePort<TargetAuthorizer>("TargetAuthorization");

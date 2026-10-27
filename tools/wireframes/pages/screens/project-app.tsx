@@ -11,9 +11,7 @@ import { ProjectSelector } from "../../../../packages/shell/renderer/workspace/t
 import { LauncherButton } from "../../../../packages/shell/renderer/workspace/launcher-button.tsx";
 import { TabStrip } from "../../../../packages/shell/renderer/parts/tab-strip/tab-strip.tsx";
 import { Palette, type PaletteItem } from "@lophn/ui/overlay";
-import {
-  workspaceIcons,
-} from "../../../../packages/shell/renderer/icons/mod.ts";
+import { workspaceIcons } from "../../../../packages/shell/renderer/icons/mod.ts";
 
 import { AgentsBody, OperatorEditor } from "./agents-tab.tsx";
 import {
@@ -125,34 +123,36 @@ const pathLike = (text: string) => /^(\/|~\/)/.test(text.trim());
 function paletteItems(query: string): readonly PaletteItem[] {
   if (pathLike(query)) {
     const path = fileKey(query);
-    return [{
-      id: `path:${path}`,
-      group: "Open",
-      label: query.trim(),
-      detail: isOutside(path) ? "Outside project" : "In project",
-      icon: workspaceIcons.document,
-    }];
+    return [
+      {
+        id: `path:${path}`,
+        group: "Open",
+        label: query.trim(),
+        detail: isOutside(path) ? "Outside project" : "In project",
+        icon: workspaceIcons.document,
+      },
+    ];
   }
   const words = query.trim().toLowerCase();
-  const found = PALETTE.filter((item) =>
-    words === "" || item.label.toLowerCase().includes(words) ||
-    (item.detail ?? "").toLowerCase().includes(words)
+  const found = PALETTE.filter(
+    (item) =>
+      words === "" ||
+      item.label.toLowerCase().includes(words) ||
+      (item.detail ?? "").toLowerCase().includes(words),
   );
   return words === "" ? [BROWSE, ...found] : found;
 }
 
-export function ProjectApp(
-  {
-    panes: initial,
-    sidebar = {},
-    overlay,
-    newTabOpen = false,
-    children,
-    titleExtra,
-    info: initialInfo,
-    models,
-  }: ProjectAppProps,
-) {
+export function ProjectApp({
+  panes: initial,
+  sidebar = {},
+  overlay,
+  newTabOpen = false,
+  children,
+  titleExtra,
+  info: initialInfo,
+  models,
+}: ProjectAppProps) {
   const agents = useMemo(
     () =>
       models === undefined ? undefined : fakeAgents({ editor: models }).source,
@@ -168,7 +168,7 @@ export function ProjectApp(
   const [editing, setEditing] = useState<ReadonlySet<string>>(
     new Set(
       initial.flatMap((pane) =>
-        pane.tabs.filter((tab) => tab.file?.editing).map((tab) => tab.key)
+        pane.tabs.filter((tab) => tab.file?.editing).map((tab) => tab.key),
       ),
     ),
   );
@@ -196,28 +196,31 @@ export function ProjectApp(
   const open = (tab: TabSpec, other = false) =>
     setPanes((current) => {
       const at = current.findIndex((pane) =>
-        pane.tabs.some((item) => item.key === tab.key)
+        pane.tabs.some((item) => item.key === tab.key),
       );
       if (at !== -1) {
         return current.map((pane, index) =>
-          index !== at ? pane : {
-            tabs: pane.tabs.map((item) =>
-              item.key === tab.key && tab.file?.line !== undefined
-                ? { ...item, file: tab.file, rev: (item.rev ?? 0) + 1 }
-                : item
-            ),
-            selected: tab.key,
-          }
+          index !== at
+            ? pane
+            : {
+                tabs: pane.tabs.map((item) =>
+                  item.key === tab.key && tab.file?.line !== undefined
+                    ? { ...item, file: tab.file, rev: (item.rev ?? 0) + 1 }
+                    : item,
+                ),
+                selected: tab.key,
+              },
         );
       }
       const target = other ? 1 : 0;
-      const base = current.length > target
-        ? current
-        : [...current, { tabs: [], selected: "" }];
+      const base =
+        current.length > target
+          ? current
+          : [...current, { tabs: [], selected: "" }];
       return base.map((pane, index) =>
         index !== target
           ? pane
-          : { tabs: [...pane.tabs, tab], selected: tab.key }
+          : { tabs: [...pane.tabs, tab], selected: tab.key },
       );
     });
 
@@ -227,11 +230,12 @@ export function ProjectApp(
         const index = pane.tabs.findIndex((tab) => tab.key === key);
         if (index === -1) return pane;
         const tabs = pane.tabs.filter((tab) => tab.key !== key);
-        const selected = pane.selected !== key
-          ? pane.selected
-          : (tabs[index] ?? tabs[index - 1])?.key ?? "";
+        const selected =
+          pane.selected !== key
+            ? pane.selected
+            : ((tabs[index] ?? tabs[index - 1])?.key ?? "");
         return { tabs, selected };
-      })
+      }),
     );
 
   // 같은 탭 안에서 session을 바꾼다(탭 key는 그대로, agent는 그대로). row가 없으면 새 session이다.
@@ -240,23 +244,26 @@ export function ProjectApp(
       current.map((pane) => ({
         ...pane,
         tabs: pane.tabs.map((tab) =>
-          tab.key !== key ? tab : row === undefined
-            ? {
-              ...tab,
-              title: `New session · ${agent}`,
-              sub: "new",
-              chat: { agent },
-            }
-            : {
-              ...tab,
-              title: `${row.title} · ${row.agent}`,
-              sub: row.sub ?? `conv:${row.id}`,
-              chat: row.id === "weekly"
-                ? { stage: "question" as const }
-                : undefined,
-            }
+          tab.key !== key
+            ? tab
+            : row === undefined
+              ? {
+                  ...tab,
+                  title: `New session · ${agent}`,
+                  sub: "new",
+                  chat: { agent },
+                }
+              : {
+                  ...tab,
+                  title: `${row.title} · ${row.agent}`,
+                  sub: row.sub ?? `conv:${row.id}`,
+                  chat:
+                    row.id === "weekly"
+                      ? { stage: "question" as const }
+                      : undefined,
+                },
         ),
-      }))
+      })),
     );
 
   const newTerminal = () => {
@@ -339,7 +346,7 @@ export function ProjectApp(
               onNewSession: (agent) => swapSession(tab.key, agent),
               onState: (state) =>
                 setTabStates((now) =>
-                  now[tab.key] === state ? now : { ...now, [tab.key]: state }
+                  now[tab.key] === state ? now : { ...now, [tab.key]: state },
                 ),
             }}
           />
@@ -415,9 +422,10 @@ export function ProjectApp(
                     onSelect={(key) =>
                       setPanes((current) =>
                         current.map((item, at) =>
-                          at === index ? { ...item, selected: key } : item
-                        )
-                      )}
+                          at === index ? { ...item, selected: key } : item,
+                        ),
+                      )
+                    }
                     onClose={close}
                   />
                   {pane.tabs.map((tab) => (

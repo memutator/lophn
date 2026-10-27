@@ -26,24 +26,32 @@ const sessionSnapshotSchema = z.object({
   harness: harnessIdSchema.optional(),
   // lophn session만 싣는다. 아직 저장되지 않은 model 호출 하나의 글(redaction을 거친 것)이고
   // text·reasoning의 길이가 그 뒤 delta의 offset이다.
-  writing: z.object({
-    turn: idSchema("trn"),
-    model_call: idSchema("mcl"),
-    text: z.string(),
-    reasoning: z.string(),
-  }).nullable().optional(),
+  writing: z
+    .object({
+      turn: idSchema("trn"),
+      model_call: idSchema("mcl"),
+      text: z.string(),
+      reasoning: z.string(),
+    })
+    .nullable()
+    .optional(),
   // lophn session만 싣는다. 도는 turn이 at까지 일한 시간이고 running이면 화면이 active_ms + (now − at)을 보인다.
-  elapsed: z.object({
-    turn: idSchema("trn"),
-    active_ms: durationMsSchema,
-    at: atSchema,
-  }).nullable().optional(),
+  elapsed: z
+    .object({
+      turn: idSchema("trn"),
+      active_ms: durationMsSchema,
+      at: atSchema,
+    })
+    .nullable()
+    .optional(),
   turn_requests: z.array(turnRequestSchema),
-  questions: z.array(z.object({
-    group: idSchema("qgr"),
-    turn: idSchema("trn"),
-    tool_call: idSchema("tcl"),
-  })),
+  questions: z.array(
+    z.object({
+      group: idSchema("qgr"),
+      turn: idSchema("trn"),
+      tool_call: idSchema("tcl"),
+    }),
+  ),
 });
 export type SessionSnapshot = z.infer<typeof sessionSnapshotSchema>;
 
@@ -53,9 +61,11 @@ export const sessionSnapshotsList = defineRead({
   method: "list",
   name: "ListSessionSnapshots",
   input: z.strictObject({ sessions: z.array(idSchema("ses")).optional() }),
-  output: withReadCommon(z.object({
-    snapshots: z.array(sessionSnapshotSchema),
-  })),
+  output: withReadCommon(
+    z.object({
+      snapshots: z.array(sessionSnapshotSchema),
+    }),
+  ),
   actors: ["user"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });

@@ -32,19 +32,18 @@ import {
 export type ModelCommandDeps = {
   // provider 기록의 provider 정의 key다. 기록이 없으면 undefined다.
   definitionKey(provider: string): string | undefined;
-  catalogEntry(
-    definition: string,
-    modelName: string,
-  ): CatalogEntry | undefined;
+  catalogEntry(definition: string, modelName: string): CatalogEntry | undefined;
   // project 표를 가진 module의 읽기다. 조립이 꽂는다.
   projectExists(project: string): boolean;
 };
 
 function requireUser(ctx: RequestContext): Result<void> {
-  return parseActor(ctx.actor)?.kind === "user" ? ok(undefined) : err({
-    code: "forbidden",
-    message: "model settings are user only",
-  });
+  return parseActor(ctx.actor)?.kind === "user"
+    ? ok(undefined)
+    : err({
+        code: "forbidden",
+        message: "model settings are user only",
+      });
 }
 
 function conflict(): Result<never> {
@@ -71,16 +70,17 @@ function checkChoice(
     return Object.keys(choice.option_values).length === 0
       ? ok(undefined)
       : err({
-        code: "invalid_input",
-        message:
-          `${slot}: option을 확인할 수 없는 model에는 option 값을 고를 수 없다`,
-      });
+          code: "invalid_input",
+          message: `${slot}: option을 확인할 수 없는 model에는 option 값을 고를 수 없다`,
+        });
   }
   const checked = validateOptionValues(entry, choice.option_values);
-  return checked.ok ? ok(undefined) : err({
-    code: "invalid_input",
-    message: `${slot}: ${checked.error.message}`,
-  });
+  return checked.ok
+    ? ok(undefined)
+    : err({
+        code: "invalid_input",
+        message: `${slot}: ${checked.error.message}`,
+      });
 }
 
 export function createModelCommands(

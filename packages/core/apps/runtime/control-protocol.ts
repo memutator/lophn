@@ -166,10 +166,12 @@ export const releasePreparationOutputSchema = z.strictObject({
   status: z.enum(["preparing", "completed", "cancelled", "failed", "unknown"]),
   bundle_hash: sha256.nullable(),
   declaration_hash: sha256.nullable(),
-  failure: z.strictObject({
-    stage: z.enum(["build", "dependencies", "migration"]),
-    reason: z.string(),
-  }).nullable(),
+  failure: z
+    .strictObject({
+      stage: z.enum(["build", "dependencies", "migration"]),
+      reason: z.string(),
+    })
+    .nullable(),
 });
 export type ReleasePreparationWire = z.infer<
   typeof releasePreparationOutputSchema

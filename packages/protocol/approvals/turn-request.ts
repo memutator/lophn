@@ -15,10 +15,14 @@ import { shellPatternSchema } from "./shell-rules.ts";
 export const TURN_REQUEST_CHOICES = ["once", "always", "reject"] as const;
 
 // 거절 이유는 요청한 agent에게 그대로 간다. 한 줄이다.
-const rejectReasonSchema = z.string().trim().min(1).max(500).refine(
-  (value) => !/[\r\n]/.test(value),
-  { message: "reject reason is one line" },
-);
+const rejectReasonSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(500)
+  .refine((value) => !/[\r\n]/.test(value), {
+    message: "reject reason is one line",
+  });
 
 // always는 request의 always_patterns가 비어 있으면 내지 않는다(결정 handler가 invalid_input으로 거절한다).
 export const turnRequestChoiceSchema = z.discriminatedUnion("kind", [

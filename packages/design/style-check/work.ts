@@ -16,7 +16,7 @@ async function cssFiles(directory: URL): Promise<URL[]> {
         `${entry.name}${entry.isDirectory() ? "/" : ""}`,
         directory,
       );
-      if (entry.isDirectory()) files.push(...await cssFiles(path));
+      if (entry.isDirectory()) files.push(...(await cssFiles(path)));
       else if (entry.isFile() && entry.name.endsWith(".css")) files.push(path);
     }
   } catch (error) {
@@ -28,11 +28,9 @@ async function cssFiles(directory: URL): Promise<URL[]> {
 export async function checkRepositoryStyles(root: URL): Promise<StyleIssue[]> {
   const directories = ["packages/shell/renderer/", "packages/design/"];
   try {
-    for (
-      const entry of await readdir(new URL("packages/sdk/", root), {
-        withFileTypes: true,
-      })
-    ) {
+    for (const entry of await readdir(new URL("packages/sdk/", root), {
+      withFileTypes: true,
+    })) {
       if (entry.isDirectory() && entry.name.startsWith("ui-")) {
         directories.push(`packages/sdk/${entry.name}/`);
       }
@@ -40,10 +38,13 @@ export async function checkRepositoryStyles(root: URL): Promise<StyleIssue[]> {
   } catch (error) {
     if (codeOf(error) !== "ENOENT") throw error;
   }
-  const files = (await Promise.all(
-    directories.map((directory) => cssFiles(new URL(directory, root))),
-  ))
-    .flat().sort((a, b) => a.href.localeCompare(b.href));
+  const files = (
+    await Promise.all(
+      directories.map((directory) => cssFiles(new URL(directory, root))),
+    )
+  )
+    .flat()
+    .sort((a, b) => a.href.localeCompare(b.href));
   const issues: StyleIssue[] = [];
   for (const file of files) {
     const name = decodeURIComponent(file.pathname.slice(root.pathname.length));

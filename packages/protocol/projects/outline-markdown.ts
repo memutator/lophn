@@ -154,9 +154,12 @@ function scanHeadings(lines: readonly string[]): Heading[] {
       const close = FENCE.exec(line);
       const run = close?.[2] ?? "";
       if (
-        close !== null && run.startsWith(fence.mark) &&
-        run.length >= fence.length && (close[3] ?? "").trim() === ""
-      ) fence = null;
+        close !== null &&
+        run.startsWith(fence.mark) &&
+        run.length >= fence.length &&
+        (close[3] ?? "").trim() === ""
+      )
+        fence = null;
       index += 1;
       continue;
     }
@@ -194,16 +197,20 @@ function slugFromTitle(title: string): string {
   for (const character of title.toLowerCase()) {
     if (character === " " || character === "\t") slug += "-";
     else if (
-      character === "-" || /^\p{L}$/u.test(character) ||
+      character === "-" ||
+      /^\p{L}$/u.test(character) ||
       /^\p{N}$/u.test(character)
-    ) slug += character;
+    )
+      slug += character;
   }
   return slug.length === 0 ? "section" : slug;
 }
 
 function normalize(text: string): string {
   const withoutBom = text.startsWith("﻿") ? text.slice(1) : text;
-  return withoutBom.replaceAll("\r\n", "\n").replaceAll("\r", "\n")
+  return withoutBom
+    .replaceAll("\r\n", "\n")
+    .replaceAll("\r", "\n")
     .normalize("NFC");
 }
 
@@ -216,12 +223,12 @@ function buildNodes(
   const stack: OutlineNode[] = [];
   const nodes: OutlineNode[] = [];
   for (const [position, heading] of headings.entries()) {
-    while (
-      stack.length > 0 && stack[stack.length - 1]!.level >= heading.level
-    ) stack.pop();
+    while (stack.length > 0 && stack[stack.length - 1]!.level >= heading.level)
+      stack.pop();
     const parent = stack.length === 0 ? null : stack[stack.length - 1]!;
-    const slug = (heading.anchor ?? slugFromTitle(heading.title))
-      .normalize("NFC");
+    const slug = (heading.anchor ?? slugFromTitle(heading.title)).normalize(
+      "NFC",
+    );
     const base = parent === null ? slug : `${parent.key}/${slug}`;
     const parentKey = parent?.key ?? "";
     let counts = siblingCounts.get(parentKey);
@@ -249,12 +256,12 @@ function buildNodes(
     }
     const ownStart = heading.end_line + 1;
     const ownEnd = next === undefined ? lines.length : next.start_line - 1;
-    const own = ownStart <= ownEnd
-      ? { start_line: ownStart, end_line: ownEnd }
-      : null;
-    const body = own === null
-      ? ""
-      : lines.slice(own.start_line - 1, own.end_line).join("\n");
+    const own =
+      ownStart <= ownEnd ? { start_line: ownStart, end_line: ownEnd } : null;
+    const body =
+      own === null
+        ? ""
+        : lines.slice(own.start_line - 1, own.end_line).join("\n");
     const characters = countCodepoints(body);
     const node: OutlineNode = {
       key,
@@ -283,10 +290,7 @@ function isMarkdown(mediaType: string): boolean {
 }
 
 // 형식마다 parser를 붙이는 자리는 이 함수 하나다. 지금은 text/markdown·text/x-markdown만 해석한다.
-export function parseOutline(
-  mediaType: string,
-  text: string,
-): OutlineResult {
+export function parseOutline(mediaType: string, text: string): OutlineResult {
   if (!isMarkdown(mediaType)) {
     return { status: "unsupported", media_type: mediaType };
   }
@@ -335,9 +339,12 @@ function plainHeadings(lines: readonly string[]): PlainHeading[] {
     if (fence !== null) {
       const marks = run?.[2] ?? "";
       if (
-        run !== null && marks.startsWith(fence.mark) &&
-        marks.length >= fence.length && (run[3] ?? "").trim() === ""
-      ) fence = null;
+        run !== null &&
+        marks.startsWith(fence.mark) &&
+        marks.length >= fence.length &&
+        (run[3] ?? "").trim() === ""
+      )
+        fence = null;
       index += 1;
       continue;
     }
@@ -351,7 +358,10 @@ function plainHeadings(lines: readonly string[]): PlainHeading[] {
     if (atx !== null) {
       headings.push({
         level: (atx[2] ?? "").length,
-        title: (atx[4] ?? "").trim().replace(/(^|[ \t]+)#+[ \t]*$/, "").trim(),
+        title: (atx[4] ?? "")
+          .trim()
+          .replace(/(^|[ \t]+)#+[ \t]*$/, "")
+          .trim(),
         start_line: index + 1,
         end_line: index + 1,
       });
@@ -393,14 +403,14 @@ export function parseMarkdownOutline(text: string): MarkdownOutlineNode[] {
     const node: MarkdownOutlineNode = {
       level: heading.level,
       title: heading.title,
-      own_range: ownStart <= ownEnd
-        ? { start_line: ownStart, end_line: ownEnd }
-        : null,
+      own_range:
+        ownStart <= ownEnd ? { start_line: ownStart, end_line: ownEnd } : null,
       subtree_range: { start_line: heading.start_line, end_line: end },
       children: [],
     };
     while (
-      stack.length > 0 && stack[stack.length - 1]!.level >= heading.level
+      stack.length > 0 &&
+      stack[stack.length - 1]!.level >= heading.level
     ) {
       stack.pop();
     }

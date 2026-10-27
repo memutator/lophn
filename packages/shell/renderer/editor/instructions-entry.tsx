@@ -22,9 +22,7 @@ export function windowInstructionsSource(): InstructionsSource | undefined {
 }
 
 /** 화면이 놓는 [Instructions] 버튼. 누르면 호출자가 이 진입을 연다. */
-export function InstructionsButton(
-  { onOpen }: { onOpen: () => void },
-) {
+export function InstructionsButton({ onOpen }: { onOpen: () => void }) {
   return (
     <Button
       variant="secondary"
@@ -55,9 +53,13 @@ interface InstructionsEntryProps {
   now?: () => number;
 }
 
-export function InstructionsEntry(
-  { place, source, editor, onBack, now }: InstructionsEntryProps,
-) {
+export function InstructionsEntry({
+  place,
+  source,
+  editor,
+  onBack,
+  now,
+}: InstructionsEntryProps) {
   const [view, setView] = useState<View>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
   const key = placeKey(place);
@@ -67,8 +69,9 @@ export function InstructionsEntry(
   useEffect(() => {
     let live = true;
     setView({ kind: "loading" });
-    void latest.current.source.open({ target: latest.current.place }).then(
-      (reply) => {
+    void latest.current.source
+      .open({ target: latest.current.place })
+      .then((reply) => {
         if (!live) return;
         // main이 지침 파일의 절대 경로를 `path`로 알려 준다.
         const path = reply.ok
@@ -79,8 +82,7 @@ export function InstructionsEntry(
             ? { kind: "file", path }
             : { kind: "failed" },
         );
-      },
-    );
+      });
     return () => {
       live = false;
     };
@@ -119,20 +121,18 @@ export function InstructionsEntry(
       data-space="instructions"
       data-instructions={place.layer}
     >
-      {onBack
-        ? (
-          <div className={styles.bar}>
-            <Button
-              variant="ghost"
-              size="sm"
-              data-instructions-back=""
-              onClick={onBack}
-            >
-              {t("common.button.back")}
-            </Button>
-          </div>
-        )
-        : null}
+      {onBack ? (
+        <div className={styles.bar}>
+          <Button
+            variant="ghost"
+            size="sm"
+            data-instructions-back=""
+            onClick={onBack}
+          >
+            {t("common.button.back")}
+          </Button>
+        </div>
+      ) : null}
       <div className={styles.fill} data-instructions-view={view.kind}>
         {body}
       </div>

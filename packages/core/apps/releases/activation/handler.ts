@@ -32,9 +32,10 @@ export function createActivationHandlers(deps: ActivationHandlerDeps): {
     release: ReleaseRecord,
   ): Promise<Result<"started" | "waiting_consent">>;
   // 사람이 허락한 줄을 시작한다. 허락한 뒤 비교가 달라졌으면 시작하지 않고 다시 묻는다.
-  consented(
-    row: { release: string; comparison: string },
-  ): Promise<Result<void>>;
+  consented(row: {
+    release: string;
+    comparison: string;
+  }): Promise<Result<void>>;
   // 시작하기 전에 다시 판정한다. 허락한 비교와 달라졌을 때 driver가 부른다.
   reconsider(release: ReleaseRecord): Promise<Result<void>>;
 } {

@@ -11,11 +11,14 @@ import { rewindSchemaSteps } from "./schema.ts";
 
 function dump(db: DatabaseSync): unknown {
   const read = (table: string) =>
-    db.prepare(`SELECT * FROM ${table} ORDER BY 1, 2`).all().map((row) =>
-      Object.values(row).map((value) =>
-        value instanceof Uint8Array ? Array.from(value) : value
-      )
-    );
+    db
+      .prepare(`SELECT * FROM ${table} ORDER BY 1, 2`)
+      .all()
+      .map((row) =>
+        Object.values(row).map((value) =>
+          value instanceof Uint8Array ? Array.from(value) : value,
+        ),
+      );
   return [read("item"), read("pair")];
 }
 
@@ -104,10 +107,11 @@ function setup(
   invocations: AppInvocation[],
   options: {
     apply?: Result<
-      { status: "applied"; count: number } | {
-        status: "conflict";
-        message: string;
-      }
+      | { status: "applied"; count: number }
+      | {
+          status: "conflict";
+          message: string;
+        }
     >;
     idle?: { idle: true } | { idle: false; running: Id<"inv">[] };
     changesets?: Map<Id<"inv">, Uint8Array>;
@@ -192,22 +196,19 @@ test("external은 되돌리지 않고 표시하고, 결과 모르는 write가 �
   const plan = lost.rewind.plan(APP, inv(1));
   assert.deepStrictEqual(
     plan.ok && plan.value.items.map((item) => item.external),
-    [
-      false,
-      true,
-      false,
-    ],
+    [false, true, false],
   );
-  assert.deepStrictEqual(
-    plan.ok && plan.value.blocked,
-    { reason: "unrecoverable_write", invocation: inv(3) },
-  );
+  assert.deepStrictEqual(plan.ok && plan.value.blocked, {
+    reason: "unrecoverable_write",
+    invocation: inv(3),
+  });
   const started = await lost.rewind.apply(APP, inv(1), "user");
   assert.deepStrictEqual(!started.ok && started.error.code, "conflict");
   assert.deepStrictEqual(lost.calls.intake, []);
   assert.deepStrictEqual(
     {
-      ...(lost.db.prepare("SELECT count(*) AS n FROM app_rewinds")
+      ...(lost.db
+        .prepare("SELECT count(*) AS n FROM app_rewinds")
         .get() as Record<string, unknown>),
     },
     { n: 0 },
@@ -260,16 +261,15 @@ test("적용이 충돌하면 되돌림 표시를 남기지 않고 접수를 다�
 test("충돌 없이 적용되면 최신부터 뒤집어 보내고 external까지 되돌림 표시를 남긴다", async () => {
   const changesets = sampleChangesets();
 
-  const done = setup(
-    [invocation(1), invocation(2, { effect: "external" })],
-    { changesets },
-  );
+  const done = setup([invocation(1), invocation(2, { effect: "external" })], {
+    changesets,
+  });
   const result = await done.rewind.apply(APP, inv(1), "user");
   assert.deepStrictEqual(result.ok && result.value.status, "applied");
-  assert.deepStrictEqual(
-    result.ok && result.value.invocations,
-    [inv(1), inv(2)],
-  );
+  assert.deepStrictEqual(result.ok && result.value.invocations, [
+    inv(1),
+    inv(2),
+  ]);
   assert.deepStrictEqual(done.calls.marked, [inv(1), inv(2)]);
   assert.deepStrictEqual(done.calls.signals, 1);
   assert.deepStrictEqual(done.calls.intake, ["close", "open"]);

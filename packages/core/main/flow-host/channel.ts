@@ -46,7 +46,9 @@ export async function readRequests(
           return bad("line is not JSON");
         }
         if (
-          typeof value !== "object" || value === null || Array.isArray(value)
+          typeof value !== "object" ||
+          value === null ||
+          Array.isArray(value)
         ) {
           return bad("line is not an object");
         }

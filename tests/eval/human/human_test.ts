@@ -67,52 +67,56 @@ function fakePort(
       let value: unknown = {};
       if (key === "session_snapshots/list") {
         value = {
-          snapshots: [{
-            session: "ses_a",
-            questions: extra.questions
-              ? [{ group: "qgr_a", turn: "trn_a", tool_call: "tcl_a" }]
-              : [],
-            turn_requests: [
-              {
-                id: `apr_${ULID}`,
-                session: "ses_a",
-                turn: `trn_${ULID}`,
-                tool_call: `tcl_${ULID}`,
-                subject: { kind: "shell", command: "rm -r build" },
-                always_patterns: extra.alwaysPatterns ?? ["rm -r *"],
-                created_at: REQUESTED_AT,
-              },
-              {
-                id: `apr_${ULID.slice(0, 25)}1`,
-                session: "ses_a",
-                turn: `trn_${ULID}`,
-                tool_call: `tcl_${ULID.slice(0, 25)}1`,
-                subject: {
-                  kind: "app_tool",
-                  app: `app_${ULID}`,
-                  tool: "calendar.list",
-                  effect: "read",
+          snapshots: [
+            {
+              session: "ses_a",
+              questions: extra.questions
+                ? [{ group: "qgr_a", turn: "trn_a", tool_call: "tcl_a" }]
+                : [],
+              turn_requests: [
+                {
+                  id: `apr_${ULID}`,
+                  session: "ses_a",
+                  turn: `trn_${ULID}`,
+                  tool_call: `tcl_${ULID}`,
+                  subject: { kind: "shell", command: "rm -r build" },
+                  always_patterns: extra.alwaysPatterns ?? ["rm -r *"],
+                  created_at: REQUESTED_AT,
                 },
-                always_patterns: [],
-                created_at: REQUESTED_AT,
-              },
-            ],
-          }],
+                {
+                  id: `apr_${ULID.slice(0, 25)}1`,
+                  session: "ses_a",
+                  turn: `trn_${ULID}`,
+                  tool_call: `tcl_${ULID.slice(0, 25)}1`,
+                  subject: {
+                    kind: "app_tool",
+                    app: `app_${ULID}`,
+                    tool: "calendar.list",
+                    effect: "read",
+                  },
+                  always_patterns: [],
+                  created_at: REQUESTED_AT,
+                },
+              ],
+            },
+          ],
         };
       } else if (key === "activations/consents") {
         value = {
-          consents: [{
-            app: `app_${ULID}`,
-            release: `rel_${ULID}`,
-            comparison: {
-              previous_release: null,
-              first: true,
-              added_resources: [],
-              added_tools: [],
-              loss_steps: [],
+          consents: [
+            {
+              app: `app_${ULID}`,
+              release: `rel_${ULID}`,
+              comparison: {
+                previous_release: null,
+                first: true,
+                added_resources: [],
+                added_tools: [],
+                loss_steps: [],
+              },
+              requested_at: REQUESTED_AT,
             },
-            requested_at: REQUESTED_AT,
-          }],
+          ],
         };
       } else if (key === "ask/read") {
         value = { group: "qgr_a", questions: QUESTIONS };
@@ -184,9 +188,11 @@ test("human role allows only what the scenario rule says and answers each reques
     const decides = calls.filter((x) => x.key === "turn_requests/decide");
     assert.deepStrictEqual(decides.length, 2);
     const kindOf = (id: string) =>
-      (decides.find((x) => x.input.request === id)?.input.choice as {
-        kind: string;
-      }).kind;
+      (
+        decides.find((x) => x.input.request === id)?.input.choice as {
+          kind: string;
+        }
+      ).kind;
     assert.deepStrictEqual(kindOf(shellId), c.shell);
     assert.deepStrictEqual(kindOf(toolId), "reject");
   }
@@ -196,8 +202,14 @@ const DEFAULT = ANSWER_DEFAULT;
 
 test("buildAnswers copies question text, fills default and keeps one value for single select", () => {
   const cases: [(string[] | undefined)[], string[][]][] = [
-    [[["Week"], ["Export", "Share"]], [["Week"], ["Export", "Share"]]],
-    [[["Week", "Month"], [" "]], [["Week"], [DEFAULT]]],
+    [
+      [["Week"], ["Export", "Share"]],
+      [["Week"], ["Export", "Share"]],
+    ],
+    [
+      [["Week", "Month"], [" "]],
+      [["Week"], [DEFAULT]],
+    ],
     [[["Week"]], [["Week"], [DEFAULT]]],
     [[], [[DEFAULT], [DEFAULT]]],
   ];
@@ -207,7 +219,10 @@ test("buildAnswers copies question text, fills default and keeps one value for s
       out.map((a) => a.question),
       QUESTIONS.map((q) => q.question),
     );
-    assert.deepStrictEqual(out.map((a) => a.answer), answers);
+    assert.deepStrictEqual(
+      out.map((a) => a.answer),
+      answers,
+    );
     assert.ok(out.every((a) => a.status === "answered"));
   }
 });
@@ -253,12 +268,16 @@ test("human question becomes a pending entry, goes to askAnswer only when answer
   await writeGivenAnswer(dir2, "r1", entry.key, given);
   await role2.tick();
   assert.deepStrictEqual(
-    (rejecting.calls.find((c) => c.key === "ask/answer")?.input
-      .answers as { question: string; answer: string[] }[]).map((a) => [
-        a.question,
-        a.answer,
-      ]),
-    [["Which view first?", ["Week"]], ["Which extras?", [DEFAULT]]],
+    (
+      rejecting.calls.find((c) => c.key === "ask/answer")?.input.answers as {
+        question: string;
+        answer: string[];
+      }[]
+    ).map((a) => [a.question, a.answer]),
+    [
+      ["Which view first?", ["Week"]],
+      ["Which extras?", [DEFAULT]],
+    ],
   );
   assert.deepStrictEqual(role2.record().answers[0].error, "invalid_input: no");
   assert.ok(logs.some((l) => l.startsWith("답 거절 r1 t0-tcl_a")));

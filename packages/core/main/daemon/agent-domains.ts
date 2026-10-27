@@ -35,8 +35,11 @@ export function agentDomainPorts(sql: Query): UsagePorts {
       }
     },
     domainOf(app, name) {
-      return domainsOfOwner(sql, { kind: "app", id: app })
-        .find((domain) => domain.name === name)?.id ?? null;
+      return (
+        domainsOfOwner(sql, { kind: "app", id: app }).find(
+          (domain) => domain.name === name,
+        )?.id ?? null
+      );
     },
   };
   return ports;

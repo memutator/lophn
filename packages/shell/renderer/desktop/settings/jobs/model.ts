@@ -32,11 +32,13 @@ export function jobsOfProject(
   jobs: readonly JobView[],
   project: string,
 ): JobView[] {
-  return jobs.filter(({ creator, action }) =>
-    (creator.role === "project_manager" && creator.project === project) ||
-    (action.kind === "agent_run" && action.agent_place?.kind === "project" &&
-      action.agent_place.id === project) ||
-    (action.kind === "workflow_start" && action.project === project)
+  return jobs.filter(
+    ({ creator, action }) =>
+      (creator.role === "project_manager" && creator.project === project) ||
+      (action.kind === "agent_run" &&
+        action.agent_place?.kind === "project" &&
+        action.agent_place.id === project) ||
+      (action.kind === "workflow_start" && action.project === project),
   );
 }
 
@@ -74,9 +76,10 @@ export function actionText(
     case "agent_run":
       return {
         summary: t("jobs.label.action-agent", {
-          agent: action.agent.role === "operator"
-            ? names.operators[action.agent.agent] ?? agentName(action.agent)
-            : agentName(action.agent),
+          agent:
+            action.agent.role === "operator"
+              ? (names.operators[action.agent.agent] ?? agentName(action.agent))
+              : agentName(action.agent),
         }),
         detail: action.prompt,
       };
@@ -126,9 +129,7 @@ export const MISSED_OPTIONS: readonly {
 ];
 
 export const missedText = (policy: MissedPolicy): string =>
-  t(
-    policy === "hold" ? "jobs.label.missed-hold" : "jobs.label.missed-run",
-  );
+  t(policy === "hold" ? "jobs.label.missed-hold" : "jobs.label.missed-run");
 
 export const STATE: Record<
   JobRunState,
@@ -176,8 +177,8 @@ export function runText(row: JobRunView): string {
       return row.reason === "person"
         ? t("jobs.note.run-skipped-person")
         : row.reason === "overlap"
-        ? t("jobs.note.run-skipped-overlap")
-        : t("jobs.note.run-skipped-superseded");
+          ? t("jobs.note.run-skipped-overlap")
+          : t("jobs.note.run-skipped-superseded");
     case "interrupted":
       return t("jobs.note.run-interrupted");
   }

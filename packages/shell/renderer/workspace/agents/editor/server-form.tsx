@@ -67,18 +67,23 @@ function serverOf(
     http: {
       url: fields.url,
       headers: {},
-      auth: fields.auth === "none"
-        ? { kind: "none" }
-        : fields.auth === "bearer"
-        ? { kind: "bearer", credential }
-        : { kind: "api_key", credential, header_name: fields.header },
+      auth:
+        fields.auth === "none"
+          ? { kind: "none" }
+          : fields.auth === "bearer"
+            ? { kind: "bearer", credential }
+            : { kind: "api_key", credential, header_name: fields.header },
     },
   };
 }
 
-export function ServerForm(
-  { scope, taken, onAdd, onCancel, scrollIntoView = false }: ServerFormProps,
-) {
+export function ServerForm({
+  scope,
+  taken,
+  onAdd,
+  onCancel,
+  scrollIntoView = false,
+}: ServerFormProps) {
   const [name, setName] = useState("");
   const [transport, setTransport] = useState<Transport>("stdio");
   const [executable, setExecutable] = useState("");
@@ -95,18 +100,23 @@ export function ServerForm(
   const nameError = !NAME.test(name)
     ? t("settings.server.error-name")
     : taken.includes(name)
-    ? t("settings.server.error-taken")
-    : undefined;
-  const targetError = transport === "stdio"
-    ? EXECUTABLE.test(executable) ? undefined : t("settings.server.error-path")
-    : URL.test(url)
-    ? undefined
-    : t("settings.server.error-url");
-  const headerError = transport === "http" && auth === "api_key" &&
-      !HEADER.test(header)
-    ? t("settings.server.error-header")
-    : undefined;
-  const invalid = nameError !== undefined || targetError !== undefined ||
+      ? t("settings.server.error-taken")
+      : undefined;
+  const targetError =
+    transport === "stdio"
+      ? EXECUTABLE.test(executable)
+        ? undefined
+        : t("settings.server.error-path")
+      : URL.test(url)
+        ? undefined
+        : t("settings.server.error-url");
+  const headerError =
+    transport === "http" && auth === "api_key" && !HEADER.test(header)
+      ? t("settings.server.error-header")
+      : undefined;
+  const invalid =
+    nameError !== undefined ||
+    targetError !== undefined ||
     headerError !== undefined;
   // 이름이 겹치는 것은 치는 도중에도 바로 알린다.
   const dup = name !== "" && taken.includes(name);
@@ -119,9 +129,9 @@ export function ServerForm(
       <Field
         label={t("settings.label.server-name")}
         help={t("agents.notice.server-name-help")}
-        error={dup || (tried && nameError !== undefined)
-          ? nameError
-          : undefined}
+        error={
+          dup || (tried && nameError !== undefined) ? nameError : undefined
+        }
       >
         <Input
           value={name}
@@ -139,77 +149,73 @@ export function ServerForm(
           onValueChange={(value) => setTransport(value as Transport)}
         />
       </Field>
-      {transport === "stdio"
-        ? (
-          <>
+      {transport === "stdio" ? (
+        <>
+          <Field
+            label={t("settings.label.server-program")}
+            help={t("settings.server.program-help")}
+            error={tried ? targetError : undefined}
+          >
+            <Input
+              value={executable}
+              onChange={(event) => setExecutable(event.currentTarget.value)}
+            />
+          </Field>
+          <Field
+            label={t("settings.label.server-arguments")}
+            help={t("settings.server.arguments-help")}
+          >
+            <Textarea
+              rows={3}
+              value={args}
+              onChange={(event) => setArgs(event.currentTarget.value)}
+            />
+          </Field>
+        </>
+      ) : (
+        <>
+          <Field
+            label={t("settings.label.server-address")}
+            help={t("settings.server.address-help")}
+            error={tried ? targetError : undefined}
+          >
+            <Input
+              value={url}
+              onChange={(event) => setUrl(event.currentTarget.value)}
+            />
+          </Field>
+          <Field label={t("settings.label.server-auth")}>
+            <Select
+              options={[
+                { value: "none", label: t("agents.label.auth-none") },
+                { value: "bearer", label: t("agents.label.auth-bearer") },
+                { value: "api_key", label: t("agents.label.auth-api-key") },
+              ]}
+              value={auth}
+              onValueChange={(value) => setAuth(value as Auth)}
+            />
+          </Field>
+          {auth === "api_key" ? (
             <Field
-              label={t("settings.label.server-program")}
-              help={t("settings.server.program-help")}
-              error={tried ? targetError : undefined}
+              label={t("settings.label.server-header")}
+              error={tried ? headerError : undefined}
             >
               <Input
-                value={executable}
-                onChange={(event) => setExecutable(event.currentTarget.value)}
+                value={header}
+                onChange={(event) => setHeader(event.currentTarget.value)}
               />
             </Field>
-            <Field
-              label={t("settings.label.server-arguments")}
-              help={t("settings.server.arguments-help")}
-            >
-              <Textarea
-                rows={3}
-                value={args}
-                onChange={(event) => setArgs(event.currentTarget.value)}
-              />
-            </Field>
-          </>
-        )
-        : (
-          <>
-            <Field
-              label={t("settings.label.server-address")}
-              help={t("settings.server.address-help")}
-              error={tried ? targetError : undefined}
-            >
-              <Input
-                value={url}
-                onChange={(event) => setUrl(event.currentTarget.value)}
-              />
-            </Field>
-            <Field label={t("settings.label.server-auth")}>
-              <Select
-                options={[
-                  { value: "none", label: t("agents.label.auth-none") },
-                  { value: "bearer", label: t("agents.label.auth-bearer") },
-                  { value: "api_key", label: t("agents.label.auth-api-key") },
-                ]}
-                value={auth}
-                onValueChange={(value) => setAuth(value as Auth)}
-              />
-            </Field>
-            {auth === "api_key"
-              ? (
-                <Field
-                  label={t("settings.label.server-header")}
-                  error={tried ? headerError : undefined}
-                >
-                  <Input
-                    value={header}
-                    onChange={(event) => setHeader(event.currentTarget.value)}
-                  />
-                </Field>
-              )
-              : null}
-          </>
-        )}
-      {transport === "http" && auth !== "none"
-        ? (
-          <ProtectedKeyNote
-            title={t("agents.label.protected-key")}
-            text={t("agents.notice.protected-key")}
-          />
-        )
-        : <p className={styles.note}>{t("agents.notice.credential-later")}</p>}
+          ) : null}
+        </>
+      )}
+      {transport === "http" && auth !== "none" ? (
+        <ProtectedKeyNote
+          title={t("agents.label.protected-key")}
+          text={t("agents.notice.protected-key")}
+        />
+      ) : (
+        <p className={styles.note}>{t("agents.notice.credential-later")}</p>
+      )}
       <div className={styles.formActions}>
         <Button onClick={onCancel}>{t("common.button.cancel")}</Button>
         <Button

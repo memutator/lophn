@@ -5,9 +5,10 @@ import type { HasPlaceholders, ValuesOf } from "./placeholders.ts";
 export type { MessageKey } from "./en.ts";
 
 // placeholder가 없는 key는 values를 받지 않는다. 있는 key는 빠지거나 남으면 compile error다.
-type Args<K extends MessageKey> = HasPlaceholders<K> extends true
-  ? [values: ValuesOf<K>]
-  : [values?: Record<string, never>];
+type Args<K extends MessageKey> =
+  HasPlaceholders<K> extends true
+    ? [values: ValuesOf<K>]
+    : [values?: Record<string, never>];
 
 const cache = new Map<string, IntlMessageFormat>();
 
@@ -20,19 +21,19 @@ function formatter(key: MessageKey, locale: string): IntlMessageFormat {
   return made;
 }
 
-export function t<K extends MessageKey>(
-  key: K,
-  ...[values]: Args<K>
-): string {
+export function t<K extends MessageKey>(key: K, ...[values]: Args<K>): string {
   return String(formatter(key, "en").format(values ?? {}));
 }
 
 type Kind = "string" | "number" | "plural" | "date";
-type ValueFor<T> = T extends "plural" | "number" ? number
-  : T extends "date" ? Date
-  : string;
+type ValueFor<T> = T extends "plural" | "number"
+  ? number
+  : T extends "date"
+    ? Date
+    : string;
 type AppValues<P> = { [N in keyof P]: ValueFor<P[N]> };
-type AppArgs<P> = [keyof P] extends [never] ? [values?: Record<string, never>]
+type AppArgs<P> = [keyof P] extends [never]
+  ? [values?: Record<string, never>]
   : [values: AppValues<P>];
 
 // 앱의 en catalog용 `t`다. placeholder 종류는 앱이 catalog에서 생성한

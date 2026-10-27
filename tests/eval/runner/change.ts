@@ -7,31 +7,36 @@ type Change = { from: VersionRef; to: VersionRef };
 export function checkChange(
   change: Change,
   changed: Change[],
-): { ok: false; message: string } | {
-  ok: true;
-  warnings: string[];
-  mixed: Change[];
-} {
-  const main = changed.find((c) =>
-    c.from.kind === change.from.kind && c.from.name === change.from.name &&
-    c.from.n === change.from.n
+):
+  | { ok: false; message: string }
+  | {
+      ok: true;
+      warnings: string[];
+      mixed: Change[];
+    } {
+  const main = changed.find(
+    (c) =>
+      c.from.kind === change.from.kind &&
+      c.from.name === change.from.name &&
+      c.from.n === change.from.n,
   );
   if (main === undefined) {
     return {
       ok: false,
-      message: `variant가 spec의 ${
-        refText(change.from)
-      } -> @${change.to.n}가 아니다. ${
+      message: `variant가 spec의 ${refText(
+        change.from,
+      )} -> @${change.to.n}가 아니다. ${
         changed.length === 0
           ? "기준과 variant의 버전이 같다"
-          : `바뀐 것: ${
-            changed.map((c) => `${refText(c.from)} -> @${c.to.n}`).join(", ")
-          }`
+          : `바뀐 것: ${changed
+              .map((c) => `${refText(c.from)} -> @${c.to.n}`)
+              .join(", ")}`
       }`,
     };
   }
-  const warnings = main.to.n === change.to.n ? [] : [
-    `spec의 to는 @${change.to.n}인데 variant는 @${main.to.n}이다`,
-  ];
+  const warnings =
+    main.to.n === change.to.n
+      ? []
+      : [`spec의 to는 @${change.to.n}인데 variant는 @${main.to.n}이다`];
   return { ok: true, warnings, mixed: changed.filter((c) => c !== main) };
 }

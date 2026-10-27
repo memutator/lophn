@@ -32,9 +32,10 @@ export function createExceptionLogService(deps: {
       const error = observation.error;
       const invocation = observation.invocation?.id ?? null;
       const name = error?.name ?? observation.observation;
-      const head = error?.message == null
-        ? `exception ${name}`
-        : `exception ${name}: ${error.message}`;
+      const head =
+        error?.message == null
+          ? `exception ${name}`
+          : `exception ${name}: ${error.message}`;
       // 줄 사이에 await를 두지 않으려고 frame을 먼저 다 푼다(같은 시각에 찍히게).
       const frames = await deps.log.frames(child, error?.stack ?? null);
       deps.log.append(child.app, { invocation, text: head });

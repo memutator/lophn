@@ -13,8 +13,8 @@ export function userEntryOf(record: UserModelRecord): CatalogEntry {
   const { info } = record;
   const revision = `user@${record.saved_at.slice(0, 10)}`;
   const price = info.price;
-  const priced = price !== null &&
-    Object.values(price).some((value) => value !== null);
+  const priced =
+    price !== null && Object.values(price).some((value) => value !== null);
   return {
     provider_definition: record.provider_definition,
     model_name: record.model_name,
@@ -31,19 +31,23 @@ export function userEntryOf(record: UserModelRecord): CatalogEntry {
     source_revision: revision,
     checked_at: null,
     received_at: null,
-    price_basis: !priced ? null : {
-      currency: "USD",
-      rates: [{
-        context_from: null,
-        context_through: null,
-        cache_ttl_ms: null,
-        ...price,
-        reasoning: null,
-      }],
-      source: "user",
-      revision,
-      checked_at: record.saved_at,
-    },
+    price_basis: !priced
+      ? null
+      : {
+          currency: "USD",
+          rates: [
+            {
+              context_from: null,
+              context_through: null,
+              cache_ttl_ms: null,
+              ...price,
+              reasoning: null,
+            },
+          ],
+          source: "user",
+          revision,
+          checked_at: record.saved_at,
+        },
   };
 }
 

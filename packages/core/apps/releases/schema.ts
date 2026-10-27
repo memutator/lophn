@@ -7,9 +7,10 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 // core는 파일을 읽지 않고 command·read는 동기라서 현재 release의 선언·설명·비교를 읽을 자리가
 // ledger뿐이다. 선언 blob이 정본이고 이 열은 `declaration_hash`와 같은 byte의 사본이다.
 // app·backup 참조는 다른 표의 생성 순서에 기대지 않으려고 물리 FK를 두지 않는다.
-export const releasesSchemaSteps: readonly SchemaStep[] = [{
-  id: "apps.releases.tables",
-  sql: `
+export const releasesSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "apps.releases.tables",
+    sql: `
     CREATE TABLE releases (
       id TEXT PRIMARY KEY NOT NULL,
       app TEXT NOT NULL,
@@ -70,4 +71,5 @@ export const releasesSchemaSteps: readonly SchemaStep[] = [{
     ) STRICT;
     CREATE INDEX activation_consents_app ON activation_consents(app);
   `,
-}];
+  },
+];

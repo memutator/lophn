@@ -29,10 +29,7 @@ export function TabKinds() {
   return (
     <ProjectApp
       sidebar={{ current: DOC_PATH }}
-      panes={[
-        left(DOC, JSON_FILE, FILES_SEARCH, TERMINAL),
-        chat,
-      ]}
+      panes={[left(DOC, JSON_FILE, FILES_SEARCH, TERMINAL), chat]}
     />
   );
 }
@@ -48,10 +45,13 @@ export function EditorTabs() {
   return (
     <ProjectApp
       sidebar={{ current: DOC_PATH }}
-      panes={[{
-        tabs: [DOC, preview, dirty, notes, FILES_SEARCH, TERMINAL],
-        selected: DOC.key,
-      }, chat]}
+      panes={[
+        {
+          tabs: [DOC, preview, dirty, notes, FILES_SEARCH, TERMINAL],
+          selected: DOC.key,
+        },
+        chat,
+      ]}
     />
   );
 }

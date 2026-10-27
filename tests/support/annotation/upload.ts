@@ -10,10 +10,10 @@ import type { Core } from "../core/mod.ts";
 
 function encodeInput(input: unknown): string {
   const bytes = new TextEncoder().encode(JSON.stringify(input));
-  return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll(
-    "/",
-    "_",
-  ).replaceAll("=", "");
+  return btoa(String.fromCharCode(...bytes))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
 }
 
 export async function uploadScreenshot(

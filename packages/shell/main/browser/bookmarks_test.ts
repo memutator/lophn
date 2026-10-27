@@ -36,10 +36,14 @@ test("깨진 bookmarks.json은 어떤 쓰기도 덮어쓰지 못하고 byte가 �
     const { root, store, file } = await setup();
     try {
       await writeFile(file, content);
-      assert.deepEqual(await store.list(), {
-        ok: true,
-        value: { state: "corrupt" },
-      }, name);
+      assert.deepEqual(
+        await store.list(),
+        {
+          ok: true,
+          value: { state: "corrupt" },
+        },
+        name,
+      );
       const results = [
         await store.add({ title: "t", url: "https://b.example/" }),
         await store.update({ id: "x", title: "u" }),
@@ -70,11 +74,10 @@ test("정상 파일에 add한 항목을 list가 돌려주고 동시 쓰기가 �
     const listed = await store.list();
     assert.equal(listed.ok && listed.value.state, "ok");
     if (listed.ok && listed.value.state === "ok") {
-      assert.deepEqual(listed.value.bookmarks.map((x) => x.title), [
-        "t",
-        "하나",
-        "둘",
-      ]);
+      assert.deepEqual(
+        listed.value.bookmarks.map((x) => x.title),
+        ["t", "하나", "둘"],
+      );
     }
   } finally {
     await rm(root, { recursive: true, force: true });

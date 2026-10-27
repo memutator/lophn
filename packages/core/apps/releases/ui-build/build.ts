@@ -39,7 +39,7 @@ function dependenciesInsideFixedList(
   dependencies: readonly { name: string; version: string }[],
 ): boolean {
   return dependencies.every((dependency) =>
-    (FIXED_UI_DEPENDENCIES as readonly string[]).includes(dependency.name)
+    (FIXED_UI_DEPENDENCIES as readonly string[]).includes(dependency.name),
   );
 }
 
@@ -103,7 +103,7 @@ export async function buildScreens(
       files.push({ path: screen.path, bytes: js.contents });
       const parsed = JSON.parse(decode(map.contents)) as SourceMap;
       parsed.sources = parsed.sources.map((source) =>
-        source.endsWith(screen.path) ? screen.path : source
+        source.endsWith(screen.path) ? screen.path : source,
       );
       // source 위치를 풀려면 원문이 map에 다 있어야 한다.
       if (

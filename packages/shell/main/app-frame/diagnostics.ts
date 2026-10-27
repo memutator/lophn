@@ -11,7 +11,7 @@ const VIEW_EVENTS = [
   "attached",
 ] as const;
 
-export type ViewEvent = typeof VIEW_EVENTS[number];
+export type ViewEvent = (typeof VIEW_EVENTS)[number];
 
 // 감독 pipe의 component는 최상위/이름 모양이다. shell main은 platform 감독 아래의 이름을 쓴다.
 const VIEW_DIAGNOSTIC_COMPONENT = "platform/shell-main";

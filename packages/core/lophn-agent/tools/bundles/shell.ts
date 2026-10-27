@@ -8,16 +8,15 @@ const nonblank = z.string().refine((value) => value.trim().length > 0, {
 });
 
 // model이 채우는 짧은 설명이다. 사람이 읽는 tool 줄 제목에만 쓰고 승인 카드에는 싣지 않는다.
-const SHELL_DESCRIPTION =
-  `What this command does, in active voice, shown to the person instead of the command. For simple commands use 5-10 words, e.g. ls → "List files in current directory", git status → "Show working tree status". For piped commands or obscure flags add enough context, e.g. curl -s url | jq '.data[]' → "Fetch JSON from URL and extract data array elements". Say what it does in plain words: do not repeat the command, its flags or file paths.`;
+const SHELL_DESCRIPTION = `What this command does, in active voice, shown to the person instead of the command. For simple commands use 5-10 words, e.g. ls → "List files in current directory", git status → "Show working tree status". For piped commands or obscure flags add enough context, e.g. curl -s url | jq '.data[]' → "Fetch JSON from URL and extract data array elements". Say what it does in plain words: do not repeat the command, its flags or file paths.`;
 
 // 제목은 model이 쓴 설명이고, 비어 있으면 명령의 첫 줄이다.
 function shellTitle(input: { command: string; description?: string }): string {
   const description = input.description?.trim() ?? "";
   if (description !== "") return description;
-  const firstLine = input.command.split("\n").find((line) =>
-    line.trim() !== ""
-  );
+  const firstLine = input.command
+    .split("\n")
+    .find((line) => line.trim() !== "");
   return (firstLine ?? input.command).trim();
 }
 

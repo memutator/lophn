@@ -38,8 +38,10 @@ export function toggleMark(mark: string): StateCommand {
       }
       const inner = doc.sliceString(range.from, range.to);
       if (
-        !range.empty && inner.length >= mark.length * 2 &&
-        inner.startsWith(mark) && inner.endsWith(mark)
+        !range.empty &&
+        inner.length >= mark.length * 2 &&
+        inner.startsWith(mark) &&
+        inner.endsWith(mark)
       ) {
         return {
           changes: {
@@ -153,20 +155,22 @@ function inCode(state: EditorState, position: number): boolean {
 export const continueList: StateCommand = ({ state, dispatch }) => {
   const range = state.selection.main;
   if (
-    state.selection.ranges.length > 1 || !range.empty ||
+    state.selection.ranges.length > 1 ||
+    !range.empty ||
     inCode(state, range.head)
-  ) return false;
+  )
+    return false;
   const line = state.doc.lineAt(range.head);
   const prefix = listPrefix(line.text);
   if (!prefix || range.head < line.from + prefix.length) return false;
-  if (
-    line.text.slice(prefix.length).trim() === "" && range.head === line.to
-  ) {
-    dispatch(state.update({
-      changes: { from: line.from, to: line.to, insert: "" },
-      selection: EditorSelection.cursor(line.from),
-      userEvent: "input",
-    }));
+  if (line.text.slice(prefix.length).trim() === "" && range.head === line.to) {
+    dispatch(
+      state.update({
+        changes: { from: line.from, to: line.to, insert: "" },
+        selection: EditorSelection.cursor(line.from),
+        userEvent: "input",
+      }),
+    );
     return true;
   }
   const number = /^(\d+)([.)])$/.exec(prefix.marker);
@@ -176,12 +180,14 @@ export const continueList: StateCommand = ({ state, dispatch }) => {
   const insert = `\n${prefix.indent}${marker}${prefix.space}${
     prefix.task ? "[ ] " : ""
   }`;
-  dispatch(state.update({
-    changes: { from: range.head, to: range.head, insert },
-    selection: EditorSelection.cursor(range.head + insert.length),
-    scrollIntoView: true,
-    userEvent: "input",
-  }));
+  dispatch(
+    state.update({
+      changes: { from: range.head, to: range.head, insert },
+      selection: EditorSelection.cursor(range.head + insert.length),
+      scrollIntoView: true,
+      userEvent: "input",
+    }),
+  );
   return true;
 };
 
@@ -199,13 +205,15 @@ export const indentList: StateCommand = ({ state, dispatch }) => {
   }
   const lines = listLines(state);
   if (!lines) return false;
-  dispatch(state.update({
-    changes: lines.map((number) => ({
-      from: state.doc.line(number).from,
-      insert: INDENT,
-    })),
-    userEvent: "input.indent",
-  }));
+  dispatch(
+    state.update({
+      changes: lines.map((number) => ({
+        from: state.doc.line(number).from,
+        insert: INDENT,
+      })),
+      userEvent: "input.indent",
+    }),
+  );
   return true;
 };
 
@@ -231,8 +239,12 @@ export function toggleTask(
   const line = state.doc.lineAt(lineFrom);
   const prefix = listPrefix(line.text);
   if (!prefix || !prefix.task) return null;
-  const at = line.from + prefix.indent.length + prefix.marker.length +
-    prefix.space.length + 1;
+  const at =
+    line.from +
+    prefix.indent.length +
+    prefix.marker.length +
+    prefix.space.length +
+    1;
   const checked = state.doc.sliceString(at, at + 1).toLowerCase() === "x";
   return {
     changes: { from: at, to: at + 1, insert: checked ? " " : "x" },

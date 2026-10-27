@@ -17,8 +17,8 @@ function setup(docs: Record<string, string>) {
             domain !== undefined && text === undefined
               ? null
               : layer === "domain"
-              ? { size_bytes: bytes.length, bytes }
-              : null,
+                ? { size_bytes: bytes.length, bytes }
+                : null,
           ),
         );
       },

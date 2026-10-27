@@ -15,16 +15,18 @@ import { AE_가계부 } from "./common.ts";
 
 const REQUEST = "앱을 좀 더 좋게 만들어 줘";
 
-const questions: AskInput["questions"] = [{
-  question: "가계부 앱에서 어떤 점을 더 좋게 만들까요?",
-  header: "개선 방향",
-  options: [
-    { label: "화면", description: "보이는 모양과 배치를 다듬는다" },
-    { label: "기능", description: "새 기능을 더한다" },
-    { label: "속도", description: "느린 곳을 빠르게 한다" },
-  ],
-  multiSelect: false,
-}];
+const questions: AskInput["questions"] = [
+  {
+    question: "가계부 앱에서 어떤 점을 더 좋게 만들까요?",
+    header: "개선 방향",
+    options: [
+      { label: "화면", description: "보이는 모양과 배치를 다듬는다" },
+      { label: "기능", description: "새 기능을 더한다" },
+      { label: "속도", description: "느린 곳을 빠르게 한다" },
+    ],
+    multiSelect: false,
+  },
+];
 
 const scenario: Scenario = {
   id: "A1-ask",
@@ -47,8 +49,8 @@ const scenario: Scenario = {
       input: ({ trial }) =>
         asksGapInput(
           REQUEST,
-          toolCallsOf(trial, "ask").flatMap((c) =>
-            (c.input as AskInput | null)?.questions ?? []
+          toolCallsOf(trial, "ask").flatMap(
+            (c) => (c.input as AskInput | null)?.questions ?? [],
           ),
         ),
     },
@@ -62,9 +64,7 @@ const scenario: Scenario = {
     wrong: [
       {
         trial: fixtureTrial([
-          fixtureSession(AE_가계부, [
-            { tool: "file.write", effect: "write" },
-          ]),
+          fixtureSession(AE_가계부, [{ tool: "file.write", effect: "write" }]),
         ]),
         fails: ["no-build", "asked"],
       },

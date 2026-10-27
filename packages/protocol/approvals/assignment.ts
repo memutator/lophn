@@ -16,14 +16,17 @@ export const assignmentEntrySchema = z.strictObject({
 });
 export type AssignmentEntry = z.infer<typeof assignmentEntrySchema>;
 
-const entriesSchema = z.array(assignmentEntrySchema).refine(
-  (entries) =>
-    new Set(entries.map((entry) => entry.app)).size === entries.length &&
-    entries.every((entry) =>
-      new Set(entry.removed_tools).size === entry.removed_tools.length
-    ),
-  { message: "duplicate assignment target" },
-);
+const entriesSchema = z
+  .array(assignmentEntrySchema)
+  .refine(
+    (entries) =>
+      new Set(entries.map((entry) => entry.app)).size === entries.length &&
+      entries.every(
+        (entry) =>
+          new Set(entry.removed_tools).size === entry.removed_tools.length,
+      ),
+    { message: "duplicate assignment target" },
+  );
 
 // key는 agent다. 고정 role agent는 role과 place가 곧 정체성이다.
 // revision은 할당 값이 아니라 저장 판이라 여기 넣지 않는다(judge가 받는 값에 섞지 않는다).
@@ -34,9 +37,11 @@ export const agentAssignmentSchema = z.strictObject({
 export type AgentAssignment = z.infer<typeof agentAssignmentSchema>;
 
 // 줄이 없는 agent는 0이고, 쓸 때마다 1 오른다.
-export const assignmentRevisionSchema = z.number().int().min(0).max(
-  Number.MAX_SAFE_INTEGER,
-);
+export const assignmentRevisionSchema = z
+  .number()
+  .int()
+  .min(0)
+  .max(Number.MAX_SAFE_INTEGER);
 
 const readErrors = [
   "invalid_input",
@@ -52,10 +57,12 @@ export const agentAssignmentGet = defineRead({
   method: "get",
   name: "GetAgentAssignment",
   input: z.strictObject({ agent: agentRefSchema }),
-  output: withReadCommon(z.object({
-    assignment: agentAssignmentSchema,
-    revision: assignmentRevisionSchema,
-  })),
+  output: withReadCommon(
+    z.object({
+      assignment: agentAssignmentSchema,
+      revision: assignmentRevisionSchema,
+    }),
+  ),
   actors: ["user", "machine"],
   errors: [...readErrors],
 });

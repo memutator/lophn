@@ -51,7 +51,7 @@ function reusable(host: TabHost, input: OpenAgentInput): TabItem | undefined {
 /** 탭 key는 작업대 안에서 유일하다. 열린 key와 겹치지 않는 가장 작은 번호를 쓴다. */
 function freshKey(tabs: readonly TabItem[], agent: string): string {
   const used = new Set(tabs.map((tab) => tab.key));
-  for (let n = 1;; n += 1) {
+  for (let n = 1; ; n += 1) {
     const key = `agent:${agent}:${n}`;
     if (!used.has(key)) return key;
   }
@@ -76,9 +76,12 @@ export function distinctAgentTab(
   if (isDetached(view, tab.key)) return tab;
   const session = sessionOf(tab);
   if (
-    existing.kind === "agent" && agentOf(existing) === agent &&
-    session !== null && sessionOf(existing) === session
-  ) return tab;
+    existing.kind === "agent" &&
+    agentOf(existing) === agent &&
+    session !== null &&
+    sessionOf(existing) === session
+  )
+    return tab;
   return { ...tab, key: freshKey(tabs, agent) };
 }
 
@@ -154,12 +157,11 @@ export const agentKind: TabKindDef = {
   // 그 agent의 profile 아이콘. 목록에서 찾지 못하면 종류 아이콘이다.
   iconOf(tab, host) {
     const agent = agentOf(tab);
-    const profile = agent === null
-      ? undefined
-      : host.agentView?.profileOf(agent);
-    return profile === undefined
-      ? null
-      : <Avatar profile={profile} size="sm" />;
+    const profile =
+      agent === null ? undefined : host.agentView?.profileOf(agent);
+    return profile === undefined ? null : (
+      <Avatar profile={profile} size="sm" />
+    );
   },
   dotOf: (tab, host) => host.agentView?.dotOf(sessionOf(tab)) ?? null,
   fromStored(stored, { key }) {
@@ -169,14 +171,20 @@ export const agentKind: TabKindDef = {
     }
     const where = place as { kind?: unknown; id?: unknown } | null;
     if (
-      typeof where !== "object" || where === null || where.kind !== "project" ||
-      typeof where.id !== "string" || where.id.length === 0 ||
+      typeof where !== "object" ||
+      where === null ||
+      where.kind !== "project" ||
+      typeof where.id !== "string" ||
+      where.id.length === 0 ||
       where.id.length > 128
-    ) return null;
+    )
+      return null;
     if (
-      session !== undefined && session !== null &&
+      session !== undefined &&
+      session !== null &&
       (typeof session !== "string" || !SESSION_ID.test(session))
-    ) return null;
+    )
+      return null;
     return {
       key,
       kind: "agent",
@@ -211,12 +219,17 @@ export const agentKind: TabKindDef = {
     if (!drafts) return Promise.resolve({ value: null, views: [] });
     const session = sessionOf(tab);
     // 이미지는 이 창 메모리의 Blob이라 넘기지 못한다. 파일 경로만 따라간다.
-    const found = drafts.entries((key) =>
-      session === null ? key.startsWith("new:") : key === session
-    ).map(([key, draft]): [string, Draft] => [key, {
-      ...draft,
-      attachments: draft.attachments.filter((item) => item.kind === "file"),
-    }]);
+    const found = drafts
+      .entries((key) =>
+        session === null ? key.startsWith("new:") : key === session,
+      )
+      .map(([key, draft]): [string, Draft] => [
+        key,
+        {
+          ...draft,
+          attachments: draft.attachments.filter((item) => item.kind === "file"),
+        },
+      ]);
     return Promise.resolve({ value: { drafts: found }, views: [] });
   },
   receive(_tab, { value }, host) {
@@ -252,7 +265,8 @@ export const agentKind: TabKindDef = {
               return {
                 fields: session === null ? rest : { ...rest, session },
               };
-            })}
+            })
+          }
           host={viewHost(tab, host, slice)}
           title={tab.title}
           onTitle={(name) => host.patchTab(tab.key, () => ({ title: name }))}

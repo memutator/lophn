@@ -21,9 +21,8 @@ const LIST_MAX = 200;
 
 export function diagnosticsListRead(source: DiagnosticListSource): ReadHandler {
   return async (_ctx, input) => {
-    const query = input && typeof input === "object"
-      ? input as DiagnosticQuery
-      : {};
+    const query =
+      input && typeof input === "object" ? (input as DiagnosticQuery) : {};
     return ok({
       records: await source.records({
         component: query.component,
@@ -57,10 +56,11 @@ export function createLogRecordSource(
       }
       if (skipped > 0) all.push(skippedRecord(skipped, clock.now()));
       return all
-        .filter((record) =>
-          (query.component === undefined ||
-            record.component === query.component) &&
-          (query.kind === undefined || record.kind === query.kind)
+        .filter(
+          (record) =>
+            (query.component === undefined ||
+              record.component === query.component) &&
+            (query.kind === undefined || record.kind === query.kind),
         )
         .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
         .slice(0, LIST_MAX);
@@ -115,11 +115,13 @@ function skippedRecord(count: number, at: string): DiagnosticRecord {
       status: "partial",
       content: null,
       redacted_items: [],
-      omissions: [{
-        location: "payload",
-        reason: "private",
-        message: "Only the count is retained.",
-      }],
+      omissions: [
+        {
+          location: "payload",
+          reason: "private",
+          message: "Only the count is retained.",
+        },
+      ],
     },
   };
 }

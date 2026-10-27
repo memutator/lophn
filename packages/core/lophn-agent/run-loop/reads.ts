@@ -70,7 +70,9 @@ export function createTurnReads(): {
         if (!after.ok) return after;
         const own = ownSession(ctx);
         if (
-          own !== null && input.session !== undefined && input.session !== own
+          own !== null &&
+          input.session !== undefined &&
+          input.session !== own
         ) {
           return ok({
             turns: [],
@@ -89,19 +91,22 @@ export function createTurnReads(): {
           clauses.push("state = ?");
           params.push(input.state);
         }
-        const rows = snapshot.sql.all(
-          `select ${TURN_COLUMNS} from turns where ${clauses.join(" and ")}
+        const rows = snapshot.sql
+          .all(
+            `select ${TURN_COLUMNS} from turns where ${clauses.join(" and ")}
            order by state_seq limit ?`,
-          [...params, PAGE + 1],
-        ).map(turnRowOf);
+            [...params, PAGE + 1],
+          )
+          .map(turnRowOf);
         const page = rows.slice(0, PAGE);
         const last = page[page.length - 1];
         return ok({
           turns: page.map(turnRecordOf),
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: rows.length > PAGE && last !== undefined
-            ? btoa(JSON.stringify({ after_seq: Number(last.state_seq) }))
-            : null,
+          next_cursor:
+            rows.length > PAGE && last !== undefined
+              ? btoa(JSON.stringify({ after_seq: Number(last.state_seq) }))
+              : null,
         });
       },
     },

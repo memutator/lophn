@@ -51,7 +51,7 @@ interface InstructionsOpened {
 }
 
 export interface InstructionsApi {
-  open(input: { target: InstructionsPlace }): Promise<
-    EditorReply<InstructionsOpened>
-  >;
+  open(input: {
+    target: InstructionsPlace;
+  }): Promise<EditorReply<InstructionsOpened>>;
 }

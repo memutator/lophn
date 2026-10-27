@@ -27,7 +27,7 @@ export function appWritesOf(lookup: Lookup): AppWrites {
       const byApp = new Map<string, string[]>();
       for (const row of rows) {
         const app = String(row["app"]);
-        byApp.set(app, [...byApp.get(app) ?? [], String(row["id"])]);
+        byApp.set(app, [...(byApp.get(app) ?? []), String(row["id"])]);
       }
       return [...byApp].map(([app, invocations]) => ({
         app: app as never,

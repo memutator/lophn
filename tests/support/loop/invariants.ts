@@ -6,7 +6,7 @@ import type { ModelCallRequest } from "../../../packages/core/lophn-agent/run-lo
 
 function parts(request: ModelCallRequest): string[] {
   return request.prompt.request.messages.flatMap((message) =>
-    message.parts.map((part) => JSON.stringify([message.role, part]))
+    message.parts.map((part) => JSON.stringify([message.role, part])),
   );
 }
 
@@ -15,11 +15,13 @@ export function assertRequestInvariants(
 ): void {
   requests.forEach((request, i) => {
     const ids = (kind: string) =>
-      request.prompt.request.messages.flatMap((message) =>
-        message.parts.flatMap((part) =>
-          part.kind === kind && "id" in part ? [part.id] : []
+      request.prompt.request.messages
+        .flatMap((message) =>
+          message.parts.flatMap((part) =>
+            part.kind === kind && "id" in part ? [part.id] : [],
+          ),
         )
-      ).sort();
+        .sort();
     assert.deepStrictEqual(
       ids("tool_use"),
       ids("tool_result"),

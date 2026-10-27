@@ -136,14 +136,19 @@ const noop = () => {};
 const RUN_SNAPSHOTS: readonly SessionSnapshot[] = fixedRuns(APP).flatMap(
   (run) =>
     "agent" in run.target && run.session !== null && run.session_opened
-      ? [{
-        session: run.session,
-        agent: run.target.agent,
-        place: { kind: "app" as const, id: APP },
-        state: run.state === "running" ? "running" as const : "idle" as const,
-        turn_requests: [],
-        questions: [],
-      }]
+      ? [
+          {
+            session: run.session,
+            agent: run.target.agent,
+            place: { kind: "app" as const, id: APP },
+            state:
+              run.state === "running"
+                ? ("running" as const)
+                : ("idle" as const),
+            turn_requests: [],
+            questions: [],
+          },
+        ]
       : [],
 );
 
@@ -153,10 +158,12 @@ function withRunSessions(source: CoreSource): CoreSource {
     async call(input) {
       const reply = await source.call(input);
       if (
-        !reply.ok || input.kind !== "read" ||
+        !reply.ok ||
+        input.kind !== "read" ||
         input.resource !== sessionSnapshotsList.resource ||
         input.method !== sessionSnapshotsList.method
-      ) return reply;
+      )
+        return reply;
       const value = reply.value as { snapshots: readonly SessionSnapshot[] };
       return {
         ok: true,
@@ -174,9 +181,9 @@ function build(props: AppSpaceProps, onRegion: (region: HTMLElement) => void) {
     ...base,
     async openApp(input) {
       const state = await base.openApp(input);
-      document.querySelectorAll("[data-mock-app-view]").forEach((box) =>
-        box.remove()
-      );
+      document
+        .querySelectorAll("[data-mock-app-view]")
+        .forEach((box) => box.remove());
       const region = document.querySelector<HTMLElement>(
         '[data-space="app"] [data-phase]',
       );
@@ -185,18 +192,20 @@ function build(props: AppSpaceProps, onRegion: (region: HTMLElement) => void) {
     },
   };
   const scene = props.terminal;
-  const bridge = scene === undefined
-    ? undefined
-    : codingBridge(scene, PROJECTS[0].id);
+  const bridge =
+    scene === undefined ? undefined : codingBridge(scene, PROJECTS[0].id);
   return {
     views,
     bridge,
-    terminal: bridge === undefined ? undefined : {
-      bridge,
-      store: new TerminalStore(null, bridge),
-      createView: createXtermView,
-      confirmClose: () => Promise.resolve(false),
-    },
+    terminal:
+      bridge === undefined
+        ? undefined
+        : {
+            bridge,
+            store: new TerminalStore(null, bridge),
+            createView: createXtermView,
+            confirmClose: () => Promise.resolve(false),
+          },
     source: fakeApps({
       rows: [appRow(APP, APP_NAME, { release: RELEASE })],
       runs: { [APP]: "running" },
@@ -205,14 +214,17 @@ function build(props: AppSpaceProps, onRegion: (region: HTMLElement) => void) {
     detail: fakeDetail({
       ...(props.version === undefined ? {} : { activation: props.version }),
       ...(props.secrets === undefined ? {} : { secrets: props.secrets }),
-      ...(props.revoking === undefined ? {} : {
-        revoking: props.revoking.map((id) => GRANTS[id] ?? id),
-      }),
-      rewind: props.activity?.rewind === "running"
-        ? "pending"
-        : props.activity?.rewind === "conflict"
-        ? "conflict"
-        : "applied",
+      ...(props.revoking === undefined
+        ? {}
+        : {
+            revoking: props.revoking.map((id) => GRANTS[id] ?? id),
+          }),
+      rewind:
+        props.activity?.rewind === "running"
+          ? "pending"
+          : props.activity?.rewind === "conflict"
+            ? "conflict"
+            : "applied",
     }).source,
     agents: createFakeAgentsSource(),
     agentViewSource: mockAgentTabSource(),
@@ -252,13 +264,14 @@ function shownMarks(
   return {
     ...marks,
     picked: Object.fromEntries(
-      Object.entries(marks.picked ?? {}).filter(([, mark]) =>
-        !removed.has(mark.n)
+      Object.entries(marks.picked ?? {}).filter(
+        ([, mark]) => !removed.has(mark.n),
       ),
     ),
-    area: marks.area?.n !== undefined && removed.has(marks.area.n)
-      ? undefined
-      : marks.area,
+    area:
+      marks.area?.n !== undefined && removed.has(marks.area.n)
+        ? undefined
+        : marks.area,
   };
 }
 
@@ -325,10 +338,12 @@ export function AppSpace(props: AppSpaceProps = {}) {
         windowWidth={1280}
         onLauncher={noop}
       />
-      {region === null ? null : createPortal(
-        <OrdersView marks={shownMarks(props, annotating)} />,
-        region,
-      )}
+      {region === null
+        ? null
+        : createPortal(
+            <OrdersView marks={shownMarks(props, annotating)} />,
+            region,
+          )}
     </EventsProvider>
   );
 }

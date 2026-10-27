@@ -5,9 +5,7 @@ import { t } from "@lophn/wording";
 import type { z } from "zod";
 
 import { turnRequestDecide } from "../../../protocol/approvals/turn-request.ts";
-import {
-  agentSessionList,
-} from "../../../protocol/lophn-agent/agent-sessions.ts";
+import { agentSessionList } from "../../../protocol/lophn-agent/agent-sessions.ts";
 import { listCommands } from "../../../protocol/lophn-agent/command-filter.ts";
 import {
   type CommandEntry,
@@ -35,9 +33,7 @@ import { dropValue, type Env } from "./agent-tab-core-source-env.ts";
 
 // ---------------------------------------------------------------- `/` 명령
 
-type UserPart = z.input<
-  typeof sendMessage.input
->["content"]["parts"][number];
+type UserPart = z.input<typeof sendMessage.input>["content"]["parts"][number];
 
 /** 그 session의 registry. */
 async function readRegistry(
@@ -73,12 +69,13 @@ export async function readCommands(
   const registry = await registryOf(env, session);
   if (!registry.ok) return registry;
   // session이 없으면 session이 있어야 하는 built-in은 쓸 수 없다.
-  const entries = session === null
-    ? registry.value.filter((entry) =>
-      entry.source !== "builtin" ||
-      !SESSION_ONLY.has(entry.name)
-    )
-    : registry.value;
+  const entries =
+    session === null
+      ? registry.value.filter(
+          (entry) =>
+            entry.source !== "builtin" || !SESSION_ONLY.has(entry.name),
+        )
+      : registry.value;
   return { ok: true, value: listCommands({ entries }, query) };
 }
 
@@ -115,20 +112,22 @@ export function sendText(
   env: Env,
   input: SendInput,
 ): Promise<SourceResult<void>> {
-  return env.command(sendMessage, {
-    input: {
-      id: input.id,
-      session: input.session,
-      content: {
-        schema_version: 1,
-        parts: [{ kind: "text", text: input.text }],
+  return env
+    .command(sendMessage, {
+      input: {
+        id: input.id,
+        session: input.session,
+        content: {
+          schema_version: 1,
+          parts: [{ kind: "text", text: input.text }],
+        },
+        delivery: input.delivery,
+        refs: [],
       },
-      delivery: input.delivery,
-      refs: [],
-    },
-    compare: {},
-    key: input.key,
-  }).then(dropValue);
+      compare: {},
+      key: input.key,
+    })
+    .then(dropValue);
 }
 
 async function sessionOfMessage(

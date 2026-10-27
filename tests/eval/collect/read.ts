@@ -42,9 +42,9 @@ async function read<R extends Route>(
 
 // next_cursor가 null일 때까지 이어 읽는다.
 async function readAll<T>(
-  page: (cursor: string | undefined) => Promise<
-    { items: T[]; next_cursor: string | null }
-  >,
+  page: (
+    cursor: string | undefined,
+  ) => Promise<{ items: T[]; next_cursor: string | null }>,
 ): Promise<T[]> {
   const all: T[] = [];
   let cursor: string | undefined;
@@ -105,36 +105,43 @@ async function readSession(
   const agent = found.session.agent;
 
   // t0보다 먼저 시작한 turn은 되살리기·setup의 흔적이라 그 turn의 call과 함께 뺀다.
-  const turns = (await readAll(async (cursor) => {
-    const out = (await read(port, turnList, { session, cursor }))!;
-    return { items: out.turns, next_cursor: out.next_cursor };
-  })).filter((t) => Date.parse(t.started_at) >= since);
+  const turns = (
+    await readAll(async (cursor) => {
+      const out = (await read(port, turnList, { session, cursor }))!;
+      return { items: out.turns, next_cursor: out.next_cursor };
+    })
+  ).filter((t) => Date.parse(t.started_at) >= since);
   const kept = new Set(turns.map((t) => t.id));
 
-  const modelCalls = (await readAll(async (cursor) => {
-    const out = (await read(port, modelCallList, { session, cursor }))!;
-    return { items: out.calls, next_cursor: out.next_cursor };
-  })).filter((c) =>
-    c.turn === null ? Date.parse(c.started_at) >= since : kept.has(c.turn)
+  const modelCalls = (
+    await readAll(async (cursor) => {
+      const out = (await read(port, modelCallList, { session, cursor }))!;
+      return { items: out.calls, next_cursor: out.next_cursor };
+    })
+  ).filter((c) =>
+    c.turn === null ? Date.parse(c.started_at) >= since : kept.has(c.turn),
   );
   const model_calls: CollectedModelCall[] = [];
   for (const call of modelCalls) {
     model_calls.push({
       call,
-      request: readBlob === undefined
-        ? null
-        : await readJsonBlob(readBlob, call.input),
+      request:
+        readBlob === undefined
+          ? null
+          : await readJsonBlob(readBlob, call.input),
     });
   }
 
-  const toolCalls = (await readAll(async (cursor) => {
-    const out = (await read(port, toolCallList, {
-      session,
-      cursor,
-      limit: 100,
-    }))!;
-    return { items: out.tool_calls, next_cursor: out.next_cursor };
-  })).filter((c) => kept.has(c.turn));
+  const toolCalls = (
+    await readAll(async (cursor) => {
+      const out = (await read(port, toolCallList, {
+        session,
+        cursor,
+        limit: 100,
+      }))!;
+      return { items: out.tool_calls, next_cursor: out.next_cursor };
+    })
+  ).filter((c) => kept.has(c.turn));
   const tool_calls: CollectedToolCall[] = [];
   for (const call of toolCalls) {
     const input = await read(
@@ -143,18 +150,21 @@ async function readSession(
       { kind: "tool_call_input", id: call.id },
       true,
     );
-    const output = call.output === null ? null : await read(
-      port,
-      turnBodyView,
-      { kind: "tool_call_output", id: call.id },
-      true,
-    );
+    const output =
+      call.output === null
+        ? null
+        : await read(
+            port,
+            turnBodyView,
+            { kind: "tool_call_output", id: call.id },
+            true,
+          );
     tool_calls.push({
       call,
       input: input?.value ?? null,
       output: output?.value ?? null,
-      body_truncated: (input?.truncated ?? false) ||
-        (output?.truncated ?? false),
+      body_truncated:
+        (input?.truncated ?? false) || (output?.truncated ?? false),
     });
   }
 
@@ -165,9 +175,7 @@ async function readSession(
   const sent_calls: SentCall[] = [];
   for (const t of tool_calls) {
     if (t.call.tool !== "call" || superseded.has(t.call.id)) continue;
-    sent_calls.push(
-      await sentCall(port, t, sent_calls.length, names),
-    );
+    sent_calls.push(await sentCall(port, t, sent_calls.length, names));
   }
 
   return {
@@ -192,9 +200,8 @@ async function sentCall(
     reply: CallReply;
     body: string;
   };
-  const content =
-    ((t.output as { content?: CallContent | null } | null)?.content ??
-      {}) as CallContent;
+  const content = ((t.output as { content?: CallContent | null } | null)
+    ?.content ?? {}) as CallContent;
   const sent: SentCall = {
     tool_call: t.call.id,
     order,

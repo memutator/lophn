@@ -21,9 +21,9 @@ const LOCAL: SecretDestination = {
 // 현재 grant가 허락한 (이름, 목적지) 쌍만 ok인 가짜 allowance다.
 const allowance: SecretAllowanceCheck = (request) =>
   request.purpose === "app_secret" &&
-    request.context.conditions.app !== undefined &&
-    request.name === "stripe_key" &&
-    request.destination?.origin === STRIPE.origin
+  request.context.conditions.app !== undefined &&
+  request.name === "stripe_key" &&
+  request.destination?.origin === STRIPE.origin
     ? ok(undefined)
     : err({ code: "forbidden", message: "not granted" });
 

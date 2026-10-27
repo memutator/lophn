@@ -25,11 +25,13 @@ function fakeCore(stored: { value: ShellRulesSetting }) {
         return Promise.resolve({
           ok: true,
           value: {
-            settings: [{
-              key: SHELL_RULES_SETTING_KEY,
-              type: {},
-              chosen: stored.value,
-            }],
+            settings: [
+              {
+                key: SHELL_RULES_SETTING_KEY,
+                type: {},
+                chosen: stored.value,
+              },
+            ],
           },
         });
       }
@@ -46,38 +48,37 @@ function fakeCore(stored: { value: ShellRulesSetting }) {
   return { core, updates };
 }
 
-test(
-  "규칙 하나를 더하면 저장 직전에 다시 읽은 값에 그 줄만 더한다: 화면을 연 뒤 `always`가 더한 줄과 다른 층, 다른 project의 줄이 남는다",
-  async () => {
-    const stored = {
-      value: {
-        global: [],
-        projects: { [PROJECT_GROCERY]: [{ pattern: "a *", action: "allow" }] },
-      } as ShellRulesSetting,
-    };
-    const { core, updates } = fakeCore(stored);
-    const source = coreShellRulesSource(core);
+test("규칙 하나를 더하면 저장 직전에 다시 읽은 값에 그 줄만 더한다: 화면을 연 뒤 `always`가 더한 줄과 다른 층, 다른 project의 줄이 남는다", async () => {
+  const stored = {
+    value: {
+      global: [],
+      projects: { [PROJECT_GROCERY]: [{ pattern: "a *", action: "allow" }] },
+    } as ShellRulesSetting,
+  };
+  const { core, updates } = fakeCore(stored);
+  const source = coreShellRulesSource(core);
 
-    // 화면이 연 뒤에 `always`가 전역과 같은 project, 다른 project에 줄을 더한다.
-    await source.read();
-    stored.value = {
-      global: [{ pattern: "git push *", action: "allow" }],
-      projects: {
-        [PROJECT_GROCERY]: [
-          { pattern: "a *", action: "allow" },
-          { pattern: "b *", action: "allow" },
-        ],
-        [PROJECT_OFFICE]: [{ pattern: "deno test *", action: "allow" }],
-      },
-    };
+  // 화면이 연 뒤에 `always`가 전역과 같은 project, 다른 project에 줄을 더한다.
+  await source.read();
+  stored.value = {
+    global: [{ pattern: "git push *", action: "allow" }],
+    projects: {
+      [PROJECT_GROCERY]: [
+        { pattern: "a *", action: "allow" },
+        { pattern: "b *", action: "allow" },
+      ],
+      [PROJECT_OFFICE]: [{ pattern: "deno test *", action: "allow" }],
+    },
+  };
 
-    const saved = await source.add(
-      { kind: "project", project: PROJECT_GROCERY },
-      { pattern: "npm publish *", action: "ask" },
-    );
+  const saved = await source.add(
+    { kind: "project", project: PROJECT_GROCERY },
+    { pattern: "npm publish *", action: "ask" },
+  );
 
-    assert.deepStrictEqual(saved.ok, true);
-    assert.deepStrictEqual(updates, [{
+  assert.deepStrictEqual(saved.ok, true);
+  assert.deepStrictEqual(updates, [
+    {
       global: [{ pattern: "git push *", action: "allow" }],
       projects: {
         [PROJECT_GROCERY]: [
@@ -87,6 +88,6 @@ test(
         ],
         [PROJECT_OFFICE]: [{ pattern: "deno test *", action: "allow" }],
       },
-    }]);
-  },
-);
+    },
+  ]);
+});

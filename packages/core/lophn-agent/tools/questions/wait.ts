@@ -87,7 +87,10 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
       return promise;
     },
 
-    read(session: string, toolCall: string): Result<{
+    read(
+      session: string,
+      toolCall: string,
+    ): Result<{
       group: Id<"qgr">;
       questions: AskInput["questions"];
     }> {
@@ -102,7 +105,8 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
     list(
       session: string,
     ): { group: Id<"qgr">; turn: Id<"trn">; tool_call: Id<"tcl"> }[] {
-      return [...entries.values()].filter((one) => one.session === session)
+      return [...entries.values()]
+        .filter((one) => one.session === session)
         .map((one) => ({
           group: one.group,
           turn: one.turn as Id<"trn">,
@@ -121,9 +125,10 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
       if (entry === undefined) {
         return err({ code: "not_found", message: "the question is not open" });
       }
-      const fits = answers.length === entry.questions.length &&
-        entry.questions.every((one, at) =>
-          answers[at]!.question === one.question
+      const fits =
+        answers.length === entry.questions.length &&
+        entry.questions.every(
+          (one, at) => answers[at]!.question === one.question,
         );
       if (!fits) {
         return err({
@@ -138,17 +143,18 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
 
     // 사람이 기다리는 중에 그 session에 메시지를 보냈다. 답인지는 LLM이 읽는다.
     humanMessage(session: string, message: string): void {
-      settleSession(
-        session,
-        () => ({ outcome: "human_message", message, answers: [] }),
-      );
+      settleSession(session, () => ({
+        outcome: "human_message",
+        message,
+        answers: [],
+      }));
     },
 
     // core가 내려간다. 기다리던 tool이 모두 cancelled를 받는다.
     cancelAll(): void {
-      for (
-        const session of new Set([...entries.values()].map((e) => e.session))
-      ) {
+      for (const session of new Set(
+        [...entries.values()].map((e) => e.session),
+      )) {
         settleSession(session, () => ({ outcome: "cancelled", answers: [] }));
       }
     },

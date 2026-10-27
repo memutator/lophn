@@ -83,11 +83,7 @@ async function runBackup(
   input: ActivationDataJobInput,
 ): Promise<Result<JobOutcome, DataJobFailure>> {
   const name = `backup-${input.attempt}`;
-  const created = await createAppBackup(
-    ctx.dataArea,
-    ctx.databasePath,
-    name,
-  );
+  const created = await createAppBackup(ctx.dataArea, ctx.databasePath, name);
   if (!created.ok) {
     return err({ code: "unavailable", message: "backup failed" });
   }
@@ -140,7 +136,8 @@ async function runMigrate(
   input: ActivationDataJobInput,
 ): Promise<Result<JobOutcome, DataJobFailure>> {
   if (
-    ctx.scripts === undefined || ctx.appliedAt === undefined ||
+    ctx.scripts === undefined ||
+    ctx.appliedAt === undefined ||
     ctx.invocation === undefined
   ) {
     return invalid("migration scripts are missing");
@@ -238,13 +235,14 @@ export async function runDataJob(
   }
   try {
     const resolved: DataJobContext = { ...ctx, databasePath: database.value };
-    const outcome = input.kind === "inspect"
-      ? runInspect(resolved, input)
-      : input.kind === "backup"
-      ? await runBackup(resolved, input)
-      : input.kind === "migrate"
-      ? await runMigrate(resolved, input)
-      : await runRestore(resolved, input);
+    const outcome =
+      input.kind === "inspect"
+        ? runInspect(resolved, input)
+        : input.kind === "backup"
+          ? await runBackup(resolved, input)
+          : input.kind === "migrate"
+            ? await runMigrate(resolved, input)
+            : await runRestore(resolved, input);
     if (!outcome.ok) return outcome;
     if (!outcome.value.result.integrity_ok) {
       return err({ code: "unavailable", message: "integrity check failed" });

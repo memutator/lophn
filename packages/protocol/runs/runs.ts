@@ -41,9 +41,7 @@ export type RunPlace = z.infer<typeof runPlaceSchema>;
 
 const outputSchemaSchema = z.record(z.string(), z.json());
 
-type RunTarget =
-  | { agent: unknown }
-  | { app: string; tool: string };
+type RunTarget = { agent: unknown } | { app: string; tool: string };
 
 // run 기록과 CreateRun 입력이 같이 쓴다. kind와 target, agent에만 있는 칸이 맞는가.
 function kindFits(v: {
@@ -55,8 +53,13 @@ function kindFits(v: {
   schema: unknown;
 }): boolean {
   if (v.kind === "agent") return "agent" in v.target;
-  return "app" in v.target && v.session === null && !v.session_opened &&
-    v.input_message === null && v.schema === null;
+  return (
+    "app" in v.target &&
+    v.session === null &&
+    !v.session_opened &&
+    v.input_message === null &&
+    v.schema === null
+  );
 }
 
 const notJobAndInstance = (v: { job: unknown; instance: unknown }) =>
@@ -65,45 +68,50 @@ const NOT_BOTH = { message: "a run has a job or an instance, not both" };
 
 const KIND_MESSAGE = { message: "run kind does not fit its target and fields" };
 
-export const runRecordSchema = z.object({
-  id: idSchema("run"),
-  kind: z.enum(RUN_KINDS),
-  // agent: 이름을 푼 agent. tool: 앱과 tool 이름.
-  target: z.union([
-    z.object({ agent: agentRefOutputSchema }),
-    z.object({ app: appIdSchema, tool: toolNameSchema }),
-  ]),
-  session: idSchema("ses").nullable(), // agent만. run이 연 session 또는 --session
-  session_opened: z.boolean(), // run이 session을 열었다. 화면은 이것만 run 아래에 묶는다
-  input_message: idSchema("msg").nullable(), // agent만. run이 넣은 메시지
-  turn: idSchema("trn").nullable(), // agent만. 그 메시지가 연 turn. 끝을 안 뒤에 채운다
-  invocation: invocationIdSchema.nullable(), // tool만. 기록이 없는 성공한 읽기면 null
-  schema: z.json().nullable(), // agent만. 출력 JSON Schema
-  state: z.enum(RUN_STATES),
-  // done의 값. agent: 답 글(string), schema가 있으면 읽은 JSON 값. tool: tool 결과.
-  result: z.json().nullable(),
-  error: z.object({
-    reason: z.enum(RUN_FAIL_REASONS),
-    message: z.string(),
-  }).nullable(), // failed만
-  job: idSchema("job").nullable(), // job이 연 run만 값이 있다
-  instance: idSchema("wfi").nullable(), // flow instance가 연 run만 값이 있다
-  created_at: atSchema,
-  finished_at: atSchema.nullable(), // running이 아니면 있다
-  state_seq: seqSchema,
-}).refine(
-  (v) =>
-    kindFits(v) && (v.kind === "agent" || (v.turn === null)) &&
-    (v.kind === "tool" || v.invocation === null),
-  KIND_MESSAGE,
-).refine(notJobAndInstance, NOT_BOTH).refine(
-  (v) => (v.error !== null) === (v.state === "failed"),
-  {
+export const runRecordSchema = z
+  .object({
+    id: idSchema("run"),
+    kind: z.enum(RUN_KINDS),
+    // agent: 이름을 푼 agent. tool: 앱과 tool 이름.
+    target: z.union([
+      z.object({ agent: agentRefOutputSchema }),
+      z.object({ app: appIdSchema, tool: toolNameSchema }),
+    ]),
+    session: idSchema("ses").nullable(), // agent만. run이 연 session 또는 --session
+    session_opened: z.boolean(), // run이 session을 열었다. 화면은 이것만 run 아래에 묶는다
+    input_message: idSchema("msg").nullable(), // agent만. run이 넣은 메시지
+    turn: idSchema("trn").nullable(), // agent만. 그 메시지가 연 turn. 끝을 안 뒤에 채운다
+    invocation: invocationIdSchema.nullable(), // tool만. 기록이 없는 성공한 읽기면 null
+    schema: z.json().nullable(), // agent만. 출력 JSON Schema
+    state: z.enum(RUN_STATES),
+    // done의 값. agent: 답 글(string), schema가 있으면 읽은 JSON 값. tool: tool 결과.
+    result: z.json().nullable(),
+    error: z
+      .object({
+        reason: z.enum(RUN_FAIL_REASONS),
+        message: z.string(),
+      })
+      .nullable(), // failed만
+    job: idSchema("job").nullable(), // job이 연 run만 값이 있다
+    instance: idSchema("wfi").nullable(), // flow instance가 연 run만 값이 있다
+    created_at: atSchema,
+    finished_at: atSchema.nullable(), // running이 아니면 있다
+    state_seq: seqSchema,
+  })
+  .refine(
+    (v) =>
+      kindFits(v) &&
+      (v.kind === "agent" || v.turn === null) &&
+      (v.kind === "tool" || v.invocation === null),
+    KIND_MESSAGE,
+  )
+  .refine(notJobAndInstance, NOT_BOTH)
+  .refine((v) => (v.error !== null) === (v.state === "failed"), {
     message: "only failed runs have an error",
-  },
-).refine((v) => (v.finished_at !== null) === (v.state !== "running"), {
-  message: "only finished runs have finished_at",
-});
+  })
+  .refine((v) => (v.finished_at !== null) === (v.state !== "running"), {
+    message: "only finished runs have finished_at",
+  });
 export type RunRecord = z.infer<typeof runRecordSchema>;
 
 const runRef = { run: idSchema("run") };
@@ -228,8 +236,9 @@ function placeFits(
     case "lophn":
       return place === null;
     case "project_manager":
-      return place !== null && "project" in place &&
-        place.project === ref.project;
+      return (
+        place !== null && "project" in place && place.project === ref.project
+      );
     case "app_engineer":
       return place !== null && "app" in place && place.app === ref.app;
     case "operator":
@@ -242,21 +251,24 @@ export const runCreate = defineCommand({
   resource: "runs",
   method: "create",
   name: "CreateRun",
-  input: z.strictObject({
-    id: idSchema("run"),
-    kind: z.enum(RUN_KINDS),
-    target: createTargetSchema,
-    place: runPlaceSchema.nullable(),
-    session: idSchema("ses").nullable(),
-    session_opened: z.boolean(),
-    input_message: idSchema("msg").nullable(),
-    schema: outputSchemaSchema.nullable(),
-    job: idSchema("job").nullable(),
-    instance: idSchema("wfi").nullable(),
-  }).refine(kindFits, KIND_MESSAGE).refine(notJobAndInstance, NOT_BOTH).refine(
-    (v) => placeFits(v.target, v.place),
-    { message: "run place does not fit its target" },
-  ),
+  input: z
+    .strictObject({
+      id: idSchema("run"),
+      kind: z.enum(RUN_KINDS),
+      target: createTargetSchema,
+      place: runPlaceSchema.nullable(),
+      session: idSchema("ses").nullable(),
+      session_opened: z.boolean(),
+      input_message: idSchema("msg").nullable(),
+      schema: outputSchemaSchema.nullable(),
+      job: idSchema("job").nullable(),
+      instance: idSchema("wfi").nullable(),
+    })
+    .refine(kindFits, KIND_MESSAGE)
+    .refine(notJobAndInstance, NOT_BOTH)
+    .refine((v) => placeFits(v.target, v.place), {
+      message: "run place does not fit its target",
+    }),
   output: z.object({ run: runRecordSchema }),
   actors: ["machine"],
   errors: ["invalid_input", "unauthorized", "forbidden", "conflict"],
@@ -266,21 +278,26 @@ export const runSettle = defineCommand({
   resource: "runs",
   method: "settle",
   name: "SettleRun",
-  input: z.strictObject({
-    ...runRef,
-    state: z.enum(["done", "failed", "cancelled"]),
-    turn: idSchema("trn").optional(),
-    invocation: invocationIdSchema.nullable().optional(),
-    result: z.json().optional(),
-    error: z.strictObject({
-      reason: z.enum(RUN_FAIL_REASONS),
-      message: z.string(),
-    }).optional(),
-  }).refine((v) => (v.error !== undefined) === (v.state === "failed"), {
-    message: "only failed runs have an error",
-  }).refine((v) => v.result === undefined || v.state === "done", {
-    message: "only done runs have a result",
-  }),
+  input: z
+    .strictObject({
+      ...runRef,
+      state: z.enum(["done", "failed", "cancelled"]),
+      turn: idSchema("trn").optional(),
+      invocation: invocationIdSchema.nullable().optional(),
+      result: z.json().optional(),
+      error: z
+        .strictObject({
+          reason: z.enum(RUN_FAIL_REASONS),
+          message: z.string(),
+        })
+        .optional(),
+    })
+    .refine((v) => (v.error !== undefined) === (v.state === "failed"), {
+      message: "only failed runs have an error",
+    })
+    .refine((v) => v.result === undefined || v.state === "done", {
+      message: "only done runs have a result",
+    }),
   output: z.object({ run: runRecordSchema }),
   compare: z.strictObject({ state: z.literal("running") }),
   actors: ["machine"],

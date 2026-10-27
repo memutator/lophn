@@ -33,10 +33,14 @@ const rows: [string, NavigationDecision, NavigationDecision][] = [
   ["devtools://devtools/bundled/x.html", SCHEME, SCHEME],
   ["javascript:alert(1)", SCHEME, SCHEME],
   ["slack://channel?id=1", SCHEME, SCHEME],
-  ["not a url", { allow: false, reason: "unparseable" }, {
-    allow: false,
-    reason: "unparseable",
-  }],
+  [
+    "not a url",
+    { allow: false, reason: "unparseable" },
+    {
+      allow: false,
+      reason: "unparseable",
+    },
+  ],
 ];
 
 test("navigation rules per frame", () => {

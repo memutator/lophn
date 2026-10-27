@@ -13,49 +13,52 @@ import { duration } from "../activity/worked-for.tsx";
 import { ChatMarkdown } from "./chat-markdown.tsx";
 import styles from "./message-body.module.css";
 
-export function Reasoning(
-  { text, durationMs, thinking, artifacts }: {
-    text: string;
-    durationMs: number | null;
-    thinking: boolean;
-    artifacts: ArtifactsSlice | undefined;
-  },
-): ReactElement {
+export function Reasoning({
+  text,
+  durationMs,
+  thinking,
+  artifacts,
+}: {
+  text: string;
+  durationMs: number | null;
+  thinking: boolean;
+  artifacts: ArtifactsSlice | undefined;
+}): ReactElement {
   const [open, setOpen] = useState(false);
-  const label = thinking
-    ? <Shimmer>{t("conversation.label.thinking")}</Shimmer>
-    : text !== "" && durationMs !== null
-    ? t("conversation.label.thought-for", { duration: duration(durationMs) })
-    : t("conversation.label.thought");
+  const label = thinking ? (
+    <Shimmer>{t("conversation.label.thinking")}</Shimmer>
+  ) : text !== "" && durationMs !== null ? (
+    t("conversation.label.thought-for", { duration: duration(durationMs) })
+  ) : (
+    t("conversation.label.thought")
+  );
   return (
     <div
       className={styles.reasoning}
       data-reasoning=""
       data-thinking={thinking ? "" : undefined}
     >
-      {text === ""
-        ? <span className={styles.reasoningHead}>{label}</span>
-        : (
-          <button
-            type="button"
-            className={styles.reasoningHead}
-            aria-expanded={open}
-            onClick={() => setOpen(!open)}
-          >
-            <span>{label}</span>
-            <Icon
-              icon={open ? commonIcons.collapse : commonIcons.expand}
-              pixels={iconPixels("small")}
-            />
-          </button>
-        )}
-      {open
-        ? (
-          <div className={styles.reasoningText}>
-            <ChatMarkdown text={text} artifacts={artifacts} />
-          </div>
-        )
-        : null}
+      {text === "" ? (
+        <span className={styles.reasoningHead}>{label}</span>
+      ) : (
+        <button
+          type="button"
+          className={styles.reasoningHead}
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          <span>{label}</span>
+          <Icon
+            icon={open ? commonIcons.collapse : commonIcons.expand}
+            pixels={iconPixels("small")}
+          />
+        </button>
+      )}
+      {open ? (
+        <div className={styles.reasoningText}>
+          <ChatMarkdown text={text} artifacts={artifacts} />
+        </div>
+      ) : null}
     </div>
   );
 }

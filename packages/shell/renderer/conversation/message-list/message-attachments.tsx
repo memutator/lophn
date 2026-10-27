@@ -10,14 +10,17 @@ import styles from "./message-body.module.css";
 
 const nameOf = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
-export function MessageAttachments(
-  { files, images, imageUrl, onOpenFile }: {
-    files: readonly string[];
-    images: readonly string[];
-    imageUrl: ((id: string) => Promise<string | null>) | undefined;
-    onOpenFile: ((path: string) => void) | undefined;
-  },
-): ReactElement | null {
+export function MessageAttachments({
+  files,
+  images,
+  imageUrl,
+  onOpenFile,
+}: {
+  files: readonly string[];
+  images: readonly string[];
+  imageUrl: ((id: string) => Promise<string | null>) | undefined;
+  onOpenFile: ((path: string) => void) | undefined;
+}): ReactElement | null {
   const [preview, setPreview] = useState<string | null>(null);
   if (files.length === 0 && images.length === 0) return null;
   return (
@@ -50,13 +53,15 @@ export function MessageAttachments(
   );
 }
 
-function MessageImage(
-  { id, imageUrl, onOpen }: {
-    id: string;
-    imageUrl: ((id: string) => Promise<string | null>) | undefined;
-    onOpen: (url: string) => void;
-  },
-): ReactElement {
+function MessageImage({
+  id,
+  imageUrl,
+  onOpen,
+}: {
+  id: string;
+  imageUrl: ((id: string) => Promise<string | null>) | undefined;
+  onOpen: (url: string) => void;
+}): ReactElement {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let live = true;

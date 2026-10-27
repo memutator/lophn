@@ -74,22 +74,18 @@ export function installBrowserSession(
     }
   });
 
-  handle.setUserAgent(
-    sanitizeUserAgent(handle.getUserAgent(), deps.product),
-  );
+  handle.setUserAgent(sanitizeUserAgent(handle.getUserAgent(), deps.product));
   handle.onBeforeSendHeaders((details, callback) => {
     const headers = { ...details.requestHeaders };
-    const original = Object.entries(headers).find(([name]) =>
-      name.toLowerCase() === "user-agent"
+    const original = Object.entries(headers).find(
+      ([name]) => name.toLowerCase() === "user-agent",
     );
     if (original !== undefined) {
       const userAgent = sanitizeUserAgent(original[1], deps.product);
       setHeader(headers, "User-Agent", userAgent);
-      for (
-        const [name, value] of Object.entries(
-          clientHintHeaders(userAgent, deps.platform),
-        )
-      ) {
+      for (const [name, value] of Object.entries(
+        clientHintHeaders(userAgent, deps.platform),
+      )) {
         setHeader(headers, name, value);
       }
     }

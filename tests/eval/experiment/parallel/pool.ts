@@ -80,21 +80,29 @@ export function createPool(options: {
             } catch (e) {
               ran = Promise.reject(e);
             }
-            ran.then(
-              ({ value, cost_usd }) => {
-                budget.add(cost_usd);
-                return { status: "done", id: job.id, value, cost_usd } as const;
-              },
-              (e) => ({
-                status: "failed",
-                id: job.id,
-                error: e instanceof Error ? e.message : String(e),
-              } as const),
-            ).then((result) => {
-              running[job.kind]--;
-              resolve(result);
-              pump();
-            });
+            ran
+              .then(
+                ({ value, cost_usd }) => {
+                  budget.add(cost_usd);
+                  return {
+                    status: "done",
+                    id: job.id,
+                    value,
+                    cost_usd,
+                  } as const;
+                },
+                (e) =>
+                  ({
+                    status: "failed",
+                    id: job.id,
+                    error: e instanceof Error ? e.message : String(e),
+                  }) as const,
+              )
+              .then((result) => {
+                running[job.kind]--;
+                resolve(result);
+                pump();
+              });
           },
         });
         pump();

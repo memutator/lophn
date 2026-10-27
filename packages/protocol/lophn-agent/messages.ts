@@ -32,53 +32,62 @@ function links(strict: boolean) {
   ]);
 }
 const messageLinkSchema = links(false);
-const messageSchema = z.object({
-  id: idSchema("msg"),
-  session: idSchema("ses"),
-  actor: actorSchema,
-  body: sha256Schema,
-  turn: idSchema("trn").nullable(),
-  delivery: inputDeliverySchema.nullable(),
-  applied_at_call: idSchema("mcl").nullable(),
-  links: z.array(messageLinkSchema),
-  // Fork로 복사한 메시지에만 있는 원래 메시지. 지난 발언이라 turn·delivery·반영 연결이 없다.
-  copied_from: idSchema("msg").nullable(),
-}).refine(
-  (value) =>
-    value.copied_from !== null
-      ? value.delivery === null && value.turn === null &&
-        value.applied_at_call === null
-      : value.actor === "user"
-      ? value.delivery !== null
-      : (value.actor === "machine" || value.actor.startsWith("agent:")) &&
-        value.delivery === null,
-  { message: "message actor and delivery mismatch" },
-).refine(
-  (value) => value.applied_at_call === null || value.turn !== null,
-  { message: "applied message requires a turn" },
-).refine(
-  (value) => value.delivery !== "steer" || value.turn !== null,
-  { message: "steer requires a target turn" },
-);
+const messageSchema = z
+  .object({
+    id: idSchema("msg"),
+    session: idSchema("ses"),
+    actor: actorSchema,
+    body: sha256Schema,
+    turn: idSchema("trn").nullable(),
+    delivery: inputDeliverySchema.nullable(),
+    applied_at_call: idSchema("mcl").nullable(),
+    links: z.array(messageLinkSchema),
+    // Fork로 복사한 메시지에만 있는 원래 메시지. 지난 발언이라 turn·delivery·반영 연결이 없다.
+    copied_from: idSchema("msg").nullable(),
+  })
+  .refine(
+    (value) =>
+      value.copied_from !== null
+        ? value.delivery === null &&
+          value.turn === null &&
+          value.applied_at_call === null
+        : value.actor === "user"
+          ? value.delivery !== null
+          : (value.actor === "machine" || value.actor.startsWith("agent:")) &&
+            value.delivery === null,
+    { message: "message actor and delivery mismatch" },
+  )
+  .refine((value) => value.applied_at_call === null || value.turn !== null, {
+    message: "applied message requires a turn",
+  })
+  .refine((value) => value.delivery !== "steer" || value.turn !== null, {
+    message: "steer requires a target turn",
+  });
 function validMessageSeqs(value: { created_seq: string; state_seq: string }) {
-  return seqSchema.safeParse(value.created_seq).success &&
+  return (
+    seqSchema.safeParse(value.created_seq).success &&
     seqSchema.safeParse(value.state_seq).success &&
-    BigInt(value.created_seq) <= BigInt(value.state_seq);
+    BigInt(value.created_seq) <= BigInt(value.state_seq)
+  );
 }
-const messageSnapshotSchema = z.object({
-  message: messageSchema,
-  created_seq: seqSchema,
-  state_seq: seqSchema,
-}).refine(validMessageSeqs, {
-  message: "message state precedes creation",
-});
-const messageCommandOutputSchema = z.object({
-  message: messageSchema,
-  created_seq: seqSchema,
-  state_seq: seqSchema,
-}).refine(validMessageSeqs, {
-  message: "message state precedes creation",
-});
+const messageSnapshotSchema = z
+  .object({
+    message: messageSchema,
+    created_seq: seqSchema,
+    state_seq: seqSchema,
+  })
+  .refine(validMessageSeqs, {
+    message: "message state precedes creation",
+  });
+const messageCommandOutputSchema = z
+  .object({
+    message: messageSchema,
+    created_seq: seqSchema,
+    state_seq: seqSchema,
+  })
+  .refine(validMessageSeqs, {
+    message: "message state precedes creation",
+  });
 const revision = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const commandErrors = [
   "invalid_input",
@@ -90,15 +99,17 @@ const commandErrors = [
 ] as const;
 // 본문은 값 그대로 싣는다. core가 redaction을 거쳐 blob으로 준비하고 command가 영구
 // 참조를 등록한다. 호출자는 hash를 만들지도 blob을 준비하지도 않는다.
-const receiveMessageInputSchema = z.strictObject({
-  id: idSchema("msg"),
-  session: idSchema("ses"),
-  content: userMessageContentInputSchema,
-  delivery: inputDeliverySchema,
-  turn: idSchema("trn").optional(),
-}).refine((value) => value.delivery !== "steer" || value.turn !== undefined, {
-  message: "steer requires target turn",
-});
+const receiveMessageInputSchema = z
+  .strictObject({
+    id: idSchema("msg"),
+    session: idSchema("ses"),
+    content: userMessageContentInputSchema,
+    delivery: inputDeliverySchema,
+    turn: idSchema("trn").optional(),
+  })
+  .refine((value) => value.delivery !== "steer" || value.turn !== undefined, {
+    message: "steer requires target turn",
+  });
 const receiveMessageCompareSchema = z.strictObject({
   session_state: z.literal("open"),
   session_state_seq: seqSchema,
@@ -134,40 +145,49 @@ export const recordMessage = defineCommand({
   actors: ["agent", "machine"],
   errors: commandErrors,
 });
-const messagesListInputSchema = z.strictObject({
-  session: idSchema("ses"),
-  turn: idSchema("trn").optional(),
-  after_seq: seqSchema.optional(),
-  through_seq: seqSchema.optional(),
-  cursor: z.string().min(1).optional(),
-  limit: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
-}).refine(
-  (value) =>
-    (value.after_seq === undefined ||
-      seqSchema.safeParse(value.after_seq).success) &&
-    (value.through_seq === undefined ||
-      seqSchema.safeParse(value.through_seq).success) &&
-    (value.after_seq === undefined || value.through_seq === undefined ||
-      BigInt(value.after_seq) < BigInt(value.through_seq)),
-  { message: "empty or inverted seq range" },
-);
+const messagesListInputSchema = z
+  .strictObject({
+    session: idSchema("ses"),
+    turn: idSchema("trn").optional(),
+    after_seq: seqSchema.optional(),
+    through_seq: seqSchema.optional(),
+    cursor: z.string().min(1).optional(),
+    limit: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
+  })
+  .refine(
+    (value) =>
+      (value.after_seq === undefined ||
+        seqSchema.safeParse(value.after_seq).success) &&
+      (value.through_seq === undefined ||
+        seqSchema.safeParse(value.through_seq).success) &&
+      (value.after_seq === undefined ||
+        value.through_seq === undefined ||
+        BigInt(value.after_seq) < BigInt(value.through_seq)),
+    { message: "empty or inverted seq range" },
+  );
 const messagesListOutputSchema = withReadCommon(
   z.object({ messages: z.array(messageSnapshotSchema) }),
-).refine((value) => {
-  if (!seqSchema.safeParse(value.as_of_seq).success) return false;
-  let previous = -1n;
-  const ids = new Set<string>();
-  return value.messages.every((entry) => {
-    if (!validMessageSeqs(entry)) return false;
-    const created = BigInt(entry.created_seq);
-    const state = BigInt(entry.state_seq);
-    const valid = created > previous && !ids.has(entry.message.id) &&
-      created <= state && state <= BigInt(value.as_of_seq);
-    previous = created;
-    ids.add(entry.message.id);
-    return valid;
-  });
-}, { message: "messages must be unique, ordered and within snapshot" });
+).refine(
+  (value) => {
+    if (!seqSchema.safeParse(value.as_of_seq).success) return false;
+    let previous = -1n;
+    const ids = new Set<string>();
+    return value.messages.every((entry) => {
+      if (!validMessageSeqs(entry)) return false;
+      const created = BigInt(entry.created_seq);
+      const state = BigInt(entry.state_seq);
+      const valid =
+        created > previous &&
+        !ids.has(entry.message.id) &&
+        created <= state &&
+        state <= BigInt(value.as_of_seq);
+      previous = created;
+      ids.add(entry.message.id);
+      return valid;
+    });
+  },
+  { message: "messages must be unique, ordered and within snapshot" },
+);
 export const messagesList = defineRead({
   resource: "messages",
   method: "list",
@@ -183,13 +203,15 @@ export const messagesList = defineRead({
 export const messageBodyInputSchema = z.strictObject({
   message: idSchema("msg"),
 });
-const messageBodyOutputSchema = withReadCommon(z.object({
-  message: idSchema("msg"),
-  session: idSchema("ses"),
-  body: sha256Schema,
-  size_bytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-  content: messageContentSchema,
-}));
+const messageBodyOutputSchema = withReadCommon(
+  z.object({
+    message: idSchema("msg"),
+    session: idSchema("ses"),
+    body: sha256Schema,
+    size_bytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    content: messageContentSchema,
+  }),
+);
 export const messageBody = defineRead({
   resource: "messages",
   method: "body",

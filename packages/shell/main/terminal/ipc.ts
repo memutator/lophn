@@ -297,10 +297,10 @@ export function createTerminalIpc(deps: {
           return Promise.resolve(
             runtime === undefined
               ? {
-                ok: false,
-                reason: "no_terminal",
-                message: "session has no terminal tab",
-              }
+                  ok: false,
+                  reason: "no_terminal",
+                  message: "session has no terminal tab",
+                }
               : { ok: true, runtime },
           );
         },

@@ -33,9 +33,7 @@ export async function previewScopeFromBundle(info: {
     );
     const declaration = JSON.parse(text) as { permissions?: unknown };
     if (!Array.isArray(declaration.permissions)) return CLOSED_SCOPE;
-    return previewScopeOf(
-      declaration as Parameters<typeof previewScopeOf>[0],
-    );
+    return previewScopeOf(declaration as Parameters<typeof previewScopeOf>[0]);
   } catch {
     return CLOSED_SCOPE;
   }

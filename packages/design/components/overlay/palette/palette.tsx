@@ -53,24 +53,22 @@ function matching(items: readonly PaletteItem[], query: string) {
 }
 
 // 폭640px·위12%·항목36px. 목록 scrollbar는 항상 보여 남은 항목이 있음을 알린다.
-export function Palette(
-  {
-    open,
-    onOpenChange,
-    title,
-    items,
-    onSelect,
-    onQueryChange,
-    container,
-    returnFocus = true,
-  }: PaletteProps,
-) {
+export function Palette({
+  open,
+  onOpenChange,
+  title,
+  items,
+  onSelect,
+  onQueryChange,
+  container,
+  returnFocus = true,
+}: PaletteProps) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const inputId = useId();
   const focus = useReturnFocus(returnFocus);
   const visible = useMemo(
-    () => onQueryChange ? items : matching(items, query),
+    () => (onQueryChange ? items : matching(items, query)),
     [items, query, onQueryChange],
   );
   const current = Math.min(active, Math.max(visible.length - 1, 0));
@@ -94,12 +92,14 @@ export function Palette(
     event.preventDefault();
   };
   const rows = visible.map((item, index) => {
-    const heading = item.group !== undefined &&
-      item.group !== visible[index - 1]?.group;
+    const heading =
+      item.group !== undefined && item.group !== visible[index - 1]?.group;
     return (
       <div key={item.id} role="presentation">
         {heading && (
-          <div className={styles.group} role="presentation">{item.group}</div>
+          <div className={styles.group} role="presentation">
+            {item.group}
+          </div>
         )}
         <div
           role="option"
@@ -108,23 +108,23 @@ export function Palette(
           onPointerMove={() => setActive(index)}
           onClick={() => onSelect(item.id)}
         >
-          {item.image !== undefined
-            ? (
-              <img
-                className={cx(styles.icon, styles.image)}
-                src={item.image}
-                alt=""
-                width={iconPixels("base")}
-                height={iconPixels("base")}
-              />
-            )
-            : item.icon && (
+          {item.image !== undefined ? (
+            <img
+              className={cx(styles.icon, styles.image)}
+              src={item.image}
+              alt=""
+              width={iconPixels("base")}
+              height={iconPixels("base")}
+            />
+          ) : (
+            item.icon && (
               <Icon
                 icon={item.icon}
                 pixels={iconPixels("base")}
                 className={styles.icon}
               />
-            )}
+            )
+          )}
           <span className={styles.text}>
             <span className={styles.label}>{item.label}</span>
             {item.detail && (
@@ -156,7 +156,9 @@ export function Palette(
           {...componentMark("Palette")}
         >
           <Radix.Title asChild>
-            <label className={styles.title} htmlFor={inputId}>{title}</label>
+            <label className={styles.title} htmlFor={inputId}>
+              {title}
+            </label>
           </Radix.Title>
           <div className={styles.search}>
             <Icon

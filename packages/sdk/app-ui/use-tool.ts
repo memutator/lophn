@@ -49,22 +49,25 @@ export function useTool(
 ): UseTool {
   const [state, setState] = useState<ToolState>({ status: "idle" });
   const running = useRef(false);
-  const run = useCallback(async (input: ToolInput) => {
-    if (running.current) return undefined;
-    running.current = true;
-    setState({ status: "pending" });
-    let result: ToolResult;
-    try {
-      if (!app) throw new Error("unavailable: app bridge is unavailable");
-      result = { ok: true, value: await app.callTool(tool.name, input) };
-      setState({ status: "done", value: result.value });
-    } catch (error) {
-      result = { ok: false, code: codeOf(error) };
-      setState({ status: "failed", code: result.code });
-    } finally {
-      running.current = false;
-    }
-    return result;
-  }, [app, tool.name]);
+  const run = useCallback(
+    async (input: ToolInput) => {
+      if (running.current) return undefined;
+      running.current = true;
+      setState({ status: "pending" });
+      let result: ToolResult;
+      try {
+        if (!app) throw new Error("unavailable: app bridge is unavailable");
+        result = { ok: true, value: await app.callTool(tool.name, input) };
+        setState({ status: "done", value: result.value });
+      } catch (error) {
+        result = { ok: false, code: codeOf(error) };
+        setState({ status: "failed", code: result.code });
+      } finally {
+        running.current = false;
+      }
+      return result;
+    },
+    [app, tool.name],
+  );
   return { state, run };
 }

@@ -95,13 +95,12 @@ export function createArtifactServer(deps: {
       });
     }
 
-    const scope = key === INSTANCE_PATH
-      ? deps.scopeOf(url.hostname)
-      : undefined;
+    const scope =
+      key === INSTANCE_PATH ? deps.scopeOf(url.hostname) : undefined;
     if (scope !== undefined) {
       const json = await deps.readInstance(scope);
       return new Response(
-        head ? null : json ?? JSON.stringify({ error: "unavailable" }),
+        head ? null : (json ?? JSON.stringify({ error: "unavailable" })),
         {
           status: json === null ? 503 : 200,
           headers: headers("application/json; charset=utf-8", CSP),

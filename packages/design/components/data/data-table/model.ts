@@ -75,8 +75,9 @@ export function sortRows<Row>(
 export function validPageSize(
   pageSize: number | undefined,
 ): number | undefined {
-  return pageSize !== undefined && Number.isSafeInteger(pageSize) &&
-      pageSize > 0
+  return pageSize !== undefined &&
+    Number.isSafeInteger(pageSize) &&
+    pageSize > 0
     ? pageSize
     : undefined;
 }
@@ -125,20 +126,14 @@ export function pageSlice(
 // 고를 수 있는 열. 내부 ID 열은 diagnostics에서만 나온다.
 export function pickableColumns<
   C extends Pick<ColumnShape<never>, "id" | "kind">,
->(
-  columns: readonly C[],
-  diagnostics: boolean,
-): readonly C[] {
+>(columns: readonly C[], diagnostics: boolean): readonly C[] {
   return columns.filter((column) => diagnostics || column.kind !== "id");
 }
 
 // 열 순서는 정의 순서를 따른다. 모르는 id는 무시하고, 남는 열이 없으면 모두 보인다.
 export function visibleColumns<
   C extends Pick<ColumnShape<never>, "id" | "kind">,
->(
-  columns: readonly C[],
-  visible: readonly string[] | undefined,
-): readonly C[] {
+>(columns: readonly C[], visible: readonly string[] | undefined): readonly C[] {
   if (visible === undefined) return columns;
   const wanted = new Set(visible);
   const shown = columns.filter((column) => wanted.has(column.id));
@@ -157,7 +152,7 @@ export function toggleColumn<C extends Pick<ColumnShape<never>, "id" | "kind">>(
   );
   if (show) current.add(id);
   else if (current.size > 1) current.delete(id);
-  return columns.filter((column) => current.has(column.id)).map((column) =>
-    column.id
-  );
+  return columns
+    .filter((column) => current.has(column.id))
+    .map((column) => column.id);
 }

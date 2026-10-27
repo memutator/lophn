@@ -48,11 +48,14 @@ export function createCoreApi(transport: CoreTransport): CoreApi {
       };
       transport.on(CORE_STATE_CHANNEL, callback);
       // 지금 상태. 답이 오기 전에 main이 더 새 상태를 밀었으면 그 쪽이 맞다.
-      void transport.invoke(CORE_STATE_GET_CHANNEL).then((payload) => {
-        if (released || pushed) return;
-        const parsed = connectionStateSchema.safeParse(payload);
-        if (parsed.success) listener(parsed.data);
-      }, () => {});
+      void transport.invoke(CORE_STATE_GET_CHANNEL).then(
+        (payload) => {
+          if (released || pushed) return;
+          const parsed = connectionStateSchema.safeParse(payload);
+          if (parsed.success) listener(parsed.data);
+        },
+        () => {},
+      );
       return () => {
         released = true;
         transport.removeListener(CORE_STATE_CHANNEL, callback);
@@ -61,7 +64,7 @@ export function createCoreApi(transport: CoreTransport): CoreApi {
     async call(input: CoreCall): Promise<CoreReply> {
       if (!coreCallSchema.safeParse(input).success) return unavailable;
       try {
-        return await transport.invoke(CORE_CALL_CHANNEL, input) as CoreReply;
+        return (await transport.invoke(CORE_CALL_CHANNEL, input)) as CoreReply;
       } catch {
         return unavailable;
       }

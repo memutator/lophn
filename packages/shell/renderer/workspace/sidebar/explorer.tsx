@@ -50,7 +50,10 @@ interface RootChoice {
 }
 
 const baseName = (path: string) =>
-  path.split("/").filter((part) => part !== "").at(-1) ?? path;
+  path
+    .split("/")
+    .filter((part) => part !== "")
+    .at(-1) ?? path;
 
 export function rootChoices(
   folders: readonly ProjectFolderView[],
@@ -76,13 +79,15 @@ const contains = (folder: string, path: string) =>
   path.startsWith(`${folder.replace(/\/+$/, "")}/`);
 
 /** tree 머리 왼쪽. `▾ PHRONER`를 누르면 연결 폴더와 하위 폴더 가운데 루트를 고른다. */
-function RootPicker(
-  { roots, root, onRoot }: {
-    roots: readonly RootChoice[];
-    root: RootChoice;
-    onRoot: (path: string) => void;
-  },
-) {
+function RootPicker({
+  roots,
+  root,
+  onRoot,
+}: {
+  roots: readonly RootChoice[];
+  root: RootChoice;
+  onRoot: (path: string) => void;
+}) {
   return (
     <Menu
       trigger={
@@ -94,13 +99,11 @@ function RootPicker(
         >
           <Icon icon={ChevronDown} pixels={iconPixels("small")} />
           <span className={styles.rootTitle}>{rootTitle(root)}</span>
-          {root.found
-            ? null
-            : (
-              <span className={styles.rootMissing} data-root-missing="">
-                {t("project-workspace.label.folder-missing")}
-              </span>
-            )}
+          {root.found ? null : (
+            <span className={styles.rootMissing} data-root-missing="">
+              {t("project-workspace.label.folder-missing")}
+            </span>
+          )}
         </button>
       }
       items={roots.map((item) => ({
@@ -129,15 +132,19 @@ function RootPicker(
 }
 
 /** 머리에 마우스를 올리거나 focus가 들어오면 보이는 단추 넷. */
-function HeadActions(
-  { disabled, onNewFile, onNewFolder, onRefresh, onCollapseAll }: {
-    disabled: boolean;
-    onNewFile: () => void;
-    onNewFolder: () => void;
-    onRefresh: () => void;
-    onCollapseAll: () => void;
-  },
-) {
+function HeadActions({
+  disabled,
+  onNewFile,
+  onNewFolder,
+  onRefresh,
+  onCollapseAll,
+}: {
+  disabled: boolean;
+  onNewFile: () => void;
+  onNewFolder: () => void;
+  onRefresh: () => void;
+  onCollapseAll: () => void;
+}) {
   const actions = [
     {
       key: "new-file",
@@ -189,24 +196,24 @@ function HeadActions(
 type Draft =
   | { readonly kind: "file" | "folder"; readonly parent: string }
   | {
-    readonly kind: "rename";
-    readonly path: string;
-    readonly folder: boolean;
-  };
+      readonly kind: "rename";
+      readonly path: string;
+      readonly folder: boolean;
+    };
 
 type Dialog =
   | {
-    readonly kind: "trash";
-    readonly path: string;
-    readonly folder: boolean;
-    readonly failed: boolean;
-  }
+      readonly kind: "trash";
+      readonly path: string;
+      readonly folder: boolean;
+      readonly failed: boolean;
+    }
   | {
-    readonly kind: "move";
-    readonly from: string;
-    readonly toDir: string;
-    readonly error: "exists" | "failed" | null;
-  };
+      readonly kind: "move";
+      readonly from: string;
+      readonly toDir: string;
+      readonly error: "exists" | "failed" | null;
+    };
 
 interface ExplorerProps {
   source: WorkspaceSource;
@@ -228,19 +235,17 @@ interface ExplorerProps {
 
 const PENDING_MS = 2000;
 
-export function Explorer(
-  {
-    source,
-    folders,
-    current = null,
-    reveal = null,
-    focusAsked = false,
-    onFocusAsked,
-    onOpenFile,
-    onMove,
-    onTrash,
-  }: ExplorerProps,
-): ReactNode {
+export function Explorer({
+  source,
+  folders,
+  current = null,
+  reveal = null,
+  focusAsked = false,
+  onFocusAsked,
+  onOpenFile,
+  onMove,
+  onTrash,
+}: ExplorerProps): ReactNode {
   const roots = rootChoices(folders);
   // 고른 루트는 화면 상태일 뿐이라 저장하지 않는다. 처음은 첫 연결 폴더다.
   const [chosen, setChosen] = useState<string | null>(null);
@@ -249,25 +254,28 @@ export function Explorer(
   const [selection, setSelection] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
-  const [menu, setMenu] = useState<
-    { target: FileRow | null; x: number; y: number } | null
-  >(null);
+  const [menu, setMenu] = useState<{
+    target: FileRow | null;
+    x: number;
+    y: number;
+  } | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const treeRef = useRef<HTMLDivElement>(null);
   const dragging = useRef<string | null>(null);
   // 다음 render에 줄이 생기면 보이게 하고(선택적으로 focus도) 비운다. 줄이 늦게 생겨도 잠시 기다린다.
   // id가 null이면 tab stop 줄이다.
-  const goal = useRef<
-    { id: string | null; focus: boolean; until: number } | null
-  >(null);
+  const goal = useRef<{
+    id: string | null;
+    focus: boolean;
+    until: number;
+  } | null>(null);
   const typed = useRef({ text: "", at: 0 });
 
   const rowElement = (id: string) =>
     [
-      ...treeRef.current?.querySelectorAll<HTMLElement>('[role="treeitem"]') ??
-        [],
-    ]
-      .find((element) => element.dataset.file === id);
+      ...(treeRef.current?.querySelectorAll<HTMLElement>('[role="treeitem"]') ??
+        []),
+    ].find((element) => element.dataset.file === id);
   const show = (id: string | null, focus: boolean) => {
     goal.current = { id, focus, until: Date.now() + PENDING_MS };
   };
@@ -278,13 +286,14 @@ export function Explorer(
       goal.current = null;
       return;
     }
-    const element = wanted.id === null
-      ? [
-        ...treeRef.current?.querySelectorAll<HTMLElement>(
-          '[role="treeitem"]',
-        ) ?? [],
-      ].find((item) => item.tabIndex === 0)
-      : rowElement(wanted.id);
+    const element =
+      wanted.id === null
+        ? [
+            ...(treeRef.current?.querySelectorAll<HTMLElement>(
+              '[role="treeitem"]',
+            ) ?? []),
+          ].find((item) => item.tabIndex === 0)
+        : rowElement(wanted.id);
     if (element === undefined) return;
     goal.current = null;
     if (wanted.focus) element.focus({ preventScroll: true });
@@ -370,8 +379,8 @@ export function Explorer(
       return result.code === "conflict"
         ? t("project-workspace.error.explorer-name-exists", { name: value })
         : result.code === "invalid_input"
-        ? t("project-workspace.error.explorer-name-invalid", { name: value })
-        : t("project-workspace.error.explorer-action-failed");
+          ? t("project-workspace.error.explorer-name-invalid", { name: value })
+          : t("project-workspace.error.explorer-action-failed");
     }
     tree.reveal(path);
     tree.refresh();
@@ -409,31 +418,33 @@ export function Explorer(
     return result.code === "conflict"
       ? t("project-workspace.error.explorer-name-exists", { name })
       : result.code === "invalid_input"
-      ? t("project-workspace.error.explorer-name-invalid", { name })
-      : t("project-workspace.error.explorer-action-failed");
+        ? t("project-workspace.error.explorer-name-invalid", { name })
+        : t("project-workspace.error.explorer-action-failed");
   };
 
-  const problemOf = (d: Draft) => (value: string): string | null => {
-    if (value.trim() === "") return null;
-    const check = d.kind === "rename"
-      ? checkRename(value, d.path, tree.entriesOf)
-      : checkNewName(value, d.parent, tree.entriesOf);
-    return check.problem === "exists"
-      ? t("project-workspace.error.explorer-name-exists", {
-        name: value.trim(),
-      })
-      : check.problem === "invalid"
-      ? t("project-workspace.error.explorer-name-invalid", {
-        name: value.trim(),
-      })
-      : null;
-  };
+  const problemOf =
+    (d: Draft) =>
+    (value: string): string | null => {
+      if (value.trim() === "") return null;
+      const check =
+        d.kind === "rename"
+          ? checkRename(value, d.path, tree.entriesOf)
+          : checkNewName(value, d.parent, tree.entriesOf);
+      return check.problem === "exists"
+        ? t("project-workspace.error.explorer-name-exists", {
+            name: value.trim(),
+          })
+        : check.problem === "invalid"
+          ? t("project-workspace.error.explorer-name-invalid", {
+              name: value.trim(),
+            })
+          : null;
+    };
 
   const nameRow = (d: Draft, depth: number) => {
     const folder = d.kind === "rename" ? d.folder : d.kind === "folder";
-    const initial = d.kind === "rename"
-      ? d.path.slice(d.path.lastIndexOf("/") + 1)
-      : "";
+    const initial =
+      d.kind === "rename" ? d.path.slice(d.path.lastIndexOf("/") + 1) : "";
     return (
       <NameRow
         key={d.kind === "rename" ? `rename:${d.path}` : `new:${d.parent}`}
@@ -443,13 +454,17 @@ export function Explorer(
         range={renameRange(initial, folder)}
         problem={problemOf(d)}
         onSubmit={(value) =>
-          d.kind === "rename" ? submitRename(d, value) : submitCreate(d, value)}
+          d.kind === "rename" ? submitRename(d, value) : submitCreate(d, value)
+        }
         onCancel={(reason) =>
           finishDraft(
             reason === "escape"
-              ? d.kind === "rename" ? d.path : selection
+              ? d.kind === "rename"
+                ? d.path
+                : selection
               : null,
-          )}
+          )
+        }
       />
     );
   };
@@ -485,7 +500,9 @@ export function Explorer(
 
   /** 놓을 수 있는 자리인가: 같은 폴더(변화 없음)나 자기 안은 아니다. */
   const droppable = (from: string | null, toDir: string) =>
-    from !== null && parentOf(from) !== toDir && from !== toDir &&
+    from !== null &&
+    parentOf(from) !== toDir &&
+    from !== toDir &&
     !contains(from, toDir);
 
   const dropDirOf = (row: FileRow | null) => targetFolder(row);
@@ -581,19 +598,21 @@ export function Explorer(
       label: t("project-workspace.button.explorer-copy-relative-path"),
       leading: <MenuIcon icon={workspaceIcons.copy} />,
     },
-    ...(target === null ? [] : [
-      {
-        id: "rename",
-        label: t("project-workspace.button.explorer-rename"),
-        leading: <MenuIcon icon={editorIcons.edit} />,
-        separatorBefore: true,
-      },
-      {
-        id: "delete",
-        label: t("project-workspace.button.explorer-delete"),
-        leading: <MenuIcon icon={workspaceIcons.trash} />,
-      },
-    ]),
+    ...(target === null
+      ? []
+      : [
+          {
+            id: "rename",
+            label: t("project-workspace.button.explorer-rename"),
+            leading: <MenuIcon icon={editorIcons.edit} />,
+            separatorBefore: true,
+          },
+          {
+            id: "delete",
+            label: t("project-workspace.button.explorer-delete"),
+            leading: <MenuIcon icon={workspaceIcons.trash} />,
+          },
+        ]),
   ];
 
   const runMenu = (id: string, target: FileRow | null) => {
@@ -647,7 +666,8 @@ export function Explorer(
       activate(row, key === "Enter");
     } else if (key.length === 1 && row !== undefined) {
       const now = Date.now();
-      const text = (now - typed.current.at > 700 ? "" : typed.current.text) +
+      const text =
+        (now - typed.current.at > 700 ? "" : typed.current.text) +
         key.toLowerCase();
       typed.current = { text, at: now };
       // 같은 글자를 거듭 치면 그 글자로 시작하는 다음 줄로 돈다.
@@ -748,13 +768,11 @@ export function Explorer(
       >
         {items}
       </div>
-      {tree.failed
-        ? (
-          <p className={styles.empty} role="alert">
-            {t("project-workspace.error.files-failed")}
-          </p>
-        )
-        : null}
+      {tree.failed ? (
+        <p className={styles.empty} role="alert">
+          {t("project-workspace.error.files-failed")}
+        </p>
+      ) : null}
       {menu === null ? null : (
         <Menu
           open
@@ -782,20 +800,26 @@ export function Explorer(
           title={t("project-workspace.title.explorer-delete", {
             name: nameOf(trash.path),
           })}
-          text={trash.failed
-            ? t("project-workspace.error.explorer-trash-failed", {
-              name: nameOf(trash.path),
-            })
-            : t(
-              trash.folder
-                ? "project-workspace.notice.explorer-delete-folder"
-                : "project-workspace.notice.explorer-delete-file",
-              { name: nameOf(trash.path) },
-            )}
-          confirm={trash.failed ? null : {
-            label: t("project-workspace.button.explorer-trash"),
-            danger: true,
-          }}
+          text={
+            trash.failed
+              ? t("project-workspace.error.explorer-trash-failed", {
+                  name: nameOf(trash.path),
+                })
+              : t(
+                  trash.folder
+                    ? "project-workspace.notice.explorer-delete-folder"
+                    : "project-workspace.notice.explorer-delete-file",
+                  { name: nameOf(trash.path) },
+                )
+          }
+          confirm={
+            trash.failed
+              ? null
+              : {
+                  label: t("project-workspace.button.explorer-trash"),
+                  danger: true,
+                }
+          }
           onConfirm={() => void confirmTrash(trash.path)}
           onClose={() => setDialog(null)}
         />
@@ -805,25 +829,29 @@ export function Explorer(
           title={t("project-workspace.title.explorer-move", {
             name: nameOf(move.from),
           })}
-          text={move.error === "exists"
-            ? t("project-workspace.error.explorer-move-exists", {
-              name: nameOf(move.from),
-              folder: nameOf(move.toDir),
-            })
-            : move.error === "failed"
-            ? t("project-workspace.error.explorer-move-failed", {
-              name: nameOf(move.from),
-            })
-            : t("project-workspace.notice.explorer-move", {
-              name: nameOf(move.from),
-              folder: nameOf(move.toDir),
-            })}
-          confirm={move.error === null
-            ? {
-              label: t("project-workspace.button.explorer-move"),
-              danger: false,
-            }
-            : null}
+          text={
+            move.error === "exists"
+              ? t("project-workspace.error.explorer-move-exists", {
+                  name: nameOf(move.from),
+                  folder: nameOf(move.toDir),
+                })
+              : move.error === "failed"
+                ? t("project-workspace.error.explorer-move-failed", {
+                    name: nameOf(move.from),
+                  })
+                : t("project-workspace.notice.explorer-move", {
+                    name: nameOf(move.from),
+                    folder: nameOf(move.toDir),
+                  })
+          }
+          confirm={
+            move.error === null
+              ? {
+                  label: t("project-workspace.button.explorer-move"),
+                  danger: false,
+                }
+              : null
+          }
           onConfirm={() => void confirmMove(move)}
           onClose={() => setDialog(null)}
         />

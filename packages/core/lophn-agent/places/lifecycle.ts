@@ -28,13 +28,11 @@ function fail<T = never>(
 }
 
 // place(project나 앱)가 지금 session을 열 수 있는 곳인지. 없거나 보관됐으면 conflict다.
-function placeUsable(
-  deps: PlaceDeps,
-  place: Place,
-): Result<void> {
-  const info = place.kind === "project"
-    ? deps.projects.project(place.id as Id<"prj">)
-    : deps.apps.app(place.id as Id<"app">);
+function placeUsable(deps: PlaceDeps, place: Place): Result<void> {
+  const info =
+    place.kind === "project"
+      ? deps.projects.project(place.id as Id<"prj">)
+      : deps.apps.app(place.id as Id<"app">);
   if (info === null) return fail("conflict", "the place does not exist");
   if (info.archived) return fail("conflict", "the place is archived");
   return ok(undefined);
@@ -85,9 +83,10 @@ export function startSession(
   const seq = nextSessionSeq(tx);
   const kind = place?.kind ?? null;
   // place를 ref가 말하지 못하는 agent(Operator)는 자기 ID가 정체성 열에 들어간다.
-  const operatorId = placeOfAgentRef(input.agent) === undefined
-    ? agentIdentityOf(input.agent).value
-    : null;
+  const operatorId =
+    placeOfAgentRef(input.agent) === undefined
+      ? agentIdentityOf(input.agent).value
+      : null;
   const id = place?.id ?? null;
   const inherit = input.inherit;
   tx.sql.run(

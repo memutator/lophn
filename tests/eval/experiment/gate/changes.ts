@@ -16,7 +16,7 @@ export async function changedFiles(git: Git, base?: string): Promise<string[]> {
     ...lines(await git(["diff", "--name-only", rev])),
     ...lines(await git(["ls-files", "-o", "--exclude-standard"])),
   ];
-  return [...new Set(files)].filter((f) =>
-    !f.split("/").includes("node_modules")
+  return [...new Set(files)].filter(
+    (f) => !f.split("/").includes("node_modules"),
   );
 }

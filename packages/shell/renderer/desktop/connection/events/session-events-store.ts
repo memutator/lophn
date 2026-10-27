@@ -55,9 +55,11 @@ export function createSessionEventsStore(
       syncOnReady({
         read: async () => {
           const snapshots = await readSessionSnapshots(client.core, [session]);
-          return snapshots === null ? null : {
-            snapshot: snapshots.find((s) => s.session === session) ?? null,
-          };
+          return snapshots === null
+            ? null
+            : {
+                snapshot: snapshots.find((s) => s.session === session) ?? null,
+              };
         },
         replace: ({ snapshot }) => update(session, { snapshot }),
         apply: (event) => {

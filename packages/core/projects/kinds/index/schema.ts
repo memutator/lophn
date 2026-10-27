@@ -3,9 +3,10 @@ import type { SchemaStep } from "../../../../protocol/server/mod.ts";
 // derived/kinds.sqlite의 표. 정본이 아니고 지우면 다시 만든다. 잃는 것은 kinds_applied(앞에 맞던 kinds 파일)
 // 하나뿐이다. item과 위반의 순서(ord)는 추출·검사가 낸 canonical 순서다. 같은 key의 item이 둘일 수 있어
 // (unique 규칙이 위반으로 센다) key는 기본키가 아니다.
-export const indexSchemaSteps: readonly SchemaStep[] = [{
-  id: "documents.kinds.index.tables",
-  sql: `
+export const indexSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "documents.kinds.index.tables",
+    sql: `
     CREATE TABLE kinds_applied (
       domain TEXT PRIMARY KEY NOT NULL,
       hash TEXT NOT NULL,
@@ -53,4 +54,5 @@ export const indexSchemaSteps: readonly SchemaStep[] = [{
       PRIMARY KEY (domain, ord)
     ) STRICT;
   `,
-}];
+  },
+];

@@ -39,21 +39,21 @@ interface ColumnBase {
 }
 
 export type TableColumn<Row> =
-  | ColumnBase & { kind: "text"; value: (row: Row) => string | undefined }
-  | ColumnBase & { kind: "number"; value: (row: Row) => number | undefined }
-  | ColumnBase & { kind: "time"; value: (row: Row) => Date | undefined }
+  | (ColumnBase & { kind: "text"; value: (row: Row) => string | undefined })
+  | (ColumnBase & { kind: "number"; value: (row: Row) => number | undefined })
+  | (ColumnBase & { kind: "time"; value: (row: Row) => Date | undefined })
   // 도메인 객체를 가리키는 글. 누르거나 Enter를 치면 행을 넘겨 onOpen을 부른다.
-  | ColumnBase & {
-    kind: "link";
-    value: (row: Row) => string | undefined;
-    onOpen: (row: Row) => void;
-    // 단추에 달 data 속성. 호출자가 DOM을 뒤져 달지 않아도 링크를 같은 표시로 찾게 한다.
-    dataAttributes?: LinkDataAttributes;
-  }
+  | (ColumnBase & {
+      kind: "link";
+      value: (row: Row) => string | undefined;
+      onOpen: (row: Row) => void;
+      // 단추에 달 data 속성. 호출자가 DOM을 뒤져 달지 않아도 링크를 같은 표시로 찾게 한다.
+      dataAttributes?: LinkDataAttributes;
+    })
   // 내부 ID. diagnostics가 아니면 열 자체를 그리지 않는다.
-  | ColumnBase & { kind: "id"; value: (row: Row) => string }
+  | (ColumnBase & { kind: "id"; value: (row: Row) => string })
   // 앱이 행 안에 그리는 것(단추 등). 값이 없어 정렬하지 않는다.
-  | ColumnBase & { kind: "custom"; render: (row: Row) => ReactNode };
+  | (ColumnBase & { kind: "custom"; render: (row: Row) => ReactNode });
 
 export interface TableProps<Row> {
   columns: readonly TableColumn<Row>[];
@@ -70,15 +70,19 @@ export interface TableProps<Row> {
   viewport?: TableViewport;
 }
 
-function Spacer(
-  { rows, density, columns, viewport, edge }: {
-    rows: number;
-    density: Density;
-    columns: number;
-    viewport: TableViewport;
-    edge: "before" | "after";
-  },
-) {
+function Spacer({
+  rows,
+  density,
+  columns,
+  viewport,
+  edge,
+}: {
+  rows: number;
+  density: Density;
+  columns: number;
+  viewport: TableViewport;
+  edge: "before" | "after";
+}) {
   const ref = useRef<HTMLTableRowElement>(null);
   useLayoutEffect(() => {
     if (ref.current) viewport.reserve(ref.current, rows, density);
@@ -135,20 +139,18 @@ function cell<Row>(
 }
 
 // 행 36/44px, sticky 머리, 1px subtle 구분선, 줄무늬 없음.
-export function Table<Row>(
-  {
-    columns,
-    rows,
-    rowKey,
-    density = "compact",
-    now,
-    locale = "en",
-    timeZone,
-    diagnostics = false,
-    clipboard = systemClipboard,
-    viewport = domTableViewport,
-  }: TableProps<Row>,
-) {
+export function Table<Row>({
+  columns,
+  rows,
+  rowKey,
+  density = "compact",
+  now,
+  locale = "en",
+  timeZone,
+  diagnostics = false,
+  clipboard = systemClipboard,
+  viewport = domTableViewport,
+}: TableProps<Row>) {
   const scroller = useRef<HTMLDivElement>(null);
   const size = useObservedSize(scroller);
   const [scrollTop, setScrollTop] = useState(0);
@@ -160,16 +162,17 @@ export function Table<Row>(
   const virtual = virtualizes(rows.length);
   const range = virtual
     ? virtualWindow(
-      rows.length,
-      rowPixels(density),
-      scrollTop,
-      size?.height ?? 0,
-    )
+        rows.length,
+        rowPixels(density),
+        scrollTop,
+        size?.height ?? 0,
+      )
     : { start: 0, end: rows.length, before: 0, after: 0 };
   const onScroll = virtual
     ? () => {
-      if (scroller.current) setScrollTop(viewport.scrollTop(scroller.current));
-    }
+        if (scroller.current)
+          setScrollTop(viewport.scrollTop(scroller.current));
+      }
     : undefined;
   return (
     <div
@@ -187,16 +190,16 @@ export function Table<Row>(
                 key={column.id}
                 scope="col"
                 data-kind={column.kind}
-                className={column.kind === "number"
-                  ? styles.numberHead
-                  : styles.head}
+                className={
+                  column.kind === "number" ? styles.numberHead : styles.head
+                }
               >
                 {column.unit === undefined
                   ? column.header
                   : t("common.heading.column-unit", {
-                    header: column.header,
-                    unit: column.unit,
-                  })}
+                      header: column.header,
+                      unit: column.unit,
+                    })}
               </th>
             ))}
           </tr>

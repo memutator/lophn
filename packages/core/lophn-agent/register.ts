@@ -212,10 +212,9 @@ function providerDefinitionKey(
   provider: string,
 ): string | undefined {
   try {
-    const row = sql.get(
-      "select definition_key from providers where id = ?",
-      [provider],
-    );
+    const row = sql.get("select definition_key from providers where id = ?", [
+      provider,
+    ]);
     const key = row === undefined ? undefined : row["definition_key"];
     return typeof key === "string" && key.length > 0 ? key : undefined;
   } catch {
@@ -324,11 +323,9 @@ const CORE_FILE_HOOKS: FileHooks = {
     ),
 };
 const displayTools: ReadonlyMap<string, ToolDefinition> = new Map(
-  [
-    ...createFileTools(CORE_FILE_HOOKS),
-    ...SHELL_TOOLS,
-    ...WEB_TOOLS,
-  ].map((definition) => [definition.name, definition]),
+  [...createFileTools(CORE_FILE_HOOKS), ...SHELL_TOOLS, ...WEB_TOOLS].map(
+    (definition) => [definition.name, definition],
+  ),
 );
 
 // agent 자격의 command(tool call 기록 같은)는 자격에 묶인 turn이 진행 중일 때만 통과한다
@@ -339,8 +336,8 @@ const turnAdmissionPort = defineTxPort(turnAdmission, (tx) => ({
     const row = tx.sql.get("select state from turns where id = ?", [turn]);
     if (row === undefined) return "unknown" as const;
     return row["state"] === "finished"
-      ? "finished" as const
-      : "active" as const;
+      ? ("finished" as const)
+      : ("active" as const);
   },
 }));
 
@@ -392,9 +389,9 @@ const NODE_EXTENSION_FILES = new URL(
   "./extensions/adapters/node-fs.ts",
   import.meta.url,
 ).href;
-const { createNodePlaceFiles, createNodeSkillFiles } = await import(
+const { createNodePlaceFiles, createNodeSkillFiles } = (await import(
   NODE_EXTENSION_FILES
-) as {
+)) as {
   createNodePlaceFiles(): PlaceFiles;
   createNodeSkillFiles(): SkillFiles;
 };
@@ -450,7 +447,10 @@ function agentLookups(
     domains: (place) =>
       place === null
         ? []
-        : places.domains(sql, place).map((domain) => domain.id).sort(),
+        : places
+            .domains(sql, place)
+            .map((domain) => domain.id)
+            .sort(),
     places: () => [
       ...places.projectIds(sql).map((id) => ({ kind: "project" as const, id })),
       ...places.appIds(sql).map((id) => ({ kind: "app" as const, id })),
@@ -460,9 +460,9 @@ function agentLookups(
     skills: (place, role) =>
       place === null
         ? globalSkillNames(sql, layers, role)
-        : registryOf()?.skills(place, role).entries.filter((entry) =>
-          entry.enabled
-        ) ?? [],
+        : (registryOf()
+            ?.skills(place, role)
+            .entries.filter((entry) => entry.enabled) ?? []),
     // agent 정의가 MCP tool을 고르지 않는다. 쓸 tool은 agent 할당과 설정한 층이 정한다.
     mcp: () => [],
     // 전역 기본 model.
@@ -495,7 +495,7 @@ const {
   createNodeAgentFiles,
   createNodeMessageImageFiles,
   createNodeProfileImageFiles,
-} = await import(NODE_AGENT_FILES) as {
+} = (await import(NODE_AGENT_FILES)) as {
   createNodeAgentFiles(): AgentFileSystem;
   createNodeMessageImageFiles(): MessageImageFiles;
   createNodeProfileImageFiles(): ProfileImageFiles;
@@ -548,10 +548,12 @@ const UNATTACHED_MESSAGE_BODY: MessageBodyEnvironment = {
       message: "message 읽기 통로가 붙어 있지 않다",
     }),
   bytes: () =>
-    Promise.resolve(err({
-      code: "unavailable",
-      message: "blob 읽기 통로가 붙어 있지 않다",
-    })),
+    Promise.resolve(
+      err({
+        code: "unavailable",
+        message: "blob 읽기 통로가 붙어 있지 않다",
+      }),
+    ),
 };
 
 // 사람이 turn 근거·tool 입력·tool 결과를 펼쳐 볼 때 지금의 redaction을 거치는 통로다. 알려진 secret 값은
@@ -633,7 +635,7 @@ export type LophnAgentPorts = {
 // port에 묶인 command·read 정의와 reader 등록, 정의를 여는 길을 만든다.
 export function createLophnAgent(ports: LophnAgentPorts) {
   const modelCommands = createModelCommands((tx) =>
-    modelCommandDeps(ports.lookups, tx)
+    modelCommandDeps(ports.lookups, tx),
   );
   const modelReads = createModelReads({
     projectExists: (sql, id) => ports.lookups.projectExists(sql, id),
@@ -702,12 +704,10 @@ export function createLophnAgent(ports: LophnAgentPorts) {
         placeExists(ports.lookups, sql, { kind: "project", id }),
     }),
   };
-  const projectExtensionCommands = createProjectExtensionCommands(
-    projectExtensionDeps,
-  );
-  const projectExtensionReads = createProjectExtensionReads(
-    projectExtensionDeps,
-  );
+  const projectExtensionCommands =
+    createProjectExtensionCommands(projectExtensionDeps);
+  const projectExtensionReads =
+    createProjectExtensionReads(projectExtensionDeps);
 
   // 그 agent 정의가 고른 skill 이름과 일하는 domain id다. 정의를 읽지 못하면 고른 skill이 없고 domain은 없다.
   function chosenOf(
@@ -735,12 +735,12 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       return commandSkillsOf(
         session.place === null
           ? discoverSkills(
-            skillFiles,
-            { ...globalSkillSources(sql, ports), domains: [] },
-            { role: session.role, off: registeredSkillsOff(sql) },
-          ).entries
-          : extensionRegistry(sql, ports)?.skills(session.place, session.role)
-            .entries ?? [],
+              skillFiles,
+              { ...globalSkillSources(sql, ports), domains: [] },
+              { role: session.role, off: registeredSkillsOff(sql) },
+            ).entries
+          : (extensionRegistry(sql, ports)?.skills(session.place, session.role)
+              .entries ?? []),
         chosen.skills,
         chosen.domains,
       );

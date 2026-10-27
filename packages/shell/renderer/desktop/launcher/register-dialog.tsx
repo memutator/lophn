@@ -21,15 +21,13 @@ interface RegisterDialogProps {
 
 // 프로젝트 등록 창: 이름, 목적, 폴더 목록과 폴더 추가, 오른쪽 아래 등록. 폴더는 OS 선택기로만 고르고
 // 0개여도 등록한다(앱 data만 있는 project). 런처와 Projects의 + 단추가 같이 쓴다.
-export function RegisterDialog(
-  {
-    open,
-    source,
-    onClose,
-    onRegistered,
-    newProjectId = () => newId("prj"),
-  }: RegisterDialogProps,
-) {
+export function RegisterDialog({
+  open,
+  source,
+  onClose,
+  onRegistered,
+  newProjectId = () => newId("prj"),
+}: RegisterDialogProps) {
   const [title, setTitle] = useState("");
   const [purpose, setPurpose] = useState("");
   const [folders, setFolders] = useState<readonly FolderDraft[]>([]);
@@ -87,9 +85,10 @@ export function RegisterDialog(
     onRegistered(result.value);
   };
 
-  const nameError = touched && !usableTitle(title)
-    ? t("launcher.error.name-required")
-    : undefined;
+  const nameError =
+    touched && !usableTitle(title)
+      ? t("launcher.error.name-required")
+      : undefined;
   const addLabel = t("launcher.button.add-folder");
   const removeLabel = t("launcher.button.remove-folder");
 
@@ -152,69 +151,62 @@ export function RegisterDialog(
               />
             </Tooltip>
           </div>
-          {folders.length === 0
-            ? (
-              <p className={styles.empty} data-folders-empty="">
-                {t("launcher.empty.no-folders")}
-              </p>
-            )
-            : (
-              <ul className={styles.folderList}>
-                {folders.map((folder, index) => (
-                  <li
-                    key={folder.path}
-                    className={styles.folder}
-                    data-folder={folder.path}
-                  >
-                    <div className={styles.folderHead}>
-                      <span className={styles.path}>{folder.path}</span>
-                      <Tooltip content={removeLabel}>
-                        <IconButton
-                          icon={launcherIcons.remove}
-                          label={removeLabel}
-                          size="sm"
-                          data-remove-folder=""
-                          onClick={() =>
-                            setFolders(
-                              folders.filter((_, at) => at !== index),
-                            )}
-                        />
-                      </Tooltip>
-                    </div>
-                    <Field label={t("launcher.label.folder-description")}>
-                      <Input
-                        size="sm"
-                        value={folder.description}
-                        data-folder-description=""
-                        onChange={(event) => {
-                          const description = event.currentTarget.value;
-                          setFolders(
-                            folders.map((item, at) =>
-                              at === index ? { ...item, description } : item
-                            ),
-                          );
-                        }}
-                      />
-                    </Field>
-                  </li>
-                ))}
-              </ul>
-            )}
-          {pickFailed
-            ? (
-              <p className={styles.error} role="alert" data-pick-failed="">
-                {t("launcher.error.picker-failed")}
-              </p>
-            )
-            : null}
-        </section>
-        {failure !== null
-          ? (
-            <p className={styles.error} role="alert" data-register-failed="">
-              {t("launcher.error.register-failed", { name: failure })}
+          {folders.length === 0 ? (
+            <p className={styles.empty} data-folders-empty="">
+              {t("launcher.empty.no-folders")}
             </p>
-          )
-          : null}
+          ) : (
+            <ul className={styles.folderList}>
+              {folders.map((folder, index) => (
+                <li
+                  key={folder.path}
+                  className={styles.folder}
+                  data-folder={folder.path}
+                >
+                  <div className={styles.folderHead}>
+                    <span className={styles.path}>{folder.path}</span>
+                    <Tooltip content={removeLabel}>
+                      <IconButton
+                        icon={launcherIcons.remove}
+                        label={removeLabel}
+                        size="sm"
+                        data-remove-folder=""
+                        onClick={() =>
+                          setFolders(folders.filter((_, at) => at !== index))
+                        }
+                      />
+                    </Tooltip>
+                  </div>
+                  <Field label={t("launcher.label.folder-description")}>
+                    <Input
+                      size="sm"
+                      value={folder.description}
+                      data-folder-description=""
+                      onChange={(event) => {
+                        const description = event.currentTarget.value;
+                        setFolders(
+                          folders.map((item, at) =>
+                            at === index ? { ...item, description } : item,
+                          ),
+                        );
+                      }}
+                    />
+                  </Field>
+                </li>
+              ))}
+            </ul>
+          )}
+          {pickFailed ? (
+            <p className={styles.error} role="alert" data-pick-failed="">
+              {t("launcher.error.picker-failed")}
+            </p>
+          ) : null}
+        </section>
+        {failure !== null ? (
+          <p className={styles.error} role="alert" data-register-failed="">
+            {t("launcher.error.register-failed", { name: failure })}
+          </p>
+        ) : null}
       </div>
     </Dialog>
   );

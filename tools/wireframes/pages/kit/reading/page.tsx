@@ -18,11 +18,13 @@ const TWO_LINES = ["orders show A-1001", "orders list --late"].join("\n");
 
 // gallery는 Shiki를 싣지 않는다. 고정한 token으로 highlighter가 준 색만 본다.
 const HIGHLIGHTED_LINES: readonly CodeLine[] = [
-  [{
-    text: "// orders that arrived late",
-    color: "var(--code-token-comment)",
-    italic: true,
-  }],
+  [
+    {
+      text: "// orders that arrived late",
+      color: "var(--code-token-comment)",
+      italic: true,
+    },
+  ],
   [
     { text: "export ", color: "var(--code-token-keyword)" },
     { text: "function ", color: "var(--code-token-keyword)" },
@@ -50,9 +52,9 @@ const HIGHLIGHTED_LINES: readonly CodeLine[] = [
     { text: ");", color: "var(--code-token-punctuation)" },
   ],
 ];
-const HIGHLIGHTED_CODE = HIGHLIGHTED_LINES
-  .map((line) => line.map((token) => token.text).join(""))
-  .join("\n");
+const HIGHLIGHTED_CODE = HIGHLIGHTED_LINES.map((line) =>
+  line.map((token) => token.text).join(""),
+).join("\n");
 const HIGHLIGHTER: Highlighter = {
   highlight: () => Promise.resolve(HIGHLIGHTED_LINES),
 };
@@ -119,11 +121,7 @@ export function KitReading() {
         note="code 조각 하나와 복사 단추. language는 글로만 보인다. highlighter가 있으면 token 색으로 그린다."
       >
         <Row label="with language">
-          <CodeBlock
-            code={TWO_LINES}
-            language="sh"
-            clipboard={CLIPBOARD}
-          />
+          <CodeBlock code={TWO_LINES} language="sh" clipboard={CLIPBOARD} />
         </Row>
         <Row label="highlighted">
           <HighlighterProvider value={HIGHLIGHTER}>

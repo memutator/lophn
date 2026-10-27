@@ -26,8 +26,10 @@ export function isObject(value: unknown): value is Json {
 
 // 우리 hook command(`lophn hook <harness> `나 개발 경로의 `<절대 경로> hook <harness> `)인지다.
 export function ownedCommand(harness: HarnessId, command: unknown): boolean {
-  return typeof command === "string" &&
-    new RegExp(`^(lophn|/\\S+) hook ${harness} `).test(command);
+  return (
+    typeof command === "string" &&
+    new RegExp(`^(lophn|/\\S+) hook ${harness} `).test(command)
+  );
 }
 
 // 놓인 file 본문에서 hook command의 앞부분(`lophn`이나 개발 경로)을 읽는다. dry_run은 이것으로 기대 본문을 만들어
@@ -49,11 +51,10 @@ export function sameJson(a: unknown, b: unknown): boolean {
 function canon(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canon).join(",")}]`;
   if (isObject(value)) {
-    return `{${
-      Object.keys(value).sort().map((key) =>
-        `${JSON.stringify(key)}:${canon(value[key])}`
-      ).join(",")
-    }}`;
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canon(value[key])}`)
+      .join(",")}}`;
   }
   return JSON.stringify(value) ?? "null";
 }

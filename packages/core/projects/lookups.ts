@@ -5,22 +5,25 @@ import type { Tx } from "../../protocol/server/mod.ts";
 type ReadSql = Pick<Tx["sql"], "get" | "all">;
 
 export function projectExists(sql: ReadSql, id: string): boolean {
-  return sql.get("select 1 as found from projects where id = ?", [id]) !==
-    undefined;
+  return (
+    sql.get("select 1 as found from projects where id = ?", [id]) !== undefined
+  );
 }
 
 export function projectIds(sql: ReadSql): string[] {
-  return sql.all("select id from projects order by id", []).map((row) =>
-    String(row["id"])
-  );
+  return sql
+    .all("select id from projects order by id", [])
+    .map((row) => String(row["id"]));
 }
 
 // project의 등록 폴더 경로(position 순).
 export function projectFolderPaths(sql: ReadSql, project: string): string[] {
-  return sql.all(
-    "select path from project_folders where project = ? order by position",
-    [project],
-  ).map((row) => String(row["path"]));
+  return sql
+    .all(
+      "select path from project_folders where project = ? order by position",
+      [project],
+    )
+    .map((row) => String(row["path"]));
 }
 
 // path가 들어 있는 active project. 여럿이면 가장 안쪽 폴더를 가진 project다.
@@ -29,13 +32,11 @@ export function innermostProjectOfPath(
   path: string,
 ): string | null {
   let best: { project: string; length: number } | null = null;
-  for (
-    const row of sql.all(
-      `select f.project as project, f.path as path from project_folders f
+  for (const row of sql.all(
+    `select f.project as project, f.path as path from project_folders f
        join projects p on p.id = f.project where p.status = 'active'`,
-      [],
-    )
-  ) {
+    [],
+  )) {
     const folder = String(row["path"]).replace(/\/+$/, "");
     const inside = path === folder || path.startsWith(`${folder}/`);
     if (inside && (best === null || folder.length > best.length)) {
@@ -47,12 +48,14 @@ export function innermostProjectOfPath(
 
 // active project 전체의 등록 폴더 경로.
 export function activeProjectFolderPaths(sql: ReadSql): string[] {
-  return sql.all(
-    `select f.path as path from project_folders f
+  return sql
+    .all(
+      `select f.path as path from project_folders f
        join projects p on p.id = f.project
       where p.status = 'active' order by f.project, f.position`,
-    [],
-  ).map((row) => String(row["path"]));
+      [],
+    )
+    .map((row) => String(row["path"]));
 }
 
 // active project의 등록 폴더 경로. 없거나 보관된 project는 null이다.
@@ -71,6 +74,6 @@ export function projectStatusOf(
   return row === undefined
     ? null
     : row["status"] === "archived"
-    ? "archived"
-    : "active";
+      ? "archived"
+      : "active";
 }

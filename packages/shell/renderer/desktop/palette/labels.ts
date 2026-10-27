@@ -37,17 +37,15 @@ const MODIFIERS: readonly {
 ];
 
 /** accelerator를 사람이 읽는 키 이름으로 쓴다. 표에 없는 modifier는 이름 그대로 둔다. */
-function shortcutLabel(
-  accelerator: string,
-  platform: WindowPlatform,
-): string {
+function shortcutLabel(accelerator: string, platform: WindowPlatform): string {
   const parts = accelerator.split("+");
   const key = parts.pop()!.toUpperCase();
   const mac = platform === "mac";
-  const known = MODIFIERS.filter((modifier) => parts.includes(modifier.name))
-    .map((modifier) => mac ? modifier.mac : modifier.other);
-  const rest = parts.filter((part) =>
-    !MODIFIERS.some((modifier) => modifier.name === part)
+  const known = MODIFIERS.filter((modifier) =>
+    parts.includes(modifier.name),
+  ).map((modifier) => (mac ? modifier.mac : modifier.other));
+  const rest = parts.filter(
+    (part) => !MODIFIERS.some((modifier) => modifier.name === part),
   );
   if (mac && rest.length === 0) return `${known.join("")}${key}`;
   return [...known, ...rest, key].join("+");

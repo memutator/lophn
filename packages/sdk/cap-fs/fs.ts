@@ -91,10 +91,8 @@ export function writeTextFile(
   options: WriteOptions = {},
 ): Promise<void> {
   const target = absolute(path);
-  return guarded(
-    "write",
-    target,
-    () => Deno.writeTextFile(target, text, options),
+  return guarded("write", target, () =>
+    Deno.writeTextFile(target, text, options),
   );
 }
 
@@ -125,16 +123,18 @@ export function watch(
     for (const watcher of opened) watcher.close();
     throw error;
   }
-  const done = Promise.all(opened.map(async (watcher, index) => {
-    try {
-      for await (const event of watcher) {
-        handler({ kind: event.kind, paths: event.paths });
+  const done = Promise.all(
+    opened.map(async (watcher, index) => {
+      try {
+        for await (const event of watcher) {
+          handler({ kind: event.kind, paths: event.paths });
+        }
+      } catch (error) {
+        if (error instanceof Deno.errors.BadResource) return;
+        throw translate(error, "read", list[index], recursive);
       }
-    } catch (error) {
-      if (error instanceof Deno.errors.BadResource) return;
-      throw translate(error, "read", list[index], recursive);
-    }
-  })).then(() => {});
+    }),
+  ).then(() => {});
   // 아무도 기다리지 않는 done의 거절이 unhandled rejection으로 앱을 죽이지 않게 한다.
   done.catch(() => {});
   return {

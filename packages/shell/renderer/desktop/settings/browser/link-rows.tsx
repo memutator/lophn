@@ -16,9 +16,9 @@ export function LinkRows({ source }: { source: BrowserSettingsSource }) {
   const [notSaved, setNotSaved] = useState(false);
 
   useEffect(() => {
-    void source.links().then((read) =>
-      setLoaded(read.ok ? read.value : "failed")
-    );
+    void source
+      .links()
+      .then((read) => setLoaded(read.ok ? read.value : "failed"));
   }, [source]);
 
   async function choose(
@@ -68,7 +68,8 @@ export function LinkRows({ source }: { source: BrowserSettingsSource }) {
                             values,
                             row.id,
                             value as LinkValues[LinkId],
-                          )}
+                          )
+                        }
                       />,
                     )}
                   </div>
@@ -78,13 +79,11 @@ export function LinkRows({ source }: { source: BrowserSettingsSource }) {
           </li>
         ))}
       </ul>
-      {notSaved
-        ? (
-          <p className={styles.rejected} role="alert" data-failed="">
-            {t("settings.error.value-not-saved")}
-          </p>
-        )
-        : null}
+      {notSaved ? (
+        <p className={styles.rejected} role="alert" data-failed="">
+          {t("settings.error.value-not-saved")}
+        </p>
+      ) : null}
     </>
   );
 }

@@ -55,10 +55,7 @@ type ShellLookup = {
   exists: (file: string) => boolean;
 };
 
-const POWERSHELL7 = [
-  "pwsh.exe",
-  "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
-];
+const POWERSHELL7 = ["pwsh.exe", "C:\\Program Files\\PowerShell\\7\\pwsh.exe"];
 const POWERSHELL51 = [
   "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
 ];

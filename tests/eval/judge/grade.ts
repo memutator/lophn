@@ -6,14 +6,12 @@ export function quoteInInput(input: string, quote: string): boolean {
   return q !== "" && input.includes(q);
 }
 
-export function newJudgeItem(
-  args: {
-    check: string;
-    criterion: Criterion;
-    input: string;
-    judge: JudgeDefinition;
-  },
-): JudgeItem {
+export function newJudgeItem(args: {
+  check: string;
+  criterion: Criterion;
+  input: string;
+  judge: JudgeDefinition;
+}): JudgeItem {
   const { check, criterion, input, judge } = args;
   return {
     check,
@@ -66,6 +64,11 @@ export function canRegrade(item: JudgeItem): boolean {
 }
 
 export function judgePassed(criterion: Criterion, item: JudgeItem): boolean {
-  return item.state === "judged" && item.error === null && item.quote_found &&
-    item.verdict !== null && criterion.pass.includes(item.verdict);
+  return (
+    item.state === "judged" &&
+    item.error === null &&
+    item.quote_found &&
+    item.verdict !== null &&
+    criterion.pass.includes(item.verdict)
+  );
 }

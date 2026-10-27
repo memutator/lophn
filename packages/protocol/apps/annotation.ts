@@ -63,12 +63,11 @@ export const annotationTargetSchema = z.discriminatedUnion("kind", [
 ]);
 export type AnnotationTarget = z.infer<typeof annotationTargetSchema>;
 
-const annotationScreenshotBlobSchema = z.strictObject(
-  preparedBlobSchema.shape,
-).refine(
-  (value) => value.purpose === ANNOTATION_SCREENSHOT_PURPOSE,
-  { message: "screenshot blob purpose must be annotation_screenshot" },
-);
+const annotationScreenshotBlobSchema = z
+  .strictObject(preparedBlobSchema.shape)
+  .refine((value) => value.purpose === ANNOTATION_SCREENSHOT_PURPOSE, {
+    message: "screenshot blob purpose must be annotation_screenshot",
+  });
 
 export const annotationInputSchema = z.strictObject({
   n: z.number().int().min(1),
@@ -92,10 +91,12 @@ const annotationSchema = z.strictObject({
   n: z.number().int().min(1),
   kind: annotationKindSchema,
   note: z.string(),
-  screenshot: z.strictObject({
-    hash: sha256Schema,
-    size_bytes: z.number().int().min(0),
-  }).nullable(),
+  screenshot: z
+    .strictObject({
+      hash: sha256Schema,
+      size_bytes: z.number().int().min(0),
+    })
+    .nullable(),
   // `List > Card > Button`처럼 바깥에서 안쪽 순서의 SDK component 겹. SDK component 안이 아니면 null.
   component: z.string().nullable(),
   element: annotationElementSchema,
@@ -141,22 +142,27 @@ export const annotationUploadScreenshot = defineUpload({
 // session은 app이면 앱 공간 agent pane에 열려 있는 그 앱 App Engineer의 session이다(없으면 null, 새 session).
 // artifact이면 pane에 열려 있는 그 domain owner의 PM 또는 App Engineer session이고, file이면 그 project의 PM session이다.
 // artifact에서는 core가 받는 쪽을 정할 때 쓰는 마지막 후보다.
-export const annotationSendInputSchema = z.strictObject({
-  target: annotationTargetSchema,
-  session: idSchema("ses").nullable(),
-  annotations: z.array(annotationInputSchema).min(1).max(ANNOTATION_BATCH_MAX),
-}).refine(
-  (value) => value.annotations.every((item, i) => item.n === i + 1),
-  { message: "annotation n must run 1..N in order" },
-).refine(
-  (value) =>
-    value.annotations.every((item) =>
-      value.target.kind === "app"
-        ? item.release !== null && item.view.screen !== null
-        : item.release === null && item.view.screen === null
-    ),
-  { message: "app annotations carry release and screen, others do not" },
-);
+export const annotationSendInputSchema = z
+  .strictObject({
+    target: annotationTargetSchema,
+    session: idSchema("ses").nullable(),
+    annotations: z
+      .array(annotationInputSchema)
+      .min(1)
+      .max(ANNOTATION_BATCH_MAX),
+  })
+  .refine((value) => value.annotations.every((item, i) => item.n === i + 1), {
+    message: "annotation n must run 1..N in order",
+  })
+  .refine(
+    (value) =>
+      value.annotations.every((item) =>
+        value.target.kind === "app"
+          ? item.release !== null && item.view.screen !== null
+          : item.release === null && item.view.screen === null,
+      ),
+    { message: "app annotations carry release and screen, others do not" },
+  );
 const annotationSendOutputSchema = z.object({
   batch: annotationBatchIdSchema,
   annotations: z.array(annotationIdSchema),
@@ -178,10 +184,12 @@ const annotationsGetInputSchema = z.union([
   z.strictObject({ annotation: annotationIdSchema }),
   z.strictObject({ batch: annotationBatchIdSchema }),
 ]);
-const annotationsGetOutputSchema = withReadCommon(z.object({
-  batch: annotationBatchSchema.nullable(),
-  annotations: z.array(annotationReadSchema),
-}));
+const annotationsGetOutputSchema = withReadCommon(
+  z.object({
+    batch: annotationBatchSchema.nullable(),
+    annotations: z.array(annotationReadSchema),
+  }),
+);
 export const annotationsGet = defineRead({
   resource: "annotations",
   method: "get",

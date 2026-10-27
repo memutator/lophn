@@ -41,9 +41,9 @@ function senderLabel(sender: Sender): string {
       return sender.name === null || sender.name === role
         ? role
         : t("conversation.label.sender-agent-named", {
-          role,
-          name: sender.name,
-        });
+            role,
+            name: sender.name,
+          });
     }
     case "coding":
       return sender.product === null
@@ -68,9 +68,11 @@ interface SenderChipProps {
 }
 
 /** "From …" chip. 누르면 panel이 열린다. */
-export function SenderChip(
-  { sender, open, onToggle }: SenderChipProps,
-): ReactElement {
+export function SenderChip({
+  sender,
+  open,
+  onToggle,
+}: SenderChipProps): ReactElement {
   const label = senderLabel(sender);
   return (
     <button
@@ -117,9 +119,13 @@ interface SenderPanelProps {
 }
 
 /** chip 아래로 펼쳐지는 panel: 맡긴 글, 근거 링크, 보낸 session 링크. */
-export function SenderPanel(
-  { message, sender, source, onOpenRef, onOpenSession }: SenderPanelProps,
-): ReactElement {
+export function SenderPanel({
+  message,
+  sender,
+  source,
+  onOpenRef,
+  onOpenSession,
+}: SenderPanelProps): ReactElement {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   useEffect(() => {
     let live = true;
@@ -163,7 +169,9 @@ export function SenderPanel(
     >
       <div className={styles.senderBlock}>
         <p className={styles.senderHead}>{t(HEAD[sender.kind])}</p>
-        <p className={styles.senderTask} data-sender-task="">{envelope.task}</p>
+        <p className={styles.senderTask} data-sender-task="">
+          {envelope.task}
+        </p>
       </div>
       {envelope.refs.length === 0 ? null : (
         <div className={styles.senderBlock}>
@@ -177,15 +185,15 @@ export function SenderPanel(
                   {t(EVIDENCE_LABEL[ref.kind])}
                 </span>
                 <TextLink
-                  onClick={ref.kind === "session"
-                    ? onOpenSession === undefined
-                      ? undefined
-                      : () =>
-                        onOpenSession(ref.target)
-                    : onOpenRef === undefined
-                    ? undefined
-                    : () =>
-                      onOpenRef(ref)}
+                  onClick={
+                    ref.kind === "session"
+                      ? onOpenSession === undefined
+                        ? undefined
+                        : () => onOpenSession(ref.target)
+                      : onOpenRef === undefined
+                        ? undefined
+                        : () => onOpenRef(ref)
+                  }
                 >
                   {ref.text}
                 </TextLink>
@@ -202,9 +210,11 @@ export function SenderPanel(
           <p className={styles.sessionLink}>
             <SessionIcon sender={sender} />
             <TextLink
-              onClick={onOpenSession === undefined
-                ? undefined
-                : () => onOpenSession(envelope.session!.id)}
+              onClick={
+                onOpenSession === undefined
+                  ? undefined
+                  : () => onOpenSession(envelope.session!.id)
+              }
             >
               {envelope.session.title}
             </TextLink>
@@ -216,26 +226,30 @@ export function SenderPanel(
 }
 
 function SessionIcon({ sender }: { sender: Sender }): ReactElement {
-  const vendor = sender.kind === "coding" && sender.product !== null
-    ? vendorOf(sender.product)
-    : undefined;
-  return vendor === undefined
-    ? <Icon icon={commonIcons.openLink} pixels={iconPixels("small")} />
-    : <VendorIcon vendor={vendor} size={14} />;
+  const vendor =
+    sender.kind === "coding" && sender.product !== null
+      ? vendorOf(sender.product)
+      : undefined;
+  return vendor === undefined ? (
+    <Icon icon={commonIcons.openLink} pixels={iconPixels("small")} />
+  ) : (
+    <VendorIcon vendor={vendor} size={14} />
+  );
 }
 
 /** 누르면 탭을 여는 글. 열 길이 없으면 그냥 글이다. */
-function TextLink(
-  { onClick, children }: {
-    onClick: (() => void) | undefined;
-    children: ReactNode;
-  },
-): ReactElement {
-  return onClick === undefined
-    ? <span className={styles.plainRef}>{children}</span>
-    : (
-      <button type="button" className={styles.link} onClick={onClick}>
-        {children}
-      </button>
-    );
+function TextLink({
+  onClick,
+  children,
+}: {
+  onClick: (() => void) | undefined;
+  children: ReactNode;
+}): ReactElement {
+  return onClick === undefined ? (
+    <span className={styles.plainRef}>{children}</span>
+  ) : (
+    <button type="button" className={styles.link} onClick={onClick}>
+      {children}
+    </button>
+  );
 }

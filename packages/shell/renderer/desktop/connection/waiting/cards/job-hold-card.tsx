@@ -12,13 +12,15 @@ import { Head } from "./head.tsx";
 
 type JobHoldEntry = WaitingEntry & { kind: "job_hold" };
 
-export function JobHoldCard(
-  { entry, view, core }: {
-    entry: JobHoldEntry;
-    view: CardView;
-    core: CoreSource;
-  },
-) {
+export function JobHoldCard({
+  entry,
+  view,
+  core,
+}: {
+  entry: JobHoldEntry;
+  view: CardView;
+  core: CoreSource;
+}) {
   const [busy, setBusy] = useState(false);
   // not_found는 먼저 지워진 것이라 글 없이 다시 읽어 card가 빠지게 둔다.
   const [failure, setFailure] = useState<"conflict" | "failed" | null>(null);
@@ -30,8 +32,8 @@ export function JobHoldCard(
       result.ok || result.code === "not_found"
         ? null
         : result.code === "conflict"
-        ? "conflict"
-        : "failed",
+          ? "conflict"
+          : "failed",
     );
     setBusy(false);
   }

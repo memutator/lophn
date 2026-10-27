@@ -49,11 +49,13 @@ const settingChangeInputSchema = z.discriminatedUnion("action", [
   z.strictObject({ key: z.string(), action: z.literal("unset") }),
 ]);
 const settingsUpdateInputSchema = z.strictObject({
-  changes: z.array(settingChangeInputSchema).refine(
-    (changes) =>
-      new Set(changes.map((change) => change.key)).size === changes.length,
-    { message: "duplicate setting changes" },
-  ),
+  changes: z
+    .array(settingChangeInputSchema)
+    .refine(
+      (changes) =>
+        new Set(changes.map((change) => change.key)).size === changes.length,
+      { message: "duplicate setting changes" },
+    ),
 });
 // rejected가 비어 있지 않으면 아무것도 쓰지 않은 것이다.
 const settingsUpdateOutputSchema = z.strictObject({

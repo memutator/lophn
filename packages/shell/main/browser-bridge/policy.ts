@@ -70,10 +70,10 @@ const LOCAL_HOST_PATTERNS = [
 ];
 
 export function isLocalHost(hostname: string): boolean {
-  const host = hostname.toLowerCase().replace(/\.+$/, "").replace(
-    /^\[(.*)\]$/,
-    "$1",
-  );
+  const host = hostname
+    .toLowerCase()
+    .replace(/\.+$/, "")
+    .replace(/^\[(.*)\]$/, "$1");
   return LOCAL_HOST_PATTERNS.some((pattern) => pattern.test(host));
 }
 
@@ -94,8 +94,11 @@ export function linkPrefsOf(listed: unknown): LinkPrefs {
   const prefs = { ...DEFAULT_LINK_PREFS };
   if (!Array.isArray(entries)) return prefs;
   for (const name of ["web_links", "local_links"] as const) {
-    const entry = entries.find((e) =>
-      typeof e === "object" && e !== null && e.key === LINK_SETTING_KEYS[name]
+    const entry = entries.find(
+      (e) =>
+        typeof e === "object" &&
+        e !== null &&
+        e.key === LINK_SETTING_KEYS[name],
     );
     if (entry === undefined) continue;
     const value = "chosen" in entry ? entry.chosen : entry.default;
@@ -114,9 +117,11 @@ export function bridgeEnv(
 ): Record<string, string> | null {
   const userBrowser = processEnv.BROWSER;
   if (
-    userBrowser !== undefined && userBrowser !== "" &&
+    userBrowser !== undefined &&
+    userBrowser !== "" &&
     processEnv[BRIDGE_ENV] === undefined
-  ) return null;
+  )
+    return null;
   return {
     BROWSER: issued.shim,
     [BRIDGE_ENV]: JSON.stringify({ socket: issued.socket, key: issued.key }),

@@ -128,14 +128,17 @@ function readRules(list: unknown, what: string): Rule[] {
     const { from, to } = (entry ?? {}) as { from?: unknown; to?: unknown };
     const folder = typeof from === "string" && from.endsWith("/");
     if (
-      typeof from !== "string" || typeof to !== "string" ||
-      !from.replace(/\/$/, "") || folder !== to.endsWith("/") ||
-      /^\.{0,2}\//.test(from) || /^\.{0,2}\//.test(to)
+      typeof from !== "string" ||
+      typeof to !== "string" ||
+      !from.replace(/\/$/, "") ||
+      folder !== to.endsWith("/") ||
+      /^\.{0,2}\//.test(from) ||
+      /^\.{0,2}\//.test(to)
     ) {
       throw new Error(
-        `${what} 줄이 잘못됨: ${
-          JSON.stringify(entry)
-        } (root 기준 경로, 폴더는 from·to 둘 다 /로 끝낸다)`,
+        `${what} 줄이 잘못됨: ${JSON.stringify(
+          entry,
+        )} (root 기준 경로, 폴더는 from·to 둘 다 /로 끝낸다)`,
       );
     }
     return {
@@ -152,9 +155,11 @@ function match(path: string, rules: Rule[]): Rule | undefined {
   for (const rule of rules) {
     if (rule.folder ? !inside(path, rule.from) : path !== rule.from) continue;
     if (
-      !best || rule.from.length > best.from.length ||
+      !best ||
+      rule.from.length > best.from.length ||
       (rule.from.length === best.from.length && !rule.folder)
-    ) best = rule;
+    )
+      best = rule;
   }
   return best;
 }
@@ -217,7 +222,7 @@ function jsonStrings(source: string): JsonString[] {
     const char = source[index];
     if (char === "{" || char === "[") {
       index++;
-      for (let position = 0;; position++) {
+      for (let position = 0; ; position++) {
         space();
         if (index >= source.length) throw new Error("JSON이 끝나지 않음");
         if (source[index] === (char === "{" ? "}" : "]")) break;
@@ -260,14 +265,16 @@ function role(file: string, path: (string | number)[]): Role {
     if (
       ["test", "lint", "fmt", "publish", "bench"].includes(first) &&
       ["include", "exclude"].includes(second)
-    ) return "pattern";
+    )
+      return "pattern";
     return first === "exports" ? "exports" : "path";
   }
   if (name === "package.json") {
     if (
       path.length === 1 &&
       ["main", "module", "types", "typings", "browser"].includes(first)
-    ) return "pattern";
+    )
+      return "pattern";
     return ["files", "workspaces"].includes(first) && path.length === 2
       ? "pattern"
       : "path";
@@ -286,9 +293,9 @@ function role(file: string, path: (string | number)[]): Role {
       "rootDirs",
       "typeRoots",
       "paths",
-    ]
-      .includes(second)
-  ) return "pattern";
+    ].includes(second)
+  )
+    return "pattern";
   return first === "references" && third === "path" ? "pattern" : "path";
 }
 
@@ -318,27 +325,32 @@ function renameKey(
 }
 
 function ownerOf(path: string, members: Member[]): Member | undefined {
-  return members.filter((member) => inside(path, member.directory))
+  return members
+    .filter((member) => inside(path, member.directory))
     .sort((a, b) => b.directory.length - a.directory.length)[0];
 }
 
-function memberNamed(
-  specifier: string,
-  members: Member[],
-): Member | undefined {
-  return members.filter((member) =>
-    member.name &&
-    (specifier === member.name || specifier.startsWith(`${member.name}/`))
-  ).sort((a, b) => b.name!.length - a.name!.length)[0];
+function memberNamed(specifier: string, members: Member[]): Member | undefined {
+  return members
+    .filter(
+      (member) =>
+        member.name &&
+        (specifier === member.name || specifier.startsWith(`${member.name}/`)),
+    )
+    .sort((a, b) => b.name!.length - a.name!.length)[0];
 }
 
 function exportKeys(member: Member, file: string): string[] {
-  const exports = typeof member.exports === "string"
-    ? { ".": member.exports }
-    : member.exports ?? {};
-  return Object.entries(exports).filter(([, value]) =>
-    !value.includes("*") && resolve(member.directory, value) === file
-  ).map(([key]) => key);
+  const exports =
+    typeof member.exports === "string"
+      ? { ".": member.exports }
+      : (member.exports ?? {});
+  return Object.entries(exports)
+    .filter(
+      ([, value]) =>
+        !value.includes("*") && resolve(member.directory, value) === file,
+    )
+    .map(([key]) => key);
 }
 
 function cssSites(source: string): Site[] {
@@ -391,9 +403,9 @@ async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
   );
 
   // 1. 파일마다 새 자리
-  const files = (await git(root, ["ls-files", "-z"])).split("\0").filter(
-    Boolean,
-  );
+  const files = (await git(root, ["ls-files", "-z"]))
+    .split("\0")
+    .filter(Boolean);
   const next = new Map<string, string>();
   const owners = new Map<string, string>();
   const removed: string[] = [];
@@ -414,9 +426,10 @@ async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
   for (const rule of [...moves, ...removes]) {
     if (
       !files.some((file) =>
-        rule.folder ? inside(file, rule.from) : file === rule.from
+        rule.folder ? inside(file, rule.from) : file === rule.from,
       )
-    ) note(rule.from, 0, "error", "mapping의 from에 맞는 파일이 없음");
+    )
+      note(rule.from, 0, "error", "mapping의 from에 맞는 파일이 없음");
   }
   for (const target of owners.keys()) {
     for (let dir = parent(target); dir; dir = parent(dir)) {
@@ -464,9 +477,9 @@ async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
     const body = negated ? value.slice(1) : value;
     if (/^[a-z][a-z0-9+.-]*:/i.test(body) || body.startsWith("/")) return;
     const glob = body.search(/[*?[{]/);
-    const base =
-      (glob < 0 ? body : body.slice(0, body.lastIndexOf("/", glob) + 1))
-        .replace(/\/+$/, "");
+    const base = (
+      glob < 0 ? body : body.slice(0, body.lastIndexOf("/", glob) + 1)
+    ).replace(/\/+$/, "");
     const rest = body.slice(base.length);
     const target = resolve(before, base);
     if (target === undefined) return;
@@ -479,8 +492,8 @@ async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
     const joined = base
       ? fresh + rest
       : fresh === "./" || fresh === ""
-      ? rest
-      : `${fresh.replace(/\/$/, "")}/${rest}`;
+        ? rest
+        : `${fresh.replace(/\/$/, "")}/${rest}`;
     return (negated ? "!" : "") + joined;
   };
   for (const [file, source] of texts) {
@@ -588,7 +601,10 @@ async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
     css: boolean,
   ): string | undefined => {
     const [path, suffix] = splitSuffix(site.specifier);
-    const local = /^\.\.?\//.test(path) || path === "." || path === ".." ||
+    const local =
+      /^\.\.?\//.test(path) ||
+      path === "." ||
+      path === ".." ||
       (css && cssRelative(path));
     if (local) {
       const found = resolve(parent(file), path);
@@ -632,7 +648,8 @@ async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
       if (
         (path.endsWith("/") || path === "." || path === "..") &&
         !after.endsWith("/")
-      ) after += "/";
+      )
+        after += "/";
       if (css && !path.startsWith(".") && after.startsWith("./")) {
         after = after.slice(2);
       }
@@ -657,7 +674,10 @@ async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
     const mine = ownerOf(target, newMembers);
     const theirs = ownerOf(place.path, newMembers);
     const before = ownerOf(file, oldMembers);
-    const merged = mine && theirs && mine.directory === theirs.directory &&
+    const merged =
+      mine &&
+      theirs &&
+      mine.directory === theirs.directory &&
       before?.directory !== member.directory;
     if (!merged && resolveWorkspace(path, newMembers) === place.path) return;
     if (merged || !theirs) {
@@ -675,9 +695,8 @@ async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
       note(target, site.line, "error", `이름 없는 member로 옮김: ${path}`);
       return;
     }
-    const key = path === member.name
-      ? "."
-      : `.${path.slice(member.name!.length)}`;
+    const key =
+      path === member.name ? "." : `.${path.slice(member.name!.length)}`;
     const renamed = keyRenames.get(theirs.directory)?.get(key) ?? key;
     const keys = exportKeys(theirs, place.path);
     if (!keys.length) {
@@ -752,11 +771,13 @@ async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
         reported.add(site.line);
       }
     }
-    current(file).split("\n").forEach((line, index) => {
-      if (!reported.has(index + 1) && mentioned(line)) {
-        note(target, index + 1, "mention", line.trim().slice(0, 160));
-      }
-    });
+    current(file)
+      .split("\n")
+      .forEach((line, index) => {
+        if (!reported.has(index + 1) && mentioned(line)) {
+          note(target, index + 1, "mention", line.trim().slice(0, 160));
+        }
+      });
   }
 
   // 7. 옮긴 뒤에도 모든 specifier가 풀리는지
@@ -793,9 +814,11 @@ async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
   }
 
   const moved = new Map([...next].filter(([from, to]) => from !== to));
-  notes.sort((a, b) =>
-    a.file.localeCompare(b.file) || a.line - b.line ||
-    a.message.localeCompare(b.message)
+  notes.sort(
+    (a, b) =>
+      a.file.localeCompare(b.file) ||
+      a.line - b.line ||
+      a.message.localeCompare(b.message),
   );
   return { moved, removed, contents, rewrites, notes };
 }
@@ -821,7 +844,8 @@ async function applyPlan(root: string, plan: Plan): Promise<string[]> {
     await writeFile(`${root}/${file}`, source);
   }
   const dirs = [...ancestors([...plan.moved.keys(), ...plan.removed])]
-    .filter(Boolean).sort((a, b) => b.length - a.length);
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
   const left: string[] = [];
   for (const dir of dirs) {
     let entries: string[];
@@ -838,8 +862,10 @@ async function applyPlan(root: string, plan: Plan): Promise<string[]> {
   const tracked = ancestors(
     (await git(root, ["ls-files", "-z"])).split("\0").filter(Boolean),
   );
-  return left.filter((dir) => !tracked.has(dir))
-    .filter((dir, _, list) => !list.includes(parent(dir))).sort();
+  return left
+    .filter((dir) => !tracked.has(dir))
+    .filter((dir, _, list) => !list.includes(parent(dir)))
+    .sort();
 }
 
 function summary(plan: Plan): string {
@@ -848,9 +874,9 @@ function summary(plan: Plan): string {
   return [
     `옮김 ${plan.moved.size}개, 지움 ${plan.removed.length}개`,
     `고친 specifier·설정 값 ${plan.rewrites}곳 (파일 ${plan.contents.size}개)`,
-    `오류 ${count("error")}, 경고 ${count("warning")}, 손으로 고칠 경로 ${
-      count("path")
-    }, 옛 경로 언급 ${count("mention")}`,
+    `오류 ${count("error")}, 경고 ${count("warning")}, 손으로 고칠 경로 ${count(
+      "path",
+    )}, 옛 경로 언급 ${count("mention")}`,
   ].join("\n");
 }
 
@@ -904,8 +930,8 @@ if (import.meta.main) {
   try {
     const mapping = JSON.parse(await readFile(mappingPath, "utf8")) as Mapping;
     const plan = await planMoves(root, mapping ?? {});
-    const report = reportPath ??
-      mappingPath.replace(/(\.json)?$/, ".report.txt");
+    const report =
+      reportPath ?? mappingPath.replace(/(\.json)?$/, ".report.txt");
     await writeFile(report, formatReport(plan));
     console.log(`${summary(plan)}\n보고서: ${report}`);
     if (plan.notes.some((note) => note.kind === "error")) {

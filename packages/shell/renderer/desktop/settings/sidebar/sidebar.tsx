@@ -16,9 +16,12 @@ interface SettingsSidebarProps {
 }
 
 // Settings sidebar. 항목을 묶음(General, Agents, System)별로 줄지어 놓고, 접으면 아이콘만 남는다.
-export function SettingsSidebar(
-  { mode, width, pane, onPane }: SettingsSidebarProps,
-) {
+export function SettingsSidebar({
+  mode,
+  width,
+  pane,
+  onPane,
+}: SettingsSidebarProps) {
   if (mode === "hidden") return null;
   const collapsed = mode === "collapsed";
   return (
@@ -31,9 +34,9 @@ export function SettingsSidebar(
       <div className={`${styles.list} ${styles.groups}`}>
         {SETTINGS_GROUPS.map((group) => (
           <section key={group.id}>
-            {collapsed
-              ? null
-              : <h3 className={styles.navGroup}>{t(group.label)}</h3>}
+            {collapsed ? null : (
+              <h3 className={styles.navGroup}>{t(group.label)}</h3>
+            )}
             <ul className={styles.navList} role="list">
               {group.panes.map((entry) => {
                 const label = t(entry.label);
@@ -53,9 +56,9 @@ export function SettingsSidebar(
                       pixels={iconPixels("base")}
                       className={styles.icon}
                     />
-                    {collapsed
-                      ? null
-                      : <span className={styles.label}>{label}</span>}
+                    {collapsed ? null : (
+                      <span className={styles.label}>{label}</span>
+                    )}
                   </button>
                 );
                 return (

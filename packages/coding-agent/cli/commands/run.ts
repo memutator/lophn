@@ -98,9 +98,10 @@ async function finish(
     );
   }
   if (ctx.json) return ok(new ExitWith(CLI_EXITS.failed, run));
-  const note = run.state === "cancelled"
-    ? "cancelled"
-    : `failed: ${run.error?.reason}: ${run.error?.message}`;
+  const note =
+    run.state === "cancelled"
+      ? "cancelled"
+      : `failed: ${run.error?.reason}: ${run.error?.message}`;
   return ok(new ExitWith(CLI_EXITS.failed, undefined, note));
 }
 
@@ -122,7 +123,9 @@ async function start(
 
 function optional(input: Record<string, unknown>, ...keys: string[]) {
   return Object.fromEntries(
-    keys.flatMap((key) => input[key] === undefined ? [] : [[key, input[key]]]),
+    keys.flatMap((key) =>
+      input[key] === undefined ? [] : [[key, input[key]]],
+    ),
   );
 }
 
@@ -140,7 +143,9 @@ function runAgent(input: Record<string, unknown>, ctx: RunContext): Out {
       schema = undefined;
     }
     if (
-      typeof schema !== "object" || schema === null || Array.isArray(schema)
+      typeof schema !== "object" ||
+      schema === null ||
+      Array.isArray(schema)
     ) {
       return Promise.resolve(err(invalid("--schema는 JSON Schema 객체다")));
     }

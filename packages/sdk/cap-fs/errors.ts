@@ -35,9 +35,9 @@ export function forbidden(
 ): CapabilityError {
   return new CapabilityError({
     code: "forbidden",
-    message: `${permission} ${
-      JSON.stringify(scope)
-    } is not permitted. Declare this permission in the declaration and ask the person to grant it.`,
+    message: `${permission} ${JSON.stringify(
+      scope,
+    )} is not permitted. Declare this permission in the declaration and ask the person to grant it.`,
     permission,
     scope,
   });

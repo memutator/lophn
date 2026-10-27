@@ -6,10 +6,7 @@ import { transientEventSchema } from "./transient.ts";
 
 // Bus에 실리는 것은 agent event와 남지 않는 event 둘이다.
 // type 이름은 둘 사이에서 겹치지 않는다.
-export const busEventSchema = z.union([
-  agentEventSchema,
-  transientEventSchema,
-]);
+export const busEventSchema = z.union([agentEventSchema, transientEventSchema]);
 export type BusEvent = z.infer<typeof busEventSchema>;
 
 // 구독 조건. 생략한 칸은 제한하지 않는다.

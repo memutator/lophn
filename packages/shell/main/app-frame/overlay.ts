@@ -58,9 +58,9 @@ interface OverlayOptions {
   shell: OverlayContents;
   registry: ContentsRegistry;
   host: ViewHost<OverlayView>;
-  create(
-    config: { webPreferences: WebPreferences & { preload: string } },
-  ): OverlayView;
+  create(config: {
+    webPreferences: WebPreferences & { preload: string };
+  }): OverlayView;
   preload: string;
   packaged: boolean;
   /** 개발 확인 전용 headless. 켜지면 focus를 옮기지 않는다. */
@@ -71,9 +71,10 @@ interface OverlayOptions {
     clear(handle: unknown): void;
   };
 }
-type Surface = OverlayOpen & OverlayIdentity & {
-  ending?: boolean;
-};
+type Surface = OverlayOpen &
+  OverlayIdentity & {
+    ending?: boolean;
+  };
 const failure = (
   code: "invalid_input" | "forbidden" | "conflict" | "unavailable",
   message: string,
@@ -140,10 +141,10 @@ export function createOverlay(options: OverlayOptions) {
     if (open === modalOpen) return;
     modalOpen = open;
     if (!options.shell.isDestroyed()) {
-      options.shell.send(
-        "shell:overlay-result",
-        { type: "modal", open } satisfies OverlayEvent,
-      );
+      options.shell.send("shell:overlay-result", {
+        type: "modal",
+        open,
+      } satisfies OverlayEvent);
     }
   }
   function finish(
@@ -165,7 +166,8 @@ export function createOverlay(options: OverlayOptions) {
       if (
         interactive(surface.kind) &&
         ![...surfaces.values()].some((item) => interactive(item.kind))
-      ) focusSurface(options.shell, headless);
+      )
+        focusSurface(options.shell, headless);
     }
   }
   function snapshot(): OverlaySnapshot {
@@ -179,12 +181,10 @@ export function createOverlay(options: OverlayOptions) {
       bounds = {
         x,
         y,
-        width: Math.max(...all.map((s) =>
-          s.anchorRect.x + s.anchorRect.width
-        )) - x,
-        height: Math.max(...all.map((s) =>
-          s.anchorRect.y + s.anchorRect.height
-        )) - y,
+        width:
+          Math.max(...all.map((s) => s.anchorRect.x + s.anchorRect.width)) - x,
+        height:
+          Math.max(...all.map((s) => s.anchorRect.y + s.anchorRect.height)) - y,
       };
     }
     return {
@@ -250,9 +250,9 @@ export function createOverlay(options: OverlayOptions) {
       if (reason === "crashed") create();
     };
     release = view.onFailure(failed);
-    void current.webContents.loadURL(OVERLAY_URL).catch(() =>
-      failed("load_failed")
-    );
+    void current.webContents
+      .loadURL(OVERLAY_URL)
+      .catch(() => failed("load_failed"));
   }
   function authorize<T>(
     event: IpcEvent,
@@ -308,8 +308,8 @@ export function createOverlay(options: OverlayOptions) {
       }
       if (
         surfaces.size >= 32 ||
-        [...surfaces.values()].some((s) =>
-          s.requestId === checked.value.requestId
+        [...surfaces.values()].some(
+          (s) => s.requestId === checked.value.requestId,
         )
       ) {
         return failure(
@@ -320,7 +320,8 @@ export function createOverlay(options: OverlayOptions) {
       if (
         checked.value.kind === "drag" &&
         [...surfaces.values()].some((s) => s.kind === "drag")
-      ) return failure("conflict", "drag is already active");
+      )
+        return failure("conflict", "drag is already active");
       const identity = { surfaceId: `surface_${++serial}`, generation };
       surfaces.set(identity.surfaceId, { ...checked.value, ...identity });
       sync();
@@ -385,12 +386,14 @@ export function createOverlay(options: OverlayOptions) {
         sync();
       } else if (result.type === "pointer" || result.type === "drag-end") {
         if (
-          surface.kind !== "drag" || !inside(result.bounds, options.body()) ||
+          surface.kind !== "drag" ||
+          !inside(result.bounds, options.body()) ||
           !inside(
             { x: result.x, y: result.y, width: 1, height: 1 },
             options.body(),
           )
-        ) return failure("invalid_input", "pointer is outside drag body");
+        )
+          return failure("invalid_input", "pointer is outside drag body");
         if (surface.ending) return failure("conflict", "drag is ending");
         if (result.type === "drag-end") surface.ending = true;
         pendingId = surface.surfaceId;
@@ -403,10 +406,11 @@ export function createOverlay(options: OverlayOptions) {
         if (
           result.type === "selected" &&
           (!selectable(surface.kind) ||
-            !surface.model.choices.some((choice) =>
-              choice.id === result.choiceId && !choice.disabled
+            !surface.model.choices.some(
+              (choice) => choice.id === result.choiceId && !choice.disabled,
             ))
-        ) return failure("invalid_input", "choice is not selectable");
+        )
+          return failure("invalid_input", "choice is not selectable");
         finish(
           surface,
           surface.kind === "drag" ? "cancelled" : "dismissed",

@@ -55,11 +55,7 @@ test("표의 키는 겹치지 않고 팔레트·런처 키를 빼앗지 않으�
     );
     assert.deepStrictEqual(
       shell.sort(),
-      platform === "mac" ? [] : [
-        "Ctrl+KeyB",
-        "Ctrl+KeyP",
-        "Ctrl+KeyW",
-      ],
+      platform === "mac" ? [] : ["Ctrl+KeyB", "Ctrl+KeyP", "Ctrl+KeyW"],
     );
   }
 });

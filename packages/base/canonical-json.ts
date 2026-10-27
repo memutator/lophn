@@ -49,9 +49,9 @@ export function canonicalize(value: unknown): string {
             throw new TypeError("Canonical JSON requires plain objects");
           }
           const object = value as Record<string, unknown>;
-          const properties = Object.keys(object).sort().map((key) =>
-            `${serializeString(key)}:${serialize(object[key])}`
-          );
+          const properties = Object.keys(object)
+            .sort()
+            .map((key) => `${serializeString(key)}:${serialize(object[key])}`);
           return `{${properties.join(",")}}`;
         } finally {
           ancestors.delete(value);

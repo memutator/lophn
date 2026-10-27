@@ -27,12 +27,13 @@ export async function listenBridge(options: {
       const end = received.indexOf(0x0a);
       if (end === -1) return;
       handled = true;
-      options.handleLine(received.subarray(0, end).toString("utf8")).catch(
-        () => "declined" as const,
-      ).then((result) => {
-        if (connection.destroyed) return;
-        connection.end(`${JSON.stringify({ result })}\n`);
-      });
+      options
+        .handleLine(received.subarray(0, end).toString("utf8"))
+        .catch(() => "declined" as const)
+        .then((result) => {
+          if (connection.destroyed) return;
+          connection.end(`${JSON.stringify({ result })}\n`);
+        });
     });
   });
   server.on("error", () => options.log("browser bridge socket error"));

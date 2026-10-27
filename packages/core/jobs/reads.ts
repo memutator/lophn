@@ -51,9 +51,9 @@ export function createJobReads(): {
         const actor = parseActor(ctx.actor);
         let creator;
         if (actor?.kind === "agent") {
-          creator = snapshot.port(jobTargetsPort).creatorOf(
-            actor.id as Id<"ses">,
-          );
+          creator = snapshot
+            .port(jobTargetsPort)
+            .creatorOf(actor.id as Id<"ses">);
           if (creator === undefined) {
             return err({
               code: "forbidden",
@@ -71,9 +71,8 @@ export function createJobReads(): {
         return ok({
           jobs: page,
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: loaded.value.length > PAGE
-            ? page[page.length - 1]!.id
-            : null,
+          next_cursor:
+            loaded.value.length > PAGE ? page[page.length - 1]!.id : null,
         });
       },
     },
@@ -94,9 +93,8 @@ export function createJobReads(): {
         return ok({
           job_runs: page,
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: loaded.value.length > PAGE
-            ? page[page.length - 1]!.id
-            : null,
+          next_cursor:
+            loaded.value.length > PAGE ? page[page.length - 1]!.id : null,
         });
       },
     },
@@ -109,10 +107,10 @@ export function createJobReads(): {
         const holds = turnsOf(snapshot.sql, loaded.value);
         return holds.ok
           ? ok({
-            holds: holds.value,
-            as_of_seq: snapshot.as_of_seq,
-            next_cursor: null,
-          })
+              holds: holds.value,
+              as_of_seq: snapshot.as_of_seq,
+              next_cursor: null,
+            })
           : holds;
       },
     },
@@ -124,10 +122,10 @@ export function createJobReads(): {
         const open = turnsOf(snapshot.sql, loaded.value);
         return open.ok
           ? ok({
-            open: open.value,
-            as_of_seq: snapshot.as_of_seq,
-            next_cursor: null,
-          })
+              open: open.value,
+              as_of_seq: snapshot.as_of_seq,
+              next_cursor: null,
+            })
           : open;
       },
     },

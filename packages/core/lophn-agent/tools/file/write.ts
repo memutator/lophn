@@ -57,7 +57,12 @@ async function writeText(
   const written = await hooks.aroundWrite(ctx, target, async () => {
     try {
       const parent = dirname(target.path);
-      if (!(await stat(parent).then(() => true, () => false))) {
+      if (
+        !(await stat(parent).then(
+          () => true,
+          () => false,
+        ))
+      ) {
         await mkdir(parent, { recursive: true });
       }
       await writeNodeFile(target.path, next);
@@ -69,9 +74,10 @@ async function writeText(
   if (!written.ok) return written;
   return ok({
     status: "success",
-    summary: edit === null
-      ? `${before === null ? "created" : "wrote"} ${inputPath}`
-      : `edited ${inputPath} (${replaced} replaced)`,
+    summary:
+      edit === null
+        ? `${before === null ? "created" : "wrote"} ${inputPath}`
+        : `edited ${inputPath} (${replaced} replaced)`,
     content: {
       path: inputPath,
       created: before === null,

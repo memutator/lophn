@@ -183,15 +183,15 @@ export interface SaveInput {
 
 export type SaveResult =
   | {
-    readonly ok: true;
-    readonly value: { readonly assignment: string; readonly hash: string };
-  }
+      readonly ok: true;
+      readonly value: { readonly assignment: string; readonly hash: string };
+    }
   /** 거절이면 항목별 이유가 issues에 있다. 그 밖의 실패는 issues가 비어 있고 message가 core의 오류 code다. */
   | {
-    readonly ok: false;
-    readonly message: string;
-    readonly issues: readonly AgentDefinitionIssue[];
-  };
+      readonly ok: false;
+      readonly message: string;
+      readonly issues: readonly AgentDefinitionIssue[];
+    };
 
 /** 붙일 앱의 tool 하나. */
 interface GrantTool {
@@ -267,11 +267,7 @@ export interface AgentsSource {
     file: File,
   ): Promise<ReadResult<{ readonly image: string }>>;
   /** 올린 이미지 avatar를 화면이 읽을 수 있는 주소로 푼다. 풀 수 없으면 빈 글이다. */
-  imageSrc(
-    project: string | null,
-    assignment: string,
-    image: string,
-  ): string;
+  imageSrc(project: string | null, assignment: string, image: string): string;
   /** project 층 model을 고르거나(choice) 비워 Workspace 기본을 따르게(null) 한다. */
   setProjectModel(
     project: string,

@@ -121,10 +121,12 @@ export async function readLimitedBody(
   const declared = request.headers.get("content-length");
   if (declared !== null) {
     if (!/^\d+$/.test(declared) || Number(declared) > limit.maxBytes) {
-      return err(failure({
-        code: "invalid_input",
-        message: "body exceeds limit",
-      }));
+      return err(
+        failure({
+          code: "invalid_input",
+          message: "body exceeds limit",
+        }),
+      );
     }
   }
   const body = request.body;
@@ -135,13 +137,19 @@ export async function readLimitedBody(
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<Result<Uint8Array, RequestFailure>>((resolve) => {
     timer = setTimeout(() => {
-      resolve(err(failure({
-        code: "invalid_input",
-        message: "body read timed out",
-      })));
+      resolve(
+        err(
+          failure({
+            code: "invalid_input",
+            message: "body read timed out",
+          }),
+        ),
+      );
       try {
         void reader.cancel();
-      } catch { /* already closed */ }
+      } catch {
+        /* already closed */
+      }
     }, limit.timeoutMs);
   });
   const read = (async (): Promise<Result<Uint8Array, RequestFailure>> => {
@@ -151,19 +159,23 @@ export async function readLimitedBody(
         if (next.done) break;
         total += next.value.byteLength;
         if (total > limit.maxBytes) {
-          return err(failure({
-            code: "invalid_input",
-            message: "body exceeds limit",
-          }));
+          return err(
+            failure({
+              code: "invalid_input",
+              message: "body exceeds limit",
+            }),
+          );
         }
         chunks.push(next.value);
       }
     } catch {
       // 선언 길이와 실제 stream이 다르면 Deno가 읽기를 끊는다. 그것도 한도 거절이다.
-      return err(failure({
-        code: "invalid_input",
-        message: "body exceeds limit",
-      }));
+      return err(
+        failure({
+          code: "invalid_input",
+          message: "body exceeds limit",
+        }),
+      );
     }
     const bytes = new Uint8Array(total);
     let offset = 0;
@@ -183,19 +195,23 @@ export function parseLimitedJson(
   bytes: Uint8Array,
 ): Result<unknown, RequestFailure> {
   if (bytes.byteLength > JSON_MAX_BYTES) {
-    return err(failure({
-      code: "invalid_input",
-      message: "body exceeds limit",
-    }));
+    return err(
+      failure({
+        code: "invalid_input",
+        message: "body exceeds limit",
+      }),
+    );
   }
   let value: unknown;
   try {
     value = JSON.parse(new TextDecoder().decode(bytes));
   } catch {
-    return err(failure({
-      code: "invalid_input",
-      message: "invalid json",
-    }));
+    return err(
+      failure({
+        code: "invalid_input",
+        message: "invalid json",
+      }),
+    );
   }
   const counted = countJson(value);
   if (!counted.ok) return counted;
@@ -212,18 +228,22 @@ function walk(
   state: { items: number },
 ): Result<void, RequestFailure> {
   if (depth > JSON_MAX_DEPTH) {
-    return err(failure({
-      code: "invalid_input",
-      message: "json too deep",
-    }));
+    return err(
+      failure({
+        code: "invalid_input",
+        message: "json too deep",
+      }),
+    );
   }
   if (Array.isArray(value)) {
     state.items += value.length;
     if (state.items > JSON_MAX_ITEMS) {
-      return err(failure({
-        code: "invalid_input",
-        message: "json too large",
-      }));
+      return err(
+        failure({
+          code: "invalid_input",
+          message: "json too large",
+        }),
+      );
     }
     for (const item of value) {
       const child = walk(item, depth + 1, state);
@@ -235,10 +255,12 @@ function walk(
     const entries = Object.entries(value);
     state.items += entries.length;
     if (state.items > JSON_MAX_ITEMS) {
-      return err(failure({
-        code: "invalid_input",
-        message: "json too large",
-      }));
+      return err(
+        failure({
+          code: "invalid_input",
+          message: "json too large",
+        }),
+      );
     }
     for (const [, child] of entries) {
       const walked = walk(child, depth + 1, state);

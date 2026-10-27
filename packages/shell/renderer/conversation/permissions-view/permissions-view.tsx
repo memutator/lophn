@@ -19,10 +19,13 @@ interface PermissionsViewProps {
   popover?: boolean;
 }
 
-export function PermissionsView(
-  { agent, permissions, onClose, onEdit, popover = false }:
-    PermissionsViewProps,
-): ReactElement {
+export function PermissionsView({
+  agent,
+  permissions,
+  onClose,
+  onEdit,
+  popover = false,
+}: PermissionsViewProps): ReactElement {
   return (
     <section
       className={popover ? styles.popover : styles.panel}
@@ -46,28 +49,26 @@ export function PermissionsView(
           <p className={styles.groupHead}>
             {t("conversation.label.permissions-may", { agent })}
           </p>
-          {permissions.apps.length === 0
-            ? (
-              <p className={styles.muted}>
-                {t("conversation.notice.permissions-no-apps")}
-              </p>
-            )
-            : (
-              <ul className={styles.list}>
-                {permissions.apps.map((app) => (
-                  <li key={app.name} className={styles.row}>
-                    <span className={styles.target}>{app.name}</span>
-                    <span className={styles.effect}>
-                      {app.removed.length === 0
-                        ? t("conversation.label.permissions-all-tools")
-                        : t("conversation.label.permissions-except", {
+          {permissions.apps.length === 0 ? (
+            <p className={styles.muted}>
+              {t("conversation.notice.permissions-no-apps")}
+            </p>
+          ) : (
+            <ul className={styles.list}>
+              {permissions.apps.map((app) => (
+                <li key={app.name} className={styles.row}>
+                  <span className={styles.target}>{app.name}</span>
+                  <span className={styles.effect}>
+                    {app.removed.length === 0
+                      ? t("conversation.label.permissions-all-tools")
+                      : t("conversation.label.permissions-except", {
                           tools: app.removed.join(", "),
                         })}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
           <p className={styles.muted}>
             {t("conversation.notice.permissions-mcp")}
           </p>

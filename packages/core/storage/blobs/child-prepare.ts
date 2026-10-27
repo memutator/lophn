@@ -30,23 +30,21 @@ export type ChildBlobPolicy = {
   purposes: ReadonlyMap<string, number>;
 };
 
-const CHILD_BLOB_POLICIES: ReadonlyMap<string, ChildBlobPolicy> = new Map(
+const CHILD_BLOB_POLICIES: ReadonlyMap<string, ChildBlobPolicy> = new Map([
   [
-    [
-      "lophn-agent/runtime",
-      {
-        // turn 근거·결과와 model·tool 기록의 본문이다. 준비 principal은 command가 보는 현재 자격의
-        // principal(core가 runtime에 주는 machine credential)과 같아야 등록된다.
-        principal: AGENT_RUNTIME_PRINCIPAL,
-        purposes: new Map(
-          [
-            ...Object.values(TURN_BLOB_PURPOSES),
-          ].map((purpose) => [purpose, 16 * 1024 * 1024] as const),
+    "lophn-agent/runtime",
+    {
+      // turn 근거·결과와 model·tool 기록의 본문이다. 준비 principal은 command가 보는 현재 자격의
+      // principal(core가 runtime에 주는 machine credential)과 같아야 등록된다.
+      principal: AGENT_RUNTIME_PRINCIPAL,
+      purposes: new Map(
+        [...Object.values(TURN_BLOB_PURPOSES)].map(
+          (purpose) => [purpose, 16 * 1024 * 1024] as const,
         ),
-      },
-    ],
+      ),
+    },
   ],
-);
+]);
 
 type ChildBlobPrepareDeps = {
   // 이 handler가 받는 자식의 kind. hello로 core가 정한 값이다(자식 주장이 아니다).
@@ -79,15 +77,13 @@ const CHILD_BLOB_MAX_STREAMS = 4;
 const CHILD_BLOB_IDLE_MS = 30_000;
 
 // 오류는 코드마다 고정 문구뿐이다. 경로·I/O worker 메시지·hash 원문은 자식에게 가지 않는다.
-const SAFE_MESSAGES: Record<
-  (typeof BLOB_PREPARE_ERROR_CODES)[number],
-  string
-> = {
-  invalid_input: "blob prepare request is invalid",
-  forbidden: "blob prepare is not allowed",
-  unavailable: "blob prepare is unavailable",
-  internal: "blob prepare failed",
-};
+const SAFE_MESSAGES: Record<(typeof BLOB_PREPARE_ERROR_CODES)[number], string> =
+  {
+    invalid_input: "blob prepare request is invalid",
+    forbidden: "blob prepare is not allowed",
+    unavailable: "blob prepare is unavailable",
+    internal: "blob prepare failed",
+  };
 
 function failure(
   requestId: string,
@@ -102,12 +98,13 @@ function failure(
 }
 
 function safeCode(code: ErrorCode): keyof typeof SAFE_MESSAGES {
-  return code === "invalid_input" || code === "forbidden" ||
-      code === "unavailable"
+  return code === "invalid_input" ||
+    code === "forbidden" ||
+    code === "unavailable"
     ? code
     : code === "conflict" || code === "not_found" || code === "unauthorized"
-    ? "unavailable"
-    : "internal";
+      ? "unavailable"
+      : "internal";
 }
 
 type Stream = {
@@ -192,46 +189,51 @@ export function createChildBlobPrepare(
     const amount = Math.min(window, remaining);
     if (amount <= 0) return;
     stream.granted += amount;
-    await deps.send({
-      type: "credit",
-      channel: stream.request.channel,
-      window: amount,
-    }).catch(() => false);
+    await deps
+      .send({
+        type: "credit",
+        channel: stream.request.channel,
+        window: amount,
+      })
+      .catch(() => false);
   }
 
   function bodyOf(stream: Stream): ReadableStream<Uint8Array> {
-    return new ReadableStream<Uint8Array>({
-      async pull(controller) {
-        for (;;) {
-          if (stream.failed) {
-            controller.error(new Error("blob prepare stream failed"));
-            return;
+    return new ReadableStream<Uint8Array>(
+      {
+        async pull(controller) {
+          for (;;) {
+            if (stream.failed) {
+              controller.error(new Error("blob prepare stream failed"));
+              return;
+            }
+            const chunk = stream.queue.shift();
+            if (chunk !== undefined) {
+              stream.queuedBytes -= chunk.length;
+              deps.gauge?.add(-chunk.length);
+              controller.enqueue(chunk);
+              // consumer가 가져간 만큼만 credit을 다시 준다(backpressure).
+              await grant(stream, chunk.length);
+              return;
+            }
+            if (stream.ended) {
+              controller.close();
+              return;
+            }
+            await new Promise<void>((resolve) => {
+              stream.wake = resolve;
+            });
           }
-          const chunk = stream.queue.shift();
-          if (chunk !== undefined) {
-            stream.queuedBytes -= chunk.length;
-            deps.gauge?.add(-chunk.length);
-            controller.enqueue(chunk);
-            // consumer가 가져간 만큼만 credit을 다시 준다(backpressure).
-            await grant(stream, chunk.length);
-            return;
-          }
-          if (stream.ended) {
-            controller.close();
-            return;
-          }
-          await new Promise<void>((resolve) => {
-            stream.wake = resolve;
-          });
-        }
+        },
+        cancel() {
+          // consumer가 읽기를 그만뒀다. 자식은 abort한 것이 아니므로 결과를 알려야 한다:
+          // 쌓인 바이트를 버리고 open()이 consumer가 돌려준 오류를 자식에게 보낸다.
+          stream.cancelled = true;
+          drop(stream);
+        },
       },
-      cancel() {
-        // consumer가 읽기를 그만뒀다. 자식은 abort한 것이 아니므로 결과를 알려야 한다:
-        // 쌓인 바이트를 버리고 open()이 consumer가 돌려준 오류를 자식에게 보낸다.
-        stream.cancelled = true;
-        drop(stream);
-      },
-    }, { highWaterMark: 0 });
+      { highWaterMark: 0 },
+    );
   }
 
   async function open(request: BlobPrepareRequest) {

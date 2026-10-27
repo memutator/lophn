@@ -14,12 +14,14 @@ export async function readSessionSnapshots(
   core: CoreSource,
   sessions?: string[],
 ): Promise<SessionSnapshot[] | null> {
-  const reply = await core.call({
-    kind: "read",
-    resource: sessionSnapshotsList.resource,
-    method: sessionSnapshotsList.method,
-    body: sessions ? { sessions } : {},
-  }).catch(() => null);
+  const reply = await core
+    .call({
+      kind: "read",
+      resource: sessionSnapshotsList.resource,
+      method: sessionSnapshotsList.method,
+      body: sessions ? { sessions } : {},
+    })
+    .catch(() => null);
   if (!reply?.ok) return null;
   const parsed = sessionSnapshotsList.output.safeParse(reply.value);
   return parsed.success ? parsed.data.snapshots : null;
@@ -28,12 +30,14 @@ export async function readSessionSnapshots(
 export async function readActivationConsents(
   core: CoreSource,
 ): Promise<ActivationConsent[] | null> {
-  const reply = await core.call({
-    kind: "read",
-    resource: activationConsents.resource,
-    method: activationConsents.method,
-    body: {},
-  }).catch(() => null);
+  const reply = await core
+    .call({
+      kind: "read",
+      resource: activationConsents.resource,
+      method: activationConsents.method,
+      body: {},
+    })
+    .catch(() => null);
   if (!reply?.ok) return null;
   const parsed = activationConsents.output.safeParse(reply.value);
   return parsed.success ? parsed.data.consents : null;
@@ -42,12 +46,14 @@ export async function readActivationConsents(
 export async function readJobHolds(
   core: CoreSource,
 ): Promise<JobHold[] | null> {
-  const reply = await core.call({
-    kind: "read",
-    resource: jobHolds.resource,
-    method: jobHolds.method,
-    body: {},
-  }).catch(() => null);
+  const reply = await core
+    .call({
+      kind: "read",
+      resource: jobHolds.resource,
+      method: jobHolds.method,
+      body: {},
+    })
+    .catch(() => null);
   if (!reply?.ok) return null;
   const parsed = jobHolds.output.safeParse(reply.value);
   return parsed.success ? parsed.data.holds : null;

@@ -19,9 +19,11 @@ interface DefaultModelDialogProps {
 }
 
 /** provider를 처음 붙인 뒤 전역 기본 model을 고르게 하는 대화창. 고르면 저장하고 닫는다. [Skip]은 저장 없이 닫는다. */
-export function DefaultModelDialog(
-  { agents, notice, onClose }: DefaultModelDialogProps,
-): ReactNode {
+export function DefaultModelDialog({
+  agents,
+  notice,
+  onClose,
+}: DefaultModelDialogProps): ReactNode {
   const [models, setModels] = useState<ModelsView | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -61,9 +63,9 @@ export function DefaultModelDialog(
           value={null}
           onChange={(choice) => void choose(choice)}
         />
-        {failed
-          ? <p role="status">{t("settings.agents.action-failed")}</p>
-          : null}
+        {failed ? (
+          <p role="status">{t("settings.agents.action-failed")}</p>
+        ) : null}
       </ManageModelsContext.Provider>
     </Dialog>
   );

@@ -23,12 +23,8 @@ const call = (n: number) => `cal_01hzzzzzzzzzzzzzzzzzz0000${n}`;
 
 function setup() {
   const db = new DatabaseSync(":memory:");
-  for (
-    const step of [
-      ...ROUTER_SCHEMA_STEPS,
-      ...codingSchemaSteps,
-    ]
-  ) db.exec(step.sql);
+  for (const step of [...ROUTER_SCHEMA_STEPS, ...codingSchemaSteps])
+    db.exec(step.sql);
   db.exec("CREATE TABLE apps (id TEXT PRIMARY KEY, source_path TEXT)");
   db.prepare("INSERT INTO apps VALUES (?, '/work/app')").run(APP);
   for (const n of [1, 2]) {
@@ -51,9 +47,12 @@ function setup() {
   }[] = [];
   let counter = 0;
   const ports = new Map<unknown, unknown>([
-    [afterCommit, {
-      push: (topic: string, data: unknown) => actions.push({ topic, data }),
-    }],
+    [
+      afterCommit,
+      {
+        push: (topic: string, data: unknown) => actions.push({ topic, data }),
+      },
+    ],
   ]);
   const sql = {
     run: (text: string, params: never[]) => {
@@ -116,9 +115,10 @@ function setup() {
     }),
   });
   const frames = (kind: string) =>
-    actions.filter((action) => action.topic === "coding_terminal").map((a) =>
-      a.data as Record<string, unknown>
-    ).filter((request) => request.kind === kind);
+    actions
+      .filter((action) => action.topic === "coding_terminal")
+      .map((a) => a.data as Record<string, unknown>)
+      .filter((request) => request.kind === kind);
   const start = (n: number) =>
     transport.start(tx, {
       call: call(n) as never,
@@ -135,8 +135,8 @@ function setup() {
     });
   const sessionOf = () =>
     String(
-      db.prepare("SELECT session FROM coding_sessions WHERE ended = 0")
-        .get()?.session,
+      db.prepare("SELECT session FROM coding_sessions WHERE ended = 0").get()
+        ?.session,
     );
   return {
     db,
@@ -147,9 +147,9 @@ function setup() {
     start,
     hook,
     revoked: () =>
-      actions.filter((action) => action.topic === "coding_revoke").map((a) =>
-        (a.data as { session: string }).session
-      ),
+      actions
+        .filter((action) => action.topic === "coding_revoke")
+        .map((a) => (a.data as { session: string }).session),
     delivered,
     sessionOf,
   };
@@ -186,14 +186,16 @@ test("coding session이 끝나면 맡긴 call은 `done`으로 한 번만 닫히�
   assert.deepStrictEqual(delivered[0]!.kind, "reaction");
   assert.deepStrictEqual(delivered[0]!.event, "CodingSessionEnded");
   assert.deepStrictEqual(delivered[0]!.body, CODING_REACTION_TEXTS.ended);
-  const plans = frames("open").map((request) =>
-    request.plan as { session: string; env: Record<string, string> }
+  const plans = frames("open").map(
+    (request) =>
+      request.plan as { session: string; env: Record<string, string> },
   );
   assert.deepStrictEqual(plans.length, 2);
   assert.ok(plans[1]!.session !== firstSession);
   assert.deepStrictEqual(transport.lines()[0]?.waiting.length, 0);
   assert.deepStrictEqual(
-    db.prepare("SELECT count(*) AS n FROM coding_sessions WHERE ended = 0")
+    db
+      .prepare("SELECT count(*) AS n FROM coding_sessions WHERE ended = 0")
       .get()?.n,
     1,
   );
@@ -224,10 +226,10 @@ test("메시지는 idle일 때만 넣고 알 수 없는 상태에서는 거절�
   assert.deepStrictEqual(frames("input").length, 1);
   // turn이 끝나면 대기열에서 하나만 나간다.
   assert.ok(hook("Stop").ok);
-  assert.deepStrictEqual(frames("input").map((request) => request.text), [
-    "one",
-    "two",
-  ]);
+  assert.deepStrictEqual(
+    frames("input").map((request) => request.text),
+    ["one", "two"],
+  );
 
   const result = applyTerminalResult(tx, memory, {
     request: frames("input")[1]!.request as string,
@@ -255,8 +257,9 @@ test("권한 물음이 열린 채 turn이 끝나면 물음을 닫고 대기열�
   assert.ok(queued.ok && queued.value.status === "queued");
   assert.deepStrictEqual(frames("input").length, 0);
   assert.ok(hook("Stop").ok);
-  assert.deepStrictEqual(frames("input").map((request) => request.text), [
-    "later",
-  ]);
+  assert.deepStrictEqual(
+    frames("input").map((request) => request.text),
+    ["later"],
+  );
   db.close();
 });

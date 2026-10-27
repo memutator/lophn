@@ -52,19 +52,25 @@ export function createPlaceRoleRules(
         }
         let at: Place | null = null;
         if (place !== undefined) {
-          const found = "project" in place
-            ? deps.projects.projectByName(place.project)
-            : deps.apps.appByName(place.app);
+          const found =
+            "project" in place
+              ? deps.projects.projectByName(place.project)
+              : deps.apps.appByName(place.app);
           if (found === null) return fail("not_found", "place not found");
-          at = "project" in place
-            ? { kind: "project", id: found.id }
-            : { kind: "app", id: found.id };
+          at =
+            "project" in place
+              ? { kind: "project", id: found.id }
+              : { kind: "app", id: found.id };
         }
-        const matches = deps.operators.operators().filter((operator) =>
-          operator.name === named.name &&
-          (at === null ||
-            (operator.place.kind === at.kind && operator.place.id === at.id))
-        );
+        const matches = deps.operators
+          .operators()
+          .filter(
+            (operator) =>
+              operator.name === named.name &&
+              (at === null ||
+                (operator.place.kind === at.kind &&
+                  operator.place.id === at.id)),
+          );
         if (matches.length === 0) {
           return fail("not_found", "operator not found");
         }

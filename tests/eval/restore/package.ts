@@ -24,9 +24,11 @@ export async function restorePackage(
   material: Material,
 ): Promise<Result<void>> {
   const { core, fake } = ctx;
-  const { app: appName, exports: _exports, ...spec } = JSON.parse(
-    textOf(material, "publish.json"),
-  ) as Publish;
+  const {
+    app: appName,
+    exports: _exports,
+    ...spec
+  } = JSON.parse(textOf(material, "publish.json")) as Publish;
   const app = ctx.world.apps[appName];
   if (app === undefined) {
     return err({
@@ -35,21 +37,26 @@ export async function restorePackage(
     });
   }
   fake.reset();
-  fake.script([
-    { reply: tool("t_publish", "package_publish", { app, ...spec }) },
-    { reply: { kind: "text", text: "published" } },
-  ], {
-    name: `pkg-${app}`,
-    match: (request: JournalEntry) =>
-      toolNames(request).includes("package_publish") &&
-      JSON.stringify(request.body).includes(`App ${app}:`),
-  });
+  fake.script(
+    [
+      { reply: tool("t_publish", "package_publish", { app, ...spec }) },
+      { reply: { kind: "text", text: "published" } },
+    ],
+    {
+      name: `pkg-${app}`,
+      match: (request: JournalEntry) =>
+        toolNames(request).includes("package_publish") &&
+        JSON.stringify(request.body).includes(`App ${app}:`),
+    },
+  );
   const ae = await openSession(core, { role: "app_engineer", app });
   await say(core, ae, `App ${app}: publish ${spec.name}`);
   const reason = () =>
-    fake.journal().map((entry) => lastToolResult(entry)).filter((text) =>
-      text !== undefined
-    ).at(-1) ?? "no tool result";
+    fake
+      .journal()
+      .map((entry) => lastToolResult(entry))
+      .filter((text) => text !== undefined)
+      .at(-1) ?? "no tool result";
   try {
     await waitTurnEnd(core, ae);
   } catch (error) {
@@ -67,8 +74,7 @@ export async function restorePackage(
   ) {
     return err({
       code: "unavailable",
-      message:
-        `package ${spec.name}@${spec.version} was not published: ${reason()}`,
+      message: `package ${spec.name}@${spec.version} was not published: ${reason()}`,
     });
   }
   return ok(undefined);

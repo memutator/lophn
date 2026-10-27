@@ -62,10 +62,12 @@ function encodeContinuation(value: ReadContinuation): string {
 export function decodeContinuation(value: string): ReadContinuation {
   const parsed = JSON.parse(value) as ReadContinuation;
   if (
-    !parsed || typeof parsed !== "object" ||
+    !parsed ||
+    typeof parsed !== "object" ||
     typeof parsed.cursor !== "string" ||
     !parsed.query
-  ) throw new Error("continuation is invalid");
+  )
+    throw new Error("continuation is invalid");
   return parsed;
 }
 

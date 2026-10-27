@@ -86,9 +86,9 @@ export function migrationOfSql(
 export function tablesWithoutPrimaryKey(
   tables: readonly { name: string; primary_key_columns: number }[],
 ): string[] {
-  return tables.filter((table) => table.primary_key_columns === 0).map((
-    table,
-  ) => table.name);
+  return tables
+    .filter((table) => table.primary_key_columns === 0)
+    .map((table) => table.name);
 }
 
 // 오류 code는 invalid_input이다.

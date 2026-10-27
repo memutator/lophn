@@ -90,8 +90,12 @@ export function checkDeclaration(deps: DeclarationCheckDeps): MemoryHandler {
         });
       }
       if (output.code !== 0) {
-        const reason = new TextDecoder().decode(output.stderr).trim()
-          .split("\n").find((line) => line.trim() !== "") ?? "failed";
+        const reason =
+          new TextDecoder()
+            .decode(output.stderr)
+            .trim()
+            .split("\n")
+            .find((line) => line.trim() !== "") ?? "failed";
         return failed(`lophn.ts could not be evaluated: ${reason}`);
       }
       let value: unknown;
@@ -109,8 +113,8 @@ export function checkDeclaration(deps: DeclarationCheckDeps): MemoryHandler {
       if (!checked.ok) return failed(checked.error.message);
       return ok({
         errors: [],
-        warnings: descriptionGaps(checked.value).map((gap) =>
-          `description is empty: ${gap}`
+        warnings: descriptionGaps(checked.value).map(
+          (gap) => `description is empty: ${gap}`,
         ),
         permission_review: checked.value.permissions,
       });

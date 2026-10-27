@@ -111,11 +111,13 @@ export function createMcpOAuth(options: {
 
   // token이 묶이는 조합이다.
   function bindingOf(server: McpOAuthServer): Record<string, string> {
-    return server.binding ?? {
-      issuer: server.issuer,
-      server_url: server.serverUrl,
-      client_id: server.clientId,
-    };
+    return (
+      server.binding ?? {
+        issuer: server.issuer,
+        server_url: server.serverUrl,
+        client_id: server.clientId,
+      }
+    );
   }
 
   // 보관한 grant가 지금 설정의 묶음(MCP는 발급자·URL·client)과 키·값 모두 같은지 본다.
@@ -123,8 +125,10 @@ export function createMcpOAuth(options: {
     const want = bindingOf(server);
     const have = grant.binding;
     const keys = Object.keys(want);
-    return keys.length === Object.keys(have).length &&
-      keys.every((name) => have[name] === want[name]);
+    return (
+      keys.length === Object.keys(have).length &&
+      keys.every((name) => have[name] === want[name])
+    );
   }
 
   async function discard(
@@ -152,8 +156,8 @@ export function createMcpOAuth(options: {
       return ok(undefined);
     }
     // 일시 오류로 sign-in을 잃지 않으려면 아직 만료 전인 token은 그대로 쓴다.
-    const stillValid = options.keepValidOnUnavailable === true &&
-      expiresAt > options.nowMs();
+    const stillValid =
+      options.keepValidOnUnavailable === true && expiresAt > options.nowMs();
     if (grant.refresh_token === null) {
       if (stillValid) return ok(undefined);
       await discard(key, "expired");
@@ -185,9 +189,10 @@ export function createMcpOAuth(options: {
       ...grant,
       access_token: refreshed.value.access_token,
       refresh_token: refreshed.value.refresh_token ?? grant.refresh_token,
-      expires_at_ms: refreshed.value.expires_in === null
-        ? null
-        : options.nowMs() + refreshed.value.expires_in * 1000,
+      expires_at_ms:
+        refreshed.value.expires_in === null
+          ? null
+          : options.nowMs() + refreshed.value.expires_in * 1000,
     });
     if (!saved.ok) return saved;
     return ok(undefined);
@@ -205,14 +210,17 @@ export function createMcpOAuth(options: {
         let protocol: string | null = null;
         try {
           protocol = new URL(endpoints.authorization).protocol;
-        } catch { /* 아래에서 URL이 아닌 것으로 거절한다 */ }
+        } catch {
+          /* 아래에서 URL이 아닌 것으로 거절한다 */
+        }
         if (protocol !== "https:") {
           await input.listener.close();
           return err({
             code: "invalid_input",
-            message: protocol === null
-              ? "authorization endpoint가 URL이 아니다"
-              : "authorization endpoint는 https다",
+            message:
+              protocol === null
+                ? "authorization endpoint가 URL이 아니다"
+                : "authorization endpoint는 https다",
           });
         }
       }
@@ -287,7 +295,8 @@ export function createMcpOAuth(options: {
       }
       const expiresAt = grant.expires_at_ms;
       if (
-        expiresAt !== null && expiresAt <= options.nowMs() &&
+        expiresAt !== null &&
+        expiresAt <= options.nowMs() &&
         grant.refresh_token === null
       ) {
         return { state: "failed", reason: "expired" };
@@ -298,10 +307,9 @@ export function createMcpOAuth(options: {
     async access(server) {
       const id = mcpAuthKeyId(server.key);
       // 같은 서버에 같은 설정으로 동시에 온 요청은 한 번의 확인·갱신을 같이 기다린다.
-      const flightId =
-        `${id}\0${server.issuer}\0${server.serverUrl}\0${server.clientId}\0${
-          JSON.stringify(server.binding ?? null)
-        }`;
+      const flightId = `${id}\0${server.issuer}\0${server.serverUrl}\0${server.clientId}\0${JSON.stringify(
+        server.binding ?? null,
+      )}`;
       let flight = flights.get(flightId);
       if (flight === undefined) {
         flight = ensureFresh(server).finally(() => {

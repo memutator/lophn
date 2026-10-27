@@ -83,12 +83,14 @@ export const OPTIONS_FAILED: readonly DeskOption[] = [DESK_MAIN, DESK_TRIAGE];
 export const LAYOUTS: Readonly<Record<string, WorkspaceView>> = {
   [DEFAULT_KEY]: view(
     [doc("docs/notes.md"), doc("LOPHN.md")],
-    [float(doc("loop/findings/F-009.md"), {
-      x: 120,
-      y: 60,
-      width: 520,
-      height: 320,
-    })],
+    [
+      float(doc("loop/findings/F-009.md"), {
+        x: 120,
+        y: 60,
+        width: 520,
+        height: 320,
+      }),
+    ],
   ),
   "release-notes": view(
     [

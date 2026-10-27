@@ -35,9 +35,7 @@ function readRandom(random: RandomSource): bigint {
 function increment(random: bigint): bigint {
   const next = random + 1n;
   if (next >> (5n * BigInt(RANDOM_CHARS)) !== 0n) {
-    throw new Error(
-      "ULID random part overflowed within the same millisecond",
-    );
+    throw new Error("ULID random part overflowed within the same millisecond");
   }
   return next;
 }
@@ -55,13 +53,12 @@ export function createIdSource(deps: {
       }
       const ms = deps.clock.nowMs();
       // 시계가 같은 밀리초로 돌아오면 앞서 낸 random을 다시 쓰면 안 된다.
-      const random = ms > lastMs
-        ? readRandom(deps.random)
-        : increment(lastRandom);
+      const random =
+        ms > lastMs ? readRandom(deps.random) : increment(lastRandom);
       lastMs = ms;
       lastRandom = random;
-      const ulid = encode(BigInt(ms), TIME_CHARS) +
-        encode(random, RANDOM_CHARS);
+      const ulid =
+        encode(BigInt(ms), TIME_CHARS) + encode(random, RANDOM_CHARS);
       return `${prefix}_${ulid}`;
     },
   };

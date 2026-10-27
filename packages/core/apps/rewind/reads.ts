@@ -23,8 +23,8 @@ function inScope(
   return access.ok
     ? access
     : appAccessDenied(access)
-    ? err({ code: "not_found", message: "app not found" })
-    : access;
+      ? err({ code: "not_found", message: "app not found" })
+      : access;
 }
 
 export function createRewindReads(deps: { rewind: AppRewind }): {
@@ -73,9 +73,8 @@ export function createRewindReads(deps: { rewind: AppRewind }): {
         return ok({
           rewinds: page,
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: rewinds.value.length > limit
-            ? page[page.length - 1].id
-            : null,
+          next_cursor:
+            rewinds.value.length > limit ? page[page.length - 1].id : null,
         });
       },
     },

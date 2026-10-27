@@ -7,10 +7,12 @@ export const REPORTING_LIMITS = {
   automatic_body_bytes: 262_144,
 } as const;
 export const REPORT_RETRY_DELAYS_MS = [250, 1_000, 3_000] as const;
-export type ReportTransportError = LophnError | {
-  code: "response_lost";
-  message: string;
-};
+export type ReportTransportError =
+  | LophnError
+  | {
+      code: "response_lost";
+      message: string;
+    };
 export function isRetryableReportError(error: ReportTransportError): boolean {
   return error.code === "unavailable" || error.code === "response_lost";
 }

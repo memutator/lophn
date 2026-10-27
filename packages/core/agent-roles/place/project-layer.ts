@@ -27,7 +27,8 @@ export const PROJECT_LAYER: ProjectLayer = {
     folderArea: (root) => `${root}/${DOMAINS_AREA}`,
     domainIdOfFolder,
   },
-  projectOf: (place: AgentPlace) => place.kind === "project" ? place.id : null,
+  projectOf: (place: AgentPlace) =>
+    place.kind === "project" ? place.id : null,
   extensionsFile: (root, project) =>
     `${folderOf(root, project)}/${EXTENSIONS_FILE}`,
   settingsFolderArea: projectsDataArea,

@@ -29,11 +29,13 @@ const VERSION_RESULTS = ["verified", "unknown", "error"] as const;
 const versionResultSchema = z.enum(VERSION_RESULTS);
 
 const pairedReason = <T extends z.ZodRawShape>(fields: T) =>
-  z.object(fields).refine(
-    (value: Record<string, unknown>) =>
-      (value.value !== null) === (value.reason === null),
-    { message: "value and reason must pair" },
-  );
+  z
+    .object(fields)
+    .refine(
+      (value: Record<string, unknown>) =>
+        (value.value !== null) === (value.reason === null),
+      { message: "value and reason must pair" },
+    );
 
 const harnessVersionSchema = pairedReason({
   result: versionResultSchema,
@@ -52,23 +54,25 @@ const harnessProbeResultSchema = z.object({
 
 export type HarnessProbeResult = z.infer<typeof harnessProbeResultSchema>;
 
-export const harnessDetectionSchema = z.object({
-  harness_id: harnessIdSchema,
-  observed_at: atSchema,
-  discovery: discoveryResultSchema,
-  candidates: z.array(harnessCandidateSchema),
-  selected_executable: z.string().min(1).nullable(),
-  version: harnessVersionSchema,
-  probe_results: z.array(harnessProbeResultSchema),
-}).refine(
-  (value) =>
-    (value.discovery === "detected") ===
-      (value.selected_executable !== null),
-  { message: "selected executable follows discovery" },
-).refine(
-  (value) =>
-    value.version.result !== "verified" || value.version.value !== null,
-  { message: "verified version needs a value" },
-);
+export const harnessDetectionSchema = z
+  .object({
+    harness_id: harnessIdSchema,
+    observed_at: atSchema,
+    discovery: discoveryResultSchema,
+    candidates: z.array(harnessCandidateSchema),
+    selected_executable: z.string().min(1).nullable(),
+    version: harnessVersionSchema,
+    probe_results: z.array(harnessProbeResultSchema),
+  })
+  .refine(
+    (value) =>
+      (value.discovery === "detected") === (value.selected_executable !== null),
+    { message: "selected executable follows discovery" },
+  )
+  .refine(
+    (value) =>
+      value.version.result !== "verified" || value.version.value !== null,
+    { message: "verified version needs a value" },
+  );
 
 export type HarnessDetection = z.infer<typeof harnessDetectionSchema>;

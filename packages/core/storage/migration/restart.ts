@@ -85,9 +85,8 @@ function readRestartTrace(
         message: "event seq를 읽지 못했다",
       });
     }
-    const headSeq = raw === undefined || typeof raw !== "bigint"
-      ? "0"
-      : formatSeq(raw);
+    const headSeq =
+      raw === undefined || typeof raw !== "bigint" ? "0" : formatSeq(raw);
     // 소유 concern의 복구 command(invocation·release activation·turn)가
     // 아직 없어 어느 대상도 실제 관측으로 확정하지 못한다. 대상별
     // 관측 대신 기동 흔적 하나를 unknown으로 남긴다. reason은 안전한
@@ -100,13 +99,16 @@ function readRestartTrace(
       });
     }
     return ok({
-      observations: [{
-        target: "ledger-head",
-        baseSeq: headSeq,
-        outcome: "unknown",
-        evidence: [`events:${headSeq} at ${at}`],
-        reason,
-      }, ...owners.flatMap((owner) => owner(connection.sql, at))],
+      observations: [
+        {
+          target: "ledger-head",
+          baseSeq: headSeq,
+          outcome: "unknown",
+          evidence: [`events:${headSeq} at ${at}`],
+          reason,
+        },
+        ...owners.flatMap((owner) => owner(connection.sql, at)),
+      ],
     });
   } finally {
     connection.close();
@@ -117,7 +119,8 @@ function readRestartTrace(
 // 위치가 없다는 뜻이다. 값은 unknown과 근거로 남기고 기동을 거절하지 않는다.
 // 읽기 실패가 not_started의 근거가 아니다(응답 부재로 미실행 추정 불가).
 function sqlGet(
-  connection: ReturnType<typeof openConnection> extends Result<infer T> ? T
+  connection: ReturnType<typeof openConnection> extends Result<infer T>
+    ? T
     : never,
   query: string,
 ): Record<string, unknown> | undefined {

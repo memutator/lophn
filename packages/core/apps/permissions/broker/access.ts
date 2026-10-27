@@ -80,14 +80,16 @@ export function netGranted(
   host: string,
   port: number,
 ): boolean {
-  return state.scope.access.some((entry) =>
-    entry.kind === "net.fetch" && entry.scope.host === host &&
-    entry.scope.port === port
+  return state.scope.access.some(
+    (entry) =>
+      entry.kind === "net.fetch" &&
+      entry.scope.host === host &&
+      entry.scope.port === port,
   );
 }
 
 export function secretGranted(state: AccessState, name: string): boolean {
-  return state.scope.access.some((entry) =>
-    entry.kind === "secret.use" && entry.scope.name === name
+  return state.scope.access.some(
+    (entry) => entry.kind === "secret.use" && entry.scope.name === name,
   );
 }

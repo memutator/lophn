@@ -15,12 +15,16 @@ import {
 const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",
 });
-const positiveIntegerSchema = z.number().int().positive().max(
-  Number.MAX_SAFE_INTEGER,
-);
-const nonnegativeIntegerSchema = z.number().int().nonnegative().max(
-  Number.MAX_SAFE_INTEGER,
-);
+const positiveIntegerSchema = z
+  .number()
+  .int()
+  .positive()
+  .max(Number.MAX_SAFE_INTEGER);
+const nonnegativeIntegerSchema = z
+  .number()
+  .int()
+  .nonnegative()
+  .max(Number.MAX_SAFE_INTEGER);
 const httpStatusSchema = z.number().int().min(100).max(599);
 
 const MODEL_USE_KINDS = ["judgment", "organizing"] as const;
@@ -69,7 +73,10 @@ export type TokenUsage = z.infer<typeof tokenUsageSchema>;
 const costFields = {
   kind: z.enum(COST_KINDS),
   amount: nonnegativeDecimalSchema.nullable(),
-  currency: z.string().regex(/^[A-Z]{3}$/).nullable(),
+  currency: z
+    .string()
+    .regex(/^[A-Z]{3}$/)
+    .nullable(),
   basis: jsonObjectSchema.nullable(),
   confirmed_at: atSchema.nullable(),
 };
@@ -80,7 +87,9 @@ function costShape(value: {
   currency: string | null;
   basis: unknown;
 }): boolean {
-  const priced = value.kind === "reported" || value.kind === "estimated" ||
+  const priced =
+    value.kind === "reported" ||
+    value.kind === "estimated" ||
     value.kind === "free";
   const amount = priced ? value.amount !== null : value.amount === null;
   const currency = (value.amount !== null) === (value.currency !== null);
@@ -116,18 +125,20 @@ function outcomeShape(value: {
   code: string | null;
   retry_at: string | null;
 }): boolean {
-  return (value.kind === "failed") === (value.code !== null) &&
-    (value.retry_at === null || value.code === "temporary");
+  return (
+    (value.kind === "failed") === (value.code !== null) &&
+    (value.retry_at === null || value.code === "temporary")
+  );
 }
 
-export const modelOutcomeSchema = z.strictObject(outcomeFields).refine(
-  outcomeShape,
-  { message: "model outcome and failure code do not agree" },
-);
-const modelOutcomeOutputSchema = z.object(outcomeFields).refine(
-  outcomeShape,
-  { message: "model outcome and failure code do not agree" },
-);
+export const modelOutcomeSchema = z
+  .strictObject(outcomeFields)
+  .refine(outcomeShape, {
+    message: "model outcome and failure code do not agree",
+  });
+const modelOutcomeOutputSchema = z.object(outcomeFields).refine(outcomeShape, {
+  message: "model outcome and failure code do not agree",
+});
 export type ModelOutcome = z.infer<typeof modelOutcomeSchema>;
 
 const limitFields = {
@@ -208,27 +219,37 @@ function modelCallShape(value: {
   finished_at: string | null;
   outcome: { kind: (typeof MODEL_OUTCOMES)[number] } | null;
 }): boolean {
-  const attached = value.turn !== null && value.session !== null &&
-    value.model_use !== null && value.agent_hash !== null;
+  const attached =
+    value.turn !== null &&
+    value.session !== null &&
+    value.model_use !== null &&
+    value.agent_hash !== null;
   // Compact의 요약 call은 turn과 agent 대신 session을 가리킨다. turn이 없는 session도 요약한다.
-  const summary = value.turn === null && value.session !== null &&
-    value.model_use === "organizing" && value.agent_hash === null &&
+  const summary =
+    value.turn === null &&
+    value.session !== null &&
+    value.model_use === "organizing" &&
+    value.agent_hash === null &&
     value.purpose === "conversation_compression";
   const finished = value.state === "finished";
-  return (attached || summary) &&
+  return (
+    (attached || summary) &&
     (value.attempt_kind === "retry") === (value.retry_of !== null) &&
     finished === (value.finished_at !== null && value.outcome !== null) &&
     (value.output === null || finished) &&
-    (value.outcome?.kind === "partial" ? value.output !== null : true);
+    (value.outcome?.kind === "partial" ? value.output !== null : true)
+  );
 }
 
-export const modelCallRecordSchema = z.object({
-  ...modelCallFields,
-  model: callModelOutputSchema,
-  outcome: modelOutcomeOutputSchema.nullable(),
-  usage: tokenUsageOutputSchema,
-  cost: callCostOutputSchema,
-}).refine(modelCallShape, {
-  message: "model call purpose, attempt and outcome do not agree",
-});
+export const modelCallRecordSchema = z
+  .object({
+    ...modelCallFields,
+    model: callModelOutputSchema,
+    outcome: modelOutcomeOutputSchema.nullable(),
+    usage: tokenUsageOutputSchema,
+    cost: callCostOutputSchema,
+  })
+  .refine(modelCallShape, {
+    message: "model call purpose, attempt and outcome do not agree",
+  });
 export type ModelCallRecord = z.infer<typeof modelCallRecordSchema>;

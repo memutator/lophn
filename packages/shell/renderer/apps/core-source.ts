@@ -51,9 +51,10 @@ export function coreAppsSource(core: CoreSource): AppsSource {
       const rows: AppRow[] = [];
       let cursor: string | undefined;
       for (let page = 0; page < PAGE_LIMIT; page += 1) {
-        const result: SourceResult<
-          { apps: AppValue[]; next_cursor: string | null }
-        > = await call(core, "read", "list", cursor ? { cursor } : {});
+        const result: SourceResult<{
+          apps: AppValue[];
+          next_cursor: string | null;
+        }> = await call(core, "read", "list", cursor ? { cursor } : {});
         if (!result.ok) return result;
         rows.push(...result.value.apps.map(rowOf));
         if (result.value.next_cursor === null) break;
@@ -128,9 +129,10 @@ export function coreAppsSource(core: CoreSource): AppsSource {
         screens: { key: string; sizes: string[] }[];
       }>(core, "read", "tools", { app, release });
       if (!result.ok) return result;
-      const full = result.value.release === release
-        ? result.value.screens.find((screen) => screen.sizes.includes("full"))
-        : undefined;
+      const full =
+        result.value.release === release
+          ? result.value.screens.find((screen) => screen.sizes.includes("full"))
+          : undefined;
       return full === undefined
         ? { ok: false, code: "unavailable" }
         : { ok: true, value: full.key };

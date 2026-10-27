@@ -42,10 +42,12 @@ function conflict(message: string): Result<never> {
 
 // Connect와 Disconnect는 사람만 결정한다.
 function requireUser(ctx: RequestContext): Result<void> {
-  return parseActor(ctx.actor)?.kind === "user" ? ok(undefined) : err({
-    code: "forbidden",
-    message: "provider connections are user only",
-  });
+  return parseActor(ctx.actor)?.kind === "user"
+    ? ok(undefined)
+    : err({
+        code: "forbidden",
+        message: "provider connections are user only",
+      });
 }
 
 function requireProvider(tx: Tx, id: string): Result<ProviderRecord> {
@@ -200,10 +202,9 @@ export function createProviderCommands(): {
         if (!person.ok) return person;
         const definition = assertDefinition(input.definition);
         if (!definition.ok) return definition;
-        const existing = tx.sql.get(
-          "select id from providers where id = ?",
-          [input.id],
-        );
+        const existing = tx.sql.get("select id from providers where id = ?", [
+          input.id,
+        ]);
         if (existing !== undefined) {
           return conflict("provider id already exists");
         }
@@ -219,9 +220,10 @@ export function createProviderCommands(): {
         }
         const credential = assertCredential({
           kind: input.auth_kind,
-          secret_ref: input.credential === null
-            ? null
-            : { name: input.credential.secret },
+          secret_ref:
+            input.credential === null
+              ? null
+              : { name: input.credential.secret },
           revision: 1,
           state: "available",
           unavailable_reason: null,
@@ -346,12 +348,7 @@ export function createProviderCommands(): {
     // 쓰이고(credential_revision) 목록을 읽는 일이 호출 기록의 판을 흔들면 안 된다.
     recordModels: {
       route: recordProviderModels,
-      handle(
-        tx,
-        _ctx,
-        input: Input<typeof recordProviderModels>,
-        compare,
-      ) {
+      handle(tx, _ctx, input: Input<typeof recordProviderModels>, compare) {
         const current = requireProvider(tx, input.provider);
         if (!current.ok) return current;
         const same = checkRevision(current.value, compare);
@@ -396,12 +393,15 @@ export function createProviderCommands(): {
         const state = nextCredentialState(existing.state, input.state);
         if (!state.ok) return state;
         // model 전용 제한은 그 model 하나의 block만 바꾸고 다른 model의 상태는 건드리지 않는다.
-        const blocks = input.model_block === null ? existing.model_blocks : [
-          ...existing.model_blocks.filter((block) =>
-            block.model_name !== input.model_block!.model_name
-          ),
-          input.model_block,
-        ];
+        const blocks =
+          input.model_block === null
+            ? existing.model_blocks
+            : [
+                ...existing.model_blocks.filter(
+                  (block) => block.model_name !== input.model_block!.model_name,
+                ),
+                input.model_block,
+              ];
         const checked = assertCredential({
           ...existing,
           state: state.value,

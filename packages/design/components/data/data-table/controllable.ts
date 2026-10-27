@@ -8,9 +8,12 @@ export function useControllable<T>(
 ): [T, (next: T) => void] {
   const [own, setOwn] = useState(initial);
   const controlled = value !== undefined;
-  const set = useCallback((next: T) => {
-    if (!controlled) setOwn(next);
-    onChange?.(next);
-  }, [controlled, onChange]);
+  const set = useCallback(
+    (next: T) => {
+      if (!controlled) setOwn(next);
+      onChange?.(next);
+    },
+    [controlled, onChange],
+  );
   return [controlled ? value : own, set];
 }

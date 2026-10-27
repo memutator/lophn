@@ -82,10 +82,14 @@ type RewindAppPorts = {
   writes: AppWrites;
   // 그 앱을 `from` invocation 직전으로 되돌리라고 요청한다. 앱 쪽 순서(drain, 충돌 시 통째로 취소)를 따라
   // 끝나기까지 오래 걸릴 수 있다.
-  requestRewind(app: string, from: string): Promise<
-    Result<
-      { status: "applying" | "applied" | "cancelled"; reason: string | null }
-    >
+  requestRewind(
+    app: string,
+    from: string,
+  ): Promise<
+    Result<{
+      status: "applying" | "applied" | "cancelled";
+      reason: string | null;
+    }>
   >;
 };
 
@@ -132,7 +136,8 @@ async function amendInstalled(
   revert: string,
   installed: readonly { path: string; result: "restored" | "skipped" }[],
 ): Promise<Result<void>> {
-  const paths = installed.filter((file) => file.result === "skipped")
+  const paths = installed
+    .filter((file) => file.result === "skipped")
     .map((file) => file.path);
   if (paths.length === 0) return ok(undefined);
   const amended = await amendInstall(
@@ -151,7 +156,7 @@ async function observeAll(
 ): Promise<Map<string, FileStat>> {
   const byRoot = new Map<string, string[]>();
   for (const file of files) {
-    byRoot.set(file.root, [...byRoot.get(file.root) ?? [], file.path]);
+    byRoot.set(file.root, [...(byRoot.get(file.root) ?? []), file.path]);
   }
   const seen = new Map<string, FileStat>();
   for (const [root, paths] of byRoot) {
@@ -177,14 +182,14 @@ async function prepareRewind(
   const seen = deps.snapshot((lookup) =>
     !assertCheckpointVisible(lookup, target.session, target.checkpoint).ok
       ? null
-      : observationOf(lookup, target)
+      : observationOf(lookup, target),
   );
   if (!seen.ok) return seen;
   if (seen.value === null || !seen.value.ok) return ok(null);
   try {
     const observed = await observeAll(seen.value.value);
     const planned = deps.snapshot((lookup) =>
-      planRewind(lookup, {}, target, { observed })
+      planRewind(lookup, {}, target, { observed }),
     );
     if (!planned.ok) return planned;
     if (!planned.value.ok) return ok(null);
@@ -219,35 +224,38 @@ export async function requestApps(
   const boundary = deps.snapshot((lookup) =>
     lookup.sql.get("select created_seq from messages where id = ?", [
       input.checkpoint,
-    ])
+    ]),
   );
   if (!boundary.ok || boundary.value === undefined) return;
   const writes = deps.apps.writes.writesAfter(
     input.session as never,
     String(boundary.value["created_seq"]) as never,
   );
-  const results = await Promise.all(input.apps.map(async (app) => {
-    // invocation id는 시간 순서다.
-    const first = [
-      ...(writes.find((entry) => entry.app === app)?.invocations ?? []),
-    ].sort()[0];
-    if (first === undefined) return undefined;
-    const asked = await deps.apps.requestRewind(app, first)
-      .catch((): Result<never> => unavailable("app rewind is not available"));
-    const request: RewindAppRequest = {
-      app: app as never,
-      from_invocation: first as never,
-      result: "rejected",
-      reason: null,
-    };
-    if (!asked.ok) return { ...request, reason: asked.error.code };
-    const { status, reason } = asked.value;
-    return status === "applied"
-      ? { ...request, result: "applied" as const }
-      : status === "applying"
-      ? { ...request, result: "accepted" as const }
-      : { ...request, reason: reason ?? "cancelled" };
-  }));
+  const results = await Promise.all(
+    input.apps.map(async (app) => {
+      // invocation id는 시간 순서다.
+      const first = [
+        ...(writes.find((entry) => entry.app === app)?.invocations ?? []),
+      ].sort()[0];
+      if (first === undefined) return undefined;
+      const asked = await deps.apps
+        .requestRewind(app, first)
+        .catch((): Result<never> => unavailable("app rewind is not available"));
+      const request: RewindAppRequest = {
+        app: app as never,
+        from_invocation: first as never,
+        result: "rejected",
+        reason: null,
+      };
+      if (!asked.ok) return { ...request, reason: asked.error.code };
+      const { status, reason } = asked.value;
+      return status === "applied"
+        ? { ...request, result: "applied" as const }
+        : status === "applying"
+          ? { ...request, result: "accepted" as const }
+          : { ...request, reason: reason ?? "cancelled" };
+    }),
+  );
   const asked = results.filter((result) => result !== undefined);
   if (asked.length === 0) return;
   await writer.command(REWIND_MACHINE_CONTEXT, {
@@ -259,10 +267,7 @@ export async function requestApps(
   });
 }
 
-export function withRewindFiles(
-  writer: Writer,
-  deps: RewindFilesDeps,
-): Writer {
+export function withRewindFiles(writer: Writer, deps: RewindFilesDeps): Writer {
   const remembered = new Map<string, unknown>();
   const remember = (key: string, input: unknown): void => {
     remembered.set(key, input);
@@ -291,9 +296,12 @@ export function withRewindFiles(
     const parsed = sessionRewind.input.safeParse(envelope.input);
     const key = keyOf(ctx, envelope);
     if (
-      !parsed.success || parsed.data.choice !== "restore_all" ||
-      parsed.data.files.length > 0 || remembered.has(key)
-    ) return await send(ctx, envelope, envelope.input);
+      !parsed.success ||
+      parsed.data.choice !== "restore_all" ||
+      parsed.data.files.length > 0 ||
+      remembered.has(key)
+    )
+      return await send(ctx, envelope, envelope.input);
     const input = parsed.data;
     const prepared = await prepareRewind(deps, {
       session: input.session,
@@ -366,7 +374,8 @@ export function withRewindFiles(
       if (
         parseActor(ctx.actor)?.kind === "user" &&
         envelope.command === sessionRewind.name
-      ) return rewind(ctx, envelope);
+      )
+        return rewind(ctx, envelope);
       return writer.command(ctx, envelope);
     },
   };

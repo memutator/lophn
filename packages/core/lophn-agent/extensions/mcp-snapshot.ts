@@ -95,7 +95,7 @@ export async function mcpServerSnapshot(
 ): Promise<Result<McpRuntimeServer[]>> {
   const registered = await registeredMcpServers(ledgerPath, deps);
   if (!registered.ok) return registered;
-  const operators = await deps.operators?.() ?? ok([]);
+  const operators = (await deps.operators?.()) ?? ok([]);
   if (!operators.ok) return operators;
   return ok([
     ...registered.value.map((entry) => entry.server),

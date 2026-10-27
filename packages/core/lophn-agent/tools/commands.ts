@@ -54,17 +54,18 @@ function notFound(): Result<never> {
 }
 
 function requireMachine(ctx: RequestContext): Result<void> {
-  return parseActor(ctx.actor)?.kind === "machine" ? ok(undefined) : err({
-    code: "forbidden",
-    message: "tool call records are machine only",
-  });
+  return parseActor(ctx.actor)?.kind === "machine"
+    ? ok(undefined)
+    : err({
+        code: "forbidden",
+        message: "tool call records are machine only",
+      });
 }
 
 function loadCall(tx: Tx, id: string): Result<CallRow> {
-  const row = tx.sql.get(
-    `select ${callColumns} from tool_calls where id = ?`,
-    [id],
-  );
+  const row = tx.sql.get(`select ${callColumns} from tool_calls where id = ?`, [
+    id,
+  ]);
   if (row === undefined) return notFound();
   return ok(row as CallRow);
 }

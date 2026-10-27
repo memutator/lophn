@@ -27,17 +27,15 @@ interface SecretInputProps {
  * secret 값을 받는 작은 창의 내용. 값은 이 칸에서 main으로 한 번 가고 화면 상태에 남기지 않는다
  * (보내기 전에 칸을 비운다). 저장되면 main이 창을 닫는다.
  */
-export function SecretInput(
-  {
-    purpose,
-    subject,
-    name,
-    configured,
-    initialValue = "",
-    onSubmit,
-    onCancel,
-  }: SecretInputProps,
-) {
+export function SecretInput({
+  purpose,
+  subject,
+  name,
+  configured,
+  initialValue = "",
+  onSubmit,
+  onCancel,
+}: SecretInputProps) {
   const [value, setValue] = useState(initialValue);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<"invalid" | "unavailable" | null>(null);

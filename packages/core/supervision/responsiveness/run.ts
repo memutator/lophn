@@ -63,7 +63,10 @@ export async function runOnce(slot: Slot, deps: RunDeps): Promise<Outcome> {
   }
   const attempt = openAttempt(slot, process, deps);
   const frames = readFrames(process.stdout);
-  const exitedCode = process.exited.then((code) => code, () => null);
+  const exitedCode = process.exited.then(
+    (code) => code,
+    () => null,
+  );
   const readyTimer = armTimer(deps.readyMs);
   let outcome: Outcome = "failed";
   try {
@@ -162,7 +165,7 @@ function openAttempt(slot: Slot, process: Spawned, deps: RunDeps) {
     live: true,
     closed: false,
     teardown: () =>
-      tearing ??= (async () => {
+      (tearing ??= (async () => {
         attempt.live = false;
         // 이 child에게 보낸 요청은 이제 답이 오지 않는다. 종료 확인을 기다리지 않고 알린다.
         safeCall(() => slot.callbacks.onEnd?.());
@@ -172,15 +175,15 @@ function openAttempt(slot: Slot, process: Spawned, deps: RunDeps) {
           false,
         );
         // 막힌 stdin close는 기다리지 않는다. group이 끝났으면 OS가 닫는다.
-        void Promise.resolve().then(() => process.stdin.close()).catch(
-          () => {},
-        );
+        void Promise.resolve()
+          .then(() => process.stdin.close())
+          .catch(() => {});
         await settledWithin(stderrDone, DRAIN_MS);
         safeCall(() => process.stdout.cancel());
         safeCall(() => process.stderr.cancel());
         attempt.closed = true;
         return reaped === true;
-      })(),
+      })()),
   };
   slot.attempt = attempt;
   const stderrDone = drainStderr(process, slot, attempt);

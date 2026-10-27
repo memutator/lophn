@@ -28,15 +28,19 @@ interface AppBarProps {
   agentSelect?: ReactNode;
 }
 
-function BarButton(
-  { icon, label, pressed, onClick, data }: {
-    icon: (typeof appSpaceIcons)[keyof typeof appSpaceIcons];
-    label: string;
-    pressed?: boolean;
-    onClick: () => void;
-    data: string;
-  },
-) {
+function BarButton({
+  icon,
+  label,
+  pressed,
+  onClick,
+  data,
+}: {
+  icon: (typeof appSpaceIcons)[keyof typeof appSpaceIcons];
+  label: string;
+  pressed?: boolean;
+  onClick: () => void;
+  data: string;
+}) {
   return (
     <Tooltip content={label}>
       <IconButton
@@ -50,35 +54,33 @@ function BarButton(
   );
 }
 
-export function AppBar(
-  {
-    name,
-    status,
-    onLauncher,
-    detailsOpen,
-    onDetails,
-    annotate,
-    decisions,
-    agentSelect,
-  }: AppBarProps,
-) {
+export function AppBar({
+  name,
+  status,
+  onLauncher,
+  detailsOpen,
+  onDetails,
+  annotate,
+  decisions,
+  agentSelect,
+}: AppBarProps) {
   const marking = annotate !== undefined;
   return (
     <TopBar
       leading={
         <span className={styles.leading}>
           <LauncherButton onLauncher={onLauncher} />
-          <span className={styles.name} data-app-name="">{name ?? ""}</span>
-          {status
-            ? (
-              <span data-app-status={status}>
-                <StatusMark
-                  tone={statusTone(status)}
-                  label={statusLabel(status)}
-                />
-              </span>
-            )
-            : null}
+          <span className={styles.name} data-app-name="">
+            {name ?? ""}
+          </span>
+          {status ? (
+            <span data-app-status={status}>
+              <StatusMark
+                tone={statusTone(status)}
+                label={statusLabel(status)}
+              />
+            </span>
+          ) : null}
         </span>
       }
       trailing={

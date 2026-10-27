@@ -38,12 +38,15 @@ const MARGIN = 16;
 
 // 오른쪽 아래 구석. 창이 작으면 clampFloatRect가 가둔다.
 function initialRect(area: FloatArea): FloatRect {
-  return clampFloatRect({
-    x: area.width - WIDTH - MARGIN,
-    y: area.height - HEIGHT - MARGIN,
-    width: WIDTH,
-    height: HEIGHT,
-  }, area);
+  return clampFloatRect(
+    {
+      x: area.width - WIDTH - MARGIN,
+      y: area.height - HEIGHT - MARGIN,
+      width: WIDTH,
+      height: HEIGHT,
+    },
+    area,
+  );
 }
 
 interface LophnPanelProps {
@@ -59,9 +62,13 @@ interface LophnPanelProps {
 
 // 런처 위에 뜨는 lophn 대화. 안은 탭과 같은 AgentView이고 이 틀만 다르다. 틀은 design FloatPanel이고 위치·크기는
 // 이 창이 쥔 메모리다(저장하지 않는다).
-export function LophnPanel(
-  { factory, session, onSession, onClose, onSettings }: LophnPanelProps,
-): ReactElement {
+export function LophnPanel({
+  factory,
+  session,
+  onSession,
+  onClose,
+  onSettings,
+}: LophnPanelProps): ReactElement {
   const hostRef = useRef<HTMLDivElement>(null);
   const [area, setArea] = useState<FloatArea | null>(null);
   const [saved, setSaved] = useState<FloatRect | null>(null);
@@ -74,9 +81,9 @@ export function LophnPanel(
     const measure = () =>
       setArea((current) =>
         current?.width === element.clientWidth &&
-          current.height === element.clientHeight
+        current.height === element.clientHeight
           ? current
-          : { width: element.clientWidth, height: element.clientHeight }
+          : { width: element.clientWidth, height: element.clientHeight },
       );
     measure();
     const observer = new ResizeObserver(measure);
@@ -129,49 +136,46 @@ export function LophnPanel(
   const close = t("common.button.close");
   return (
     <div ref={hostRef} className={styles.host} data-lophn-panel-host="">
-      {rect !== null && area !== null && base !== null
-        ? (
-          <FloatPanel
-            title={t("launcher.title.lophn-panel")}
-            icon={
-              <Icon
-                icon={conversationIcons.dock}
-                pixels={iconPixels("small")}
+      {rect !== null && area !== null && base !== null ? (
+        <FloatPanel
+          title={t("launcher.title.lophn-panel")}
+          icon={
+            <Icon icon={conversationIcons.dock} pixels={iconPixels("small")} />
+          }
+          x={rect.x}
+          y={rect.y}
+          width={rect.width}
+          height={rect.height}
+          active
+          onMoveStart={(event) =>
+            drag(event, (dx, dy) => movedRect(base, dx, dy, area))
+          }
+          onResizeStart={(edge: FloatEdge, event) =>
+            drag(event, (dx, dy) => resizedRect(base, edge, dx, dy, area))
+          }
+          actions={
+            <Tooltip content={close}>
+              <IconButton
+                icon={workspaceIcons.close}
+                label={close}
+                size="sm"
+                data-lophn-panel-close=""
+                onClick={onClose}
               />
-            }
-            x={rect.x}
-            y={rect.y}
-            width={rect.width}
-            height={rect.height}
-            active
-            onMoveStart={(event) =>
-              drag(event, (dx, dy) => movedRect(base, dx, dy, area))}
-            onResizeStart={(edge: FloatEdge, event) =>
-              drag(event, (dx, dy) => resizedRect(base, edge, dx, dy, area))}
-            actions={
-              <Tooltip content={close}>
-                <IconButton
-                  icon={workspaceIcons.close}
-                  label={close}
-                  size="sm"
-                  data-lophn-panel-close=""
-                  onClick={onClose}
-                />
-              </Tooltip>
-            }
-          >
-            <div className={styles.agent}>
-              <AgentView
-                source={source}
-                drafts={shared ?? local}
-                session={session}
-                onSessionChange={onSession}
-                host={host}
-              />
-            </div>
-          </FloatPanel>
-        )
-        : null}
+            </Tooltip>
+          }
+        >
+          <div className={styles.agent}>
+            <AgentView
+              source={source}
+              drafts={shared ?? local}
+              session={session}
+              onSessionChange={onSession}
+              host={host}
+            />
+          </div>
+        </FloatPanel>
+      ) : null}
     </div>
   );
 }

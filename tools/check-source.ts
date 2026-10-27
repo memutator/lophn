@@ -72,13 +72,13 @@ const TEST_NAME = /\b(?:test|it|describe)\(\s*["'`]/;
 function codeOnly(source: string): string {
   let code = source;
   for (const { start, end } of readStringSites(source).reverse()) {
-    code = code.slice(0, start) +
+    code =
+      code.slice(0, start) +
       code.slice(start, end).replace(/[^\n]/g, " ") +
       code.slice(end);
   }
-  return code.replace(
-    /\/\/.*|\/\*[\s\S]*?\*\//g,
-    (comment) => comment.replace(/[^\n]/g, " "),
+  return code.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, (comment) =>
+    comment.replace(/[^\n]/g, " "),
   );
 }
 
@@ -98,25 +98,27 @@ async function checkExternalFetch(
     const source = sources.get(file);
     if (visited.has(file) || source === undefined) continue;
     visited.add(file);
-    codeOnly(source).split("\n").forEach((line, index) => {
-      if (BARE_FETCH.test(line)) {
-        hits.add(file);
-        if (EXTERNAL_FETCH_LEFTOVERS.has(file)) return;
-        issues.push({
-          file,
-          line: index + 1,
-          rule: "EXTERNAL_FETCH",
-          message:
-            "core main graph는 전역 fetch를 직접 쓰지 않는다. 주입받은 deps.fetch를 쓴다",
-        });
-      }
-    });
+    codeOnly(source)
+      .split("\n")
+      .forEach((line, index) => {
+        if (BARE_FETCH.test(line)) {
+          hits.add(file);
+          if (EXTERNAL_FETCH_LEFTOVERS.has(file)) return;
+          issues.push({
+            file,
+            line: index + 1,
+            rule: "EXTERNAL_FETCH",
+            message:
+              "core main graph는 전역 fetch를 직접 쓰지 않는다. 주입받은 deps.fetch를 쓴다",
+          });
+        }
+      });
     for (const { specifier } of readImports(source)) {
       const target = specifier.startsWith(".")
         ? normalize(`${directory(file)}/${specifier}`)
         : specifier.startsWith("@lophn/")
-        ? resolveWorkspace(specifier, members)
-        : undefined;
+          ? resolveWorkspace(specifier, members)
+          : undefined;
       if (target && !target.endsWith("_test.ts")) pending.push(target);
     }
   }
@@ -154,9 +156,9 @@ const KIND_BY_CALLEE: Record<string, string> = {
 };
 const ROUTE_KINDS = ["command", "read", "file", "memory", "upload"];
 const CALLEE = new RegExp(
-  `(?<![\\w$])(${
-    [...KIND_FIRST, ...Object.keys(KIND_BY_CALLEE)].join("|")
-  })\\s*(?:<[\\s\\S]*?>)?\\s*\\(\\s*$`,
+  `(?<![\\w$])(${[...KIND_FIRST, ...Object.keys(KIND_BY_CALLEE)].join(
+    "|",
+  )})\\s*(?:<[\\s\\S]*?>)?\\s*\\(\\s*$`,
 );
 const ROUTE_NAME = new RegExp(`^(?:${ROUTE_KINDS.join("|")}):[\\w-]+/[\\w-]+$`);
 function checkShellRoutes(file: string, source: string): Issue[] {
@@ -168,7 +170,8 @@ function checkShellRoutes(file: string, source: string): Issue[] {
       calls.push({ name: first.specifier, line: first.line });
     }
     if (
-      i > 0 && /^\s*,\s*$/.test(source.slice(sites[i - 1].end, first.start))
+      i > 0 &&
+      /^\s*,\s*$/.test(source.slice(sites[i - 1].end, first.start))
     ) {
       continue;
     }
@@ -189,12 +192,14 @@ function checkShellRoutes(file: string, source: string): Issue[] {
     if (!ROUTE_KINDS.includes(kind) || method === undefined) continue;
     calls.push({ name: `${kind}:${resource}/${method}`, line: first.line });
   }
-  return calls.filter((c) => !ROUTE_NAMES.has(c.name)).map((c) => ({
-    file,
-    line: c.line,
-    rule: "SHELL_ROUTE",
-    message: `protocol에 없는 route를 부른다: ${c.name}`,
-  }));
+  return calls
+    .filter((c) => !ROUTE_NAMES.has(c.name))
+    .map((c) => ({
+      file,
+      line: c.line,
+      rule: "SHELL_ROUTE",
+      message: `protocol에 없는 route를 부른다: ${c.name}`,
+    }));
 }
 
 // NATIVE_TITLE: 화면의 hover 설명은 @lophn/ui의 Tooltip으로 쓴다. DOM의 title 속성, svg <title>은 native tooltip이라 지연·모양이 따로 놀고 접근성 이름과도 섞인다.
@@ -211,18 +216,15 @@ const NATIVE_TITLE_ALLOWED: ReadonlyMap<string, string> = new Map([
 
 // 주석을 같은 길이의 공백으로 바꿔 줄 번호를 지킨다. 문자열은 그대로 둔다(setAttribute("title")를 봐야 한다).
 function withoutComments(source: string): string {
-  return source.replace(
-    /(?:^|\s)\/\/.*|\/\*[\s\S]*?\*\//gm,
-    (comment) => comment.replace(/[^\n]/g, " "),
+  return source.replace(/(?:^|\s)\/\/.*|\/\*[\s\S]*?\*\//gm, (comment) =>
+    comment.replace(/[^\n]/g, " "),
   );
 }
 
 // 줄 안에 title 속성이 있는 DOM tag. `<tag`에서 닫는 `>`까지 `{}` 깊이를 세며 걷는다(속성은 여러 줄이고 `=>`를 품는다).
 function titleAttributeLines(code: string): number[] {
   const found: number[] = [];
-  for (
-    const open of code.matchAll(/(?<![\w$\])/])<([a-z][\w-]*)(?=[\s/>])/g)
-  ) {
+  for (const open of code.matchAll(/(?<![\w$\])/])<([a-z][\w-]*)(?=[\s/>])/g)) {
     const start = open.index!;
     const line = code.slice(0, start).split("\n").length;
     if (open[1] === "title") found.push(line);
@@ -242,7 +244,8 @@ function titleAttributeLines(code: string): number[] {
         if (--depth < 0) break;
       } else if (depth === 0 && char === ">") break;
       else if (
-        depth === 0 && /\s/.test(code[i - 1] ?? "") &&
+        depth === 0 &&
+        /\s/.test(code[i - 1] ?? "") &&
         /^title\s*=(?![=>])/.test(code.slice(i, i + 12))
       ) {
         found.push(line + lines);
@@ -264,16 +267,19 @@ function checkNativeTitle(file: string, source: string): Issue[] {
   const issues: Issue[] = [];
   if (file.endsWith(".tsx")) {
     for (const line of titleAttributeLines(code)) {
-      issues.push(at(
-        line,
-        "DOM tag의 title은 native tooltip이다. @lophn/ui/overlay의 Tooltip을 쓰거나 뺀다(이름이면 aria-label)",
-      ));
+      issues.push(
+        at(
+          line,
+          "DOM tag의 title은 native tooltip이다. @lophn/ui/overlay의 Tooltip을 쓰거나 뺀다(이름이면 aria-label)",
+        ),
+      );
     }
   }
   code.split("\n").forEach((text, index) => {
     if (
-      /(?<!document)\.title\s*=(?![=>])|\.setAttribute\(\s*["'`]title["'`]/
-        .test(text)
+      /(?<!document)\.title\s*=(?![=>])|\.setAttribute\(\s*["'`]title["'`]/.test(
+        text,
+      )
     ) {
       issues.push(
         at(index + 1, "DOM의 title을 코드로 쓰지 않는다. Tooltip을 쓴다"),
@@ -307,7 +313,7 @@ export async function checkSource(root: string): Promise<Issue[]> {
       }
     });
   }
-  issues.push(...await checkExternalFetch(root, files, sources));
+  issues.push(...(await checkExternalFetch(root, files, sources)));
   const titleHits = new Set<string>();
   for (const [file, source] of sources) {
     if (!NATIVE_TITLE_ROOTS.test(file)) continue;

@@ -6,9 +6,11 @@ import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import { useViewBounds } from "../app-frame/embedded-view.tsx";
 import styles from "./browser-tab.module.css";
 
-export function DevtoolsPane(
-  props: { views: LophnShellViewsApi; session: string; shown: boolean },
-) {
+export function DevtoolsPane(props: {
+  views: LophnShellViewsApi;
+  session: string;
+  shown: boolean;
+}) {
   const ref = useRef<HTMLDivElement | null>(null);
   useViewBounds({
     views: props.views,

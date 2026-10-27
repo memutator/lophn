@@ -88,7 +88,9 @@ export async function waitUntilIdle(
     const humanDue = snapshot.waiting.length > 0 || pending > 0;
     let acted = false;
     if (hooks.act !== undefined && humanDue) acted = await hooks.act();
-    const quiet = !acted && snapshot.running.length === 0 &&
+    const quiet =
+      !acted &&
+      snapshot.running.length === 0 &&
       snapshot.unstarted.length === 0 &&
       (hooks.act === undefined || !humanDue);
     if (quiet) {
@@ -130,8 +132,9 @@ export async function readSnapshot(
     }
   }
   if (options.approvals) {
-    snapshot.pendingApprovals =
-      (await core.call(activationConsents, {})).consents.length;
+    snapshot.pendingApprovals = (
+      await core.call(activationConsents, {})
+    ).consents.length;
   }
   return snapshot;
 }

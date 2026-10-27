@@ -19,29 +19,31 @@ export function apiAnswers(
     const results: unknown[] = [];
     for (const [i, step] of opts.steps.entries()) {
       const where = `step ${i + 1} ${step.api}`;
-      const input = typeof step.input === "function"
-        ? step.input(results)
-        : step.input;
+      const input =
+        typeof step.input === "function" ? step.input(results) : step.input;
       const outcome = await callApi(core, app.id, step.api, input);
       if (outcome.status !== "succeeded") {
         return {
           pass: false,
-          reason: `${where}: ${outcome.status} ${
-            oneLine(JSON.stringify(outcome), 200)
-          }`,
+          reason: `${where}: ${outcome.status} ${oneLine(
+            JSON.stringify(outcome),
+            200,
+          )}`,
         };
       }
-      const why = typeof step.expect === "function"
-        ? (step.expect as (r: unknown) => string | null)(outcome.result)
-        : exampleMatches(step.expect, outcome.result)
-        ? null
-        : "결과가 기대와 다름";
+      const why =
+        typeof step.expect === "function"
+          ? (step.expect as (r: unknown) => string | null)(outcome.result)
+          : exampleMatches(step.expect, outcome.result)
+            ? null
+            : "결과가 기대와 다름";
       if (why !== null) {
         return {
           pass: false,
-          reason: `${where}: ${why} (실제 ${
-            oneLine(JSON.stringify(outcome.result), 200)
-          })`,
+          reason: `${where}: ${why} (실제 ${oneLine(
+            JSON.stringify(outcome.result),
+            200,
+          )})`,
         };
       }
       results.push(outcome.result);

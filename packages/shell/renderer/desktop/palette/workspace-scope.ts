@@ -31,9 +31,9 @@ type WorkspaceTarget =
   | { readonly kind: "tab"; readonly pane: number; readonly key: string }
   /** id는 파일의 절대 경로다. 파일 행의 문서 id는 옛 모양이라 목록에서 찾는다. */
   | {
-    readonly kind: "document";
-    readonly document: { readonly id: string; readonly title: string };
-  }
+      readonly kind: "document";
+      readonly document: { readonly id: string; readonly title: string };
+    }
   | { readonly kind: "bookmark"; readonly url: string }
   | { readonly kind: "action"; readonly action: WorkspaceAction };
 
@@ -60,9 +60,10 @@ function tabs(view: WorkspaceView): PaletteEntry<WorkspaceTarget>[] {
   return view.panes.flatMap((pane, index) =>
     pane.tabs.map((tab) => {
       const kind = tabKindLabel(tab.kind);
-      const side = index === 0
-        ? t("common.label.palette-left-pane")
-        : t("common.label.palette-right-pane");
+      const side =
+        index === 0
+          ? t("common.label.palette-left-pane")
+          : t("common.label.palette-right-pane");
       return {
         group: "tabs" as const,
         key: `tab:${index}:${tab.key}`,
@@ -70,10 +71,10 @@ function tabs(view: WorkspaceView): PaletteEntry<WorkspaceTarget>[] {
         detail: split
           ? t("common.label.palette-tab-detail", { kind, pane: side })
           : kind,
-        icon: tabKindOf(tab.kind)?.paletteIcon ?? "tab" as const,
+        icon: tabKindOf(tab.kind)?.paletteIcon ?? ("tab" as const),
         target: { kind: "tab" as const, pane: index, key: tab.key },
       };
-    })
+    }),
   );
 }
 
@@ -88,9 +89,7 @@ export function topFloat(view: WorkspaceView): FloatItem | undefined {
   return view.floats.findLast((item) => !item.minimized);
 }
 
-function actions(
-  input: WorkspaceScopeInput,
-): PaletteEntry<WorkspaceTarget>[] {
+function actions(input: WorkspaceScopeInput): PaletteEntry<WorkspaceTarget>[] {
   const action = (
     name: WorkspaceAction,
     label: string,
@@ -113,16 +112,16 @@ function actions(
     ),
     ...(input.terminal
       ? [
-        action(
-          "terminal",
-          t("common.button.palette-terminal"),
-          "terminal",
-          commandLabel(
-            "terminal.focus",
-            input.platform === "mac" ? "mac" : "other",
-          ) ?? undefined,
-        ),
-      ]
+          action(
+            "terminal",
+            t("common.button.palette-terminal"),
+            "terminal",
+            commandLabel(
+              "terminal.focus",
+              input.platform === "mac" ? "mac" : "other",
+            ) ?? undefined,
+          ),
+        ]
       : []),
     action("settings", t("common.button.palette-settings"), "screen"),
     ...(focusTab(input.view)
@@ -130,9 +129,13 @@ function actions(
       : []),
     ...(topFloat(input.view)
       ? [
-        action("dock", t("common.button.palette-dock-panel"), "panel"),
-        action("minimize", t("common.button.palette-minimize-panel"), "panel"),
-      ]
+          action("dock", t("common.button.palette-dock-panel"), "panel"),
+          action(
+            "minimize",
+            t("common.button.palette-minimize-panel"),
+            "panel",
+          ),
+        ]
       : []),
   ];
 }
@@ -170,18 +173,18 @@ export function workspaceScope(
     ],
     search: search
       ? async (query) =>
-        (await search(query)).map((hit) => ({
-          group: "files" as const,
-          key: `file:${hit.file}:${hit.line}`,
-          label: `${hit.path}:${hit.line}`,
-          detail: hit.text,
-          icon: "file" as const,
-          found: true,
-          target: {
-            kind: "document" as const,
-            document: { id: hit.file, title: hit.path },
-          },
-        }))
+          (await search(query)).map((hit) => ({
+            group: "files" as const,
+            key: `file:${hit.file}:${hit.line}`,
+            label: `${hit.path}:${hit.line}`,
+            detail: hit.text,
+            icon: "file" as const,
+            found: true,
+            target: {
+              kind: "document" as const,
+              document: { id: hit.file, title: hit.path },
+            },
+          }))
       : undefined,
     choose: input.go,
   };

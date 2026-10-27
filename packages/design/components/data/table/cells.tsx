@@ -22,7 +22,9 @@ export function TextCell({ value }: { value: string | undefined }) {
   // 말줄임된 글의 전체는 tooltip으로 읽는다. 빈 값은 빈 bubble이 뜨지 않게 감싸지 않는다.
   return (
     <td className={styles.text} data-kind="text">
-      {value === undefined || value === "" ? value : (
+      {value === undefined || value === "" ? (
+        value
+      ) : (
         <Tooltip content={value}>
           <span>{value}</span>
         </Tooltip>
@@ -35,13 +37,15 @@ export function TextCell({ value }: { value: string | undefined }) {
 export type LinkDataAttributes = Readonly<Record<`data-${string}`, string>>;
 
 // 값이 없으면 버튼 없는 빈 칸이다. Enter는 직접 받아 합성 click이 한 번 더 열지 않게 막는다.
-export function LinkCell(
-  { value, onOpen, dataAttributes }: {
-    value: string | undefined;
-    onOpen: () => void;
-    dataAttributes?: LinkDataAttributes | undefined;
-  },
-) {
+export function LinkCell({
+  value,
+  onOpen,
+  dataAttributes,
+}: {
+  value: string | undefined;
+  onOpen: () => void;
+  dataAttributes?: LinkDataAttributes | undefined;
+}) {
   if (value === undefined || value === "") {
     return <td className={styles.text} data-kind="link" />;
   }
@@ -66,9 +70,13 @@ export function LinkCell(
   );
 }
 
-export function NumberCell(
-  { value, format }: { value: number | undefined; format: CellFormat },
-) {
+export function NumberCell({
+  value,
+  format,
+}: {
+  value: number | undefined;
+  format: CellFormat;
+}) {
   return (
     <td className={styles.number} data-kind="number">
       {value === undefined
@@ -78,9 +86,13 @@ export function NumberCell(
   );
 }
 
-export function TimeCell(
-  { value, format }: { value: Date | undefined; format: CellFormat },
-) {
+export function TimeCell({
+  value,
+  format,
+}: {
+  value: Date | undefined;
+  format: CellFormat;
+}) {
   if (value === undefined) {
     return <td className={styles.text} data-kind="time" />;
   }
@@ -101,9 +113,13 @@ export function TimeCell(
 }
 
 // 개발자 diagnostics에서만 그린다. 앞 8자와 전체 값 복사.
-export function IdCell(
-  { value, format }: { value: string; format: CellFormat },
-) {
+export function IdCell({
+  value,
+  format,
+}: {
+  value: string;
+  format: CellFormat;
+}) {
   return (
     <td className={styles.id} data-kind="id">
       <span className={styles.idValue}>

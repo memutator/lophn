@@ -39,7 +39,8 @@ function cursorAfter(cursor: string | undefined): Result<bigint | null> {
       new TextDecoder("utf-8", { fatal: true }).decode(bytes),
     ) as { after?: unknown };
     if (
-      typeof parsed.after !== "string" || !/^[1-9][0-9]*$/.test(parsed.after)
+      typeof parsed.after !== "string" ||
+      !/^[1-9][0-9]*$/.test(parsed.after)
     ) {
       throw new TypeError("cursor");
     }
@@ -102,19 +103,22 @@ export function createConversationReads(): {
           clauses.push("lifecycle = ?");
           params.push(archived === "only" ? "archived" : "open");
         }
-        const rows = snapshot.sql.all(
-          `select ${SESSION_COLUMNS} from sessions
+        const rows = snapshot.sql
+          .all(
+            `select ${SESSION_COLUMNS} from sessions
            where ${clauses.join(" and ")} order by created_seq limit ?`,
-          [...params, PAGE + 1],
-        ).map(sessionRowOf);
+            [...params, PAGE + 1],
+          )
+          .map(sessionRowOf);
         const page = rows.slice(0, PAGE);
         const last = page[page.length - 1];
         return ok({
           sessions: page.map(agentSessionOf),
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: rows.length > PAGE && last !== undefined
-            ? cursorOf(last.created_seq)
-            : null,
+          next_cursor:
+            rows.length > PAGE && last !== undefined
+              ? cursorOf(last.created_seq)
+              : null,
         });
       },
     },
@@ -162,19 +166,22 @@ export function createConversationReads(): {
           clauses.push("turn = ?");
           params.push(input.turn);
         }
-        const rows = snapshot.sql.all(
-          `select ${MESSAGE_COLUMNS} from messages
+        const rows = snapshot.sql
+          .all(
+            `select ${MESSAGE_COLUMNS} from messages
            where ${clauses.join(" and ")} order by created_seq limit ?`,
-          [...params, PAGE + 1],
-        ).map(messageRowOf);
+            [...params, PAGE + 1],
+          )
+          .map(messageRowOf);
         const page = rows.slice(0, PAGE);
         const last = page[page.length - 1];
         return ok({
           messages: page.map(receivedMessageOf),
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: rows.length > PAGE && last !== undefined
-            ? cursorOf(last.created_seq)
-            : null,
+          next_cursor:
+            rows.length > PAGE && last !== undefined
+              ? cursorOf(last.created_seq)
+              : null,
         });
       },
     },
@@ -182,11 +189,11 @@ export function createConversationReads(): {
       route: receivedMessageRead,
       handle(snapshot, ctx, input) {
         const row = loadMessage(snapshot, input.message);
-        const session = row === undefined
-          ? undefined
-          : loadSession(snapshot, row.session);
+        const session =
+          row === undefined ? undefined : loadSession(snapshot, row.session);
         if (
-          row === undefined || session === undefined ||
+          row === undefined ||
+          session === undefined ||
           !sessionVisible(ctx, session)
         ) {
           return err({ code: "not_found", message: "message not found" });

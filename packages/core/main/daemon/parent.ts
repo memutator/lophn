@@ -128,10 +128,7 @@ type ParentConfirmation = {
   reply(message: unknown): Promise<void>;
 };
 
-type ShellViewLifetime = Extract<
-  Diagnostic,
-  { kind: "shell_view_lifetime" }
->;
+type ShellViewLifetime = Extract<Diagnostic, { kind: "shell_view_lifetime" }>;
 
 type InternalDiagnostic = Extract<Diagnostic, { kind: "lophn_internal" }>;
 

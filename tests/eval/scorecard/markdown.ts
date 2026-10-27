@@ -3,15 +3,17 @@ import type { RunRecord, ScorecardRow } from "../types.ts";
 
 // 표 칸과 한 줄 글에 줄바꿈과 `|`가 들어가지 않게 한다.
 const cell = (s: string) => s.replace(/\s+/g, " ").replace(/\|/g, "\\|");
-const pct = (v: number | null) => v === null ? "-" : `${(v * 100).toFixed(1)}%`;
+const pct = (v: number | null) =>
+  v === null ? "-" : `${(v * 100).toFixed(1)}%`;
 const runFile = (id: string) => `tests/eval/runs/${id}.json`;
 
 function sumOf(row: ScorecardRow, kind: "program" | "judge"): string {
   const cs = row.checks.filter((c) => c.kind === kind);
   if (cs.length === 0) return "-";
-  return `${cs.reduce((n, c) => n + c.passed, 0)}/${
-    cs.reduce((n, c) => n + c.of, 0)
-  }`;
+  return `${cs.reduce((n, c) => n + c.passed, 0)}/${cs.reduce(
+    (n, c) => n + c.of,
+    0,
+  )}`;
 }
 
 export function renderScorecard(
@@ -40,32 +42,30 @@ export function renderScorecard(
   for (const r of rows) {
     const m = r.metrics;
     out.push(
-      `| ${
-        [
-          label(r),
-          r.run ?? "-",
-          `${r.passed}/${r.trials}`,
-          sumOf(r, "program"),
-          judgeCell(r),
-          m === null
-            ? "-"
-            : m.cost_usd.toFixed(4) + (m.unpriced_calls > 0 ? "+?" : ""),
-          m === null ? "-" : pct(m.cache_hit_rate),
-          m === null ? "-" : pct(toolRates(m.tools).success),
-          m === null ? "-" : String(m.truncated_calls),
-          m === null ? "-" : String(m.agent_calls.length),
-          r.proposal ? "제안" : "",
-          r.stale.length > 0 ? "낡음" : "",
-        ].join(" | ")
-      } |`,
+      `| ${[
+        label(r),
+        r.run ?? "-",
+        `${r.passed}/${r.trials}`,
+        sumOf(r, "program"),
+        judgeCell(r),
+        m === null
+          ? "-"
+          : m.cost_usd.toFixed(4) + (m.unpriced_calls > 0 ? "+?" : ""),
+        m === null ? "-" : pct(m.cache_hit_rate),
+        m === null ? "-" : pct(toolRates(m.tools).success),
+        m === null ? "-" : String(m.truncated_calls),
+        m === null ? "-" : String(m.agent_calls.length),
+        r.proposal ? "제안" : "",
+        r.stale.length > 0 ? "낡음" : "",
+      ].join(" | ")} |`,
     );
   }
 
   out.push("", "## 떨어진 check", "");
   const failed = rows.flatMap((r) =>
-    r.checks.filter((c) => c.passed < c.of).map((c) =>
-      `| ${label(r)} | ${c.id} | ${cell(c.reasons.join("; "))} |`
-    )
+    r.checks
+      .filter((c) => c.passed < c.of)
+      .map((c) => `| ${label(r)} | ${c.id} | ${cell(c.reasons.join("; "))} |`),
   );
   out.push(
     ...(failed.length > 0
@@ -79,9 +79,10 @@ export function renderScorecard(
     const run = r.run === null ? undefined : byId.get(r.run);
     for (const item of run?.trials.flatMap((t) => t.judge) ?? []) {
       const bad = item.error !== null || item.verdict === "cannot_tell";
-      const verdict = item.state === "pending"
-        ? "채점 대기"
-        : `${bad ? "!" : ""}${cell(item.verdict ?? `error: ${item.error}`)}`;
+      const verdict =
+        item.state === "pending"
+          ? "채점 대기"
+          : `${bad ? "!" : ""}${cell(item.verdict ?? `error: ${item.error}`)}`;
       verdicts.push(
         `| ${label(r)} | ${item.check} | ${item.criterion} | ${
           item.model ?? "-"
@@ -92,10 +93,10 @@ export function renderScorecard(
   out.push(
     ...(verdicts.length > 0
       ? [
-        "| 시나리오 | check | criterion | model | verdict | 인용 | run file |",
-        "|---|---|---|---|---|---|---|",
-        ...verdicts,
-      ]
+          "| 시나리오 | check | criterion | model | verdict | 인용 | run file |",
+          "|---|---|---|---|---|---|---|",
+          ...verdicts,
+        ]
       : ["없음"]),
   );
 

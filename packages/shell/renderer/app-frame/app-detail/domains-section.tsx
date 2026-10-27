@@ -12,14 +12,16 @@ import { useDomains } from "../../workspace/domains/use-domains.ts";
 import type { AppDetailSource } from "./source.ts";
 import styles from "./domains-section.module.css";
 
-export function DomainsSection(
-  { app, source, onOpenDoc }: {
-    app: string;
-    source: AppDetailSource;
-    /** DOMAIN.md를 편집기로 연다. 없으면 menu의 Open DOMAIN.md는 아무것도 하지 않는다. */
-    onOpenDoc?: (domain: string) => void;
-  },
-) {
+export function DomainsSection({
+  app,
+  source,
+  onOpenDoc,
+}: {
+  app: string;
+  source: AppDetailSource;
+  /** DOMAIN.md를 편집기로 연다. 없으면 menu의 Open DOMAIN.md는 아무것도 하지 않는다. */
+  onOpenDoc?: (domain: string) => void;
+}) {
   const owner = { kind: "app" as const, id: app };
   const domains = useDomains(owner, () => source.domains(app), source);
   const [creating, setCreating] = useState(false);
@@ -32,8 +34,7 @@ export function DomainsSection(
         <Button
           size="sm"
           icon={commonIcons.add}
-          onClick={() =>
-            setCreating(true)}
+          onClick={() => setCreating(true)}
         >
           {t("domain.button.new")}
         </Button>
@@ -45,9 +46,9 @@ export function DomainsSection(
           onClose={domains.closeNotice}
         />
       )}
-      {loaded.state === "failed"
-        ? <p className={styles.failed}>{t("domain.error.load-failed")}</p>
-        : null}
+      {loaded.state === "failed" ? (
+        <p className={styles.failed}>{t("domain.error.load-failed")}</p>
+      ) : null}
       <div>
         {rows.map((domain) => (
           <div key={domain.id} className={styles.row} data-domain={domain.name}>
@@ -65,23 +66,19 @@ export function DomainsSection(
               <DomainMenu
                 title={domain.title}
                 archiveBlocked={rows.length <= 1}
-                onOpenDoc={() =>
-                  onOpenDoc?.(domain.id)}
-                onArchive={() =>
-                  void domains.archive(domain)}
+                onOpenDoc={() => onOpenDoc?.(domain.id)}
+                onArchive={() => void domains.archive(domain)}
               />
             </span>
           </div>
         ))}
       </div>
-      {creating
-        ? (
-          <CreateDomainDialog
-            onCreate={domains.create}
-            onClose={() => setCreating(false)}
-          />
-        )
-        : null}
+      {creating ? (
+        <CreateDomainDialog
+          onCreate={domains.create}
+          onClose={() => setCreating(false)}
+        />
+      ) : null}
     </section>
   );
 }

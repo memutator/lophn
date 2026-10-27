@@ -29,10 +29,12 @@ export const INSTRUCTION_TOOLS: readonly ToolDefinition[] = [
       });
       if (!read.ok) return read;
       if (read.value.file === null) {
-        return ok(fitted(`project ${project} has no LOPHN.md`, {
-          project,
-          instructions: null,
-        }));
+        return ok(
+          fitted(`project ${project} has no LOPHN.md`, {
+            project,
+            instructions: null,
+          }),
+        );
       }
       const decoded = decodeInstructionFile(read.value.file);
       if (!decoded.ok) return decoded;
@@ -40,12 +42,14 @@ export const INSTRUCTION_TOOLS: readonly ToolDefinition[] = [
         new TextDecoder().decode(decoded.value.bytes),
         "head",
       );
-      return ok(fitted(`project instructions of ${project}`, {
-        project,
-        kind: "instructions",
-        instructions: limited.text,
-        ...(limited.complete ? {} : { omitted_bytes: limited.omittedCount }),
-      }));
+      return ok(
+        fitted(`project instructions of ${project}`, {
+          project,
+          kind: "instructions",
+          instructions: limited.text,
+          ...(limited.complete ? {} : { omitted_bytes: limited.omittedCount }),
+        }),
+      );
     },
   }),
 ];

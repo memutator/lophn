@@ -11,13 +11,13 @@ import type {
 
 export type IssuerReply =
   | {
-    kind: "tokens";
-    access: string;
-    refresh: string;
-    expires_in?: number;
-    scope?: string;
-    id_token?: string;
-  }
+      kind: "tokens";
+      access: string;
+      refresh: string;
+      expires_in?: number;
+      scope?: string;
+      id_token?: string;
+    }
   | { kind: "pending" }
   | { kind: "error"; status: number; error: string };
 
@@ -48,9 +48,12 @@ export type IssuerHandler = {
   url: string;
   definition(product: "chatgpt" | "supergrok"): ProviderDefinition;
   script(steps: IssuerScript): void;
-  idToken(
-    claims: { aud: string; nonce: string; sub?: string; exp?: number },
-  ): Promise<string>;
+  idToken(claims: {
+    aud: string;
+    nonce: string;
+    sub?: string;
+    exp?: number;
+  }): Promise<string>;
   journal(): readonly IssuerJournalEntry[];
   handle(request: Request): Promise<Response>;
 };
@@ -76,10 +79,10 @@ const REQUIRED: Record<string, readonly string[]> = {
 function base64url(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll(
-    "=",
-    "",
-  );
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
 }
 
 function json(status: number, body: unknown): Response {
@@ -144,10 +147,7 @@ export function createFakeIssuerHandler(): IssuerHandler {
       entry.method === method && entry.path === path;
 
     if (expect("GET", "/jwks")) {
-      const jwk = await crypto.subtle.exportKey(
-        "jwk",
-        (await keys).publicKey,
-      );
+      const jwk = await crypto.subtle.exportKey("jwk", (await keys).publicKey);
       return json(200, {
         keys: [{ ...jwk, kid: KID, alg: "RS256", use: "sig" }],
       });
@@ -175,7 +175,8 @@ export function createFakeIssuerHandler(): IssuerHandler {
       return miss(`${grant} request lacks ${absent.join(", ")}`);
     }
     if (
-      grant === DEVICE_GRANT && steps.device !== undefined &&
+      grant === DEVICE_GRANT &&
+      steps.device !== undefined &&
       entry.form["device_code"] !== steps.device.device_code
     ) {
       return miss("device_code is not the one this issuer handed out");
@@ -183,7 +184,7 @@ export function createFakeIssuerHandler(): IssuerHandler {
     const reply = nextReply(
       grant === DEVICE_GRANT
         ? "device_code"
-        : grant as "authorization_code" | "refresh_token",
+        : (grant as "authorization_code" | "refresh_token"),
       entry,
     );
     if (typeof reply === "string") return miss(reply);
@@ -206,23 +207,24 @@ export function createFakeIssuerHandler(): IssuerHandler {
   const handler: IssuerHandler = {
     url: "http://issuer.test",
     definition(product) {
-      const oauth: OAuthDefinition = product === "chatgpt"
-        ? {
-          product,
-          issuer: handler.url,
-          authorization_endpoint: `${handler.url}/authorize`,
-          token_endpoint: `${handler.url}/token`,
-          jwks_uri: `${handler.url}/jwks`,
-          resource: `${handler.url}/resource`,
-          scopes: ["openid", "offline_access", "chatgpt.tokens.use.direct"],
-        }
-        : {
-          product,
-          client_id: "e2e-client",
-          device_authorization_endpoint: `${handler.url}/device/code`,
-          token_endpoint: `${handler.url}/token`,
-          scopes: ["openid", "offline_access"],
-        };
+      const oauth: OAuthDefinition =
+        product === "chatgpt"
+          ? {
+              product,
+              issuer: handler.url,
+              authorization_endpoint: `${handler.url}/authorize`,
+              token_endpoint: `${handler.url}/token`,
+              jwks_uri: `${handler.url}/jwks`,
+              resource: `${handler.url}/resource`,
+              scopes: ["openid", "offline_access", "chatgpt.tokens.use.direct"],
+            }
+          : {
+              product,
+              client_id: "e2e-client",
+              device_authorization_endpoint: `${handler.url}/device/code`,
+              token_endpoint: `${handler.url}/token`,
+              scopes: ["openid", "offline_access"],
+            };
       return {
         key: "anthropic",
         display_name: "Fake Anthropic",
@@ -245,15 +247,13 @@ export function createFakeIssuerHandler(): IssuerHandler {
     async idToken(claims) {
       const part = (value: unknown) =>
         base64url(new TextEncoder().encode(JSON.stringify(value)));
-      const input = `${part({ alg: "RS256", kid: KID, typ: "JWT" })}.${
-        part({
-          iss: handler.url,
-          aud: claims.aud,
-          nonce: claims.nonce,
-          sub: claims.sub ?? "e2e-subject",
-          exp: claims.exp ?? Math.floor(Date.now() / 1000) + 3600,
-        })
-      }`;
+      const input = `${part({ alg: "RS256", kid: KID, typ: "JWT" })}.${part({
+        iss: handler.url,
+        aud: claims.aud,
+        nonce: claims.nonce,
+        sub: claims.sub ?? "e2e-subject",
+        exp: claims.exp ?? Math.floor(Date.now() / 1000) + 3600,
+      })}`;
       const signature = await crypto.subtle.sign(
         "RSASSA-PKCS1-v1_5",
         (await keys).privateKey,
@@ -275,7 +275,9 @@ export function startFakeIssuer(): Promise<FakeIssuer> {
   );
   // definition·idToken이 handler.url을 읽으므로 같은 object에 port를 채워 돌려준다.
   issuer.url = `http://127.0.0.1:${server.addr.port}`;
-  return Promise.resolve(Object.assign(issuer, {
-    close: () => server.shutdown(),
-  }));
+  return Promise.resolve(
+    Object.assign(issuer, {
+      close: () => server.shutdown(),
+    }),
+  );
 }

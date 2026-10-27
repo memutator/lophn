@@ -53,9 +53,10 @@ export function openWorkflowArtifact(
     }`,
     kind: "artifact",
     title: workflow,
-    fields: instance === undefined
-      ? { project, workflow, view }
-      : { project, workflow, view, instance },
+    fields:
+      instance === undefined
+        ? { project, workflow, view }
+        : { project, workflow, view, instance },
   });
 }
 
@@ -97,11 +98,12 @@ export const artifactKind: TabKindDef = {
     const source = sourceFrom(stored);
     if (source === null) return null;
     const { kind: _kind, ...fields } = source;
-    const title = source.kind === "artifact"
-      ? source.name
-      : source.kind === "file"
-      ? fileNameOf(source.path)
-      : source.workflow;
+    const title =
+      source.kind === "artifact"
+        ? source.name
+        : source.kind === "file"
+          ? fileNameOf(source.path)
+          : source.workflow;
     return { key, kind: "artifact", title, fields };
   },
   toStored(tab) {

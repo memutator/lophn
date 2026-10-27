@@ -29,27 +29,27 @@ export type CallAuth = {
 export type VerifiedCaller =
   | { kind: "person" }
   | {
-    kind: "agent";
-    agent: AgentRef;
-    place: Place | null;
-    session: Id<"ses">;
-    turn: Id<"trn">;
-    toolCall: Id<"tcl">;
-  }
+      kind: "agent";
+      agent: AgentRef;
+      place: Place | null;
+      session: Id<"ses">;
+      turn: Id<"trn">;
+      toolCall: Id<"tcl">;
+    }
   | { kind: "app"; app: Id<"app">; parent: Flight }
   | {
-    kind: "program";
-    job: Id<"job">;
-    job_run: Id<"jbr">;
-    agent: AgentRef;
-    place: Place | null;
-  }
+      kind: "program";
+      job: Id<"job">;
+      job_run: Id<"jbr">;
+      agent: AgentRef;
+      place: Place | null;
+    }
   | {
-    kind: "flow";
-    instance: Id<"wfi">;
-    agent: AgentRef;
-    place: Place | null;
-  };
+      kind: "flow";
+      instance: Id<"wfi">;
+      agent: AgentRef;
+      place: Place | null;
+    };
 
 type CallerChecks = {
   callers: CallerDirectory;
@@ -127,7 +127,8 @@ export function verifyCaller(
     // 본문은 주장일 뿐이라 core가 만든 자격과 맞춰 본다.
     const { program } = auth;
     if (
-      program === undefined || program.job !== caller.job ||
+      program === undefined ||
+      program.job !== caller.job ||
       program.job_run !== caller.job_run
     ) {
       return forbidden("job run does not match the credential");
@@ -173,9 +174,10 @@ export function verifyCaller(
   if (active.value !== caller.release) {
     return forbidden("release is not the active release");
   }
-  const parent = caller.parent_invocation === null
-    ? undefined
-    : checks.flight(caller.parent_invocation as Id<"inv">);
+  const parent =
+    caller.parent_invocation === null
+      ? undefined
+      : checks.flight(caller.parent_invocation as Id<"inv">);
   if (!parent || parent.app !== app || parent.release !== caller.release) {
     return forbidden("unknown parent invocation");
   }

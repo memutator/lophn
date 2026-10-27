@@ -80,9 +80,10 @@ function userRecord(row: Record<string, unknown>): UserModelRecord {
 
 const USER_COLUMNS = "provider_definition, model_name, info, saved_at";
 
-export function loadUserModels(
-  sql: Query,
-): { seq: string; items: UserModelRecord[] } {
+export function loadUserModels(sql: Query): {
+  seq: string;
+  items: UserModelRecord[];
+} {
   const rows = sql.all(
     `select ${USER_COLUMNS} from model_user_info order by provider_definition, model_name`,
     [],

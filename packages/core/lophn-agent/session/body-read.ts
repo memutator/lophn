@@ -71,7 +71,8 @@ export function messageBodyRead(
         const hash = ref?.["hash"];
         const size = ref?.["size_bytes"];
         if (
-          typeof hash !== "string" || hash !== message.body ||
+          typeof hash !== "string" ||
+          hash !== message.body ||
           (typeof size !== "bigint" && typeof size !== "number")
         ) {
           return unavailable("message body is not available");
@@ -119,7 +120,9 @@ export async function readBodyBytes(
     const length = Math.min(BLOB_READ_MAX_BYTES, size - offset);
     const read = await environment.bytes(hash, offset, length);
     if (
-      !read.ok || read.value.hash !== hash || read.value.sizeBytes !== size ||
+      !read.ok ||
+      read.value.hash !== hash ||
+      read.value.sizeBytes !== size ||
       read.value.bytes.length !== length
     ) {
       return unavailable("message body is not available");
@@ -127,7 +130,7 @@ export async function readBodyBytes(
     whole.set(read.value.bytes, offset);
     offset += length;
   }
-  if (await sha256Hex(whole) !== hash) {
+  if ((await sha256Hex(whole)) !== hash) {
     return unavailable("message body is not available");
   }
   return ok(whole);

@@ -34,10 +34,7 @@ type StopOutput = z.infer<typeof previewsStopOutputSchema>;
 // supervisor 통로. 운영 자식의 reconcile·record와 겹치지 않는 preview 전용 호출이다.
 type PreviewSupervisor = {
   start(launch: PreviewLaunch): Promise<Result<void>>;
-  observe(
-    app: string,
-    nonce: string,
-  ): Promise<Result<ObservationWire | null>>;
+  observe(app: string, nonce: string): Promise<Result<ObservationWire | null>>;
   stop(app: string, nonce: string): Promise<Result<boolean>>;
 };
 
@@ -64,10 +61,7 @@ export interface PreviewBundles {
 
 // release가 그 앱의 어느 bundle을 가리키는지. 없는 release·다른 앱의 release는 undefined다.
 export interface PreviewReleases {
-  bundleOf(
-    app: string,
-    release: string,
-  ): Promise<Result<string | undefined>>;
+  bundleOf(app: string, release: string): Promise<Result<string | undefined>>;
 }
 
 type PreviewServiceDeps = {
@@ -142,9 +136,7 @@ function actorKind(actor: string): string {
   return actor.split(":", 1)[0];
 }
 
-function previewObservationOf(
-  wire: ObservationWire,
-): PreviewObservation {
+function previewObservationOf(wire: ObservationWire): PreviewObservation {
   return {
     app: wire.app,
     release: wire.release,
@@ -195,7 +187,7 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
     const allowed = deps.authorize(ctx, operation, { app });
     if (!allowed.ok) {
       return allowed.error.code === "forbidden" ||
-          allowed.error.code === "not_found"
+        allowed.error.code === "not_found"
         ? notFound()
         : allowed;
     }
@@ -355,7 +347,8 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
       const launched = await launch(app, opened.value, bundleHash, null, null);
       if (!launched.ok) return launched;
       const nonce = launched.value;
-      const wait = deps.wait ??
+      const wait =
+        deps.wait ??
         ((ms: number) => new Promise<void>((done) => setTimeout(done, ms)));
       const deadline = deps.clock.nowMs() + CHECK_LIMIT_MS;
       let outcome: { ok: true } | { ok: false; reason: string } | undefined;

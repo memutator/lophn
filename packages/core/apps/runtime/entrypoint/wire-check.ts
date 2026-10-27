@@ -36,7 +36,7 @@ export function isJson(value: unknown): value is Json {
       const keys = ownKeys(value);
       if (!keys) return false;
       return keys.every((key) =>
-        isJson((value as Record<string, unknown>)[key])
+        isJson((value as Record<string, unknown>)[key]),
       );
     }
     default:
@@ -48,7 +48,7 @@ export function record(value: unknown): Record<string, unknown> | undefined {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return;
   }
-  return ownKeys(value) ? value as Record<string, unknown> : undefined;
+  return ownKeys(value) ? (value as Record<string, unknown>) : undefined;
 }
 
 // 모르는 칸이나 빠진 칸의 이름을 돌려준다. 없으면 undefined다.

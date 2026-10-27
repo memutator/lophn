@@ -242,7 +242,8 @@ function textOf(value: unknown): string | null | typeof INVALID {
 function summaryOf(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const text = [...value.replace(/\p{Cc}+/gu, " ").trim()]
-    .slice(0, TEXT_MAX_CODE_POINTS).join("");
+    .slice(0, TEXT_MAX_CODE_POINTS)
+    .join("");
   return text === "" ? null : text;
 }
 
@@ -352,8 +353,9 @@ function isSubagent(
       return payload.subagentType !== undefined;
     // Muse 1.3의 하위 session은 session_id를 turn_id로도 쓴다.
     case "muse":
-      return payload.turn_id !== undefined &&
-        payload.turn_id === payload.session_id;
+      return (
+        payload.turn_id !== undefined && payload.turn_id === payload.session_id
+      );
     case "cline":
       return Boolean(payload.parent_agent_id);
     case "hermes":
@@ -401,15 +403,15 @@ function turnOutcome(
       return payload.status === "error"
         ? "failed"
         : payload.status === "aborted"
-        ? "interrupted"
-        : "completed";
+          ? "interrupted"
+          : "completed";
     case "on_session_end": {
       const extra = isRecord(payload.extra) ? payload.extra : {};
       return extra.failed === true
         ? "failed"
         : extra.interrupted === true
-        ? "interrupted"
-        : "completed";
+          ? "interrupted"
+          : "completed";
     }
     case "Stop":
       // grok은 session 끝에 reason이 channel_closed·shutdown인 Stop을 또 낸다.
@@ -417,7 +419,7 @@ function turnOutcome(
       if (harness === "antigravity") {
         if (payload.fullyIdle !== true) return null;
         return payload.terminationReason === "error" ||
-            (payload.error !== undefined && payload.error !== null)
+          (payload.error !== undefined && payload.error !== null)
           ? "failed"
           : "completed";
       }
@@ -440,8 +442,9 @@ function commandHookSignal(
   if (event === "SessionEnd" && payload.reason === "clear") return null;
   switch (type) {
     case "SessionStarted": {
-      const id = SESSION_ID_KEYS.map((key) => payload[key])
-        .find((value) => value !== undefined && value !== null);
+      const id = SESSION_ID_KEYS.map((key) => payload[key]).find(
+        (value) => value !== undefined && value !== null,
+      );
       return sessionStarted(id);
     }
     case "TurnStarted":
@@ -481,7 +484,8 @@ function permissionRequested(
       if (
         kind !== "permission_prompt" &&
         !(harness === "copilot" && kind === "elicitation_dialog")
-      ) return null;
+      )
+        return null;
       return {
         type,
         request: { tool: null, summary: summaryOf(payload.message) },
@@ -489,9 +493,8 @@ function permissionRequested(
     }
     case "PreToolUse": {
       // 사람에게 묻는 tool만 권한 물음이다. 설치도 이 matcher만 건다.
-      const ask = harness === "codex"
-        ? "request_user_input"
-        : "AskUserQuestion";
+      const ask =
+        harness === "codex" ? "request_user_input" : "AskUserQuestion";
       if (payload.tool_name !== ask) return null;
       return { type, request: { tool: ask, summary: null } };
     }
@@ -528,10 +531,10 @@ function opencodeSignal(
       }
       return status === "idle"
         ? pluginTurnEnded(
-          base,
-          outcomeOf(properties.lophn_outcome),
-          properties.lophn_message,
-        )
+            base,
+            outcomeOf(properties.lophn_outcome),
+            properties.lophn_message,
+          )
         : null;
     }
     case "permission.asked": {
@@ -612,8 +615,8 @@ function ampSignal(
         payload.status === "error"
           ? "failed"
           : payload.status === "cancelled"
-          ? "interrupted"
-          : "completed",
+            ? "interrupted"
+            : "completed",
         payload.lophn_message,
       );
     default:

@@ -33,9 +33,10 @@ const ALL_PACKAGES = [
   "tests",
 ];
 const FOLDERS: Record<string, string> = Object.fromEntries(
-  ALL_PACKAGES.map((
+  ALL_PACKAGES.map((p) => [
     p,
-  ) => [p, p === "tools" || p === "tests" ? p : `packages/${p}`]),
+    p === "tools" || p === "tests" ? p : `packages/${p}`,
+  ]),
 );
 // check-deps.ts의 표에 terminal host의 coding-agent와 tools의 넓은 사용을 더한다.
 const USES: Record<string, string[]> = {
@@ -70,8 +71,8 @@ function collect(child: ChildProcess): Promise<Captured> {
     let stderr = "";
     child.stdout!.setEncoding("utf8");
     child.stderr!.setEncoding("utf8");
-    child.stdout!.on("data", (chunk: string) => stdout += chunk);
-    child.stderr!.on("data", (chunk: string) => stderr += chunk);
+    child.stdout!.on("data", (chunk: string) => (stdout += chunk));
+    child.stderr!.on("data", (chunk: string) => (stderr += chunk));
     child.on("error", reject);
     child.on("close", (code) => resolve({ code, stdout, stderr }));
   });
@@ -90,8 +91,10 @@ async function output(command: string[]): Promise<string> {
 const lines = (text: string) => text.split("\n").filter((l) => l !== "");
 
 async function changedFiles(base?: string): Promise<string[]> {
-  const rev = base ??
-    (lines(await output(["git", "merge-base", "HEAD", "main"]))[0] ?? "HEAD");
+  const rev =
+    base ??
+    lines(await output(["git", "merge-base", "HEAD", "main"]))[0] ??
+    "HEAD";
   const files = [
     ...lines(await output(["git", "diff", "--name-only", rev])),
     ...lines(await output(["git", "ls-files", "-o", "--exclude-standard"])),
@@ -102,9 +105,12 @@ async function changedFiles(base?: string): Promise<string[]> {
 // "all"은 전부 바뀐 것으로 본다.
 function packageOf(file: string): string | "all" | undefined {
   if (
-    file === "deno.json" || file === "deno.lock" || file === "biome.json" ||
+    file === "deno.json" ||
+    file === "deno.lock" ||
+    file === "biome.json" ||
     /^tools\/check[^/]*\.ts$/.test(file)
-  ) return "all";
+  )
+    return "all";
   if (file.startsWith("tools/")) return "tools";
   if (file.startsWith("tests/")) return "tests";
   const name = file.split("/")[1];
@@ -174,15 +180,17 @@ async function buildSteps(
   catalogChanged: boolean,
 ): Promise<{ checks: Step[]; test: Step; skipped: Result[] }> {
   const has = (...names: string[]) => full || names.some((n) => run.has(n));
-  const pkgFolders = ALL_PACKAGES.filter((p) => run.has(p)).map((p) =>
-    FOLDERS[p]
+  const pkgFolders = ALL_PACKAGES.filter((p) => run.has(p)).map(
+    (p) => FOLDERS[p],
   );
-  const fmtFiles = (await Promise.all(
-    pkgFolders.map((f) => packageFiles(f, /\.(tsx?|js|jsonc?)$/)),
-  )).flat();
-  const lintFiles = (await Promise.all(
-    pkgFolders.map((f) => packageFiles(f, /\.(tsx?|js)$/)),
-  )).flat();
+  const fmtFiles = (
+    await Promise.all(
+      pkgFolders.map((f) => packageFiles(f, /\.(tsx?|js|jsonc?)$/)),
+    )
+  ).flat();
+  const lintFiles = (
+    await Promise.all(pkgFolders.map((f) => packageFiles(f, /\.(tsx?|js)$/)))
+  ).flat();
   const checks: Step[] = [];
   const skipped: Result[] = [];
   const skip = (name: string, note: string) =>
@@ -194,21 +202,15 @@ async function buildSteps(
   } else if (pkgFolders.length > 0) {
     checks.push({
       name: "fmt",
-      commands: [[
-        ...BIOME_CMD,
-        "format",
-        "--no-errors-on-unmatched",
-        ...fmtFiles,
-      ]],
+      commands: [
+        [...BIOME_CMD, "format", "--no-errors-on-unmatched", ...fmtFiles],
+      ],
     });
     checks.push({
       name: "lint",
-      commands: [[
-        ...BIOME_CMD,
-        "lint",
-        "--no-errors-on-unmatched",
-        ...lintFiles,
-      ]],
+      commands: [
+        [...BIOME_CMD, "lint", "--no-errors-on-unmatched", ...lintFiles],
+      ],
     });
   } else {
     skip("fmt", "돌 package 없음");
@@ -230,32 +232,30 @@ async function buildSteps(
   if (full || catalogChanged || run.size > 0) {
     checks.push({
       name: "modules",
-      commands: [[
-        "deno",
-        "run",
-        "--allow-read",
-        "--allow-env",
-        "tools/check-modules.ts",
-      ]],
+      commands: [
+        [
+          "deno",
+          "run",
+          "--allow-read",
+          "--allow-env",
+          "tools/check-modules.ts",
+        ],
+      ],
     });
   } else skip("modules", "package와 catalog가 안 바뀜");
   // 문서만 바뀐 변경을 잡는 check라 조건 없이 돈다.
   checks.push({
     name: "docs",
-    commands: [[
-      "deno",
-      "run",
-      "--allow-read",
-      "--allow-env",
-      "tools/check-docs.ts",
-    ]],
+    commands: [
+      ["deno", "run", "--allow-read", "--allow-env", "tools/check-docs.ts"],
+    ],
   });
 
   if (full) {
     // `deno check`에는 --ignore가 없어 file 목록을 준다. package마다 나누면 type check 메모리가 몇 배가 되므로 process 하나로 돈다.
-    const files = (await Promise.all(
-      ALL_PACKAGES.map((p) => sourceFiles(FOLDERS[p])),
-    )).flat();
+    const files = (
+      await Promise.all(ALL_PACKAGES.map((p) => sourceFiles(FOLDERS[p])))
+    ).flat();
     checks.push({ name: "check", commands: [["deno", "check", ...files]] });
   } else {
     for (const p of ALL_PACKAGES.filter((p) => run.has(p))) {
@@ -271,13 +271,9 @@ async function buildSteps(
   if (has("design", "sdk", "shell")) {
     checks.push({
       name: "style",
-      commands: [[
-        "deno",
-        "run",
-        "--allow-read",
-        "--allow-env",
-        "tools/check-style.ts",
-      ]],
+      commands: [
+        ["deno", "run", "--allow-read", "--allow-env", "tools/check-style.ts"],
+      ],
     });
     checks.push({
       name: "wording",
@@ -296,24 +292,28 @@ async function buildSteps(
   if (has("design")) {
     checks.push({
       name: "wording 생성",
-      commands: [[
-        "deno",
-        "run",
-        "--allow-read",
-        "packages/design/wording/generate.ts",
-        "--check",
-      ]],
+      commands: [
+        [
+          "deno",
+          "run",
+          "--allow-read",
+          "packages/design/wording/generate.ts",
+          "--check",
+        ],
+      ],
     });
     checks.push({
       name: "token 생성",
-      commands: [[
-        "deno",
-        "run",
-        "--allow-read",
-        "--allow-run",
-        "packages/design/generate.ts",
-        "--check",
-      ]],
+      commands: [
+        [
+          "deno",
+          "run",
+          "--allow-read",
+          "--allow-run",
+          "packages/design/generate.ts",
+          "--check",
+        ],
+      ],
     });
   } else {
     skip("wording 생성", "design이 안 돎");
@@ -349,13 +349,16 @@ async function buildSteps(
         name: "shell main test",
         cwd: SHELL_MAIN,
         // precheck가 packages/shell/node_modules/zod를 잇는다. "shell main"과 같이 돌아 먼저 한다.
-        commands: [["npm", "run", "precheck"], [
-          "node",
-          "--test",
-          "--experimental-strip-types",
-          "--no-warnings",
-          ...mainTests,
-        ]],
+        commands: [
+          ["npm", "run", "precheck"],
+          [
+            "node",
+            "--test",
+            "--experimental-strip-types",
+            "--no-warnings",
+            ...mainTests,
+          ],
+        ],
       });
     }
   } else skip("shell main", "shell 쪽이 안 돎");
@@ -371,9 +374,13 @@ async function buildSteps(
   );
   if (!full) {
     testArgs.push(
-      ...(await Promise.all(
-        pkgFolders.map((f) => packageFiles(f, /_test\.tsx?$/)),
-      )).flat().filter((f) => !under(f, NOT_IN_CHECK)),
+      ...(
+        await Promise.all(
+          pkgFolders.map((f) => packageFiles(f, /_test\.tsx?$/)),
+        )
+      )
+        .flat()
+        .filter((f) => !under(f, NOT_IN_CHECK)),
     );
   }
   return { checks, test: { name: "test", commands: [testArgs] }, skipped };
@@ -386,7 +393,9 @@ function killAll() {
   for (const child of running) {
     try {
       child.kill("SIGTERM");
-    } catch { /* 이미 끝남 */ }
+    } catch {
+      /* 이미 끝남 */
+    }
   }
 }
 
@@ -405,9 +414,10 @@ async function runStep(step: Step): Promise<Done> {
       const child = spawn(command[0], command.slice(1), {
         cwd: step.cwd,
         // test는 DENO_JOBS가 환경에 없으면 8로 돈다.
-        env: command[1] === "test"
-          ? { ...process.env, DENO_JOBS: process.env.DENO_JOBS ?? "8" }
-          : undefined,
+        env:
+          command[1] === "test"
+            ? { ...process.env, DENO_JOBS: process.env.DENO_JOBS ?? "8" }
+            : undefined,
         stdio: ["ignore", "pipe", "pipe"],
       });
       running.add(child);
@@ -439,15 +449,17 @@ async function runStep(step: Step): Promise<Done> {
 // 한 묶음을 동시에 돈다. 첫 실패에서 나머지를 멈추고 그 출력을 낸다.
 async function runStage(steps: Step[], results: Result[]): Promise<boolean> {
   let failed: Done | undefined;
-  const dones = await Promise.all(steps.map(async (step) => {
-    const done = await runStep(step);
-    if (done.result.status === "실패" && !aborted) {
-      aborted = true;
-      failed = done;
-      killAll();
-    }
-    return done;
-  }));
+  const dones = await Promise.all(
+    steps.map(async (step) => {
+      const done = await runStep(step);
+      if (done.result.status === "실패" && !aborted) {
+        aborted = true;
+        failed = done;
+        killAll();
+      }
+      return done;
+    }),
+  );
   for (const done of dones) {
     if (done.result.status === "실패" && done !== failed) {
       results.push({ name: done.step.name, status: "건너뜀", note: "중단" });
@@ -474,10 +486,12 @@ function table(results: Result[]): string {
   const width = (s: string) =>
     [...s].reduce((n, c) => n + (c.charCodeAt(0) > 0x2e80 ? 2 : 1), 0);
   const widths = head.map((h, i) =>
-    Math.max(width(h), ...rows.map((r) => width(r[i])))
+    Math.max(width(h), ...rows.map((r) => width(r[i]))),
   );
   const line = (cells: string[]) =>
-    cells.map((c, i) => c + " ".repeat(widths[i] - width(c))).join("  ")
+    cells
+      .map((c, i) => c + " ".repeat(widths[i] - width(c)))
+      .join("  ")
       .trimEnd();
   return [
     line(head),

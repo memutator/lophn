@@ -34,9 +34,9 @@ async function read(root: string, file: string): Promise<Node> {
 
 async function folders(root: string, parent: string): Promise<string[]> {
   const found: string[] = [];
-  for (
-    const entry of await readdir(`${root}/${parent}`, { withFileTypes: true })
-  ) {
+  for (const entry of await readdir(`${root}/${parent}`, {
+    withFileTypes: true,
+  })) {
     if (entry.isDirectory() && !EXCLUDED.has(entry.name)) {
       found.push(`${parent}/${entry.name}`);
     }
@@ -80,7 +80,7 @@ function checkBoundaries(catalog: Node, issues: Issue[]): Set<string> {
     }
     if (!KINDS.has(String(node.kind))) add(`${id}: 모르는 kind ${node.kind}`);
     const isInterface = node.kind === "interface";
-    if (isInterface !== (index >= elementCount)) {
+    if (isInterface !== index >= elementCount) {
       add(`${id}: interface는 interfaces에만, 그 밖은 elements에만 둔다`);
     }
     for (const field of INTERFACE_FIELDS) {
@@ -118,7 +118,7 @@ export async function checkModules(root: string): Promise<Issue[]> {
     const path = String(entry.path);
     if (listed.has(path)) add(`path가 겹침: ${path}`);
     listed.add(path);
-    if (!await exists(`${root}/${path}`)) add(`없는 path: ${path}`);
+    if (!(await exists(`${root}/${path}`))) add(`없는 path: ${path}`);
     if (entry.boundary === null) {
       if (!entry.notes) add(`${path}: boundary가 null이면 notes 필요`);
     } else if (!ids.has(String(entry.boundary))) {
@@ -137,9 +137,9 @@ export async function checkModules(root: string): Promise<Issue[]> {
 
   const expected = [
     "tools",
-    ...await folders(root, "packages"),
-    ...await folders(root, "packages/core"),
-    ...await folders(root, "packages/shell"),
+    ...(await folders(root, "packages")),
+    ...(await folders(root, "packages/core")),
+    ...(await folders(root, "packages/shell")),
   ].filter((path) => path !== "packages/core" && path !== "packages/shell");
   for (const path of expected) {
     if (!listed.has(path)) add(`catalog에 없는 폴더: ${path}`);

@@ -91,9 +91,16 @@ const port: ReadPort = {
         return ok({ tool_calls: i.session === "ses_root" ? toolCalls : [] });
       case turnBodyView:
         return ok({
-          value: i.kind === "tool_call_input" ? inputs[i.id] : {
-            content: { call: "cal_1", state: "accepted", fail_reason: null },
-          },
+          value:
+            i.kind === "tool_call_input"
+              ? inputs[i.id]
+              : {
+                  content: {
+                    call: "cal_1",
+                    state: "accepted",
+                    fail_reason: null,
+                  },
+                },
           truncated: false,
         });
       case callRead:
@@ -114,30 +121,28 @@ const port: ReadPort = {
 
 test("t0 앞 turn의 call은 빼고 막힌 call과 새 session에 간 call은 보낸 쪽 순서로 남는다", async () => {
   const records = await collectSessions({ port }, ["ses_root"], T0);
-  assert.deepStrictEqual(records.map((r) => r.session), ["ses_root", "ses_pm"]);
+  assert.deepStrictEqual(
+    records.map((r) => r.session),
+    ["ses_root", "ses_pm"],
+  );
   const root = records[0];
-  assert.deepStrictEqual(root.turns.map((t) => t.id), ["trn_new"]);
-  assert.deepStrictEqual(root.tool_calls.map((t) => t.call.id), [
-    "tcl_blocked",
-    "tcl_sent",
-  ]);
+  assert.deepStrictEqual(
+    root.turns.map((t) => t.id),
+    ["trn_new"],
+  );
+  assert.deepStrictEqual(
+    root.tool_calls.map((t) => t.call.id),
+    ["tcl_blocked", "tcl_sent"],
+  );
   const [blocked, sent] = root.sent_calls;
-  assert.deepStrictEqual([blocked.order, blocked.outcome?.code, blocked.call], [
-    0,
-    "denied",
-    null,
-  ]);
-  assert.deepStrictEqual([
-    sent.order,
-    sent.reply,
-    sent.call,
-    sent.receiver_session,
-  ], [
-    1,
-    "result",
-    "cal_1",
-    "ses_pm",
-  ]);
+  assert.deepStrictEqual(
+    [blocked.order, blocked.outcome?.code, blocked.call],
+    [0, "denied", null],
+  );
+  assert.deepStrictEqual(
+    [sent.order, sent.reply, sent.call, sent.receiver_session],
+    [1, "result", "cal_1", "ses_pm"],
+  );
   assert.deepStrictEqual(sent.receiver_place?.name, "tax");
   assert.deepStrictEqual(records[1].place?.name, "tax");
 });

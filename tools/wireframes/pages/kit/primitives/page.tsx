@@ -92,9 +92,7 @@ export function KitPrimitives() {
             "x.py",
             "chart.png",
             "unknown.zzz",
-          ].map((
-            name,
-          ) => (
+          ].map((name) => (
             <span key={name} className={kit.mono}>
               <FileIcon name={name} size={20} /> {name}
             </span>

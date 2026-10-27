@@ -22,22 +22,27 @@ const refuse = (message: string) =>
 // call k의 답은 call k+1 요청의 마지막 assistant message에 들어 있다(history에 붙는다).
 function replyFrom(next: unknown): Reply {
   const messages =
-    (next as { messages?: { role?: string; content?: unknown }[] })
-      .messages ?? [];
+    (next as { messages?: { role?: string; content?: unknown }[] }).messages ??
+    [];
   const last = messages.findLast((m) => m.role === "assistant");
   const content = last?.content;
-  const blocks: Block[] = typeof content === "string"
-    ? [{ type: "text", text: content }]
-    : Array.isArray(content)
-    ? content as Block[]
-    : [];
-  const text = blocks.filter((b) => b.type === "text").map((b) => b.text ?? "")
+  const blocks: Block[] =
+    typeof content === "string"
+      ? [{ type: "text", text: content }]
+      : Array.isArray(content)
+        ? (content as Block[])
+        : [];
+  const text = blocks
+    .filter((b) => b.type === "text")
+    .map((b) => b.text ?? "")
     .join("");
-  const calls = blocks.filter((b) => b.type === "tool_use").map((b) => ({
-    id: b.id ?? "",
-    name: b.name ?? "",
-    arguments: JSON.stringify(b.input ?? {}),
-  }));
+  const calls = blocks
+    .filter((b) => b.type === "tool_use")
+    .map((b) => ({
+      id: b.id ?? "",
+      name: b.name ?? "",
+      arguments: JSON.stringify(b.input ?? {}),
+    }));
   if (calls.length > 0) {
     return text === ""
       ? { kind: "tool", calls }
@@ -60,15 +65,16 @@ export function scriptOf(trial: TrialRecord): Result<ReplayScript> {
   }
   const session = sessions[0];
   for (const { call, request } of session.model_calls) {
-    const bad = call.purpose !== "judgment"
-      ? `purpose ${call.purpose}`
-      : call.state !== "finished" || call.outcome?.kind !== "complete"
-      ? `outcome ${call.outcome?.kind ?? call.state}`
-      : call.attempt_kind !== "initial"
-      ? "retry attempt"
-      : request === null
-      ? "request body not collected"
-      : null;
+    const bad =
+      call.purpose !== "judgment"
+        ? `purpose ${call.purpose}`
+        : call.state !== "finished" || call.outcome?.kind !== "complete"
+          ? `outcome ${call.outcome?.kind ?? call.state}`
+          : call.attempt_kind !== "initial"
+            ? "retry attempt"
+            : request === null
+              ? "request body not collected"
+              : null;
     if (bad !== null) return refuse(`call ${call.id}: ${bad}`);
   }
   const requests = session.model_calls.map((c) => c.request);
@@ -78,7 +84,7 @@ export function scriptOf(trial: TrialRecord): Result<ReplayScript> {
   const replies: Reply[] = requests.map((_, k) =>
     k + 1 < requests.length
       ? replyFrom(requests[k + 1])
-      : { kind: "text", text: "done" }
+      : { kind: "text", text: "done" },
   );
   return ok({ session: session.session, requests, replies });
 }

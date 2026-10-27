@@ -97,9 +97,9 @@ async function saveActiveApp(
 async function nextN(root: string, name: string): Promise<number> {
   let max = 0;
   try {
-    for (
-      const entry of await readdir(`${root}/${name}`, { withFileTypes: true })
-    ) {
+    for (const entry of await readdir(`${root}/${name}`, {
+      withFileTypes: true,
+    })) {
       if (/^\d+$/.test(entry.name)) max = Math.max(max, Number(entry.name));
     }
   } catch (error) {
@@ -115,15 +115,21 @@ export function relations(
   ids: Record<string, string>,
 ): Pick<MaterialManifest, "needs" | "parent"> {
   const saved = new Set(Object.values(ids));
-  const owners = materials.filter((item) =>
-    Object.values(item.manifest.ids).some((id) => saved.has(id))
-  ).sort((a, b) => splitRef(a.ref).n - splitRef(b.ref).n);
+  const owners = materials
+    .filter((item) =>
+      Object.values(item.manifest.ids).some((id) => saved.has(id)),
+    )
+    .sort((a, b) => splitRef(a.ref).n - splitRef(b.ref).n);
   const top = owners.at(-1);
   const parent = top?.ref ?? null;
-  const others = materials.filter((item) =>
-    item.ref !== parent &&
-    (item.manifest.kind === "active_app" || item.manifest.kind === "package")
-  ).map((item) => item.ref);
+  const others = materials
+    .filter(
+      (item) =>
+        item.ref !== parent &&
+        (item.manifest.kind === "active_app" ||
+          item.manifest.kind === "package"),
+    )
+    .map((item) => item.ref);
   return {
     parent,
     needs: [...new Set([...(top?.manifest.needs ?? []), ...others])],
@@ -144,12 +150,18 @@ export async function saveMaterials(
     const saved = await saveActiveApp(deps, spec.app);
     if (!saved.ok) return saved;
     const n = await nextN(root, name);
-    const result = await writeMaterial(root, name, n, {
-      kind: saved.value.kind,
-      ids: saved.value.ids,
-      ...relations(materials, saved.value.ids),
-      produced_by: from,
-    }, saved.value.files);
+    const result = await writeMaterial(
+      root,
+      name,
+      n,
+      {
+        kind: saved.value.kind,
+        ids: saved.value.ids,
+        ...relations(materials, saved.value.ids),
+        produced_by: from,
+      },
+      saved.value.files,
+    );
     if (!result.ok) return result;
     written.push({ name, n });
   }

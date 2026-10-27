@@ -60,8 +60,10 @@ function storedResult(row: Record<string, unknown>): Result<{
   const raw = row["result"];
   const at = row["at"];
   if (
-    typeof principal !== "string" || typeof key !== "string" ||
-    typeof fingerprint !== "string" || typeof raw !== "string" ||
+    typeof principal !== "string" ||
+    typeof key !== "string" ||
+    typeof fingerprint !== "string" ||
+    typeof raw !== "string" ||
     typeof at !== "string"
   ) {
     return err(internalError());

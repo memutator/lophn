@@ -131,47 +131,52 @@ export function callFromRow(
     id: String(row["id"]),
     turn: row["turn"] === null ? null : String(row["turn"] as string),
     session: row["session"] === null ? null : String(row["session"] as string),
-    model_use: row["model_use"] === null
-      ? null
-      : row["model_use"] as ModelCallRecord["model_use"],
+    model_use:
+      row["model_use"] === null
+        ? null
+        : (row["model_use"] as ModelCallRecord["model_use"]),
     agent_hash: row["agent_hash"] === null ? null : String(row["agent_hash"]),
     purpose: row["purpose"] as ModelCallRecord["purpose"],
     attempt_kind: row["attempt_kind"] as ModelCallRecord["attempt_kind"],
     attempt_order: Number(row["attempt_order"]),
-    retry_of: row["retry_of"] === null
-      ? null
-      : String(row["retry_of"] as string),
+    retry_of:
+      row["retry_of"] === null ? null : String(row["retry_of"] as string),
     model,
     input: String(row["input"]),
     context_basis: String(row["context_basis"]),
-    output: overrides.output === undefined
-      ? row["output"] === null ? null : String(row["output"])
-      : overrides.output,
-    state: overrides.state ?? row["state"] as ModelCallRecord["state"],
+    output:
+      overrides.output === undefined
+        ? row["output"] === null
+          ? null
+          : String(row["output"])
+        : overrides.output,
+    state: overrides.state ?? (row["state"] as ModelCallRecord["state"]),
     started_at: String(row["started_at"]),
-    finished_at: overrides.finished_at ??
+    finished_at:
+      overrides.finished_at ??
       (row["finished_at"] === null
         ? null
         : String(row["finished_at"] as string)),
-    duration_ms: overrides.duration_ms ??
+    duration_ms:
+      overrides.duration_ms ??
       (row["duration_ms"] === null ? null : Number(row["duration_ms"])),
-    first_output_ms: overrides.first_output_ms ??
+    first_output_ms:
+      overrides.first_output_ms ??
       (row["first_output_ms"] === null ? null : Number(row["first_output_ms"])),
-    outcome: overrides.outcome ??
+    outcome:
+      overrides.outcome ??
       (row["outcome"] === null
         ? null
-        : parseJson(row["outcome"]) as ModelCallRecord["outcome"]),
-    usage: overrides.usage ??
-      parseJson(row["usage"]) as ModelCallRecord["usage"],
-    cost: overrides.cost ?? parseJson(row["cost"]) as ModelCallRecord["cost"],
+        : (parseJson(row["outcome"]) as ModelCallRecord["outcome"])),
+    usage:
+      overrides.usage ?? (parseJson(row["usage"]) as ModelCallRecord["usage"]),
+    cost: overrides.cost ?? (parseJson(row["cost"]) as ModelCallRecord["cost"]),
   };
   return record;
 }
 
 // 시작 기록은 turn·purpose·target 별 한 번이다.
-export function assertCall(
-  record: unknown,
-): Result<ModelCallRecord> {
+export function assertCall(record: unknown): Result<ModelCallRecord> {
   const parsed = modelCallRecordSchema.safeParse(record);
   if (!parsed.success) {
     return err({

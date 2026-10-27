@@ -50,9 +50,10 @@ const BOUNDS: DetachedBounds = { x: 0, y: 0, width: 1, height: 1 };
 const TOP_BAR_HEIGHT = 36;
 
 // popup을 이 창 가운데에 popup 크기로 연다. 화면 밖으로 나가는 것은 main이 작업 영역 안으로 당긴다.
-function centeredOnOpener(
-  size: { readonly width: number; readonly height: number },
-): DetachedBounds {
+function centeredOnOpener(size: {
+  readonly width: number;
+  readonly height: number;
+}): DetachedBounds {
   const width = Math.round(size.width);
   const height = Math.round(size.height + TOP_BAR_HEIGHT);
   return {
@@ -110,11 +111,14 @@ export function DetachedSpace(props: DetachedSpaceProps): ReactElement {
   );
 }
 
-function DetachedTab(
-  { api, workspace, editor, terminal, agentViewSource, taken }:
-    & DetachedSpaceProps
-    & { taken: DetachedTaken },
-) {
+function DetachedTab({
+  api,
+  workspace,
+  editor,
+  terminal,
+  agentViewSource,
+  taken,
+}: DetachedSpaceProps & { taken: DetachedTaken }) {
   const { project } = taken;
   // DetachedTab은 key와 kind만 적은 모양이라 나머지 칸은 TabItem으로 읽는다.
   const [tab, setTab] = useState(taken.tab as TabItem);
@@ -134,13 +138,7 @@ function DetachedTab(
 
   // 앱 화면을 여는 길(Settings 등)은 이 창에 없다.
   const noop = () => {};
-  const {
-    agentView,
-    agents,
-    covers,
-    keeps,
-    webviews,
-  } = useTabHostSlices({
+  const { agentView, agents, covers, keeps, webviews } = useTabHostSlices({
     project,
     source: workspace,
     agentViewSource,
@@ -151,13 +149,16 @@ function DetachedTab(
   const key = taken.tab.key;
   useEffect(() => () => webviews.release(key), [webviews, key]);
 
-  const view = useMemo<WorkspaceView>(() => ({
-    panes: [{ tabs: [], selected: null }],
-    splitRatio: 0.5,
-    focusedPane: 0,
-    floats: [],
-    detached: [{ tab, bounds: BOUNDS }],
-  }), [tab]);
+  const view = useMemo<WorkspaceView>(
+    () => ({
+      panes: [{ tabs: [], selected: null }],
+      splitRatio: 0.5,
+      focusedPane: 0,
+      floats: [],
+      detached: [{ tab, bounds: BOUNDS }],
+    }),
+    [tab],
+  );
 
   const hostProps: WorkspaceProps = {
     projectId: project,
@@ -187,12 +188,14 @@ function DetachedTab(
     openFloat: (next, size) => {
       const adopt = next.fields?.adopt;
       if (typeof adopt !== "string") return;
-      void api.open({
-        project,
-        tab: slimDetachedTab(next),
-        transfer: { value: null, views: [adopt] },
-        bounds: size === undefined ? null : centeredOnOpener(size),
-      }).catch(() => {});
+      void api
+        .open({
+          project,
+          tab: slimDetachedTab(next),
+          transfer: { value: null, views: [adopt] },
+          bounds: size === undefined ? null : centeredOnOpener(size),
+        })
+        .catch(() => {});
     },
     patchTab: (target, patch) => {
       if (target !== tabRef.current.key) return;
@@ -232,7 +235,8 @@ function DetachedTab(
     const json = JSON.stringify(resume);
     if (json === reportedResume.current) return;
     reportedResume.current = json;
-    void api.changed({ tab: slimDetachedTab(tabRef.current), resume })
+    void api
+      .changed({ tab: slimDetachedTab(tabRef.current), resume })
       .catch(() => {});
   };
   const reportResumeRef = useRef(reportResume);
@@ -264,18 +268,26 @@ function DetachedTab(
   };
   const dockRef = useRef(dock);
   dockRef.current = dock;
-  useEffect(() =>
-    api.subscribe((event) => {
-      if (event.kind === "dock-request") void dockRef.current();
-    }), [api]);
+  useEffect(
+    () =>
+      api.subscribe((event) => {
+        if (event.kind === "dock-request") void dockRef.current();
+      }),
+    [api],
+  );
 
   const label = t("project-workspace.button.detached-dock");
-  const icon = def === undefined ? undefined : def.iconOf?.(tab, host) ??
-    <Icon icon={def.icon} pixels={iconPixels("small")} />;
+  const icon =
+    def === undefined
+      ? undefined
+      : (def.iconOf?.(tab, host) ?? (
+          <Icon icon={def.icon} pixels={iconPixels("small")} />
+        ));
   const dot = def?.dotOf?.(tab, host) ?? null;
-  const body = def === undefined
-    ? null
-    : def.keep?.(tab, true, host) ?? def.render?.(tab, true, host) ?? null;
+  const body =
+    def === undefined
+      ? null
+      : (def.keep?.(tab, true, host) ?? def.render?.(tab, true, host) ?? null);
 
   return (
     <ViewCoversProvider value={covers}>

@@ -18,12 +18,10 @@ export function codingLines(sql: Pick<Sql, "get" | "all">): CodingAppLine[] {
     }
     return line;
   };
-  for (
-    const row of sql.all(
-      "SELECT app, session, call FROM coding_sessions WHERE ended = 0",
-      [],
-    )
-  ) {
+  for (const row of sql.all(
+    "SELECT app, session, call FROM coding_sessions WHERE ended = 0",
+    [],
+  )) {
     lineOf(String(row.app)).active = {
       session: String(row.session),
       call: String(row.call) as never,

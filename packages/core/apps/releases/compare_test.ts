@@ -16,14 +16,15 @@ const net = (host: string) => ({
   scope: { host, port: 443 },
   reason: "test",
 });
-const grantFor = (host: string): AppGrant => ({
-  id: "grt_01arz3ndektsv4rrffq69g5fav",
-  app: APP,
-  scope: { kind: "net.fetch", host, port: 443 },
-  status: "active",
-  created_at: "2026-10-16T00:00:00.000Z",
-  revoked_at: null,
-} as AppGrant);
+const grantFor = (host: string): AppGrant =>
+  ({
+    id: "grt_01arz3ndektsv4rrffq69g5fav",
+    app: APP,
+    scope: { kind: "net.fetch", host, port: 443 },
+    status: "active",
+    created_at: "2026-10-16T00:00:00.000Z",
+    revoked_at: null,
+  }) as AppGrant;
 
 const step = (loss: DataChange["loss"]): DataChange => ({
   from: 1,

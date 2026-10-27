@@ -56,13 +56,17 @@ function liveFetch(options: { header: boolean }) {
       const body = new ReadableStream<Uint8Array>({
         start(c) {
           controller = c;
-          signal.addEventListener("abort", () => {
-            try {
-              c.error(aborted());
-            } catch {
-              // 이미 끝난 stream이다.
-            }
-          }, { once: true });
+          signal.addEventListener(
+            "abort",
+            () => {
+              try {
+                c.error(aborted());
+              } catch {
+                // 이미 끝난 stream이다.
+              }
+            },
+            { once: true },
+          );
         },
       });
       resolve(
@@ -96,7 +100,10 @@ test("header도 오기 전에 멎으면 기한이 차 temporary로 끊는다", a
   );
   const call = callWire(binding);
   const signal = await live.sent;
-  assert.deepStrictEqual(deadlines.map((d) => d.ms), [MODEL_IDLE_MS]);
+  assert.deepStrictEqual(
+    deadlines.map((d) => d.ms),
+    [MODEL_IDLE_MS],
+  );
   deadlines[0].fire();
   const output = await call;
   assert.deepStrictEqual(output.outcome.kind, "failed");
@@ -149,7 +156,10 @@ test("ping이 오는 동안은 기한을 새로 걸어 끊지 않는다", async 
   const output = await call;
   assert.deepStrictEqual(output.outcome.kind, "complete");
   assert.deepStrictEqual(deadlines.length, 5);
-  assert.deepStrictEqual(deadlines.every((d) => d.signal.aborted), true);
+  assert.deepStrictEqual(
+    deadlines.every((d) => d.signal.aborted),
+    true,
+  );
 });
 
 test("사람이 멈추면 기한 전이라도 cancelled다", async () => {

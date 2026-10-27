@@ -93,8 +93,10 @@ function lookup(
 ): Result<CommandDefinition> {
   const definition = commands.get(route.name);
   if (
-    definition === undefined || definition.route.kind !== "command" ||
-    definition.dispatchable !== true || definition.route !== route
+    definition === undefined ||
+    definition.route.kind !== "command" ||
+    definition.dispatchable !== true ||
+    definition.route !== route
   ) {
     return err({
       code: "invalid_input",
@@ -125,9 +127,10 @@ function admit(
     return err({ code: "invalid_input", message: "input이 schema와 다르다" });
   }
   const compareSchema = definition.route.compare;
-  const parsedCompare = compareSchema === undefined
-    ? { success: true as const, data: compare }
-    : compareSchema.safeParse(compare);
+  const parsedCompare =
+    compareSchema === undefined
+      ? { success: true as const, data: compare }
+      : compareSchema.safeParse(compare);
   if (!parsedCompare.success) {
     return err({ code: "invalid_input", message: "compare가 schema와 다르다" });
   }

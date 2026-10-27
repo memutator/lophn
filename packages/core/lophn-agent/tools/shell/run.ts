@@ -89,7 +89,8 @@ export async function collect(
 
 function killGroup(pid: number): void {
   try {
-    spawnSync("/bin/sh", ["-c", `kill -KILL -- -${pid} 2>/dev/null`], {
+    // dash의 kill builtin은 `--`를 받지 않아 group을 못 죽인다(손자 process가 남는다). procps kill을 쓴다.
+    spawnSync("/usr/bin/kill", ["-KILL", "--", `-${pid}`], {
       stdio: "ignore",
       env: {},
     });

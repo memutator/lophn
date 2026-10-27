@@ -1,4 +1,5 @@
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { mkdir, readdir, rm, stat } from "node:fs/promises";
+import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
 import { openConnection } from "../ledger/mod.ts";
 
 // 복구본 안의 ledger 파일 이름.
@@ -63,7 +64,7 @@ export async function createRecoveryCopy(
   const recoveryRoot = `${deps.root}/${RECOVERY_DIR}`;
   const directory = `${recoveryRoot}/${name}`;
   try {
-    await Deno.mkdir(directory, { recursive: true, mode: 0o700 });
+    await mkdir(directory, { recursive: true, mode: 0o700 });
   } catch {
     return err({
       code: "unavailable",
@@ -73,13 +74,13 @@ export async function createRecoveryCopy(
   const copyPath = `${directory}/${RECOVERY_LEDGER_PATH}`;
   // target이 이미 있으면 vacuum이 실패한다. 이미 같은 stamp가 있으면 거절한다.
   try {
-    await Deno.stat(copyPath);
+    await stat(copyPath);
     return err({
       code: "unavailable",
       message: "같은 이름의 복구본이 이미 있다",
     });
   } catch (thrown) {
-    if (!(thrown instanceof Deno.errors.NotFound)) {
+    if (errorCode(thrown) !== "ENOENT") {
       return err({
         code: "unavailable",
         message: "복구본 자리를 확인하지 못했다",
@@ -128,7 +129,7 @@ export async function createRecoveryCopy(
     if (copied) {
       for (const suffix of ["", "-wal", "-shm"]) {
         try {
-          await Deno.remove(`${copyPath}${suffix}`);
+          await rm(`${copyPath}${suffix}`);
         } catch {
           // 이미 사라진 파일
         }
@@ -138,9 +139,9 @@ export async function createRecoveryCopy(
   }
   // 새 복구본이 검사까지 통과한 뒤에만 이전 복구본을 지운다.
   try {
-    for await (const entry of Deno.readDir(recoveryRoot)) {
+    for (const entry of await readdir(recoveryRoot, { withFileTypes: true })) {
       if (entry.name === name) continue;
-      await Deno.remove(`${recoveryRoot}/${entry.name}`, { recursive: true });
+      await rm(`${recoveryRoot}/${entry.name}`, { recursive: true });
     }
   } catch {
     // 이전 복구본이 남아도 새 복구본이 있다. 다음 기동이 다시 정리한다.
@@ -152,9 +153,9 @@ export async function createRecoveryCopy(
 // 복구본을 만든 그 기동은 부르지 않는다. 없는 폴더는 오류가 아니다.
 export async function confirmStartup(root: string): Promise<void> {
   try {
-    await Deno.remove(`${root}/${RECOVERY_DIR}`, { recursive: true });
+    await rm(`${root}/${RECOVERY_DIR}`, { recursive: true });
   } catch (thrown) {
-    if (!(thrown instanceof Deno.errors.NotFound)) {
+    if (errorCode(thrown) !== "ENOENT") {
       console.error("recovery: 복구본을 지우지 못했다");
     }
   }

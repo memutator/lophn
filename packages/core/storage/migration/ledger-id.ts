@@ -1,3 +1,4 @@
+import { open, readFile, rename } from "node:fs/promises";
 import { err, ok, type Result } from "../../../base/mod.ts";
 
 // ledger 식별. `H/ledger-id` 파일 하나에 ledger를 만들거나 복원할 때마다
@@ -27,7 +28,7 @@ function newLedgerId(): string {
 async function readLedgerId(root: string): Promise<string | undefined> {
   let text: string;
   try {
-    text = await Deno.readTextFile(`${root}/${LEDGER_ID_FILE}`);
+    text = await readFile(`${root}/${LEDGER_ID_FILE}`, "utf8");
   } catch {
     return undefined;
   }
@@ -46,19 +47,14 @@ async function writeLedgerId(
   const target = `${root}/${LEDGER_ID_FILE}`;
   const temporary = `${target}.tmp`;
   try {
-    const file = await Deno.open(temporary, {
-      write: true,
-      create: true,
-      truncate: true,
-      mode: 0o600,
-    });
+    const file = await open(temporary, "w", 0o600);
     try {
       await file.write(new TextEncoder().encode(`${id}\n`));
-      await file.syncData();
+      await file.datasync();
     } finally {
-      file.close();
+      await file.close();
     }
-    await Deno.rename(temporary, target);
+    await rename(temporary, target);
   } catch {
     return err({
       code: "unavailable",

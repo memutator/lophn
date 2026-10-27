@@ -3,7 +3,16 @@
 // chmod 0400 → 원자적 link 설치 → directory sync. 실패한 임시 파일은 버린다.
 
 import { createHash } from "node:crypto";
-import { err, ok, type Result } from "../../../base/mod.ts";
+import {
+  chmod,
+  type FileHandle,
+  link,
+  mkdir,
+  open,
+  rm,
+  stat,
+} from "node:fs/promises";
+import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
 import type { PreparedBlob } from "../../../protocol/storage/mod.ts";
 import {
   BLOB_READ_ONLY_MODE,
@@ -58,19 +67,19 @@ type BlobStoreDeps = {
 export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
   async function ensureDir(path: string): Promise<boolean> {
     try {
-      await Deno.mkdir(path, { recursive: true, mode: 0o700 });
+      await mkdir(path, { recursive: true, mode: 0o700 });
       return true;
     } catch {
       return false;
     }
   }
 
-  async function discard(file: Deno.FsFile, path: string): Promise<void> {
+  async function discard(file: FileHandle, path: string): Promise<void> {
     try {
-      file.close();
+      await file.close();
     } catch { /* 이미 닫힌 파일 */ }
     try {
-      await Deno.remove(path);
+      await rm(path);
     } catch { /* 이미 사라진 파일 */ }
   }
 
@@ -80,10 +89,10 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
     target: string,
   ): Promise<Result<"installed" | "exists">> {
     try {
-      await Deno.link(temporary, target);
+      await link(temporary, target);
       return ok("installed");
     } catch (thrown) {
-      if (thrown instanceof Deno.errors.AlreadyExists) return ok("exists");
+      if (errorCode(thrown) === "EEXIST") return ok("exists");
       return err({ code: "unavailable", message: "blob 설치에 실패했다" });
     }
   }
@@ -91,15 +100,15 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
   // 임시 directory와 대상 directory를 sync한다. 지원 OS에서만 의미가 있다.
   async function syncDirs(dirs: readonly string[]): Promise<void> {
     for (const dir of dirs) {
-      let handle: Deno.FsFile | undefined;
+      let handle: FileHandle | undefined;
       try {
-        handle = await Deno.open(dir, { read: true });
+        handle = await open(dir, "r");
         await handle.sync();
       } catch {
         // directory sync를 지원하지 않는 OS는 파일 sync만으로 둔다.
       } finally {
         try {
-          handle?.close();
+          await handle?.close();
         } catch { /* 이미 닫힌 directory */ }
       }
     }
@@ -196,10 +205,10 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
       }
       // link 설치 뒤 임시 이름만 떨어뜨린다. 설치 파일은 남는다.
       try {
-        handle.close();
+        await handle.close();
       } catch { /* 이미 닫힌 파일 */ }
       try {
-        await Deno.remove(temporary);
+        await rm(temporary);
       } catch { /* 이미 사라진 파일 */ }
       await syncDirs([tmpDir, objectsDir]);
       const observed = await observeBlob(deps.root, digest);
@@ -217,7 +226,7 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
   };
 
   function fail(
-    handle: Deno.FsFile,
+    handle: FileHandle,
     temporary: string,
     error: { code: "invalid_input"; message: string },
   ): Result<never> {
@@ -226,16 +235,11 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
   }
 }
 
-function openTemporary(path: string): Promise<Result<Deno.FsFile>> {
+function openTemporary(path: string): Promise<Result<FileHandle>> {
   return (async () => {
     try {
       return ok(
-        await Deno.open(path, {
-          createNew: true,
-          write: true,
-          read: true,
-          mode: 0o600,
-        }),
+        await open(path, "wx+", 0o600),
       );
     } catch {
       return err({ code: "unavailable", message: "임시 파일을 열 수 없다" });
@@ -244,13 +248,13 @@ function openTemporary(path: string): Promise<Result<Deno.FsFile>> {
 }
 
 async function installSync(
-  file: Deno.FsFile,
+  file: FileHandle,
   path: string,
 ): Promise<Result<void>> {
   try {
     await file.sync();
     // 완성 blob은 0400이다. 권한은 파일 sync 전에 고정한다.
-    await Deno.chmod(path, BLOB_READ_ONLY_MODE);
+    await chmod(path, BLOB_READ_ONLY_MODE);
     return ok(undefined);
   } catch {
     return err({ code: "unavailable", message: "blob sync에 실패했다" });
@@ -267,22 +271,21 @@ async function readBlobRange(
     hash.slice(2)
   }`;
   try {
-    const file = await Deno.open(path, { read: true });
+    const file = await open(path, "r");
     try {
-      const stat = await file.stat();
+      const info = await file.stat();
       const bytes = new Uint8Array(length);
-      await file.seek(offset, Deno.SeekMode.Start);
-      const read = await file.read(bytes);
+      const read = await file.read(bytes, 0, length, offset);
       return ok({
         hash,
-        sizeBytes: stat.size,
-        bytes: bytes.subarray(0, read ?? 0),
+        sizeBytes: info.size,
+        bytes: bytes.subarray(0, read.bytesRead),
       });
     } finally {
-      file.close();
+      await file.close();
     }
   } catch (thrown) {
-    if (thrown instanceof Deno.errors.NotFound) {
+    if (errorCode(thrown) === "ENOENT") {
       return err({ code: "not_found", message: "blob이 없다" });
     }
     return err({ code: "unavailable", message: "blob을 읽지 못했다" });
@@ -294,13 +297,15 @@ async function observeBlob(
   hash: string,
 ): Promise<Result<{ hash: string; sizeBytes: number }>> {
   try {
-    const stat = await Deno.stat(
+    const info = await stat(
       `${root}/${BLOB_STORE_OBJECTS_DIR}/${hash.slice(0, 2)}/${hash.slice(2)}`,
     );
-    if (!stat.isFile) return err({ code: "not_found", message: "blob이 없다" });
-    return ok({ hash, sizeBytes: stat.size });
+    if (!info.isFile()) {
+      return err({ code: "not_found", message: "blob이 없다" });
+    }
+    return ok({ hash, sizeBytes: info.size });
   } catch (thrown) {
-    if (thrown instanceof Deno.errors.NotFound) {
+    if (errorCode(thrown) === "ENOENT") {
       return err({ code: "not_found", message: "blob이 없다" });
     }
     return err({ code: "unavailable", message: "blob 관측에 실패했다" });

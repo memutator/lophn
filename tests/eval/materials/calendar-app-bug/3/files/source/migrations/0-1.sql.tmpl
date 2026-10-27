@@ -1,9 +1,0 @@
--- 데이터를 잃는 단계는 이 머리에 `loss: drop_table <표>` 또는 `loss: drop_column <표>.<칸>`(`narrow_type`도 같은 꼴) 주석 줄로 선언한다. 이 단계는 손실이 없다.
--- start_at은 지역 시각 "YYYY-MM-DDTHH:mm"이다. 사전순이 시각순이라 정렬과 주 범위 비교가 문자열 비교로 된다.
-create table event (
-  id integer primary key,
-  title text not null check (length(title) between 1 and 200),
-  start_at text not null,
-  created_at text not null
-);
-create index event_start on event (start_at, id);

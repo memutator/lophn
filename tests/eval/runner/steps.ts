@@ -68,7 +68,7 @@ export async function runSteps(ctx: StepsContext): Promise<Settle> {
       });
       const { outcome } = called;
       log(`callApi ${step.app}.${step.api}: ${outcome.status}`);
-      // 앱 handler가 낸 오류(failed)는 실패가 아니다. calendar-diagnose는 bug를 일부러 터뜨린다.
+      // 앱 handler가 낸 오류(failed)는 실패가 아니다. 시나리오가 bug를 일부러 터뜨릴 수 있다.
       if (outcome.status === "denied" || outcome.status === "unknown") {
         throw new Error(
           `callApi ${step.app}.${step.api}: ${JSON.stringify(outcome)}`,

@@ -9,8 +9,8 @@
 //   전체 기록은 `.dev-data/eval/<RunRecord.id>/`에 있다.
 // - `CheckInput.core`가 null이면 fixture 확인이다.
 
-import type { ActivationComparison } from "../../packages/protocol/apps/mod.ts";
 import type { TurnRequest } from "../../packages/protocol/approvals/mod.ts";
+import type { ActivationComparison } from "../../packages/protocol/apps/mod.ts";
 import type { Id } from "../../packages/protocol/base/mod.ts";
 import type {
   AskAnswer,
@@ -72,7 +72,7 @@ export type Step =
   | { kind: "say"; to: Participant; text: string } // 사람 말 한 줄
   | { kind: "untilIdle" } // 진짜 model을 받은 참가자가 모두 쉴 때까지
   // 켜진 앱의 tool을 사람 자격으로 부른다(`apps/call_tool`). app은 app.name이다. 앱이 낸 오류(outcome `failed`)는
-  // 단계 실패가 아니다(calendar-diagnose가 bug를 일부러 터뜨린다). `denied`·`unknown`은 던진다.
+  // 단계 실패가 아니다(시나리오가 bug를 일부러 터뜨릴 수 있다). `denied`·`unknown`은 던진다.
   | { kind: "callApi"; app: string; api: string; input?: unknown };
 
 // 되살린 world. 키는 Participant에 쓰는 이름과 같다.
@@ -135,7 +135,7 @@ export type ApproveRule = {
 // 시나리오 hash가 시나리오 file로 재어지므로 카드를 고치면 시나리오 n이 오른다. 새 VersionKind가 필요 없다.
 export type HumanSpec = { card: string; approve: ApproveRule };
 
-// 시나리오가 끝난 world에서 남길 것. 키는 새 재료 이름(`calendar-app`), 값은 무엇을 남기나.
+// 시나리오가 끝난 world에서 남길 것. 키는 새 재료 이름, 값은 무엇을 남기나.
 // 쓰기는 runner가 `tests/eval/materials/<이름>/<n+1>/`에 한다.
 export type SaveSource = { kind: "active_app"; app: string }; // 켜진 앱: source repo(선언 포함)와 manifest, active 표시
 export type Save = Record<string, SaveSource>;

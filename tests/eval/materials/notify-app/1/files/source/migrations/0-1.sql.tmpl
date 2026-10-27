@@ -1,8 +1,0 @@
--- 데이터를 잃는 단계는 이 머리에 `loss: drop_table <표>` 또는 `loss: drop_column <표>.<칸>`(`narrow_type`도 같은 꼴) 주석 줄로 선언한다. 이 단계는 손실이 없다.
-create table reminder (
-  id integer primary key,
-  title text not null check (length(title) between 1 and 200),
-  at integer not null check (at >= 0),
-  created_at text not null
-);
-create index reminder_at on reminder (at, id);

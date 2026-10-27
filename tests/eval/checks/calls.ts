@@ -34,7 +34,7 @@ export function callCount(
   };
 }
 
-// 새 앱을 만든 뒤에 그 앱의 App Engineer에게 보낸 call이 있나(L4-new). 만든 앱은 app.create 결과의 content.id다.
+// 새 앱을 만든 뒤에 그 앱의 App Engineer에게 보낸 call이 있나. 만든 앱은 app.create 결과의 content.id다.
 export function callAfterAppCreate(
   id: string,
   opts: { reply: CallReply },

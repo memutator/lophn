@@ -1,15 +1,15 @@
+import { readFileSync } from "node:fs";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import appEngineer from "./app-engineer/prompt.md" with { type: "text" };
-import lophn from "./lophn/prompt.md" with { type: "text" };
-import operator from "./operator/prompt.md" with { type: "text" };
-import projectManager from "./project-manager/prompt.md" with { type: "text" };
 
-// 역할 prompt 자산은 모듈에 묶어 가져온다.
+// Node는 text import가 없어 module을 읽을 때 한 번 읽는다. prompt 파일이 없으면 core가 뜨지 않는다.
+const prompt = (folder: string) =>
+  readFileSync(new URL(`./${folder}/prompt.md`, import.meta.url), "utf8");
+
 const ROLE_PROMPTS: ReadonlyMap<string, string> = new Map([
-  ["lophn", lophn],
-  ["project_manager", projectManager],
-  ["app_engineer", appEngineer],
-  ["operator", operator],
+  ["lophn", prompt("lophn")],
+  ["project_manager", prompt("project-manager")],
+  ["app_engineer", prompt("app-engineer")],
+  ["operator", prompt("operator")],
 ]);
 
 // 제품 고정 규칙을 앞에 붙인 role 지침 글이다. turn prompt의 role 층에 그대로 들어간다.

@@ -7,7 +7,7 @@
 // - 읽거나 쓸 수 없으면 secret이 필요한 기능만 고정 문장 이유와 함께 unavailable이다. 환경 변수·다른 파일
 //   fallback은 없다.
 // - 반환 오류·log에는 고정 문장만 있다. 값도 경로도 싣지 않는다(예외의 message도 옮기지 않는다).
-import { chmod, readFile, rename, rm, stat } from "node:fs/promises";
+import { chmod, open, readFile, rename, rm, stat } from "node:fs/promises";
 import { err, errorCode, ok, type Result } from "../../base/mod.ts";
 import {
   SECRET_FILE_NAME,
@@ -39,12 +39,12 @@ const nodeSecretFs: SecretFs = {
   chmod: (path, mode) => chmod(path, mode),
   async writeNew(path, text, mode) {
     await rm(path).catch(() => {});
-    const file = await Deno.open(path, { write: true, createNew: true, mode });
+    const file = await open(path, "wx", mode);
     try {
-      await file.write(new TextEncoder().encode(text));
-      await file.syncData();
+      await file.writeFile(text, "utf8");
+      await file.datasync();
     } finally {
-      file.close();
+      await file.close();
     }
   },
   rename: (from, to) => rename(from, to),

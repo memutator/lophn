@@ -1,6 +1,9 @@
 // 소스 낱말 검사: 주석과 test 이름의 옛 요구 ID·작업 번호, 쓰지 않는 말.
 // 실행: deno run --allow-read tools/check-source.ts [root]
 // 이름과 경로의 판·단계·작업 번호는 check-deps.ts가, 화면 문구는 check-wording.ts가 본다.
+import { readFile } from "node:fs/promises";
+import process from "node:process";
+
 import { SHELL_ROUTES } from "../packages/shell/main/desktop/core/routes.ts";
 import { walk } from "./check-deps.ts";
 import { readImports, readStringSites } from "./deps-imports.ts";
@@ -287,7 +290,7 @@ export async function checkSource(root: string): Promise<Issue[]> {
   for (const file of files) {
     if (!/^(?:packages|tools)\//.test(file) || !SOURCE.test(file)) continue;
     if (file === "tools/check-source.ts") continue;
-    const text = await Deno.readTextFile(`${root}/${file}`);
+    const text = await readFile(`${root}/${file}`, "utf8");
     sources.set(file, text);
     const lines = text.split("\n");
     lines.forEach((line, index) => {
@@ -331,16 +334,16 @@ export async function checkSource(root: string): Promise<Issue[]> {
 
 if (import.meta.main) {
   try {
-    const issues = await checkSource(Deno.args[0] ?? Deno.cwd());
+    const issues = await checkSource(process.argv[2] ?? process.cwd());
     for (const i of issues) {
       console.error(`${i.file}:${i.line} [${i.rule}] ${i.message}`);
     }
     if (!issues.length) console.log("source: 통과");
-    Deno.exit(issues.length ? 1 : 0);
+    process.exit(issues.length ? 1 : 0);
   } catch (error) {
     console.error(
       `source: 검사 실패: ${error instanceof Error ? error.message : error}`,
     );
-    Deno.exit(1);
+    process.exit(1);
   }
 }

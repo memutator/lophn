@@ -1,14 +1,19 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "node:test";
+
 import { checkSource } from "./check-source.ts";
 
-Deno.test("core main graph의 bare fetch는 check가 막는다", async () => {
-  const root = await Deno.makeTempDir();
+test("core main graph의 bare fetch는 check가 막는다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-check-source-"));
   try {
     const put = async (file: string, text: string) => {
-      await Deno.mkdir(`${root}/${file.slice(0, file.lastIndexOf("/"))}`, {
+      await mkdir(`${root}/${file.slice(0, file.lastIndexOf("/"))}`, {
         recursive: true,
       });
-      await Deno.writeTextFile(`${root}/${file}`, text);
+      await writeFile(`${root}/${file}`, text);
     };
     await put(
       "packages/core/main/daemon/main.ts",
@@ -26,21 +31,21 @@ Deno.test("core main graph의 bare fetch는 check가 막는다", async () => {
     const issues = (await checkSource(root)).filter((i) =>
       i.file.startsWith("packages/core/x/")
     );
-    assertEquals(
+    assert.deepStrictEqual(
       issues.map((i) => `${i.file}:${i.line}:${i.rule}`),
       ["packages/core/x/call.ts:2:EXTERNAL_FETCH"],
     );
   } finally {
-    await Deno.remove(root, { recursive: true });
+    await rm(root, { recursive: true });
   }
 });
 
-Deno.test("DOM tag의 title 속성은 check가 막고 component prop과 document.title은 둔다", async () => {
-  const root = await Deno.makeTempDir();
+test("DOM tag의 title 속성은 check가 막고 component prop과 document.title은 둔다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-check-source-"));
   try {
     const dir = `${root}/packages/design/components/x`;
-    await Deno.mkdir(dir, { recursive: true });
-    await Deno.writeTextFile(
+    await mkdir(dir, { recursive: true });
+    await writeFile(
       `${dir}/x.tsx`,
       [
         "export const a = <Card title={t('a')} />;",
@@ -58,8 +63,8 @@ Deno.test("DOM tag의 title 속성은 check가 막고 component prop과 document
     const issues = (await checkSource(root)).filter((i) =>
       i.rule === "NATIVE_TITLE"
     );
-    assertEquals(issues.map((i) => i.line), [5, 9]);
+    assert.deepStrictEqual(issues.map((i) => i.line), [5, 9]);
   } finally {
-    await Deno.remove(root, { recursive: true });
+    await rm(root, { recursive: true });
   }
 });

@@ -1,6 +1,9 @@
 // kit 동기화 검사: wireframes의 CSS 위치, 분류 mod.ts의 component가 pages/kit에 나오는지,
 // design component 폴더 모양과 mod.ts 한 줄 문서.
 // 실행: deno run --allow-read tools/check-kit.ts [root]
+import { readdir, readFile } from "node:fs/promises";
+import process from "node:process";
+
 import { walk } from "./check-deps.ts";
 
 type Issue = { file: string; line: number; message: string };
@@ -72,7 +75,7 @@ export async function checkKit(root: string): Promise<Issue[]> {
   const add = (file: string, line: number, message: string) =>
     issues.push({ file, line, message });
   const { files } = await walk(root);
-  const read = (file: string) => Deno.readTextFile(`${root}/${file}`);
+  const read = (file: string) => readFile(`${root}/${file}`, "utf8");
 
   // 1. drafts/ 밖의 CSS
   for (const file of files) {
@@ -127,10 +130,10 @@ export async function checkKit(root: string): Promise<Issue[]> {
 
   // 3(a). components 바로 아래 항목
   const allowedTop = new Set([...CATEGORIES, "_shared", "css-modules.d.ts"]);
-  for await (const entry of Deno.readDir(`${root}/${COMPONENTS}`)) {
-    if (!allowedTop.has(entry.name)) {
+  for (const name of await readdir(`${root}/${COMPONENTS}`)) {
+    if (!allowedTop.has(name)) {
       add(
-        `${COMPONENTS}/${entry.name}`,
+        `${COMPONENTS}/${name}`,
         1,
         "분류 폴더, _shared, css-modules.d.ts 밖의 항목이다",
       );
@@ -157,14 +160,14 @@ export async function checkKit(root: string): Promise<Issue[]> {
 
 if (import.meta.main) {
   try {
-    const issues = await checkKit(Deno.args[0] ?? Deno.cwd());
+    const issues = await checkKit(process.argv[2] ?? process.cwd());
     for (const i of issues) console.error(`${i.file}:${i.line} ${i.message}`);
     if (!issues.length) console.log("kit: 통과");
-    Deno.exit(issues.length ? 1 : 0);
+    process.exit(issues.length ? 1 : 0);
   } catch (error) {
     console.error(
       `kit: 검사 실패: ${error instanceof Error ? error.message : error}`,
     );
-    Deno.exit(1);
+    process.exit(1);
   }
 }

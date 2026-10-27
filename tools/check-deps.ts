@@ -1,4 +1,7 @@
 // 실행: deno run --allow-read tools/check-deps.ts [root]
+import { readdir, readFile } from "node:fs/promises";
+import process from "node:process";
+
 import { checkDeclarationGraph } from "./deps-declaration.ts";
 import { readImports, readStringSites } from "./deps-imports.ts";
 import {
@@ -39,14 +42,16 @@ export async function walk(
   const files: string[] = [];
   const paths: string[] = [];
   async function visit(parent: string) {
-    for await (
-      const entry of Deno.readDir(parent ? `${root}/${parent}` : root)
+    for (
+      const entry of await readdir(parent ? `${root}/${parent}` : root, {
+        withFileTypes: true,
+      })
     ) {
       if (EXCLUDED.has(entry.name)) continue;
       const path = parent ? `${parent}/${entry.name}` : entry.name;
       paths.push(path);
-      if (entry.isDirectory) await visit(path);
-      else if (entry.isFile) files.push(path);
+      if (entry.isDirectory()) await visit(path);
+      else if (entry.isFile()) files.push(path);
     }
   }
   await visit("");
@@ -223,7 +228,7 @@ const LEAVING_FILES = new Set([
 ]);
 
 async function checkRepo(root: string): Promise<Violation[]> {
-  root = normalize(root.startsWith("/") ? root : `${Deno.cwd()}/${root}`);
+  root = normalize(root.startsWith("/") ? root : `${process.cwd()}/${root}`);
   const { files, paths } = await walk(root);
   const members = await readMembers(root, files);
   const violations: Violation[] = [];
@@ -259,7 +264,7 @@ async function checkRepo(root: string): Promise<Violation[]> {
       : undefined;
     const portable = own === "base" || own === "protocol";
     if (portable && file.endsWith("/deno.json")) {
-      const text = await Deno.readTextFile(`${root}/${file}`);
+      const text = await readFile(`${root}/${file}`, "utf8");
       const config = JSON.parse(text);
       if (config.compilerOptions?.erasableSyntaxOnly !== true) {
         const offset = text.search(/"(?:compilerOptions|erasableSyntaxOnly)"/);
@@ -278,7 +283,7 @@ async function checkRepo(root: string): Promise<Violation[]> {
     // core를 import하는 것만은 test도 core 안에서만 한다.
     const testCode = /_test\.tsx?$/.test(file) ||
       /\/(?:testing|testdata)\//.test(file);
-    const source = await Deno.readTextFile(`${root}/${file}`);
+    const source = await readFile(`${root}/${file}`, "utf8");
     sources.set(file, source);
     if (!testCode && file.startsWith(HARNESS_DIR)) {
       for (const { specifier, line } of readStringSites(source)) {
@@ -405,18 +410,18 @@ async function checkRepo(root: string): Promise<Violation[]> {
 
 if (import.meta.main) {
   try {
-    const violations = await checkRepo(Deno.args[0] ?? Deno.cwd());
+    const violations = await checkRepo(process.argv[2] ?? process.cwd());
     for (const violation of violations) {
       console.error(
         `${violation.file}:${violation.line} [${violation.rule}] ${violation.message}`,
       );
     }
     if (!violations.length) console.log("deps: 통과");
-    Deno.exit(violations.length ? 1 : 0);
+    process.exit(violations.length ? 1 : 0);
   } catch (error) {
     console.error(
       `deps: 검사 실패: ${error instanceof Error ? error.message : error}`,
     );
-    Deno.exit(1);
+    process.exit(1);
   }
 }

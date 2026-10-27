@@ -1,4 +1,7 @@
 // module catalog와 boundary catalog 검사. 실행: deno run --allow-read tools/check-modules.ts [root]
+import { readdir, readFile, stat } from "node:fs/promises";
+import process from "node:process";
+
 import { parse } from "@std/yaml";
 
 type Issue = { file: string; message: string };
@@ -26,13 +29,15 @@ const INTERFACE_FIELDS = [
 ];
 
 async function read(root: string, file: string): Promise<Node> {
-  return parse(await Deno.readTextFile(`${root}/${file}`)) as Node;
+  return parse(await readFile(`${root}/${file}`, "utf8")) as Node;
 }
 
 async function folders(root: string, parent: string): Promise<string[]> {
   const found: string[] = [];
-  for await (const entry of Deno.readDir(`${root}/${parent}`)) {
-    if (entry.isDirectory && !EXCLUDED.has(entry.name)) {
+  for (
+    const entry of await readdir(`${root}/${parent}`, { withFileTypes: true })
+  ) {
+    if (entry.isDirectory() && !EXCLUDED.has(entry.name)) {
       found.push(`${parent}/${entry.name}`);
     }
   }
@@ -41,7 +46,7 @@ async function folders(root: string, parent: string): Promise<string[]> {
 
 async function exists(path: string): Promise<boolean> {
   try {
-    await Deno.stat(path);
+    await stat(path);
     return true;
   } catch {
     return false;
@@ -144,15 +149,15 @@ export async function checkModules(root: string): Promise<Issue[]> {
 
 if (import.meta.main) {
   try {
-    const root = Deno.args[0] ?? Deno.cwd();
+    const root = process.argv[2] ?? process.cwd();
     const issues = await checkModules(root);
     for (const issue of issues) console.error(`${issue.file} ${issue.message}`);
     if (!issues.length) console.log("modules: 통과");
-    Deno.exit(issues.length ? 1 : 0);
+    process.exit(issues.length ? 1 : 0);
   } catch (error) {
     console.error(
       `modules: 검사 실패: ${error instanceof Error ? error.message : error}`,
     );
-    Deno.exit(1);
+    process.exit(1);
   }
 }

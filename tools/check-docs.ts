@@ -1,4 +1,7 @@
 // 문서 속 저장소 path 검사. 실행: deno run --allow-read tools/check-docs.ts [root]
+import { readdir, readFile, stat } from "node:fs/promises";
+import process from "node:process";
+
 import { parse } from "@std/yaml";
 
 type Issue = { where: string; message: string };
@@ -27,7 +30,7 @@ function skipped(path: string): boolean {
 
 async function exists(path: string): Promise<boolean> {
   try {
-    await Deno.stat(path);
+    await stat(path);
     return true;
   } catch {
     return false;
@@ -36,19 +39,19 @@ async function exists(path: string): Promise<boolean> {
 
 async function docs(root: string, path: string): Promise<string[]> {
   if (EXCLUDED.some((e) => `${path}/`.startsWith(e))) return [];
-  const stat = await Deno.stat(`${root}/${path}`).catch(() => null);
-  if (!stat) return [];
-  if (stat.isFile) return /\.(md|yaml)$/.test(path) ? [path] : [];
+  const info = await stat(`${root}/${path}`).catch(() => null);
+  if (!info) return [];
+  if (info.isFile()) return /\.(md|yaml)$/.test(path) ? [path] : [];
   const found: string[] = [];
-  for await (const entry of Deno.readDir(`${root}/${path}`)) {
-    if (entry.name === "node_modules") continue;
-    found.push(...await docs(root, `${path}/${entry.name}`));
+  for (const entry of await readdir(`${root}/${path}`)) {
+    if (entry === "node_modules") continue;
+    found.push(...await docs(root, `${path}/${entry}`));
   }
   return found;
 }
 
 async function checkFile(root: string, file: string, issues: Issue[]) {
-  const lines = (await Deno.readTextFile(`${root}/${file}`)).split("\n");
+  const lines = (await readFile(`${root}/${file}`, "utf8")).split("\n");
   let fenced = false;
   for (const [index, line] of lines.entries()) {
     if (line.trimStart().startsWith("```")) {
@@ -72,7 +75,7 @@ async function checkFile(root: string, file: string, issues: Issue[]) {
 // boundary ID: elements를 children까지 돈 id와 interfaces의 id.
 async function boundaryIds(root: string): Promise<Set<string>> {
   const catalog = parse(
-    await Deno.readTextFile(`${root}/${BOUNDARY}`),
+    await readFile(`${root}/${BOUNDARY}`, "utf8"),
   ) as Node;
   const ids = new Set<string>();
   const visit = (list: unknown) => {
@@ -88,7 +91,7 @@ async function boundaryIds(root: string): Promise<Set<string>> {
 
 async function checkRegistry(root: string, issues: Issue[]) {
   const registry = parse(
-    await Deno.readTextFile(`${root}/${REGISTRY}`),
+    await readFile(`${root}/${REGISTRY}`, "utf8"),
   ) as Node;
   const ids = await boundaryIds(root);
   const roles = new Set(
@@ -126,17 +129,17 @@ export async function checkDocs(root: string): Promise<Issue[]> {
 
 if (import.meta.main) {
   try {
-    const root = Deno.args[0] ?? Deno.cwd();
+    const root = process.argv[2] ?? process.cwd();
     const issues = await checkDocs(root);
     for (const issue of issues) {
       console.error(`${issue.where} ${issue.message}`);
     }
     if (!issues.length) console.log("docs: 통과");
-    Deno.exit(issues.length ? 1 : 0);
+    process.exit(issues.length ? 1 : 0);
   } catch (error) {
     console.error(
       `docs: 검사 실패: ${error instanceof Error ? error.message : error}`,
     );
-    Deno.exit(1);
+    process.exit(1);
   }
 }

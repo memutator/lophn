@@ -1,4 +1,11 @@
-import { type Clock, err, ok, type Result } from "../../../../base/mod.ts";
+import { readFileSync } from "node:fs";
+import {
+  type Clock,
+  err,
+  errorCode,
+  ok,
+  type Result,
+} from "../../../../base/mod.ts";
 import {
   type Kind,
   type KindsStatus,
@@ -59,9 +66,9 @@ function guarded<T>(work: () => T): T {
 
 function readKindsText(path: string): string | null {
   try {
-    return Deno.readTextFileSync(path);
+    return readFileSync(path, "utf8");
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return null;
+    if (errorCode(error) === "ENOENT") return null;
     throw error;
   }
 }

@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import type { Kind } from "../../../../protocol/projects/mod.ts";
 import { type AppliedKinds, applyKindsFile } from "./kinds-file.ts";
 
@@ -19,7 +20,7 @@ const previous: AppliedKinds = { hash: "previous-hash", kinds: validKinds };
 
 const noFiles = () => [];
 
-Deno.test("틀린 kinds 파일은 앞의 맞던 kind를 그대로 쓰게 하고, 파일이 없으면 적용 중이던 kind를 버린다", () => {
+test("틀린 kinds 파일은 앞의 맞던 kind를 그대로 쓰게 하고, 파일이 없으면 적용 중이던 kind를 버린다", () => {
   const syntax = "kinds: [";
   const structure = valid.replace("key: file", "key: missing");
   const overlap = `${valid}  - name: other
@@ -94,7 +95,7 @@ Deno.test("틀린 kinds 파일은 앞의 맞던 kind를 그대로 쓰게 하고,
       previous: c.previous,
       files: c.files ?? noFiles,
     });
-    assertEquals(
+    assert.deepStrictEqual(
       {
         state: result.state,
         using: result.using,

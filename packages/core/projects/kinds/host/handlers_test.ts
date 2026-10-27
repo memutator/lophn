@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { ok } from "../../../../base/mod.ts";
 import type { DomainOwner } from "../../../../protocol/domains/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
@@ -19,7 +20,7 @@ const OWNERS: Record<string, DomainOwner> = {
 };
 
 // 자격 그릇이 owner가 아닌 domain은 읽을 수 없다. dispatcher까지 가지도 않는다.
-Deno.test("kind 읽기: agent는 자격 그릇이 owner인 domain만 읽는다", async () => {
+test("kind 읽기: agent는 자격 그릇이 owner인 domain만 읽는다", async () => {
   let asked = 0;
   const dispatcher = {
     ask: () => {
@@ -46,37 +47,37 @@ Deno.test("kind 읽기: agent는 자격 그릇이 owner인 domain만 읽는다",
     return done.ok ? "ok" : done.error.code;
   };
 
-  assertEquals(
+  assert.deepStrictEqual(
     await code(
       call(AGENT, { project: "prj_a" }, "dom_01hzzzzzzzzzzzzzzzzzzzzzza"),
     ),
     "ok",
   );
-  assertEquals(asked, 1);
-  assertEquals(
+  assert.deepStrictEqual(asked, 1);
+  assert.deepStrictEqual(
     await code(
       call(AGENT, { project: "prj_a" }, "dom_01hzzzzzzzzzzzzzzzzzzzzzzb"),
     ),
     "not_found",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     await code(
       call(AGENT, { project: "prj_a" }, "dom_01hzzzzzzzzzzzzzzzzzzzzzzc"),
     ),
     "not_found",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     await code(
       call(AGENT, { app: "app_a" }, "dom_01hzzzzzzzzzzzzzzzzzzzzzzc"),
     ),
     "ok",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     await code(call(AGENT, {}, "dom_01hzzzzzzzzzzzzzzzzzzzzzza")),
     "forbidden",
   );
-  assertEquals(asked, 2);
-  assertEquals(
+  assert.deepStrictEqual(asked, 2);
+  assert.deepStrictEqual(
     await code(call("user", {}, "dom_01hzzzzzzzzzzzzzzzzzzzzzzb")),
     "ok",
   );

@@ -10,6 +10,7 @@
 //   만들지 못하면 건너뛰고 그 domain은 다음 다시 정하기(command)에서 다시 시도한다.
 //
 // 이 모듈은 core의 module graph에 들어간다. node:sqlite와 동기 file API는 쓰지 않는다.
+import { mkdir } from "node:fs/promises";
 import type { Result } from "../../../../../base/mod.ts";
 import {
   appArchive,
@@ -48,7 +49,7 @@ type KindsWatchDeps = {
   catchUp(domain: string): Promise<Result<KindsSyncResponse>>;
   // 제품은 `Deno.watchFs`.
   watchFs: WatchFs;
-  // domain 폴더를 만든다. 기본은 `Deno.mkdir(path, { recursive: true })`.
+  // domain 폴더를 만든다. 기본은 `mkdir(path, { recursive: true })`.
   ensureDir?(path: string): Promise<void>;
   log?(message: string): void;
 };
@@ -180,7 +181,7 @@ export function createKindsWatch(deps: KindsWatchDeps): KindsWatch {
     const kindsDir = domainFolder(deps.dataRoot, domain);
     try {
       await (deps.ensureDir ??
-        ((path) => Deno.mkdir(path, { recursive: true })))(kindsDir);
+        ((path) => mkdir(path, { recursive: true })))(kindsDir);
     } catch (error) {
       entry.incomplete = true;
       deps.log?.(`kinds watch: ${kindsDir}: ${String(error)}`);

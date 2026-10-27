@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 
 import {
   activeView,
@@ -52,51 +53,65 @@ const viewOf = (pane: PaneState): WorkspaceView => ({
   detached: [],
 });
 
-Deno.test("저장 안 된 preview 탭은 다음 preview가 바꿔 쓰지 않고 고정 탭으로 남는다", () => {
+test("저장 안 된 preview 탭은 다음 preview가 바꿔 쓰지 않고 고정 탭으로 남는다", () => {
   const view = viewOf({ tabs: [tab("a"), tab("b", true)], selected: "b" });
   const replaced = openTabIn(view, tab("c", true), () => false);
-  assertEquals(replaced.panes[0]!.tabs.map((item) => item.key), ["a", "c"]);
+  assert.deepStrictEqual(replaced.panes[0]!.tabs.map((item) => item.key), [
+    "a",
+    "c",
+  ]);
 
   const kept = openTabIn(view, tab("c", true), (key) => key === "b");
-  assertEquals(
+  assert.deepStrictEqual(
     kept.panes[0]!.tabs.map((item) => [item.key, item.preview === true]),
     [["a", false], ["b", false], ["c", true]],
   );
 });
 
-Deno.test("Close Saved는 저장 안 된 탭을 대상에서 뺀다", () => {
+test("Close Saved는 저장 안 된 탭을 대상에서 뺀다", () => {
   const pane = { tabs: [tab("a"), tab("b"), tab("c")], selected: "a" };
-  assertEquals(closeTargets(pane, "saved", "a", (key) => key === "b"), [
+  assert.deepStrictEqual(
+    closeTargets(pane, "saved", "a", (key) => key === "b"),
+    [
+      "a",
+      "c",
+    ],
+  );
+});
+
+test("같은 칸에서 순서를 바꿔도 탭이 사라지거나 늘지 않는다", () => {
+  const view = viewOf({ tabs: [tab("a"), tab("b"), tab("c")], selected: "a" });
+  const moved = moveTab(view, "a", 0, null);
+  assert.deepStrictEqual(moved.panes[0]!.tabs.map((item) => item.key), [
+    "b",
+    "c",
     "a",
+  ]);
+  const front = moveTab(moved, "a", 0, "b");
+  assert.deepStrictEqual(front.panes[0]!.tabs.map((item) => item.key), [
+    "a",
+    "b",
     "c",
   ]);
 });
 
-Deno.test("같은 칸에서 순서를 바꿔도 탭이 사라지거나 늘지 않는다", () => {
-  const view = viewOf({ tabs: [tab("a"), tab("b"), tab("c")], selected: "a" });
-  const moved = moveTab(view, "a", 0, null);
-  assertEquals(moved.panes[0]!.tabs.map((item) => item.key), ["b", "c", "a"]);
-  const front = moveTab(moved, "a", 0, "b");
-  assertEquals(front.panes[0]!.tabs.map((item) => item.key), ["a", "b", "c"]);
-});
-
-Deno.test("한 칸에서 왼쪽·오른쪽으로 옮겨 나눠도 탭이 사라지거나 늘지 않고 다시 연 탭은 한 번만 생긴다", () => {
+test("한 칸에서 왼쪽·오른쪽으로 옮겨 나눠도 탭이 사라지거나 늘지 않고 다시 연 탭은 한 번만 생긴다", () => {
   const view = viewOf({ tabs: [tab("a"), tab("b"), tab("c")], selected: "b" });
   const keys = (v: WorkspaceView) =>
     v.panes.map((pane) => pane.tabs.map((item) => item.key));
-  assertEquals(keys(moveTabBy(view, "b", 1)), [["a", "c"], ["b"]]);
-  assertEquals(keys(moveTabBy(view, "b", -1)), [["b"], ["a", "c"]]);
-  assertEquals(moveTabBy(view, "b", -1).focusedPane, 0);
+  assert.deepStrictEqual(keys(moveTabBy(view, "b", 1)), [["a", "c"], ["b"]]);
+  assert.deepStrictEqual(keys(moveTabBy(view, "b", -1)), [["b"], ["a", "c"]]);
+  assert.deepStrictEqual(moveTabBy(view, "b", -1).focusedPane, 0);
   // 끝 칸에서 더 바깥으로는 옮기지 않는다.
   const right = moveTabBy(view, "b", 1);
-  assertEquals(moveTabBy(right, "b", 1), right);
+  assert.deepStrictEqual(moveTabBy(right, "b", 1), right);
 
   const reopened = reopenTab(view, tab("x"), 0, 1);
-  assertEquals(keys(reopened), [["a", "x", "b", "c"]]);
-  assertEquals(reopenTab(reopened, tab("x"), 0, 0), reopened);
+  assert.deepStrictEqual(keys(reopened), [["a", "x", "b", "c"]]);
+  assert.deepStrictEqual(reopenTab(reopened, tab("x"), 0, 0), reopened);
 });
 
-Deno.test("float, dock, minimize, restore, raise, detach, attach, close를 이어서 해도 탭이 사라지거나 둘이 되지 않는다", () => {
+test("float, dock, minimize, restore, raise, detach, attach, close를 이어서 해도 탭이 사라지거나 둘이 되지 않는다", () => {
   const area = { width: 1000, height: 700 };
   const bounds = { x: 100, y: 80, width: 800, height: 600 };
   const start: WorkspaceView = {
@@ -277,20 +292,22 @@ Deno.test("float, dock, minimize, restore, raise, detach, attach, close를 이�
   let view = start;
   for (const [name, run, close, open, at] of steps) {
     view = run(view);
-    if (at !== undefined) assertEquals(placeOf(view, at[0]), at[1], name);
+    if (at !== undefined) {
+      assert.deepStrictEqual(placeOf(view, at[0]), at[1], name);
+    }
     if (name === "attach b") {
-      assertEquals(view.panes[view.focusedPane]!.selected, "b", name);
+      assert.deepStrictEqual(view.panes[view.focusedPane]!.selected, "b", name);
     }
     if (name === "attach a (바뀐 탭)") {
-      assertEquals(findTab(view, "a")!.title, "A", name);
+      assert.deepStrictEqual(findTab(view, "a")!.title, "A", name);
     }
     if (close !== undefined) known.delete(close);
     if (open !== undefined) known.add(open);
     const keys = allTabs(view).map((t) => t.key);
-    assertEquals([...keys].sort(), [...known].sort(), name);
-    assertEquals(new Set(keys).size, keys.length, name);
+    assert.deepStrictEqual([...keys].sort(), [...known].sort(), name);
+    assert.deepStrictEqual(new Set(keys).size, keys.length, name);
     for (const pane of view.panes) {
-      assertEquals(
+      assert.deepStrictEqual(
         pane.tabs.length === 0 ||
           pane.tabs.some((t) => t.key === pane.selected),
         true,
@@ -300,7 +317,7 @@ Deno.test("float, dock, minimize, restore, raise, detach, attach, close를 이�
   }
 });
 
-Deno.test("transient 탭은 저장할 view에 없다", () => {
+test("transient 탭은 저장할 view에 없다", () => {
   const transient = (key: string): TabItem => ({
     ...tab(key),
     transient: true,
@@ -331,24 +348,24 @@ Deno.test("transient 탭은 저장할 view에 없다", () => {
     ],
   };
   const stored = storableView(view);
-  assertEquals(allTabs(stored).map((t) => t.key), ["a", "f"]);
-  assertEquals(stored.panes.length, 1);
-  assertEquals(stored.panes[0]!.selected, "a");
-  assertEquals(stored.focusedPane, 0);
+  assert.deepStrictEqual(allTabs(stored).map((t) => t.key), ["a", "f"]);
+  assert.deepStrictEqual(stored.panes.length, 1);
+  assert.deepStrictEqual(stored.panes[0]!.selected, "a");
+  assert.deepStrictEqual(stored.focusedPane, 0);
   // dock·attach하면 고른 것이니 저장해도 된다.
   const attached = attachDetached(view, "t4");
-  assertEquals(
+  assert.deepStrictEqual(
     allTabs(storableView(attached)).map((t) => t.key).includes("t4"),
     true,
   );
   const docked = dockTab(view, "t3");
-  assertEquals(
+  assert.deepStrictEqual(
     allTabs(storableView(docked)).map((t) => t.key).includes("t3"),
     true,
   );
 });
 
-Deno.test("자리에서 float, detach하고 자리를 바꾸고 건너 열고 합쳐도 모든 자리의 탭이 사라지거나 둘이 되지 않고 맞는 자리에 있다", () => {
+test("자리에서 float, detach하고 자리를 바꾸고 건너 열고 합쳐도 모든 자리의 탭이 사라지거나 둘이 되지 않고 맞는 자리에 있다", () => {
   const area = { width: 1000, height: 700 };
   const bounds = { x: 100, y: 80, width: 800, height: 600 };
   const rect = { x: 5, y: 6, width: 400, height: 300 };
@@ -546,18 +563,28 @@ Deno.test("자리에서 float, detach하고 자리를 바꾸고 건너 열고 �
   for (const [name, run, open, at, active] of steps) {
     desks = run(desks);
     for (const [key, place] of at ?? []) {
-      assertEquals(placeOf(desks, key), place, name);
+      assert.deepStrictEqual(placeOf(desks, key), place, name);
     }
-    if (active !== undefined) assertEquals(desks.active, active, name);
-    assertEquals(Object.hasOwn(desks.desks, desks.active), true, name);
-    assertEquals(Object.hasOwn(desks.desks, DEFAULT_DESK), true, name);
+    if (active !== undefined) {
+      assert.deepStrictEqual(desks.active, active, name);
+    }
+    assert.deepStrictEqual(
+      Object.hasOwn(desks.desks, desks.active),
+      true,
+      name,
+    );
+    assert.deepStrictEqual(
+      Object.hasOwn(desks.desks, DEFAULT_DESK),
+      true,
+      name,
+    );
     if (open !== undefined) known.add(open);
     const keys = allDeskTabs(desks).map((t) => t.key);
-    assertEquals([...keys].sort(), [...known].sort(), name);
-    assertEquals(new Set(keys).size, keys.length, name);
+    assert.deepStrictEqual([...keys].sort(), [...known].sort(), name);
+    assert.deepStrictEqual(new Set(keys).size, keys.length, name);
     for (const v of Object.values(desks.desks)) {
       for (const pane of v.panes) {
-        assertEquals(
+        assert.deepStrictEqual(
           pane.tabs.length === 0 ||
             pane.tabs.some((t) => t.key === pane.selected),
           true,
@@ -566,26 +593,38 @@ Deno.test("자리에서 float, detach하고 자리를 바꾸고 건너 열고 �
       }
     }
     if (name.startsWith("다른 자리의 minimized")) {
-      assertEquals(activeView(desks).floats.at(-1)!.tab.key, "af", name);
-      assertEquals(activeView(desks).floats.at(-1)!.minimized, false, name);
+      assert.deepStrictEqual(
+        activeView(desks).floats.at(-1)!.tab.key,
+        "af",
+        name,
+      );
+      assert.deepStrictEqual(
+        activeView(desks).floats.at(-1)!.minimized,
+        false,
+        name,
+      );
     }
     if (name.startsWith("새 탭이 after로")) {
       const keys = activeView(desks).panes.flatMap((p) => p.tabs).map((t) =>
         t.key
       );
-      assertEquals(keys[keys.indexOf("a1") + 1], "n2", name);
+      assert.deepStrictEqual(keys[keys.indexOf("a1") + 1], "n2", name);
     }
     if (name.startsWith("보이는 자리 합치기")) {
-      assertEquals(Object.keys(desks.desks), [DEFAULT_DESK, "beta"], name);
+      assert.deepStrictEqual(
+        Object.keys(desks.desks),
+        [DEFAULT_DESK, "beta"],
+        name,
+      );
       const merged = desks.desks[DEFAULT_DESK]!;
       const af2 = merged.floats.find((f) => f.tab.key === "af2")!;
-      assertEquals([af2.rect, af2.minimized], [rect, true], name);
-      assertEquals(
+      assert.deepStrictEqual([af2.rect, af2.minimized], [rect, true], name);
+      assert.deepStrictEqual(
         merged.panes.flatMap((p) => p.tabs).some((t) => t.preview === true),
         false,
         name,
       );
     }
   }
-  assertEquals(Object.keys(desks.desks), [DEFAULT_DESK]);
+  assert.deepStrictEqual(Object.keys(desks.desks), [DEFAULT_DESK]);
 });

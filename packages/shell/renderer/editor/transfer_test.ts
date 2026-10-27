@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 
 import type { FileReply, FileText, FileWritten } from "../../ipc/files.ts";
 import { EditorSessions } from "./sessions.ts";
@@ -34,20 +35,20 @@ async function edited(sessions: EditorSessions) {
   return opened.session;
 }
 
-Deno.test("transferEditor: a failed write keeps the tab and the text in the session", async () => {
+test("transferEditor: a failed write keeps the tab and the text in the session", async () => {
   const sessions = sessionsOf(false);
   const session = await edited(sessions);
-  assertEquals(await transferEditor(sessions, PATH), null);
-  assert(sessions.isUnsettled(PATH));
-  assertEquals(session.text, "new");
+  assert.deepStrictEqual(await transferEditor(sessions, PATH), null);
+  assert.ok(sessions.isUnsettled(PATH));
+  assert.deepStrictEqual(session.text, "new");
 });
 
-Deno.test("transferEditor: moves once the text is on disk", async () => {
+test("transferEditor: moves once the text is on disk", async () => {
   const sessions = sessionsOf(true);
   await edited(sessions);
-  assertEquals(await transferEditor(sessions, PATH), {
+  assert.deepStrictEqual(await transferEditor(sessions, PATH), {
     value: null,
     views: [],
   });
-  assert(!sessions.isUnsettled(PATH));
+  assert.ok(!sessions.isUnsettled(PATH));
 });

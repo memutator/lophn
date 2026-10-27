@@ -1,8 +1,9 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 
 import { stripStatusGlyphs, tabName } from "./model.ts";
 
-Deno.test("터미널 제목 앞의 상태 글리프를 뗀다", () => {
+test("터미널 제목 앞의 상태 글리프를 뗀다", () => {
   const cases: [string, string][] = [
     ["✳ Claude Code", "Claude Code"],
     ["⠋ lophn", "lophn"],
@@ -14,14 +15,26 @@ Deno.test("터미널 제목 앞의 상태 글리프를 뗀다", () => {
     ["⠋", ""],
   ];
   for (const [title, expected] of cases) {
-    assertEquals(stripStatusGlyphs(title), expected);
+    assert.deepStrictEqual(stripStatusGlyphs(title), expected);
   }
 });
 
-Deno.test("탭 이름은 사람 이름, agent 제목, 자동 이름 순이다", () => {
+test("탭 이름은 사람 이름, agent 제목, 자동 이름 순이다", () => {
   const auto = "lophn";
-  assertEquals(tabName({ person: "mine", agentTitle: "⠋ x", auto }), "mine");
-  assertEquals(tabName({ person: null, agentTitle: "⠋ x", auto }), "x");
-  assertEquals(tabName({ person: null, agentTitle: "✳", auto }), auto);
-  assertEquals(tabName({ person: null, agentTitle: null, auto }), auto);
+  assert.deepStrictEqual(
+    tabName({ person: "mine", agentTitle: "⠋ x", auto }),
+    "mine",
+  );
+  assert.deepStrictEqual(
+    tabName({ person: null, agentTitle: "⠋ x", auto }),
+    "x",
+  );
+  assert.deepStrictEqual(
+    tabName({ person: null, agentTitle: "✳", auto }),
+    auto,
+  );
+  assert.deepStrictEqual(
+    tabName({ person: null, agentTitle: null, auto }),
+    auto,
+  );
 });

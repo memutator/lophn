@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 
 import {
   afterCheck,
@@ -16,7 +17,7 @@ const sending = startSend({
 });
 
 // 접수 여부를 모르는 채 다시 보내면 같은 말이 두 번 접수될 수 있다.
-Deno.test("결과를 모르는 전송은 접수 조회가 없다고 답한 뒤에만 같은 id·key로 다시 보낸다", () => {
+test("결과를 모르는 전송은 접수 조회가 없다고 답한 뒤에만 같은 id·key로 다시 보낸다", () => {
   const notTaken = [
     "invalid_input",
     "unauthorized",
@@ -26,21 +27,25 @@ Deno.test("결과를 모르는 전송은 접수 조회가 없다고 답한 뒤�
   ];
   for (const code of notTaken) {
     const after = afterReply(sending, { ok: false, code });
-    assertEquals(deliveryAction(after), "edit", code);
+    assert.deepStrictEqual(deliveryAction(after), "edit", code);
   }
 
   for (const code of ["unavailable", "internal", "channel_failed"]) {
     const lost = afterReply(sending, { ok: false, code });
-    assertEquals(deliveryAction(lost), "check", code);
+    assert.deepStrictEqual(deliveryAction(lost), "check", code);
     // 조회 전에는 다시 보내기가 없다.
-    assertEquals(resend(lost), lost, code);
+    assert.deepStrictEqual(resend(lost), lost, code);
 
-    assertEquals(afterCheck(lost, true).phase, "accepted", code);
+    assert.deepStrictEqual(afterCheck(lost, true).phase, "accepted", code);
 
     const missing = afterCheck(lost, false);
-    assertEquals(deliveryAction(missing), "resend", code);
+    assert.deepStrictEqual(deliveryAction(missing), "resend", code);
     const again = resend(missing);
-    assertEquals(again.phase, "sending", code);
-    assertEquals([again.id, again.key], [sending.id, sending.key], code);
+    assert.deepStrictEqual(again.phase, "sending", code);
+    assert.deepStrictEqual(
+      [again.id, again.key],
+      [sending.id, sending.key],
+      code,
+    );
   }
 });

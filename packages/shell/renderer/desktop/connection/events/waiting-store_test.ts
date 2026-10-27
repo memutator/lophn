@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
 import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
 import { busEventSchema } from "../../../../../protocol/events/mod.ts";
@@ -77,7 +78,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 const ids = (store: ReturnType<typeof createWaitingStore>) =>
   store.get().entries.map((entry) => entry.id);
 
-Deno.test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요청은 남지 않는다", async () => {
+test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요청은 남지 않는다", async () => {
   const source = createFakeSource({
     snapshots: [{
       session: SES,
@@ -97,7 +98,7 @@ Deno.test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요
   );
   const stop = store.start();
   await settle();
-  assertEquals(ids(store), [id("apr", 1), REL]);
+  assert.deepStrictEqual(ids(store), [id("apr", 1), REL]);
 
   // 같은 event를 두 번 받아도 항목은 하나다.
   source.emitEvent(turnRequestOpened(3));
@@ -105,7 +106,7 @@ Deno.test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요
   source.emitEvent(consentRequested());
   source.emitEvent(questionAsked(4));
   await settle();
-  assertEquals(store.get().count, 4);
+  assert.deepStrictEqual(store.get().count, 4);
 
   // 끊긴 사이 1번과 동의는 해결됐다. 다시 붙을 때 읽은 snapshot이 목록을 통째로 맞춘다.
   source.disconnect();
@@ -124,14 +125,14 @@ Deno.test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요
   source.emitEvent(turnRequestOpened(5));
   source.emitEvent(turnRequestClosed(3));
   await settle();
-  assertEquals(ids(store), [id("qgr", 4), id("apr", 5)]);
-  assertEquals(
+  assert.deepStrictEqual(ids(store), [id("qgr", 4), id("apr", 5)]);
+  assert.deepStrictEqual(
     store.get().entries.map((entry) => entry.kind),
     ["question", "permission"],
   );
 
   // snapshot으로 들어온 것은 toast를 만들지 않고 live event는 만든다.
-  assertEquals(reactionsOf(consentRequested(), "snapshot"), []);
-  assertEquals(reactionsOf(consentRequested(), "live").length, 1);
+  assert.deepStrictEqual(reactionsOf(consentRequested(), "snapshot"), []);
+  assert.deepStrictEqual(reactionsOf(consentRequested(), "live").length, 1);
   stop();
 });

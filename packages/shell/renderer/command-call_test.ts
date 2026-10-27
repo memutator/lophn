@@ -1,4 +1,6 @@
-import { assert } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import { z } from "zod";
 
 import { commandRequestSchema } from "../../protocol/base/envelope.ts";
@@ -31,7 +33,7 @@ const confirmed = defineCommand({
 });
 const REF = "a".repeat(43);
 
-Deno.test("helper가 만든 봉투는 route의 봉투 schema를 통과한다", () => {
+test("helper가 만든 봉투는 route의 봉투 schema를 통과한다", () => {
   const cases = [
     [plain, { input: {}, compare: {}, key: "probe-key" }],
     [compared, { input: {}, compare: { revision: 2 }, key: "probe-key" }],
@@ -46,6 +48,6 @@ Deno.test("helper가 만든 봉투는 route의 봉투 schema를 통과한다", (
     const parsed = commandRequestSchema(route as never).safeParse(
       commandBody(route as never, body as never),
     );
-    assert(parsed.success, `${route.method}: ${parsed.error?.message}`);
+    assert.ok(parsed.success, `${route.method}: ${parsed.error?.message}`);
   }
 });

@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 
 import {
   SHELL_RULES_SETTING_KEY,
@@ -45,7 +46,7 @@ function fakeCore(stored: { value: ShellRulesSetting }) {
   return { core, updates };
 }
 
-Deno.test(
+test(
   "규칙 하나를 더하면 저장 직전에 다시 읽은 값에 그 줄만 더한다: 화면을 연 뒤 `always`가 더한 줄과 다른 층, 다른 project의 줄이 남는다",
   async () => {
     const stored = {
@@ -75,8 +76,8 @@ Deno.test(
       { pattern: "npm publish *", action: "ask" },
     );
 
-    assertEquals(saved.ok, true);
-    assertEquals(updates, [{
+    assert.deepStrictEqual(saved.ok, true);
+    assert.deepStrictEqual(updates, [{
       global: [{ pattern: "git push *", action: "allow" }],
       projects: {
         [PROJECT_GROCERY]: [

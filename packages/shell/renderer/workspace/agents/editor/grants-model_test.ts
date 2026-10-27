@@ -1,10 +1,11 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 
 import type { DomainView } from "../../source.ts";
 import type { GrantApp } from "../source.ts";
 import { appsFor, domainNamesOf } from "./grants-model.ts";
 
-Deno.test("고른 domain의 비공개 tool만 붙일 수 있고 public tool은 어느 domain 것이든 붙일 수 있다", () => {
+test("고른 domain의 비공개 tool만 붙일 수 있고 public tool은 어느 domain 것이든 붙일 수 있다", () => {
   const tool = (domain: string, name: string, isPublic: boolean) => ({
     tool: name,
     detail: "",
@@ -29,17 +30,17 @@ Deno.test("고른 domain의 비공개 tool만 붙일 수 있고 public tool은 �
       one,
     ) => [one.app, one.tools.map((a) => a.tool)]);
 
-  assertEquals(seen(["d1"]), [
+  assert.deepStrictEqual(seen(["d1"]), [
     ["app_mine", ["open1", "secret1", "open2"]],
     ["app_other", ["open3"]],
   ]);
-  assertEquals(seen([]), [["app_mine", ["open1", "open2"]], [
+  assert.deepStrictEqual(seen([]), [["app_mine", ["open1", "open2"]], [
     "app_other",
     ["open3"],
   ]]);
 });
 
-Deno.test("고른 domain이 없으면 그릇의 모든 domain을 고른 것으로 보고, 그릇에 없는 id는 센 것에서 뺀다", () => {
+test("고른 domain이 없으면 그릇의 모든 domain을 고른 것으로 보고, 그릇에 없는 id는 센 것에서 뺀다", () => {
   const view = (id: string, name: string): DomainView => ({
     id,
     name,
@@ -48,6 +49,8 @@ Deno.test("고른 domain이 없으면 그릇의 모든 domain을 고른 것으�
     status: "active",
   });
   const container = [view("dom_1", "d1"), view("dom_2", "d2")];
-  assertEquals(domainNamesOf([], container), ["d1", "d2"]);
-  assertEquals(domainNamesOf(["dom_2", "dom_gone"], container), ["d2"]);
+  assert.deepStrictEqual(domainNamesOf([], container), ["d1", "d2"]);
+  assert.deepStrictEqual(domainNamesOf(["dom_2", "dom_gone"], container), [
+    "d2",
+  ]);
 });

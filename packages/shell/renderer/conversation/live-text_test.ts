@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 
 import type { AgentEvent } from "../../../protocol/events/mod.ts";
 import { foldDelta, liveFromWriting, type LiveText } from "./live-text.ts";
@@ -32,7 +33,7 @@ function stateOf(live: LiveText) {
 }
 
 // snapshot에서 출발해 delta를 차례로 접는다. 표의 기대는 그 조각을 접은 뒤의 글이다.
-Deno.test("retry된 attempt의 글은 live 글에 남지 않고 겹친 delta는 두 번 붙지 않는다", () => {
+test("retry된 attempt의 글은 live 글에 남지 않고 겹친 delta는 두 번 붙지 않는다", () => {
   const start = liveFromWriting({
     turn: "trn_01h455vb4pex5v6nkc6gd5f001",
     model_call: "mcl_01h455vb4pex5v6nkc6gd5f001",
@@ -113,6 +114,6 @@ Deno.test("retry된 attempt의 글은 live 글에 남지 않고 겹친 delta는 
   let live: LiveText = start;
   for (const row of rows) {
     live = foldDelta(live, row.delta, AT);
-    assertEquals(stateOf(live), row.expected, row.name);
+    assert.deepStrictEqual(stateOf(live), row.expected, row.name);
   }
 });

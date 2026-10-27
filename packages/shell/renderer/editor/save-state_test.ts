@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 
 import type { FileFailure, FileReply } from "../../ipc/files.ts";
 import {
@@ -113,48 +114,48 @@ function open(text = "one") {
   return { ...fake, session, time, states, replaced };
 }
 
-Deno.test("충돌에서는 사람이 고르기 전까지 디스크에 쓰지 않고 초안이 남는다", async () => {
+test("충돌에서는 사람이 고르기 전까지 디스크에 쓰지 않고 초안이 남는다", async () => {
   const t = open();
   t.session.edit("mine");
   t.port.outside("theirs");
   await t.time.advance(SAVE_QUIET_MS);
-  assertEquals(t.session.facts.state, "conflict");
-  assertEquals(t.disk.text, "theirs");
+  assert.deepStrictEqual(t.session.facts.state, "conflict");
+  assert.deepStrictEqual(t.disk.text, "theirs");
   const writes = t.disk.writes;
   t.session.edit("mine, more");
   await t.time.advance(SAVE_QUIET_MS * 5);
-  assertEquals(t.disk.writes, writes);
-  assertEquals(t.session.text, "mine, more");
+  assert.deepStrictEqual(t.disk.writes, writes);
+  assert.deepStrictEqual(t.session.text, "mine, more");
   // 내 것을 남기면 지금 디스크 hash 위에 쓴다.
   await t.session.keepMine();
-  assertEquals(t.disk.text, "mine, more");
-  assertEquals(t.session.facts.state, "saved");
+  assert.deepStrictEqual(t.disk.text, "mine, more");
+  assert.deepStrictEqual(t.session.facts.state, "saved");
 });
 
-Deno.test("밖에서 바뀐 파일은 고치지 않았을 때만 다시 읽고 고치는 중이면 충돌이 된다", async () => {
+test("밖에서 바뀐 파일은 고치지 않았을 때만 다시 읽고 고치는 중이면 충돌이 된다", async () => {
   const clean = open();
   await clean.session.external(clean.port.outside("changed"));
-  assertEquals(clean.replaced, ["changed"]);
-  assertEquals(clean.session.text, "changed");
-  assertEquals(clean.session.facts.state, "saved");
+  assert.deepStrictEqual(clean.replaced, ["changed"]);
+  assert.deepStrictEqual(clean.session.text, "changed");
+  assert.deepStrictEqual(clean.session.facts.state, "saved");
 
   const dirty = open();
   dirty.session.edit("mine");
   await dirty.session.external(dirty.port.outside("theirs"));
-  assertEquals(dirty.replaced, []);
-  assertEquals(dirty.session.text, "mine");
-  assertEquals(dirty.session.facts.state, "conflict");
+  assert.deepStrictEqual(dirty.replaced, []);
+  assert.deepStrictEqual(dirty.session.text, "mine");
+  assert.deepStrictEqual(dirty.session.facts.state, "conflict");
 
   // 내 쓰기의 메아리는 읽지도 충돌로 보지도 않는다.
   const echo = open();
   echo.session.edit("mine");
   await echo.time.advance(SAVE_QUIET_MS);
   await echo.session.external(echo.disk.hash);
-  assertEquals(echo.replaced, []);
-  assertEquals(echo.session.facts.state, "saved");
+  assert.deepStrictEqual(echo.replaced, []);
+  assert.deepStrictEqual(echo.session.facts.state, "saved");
 });
 
-Deno.test("결과를 모르는 쓰기는 다시 쓰지 않고 읽은 hash로 저장됨, 안 써짐, 충돌을 가른다", async () => {
+test("결과를 모르는 쓰기는 다시 쓰지 않고 읽은 hash로 저장됨, 안 써짐, 충돌을 가른다", async () => {
   const cases: {
     name: string;
     applied: boolean;
@@ -196,8 +197,8 @@ Deno.test("결과를 모르는 쓰기는 다시 쓰지 않고 읽은 hash로 저
     if (c.outside) t.port.outside(c.outside);
     t.session.edit("mine");
     await t.time.advance(SAVE_QUIET_MS);
-    assertEquals(t.session.facts.state, c.state, c.name);
-    assertEquals(t.disk.writes, c.writes, c.name);
-    assertEquals(t.disk.text, c.diskText, c.name);
+    assert.deepStrictEqual(t.session.facts.state, c.state, c.name);
+    assert.deepStrictEqual(t.disk.writes, c.writes, c.name);
+    assert.deepStrictEqual(t.disk.text, c.diskText, c.name);
   }
 });

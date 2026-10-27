@@ -1,10 +1,14 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "node:test";
 import { startCatalogRefresher } from "./catalog-refresh.ts";
 
 // 자동 갱신을 끈 사람의 새 data root에서 models.dev 요청이 나가지 않는다(network 경계).
 for (const autoUpdate of [false, true]) {
-  Deno.test(`새 data root에서 autoUpdate=${autoUpdate}이면 catalog 요청이 ${autoUpdate ? "나간다" : "안 나간다"}`, async () => {
-    const dataRoot = await Deno.makeTempDir();
+  test(`새 data root에서 autoUpdate=${autoUpdate}이면 catalog 요청이 ${autoUpdate ? "나간다" : "안 나간다"}`, async () => {
+    const dataRoot = await mkdtemp(join(tmpdir(), "lophn-catalog-"));
     try {
       const refresher = startCatalogRefresher({
         dataRoot,
@@ -14,14 +18,18 @@ for (const autoUpdate of [false, true]) {
       });
       await refresher.kickAutoUpdate();
       const state = JSON.parse(
-        await Deno.readTextFile(
+        await readFile(
           `${dataRoot}/derived/lophn-agent/catalog-state.json`,
+          "utf8",
         ),
       );
-      assertEquals(state.auto_update, autoUpdate);
-      assertEquals(state.last_failure, autoUpdate ? "unavailable" : null);
+      assert.deepStrictEqual(state.auto_update, autoUpdate);
+      assert.deepStrictEqual(
+        state.last_failure,
+        autoUpdate ? "unavailable" : null,
+      );
     } finally {
-      await Deno.remove(dataRoot, { recursive: true });
+      await rm(dataRoot, { recursive: true });
     }
   });
 }

@@ -1,6 +1,9 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
+import { test } from "node:test";
 import { instructionsGet } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   ReadDefinition,
@@ -24,15 +27,15 @@ function sessionId(n: number) {
 
 // 임시 폴더에 project 폴더 둘, 실제 schema의 ledger 파일을 만든다.
 function setup() {
-  const root = Deno.makeTempDirSync();
+  const root = mkdtempSync(join(tmpdir(), "lophn-instructions-"));
   const folderA = join(root, "a");
   const folderB = join(root, "b");
-  Deno.mkdirSync(folderA);
-  Deno.mkdirSync(folderB);
-  Deno.writeTextFileSync(join(folderA, "LOPHN.md"), "rules of A");
-  Deno.writeTextFileSync(join(folderB, "LOPHN.md"), "rules of B");
-  Deno.mkdirSync(join(root, "projects", PRJ_C), { recursive: true });
-  Deno.writeTextFileSync(
+  mkdirSync(folderA);
+  mkdirSync(folderB);
+  writeFileSync(join(folderA, "LOPHN.md"), "rules of A");
+  writeFileSync(join(folderB, "LOPHN.md"), "rules of B");
+  mkdirSync(join(root, "projects", PRJ_C), { recursive: true });
+  writeFileSync(
     join(root, "projects", PRJ_C, "LOPHN.md"),
     "rules of C",
   );
@@ -61,8 +64,8 @@ function setup() {
   db.prepare(
     "insert into projects values (?, 'c', 'c', '', '1', 'active')",
   ).run(PRJ_C);
-  Deno.mkdirSync(join(root, "domains", DOM_A), { recursive: true });
-  Deno.writeTextFileSync(join(root, "domains", DOM_A, "DOMAIN.md"), "doc of A");
+  mkdirSync(join(root, "domains", DOM_A), { recursive: true });
+  writeFileSync(join(root, "domains", DOM_A, "DOMAIN.md"), "doc of A");
   const addDomain = db.prepare(
     "insert into domains values (?, ?, ?, '', ?, ?, '1', 'active')",
   );
@@ -100,7 +103,7 @@ function read(snapshot: ReadSnapshot, session: number, project?: string) {
   return file === null ? null : atob(file.content_base64);
 }
 
-Deno.test("lophn이 아닌 role은 자기 place 밖 project의 LOPHN.md를 읽지 못한다", () => {
+test("lophn이 아닌 role은 자기 place 밖 project의 LOPHN.md를 읽지 못한다", () => {
   const { root, snapshot } = setup();
   try {
     const table: [number, string | undefined, string | null][] = [
@@ -117,18 +120,18 @@ Deno.test("lophn이 아닌 role은 자기 place 밖 project의 LOPHN.md를 읽�
       [4, undefined, "rules of C"],
     ];
     for (const [session, project, expected] of table) {
-      assertEquals(
+      assert.deepStrictEqual(
         read(snapshot, session, project),
         expected,
         `${session} ${project}`,
       );
     }
   } finally {
-    Deno.removeSync(root, { recursive: true });
+    rmSync(root, { recursive: true });
   }
 });
 
-Deno.test("domain 층은 session의 place 그릇에 든 domain의 DOMAIN.md만 읽는다", () => {
+test("domain 층은 session의 place 그릇에 든 domain의 DOMAIN.md만 읽는다", () => {
   const { root, snapshot } = setup();
   try {
     const handler = createReaderRegistration().reads[0] as ReadDefinition<
@@ -145,13 +148,13 @@ Deno.test("domain 층은 session의 place 그릇에 든 domain의 DOMAIN.md만 �
         ? null
         : atob(result.value.file.content_base64);
     };
-    assertEquals(of(2, DOM_A), "doc of A"); // PM A는 자기 project의 domain
-    assertEquals(of(4, DOM_A), "forbidden"); // 다른 project의 PM
-    assertEquals(of(1, DOM_A), "forbidden"); // lophn은 place가 없다
-    assertEquals(of(3, DOM_A), "forbidden"); // 앱 engineer는 다른 그릇
-    assertEquals(of(3, DOM_APP), null); // 자기 앱의 domain, 파일은 아직 없다
-    assertEquals(of(2, undefined), "invalid_input");
+    assert.deepStrictEqual(of(2, DOM_A), "doc of A"); // PM A는 자기 project의 domain
+    assert.deepStrictEqual(of(4, DOM_A), "forbidden"); // 다른 project의 PM
+    assert.deepStrictEqual(of(1, DOM_A), "forbidden"); // lophn은 place가 없다
+    assert.deepStrictEqual(of(3, DOM_A), "forbidden"); // 앱 engineer는 다른 그릇
+    assert.deepStrictEqual(of(3, DOM_APP), null); // 자기 앱의 domain, 파일은 아직 없다
+    assert.deepStrictEqual(of(2, undefined), "invalid_input");
   } finally {
-    Deno.removeSync(root, { recursive: true });
+    rmSync(root, { recursive: true });
   }
 });

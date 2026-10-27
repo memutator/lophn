@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { ok } from "../../base/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
@@ -39,7 +40,7 @@ function setup() {
   return { stored, deps, body };
 }
 
-Deno.test("agent는 자기 session에 붙은 이미지만 풀고 경로 문자는 거절된다", async () => {
+test("agent는 자기 session에 붙은 이미지만 풀고 경로 문자는 거절된다", async () => {
   const { stored, deps, body } = setup();
   const uploaded = await messageImageUploadHandler(deps)(
     who("user"),
@@ -48,7 +49,9 @@ Deno.test("agent는 자기 session에 붙은 이미지만 풀고 경로 문자�
   );
   if (!uploaded.ok) throw new Error("upload failed");
   const image = uploaded.value.id;
-  assertEquals([...stored.keys()], [`/data/message-images/${A}/${image}.png`]);
+  assert.deepStrictEqual([...stored.keys()], [
+    `/data/message-images/${A}/${image}.png`,
+  ]);
 
   const path = messageImagePathHandler(deps);
   const cases: [string, AuthenticatedContext, unknown, string | "ok"][] = [
@@ -76,7 +79,7 @@ Deno.test("agent는 자기 session에 붙은 이미지만 풀고 경로 문자�
   ];
   for (const [name, ctx, input, expected] of cases) {
     const got = await path(ctx, input);
-    assertEquals(
+    assert.deepStrictEqual(
       got.ok ? "ok" : got.error.code,
       expected,
       name,
@@ -84,7 +87,7 @@ Deno.test("agent는 자기 session에 붙은 이미지만 풀고 경로 문자�
   }
 });
 
-Deno.test("형식이나 길이가 선언과 다른 이미지는 저장되지 않는다", async () => {
+test("형식이나 길이가 선언과 다른 이미지는 저장되지 않는다", async () => {
   const { stored, deps, body } = setup();
   const upload = messageImageUploadHandler(deps);
   const text = new TextEncoder().encode("<svg/>");
@@ -98,5 +101,9 @@ Deno.test("형식이나 길이가 선언과 다른 이미지는 저장되지 않
     { session: A, content_type: "image/png", bytes: PNG.length + 1 },
     body(PNG),
   );
-  assertEquals([wrongType.ok, wrongLength.ok, stored.size], [false, false, 0]);
+  assert.deepStrictEqual([wrongType.ok, wrongLength.ok, stored.size], [
+    false,
+    false,
+    0,
+  ]);
 });

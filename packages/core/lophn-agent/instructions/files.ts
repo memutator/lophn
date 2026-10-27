@@ -5,7 +5,14 @@
 // 읽기만 있다. 파일 저장은 사람이 editor에서 하고 agent는 만들 길이 없다.
 // 이 모듈은 core가 정적으로 import하지 않는다(팀 file wiring/instructions-registration.ts만 reader Worker가 부른다). 동기
 // file API는 reader Worker 안에서만 쓴다(core_imports_test).
-import { err, ok, type Result } from "../../../base/mod.ts";
+import {
+  closeSync,
+  fstatSync,
+  openSync,
+  readFileSync,
+  readSync,
+} from "node:fs";
+import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import { domainDocFile } from "../../../protocol/domains/paths.ts";
 import {
@@ -45,29 +52,29 @@ function openFile(
   path: string,
   maxBytes = INSTRUCTION_FILE_MAX_BYTES,
 ): Result<InstructionFile | null> {
-  let file: Deno.FsFile;
+  let fd: number;
   try {
-    file = Deno.openSync(path, { read: true });
+    fd = openSync(path, "r");
   } catch (error) {
-    return error instanceof Deno.errors.NotFound ? ok(null) : unavailable();
+    return errorCode(error) === "ENOENT" ? ok(null) : unavailable();
   }
   try {
-    const stat = file.statSync();
-    if (!stat.isFile) return unavailable();
+    const stat = fstatSync(fd);
+    if (!stat.isFile()) return unavailable();
     const bytes = new Uint8Array(
       Math.min(stat.size, maxBytes),
     );
     let read = 0;
     while (read < bytes.length) {
-      const count = file.readSync(bytes.subarray(read));
-      if (count === null) break;
+      const count = readSync(fd, bytes, read, bytes.length - read, null);
+      if (count === 0) break;
       read += count;
     }
     return ok({ size_bytes: stat.size, bytes: bytes.subarray(0, read) });
   } catch {
     return unavailable();
   } finally {
-    file.close();
+    closeSync(fd);
   }
 }
 
@@ -135,9 +142,9 @@ function readAgentBody(
   if (path === null) return unavailable();
   let text: string;
   try {
-    text = Deno.readTextFileSync(path);
+    text = readFileSync(path, "utf8");
   } catch (error) {
-    return error instanceof Deno.errors.NotFound ? ok(null) : unavailable();
+    return errorCode(error) === "ENOENT" ? ok(null) : unavailable();
   }
   const body = bodyOf(text);
   if (body === null) return unavailable();

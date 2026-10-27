@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { AgentPlace, Role } from "../../../protocol/lophn-agent/mod.ts";
 import { createSkillSnapshot, type SkillSnapshotDeps } from "./skill-read.ts";
@@ -132,7 +133,7 @@ const CASES: Case[] = [
 ];
 
 for (const one of CASES) {
-  Deno.test(`kinds-yaml stays: ${one.name}`, async () => {
+  test(`kinds-yaml stays: ${one.name}`, async () => {
     const files: Record<string, string> = {
       "/b/kinds-yaml/SKILL.md": skillFile("kinds-yaml", "BUILTIN"),
       "/b/spare-builtin/SKILL.md": skillFile("spare-builtin", "BUILTIN"),
@@ -169,16 +170,16 @@ for (const one of CASES) {
     const listed = snapshot.skills.find((skill) => skill.name === "kinds-yaml");
     const read = await snapshot.reader.read(SESSION, "kinds-yaml");
     if (one.expect === null) {
-      assertEquals(listed, undefined);
-      assertEquals(read.ok, false);
+      assert.deepStrictEqual(listed, undefined);
+      assert.deepStrictEqual(read.ok, false);
     } else {
-      assertEquals(listed?.enabled, true);
-      assertEquals(read.ok && read.value.trim(), one.expect);
+      assert.deepStrictEqual(listed?.enabled, true);
+      assert.deepStrictEqual(read.ok && read.value.trim(), one.expect);
     }
   });
 }
 
-Deno.test("a skill that can be turned off goes off, and a human skill of the same name replaces it", () => {
+test("a skill that can be turned off goes off, and a human skill of the same name replaces it", () => {
   const candidates = [
     {
       name: "maker",
@@ -188,7 +189,7 @@ Deno.test("a skill that can be turned off goes off, and a human skill of the sam
     },
   ];
   const canOff = () => true;
-  assertEquals(
+  assert.deepStrictEqual(
     mergeSkillLayers(candidates, ["maker"], [], canOff).map((one) =>
       one.enabled
     ),
@@ -205,11 +206,11 @@ Deno.test("a skill that can be turned off goes off, and a human skill of the sam
     [],
     canOff,
   );
-  assertEquals(replaced.map((one) => one.source), ["global"]);
-  assertEquals(replaced.map((one) => one.enabled), [true]);
+  assert.deepStrictEqual(replaced.map((one) => one.source), ["global"]);
+  assert.deepStrictEqual(replaced.map((one) => one.enabled), [true]);
 });
 
-Deno.test("the agent gets only the skills it chose, all when it chose none, and a built-in that cannot be turned off always", async () => {
+test("the agent gets only the skills it chose, all when it chose none, and a built-in that cannot be turned off always", async () => {
   const port = treeOf({
     "/b/kinds-yaml/SKILL.md": skillFile("kinds-yaml", "BUILTIN"),
     "/g/a/SKILL.md": skillFile("a", "A"),
@@ -247,13 +248,13 @@ Deno.test("the agent gets only the skills it chose, all when it chose none, and 
       builtin: await code("kinds-yaml"),
     };
   };
-  assertEquals(await receivedOf([]), {
+  assert.deepStrictEqual(await receivedOf([]), {
     listed: ["a", "b", "kinds-yaml"],
     resolved: ["a", "b", "kinds-yaml"],
     b: "ok",
     builtin: "ok",
   });
-  assertEquals(await receivedOf(["a", "missing"]), {
+  assert.deepStrictEqual(await receivedOf(["a", "missing"]), {
     listed: ["a", "kinds-yaml"],
     resolved: ["a", "kinds-yaml"],
     b: "forbidden",
@@ -263,7 +264,7 @@ Deno.test("the agent gets only the skills it chose, all when it chose none, and 
 
 // 합치기에서 진 skill은 agent가 그 domain을 고르지 않아도 돌아오지 않아, domain을 좁힌 Operator가 받아야 할 skill을
 // 조용히 잃었다.
-Deno.test("same-name skills in a global layer and domains go to the agent by the domains it works in", async () => {
+test("same-name skills in a global layer and domains go to the agent by the domains it works in", async () => {
   const port = treeOf({
     "/g/x/SKILL.md": skillFile("x", "GLOBAL"),
     "/a/x/SKILL.md": skillFile("x", "A"),
@@ -294,15 +295,15 @@ Deno.test("same-name skills in a global layer and domains go to the agent by the
     const read = await snapshot.reader.read(SESSION, "x");
     return read.ok ? read.value.trim() : read.error.code;
   };
-  assertEquals(await bodyFor([]), "GLOBAL");
-  assertEquals(await bodyFor(["dom_a"]), "A");
-  assertEquals(await bodyFor(["dom_b"]), "B");
-  assertEquals(await bodyFor(["dom_a", "dom_b"]), "A");
+  assert.deepStrictEqual(await bodyFor([]), "GLOBAL");
+  assert.deepStrictEqual(await bodyFor(["dom_a"]), "A");
+  assert.deepStrictEqual(await bodyFor(["dom_b"]), "B");
+  assert.deepStrictEqual(await bodyFor(["dom_a", "dom_b"]), "A");
 });
 
 // 내장 skill은 선언한 role의 prompt와 / 메뉴에만 뜬다. role을 건너뛰면 lophn과 Operator의 prompt에 읽을 수 없는
 // skill이 실리고(skill.read는 not_found), 한 읽기의 등록부를 같이 쓰는 PM과 Operator 중 먼저 읽은 쪽의 목록이 다른 쪽에 간다.
-Deno.test("a skill that names a role does not show up in the prompt and / menu of other roles", () => {
+test("a skill that names a role does not show up in the prompt and / menu of other roles", () => {
   const files = treeOf({
     "/b/kinds-yaml/SKILL.md": skillFile("kinds-yaml", "", "built-in"),
     "/g/kinds-yaml/SKILL.md": skillFile("kinds-yaml", "", "human"),
@@ -352,13 +353,13 @@ Deno.test("a skill that names a role does not show up in the prompt and / menu o
     );
   for (const [role, place, expected] of table) {
     const prompt = discoverSkills(files, sources, { role, off: [] }).entries;
-    assertEquals(kindsYaml(prompt), [expected], `prompt of ${role}`);
+    assert.deepStrictEqual(kindsYaml(prompt), [expected], `prompt of ${role}`);
     // register.ts의 / 메뉴와 같은 갈래다.
     const menu = commandSkillsOf(
       place === null ? prompt : registry.skills(place, role).entries,
       [],
       [],
     );
-    assertEquals(kindsYaml(menu), [expected], `menu of ${role}`);
+    assert.deepStrictEqual(kindsYaml(menu), [expected], `menu of ${role}`);
   }
 });

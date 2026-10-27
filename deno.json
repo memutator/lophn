@@ -71,5 +71,8 @@
     "dist",
     "build",
     "node_modules"
-  ]
+  ],
+  "compilerOptions": {
+    "verbatimModuleSyntax": true
+  }
 }

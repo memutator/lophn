@@ -58,6 +58,9 @@
   },
   "linter": {
     "enabled": true,
+    "domains": {
+      "react": "none"
+    },
     "rules": {
       "preset": "recommended",
       "a11y": "off",

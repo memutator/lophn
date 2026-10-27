@@ -857,12 +857,7 @@ async function readTextOrEmpty(path: string): Promise<string> {
   }
 }
 
-// launch spec은 이제 권한을 받지 않는다. 부르는 쪽의 모양을 바꾸지 않으려고 입력을 받기만 한다.
-export function appSupervisorSpec(_input: {
-  dataRoot: string;
-  apiPort: number;
-  runtimeDir?: string;
-}): KindLaunchSpec {
+export function appSupervisorSpec(): KindLaunchSpec {
   return {
     kind: APPS_SUPERVISOR_KIND,
     entry: new URL("../main/app-supervisor/main.ts", import.meta.url).pathname,

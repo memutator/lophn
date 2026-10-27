@@ -66,13 +66,10 @@ export function createKindsDispatcher(
       return err({ code: "not_found" as const, message: "domain not found" });
     }
     return ok({
-      reads: [...roots, domainKindsFile(deps.dataRoot, domain)],
-      payload: {
-        domain,
-        kinds_file: domainKindsFile(deps.dataRoot, domain),
-        roots,
-        ...extra,
-      },
+      domain,
+      kinds_file: domainKindsFile(deps.dataRoot, domain),
+      roots,
+      ...extra,
     });
   }
 
@@ -83,14 +80,10 @@ export function createKindsDispatcher(
   ): Promise<Result<unknown>> {
     const built = request(domain, extra);
     if (!built.ok) return built;
-    if (!(await deps.process.ensure(built.value.reads))) {
+    if (!(await deps.process.ensure())) {
       return err({ code: "unavailable", message: "kinds worker is down" });
     }
-    return await deps.process.request(
-      op,
-      built.value.payload,
-      KINDS_TIMEOUT_MS,
-    );
+    return await deps.process.request(op, built.value, KINDS_TIMEOUT_MS);
   }
 
   function compare(domain: string, response: KindsSyncResponse) {

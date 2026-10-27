@@ -1,7 +1,7 @@
 // 앱 화면 build의 신뢰된 실행. 앱 폴더의 build script는 AI가 쓴 code라 그 실수가 준비에 퍼지지 않게
 // 준비는 앱이 쓴 `scripts/build-ui.ts`를 실행하지 않고 이 파일이 같은 일을 한다. esbuild 입력은 staging의
 // `src/screens/<key>/main.tsx`로 고정이고 출력은 `dist/screens/<key>/`뿐이다. 앱 코드는 번들될 뿐 실행되지
-// 않는다. 호출자가 run은 deno·esbuild 실행 파일만, write는 staging만, env는 이름만 허락해 띄운다.
+// 않는다. 호출자는 env에 필요한 이름만 넘겨 띄운다.
 // 사용: deno run ... app-build.ts <staging 폴더> <설치 SDK 폴더> <Deno 캐시 폴더>
 // 불러오는 모든 파일은 realpath가 staging·설치 SDK·Deno 캐시 안이어야 하고 밖이면(절대 경로·`../`·symlink)
 // build가 실패한다. 밖의 파일이 화면에 묶여 운영 때 읽히지 않게 한다.

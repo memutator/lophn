@@ -1,6 +1,6 @@
 // release 준비가 그 자리에서 하는 data 검사 둘: 의존성과 migration.
 // core module graph에 넣지 않는다(mod.ts에서 내보내지 않는다). 앱 DB를 여는 data/worker/db.ts는
-// core가 import하지 않는 모듈이고, 앱이 쓴 migration SQL은 권한을 좁힌 release 준비 자식에서만 돈다.
+// core가 import하지 않는 모듈이고, 앱이 쓴 migration SQL은 release 준비 자식에서만 돈다.
 // 부르는 곳은 packages/core/main/worker/release-job.ts 하나다.
 
 import {

@@ -1,7 +1,6 @@
 // 앱 데이터 배타(apps/data 정책 "배타"). 한 앱 데이터 영역에서 job은 한 번에 하나다.
 // lock은 데이터 영역 안의 디렉터리고, 잡은 시각을 남긴다. job 자식이 죽으면
-// 그 시각이 한도를 넘긴 뒤에야 다음 job이 회수한다. pid 확인은 signal 권한이
-// 필요해서 migration 자식 flag 밖이다.
+// 그 시각이 한도를 넘긴 뒤에야 다음 job이 회수한다.
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
 

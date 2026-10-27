@@ -62,8 +62,8 @@ type KindsProcessDeps = {
 };
 
 export type KindsProcess = {
-  // worker를 띄운다. 이미 떠 있으면 그대로 둔다. 경로는 권한과 무관해져 읽지 않는다.
-  ensure(reads: readonly string[]): Promise<boolean>;
+  // worker를 띄운다. 이미 떠 있으면 그대로 둔다.
+  ensure(): Promise<boolean>;
   request(
     op: string,
     payload: unknown,
@@ -119,7 +119,7 @@ export function createKindsProcess(deps: KindsProcessDeps): KindsProcess {
   }
 
   return {
-    ensure(_reads) {
+    ensure() {
       const run = chain.then(async () => {
         if (started && !gaveUp) return true;
         return await launch();

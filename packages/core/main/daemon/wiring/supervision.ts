@@ -76,7 +76,7 @@ function ioListeners(listeners: readonly IoListener[]): Required<IoListener> {
   };
 }
 
-// packaged allow-env에 없는 이름은 없는 값이다. NotCapable로 기동을 끝내지 않는다.
+// env를 읽지 못한 이름은 없는 값으로 본다.
 function optionalEnv(name: string): string | undefined {
   try {
     return Deno.env.get(name);

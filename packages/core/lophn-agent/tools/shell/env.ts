@@ -30,7 +30,7 @@ export function shellEnvironment(
   return env;
 }
 
-// runtime process의 `allow_env`가 허락한 이름만 읽는다. 부모 환경 전체를 읽지 않는다.
+// 목록에 든 이름만 읽는다. 부모 환경 전체를 읽지 않는다.
 export function readShellEnvironment(): Record<string, string> {
   const parent: Record<string, string | undefined> = {};
   for (const name of SHELL_ENV_NAMES) parent[name] = Deno.env.get(name);

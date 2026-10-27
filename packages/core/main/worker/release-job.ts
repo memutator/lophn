@@ -1,4 +1,4 @@
-// release 준비 job 한 번(apps/releases). supervisor가 준비 요청마다 권한을 좁혀 띄우고 argv의 JSON 한 줄을
+// release 준비 job 한 번(apps/releases). supervisor가 준비 요청마다 띄우고 argv의 JSON 한 줄을
 // 받아 stdout에 결과 JSON 한 줄을 남긴다. 플랫폼 credential은 받지 않는다.
 // build 바로 뒤에 의존성과 migration 검사도 이 자식이 돈다: 앱이 쓴 migration SQL을 core process에서 돌리지 않는다.
 import { appStagingFolder } from "../../../protocol/apps/mod.ts";

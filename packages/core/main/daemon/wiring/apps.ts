@@ -506,10 +506,7 @@ export const appsWiring: WiringFactory = () => {
         : current;
       if (issued.ok && current.ok && recorded.ok) {
         const started = await ctx.appsSupervision.start(
-          appSupervisorSpec({
-            dataRoot: ctx.root.path,
-            apiPort: ctx.server.port,
-          }),
+          appSupervisorSpec(),
           {
             type: "hello",
             core_epoch: ctx.epoch,

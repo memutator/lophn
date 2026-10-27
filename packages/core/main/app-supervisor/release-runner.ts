@@ -27,7 +27,6 @@ const REPO = new URL("../../../../", import.meta.url).pathname.replace(
 export function createChildPreparationRunner(options: {
   dataRoot: string;
   deno: () => string;
-  denoDir: string;
   limitMs?: number;
 }): PreparationRunner {
   return {

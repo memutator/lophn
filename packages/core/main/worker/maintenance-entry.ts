@@ -24,7 +24,7 @@ async function main(): Promise<void> {
   const request = parseRequest(raw);
   if (request === undefined) fail("유지보수 요청 모양이 다르다");
   const home = Deno.env.get("LOPHN_HOME");
-  // 요청의 ledger는 이 프로세스에 허용된 데이터 root 안만 읽는다. 밖이면
+  // 요청의 ledger는 LOPHN_HOME 아래만 읽는다. 밖이면
   // 관측 실패로 보고 아무것도 지우지 않는다(fail-closed).
   if (
     home === undefined || !request.ledger.startsWith(`${home}/`) ||

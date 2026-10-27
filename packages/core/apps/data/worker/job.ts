@@ -1,6 +1,6 @@
 // data worker job 진입. stdin JSON 한 줄을 받아 DataResult 한 줄을
 // 낸다. 한 앱 데이터 영역에서 job은 한 번에 하나이고, 경로는 데이터 영역 밖을
-// 벗어나지 못한다. migration 자식은 network·secret·외부 fs·subprocess 권한이 없다.
+// 벗어나지 못한다.
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
@@ -15,8 +15,6 @@ import { acquireDataLock } from "./lock.ts";
 import { migrateAppDatabase, type MigrationScript } from "./migrate.ts";
 import { contained, insideDataArea } from "./paths.ts";
 import { restoreAppBackup } from "./restore.ts";
-
-// migration 자식에 있으면 안 되는 권한. migrationFlags의 flag를 그대로 쓴다.
 
 type DataJobContext = {
   // 앱 데이터 영역 루트. job이 여는 모든 경로는 이 안이어야 한다.
@@ -65,8 +63,6 @@ async function resolveInside(
     ? ok(resolved)
     : invalid("path leaves the data area");
 }
-
-// migration 자식의 권한 경계. migrationFlags 결과에서 금지 flag를 확인한다.
 
 type JobOutcome = {
   result: ActivationDataResult;

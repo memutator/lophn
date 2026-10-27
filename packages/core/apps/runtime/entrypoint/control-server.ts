@@ -1,9 +1,10 @@
 // control socket의 앱 쪽 구현. supervisor만 이 socket을 부르므로 서명·Authorization 검사가 없다.
-import { CONTROL_PATHS, PROCESS_PATHS } from "./limits.ts";
-import { type HttpHandler, jsonResponse, serveUnix } from "./http.ts";
-import { handleControl } from "./control.ts";
-import { handleCall } from "./invoke.ts";
+import process from "node:process";
 import { handleApply } from "./apply.ts";
+import { handleControl } from "./control.ts";
+import { type HttpHandler, jsonResponse, serveUnix } from "./http.ts";
+import { handleCall } from "./invoke.ts";
+import { CONTROL_PATHS, PROCESS_PATHS } from "./limits.ts";
 import type { RuntimeState } from "./state.ts";
 
 // shutdown 요청을 받은 프로세스는 새 호출을 닫은 채 진행 중인 호출이 끝나는 대로 스스로 끝난다.
@@ -32,7 +33,7 @@ export function startControlServer(
   state: RuntimeState,
   options: { exit?: (code: number) => void } = {},
 ) {
-  const exit = options.exit ?? ((code: number) => Deno.exit(code));
+  const exit = options.exit ?? ((code: number) => process.exit(code));
   let exiting = false;
   const handler: HttpHandler = async (request) => {
     const known =

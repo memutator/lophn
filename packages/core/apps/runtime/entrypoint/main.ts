@@ -1,13 +1,19 @@
 // 앱 프로세스 진입점. exception observer를 앱 code load 전에 설치한다.
 // observer specifier는 bundle 고정 import map이 해석하는 SDK specifier다.
+
+import type { Buffer } from "node:buffer";
+import { writeSync } from "node:fs";
+import { readdir, readFile } from "node:fs/promises";
+import { request as httpRequest } from "node:http";
+import process from "node:process";
 import { createIdSource, systemClock } from "@lophn/base";
-import { installCrashExit } from "./crash.ts";
-import { BROKER_PATHS } from "./limits.ts";
-import { publishReady, startRuntime } from "./startup.ts";
-import { startControlServer } from "./control-server.ts";
-import { parseAppStart } from "./start-input.ts";
 import type { AppDeclaration } from "../../../../protocol/apps/declaration/mod.ts";
 import type { BrokerTransport } from "./broker-client.ts";
+import { startControlServer } from "./control-server.ts";
+import { installCrashExit } from "./crash.ts";
+import { BROKER_PATHS, SOCKET_HOST } from "./limits.ts";
+import { parseAppStart } from "./start-input.ts";
+import { publishReady, startRuntime } from "./startup.ts";
 
 const OBSERVER = "@lophn/cap-problem";
 const APP = "@lophn/app";
@@ -46,10 +52,10 @@ async function main(deps: MainDeps): Promise<void> {
       clock,
       random: { fill: (bytes: Uint8Array) => crypto.getRandomValues(bytes) },
     });
+  // process.exit은 pipe에 쌓인 비동기 쓰기를 자를 수 있어 stderr에 동기로 쓴다.
   const writeStderr =
-    deps.writeStderr ??
-    ((text: string) => Deno.stderr.writeSync(new TextEncoder().encode(text)));
-  const exit = deps.exit ?? ((code: number) => Deno.exit(code));
+    deps.writeStderr ?? ((text: string) => writeSync(2, text));
+  const exit = deps.exit ?? ((code: number) => process.exit(code));
   const observer = (await deps.importModule(OBSERVER)) as ObserverFactory;
   const install = observer.createExceptionObserver({
     now: () => clock.now(),
@@ -131,8 +137,8 @@ export async function run(): Promise<void> {
     error instanceof Error ? error.message : String(error),
   );
   if (reason) {
-    Deno.stderr.writeSync(new TextEncoder().encode(`${reason}\n`));
-    Deno.exit(1);
+    writeSync(2, `${reason}\n`);
+    process.exit(1);
   }
 }
 
@@ -174,8 +180,8 @@ function bundleDirectory(): string {
 async function bundleDataSchema(bundleDir: string): Promise<number> {
   let schema = 0;
   try {
-    for await (const entry of Deno.readDir(`${bundleDir}/migrations`)) {
-      const match = /^(\d+)-(\d+)\.sql$/.exec(entry.name);
+    for (const name of await readdir(`${bundleDir}/migrations`)) {
+      const match = /^(\d+)-(\d+)\.sql$/.exec(name);
       if (match) schema = Math.max(schema, Number(match[2]));
     }
   } catch {
@@ -222,45 +228,52 @@ async function reportException(
   };
 }
 
-async function postUnix(
+function postUnix(
   socketPath: string,
   path: string,
   credential: string,
   body: unknown,
 ): Promise<{ status: number; body: unknown }> {
-  const conn = await Deno.connect({ path: socketPath, transport: "unix" });
   const encoded = JSON.stringify(body);
-  const payload = [
-    `POST ${path} HTTP/1.1`,
-    "host: lophn.invalid",
-    `authorization: ${credential}`,
-    "content-type: application/json",
-    `content-length: ${new TextEncoder().encode(encoded).byteLength}`,
-    "connection: close",
-    "",
-    encoded,
-  ].join("\r\n");
-  // Conn.write는 요청 전체보다 적게 쓰고 돌아올 수 있다. 큰 net/fetch 본문이 잘리지 않게 끝까지 쓴다.
-  const bytes = new TextEncoder().encode(payload);
-  for (let sent = 0; sent < bytes.length; ) {
-    sent += await conn.write(bytes.subarray(sent));
-  }
-  const chunks: Uint8Array[] = [];
-  const buffer = new Uint8Array(8192);
-  while (true) {
-    const read = await conn.read(buffer);
-    if (read === null) break;
-    chunks.push(buffer.slice(0, read));
-  }
-  conn.close();
-  const text = new TextDecoder().decode(concat(chunks));
-  const status = Number(text.split(" ")[1]);
-  const raw = text.slice(text.indexOf("\r\n\r\n") + 4);
-  try {
-    return { status, body: JSON.parse(raw) };
-  } catch {
-    return { status: Number.isFinite(status) ? status : 503, body: null };
-  }
+  return new Promise((resolve, reject) => {
+    const call = httpRequest(
+      {
+        socketPath,
+        path,
+        method: "POST",
+        // 한 요청마다 연결을 닫는다. 남은 연결이 process를 붙들지 않게.
+        agent: false,
+        headers: {
+          host: SOCKET_HOST,
+          authorization: credential,
+          "content-type": "application/json",
+          "content-length": String(
+            new TextEncoder().encode(encoded).byteLength,
+          ),
+        },
+      },
+      (response) => {
+        const chunks: Uint8Array[] = [];
+        response.on("data", (chunk: Buffer) => {
+          chunks.push(chunk);
+        });
+        response.on("error", reject);
+        response.on("end", () => {
+          const status = response.statusCode ?? 503;
+          try {
+            resolve({
+              status,
+              body: JSON.parse(new TextDecoder().decode(concat(chunks))),
+            });
+          } catch {
+            resolve({ status, body: null });
+          }
+        });
+      },
+    );
+    call.on("error", reject);
+    call.end(encoded);
+  });
 }
 
 function concat(chunks: Uint8Array[]): Uint8Array {
@@ -275,8 +288,11 @@ function concat(chunks: Uint8Array[]): Uint8Array {
 }
 
 async function readStdinLine(): Promise<string | null> {
-  const result = await Deno.stdin.readable.getReader().read();
-  return result.value ? new TextDecoder().decode(result.value) : null;
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(chunk as Uint8Array);
+  }
+  return chunks.length === 0 ? null : new TextDecoder().decode(concat(chunks));
 }
 
 async function readDeclaration(
@@ -284,7 +300,7 @@ async function readDeclaration(
 ): Promise<AppDeclaration | undefined> {
   try {
     return JSON.parse(
-      await Deno.readTextFile(`${bundleDir}/declaration.json`),
+      await readFile(`${bundleDir}/declaration.json`, "utf8"),
     ) as AppDeclaration;
   } catch {
     return;

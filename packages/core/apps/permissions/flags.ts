@@ -36,9 +36,9 @@ export type PlatformPorts = {
 
 const LOOPBACK = ["localhost", "127.0.0.1", "::1"] as const;
 
-// Unix socket HTTP의 가상 host다. Deno는 socket 위 HTTP 요청에도 이 host의 net 허락을 요구하고
-// socket 듣기·연결에도 `unix:<경로>` net 허락을 요구한다(Deno 2.9.7 실측: 읽기·쓰기 허락만으로는
-// Deno.serve의 unix listen이 NotCapable이다). 일반 외부 host로 넓어지지 않는다.
+// Unix socket HTTP의 가상 host다. 앱 process는 이 host로만 control·broker socket에 말한다. socket을
+// 듣고 연결하는 데는 `unix:<경로>` net 허락이 필요하다(Deno 2.9.7 실측: 읽기·쓰기 허락만으로는
+// node:http의 unix listen이 NotCapable이다). 일반 외부 host로 넓어지지 않는다.
 const SOCKET_HOST = "lophn.invalid";
 
 // 앱 DB 파일 이름이다. 앱 process가 쓸 수 있는 곳은 이 파일과 SQLite가 곁에 만드는 파일뿐이다.

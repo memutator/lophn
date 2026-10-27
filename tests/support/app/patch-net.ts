@@ -8,6 +8,8 @@
 // release 준비의 handler 검사와 preview 자식은 handler 본문을 부르지 않거나 broker가 바깥 요청을 거절한다(`liveOnly`,
 // `packages/core/apps/permissions/broker/net-fetch.ts`). 본문은 live에서만 돈다.
 
+import { readFile, writeFile } from "node:fs/promises";
+
 import { sampleDomain } from "./source.ts";
 
 async function replaceOnce(
@@ -15,9 +17,9 @@ async function replaceOnce(
   from: string,
   to: string,
 ): Promise<void> {
-  const text = await Deno.readTextFile(path);
+  const text = await readFile(path, "utf8");
   if (!text.includes(from)) throw new Error(`${path}에 patch 자리가 없다`);
-  await Deno.writeTextFile(path, text.replace(from, to));
+  await writeFile(path, text.replace(from, to));
 }
 
 export async function netFetchPatch(

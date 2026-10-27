@@ -1,5 +1,7 @@
 // 재시작 E2E용 patch다. template 위에 write tool `slow_write {title}`와 read tool `count_slow`를 더한다.
 // slow_write는 row를 넣고 live에서만 응답하지 않고 오래 기다린다. preview에서 부르면 바로 답한다.
+import { readFile, writeFile } from "node:fs/promises";
+
 import { sampleDomain } from "./source.ts";
 
 async function replaceOnce(
@@ -7,9 +9,9 @@ async function replaceOnce(
   from: string,
   to: string,
 ): Promise<void> {
-  const text = await Deno.readTextFile(path);
+  const text = await readFile(path, "utf8");
   if (!text.includes(from)) throw new Error(`${path}에 patch 자리가 없다`);
-  await Deno.writeTextFile(path, text.replace(from, to));
+  await writeFile(path, text.replace(from, to));
 }
 
 export async function slowPatch(dir: string): Promise<void> {

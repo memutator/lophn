@@ -1,5 +1,7 @@
 // 선언한 권한이 비어 있는 앱이 그 밖으로 나가려는 patch다. release 준비의 handler 검사(선언과 등록 handler가 같다)를 통과해야 해서
 // 선언과 handler를 같이 더한다.
+import { readFile, writeFile } from "node:fs/promises";
+
 import { sampleDomain } from "./source.ts";
 
 /**
@@ -10,7 +12,7 @@ import { sampleDomain } from "./source.ts";
 export async function escapePatch(dir: string): Promise<void> {
   const slug = await sampleDomain(dir);
   const declaration = `${dir}/lophn.ts`;
-  const text = await Deno.readTextFile(declaration);
+  const text = await readFile(declaration, "utf8");
   const slot = `      {
         name: "add_item",`;
   if (!text.includes(slot)) {
@@ -18,7 +20,7 @@ export async function escapePatch(dir: string): Promise<void> {
   }
   const field = (description: string) =>
     `{ type: "string", description: "${description}", minLength: 1 }`;
-  await Deno.writeTextFile(
+  await writeFile(
     declaration,
     text.replace(
       slot,
@@ -45,12 +47,12 @@ ${slot}`,
   );
 
   const api = `${dir}/src/tools.ts`;
-  const source = await Deno.readTextFile(api);
+  const source = await readFile(api, "utf8");
   const registration = `  tool("add_item", addItemHandler(deps));`;
   if (!source.includes(registration)) {
     throw new Error(`${api}에 patch 자리가 없다`);
   }
-  await Deno.writeTextFile(
+  await writeFile(
     api,
     source.replace(
       registration,

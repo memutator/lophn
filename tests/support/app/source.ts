@@ -1,5 +1,9 @@
 // test용 앱의 source. `app.create`가 core 안에서 template을 깔고 commit한 source 폴더에서 출발한다. 사람이 앱을 시작하는
 // 길과 같아서 template이 깨지면 그것도 잡힌다.
+import { spawn } from "node:child_process";
+import { readdir, readFile, rm } from "node:fs/promises";
+import process from "node:process";
+
 import { appDefaultSource } from "../../../packages/protocol/apps/mod.ts";
 import type { TemplateFile } from "../../../packages/core/apps/packages/template/files.ts";
 import { scaffoldApp } from "../../../packages/core/apps/packages/template/scaffold.ts";
@@ -12,27 +16,33 @@ const GIT_ENV = {
 };
 
 async function git(cwd: string, ...args: string[]): Promise<string> {
-  const out = await new Deno.Command("git", {
-    args: [
-      "-c",
-      "user.name=e2e",
-      "-c",
-      "user.email=e2e@example.invalid",
-      "-c",
-      "commit.gpgsign=false",
-      ...args,
-    ],
+  const child = spawn("git", [
+    "-c",
+    "user.name=e2e",
+    "-c",
+    "user.email=e2e@example.invalid",
+    "-c",
+    "commit.gpgsign=false",
+    ...args,
+  ], {
     cwd,
-    env: GIT_ENV,
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
-  if (!out.success) {
-    throw new Error(
-      `git ${args.join(" ")}: ${new TextDecoder().decode(out.stderr)}`,
-    );
+    env: { ...process.env, ...GIT_ENV },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  child.stdout!.setEncoding("utf8");
+  child.stderr!.setEncoding("utf8");
+  child.stdout!.on("data", (chunk: string) => stdout.push(chunk));
+  child.stderr!.on("data", (chunk: string) => stderr.push(chunk));
+  const code = await new Promise<number | null>((resolve, reject) => {
+    child.on("error", reject);
+    child.on("close", (exitCode) => resolve(exitCode));
+  });
+  if (code !== 0) {
+    throw new Error(`git ${args.join(" ")}: ${stderr.join("")}`);
   }
-  return new TextDecoder().decode(out.stdout).trim();
+  return stdout.join("").trim();
 }
 
 // 제품 template에는 sample 업무가 없다. e2e patch가 기대하는 sample(items tool·screen·표)은 test가 소유한 이
@@ -42,13 +52,13 @@ const SAMPLE = new URL("./sample/", import.meta.url).pathname;
 async function sampleFiles(): Promise<TemplateFile[]> {
   const found: TemplateFile[] = [];
   async function visit(dir: string, prefix: string): Promise<void> {
-    for await (const entry of Deno.readDir(dir)) {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
-      if (entry.isDirectory) await visit(`${dir}/${entry.name}`, path);
+      if (entry.isDirectory()) await visit(`${dir}/${entry.name}`, path);
       else {
         found.push({
           path: path.replace(/\.tmpl$/, ""),
-          bytes: await Deno.readFile(`${dir}/${entry.name}`),
+          bytes: await readFile(`${dir}/${entry.name}`),
         });
       }
     }
@@ -84,9 +94,9 @@ export async function createAppSource(
     // scaffoldApp은 있는 file을 덮지 않으므로 겹치는 template file을 먼저 지운다. sample은 자기 screen(items)을
     // 선언하므로 template의 자리 표시 screen(home)도 지운다.
     for (const file of files) {
-      await Deno.remove(`${dir}/${file.path}`).catch(() => {});
+      await rm(`${dir}/${file.path}`).catch(() => {});
     }
-    await Deno.remove(`${dir}/src/screens/home`, { recursive: true }).catch(
+    await rm(`${dir}/src/screens/home`, { recursive: true }).catch(
       () => {},
     );
     const scaffolded = await scaffoldApp({
@@ -108,7 +118,7 @@ export async function createAppSource(
 
 /** 견본의 첫 tool `domain`이다. 견본 위의 앱이면 앱 slug(= 앱 domain)다. patch가 새 tool의 domain을 이것으로 채운다. */
 export async function sampleDomain(dir: string): Promise<string> {
-  const found = (await Deno.readTextFile(`${dir}/lophn.ts`)).match(
+  const found = (await readFile(`${dir}/lophn.ts`, "utf8")).match(
     /domain:\s*"([a-z0-9-]+)"/,
   );
   if (found === null) throw new Error(`${dir}/lophn.ts에 domain이 없다`);

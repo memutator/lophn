@@ -4,6 +4,8 @@
 //
 // App Engineer의 fake 대답은 session 하나의 줄(lane)로 건다. 줄은 요청의 tool 목록에 `release_prepare`가 있고 본문에
 // 이 앱의 사람 메시지(`App <id>:`)가 있는 요청이 받는다. 앱 id만으로 가르면 다른 앱의 id를 싣는 prompt와 섞인다.
+import { mkdir } from "node:fs/promises";
+
 import { releasesListRecords } from "../../../packages/protocol/apps/activation/activation.ts";
 import {
   type ActivationConsent,
@@ -80,7 +82,7 @@ export async function openAppProject(
 ): Promise<string> {
   const name = appProjectName(slug);
   const folder = `${core.run.work}/${name}`;
-  await Deno.mkdir(folder, { recursive: true });
+  await mkdir(folder, { recursive: true });
   return (await openProject(core, folder, name)).project;
 }
 

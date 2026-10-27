@@ -5,6 +5,8 @@
 // touch_blob은 read로 선언했지만 실제로는 가장 앞선 blob row를 고친다(changeset이 안 남는다). 선언과 동작이 다른 앱
 // code의 실수를 흉내 내, 뒤집은 changeset이 충돌하게 만든다. 가장 앞선 row를 고쳐야 최신부터 뒤집는 중에 마지막에야
 // 충돌한다: 앞선 둘이 이미 적용된 채 남으면 통째로 취소가 깨진 것이 보인다.
+import { readFile, writeFile } from "node:fs/promises";
+
 import { sampleDomain } from "./source.ts";
 
 async function replaceOnce(
@@ -12,9 +14,9 @@ async function replaceOnce(
   from: string,
   to: string,
 ): Promise<void> {
-  const text = await Deno.readTextFile(path);
+  const text = await readFile(path, "utf8");
   if (!text.includes(from)) throw new Error(`${path}에 patch 자리가 없다`);
-  await Deno.writeTextFile(path, text.replace(from, to));
+  await writeFile(path, text.replace(from, to));
 }
 
 export async function rewindPatch(dir: string): Promise<void> {
@@ -67,9 +69,9 @@ export async function rewindPatch(dir: string): Promise<void> {
         name: "add_item",`,
   );
   const sql = `${dir}/migrations/0-1.sql`;
-  await Deno.writeTextFile(
+  await writeFile(
     sql,
-    `${await Deno.readTextFile(sql)}create table blob (
+    `${await readFile(sql, "utf8")}create table blob (
   id integer primary key,
   body text not null
 );

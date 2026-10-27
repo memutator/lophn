@@ -1,4 +1,6 @@
 // 앱 process를 죽이는 patch. crash loop e2e(`app-restart_test.ts`)가 쓴다.
+import { readFile, writeFile } from "node:fs/promises";
+
 import { sampleDomain } from "./source.ts";
 
 async function replaceOnce(
@@ -6,9 +8,9 @@ async function replaceOnce(
   from: string,
   to: string,
 ): Promise<void> {
-  const text = await Deno.readTextFile(path);
+  const text = await readFile(path, "utf8");
   if (!text.includes(from)) throw new Error(`${path}에 patch 자리가 없다`);
-  await Deno.writeTextFile(path, text.replace(from, to));
+  await writeFile(path, text.replace(from, to));
 }
 
 /**

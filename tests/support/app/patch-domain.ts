@@ -2,6 +2,8 @@
 // 그 domain을 맡지 않은 agent에게 비공개 tool은 가려지고 공개 tool은 보이는지 model 요청의 tool 목록으로 보려는 것이다.
 // 선언과 handler를 같이 더해 release 준비의 handler 검사(봉인한 bundle을 preview로 한 번 띄워 선언과 등록 handler를 대조한다)를 통과한다.
 
+import { readFile, writeFile } from "node:fs/promises";
+
 import type { AppPatch } from "./source.ts";
 
 async function replaceOnce(
@@ -9,9 +11,9 @@ async function replaceOnce(
   from: string,
   to: string,
 ): Promise<void> {
-  const text = await Deno.readTextFile(path);
+  const text = await readFile(path, "utf8");
   if (!text.includes(from)) throw new Error(`${path}에 patch 자리가 없다`);
-  await Deno.writeTextFile(path, text.replace(from, to));
+  await writeFile(path, text.replace(from, to));
 }
 
 export function domainPatch(domain: string): AppPatch {

@@ -1,3 +1,7 @@
+import { spawn } from "node:child_process";
+import { readFile, writeFile } from "node:fs/promises";
+import process from "node:process";
+
 import { sampleDomain } from "./source.ts";
 
 // release activation E2E가 template 위에 얹는 patch다. 각 patch는 선언과 handler를 같이 바꿔 release 준비의
@@ -9,9 +13,9 @@ async function replaceOnce(
   from: string,
   to: string,
 ): Promise<void> {
-  const text = await Deno.readTextFile(path);
+  const text = await readFile(path, "utf8");
   if (!text.includes(from)) throw new Error(`${path}에 patch 자리가 없다`);
-  await Deno.writeTextFile(path, text.replace(from, to));
+  await writeFile(path, text.replace(from, to));
 }
 
 /**
@@ -19,7 +23,7 @@ async function replaceOnce(
  * row가 둘 이상 있는 운영 DB에서만 activation 때 실패한다. 파일 머리에 `-- loss:` 선언이 없어 사람에게 묻지 않는다.
  */
 export async function failingMigrationPatch(dir: string): Promise<void> {
-  await Deno.writeTextFile(
+  await writeFile(
     `${dir}/migrations/1-2.sql`,
     `-- Titles become unique.
 create unique index item_title on item (title);
@@ -53,9 +57,9 @@ export function widenPatch2(dir: string): Promise<void> {
 /** handler 파일에 주석 한 줄을 더한다. bundle과 release는 새로 생기고 schema와 선언은 그대로다. 몇 번이든 얹을 수 있다. */
 export async function codeOnlyPatch(dir: string): Promise<void> {
   const api = `${dir}/src/tools.ts`;
-  const text = await Deno.readTextFile(api);
+  const text = await readFile(api, "utf8");
   const count = text.split("// code-only change").length;
-  await Deno.writeTextFile(api, `${text}// code-only change ${count}\n`);
+  await writeFile(api, `${text}// code-only change ${count}\n`);
 }
 
 /** read tool `delay {ms}`를 더한다. 앱 안의 timer로 ms만큼 기다렸다 답한다. */
@@ -107,7 +111,7 @@ export function widenPatch3(dir: string): Promise<void> {
 
 /** schema 2 단계를 더하는데 data가 있어도 성공한다(title 위의 보통 index). 파일 머리에 `-- loss:`가 없다. */
 export async function okMigrationPatch(dir: string): Promise<void> {
-  await Deno.writeTextFile(
+  await writeFile(
     `${dir}/migrations/1-2.sql`,
     `-- Titles get an index.
 create index item_title on item (title);
@@ -117,14 +121,23 @@ create index item_title on item (title);
 
 /** 이전 patch를 지우려고 source를 base commit으로 되돌린다. 사람의 git 설정은 읽지 않는다. */
 export async function resetSource(dir: string, commit: string): Promise<void> {
-  const out = await new Deno.Command("git", {
-    args: ["reset", "-q", "--hard", commit],
+  const child = spawn("git", ["reset", "-q", "--hard", commit], {
     cwd: dir,
-    env: { GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" },
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
-  if (!out.success) {
-    throw new Error(`git reset: ${new TextDecoder().decode(out.stderr)}`);
+    env: {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_CONFIG_NOSYSTEM: "1",
+    },
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+  const stderr: string[] = [];
+  child.stderr!.setEncoding("utf8");
+  child.stderr!.on("data", (chunk: string) => stderr.push(chunk));
+  const code = await new Promise<number | null>((resolve, reject) => {
+    child.on("error", reject);
+    child.on("close", (exitCode) => resolve(exitCode));
+  });
+  if (code !== 0) {
+    throw new Error(`git reset: ${stderr.join("")}`);
   }
 }

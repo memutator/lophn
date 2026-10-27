@@ -67,7 +67,7 @@ const grantsListInputSchema = z.strictObject({
 // outside_links는 파일 검사(부여 준비)가 채운다. read는 파일 I/O를 하지 않아 빈 목록이다.
 
 // grant 결정의 표시 자료. 요구·reason·정규 scope·조합 경고·
-// Deno 한계 문구 key만 담고 grant를 자동으로 만들지 않는다.
+// 한계 문구 key만 담고 grant를 자동으로 만들지 않는다.
 
 // display는 app을 지정했고 그 앱의 현재 release 선언을 알 때만 있다. 그 밖에는 null이다.
 // 필드를 모르는 옛 소비자는 무시하므로 additive다.

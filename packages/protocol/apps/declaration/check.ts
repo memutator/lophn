@@ -3,7 +3,7 @@ import { defineMemory } from "../../base/route.ts";
 import { appInputSchema } from "../apps.ts";
 import { permissionRequirementSchema } from "../permissions.ts";
 
-// 앱 source의 lophn.ts를 평가해 검사한다. 파일을 읽고 Deno 자식을 띄우는 I/O라 memory route다.
+// 앱 source의 lophn.ts를 평가해 검사한다. 파일을 읽고 Node 자식을 띄우는 I/O라 memory route다.
 // 오류는 선언이 평가되지 않거나 구조 검사를 통과하지 못한 이유, 경고는 설명이 빈 칸,
 // permission_review는 사람이 승인하게 될 permission 선언이다. 구조 오류는 오류 코드가 아니라 output의
 // errors에 담는다.

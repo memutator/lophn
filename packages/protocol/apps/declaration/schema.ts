@@ -1,5 +1,5 @@
 // 의존성 없는 선언 정본.
-// Zod·Deno·node·npm·jsr·IO·앱 코드 실행이 없다.
+// Zod·node·npm·IO·앱 코드 실행이 없다.
 // no-input hash의 정규 JSON null은 tool·schema·release 결합을 대신하지 않는다.
 
 import {

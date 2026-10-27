@@ -1,5 +1,5 @@
 // 의존성 없는 선언 정본.
-// Zod·Deno·node·npm·jsr·IO·앱 코드 실행이 없다.
+// Zod·node·npm·IO·앱 코드 실행이 없다.
 
 import {
   APP_ID,

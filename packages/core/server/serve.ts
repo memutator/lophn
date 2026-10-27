@@ -69,6 +69,7 @@ export async function serve(
   const server = createServer();
   if (options.upgrade !== undefined) server.on("upgrade", options.upgrade);
   const unixPath = options.transport === "unix" ? options.path : undefined;
+  const requests = trackRequests(server);
   server.on("request", (request, response) => {
     void answer(request, response, unixPath, handler);
   });
@@ -76,7 +77,7 @@ export async function serve(
     await bind(server, { path: options.path });
     const addr = { transport: "unix" as const, path: options.path };
     options.onListen?.(addr);
-    return handleOf(server, addr);
+    return handleOf(server, addr, requests);
   }
   await bind(server, {
     host: options.hostname ?? DEFAULT_HOSTNAME,
@@ -90,7 +91,7 @@ export async function serve(
     port: bound.port,
   };
   options.onListen?.(addr);
-  return handleOf(server, addr);
+  return handleOf(server, addr, requests);
 }
 
 function bind(server: Server, options: ListenOptions): Promise<void> {
@@ -103,13 +104,48 @@ function bind(server: Server, options: ListenOptions): Promise<void> {
   });
 }
 
-function handleOf(server: Server, addr: ServeAddr): ServeHandle {
+type Requests = { whenIdle(run: () => void): void };
+
+// 진행 중인 요청 수. 0이 되면 기다리던 일을 부른다.
+function trackRequests(server: Server): Requests {
+  let active = 0;
+  let waiting: (() => void)[] = [];
+  const settle = () => {
+    if (active > 0) return;
+    const run = waiting;
+    waiting = [];
+    for (const each of run) each();
+  };
+  server.on("request", (_request, response) => {
+    active += 1;
+    response.once("close", () => {
+      active -= 1;
+      settle();
+    });
+  });
+  return {
+    whenIdle(run) {
+      waiting.push(run);
+      settle();
+    },
+  };
+}
+
+function handleOf(
+  server: Server,
+  addr: ServeAddr,
+  requests: Requests,
+): ServeHandle {
   let closing: Promise<void> | undefined;
   return {
     addr,
     shutdown() {
       closing ??= new Promise<void>((resolve, reject) => {
         server.close((error) => (error ? reject(error) : resolve()));
+        // 받은 요청은 끝까지 기다린다. 그 뒤에 남은 connection(요청을 아직 보내지 않은 것, keep-alive)은
+        // close가 기다려 주지 않고 끊는다. 바쁜 기계에서 자식이 연결만 열어 둔 채 종료가 오면 close가
+        // 끝나지 않았다.
+        requests.whenIdle(() => server.closeAllConnections());
       });
       return closing;
     },

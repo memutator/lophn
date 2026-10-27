@@ -1,5 +1,8 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir, mkdtemp, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { test } from "node:test";
 import { scan } from "./work.ts";
 
 const deps = { exists: () => true };
@@ -7,15 +10,15 @@ const deps = { exists: () => true };
 async function temp(
   files: Record<string, string>,
 ): Promise<{ root: string; outside: string }> {
-  const base = await Deno.makeTempDir();
+  const base = await mkdtemp(join(tmpdir(), "lophn-search-"));
   const root = join(base, "root");
   const outside = join(base, "outside");
-  await Deno.mkdir(outside);
-  await Deno.writeTextFile(join(outside, "secret.txt"), "needle outside\n");
+  await mkdir(outside);
+  await writeFile(join(outside, "secret.txt"), "needle outside\n");
   for (const [path, text] of Object.entries(files)) {
     const file = join(root, path);
-    await Deno.mkdir(join(file, ".."), { recursive: true });
-    await Deno.writeTextFile(file, text);
+    await mkdir(join(file, ".."), { recursive: true });
+    await writeFile(file, text);
   }
   return { root, outside };
 }
@@ -28,11 +31,11 @@ async function run(root: string, query: string, extra = {}) {
     limit: 100,
     ...extra,
   }, deps);
-  assert(found.ok);
+  assert.ok(found.ok);
   return found.value;
 }
 
-Deno.test("gitignore가 뺀 파일, .git 안, 연결 폴더 밖으로 나가는 symlink는 결과에 없다", async () => {
+test("gitignore가 뺀 파일, .git 안, 연결 폴더 밖으로 나가는 symlink는 결과에 없다", async () => {
   const { root, outside } = await temp({
     ".gitignore": "ignored.txt\nbuild/\n",
     "kept.txt": "needle\n",
@@ -43,13 +46,16 @@ Deno.test("gitignore가 뺀 파일, .git 안, 연결 폴더 밖으로 나가는 
     "sub/b.txt": "needle\n",
     ".git/config": "needle\n",
   });
-  await Deno.symlink(join(outside, "secret.txt"), join(root, "link.txt"));
-  await Deno.symlink(outside, join(root, "linkdir"));
+  await symlink(join(outside, "secret.txt"), join(root, "link.txt"));
+  await symlink(outside, join(root, "linkdir"));
   const { matches } = await run(root, "needle");
-  assertEquals(matches.map((m) => m.path), ["kept.txt", "sub/b.txt"]);
+  assert.deepStrictEqual(matches.map((m) => m.path), [
+    "kept.txt",
+    "sub/b.txt",
+  ]);
 });
 
-Deno.test("NFC가 다른 한글 질의와 대소문자가 다른 질의도 같은 줄을 찾고 경로 순서 다음 줄 순서로 나온다", async () => {
+test("NFC가 다른 한글 질의와 대소문자가 다른 질의도 같은 줄을 찾고 경로 순서 다음 줄 순서로 나온다", async () => {
   const { root } = await temp({
     "b.txt": "x\nHello 한글\n",
     "a/c.txt": "한글 hello\n",
@@ -57,20 +63,20 @@ Deno.test("NFC가 다른 한글 질의와 대소문자가 다른 질의도 같�
   });
   const nfd = "한글".normalize("NFD");
   const korean = await run(root, nfd);
-  assertEquals(korean.matches.map((m) => [m.path, m.line]), [
+  assert.deepStrictEqual(korean.matches.map((m) => [m.path, m.line]), [
     ["a/c.txt", 1],
     ["b.txt", 2],
   ]);
   const first = await run(root, "HeLLo", { limit: 2 });
-  assertEquals(first.matches.map((m) => [m.path, m.line]), [
+  assert.deepStrictEqual(first.matches.map((m) => [m.path, m.line]), [
     ["a.txt", 2],
     ["a.txt", 3],
   ]);
-  assert(first.next !== null);
+  assert.ok(first.next !== null);
   const rest = await run(root, "HeLLo", { cursor: first.next });
-  assertEquals(rest.matches.map((m) => [m.path, m.line]), [
+  assert.deepStrictEqual(rest.matches.map((m) => [m.path, m.line]), [
     ["a/c.txt", 1],
     ["b.txt", 2],
   ]);
-  assertEquals(rest.next, null);
+  assert.deepStrictEqual(rest.next, null);
 });

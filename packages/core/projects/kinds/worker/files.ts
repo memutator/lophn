@@ -3,6 +3,8 @@
 //
 // 경로 안전: 순회와 읽기에서 `.git`, 제외한 폴더(lophn 데이터), 폴더 밖을 가리키는 symlink를 뺀다. symlink 폴더는
 // 따라가지 않는다(순환을 막는다). 같은 상대 경로가 여러 그릇 폴더에 있으면 앞 폴더의 파일이 이긴다.
+import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
+import type { Dirent, Stats } from "node:fs";
 import type { KindWatchFolder } from "../../../../protocol/projects/mod.ts";
 import type { IndexFiles } from "../index/scan.ts";
 
@@ -38,7 +40,7 @@ function inside(real: string, root: string): boolean {
 
 function realRootOf(root: string): string | undefined {
   try {
-    return Deno.realPathSync(root);
+    return realpathSync(root);
   } catch {
     return undefined;
   }
@@ -51,12 +53,12 @@ type Identity = {
   mtime: number;
 };
 
-function identityOf(info: Deno.FileInfo): Identity {
+function identityOf(info: Stats): Identity {
   return {
     dev: info.dev,
     ino: info.ino,
     size: info.size,
-    mtime: info.mtime === null ? 0 : Math.floor(info.mtime.getTime()),
+    mtime: Math.floor(info.mtime.getTime()),
   };
 }
 
@@ -65,12 +67,12 @@ const sameIdentity = (a: Identity, b: Identity): boolean =>
   a.mtime === b.mtime;
 
 // 폴더 밖을 가리키거나 일반 파일이 아니면 undefined. 읽기 직전의 최종 검사에도 쓴다.
-function openable(source: Source): Deno.FileInfo | undefined {
+function openable(source: Source): Stats | undefined {
   try {
-    const real = Deno.realPathSync(source.absolute);
+    const real = realpathSync(source.absolute);
     if (!inside(real, source.root)) return undefined;
-    const info = Deno.statSync(real);
-    return info.isFile ? info : undefined;
+    const info = statSync(real);
+    return info.isFile() ? info : undefined;
   } catch {
     return undefined;
   }
@@ -84,7 +86,7 @@ function readChecked(
   const before = openable(source);
   if (before === undefined || before.size > maxBytes) return null;
   try {
-    const bytes = Deno.readFileSync(source.absolute);
+    const bytes = readFileSync(source.absolute);
     const after = openable(source);
     if (after === undefined) return null;
     return sameIdentity(identityOf(before), identityOf(after)) ? bytes : null;
@@ -111,9 +113,9 @@ function collect(
     recursive: boolean,
   ): void => {
     const directory = relative === "" ? root : `${root}/${relative}`;
-    let entries: Deno.DirEntry[];
+    let entries: Dirent[];
     try {
-      entries = [...Deno.readDirSync(directory)];
+      entries = readdirSync(directory, { withFileTypes: true });
     } catch {
       return;
     }
@@ -121,13 +123,13 @@ function collect(
       if (SKIPPED_NAMES.has(entry.name)) continue;
       const child = relative === "" ? entry.name : `${relative}/${entry.name}`;
       const absolute = `${root}/${child}`;
-      if (entry.isDirectory) {
+      if (entry.isDirectory()) {
         if (!recursive) continue;
         if (excluded.some((path) => path === absolute)) continue;
         walk(root, child, true);
         continue;
       }
-      if (!entry.isFile && !entry.isSymlink) continue;
+      if (!entry.isFile() && !entry.isSymbolicLink()) continue;
       if (found.has(child)) continue;
       const source = { absolute, root };
       if (openable(source) === undefined) continue;
@@ -144,16 +146,16 @@ function collect(
     for (const folder of folders) {
       if (folder.path.split("/").includes("..")) continue;
       const start = folder.path === "" ? real : `${real}/${folder.path}`;
-      let info: Deno.FileInfo;
+      let info: Stats;
       try {
-        info = Deno.statSync(start);
+        info = statSync(start);
       } catch {
         continue;
       }
-      if (!info.isDirectory) continue;
+      if (!info.isDirectory()) continue;
       // 폴더 자체가 symlink로 밖을 가리키면 그 폴더는 보지 않는다.
       try {
-        if (!inside(Deno.realPathSync(start), real)) continue;
+        if (!inside(realpathSync(start), real)) continue;
       } catch {
         continue;
       }

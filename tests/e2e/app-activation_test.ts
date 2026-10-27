@@ -51,9 +51,9 @@ import {
   widenPatch2,
   widenPatch3,
 } from "../support/app/patch-migration.ts";
-import { amendAppSource, type AppPatch } from "../support/app/source.ts";
-import { bootCore, type Core, createRun } from "../support/core/mod.ts";
+import { type AppPatch, amendAppSource } from "../support/app/source.ts";
 import { connectFakeProvider, settle, until } from "../support/core/human.ts";
+import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 import { connectGateway, type Gateway } from "../support/gateway/mod.ts";
 
@@ -87,7 +87,7 @@ async function activeOf(core: Core, app: string): Promise<string | null> {
   return (await core.call(appGet, { app })).app.active_release;
 }
 
-// 앱 process의 수. 앱 번들 폴더의 진입 파일을 여는 deno process를 /proc에서 센다.
+// 앱 process의 수. 앱 번들 폴더의 진입 파일을 여는 process를 /proc에서 센다.
 async function appProcesses(core: Core, app: string): Promise<number> {
   const needle = `${core.run.home}/apps/${app}/bundles/`;
   let count = 0;

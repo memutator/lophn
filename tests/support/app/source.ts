@@ -3,10 +3,9 @@
 import { spawn } from "node:child_process";
 import { readdir, readFile, rm } from "node:fs/promises";
 import process from "node:process";
-
-import { appDefaultSource } from "../../../packages/protocol/apps/mod.ts";
 import type { TemplateFile } from "../../../packages/core/apps/packages/template/files.ts";
 import { scaffoldApp } from "../../../packages/core/apps/packages/template/scaffold.ts";
+import { appDefaultSource } from "../../../packages/protocol/apps/mod.ts";
 import type { Core } from "../core/mod.ts";
 
 // 사람의 git 설정(서명, hook, 이름)을 읽지 않는다.
@@ -95,12 +94,16 @@ export async function createAppSource(
   }
   if (options.sample !== false) {
     const files = await sampleFiles();
-    // scaffoldApp은 있는 file을 덮지 않으므로 겹치는 template file을 먼저 지운다. sample은 자기 screen(items)을
-    // 선언하므로 template의 자리 표시 screen(home)도 지운다.
+    // scaffoldApp은 있는 file을 덮지 않으므로 겹치는 template file을 먼저 지운다. sample은 자기 screen(items)만
+    // 선언하므로 template의 자리 표시 screen 폴더는 이름에 기대지 않고 모두 지운다.
     for (const file of files) {
       await rm(`${dir}/${file.path}`).catch(() => {});
     }
-    await rm(`${dir}/src/screens/home`, { recursive: true }).catch(() => {});
+    for (const name of await readdir(`${dir}/src/screens`).catch(() => [])) {
+      await rm(`${dir}/src/screens/${name}`, { recursive: true }).catch(
+        () => {},
+      );
+    }
     const scaffolded = await scaffoldApp({
       files,
       dir,

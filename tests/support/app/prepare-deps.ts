@@ -1,17 +1,9 @@
-// `deno task e2e:deps`. E2E 중 release 준비가 쓸 npm·jsr 의존과 esbuild 실행 파일을 e2eDenoDir()에 받는다.
-// network를 쓰는 유일한 명령이다. 무엇을 받는지는 추측하지 않고 코드로 정한다: 내장 template 앱을 새 data root에서
+// `npm run e2e:deps`. E2E의 release 준비가 staging에서 받는 npm 의존을 e2eNpmCache()에 미리 받는다. network를
+// 쓰는 유일한 명령이다. 무엇을 받는지는 추측하지 않고 코드로 정한다: 내장 template 앱을 새 data root에서
 // 실제로 release 준비까지 지나 본다. `--offline`은 같은 준비를 다시 돌려 받은 것만으로 되는지 보는 단계로,
-// network를 끊은 곳에서 돌린다: `unshare -rn sh -c 'ip link set lo up && deno task e2e:deps --offline'`.
+// network를 끊은 곳에서 돌린다: `unshare -rn sh -c 'ip link set lo up && npm run e2e:deps -- --offline'`.
 import { spawn } from "node:child_process";
-import {
-  chmod,
-  mkdir,
-  mkdtemp,
-  readdir,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
 
@@ -21,15 +13,13 @@ import {
   systemClock,
 } from "../../../packages/base/mod.ts";
 import { installSdkCopies } from "../../../packages/core/apps/packages/install.ts";
-import { scaffoldApp } from "../../../packages/core/apps/packages/template/scaffold.ts";
+import { syncAppSdk } from "../../../packages/core/apps/packages/sdk-sync.ts";
 import { builtinTemplate } from "../../../packages/core/apps/packages/template/files.ts";
 import { installBuiltinTemplate } from "../../../packages/core/apps/packages/template/install.ts";
-import {
-  buildEnvironment,
-  cacheBuildTools,
-} from "../../../packages/core/apps/releases/ui-build/binaries.ts";
+import { scaffoldApp } from "../../../packages/core/apps/packages/template/scaffold.ts";
 import { prepareFromSource } from "../../../packages/core/apps/releases/prepare/from-source.ts";
-import { e2eDenoDir } from "./deps.ts";
+import { npmCommand } from "../../../packages/core/supervision/security/node-command.ts";
+import { e2eNpmCache } from "./deps.ts";
 
 const REPO = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
 const PACKAGES = `${REPO}/packages/`;
@@ -79,14 +69,41 @@ async function removeDir(dir: string): Promise<void> {
   await rm(dir, { recursive: true });
 }
 
-const offline = process.argv.slice(2).includes("--offline");
-const denoDir = e2eDenoDir();
-await mkdir(denoDir, { recursive: true });
-// prepareFromSource와 그 자식이 DENO_DIR을 이 process 환경에서 읽는다.
-process.env.DENO_DIR = denoDir;
+async function runNpm(cwd: string, args: readonly string[]): Promise<void> {
+  const command = npmCommand(args);
+  const child = spawn(command.command, command.args, {
+    cwd,
+    env: { ...process.env, ...command.env },
+    stdio: ["ignore", "inherit", "inherit"],
+  });
+  const code = await new Promise<number | null>((resolve, reject) => {
+    child.on("error", reject);
+    child.on("close", (exitCode) => resolve(exitCode));
+  });
+  if (code !== 0) {
+    throw new Error(`npm ${args.join(" ")}가 ${code}로 끝났다`);
+  }
+}
 
-const e2eRoot = `${REPO}/.dev-data/e2e`;
-const dataRoot = await mkdtemp(join(e2eRoot, "deps-"));
+async function hasLock(dir: string): Promise<boolean> {
+  try {
+    return (await stat(`${dir}/package-lock.json`)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+const offline = process.argv.slice(2).includes("--offline");
+const cache = e2eNpmCache();
+await mkdir(cache, { recursive: true });
+// prepareFromSource와 그 자식의 npm은 이 process 환경에서 cache를 읽는다.
+process.env["npm_config_cache"] = cache;
+process.env["npm_config_audit"] = "false";
+process.env["npm_config_fund"] = "false";
+process.env["npm_config_update_notifier"] = "false";
+if (offline) process.env["npm_config_offline"] = "true";
+
+const dataRoot = await mkdtemp(join(`${REPO}/.dev-data/e2e`, "deps-"));
 try {
   const sdk = await installSdkCopies({ dataRoot, packagesRoot: PACKAGES });
   if (!sdk.ok) throw new Error(`sdk 사본: ${sdk.error.message}`);
@@ -103,54 +120,18 @@ try {
     dataRoot,
   });
   if (!scaffolded.ok) throw new Error(`scaffold: ${scaffolded.error.message}`);
+
+  // release 준비는 staging에서 SDK 사본을 채운 뒤 lock이 있으면 npm ci, 없으면 npm install로 받는다. 같은 길을
+  // 여기서 한 번 지나야 cache가 채워져 offline에서도 그 길이 된다.
+  const synced = await syncAppSdk(sourceRoot, dataRoot);
+  if (!synced.ok) throw new Error(`sdk 사본: ${synced.error.message}`);
+  await runNpm(sourceRoot, (await hasLock(sourceRoot)) ? ["ci"] : ["install"]);
+
   await git(sourceRoot, "init", "-q");
   await git(sourceRoot, "add", "-A");
   await git(sourceRoot, "commit", "-q", "-m", "deps");
   const commit = await git(sourceRoot, "rev-parse", "HEAD");
 
-  // release 준비의 `deno cache`는 vendor 모드라 jsr 파일을 deno-dir이 아니라 staging의 vendor/로 바로 받고, 그때마다
-  // jsr.io에서 meta.json을 다시 받는다(npm은 deno-dir을 거친다). 그래서 vendor 없이 같은 npm·jsr 값을 먼저 받아
-  // deno-dir에 채워 두어야 network 없이 준비가 된다.
-  const imports = (
-    JSON.parse(await readFile(`${sourceRoot}/deno.json`, "utf8")) as {
-      imports: Record<string, string>;
-    }
-  ).imports;
-  const specifiers = [
-    ...new Set(
-      Object.values(imports)
-        .filter((value) => value.startsWith("npm:") || value.startsWith("jsr:"))
-        .map((value) => value.replace(/\/$/, "")),
-    ),
-  ].sort();
-  const warmDir = `${dataRoot}/warm`;
-  await mkdir(warmDir);
-  await writeFile(`${warmDir}/deno.json`, "{}");
-  await writeFile(
-    `${warmDir}/deps.ts`,
-    specifiers
-      .map((specifier) => `import ${JSON.stringify(specifier)};\n`)
-      .join(""),
-  );
-  const cached = spawn(
-    Deno.execPath(),
-    ["cache", "--no-lock", `${warmDir}/deps.ts`],
-    {
-      cwd: warmDir,
-      env: { ...process.env, DENO_DIR: denoDir },
-      stdio: ["ignore", "inherit", "inherit"],
-    },
-  );
-  const cachedCode = await new Promise<number | null>((resolve, reject) => {
-    cached.on("error", reject);
-    cached.on("close", (exitCode) => resolve(exitCode));
-  });
-  if (cachedCode !== 0) throw new Error("npm·jsr 의존을 받지 못했다");
-
-  // prepareFromSource는 이미 받아 둔 esbuild 실행 파일만 build 자식에 허락한다. 제품에서는 release-runner가 하는 일이다.
-  if (!(await cacheBuildTools(Deno.execPath(), buildEnvironment(dataRoot)))) {
-    throw new Error("build 도구를 받지 못했다");
-  }
   const prepared = await prepareFromSource({
     dataRoot,
     app: createIdSource({ clock: systemClock, random: cryptoRandom }).newId(
@@ -165,7 +146,7 @@ try {
     );
   }
   console.log(
-    `${offline ? "offline " : ""}release 준비 통과. 의존은 ${denoDir}에 있다.`,
+    `${offline ? "offline " : ""}release 준비 통과. 의존은 ${cache}에 있다.`,
   );
 } finally {
   await removeDir(dataRoot).catch(() => undefined);

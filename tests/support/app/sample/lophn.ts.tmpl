@@ -52,7 +52,7 @@ export function makeDeclaration(text: Text = en): AppDeclaration {
     ],
     permissions: [],
     app_connections: [],
-    // 정확한 version만 쓴다. deno.json의 import map과 같아야 한다(tests/declaration_test.ts).
+    // 정확한 version만 쓴다. package.json의 SDK 의존과 같아야 한다(tests/declaration_test.ts).
     sdk_dependencies: [
       { name: "@lophn/declaration", version: "1.0.0" },
       { name: "@lophn/cap-problem", version: "1.0.0" },

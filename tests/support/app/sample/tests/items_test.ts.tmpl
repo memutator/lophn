@@ -1,27 +1,33 @@
-import { assertEquals, assertRejects } from "@std/assert";
-import { ToolRejection } from "@lophn/cap-tool";
+import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "node:test";
+
 import { openStore, type Store } from "@lophn/cap-store";
-import { addItemHandler, listItemsHandler } from "../src/tools.ts";
+import { ToolRejection } from "@lophn/cap-tool";
+
 import {
   addItem,
   ensureSchema,
   listItems,
   SCHEMA_VERSION,
 } from "../src/items.ts";
+import { addItemHandler, listItemsHandler } from "../src/tools.ts";
 
 type Seed = { title: string; created_at: string };
 
 const fixture = JSON.parse(
-  Deno.readTextFileSync(new URL("./fixtures/items.json", import.meta.url)),
+  await readFile(new URL("./fixtures/items.json", import.meta.url), "utf8"),
 ) as Seed[];
 
 // 앱 DB는 test 전용 폴더에 만든다. 운영 DB와 다른 앱의 DB는 열지 않는다.
 async function withData<T>(work: (dataPath: string) => Promise<T>): Promise<T> {
-  const dir = await Deno.makeTempDir({ prefix: "app-items-" });
+  const dir = await mkdtemp(join(tmpdir(), "app-items-"));
   try {
     return await work(dir);
   } finally {
-    await Deno.remove(dir, { recursive: true });
+    await rm(dir, { recursive: true, force: true });
   }
 }
 
@@ -29,14 +35,14 @@ function openAt(dataPath: string): () => Store {
   return () => openStore({ host: { mode: "test", dataPath } });
 }
 
-Deno.test("items: a new database migrates from schema 0 and keeps the fixture rows newest first", async () => {
+test("items: a new database migrates from schema 0 and keeps the fixture rows newest first", async () => {
   await withData(async (dataPath) => {
     const store = openAt(dataPath)();
-    assertEquals(store.schema(), 0);
+    assert.equal(store.schema(), 0);
     await ensureSchema(store);
-    assertEquals(store.schema(), SCHEMA_VERSION);
+    assert.equal(store.schema(), SCHEMA_VERSION);
     for (const seed of fixture) addItem(store, seed.title, seed.created_at);
-    assertEquals(
+    assert.deepEqual(
       listItems(store).map((item) => item.title),
       ["Water the plants", "Call the dentist", "Buy milk"],
     );
@@ -44,7 +50,7 @@ Deno.test("items: a new database migrates from schema 0 and keeps the fixture ro
   });
 });
 
-Deno.test("items: list_items returns the rows with their coverage and freshness", async () => {
+test("items: list_items returns the rows with their coverage and freshness", async () => {
   await withData(async (dataPath) => {
     const deps = {
       openStore: openAt(dataPath),
@@ -52,13 +58,13 @@ Deno.test("items: list_items returns the rows with their coverage and freshness"
     };
     await addItemHandler(deps)({ title: "First" });
     const result = await listItemsHandler(deps)();
-    assertEquals(result.rows.map((row) => row.title), ["First"]);
-    assertEquals(result.coverage, "complete");
-    assertEquals(result.freshness, "fresh");
+    assert.deepEqual(result.rows.map((row) => row.title), ["First"]);
+    assert.equal(result.coverage, "complete");
+    assert.equal(result.freshness, "fresh");
   });
 });
 
-Deno.test("items: add_item rejects a blank title before touching the store", async () => {
+test("items: add_item rejects a blank title before touching the store", async () => {
   let opened = false;
   const deps = {
     openStore: () => {
@@ -67,9 +73,6 @@ Deno.test("items: add_item rejects a blank title before touching the store", asy
     },
     now: () => "2026-02-01T00:00:00.000Z",
   };
-  await assertRejects(
-    async () => await addItemHandler(deps)({ title: "   " }),
-    ToolRejection,
-  );
-  assertEquals(opened, false);
+  await assert.rejects(addItemHandler(deps)({ title: "   " }), ToolRejection);
+  assert.equal(opened, false);
 });

@@ -1,3 +1,4 @@
+import { readdir, readFile } from "node:fs/promises";
 import type { Criterion } from "../types.ts";
 import { hashBundle, prettyJson } from "./hash.ts";
 
@@ -21,12 +22,12 @@ export async function scenarioHash(scenarioPath: string): Promise<string> {
   const dir = scenarioPath.slice(0, slash);
   const own = scenarioPath.slice(slash + 1);
   const files: Record<string, string> = {};
-  for await (const e of Deno.readDir(dir)) {
-    if (!e.isFile) continue;
+  for (const e of await readdir(dir, { withFileTypes: true })) {
+    if (!e.isFile()) continue;
     const helper = !e.name.endsWith(".scenario.ts") &&
       !e.name.endsWith("_test.ts");
     if (e.name === own || helper) {
-      files[e.name] = await Deno.readTextFile(`${dir}/${e.name}`);
+      files[e.name] = await readFile(`${dir}/${e.name}`, "utf8");
     }
   }
   return hashBundle(files);

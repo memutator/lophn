@@ -1,4 +1,5 @@
-import { err, ok, type Result } from "../../../packages/base/mod.ts";
+import { readdir, readFile, stat } from "node:fs/promises";
+import { err, errorCode, ok, type Result } from "../../../packages/base/mod.ts";
 import { TOOL_ORDER } from "../../../packages/core/agent-roles/tool-lists.ts";
 import { rolePrompt } from "../../../packages/core/agent-roles/roles/prompts.ts";
 import { parseSkillFrontmatter } from "../../../packages/core/lophn-agent/extensions/skills.ts";
@@ -66,7 +67,7 @@ async function readTexts(
 ): Promise<Record<string, string>> {
   const files: Record<string, string> = {};
   for (const name of names.sort()) {
-    files[name] = await Deno.readTextFile(`${dir}/${name}`);
+    files[name] = await readFile(`${dir}/${name}`, "utf8");
   }
   return files;
 }
@@ -78,9 +79,9 @@ async function skillFolder(root: string, name: string): Promise<string | null> {
   for (const base of SKILL_ROOTS) {
     const dir = `${root}/${base}/${name}`;
     try {
-      if ((await Deno.stat(dir)).isDirectory) return dir;
+      if ((await stat(dir)).isDirectory()) return dir;
     } catch (e) {
-      if (!(e instanceof Deno.errors.NotFound)) throw e;
+      if (errorCode(e) !== "ENOENT") throw e;
     }
   }
   return null;
@@ -90,11 +91,13 @@ async function skillNames(root: string): Promise<string[]> {
   const names: string[] = [];
   for (const base of SKILL_ROOTS) {
     try {
-      for await (const e of Deno.readDir(`${root}/${base}`)) {
-        if (e.isDirectory) names.push(e.name);
+      for (
+        const e of await readdir(`${root}/${base}`, { withFileTypes: true })
+      ) {
+        if (e.isDirectory()) names.push(e.name);
       }
     } catch (e) {
-      if (!(e instanceof Deno.errors.NotFound)) throw e;
+      if (errorCode(e) !== "ENOENT") throw e;
     }
   }
   return names.sort();
@@ -179,7 +182,7 @@ export async function currentVersions(
     const folder = (await skillFolder(root, name))!;
     measured.push(await measureSkill(folder, name));
     const manifest = frontmatter(
-      await Deno.readTextFile(`${folder}/SKILL.md`),
+      await readFile(`${folder}/SKILL.md`, "utf8"),
       `${name}/SKILL.md`,
     );
     measured.push(await measureSkillDescription(name, manifest.description));

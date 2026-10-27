@@ -1,3 +1,5 @@
+import { readdir, readFile, stat } from "node:fs/promises";
+import { errorCode, sha256Hex } from "../../../packages/base/mod.ts";
 import type { VersionRef } from "../types.ts";
 import { hashText, hashValue } from "./hash.ts";
 import {
@@ -6,7 +8,6 @@ import {
   REPO_ROOT,
   resolveVersion,
 } from "./registry.ts";
-import { sha256Hex } from "../../../packages/base/mod.ts";
 
 // 코드에서 `defineTool({ name:`으로 tool을 정의하는 file 전부다. 새 file이 생기면 runtime에 들어
 // 낡게 표시되는 쪽이라 안전하고, 어긋남은 currentVersions가 TOOL_ORDER와 맞춰 보아 드러낸다.
@@ -96,16 +97,16 @@ const SKIP_DIRS = new Set(["node_modules", ".git", "dist", ".dev-data"]);
 export async function walkFiles(dir: string, prefix = ""): Promise<string[]> {
   const found: string[] = [];
   try {
-    for await (const entry of Deno.readDir(dir)) {
-      if (entry.isDirectory) {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
         if (SKIP_DIRS.has(entry.name)) continue;
         found.push(
           ...await walkFiles(`${dir}/${entry.name}`, `${prefix}${entry.name}/`),
         );
-      } else if (entry.isFile) found.push(`${prefix}${entry.name}`);
+      } else if (entry.isFile()) found.push(`${prefix}${entry.name}`);
     }
   } catch (e) {
-    if (!(e instanceof Deno.errors.NotFound)) throw e;
+    if (errorCode(e) !== "ENOENT") throw e;
   }
   return found;
 }
@@ -115,9 +116,9 @@ export async function listFiles(root: string): Promise<string[]> {
   const files = await walkFiles(`${root}/packages`, "packages/");
   for (const name of ["deno.json", "deno.lock"]) {
     try {
-      if ((await Deno.stat(`${root}/${name}`)).isFile) files.push(name);
+      if ((await stat(`${root}/${name}`)).isFile()) files.push(name);
     } catch (e) {
-      if (!(e instanceof Deno.errors.NotFound)) throw e;
+      if (errorCode(e) !== "ENOENT") throw e;
     }
   }
   return files.sort();
@@ -126,7 +127,7 @@ export async function listFiles(root: string): Promise<string[]> {
 async function hashPaths(root: string, paths: string[]): Promise<string> {
   const pairs: [string, string][] = [];
   for (const path of paths) {
-    pairs.push([path, await sha256Hex(await Deno.readFile(`${root}/${path}`))]);
+    pairs.push([path, await sha256Hex(await readFile(`${root}/${path}`))]);
   }
   return hashValue(pairs);
 }
@@ -149,9 +150,9 @@ export async function toolFileTable(
   for (const file of TOOL_FILES) {
     let text: string;
     try {
-      text = await Deno.readTextFile(`${root}/${file}`);
+      text = await readFile(`${root}/${file}`, "utf8");
     } catch (e) {
-      if (e instanceof Deno.errors.NotFound) continue;
+      if (errorCode(e) === "ENOENT") continue;
       throw e;
     }
     const hash = await hashText(text);

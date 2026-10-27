@@ -1,4 +1,5 @@
-import { err, ok, type Result } from "../../../packages/base/mod.ts";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { err, errorCode, ok, type Result } from "../../../packages/base/mod.ts";
 import type { RegistryEntry, VersionKind, VersionRef } from "../types.ts";
 
 // 다른 checkout(variant)의 role prompt. import는 지금 프로세스의 checkout 것이라 따로 읽어 넘긴다.
@@ -58,9 +59,9 @@ export async function readEntries(
 ): Promise<RegistryEntry[]> {
   const file = entryFile(dir, kind, name);
   try {
-    return JSON.parse(await Deno.readTextFile(file)) as RegistryEntry[];
+    return JSON.parse(await readFile(file, "utf8")) as RegistryEntry[];
   } catch (e) {
-    if (e instanceof Deno.errors.NotFound) return [];
+    if (errorCode(e) === "ENOENT") return [];
     throw e;
   }
 }
@@ -70,8 +71,8 @@ async function append(
   entries: RegistryEntry[],
   entry: RegistryEntry,
 ): Promise<void> {
-  await Deno.mkdir(`${dir}/${entry.kind}`, { recursive: true });
-  await Deno.writeTextFile(
+  await mkdir(`${dir}/${entry.kind}`, { recursive: true });
+  await writeFile(
     entryFile(dir, entry.kind, entry.name),
     JSON.stringify([...entries, entry], null, 2) + "\n",
   );

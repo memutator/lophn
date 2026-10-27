@@ -1,4 +1,8 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "node:test";
 import { rolePrompt } from "../../../packages/core/agent-roles/roles/prompts.ts";
 import { TOOL_ORDER } from "../../../packages/core/agent-roles/tool-lists.ts";
 import { REPO_ROOT } from "../runner/paths.ts";
@@ -17,19 +21,19 @@ import {
 } from "./mod.ts";
 
 async function withTemp(run: (dir: string) => Promise<void>) {
-  const dir = await Deno.makeTempDir({ prefix: "eval-versions-" });
+  const dir = await mkdtemp(join(tmpdir(), "eval-versions-"));
   try {
     await run(dir);
   } finally {
-    await Deno.remove(dir, { recursive: true });
+    await rm(dir, { recursive: true });
   }
 }
 
-Deno.test("같은 내용은 같은 n, 바뀐 내용은 새 n, 옛 내용은 옛 n이다. 작성자가 정한 n은 건너뛰어 올릴 수 있고 max 이하의 새 n과 n의 내용이 바뀐 것은 거절한다", async () => {
+test("같은 내용은 같은 n, 바뀐 내용은 새 n, 옛 내용은 옛 n이다. 작성자가 정한 n은 건너뛰어 올릴 수 있고 max 이하의 새 n과 n의 내용이 바뀐 것은 거절한다", async () => {
   await withTemp(async (dir) => {
     const at = async (hash: string) =>
       (await resolveVersion(dir, { kind: "tool", name: "ask", hash })).ref.n;
-    assertEquals(
+    assert.deepStrictEqual(
       [await at("a"), await at("a"), await at("b"), await at("a")],
       [1, 1, 2, 1],
     );
@@ -39,7 +43,7 @@ Deno.test("같은 내용은 같은 n, 바뀐 내용은 새 n, 옛 내용은 옛 
       const r = await registerAuthored(dir, ref(n), hash);
       return r.ok ? r.value.created : r.error.code;
     };
-    assertEquals(
+    assert.deepStrictEqual(
       [
         await code(1, "x"),
         await code(1, "x"),
@@ -58,10 +62,10 @@ const TOOL_SETTINGS = "packages/core/agent-roles/tools/settings.ts";
 const SKILL_MD = "packages/core/agent-roles/skills/foo/SKILL.md";
 
 async function write(root: string, rel: string, text: string) {
-  await Deno.mkdir(`${root}/${rel.slice(0, rel.lastIndexOf("/"))}`, {
+  await mkdir(`${root}/${rel.slice(0, rel.lastIndexOf("/"))}`, {
     recursive: true,
   });
-  await Deno.writeTextFile(`${root}/${rel}`, text);
+  await writeFile(`${root}/${rel}`, text);
 }
 
 const skillMd = (description: string, body: string) =>
@@ -89,7 +93,7 @@ const openedFoo = {
   input: { name: "foo" },
 } as unknown as CollectedToolCall;
 
-Deno.test("연 skill만 본문 버전을 갖고 수정은 그 component의 n만 올린다", async () => {
+test("연 skill만 본문 버전을 갖고 수정은 그 component의 n만 올린다", async () => {
   await withTemp(async (dir) => {
     const root = `${dir}/root`;
     const registryDir = `${dir}/registry`;
@@ -113,18 +117,27 @@ Deno.test("연 skill만 본문 버전을 갖고 수정은 그 component의 n만 
       "tool:skill.read@1",
     ];
 
-    assertEquals(await seen([]), base);
-    assertEquals(await seen([openedFoo]), [...base, "skill:foo@1"].sort());
+    assert.deepStrictEqual(await seen([]), base);
+    assert.deepStrictEqual(
+      await seen([openedFoo]),
+      [...base, "skill:foo@1"].sort(),
+    );
 
     await write(root, SKILL_MD, skillMd("does foo", "body 2"));
-    assertEquals(await seen([openedFoo]), [...base, "skill:foo@2"].sort());
+    assert.deepStrictEqual(
+      await seen([openedFoo]),
+      [...base, "skill:foo@2"].sort(),
+    );
 
     // frontmatter는 본문 버전에 들지 않는다. description 버전은 요청의 skills 블록이 정한다.
     await write(root, SKILL_MD, skillMd("does foo well", "body 2"));
-    assertEquals(await seen([openedFoo]), [...base, "skill:foo@2"].sort());
+    assert.deepStrictEqual(
+      await seen([openedFoo]),
+      [...base, "skill:foo@2"].sort(),
+    );
 
     await write(root, TOOL_SKILL, 'defineTool({ name: "skill.read" }); // v2');
-    assertEquals(
+    assert.deepStrictEqual(
       (await seen([])).filter((t) => t.startsWith("tool:")),
       ["tool:settings.get@1", "tool:skill.read@2"],
     );
@@ -133,11 +146,11 @@ Deno.test("연 skill만 본문 버전을 갖고 수정은 그 component의 n만 
       [{ model_calls: [modelCall("not a role prompt")], tool_calls: [] }],
       { root, registryDir },
     );
-    assertEquals(bad.ok ? null : bad.error.code, "invalid_input");
+    assert.deepStrictEqual(bad.ok ? null : bad.error.code, "invalid_input");
   });
 });
 
-Deno.test("classifyPath는 component, tool, runtime, core를 가르고 shell·design·test는 어디에도 넣지 않는다", () => {
+test("classifyPath는 component, tool, runtime, core를 가르고 shell·design·test는 어디에도 넣지 않는다", () => {
   const R = "packages/core/agent-roles";
   const rows: [string, string][] = [
     [`${R}/roles/lophn/prompt.md`, "instruction"],
@@ -172,17 +185,21 @@ Deno.test("classifyPath는 component, tool, runtime, core를 가르고 shell·de
   ];
   for (const [path, want] of rows) {
     const c = classifyPath(path);
-    assertEquals(c.group === "skill" ? `skill:${c.name}` : c.group, want, path);
+    assert.deepStrictEqual(
+      c.group === "skill" ? `skill:${c.name}` : c.group,
+      want,
+      path,
+    );
   }
 });
 
 // TOOL_FILES에 없는 tool이 model 요청에 실리면 seenComponents가 돈을 쓴 trial을 기록 단계에서 멈춘다(domain tool이 그랬다).
-Deno.test("role이 받는 agent tool은 모두 TOOL_FILES의 source file에 정의돼 있다", async () => {
+test("role이 받는 agent tool은 모두 TOOL_FILES의 source file에 정의돼 있다", async () => {
   const table = await toolFileTable(REPO_ROOT);
-  assertEquals(TOOL_ORDER.filter((name) => !table.has(name)), []);
+  assert.deepStrictEqual(TOOL_ORDER.filter((name) => !table.has(name)), []);
 });
 
-Deno.test("texts를 주면 seenComponents가 variant의 role prompt body를 거절하지 않는다", async () => {
+test("texts를 주면 seenComponents가 variant의 role prompt body를 거절하지 않는다", async () => {
   await withTemp(async (dir) => {
     const root = `${dir}/root`;
     const registryDir = `${dir}/registry`;
@@ -204,8 +221,8 @@ Deno.test("texts를 주면 seenComponents가 variant의 role prompt body를 거�
         registryDir,
         ...deps,
       });
-    assertEquals((await seen({})).ok, false);
+    assert.deepStrictEqual((await seen({})).ok, false);
     const r = await seen({ texts });
-    assertEquals(r.ok, true);
+    assert.deepStrictEqual(r.ok, true);
   });
 });

@@ -6,6 +6,5 @@
   },
   "include": ["**/*.ts", "**/*.tsx"],
   // wording은 자기 tsconfig로 따로 검사한다.
-  // generate.ts는 아직 Deno.Command로 biome를 띄운다. 계획 flip-tools가 옮기면 이 항목을 지운다.
-  "exclude": ["wording", "generate.ts"]
+  "exclude": ["wording"]
 }

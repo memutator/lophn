@@ -17,7 +17,7 @@ planner의 본업은 plan → implement → changelog → **context 유지보수
 
 1. 다시 볼 조각을 뽑는다.
    ```
-   deno run --allow-read --allow-run tools/context-review.ts --range <계획 첫 commit의 부모>..main
+   deno run --allow-read --allow-run --allow-env tools/context-review.ts --range <계획 첫 commit의 부모>..main
    ```
    바뀐 file → module-catalog → boundary → registry의 `change_reasons`로 걸린 조각을 낸다. "같은 변경에서 고친 조각"은 lead가 이미 고친 것이다. "다시 볼 조각"이 planner의 목록이다.
 2. 목록의 조각을 하나씩 열어 지금 코드와 대조한다. 문서가 말하는 file, 함수, 흐름, 규칙이 그대로인지 본다. 다르면 고친다. 고칠 것이 없으면 changelog 항목의 `checked`에 그 ID를 더한다(append-only라 항목을 새로 덧붙이지 않고, 아직 열린 판의 그 항목 칸만 채운다. 판이 닫혔으면 새 항목으로).

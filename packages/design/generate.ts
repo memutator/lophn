@@ -1,9 +1,13 @@
 import { readFile, writeFile } from "node:fs/promises";
 import process from "node:process";
 
-import { errorCode } from "../base/mod.ts";
 import { flatten, type FlatToken, renderCss } from "./flatten.ts";
 import { tokens } from "./tokens.ts";
+
+// design은 base에 기대지 않는다. file 오류의 code(`ENOENT` …)를 그 자리에서 읽는다.
+function codeOf(thrown: unknown): unknown {
+  return (thrown as { code?: unknown } | null)?.code;
+}
 
 const notice = "generate.ts가 만든다, 손으로 고치지 않는다";
 
@@ -76,7 +80,7 @@ export async function staleFiles(
         stale.push(file);
       }
     } catch (error) {
-      if (errorCode(error) !== "ENOENT") throw error;
+      if (codeOf(error) !== "ENOENT") throw error;
       stale.push(file);
     }
   }

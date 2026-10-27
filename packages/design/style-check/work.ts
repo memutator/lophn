@@ -1,7 +1,11 @@
 import { readdir, readFile } from "node:fs/promises";
 
-import { errorCode } from "../../base/mod.ts";
 import { checkStyles, type StyleIssue } from "./model.ts";
+
+// design은 base에 기대지 않는다. file 오류의 code(`ENOENT` …)를 그 자리에서 읽는다.
+function codeOf(thrown: unknown): unknown {
+  return (thrown as { code?: unknown } | null)?.code;
+}
 
 async function cssFiles(directory: URL): Promise<URL[]> {
   const files: URL[] = [];
@@ -16,7 +20,7 @@ async function cssFiles(directory: URL): Promise<URL[]> {
       else if (entry.isFile() && entry.name.endsWith(".css")) files.push(path);
     }
   } catch (error) {
-    if (errorCode(error) !== "ENOENT") throw error;
+    if (codeOf(error) !== "ENOENT") throw error;
   }
   return files;
 }
@@ -34,7 +38,7 @@ export async function checkRepositoryStyles(root: URL): Promise<StyleIssue[]> {
       }
     }
   } catch (error) {
-    if (errorCode(error) !== "ENOENT") throw error;
+    if (codeOf(error) !== "ENOENT") throw error;
   }
   const files = (await Promise.all(
     directories.map((directory) => cssFiles(new URL(directory, root))),

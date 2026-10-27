@@ -5,8 +5,12 @@ import process from "node:process";
 
 import { parse, TYPE } from "@formatjs/icu-messageformat-parser";
 import type { MessageFormatElement } from "@formatjs/icu-messageformat-parser";
-import { errorCode } from "../../base/mod.ts";
 import { AREAS, en } from "./en.ts";
+
+// design은 base에 기대지 않는다. file 오류의 code(`ENOENT` …)를 그 자리에서 읽는다.
+function codeOf(thrown: unknown): unknown {
+  return (thrown as { code?: unknown } | null)?.code;
+}
 
 type Kind = "string" | "number" | "plural" | "date";
 
@@ -151,7 +155,7 @@ async function main() {
       try {
         current = await readFile(target, "utf8");
       } catch (error) {
-        if (errorCode(error) !== "ENOENT") throw error;
+        if (codeOf(error) !== "ENOENT") throw error;
       }
       if (current !== next) stale.push(`catalog/${file}`);
     } else {

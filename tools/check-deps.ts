@@ -58,6 +58,12 @@ export async function walk(
   return { files: files.sort(), paths: paths.sort() };
 }
 
+// test는 제품 module graph에 들지 않아 base·protocol의 test도 runtime의 test 도구를 쓴다.
+const PORTABLE_TEST_IMPORTS: ReadonlySet<string> = new Set([
+  "node:test",
+  "node:assert/strict",
+]);
+
 function numberedName(segment: string): boolean {
   const name = segment.replace(/\.[^.]+$/, "").replace(/_test$/, "");
   return name.split(/[-.]/).some((token) =>
@@ -313,7 +319,11 @@ async function checkRepo(root: string): Promise<Violation[]> {
           `workspace exports로 해석할 수 없음: ${specifier}`,
         );
       }
-      if (portable && /^(?:npm:|jsr:|node:|https?:)/.test(specifier)) {
+      const testImport = test && PORTABLE_TEST_IMPORTS.has(specifier);
+      if (
+        portable && !testImport &&
+        /^(?:npm:|jsr:|node:|https?:)/.test(specifier)
+      ) {
         add(
           file,
           line,
@@ -321,10 +331,10 @@ async function checkRepo(root: string): Promise<Violation[]> {
           `이식할 수 없는 specifier: ${specifier}`,
         );
       }
-      // base와 protocol이 repo 밖에서 가져오는 것은 protocol의 zod와 test의 @std/assert뿐이다.
+      // base와 protocol이 repo 밖에서 가져오는 것은 protocol의 zod와 test의 test 도구뿐이다.
       if (
         portable && !relative && !specifier.startsWith("@lophn/") &&
-        !(test && specifier === "@std/assert") &&
+        !testImport && !(test && specifier === "@std/assert") &&
         !(own === "protocol" && specifier === "zod")
       ) {
         add(

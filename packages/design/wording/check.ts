@@ -2,7 +2,6 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 
 import { parse } from "@formatjs/icu-messageformat-parser";
-import { errorCode } from "../../base/mod.ts";
 import { AREAS, en } from "./en.ts";
 import {
   ID_PREFIX,
@@ -16,6 +15,11 @@ import {
 } from "./rules.ts";
 import { scan } from "./scan.ts";
 import { placeholdersOf } from "./generate.ts";
+
+// design은 base에 기대지 않는다. file 오류의 code(`ENOENT` …)를 그 자리에서 읽는다.
+function codeOf(thrown: unknown): unknown {
+  return (thrown as { code?: unknown } | null)?.code;
+}
 
 export type Severity = "error" | "warning";
 
@@ -284,7 +288,7 @@ async function collect(root: string): Promise<string[]> {
     try {
       if (!(await stat(dir)).isDirectory()) return;
     } catch (error) {
-      if (errorCode(error) === "ENOENT") return;
+      if (codeOf(error) === "ENOENT") return;
       throw error;
     }
     for (const entry of await readdir(dir, { withFileTypes: true })) {

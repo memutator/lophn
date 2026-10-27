@@ -1,4 +1,4 @@
-// route 이름 중복 검사. boot.sh가 부른다. 실행: deno run -A --config deno.json <이 file> (저장소 root에서)
+// route 이름 중복 검사. boot.sh가 부른다. 실행: node project-docs/plan/tools/lead/dup-routes.ts (저장소 root에서)
 import { ALL_ROUTES } from "../../../../packages/protocol/mod.ts";
 const seen = new Map<string, number>();
 for (const r of ALL_ROUTES as unknown as Record<string, unknown>[]) {

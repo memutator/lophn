@@ -12,5 +12,5 @@ for id in "$@"; do
   u=$(grep -m1 -oP "단위: \K[a-z0-9-]+" project-docs/plan/$plan/tasks/$id.md)
   W=$MAIN/.claude/worktrees/$id
   # 갈라진 점을 적어 둔다. land가 plan branch를 다시 쓰면 merge.sh가 이 점 뒤의 commit만 옮긴다.
-  git worktree add -q $W -b $u/$id $BASE && git config "branch.$u/$id.lophnBase" "$(git rev-parse $BASE)" && deno run -A tools/worktree-prep.ts $W >/dev/null && python3 -I project-docs/plan/tools/status.py $plan set $id running $u/$id && echo "$id $u/$id"
+  git worktree add -q $W -b $u/$id $BASE && git config "branch.$u/$id.lophnBase" "$(git rev-parse $BASE)" && node tools/worktree-prep.ts $W >/dev/null && python3 -I project-docs/plan/tools/status.py $plan set $id running $u/$id && echo "$id $u/$id"
 done

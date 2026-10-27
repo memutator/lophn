@@ -1,11 +1,12 @@
-// 실행: deno task wireframes
+// 실행: npm run wireframes
 // gallery를 정적 bundle(dist/index.html, main.js, main.css, 글꼴)로 만든다. 렌더러의 build()와 같은
 // 방식(CSS Modules의 local-css, woff2 file loader)이지만, 예제가 쓰는 @lophn/app-ui까지 같은
 // node_modules에서 푼다. 주소는 모두 상대 경로이고 바깥 요청이 없다.
-import * as esbuild from "esbuild";
+
 import { copyFile, readdir, readFile, rm, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import * as esbuild from "esbuild";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const OUTPUT = join(here, "dist");

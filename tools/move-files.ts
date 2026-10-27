@@ -1,5 +1,4 @@
-// 실행: deno run --allow-read --allow-write --allow-run --allow-env tools/move-files.ts <mapping.json> [--dry-run] [--report <file>] [--root <dir>]
-// --allow-env는 node:child_process가 spawn 때 process.env를 읽어서 필요하다.
+// 실행: node tools/move-files.ts <mapping.json> [--dry-run] [--report <file>] [--root <dir>]
 // mapping대로 파일과 폴더를 옮기고, 옮긴 자리를 가리키는 import·설정 경로를 고친다.
 // 고치지 못하는 경로 문자열과 옛 경로 언급은 보고서에 file:line으로 남긴다. 손으로 고칠 목록이다.
 import { Buffer } from "node:buffer";
@@ -58,7 +57,7 @@ type Config = Omit<Member, "directory">;
 const CODE = /\.[cm]?[jt]sx?$/;
 const CSS = /\.css$/;
 const TEXT = /\.(?:[cm]?[jt]sx?|css|json|jsonc|md|ya?ml|html|sh|toml|txt)$/;
-const CONFIG = /(?:^|\/)(?:deno|package|tsconfig[^/]*)\.json$/;
+const CONFIG = /(?:^|\/)(?:package|tsconfig[^/]*)\.json$/;
 const decoder = new TextDecoder();
 
 async function git(root: string, args: string[]): Promise<string> {
@@ -256,19 +255,6 @@ type Role = "name" | "pattern" | "path" | "exports";
 function role(file: string, path: (string | number)[]): Role {
   const name = file.slice(file.lastIndexOf("/") + 1);
   const [first, second, third] = path.map(String);
-  if (name === "deno.json") {
-    if (path.length === 1 && first === "name") return "name";
-    if (first === "workspace") return "pattern";
-    if (["include", "exclude"].includes(first) && path.length === 2) {
-      return "pattern";
-    }
-    if (
-      ["test", "lint", "fmt", "publish", "bench"].includes(first) &&
-      ["include", "exclude"].includes(second)
-    )
-      return "pattern";
-    return first === "exports" ? "exports" : "path";
-  }
   if (name === "package.json") {
     if (
       path.length === 1 &&
@@ -942,7 +928,7 @@ if (import.meta.main) {
       for (const dir of await applyPlan(root, plan)) {
         console.log(`남은 옛 폴더(추적하지 않는 파일): ${dir}`);
       }
-      console.log("옮김. deno task check를 돌린다.");
+      console.log("옮김. npm run check를 돌린다.");
     }
   } catch (error) {
     console.error(

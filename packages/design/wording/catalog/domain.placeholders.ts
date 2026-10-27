@@ -1,4 +1,4 @@
-// catalog/domain.ts에서 생성한다. 직접 고치지 않고 `deno run --allow-read --allow-write packages/design/wording/generate.ts`로 다시 만든다.
+// catalog/domain.ts에서 생성한다. 직접 고치지 않고 `npm run wording`로 다시 만든다.
 import type { domain } from "./domain.ts";
 
 export type DomainPlaceholders = {

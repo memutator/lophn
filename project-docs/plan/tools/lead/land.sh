@@ -25,13 +25,13 @@ step "main 위로 rebase"
 git rebase main >/dev/null 2>&1 || { echo "STOP: rebase conflict"; git status --short | head; exit 1; }
 base=$(git rev-parse main)
 step "check:full"
-out=$(deno task check:full 2>&1) || { echo "$out" | tail -30; echo "STOP: full check failed"; exit 1; }
+out=$(npm run check:full 2>&1) || { echo "$out" | tail -30; echo "STOP: full check failed"; exit 1; }
 # LOPHN_LAND_SKIP_E2E=1: e2e를 돌리지 않는 계획(README가 정한다)이 쓴다.
 if [ -z "${LOPHN_LAND_SKIP_E2E:-}" ] && ls tests/e2e/*_test.ts >/dev/null 2>&1; then
-  # worktree-prep이 node_modules는 만들지만 앱 E2E가 쓰는 Deno deps는 없다. 없으면 앱을 띄우는 E2E가 모두 실패한다.
+  # worktree-prep이 node_modules는 만들지만 앱 E2E가 쓰는 앱 의존은 없다. 없으면 앱을 띄우는 E2E가 모두 실패한다.
   step "e2e"
-  out=$(deno task e2e:deps 2>&1) || { echo "$out" | tail -10; echo "STOP: e2e deps failed"; exit 1; }
-  out=$(deno task e2e 2>&1) || { echo "$out" | tail -30; echo "STOP: e2e failed"; exit 1; }
+  out=$(npm run e2e:deps 2>&1) || { echo "$out" | tail -10; echo "STOP: e2e deps failed"; exit 1; }
+  out=$(npm run e2e 2>&1) || { echo "$out" | tail -30; echo "STOP: e2e failed"; exit 1; }
 fi
 step "core 두 번 기동"
 BOOT=$(project-docs/plan/tools/lead/boot.sh 2>&1); [ "$(echo "$BOOT" | grep -c "exit 0")" = 2 ] || { echo "STOP: boot failed"; echo "$BOOT" | tail -6; exit 1; }
@@ -43,6 +43,6 @@ until git -C "$MAIN" merge --ff-only -q "plan/$plan" 2>/dev/null; do
   [ -z "$code" ] || { echo "STOP: land 사이 main에 코드가 바뀌었다. land.sh를 다시 돈다"; echo "$code" | head; exit 1; }
   base=$(git rev-parse main)
   git rebase main >/dev/null 2>&1 || { echo "STOP: rebase conflict"; git status --short | head; exit 1; }
-  out=$(deno task check 2>&1) || { echo "$out" | tail -30; echo "STOP: check failed after main moved"; exit 1; }
+  out=$(npm run check 2>&1) || { echo "$out" | tail -30; echo "STOP: check failed after main moved"; exit 1; }
   done
 echo "landed plan/$plan at $(git rev-parse --short HEAD)"

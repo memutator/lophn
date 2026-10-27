@@ -1,4 +1,4 @@
-// CSS 구조 검사. 실행: deno run --allow-read tools/check-style.ts
+// CSS 구조 검사. 실행: node tools/check-style.ts
 import process from "node:process";
 
 import { checkRepositoryStyles } from "../packages/design/style-check/mod.ts";

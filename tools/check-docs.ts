@@ -1,4 +1,4 @@
-// 문서 속 저장소 path 검사. 실행: deno run --allow-read --allow-env tools/check-docs.ts [root]
+// 문서 속 저장소 path 검사. 실행: node tools/check-docs.ts [root]
 import { readdir, readFile, stat } from "node:fs/promises";
 import process from "node:process";
 

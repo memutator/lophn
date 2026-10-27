@@ -8,7 +8,7 @@ plan=$1
 L=$MAIN/.claude/worktrees/plan-$plan
 if [ ! -d "$L" ]; then
   git -C "$MAIN" worktree add -q "$L" -b "plan/$plan" main || exit 1
-  (cd "$MAIN" && deno run -A tools/worktree-prep.ts "$L" >/dev/null) || exit 1
+  (cd "$MAIN" && node tools/worktree-prep.ts "$L" >/dev/null) || exit 1
 fi
 [ -d "$L/project-docs/plan/$plan/tasks" ] || echo "주의: $L/project-docs/plan/$plan/tasks가 없다" >&2
 echo "$L"

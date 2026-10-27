@@ -1,4 +1,4 @@
-// 화면 코드 wording 검사. 실행: deno run --allow-read tools/check-wording.ts
+// 화면 코드 wording 검사. 실행: node tools/check-wording.ts
 import process from "node:process";
 import { checkScreens, errorsOf } from "../packages/design/wording/check.ts";
 

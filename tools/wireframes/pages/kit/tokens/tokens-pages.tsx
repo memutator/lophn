@@ -1,7 +1,8 @@
 // 디자인 시스템 · Tokens 네 page. 값은 @lophn/ui의 tokens에서 그대로 읽는다.
 import { tokens } from "@lophn/ui";
-import { Icon } from "@lophn/ui/primitives";
 import { STATUS_ICONS } from "@lophn/ui/feedback";
+import type { IconProps } from "@lophn/ui/primitives";
+import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import {
   appSpaceIcons,
@@ -17,7 +18,6 @@ import {
   settingsEntryIcon,
   workspaceIcons,
 } from "../../../../../packages/shell/renderer/icons/mod.ts";
-import type { IconProps } from "@lophn/ui/primitives";
 
 import { kit, Page, Row, Section } from "../kit.tsx";
 
@@ -223,7 +223,7 @@ export function TokensType() {
         </Row>
         <Row label="--font-mono">
           <span className={kit.mono}>
-            {tokens.font.mono} — deno task check · eval.findings.find(&#123;
+            {tokens.font.mono} — npm run check · eval.findings.find(&#123;
             about: "C-049" &#125;)
           </span>
         </Row>

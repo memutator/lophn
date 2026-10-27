@@ -1,10 +1,9 @@
 // 영역 file(catalog/<영역>.ts)의 ICU 문장에서 placeholder 종류를 뽑아 catalog/<영역>.placeholders.ts를 만든다.
-// 실행: deno run --allow-read --allow-write packages/design/wording/generate.ts [--check]
+// 실행: npm run wording -- [--check]
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import process from "node:process";
-
-import { parse, TYPE } from "@formatjs/icu-messageformat-parser";
 import type { MessageFormatElement } from "@formatjs/icu-messageformat-parser";
+import { parse, TYPE } from "@formatjs/icu-messageformat-parser";
 import { AREAS, en } from "./en.ts";
 
 // design은 base에 기대지 않는다. file 오류의 code(`ENOENT` …)를 그 자리에서 읽는다.
@@ -53,10 +52,10 @@ function field(names: Map<string, Kind>): string {
   return `{\n${lines.join("\n")}\n  }`;
 }
 
-// command는 헤더 문장의 재생성 명령이다. 앱 catalog는 자기 명령(deno task wording)을 준다.
+// command는 헤더 문장의 재생성 명령이다. 앱 catalog는 자기 명령(npm run wording)을 준다.
 export function render(
   catalog: Record<string, string>,
-  command = "deno run -A generate.ts",
+  command = "npm run wording",
 ): string {
   const entries = Object.entries(catalog).map(
     ([key, message]) =>
@@ -92,8 +91,7 @@ export function render(
   ].join("\n");
 }
 
-const COMMAND =
-  "deno run --allow-read --allow-write packages/design/wording/generate.ts";
+const COMMAND = "npm run wording";
 
 const camel = (name: string) =>
   name.replace(/(?:^|-)(\w)/g, (_, c: string) => c.toUpperCase());

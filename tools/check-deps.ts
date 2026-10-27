@@ -1,4 +1,4 @@
-// 실행: deno run --allow-read tools/check-deps.ts [root]
+// 실행: node tools/check-deps.ts [root]
 import { readdir, readFile } from "node:fs/promises";
 import process from "node:process";
 
@@ -271,20 +271,6 @@ async function checkRepo(root: string): Promise<Violation[]> {
     const own =
       file.split("/")[0] === "packages" ? file.split("/")[1] : undefined;
     const portable = own === "base" || own === "protocol";
-    if (portable && file.endsWith("/deno.json")) {
-      const text = await readFile(`${root}/${file}`, "utf8");
-      const config = JSON.parse(text);
-      if (config.compilerOptions?.erasableSyntaxOnly !== true) {
-        const offset = text.search(/"(?:compilerOptions|erasableSyntaxOnly)"/);
-        const line = offset < 0 ? 1 : text.slice(0, offset).split("\n").length;
-        add(
-          file,
-          line,
-          "portable-config",
-          "compilerOptions.erasableSyntaxOnly: true 필요",
-        );
-      }
-    }
     if (!/\.tsx?$/.test(file)) continue;
     const test = file.endsWith("_test.ts");
     // test 코드는 package 규칙에서 뺀다. 여러 package를 같이 띄우는 통합 test가 있어서다.

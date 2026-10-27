@@ -1,7 +1,7 @@
 // 새 worktree에 자기 node_modules를 만들고 Electron binary까지 받는다.
 // npm workspace의 `@lophn/*`는 상대 경로 symlink라 다른 checkout의 node_modules를 빌려 쓰면
 // 그 package가 다른 checkout을 가리킨다.
-// 실행: deno run -A tools/worktree-prep.ts <worktree 경로>
+// 실행: node tools/worktree-prep.ts <worktree 경로>
 import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import { lstat, realpath } from "node:fs/promises";
@@ -55,7 +55,7 @@ async function exists(path: string): Promise<boolean> {
 }
 
 const arg = process.argv.slice(2)[0];
-if (!arg) fail("사용법: deno run -A tools/worktree-prep.ts <worktree 경로>");
+if (!arg) fail("사용법: node tools/worktree-prep.ts <worktree 경로>");
 const worktree = await realpath(arg).catch(() => null);
 if (!worktree) fail(`worktree가 없다: ${arg}`);
 

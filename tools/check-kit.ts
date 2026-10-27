@@ -1,6 +1,6 @@
 // kit 동기화 검사: wireframes의 CSS 위치, 분류 mod.ts의 component가 pages/kit에 나오는지,
 // design component 폴더 모양과 mod.ts 한 줄 문서.
-// 실행: deno run --allow-read tools/check-kit.ts [root]
+// 실행: node tools/check-kit.ts [root]
 import { readdir, readFile } from "node:fs/promises";
 import process from "node:process";
 

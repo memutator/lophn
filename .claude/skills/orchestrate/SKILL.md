@@ -15,7 +15,7 @@ lead는 task를 골라 worker에게 맡기고, 결과를 review해 그 계획의
 
 1. 계약(protocol, port, shell IPC, preload, design 공용 부품)은 고정한 뒤 lead만 고친다. worker는 바꿀 것을 보고에 요청으로 적고, lead가 작은 commit으로 고쳐 영향받는 `running` worker에게 SendMessage로 알린다.
 2. 단위마다 소유 path만 고친다. 남의 file은 import만 한다. 남이 쓰는 export는 더하기만 하고, 안 쓰게 된 것은 보고하면 lead가 합친 뒤 지운다.
-3. 공용 등록 file은 lead가 합친다: `deno.json`, `packages/protocol/**/mod.ts`의 목록, core 조립 목록(`packages/core/main/daemon/wiring/`), wording 생성물(`packages/design/wording/`), gallery `tools/wireframes/pages/index.ts`. worker는 "등록할 것"을 보고에 적는다.
+3. 공용 등록 file은 lead가 합친다: `package.json`, `packages/protocol/**/mod.ts`의 목록, core 조립 목록(`packages/core/main/daemon/wiring/`), wording 생성물(`packages/design/wording/`), gallery `tools/wireframes/pages/index.ts`. worker는 "등록할 것"을 보고에 적는다.
 4. 옛것과 새것이 잠시 같이 있어도 된다. 호환 장치(옛 이름 읽기, 옛 경로)는 만들지 않는다. 여러 영역이 쓰던 옛 계약은 마지막 cleanup이 지운다.
 5. main과 plan branch는 늘 빠른 check가 통과한다. main에는 land.sh(rebase, full check, core 기동)를 거친 것만 올라간다.
 6. wave는 앞 wave가 모두 merged일 때 연다. 동시에 도는 worker 수는 정하지 않는다. `status.py ready`가 낸 task는 다 띄워도 된다(core type check 하나가 약 2.6GB다. 기계가 버거우면 lead가 줄인다). full check는 동시에 2개까지다.
@@ -23,7 +23,7 @@ lead는 task를 골라 worker에게 맡기고, 결과를 review해 그 계획의
 
 ## 시작 전
 
-1. `lead/lead.sh <계획>`으로 lead worktree를 열고 거기로 간다. 그 worktree에 commit 안 된 변경이 없고 `deno task check`가 통과한다. 계획 폴더가 아직 main에 없으면(main에서 계획을 쓰지 않았으면) lead worktree에 쓰고 commit한다.
+1. `lead/lead.sh <계획>`으로 lead worktree를 열고 거기로 간다. 그 worktree에 commit 안 된 변경이 없고 `npm run check`가 통과한다. 계획 폴더가 아직 main에 없으면(main에서 계획을 쓰지 않았으면) lead worktree에 쓰고 commit한다.
 2. `git config user.email`이 맞다(없으면 worker가 commit마다 author를 제각각 넣는다).
 3. `<계획>/tasks/*.md`를 썼으면 `python3 -I project-docs/plan/tools/status.py <계획> build`로 `<계획>/status.md`를 만든다.
 
@@ -54,10 +54,10 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - 지우거나 옮기거나 값을 바꾼 이름·숫자는 grep해 주석과 오류 메시지에 남은 것도 고친다. route를 지우거나 이름을 바꾸면 method를 문자열로도 grep한다(화면이 resource·method 문자열로 불러 type check가 못 본다. 안 쓰는 export 정리가 화면 셋이 부르던 route를 지운 일이 있다). protocol 입력·출력의 칸 이름을 바꾸면 `<칸>:`과 `.<칸>`도 문자열로 grep한다(command envelope의 `input`과 `link.read`·`call` 응답은 type이 없다. 칸 이름 바꾸기가 `release.record` 입력과 shell의 `apps/tools` 읽기를 놓친 일이 있다). 규칙을 모을 때 이미 있는 표를 쓰고 사본을 만들지 않는다(옛 이름이 남은 주석을 lead가 따로 고친 일이 네 번, 모으는 task가 role 표 사본을 또 만든 일이 있다).
 - test는 위험한 것만(`write-test`). E2E, 브라우저, 스크린샷, subprocess·서버 test는 새로 만들지 않는다(계획이 brief로 정한 `tests/e2e`의 flow만 예외).
 - worker의 Bash 호출은 매번 cwd와 변수가 처음으로 돌아간다. 명령마다 `cd <worktree>; ...`로 시작한다(안 그러면 main checkout에서 돈다).
-- core 확인: `cd <worktree>; project-docs/plan/tools/lead/boot.sh`만 쓴다. 새 data root로 core를 두 번 띄우고 각자 timeout으로 끝나 `boot N exit 0`을 찍는다. 손으로 띄우는 한 줄(`tail -f /dev/null | deno … & wait`)은 `wait`에서 멈춘 일이 있다. **ps·fuser·ss로 찾지 않는다**(`ps --ppid … -C tail`이 OR로 걸려 남의 process를 끈 일이 있다). pkill·killall 금지. 실제 `~/.lophn`은 절대 건드리지 않는다. data root는 0700이어야 기동한다.
+- core 확인: `cd <worktree>; project-docs/plan/tools/lead/boot.sh`만 쓴다. 새 data root로 core를 두 번 띄우고 각자 timeout으로 끝나 `boot N exit 0`을 찍는다. 손으로 띄우는 한 줄(`tail -f /dev/null | ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron … & wait`)은 `wait`에서 멈춘 일이 있다. **ps·fuser·ss로 찾지 않는다**(`ps --ppid … -C tail`이 OR로 걸려 남의 process를 끈 일이 있다). pkill·killall 금지. 실제 `~/.lophn`은 절대 건드리지 않는다. data root는 0700이어야 기동한다.
 - 임시 file(move-files mapping, probe 출력)은 worktree 안 `.dev-data/<id>/`에 둔다. session scratchpad는 같이 도는 worker끼리 공유되어 mapping이 덮인 일이 있다.
 - 명령이 auto mode classifier에 막히면 다른 명령으로 우회하지 않고 보고한다. lead도 worker가 거절당한 명령을 대신 돌리지 않고 사람에게 묻는다(사용자 앱 방어를 지우는 변경의 check:full·commit이 막힌 일이 있다).
-- `deno task check:full`을 돌리고, 통과하면 branch에 commit한다(영어 명령형 한 줄과 본문. 요구 ID와 작업 번호 없음). push, merge, rebase, 다른 branch는 하지 않는다.
+- `npm run check:full`을 돌리고, 통과하면 branch에 commit한다(영어 명령형 한 줄과 본문. 요구 ID와 작업 번호 없음). push, merge, rebase, 다른 branch는 하지 않는다.
 - `node_modules`는 worktree마다 `npm ci`로 생기는 것이라 commit하지 않는다. 고친 file을 path로 add하고 `git diff --cached --stat`을 본다.
 - 막히면 추측으로 넘어가지 말고 할 수 있는 데까지 하고 보고한다. 맡은 일을 "시간이 부족했다"며 남기지 않는다.
 - 보고는 brief의 "보고" 꼴로 쓰고, "무겁게 짠 것"과 "알려진 미완 동작" 칸을 빼지 않는다.
@@ -76,19 +76,19 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 |---|---|
 | node_modules를 commit하지 않았다 | `git diff --stat plan/<계획>...<branch> \| grep node_modules`가 0줄. 있으면 merge하지 않는다. gitignore한 폴더라 diff에 나오면 잘못 add한 것이다 |
 | 소유 밖 file을 안 고쳤다 | `git diff --name-only plan/<계획>...<branch>`를 brief의 소유와 댄다. 예외: 지운 것을 가리키던 등록 줄만 뺀 것, wording catalog에 key를 더한 것 |
-| check가 통과한다 | worktree에서 `deno task check:full`. 빠른 check는 바뀐 package만 본다 |
+| check가 통과한다 | worktree에서 `npm run check:full`. 빠른 check는 바뀐 package만 본다 |
 | 위험 test | brief의 "위험 test"가 이름으로 있고 통과한다 |
 | 할 일을 다 했다 | brief의 "할 일"과 "남지 않음" grep을 하나씩 댄다. `TODO`·`FIXME` grep |
 | core가 뜬다 | check는 통과해도 reader 등록 중복처럼 기동 때만 드러나는 오류가 있다. `lead/boot.sh`(merge.sh가 돌린다) |
-| 화면 | `deno task wireframes`가 되고 gallery page가 옮긴 component를 쓴다 |
+| 화면 | `npm run wireframes`가 되고 gallery page가 옮긴 component를 쓴다 |
 | 보고의 등록할 것 | lead가 고칠 목록에 옮긴다 |
 
 ### 6. merge
 
 `project-docs/plan/tools/lead/merge.sh <계획> <id>`(`fix/<id>` branch는 `merge-fix.sh <계획> <id>`). 하는 일: node_modules 검사 → plan branch 위로 rebase → worktree `check:full` → plan branch로 ff-merge → plan branch `check:full` → core 두 번 기동(`boot.sh`) → renderer build → worktree·branch 정리 → status merged. 멈추면 `STOP: ...`을 찍는다.
-- `STOP: rebase conflict`: worktree에서 충돌을 풀고 `GIT_EDITOR=true git rebase --continue` 뒤 다시 돌린다. 대개 등록 file이나 wording catalog다. catalog 충돌은 두 쪽 key를 다 남기고 `deno run --allow-read --allow-write packages/design/wording/generate.ts`를 다시 돌린다. 그 밖 file이 충돌하면 소유가 잘못 나뉜 것이다. task를 돌려보내고 소유를 고친다.
+- `STOP: rebase conflict`: worktree에서 충돌을 풀고 `GIT_EDITOR=true git rebase --continue` 뒤 다시 돌린다. 대개 등록 file이나 wording catalog다. catalog 충돌은 두 쪽 key를 다 남기고 `npm run wording`을 다시 돌린다. 그 밖 file이 충돌하면 소유가 잘못 나뉜 것이다. task를 돌려보내고 소유를 고친다.
 - merge 바로 뒤에 보고의 "등록할 것"을 고치고 check가 통과하면 commit한다. `merge.sh`가 바꾼 `status.md`는 commit하지 않으니 lead가 같이 commit한다.
-- wave가 모두 merged면 status와 이슈를 commit한 뒤 `project-docs/plan/tools/lead/land.sh <계획>`으로 main에 올린다. 하는 일: lead worktree를 main 위로 rebase → `check:full` → (`tests/e2e`에 test가 있으면) `deno task e2e:deps`, `deno task e2e` → core 두 번 기동 → main fast-forward. land는 lock(`.git/lophn-land.lock`)으로 하나씩 돈다. 다른 land가 돌면 "다른 land가 끝나기를 기다린다"를 찍고 기다린다. 그 사이 main에 `project-docs/`만 늘었으면 다시 rebase하고 빠른 check 뒤 올린다. `STOP: main ff failed`면 main checkout에 그 commit들과 겹치는 고친 file이 있는 것이다. main을 건드린 쪽(사람이나 다른 session)에게 알린다.
+- wave가 모두 merged면 status와 이슈를 commit한 뒤 `project-docs/plan/tools/lead/land.sh <계획>`으로 main에 올린다. 하는 일: lead worktree를 main 위로 rebase → `check:full` → (`tests/e2e`에 test가 있으면) `npm run e2e:deps`, `npm run e2e` → core 두 번 기동 → main fast-forward. land는 lock(`.git/lophn-land.lock`)으로 하나씩 돈다. 다른 land가 돌면 "다른 land가 끝나기를 기다린다"를 찍고 기다린다. 그 사이 main에 `project-docs/`만 늘었으면 다시 rebase하고 빠른 check 뒤 올린다. `STOP: main ff failed`면 main checkout에 그 commit들과 겹치는 고친 file이 있는 것이다. main을 건드린 쪽(사람이나 다른 session)에게 알린다.
 - 계획이 끝나면 계획 폴더를 지운 commit까지 land하고 lead worktree와 plan branch를 지운다(`git worktree remove`, `git branch -d plan/<계획>`).
 - push는 사람 확인 뒤에만 한다.
 
@@ -108,9 +108,9 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - 문서에 답이 없으면 추천안으로 진행하고 기록해 둔다. 사람에게 올리는 것은 제품 동작, 비용, 되돌리기 비싼 것뿐이다.
 - 권한 분류기가 `git push`, `git rebase`, merge script를 막을 수 있다. 우회하지 말고 무엇을 왜 하려는지 사람에게 말한다.
 - 같은 file을 두 task가 원하면 한쪽에 소유를 주고 다른 쪽은 선행을 걸어 뒤로 미룬다.
-- worktree 안 `.dev-data`에는 쓰기 금지 file(deno cache, core가 깐 읽기 전용 sdk 사본)이 남는다. `merge.sh`, `boot.sh`, `deno task dev:mock`은 지우기 전에 `chmod -R u+w`를 한다. 손으로 `git worktree remove`나 `rm`을 할 때 실패하면 `chmod -R u+w <worktree>/.dev-data` 뒤 다시 지운다.
-- `deno task dev`는 `LOPHN_HOME`을 무시하고 저장소(worktree) 안 `.dev-data`를 쓴다.
-- check:full이 못 보는 것: renderer build(`deno run -A packages/shell/renderer/build.ts`). 이것으로 main이 깨진 채 지나간 일이 있다.
+- worktree 안 `.dev-data`에는 쓰기 금지 file(core가 깐 읽기 전용 sdk 사본)이 남는다. `merge.sh`, `boot.sh`, `npm run dev:mock`은 지우기 전에 `chmod -R u+w`를 한다. 손으로 `git worktree remove`나 `rm`을 할 때 실패하면 `chmod -R u+w <worktree>/.dev-data` 뒤 다시 지운다.
+- `npm run dev`는 `LOPHN_HOME`을 무시하고 저장소(worktree) 안 `.dev-data`를 쓴다.
+- check:full이 못 보는 것: renderer build(`node packages/shell/renderer/build.ts`). 이것으로 main이 깨진 채 지나간 일이 있다.
 - 계획 폴더 없이 worker 여럿을 돌릴 때도 모양은 같다: branch 하나에 합치고 main에는 사람이 확인한 뒤 올린다. 첫 worker를 main으로 바로 올렸다가 사람이 바로잡은 일이 있다.
 - Agent tool의 `isolation: worktree`는 plan branch에서 갈라지지 않는다(main 쪽 옛 commit에서 시작한 일이 있다). launch.sh가 만든 worktree를 쓰고, 그렇게 못 했으면 worker가 먼저 `git reset --hard <합칠 branch>`를 하게 한다.
 - worker가 자주 한 실수(보고를 diff와 대조하는 이유):
@@ -134,7 +134,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - 같은 기계에서 E2E가 "부하 때문" flake로 보이면 먼저 사용자 단위로 공유하는 자원(`XDG_RUNTIME_DIR` 아래 socket, `/tmp`의 고정 이름)을 의심한다. 앱 start flake 둘이 core끼리 같은 socket 경로를 쓴 제품 bug였다.
 - worker가 test에 기다림이나 우회를 넣어 통과시켰으면(보고의 "무겁게 짠 것") 제품 bug를 가린 것인지 본다. 가렸으면 그 test를 land 전에 fix task로 되돌린다.
 - 권한 분류기는 session마다 그 session에 사람이 직접 한 말만 본다. planner가 전한 사람의 허락("진짜 provider 맘껏 써")은 lead session에서 통하지 않아, `LOPHN_LAND_SKIP_E2E=1 land.sh`("CI Bypass")와 진짜 model eval 명령("Real-World Transactions")이 막혔다. 계획에 이런 일이 있으면 사람이 자리를 비우기 전에 lead session에 직접 말하게 한다. 다른 session에 대신 돌려 달라고 하지 않는다.
-- planner나 lead가 main에서 문서를 바로 고쳐도 `deno task check:full`을 돈다. `deno task check`가 못 보는 문서 fmt로 main이 깨진 일이 있다.
+- planner나 lead가 main에서 문서를 바로 고쳐도 `npm run check:full`을 돈다. `npm run check`가 못 보는 문서 fmt로 main이 깨진 일이 있다.
 - 이슈와 문서의 path는 저장소 root부터 쓴다. package 안에서 줄인 path는 docs check가 "없는 path"로 막는다.
 
 ## 사람에게 알리는 때

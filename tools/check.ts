@@ -19,7 +19,7 @@ type Step = {
 type Result = { name: string; status: Status; ms?: number; note?: string };
 
 const SHELL_MAIN = "packages/shell/main";
-// Biome는 native binary다. deno가 npm에서 받아 띄우던 것을 node_modules의 것을 직접 띄운다.
+// Biome는 native binary다. node_modules의 것을 직접 띄운다.
 const BIOME_CMD = ["node_modules/.bin/biome"];
 // test는 core를 import하므로 Temporal이 있는 Electron의 Node로 띄운다. plain node에는 Temporal이 없다.
 const ELECTRON = createRequire(import.meta.url)("electron") as string;
@@ -52,7 +52,7 @@ const USES: Record<string, string[]> = {
 const NOT_IN_CHECK = ["tests/e2e", "tests/live"];
 const under = (f: string, paths: string[]) =>
   paths.some((x) => f === x || f.startsWith(`${x}/`));
-// file 목록을 만들 때 뺄 폴더. root deno.json의 exclude와 같다.
+// file 목록을 만들 때 뺄 폴더. shell main·preload는 shell 단계에서 따로 돈다.
 const EXCLUDED = [
   "packages/shell/main/",
   "packages/shell/preload/",
@@ -107,8 +107,6 @@ async function changedFiles(base?: string): Promise<string[]> {
 // "all"은 전부 바뀐 것으로 본다.
 function packageOf(file: string): string | "all" | undefined {
   if (
-    file === "deno.json" ||
-    file === "deno.lock" ||
     file === "package.json" ||
     file === "package-lock.json" ||
     file === "biome.json" ||
@@ -288,7 +286,7 @@ async function buildSteps(
   }
 
   if (has("shell")) {
-    // shell main과 preload는 root deno.json이 exclude하므로 따로 돈다. biome.json은 둘 다 include한다.
+    // shell main과 preload는 EXCLUDED라 공용 fmt/lint에서 빠지므로 따로 돈다.
     const dirs = [SHELL_MAIN, "packages/shell/preload"];
     checks.push({
       name: "shell fmt",
@@ -480,7 +478,7 @@ async function main() {
       console.log(
         files.length === 0
           ? "바뀐 package: 전부 (비교 기준 없음)"
-          : "바뀐 package: 전부 (deno.json, deno.lock, package.json, package-lock.json, tools/check 변경)",
+          : "바뀐 package: 전부 (package.json, package-lock.json, tools/check 변경)",
       );
     } else {
       run = expand(changed);

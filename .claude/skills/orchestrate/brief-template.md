@@ -34,16 +34,16 @@ task 하나에 file 하나다: `project-docs/plan/<계획>/tasks/<id>.md`. worke
 
 ## 끝남
 
-- `deno task check`가 통과한다.
+- `npm run check`가 통과한다.
 - 위험 test: "<결과 한 문장>" | 없음
 - 남지 않음: `grep -rn "<옛 이름>" packages tools`가 0줄이다.
-- (화면) `deno task wireframes`가 되고, gallery의 `<page>`가 옮긴 component로 그려진다.
+- (화면) `npm run wireframes`가 되고, gallery의 `<page>`가 옮긴 component로 그려진다.
 
 ## 보고
 
 - 바꾼 file
 - 통과한 check
-- 등록할 것: lead가 고칠 목록 file(`protocol/*/mod.ts`, core 조립 목록, wording 생성, gallery `pages/index.ts`, `deno.json`)
+- 등록할 것: lead가 고칠 목록 file(`protocol/*/mod.ts`, core 조립 목록, wording 생성, gallery `pages/index.ts`, `package.json`)
 - 안 쓰게 된 export(남이 쓰던 것은 지우지 않는다)
 - 정한 것: 문서에 답이 없어 worker가 정한 것
 - 넘길 줄: 남의 file을 최소로 맞춘 곳

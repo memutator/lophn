@@ -1,7 +1,7 @@
 // 판을 낼 때 돌린다. models.dev의 api.json을 lophn 항목으로 바꿔 동봉 catalog
 // snapshot(packages/core/lophn-agent/models/snapshot.json)을 새로 쓴다.
 // 실행 때 갱신(parseCatalogBody)과 같은 변환(modelsDevEntries)을 쓴다.
-// 실행: deno run --allow-net=models.dev --allow-read --allow-write tools/models-snapshot.ts [--from <api.json>]
+// 실행: node tools/models-snapshot.ts [--from <api.json>]
 import { readFile, writeFile } from "node:fs/promises";
 import process from "node:process";
 

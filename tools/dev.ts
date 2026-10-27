@@ -1,8 +1,8 @@
-// 실행: deno task dev, deno task dev:core, deno task dev:mock
+// 실행: npm run dev, npm run dev:core, npm run dev:mock
 //
 // shell main(Electron)이 core를 띄우고 core가 고정 child(writer·reader·io)를 띄운다.
-// 그래서 `deno task dev`는 shell main을 직접 띄우고,
-// `deno task dev:core`는 core만 직접 띄운다. 둘 다 개발 데이터 root(저장소 안의
+// 그래서 `npm run dev`는 shell main을 직접 띄우고,
+// `npm run dev:core`는 core만 직접 띄운다. 둘 다 개발 데이터 root(저장소 안의
 // .dev-data/)를 절대 경로로 만들어 LOPHN_HOME으로 넘긴다. 실제 ~/.lophn은 읽지도 쓰지도
 // 않는다. LOPHN_DEV_HOME을 주면 그 root(eval이 남긴 world)를 열고 fake를 심지 않는다. tests/support/fake-server를 고정 port(기본 7499, LOPHN_DEV_FAKE_PORT)로 띄우고,
 // 앱을 띄우기 전에 core를 pipe로 한 번 띄워 그 주소를 providers/connect로 연결해 둔 뒤
@@ -64,7 +64,7 @@ function devDataRoot(root: string): string {
   return `${root}/.dev-data`;
 }
 
-// eval이 남긴 world(`deno task eval --keep`)를 데스크톱 앱으로 열 때 그 data root를 절대 경로로 준다.
+// eval이 남긴 world(`npm run eval -- --keep`)를 데스크톱 앱으로 열 때 그 data root를 절대 경로로 준다.
 const KEPT_HOME = "LOPHN_DEV_HOME";
 
 /**
@@ -125,7 +125,7 @@ async function startDevFake(portText: string | undefined) {
   } catch (error) {
     if (errorCode(error) === "EADDRINUSE") {
       throw new Error(
-        `port ${port}을 이미 쓰고 있다. 다른 deno task dev가 떠 있는지 보고, 다른 port는 ${FAKE_PORT}로 정한다`,
+        `port ${port}을 이미 쓰고 있다. 다른 npm run dev가 떠 있는지 보고, 다른 port는 ${FAKE_PORT}로 정한다`,
       );
     }
     throw error;
@@ -183,7 +183,7 @@ async function plantFakeProvider(
  * core spawn 계획. 시작 인자: `packages/core/main/daemon/main.ts [--port=<n>]`.
  * Electron binary를 ELECTRON_RUN_AS_NODE로 띄우고 LOPHN_HOME은 데이터 root다. Electron main이
  * 물려 준 pipe는 shell main이 연다. 터미널에서 직접 띄우므로 stdin은 터미널이고 core는 신호로만
- * 끝난다. 앱은 아직 Deno로 뜨므로 PATH를 지우지 않는다.
+ * 끝난다. 자식 process가 PATH의 npm을 찾으므로 PATH를 지우지 않는다.
  */
 function planCore(
   root: string,
@@ -232,7 +232,7 @@ function planShellBuild(root: string): SpawnPlan {
 }
 
 /**
- * `deno task dev`의 shell main spawn 계획. `npm run`을 거치지 않고 electron을 바로 띄운다.
+ * `npm run dev`의 shell main spawn 계획. `npm run`을 거치지 않고 electron을 바로 띄운다.
  * npm이 넣는 `npm_*` 변수와 `node_modules/.bin` PATH가 terminal 탭의 shell까지 물려 내려가
  * nvm 같은 도구가 경고하기 때문이다.
  */
@@ -326,7 +326,7 @@ export async function removeDataRoot(dataRoot: string): Promise<void> {
 }
 
 /**
- * `deno task dev`와 `deno task dev:core`의 진행 순서다.
+ * `npm run dev`와 `npm run dev:core`의 진행 순서다.
  *
  * 데이터 root(저장소 밖으로 가지 않는다. 예외는 LOPHN_DEV_HOME)를 만들고(0700) → fake server를 고정 port로 띄워
  * (필요할 때만) core에 provider로 연결해 두고 → `dev`는 shell main을, `dev:core`는 core를
@@ -362,7 +362,7 @@ async function launch(
   const parentEnv = { ...envObject(), ...options.env };
   const home = devHomeOf(options.root, parentEnv);
   if (!home.ok) {
-    console.error(`deno task ${mode}: ${home.message}`);
+    console.error(`npm run ${mode}: ${home.message}`);
     return { ok: false };
   }
   const kept = mode !== "dev:mock" && home.path !== devDataRoot(options.root);
@@ -390,7 +390,7 @@ async function launch(
     await chmod(dataRoot, 0o700);
   } catch (error) {
     console.error(
-      `deno task ${mode}: 개발 데이터 root를 만들지 못했다: ${
+      `npm run ${mode}: 개발 데이터 root를 만들지 못했다: ${
         error instanceof Error ? error.message : error
       }`,
     );
@@ -405,7 +405,7 @@ async function launch(
       await plantFakeProvider(dataRoot, fake.url);
     } catch (error) {
       console.error(
-        `deno task ${mode}: fake provider를 붙이지 못했다: ${
+        `npm run ${mode}: fake provider를 붙이지 못했다: ${
           error instanceof Error ? error.message : error
         }`,
       );
@@ -417,7 +417,7 @@ async function launch(
   if (mode === "dev" || mode === "dev:mock") {
     if (!(await hasFile(`${options.root}/packages/shell/main/package.json`))) {
       console.error(
-        `deno task ${mode}: packages/shell/main이 없다. shell main이 core를 띄우므로 shell 없이는 ${mode}를 띄울 수 없다. core만 필요하면 deno task dev:core를 쓴다.`,
+        `npm run ${mode}: packages/shell/main이 없다. shell main이 core를 띄우므로 shell 없이는 ${mode}를 띄울 수 없다. core만 필요하면 npm run dev:core를 쓴다.`,
       );
       group.stop();
       return { ok: false };
@@ -430,7 +430,7 @@ async function launch(
       group.add(built);
       if (!(await exitStatus(built)).success) {
         console.error(
-          `deno task ${mode}: ${what} build가 실패했다. 옛 화면을 띄우지 않는다.`,
+          `npm run ${mode}: ${what} build가 실패했다. 옛 화면을 띄우지 않는다.`,
         );
         group.stop();
         return { ok: false };

@@ -10,7 +10,6 @@ import {
 } from "../../../storage/blobs/mod.ts";
 import { LEDGER_SCHEMA_STEPS } from "../../../storage/ledger/mod.ts";
 import { confirmStartup } from "../../../storage/migration/mod.ts";
-import { denoDir, repoRoot } from "../paths.ts";
 import {
   type BlobRead,
   type BlobRelay,
@@ -214,11 +213,11 @@ async function runStoppedMaintenance(input: {
   let outcome: Deno.CommandOutput;
   try {
     outcome = await new Deno.Command(Deno.execPath(), {
+      // lophn 자신의 process다. 권한을 좁혀도 막는 것이 없고, Deno의 node:*는
+      // 좁힌 권한을 더 요구해 child만 깨진다.
       args: [
         "run",
-        `--allow-read=${input.dataRoot},${repoRoot()},${denoDir()}`,
-        `--allow-write=${input.dataRoot}`,
-        "--allow-env=LOPHN_HOME,LOPHN_MAINTENANCE,HOME,PATH",
+        "--allow-all",
         "--no-prompt",
         entry,
       ],

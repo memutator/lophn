@@ -181,8 +181,39 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-// package마다 tsconfig가 붙기 전까지 deno check로 본다. type check 명령을 만드는 곳은 여기 하나다.
-const typeCheck = (files: string[]): string[] => ["deno", "check", ...files];
+const TSC = "node_modules/.bin/tsc";
+// package마다 type check하는 tsc project(tsconfig.json이 있는 폴더). shell main·preload·ipc·terminal-host는
+// "shell main" 단계의 `npm run check`가 본다.
+const TSC_PROJECTS: Record<string, string[]> = {
+  base: ["packages/base"],
+  protocol: ["packages/protocol"],
+  core: ["packages/core"],
+  "coding-agent": ["packages/coding-agent"],
+  design: ["packages/design", "packages/design/wording"],
+  sdk: [],
+  shell: ["packages/shell/renderer"],
+  tools: ["tools", "tools/wireframes"],
+  tests: ["tests"],
+};
+// 앱과 flow 쪽은 wave 3까지 Deno로 돌아 deno check로 본다. tsconfig들의 exclude와 같은 목록이다.
+const DENO_CHECKED = [
+  "packages/sdk",
+  "packages/core/apps/runtime/entrypoint",
+  "packages/core/apps/declaration/extract-child.ts",
+  "packages/core/apps/releases/ui-build/eval-declaration.ts",
+  "packages/core/apps/releases/ui-build/app-build.ts",
+  SANDBOX_BOUNDARY,
+  "tests/support/app/prepare-deps.ts",
+];
+
+async function typeChecks(p: string): Promise<string[][]> {
+  const commands = TSC_PROJECTS[p].map((dir) => [TSC, "--noEmit", "-p", dir]);
+  const denoFiles = (await sourceFiles(FOLDERS[p])).filter((f) =>
+    under(f, DENO_CHECKED),
+  );
+  if (denoFiles.length > 0) commands.push(["deno", "check", ...denoFiles]);
+  return commands;
+}
 
 async function buildSteps(
   run: Set<string>,
@@ -250,18 +281,9 @@ async function buildSteps(
     commands: [["node", "tools/check-docs.ts"]],
   });
 
-  if (full) {
-    // package마다 나누면 type check 메모리가 몇 배가 되므로 process 하나로 돈다.
-    const files = (
-      await Promise.all(ALL_PACKAGES.map((p) => sourceFiles(FOLDERS[p])))
-    ).flat();
-    checks.push({ name: "check", commands: [typeCheck(files)] });
-  } else {
-    for (const p of ALL_PACKAGES.filter((p) => run.has(p))) {
-      const files = await sourceFiles(FOLDERS[p]);
-      if (files.length === 0) continue;
-      checks.push({ name: `check ${p}`, commands: [typeCheck(files)] });
-    }
+  for (const p of ALL_PACKAGES.filter((p) => full || run.has(p))) {
+    const commands = await typeChecks(p);
+    if (commands.length > 0) checks.push({ name: `check ${p}`, commands });
   }
 
   if (has("design", "sdk", "shell")) {

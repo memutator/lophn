@@ -3,7 +3,9 @@
 // - 현실적 회귀: 분류 표를 손봐 retry할 오류가 안 되고 안 할 오류가 되는 수정(429 reset 근거, 5xx, redirect).
 // - 지금 못 잡는 이유: failures.ts와 전송 계층에 test가 없다.
 
-import { assertEquals, assertObjectMatch } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import { formatAt } from "../../../packages/base/mod.ts";
 import {
   callWire,
@@ -135,28 +137,29 @@ const ROWS: Row[] = [
   },
 ];
 
-Deno.test("HTTP 오류는 retry할 것과 안 할 것으로 갈리고 redirect는 따라가지 않는다", async (t) => {
+test("HTTP 오류는 retry할 것과 안 할 것으로 갈리고 redirect는 따라가지 않는다", async (t) => {
   const clock = wireClock();
   const replay = replayFetch(...ROWS.map((row) => row.response));
   const binding = await wireBinding("anthropic-messages", replay.fetch, clock);
   for (const row of ROWS) {
-    await t.step(row.name, async () => {
+    await t.test(row.name, async () => {
       const out = await callWire(binding);
-      assertObjectMatch(out.outcome, {
-        kind: "failed",
-        code: row.code,
-        retry_at: row.retryInSeconds === undefined
+      assert.deepStrictEqual(out.outcome.kind, "failed");
+      assert.deepStrictEqual(out.outcome.code, row.code);
+      assert.deepStrictEqual(
+        out.outcome.retry_at,
+        row.retryInSeconds === undefined
           ? null
           : formatAt(clock.nowMs() + row.retryInSeconds * 1000),
-      });
+      );
       if (row.reason !== undefined) {
-        assertEquals(out.verdict?.unavailable_reason, row.reason);
+        assert.deepStrictEqual(out.verdict?.unavailable_reason, row.reason);
       }
       if (row.response.status !== 200) {
-        assertEquals(out.outcome.http_status, row.response.status);
+        assert.deepStrictEqual(out.outcome.http_status, row.response.status);
       }
     });
   }
   // redirect를 따라갔다면 요청이 늘어난다(요청 하나가 case 하나다).
-  assertEquals(replay.requests.length, ROWS.length);
+  assert.deepStrictEqual(replay.requests.length, ROWS.length);
 });

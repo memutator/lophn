@@ -1,4 +1,6 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import {
   checkKindsStructure,
   type KindsFile,
@@ -36,7 +38,7 @@ function rulesOf(patch: (file: { kinds: Record<string, unknown>[] }) => void) {
     .map((e) => `${e.rule}:${e.kind}:${e.field}`);
 }
 
-Deno.test("checkKindsStructure가 틀린 kind 파일을 규칙별로 잡고 맞는 파일은 통과시킨다", () => {
+test("checkKindsStructure가 틀린 kind 파일을 규칙별로 잡고 맞는 파일은 통과시킨다", () => {
   const field =
     (kind: number, name: string) =>
     (file: { kinds: Record<string, unknown>[] }) =>
@@ -88,6 +90,6 @@ Deno.test("checkKindsStructure가 틀린 kind 파일을 규칙별로 잡고 맞�
     ]],
   ];
   for (const [name, patch, expected] of cases) {
-    assertEquals(rulesOf(patch), expected, name);
+    assert.deepStrictEqual(rulesOf(patch), expected, name);
   }
 });

@@ -1,7 +1,9 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import { mcpServerSchema } from "./mcp-settings.ts";
 
-Deno.test("MCP 설정은 mcp. 밖의 secret 이름과 stdio env의 secret을 받지 않는다", () => {
+test("MCP 설정은 mcp. 밖의 secret 이름과 stdio env의 secret을 받지 않는다", () => {
   const http = (auth: unknown, headers: unknown = {}) => ({
     name: "srv",
     enabled: true,
@@ -59,7 +61,7 @@ Deno.test("MCP 설정은 mcp. 밖의 secret 이름과 stdio env의 secret을 받
     ["stdio env secret", stdio({ TOKEN: secret("mcp.global.srv") }), false],
   ] as const;
   for (const [label, server, accepted] of cases) {
-    assertEquals(
+    assert.deepStrictEqual(
       [label, mcpServerSchema.safeParse(server).success],
       [label, accepted],
     );

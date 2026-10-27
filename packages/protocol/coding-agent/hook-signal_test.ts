@@ -1,4 +1,6 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import type { HarnessId } from "./harness-id.ts";
 import { type HookSignal, hookSignalOf } from "./hook-signal.ts";
 
@@ -139,8 +141,8 @@ const CASES: [string, HarnessId, string, unknown, HookSignal | null][] = [
   ],
 ];
 
-Deno.test("harness별 hook 신호 판정", () => {
+test("harness별 hook 신호 판정", () => {
   for (const [name, harness, event, payload, want] of CASES) {
-    assertEquals(hookSignalOf(harness, event, payload), want, name);
+    assert.deepStrictEqual(hookSignalOf(harness, event, payload), want, name);
   }
 });

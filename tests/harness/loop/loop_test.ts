@@ -1,5 +1,9 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdtemp, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { test } from "node:test";
+
 import { formatAt } from "../../../packages/base/mod.ts";
 import type {
   LoopEnd,
@@ -57,17 +61,17 @@ function settle(h: Harness) {
   assertRequestInvariants(h.model.requests);
 }
 
-Deno.test("loop의 안전 규칙이 지켜진다", async (t) => {
-  const dir = await Deno.makeTempDir({ prefix: "lophn-loop-" });
+test("loop의 안전 규칙이 지켜진다", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "lophn-loop-"));
   try {
     const rows: [string, (root: string) => Promise<void>][] = [
       ["1 기본: 답 하나로 끝난다", async () => {
         const h = loopHarness({ steps: [answer("hi")] });
         const end = await h.run().done;
         settle(h);
-        assertEquals(end, completed);
-        assertEquals(h.model.requests.length, 1);
-        assertEquals(h.answers, ["hi"]);
+        assert.deepStrictEqual(end, completed);
+        assert.deepStrictEqual(h.model.requests.length, 1);
+        assert.deepStrictEqual(h.answers, ["hi"]);
       }],
 
       ["2 기본: 읽기 tool 결과가 다음 요청에 실린다", async () => {
@@ -77,9 +81,9 @@ Deno.test("loop의 안전 규칙이 지켜진다", async (t) => {
         });
         const end = await h.run().done;
         settle(h);
-        assertEquals(h.runs.length, 1);
-        assertEquals(h.model.lastToolResult(1)?.id, "t1");
-        assertEquals([end, h.model.requests.length], [completed, 2]);
+        assert.deepStrictEqual(h.runs.length, 1);
+        assert.deepStrictEqual(h.model.lastToolResult(1)?.id, "t1");
+        assert.deepStrictEqual([end, h.model.requests.length], [completed, 2]);
       }],
 
       ["3 불완전한 대답의 tool은 실행하지 않고 잘림을 알린다", async (root) => {
@@ -95,18 +99,21 @@ Deno.test("loop의 안전 규칙이 지켜진다", async (t) => {
         });
         const end = await h.run().done;
         settle(h);
-        const written = await Deno.stat(join(root, "a.md")).then(
+        const written = await stat(join(root, "a.md")).then(
           () => true,
           () => false,
         );
         const [first, second] = [h.model.userTexts(0), h.model.userTexts(1)];
-        assertEquals([written, h.model.lastToolResult(1), end], [
+        assert.deepStrictEqual([written, h.model.lastToolResult(1), end], [
           false,
           undefined,
           completed,
         ]);
-        assertEquals(second.length, first.length + 1);
-        assertEquals(second[second.length - 1].includes("max_tokens"), true);
+        assert.deepStrictEqual(second.length, first.length + 1);
+        assert.deepStrictEqual(
+          second[second.length - 1].includes("max_tokens"),
+          true,
+        );
       }],
 
       ["4 같은 잘림이 세 번 되풀이되면 끝난다", async (root) => {
@@ -120,8 +127,8 @@ Deno.test("loop의 안전 규칙이 지켜진다", async (t) => {
         });
         const end = await h.run().done;
         settle(h);
-        assertEquals(end, failedWith("model_error"));
-        assertEquals(
+        assert.deepStrictEqual(end, failedWith("model_error"));
+        assert.deepStrictEqual(
           [
             h.model.requests.length,
             h.runs.length,
@@ -145,7 +152,7 @@ Deno.test("loop의 안전 규칙이 지켜진다", async (t) => {
         });
         const end = await h.run().done;
         settle(h);
-        assertEquals([end, h.model.requests.length], [completed, 6]);
+        assert.deepStrictEqual([end, h.model.requests.length], [completed, 6]);
       }],
 
       ["5 응답이 없으면 무진행 한도에서 요청을 끊고 끝난다", async () => {
@@ -156,9 +163,9 @@ Deno.test("loop의 안전 규칙이 지켜진다", async (t) => {
         h.fireDeadline();
         const end = await handle.done;
         settle(h);
-        assertEquals(end, failedWith("stall_limit"));
-        assertEquals(h.model.signals[0].aborted, true);
-        assertEquals(h.model.requests.length, 1);
+        assert.deepStrictEqual(end, failedWith("stall_limit"));
+        assert.deepStrictEqual(h.model.signals[0].aborted, true);
+        assert.deepStrictEqual(h.model.requests.length, 1);
       }],
 
       ["6 멈추면 진행 중인 요청을 끊는다", async () => {
@@ -168,9 +175,12 @@ Deno.test("loop의 안전 규칙이 지켜진다", async (t) => {
         handle.stop("user_stopped");
         const end = await handle.done;
         settle(h);
-        assertEquals(end, { kind: "stopped", reason: "user_stopped" });
-        assertEquals(h.model.signals[0].aborted, true);
-        assertEquals(h.finishes, []);
+        assert.deepStrictEqual(end, {
+          kind: "stopped",
+          reason: "user_stopped",
+        });
+        assert.deepStrictEqual(h.model.signals[0].aborted, true);
+        assert.deepStrictEqual(h.finishes, []);
       }],
 
       ["7 쓰기 tool은 실패해도 다시 실행하지 않는다", async () => {
@@ -180,12 +190,16 @@ Deno.test("loop의 안전 규칙이 지켜진다", async (t) => {
         });
         const end = await h.run().done;
         settle(h);
-        assertEquals([h.runs.length, h.finishes[0].facts.changes, end], [
+        assert.deepStrictEqual([
+          h.runs.length,
+          h.finishes[0].facts.changes,
+          end,
+        ], [
           1,
           [],
           completed,
         ]);
-        assertEquals(h.model.lastToolResult(1)?.id, "t1");
+        assert.deepStrictEqual(h.model.lastToolResult(1)?.id, "t1");
       }],
 
       ["8 읽기 tool은 실패하면 한 번만 다시 실행한다", async () => {
@@ -195,7 +209,11 @@ Deno.test("loop의 안전 규칙이 지켜진다", async (t) => {
         });
         const end = await h.run().done;
         settle(h);
-        assertEquals([h.runs.length, h.waits, end], [2, [1000], completed]);
+        assert.deepStrictEqual([h.runs.length, h.waits, end], [
+          2,
+          [1000],
+          completed,
+        ]);
       }],
 
       ["9 일시 실패는 같은 입력으로 두 번까지 다시 보낸다", async () => {
@@ -209,17 +227,17 @@ Deno.test("loop의 안전 규칙이 지켜진다", async (t) => {
         const end = await h.run().done;
         settle(h);
         const requests = h.model.requests;
-        assertEquals([end, requests.length, h.waits], [
+        assert.deepStrictEqual([end, requests.length, h.waits], [
           completed,
           3,
           [2000, 4000],
         ]);
-        assertEquals(requests.map((r) => [r.kind, r.retry_of]), [
+        assert.deepStrictEqual(requests.map((r) => [r.kind, r.retry_of]), [
           ["initial", null],
           ["retry", "mcl_0"],
           ["retry", "mcl_1"],
         ]);
-        assertEquals(
+        assert.deepStrictEqual(
           new Set(requests.map((r) => JSON.stringify(r.prompt))).size,
           1,
         );
@@ -235,7 +253,7 @@ Deno.test("loop의 안전 규칙이 지켜진다", async (t) => {
         });
         const end = await h.run().done;
         settle(h);
-        assertEquals([end, h.model.requests.length, h.waits], [
+        assert.deepStrictEqual([end, h.model.requests.length, h.waits], [
           failedWith("model_error"),
           3,
           [2000, 4000],
@@ -254,7 +272,7 @@ Deno.test("loop의 안전 규칙이 지켜진다", async (t) => {
         });
         const end = await h.run().done;
         settle(h);
-        assertEquals([end, h.model.requests.length, h.waits], [
+        assert.deepStrictEqual([end, h.model.requests.length, h.waits], [
           completed,
           2,
           [10_000],
@@ -275,16 +293,16 @@ Deno.test("loop의 안전 규칙이 지켜진다", async (t) => {
           settle(h);
           got.push([end, h.model.requests.length, h.waits]);
         }
-        assertEquals(
+        assert.deepStrictEqual(
           got,
           codes.map(([, reason]) => [failedWith(reason), 1, []]),
         );
       }],
     ];
     for (const [name, row] of rows) {
-      await t.step(name, () => row(dir));
+      await t.test(name, () => row(dir));
     }
   } finally {
-    await Deno.remove(dir, { recursive: true });
+    await rm(dir, { recursive: true });
   }
 });

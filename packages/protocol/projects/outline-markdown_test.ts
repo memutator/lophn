@@ -1,4 +1,6 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import {
   type MarkdownOutlineNode,
   parseMarkdownOutline,
@@ -11,7 +13,7 @@ function flat(nodes: MarkdownOutlineNode[]): string[] {
   ]);
 }
 
-Deno.test("front matter와 fenced code 안의 제목은 목차에 없고 setext 제목은 있다", () => {
+test("front matter와 fenced code 안의 제목은 목차에 없고 setext 제목은 있다", () => {
   const text = [
     "---",
     "# in front matter",
@@ -26,7 +28,7 @@ Deno.test("front matter와 fenced code 안의 제목은 목차에 없고 setext 
     "#### D",
     "## C",
   ].join("\n");
-  assertEquals(flat(parseMarkdownOutline(text)), [
+  assert.deepStrictEqual(flat(parseMarkdownOutline(text)), [
     "1 A 4-12",
     "2 B 8-11",
     "4 D 11-11",

@@ -3,7 +3,9 @@
 // - 현실적 회귀: 첫 글 전이나 stream 중간에 provider가 멎었는데 turn이 stall_ms 300초를 다 기다리는 것. 반대로 ping은 오는데 끊는 것.
 // - 지금 못 잡는 이유: 제품에 호출당 timeout이 없었고(timeoutMs가 늘 null) invoke에 test가 없었다.
 
-import { assertEquals, assertObjectMatch } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import {
   type IdleTimer,
   MODEL_IDLE_MS,
@@ -83,7 +85,7 @@ const MESSAGE_START = loadFixture("anthropic/text-end_turn").body;
 // message_start, content_block_start, 첫 delta까지다.
 const FRONT = MESSAGE_START.split("\n\n").slice(0, 3).join("\n\n") + "\n\n";
 
-Deno.test("header도 오기 전에 멎으면 기한이 차 temporary로 끊는다", async () => {
+test("header도 오기 전에 멎으면 기한이 차 temporary로 끊는다", async () => {
   const { timer, deadlines } = fakeTimer();
   const live = liveFetch({ header: false });
   const binding = await wireBinding(
@@ -94,18 +96,16 @@ Deno.test("header도 오기 전에 멎으면 기한이 차 temporary로 끊는�
   );
   const call = callWire(binding);
   const signal = await live.sent;
-  assertEquals(deadlines.map((d) => d.ms), [MODEL_IDLE_MS]);
+  assert.deepStrictEqual(deadlines.map((d) => d.ms), [MODEL_IDLE_MS]);
   deadlines[0].fire();
   const output = await call;
-  assertObjectMatch(output.outcome, {
-    kind: "failed",
-    code: "temporary",
-    retry_at: null,
-  });
-  assertEquals(signal.aborted, true);
+  assert.deepStrictEqual(output.outcome.kind, "failed");
+  assert.deepStrictEqual(output.outcome.code, "temporary");
+  assert.deepStrictEqual(output.outcome.retry_at, null);
+  assert.deepStrictEqual(signal.aborted, true);
 });
 
-Deno.test("stream 중간에 멎으면 받은 글이 있어도 partial이 아니라 temporary다", async () => {
+test("stream 중간에 멎으면 받은 글이 있어도 partial이 아니라 temporary다", async () => {
   const { timer, deadlines, armed } = fakeTimer();
   const live = liveFetch({ header: true });
   const binding = await wireBinding(
@@ -120,15 +120,13 @@ Deno.test("stream 중간에 멎으면 받은 글이 있어도 partial이 아니�
   await armed(2);
   deadlines[1].fire();
   const output = await call;
-  assertObjectMatch(output.outcome, {
-    kind: "failed",
-    code: "temporary",
-    retry_at: null,
-  });
-  assertEquals(output.text, "Hello");
+  assert.deepStrictEqual(output.outcome.kind, "failed");
+  assert.deepStrictEqual(output.outcome.code, "temporary");
+  assert.deepStrictEqual(output.outcome.retry_at, null);
+  assert.deepStrictEqual(output.text, "Hello");
 });
 
-Deno.test("ping이 오는 동안은 기한을 새로 걸어 끊지 않는다", async () => {
+test("ping이 오는 동안은 기한을 새로 걸어 끊지 않는다", async () => {
   const { timer, deadlines, armed } = fakeTimer();
   const live = liveFetch({ header: true });
   const binding = await wireBinding(
@@ -149,12 +147,12 @@ Deno.test("ping이 오는 동안은 기한을 새로 걸어 끊지 않는다", a
   await armed(5);
   live.end();
   const output = await call;
-  assertEquals(output.outcome.kind, "complete");
-  assertEquals(deadlines.length, 5);
-  assertEquals(deadlines.every((d) => d.signal.aborted), true);
+  assert.deepStrictEqual(output.outcome.kind, "complete");
+  assert.deepStrictEqual(deadlines.length, 5);
+  assert.deepStrictEqual(deadlines.every((d) => d.signal.aborted), true);
 });
 
-Deno.test("사람이 멈추면 기한 전이라도 cancelled다", async () => {
+test("사람이 멈추면 기한 전이라도 cancelled다", async () => {
   const { timer, armed } = fakeTimer();
   const live = liveFetch({ header: true });
   const binding = await wireBinding(
@@ -173,10 +171,10 @@ Deno.test("사람이 멈추면 기한 전이라도 cancelled다", async () => {
   await armed(2);
   human.abort();
   const output = await call;
-  assertEquals(output.outcome.kind, "cancelled");
+  assert.deepStrictEqual(output.outcome.kind, "cancelled");
 });
 
-Deno.test("idle을 안 주면 기한은 MODEL_IDLE_MS이고 기본 timer는 호출이 끝나며 정리된다", async () => {
+test("idle을 안 주면 기한은 MODEL_IDLE_MS이고 기본 timer는 호출이 끝나며 정리된다", async () => {
   const { timer, deadlines } = fakeTimer();
   const replayed = replayFetch(loadFixture("anthropic/text-end_turn"));
   const named = await wireBinding(
@@ -185,12 +183,12 @@ Deno.test("idle을 안 주면 기한은 MODEL_IDLE_MS이고 기본 timer는 호�
     undefined,
     { timer },
   );
-  assertEquals((await callWire(named)).outcome.kind, "complete");
-  assertEquals(deadlines[0].ms, MODEL_IDLE_MS);
-  // 기본 timer는 setTimeout을 쓴다. 안 지우면 Deno sanitizer가 이 test를 실패시킨다.
+  assert.deepStrictEqual((await callWire(named)).outcome.kind, "complete");
+  assert.deepStrictEqual(deadlines[0].ms, MODEL_IDLE_MS);
+  // 기본 timer는 setTimeout을 쓴다. 안 지우면 test process가 끝나지 않는다.
   const plain = await wireBinding(
     "anthropic-messages",
     replayFetch(loadFixture("anthropic/text-end_turn")).fetch,
   );
-  assertEquals((await callWire(plain)).outcome.kind, "complete");
+  assert.deepStrictEqual((await callWire(plain)).outcome.kind, "complete");
 });

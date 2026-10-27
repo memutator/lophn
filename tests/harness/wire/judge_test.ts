@@ -4,7 +4,9 @@
 //   오류 분류 표를 손봐 retry할 것이 안 되고 안 할 것이 되는 수정.
 // - 지금 못 잡는 이유: providers/의 adapter와 failures.ts에 test가 없다.
 
-import { assert, assertEquals, assertObjectMatch } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import {
   callWire,
   loadFixture,
@@ -128,40 +130,45 @@ const TABLE: Record<WireProtocol, { path: string; rows: Row[] }> = {
   },
 };
 
-Deno.test("잘린 응답과 틀린 tool 인자는 실행 대상이 아니고 오류는 retry할 것과 안 할 것으로 갈린다", async (t) => {
+test("잘린 응답과 틀린 tool 인자는 실행 대상이 아니고 오류는 retry할 것과 안 할 것으로 갈린다", async (t) => {
   for (const [protocol, { path, rows }] of Object.entries(TABLE)) {
     const replay = replayFetch(...rows.map((row) => loadFixture(row.fixture)));
     const binding = await wireBinding(protocol as WireProtocol, replay.fetch);
     for (const row of rows) {
-      await t.step(row.fixture, async () => {
+      await t.test(row.fixture, async () => {
         const out = await callWire(binding);
-        assertObjectMatch(out.outcome, {
-          kind: row.kind,
-          code: row.code ?? null,
-          ...(row.finish_reason === undefined
-            ? {}
-            : { finish_reason: row.finish_reason }),
-          ...(row.code === "temporary" ? { retry_at: null } : {}),
-        });
+        assert.deepStrictEqual(out.outcome.kind, row.kind);
+        assert.deepStrictEqual(out.outcome.code, row.code ?? null);
+        if (row.finish_reason !== undefined) {
+          assert.deepStrictEqual(out.outcome.finish_reason, row.finish_reason);
+        }
+        if (row.code === "temporary") {
+          assert.deepStrictEqual(out.outcome.retry_at, null);
+        }
         // 완성이 아니면 tool은 실행 대상으로 나오지 않는다.
-        assertEquals(out.toolCalls.length, row.tools ?? 0);
+        assert.deepStrictEqual(out.toolCalls.length, row.tools ?? 0);
         if (row.tools === 1) {
           const args = JSON.parse(out.toolCalls[0].args);
-          assert(typeof args === "object" && !Array.isArray(args));
+          assert.ok(typeof args === "object" && !Array.isArray(args));
         }
-        if (row.text === true) assert(out.text.length > 0);
-        else if (row.text !== undefined) assertEquals(out.text, row.text);
+        if (row.text === true) assert.ok(out.text.length > 0);
+        else if (row.text !== undefined) {
+          assert.deepStrictEqual(out.text, row.text);
+        }
         if (row.usage) {
-          assertEquals(typeof out.usage?.input, "number");
-          assertEquals(typeof out.usage?.output, "number");
+          assert.deepStrictEqual(typeof out.usage?.input, "number");
+          assert.deepStrictEqual(typeof out.usage?.output, "number");
         }
       });
     }
-    await t.step(`${protocol} 요청 모양`, () => {
+    await t.test(`${protocol} 요청 모양`, () => {
       const request = replay.requests[0];
-      assertEquals(new URL(request.url).pathname, path);
-      assertEquals((request.body as { stream: unknown }).stream, true);
-      assertEquals(
+      assert.deepStrictEqual(new URL(request.url).pathname, path);
+      assert.deepStrictEqual(
+        (request.body as { stream: unknown }).stream,
+        true,
+      );
+      assert.deepStrictEqual(
         Object.keys(request.headers).filter((name) =>
           name === "authorization" || name === "x-api-key"
         ),

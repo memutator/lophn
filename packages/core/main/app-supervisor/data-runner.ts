@@ -1,12 +1,8 @@
-// 앱 전용 data worker 작업 한 번을 권한을 좁힌 별도 Deno 자식(`packages/core/main/worker/data-job.ts`)으로 돌린다.
-// 한 앱의 데이터 영역만 쓸 수 있고 network·secret·환경·subprocess 권한이 없다.
-// supervisor와 core는 앱 DB를 열지 않는다: 이 자식이 종료 확인 뒤의 DB를 단독으로 연다.
+// 앱 전용 data worker 작업 한 번을 별도 Deno 자식(`packages/core/main/worker/data-job.ts`)으로 돌린다.
+// lophn 자신의 코드라 권한을 좁히지 않는다: 좁힌 flag는 막는 것이 없고, Deno의 `node:*`가 권한을 더 요구하면
+// 이 자식만 깨진다. supervisor와 core는 앱 DB를 열지 않는다: 이 자식이 종료 확인 뒤의 DB를 단독으로 연다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import {
-  appDataFolder,
-  appFolder,
-  decodeActivationDataJobInput,
-} from "../../../protocol/apps/mod.ts";
+import { decodeActivationDataJobInput } from "../../../protocol/apps/mod.ts";
 
 const JOB = new URL("../worker/data-job.ts", import.meta.url).pathname;
 const REPO = new URL("../../../../", import.meta.url).pathname.replace(
@@ -37,7 +33,6 @@ export function createChildDataRunner(options: {
       if (input.app !== app) {
         return err({ code: "invalid_input", message: "data job is invalid" });
       }
-      const appRoot = appFolder(options.dataRoot, app);
       const child = new Deno.Command(options.deno(), {
         clearEnv: true,
         env: {
@@ -49,9 +44,7 @@ export function createChildDataRunner(options: {
           "--quiet",
           "--no-prompt",
           `--config=${REPO}/deno.json`,
-          // 그 앱의 폴더만 읽고(bundle 사본·backup) 데이터 영역에만 쓴다.
-          `--allow-read=${appRoot},${REPO},${options.denoDir}`,
-          `--allow-write=${appDataFolder(options.dataRoot, app)}`,
+          "--allow-all",
           JOB,
           options.dataRoot,
         ],

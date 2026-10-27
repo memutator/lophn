@@ -1,9 +1,8 @@
 import { spawn as spawnNode } from "node:child_process";
 import { armTimer, pause } from "./deadline.ts";
 
-// 설치 환경의 고정 OS adapter 진입점. Deno.kill(-pid, ...)은 Deno 2.9.7에서
-// scoped --allow-run으로는 NotCapable이고 unscoped --allow-run을 요구해 core의 좁힌 권한과
-// 부딪힌다(실측). core의 --allow-run은 이 경로 하나만 더 연다. fallback은 없다.
+// 설치 환경의 고정 OS adapter 진입점. Deno 2.9.7의 Deno.kill(-pid, ...)은 unscoped --allow-run을
+// 요구해 scoped --allow-run으로는 NotCapable이었다(실측). fallback은 없다.
 const KILL_UTILITY = "/usr/bin/kill";
 // procps-ng kill이 env:{}(C locale)에서 ESRCH를 알리는 문구. exit code는 ESRCH·EPERM 모두 1이라
 // 이 문구가 있을 때만 "group이 없다"로 센다. EPERM 등은 확인 불가다.
@@ -39,7 +38,7 @@ function runKillUtility(args: string[]): Promise<AdapterResult> {
         stdio: ["ignore", "ignore", "pipe"],
       });
     } catch {
-      // NotCapable(권한 없음)과 실행 실패 모두 여기로 온다.
+      // 실행 실패는 여기로 온다.
       finish("failed");
       return;
     }
@@ -103,8 +102,8 @@ export async function confirmGroupGone(
   }
 }
 
-// child를 띄우기 전에 한 번 확인한다. 추가 --allow-read 없이 core 자신의 실제 pid(Deno.pid,
-// caller 값이나 PID 파일이 아니다)에 신호 0을 보내 본다. 권한이 없거나 adapter가 없으면 false다.
+// child를 띄우기 전에 한 번 확인한다. core 자신의 실제 pid(Deno.pid, caller 값이나 PID 파일이
+// 아니다)에 신호 0을 보내 본다. adapter가 없으면 false다.
 export async function checkKillAdapter(): Promise<boolean> {
   if (!supportsProcessGroupEnforcement(Deno.build.os)) return false;
   try {

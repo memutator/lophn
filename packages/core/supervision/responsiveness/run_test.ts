@@ -56,12 +56,6 @@ Deno.test("ready 뒤 60초를 버틴 child가 끝나야 재기동 횟수가 0으
       {
         kind: "lophn-agent/runtime",
         entry: "/x/main.ts",
-        allow_read: [],
-        allow_write: [],
-        allow_net: [],
-        allow_run: [],
-        allow_sys: [],
-        allow_env: [],
         policy: "always",
         memory_limit_bytes: 1,
       },

@@ -176,13 +176,6 @@ export function agentRuntimeLaunchSpec(): KindLaunchSpec {
   return {
     kind: "lophn-agent/runtime",
     entry: new URL("../main/agent-runtime/main.ts", import.meta.url).pathname,
-    allow_read: [],
-    allow_write: [],
-    allow_net: [],
-    allow_run: [],
-    allow_sys: [],
-    allow_env: [],
-    allow_all: true,
     policy: "always",
     memory_limit_bytes: 512 * 1024 * 1024,
   };

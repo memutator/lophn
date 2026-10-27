@@ -2,7 +2,6 @@ import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { KindLaunchSpec } from "../../../../protocol/supervision/mod.ts";
 import { APPS_SUPERVISOR_KIND } from "../../../apps/control.ts";
 import { createSupervisor } from "../../../supervision/responsiveness/mod.ts";
-import { denoDir, repoRoot } from "../paths.ts";
 import type { IoListener, Supervisor, WiringFactory } from "./context.ts";
 
 export const supervisionWiring: WiringFactory = () => ({
@@ -55,7 +54,6 @@ export const supervisionWiring: WiringFactory = () => ({
   start(ctx) {
     return startPlatformIo(
       ctx.io,
-      ctx.root.path,
       ctx.epoch,
       ctx.server.port,
       ioListeners(ctx.ioListeners),
@@ -87,20 +85,11 @@ function optionalEnv(name: string): string | undefined {
   }
 }
 
-// platform/io는 diagnostics 입구다. 데이터 root만 읽고 네트워크와 실행은 열지 않는다.
-// sys의 statfs는 blob 준비 전의 실제 디스크 여유 관측에만 쓴다. node:fs statfs는
-// Deno에서 sys 권한을 요구하고 가장 좁은 값은 --allow-sys=statfs다(실측).
-function platformIoSpec(dataRoot: string): KindLaunchSpec {
+// platform/io는 diagnostics 입구다.
+function platformIoSpec(): KindLaunchSpec {
   return {
     kind: "platform/io",
     entry: new URL("../io-entry.ts", import.meta.url).pathname,
-    // 데이터 root 밖은 코드와 deno 캐시만 읽는다. 쓰기는 데이터 root뿐이다.
-    allow_read: [dataRoot, repoRoot(), denoDir()],
-    allow_write: [dataRoot],
-    allow_net: [],
-    allow_run: [],
-    allow_sys: ["statfs"],
-    allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND", "HOME", "PATH"],
     policy: "always",
     memory_limit_bytes: 256 * 1024 * 1024,
   };
@@ -108,13 +97,12 @@ function platformIoSpec(dataRoot: string): KindLaunchSpec {
 
 function startPlatformIo(
   io: Supervisor,
-  dataRoot: string,
   epoch: string,
   port: number,
   listener: Required<IoListener>,
 ): Promise<Result<void>> {
   return io.start(
-    platformIoSpec(dataRoot),
+    platformIoSpec(),
     {
       type: "hello",
       core_epoch: epoch,

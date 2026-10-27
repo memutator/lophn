@@ -71,7 +71,6 @@ import { loadActiveRelease, loadRelease } from "./releases/store.ts";
 import type { AppProcessLink } from "./ports.ts";
 import type { DesiredApp } from "./runtime/supervisor/mod.ts";
 import type { ConnectFacts } from "./runtime/connect.ts";
-import { allSlotSockets, socketRootKey } from "./runtime/processes/mod.ts";
 import {
   createAppProcessLink,
   createSupervisorChannel,
@@ -849,22 +848,6 @@ export function appCredentialIssuer(
 // supervisor machine credential이 닿는 operation(발급 상한 안이어야 한다).
 export const SUPERVISOR_CREDENTIAL_OPERATIONS = SUPERVISOR_OPERATIONS;
 
-function denoDir(): string {
-  let configured: string | undefined;
-  try {
-    configured = Deno.env.get("DENO_DIR");
-  } catch { /* env 권한이 없는 worker는 spec을 쓰지 않는다 */ }
-  if (configured) return configured;
-  const home = Deno.env.get("HOME");
-  return home ? `${home}/.cache/deno` : "/tmp";
-}
-
-function repoRoot(): string {
-  return new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
-}
-
-// 앱 socket을 두는 폴더. XDG runtime 디렉터리가 있으면 거기, 없으면 사용자별 임시 폴더 아래에
-// data root마다 하위 폴더 하나다(packages/core/apps/runtime/processes/socket-dir.ts와 같은 규칙).
 async function readTextOrEmpty(path: string): Promise<string> {
   try {
     return await Deno.readTextFile(path);
@@ -874,55 +857,15 @@ async function readTextOrEmpty(path: string): Promise<string> {
   }
 }
 
-export function appSocketRoot(dataRoot: string, runtimeDir?: string): string {
-  const xdg = runtimeDir ?? Deno.env.get("XDG_RUNTIME_DIR");
-  const key = socketRootKey(dataRoot);
-  if (xdg !== undefined && xdg.length > 0) return `${xdg}/lophn/${key}`;
-  // packaged allow-env에 TMPDIR은 없다. 없으면 기본 임시 폴더다.
-  let temp = "/tmp";
-  try {
-    const configured = Deno.env.get("TMPDIR");
-    if (configured !== undefined && configured.length > 0) temp = configured;
-  } catch { /* 권한이 없으면 /tmp */ }
-  return `${temp}/lophn-${Deno.uid() ?? 0}/${key}`;
-}
-
-// supervisor 실행 권한. 데이터 root와 코드·deno 캐시를 읽고, 쓰기는 앱 socket 폴더와 앱 log가 있는 `apps` 폴더뿐이다.
-// core loopback에만 닿고, 실행은 설치된 Deno와 process group 종료 adapter뿐이다.
-export function appSupervisorSpec(input: {
+// launch spec은 이제 권한을 받지 않는다. 부르는 쪽의 모양을 바꾸지 않으려고 입력을 받기만 한다.
+export function appSupervisorSpec(_input: {
   dataRoot: string;
   apiPort: number;
   runtimeDir?: string;
 }): KindLaunchSpec {
-  const sockets = appSocketRoot(input.dataRoot, input.runtimeDir);
   return {
     kind: APPS_SUPERVISOR_KIND,
     entry: new URL("../main/app-supervisor/main.ts", import.meta.url).pathname,
-    allow_read: [input.dataRoot, repoRoot(), denoDir(), sockets, "/proc"],
-    allow_write: [sockets, `${input.dataRoot}/apps`],
-    // core loopback과 앱 socket 자리의 정확한 경로다. Deno net 허락은 unix 경로의 폴더 prefix를
-    // 받지 않으므로 자리를 미리 허락한다. 가상 host는 socket 위 HTTP의 필수 통로다.
-    allow_net: [
-      `127.0.0.1:${input.apiPort}`,
-      "lophn.invalid",
-      ...allSlotSockets(sockets).map((path) => `unix:${path}`),
-    ],
-    // broker net/fetch가 요청마다 목적지를 검사하고 나간다. 앱 process에는 net이 없다.
-    net_any: true,
-    allow_run: [Deno.execPath(), "/usr/bin/kill"],
-    allow_sys: ["uid"],
-    allow_env: [
-      "LOPHN_HOME",
-      "LOPHN_WORKER_KIND",
-      "LOPHN_DENO",
-      "HOME",
-      "PATH",
-      "DENO_DIR",
-      "XDG_CACHE_HOME",
-      "XDG_RUNTIME_DIR",
-      "TMPDIR",
-      "NODE_V8_COVERAGE",
-    ],
     policy: "always",
     memory_limit_bytes: 256 * 1024 * 1024,
   };

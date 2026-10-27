@@ -1,12 +1,9 @@
-// kinds worker(kind `documents/kinds`)를 core 쪽에서 띄운다. 첫 요청에서 platform 감독으로 띄우고, 읽을
-// 경로(그릇 폴더, kinds 파일)가 늘면 새 권한으로 다시 띄운다.
+// kinds worker(kind `documents/kinds`)를 core 쪽에서 띄운다. 첫 요청에서 platform 감독으로 띄우고,
+// launch spec이 --allow-all이라 읽을 경로가 늘어도 다시 띄우지 않는다.
 //
 // 이 모듈은 core의 module graph에 들어간다. node:sqlite와 동기 file API는 쓰지 않는다.
 import type { Result } from "../../../../base/mod.ts";
-import {
-  KINDS_WORKER_KIND,
-  kindsIndexPath,
-} from "../../../../protocol/projects/mod.ts";
+import { KINDS_WORKER_KIND } from "../../../../protocol/projects/mod.ts";
 import type {
   ChildMessage,
   KindLaunchSpec,
@@ -18,44 +15,11 @@ import type {
 } from "../../../supervision/responsiveness/mod.ts";
 import { checkLaunchSpec } from "../../../supervision/security/mod.ts";
 
-// child가 코드와 deno 캐시를 올리는 읽기. 사용자 폴더가 아니다.
-function codeReads(): string[] {
-  const repo = new URL("../../../../../", import.meta.url).pathname.replace(
-    /\/$/,
-    "",
-  );
-  const home = Deno.env.get("HOME");
-  let configured: string | undefined;
-  try {
-    configured = Deno.env.get("DENO_DIR");
-  } catch { /* env 권한이 없으면 기본 위치를 쓴다 */ }
-  const cache = configured ?? (home ? `${home}/.cache/deno` : "/tmp");
-  return [repo, cache];
-}
-
-// 권한: 읽기는 그릇 폴더·kinds 파일·자기 index, 쓰기는 index(+WAL)뿐이다.
-// network·env·subprocess·FFI는 없다. `--no-prompt`는 launchArgv가 낸다.
-function kindsWorkerSpec(input: {
-  dataRoot: string;
-  reads: readonly string[];
-}): KindLaunchSpec | undefined {
-  const index = kindsIndexPath(input.dataRoot);
-  const files = [index, `${index}-wal`, `${index}-shm`, `${index}-journal`];
+// `--no-prompt`는 launchArgv가 낸다.
+function kindsWorkerSpec(): KindLaunchSpec | undefined {
   const spec: KindLaunchSpec = {
     kind: KINDS_WORKER_KIND,
     entry: new URL("../worker/run.ts", import.meta.url).pathname,
-    allow_read: [
-      ...new Set([
-        ...input.reads.filter((path) => path !== input.dataRoot),
-        ...files,
-        ...codeReads(),
-      ]),
-    ],
-    allow_write: files,
-    allow_net: [],
-    allow_run: [],
-    allow_sys: [],
-    allow_env: [],
     policy: "on_request",
     memory_limit_bytes: 512 * 1024 * 1024,
   };
@@ -93,12 +57,12 @@ type KindsProcessDeps = {
   dataRoot: string;
   epoch: string;
   apiPort: number;
-  // 띄우기 전에 worker가 쓸 폴더를 만든다(worker는 자기 index 폴더를 만들 권한이 없다).
+  // 띄우기 전에 worker가 쓸 폴더를 만든다(index를 여는 SQLite는 폴더가 없으면 실패한다).
   prepare(): Promise<void>;
 };
 
 export type KindsProcess = {
-  // worker가 이 경로들(그릇 폴더, kinds 파일)을 읽을 수 있게 띄운다. 이미 그렇게 떠 있으면 그대로 둔다.
+  // worker를 띄운다. 이미 떠 있으면 그대로 둔다. 경로는 권한과 무관해져 읽지 않는다.
   ensure(reads: readonly string[]): Promise<boolean>;
   request(
     op: string,
@@ -108,7 +72,7 @@ export type KindsProcess = {
 };
 
 export function createKindsProcess(deps: KindsProcessDeps): KindsProcess {
-  let allowed: string[] | undefined;
+  let started = false;
   let gaveUp = false;
   let chain: Promise<unknown> = Promise.resolve();
 
@@ -133,20 +97,20 @@ export function createKindsProcess(deps: KindsProcessDeps): KindsProcess {
     },
   };
 
-  async function launch(reads: string[]): Promise<boolean> {
-    const spec = kindsWorkerSpec({ dataRoot: deps.dataRoot, reads });
+  async function launch(): Promise<boolean> {
+    const spec = kindsWorkerSpec();
     if (spec === undefined) return false;
     try {
       await deps.prepare();
     } catch {
       return false;
     }
-    const replace = allowed !== undefined || gaveUp;
-    const started = replace
+    // 감독이 포기한 slot은 start로 다시 열 수 없다. 새 spec으로 교체해야 다시 띄운다.
+    const launched = gaveUp
       ? await deps.supervisor.updateSpec(spec, hello, callbacks)
       : await deps.supervisor.start(spec, hello, callbacks);
-    if (!started.ok) return false;
-    allowed = reads;
+    if (!launched.ok) return false;
+    started = true;
     gaveUp = false;
     deps.channel.bind((payload) =>
       deps.supervisor.send(KINDS_WORKER_KIND, payload).then((sent) => sent.ok)
@@ -155,16 +119,10 @@ export function createKindsProcess(deps: KindsProcessDeps): KindsProcess {
   }
 
   return {
-    ensure(reads) {
+    ensure(_reads) {
       const run = chain.then(async () => {
-        const known = allowed ?? [];
-        if (
-          allowed !== undefined && !gaveUp &&
-          reads.every((path) => known.includes(path))
-        ) {
-          return true;
-        }
-        return await launch([...new Set([...known, ...reads])].sort());
+        if (started && !gaveUp) return true;
+        return await launch();
       });
       chain = run.catch(() => undefined);
       return run;

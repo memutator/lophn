@@ -1,0 +1,32 @@
+# node-api
+
+- 목표: Deno를 떠나기 전 단계다. runtime은 Deno 그대로 두고, lophn 자신의 코드와 test를 Node API(`node:*`, `node:test`, `node:assert/strict`)와 npm 의존으로 옮긴다. 다음 계획 `node-flip`이 runtime을 Electron의 Node로 뒤집을 때 남는 일을 1:1 대응이 없는 API와 module 해석으로 좁힌다. 계획 내내 `deno task check`가 통과한다.
+- 재료: `project-docs/products/roadmap/node-runtime.md`(정한 것, "지금 코드", "Node에서 잰 것", 단계 1~3), `project-docs/architecture/layers.md`, `project-docs/architecture/testing.md`, `project-docs/module-catalog.yaml`, `.claude/skills/write-test/SKILL.md`.
+- 범위 밖(계획 `node-flip`):
+  - runtime 뒤집기, `package.json`과 npm workspaces, `deno.json` `imports` 지우기, `tsc`·`node --test`로 check 바꾸기.
+  - 1:1 `node:*`가 없는 API: unix socket·loopback `Deno.serve`, `Deno.upgradeWebSocket`, `Deno.createHttpClient`(unix socket `fetch`), `Deno.connect`(unix socket), `Deno.watchFs`, `Deno.addSignalListener`, Worker 만들기와 worker entry(`self.name`, `onmessage`), `Deno.execPath()`로 자기를 다시 띄우기, frame 통로로 쓰는 `Deno.stdin`·`Deno.stdout` stream. 이것들은 지금 자리에 그대로 둔다.
+  - AI가 쓴 코드가 도는 process의 코드: `packages/sdk/**`, 앱 process entry(`packages/core/apps/runtime/entrypoint/`), flow entry(`packages/sdk/flow/`). 그 process의 Deno flag(`packages/core/apps/permissions/flags.ts`, `packages/core/apps/preview/flags.ts`, `packages/core/main/flow-host/flags.ts`, 선언 검사·추출의 flag)도 그대로다.
+  - 앱 template(`packages/core/apps/packages/template/**`, `*.tmpl`)과 eval 재료(`tests/eval/materials/`). 앱은 아직 Deno project다.
+  - 설치본과 packaging(`tools/package-linux.ts`의 Deno binary 싣기, `packages/base/install/linux-install.ts`의 launcher 꼴). 단, CLI launcher의 권한 flag는 wave 1에서 푼다.
+  - OS sandbox, 앱·flow의 network 막기(roadmap "정한 것").
+- 단위:
+  - `flags`: lophn 자신의 자식 process를 `--allow-all`로 띄운다. agent runtime(계획 밖에서 이미 끝났다)과 같은 모양이다. I/O child, 정비 자식, data job, kinds worker, apps supervisor, release 준비 runner, CLI launcher와 그 per-command flag.
+  - `api-<영역>`: 영역 하나의 `Deno.*`를 `node:*`로, 그 영역의 `Deno.test`·`@std/assert`를 `node:test`·`node:assert/strict`로 바꾼다. 영역은 `Deno.*`가 많은 순서로 나눈다(2026-10-27 참조 수): `packages/core/apps` 385, `tests/eval` 214, `packages/core/lophn-agent` 179, `tests/e2e` 150, `packages/core/main` 131, `tests/support` 90, `packages/core/projects` 62, `packages/core/storage` 52, `packages/coding-agent` 44, `tools/` 약 170, 나머지 core module, `packages/design`·`packages/shell/renderer`·`packages/protocol`·`packages/base`. worker 하나가 한 session에 끝낼 크기로 자르고, 같은 file을 두 task가 갖지 않는다.
+  - `deps`: jsr 의존을 npm으로(`@std/yaml` → `yaml`, `@std/toml` → `smol-toml`, 판 정확히 고정), `@std/assert`를 `deno.json`에서 지운다. parameter property 14개를 풀고 `compilerOptions.verbatimModuleSyntax`를 켠다.
+  - `fmt`: Biome가 `deno fmt`·`deno lint`를 대신한다(`tools/check.ts`, 설정 file). 저장소를 한 번 다시 맞추는 commit이라 혼자 돈다.
+- 순서:
+  - wave 1: `flags`. 이것이 land해야 wave 2가 연다. Deno의 `node:*`가 Deno 권한을 더 요구해(`node:child_process`가 env 권한을 요구했다) 좁힌 child에서 바꾸면 그 child만 깨지고, unit test는 `--allow-all`이라 잡지 못한다.
+  - wave 2: `api-*` 병렬. 서로 file이 겹치지 않는다. test helper(`tests/support/`)를 바꾸는 task는 그 helper를 쓰는 test task의 선행이다.
+  - wave 3: `deps`, 그 뒤 `fmt` 혼자.
+- 정한 것:
+  - 바꿀 때 `node:child_process`는 `spawn`·`spawnSync`를 쓴다. Deno에서 `execSync`는 `--allow-run`을 좁히면 실패했다. (agent)
+  - `Deno.errors.NotFound` 같은 검사는 Node 오류 code(`ENOENT`, `EEXIST`)로 바꾼다. 두 runtime에서 같이 맞는 판정이어야 다음 계획에서 다시 고치지 않는다. Deno의 `node:fs`가 code를 Node처럼 주는지는 첫 task가 확인하고 보고한다. (agent)
+  - `Deno.test`의 `sanitize*`, `permissions` 같은 Deno 전용 option은 지운다. 필요하면 test를 고친다. (agent)
+  - 옛 이름 호환(`Deno.*`와 `node:*`를 같이 받는 wrapper)을 만들지 않는다. 한 번에 바꾼다(AGENTS.md "호환성"). (agent)
+  - 범위 밖 API가 섞인 file은 그 API만 남기고 나머지를 바꾼다. 남긴 줄은 task 보고의 "넘길 줄"에 file과 API로 적는다. 다음 계획의 재료다. (agent)
+- 사람이 정할 것: 없음. roadmap의 정할 것은 사람이 2026-10-27 정했다(앱·flow도 Node로 옮긴다, 앱·flow의 network는 막지 않는다). 둘 다 다음 계획의 일이다.
+- 돌리는 법: brief와 lead worktree 없이 돈다(사람, 2026-10-27). 주 session이 wave마다 worker를 띄우고 prompt에 할 일과 맡은 file 목록을 바로 적는다. worker는 각자 git worktree에서 일하고 주 session이 합친다.
+- 합칠 때 할 일:
+  - merge 때마다: `deno task check`, 바뀐 module에 걸린 e2e(`project-docs/module-catalog.yaml`). wave 1 뒤에는 `deno task e2e` 전체와 개발 앱에서 project 등록, 앱 켜기, flow 한 번.
+  - worker 보고의 "넘길 줄"을 모아 roadmap `node-runtime.md`의 "지금 코드"에 남은 `Deno.*` 목록으로 고친다.
+  - 다 끝났을 때: `project-docs/architecture/layers.md`(권한을 좁혀 띄우는 process 목록), `project-docs/architecture/testing.md`(test 꼴), 바뀐 자식 process를 말하는 architecture 문서, changelog 열린 판, roadmap의 단계 1~3을 끝난 것으로.

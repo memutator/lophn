@@ -44,6 +44,8 @@ Node에서 잰 것 (Node 24.20.0과, Electron 44.5.1을 `ELECTRON_RUN_AS_NODE=1`
 
 - **Deno를 떠나 Node 하나로 간다.** 사람(2026-10-27): "deno runtime 왜 써야하는 지 모르겠고, 너무 불편함". 옮기는 비용보다 틀린 길을 계속 가는 부채가 크다.
 - **OS sandbox는 두지 않는다.** `shell.run`, 앱, flow 모두 마찬가지다(`project-docs/products/roadmap/approval.md` "하지 않는 것"). 2026-10-27 다시 조사했다: 기본으로 켜는 harness는 Codex와 Cursor뿐이고, Claude Code와 Gemini CLI는 켜야 하고, OpenCode·Hermes·omp는 없다. 남는 위험: `shell.run`은 폴더 범위와 rewind 밖이고, unattended turn에서는 `ask` 규칙도 묻지 않고 돈다.
+- **사용자 앱과 flow도 Node로 옮긴다.** (사람, 2026-10-27) 남기면 앱 때문에만 설치본에 Deno binary, import map, `deno cache`가 남는다. 앱 template(`deno.json.tmpl` → `package.json`, `Deno.test` → `node:test`), App Engineer prompt와 앱 `AGENTS.md`, release 준비(`deno cache` → `npm install`), `workflow.check`(`deno check` → `tsc`)가 같이 바뀐다.
+- **앱과 flow의 network는 막지 않는다.** (사람, 2026-10-27) Node는 network를 권한으로 막지 못한다(위 "Node에서 잰 것"). import 검사나 전역 지우기로 실수만 막는 길, OS network namespace도 두지 않는다. 같은 agent가 `shell.run`을 쥐고 있어 막아도 얻는 것이 없다. cap-net은 secret을 붙이고 broker가 선언 ∩ grant를 보는 길로 남지만, 앱 code가 `fetch`를 바로 쓰는 것은 막히지 않는다. 앱 process가 Node로 뜨는 단계에서 `project-docs/architecture/app-call.md`의 "앱 process의 Deno 권한에는 외부 net이 없다"와 `project-docs/architecture/workflow.md` "flow"의 네트워크 없음을 지운다.
 - **Node binary는 Electron 것 하나다.** core, lophn 자식 process, 앱, flow, CLI를 `ELECTRON_RUN_AS_NODE=1`인 Electron binary로 띄운다. 설치본에 runtime binary를 따로 싣지 않는다. 개발과 test도 같은 binary로 돌려 판이 갈리지 않게 한다. shell이 이미 이렇게 띄운다. (agent)
 - **lophn 자신의 process는 권한 flag 없이 돈다.** AI가 쓴 코드를 돌리지 않는 process를 좁히면 막는 것 없이 깨지기만 한다(2026-10-24 설치본 core, 2026-10-27 agent runtime). (agent)
 - **module 해석은 Node 기본(`package.json`과 `node_modules`)만 쓴다.** loader hook과 experimental package map은 쓰지 않는다. hook을 쓰면 sandbox process에 `--allow-worker`를 줘야 한다. package마다 `package.json`(판을 정확히 고정)을 두고 루트를 npm workspaces로 묶는다. shell이 이미 npm이다. jsr은 npm으로 바꾼다: `@std/yaml` → `yaml`, `@std/toml` → `smol-toml`, `@std/assert` → `node:assert/strict`. `@luca/esbuild-deno-loader`는 지운다(esbuild가 `node_modules`를 푼다). (agent)
@@ -54,34 +56,30 @@ Node에서 잰 것 (Node 24.20.0과, Electron 44.5.1을 `ELECTRON_RUN_AS_NODE=1`
 - **SDK는 bare `@lophn/<이름>`으로 import한다.** `lophn-sdk:` scheme과 import map을 지운다. lophn이 앱 폴더의 `node_modules/@lophn/<이름>`을 `<data>/sdk/<이름>/<판>`을 가리키는 symlink로 만든다(scaffold, release 준비). realpath가 `node_modules` 밖이라 `.ts` SDK가 strip되고, 권한 모드에서는 SDK root를 읽기 허락에 넣는다. flow도 같다. (agent)
 - **옛 앱과 개발 데이터는 옮기지 않는다.** 뒤집은 판에서 지우고 새로 만든다(AGENTS.md "호환성"). (agent)
 
-## 정할 것
-
-- **앱과 flow도 Node로 옮기나.** 추천: 옮긴다. 남기면 앱 때문에만 설치본에 Deno binary, import map, `deno cache`가 남고 runtime이 둘인 채다. 옮기면 앱 template(`deno.json.tmpl` → `package.json`, `Deno.test` → `node:test`), App Engineer prompt와 앱 `AGENTS.md`, release 준비(`deno cache` → `npm install`), `workflow.check`(`deno check` → `tsc`)가 같이 바뀐다. 사람이 쓰는 앱 작성 방식이 바뀌는 제품 결정이라 묻는다.
-- **앱·flow의 network를 무엇으로 막나.** 지금 `project-docs/architecture/app-call.md`는 "앱 process의 Deno 권한에는 외부 net이 없다"고 보장한다. Node는 network를 권한으로 막지 못한다.
-  - 실수만 막는다(추천): 앱·flow code가 `fetch`, `WebSocket`, `node:net`·`http`·`https`·`http2`·`tls`·`dgram`·`dns`를 쓰면 release 준비와 `workflow.check`가 그 import와 전역 사용을 거절한다. process를 시작할 때 preload가 그 전역을 지운다. AI가 cap-net 대신 `fetch`를 쓴 실수를 잡는다. 일부러 우회하는 코드(`globalThis["fe"+"tch"]`)는 못 막는다. AGENTS.md는 사용자 앱을 공격자로 보지 않고, 같은 agent가 `shell.run`을 쥐고 있어 경계를 세워도 얻는 것이 없다.
-  - OS network namespace: 앱·flow process만 net이 없는 namespace에서 띄운다. 이것은 경계다. Linux 전용이고, Ubuntu는 unprivileged user namespace를 AppArmor로 막아 설치 조건이 생긴다. 위 "OS sandbox는 두지 않는다"와 어긋난다.
-  - 막지 않는다: `app-call.md`의 보장을 지운다.
-
 ## 단계
 
-runtime은 마지막에 한 번 뒤집는다. 그 전까지는 Deno 위에서 Node API와 Node 도구로 옮겨 `deno task check`가 늘 통과한다. 단계마다 module 단위로 worker를 나눠 돌린다.
+runtime은 마지막에 한 번 뒤집는다. 그 전까지는 Deno 위에서 Node API로 옮겨 `deno task check`가 늘 통과한다. module 단위로 worker를 나눠 돌린다.
 
-1. **Node API로.** `Deno.*`를 `node:*`로 바꾼다(fs, child_process는 `spawn`, path, os, `process.env`·`argv`·`exit`). `Deno.test`와 `@std/assert`를 `node:test`와 `node:assert/strict`로 바꾼다. jsr 의존을 npm으로 바꾼다. Deno에서 node 모양으로 못 도는 것(unix socket `Deno.serve`, WebSocket upgrade, unix socket `fetch`, `watchFs`, signal, Worker, `execPath`로 다시 띄우기)은 3단계로 미루고 module 하나에 모은다.
-2. **package와 도구.** package마다 `package.json`을 두고 루트를 npm workspaces로 묶고 `deno.json`의 `imports`를 지운다. Deno가 workspace `package.json`과 `node_modules`로 푸는지는 이 단계를 시작할 때 확인한다. `tools/check.ts`를 `tsc --noEmit`, Biome, `node --test`로 바꾼다. parameter property를 풀고 `verbatimModuleSyntax`를 켠다.
-3. **lophn process 뒤집기.** core와 lophn 자식 process를 Electron의 Node로 띄운다(`process.execPath`, `ELECTRON_RUN_AS_NODE`). 1단계에서 모은 것을 `node:http`(unix socket listen), `ws`(WebSocket server), `node:http`의 `socketPath`(unix socket 요청), recursive `fs.watch`, `process.on` signal, `worker_threads`(`workerData`)로 바꾼다. process group 끄기는 `process.kill(-pid)`로 돌아오고 `/usr/bin/kill`을 지운다. 이 단계 동안 앱과 flow는 Deno로 남는다.
-4. **앱과 flow 뒤집기**(정할 것 첫째가 "옮긴다"일 때). `--permission` flag 만들기, SDK symlink, 앱 template과 prompt, release 준비와 bundle 꼴, `workflow.check`, network 막기(정할 것 둘째).
-5. **Deno 지우기.** `deno.json`·`deno.lock`, `packages/shell/main/desktop/core/deno-binary.ts`, 설치본의 `deno` binary와 `DENO_DIR`, launcher의 Deno 줄을 지운다. Deno를 말하는 architecture 문서, AGENTS.md(`deno task check` → `npm run check`), skill을 고친다.
+계획 `node-api`(Deno 위에서)
+1. **lophn process의 권한 flag 풀기.** I/O child, 정비 자식, data job, kinds worker, apps supervisor, release 준비 runner, CLI launcher를 `--allow-all`로 띄운다(위 "lophn 자신의 process는 권한 flag 없이 돈다"). Deno의 `node:*`는 Deno 권한을 더 요구할 수 있어(`node:child_process`가 env 권한을 요구했다) 좁힌 child에서 바꾸면 그 child만 깨진다. 앱·preview·flow·선언 검사와 추출처럼 AI가 쓴 코드를 돌리는 process의 flag는 그대로다.
+2. **Node API로.** lophn 코드의 `Deno.*`를 `node:*`로 바꾼다(fs, child_process는 `spawn`, path, os, `process.env`·`argv`·`exit`). `Deno.test`와 `@std/assert`를 `node:test`와 `node:assert/strict`로 바꾼다(`deno test`가 그대로 돌린다). AI 코드가 도는 process의 코드(`packages/sdk/`, 앱 process entry, flow entry)와 앱 template은 옮기지 않는다. 1:1 `node:*`가 없는 것(unix socket `Deno.serve`, WebSocket upgrade, unix socket `fetch`, `watchFs`, signal, Worker, `execPath`로 다시 띄우기)도 남긴다.
+3. **의존과 문법과 fmt.** jsr 의존을 npm으로 바꾸고(`@std/yaml` → `yaml`, `@std/toml` → `smol-toml`), parameter property를 풀고, `verbatimModuleSyntax`를 켠다. 마지막에 Biome가 `deno fmt`·`deno lint`를 대신하고 저장소를 한 번 다시 맞춘다.
+
+계획 `node-flip`(`node-api`가 land한 뒤 연다)
+4. **module 해석과 lophn process 뒤집기.** package마다 `package.json`, 루트 npm workspaces(shell 포함, lock 하나), `deno.json`의 `imports`를 지운다. core와 lophn 자식 process를 Electron의 Node로 띄운다(`process.execPath`, `ELECTRON_RUN_AS_NODE`). 2단계에서 남긴 것을 `node:http`(unix socket listen), `ws`(WebSocket server), `node:http`의 `socketPath`(unix socket 요청), recursive `fs.watch`, `process.on` signal, `worker_threads`(`workerData`)로 바꾼다. process group 끄기는 `process.kill(-pid)`로 돌아오고 `/usr/bin/kill`을 지운다. `tools/check.ts`가 `tsc --noEmit`과 `node --test`로 돈다. 이 단계 동안 앱과 flow는 Deno로 남는다.
+5. **앱과 flow 뒤집기.** `--permission` flag 만들기, SDK symlink, SDK와 앱 process·flow entry의 `Deno.*`, 앱 template과 prompt, release 준비와 bundle 꼴, `workflow.check`. `app-call.md`와 `workflow.md`의 network 보장 문장을 지운다.
+6. **Deno 지우기.** `deno.json`·`deno.lock`, `packages/shell/main/desktop/core/deno-binary.ts`, 설치본의 `deno` binary와 `DENO_DIR`, launcher의 Deno 줄을 지운다. Deno를 말하는 architecture 문서, AGENTS.md(`deno task check` → `npm run check`), skill을 고친다.
 
 ## 끝남 기준
 
 - tracked source에 `Deno.` 참조와 `deno.json`·`deno.lock`이 없다. 설치본(.deb)에 `deno` binary가 없다.
 - `npm run check`와 e2e가 Node에서 통과한다.
 - 설치본에서 project 등록, 앱 만들기와 켜기, flow 실행, `lophn` CLI가 돈다. 설치본에서만 드러난 실패가 두 번 있었다.
-- 위험 test(sandbox 경계): 앱·flow process가 허락 밖 file을 `fs`로도 static import로도 읽지 못하고, 쓰지 못하고, 자식 process를 띄우지 못하고, 넘기지 않은 환경 변수를 보지 못한다. flag builder가 쉼표 목록을 만들지 않는다.
+- 위험 test(sandbox 경계): 앱·flow process가 허락 밖 file을 `fs`로도 static import로도 읽지 못하고, 쓰지 못하고, 자식 process를 띄우지 못하고, 넘기지 않은 환경 변수를 보지 못한다. network는 경계가 아니라 test하지 않는다. flag builder가 쉼표 목록을 만들지 않는다.
 
 ## 하지 않는 것
 
-- **Deno에서 import 구멍만 고치기.** 앱과 flow를 쓰는 PM·App Engineer가 `shell.run`으로 같은 file을 읽을 수 있어 고쳐도 줄어드는 노출이 없다. 4단계에서 `--permission`이 막는다.
+- **Deno에서 import 구멍만 고치기.** 앱과 flow를 쓰는 PM·App Engineer가 `shell.run`으로 같은 file을 읽을 수 있어 고쳐도 줄어드는 노출이 없다. 5단계에서 `--permission`이 막는다.
 - **Bun이나 다른 runtime.** Electron이 이미 Node를 싣는다. binary를 하나 더 싣는 것은 이 일과 반대 방향이다.
 - **`--experimental-transform-types`, loader hook, package map.** 실험 기능이거나 sandbox를 약하게 한다.
-- **OS sandbox.** 위 "정한 것"을 본다.
+- **OS sandbox와 앱·flow의 network 막기.** 위 "정한 것"을 본다.

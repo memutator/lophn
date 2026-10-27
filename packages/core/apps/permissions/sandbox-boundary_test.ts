@@ -1,6 +1,12 @@
 // 운영 앱 process의 sandbox 경계를 실제 Deno process 하나로 확인한다. flag는 제품이 쓰는 `appFlags`와
-// `socketFlags`가 만든 그대로이고 임시 폴더 밖 사람의 data root는 열지 않는다(clearEnv, 임시 HOME).
-import { assert, assertEquals } from "@std/assert";
+// `socketFlags`가 만든 그대로이고 임시 폴더 밖 사람의 data root는 열지 않는다(env 전체 지정, 임시 HOME).
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import process from "node:process";
+import { test } from "node:test";
 import { appFlags, socketFlags } from "./flags.ts";
 
 const PROBE = `
@@ -89,17 +95,17 @@ const BLOCKED = [
   "loopback tcp",
 ];
 
-Deno.test("운영 앱 process는 자기 bundle과 data 폴더 밖, 다른 앱의 socket, platform 자원, 자격 파일에 닿지 못하고 자기 두 socket만 쓴다", async () => {
-  const root = await Deno.makeTempDir({ prefix: "lophn-sandbox-" });
+test("운영 앱 process는 자기 bundle과 data 폴더 밖, 다른 앱의 socket, platform 자원, 자격 파일에 닿지 못하고 자기 두 socket만 쓴다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-sandbox-"));
   const make = async (path: string, text: string) => {
-    await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
-    await Deno.writeTextFile(path, text);
+    await mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+    await writeFile(path, text);
   };
   // 닿으면 안 되는 socket이 실제로 듣고 있어야 거절이 연결 실패와 구별된다.
   const otherControlSocket = `${root}/run/other-a.sock`;
   const strayUnixSocket = `${root}/stray/x.sock`;
-  await Deno.mkdir(`${root}/run`, { recursive: true });
-  await Deno.mkdir(`${root}/stray`, { recursive: true });
+  await mkdir(`${root}/run`, { recursive: true });
+  await mkdir(`${root}/stray`, { recursive: true });
   const listeners = [
     Deno.listen({ transport: "unix", path: otherControlSocket }),
     Deno.listen({ transport: "unix", path: strayUnixSocket }),
@@ -152,46 +158,57 @@ Deno.test("운영 앱 process는 자기 bundle과 data 폴더 밖, 다른 앱의
         `${root}/home/.ssh`,
       ],
     );
-    assert(flags.ok);
+    assert.ok(flags.ok);
     const socketArgs = socketFlags(sockets);
-    assert(socketArgs.ok);
+    assert.ok(socketArgs.ok);
 
-    const output = await new Deno.Command(Deno.execPath(), {
-      args: [
+    // env를 통째로 정해 넘긴다: 부모 환경이 child로 새지 않아야 한다.
+    const output = spawnSync(
+      Deno.execPath(),
+      [
         "run",
         ...flags.value.args,
         ...socketArgs.value,
         paths.bundleFile,
         JSON.stringify(paths),
       ],
-      stdout: "piped",
-      stderr: "piped",
-      clearEnv: true,
-      env: {
-        HOME: `${root}/home`,
-        PATH: Deno.env.get("PATH") ?? "",
-        DENO_DIR: Deno.env.get("DENO_DIR") ?? `${root}/deno`,
-        // 환경의 credential은 읽을 수 없어야 한다.
-        LOPHN_CREDENTIAL: "secret",
+      {
+        stdio: ["ignore", "pipe", "pipe"],
+        env: {
+          HOME: `${root}/home`,
+          PATH: process.env.PATH ?? "",
+          DENO_DIR: process.env.DENO_DIR ?? `${root}/deno`,
+          // 환경의 credential은 읽을 수 없어야 한다.
+          LOPHN_CREDENTIAL: "secret",
+        },
       },
-    }).output();
-    assert(
-      output.success,
-      `probe failed: ${new TextDecoder().decode(output.stderr)}`,
+    );
+    assert.ok(
+      output.error === undefined && output.status === 0,
+      `probe failed: ${
+        output.error?.message ?? new TextDecoder().decode(output.stderr)
+      }`,
     );
     const result: Record<string, string> = JSON.parse(
       new TextDecoder().decode(output.stdout).trim(),
     );
 
-    for (const name of ALLOWED) assertEquals(result[name], "ok", name);
-    for (const name of BLOCKED) assertEquals(result[name], "denied", name);
+    for (const name of ALLOWED) {
+      assert.deepStrictEqual(result[name], "ok", name);
+    }
+    for (const name of BLOCKED) {
+      assert.deepStrictEqual(result[name], "denied", name);
+    }
     // 거절한 쓰기는 파일에 닿지 않았다.
-    assertEquals(await Deno.readTextFile(paths.otherDb), "other");
-    assertEquals(await Deno.readTextFile(paths.credentialFile), "credential");
-    assertEquals(await Deno.readTextFile(paths.bundleFile), PROBE);
-    assertEquals(await Deno.readTextFile(paths.dataFile), "own");
+    assert.deepStrictEqual(await readFile(paths.otherDb, "utf8"), "other");
+    assert.deepStrictEqual(
+      await readFile(paths.credentialFile, "utf8"),
+      "credential",
+    );
+    assert.deepStrictEqual(await readFile(paths.bundleFile, "utf8"), PROBE);
+    assert.deepStrictEqual(await readFile(paths.dataFile, "utf8"), "own");
   } finally {
     for (const listener of listeners) listener.close();
-    await Deno.remove(root, { recursive: true });
+    await rm(root, { recursive: true });
   }
 });

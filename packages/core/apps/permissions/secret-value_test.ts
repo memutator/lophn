@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { err, ok } from "../../../base/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import { createFileSecretAttach } from "../../secrets/file-attach.ts";
@@ -94,7 +95,7 @@ function body(
   };
 }
 
-Deno.test("apps.secret_value gives the value only to the supervisor for a granted name and destination", async () => {
+test("apps.secret_value gives the value only to the supervisor for a granted name and destination", async () => {
   const rows: Array<[string, AuthenticatedContext, unknown, boolean]> = [
     ["granted", caller(true), body("stripe_key", "api.stripe.com", 443), true],
     [
@@ -131,12 +132,12 @@ Deno.test("apps.secret_value gives the value only to the supervisor for a grante
   for (const [label, who, input, given] of rows) {
     const result = await handler(who, input);
     if (given) {
-      assert(result.ok, label);
-      assertEquals(result.value, { value: VALUE }, label);
+      assert.ok(result.ok, label);
+      assert.deepStrictEqual(result.value, { value: VALUE }, label);
     } else {
-      assert(!result.ok, label);
-      assertEquals(result.error.code, "forbidden", label);
-      assert(!JSON.stringify(result.error).includes(VALUE), label);
+      assert.ok(!result.ok, label);
+      assert.deepStrictEqual(result.error.code, "forbidden", label);
+      assert.ok(!JSON.stringify(result.error).includes(VALUE), label);
     }
   }
 });

@@ -1,10 +1,12 @@
 // release worker job. supervisor가 준비 요청마다 띄우고 부모와 stdio JSON으로
 // 이야기한다. 플랫폼 credential은 받지 않는다.
 // kind와 root는 환경으로만 받는다.
+import process from "node:process";
 import type { WorkerRequest } from "../../../../protocol/supervision/mod.ts";
 import {
   type ChildSession,
   type ChildStreams,
+  processStreams,
   startChild,
 } from "../../../supervision/responsiveness/mod.ts";
 import { prepareRelease, type PrepareReleaseInput } from "../mod.ts";
@@ -120,7 +122,7 @@ export async function runReleaseWorker(root: string): Promise<void> {
   let stopped = false;
   const session = await createReleaseWorker({
     root,
-    streams: { stdin: Deno.stdin, stdout: Deno.stdout, stderr: Deno.stderr },
+    streams: processStreams(),
     cancelled: () => {
       stopped = true;
       return true;
@@ -128,4 +130,6 @@ export async function runReleaseWorker(root: string): Promise<void> {
     accept: (request) => acceptRelease(root, request, () => stopped),
   });
   await session.run();
+  // stdin pipe가 열린 채 남으면 runtime이 process를 끝내지 않는다. 보낸 frame은 run()이 기다렸다.
+  process.exit(0);
 }

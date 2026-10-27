@@ -1,3 +1,4 @@
+import process from "node:process";
 import {
   type ChildMessage,
   childMessageSchema,
@@ -16,6 +17,7 @@ import {
   createFrameWriter,
   readFrames,
 } from "./frames.ts";
+import { fromReadable, type SpawnedWriter, toWriter } from "./pipe.ts";
 import {
   type Frame,
   STREAM_CHUNK_MAX_BYTES,
@@ -26,6 +28,25 @@ export type ChildStreams = {
   stdout: ByteWriter;
   stderr: ByteWriter;
 };
+
+// 자식 entry는 감독 통로로 process가 쥔 stdio를 쓴다. stdin은 core 쪽 child stream과 같은
+// flowing reader로 읽어 backpressure·EOF 처리를 pipe.ts 한 곳에 둔다.
+export function processStreams(): ChildStreams {
+  return {
+    stdin: fromReadable(process.stdin),
+    stdout: byteWriter(toWriter(process.stdout)),
+    stderr: byteWriter(toWriter(process.stderr)),
+  };
+}
+
+function byteWriter(writer: SpawnedWriter): ByteWriter {
+  return {
+    async write(bytes) {
+      await writer.write(bytes);
+      return bytes.length;
+    },
+  };
+}
 
 type Hello = Extract<ParentMessage, { type: "hello" }>;
 

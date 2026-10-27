@@ -1,7 +1,9 @@
+import process from "node:process";
 import {
   type ChildSession,
   type ChildStreams,
   createIoScheduler,
+  processStreams,
   startChild,
 } from "../../supervision/responsiveness/mod.ts";
 import {
@@ -473,7 +475,7 @@ export async function runPlatformIo(root: string): Promise<void> {
       (...args: unknown[]) => console.error(...args);
   const session = await createPlatformIo({
     root,
-    streams: { stdin: Deno.stdin, stdout: Deno.stdout, stderr: Deno.stderr },
+    streams: processStreams(),
     catalog: {
       components: [
         "platform/core",
@@ -515,4 +517,6 @@ export async function runPlatformIo(root: string): Promise<void> {
   } finally {
     clearInterval(gcTimer);
   }
+  // stdin pipe가 열린 채 남으면 runtime이 process를 끝내지 않는다. 보낸 frame은 run()이 기다렸다.
+  process.exit(0);
 }

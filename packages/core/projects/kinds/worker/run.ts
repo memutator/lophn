@@ -5,6 +5,7 @@
 // worker는 `lophn.db`를 열지 않고 core에도 닿지 않는다. 위반은 답에 실어 보내고 새 위반을 사람에게 알리는 일은 core가
 // 앞 결과와 비교해 한다.
 import { rmSync } from "node:fs";
+import process from "node:process";
 import type { z } from "zod";
 import { err, type Result, systemClock } from "../../../../base/mod.ts";
 import type { Clock, LophnError } from "../../../../base/mod.ts";
@@ -24,6 +25,7 @@ import type {
 import {
   type ChildSession,
   type ChildStreams,
+  processStreams,
   startChild,
 } from "../../../supervision/responsiveness/mod.ts";
 import { type IndexStore, openIndexStore } from "../index/store.ts";
@@ -172,9 +174,11 @@ export async function runKindsWorker(): Promise<void> {
     console.debug =
       (...args: unknown[]) => console.error(...args);
   const session = createKindsWorker({
-    streams: { stdin: Deno.stdin, stdout: Deno.stdout, stderr: Deno.stderr },
+    streams: processStreams(),
   });
   await session.run();
+  // stdin pipe가 열린 채 남으면 runtime이 process를 끝내지 않는다. 보낸 frame은 run()이 기다렸다.
+  process.exit(0);
 }
 
 if (import.meta.main) {

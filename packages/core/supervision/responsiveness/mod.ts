@@ -1,4 +1,9 @@
-export { type ChildSession, type ChildStreams, startChild } from "./child.ts";
+export {
+  type ChildSession,
+  type ChildStreams,
+  processStreams,
+  startChild,
+} from "./child.ts";
 export {
   type BlobPrepareInput,
   createBlobPrepareClient,

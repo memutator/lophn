@@ -10,7 +10,10 @@
 //   못 잡는 이유: oauth-refresh_test는 refresher를 함수로만 부른다. child의 secret 요청, core hook, 발급자 pump, model HTTP header는 process를 건너야 이어진다.
 // - 왜 지금 test로 못 잡나: login_test.ts는 발급자·listener·writer를 가짜로 꽂은 함수 호출이다. 요청이 core 대기열 -> runtime
 //   child의 pump -> HTTP로 가는 길과 callback이 실제 loopback socket으로 오는 길은 process를 건너야만 돈다.
-import { assert, assertEquals, assertRejects } from "@std/assert";
+import assert from "node:assert/strict";
+import { readdir, readFile } from "node:fs/promises";
+import { test } from "node:test";
+import { errorCode } from "../../packages/base/mod.ts";
 import {
   loginBegin,
   loginCancel,
@@ -61,12 +64,12 @@ async function withFakes(body: (ctx: Fakes) => Promise<void>): Promise<void> {
 // 파일 안에 key가 byte로 들어 있는 file의 path 목록. secrets.json은 건너뛴다.
 async function filesWith(dir: string, key: string): Promise<string[]> {
   const found: string[] = [];
-  for await (const entry of Deno.readDir(dir)) {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
     const path = `${dir}/${entry.name}`;
-    if (entry.isDirectory) {
+    if (entry.isDirectory()) {
       found.push(...await filesWith(path, key));
-    } else if (entry.isFile && entry.name !== SECRET_FILE_NAME) {
-      const text = new TextDecoder("latin1").decode(await Deno.readFile(path));
+    } else if (entry.isFile() && entry.name !== SECRET_FILE_NAME) {
+      const text = new TextDecoder("latin1").decode(await readFile(path));
       if (text.includes(key)) found.push(path);
     }
   }
@@ -77,10 +80,10 @@ async function filesWith(dir: string, key: string): Promise<string[]> {
 async function secretsOf(run: Run): Promise<Record<string, string>> {
   try {
     return JSON.parse(
-      await Deno.readTextFile(`${run.home}/${SECRET_FILE_NAME}`),
+      await readFile(`${run.home}/${SECRET_FILE_NAME}`, "utf8"),
     );
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return {};
+    if (errorCode(error) === "ENOENT") return {};
     throw error;
   }
 }
@@ -89,7 +92,7 @@ function suffixOf(id: string): string {
   return id.slice("pvd_".length);
 }
 
-Deno.test("device code 로그인이 발급자 간격을 지키고 secret 셋을 저장한다", async () => {
+test("device code 로그인이 발급자 간격을 지키고 secret 셋을 저장한다", async () => {
   await withFakes(async ({ run, fake, issuer, core }) => {
     const provider = core.ids.newId("pvd");
     const access = core.ids.newId("key");
@@ -123,38 +126,38 @@ Deno.test("device code 로그인이 발급자 간격을 지키고 secret 셋을 
     }, LOGIN_MS);
 
     // 1. 발급자: device 시작 하나, 간격 전 complete는 발급자에 묻지 않음, poll 둘은 간격 이상 떨어짐.
-    assertEquals(early.state, "pending");
-    assertEquals(tokenRequestsAtEarly, 0);
+    assert.deepStrictEqual(early.state, "pending");
+    assert.deepStrictEqual(tokenRequestsAtEarly, 0);
     const journal = issuer.journal();
-    assertEquals(
+    assert.deepStrictEqual(
       journal.filter((entry) => entry.path === "/device/code").length,
       1,
     );
     const polls = journal.filter((entry) => entry.path === "/token");
-    assertEquals(polls.length, 2);
-    assert(polls[1]!.at - polls[0]!.at >= started.interval_ms);
+    assert.deepStrictEqual(polls.length, 2);
+    assert.ok(polls[1]!.at - polls[0]!.at >= started.interval_ms);
 
     // 2. ledger: 연결된 oauth credential
     const { provider: record } = await core.call(providerRead, { provider });
-    assertEquals(record.credential.kind, "oauth");
-    assertEquals(record.credential.state, "available");
-    assertEquals(
+    assert.deepStrictEqual(record.credential.kind, "oauth");
+    assert.deepStrictEqual(record.credential.state, "available");
+    assert.deepStrictEqual(
       record.credential.secret_ref?.name,
       `provider.${suffixOf(provider)}`,
     );
-    assert(record.credential.expires_at !== null);
+    assert.ok(record.credential.expires_at !== null);
 
     // 3. disk: secret 셋
     await core.stop();
     const secrets = await secretsOf(run);
     const name = `provider.${suffixOf(provider)}`;
-    assertEquals(secrets[name], access);
-    assertEquals(secrets[`${name}.refresh`], refresh);
-    assert(secrets[`${name}.meta`] !== undefined);
+    assert.deepStrictEqual(secrets[name], access);
+    assert.deepStrictEqual(secrets[`${name}.refresh`], refresh);
+    assert.ok(secrets[`${name}.meta`] !== undefined);
   });
 });
 
-Deno.test("PKCE 로그인이 loopback callback으로 끝나고 code와 token이 secrets.json 밖에 남지 않는다", async () => {
+test("PKCE 로그인이 loopback callback으로 끝나고 code와 token이 secrets.json 밖에 남지 않는다", async () => {
   await withFakes(async ({ run, fake, issuer, core }) => {
     const provider = core.ids.newId("pvd");
     const access = core.ids.newId("key");
@@ -205,17 +208,17 @@ Deno.test("PKCE 로그인이 loopback callback으로 끝나고 code와 token이 
     }, LOGIN_MS);
 
     // 1. 발급자: code 교환에 verifier와 redirect_uri가 있고 jwks를 읽음
-    assertEquals(pending.state, "pending");
+    assert.deepStrictEqual(pending.state, "pending");
     const journal = issuer.journal();
     const exchange = journal.filter((entry) => entry.path === "/token");
-    assertEquals(exchange.length, 1);
+    assert.deepStrictEqual(exchange.length, 1);
     const form = exchange[0]!.form;
     const verifier = form["code_verifier"];
-    assertEquals(form["grant_type"], "authorization_code");
-    assertEquals(form["code"], code);
-    assertEquals(form["redirect_uri"], redirect);
-    assert(verifier !== undefined && verifier.length > 0);
-    assertEquals(
+    assert.deepStrictEqual(form["grant_type"], "authorization_code");
+    assert.deepStrictEqual(form["code"], code);
+    assert.deepStrictEqual(form["redirect_uri"], redirect);
+    assert.ok(verifier !== undefined && verifier.length > 0);
+    assert.deepStrictEqual(
       journal.filter((entry) =>
         entry.path === "/jwks" && entry.method === "GET"
       )
@@ -225,24 +228,24 @@ Deno.test("PKCE 로그인이 loopback callback으로 끝나고 code와 token이 
 
     // 2. ledger
     const { provider: record } = await core.call(providerRead, { provider });
-    assertEquals(record.credential.kind, "oauth");
-    assertEquals(record.credential.state, "available");
+    assert.deepStrictEqual(record.credential.kind, "oauth");
+    assert.deepStrictEqual(record.credential.state, "available");
 
     // 3. disk: secrets.json에는 있고 나머지(core.log 포함)에는 없다.
     await core.stop();
     const secrets = await secretsOf(run);
     const name = `provider.${suffixOf(provider)}`;
-    assertEquals(secrets[name], access);
-    assertEquals(secrets[`${name}.refresh`], refresh);
-    assert(secrets[`${name}.meta`] !== undefined);
-    assert(secrets["provider-oauth.host-id"] !== undefined);
+    assert.deepStrictEqual(secrets[name], access);
+    assert.deepStrictEqual(secrets[`${name}.refresh`], refresh);
+    assert.ok(secrets[`${name}.meta`] !== undefined);
+    assert.ok(secrets["provider-oauth.host-id"] !== undefined);
     for (const value of [code, verifier, access, refresh, idToken]) {
-      assertEquals(await filesWith(run.dir, value), []);
+      assert.deepStrictEqual(await filesWith(run.dir, value), []);
     }
   });
 });
 
-Deno.test("취소한 로그인의 callback listener가 닫힌다", async () => {
+test("취소한 로그인의 callback listener가 닫힌다", async () => {
   await withFakes(async ({ run, fake, issuer, core }) => {
     const provider = core.ids.newId("pvd");
     const started = await core.call(loginBegin, {
@@ -257,7 +260,7 @@ Deno.test("취소한 로그인의 callback listener가 닫힌다", async () => {
     await core.call(loginCancel, { provider, login: started.login });
 
     // 1. 연결: listener가 닫혀 있다.
-    await assertRejects(
+    await assert.rejects(
       () =>
         fetch(
           `${redirect}?${new URLSearchParams({
@@ -273,19 +276,19 @@ Deno.test("취소한 로그인의 callback listener가 닫힌다", async () => {
       provider,
       login: started.login,
     });
-    assert(!done.ok);
-    assertEquals(done.error.code, "not_found");
+    assert.ok(!done.ok);
+    assert.deepStrictEqual(done.error.code, "not_found");
     // 3. disk: 그 provider의 이름이 없다.
     await core.stop();
     const secrets = await secretsOf(run);
-    assertEquals(
+    assert.deepStrictEqual(
       Object.keys(secrets).filter((name) => name.startsWith("provider.")),
       [],
     );
   });
 });
 
-Deno.test("구독 token이 model 요청의 Bearer header로만 나간다", async () => {
+test("구독 token이 model 요청의 Bearer header로만 나간다", async () => {
   await withFakes(async ({ fake, issuer, core }) => {
     const { access, refresh } = await connectOAuthProvider(core, issuer, fake);
     const session = await openSession(core, { role: "lophn" });
@@ -295,22 +298,25 @@ Deno.test("구독 token이 model 요청의 Bearer header로만 나간다", async
 
     // 1. fake model: Bearer 하나, x-api-key 없음, 본문에 token 없음
     const [request, ...rest] = fake.journal();
-    assertEquals(rest, []);
-    assertEquals(request!.headers["authorization"], `Bearer ${access}`);
-    assertEquals(request!.headers["x-api-key"], undefined);
+    assert.deepStrictEqual(rest, []);
+    assert.deepStrictEqual(
+      request!.headers["authorization"],
+      `Bearer ${access}`,
+    );
+    assert.deepStrictEqual(request!.headers["x-api-key"], undefined);
     const body = JSON.stringify(request!.body);
-    assert(!body.includes(access) && !body.includes(refresh));
+    assert.ok(!body.includes(access) && !body.includes(refresh));
     // 2. ledger
-    assertEquals(turn.outcome?.kind, "completed");
+    assert.deepStrictEqual(turn.outcome?.kind, "completed");
     // 3. 발급자: 만료가 멀어 갱신하지 않고 로그인 요청뿐
     const grants = issuer.journal().filter((entry) => entry.path === "/token")
       .map((entry) => entry.form["grant_type"]);
-    assertEquals(grants.length, 1);
-    assert(!grants.includes("refresh_token"));
+    assert.deepStrictEqual(grants.length, 1);
+    assert.ok(!grants.includes("refresh_token"));
   });
 });
 
-Deno.test("만료가 가까우면 runtime이 청할 때 core가 먼저 갱신하고 회전한 값을 저장한다", async () => {
+test("만료가 가까우면 runtime이 청할 때 core가 먼저 갱신하고 회전한 값을 저장한다", async () => {
   await withFakes(async ({ run, fake, issuer, core }) => {
     const first = await connectOAuthProvider(core, issuer, fake, {
       expires_in: 60,
@@ -334,23 +340,26 @@ Deno.test("만료가 가까우면 runtime이 청할 때 core가 먼저 갱신하
     const refreshes = issuer.journal().filter((entry) =>
       entry.form["grant_type"] === "refresh_token"
     );
-    assertEquals(refreshes.length, 1);
-    assertEquals(refreshes[0]!.form["refresh_token"], first.refresh);
-    assertEquals(refreshes[0]!.form["client_id"], "e2e-client");
+    assert.deepStrictEqual(refreshes.length, 1);
+    assert.deepStrictEqual(refreshes[0]!.form["refresh_token"], first.refresh);
+    assert.deepStrictEqual(refreshes[0]!.form["client_id"], "e2e-client");
     // 2. fake model: 요청이 새 access를 싣는다(갱신이 요청보다 먼저).
     const requests = fake.journal();
-    assertEquals(requests.length, 1);
-    assertEquals(requests[0]!.headers["authorization"], `Bearer ${newAccess}`);
+    assert.deepStrictEqual(requests.length, 1);
+    assert.deepStrictEqual(
+      requests[0]!.headers["authorization"],
+      `Bearer ${newAccess}`,
+    );
     // 3. disk: 회전한 refresh와 새 access
     await core.stop();
     const secrets = await secretsOf(run);
     const name = `provider.${suffixOf(provider)}`;
-    assertEquals(secrets[`${name}.refresh`], newRefresh);
-    assertEquals(secrets[name], newAccess);
+    assert.deepStrictEqual(secrets[`${name}.refresh`], newRefresh);
+    assert.deepStrictEqual(secrets[name], newAccess);
   });
 });
 
-Deno.test("갱신이 거절되면 credential이 revoked이고 model 요청이 나가지 않는다", async () => {
+test("갱신이 거절되면 credential이 revoked이고 model 요청이 나가지 않는다", async () => {
   await withFakes(async ({ fake, issuer, core }) => {
     const { provider } = await connectOAuthProvider(core, issuer, fake, {
       expires_in: 60,
@@ -365,19 +374,22 @@ Deno.test("갱신이 거절되면 credential이 revoked이고 model 요청이 �
 
     // 1. ledger: credential revoked
     const { provider: record } = await core.call(providerRead, { provider });
-    assertEquals(record.credential.state, "revoked");
-    assertEquals(record.credential.unavailable_reason, "refresh_revoked");
+    assert.deepStrictEqual(record.credential.state, "revoked");
+    assert.deepStrictEqual(
+      record.credential.unavailable_reason,
+      "refresh_revoked",
+    );
     // 2. ledger: turn은 configuration_unavailable로 닫힌다.
-    assertEquals(turn.outcome, {
+    assert.deepStrictEqual(turn.outcome, {
       kind: "failed",
       reason: "configuration_unavailable",
     });
     // 3. fake model: 요청 없음
-    assertEquals(fake.journal().length, 0);
+    assert.deepStrictEqual(fake.journal().length, 0);
   });
 });
 
-Deno.test("구독 token은 route 출력과 secrets.json 밖 어디에도 남지 않는다", async () => {
+test("구독 token은 route 출력과 secrets.json 밖 어디에도 남지 않는다", async () => {
   await withFakes(async ({ run, fake, issuer, core }) => {
     const { provider, access, refresh, device_code } =
       await connectOAuthProvider(
@@ -398,13 +410,13 @@ Deno.test("구독 token은 route 출력과 secrets.json 밖 어디에도 남지 
       await core.call(secretStatus, {}),
     ]);
     for (const value of [access, refresh, device_code]) {
-      assert(!outputs.includes(value));
+      assert.ok(!outputs.includes(value));
     }
-    assert(outputs.includes(provider));
+    assert.ok(outputs.includes(provider));
     // 2. disk: core.log 포함 secrets.json 밖에 없다.
     await core.stop();
     for (const value of [access, refresh, device_code]) {
-      assertEquals(await filesWith(run.dir, value), []);
+      assert.deepStrictEqual(await filesWith(run.dir, value), []);
     }
   });
 });

@@ -10,7 +10,9 @@
 //
 // fake 대답은 없다. 앱이 없는 project 길이라 `appCoreEnv` 없이 `bootCore(run)`이다. 폴더와 파일은 사람이 editor로 저장하듯
 // 직접 쓴다.
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir, writeFile } from "node:fs/promises";
+import { test } from "node:test";
 import {
   domainCreate,
   domainFolder,
@@ -43,7 +45,7 @@ const INVALID_NOTE = "---\ntitle: a\n---\n";
 const found = (frame: { event: { type: string } }) =>
   frame.event.type === "KindViolationFound";
 
-Deno.test("E2E kind 파일이 가리키는 문서에 새 위반이 생기면 Gateway가 KindViolationFound 하나를 받고 session은 열리지 않으며, 켠 뒤 첫 sync가 본 위반은 알리지 않는다", async (t) => {
+test("E2E kind 파일이 가리키는 문서에 새 위반이 생기면 Gateway가 KindViolationFound 하나를 받고 session은 열리지 않으며, 켠 뒤 첫 sync가 본 위반은 알리지 않는다", async (t) => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -53,8 +55,8 @@ Deno.test("E2E kind 파일이 가리키는 문서에 새 위반이 생기면 Gat
     await connectFakeProvider(core, fake);
     const c = core;
     const folder = `${c.run.work}/notes-project`;
-    await Deno.mkdir(`${folder}/notes`, { recursive: true });
-    await Deno.writeTextFile(`${folder}/notes/a.md`, INVALID_NOTE);
+    await mkdir(`${folder}/notes`, { recursive: true });
+    await writeFile(`${folder}/notes/a.md`, INVALID_NOTE);
     const { project } = await openProject(c, folder, "notes-project");
     const g = gateway = await connectGateway(c, {
       conditions: [{ types: ["KindViolationFound"] }],
@@ -63,10 +65,10 @@ Deno.test("E2E kind 파일이 가리키는 문서에 새 위반이 생기면 Gat
     const total = async () =>
       (await c.call(kindCheck, { domain, query: {} })).total;
 
-    await t.step("first-sync-is-baseline", async () => {
+    await t.test("first-sync-is-baseline", async () => {
       // domain을 만들면 감시가 바로 sync해 기준을 잡는다. 파일을 먼저 둬야 위반이 있는 domain을 처음 sync하는 처지가 된다.
-      await Deno.mkdir(domainFolder(c.run.home, domain), { recursive: true });
-      await Deno.writeTextFile(domainKindsFile(c.run.home, domain), KINDS);
+      await mkdir(domainFolder(c.run.home, domain), { recursive: true });
+      await writeFile(domainKindsFile(c.run.home, domain), KINDS);
       await c.call(domainCreate, {
         id: domain,
         name: "notes",
@@ -84,7 +86,7 @@ Deno.test("E2E kind 파일이 가리키는 문서에 새 위반이 생기면 Gat
       // route: 문구(message)는 단정하지 않는다.
       const { violations } = await c.call(kindCheck, { domain, query: {} });
       const { message: _message, ...violation } = violations[0]!;
-      assertEquals(violation, {
+      assert.deepStrictEqual(violation, {
         source: "document",
         rule: "required",
         kind: "note",
@@ -92,7 +94,7 @@ Deno.test("E2E kind 파일이 가리키는 문서에 새 위반이 생기면 Gat
         field: "status",
       });
       // event
-      assertEquals(
+      assert.deepStrictEqual(
         g.frames().filter(
           (frame) => frame.type === "event" && found(frame),
         ),
@@ -100,8 +102,8 @@ Deno.test("E2E kind 파일이 가리키는 문서에 새 위반이 생기면 Gat
       );
     });
 
-    await t.step("new-violation-notifies-once", async () => {
-      await Deno.writeTextFile(`${folder}/notes/b.md`, INVALID_NOTE);
+    await t.test("new-violation-notifies-once", async () => {
+      await writeFile(`${folder}/notes/b.md`, INVALID_NOTE);
       // 감시에만 기대지 않는다. 감시는 힌트이고 놓쳐도 읽기 앞 sync가 따라잡는 것이 계약이다.
       await until(
         "새 위반이 보임",
@@ -113,9 +115,9 @@ Deno.test("E2E kind 파일이 가리키는 문서에 새 위반이 생기면 Gat
       // event
       const { event } = frame;
       if (event.type !== "KindViolationFound") throw new Error("다른 event");
-      assertEquals(event.subject, domain);
-      assertEquals(event.payload, { domain, count: 1 });
-      assertEquals(
+      assert.deepStrictEqual(event.subject, domain);
+      assert.deepStrictEqual(event.payload, { domain, count: 1 });
+      assert.deepStrictEqual(
         g.frames().filter((item) => item.type === "event" && found(item))
           .length,
         1,
@@ -124,9 +126,9 @@ Deno.test("E2E kind 파일이 가리키는 문서에 새 위반이 생기면 Gat
       const { sessions } = await c.call(agentSessionList, {
         agent: { role: "project_manager", project },
       });
-      assertEquals(sessions, []);
+      assert.deepStrictEqual(sessions, []);
       // fake: 어떤 turn도 model을 부르지 않았다.
-      assertEquals(fake.journal().length, 0);
+      assert.deepStrictEqual(fake.journal().length, 0);
     });
   } finally {
     await gateway?.close().catch(() => {});

@@ -2,7 +2,8 @@
 // - contract: boundary `agent-sessions`(compact는 원문을 대체하지 않는 derived이고 어느 쪽이든 원문과 session의 나머지는 바뀌지 않는다), `run-loop`(요청 event를 runtime이 집어 가는 왕복), `models`(요약 call).
 // - 현실적 회귀: 요약 실패가 이력을 지우거나 session을 망가뜨리는 것, 요약이 만들어졌는데 다음 요청이 옛 원문을 쓰는 것, 요청을 runtime이 집어 가지 못해 영영 열려 있는 것.
 // - 왜 지금 test로 못 잡나: compactor의 경우의 수는 harness가 맡지만 core의 요청 event를 child가 읽어 가고 `compactSession`/`failSessionCompact`로 돌아오는 왕복은 process를 건너야 한다.
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import {
   agentSessionRead,
   modelCallList,
@@ -71,18 +72,20 @@ const rows: Row[] = [
     async check(core, fake, session, first) {
       // ledger: 요약이 session에 이어지고 원문은 그대로다.
       const { session: read } = await core.call(agentSessionRead, { session });
-      assert(read.compaction, "compaction이 있어야 한다");
+      assert.ok(read.compaction, "compaction이 있어야 한다");
       const summary = await core.call(sessionSummary, { session });
-      assert(summary.text.includes("SUMMARY-MARK"));
+      assert.ok(summary.text.includes("SUMMARY-MARK"));
       const { messages } = await core.call(receivedMessageList, { session });
-      assert(messages.some((message) => message.id === first.message));
+      assert.ok(messages.some((message) => message.id === first.message));
       // fake: 다음 요청은 요약을 쓰고 옛 원문은 쓰지 않는다.
-      assert(bodyOf(fake, 3).includes("SUMMARY-MARK"));
-      assert(!bodyOf(fake, 3).includes("FIRST-MARK"));
+      assert.ok(bodyOf(fake, 3).includes("SUMMARY-MARK"));
+      assert.ok(!bodyOf(fake, 3).includes("FIRST-MARK"));
       // blob: 요약 call이 기록된다(turn 둘 + 요약 하나).
       const { calls } = await core.call(modelCallList, { session });
-      assertEquals(calls.length, 3);
-      assert(calls.some((call) => call.purpose === "conversation_compression"));
+      assert.deepStrictEqual(calls.length, 3);
+      assert.ok(
+        calls.some((call) => call.purpose === "conversation_compression"),
+      );
     },
   },
   {
@@ -101,23 +104,23 @@ const rows: Row[] = [
     async check(core, fake, session, _first, before) {
       // ledger: 요약이 없고 첫 turn의 메시지는 그대로다.
       const { session: read } = await core.call(agentSessionRead, { session });
-      assertEquals(read.compaction, null);
+      assert.deepStrictEqual(read.compaction, null);
       const { messages } = await core.call(receivedMessageList, { session });
-      assertEquals(
+      assert.deepStrictEqual(
         messages.slice(0, before.messages.length).map((message) => message.id),
         before.messages,
       );
       // fake: 다음 요청은 원문을 그대로 쓴다.
-      assert(bodyOf(fake, 3).includes("FIRST-MARK"));
+      assert.ok(bodyOf(fake, 3).includes("FIRST-MARK"));
       // process: runtime child는 그대로고 둘째 turn은 정상으로 끝났다.
-      assertEquals(await runtimePids(core.run.home), before.pids);
+      assert.deepStrictEqual(await runtimePids(core.run.home), before.pids);
       const second = (await turnsOf(core, session))[1];
-      assertEquals(second?.outcome?.kind, "completed");
+      assert.deepStrictEqual(second?.outcome?.kind, "completed");
     },
   },
 ];
 
-Deno.test("E2E compact는 성공하면 다음 요청이 요약을 쓰고 실패해도 원문과 대화가 그대로다", async () => {
+test("E2E compact는 성공하면 다음 요청이 요약을 쓰고 실패해도 원문과 대화가 그대로다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;

@@ -6,7 +6,10 @@
 //   scope가 유일한 방어라는 걸 잊고 느슨하게 하는 것.
 // - 왜 지금 test로 못 잡나: scope_test는 함수 입력만 본다. child process를 건너 실제 file tool이 도는 길은
 //   process를 띄워야 보인다.
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { lstat, mkdir, readFile, symlink } from "node:fs/promises";
+import { test } from "node:test";
+import { errorCode } from "../../packages/base/mod.ts";
 import { agentFilePathOf } from "../../packages/core/agent-roles/place/instruction-rules.ts";
 import { toolCallList } from "../../packages/protocol/lophn-agent/mod.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
@@ -21,18 +24,18 @@ import { startFakeServer } from "../support/fake-server/mod.ts";
 
 async function digest(path: string): Promise<string | null> {
   try {
-    const bytes = await Deno.readFile(path);
+    const bytes = new Uint8Array(await readFile(path));
     const hash = await crypto.subtle.digest("SHA-256", bytes);
     return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0"))
       .join("");
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return null;
+    if (errorCode(error) === "ENOENT") return null;
     throw error;
   }
 }
 
 async function exists(path: string): Promise<boolean> {
-  return await Deno.lstat(path).then(() => true, () => false);
+  return await lstat(path).then(() => true, () => false);
 }
 
 type Row = {
@@ -57,8 +60,8 @@ async function scope(
     const proj = `${run.work}/proj`;
     const other = `${run.work}/other`;
     const outside = `${run.work}/outside`;
-    for (const dir of [proj, other, outside]) await Deno.mkdir(dir);
-    await Deno.symlink(outside, `${proj}/link`);
+    for (const dir of [proj, other, outside]) await mkdir(dir);
+    await symlink(outside, `${proj}/link`);
     const { project } = await openProject(core, proj);
     await openProject(core, other);
     const session = await openSession(core, {
@@ -70,7 +73,7 @@ async function scope(
       operator: null,
       place: { kind: "project", id: project },
     });
-    assert(definition !== null);
+    assert.ok(definition !== null);
     const paths = {
       secrets: `${run.home}/secrets.json`,
       settings: `${run.home}/settings.json`,
@@ -80,7 +83,7 @@ async function scope(
     };
     const guarded = [paths.secrets, paths.settings, paths.definition];
     const before = await Promise.all(guarded.map(digest));
-    assert(before[0] !== null && before[1] !== null);
+    assert.ok(before[0] !== null && before[1] !== null);
 
     const table = rounds(paths);
     const calls = table.flat();
@@ -101,8 +104,8 @@ async function scope(
     const turn = await waitTurnEnd(core, session);
 
     // disk
-    assertEquals(await Promise.all(guarded.map(digest)), before);
-    assertEquals(
+    assert.deepStrictEqual(await Promise.all(guarded.map(digest)), before);
+    assert.deepStrictEqual(
       await Promise.all(
         [paths.derived, paths.other, `${outside}/leak.md`, `${proj}/note.md`]
           .map(exists),
@@ -114,7 +117,7 @@ async function scope(
     const { tool_calls: recorded } = await core.call(toolCallList, {
       turn: turn.id,
     });
-    assertEquals(
+    assert.deepStrictEqual(
       Object.fromEntries(recorded.map((c) => [c.response_key, c.outcome])),
       Object.fromEntries(calls.map((call) => [
         call.id,
@@ -126,7 +129,7 @@ async function scope(
 
     // fake가 받은 요청: 마지막 요청에 앞선 round의 결과까지 쌓여 있어, 낸 call id 전부가 tool_result로 돌아왔는지 본다.
     const journal = fake.journal();
-    assertEquals(journal.length, table.length + 1);
+    assert.deepStrictEqual(journal.length, table.length + 1);
     const body = journal[journal.length - 1].body as {
       messages: { role: string; content: unknown }[];
     };
@@ -137,7 +140,10 @@ async function scope(
         ) => block.tool_use_id)
         : []
     );
-    assertEquals(returned.sort(), calls.map((call) => call.id).sort());
+    assert.deepStrictEqual(
+      returned.sort(),
+      calls.map((call) => call.id).sort(),
+    );
   } finally {
     await core?.kill().catch(() => {});
     await fake.close();
@@ -153,7 +159,7 @@ type Paths = {
   definition: string;
 };
 
-Deno.test("E2E PM은 Deno 권한이 열린 data root의 비밀과 설정을 읽거나 쓰지 못하고, project 폴더에는 쓴다", async () => {
+test("E2E PM은 Deno 권한이 열린 data root의 비밀과 설정을 읽거나 쓰지 못하고, project 폴더에는 쓴다", async () => {
   await scope((p): Row[][] => [
     [
       {
@@ -190,7 +196,7 @@ Deno.test("E2E PM은 Deno 권한이 열린 data root의 비밀과 설정을 읽�
   ], { note: true });
 });
 
-Deno.test("E2E PM은 다른 project 폴더와 자기 agent 정의 file에 쓰지 못한다", async () => {
+test("E2E PM은 다른 project 폴더와 자기 agent 정의 file에 쓰지 못한다", async () => {
   await scope((p): Row[][] => [
     [{
       id: "t-other-project",
@@ -207,7 +213,7 @@ Deno.test("E2E PM은 다른 project 폴더와 자기 agent 정의 file에 쓰지
   ], { note: false });
 });
 
-Deno.test("E2E PM은 project 폴더 안 symlink를 따라 밖에 쓰지 못한다", async () => {
+test("E2E PM은 project 폴더 안 symlink를 따라 밖에 쓰지 못한다", async () => {
   await scope((): Row[][] => [[{
     id: "t-symlink-out",
     name: "file_write",

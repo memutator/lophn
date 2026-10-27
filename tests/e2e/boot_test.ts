@@ -9,7 +9,10 @@
 //   손상된 ledger를 "고치려고" 덮어쓰는 것.
 // - 왜 지금 test로 못 잡나: 위 첫 test는 정상 종료와 SIGKILL 뒤 재기동만 본다. 둘째 instance, 요청이 열린 채 끄기, 손상 ledger는
 //   process 둘 이상이나 시작 실패 frame이 필요해 unit이 없다(base에 instance lock test가 없다).
-import { assert, assertEquals, assertRejects } from "@std/assert";
+import assert from "node:assert/strict";
+import { readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { test } from "node:test";
+import { errorCode } from "../../packages/base/mod.ts";
 import { platformStatus } from "../../packages/protocol/server/mod.ts";
 import {
   receivedMessageList,
@@ -34,7 +37,7 @@ import {
   startFakeServer,
 } from "../support/fake-server/mod.ts";
 
-Deno.test("E2E core는 실행 폴더의 data root만 쓰고, 정리하면 흔적이 남지 않는다", async () => {
+test("E2E core는 실행 폴더의 data root만 쓰고, 정리하면 흔적이 남지 않는다", async () => {
   const run = await createRun();
   let core: Core | undefined;
   const statuses = [];
@@ -46,16 +49,19 @@ Deno.test("E2E core는 실행 폴더의 data root만 쓰고, 정리하면 흔적
     core = await bootCore(run);
     statuses.push(await core.call(platformStatus, {}));
     await core.stop();
-    assertEquals(await processesOf(run.home), []);
+    assert.deepStrictEqual(await processesOf(run.home), []);
   } finally {
     await core?.kill().catch(() => {});
     await run.remove();
   }
   for (const status of statuses) {
-    assert(status.ready);
-    assertEquals(status.data_root, run.home);
+    assert.ok(status.ready);
+    assert.deepStrictEqual(status.data_root, run.home);
   }
-  await assertRejects(() => Deno.stat(run.dir), Deno.errors.NotFound);
+  await assert.rejects(
+    () => stat(run.dir),
+    (error: unknown) => errorCode(error) === "ENOENT",
+  );
 });
 
 const WAIT_MS = 30_000;
@@ -121,7 +127,7 @@ async function bootWithOpenRequest(
   return core;
 }
 
-Deno.test("같은 data root에 둘째 core는 시작하지 못하고 첫째의 data와 위치 metadata는 그대로다", async () => {
+test("같은 data root에 둘째 core는 시작하지 못하고 첫째의 data와 위치 metadata는 그대로다", async () => {
   await withCore(async ({ run, fake, boot, track }) => {
     fake.script([{ reply: { kind: "text", text: "hi" } }]);
     const first = await boot();
@@ -131,7 +137,7 @@ Deno.test("같은 data root에 둘째 core는 시작하지 못하고 첫째의 d
     await waitTurnEnd(first, session);
     const location = `${run.home}/run/location.json`;
     const processes = await processesOf(run.home);
-    const metadata = await Deno.readFile(location);
+    const metadata = await readFile(location);
     const messages =
       (await first.call(receivedMessageList, { session })).messages.length;
     const turns = (await first.call(turnList, { session })).turns.length;
@@ -140,75 +146,83 @@ Deno.test("같은 data root에 둘째 core는 시작하지 못하고 첫째의 d
     if (second.ok) track(second.core);
 
     // process: 둘째는 시작 실패로 끝나고 child를 남기지 않는다.
-    assert(!second.ok);
-    assert(second.exit !== 0);
-    assertEquals(await processesOf(run.home), processes);
+    assert.ok(!second.ok);
+    assert.ok(second.exit !== 0);
+    assert.deepStrictEqual(await processesOf(run.home), processes);
     // disk: 위치 metadata는 첫째 것 그대로다.
-    assertEquals(await Deno.readFile(location), metadata);
-    assertEquals(
+    assert.deepStrictEqual(await readFile(location), metadata);
+    assert.deepStrictEqual(
       JSON.parse(new TextDecoder().decode(metadata)).api_port,
       Number(new URL(first.baseUrl).port),
     );
     // ledger: 첫째가 아직 자기 data를 본다.
-    assert((await first.call(platformStatus, {})).ready);
-    assertEquals(
+    assert.ok((await first.call(platformStatus, {})).ready);
+    assert.deepStrictEqual(
       (await first.call(receivedMessageList, { session })).messages.length,
       messages,
     );
-    assertEquals((await first.call(turnList, { session })).turns.length, turns);
+    assert.deepStrictEqual(
+      (await first.call(turnList, { session })).turns.length,
+      turns,
+    );
   });
 });
 
-Deno.test("model 요청이 열린 채 정상 종료하면 child와 요청이 남지 않고 위치 metadata가 지워진다", async () => {
+test("model 요청이 열린 채 정상 종료하면 child와 요청이 남지 않고 위치 metadata가 지워진다", async () => {
   await withCore(async (env) => {
     const core = await bootWithOpenRequest(env);
     await core.stop();
 
     // fake: core가 요청을 놓았다.
     await within("요청이 끊김", env.fake.aborted(1));
-    assertEquals(env.fake.journal().length, 1);
+    assert.deepStrictEqual(env.fake.journal().length, 1);
     // process: stop()이 child까지 없는 것을 확인했다.
-    assertEquals(await processesOf(env.run.home), []);
+    assert.deepStrictEqual(await processesOf(env.run.home), []);
     // disk: 정상 종료에서만 지운다.
-    await assertRejects(
-      () => Deno.stat(`${env.run.home}/run/location.json`),
-      Deno.errors.NotFound,
+    await assert.rejects(
+      () => stat(`${env.run.home}/run/location.json`),
+      (error: unknown) => errorCode(error) === "ENOENT",
     );
   });
 });
 
-Deno.test("model 요청이 열린 채 SIGKILL을 맞아도 child가 요청을 놓고 다시 시작한다", async () => {
+test("model 요청이 열린 채 SIGKILL을 맞아도 child가 요청을 놓고 다시 시작한다", async () => {
   await withCore(async (env) => {
     const core = await bootWithOpenRequest(env);
     await core.kill();
 
     await within("요청이 끊김", env.fake.aborted(1));
-    assertEquals(await processesOf(env.run.home), []);
+    assert.deepStrictEqual(await processesOf(env.run.home), []);
     const again = await env.boot();
-    assert((await again.call(platformStatus, {})).ready);
+    assert.ok((await again.call(platformStatus, {})).ready);
   });
 });
 
-Deno.test("손상된 ledger로는 시작을 거절하고 원본을 그대로 둔다", async () => {
+test("손상된 ledger로는 시작을 거절하고 원본을 그대로 둔다", async () => {
   await withCore(async ({ run, boot }) => {
     const core = await boot();
     await core.stop();
     const ledger = `${run.home}/lophn.db`;
-    await Deno.writeFile(
+    await writeFile(
       ledger,
       new TextEncoder().encode("garbage ".repeat(500)),
     );
     for (const sidecar of ["-wal", "-shm"]) {
-      await Deno.remove(ledger + sidecar).catch(() => {});
+      await rm(ledger + sidecar).catch(() => {});
     }
     const sha256 = async () =>
       new Uint8Array(
-        await crypto.subtle.digest("SHA-256", await Deno.readFile(ledger)),
+        await crypto.subtle.digest(
+          "SHA-256",
+          new Uint8Array(await readFile(ledger)),
+        ),
       );
     const before = await sha256();
     const names = async () => {
       const found: string[] = [];
-      for await (const entry of Deno.readDir(run.home)) found.push(entry.name);
+      for (const entry of await readdir(run.home, { withFileTypes: true })) {
+        found.push(entry.name);
+      }
       return found.filter((name) => name.endsWith(".db")).sort();
     };
     const dbs = await names();
@@ -216,13 +230,13 @@ Deno.test("손상된 ledger로는 시작을 거절하고 원본을 그대로 둔
     const second = await tryBootCore(run);
 
     // frame
-    assert(!second.ok);
-    assertEquals(second.reason, "damaged_original");
-    assert(second.exit !== 0);
+    assert.ok(!second.ok);
+    assert.deepStrictEqual(second.reason, "damaged_original");
+    assert.ok(second.exit !== 0);
     // disk
-    assertEquals(await sha256(), before);
-    assertEquals(await names(), dbs);
+    assert.deepStrictEqual(await sha256(), before);
+    assert.deepStrictEqual(await names(), dbs);
     // process
-    assertEquals(await processesOf(run.home), []);
+    assert.deepStrictEqual(await processesOf(run.home), []);
   });
 });

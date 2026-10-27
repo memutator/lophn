@@ -1,6 +1,8 @@
 // 앱 전용 data worker 작업 한 번을 별도 Deno 자식(`packages/core/main/worker/data-job.ts`)으로 돌린다.
 // lophn 자신의 코드라 권한을 좁히지 않는다: 좁힌 flag는 막는 것이 없고, Deno의 `node:*`가 권한을 더 요구하면
 // 이 자식만 깨진다. supervisor와 core는 앱 DB를 열지 않는다: 이 자식이 종료 확인 뒤의 DB를 단독으로 연다.
+import { spawn } from "node:child_process";
+import process from "node:process";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { decodeActivationDataJobInput } from "../../../protocol/apps/mod.ts";
 
@@ -33,35 +35,47 @@ export function createChildDataRunner(options: {
       if (input.app !== app) {
         return err({ code: "invalid_input", message: "data job is invalid" });
       }
-      const child = new Deno.Command(options.deno(), {
-        clearEnv: true,
+      // Node는 env를 주면 부모 환경을 통째로 대체한다(Deno의 clearEnv와 같다).
+      const child = spawn(options.deno(), [
+        "run",
+        "--quiet",
+        "--no-prompt",
+        `--config=${REPO}/deno.json`,
+        "--allow-all",
+        JOB,
+        options.dataRoot,
+      ], {
         env: {
-          ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
+          ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
           DENO_DIR: options.denoDir,
         },
-        args: [
-          "run",
-          "--quiet",
-          "--no-prompt",
-          `--config=${REPO}/deno.json`,
-          "--allow-all",
-          JOB,
-          options.dataRoot,
-        ],
-        stdin: "piped",
-        stdout: "piped",
-        stderr: "null",
-      }).spawn();
+        stdio: ["pipe", "pipe", "ignore"],
+      });
       const timer = setTimeout(() => {
         try {
           child.kill("SIGKILL");
         } catch { /* 이미 끝났다 */ }
       }, options.limitMs ?? JOB_LIMIT_MS);
       try {
-        const writer = child.stdin.getWriter();
-        await writer.write(new TextEncoder().encode(line));
-        await writer.close();
-        const output = await child.output();
+        const output = await new Promise<{
+          stdout: Uint8Array;
+          success: boolean;
+        }>((resolve, reject) => {
+          const chunks: Buffer[] = [];
+          // spawn 실패(ENOENT 등)의 'error'를 받지 않으면 process 전체가 죽는다.
+          child.on("error", reject);
+          child.stdout!.on("data", (chunk: Buffer) => chunks.push(chunk));
+          child.on("close", (code, signal) => {
+            resolve({
+              stdout: Buffer.concat(chunks),
+              success: code === 0 && signal === null,
+            });
+          });
+          // 자식이 입력을 다 읽기 전에 끝나면 stdin 쓰기가 EPIPE로 실패한다. 그 실패는
+          // 종료 상태로 판정하고 process를 죽이지 않는다.
+          child.stdin!.on("error", () => {});
+          child.stdin!.end(line);
+        });
         const text = new TextDecoder().decode(output.stdout).trim();
         return output.success && text !== ""
           ? ok(`${text.split("\n").at(-1)}\n`)

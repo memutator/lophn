@@ -1,6 +1,7 @@
 // preview 자식의 broker 서비스 조립. 외부에 닿는 서비스(net·secret)는 모두 대역이다. 선언은 그 bundle의
 // 고정 선언이 정하고 grant는 없다. 운영 자식의 broker와 hub를 나눠서 한 앱의 운영 정지·회수가
 // preview의 연결을 막지 않고 그 반대도 같다.
+import { readFile } from "node:fs/promises";
 import {
   type BrokerServices,
   createReadyService,
@@ -26,8 +27,9 @@ export async function previewScopeFromBundle(info: {
   if (at < 0) return CLOSED_SCOPE;
   const root = info.dataPath.slice(0, at);
   try {
-    const text = await Deno.readTextFile(
+    const text = await readFile(
       `${root}/apps/${info.app}/bundles/${info.bundleHash}/declaration.json`,
+      "utf8",
     );
     const declaration = JSON.parse(text) as { permissions?: unknown };
     if (!Array.isArray(declaration.permissions)) return CLOSED_SCOPE;

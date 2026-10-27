@@ -48,7 +48,8 @@ import {
   type PlaceFiles,
 } from "../../agent-roles/place/place-data.ts";
 import { isAbsolute } from "node:path";
-import { lstat, open, readdir } from "node:fs/promises";
+import { lstat, mkdir, open, readdir } from "node:fs/promises";
+import process from "node:process";
 import { listArtifactEntries } from "../../agent-roles/place/artifact-list.ts";
 import { placeDataFolder } from "../../agent-roles/place/data-folder.ts";
 import { domainFolder } from "../../../protocol/domains/paths.ts";
@@ -142,7 +143,7 @@ function productToolkit(options: {
 
 // domain 폴더는 data root(LOPHN_HOME) 아래에 있다. 절대 path가 아니면 폴더를 알 수 없어 범위에서 빠진다.
 function placeFiles(): PlaceFiles {
-  const home = Deno.env.get("LOPHN_HOME");
+  const home = process.env.LOPHN_HOME;
   const root = home !== undefined && isAbsolute(home) ? home : null;
   return {
     domainFolder: (domain) => root === null ? null : domainFolder(root, domain),
@@ -150,7 +151,9 @@ function placeFiles(): PlaceFiles {
       root === null ? null : placeDataFolder(root, place as never),
     workflowsFolder: (project) =>
       root === null ? null : workflowsFolder(root, project),
-    ensureDir: (path) => Deno.mkdir(path, { recursive: true }),
+    ensureDir: async (path) => {
+      await mkdir(path, { recursive: true });
+    },
     listArtifacts: (folder) =>
       listArtifactEntries(folder, {
         readdir,

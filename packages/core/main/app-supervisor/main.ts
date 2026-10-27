@@ -1,6 +1,8 @@
 // 공유 앱 supervisor 진입점. core가 platform 신뢰 child 감독 pipe로 띄운다.
 // credential은 hello frame 한 번으로만 받고 argv·환경에는 없다. 자식 앱에는 supervisor의
 // machine credential을 주지 않고 자식마다 core가 발급한 app credential을 준다.
+import { mkdirSync, rmSync } from "node:fs";
+import process from "node:process";
 import { createIdSource, systemClock } from "../../../base/mod.ts";
 import { encodeFrame } from "../../../protocol/base/mod.ts";
 import {
@@ -55,7 +57,7 @@ const port: { value: number } = { value: 0 };
 // 이전 자식이 남긴 socket 파일은 종료 확인 뒤에 지운다.
 const slots = new Map<string, number>();
 // socket 폴더는 data root마다 나뉘므로 core와 같은 LOPHN_HOME이 있어야 한다.
-const dataRoot = Deno.env.get("LOPHN_HOME");
+const dataRoot = process.env.LOPHN_HOME;
 let socketDirectory: string | undefined;
 // 앱의 broker·control socket 자리. 자리는 앱마다 한 번 정하고 계속 쓴다. 파일은 건드리지 않는다.
 function placeOf(app: string): { broker: string; control: string } {
@@ -68,10 +70,10 @@ function placeOf(app: string): { broker: string; control: string } {
   if (dataRoot === undefined) throw new Error("LOPHN_HOME is not set");
   const created = createSocketDirectory({
     dataRoot,
-    xdgRuntimeDir: Deno.env.get("XDG_RUNTIME_DIR"),
-    uid: Deno.uid() ?? 0,
-    ensureDir: (path, mode) => Deno.mkdirSync(path, { recursive: true, mode }),
-    tempParent: Deno.env.get("TMPDIR") ?? "/tmp",
+    xdgRuntimeDir: process.env.XDG_RUNTIME_DIR,
+    uid: process.getuid?.() ?? 0,
+    ensureDir: (path, mode) => mkdirSync(path, { recursive: true, mode }),
+    tempParent: process.env.TMPDIR ?? "/tmp",
     randomName: () => "slot",
   });
   if (!created.ok) throw new Error(created.error.message);
@@ -86,7 +88,7 @@ function socketPathsOf(app: string): { broker: string; control: string } {
   const made = placeOf(app);
   for (const path of [made.broker, made.control]) {
     try {
-      Deno.removeSync(path);
+      rmSync(path);
     } catch { /* 없으면 지울 것이 없다 */ }
   }
   return made;
@@ -96,7 +98,7 @@ function socketPathsOf(app: string): { broker: string; control: string } {
 function removeSocketDirectory(): void {
   if (socketDirectory === undefined) return;
   try {
-    Deno.removeSync(socketDirectory, { recursive: true });
+    rmSync(socketDirectory, { recursive: true });
   } catch { /* 이미 없으면 지울 것이 없다 */ }
 }
 
@@ -116,7 +118,7 @@ const preparation = dataRoot === undefined
   ? undefined
   : createPreparationService(createChildPreparationRunner({
     dataRoot,
-    deno: () => Deno.env.get("LOPHN_DENO") ?? Deno.execPath(),
+    deno: () => process.env.LOPHN_DENO ?? Deno.execPath(),
   }));
 
 const assembled = assembleSupervisor({
@@ -126,9 +128,9 @@ const assembled = assembleSupervisor({
   ...(dataRoot === undefined ? {} : {
     data: createChildDataRunner({
       dataRoot,
-      deno: () => Deno.env.get("LOPHN_DENO") ?? Deno.execPath(),
-      denoDir: Deno.env.get("DENO_DIR") ??
-        `${Deno.env.get("HOME") ?? "/tmp"}/.cache/deno`,
+      deno: () => process.env.LOPHN_DENO ?? Deno.execPath(),
+      denoDir: process.env.DENO_DIR ??
+        `${process.env.HOME ?? "/tmp"}/.cache/deno`,
     }),
   }),
   clock: systemClock,
@@ -136,14 +138,14 @@ const assembled = assembleSupervisor({
     clock: systemClock,
     random: { fill: (bytes: Uint8Array) => crypto.getRandomValues(bytes) },
   }),
-  deno: () => Deno.env.get("LOPHN_DENO") ?? Deno.execPath(),
+  deno: () => process.env.LOPHN_DENO ?? Deno.execPath(),
   environment: {
-    ...(Deno.env.get("HOME") ? { home: Deno.env.get("HOME") } : {}),
-    ...(Deno.env.get("DENO_DIR") ? { denoDir: Deno.env.get("DENO_DIR") } : {}),
-    ...(Deno.env.get("XDG_CACHE_HOME")
-      ? { xdgCacheHome: Deno.env.get("XDG_CACHE_HOME") }
+    ...(process.env.HOME ? { home: process.env.HOME } : {}),
+    ...(process.env.DENO_DIR ? { denoDir: process.env.DENO_DIR } : {}),
+    ...(process.env.XDG_CACHE_HOME
+      ? { xdgCacheHome: process.env.XDG_CACHE_HOME }
       : {}),
-    ...(Deno.env.get("PATH") ? { path: Deno.env.get("PATH") } : {}),
+    ...(process.env.PATH ? { path: process.env.PATH } : {}),
   },
   socketPaths: socketPathsOf,
   nonce: () => crypto.randomUUID(),
@@ -189,7 +191,7 @@ const stopOnce = () => stopping ??= assembled.supervisor.stop();
 const shutdown = () => {
   void stopOnce().finally(() => {
     removeSocketDirectory();
-    Deno.exit(0);
+    process.exit(0);
   });
 };
 Deno.addSignalListener("SIGINT", shutdown);
@@ -207,7 +209,7 @@ installCrashHandler({
   },
   stderr: Deno.stderr.writable,
   redact: (text) => text,
-  exit: Deno.exit,
+  exit: process.exit,
   // 앱 정지 유예(10초)와 강제 종료 확인이 들어갈 시간이다.
   deadlineMs: 15_000,
 });
@@ -216,4 +218,4 @@ await link.closed;
 assembled.shutdown();
 removeSocketDirectory();
 // 열린 timer(관측·ready 기한)가 남아 있어도 core가 끝난 supervisor는 끝낸다.
-Deno.exit(0);
+process.exit(0);

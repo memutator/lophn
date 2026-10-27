@@ -1,3 +1,4 @@
+import process from "node:process";
 import { err, ok, type Result, systemClock } from "../../../base/mod.ts";
 import type { ChildMessage } from "../../../protocol/supervision/mod.ts";
 import { createRpcClient } from "../../../protocol/client/mod.ts";
@@ -402,7 +403,7 @@ async function readCatalogAutoUpdate(machine: CoreCall): Promise<boolean> {
 // derived 위치의 root. core의 resolveDataRoot와 같은 근원(env)에서 결정한다.
 function runtimeDataRoot(injected?: string): string | undefined {
   if (injected !== undefined && injected.length > 0) return injected;
-  const lophnHome = Deno.env.get("LOPHN_HOME");
+  const lophnHome = process.env.LOPHN_HOME;
   if (lophnHome !== undefined && lophnHome.length > 0) return lophnHome;
   return undefined;
 }
@@ -475,7 +476,7 @@ if (import.meta.main) {
   });
   if (!started.ok) {
     console.error(`agent runtime: ${redact(started.error.message)}`);
-    Deno.exit(1);
+    process.exit(1);
   }
   const runtime = started.value;
   const uninstallCrash = installCrashHandler({
@@ -483,15 +484,15 @@ if (import.meta.main) {
     write: runtime.reportInternal,
     stderr: Deno.stderr.writable,
     redact,
-    exit: Deno.exit,
+    exit: process.exit,
   });
   const stop = () => {
     uninstallCrash();
-    void runtime.shutdown().then(() => Deno.exit(0));
+    void runtime.shutdown().then(() => process.exit(0));
   };
   Deno.addSignalListener("SIGINT", stop);
   Deno.addSignalListener("SIGTERM", stop);
   await runtime.done;
   uninstallCrash();
-  Deno.exit(0);
+  process.exit(0);
 }

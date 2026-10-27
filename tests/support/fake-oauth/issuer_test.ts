@@ -5,7 +5,8 @@
 // - 왜 지금 test로 못 잡나: login_test.ts·oauth-refresh_test.ts는 발급자를 함수 인자로 가짜로 만든다. 발급자 요청이
 //   core 대기열 → runtime child의 pump → HTTP로 가는 길은 process를 건너야만 돈다.
 
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { createFakeIssuerHandler } from "./mod.ts";
 
 const GRANT = "urn:ietf:params:oauth:grant-type:device_code";
@@ -23,7 +24,7 @@ function base64url(value: string): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
 
-Deno.test("fake 발급자가 device 로그인과 서명한 id_token을 낸다", async () => {
+test("fake 발급자가 device 로그인과 서명한 id_token을 낸다", async () => {
   const issuer = createFakeIssuerHandler();
   issuer.script({
     device: { device_code: "dev-1", user_code: "ABCD" },
@@ -68,21 +69,24 @@ Deno.test("fake 발급자가 device 로그인과 서명한 id_token을 낸다", 
   const empty = await issuer.handle(form("/token", poll));
   const emptyBody = await empty.json();
 
-  assertEquals(
+  assert.deepStrictEqual(
     [started.device_code, started.verification_uri, started.interval],
     ["dev-1", `${issuer.url}/verify`, 0.1],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     [pending.status, pendingBody.error, done.access_token, done.refresh_token],
     [400, "authorization_pending", "a-1", "r-1"],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     [verified, claims.iss, claims.aud, claims.nonce, jwks.keys[0].kid],
     [true, issuer.url, "e2e-client", "n-1", "e2e"],
   );
-  assertEquals([empty.status, emptyBody.error], [400, "invalid_request"]);
+  assert.deepStrictEqual([empty.status, emptyBody.error], [
+    400,
+    "invalid_request",
+  ]);
   const journal = issuer.journal();
-  assertEquals(
+  assert.deepStrictEqual(
     journal.map((entry) => [entry.n, entry.path, entry.step]),
     [[1, "/device/code", 0], [2, "/token", 0], [3, "/token", 1], [
       4,
@@ -90,9 +94,9 @@ Deno.test("fake 발급자가 device 로그인과 서명한 id_token을 낸다", 
       null,
     ], [5, "/token", null]],
   );
-  assertEquals(journal[1]!.form["device_code"], "dev-1");
-  assertEquals(journal[4]!.mismatch, emptyBody.error_description);
-  assertEquals(
+  assert.deepStrictEqual(journal[1]!.form["device_code"], "dev-1");
+  assert.deepStrictEqual(journal[4]!.mismatch, emptyBody.error_description);
+  assert.deepStrictEqual(
     journal.every((entry, i) => i === 0 || entry.at >= journal[i - 1]!.at),
     true,
   );

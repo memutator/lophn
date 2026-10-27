@@ -1,5 +1,7 @@
 // 녹화 재생 fetch. provider 응답을 file이나 인라인 case로 돌려주고 받은 요청을 기록한다.
 // 요청은 fixture에 저장하지 않는다(응답만 사람이 diff를 보고 commit한다).
+import { readFileSync } from "node:fs";
+import { errorCode } from "../../../packages/base/mod.ts";
 
 // 저장 꼴: `<provider>/<case>.sse`(SSE 본문 그대로) 또는 `.json`(JSON 본문 그대로),
 // 선택 `<case>.meta.json` = {status?, headers?, disconnect?}. live-suite가 같은 꼴로 저장한다.
@@ -24,9 +26,9 @@ const ROOT = new URL("../../fixtures/provider/", import.meta.url);
 
 function readOptional(url: URL): string | null {
   try {
-    return Deno.readTextFileSync(url);
+    return readFileSync(url, "utf8");
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return null;
+    if (errorCode(error) === "ENOENT") return null;
     throw error;
   }
 }

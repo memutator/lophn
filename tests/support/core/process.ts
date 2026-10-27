@@ -1,8 +1,17 @@
+import { spawn } from "node:child_process";
+import { createWriteStream } from "node:fs";
+import { readdir, readFile } from "node:fs/promises";
+import process from "node:process";
+import { pipeline } from "node:stream/promises";
+import {
+  fromReadable,
+  toWriter,
+} from "../../../packages/core/supervision/responsiveness/pipe.ts";
+import { FrameDecoder } from "../../../packages/protocol/base/mod.ts";
 import {
   coreToMainMessageSchema,
   type MainHello,
 } from "../../../packages/protocol/supervision/mod.ts";
-import { FrameDecoder } from "../../../packages/protocol/base/mod.ts";
 
 export const HELLO_TIMEOUT_MS = 30_000;
 const GONE_TIMEOUT_MS = 15_000;
@@ -15,7 +24,7 @@ export type Spawned = {
   hello: MainHello;
   /** stdin을 닫는다. core가 정상 종료를 시작한다. */
   closeStdin(): Promise<void>;
-  signal(signal: Deno.Signal): void;
+  signal(signal: NodeJS.Signals): void;
   /** daemon이 끝나고 stdout·stderr pipe가 닫힌 뒤 돌아온다. */
   exited: Promise<void>;
 };
@@ -31,16 +40,16 @@ export type SpawnFailed = {
 const FIXED_ENV = ["LOPHN_HOME", "HOME", "PATH"];
 
 function denoDir(): string {
-  const set = Deno.env.get("DENO_DIR");
+  const set = process.env["DENO_DIR"];
   if (set) return set;
-  const cache = Deno.env.get("XDG_CACHE_HOME") ??
-    `${Deno.env.get("HOME")}/.cache`;
+  const cache = process.env["XDG_CACHE_HOME"] ??
+    `${process.env["HOME"]}/.cache`;
   return `${cache}/deno`;
 }
 
 export async function tail(path: string): Promise<string> {
   try {
-    return (await Deno.readTextFile(path)).slice(-2000);
+    return (await readFile(path, "utf8")).slice(-2000);
   } catch {
     return "";
   }
@@ -58,36 +67,37 @@ export async function spawnCore(
   for (const name of FIXED_ENV) {
     if (name in env) throw new Error(`core env ${name}는 덮을 수 없다`);
   }
-  const command = new Deno.Command(Deno.execPath(), {
-    args: [
-      "run",
-      "--allow-all",
-      `${repo}/packages/core/main/daemon/main.ts`,
-      "--port=0",
-    ],
+  // Deno.execPath()는 자기를 다시 띄우는 자리라 node-flip 계획이 바꾼다.
+  const child = spawn(Deno.execPath(), [
+    "run",
+    "--allow-all",
+    `${repo}/packages/core/main/daemon/main.ts`,
+    "--port=0",
+  ], {
     cwd: repo,
-    clearEnv: true,
+    // Deno의 clearEnv처럼 부모 env를 물려주지 않는다. Deno의 node:child_process는 env를 줘도
+    // 부모의 NODE_V8_COVERAGE를 자식에 복사해서(실측) 그 이름을 막아 둔다.
     env: {
+      NODE_V8_COVERAGE: undefined,
       LOPHN_HOME: home,
       HOME: userHome,
-      PATH: Deno.env.get("PATH") ?? "",
+      PATH: process.env["PATH"] ?? "",
       DENO_DIR: denoDir(),
       ...env,
     },
-    stdin: "piped",
-    stdout: "piped",
-    stderr: "piped",
+    stdio: ["pipe", "pipe", "pipe"],
   });
-  const child = command.spawn();
-  const log = await Deno.open(logPath, {
-    create: true,
-    append: true,
-    write: true,
-    mode: 0o600,
+  // spawn 실패('error')에는 exit event가 없으니 error도 끝으로 센다.
+  const exitCode = new Promise<number | null>((resolve) => {
+    child.on("exit", (code) => resolve(code));
+    child.on("error", () => resolve(null));
   });
-  const logged = child.stderr.pipeTo(log.writable);
-  const stdin = child.stdin.getWriter();
-  const reader = child.stdout.getReader();
+  const log = createWriteStream(logPath, { flags: "a", mode: 0o600 });
+  const logged = pipeline(child.stderr!, log).catch(() => {});
+  const stdin = toWriter(child.stdin!);
+  // Deno 2.9.7의 node:child_process stdout은 paused mode에서 'readable'이 프로세스가 끝나야 온다.
+  // fromReadable은 'data'로 받아 core가 살아 있는 동안에도 hello frame을 읽는다.
+  const stdout = fromReadable(child.stdout!);
   const decoder = new FrameDecoder();
 
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -98,10 +108,11 @@ export async function spawnCore(
     );
   });
   const readHello = async (): Promise<MainHello | SpawnFailed> => {
+    const buffer = new Uint8Array(64 * 1024);
     for (;;) {
-      const next = await reader.read();
-      if (next.done) throw new Error("hello 전에 core stdout이 닫혔다");
-      for (const frame of decoder.push(next.value)) {
+      const count = await stdout.read(buffer);
+      if (count === null) throw new Error("hello 전에 core stdout이 닫혔다");
+      for (const frame of decoder.push(buffer.subarray(0, count))) {
         if (frame.kind !== "json") continue;
         const message = coreToMainMessageSchema.parse(frame.payload);
         if ("user_token" in message) return message;
@@ -116,9 +127,9 @@ export async function spawnCore(
     hello = await Promise.race([readHello(), timeout]);
   } catch (error) {
     child.kill("SIGKILL");
-    await child.status;
-    reader.releaseLock();
-    await logged.catch(() => {});
+    await exitCode;
+    stdout.cancel();
+    await logged;
     throw new Error(
       `${
         error instanceof Error ? error.message : error
@@ -134,7 +145,7 @@ export async function spawnCore(
     // 시작에 실패한 core는 스스로 끝나야 한다. SIGKILL에 기대면 정리 경로를 못 본다.
     let giveUp: ReturnType<typeof setTimeout> | undefined;
     const code = await Promise.race([
-      child.status.then((status) => status.code),
+      exitCode,
       new Promise<null>((resolve) => {
         giveUp = setTimeout(() => resolve(null), GONE_TIMEOUT_MS);
       }),
@@ -142,36 +153,38 @@ export async function spawnCore(
     clearTimeout(giveUp);
     if (code === null) {
       child.kill("SIGKILL");
-      await child.status;
+      await exitCode;
     }
-    await stdin.close().catch(() => {});
-    await reader.cancel().catch(() => {});
-    await logged.catch(() => {});
+    await stdin.close();
+    stdout.cancel();
+    await logged;
     return { ...hello, exit: code };
   }
 
   // 이후 stdout을 계속 비운다. 안 읽으면 pipe가 차서 core가 막힌다.
   const drained = (async () => {
+    const buffer = new Uint8Array(64 * 1024);
     try {
       for (;;) {
-        const next = await reader.read();
-        if (next.done) return;
+        if (await stdout.read(buffer) === null) return;
       }
     } catch {
       // core가 죽으면 pipe 오류로 끝난다.
     }
   })();
   const exited = (async () => {
-    await child.status;
-    await Promise.all([drained, logged.catch(() => {})]);
+    await exitCode;
+    await Promise.all([drained, logged]);
   })();
   return {
     ok: true,
     hello,
     async closeStdin() {
-      await stdin.close().catch(() => {});
+      await stdin.close();
     },
-    signal: (signal) => child.kill(signal),
+    signal: (signal) => {
+      child.kill(signal);
+    },
     exited,
   };
 }
@@ -180,10 +193,12 @@ export async function spawnCore(
 export async function processesOf(home: string): Promise<number[]> {
   const wanted = `LOPHN_HOME=${home}`;
   const found: number[] = [];
-  for await (const entry of Deno.readDir("/proc")) {
+  for (
+    const entry of await readdir("/proc", { withFileTypes: true })
+  ) {
     if (!/^\d+$/.test(entry.name)) continue;
     try {
-      const environ = await Deno.readFile(`/proc/${entry.name}/environ`);
+      const environ = await readFile(`/proc/${entry.name}/environ`);
       const entries = new TextDecoder().decode(environ).split("\0");
       if (entries.includes(wanted)) found.push(Number(entry.name));
     } catch {
@@ -206,7 +221,7 @@ export async function waitGone(
     if (Date.now() > deadline) {
       for (const pid of left) {
         try {
-          Deno.kill(pid, "SIGKILL");
+          process.kill(pid, "SIGKILL");
         } catch {
           // 그 사이 끝났다.
         }
@@ -222,7 +237,7 @@ export async function runtimePids(home: string): Promise<number[]> {
   const found: number[] = [];
   for (const pid of await processesOf(home)) {
     try {
-      const argv = await Deno.readTextFile(`/proc/${pid}/cmdline`);
+      const argv = await readFile(`/proc/${pid}/cmdline`, "utf8");
       if (argv.includes("agent-runtime/main.ts")) found.push(pid);
     } catch {
       // 그 사이 끝났다.

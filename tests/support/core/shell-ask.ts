@@ -1,4 +1,6 @@
 // 제품 기본 ask 규칙 `rm -r*`에 걸리는 명령이라 attended turn에서 늘 묻고, 미리 만든 폴더라 실행 여부가 disk에 남는다.
+import { mkdir, stat } from "node:fs/promises";
+import { errorCode } from "../../../packages/base/mod.ts";
 import type { Reply } from "../fake-server/mod.ts";
 
 export type ShellAsk = {
@@ -14,7 +16,7 @@ export async function shellAsk(
   name = "victim",
 ): Promise<ShellAsk> {
   const dir = `${folder}/${name}`;
-  await Deno.mkdir(dir, { recursive: true });
+  await mkdir(dir, { recursive: true });
   const command = `rm -r ${name}`;
   return {
     dir,
@@ -29,10 +31,10 @@ export async function shellAsk(
     }),
     exists: async () => {
       try {
-        await Deno.stat(dir);
+        await stat(dir);
         return true;
       } catch (error) {
-        if (error instanceof Deno.errors.NotFound) return false;
+        if (errorCode(error) === "ENOENT") return false;
         throw error;
       }
     },

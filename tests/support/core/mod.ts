@@ -1,7 +1,19 @@
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readdir,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { z } from "zod";
 import {
   createIdSource,
   cryptoRandom,
+  errorCode,
   type IdSource,
   type Result,
   systemClock,
@@ -20,7 +32,7 @@ import { spawnCore, tail, waitGone } from "./process.ts";
 const SETTINGS_FILE = "settings.json";
 
 export type Run = {
-  /** 시스템 임시 폴더의 lophn-e2e-<Deno.makeTempDir가 정한 이름> */
+  /** 시스템 임시 폴더의 lophn-e2e-<mkdtemp가 붙인 이름> */
   dir: string;
   /** dir/home. LOPHN_HOME(0700) */
   home: string;
@@ -82,30 +94,30 @@ export class CallError extends Error {
 export async function createRun(): Promise<Run> {
   // worktree 안(.claude/worktrees/<이름>/.dev-data/...)은 app test의 Unix socket 경로가 108자(SUN_LEN)를 넘는다.
   // 그래서 run은 짧은 경로의 시스템 임시 폴더에 둔다.
-  const dir = await Deno.makeTempDir({ prefix: "lophn-e2e-" });
+  const dir = await mkdtemp(join(tmpdir(), "lophn-e2e-"));
   const home = `${dir}/home`;
   const work = `${dir}/work`;
-  await Deno.mkdir(home, { mode: 0o700 });
-  await Deno.mkdir(work);
-  await Deno.mkdir(`${dir}/user-home`);
+  await mkdir(home, { mode: 0o700 });
+  await mkdir(work);
+  await mkdir(`${dir}/user-home`);
   return { dir, home, work, remove: () => removeDir(dir) };
 }
 
 // core가 깐 sdk 사본이 읽기 전용(폴더 0555)이라 폴더마다 쓰기 권한을 돌려준 뒤 지운다.
 async function removeDir(dir: string): Promise<void> {
   async function open(directory: string): Promise<void> {
-    await Deno.chmod(directory, 0o755);
-    for await (const entry of Deno.readDir(directory)) {
-      if (entry.isDirectory) await open(`${directory}/${entry.name}`);
+    await chmod(directory, 0o755);
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      if (entry.isDirectory()) await open(`${directory}/${entry.name}`);
     }
   }
   try {
     await open(dir);
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return;
+    if (errorCode(error) === "ENOENT") return;
     throw error;
   }
-  await Deno.remove(dir, { recursive: true });
+  await rm(dir, { recursive: true });
 }
 
 const rpcFetch: RpcFetch = async (input, init) => {
@@ -131,17 +143,14 @@ async function writeSettings(
 ): Promise<void> {
   const path = `${run.home}/${SETTINGS_FILE}`;
   try {
-    await Deno.stat(path);
+    await stat(path);
     return;
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
+    if (errorCode(error) !== "ENOENT") throw error;
   }
   // 선언 안 된 key가 하나라도 있으면 file 전체가 거절된다. models.dev 요청은 끈다.
   const body = { "lophn-agent.model.catalog_auto_update": false, ...settings };
-  await Deno.writeTextFile(path, JSON.stringify(body), {
-    create: true,
-    mode: 0o600,
-  });
+  await writeFile(path, JSON.stringify(body), { mode: 0o600 });
 }
 
 export type BootOptions = {

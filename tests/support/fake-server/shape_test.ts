@@ -4,7 +4,8 @@
 // - 왜 지금 test로 못 잡나: server_test는 "adapter가 complete로 읽는다"까지만 본다. 실제 stream과 같은 종류인지는 fixture와 견주지 않으면 모른다.
 // fixture는 손으로 만든 것이다. `test:live` 녹화본으로 같은 이름을 대체하면 진짜 값을 갖는다.
 
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { loadFixture } from "../wire/mod.ts";
 import { createFakeHandler, type Reply } from "./mod.ts";
 
@@ -42,16 +43,16 @@ const rows: [string, string, Reply][] = [
   ["cut", "anthropic/cut-no-stop", { kind: "cut", partial: { text: "Part" } }],
 ];
 
-Deno.test("fake server가 내는 SSE의 event 종류가 fixture와 같다", async () => {
+test("fake server가 내는 SSE의 event 종류가 fixture와 같다", async () => {
   for (const [label, name, reply] of rows) {
     const expected = shape(loadFixture(name).body);
     const actual = shape(await serve(reply));
-    assertEquals(actual.names, expected.names, `${label} event 순서`);
-    assertEquals(actual.types, expected.types, `${label} data.type`);
+    assert.deepStrictEqual(actual.names, expected.names, `${label} event 순서`);
+    assert.deepStrictEqual(actual.types, expected.types, `${label} data.type`);
   }
 });
 
-Deno.test("raw로 fixture 본문을 그대로 낼 수 있다", async () => {
+test("raw로 fixture 본문을 그대로 낼 수 있다", async () => {
   const fixture = loadFixture("anthropic/max-tokens");
   const body = await serve({
     kind: "raw",
@@ -59,5 +60,5 @@ Deno.test("raw로 fixture 본문을 그대로 낼 수 있다", async () => {
     headers: fixture.headers ?? {},
     chunks: [fixture.body],
   });
-  assertEquals(body, fixture.body);
+  assert.deepStrictEqual(body, fixture.body);
 });

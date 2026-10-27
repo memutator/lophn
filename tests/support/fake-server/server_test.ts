@@ -8,7 +8,8 @@
 // - 현실적 회귀: 함수가 던져 server가 죽거나 test가 hang하는 것, 줄 구분이 흔들려 한 agent가 다른 agent의 대답을 받는 것, 줄 추가가 기본 줄 동작을 바꾸는 것.
 // - 왜 지금 test로 못 잡나: 위 첫 test는 값 대답과 queue 하나만 본다.
 
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import {
   applyFrames,
   createStreamResult,
@@ -41,7 +42,7 @@ async function read(response: Response) {
   return { verdict: judge(out).kind, text: out.text, tools: out.toolCalls };
 }
 
-Deno.test("fake server 응답을 adapter parser가 제 모양대로 판정한다", async () => {
+test("fake server 응답을 adapter parser가 제 모양대로 판정한다", async () => {
   const text = await read((await ask({ kind: "text", text: "안녕" })).response);
   const args = '{"path":"a.txt"}';
   const tool = await read(
@@ -55,11 +56,11 @@ Deno.test("fake server 응답을 adapter parser가 제 모양대로 판정한다
   );
   const empty = await ask(null);
 
-  assertEquals(
+  assert.deepStrictEqual(
     [text.verdict, text.text, tool.verdict, tool.tools[0]?.args],
     ["complete", "안녕", "complete", args],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     [cut.verdict, empty.response.status, empty.fake.journal()[0]?.mismatch],
     ["partial", 400, "no scripted reply left for request 1"],
   );
@@ -77,7 +78,7 @@ function post(
   );
 }
 
-Deno.test("함수 대답은 앞 tool 결과의 id를 잇고, 줄은 대답을 가르고, 던진 함수는 400이다", async () => {
+test("함수 대답은 앞 tool 결과의 id를 잇고, 줄은 대답을 가르고, 던진 함수는 400이다", async () => {
   const ticket = "tkt_0123456789abcdefghjkmnpqrs";
   const fake = createFakeHandler();
   fake.script([{
@@ -120,7 +121,7 @@ Deno.test("함수 대답은 앞 tool 결과의 id를 잇고, 줄은 대답을 �
   }]);
   const threw = await post(fake, {});
 
-  assertEquals(
+  assert.deepStrictEqual(
     [
       fake.journal().slice(0, 3).map((e) => [e.lane, e.step]),
       chained.tools[0]?.args,

@@ -1,3 +1,4 @@
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { manualClock, ok } from "../../../packages/base/mod.ts";
 import {
@@ -36,7 +37,7 @@ export function writeFileTool(root: string): HarnessTool {
     effect: "write",
     async run(args) {
       const { path } = args as { path: string };
-      await Deno.writeTextFile(join(root, path), "written");
+      await writeFile(join(root, path), "written");
       return { status: "success", code: "ok", summary: "written" };
     },
   };

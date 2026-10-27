@@ -1,5 +1,5 @@
 import { readFile, stat } from "node:fs/promises";
-import { errorCode, ok, type Result } from "../../../../base/mod.ts";
+import { ok, type Result } from "../../../../base/mod.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import { continuation } from "../bundles/paging.ts";
 import { fitJson } from "../result.ts";
@@ -40,9 +40,6 @@ export async function readPdf(
     }
     bytes = await readFile(at.value.path);
   } catch (error) {
-    if (errorCode(error) === "ENOENT") {
-      return fail("not_found", "file not found");
-    }
     return fsFail(error);
   }
   // pdf.js가 넘긴 buffer를 가져가 길이가 0이 된다.

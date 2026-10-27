@@ -1,4 +1,6 @@
 // 앱 템플릿의 파일 묶음. 템플릿은 상대 경로와 byte의 묶음이고 별도 상태가 없다.
+import { readdir, readFile } from "node:fs/promises";
+
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { SourceFile } from "../vendor.ts";
 
@@ -43,16 +45,16 @@ export async function readTemplateDirectory(
 ): Promise<Result<TemplateFile[], TemplateFailure>> {
   const files: TemplateFile[] = [];
   async function visit(dir: string, prefix: string): Promise<void> {
-    for await (const entry of Deno.readDir(dir)) {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
-      if (entry.isDirectory) await visit(`${dir}/${entry.name}`, path);
-      else if (entry.isFile) {
+      if (entry.isDirectory()) await visit(`${dir}/${entry.name}`, path);
+      else if (entry.isFile()) {
         const name = options.stripSuffix && path.endsWith(SUFFIX)
           ? path.slice(0, -SUFFIX.length)
           : path;
         files.push({
           path: name,
-          bytes: await Deno.readFile(`${dir}/${entry.name}`),
+          bytes: await readFile(`${dir}/${entry.name}`),
         });
       }
     }

@@ -1,7 +1,9 @@
 // 템플릿에서 앱 source 폴더를 준비한다. 파일을 그대로 복사하고 앱 이름·제목만 채운다. 이미 있는 파일은 덮지
 // 않고 빠진 파일만 채운다. 개발용 import map은 이 장치의 설치 SDK 위치를 담으므로 앱 source가 아니라
 // `.lophn/`(ignore)에 두고, 파생물이라 늘 다시 쓴다.
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import { lstat, mkdir, readFile, writeFile } from "node:fs/promises";
+
+import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import type { TemplateFailure, TemplateFile } from "./files.ts";
 import { devImportMap } from "./import-map.ts";
 
@@ -58,10 +60,10 @@ function fill(path: string, text: string, app: string, title: string): string {
 
 async function exists(path: string): Promise<boolean> {
   try {
-    await Deno.lstat(path);
+    await lstat(path);
     return true;
   } catch (thrown) {
-    if (thrown instanceof Deno.errors.NotFound) return false;
+    if (errorCode(thrown) === "ENOENT") return false;
     throw thrown;
   }
 }
@@ -82,7 +84,7 @@ export async function scaffoldApp(
       const target = `${input.dir}/${file.path}`;
       if (await exists(target)) continue;
       const slash = target.lastIndexOf("/");
-      await Deno.mkdir(target.slice(0, slash), { recursive: true });
+      await mkdir(target.slice(0, slash), { recursive: true });
       const bytes = TEXT.test(file.path)
         ? new TextEncoder().encode(
           fill(
@@ -93,17 +95,17 @@ export async function scaffoldApp(
           ),
         )
         : file.bytes;
-      await Deno.writeFile(target, bytes);
+      await writeFile(target, bytes);
       written.push(file.path);
     }
     let devMap: string | null = null;
     if (input.dataRoot !== undefined) {
       // 이미 있는 폴더면 그 deno.json이 정본이다.
       const config = JSON.parse(
-        await Deno.readTextFile(`${input.dir}/deno.json`),
+        await readFile(`${input.dir}/deno.json`, "utf8"),
       ) as { imports?: Record<string, string> };
-      await Deno.mkdir(`${input.dir}/.lophn`, { recursive: true });
-      await Deno.writeTextFile(
+      await mkdir(`${input.dir}/.lophn`, { recursive: true });
+      await writeFile(
         `${input.dir}/${DEV_IMPORT_MAP_PATH}`,
         JSON.stringify(
           devImportMap(config.imports ?? {}, input.dataRoot, input.dir),

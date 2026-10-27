@@ -1,5 +1,5 @@
 import { readFile as readBytes, stat } from "node:fs/promises";
-import { errorCode, ok, type Result } from "../../../../base/mod.ts";
+import { ok, type Result } from "../../../../base/mod.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import { openableKind } from "../../../../protocol/projects/openable-format.ts";
 import { continuation } from "../bundles/paging.ts";
@@ -27,9 +27,6 @@ export async function readFile(
     }
     bytes = await readBytes(at.value.path);
   } catch (error) {
-    if (errorCode(error) === "ENOENT") {
-      return fail("not_found", "file not found");
-    }
     return fsFail(error);
   }
   let text: string;

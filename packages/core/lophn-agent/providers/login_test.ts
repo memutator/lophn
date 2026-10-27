@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { err, ok, seededRandom } from "../../../base/mod.ts";
 import type { ProviderDefinition } from "../../../protocol/lophn-agent/mod.ts";
 import type { Writer } from "../../storage/ledger/mod.ts";
@@ -217,16 +218,16 @@ async function attempt(c: Case) {
   };
 }
 
-Deno.test("ChatGPT 로그인은 검증이 틀리거나 연결이 실패하면 secret과 provider를 남기지 않는다", async () => {
+test("ChatGPT 로그인은 검증이 틀리거나 연결이 실패하면 secret과 provider를 남기지 않는다", async () => {
   const good = await attempt({ name: "맞는 callback", expected: "connected" });
-  assertEquals(good.code, "connected");
-  assertEquals(good.tokens.sort(), [
+  assert.deepStrictEqual(good.code, "connected");
+  assert.deepStrictEqual(good.tokens.sort(), [
     "provider.01h455vb4pex5v6nkc6gd5fd12",
     "provider.01h455vb4pex5v6nkc6gd5fd12.meta",
     "provider.01h455vb4pex5v6nkc6gd5fd12.refresh",
   ]);
   const input = good.connects[0]?.input as Record<string, unknown>;
-  assertEquals(
+  assert.deepStrictEqual(
     [input.auth_kind, input.credential, input.expires_at],
     [
       "oauth",
@@ -264,7 +265,7 @@ Deno.test("ChatGPT 로그인은 검증이 틀리거나 연결이 실패하면 se
   ];
   for (const c of refused) {
     const got = await attempt(c);
-    assertEquals(
+    assert.deepStrictEqual(
       [c.name, got.code, got.tokens, got.connects.length],
       [c.name, c.expected, [], c.connect === undefined ? 0 : 1],
     );

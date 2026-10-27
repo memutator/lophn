@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { err, ok } from "../../../base/mod.ts";
 import type { RequestContext, Sql, Tx } from "../../../protocol/server/mod.ts";
@@ -26,7 +27,7 @@ function setup(expiresAtMs: number) {
   const tx = { now: () => at(NOW), sql } as unknown as Tx;
   const commands = createProviderCommands();
   const definition = builtinProviderDefinition("openai");
-  assert(definition.ok);
+  assert.ok(definition.ok);
   const connected = commands.connect.handle(
     tx,
     { actor: "user" } as RequestContext,
@@ -42,7 +43,7 @@ function setup(expiresAtMs: number) {
     } as never,
     undefined as never,
   );
-  assert(connected.ok);
+  assert.ok(connected.ok);
   const secrets = new Map([
     [ACCESS, "OLD-ACCESS"],
     [`${ACCESS}.refresh`, "OLD-REFRESH"],
@@ -50,7 +51,7 @@ function setup(expiresAtMs: number) {
   ]);
   const read = () => {
     const found = loadProvider(sql, ID);
-    assert(found.ok && found.value !== null);
+    assert.ok(found.ok && found.value !== null);
     return found.value;
   };
   // models: 계정 model 목록 GET의 답이다(없으면 발급자 대기열이 닿지 못한 것처럼 던진다).
@@ -113,7 +114,7 @@ const use = {
   destination: { kind: "https" as const, origin: "https://api.openai.com" },
 };
 
-Deno.test("갱신은 회전한 refresh token을 저장하고, invalid_grant면 credential을 revoked로 하고 token을 내주지 않는다", async () => {
+test("갱신은 회전한 refresh token을 저장하고, invalid_grant면 credential을 revoked로 하고 token을 내주지 않는다", async () => {
   // 만료 1분 전: 회전한 refresh와 새 access를 저장하고 만료를 올린다.
   const rotated = setup(NOW + 60_000);
   const fresh = await rotated.refresher(Response.json({
@@ -121,8 +122,8 @@ Deno.test("갱신은 회전한 refresh token을 저장하고, invalid_grant면 c
     refresh_token: "NEW-REFRESH",
     expires_in: 3600,
   })).prepareToken(use);
-  assertEquals(fresh, ok(undefined));
-  assertEquals(
+  assert.deepStrictEqual(fresh, ok(undefined));
+  assert.deepStrictEqual(
     [
       rotated.secrets.get(ACCESS),
       rotated.secrets.get(`${ACCESS}.refresh`),
@@ -137,9 +138,12 @@ Deno.test("갱신은 회전한 refresh token을 저장하고, invalid_grant면 c
   const refused = await dead.refresher(
     Response.json({ error: "invalid_grant" }, { status: 400 }),
   ).prepareToken(use);
-  assertEquals(refused?.ok === false && refused.error.code, "forbidden");
+  assert.deepStrictEqual(
+    refused?.ok === false && refused.error.code,
+    "forbidden",
+  );
   const credential = dead.read().credential;
-  assertEquals(
+  assert.deepStrictEqual(
     [credential.state, credential.unavailable_reason],
     ["revoked", "refresh_revoked"],
   );
@@ -150,13 +154,13 @@ Deno.test("갱신은 회전한 refresh token을 저장하고, invalid_grant면 c
     access_token: "NEW-ACCESS",
     refresh_token: "NEW-REFRESH",
   })).prepareToken(use);
-  assertEquals(
+  assert.deepStrictEqual(
     [untouched, later.secrets.get(`${ACCESS}.refresh`), later.read().revision],
     [undefined, "OLD-REFRESH", 1],
   );
 });
 
-Deno.test("갱신하면 계정 model 목록이 저장되고, 읽기가 틀려도 갱신은 성공하며 앞서 저장한 목록이 남는다", async () => {
+test("갱신하면 계정 model 목록이 저장되고, 읽기가 틀려도 갱신은 성공하며 앞서 저장한 목록이 남는다", async () => {
   const token = () =>
     Response.json({ access_token: "A", refresh_token: "R", expires_in: 3600 });
   const listed = () =>
@@ -170,18 +174,18 @@ Deno.test("갱신하면 계정 model 목록이 저장되고, 읽기가 틀려도
   const kept = ["gpt-5", "gpt-5-mini"];
   const t = setup(NOW + 60_000);
   const first = t.refresher(token(), listed);
-  assertEquals(await first.prepareToken(use), ok(undefined));
+  assert.deepStrictEqual(await first.prepareToken(use), ok(undefined));
   await first.idle();
-  assertEquals(t.read().credential.reported_models, kept);
+  assert.deepStrictEqual(t.read().credential.reported_models, kept);
 
   // 다시 갱신할 때 읽기가 던지거나 모양이 틀려도 token은 새로 저장되고 목록은 그대로다.
   for (const broken of [undefined, () => Response.json({ nope: 1 })]) {
     t.secrets.set(ACCESS, "OLD-ACCESS");
     t.expire(NOW + 60_000);
     const again = t.refresher(token(), broken);
-    assertEquals(await again.prepareToken(use), ok(undefined));
+    assert.deepStrictEqual(await again.prepareToken(use), ok(undefined));
     await again.idle();
-    assertEquals(t.secrets.get(ACCESS), "A");
-    assertEquals(t.read().credential.reported_models, kept);
+    assert.deepStrictEqual(t.secrets.get(ACCESS), "A");
+    assert.deepStrictEqual(t.read().credential.reported_models, kept);
   }
 });

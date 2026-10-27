@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { err, ok } from "../../../base/mod.ts";
 import { routePath } from "../../../protocol/base/mod.ts";
 import {
@@ -79,7 +80,7 @@ const choice = (model_name: string) => ({
 
 // 직접 적은 이름은 provider가 알려 준 목록이 찾기용일 때 받고 기본 한계로 돈다. 구독 계정의 허락 목록만
 // 그 밖의 이름을 거절한다. 이 규칙이 틀리면 사람이 적은 model이 막히거나 계정이 못 쓰는 model로 turn이 간다.
-Deno.test("직접 적은 이름은 받고, 구독 OAuth 계정의 허락 목록 밖 이름만 거절한다", async () => {
+test("직접 적은 이름은 받고, 구독 OAuth 계정의 허락 목록 밖 이름만 거절한다", async () => {
   const cases: {
     definition: string;
     account: Account;
@@ -122,18 +123,18 @@ Deno.test("직접 적은 이름은 받고, 구독 OAuth 계정의 허락 목록 
     const bound = await resolverFor(row.definition, row.account)({
       model: choice(row.name),
     });
-    assertEquals(bound.ok, row.accepted, JSON.stringify(bound));
+    assert.deepStrictEqual(bound.ok, row.accepted, JSON.stringify(bound));
     if (bound.ok) {
-      assertEquals(bound.value.call.limits.context_limit, 131072);
+      assert.deepStrictEqual(bound.value.call.limits.context_limit, 131072);
       if (row.listed !== undefined) {
-        assertEquals(
+        assert.deepStrictEqual(
           (bound.value.call.catalog_basis as Record<string, string>)
             .model_listed,
           row.listed,
         );
       }
     } else {
-      assertEquals(bound.error.code, "not_found");
+      assert.deepStrictEqual(bound.error.code, "not_found");
     }
   }
 });

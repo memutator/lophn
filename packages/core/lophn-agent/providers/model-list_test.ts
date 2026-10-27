@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
 import {
   type ProviderRecord,
@@ -46,7 +47,7 @@ function custom(): ProviderRecord {
 
 // 목록 읽기가 실패하면 앞서 저장한 reported_models가 그대로이고, 성공하면 새 목록으로 바뀐다.
 // key는 요청 header에만 간다.
-Deno.test("custom provider 목록 읽기는 실패하면 앞 목록을 남기고 성공하면 바꾼다", async () => {
+test("custom provider 목록 읽기는 실패하면 앞 목록을 남기고 성공하면 바꾼다", async () => {
   let record = custom();
   const sent: { url: string; authorization: string | null }[] = [];
   let answer: () => Response = () =>
@@ -98,23 +99,23 @@ Deno.test("custom provider 목록 읽기는 실패하면 앞 목록을 남기고
   for (const [name, fail] of failures) {
     answer = fail;
     const done = await refresh();
-    assert(!done.ok && done.error.code === "unavailable", name);
-    assertEquals(record.credential.reported_models, ["old"], name);
+    assert.ok(!done.ok && done.error.code === "unavailable", name);
+    assert.deepStrictEqual(record.credential.reported_models, ["old"], name);
   }
 
   answer = () => Response.json({ data: [{ id: "b" }, { id: "a" }] });
   const done = await refresh();
-  assert(done.ok);
-  assertEquals(record.credential.reported_models, ["a", "b"]);
-  assertEquals(sent.at(-1), {
+  assert.ok(done.ok);
+  assert.deepStrictEqual(record.credential.reported_models, ["a", "b"]);
+  assert.deepStrictEqual(sent.at(-1), {
     url: "http://127.0.0.1:9000/v1/models",
     authorization: "Bearer SECRET-KEY",
   });
 
   // 내장 provider는 읽지 않는다.
   const builtin = builtinProviderDefinition("anthropic");
-  assert(builtin.ok);
+  assert.ok(builtin.ok);
   record = { ...custom(), definition: builtin.value } as ProviderRecord;
   const refused = await refresh();
-  assert(!refused.ok && refused.error.code === "invalid_input");
+  assert.ok(!refused.ok && refused.error.code === "invalid_input");
 });

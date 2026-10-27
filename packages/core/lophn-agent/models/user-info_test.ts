@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { err, ok } from "../../../base/mod.ts";
 import { routePath } from "../../../protocol/base/mod.ts";
@@ -72,7 +73,7 @@ const catalogEntry = (context_limit: number): CatalogEntry => ({
   source: "models_dev",
 });
 
-Deno.test("저장한 user 정보는 catalog가 바뀌어도 같은 열쇠의 catalog 항목을 이긴다", () => {
+test("저장한 user 정보는 catalog가 바뀌어도 같은 열쇠의 catalog 항목을 이긴다", () => {
   const { db, sql, tx, commands } = open();
   try {
     const saved = commands.saveUserInfo.handle(tx, user, {
@@ -80,7 +81,7 @@ Deno.test("저장한 user 정보는 catalog가 바뀌어도 같은 열쇠의 cat
       model_name: MODEL,
       info: info({ context_limit: 1_000_000 }),
     }, { seq: "0" });
-    assert(saved.ok);
+    assert.ok(saved.ok);
     // refresh 앞뒤로 derived catalog의 내용이 달라도 사람이 적은 항목이 남는다.
     for (const catalogContext of [8000, 64000]) {
       const read = createCatalogRead({
@@ -93,17 +94,17 @@ Deno.test("저장한 user 정보는 catalog가 바뀌어도 같은 열쇠의 cat
         user,
         { provider_definition: DEFINITION },
       );
-      assert(result.ok);
-      assertEquals(result.value.entries.length, 1);
-      assertEquals(result.value.entries[0].source, "user");
-      assertEquals(result.value.entries[0].context_limit, 1_000_000);
+      assert.ok(result.ok);
+      assert.deepStrictEqual(result.value.entries.length, 1);
+      assert.deepStrictEqual(result.value.entries[0].source, "user");
+      assert.deepStrictEqual(result.value.entries[0].context_limit, 1_000_000);
     }
   } finally {
     db.close();
   }
 });
 
-Deno.test("user 항목의 effort 값은 저장 검사를 통과해 chat 요청의 reasoning_effort가 되고 안 적은 한도는 기본값이다", async () => {
+test("user 항목의 effort 값은 저장 검사를 통과해 chat 요청의 reasoning_effort가 되고 안 적은 한도는 기본값이다", async () => {
   const { db, sql, tx, commands } = open();
   try {
     const choice = {
@@ -112,7 +113,7 @@ Deno.test("user 항목의 effort 값은 저장 검사를 통과해 chat 요청�
       option_values: { effort: "maximum" },
     };
     // 정보를 적기 전에는 effort를 고를 수 없다.
-    assertEquals(
+    assert.deepStrictEqual(
       commands.changeDefault.handle(tx, user, { default: choice }, {})
         .ok,
       false,
@@ -123,8 +124,8 @@ Deno.test("user 항목의 effort 값은 저장 검사를 통과해 chat 요청�
         model_name: MODEL,
         info: info(overrides),
       }, { seq });
-    assert(save({}, "0").ok);
-    assert(
+    assert.ok(save({}, "0").ok);
+    assert.ok(
       commands.changeDefault.handle(tx, user, { default: choice }, {})
         .ok,
     );
@@ -171,7 +172,7 @@ Deno.test("user 항목의 effort 값은 저장 검사를 통과해 chat 요청�
     });
     const bodyOf = async () => {
       const bound = await resolve({ model: choice });
-      assert(bound.ok, JSON.stringify(bound));
+      assert.ok(bound.ok, JSON.stringify(bound));
       const packed = bound.value.pack({
         system: [{ layer: "role", text: "x" }],
         tools: [],
@@ -184,26 +185,26 @@ Deno.test("user 항목의 effort 값은 저장 검사를 통과해 chat 요청�
     };
 
     const defaults = await bodyOf();
-    assertEquals(defaults.body["reasoning_effort"], "max");
-    assertEquals(defaults.bound.call.limits.context_limit, 131072);
-    assertEquals(defaults.bound.call.limits.input_limit, 131072);
-    assertEquals(defaults.bound.call.limits.output_limit, 4096);
-    assertEquals(defaults.body["max_tokens"], 4096);
-    assert(defaults.bound.inputMedia.includes("image"));
+    assert.deepStrictEqual(defaults.body["reasoning_effort"], "max");
+    assert.deepStrictEqual(defaults.bound.call.limits.context_limit, 131072);
+    assert.deepStrictEqual(defaults.bound.call.limits.input_limit, 131072);
+    assert.deepStrictEqual(defaults.bound.call.limits.output_limit, 4096);
+    assert.deepStrictEqual(defaults.body["max_tokens"], 4096);
+    assert.ok(defaults.bound.inputMedia.includes("image"));
 
-    assert(
+    assert.ok(
       save({ context_limit: 1_000_000, output_limit: 100_000 }, "1").ok,
     );
     const set = await bodyOf();
-    assertEquals(set.bound.call.limits.context_limit, 1_000_000);
-    assertEquals(set.bound.call.limits.input_limit, 1_000_000);
-    assertEquals(set.body["max_tokens"], 32000);
+    assert.deepStrictEqual(set.bound.call.limits.context_limit, 1_000_000);
+    assert.deepStrictEqual(set.bound.call.limits.input_limit, 1_000_000);
+    assert.deepStrictEqual(set.body["max_tokens"], 32000);
   } finally {
     db.close();
   }
 });
 
-Deno.test("seq가 낡은 저장과 지움은 쓰지 않고, 내장 정의 key는 거절한다", () => {
+test("seq가 낡은 저장과 지움은 쓰지 않고, 내장 정의 key는 거절한다", () => {
   const { db, sql, tx, commands } = open();
   try {
     const key = { provider_definition: DEFINITION, model_name: MODEL };
@@ -211,31 +212,31 @@ Deno.test("seq가 낡은 저장과 지움은 쓰지 않고, 내장 정의 key는
       ...key,
       info: info(),
     }, { seq: "7" });
-    assert(!stale.ok);
-    assertEquals(stale.error.code, "conflict");
-    assertEquals(loadUserModels(sql).items, []);
+    assert.ok(!stale.ok);
+    assert.deepStrictEqual(stale.error.code, "conflict");
+    assert.deepStrictEqual(loadUserModels(sql).items, []);
 
     const builtin = commands.saveUserInfo.handle(tx, user, {
       provider_definition: "anthropic",
       model_name: MODEL,
       info: info(),
     }, { seq: "0" });
-    assert(!builtin.ok);
-    assertEquals(builtin.error.code, "invalid_input");
+    assert.ok(!builtin.ok);
+    assert.deepStrictEqual(builtin.error.code, "invalid_input");
 
     const saved = commands.saveUserInfo.handle(tx, user, {
       ...key,
       info: info(),
     }, { seq: "0" });
-    assert(saved.ok);
-    assertEquals(saved.value.seq, "1");
+    assert.ok(saved.ok);
+    assert.deepStrictEqual(saved.value.seq, "1");
 
     const removed = commands.removeUserInfo.handle(tx, user, key, {
       seq: "0",
     });
-    assert(!removed.ok);
-    assertEquals(removed.error.code, "conflict");
-    assertEquals(loadUserModels(sql).items.length, 1);
+    assert.ok(!removed.ok);
+    assert.deepStrictEqual(removed.error.code, "conflict");
+    assert.deepStrictEqual(loadUserModels(sql).items.length, 1);
   } finally {
     db.close();
   }

@@ -1,3 +1,4 @@
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import {
   CATALOG_REFRESH_INTERVAL_MS,
   type CatalogEntry,
@@ -70,12 +71,13 @@ export type CatalogWorkInput = {
 };
 
 const DEFAULT_FILES: FilesLike = {
-  readTextFile: (path) => Deno.readTextFile(path),
-  writeTextFile: (path, text, options) =>
-    Deno.writeTextFile(path, text, options),
-  rename: (from, to) => Deno.rename(from, to),
-  remove: (path) => Deno.remove(path),
-  mkdir: (path, options) => Deno.mkdir(path, options),
+  readTextFile: (path) => readFile(path, "utf8"),
+  writeTextFile: (path, text, options) => writeFile(path, text, options),
+  rename: (from, to) => rename(from, to),
+  remove: (path) => rm(path),
+  mkdir: async (path, options) => {
+    await mkdir(path, options);
+  },
 };
 
 function catalogPaths(dataRoot: string): {

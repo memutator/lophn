@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { IMAGE_TOKENS, measureWire } from "./budget.ts";
 import type { PromptRequest } from "./model.ts";
 
@@ -26,17 +27,17 @@ const wire = (base64: string | null) => ({
   opaque_bytes: 0,
 });
 
-Deno.test("이미지 하나가 있어도 예산은 base64 길이가 아니라 고정 값으로 는다", () => {
+test("이미지 하나가 있어도 예산은 base64 길이가 아니라 고정 값으로 는다", () => {
   const small = "A".repeat(1_000);
   const big = "A".repeat(10_000);
   const withSmall = measureWire(wire(small), requestWith(small));
   const withBig = measureWire(wire(big), requestWith(big));
-  assertEquals(withSmall, withBig);
+  assert.deepStrictEqual(withSmall, withBig);
 
   // 이미지 입력을 못 받는 model은 body에 base64가 없어 고정 값을 더하지 않는다.
   const none = measureWire(wire(null), requestWith(big));
-  assertEquals(none, JSON.stringify(wire(null).body).length);
-  assertEquals(
+  assert.deepStrictEqual(none, JSON.stringify(wire(null).body).length);
+  assert.deepStrictEqual(
     withSmall,
     none + IMAGE_TOKENS - "[image omitted]".length,
   );

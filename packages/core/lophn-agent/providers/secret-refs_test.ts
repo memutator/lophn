@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { err, ok } from "../../../base/mod.ts";
 import type { McpServer } from "../../../protocol/lophn-agent/mod.ts";
@@ -43,7 +44,7 @@ function setup() {
   return sql;
 }
 
-Deno.test("attach는 허락한 provider endpoint origin이 아닌 목적지에 값을 붙이지 않는다", async () => {
+test("attach는 허락한 provider endpoint origin이 아닌 목적지에 값을 붙이지 않는다", async () => {
   const sql = setup();
   let reads = 0;
   let sent: unknown[] = [];
@@ -101,7 +102,7 @@ Deno.test("attach는 허락한 provider endpoint origin이 아닌 목적지에 �
       ? { kind: "loopback_http" as const, origin }
       : https(origin);
     const got = await run(name, destination as ReturnType<typeof https>);
-    assertEquals(
+    assert.deepStrictEqual(
       [
         label,
         got.result.ok ? "ok" : got.result.error.code,
@@ -114,10 +115,10 @@ Deno.test("attach는 허락한 provider endpoint origin이 아닌 목적지에 �
 
   // (e) endpoint origin과 같은 목적지만 값이 간다.
   const good = await run("provider.p1", https("https://api.example.com"));
-  assertEquals([good.result.ok, good.sent], [true, [VALUE]]);
+  assert.deepStrictEqual([good.result.ok, good.sent], [true, [VALUE]]);
 });
 
-Deno.test("secret 값은 자기 이름 공간의 목적지로만 간다", async () => {
+test("secret 값은 자기 이름 공간의 목적지로만 간다", async () => {
   const sql = setup();
   const http = (
     name: string,
@@ -202,7 +203,7 @@ Deno.test("secret 값은 자기 이름 공간의 목적지로만 간다", async 
         return Promise.resolve(ok<SecretSendOutput>({ sent: true }));
       },
     );
-    assertEquals(
+    assert.deepStrictEqual(
       [name, origin, result.ok ? sent[0] : result.error.code],
       [name, origin, expected],
     );

@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import type {
   ReadSnapshot,
   RequestContext,
@@ -14,7 +15,7 @@ for (
     ["깨졌을 때", "{not json"],
   ] as const
 ) {
-  Deno.test(`derived catalog 파일이 ${name} snapshot의 model과 축을 돌려준다`, () => {
+  test(`derived catalog 파일이 ${name} snapshot의 model과 축을 돌려준다`, () => {
     const read = createCatalogRead({
       readDerived: () => derived,
       snapshot: bundledSnapshot,
@@ -25,18 +26,21 @@ for (
       { actor: "user" } as RequestContext,
       { provider_definition: "anthropic" },
     );
-    assert(result.ok);
+    assert.ok(result.ok);
     const entry = result.value.entries.find((e) =>
       e.model_name === "claude-sonnet-4-5"
     );
-    assert(entry !== undefined);
-    assert(entry.options?.some((axis) => axis.id === "effort"));
-    assertEquals(result.value.state.snapshot_hash, bundledSnapshot.hash);
+    assert.ok(entry !== undefined);
+    assert.ok(entry.options?.some((axis) => axis.id === "effort"));
+    assert.deepStrictEqual(
+      result.value.state.snapshot_hash,
+      bundledSnapshot.hash,
+    );
   });
 }
 
 // 전체 catalog는 read 응답 한도(500 row)를 넘는다. page로 이으면 항목이 빠지거나 겹치지 않고 모두 온다.
-Deno.test("catalog를 cursor로 이어 읽으면 snapshot 전체가 한도 안의 page로 온다", () => {
+test("catalog를 cursor로 이어 읽으면 snapshot 전체가 한도 안의 page로 온다", () => {
   const read = createCatalogRead({
     readDerived: () => null,
     snapshot: bundledSnapshot,
@@ -50,8 +54,8 @@ Deno.test("catalog를 cursor로 이어 읽으면 snapshot 전체가 한도 안�
       { actor: "user" } as RequestContext,
       cursor === undefined ? {} : { cursor },
     );
-    assert(result.ok);
-    assert(JSON.stringify(result.value).length < 1024 * 1024);
+    assert.ok(result.ok);
+    assert.ok(JSON.stringify(result.value).length < 1024 * 1024);
     names.push(
       ...result.value.entries.map((e) =>
         `${e.provider_definition}/${e.model_name}`
@@ -59,7 +63,7 @@ Deno.test("catalog를 cursor로 이어 읽으면 snapshot 전체가 한도 안�
     );
     cursor = result.value.next_cursor ?? undefined;
   } while (cursor !== undefined);
-  assertEquals(
+  assert.deepStrictEqual(
     names,
     bundledSnapshot.entries.map((e) =>
       `${e.provider_definition}/${e.model_name}`

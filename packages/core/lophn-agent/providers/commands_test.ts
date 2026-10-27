@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
 import { createProviderCommands } from "./commands.ts";
 import { builtinProviderDefinition } from "./definitions.ts";
@@ -20,7 +21,7 @@ function fakeTx(): { tx: Tx; inserts: unknown[][] } {
 
 function connect(secret: string) {
   const definition = builtinProviderDefinition("anthropic");
-  assert(definition.ok);
+  assert.ok(definition.ok);
   const { tx, inserts } = fakeTx();
   const result = createProviderCommands().connect.handle(tx, user, {
     id: ID,
@@ -34,20 +35,20 @@ function connect(secret: string) {
   return { result, inserts };
 }
 
-Deno.test("Connect는 provider.<id>가 아닌 secret 이름을 거절하고 row를 남기지 않는다", () => {
+test("Connect는 provider.<id>가 아닌 secret 이름을 거절하고 row를 남기지 않는다", () => {
   for (
     const name of ["app.other.token", "provider.00000000000000000000000002"]
   ) {
     const { result, inserts } = connect(name);
-    assert(!result.ok);
-    assertEquals(result.error.code, "invalid_input");
-    assertEquals(inserts, []);
+    assert.ok(!result.ok);
+    assert.deepStrictEqual(result.error.code, "invalid_input");
+    assert.deepStrictEqual(inserts, []);
   }
   const { result, inserts } = connect("provider.00000000000000000000000001");
-  assert(result.ok);
-  assertEquals(
+  assert.ok(result.ok);
+  assert.deepStrictEqual(
     result.value.provider.credential.secret_ref,
     { name: "provider.00000000000000000000000001" },
   );
-  assertEquals(inserts.length, 2);
+  assert.deepStrictEqual(inserts.length, 2);
 });

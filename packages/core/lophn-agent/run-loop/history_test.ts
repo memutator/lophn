@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import type { HistoryMessage } from "../prompt-assembly/mod.ts";
 import { omitOldImages } from "./history.ts";
 
@@ -28,26 +29,26 @@ function historyWith(images: number): HistoryMessage[] {
   return history;
 }
 
-Deno.test("이미지가 2개를 넘으면 오래된 것부터 빠지고 짝 글에 표시가 붙는다", () => {
+test("이미지가 2개를 넘으면 오래된 것부터 빠지고 짝 글에 표시가 붙는다", () => {
   for (const count of [0, 2, 3, 5]) {
     const input = historyWith(count);
     const before = structuredClone(input);
     const out = omitOldImages(input, 2);
-    assertEquals(input, before);
+    assert.deepStrictEqual(input, before);
 
     const omitted = Math.max(0, count - 2);
     const parts = out.flatMap((m) => m.parts);
     const images = parts.filter((p) => p.kind === "tool_result_image");
-    assertEquals(
+    assert.deepStrictEqual(
       images.map((p) => p.id),
       Array.from({ length: count - omitted }, (_, i) => `t${omitted + i}`),
     );
     for (let i = 0; i < count; i++) {
-      assertEquals(
+      assert.deepStrictEqual(
         parts.filter((p) => p.kind === "tool_use" && p.id === `t${i}`).length,
         1,
       );
-      assertEquals(
+      assert.deepStrictEqual(
         parts.filter((p) =>
           p.kind === "tool_result" && p.id === `t${i}` &&
           p.text === (i < omitted ? `r${i}\n[image omitted]` : `r${i}`)

@@ -62,8 +62,13 @@ try {
       sourcemap: "inline",
       sourcesContent: true,
       assetNames: "[name]",
-      // UI Package는 CSS Modules과 svg를 import한다. 확장자별 loader는 그 사본이 그대로 쓰던 규칙이다.
-      loader: { ".module.css": "local-css", ".svg": "text" },
+      // UI Package는 CSS Modules과 svg를 import하고 base.css가 font file을 가리킨다. font는 화면 폴더에 file로 둔다.
+      loader: {
+        ".module.css": "local-css",
+        ".svg": "text",
+        ".woff2": "file",
+        ".woff": "file",
+      },
       define: { "process.env.NODE_ENV": '"production"' },
       logLevel: "error",
       plugins: [guard(base)],

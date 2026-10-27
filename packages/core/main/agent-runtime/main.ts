@@ -274,7 +274,7 @@ async function startAgentRuntime(input: {
   const source: TurnSource = turnLink.source;
   let pumping: Promise<void> = Promise.resolve();
   // OAuth 발급자 호출(MCP, 구독 provider)은 core에 외부 fetch가 없어서 이 프로세스가 대신 보낸다.
-  // 제품 기동만 돌린다. 허락한 발급자(`--allow-net`) 밖은 Deno 권한이 막는다.
+  // 제품 기동만 돌린다. 이 프로세스는 --allow-all이라 Deno가 목적지를 막지 않는다.
   const authPumping = input.pump === true
     ? startIssuerPump({
       call: calls!.machine,

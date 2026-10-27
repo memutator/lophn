@@ -21,7 +21,7 @@ export type PlaceFacts = {
 // base는 상대 경로를 푸는 기준일 뿐 읽기·쓰기 허락이 아니다.
 export type FolderScope = { read: string[]; write: string[]; base?: string };
 
-// 어떤 role이 어떤 폴더를 읽고 쓰는가의 규칙 하나. file tool scope(place-data)와 rewind, runtime 권한이 모두 이것을 쓴다.
+// 어떤 role이 어떤 폴더를 읽고 쓰는가의 규칙 하나. file tool scope(place-data)와 rewind가 이것을 쓴다.
 // 앱·project의 data·release 사본(`<data>/apps/<app>/{data,bundles,staging,preview}`)과 agent 정의 폴더는 어느 role에도 열지 않는다.
 export function placeScope(facts: PlaceFacts): FolderScope {
   const { role, place } = facts;
@@ -61,22 +61,4 @@ export function placeScope(facts: PlaceFacts): FolderScope {
       : withBase([...own, ...artifacts], [...artifacts]);
   }
   return { read: [], write: [] };
-}
-
-// agent runtime child의 Deno 권한용 합: 열린 project 폴더, 열린 앱 source, 모든 domain 폴더, 열린 project의 workflows 폴더.
-export function runtimeFolders(input: {
-  projectFolders: readonly string[];
-  appSources: readonly string[];
-  domainFolders: readonly string[];
-  workflowFolders: readonly string[];
-}): FolderScope {
-  const folders = [
-    ...new Set([
-      ...input.projectFolders,
-      ...input.appSources,
-      ...input.domainFolders,
-      ...input.workflowFolders,
-    ]),
-  ];
-  return { read: folders, write: [...folders] };
 }

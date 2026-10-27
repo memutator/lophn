@@ -48,12 +48,11 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 
 - `bootCore`는 daemon을 `deno run --allow-all packages/core/main/daemon/main.ts --port=0`으로 pipe에 띄우고 stdout 첫 frame(hello)에서 user token을 받는다. env는 비운 뒤 `LOPHN_HOME`, 빈 `HOME`, `PATH`, `DENO_DIR`과 `env` 옵션에 준 것만 준다.
 - `kill()`(SIGKILL)과 `stop()`(stdin을 닫음)은 `/proc/*/environ`에 그 `LOPHN_HOME`이 든 process가 없어질 때까지 기다린다. child가 남으면 그 pid만 끄고 실패한다. Linux 전용이다.
-- `settle`은 agent runtime child가 지금 권한으로 다시 뜬 것을 본다. provider를 연결하거나 project 폴더를 더하면 core가 1초 polling으로 child를 다시 띄우고, 그 사이 시작한 turn은 끊긴다. 옛 runtime pid가 사라지고 새 pid가 떠 `platform/health`가 available이면 돌아온다.
 - 기다림은 신호를 읽는 poll(제한 30초, 맞으면 바로 돌아옴)이나 fake server의 `arrived`·`aborted`다. 고정 sleep을 쓰지 않는다.
 
 ## 앱 길
 
-앱 E2E는 사람이 앱을 시작하는 길로만 앱을 띄운다: `apps/create`(core가 template으로 `<home>/apps/<app>/source`를 깔고 잇는다) → 견본 patch를 source에 commit → agent runtime이 새 place 폴더로 다시 뜨기를 기다림(`settle`. 그 사이 시작한 turn은 끊긴다) → App Engineer의 `release_prepare`, `preview_*`, `release_activate`(fake 대답) → 첫 activation의 동의(`activations.consents`를 읽어 `activation.consent`, compare `requested_at`). data root에 release를 직접 깔지 않는다. `release.prepare`·`release.activate`는 agent만 부르는 route라 test가 직접 부르지 않고 가짜 model이 App Engineer로 부른다. test만을 위한 actor를 제품 route에 더하지 않는다. eval의 켜진 앱 재료(`tests/eval/restore/active-app.ts`)도 같은 helper로 되살린다.
+앱 E2E는 사람이 앱을 시작하는 길로만 앱을 띄운다: `apps/create`(core가 template으로 `<home>/apps/<app>/source`를 깔고 잇는다) → 견본 patch를 source에 commit → App Engineer의 `release_prepare`, `preview_*`, `release_activate`(fake 대답) → 첫 activation의 동의(`activations.consents`를 읽어 `activation.consent`, compare `requested_at`). data root에 release를 직접 깔지 않는다. `release.prepare`·`release.activate`는 agent만 부르는 route라 test가 직접 부르지 않고 가짜 model이 App Engineer로 부른다. test만을 위한 actor를 제품 route에 더하지 않는다. eval의 켜진 앱 재료(`tests/eval/restore/active-app.ts`)도 같은 helper로 되살린다.
 
 - App Engineer의 tool 호출 하나에는 시간 한도가 없다(한도 timer는 model 호출만 끊는다). 상한은 core 쪽이다: 준비는 360초 뒤 `failed {stage: "build"}`, activation은 120초 뒤 `running`. helper는 turn 하나를 480초까지 기다리고, 맞으면 바로 돌아온다. 견본 앱의 `activateTestApp` 한 번은 약 8초다.
 

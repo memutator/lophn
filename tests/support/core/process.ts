@@ -217,7 +217,7 @@ export async function waitGone(
   }
 }
 
-// agent runtime child의 pid. 권한(폴더)이 바뀌면 core가 이 child를 새 pid로 다시 띄운다.
+// agent runtime child의 pid. child가 crash하면 감독이 새 pid로 다시 띄운다.
 export async function runtimePids(home: string): Promise<number[]> {
   const found: number[] = [];
   for (const pid of await processesOf(home)) {

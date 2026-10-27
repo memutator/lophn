@@ -1,5 +1,5 @@
 // test용 앱을 제품의 길로 activate하는 준비다: `app.create`(core가 source 폴더를 깔고 앱에 잇는다) → 견본·patch commit →
-// agent runtime이 다시 뜨기를 기다림 → App Engineer session → 가짜 model이 App Engineer로 `release_prepare` →
+// App Engineer session → 가짜 model이 App Engineer로 `release_prepare` →
 // `release_activate` → 사람의 `activation.consent` → running. data root에 release를 직접 깔지 않는다.
 //
 // App Engineer의 fake 대답은 session 하나의 줄(lane)로 건다. 줄은 요청의 tool 목록에 `release_prepare`가 있고 본문에
@@ -20,12 +20,10 @@ import {
   type RuntimeObservation,
 } from "../../../packages/protocol/apps/mod.ts";
 import type { Core } from "../core/mod.ts";
-import { runtimePids } from "../core/process.ts";
 import {
   openProject,
   openSession,
   say,
-  settle,
   type Turn,
   turnsOf,
   until,
@@ -98,8 +96,6 @@ export async function startTestApp(
     sample?: boolean;
   },
 ): Promise<TestApp> {
-  // core가 1초 polling으로 runtime을 다시 띄우므로 source를 commit하는 사이 이미 바뀔 수 있다. app.create 전에 읽는다.
-  const before = await runtimePids(core.run.home);
   const created = await core.call(appCreate, {
     ...(options.id === undefined ? {} : { id: options.id }),
     slug: options.slug,
@@ -118,9 +114,6 @@ export async function startTestApp(
     ...(options.patch === undefined ? {} : { patch: options.patch }),
     ...(options.sample === undefined ? {} : { sample: options.sample }),
   });
-  // source 폴더는 App Engineer의 place 폴더라, 잇고 나면 agent runtime child가 새 권한으로 다시 뜬다.
-  // 그 사이 시작한 turn은 끊기므로(도는 turn이 있으면 core가 재시작을 미룬다) 새 child가 ready가 될 때까지 기다린다.
-  if (before.length > 0) await settle(core, before);
   const ae = await openSession(core, {
     role: "app_engineer",
     app: created.id,

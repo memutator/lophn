@@ -1,9 +1,5 @@
 import { assertEquals } from "@std/assert";
-import {
-  type PlaceFacts,
-  placeScope,
-  runtimeFolders,
-} from "./place-folders.ts";
+import { type PlaceFacts, placeScope } from "./place-folders.ts";
 
 const domain = (id: string) => ({
   id,
@@ -99,21 +95,9 @@ Deno.test("domain A만 고른 Operator는 A의 artifacts 폴더만 연다", () =
   );
 });
 
-Deno.test("lophn은 모든 project 폴더를 읽기만 하고 runtimeFolders는 열린 폴더의 합을 한 번씩 담는다", () => {
+Deno.test("lophn은 모든 project 폴더를 읽기만 한다", () => {
   assertEquals(placeScope({ ...base, role: "lophn", place: project }), {
     read: ["/p1", "/p2", "/q"],
     write: [],
   });
-  assertEquals(
-    runtimeFolders({
-      projectFolders: ["/p1", "/p2", "/p1"],
-      appSources: ["/app", "/p2"],
-      domainFolders: ["/data/domains/dom_a"],
-      workflowFolders: [workflows],
-    }),
-    {
-      read: ["/p1", "/p2", "/app", "/data/domains/dom_a", workflows],
-      write: ["/p1", "/p2", "/app", "/data/domains/dom_a", workflows],
-    },
-  );
 });

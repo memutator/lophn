@@ -6,7 +6,6 @@ import {
 import {
   interruptTurns,
   OAUTH_REFRESH_LEAD_MS,
-  providerList,
   providerRead,
   type ProviderRecord,
   recordProviderModels,
@@ -28,7 +27,6 @@ import {
   AGENT_RUNTIME_TASK,
   type AgentRuntimeChild,
   agentRuntimePolicies,
-  providerHost,
   startAgentRuntimeChild,
 } from "../../../lophn-agent/run-loop/runtime.ts";
 import {
@@ -38,15 +36,7 @@ import {
 } from "../../../lophn-agent/run-loop/mod.ts";
 import { createAgentRuntimeSecrets } from "../../../lophn-agent/run-loop/runtime-secret.ts";
 import { createProviderRefresher } from "../../../lophn-agent/providers/oauth-refresh.ts";
-import { mcpServerSnapshot } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
-import { skillFoldersSetting } from "../../../lophn-agent/extensions/mod.ts";
-import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
-import { runtimeFoldersOf } from "../place-folders-glue.ts";
-import { appSocketRoot } from "../../../apps/control.ts";
-import { PROJECT_LAYER } from "../../../agent-roles/place/project-layer.ts";
-import { BUNDLED_SKILLS_ROOT } from "../../../agent-roles/skills/root.ts";
 import { agentTools } from "../../agent-tools.ts";
-import { readOperatorMcp } from "./operator-mcp.ts";
 import type { WiringFactory } from "./context.ts";
 
 // 입력함에서 뺀 메시지를 session 기록에서도 지우는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
@@ -239,9 +229,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
             prepared: [],
           }),
         epoch: ctx.epoch,
-        dataRoot: ctx.root.path,
         apiPort: ctx.server.port,
-        socketRoot: appSocketRoot(ctx.root.path),
         gauge: ctx.blobBuffer,
         prepareBlob: (call) => ctx.blobRelay.prepare(call),
         read: (route, context, input) =>
@@ -255,43 +243,6 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           mcpOAuth: ctx.mcpAuthControl.prepareToken,
           providerOAuth: refresher.prepareToken,
         }),
-        readMcpServers: () =>
-          mcpServerSnapshot(ctx.ledgerPath, {
-            projectLayer: PROJECT_LAYER,
-            operators: () => readOperatorMcp(ctx.ledgerPath),
-          }),
-        bundledSkillsRoot: BUNDLED_SKILLS_ROOT,
-        readPlaceFolders: () =>
-          Promise.resolve(ledgerSnapshot(
-            ctx.ledgerPath,
-            (lookup) => runtimeFoldersOf(lookup, ctx.root.path),
-          )),
-        readProviders: async (context) => {
-          const hosts = new Set<string>();
-          let cursor: string | undefined;
-          for (;;) {
-            const read = await runtime.readers.read(
-              providerList,
-              context,
-              cursor === undefined ? {} : { cursor },
-            );
-            if (!read.ok) return read;
-            const page = read.value as {
-              providers: { endpoint: string }[];
-              next_cursor?: string | null;
-            };
-            for (const provider of page.providers) {
-              const host = providerHost(provider.endpoint);
-              if (host !== undefined) hosts.add(host);
-            }
-            if (page.next_cursor === null || page.next_cursor === undefined) {
-              return ok([...hosts].sort());
-            }
-            cursor = page.next_cursor;
-          }
-        },
-        readSkillRoots: () =>
-          Promise.resolve(ok(ctx.settings.get(skillFoldersSetting) ?? [])),
       });
       if (started.ok) agentRuntime = started.value;
       else console.error(`agent runtime: ${started.error.message}`);

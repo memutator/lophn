@@ -1,11 +1,11 @@
 // 세 질문
 // - contract: boundary `agent-tools`(file tool의 scope는 place 폴더 안이고 data root는 닿지 않는다),
-//   `run-loop`(runtime Deno 권한은 data root 읽기와 `derived/lophn-agent` 쓰기, 모든 project 폴더 쓰기를 열어 둔다).
+//   `run-loop`(runtime child는 --allow-all로 돌고 file tool이 닿는 폴더는 scope가 정한다).
 //   architecture `place-session.md`의 "place 폴더가 범위".
-// - 현실적 회귀: runtime child의 --allow-write에서 place 폴더가 빠져 NotCapable로 쓰기가 실패하는 것(이미 한 번 난 일),
-//   scope 검사에서 절대 경로·symlink·`..`가 새는 것, Deno 권한이 넓은 상태에서 scope가 유일한 방어라는 걸 잊고 느슨하게 하는 것.
-// - 왜 지금 test로 못 잡나: scope_test는 함수 입력만 본다. Deno 권한은 열렸는데 scope만 막는 경로는
-//   runtime 권한 목록과 scope를 함께 보아야 하고, process를 건너야만 보인다.
+// - 현실적 회귀: scope 검사에서 절대 경로·symlink·`..`가 새는 것. --allow-all이라 Deno 권한이 막지 않으므로
+//   scope가 유일한 방어라는 걸 잊고 느슨하게 하는 것.
+// - 왜 지금 test로 못 잡나: scope_test는 함수 입력만 본다. child process를 건너 실제 file tool이 도는 길은
+//   process를 띄워야 보인다.
 import { assert, assertEquals } from "@std/assert";
 import { agentFilePathOf } from "../../packages/core/agent-roles/place/instruction-rules.ts";
 import { toolCallList } from "../../packages/protocol/lophn-agent/mod.ts";
@@ -59,7 +59,6 @@ async function scope(
     const outside = `${run.work}/outside`;
     for (const dir of [proj, other, outside]) await Deno.mkdir(dir);
     await Deno.symlink(outside, `${proj}/link`);
-    // 둘째 등록 때 runtime이 다시 뜨므로 session은 그 뒤에 연다.
     const { project } = await openProject(core, proj);
     await openProject(core, other);
     const session = await openSession(core, {

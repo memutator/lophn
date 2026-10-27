@@ -63,7 +63,7 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
   - 이은 글이 24000자(`DOMAIN_TEXT_BUDGET`)를 넘으면 넘은 domain부터 본문 대신 목적 한 줄과 "full text: read DOMAIN.md"만 싣는다. PM·App Engineer는 그릇의 domain을 모두 받으므로 domain이 많으면 여기에 걸린다.
 - **`DOMAIN.md`·`kinds.yaml`·`skills/`는 그 그릇의 PM이나 App Engineer만 쓴다.** Operator는 고른 domain의 `artifacts/`만 쓴다. 나머지를 바꿀 일은 그릇의 PM이나 App Engineer에게 call한다. 셋 다 Gate 없이 file tool로 쓰고 rewind로 되돌린다. 지침 Gate는 project의 `LOPHN.md`뿐이다.
   - rewind의 쓰기 폴더는 sessions 표만 보고 정하므로 Operator에게도 그릇의 domain 폴더 전부를 넉넉히 잡는다. 실제 쓰기는 file tool이 `placeScope`로 좁힌다.
-  - project의 `workflows/`도 그 project의 PM만 읽고 쓴다(`placeScope`의 PM 분기). Operator, App Engineer, lophn에는 열리지 않는다. rewind의 쓰기 폴더(`placeScope(...).write`)와 runtime child의 권한(`runtimeFolders`의 active project workflows 폴더)도 같이 따른다(`architecture/workflow.md`).
+  - project의 `workflows/`도 그 project의 PM만 읽고 쓴다(`placeScope`의 PM 분기). Operator, App Engineer, lophn에는 열리지 않는다. rewind의 쓰기 폴더(`placeScope(...).write`)도 같이 따른다(`architecture/workflow.md`).
 - **앱 tool의 `domain`은 필수이고 그 앱의 active domain 이름이어야 한다.** 정본 검사 `validateDeclaration`에 앱의 domain 목록을 주는 곳은 넷이다: release를 기록하는 command `release.record`(`packages/core/apps/releases/commands.ts`, 준비의 검사가 끝난 뒤라 domain이 틀리면 release가 생기지 않는다), release 준비의 preview bundle 사본(`createCopyPreviewBundles`), `declaration.check`, activation 직전 재검사. 목록을 읽지 못하면 `unavailable`이다. 모든 domain이 보관된 앱은 모든 tool이 거절된다.
 - **다른 domain의 비공개 tool은 보이지 않는다.** 앱 할당이 있어도 agent의 tool 목록에도, `app.tools` 결과에도 없다. 같은 앱의 다른 domain이라도 그렇다(경계는 앱이 아니라 domain이다). tool의 domain을 읽지 못하면 비공개로 본다(막는 쪽으로 실패한다).
   - Grants 탭(할당 편집)은 맡은 domain의 tool이나 어느 domain의 public tool만 후보로 보인다. core의 할당 쓰기(`packages/core/approvals/assignment/`)는 domain을 검사하지 않으므로 agent에게 막는 곳은 이 목록 거르기 하나다.

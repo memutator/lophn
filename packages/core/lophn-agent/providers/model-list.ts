@@ -1,8 +1,8 @@
 // custom provider가 `GET {endpoint}/models`로 알려 주는 model 목록을 읽어 `credential.reported_models`에 둔다.
 // 읽는 때는 provider를 붙인 직후와 사람이 RefreshProviderModels를 부를 때다. login.ts처럼 writer queue 앞의
 // 처리기다: 발급자 network를 기다리는 동안 ledger transaction이 열려 있을 수 없다.
-// 읽기가 실패하면 저장하지 않으므로 앞 목록이 그대로다. 연결 직후 읽기에 다시 읽기는 없다: runtime이 net_any라 새 주소도
-// --allow-net 재시작을 기다리지 않고 닿는다(손으로 확인했다). 실패하면 사람의 refresh가 다시 읽는다. 요청은 ChatGPT 목록과 같은 발급자 요청 대기열로 나간다.
+// 읽기가 실패하면 저장하지 않으므로 앞 목록이 그대로다. 연결 직후 읽기에 다시 읽기는 없다: runtime은 모든 host로
+// 나갈 수 있어 새 주소도 바로 닿는다. 실패하면 사람의 refresh가 다시 읽는다. 요청은 ChatGPT 목록과 같은 발급자 요청 대기열로 나간다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   connectProvider,

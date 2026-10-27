@@ -45,12 +45,7 @@ export {
   mergeMcpLayers,
   runtimeServerOfLayer,
 } from "./mcp-server.ts";
-export {
-  allowNetList,
-  allowRunList,
-  checkMcpConfig,
-  type McpServerShape,
-} from "./mcp-config.ts";
+export { checkMcpConfig, type McpServerShape } from "./mcp-config.ts";
 export {
   createMcpConnections,
   type McpConnections,

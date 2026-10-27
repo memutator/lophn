@@ -10,7 +10,7 @@ import {
 import type { ProjectLayer } from "./project-settings.ts";
 
 // 등록한 MCP server의 snapshot 재료다. 전역 설정 위에 모든 project의 `extensions.json`을 더한다.
-// agent-runtime child의 `--allow-run`·`--allow-net`과 MCP OAuth begin의 서버 조회가 같은 snapshot을 읽는다.
+// `mcp.` secret 목적지와 MCP OAuth begin의 서버 조회가 이 snapshot을 읽는다.
 // Operator 정의가 가진 서버는 정의 파일에 있어 조립이 `operators`로 넘긴다. `registeredMcpServers`에는 섞지 않는다:
 // OAuth begin은 place로 서버를 고르는데 Operator 층 서버는 로그인 길이 없다.
 

@@ -457,8 +457,10 @@ export const kindLaunchSpecSchema = z.strictObject({
   // sys의 항목은 이름 하나다(예: statfs). 와일드카드는 받지 않는다.
   allow_sys: z.array(opaque.refine((value) => !value.includes("*"))),
   allow_env: z.array(opaque.regex(/^[A-Za-z_][A-Za-z0-9_]*$/)),
-  // agent runtime의 web.fetch와 apps supervisor의 broker net/fetch가 아무 host로 나갈 수 있게 한다.
+  // apps supervisor의 broker net/fetch가 아무 host로 나갈 수 있게 한다.
   net_any: z.boolean().optional(),
+  // Deno의 모든 권한을 켠다. 권한 범위를 좁히는 것이 경계가 아닌 process(agent runtime)만 쓴다.
+  allow_all: z.boolean().optional(),
   policy: z.enum(["always", "on_request"]),
   memory_limit_bytes: count.refine((n) => n > 0),
 });

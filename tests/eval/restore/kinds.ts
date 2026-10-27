@@ -4,8 +4,6 @@ import {
   domainCreate,
   domainKindsFile,
 } from "../../../packages/protocol/domains/mod.ts";
-import { settle } from "../../support/core/human.ts";
-import { runtimePids } from "../../support/core/process.ts";
 import type { SetupContext } from "../types.ts";
 import { type Material, textOf } from "./manifest.ts";
 
@@ -48,12 +46,9 @@ export async function restoreKinds(
   const path = domainKindsFile(core.run.home, spec.domain.id);
   await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
   await Deno.writeTextFile(path, textOf(material, "kinds.yaml"));
-  // domain을 만들면 core가 agent runtime child를 새 권한으로 다시 띄운다.
-  const before = await runtimePids(core.run.home);
   await core.call(domainCreate, {
     ...spec.domain,
     owner: { kind: "project", id: project },
   });
-  await settle(core, before);
   return ok(undefined);
 }

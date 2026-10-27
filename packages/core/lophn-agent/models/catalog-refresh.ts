@@ -40,8 +40,7 @@ export function startCatalogRefresher(
   return createCatalogRefresher(work);
 }
 
-// 동봉 snapshot은 모듈로 묶인 자산이다. runtime은 `--allow-read`가 data root뿐이라 소스 폴더의 파일을
-// 읽지 못한다.
+// 동봉 snapshot은 모듈로 묶인 자산이라 기동 때 파일을 읽지 않는다.
 async function snapshotFromBundle() {
   const { parseEntries } = await import(
     "./mod.ts"

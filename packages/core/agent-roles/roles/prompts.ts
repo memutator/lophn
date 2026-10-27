@@ -12,8 +12,7 @@ import projectManager from "./project-manager/prompt.md" with {
   type: "text",
 };
 
-// 역할 prompt 자산은 모듈에 묶어 가져온다. runtime은 `--allow-read`가 data root뿐이라 소스 폴더의
-// 파일을 읽지 못한다.
+// 역할 prompt 자산은 모듈에 묶어 가져온다.
 const ROLE_PROMPTS: ReadonlyMap<string, string> = new Map([
   ["lophn", lophn],
   ["project_manager", projectManager],

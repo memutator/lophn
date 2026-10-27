@@ -10,7 +10,6 @@ import {
 } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type { Core } from "../../support/core/mod.ts";
 import { settle } from "../../support/core/human.ts";
-import { runtimePids } from "../../support/core/process.ts";
 
 // `real`인 참가자에게만 agent 층 model을 붙인다. 전역과 project 층은 비워 두므로 나머지 참가자의 turn은
 // model이 없어 provider를 부르지 않고 끝난다.
@@ -42,7 +41,6 @@ export async function attachRealModels(
   const endpoint = input.endpoint ??
     modelsEndpoint.slice(0, -"/models".length);
 
-  const before = await runtimePids(core.run.home);
   const id = core.ids.newId("pvd");
   const secret = `provider.${id.slice("pvd_".length)}`;
   const put = await core.upload(secret, new TextEncoder().encode(input.key));
@@ -56,8 +54,6 @@ export async function attachRealModels(
     auth_kind: "api_key",
     credential: { secret },
   });
-  // provider 목적지가 새로 생기면 core가 agent runtime을 새 권한으로 다시 띄운다.
-  await settle(core, before);
 
   const model: ModelChoice = {
     provider: id,

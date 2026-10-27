@@ -15,8 +15,7 @@ import {
 import { providerSecretName } from "../../packages/core/lophn-agent/providers/oauth-secrets.ts";
 import { parseReportedModels } from "../../packages/core/lophn-agent/providers/reported-models.ts";
 import type { Core } from "../support/core/mod.ts";
-import { runtimePids } from "../support/core/process.ts";
-import { settle, until } from "../support/core/human.ts";
+import { until } from "../support/core/human.ts";
 import { bootLiveCore, LIVE_HOME } from "./root.ts";
 
 const MODEL_ENV = "LOPHN_LIVE_CHATGPT_MODEL";
@@ -44,7 +43,6 @@ async function login(core: Core): Promise<number> {
   const definition = definitions.find((item) => item.key === "openai");
   assert(definition !== undefined, "openai 정의가 없다");
   const provider = core.ids.newId("pvd");
-  const before = await runtimePids(core.run.home);
   const begun = await core.call(loginBegin, {
     provider,
     name: "ChatGPT",
@@ -74,14 +72,7 @@ async function login(core: Core): Promise<number> {
   }
   console.log("로그인됐다. token은 live root에 저장됐다.");
 
-  // 연결로 목적지가 늘어 runtime이 새 권한으로 다시 뜬다.
-  try {
-    await settle(core, before);
-  } catch (error) {
-    console.log(`runtime이 다시 뜨기를 기다리다 실패했다: ${error}`);
-  }
-
-  // core가 읽은 계정 model 목록(연결 직후 읽기는 runtime이 다시 뜨는 중이면 실패한다).
+  // core가 읽은 계정 model 목록(연결 직후 읽기는 아직 끝나지 않았을 수 있다).
   const read = async () =>
     (await core.call(providerRead, { provider })).provider.credential
       .reported_models;

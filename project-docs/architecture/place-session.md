@@ -43,7 +43,7 @@ lophn의 agent는 place(project 또는 app)에 놓이고, 그 agent와 하는 �
   - 보관은 되돌릴 수 있는 일이라 session을 끝내면 안 된다.
 - lophn이 꺼졌다 켜져도 열린 session은 열린 채다. 대신 메모리에 있던 것은 사라진다: 돌던 turn은 interrupted, 입력함(inbox)에 있던 call은 lophn_restarted로 닫힘, 대기 request와 질문은 cancelled다. 입력함에 있던 step 메시지는 다시 넣지 않고 workflow가 `lophn_restarted` 줄로 남긴다. session의 skip 표시는 표(`sessions.skip`)에 남는다.
   - 사람 메시지는 버리지 않는다. 켤 때 아직 turn이 가져가지 않은 사람 메시지를 받은 순서대로 입력함에 다시 넣어 turn을 연다. fork 사본, rewind가 숨긴 구간, 보관한 session과 place의 것은 뺀다. run 입력(`messages.unattended`가 1인 사람 메시지)도 뺀다. 그 run은 켤 때 `lophn_restarted`로 닫히는데, 다시 돌면 닫힌 run 뒤에 attended turn이 생겨 바깥 효과가 두 번 난다(`architecture/run.md`).
-- agent runtime child가 죽거나 바뀌면 그 child가 돌리던 turn은 interrupted(`restarted`)로 닫고 입력함 표시와 기다리던 request를 푼다. 닫지 않으면 session이 새 입력을 모두 `conflict`로 막는다. project 폴더, provider, MCP, skill이 바뀌어 child를 바꿀 때는 도는 turn이 끝날 때까지 미룬다.
+- agent runtime child가 죽으면 그 child가 돌리던 turn은 interrupted(`restarted`)로 닫고 입력함 표시와 기다리던 request를 푼다. 닫지 않으면 session이 새 입력을 모두 `conflict`로 막는다.
 - fork는 이력만 복사한다. 같은 role, place, agent의 새 session이고 고른 지점까지의 확정 메시지를 가져간다. rewind가 숨긴 구간은 복사하지 않는다.
   - 대기 request와 질문, 열린 call, rewind 기록은 원래 session의 turn에 묶여 있어 가져가지 않는다. 같은 파일을 두 session이 되돌리면 부딪친다.
   - skip도 가져가지 않는다. 새 session은 Operator 정의의 기본값(Operator가 아니면 꺼짐)으로 시작한다.
@@ -57,8 +57,8 @@ lophn의 agent는 place(project 또는 app)에 놓이고, 그 agent와 하는 �
   - 앱의 data와 release 사본(`<data>/apps/<app>/` 아래 `data/`, `bundles/`, `staging/`, `preview/`)은 어느 role의 범위에도 없다. 앱 data는 앱 tool로만 다루고 release 사본은 봉인된 것이다. 앱 source는 기본 자리(`<data>/apps/<app>/source`)이거나 사람이 이은 폴더이고, App Engineer의 범위는 그 source 폴더 하나다. 같은 `<data>/apps/<app>/`의 `agents/`(agent 정의)도 열지 않는다.
   - 사람의 폴더가 없는 project의 `LOPHN.md`는 `<data>/projects/<prj>/LOPHN.md`이고 PM의 범위 밖이다. 사람이 editor로 고친다. 앱 place에는 `LOPHN.md`가 없다.
   - 범위는 상대 경로를 푸는 기준 `base`를 싣는다. 그릇의 첫 폴더(project의 첫 폴더, 앱 source)이고, 없으면 place의 data 폴더(`<data>/projects/<prj>`, `<data>/apps/<app>`)다. `base`는 상대 경로를 푸는 기준일 뿐 허락을 넓히지 않는다.
-  - `placeScope`(`packages/core/agent-roles/place/place-folders.ts`)가 role과 place와 맡은 domain에서 이 범위를 만든다. turn의 file tool 범위와 rewind의 쓰기 폴더가 이것으로 만든다. rewind는 sessions 표만 보고 폴더를 정하므로 Operator에게는 그릇의 domain 폴더 전부를 넉넉히 잡고, 실제 쓰기는 file tool이 `artifacts/`로 좁힌다(`main/daemon/place-folders-glue.ts`). agent runtime process의 Deno 권한은 session이 아니라 process 하나의 것이라 `placeScope`를 거치지 않고 같은 파일의 `runtimeFolders`가 만든다. 폴더 종류를 더하면 두 곳을 같이 고친다. 한쪽만 고치면 file tool은 열렸는데 child가 거절하거나 그 반대가 된다.
-  - agent runtime process는 하나라 Deno 권한은 열린(active) project 폴더, 열린 앱의 source 폴더, 모든 active domain 폴더, active project의 `workflows/` 폴더 전체의 합(읽기와 쓰기)이다. session마다의 범위는 file tool이 지킨다. 폴더 목록이 바뀌면(project·앱 등록, 앱 source 연결, domain 만들기와 보관, project 보관) process를 다시 띄운다. 도는 turn이 있으면 끊지 않고 다음 주기(1초)에 다시 본다(`packages/core/lophn-agent/run-loop/runtime.ts`).
+  - `placeScope`(`packages/core/agent-roles/place/place-folders.ts`)가 role과 place와 맡은 domain에서 이 범위를 만든다. turn의 file tool 범위와 rewind의 쓰기 폴더가 이것으로 만든다. rewind는 sessions 표만 보고 폴더를 정하므로 Operator에게는 그릇의 domain 폴더 전부를 넉넉히 잡고, 실제 쓰기는 file tool이 `artifacts/`로 좁힌다(`main/daemon/place-folders-glue.ts`). 범위 밖은 Deno 권한이 아니라 file tool이 `resolveInPlace`(`packages/core/lophn-agent/tools/file/scope.ts`)로 realpath를 보고 `forbidden` "path is outside the place"로 거절한다.
+  - agent runtime child(`kind` `lophn-agent/runtime`)는 `--allow-all`로 뜬다. launch spec의 `allow_all: true`는 이 kind만 세우고(`packages/core/supervision/security/launch-spec.ts`), `--cached-only --frozen --no-prompt`가 함께 붙는다. child 하나가 여러 session을 돌리므로 Deno 권한에는 session 범위가 없고, 폴더·provider·MCP·skill 목록이 바뀌어도 child를 다시 띄우지 않는다.
 - 사람이 메시지에 붙인 이미지는 메시지 content(글뿐)에 넣지 않는다. 화면이 먼저 `message-images/upload`로 session에 올려 id(`att_...`)를 받고, 글 끝에 `Attached image: open with image.read path "attachment:<id>".` 줄을 적는다. agent는 `image.read`로 연다.
   - 바이트는 project 폴더 밖인 `<data>/message-images/<session>/<id>.<ext>`에 둔다(png, jpeg, gif, webp, 5 MiB 이하, 내용의 첫 byte로 형식 확인). agent의 file tool 범위 밖이고 `attachment:<id>`로만 열린다.
   - `image.read`는 `message-images/path`(agent 전용 memory route)로 경로를 푼다. core는 입력의 session이 credential의 session과 같을 때만 풀어서, 다른 session의 id는 forbidden이거나 not_found다. 사람 화면은 `message-images/read`(file route)로 다시 그린다.
@@ -70,6 +70,7 @@ lophn의 agent는 place(project 또는 app)에 놓이고, 그 agent와 하는 �
 - **App Engineer는 앱마다 하나, session은 여럿이다.** Project Manager와 같은 모양이다. 앱은 project에 묶이지 않는 그릇이라 앱 코드의 일(설계, 선언, 구현, release)은 그 앱의 App Engineer가 맡고, Project Manager는 project의 domain과 Operator를 맡는다. 앱은 사람이 런처의 New app으로 직접 만들거나(그 앱의 App Engineer와 새 session으로 시작한다), lophn이 기획해 등록하고 그 앱의 App Engineer에게 call로 맡긴다. 구현은 App Engineer가 직접 한다.
 - **앱 place에는 project 지침이 없다.** 앱은 project에 묶이지 않으므로 App Engineer와 앱 place의 Operator는 `LOPHN.md`를 받지 않는다. 지침 층은 전역, 맡은 domain의 `DOMAIN.md`, agent 정의 본문이다.
 - **"이 session 동안" 허락은 없다.** 할당했으면 허락한 것이고, shell 규칙의 `ask`는 `always`로 규칙 줄을 더한다(`architecture/approval.md`). skip은 사람이 그 session에 켠 표시라 표에 남긴다.
+- **agent runtime child를 `--allow-all`로 띄운다.** 좁힌 Deno 권한은 경계가 아니었다. `shell.run`은 `/bin/sh`를 띄워 flag를 우회하고 net은 이미 열려 있었으며 shell 규칙도 경계가 아니다. 그런데 폴더 종류가 늘 때마다 권한 목록을 맞춰야 했고, 도는 turn 중에는 새 폴더가 열리지 않았고, 설치본은 `NotCapable`로 실패했다. session마다의 file 범위는 `placeScope`가 코드로 지킨다.
 - **fork는 있는 그대로 복사하되 묶인 것은 놓고 간다.** skip을 가져가면 한 번의 사람 결정이 두 session에 쓰이고, call을 가져가면 한 call에 받는 session이 둘이다.
 - **checkpoint는 turn을 시작한 입력에만 둔다.** steer로 도는 turn에 끼어든 메시지는 turn의 경계가 아니라서 돌아갈 시점이 아니다.
 - **session rewind와 앱 rewind를 묶지 않고 잇기만 한다.** 하나로 합치면 대화를 되돌리다 다른 사람의 앱 변경까지 말없이 지운다. 고르게 하는 쪽이 Claude Code의 rewind 메뉴(코드와 대화를 따로 고름)와 같다.

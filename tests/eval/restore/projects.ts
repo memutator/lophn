@@ -1,6 +1,4 @@
 import { projectApi } from "../../../packages/protocol/projects/mod.ts";
-import { runtimePids } from "../../support/core/process.ts";
-import { settle } from "../../support/core/human.ts";
 import type { Id } from "../../../packages/protocol/base/mod.ts";
 import type { SetupContext } from "../types.ts";
 import { type Material, textOf } from "./manifest.ts";
@@ -28,8 +26,6 @@ export async function restoreProjects(
       await Deno.writeFile(target, file.bytes);
     }
     const id = material.manifest.ids[name] as Id<"prj">;
-    // project를 등록하면 core가 agent runtime child를 새 권한으로 다시 띄운다.
-    const before = await runtimePids(core.run.home);
     await core.call(projectApi.register, {
       id,
       name,
@@ -37,7 +33,6 @@ export async function restoreProjects(
       purpose,
       folders: [{ path: folder, description: "", subfolders: [] }],
     });
-    await settle(core, before);
     ctx.world.projects[name] = id;
     ctx.world.folders[name] = folder;
   }

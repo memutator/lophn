@@ -2,7 +2,6 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   AGENT_RUNTIME_PRINCIPAL,
   agentSessionRead,
-  providerList,
   turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
@@ -14,11 +13,9 @@ import {
   type ReadRoute,
   routePath,
 } from "../../../protocol/base/mod.ts";
-import { settingsList } from "../../../protocol/config/mod.ts";
 import type {
   ChildMessage,
   Diagnostic,
-  KindLaunchSpec,
   ModelOutputMessage,
   ParentMessage,
 } from "../../../protocol/supervision/mod.ts";
@@ -46,8 +43,6 @@ import type {
 } from "../../storage/blobs/prepare-relay.ts";
 import type { KnownSecretMatch } from "../../storage/ledger/mod.ts";
 import { agentRuntimeLaunchSpec } from "../register.ts";
-import type { McpRuntimeServer as McpServerConfig } from "../extensions/mod.ts";
-import { allowNetList, allowRunList } from "../extensions/mod.ts";
 import type { AgentEvent } from "../../../protocol/events/mod.ts";
 import { createTurnPipe } from "./turn-pipe.ts";
 import type { TurnSource } from "./ports.ts";
@@ -59,16 +54,13 @@ import type { Inbox } from "./inbox.ts";
 //   machine route의 operation 목록(`RUNTIME_MACHINE_OPERATIONS`)이다.
 // - turn마다 `agent:<ses>` credential: child가 감독 pipe로 청하고, core가 자기 기록으로
 //   대조한 뒤 발급한다(`createAgentCredentialLink`).
-// 감독 pipe의 blob 준비 요청은 child kind의 정책(child-blob-prepare)으로 받는다. 등록한 provider
-// 목적지가 바뀌면 권한 목록이 달라지므로 core가 옛 child를 멈추고 새 목록으로 다시 띄운다. 도는 turn이 있으면
-// 그 turn이 끝날 때까지 미룬다. child가 crash하면 돌던 turn은 core가 interrupted(restarted)로 닫는다.
+// 감독 pipe의 blob 준비 요청은 child kind의 정책(child-blob-prepare)으로 받는다. child가 crash하면 돌던
+// turn은 core가 interrupted(restarted)로 닫는다.
 
 export const AGENT_RUNTIME_KIND = "lophn-agent/runtime";
 export const AGENT_RUNTIME_TASK = "lophn-agent";
 // agent credential의 process 조건이다. child가 끝나면 이 조건의 credential을 모두 끝낸다.
 const AGENT_RUNTIME_PROCESS = "agent-runtime";
-// 등록 provider 목적지가 바뀌었는지 보는 주기.
-const AGENT_RUNTIME_HOSTS_POLL_MS = 1_000;
 
 type RouteLike = { name: string; kind: string };
 
@@ -120,36 +112,6 @@ function agentCredentialIssuer(
   };
 }
 
-// provider endpoint 하나가 열어야 하는 목적지. https의 기본 port는 443, http는 80이다.
-export function providerHost(endpoint: string): string | undefined {
-  let url: URL;
-  try {
-    url = new URL(endpoint);
-  } catch {
-    return undefined;
-  }
-  const port = url.port || (url.protocol === "https:" ? "443" : "80");
-  return `${url.hostname.replace(/^\[|\]$/g, "")}:${port}`;
-}
-
-// 읽기 자격. 발급한 credential이 아니라 reader에 넘기는 context다.
-const HOSTS_READER: RequestContext = {
-  principal: "machine:agent-runtime-hosts",
-  actor: "machine",
-  scope: { operations: [providerList.name], targets: {} },
-  conditions: {},
-  credential_ref: "machine:agent-runtime-hosts",
-};
-
-// 등록한 skill 폴더를 읽는 자격이다. 이 폴더만 child의 읽기 허락에 더한다.
-const SKILL_ROOTS_READER: RequestContext = {
-  principal: "machine:agent-runtime-skill-roots",
-  actor: "machine",
-  scope: { operations: [settingsList.name], targets: {} },
-  conditions: {},
-  credential_ref: "machine:agent-runtime-skill-roots",
-};
-
 // 발급 판정이 읽는 route뿐이다. 요청한 turn과 session을 core 자신의 기록과 대조한다.
 const LINK_READS: ReadonlyMap<string, ReadRoute> = new Map(
   ([turnRead, agentSessionRead] as ReadRoute[]).map((
@@ -158,15 +120,8 @@ const LINK_READS: ReadonlyMap<string, ReadRoute> = new Map(
 );
 
 export type AgentRuntimeChild = {
-  // 목적지 점검을 멈춘다. child 정지는 감독의 stopAll이 한다.
+  // child 정지는 감독의 stopAll이 한다. 여기서는 남은 blob 준비만 닫는다.
   stop(): void;
-  // 가장 최근에 띄운 spec의 허용 목적지다.
-  hosts(): readonly string[];
-};
-
-type PlaceFolders = {
-  read: readonly string[];
-  write: readonly string[];
 };
 
 type AgentRuntimeDeps = {
@@ -183,24 +138,9 @@ type AgentRuntimeDeps = {
   registry: CredentialRegistry;
   record(context: AuthenticatedContext): Promise<Result<void>>;
   epoch: string;
-  dataRoot: string;
   apiPort: number;
   gauge: BufferGauge;
   prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
-  // 등록한 provider endpoint 목록(ledger reader).
-  readProviders(context: RequestContext): Promise<Result<readonly string[]>>;
-  // 사람이 등록한 MCP server 설정(설정 registry의 snapshot). 없으면 MCP 권한은 없다. enabled인 stdio
-  // 실행 경로와 HTTP `host:port`만 child 권한이 되고, 이 목록이 바뀌면 child를 다시 띄운다.
-  readMcpServers?(): Promise<Result<readonly McpServerConfig[]>>;
-  // 내장 skill 폴더다. 읽기 허락에 더한다. role 층의 값이라 조립이 넘긴다.
-  bundledSkillsRoot: string;
-  // 사람이 등록한 skill 폴더(절대 경로, 등록 순서). 읽기 허락에 더한다.
-  readSkillRoots?(
-    context: RequestContext,
-  ): Promise<Result<readonly string[]>>;
-  // file tool이 열 폴더의 합(열린 project와 앱 source 폴더 전체 + 초안 상위). Deno 읽기·쓰기 권한이 되고, 이 목록이
-  // 바뀌면 child를 다시 띄운다. 없으면 빈 목록이다. 값은 harness가 모르는 규칙이라 조립이 넘긴다.
-  readPlaceFolders?(): Promise<Result<PlaceFolders>>;
   // machine credential의 자격으로 ledger reader를 직접 읽는다(발급 판정이 쓰는 turn·session).
   read(
     route: ReadRoute,
@@ -211,20 +151,16 @@ type AgentRuntimeDeps = {
   known(): KnownSecretMatch | undefined;
   // provider API key의 전송 부착(`secret_send_request`). child가 청하면 값을 한 번 건넨다.
   secrets: AgentRuntimeSecrets;
-  // 앱 direct socket 폴더. supervisor의 `appSocketRoot`와 같은 값이다.
-  socketRoot: string;
   // child가 감독 pipe로 읽는 입력함(`createTurnSource`)과 agent event를 내는 Bus. 없으면 child는 시작할 turn을
   // 읽지 못하고 event는 버려진다.
   turns?: TurnSource;
-  // 도는 turn이 있는지(child를 바꾸기를 미루는 기준)와, child가 사라질 때 그 표시를 풀 길이다. 정본은 입력함이다.
-  inbox?: Pick<Inbox, "anyRunning" | "endAll">;
+  // child가 사라질 때 입력함의 도는 표시를 푸는 길이다. 정본은 입력함이다.
+  inbox?: Pick<Inbox, "endAll">;
   // child가 사라졌다. 그 child가 돌리던 turn을 ledger에서 interrupted(restarted)로 닫는다.
   interruptTurns?: () => Promise<Result<unknown>>;
   publish?: (event: AgentEvent) => void;
   // child가 보낸 쓰는 중인 model 날 글이다. core가 redaction해 내므로 Bus에 싣지 않는다. 없으면 버린다.
   output?: (batch: ModelOutputMessage) => void;
-  // 목적지 점검 주기. 시험이 줄인다.
-  pollMs?: number;
 };
 
 export async function startAgentRuntimeChild(
@@ -348,49 +284,8 @@ export async function startAgentRuntimeChild(
     };
   };
 
-  let hosts: readonly string[] = [];
-  let mcp: readonly McpServerConfig[] = [];
-  let skillRoots: readonly string[] = [];
-  let place: PlaceFolders = { read: [], write: [] };
-  const readSkillRoots = async (): Promise<readonly string[] | undefined> => {
-    if (deps.readSkillRoots === undefined) return skillRoots;
-    const read = await deps.readSkillRoots(SKILL_ROOTS_READER);
-    return read.ok ? read.value : undefined;
-  };
-  const specFor = (
-    list: readonly string[],
-    roots: readonly string[],
-    servers: readonly McpServerConfig[],
-    placeFolders: PlaceFolders,
-  ): KindLaunchSpec =>
-    agentRuntimeLaunchSpec({
-      dataRoot: deps.dataRoot,
-      apiPort: deps.apiPort,
-      socketRoot: deps.socketRoot,
-      hosts: list,
-      mcpServers: servers,
-      skillRoots: roots,
-      bundledSkillsRoot: deps.bundledSkillsRoot,
-      placeFolders,
-    });
-  // 읽지 못한 목록은 바꾸지 않은 것으로 본다. 권한은 읽은 목록으로만 정해진다.
-  const readMcp = async (): Promise<readonly McpServerConfig[] | undefined> => {
-    if (deps.readMcpServers === undefined) return [];
-    const read = await deps.readMcpServers();
-    return read.ok ? read.value : undefined;
-  };
-  const readPlace = async (): Promise<PlaceFolders | undefined> => {
-    if (deps.readPlaceFolders === undefined) return place;
-    const read = await deps.readPlaceFolders();
-    return read.ok ? read.value : undefined;
-  };
-  const initial = await deps.readProviders(HOSTS_READER);
-  if (initial.ok) hosts = initial.value;
-  skillRoots = (await readSkillRoots()) ?? [];
-  mcp = await readMcp() ?? [];
-  place = await readPlace() ?? place;
   const started = await deps.io.start(
-    specFor(hosts, skillRoots, mcp, place),
+    agentRuntimeLaunchSpec(),
     hello,
     callbacks(),
   );
@@ -401,56 +296,9 @@ export async function startAgentRuntimeChild(
     });
   }
 
-  // 등록한 provider가 바뀌면 권한 목록이 달라지므로 새 목록으로 다시 띄운다.
-  let stopped = false;
-  let checking = false;
-  const timer = setInterval(() => {
-    if (stopped || checking) return;
-    checking = true;
-    void (async () => {
-      const read = await deps.readProviders(HOSTS_READER);
-      const roots = await readSkillRoots();
-      if (!read.ok || roots === undefined || stopped) return;
-      const servers = await readMcp();
-      if (servers === undefined || stopped) return;
-      const folders = await readPlace();
-      if (folders === undefined || stopped) return;
-      // 권한에 닿는 것은 provider 목적지, skill 폴더, MCP의 net·run 목록, place 폴더뿐이다. 다른 설정 변경은 다시 띄우지 않는다.
-      if (
-        same(read.value, hosts) && same(roots, skillRoots) &&
-        same(allowNetList(servers), allowNetList(mcp)) &&
-        same(allowRunList(servers), allowRunList(mcp)) &&
-        same(folders.read, place.read) && same(folders.write, place.write)
-      ) return;
-      // 도는 turn은 끊지 않는다. 다음 주기에 마지막 목록으로 다시 본다.
-      if (deps.inbox?.anyRunning()) return;
-      const restarted = await deps.io.updateSpec(
-        specFor(read.value, roots, servers, folders),
-        hello,
-        callbacks(),
-      );
-      if (restarted.ok) {
-        hosts = read.value;
-        mcp = servers;
-        skillRoots = roots;
-        place = folders;
-      }
-    })().catch(() => {}).finally(() => {
-      checking = false;
-    });
-  }, deps.pollMs ?? AGENT_RUNTIME_HOSTS_POLL_MS);
-
   return ok({
     stop() {
-      stopped = true;
-      clearInterval(timer);
       blob?.close();
     },
-    hosts: () => hosts,
   });
-}
-
-function same(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length &&
-    left.every((value, index) => value === right[index]);
 }

@@ -1,11 +1,11 @@
 // 세 질문
-// - contract: boundary `agent-tools`·`run-loop`(runtime child의 Deno flag와 tool 목록이 맞아야 tool이 돈다),
+// - contract: boundary `agent-tools`·`run-loop`(runtime child에서 tool이 돌고 role의 operation 상한이 tool 호출을 막지 않는다),
 //   `agent-tool-spi`(role의 operation 상한은 tool 이름이 아니라 route 이름 기준이다).
-// - 현실적 회귀: runtime 권한 flag에서 place 폴더·net·run이 빠져 NotCapable로 깨지는 것(이미 두 번 난 일),
+// - 현실적 회귀: tool이 scope나 route 상한에 막혀 도는 turn이 실패하는 것(이미 두 번 난 일),
 //   이름이 route와 다른 command tool(`operator.create` → `CreateOperator`)이 credential 상한에 막혀 forbidden이 되는 것,
 //   web_fetch의 주소 판정이 풀려 loopback으로 나가는 것.
 // - 왜 지금 test로 못 잡나: 두 번 모두 child를 실제로 띄워 확인하지 않았다. agent-tools_test는 목록·정의 일치만 보고
-//   harness는 in-process라 권한 문제가 없다.
+//   harness는 in-process라 tool이 child에서 도는 길을 지나지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import {
   agentDefinitionList,
@@ -30,7 +30,7 @@ const PIXEL = Uint8Array.from(
   (char) => char.charCodeAt(0),
 );
 
-Deno.test("E2E PM의 shell·skill·image·grep·operator.create는 runtime 권한에 막히지 않고 web_fetch는 loopback으로 나가지 못한다", async () => {
+Deno.test("E2E PM의 shell·skill·image·grep·operator.create가 돌고 web_fetch는 loopback으로 나가지 못한다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;

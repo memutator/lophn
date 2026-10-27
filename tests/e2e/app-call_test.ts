@@ -8,7 +8,7 @@
 //   secret 사용이 늘 `unavailable`이었던 것.
 // - 왜 지금 test로 못 잡나: 한도 관계는 `fit_test`, `supervisor-link_test`가 상수로만 본다. 실제 pipe를 지나는 호출과
 //   agent -> core -> 앱 process 왕복은 process를 건너야 한다. net·secret의 unit은 `transport`를 끼워 넣어 supervisor
-//   권한(host 없는 --allow-net)과 process 경계를 지나지 않는다.
+//   process 경계를 지나지 않는다.
 //
 // fake 대답: 앱 하나를 activation helper로 한 번 띄우고 행들이 그 앱을 쓴다. 행의 fake 대답은 `agent-calls-app`의 둘뿐이다(호출과
 // text). 첫 대답은 요청의 tool 목록에서 tool로 끝나는 이름을 골라 부르는 함수 대답이다. tool 이름 규칙

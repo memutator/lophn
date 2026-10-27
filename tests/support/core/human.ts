@@ -4,7 +4,6 @@ import {
   connectProvider,
   modelDefaultChange,
   openAgentSession,
-  providerList,
   sendMessage,
   stopTurn as stopTurnRoute,
   turnList,
@@ -16,7 +15,6 @@ import { sessionSnapshotsList } from "../../../packages/protocol/events/mod.ts";
 import { projectApi } from "../../../packages/protocol/projects/mod.ts";
 import { platformHealth } from "../../../packages/protocol/server/mod.ts";
 import type { Core } from "./mod.ts";
-import { runtimePids } from "./process.ts";
 
 export type Turn = TurnRecord;
 
@@ -41,17 +39,9 @@ export async function until<T>(
   }
 }
 
-function hostOf(endpoint: string): string {
-  return new URL(endpoint).host;
-}
-
-// provider나 project 폴더가 바뀌면 core가 1초 polling으로 agent runtime child를 새 권한으로 다시 띄우고, 그 사이
-// 시작한 turn은 끊긴다. 옛 child의 pid(`since`)가 모두 사라지고 새 child가 ready가 될 때까지 기다린다.
-// 인자 없이 부르면 지금 runtime이 ready인 것만 확인한다.
-export async function settle(core: Core, since: number[] = []): Promise<void> {
-  await until("agent runtime이 다시 뜸", async () => {
-    const pids = await runtimePids(core.run.home);
-    if (pids.length === 0 || pids.some((pid) => since.includes(pid))) return;
+// agent runtime child가 ready가 될 때까지 기다린다. provider·project 폴더·MCP·skill이 바뀌어도 child는 다시 뜨지 않는다.
+export async function settle(core: Core): Promise<void> {
+  await until("agent runtime이 ready가 됨", async () => {
     const health = await core.call(platformHealth, {});
     const runtime = health.observations.find((item) =>
       item.component === "agent-runtime"
@@ -66,12 +56,6 @@ export async function connectFakeProvider(
   fake: { url: string },
   options: { key?: string } = {},
 ): Promise<{ provider: string }> {
-  const before = await runtimePids(core.run.home);
-  // 같은 host:port가 이미 있으면 목적지 목록이 안 바뀌어 runtime을 다시 띄우지 않는다.
-  const known = (await core.call(providerList, {})).providers;
-  const restarts = !known.some((item) =>
-    hostOf(item.endpoint) === hostOf(fake.url)
-  );
   const provider = core.ids.newId("pvd");
   const key = options.key;
   const secret = `provider.${provider.slice("pvd_".length)}`;
@@ -99,7 +83,6 @@ export async function connectFakeProvider(
   await core.call(modelDefaultChange, {
     default: { provider, model_name: MODEL_NAME, option_values: {} },
   });
-  if (restarts) await settle(core, before);
   return { provider };
 }
 
@@ -117,7 +100,6 @@ export async function openProject(
   folder: string,
   name?: string,
 ): Promise<{ project: string }> {
-  const before = await runtimePids(core.run.home);
   const project = core.ids.newId("prj");
   const title = name ?? slug(folder);
   await core.call(projectApi.register, {
@@ -127,7 +109,6 @@ export async function openProject(
     purpose: "",
     folders: [{ path: folder, description: "", subfolders: [] }],
   });
-  await settle(core, before);
   return { project };
 }
 

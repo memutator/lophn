@@ -29,14 +29,7 @@ import {
   createRun,
   type Run,
 } from "../support/core/mod.ts";
-import { runtimePids } from "../support/core/process.ts";
-import {
-  openSession,
-  say,
-  settle,
-  until,
-  waitTurnEnd,
-} from "../support/core/human.ts";
+import { openSession, say, until, waitTurnEnd } from "../support/core/human.ts";
 import {
   type FakeServer,
   startFakeServer,
@@ -106,7 +99,6 @@ Deno.test("device code 로그인이 발급자 간격을 지키고 secret 셋을 
       device: { device_code, user_code: "E2E-CODE", interval: 1 },
       device_code: [{ kind: "pending" }, { kind: "tokens", access, refresh }],
     });
-    const before = await runtimePids(run.home);
 
     const started = await core.call(loginBegin, {
       provider,
@@ -129,7 +121,6 @@ Deno.test("device code 로그인이 발급자 간격을 지키고 secret 셋을 
       });
       return step.state === "connected" ? step : undefined;
     }, LOGIN_MS);
-    await settle(core, before);
 
     // 1. 발급자: device 시작 하나, 간격 전 complete는 발급자에 묻지 않음, poll 둘은 간격 이상 떨어짐.
     assertEquals(early.state, "pending");
@@ -170,7 +161,6 @@ Deno.test("PKCE 로그인이 loopback callback으로 끝나고 code와 token이 
     const refresh = core.ids.newId("key");
     const code = core.ids.newId("key");
     const clientId = `oaiapp_${core.ids.newId("key")}`;
-    const before = await runtimePids(run.home);
 
     const started = await core.call(loginBegin, {
       provider,
@@ -213,7 +203,6 @@ Deno.test("PKCE 로그인이 loopback callback으로 끝나고 code와 token이 
       });
       return step.state === "connected" ? step : undefined;
     }, LOGIN_MS);
-    await settle(core, before);
 
     // 1. 발급자: code 교환에 verifier와 redirect_uri가 있고 jwks를 읽음
     assertEquals(pending.state, "pending");

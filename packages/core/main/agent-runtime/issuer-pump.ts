@@ -9,8 +9,8 @@ import { type CoreCall, readOf } from "../../lophn-agent/run-loop/core-call.ts";
 
 // OAuth 발급자 호출(MCP 서버와 구독 provider의 token 교환·갱신, JWKS, device code)을 core 대신 보낸다.
 // core module graph에는 외부 fetch가 없어서 core가 요청을 대기열에 놓고,
-// 이 pump가 machine 입구로 하나씩 가져가 이 프로세스의 `--allow-net`이 허락하는 곳에만
-// 보낸다. 허락 밖 목적지는 Deno 권한이 막으므로 응답 없음(닿지 못함)으로 돌아간다.
+// 이 pump가 machine 입구로 하나씩 가져가 보낸다. 이 프로세스는 --allow-all이라 Deno 권한이 목적지를
+// 막지 않는다: 어디로 보낼지는 core가 대기열에 넣을 때 정한다.
 // 요청·응답에는 code·verifier·refresh token·새 token이 있으므로 어디에도 남기지 않고 오류와 log에 싣지 않는다.
 
 const ISSUER_PUMP_IDLE_MS = 250;

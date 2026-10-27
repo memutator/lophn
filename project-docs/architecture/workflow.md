@@ -100,7 +100,7 @@ flow
 - SDK `@lophn/flow`는 `input`, `instance`, `agent(...)`, `tool(...)`, `report(...)` 다섯을 낸다. protocol과 Zod를 import하지 않고 통로 모양을 손으로 옮겼다. 다른 SDK처럼 `<data>/sdk`에 깔린다. 쓰는 법은 PM의 내장 skill `guide-workflows`의 "Flow workflows"다.
 
 쓰기 범위
-- project의 `workflows/`는 그 project의 PM만 file tool로 읽고 쓴다(`placeScope`). Operator, App Engineer, lophn에는 열리지 않는다. 폴더는 PM의 turn 시작에 만들고, PM의 place 정보에 `Workflows folder:` 줄로 절대 경로가 보인다. rewind의 쓰기 폴더와 runtime child의 권한도 같은 규칙을 따른다(`architecture/domain.md`).
+- project의 `workflows/`는 그 project의 PM만 file tool로 읽고 쓴다(`placeScope`). Operator, App Engineer, lophn에는 열리지 않는다. 폴더는 PM의 turn 시작에 만들고, PM의 place 정보에 `Workflows folder:` 줄로 절대 경로가 보인다. rewind의 쓰기 폴더도 같은 규칙을 따른다(`architecture/domain.md`).
 - 정의를 만들고 고치는 법은 PM의 내장 skill `guide-workflows`다.
 
 agent tool과 CLI

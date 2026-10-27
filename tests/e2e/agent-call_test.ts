@@ -27,7 +27,6 @@ import {
   receivedMessageList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
-import { runtimePids } from "../support/core/process.ts";
 import { shellAsk } from "../support/core/shell-ask.ts";
 import {
   connectFakeProvider,
@@ -387,14 +386,11 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
       "operator-to-app-ae: Operator가 App Engineer를 부르면 같은 왕복이 돈다",
       async () => {
         fake.reset();
-        // app.create가 template source를 이으면 runtime child가 다시 뜬다. App Engineer session은 그 뒤에 연다.
-        const before = await runtimePids(c.run.home);
         const app = await c.call(appCreate, {
           slug: "ledger-app",
           name: "Ledger App",
           description: "Keep a ledger.",
         }, {});
-        await settle(c, before);
         const ae: AgentRef = { role: "app_engineer", app: app.id };
         const agent = c.ids.newId("agt");
         await c.call(operatorCreate, {

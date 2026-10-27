@@ -44,7 +44,6 @@ import {
   waitRunning,
 } from "../support/app/activate.ts";
 import { domainPatch } from "../support/app/patch-domain.ts";
-import { runtimePids } from "../support/core/process.ts";
 import { appCoreEnv } from "../support/app/deps.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
@@ -52,7 +51,6 @@ import {
   openProject,
   openSession,
   say,
-  settle,
   waitTurnEnd,
 } from "../support/core/human.ts";
 import {
@@ -140,7 +138,6 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할�
   try {
     core = await bootCore(run, { env: await appCoreEnv() });
     await connectFakeProvider(core, fake);
-    // project 폴더나 앱 source를 더하면 agent runtime child가 다시 뜨므로 앱을 activate하기 전에 연다.
     const folder = `${run.work}/proj`;
     await Deno.mkdir(folder, { recursive: true });
     const { project } = await openProject(core, folder);
@@ -153,15 +150,12 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할�
     });
     const id = app.app;
     const slug = app.slug;
-    const oldPids = await runtimePids(core.run.home);
     await core.call(domainCreate, {
       name: second,
       title: "Shelf",
       purpose: "Keep the shelf",
       owner: { kind: "app", id },
     });
-    // 새 domain 폴더가 runtime 권한에 들어 core가 agent runtime child를 다시 띄운다.
-    await settle(core, oldPids);
     const { release } = await deliverRelease(core, fake, app, {
       goal: "Make the first release of the app",
     });

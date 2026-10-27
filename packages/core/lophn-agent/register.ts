@@ -155,7 +155,6 @@ import {
   dataRootOf,
   discoverSkills,
   type ExtensionRegistry,
-  type McpRuntimeServer,
   type PlaceFiles,
   type ProjectLayer,
   runtimeServerOfLayer,
@@ -164,7 +163,6 @@ import {
 } from "./extensions/mod.ts";
 import type { AgentRoleTable } from "./agents/role-table.ts";
 import type { OperatorMcpEntry } from "./extensions/mcp-snapshot.ts";
-import { agentRuntimePermissions } from "./tools/runtime-permissions.ts";
 import {
   extensionSettings,
   globalMcpServersSetting,
@@ -172,33 +170,19 @@ import {
   skillsOffSetting,
 } from "./extensions/mod.ts";
 
-// agent runtime 등록 뼈대. 권한 목록은 `agentRuntimePermissions`가 계산한다.
-// host·skill·MCP를 등록하면 core가 목록을 바꿔 재기동한다.
-export function agentRuntimeLaunchSpec(input: {
-  dataRoot: string;
-  apiPort: number;
-  // supervisor가 앱 direct socket을 두는 폴더(`appSocketRoot`). socket 경로는 그 폴더와 같다.
-  socketRoot: string;
-  // 등록된 MCP server 설정이다(settings registry의 행).
-  mcpServers?: readonly McpRuntimeServer[];
-  // 사람이 등록한 provider의 목적지(`host:port`). 등록되면 core가 이 목록을 바꿔 재기동한다.
-  hosts?: readonly string[];
-  // 사람이 등록한 skill 폴더다. 읽기 허락에 더하고 등록이 바뀌면 core가 다시 띄운다.
-  skillRoots?: readonly string[];
-  // 내장 skill 폴더다. role 층의 값이고 읽기 허락과 skill 발견이 같은 값을 쓴다.
-  bundledSkillsRoot: string;
-  // file tool과 shell이 닿는 place 폴더들(절대 경로)이다. 쓰기 폴더는 읽기 폴더 안에 있다.
-  placeFolders: { read: readonly string[]; write: readonly string[] };
-}): KindLaunchSpec {
-  const permissions = agentRuntimePermissions({
-    ...input,
-    bundledSkillRoots: [input.bundledSkillsRoot],
-  });
+// agent runtime 등록 뼈대. child는 --allow-all로 돈다. Deno 권한은 경계가 아니다(shell.run이 사용자 uid로
+// /bin/sh를 띄워 우회된다). file tool이 닿는 폴더는 `placeScope`와 `resolveInPlace`가 지킨다.
+export function agentRuntimeLaunchSpec(): KindLaunchSpec {
   return {
     kind: "lophn-agent/runtime",
     entry: new URL("../main/agent-runtime/main.ts", import.meta.url).pathname,
-    ...permissions,
+    allow_read: [],
+    allow_write: [],
+    allow_net: [],
+    allow_run: [],
     allow_sys: [],
+    allow_env: [],
+    allow_all: true,
     policy: "always",
     memory_limit_bytes: 512 * 1024 * 1024,
   };
@@ -682,7 +666,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
     return openAgentContext(agentDeps, sql);
   }
 
-  // 모든 Operator 정의 층의 MCP 서버다. runtime child의 권한과 `mcp.` secret 목적지가 이 목록을 읽는다. 정의 파일이
+  // 모든 Operator 정의 층의 MCP 서버다. `mcp.` secret 목적지가 이 목록을 읽는다. 정의 파일이
   // 틀린 Operator는 건너뛴다(project 층이 틀린 파일을 건너뛰는 것과 같다).
   function operatorMcpServers(
     sql: Pick<Tx["sql"], "get" | "all">,

@@ -72,7 +72,7 @@ Deno.test("묻는 shell 명령은 허락 전에 실행되지 않고, once면 실
   try {
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
-    // 두 행이 같은 project 폴더(proj)를 쓰되 폴더는 서로 다른 하위 폴더에 둔다(project를 둘 만들면 runtime 재기동이 한 번 더 든다).
+    // 두 행이 같은 project 폴더(proj)를 쓰되 폴더는 서로 다른 하위 폴더에 둔다.
     const folder = `${run.work}/proj`;
     await Deno.mkdir(folder);
     const { project } = await openProject(core, folder);

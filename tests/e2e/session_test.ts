@@ -43,14 +43,12 @@ import {
   createRun,
   type Run,
 } from "../support/core/mod.ts";
-import { runtimePids } from "../support/core/process.ts";
 import { shellAsk } from "../support/core/shell-ask.ts";
 import {
   connectFakeProvider,
   openProject,
   openSession,
   say,
-  settle,
   until,
   waitPermission,
   waitTurnEnd,
@@ -71,20 +69,17 @@ async function newProject(
   return { project, pm: { role: "project_manager", project } };
 }
 
-// 보관과 꺼내기는 runtime 폴더 권한의 합을 바꿔 child를 다시 띄운다. 새 child가 ready가 될 때까지 기다린다.
 async function setArchived(
   core: Core,
   project: string,
   archived: boolean,
 ): Promise<void> {
-  const before = await runtimePids(core.run.home);
   const { project: current } = await core.call(projectApi.get, { project });
   await core.call(
     archived ? projectApi.archive : projectApi.unarchive,
     { project },
     { base_revision: current.revision },
   );
-  await settle(core, before);
 }
 
 // say는 던지므로 거절된 code를 볼 때는 이것을 쓴다.

@@ -145,10 +145,6 @@ const HARNESS_LEFTOVERS: ReadonlyMap<string, string> = new Map([
     "packages/core/lophn-agent/tools/file/read.ts",
     "못 옮김: file.read가 projects protocol의 openableKind로 열 수 있는 형식을 고른다",
   ],
-  [
-    "packages/core/lophn-agent/tools/runtime-permissions.ts",
-    "못 옮김: runtime 권한 계산이 apps protocol의 appDirectSocketPaths를 쓴다",
-  ],
 ]);
 
 // tool 정의 file은 agent runtime child에서 실려서 store·DB 코드를 끌어오면 안 된다(rule tool-file).

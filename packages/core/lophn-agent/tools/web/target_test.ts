@@ -1,5 +1,4 @@
 import { assertEquals } from "@std/assert";
-import { agentRuntimePermissions } from "../runtime-permissions.ts";
 import { checkFetchTarget } from "./target.ts";
 
 Deno.test("web.fetch는 loopback과 사설 주소로 나가지 않는다", () => {
@@ -30,16 +29,4 @@ Deno.test("web.fetch는 loopback과 사설 주소로 나가지 않는다", () =>
   for (const [url, allowed] of cases) {
     assertEquals(checkFetchTarget(url).ok, allowed, url);
   }
-});
-
-Deno.test("runtime 권한의 쓰기는 data root 전체를 열지 않는다", () => {
-  const permissions = agentRuntimePermissions({
-    dataRoot: "/data/lophn",
-    apiPort: 1234,
-    socketRoot: "/data/lophn/run/sockets",
-    placeFolders: { read: ["/work/a", "/work/b"], write: ["/work/a"] },
-  });
-  assertEquals(permissions.allow_write.includes("/data/lophn"), false);
-  assertEquals(permissions.allow_write.includes("/work/a"), true);
-  assertEquals(permissions.allow_write.includes("/work/b"), false);
 });

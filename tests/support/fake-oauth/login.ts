@@ -2,11 +2,9 @@ import {
   loginBegin,
   loginComplete,
   modelDefaultChange,
-  providerList,
 } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type { Core } from "../core/mod.ts";
-import { runtimePids } from "../core/process.ts";
-import { settle, until } from "../core/human.ts";
+import { until } from "../core/human.ts";
 import type { FakeIssuer } from "./mod.ts";
 
 const MODEL_NAME = "claude-sonnet-4-5";
@@ -22,12 +20,6 @@ export async function connectOAuthProvider(
 ): Promise<
   { provider: string; access: string; refresh: string; device_code: string }
 > {
-  const before = await runtimePids(core.run.home);
-  // 같은 host:port가 이미 있으면 목적지 목록이 안 바뀌어 runtime을 다시 띄우지 않는다.
-  const known = (await core.call(providerList, {})).providers;
-  const restarts = !known.some((item) =>
-    new URL(item.endpoint).host === new URL(fake.url).host
-  );
   const provider = core.ids.newId("pvd");
   const access = core.ids.newId("key");
   const refresh = core.ids.newId("key");
@@ -59,7 +51,6 @@ export async function connectOAuthProvider(
   await core.call(modelDefaultChange, {
     default: { provider, model_name: MODEL_NAME, option_values: {} },
   });
-  if (restarts) await settle(core, before);
   issuer.script({});
   return { provider, access, refresh, device_code };
 }

@@ -5,12 +5,12 @@ import { lstat, realpath, rename, rm } from "node:fs/promises";
 import process from "node:process";
 
 import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
+import { appDefaultSource } from "../../../protocol/apps/app-storage.ts";
 import {
   type App,
   appConnectSource,
   appCreate,
 } from "../../../protocol/apps/mod.ts";
-import { appDefaultSource } from "../../../protocol/apps/app-storage.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import type { Writer } from "../../storage/ledger/mod.ts";
 import { builtinTemplate } from "../packages/template/files.ts";
@@ -92,6 +92,7 @@ async function scaffold(
         dir: staging,
         app: target.slug,
         title: target.name,
+        dataRoot,
       });
       if (!made.ok) return made;
       for (const step of [
@@ -107,14 +108,6 @@ async function scaffold(
       }
       await rename(staging, dir);
     }
-    // 개발용 import map은 이 장치의 위치를 담는 파생물(.lophn/, ignore)이라 자리가 정해진 뒤에 쓴다.
-    const mapped = await scaffoldApp({
-      files: [],
-      dir,
-      app: target.slug,
-      dataRoot,
-    });
-    if (!mapped.ok) return mapped;
     return ok(dir);
   } catch (thrown) {
     return err({

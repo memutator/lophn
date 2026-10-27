@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { scaffoldApp } from "./scaffold.ts";
+import { writeTemplateFiles } from "./scaffold.ts";
 
 const files = [
   { path: "main.ts", bytes: new TextEncoder().encode("// {{APP}}\n") },
@@ -15,8 +15,8 @@ test("이미 있는 앱 폴더의 파일은 덮지 않고 빠진 파일만 채�
   const dir = await mkdtemp(join(tmpdir(), "lophn-scaffold-"));
   try {
     await writeFile(`${dir}/main.ts`, "mine\n");
-    const result = await scaffoldApp({ files, dir, app: "demo" });
-    assert.deepStrictEqual(result.ok && result.value.files, ["src/tools.ts"]);
+    const result = await writeTemplateFiles({ files, dir, app: "demo" });
+    assert.deepStrictEqual(result.ok && result.value, ["src/tools.ts"]);
     assert.deepStrictEqual(await readFile(`${dir}/main.ts`, "utf8"), "mine\n");
     assert.deepStrictEqual(
       await readFile(`${dir}/src/tools.ts`, "utf8"),

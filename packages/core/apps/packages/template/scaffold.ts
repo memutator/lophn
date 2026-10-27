@@ -1,16 +1,17 @@
-// 템플릿에서 앱 source 폴더를 준비한다. 파일을 그대로 복사하고 앱 이름·제목만 채운다. 이미 있는 파일은 덮지
-// 않고 빠진 파일만 채운다. 개발용 import map은 이 장치의 설치 SDK 위치를 담으므로 앱 source가 아니라
-// `.lophn/`(ignore)에 두고, 파생물이라 늘 다시 쓴다.
-import { lstat, mkdir, readFile, writeFile } from "node:fs/promises";
+// 템플릿에서 앱 source 폴더를 준비한다. 파일을 그대로 복사하고 앱 이름·제목만 채운 뒤, SDK 사본을 앱의
+// `.lophn/sdk`에 채우고 npm으로 의존을 받아 바로 check·test할 수 있게 한다. 이미 있는 파일은 덮지 않고
+// 빠진 파일만 채운다.
+import { spawn } from "node:child_process";
+import { lstat, mkdir, writeFile } from "node:fs/promises";
+import process from "node:process";
 
 import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
+import { npmCommand } from "../../../supervision/security/node-command.ts";
+import { syncAppSdk } from "../sdk-sync.ts";
 import type { TemplateFailure, TemplateFile } from "./files.ts";
-import { devImportMap } from "./import-map.ts";
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const TEXT = /\.(?:ts|tsx|json|md|html|css|sql|txt)$|(?:^|\/)\.gitignore$/;
-
-const DEV_IMPORT_MAP_PATH = ".lophn/import-map.json";
 
 type ScaffoldInput = {
   files: readonly TemplateFile[];
@@ -20,15 +21,16 @@ type ScaffoldInput = {
   app: string;
   // 사람이 읽는 제목. 없으면 slug에서 만든다.
   title?: string;
-  // lophn data root. 있으면 개발용 import map을 쓴다.
-  dataRoot?: string;
+  // 설치 SDK 사본이 있는 data root.
+  dataRoot: string;
 };
 
 type ScaffoldResult = {
   // 새로 쓴 파일만이다.
   files: string[];
-  devImportMap: string | null;
 };
+
+type WriteInput = Omit<ScaffoldInput, "dataRoot">;
 
 function invalid(message: string): Result<never, TemplateFailure> {
   return err({ code: "invalid_input", message });
@@ -67,16 +69,11 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-export async function scaffoldApp(
-  input: ScaffoldInput,
-): Promise<Result<ScaffoldResult, TemplateFailure>> {
-  if (!SLUG.test(input.app)) {
-    return invalid("app must be a slug (a-z, 0-9, -)");
-  }
+// 템플릿 파일을 쓴다. 이미 있는 파일은 덮지 않는다(앱이 고친 파일을 잃지 않게).
+export async function writeTemplateFiles(
+  input: WriteInput,
+): Promise<Result<string[], TemplateFailure>> {
   const title = (input.title ?? titleOf(input.app)).trim();
-  if (title === "" || /[\r\n]/.test(title) || title.length > 80) {
-    return invalid("title must be one line of at most 80 characters");
-  }
   const written: string[] = [];
   try {
     for (const file of input.files) {
@@ -97,24 +94,6 @@ export async function scaffoldApp(
       await writeFile(target, bytes);
       written.push(file.path);
     }
-    let devMap: string | null = null;
-    if (input.dataRoot !== undefined) {
-      // 이미 있는 폴더면 그 deno.json이 정본이다.
-      const config = JSON.parse(
-        await readFile(`${input.dir}/deno.json`, "utf8"),
-      ) as { imports?: Record<string, string> };
-      await mkdir(`${input.dir}/.lophn`, { recursive: true });
-      await writeFile(
-        `${input.dir}/${DEV_IMPORT_MAP_PATH}`,
-        JSON.stringify(
-          devImportMap(config.imports ?? {}, input.dataRoot, input.dir),
-          null,
-          2,
-        ) + "\n",
-      );
-      devMap = DEV_IMPORT_MAP_PATH;
-    }
-    return ok({ files: written.sort(), devImportMap: devMap });
   } catch (thrown) {
     return err({
       code: "unavailable",
@@ -123,4 +102,70 @@ export async function scaffoldApp(
       }`,
     });
   }
+  return ok(written.sort());
+}
+
+function stderrTail(text: string): string {
+  const trimmed = text.trim();
+  return trimmed.length > 500 ? `...${trimmed.slice(-500)}` : trimmed;
+}
+
+// npm은 platform의 것을 Electron의 Node로 돌린다(사용자 기계에 npm이 없을 수 있다).
+async function installDependencies(
+  dir: string,
+): Promise<Result<void, TemplateFailure>> {
+  const command = npmCommand([
+    (await exists(`${dir}/package-lock.json`)) ? "ci" : "install",
+    "--no-audit",
+    "--no-fund",
+  ]);
+  try {
+    const child = spawn(command.command, command.args, {
+      cwd: dir,
+      stdio: ["ignore", "pipe", "pipe"],
+      // Node는 env를 통째로 바꾸므로 부모 환경(경로·HOME의 cache)을 직접 합친다.
+      env: { ...process.env, ...command.env },
+    });
+    let stderr = "";
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+    // exit가 아니라 close를 기다린다. npm이 남긴 stderr를 다 받은 뒤에 판정한다.
+    const code = await new Promise<number | null>((resolve, reject) => {
+      child.on("error", reject);
+      child.on("close", resolve);
+    });
+    if (code === 0) return ok(undefined);
+    return err({
+      code: "unavailable",
+      message: `app dependencies could not be installed: ${stderrTail(stderr)}`,
+    });
+  } catch (thrown) {
+    return err({
+      code: "unavailable",
+      message: `app dependencies could not be installed: ${
+        thrown instanceof Error ? thrown.message : thrown
+      }`,
+    });
+  }
+}
+
+export async function scaffoldApp(
+  input: ScaffoldInput,
+): Promise<Result<ScaffoldResult, TemplateFailure>> {
+  if (!SLUG.test(input.app)) {
+    return invalid("app must be a slug (a-z, 0-9, -)");
+  }
+  const title = (input.title ?? titleOf(input.app)).trim();
+  if (title === "" || /[\r\n]/.test(title) || title.length > 80) {
+    return invalid("title must be one line of at most 80 characters");
+  }
+  const written = await writeTemplateFiles(input);
+  if (!written.ok) return written;
+  const synced = await syncAppSdk(input.dir, input.dataRoot);
+  if (!synced.ok) return err(synced.error);
+  const installed = await installDependencies(input.dir);
+  if (!installed.ok) return installed;
+  return ok({ files: written.value });
 }

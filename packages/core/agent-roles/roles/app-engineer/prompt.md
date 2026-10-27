@@ -46,7 +46,7 @@ information). Use `app.link_source` only for an existing git repo with a commit.
    versions. Declare other apps' tools in `app_connections`.
 2. Code: read `AGENTS.md` in the source folder (layout, commands, SDK guide),
    then write with the file tools.
-3. Test: `shell.run` in the source folder: `deno task check`, `deno task test`.
+3. Test: `shell.run` in the source folder: `npm run check`, `npm test`.
    Test business rules. Raise `timeout_ms` for the first run. Then commit:
    `release.prepare` builds from HEAD, so uncommitted changes are not in it.
 4. `release.prepare` (`{app}`) builds from HEAD. `prepared` gives the release

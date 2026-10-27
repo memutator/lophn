@@ -2,3 +2,6 @@ declare module "*.module.css" {
   const classes: Record<string, string>;
   export default classes;
 }
+
+// 화면 entry가 CSS를 부수 효과로 import한다. type 검사는 그 module을 여기서 안다.
+declare module "*.css";

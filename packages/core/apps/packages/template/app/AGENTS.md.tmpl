@@ -1,10 +1,10 @@
 # {{TITLE}}
 
-lophn 앱 `{{APP}}`이다. 업무 프로세스는 Deno, 화면은 React이고 lophn 화면과 같은
-설치 SDK Package를 쓴다.
+lophn 앱 `{{APP}}`이다. 업무 프로세스는 Node, 화면은 React이고 lophn 화면과 같은
+설치 SDK Package를 쓴다. 앱은 lophn이 쓰는 Electron의 Node로 돈다.
 
 <!-- begin lophn-managed -->
-lophn 앱이다. 업무 프로세스는 Deno, 화면은 React이고 lophn 화면과 같은 설치 SDK
+lophn 앱이다. 업무 프로세스는 Node, 화면은 React이고 lophn 화면과 같은 설치 SDK
 Package를 쓴다.
 
 이 안내는 앱 root의 정본 `AGENTS.md` 하나에서 읽는다. 제품별 파일은 정본을
@@ -13,7 +13,7 @@ Package를 쓴다.
 ## 설계와 구현의 구별
 
 - `lophn.ts`가 정본 선언이다. 맡은 일에 필요하면 코드를 바꾸기 전에 직접 먼저
-  바꾸고, 의존이 바뀌면 `deno.json`의 import map도 같은 정확한 version으로 함께
+  바꾸고, 의존이 바뀌면 `package.json`의 의존도 같은 정확한 version으로 함께
   고친다. 선언은 앱 code와 함께 release에 봉인된다.
 - 설계 문서, 선언, 구현 code, machine 생성물(생성된
   placeholders·locks·build 자원)은 서로 다른 몫이다. machine이 만든 파일은
@@ -22,13 +22,13 @@ Package를 쓴다.
 
 ## SDK 확인
 
-- 내장 SDK의 사용법은 `.lophn/import-map.json`이 가리키는 설치 사본 폴더의
-  `guide.md`를 읽는다. 새 SDK Package나 의존이 필요하면 `lophn.ts`의 의존
-  선언과 `deno.json`의 import map을 같은 정확한 version으로 함께 고친다(release
-  준비가 둘을 대조한다).
+- 내장 SDK의 사용법은 설치 사본의 `guide.md`(예:
+  `.lophn/sdk/declaration/1.0.0/guide.md`)를 읽는다. 새 SDK Package나 의존이
+  필요하면 `lophn.ts`의 의존 선언과 `package.json`의 의존을 같은 정확한
+  version으로 함께 고친 뒤 `npm install`을 돌린다(release 준비가 둘을 대조한다).
 - 화면 component는 `@lophn/ui/<분류>`에서 import한다. 분류는 primitives, input,
   layout, navigation, data, feedback, overlay, reading이고, 분류의 `mod.ts`가
-  목록이다(export마다 "언제 쓰나" 한 줄. 위치는 `.lophn/import-map.json`). 앱
+  목록이다(export마다 "언제 쓰나" 한 줄). 앱
   bridge component(ToolButton, useTool, AppErrorBoundary)는 `@lophn/app-ui`다.
 - token과 기본 글꼴은 `@lophn/ui/tokens.css`·`base.css`로 받고, 앱 CSS는 token
   변수만 쓴다. 사람이 고른 accent, 배경, 글꼴이 그 변수로 들어오므로 색과 글꼴
@@ -39,7 +39,7 @@ Package를 쓴다.
 
 ## 테스트·preview·release·결과 알림
 
-- 앱 test는 `deno task test`, type 검사는 `deno task check`로 돌린다.
+- 앱 test는 `npm test`, type 검사는 `npm run check`로 돌린다.
 - preview는 fixture 격리 사본에서 화면·tool을 확인하는 것뿐이고 운영 정상의
   증거가 아니다.
 - release 준비는 source의 지금 commit(HEAD)으로 bundle을 만든다. commit하지 않은
@@ -64,20 +64,22 @@ Package를 쓴다.
 - `src/wording/en.ts`: 화면 문구의 en catalog. 화면 코드에 문구를 직접 쓰지 않고
   `t("key")`만 쓴다.
 - `tests/`: `declaration_test.ts`는 lophn가 만든 파일이라 고치지 않는다.
-- `deno.json`: 정확한 SDK import map. `lophn-sdk:` 값은 정확한 version만 받는다.
-  `.lophn/`는 이 장치의 개발용 파생물이라 commit하지 않는다.
+- `package.json`: 정확한 SDK·npm 의존. SDK 의존은
+  `file:.lophn/sdk/<이름>/<판>`이고 `lophn.ts`의 `sdk_dependencies`와 같아야
+  한다. `tsconfig.json`은 type 검사 설정이다. `.lophn/`은 lophn이 채우는 설치
+  사본이라 commit하지 않는다.
 
 ## 명령
 
-`check`·`test`·`wording`은 먼저 `deno.json`에서 `.lophn/import-map.json`을 다시 쓴다.
-그래서 `deno.json`에 `npm:`·`jsr:` 의존을 더하면 바로 풀린다.
+의존을 바꾼 뒤에는 `npm install`을 돌린다. `.lophn/sdk`의 설치 사본은 lophn이
+채운다.
 
-- `deno task test`: 앱 test(선언·업무 규칙·문구).
-- `deno task build`: 화면을 `dist/screens/`에 build한다. release 준비가 같은
+- `npm test`: 앱 test(선언·업무 규칙·문구).
+- `npm run build`: 화면을 `dist/screens/`에 build한다. release 준비가 같은
   결과를 bundle에 담는다.
-- `deno task wording`: en catalog를 바꾼 뒤 `src/wording/placeholders.ts`를 다시
+- `npm run wording`: en catalog를 바꾼 뒤 `src/wording/placeholders.ts`를 다시
   만든다.
-- `deno task check`: type 검사.
+- `npm run check`: type 검사(`tsc --noEmit`).
 
 ## 재사용 기준
 

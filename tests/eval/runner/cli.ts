@@ -25,7 +25,7 @@ import { installSignals } from "./signals.ts";
 import { TRIAL_CAP_USD } from "./spend.ts";
 
 const USAGE =
-  "사용법: deno task eval (--scenario <id> [--scenario <id>...] | --all) [--model <name>] [--effort <value>] [--trials N] [--budget <usd>] [--trial-budget <usd>] [--keep]";
+  "사용법: npm run eval -- (--scenario <id> [--scenario <id>...] | --all) [--model <name>] [--effort <value>] [--trials N] [--budget <usd>] [--trial-budget <usd>] [--keep]";
 
 // 채점 대기인 judge check는 떨어진 것이 아니다.
 export function passed(trial: TrialResult): boolean {
@@ -192,7 +192,7 @@ export async function main(args: string[]): Promise<number> {
         failed.length === 0 ? "없음" : failed.join(", ")
       }${
         pending > 0
-          ? `, 채점 대기 ${pending}건(deno task eval:judge ${record.id})`
+          ? `, 채점 대기 ${pending}건(npm run eval:judge -- ${record.id})`
           : ""
       }, $${cost.toFixed(4)} (${record.id})${
         lines.length === 0 ? "" : `\n${lines.join("\n")}`

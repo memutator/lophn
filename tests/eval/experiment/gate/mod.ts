@@ -6,11 +6,11 @@ import { e2eBoundaries, parseCatalog, selectE2e } from "./e2e.ts";
 
 export { changedFiles } from "./changes.ts";
 export {
-  e2eBoundaries,
   type E2eSelection,
+  e2eBoundaries,
   parseCatalog,
-  selectE2e,
   type SelectInput,
+  selectE2e,
 } from "./e2e.ts";
 export { defaultGateDeps } from "./exec.ts";
 
@@ -29,6 +29,7 @@ export type GateDeps = {
     cmd: string[],
     cwd: string,
     timeoutMs: number,
+    env?: Record<string, string>,
   ): Promise<{ code: number; output: string }>; // stdout+stderr
   git: Git; // cwd가 variant인 git
   readText(path: string): Promise<string>;
@@ -67,7 +68,7 @@ export async function runGate(
 
   const checkOk = await stage("check", async () => {
     const r = await deps.run(
-      ["deno", "task", "check"],
+      ["npm", "run", "check"],
       input.checkout,
       CHECK_TIMEOUT_MS,
     );
@@ -113,11 +114,18 @@ export async function runGate(
       ...sel.reasons.slice(0, 10),
       ...noContract.map((f) => `contract 줄 없음: ${f}`),
     ].join("\n");
-    const target = sel.all ? ["tests/e2e"] : sel.files;
+    const target = sel.all ? ["tests/e2e/*_test.ts"] : sel.files;
+    // root `e2e` script와 같은 runner다. Electron binary가 Node로 돌려면 ELECTRON_RUN_AS_NODE가 필요하다.
     const r = await deps.run(
-      ["deno", "test", "--allow-all", "--no-check", ...target],
+      [
+        "node_modules/electron/dist/electron",
+        "--test",
+        "--test-concurrency=1",
+        ...target,
+      ],
       input.checkout,
       E2E_TIMEOUT_MS,
+      { ELECTRON_RUN_AS_NODE: "1" },
     );
     return r.code === 0
       ? { ok: true, skipped: false, detail: info }

@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../../packages/base/mod.ts";
-import { type RunRecord } from "../../types.ts";
 import type { Current } from "../../scorecard/pick.ts";
+import { type RunRecord } from "../../types.ts";
 import type { ExperimentSpec, PlanEntry, Role } from "../spec/mod.ts";
 import { baselineOf, baselineOutcomes } from "./baseline.ts";
 
@@ -65,7 +65,7 @@ export function selectRuns(
         b.valid.length === 0
           ? {
               code: "conflict",
-              text: `target ${scenario.id}: no baseline run. Run \`deno task eval --scenario ${scenario.id}\` first`,
+              text: `target ${scenario.id}: no baseline run. Run \`npm run eval -- --scenario ${scenario.id}\` first`,
             }
           : {
               code: "invalid_input",

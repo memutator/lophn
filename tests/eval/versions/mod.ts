@@ -22,4 +22,4 @@ export {
   TEXT_KINDS,
   type VariantTexts,
 } from "./registry.ts";
-export { captureSource, denoGit, type Git } from "./source.ts";
+export { captureSource, type Git, gitAt } from "./source.ts";

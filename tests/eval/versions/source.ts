@@ -25,7 +25,7 @@ function output(
   });
 }
 
-export function denoGit(root: string): Git {
+export function gitAt(root: string): Git {
   return async (args) => {
     const out = await output("git", ["-C", root, ...args]);
     if (out.code !== 0) {
@@ -35,14 +35,14 @@ export function denoGit(root: string): Git {
   };
 }
 
-// 제품 코드(packages, deno.json, deno.lock)의 변경만 센다. runs, registry, scorecards, materials는
+// 제품 코드(packages, root package.json, package-lock.json)의 변경만 센다. runs, registry, scorecards, materials는
 // run이 스스로 쓰므로 세면 늘 dirty가 된다.
-const TARGET = ["packages", "deno.json", "deno.lock"];
+const TARGET = ["packages", "package.json", "package-lock.json"];
 
 export async function captureSource(
   deps: Deps & { git?: Git } = {},
 ): Promise<SourceInfo> {
-  const git = deps.git ?? denoGit(deps.root ?? REPO_ROOT);
+  const git = deps.git ?? gitAt(deps.root ?? REPO_ROOT);
   const commit = (await git(["rev-parse", "HEAD"])).trim();
   const status = await git([
     "status",

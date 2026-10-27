@@ -1,4 +1,4 @@
-// core E2E와 `deno task dev`가 provider 자리에 쓰는 fake server. anthropic-messages
+// core E2E와 `npm run dev`가 provider 자리에 쓰는 fake server. anthropic-messages
 // 하나만 말한다(path `/messages`). 기대와 다른 요청과 queue가 빈 요청은 HTTP 400으로
 // 답한다. 500 계열은 제품이 temporary로 보고 retry해서 test가 헷갈린다.
 

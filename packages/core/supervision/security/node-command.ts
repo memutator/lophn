@@ -26,12 +26,6 @@ export function nodeCommand(
   };
 }
 
-// 앱과 flow는 wave 3까지 Deno로 돈다. 설치본과 dev는 LOPHN_DENO로 절대 경로를 넘기고,
-// 없으면 PATH에서 찾는다.
-export function denoBinary(): string {
-  return process.env["LOPHN_DENO"] ?? "deno";
-}
-
 // 앱과 flow의 의존을 받는 npm. 설치본이 도는 기계에는 npm이 없을 수 있어 platform이 가진 npm을 같은
 // runtime으로 돌린다.
 // npm은 package lifecycle script에서 PATH의 `node`를 부른다. shim 폴더를 PATH 맨 앞에 두지 않으면

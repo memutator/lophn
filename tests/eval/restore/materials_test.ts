@@ -42,7 +42,7 @@ test("committed 재료의 hash, 고정 id, needs·parent가 맞고 앱 source fi
       assert.ok(known.has(link), `${ref} points at missing ${link}`);
     }
     needsOf.set(ref, material.manifest.needs);
-    // 앱 source가 아닌 repo 코드로 읽히면 deno task check가 lint와 type check를 건다.
+    // 앱 source가 아닌 repo 코드로 읽히면 npm run check가 lint와 type check를 건다.
     for (const file of material.files) {
       if (file.path.startsWith("source/")) {
         assert.ok(file.path.endsWith(".tmpl"), `${ref} ${file.path}`);

@@ -1,5 +1,5 @@
 import { EXPERIMENTS_DIR, type LockFacts } from "../experiment/spec/mod.ts";
-import { denoGit, type Git } from "../versions/mod.ts";
+import { type Git, gitAt } from "../versions/mod.ts";
 
 const ok = (run: () => Promise<unknown>) =>
   run().then(
@@ -16,9 +16,9 @@ export async function collectLockFacts(args: {
   cases: { id: string; path: string }[]; // 시나리오 file의 절대 경로
 }): Promise<LockFacts> {
   const specPath = `${EXPERIMENTS_DIR}/${args.id}/spec.json`;
-  const base = denoGit(args.current);
+  const base = gitAt(args.current);
   const variant: Git =
-    args.variant === args.current ? base : denoGit(args.variant);
+    args.variant === args.current ? base : gitAt(args.variant);
 
   const commit = (
     await base(["log", "-1", "--format=%H", "--", specPath])

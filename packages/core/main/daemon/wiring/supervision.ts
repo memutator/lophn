@@ -16,16 +16,9 @@ export const supervisionWiring: WiringFactory = () => ({
         env: (kind) => ({
           LOPHN_WORKER_KIND: kind,
           LOPHN_HOME: ctx.root.path,
-          // deno는 이 둘 없이 캐시와 실행 파일을 못 찾는다. 그 밖 환경은 복사하지 않는다.
+          // child가 자기 설정과 도구(git 등)를 찾는 데 필요한 둘만 준다. 그 밖 환경은 복사하지 않는다.
           ...(process.env["HOME"] ? { HOME: process.env["HOME"]! } : {}),
           ...(process.env["PATH"] ? { PATH: process.env["PATH"]! } : {}),
-          ...(process.env["DENO_DIR"]
-            ? { DENO_DIR: process.env["DENO_DIR"]! }
-            : {}),
-          // agent runtime의 shell과 앱·release child가 Deno를 부를 때 같은 binary를 쓰게 한다.
-          ...(process.env["LOPHN_DENO"]
-            ? { LOPHN_DENO: process.env["LOPHN_DENO"]! }
-            : {}),
         }),
       }),
     );
@@ -37,12 +30,9 @@ export const supervisionWiring: WiringFactory = () => ({
         env: () => ({
           LOPHN_WORKER_KIND: APPS_SUPERVISOR_KIND,
           LOPHN_HOME: ctx.root.path,
-          // 앱 자식에게 넘길 deno 캐시·XDG·임시 폴더 위치뿐이다. 그 밖 환경은 복사하지 않는다.
+          // 앱 자식에게 넘길 HOME·PATH·XDG·임시 폴더 위치뿐이다. 그 밖 환경은 복사하지 않는다.
           ...(process.env["HOME"] ? { HOME: process.env["HOME"]! } : {}),
           ...(process.env["PATH"] ? { PATH: process.env["PATH"]! } : {}),
-          ...(process.env["DENO_DIR"]
-            ? { DENO_DIR: process.env["DENO_DIR"]! }
-            : {}),
           ...(process.env["XDG_CACHE_HOME"]
             ? { XDG_CACHE_HOME: process.env["XDG_CACHE_HOME"]! }
             : {}),

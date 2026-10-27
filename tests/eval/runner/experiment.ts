@@ -22,12 +22,12 @@ import {
   type GateReport,
   runGate,
 } from "../experiment/gate/mod.ts";
-import { createPool, type Pool } from "../experiment/parallel/mod.ts";
 import {
   findOverfit,
   formatWarnings,
   loadChangedText,
 } from "../experiment/overfit/mod.ts";
+import { createPool, type Pool } from "../experiment/parallel/mod.ts";
 import { REPEAT_KIND, type RepeatFinding } from "../experiment/repeat/mod.ts";
 import {
   changedComponents,
@@ -41,8 +41,8 @@ import {
   EXPERIMENTS_DIR,
   type ExperimentSpec,
   type Outcome,
-  outcomeOf,
   type OverfitWarning,
+  outcomeOf,
   readResult,
   readSpec,
 } from "../experiment/spec/mod.ts";
@@ -51,14 +51,15 @@ import {
   flakyScenarios,
   nextTrials,
 } from "../experiment/trials/mod.ts";
-import { recordVerdict, type VerdictEntry } from "../experiment/verdict/mod.ts";
 import { resolveVariant, type Variant } from "../experiment/variant/mod.ts";
+import { recordVerdict, type VerdictEntry } from "../experiment/verdict/mod.ts";
 import { loadJudgeDefinition, outstanding, readPending } from "../judge/mod.ts";
 import { readAnthropicKey } from "../provider/mod.ts";
 import { MATERIALS_ROOT, orderMaterials } from "../restore/manifest.ts";
+import { readRuns } from "../scorecard/runs.ts";
 import {
-  refText,
   type RunRecord,
+  refText,
   type Scenario,
   type VersionRef,
 } from "../types.ts";
@@ -68,9 +69,8 @@ import {
   coreVersion,
   currentVersions,
 } from "../versions/mod.ts";
-import { readRuns } from "../scorecard/runs.ts";
-import { checkChange } from "./change.ts";
 import { createCap } from "./cap.ts";
+import { checkChange } from "./change.ts";
 import { trialDepsOf } from "./deps.ts";
 import { type Discovered, discoverScenarios } from "./discover.ts";
 import { collectLockFacts } from "./lock.ts";
@@ -528,8 +528,8 @@ export async function experimentCommand(
     const waiting = outstanding(await readPending(EVAL_DIR, run)).length;
     if (waiting === 0) continue;
     log(`[pending] ${run} ${waiting}건`);
-    log(`  deno task eval:judge ${run}`);
-    log(`  deno task eval:experiment ${spec.id}`);
+    log(`  npm run eval:judge -- ${run}`);
+    log(`  npm run eval:experiment -- ${spec.id}`);
   }
   for (const reason of verdict.value.reasons) log(`  ${reason}`);
   log(`[verdict] ${verdict.value.decision}`);

@@ -10,7 +10,7 @@ const MAX_PAGES = 20;
 const MAX_PAGE_CHARS = 6000;
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 
-// unpdf(MIT, pdf.js 기반, Deno에서 그대로 돈다). 쓸 때만 불러온다.
+// unpdf(MIT, pdf.js 기반). 쓸 때만 불러온다.
 type Unpdf = {
   getDocumentProxy(data: Uint8Array): Promise<unknown>;
   extractText(

@@ -1,7 +1,7 @@
 import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
-import type { Id } from "../../../packages/protocol/base/mod.ts";
 import { scaffoldApp } from "../../../packages/core/apps/packages/template/scaffold.ts";
+import type { Id } from "../../../packages/protocol/base/mod.ts";
 import {
   approveActivation,
   deliverRelease,
@@ -36,7 +36,7 @@ function materialSource(
       });
       await writeFile(path, file.bytes);
     }
-    // 개발용 import map은 등록 때 그 폴더의 deno.json으로 쓰인다. 재료의 deno.json으로 다시 써야 `deno task check`가 돈다.
+    // template의 개발용 파생물(`.lophn/`, ignore)은 재료 source로 바꾼 뒤 다시 쓴다.
     const scaffolded = await scaffoldApp({
       files: [],
       dir,

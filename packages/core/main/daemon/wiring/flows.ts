@@ -16,7 +16,7 @@ export const flowsWiring: WiringFactory = () => {
       const redactor = createProductRedactor(ctx.knownSecrets);
       host = createFlowHost({
         dataRoot: ctx.root.path,
-        // flow는 lophn의 다른 자식 process와 같이 Electron의 Node로 뜬다. DENO_DIR은 넘기지 않는다.
+        // flow는 lophn의 다른 자식 process와 같이 Electron의 Node로 뜬다. HOME·XDG·PATH만 넘긴다.
         env: appEnv({
           home: process.env.HOME,
           xdgCacheHome: process.env.XDG_CACHE_HOME,

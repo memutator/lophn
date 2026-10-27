@@ -23,7 +23,6 @@ import {
 } from "../judge/mod.ts";
 import { attachRealModels } from "../provider/mod.ts";
 import { agentRefOf, saveMaterials } from "../restore/mod.ts";
-import { seenComponents } from "../versions/mod.ts";
 import {
   type CheckResult,
   type Criterion,
@@ -35,6 +34,7 @@ import {
   type TrialResult,
   type VersionRef,
 } from "../types.ts";
+import { seenComponents } from "../versions/mod.ts";
 import { serial } from "./mutex.ts";
 import { extraRoots } from "./roots.ts";
 import { createSpendGuard, roleSpendUsd } from "./spend.ts";
@@ -311,7 +311,7 @@ export async function runTrial(
     if (deps.keep && held.run !== undefined) {
       await held.ctx?.fake.close().catch(() => {});
       deps.log(
-        `world를 남겼다: LOPHN_DEV_HOME=${held.run.home} deno task dev 로 연다. 다 보면 ${held.run.dir}를 지운다`,
+        `world를 남겼다: LOPHN_DEV_HOME=${held.run.home} npm run dev 로 연다. 다 보면 ${held.run.dir}를 지운다`,
       );
     } else {
       await releaseWorld(held);

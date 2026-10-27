@@ -2,12 +2,13 @@
 // - contract: boundary `models`(구독 token으로 부르는 길, 갱신, 계정 model 목록)와 `secrets`(회전한 refresh token의 저장).
 // - 현실적 회귀: 진짜 ChatGPT 계정이 목록·호출·갱신에서 fake 발급자와 다르게 답하는 것(칸 이름, 만료, 회전).
 // - 지금 못 잡는 이유: fake 발급자와 fake model server는 우리가 짠 모양만 안다. 진짜 구독 token은 사람이 한 번 로그인해
-//   저장한 live root(root.ts)가 있어야 하고, 이 test는 사람이 `deno task test:live`로 돌릴 때만 의미가 있다.
+//   저장한 live root(root.ts)가 있어야 하고, 이 test는 사람이 `npm run test:live`로 돌릴 때만 의미가 있다.
 
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
+import { providerTokenNames } from "../../packages/core/lophn-agent/providers/oauth-secrets.ts";
 import {
   modelCallList,
   modelCatalogRead,
@@ -15,7 +16,6 @@ import {
   providerList,
   providerRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { providerTokenNames } from "../../packages/core/lophn-agent/providers/oauth-secrets.ts";
 import {
   openSession,
   say,
@@ -55,7 +55,7 @@ test("구독 token으로 model을 한 번 부르고 갱신이 있으면 회전�
     // root가 있다는 것은 gate가 이미 봤다. 쓸 수 없는 root를 조용히 넘기면 만료를 숨긴다.
     assert.ok(
       chatgpt !== undefined && chatgpt.credential.state === "available",
-      "ChatGPT 로그인을 쓸 수 없다. `deno task test:live:login`을 다시 하라(필요하면 `chmod -R u+w .dev-data/live && rm -rf .dev-data/live` 뒤)",
+      "ChatGPT 로그인을 쓸 수 없다. `npm run test:live:login`을 다시 하라(필요하면 `chmod -R u+w .dev-data/live && rm -rf .dev-data/live` 뒤)",
     );
     const provider = chatgpt.id;
     const expiresBefore = Date.parse(chatgpt.credential.expires_at ?? "");

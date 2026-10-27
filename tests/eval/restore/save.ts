@@ -13,9 +13,9 @@ import type {
 import { gitBytes } from "./git.ts";
 import {
   loadMaterial,
+  MATERIALS_ROOT,
   type Material,
   type MaterialFile,
-  MATERIALS_ROOT,
   splitRef,
   writeMaterial,
 } from "./manifest.ts";
@@ -41,8 +41,8 @@ async function appFile(core: Core, app: string) {
   return { path: "app.json", bytes: json({ slug, name, description }) };
 }
 
-// 작업 트리가 아니라 활성 release의 commit에서 읽는다. 앱 처리 중 만든 untracked file이나 `.lophn/`(이 장치의
-// 절대 경로가 든 import map)가 재료에 들어가면 hash가 장치마다 달라진다.
+// 작업 트리가 아니라 활성 release의 commit에서 읽는다. 앱 처리 중 만든 untracked file이나 `.lophn/`(SDK 사본 같은
+// 파생물)가 재료에 들어가면 hash가 장치마다 달라진다.
 async function saveActiveApp(
   deps: Deps,
   appName: string,

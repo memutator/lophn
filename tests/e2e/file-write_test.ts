@@ -1,9 +1,9 @@
 // 세 질문
 // - contract: boundary `agent-tools`(file tool의 scope는 place 폴더 안이고 data root는 닿지 않는다),
-//   `run-loop`(runtime child는 --allow-all로 돌고 file tool이 닿는 폴더는 scope가 정한다).
+//   `run-loop`(runtime child는 권한 제한 없이 돌고 file tool이 닿는 폴더는 scope가 정한다).
 //   architecture `place-session.md`의 "place 폴더가 범위".
-// - 현실적 회귀: scope 검사에서 절대 경로·symlink·`..`가 새는 것. --allow-all이라 Deno 권한이 막지 않으므로
-//   scope가 유일한 방어라는 걸 잊고 느슨하게 하는 것.
+// - 현실적 회귀: scope 검사에서 절대 경로·symlink·`..`가 새는 것. 권한 제한이 없으므로 scope가 유일한 방어라는
+//   걸 잊고 느슨하게 하는 것.
 // - 왜 지금 test로 못 잡나: scope_test는 함수 입력만 본다. child process를 건너 실제 file tool이 도는 길은
 //   process를 띄워야 보인다.
 import assert from "node:assert/strict";
@@ -12,7 +12,6 @@ import { test } from "node:test";
 import { errorCode } from "../../packages/base/mod.ts";
 import { agentFilePathOf } from "../../packages/core/agent-roles/place/instruction-rules.ts";
 import { toolCallList } from "../../packages/protocol/lophn-agent/mod.ts";
-import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
   openProject,
@@ -20,6 +19,7 @@ import {
   say,
   waitTurnEnd,
 } from "../support/core/human.ts";
+import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 
 async function digest(path: string): Promise<string | null> {
@@ -169,7 +169,7 @@ type Paths = {
   definition: string;
 };
 
-test("E2E PM은 Deno 권한이 열린 data root의 비밀과 설정을 읽거나 쓰지 못하고, project 폴더에는 쓴다", async () => {
+test("E2E PM은 권한 제한 없이 도는 runtime에서도 data root의 비밀과 설정을 읽거나 쓰지 못하고, project 폴더에는 쓴다", async () => {
   await scope(
     (p): Row[][] => [
       [

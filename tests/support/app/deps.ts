@@ -6,8 +6,8 @@ import process from "node:process";
 
 const REPO = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
 
-export function e2eNpmCache(): string {
-  return `${REPO}/.dev-data/e2e/npm-cache`;
+export function e2eNpmCache(root = REPO): string {
+  return `${root}/.dev-data/e2e/npm-cache`;
 }
 
 /** `bootCore(run, { env })`에 넘길 값. */

@@ -26,8 +26,8 @@ const keyOf = (folder: WatchFolder) =>
 
 // node:fs watch를 async iterator로 바꾼다. filename은 감시한 폴더 기준 상대 경로라 절대 경로로 만든다.
 export const nodeWatchFs: WatchFs = (absolutePath, options) => {
-  // Deno의 node:fs watch는 없는 폴더를 비동기 error event로 알리므로, Node와 같이 동기적으로 던지게 한다.
-  // 그래야 부르는 쪽이 이 폴더를 incomplete로 두고 다음에 다시 연다.
+  // recursive watch는 없는 폴더에도 watcher를 돌려주고 오류도 내지 않는다. statSync로 동기적으로 던져야
+  // 부르는 쪽이 이 폴더를 incomplete로 두고 다음에 다시 연다.
   statSync(absolutePath);
   const events: { paths: readonly string[] }[] = [];
   let wake: (() => void) | undefined;

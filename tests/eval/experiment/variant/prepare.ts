@@ -1,9 +1,6 @@
-import process from "node:process";
-
 import { err, ok, type Result } from "../../../../packages/base/mod.ts";
+import { e2eNpmCache } from "../../../support/app/deps.ts";
 import type { VariantIo } from "./io.ts";
-
-const E2E_DENO_DIR = ".dev-data/e2e/deno-dir";
 
 // 이미 한 일이면 다시 해도 같다.
 export async function prepareVariant(
@@ -22,10 +19,8 @@ export async function prepareVariant(
 
   // gate의 e2e가 variant의 tests/support/app/deps.ts로 이 폴더를 읽는다. 현재 checkout 것을 symlink로 이으면
   // 앱 release 준비의 esbuild가 떨어지므로 variant가 자기 deps를 받는다.
-  if (!(await io.nonEmpty(`${path}/${E2E_DENO_DIR}`))) {
-    // 앱과 flow는 아직 Deno로 돌아 e2e deps만 deno task다.
-    const deno = process.env["LOPHN_DENO"] ?? "deno";
-    const deps = await io.run([deno, "task", "e2e:deps"], path);
+  if (!(await io.nonEmpty(e2eNpmCache(path)))) {
+    const deps = await io.run(["npm", "run", "e2e:deps"], path);
     if (deps.code !== 0) {
       return err({
         code: "unavailable",

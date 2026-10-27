@@ -19,14 +19,14 @@ import {
   systemClock,
 } from "../../../packages/base/mod.ts";
 import {
-  createRpcClient,
-  type RpcFetch,
-} from "../../../packages/protocol/client/mod.ts";
-import {
   errorBodySchema,
   type Route,
   UPLOAD_INPUT_HEADER,
 } from "../../../packages/protocol/base/mod.ts";
+import {
+  createRpcClient,
+  type RpcFetch,
+} from "../../../packages/protocol/client/mod.ts";
 import { spawnCore, tail, waitGone } from "./process.ts";
 
 const SETTINGS_FILE = "settings.json";
@@ -158,7 +158,7 @@ async function writeSettings(
 
 export type BootOptions = {
   settings?: Record<string, unknown>;
-  /** core process의 env에 더하는 값(예 DENO_DIR, XDG_RUNTIME_DIR). LOPHN_HOME·HOME·PATH는 덮지 못한다. */
+  /** core process의 env에 더하는 값(예 XDG_RUNTIME_DIR, npm_config_cache). LOPHN_HOME·HOME·PATH는 덮지 못한다. */
   env?: Record<string, string>;
   /** 다른 checkout(worktree)의 core를 시험할 때만 준다. 기본은 이 file이 있는 checkout. */
   repo?: string;

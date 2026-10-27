@@ -72,7 +72,7 @@ export function classifyPath(rel: string): FileGroup {
   )
     return none;
   if (!rel.startsWith("packages/")) {
-    return rel === "deno.json" || rel === "deno.lock"
+    return rel === "package.json" || rel === "package-lock.json"
       ? { group: "core" }
       : none;
   }
@@ -116,10 +116,10 @@ export async function walkFiles(dir: string, prefix = ""): Promise<string[]> {
   return found;
 }
 
-// root 아래 packages/와 root의 deno.json, deno.lock. 경로 정렬 순서.
+// root 아래 packages/와 root의 package.json, package-lock.json. 경로 정렬 순서.
 export async function listFiles(root: string): Promise<string[]> {
   const files = await walkFiles(`${root}/packages`, "packages/");
-  for (const name of ["deno.json", "deno.lock"]) {
+  for (const name of ["package.json", "package-lock.json"]) {
     try {
       if ((await stat(`${root}/${name}`)).isFile()) files.push(name);
     } catch (e) {

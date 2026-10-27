@@ -1,7 +1,7 @@
 // 돌리는 agent가 채점 대기를 보고 verdict를 적는 입구.
-//   deno task eval:judge <run>                          대기 목록
-//   deno task eval:judge <run> show <key>               subagent에게 줄 전문
-//   deno task eval:judge <run> set <key> --model <name> stdin의 JSON {"verdict", "quote"}를 기록
+//   npm run eval:judge -- <run>                          대기 목록
+//   npm run eval:judge -- <run> show <key>               subagent에게 줄 전문
+//   npm run eval:judge -- <run> set <key> --model <name> stdin의 JSON {"verdict", "quote"}를 기록
 // 종료 코드: 0 정상, 1 없는 run·key나 덮기 거절, 2 인자 오류.
 import { stat } from "node:fs/promises";
 import process from "node:process";

@@ -20,10 +20,10 @@ export type VariantIo = {
   ): Promise<RunOutput>;
 };
 
-export const denoIo: VariantIo = {
+export const realIo: VariantIo = {
   realPath: (path) => realpath(path),
   async gitToplevel(path) {
-    const out = await denoIo
+    const out = await realIo
       .run(["git", "-C", path, "rev-parse", "--show-toplevel"], path)
       .catch(() => null);
     return out === null || out.code !== 0 ? null : out.stdout.trim();

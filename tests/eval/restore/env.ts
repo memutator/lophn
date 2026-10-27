@@ -3,7 +3,7 @@ import { loadMaterial, MATERIALS_ROOT } from "./manifest.ts";
 
 const NEEDS_APP_ENV = ["active_app", "app_data", "package"];
 
-// release 준비가 쓰는 deno dir(`e2e:deps`가 미리 받은 것)와 앱 socket 폴더가 있는 XDG_RUNTIME_DIR이다. 해당 재료가 없으면 비운다.
+// release 준비가 쓰는 npm cache(`e2e:deps`가 미리 받은 것)와 앱 socket 폴더가 있는 XDG_RUNTIME_DIR이다. 해당 재료가 없으면 비운다.
 export async function restoreCoreEnv(
   refs: string[],
   root = MATERIALS_ROOT,

@@ -1,7 +1,8 @@
 import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
-import { denoGit } from "../../versions/mod.ts";
+import process from "node:process";
+import { gitAt } from "../../versions/mod.ts";
 import type { GateDeps } from "./mod.ts";
 
 // child의 exit code와 stdout/stderr를 모은다. abort되면 'error'로 끝나 reject한다.
@@ -9,11 +10,13 @@ function outputOf(
   command: string,
   args: string[],
   cwd: string,
+  env: Record<string, string> | undefined,
   signal: AbortSignal,
 ): Promise<{ code: number; stdout: Uint8Array; stderr: Uint8Array }> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
+      env: { ...process.env, ...env },
       stdio: ["ignore", "pipe", "pipe"],
       signal,
     });
@@ -38,11 +41,12 @@ export function defaultGateDeps(
 ): GateDeps {
   return {
     ...base,
-    async run(cmd, cwd, timeoutMs) {
+    async run(cmd, cwd, timeoutMs, env) {
       const out = await outputOf(
         cmd[0],
         cmd.slice(1),
         cwd,
+        env,
         AbortSignal.timeout(timeoutMs),
       );
       const dec = new TextDecoder();
@@ -51,7 +55,7 @@ export function defaultGateDeps(
         output: dec.decode(out.stdout) + dec.decode(out.stderr),
       };
     },
-    git: denoGit(checkout),
+    git: gitAt(checkout),
     readText: (path) => readFile(path, "utf8"),
     async listFiles(dir) {
       const names: string[] = [];

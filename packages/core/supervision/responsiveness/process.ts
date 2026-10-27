@@ -40,7 +40,7 @@ export type SpawnRequest = {
 // SIGKILL 뒤 leader의 exit status를 기다리는 한도.
 export const LEADER_EXIT_MS = 1_000;
 
-// detached:true가 setsid를 호출해 pid=pgid=session leader가 된다(Deno 2.9.7 실측).
+// detached:true가 setsid를 호출해 pid=pgid=session leader가 된다.
 // group 종료는 이 handle이 띄운 pid만 대상으로 한다. PID 파일은 읽지도 쓰지도 않는다.
 export function spawnProcess(request: SpawnRequest): Spawned {
   if (!supportsProcessGroupEnforcement(process.platform)) {

@@ -2,13 +2,13 @@
 // 선언·연결 선언·실제 import·새로 만들지 않음·core가 고정한 사용처를 따로 봐서 어느 단계에서 새는지 보인다.
 import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
-import { appGet } from "../../../../packages/protocol/apps/mod.ts";
+import { releasesGetRecord } from "../../../../packages/protocol/apps/activation/activation.ts";
 import { appTools } from "../../../../packages/protocol/apps/declaration/read.ts";
 import {
+  appGet,
   packagesUsage,
   packagesVersions,
 } from "../../../../packages/protocol/apps/mod.ts";
-import { releasesGetRecord } from "../../../../packages/protocol/apps/activation/activation.ts";
 import type { Core } from "../../../support/core/mod.ts";
 import type { CheckOutcome, ProgramCheck } from "../../types.ts";
 import { findApp, liveCheck, oneLine } from "./live.ts";
@@ -212,8 +212,8 @@ export function reuseChecks(spec: ReuseSpec): ProgramCheck[] {
       const lines = await grep(src.dir, src.commit, pkg.name, [
         ".",
         ":(exclude)lophn.ts",
-        ":(exclude)deno.json",
-        ":(exclude)deno.lock",
+        ":(exclude)package.json",
+        ":(exclude)package-lock.json",
         ":(exclude)tests",
       ]);
       const importing = lines.filter(

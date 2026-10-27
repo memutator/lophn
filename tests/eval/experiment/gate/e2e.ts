@@ -109,8 +109,8 @@ export function selectE2e(input: SelectInput): E2eSelection {
     }
     if (
       file.startsWith("tests/support/") ||
-      file === "deno.json" ||
-      file === "deno.lock"
+      file === "package.json" ||
+      file === "package-lock.json"
     )
       return everything(`${file} → 모든 e2e의 바닥`);
     // e2e는 fake model을 쓰므로 진짜 model이 읽는 글은 e2e에 닿지 않는다.

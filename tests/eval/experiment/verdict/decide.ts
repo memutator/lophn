@@ -112,7 +112,7 @@ export function decide(input: VerdictInput): Result<ExperimentResult> {
         (s.role !== "case" && s.baseline.trials === 0 ? s.baseline.pending : 0);
       if (n > 0) {
         reasons.push(
-          `채점 대기: ${s.scenario} ${n}건. \`deno task eval:judge\`로 채점한 뒤 이어 돌린다`,
+          `채점 대기: ${s.scenario} ${n}건. \`npm run eval:judge\`로 채점한 뒤 이어 돌린다`,
         );
       }
     }

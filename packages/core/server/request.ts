@@ -1,6 +1,5 @@
 import type { IncomingMessage } from "node:http";
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
-import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
   ERROR_HTTP_STATUS,
   type ErrorBody,
@@ -9,6 +8,7 @@ import {
   RPC_JSON_MAX_DEPTH,
   RPC_JSON_MAX_ITEMS,
 } from "../../protocol/base/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import type { CredentialRegistry } from "./identity/mod.ts";
 
 // body를 읽기 전의 고정 한도.
@@ -52,7 +52,7 @@ type GateDecision =
   | { ok: true; context: AuthenticatedContext }
   | { ok: false; failure: RequestFailure };
 
-// Deno는 클라이언트가 보낸 Host를 요청 URL authority로 바꾼다. header는 그대로 두지 않는다.
+// Host header가 아니라 요청 URL의 authority 하나만 본다.
 function hostOf(url: string): string | null {
   try {
     return new URL(url).host || null;
@@ -170,7 +170,7 @@ export async function readLimitedBody(
         chunks.push(next.value);
       }
     } catch {
-      // 선언 길이와 실제 stream이 다르면 Deno가 읽기를 끊는다. 그것도 한도 거절이다.
+      // 선언 길이보다 실제 stream이 짧으면 읽기가 오류로 끝난다. 그것도 한도 거절이다.
       return err(
         failure({
           code: "invalid_input",

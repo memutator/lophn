@@ -1,15 +1,16 @@
 // judge가 받는 입력을 만든다. fixture(core === null)에서도 빈 글이 아닌 글을 돌려준다.
-import { appGet } from "../../../../packages/protocol/apps/mod.ts";
-import { appTools } from "../../../../packages/protocol/apps/declaration/read.ts";
+
 import { releasesListRecords } from "../../../../packages/protocol/apps/activation/activation.ts";
+import { appTools } from "../../../../packages/protocol/apps/declaration/read.ts";
+import { appGet } from "../../../../packages/protocol/apps/mod.ts";
 import type { Id } from "../../../../packages/protocol/base/mod.ts";
+import type { AskInput } from "../../../../packages/protocol/lophn-agent/ask-tool.ts";
 import {
   messageBody,
   receivedMessageList,
 } from "../../../../packages/protocol/lophn-agent/mod.ts";
-import type { AskInput } from "../../../../packages/protocol/lophn-agent/ask-tool.ts";
-import { asksGapInput, joinInput } from "../../judge/mod.ts";
 import type { Core } from "../../../support/core/mod.ts";
+import { asksGapInput, joinInput } from "../../judge/mod.ts";
 import type { CheckInput, TrialRecord } from "../../types.ts";
 import { toolCallsOf } from "../records.ts";
 import { clip, designOf } from "./design-doc.ts";
@@ -135,6 +136,6 @@ async function fixDiff(core: Core, app: string): Promise<string> {
     to.code_commit,
     "--",
     ".",
-    ":(exclude)deno.lock",
+    ":(exclude)package-lock.json",
   ]);
 }

@@ -65,7 +65,8 @@ test("selectE2e never lets a changed product file pass without the e2e it touche
     ["packages/core/main/wiring.ts", all, false],
     ["packages/protocol/x.ts", all, true],
     ["tests/support/x.ts", all, true],
-    ["deno.json", all, true],
+    ["package.json", all, true],
+    ["package-lock.json", all, true],
     ["packages/unknown/x.ts", all, true],
     ["tests/e2e/x_test.ts", ["tests/e2e/x_test.ts"], false],
     ["packages/shell/main/x.ts", [], false],
@@ -138,7 +139,7 @@ test("runGate stops at the first failed stage and names the scenario whose dry r
     stopped.stages.map((s) => s.name),
     ["check"],
   );
-  assert.deepStrictEqual(a.calls, ["deno task check"]);
+  assert.deepStrictEqual(a.calls, ["npm run check"]);
 
   const b = fakeDeps({ failDry: "s2" });
   const report = await runGate(
@@ -150,5 +151,10 @@ test("runGate stops at the first failed stage and names the scenario whose dry r
   assert.ok(
     !dry.ok && dry.detail.includes("s2") && !dry.detail.includes("s1:"),
   );
-  assert.deepStrictEqual(b.calls.includes("deno test --allow-all"), true);
+  assert.deepStrictEqual(
+    b.calls.includes(
+      "node_modules/electron/dist/electron --test --test-concurrency=1",
+    ),
+    true,
+  );
 });

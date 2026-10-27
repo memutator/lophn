@@ -6,7 +6,7 @@ import {
   type Run,
 } from "../../../support/core/mod.ts";
 import type { Deps } from "../../versions/mod.ts";
-import { denoIo, type VariantIo } from "./io.ts";
+import { realIo, type VariantIo } from "./io.ts";
 import { prepareVariant } from "./prepare.ts";
 import { variantTexts } from "./texts.ts";
 
@@ -28,7 +28,7 @@ export type Variant = {
 
 export async function resolveVariant(
   args: { checkout?: string; current: string },
-  io: VariantIo = denoIo,
+  io: VariantIo = realIo,
 ): Promise<Result<Variant>> {
   const current = await io.realPath(args.current);
   // registry는 전역 이름 표라 지금 checkout의 것 하나뿐이다. variant 사본에 쓰면 그 worktree를 지울 때 표가 사라진다.

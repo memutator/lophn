@@ -334,7 +334,7 @@ export type TrialResult = {
 
 export type SourceInfo = {
   commit: string;
-  dirty: boolean; // packages, deno.json, deno.lock에 commit 안 된 변경이 있나
+  dirty: boolean; // packages, package.json, package-lock.json에 commit 안 된 변경이 있나
   diff?: string; // 전체 기록에만 있다
   untracked?: string[]; // 전체 기록에만 있다
 };

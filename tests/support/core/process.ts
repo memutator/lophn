@@ -42,14 +42,6 @@ export type SpawnFailed = {
 // 호출한 쪽이 덮지 못하게 막는 env. 격리(사람의 홈, OS keychain)를 지키는 것들이다.
 const FIXED_ENV = ["LOPHN_HOME", "HOME", "PATH"];
 
-function denoDir(): string {
-  const set = process.env["DENO_DIR"];
-  if (set) return set;
-  const cache =
-    process.env["XDG_CACHE_HOME"] ?? `${process.env["HOME"]}/.cache`;
-  return `${cache}/deno`;
-}
-
 export async function tail(path: string): Promise<string> {
   try {
     return (await readFile(path, "utf8")).slice(-2000);
@@ -82,11 +74,6 @@ export async function spawnCore(
         LOPHN_HOME: home,
         HOME: userHome,
         PATH: process.env["PATH"] ?? "",
-        DENO_DIR: denoDir(),
-        // core가 앱과 flow에 쓸 deno. 없으면 core가 PATH에서 찾는다.
-        ...(process.env["LOPHN_DENO"]
-          ? { LOPHN_DENO: process.env["LOPHN_DENO"]! }
-          : {}),
         ...env,
       },
       stdio: ["pipe", "pipe", "pipe"],

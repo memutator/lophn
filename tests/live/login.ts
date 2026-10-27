@@ -1,10 +1,12 @@
-// `deno task test:live:login`의 진입. test가 아니라 사람이 한 번 돌리는 task다. 진짜 ChatGPT 로그인을 하고 live 전용 root
+// `npm run test:live:login`의 진입. test가 아니라 사람이 한 번 돌리는 task다. 진짜 ChatGPT 로그인을 하고 live 전용 root
 // (root.ts)에 token을 저장한다. 같은 컴퓨터의 browser가 필요하다(callback이 127.0.0.1 loopback이다).
 // token·code·sign_in 주소의 state는 화면에만 나오고 파일이나 log에 쓰지 않는다.
 
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import process from "node:process";
+import { providerSecretName } from "../../packages/core/lophn-agent/providers/oauth-secrets.ts";
+import { parseReportedModels } from "../../packages/core/lophn-agent/providers/reported-models.ts";
 import {
   loginBegin,
   loginComplete,
@@ -14,10 +16,8 @@ import {
   providerList,
   providerRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { providerSecretName } from "../../packages/core/lophn-agent/providers/oauth-secrets.ts";
-import { parseReportedModels } from "../../packages/core/lophn-agent/providers/reported-models.ts";
-import type { Core } from "../support/core/mod.ts";
 import { until } from "../support/core/human.ts";
+import type { Core } from "../support/core/mod.ts";
 import { bootLiveCore, LIVE_HOME } from "./root.ts";
 
 const MODEL_ENV = "LOPHN_LIVE_CHATGPT_MODEL";

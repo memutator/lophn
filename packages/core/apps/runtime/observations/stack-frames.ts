@@ -305,7 +305,7 @@ async function framesInsideBundle(
     if (frames.length >= LIMITS.snapshot_frames) break;
   }
   if (frames.length > 0) return frames;
-  // Deno가 캐시 경로를 찍어도 사본에 있는 src 파일만 앱 frame으로 쓴다.
+  // stack이 symlink를 푼 실제 경로를 찍어도 사본에 있는 src 파일만 앱 frame으로 쓴다.
   const recovered: StackFrame[] = [];
   for (const site of sites) {
     const marker = site.file.lastIndexOf("/src/");

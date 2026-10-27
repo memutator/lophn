@@ -1,7 +1,7 @@
 // 앱 자식의 메모리 표본. Linux는 현재 자식 신원을 대조한 /proc/<pid>/status의
 // VmRSS를 60000ms마다 비동기로 읽는다. 다른 OS와 읽기 실패는 측정하지 않은 것이고
 // 0으로 채우지 않는다. 설정한 RSS 한도의 85% 초과가 10분 지속될 때만
-// 수치와 기간을 관측으로 남긴다. Deno의 V8 heap 옵션은 RSS 한도가 아니므로
+// 수치와 기간을 관측으로 남긴다. V8 heap 설정은 RSS 한도가 아니므로
 // 한도로 읽지 않는다. 한도는 호출자가 RSS 한도로 설정한 값만 받는다.
 import { readFile } from "node:fs/promises";
 import process from "node:process";

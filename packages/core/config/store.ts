@@ -11,14 +11,13 @@ import {
   readFileSync,
   renameSync,
   rmSync,
-  statSync,
   watch,
   writeFileSync,
 } from "node:fs";
 import { err, errorCode, ok, type Result } from "../../base/mod.ts";
 import {
-  type SettingRejection,
   SETTINGS_FILE_NAME,
+  type SettingRejection,
   settingsFileSchema,
 } from "../../protocol/config/mod.ts";
 import type { SettingChange, SettingsRegistry } from "./registry.ts";
@@ -186,8 +185,6 @@ export function createSettingsStore(options: {
       if (watcher !== undefined || closed) return;
       let events: FSWatcher;
       try {
-        // Deno의 node:fs watch는 없는 폴더를 비동기 error event로 알리므로, Node와 같이 동기적으로 던지게 한다.
-        statSync(root);
         events = watch(root, { recursive: false }, (_kind, filename) => {
           // 어느 file인지 모르는 신호도 다시 읽는다. 내용이 같으면 reload가 무시한다.
           if (filename !== null && filename !== SETTINGS_FILE_NAME) return;

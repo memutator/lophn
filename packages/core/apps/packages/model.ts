@@ -15,6 +15,3 @@ export function byCatalogOrder(
   if (aMe !== bMe) return aMe ? -1 : 1;
   return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
 }
-
-// release 준비가 쓸 해석 함수. lophn-sdk:<name>@<version>의 정확한
-// version만 받고 ^·~·latest와 암묵적 최신 선택은 거절이다.

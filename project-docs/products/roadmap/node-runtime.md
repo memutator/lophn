@@ -15,19 +15,28 @@
 
 ## 지금 코드 (2026-10-27)
 
-Deno에 기대는 곳
-- `Deno.*` 참조 1,780개, file 414개. production은 632개, file 123개다. `Deno.test` 390개(file 215개), `@std/assert`를 import하는 file 217개(모두 test).
-- 1:1 `node:*`가 없는 것: `Deno.serve` 5곳(`packages/core/server/server.ts`의 loopback v4·v6, unix socket인 `packages/core/apps/runtime/entrypoint/http.ts`와 `packages/core/apps/permissions/broker/server.ts`, OAuth callback인 `packages/core/lophn-agent/extensions/mcp-auth-control.ts`), WebSocket upgrade(`packages/core/server/socket.ts`), unix socket 위의 `fetch`(`Deno.createHttpClient`, `packages/core/apps/runtime/client/unix-http.ts`, `packages/core/main/app-supervisor/control-http.ts`), `Deno.watchFs` 3곳, `Deno.addSignalListener` main 3개, `Deno.execPath()`로 자기를 다시 띄우는 곳 11 file.
-- Worker는 core에 둘(`packages/core/storage/ledger/reader-pool.ts`, `packages/core/main/daemon/runtime.ts`)이고 web worker 모양이다(boot 설정이 `self.name`에 실린다).
-- SQLite는 이미 `node:sqlite`다(`packages/core/storage/ledger/sqlite.ts`). 옮길 것이 없다.
-- module 해석: `deno.json` 19개 가운데 8개의 `imports`(npm 61, jsr 8)와 workspace가 bare specifier 1,636개를 푼다. jsr은 `@std/assert`(test), `@std/yaml`(9 file), `@std/toml`(2), `@luca/esbuild-deno-loader`(3)다. source에 `npm:`·`jsr:`를 직접 쓴 곳은 없다.
-- TypeScript: `enum`·`namespace`·decorator 0개. constructor parameter property 14개(7 file, production은 esbuild로 묶는 UI 두 file). 상대 import 9,185개가 `.ts`를 적었고 확장자가 없는 것은 1개(`tests/eval/checks/app/reuse.ts:12`)다. `verbatimModuleSyntax`는 어디에도 없지만 core·base·protocol production에 `tsc --verbatimModuleSyntax`를 걸면 TS1484·TS1485가 0개다.
-- 자식 process는 모두 `deno run`이다. `launchArgv`(`packages/core/supervision/security/launch-spec.ts`)나 따로 짠 flag로 띄운다. AI가 쓴 코드를 돌리는 것은 앱 process와 preview(`packages/core/apps/permissions/flags.ts`), flow(`packages/core/main/flow-host/flags.ts`), 선언 검사·추출(`packages/core/apps/declaration/check.ts`, `extract.ts`), release 준비의 선언 eval(`packages/core/apps/releases/prepare/from-source.ts`)이다. 나머지(I/O child, 정비 자식, data job, kinds worker, apps supervisor, agent runtime, CLI)는 lophn 코드다.
+계획 `node-api` 전(옮길 양을 잰 값)
+- `Deno.*` 참조 1,780개, file 414개였다. production은 632개, file 123개였다. `Deno.test` 390개, `@std/assert` 217 file, jsr 의존 4개(`@std/assert`, `@std/yaml`, `@std/toml`, `@luca/esbuild-deno-loader`), constructor parameter property 14개였다. SQLite는 이미 `node:sqlite`였다(`packages/core/storage/ledger/sqlite.ts`).
+
+다음 계획이 바꿀 것 (계획 `node-api` 뒤, 2026-10-27)
+- module 해석: `deno.json`의 `imports`와 workspace가 bare specifier를 푼다(계획 전 1,636개). 남은 jsr은 bundle에 쓰는 `@luca/esbuild-deno-loader`뿐이다(`packages/core`, `packages/design`, `packages/shell/renderer`, `tools/wireframes`의 `deno.json`). YAML은 npm `yaml`, TOML은 npm `smol-toml`이다. source에 `npm:`·`jsr:`를 직접 쓴 곳은 없다.
 - 앱과 flow의 SDK는 `lophn-sdk:<이름>@<판>/<경로>`를 import map으로 `<data>/sdk/<이름>/<판>`에 푼다(`packages/core/apps/packages/template/import-map.ts`, `<data>/flows/import-map.json`). release는 `deno cache`로 외부 의존을 받아 `vendor/`·`node_modules/`를 묶는다(`packages/core/apps/releases/bundle/`). `workflow.check`는 `deno check`다.
 - 앱 template은 Deno project다(`packages/core/apps/packages/template/app/deno.json.tmpl`의 task `build`·`check`·`test`·`wording`, `Deno.test`). App Engineer prompt는 `deno task check`와 `deno task test`를 시킨다(`packages/core/agent-roles/roles/app-engineer/prompt.md:49`).
 - 설치본은 `/opt/lophn/deno` binary, `platform/`(source, `deno.json`, `deno.lock`, vendor), `DENO_DIR=~/.cache/lophn/deno`, Deno를 `--cached-only --frozen`으로 띄우는 `/usr/bin/lophn` launcher다(`packages/base/install/linux-install.ts`, `tools/package-linux.ts`).
 - 도구: `tools/check.ts`가 `deno fmt`, `deno lint`, `deno check`, `deno test`를 부른다. 루트 `deno.json`에 task가 17개다.
 - shell(`packages/shell/main`)은 이미 Node다. production에 `Deno.*`가 없고 test 22개가 `node:test`다. Electron binary를 `ELECTRON_RUN_AS_NODE`로 Node처럼 띄우는 곳이 이미 있다(`packages/shell/main/terminal/supervisor.ts:270`, `packages/shell/main/browser-bridge/shim.ts:129`).
+- 자기를 다시 띄우기(`Deno.execPath()`): `packages/core/main/daemon/wiring/{supervision,storage,flows}.ts`, `packages/core/main/app-supervisor/{main,release-runner}.ts`, `packages/core/apps/releases/prepare/from-source.ts`, `packages/core/apps/declaration/{check,extract}.ts`, `packages/core/main/flow-host/check.ts`(`deno check`), `tests/support/core/process.ts`, `tests/support/app/prepare-deps.ts`, `tests/live/run.ts`, `tests/eval/experiment/variant/{prepare,texts}.ts`, `tools/dev.ts`, `tools/package-linux.ts`. `packages/core/lophn-agent/tools/shell/env.ts`는 `process.execPath`를 "앱이 부르는 deno"로 shell에 넘긴다. 뒤집으면 Electron binary가 되어 뜻이 바뀐다.
+- HTTP server(`Deno.serve`): `packages/core/server/server.ts`(loopback v4·v6), `packages/core/apps/permissions/broker/server.ts`(unix socket), `packages/core/lophn-agent/extensions/mcp-auth-control.ts`(OAuth callback), test의 `tests/support/fake-server/mod.ts`, `tests/support/fake-oauth/mod.ts`, `tests/e2e/app-call_test.ts`, `tools/dev.ts`. WebSocket upgrade는 `packages/core/server/socket.ts`.
+- unix socket client(`Deno.connect`, `Deno.createHttpClient`): `packages/core/apps/runtime/client/unix-http.ts`, `packages/core/main/app-supervisor/control-http.ts`, `packages/coding-agent/cli/commands/hook.ts`.
+- 감시(`Deno.watchFs`): `packages/core/projects/kinds/host/watch/service.ts`, `packages/core/config/store.ts`.
+- signal(`Deno.addSignalListener`): daemon·agent runtime·app supervisor의 `main.ts`, `tools/check.ts`, `tools/dev.ts`, `tests/eval/runner/signals.ts`.
+- 감독 통로로 쓰는 stdin·stdout stream: `packages/core/main/daemon/main.ts`(ParentPipe), `packages/core/main/agent-runtime/main.ts`, `packages/core/main/app-supervisor/main.ts`, `packages/core/main/worker/io.ts`, `packages/core/projects/kinds/worker/run.ts`, `packages/core/apps/releases/worker/run.ts`. crash handler(`packages/core/diagnostics/crash.ts`)는 web `WritableStream`을 받고 `globalThis`의 `unhandledrejection`·`error`를 듣는다. Node는 `process` event다.
+- Worker 만들기와 worker entry(`self.name`, `onmessage`): `packages/core/storage/ledger/reader-pool.ts`, `packages/core/main/daemon/runtime.ts`.
+- file lock: `packages/base/install/instance-lock.ts`가 `Deno.FsFile.lock()`을 쓴다. Node에는 flock이 없다. 같은 data root에 core 둘이 뜨지 않게 하는 장치라 다른 방법을 정해야 한다. `packages/core/secrets/file-store.ts`의 `Deno.open`(createNew와 fsync)은 Node `FileHandle`로 옮길 수 있다.
+- 그 밖: `packages/core/apps/control.ts`의 `Deno.unrefTimer`.
+- AI가 쓴 코드가 도는 process 쪽(5단계): `packages/sdk/**`, `packages/core/apps/runtime/entrypoint/**`, `packages/core/apps/declaration/extract-child.ts`, `packages/core/apps/releases/ui-build/eval-declaration.ts`, 앱 template(`*.tmpl`). `packages/core/apps/permissions/sandbox-boundary_test.ts`와 `tests/support/app/patch-sandbox.ts`는 Deno 권한 오류(`NotCapable`)를 단정하므로 `--permission`에 맞춰 다시 쓴다.
+- Deno 2.9.7을 피하려고 둔 것: `packages/core/supervision/responsiveness/pipe.ts`의 paused mode 우회, `NODE_V8_COVERAGE`를 지우는 env 처리(`packages/core/supervision/responsiveness/process.ts`, `packages/core/lophn-agent/extensions/adapters/mcp-stdio.ts`). Node에서 다시 본다.
+- UI test: renderer test 일부가 `.module.css`를 import하는 component를 끌어온다. `node --test`에서는 loader hook이 필요하다.
 
 Node에서 잰 것 (Node 24.20.0과, Electron 44.5.1을 `ELECTRON_RUN_AS_NODE=1`로 띄운 Node 24.21.0. 모든 항목에서 둘이 같았다)
 - type stripping은 flag 없이 돈다. 안 되는 것: `enum`, `namespace`, parameter property, `import type` 없이 type만 가져오는 import(실행 때 "export가 없다" 오류), 확장자 없는 import, `.tsx`. `node_modules` 안의 `.ts`는 거절한다(`ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`). `node_modules`의 package가 밖의 폴더를 가리키는 symlink면 realpath가 밖이라 돈다.
@@ -60,7 +69,7 @@ Node에서 잰 것 (Node 24.20.0과, Electron 44.5.1을 `ELECTRON_RUN_AS_NODE=1`
 
 runtime은 마지막에 한 번 뒤집는다. 그 전까지는 Deno 위에서 Node API로 옮겨 `deno task check`가 늘 통과한다. module 단위로 worker를 나눠 돌린다.
 
-계획 `node-api`(Deno 위에서)
+계획 `node-api`(Deno 위에서). 2026-10-27 끝났다.
 1. **lophn process의 권한 flag 풀기.** I/O child, 정비 자식, data job, kinds worker, apps supervisor, release 준비 runner, CLI launcher를 `--allow-all`로 띄운다(위 "lophn 자신의 process는 권한 flag 없이 돈다"). Deno의 `node:*`는 Deno 권한을 더 요구할 수 있어(`node:child_process`가 env 권한을 요구했다) 좁힌 child에서 바꾸면 그 child만 깨진다. 앱·preview·flow·선언 검사와 추출처럼 AI가 쓴 코드를 돌리는 process의 flag는 그대로다.
 2. **Node API로.** lophn 코드의 `Deno.*`를 `node:*`로 바꾼다(fs, child_process는 `spawn`, path, os, `process.env`·`argv`·`exit`). `Deno.test`와 `@std/assert`를 `node:test`와 `node:assert/strict`로 바꾼다(`deno test`가 그대로 돌린다). AI 코드가 도는 process의 코드(`packages/sdk/`, 앱 process entry, flow entry)와 앱 template은 옮기지 않는다. 1:1 `node:*`가 없는 것(unix socket `Deno.serve`, WebSocket upgrade, unix socket `fetch`, `watchFs`, signal, Worker, `execPath`로 다시 띄우기)도 남긴다.
 3. **의존과 문법과 fmt.** jsr 의존을 npm으로 바꾸고(`@std/yaml` → `yaml`, `@std/toml` → `smol-toml`), parameter property를 풀고, `verbatimModuleSyntax`를 켠다. 마지막에 Biome가 `deno fmt`·`deno lint`를 대신하고 저장소를 한 번 다시 맞춘다.

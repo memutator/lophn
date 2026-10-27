@@ -2,7 +2,8 @@
 // - contract: eval roadmap "공통 수치". 모든 시나리오 비교가 이 숫자에 기댄다.
 // - 현실적 회귀: cache_in_input을 보고 cache를 두 번 빼거나 더하는 수정, 막힘(denied)을 분모에서 빼거나 미실행(stopped)을 분모에 넣는 수정.
 // - 왜 지금 test로 못 잡나: 계산이 손으로 만든 usage와 outcome 표에서만 보이고, 다른 test는 이 module을 부르지 않는다.
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import type { SessionRecord } from "../types.ts";
 import { metricsOf, sumMetrics, toolRates } from "./metrics.ts";
 
@@ -53,17 +54,17 @@ const session = (over: Record<string, unknown>) =>
     ...over,
   }) as unknown as SessionRecord;
 
-Deno.test("Anthropic·OpenAI 모양 usage는 같은 input_total과 cache hit rate를 내고 cache를 두 번 빼지 않는다", () => {
+test("Anthropic·OpenAI 모양 usage는 같은 input_total과 cache hit rate를 내고 cache를 두 번 빼지 않는다", () => {
   const a = metricsOf(session({ model_calls: [model(false)] }));
   const b = metricsOf(session({ model_calls: [model(true)] }));
-  assertEquals(a.input_total, 450);
-  assertEquals(a.input_total, b.input_total);
-  assertEquals(a.cache_hit_rate, 300 / 450);
-  assertEquals(a.cache_hit_rate, b.cache_hit_rate);
-  assertEquals(sumMetrics([a, b]).cache_hit_rate, 300 / 450);
+  assert.deepStrictEqual(a.input_total, 450);
+  assert.deepStrictEqual(a.input_total, b.input_total);
+  assert.deepStrictEqual(a.cache_hit_rate, 300 / 450);
+  assert.deepStrictEqual(a.cache_hit_rate, b.cache_hit_rate);
+  assert.deepStrictEqual(sumMetrics([a, b]).cache_hit_rate, 300 / 450);
 });
 
-Deno.test("막힘은 tool 분모에 들고 미실행은 분모에서 빠진다", () => {
+test("막힘은 tool 분모에 들고 미실행은 분모에서 빠진다", () => {
   const m = metricsOf(session({
     tool_calls: [
       tool("a", { kind: "success", code: "ok" }),
@@ -72,10 +73,10 @@ Deno.test("막힘은 tool 분모에 들고 미실행은 분모에서 빠진다",
       tool("d", { kind: "failure", code: "invalid_input" }),
     ],
   }));
-  assertEquals(m.tools.counted, 3);
-  assertEquals(m.tools.excluded, 1);
-  assertEquals(m.tools.success, 1);
-  assertEquals(m.tools.blocked, 1);
-  assertEquals(m.tools.format, 1);
-  assertEquals(toolRates(m.tools).blocked, 1 / 3);
+  assert.deepStrictEqual(m.tools.counted, 3);
+  assert.deepStrictEqual(m.tools.excluded, 1);
+  assert.deepStrictEqual(m.tools.success, 1);
+  assert.deepStrictEqual(m.tools.blocked, 1);
+  assert.deepStrictEqual(m.tools.format, 1);
+  assert.deepStrictEqual(toolRates(m.tools).blocked, 1 / 3);
 });

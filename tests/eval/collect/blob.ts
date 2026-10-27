@@ -1,4 +1,5 @@
-import { sha256Hex } from "../../../packages/base/mod.ts";
+import { readFile } from "node:fs/promises";
+import { errorCode, sha256Hex } from "../../../packages/base/mod.ts";
 import { objectPathFor } from "../../../packages/core/storage/blobs/model.ts";
 
 export type BlobReader = (hash: string) => Promise<Uint8Array | null>;
@@ -9,9 +10,9 @@ export function diskBlobReader(home: string): BlobReader {
   return async (hash) => {
     let bytes: Uint8Array;
     try {
-      bytes = await Deno.readFile(objectPathFor(home, hash));
+      bytes = await readFile(objectPathFor(home, hash));
     } catch (error) {
-      if (error instanceof Deno.errors.NotFound) return null;
+      if (errorCode(error) === "ENOENT") return null;
       throw error;
     }
     return (await sha256Hex(bytes)) === hash ? bytes : null;

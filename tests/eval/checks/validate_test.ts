@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import type { Scenario } from "../types.ts";
 import { callCount } from "./calls.ts";
 import { fixtureSession, fixtureTrial } from "./fixtures.ts";
@@ -22,11 +23,11 @@ const scenario = (fx: Scenario["fixtures"]): Scenario => ({
   fixtures: fx,
 });
 
-Deno.test("fixture가 check와 어긋나면 validateFixtures가 문제로 보고한다", async () => {
+test("fixture가 check와 어긋나면 validateFixtures가 문제로 보고한다", async () => {
   const ok = await validateFixtures([
     scenario({ right: [sent], wrong: [{ trial: empty, fails: ["one"] }] }),
   ]);
-  assertEquals(ok, { ok: true, problems: [] });
+  assert.deepStrictEqual(ok, { ok: true, problems: [] });
 
   const bad = await validateFixtures([
     scenario({
@@ -38,6 +39,6 @@ Deno.test("fixture가 check와 어긋나면 validateFixtures가 문제로 보고
       ],
     }),
   ]);
-  assertEquals(bad.ok, false);
-  assertEquals(bad.problems.length, 4);
+  assert.deepStrictEqual(bad.ok, false);
+  assert.deepStrictEqual(bad.problems.length, 4);
 });

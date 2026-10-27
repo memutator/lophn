@@ -1,5 +1,35 @@
+import { Buffer } from "node:buffer";
+import { spawn } from "node:child_process";
+import { readdir, readFile } from "node:fs/promises";
 import { denoGit } from "../../versions/mod.ts";
 import type { GateDeps } from "./mod.ts";
+
+// child의 exit code와 stdout/stderr를 모은다. abort되면 'error'로 끝나 reject한다.
+function outputOf(
+  command: string,
+  args: string[],
+  cwd: string,
+  signal: AbortSignal,
+): Promise<{ code: number; stdout: Uint8Array; stderr: Uint8Array }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+      signal,
+    });
+    const stdout: Uint8Array[] = [];
+    const stderr: Uint8Array[] = [];
+    child.stdout.on("data", (chunk: Uint8Array) => stdout.push(chunk));
+    child.stderr.on("data", (chunk: Uint8Array) => stderr.push(chunk));
+    child.on("error", reject);
+    child.on("close", (code) =>
+      resolve({
+        code: code ?? -1,
+        stdout: Buffer.concat(stdout),
+        stderr: Buffer.concat(stderr),
+      }));
+  });
+}
 
 export function defaultGateDeps(
   base: Pick<GateDeps, "validateFixtures" | "dryRun" | "catalogRoot">,
@@ -8,14 +38,12 @@ export function defaultGateDeps(
   return {
     ...base,
     async run(cmd, cwd, timeoutMs) {
-      const out = await new Deno.Command(cmd[0], {
-        args: cmd.slice(1),
+      const out = await outputOf(
+        cmd[0],
+        cmd.slice(1),
         cwd,
-        stdin: "null",
-        stdout: "piped",
-        stderr: "piped",
-        signal: AbortSignal.timeout(timeoutMs),
-      }).output();
+        AbortSignal.timeout(timeoutMs),
+      );
       const dec = new TextDecoder();
       return {
         code: out.code,
@@ -23,10 +51,12 @@ export function defaultGateDeps(
       };
     },
     git: denoGit(checkout),
-    readText: (path) => Deno.readTextFile(path),
+    readText: (path) => readFile(path, "utf8"),
     async listFiles(dir) {
       const names: string[] = [];
-      for await (const e of Deno.readDir(dir)) if (e.isFile) names.push(e.name);
+      for (const e of await readdir(dir, { withFileTypes: true })) {
+        if (e.isFile()) names.push(e.name);
+      }
       return names;
     },
     now: () => Date.now(),

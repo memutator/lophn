@@ -1,10 +1,11 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import type { Check, CheckInput } from "../types.ts";
 import { fixtureTrial } from "./fixtures.ts";
 import { runProgramChecks } from "./run.ts";
 
 // observation check가 앞 check가 바꾼 world를 본다. 순서가 깨지면 조용히 틀려진다.
-Deno.test("runProgramChecks는 check를 배열 순서대로 하나씩 돌고, 던진 check 뒤에도 돈다", async () => {
+test("runProgramChecks는 check를 배열 순서대로 하나씩 돌고, 던진 check 뒤에도 돈다", async () => {
   let state = "before";
   const checks: Check[] = [
     {
@@ -36,7 +37,7 @@ Deno.test("runProgramChecks는 check를 배열 순서대로 하나씩 돌고, �
   ];
   const input: CheckInput = { trial: fixtureTrial([]), core: null };
   const results = await runProgramChecks(checks, input);
-  assertEquals(results.map((r) => [r.id, r.pass]), [
+  assert.deepStrictEqual(results.map((r) => [r.id, r.pass]), [
     ["first", true],
     ["second", true],
     ["third", false],

@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { err, ok } from "../../../../packages/base/mod.ts";
 import type { Scenario } from "../../types.ts";
 import {
@@ -51,7 +52,7 @@ const e2e = [
 const pick = (...files: string[]) =>
   selectE2e({ files, modules: cat.modules, tree: cat.tree, e2e });
 
-Deno.test("selectE2e never lets a changed product file pass without the e2e it touches", () => {
+test("selectE2e never lets a changed product file pass without the e2e it touches", () => {
   const all = e2e.map((e) => e.file).sort();
   const table: [string, string[], boolean][] = [
     ["packages/core/agent-roles/roles/lophn/prompt.md", [], false],
@@ -71,14 +72,14 @@ Deno.test("selectE2e never lets a changed product file pass without the e2e it t
   ];
   for (const [file, files, isAll] of table) {
     const got = pick(file);
-    assertEquals(got.files, files, file);
-    assertEquals(got.all, isAll, file);
+    assert.deepStrictEqual(got.files, files, file);
+    assert.deepStrictEqual(got.all, isAll, file);
   }
-  assertEquals(
+  assert.deepStrictEqual(
     e2eBoundaries("// - contract: no ids here", cat.known, cat.aliases),
     ["*"],
   );
-  assertEquals(
+  assert.deepStrictEqual(
     e2eBoundaries(
       "// - contract: interface `core-api`(a),\n//   `run-loop`(b).\n// - 회귀: `apps`",
       cat.known,
@@ -126,23 +127,25 @@ function fakeDeps(opts: { checkCode?: number; failDry?: string } = {}) {
   return { deps, calls };
 }
 
-Deno.test("runGate stops at the first failed stage and names the scenario whose dry run failed", async () => {
+test("runGate stops at the first failed stage and names the scenario whose dry run failed", async () => {
   const a = fakeDeps({ checkCode: 1 });
   const stopped = await runGate(
     { checkout: "/w", scenarios: [scenario("s1")] },
     a.deps,
   );
-  assertEquals(stopped.ok, false);
-  assertEquals(stopped.stages.map((s) => s.name), ["check"]);
-  assertEquals(a.calls, ["deno task check"]);
+  assert.deepStrictEqual(stopped.ok, false);
+  assert.deepStrictEqual(stopped.stages.map((s) => s.name), ["check"]);
+  assert.deepStrictEqual(a.calls, ["deno task check"]);
 
   const b = fakeDeps({ failDry: "s2" });
   const report = await runGate(
     { checkout: "/w", scenarios: [scenario("s1"), scenario("s2")] },
     b.deps,
   );
-  assertEquals(report.ok, false);
+  assert.deepStrictEqual(report.ok, false);
   const dry = report.stages.find((s) => s.name === "dry-run")!;
-  assert(!dry.ok && dry.detail.includes("s2") && !dry.detail.includes("s1:"));
-  assertEquals(b.calls.includes("deno test --allow-all"), true);
+  assert.ok(
+    !dry.ok && dry.detail.includes("s2") && !dry.detail.includes("s1:"),
+  );
+  assert.deepStrictEqual(b.calls.includes("deno test --allow-all"), true);
 });

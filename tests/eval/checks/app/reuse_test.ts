@@ -1,7 +1,8 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { declarationSdkNames, definesName, importsPackage } from "./reuse.ts";
 
-Deno.test("sdk_dependencies에서 template 밖 이름을 가려낼 수 있다", () => {
+test("sdk_dependencies에서 template 밖 이름을 가려낼 수 있다", () => {
   const text = `export default defineApp({
     name: "앱",
     sdk_dependencies: [
@@ -9,13 +10,13 @@ Deno.test("sdk_dependencies에서 template 밖 이름을 가려낼 수 있다", 
       { name: "@me/notify-kit", version: "1.0.0" },
     ],
   });`;
-  assertEquals(declarationSdkNames(text), [
+  assert.deepStrictEqual(declarationSdkNames(text), [
     "@lophn/declaration",
     "@me/notify-kit",
   ]);
 });
 
-Deno.test("의존 선언 줄과 주석·문자열은 import가 아니고 import 꼴은 import다", () => {
+test("의존 선언 줄과 주석·문자열은 import가 아니고 import 꼴은 import다", () => {
   const name = "@me/x";
   const table: [string, boolean][] = [
     [`{ name: "@me/x", version: "1.0.0" },`, false],
@@ -31,11 +32,11 @@ Deno.test("의존 선언 줄과 주석·문자열은 import가 아니고 import 
     [`const m = await import("@me/x");`, true],
   ];
   for (const [line, want] of table) {
-    assert(importsPackage(line, name) === want, line);
+    assert.ok(importsPackage(line, name) === want, line);
   }
 });
 
-Deno.test("export 이름을 다시 정의한 줄만 정의다: import는 정의가 아니다", () => {
+test("export 이름을 다시 정의한 줄만 정의다: import는 정의가 아니다", () => {
   const table: [string, boolean][] = [
     [`import { sendNotice } from "@me/x";`, false],
     [`  sendNotice(a);`, false],
@@ -48,6 +49,6 @@ Deno.test("export 이름을 다시 정의한 줄만 정의다: import는 정의�
     [`function sendNoticeAll() {}`, false],
   ];
   for (const [line, want] of table) {
-    assert(definesName(line, "sendNotice") === want, line);
+    assert.ok(definesName(line, "sendNotice") === want, line);
   }
 });

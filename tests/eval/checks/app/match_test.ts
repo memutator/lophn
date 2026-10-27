@@ -1,7 +1,8 @@
-import { assert } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { exampleMatches } from "./match.ts";
 
-Deno.test("예시 비교는 core의 examples와 같은 규칙이다: 객체는 expect의 key만 보고 배열은 길이와 순서까지 같아야 한다", () => {
+test("예시 비교는 core의 examples와 같은 규칙이다: 객체는 expect의 key만 보고 배열은 길이와 순서까지 같아야 한다", () => {
   const table: [string, unknown, unknown, boolean][] = [
     ["객체의 나머지 key는 무시", { a: 1 }, { a: 1, b: 2 }, true],
     ["expect의 key가 없음", { a: 1, c: 3 }, { a: 1 }, false],
@@ -15,6 +16,6 @@ Deno.test("예시 비교는 core의 examples와 같은 규칙이다: 객체는 e
     ["원시 값은 ===", "1", 1, false],
   ];
   for (const [name, expect, actual, want] of table) {
-    assert(exampleMatches(expect, actual) === want, name);
+    assert.ok(exampleMatches(expect, actual) === want, name);
   }
 });

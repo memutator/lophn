@@ -1,7 +1,8 @@
 // - contract: eval roadmap "experiment". prefixBoundaries는 제품 assembleTurnPrompt의 cache_boundaries와 같은 hash를 낸다.
 // - 현실적 회귀: 제품의 hash 식이나 층 순서가 바뀌었는데 이 쪽 숫자가 조용히 틀어진다.
 // - 왜 지금 test로 못 잡나: 제품 test는 hash 값을 보지만 이 재계산과 맞는지는 아무도 안 본다.
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import {
   anthropicSystem,
   anthropicTools,
@@ -10,7 +11,7 @@ import {
 } from "../../../../packages/core/lophn-agent/prompt-assembly/mod.ts";
 import { prefixBoundaries } from "./prefix.ts";
 
-Deno.test("prefixBoundaries가 제품 assembleTurnPrompt의 cache_boundaries와 같은 hash를 낸다", async () => {
+test("prefixBoundaries가 제품 assembleTurnPrompt의 cache_boundaries와 같은 hash를 낸다", async () => {
   let body: unknown = null;
   const result = await assembleTurnPrompt({
     role_prompt: "You are the operator.",
@@ -56,11 +57,11 @@ Deno.test("prefixBoundaries가 제품 assembleTurnPrompt의 cache_boundaries와 
       return { body, opaque_bytes: 0 };
     },
   });
-  assert(result.status === "ready");
+  assert.ok(result.status === "ready");
   const ours = await prefixBoundaries(body);
-  assertEquals(
+  assert.deepStrictEqual(
     ours.map((b) => [b.layer, b.prefix_hash]),
     result.cache_boundaries.map((b) => [b.after, b.prefix_hash]),
   );
-  assertEquals(ours.length, 3);
+  assert.deepStrictEqual(ours.length, 3);
 });

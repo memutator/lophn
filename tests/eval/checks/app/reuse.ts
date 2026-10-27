@@ -1,5 +1,7 @@
 // 재사용 확인. 켜진 release의 code만 센다: source는 working tree가 아니라 active release의 code_commit이다.
 // 선언·연결 선언·실제 import·새로 만들지 않음·core가 고정한 사용처를 따로 봐서 어느 단계에서 새는지 보인다.
+import { Buffer } from "node:buffer";
+import { spawn } from "node:child_process";
 import { appGet } from "../../../../packages/protocol/apps/mod.ts";
 import { appTools } from "../../../../packages/protocol/apps/declaration/read.ts";
 import {
@@ -69,12 +71,29 @@ export function definesName(line: string, name: string): boolean {
   ).test(line);
 }
 
+// child를 띄워 exit code와 stdout/stderr를 모은다. git 출력은 전부 text라 한 번에 decode한다.
+function outputOf(
+  command: string,
+  args: string[],
+): Promise<{ code: number; stdout: Uint8Array; stderr: Uint8Array }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const stdout: Uint8Array[] = [];
+    const stderr: Uint8Array[] = [];
+    child.stdout.on("data", (chunk: Uint8Array) => stdout.push(chunk));
+    child.stderr.on("data", (chunk: Uint8Array) => stderr.push(chunk));
+    child.on("error", reject);
+    child.on("close", (code) =>
+      resolve({
+        code: code ?? -1,
+        stdout: Buffer.concat(stdout),
+        stderr: Buffer.concat(stderr),
+      }));
+  });
+}
+
 export async function git(dir: string, args: string[]): Promise<string> {
-  const out = await new Deno.Command("git", {
-    args: ["-C", dir, ...args],
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
+  const out = await outputOf("git", ["-C", dir, ...args]);
   const text = new TextDecoder().decode(out.stdout);
   // git grep은 일치가 없으면 1로 끝난다.
   if (out.code !== 0 && !(args[0] === "grep" && out.code === 1)) {

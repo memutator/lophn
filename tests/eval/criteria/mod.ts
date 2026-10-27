@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { type Criterion, parseRef } from "../types.ts";
 
 export const CRITERIA_DIR = new URL("./", import.meta.url);
@@ -5,7 +6,7 @@ export const CRITERIA_DIR = new URL("./", import.meta.url);
 export async function loadCriterion(ref: string): Promise<Criterion> {
   const { name, n } = parseRef(ref, "criterion");
   const criterion: Criterion = JSON.parse(
-    await Deno.readTextFile(new URL(`./${name}.json`, CRITERIA_DIR)),
+    await readFile(new URL(`./${name}.json`, CRITERIA_DIR), "utf8"),
   );
   if (criterion.n !== n) {
     throw new Error(

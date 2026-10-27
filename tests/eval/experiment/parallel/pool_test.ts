@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { type Budget, createPool, type Job } from "./mod.ts";
 
 function fakeBudget(limit: number): Budget & { added: number[] } {
@@ -34,13 +35,13 @@ async function settle() {
   for (let i = 0; i < 5; i++) await tick();
 }
 
-Deno.test("kind별 동시 수 한도를 넘겨 띄우지 않고, 한 kind가 차도 다른 kind는 막히지 않는다", async () => {
+test("kind별 동시 수 한도를 넘겨 띄우지 않고, 한 kind가 차도 다른 kind는 막히지 않는다", async () => {
   const pool = createPool({ budget: fakeBudget(1000) });
   const j = Array.from({ length: 6 }, (_, i) => manualJob(`j${i}`, "judgment"));
   const c = Array.from({ length: 3 }, (_, i) => manualJob(`c${i}`, "long"));
   const results = [...j, ...c].map((x) => pool.submit(x.job));
   await settle();
-  assertEquals(j.map((x) => x.job.started), [
+  assert.deepStrictEqual(j.map((x) => x.job.started), [
     true,
     true,
     true,
@@ -48,25 +49,25 @@ Deno.test("kind별 동시 수 한도를 넘겨 띄우지 않고, 한 kind가 차
     false,
     false,
   ]);
-  assertEquals(c.map((x) => x.job.started), [true, true, false]);
-  assertEquals(pool.running(), { judgment: 4, long: 2 });
+  assert.deepStrictEqual(c.map((x) => x.job.started), [true, true, false]);
+  assert.deepStrictEqual(pool.running(), { judgment: 4, long: 2 });
 
   j[0].finish();
   await settle();
-  assertEquals(j[4].job.started, true);
-  assertEquals(j[5].job.started, false);
+  assert.deepStrictEqual(j[4].job.started, true);
+  assert.deepStrictEqual(j[5].job.started, false);
 
   for (const x of [...j, ...c]) {
     x.finish();
     await settle();
   }
-  assertEquals(
+  assert.deepStrictEqual(
     (await Promise.all(results)).map((r) => r.status),
     Array(9).fill("done"),
   );
 });
 
-Deno.test("예산이 차거나 stop이면 줄의 job을 띄우지 않고 skipped로 돌리며, 도는 job은 끝까지 가서 비용이 남는다", async () => {
+test("예산이 차거나 stop이면 줄의 job을 띄우지 않고 skipped로 돌리며, 도는 job은 끝까지 가서 비용이 남는다", async () => {
   const budget = fakeBudget(5);
   const pool = createPool({ budget, limits: { judgment: 1 } });
   const a = manualJob("a", "judgment", 7);
@@ -74,13 +75,22 @@ Deno.test("예산이 차거나 stop이면 줄의 job을 띄우지 않고 skipped
   const ra = pool.submit(a.job);
   const rb = pool.submit(b.job);
   await settle();
-  assertEquals(pool.halted(), null);
+  assert.deepStrictEqual(pool.halted(), null);
   a.finish();
-  assertEquals(await ra, { status: "done", id: "a", value: "a", cost_usd: 7 });
-  assertEquals(await rb, { status: "skipped", id: "b", reason: "budget" });
-  assertEquals(b.job.started, false);
-  assertEquals(budget.added, [7]);
-  assertEquals(pool.halted(), "budget");
+  assert.deepStrictEqual(await ra, {
+    status: "done",
+    id: "a",
+    value: "a",
+    cost_usd: 7,
+  });
+  assert.deepStrictEqual(await rb, {
+    status: "skipped",
+    id: "b",
+    reason: "budget",
+  });
+  assert.deepStrictEqual(b.job.started, false);
+  assert.deepStrictEqual(budget.added, [7]);
+  assert.deepStrictEqual(pool.halted(), "budget");
 
   const pool2 = createPool({
     budget: fakeBudget(1000),
@@ -91,11 +101,15 @@ Deno.test("예산이 차거나 stop이면 줄의 job을 띄우지 않고 skipped
   const rc = pool2.submit(c.job);
   const rd = pool2.submit(d.job);
   pool2.stop();
-  assertEquals(await rd, { status: "skipped", id: "d", reason: "stopped" });
-  assertEquals(pool2.halted(), "stopped");
+  assert.deepStrictEqual(await rd, {
+    status: "skipped",
+    id: "d",
+    reason: "stopped",
+  });
+  assert.deepStrictEqual(pool2.halted(), "stopped");
   c.finish();
-  assertEquals((await rc).status, "done");
-  assertEquals(await pool2.submit(manualJob("e", "long").job), {
+  assert.deepStrictEqual((await rc).status, "done");
+  assert.deepStrictEqual(await pool2.submit(manualJob("e", "long").job), {
     status: "skipped",
     id: "e",
     reason: "stopped",

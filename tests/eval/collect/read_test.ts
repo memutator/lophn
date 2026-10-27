@@ -2,7 +2,8 @@
 // - contract: eval 수집이 만드는 `SessionRecord.sent_calls`. check와 judge가 보낸 쪽 기준 call 흐름을 여기서 읽는다.
 // - 현실적 회귀: Gate가 막은 call을 지우거나 받는 쪽을 못 따라가는 수정, t0 앞(되살리기 흔적)의 turn과 그 call이 기록에 섞이는 수정.
 // - 왜 지금 test로 못 잡나: 이 module은 core 없이 읽기 route 응답만 받으므로 core를 띄우는 e2e로는 모양이 어긋나도 잡히는 곳이 없다.
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import {
   agentSessionRead,
   callRead,
@@ -111,27 +112,32 @@ const port: ReadPort = {
   },
 } as unknown as ReadPort;
 
-Deno.test("t0 앞 turn의 call은 빼고 막힌 call과 새 session에 간 call은 보낸 쪽 순서로 남는다", async () => {
+test("t0 앞 turn의 call은 빼고 막힌 call과 새 session에 간 call은 보낸 쪽 순서로 남는다", async () => {
   const records = await collectSessions({ port }, ["ses_root"], T0);
-  assertEquals(records.map((r) => r.session), ["ses_root", "ses_pm"]);
+  assert.deepStrictEqual(records.map((r) => r.session), ["ses_root", "ses_pm"]);
   const root = records[0];
-  assertEquals(root.turns.map((t) => t.id), ["trn_new"]);
-  assertEquals(root.tool_calls.map((t) => t.call.id), [
+  assert.deepStrictEqual(root.turns.map((t) => t.id), ["trn_new"]);
+  assert.deepStrictEqual(root.tool_calls.map((t) => t.call.id), [
     "tcl_blocked",
     "tcl_sent",
   ]);
   const [blocked, sent] = root.sent_calls;
-  assertEquals([blocked.order, blocked.outcome?.code, blocked.call], [
+  assert.deepStrictEqual([blocked.order, blocked.outcome?.code, blocked.call], [
     0,
     "denied",
     null,
   ]);
-  assertEquals([sent.order, sent.reply, sent.call, sent.receiver_session], [
+  assert.deepStrictEqual([
+    sent.order,
+    sent.reply,
+    sent.call,
+    sent.receiver_session,
+  ], [
     1,
     "result",
     "cal_1",
     "ses_pm",
   ]);
-  assertEquals(sent.receiver_place?.name, "tax");
-  assertEquals(records[1].place?.name, "tax");
+  assert.deepStrictEqual(sent.receiver_place?.name, "tax");
+  assert.deepStrictEqual(records[1].place?.name, "tax");
 });

@@ -2,7 +2,8 @@
 // - contract: 같은 tool·같은 입력 hash가 한 session에서 3번 이상이면 묶음이 되고, 재시도에 밀린 행과 model 탓이 아닌 미실행은 세지 않으며, 막힌(denied) 반복은 센다.
 // - 현실적 회귀: 세는 규칙이 틀려 judge가 엉뚱한 묶음으로 돈다(재시도 행이 되풀이로 세어지거나 denied 반복이 빠진다).
 // - 왜 지금 test로 못 잡나: 이 규칙을 보는 다른 test가 없고 진짜 trial 없이는 묶음을 볼 일이 없다.
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import type { ToolCall } from "../../../../packages/protocol/lophn-agent/tool-values.ts";
 import type {
   CollectedToolCall,
@@ -40,7 +41,7 @@ const session = (name: string, rows: Row[]): SessionRecord =>
 
 const FAIL: [string, string] = ["failed", "boom"];
 
-Deno.test("findRepeatGroups groups 3+ same tool and input per session, skips retried and excluded rows, counts denied", () => {
+test("findRepeatGroups groups 3+ same tool and input per session, skips retried and excluded rows, counts denied", () => {
   const trial = {
     index: 0,
     sessions: [
@@ -66,14 +67,14 @@ Deno.test("findRepeatGroups groups 3+ same tool and input per session, skips ret
   } as unknown as TrialRecord;
 
   const groups = findRepeatGroups(trial);
-  assertEquals(
+  assert.deepStrictEqual(
     groups.map((g) => [g.session, g.tool, g.calls]),
     [
       ["s1", "read", ["a1", "a3", "a4"]],
       ["s1", "call", ["e1", "e2", "e3"]],
     ],
   );
-  assertEquals(groups[0].timeline.map((t) => t.call.id), [
+  assert.deepStrictEqual(groups[0].timeline.map((t) => t.call.id), [
     "a1",
     "a2",
     "a3",
@@ -81,10 +82,10 @@ Deno.test("findRepeatGroups groups 3+ same tool and input per session, skips ret
   ]);
 
   const text = repeatKindInput(groups[0]);
-  assertEquals(
+  assert.deepStrictEqual(
     text.split("\n").filter((l) => l.startsWith("#2 ")).length,
     1,
   );
-  assertEquals(text.includes("#1 *read"), true);
-  assertEquals(text.includes("#2 list"), true);
+  assert.deepStrictEqual(text.includes("#1 *read"), true);
+  assert.deepStrictEqual(text.includes("#2 list"), true);
 });

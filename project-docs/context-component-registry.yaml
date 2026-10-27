@@ -141,7 +141,7 @@ components:
     roles: [planner]
     description: boundary-catalog의 ID·참조·칸과 module-catalog의 path·boundary·빠진 폴더를 본다. check의 modules 단계.
     path: tools/check-modules.ts
-    run: deno run --allow-read tools/check-modules.ts
+    run: deno run --allow-read --allow-env tools/check-modules.ts
     change_reasons:
       note: 두 catalog의 꼴이 바뀔 때.
 
@@ -150,7 +150,7 @@ components:
     roles: [planner]
     description: AGENTS.md, .claude/skills/, project-docs/(change-log, issues/archived, plan/, products/roadmap/ 제외)의 backtick 저장소 path와 이 registry의 path·boundary·role이 있는지 본다. check의 docs 단계.
     path: tools/check-docs.ts
-    run: deno run --allow-read tools/check-docs.ts
+    run: deno run --allow-read --allow-env tools/check-docs.ts
     change_reasons:
       note: 문서나 registry의 꼴이 바뀔 때.
 

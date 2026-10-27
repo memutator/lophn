@@ -1,3 +1,4 @@
+import process from "node:process";
 import type { Diagnostic } from "../../protocol/supervision/mod.ts";
 
 // 처리 못한 예외로 죽는 process의 위치 ID. log record의 location은 아래 표의 표시 문자열이 된다.
@@ -38,30 +39,16 @@ export function crashDiagnostic(input: {
   };
 }
 
-type CrashEvents = {
-  on(
-    event: "uncaughtException" | "unhandledRejection",
-    listener: (cause: unknown) => void,
-  ): void;
-  off(
-    event: "uncaughtException" | "unhandledRejection",
-    listener: (cause: unknown) => void,
-  ): void;
-};
-// 처리 못한 예외는 전역이 들고 있는 process event가 알린다. 전역을 넘겨받아 그 process에 붙는다.
-type CrashTarget = { process: CrashEvents };
-
+// 처리 못한 예외는 이 process의 event가 알린다.
 // 처리 못한 예외로 죽기 전에 분류 한 줄을 남긴다. 원문은 stderr에만 가고(fallback이다),
 // 기록이 실패하거나 기한을 넘기면 삼키고 그대로 종료한다. 돌려주는 함수가 listener를 푼다.
 export function installCrashHandler(options: {
-  target: CrashTarget;
   write(): Promise<unknown>;
   stderr: WritableStream<Uint8Array>;
   redact(text: string): string;
   exit(code: number): void;
   deadlineMs?: number;
 }): () => void {
-  const events = options.target.process;
   let crashing = false;
   const handle = (cause: unknown) => {
     // 기록하는 중에 또 죽으면 기다리지 않는다.
@@ -81,11 +68,11 @@ export function installCrashHandler(options: {
       options.exit(1);
     })();
   };
-  events.on("unhandledRejection", handle);
-  events.on("uncaughtException", handle);
+  process.on("unhandledRejection", handle);
+  process.on("uncaughtException", handle);
   return () => {
-    events.off("unhandledRejection", handle);
-    events.off("uncaughtException", handle);
+    process.off("unhandledRejection", handle);
+    process.off("uncaughtException", handle);
   };
 }
 

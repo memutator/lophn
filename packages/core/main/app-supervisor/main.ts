@@ -197,7 +197,6 @@ const shutdown = () => {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 installCrashHandler({
-  target: globalThis,
   // core에 한 줄 보내고 앱 자식을 정지한 뒤 종료한다. core가 component·location을 정해 log에 쓴다.
   write: async () => {
     await send(

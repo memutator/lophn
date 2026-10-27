@@ -81,7 +81,7 @@ function json(status: number, body: unknown): Response {
     headers: {
       "content-type": "application/json",
       // 앱 process의 broker client는 연결이 닫힐 때까지 읽은 bytes를 그대로 JSON으로 읽는다.
-      // 길이를 적지 않으면 응답이 chunked로 나가 그 client가 본문을 못 읽는다(Deno.serve도 적었다).
+      // 길이를 적지 않으면 응답이 chunked로 나가 그 client가 본문을 못 읽는다.
       "content-length": String(new TextEncoder().encode(text).byteLength),
     },
   });

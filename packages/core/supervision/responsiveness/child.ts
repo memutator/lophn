@@ -26,7 +26,6 @@ import {
 export type ChildStreams = {
   stdin: ByteReader;
   stdout: ByteWriter;
-  stderr: ByteWriter;
 };
 
 // 자식 entry는 감독 통로로 process가 쥔 stdio를 쓴다. stdin은 core 쪽 child stream과 같은
@@ -35,7 +34,6 @@ export function processStreams(): ChildStreams {
   return {
     stdin: fromReadable(process.stdin),
     stdout: byteWriter(toWriter(process.stdout)),
-    stderr: byteWriter(toWriter(process.stderr)),
   };
 }
 

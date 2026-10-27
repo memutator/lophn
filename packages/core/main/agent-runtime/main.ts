@@ -124,8 +124,6 @@ async function startAgentRuntime(input: {
     stderr: Writable.toWeb(process.stderr) as WritableStream<Uint8Array>,
   };
   const diagnostics = createDiagnosticWriter(streams.stderr);
-  // child session은 stderr에 제어 frame을 쓰지 않는다. 진단은 같은 통로를 잠그지 않게 따로 둔다.
-  const childStderr = new TransformStream<Uint8Array>();
   let startup: Startup | undefined;
   let selectorRead: CoreRead | undefined;
   let calls: CoreCalls | undefined;
@@ -157,7 +155,6 @@ async function startAgentRuntime(input: {
     {
       stdin: { read: streamReader(streams.stdin) },
       stdout: streamWriter(streams.stdout),
-      stderr: streamWriter(childStderr.writable),
     },
     {
       async onHello(hello) {
@@ -481,7 +478,6 @@ if (import.meta.main) {
   }
   const runtime = started.value;
   const uninstallCrash = installCrashHandler({
-    target: globalThis,
     write: runtime.reportInternal,
     stderr: Writable.toWeb(process.stderr) as WritableStream<Uint8Array>,
     redact,

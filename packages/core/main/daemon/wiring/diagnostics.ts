@@ -106,7 +106,6 @@ export const diagnosticsWiring: WiringFactory = () => {
         );
       };
       uninstallCrash = installCrashHandler({
-        target: globalThis,
         write: () =>
           ctx.diagnosticsWrite(
             crashDiagnostic({

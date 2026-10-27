@@ -1,5 +1,8 @@
 // 빠른 check: deno task check, full check: deno task check:full
 // 옵션: --full, --base <rev>
+import { type ChildProcess, spawn } from "node:child_process";
+import { stat } from "node:fs/promises";
+import process from "node:process";
 import { PACKAGE_DEPENDENCIES } from "./check-deps.ts";
 
 type Status = "통과" | "실패" | "건너뜀";
@@ -55,15 +58,30 @@ const DENO_EXCLUDED = [
   "project-docs/",
 ];
 
+type Captured = { code: number | null; stdout: string; stderr: string };
+
+// stdout·stderr를 끝까지 읽은 뒤 close(exit code)를 기다린다.
+function collect(child: ChildProcess): Promise<Captured> {
+  return new Promise((resolve, reject) => {
+    let stdout = "";
+    let stderr = "";
+    child.stdout!.setEncoding("utf8");
+    child.stderr!.setEncoding("utf8");
+    child.stdout!.on("data", (chunk: string) => stdout += chunk);
+    child.stderr!.on("data", (chunk: string) => stderr += chunk);
+    child.on("error", reject);
+    child.on("close", (code) => resolve({ code, stdout, stderr }));
+  });
+}
+
 async function output(command: string[]): Promise<string> {
-  const out = await new Deno.Command(command[0], {
-    args: command.slice(1),
-    stdin: "null",
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
+  const out = await collect(
+    spawn(command[0], command.slice(1), {
+      stdio: ["ignore", "pipe", "pipe"],
+    }),
+  );
   if (out.code !== 0) return "";
-  return new TextDecoder().decode(out.stdout);
+  return out.stdout;
 }
 
 const lines = (text: string) => text.split("\n").filter((l) => l !== "");
@@ -141,7 +159,7 @@ async function packageFiles(
 
 async function exists(path: string): Promise<boolean> {
   try {
-    await Deno.stat(path);
+    await stat(path);
     return true;
   } catch {
     return false;
@@ -344,7 +362,7 @@ async function buildSteps(
   return { checks, test: { name: "test", commands: [testArgs] }, skipped };
 }
 
-const running = new Set<Deno.ChildProcess>();
+const running = new Set<ChildProcess>();
 let aborted = false;
 
 function killAll() {
@@ -367,22 +385,18 @@ async function runStep(step: Step): Promise<Done> {
       break;
     }
     try {
-      const child = new Deno.Command(command[0], {
-        args: command.slice(1),
+      const child = spawn(command[0], command.slice(1), {
         cwd: step.cwd,
         // test는 DENO_JOBS가 환경에 없으면 8로 돈다.
         env: command[1] === "test"
-          ? { DENO_JOBS: Deno.env.get("DENO_JOBS") ?? "8" }
+          ? { ...process.env, DENO_JOBS: process.env.DENO_JOBS ?? "8" }
           : undefined,
-        stdin: "null",
-        stdout: "piped",
-        stderr: "piped",
-      }).spawn();
+        stdio: ["ignore", "pipe", "pipe"],
+      });
       running.add(child);
-      const out = await child.output();
+      const out = await collect(child);
       running.delete(child);
-      const decoder = new TextDecoder();
-      text += decoder.decode(out.stdout) + decoder.decode(out.stderr);
+      text += out.stdout + out.stderr;
       if (out.code !== 0) {
         ok = false;
         break;
@@ -456,9 +470,10 @@ function table(results: Result[]): string {
 }
 
 async function main() {
-  const full = Deno.args.includes("--full");
-  const baseIndex = Deno.args.indexOf("--base");
-  const base = baseIndex >= 0 ? Deno.args[baseIndex + 1] : undefined;
+  const args = process.argv.slice(2);
+  const full = args.includes("--full");
+  const baseIndex = args.indexOf("--base");
+  const base = baseIndex >= 0 ? args[baseIndex + 1] : undefined;
 
   let run: Set<string>;
   let catalogChanged = false;
@@ -495,7 +510,7 @@ async function main() {
   Deno.addSignalListener("SIGINT", () => {
     aborted = true;
     killAll();
-    Deno.exit(130);
+    process.exit(130);
   });
 
   const { checks, test, skipped } = await buildSteps(run, full, catalogChanged);
@@ -506,7 +521,7 @@ async function main() {
   results.push(...skipped);
 
   console.log(table(results));
-  Deno.exit(ok ? 0 : 1);
+  process.exit(ok ? 0 : 1);
 }
 
 if (import.meta.main) await main();

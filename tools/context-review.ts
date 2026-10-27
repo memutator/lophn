@@ -1,5 +1,5 @@
 // 바뀐 코드에서 다시 볼 context 조각을 뽑는다. 계획이 land된 뒤 planner가 돌린다.
-// 실행: deno run --allow-read --allow-run tools/context-review.ts --range <git range>
+// 실행: deno run --allow-read --allow-env --allow-run tools/context-review.ts --range <git range>
 //       deno run --allow-read tools/context-review.ts --modules <path,path,...>
 // 바뀐 file → module-catalog의 module → boundary ID → registry의 change_reasons.boundaries가 그 ID인 조각.
 // change_reasons.paths가 바뀐 file을 덮는 조각도 낸다. module이 부모 boundary(예: core/apps → apps)에 걸려 있으면
@@ -7,6 +7,9 @@
 // 자식이 자기 module을 따로 가지면(core 아래 approvals) 그 자식은 넓히지 않는다.
 // --range면 조각의 path 자체가 그 범위에서 바뀌었는지(=같은 변경에서 고쳤는지)도 표시한다.
 import { parse } from "@std/yaml";
+import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import process from "node:process";
 
 type Node = Record<string, unknown>;
 type Component = {
@@ -21,20 +24,35 @@ const BOUNDARIES = "project-docs/boundary-catalog.yaml";
 const REGISTRY = "project-docs/context-component-registry.yaml";
 
 async function read(file: string): Promise<Node> {
-  return parse(await Deno.readTextFile(file)) as Node;
+  return parse(await readFile(file, "utf8")) as Node;
+}
+
+type Captured = { code: number | null; stdout: string; stderr: string };
+
+// stdout·stderr를 끝까지 읽은 뒤 close(exit code)를 기다린다.
+function capture(command: string[]): Promise<Captured> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command[0], command.slice(1), {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout!.setEncoding("utf8");
+    child.stderr!.setEncoding("utf8");
+    child.stdout!.on("data", (chunk: string) => stdout += chunk);
+    child.stderr!.on("data", (chunk: string) => stderr += chunk);
+    child.on("error", reject);
+    child.on("close", (code) => resolve({ code, stdout, stderr }));
+  });
 }
 
 async function changedFiles(range: string): Promise<string[]> {
-  const out = await new Deno.Command("git", {
-    args: ["diff", "--name-only", range],
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
+  const out = await capture(["git", "diff", "--name-only", range]);
   if (out.code !== 0) {
-    console.error(new TextDecoder().decode(out.stderr).trim());
-    Deno.exit(1);
+    console.error(out.stderr.trim());
+    process.exit(1);
   }
-  return new TextDecoder().decode(out.stdout).split("\n").filter(Boolean);
+  return out.stdout.split("\n").filter(Boolean);
 }
 
 const under = (file: string, prefix: string) => {
@@ -42,9 +60,10 @@ const under = (file: string, prefix: string) => {
   return file === p || file.startsWith(p + "/");
 };
 
+const args = process.argv.slice(2);
 function arg(name: string): string | undefined {
-  const i = Deno.args.indexOf(name);
-  return i === -1 ? undefined : Deno.args[i + 1];
+  const i = args.indexOf(name);
+  return i === -1 ? undefined : args[i + 1];
 }
 
 const range = arg("--range");
@@ -53,7 +72,7 @@ if (!range && !modulesArg) {
   console.error(
     "사용: tools/context-review.ts --range <git range> | --modules <path,...>",
   );
-  Deno.exit(2);
+  process.exit(2);
 }
 
 const catalog = ((await read(MODULES)).modules ?? []) as {

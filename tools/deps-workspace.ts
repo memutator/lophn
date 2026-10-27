@@ -1,3 +1,6 @@
+import { readFile } from "node:fs/promises";
+import { errorCode } from "../packages/base/mod.ts";
+
 export type Member = {
   directory: string;
   name?: string;
@@ -50,15 +53,15 @@ export async function readMembers(
   let workspace: string[] = [];
   try {
     workspace =
-      JSON.parse(await Deno.readTextFile(`${root}/deno.json`)).workspace ?? [];
+      JSON.parse(await readFile(`${root}/deno.json`, "utf8")).workspace ?? [];
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
+    if (errorCode(error) !== "ENOENT") throw error;
   }
   const member = workspaceMatcher(workspace);
   const configs = new Map<string, Omit<Member, "directory">>();
   for (const file of files.filter((file) => file.endsWith("/deno.json"))) {
     if (!member(directory(file))) continue;
-    configs.set(file, JSON.parse(await Deno.readTextFile(`${root}/${file}`)));
+    configs.set(file, JSON.parse(await readFile(`${root}/${file}`, "utf8")));
   }
   return membersOf(workspace, configs);
 }

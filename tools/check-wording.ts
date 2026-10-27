@@ -1,4 +1,5 @@
 // 화면 코드 wording 검사. 실행: deno run --allow-read tools/check-wording.ts
+import process from "node:process";
 import { checkScreens, errorsOf } from "../packages/design/wording/check.ts";
 
 const root = new URL("../", import.meta.url).pathname.replace(/\/$/, "");
@@ -9,4 +10,4 @@ for (const f of errors) {
 }
 const warnings = findings.length - errors.length;
 if (warnings > 0) console.log(`warning ${warnings}개`);
-Deno.exit(errors.length > 0 ? 1 : 0);
+process.exit(errors.length > 0 ? 1 : 0);

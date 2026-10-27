@@ -139,19 +139,6 @@ function expand(changed: Set<string>): Set<string> {
   return run;
 }
 
-async function sourceFiles(folder: string): Promise<string[]> {
-  const all = lines(
-    await output(["git", "ls-files", "-co", "--exclude-standard", folder]),
-  );
-  const found: string[] = [];
-  for (const f of new Set(all)) {
-    if (!/\.tsx?$/.test(f)) continue;
-    if (EXCLUDED.some((x) => f.startsWith(x))) continue;
-    if (await exists(f)) found.push(f);
-  }
-  return found.sort();
-}
-
 // 바뀐 package의 file 목록을 만든다. Biome은 file로 줘도 biome.json의 include·exclude를 따른다.
 async function packageFiles(
   folder: string,
@@ -187,29 +174,13 @@ const TSC_PROJECTS: Record<string, string[]> = {
   core: ["packages/core"],
   "coding-agent": ["packages/coding-agent"],
   design: ["packages/design", "packages/design/wording"],
-  sdk: ["packages/sdk"],
+  sdk: ["packages/sdk", "packages/sdk/flow"],
   shell: ["packages/shell/renderer"],
   tools: ["tools", "tools/wireframes"],
   tests: ["tests"],
 };
-// 앱과 flow 쪽은 wave 3까지 Deno로 돌아 deno check로 본다. tsconfig들의 exclude와 같은 목록이다.
-const DENO_CHECKED = [
-  // packages/sdk의 tsconfig는 flow SDK를 뺀다(flow worker가 자기 모양으로 옮긴다).
-  "packages/sdk/flow",
-  "packages/core/apps/runtime/entrypoint",
-  "packages/core/apps/declaration/extract-child.ts",
-  "packages/core/apps/releases/ui-build/eval-declaration.ts",
-  "packages/core/apps/releases/ui-build/app-build.ts",
-  "tests/support/app/prepare-deps.ts",
-];
-
-async function typeChecks(p: string): Promise<string[][]> {
-  const commands = TSC_PROJECTS[p].map((dir) => [TSC, "--noEmit", "-p", dir]);
-  const denoFiles = (await sourceFiles(FOLDERS[p])).filter((f) =>
-    under(f, DENO_CHECKED),
-  );
-  if (denoFiles.length > 0) commands.push(["deno", "check", ...denoFiles]);
-  return commands;
+function typeChecks(p: string): string[][] {
+  return TSC_PROJECTS[p].map((dir) => [TSC, "--noEmit", "-p", dir]);
 }
 
 async function buildSteps(
@@ -279,7 +250,7 @@ async function buildSteps(
   });
 
   for (const p of ALL_PACKAGES.filter((p) => full || run.has(p))) {
-    const commands = await typeChecks(p);
+    const commands = typeChecks(p);
     if (commands.length > 0) checks.push({ name: `check ${p}`, commands });
   }
 

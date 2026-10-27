@@ -84,9 +84,9 @@ step 입력
 
 flow
 - instance 하나에 process 하나다. 시작할 때 host가 띄우고(`WorkflowFlows.launch`), code가 끝나면 끝난다. 다시 띄우지 않는다(자동 재시도 없음). 띄우지 못하면 시작은 그대로 성공이고 그 이유가 `program_exited`(code null) 줄로 남아 instance가 `ended`가 된다.
-- process는 `deno run`이고 앱 process와 같은 꼴의 sandbox다(`packages/core/main/flow-host/flags.ts`의 `flowFlags`). 읽기는 그 workflow 폴더와 설치된 SDK(`<data>/sdk`)뿐이고 쓰기, 네트워크, 다른 program 실행, 환경 변수가 없다. flag는 `--no-prompt --no-config --no-remote --no-npm --cached-only --no-lock --quiet`, `--allow-read` 하나, 폴더 밖 symlink의 `--deny-read`, memory 한도, SDK import map(`<data>/flows/import-map.json`) 순이다. 바깥 효과는 모두 앱 tool과 agent를 거친다. 그래야 invocation 기록과 rewind가 선다.
-  - Deno는 허락한 폴더 안의 symlink를 따라간다. 그래서 launch 때 host가 workflow 폴더 전체를 훑어(앱과 같은 `realPathResolver`의 `linksIn`) 실제 경로가 폴더 밖이거나 풀리지 않는 link마다 `--deny-read=<그 lexical 경로>`를 더한다. 훑기와 launch 사이에 새로 생긴 link는 막지 못한다(앱의 `permissions.limit.symlink-changes`와 같은 한계). flow process는 쓰기 허락이 없어 link를 만들지 못한다. 만드는 길은 PM의 `shell.run`이다.
-  - memory는 `--v8-flags=--max-old-space-size=512`(512 MiB)다. flow는 agent와 앱 tool을 부르는 순서를 짜는 code라 넉넉하다. 넘으면 process가 죽고 `program_exited` 줄에 끝 code와 stderr 끝이 남는다. CPU와 시간 한도는 없고 멈추는 길은 `StopWorkflow`뿐이다.
+- process는 Electron의 Node로 뜨는 `<data>/sdk/flow/<판>/entry.ts`이고 인자가 그 instance의 `flow.ts`다(`packages/core/main/flow-host/host.ts`). 권한 제한은 없다(사람이 정했다. 앱 process와 같다). 환경은 HOME·PATH·XDG cache 위치와 `ELECTRON_RUN_AS_NODE`뿐이다. 바깥 효과는 앱 tool과 agent를 거쳐야 invocation 기록과 rewind가 선다. 그래서 flow guide와 skill이 그렇게 쓰라고 한다.
+  - `flow.ts`의 `@lophn/flow`는 모든 flow file의 공통 조상인 `<data>/projects/node_modules/@lophn/flow` symlink가 설치 사본(`<data>/sdk/flow/<판>`)으로 푼다(`packages/core/main/flow-host/sdk-link.ts`). launch와 `workflow.check`가 그 link를 만든다. `workflow.check`는 platform의 `tsc --noEmit`이다.
+  - memory, CPU, 시간 한도는 없다. 멈추는 길은 `StopWorkflow`뿐이다.
 - process와 core는 stdin·stdout의 JSON 줄로 말한다(`packages/protocol/workflows/flow-wire.ts`). core가 첫 줄 `start`(instance, 입력 글)를 쓰고, process가 `agent`·`tool`·`report` 요청을 id와 함께 보내면 core가 같은 id의 `response`(`{ok: true, result}` 또는 `{ok: false, reason, message}`)로 답한다. 실패도 값이다. 요청에는 instance가 없다. core가 그 process의 것으로 채운다.
   - 진입 file은 lophn이 쥔 SDK의 `entry.ts`다. `flow.ts`를 import하기 전에 `console`과 `process.stdout`의 `write`를 stderr로 돌려 `flow.ts`가 쓴 글이 통로를 깨지 않게 한다. 통로는 `wire.ts`를 읽을 때 잡아 둔 원래 `write`만 쓰고, `entry.ts`가 `wire.ts`를 먼저 import해 잡기가 돌리기보다 앞선다. stdin이 닫히면 process는 스스로 끝난다(core가 죽어도 고아로 남지 않는다).
   - JSON이 아니거나 id가 없거나 1 MiB를 넘는 줄이 오면 통로가 깨진 것이라 host가 process를 끝낸다. 읽히지만 칸이 틀린 요청은 `invalid_input` 실패 값으로 답한다(오타 하나로 flow 전체가 죽지 않게).

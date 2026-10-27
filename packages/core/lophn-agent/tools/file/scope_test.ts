@@ -1,20 +1,30 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import {
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { test } from "node:test";
 import { type Mode, resolveInPlace } from "./scope.ts";
 
-Deno.test("file tool은 place 폴더 밖과 밖으로 나가는 symlink를 거절한다", async () => {
-  const temp = await Deno.makeTempDir();
+test("file tool은 place 폴더 밖과 밖으로 나가는 symlink를 거절한다", async () => {
+  const temp = await mkdtemp(join(tmpdir(), "lophn-scope-"));
   try {
     const place = join(temp, "place");
     const outside = join(temp, "outside");
-    await Deno.mkdir(join(place, "sub"), { recursive: true });
-    await Deno.mkdir(outside);
-    await Deno.writeTextFile(join(place, "inside.txt"), "in");
-    await Deno.writeTextFile(join(outside, "secret.txt"), "out");
-    await Deno.symlink(outside, join(place, "link"));
-    await Deno.symlink(join(outside, "secret.txt"), join(place, "linkfile"));
-    await Deno.symlink(join(outside, "missing"), join(place, "dangling"));
-    await Deno.symlink(join(place, "inside.txt"), join(place, "same"));
+    await mkdir(join(place, "sub"), { recursive: true });
+    await mkdir(outside);
+    await writeFile(join(place, "inside.txt"), "in");
+    await writeFile(join(outside, "secret.txt"), "out");
+    await symlink(outside, join(place, "link"));
+    await symlink(join(outside, "secret.txt"), join(place, "linkfile"));
+    await symlink(join(outside, "missing"), join(place, "dangling"));
+    await symlink(join(place, "inside.txt"), join(place, "same"));
 
     const roots = { read: [place], write: [place] };
     const cases: [string, string, Mode, boolean][] = [
@@ -43,54 +53,54 @@ Deno.test("file tool은 place 폴더 밖과 밖으로 나가는 symlink를 거�
     ];
     for (const [name, path, mode, allowed] of cases) {
       const resolved = await resolveInPlace(roots, path, mode);
-      assertEquals(resolved.ok, allowed, name);
-      if (!resolved.ok) assertEquals(resolved.error.code, "forbidden", name);
+      assert.equal(resolved.ok, allowed, name);
+      if (!resolved.ok) assert.equal(resolved.error.code, "forbidden", name);
     }
 
     // 읽기만 열린 place(lophn)는 쓰기를 거절한다.
     const readOnly = { read: [place], write: [] };
-    assertEquals(
+    assert.equal(
       (await resolveInPlace(readOnly, "inside.txt", "read")).ok,
       true,
     );
-    assertEquals(
+    assert.equal(
       (await resolveInPlace(readOnly, "inside.txt", "write")).ok,
       false,
     );
 
     // 폴더 없는 project의 PM: 상대 경로는 base(project의 data 폴더)에서 풀리고 base 자체는 허락이 아니다.
     const data = join(temp, "projects", "prj_a");
-    await Deno.mkdir(join(data, "skills"), { recursive: true });
+    await mkdir(join(data, "skills"), { recursive: true });
     const noFolder = {
       read: [join(data, "skills"), join(data, "kinds.yaml")],
       write: [join(data, "skills"), join(data, "kinds.yaml")],
       base: data,
     };
     const skill = await resolveInPlace(noFolder, "skills/x/SKILL.md", "write");
-    assertEquals(
+    assert.deepStrictEqual(
       skill.ok && skill.value.path,
-      join(await Deno.realPath(data), "skills", "x", "SKILL.md"),
+      join(await realpath(data), "skills", "x", "SKILL.md"),
     );
     const kindsFile = await resolveInPlace(noFolder, "kinds.yaml", "write");
-    assertEquals(
+    assert.deepStrictEqual(
       kindsFile.ok && kindsFile.value.path,
-      join(await Deno.realPath(data), "kinds.yaml"),
+      join(await realpath(data), "kinds.yaml"),
     );
-    assertEquals(
+    assert.equal(
       (await resolveInPlace(noFolder, "other.md", "write")).ok,
       false,
     );
   } finally {
-    await Deno.remove(temp, { recursive: true });
+    await rm(temp, { recursive: true });
   }
 });
 
-Deno.test("파일 entry는 그 파일(아직 없는 파일 포함)만 열고 같은 폴더의 다른 파일과 하위 경로는 거절한다", async () => {
-  const temp = await Deno.makeTempDir();
+test("파일 entry는 그 파일(아직 없는 파일 포함)만 열고 같은 폴더의 다른 파일과 하위 경로는 거절한다", async () => {
+  const temp = await mkdtemp(join(tmpdir(), "lophn-scope-"));
   try {
     const project = join(temp, "projects", "p");
-    await Deno.mkdir(project, { recursive: true });
-    await Deno.writeTextFile(join(project, "extensions.json"), "{}");
+    await mkdir(project, { recursive: true });
+    await writeFile(join(project, "extensions.json"), "{}");
     const kinds = join(project, "kinds.yaml");
     const cases: [string, string, boolean][] = [
       ["아직 없는 파일", kinds, true],
@@ -106,22 +116,22 @@ Deno.test("파일 entry는 그 파일(아직 없는 파일 포함)만 열고 같
           path,
           mode,
         );
-        assertEquals(resolved.ok, allowed, `${mode} ${name}`);
+        assert.equal(resolved.ok, allowed, `${mode} ${name}`);
       }
     }
 
     // 있는 파일이 되어도 root는 부모 폴더, relative는 파일 이름이다(rewind 기록이 쓴다).
-    await Deno.writeTextFile(kinds, "kinds: []");
+    await writeFile(kinds, "kinds: []");
     const resolved = await resolveInPlace(
       { read: [kinds], write: [kinds] },
       kinds,
       "write",
     );
-    assertEquals(
+    assert.deepStrictEqual(
       resolved.ok && [resolved.value.root, resolved.value.relative],
-      [await Deno.realPath(project), "kinds.yaml"],
+      [await realpath(project), "kinds.yaml"],
     );
   } finally {
-    await Deno.remove(temp, { recursive: true });
+    await rm(temp, { recursive: true });
   }
 });

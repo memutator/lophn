@@ -1,3 +1,4 @@
+import { lstat, realpath, stat } from "node:fs/promises";
 import {
   basename,
   dirname,
@@ -7,13 +8,13 @@ import {
   relative,
   sep,
 } from "node:path";
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import type { PlaceScope } from "../ports.ts";
 
 // file tool이 만지는 경로를 place 폴더 안으로 가둔다. 상대 경로는 범위의 base, 없으면 place의 첫 폴더 기준이다.
 // `..`로 나가는 경로, 폴더 밖 절대 경로, 밖으로 나가는 symlink는 forbidden이다.
 // 허용 entry는 폴더이거나 파일 하나다(kinds 파일). 파일 entry는 아직 없어도 그 경로 하나만 연다.
-// 실제 경로(realPath)로 판정한다. 새 파일이면 가장 가까운 있는 상위 폴더의 실제 경로에 남은 이름을 붙인다.
+// 실제 경로(realpath)로 판정한다. 새 파일이면 가장 가까운 있는 상위 폴더의 실제 경로에 남은 이름을 붙인다.
 
 export type Mode = "read" | "write";
 
@@ -31,7 +32,7 @@ function forbidden(): Result<never> {
 
 async function real(path: string): Promise<string | null> {
   try {
-    return await Deno.realPath(path);
+    return await realpath(path);
   } catch {
     return null;
   }
@@ -48,8 +49,10 @@ async function entryOf(
 ): Promise<{ path: string; file: boolean } | null> {
   const actual = await real(entry);
   if (actual !== null) {
-    const stat = await Deno.stat(actual).catch(() => null);
-    return stat === null ? null : { path: actual, file: !stat.isDirectory };
+    const actualStat = await stat(actual).catch(() => null);
+    return actualStat === null
+      ? null
+      : { path: actual, file: !actualStat.isDirectory() };
   }
   const parent = await real(dirname(entry));
   return parent === null
@@ -74,8 +77,8 @@ export async function resolveInPlace(
   for (;;) {
     resolved = await real(probe);
     if (resolved !== null) break;
-    const stat = await Deno.lstat(probe).catch(() => null);
-    if (stat?.isSymlink) return forbidden();
+    const probeStat = await lstat(probe).catch(() => null);
+    if (probeStat?.isSymbolicLink()) return forbidden();
     const parent = dirname(probe);
     if (parent === probe) return forbidden();
     rest.unshift(basename(probe));
@@ -115,7 +118,7 @@ export function fail(
 
 // 파일을 읽다 난 오류를 tool 오류 코드로 옮긴다.
 export function fsFail(error: unknown): Result<never> {
-  if (error instanceof Deno.errors.NotFound) {
+  if (errorCode(error) === "ENOENT") {
     return fail("not_found", "file not found");
   }
   return fail("invalid_input", "cannot access this path");

@@ -1,3 +1,5 @@
+import type { Dirent } from "node:fs";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { ok, type Result } from "../../../../base/mod.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
@@ -41,23 +43,22 @@ async function* walk(
   ctx: ToolContext,
   dir: string,
 ): AsyncGenerator<string> {
-  let entries: Deno.DirEntry[];
+  let entries: Dirent[];
   try {
-    entries = [];
-    for await (const entry of Deno.readDir(dir)) entries.push(entry);
+    entries = await readdir(dir, { withFileTypes: true });
   } catch {
     return;
   }
   entries.sort((a, b) => a.name.localeCompare(b.name));
   for (const entry of entries) {
     const path = join(dir, entry.name);
-    if (entry.isDirectory) {
+    if (entry.isDirectory()) {
       if (!SKIPPED.has(entry.name)) yield* walk(ctx, path);
-    } else if (entry.isFile) {
+    } else if (entry.isFile()) {
       yield path;
-    } else if (entry.isSymlink) {
+    } else if (entry.isSymbolicLink()) {
       const at = await resolveInPlace(ctx.scope, path, "read");
-      if (at.ok && (await Deno.stat(at.value.path)).isFile) yield path;
+      if (at.ok && (await stat(at.value.path)).isFile()) yield path;
     }
   }
 }
@@ -71,9 +72,9 @@ async function baseOf(
   const at = await resolveInPlace(ctx.scope, path ?? ".", "read");
   if (!at.ok) return at;
   try {
-    const stat = await Deno.stat(at.value.path);
+    const baseStat = await stat(at.value.path);
     return ok(
-      stat.isDirectory
+      baseStat.isDirectory()
         ? { dir: at.value.path, single: null }
         : { dir: join(at.value.path, ".."), single: at.value.path },
     );
@@ -157,7 +158,7 @@ export async function grepFiles(
     if (match !== null && !match(name)) continue;
     let text: string;
     try {
-      const bytes = await Deno.readFile(file);
+      const bytes = await readFile(file);
       if (bytes.length > MAX_SCANNED_BYTES || bytes.includes(0)) continue;
       text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     } catch {

@@ -33,7 +33,7 @@ prototype이다. test는 적게 쓴다. 지금 test가 거의 없는 것은 일�
 
 ## 모양
 
-- 이름은 확인하는 결과 한 문장이다. `Deno.test("approval 없이 grant가 생기지 않는다", ...)`. 요구 ID와 작업 번호를 넣지 않는다.
+- 이름은 확인하는 결과 한 문장이다. `test("approval 없이 grant가 생기지 않는다", ...)`(`node:test`). 요구 ID와 작업 번호를 넣지 않는다.
 - 판정은 바깥 결과로 한다: 거절 code, 생기지 않은 row, 파일 byte, 허용과 차단.
 - 여러 경우는 준비를 한 번 하고 표로 돌린다(sandbox 경계 12개를 한 번에 probe하던 옛 `fs-boundary` test가 본보기).
 - 준비는 가볍게, file당 한 번이다. 가벼운 쪽부터 고른다.

@@ -396,7 +396,6 @@ export const appsWiring: WiringFactory = () => {
           [
             `${declarationCheck.resource}/${declarationCheck.method}`,
             checkDeclaration({
-              dataRoot: ctx.root.path,
               domainNamesOf,
               sourceRootOf: (context, app) =>
                 appsControl.sourceRootOf(

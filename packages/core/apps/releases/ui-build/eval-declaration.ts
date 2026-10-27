@@ -1,9 +1,10 @@
-// 앱의 lophn.ts를 평가해 값을 JSON 한 줄로 낸다. AI가 쓴 앱 코드의 실수가 퍼지지 않게
-// 호출자가 `deno run`으로 read 허락(staging·설치 SDK)만 주고 띄운다. `deno eval`은 모든 권한으로 돌아서 쓰지 않는다.
-// 사용: deno run --allow-read=... eval-declaration.ts <lophn.ts 경로>
+// 앱의 lophn.ts를 평가해 값을 JSON 한 줄로 낸다. 호출자는 앱 폴더를 cwd로 이 파일을 `nodeCommand`로
+// 띄운다. 앱의 node_modules가 `file:.lophn/sdk`의 SDK 사본을 풀고, Node는 `node_modules` 밖의 사본에 있는
+// `.ts`를 돈다. 사용: node eval-declaration.ts <lophn.ts 경로>
 import process from "node:process";
+import { pathToFileURL } from "node:url";
 
 const path = process.argv[2];
 if (path === undefined) throw new Error("declaration path is missing");
-const loaded = await import(`file://${path}`);
+const loaded = await import(pathToFileURL(path).href);
 console.log(JSON.stringify(loaded.default));

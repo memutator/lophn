@@ -35,7 +35,6 @@ import {
   DECLARATION_COPY_NAME,
   MANIFEST_COPY_NAME,
 } from "../bundle/seal.ts";
-import { RUNTIME_CONFIG_PATH } from "../bundle/runtime-entry.ts";
 import type { DesiredApp } from "../../runtime/mod.ts";
 
 const IMPORT_MAP_COPY_NAME = "import-map.json";
@@ -217,7 +216,6 @@ export function bundleFlags(
   );
   if (!flags.ok) return flags;
   const args = flags.value.args.filter((arg) => !VENDOR_REPLACED.includes(arg));
-  args.push(`--config=${parts.root}/${RUNTIME_CONFIG_PATH}`);
   return ok({ ...flags.value, args: args.sort() });
 }
 

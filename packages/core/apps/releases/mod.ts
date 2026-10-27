@@ -21,7 +21,6 @@ export {
   type GitRunner,
 } from "./prepare/git-extract.ts";
 export { buildManifest, manifestBytes } from "./bundle/manifest.ts";
-export { lockAppImports, readSdkCopies } from "./bundle/lock.ts";
 export {
   bundleCopyPath,
   DECLARATION_COPY_NAME,

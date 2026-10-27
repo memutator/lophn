@@ -9,16 +9,16 @@ import {
   RELEASE_PREPARATION_LIMIT_MS,
 } from "../../../../protocol/apps/mod.ts";
 import {
-  extractDeclaration,
   type ExtractSpawner,
+  extractDeclaration,
 } from "../../declaration/extract.ts";
 import { buildManifest } from "../bundle/manifest.ts";
 import { bundleCopyPath, writeBundle } from "../bundle/seal.ts";
 import { buildScreens } from "../ui-build/build.ts";
 import {
   extractCommit,
-  gitCommandRunner,
   type GitRunner,
+  gitCommandRunner,
 } from "./git-extract.ts";
 import { type LimitFailure, usageCounter } from "./limits.ts";
 
@@ -46,12 +46,11 @@ export type PrepareReleaseInput = {
   // bundle에 담은 정확한 의존 전부(manifest.dependencies가 된다).
   dependencies: BundleManifest["dependencies"];
   uiDependencies: readonly { name: string; version: string }[];
-  // 설치 SDK 사본의 byte(`sdk/<이름>/<version>/...`). bundle 안에서 앱 코드가 읽는다.
+  // 설치 SDK 사본의 byte(`.lophn/sdk/<이름>/<version>/...`). bundle 안에서 앱 코드가 읽는다.
   sdkCopies?: readonly { path: string; bytes: Uint8Array }[];
-  // bundle 안 상대 경로로 잠근 앱 import map. 있으면 `import-map.json`으로 bundle에 담는다.
-  lockedImports?: Readonly<Record<string, string>>;
-  // 준비가 받아 둔 npm·jsr 사본(`vendor/`, `node_modules/`). 운영 process는 이것만 읽는다.
-  vendorCopies?: readonly { path: string; bytes: Uint8Array }[];
+  // npm이 앱 폴더에 깐 `node_modules`의 byte(정규 file과 symlink 목록). 운영 process는 bundle 안의
+  // 이 사본만 읽는다.
+  moduleCopies?: readonly { path: string; bytes: Uint8Array }[];
   // 플랫폼이 만든 진입 파일(`bundle/runtime-entry.ts`). 앱 source에 같은 path가 있으면 거절한다.
   entryFiles?: readonly { path: string; bytes: Uint8Array }[];
 };
@@ -125,24 +124,11 @@ export async function prepareRelease(
   // byte는 아래 bundle 합에서 한 번만 더한다.
   const assets = input.assets ?? [];
   const sdkCopies = input.sdkCopies ?? [];
-  const vendorCopies = input.vendorCopies ?? [];
+  const moduleCopies = input.moduleCopies ?? [];
   const entryFiles = input.entryFiles ?? [];
-  const lockedMap =
-    input.lockedImports === undefined
-      ? []
-      : [
-          {
-            path: "import-map.json",
-            bytes: new TextEncoder().encode(
-              JSON.stringify({ imports: input.lockedImports }),
-            ),
-          },
-        ];
   // 플랫폼이 더하는 파일의 path를 앱 source가 차지하고 있으면 거절한다.
   const reserved = new Set(
-    [...sdkCopies, ...vendorCopies, ...entryFiles, ...lockedMap].map(
-      (file) => file.path,
-    ),
+    [...sdkCopies, ...moduleCopies, ...entryFiles].map((file) => file.path),
   );
   if (extracted.value.some((file) => reserved.has(file.path))) {
     return fail("entrypoint_reserved");
@@ -152,8 +138,7 @@ export async function prepareRelease(
     input.screens.length * 2 +
       assets.length +
       sdkCopies.length +
-      vendorCopies.length +
-      lockedMap.length +
+      moduleCopies.length +
       entryFiles.length +
       1,
   );
@@ -195,9 +180,8 @@ export async function prepareRelease(
     ...built.value.files,
     ...assets,
     ...sdkCopies,
-    ...vendorCopies,
+    ...moduleCopies,
     ...entryFiles,
-    ...lockedMap,
     { path: "declaration.json", bytes: declarationBytes },
   ];
   let bundleBytes = 0;

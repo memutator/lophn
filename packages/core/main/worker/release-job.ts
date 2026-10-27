@@ -1,7 +1,7 @@
 // release 준비 job 한 번(apps/releases). supervisor가 준비 요청마다 띄우고 argv의 JSON 한 줄을
 // 받아 stdout에 결과 JSON 한 줄을 남긴다. 플랫폼 credential은 받지 않는다.
-// build 바로 뒤에 의존성과 migration 검사도 이 자식이 돈다: 앱이 쓴 migration SQL을 core process에서 돌리지 않는다.
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+// build 바로 뒤에 migration 검사도 이 자식이 돈다: 앱이 쓴 migration SQL을 core process에서 돌리지 않는다.
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
 import { appStagingFolder } from "../../../protocol/apps/mod.ts";
@@ -10,9 +10,8 @@ import {
   readBundleCopy,
 } from "../../apps/releases/activation/desired.ts";
 import {
-  checkDependencies,
-  checkMigration,
   type CheckOutcome,
+  checkMigration,
 } from "../../apps/releases/prepare/checks.ts";
 import { prepareFromSource } from "../../apps/releases/prepare/from-source.ts";
 
@@ -56,20 +55,6 @@ async function checkSealedCopy(
   const changes = await dataChangesOf(parts);
   // `-- loss:` 줄이 틀리면 여기서 떨어진다.
   if (!changes.ok) return failed("migration", changes.error.message);
-  let imports: Record<string, string>;
-  try {
-    const map = JSON.parse(await readFile(parts.importMap, "utf8")) as {
-      imports?: Record<string, string>;
-    };
-    imports = map.imports ?? {};
-  } catch {
-    return failed("build", "the prepared import map cannot be read");
-  }
-  const dependencies = checkDependencies({
-    dependencies: parts.manifest.dependencies,
-    imports,
-  });
-  if (!dependencies.ok) return failed("dependencies", dependencies.reason);
 
   const staging = appStagingFolder(input.dataRoot, input.app);
   await mkdir(staging, { recursive: true });

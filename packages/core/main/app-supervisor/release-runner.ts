@@ -15,14 +15,8 @@ import type {
   PreparationOutcome,
   PreparationRunner,
 } from "../../apps/releases/preparation.ts";
-import {
-  buildEnvironment,
-  cacheBuildTools,
-} from "../../apps/releases/ui-build/binaries.ts";
-import {
-  denoBinary,
-  nodeCommand,
-} from "../../supervision/security/node-command.ts";
+import { childEnvironment } from "../../apps/releases/prepare/environment.ts";
+import { nodeCommand } from "../../supervision/security/node-command.ts";
 
 const JOB = new URL("../worker/release-job.ts", import.meta.url).pathname;
 
@@ -33,14 +27,9 @@ export function createChildPreparationRunner(options: {
   return {
     async run(job: PreparationJob, signal: AbortSignal) {
       const appRoot = appFolder(options.dataRoot, job.app);
-      const deno = denoBinary();
-      // 빈 deno-dir(새 기계)에서 build 도구를 받는 시간이 자식의 준비 상한에 들지 않게 자식 밖에서 미리 받는다.
-      const env = buildEnvironment(process.env.TMPDIR ?? "/tmp");
-      if (!(await cacheBuildTools(deno, env, signal))) {
-        return err({ stage: "build", reason: "build tools are unavailable" });
-      }
-      // 자식은 lophn의 준비 code만 돌고 앱 source는 실행되지 않는다. 환경은 필요한 이름 몇 개만 넘긴다.
-      // env를 주면 부모 환경을 통째로 대체한다.
+      // 자식은 lophn의 준비 code만 돌고 앱 source는 준비 안의 자식에서만 실행된다. 환경은 npm이 쓰는
+      // HOME·PATH·TMPDIR만 넘긴다. env를 주면 부모 환경을 통째로 대체한다.
+      const env = childEnvironment(process.env.TMPDIR ?? "/tmp");
       const launch = nodeCommand(JOB, [
         JSON.stringify({
           dataRoot: options.dataRoot,
@@ -51,8 +40,7 @@ export function createChildPreparationRunner(options: {
         }),
       ]);
       const child = spawn(launch.command, launch.args, {
-        // 자식은 준비 안에서 선언 eval·앱 build·의존 받기를 Deno로 띄운다.
-        env: { ...env, LOPHN_DENO: deno, ...launch.env },
+        env: { ...env, ...launch.env },
         stdio: ["ignore", "pipe", "ignore"],
       });
       let stopped = false;

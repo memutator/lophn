@@ -4,8 +4,6 @@
   "exclude": [
     "apps/runtime/entrypoint/**",
     "apps/declaration/extract-child.ts",
-    "apps/releases/ui-build/eval-declaration.ts",
-    "apps/releases/ui-build/app-build.ts",
     "apps/permissions/sandbox-boundary_test.ts"
   ]
 }

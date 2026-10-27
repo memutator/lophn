@@ -1,6 +1,6 @@
-// bundle 안 symlink 목록. npm package는 `node_modules/<이름>`을 `.deno/` 안 실제 폴더로 잇는 symlink로 깔리는데,
-// bundle은 정규 file만 담으므로 vendor.ts가 이 목록 file 하나로 굳히고 seal.ts가 사본에서 다시 만든다.
-// 내려받은 package가 만든 연결이 사본 밖을 가리키면 앱 process의 읽기 허락을 우회하므로 읽을 때 거절한다.
+// bundle 안 symlink 목록. npm은 `file:` 의존을 `node_modules/<이름>`에서 사본 안 실제 폴더로 잇는
+// symlink로 깔고, bundle은 정규 file만 담으므로 modules.ts가 이 목록 file 하나로 굳히고 seal.ts가 사본에서
+// 다시 만든다. 연결이 사본 밖을 가리키면 bundle이 자기 완결이 아니게 되므로 읽을 때 거절한다.
 import { mkdir, symlink } from "node:fs/promises";
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
@@ -8,11 +8,11 @@ import { relativePathSchema } from "../../../../protocol/projects/mod.ts";
 
 export const LINKS_PATH = "node_modules/.lophn-links.json";
 
-export type VendorLink = { path: string; target: string };
+export type BundleLink = { path: string; target: string };
 
 type LinkFailure = { code: "invalid_input"; message: string };
 
-export function encodeLinks(links: readonly VendorLink[]): Uint8Array {
+export function encodeLinks(links: readonly BundleLink[]): Uint8Array {
   const sorted = [...links].sort((a, b) => (a.path < b.path ? -1 : 1));
   return new TextEncoder().encode(JSON.stringify(sorted));
 }
@@ -40,7 +40,7 @@ function targetStaysInside(path: string, target: string): boolean {
 
 export function decodeLinks(
   bytes: Uint8Array,
-): Result<VendorLink[], LinkFailure> {
+): Result<BundleLink[], LinkFailure> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(new TextDecoder().decode(bytes));
@@ -48,7 +48,7 @@ export function decodeLinks(
     return invalid("bundle links file is not JSON");
   }
   if (!Array.isArray(parsed)) return invalid("bundle links file is not a list");
-  const links: VendorLink[] = [];
+  const links: BundleLink[] = [];
   for (const item of parsed) {
     const path = item?.path;
     const target = item?.target;
@@ -57,9 +57,9 @@ export function decodeLinks(
     }
     if (
       !relativePathSchema.safeParse(path).success ||
-      !(path.startsWith("node_modules/") || path.startsWith("vendor/"))
+      !path.startsWith("node_modules/")
     ) {
-      return invalid("bundle link path is outside node_modules and vendor");
+      return invalid("bundle link path is outside node_modules");
     }
     if (!targetStaysInside(path, target)) {
       return invalid("bundle link target leaves the copy");
@@ -82,7 +82,7 @@ export function decodeLinks(
 // 연결을 만든다. 부모 폴더는 이미 열려 있는 사본 안에서 만든다.
 export async function createLinks(
   copyPath: string,
-  links: readonly VendorLink[],
+  links: readonly BundleLink[],
 ): Promise<void> {
   for (const link of links) {
     const path = `${copyPath}/${link.path}`;

@@ -1,88 +1,23 @@
-// release 준비가 그 자리에서 하는 data 검사 둘: 의존성과 migration.
+// release 준비가 그 자리에서 하는 migration 검사.
 // core module graph에 넣지 않는다(mod.ts에서 내보내지 않는다). 앱 DB를 여는 data/worker/db.ts는
 // core가 import하지 않는 모듈이고, 앱이 쓴 migration SQL은 release 준비 자식에서만 돈다.
 // 부르는 곳은 packages/core/main/worker/release-job.ts 하나다.
 
 import { mkdir } from "node:fs/promises";
 import {
-  type BundleManifest,
   type DataChange,
   rolledBackStepText,
 } from "../../../../protocol/apps/mod.ts";
 import { createAppBackup } from "../../data/worker/backup.ts";
 import { openAppDatabase } from "../../data/worker/db.ts";
 import {
-  migrateAppDatabase,
   type MigrationScript,
+  migrateAppDatabase,
   scriptFromBundle,
 } from "../../data/worker/migrate.ts";
 
 // 실패는 오류 code가 아니라 결과다. reason은 agent가 읽고 고칠 글이다.
 export type CheckOutcome = { ok: true } | { ok: false; reason: string };
-
-const EXACT_VERSION = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
-const REGISTRY_IMPORT = /^(npm|jsr):(@[^/@]+\/[^/@]+|[^/@]+)@([^/]+)/;
-const SDK_COPY = /^\.\/sdk\/(?:@me\/)?([^/]+)\/([^/]+)\//;
-const LIST_MAX = 5;
-
-function listed(names: readonly string[]): string {
-  const head = names.slice(0, LIST_MAX).join(", ");
-  return names.length > LIST_MAX
-    ? `${head} and ${names.length - LIST_MAX} more`
-    : head;
-}
-
-// 선언한 의존과 bundle의 import가 같고 version이 정확한지 본다. 앱 안 상대 경로와 플랫폼이
-// 놓은 file: 경로는 sdk 사본 꼴일 때만 의존으로 본다.
-export function checkDependencies(input: {
-  dependencies: BundleManifest["dependencies"];
-  imports: Record<string, string>;
-}): CheckOutcome {
-  const { dependencies } = input;
-  const inexact = dependencies
-    .filter((item) => !EXACT_VERSION.test(item.version))
-    .map((item) => `${item.name}@${item.version}`);
-  if (inexact.length > 0) {
-    return {
-      ok: false,
-      reason: `dependencies without an exact version: ${listed(
-        inexact,
-      )}. Pin each one to an exact version.`,
-    };
-  }
-  const undeclared: string[] = [];
-  for (const [specifier, value] of Object.entries(input.imports)) {
-    if (value.startsWith("file:") || /^\.\.?\//.test(value)) {
-      const copy = SDK_COPY.exec(value);
-      if (copy === null) continue;
-      const found = dependencies.some(
-        (item) =>
-          item.name.split("/").pop() === copy[1] && item.version === copy[2],
-      );
-      if (!found) undeclared.push(specifier);
-      continue;
-    }
-    const registry = REGISTRY_IMPORT.exec(value);
-    const found =
-      registry !== null &&
-      dependencies.some(
-        (item) =>
-          item.source === registry[1] &&
-          item.name === registry[2] &&
-          item.version === registry[3],
-      );
-    if (!found) undeclared.push(specifier);
-  }
-  if (undeclared.length > 0) {
-    return {
-      ok: false,
-      reason: `imports that do not point at a declared dependency with its exact version: ${listed(
-        undeclared,
-      )}. Declare the package with an exact version in the app's imports.`,
-    };
-  }
-  return { ok: true };
-}
 
 // 버리는 DB라 값에 의미가 없다.
 const APPLIED_AT = "2000-01-01T00:00:00.000Z";

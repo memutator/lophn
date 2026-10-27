@@ -1,11 +1,12 @@
 // 연결된 source의 commit 하나에서 봉인 bundle까지 준비한다.
-// release worker 안에서 돈다: commit을 staging에 풀고, 앱 import map을 bundle 안 설치 사본 경로로
-// 잠그고, 선언 값을 권한 좁은 Deno로 평가하고, 앱의 화면 build를 직접 돌리고, npm·jsr 의존을 한 번
-// 받아 둔 결과를 `prepareRelease`에 넘긴다. 운영 process는 network 없이 bundle 안 사본만 읽는다.
-// staging은 끝나면 늘 지운다.
+// release worker 안에서 돈다: commit을 staging에 풀고, package.json이 거는 SDK 사본을 staging의
+// `.lophn/sdk`에 채우고, npm으로 의존을 받고, 선언 값을 평가하고, 앱의 화면 build를 직접 돌리고, 받아 둔
+// node_modules를 bundle 파일로 읽어 `prepareRelease`에 넘긴다. 운영 process는 network 없이 bundle 안 사본만
+// 읽는다. staging은 끝나면 늘 지운다.
 import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import {
+  chmod,
   mkdir,
   readdir,
   readFile,
@@ -13,16 +14,22 @@ import {
   rmdir,
   writeFile,
 } from "node:fs/promises";
-import process from "node:process";
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import { err, type Result } from "../../../../base/mod.ts";
 import { appStagingFolder } from "../../../../protocol/apps/mod.ts";
-import { denoBinary } from "../../../supervision/security/node-command.ts";
-import { devImportMap } from "../../packages/mod.ts";
-import { lockAppImports, readSdkCopies } from "../bundle/lock.ts";
+import {
+  type NodeCommand,
+  nodeCommand,
+  npmCommand,
+} from "../../../supervision/security/node-command.ts";
+import { syncAppSdk } from "../../packages/mod.ts";
+import {
+  appDependencies,
+  type PackageManifest,
+} from "../bundle/dependencies.ts";
+import { readModules, readSdkCopies } from "../bundle/modules.ts";
 import { runtimeEntry } from "../bundle/runtime-entry.ts";
-import { readVendorFiles } from "../bundle/vendor.ts";
-import { buildEnvironment, denoDirOf } from "../ui-build/binaries.ts";
 import { FIXED_UI_DEPENDENCIES } from "../ui-build/build.ts";
+import { childEnvironment } from "./environment.ts";
 import {
   type PrepareDeps,
   type PreparedRelease,
@@ -43,16 +50,15 @@ type SourcePrepareInput = {
 };
 
 type SourcePrepareDeps = PrepareDeps & {
-  // Deno 실행 파일. 기본은 LOPHN_DENO, 없으면 PATH의 deno다.
-  deno?: string;
   // 취소 신호. 실행 중인 자식은 SIGKILL하고 부분 결과를 확정하지 않는다.
   signal?: AbortSignal;
-  // 선언 값 평가와 화면 build 한 번의 상한(ms).
+  // npm install·선언 eval·화면 build 한 번의 상한(ms).
   stepLimitMs?: number;
 };
 
-// 앱의 진입 module이다. 앱 source에 있어야 하고 runtime entrypoint가 `@lophn/app`으로 불러 온다.
+// 앱의 진입 module이다. 앱 source에 있어야 하고 runtime entrypoint가 entry 파일에서 불러 온다.
 const APP_MODULE = "main.ts";
+const PACKAGE_MANIFEST = "package.json";
 const STEP_LIMIT_MS = 120_000;
 
 function fail(
@@ -62,9 +68,9 @@ function fail(
   return err({ code, reason });
 }
 
-// deno stderr의 앞 5줄 500자. 색 escape와 staging 경로를 지워 앱 source 기준 경로로 보이게 한다.
+// 자식 stderr의 앞 5줄 500자. 색 escape와 staging 경로를 지워 앱 source 기준 경로로 보이게 한다.
 // reason에 붙어 agent가 고칠 곳(선언, 화면 code, package 판)을 가리킨다.
-function denoHead(code: string, stderr: string, staging: string): string {
+function childHead(code: string, stderr: string, staging: string): string {
   const esc = String.fromCharCode(27);
   const text = stderr
     .replace(new RegExp(`${esc}\\[[0-9;]*m`, "g"), "")
@@ -80,29 +86,20 @@ function denoHead(code: string, stderr: string, staging: string): string {
 
 type Run = { code: number; stdout: string; stderr: string };
 
-async function runDeno(
-  deno: string,
-  args: readonly string[],
+async function runChild(
+  launch: NodeCommand,
   options: {
     cwd: string;
     signal?: AbortSignal;
     limitMs: number;
-    env?: Record<string, string>;
-    clearEnv?: boolean;
+    env: Record<string, string>;
   },
 ): Promise<Run | "aborted" | "timeout"> {
   if (options.signal?.aborted) return "aborted";
-  const child = spawn(deno, [...args], {
+  const child = spawn(launch.command, launch.args, {
     cwd: options.cwd,
-    // clearEnv는 부모 환경을 물려주지 않는다는 뜻이라 넘길 env만 준다. Node의 env는 환경을 통째로 바꾼다.
-    ...(options.env === undefined
-      ? {}
-      : {
-          env:
-            options.clearEnv === true
-              ? options.env
-              : { ...process.env, ...options.env },
-        }),
+    // 자식은 필요한 환경만 받는다. nodeCommand의 env(Electron을 Node로 띄우는 값)를 더한다.
+    env: { ...options.env, ...launch.env },
     stdio: ["ignore", "pipe", "pipe"],
   });
   const outChunks: Buffer[] = [];
@@ -145,10 +142,6 @@ const EVAL_DECLARATION = new URL(
 ).pathname;
 const APP_BUILD = new URL("../ui-build/app-build.ts", import.meta.url).pathname;
 const PACKAGES_URL = new URL("../../../../", import.meta.url).href;
-const REPO = new URL("../../../../../", import.meta.url).pathname.replace(
-  /\/$/,
-  "",
-);
 
 // 화면 build 결과(dist/screens/<key>/)를 bundle 입력으로 읽는다. 진입 JS는 화면, 나머지는 자원이다.
 async function readBuiltScreens(staging: string): Promise<{
@@ -176,70 +169,14 @@ async function readBuiltScreens(staging: string): Promise<{
   return { screens: screens.sort(byPath), assets: assets.sort(byPath) };
 }
 
-function reactPins(
-  imports: Readonly<Record<string, string>>,
-): { name: string; version: string }[] {
-  const pins: { name: string; version: string }[] = [];
-  for (const name of ["react", "react-dom"]) {
-    const match = /^npm:[^@]+@(\d+\.\d+\.\d+)/.exec(imports[name] ?? "");
-    if (match) pins.push({ name, version: match[1] });
+// 설치 사본은 0444·0555라 staging 사본을 지우거나 npm이 고칠 수 없다. staging 사본만 연다.
+async function makeWritable(directory: string): Promise<void> {
+  await chmod(directory, 0o755);
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const path = `${directory}/${entry.name}`;
+    if (entry.isDirectory()) await makeWritable(path);
+    else if (entry.isFile()) await chmod(path, 0o644);
   }
-  return pins;
-}
-
-// npm·jsr 의존을 한 번 받아서 `vendor/`(jsr)와 `node_modules/`(npm)에 둔다. `deno cache`가 network를 쓰는
-// 유일한 단계이고 앱 코드는 실행하지 않는다. 받은 사본은 bundle에 담겨 운영 process가 그대로 읽는다.
-async function fetchExternal(
-  deno: string,
-  specifiers: readonly string[],
-  directory: string,
-  options: {
-    signal?: AbortSignal;
-    limitMs: number;
-    env: Record<string, string>;
-    staging: string;
-  },
-): Promise<Result<{ path: string; bytes: Uint8Array }[], PrepareFailure>> {
-  if (specifiers.length === 0) return ok([]);
-  await mkdir(directory, { recursive: true });
-  await writeFile(
-    `${directory}/deno.json`,
-    JSON.stringify({ vendor: true, nodeModulesDir: "auto" }),
-  );
-  // 정확한 pin 하나씩과 앱이 쓰는 하위 경로까지 불러 와야 그 module이 사본에 든다.
-  await writeFile(
-    `${directory}/deps.ts`,
-    specifiers
-      .map((specifier) => `import ${JSON.stringify(specifier)};\n`)
-      .join(""),
-  );
-  const fetched = await runDeno(
-    deno,
-    [
-      "cache",
-      "--no-lock",
-      `--config=${directory}/deno.json`,
-      `${directory}/deps.ts`,
-    ],
-    {
-      cwd: directory,
-      signal: options.signal,
-      limitMs: options.limitMs,
-      env: options.env,
-      clearEnv: true,
-    },
-  );
-  if (fetched === "aborted") return fail("cancelled");
-  if (fetched === "timeout") return fail("elapsed_ms");
-  if (fetched.code !== 0) {
-    return fail(
-      denoHead("dependency_fetch_failed", fetched.stderr, options.staging),
-      "unavailable",
-    );
-  }
-  const files = await readVendorFiles(directory);
-  if (!files.ok) return fail(files.error.reason, "unavailable");
-  return ok(files.value);
 }
 
 export async function prepareFromSource(
@@ -247,10 +184,7 @@ export async function prepareFromSource(
   deps: SourcePrepareDeps = {},
 ): Promise<Result<PreparedRelease, PrepareFailure>> {
   const git: GitRunner = deps.git ?? gitCommandRunner();
-  const deno = deps.deno ?? denoBinary();
   const limitMs = deps.stepLimitMs ?? STEP_LIMIT_MS;
-  const sdkRoot = `${input.dataRoot}/sdk`;
-  const denoDir = denoDirOf();
   const platformEntry = runtimeEntry(PACKAGES_URL);
   const aborted = () =>
     deps.signal?.aborted === true || deps.cancelled?.() === true;
@@ -261,23 +195,28 @@ export async function prepareFromSource(
   if (!extracted.ok) return fail(extracted.error.reason);
   const find = (path: string) =>
     extracted.value.find((file) => file.path === path);
-  const config = find("deno.json");
-  if (config === undefined) return fail("deno_json_missing");
+  const manifestFile = find(PACKAGE_MANIFEST);
+  if (manifestFile === undefined) return fail("package_json_missing");
   if (find(APP_MODULE) === undefined) return fail("entrypoint_missing");
   if (find("lophn.ts") === undefined) return fail("declaration_missing");
-  let imports: Record<string, string>;
+  let manifest: unknown;
   try {
-    const parsed = JSON.parse(new TextDecoder().decode(config.bytes)) as {
-      imports?: Record<string, string>;
-    };
-    imports = parsed.imports ?? {};
+    manifest = JSON.parse(new TextDecoder().decode(manifestFile.bytes));
   } catch {
-    return fail("deno_json_invalid");
+    return fail("package_json_invalid");
   }
-  const locked = lockAppImports(imports);
-  if (!locked.ok) return fail(locked.error.reason);
-  const copies = await readSdkCopies(input.dataRoot, locked.value.packages);
-  if (!copies.ok) return fail(copies.error.reason);
+  if (typeof manifest !== "object" || manifest === null) {
+    return fail("package_json_invalid");
+  }
+  const dependencies = appDependencies(manifest as PackageManifest);
+  if (!dependencies.ok) return fail(dependencies.error.reason);
+  const uiDependencies = dependencies.value
+    .filter((dependency) =>
+      (FIXED_UI_DEPENDENCIES as readonly string[]).includes(dependency.name),
+    )
+    .map(({ name, version }) => ({ name, version }));
+  // lock이 있으면 그대로 받는다. 없으면 package.json에서 풀고 staging의 lock은 bundle에 담지 않는다.
+  const install = find("package-lock.json") === undefined ? "install" : "ci";
 
   if (aborted()) return fail("cancelled");
   const stagingParent = appStagingFolder(input.dataRoot, input.app);
@@ -291,94 +230,77 @@ export async function prepareFromSource(
       });
       await writeFile(target, file.bytes);
     }
-    await mkdir(`${staging}/.lophn`, { recursive: true });
-    // build 도구의 임시 파일도 staging 안에만 둔다.
+    // npm과 esbuild의 임시 파일도 staging 안에만 둔다.
     await mkdir(`${staging}/.tmp`, { recursive: true });
-    await writeFile(
-      `${staging}/.lophn/import-map.json`,
-      JSON.stringify(devImportMap(imports, input.dataRoot, staging)),
-    );
     if (aborted()) return fail("cancelled");
 
-    // `deno eval`은 모든 권한으로 돌므로 쓰지 않는다. read(staging·설치 SDK)만 허락한 `deno run`이다.
-    const evaluated = await runDeno(
-      deno,
-      [
-        "run",
-        "--no-prompt",
-        // 앱의 deno.json(설정·task)은 읽지 않는다. 풀이는 신뢰된 import map 하나다.
-        "--no-config",
-        `--import-map=${staging}/.lophn/import-map.json`,
-        `--allow-read=${staging},${sdkRoot}`,
-        EVAL_DECLARATION,
-        `${staging}/lophn.ts`,
-      ],
-      { cwd: staging, signal: deps.signal, limitMs },
+    const synced = await syncAppSdk(staging, input.dataRoot);
+    if (!synced.ok) return fail("sdk_not_installed");
+    if (synced.value.length > 0) await makeWritable(`${staging}/.lophn/sdk`);
+    if (aborted()) return fail("cancelled");
+
+    // npm이 AI가 쓴 앱의 의존을 받는 유일한 단계다. 앱 code는 실행되지 않는다(install script도 돌리지 않는다:
+    // registry의 임의 code를 사람 기계에서 실행할 이유가 없고, bundle에는 설치된 file만 필요하다).
+    const installed = await runChild(
+      npmCommand([install, "--ignore-scripts"]),
+      {
+        cwd: staging,
+        signal: deps.signal,
+        limitMs,
+        env: childEnvironment(`${staging}/.tmp`),
+      },
+    );
+    if (installed === "aborted") return fail("cancelled");
+    if (installed === "timeout") return fail("elapsed_ms");
+    if (installed.code !== 0) {
+      return fail(
+        childHead("dependency_install_failed", installed.stderr, staging),
+        "unavailable",
+      );
+    }
+    if (aborted()) return fail("cancelled");
+
+    // 선언 값은 앱 폴더의 node_modules로 import를 풀어 평가한다. 앱 code는 이 자식에서만 돈다.
+    const evaluated = await runChild(
+      nodeCommand(EVAL_DECLARATION, [`${staging}/lophn.ts`]),
+      {
+        cwd: staging,
+        signal: deps.signal,
+        limitMs,
+        env: childEnvironment(`${staging}/.tmp`),
+      },
     );
     if (evaluated === "aborted") return fail("cancelled");
     if (evaluated === "timeout") return fail("elapsed_ms");
     if (evaluated.code !== 0) {
       return fail(
-        denoHead("declaration_eval_failed", evaluated.stderr, staging),
+        childHead("declaration_eval_failed", evaluated.stderr, staging),
       );
     }
 
     // 화면 build는 앱이 쓴 build script가 아니라 신뢰된 `ui-build/app-build.ts`가 한다. 앱 코드는 번들될
-    // 뿐 실행되지 않는다. lophn 자신의 code라 Deno 권한을 좁히지 않는다: 좁히면 자식이 `node:*`로 받는
-    // 권한 요구에서 깨진다. env는 필요한 이름만 넘긴다.
-    const built = await runDeno(
-      deno,
-      [
-        "run",
-        "--no-prompt",
-        `--config=${REPO}/deno.json`,
-        "--allow-all",
-        APP_BUILD,
-        staging,
-        sdkRoot,
-        denoDir,
-      ],
-      {
-        cwd: staging,
-        signal: deps.signal,
-        limitMs,
-        env: buildEnvironment(`${staging}/.tmp`),
-        clearEnv: true,
-      },
-    );
+    // 뿐 실행되지 않는다.
+    const built = await runChild(nodeCommand(APP_BUILD, [staging]), {
+      cwd: staging,
+      signal: deps.signal,
+      limitMs,
+      env: childEnvironment(`${staging}/.tmp`),
+    });
     if (built === "aborted") return fail("cancelled");
     if (built === "timeout") return fail("elapsed_ms");
     if (built.code !== 0) {
       return fail(
-        denoHead("ui_build_failed", built.stderr, staging),
+        childHead("ui_build_failed", built.stderr, staging),
         "unavailable",
       );
     }
     const screens = await readBuiltScreens(staging);
     if (aborted()) return fail("cancelled");
 
-    // 잠근 npm·jsr 값(하위 경로 포함)을 한 번 받아 둔다. 같은 값은 한 번만 부른다.
-    const specifiers = [
-      ...new Set(
-        Object.values(locked.value.imports)
-          .filter(
-            (value) => value.startsWith("npm:") || value.startsWith("jsr:"),
-          )
-          .map((value) => value.replace(/\/$/, "")),
-      ),
-    ].sort();
-    const vendored = await fetchExternal(
-      deno,
-      specifiers,
-      `${staging}/.lophn/deps`,
-      {
-        signal: deps.signal,
-        limitMs,
-        env: buildEnvironment(`${staging}/.tmp`),
-        staging,
-      },
-    );
-    if (!vendored.ok) return vendored;
+    const modules = await readModules(staging);
+    if (!modules.ok) return fail(modules.error.reason, "unavailable");
+    const copies = await readSdkCopies(staging);
+    if (!copies.ok) return fail(copies.error.reason, "unavailable");
     if (aborted()) return fail("cancelled");
 
     return await prepareRelease(
@@ -392,24 +314,10 @@ export async function prepareFromSource(
         declarationSource: evaluated.stdout.trim(),
         screens: screens.screens,
         assets: screens.assets,
-        dependencies: [
-          ...locked.value.packages.map((item) => ({
-            ...item,
-            source: item.name.startsWith("@me/")
-              ? ("package" as const)
-              : ("sdk" as const),
-          })),
-          ...locked.value.external,
-        ],
-        uiDependencies: [
-          ...locked.value.packages.filter((item) =>
-            (FIXED_UI_DEPENDENCIES as readonly string[]).includes(item.name),
-          ),
-          ...reactPins(imports),
-        ],
+        dependencies: dependencies.value,
+        uiDependencies,
         sdkCopies: copies.value,
-        vendorCopies: vendored.value,
-        lockedImports: { ...locked.value.imports, ...platformEntry.imports },
+        moduleCopies: modules.value,
       },
       { ...deps, git, cancelled: aborted },
     );

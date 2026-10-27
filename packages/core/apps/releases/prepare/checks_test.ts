@@ -3,11 +3,8 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
 import { sha256Hex } from "../../../../base/mod.ts";
-import type {
-  BundleManifest,
-  DataChange,
-} from "../../../../protocol/apps/mod.ts";
-import { checkDependencies, checkMigration } from "./checks.ts";
+import type { DataChange } from "../../../../protocol/apps/mod.ts";
+import { checkMigration } from "./checks.ts";
 
 const NOTES = "CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT NOT NULL)";
 
@@ -88,24 +85,5 @@ test("migration 단계가 실패하거나 schema에 닿지 못하는 bundle은 m
         assert.ok(outcome.reason.includes(text), label);
       }
     }
-  }
-});
-
-test("선언한 @me package와 내장 SDK의 import는 의존성 검사를 통과하고 선언하지 않은 @me import는 떨어진다", () => {
-  const declared: BundleManifest["dependencies"] = [
-    { name: "@me/date-range", version: "1.0.0", source: "package" },
-    { name: "@lophn/ui", version: "0.3.0", source: "sdk" },
-  ];
-  const cases: [string, Record<string, string>, boolean][] = [
-    ["@me", { "@me/date-range": "./sdk/@me/date-range/1.0.0/mod.ts" }, true],
-    ["내장", { "@lophn/ui": "./sdk/ui/0.3.0/mod.ts" }, true],
-    ["선언 안 한 @me", { "@me/other": "./sdk/@me/other/1.0.0/mod.ts" }, false],
-  ];
-  for (const [label, imports, expected] of cases) {
-    assert.deepStrictEqual(
-      checkDependencies({ dependencies: declared, imports }).ok,
-      expected,
-      label,
-    );
   }
 });

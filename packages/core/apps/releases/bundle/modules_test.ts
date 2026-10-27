@@ -16,8 +16,8 @@ import { test } from "node:test";
 
 import type { BundleManifest } from "../../../../protocol/apps/mod.ts";
 import { LINKS_PATH } from "./links.ts";
+import { readModules } from "./modules.ts";
 import { sealBundle } from "./seal.ts";
-import { readVendorFiles } from "./vendor.ts";
 
 const manifest = { files: [] } as unknown as BundleManifest;
 const encode = (text: string) => new TextEncoder().encode(text);
@@ -46,56 +46,35 @@ async function walk(root: string, base = ""): Promise<string[]> {
   return found;
 }
 
-test("bundle에 같은 file이 두 번 들어가지 않고 사본에서 연결로 읽힌다", async () => {
-  const work = await mkdtemp(join(tmpdir(), "lophn-vendor-"));
+test("node_modules의 정규 file과 연결이 bundle 사본에서 그대로 읽히고 도구 file은 빠진다", async () => {
+  const work = await mkdtemp(join(tmpdir(), "lophn-modules-"));
   try {
     const nm = `${work}/node_modules`;
-    await mkdir(`${nm}/.deno/a@1.0.0/node_modules/a`, { recursive: true });
-    await mkdir(`${nm}/.deno/b@2.0.0/node_modules/b`, { recursive: true });
-    await mkdir(`${nm}/@s`, { recursive: true });
-    await writeFile(
-      `${nm}/.deno/a@1.0.0/node_modules/a/index.js`,
-      "export const a = 1;",
-    );
-    await writeFile(
-      `${nm}/.deno/b@2.0.0/node_modules/b/index.js`,
-      "export const b = 2;",
-    );
-    await symlink(".deno/a@1.0.0/node_modules/a", `${nm}/a`);
-    await symlink("../.deno/b@2.0.0/node_modules/b", `${nm}/@s/b`);
-    await symlink(
-      "../../b@2.0.0/node_modules/b",
-      `${nm}/.deno/a@1.0.0/node_modules/b`,
-    );
+    await mkdir(`${nm}/pkg`, { recursive: true });
+    await mkdir(`${nm}/@scope`, { recursive: true });
+    await mkdir(`${nm}/.bin`, { recursive: true });
+    await writeFile(`${nm}/pkg/index.js`, "export const pkg = 1;");
+    await writeFile(`${nm}/.package-lock.json`, "{}");
+    await symlink("../pkg", `${nm}/@scope/pkg`);
+    await symlink("../pkg/index.js", `${nm}/.bin/pkg`);
 
-    const read = await readVendorFiles(work);
+    const read = await readModules(work);
     assert.ok(read.ok);
     assert.deepStrictEqual(
       read.value.map((file) => file.path),
-      [
-        "node_modules/.deno/a@1.0.0/node_modules/a/index.js",
-        "node_modules/.deno/b@2.0.0/node_modules/b/index.js",
-        LINKS_PATH,
-      ],
+      ["node_modules/.lophn-links.json", "node_modules/pkg/index.js"],
     );
 
     const copy = `${work}/copy`;
     const sealed = await seal(copy, read.value);
     assert.ok(sealed.ok);
     assert.deepStrictEqual(
-      await readFile(`${copy}/node_modules/a/index.js`, "utf8"),
-      "export const a = 1;",
+      await readFile(`${copy}/node_modules/pkg/index.js`, "utf8"),
+      "export const pkg = 1;",
     );
     assert.deepStrictEqual(
-      await readFile(`${copy}/node_modules/@s/b/index.js`, "utf8"),
-      "export const b = 2;",
-    );
-    assert.deepStrictEqual(
-      await readFile(
-        `${copy}/node_modules/.deno/a@1.0.0/node_modules/b/index.js`,
-        "utf8",
-      ),
-      "export const b = 2;",
+      await readFile(`${copy}/node_modules/@scope/pkg/index.js`, "utf8"),
+      "export const pkg = 1;",
     );
     for (const path of await walk(copy)) {
       const info = await lstat(`${copy}/${path}`);
@@ -116,7 +95,7 @@ test("bundle에 같은 file이 두 번 들어가지 않고 사본에서 연결�
 });
 
 test("사본 밖을 가리키는 연결은 사본에 만들어지지 않는다", async () => {
-  const work = await mkdtemp(join(tmpdir(), "lophn-vendor-"));
+  const work = await mkdtemp(join(tmpdir(), "lophn-modules-"));
   try {
     const copy = `${work}/deep/copy`;
     for (const target of [

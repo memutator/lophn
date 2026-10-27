@@ -838,7 +838,8 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
       void previewService?.discardStale().catch(() => undefined);
       if (timer !== undefined) return;
       timer = setInterval(() => void sweep(), deps.sweepMs ?? 1_000);
-      Deno.unrefTimer(timer as unknown as number);
+      // sweep timer가 core 종료를 막지 않는다.
+      timer.unref();
     },
     stop() {
       if (timer !== undefined) clearInterval(timer);

@@ -538,7 +538,7 @@ async function main() {
     }
   }
 
-  Deno.addSignalListener("SIGINT", () => {
+  process.on("SIGINT", () => {
     aborted = true;
     killAll();
     process.exit(130);

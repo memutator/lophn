@@ -20,10 +20,10 @@ export function installSignals(
     for (const trial of live) trial.stop().catch(() => {});
     process.exit(130);
   };
-  Deno.addSignalListener("SIGINT", handler);
-  Deno.addSignalListener("SIGTERM", handler);
+  process.on("SIGINT", handler);
+  process.on("SIGTERM", handler);
   return () => {
-    Deno.removeSignalListener("SIGINT", handler);
-    Deno.removeSignalListener("SIGTERM", handler);
+    process.off("SIGINT", handler);
+    process.off("SIGTERM", handler);
   };
 }

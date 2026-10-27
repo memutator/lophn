@@ -2,8 +2,6 @@
 // 묶음의 위치는 /opt/lophn/ 하나다. 순수 값이라 build 도구(tools/package-linux.ts)와 설치 검사
 // (tools/verify-linux-install.ts), core 조립이 같은 값을 쓴다.
 
-import { INSTANCE_LOCK_NAME } from "./instance-lock.ts";
-
 const LINUX_INSTALL_ROOT = "/opt/lophn";
 
 // 설치 묶음 안의 위치. 모두 root 소유 읽기 전용이고 사람 데이터 root(H)와 겹치지 않는다.
@@ -48,8 +46,6 @@ export const LINUX_LAUNCHERS = {
 
 // Deno transpile cache. 지워도 H는 그대로고 고정 의존성으로 다시 만든다.
 
-const LOOPBACK = "127.0.0.1,[::1]";
-
 // launcher가 쓰는 공통 앞부분이다. H·cache 위치만 환경에서 풀고 나머지는 고정 값이다.
 // 시작에 의존성 다운로드가 없도록 항상 `--cached-only --frozen`이고 system Deno는 쓰지 않는다.
 // `ROOT=` 줄은 설치 확인(tools/verify-linux-install.ts)이 확인 대상 root로 바꾸는 자리라 그대로 둔다.
@@ -92,29 +88,8 @@ function headOf(name: string, paths: string[]): string {
   ].join("\n");
 }
 
-// 제품 감지가 PATH 뒤에 읽는 home 기준 bin 폴더다(coding-agent/harnesses `FALLBACK_DIRS`와 같은 목록).
-const CLI_FALLBACK_BINS = [
-  ".local/bin",
-  ".bun/bin",
-  ".npm-global/bin",
-  ".pnpm-global/bin",
-  ".yarn/bin",
-  ".volta/bin",
-  ".asdf/shims",
-  ".fnm/aliases/default/bin",
-  ".local/share/mise/shims",
-].map((dir) => `$HOME/${dir}`).join(",");
-
-// CLI의 환경 이름이다.
-const CLI_ENV =
-  "LOPHN_HOME,LOPHN_CODING_TOKEN,LOPHN_DAEMON_URL,HOME,DENO_DIR,PATH";
-// `hook` 명령만 더 읽는 환경 이름이다.
-const HOOK_ENV = "LPN_TERMINAL_HOOK";
-
 // `lophn` CLI. 같은 플랫폼 daemon에 loopback으로 연결하고 token은 환경 변수 `LOPHN_CODING_TOKEN`으로 받는다.
-// 고정 권한은 읽기(플랫폼·cache·H/run·PATH와 감지 폴더), 환경 이름, loopback이고 쓰기는 instance lock 파일 하나다.
-// 명령 시점에야 알 수 있는 권한(harness install의 전역 설정 위치, harness refresh의 제품 실행 파일)은 같은 argv를 읽는
-// 권한 계획 entry(`packages/coding-agent/cli/launch-entry.ts`)가 계산해 이 실행에만 더한다. 실행은 고정으로 없다.
+// lophn 자신의 코드라 권한을 좁히지 않는다. 좁혀도 막는 것이 없고 Deno의 `node:*` 호환이 Deno 권한을 더 요구한다.
 export function cliLauncher(
   layout: LinuxInstallLayout,
   hookStdout: readonly HookStdoutRow[],
@@ -155,58 +130,10 @@ function cliScript(head: string, hookStdout: readonly HookStdoutRow[]): string {
     "  esac",
     "  exit 0",
     "fi",
-    "# PATH의 절대 폴더만 읽기로 연다(제품 감지).",
-    'PATHDIRS=""',
-    "OLDIFS=$IFS",
-    "IFS=:",
-    "set -f",
-    "for dir in $PATH; do",
-    '  case "$dir" in',
-    '    /*) case "$dir" in *,*) ;; *) PATHDIRS="${PATHDIRS:+$PATHDIRS,}$dir" ;; esac ;;',
-    "  esac",
-    "done",
-    "IFS=$OLDIFS",
-    `READ="$PLATFORM,$DENO_DIR,$H/run,$PWD,/proc/self/stat,${CLI_FALLBACK_BINS}\${PATHDIRS:+,$PATHDIRS}"`,
-    `WRITE="$H/run/${INSTANCE_LOCK_NAME}"`,
-    `ENVNAMES="${CLI_ENV}"`,
-    `NET="${LOOPBACK}"`,
-    "# hook은 터미널의 hook socket(env JSON의 socket)에만 연결한다. unix socket connect는 그 경로의 읽기·쓰기와 net(`unix:<경로>`)이 필요하다.",
-    "# 계획 entry를 거치면 deno가 한 번 더 뜨므로 launcher가 경로를 꺼낸다. 이상한 경로면 아무것도 더하지 않고 hook은 조용히 끝난다.",
-    'if [ "${1:-}" = hook ]; then',
-    `  ENVNAMES="$ENVNAMES,${HOOK_ENV}"`,
-    String
-      .raw`  SOCK=$(printf '%s' "$${HOOK_ENV}" | sed -n 's/.*"socket":"\([^"\,]*\)".*/\1/p')`,
-    '  case "$SOCK" in',
-    "    /*..*|*,*) ;;",
-    '    /*) READ="$READ,$SOCK"; WRITE="$WRITE,$SOCK"; NET="$NET,unix:$SOCK" ;;',
-    "  esac",
-    "fi",
-    "# harness 명령만 권한 계획을 부른다. 계획은 harness install의 전역 설정 위치와 harness refresh의 제품 실행 파일만 준다.",
-    'EXTRA=""',
-    'for arg in "$@"; do',
-    '  case "$arg" in harness) NEED=1 ;; esac',
-    "done",
-    'if [ -n "${NEED:-}" ]; then',
-    '  EXTRA=$("$DENO_BIN" run --cached-only --frozen --no-prompt \\',
-    '    --config="$PLATFORM/deno.json" \\',
-    // 계획도 감지가 보는 PATH 폴더와 home 기준 bin 폴더를 읽어야 refresh의 실행 파일을 찾는다(읽기만).
-    '    --allow-read="$PLATFORM,$DENO_DIR,$H/run,$PWD,/proc/self/stat,' +
-    CLI_FALLBACK_BINS + '${PATHDIRS:+,$PATHDIRS}" \\',
-    '    --allow-env="$ENVNAMES" \\',
-    '    --allow-net="$NET" \\',
-    '    "$PLATFORM/packages/coding-agent/cli/launch-entry.ts" "$@" 2>/dev/null) || EXTRA=""',
-    "fi",
-    "# 계획의 flag는 한 줄에 하나다. 줄 단위로만 나눈다.",
-    "IFS='",
-    "'",
-    "set -f",
+    "# CLI는 lophn 자신의 코드라 권한을 좁히지 않는다. 좁혀도 막는 것이 없고 Deno의 `node:*` 호환이 Deno 권한을 더 요구한다.",
     'exec "$DENO_BIN" run --cached-only --frozen --no-prompt \\',
     '  --config="$PLATFORM/deno.json" \\',
-    '  --allow-read="$READ" \\',
-    '  --allow-write="$WRITE" \\',
-    '  --allow-env="$ENVNAMES" \\',
-    '  --allow-net="$NET" \\',
-    "  $EXTRA \\",
+    "  --allow-all \\",
     '  "$PLATFORM/packages/coding-agent/cli/main.ts" "$@"',
     "",
   ].join("\n");

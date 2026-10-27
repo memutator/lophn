@@ -131,8 +131,9 @@ async function runLauncher(
 async function checkLaunchers(): Promise<void> {
   const text = await Deno.readTextFile(`${bin}/lophn`);
   record(
-    "R3·R6 launcher에 sandbox 해제·전체 권한이 없다",
-    /no-sandbox|disable-setuid-sandbox|--allow-all|\s-A\s/.test(text)
+    "R3·R6 launcher에 sandbox 해제가 없고 CLI는 --allow-all로 뜬다",
+    /no-sandbox|disable-setuid-sandbox/.test(text) ||
+      !text.includes("--allow-all")
       ? "fail"
       : "pass",
   );

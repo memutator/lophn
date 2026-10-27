@@ -2,7 +2,9 @@
 // (root.ts)에 token을 저장한다. 같은 컴퓨터의 browser가 필요하다(callback이 127.0.0.1 loopback이다).
 // token·code·sign_in 주소의 state는 화면에만 나오고 파일이나 log에 쓰지 않는다.
 
-import { assert } from "@std/assert";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import process from "node:process";
 import {
   loginBegin,
   loginComplete,
@@ -41,7 +43,7 @@ async function login(core: Core): Promise<number> {
 
   const { definitions } = await core.call(providerDefinitions, {});
   const definition = definitions.find((item) => item.key === "openai");
-  assert(definition !== undefined, "openai 정의가 없다");
+  assert.ok(definition !== undefined, "openai 정의가 없다");
   const provider = core.ids.newId("pvd");
   const begun = await core.call(loginBegin, {
     provider,
@@ -106,7 +108,7 @@ async function login(core: Core): Promise<number> {
         : ""),
   );
 
-  const chosen = Deno.env.get(MODEL_ENV) ?? overlap[0];
+  const chosen = process.env[MODEL_ENV] ?? overlap[0];
   if (chosen === undefined) {
     console.log(
       `기본 model을 정하지 못했다. ${MODEL_ENV}에 model 이름을 주고 다시 실행하라.`,
@@ -126,7 +128,7 @@ async function diagnose(
   endpoint: string,
 ): Promise<string[] | null> {
   const secrets = JSON.parse(
-    await Deno.readTextFile(`${LIVE_HOME}/secrets.json`),
+    await readFile(`${LIVE_HOME}/secrets.json`, "utf8"),
   ) as Record<string, string>;
   const access = secrets[providerSecretName(provider)];
   if (access === undefined) return null;
@@ -182,4 +184,4 @@ try {
 } finally {
   await core.stop();
 }
-Deno.exit(code);
+process.exit(code);

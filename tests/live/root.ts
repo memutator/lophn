@@ -8,27 +8,30 @@
 //   `secrets.json`(0600)에 있어 그대로 쓴다. 환경 변수로 token을 넣지 않는다.
 // 경로는 repo의 `.dev-data/live`(git이 무시한다)다. core의 log와 user-home은 root 밖 `run`에 둔다.
 
+import { realpathSync } from "node:fs";
+import { mkdir, stat } from "node:fs/promises";
+import { errorCode } from "../../packages/base/mod.ts";
 import { bootCore, type Core, type Run } from "../support/core/mod.ts";
 
-const REPO = Deno.realPathSync(`${import.meta.dirname}/../..`);
+const REPO = realpathSync(`${import.meta.dirname}/../..`);
 export const LIVE_HOME = `${REPO}/.dev-data/live/home`;
 export const LIVE_RUN = `${REPO}/.dev-data/live/run`;
 
 // 로그인으로 token이 한 번 저장된 root인가.
 export async function liveRootReady(): Promise<boolean> {
   try {
-    await Deno.stat(`${LIVE_HOME}/secrets.json`);
+    await stat(`${LIVE_HOME}/secrets.json`);
     return true;
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return false;
+    if (errorCode(error) === "ENOENT") return false;
     throw error;
   }
 }
 
 export async function bootLiveCore(): Promise<Core> {
-  await Deno.mkdir(LIVE_HOME, { recursive: true, mode: 0o700 });
-  await Deno.mkdir(`${LIVE_RUN}/user-home`, { recursive: true });
-  await Deno.mkdir(`${LIVE_RUN}/work`, { recursive: true });
+  await mkdir(LIVE_HOME, { recursive: true, mode: 0o700 });
+  await mkdir(`${LIVE_RUN}/user-home`, { recursive: true });
+  await mkdir(`${LIVE_RUN}/work`, { recursive: true });
   const run: Run = {
     dir: LIVE_RUN,
     home: LIVE_HOME,

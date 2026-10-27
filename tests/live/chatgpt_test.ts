@@ -4,7 +4,10 @@
 // - 지금 못 잡는 이유: fake 발급자와 fake model server는 우리가 짠 모양만 안다. 진짜 구독 token은 사람이 한 번 로그인해
 //   저장한 live root(root.ts)가 있어야 하고, 이 test는 사람이 `deno task test:live`로 돌릴 때만 의미가 있다.
 
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
+import { readFile } from "node:fs/promises";
+import { test } from "node:test";
 import {
   modelCallList,
   modelCatalogRead,
@@ -27,7 +30,7 @@ const TURN_MS = 90_000;
 // refresh token 값은 보관하지 않고 이름별 SHA-256 해시만 둔다.
 async function refreshHashes(): Promise<Map<string, string>> {
   const secrets = JSON.parse(
-    await Deno.readTextFile(`${LIVE_HOME}/secrets.json`),
+    await readFile(`${LIVE_HOME}/secrets.json`, "utf8"),
   ) as Record<string, string>;
   const hashes = new Map<string, string>();
   for (const [name, value] of Object.entries(secrets)) {
@@ -36,12 +39,12 @@ async function refreshHashes(): Promise<Map<string, string>> {
       "SHA-256",
       new TextEncoder().encode(value),
     );
-    hashes.set(name, new Uint8Array(digest).toHex());
+    hashes.set(name, Buffer.from(digest).toString("hex"));
   }
   return hashes;
 }
 
-Deno.test("구독 token으로 model을 한 번 부르고 갱신이 있으면 회전한 refresh token이 저장된다", async () => {
+test("구독 token으로 model을 한 번 부르고 갱신이 있으면 회전한 refresh token이 저장된다", async () => {
   const hashesBefore = await refreshHashes();
   const core = await bootLiveCore();
   let stopped = false;
@@ -50,7 +53,7 @@ Deno.test("구독 token으로 model을 한 번 부르고 갱신이 있으면 회
       item.definition.oauth?.product === "chatgpt"
     );
     // root가 있다는 것은 gate가 이미 봤다. 쓸 수 없는 root를 조용히 넘기면 만료를 숨긴다.
-    assert(
+    assert.ok(
       chatgpt !== undefined && chatgpt.credential.state === "available",
       "ChatGPT 로그인을 쓸 수 없다. `deno task test:live:login`을 다시 하라(필요하면 `chmod -R u+w .dev-data/live && rm -rf .dev-data/live` 뒤)",
     );
@@ -65,11 +68,18 @@ Deno.test("구독 token으로 model을 한 번 부르고 갱신이 있으면 회
       const first = (await turnsOf(core, session))[0];
       return first?.state === "finished" ? first : undefined;
     }, TURN_MS);
-    assertEquals(turn.outcome?.kind, "completed", JSON.stringify(turn.outcome));
+    assert.deepStrictEqual(
+      turn.outcome?.kind,
+      "completed",
+      JSON.stringify(turn.outcome),
+    );
     const { calls } = await core.call(modelCallList, { session });
-    assert(calls.length >= 1 && calls.length <= 10, `호출 ${calls.length}개`);
+    assert.ok(
+      calls.length >= 1 && calls.length <= 10,
+      `호출 ${calls.length}개`,
+    );
     for (const call of calls) {
-      assertEquals(call.model.billing_route, "subscription");
+      assert.deepStrictEqual(call.model.billing_route, "subscription");
     }
 
     // 목록은 token을 건넨 뒤 뒤에서 읽는다.
@@ -80,7 +90,7 @@ Deno.test("구독 token으로 model을 한 번 부르고 갱신이 있으면 회
     const catalog = await core.call(modelCatalogRead, {
       provider_definition: "openai",
     });
-    assert(
+    assert.ok(
       catalog.entries.some((entry) => models.includes(entry.model_name)),
       "계정 model 목록이 catalog와 겹치지 않는다(칸 이름이나 철자를 본다)",
     );
@@ -96,14 +106,14 @@ Deno.test("구독 token으로 model을 한 번 부르고 갱신이 있으면 회
       );
       return;
     }
-    assert(
+    assert.ok(
       Date.parse(after.provider.credential.expires_at ?? "") > expiresBefore,
       "갱신했는데 만료가 늦춰지지 않았다",
     );
     const name = `${providerTokenNames(provider).access}.refresh`;
     const hashesAfter = await refreshHashes();
-    assert(hashesBefore.has(name) && hashesAfter.has(name));
-    assert(
+    assert.ok(hashesBefore.has(name) && hashesAfter.has(name));
+    assert.ok(
       hashesAfter.get(name) !== hashesBefore.get(name),
       "refresh token이 회전하지 않았다",
     );

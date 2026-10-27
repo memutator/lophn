@@ -1,6 +1,8 @@
 // 진짜 provider 호출을 감싼다: 호출 수를 세어 상한을 넘으면 보내지 않고 실패하고,
 // 기록 option이 켜져 있으면 받은 응답만(요청은 아님) fixture 꼴로 쓴다.
 
+import { mkdirSync, writeFileSync } from "node:fs";
+
 export const CALL_LIMIT = 10;
 export const CALL_TIMEOUT_MS = 90_000;
 
@@ -31,11 +33,11 @@ export function createBudget(options: { record: URL | null }) {
         const body = scrub(await response.text(), key);
         const type = response.headers.get("content-type") ?? "";
         const dir = new URL(`${provider}/`, options.record);
-        Deno.mkdirSync(dir, { recursive: true });
+        mkdirSync(dir, { recursive: true });
         const name = `live-${row}`;
         const ext = type.includes("text/event-stream") ? "sse" : "json";
-        Deno.writeTextFileSync(new URL(`${name}.${ext}`, dir), body);
-        Deno.writeTextFileSync(
+        writeFileSync(new URL(`${name}.${ext}`, dir), body);
+        writeFileSync(
           new URL(`${name}.meta.json`, dir),
           JSON.stringify(
             { status: response.status, headers: { "content-type": type } },

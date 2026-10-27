@@ -1,7 +1,9 @@
 // 진짜 provider에 요청 셋을 보내 응답을 단정하는 공용 suite. 제품의 resolver·번역·parser를 그대로 쓰고
 // 대답의 내용은 보지 않는다. key는 env에서 읽어 전송 직전에만 붙인다(찍지도 저장하지도 않는다).
 
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import process from "node:process";
+import { test } from "node:test";
 import { err, ok } from "../../packages/base/mod.ts";
 import {
   providerRead,
@@ -178,27 +180,27 @@ export async function callLive(
 export function assertLive(row: Row, output: ModelCallOutput): void {
   const { outcome } = output;
   const shown = JSON.stringify(outcome);
-  assert(
+  assert.ok(
     outcome.http_status !== null && outcome.http_status >= 200 &&
       outcome.http_status < 300,
     `HTTP not 2xx: ${shown}`,
   );
   // partial은 한도에서 잘렸다는 뜻이다.
-  assertEquals(outcome.kind, "complete", `outcome ${shown}`);
+  assert.deepStrictEqual(outcome.kind, "complete", `outcome ${shown}`);
   if (row === "tool") {
     const call = output.toolCalls[0];
-    assert(call !== undefined, "no tool call");
-    assert(
+    assert.ok(call !== undefined, "no tool call");
+    assert.ok(
       TOOLS.some((tool) => tool.name === call.name),
       `tool name not in the bundle: ${call.name}`,
     );
     const args = JSON.parse(call.args);
-    assert(
+    assert.ok(
       typeof args === "object" && args !== null && !Array.isArray(args),
       "tool args are not a JSON object",
     );
   }
-  assert(
+  assert.ok(
     typeof output.usage?.input === "number" &&
       typeof output.usage?.output === "number",
     `usage lacks token counts: ${JSON.stringify(output.usage)}`,
@@ -207,14 +209,14 @@ export function assertLive(row: Row, output: ModelCallOutput): void {
 
 export function liveSuite(config: LiveProvider): void {
   const budget = createBudget({
-    record: Deno.env.get("LOPHN_LIVE_RECORD") === "1" ? FIXTURE_ROOT : null,
+    record: process.env["LOPHN_LIVE_RECORD"] === "1" ? FIXTURE_ROOT : null,
   });
   const rows: Row[] = ["text", "tool", "image"];
   if (config.truncationModel !== undefined) rows.push("truncation");
   for (const row of rows) {
-    Deno.test(`live ${config.provider} ${row}`, async () => {
-      const key = Deno.env.get(config.keyEnv) ?? "";
-      assert(key !== "", `${config.keyEnv} is not set`);
+    test(`live ${config.provider} ${row}`, async () => {
+      const key = process.env[config.keyEnv] ?? "";
+      assert.ok(key !== "", `${config.keyEnv} is not set`);
       assertLive(
         row,
         await callLive(config, row, {

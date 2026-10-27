@@ -1,7 +1,9 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import { checkFetchTarget } from "./target.ts";
 
-Deno.test("web.fetch는 loopback과 사설 주소로 나가지 않는다", () => {
+test("web.fetch는 loopback과 사설 주소로 나가지 않는다", () => {
   const cases: [string, boolean][] = [
     ["https://example.com/a?b=1", true],
     ["http://93.184.216.34/", true],
@@ -27,6 +29,6 @@ Deno.test("web.fetch는 loopback과 사설 주소로 나가지 않는다", () =>
     ["not a url", false],
   ];
   for (const [url, allowed] of cases) {
-    assertEquals(checkFetchTarget(url).ok, allowed, url);
+    assert.deepStrictEqual(checkFetchTarget(url).ok, allowed, url);
   }
 });

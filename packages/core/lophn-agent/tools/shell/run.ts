@@ -1,3 +1,5 @@
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
+import { constants } from "node:os";
 import { ok, type Result } from "../../../../base/mod.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import { fail } from "../file/scope.ts";
@@ -49,7 +51,7 @@ function trimPartialStart(bytes: Uint8Array): Uint8Array {
 
 // 오류는 끝에 나오므로 앞 HEAD_BYTES와 굴러가는 뒤 TAIL_BYTES만 쥐고 가운데는 버린다.
 export async function collect(
-  stream: ReadableStream<Uint8Array>,
+  stream: AsyncIterable<Uint8Array>,
 ): Promise<Collected> {
   let head: Uint8Array = new Uint8Array(0);
   let tail: Uint8Array = new Uint8Array(0);
@@ -85,14 +87,12 @@ export async function collect(
   };
 }
 
-async function killGroup(pid: number): Promise<void> {
+function killGroup(pid: number): void {
   try {
-    await new Deno.Command("/bin/sh", {
-      args: ["-c", `kill -KILL -- -${pid} 2>/dev/null`],
-      clearEnv: true,
-      stdout: "null",
-      stderr: "null",
-    }).output();
+    spawnSync("/bin/sh", ["-c", `kill -KILL -- -${pid} 2>/dev/null`], {
+      stdio: "ignore",
+      env: {},
+    });
   } catch {
     // group이 없으면 아래 child.kill이 sh 하나를 죽인다.
   }
@@ -111,29 +111,38 @@ export async function runShell(
     MAX_TIMEOUT_MS,
   );
 
-  let child: Deno.ChildProcess;
+  let child: ChildProcess;
   try {
-    child = new Deno.Command("/bin/sh", {
-      args: ["-c", LAUNCH, "sh", input.command],
+    child = spawn("/bin/sh", ["-c", LAUNCH, "sh", input.command], {
       cwd,
-      clearEnv: true,
       env: readShellEnvironment(),
-      stdin: "null",
-      stdout: "piped",
-      stderr: "piped",
-    }).spawn();
+      stdio: ["ignore", "pipe", "pipe"],
+    });
   } catch {
     return fail("unavailable", "cannot start the shell");
   }
-
-  const kill = () =>
-    void killGroup(child.pid).then(() => {
-      try {
-        child.kill("SIGKILL");
-      } catch {
-        // 이미 끝났다.
-      }
+  // 'error'를 듣지 않으면 spawn·kill 실패가 process를 죽인다.
+  child.on("error", () => {});
+  // spawn 실패는 pid 없이 돌아오므로 여기서 unavailable로 끝낸다.
+  if (child.pid === undefined) {
+    return fail("unavailable", "cannot start the shell");
+  }
+  const pid = child.pid;
+  const exited = new Promise<number>((resolve) => {
+    child.on("exit", (code, signal) => {
+      // 신호로 끝나면 shell 관례대로 128 + 신호 번호를 쓴다. Node는 그때 code가 null이다.
+      resolve(signal === null ? code ?? 0 : 128 + constants.signals[signal]);
     });
+  });
+
+  const kill = () => {
+    killGroup(pid);
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      // 이미 끝났다.
+    }
+  };
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
@@ -143,9 +152,9 @@ export async function runShell(
   if (ctx.signal?.aborted) kill();
   else ctx.signal?.addEventListener("abort", kill, { once: true });
 
-  const out = collect(child.stdout);
-  const errOut = collect(child.stderr);
-  const status = await child.status;
+  const out = collect(child.stdout!);
+  const errOut = collect(child.stderr!);
+  const code = await exited;
   clearTimeout(timer);
   ctx.signal?.removeEventListener("abort", kill);
   const empty: Collected = { text: "", truncated: false };
@@ -162,7 +171,7 @@ export async function runShell(
   ]);
 
   const content = {
-    exit_code: timedOut ? null : status.code,
+    exit_code: timedOut ? null : code,
     timed_out: timedOut,
     stdout: stdout.text,
     stderr: stderr.text,
@@ -172,9 +181,7 @@ export async function runShell(
   const truncated = stdout.truncated || stderr.truncated;
   return ok({
     status: timedOut ? "failure" : "success",
-    summary: timedOut
-      ? `timed out after ${timeoutMs} ms`
-      : `exit code ${status.code}`,
+    summary: timedOut ? `timed out after ${timeoutMs} ms` : `exit code ${code}`,
     content,
     complete: !truncated && !timedOut,
     source: null,

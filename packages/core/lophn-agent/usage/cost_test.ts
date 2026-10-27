@@ -1,4 +1,6 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import type {
   PriceBasis,
   TokenUsage,
@@ -41,16 +43,16 @@ function usage(cacheInInput: boolean): TokenUsage {
   };
 }
 
-Deno.test("저장된 input에서 cache를 다시 빼지 않고 cache는 각자 요율로 센다", () => {
+test("저장된 input에서 cache를 다시 빼지 않고 cache는 각자 요율로 센다", () => {
   const distinct = basis({ read: "0.3", write: "3.75" });
   // 0.003 + 0.06 + 0.0375 + 0.0075
-  assertEquals(estimatedCost(usage(true), distinct).amount, "0.108");
-  assertEquals(estimatedCost(usage(false), distinct).amount, "0.108");
+  assert.deepStrictEqual(estimatedCost(usage(true), distinct).amount, "0.108");
+  assert.deepStrictEqual(estimatedCost(usage(false), distinct).amount, "0.108");
 });
 
-Deno.test("cache 요율이 없으면 input 요율로 센다", () => {
+test("cache 요율이 없으면 input 요율로 센다", () => {
   const none = basis({ read: null, write: null });
   // (1000 + 200000 + 10000) × 3 ÷ 1e6 + 0.0075
-  assertEquals(estimatedCost(usage(true), none).amount, "0.6405");
-  assertEquals(estimatedCost(usage(false), none).amount, "0.6405");
+  assert.deepStrictEqual(estimatedCost(usage(true), none).amount, "0.6405");
+  assert.deepStrictEqual(estimatedCost(usage(false), none).amount, "0.6405");
 });

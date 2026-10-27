@@ -1,4 +1,6 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import { z } from "zod";
 import { ok } from "../../../base/mod.ts";
 import { defineTool } from "./define.ts";
@@ -83,38 +85,41 @@ function fixture(gateVerdict: "run" | "deny" = "run") {
   return { ran, asked, context };
 }
 
-Deno.test("role의 고정 목록에 없는 tool은 목록에도 실행에도 나오지 않는다", async () => {
+test("role의 고정 목록에 없는 tool은 목록에도 실행에도 나오지 않는다", async () => {
   const { ran, context } = fixture();
   const ctx = context("operator");
-  assertEquals(ctx.listed.map((tool) => tool.name), ["file.read"]);
+  assert.deepStrictEqual(ctx.listed.map((tool) => tool.name), ["file.read"]);
 
   const missing = await executeToolCall(ctx, "ticket_create", {});
-  assertEquals(missing.outcome.code, "not_found");
-  assertEquals(missing.executed, false);
+  assert.deepStrictEqual(missing.outcome.code, "not_found");
+  assert.deepStrictEqual(missing.executed, false);
 
   const read = await executeToolCall(ctx, "file_read", { path: "a.md" });
-  assertEquals(read.outcome.code, "ok");
-  assertEquals(ran, ["file.read"]);
+  assert.deepStrictEqual(read.outcome.code, "ok");
+  assert.deepStrictEqual(ran, ["file.read"]);
 });
 
-Deno.test("같은 wire 이름의 tool 둘은 목록을 만들 때 오류다", () => {
+test("같은 wire 이름의 tool 둘은 목록을 만들 때 오류다", () => {
   const { context } = fixture();
   const [first] = context("operator").listed;
   const clash = { ...first!, name: "file_read" };
   const built = buildWireTable([first!, clash]);
-  assert(!built.ok);
+  assert.ok(!built.ok);
 });
 
-Deno.test("Gate가 막은 tool은 실행되지 않고 Gate 없는 tool은 Gate를 거치지 않는다", async () => {
+test("Gate가 막은 tool은 실행되지 않고 Gate 없는 tool은 Gate를 거치지 않는다", async () => {
   const { ran, asked, context } = fixture("deny");
   const ctx = context("app_engineer");
 
   const read = await executeToolCall(ctx, "file_read", { path: "a.md" });
-  assertEquals(read.executed, true);
-  assertEquals(asked, []);
+  assert.deepStrictEqual(read.executed, true);
+  assert.deepStrictEqual(asked, []);
 
   const gated = await executeToolCall(ctx, "operator_update", {});
-  assertEquals(gated.outcome, { kind: "not_executed", code: "denied" });
-  assertEquals(asked, ["app_tool"]);
-  assertEquals(ran, ["file.read"]);
+  assert.deepStrictEqual(gated.outcome, {
+    kind: "not_executed",
+    code: "denied",
+  });
+  assert.deepStrictEqual(asked, ["app_tool"]);
+  assert.deepStrictEqual(ran, ["file.read"]);
 });

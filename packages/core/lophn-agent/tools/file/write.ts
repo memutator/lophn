@@ -1,5 +1,11 @@
+import {
+  mkdir,
+  readFile,
+  stat,
+  writeFile as writeNodeFile,
+} from "node:fs/promises";
 import { dirname } from "node:path";
-import { ok, type Result } from "../../../../base/mod.ts";
+import { errorCode, ok, type Result } from "../../../../base/mod.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import type { FileHooks } from "../ports.ts";
 import type { ToolContext } from "../tool-context.ts";
@@ -18,9 +24,9 @@ async function writeText(
   const target = at.value;
   let before: string | null = null;
   try {
-    before = await Deno.readTextFile(target.path);
+    before = await readFile(target.path, "utf8");
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) return fsFail(error);
+    if (errorCode(error) !== "ENOENT") return fsFail(error);
   }
 
   let next = content;
@@ -51,10 +57,10 @@ async function writeText(
   const written = await hooks.aroundWrite(ctx, target, async () => {
     try {
       const parent = dirname(target.path);
-      if (!(await Deno.stat(parent).then(() => true, () => false))) {
-        await Deno.mkdir(parent, { recursive: true });
+      if (!(await stat(parent).then(() => true, () => false))) {
+        await mkdir(parent, { recursive: true });
       }
-      await Deno.writeTextFile(target.path, next);
+      await writeNodeFile(target.path, next);
       return ok(undefined);
     } catch {
       return fail("invalid_input", "cannot write this path");

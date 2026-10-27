@@ -1,3 +1,4 @@
+import { Worker } from "node:worker_threads";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { RequestContext } from "../../../protocol/server/mod.ts";
 import type { ReadRoute } from "../../../protocol/base/mod.ts";
@@ -214,8 +215,8 @@ export async function createReaderPool(
   }
 
   function newWorker(): Worker {
-    return new Worker(new URL("./reader-worker.ts", import.meta.url).href, {
-      type: "module",
+    return new Worker(new URL("./reader-worker.ts", import.meta.url), {
+      workerData: { path, modules },
     });
   }
 
@@ -223,35 +224,31 @@ export async function createReaderPool(
   // false이고 worker를 끝내는 것은 부른 쪽의 몫이다. slot의 health는 바꾸지 않는다.
   function boot(slot: Slot, worker: Worker): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
-      const timer = setTimeout(() => {
-        worker.onmessage = null;
-        worker.onerror = null;
-        resolve(false);
-      }, READER_READY_MS);
-      worker.onerror = (event) => {
-        event.preventDefault();
+      const onBootError = () => {
         clearTimeout(timer);
-        worker.onmessage = null;
+        worker.off("message", onReady);
         resolve(false);
       };
-      worker.onmessage = (event) => {
+      const onReady = (message: { ready?: Result<string[]> }) => {
         clearTimeout(timer);
-        const result = event.data.ready as Result<string[]>;
+        const result = message.ready;
         if (!result?.ok) {
           resolve(false);
           return;
         }
         for (const key of result.value) keys.add(key);
-        worker.onmessage = (reply) => {
+        worker.off("message", onReady);
+        worker.off("error", onBootError);
+        worker.on("message", (reply) => {
           // 다시 띄워 바뀐 slot의 옛 worker가 늦게 보낸 message는 버린다.
           if (slot.worker !== worker || slot.health !== "healthy") return;
-          const ack = reply.data.known_ack;
+          const ack = reply.known_ack;
           if (typeof ack === "number") {
             settleKnown(ack, slot);
             return;
           }
           const pending = slot.pending;
-          if (!pending || reply.data.id !== pending.id) return;
+          if (!pending || reply.id !== pending.id) return;
           // reply가 timer보다 먼저 배달돼도 지난 실행 기한은 성공으로 바꾸지 않는다.
           if (performance.now() - slot.startedAt! > READ_TIMEOUT_MS) {
             fail(slot);
@@ -259,22 +256,22 @@ export async function createReaderPool(
           }
           clearTimeout(slot.timer);
           slot.pending = undefined;
-          pending.resolve(reply.data.result as Result<unknown>);
+          pending.resolve(reply.result as Result<unknown>);
           pump();
-        };
+        });
         // 서빙 중 오류는 slot을 격리한다.
-        worker.onerror = (failure) => {
-          failure.preventDefault();
+        worker.on("error", () => {
           if (slot.worker === worker) fail(slot);
-        };
+        });
         resolve(true);
       };
-      try {
-        worker.postMessage({ path, modules });
-      } catch {
-        clearTimeout(timer);
+      const timer = setTimeout(() => {
+        worker.off("message", onReady);
+        worker.off("error", onBootError);
         resolve(false);
-      }
+      }, READER_READY_MS);
+      worker.on("error", onBootError);
+      worker.on("message", onReady);
     });
   }
 

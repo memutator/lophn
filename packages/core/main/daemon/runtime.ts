@@ -1,3 +1,4 @@
+import { Worker } from "node:worker_threads";
 import type { Clock, Result } from "../../../base/mod.ts";
 import { err, internalError, ok } from "../../../base/mod.ts";
 import {
@@ -181,7 +182,7 @@ export async function openRuntime(input: {
   });
 }
 
-// openWriter는 path만 worker name에 넣는다. 팀 모듈은 core가 name에 더한다.
+// openWriter는 path만 workerData에 넣는다. 팀 모듈은 core가 더한다.
 function openProductWriter(
   path: string,
   extra: {
@@ -202,10 +203,7 @@ function openProductWriter(
 } {
   const worker = new Worker(
     new URL("../../storage/ledger/writer-worker.ts", import.meta.url),
-    {
-      type: "module",
-      name: JSON.stringify({ path, ...extra }),
-    },
+    { workerData: { path, ...extra } },
   );
   let nextId = 1;
   const pending = new Map<
@@ -223,19 +221,15 @@ function openProductWriter(
     }
     pending.clear();
   };
-  worker.onmessage = (event: MessageEvent<WriterResponse>) => {
-    const message = event.data;
+  worker.on("message", (message: WriterResponse) => {
     if (message.op === "failed" && message.id === 0) return fail();
     const waiting = pending.get(message.id);
     if (!waiting) return;
     pending.delete(message.id);
     waiting.resolve(message);
     if (message.op === "closed") fail();
-  };
-  worker.onerror = (event) => {
-    event.preventDefault();
-    fail();
-  };
+  });
+  worker.on("error", () => fail());
   const send = (request: WriterRequest): Promise<WriterResponse> => {
     if (dead !== undefined && !dead.ok) {
       return Promise.resolve({

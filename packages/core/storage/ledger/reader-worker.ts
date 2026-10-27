@@ -1,3 +1,4 @@
+import { parentPort, workerData } from "node:worker_threads";
 import { err } from "../../../base/mod.ts";
 import type {
   ReadDefinition,
@@ -12,16 +13,14 @@ import {
   readKey,
 } from "./reads.ts";
 
-const self = globalThis as unknown as {
-  onmessage: (event: MessageEvent) => void;
-  postMessage(message: unknown): void;
-};
+const port = parentPort!;
+// core가 Worker를 만들 때 넘긴 ledger 경로와 등록 module이다.
+const boot = workerData as { path: string; modules: string[] };
 
-self.onmessage = async (event: MessageEvent) => {
-  const { path, modules } = event.data as { path: string; modules: string[] };
+async function start(): Promise<void> {
   try {
     const loaded: ReaderRegistrationModule[] = await Promise.all(
-      modules.map((url) => import(url)),
+      boot.modules.map((url) => import(url)),
     );
     const registrations = loaded.flatMap((module) =>
       module.createReaderRegistration
@@ -51,13 +50,13 @@ self.onmessage = async (event: MessageEvent) => {
     // 조용히 덮이지 않게 기동 때 던진다.
     const sharedPorts = new Map<unknown, unknown>();
     for (const registration of registrations) {
-      for (const [key, port] of registration.ports) {
+      for (const [key, registeredPort] of registration.ports) {
         if (sharedPorts.has(key)) {
           throw new Error(
             `duplicate reader port ${(key as { name: string }).name}`,
           );
         }
-        sharedPorts.set(key, port);
+        sharedPorts.set(key, registeredPort);
       }
     }
     for (const registration of registrations) {
@@ -72,15 +71,15 @@ self.onmessage = async (event: MessageEvent) => {
         });
       }
     }
-    const opened = openReaderConnection(path);
+    const opened = openReaderConnection(boot.path);
     if (!opened.ok) {
-      self.postMessage({ ready: opened });
+      port.postMessage({ ready: opened });
       return;
     }
     const connection = opened.value;
-    self.onmessage = (request: MessageEvent) => {
+    port.on("message", (message) => {
       const change = (
-        request.data as {
+        message as {
           known?: {
             id: number;
             op: "register" | "revoke" | "ready" | "unready";
@@ -92,10 +91,10 @@ self.onmessage = async (event: MessageEvent) => {
         if (change.op === "register") known.register(change.values);
         else if (change.op === "revoke") known.revoke(change.values);
         else ready = change.op === "ready";
-        self.postMessage({ known_ack: change.id });
+        port.postMessage({ known_ack: change.id });
         return;
       }
-      const { id, key, ctx, input } = request.data as {
+      const { id, key, ctx, input } = message as {
         id: number;
         key: string;
         ctx: RequestContext;
@@ -105,12 +104,14 @@ self.onmessage = async (event: MessageEvent) => {
       const result = definition
         ? executeRead(connection, definition.read, definition.ports, ctx, input)
         : err({ code: "not_found", message: "등록되지 않은 read다" });
-      self.postMessage({ id, result });
-    };
-    self.postMessage({ ready: { ok: true, value: [...definitions.keys()] } });
+      port.postMessage({ id, result });
+    });
+    port.postMessage({ ready: { ok: true, value: [...definitions.keys()] } });
   } catch {
-    self.postMessage({
+    port.postMessage({
       ready: err({ code: "unavailable", message: "reader 기동에 실패했다" }),
     });
   }
-};
+}
+
+await start();

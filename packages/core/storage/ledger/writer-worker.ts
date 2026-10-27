@@ -1,30 +1,24 @@
+import { parentPort, workerData } from "node:worker_threads";
 import { internalError } from "../../../base/mod.ts";
 import type { CommandDefinition } from "../../../protocol/server/mod.ts";
 import { executeCommand, readOwnResult } from "./executor.ts";
 import { type LedgerConnection, openConnection } from "./sqlite.ts";
-import type { WriterRequest, WriterResponse } from "./writer-message.ts";
+import type { WriterRequest } from "./writer-message.ts";
 import { assembleWriter } from "./writer-assembly.ts";
 
-type WorkerSelf = {
-  name: string;
-  postMessage(message: WriterResponse): void;
-  onmessage: ((event: MessageEvent<WriterRequest>) => void) | null;
-  close(): void;
-};
-
-// core가 Worker name으로 ledger 경로와 팀 등록 모듈을 넘긴다.
-const worker = self as unknown as WorkerSelf;
-const boot = JSON.parse(worker.name) as {
+// core가 Worker를 만들 때 넘긴 ledger 경로와 팀 등록 module이다.
+const boot = workerData as {
   path: string;
   modules: string[];
   clock: "system" | number;
   seed: number;
 };
+const port = parentPort!;
 
 // 자격 기록과 command가 같은 연결을 본다. writer loop의 두 번째 연결은 쓰지 않는다.
 const opened = openConnection(boot.path);
 if (!opened.ok) {
-  worker.postMessage({ id: 0, op: "failed", body: opened.error });
+  port.postMessage({ id: 0, op: "failed", body: opened.error });
 } else {
   const connection = opened.value;
   const registration = await assembleWriter(boot, connection);
@@ -43,18 +37,18 @@ if (!opened.ok) {
     onTx: registration.onTx,
   };
   let chain = Promise.resolve();
-  worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
-    const data = event.data;
+  port.on("message", (message) => {
+    const data = message as WorkerMessage;
     chain = chain
       .then(() => handle(connection, deps, commands, registration, data))
       .catch(() => {
-        worker.postMessage({
+        port.postMessage({
           id: data.id,
           op: "failed",
           body: internalError(),
         });
       });
-  };
+  });
 }
 
 type WorkerMessage =
@@ -92,7 +86,7 @@ async function handle(
     const registry = registration.confirmationRegistry;
     if (data.action === "clear") {
       registry.clear();
-      worker.postMessage({
+      port.postMessage({
         id: data.id,
         op: "confirmation",
         body: { ok: true, value: null },
@@ -101,7 +95,7 @@ async function handle(
     }
     if (data.action === "close-window") {
       registry.closeWindow(data.windowId ?? "");
-      worker.postMessage({
+      port.postMessage({
         id: data.id,
         op: "confirmation",
         body: { ok: true, value: null },
@@ -113,7 +107,7 @@ async function handle(
       const use = data.request as Parameters<typeof registry.reserve>[0];
       const reserved = registry.reserve(use);
       if (reserved.ok) registry.consume(use.ref);
-      worker.postMessage({
+      port.postMessage({
         id: data.id,
         op: "confirmation",
         body: reserved.ok ? { ok: true, value: null } : reserved,
@@ -130,7 +124,7 @@ async function handle(
             message: "확인 등록이 올바르지 않다",
           },
         };
-    worker.postMessage({
+    port.postMessage({
       id: data.id,
       op: "confirmation",
       body: issued,
@@ -152,7 +146,7 @@ async function handle(
             message: "credential 기록이 올바르지 않다",
           },
         };
-    worker.postMessage({
+    port.postMessage({
       id: data.id,
       op: recorded.ok ? "recorded" : "failed",
       body: recorded.ok
@@ -163,28 +157,29 @@ async function handle(
   }
   if (data.op === "close") {
     connection.close();
-    worker.postMessage({ id: data.id, op: "closed" });
-    worker.close();
+    port.postMessage({ id: data.id, op: "closed" });
+    // 답을 보낸 뒤 thread를 끝낸다. postMessage는 이미 queue에 들어갔다.
+    process.exit(0);
     return;
   }
   if (data.op === "blob-prepared") {
     registration.preparations.register(data.prepared, data.nowMs);
     registration.preparations.prune(data.nowMs);
-    worker.postMessage({ id: data.id, op: "blob-noted" } as never);
+    port.postMessage({ id: data.id, op: "blob-noted" } as never);
     return;
   }
   if (data.op === "note-time") {
     registration.noteTime(data.nowMs);
-    worker.postMessage({ id: data.id, op: "time-noted" } as never);
+    port.postMessage({ id: data.id, op: "time-noted" } as never);
     return;
   }
   if (data.op === "blob-prune") {
     registration.preparations.prune(data.nowMs);
-    worker.postMessage({ id: data.id, op: "blob-noted" } as never);
+    port.postMessage({ id: data.id, op: "blob-noted" } as never);
     return;
   }
   if (data.op === "read-result") {
-    worker.postMessage({
+    port.postMessage({
       id: data.id,
       op: "read-result",
       body: readOwnResult(connection, deps.checkCredential, data.ctx, data.key),
@@ -206,9 +201,9 @@ async function handle(
       const actions = registration.afterCommit.take();
       if (actions.length > 0) body.value.after_commit = actions;
     } else registration.afterCommit.reset();
-    worker.postMessage({ id: data.id, op: "command", body });
+    port.postMessage({ id: data.id, op: "command", body });
   } catch {
-    worker.postMessage({
+    port.postMessage({
       id: data.id,
       op: "failed",
       body: internalError(),

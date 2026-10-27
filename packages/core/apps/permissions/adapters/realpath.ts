@@ -1,10 +1,12 @@
+import { lstat, readdir, realpath, stat } from "node:fs/promises";
+
 import { isSameOrInside, type PathResolver } from "../model.ts";
 
 // 파일 시스템 접근은 이 adapter에만 둔다. model은 결과를 받아 판정한다.
 
 async function real(path: string): Promise<string | undefined> {
   try {
-    return await Deno.realPath(path);
+    return await realpath(path);
   } catch {
     return undefined;
   }
@@ -16,18 +18,18 @@ async function walk(
 ): Promise<void> {
   let entries;
   try {
-    entries = await Array.fromAsync(Deno.readDir(directory));
+    entries = await readdir(directory, { withFileTypes: true });
   } catch {
     return;
   }
   for (const entry of entries) {
     const path = `${directory}/${entry.name}`;
-    const info = await Deno.lstat(path);
-    if (info.isSymlink) {
+    const info = await lstat(path);
+    if (info.isSymbolicLink()) {
       found.push({ link: path, target: await real(path) });
       continue;
     }
-    if (entry.isDirectory) await walk(path, found);
+    if (entry.isDirectory()) await walk(path, found);
   }
 }
 
@@ -46,7 +48,7 @@ export function realPathResolver(home: string, base: string): PathResolver {
     },
     async isDirectory(path) {
       try {
-        return (await Deno.stat(path)).isDirectory;
+        return (await stat(path)).isDirectory();
       } catch {
         return false;
       }

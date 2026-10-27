@@ -4,6 +4,16 @@
 // catalog 등록은 하지 않는다(같은 name·version의 byte가 바뀌면 등록이 conflict라 개발 중 기동이 막힌다).
 // 사용자 package(@me)는 publish.ts가 낸다.
 
+import {
+  chmod,
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
+
 import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
 import {
   packageNameSchema,
@@ -39,14 +49,14 @@ async function collectSourceFiles(
 ): Promise<Result<SourceFile[]>> {
   const files: SourceFile[] = [];
   async function visit(directory: string, prefix: string): Promise<void> {
-    for await (const entry of Deno.readDir(directory)) {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
-      if (entry.isDirectory) {
+      if (entry.isDirectory()) {
         if (keep(`${path}/`)) await visit(`${directory}/${entry.name}`, path);
-      } else if (entry.isFile && keep(path)) {
+      } else if (entry.isFile() && keep(path)) {
         files.push({
           path,
-          bytes: await Deno.readFile(`${directory}/${entry.name}`),
+          bytes: await readFile(`${directory}/${entry.name}`),
         });
       }
     }
@@ -173,14 +183,14 @@ export async function prepareBundleBlobs(
 export async function removeInstallCopy(target: string): Promise<void> {
   // 읽기 전용 사본은 디렉터리 쓰기 권한을 먼저 돌려줘야 지울 수 있다.
   async function open(directory: string): Promise<void> {
-    await Deno.chmod(directory, 0o755);
-    for await (const entry of Deno.readDir(directory)) {
-      if (entry.isDirectory) await open(`${directory}/${entry.name}`);
+    await chmod(directory, 0o755);
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      if (entry.isDirectory()) await open(`${directory}/${entry.name}`);
     }
   }
   try {
     await open(target);
-    await Deno.remove(target, { recursive: true });
+    await rm(target, { recursive: true });
   } catch {
     // 없는 사본이다.
   }
@@ -191,9 +201,9 @@ async function copiedPaths(
   prefix: string,
 ): Promise<string[]> {
   const found: string[] = [];
-  for await (const entry of Deno.readDir(directory)) {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = prefix ? `${prefix}/${entry.name}` : entry.name;
-    if (entry.isDirectory) {
+    if (entry.isDirectory()) {
       found.push(...await copiedPaths(`${directory}/${entry.name}`, path));
     } else found.push(path);
   }
@@ -209,7 +219,7 @@ export async function sameInstallCopy(
     const found = await copiedPaths(target, "");
     if (found.length !== files.length) return false;
     for (const file of files) {
-      const bytes = await Deno.readFile(`${target}/${file.path}`);
+      const bytes = await readFile(`${target}/${file.path}`);
       if (
         bytes.length !== file.bytes.length ||
         bytes.some((byte, index) => byte !== file.bytes[index])
@@ -228,17 +238,17 @@ export async function writeInstallCopy(
   let directories: string[];
   try {
     // 만들기는 쓸 수 있는 권한으로 하고, 파일을 다 쓴 뒤 디렉터리를 0555로 좁힌다.
-    await Deno.mkdir(target, { recursive: true, mode: 0o755 });
+    await mkdir(target, { recursive: true, mode: 0o755 });
     directories = [target];
     for (const file of files) {
       // 깊은 파일의 중간 폴더도 모두 0555로 좁힌다.
       const segments = file.path.split("/").slice(0, -1);
       for (let depth = 1; depth <= segments.length; depth += 1) {
         const directory = `${target}/${segments.slice(0, depth).join("/")}`;
-        await Deno.mkdir(directory, { recursive: true, mode: 0o755 });
+        await mkdir(directory, { recursive: true, mode: 0o755 });
         directories.push(directory);
       }
-      await Deno.writeFile(`${target}/${file.path}`, file.bytes, {
+      await writeFile(`${target}/${file.path}`, file.bytes, {
         mode: 0o444,
       });
     }
@@ -253,7 +263,7 @@ export async function writeInstallCopy(
   // 사본 디렉터리는 모두 0555다. 깊은 곳부터 좁힌다.
   for (const directory of [...directories].reverse()) {
     try {
-      await Deno.chmod(directory, 0o555);
+      await chmod(directory, 0o555);
     } catch {
       // 이미 0555면 없어도 된다.
     }
@@ -284,7 +294,7 @@ async function readIdentity(
   dir: string,
 ): Promise<Result<{ name: string; version: string }>> {
   try {
-    const json = JSON.parse(await Deno.readTextFile(`${dir}/deno.json`));
+    const json = JSON.parse(await readFile(`${dir}/deno.json`, "utf8"));
     if (typeof json.name === "string" && typeof json.version === "string") {
       return ok({ name: json.name, version: json.version });
     }
@@ -334,13 +344,17 @@ export async function installSdkCopies(deps: {
   const sources: { source: string; skip: readonly string[] }[] = [];
   try {
     const names: string[] = [];
-    for await (const entry of Deno.readDir(`${deps.packagesRoot}/sdk`)) {
-      if (entry.isDirectory) names.push(entry.name);
+    for (
+      const entry of await readdir(`${deps.packagesRoot}/sdk`, {
+        withFileTypes: true,
+      })
+    ) {
+      if (entry.isDirectory()) names.push(entry.name);
     }
     for (const name of names.sort()) {
       const source = `sdk/${name}`;
       try {
-        await Deno.stat(`${deps.packagesRoot}/${source}/deno.json`);
+        await stat(`${deps.packagesRoot}/${source}/deno.json`);
         sources.push({ source, skip: [] });
       } catch {
         // deno.json이 없는 폴더는 판이 없어 깔지 않는다.

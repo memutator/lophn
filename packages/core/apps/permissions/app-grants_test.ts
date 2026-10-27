@@ -1,5 +1,7 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { test } from "node:test";
+
 import type { GrantPermissionRequirement } from "../../../protocol/apps/mod.ts";
 import { permissionsSchemaSteps } from "./schema.ts";
 import { compareFacts } from "./facts.ts";
@@ -43,7 +45,7 @@ const net = (host: string): GrantPermissionRequirement => ({
   reason: "test",
 });
 
-Deno.test("넓어진 선언은 사람이 허락하기 전에 앱 grant가 되지 않는다", () => {
+test("넓어진 선언은 사람이 허락하기 전에 앱 grant가 되지 않는다", () => {
   const { db, tx } = open();
   try {
     const one = { permissions: [net("a.example")], app_connections: [] };
@@ -53,41 +55,41 @@ Deno.test("넓어진 선언은 사람이 허락하기 전에 앱 grant가 되지
     };
     const active = () => {
       const loaded = loadGrants(tx.sql, { app: APP, status: "active" });
-      assert(loaded.ok);
+      assert.ok(loaded.ok);
       return loaded.value;
     };
     const hosts = () =>
       active().map((grant) => (grant.scope as { host: string }).host).sort();
 
     // 처음에는 허락으로 만든다.
-    assert(syncAppGrants(tx, APP, one, "granted").ok);
-    assertEquals(hosts(), ["a.example"]);
+    assert.ok(syncAppGrants(tx, APP, one, "granted").ok);
+    assert.deepStrictEqual(hosts(), ["a.example"]);
 
     // ① 선언이 같으면 비교가 비고 grant는 그대로다.
-    assertEquals(compareFacts(active(), one), {
+    assert.deepStrictEqual(compareFacts(active(), one), {
       added_resources: [],
       added_tools: [],
     });
     const before = active();
-    assert(syncAppGrants(tx, APP, one, "not_needed").ok);
-    assertEquals(active(), before);
+    assert.ok(syncAppGrants(tx, APP, one, "not_needed").ok);
+    assert.deepStrictEqual(active(), before);
 
     // ② 새 host는 목록에 뜨고 허락 없이는 grant가 되지 않는다.
-    assertEquals(compareFacts(active(), two).added_resources, [
+    assert.deepStrictEqual(compareFacts(active(), two).added_resources, [
       "net.fetch:b.example:443",
     ]);
-    assert(syncAppGrants(tx, APP, two, "not_needed").ok);
-    assertEquals(hosts(), ["a.example"]);
+    assert.ok(syncAppGrants(tx, APP, two, "not_needed").ok);
+    assert.deepStrictEqual(hosts(), ["a.example"]);
 
     // ③ 허락하면 만든다.
-    assert(syncAppGrants(tx, APP, two, "granted").ok);
-    assertEquals(hosts(), ["a.example", "b.example"]);
+    assert.ok(syncAppGrants(tx, APP, two, "granted").ok);
+    assert.deepStrictEqual(hosts(), ["a.example", "b.example"]);
 
     // ④ 선언에서 빠진 항목의 grant는 거둔다.
     const removed = syncAppGrants(tx, APP, one, "not_needed");
-    assert(removed.ok);
-    assertEquals(removed.value.revoked.length, 1);
-    assertEquals(hosts(), ["a.example"]);
+    assert.ok(removed.ok);
+    assert.deepStrictEqual(removed.value.revoked.length, 1);
+    assert.deepStrictEqual(hosts(), ["a.example"]);
 
     // ⑤ 거둔 grant는 다시 active가 되지 않는다.
     const revokedId = removed.value.revoked[0].id;
@@ -101,10 +103,10 @@ Deno.test("넓어진 선언은 사람이 허락하기 전에 앱 grant가 되지
     } catch {
       // trigger가 거절한다.
     }
-    assertEquals(reopened, false);
-    assert(syncAppGrants(tx, APP, two, "granted").ok);
+    assert.deepStrictEqual(reopened, false);
+    assert.ok(syncAppGrants(tx, APP, two, "granted").ok);
     const b = loadGrants(tx.sql, { app: APP, status: "active" });
-    assert(b.ok && b.value.every((grant) => grant.id !== revokedId));
+    assert.ok(b.ok && b.value.every((grant) => grant.id !== revokedId));
   } finally {
     db.close();
   }

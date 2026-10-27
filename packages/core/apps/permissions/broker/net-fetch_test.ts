@@ -1,4 +1,6 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import { ok } from "../../../../base/mod.ts";
 import { createNetFetchService } from "./net-fetch.ts";
 
@@ -67,7 +69,7 @@ function setup(
   return { urls, authorization, sent, fetch };
 }
 
-Deno.test("loopback host goes out as http, others as https, platform ports stay blocked", async () => {
+test("loopback host goes out as http, others as https, platform ports stay blocked", async () => {
   const { urls, fetch } = setup(
     [
       { host: "127.0.0.1", port: 8080 },
@@ -76,17 +78,17 @@ Deno.test("loopback host goes out as http, others as https, platform ports stay 
     ],
     () => new Response("ok"),
   );
-  assertEquals((await fetch("127.0.0.1", 8080)).ok, true);
-  assertEquals((await fetch("api.example.com", 443)).ok, true);
+  assert.deepStrictEqual((await fetch("127.0.0.1", 8080)).ok, true);
+  assert.deepStrictEqual((await fetch("api.example.com", 443)).ok, true);
   const platform = await fetch("127.0.0.1", 4000);
-  assertEquals(!platform.ok && platform.error.code, "forbidden");
-  assertEquals(urls, [
+  assert.deepStrictEqual(!platform.ok && platform.error.code, "forbidden");
+  assert.deepStrictEqual(urls, [
     "http://127.0.0.1:8080/x",
     "https://api.example.com/x",
   ]);
 });
 
-Deno.test("redirect from https down to loopback http is refused", async () => {
+test("redirect from https down to loopback http is refused", async () => {
   const { urls, fetch } = setup(
     [
       { host: "127.0.0.1", port: 8080 },
@@ -101,11 +103,11 @@ Deno.test("redirect from https down to loopback http is refused", async () => {
         : new Response("ok"),
   );
   const result = await fetch("api.example.com", 443);
-  assertEquals(!result.ok && result.error.code, "forbidden");
-  assertEquals(urls, ["https://api.example.com/x"]);
+  assert.deepStrictEqual(!result.ok && result.error.code, "forbidden");
+  assert.deepStrictEqual(urls, ["https://api.example.com/x"]);
 });
 
-Deno.test("secret value is attached only to the same invocation's exact destination", async () => {
+test("secret value is attached only to the same invocation's exact destination", async () => {
   const { authorization, fetch } = setup(
     [
       { host: "127.0.0.1", port: 8080 },
@@ -130,7 +132,7 @@ Deno.test("secret value is attached only to the same invocation's exact destinat
   await fetch("api.example.com", 443, "/x", INV1);
   // 목적지가 바뀐 redirect hop에는 붙지 않는다.
   await fetch("127.0.0.1", 8080, "/hop", INV1);
-  assertEquals(authorization, [
+  assert.deepStrictEqual(authorization, [
     "Bearer TOKEN",
     null,
     null,
@@ -140,7 +142,7 @@ Deno.test("secret value is attached only to the same invocation's exact destinat
   ]);
 });
 
-Deno.test("app headers cannot carry credentials, and the secret is the only Authorization", async () => {
+test("app headers cannot carry credentials, and the secret is the only Authorization", async () => {
   const { sent, fetch } = setup(
     [{ host: "127.0.0.1", port: 8080 }],
     () => new Response("ok"),
@@ -154,17 +156,20 @@ Deno.test("app headers cannot carry credentials, and the secret is the only Auth
       body: "x",
       headers: { [name]: "evil" },
     });
-    assertEquals(!refused.ok && refused.error.code, "invalid_input");
+    assert.deepStrictEqual(!refused.ok && refused.error.code, "invalid_input");
   }
-  assertEquals(sent.length, 0);
+  assert.deepStrictEqual(sent.length, 0);
   const sentOk = await fetch("127.0.0.1", 8080, "/x", INV1, {
     method: "POST",
     body: "{}",
     headers: { "content-type": "application/json" },
   });
-  assertEquals(sentOk.ok, true);
-  assertEquals(sent.length, 1);
-  assertEquals(sent[0].body, "{}");
-  assertEquals(sent[0].headers.get("content-type"), "application/json");
-  assertEquals(sent[0].headers.get("authorization"), "Bearer TOKEN");
+  assert.deepStrictEqual(sentOk.ok, true);
+  assert.deepStrictEqual(sent.length, 1);
+  assert.deepStrictEqual(sent[0].body, "{}");
+  assert.deepStrictEqual(
+    sent[0].headers.get("content-type"),
+    "application/json",
+  );
+  assert.deepStrictEqual(sent[0].headers.get("authorization"), "Bearer TOKEN");
 });

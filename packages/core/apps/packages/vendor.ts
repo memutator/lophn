@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+
 import { err, ok, type Result } from "../../../base/mod.ts";
 
 // 설치 사본을 자기 완결로 만드는 규칙.
@@ -161,7 +163,7 @@ export async function vendorFiles(
     try {
       out.push({
         path: to,
-        bytes: await Deno.readFile(`${packagesRoot}/${from}`),
+        bytes: await readFile(`${packagesRoot}/${from}`),
       });
     } catch {
       return err({

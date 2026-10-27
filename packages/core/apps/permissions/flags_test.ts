@@ -1,18 +1,20 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import { appFlags } from "./flags.ts";
 
-Deno.test("앱 process는 자기 DB 파일 밖에 쓰지 못한다", () => {
+test("앱 process는 자기 DB 파일 밖에 쓰지 못한다", () => {
   const flags = appFlags(
     [],
     { bundle: "/b", data: "/d/app" },
     { ports: [] },
     [],
   );
-  assert(flags.ok);
+  assert.ok(flags.ok);
   const write = flags.value.args.filter((arg) =>
     arg.startsWith("--allow-write=")
   );
-  assertEquals(write, [
+  assert.deepStrictEqual(write, [
     "--allow-write=/d/app/app.sqlite,/d/app/app.sqlite-journal,/d/app/app.sqlite-shm,/d/app/app.sqlite-wal",
   ]);
 });

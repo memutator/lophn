@@ -1,12 +1,12 @@
 // 바뀐 코드에서 다시 볼 context 조각을 뽑는다. 계획이 land된 뒤 planner가 돌린다.
 // 실행: deno run --allow-read --allow-env --allow-run tools/context-review.ts --range <git range>
-//       deno run --allow-read tools/context-review.ts --modules <path,path,...>
+//       deno run --allow-read --allow-env tools/context-review.ts --modules <path,path,...>
 // 바뀐 file → module-catalog의 module → boundary ID → registry의 change_reasons.boundaries가 그 ID인 조각.
 // change_reasons.paths가 바뀐 file을 덮는 조각도 낸다. module이 부모 boundary(예: core/apps → apps)에 걸려 있으면
 // 어느 자식이 바뀌었는지 path로는 모르므로 그 아래 boundary(app-releases, app-runtime …)에 걸린 조각도 낸다.
 // 자식이 자기 module을 따로 가지면(core 아래 approvals) 그 자식은 넓히지 않는다.
 // --range면 조각의 path 자체가 그 범위에서 바뀌었는지(=같은 변경에서 고쳤는지)도 표시한다.
-import { parse } from "@std/yaml";
+import { parse } from "yaml";
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import process from "node:process";

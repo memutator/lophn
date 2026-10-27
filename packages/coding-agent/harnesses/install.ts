@@ -2,7 +2,7 @@
 // hook은 harness마다 한 번이다. plugin 파일은 우리 파일이라 내용이 다르면 덮는다. 설정 file은 사람이
 // 쓴 다른 key·다른 hook을 보존하고 우리 항목(command가 `lophn hook <harness> `나 개발 경로의 `<절대 경로> hook <harness> `로 시작)만 바꾼다.
 // 놓을 hook 위치와 꼴은 `HARNESS_HOOKS`, 듣는 event는 `HOOK_EVENT_TABLE`의 key다.
-import { parse as parseToml } from "@std/toml";
+import { parse as parseToml } from "smol-toml";
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
   HARNESS_ADAPTERS,

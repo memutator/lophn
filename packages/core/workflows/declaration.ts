@@ -1,4 +1,4 @@
-import { parse } from "@std/yaml";
+import { parse } from "yaml";
 import type { Id } from "../../protocol/base/mod.ts";
 import {
   FLOW_STEP_BY,

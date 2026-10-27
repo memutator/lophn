@@ -1,5 +1,5 @@
 // kinds 파일 글을 검사해 쓸 kind를 정한다. 순수 함수다.
-import { parse as parseYaml } from "@std/yaml";
+import { parse as parseYaml } from "yaml";
 import {
   checkKindsStructure,
   type Kind,

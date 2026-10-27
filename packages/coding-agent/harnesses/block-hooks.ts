@@ -1,8 +1,8 @@
 // 사람의 설정 file 안에 lophn이 표시한 block 하나로 hook을 놓는 두 형식이다: Kimi(TOML)와 Hermes(YAML).
 // 표시한 block 안만 고치고 나머지 byte(주석, 다른 항목)는 그대로 둔다. 원본이나 결과가 파싱되지 않으면
 // null이다(쓰지 않고 `failed`).
-import { parse as parseToml } from "@std/toml";
-import { parse as parseYaml } from "@std/yaml";
+import { parse as parseToml } from "smol-toml";
+import { parse as parseYaml } from "yaml";
 import { isObject } from "./install-common.ts";
 
 const KIMI_BEGIN = "# >>> lophn kimi hooks";

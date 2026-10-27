@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
 import type { ModelCallRequest } from "../../../packages/core/lophn-agent/run-loop/mod.ts";
 
 // 모든 요청에 대해 지키는 불변식이다: tool_use와 tool_result가 짝이고, 다음 요청의 대화는 앞 요청의
@@ -20,14 +20,14 @@ export function assertRequestInvariants(
           part.kind === kind && "id" in part ? [part.id] : []
         )
       ).sort();
-    assertEquals(
+    assert.deepStrictEqual(
       ids("tool_use"),
       ids("tool_result"),
       `request ${i}: tool_use and tool_result ids do not pair`,
     );
     if (i === 0) return;
     const before = parts(requests[i - 1]);
-    assert(
+    assert.ok(
       before.every((part, at) => parts(request)[at] === part),
       `request ${i}: conversation does not extend request ${i - 1}`,
     );

@@ -1,4 +1,4 @@
-import { parse } from "@std/yaml";
+import { parse } from "yaml";
 import { classifyPath } from "../../versions/mod.ts";
 
 export type SelectInput = {

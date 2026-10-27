@@ -1,8 +1,8 @@
-// module catalog와 boundary catalog 검사. 실행: deno run --allow-read tools/check-modules.ts [root]
+// module catalog와 boundary catalog 검사. 실행: deno run --allow-read --allow-env tools/check-modules.ts [root]
 import { readdir, readFile, stat } from "node:fs/promises";
 import process from "node:process";
 
-import { parse } from "@std/yaml";
+import { parse } from "yaml";
 
 type Issue = { file: string; message: string };
 type Node = Record<string, unknown>;

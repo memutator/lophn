@@ -334,7 +334,7 @@ async function checkRepo(root: string): Promise<Violation[]> {
       // base와 protocol이 repo 밖에서 가져오는 것은 protocol의 zod와 test의 test 도구뿐이다.
       if (
         portable && !relative && !specifier.startsWith("@lophn/") &&
-        !testImport && !(test && specifier === "@std/assert") &&
+        !testImport &&
         !(own === "protocol" && specifier === "zod")
       ) {
         add(

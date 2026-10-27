@@ -1,5 +1,5 @@
 // 파일 하나의 문서 data를 읽는다. md는 frontmatter map, yaml·json은 최상위 map이다. md 본문은 칸이 아니다.
-import { parse as parseYaml } from "@std/yaml";
+import { parse as parseYaml } from "yaml";
 
 const FRONT_START = /^---[ \t]*$/;
 const FRONT_END = /^(?:---|\.\.\.)[ \t]*$/;

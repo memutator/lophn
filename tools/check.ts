@@ -221,16 +221,29 @@ async function buildSteps(
     });
   } else skip("source", "돌 package 없음");
   // 폴더가 늘거나 줄어도, project-docs/*.yaml이 바뀌어도 돈다.
+  // yaml package는 parse할 때 process.env를 읽어 check-modules·check-docs에 --allow-env가 필요하다.
   if (full || catalogChanged || run.size > 0) {
     checks.push({
       name: "modules",
-      commands: [["deno", "run", "--allow-read", "tools/check-modules.ts"]],
+      commands: [[
+        "deno",
+        "run",
+        "--allow-read",
+        "--allow-env",
+        "tools/check-modules.ts",
+      ]],
     });
   } else skip("modules", "package와 catalog가 안 바뀜");
   // 문서만 바뀐 변경을 잡는 check라 조건 없이 돈다.
   checks.push({
     name: "docs",
-    commands: [["deno", "run", "--allow-read", "tools/check-docs.ts"]],
+    commands: [[
+      "deno",
+      "run",
+      "--allow-read",
+      "--allow-env",
+      "tools/check-docs.ts",
+    ]],
   });
 
   if (full) {

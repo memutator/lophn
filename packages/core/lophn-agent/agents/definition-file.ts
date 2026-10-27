@@ -1,4 +1,4 @@
-import { parse, stringify } from "@std/yaml";
+import { parse, stringify } from "yaml";
 import type { z } from "zod";
 import { err, ok } from "../../../base/mod.ts";
 import type { LophnError, Result } from "../../../base/mod.ts";
@@ -43,11 +43,12 @@ type Plain = Record<string, unknown>;
 const FENCE = "---";
 
 // core schema는 날짜·binary 같은 확장 tag를 해석하지 않아 `2020-01-01`도 문자열로 돌아온다.
-// lineWidth -1은 긴 문자열을 접지 않고, useAnchors false는 같은 값을 alias로 줄이지 않는다.
-const YAML_OPTIONS = {
+// lineWidth 0은 긴 문자열을 접지 않고, aliasDuplicateObjects false는 같은 값을 alias로 줄이지 않는다.
+const PARSE_OPTIONS = { schema: "core" } as const;
+const STRINGIFY_OPTIONS = {
   schema: "core",
-  lineWidth: -1,
-  useAnchors: false,
+  lineWidth: 0,
+  aliasDuplicateObjects: false,
 } as const;
 
 function refuse(issues: AgentDefinitionIssue[]): FileResult<never> {
@@ -93,7 +94,7 @@ function splitFile(text: string): FileResult<Split> {
   if (source.trim() === "") return ok({ frontmatter: {}, body });
   let value: unknown;
   try {
-    value = parse(source, YAML_OPTIONS);
+    value = parse(source, PARSE_OPTIONS);
   } catch {
     return refuse([{ field: "frontmatter", code: "malformed" }]);
   }
@@ -220,7 +221,7 @@ function orderedFrontmatter(value: Plain): Plain {
 
 function frontmatterText(fields: Plain): string {
   if (Object.keys(fields).length === 0) return "";
-  return `${FENCE}\n${stringify(fields, YAML_OPTIONS)}${FENCE}\n`;
+  return `${FENCE}\n${stringify(fields, STRINGIFY_OPTIONS)}${FENCE}\n`;
 }
 
 export function parseAgentFile(

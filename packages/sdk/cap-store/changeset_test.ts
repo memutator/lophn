@@ -1,5 +1,6 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { test } from "node:test";
 import { MIGRATION_PRIMARY_KEY_REQUIRED } from "../../protocol/apps/activation/migration-sql.ts";
 import { hooks } from "./connection.ts";
 import { CapabilityError } from "./errors.ts";
@@ -40,14 +41,14 @@ function titles(db: DatabaseSync): string[] {
   );
 }
 
-Deno.test("write 동안의 변경이 changeset으로 나오고 lophn_data_schema 표의 변경은 빠진다", async () => {
+test("write 동안의 변경이 changeset으로 나오고 lophn_data_schema 표의 변경은 빠진다", async () => {
   await withStore(TODO_STEP, (store) => {
-    assertEquals(hooks.endChangeset(), null);
+    assert.deepStrictEqual(hooks.endChangeset(), null);
     hooks.beginChangeset();
     store.db.exec("insert into todo (title) values ('milk')");
     store.db.exec("update lophn_data_schema set applied_at = 'changed'");
     const changeset = hooks.endChangeset();
-    assertEquals(changeset !== null, true);
+    assert.deepStrictEqual(changeset !== null, true);
 
     const other = new DatabaseSync(":memory:");
     other.exec(TODO);
@@ -55,9 +56,9 @@ Deno.test("write 동안의 변경이 changeset으로 나오고 lophn_data_schema
       "create table lophn_data_schema (id integer primary key, applied_at text)",
     );
     other.exec("insert into lophn_data_schema values (1, 'before')");
-    assertEquals(other.applyChangeset(changeset!), true);
-    assertEquals(titles(other), ["milk"]);
-    assertEquals(
+    assert.deepStrictEqual(other.applyChangeset(changeset!), true);
+    assert.deepStrictEqual(titles(other), ["milk"]);
+    assert.deepStrictEqual(
       other.prepare("select applied_at from lophn_data_schema").get()![
         "applied_at"
       ],
@@ -65,11 +66,11 @@ Deno.test("write 동안의 변경이 changeset으로 나오고 lophn_data_schema
     );
     other.close();
     // 변경이 없으면 null이고 session은 닫혀 있다.
-    assertEquals(hooks.endChangeset(), null);
+    assert.deepStrictEqual(hooks.endChangeset(), null);
   });
 });
 
-Deno.test("여러 changeset 가운데 하나라도 충돌하면 하나도 적용하지 않고 DB가 그대로다", async () => {
+test("여러 changeset 가운데 하나라도 충돌하면 하나도 적용하지 않고 DB가 그대로다", async () => {
   await withStore(TODO_STEP, (store) => {
     store.db.exec("insert into todo (id, title) values (1, 'a')");
     const insert = changesetOf(
@@ -80,34 +81,35 @@ Deno.test("여러 changeset 가운데 하나라도 충돌하면 하나도 적용
       "insert into todo values (1, 'x')",
       "update todo set title = 'y' where id = 1",
     );
-    assertEquals(hooks.applyChangesets([insert, stale]).ok, false);
-    assertEquals(titles(store.db), ["a"]);
-    assertEquals(hooks.applyChangesets([insert]).ok, true);
-    assertEquals(titles(store.db), ["a", "b"]);
+    assert.deepStrictEqual(hooks.applyChangesets([insert, stale]).ok, false);
+    assert.deepStrictEqual(titles(store.db), ["a"]);
+    assert.deepStrictEqual(hooks.applyChangesets([insert]).ok, true);
+    assert.deepStrictEqual(titles(store.db), ["a", "b"]);
   });
 });
 
-Deno.test("PRIMARY KEY 없는 표를 만드는 migration은 실패하고 그 단계는 rollback된다", async () => {
+test("PRIMARY KEY 없는 표를 만드는 migration은 실패하고 그 단계는 rollback된다", async () => {
   const store = openStore({ path: ":memory:" });
   try {
-    const error = await assertRejects(
-      () =>
-        store.migrate([{
-          from: 0,
-          to: 1,
-          sql:
-            "create table ok (id integer primary key); create table loose (x text)",
-          loss: [],
-        }]),
-      CapabilityError,
+    // node:assert/strict의 rejects는 오류를 돌려주지 않아 직접 받는다.
+    const error = await store.migrate([{
+      from: 0,
+      to: 1,
+      sql:
+        "create table ok (id integer primary key); create table loose (x text)",
+      loss: [],
+    }]).then(
+      () => assert.fail("migrate should reject"),
+      (error: unknown) => error,
     );
-    assertEquals(error.code, "invalid_input");
-    assertEquals(
+    assert.ok(error instanceof CapabilityError);
+    assert.deepStrictEqual(error.code, "invalid_input");
+    assert.deepStrictEqual(
       error.message.startsWith(MIGRATION_PRIMARY_KEY_REQUIRED),
       true,
     );
-    assertEquals(store.schema(), 0);
-    assertEquals(
+    assert.deepStrictEqual(store.schema(), 0);
+    assert.deepStrictEqual(
       store.db.prepare("select name from sqlite_master where name = 'ok'")
         .get(),
       undefined,

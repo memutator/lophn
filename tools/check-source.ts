@@ -66,7 +66,7 @@ function commentOf(line: string): string | undefined {
   return /(?:^|\s)\/\/.*|\/\*.*/.exec(line)?.[0];
 }
 
-const TEST_NAME = /\b(?:Deno\.test|test|it|describe)\(\s*["'`]/;
+const TEST_NAME = /\b(?:test|it|describe)\(\s*["'`]/;
 
 // 문자열 literal은 같은 길이의 공백으로, 주석은 지워 줄 번호를 지킨 채 코드만 남긴다.
 function codeOnly(source: string): string {

@@ -51,7 +51,7 @@ process가 끝난다.
 
 ## 하지 않는 것
 
-- `Deno.stdout.write`·`writeSync`로 쓴 것도 `console.log`처럼 stderr로 간다.
+- `process.stdout.write`로 쓴 것도 `console.log`처럼 stderr로 간다.
   통로(stdout)에는 닿지 못한다.
 - 결과 type을 검사하지 않는다.
 - 다시 하기와 시간 제한을 두지 않는다.

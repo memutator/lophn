@@ -1,6 +1,7 @@
 // flow process와 core의 stdin·stdout 통로와 host port다.
 // 원본은 packages/protocol/workflows/flow-wire.ts다. SDK는 protocol을 import하지 않아
 // 모양을 손으로 옮겼다. 모양이 어긋나면 host가 요청을 값 오류로 돌려보낸다.
+import process from "node:process";
 
 export type Outcome<T = unknown> =
   | { ok: true; result: T }
@@ -60,20 +61,24 @@ let wake: (() => void) | null = null;
 
 function fail(code: number, message: string): never {
   console.error(message);
-  Deno.exit(code);
+  process.exit(code);
 }
 
 function valueError(message: string): Outcome {
   return { ok: false, reason: "invalid_input", message };
 }
 
-// entry.ts가 flow.ts를 import하기 전에 Deno.stdout.write를 stderr로 돌린다. 통로는 이 module을
+// entry.ts가 flow.ts를 import하기 전에 process.stdout.write를 stderr로 돌린다. 통로는 이 module을
 // 읽을 때 잡아 둔 원래 write만 쓴다. entry.ts가 이 module을 먼저 import하므로 잡기가 돌리기보다 앞선다.
-const writeToCore = Deno.stdout.write.bind(Deno.stdout);
+const writeToCore = process.stdout.write.bind(process.stdout);
 
-async function writeAll(bytes: Uint8Array): Promise<void> {
-  let rest = bytes;
-  while (rest.length > 0) rest = rest.subarray(await writeToCore(rest));
+// node stream의 write는 한 번에 bytes를 다 받는다. callback이 flush를 알려 준다.
+function writeAll(bytes: Uint8Array): Promise<void> {
+  return new Promise((settle, reject) => {
+    writeToCore(bytes, (error?: Error | null) =>
+      error ? reject(error) : settle(),
+    );
+  });
 }
 
 function request(body: RequestBody): Promise<Outcome> {
@@ -127,8 +132,8 @@ function onLine(line: string): void {
 async function readLines(onFirst: (line: string) => void): Promise<void> {
   let buffer = "";
   let first = true;
-  const stream = Deno.stdin.readable.pipeThrough(new TextDecoderStream());
-  for await (const chunk of stream) {
+  process.stdin.setEncoding("utf8");
+  for await (const chunk of process.stdin) {
     buffer += chunk;
     for (let i = buffer.indexOf("\n"); i >= 0; i = buffer.indexOf("\n")) {
       const line = buffer.slice(0, i);

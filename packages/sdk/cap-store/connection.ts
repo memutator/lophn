@@ -1,8 +1,9 @@
 // 앱 data는 앱 DB 하나라서 process 안의 연결도 하나다. runtime이 그 연결에 SQLite session을 걸어
 // write 동안의 변경을 changeset으로 뜨고, 뒤집힌 changeset을 한 transaction으로 적용한다.
 // SQLite session은 PRIMARY KEY 없는 표의 변경을 기록하지 못한다(migration이 막는다).
-import { DatabaseSync, type Session } from "node:sqlite";
+
 import { resolve } from "node:path";
+import { DatabaseSync, type Session } from "node:sqlite";
 import { CapabilityError } from "./errors.ts";
 import {
   type ApplyOutcome,
@@ -14,6 +15,15 @@ import {
 // data worker가 activation 때 같은 파일을 연다. 이름을 바꾸면 그쪽도 같이 바꾼다.
 export const DEFAULT_DATABASE_FILE = "app.sqlite";
 export const SCHEMA_TABLE = "lophn_data_schema";
+
+// Deno는 좁힌 flag에서 name이 NotCapable인 오류를 낸다(code는 ERR_SQLITE_ERROR로 덮인다).
+// Node --permission은 node:sqlite를 막지 않아 이 자리에서 permission 오류가 나오지 않는다(실측).
+// 그래도 fs 계층이 막는 경우를 위해 ERR_ACCESS_DENIED도 같이 본다.
+function denied(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const { name, code } = error as { name?: string; code?: string };
+  return name === "NotCapable" || code === "ERR_ACCESS_DENIED";
+}
 
 type Connection = { db: DatabaseSync; sessions: Map<string, Session> };
 
@@ -35,7 +45,7 @@ export function openConnection(file: string): DatabaseSync {
     db.exec("pragma foreign_keys = on");
     db.exec("pragma busy_timeout = 5000");
   } catch (error) {
-    if (error instanceof Deno.errors.NotCapable) {
+    if (denied(error)) {
       throw new CapabilityError({
         code: "forbidden",
         message: `fs.write {"path":"${file}"} is outside the app data area. Keep the database in the app data path.`,

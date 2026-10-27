@@ -18,4 +18,15 @@
   - root `package.json`의 npm workspaces와 lock 하나로 module을 푼다. `node_modules/@lophn/*`는 상대 symlink라 worktree마다 `npm ci`를 돌린다. 펼친 `@types/node`는 Electron의 Node에 맞춰 24로 고정한다(26이면 Deno의 DOM `Event` type과 부딪힌다). (agent)
   - test는 이미 전부 `node:test`라 Electron의 `--test`로 돈다(wave 2 시작 때 sandbox test 하나와 `.md` text import를 빼고 다 통과했다). type check는 `tsc --noEmit -p <폴더>`이고 option은 root `tsconfig.base.json`에 있다. (agent)
   - 앱과 flow의 권한을 막지 않는다. `node --permission`도 쓰지 않는다. eval 재료의 Deno 앱 source는 옮기지 않고 버린다. (사람, 2026-10-27)
+- wave 3 계약(앱과 flow의 Node 모양). 2026-10-27 잰 것: npm `file:` 의존으로 건 SDK 사본은 `node_modules/@lophn/*` symlink가 되고, 실제 경로가 `node_modules` 밖이라 Node가 `.ts`를 돌리며, SDK의 npm 의존과 SDK끼리의 `file:` 의존은 앱 `node_modules`에서 풀린다. (agent)
+  - 앱 source 폴더: `package.json`(`"type": "module"`, `"private": true`, 의존은 정확한 판만), `package-lock.json`, `tsconfig.json`, `main.ts`, `lophn.ts`, `src/`, `scripts/`, `tests/`. `.gitignore`에 `node_modules/`, `.lophn/`.
+  - SDK 의존 값은 `file:.lophn/<packageInstallPath>`다(`appSdkDependency`, 예: `"@lophn/cap-store": "file:.lophn/sdk/cap-store/1.0.0"`). 설치 사본(`<data>/sdk/...`)은 `package.json`을 갖고 SDK끼리의 의존은 `file:<상대 경로>`(`sdkCopyDependency`)다.
+  - 의존 받기: `syncAppSdk(폴더, dataRoot)`로 `.lophn/sdk`에 실제 사본을 채운 뒤, lock이 있으면 `npm ci`, 없으면 `npm install`. npm은 `npmCommand`다(platform의 npm을 Electron의 Node로 돌린다. 사용자 기계에 npm이 없을 수 있다).
+  - agent shell의 PATH에는 Electron의 Node를 부르는 `node`와 `npm`이 있다. deno는 없다. 앱의 명령은 `npm run check`(`tsc --noEmit`), `npm test`(`node --test`), `npm run build`, `npm run wording`이다.
+  - release bundle: commit의 file, `.lophn/sdk` 사본, `npm ci`가 만든 `node_modules`(symlink는 `links.ts` 목록), 신뢰된 esbuild build의 `dist/screens`, `lophn-entry.ts`. import map, `vendor/`, `lophn.json`은 없다.
+  - `lophn-entry.ts`는 `import { run } from "<platform packages>/core/apps/runtime/entrypoint/main.ts"; await run(new URL("./main.ts", import.meta.url).href);`다. `run(appModule: string)`.
+  - 앱 process: `nodeCommand(<사본 root>/lophn-entry.ts)`, cwd는 사본 root, 권한 flag 없음. 시작 JSON 한 줄을 stdin으로 주는 것은 그대로다.
+  - flow: flow file들의 공통 조상 폴더에 `node_modules/@lophn/flow` → `<data>/sdk/flow/<판>` symlink를 둔다(flow SDK는 npm 의존이 없다). flow process는 `nodeCommand(<flow SDK 사본>/entry.ts, [flow file])`. `workflow.check`는 platform의 `tsc --noEmit`이다.
+  - 선언 eval·추출·`declaration.check`: `nodeCommand`로 앱 폴더(또는 staging)에서 돈다. 그 폴더에 `node_modules`가 있어야 한다.
+  - `import-map.ts`(`devImportMap`)는 쓰는 곳이 다 옮긴 뒤 주 session이 지운다. `denoBinary`·`LOPHN_DENO`·`DENO_DIR`은 wave 3이 다 끝나면 쓰는 곳이 없어 지운다.
 - 합칠 때 할 일: `deno task check`와 e2e 전체. wave 2부터는 그 명령이 바뀐다. 다 끝나면 roadmap 단계 4~6과 "다음 계획이 바꿀 것", 바뀐 architecture 문서, changelog 열린 판, AGENTS.md.

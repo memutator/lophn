@@ -1,8 +1,16 @@
+import { Buffer } from "node:buffer";
+import { spawn } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
-import { flatten, type FlatToken, renderCss } from "./flatten.ts";
+import { type FlatToken, flatten, renderCss } from "./flatten.ts";
 import { tokens } from "./tokens.ts";
+
+// check.ts가 쓰는 Biome과 같은 판이다. npm workspace라 루트 node_modules에 하나만 깔린다.
+const BIOME = fileURLToPath(
+  new URL("../../node_modules/.bin/biome", import.meta.url),
+);
 
 // design은 base에 기대지 않는다. file 오류의 code(`ENOENT` …)를 그 자리에서 읽는다.
 function codeOf(thrown: unknown): unknown {
@@ -47,24 +55,22 @@ export function renderTokenNames(flat: readonly FlatToken[]): string {
 
 // 생성한 file이 check.ts의 Biome format 단계를 그대로 통과하도록 같은 설정으로 맞춘다.
 async function formatVars(source: string, file: string): Promise<string> {
-  const child = new Deno.Command(Deno.execPath(), {
-    args: [
-      "run",
-      "-A",
-      "npm:@biomejs/biome@2.6.3",
-      "format",
-      `--stdin-file-path=${file}`,
-    ],
-    stdin: "piped",
-    stdout: "piped",
-    stderr: "piped",
-  }).spawn();
-  const writer = child.stdin.getWriter();
-  await writer.write(new TextEncoder().encode(source));
-  await writer.close();
-  const result = await child.output();
-  if (!result.success) throw new Error(new TextDecoder().decode(result.stderr));
-  return new TextDecoder().decode(result.stdout);
+  const child = spawn(BIOME, ["format", `--stdin-file-path=${file}`], {
+    stdio: "pipe",
+  });
+  const stdout: Buffer[] = [];
+  const stderr: Buffer[] = [];
+  child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
+  child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
+  child.stdin.end(source);
+  const code = await new Promise<number | null>((resolve, reject) => {
+    child.on("error", reject);
+    child.on("close", resolve);
+  });
+  if (code !== 0) {
+    throw new Error(new TextDecoder().decode(Buffer.concat(stderr)));
+  }
+  return new TextDecoder().decode(Buffer.concat(stdout));
 }
 
 export async function generate(): Promise<Record<string, string>> {

@@ -26,18 +26,18 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
+import { createRequire } from "node:module";
 import process from "node:process";
-
-import { errorCode } from "../packages/base/mod.ts";
 import { devCliLauncher } from "../packages/base/install/linux-install.ts";
+import { errorCode } from "../packages/base/mod.ts";
 import { type ServeHandle, serve } from "../packages/core/server/serve.ts";
 import { HOOK_STDOUT } from "../packages/protocol/coding-agent/mod.ts";
 import { providerList } from "../packages/protocol/lophn-agent/mod.ts";
-import { createFakeHandler } from "../tests/support/fake-server/mod.ts";
-import { bootCore } from "../tests/support/core/mod.ts";
 import { connectFakeProvider } from "../tests/support/core/human.ts";
+import { bootCore } from "../tests/support/core/mod.ts";
+import { createFakeHandler } from "../tests/support/fake-server/mod.ts";
 
-type SpawnPlan = {
+export type SpawnPlan = {
   command: string;
   args: readonly string[];
   env: Record<string, string>;
@@ -51,6 +51,8 @@ type Purpose = "core" | "shell" | "build";
 const LOPHN_HOME = "LOPHN_HOME";
 const LIVE = "LOPHN_LIVE_PROVIDER";
 const FAKE_PORT = "LOPHN_DEV_FAKE_PORT";
+// core는 Temporal을 쓰는데 기계의 node에는 없다. production과 같은 Electron의 Node로 띄운다.
+const ELECTRON = createRequire(import.meta.url)("electron") as string;
 // provider의 endpoint가 ledger에 남으므로 port가 실행마다 바뀌면 안 된다.
 const DEFAULT_FAKE_PORT = 7499;
 
@@ -96,11 +98,11 @@ function mockDataRoot(root: string): string {
   return `${devDataRoot(root)}/mock`;
 }
 
-/** renderer bundle build 계획. shell main이 읽는 dist를 만든다. */
-function planRendererBuild(root: string): SpawnPlan {
+/** renderer bundle build 계획. shell main이 읽는 dist를 만든다. esbuild라 node로 바로 돈다. */
+export function planRendererBuild(root: string): SpawnPlan {
   return {
-    command: Deno.execPath(),
-    args: ["run", "--allow-all", `${root}/packages/shell/renderer/build.ts`],
+    command: "node",
+    args: [`${root}/packages/shell/renderer/build.ts`],
     env: {},
   };
 }
@@ -178,24 +180,25 @@ async function plantFakeProvider(
 }
 
 /**
- * core spawn 계획. 시작 인자: `deno run <권한> packages/core/main/daemon/main.ts
- * [--port=<n>]`, LOPHN_HOME은 데이터 root다. Electron main이 물려 준 pipe는 shell main이
- * 연다. 터미널에서 직접 띄우므로 stdin은 터미널이고 core는 신호로만 끝난다.
+ * core spawn 계획. 시작 인자: `packages/core/main/daemon/main.ts [--port=<n>]`.
+ * Electron binary를 ELECTRON_RUN_AS_NODE로 띄우고 LOPHN_HOME은 데이터 root다. Electron main이
+ * 물려 준 pipe는 shell main이 연다. 터미널에서 직접 띄우므로 stdin은 터미널이고 core는 신호로만
+ * 끝난다. 앱은 아직 Deno로 뜨므로 PATH를 지우지 않는다.
  */
-function planCore(
+export function planCore(
   root: string,
   options: { dataRoot: string; port?: number; env?: Record<string, string> },
 ): SpawnPlan {
-  const args = [
-    "run",
-    "--allow-all",
-    `${root}/packages/core/main/daemon/main.ts`,
-  ];
+  const args = [`${root}/packages/core/main/daemon/main.ts`];
   if (options.port !== undefined) args.push(`--port=${options.port}`);
   return {
-    command: Deno.execPath(),
+    command: ELECTRON,
     args,
-    env: { ...options.env, [LOPHN_HOME]: options.dataRoot },
+    env: {
+      ...options.env,
+      ELECTRON_RUN_AS_NODE: "1",
+      [LOPHN_HOME]: options.dataRoot,
+    },
   };
 }
 
@@ -484,12 +487,21 @@ async function hasFile(path: string): Promise<boolean> {
 }
 
 if (import.meta.main) {
+  const args = process.argv.slice(2);
+  if (args.includes("--help")) {
+    console.log(
+      "실행: node tools/dev.ts [dev|dev:core|dev:mock] [--port=<n>]\n" +
+        "  dev: shell과 core를 띄운다\n" +
+        "  dev:core: core만 띄운다\n" +
+        "  dev:mock: 가짜 데이터로 shell을 띄운다",
+    );
+    process.exit(0);
+  }
   // tools/의 부모가 저장소 루트다.
   const root = new URL("..", new URL("./", import.meta.url)).pathname.replace(
     /\/$/,
     "",
   );
-  const args = process.argv.slice(2);
   const mode: Mode = args.includes("dev:core")
     ? "dev:core"
     : args.includes("dev:mock")

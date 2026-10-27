@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../../../packages/base/mod.ts";
 import {
-  bootCore,
   type BootOptions,
+  bootCore,
   type Core,
   type Run,
 } from "../../../support/core/mod.ts";
@@ -72,7 +72,7 @@ export async function resolveVariant(
       message: `core 입구가 없다: ${path}/packages/core/main/daemon/main.ts`,
     });
   }
-  const prepared = await prepareVariant(path, current, io);
+  const prepared = await prepareVariant(path, io);
   if (!prepared.ok) return prepared;
   const texts = await variantTexts(path, io);
   if (!texts.ok) return texts;

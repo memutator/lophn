@@ -1,7 +1,12 @@
+import { createRequire } from "node:module";
+
 import { err, ok, type Result } from "../../../../packages/base/mod.ts";
 import { ROLES } from "../../versions/components.ts";
 import type { VariantTexts } from "../../versions/mod.ts";
 import type { VariantIo } from "./io.ts";
+
+// variant checkout의 file을 읽는 것도 lophn process와 같은 Electron의 Node로 띄운다.
+const ELECTRON = createRequire(import.meta.url)("electron") as string;
 
 // .md를 text로 묶어 가져오는 코드라 이 프로세스에서 variant file을 import하면 import map이 어느 checkout
 // 것인지 흐려진다. 그 checkout의 cwd에서 따로 돌려 JSON 한 줄로 받는다.
@@ -26,7 +31,11 @@ export async function variantTexts(
       message: `variant의 role prompt를 읽지 못했다: ${why}`,
     });
   try {
-    const out = await io.run([Deno.execPath(), "eval", "-A", SCRIPT], root);
+    const out = await io.run(
+      [ELECTRON, "--input-type=module", "--eval", SCRIPT],
+      root,
+      { ELECTRON_RUN_AS_NODE: "1" },
+    );
     if (out.code !== 0) return fail(out.stderr.trim());
     return ok(JSON.parse(out.stdout) as VariantTexts);
   } catch (e) {

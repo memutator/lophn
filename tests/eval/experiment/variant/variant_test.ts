@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { resolveVariant, type VariantIo } from "./mod.ts";
 
-// run은 호출만 기록하고 성공한다. texts를 읽는 deno eval에는 빈 JSON을 돌려준다.
+// run은 호출만 기록하고 성공한다. texts를 읽는 eval에는 빈 JSON을 돌려준다.
 function fakeIo(files: string[]) {
   const runs: string[][] = [];
   const io: VariantIo = {
@@ -27,7 +27,7 @@ const CURRENT = "/repo/main";
 const ENTRY = "packages/core/main/daemon/main.ts";
 
 test("다른 checkout을 줘도 registry와 checks, grader의 root는 지금 checkout이고 component·core·source를 재는 root만 variant다", async () => {
-  const { io } = fakeIo([`/repo/wt/${ENTRY}`]);
+  const { io, runs } = fakeIo([`/repo/wt/${ENTRY}`]);
   const r = await resolveVariant(
     { checkout: "/repo/wt", current: CURRENT },
     io,
@@ -36,6 +36,8 @@ test("다른 checkout을 줘도 registry와 checks, grader의 root는 지금 che
   const v = r.value;
   assert.deepStrictEqual(v.isCurrent, false);
   assert.deepStrictEqual(v.versionDeps.root, "/repo/wt");
+  // variant는 자기 checkout에서 의존을 받는다.
+  assert.deepStrictEqual(runs[0], ["npm", "ci", "--prefer-offline"]);
   assert.deepStrictEqual(
     v.versionDeps.registryDir,
     `${CURRENT}/tests/eval/registry`,

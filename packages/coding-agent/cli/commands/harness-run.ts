@@ -1,7 +1,22 @@
 // `lophn harness detect|refresh|install`의 실행이다. 감지·설치 engine을 부르는 일만 하고 새 규칙은 없다.
 // `install`은 home 기준 전역 위치에 쓴다.
 // `detect`는 실행 파일만 찾고 `refresh`는 version probe까지 돈다. 결과는 저장하지 않는다.
-import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
+import {
+  chmod,
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  rmdir,
+  writeFile,
+} from "node:fs/promises";
+import {
+  err,
+  errorCode,
+  type LophnError,
+  ok,
+  type Result,
+} from "../../../base/mod.ts";
 import type {
   HarnessDetection,
   HarnessId,
@@ -46,37 +61,47 @@ export async function runHarnessInstall(
     {
       async read(path) {
         try {
-          return await Deno.readTextFile(path);
+          return await readFile(path, "utf8");
         } catch (thrown) {
-          if (thrown instanceof Deno.errors.NotFound) return null;
+          if (errorCode(thrown) === "ENOENT") return null;
           throw thrown;
         }
       },
       async write(path, text, executable) {
         // 폴더가 이미 있으면 file 하나의 권한만으로 쓴다(폴더째 권한을 열지 않는 harness가 있다).
         try {
-          await Deno.writeTextFile(path, text);
+          await writeFile(path, text);
         } catch (thrown) {
-          if (!(thrown instanceof Deno.errors.NotFound)) throw thrown;
-          await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), {
+          if (errorCode(thrown) !== "ENOENT") throw thrown;
+          await mkdir(path.slice(0, path.lastIndexOf("/")), {
             recursive: true,
           });
-          await Deno.writeTextFile(path, text);
+          await writeFile(path, text);
         }
-        if (executable === true) await Deno.chmod(path, 0o755);
+        if (executable === true) await chmod(path, 0o755);
       },
       async list(dir) {
         try {
           const names: string[] = [];
-          for await (const entry of Deno.readDir(dir)) names.push(entry.name);
+          for (const entry of await readdir(dir, { withFileTypes: true })) {
+            names.push(entry.name);
+          }
           return names;
         } catch (thrown) {
-          if (thrown instanceof Deno.errors.NotFound) return null;
+          if (errorCode(thrown) === "ENOENT") return null;
           throw thrown;
         }
       },
       // 옵션이 없어 비지 않은 폴더는 던진다. 사람의 다른 file을 지울 길이 없다.
-      remove: (path) => Deno.remove(path),
+      // rmdir은 file에 ENOTDIR로 던지므로 그때만 rm으로 지운다.
+      remove: async (path) => {
+        try {
+          await rmdir(path);
+        } catch (thrown) {
+          if (errorCode(thrown) !== "ENOTDIR") throw thrown;
+          await rm(path);
+        }
+      },
     },
     {
       harness: input.harness,

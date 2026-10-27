@@ -2,6 +2,9 @@
 // 표(`registry.ts`) 밖 command는 실행 전에 거절한다. 인증은 환경 변수 `LOPHN_CODING_TOKEN`이고, `user`
 // command만 token이 없을 때 data root의 user token file을 쓴다. 자격이 없으면 core를 부르는 command는
 // 아무것도 보내지 않는다.
+import { Buffer } from "node:buffer";
+import { readFileSync } from "node:fs";
+import process from "node:process";
 import type { z } from "zod";
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
@@ -40,18 +43,14 @@ type CliOptions = {
 export function ambientEnv(): { get(name: string): string | undefined } {
   return {
     get(name) {
-      try {
-        return Deno.env.get(name);
-      } catch {
-        return undefined;
-      }
+      return process.env[name];
     },
   };
 }
 
 function readTextOrUndefined(path: string): string | undefined {
   try {
-    return Deno.readTextFileSync(path);
+    return readFileSync(path, "utf8");
   } catch {
     return undefined;
   }
@@ -61,20 +60,12 @@ function readTextOrUndefined(path: string): string | undefined {
 async function readProcessStdin(): Promise<string> {
   const chunks: Uint8Array[] = [];
   let total = 0;
-  const buffer = new Uint8Array(8192);
-  while (total <= HOOK_STDIN_MAX_BYTES) {
-    const read = await Deno.stdin.read(buffer);
-    if (read === null) break;
-    chunks.push(buffer.slice(0, read));
-    total += read;
+  for await (const chunk of process.stdin) {
+    chunks.push(chunk);
+    total += chunk.length;
+    if (total > HOOK_STDIN_MAX_BYTES) break;
   }
-  const all = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    all.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return new TextDecoder().decode(all);
+  return Buffer.concat(chunks).toString("utf8");
 }
 
 // `--input`·`--input-file`을 JSON으로 읽는다. 없으면 undefined다. `user` 명령은 JSON 값 하나(객체가 아니어도
@@ -219,7 +210,7 @@ export async function cliMain(
         : `위치 인자가 필요하다: ${slots.map((s) => `<${s}>`).join(" ")}`,
     });
   }
-  const cwd = options.cwd ?? Deno.cwd();
+  const cwd = options.cwd ?? process.cwd();
   const body = inputOf(parsed, cwd, readText, entry.auth === "user");
   if (!body.ok) return await fail(body.error);
   const candidate: Record<string, unknown> = entry.auth === "user"
@@ -316,5 +307,5 @@ export async function cliMain(
 }
 
 if (import.meta.main) {
-  Deno.exit(await cliMain(Deno.args));
+  process.exit(await cliMain(process.argv.slice(2)));
 }

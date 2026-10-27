@@ -1,4 +1,6 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import { cliMain } from "./main.ts";
 
 function sink(): { stream: WritableStream<Uint8Array>; text(): string } {
@@ -14,7 +16,7 @@ function sink(): { stream: WritableStream<Uint8Array>; text(): string } {
   };
 }
 
-Deno.test("hook CLI는 LPN_TERMINAL_HOOK이 없으면 아무것도 보내지 않고 stdin도 읽지 않고 조용히 성공한다", async () => {
+test("hook CLI는 LPN_TERMINAL_HOOK이 없으면 아무것도 보내지 않고 stdin도 읽지 않고 조용히 성공한다", async () => {
   const stdout = sink();
   const stderr = sink();
   let sent = false;
@@ -32,15 +34,15 @@ Deno.test("hook CLI는 LPN_TERMINAL_HOOK이 없으면 아무것도 보내지 않
     stdout: stdout.stream,
     stderr: stderr.stream,
   });
-  assertEquals(code, 0);
-  assertEquals([stdout.text(), stderr.text()], ["", ""]);
-  assertEquals([sent, read], [false, false]);
+  assert.deepStrictEqual(code, 0);
+  assert.deepStrictEqual([stdout.text(), stderr.text()], ["", ""]);
+  assert.deepStrictEqual([sent, read], [false, false]);
 });
 
 // contract: `app`이 필수인 token 명령은 core가 token에서 채워 주지 않으므로 `app` 없이 보내지 않고 CLI가 칸 이름으로 알린다(coding-agent-cli-interface).
 // 현실적 회귀: `app`이 선택으로 보여 coding agent가 비운 채 부르고, 이름 없는 core 오류만 받아 막힌다.
 // 왜 지금 못 잡나: 위 행은 `app`을 넣어 부른다.
-Deno.test("app이 필수인 token 명령은 app 없이 부르면 보내지 않고 app 칸을 짚는다", async () => {
+test("app이 필수인 token 명령은 app 없이 부르면 보내지 않고 app 칸을 짚는다", async () => {
   const stderr = sink();
   let sent = false;
   const code = await cliMain(["app", "show"], {
@@ -59,12 +61,12 @@ Deno.test("app이 필수인 token 명령은 app 없이 부르면 보내지 않�
     stdout: sink().stream,
     stderr: stderr.stream,
   });
-  assertEquals([code, sent], [2, false]);
-  assertStringIncludes(stderr.text(), "app");
+  assert.deepStrictEqual([code, sent], [2, false]);
+  assert.ok(stderr.text().includes("app"), stderr.text());
 });
 
 // 현실적 회귀: route 입력의 `input` 칸이 CLI 공통 key `input`과 이름이 같아 지워져 core가 늘 `{}`를 받았다(손 확인에서 두 번 고친 길).
-Deno.test("app preview start는 route 입력의 input 칸을 지우지 않고 그대로 보낸다", async () => {
+test("app preview start는 route 입력의 input 칸을 지우지 않고 그대로 보낸다", async () => {
   const input = {
     app: "app_00000000000000000000000000",
     bundle_hash: "a".repeat(64),
@@ -95,7 +97,7 @@ Deno.test("app preview start는 route 입력의 input 칸을 지우지 않고 �
       stderr: sink().stream,
     },
   );
-  assertEquals(sent, { input });
+  assert.deepStrictEqual(sent, { input });
 });
 
 // contract: user token file에서 읽은 token은 stdout·stderr(오류 포함)에 나오지 않는다(coding-agent-cli-interface).
@@ -128,7 +130,7 @@ function runRecord(result: string) {
 
 for (const json of [true, false]) {
   for (const fails of [true, false]) {
-    Deno.test(`user token으로 부른 run show는 token을 출력에 남기지 않는다 (json=${json}, 오류=${fails})`, async () => {
+    test(`user token으로 부른 run show는 token을 출력에 남기지 않는다 (json=${json}, 오류=${fails})`, async () => {
       const stdout = sink();
       const stderr = sink();
       let authorization: string | undefined;
@@ -152,8 +154,11 @@ for (const json of [true, false]) {
         stdout: stdout.stream,
         stderr: stderr.stream,
       });
-      assertEquals(authorization, `Bearer ${FILE_TOKEN}`);
-      assertEquals((stdout.text() + stderr.text()).includes(FILE_TOKEN), false);
+      assert.deepStrictEqual(authorization, `Bearer ${FILE_TOKEN}`);
+      assert.deepStrictEqual(
+        (stdout.text() + stderr.text()).includes(FILE_TOKEN),
+        false,
+      );
     });
   }
 }

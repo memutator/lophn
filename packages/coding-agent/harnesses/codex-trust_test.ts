@@ -1,14 +1,16 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import { codexHookHash } from "./codex-trust.ts";
 
 // Codex rust-v0.164.0의 core/tests/suite/hooks.rs가 config.toml에 둔 plugin hook의 declaration hash다.
 // 우리 hash가 틀리면 Codex가 trust를 인정하지 않고 hook을 계속 건너뛴다.
-Deno.test("codex hook hash는 Codex 자신의 test가 쓰는 hash와 같다", async () => {
+test("codex hook hash는 Codex 자신의 test가 쓰는 hash와 같다", async () => {
   const group = { matcher: "^Bash$" };
   const handler = {
     command: "python3 -I -S ${PLUGIN_ROOT}/hooks/pre_tool_use_hook.py",
   };
-  assertEquals(
+  assert.deepStrictEqual(
     [
       await codexHookHash("PreToolUse", group, handler),
       await codexHookHash("PostToolUse", group, handler),

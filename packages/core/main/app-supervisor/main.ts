@@ -3,6 +3,7 @@
 // machine credential을 주지 않고 자식마다 core가 발급한 app credential을 준다.
 import { mkdirSync, rmSync } from "node:fs";
 import process from "node:process";
+import { Writable } from "node:stream";
 import { createIdSource, systemClock } from "../../../base/mod.ts";
 import { encodeFrame } from "../../../protocol/base/mod.ts";
 import {
@@ -23,18 +24,16 @@ import { createPreparationService } from "../../apps/releases/preparation.ts";
 import { createChildPreparationRunner } from "./release-runner.ts";
 import { createChildDataRunner } from "./data-runner.ts";
 import { unixControlTransport } from "./control-http.ts";
+import {
+  fromReadable,
+  toWriter,
+} from "../../supervision/responsiveness/pipe.ts";
 
-const stdin: { read(buffer: Uint8Array): Promise<number | null> } = {
-  async read(buffer) {
-    const chunk = new Uint8Array(buffer.length);
-    const count = await Deno.stdin.read(chunk);
-    if (count === null) return null;
-    buffer.set(chunk.subarray(0, count));
-    return count;
-  },
-};
+// 'data'로 받아 core가 살아 있는 동안 frame이 온다(pipe.ts의 paused mode 우회).
+const stdin = fromReadable(process.stdin);
 
 // stdout은 frame 전용이다. 쓰기는 호출 순서대로 이어서 frame이 섞이지 않게 한다.
+const stdout = toWriter(process.stdout);
 let writing: Promise<void> = Promise.resolve();
 function send(message: unknown): Promise<void> {
   return writeFrame(
@@ -42,12 +41,7 @@ function send(message: unknown): Promise<void> {
   );
 }
 function writeFrame(bytes: Uint8Array): Promise<void> {
-  writing = writing.then(async () => {
-    let offset = 0;
-    while (offset < bytes.length) {
-      offset += await Deno.stdout.write(bytes.subarray(offset));
-    }
-  });
+  writing = writing.then(() => stdout.write(bytes));
   return writing;
 }
 
@@ -200,8 +194,8 @@ const shutdown = () => {
     process.exit(0);
   });
 };
-Deno.addSignalListener("SIGINT", shutdown);
-Deno.addSignalListener("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
 installCrashHandler({
   target: globalThis,
   // core에 한 줄 보내고 앱 자식을 정지한 뒤 종료한다. core가 component·location을 정해 log에 쓴다.
@@ -215,7 +209,7 @@ installCrashHandler({
     ).catch(() => {});
     await stopOnce();
   },
-  stderr: Deno.stderr.writable,
+  stderr: Writable.toWeb(process.stderr) as WritableStream<Uint8Array>,
   redact: (text) => text,
   exit: process.exit,
   // 앱 정지 유예(10초)와 강제 종료 확인이 들어갈 시간이다.

@@ -1,9 +1,5 @@
 {
   "imports": {
-    "yaml": "npm:yaml@2.9.1",
-    "ignore": "npm:ignore@7.0.12",
-    "picomatch": "npm:picomatch@4.0.7",
-    "esbuild": "npm:esbuild@0.28.2",
     "@luca/esbuild-deno-loader": "jsr:@luca/esbuild-deno-loader@0.11.1"
   },
   "compilerOptions": {

@@ -1,0 +1,6 @@
+{
+  "name": "@lophn/base",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": "./mod.ts"
+}

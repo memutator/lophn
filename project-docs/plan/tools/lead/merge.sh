@@ -21,20 +21,18 @@ nm=$(git diff --stat $FROM $B | grep -c node_modules)
 [ "$nm" != 0 ] && { echo "STOP: node_modules in diff"; exit 1; }
 echo "changed files (brief의 소유와 대 본다):"; git diff --name-only $FROM $B | sed 's/^/  /'
 git diff $FROM $B | grep -nE '^\+.*(TODO|FIXME)' && echo "WARN: TODO/FIXME"
-# worker의 check가 고쳐 둔 lock은 commit하지 않는 file인데 남아 있으면 rebase가 막힌다.
-git -C $W checkout -- packages/shell/main/desktop/core/deno.lock 2>/dev/null
 git -C $W status --short | grep -v node_modules | sed 's/^/dirty: /'
 git -C $W rebase --onto $BASE $FROM >/dev/null 2>&1 || { echo "STOP: rebase conflict"; git -C $W status --short | head; exit 1; }
 # 뒤에서 끊겨 다시 돌릴 때 이미 옮긴 plan branch commit을 또 옮기지 않게 기준을 지금 BASE로 적는다.
 git config "branch.$B.lophnBase" "$(git rev-parse $BASE)"
 out=$(cd $W && deno task check:full 2>&1) || { echo "$out" | tail -30; echo "STOP: worktree full check failed"; exit 1; }
 git merge --ff-only -q $B || { echo "STOP: ff failed"; exit 1; }
-[ -e packages/shell/main/node_modules ] || { echo "STOP: lead worktree node_modules missing (worktree-prep)"; exit 1; }
+[ -e node_modules ] || { echo "STOP: lead worktree node_modules missing (worktree-prep)"; exit 1; }
 out=$(deno task check:full 2>&1) || { echo "$out" | tail -30; echo "STOP: plan branch full check failed"; exit 1; }
 echo "plan branch full check ok"
 BOOT=$(project-docs/plan/tools/lead/boot.sh 2>&1); [ "$(echo "$BOOT" | grep -c "exit 0")" = 2 ] || { echo "STOP: boot failed after merge"; echo "$BOOT" | tail -6; exit 1; }; echo "boot ok"
 deno run -A packages/shell/renderer/build.ts >/dev/null 2>&1 || { echo "STOP: renderer build failed after merge"; exit 1; }; echo "renderer build ok"
-rm -f $W/packages/shell/main/node_modules
+rm -f $W/node_modules
 chmod -R u+w $W/.dev-data 2>/dev/null  # core가 깐 읽기 전용 sdk 사본
 git worktree remove --force $W && git branch -q -D $B
 python3 -I project-docs/plan/tools/status.py $plan set $id merged $B $(git rev-parse --short HEAD)

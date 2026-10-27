@@ -1,0 +1,6 @@
+{
+  "name": "@lophn/cap-problem",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": "./mod.ts"
+}

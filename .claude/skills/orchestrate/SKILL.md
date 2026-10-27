@@ -37,7 +37,7 @@ lead는 task를 골라 worker에게 맡기고, 결과를 review해 그 계획의
 
 ### 2. worktree
 
-`project-docs/plan/tools/lead/launch.sh <계획> <id>...`가 main checkout의 `.claude/worktrees/<id>`와 branch `<단위>/<id>`(plan branch에서 갈라짐)를 만들고, `tools/worktree-prep.ts`로 shell main의 `node_modules`를 잇고, status를 `running`으로 한다. 새 worktree에서 `npm ci`를 돌리지 않는다(Electron과 node-pty를 다시 받아 느리다).
+`project-docs/plan/tools/lead/launch.sh <계획> <id>...`가 main checkout의 `.claude/worktrees/<id>`와 branch `<단위>/<id>`(plan branch에서 갈라짐)를 만들고, `tools/worktree-prep.ts`로 root `node_modules`를 잇고, status를 `running`으로 한다. 새 worktree에서 `npm ci`를 돌리지 않는다(Electron과 node-pty를 다시 받아 느리다).
 
 ### 3. worker 띄우기
 
@@ -58,7 +58,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - 임시 file(move-files mapping, probe 출력)은 worktree 안 `.dev-data/<id>/`에 둔다. session scratchpad는 같이 도는 worker끼리 공유되어 mapping이 덮인 일이 있다.
 - 명령이 auto mode classifier에 막히면 다른 명령으로 우회하지 않고 보고한다. lead도 worker가 거절당한 명령을 대신 돌리지 않고 사람에게 묻는다(사용자 앱 방어를 지우는 변경의 check:full·commit이 막힌 일이 있다).
 - `deno task check:full`을 돌리고, 통과하면 branch에 commit한다(영어 명령형 한 줄과 본문. 요구 ID와 작업 번호 없음). push, merge, rebase, 다른 branch는 하지 않는다.
-- `packages/shell/main/node_modules`(symlink)와 `packages/shell/main/desktop/core/deno.lock` 변경은 commit하지 않는다. 고친 file을 path로 add하고 `git diff --cached --stat`을 본다.
+- `node_modules`(symlink)는 작업 중에 생기는 것이라 commit하지 않는다. 고친 file을 path로 add하고 `git diff --cached --stat`을 본다.
 - 막히면 추측으로 넘어가지 말고 할 수 있는 데까지 하고 보고한다. 맡은 일을 "시간이 부족했다"며 남기지 않는다.
 - 보고는 brief의 "보고" 꼴로 쓰고, "무겁게 짠 것"과 "알려진 미완 동작" 칸을 빼지 않는다.
 
@@ -130,7 +130,6 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - land와 merge를 background로 돌릴 때 출력은 `| tail`로 받지 말고 file로 받는다. land.sh는 단계마다 시각과 단계 이름 한 줄(`lock을 잡았다`, `check:full`, `e2e`, `core 두 번 기동`, `main fast-forward`)을 바로 찍고, 단계의 출력은 실패할 때만 찍는다. "다른 land가 끝나기를 기다린다" 뒤에 `lock을 잡았다`가 없으면 아직 기다리는 중이다. e2e가 도는 동안의 진행은 그 test의 data root(`/tmp/lophn-e2e-*`)에 새 file이 쓰이는지로 본다(e2e가 멈춘 것을 40분 동안 몰랐다).
 - 다른 계획의 land가 e2e를 돌리는 동안 같이 e2e를 돌리면 앱 crash-loop 단계(그때 `reaction_test`, 지금 `app-restart_test`)가 멈춘 일이 한 번 있다(혼자 돌리면 통과, 원인은 확인 전). 그래서 land.sh가 lock으로 하나씩 돈다. 손으로 `pgrep -f 'land.sh …'`로 기다리지 않는다. 그 pattern이 기다리는 shell 자신의 command line에 있어 영영 끝나지 않았다.
 - e2e가 한 test에서 끝없이 기다리면 먼저 그 run의 turn이 모두 실패하는지 본다(그 run data root의 `lophn.db` `turns.outcome_reason`). 모든 turn이 `configuration_unavailable`이던 bug가 40분 멈춘 land로 보였다.
-- check가 `packages/shell/main/desktop/core/deno.lock`을 고쳐 둔다. lead worktree나 task worktree에 그 변경이 남아 있으면 rebase가 막힌다. `merge.sh`는 task worktree의 것을, `land.sh`는 lead worktree의 것을 먼저 `git checkout --`로 되돌린다. 손으로 rebase할 때는 직접 되돌린다(merge.sh가 되돌리기 전 `STOP: rebase conflict`가 한 번 더 났다).
 - fix task가 merge되면, 같은 길을 쓰는 running worker에게 그 사실을 바로 알리고 commit이 있으면 lead가 그 branch를 rebase한다. worker는 rebase할 수 없어서 옛 base에서 이미 고친 bug를 다시 쫓는다(앱 E2E worker 셋이 한 시간 가까이 그랬다).
 - 같은 기계에서 E2E가 "부하 때문" flake로 보이면 먼저 사용자 단위로 공유하는 자원(`XDG_RUNTIME_DIR` 아래 socket, `/tmp`의 고정 이름)을 의심한다. 앱 start flake 둘이 core끼리 같은 socket 경로를 쓴 제품 bug였다.
 - worker가 test에 기다림이나 우회를 넣어 통과시켰으면(보고의 "무겁게 짠 것") 제품 bug를 가린 것인지 본다. 가렸으면 그 test를 land 전에 fix task로 되돌린다.

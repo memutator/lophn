@@ -9,15 +9,7 @@
   "lock": {
     "frozen": true
   },
-  "imports": {
-    "@biomejs/biome": "npm:@biomejs/biome@2.6.3",
-    "@types/ws": "npm:@types/ws@8.18.2",
-    "ws": "npm:ws@8.22.0",
-    "smol-toml": "npm:smol-toml@1.9.1",
-    "yaml": "npm:yaml@2.9.1",
-    "unpdf": "npm:unpdf@1.4.0",
-    "zod": "npm:zod@4.6.5"
-  },
+  "nodeModulesDir": "manual",
   "tasks": {
     "check": "deno run --allow-all tools/check.ts",
     "check:full": "deno run --allow-all tools/check.ts --full",
@@ -48,6 +40,7 @@
     "node_modules"
   ],
   "compilerOptions": {
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "lib": ["deno.window", "esnext"]
   }
 }

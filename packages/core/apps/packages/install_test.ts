@@ -57,13 +57,16 @@ async function tinyPackages(dir: string) {
     mkdir(`${dir}/${path.split("/").slice(0, -1).join("/")}`, {
       recursive: true,
     }).then(() => writeFile(`${dir}/${path}`, text));
-  await put("sdk/demo/deno.json", '{"name":"@lophn/demo","version":"1.0.0"}');
+  await put(
+    "sdk/demo/package.json",
+    '{"name":"@lophn/demo","version":"1.0.0"}',
+  );
   await put("sdk/demo/mod.ts", "export const a = 1;\n");
   await put("sdk/demo/mod_test.ts", "export const test = 1;\n");
-  await put("design/deno.json", '{"name":"@lophn/ui","version":"1.0.0"}');
+  await put("design/package.json", '{"name":"@lophn/ui","version":"1.0.0"}');
   await put("design/mod.ts", "export {};\n");
   await put(
-    "design/wording/deno.json",
+    "design/wording/package.json",
     '{"name":"@lophn/wording","version":"1.0.0"}',
   );
   await put("design/wording/mod.ts", "export {};\n");

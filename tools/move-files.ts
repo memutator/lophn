@@ -574,17 +574,17 @@ async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
     const configs = new Map<string, Config>();
     let workspace: string[] = [];
     for (const [file, source] of texts) {
-      if (!/(?:^|\/)deno\.json$/.test(file)) continue;
+      if (!/(?:^|\/)package\.json$/.test(file)) continue;
       if (after && removedSet.has(file)) continue;
       const path = after ? next.get(file)! : file;
-      let config: Config & { workspace?: string[] };
+      let config: Config & { workspaces?: string[] };
       try {
         config = JSON.parse(after ? current(file) : source);
       } catch {
-        note(path, 0, "error", "deno.json이 JSON이 아님");
+        note(path, 0, "error", "package.json이 JSON이 아님");
         continue;
       }
-      if (path === "deno.json") workspace = config.workspace ?? [];
+      if (path === "package.json") workspace = config.workspaces ?? [];
       else configs.set(path, config);
     }
     return membersOf(workspace, configs);

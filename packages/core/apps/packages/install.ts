@@ -291,19 +291,19 @@ async function installCopy(
   return ok({ name, version, install_path: target });
 }
 
-// 소스 폴더의 deno.json에서 이름과 판을 읽는다.
+// 소스 폴더의 package.json에서 이름과 판을 읽는다.
 async function readIdentity(
   dir: string,
 ): Promise<Result<{ name: string; version: string }>> {
   try {
-    const json = JSON.parse(await readFile(`${dir}/deno.json`, "utf8"));
+    const json = JSON.parse(await readFile(`${dir}/package.json`, "utf8"));
     if (typeof json.name === "string" && typeof json.version === "string") {
       return ok({ name: json.name, version: json.version });
     }
   } catch {
     // 아래에서 invalid_input이다.
   }
-  return invalid(`deno.json needs name and version: ${dir}`);
+  return invalid(`package.json needs name and version: ${dir}`);
 }
 
 // 소스 폴더를 (규칙이 있으면 vendor/를 더해) 설치 사본으로 푼다.
@@ -334,7 +334,7 @@ async function installSource(
   );
 }
 
-// packages/sdk/* 중 deno.json이 있는 폴더 전부와 지원 소스를 `<dataRoot>/sdk/…`에 푼다.
+// packages/sdk/* 중 package.json이 있는 폴더 전부와 지원 소스를 `<dataRoot>/sdk/…`에 푼다.
 // 하나라도 실패하면 그 err를 돌려주고 다음을 깔지 않는다.
 export async function installSdkCopies(deps: {
   dataRoot: string;
@@ -351,10 +351,10 @@ export async function installSdkCopies(deps: {
     for (const name of names.sort()) {
       const source = `sdk/${name}`;
       try {
-        await stat(`${deps.packagesRoot}/${source}/deno.json`);
+        await stat(`${deps.packagesRoot}/${source}/package.json`);
         sources.push({ source, skip: [] });
       } catch {
-        // deno.json이 없는 폴더는 판이 없어 깔지 않는다.
+        // package.json이 없는 폴더는 판이 없어 깔지 않는다.
       }
     }
   } catch {

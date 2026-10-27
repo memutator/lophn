@@ -107,6 +107,8 @@ function packageOf(file: string): string | "all" | undefined {
   if (
     file === "deno.json" ||
     file === "deno.lock" ||
+    file === "package.json" ||
+    file === "package-lock.json" ||
     file === "biome.json" ||
     /^tools\/check[^/]*\.ts$/.test(file)
   )
@@ -333,9 +335,10 @@ async function buildSteps(
     });
   } else skip("shell fmt/lint", "shell이 안 돎");
   if (has("shell", "protocol", "base", "design", "coding-agent")) {
-    const installed = await exists(`${SHELL_MAIN}/node_modules`);
+    // shell main은 root npm workspace의 member다. 의존은 root node_modules에 있다.
+    const installed = await exists("node_modules");
     const commands = [["npm", "--prefix", SHELL_MAIN, "run", "check"]];
-    if (!installed) commands.unshift(["npm", "--prefix", SHELL_MAIN, "ci"]);
+    if (!installed) commands.unshift(["npm", "ci"]);
     checks.push({
       name: "shell main",
       commands,
@@ -348,9 +351,7 @@ async function buildSteps(
       checks.push({
         name: "shell main test",
         cwd: SHELL_MAIN,
-        // precheck가 packages/shell/node_modules/zod를 잇는다. "shell main"과 같이 돌아 먼저 한다.
         commands: [
-          ["npm", "run", "precheck"],
           [
             "node",
             "--test",
@@ -526,7 +527,7 @@ async function main() {
       console.log(
         files.length === 0
           ? "바뀐 package: 전부 (비교 기준 없음)"
-          : "바뀐 package: 전부 (deno.json, deno.lock, tools/check 변경)",
+          : "바뀐 package: 전부 (deno.json, deno.lock, package.json, package-lock.json, tools/check 변경)",
       );
     } else {
       run = expand(changed);

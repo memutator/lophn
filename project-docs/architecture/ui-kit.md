@@ -30,8 +30,8 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
   pages/index.ts         GROUPS(Kit · Screens · Drafts > 영역 > page)
 ```
 
-- package export(`packages/design/deno.json`): `.`(token), `./primitives`, `./input`, `./layout`, `./navigation`, `./data`, `./feedback`, `./overlay`, `./reading`, `./shared`, `./base.css`, `./tokens.css`. 분류를 건너 한꺼번에 내는 barrel은 없다.
-- chart(LineChart, BarChart, DistributionChart, ScatterChart, GraphDiagram)는 `components/data/chart/`이고 `@lophn/ui/data`로 나간다. d3는 design `deno.json`의 의존이다.
+- package export(`packages/design/package.json`): `.`(token), `./primitives`, `./input`, `./layout`, `./navigation`, `./data`, `./feedback`, `./overlay`, `./reading`, `./shared`, `./base.css`, `./tokens.css`. 분류를 건너 한꺼번에 내는 barrel은 없다.
+- chart(LineChart, BarChart, DistributionChart, ScatterChart, GraphDiagram)는 `components/data/chart/`이고 `@lophn/ui/data`로 나간다. d3는 design `package.json`의 의존이다.
 - `GraphDiagram`의 node는 `status`(label, tone)와 짧은 `note`를 받는다. tone은 `tokens.status`의 key이고 아이콘에만 색을 쓴다. component는 상태 값의 뜻을 모른다. 뜻은 그리는 쪽(workflow artifact, domain)이 정한다.
 - `GraphDiagram`의 되돌아가는 edge(도착 층이 출발 층보다 앞)는 node 줄 위 여백으로 돌려 그린다(`graph-layout.ts`). edge마다 여백에 줄 하나를 더하고, 출발 node 위에서 나가 그 줄을 지나 도착 node 위로 들어간다. 출발이나 도착 node 위에 같은 층의 다른 node가 있으면 그 끝은 옆 면에서 층 사이 틈으로 돈다. 사이 node 뒤로 지나면 첫 step으로 돌아가는지 사이 step으로 가는지 가르지 못한다.
 

@@ -20,8 +20,6 @@ L=$MAIN/.claude/worktrees/plan-$plan
 [ -d "$L" ] || { echo "STOP: lead worktree 없음: $L"; exit 1; }
 cd "$L" || exit 1
 [ "$(git branch --show-current)" = "plan/$plan" ] || { echo "STOP: $L이 plan/$plan이 아니다"; exit 1; }
-# check가 고쳐 두는 file. 남아 있으면 rebase가 막힌다.
-git checkout -- packages/shell/main/desktop/core/deno.lock 2>/dev/null
 [ -z "$(git status --short | grep -v node_modules)" ] || { echo "STOP: lead worktree에 commit 안 된 변경"; git status --short | head; exit 1; }
 step "main 위로 rebase"
 git rebase main >/dev/null 2>&1 || { echo "STOP: rebase conflict"; git status --short | head; exit 1; }
@@ -37,7 +35,6 @@ if [ -z "${LOPHN_LAND_SKIP_E2E:-}" ] && ls tests/e2e/*_test.ts >/dev/null 2>&1; 
 fi
 step "core 두 번 기동"
 BOOT=$(project-docs/plan/tools/lead/boot.sh 2>&1); [ "$(echo "$BOOT" | grep -c "exit 0")" = 2 ] || { echo "STOP: boot failed"; echo "$BOOT" | tail -6; exit 1; }
-git checkout -- packages/shell/main/desktop/core/deno.lock 2>/dev/null
 # land가 도는 사이 planner가 main에 계획 문서를 commit하곤 한다. 문서만 늘었으면 다시 rebase하고 빠른 check로 올린다.
 step "main fast-forward"
 until git -C "$MAIN" merge --ff-only -q "plan/$plan" 2>/dev/null; do
@@ -47,6 +44,5 @@ until git -C "$MAIN" merge --ff-only -q "plan/$plan" 2>/dev/null; do
   base=$(git rev-parse main)
   git rebase main >/dev/null 2>&1 || { echo "STOP: rebase conflict"; git status --short | head; exit 1; }
   out=$(deno task check 2>&1) || { echo "$out" | tail -30; echo "STOP: check failed after main moved"; exit 1; }
-  git checkout -- packages/shell/main/desktop/core/deno.lock 2>/dev/null
-done
+  done
 echo "landed plan/$plan at $(git rev-parse --short HEAD)"

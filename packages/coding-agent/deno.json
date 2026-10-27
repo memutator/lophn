@@ -1,5 +1,3 @@
 {
-  "name": "@lophn/coding-agent",
-  "exports": "./mod.ts",
   "compilerOptions": { "erasableSyntaxOnly": true }
 }

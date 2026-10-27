@@ -244,7 +244,7 @@ function planShell(
 ): SpawnPlan {
   const main = `${root}/packages/shell/main`;
   return {
-    command: `${main}/node_modules/.bin/electron`,
+    command: `${root}/node_modules/.bin/electron`,
     args: [`${main}/dist/main.cjs`, "--home", options.dataRoot],
     // LOPHN_HOME은 --home이 정하므로 여기서는 넣지 않는다.
     env: { ...options.env },

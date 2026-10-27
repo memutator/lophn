@@ -88,7 +88,7 @@ const VENDOR_RULES: Readonly<Record<string, VendorRule>> = {
 };
 
 // catalog에 올리지 않는 지원 소스. 공용 UI package가 import하는 `@lophn/ui`·`@lophn/wording`이고
-// 이름·판은 source 폴더의 deno.json에서 읽는다. skip은 사본에 넣지 않을 경로 구간이다.
+// 이름·판은 source 폴더의 package.json에서 읽는다. skip은 사본에 넣지 않을 경로 구간이다.
 export const SUPPORT_SOURCES: readonly { source: string; skip: string[] }[] = [
   // wording은 별도 package이고 style-check는 repo 검사 도구다.
   { source: "design", skip: ["wording", "style-check"] },
@@ -97,6 +97,9 @@ export const SUPPORT_SOURCES: readonly { source: string; skip: string[] }[] = [
 
 // 사본에 test와 testdata는 들 이유가 없다. 폴더 경로는 끝에 `/`가 붙어 들어온다.
 export function keepSourceFile(path: string, skip: readonly string[]): boolean {
+  // package.json은 판 이름을 읽는 데만 쓴다. 사본에 넣으면 Deno가 그 폴더를 npm package로 보고
+  // build에서 node_modules linking을 요구한다.
+  if (path === "package.json") return false;
   if (
     path.split("/").some((part) => part === "testdata" || skip.includes(part))
   ) {

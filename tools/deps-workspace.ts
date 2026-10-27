@@ -53,13 +53,14 @@ export async function readMembers(
   let workspace: string[] = [];
   try {
     workspace =
-      JSON.parse(await readFile(`${root}/deno.json`, "utf8")).workspace ?? [];
+      JSON.parse(await readFile(`${root}/package.json`, "utf8")).workspaces ??
+      [];
   } catch (error) {
     if (errorCode(error) !== "ENOENT") throw error;
   }
   const member = workspaceMatcher(workspace);
   const configs = new Map<string, Omit<Member, "directory">>();
-  for (const file of files.filter((file) => file.endsWith("/deno.json"))) {
+  for (const file of files.filter((file) => file.endsWith("/package.json"))) {
     if (!member(directory(file))) continue;
     configs.set(file, JSON.parse(await readFile(`${root}/${file}`, "utf8")));
   }
@@ -71,7 +72,7 @@ function workspaceMatcher(workspace: string[]): (directory: string) => boolean {
   return (directory) => patterns.some((pattern) => pattern.test(directory));
 }
 
-// 이미 읽은 설정으로 member를 만든다. configs는 deno.json 경로 → 내용이다.
+// 이미 읽은 설정으로 member를 만든다. configs는 package.json 경로 → 내용이다.
 export function membersOf(
   workspace: string[],
   configs: Map<string, Omit<Member, "directory">>,
@@ -79,7 +80,7 @@ export function membersOf(
   const member = workspaceMatcher(workspace);
   const members: Member[] = [];
   for (const [file, config] of configs) {
-    if (!file.endsWith("/deno.json") || !member(directory(file))) continue;
+    if (!file.endsWith("/package.json") || !member(directory(file))) continue;
     members.push({
       directory: directory(file),
       name: config.name,

@@ -129,6 +129,9 @@ try {
         ...(denoPlugins({
           configPath: scratch,
           loader: "native",
+          // 앱 build는 DENO_DIR와 설치 사본만 읽는다. root workspace의 node_modules를 읽으면
+          // 허용한 폴더 밖이라 guard에 걸린다.
+          nodeModulesDir: "none",
         }) as esbuild.Plugin[]),
       ],
     });

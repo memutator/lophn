@@ -1,0 +1,22 @@
+{
+  "name": "lophn",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "packages/sdk/*",
+    "packages/shell/main",
+    "packages/shell/renderer",
+    "tools/wireframes",
+    "packages/design/wording"
+  ],
+  "dependencies": {
+    "@biomejs/biome": "2.6.3",
+    "@types/ws": "8.18.2",
+    "smol-toml": "1.9.1",
+    "unpdf": "1.4.0",
+    "ws": "8.22.0",
+    "yaml": "2.9.1",
+    "zod": "4.6.5"
+  }
+}

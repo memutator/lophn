@@ -1,0 +1,6 @@
+{
+  "name": "@lophn/cap-fs",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": "./mod.ts"
+}

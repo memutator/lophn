@@ -1,0 +1,11 @@
+{
+  "name": "@lophn/app-ui",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": "./mod.ts",
+  "dependencies": {
+    "@types/react": "19.3.0",
+    "lucide-react": "1.51.0",
+    "react": "19.3.0"
+  }
+}

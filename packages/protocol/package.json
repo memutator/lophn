@@ -1,0 +1,32 @@
+{
+  "name": "@lophn/protocol",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./mod.ts",
+    "./approvals": "./approvals/mod.ts",
+    "./apps": "./apps/mod.ts",
+    "./base": "./base/mod.ts",
+    "./client": "./client/mod.ts",
+    "./coding-agent": "./coding-agent/mod.ts",
+    "./config": "./config/mod.ts",
+    "./diagnostics": "./diagnostics/mod.ts",
+    "./events": "./events/mod.ts",
+    "./install-and-update": "./install-and-update/mod.ts",
+    "./lophn-agent": "./lophn-agent/mod.ts",
+    "./problems": "./problems/mod.ts",
+    "./problems/sdk-report": "./problems/sdk-report.ts",
+    "./problems/sdk-problem": "./problems/sdk-problem.ts",
+    "./projects": "./projects/mod.ts",
+    "./registry": "./registry.ts",
+    "./secrets": "./secrets/mod.ts",
+    "./server": "./server/mod.ts",
+    "./shell": "./shell/mod.ts",
+    "./shell/app-bridge": "./shell/app-bridge-types.ts",
+    "./storage": "./storage/mod.ts",
+    "./supervision": "./supervision/mod.ts"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  }
+}

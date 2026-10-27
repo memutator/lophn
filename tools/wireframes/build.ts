@@ -1,121 +1,43 @@
 // 실행: deno task wireframes
 // gallery를 정적 bundle(dist/index.html, main.js, main.css, 글꼴)로 만든다. 렌더러의 build()와 같은
-// 방식(Deno import map, CSS Modules의 local-css, woff2 file loader)이지만, 예제가 쓰는 @lophn/app-ui를
-// import map에 올리려고 따로 짠 build다(렌더러의 build()는 sdk를 올리지 않는다).
-// 주소는 모두 상대 경로이고 바깥 요청이 없다.
+// 방식(CSS Modules의 local-css, woff2 file loader)이지만, 예제가 쓰는 @lophn/app-ui까지 같은
+// node_modules에서 푼다. 주소는 모두 상대 경로이고 바깥 요청이 없다.
 import * as esbuild from "esbuild";
-import { denoPlugins } from "@luca/esbuild-deno-loader";
-import {
-  copyFile,
-  mkdtemp,
-  readdir,
-  readFile,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { copyFile, readdir, readFile, rm, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-
-import { mergeImports } from "../../packages/shell/renderer/build.ts";
+import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const root = join(here, "../..");
 const OUTPUT = join(here, "dist");
-
-function fileUrl(path: string): URL {
-  return path.startsWith("file:") ? new URL(path) : pathToFileURL(path);
-}
 
 // CSS Modules는 local-css, 나머지 CSS는 css, woff2는 file로 읽는다(렌더러의 assetPlugin과 같다). svg는 글로 읽어
 // currentColor가 둘레 글자 색을 따르게 inline으로 그린다.
-function assetPlugin(imports: Record<string, string>): esbuild.Plugin {
+function assetPlugin(): esbuild.Plugin {
   return {
     name: "wireframes-assets",
     setup(build) {
-      build.onResolve({ filter: /\.(css|woff2|svg)$/ }, (args) => {
-        const mapped = imports[args.path];
-        const url = mapped
-          ? new URL(mapped)
-          : args.path.startsWith("file:")
-            ? new URL(args.path)
-            : args.path.startsWith(".") && args.importer
-              ? new URL(args.path, fileUrl(args.importer))
-              : undefined;
-        if (!url || url.protocol !== "file:") return undefined;
-        const path = fileURLToPath(url);
-        const loader: esbuild.Loader = path.endsWith(".svg")
+      build.onLoad({ filter: /\.(css|woff2|svg)$/ }, async (args) => {
+        if (args.namespace !== "file") return undefined;
+        const loader: esbuild.Loader = args.path.endsWith(".svg")
           ? "text"
-          : path.endsWith(".module.css")
+          : args.path.endsWith(".module.css")
             ? "local-css"
-            : path.endsWith(".css")
+            : args.path.endsWith(".css")
               ? "css"
               : "file";
-        return { path, namespace: "wireframes-asset", pluginData: { loader } };
-      });
-      build.onLoad(
-        { filter: /.*/, namespace: "wireframes-asset" },
-        async (args) => ({
+        return {
           contents: await readFile(args.path),
-          loader: args.pluginData.loader,
+          loader,
           resolveDir: dirname(args.path),
-        }),
-      );
+        };
+      });
     },
   };
 }
 
-// workspace package의 exports를 이름으로, 고정 imports를 그대로 map에 더한다.
-async function addPackage(
-  imports: Record<string, string>,
-  directory: string,
-): Promise<void> {
-  const url = pathToFileURL(`${directory}/`);
-  const config = JSON.parse(await readFile(new URL("deno.json", url), "utf8"));
-  if (config.exports !== undefined && config.name !== undefined) {
-    const exports =
-      typeof config.exports === "string"
-        ? { ".": config.exports }
-        : (config.exports as Record<string, string>);
-    const own: Record<string, string> = {};
-    for (const [key, value] of Object.entries(exports)) {
-      const specifier =
-        key === "." ? config.name : `${config.name}/${key.slice(2)}`;
-      own[specifier] = new URL(value, url).href;
-    }
-    mergeImports(imports, own, new URL("deno.json", url));
-  }
-  mergeImports(imports, config.imports ?? {}, new URL("deno.json", url));
-}
-
-async function importMap(): Promise<Record<string, string>> {
-  const imports: Record<string, string> = {};
-  const read = async (path: string) =>
-    JSON.parse(await readFile(path, "utf8")).imports ?? {};
-  // gallery 자기 의존(아이콘 package 등)도 map에 넣는다.
-  for (const path of [join(root, "deno.json"), join(here, "deno.json")]) {
-    mergeImports(imports, await read(path), pathToFileURL(path));
-  }
-  mergeImports(
-    imports,
-    await read(join(root, "packages/shell/renderer/deno.json")),
-    pathToFileURL(join(root, "packages/shell/renderer/deno.json")),
-  );
-  await addPackage(imports, join(root, "packages/design"));
-  await addPackage(imports, join(root, "packages/design/wording"));
-  // 앱 bridge를 쓰는 예제(order-actions)의 package. 선언은 type만 써서 bundle에 들어가지 않는다.
-  await addPackage(imports, join(root, "packages/sdk/app-ui"));
-  return imports;
-}
-
 async function buildGallery(outdir = OUTPUT): Promise<void> {
   await rm(outdir, { recursive: true, force: true });
-  const scratch = await mkdtemp(join(tmpdir(), "wireframes-map-"));
   try {
-    const imports = await importMap();
-    const configPath = join(scratch, "deno.json");
-    await writeFile(configPath, JSON.stringify({ imports }));
     await esbuild.build({
       absWorkingDir: here,
       entryPoints: [{ in: join(here, "main.tsx"), out: "main" }],
@@ -126,14 +48,10 @@ async function buildGallery(outdir = OUTPUT): Promise<void> {
       assetNames: "[name]",
       // 묶은 npm 패키지의 license 주석은 bundle 옆 .LEGAL.txt로 둔다.
       legalComments: "external",
-      plugins: [
-        assetPlugin(imports),
-        ...(denoPlugins({ configPath }) as esbuild.Plugin[]),
-      ],
+      plugins: [assetPlugin()],
     });
     await copyFile(join(here, "index.html"), join(outdir, "index.html"));
   } finally {
-    await rm(scratch, { recursive: true });
     await esbuild.stop();
   }
 }

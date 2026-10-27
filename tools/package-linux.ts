@@ -211,7 +211,7 @@ async function main(): Promise<void> {
       cwd: `${repo}/packages/shell/renderer`,
     });
     await run(
-      `${shellMain}/node_modules/.bin/electron-builder`,
+      `${repo}/node_modules/.bin/electron-builder`,
       ["--linux", "dir"],
       { cwd: shellMain },
     );

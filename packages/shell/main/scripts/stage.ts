@@ -76,7 +76,7 @@ function stageShellMain(): void {
 }
 
 function stageNodePty(): void {
-  const nodePtyPath = path.join(mainRoot, "node_modules", "node-pty-prebuilt");
+  const nodePtyPath = path.join(repoRoot, "node_modules", "node-pty-prebuilt");
   const dst = path.join(out, "bin", "node-pty-prebuilt");
   if (fs.existsSync(nodePtyPath)) {
     copyTree(nodePtyPath, dst, (rel) => {

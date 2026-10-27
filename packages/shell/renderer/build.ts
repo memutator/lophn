@@ -1,63 +1,39 @@
-// deno-loader 대신 asset namespace에서 CSS Modules와 CSS·font를 읽어 esbuild loader를 쓴다.
+// 화면은 <name>/<name>.js(esm)로, artifact kit은 <script>로 불러서 artifact-kit/entry.js(iife)로 나간다.
+// highlight worker만 grammar chunk를 따로 내려고 splitting한다.
+// bare specifier와 package export는 node_modules의 package.json이 푼다.
 import * as esbuild from "esbuild";
-import { denoPlugins } from "@luca/esbuild-deno-loader";
-import {
-  copyFile,
-  mkdir,
-  mkdtemp,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { copyFile, mkdir, readFile, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const screens = ["desktop", "overlay", "secret-input"];
 
-function fileUrl(path: string): URL {
-  return path.startsWith("file:") ? new URL(path) : pathToFileURL(path);
-}
-
-function assetPlugin(imports: Record<string, string>): esbuild.Plugin {
+// CSS Modules는 local-css, 나머지 CSS는 css, woff2는 file로 읽고 svg는 currentColor가 둘레 글자 색을
+// 따르게 inline으로 그린다.
+function assetPlugin(): esbuild.Plugin {
   return {
     name: "renderer-assets",
     setup(build) {
-      build.onResolve({ filter: /\.(css|woff2|svg)$/ }, (args) => {
-        const mapped = imports[args.path];
-        const url = mapped
-          ? new URL(mapped)
-          : args.path.startsWith("file:")
-            ? new URL(args.path)
-            : args.path.startsWith(".") && args.importer
-              ? new URL(args.path, fileUrl(args.importer))
-              : undefined;
-        if (!url || url.protocol !== "file:") return undefined;
-        const path = fileURLToPath(url);
-        const loader: esbuild.Loader = path.endsWith(".svg")
+      build.onLoad({ filter: /\.(css|woff2|svg)$/ }, async (args) => {
+        if (args.namespace !== "file") return undefined;
+        const loader: esbuild.Loader = args.path.endsWith(".svg")
           ? "text"
-          : path.endsWith(".module.css")
+          : args.path.endsWith(".module.css")
             ? "local-css"
-            : path.endsWith(".css")
+            : args.path.endsWith(".css")
               ? "css"
               : "file";
-        return { path, namespace: "renderer-asset", pluginData: { loader } };
-      });
-      build.onLoad(
-        { filter: /.*/, namespace: "renderer-asset" },
-        async (args) => ({
+        return {
           contents: await readFile(args.path),
-          loader: args.pluginData.loader,
+          loader,
           resolveDir: dirname(args.path),
-        }),
-      );
+        };
+      });
     },
   };
 }
 
-// 화면은 <name>/<name>.js(esm)로, artifact kit은 <script>로 불러서 artifact-kit/entry.js(iife)로 나간다.
-// highlight worker만 grammar chunk를 따로 내려고 splitting한다.
 const entries: readonly {
   in: string;
   out: string;
@@ -86,114 +62,36 @@ const entries: readonly {
   },
 ];
 
-// 같은 specifier가 다른 판을 가리키면 React가 두 벌이 될 수 있어 build를 멈춘다.
-function addImport(
-  imports: Record<string, string>,
-  key: string,
-  value: string,
-): void {
-  if (imports[key] !== undefined && imports[key] !== value) {
-    throw new Error(`import map conflict for ${key}`);
-  }
-  imports[key] = value;
-}
-
-export function mergeImports(
-  imports: Record<string, string>,
-  values: Record<string, string>,
-  configUrl: URL,
-): void {
-  for (const [key, value] of Object.entries(values)) {
-    addImport(
-      imports,
-      key,
-      value.startsWith(".") ? new URL(value, configUrl).href : value,
-    );
-  }
-}
-
-// workspace package의 exports를 이름으로, 고정 imports를 그대로 map에 더한다.
-async function addPackage(
-  imports: Record<string, string>,
-  directory: URL,
-): Promise<void> {
-  const config = JSON.parse(
-    await readFile(new URL("deno.json", directory), "utf8"),
-  );
-  const exports =
-    typeof config.exports === "string"
-      ? { ".": config.exports }
-      : (config.exports as Record<string, string>);
-  for (const [key, value] of Object.entries(exports)) {
-    const specifier =
-      key === "." ? config.name : `${config.name}/${key.slice(2)}`;
-    addImport(imports, specifier, new URL(value, directory).href);
-  }
-  mergeImports(imports, config.imports ?? {}, new URL("deno.json", directory));
-}
-
 async function build(outdir = join(here, "dist")): Promise<void> {
-  // 없는 workspace 폴더의 탐색을 피하되 임시 map에서도 로컬 import의 기준 경로를 유지한다.
-  const scratch = await mkdtemp(join(tmpdir(), "shell-renderer-map-"));
-  const configPath = join(scratch, "deno.json");
-  try {
-    const config = JSON.parse(await readFile(join(here, "deno.json"), "utf8"));
-    const rootConfig = JSON.parse(
-      await readFile(join(here, "../../../deno.json"), "utf8"),
-    );
-    const imports: Record<string, string> = {};
-    mergeImports(
-      imports,
-      rootConfig.imports ?? {},
-      pathToFileURL(join(here, "../../../deno.json")),
-    );
-    mergeImports(
-      imports,
-      config.imports ?? {},
-      pathToFileURL(join(here, "deno.json")),
-    );
-    // 공통 UI가 쓰는 React·Radix·Lucide·d3·wording을 같은 map에서 찾는다.
-    const design = new URL("../../design/", pathToFileURL(`${here}/`));
-    await addPackage(imports, design);
-    await addPackage(imports, new URL("wording/", design));
-    // renderer가 import하는 protocol 런타임 code가 `@lophn/base`를 쓴다.
-    await addPackage(imports, new URL("../base/", design));
-    await writeFile(configPath, JSON.stringify({ imports }));
-    // hash 이름이라 다시 묶으면 옛 grammar chunk가 쌓인다. scripts/stage.ts가 dist를 통째로 복사한다.
-    await rm(join(outdir, "desktop", "highlight"), {
-      recursive: true,
-      force: true,
+  // hash 이름이라 다시 묶으면 옛 grammar chunk가 쌓인다. scripts/stage.ts가 dist를 통째로 복사한다.
+  await rm(join(outdir, "desktop", "highlight"), {
+    recursive: true,
+    force: true,
+  });
+  for (const entry of entries) {
+    await esbuild.build({
+      absWorkingDir: here,
+      entryPoints: [{ in: entry.in, out: entry.out }],
+      outdir: join(outdir, entry.dir),
+      bundle: true,
+      format: entry.format,
+      splitting: entry.splitting ?? false,
+      chunkNames: "highlight/[name]-[hash]",
+      jsx: "automatic",
+      assetNames: "[name]",
+      // 묶은 npm 패키지(xterm.css 등)의 license 주석은 bundle 옆 .LEGAL.txt로 둔다.
+      // 창이 읽는 CSS·JS에 바깥 주소가 남지 않는다.
+      legalComments: "external",
+      plugins: [assetPlugin()],
     });
-    for (const entry of entries) {
-      await esbuild.build({
-        absWorkingDir: here,
-        entryPoints: [{ in: entry.in, out: entry.out }],
-        outdir: join(outdir, entry.dir),
-        bundle: true,
-        format: entry.format,
-        splitting: entry.splitting ?? false,
-        chunkNames: "highlight/[name]-[hash]",
-        jsx: "automatic",
-        assetNames: "[name]",
-        // 묶은 npm 패키지(xterm.css 등)의 license 주석은 bundle 옆 .LEGAL.txt로 둔다.
-        // 창이 읽는 CSS·JS에 바깥 주소가 남지 않는다.
-        legalComments: "external",
-        plugins: [
-          assetPlugin(imports),
-          ...(denoPlugins({ configPath }) as esbuild.Plugin[]),
-        ],
-      });
-    }
-    // 첫 창은 lophn-shell://desktop/index.html로 연다. 문구가 없는 정적 html이다.
-    for (const name of screens) {
-      await mkdir(join(outdir, name), { recursive: true });
-      await copyFile(
-        join(here, name, "index.html"),
-        join(outdir, name, "index.html"),
-      );
-    }
-  } finally {
-    await rm(scratch, { recursive: true });
+  }
+  // 첫 창은 lophn-shell://desktop/index.html로 연다. 문구가 없는 정적 html이다.
+  for (const name of screens) {
+    await mkdir(join(outdir, name), { recursive: true });
+    await copyFile(
+      join(here, name, "index.html"),
+      join(outdir, name, "index.html"),
+    );
   }
 }
 

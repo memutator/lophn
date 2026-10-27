@@ -1,11 +1,11 @@
-// 새 worktree가 npm ci 없이 check를 돌게 shell main의 node_modules를 main checkout에서 잇는다.
+// 새 worktree가 npm ci 없이 check를 돌게 root node_modules를 main checkout에서 잇는다.
 // 실행: deno run -A tools/worktree-prep.ts <worktree 경로>
 import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import { lstat, realpath, symlink } from "node:fs/promises";
 import process from "node:process";
 
-const MODULES = "packages/shell/main/node_modules";
+const MODULES = "node_modules";
 
 function fail(message: string): never {
   console.error(message);
@@ -58,9 +58,7 @@ const target = `${worktree}/${MODULES}`;
 if (await exists(target)) process.exit(0);
 const source = `${main}/${MODULES}`;
 if (!(await exists(source))) {
-  fail(
-    "main checkout에서 `npm --prefix packages/shell/main ci`를 먼저 돌린다.",
-  );
+  fail("main checkout에서 `npm install`을 먼저 돌린다.");
 }
 await symlink(source, target);
 console.log(`${target} -> ${source}`);

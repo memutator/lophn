@@ -1,16 +1,4 @@
 {
-  "name": "@lophn/wireframes",
-  "exports": "./main.tsx",
-  "imports": {
-    "react": "npm:react@19.3.0",
-    "react-dom": "npm:react-dom@19.3.0",
-    "react-dom/client": "npm:react-dom@19.3.0/client",
-    "@types/react": "npm:@types/react@19.3.0",
-    "esbuild": "npm:esbuild@0.28.2",
-    "@luca/esbuild-deno-loader": "jsr:@luca/esbuild-deno-loader@0.11.1",
-    "@xterm/xterm": "npm:@xterm/xterm@6.0.0",
-    "lucide-react": "npm:lucide-react@1.51.0"
-  },
   "compilerOptions": {
     "jsx": "react-jsx",
     "jsxImportSource": "react",

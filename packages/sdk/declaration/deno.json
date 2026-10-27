@@ -1,7 +1,1 @@
-{
-  "name": "@lophn/declaration",
-  "version": "1.0.0",
-  "exports": {
-    ".": "./mod.ts"
-  }
-}
+{}

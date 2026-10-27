@@ -1,6 +1,6 @@
 // main과 preload를 각각 CJS 한 파일로 묶는다.
 // sandbox preload는 Node 모듈을 못 읽으므로 electron 말고는 아무것도 묶인 채 남기면 안 된다.
-// 저장소의 .ts 원본이 import한 zod는 npm 쪽 node_modules에서 찾는다.
+// 저장소의 .ts 원본이 import한 zod는 root npm workspace의 node_modules에서 찾는다.
 // package.json의 "type": "module"이 .js를 ESM으로 읽으므로 출력은 .cjs로 낸다.
 import * as esbuild from "esbuild";
 import { dirname, join } from "node:path";
@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const shell = dirname(here);
+const root = join(here, "../../..");
 
 type BuildEntry = { in: string; out: string };
 
@@ -17,9 +18,9 @@ const shared = {
   format: "cjs" as const,
   outExtension: { ".js": ".cjs" },
   external: ["electron", "node-pty"],
-  nodePaths: [join(here, "node_modules")],
+  nodePaths: [join(root, "node_modules")],
   // Deno workspace 이름은 esbuild가 모른다. 저장소 패키지로 묶는다.
-  plugins: [lophnPackages(join(here, "../../.."))],
+  plugins: [lophnPackages(root)],
 };
 
 /** `@lophn/<name>`를 `packages/<name>/mod.ts`로 푼다. 하위 경로는 그 패키지 안의 파일이다. */
@@ -64,10 +65,10 @@ if (fileURLToPath(import.meta.url) === process.argv[1]) {
   const rebuilt = spawnSync(
     process.execPath,
     [
-      join(here, "node_modules/@electron/rebuild/lib/cli.js"),
+      join(root, "node_modules/@electron/rebuild/lib/cli.js"),
       "-f",
       "-m",
-      join(here, "node_modules/node-pty"),
+      join(root, "node_modules/node-pty"),
     ],
     { cwd: here, stdio: "inherit" },
   );

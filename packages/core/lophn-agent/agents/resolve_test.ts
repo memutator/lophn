@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { type AgentRef, ROLES } from "../../../protocol/lophn-agent/mod.ts";
 import { ROLE_TABLE } from "../../agent-roles/agents/role-table.ts";
 import { parseAgentFile } from "./definition-file.ts";
@@ -28,7 +29,7 @@ const PLACES = {
   operator: { kind: "project", id: PROJECT },
 } as const;
 
-Deno.test("정의 파일에 tool을 적어도 role이 고정한 tool 목록은 바뀌지 않는다", async () => {
+test("정의 파일에 tool을 적어도 role이 고정한 tool 목록은 바뀌지 않는다", async () => {
   for (const role of ROLES) {
     const target = {
       role,
@@ -40,7 +41,7 @@ Deno.test("정의 파일에 tool을 적어도 role이 고정한 tool 목록은 �
       target,
       ROLE_TABLE,
     );
-    assert(!written.ok);
+    assert.ok(!written.ok);
 
     // 정의가 있어도 없어도 결과 tools는 role이 고정한 목록이다.
     const definition = role === "operator"
@@ -61,13 +62,13 @@ Deno.test("정의 파일에 tool을 적어도 role이 고정한 tool 목록은 �
       tools: TOOLS,
       roles: ROLE_TABLE,
     });
-    assert(resolved.ok);
-    assertEquals(resolved.value.tools, TOOLS);
+    assert.ok(resolved.ok);
+    assert.deepEqual(resolved.value.tools, TOOLS);
   }
 });
 
 // 다른 domain의 skill이 섞이면 그 domain의 지식·절차가 이 agent의 일에 새어 들어온다.
-Deno.test("Operator가 domain 하나를 고르면 그 domain만 일하고 다른 domain의 skill은 받지 않는다", async () => {
+test("Operator가 domain 하나를 고르면 그 domain만 일하고 다른 domain의 skill은 받지 않는다", async () => {
   const A = "dom_00000000000000000000000001";
   const B = "dom_00000000000000000000000002";
   const skills: AvailableSkill[] = [
@@ -95,21 +96,21 @@ Deno.test("Operator가 domain 하나를 고르면 그 domain만 일하고 다른
       tools: TOOLS,
       roles: ROLE_TABLE,
     });
-    assert(resolved.ok);
+    assert.ok(resolved.ok);
     return resolved.value;
   };
 
   const one = await resolve({ name: "r", body: "x", domains: [B] });
-  assertEquals(one.domains, [B]);
-  assertEquals(one.skills, ["built-in", "global", "in-b"]);
+  assert.deepEqual(one.domains, [B]);
+  assert.deepEqual(one.skills, ["built-in", "global", "in-b"]);
 
   // 고르지 않으면 그릇의 domain 전부다. 보관돼 그릇에서 빠진 domain은 고른 채여도 빠진다.
   const all = await resolve({ name: "r", body: "x" });
-  assertEquals(all.domains, [A, B]);
-  assertEquals(all.skills, ["built-in", "global", "in-a", "in-b"]);
+  assert.deepEqual(all.domains, [A, B]);
+  assert.deepEqual(all.skills, ["built-in", "global", "in-a", "in-b"]);
   const archived = await resolve({ name: "r", body: "x", domains: [A, B] }, [
     B,
   ]);
-  assertEquals(archived.domains, [B]);
-  assertEquals(archived.skills, ["built-in", "global", "in-b"]);
+  assert.deepEqual(archived.domains, [B]);
+  assert.deepEqual(archived.skills, ["built-in", "global", "in-b"]);
 });

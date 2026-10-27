@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
 import type { McpServer } from "../../../protocol/lophn-agent/mod.ts";
 import { createMcpToolkit } from "./mcp-toolkit.ts";
@@ -59,7 +60,7 @@ function toolkit(connected: string[], projectOff: string[] = []) {
   }).toolkit("asg");
 }
 
-Deno.test("Operator 정의 층의 server는 그 Operator의 turn 준비에만 연결된다", async () => {
+test("Operator 정의 층의 server는 그 Operator의 turn 준비에만 연결된다", async () => {
   const own = { servers: [stdioServer("mine")], off: ["shared"] };
 
   const withLayer: string[] = [];
@@ -68,18 +69,18 @@ Deno.test("Operator 정의 층의 server는 그 Operator의 turn 준비에만 �
   await toolkit(without).source("b", { place });
 
   // 정의 층이 있는 호출만 자기 server를 연결하고, 아래 층에서 끈 이름은 합친 목록에서 빠진다.
-  assertEquals(withLayer, ["mine"]);
-  assertEquals(without, ["shared"]);
+  assert.deepEqual(withLayer, ["mine"]);
+  assert.deepEqual(without, ["shared"]);
 });
 
-Deno.test("session 도중 끈 MCP server의 tool은 그 session에서 부르면 거절된다", async () => {
+test("session 도중 끈 MCP server의 tool은 그 session에서 부르면 거절된다", async () => {
   const projectOff: string[] = [];
   const kit = toolkit([], projectOff);
   await kit.source("asg", { place });
   const call = kit.call("asg");
   const invoke = { server: "shared", original: "t", input: {} } as never;
 
-  assertEquals((await call(invoke)).ok, true);
+  assert.equal((await call(invoke)).ok, true);
   projectOff.push("shared");
-  assertEquals((await call(invoke)).ok, false);
+  assert.equal((await call(invoke)).ok, false);
 });

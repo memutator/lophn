@@ -1,4 +1,5 @@
-import { ok, type Result } from "../../../base/mod.ts";
+import { readdir, readFile } from "node:fs/promises";
+import { errorCode, ok, type Result } from "../../../base/mod.ts";
 import type { AgentPlace } from "../../../protocol/lophn-agent/mod.ts";
 import { type McpRuntimeServer, runtimeServerOfLayer } from "./mcp-server.ts";
 import { createFileSettingsReader } from "../../config/mod.ts";
@@ -23,22 +24,24 @@ function globalMcpServers(root: string): Result<McpRuntimeServer[]> {
 }
 
 // core 프로세스의 비동기 file API다. 동기 file API는 core module graph에 두지 않는다.
-const denoProjectSource: ProjectServerSource = {
+const fsProjectSource: ProjectServerSource = {
   async list(dir) {
     try {
       const names: string[] = [];
-      for await (const entry of Deno.readDir(dir)) names.push(entry.name);
+      for (const entry of await readdir(dir, { withFileTypes: true })) {
+        names.push(entry.name);
+      }
       return names;
     } catch (error) {
-      if (error instanceof Deno.errors.NotFound) return null;
+      if (errorCode(error) === "ENOENT") return null;
       throw error;
     }
   },
   async read(path) {
     try {
-      return await Deno.readTextFile(path);
+      return await readFile(path, "utf8");
     } catch (error) {
-      if (error instanceof Deno.errors.NotFound) return null;
+      if (errorCode(error) === "ENOENT") return null;
       throw error;
     }
   },
@@ -77,7 +80,7 @@ export async function registeredMcpServers(
   if (!global.ok) return global;
   const projects = await collectProjectMcpEntries(
     root,
-    deps.projects ?? denoProjectSource,
+    deps.projects ?? fsProjectSource,
     deps.projectLayer,
   );
   return ok([

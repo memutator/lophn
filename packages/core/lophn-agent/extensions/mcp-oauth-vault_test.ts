@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
 import {
   createSecretFileStore,
@@ -13,7 +14,8 @@ const NOW = 1_800_000_000_000;
 // secrets.json 하나를 메모리에 둔다.
 function memoryFs(): SecretFs {
   const files = new Map<string, string>();
-  const missing = () => Promise.reject(new Deno.errors.NotFound("no file"));
+  const missing = () =>
+    Promise.reject(Object.assign(new Error("no file"), { code: "ENOENT" }));
   return {
     readText: (path) =>
       files.has(path) ? Promise.resolve(files.get(path)!) : missing(),
@@ -35,7 +37,7 @@ function memoryFs(): SecretFs {
   };
 }
 
-Deno.test("OAuth token은 각자 알려진 값이 되고 갱신이 거절되면 세 이름이 지워진다", async () => {
+test("OAuth token은 각자 알려진 값이 되고 갱신이 거절되면 세 이름이 지워진다", async () => {
   const file = createSecretFileStore({ root: "/data", fs: memoryFs() });
   const store = openSecretStore({
     file,
@@ -57,7 +59,7 @@ Deno.test("OAuth token은 각자 알려진 값이 되고 갱신이 거절되면 
   };
   const access = "ACCESS-MARKER-7d1c";
   const refresh = "REFRESH-MARKER-2b9e";
-  assertEquals(
+  assert.deepEqual(
     await vault.save(key, {
       access_token: access,
       refresh_token: refresh,
@@ -76,10 +78,10 @@ Deno.test("OAuth token은 각자 알려진 값이 되고 갱신이 거절되면 
   // 두 token은 따로 알려진 값이라 글 속 어느 하나도 통째로 지워진다.
   for (const token of [access, refresh]) {
     const found = store.known.match(`before ${token} after`);
-    assertEquals([found?.index, found?.length], [7, token.length]);
+    assert.deepEqual([found?.index, found?.length], [7, token.length]);
   }
   const names = mcpTokenNames(key);
-  assertEquals(
+  assert.deepEqual(
     store.names(),
     ok([names.access, names.meta, names.refresh]),
   );
@@ -92,8 +94,8 @@ Deno.test("OAuth token은 각자 알려진 값이 되고 갱신이 거절되면 
     deadline: () => Promise.resolve("aborted"),
   });
   const used = await oauth.access(server);
-  assert(!used.ok && used.error.code === "forbidden");
-  assertEquals(store.names(), ok([]));
-  assertEquals(store.known.match(`x ${access} ${refresh}`), undefined);
+  assert.ok(!used.ok && used.error.code === "forbidden");
+  assert.deepEqual(store.names(), ok([]));
+  assert.equal(store.known.match(`x ${access} ${refresh}`), undefined);
   store.stop();
 });

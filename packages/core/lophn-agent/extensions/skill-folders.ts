@@ -1,3 +1,4 @@
+import process from "node:process";
 import type { AgentPlace, Role } from "../../../protocol/lophn-agent/mod.ts";
 import { domainList } from "../../../protocol/domains/mod.ts";
 import { skillFoldersSetting, skillsOffSetting } from "./settings.ts";
@@ -40,7 +41,7 @@ type SkillStores = {
 type SkillStoreDeps = { projectLayer: ProjectLayer; bundledSkillsRoot: string };
 
 function dataRootOfEnv(): string | null {
-  const home = Deno.env.get("LOPHN_HOME");
+  const home = process.env.LOPHN_HOME;
   return home !== undefined && home.startsWith("/")
     ? home.replace(/\/+$/, "")
     : null;
@@ -240,7 +241,7 @@ function under(root: string, path: string): boolean {
 }
 
 function privateRoot(path: string): boolean {
-  const home = Deno.env.get("HOME");
+  const home = process.env.HOME;
   if (home === undefined || home.length === 0) return false;
   const base = lexical(home);
   const target = lexical(path);

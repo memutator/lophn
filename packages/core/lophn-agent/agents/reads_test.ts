@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import type { ModelChoice } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   ReadSnapshot,
@@ -18,7 +19,7 @@ const choice = (model_name: string): ModelChoice => ({
 
 // 정의 읽기의 model 출처는 turn 때 layers.ts가 전역 값을 쓸지 정한다. 출처가 틀리면 project나 agent가
 // 고른 model이 전역 기본으로 바뀐다.
-Deno.test("정의 읽기의 model 출처는 agent, project, global 순서다", () => {
+test("정의 읽기의 model 출처는 agent, project, global 순서다", () => {
   const read = (agentFile: string | null, project: ModelChoice | null) => {
     const lookups: AgentLookups = {
       placeExists: () => true,
@@ -48,23 +49,23 @@ Deno.test("정의 읽기의 model 출처는 agent, project, global 순서다", (
       {} as RequestContext,
       { agent: manager },
     );
-    assert(result.ok);
+    assert.ok(result.ok);
     return result.value.effective.model;
   };
   const own =
     "---\nmodel:\n  provider: pvd_00000000000000000000000000\n  model_name: agent-model\n  option_values: {}\n---\nbody\n";
   const agent = read(own, choice("project-model"));
-  assertEquals([agent?.value.model_name, agent?.source], [
+  assert.deepEqual([agent?.value.model_name, agent?.source], [
     "agent-model",
     "agent",
   ]);
   const project = read(null, choice("project-model"));
-  assertEquals([project?.value.model_name, project?.source], [
+  assert.deepEqual([project?.value.model_name, project?.source], [
     "project-model",
     "project",
   ]);
   const global = read(null, null);
-  assertEquals([global?.value.model_name, global?.source], [
+  assert.deepEqual([global?.value.model_name, global?.source], [
     "global-model",
     "global",
   ]);

@@ -15,7 +15,7 @@
 //   sdk -> platform/packages/sdk
 // /usr/bin/{lophn-desktop,lophn} launcher, 데스크톱 항목, 아이콘.
 import { Buffer } from "node:buffer";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import {
   chmod,
   copyFile,
@@ -263,7 +263,10 @@ async function main(): Promise<void> {
   await chmod(inPkg(pkg, layout.chromeSandbox), SANDBOX_MODE);
   // 앱과 flow는 wave 3까지 Deno로 뜬다. core는 이 binary를 LOPHN_DENO로 받는다.
   await copyFile(
-    process.env.LOPHN_DENO_BINARY ?? Deno.execPath(),
+    process.env.LOPHN_DENO_BINARY ??
+      execFileSync("sh", ["-c", "command -v deno"], {
+        encoding: "utf8",
+      }).trim(),
     inPkg(pkg, layout.deno),
   );
   await chmod(inPkg(pkg, layout.deno), 0o755);

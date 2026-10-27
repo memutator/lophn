@@ -1,7 +1,11 @@
 // TypeScript 선언 값 추출. core·supervisor 밖 권한 없는
 // Deno 자식에서 최대 10초 수행한다. release에는 정규 JSON을 고정한다.
+import { spawn } from "node:child_process";
+import process from "node:process";
+import type { Readable } from "node:stream";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { DECLARATION_EXTRACT_LIMIT_MS } from "../../../protocol/apps/mod.ts";
+import { denoBinary } from "../../supervision/security/node-command.ts";
 
 type ExtractChildFailure = {
   code: "invalid_input" | "unavailable";
@@ -49,10 +53,16 @@ function validateExtracted(
   return ok({ declarationName: validated.value.name });
 }
 
+type ExtractStatus = {
+  success: boolean;
+  code: number | null;
+  signal: NodeJS.Signals | null;
+};
+
 type ExtractChild = {
-  stdout: ReadableStream<Uint8Array>;
-  stderr: ReadableStream<Uint8Array>;
-  status: Promise<{ success: boolean; code: number; signal: string | null }>;
+  stdout: Readable;
+  stderr: Readable;
+  status: Promise<ExtractStatus>;
   kill(signal: "SIGKILL"): void;
 };
 
@@ -65,13 +75,15 @@ export type ExtractSpawner = {
 function denoExtractSpawner(): ExtractSpawner {
   return {
     spawn(source, limitMs) {
-      const child = new Deno.Command(Deno.execPath(), {
-        args: ["run", "--quiet", "--no-prompt", CHILD.pathname, source],
-        stdin: "null",
-        stdout: "piped",
-        stderr: "piped",
-        clearEnv: true,
-      }).spawn();
+      const child = spawn(
+        denoBinary(),
+        ["run", "--quiet", "--no-prompt", CHILD.pathname, source],
+        {
+          // env를 주면 부모 환경을 통째로 대체한다. PATH만 있어야 bare `deno`를 찾는다.
+          env: { ...(process.env.PATH ? { PATH: process.env.PATH } : {}) },
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
       const timer = setTimeout(() => {
         try {
           child.kill("SIGKILL");
@@ -79,9 +91,16 @@ function denoExtractSpawner(): ExtractSpawner {
           // 이미 끝난 프로세스.
         }
       }, limitMs);
-      const status = child.status.then((done) => {
-        clearTimeout(timer);
-        return done;
+      const status = new Promise<ExtractStatus>((resolve) => {
+        // spawn 실패(ENOENT 등)의 'error'를 받지 않으면 process 전체가 죽는다.
+        child.on("error", () => {
+          clearTimeout(timer);
+          resolve({ success: false, code: null, signal: null });
+        });
+        child.on("exit", (code, signal) => {
+          clearTimeout(timer);
+          resolve({ success: code === 0, code, signal });
+        });
       });
       return {
         stdout: child.stdout,
@@ -100,22 +119,10 @@ function denoExtractSpawner(): ExtractSpawner {
   };
 }
 
-async function readStream(stream: ReadableStream<Uint8Array>): Promise<string> {
-  const reader = stream.getReader();
-  const chunks: Uint8Array[] = [];
-  while (true) {
-    const next = await reader.read();
-    if (next.done) break;
-    chunks.push(next.value);
-  }
-  const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-  const bytes = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return new TextDecoder().decode(bytes);
+async function readStream(stream: Readable): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(chunk as Buffer);
+  return Buffer.concat(chunks).toString();
 }
 
 function refusedAccess(stderr: string): boolean {
@@ -133,7 +140,7 @@ export async function extractDeclaration(
   const child = spawner.spawn(source, limitMs);
   let stdout = "";
   let stderr = "";
-  let status: { success: boolean; code: number; signal: string | null };
+  let status: ExtractStatus;
   try {
     [stdout, stderr, status] = await Promise.all([
       readStream(child.stdout),

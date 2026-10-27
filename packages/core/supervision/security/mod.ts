@@ -1,1 +1,2 @@
-export { checkLaunchSpec, launchArgv } from "./launch-spec.ts";
+export { checkLaunchSpec } from "./launch-spec.ts";
+export { denoBinary, nodeCommand } from "./node-command.ts";

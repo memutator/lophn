@@ -6,14 +6,14 @@ import {
 } from "../../../protocol/supervision/mod.ts";
 import { checkLaunchSpec } from "../security/mod.ts";
 import { settledWithin, valueWithin } from "./deadline.ts";
+import type { FrameWriter } from "./frames.ts";
 import { ADAPTER_MS } from "./group.ts";
 import {
   checkKillAdapter,
   type Spawned,
-  spawnProcess,
   type SpawnRequest,
+  spawnProcess,
 } from "./process.ts";
-import type { FrameWriter } from "./frames.ts";
 import { type RunDeps, runOnce } from "./run.ts";
 import {
   type ChildCallbacks,
@@ -21,10 +21,10 @@ import {
   READY_MS,
   RESTART_DELAYS_MS,
   RESTART_LIMIT,
-  safeCall,
-  settle,
   type Slot,
   STOP_MS,
+  safeCall,
+  settle,
   TEARDOWN_MS,
   WRITE_MS,
 } from "./slot.ts";
@@ -38,7 +38,6 @@ export type StartResult =
 
 type SupervisorOptions = {
   clock: Clock;
-  denoCommand: string;
   // 재기동 간격(1·2·4초)에만 쓴다. ready·stop·teardown 기한은 실제 경과 시간으로 잰다.
   sleep?: (ms: number) => Promise<void>;
   spawn?: (request: SpawnRequest) => Spawned;
@@ -99,7 +98,6 @@ export function createSupervisor(options: SupervisorOptions): Supervisor {
   const locks = new Map<string, Promise<void>>();
   const deps: Deps = {
     clock: options.clock,
-    denoCommand: options.denoCommand,
     readyMs: options.readyMs ?? READY_MS,
     stopMs: options.stopMs ?? STOP_MS,
     teardownMs: options.teardownMs ?? TEARDOWN_MS,

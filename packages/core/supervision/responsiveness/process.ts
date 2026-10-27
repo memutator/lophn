@@ -35,16 +35,6 @@ export type SpawnRequest = {
   env: Record<string, string>;
 };
 
-// Deno 2.9.7의 node:child_process는 env를 명시해도 부모의 NODE_V8_COVERAGE를 child에 복사한다
-// (copyProcessEnvToEnv). 그 이름을 own key로 두되 값이 없으면 복사도 전달도 하지 않는다.
-// launch spec이 그 이름을 직접 넘긴 경우만 그대로 간다.
-function narrowEnv(env: Record<string, string>): Record<string, string> {
-  return { NODE_V8_COVERAGE: undefined, ...env } as unknown as Record<
-    string,
-    string
-  >;
-}
-
 // SIGKILL 뒤 leader의 exit status를 기다리는 한도.
 export const LEADER_EXIT_MS = 1_000;
 
@@ -59,7 +49,7 @@ export function spawnProcess(request: SpawnRequest): Spawned {
   const child = spawnNode(request.command, request.args, {
     detached: true,
     shell: false,
-    env: narrowEnv(request.env),
+    env: request.env,
     stdio: ["pipe", "pipe", "pipe"],
   });
   // spawn 실패(ENOENT 등)의 'error'를 받지 않으면 core 전체가 죽는다. 실패는 pid로 판정한다.

@@ -13,8 +13,9 @@ import {
   WORKFLOW_FLOW_FILE,
   workflowFolder,
 } from "../../../protocol/workflows/mod.ts";
-import type { MemoryHandler } from "../../server/mod.ts";
 import { devImportMap } from "../../apps/packages/mod.ts";
+import type { MemoryHandler } from "../../server/mod.ts";
+import { denoBinary } from "../../supervision/security/node-command.ts";
 
 type CheckWorkflowDeps = {
   dataRoot: string;
@@ -68,7 +69,7 @@ function runCheck(
   cwd: string,
 ): Promise<{ code: number; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(Deno.execPath(), [...args], {
+    const child = spawn(denoBinary(), [...args], {
       cwd,
       env: { ...process.env, NO_COLOR: "1" },
       stdio: ["ignore", "ignore", "pipe"],

@@ -1,16 +1,12 @@
-// 앱 전용 data worker 작업 한 번을 별도 Deno 자식(`packages/core/main/worker/data-job.ts`)으로 돌린다.
-// lophn 자신의 코드라 권한을 좁히지 않는다: 좁힌 flag는 막는 것이 없고, Deno의 `node:*`가 권한을 더 요구하면
-// 이 자식만 깨진다. supervisor와 core는 앱 DB를 열지 않는다: 이 자식이 종료 확인 뒤의 DB를 단독으로 연다.
+// 앱 전용 data worker 작업 한 번을 별도 lophn 자식(`packages/core/main/worker/data-job.ts`)으로 돌린다.
+// supervisor와 core는 앱 DB를 열지 않는다: 이 자식이 종료 확인 뒤의 DB를 단독으로 연다.
 import { spawn } from "node:child_process";
 import process from "node:process";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { decodeActivationDataJobInput } from "../../../protocol/apps/mod.ts";
+import { nodeCommand } from "../../supervision/security/node-command.ts";
 
 const JOB = new URL("../worker/data-job.ts", import.meta.url).pathname;
-const REPO = new URL("../../../../", import.meta.url).pathname.replace(
-  /\/$/,
-  "",
-);
 const JOB_LIMIT_MS = 300_000;
 
 export type DataJobRunner = {
@@ -20,8 +16,6 @@ export type DataJobRunner = {
 
 export function createChildDataRunner(options: {
   dataRoot: string;
-  deno: () => string;
-  denoDir: string;
   limitMs?: number;
 }): DataJobRunner {
   return {
@@ -35,26 +29,15 @@ export function createChildDataRunner(options: {
       if (input.app !== app) {
         return err({ code: "invalid_input", message: "data job is invalid" });
       }
-      // Node는 env를 주면 부모 환경을 통째로 대체한다(Deno의 clearEnv와 같다).
-      const child = spawn(
-        options.deno(),
-        [
-          "run",
-          "--quiet",
-          "--no-prompt",
-          `--config=${REPO}/deno.json`,
-          "--allow-all",
-          JOB,
-          options.dataRoot,
-        ],
-        {
-          env: {
-            ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
-            DENO_DIR: options.denoDir,
-          },
-          stdio: ["pipe", "pipe", "ignore"],
+      // env를 주면 부모 환경을 통째로 대체한다.
+      const launch = nodeCommand(JOB, [options.dataRoot]);
+      const child = spawn(launch.command, launch.args, {
+        env: {
+          ...launch.env,
+          ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
         },
-      );
+        stdio: ["pipe", "pipe", "ignore"],
+      });
       const timer = setTimeout(() => {
         try {
           child.kill("SIGKILL");

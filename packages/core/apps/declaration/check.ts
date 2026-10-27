@@ -1,12 +1,14 @@
 // `declaration.check`. 앱 source의 현재 lophn.ts를 release 준비와 같은 방식(권한 좁은 Deno)으로 평가하고
 // 구조 검사와 설명 빈 칸을 본다. release를 만들지 않는다.
+import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { DeclarationCheckOutput } from "../../../protocol/apps/mod.ts";
 import { validateDeclaration } from "../../../protocol/apps/declaration/mod.ts";
+import type { DeclarationCheckOutput } from "../../../protocol/apps/mod.ts";
 import type { MemoryHandler } from "../../server/mod.ts";
+import { denoBinary } from "../../supervision/security/node-command.ts";
 import { devImportMap } from "../packages/mod.ts";
 import { descriptionGaps } from "./describe.ts";
 
@@ -40,6 +42,33 @@ async function importsOf(source: string): Promise<Record<string, string>> {
   }
 }
 
+// 선언 평가 자식은 앱 source의 lophn.ts를 import하므로 lophn 자신의 process가 아니다.
+// 기한이 넘으면 signal이 자식을 끝낸다.
+function evaluate(
+  args: readonly string[],
+  cwd: string,
+): Promise<{ code: number | null; stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(denoBinary(), [...args], {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+      signal: AbortSignal.timeout(LIMIT_MS),
+    });
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
+    child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
+    child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
+    child.on("error", reject);
+    child.on("close", (code) =>
+      resolve({
+        code,
+        stdout: Buffer.concat(stdout).toString(),
+        stderr: Buffer.concat(stderr).toString(),
+      }),
+    );
+  });
+}
+
 export function checkDeclaration(deps: DeclarationCheckDeps): MemoryHandler {
   return async (ctx, raw) => {
     const { app } = raw as { app: string };
@@ -65,10 +94,10 @@ export function checkDeclaration(deps: DeclarationCheckDeps): MemoryHandler {
           ),
         ),
       );
-      let output: Deno.CommandOutput;
+      let output: { code: number | null; stdout: string; stderr: string };
       try {
-        output = await new Deno.Command(Deno.execPath(), {
-          args: [
+        output = await evaluate(
+          [
             "run",
             "--no-prompt",
             "--no-config",
@@ -77,12 +106,8 @@ export function checkDeclaration(deps: DeclarationCheckDeps): MemoryHandler {
             EVAL_DECLARATION,
             declarationPath,
           ],
-          cwd: source.value,
-          stdin: "null",
-          stdout: "piped",
-          stderr: "piped",
-          signal: AbortSignal.timeout(LIMIT_MS),
-        }).output();
+          source.value,
+        );
       } catch {
         return err({
           code: "unavailable",
@@ -91,8 +116,7 @@ export function checkDeclaration(deps: DeclarationCheckDeps): MemoryHandler {
       }
       if (output.code !== 0) {
         const reason =
-          new TextDecoder()
-            .decode(output.stderr)
+          output.stderr
             .trim()
             .split("\n")
             .find((line) => line.trim() !== "") ?? "failed";
@@ -100,7 +124,7 @@ export function checkDeclaration(deps: DeclarationCheckDeps): MemoryHandler {
       }
       let value: unknown;
       try {
-        value = JSON.parse(new TextDecoder().decode(output.stdout));
+        value = JSON.parse(output.stdout);
       } catch {
         return failed("lophn.ts default export is not JSON");
       }

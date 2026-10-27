@@ -86,10 +86,17 @@ export function createFakeHandler(options: { fallback?: Reply } = {}) {
     }
     entries.push(entry);
     const until = AbortSignal.any([request.signal, closing.signal]);
-    // Deno는 정상으로 다 보낸 응답 뒤에도 request.signal을 abort한다. 붙들고 있는 동안
-    // client가 끊은 것만 aborted로 센다. close()로 놓아 준 것도 client 끊김이 아니다.
-    const held: Held = { on: false };
+    // 붙들고 있는 동안 client가 끊은 것만 aborted로 센다. close()로 놓아 준 것도 client 끊김이 아니다.
+    // 정상으로 다 보낸 응답 뒤에도 request.signal은 abort될 수 있다.
     const gone = abort(n);
+    const held: Held = {
+      on: false,
+      // client가 끊기면 serve adapter가 붙들고 있던 응답 stream을 cancel한다. Node에서는 그때
+      // request.signal abort가 오지 않을 수 있어(실측) 끊김을 이 경로로도 센다.
+      cancel() {
+        if (held.on && !closing.signal.aborted) gone.resolve();
+      },
+    };
     request.signal.addEventListener(
       "abort",
       () => {

@@ -1,5 +1,5 @@
 // kinds worker(kind `documents/kinds`)를 core 쪽에서 띄운다. 첫 요청에서 platform 감독으로 띄우고,
-// launch spec이 --allow-all이라 읽을 경로가 늘어도 다시 띄우지 않는다.
+// lophn 자신의 process라 권한 flag가 없어 읽을 경로가 늘어도 다시 띄우지 않는다.
 //
 // 이 모듈은 core의 module graph에 들어간다. node:sqlite와 동기 file API는 쓰지 않는다.
 import type { Result } from "../../../../base/mod.ts";
@@ -15,7 +15,6 @@ import type {
 } from "../../../supervision/responsiveness/mod.ts";
 import { checkLaunchSpec } from "../../../supervision/security/mod.ts";
 
-// `--no-prompt`는 launchArgv가 낸다.
 function kindsWorkerSpec(): KindLaunchSpec | undefined {
   const spec: KindLaunchSpec = {
     kind: KINDS_WORKER_KIND,

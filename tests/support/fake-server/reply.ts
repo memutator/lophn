@@ -8,7 +8,7 @@ const SSE_HEADERS = {
   "cache-control": "no-cache",
 };
 // server가 응답을 붙들고 있는 동안만 true다. 그 사이의 client 끊김만 aborted로 센다.
-export type Held = { on: boolean };
+export type Held = { on: boolean; cancel(): void };
 
 const DEFAULT_USAGE = { input: 10, output: 5 };
 
@@ -123,6 +123,7 @@ function body(
       });
     },
     cancel() {
+      held.cancel();
       release();
     },
   });

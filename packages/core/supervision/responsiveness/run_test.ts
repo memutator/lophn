@@ -4,9 +4,9 @@ import { test } from "node:test";
 import { manualClock } from "../../../base/mod.ts";
 import { encodeFrame } from "../../../protocol/base/mod.ts";
 import type { ParentMessage } from "../../../protocol/supervision/mod.ts";
+import type { Spawned } from "./process.ts";
 import { runOnce } from "./run.ts";
 import { makeSlot, STABLE_MS } from "./slot.ts";
-import type { Spawned } from "./process.ts";
 
 // ready를 한 번 말하고 stop 신호(exit)를 기다리는 가짜 child다.
 function fakeChild() {
@@ -71,7 +71,6 @@ test("ready 뒤 60초를 버틴 child가 끝나야 재기동 횟수가 0으로 �
     const ready = new Promise<boolean>((resolve) => (slot.settle = resolve));
     const running = runOnce(slot, {
       clock,
-      denoCommand: "deno",
       readyMs: 10_000,
       teardownMs: 1_000,
       writeMs: 1_000,

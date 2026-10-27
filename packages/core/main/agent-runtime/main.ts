@@ -1,61 +1,63 @@
 import process from "node:process";
 import { Readable, Writable } from "node:stream";
 import { err, ok, type Result, systemClock } from "../../../base/mod.ts";
-import type { ChildMessage } from "../../../protocol/supervision/mod.ts";
-import { createRpcClient } from "../../../protocol/client/mod.ts";
 import { type ReadRoute, routePath } from "../../../protocol/base/mod.ts";
-import {
-  type ChildSession,
-  startChild,
-} from "../../supervision/responsiveness/mod.ts";
-import { FILE_HOOKS } from "../../agent-roles/hooks.ts";
-import {
-  type CoreRead,
-  createTurnCredentials,
-  startRuntime,
-  type Startup,
-  type TurnCredentials,
-  type TurnSource,
-} from "../../lophn-agent/run-loop/mod.ts";
-import {
-  CATALOG_AUTO_UPDATE_KEY,
-  type CatalogRefresherHandle,
-  startCatalogRefresher,
-} from "../../lophn-agent/models/catalog-refresh.ts";
-import { providerList } from "../../../protocol/lophn-agent/mod.ts";
+import { createRpcClient } from "../../../protocol/client/mod.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
-import { agentCall, machineCall } from "./core-http.ts";
-import { type CoreCall, readOf } from "../../lophn-agent/run-loop/core-call.ts";
-import type { AgentEventSink } from "../../lophn-agent/run-loop/ports.ts";
-import type { BlobPort } from "../../lophn-agent/run-loop/blobs.ts";
-import { createCredentialLink } from "./credential-link.ts";
-import {
-  createRedactLink,
-  type Redactor,
-} from "../../lophn-agent/run-loop/redact-link.ts";
-import { createSecretLink } from "./secret-link.ts";
-import { createTurnSourceLink } from "./turn-source-link.ts";
-import { startIssuerPump } from "./issuer-pump.ts";
-import { startMcpToolsPump } from "./mcp-tools-pump.ts";
-import type { McpKit } from "../../lophn-agent/extensions/mcp-toolkit.ts";
-import type { SecretAttachLike } from "../../lophn-agent/providers/mod.ts";
-import { redact } from "./redact.ts";
+import { providerList } from "../../../protocol/lophn-agent/mod.ts";
+import type { ChildMessage } from "../../../protocol/supervision/mod.ts";
+import { roleOperations } from "../../agent-roles/credentials.ts";
+import { FILE_HOOKS } from "../../agent-roles/hooks.ts";
 import {
   CRASH_LOCATIONS,
   crashDiagnostic,
   installCrashHandler,
 } from "../../diagnostics/crash.ts";
-import { roleOperations } from "../../agent-roles/credentials.ts";
+import type { McpKit } from "../../lophn-agent/extensions/mcp-toolkit.ts";
+import {
+  CATALOG_AUTO_UPDATE_KEY,
+  type CatalogRefresherHandle,
+  startCatalogRefresher,
+} from "../../lophn-agent/models/catalog-refresh.ts";
+import type { SecretAttachLike } from "../../lophn-agent/providers/mod.ts";
+import type { BlobPort } from "../../lophn-agent/run-loop/blobs.ts";
+import { type CoreCall, readOf } from "../../lophn-agent/run-loop/core-call.ts";
+import {
+  type CoreRead,
+  createTurnCredentials,
+  type Startup,
+  startRuntime,
+  type TurnCredentials,
+  type TurnSource,
+} from "../../lophn-agent/run-loop/mod.ts";
+import type { AgentEventSink } from "../../lophn-agent/run-loop/ports.ts";
+import {
+  createRedactLink,
+  type Redactor,
+} from "../../lophn-agent/run-loop/redact-link.ts";
+import {
+  type ChildSession,
+  startChild,
+} from "../../supervision/responsiveness/mod.ts";
 import { agentTools } from "../agent-tools.ts";
+import { agentCall, machineCall } from "./core-http.ts";
+import { createCredentialLink } from "./credential-link.ts";
+import { startIssuerPump } from "./issuer-pump.ts";
+import { startMcpToolsPump } from "./mcp-tools-pump.ts";
+import { redact } from "./redact.ts";
+import { createSecretLink } from "./secret-link.ts";
+import { createTurnSourceLink } from "./turn-source-link.ts";
+
 export { redact };
-import type { Compactor } from "../../lophn-agent/session/compactor.ts";
-import { productDriver, startTurnPump } from "./product-driver.ts";
+
 import { createProviderWatch } from "../../lophn-agent/providers/watch.ts";
 import {
   createTurnDriver,
   type TurnDriver,
 } from "../../lophn-agent/run-loop/driver.ts";
 import type { TurnPreparer } from "../../lophn-agent/run-loop/prepare.ts";
+import type { Compactor } from "../../lophn-agent/session/compactor.ts";
+import { productDriver, startTurnPump } from "./product-driver.ts";
 
 // core가 감독하는 agent runtime. ledger writer는 core만 소유하고 이 프로세스는 read만 한다.
 export type CoreCalls = {
@@ -275,7 +277,7 @@ async function startAgentRuntime(input: {
   const source: TurnSource = turnLink.source;
   let pumping: Promise<void> = Promise.resolve();
   // OAuth 발급자 호출(MCP, 구독 provider)은 core에 외부 fetch가 없어서 이 프로세스가 대신 보낸다.
-  // 제품 기동만 돌린다. 이 프로세스는 --allow-all이라 Deno가 목적지를 막지 않는다.
+  // 제품 기동만 돌린다. 이 프로세스는 lophn 자신의 것이라 나가는 곳이 막히지 않는다.
   const authPumping =
     input.pump === true
       ? startIssuerPump({

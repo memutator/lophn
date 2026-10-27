@@ -2,8 +2,7 @@ import { spawn as spawnNode } from "node:child_process";
 import process from "node:process";
 import { armTimer, pause } from "./deadline.ts";
 
-// 설치 환경의 고정 OS adapter 진입점. Deno 2.9.7의 Deno.kill(-pid, ...)은 unscoped --allow-run을
-// 요구해 scoped --allow-run으로는 NotCapable이었다(실측). fallback은 없다.
+// 설치 환경의 고정 OS adapter 진입점. core는 Linux에서만 group 강제 종료를 보장한다.
 const KILL_UTILITY = "/usr/bin/kill";
 // procps-ng kill이 env:{}(C locale)에서 ESRCH를 알리는 문구. exit code는 ESRCH·EPERM 모두 1이라
 // 이 문구가 있을 때만 "group이 없다"로 센다. EPERM 등은 확인 불가다.
@@ -31,11 +30,8 @@ function runKillUtility(args: string[]): Promise<AdapterResult> {
     try {
       utility = spawnNode(KILL_UTILITY, args, {
         shell: false,
-        // 부모의 NODE_V8_COVERAGE도 넘기지 않는다(process.ts의 narrowEnv와 같은 이유).
-        env: { NODE_V8_COVERAGE: undefined } as unknown as Record<
-          string,
-          string
-        >,
+        // C locale의 문구로 ESRCH를 알아보므로 빈 환경으로 띄운다.
+        env: {},
         stdio: ["ignore", "ignore", "pipe"],
       });
     } catch {

@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import process from "node:process";
 import { pipeline } from "node:stream/promises";
 import {
@@ -18,6 +19,8 @@ const GONE_TIMEOUT_MS = 15_000;
 const POLL_MS = 50;
 
 const REPO = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
+// core는 설치본에서 Electron의 Node로 돈다. test도 같은 binary로 띄워야 판이 갈리지 않는다.
+const ELECTRON = createRequire(import.meta.url)("electron") as string;
 
 export type Spawned = {
   ok: true;
@@ -67,25 +70,23 @@ export async function spawnCore(
   for (const name of FIXED_ENV) {
     if (name in env) throw new Error(`core env ${name}는 덮을 수 없다`);
   }
-  // Deno.execPath()는 자기를 다시 띄우는 자리라 node-flip 계획이 바꾼다.
+  // core 자신이 lophn의 `.ts` entry라 지금 test를 도는 Electron Node로 띄운다.
   const child = spawn(
-    Deno.execPath(),
-    [
-      "run",
-      "--allow-all",
-      `${repo}/packages/core/main/daemon/main.ts`,
-      "--port=0",
-    ],
+    ELECTRON,
+    [`${repo}/packages/core/main/daemon/main.ts`, "--port=0"],
     {
       cwd: repo,
-      // Deno의 clearEnv처럼 부모 env를 물려주지 않는다. Deno의 node:child_process는 env를 줘도
-      // 부모의 NODE_V8_COVERAGE를 자식에 복사해서(실측) 그 이름을 막아 둔다.
+      // env를 주면 부모 환경을 통째로 대체한다.
       env: {
-        NODE_V8_COVERAGE: undefined,
+        ELECTRON_RUN_AS_NODE: "1",
         LOPHN_HOME: home,
         HOME: userHome,
         PATH: process.env["PATH"] ?? "",
         DENO_DIR: denoDir(),
+        // core가 앱과 flow에 쓸 deno. 없으면 core가 PATH에서 찾는다.
+        ...(process.env["LOPHN_DENO"]
+          ? { LOPHN_DENO: process.env["LOPHN_DENO"]! }
+          : {}),
         ...env,
       },
       stdio: ["pipe", "pipe", "pipe"],
@@ -99,7 +100,6 @@ export async function spawnCore(
   const log = createWriteStream(logPath, { flags: "a", mode: 0o600 });
   const logged = pipeline(child.stderr!, log).catch(() => {});
   const stdin = toWriter(child.stdin!);
-  // Deno 2.9.7의 node:child_process stdout은 paused mode에서 'readable'이 프로세스가 끝나야 온다.
   // fromReadable은 'data'로 받아 core가 살아 있는 동안에도 hello frame을 읽는다.
   const stdout = fromReadable(child.stdout!);
   const decoder = new FrameDecoder();

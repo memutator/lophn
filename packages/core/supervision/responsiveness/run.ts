@@ -1,9 +1,10 @@
 import type { Clock } from "../../../base/mod.ts";
+import type { Frame } from "../../../protocol/base/mod.ts";
 import {
   type ChildMessage,
   childMessageSchema,
 } from "../../../protocol/supervision/mod.ts";
-import { launchArgv } from "../security/mod.ts";
+import { nodeCommand } from "../security/node-command.ts";
 import {
   armTimer,
   type Deadline,
@@ -17,13 +18,12 @@ import {
   type Attempt,
   DRAIN_MS,
   isLive,
-  safeCall,
-  settle,
   type Slot,
   STABLE_MS,
   STDERR_LINE_MAX,
+  safeCall,
+  settle,
 } from "./slot.ts";
-import type { Frame } from "../../../protocol/base/mod.ts";
 
 type Outcome = "failed" | "ready-ended" | "stopped";
 
@@ -33,7 +33,6 @@ type Frames = AsyncGenerator<Frame, "eof" | "closed">;
 export type RunDeps = {
   // ready 뒤 버틴 시간(STABLE_MS)만 이 시계로 잰다.
   clock: Clock;
-  denoCommand: string;
   readyMs: number;
   teardownMs: number;
   writeMs: number;
@@ -52,10 +51,11 @@ const FAILURE_REASONS = {
 export async function runOnce(slot: Slot, deps: RunDeps): Promise<Outcome> {
   let process: Spawned;
   try {
+    const launch = nodeCommand(slot.spec.entry);
     process = deps.spawn({
-      command: deps.denoCommand,
-      args: launchArgv(slot.spec),
-      env: deps.env?.(slot.spec.kind) ?? {},
+      command: launch.command,
+      args: launch.args,
+      env: { ...(deps.env?.(slot.spec.kind) ?? {}), ...launch.env },
     });
   } catch {
     slot.reason = "spawn failed";

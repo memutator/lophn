@@ -31,15 +31,3 @@ export function checkLaunchSpec(
   if (CONTROL.test(spec.entry)) return reject("control character in entry");
   return ok(spec);
 }
-
-// credential·token은 이 argv에 절대 넣지 않는다. hello frame이 한 번 전달한다.
-export function launchArgv(spec: KindLaunchSpec): string[] {
-  return [
-    "run",
-    "--cached-only",
-    "--frozen",
-    "--no-prompt",
-    "--allow-all",
-    spec.entry,
-  ];
-}

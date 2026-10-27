@@ -1,5 +1,6 @@
 import { dirname } from "node:path";
 import process from "node:process";
+import { denoBinary } from "../../../supervision/security/node-command.ts";
 
 // shell 자식 process에 넘기는 환경 변수의 허용 목록이다. lophn token과 secret은 이 목록에 없다.
 // 이름이 목록에 든 것만 나가므로 `LOPHN_`로 시작하는 이름이나 *_TOKEN, *_KEY 같은 이름은 나갈 수 없다.
@@ -15,6 +16,7 @@ export const SHELL_ENV_NAMES = [
 ] as const;
 
 // PATH 맨 앞에 lophn이 쓰는 deno의 폴더를 붙인다. 앱을 짓는 agent가 shell에서 앱과 같은 deno를 부른다.
+// deno가 PATH에서 찾는 이름이면 PATH에 이미 있으므로 그대로 둔다.
 export function shellEnvironment(
   parentEnv: Readonly<Record<string, string | undefined>>,
   deno: string,
@@ -24,6 +26,7 @@ export function shellEnvironment(
     const value = parentEnv[name];
     if (value !== undefined) env[name] = value;
   }
+  if (!deno.includes("/")) return env;
   const parentPath = env.PATH;
   env.PATH =
     parentPath === undefined || parentPath === ""
@@ -36,5 +39,5 @@ export function shellEnvironment(
 export function readShellEnvironment(): Record<string, string> {
   const parent: Record<string, string | undefined> = {};
   for (const name of SHELL_ENV_NAMES) parent[name] = process.env[name];
-  return shellEnvironment(parent, process.execPath);
+  return shellEnvironment(parent, denoBinary());
 }

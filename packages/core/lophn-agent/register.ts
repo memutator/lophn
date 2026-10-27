@@ -1,53 +1,55 @@
 import { z } from "zod";
 import { err, type IdSource, ok, type Result } from "../../base/mod.ts";
 import { declareSetting } from "../../protocol/config/mod.ts";
-import { createFileSettingsReader } from "../config/mod.ts";
-import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
-import { type ReadDefinition, type Tx } from "../../protocol/server/mod.ts";
 import {
-  defineTxPort,
-  type ReaderRegistration,
-  turnAdmission,
-} from "../storage/ledger/mod.ts";
+  askAnswer,
+  askRead,
+  askWait,
+} from "../../protocol/lophn-agent/ask-tool.ts";
 import {
+  type AgentRef,
   finishRewindSummary,
   instructionPreview,
   instructionsGet,
+  issuerRequestDone,
+  issuerRequestTake,
+  type McpServer,
+  mcpAuthBegin,
+  mcpAuthCancel,
+  mcpAuthComplete,
+  mcpAuthState,
+  mcpToolsList,
+  mcpToolsRequestDone,
+  mcpToolsRequestTake,
+  messageImagePath,
+  messageImageRead,
+  messageImageUpload,
+  type Place,
+  profileImageRead,
+  profileImageUpload,
+  QUEUED_INPUT_ROUTES,
+  type Role,
   readRewindSummary,
   recordRewindWrite,
   requestRewindSummary,
   stageRewindFile,
   takeRewindSummaryRequest,
 } from "../../protocol/lophn-agent/mod.ts";
+import { type ReadDefinition, type Tx } from "../../protocol/server/mod.ts";
+import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
+import { createFileSettingsReader } from "../config/mod.ts";
 import {
-  askAnswer,
-  askRead,
-  askWait,
-} from "../../protocol/lophn-agent/ask-tool.ts";
+  callSignals,
+  failReceivedCalls,
+  messageDirectory,
+  messageRouter,
+} from "../router/mod.ts";
 import { eraseBlobRefs } from "../storage/blobs/mod.ts";
 import {
-  checkEntryOf,
-  createModelCommands,
-  createModelReads,
-  type ModelCommandDeps,
-  modelSchemaSteps,
-} from "./models/mod.ts";
-import { GLOBAL_SCOPE, loadChoice } from "./models/store.ts";
-import { CATALOG_AUTO_UPDATE_KEY } from "./models/catalog-refresh.ts";
-import {
-  createProviderCommands,
-  createProviderDefinitionsRead,
-  createProviderReads,
-  providerSchemaSteps,
-} from "./providers/mod.ts";
-import {
-  createUsageCommands,
-  createUsageReads,
-  deleteSessionModelCalls,
-  modelCallBodyFields,
-  usageSchemaSteps,
-} from "./usage/mod.ts";
-import { COMMIT_END_DEPS, openDepsOf, UNWIRED_END_DEPS } from "./places/mod.ts";
+  defineTxPort,
+  type ReaderRegistration,
+  turnAdmission,
+} from "../storage/ledger/mod.ts";
 import {
   type AgentDeps,
   type AgentFileSystem,
@@ -61,19 +63,58 @@ import {
   type PlaceLookups,
   type ProfileAssetDeps,
   type ProfileFileHandler,
-  profileImageFileHandler,
   type ProfileImageFiles,
-  profileImageUploadHandler,
   type ProfileReaders,
   type ProfileUploadHandler,
+  profileImageFileHandler,
+  profileImageUploadHandler,
 } from "./agents/mod.ts";
+import type { AgentRoleTable } from "./agents/role-table.ts";
+import { createCommandReads } from "./commands/mod.ts";
+import type { OperatorMcpEntry } from "./extensions/mcp-snapshot.ts";
+import {
+  commandSkillsOf,
+  createExtensionRegistry,
+  createProjectExtensionCommands,
+  createProjectExtensionReads,
+  createSkillsRead,
+  dataRootOf,
+  discoverSkills,
+  type ExtensionRegistry,
+  extensionSettings,
+  globalMcpServersSetting,
+  type PlaceFiles,
+  type ProjectLayer,
+  runtimeServerOfLayer,
+  type SkillFiles,
+  type SkillSources,
+  skillFoldersSetting,
+  skillsOffSetting,
+} from "./extensions/mod.ts";
 import {
   type MessageImageDeps,
-  messageImageFileHandler,
   type MessageImageFiles,
+  messageImageFileHandler,
   messageImagePathHandler,
   messageImageUploadHandler,
 } from "./message-images.ts";
+import { CATALOG_AUTO_UPDATE_KEY } from "./models/catalog-refresh.ts";
+import {
+  checkEntryOf,
+  createModelCommands,
+  createModelReads,
+  type ModelCommandDeps,
+  modelSchemaSteps,
+} from "./models/mod.ts";
+import { GLOBAL_SCOPE, loadChoice } from "./models/store.ts";
+import { createTraceReads } from "./observability/mod.ts";
+import { COMMIT_END_DEPS, openDepsOf, UNWIRED_END_DEPS } from "./places/mod.ts";
+import {
+  createProviderCommands,
+  createProviderDefinitionsRead,
+  createProviderReads,
+  providerSchemaSteps,
+} from "./providers/mod.ts";
 import {
   createTurnCommands,
   createTurnReads,
@@ -88,13 +129,6 @@ import {
   turnSchemaSteps,
 } from "./run-loop/mod.ts";
 import {
-  callSignals,
-  failReceivedCalls,
-  messageDirectory,
-  messageRouter,
-} from "../router/mod.ts";
-import { createCommandReads } from "./commands/mod.ts";
-import {
   conversationSchemaSteps,
   createConversationCommands,
   createConversationReads,
@@ -105,73 +139,36 @@ import {
   sessionSummaryRead,
   takeSteering,
 } from "./session/mod.ts";
-import { createTraceReads } from "./observability/mod.ts";
 import {
   createRewindEffects,
   createSessionRewindCommands,
   createSessionRewindReads,
   revertSchemaSteps,
 } from "./session/rewind/mod.ts";
+import { createFileTools } from "./tools/bundles/file.ts";
+import { SHELL_TOOLS } from "./tools/bundles/shell.ts";
+import { WEB_TOOLS } from "./tools/bundles/web.ts";
 import {
   createToolCommands,
   createToolReads,
   deleteSessionToolCalls,
+  type ToolDefinition,
   toolCallBodyFields,
   toolCallListRead,
-  type ToolDefinition,
   toolsSchemaSteps,
 } from "./tools/mod.ts";
-import { createFileTools } from "./tools/bundles/file.ts";
-import { SHELL_TOOLS } from "./tools/bundles/shell.ts";
-import { WEB_TOOLS } from "./tools/bundles/web.ts";
 import type { FileHooks } from "./tools/ports.ts";
 import {
-  type AgentRef,
-  issuerRequestDone,
-  issuerRequestTake,
-  mcpAuthBegin,
-  mcpAuthCancel,
-  mcpAuthComplete,
-  mcpAuthState,
-  type McpServer,
-  mcpToolsList,
-  mcpToolsRequestDone,
-  mcpToolsRequestTake,
-  messageImagePath,
-  messageImageRead,
-  messageImageUpload,
-  type Place,
-  profileImageRead,
-  profileImageUpload,
-  QUEUED_INPUT_ROUTES,
-  type Role,
-} from "../../protocol/lophn-agent/mod.ts";
-import {
-  commandSkillsOf,
-  createExtensionRegistry,
-  createProjectExtensionCommands,
-  createProjectExtensionReads,
-  createSkillsRead,
-  dataRootOf,
-  discoverSkills,
-  type ExtensionRegistry,
-  type PlaceFiles,
-  type ProjectLayer,
-  runtimeServerOfLayer,
-  type SkillFiles,
-  type SkillSources,
-} from "./extensions/mod.ts";
-import type { AgentRoleTable } from "./agents/role-table.ts";
-import type { OperatorMcpEntry } from "./extensions/mcp-snapshot.ts";
-import {
-  extensionSettings,
-  globalMcpServersSetting,
-  skillFoldersSetting,
-  skillsOffSetting,
-} from "./extensions/mod.ts";
+  createUsageCommands,
+  createUsageReads,
+  deleteSessionModelCalls,
+  modelCallBodyFields,
+  usageSchemaSteps,
+} from "./usage/mod.ts";
 
-// agent runtime 등록 뼈대. child는 --allow-all로 돈다. Deno 권한은 경계가 아니다(shell.run이 사용자 uid로
-// /bin/sh를 띄워 우회된다). file tool이 닿는 폴더는 `placeScope`와 `resolveInPlace`가 지킨다.
+// agent runtime 등록 뼈대. child는 lophn 자신의 process라 권한 flag 없이 돈다. 권한은 경계가 아니다
+// (shell.run이 사용자 uid로 /bin/sh를 띄워 우회된다). file tool이 닿는 폴더는 `placeScope`와
+// `resolveInPlace`가 지킨다.
 export function agentRuntimeLaunchSpec(): KindLaunchSpec {
   return {
     kind: "lophn-agent/runtime",

@@ -12,7 +12,6 @@ export const supervisionWiring: WiringFactory = () => ({
       "io",
       createSupervisor({
         clock: ctx.clock,
-        denoCommand: Deno.execPath(),
         env: (kind) => ({
           LOPHN_WORKER_KIND: kind,
           LOPHN_HOME: ctx.root.path,
@@ -22,6 +21,10 @@ export const supervisionWiring: WiringFactory = () => ({
           ...(process.env["DENO_DIR"]
             ? { DENO_DIR: process.env["DENO_DIR"]! }
             : {}),
+          // agent runtime의 shell과 앱·release child가 Deno를 부를 때 같은 binary를 쓰게 한다.
+          ...(process.env["LOPHN_DENO"]
+            ? { LOPHN_DENO: process.env["LOPHN_DENO"]! }
+            : {}),
         }),
       }),
     );
@@ -30,7 +33,6 @@ export const supervisionWiring: WiringFactory = () => ({
       "appsSupervision",
       createSupervisor({
         clock: ctx.clock,
-        denoCommand: Deno.execPath(),
         env: () => ({
           LOPHN_WORKER_KIND: APPS_SUPERVISOR_KIND,
           LOPHN_HOME: ctx.root.path,
@@ -47,6 +49,10 @@ export const supervisionWiring: WiringFactory = () => ({
             ? { XDG_RUNTIME_DIR: process.env["XDG_RUNTIME_DIR"]! }
             : {}),
           ...(process.env["TMPDIR"] ? { TMPDIR: process.env["TMPDIR"]! } : {}),
+          // supervisor가 앱과 release job을 Deno로 띄울 때 쓴다.
+          ...(process.env["LOPHN_DENO"]
+            ? { LOPHN_DENO: process.env["LOPHN_DENO"]! }
+            : {}),
         }),
       }),
     );

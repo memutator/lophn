@@ -16,6 +16,7 @@ import {
 import process from "node:process";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { appStagingFolder } from "../../../../protocol/apps/mod.ts";
+import { denoBinary } from "../../../supervision/security/node-command.ts";
 import { devImportMap } from "../../packages/mod.ts";
 import { lockAppImports, readSdkCopies } from "../bundle/lock.ts";
 import { runtimeEntry } from "../bundle/runtime-entry.ts";
@@ -23,16 +24,16 @@ import { readVendorFiles } from "../bundle/vendor.ts";
 import { buildEnvironment, denoDirOf } from "../ui-build/binaries.ts";
 import { FIXED_UI_DEPENDENCIES } from "../ui-build/build.ts";
 import {
-  extractCommit,
-  gitCommandRunner,
-  type GitRunner,
-} from "./git-extract.ts";
-import {
   type PrepareDeps,
   type PreparedRelease,
   type PrepareFailure,
   prepareRelease,
 } from "./flow.ts";
+import {
+  extractCommit,
+  type GitRunner,
+  gitCommandRunner,
+} from "./git-extract.ts";
 
 type SourcePrepareInput = {
   dataRoot: string;
@@ -42,7 +43,7 @@ type SourcePrepareInput = {
 };
 
 type SourcePrepareDeps = PrepareDeps & {
-  // Deno 실행 파일. 기본은 지금 실행 중인 Deno다.
+  // Deno 실행 파일. 기본은 LOPHN_DENO, 없으면 PATH의 deno다.
   deno?: string;
   // 취소 신호. 실행 중인 자식은 SIGKILL하고 부분 결과를 확정하지 않는다.
   signal?: AbortSignal;
@@ -246,7 +247,7 @@ export async function prepareFromSource(
   deps: SourcePrepareDeps = {},
 ): Promise<Result<PreparedRelease, PrepareFailure>> {
   const git: GitRunner = deps.git ?? gitCommandRunner();
-  const deno = deps.deno ?? Deno.execPath();
+  const deno = deps.deno ?? denoBinary();
   const limitMs = deps.stepLimitMs ?? STEP_LIMIT_MS;
   const sdkRoot = `${input.dataRoot}/sdk`;
   const denoDir = denoDirOf();

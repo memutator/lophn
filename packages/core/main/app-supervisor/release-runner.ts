@@ -1,11 +1,14 @@
-// release 준비 한 번을 별도 Deno 자식(`packages/core/main/worker/release-job.ts`)으로 돌린다. 자식은
-// lophn의 준비 code만 도는 process라 Deno 권한을 좁히지 않고 `--allow-all`로 띄운다.
+// release 준비 한 번을 별도 lophn 자식(`packages/core/main/worker/release-job.ts`)으로 돌린다.
 // 자식은 build 뒤에 의존성과 migration 검사도 돈다(앱이 쓴 migration SQL은 core에서 돌리지 않는다).
 // 취소·종료는 자식을 SIGKILL하고 끝난 것을 확인한 뒤에야 돌려준다. 끊긴 준비가 남긴 staging은 지운다.
 import { type ChildProcess, spawn } from "node:child_process";
 import { rm } from "node:fs/promises";
 import process from "node:process";
 import { err, ok, type Result } from "../../../base/mod.ts";
+import {
+  appFolder,
+  RELEASE_PREPARATION_LIMIT_MS,
+} from "../../../protocol/apps/mod.ts";
 import type {
   PreparationFailure,
   PreparationJob,
@@ -17,54 +20,41 @@ import {
   cacheBuildTools,
 } from "../../apps/releases/ui-build/binaries.ts";
 import {
-  appFolder,
-  RELEASE_PREPARATION_LIMIT_MS,
-} from "../../../protocol/apps/mod.ts";
+  denoBinary,
+  nodeCommand,
+} from "../../supervision/security/node-command.ts";
 
 const JOB = new URL("../worker/release-job.ts", import.meta.url).pathname;
-const REPO = new URL("../../../../", import.meta.url).pathname.replace(
-  /\/$/,
-  "",
-);
 
 export function createChildPreparationRunner(options: {
   dataRoot: string;
-  deno: () => string;
   limitMs?: number;
 }): PreparationRunner {
   return {
     async run(job: PreparationJob, signal: AbortSignal) {
       const appRoot = appFolder(options.dataRoot, job.app);
-      const deno = options.deno();
+      const deno = denoBinary();
       // 빈 deno-dir(새 기계)에서 build 도구를 받는 시간이 자식의 준비 상한에 들지 않게 자식 밖에서 미리 받는다.
       const env = buildEnvironment(process.env.TMPDIR ?? "/tmp");
       if (!(await cacheBuildTools(deno, env, signal))) {
         return err({ stage: "build", reason: "build tools are unavailable" });
       }
       // 자식은 lophn의 준비 code만 돌고 앱 source는 실행되지 않는다. 환경은 필요한 이름 몇 개만 넘긴다.
-      // Node는 env를 주면 부모 환경을 통째로 대체한다(Deno의 clearEnv와 같다).
-      const child = spawn(
-        deno,
-        [
-          "run",
-          "--quiet",
-          "--no-prompt",
-          `--config=${REPO}/deno.json`,
-          "--allow-all",
-          JOB,
-          JSON.stringify({
-            dataRoot: options.dataRoot,
-            app: job.app,
-            sourceRoot: job.source_path,
-            commit: job.commit,
-            previousSchema: job.previous_schema,
-          }),
-        ],
-        {
-          env,
-          stdio: ["ignore", "pipe", "ignore"],
-        },
-      );
+      // env를 주면 부모 환경을 통째로 대체한다.
+      const launch = nodeCommand(JOB, [
+        JSON.stringify({
+          dataRoot: options.dataRoot,
+          app: job.app,
+          sourceRoot: job.source_path,
+          commit: job.commit,
+          previousSchema: job.previous_schema,
+        }),
+      ]);
+      const child = spawn(launch.command, launch.args, {
+        // 자식은 준비 안에서 선언 eval·앱 build·의존 받기를 Deno로 띄운다.
+        env: { ...env, LOPHN_DENO: deno, ...launch.env },
+        stdio: ["ignore", "pipe", "ignore"],
+      });
       let stopped = false;
       const stop = () => {
         stopped = true;

@@ -1,6 +1,7 @@
 import process from "node:process";
 import { ok } from "../../../../base/mod.ts";
 import { appEnv } from "../../../apps/runtime/processes/mod.ts";
+import { denoBinary } from "../../../supervision/security/node-command.ts";
 import { createFlowHost } from "../../flow-host/host.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
@@ -16,7 +17,7 @@ export const flowsWiring: WiringFactory = () => {
       const redactor = createProductRedactor(ctx.knownSecrets);
       host = createFlowHost({
         dataRoot: ctx.root.path,
-        deno: Deno.execPath(),
+        deno: denoBinary(),
         env: appEnv({
           home: process.env.HOME,
           denoDir: process.env.DENO_DIR,

@@ -17,10 +17,9 @@ export type SpawnedPipe = {
   readonly bufferedBytes: number;
 };
 
-// Deno 2.9.7의 node:child_process stdio는 paused mode('readable' + read())로 두면 데이터가
-// 와도 'readable'이 leader가 끝날 때에야 온다(실측). 그래서 flowing mode('data')로 받되,
-// 쌓인 양이 멈춤 선을 넘으면 stream.pause()로 실제 backpressure를 걸고(실측: 멈춘 뒤 data 0),
-// 그래도 상한을 넘으면 PipeFault로 끊는다. 'exit'가 data보다 먼저 올 수 있어 exit 때 끊지 않는다.
+// stdio를 flowing mode('data')로 받아 쌓고, 쌓인 양이 멈춤 선을 넘으면 stream.pause()로 실제
+// backpressure를 건다. 그래도 상한을 넘으면 PipeFault로 끊는다. 'exit'가 data보다 먼저 올 수 있어
+// exit 때 끊지 않는다.
 export function fromReadable(stream: Readable): SpawnedPipe {
   const chunks: Uint8Array[] = [];
   let offset = 0;

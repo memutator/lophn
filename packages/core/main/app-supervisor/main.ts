@@ -6,28 +6,29 @@ import process from "node:process";
 import { Writable } from "node:stream";
 import { createIdSource, systemClock } from "../../../base/mod.ts";
 import { encodeFrame } from "../../../protocol/base/mod.ts";
+import { createPreparationService } from "../../apps/releases/preparation.ts";
+import { procRssReader } from "../../apps/runtime/observations/memory.ts";
+import {
+  createSocketDirectory,
+  SOCKET_SLOTS,
+  slotSockets,
+} from "../../apps/runtime/processes/mod.ts";
+import { attachControlLink } from "../../apps/runtime/supervisor/mod.ts";
 import {
   CRASH_LOCATIONS,
   crashDiagnostic,
   installCrashHandler,
 } from "../../diagnostics/mod.ts";
 import {
-  createSocketDirectory,
-  slotSockets,
-  SOCKET_SLOTS,
-} from "../../apps/runtime/processes/mod.ts";
-import { procRssReader } from "../../apps/runtime/observations/memory.ts";
-import { attachControlLink } from "../../apps/runtime/supervisor/mod.ts";
-import { assembleSupervisor } from "./assembly.ts";
-import { spawnApp } from "./spawn.ts";
-import { createPreparationService } from "../../apps/releases/preparation.ts";
-import { createChildPreparationRunner } from "./release-runner.ts";
-import { createChildDataRunner } from "./data-runner.ts";
-import { unixControlTransport } from "./control-http.ts";
-import {
   fromReadable,
   toWriter,
 } from "../../supervision/responsiveness/pipe.ts";
+import { denoBinary } from "../../supervision/security/node-command.ts";
+import { assembleSupervisor } from "./assembly.ts";
+import { unixControlTransport } from "./control-http.ts";
+import { createChildDataRunner } from "./data-runner.ts";
+import { createChildPreparationRunner } from "./release-runner.ts";
+import { spawnApp } from "./spawn.ts";
 
 // 'data'로 받아 core가 살아 있는 동안 frame이 온다(pipe.ts의 paused mode 우회).
 const stdin = fromReadable(process.stdin);
@@ -118,7 +119,6 @@ const preparation =
     : createPreparationService(
         createChildPreparationRunner({
           dataRoot,
-          deno: () => process.env.LOPHN_DENO ?? Deno.execPath(),
         }),
       );
 
@@ -129,19 +129,14 @@ const assembled = assembleSupervisor({
   ...(dataRoot === undefined
     ? {}
     : {
-        data: createChildDataRunner({
-          dataRoot,
-          deno: () => process.env.LOPHN_DENO ?? Deno.execPath(),
-          denoDir:
-            process.env.DENO_DIR ?? `${process.env.HOME ?? "/tmp"}/.cache/deno`,
-        }),
+        data: createChildDataRunner({ dataRoot }),
       }),
   clock: systemClock,
   ids: createIdSource({
     clock: systemClock,
     random: { fill: (bytes: Uint8Array) => crypto.getRandomValues(bytes) },
   }),
-  deno: () => process.env.LOPHN_DENO ?? Deno.execPath(),
+  deno: denoBinary,
   environment: {
     ...(process.env.HOME ? { home: process.env.HOME } : {}),
     ...(process.env.DENO_DIR ? { denoDir: process.env.DENO_DIR } : {}),

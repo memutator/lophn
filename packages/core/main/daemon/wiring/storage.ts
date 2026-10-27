@@ -1,18 +1,25 @@
 import { spawn } from "node:child_process";
 import { appendFile, mkdir } from "node:fs/promises";
 import process from "node:process";
+import type { Clock } from "../../../../base/mod.ts";
 import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import type { BlobFieldDefinition } from "../../../../protocol/storage/mod.ts";
-import {
-  createBlobPrepareRelay,
-  createBufferGauge,
-} from "../../../storage/blobs/prepare-relay.ts";
 import {
   createPreparationRegistry,
   retentionRules,
 } from "../../../storage/blobs/mod.ts";
+import type {
+  BlobPrepareCall,
+  BufferGauge,
+  PreparedRelayResult,
+} from "../../../storage/blobs/prepare-relay.ts";
+import {
+  createBlobPrepareRelay,
+  createBufferGauge,
+} from "../../../storage/blobs/prepare-relay.ts";
 import { LEDGER_SCHEMA_STEPS } from "../../../storage/ledger/mod.ts";
 import { confirmStartup } from "../../../storage/migration/mod.ts";
+import { nodeCommand } from "../../../supervision/security/node-command.ts";
 import {
   type BlobRead,
   type BlobRelay,
@@ -21,12 +28,6 @@ import {
   type Supervisor,
   type WiringFactory,
 } from "./context.ts";
-import type {
-  BlobPrepareCall,
-  BufferGauge,
-  PreparedRelayResult,
-} from "../../../storage/blobs/prepare-relay.ts";
-import type { Clock } from "../../../../base/mod.ts";
 
 export const storageWiring: WiringFactory = () => {
   let pruneTimer: ReturnType<typeof setInterval> | undefined;
@@ -218,28 +219,25 @@ async function runStoppedMaintenance(input: {
     .pathname;
   let success: boolean;
   try {
-    const child = spawn(
-      Deno.execPath(),
-      ["run", "--allow-all", "--no-prompt", entry],
-      {
-        // lophn 자신의 process다. 권한을 좁혀도 막는 것이 없고, Deno의 node:*는
-        // 좁힌 권한을 더 요구해 child만 깨진다.
-        stdio: ["ignore", "ignore", "ignore"],
-        // Node는 env를 주면 부모 환경을 통째로 대체한다(Deno의 clearEnv와 같다).
-        env: {
-          ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
-          ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
-          LOPHN_HOME: input.dataRoot,
-          LOPHN_MAINTENANCE: JSON.stringify({
-            ledger: input.ledgerPath,
-            conditions: input.conditions,
-            fields: input.fields,
-            nowMs: input.nowMs,
-          }),
-        },
-        signal,
+    const launch = nodeCommand(entry);
+    const child = spawn(launch.command, launch.args, {
+      // lophn 자신의 정비 child다.
+      stdio: ["ignore", "ignore", "ignore"],
+      // env를 주면 부모 환경을 통째로 대체한다.
+      env: {
+        ...launch.env,
+        ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
+        ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
+        LOPHN_HOME: input.dataRoot,
+        LOPHN_MAINTENANCE: JSON.stringify({
+          ledger: input.ledgerPath,
+          conditions: input.conditions,
+          fields: input.fields,
+          nowMs: input.nowMs,
+        }),
       },
-    );
+      signal,
+    });
     success = await new Promise<boolean>((resolve, reject) => {
       child.on("error", reject);
       child.on("close", (code) => resolve(code === 0));

@@ -34,6 +34,7 @@ import {
   bootCore,
   type Core,
   createRun,
+  type Output,
   type Run,
 } from "../support/core/mod.ts";
 import { connectFakeProvider, until } from "../support/core/human.ts";
@@ -318,7 +319,8 @@ test("E2E 앱 process가 거듭 죽으면 자동 재시작이 멈추고 Gateway�
     const bundle = `${run.home}/apps/${app.app}/bundles/${record.bundle_hash}`;
 
     for (let exit = 1; exit <= CRASH_LIMIT + 1; exit++) {
-      const called = await core.call(appCallTool, {
+      // node:assert의 assertion 시그니처와 loop가 엮여 추론이 돌므로 type을 적는다.
+      const called: Output<typeof appCallTool> = await core.call(appCallTool, {
         target: { mode: "live", app: app.app, release: null },
         tool: "crash",
         caller,

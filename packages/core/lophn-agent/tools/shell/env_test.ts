@@ -13,10 +13,10 @@ test("shell 환경에 lophn token과 secret이 나가지 않는다", () => {
       ANTHROPIC_API_KEY: "k",
       GITHUB_TOKEN: "g",
     },
-    "/opt/deno/bin/deno",
+    "/data/run/bin",
   );
   assert.deepStrictEqual(env, {
-    PATH: "/opt/deno/bin:/usr/bin",
+    PATH: "/data/run/bin:/usr/bin",
     HOME: "/home/x",
   });
   for (const name of Object.keys(env)) {

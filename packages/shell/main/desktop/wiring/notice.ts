@@ -5,6 +5,11 @@
 import { BrowserWindow, Notification } from "electron";
 
 import { en } from "../../../../design/wording/en.ts";
+import { sessionSnapshotsList } from "../../../../protocol/events/mod.ts";
+import { agentDefinitionRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import { agentSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
+import { askRead } from "../../../../protocol/lophn-agent/ask-tool.ts";
+import { messageBody } from "../../../../protocol/lophn-agent/messages.ts";
 import {
   NOTICE_OPEN_CHANNEL,
   NOTICE_REVEAL_CHANNEL,
@@ -19,12 +24,6 @@ import {
 } from "../../../ipc/notice.ts";
 import type { AvatarFace, OverlayLead } from "../../../ipc/overlay.ts";
 import { TERMINAL_REVEAL_CHANNEL } from "../../../ipc/terminal.ts";
-import { sessionSnapshotsList } from "../../../../protocol/events/mod.ts";
-import { agentDefinitionRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
-import { agentSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
-import { askRead } from "../../../../protocol/lophn-agent/ask-tool.ts";
-import { messageBody } from "../../../../protocol/lophn-agent/messages.ts";
-import type { TerminalFocusTable } from "../../terminal/controller.ts";
 import { excerpt } from "../../notice/excerpt.ts";
 import {
   createSessionNotices,
@@ -33,6 +32,7 @@ import {
   type SessionNotice,
   SessionVisibility,
 } from "../../notice/rule.ts";
+import type { TerminalFocusTable } from "../../terminal/controller.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import { word } from "../wording.ts";
 import type { Registered, ShellContext } from "./context.ts";
@@ -242,8 +242,8 @@ export function createNoticeWiring(
     const profile = definition?.effective.profile.value;
     // 올린 이미지는 renderer만 읽을 주소가 있어 이름 첫 글자로 갈음한다(Agent 화면 머리와 같다).
     const face: AvatarFace =
-      profile?.kind === "icon"
-        ? { kind: "icon", icon: profile.icon }
+      profile?.kind === "character"
+        ? profile
         : { kind: "initial", text: [...name][0] };
     const title = record?.session.title ?? undefined;
     return {

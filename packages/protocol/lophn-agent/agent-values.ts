@@ -1,11 +1,14 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
+import { profileOutputSchema, profileSchema } from "./agent-profile.ts";
 import {
   INSTRUCTION_FILE_MAX_BYTES,
   modelChoiceOutputSchema,
   modelChoiceSchema,
 } from "./models.ts";
 import type { Role } from "./places.ts";
+
+export * from "./agent-profile.ts";
 
 // agent 정의의 값. 정의와 설정은 app data의 Markdown 파일이고,
 // 파일에는 사람이 바꾼 칸만 있다. 그래서 칸은 모두 optional(없음 = 아래 층을 따름)이고 null을 받지 않는다.
@@ -46,51 +49,6 @@ export const agentPlaceOutputSchema = z.discriminatedUnion("kind", [
 export type AgentPlace = z.infer<typeof agentPlaceSchema>;
 
 // Project Manager는 project에서만, App Engineer는 앱에서만 부른다. lophn와 Operator는 두 곳 모두다.
-
-// Profile: design system의 icon 하나이거나 사람이 올린 이미지. icon id의 존재는 design system이 판정하고
-// 여기서는 모양만 본다. 이미지 이름은 `avatar.<ext>` 하나뿐이라 경로를 실을 수 없고 svg는 받지 않는다.
-export const AGENT_PROFILE_IMAGE_MAX_BYTES = 1_048_576;
-export const AGENT_PROFILE_IMAGE_TYPES = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/webp": "webp",
-} as const;
-export const agentProfileImageTypeSchema = z.enum(
-  Object.keys(AGENT_PROFILE_IMAGE_TYPES) as [
-    keyof typeof AGENT_PROFILE_IMAGE_TYPES,
-    ...(keyof typeof AGENT_PROFILE_IMAGE_TYPES)[],
-  ],
-);
-
-const iconIdSchema = z.string().regex(/^[a-z][a-z0-9-]{0,39}$/);
-const imageNameSchema = z.string().regex(/^avatar\.(png|jpg|webp)$/);
-
-const profileIconSchema = z.strictObject({
-  kind: z.literal("icon"),
-  icon: iconIdSchema,
-});
-const profileIconOutputSchema = z.object({
-  kind: z.literal("icon"),
-  icon: iconIdSchema,
-});
-const profileImageSchema = z.strictObject({
-  kind: z.literal("image"),
-  image: imageNameSchema,
-});
-export const profileImageOutputSchema = z.object({
-  kind: z.literal("image"),
-  image: imageNameSchema,
-});
-
-const profileSchema = z.discriminatedUnion("kind", [
-  profileIconSchema,
-  profileImageSchema,
-]);
-export const profileOutputSchema = z.discriminatedUnion("kind", [
-  profileIconOutputSchema,
-  profileImageOutputSchema,
-]);
-export type Profile = z.infer<typeof profileSchema>;
 
 // 끈 MCP. original_tool을 생략하면 그 서버 전체다.
 const mcpOffFields = {

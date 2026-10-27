@@ -1,19 +1,21 @@
 // agent 설정 화면들이 같이 쓰는 조각: 층이 붙은 skill·MCP 목록, profile 칸, 지침 블록, 보호 입력 안내.
 // 토글은 줄 오른쪽 끝 고정 열에 있고, 이름은 줄 왼쪽에 따로 있어서 Switch의 라벨은 눈에는 숨긴다.
-import { type ReactNode, useRef, useState } from "react";
-import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
-import { Button } from "@lophn/ui/primitives";
-import { Field, Switch, Textarea } from "@lophn/ui/input";
-import { t } from "@lophn/wording";
-import type { MessageKey } from "@lophn/wording";
 
-import type { Profile } from "../../../../../protocol/lophn-agent/agent-values.ts";
-import type { Role } from "../../../../../protocol/lophn-agent/places.ts";
+import { Field, Switch, Textarea } from "@lophn/ui/input";
+import { Button } from "@lophn/ui/primitives";
+import type { MessageKey } from "@lophn/wording";
+import { t } from "@lophn/wording";
+import { type ReactNode, useRef, useState } from "react";
 import {
-  AVATAR_ICON_IDS,
-  type AvatarIconId,
-} from "../../../parts/avatar/avatar-icons.ts";
+  AGENT_CHARACTER_COLORS,
+  AGENT_CHARACTER_SHAPES,
+  type CharacterProfile,
+  DEFAULT_AGENT_CHARACTER,
+  type Profile,
+} from "../../../../../protocol/lophn-agent/agent-values.ts";
+import type { Role } from "../../../../../protocol/lophn-agent/places.ts";
 import { workspaceIcons } from "../../../icons/mod.ts";
+import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
 import type {
   McpLayer,
   McpRow,
@@ -192,19 +194,24 @@ export function McpList({
   );
 }
 
-const ICON_LABEL: Record<AvatarIconId, MessageKey> = {
-  dock: "project-workspace.label.avatar-icon-dock",
-  roles: "project-workspace.label.avatar-icon-roles",
-  contexts: "project-workspace.label.avatar-icon-contexts",
-  documents: "project-workspace.label.avatar-icon-documents",
-  apps: "project-workspace.label.avatar-icon-apps",
-  search: "project-workspace.label.avatar-icon-search",
-  series: "project-workspace.label.avatar-icon-series",
-  bookmark: "project-workspace.label.avatar-icon-bookmark",
-  terminal: "project-workspace.label.avatar-icon-terminal",
-  read: "project-workspace.label.avatar-icon-read",
-  edit: "project-workspace.label.avatar-icon-edit",
-  compare: "project-workspace.label.avatar-icon-compare",
+const SHAPE_LABEL: Record<CharacterProfile["shape"], MessageKey> = {
+  square: "agents.label.character-square",
+  capsule: "agents.label.character-capsule",
+  wide: "agents.label.character-wide",
+  pear: "agents.label.character-pear",
+  round: "agents.label.character-round",
+  arch: "agents.label.character-arch",
+};
+
+const COLOR_LABEL: Record<CharacterProfile["color"], MessageKey> = {
+  coral: "agents.label.character-coral",
+  periwinkle: "agents.label.character-periwinkle",
+  yellow: "agents.label.character-yellow",
+  sage: "agents.label.character-sage",
+  lavender: "agents.label.character-lavender",
+  peach: "agents.label.character-peach",
+  blue: "agents.label.character-blue",
+  teal: "agents.label.character-teal",
 };
 
 interface ProfileFieldProps {
@@ -217,7 +224,6 @@ interface ProfileFieldProps {
   readonly onUpload: (file: File) => void;
 }
 
-/** profile 칸: 미리보기, icon grid, 이미지 올리기. */
 export function ProfileField({
   value,
   imageSrc,
@@ -227,9 +233,11 @@ export function ProfileField({
 }: ProfileFieldProps) {
   const [grid, setGrid] = useState(true);
   const file = useRef<HTMLInputElement>(null);
+  const character =
+    value.kind === "character" ? value : DEFAULT_AGENT_CHARACTER;
   const shown: AvatarProfile =
-    value.kind === "icon"
-      ? { kind: "icon", icon: value.icon }
+    value.kind === "character"
+      ? value
       : { kind: "image", src: imageSrc(value.image) };
   return (
     <fieldset className={styles.group} data-field="profile">
@@ -249,7 +257,7 @@ export function ProfileField({
               aria-expanded={grid}
               onClick={() => setGrid(!grid)}
             >
-              {t("agents.button.choose-icon")}
+              {t("agents.button.choose-character")}
             </Button>
             <input
               ref={file}
@@ -276,33 +284,68 @@ export function ProfileField({
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => onChange({ kind: "icon", icon: "roles" })}
+                onClick={() => onChange(DEFAULT_AGENT_CHARACTER)}
               >
                 {t("agents.button.remove-image")}
               </Button>
             ) : null}
           </div>
-          {grid ? (
-            <div
-              className={styles.iconGrid}
-              role="group"
-              aria-label={t("project-workspace.label.agent-editor-icons")}
-            >
-              {AVATAR_ICON_IDS.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={styles.iconCell}
-                  data-icon-option={id}
-                  aria-label={t(ICON_LABEL[id])}
-                  aria-pressed={value.kind === "icon" && value.icon === id}
-                  onClick={() => onChange({ kind: "icon", icon: id })}
-                >
-                  <Avatar profile={{ kind: "icon", icon: id }} size="sm" />
-                </button>
-              ))}
-            </div>
-          ) : null}
+          {grid && (
+            <>
+              <div
+                className={styles.characterOptions}
+                role="group"
+                aria-label={t("agents.label.character-shape")}
+              >
+                <span className={styles.note}>
+                  {t("agents.label.character-shape")}
+                </span>
+                <div className={styles.characterGrid}>
+                  {AGENT_CHARACTER_SHAPES.map((shape) => (
+                    <button
+                      key={shape}
+                      type="button"
+                      className={styles.characterCell}
+                      data-shape-option={shape}
+                      aria-label={t(SHAPE_LABEL[shape])}
+                      aria-pressed={
+                        value.kind === "character" && value.shape === shape
+                      }
+                      onClick={() => onChange({ ...character, shape })}
+                    >
+                      <Avatar profile={{ ...character, shape }} size="lg" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div
+                className={styles.characterOptions}
+                role="group"
+                aria-label={t("agents.label.character-color")}
+              >
+                <span className={styles.note}>
+                  {t("agents.label.character-color")}
+                </span>
+                <div className={styles.characterGrid}>
+                  {AGENT_CHARACTER_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      className={styles.characterCell}
+                      data-color-option={color}
+                      aria-label={t(COLOR_LABEL[color])}
+                      aria-pressed={
+                        value.kind === "character" && value.color === color
+                      }
+                      onClick={() => onChange({ ...character, color })}
+                    >
+                      <Avatar profile={{ ...character, color }} size="lg" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
           <p className={styles.note}>
             {canUpload
               ? t("agents.notice.profile-help")

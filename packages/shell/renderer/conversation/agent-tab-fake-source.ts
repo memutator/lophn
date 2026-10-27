@@ -1,6 +1,21 @@
 // AgentTabSource의 메모리 fake. wireframe의 Agent 탭 장면 전부를 `scene` 이름으로 골라 낸다(gallery와 dev-mock이 쓴다).
 // 쓰기는 기록을 바꾸고 `changed`로 알려 장면 안에서 눌러 볼 수 있다. 시각과 id는 고정이다.
+
+import { t } from "@lophn/wording";
+import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import { splitAttachmentText } from "../../../protocol/lophn-agent/message-attachments.ts";
+import type { ToolCallView } from "./activity/model.ts";
+import { toolEntriesOf } from "./activity/tool-groups.ts";
+import { COMMANDS_GROUP, SKILLS_GROUP } from "./agent-tab-fake-commands.ts";
+import {
+  effortLowToMax,
+  HAIKU,
+  LAYOUT_ALL,
+  OPUS,
+  type PickerScenario,
+  SOL,
+  SONNET,
+} from "./agent-tab-fake-models.ts";
 import type {
   AgentFace,
   AgentTabSource,
@@ -22,26 +37,12 @@ import type {
   ToolCallBodyView,
 } from "./agent-tab-source.ts";
 import { EMPTY_THREAD } from "./agent-tab-source.ts";
-import type { ToolCallView } from "./activity/model.ts";
-import { toolEntriesOf } from "./activity/tool-groups.ts";
-import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
+import type { LiveText } from "./live-text.ts";
 import type {
   PickerModelRef,
   PickerProviderGroup,
 } from "./model-picker/types.ts";
 import type { SlashGroupView } from "./slash-menu/types.ts";
-import { t } from "@lophn/wording";
-import {
-  effortLowToMax,
-  HAIKU,
-  LAYOUT_ALL,
-  OPUS,
-  type PickerScenario,
-  SOL,
-  SONNET,
-} from "./agent-tab-fake-models.ts";
-import { COMMANDS_GROUP, SKILLS_GROUP } from "./agent-tab-fake-commands.ts";
-import type { LiveText } from "./live-text.ts";
 
 /** 고를 수 있는 장면. 이름은 wireframe의 Agent 탭 장면을 따른다. */
 export const AGENT_TAB_SCENES = [
@@ -99,7 +100,7 @@ export const SESSION_ARCHIVED = sessionId(3);
 const LOPHN: AgentFace = {
   role: "lophn",
   name: "lophn",
-  profile: { kind: "icon", icon: "search" },
+  profile: { kind: "character", shape: "pear", color: "lavender" },
   place: { kind: "project", name: "phroner" },
   permissionSummary: "2 apps assigned",
 };
@@ -107,7 +108,7 @@ const LOPHN: AgentFace = {
 const APP_ENGINEER: AgentFace = {
   role: "app_engineer",
   name: "App Engineer",
-  profile: { kind: "icon", icon: "apps" },
+  profile: { kind: "character", shape: "wide", color: "yellow" },
   place: { kind: "app", name: "Eval board" },
   permissionSummary: LOPHN.permissionSummary,
 };

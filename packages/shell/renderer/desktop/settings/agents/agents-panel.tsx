@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
-import { Avatar } from "../../../parts/avatar/avatar.tsx";
-import { Button } from "@lophn/ui/primitives";
-import { Card } from "@lophn/ui/layout";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
+import { Card } from "@lophn/ui/layout";
+import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/wording";
+import type { ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Avatar } from "../../../parts/avatar/avatar.tsx";
 
 import { AgentEditor } from "../../../workspace/agents/editor/agent-editor.tsx";
 import { DefaultModelField } from "../../../workspace/agents/editor/model-field.tsx";
 import { modelLabelOf } from "../../../workspace/agents/model-picker-data.ts";
 import type { ModelsView } from "../../../workspace/agents/source.ts";
+import styles from "./agents.module.css";
 import type {
   AgentsSettingsSource,
   AgentsSettingsView,
@@ -17,7 +18,6 @@ import type {
   ModelChoice,
   SourceResult,
 } from "./settings-source.ts";
-import styles from "./agents.module.css";
 
 interface AgentsPanelProps {
   source: AgentsSettingsSource;
@@ -179,7 +179,14 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
             <Card>
               <div className={styles.cardHead}>
                 <h3 className={styles.cardTitle}>
-                  <Avatar profile={{ kind: "icon", icon: "dock" }} size="md" />
+                  <Avatar
+                    profile={{
+                      kind: "character",
+                      shape: "square",
+                      color: "coral",
+                    }}
+                    size="md"
+                  />
                   {view.lophn.name}
                 </h3>
                 <span className={styles.chip}>

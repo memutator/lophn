@@ -28,7 +28,7 @@ test("못 본 turn 끝은 탭이 보이거나 다음 turn이 시작하면 지우
           : {
               session,
               agent: "lophn",
-              profile: { kind: "icon", icon: "dock" },
+              profile: { kind: "character", shape: "square", color: "coral" },
             },
       ),
     bodyOf: () => Promise.resolve(undefined),

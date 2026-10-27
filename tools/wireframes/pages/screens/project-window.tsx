@@ -2,6 +2,9 @@
 // component를 그대로 쓰고, sidebar(`ProjectSidebar`)·탭 줄(design `TabStrip`)·새 탭 menu(`NewTabMenu`)도 실제
 // renderer component다. 여기는 고정 data를 그 component의 props로 옮기는 일(`PageSidebar`, `PageNewTabMenu`,
 // `stripTabsOf`)과, page마다 sidebar를 한 상태로 세워 두는 일(`useSidebarScript`)만 한다. 앱 코드는 고치지 않는다.
+
+import { FileIcon, Icon, type IconProps } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
 import {
   type ReactNode,
   type RefObject,
@@ -10,42 +13,40 @@ import {
   useRef,
   useState,
 } from "react";
-import type { AvatarProfile } from "../../../../packages/shell/renderer/parts/avatar/avatar.tsx";
-import type {
-  TabDot,
-  TabItem,
-} from "../../../../packages/shell/renderer/parts/tab-strip/tab-strip.tsx";
 import { createEventClient } from "../../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { createFakeSource } from "../../../../packages/shell/renderer/desktop/connection/events/fake-source.ts";
 import { EventsProvider } from "../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
-import { fakeJobs } from "../../../../packages/shell/renderer/desktop/settings/jobs/testdata/fake-source.ts";
 import type { JobView } from "../../../../packages/shell/renderer/desktop/settings/jobs/source.ts";
-import { FileIcon, Icon, type IconProps } from "@lophn/ui/primitives";
-import { iconPixels } from "@lophn/ui/shared";
-import { click, type } from "../../mock/drive.ts";
+import { fakeJobs } from "../../../../packages/shell/renderer/desktop/settings/jobs/testdata/fake-source.ts";
 import {
   commonIcons,
   conversationIcons,
   paletteIcons,
   workspaceIcons,
 } from "../../../../packages/shell/renderer/icons/mod.ts";
+import type { AvatarProfile } from "../../../../packages/shell/renderer/parts/avatar/avatar.tsx";
+import { Avatar } from "../../../../packages/shell/renderer/parts/avatar/avatar.tsx";
+import type {
+  TabDot,
+  TabItem,
+} from "../../../../packages/shell/renderer/parts/tab-strip/tab-strip.tsx";
 
 import { NewTabMenu } from "../../../../packages/shell/renderer/workspace/add-tab-menu.tsx";
-import {
-  ProjectSidebar,
-  type SidebarTab,
-} from "../../../../packages/shell/renderer/workspace/sidebar/project-sidebar.tsx";
-import type { RailAction as SidebarRailAction } from "../../../../packages/shell/renderer/workspace/sidebar/activity-bar.tsx";
-import type { SidebarAgent } from "../../../../packages/shell/renderer/workspace/sidebar/sidebar-agent.ts";
-import type {
-  PanelRun,
-  PanelSession,
-} from "../../../../packages/shell/renderer/workspace/sidebar/use-agent-panel.ts";
 import {
   FAKE_NOTES_FOLDER,
   FAKE_PROJECT_FOLDER,
   fakeWorkspaceSource,
 } from "../../../../packages/shell/renderer/workspace/fake-source.ts";
+import type { RailAction as SidebarRailAction } from "../../../../packages/shell/renderer/workspace/sidebar/activity-bar.tsx";
+import {
+  ProjectSidebar,
+  type SidebarTab,
+} from "../../../../packages/shell/renderer/workspace/sidebar/project-sidebar.tsx";
+import type { SidebarAgent } from "../../../../packages/shell/renderer/workspace/sidebar/sidebar-agent.ts";
+import type {
+  PanelRun,
+  PanelSession,
+} from "../../../../packages/shell/renderer/workspace/sidebar/use-agent-panel.ts";
 import {
   AGENT_ROWS,
   type AgentProfile,
@@ -53,11 +54,11 @@ import {
   profileOf,
   RUN_SESSIONS,
   RUNS,
-  type SessionRow,
   SESSIONS,
+  type SessionRow,
 } from "../../mock/agents-data.ts";
+import { click, type } from "../../mock/drive.ts";
 import type { FileInit } from "../../mock/project-files/file-data.ts";
-import { Avatar } from "../../../../packages/shell/renderer/parts/avatar/avatar.tsx";
 
 type TabKind =
   | "document"
@@ -221,7 +222,7 @@ const PHOTO = `data:image/svg+xml,${encodeURIComponent(
 const avatarOf = (profile: AgentProfile): AvatarProfile =>
   profile.image === true
     ? { kind: "image", src: PHOTO }
-    : { kind: "icon", icon: profile.icon };
+    : { kind: "character", shape: profile.shape, color: profile.color };
 
 const AGENTS: readonly SidebarAgent[] = AGENT_ROWS.filter(
   (row) => row.id !== "operators",

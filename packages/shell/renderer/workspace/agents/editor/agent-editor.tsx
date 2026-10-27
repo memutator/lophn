@@ -1,18 +1,19 @@
 // agent 하나의 설정 화면. Project Manager, App Engineer, Operator, lophn이 같은 화면을 쓰고 새 Operator 만들기도 같다.
 // Definition 탭에 profile·이름·놓을 곳·지침·model·skill·MCP가 있고 Grants 탭에서 맡길 것을 붙인다. source에서 agent를
 // 읽어 form 값을 쥐고, 저장·삭제·이미지 올리기·grant 바꾸기를 source로 보낸다. 저장 실패·충돌 같은 알림은 그 탭 위쪽 toast다.
-import { type ReactElement, useEffect, useRef, useState } from "react";
-import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
-import { Button } from "@lophn/ui/primitives";
-import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
+
 import { ErrorState, Skeleton } from "@lophn/ui/feedback";
+import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
 import { Dialog, Toast } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { Button } from "@lophn/ui/primitives";
 import type { MessageKey } from "@lophn/wording";
+import { t } from "@lophn/wording";
+import { type ReactElement, useEffect, useRef, useState } from "react";
+import type { AssignmentEntry } from "../../../../../protocol/approvals/assignment.ts";
 
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
-import type { AssignmentEntry } from "../../../../../protocol/approvals/assignment.ts";
 import { workspaceIcons } from "../../../icons/mod.ts";
+import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
 import type { DomainView } from "../../source.ts";
 import type {
   AgentDetail,
@@ -21,10 +22,10 @@ import type {
   GrantsView,
   ModelsView,
 } from "../source.ts";
+import styles from "./agent-editor.module.css";
 import { DefinitionForm } from "./definition-form.tsx";
 import { GrantsPanel } from "./grants-panel.tsx";
 import { ROLE_LABEL } from "./parts.tsx";
-import styles from "./agent-editor.module.css";
 
 /** editor가 source에서 쓰는 것. 설정 화면의 lophn 편집도 이만 채우면 된다. */
 export type AgentEditorSource = Pick<
@@ -259,8 +260,8 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   const name = definition.name ?? detail.effective.name.value;
   const shown: AvatarProfile = (() => {
     const profile = definition.profile ?? detail.effective.profile.value;
-    return profile.kind === "icon"
-      ? { kind: "icon", icon: profile.icon }
+    return profile.kind === "character"
+      ? profile
       : {
           kind: "image",
           src:

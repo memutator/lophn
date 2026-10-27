@@ -41,7 +41,7 @@ export type AgentsPlaceholders = {
   "agents.notice.skills-project": Record<never, never>;
   "agents.notice.tab-lead": Record<never, never>;
   "agents.button.assign-app": Record<never, never>;
-  "agents.button.choose-icon": Record<never, never>;
+  "agents.button.choose-character": Record<never, never>;
   "agents.button.create-operator": Record<never, never>;
   "agents.button.remove-app": Record<never, never>;
   "agents.button.remove-image": Record<never, never>;
@@ -53,6 +53,22 @@ export type AgentsPlaceholders = {
   "agents.label.auth-api-key": Record<never, never>;
   "agents.label.auth-bearer": Record<never, never>;
   "agents.label.auth-none": Record<never, never>;
+  "agents.label.character-shape": Record<never, never>;
+  "agents.label.character-color": Record<never, never>;
+  "agents.label.character-square": Record<never, never>;
+  "agents.label.character-capsule": Record<never, never>;
+  "agents.label.character-wide": Record<never, never>;
+  "agents.label.character-pear": Record<never, never>;
+  "agents.label.character-round": Record<never, never>;
+  "agents.label.character-arch": Record<never, never>;
+  "agents.label.character-coral": Record<never, never>;
+  "agents.label.character-periwinkle": Record<never, never>;
+  "agents.label.character-yellow": Record<never, never>;
+  "agents.label.character-sage": Record<never, never>;
+  "agents.label.character-lavender": Record<never, never>;
+  "agents.label.character-peach": Record<never, never>;
+  "agents.label.character-blue": Record<never, never>;
+  "agents.label.character-teal": Record<never, never>;
   "agents.label.avatar-preview": Record<never, never>;
   "agents.label.built-in": Record<never, never>;
   "agents.label.effect-external": Record<never, never>;
@@ -168,7 +184,6 @@ export type AgentsPlaceholders = {
     mcp: "number";
   };
   "project-workspace.label.agent-counts-unknown": Record<never, never>;
-  "project-workspace.label.agent-editor-icons": Record<never, never>;
   "project-workspace.label.agent-editor-image-file": Record<never, never>;
   "project-workspace.label.agent-editor-instructions": Record<never, never>;
   "project-workspace.label.agent-editor-model-unset": Record<never, never>;
@@ -176,18 +191,6 @@ export type AgentsPlaceholders = {
   "project-workspace.label.agent-kind-operator": Record<never, never>;
   "project-workspace.label.agent-no-model": Record<never, never>;
   "project-workspace.label.agents-target": Record<never, never>;
-  "project-workspace.label.avatar-icon-apps": Record<never, never>;
-  "project-workspace.label.avatar-icon-bookmark": Record<never, never>;
-  "project-workspace.label.avatar-icon-compare": Record<never, never>;
-  "project-workspace.label.avatar-icon-contexts": Record<never, never>;
-  "project-workspace.label.avatar-icon-dock": Record<never, never>;
-  "project-workspace.label.avatar-icon-documents": Record<never, never>;
-  "project-workspace.label.avatar-icon-edit": Record<never, never>;
-  "project-workspace.label.avatar-icon-read": Record<never, never>;
-  "project-workspace.label.avatar-icon-roles": Record<never, never>;
-  "project-workspace.label.avatar-icon-search": Record<never, never>;
-  "project-workspace.label.avatar-icon-series": Record<never, never>;
-  "project-workspace.label.avatar-icon-terminal": Record<never, never>;
   "project-workspace.label.instructions-shared": {
     project: "string";
   };

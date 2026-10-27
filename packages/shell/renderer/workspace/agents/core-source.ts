@@ -10,6 +10,11 @@ import {
   operatorCreate,
   operatorDelete,
 } from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
+import type {
+  CatalogEntry,
+  ModelChoice,
+} from "../../../../protocol/lophn-agent/models.ts";
 import {
   changeHiddenModels,
   projectModelChange,
@@ -17,19 +22,16 @@ import {
   saveUserModelInfo,
 } from "../../../../protocol/lophn-agent/models.ts";
 import { refreshProviderModels } from "../../../../protocol/lophn-agent/providers.ts";
-import type { CatalogEntry } from "../../../../protocol/lophn-agent/models.ts";
-import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
-import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import type { FilesApi } from "../../../ipc/files.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
 import type { SecretInputOpenApi } from "../../../ipc/secret-input.ts";
+import type { CoreSource } from "../../desktop/connection/connection.ts";
 import {
   enterSecret,
   windowSecretInputOpener,
 } from "../../desktop/settings/core-call.ts";
-import type { CoreSource } from "../../desktop/connection/connection.ts";
+import type { DomainView } from "../source.ts";
 import { isAppPlace, keyOf, OPERATOR_ID, refOf } from "./agent-key.ts";
-import { readGrants, saveGrants } from "./core-grants.ts";
 import {
   changeProjectSettings,
   readGlobalModel,
@@ -37,9 +39,9 @@ import {
   readServers,
   readSkills,
 } from "./core-extensions.ts";
-import { providerChoiceOf } from "./model-picker-data.ts";
+import { readGrants, saveGrants } from "./core-grants.ts";
 import { createLink, issuesOf, type Link, unavailable } from "./core-link.ts";
-import type { DomainView } from "../source.ts";
+import { providerChoiceOf } from "./model-picker-data.ts";
 import type {
   AgentDetail,
   AgentDraft,
@@ -64,7 +66,11 @@ const CATALOG_PAGE_LIMIT = 60;
 /** Operator ID의 본문: 소문자 Crockford base32 26자, 첫 글자는 0~7이다. */
 const CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz";
 
-const DEFAULT_PROFILE = { kind: "icon", icon: "roles" } as const;
+const DEFAULT_PROFILE = {
+  kind: "character",
+  shape: "arch",
+  color: "sage",
+} as const;
 
 interface AgentsDeps {
   /** project의 LOPHN.md를 여는 main 통로. 없으면 지침 미리보기는 빈 글이다. */

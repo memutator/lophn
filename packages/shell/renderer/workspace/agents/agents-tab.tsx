@@ -2,17 +2,17 @@
 // [New Operator], 같이 쓰는 LOPHN.md, project 층 model 하나, skill, MCP server와 맨 아래 "Agent definitions are stored in
 // lophn, not in your project folder." 한 줄이다. lophn은 전체에 하나라 이 탭에 없고 Settings에서 정한다.
 // 앱 자리에서는 Project Manager 자리에 그 앱의 App Engineer가 온다. [Open]이 여는 editor는 editor/agent-editor.tsx가 맡는다.
-import type { ReactElement, ReactNode } from "react";
-import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
-import { Button } from "@lophn/ui/primitives";
-import { Card } from "@lophn/ui/layout";
-import { t } from "@lophn/wording";
 
+import { Card } from "@lophn/ui/layout";
+import { Button } from "@lophn/ui/primitives";
+import { t } from "@lophn/wording";
+import type { ReactElement, ReactNode } from "react";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import { commonIcons } from "../../icons/mod.ts";
+import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
+import styles from "./agents-tab.module.css";
 import { ModelField, type ModelFieldSource } from "./editor/model-field.tsx";
 import { McpList, ROLE_LABEL, SkillList } from "./editor/parts.tsx";
-import styles from "./agents-tab.module.css";
 import type { AgentListRow, AgentsOverview, ModelsView } from "./source.ts";
 import type { ImageSrc } from "./views.ts";
 
@@ -41,8 +41,8 @@ interface AgentsTabProps {
 const PREVIEW_LINES = 3;
 
 function avatarProfile(row: AgentListRow, imageSrc: ImageSrc): AvatarProfile {
-  return row.profile.kind === "icon"
-    ? { kind: "icon", icon: row.profile.icon }
+  return row.profile.kind === "character"
+    ? row.profile
     : { kind: "image", src: imageSrc(row.assignment, row.profile.image) };
 }
 

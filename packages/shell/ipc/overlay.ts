@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { characterProfileFields } from "../../protocol/lophn-agent/agent-profile.ts";
 
 const coordinate = z.number().int().min(0).max(32768);
 export const rectSchema = z
@@ -40,9 +41,7 @@ const PALETTE_ICONS = [
 // lophn agent의 얼굴. renderer의 AvatarProfile 중 main이 core에서 읽어 줄 수 있는 둘이다(올린 이미지는 renderer만 읽을
 // 주소가 있어 이니셜로 갈음한다).
 export const avatarProfileSchema = z.discriminatedUnion("kind", [
-  z
-    .object({ kind: z.literal("icon"), icon: z.string().min(1).max(64) })
-    .strict(),
+  z.object(characterProfileFields).strict(),
   z
     .object({ kind: z.literal("initial"), text: z.string().min(1).max(8) })
     .strict(),

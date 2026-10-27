@@ -1,6 +1,8 @@
 // AgentsSource의 메모리 구현. dev mock 작업대와 gallery가 쓴다. phroner project에 Project Manager · Operator 둘이,
 // 앱 Budget tracker에 App Engineer가 있는 상태에서 시작하고, 저장·삭제·model·켬·끔·grant가 메모리에서 이어지며 쓰는 명령을
 // 순서대로 calls에 남긴다. 실제 core의 거절(항목별 이유·conflict)은 failNext…로 세운다.
+
+import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
 import type { AgentDefinitionIssue } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import {
   type CatalogEntry,
@@ -9,8 +11,9 @@ import {
   type UserModelItem,
   type UserModelRecord,
 } from "../../../../protocol/lophn-agent/models.ts";
-import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
 import type { DomainView, ReadResult } from "../source.ts";
+import { isAppPlace } from "./agent-key.ts";
+import { appsFor, domainNamesOf } from "./editor/grants-model.ts";
 import {
   ANTHROPIC,
   APP_DOMAINS,
@@ -28,14 +31,12 @@ import {
   GLOBAL_SKILLS,
   GRANT_CATALOG,
   LOPHN_MD,
-  PROJECT_DOMAINS,
   PROJECT_ID as PROJECT,
+  PROJECT_DOMAINS,
   PROJECT_MCP,
   PROJECT_NAME,
   PROJECT_SKILLS,
 } from "./fake-data.ts";
-import { isAppPlace } from "./agent-key.ts";
-import { appsFor, domainNamesOf } from "./editor/grants-model.ts";
 import type {
   AgentDetail,
   AgentDraft,
@@ -91,7 +92,8 @@ type FakeCall =
   | { method: "saveModelInfo"; item: UserModelItem; seq: string }
   | { method: "removeModelInfo"; key: UserModelKey; seq: string };
 
-interface FakeAgentsSource extends AgentsSource {
+export interface FakeAgentsSource extends AgentsSource {
+  changed(listener: () => void): () => void;
   /** 보낸 명령을 순서대로. */
   readonly calls: readonly FakeCall[];
   /** agent 파일의 지금 hash. */
@@ -113,12 +115,16 @@ interface Stored {
   readonly hash: string;
 }
 
-const DEFAULT_PROFILE = { kind: "icon", icon: "roles" } as const;
-const BUILT_IN_ICON: Record<string, string> = {
-  lophn: "dock",
-  project_manager: "contexts",
-  app_engineer: "apps",
-};
+const DEFAULT_PROFILE = {
+  kind: "character",
+  shape: "arch",
+  color: "sage",
+} as const;
+const BUILT_IN_PROFILE = {
+  lophn: { kind: "character", shape: "square", color: "coral" },
+  project_manager: { kind: "character", shape: "capsule", color: "periwinkle" },
+  app_engineer: { kind: "character", shape: "wide", color: "yellow" },
+} as const;
 
 const ok = <T>(value: T): ReadResult<T> => ({ ok: true, value });
 
@@ -216,6 +222,8 @@ export function createFakeAgentsSource(
   options: FakeAgentsOptions = {},
 ): FakeAgentsSource {
   const calls: FakeCall[] = [];
+  const listeners = new Set<() => void>();
+  const notify = () => listeners.forEach((listener) => listener());
   let version = 0;
   const nextHash = () => String(++version).padStart(64, "0");
   let created = 0;
@@ -327,9 +335,9 @@ export function createFakeAgentsSource(
       name: item.name,
       profile:
         definition.profile ??
-        (builtIn
-          ? { kind: "icon", icon: BUILT_IN_ICON[item.role] }
-          : DEFAULT_PROFILE),
+        (item.role === "operator"
+          ? DEFAULT_PROFILE
+          : BUILT_IN_PROFILE[item.role]),
       model: {
         provider: model.provider,
         model_name: model.model_name,
@@ -392,6 +400,10 @@ export function createFakeAgentsSource(
 
   return {
     calls,
+    changed(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     hashOf: (key) => stored.get(key)!.hash,
     failNextSave(issues, code = "invalid_input") {
       saveFailure = { issues, code };
@@ -613,6 +625,7 @@ export function createFakeAgentsSource(
         definition: input.definition,
         hash,
       });
+      notify();
       return Promise.resolve({ ok: true, value: { assignment: key, hash } });
     },
 
@@ -626,6 +639,7 @@ export function createFakeAgentsSource(
         return Promise.resolve({ ok: false, message: "conflict" });
       }
       stored.delete(key);
+      notify();
       return Promise.resolve(ok(null));
     },
 
@@ -690,6 +704,7 @@ export function createFakeAgentsSource(
       if (failed !== null) return Promise.resolve(failed);
       grants.set(key, entries);
       grantRevisions.set(key, revision + 1);
+      notify();
       return Promise.resolve(ok({ revision: revision + 1 }));
     },
   };

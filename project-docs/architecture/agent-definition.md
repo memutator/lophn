@@ -2,6 +2,14 @@
 
 lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn마다 model 요청 하나로 조립된다. 이 조립에는 `agents`, `agent-roles`(role 층), `agent-tools`, `run-loop`, 지침 파일, skill, `projects`·`apps`·`domains`가 주는 place 정보가 모두 들어간다. 어려운 점은 두 가지다. 사람이 고친 지침이 며칠씩 열린 session에 닿아야 하고, 그러면서 prompt cache가 깨지지 않아야 한다. 그리고 prompt에 들어오는 글(다른 agent, web, 문서)이 사람의 지시로 읽히면 안 된다.
 
+## Profile
+
+기본 profile은 `{ kind: "character", shape, color }`다. shape 6종과 color 8종은 protocol이 고정하고, shell의 `parts/avatar/character.tsx`가 한 body path와 점 눈 두 개로 SVG를 그린다. 표정은 고정이고 형태·색으로 agent를 구별한다. sidebar, 대화, Agents 카드, 알림은 같은 Avatar를 쓴다.
+
+built-in은 role 표의 기본 character를 쓰고, Operator는 편집 화면에서 형태·색을 따로 고르거나 이미지를 올린다. 정의 파일에는 shape·color 또는 `{ kind: "image", image: "avatar.<ext>" }`만 저장한다. 올린 이미지는 png·jpg·webp만 받으며 SVG는 제품이 그리는 기본 character에만 쓴다. main 알림과 대화 머리에서 올린 이미지 주소를 풀 수 없으면 이름 첫 글자를 쓴다.
+
+`dev:mock`도 편집 화면과 대화가 같은 AgentsSource를 쓴다. 대화 기록만 장면별 fake이고 이름·role·profile은 요청한 agent의 정의에서 읽는다. 정의나 grant를 저장하면 열린 대화의 `changed` 구독에도 알려 다시 읽는다.
+
 ## 흐름
 
 ```

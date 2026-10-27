@@ -3,6 +3,7 @@
 import { t } from "@lophn/wording";
 
 import { agentAssignmentGet } from "../../../protocol/approvals/assignment.ts";
+import { appGet } from "../../../protocol/apps/apps.ts";
 import { sessionSnapshotsList } from "../../../protocol/events/snapshot.ts";
 import { agentDefinitionRead } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import {
@@ -12,6 +13,8 @@ import {
   openAgentSession,
 } from "../../../protocol/lophn-agent/agent-sessions.ts";
 import type { CallAgent } from "../../../protocol/lophn-agent/calls.ts";
+import type { Place } from "../../../protocol/lophn-agent/places.ts";
+import { receivedMessageList } from "../../../protocol/lophn-agent/received-messages.ts";
 import {
   archiveSession,
   changeSessionSkip,
@@ -20,18 +23,8 @@ import {
   renameSession,
   requestSessionCompact,
 } from "../../../protocol/lophn-agent/sessions.ts";
-import { receivedMessageList } from "../../../protocol/lophn-agent/received-messages.ts";
 import { turnList } from "../../../protocol/lophn-agent/turn-reads.ts";
-import { appGet } from "../../../protocol/apps/apps.ts";
 import { projectGet } from "../../../protocol/projects/project-routes.ts";
-import type { Place } from "../../../protocol/lophn-agent/places.ts";
-import type {
-  AgentFace,
-  PermissionsView,
-  SessionEntry,
-  SessionStatus,
-  SourceResult,
-} from "./agent-tab-source.ts";
 import {
   dropValue,
   type Env,
@@ -39,6 +32,13 @@ import {
   type Memo,
   memo,
 } from "./agent-tab-core-source-env.ts";
+import type {
+  AgentFace,
+  PermissionsView,
+  SessionEntry,
+  SessionStatus,
+  SourceResult,
+} from "./agent-tab-source.ts";
 
 /** 얼굴(이름·자리 이름·권한 요약)을 기억하는 시간. */
 const FACE_TTL_MS = 10_000;
@@ -138,8 +138,8 @@ export async function readFace(
     name,
     // 올린 이미지는 renderer가 읽을 수 있는 주소가 없어 이름 첫 글자로 그린다.
     profile:
-      profile.kind === "icon"
-        ? { kind: "icon", icon: profile.icon }
+      profile.kind === "character"
+        ? profile
         : { kind: "initial", text: name.slice(0, 1) },
     place: { kind: place?.kind ?? "project", name: named.value },
     permissionSummary: t("conversation.label.permission-summary", {

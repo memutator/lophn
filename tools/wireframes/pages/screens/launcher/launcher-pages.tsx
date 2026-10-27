@@ -2,21 +2,21 @@
 // 목적, 폴더 수나 "Folder not found"와 [Choose new location]이고 ⋯ 메뉴에 Details와 Archive가 있다. 보관한 project와
 // 앱은 아래 접힌 Archived 묶음에서 되살린다. 등록 dialog는 이름, 목적, 폴더와 폴더 설명이다. 오른쪽 위 단추는 Settings다.
 import { useMemo, useState } from "react";
-
-import { Launcher } from "../../../../../packages/shell/renderer/desktop/launcher/launcher.tsx";
+import {
+  fakeApps,
+  galleryApps,
+} from "../../../../../packages/shell/renderer/apps/testdata/fake-apps.ts";
 import { createEventClient } from "../../../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { EventsProvider } from "../../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import { createFakeWaiting } from "../../../../../packages/shell/renderer/desktop/connection/waiting/fake-source.ts";
 import { mockAgentTabSource } from "../../../../../packages/shell/renderer/desktop/dev-mock/agent.ts";
 import { mockCore } from "../../../../../packages/shell/renderer/desktop/dev-mock/requests.ts";
-import {
-  fakeApps,
-  galleryApps,
-} from "../../../../../packages/shell/renderer/apps/testdata/fake-apps.ts";
+import { Launcher } from "../../../../../packages/shell/renderer/desktop/launcher/launcher.tsx";
 import {
   fakeProjects,
   MISSING_FOLDER,
 } from "../../../../../packages/shell/renderer/desktop/launcher/projects/testdata/fake-projects.ts";
+import { createFakeAgentsSource } from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 import {
   click,
   press,
@@ -50,7 +50,10 @@ function Page({
       ).source,
     [empty],
   );
-  const agentViewSource = useMemo(() => mockAgentTabSource(), []);
+  const agentViewSource = useMemo(
+    () => mockAgentTabSource(createFakeAgentsSource()),
+    [],
+  );
   const apps = useMemo(
     () => (empty ? fakeApps().source : galleryApps().source),
     [empty],

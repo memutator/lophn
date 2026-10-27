@@ -53,7 +53,7 @@ test("정의 파일에 tool을 적어도 role이 고정한 tool 목록은 바뀌
       global_model: MODEL,
       session_model: null,
       environment: {
-        default_profile: { kind: "icon", icon: "roles" },
+        default_profile: { kind: "character", shape: "arch", color: "sage" },
         skills: [],
         mcp: [],
         domains: [],
@@ -87,7 +87,7 @@ test("Operator가 domain 하나를 고르면 그 domain만 일하고 다른 doma
       global_model: MODEL,
       session_model: null,
       environment: {
-        default_profile: { kind: "icon", icon: "roles" },
+        default_profile: { kind: "character", shape: "arch", color: "sage" },
         skills,
         mcp: [],
         domains: container,

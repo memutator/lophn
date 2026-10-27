@@ -42,7 +42,7 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 | 경우 | 위치 | 예 |
 |---|---|---|
 | 범용 | `packages/design/components/<분류>/` | Button, Dialog, DataTable, AppShell, Sidebar, FilterBar, ReadState, ToastProvider |
-| lophn만의 뜻(session, agent, harness·provider, 대기 질문)이 이름이나 동작에 박힘 | `packages/shell/renderer/parts/` 또는 그 화면 폴더 | Avatar(agent profile icon 집합의 정본), VendorIcon, TabStrip(점이 session 상태), model picker |
+| lophn만의 뜻(session, agent, harness·provider, 대기 질문)이 이름이나 동작에 박힘 | `packages/shell/renderer/parts/` 또는 그 화면 폴더 | Avatar(agent character SVG와 profile 표시), VendorIcon, TabStrip(점이 session 상태), model picker |
 | lophn과의 약속(tool 호출 `lophnApp.callTool`, `lophn:render-error` event)을 앎 | `packages/sdk/app-ui` | ToolButton, useTool, AppErrorBoundary |
 | 쓰는 곳이 gallery뿐 | 두지 않는다 | (지운 것: Chip, AuthorMark, LauncherFrame, OverviewFrame) |
 

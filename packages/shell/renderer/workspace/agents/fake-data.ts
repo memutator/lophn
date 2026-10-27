@@ -1,11 +1,12 @@
 // fake source와 gallery가 같이 쓰는 값. tools/wireframes의 phroner 예시(Project Manager, Operator 둘, 앱 Budget tracker의
 // App Engineer, lophn)와 층마다 정한 model·skill·MCP, 붙일 앱과 할당을 contract 모양으로 담는다.
+
+import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
 import type {
   CatalogEntry,
   ModelChoice,
   OptionAxis,
 } from "../../../../protocol/lophn-agent/models.ts";
-import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
 import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts";
 import type { DomainView } from "../source.ts";
 import type { AgentDraft, GrantApp, GrantCatalog } from "./source.ts";
@@ -164,7 +165,7 @@ export const FAKE_AGENTS: readonly FakeAgent[] = [
     summary:
       "Talks with you about lophn itself: your projects, apps and settings.",
     definition: {
-      profile: { kind: "icon", icon: "dock" },
+      profile: { kind: "character", shape: "square", color: "coral" },
       body: `Answer in short plain sentences.
 When a question is about one project, read that project's LOPHN.md first.`,
       mcp_off: [{ server_name: "calendar" }],
@@ -247,7 +248,7 @@ Keep answers short. Name the scenario for every regression.`,
     summary: "Plans the next experiments from what the project documents say.",
     definition: {
       name: "Experiment planner",
-      profile: { kind: "icon", icon: "compare" },
+      profile: { kind: "character", shape: "round", color: "blue" },
       body: `# Experiment planner
 Propose at most three experiments. For each one write the question, the
 change to try and how you will know it worked. Ask before you create files.`,
@@ -264,7 +265,7 @@ change to try and how you will know it worked. Ask before you create files.`,
     summary: "Reads the month's expenses and flags what looks off.",
     definition: {
       name: "Budget reviewer",
-      profile: { kind: "icon", icon: "compare" },
+      profile: { kind: "character", shape: "round", color: "blue" },
       body: `# Budget reviewer
 Read the expenses of the month and list the ones that look wrong.
 Never change an expense. Ask me first.`,

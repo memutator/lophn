@@ -1,3 +1,6 @@
+import type { TurnRequest } from "../../../protocol/approvals/turn-request.ts";
+import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
+import type { CharacterProfile } from "../../../protocol/lophn-agent/agent-values.ts";
 // Agent 탭이 core에 묻고 쓰는 통로와 그 화면 값. 화면 부품(thread, cards, composer, sessions)은 모두 이 타입 위에 선다.
 // 값은 contract(lophn-agent의 agent-sessions·received-messages·turns·calls·ask-tool·session-rewinds·commands·models,
 // events의 agent event, approvals)를 부품 props의 모양으로 옮긴 화면 값이다. 구현하는 쪽(source)이 contract 값과
@@ -9,17 +12,15 @@ import type {
   CallReply,
   CallState,
 } from "../../../protocol/lophn-agent/calls.ts";
-import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import type { Role } from "../../../protocol/lophn-agent/places.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
-import type { TurnRequest } from "../../../protocol/approvals/turn-request.ts";
 import type { ToolCallView } from "./activity/model.ts";
+import type { LiveText } from "./live-text.ts";
 import type {
   PickerAxisView,
   PickerLayoutView,
   PickerModelRef,
 } from "./model-picker/types.ts";
-import type { LiveText } from "./live-text.ts";
 import type { SlashEntryView, SlashGroupView } from "./slash-menu/types.ts";
 
 export type SourceResult<T> =
@@ -35,7 +36,7 @@ export type { CallFailReason, CallReply, CallState, RewindReason };
 
 /** avatar가 그리는 얼굴. */
 export type AgentProfile =
-  | { readonly kind: "icon"; readonly icon: string }
+  | CharacterProfile
   | { readonly kind: "image"; readonly src: string }
   | { readonly kind: "initial"; readonly text: string };
 

@@ -1,10 +1,16 @@
 // 앱 공간 gallery 화면. 진짜 AppSpace(renderer app-frame)를 fake source로 그린다. 상태는 fake source의 설정과 mount 뒤 단추 누르기로 정하고
 // (drive.ts), AppSpace에는 gallery 전용 prop을 더하지 않는다. 앱 view는 main의 native view라 gallery에는 없고, 앱 view 자리 안에
 // Orders 앱이 그린 고정 그림(orders-view.tsx)을 넣는다. 고른 곳의 윤곽과 번호 표지는 실제로는 앱 view 안 preload가 그린다.
+
+import { t } from "@lophn/wording";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-
-import { AppSpace as RealAppSpace } from "../../../../../packages/shell/renderer/app-frame/app-space.tsx";
+import {
+  type SessionSnapshot,
+  sessionSnapshotsList,
+} from "../../../../../packages/protocol/events/mod.ts";
+import type { AnnotateState } from "../../../../../packages/shell/ipc/annotation.ts";
+import type { LophnShellViewsApi } from "../../../../../packages/shell/ipc/app-frame.ts";
 import {
   fakeDetail,
   GRANT_HOST,
@@ -12,43 +18,37 @@ import {
   GRANT_SECRET,
   type SecretsFake,
 } from "../../../../../packages/shell/renderer/app-frame/app-detail/testdata/fake-source.ts";
+import { AppSpace as RealAppSpace } from "../../../../../packages/shell/renderer/app-frame/app-space.tsx";
 import { fakeAnnotate } from "../../../../../packages/shell/renderer/app-frame/testdata/fake-annotate.ts";
-import type { AnnotateState } from "../../../../../packages/shell/ipc/annotation.ts";
 import {
-  type SessionSnapshot,
-  sessionSnapshotsList,
-} from "../../../../../packages/protocol/events/mod.ts";
+  appRow,
+  fakeApps,
+} from "../../../../../packages/shell/renderer/apps/testdata/fake-apps.ts";
 import type { CoreSource } from "../../../../../packages/shell/renderer/desktop/connection/connection.ts";
-import type { LophnShellViewsApi } from "../../../../../packages/shell/ipc/app-frame.ts";
 import { createEventClient } from "../../../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { EventsProvider } from "../../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import {
   CODING_ASK,
   createFakeWaiting,
 } from "../../../../../packages/shell/renderer/desktop/connection/waiting/fake-source.ts";
-import { mockViews } from "../../../../../packages/shell/renderer/desktop/dev-mock/app-space.ts";
 import { mockAgentTabSource } from "../../../../../packages/shell/renderer/desktop/dev-mock/agent.ts";
-import {
-  appRow,
-  fakeApps,
-} from "../../../../../packages/shell/renderer/apps/testdata/fake-apps.ts";
-import { createFakeAgentsSource } from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
+import { mockViews } from "../../../../../packages/shell/renderer/desktop/dev-mock/app-space.ts";
 import { TerminalStore } from "../../../../../packages/shell/renderer/terminal/store.ts";
 import { createXtermView } from "../../../../../packages/shell/renderer/terminal/xterm-view.ts";
-import { t } from "@lophn/wording";
+import { createFakeAgentsSource } from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 // 터미널 탭이 쓰는 xterm 기본 배치.
 import "@xterm/xterm/css/xterm.css";
 
 import {
-  codingBridge,
   type CodingScene,
+  codingBridge,
 } from "../../../mock/app-space/coding-terminal.ts";
 import { APP_NAME, fixedRuns } from "../../../mock/app-space/data.ts";
-import { click, find, press, useDrive, wait } from "../../../mock/drive.ts";
 import {
   OrdersView,
   type ViewMarks,
 } from "../../../mock/app-space/orders-view.tsx";
+import { click, find, press, useDrive, wait } from "../../../mock/drive.ts";
 
 type OpsTab = "version" | "access" | "activity";
 type ActivationState = "applied" | "applying" | "failed";
@@ -175,6 +175,7 @@ function withRunSessions(source: CoreSource): CoreSource {
 
 function build(props: AppSpaceProps, onRegion: (region: HTMLElement) => void) {
   const base = mockViews();
+  const agents = createFakeAgentsSource();
   // native view는 DOM 위에 덮이므로 gallery에서는 가짜 상자 대신 앱 view 자리(EmbeddedView의 region) 안에 Orders 화면을 그린다.
   // 그래야 위에 얹는 알림이 보인다.
   const views: LophnShellViewsApi = {
@@ -226,8 +227,8 @@ function build(props: AppSpaceProps, onRegion: (region: HTMLElement) => void) {
             ? "conflict"
             : "applied",
     }).source,
-    agents: createFakeAgentsSource(),
-    agentViewSource: mockAgentTabSource(),
+    agents,
+    agentViewSource: mockAgentTabSource(agents),
     runs: () =>
       Promise.resolve({
         ok: true as const,

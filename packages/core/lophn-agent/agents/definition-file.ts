@@ -1,7 +1,7 @@
 import { parse, stringify } from "yaml";
 import type { z } from "zod";
-import { err, ok } from "../../../base/mod.ts";
 import type { LophnError, Result } from "../../../base/mod.ts";
+import { err, ok } from "../../../base/mod.ts";
 import {
   AGENT_BODY_MAX_BYTES,
   type AgentDefinitionIssue,
@@ -208,7 +208,12 @@ function orderedFrontmatter(value: Plain): Plain {
   const out: Plain = {};
   if (value.name !== undefined) out.name = value.name;
   if (value.profile !== undefined) {
-    out.profile = pick(value.profile as Plain, ["kind", "icon", "image"]);
+    out.profile = pick(value.profile as Plain, [
+      "kind",
+      "shape",
+      "color",
+      "image",
+    ]);
   }
   if (value.model !== undefined) {
     out.model = orderedModel(value.model as Plain);

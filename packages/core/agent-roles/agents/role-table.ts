@@ -2,19 +2,19 @@ import {
   agentNameKey,
   BUILTIN_ROLE_NAMES,
   type Profile,
-  type Role,
   ROLES,
+  type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { AgentRoleTable } from "../../lophn-agent/agents/role-table.ts";
 import { lophnAgentsFolder, placeAgentsFolder } from "../place/data-folder.ts";
 
 // built-in agent의 이름은 제품이 정한다. 정의 파일은 사람이 바꾼 칸만 가지므로 파일이 없어도 built-in은
-// 완전한 agent다. Operator는 이름을 정의 파일에서 받지만 icon은 제품 기본이 있다.
+// 완전한 agent다. Operator는 이름을 정의 파일에서 받지만 profile은 제품 기본이 있다.
 const PROFILES: Record<Role, Profile> = {
-  lophn: { kind: "icon", icon: "dock" },
-  project_manager: { kind: "icon", icon: "contexts" },
-  app_engineer: { kind: "icon", icon: "apps" },
-  operator: { kind: "icon", icon: "roles" },
+  lophn: { kind: "character", shape: "square", color: "coral" },
+  project_manager: { kind: "character", shape: "capsule", color: "periwinkle" },
+  app_engineer: { kind: "character", shape: "wide", color: "yellow" },
+  operator: { kind: "character", shape: "arch", color: "sage" },
 };
 
 // 이 파일 이름이 바뀌면 사람이 만든 built-in 정의를 못 찾는다.

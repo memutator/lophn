@@ -1,10 +1,9 @@
 // sidebar의 Agents 묶음이 그리는 줄. 목록만 읽어 줄 값으로 옮기고(lophn, Project Manager, Operators 순서),
 // Agents 탭이 저장·삭제로 목록을 바꾸면 changed로 다시 읽는다.
 import { useCallback, useEffect, useState } from "react";
-
+import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import type { SidebarAgent } from "../sidebar/agents-section.tsx";
 import type { AgentsSource } from "./source.ts";
-import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 
 const ORDER = { lophn: 0, project_manager: 1, app_engineer: 2, operator: 3 };
 
@@ -26,8 +25,8 @@ export function useSidebarAgents(
           .flatMap((row) => {
             if (row.role === "app_engineer") return [];
             const profile: AvatarProfile =
-              row.profile.kind === "icon"
-                ? { kind: "icon", icon: row.profile.icon }
+              row.profile.kind === "character"
+                ? row.profile
                 : {
                     kind: "image",
                     src: source.imageSrc(

@@ -1,9 +1,10 @@
+import type { CharacterProfile } from "../../../packages/protocol/lophn-agent/agent-values.ts";
+import type { FakePicker } from "../../../packages/shell/renderer/conversation/agent-tab-fake-source.ts";
+import type { TabSpec } from "../pages/screens/project-window.tsx";
 // agent 화면의 고정 데이터와, 데이터에서 탭을 만드는 작은 함수들. phroner 예시 project의 lophn·Project
 // Manager·Operator 둘과 agent별 session이다. model과 option은 models-data.ts(catalog)에서만 온다.
 import type { Step } from "./drive.ts";
 import type { ModelSelection } from "./model-options.ts";
-import type { TabSpec } from "../pages/screens/project-window.tsx";
-import type { FakePicker } from "../../../packages/shell/renderer/conversation/agent-tab-fake-source.ts";
 
 /** Weekly report session의 진행. report는 일이 끝난 모양이고 나머지는 사람을 기다리거나 답한 뒤다. */
 type ChatStage = "report" | "question" | "answered" | "approval";
@@ -35,24 +36,8 @@ export interface ChatInit {
   readonly view?: "permissions";
 }
 
-/** agent profile의 icon. 사용자가 올린 이미지는 icon 대신 image다. */
-type AvatarIconKey =
-  | "dock"
-  | "roles"
-  | "contexts"
-  | "documents"
-  | "apps"
-  | "search"
-  | "series"
-  | "bookmark"
-  | "terminal"
-  | "read"
-  | "edit"
-  | "compare";
-
-export interface AgentProfile {
-  readonly icon: AvatarIconKey;
-  /** 사용자가 올린 이미지를 쓴다(icon은 이미지를 지우면 돌아갈 값). */
+export interface AgentProfile
+  extends Pick<CharacterProfile, "shape" | "color"> {
   readonly image?: boolean;
 }
 
@@ -65,30 +50,37 @@ export interface AgentRow {
 
 /** sidebar Agents 묶음의 줄. "operators"는 줄이 아니라 아래 Operator들의 작은 머리다. */
 export const AGENT_ROWS: readonly AgentRow[] = [
-  { id: "lophn", name: "lophn", profile: { icon: "dock" } },
-  { id: "engineer", name: "Project Manager", profile: { icon: "contexts" } },
+  { id: "lophn", name: "lophn", profile: { shape: "square", color: "coral" } },
+  {
+    id: "engineer",
+    name: "Project Manager",
+    profile: { shape: "capsule", color: "periwinkle" },
+  },
   {
     id: "operators",
     name: "Operators",
     operator: true,
-    profile: { icon: "roles" },
+    profile: { shape: "arch", color: "sage" },
   },
   {
     id: "eval-analyst",
     name: "Eval analyst",
     operator: true,
-    profile: { icon: "read", image: true },
+    profile: { shape: "pear", color: "lavender", image: true },
   },
   {
     id: "experiment-planner",
     name: "Experiment planner",
     operator: true,
-    profile: { icon: "compare" },
+    profile: { shape: "round", color: "blue" },
   },
 ];
 
 export const profileOf = (name: string): AgentProfile =>
-  AGENT_ROWS.find((row) => row.name === name)?.profile ?? { icon: "dock" };
+  AGENT_ROWS.find((row) => row.name === name)?.profile ?? {
+    shape: "square",
+    color: "coral",
+  };
 
 const nameOf = (id: string) =>
   AGENT_ROWS.find((row) => row.id === id)?.name ?? "lophn";

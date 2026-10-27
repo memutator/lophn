@@ -33,7 +33,7 @@ export type AvailableSkill = {
 };
 
 type ResolveEnvironment = {
-  // 정의에 profile이 없을 때의 기본 icon.
+  // 정의에 profile이 없을 때의 기본 character.
   default_profile: Profile;
   // 이 place에서 쓸 수 있는 skill과 MCP tool. domain 층 skill은 domain마다 한 줄이다(등록 순서).
   skills: readonly AvailableSkill[];

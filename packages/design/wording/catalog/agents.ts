@@ -43,7 +43,7 @@ export const agents = {
   "agents.notice.tab-lead":
     "The agents that work here. lophn is one agent for all of lophn, so you set it up in Settings \u203a Agents.",
   "agents.button.assign-app": "Assign app",
-  "agents.button.choose-icon": "Choose icon",
+  "agents.button.choose-character": "Choose character",
   "agents.button.create-operator": "Create Operator",
   "agents.button.remove-app": "Remove app",
   "agents.button.remove-image": "Remove image",
@@ -56,6 +56,22 @@ export const agents = {
   "agents.label.auth-api-key": "API key in a header",
   "agents.label.auth-bearer": "Bearer token",
   "agents.label.auth-none": "None",
+  "agents.label.character-shape": "Shape",
+  "agents.label.character-color": "Color",
+  "agents.label.character-square": "Square",
+  "agents.label.character-capsule": "Capsule",
+  "agents.label.character-wide": "Wide",
+  "agents.label.character-pear": "Pear",
+  "agents.label.character-round": "Round",
+  "agents.label.character-arch": "Arch",
+  "agents.label.character-coral": "Coral",
+  "agents.label.character-periwinkle": "Periwinkle",
+  "agents.label.character-yellow": "Yellow",
+  "agents.label.character-sage": "Sage",
+  "agents.label.character-lavender": "Lavender",
+  "agents.label.character-peach": "Peach",
+  "agents.label.character-blue": "Blue",
+  "agents.label.character-teal": "Teal",
   "agents.label.avatar-preview": "Avatar preview",
   "agents.label.built-in": "Built-in",
   "agents.label.effect-external": "External",
@@ -118,7 +134,7 @@ export const agents = {
   "agents.notice.place-help":
     "Where this Operator works. Its sessions open in that place.",
   "agents.notice.profile-help":
-    "An icon, or an image you upload. It shows next to the agent's messages.",
+    "Choose a shape and color, or upload an image. It shows next to the agent's messages.",
   "agents.notice.protected-key":
     "Typed in a protected prompt after you add the server. It isn't typed here and isn't shown again.",
   "agents.notice.server-name-help":
@@ -166,7 +182,6 @@ export const agents = {
     "{skills, plural, one {# skill} other {# skills}} · {mcp, number} MCP",
   "project-workspace.label.agent-counts-unknown":
     "Can't count until its file is fixed",
-  "project-workspace.label.agent-editor-icons": "Icon",
   "project-workspace.label.agent-editor-image-file": "Image file",
   "project-workspace.label.agent-editor-instructions": "Instructions",
   "project-workspace.label.agent-editor-model-unset":
@@ -175,18 +190,6 @@ export const agents = {
   "project-workspace.label.agent-kind-operator": "Operator",
   "project-workspace.label.agent-no-model": "No model",
   "project-workspace.label.agents-target": "the agents",
-  "project-workspace.label.avatar-icon-apps": "Apps",
-  "project-workspace.label.avatar-icon-bookmark": "Bookmark",
-  "project-workspace.label.avatar-icon-compare": "Compare",
-  "project-workspace.label.avatar-icon-contexts": "Library",
-  "project-workspace.label.avatar-icon-dock": "Chat",
-  "project-workspace.label.avatar-icon-documents": "Documents",
-  "project-workspace.label.avatar-icon-edit": "Pencil",
-  "project-workspace.label.avatar-icon-read": "Reading",
-  "project-workspace.label.avatar-icon-roles": "People",
-  "project-workspace.label.avatar-icon-search": "Search",
-  "project-workspace.label.avatar-icon-series": "Series",
-  "project-workspace.label.avatar-icon-terminal": "Terminal",
   "project-workspace.label.instructions-shared":
     "Shared by every agent in {project}",
   "project-workspace.label.open-agent-named": "Open {name}",

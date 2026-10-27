@@ -1,5 +1,7 @@
 // mock 모드의 Agent 탭 통로. agent(담당과 자리)마다 메모리 source 하나를 만들어 두고, 같은 agent를 다시 얻으면
-// 같은 기록을 본다. 끝난 일이 있는 대화와 이른 대화 하나씩을 채운다.
+// 같은 기록을 본다. 이름·profile은 편집 화면과 같은 AgentsSource에서 읽어 탭과 대화 머리가 어긋나지 않게 한다.
+
+import { t } from "@lophn/wording";
 import {
   type AgentTabScene,
   createFakeAgentTabSource,
@@ -8,8 +10,13 @@ import type {
   AgentTabSource,
   AgentTabSourceFactory,
 } from "../../conversation/agent-tab-source.ts";
+import type { FakeAgentsSource } from "../../workspace/agents/fake-source.ts";
 
 export function mockAgentTabSource(
+  agents: Pick<
+    FakeAgentsSource,
+    "readAgent" | "imageSrc" | "grants" | "changed"
+  >,
   scene: AgentTabScene = "report",
 ): AgentTabSourceFactory {
   const fakes = new Map<string, AgentTabSource>();
@@ -17,7 +24,52 @@ export function mockAgentTabSource(
     const key = `${agent.assignment}:${agent.place.kind}:${agent.place.id}`;
     let fake = fakes.get(key);
     if (fake === undefined) {
-      fake = createFakeAgentTabSource({ scene, now: Date.now });
+      const source = createFakeAgentTabSource({ scene, now: Date.now });
+      const project = agent.place.kind === "global" ? null : agent.place.id;
+      fake = {
+        ...source,
+        async agent() {
+          const read = await agents.readAgent(project, agent.assignment);
+          if (!read.ok) return { ok: false, code: read.message };
+          const grants = await agents.grants(project, agent.assignment);
+          if (!grants.ok) return { ok: false, code: grants.message };
+          const { role, place, effective } = read.value;
+          const profile = effective.profile.value;
+          return {
+            ok: true,
+            value: {
+              role,
+              name: effective.name.value,
+              profile:
+                profile.kind === "character"
+                  ? profile
+                  : {
+                      kind: "image",
+                      src: agents.imageSrc(
+                        project,
+                        agent.assignment,
+                        profile.image,
+                      ),
+                    },
+              place: {
+                kind: place.kind === "app" ? "app" : "project",
+                name: place.name,
+              },
+              permissionSummary: t("conversation.label.permission-summary", {
+                count: grants.value.entries.length,
+              }),
+            },
+          };
+        },
+        changed(listener) {
+          const unlistenSource = source.changed?.(listener);
+          const unlistenAgents = agents.changed(listener);
+          return () => {
+            unlistenSource?.();
+            unlistenAgents();
+          };
+        },
+      };
       fakes.set(key, fake);
     }
     return fake;

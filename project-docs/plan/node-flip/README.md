@@ -13,4 +13,8 @@
   - instance lock(`packages/base/install/instance-lock.ts`)은 `node:sqlite`의 exclusive lock으로 한다. Node에는 flock이 없다. SQLite의 POSIX lock은 process가 죽으면 풀리고, 새 의존이 없고, Deno와 Node에서 같이 돈다(위 측정). (agent)
   - `Deno.serve`의 fetch 모양 handler(`Request` → `Response`)는 그대로 두고 `node:http` 위에 adapter 하나를 둔다. handler 코드와 test를 다시 쓰지 않는다. WebSocket은 npm `ws`가 `upgrade` event에서 받는다. (agent)
   - wave 1에서 옮긴 코드는 Deno와 Node 둘 다에서 돌아야 한다. wave 2 전에 runtime을 섞지 않는다. (agent)
+  - lophn의 TypeScript는 production, 개발, test 모두 Electron의 Node(`ELECTRON_RUN_AS_NODE=1`)로 돈다. 개발과 test의 binary는 `node_modules/electron/dist/electron`이다. production이 Electron이고, 이 기계의 `node` 24.20에는 `packages/core/jobs/schedule.ts`가 쓰는 `Temporal`이 없다(Electron 44의 V8 15.2에는 있다). (agent)
+  - 앱과 flow는 wave 3까지 Deno로 돈다. core는 그 binary를 env `LOPHN_DENO`로 받고, 없으면 PATH의 `deno`다. shell이 core를 띄울 때 넘긴다. (agent)
+  - root `package.json`의 npm workspaces와 lock 하나로 module을 푼다. `node_modules/@lophn/*`는 상대 symlink라 worktree마다 `npm ci`를 돌린다. 펼친 `@types/node`는 Electron의 Node에 맞춰 24로 고정한다(26이면 Deno의 DOM `Event` type과 부딪힌다). (agent)
+  - test는 이미 전부 `node:test`라 Electron의 `--test`로 돈다(wave 2 시작 때 sandbox test 하나와 `.md` text import를 빼고 다 통과했다). type check는 `tsc --noEmit -p <폴더>`이고 option은 root `tsconfig.base.json`에 있다. (agent)
 - 합칠 때 할 일: `deno task check`와 e2e 전체. wave 2부터는 그 명령이 바뀐다. 다 끝나면 roadmap 단계 4~6과 "다음 계획이 바꿀 것", 바뀐 architecture 문서, changelog 열린 판, AGENTS.md.

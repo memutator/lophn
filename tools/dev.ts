@@ -15,6 +15,20 @@
 // 채운다. 그래서 fake를 띄우지 않고, 데이터 root는 매번 새로 만드는 .dev-data/mock이다. 터미널 탭만
 // 진짜 PTY다. core가 mock project의 폴더를 모르므로 shell main이 데이터 root의 mock-terminal 폴더에서 연다.
 
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
+import {
+  chmod,
+  mkdir,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
+import process from "node:process";
+
+import { errorCode } from "../packages/base/mod.ts";
 import { devCliLauncher } from "../packages/base/install/linux-install.ts";
 import { HOOK_STDOUT } from "../packages/protocol/coding-agent/mod.ts";
 import { providerList } from "../packages/protocol/lophn-agent/mod.ts";
@@ -108,7 +122,7 @@ function startDevFake(portText: string | undefined) {
       fake.handle,
     );
   } catch (error) {
-    if (error instanceof Deno.errors.AddrInUse) {
+    if (errorCode(error) === "EADDRINUSE") {
       throw new Error(
         `port ${port}을 이미 쓰고 있다. 다른 deno task dev가 떠 있는지 보고, 다른 port는 ${FAKE_PORT}로 정한다`,
       );
@@ -137,18 +151,15 @@ async function plantFakeProvider(
   const settingsPath = `${dataRoot}/settings.json`;
   let settings: Record<string, unknown> = {};
   try {
-    settings = JSON.parse(await Deno.readTextFile(settingsPath));
+    settings = JSON.parse(await readFile(settingsPath, "utf8"));
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
+    if (errorCode(error) !== "ENOENT") throw error;
   }
   settings["lophn-agent.model.catalog_auto_update"] ??= false;
-  await Deno.writeTextFile(settingsPath, JSON.stringify(settings), {
-    create: true,
-    mode: 0o600,
-  });
+  await writeFile(settingsPath, JSON.stringify(settings), { mode: 0o600 });
 
   const dir = `${dataRoot}/dev-setup`;
-  await Deno.mkdir(`${dir}/user-home`, { recursive: true });
+  await mkdir(`${dir}/user-home`, { recursive: true });
   const core = await bootCore({
     dir,
     home: dataRoot,
@@ -195,17 +206,14 @@ function planCore(
  * 실행마다 다시 쓰고 rename으로 바꿔, 돌고 있는 hook이 반쯤 쓴 file을 읽지 않는다.
  */
 async function writeDevCli(root: string): Promise<string> {
-  const info = await new Deno.Command(Deno.execPath(), {
-    args: ["info", "--json"],
-    stdout: "piped",
-    stderr: "null",
-  }).output();
-  const denoDir = JSON.parse(new TextDecoder().decode(info.stdout))
-    .denoDir as string;
+  const info = spawnSync(Deno.execPath(), ["info", "--json"], {
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  const denoDir = JSON.parse(info.stdout.toString("utf8")).denoDir as string;
   const dir = `${root}/.cache/dev-cli`;
   const path = `${dir}/lophn`;
-  await Deno.mkdir(dir, { recursive: true });
-  await Deno.writeTextFile(
+  await mkdir(dir, { recursive: true });
+  await writeFile(
     `${path}.tmp`,
     devCliLauncher(
       { deno: Deno.execPath(), platform: root, denoDir },
@@ -213,7 +221,7 @@ async function writeDevCli(root: string): Promise<string> {
     ),
     { mode: 0o755 },
   );
-  await Deno.rename(`${path}.tmp`, path);
+  await rename(`${path}.tmp`, path);
   return path;
 }
 
@@ -245,8 +253,17 @@ function planShell(
 }
 
 /** Ctrl+C·SIGTERM이 이 프로세스에 도착하면 된다. Windows는 SIGBREAK다. */
-function signalNames(os: string = Deno.build.os): Deno.Signal[] {
-  return os === "windows" ? ["SIGBREAK"] : ["SIGINT", "SIGTERM"];
+function signalNames(os: string = process.platform): Deno.Signal[] {
+  return os === "win32" ? ["SIGBREAK"] : ["SIGINT", "SIGTERM"];
+}
+
+// node child에는 기다릴 수 있는 status가 없어 close를 Promise로 감싼다. stdio가 inherit이라
+// close는 프로세스가 끝나면 온다.
+function exitStatus(child: ChildProcess): Promise<{ success: boolean }> {
+  return new Promise((resolve, reject) => {
+    child.once("error", reject);
+    child.once("close", (code) => resolve({ success: code === 0 }));
+  });
 }
 
 /**
@@ -255,11 +272,11 @@ function signalNames(os: string = Deno.build.os): Deno.Signal[] {
  * core는 shell main의 자식이라 같이 끝난다. 이미 끝난 child의 kill은 건너뛴다.
  */
 class ProcessGroup {
-  readonly #children: Set<Deno.ChildProcess> = new Set();
+  readonly #children: Set<ChildProcess> = new Set();
 
-  add(child: Deno.ChildProcess): void {
+  add(child: ChildProcess): void {
     this.#children.add(child);
-    void child.status
+    void exitStatus(child)
       .then(() => this.#children.delete(child))
       .catch(() => this.#children.delete(child));
   }
@@ -287,7 +304,7 @@ type DevOptions = {
   /** 사람의 env 위에 더할 값. */
   env?: Record<string, string>;
   /** 테스트가 명령을 흉내 낼 때 끼운다. 없으면 실제 프로세스를 띄운다. */
-  spawn?: (plan: SpawnPlan, purpose: Purpose) => Deno.ChildProcess;
+  spawn?: (plan: SpawnPlan, purpose: Purpose) => ChildProcess;
   /** 테스트가 신호를 붙이지 않을 때 끈다. */
   signals?: boolean;
 };
@@ -298,14 +315,14 @@ type DevOptions = {
 export async function removeDataRoot(dataRoot: string): Promise<void> {
   // core가 깐 sdk 사본이 읽기 전용(폴더 0555)이라 쓰기 권한을 먼저 돌려준다.
   async function open(directory: string): Promise<void> {
-    await Deno.chmod(directory, 0o755);
-    for await (const entry of Deno.readDir(directory)) {
-      if (entry.isDirectory) await open(`${directory}/${entry.name}`);
+    await chmod(directory, 0o755);
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      if (entry.isDirectory()) await open(`${directory}/${entry.name}`);
     }
   }
   try {
     await open(dataRoot);
-    await Deno.remove(dataRoot, { recursive: true });
+    await rm(dataRoot, { recursive: true });
   } catch {
     // 없는 root(첫 실행)다.
   }
@@ -331,12 +348,21 @@ async function runDev(
   }
 }
 
+/** process.env 복사본. 값이 없는 key는 뺀다. */
+function envObject(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined) env[key] = value;
+  }
+  return env;
+}
+
 async function launch(
   mode: Mode,
   options: DevOptions,
   closers: (() => Promise<void>)[],
 ): Promise<{ ok: true } | { ok: false }> {
-  const parentEnv = { ...Deno.env.toObject(), ...options.env };
+  const parentEnv = { ...envObject(), ...options.env };
   const home = devHomeOf(options.root, parentEnv);
   if (!home.ok) {
     console.error(`deno task ${mode}: ${home.message}`);
@@ -350,7 +376,7 @@ async function launch(
   if (options.signals !== false) {
     const stop = () => {
       group.stop();
-      Deno.exit(0);
+      process.exit(0);
     };
     for (const name of signalNames()) {
       try {
@@ -366,9 +392,9 @@ async function launch(
     if (mode === "dev:mock") {
       await removeDataRoot(dataRoot);
     }
-    await Deno.mkdir(dataRoot, { recursive: true, mode: 0o700 });
+    await mkdir(dataRoot, { recursive: true, mode: 0o700 });
     // 다른 도구가 `mkdir -p .dev-data/<하위>`로 먼저 만들면 775로 남는다. core는 0700이 아니면 뜨지 않는다.
-    await Deno.chmod(dataRoot, 0o700);
+    await chmod(dataRoot, 0o700);
   } catch (error) {
     console.error(
       `deno task ${mode}: 개발 데이터 root를 만들지 못했다: ${
@@ -411,7 +437,7 @@ async function launch(
     ) {
       const built = spawn(plan, "build");
       group.add(built);
-      if (!(await built.status).success) {
+      if (!(await exitStatus(built)).success) {
         console.error(
           `deno task ${mode}: ${what} build가 실패했다. 옛 화면을 띄우지 않는다.`,
         );
@@ -431,37 +457,34 @@ async function launch(
       "shell",
     );
     group.add(child);
-    await child.status;
+    await exitStatus(child);
     return { ok: true };
   }
 
   // dev:core는 인자의 --port=<n>을 그대로 core에 흘려 보낸다.
-  const portArg = Deno.args.find((arg) => arg.startsWith("--port="));
+  const portArg = process.argv.slice(2).find((arg) =>
+    arg.startsWith("--port=")
+  );
   const port = portArg === undefined ? undefined : Number(portArg.slice(7));
   const child = spawn(
     planCore(options.root, { dataRoot, port, env: parentEnv }),
     "core",
   );
   group.add(child);
-  await child.status;
+  await exitStatus(child);
   return { ok: true };
 }
 
-function defaultSpawn(plan: SpawnPlan, _purpose: Purpose): Deno.ChildProcess {
-  const child = new Deno.Command(plan.command, {
-    args: [...plan.args],
-    env: plan.env,
-    stdin: "inherit",
-    stdout: "inherit",
-    stderr: "inherit",
-  }).spawn();
-  return child;
+function defaultSpawn(plan: SpawnPlan, _purpose: Purpose): ChildProcess {
+  return spawn(plan.command, [...plan.args], {
+    env: { ...process.env, ...plan.env },
+    stdio: "inherit",
+  });
 }
 
 async function hasFile(path: string): Promise<boolean> {
   try {
-    const stat = await Deno.stat(path);
-    return stat.isFile;
+    return (await stat(path)).isFile();
   } catch {
     return false;
   }
@@ -471,11 +494,12 @@ if (import.meta.main) {
   // tools/의 부모가 저장소 루트다.
   const root = new URL("..", new URL("./", import.meta.url)).pathname
     .replace(/\/$/, "");
-  const mode: Mode = Deno.args.includes("dev:core")
+  const args = process.argv.slice(2);
+  const mode: Mode = args.includes("dev:core")
     ? "dev:core"
-    : Deno.args.includes("dev:mock")
+    : args.includes("dev:mock")
     ? "dev:mock"
     : "dev";
   const run = await runDev(mode, { root });
-  if (!run.ok) Deno.exit(1);
+  if (!run.ok) process.exit(1);
 }

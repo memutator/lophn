@@ -1,3 +1,8 @@
+// Gateway WebSocket. upgrade 요청은 adapter의 upgrade callback으로 오고 fetch handler는 거치지 않는다.
+import { Buffer } from "node:buffer";
+import { type IncomingMessage, STATUS_CODES } from "node:http";
+import type { Duplex } from "node:stream";
+import { WebSocket, WebSocketServer } from "ws";
 import { asInternalError } from "../../base/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
@@ -9,9 +14,9 @@ import {
   createGatewaySession,
   type GatewayFrames,
 } from "../events/mod.ts";
-import { errorBody, failure } from "./request.ts";
+import { errorBody, failure, type RequestFailure } from "./request.ts";
 
-type SocketDeps = {
+export type SocketDeps = {
   bus: Bus;
   // Bus 밖 frame을 보낼 연결 목록. 연결 동안 session을 올린다.
   frames?: GatewayFrames;
@@ -26,38 +31,84 @@ export function gatewayAllowed(ctx: AuthenticatedContext): boolean {
 
 // upgrade는 GET /gateway, subprotocol lophn.gateway.1만 받는다.
 // Host·Origin·Bearer는 HTTP와 같은 gate를 이미 통과한 뒤다.
-export function acceptSocket(request: Request):
-  | { ok: true; response: Response; socket: WebSocket }
-  | {
-      ok: false;
-      status: number;
-      body: unknown;
-    } {
+export function acceptSocket(
+  request: IncomingMessage,
+): { ok: true } | { ok: false; failure: RequestFailure } {
   if (request.method !== "GET") {
-    const error = failure({
-      code: "invalid_input",
-      message: "method not allowed",
-    });
-    return { ok: false, status: error.status, body: errorBody(error.error) };
+    return {
+      ok: false,
+      failure: failure({
+        code: "invalid_input",
+        message: "method not allowed",
+      }),
+    };
   }
-  const offered = request.headers.get("sec-websocket-protocol");
+  const offered = request.headers["sec-websocket-protocol"];
+  const protocols = Array.isArray(offered) ? offered.join(",") : offered;
   if (
-    offered === null ||
-    !offered
+    protocols === undefined ||
+    !protocols
       .split(",")
       .map((part) => part.trim())
       .includes(GATEWAY_SUBPROTOCOL)
   ) {
-    const error = failure({
-      code: "invalid_input",
-      message: "subprotocol not allowed",
-    });
-    return { ok: false, status: error.status, body: errorBody(error.error) };
+    return {
+      ok: false,
+      failure: failure({
+        code: "invalid_input",
+        message: "subprotocol not allowed",
+      }),
+    };
   }
-  const upgrade = Deno.upgradeWebSocket(request, {
-    protocol: GATEWAY_SUBPROTOCOL,
+  return { ok: true };
+}
+
+// upgrade를 ws server로 넘기고, node의 server.close()가 끝나려면 남은 연결을 끊는다.
+export type GatewayUpgrade = {
+  accept(
+    request: IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+    ctx: AuthenticatedContext,
+    deps: SocketDeps,
+  ): void;
+  shutdown(): void;
+};
+
+export function createGatewayUpgrade(): GatewayUpgrade {
+  const server = new WebSocketServer({
+    noServer: true,
+    // acceptSocket이 이미 같은 subprotocol을 확인했다.
+    handleProtocols: () => GATEWAY_SUBPROTOCOL,
   });
-  return { ok: true, response: upgrade.response, socket: upgrade.socket };
+  return {
+    accept(request, socket, head, ctx, deps) {
+      // handshake가 실패하면 ws는 ws 객체 없이 socket을 버린다. 연결 자리는 socket이 닫힐 때 돌려준다.
+      socket.once("close", () => deps.onClose?.());
+      server.handleUpgrade(request, socket, head, (ws) => {
+        attachSession(ws, ctx, deps);
+      });
+    },
+    shutdown() {
+      // upgraded socket은 server.close()가 닫지 않는다.
+      for (const client of [...server.clients]) client.terminate();
+    },
+  };
+}
+
+// upgrade를 받지 않는다. HTTP handler와 같은 오류 body를 raw socket에 쓴다.
+export function refuseSocket(socket: Duplex, reason: RequestFailure): void {
+  // gate를 기다리는 사이 client가 끊었을 수 있다. 늦은 write 오류로 process가 죽지 않게.
+  socket.on("error", () => {});
+  const body = JSON.stringify(errorBody(reason.error));
+  socket.write(
+    `HTTP/1.1 ${reason.status} ${STATUS_CODES[reason.status] ?? ""}\r\n` +
+      "content-type: application/json\r\n" +
+      `content-length: ${Buffer.byteLength(body)}\r\n` +
+      "connection: close\r\n\r\n" +
+      body,
+  );
+  socket.destroy();
 }
 
 export function attachSession(
@@ -91,14 +142,14 @@ export function attachSession(
     session.closed();
     deps.onClose?.();
   }
-  socket.onmessage = (event) => {
+  socket.on("message", (data) => {
     try {
-      session.receive(String(event.data));
+      session.receive(String(data));
     } catch (thrown) {
       asInternalError(thrown);
       socket.close(1011);
     }
-  };
-  socket.onclose = finish;
-  socket.onerror = finish;
+  });
+  socket.on("close", finish);
+  socket.on("error", finish);
 }

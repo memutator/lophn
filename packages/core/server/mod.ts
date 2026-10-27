@@ -40,7 +40,12 @@ export {
   type ApiServerOptions,
   startApiServer,
 } from "./server.ts";
-export { acceptSocket, attachSession } from "./socket.ts";
+export {
+  acceptSocket,
+  attachSession,
+  createGatewayUpgrade,
+  type GatewayUpgrade,
+} from "./socket.ts";
 export {
   createWorkspaceRelay,
   WORKSPACE_MEMORY_ROUTES,

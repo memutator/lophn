@@ -1,3 +1,4 @@
+import type { IncomingMessage } from "node:http";
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
@@ -277,6 +278,20 @@ export function headerBytes(request: Request): number {
   request.headers.forEach((value, name) => {
     total += encoder.encode(`${name}: ${value}\r\n`).byteLength;
   });
+  return total;
+}
+
+// upgrade 요청은 IncomingMessage로 온다. HTTP 요청과 같은 한도를 같은 방식으로 센다.
+export function rawHeaderBytes(request: IncomingMessage): number {
+  let total = encoder.encode(
+    `${request.method ?? "GET"} ${request.url ?? "/"} HTTP/1.1\r\n`,
+  ).byteLength;
+  for (const [name, value] of Object.entries(request.headers)) {
+    if (value === undefined) continue;
+    total += encoder.encode(
+      `${name}: ${Array.isArray(value) ? value.join(", ") : value}\r\n`,
+    ).byteLength;
+  }
   return total;
 }
 

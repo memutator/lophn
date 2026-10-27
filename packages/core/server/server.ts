@@ -1,3 +1,6 @@
+import type { Buffer } from "node:buffer";
+import type { IncomingMessage } from "node:http";
+import type { Duplex } from "node:stream";
 import type { Clock, Logger } from "../../base/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import { CODING_MCP_PATH } from "../../protocol/coding-agent/mod.ts";
@@ -30,10 +33,17 @@ import {
   gateRequest,
   headerBytes,
   MAX_HEADER_BYTES,
+  rawHeaderBytes,
 } from "./request.ts";
 import type { McpEndpoint } from "./mcp.ts";
 import { isSubscribePath, RouteRegistry } from "./routes.ts";
-import { acceptSocket, attachSession, gatewayAllowed } from "./socket.ts";
+import { type ServeHandle, type ServeUpgradeHandler, serve } from "./serve.ts";
+import {
+  acceptSocket,
+  createGatewayUpgrade,
+  gatewayAllowed,
+  refuseSocket,
+} from "./socket.ts";
 
 // core entry가 조립한다. core entry·data root·시작 순서는 여기 없다.
 export type ApiServerOptions = {
@@ -74,7 +84,9 @@ export type ApiServer = {
 
 const LOOPBACK = ["127.0.0.1", "::1"] as const;
 
-export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
+export async function startApiServer(
+  options: ApiServerOptions,
+): Promise<ApiServer> {
   const requested = options.port ?? DEFAULT_API_PORT;
   const registry = options.registry ?? new RouteRegistry();
   const admission = options.admission ?? createAdmission();
@@ -103,77 +115,142 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
       return admitted ? await work() : commandRefused();
     },
   };
-  let settled = false;
-  return new Promise((resolve, reject) => {
-    const handle = (request: Request, port: number): Promise<Response> =>
-      onRequest(request, port);
-    const server: Deno.HttpServer = Deno.serve({
-      port: requested,
-      hostname: LOOPBACK[0],
-      onListen: ({ port }) => {
-        // 원격 bind 설정은 없다. IPv6 loopback은 같은 port에만 붙인다.
-        let v6: Deno.HttpServer | undefined;
-        try {
-          v6 = Deno.serve({
-            port,
-            hostname: LOOPBACK[1],
-            handler: (request) => onRequest(request, port),
-          });
-        } catch (thrown) {
-          if (!settled) {
-            settled = true;
-            void server.shutdown().finally(() => reject(thrown));
-          }
-          return;
-        }
-        if (settled) return;
-        settled = true;
-        resolve({
-          port,
-          stop: async () => {
-            options.gateway?.shutdown();
-            await Promise.all([server.shutdown(), v6?.shutdown()]);
-          },
-        });
-      },
-      handler: (request) => {
-        const addr = server.addr;
-        const port = "port" in addr ? addr.port : requested;
-        return handle(request, port);
-      },
-    });
+  // bind 뒤에 실제 port를 채운다. 그 전에는 요청이 오지 않는다.
+  let port = requested;
 
-    async function onRequest(
-      request: Request,
-      port: number,
-    ): Promise<Response> {
-      try {
-        return await respond(request, port);
-      } catch {
-        // 경계 밖 throw는 stack·원문 없이 internal이다.
-        return json(failure({ code: "internal", message: "internal error" }));
-      }
+  async function onRequest(request: Request): Promise<Response> {
+    try {
+      return await respond(request);
+    } catch {
+      // 경계 밖 throw는 stack·원문 없이 internal이다.
+      return json(failure({ code: "internal", message: "internal error" }));
+    }
+  }
+
+  async function respond(request: Request): Promise<Response> {
+    if (headerBytes(request) > MAX_HEADER_BYTES) {
+      return json(
+        failure({
+          code: "invalid_input",
+          message: "headers exceed limit",
+        }),
+      );
     }
 
-    async function respond(request: Request, port: number): Promise<Response> {
-      if (headerBytes(request) > MAX_HEADER_BYTES) {
+    const url = new URL(request.url);
+    const origin = request.headers.has("origin")
+      ? request.headers.get("origin")
+      : null;
+    const decision = await gateRequest(
+      {
+        url: request.url,
+        origin,
+        authorization: request.headers.get("authorization"),
+        port,
+      },
+      options.credentials,
+    );
+    if (!decision.ok) {
+      // 무인증·Origin 거부는 안전 log만. ledger event는 없다.
+      options.logger?.warn({
+        component: "api",
+        event: origin !== null ? "origin_rejected" : "auth_rejected",
+      });
+      return json(decision.failure);
+    }
+    if (isSubscribePath(url.pathname)) {
+      // upgrade 요청은 adapter가 fetch handler 대신 upgrade callback으로 넘긴다.
+      return json(
+        failure({ code: "invalid_input", message: "upgrade required" }),
+      );
+    }
+    // HTTP 동시 요청 한도(128·principal당 16)는 인증 뒤 같은 시점에 결정한다. queue 없다.
+    const arrival = admission.enterHttp(decision.context.principal);
+    if (!arrival.ok) {
+      return json(failure(arrival.error));
+    }
+    // stream 응답은 본문이 끝날 때까지 입장 자리를 붙잡는다. 아래 finally는 그때 풀지 않는다.
+    let streaming = false;
+    try {
+      if (url.pathname === CODING_MCP_PATH) {
+        return options.mcp
+          ? await options.mcp.handle(decision.context, request)
+          : json(
+              failure({
+                code: "unavailable",
+                message: "mcp unavailable",
+              }),
+            );
+      }
+      const entry = registry.lookup(url.pathname);
+      if (!entry) {
         return json(
           failure({
-            code: "invalid_input",
-            message: "headers exceed limit",
+            code: "not_found",
+            message: "route not found",
           }),
         );
       }
+      const result = await dispatchHttp(request, entry, decision.context, deps);
+      if ("stream" in result) {
+        streaming = true;
+        return new Response(
+          held(result.stream, options.streamIdleMs ?? STREAM_IDLE_MS, () =>
+            arrival.value.release(),
+          ),
+          {
+            status: result.status,
+            headers: {
+              "content-type": result.contentType,
+              "content-length": String(result.length),
+            },
+          },
+        );
+      }
+      if ("bytes" in result) {
+        return new Response(
+          result.bytes.buffer.slice(
+            result.bytes.byteOffset,
+            result.bytes.byteOffset + result.bytes.byteLength,
+          ) as ArrayBuffer,
+          {
+            status: result.status,
+            headers: { "content-type": result.contentType },
+          },
+        );
+      }
+      return Response.json(result.json, { status: result.status });
+    } finally {
+      if (!streaming) arrival.value.release();
+    }
+  }
 
-      const url = new URL(request.url);
-      const origin = request.headers.has("origin")
-        ? request.headers.get("origin")
-        : null;
+  // upgrade는 respond를 거치지 않는다. HTTP와 같은 순서로 gate를 본다.
+  async function acceptUpgrade(
+    request: IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+  ): Promise<void> {
+    try {
+      if (rawHeaderBytes(request) > MAX_HEADER_BYTES) {
+        return refuseSocket(
+          socket,
+          failure({ code: "invalid_input", message: "headers exceed limit" }),
+        );
+      }
+      const url = upgradeUrl(request);
+      if (url === undefined) {
+        return refuseSocket(
+          socket,
+          failure({ code: "invalid_input", message: "host not allowed" }),
+        );
+      }
+      const origin = request.headers.origin ?? null;
       const decision = await gateRequest(
         {
-          url: request.url,
+          url: url.href,
           origin,
-          authorization: request.headers.get("authorization"),
+          authorization: request.headers.authorization ?? null,
           port,
         },
         options.credentials,
@@ -184,109 +261,97 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
           component: "api",
           event: origin !== null ? "origin_rejected" : "auth_rejected",
         });
-        return json(decision.failure);
+        return refuseSocket(socket, decision.failure);
       }
-      if (isSubscribePath(url.pathname)) {
-        if (!options.bus) {
-          return json(
-            failure({
-              code: "unavailable",
-              message: "gateway unavailable",
-            }),
-          );
-        }
-        // 자격은 연결 때 한 번 본다.
-        if (!gatewayAllowed(decision.context)) {
-          return json(
-            failure({
-              code: "forbidden",
-              message: "gateway not allowed for this credential",
-            }),
-          );
-        }
-        // event 연결 한도(32·principal당 4)는 upgrade 전에 결정한다. queue 없다.
-        const connection = admission.enterEvent(decision.context.principal);
-        if (!connection.ok) {
-          return json(failure(connection.error));
-        }
-        const accepted = acceptSocket(request);
-        if (!accepted.ok) {
-          connection.value.release();
-          return Response.json(accepted.body, { status: accepted.status });
-        }
-        attachSession(accepted.socket, decision.context, {
-          bus: options.bus,
-          frames: options.gateway,
-          onClose: connection.value.release,
-        });
-        return accepted.response;
-      }
-      // HTTP 동시 요청 한도(128·principal당 16)는 인증 뒤 같은 시점에 결정한다. queue 없다.
-      const arrival = admission.enterHttp(decision.context.principal);
-      if (!arrival.ok) {
-        return json(failure(arrival.error));
-      }
-      // stream 응답은 본문이 끝날 때까지 입장 자리를 붙잡는다. 아래 finally는 그때 풀지 않는다.
-      let streaming = false;
-      try {
-        if (url.pathname === CODING_MCP_PATH) {
-          return options.mcp
-            ? await options.mcp.handle(decision.context, request)
-            : json(
-                failure({
-                  code: "unavailable",
-                  message: "mcp unavailable",
-                }),
-              );
-        }
-        const entry = registry.lookup(url.pathname);
-        if (!entry) {
-          return json(
-            failure({
-              code: "not_found",
-              message: "route not found",
-            }),
-          );
-        }
-        const result = await dispatchHttp(
-          request,
-          entry,
-          decision.context,
-          deps,
+      if (!isSubscribePath(url.pathname)) {
+        return refuseSocket(
+          socket,
+          failure({ code: "not_found", message: "route not found" }),
         );
-        if ("stream" in result) {
-          streaming = true;
-          return new Response(
-            held(result.stream, options.streamIdleMs ?? STREAM_IDLE_MS, () =>
-              arrival.value.release(),
-            ),
-            {
-              status: result.status,
-              headers: {
-                "content-type": result.contentType,
-                "content-length": String(result.length),
-              },
-            },
-          );
-        }
-        if ("bytes" in result) {
-          return new Response(
-            result.bytes.buffer.slice(
-              result.bytes.byteOffset,
-              result.bytes.byteOffset + result.bytes.byteLength,
-            ) as ArrayBuffer,
-            {
-              status: result.status,
-              headers: { "content-type": result.contentType },
-            },
-          );
-        }
-        return Response.json(result.json, { status: result.status });
-      } finally {
-        if (!streaming) arrival.value.release();
       }
+      if (!options.bus) {
+        return refuseSocket(
+          socket,
+          failure({ code: "unavailable", message: "gateway unavailable" }),
+        );
+      }
+      // 자격은 연결 때 한 번 본다.
+      if (!gatewayAllowed(decision.context)) {
+        return refuseSocket(
+          socket,
+          failure({
+            code: "forbidden",
+            message: "gateway not allowed for this credential",
+          }),
+        );
+      }
+      // event 연결 한도(32·principal당 4)는 upgrade 전에 결정한다. queue 없다.
+      const connection = admission.enterEvent(decision.context.principal);
+      if (!connection.ok) {
+        return refuseSocket(socket, failure(connection.error));
+      }
+      const accepted = acceptSocket(request);
+      if (!accepted.ok) {
+        connection.value.release();
+        return refuseSocket(socket, accepted.failure);
+      }
+      gateway.accept(request, socket, head, decision.context, {
+        bus: options.bus,
+        frames: options.gateway,
+        onClose: connection.value.release,
+      });
+    } catch {
+      // 경계 밖 throw는 stack·원문 없이 internal이다.
+      refuseSocket(
+        socket,
+        failure({ code: "internal", message: "internal error" }),
+      );
     }
-  });
+  }
+
+  // adapter가 request URL을 만들 때와 같은 규칙이다. gateRequest의 Host 검사가 이 URL을 본다.
+  function upgradeUrl(request: IncomingMessage): URL | undefined {
+    try {
+      return new URL(
+        request.url ?? "/",
+        `http://${request.headers.host ?? "localhost"}`,
+      );
+    } catch {
+      return undefined;
+    }
+  }
+
+  const gateway = createGatewayUpgrade();
+  const upgrade: ServeUpgradeHandler = (request, socket, head) => {
+    // 거절 write까지 실패하면 알릴 길이 없다. process는 죽이지 않는다.
+    void acceptUpgrade(request, socket, head).catch(() => undefined);
+  };
+  const v4 = await serve(
+    { port: requested, hostname: LOOPBACK[0], upgrade },
+    (request) => onRequest(request),
+  );
+  if (v4.addr.transport === "tcp") port = v4.addr.port;
+  // 원격 bind 설정은 없다. IPv6 loopback은 같은 port에만 붙인다.
+  let v6: ServeHandle | undefined;
+  try {
+    v6 = await serve({ port, hostname: LOOPBACK[1], upgrade }, (request) =>
+      onRequest(request),
+    );
+  } catch (thrown) {
+    // v4가 먼저 듣는 사이 붙은 upgraded socket이 있으면 v4.shutdown()이 끝나지 않는다.
+    gateway.shutdown();
+    await v4.shutdown().catch(() => undefined);
+    throw thrown;
+  }
+  return {
+    port,
+    stop: async () => {
+      // 내려간다는 frame을 먼저 보낸다. 남은 upgraded socket은 server.close()가 닫지 않아 여기서 끊는다.
+      options.gateway?.shutdown();
+      gateway.shutdown();
+      await Promise.all([v4.shutdown(), v6?.shutdown()]);
+    },
+  };
 }
 
 const STREAM_IDLE_MS = 60_000;

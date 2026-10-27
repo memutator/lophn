@@ -4,15 +4,10 @@
 import process from "node:process";
 import { connect, settled } from "./wire.ts";
 
-// stdout은 core와의 통로다. console.log가 통로를 깨지 않게 stderr로 돌린다.
-// flow.ts를 import하기 전에 해야 한다.
+// stdout은 core와의 통로다. flow.ts의 console.log와 process.stdout.write가 통로를 깨지 않게
+// stderr로 돌린다. flow.ts를 import하기 전에 해야 한다. console.log는 process.stdout.write를
+// 따라오므로 이 override 하나로 충분하다.
 const toStderr = console.error.bind(console);
-for (const name of ["log", "info", "debug", "warn", "trace", "dir", "table"]) {
-  (console as unknown as Record<string, unknown>)[name] = toStderr;
-}
-// wire.ts가 원래 write를 이미 잡아 뒀다(위 import가 먼저 돈다). 이제 flow.ts의
-// process.stdout.write는 stderr로 간다. Node의 console.log는 이 write를 따라오고,
-// Deno의 console.log는 위에서 따로 돌렸다(실측).
 function writeToStderr(
   chunk: Uint8Array | string,
   encoding?: BufferEncoding | ((error?: Error | null) => void),
@@ -29,7 +24,7 @@ function die(error: unknown): never {
   process.exit(1);
 }
 
-// Deno의 globalThis event 대신 process event를 쓴다. 두 runtime에서 같은 이름으로 돈다.
+// 처리를 놓친 예외도 stderr에 남기고 1로 끝나 program_exited 줄에 code와 마지막 줄이 남게 한다.
 process.on("unhandledRejection", (reason) => {
   die(reason);
 });

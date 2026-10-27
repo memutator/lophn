@@ -1,7 +1,6 @@
 import process from "node:process";
 import { ok } from "../../../../base/mod.ts";
 import { appEnv } from "../../../apps/runtime/processes/mod.ts";
-import { denoBinary } from "../../../supervision/security/node-command.ts";
 import { createFlowHost } from "../../flow-host/host.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
@@ -17,10 +16,9 @@ export const flowsWiring: WiringFactory = () => {
       const redactor = createProductRedactor(ctx.knownSecrets);
       host = createFlowHost({
         dataRoot: ctx.root.path,
-        deno: denoBinary(),
+        // flow는 lophn의 다른 자식 process와 같이 Electron의 Node로 뜬다. DENO_DIR은 넘기지 않는다.
         env: appEnv({
           home: process.env.HOME,
-          denoDir: process.env.DENO_DIR,
           xdgCacheHome: process.env.XDG_CACHE_HOME,
           path: process.env.PATH,
         }),

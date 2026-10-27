@@ -40,19 +40,27 @@ import { agent, input, instance, report, tool } from "@lophn/flow";
 `forbidden` 등) 가운데 하나다. 다시 할지는 code가 정한다. 요청 JSON이 1 MiB를
 넘거나 JSON이 아니면 `invalid_input` 값이 돌아온다.
 
-같은 폴더의 다른 file을 import할 수 있다. `console.log`는 stderr log로 간다.
+같은 폴더의 다른 file을 상대 경로로 import할 수 있다(`.ts` 확장자를 쓴다).
+`console.log`는 stderr log로 간다.
 
-## sandbox
+## process
 
-읽기는 workflow 폴더와 SDK뿐이다. 폴더 안의 symlink가 폴더 밖을 가리키면 그
-link는 읽히지 않는다. 쓰기, 네트워크, 환경 변수, 다른 program 실행이 없다. 바깥
-효과는 모두 `tool(...)`과 `agent(...)`로 한다. memory는 512 MiB까지고 넘으면
-process가 끝난다.
+flow는 Node process 하나로 돈다(Electron의 Node). sandbox도 권한 한도도 없어서
+file을 읽고 쓸 수 있고, network를 쓸 수 있고, 다른 program을 띄울 수 있다. 넘긴
+환경 변수(`HOME`, `PATH`, 있으면 `XDG_CACHE_HOME`)를 본다. lophn이 기록하는 바깥 효과는
+`tool`과 `agent`로 낸 것뿐이니, 기록과 rewind가 서야 하는 일은 그 둘로 낸다.
+
+memory 한도는 없다. process가 끝나면 끝 code와 stderr 끝 줄이 instance에 남는다.
+
+Node가 type만 지우고 code를 바로 실행한다. import할 수 있는 것은 `@lophn/flow`,
+같은 폴더의 file(`.ts` 확장자를 쓴다), `node:` built-in module이다. `enum`이나
+`namespace`처럼 변환이 필요한 문법은 실행 중에 깨지고, `workflow.check`가 그런
+것도 알려 준다.
 
 ## 하지 않는 것
 
-- `process.stdout.write`로 쓴 것도 `console.log`처럼 stderr로 간다.
-  통로(stdout)에는 닿지 못한다.
+- `console.log`와 `process.stdout.write`로 쓴 것은 stderr로 간다. 통로(stdout)에는
+  닿지 못한다.
 - 결과 type을 검사하지 않는다.
 - 다시 하기와 시간 제한을 두지 않는다.
 

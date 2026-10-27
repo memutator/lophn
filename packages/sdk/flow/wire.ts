@@ -41,7 +41,7 @@ export type FlowPort = {
   request(body: RequestBody): Promise<Outcome>;
 };
 
-// process -> core 한 줄 상한이다. fl-host의 FLOW_LINE_MAX_BYTES와 같은 값이다.
+// process -> core 한 줄 상한이다. flow-host의 FLOW_LINE_MAX_BYTES와 같은 값이다.
 const LINE_MAX_BYTES = 1024 * 1024;
 
 export const FLOW_PORT = Symbol.for("lophn.flow");

@@ -1,4 +1,4 @@
-import { appendFile, mkdir, writeFile } from "node:fs/promises";
+import { appendFile, mkdir } from "node:fs/promises";
 import { type Clock, err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import { RUN_WAIT_MAX_MS } from "../../../protocol/runs/mod.ts";
@@ -13,8 +13,7 @@ import {
   WORKFLOW_FLOW_FILE,
   workflowFolder,
 } from "../../../protocol/workflows/paths.ts";
-import { devImportMap, packageInstallPath } from "../../apps/packages/mod.ts";
-import { realPathResolver } from "../../apps/permissions/mod.ts";
+import { packageInstallPath } from "../../apps/packages/mod.ts";
 import {
   createStreamDecoder,
   drain,
@@ -25,16 +24,16 @@ import {
   type Spawned,
   spawnProcess,
 } from "../../supervision/responsiveness/process.ts";
+import { nodeCommand } from "../../supervision/security/node-command.ts";
 import type {
   createWorkflowService,
   WorkflowFlows,
 } from "../../workflows/mod.ts";
 import { createWriter, readRequests } from "./channel.ts";
-import { flowArgv } from "./flags.ts";
+import { linkFlowSdk } from "./sdk-link.ts";
 
 type FlowHostDeps = {
   dataRoot: string;
-  deno: string;
   env: Record<string, string>;
   clock: Clock;
   runs: Pick<RunService, "start" | "wait" | "cancelOfInstance">;
@@ -46,7 +45,7 @@ type FlowHostDeps = {
   redact(line: string): string | null;
 };
 
-// log와 import map의 자리. PM이 쓰는 workflow 폴더와 SDK 읽기 범위 밖이라 flow process가 읽지 못한다.
+// log의 자리. PM이 쓰는 workflow 폴더 밖이라 flow가 덮어쓰지 못한다.
 const FLOWS_FOLDER = "flows";
 const LOG_MAX_BYTES = 1024 * 1024;
 const TAIL_LINES = 10;
@@ -84,25 +83,16 @@ export function createFlowHost(
   const processes = new Map<string, Entry>();
   let closing = false;
 
-  // 내용이 instance와 무관해 한 번만 쓴다. 동시 launch가 같은 파일을 덮어쓰지 않게 promise를 재사용한다.
-  let importMapReady: Promise<string> | undefined;
-  const importMap = () =>
-    (importMapReady ??= (async () => {
-      await mkdir(flowsRoot, { recursive: true, mode: 0o700 });
-      const path = `${flowsRoot}/import-map.json`;
-      const map = devImportMap(
-        {
-          [FLOW_SDK_NAME]: `lophn-sdk:${FLOW_SDK_NAME}@${FLOW_SDK_VERSION}/mod.ts`,
-        },
-        dataRoot,
-        dataRoot,
-      );
-      await writeFile(path, JSON.stringify(map));
-      return path;
-    })().catch((e) => {
-      importMapReady = undefined;
-      throw e;
-    }));
+  // log 폴더는 instance와 무관해 한 번만 만든다. 동시 launch가 같은 mkdir을 되풀이하지 않게 promise를 재사용한다.
+  let logsReady: Promise<void> | undefined;
+  const ensureLogs = () =>
+    (logsReady ??= mkdir(flowsRoot, { recursive: true, mode: 0o700 }).then(
+      () => {},
+      (e) => {
+        logsReady = undefined;
+        throw e;
+      },
+    ));
 
   // log 쓰기가 실패해도 flow는 멈추지 않는다.
   function appendLog(instance: string, entry: Entry, text: string) {
@@ -236,36 +226,33 @@ export function createFlowHost(
       err({ code: "unavailable" as const, message });
     const installed = packageInstallPath(FLOW_SDK_NAME, FLOW_SDK_VERSION);
     if (!installed.ok) return installed;
-    let importMapPath: string;
     try {
-      importMapPath = await importMap();
+      await ensureLogs();
     } catch (e) {
-      return unavailable(`flow import map is not ready: ${messageOf(e)}`);
+      return unavailable(`flow log folder is not ready: ${messageOf(e)}`);
     }
+    const linked = await linkFlowSdk({
+      dataRoot,
+      installPath: installed.value,
+    });
+    if (!linked.ok) return linked;
     if (closing) return unavailable("flow host is closing");
     if (processes.has(instance)) {
       return err({ code: "conflict", message: "flow is already running" });
     }
     const folder = workflowFolder(dataRoot, project, start.workflow);
-    // 훑기와 launch 사이에 새로 생긴 link는 막지 못한다(앱의 symlink-changes와 같은 한계).
-    // 대상을 못 푸는 link도 목록에 들어온다.
-    const links = await realPathResolver("", dataRoot).linksIn(folder);
-    const argv = flowArgv({
-      workflowFolder: folder,
-      sdkRoot: `${dataRoot}/sdk`,
-      outsideLinks: links.map((found) => found.link),
-      importMap: importMapPath,
-      entry: `${dataRoot}/${installed.value}/${FLOW_ENTRY_FILE}`,
-      flow: `${folder}/${WORKFLOW_FLOW_FILE}`,
-    });
-    if (!argv.ok) return argv;
+    const command = nodeCommand(
+      `${dataRoot}/${installed.value}/${FLOW_ENTRY_FILE}`,
+      [`${folder}/${WORKFLOW_FLOW_FILE}`],
+    );
 
     let child: Spawned;
     try {
       child = spawnProcess({
-        command: deps.deno,
-        args: argv.value,
-        env: deps.env,
+        command: command.command,
+        args: command.args,
+        // flow code가 볼 env는 wiring이 정한 것뿐이다. ELECTRON_RUN_AS_NODE는 runtime이 Node로 뜨는 표시다.
+        env: { ...deps.env, ...command.env },
       });
     } catch (e) {
       return unavailable(`flow process did not start: ${messageOf(e)}`);

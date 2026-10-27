@@ -136,15 +136,15 @@ instance becomes `ended`, with the exit code and the last stderr line kept. If
 lophn is turned off and on, a running flow is not started again; its instance is
 closed as `ended`.
 
-The sandbox: a flow runs as one process inside a sandbox. It can read only its
-workflow folder and the installed SDK; a symlink in the folder that points
-outside it cannot be read. It has no network, no file writing, no running of
-other programs and no environment variables. Its memory is capped at 512 MiB;
-over that the process dies. Everything that reaches outside goes through an app
-tool (`tool`) or an agent (`agent`). `console.log` and `Deno.stdout.write` go to
-stderr and show in the last line of the instance when it ends. It can import
-only `@lophn/flow`, files of the same folder and the JavaScript built-ins that
-need no permission (no `npm:`, no URL, no `jsr:`).
+The process: lophn runs a flow as one Node process. There is no sandbox and no
+permission limit, so it can read and write files, use the network and start
+programs. lophn records only what goes through an app tool (`tool`) or an agent
+(`agent`); send outside effects that way so lophn records them.
+`console.log` and `process.stdout.write` go to stderr and show in the last line
+of the instance when it ends. Node runs the code itself, stripping type syntax,
+so import `@lophn/flow`, files of the same folder (write the `.ts` extension)
+and Node's built-in modules. Syntax that needs a transform, such as `enum` or
+`namespace`, fails at run; `workflow.check` reports it.
 
 Allotment: an app tool that a flow calls works only within your current
 allotment as the PM of this project and the domains you hold. Before you write

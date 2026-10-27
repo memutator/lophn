@@ -1,9 +1,10 @@
-// `workflow.check`. PM이 쓴 flow.ts를 실행하지 않고 type check만 한다. devImportMap을 쓰므로 apps를 import하지
-// 않는 workflows module이 아니라 core/main에 둔다(layers.md).
+// `workflow.check`. PM이 쓴 flow.ts를 실행하지 않고 type check만 한다. packageInstallPath를 쓰므로
+// apps를 import하지 않는 workflows module이 아니라 core/main에 둔다(layers.md).
 import { spawn } from "node:child_process";
 import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import process from "node:process";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
@@ -13,9 +14,13 @@ import {
   WORKFLOW_FLOW_FILE,
   workflowFolder,
 } from "../../../protocol/workflows/mod.ts";
-import { devImportMap } from "../../apps/packages/mod.ts";
+import { packageInstallPath } from "../../apps/packages/mod.ts";
 import type { MemoryHandler } from "../../server/mod.ts";
-import { denoBinary } from "../../supervision/security/node-command.ts";
+import {
+  type NodeCommand,
+  nodeCommand,
+} from "../../supervision/security/node-command.ts";
+import { linkFlowSdk } from "./sdk-link.ts";
 
 type CheckWorkflowDeps = {
   dataRoot: string;
@@ -26,56 +31,60 @@ type CheckWorkflowDeps = {
 const LIMIT_MS = 30_000;
 const MAX_ERRORS = 20;
 
-const ERROR_START = /^(TS\d+ \[ERROR\]: |error: )/;
-const AT_LINE = /^\s+at (file:\/\/\S+)/;
+// tsc는 `file(line,col): error TSxxxx: ...`를 stdout에 쓴다. 코드 발췌와 요약 줄은 버린다.
+const ERROR_LINE = /^.+\(\d+,\d+\): error TS\d+: /;
 
-// 한 오류는 시작 줄과 그 블록의 첫 `at` 줄이다. 코드 발췌, `~~~`, 끝 "Type checking failed."는 버린다.
-function parseErrors(stderr: string, folder: string): string[] {
-  const errors: string[] = [];
-  let open = -1;
-  for (const line of stderr.split("\n")) {
-    if (ERROR_START.test(line)) {
-      if (line === "error: Type checking failed.") {
-        open = -1;
-        continue;
-      }
-      errors.push(line);
-      open = errors.length - 1;
-      continue;
-    }
-    const at = AT_LINE.exec(line);
-    if (at !== null && open >= 0) {
-      errors[open] += ` ${at[1]}`;
-      open = -1;
-    }
-  }
-  const cleaned = errors.map((e) => e.replaceAll(`file://${folder}/`, ""));
-  if (cleaned.length === 0) {
-    const first = stderr.split("\n").find((l) => l.trim() !== "");
+function parseErrors(output: string): string[] {
+  const errors = output
+    .split("\n")
+    .filter((line) => ERROR_LINE.test(line))
+    .map((line) => line.trimEnd());
+  if (errors.length === 0) {
+    const first = output.split("\n").find((line) => line.trim() !== "");
     return [first?.trim() ?? "failed"];
   }
-  return cleaned.length > MAX_ERRORS
+  return errors.length > MAX_ERRORS
     ? [
-        ...cleaned.slice(0, MAX_ERRORS),
-        `… and ${cleaned.length - MAX_ERRORS} more`,
+        ...errors.slice(0, MAX_ERRORS),
+        `… and ${errors.length - MAX_ERRORS} more`,
       ]
-    : cleaned;
+    : errors;
 }
 
-// deno check의 결과를 모은다. spawn 실패는 거절한다. timeout도 결과로 돌려줘야 하므로
+// platform이 가진 typescript와 @types/node. 설치 사본에 없으면 check를 시작하지 못한다.
+function compiler(): Result<{ command: NodeCommand; typeRoots: string }> {
+  const require = createRequire(import.meta.url);
+  try {
+    const manifest = require.resolve("typescript/package.json");
+    const types = require.resolve("@types/node/package.json");
+    return ok({
+      // bin/tsc는 이 process(ELECTRON_RUN_AS_NODE)의 Node로 돌린다. typescript의 bin은 exports에 없다.
+      command: nodeCommand(join(dirname(manifest), "bin", "tsc")),
+      typeRoots: dirname(dirname(types)),
+    });
+  } catch {
+    return err({
+      code: "unavailable",
+      message: "workflow check needs typescript and @types/node",
+    });
+  }
+}
+
+// tsc의 결과를 모은다. spawn 실패는 거절한다. timeout도 결과로 돌려줘야 하므로
 // AbortSignal 대신 SIGTERM을 보내고 close를 기다린다.
 function runCheck(
+  command: NodeCommand,
   args: readonly string[],
   cwd: string,
-): Promise<{ code: number; stderr: string }> {
+): Promise<{ code: number; output: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(denoBinary(), [...args], {
+    const child = spawn(command.command, [...command.args, ...args], {
       cwd,
-      env: { ...process.env, NO_COLOR: "1" },
-      stdio: ["ignore", "ignore", "pipe"],
+      env: { ...process.env, ...command.env, NO_COLOR: "1" },
+      stdio: ["ignore", "pipe", "pipe"],
     });
     const decoder = new TextDecoder();
-    let stderr = "";
+    let output = "";
     let settled = false;
     const finish = (settle: () => void) => {
       if (settled) return;
@@ -90,14 +99,17 @@ function runCheck(
         /* 이미 끝났다 */
       }
     }, LIMIT_MS);
-    child.stderr!.on("data", (chunk: Uint8Array) => {
-      stderr += decoder.decode(chunk, { stream: true });
-    });
+    const collect = (chunk: Uint8Array) => {
+      output += decoder.decode(chunk, { stream: true });
+    };
+    child.stdout!.on("data", collect);
+    child.stderr!.on("data", collect);
+    child.stdout!.on("error", () => {});
     child.stderr!.on("error", () => {});
     child.on("error", (e) => finish(() => reject(e)));
     child.on("close", (code) => {
-      stderr += decoder.decode();
-      finish(() => resolve({ code: code ?? 1, stderr }));
+      output += decoder.decode();
+      finish(() => resolve({ code: code ?? 1, output }));
     });
   });
 }
@@ -116,36 +128,43 @@ export function checkWorkflow(deps: CheckWorkflowDeps): MemoryHandler {
     } catch {
       return ok({ errors: [`${WORKFLOW_FLOW_FILE} is missing`] });
     }
+    const installed = packageInstallPath(FLOW_SDK_NAME, FLOW_SDK_VERSION);
+    if (!installed.ok) return installed;
+    const linked = await linkFlowSdk({
+      dataRoot: deps.dataRoot,
+      installPath: installed.value,
+    });
+    if (!linked.ok) return linked;
+    const tool = compiler();
+    if (!tool.ok) return tool;
     const temp = await mkdtemp(join(tmpdir(), "flow-check-"));
     try {
-      const mapPath = `${temp}/import-map.json`;
+      const config = `${temp}/tsconfig.json`;
       await writeFile(
-        mapPath,
-        JSON.stringify(
-          devImportMap(
-            {
-              [FLOW_SDK_NAME]: `lophn-sdk:${FLOW_SDK_NAME}@${FLOW_SDK_VERSION}/mod.ts`,
-            },
-            deps.dataRoot,
-            deps.dataRoot,
-          ),
-        ),
+        config,
+        JSON.stringify({
+          compilerOptions: {
+            target: "esnext",
+            module: "esnext",
+            moduleResolution: "bundler",
+            lib: ["esnext"],
+            types: ["node"],
+            typeRoots: [tool.value.typeRoots],
+            strict: true,
+            noEmit: true,
+            skipLibCheck: true,
+            allowImportingTsExtensions: true,
+            // Node는 type만 지우고 실행한다. flow.ts가 실행 중에 깨질 문법을 check에서 잡는다.
+            erasableSyntaxOnly: true,
+          },
+          files: [flowPath],
+        }),
       );
-      let output: { code: number; stderr: string };
+      let result: { code: number; output: string };
       try {
-        // deno check는 권한 flag를 받지 않는다. code를 실행하지 않으니 필요 없고, 원격·npm import와 config와
-        // lock을 꺼서 SDK를 import map으로만 푼다.
-        output = await runCheck(
-          [
-            "check",
-            "--no-config",
-            "--no-remote",
-            "--no-npm",
-            "--cached-only",
-            "--no-lock",
-            `--import-map=${mapPath}`,
-            flowPath,
-          ],
+        result = await runCheck(
+          tool.value.command,
+          ["--noEmit", "--pretty", "false", "-p", config],
           folder,
         );
       } catch {
@@ -154,10 +173,8 @@ export function checkWorkflow(deps: CheckWorkflowDeps): MemoryHandler {
           message: "workflow check did not finish",
         });
       }
-      if (output.code === 0) return ok({ errors: [] });
-      return ok({
-        errors: parseErrors(output.stderr, folder),
-      });
+      if (result.code === 0) return ok({ errors: [] });
+      return ok({ errors: parseErrors(result.output) });
     } finally {
       await rm(temp, { recursive: true }).catch(() => {});
     }

@@ -12,7 +12,7 @@ import {
 // 요청에는 instance가 없다. core가 그 process의 instance로 채운다.
 
 export const FLOW_SDK_NAME = "@lophn/flow";
-// packages/sdk/flow/deno.json의 version과 같아야 한다.
+// packages/sdk/flow/package.json의 version과 같아야 한다.
 export const FLOW_SDK_VERSION = "1.0.0";
 // SDK 설치 사본 안 lophn 진입 file.
 export const FLOW_ENTRY_FILE = "entry.ts";

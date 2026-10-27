@@ -3,6 +3,7 @@
 // `LPN_TERMINAL_HOOK`이 없으면 stdin도 읽지 않고 성공한다. hook은 사용자의 harness 안에서 동기로 돌므로
 // 어떤 실패도 내지 않는다. stdout은 harness가 요구하는 것(`hookStdout`)만 쓰고 나머지는 비운다(harness가 model context로
 // 읽을 수 있다). launcher가 env 없이 일찍 끝날 때도 같은 표를 쓴다.
+import { connect, type Socket } from "node:net";
 import { ok, type Result } from "../../../base/mod.ts";
 import type { LophnError } from "../../../base/mod.ts";
 import {
@@ -30,26 +31,47 @@ function terminalHookOf(env: RunContext["local"]["env"]) {
   }
 }
 
+function connectUnix(path: string): Promise<Socket> {
+  return new Promise((resolve, reject) => {
+    const socket = connect({ path });
+    socket.once("error", reject);
+    socket.once("connect", () => {
+      socket.off("error", reject);
+      // 처리하지 않은 'error' event는 process를 죽인다. 연결 뒤의 실패는 보낸 것으로 친다.
+      socket.on("error", () => {});
+      resolve(socket);
+    });
+  });
+}
+
 async function writeLine(path: string, line: string): Promise<void> {
-  let conn: Deno.Conn | undefined;
+  let socket: Socket | undefined;
+  let done = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const send = (async () => {
+    const connected = await connectUnix(path);
+    if (done) {
+      connected.destroy();
+      return;
+    }
+    socket = connected;
+    await new Promise<void>((resolve, reject) => {
+      connected.write(`${line}\n`, (error) =>
+        error ? reject(error) : resolve(),
+      );
+    });
+  })().catch(() => {});
   try {
     await Promise.race([
-      (async () => {
-        conn = await Deno.connect({ transport: "unix", path });
-        await conn.write(new TextEncoder().encode(`${line}\n`));
-      })(),
+      send,
       new Promise<void>((resolve) => {
         timer = setTimeout(resolve, HOOK_DEADLINE_MS);
       }),
     ]);
   } finally {
+    done = true;
     clearTimeout(timer);
-    try {
-      conn?.close();
-    } catch {
-      // 이미 닫혔다.
-    }
+    socket?.destroy();
   }
 }
 

@@ -37,7 +37,7 @@ import { connectFakeProvider } from "../tests/support/core/human.ts";
 import { bootCore } from "../tests/support/core/mod.ts";
 import { createFakeHandler } from "../tests/support/fake-server/mod.ts";
 
-export type SpawnPlan = {
+type SpawnPlan = {
   command: string;
   args: readonly string[];
   env: Record<string, string>;
@@ -99,7 +99,7 @@ function mockDataRoot(root: string): string {
 }
 
 /** renderer bundle build 계획. shell main이 읽는 dist를 만든다. esbuild라 node로 바로 돈다. */
-export function planRendererBuild(root: string): SpawnPlan {
+function planRendererBuild(root: string): SpawnPlan {
   return {
     command: "node",
     args: [`${root}/packages/shell/renderer/build.ts`],
@@ -185,7 +185,7 @@ async function plantFakeProvider(
  * 물려 준 pipe는 shell main이 연다. 터미널에서 직접 띄우므로 stdin은 터미널이고 core는 신호로만
  * 끝난다. 앱은 아직 Deno로 뜨므로 PATH를 지우지 않는다.
  */
-export function planCore(
+function planCore(
   root: string,
   options: { dataRoot: string; port?: number; env?: Record<string, string> },
 ): SpawnPlan {

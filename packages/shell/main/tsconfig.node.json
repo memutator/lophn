@@ -1,0 +1,15 @@
+{
+  // deno check가 보던 파일. deno check와 같은 깊이로 보려고 noUncheckedIndexedAccess를 끈다.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noUncheckedIndexedAccess": false
+  },
+  "include": [
+    "desktop/main.ts",
+    "desktop/core/**/*.ts",
+    "desktop/wiring/**/*.ts",
+    "terminal/coding/**/*.ts",
+    "../terminal-host/cli.ts"
+  ],
+  "exclude": []
+}

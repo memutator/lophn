@@ -13,7 +13,7 @@
     "dev": "node build.ts && electron dist/main.cjs",
     "stage": "node --experimental-strip-types scripts/stage.ts",
     "dist": "npm run build && npm run stage && electron-builder",
-    "check": "tsc --noEmit -p . && deno check --config=deno.json desktop/main.ts desktop/core/allowlist.ts desktop/core/client.ts desktop/core/connection.ts desktop/core/events.ts desktop/core/node-io.ts desktop/core/routes.ts desktop/core/supervise.ts terminal/coding/*.ts ../terminal-host/cli.ts",
+    "check": "tsc --noEmit -p . && tsc --noEmit -p tsconfig.node.json",
     "postinstall": "electron-rebuild -f -m ../../../node_modules/node-pty"
   },
   "dependencies": {

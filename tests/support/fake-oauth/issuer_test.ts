@@ -11,6 +11,22 @@ import { createFakeIssuerHandler } from "./mod.ts";
 
 const GRANT = "urn:ietf:params:oauth:grant-type:device_code";
 
+// Response.json()은 unknown이다. 이 test가 읽는 값만 적어 두고 캐스팅해 쓴다.
+type DeviceCodeReply = {
+  device_code: string;
+  verification_uri: string;
+  interval: number;
+};
+type TokenReply = {
+  access_token?: string;
+  refresh_token?: string;
+  error?: string;
+  error_description?: string;
+};
+type JwksReply = {
+  keys: { kid: string; kty: string; n: string; e: string }[];
+};
+
 function form(path: string, fields: Record<string, string>): Request {
   return new Request(`http://issuer.test${path}`, {
     method: "POST",
@@ -34,25 +50,27 @@ test("fake 발급자가 device 로그인과 서명한 id_token을 낸다", async
     ],
   });
 
-  const started = await (
+  const started = (await (
     await issuer.handle(
       form("/device/code", { client_id: "e2e-client", scope: "openid" }),
     )
-  ).json();
+  ).json()) as DeviceCodeReply;
   const poll = {
     grant_type: GRANT,
     client_id: "e2e-client",
     device_code: "dev-1",
   };
   const pending = await issuer.handle(form("/token", poll));
-  const pendingBody = await pending.json();
-  const done = await (await issuer.handle(form("/token", poll))).json();
+  const pendingBody = (await pending.json()) as TokenReply;
+  const done = (await (
+    await issuer.handle(form("/token", poll))
+  ).json()) as TokenReply;
 
   const jwt = await issuer.idToken({ aud: "e2e-client", nonce: "n-1" });
   const [header, payload, signature] = jwt.split(".");
-  const jwks = await (
+  const jwks = (await (
     await issuer.handle(new Request("http://issuer.test/jwks"))
-  ).json();
+  ).json()) as JwksReply;
   const key = await crypto.subtle.importKey(
     "jwk",
     jwks.keys[0],
@@ -69,7 +87,7 @@ test("fake 발급자가 device 로그인과 서명한 id_token을 낸다", async
   const claims = JSON.parse(new TextDecoder().decode(base64url(payload!)));
 
   const empty = await issuer.handle(form("/token", poll));
-  const emptyBody = await empty.json();
+  const emptyBody = (await empty.json()) as TokenReply;
 
   assert.deepStrictEqual(
     [started.device_code, started.verification_uri, started.interval],

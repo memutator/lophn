@@ -1,4 +1,5 @@
-import { err, ok } from "../../../../base/mod.ts";
+import { readdir, readFile, stat } from "node:fs/promises";
+import { err, errorCode, ok } from "../../../../base/mod.ts";
 import {
   WORKFLOW_ARTIFACT_ENTRY,
   WORKFLOW_DECLARATION_FILE,
@@ -15,7 +16,7 @@ import type {
 
 async function isFile(path: string): Promise<boolean> {
   try {
-    return (await Deno.stat(path)).isFile;
+    return (await stat(path)).isFile();
   } catch {
     return false;
   }
@@ -23,27 +24,29 @@ async function isFile(path: string): Promise<boolean> {
 
 async function readDeclaration(path: string): Promise<string | null> {
   try {
-    return await Deno.readTextFile(path);
+    return await readFile(path, "utf8");
   } catch {
     return null;
   }
 }
 
-// 읽기만 한다. symlink 폴더는 isDirectory가 거짓이라 data root 밖을 가리키는 폴더가 빠진다.
+// 읽기만 한다. symlink 폴더는 isDirectory()가 거짓이라 data root 밖을 가리키는 폴더가 빠진다.
 export function createWorkflowFiles(dataRoot: string): WorkflowFiles {
   return {
     async list(project) {
       const names: string[] = [];
       try {
-        for await (
-          const e of Deno.readDir(workflowsFolder(dataRoot, project))
+        for (
+          const e of await readdir(workflowsFolder(dataRoot, project), {
+            withFileTypes: true,
+          })
         ) {
-          if (e.isDirectory && workflowNameSchema.safeParse(e.name).success) {
+          if (e.isDirectory() && workflowNameSchema.safeParse(e.name).success) {
             names.push(e.name);
           }
         }
       } catch (e) {
-        if (!(e instanceof Deno.errors.NotFound)) {
+        if (errorCode(e) !== "ENOENT") {
           return err({
             code: "unavailable",
             message: "workflows folder could not be read",

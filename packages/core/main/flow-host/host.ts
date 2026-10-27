@@ -1,3 +1,4 @@
+import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import { type Clock, err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import { RUN_WAIT_MAX_MS } from "../../../protocol/runs/mod.ts";
@@ -87,7 +88,7 @@ export function createFlowHost(
   let importMapReady: Promise<string> | undefined;
   const importMap = () =>
     importMapReady ??= (async () => {
-      await Deno.mkdir(flowsRoot, { recursive: true, mode: 0o700 });
+      await mkdir(flowsRoot, { recursive: true, mode: 0o700 });
       const path = `${flowsRoot}/import-map.json`;
       const map = devImportMap(
         {
@@ -97,7 +98,7 @@ export function createFlowHost(
         dataRoot,
         dataRoot,
       );
-      await Deno.writeTextFile(path, JSON.stringify(map));
+      await writeFile(path, JSON.stringify(map));
       return path;
     })().catch((e) => {
       importMapReady = undefined;
@@ -115,11 +116,7 @@ export function createFlowHost(
       data = `${at} [log truncated]\n`;
     } else entry.logBytes += bytes;
     entry.logChain = entry.logChain.then(() =>
-      Deno.writeTextFile(`${flowsRoot}/${instance}.log`, data, {
-        append: true,
-        create: true,
-        mode: 0o600,
-      })
+      appendFile(`${flowsRoot}/${instance}.log`, data, { mode: 0o600 })
     ).catch(() => {});
   }
 

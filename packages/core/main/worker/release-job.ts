@@ -1,6 +1,9 @@
 // release 준비 job 한 번(apps/releases). supervisor가 준비 요청마다 띄우고 argv의 JSON 한 줄을
 // 받아 stdout에 결과 JSON 한 줄을 남긴다. 플랫폼 credential은 받지 않는다.
 // build 바로 뒤에 의존성과 migration 검사도 이 자식이 돈다: 앱이 쓴 migration SQL을 core process에서 돌리지 않는다.
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { join } from "node:path";
+import process from "node:process";
 import { appStagingFolder } from "../../../protocol/apps/mod.ts";
 import {
   dataChangesOf,
@@ -56,7 +59,7 @@ async function checkSealedCopy(
   let imports: Record<string, string>;
   try {
     const map = JSON.parse(
-      await Deno.readTextFile(parts.importMap),
+      await readFile(parts.importMap, "utf8"),
     ) as { imports?: Record<string, string> };
     imports = map.imports ?? {};
   } catch {
@@ -69,8 +72,8 @@ async function checkSealedCopy(
   if (!dependencies.ok) return failed("dependencies", dependencies.reason);
 
   const staging = appStagingFolder(input.dataRoot, input.app);
-  await Deno.mkdir(staging, { recursive: true });
-  const area = await Deno.makeTempDir({ dir: staging, prefix: "checks-" });
+  await mkdir(staging, { recursive: true });
+  const area = await mkdtemp(join(staging, "checks-"));
   let migration: CheckOutcome;
   try {
     migration = await checkMigration({
@@ -81,13 +84,13 @@ async function checkSealedCopy(
       area,
     });
   } finally {
-    await Deno.remove(area, { recursive: true }).catch(() => undefined);
+    await rm(area, { recursive: true }).catch(() => undefined);
   }
   return migration.ok ? null : failed("migration", migration.reason);
 }
 
 if (import.meta.main) {
-  const input = JSON.parse(Deno.args[0] ?? "{}") as ReleaseJobInput;
+  const input = JSON.parse(process.argv[2] ?? "{}") as ReleaseJobInput;
   const prepared = await prepareFromSource(input);
   let result: ReleaseJobResult;
   if (!prepared.ok) {

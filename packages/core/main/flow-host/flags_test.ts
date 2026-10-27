@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { flowArgv, flowFlags } from "./flags.ts";
 
 const paths = {
@@ -7,11 +8,11 @@ const paths = {
   outsideLinks: [] as string[],
 };
 
-Deno.test("flow process flags allow only reading the workflow folder and the SDK", () => {
+test("flow process flags allow only reading the workflow folder and the SDK", () => {
   const flags = flowFlags(paths);
-  assert(flags.ok);
+  assert.ok(flags.ok);
   const names = flags.value.map((f) => f.split("=")[0]);
-  assertEquals(names, [
+  assert.deepStrictEqual(names, [
     "--no-prompt",
     "--no-config",
     "--no-remote",
@@ -23,7 +24,7 @@ Deno.test("flow process flags allow only reading the workflow folder and the SDK
     "--v8-flags",
   ]);
   const read = flags.value.find((f) => f.startsWith("--allow-read="))!;
-  assertEquals(read.slice("--allow-read=".length).split(","), [
+  assert.deepStrictEqual(read.slice("--allow-read=".length).split(","), [
     paths.workflowFolder,
     paths.sdkRoot,
   ]);
@@ -40,38 +41,38 @@ Deno.test("flow process flags allow only reading the workflow folder and the SDK
       "--allow-import",
     ]
   ) {
-    assert(!flags.value.some((f) => f.startsWith(banned)), banned);
+    assert.ok(!flags.value.some((f) => f.startsWith(banned)), banned);
   }
 });
 
-Deno.test("flow flags deny reading outside symlinks and always cap memory", () => {
+test("flow flags deny reading outside symlinks and always cap memory", () => {
   const none = flowFlags(paths);
-  assert(none.ok);
-  assert(!none.value.some((f) => f.startsWith("--deny-read")));
-  assert(none.value.includes("--v8-flags=--max-old-space-size=512"));
+  assert.ok(none.ok);
+  assert.ok(!none.value.some((f) => f.startsWith("--deny-read")));
+  assert.ok(none.value.includes("--v8-flags=--max-old-space-size=512"));
 
   const links = [`${paths.workflowFolder}/b`, `${paths.workflowFolder}/a`];
   const some = flowFlags({ ...paths, outsideLinks: links });
-  assert(some.ok);
-  assert(some.value.includes("--v8-flags=--max-old-space-size=512"));
-  assertEquals(
+  assert.ok(some.ok);
+  assert.ok(some.value.includes("--v8-flags=--max-old-space-size=512"));
+  assert.deepStrictEqual(
     some.value.find((f) => f.startsWith("--deny-read=")),
     `--deny-read=${paths.workflowFolder}/a,${paths.workflowFolder}/b`,
   );
 });
 
-Deno.test("flow flags refuse a path that would split into two allowed items", () => {
+test("flow flags refuse a path that would split into two allowed items", () => {
   for (const bad of ["/a,/etc", "/a\n/etc", "/a\0"]) {
     const a = flowFlags({ ...paths, workflowFolder: bad });
     const b = flowFlags({ ...paths, sdkRoot: bad });
     const c = flowFlags({ ...paths, outsideLinks: [bad] });
-    assert(!a.ok && a.error.code === "invalid_input");
-    assert(!b.ok && b.error.code === "invalid_input");
-    assert(!c.ok && c.error.code === "invalid_input");
+    assert.ok(!a.ok && a.error.code === "invalid_input");
+    assert.ok(!b.ok && b.error.code === "invalid_input");
+    assert.ok(!c.ok && c.error.code === "invalid_input");
   }
 });
 
-Deno.test("flow argv puts every flag before the entry", () => {
+test("flow argv puts every flag before the entry", () => {
   const argv = flowArgv({
     ...paths,
     outsideLinks: ["/data/projects/prj_1/workflows/w/link"],
@@ -79,12 +80,12 @@ Deno.test("flow argv puts every flag before the entry", () => {
     entry: "/data/sdk/flow/1.0.0/entry.ts",
     flow: "/data/projects/prj_1/workflows/w/flow.ts",
   });
-  assert(argv.ok);
+  assert.ok(argv.ok);
   const list = argv.value;
-  assertEquals(list[0], "run");
-  assertEquals(list.slice(-2), [
+  assert.deepStrictEqual(list[0], "run");
+  assert.deepStrictEqual(list.slice(-2), [
     "/data/sdk/flow/1.0.0/entry.ts",
     "/data/projects/prj_1/workflows/w/flow.ts",
   ]);
-  assert(list.slice(1, -2).every((a) => a.startsWith("--")));
+  assert.ok(list.slice(1, -2).every((a) => a.startsWith("--")));
 });

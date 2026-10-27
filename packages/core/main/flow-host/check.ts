@@ -1,5 +1,10 @@
 // `workflow.check`. PM이 쓴 flow.ts를 실행하지 않고 type check만 한다. devImportMap을 쓰므로 apps를 import하지
 // 않는 workflows module이 아니라 core/main에 둔다(layers.md).
+import { spawn } from "node:child_process";
+import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import process from "node:process";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import {
@@ -56,6 +61,44 @@ function parseErrors(stderr: string, folder: string): string[] {
     : cleaned;
 }
 
+// deno check의 결과를 모은다. spawn 실패는 거절한다. timeout도 결과로 돌려줘야 하므로
+// AbortSignal 대신 SIGTERM을 보내고 close를 기다린다.
+function runCheck(
+  args: readonly string[],
+  cwd: string,
+): Promise<{ code: number; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(Deno.execPath(), [...args], {
+      cwd,
+      env: { ...process.env, NO_COLOR: "1" },
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    const decoder = new TextDecoder();
+    let stderr = "";
+    let settled = false;
+    const finish = (settle: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      settle();
+    };
+    const timer = setTimeout(() => {
+      try {
+        child.kill("SIGTERM");
+      } catch { /* 이미 끝났다 */ }
+    }, LIMIT_MS);
+    child.stderr!.on("data", (chunk: Uint8Array) => {
+      stderr += decoder.decode(chunk, { stream: true });
+    });
+    child.stderr!.on("error", () => {});
+    child.on("error", (e) => finish(() => reject(e)));
+    child.on("close", (code) => {
+      stderr += decoder.decode();
+      finish(() => resolve({ code: code ?? 1, stderr }));
+    });
+  });
+}
+
 export function checkWorkflow(deps: CheckWorkflowDeps): MemoryHandler {
   return async (_ctx, raw) => {
     const [projectRef, name] = (raw as { workflow: string }).workflow
@@ -65,14 +108,14 @@ export function checkWorkflow(deps: CheckWorkflowDeps): MemoryHandler {
     const folder = workflowFolder(deps.dataRoot, project.value.id, name!);
     const flowPath = `${folder}/${WORKFLOW_FLOW_FILE}`;
     try {
-      await Deno.stat(flowPath);
+      await stat(flowPath);
     } catch {
       return ok({ errors: [`${WORKFLOW_FLOW_FILE} is missing`] });
     }
-    const temp = await Deno.makeTempDir({ prefix: "flow-check-" });
+    const temp = await mkdtemp(join(tmpdir(), "flow-check-"));
     try {
       const mapPath = `${temp}/import-map.json`;
-      await Deno.writeTextFile(
+      await writeFile(
         mapPath,
         JSON.stringify(
           devImportMap(
@@ -85,28 +128,20 @@ export function checkWorkflow(deps: CheckWorkflowDeps): MemoryHandler {
           ),
         ),
       );
-      let output: Deno.CommandOutput;
+      let output: { code: number; stderr: string };
       try {
         // deno check는 권한 flag를 받지 않는다. code를 실행하지 않으니 필요 없고, 원격·npm import와 config와
         // lock을 꺼서 SDK를 import map으로만 푼다.
-        output = await new Deno.Command(Deno.execPath(), {
-          args: [
-            "check",
-            "--no-config",
-            "--no-remote",
-            "--no-npm",
-            "--cached-only",
-            "--no-lock",
-            `--import-map=${mapPath}`,
-            flowPath,
-          ],
-          cwd: folder,
-          env: { NO_COLOR: "1" },
-          stdin: "null",
-          stdout: "piped",
-          stderr: "piped",
-          signal: AbortSignal.timeout(LIMIT_MS),
-        }).output();
+        output = await runCheck([
+          "check",
+          "--no-config",
+          "--no-remote",
+          "--no-npm",
+          "--cached-only",
+          "--no-lock",
+          `--import-map=${mapPath}`,
+          flowPath,
+        ], folder);
       } catch {
         return err({
           code: "unavailable",
@@ -115,10 +150,10 @@ export function checkWorkflow(deps: CheckWorkflowDeps): MemoryHandler {
       }
       if (output.code === 0) return ok({ errors: [] });
       return ok({
-        errors: parseErrors(new TextDecoder().decode(output.stderr), folder),
+        errors: parseErrors(output.stderr, folder),
       });
     } finally {
-      await Deno.remove(temp, { recursive: true }).catch(() => {});
+      await rm(temp, { recursive: true }).catch(() => {});
     }
   };
 }

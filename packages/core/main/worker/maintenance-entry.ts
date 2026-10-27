@@ -3,6 +3,7 @@
 // blob_refs는 writer를 닫은 뒤 read-only로 읽는다. 읽지 못하면 아무것도
 // 지우지 않는다(fail-closed). 파일 작업은 core graph 밖인 이 프로세스의 몫이다.
 
+import process from "node:process";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { openReaderConnection } from "../../storage/ledger/reader-connection.ts";
 import type { RetentionRule } from "../../storage/blobs/mod.ts";
@@ -19,11 +20,11 @@ type Request = {
 };
 
 async function main(): Promise<void> {
-  const raw = Deno.env.get("LOPHN_MAINTENANCE");
+  const raw = process.env["LOPHN_MAINTENANCE"];
   if (raw === undefined) fail("유지보수 요청이 없다");
   const request = parseRequest(raw);
   if (request === undefined) fail("유지보수 요청 모양이 다르다");
-  const home = Deno.env.get("LOPHN_HOME");
+  const home = process.env["LOPHN_HOME"];
   // 요청의 ledger는 LOPHN_HOME 아래만 읽는다. 밖이면
   // 관측 실패로 보고 아무것도 지우지 않는다(fail-closed).
   if (
@@ -164,8 +165,8 @@ function parseRequest(raw: string): Request | undefined {
 }
 
 function fail(message: string): never {
-  Deno.stderr.writeSync(new TextEncoder().encode(message + "\n"));
-  Deno.exit(1);
+  process.stderr.write(message + "\n");
+  process.exit(1);
 }
 
 if (import.meta.main) {

@@ -1,3 +1,4 @@
+import process from "node:process";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { KindLaunchSpec } from "../../../../protocol/supervision/mod.ts";
 import { APPS_SUPERVISOR_KIND } from "../../../apps/control.ts";
@@ -16,10 +17,10 @@ export const supervisionWiring: WiringFactory = () => ({
           LOPHN_WORKER_KIND: kind,
           LOPHN_HOME: ctx.root.path,
           // deno는 이 둘 없이 캐시와 실행 파일을 못 찾는다. 그 밖 환경은 복사하지 않는다.
-          ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
-          ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
-          ...(Deno.env.get("DENO_DIR")
-            ? { DENO_DIR: Deno.env.get("DENO_DIR")! }
+          ...(process.env["HOME"] ? { HOME: process.env["HOME"]! } : {}),
+          ...(process.env["PATH"] ? { PATH: process.env["PATH"]! } : {}),
+          ...(process.env["DENO_DIR"]
+            ? { DENO_DIR: process.env["DENO_DIR"]! }
             : {}),
         }),
       }),
@@ -34,18 +35,18 @@ export const supervisionWiring: WiringFactory = () => ({
           LOPHN_WORKER_KIND: APPS_SUPERVISOR_KIND,
           LOPHN_HOME: ctx.root.path,
           // 앱 자식에게 넘길 deno 캐시·XDG·임시 폴더 위치뿐이다. 그 밖 환경은 복사하지 않는다.
-          ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
-          ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
-          ...(Deno.env.get("DENO_DIR")
-            ? { DENO_DIR: Deno.env.get("DENO_DIR")! }
+          ...(process.env["HOME"] ? { HOME: process.env["HOME"]! } : {}),
+          ...(process.env["PATH"] ? { PATH: process.env["PATH"]! } : {}),
+          ...(process.env["DENO_DIR"]
+            ? { DENO_DIR: process.env["DENO_DIR"]! }
             : {}),
-          ...(Deno.env.get("XDG_CACHE_HOME")
-            ? { XDG_CACHE_HOME: Deno.env.get("XDG_CACHE_HOME")! }
+          ...(process.env["XDG_CACHE_HOME"]
+            ? { XDG_CACHE_HOME: process.env["XDG_CACHE_HOME"]! }
             : {}),
-          ...(Deno.env.get("XDG_RUNTIME_DIR")
-            ? { XDG_RUNTIME_DIR: Deno.env.get("XDG_RUNTIME_DIR")! }
+          ...(process.env["XDG_RUNTIME_DIR"]
+            ? { XDG_RUNTIME_DIR: process.env["XDG_RUNTIME_DIR"]! }
             : {}),
-          ...(optionalEnv("TMPDIR") ? { TMPDIR: optionalEnv("TMPDIR")! } : {}),
+          ...(process.env["TMPDIR"] ? { TMPDIR: process.env["TMPDIR"]! } : {}),
         }),
       }),
     );
@@ -74,15 +75,6 @@ function ioListeners(listeners: readonly IoListener[]): Required<IoListener> {
       for (const listener of listeners) listener.onEnd?.();
     },
   };
-}
-
-// env를 읽지 못한 이름은 없는 값으로 본다.
-function optionalEnv(name: string): string | undefined {
-  try {
-    return Deno.env.get(name);
-  } catch {
-    return undefined;
-  }
 }
 
 // platform/io는 diagnostics 입구다.

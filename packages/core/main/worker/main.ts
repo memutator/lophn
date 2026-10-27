@@ -1,3 +1,4 @@
+import process from "node:process";
 import { runPlatformIo } from "./io.ts";
 import {
   KINDS_WORKER_KIND,
@@ -24,7 +25,7 @@ async function runWorker(kind: string, root: string): Promise<void> {
 }
 
 if (import.meta.main) {
-  const [kind, root, ...extra] = Deno.args;
+  const [kind, root, ...extra] = process.argv.slice(2);
   if (!kind || !root || extra.length) {
     throw new Error("invalid worker arguments");
   }

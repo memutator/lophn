@@ -55,11 +55,13 @@ class Reader {
   readonly references = new Map<string, string>();
   readonly outline: OutlineItem[] = [];
   readonly slug = slugger();
+  readonly source: string;
+  readonly options: ParseOptions;
 
-  constructor(
-    readonly source: string,
-    readonly options: ParseOptions,
-  ) {}
+  constructor(source: string, options: ParseOptions) {
+    this.source = source;
+    this.options = options;
+  }
 
   text(node: Node): string {
     return this.source.slice(node.from, node.to);

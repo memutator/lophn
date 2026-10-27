@@ -82,12 +82,13 @@ export type Core = {
 };
 
 export class CallError extends Error {
-  constructor(
-    readonly route: string,
-    readonly code: string,
-    message: string,
-  ) {
+  readonly route: string;
+  readonly code: string;
+
+  constructor(route: string, code: string, message: string) {
     super(`${route}: ${code}: ${message}`);
+    this.route = route;
+    this.code = code;
   }
 }
 

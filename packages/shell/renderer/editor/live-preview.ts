@@ -62,8 +62,13 @@ class BulletWidget extends WidgetType {
 }
 
 class TaskWidget extends WidgetType {
-  constructor(readonly checked: boolean, readonly line: number) {
+  readonly checked: boolean;
+  readonly line: number;
+
+  constructor(checked: boolean, line: number) {
     super();
+    this.checked = checked;
+    this.line = line;
   }
   override eq(other: TaskWidget): boolean {
     return other.checked === this.checked && other.line === this.line;
@@ -106,8 +111,11 @@ class RuleWidget extends WidgetType {
 }
 
 class LangWidget extends WidgetType {
-  constructor(readonly name: string) {
+  readonly name: string;
+
+  constructor(name: string) {
     super();
+    this.name = name;
   }
   override eq(other: LangWidget): boolean {
     return other.name === this.name;
@@ -121,8 +129,13 @@ class LangWidget extends WidgetType {
 }
 
 class ImageWidget extends WidgetType {
-  constructor(readonly src: string | null, readonly alt: string) {
+  readonly src: string | null;
+  readonly alt: string;
+
+  constructor(src: string | null, alt: string) {
     super();
+    this.src = src;
+    this.alt = alt;
   }
   override eq(other: ImageWidget): boolean {
     return other.src === this.src && other.alt === this.alt;
@@ -161,12 +174,15 @@ class ImageWidget extends WidgetType {
 }
 
 class TableWidget extends WidgetType {
-  constructor(
-    readonly rows: string[][],
-    readonly align: Align[],
-    readonly from: number,
-  ) {
+  readonly rows: string[][];
+  readonly align: Align[];
+  readonly from: number;
+
+  constructor(rows: string[][], align: Align[], from: number) {
     super();
+    this.rows = rows;
+    this.align = align;
+    this.from = from;
   }
   override eq(other: TableWidget): boolean {
     return other.from === this.from &&
@@ -205,8 +221,13 @@ class TableWidget extends WidgetType {
 }
 
 class FrontmatterWidget extends WidgetType {
-  constructor(readonly fields: [string, string][], readonly from: number) {
+  readonly fields: [string, string][];
+  readonly from: number;
+
+  constructor(fields: [string, string][], from: number) {
     super();
+    this.fields = fields;
+    this.from = from;
   }
   override eq(other: FrontmatterWidget): boolean {
     return other.from === this.from &&

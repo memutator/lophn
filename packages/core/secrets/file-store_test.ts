@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { ok } from "../../base/mod.ts";
 import { secretStatusHandler } from "./routes.ts";
 import { createSecretFileStore, type SecretFs } from "./file-store.ts";
@@ -14,7 +15,8 @@ function fakeFs(initial?: { text: string; mode: number }) {
   const files = new Map<string, { text: string; mode: number }>();
   if (initial !== undefined) files.set(PATH, initial);
   const fails: Fails = {};
-  const missing = () => new Deno.errors.NotFound("no file");
+  // 없는 파일은 file-store가 code(ENOENT)로 알아본다.
+  const missing = () => Object.assign(new Error("no file"), { code: "ENOENT" });
   const fs: SecretFs = {
     readText(path) {
       // 예외 message에 표지 문자열과 경로를 넣어, 오류가 그 message를 옮기지 않는지 본다.
@@ -68,37 +70,40 @@ function open(fake: ReturnType<typeof fakeFs>) {
   return { file, log };
 }
 
-Deno.test("secret 파일은 0600이고, 쓰기가 실패하면 이전 값이 남고 임시 파일이 없다", async () => {
+test("secret 파일은 0600이고, 쓰기가 실패하면 이전 값이 남고 임시 파일이 없다", async () => {
   const fake = fakeFs({ text: '{"a":"old"}', mode: 0o644 });
   const { file } = open(fake);
-  assert((await file.open()).ok);
-  assertEquals(fake.files.get(PATH)!.mode, 0o600);
+  assert.ok((await file.open()).ok);
+  assert.deepStrictEqual(fake.files.get(PATH)!.mode, 0o600);
 
-  assert((await file.put("a", "new")).ok);
-  assertEquals(fake.files.get(PATH)!.mode, 0o600);
-  assertEquals(file.get("a"), ok("new"));
-  assert((await file.put("b", "two")).ok);
-  assertEquals(fake.files.get(PATH)!.mode, 0o600);
-  assertEquals(await file.delete("b"), ok({ name: "b", configured: false }));
-  assertEquals(
+  assert.ok((await file.put("a", "new")).ok);
+  assert.deepStrictEqual(fake.files.get(PATH)!.mode, 0o600);
+  assert.deepStrictEqual(file.get("a"), ok("new"));
+  assert.ok((await file.put("b", "two")).ok);
+  assert.deepStrictEqual(fake.files.get(PATH)!.mode, 0o600);
+  assert.deepStrictEqual(
+    await file.delete("b"),
+    ok({ name: "b", configured: false }),
+  );
+  assert.deepStrictEqual(
     await file.delete("nope"),
     ok({ name: "nope", configured: false }),
   );
-  assertEquals(fake.files.get(PATH)!.mode, 0o600);
+  assert.deepStrictEqual(fake.files.get(PATH)!.mode, 0o600);
 
   for (const step of ["writeNew", "rename"] as const) {
     fake.fails[step] = true;
     const before = fake.files.get(PATH)!.text;
     const failed = await file.put("a", "other");
-    assert(!failed.ok);
+    assert.ok(!failed.ok);
     delete fake.fails[step];
-    assertEquals(fake.files.get(PATH)!.text, before);
-    assertEquals([...fake.files.keys()], [PATH]);
-    assertEquals(file.get("a"), ok("new"));
+    assert.deepStrictEqual(fake.files.get(PATH)!.text, before);
+    assert.deepStrictEqual([...fake.files.keys()], [PATH]);
+    assert.deepStrictEqual(file.get("a"), ok("new"));
   }
 });
 
-Deno.test("값은 반환 오류·log·status 응답·알려진 값 표면에 나가지 않는다", async () => {
+test("값은 반환 오류·log·status 응답·알려진 값 표면에 나가지 않는다", async () => {
   type Run = (fake: ReturnType<typeof fakeFs>) => Promise<unknown[]>;
   const cases: Record<
     string,
@@ -170,6 +175,6 @@ Deno.test("값은 반환 오류·log·status 응답·알려진 값 표면에 나
     );
     surface.push(log, status, store.known, Object.keys(store.known));
     store.stop();
-    assert(!JSON.stringify(surface).includes(MARKER), `${name}: 값이 샜다`);
+    assert.ok(!JSON.stringify(surface).includes(MARKER), `${name}: 값이 샜다`);
   }
 });

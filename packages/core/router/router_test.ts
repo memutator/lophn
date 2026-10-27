@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { ok } from "../../base/mod.ts";
 import type { AgentCallRecord } from "../../protocol/lophn-agent/calls.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
@@ -99,7 +100,7 @@ const base = {
   delivery: "next_turn",
 } as const;
 
-Deno.test("a call to a closed session fails as closed and delivers no input to either side", () => {
+test("a call to a closed session fails as closed and delivers no input to either side", () => {
   const { tx, router, delivered } = setup({
     [SENDER]: target(SENDER, true),
     [RECEIVER]: target(RECEIVER, false),
@@ -109,15 +110,15 @@ Deno.test("a call to a closed session fails as closed and delivers no input to e
     to: { session: RECEIVER },
     dedup: "tool-1",
   });
-  assert(routed.ok);
-  assertEquals(routed.value.state, "failed");
-  assertEquals(routed.value.fail_reason, "closed");
-  assertEquals(delivered.filter((one) => one.to === RECEIVER), []);
+  assert.ok(routed.ok);
+  assert.deepStrictEqual(routed.value.state, "failed");
+  assert.deepStrictEqual(routed.value.fail_reason, "closed");
+  assert.deepStrictEqual(delivered.filter((one) => one.to === RECEIVER), []);
   // 즉시 난 실패는 tool 결과로만 알린다. 같은 실패를 입력으로 또 받지 않는다.
-  assertEquals(delivered, []);
+  assert.deepStrictEqual(delivered, []);
 });
 
-Deno.test("a late reply to an ended call returns closed and sends nothing", () => {
+test("a late reply to an ended call returns closed and sends nothing", () => {
   const { tx, router, rows, delivered } = setup({
     [SENDER]: target(SENDER, true),
     [RECEIVER]: target(RECEIVER, true),
@@ -127,7 +128,7 @@ Deno.test("a late reply to an ended call returns closed and sends nothing", () =
     to: { session: RECEIVER },
     dedup: "tool-1",
   });
-  assert(routed.ok && routed.value.call !== null);
+  assert.ok(routed.ok && routed.value.call !== null);
   rows.set(routed.value.call, {
     ...rows.get(routed.value.call)!,
     state: "cancelled",
@@ -138,11 +139,11 @@ Deno.test("a late reply to an ended call returns closed and sends nothing", () =
     body: "done",
     refs: [],
   });
-  assertEquals(late, ok({ delivered: false, closed: true }));
-  assertEquals(delivered, []);
+  assert.deepStrictEqual(late, ok({ delivered: false, closed: true }));
+  assert.deepStrictEqual(delivered, []);
 });
 
-Deno.test("the same dedup makes one call and one session", () => {
+test("the same dedup makes one call and one session", () => {
   const { tx, router, rows, delivered, opened } = setup({
     [SENDER]: target(SENDER, true),
     [RECEIVER]: target(RECEIVER, true),
@@ -155,15 +156,15 @@ Deno.test("the same dedup makes one call and one session", () => {
     });
   const first = send();
   const second = send();
-  assert(first.ok && second.ok);
-  assertEquals(second.value.call, first.value.call);
-  assertEquals(rows.size, 1);
-  assertEquals(opened(), 1);
-  assertEquals(delivered.length, 1);
+  assert.ok(first.ok && second.ok);
+  assert.deepStrictEqual(second.value.call, first.value.call);
+  assert.deepStrictEqual(rows.size, 1);
+  assert.deepStrictEqual(opened(), 1);
+  assert.deepStrictEqual(delivered.length, 1);
 });
 
 // 권한 경계다. workflow가 보낸 step은 unattended 표시를 싣고 받는 session 하나에만, call 행 없이 닿는다.
-Deno.test("step 입력은 unattended 표시를 싣고 받는 session 하나에만 닿으며 call 행을 만들지 않는다", () => {
+test("step 입력은 unattended 표시를 싣고 받는 session 하나에만 닿으며 call 행을 만들지 않는다", () => {
   const step = { instance: "wfi_1" as never, step: "review" };
   for (const to of [{ session: RECEIVER }, { role: "lophn" }] as const) {
     const { tx, router, rows, delivered } = setup({
@@ -184,20 +185,20 @@ Deno.test("step 입력은 unattended 표시를 싣고 받는 session 하나에�
       step,
       unattended: true,
     });
-    assert(routed.ok);
-    assertEquals(delivered.length, 1);
+    assert.ok(routed.ok);
+    assert.deepStrictEqual(delivered.length, 1);
     const sent = delivered[0]!;
-    assertEquals(sent.to, RECEIVER);
-    assertEquals(sent.input.unattended, true);
-    assertEquals(sent.input.kind, "step");
-    assertEquals(sent.input.step, step);
-    assertEquals(sent.input.call, null);
-    assertEquals(rows.size, 0);
+    assert.deepStrictEqual(sent.to, RECEIVER);
+    assert.deepStrictEqual(sent.input.unattended, true);
+    assert.deepStrictEqual(sent.input.kind, "step");
+    assert.deepStrictEqual(sent.input.step, step);
+    assert.deepStrictEqual(sent.input.call, null);
+    assert.deepStrictEqual(rows.size, 0);
   }
 });
 
 // 권한 경계다. unattended는 call 봉투를 따라 가고, attended 사슬로 새면 사람 없이 도는 turn이 묻는 길을 연다.
-Deno.test("attended turn이 보낸 call은 attended로 열린다. unattended가 attended 사슬로 새지 않는다", () => {
+test("attended turn이 보낸 call은 attended로 열린다. unattended가 attended 사슬로 새지 않는다", () => {
   for (const mark of [false, true]) {
     const open = () => {
       const world = setup({
@@ -211,12 +212,12 @@ Deno.test("attended turn이 보낸 call은 attended로 열린다. unattended가 
         dedup: "tool-1",
         unattended: mark,
       });
-      assert(routed.ok && routed.value.call !== null);
+      assert.ok(routed.ok && routed.value.call !== null);
       const call = routed.value.call;
       // 받는 쪽 입력과 행이 call의 표시를 싣는다.
-      assertEquals(world.delivered.at(-1)!.to, RECEIVER);
-      assertEquals(world.delivered.at(-1)!.input.unattended, mark);
-      assertEquals(world.rows.get(call)!.unattended, mark);
+      assert.deepStrictEqual(world.delivered.at(-1)!.to, RECEIVER);
+      assert.deepStrictEqual(world.delivered.at(-1)!.input.unattended, mark);
+      assert.deepStrictEqual(world.rows.get(call)!.unattended, mark);
       world.delivered.length = 0;
       return { ...world, call };
     };
@@ -230,18 +231,24 @@ Deno.test("attended turn이 보낸 call은 attended로 열린다. unattended가 
         refs: [],
         unattended: replyMark,
       });
-      assert(sent.ok && sent.value.delivered);
-      assertEquals(delivered.at(-1)!.to, SENDER);
-      assertEquals(delivered.at(-1)!.input.unattended, replyMark === true);
+      assert.ok(sent.ok && sent.value.delivered);
+      assert.deepStrictEqual(delivered.at(-1)!.to, SENDER);
+      assert.deepStrictEqual(
+        delivered.at(-1)!.input.unattended,
+        replyMark === true,
+      );
     }
 
     // 받는 session이 끝나면 보낸 쪽에 가는 늦은 실패는 call의 표시를 따른다.
     {
       const { tx, router, delivered } = open();
-      assert(router.failReceivedBy(tx, RECEIVER).ok);
-      assertEquals(delivered.at(-1)!.to, SENDER);
-      assertEquals(delivered.at(-1)!.input.outcome?.reason, "receiver_ended");
-      assertEquals(delivered.at(-1)!.input.unattended, mark);
+      assert.ok(router.failReceivedBy(tx, RECEIVER).ok);
+      assert.deepStrictEqual(delivered.at(-1)!.to, SENDER);
+      assert.deepStrictEqual(
+        delivered.at(-1)!.input.outcome?.reason,
+        "receiver_ended",
+      );
+      assert.deepStrictEqual(delivered.at(-1)!.input.unattended, mark);
     }
 
     // 보낸 쪽의 취소 알림도 그렇다.
@@ -250,8 +257,8 @@ Deno.test("attended turn이 보낸 call은 attended로 열린다. unattended가 
       const done = router.cancel(tx, { kind: "agent", session: SENDER }, {
         call: call as never,
       });
-      assert(done.ok);
-      assertEquals(cancelled, [mark]);
+      assert.ok(done.ok);
+      assert.deepStrictEqual(cancelled, [mark]);
     }
   }
 });

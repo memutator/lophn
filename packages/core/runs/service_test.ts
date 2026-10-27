@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import {
   createIdSource,
   err,
@@ -15,7 +16,7 @@ const T1 = "trn_01hzzzzzzzzzzzzzzzzzzzzzza";
 const T2 = "trn_01hzzzzzzzzzzzzzzzzzzzzzzb";
 const OLDER_MESSAGE = "msg_01hzzzzzzzzzzzzzzzzzzzzzza";
 
-Deno.test("run의 결과는 그 입력이 연 turn의 답이고 같은 session에 먼저 들어온 다른 입력의 답이 아니다", async () => {
+test("run의 결과는 그 입력이 연 turn의 답이고 같은 session에 먼저 들어온 다른 입력의 답이 아니다", async () => {
   const turns = new Map<string, TurnOfMessage>();
   const answers = new Map<string, string>();
   let runMessage = "";
@@ -101,7 +102,7 @@ Deno.test("run의 결과는 그 입력이 연 turn의 답이고 같은 session�
   });
   answers.set(T1, "first");
   await service.turnEnded({ turn: T1, messages: [OLDER_MESSAGE] });
-  assertEquals(rows.get(id)!.state, "running");
+  assert.deepStrictEqual(rows.get(id)!.state, "running");
 
   turns.set(runMessage, {
     turn: T2,
@@ -111,5 +112,9 @@ Deno.test("run의 결과는 그 입력이 연 turn의 답이고 같은 session�
   answers.set(T2, "second");
   await service.turnEnded({ turn: T2, messages: [runMessage] });
   const done = rows.get(id)!;
-  assertEquals([done.state, done.result, done.turn], ["done", "second", T2]);
+  assert.deepStrictEqual([done.state, done.result, done.turn], [
+    "done",
+    "second",
+    T2,
+  ]);
 });

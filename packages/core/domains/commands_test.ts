@@ -1,5 +1,6 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { test } from "node:test";
 import type { DomainOwner } from "../../protocol/domains/mod.ts";
 import type { RequestContext, Tx } from "../../protocol/server/mod.ts";
 import { createDomainCommands } from "./commands.ts";
@@ -73,31 +74,40 @@ function open() {
   };
 }
 
-Deno.test("앱의 마지막 active domain은 보관되지 않고 project의 마지막 domain은 보관된다", () => {
+test("앱의 마지막 active domain은 보관되지 않고 project의 마지막 domain은 보관된다", () => {
   const { create, archive } = open();
   const project: DomainOwner = { kind: "project", id: PROJECT as never };
   const app: DomainOwner = { kind: "app", id: APP as never };
   const only = create(USER, "only", project).value!;
-  assertEquals(archive(only.id, only.revision).ok, true);
+  assert.deepStrictEqual(archive(only.id, only.revision).ok, true);
 
   const first = create(USER, "first", app).value!;
-  assertEquals(archive(first.id, first.revision).error?.code, "conflict");
+  assert.deepStrictEqual(
+    archive(first.id, first.revision).error?.code,
+    "conflict",
+  );
   const second = create(USER, "second", app).value!;
-  assertEquals(archive(first.id, first.revision).ok, true);
-  assertEquals(archive(second.id, second.revision).error?.code, "conflict");
+  assert.deepStrictEqual(archive(first.id, first.revision).ok, true);
+  assert.deepStrictEqual(
+    archive(second.id, second.revision).error?.code,
+    "conflict",
+  );
 });
 
-Deno.test("agent는 자기 그릇이 아닌 owner에 domain을 못 만들고 이름이 겹쳐도 못 만든다", () => {
+test("agent는 자기 그릇이 아닌 owner에 domain을 못 만들고 이름이 겹쳐도 못 만든다", () => {
   const { create } = open();
   const mine: DomainOwner = { kind: "project", id: PROJECT as never };
   const other: DomainOwner = { kind: "project", id: OTHER as never };
   const agent = context(AGENT, { project: PROJECT as never });
-  assertEquals(create(agent, "mine", mine).ok, true);
-  assertEquals(create(agent, "elsewhere", other).error?.code, "forbidden");
-  assertEquals(
+  assert.deepStrictEqual(create(agent, "mine", mine).ok, true);
+  assert.deepStrictEqual(
+    create(agent, "elsewhere", other).error?.code,
+    "forbidden",
+  );
+  assert.deepStrictEqual(
     create(context(AGENT, {}), "free", mine).error?.code,
     "forbidden",
   );
   // 이름은 그릇과 상관없이 전 domain에서 하나다.
-  assertEquals(create(USER, "mine", other).error?.code, "conflict");
+  assert.deepStrictEqual(create(USER, "mine", other).error?.code, "conflict");
 });

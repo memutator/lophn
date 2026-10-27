@@ -6,7 +6,8 @@
 // - 쓰기는 같은 폴더의 임시 파일(0600)에 쓰고 rename한다. 실패하면 파일은 그대로다.
 // - watch는 폴더를 보고 settings.json 이벤트만 timer로 묶어 한 번 다시 읽는다. 내용이
 //   마지막으로 읽거나 쓴 것과 같으면 무시한다(자기 쓰기에 반응하지 않는다).
-import { err, ok, type Result } from "../../base/mod.ts";
+import { readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { err, errorCode, ok, type Result } from "../../base/mod.ts";
 import {
   type SettingRejection,
   SETTINGS_FILE_NAME,
@@ -62,9 +63,9 @@ export function createSettingsStore(options: {
 
   const readText = (): string => {
     try {
-      return Deno.readTextFileSync(path);
+      return readFileSync(path, "utf8");
     } catch (error) {
-      if (error instanceof Deno.errors.NotFound) return "";
+      if (errorCode(error) === "ENOENT") return "";
       throw error;
     }
   };
@@ -132,14 +133,11 @@ export function createSettingsStore(options: {
     const text = `${JSON.stringify(sorted, null, 2)}\n`;
     const temp = `${path}.${crypto.randomUUID()}.tmp`;
     try {
-      Deno.writeTextFileSync(temp, text, {
-        createNew: true,
-        mode: SETTINGS_FILE_MODE,
-      });
-      Deno.renameSync(temp, path);
+      writeFileSync(temp, text, { flag: "wx", mode: SETTINGS_FILE_MODE });
+      renameSync(temp, path);
     } catch {
       try {
-        Deno.removeSync(temp);
+        rmSync(temp);
       } catch {
         // 임시 파일이 없으면 지울 것이 없다.
       }

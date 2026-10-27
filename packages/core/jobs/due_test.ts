@@ -1,5 +1,6 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { test } from "node:test";
 import type { JobAction, MissedPolicy } from "../../protocol/jobs/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
@@ -82,12 +83,12 @@ function setup() {
       { startup },
       {} as never,
     );
-    assert(result.ok);
+    assert.ok(result.ok);
     return result.value;
   };
   const runs = (jobId: string) => {
     const loaded = loadJobRuns(sql, jobId, { limit: 20 });
-    assert(loaded.ok);
+    assert.ok(loaded.ok);
     return loaded.value.reverse();
   };
   return {
@@ -103,19 +104,19 @@ function setup() {
 }
 
 // 놓친 차례를 줄마다 돌리면 lophn을 켤 때마다 job이 여러 번 돈다.
-Deno.test("missed turns fold into one job run and the job runs once", () => {
+test("missed turns fold into one job run and the job runs once", () => {
   const t = setup();
   try {
     t.setNow(T(5, 30));
     const run = t.job(TOOL, "run", T(1));
     const first = t.claim(true);
-    assertEquals(first.start.map((turn) => turn.job.id), [run]);
-    assertEquals(first.start[0]!.job_run.state, "queued");
-    assertEquals(first.start[0]!.job_run.missed_count, 5);
-    assertEquals(first.next_due_at, T(6));
+    assert.deepStrictEqual(first.start.map((turn) => turn.job.id), [run]);
+    assert.deepStrictEqual(first.start[0]!.job_run.state, "queued");
+    assert.deepStrictEqual(first.start[0]!.job_run.missed_count, 5);
+    assert.deepStrictEqual(first.next_due_at, T(6));
     const again = t.claim(false);
-    assertEquals(again.start, []);
-    assertEquals(t.runs(run).length, 1);
+    assert.deepStrictEqual(again.start, []);
+    assert.deepStrictEqual(t.runs(run).length, 1);
   } finally {
     t.db.close();
   }
@@ -124,13 +125,13 @@ Deno.test("missed turns fold into one job run and the job runs once", () => {
   try {
     h.setNow(T(5, 30));
     const hold = h.job(TOOL, "hold", T(1));
-    assertEquals(h.claim(true).start, []);
-    assertEquals(h.runs(hold).map((r) => r.state), ["held"]);
+    assert.deepStrictEqual(h.claim(true).start, []);
+    assert.deepStrictEqual(h.runs(hold).map((r) => r.state), ["held"]);
     h.setNow(T(8, 30));
     h.claim(true);
     const rows = h.runs(hold);
-    assertEquals(rows.map((r) => r.state), ["held"]);
-    assertEquals(rows[0]!.missed_count, 8);
+    assert.deepStrictEqual(rows.map((r) => r.state), ["held"]);
+    assert.deepStrictEqual(rows[0]!.missed_count, 8);
   } finally {
     h.db.close();
   }
@@ -141,16 +142,19 @@ Deno.test("missed turns fold into one job run and the job runs once", () => {
     const cut = c.job(TOOL, "run", T(6));
     c.runRow(cut, "running", T(5));
     const claimed = c.claim(true);
-    assertEquals(claimed.start.length, 1);
-    assertEquals(claimed.start[0]!.job_run.missed_count, 1);
-    assertEquals(c.runs(cut).map((r) => r.state), ["interrupted", "queued"]);
+    assert.deepStrictEqual(claimed.start.length, 1);
+    assert.deepStrictEqual(claimed.start[0]!.job_run.missed_count, 1);
+    assert.deepStrictEqual(c.runs(cut).map((r) => r.state), [
+      "interrupted",
+      "queued",
+    ]);
   } finally {
     c.db.close();
   }
 });
 
 // 앞 차례가 도는데 또 돌면 한 job이 겹쳐 돈다.
-Deno.test("a job does not run again while its previous turn is running", () => {
+test("a job does not run again while its previous turn is running", () => {
   for (const action of [TOOL, WORKFLOW]) {
     const t = setup();
     try {
@@ -158,8 +162,8 @@ Deno.test("a job does not run again while its previous turn is running", () => {
       const job = t.job(action, "run", T(1));
       t.runRow(job, "running", T(0));
       const live = t.claim(false);
-      assertEquals(live.start, []);
-      assertEquals(t.runs(job).map((r) => [r.state, r.reason]), [
+      assert.deepStrictEqual(live.start, []);
+      assert.deepStrictEqual(t.runs(job).map((r) => [r.state, r.reason]), [
         ["running", null],
         ["skipped", "overlap"],
       ]);
@@ -169,12 +173,12 @@ Deno.test("a job does not run again while its previous turn is running", () => {
       const boot = t.claim(true);
       const states = t.runs(job).map((r) => r.state);
       if (action.kind === "workflow_start") {
-        assertEquals(boot.start, []);
-        assertEquals(states, ["running", "skipped", "skipped"]);
-        assertEquals(t.runs(job)[2]!.missed_count, 2);
+        assert.deepStrictEqual(boot.start, []);
+        assert.deepStrictEqual(states, ["running", "skipped", "skipped"]);
+        assert.deepStrictEqual(t.runs(job)[2]!.missed_count, 2);
       } else {
-        assertEquals(boot.start.length, 1);
-        assertEquals(states, ["interrupted", "skipped", "queued"]);
+        assert.deepStrictEqual(boot.start.length, 1);
+        assert.deepStrictEqual(states, ["interrupted", "skipped", "queued"]);
       }
     } finally {
       t.db.close();
@@ -192,21 +196,21 @@ Deno.test("a job does not run again while its previous turn is running", () => {
       { job_run: held as never, choice: "run_now" },
       {} as never,
     );
-    assert(!result.ok && result.error.code === "conflict");
-    assert(t.runs(job).some((r) => r.id === held && r.state === "held"));
+    assert.ok(!result.ok && result.error.code === "conflict");
+    assert.ok(t.runs(job).some((r) => r.id === held && r.state === "held"));
   } finally {
     t.db.close();
   }
 });
 
 // 컴퓨터가 잠든 사이 timer가 늦으면 hold job이 묻지 않고 돌아 버린다.
-Deno.test("a turn handled over 10 minutes late counts as missed and hold asks", () => {
+test("a turn handled over 10 minutes late counts as missed and hold asks", () => {
   const t = setup();
   try {
     const hold = t.job(TOOL, "hold", T(9));
     t.setNow(T(9, 10));
-    assertEquals(t.claim(false).start.length, 1);
-    assertEquals(t.runs(hold).map((r) => r.state), ["queued"]);
+    assert.deepStrictEqual(t.claim(false).start.length, 1);
+    assert.deepStrictEqual(t.runs(hold).map((r) => r.state), ["queued"]);
   } finally {
     t.db.close();
   }
@@ -215,10 +219,10 @@ Deno.test("a turn handled over 10 minutes late counts as missed and hold asks", 
   try {
     const hold = h.job(TOOL, "hold", T(9));
     h.setNow(T(13, 5));
-    assertEquals(h.claim(false).start, []);
+    assert.deepStrictEqual(h.claim(false).start, []);
     const rows = h.runs(hold);
-    assertEquals(rows.map((r) => r.state), ["held"]);
-    assertEquals(rows[0]!.missed_count, 5);
+    assert.deepStrictEqual(rows.map((r) => r.state), ["held"]);
+    assert.deepStrictEqual(rows[0]!.missed_count, 5);
   } finally {
     h.db.close();
   }
@@ -228,9 +232,9 @@ Deno.test("a turn handled over 10 minutes late counts as missed and hold asks", 
     const run = r.job(TOOL, "run", T(9));
     r.setNow(T(13, 5));
     const claimed = r.claim(false);
-    assertEquals(claimed.start.length, 1);
-    assertEquals(claimed.start[0]!.job_run.missed_count, 5);
-    assertEquals(r.runs(run).map((x) => x.state), ["queued"]);
+    assert.deepStrictEqual(claimed.start.length, 1);
+    assert.deepStrictEqual(claimed.start[0]!.job_run.missed_count, 5);
+    assert.deepStrictEqual(r.runs(run).map((x) => x.state), ["queued"]);
   } finally {
     r.db.close();
   }

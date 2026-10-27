@@ -1,5 +1,6 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { test } from "node:test";
 import { ok } from "../../base/mod.ts";
 import type { AgentRef } from "../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
@@ -22,7 +23,7 @@ const agents: Record<string, AgentRef> = {
 };
 
 // 다른 agent가 만든 job을 고치거나 지울 수 있으면 agent가 서로의 예약을 망가뜨린다.
-Deno.test("an agent cannot change or delete a job another agent made; a user changes and deletes any job", () => {
+test("an agent cannot change or delete a job another agent made; a user changes and deletes any job", () => {
   const db = new DatabaseSync(":memory:");
   try {
     db.exec(jobsSchemaSteps[0]!.sql);
@@ -50,7 +51,7 @@ Deno.test("an agent cannot change or delete a job another agent made; a user cha
       action: { kind: "tool_run", app: "notes", tool: "sweep" },
       missed_policy: "run",
     }, {} as never);
-    assert(created.ok);
+    assert.ok(created.ok);
     const job = created.value.job.id;
     sql.run(
       `INSERT INTO job_runs (id, job, due_at, missed_count, state, created_at)
@@ -60,7 +61,7 @@ Deno.test("an agent cannot change or delete a job another agent made; a user cha
 
     const code = (result: { ok: boolean; error?: { code: string } }) =>
       result.ok ? "ok" : result.error!.code;
-    assertEquals(
+    assert.deepStrictEqual(
       code(
         commands.update.handle(
           tx,
@@ -71,15 +72,15 @@ Deno.test("an agent cannot change or delete a job another agent made; a user cha
       ),
       "not_found",
     );
-    assertEquals(
+    assert.deepStrictEqual(
       code(commands.remove.handle(tx, agent(PM), { job }, {} as never)),
       "not_found",
     );
     const kept = loadJob(sql, job);
-    assert(kept.ok && kept.value?.title === "Nightly");
+    assert.ok(kept.ok && kept.value?.title === "Nightly");
 
     // 같은 lophn의 다른 session은 같은 agent다.
-    assertEquals(
+    assert.deepStrictEqual(
       code(
         commands.update.handle(
           tx,
@@ -90,7 +91,7 @@ Deno.test("an agent cannot change or delete a job another agent made; a user cha
       ),
       "ok",
     );
-    assertEquals(
+    assert.deepStrictEqual(
       code(
         commands.update.handle(
           tx,
@@ -102,14 +103,14 @@ Deno.test("an agent cannot change or delete a job another agent made; a user cha
       "ok",
     );
 
-    assertEquals(
+    assert.deepStrictEqual(
       code(commands.remove.handle(tx, user, { job }, {} as never)),
       "ok",
     );
     const gone = loadJob(sql, job);
-    assert(gone.ok && gone.value === null);
+    assert.ok(gone.ok && gone.value === null);
     const runs = loadJobRuns(sql, job, { limit: 10 });
-    assert(runs.ok && runs.value.length === 0);
+    assert.ok(runs.ok && runs.value.length === 0);
   } finally {
     db.close();
   }

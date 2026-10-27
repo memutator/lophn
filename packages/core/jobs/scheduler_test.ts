@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { manualClock, ok } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/mod.ts";
 import type { JobTurn } from "../../protocol/jobs/mod.ts";
@@ -19,7 +20,7 @@ for (
     "cancelled",
   ]] as const
 ) {
-  Deno.test(`a workflow job run stays open while its instance runs and closes as ${closedAs} once it is ${state}`, async () => {
+  test(`a workflow job run stays open while its instance runs and closes as ${closedAs} once it is ${state}`, async () => {
     const calls: string[] = [];
     const timers: { run: () => void; ms: number }[] = [];
     let instance: "running" | "ended" | "stopped" = "running";
@@ -62,15 +63,15 @@ for (
     });
 
     await scheduler.start();
-    assertEquals(calls, ["open", "instanceState", "claimDue:true"]);
-    assertEquals(timers.length, 1);
-    assertEquals(timers[0]!.ms <= 60_000, true);
+    assert.deepStrictEqual(calls, ["open", "instanceState", "claimDue:true"]);
+    assert.deepStrictEqual(timers.length, 1);
+    assert.deepStrictEqual(timers[0]!.ms <= 60_000, true);
 
     instance = state;
     calls.length = 0;
     timers[0]!.run();
     await flush();
-    assertEquals(calls, [
+    assert.deepStrictEqual(calls, [
       "open",
       "instanceState",
       `ended:${JOB_RUN}:${closedAs}`,

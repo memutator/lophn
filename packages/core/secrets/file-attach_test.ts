@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { err, ok } from "../../base/mod.ts";
 import type {
   SecretAllowanceCheck,
@@ -66,7 +67,7 @@ function input(
   };
 }
 
-Deno.test("app secret leaves only when the grant allows the name and destination", async () => {
+test("app secret leaves only when the grant allows the name and destination", async () => {
   const rows: Array<
     [string, SecretDestination, boolean, "sent" | "forbidden"]
   > = [
@@ -86,18 +87,18 @@ Deno.test("app secret leaves only when the grant allows the name and destination
     });
     const label = `${name} ${destination.origin} app=${app}`;
     if (expected === "sent") {
-      assert(sent.ok, label);
-      assertEquals(got, VALUE, label);
+      assert.ok(sent.ok, label);
+      assert.deepStrictEqual(got, VALUE, label);
     } else {
-      assert(!sent.ok, label);
-      assertEquals(sent.error.code, expected, label);
-      assertEquals(got, undefined, label);
-      assert(!JSON.stringify(sent.error).includes(VALUE), label);
+      assert.ok(!sent.ok, label);
+      assert.deepStrictEqual(sent.error.code, expected, label);
+      assert.deepStrictEqual(got, undefined, label);
+      assert.ok(!JSON.stringify(sent.error).includes(VALUE), label);
     }
   }
 });
 
-Deno.test("OAuth refresh, meta, client and host id never leave, whatever the allowance says", async () => {
+test("OAuth refresh, meta, client and host id never leave, whatever the allowance says", async () => {
   const open = createFileSecretAttach({
     file: { get: () => ok(VALUE) },
     allowance: () => ok(undefined),
@@ -118,9 +119,13 @@ Deno.test("OAuth refresh, meta, client and host id never leave, whatever the all
         got = String(value);
         return Promise.resolve(ok({ sent: true }));
       });
-      assert(!sent.ok, `${name} app=${app}`);
-      assertEquals(sent.error.code, "forbidden", `${name} app=${app}`);
-      assertEquals(got, undefined, `${name} app=${app}`);
+      assert.ok(!sent.ok, `${name} app=${app}`);
+      assert.deepStrictEqual(
+        sent.error.code,
+        "forbidden",
+        `${name} app=${app}`,
+      );
+      assert.deepStrictEqual(got, undefined, `${name} app=${app}`);
     }
   }
 });

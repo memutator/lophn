@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import {
   type BusEvent,
   gatewayServerFrameSchema,
@@ -48,7 +49,7 @@ function fakeSocket() {
   };
 }
 
-Deno.test("느린 구독자는 끊기고 다시 붙으면 snapshot부터 다시 읽게 한다", () => {
+test("느린 구독자는 끊기고 다시 붙으면 snapshot부터 다시 읽게 한다", () => {
   const bus = createBus();
   const first = fakeSocket();
   const session = createGatewaySession(first.socket, bus);
@@ -60,35 +61,37 @@ Deno.test("느린 구독자는 끊기고 다시 붙으면 snapshot부터 다시 
   bus.publish(turnStarted(SES_A));
   bus.publish(turnStarted(SES_B));
   bus.publish(settingsChanged);
-  assertEquals(first.sent.map((frame) => (frame as { type: string }).type), [
-    "ready",
-    "event",
-    "event",
-  ]);
+  assert.deepStrictEqual(
+    first.sent.map((frame) => (frame as { type: string }).type),
+    ["ready", "event", "event"],
+  );
 
   // 한도를 넘으면 closed(slow_consumer)와 1013, 그 뒤 publish는 가지 않는다.
   first.setBuffered(GATEWAY_BUFFER_LIMIT + 1);
   bus.publish(turnStarted(SES_A));
-  assertEquals(first.sent.at(-1), { type: "closed", reason: "slow_consumer" });
-  assertEquals(first.closed, [1013]);
+  assert.deepStrictEqual(first.sent.at(-1), {
+    type: "closed",
+    reason: "slow_consumer",
+  });
+  assert.deepStrictEqual(first.closed, [1013]);
   const count = first.sent.length;
   bus.publish(turnStarted(SES_A));
-  assertEquals(first.sent.length, count);
+  assert.deepStrictEqual(first.sent.length, count);
 
   // 다시 붙으면 ready를 다시 받는다.
   const second = fakeSocket();
   createGatewaySession(second.socket, bus).receive(
     JSON.stringify({ type: "watch", conditions: [{ session: SES_A }] }),
   );
-  assertEquals(second.sent, [{ type: "ready" }]);
+  assert.deepStrictEqual(second.sent, [{ type: "ready" }]);
   bus.publish(turnStarted(SES_A));
-  assert(second.sent.length === 2);
+  assert.ok(second.sent.length === 2);
 
   // 틀린 조건은 closed 없이 1008로 끊는다.
   const bad = fakeSocket();
   createGatewaySession(bad.socket, bus).receive(
     JSON.stringify({ type: "watch", conditions: [{ session: "x" }] }),
   );
-  assertEquals(bad.sent, []);
-  assertEquals(bad.closed, [1008]);
+  assert.deepStrictEqual(bad.sent, []);
+  assert.deepStrictEqual(bad.closed, [1008]);
 });

@@ -119,8 +119,12 @@ export function toWriter(stream: Writable): SpawnedWriter {
         });
       });
     },
+    // child가 먼저 끝나 pipe가 이미 닫혔으면 end의 callback이 오지 않는다. 닫힘과 오류도 끝으로 센다.
     close() {
+      if (stream.destroyed || stream.writableFinished) return Promise.resolve();
       return new Promise((resolve) => {
+        stream.once("close", () => resolve());
+        stream.once("error", () => resolve());
         stream.end(() => resolve());
       });
     },

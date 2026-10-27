@@ -1,4 +1,9 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "node:test";
+
 import type { AppGrant, DataChange } from "../../../protocol/apps/mod.ts";
 import { asksFor, compareForActivation } from "./compare.ts";
 import { dataChangesOf } from "./activation/desired.ts";
@@ -28,7 +33,7 @@ const step = (loss: DataChange["loss"]): DataChange => ({
   loss,
 });
 
-Deno.test("손실을 선언하면 묻는다", () => {
+test("손실을 선언하면 묻는다", () => {
   const previous = { id: "rel_01arz3ndektsv4rrffq69g5fb1", data_schema: 1 };
   const same = { permissions: [net("a.example")], app_connections: [] };
   const cases: {
@@ -90,17 +95,17 @@ Deno.test("손실을 선언하면 묻는다", () => {
       facts: one.facts,
       next: { data_changes: one.changes },
     });
-    assertEquals(asksFor(comparison), one.asks, one.name);
+    assert.deepStrictEqual(asksFor(comparison), one.asks, one.name);
   }
 });
 
-Deno.test("migration 파일 머리의 loss 줄이 비교까지 닿는다", async () => {
-  const root = await Deno.makeTempDir();
+test("migration 파일 머리의 loss 줄이 비교까지 닿는다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-compare-"));
   try {
-    await Deno.mkdir(`${root}/migrations`);
+    await mkdir(`${root}/migrations`);
     const sql =
       "-- drop the old table\n-- loss: drop_table old\ndrop table old;\n";
-    await Deno.writeTextFile(`${root}/migrations/1-2.sql`, sql);
+    await writeFile(`${root}/migrations/1-2.sql`, sql);
     const changes = await dataChangesOf({
       root,
       manifest: {
@@ -110,18 +115,18 @@ Deno.test("migration 파일 머리의 loss 줄이 비교까지 닿는다", async
         dependencies: [],
       },
     });
-    assert(changes.ok);
-    assertEquals(changes.value[0].description, "drop the old table");
+    assert.ok(changes.ok);
+    assert.deepStrictEqual(changes.value[0].description, "drop the old table");
     const comparison = compareForActivation({
       previous: { id: "rel_01arz3ndektsv4rrffq69g5fb1", data_schema: 1 },
       grants: [],
       facts: { permissions: [], app_connections: [] },
       next: { data_changes: changes.value },
     });
-    assertEquals(comparison.loss_steps.length, 1);
-    assert(asksFor(comparison));
+    assert.deepStrictEqual(comparison.loss_steps.length, 1);
+    assert.ok(asksFor(comparison));
     // 줄이 틀리면 release 준비가 거절된다.
-    await Deno.writeTextFile(
+    await writeFile(
       `${root}/migrations/1-2.sql`,
       "-- loss: lose_everything\nselect 1;\n",
     );
@@ -134,9 +139,9 @@ Deno.test("migration 파일 머리의 loss 줄이 비교까지 닿는다", async
         dependencies: [],
       },
     });
-    assert(!bad.ok);
-    assertEquals(bad.error.code, "invalid_input");
+    assert.ok(!bad.ok);
+    assert.deepStrictEqual(bad.error.code, "invalid_input");
   } finally {
-    await Deno.remove(root, { recursive: true });
+    await rm(root, { recursive: true });
   }
 });

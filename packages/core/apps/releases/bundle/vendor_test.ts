@@ -1,4 +1,19 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import {
+  chmod,
+  lstat,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "node:test";
+
 import type { BundleManifest } from "../../../../protocol/apps/mod.ts";
 import { LINKS_PATH } from "./links.ts";
 import { sealBundle } from "./seal.ts";
@@ -21,39 +36,43 @@ async function seal(
 
 async function walk(root: string, base = ""): Promise<string[]> {
   const found: string[] = [];
-  for await (const entry of Deno.readDir(`${root}/${base}`)) {
+  for (
+    const entry of await readdir(`${root}/${base}`, {
+      withFileTypes: true,
+    })
+  ) {
     const path = base ? `${base}/${entry.name}` : entry.name;
     found.push(path);
-    if (entry.isDirectory) found.push(...await walk(root, path));
+    if (entry.isDirectory()) found.push(...await walk(root, path));
   }
   return found;
 }
 
-Deno.test("bundle에 같은 file이 두 번 들어가지 않고 사본에서 연결로 읽힌다", async () => {
-  const work = await Deno.makeTempDir();
+test("bundle에 같은 file이 두 번 들어가지 않고 사본에서 연결로 읽힌다", async () => {
+  const work = await mkdtemp(join(tmpdir(), "lophn-vendor-"));
   try {
     const nm = `${work}/node_modules`;
-    await Deno.mkdir(`${nm}/.deno/a@1.0.0/node_modules/a`, { recursive: true });
-    await Deno.mkdir(`${nm}/.deno/b@2.0.0/node_modules/b`, { recursive: true });
-    await Deno.mkdir(`${nm}/@s`, { recursive: true });
-    await Deno.writeTextFile(
+    await mkdir(`${nm}/.deno/a@1.0.0/node_modules/a`, { recursive: true });
+    await mkdir(`${nm}/.deno/b@2.0.0/node_modules/b`, { recursive: true });
+    await mkdir(`${nm}/@s`, { recursive: true });
+    await writeFile(
       `${nm}/.deno/a@1.0.0/node_modules/a/index.js`,
       "export const a = 1;",
     );
-    await Deno.writeTextFile(
+    await writeFile(
       `${nm}/.deno/b@2.0.0/node_modules/b/index.js`,
       "export const b = 2;",
     );
-    await Deno.symlink(".deno/a@1.0.0/node_modules/a", `${nm}/a`);
-    await Deno.symlink("../.deno/b@2.0.0/node_modules/b", `${nm}/@s/b`);
-    await Deno.symlink(
+    await symlink(".deno/a@1.0.0/node_modules/a", `${nm}/a`);
+    await symlink("../.deno/b@2.0.0/node_modules/b", `${nm}/@s/b`);
+    await symlink(
       "../../b@2.0.0/node_modules/b",
       `${nm}/.deno/a@1.0.0/node_modules/b`,
     );
 
     const read = await readVendorFiles(work);
-    assert(read.ok);
-    assertEquals(read.value.map((file) => file.path), [
+    assert.ok(read.ok);
+    assert.deepStrictEqual(read.value.map((file) => file.path), [
       "node_modules/.deno/a@1.0.0/node_modules/a/index.js",
       "node_modules/.deno/b@2.0.0/node_modules/b/index.js",
       LINKS_PATH,
@@ -61,41 +80,42 @@ Deno.test("bundle에 같은 file이 두 번 들어가지 않고 사본에서 연
 
     const copy = `${work}/copy`;
     const sealed = await seal(copy, read.value);
-    assert(sealed.ok);
-    assertEquals(
-      await Deno.readTextFile(`${copy}/node_modules/a/index.js`),
+    assert.ok(sealed.ok);
+    assert.deepStrictEqual(
+      await readFile(`${copy}/node_modules/a/index.js`, "utf8"),
       "export const a = 1;",
     );
-    assertEquals(
-      await Deno.readTextFile(`${copy}/node_modules/@s/b/index.js`),
+    assert.deepStrictEqual(
+      await readFile(`${copy}/node_modules/@s/b/index.js`, "utf8"),
       "export const b = 2;",
     );
-    assertEquals(
-      await Deno.readTextFile(
+    assert.deepStrictEqual(
+      await readFile(
         `${copy}/node_modules/.deno/a@1.0.0/node_modules/b/index.js`,
+        "utf8",
       ),
       "export const b = 2;",
     );
     for (const path of await walk(copy)) {
-      const info = await Deno.lstat(`${copy}/${path}`);
-      if (info.isSymlink) continue;
-      assertEquals(
-        info.mode! & 0o777,
-        info.isDirectory ? 0o555 : 0o444,
+      const info = await lstat(`${copy}/${path}`);
+      if (info.isSymbolicLink()) continue;
+      assert.deepStrictEqual(
+        info.mode & 0o777,
+        info.isDirectory() ? 0o555 : 0o444,
         path,
       );
     }
   } finally {
-    await Deno.chmod(`${work}/copy`, 0o755).catch(() => {});
+    await chmod(`${work}/copy`, 0o755).catch(() => {});
     for await (const path of await walk(work).catch(() => [])) {
-      await Deno.chmod(`${work}/${path}`, 0o755).catch(() => {});
+      await chmod(`${work}/${path}`, 0o755).catch(() => {});
     }
-    await Deno.remove(work, { recursive: true });
+    await rm(work, { recursive: true });
   }
 });
 
-Deno.test("사본 밖을 가리키는 연결은 사본에 만들어지지 않는다", async () => {
-  const work = await Deno.makeTempDir();
+test("사본 밖을 가리키는 연결은 사본에 만들어지지 않는다", async () => {
+  const work = await mkdtemp(join(tmpdir(), "lophn-vendor-"));
   try {
     const copy = `${work}/deep/copy`;
     for (
@@ -110,11 +130,11 @@ Deno.test("사본 밖을 가리키는 연결은 사본에 만들어지지 않는
         path: LINKS_PATH,
         bytes: encode(JSON.stringify(links)),
       }]);
-      assert(!sealed.ok, target);
-      assertEquals(sealed.error.code, "invalid_input");
+      assert.ok(!sealed.ok, target);
+      assert.deepStrictEqual(sealed.error.code, "invalid_input");
     }
-    assertEquals(await walk(work), []);
+    assert.deepStrictEqual(await walk(work), []);
   } finally {
-    await Deno.remove(work, { recursive: true });
+    await rm(work, { recursive: true });
   }
 });

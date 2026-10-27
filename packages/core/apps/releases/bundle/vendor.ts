@@ -2,6 +2,7 @@
 // `node_modules/`(npm)를 그대로 담는다. symlink는 복사하지 않고 목록 file(links.ts)로 남긴다
 // (bundle은 정규 파일만 담고, 가리키는 실제 폴더는 `.deno/` 안에 한 벌 있다).
 // 실행할 때 필요 없는 도구 파일(.bin, 설치 표시, lock)은 뺀다.
+import { readdir, readFile, readlink, stat } from "node:fs/promises";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { encodeLinks, LINKS_PATH, type VendorLink } from "./links.ts";
 
@@ -20,16 +21,16 @@ async function collect(
   files: VendorFile[],
   links: VendorLink[],
 ): Promise<void> {
-  for await (const entry of Deno.readDir(directory)) {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
     if (SKIP.has(entry.name)) continue;
     const path = `${directory}/${entry.name}`;
     const bundlePath = `${prefix}/${entry.name}`;
-    if (entry.isSymlink) {
-      links.push({ path: bundlePath, target: await Deno.readLink(path) });
-    } else if (entry.isDirectory) {
+    if (entry.isSymbolicLink()) {
+      links.push({ path: bundlePath, target: await readlink(path) });
+    } else if (entry.isDirectory()) {
       await collect(path, bundlePath, files, links);
-    } else if (entry.isFile) {
-      files.push({ path: bundlePath, bytes: await Deno.readFile(path) });
+    } else if (entry.isFile()) {
+      files.push({ path: bundlePath, bytes: await readFile(path) });
     }
   }
 }
@@ -41,8 +42,8 @@ export async function readVendorFiles(
   const links: VendorLink[] = [];
   try {
     for (const name of ["vendor", "node_modules"]) {
-      const found = await Deno.stat(`${root}/${name}`).then(
-        (info) => info.isDirectory,
+      const found = await stat(`${root}/${name}`).then(
+        (info) => info.isDirectory(),
         () => false,
       );
       if (found) await collect(`${root}/${name}`, name, files, links);

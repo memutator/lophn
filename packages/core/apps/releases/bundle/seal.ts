@@ -1,6 +1,14 @@
 // 읽기 전용 bundle 사본과 seal.
 // 사본은 `apps/<app ID>/bundles/<bundle hash>/`의 파일 0444·디렉터리 0555다.
 // 그 안의 정규 `declaration.json`은 release 준비가 읽어 `release.record`에 싣는다(control.ts).
+import {
+  chmod,
+  mkdir,
+  readdir,
+  readFile,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   appBundleCopy,
@@ -58,7 +66,7 @@ async function chmodOrFail(
   mode: number,
 ): Promise<Result<void, SealFailure>> {
   try {
-    await Deno.chmod(path, mode);
+    await chmod(path, mode);
   } catch (thrown) {
     return err({
       code: "unavailable",
@@ -71,8 +79,7 @@ async function chmodOrFail(
 }
 
 // bundle byte·manifest·정규 선언 JSON을 사본에 쓴다. 파일은 0444로 좁히지만 폴더는 열어 둔다.
-// 연결(symlink)은 만들지 않는다: 준비 자식은 앱 폴더에만 write가 있어 `Deno.symlink`(unscoped read·write 요구)를 못 한다.
-// 연결 만들기와 폴더 좁히기는 권한이 있는 core가 `sealCopy`로 마친다.
+// 연결(symlink)은 만들지 않는다: 준비 자식의 좁힌 권한으로는 만들 수 없어, 권한이 있는 core가 `sealCopy`로 마친다.
 export async function writeBundle(
   input: {
     copyPath: string;
@@ -93,7 +100,7 @@ export async function writeBundle(
     });
   }
   try {
-    await Deno.mkdir(input.copyPath, { recursive: true });
+    await mkdir(input.copyPath, { recursive: true });
     const written: { path: string; bytes: Uint8Array }[] = [];
     const seen = new Set<string>();
     const push = (path: string, bytes: Uint8Array): void => {
@@ -111,10 +118,10 @@ export async function writeBundle(
       const relative = relativeCopyPath(file.path);
       if (!relative.ok) return relative;
       const target = `${input.copyPath}/${relative.value}`;
-      await Deno.mkdir(target.slice(0, target.lastIndexOf("/")), {
+      await mkdir(target.slice(0, target.lastIndexOf("/")), {
         recursive: true,
       });
-      await Deno.writeFile(target, file.bytes);
+      await writeFile(target, file.bytes);
       const narrowedFile = await chmodOrFail(target, FILE_MODE);
       if (!narrowedFile.ok) return narrowedFile;
     }
@@ -135,9 +142,9 @@ export async function sealCopy(
   copyPath: string,
 ): Promise<Result<void, SealFailure>> {
   try {
-    const top = await Deno.stat(copyPath);
+    const top = await stat(copyPath);
     if (((top.mode ?? 0) & 0o222) === 0) return ok(undefined);
-    const linksFile = await Deno.readFile(`${copyPath}/${LINKS_PATH}`).catch(
+    const linksFile = await readFile(`${copyPath}/${LINKS_PATH}`).catch(
       () => undefined,
     );
     const links = linksFile ? decodeLinks(linksFile) : ok([]);
@@ -145,12 +152,12 @@ export async function sealCopy(
     await createLinks(copyPath, links.value);
     // 연결을 따라가지 않는다. 폴더는 안쪽부터 좁힌다.
     const narrow = async (directory: string): Promise<void> => {
-      for await (const entry of Deno.readDir(directory)) {
+      for (const entry of await readdir(directory, { withFileTypes: true })) {
         const path = `${directory}/${entry.name}`;
-        if (entry.isDirectory) await narrow(path);
-        else if (entry.isFile) await Deno.chmod(path, FILE_MODE);
+        if (entry.isDirectory()) await narrow(path);
+        else if (entry.isFile()) await chmod(path, FILE_MODE);
       }
-      await Deno.chmod(directory, DIRECTORY_MODE);
+      await chmod(directory, DIRECTORY_MODE);
     };
     await narrow(copyPath);
   } catch (thrown) {

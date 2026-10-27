@@ -1,4 +1,6 @@
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { errorCode } from "../../../../base/mod.ts";
 import {
   recordRewindWrite,
   stageRewindFile,
@@ -14,9 +16,9 @@ export function rewindOverCore(core: CoreCall): RecorderPorts {
     stage: (input) => readOf(core, stageRewindFile, input),
     async read(root, path) {
       try {
-        return await Deno.readFile(join(root, path));
+        return await readFile(join(root, path));
       } catch (error) {
-        if (error instanceof Deno.errors.NotFound) return null;
+        if (errorCode(error) === "ENOENT") return null;
         throw error;
       }
     },

@@ -1,4 +1,5 @@
-import { ok, type Result } from "../../../../base/mod.ts";
+import { readFile, stat } from "node:fs/promises";
+import { errorCode, ok, type Result } from "../../../../base/mod.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import { continuation } from "../bundles/paging.ts";
 import { fitJson } from "../result.ts";
@@ -32,13 +33,16 @@ export async function readPdf(
   if (!at.ok) return at;
   let bytes: Uint8Array;
   try {
-    const stat = await Deno.stat(at.value.path);
-    if (!stat.isFile) return fail("invalid_input", "not a file");
-    if (stat.size > MAX_FILE_BYTES) {
+    const info = await stat(at.value.path);
+    if (!info.isFile()) return fail("invalid_input", "not a file");
+    if (info.size > MAX_FILE_BYTES) {
       return fail("invalid_input", "pdf is too large");
     }
-    bytes = await Deno.readFile(at.value.path);
+    bytes = await readFile(at.value.path);
   } catch (error) {
+    if (errorCode(error) === "ENOENT") {
+      return fail("not_found", "file not found");
+    }
     return fsFail(error);
   }
   // pdf.js가 넘긴 buffer를 가져가 길이가 0이 된다.

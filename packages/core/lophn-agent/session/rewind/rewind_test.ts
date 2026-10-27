@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -79,7 +80,7 @@ function setup() {
   return { sql, tx };
 }
 
-Deno.test("rewind는 고른 시점 뒤에 file tool로 바꾼 파일만 되돌리고 shell이 바꾼 파일은 그대로 둔다", async () => {
+test("rewind는 고른 시점 뒤에 file tool로 바꾼 파일만 되돌리고 shell이 바꾼 파일은 그대로 둔다", async () => {
   const { sql, tx } = setup();
   const root = await mkdtemp(join(tmpdir(), "lophn-rewind-"));
   const data = await mkdtemp(join(tmpdir(), "lophn-rewind-store-"));
@@ -139,7 +140,7 @@ Deno.test("rewind는 고른 시점 뒤에 file tool로 바꾼 파일만 되돌�
         return seen;
       },
     }, target);
-    assert(first.ok);
+    assert.ok(first.ok);
     const files = await prepareRestore({
       store,
       session: SESSION,
@@ -160,8 +161,8 @@ Deno.test("rewind는 고른 시점 뒤에 file tool로 바꾼 파일만 되돌�
       files,
       apps: [],
     } as never, {} as never);
-    assert(done.ok);
-    assertEquals(done.value.outcome, "applied");
+    assert.ok(done.ok);
+    assert.deepStrictEqual(done.value.outcome, "applied");
     await installRestore({
       store,
       session: SESSION,
@@ -169,21 +170,30 @@ Deno.test("rewind는 고른 시점 뒤에 file tool로 바꾼 파일만 되돌�
       prepared: files,
     });
 
-    assertEquals(await readFile(join(root, "a.txt"), "utf8"), "a-old");
-    assertEquals(
+    assert.deepStrictEqual(
+      await readFile(join(root, "a.txt"), "utf8"),
+      "a-old",
+    );
+    assert.deepStrictEqual(
       await readFile(join(root, "c.txt"), "utf8").catch(() => null),
       null,
     );
     // 고른 시점 앞의 기록과 기록 없는(shell) 파일은 그대로다.
-    assertEquals(await readFile(join(root, "d.txt"), "utf8"), "d-after");
-    assertEquals(await readFile(join(root, "b.txt"), "utf8"), "b-by-shell");
+    assert.deepStrictEqual(
+      await readFile(join(root, "d.txt"), "utf8"),
+      "d-after",
+    );
+    assert.deepStrictEqual(
+      await readFile(join(root, "b.txt"), "utf8"),
+      "b-by-shell",
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(data, { recursive: true, force: true });
   }
 });
 
-Deno.test("apps를 고르지 않으면 앱 rewind를 요청하지 않고, 고르면 이 session의 첫 write invocation 직전으로 요청한다", async () => {
+test("apps를 고르지 않으면 앱 rewind를 요청하지 않고, 고르면 이 session의 첫 write invocation 직전으로 요청한다", async () => {
   const { sql } = setup();
   const asked: string[] = [];
   const recorded: unknown[] = [];
@@ -216,14 +226,14 @@ Deno.test("apps를 고르지 않으면 앱 rewind를 요청하지 않고, 고르
   };
 
   await requestApps(deps as never, writer, { ...input, apps: [] });
-  assertEquals(asked, []);
-  assertEquals(recorded, []);
+  assert.deepStrictEqual(asked, []);
+  assert.deepStrictEqual(recorded, []);
 
   // 이 session이 write하지 않은 앱은 요청하지 않는다.
   await requestApps(deps as never, writer, {
     ...input,
     apps: ["app_1", "app_9"],
   });
-  assertEquals(asked, ["app_1:inv_2"]);
-  assertEquals(recorded.length, 1);
+  assert.deepStrictEqual(asked, ["app_1:inv_2"]);
+  assert.deepStrictEqual(recorded.length, 1);
 });

@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { conversationSchemaSteps } from "./model.ts";
@@ -53,7 +54,7 @@ function setup() {
 }
 
 // 재시작 때 입력함에 되돌릴 사람 메시지를 가른다. 틀리면 Fork한 session마다 재시작할 때 옛 이력이 새 turn(model 호출)이 된다.
-Deno.test("재시작 때 되돌리는 사람 메시지는 turn이 가져가지 않은 것만이고 Fork 복사본은 뺀다", () => {
+test("재시작 때 되돌리는 사람 메시지는 turn이 가져가지 않은 것만이고 Fork 복사본은 뺀다", () => {
   const { sql, session, message } = setup();
   session("ses_plain", false);
   message("m_taken", "ses_plain", "trn_1");
@@ -68,20 +69,20 @@ Deno.test("재시작 때 되돌리는 사람 메시지는 turn이 가져가지 �
   session("ses_fork_idle", true);
   message("m_copy_only", "ses_fork_idle", null);
 
-  assertEquals(unstartedHumanMessages(sql).map((item) => item.id), [
+  assert.deepStrictEqual(unstartedHumanMessages(sql).map((item) => item.id), [
     "m_queued",
     "m_own_queued",
   ]);
 });
 
 // 실패로 닫힌 run의 입력이 켤 때 다시 돌면 attended turn이 생겨 바깥 효과가 두 번 난다.
-Deno.test("켤 때 unattended 사람 메시지는 입력함에 다시 들어가지 않는다. 실패로 닫힌 run의 입력이 다시 돌아 바깥 효과가 두 번 나지 않는다", () => {
+test("켤 때 unattended 사람 메시지는 입력함에 다시 들어가지 않는다. 실패로 닫힌 run의 입력이 다시 돌아 바깥 효과가 두 번 나지 않는다", () => {
   const { sql, session, message } = setup();
   session("ses_run", false);
   message("m_human", "ses_run", null);
   message("m_run", "ses_run", null, "human", 1);
 
-  assertEquals(unstartedHumanMessages(sql).map((item) => item.id), [
+  assert.deepStrictEqual(unstartedHumanMessages(sql).map((item) => item.id), [
     "m_human",
   ]);
 });

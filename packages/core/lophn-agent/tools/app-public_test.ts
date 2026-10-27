@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
 import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
 import { withPublicOnly } from "./app-public.ts";
@@ -53,18 +54,18 @@ async function visible(mine: string[] | null, unreadable: string[] = []) {
   ]);
 }
 
-Deno.test("an agent sees the private tools of its own domains only, public tools of any", async () => {
+test("an agent sees the private tools of its own domains only, public tools of any", async () => {
   // domain A/items만 맡은 agent: 그 domain의 비공개 tool이 있고, 같은 앱의 다른 domain과 다른 앱은 공개만.
-  assertEquals(await visible([idOf(APP_A, "items")]), [
+  assert.deepStrictEqual(await visible([idOf(APP_A, "items")]), [
     [APP_A, ["items.open", "shown"]],
     [APP_B, ["shown"]],
   ]);
   // 집합이 없는 lophn(과 읽지 못한 agent)은 공개만 본다.
   const publicOnly = [[APP_A, ["shown"]], [APP_B, ["shown"]]];
-  assertEquals(await visible([]), publicOnly);
-  assertEquals(await visible(null), publicOnly);
+  assert.deepStrictEqual(await visible([]), publicOnly);
+  assert.deepStrictEqual(await visible(null), publicOnly);
   // domain 이름을 읽지 못한 앱의 비공개 tool은 없다.
-  assertEquals(
+  assert.deepStrictEqual(
     await visible([idOf(APP_A, "items"), idOf(APP_B, "items")], [APP_A]),
     [[APP_A, ["shown"]], [APP_B, ["items.open", "shown"]]],
   );

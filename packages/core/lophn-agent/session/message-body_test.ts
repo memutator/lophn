@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { ok, sha256Hex } from "../../../base/mod.ts";
 import {
   createKnownSecretRegistry,
@@ -13,7 +14,7 @@ import { createMessageBodyPreparer } from "./message-body.ts";
 const PATTERN_SECRET = "sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789";
 const KNOWN_SECRET = "known-secret-value-9f3d";
 
-Deno.test("저장하는 reasoning 글은 redaction을 거친다", async () => {
+test("저장하는 reasoning 글은 redaction을 거친다", async () => {
   const preparedBodies: string[] = [];
   const registry = createKnownSecretRegistry();
   registry.register([KNOWN_SECRET]);
@@ -71,20 +72,20 @@ Deno.test("저장하는 reasoning 글은 redaction을 거친다", async () => {
   };
 
   const prepared = await prepare(context, envelope);
-  assert(prepared.ok);
+  assert.ok(prepared.ok);
   const content = (prepared.value.input as {
     content: { parts: { kind: string; text: string; duration_ms?: unknown }[] };
   }).content;
-  assertEquals(content.parts.length, 2);
+  assert.deepStrictEqual(content.parts.length, 2);
   const reasoning = content.parts[0];
-  assertEquals(reasoning.kind, "reasoning");
-  assertEquals(reasoning.duration_ms, 1200);
-  assert(reasoning.text.includes(REDACTION_REPLACEMENT));
-  assert(!reasoning.text.includes(PATTERN_SECRET));
-  assert(!reasoning.text.includes(KNOWN_SECRET));
-  assertEquals(content.parts[1], { kind: "text", text: "Done." });
+  assert.deepStrictEqual(reasoning.kind, "reasoning");
+  assert.deepStrictEqual(reasoning.duration_ms, 1200);
+  assert.ok(reasoning.text.includes(REDACTION_REPLACEMENT));
+  assert.ok(!reasoning.text.includes(PATTERN_SECRET));
+  assert.ok(!reasoning.text.includes(KNOWN_SECRET));
+  assert.deepStrictEqual(content.parts[1], { kind: "text", text: "Done." });
   // 준비 통로로 간 bytes에도 두 값이 없다. blob에는 redaction한 글만 들어간다.
-  assertEquals(preparedBodies.length, 1);
-  assert(!preparedBodies[0].includes(PATTERN_SECRET));
-  assert(!preparedBodies[0].includes(KNOWN_SECRET));
+  assert.deepStrictEqual(preparedBodies.length, 1);
+  assert.ok(!preparedBodies[0].includes(PATTERN_SECRET));
+  assert.ok(!preparedBodies[0].includes(KNOWN_SECRET));
 });

@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { type Clock, ok } from "../../../base/mod.ts";
 import {
   createKnownSecretRegistry,
@@ -35,7 +36,7 @@ function noSecrets(): KnownSecretMatch {
   };
 }
 
-Deno.test("두 batch에 걸친 secret도 live delta에 나오지 않는다", () => {
+test("두 batch에 걸친 secret도 live delta에 나오지 않는다", () => {
   const registry = createKnownSecretRegistry();
   // 지금 상수로 붙잡는 길이보다 긴 값이다. 상수로 붙잡으면 앞부분이 live 글에 나간다.
   const secret = "q".repeat(340);
@@ -67,18 +68,18 @@ Deno.test("두 batch에 걸친 secret도 live delta에 나오지 않는다", () 
   let joined = "";
   for (const event of events) {
     if (event.type !== "ModelOutputStreamed") continue;
-    assertEquals(event.payload.kind, "text");
-    assertEquals(event.payload.offset, offset);
+    assert.deepStrictEqual(event.payload.kind, "text");
+    assert.deepStrictEqual(event.payload.offset, offset);
     offset += event.payload.text.length;
     joined += event.payload.text;
   }
-  assertEquals(joined, before + REDACTION_REPLACEMENT + after);
-  assert(!joined.includes(secret.slice(0, 170)));
-  assert(!joined.includes(secret.slice(170)));
-  assertEquals(live.writing(SESSION)?.text, joined);
+  assert.deepStrictEqual(joined, before + REDACTION_REPLACEMENT + after);
+  assert.ok(!joined.includes(secret.slice(0, 170)));
+  assert.ok(!joined.includes(secret.slice(170)));
+  assert.deepStrictEqual(live.writing(SESSION)?.text, joined);
 });
 
-Deno.test("retry된 attempt의 글은 쓰는 중인 글에 남지 않는다", () => {
+test("retry된 attempt의 글은 쓰는 중인 글에 남지 않는다", () => {
   // A 뒤에 B의 조각이 오면 B의 글만 남고, B로 바뀐 뒤 늦게 온 A의 조각은 버린다.
   {
     const events: AgentEvent[] = [];
@@ -101,8 +102,8 @@ Deno.test("retry된 attempt의 글은 쓰는 중인 글에 남지 않는다", ()
       kind: "text",
       text: "second",
     });
-    assertEquals(live.writing(SESSION)?.model_call, CALL_B);
-    assertEquals(live.writing(SESSION)?.text, "second");
+    assert.deepStrictEqual(live.writing(SESSION)?.model_call, CALL_B);
+    assert.deepStrictEqual(live.writing(SESSION)?.text, "second");
     const published = events.length;
     live.output({
       session: SESSION,
@@ -111,8 +112,8 @@ Deno.test("retry된 attempt의 글은 쓰는 중인 글에 남지 않는다", ()
       kind: "text",
       text: "late",
     });
-    assertEquals(events.length, published);
-    assertEquals(live.writing(SESSION)?.text, "second");
+    assert.deepStrictEqual(events.length, published);
+    assert.deepStrictEqual(live.writing(SESSION)?.text, "second");
   }
 
   // 글이 없는 응답의 tool call이 시작되면 그 turn의 쓰는 중인 글을 버린다.
@@ -129,7 +130,7 @@ Deno.test("retry된 attempt의 글은 쓰는 중인 글에 남지 않는다", ()
       kind: "text",
       text: "first ",
     });
-    assert(live.writing(SESSION) !== null);
+    assert.ok(live.writing(SESSION) !== null);
     live.apply({
       session: SESSION,
       type: "ToolCallStarted",
@@ -141,11 +142,11 @@ Deno.test("retry된 attempt의 글은 쓰는 중인 글에 남지 않는다", ()
         display: { category: "other", title: "shell.run" },
       },
     } as AgentEvent);
-    assertEquals(live.writing(SESSION), null);
+    assert.deepStrictEqual(live.writing(SESSION), null);
   }
 });
 
-Deno.test("멈추면 사람이 본 글이 turn이 끝나기 전에 agent message로 남는다", async () => {
+test("멈추면 사람이 본 글이 turn이 끝나기 전에 agent message로 남는다", async () => {
   const events: AgentEvent[] = [];
   const live = createLiveTurns({
     known: noSecrets,
@@ -199,14 +200,14 @@ Deno.test("멈추면 사람이 본 글이 turn이 끝나기 전에 agent message
     compare: { state_seq: "1" },
     prepared: [],
   });
-  assert(stopped.ok);
+  assert.ok(stopped.ok);
 
   const record = recorded.findIndex((entry) =>
     entry.command === "RecordMessage"
   );
   const stop = recorded.findIndex((entry) => entry.command === "StopTurn");
-  assert(record >= 0 && stop >= 0 && record < stop);
-  assertEquals(recorded[record].input, {
+  assert.ok(record >= 0 && stop >= 0 && record < stop);
+  assert.deepStrictEqual(recorded[record].input, {
     id: "msg_0aaaaaaaaaaaaaaaaaaaaaaaaa",
     session: SESSION,
     turn: TURN,
@@ -219,10 +220,13 @@ Deno.test("멈추면 사람이 본 글이 turn이 끝나기 전에 agent message
   for (const event of events) {
     if (event.type !== "MessageRecorded") continue;
     messageRecorded += 1;
-    assertEquals(event.payload.turn, TURN);
-    assertEquals(event.payload.message, "msg_0aaaaaaaaaaaaaaaaaaaaaaaaa");
-    assertEquals(event.payload.model_call, CALL_A);
+    assert.deepStrictEqual(event.payload.turn, TURN);
+    assert.deepStrictEqual(
+      event.payload.message,
+      "msg_0aaaaaaaaaaaaaaaaaaaaaaaaa",
+    );
+    assert.deepStrictEqual(event.payload.model_call, CALL_A);
   }
-  assertEquals(messageRecorded, 1);
-  assertEquals(live.writing(SESSION), null);
+  assert.deepStrictEqual(messageRecorded, 1);
+  assert.deepStrictEqual(live.writing(SESSION), null);
 });

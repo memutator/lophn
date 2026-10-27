@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { createProductRedactor } from "../../../base/redaction/mod.ts";
 import { SHELL_TOOLS } from "./bundles/shell.ts";
 import { toolCallDisplay } from "./display.ts";
@@ -26,7 +27,7 @@ function redactorOf(secret: string, ready: boolean) {
     );
 }
 
-Deno.test("tool 제목에는 지금의 redaction이 가리는 secret이 나오지 않는다", async () => {
+test("tool 제목에는 지금의 redaction이 가리는 secret이 나오지 않는다", async () => {
   const definition = SHELL_TOOLS[0]!;
   const redact = redactorOf(SECRET, true);
   const cases = [
@@ -67,14 +68,14 @@ Deno.test("tool 제목에는 지금의 redaction이 가리는 secret이 나오�
       item.input,
       redact,
     );
-    assert(!display.title.includes(item.hidden), item.name);
+    assert.ok(!display.title.includes(item.hidden), item.name);
     if (item.prefix !== undefined) {
-      assert(!display.title.includes(item.prefix), item.name);
+      assert.ok(!display.title.includes(item.prefix), item.name);
     }
   }
 
   // 알려진 값을 아직 다 모르는 redactor는 원문을 내보내지 않고 tool 이름으로 답한다.
-  assertEquals(
+  assert.deepStrictEqual(
     await toolCallDisplay(
       definition,
       "shell.run",

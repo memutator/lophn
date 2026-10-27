@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import {
   createKnownSecretRegistry,
   REDACTION_REPLACEMENT,
@@ -40,10 +41,13 @@ const cases: readonly (readonly [string, string])[] = [
   [HEAD + "끝이 마침표인 보통 글.", HEAD + "끝이 마침표인 보통 글."],
 ];
 
-Deno.test("글 끝에 걸친 secret의 앞부분은 redactSettled가 내지 않는다", () => {
+test("글 끝에 걸친 secret의 앞부분은 redactSettled가 내지 않는다", () => {
   for (const [text, expected] of cases) {
-    assertEquals(redactSettled(text, matcher), expected, text);
+    assert.deepStrictEqual(redactSettled(text, matcher), expected, text);
   }
   // 알려진 값을 다 모르는 matcher면 원문을 내지 않는다(fail-closed).
-  assertEquals(redactSettled(HEAD + L, { ...matcher, ready: false }), null);
+  assert.deepStrictEqual(
+    redactSettled(HEAD + L, { ...matcher, ready: false }),
+    null,
+  );
 });

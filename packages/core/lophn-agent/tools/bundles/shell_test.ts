@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import {
   createIdSource,
   manualClock,
@@ -16,7 +17,7 @@ const SES = "ses_0000000000000000000000000a";
 const TRN = "trn_0000000000000000000000000a";
 const TCL = "tcl_0000000000000000000000000a";
 
-Deno.test("attended turn에서 ask 규칙에 걸린 shell 명령은 사람이 허락하기 전에 실행되지 않는다", async () => {
+test("attended turn에서 ask 규칙에 걸린 shell 명령은 사람이 허락하기 전에 실행되지 않는다", async () => {
   const clock = manualClock(Date.UTC(2026, 0, 1));
   const approvals = createApprovals({
     assignmentOf: (agent) => Promise.resolve(ok({ agent, entries: [] })),
@@ -74,22 +75,25 @@ Deno.test("attended turn에서 ask 규칙에 걸린 shell 명령은 사람이 �
     while (approvals.turnRequests(SES).length === 0) {
       await Promise.resolve();
     }
-    assertEquals(ran, 0);
+    assert.deepStrictEqual(ran, 0);
     const [request] = approvals.turnRequests(SES);
     const decided = await approvals.decide({ actor: "user" }, {
       session: SES,
       request: request!.id,
       choice,
     });
-    assert(decided.ok);
+    assert.ok(decided.ok);
     return await running;
   };
 
   const rejected = await call({ kind: "reject" });
-  assertEquals(rejected.outcome, { kind: "not_executed", code: "rejected" });
-  assertEquals(ran, 0);
+  assert.deepStrictEqual(rejected.outcome, {
+    kind: "not_executed",
+    code: "rejected",
+  });
+  assert.deepStrictEqual(ran, 0);
 
   const allowed = await call({ kind: "once" });
-  assertEquals(allowed.executed, true);
-  assertEquals(ran, 1);
+  assert.deepStrictEqual(allowed.executed, true);
+  assert.deepStrictEqual(ran, 1);
 });

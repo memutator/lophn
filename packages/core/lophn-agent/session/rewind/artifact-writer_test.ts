@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import type { Sql } from "../../../../protocol/server/mod.ts";
 import { conversationSchemaSteps } from "../model.ts";
@@ -81,7 +82,7 @@ const APP = { kind: "app", id: "app_1" } as const;
 const PROJECT_ROLES = ["project_manager", "operator"];
 const APP_ROLES = ["app_engineer", "operator"];
 
-Deno.test("artifact annotation의 받는 쪽은 그 domain 폴더에 마지막으로 쓴 그 owner place의 열린 session이다", () => {
+test("artifact annotation의 받는 쪽은 그 domain 폴더에 마지막으로 쓴 그 owner place의 열린 session이다", () => {
   const { sql, session, write } = setup();
   session("ses_a", { project: "prj_a" });
   session("ses_b", { project: "prj_b" });
@@ -103,37 +104,37 @@ Deno.test("artifact annotation의 받는 쪽은 그 domain 폴더에 마지막�
   // 같은 이름이 두 domain에 있어도 그 domain의 root에 쓴 session만 나온다.
   write("ses_a", ROOT_A, "report/index.html");
   write("ses_b", ROOT_B, "report/index.html");
-  assertEquals(find(ROOT_A, "report"), "ses_a");
-  assertEquals(
+  assert.deepStrictEqual(find(ROOT_A, "report"), "ses_a");
+  assert.deepStrictEqual(
     find(ROOT_B, "report", { kind: "project", id: "prj_b" }),
     "ses_b",
   );
   // 다른 그릇의 session은 같은 root라도 받지 않는다.
-  assertEquals(find(ROOT_B, "report"), null);
+  assert.deepStrictEqual(find(ROOT_B, "report"), null);
 
   // 이름은 접두사 폴더로만 맞춘다: 비슷한 이름과 like 특수 문자는 맞지 않는다.
-  assertEquals(find(ROOT_A, "repo"), null);
-  assertEquals(find(ROOT_A, "rep%"), null);
-  assertEquals(find(ROOT_A, "r_port"), null);
+  assert.deepStrictEqual(find(ROOT_A, "repo"), null);
+  assert.deepStrictEqual(find(ROOT_A, "rep%"), null);
+  assert.deepStrictEqual(find(ROOT_A, "r_port"), null);
 
   // 닫힌 session과 다른 place의 쓰기는 건너뛰고 앞선 쓰기로 간다.
   write("ses_closed", ROOT_A, "report/new.html");
   write("ses_ae", ROOT_A, "report/ae.html");
-  assertEquals(find(ROOT_A, "report"), "ses_a");
+  assert.deepStrictEqual(find(ROOT_A, "report"), "ses_a");
 
   // 앱이 owner면 앱 place의 App Engineer가 받고 PM은 받지 않는다.
-  assertEquals(find(ROOT_A, "report", APP), "ses_ae");
+  assert.deepStrictEqual(find(ROOT_A, "report", APP), "ses_ae");
 
   // Operator의 더 나중 쓰기가 이긴다.
   write("ses_op", ROOT_A, "report/op.html");
-  assertEquals(find(ROOT_A, "report"), "ses_op");
+  assert.deepStrictEqual(find(ROOT_A, "report"), "ses_op");
 
   // 되돌려진 쓰기는 마지막으로 쓴 것이 아니다.
   sql.run("update rewind_files set reverted_by = 'rev_1' where path = ?", [
     "report/op.html",
   ]);
-  assertEquals(find(ROOT_A, "report"), "ses_a");
+  assert.deepStrictEqual(find(ROOT_A, "report"), "ses_a");
 
   // 기록이 없으면 null이다.
-  assertEquals(find(ROOT_A, "none"), null);
+  assert.deepStrictEqual(find(ROOT_A, "none"), null);
 });

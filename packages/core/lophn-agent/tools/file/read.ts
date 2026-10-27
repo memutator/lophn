@@ -1,4 +1,5 @@
-import { ok, type Result } from "../../../../base/mod.ts";
+import { readFile as readBytes, stat } from "node:fs/promises";
+import { errorCode, ok, type Result } from "../../../../base/mod.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import { openableKind } from "../../../../protocol/projects/openable-format.ts";
 import { continuation } from "../bundles/paging.ts";
@@ -16,16 +17,19 @@ export async function readFile(
   if (!at.ok) return at;
   let bytes: Uint8Array;
   try {
-    const stat = await Deno.stat(at.value.path);
-    if (!stat.isFile) return fail("invalid_input", "not a file");
-    if (stat.size > MAX_FILE_BYTES) {
+    const info = await stat(at.value.path);
+    if (!info.isFile()) return fail("invalid_input", "not a file");
+    if (info.size > MAX_FILE_BYTES) {
       return fail(
         "invalid_input",
         "file is too large; search it with file.grep",
       );
     }
-    bytes = await Deno.readFile(at.value.path);
+    bytes = await readBytes(at.value.path);
   } catch (error) {
+    if (errorCode(error) === "ENOENT") {
+      return fail("not_found", "file not found");
+    }
     return fsFail(error);
   }
   let text: string;

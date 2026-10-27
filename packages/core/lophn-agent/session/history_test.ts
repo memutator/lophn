@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
 import type { CoreCall } from "../run-loop/core-call.ts";
 import { readSessionConversation } from "./history.ts";
@@ -87,7 +88,7 @@ function stub(rows: Row[], request: number): CoreCall {
   };
 }
 
-Deno.test("session이 자기 답으로 남긴 메시지는 history에서 assistant role의 본문 그대로이고, 다른 agent가 보낸 call은 user role의 call tag다", async () => {
+test("session이 자기 답으로 남긴 메시지는 history에서 assistant role의 본문 그대로이고, 다른 agent가 보낸 call은 user role의 call tag다", async () => {
   const rows: Row[] = [
     {
       n: 1,
@@ -124,9 +125,12 @@ Deno.test("session이 자기 답으로 남긴 메시지는 history에서 assista
   });
   if (!read.ok) throw new Error(read.error.message);
   const [human, own, call] = read.value.messages;
-  assertEquals(read.value.messages.length, 3);
-  assertEquals([human!.role, human!.text], ["user", "hello"]);
-  assertEquals([own!.role, own!.text], ["assistant", "my answer"]);
-  assertEquals(call!.role, "user");
-  assertEquals(call!.text.includes(`<lophn-call from="agent:${OTHER}"`), true);
+  assert.deepStrictEqual(read.value.messages.length, 3);
+  assert.deepStrictEqual([human!.role, human!.text], ["user", "hello"]);
+  assert.deepStrictEqual([own!.role, own!.text], ["assistant", "my answer"]);
+  assert.deepStrictEqual(call!.role, "user");
+  assert.deepStrictEqual(
+    call!.text.includes(`<lophn-call from="agent:${OTHER}"`),
+    true,
+  );
 });

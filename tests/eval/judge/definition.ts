@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+
 export type JudgeDefinition = {
   n: number;
   prompt: string;
@@ -8,10 +10,11 @@ export const JUDGE_FILES = ["judge/judge.json", "judge/prompt.md"];
 
 export async function loadJudgeDefinition(): Promise<JudgeDefinition> {
   const meta = JSON.parse(
-    await Deno.readTextFile(new URL("./judge.json", import.meta.url)),
+    await readFile(new URL("./judge.json", import.meta.url), "utf8"),
   );
-  const prompt = await Deno.readTextFile(
+  const prompt = await readFile(
     new URL("./prompt.md", import.meta.url),
+    "utf8",
   );
   return { ...meta, prompt };
 }

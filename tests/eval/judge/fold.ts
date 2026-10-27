@@ -1,3 +1,5 @@
+import { readFile, writeFile } from "node:fs/promises";
+import { errorCode } from "../../../packages/base/mod.ts";
 import type { JudgeItem, TrialResult } from "../types.ts";
 import { judgePassed } from "./grade.ts";
 import { type PendingJudge, readPending } from "./pending.ts";
@@ -38,13 +40,13 @@ export function foldJudge(
 }
 
 const write = (path: string, value: unknown) =>
-  Deno.writeTextFile(path, JSON.stringify(value, null, 2) + "\n");
+  writeFile(path, JSON.stringify(value, null, 2) + "\n");
 
 async function readJson(path: string) {
   try {
-    return JSON.parse(await Deno.readTextFile(path));
+    return JSON.parse(await readFile(path, "utf8"));
   } catch (e) {
-    if (e instanceof Deno.errors.NotFound) return undefined;
+    if (errorCode(e) === "ENOENT") return undefined;
     throw e;
   }
 }

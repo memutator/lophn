@@ -4,7 +4,10 @@
 //   deno task eval:answer <run> set <key> --model <name> stdin의 JSON string[][]를 기록
 // core에는 닿지 않는다. 답은 trial을 쥔 runner가 askAnswer로 넣는다.
 // 종료 코드: 0 정상, 1 없는 run·key나 덮기 거절, 2 인자 오류.
-import { systemClock } from "../../../packages/base/mod.ts";
+import { Buffer } from "node:buffer";
+import { stat } from "node:fs/promises";
+import process from "node:process";
+import { errorCode, systemClock } from "../../../packages/base/mod.ts";
 import { loadHumanDefinition } from "./definition.ts";
 import { readQuestions, writeGivenAnswer } from "./pending.ts";
 import { renderForAgent } from "./show.ts";
@@ -16,12 +19,12 @@ const USAGE =
 
 function fail(code: number, message: string): never {
   console.error(message);
-  Deno.exit(code);
+  process.exit(code);
 }
 
-const [run, command, key, ...rest] = Deno.args;
+const [run, command, key, ...rest] = process.argv.slice(2);
 if (run === undefined) fail(2, USAGE);
-const known = await Deno.stat(`${EVAL_DIR}/${run}`).then(
+const known = await stat(`${EVAL_DIR}/${run}`).then(
   () => true,
   () => false,
 );
@@ -33,7 +36,7 @@ if (command === undefined) {
     const first = e.question.questions[0]?.question.split("\n")[0] ?? "";
     console.log(`${e.question.key}\t${e.answered ? "답함" : "대기"}\t${first}`);
   }
-  Deno.exit(0);
+  process.exit(0);
 }
 
 if ((command !== "show" && command !== "set") || key === undefined) {
@@ -44,7 +47,7 @@ if (entry === undefined) fail(1, `not_found: ${run}에 ${key}가 없다`);
 
 if (command === "show") {
   console.log(renderForAgent(await loadHumanDefinition(), entry.question));
-  Deno.exit(0);
+  process.exit(0);
 }
 
 const flag = rest.indexOf("--model");
@@ -53,9 +56,9 @@ if (model === undefined || model === "") fail(2, "--model <name>이 필요하다
 const need = entry.question.questions.length;
 let selected: string[][];
 try {
-  selected = JSON.parse(
-    new TextDecoder().decode(await new Response(Deno.stdin.readable).bytes()),
-  );
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of process.stdin) chunks.push(chunk);
+  selected = JSON.parse(Buffer.concat(chunks).toString("utf8"));
   if (
     !Array.isArray(selected) ||
     !selected.every((s) =>
@@ -78,7 +81,7 @@ try {
     selected,
   });
 } catch (e) {
-  if (!(e instanceof Deno.errors.AlreadyExists)) throw e;
+  if (errorCode(e) !== "EEXIST") throw e;
   fail(1, `${key}: 이미 답함. runner가 넣기 전이거나 넣는 중이다`);
 }
 console.log(`${key}: 기록`);

@@ -1,3 +1,5 @@
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { errorCode } from "../../../packages/base/mod.ts";
 import type { AskQuestion } from "../../../packages/protocol/lophn-agent/ask-tool.ts";
 import type { EarlierAnswer } from "./answers.ts";
 
@@ -32,18 +34,18 @@ const answerPath = (evalDir: string, run: string, key: string) =>
 
 const text = (v: unknown) => JSON.stringify(v, null, 2) + "\n";
 
-const missing = (e: unknown) => e instanceof Deno.errors.NotFound;
+const missing = (e: unknown) => errorCode(e) === "ENOENT";
 
 // 같은 질문을 덮지 않는다.
 export async function writeQuestion(
   evalDir: string,
   entry: PendingQuestion,
 ): Promise<void> {
-  await Deno.mkdir(folder(evalDir, entry.run), { recursive: true });
-  await Deno.writeTextFile(
+  await mkdir(folder(evalDir, entry.run), { recursive: true });
+  await writeFile(
     questionPath(evalDir, entry.run, entry.key),
     text(entry),
-    { createNew: true },
+    { flag: "wx" },
   );
 }
 
@@ -53,8 +55,10 @@ export async function readQuestions(
 ): Promise<{ question: PendingQuestion; answered: boolean }[]> {
   const names: string[] = [];
   try {
-    for await (const e of Deno.readDir(folder(evalDir, run))) {
-      if (e.isFile) names.push(e.name);
+    for (
+      const e of await readdir(folder(evalDir, run), { withFileTypes: true })
+    ) {
+      if (e.isFile()) names.push(e.name);
     }
   } catch (e) {
     if (!missing(e)) throw e;
@@ -65,7 +69,7 @@ export async function readQuestions(
     if (!name.endsWith(".json") || name.endsWith(".answer.json")) continue;
     out.push({
       question: JSON.parse(
-        await Deno.readTextFile(`${folder(evalDir, run)}/${name}`),
+        await readFile(`${folder(evalDir, run)}/${name}`, "utf8"),
       ),
       answered: names.includes(name.replace(/\.json$/, ".answer.json")),
     });
@@ -80,9 +84,7 @@ export async function writeGivenAnswer(
   key: string,
   given: GivenAnswer,
 ): Promise<void> {
-  await Deno.writeTextFile(answerPath(evalDir, run, key), text(given), {
-    createNew: true,
-  });
+  await writeFile(answerPath(evalDir, run, key), text(given), { flag: "wx" });
 }
 
 export async function readGivenAnswer(
@@ -91,7 +93,7 @@ export async function readGivenAnswer(
   key: string,
 ): Promise<GivenAnswer | null> {
   try {
-    return JSON.parse(await Deno.readTextFile(answerPath(evalDir, run, key)));
+    return JSON.parse(await readFile(answerPath(evalDir, run, key), "utf8"));
   } catch (e) {
     if (missing(e)) return null;
     throw e;
@@ -105,7 +107,7 @@ export async function removeGivenAnswer(
   key: string,
 ): Promise<void> {
   try {
-    await Deno.remove(answerPath(evalDir, run, key));
+    await rm(answerPath(evalDir, run, key));
   } catch (e) {
     if (!missing(e)) throw e;
   }

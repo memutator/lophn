@@ -2,7 +2,11 @@
 // - contract: 채점은 enum 안의 verdict와 입력에 글자 그대로 있는 인용일 때만 통과로 센다. 정상 채점은 덮이지 않는다.
 // - 현실적 회귀: 바꿔 쓴 인용이나 enum 밖의 답이 통과로 세어져 eval 결과를 부풀리는 것. 채점 대기가 통과로 합쳐지는 것.
 // - 왜 지금 test로 못 잡나: 이 규칙을 보는 다른 test가 없고, 채점은 돌리는 agent가 CLI로 넣어 사람이 매번 보지 않는다.
-import { assert, assertEquals, assertRejects } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "node:test";
 import { loadCriterion } from "../criteria/mod.ts";
 import type { TrialResult } from "../types.ts";
 import { loadJudgeDefinition } from "./definition.ts";
@@ -25,7 +29,7 @@ const pending = newJudgeItem({
   judge: await loadJudgeDefinition(),
 });
 
-Deno.test("a recorded grade passes only with an allowed passing verdict and a verbatim quote", () => {
+test("a recorded grade passes only with an allowed passing verdict and a verbatim quote", () => {
   const cases: [string, unknown, unknown, string | null, boolean][] = [
     ["verbatim", "all", " Build a budget app ", null, true],
     ["paraphrased", "all", "build a budget app", "quote not in input", false],
@@ -41,16 +45,20 @@ Deno.test("a recorded grade passes only with an allowed passing verdict and a ve
   ];
   for (const [name, verdict, quote, error, passed] of cases) {
     const item = gradeItem(pending, criterion, { verdict, quote, model: "m" });
-    assertEquals(item.error, error, name);
-    assertEquals(item.state, error === null ? "judged" : "error", name);
-    assertEquals(item.model, "m", name);
-    assertEquals(judgePassed(criterion, item), passed, name);
+    assert.deepStrictEqual(item.error, error, name);
+    assert.deepStrictEqual(
+      item.state,
+      error === null ? "judged" : "error",
+      name,
+    );
+    assert.deepStrictEqual(item.model, "m", name);
+    assert.deepStrictEqual(judgePassed(criterion, item), passed, name);
   }
-  assertEquals(pending.state, "pending");
-  assert(!judgePassed(criterion, pending));
+  assert.deepStrictEqual(pending.state, "pending");
+  assert.ok(!judgePassed(criterion, pending));
 });
 
-Deno.test("foldJudge merges recorded grades into the trial, keeps waiting ones pending, and only errors can be regraded", () => {
+test("foldJudge merges recorded grades into the trial, keeps waiting ones pending, and only errors can be regraded", () => {
   const other = { ...pending, check: "other" };
   const good = gradeItem(pending, criterion, {
     verdict: "all",
@@ -90,26 +98,26 @@ Deno.test("foldJudge merges recorded grades into the trial, keeps waiting ones p
   const before = JSON.stringify(trials);
   const [t] = foldJudge(trials, entries);
 
-  assertEquals(JSON.stringify(trials), before);
-  assertEquals(t.checks[0].pass, true);
-  assertEquals(t.checks[0].pending, undefined);
-  assertEquals(t.judge[0].verdict, "all");
-  assertEquals(t.checks[1].pass, false);
-  assertEquals(t.checks[1].pending, true);
-  assertEquals(outstanding(entries).map((e) => e.key), ["t1-other"]);
+  assert.deepStrictEqual(JSON.stringify(trials), before);
+  assert.deepStrictEqual(t.checks[0].pass, true);
+  assert.deepStrictEqual(t.checks[0].pending, undefined);
+  assert.deepStrictEqual(t.judge[0].verdict, "all");
+  assert.deepStrictEqual(t.checks[1].pass, false);
+  assert.deepStrictEqual(t.checks[1].pending, true);
+  assert.deepStrictEqual(outstanding(entries).map((e) => e.key), ["t1-other"]);
 
   const bad = gradeItem(pending, criterion, {
     verdict: "all",
     quote: "nope",
     model: "m",
   });
-  assert(canRegrade(pending));
-  assert(canRegrade(bad));
-  assert(!canRegrade(good));
+  assert.ok(canRegrade(pending));
+  assert.ok(canRegrade(bad));
+  assert.ok(!canRegrade(good));
 });
 
-Deno.test("foldRun writes the summary and the full record only when they exist, and a pending entry is never overwritten", async () => {
-  const dir = await Deno.makeTempDir();
+test("foldRun writes the summary and the full record only when they exist, and a pending entry is never overwritten", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "lophn-eval-"));
   try {
     const evalDir = `${dir}/eval`;
     const runsDir = `${dir}/runs`;
@@ -128,11 +136,11 @@ Deno.test("foldRun writes the summary and the full record only when they exist, 
       item: good,
     };
     await writePending(evalDir, entry);
-    await assertRejects(() => writePending(evalDir, entry));
+    await assert.rejects(() => writePending(evalDir, entry));
     const args = { evalDir, runsDir, run: "r" };
-    assertEquals(await foldRun(args), false);
+    assert.deepStrictEqual(await foldRun(args), false);
 
-    await Deno.mkdir(runsDir);
+    await mkdir(runsDir);
     const trial = {
       index: 1,
       checks: [{
@@ -144,22 +152,22 @@ Deno.test("foldRun writes the summary and the full record only when they exist, 
       }],
       judge: [pending],
     };
-    await Deno.writeTextFile(
+    await writeFile(
       `${runsDir}/r.json`,
       JSON.stringify({ trials: [trial] }),
     );
-    await Deno.writeTextFile(
+    await writeFile(
       `${evalDir}/r/trial-1.json`,
       JSON.stringify({ judge: [pending] }),
     );
-    assertEquals(await foldRun(args), true);
-    const summary = JSON.parse(await Deno.readTextFile(`${runsDir}/r.json`));
-    assertEquals(summary.trials[0].checks[0].pass, true);
+    assert.deepStrictEqual(await foldRun(args), true);
+    const summary = JSON.parse(await readFile(`${runsDir}/r.json`, "utf8"));
+    assert.deepStrictEqual(summary.trials[0].checks[0].pass, true);
     const full = JSON.parse(
-      await Deno.readTextFile(`${evalDir}/r/trial-1.json`),
+      await readFile(`${evalDir}/r/trial-1.json`, "utf8"),
     );
-    assertEquals(full.judge[0].state, "judged");
+    assert.deepStrictEqual(full.judge[0].state, "judged");
   } finally {
-    await Deno.remove(dir, { recursive: true });
+    await rm(dir, { recursive: true });
   }
 });

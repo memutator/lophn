@@ -1,5 +1,7 @@
+import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import {
   err,
+  errorCode,
   ok,
   type Result,
   sha256Hex,
@@ -15,9 +17,9 @@ export async function readSpec(
 ): Promise<Result<{ spec: ExperimentSpec; hash: string }>> {
   let content: string;
   try {
-    content = await Deno.readTextFile(`${dir}/${id}/spec.json`);
+    content = await readFile(`${dir}/${id}/spec.json`, "utf8");
   } catch (e) {
-    if (e instanceof Deno.errors.NotFound) {
+    if (errorCode(e) === "ENOENT") {
       return err({
         code: "not_found",
         message: `no spec for experiment ${id}`,
@@ -46,9 +48,9 @@ export async function readResult(
   id: string,
 ): Promise<Result<ExperimentResult | null>> {
   try {
-    return ok(JSON.parse(await Deno.readTextFile(`${dir}/${id}/result.json`)));
+    return ok(JSON.parse(await readFile(`${dir}/${id}/result.json`, "utf8")));
   } catch (e) {
-    if (e instanceof Deno.errors.NotFound) return ok(null);
+    if (errorCode(e) === "ENOENT") return ok(null);
     throw e;
   }
 }
@@ -60,9 +62,9 @@ export async function writeResult(
   result: ExperimentResult,
 ): Promise<Result<void>> {
   try {
-    await Deno.stat(`${dir}/${result.id}/spec.json`);
+    await stat(`${dir}/${result.id}/spec.json`);
   } catch (e) {
-    if (e instanceof Deno.errors.NotFound) {
+    if (errorCode(e) === "ENOENT") {
       return err({
         code: "not_found",
         message: `no spec for experiment ${result.id}`,
@@ -78,7 +80,7 @@ export async function writeResult(
         `experiment ${result.id} already decided (${old.value.decision}); write a new spec`,
     });
   }
-  await Deno.writeTextFile(
+  await writeFile(
     `${dir}/${result.id}/result.json`,
     JSON.stringify(result, null, 2) + "\n",
   );
@@ -88,17 +90,17 @@ export async function writeResult(
 export async function listSpecIds(dir: string): Promise<string[]> {
   const ids: string[] = [];
   try {
-    for await (const entry of Deno.readDir(dir)) {
-      if (!entry.isDirectory) continue;
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
       try {
-        await Deno.stat(`${dir}/${entry.name}/spec.json`);
+        await stat(`${dir}/${entry.name}/spec.json`);
         ids.push(entry.name);
       } catch (e) {
-        if (!(e instanceof Deno.errors.NotFound)) throw e;
+        if (errorCode(e) !== "ENOENT") throw e;
       }
     }
   } catch (e) {
-    if (!(e instanceof Deno.errors.NotFound)) throw e;
+    if (errorCode(e) !== "ENOENT") throw e;
   }
   return ids.sort();
 }

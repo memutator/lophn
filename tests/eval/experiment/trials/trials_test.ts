@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import type { RunRecord, TrialResult, VersionRef } from "../../types.ts";
 import type { Outcome, Role } from "../spec/mod.ts";
 import { flakyScenarios } from "./flaky.ts";
@@ -22,7 +23,7 @@ const P = () => out("pass");
 const F = () => out("fail");
 const W = () => out("pending");
 
-Deno.test("nextTrials: base first, flaky max first, target/case grow only after a pass, guard only when verdict differs, never past max", () => {
+test("nextTrials: base first, flaky max first, target/case grow only after a pass, guard only when verdict differs, never past max", () => {
   type Row = [string, Role, boolean, Outcome[], Outcome[], number];
   const rows: Row[] = [
     ["target start", "target", false, [], [], 1],
@@ -43,7 +44,7 @@ Deno.test("nextTrials: base first, flaky max first, target/case grow only after 
   ];
   for (const [name, role, flaky, baseline, variant, want] of rows) {
     const state = { role, checks: null, baseline, variant, flaky };
-    assertEquals(nextTrials(state, policy), want, name);
+    assert.deepStrictEqual(nextTrials(state, policy), want, name);
   }
 });
 
@@ -87,20 +88,23 @@ const run = (
   ...over,
 });
 
-Deno.test("flakyScenarios: only same-version splits count, not version differences or other scenario n", () => {
+test("flakyScenarios: only same-version splits count, not version differences or other scenario n", () => {
   const want = [{ id: "s", n: 1 }];
   const flaky = (runs: RunRecord[]) => flakyScenarios(runs, want).has("s");
   const b = [ref("lophn", 2)];
 
   // 한 run 안의 갈림
-  assertEquals(flaky([run("a", [trial(0, true), trial(1, false)])]), true);
+  assert.deepStrictEqual(
+    flaky([run("a", [trial(0, true), trial(1, false)])]),
+    true,
+  );
   // 같은 versionKey인 두 run 사이의 갈림(commit만 다르다)
-  assertEquals(
+  assert.deepStrictEqual(
     flaky([run("a", [trial(0, true)]), run("b", [trial(0, false)])]),
     true,
   );
   // components가 다른 두 run 사이의 차이
-  assertEquals(
+  assert.deepStrictEqual(
     flaky([
       run("a", [trial(0, true)]),
       run("b", [trial(0, false)], { components: b }),
@@ -108,12 +112,12 @@ Deno.test("flakyScenarios: only same-version splits count, not version differenc
     false,
   );
   // 한 run 안에서 trial의 components가 달라 묶음이 갈림
-  assertEquals(
+  assert.deepStrictEqual(
     flaky([run("a", [trial(0, true, [ref("lophn", 1)]), trial(1, false, b)])]),
     false,
   );
   // 시나리오 n이 다른 run은 세지 않는다
-  assertEquals(
+  assert.deepStrictEqual(
     flaky([run("a", [trial(0, true)]), run("b", [trial(0, false)], {}, 2)]),
     false,
   );

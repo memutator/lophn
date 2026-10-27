@@ -1,3 +1,8 @@
+import { spawn } from "node:child_process";
+import { lstat, readdir, realpath } from "node:fs/promises";
+import { constants } from "node:os";
+import { errorCode } from "../../../../packages/base/mod.ts";
+
 // 파일 시스템과 subprocess를 인자로 받는다. test가 가짜를 넣는다.
 export type RunOutput = { code: number; stdout: string; stderr: string };
 
@@ -16,7 +21,7 @@ export type VariantIo = {
 };
 
 export const denoIo: VariantIo = {
-  realPath: (path) => Deno.realPath(path),
+  realPath: (path) => realpath(path),
   async gitToplevel(path) {
     const out = await denoIo.run(
       ["git", "-C", path, "rev-parse", "--show-toplevel"],
@@ -26,34 +31,47 @@ export const denoIo: VariantIo = {
   },
   async exists(path) {
     try {
-      await Deno.lstat(path);
+      await lstat(path);
       return true;
     } catch (e) {
-      if (e instanceof Deno.errors.NotFound) return false;
+      if (errorCode(e) === "ENOENT") return false;
       throw e;
     }
   },
   async nonEmpty(path) {
     try {
-      for await (const _ of Deno.readDir(path)) return true;
+      return (await readdir(path)).length > 0;
     } catch (e) {
-      if (!(e instanceof Deno.errors.NotFound)) throw e;
+      if (errorCode(e) !== "ENOENT") throw e;
     }
     return false;
   },
   async run(cmd, cwd, env) {
-    const out = await new Deno.Command(cmd[0], {
-      args: cmd.slice(1),
+    const child = spawn(cmd[0], cmd.slice(1), {
       cwd,
-      env,
-      stdout: "piped",
-      stderr: "piped",
-    }).output();
+      // 부모 env를 그대로 물려주고 준 값만 덮는다.
+      env: env ? { ...process.env, ...env } : undefined,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
+    child.stdout!.on("data", (chunk: Buffer) => stdout.push(chunk));
+    child.stderr!.on("data", (chunk: Buffer) => stderr.push(chunk));
+    const code = await new Promise<number>((resolve, reject) => {
+      child.on("error", reject);
+      // close는 stdout·stderr를 다 읽은 뒤 온다. 신호로 죽으면 128+signal로 답한다.
+      child.on("close", (exitCode, signal) =>
+        resolve(
+          signal === null
+            ? exitCode ?? 0
+            : 128 + (constants.signals[signal] ?? 0),
+        ));
+    });
     const text = new TextDecoder();
     return {
-      code: out.code,
-      stdout: text.decode(out.stdout),
-      stderr: text.decode(out.stderr),
+      code,
+      stdout: text.decode(Buffer.concat(stdout)),
+      stderr: text.decode(Buffer.concat(stderr)),
     };
   },
 };

@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import type { Outcome, OutcomeState, Role } from "../spec/mod.ts";
 import { decide, type VerdictEntry, type VerdictInput } from "./mod.ts";
 
@@ -77,7 +78,7 @@ function input(entries: VerdictEntry[]): VerdictInput {
   };
 }
 
-Deno.test("decide splits adopt, reject and inconclusive by the default@1 rule", () => {
+test("decide splits adopt, reject and inconclusive by the default@1 rule", () => {
   const rows: {
     name: string;
     entries: VerdictEntry[];
@@ -151,11 +152,11 @@ Deno.test("decide splits adopt, reject and inconclusive by the default@1 rule", 
   for (const row of rows) {
     const r = decide(input(row.entries));
     assert(r.ok, row.name);
-    assertEquals(r.value.decision, row.decision, row.name);
+    assert.deepStrictEqual(r.value.decision, row.decision, row.name);
     if (row.status) {
       const s = r.value.scenarios.find((x) => x.scenario === row.status![0])!;
-      assertEquals(s.status, row.status[1], row.name);
-      assertEquals(s.weaker, row.weaker ?? false, row.name);
+      assert.deepStrictEqual(s.status, row.status[1], row.name);
+      assert.deepStrictEqual(s.weaker, row.weaker ?? false, row.name);
     }
     if (row.reason) {
       assert(r.value.reasons.some((x) => x.includes(row.reason!)), row.name);
@@ -163,7 +164,7 @@ Deno.test("decide splits adopt, reject and inconclusive by the default@1 rule", 
   }
 });
 
-Deno.test("decide refuses an unchanged variant, a missing case entry and a target without baseline", () => {
+test("decide refuses an unchanged variant, a missing case entry and a target without baseline", () => {
   const unchanged = input(okEntries());
   unchanged.changed = [{ from: { ...from, n: 2 }, to: from }];
   const rows: [string, VerdictInput, string][] = [

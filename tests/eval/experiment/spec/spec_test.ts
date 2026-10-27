@@ -1,4 +1,8 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "node:test";
 import { checkSpecLocked, type LockFacts } from "./lock.ts";
 import { parseSpec } from "./parse.ts";
 import { readResult, writeResult } from "./files.ts";
@@ -17,7 +21,7 @@ const good = () => ({
   budget_usd: 100,
 });
 
-Deno.test("parseSpec rejects specs without a prior case, with two components changed, or on grader/core", () => {
+test("parseSpec rejects specs without a prior case, with two components changed, or on grader/core", () => {
   const rows: [string, (s: ReturnType<typeof good>) => void][] = [
     ["no cases", (s) => (s.cases = [])],
     ["case is a target", (s) => (s.cases = [{ scenario: "a" }] as never)],
@@ -31,15 +35,15 @@ Deno.test("parseSpec rejects specs without a prior case, with two components cha
       (s) => (s.change = { from: "core:core@1", to: "core:core@2" }),
     ],
   ];
-  assertEquals(parseSpec(good(), "ask-once").ok, true);
+  assert.deepStrictEqual(parseSpec(good(), "ask-once").ok, true);
   for (const [name, edit] of rows) {
     const s = good();
     edit(s);
-    assertEquals(parseSpec(s).ok, false, name);
+    assert.deepStrictEqual(parseSpec(s).ok, false, name);
   }
 });
 
-Deno.test("checkSpecLocked rejects a missing, dirty or misplaced spec commit", () => {
+test("checkSpecLocked rejects a missing, dirty or misplaced spec commit", () => {
   const ok: LockFacts = {
     spec_commit: "abc",
     spec_dirty: false,
@@ -48,7 +52,7 @@ Deno.test("checkSpecLocked rejects a missing, dirty or misplaced spec commit", (
     variant_spec_same: true,
     cases_missing_at_spec_commit: [],
   };
-  assertEquals(checkSpecLocked(ok), {
+  assert.deepStrictEqual(checkSpecLocked(ok), {
     ok: true,
     value: { spec_commit: "abc" },
   });
@@ -66,11 +70,11 @@ Deno.test("checkSpecLocked rejects a missing, dirty or misplaced spec commit", (
   }
 });
 
-Deno.test("writeResult keeps a decided result and overwrites inconclusive", async () => {
-  const dir = await Deno.makeTempDir();
+test("writeResult keeps a decided result and overwrites inconclusive", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "lophn-"));
   try {
-    await Deno.mkdir(`${dir}/x`);
-    await Deno.writeTextFile(`${dir}/x/spec.json`, "{}");
+    await mkdir(`${dir}/x`);
+    await writeFile(`${dir}/x/spec.json`, "{}");
     const result = (decision: ExperimentResult["decision"]) =>
       ({ id: "x", decision }) as ExperimentResult;
     assert((await writeResult(dir, result("inconclusive"))).ok);
@@ -80,6 +84,6 @@ Deno.test("writeResult keeps a decided result and overwrites inconclusive", asyn
     const read = await readResult(dir, "x");
     assert(read.ok && read.value?.decision === "adopt");
   } finally {
-    await Deno.remove(dir, { recursive: true });
+    await rm(dir, { recursive: true });
   }
 });

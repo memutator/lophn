@@ -2,10 +2,13 @@
 // supervisor 감독 pipe의 질의 통로, release 준비·activation 진행, app credential 발급을 한곳에서 잇는다.
 // 업무 규칙은 packages/core/apps/runtime에 있고 여기는 core의 읽기·인증·감독 통로를 끼운다.
 // 앱 호출(`app.call_tool`)·invocation·rewind는 wiring/apps.ts가 각 module을 잇는다.
+import { readFile } from "node:fs/promises";
+
 import {
   type Clock,
   createIdSource,
   err,
+  errorCode,
   type IdSource,
   ok,
   type Result,
@@ -607,7 +610,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
       let declaration: unknown;
       try {
         declaration = JSON.parse(
-          await Deno.readTextFile(`${copy.value.root}/declaration.json`),
+          await readFile(`${copy.value.root}/declaration.json`, "utf8"),
         );
       } catch {
         return err({
@@ -850,9 +853,9 @@ export const SUPERVISOR_CREDENTIAL_OPERATIONS = SUPERVISOR_OPERATIONS;
 
 async function readTextOrEmpty(path: string): Promise<string> {
   try {
-    return await Deno.readTextFile(path);
+    return await readFile(path, "utf8");
   } catch (thrown) {
-    if (thrown instanceof Deno.errors.NotFound) return "";
+    if (errorCode(thrown) === "ENOENT") return "";
     throw thrown;
   }
 }

@@ -2,6 +2,8 @@
 // 한 transaction이고, 중간 단계가 실패하면 첫 변경 전 backup으로 복원한다.
 // migration script는 bundle 안의 고정 파일에서 script_hash로만 찾는다.
 
+import { readFile } from "node:fs/promises";
+
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { sha256Hex } from "../../../../base/mod.ts";
 import type {
@@ -64,7 +66,7 @@ export async function scriptFromBundle(
   const file = `${bundlePath}/${stepFile(change)}`;
   let sql: string;
   try {
-    sql = await Deno.readTextFile(file);
+    sql = await readFile(file, "utf8");
   } catch {
     return err({
       code: "invalid_input",

@@ -1,4 +1,6 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import { ok } from "../../../base/mod.ts";
 import type { ToolContext } from "../../lophn-agent/tools/spi.ts";
 import { APP_TOOLS } from "./app.ts";
@@ -20,7 +22,7 @@ function tool(name: string, domain: string, open: boolean) {
 }
 
 // 다른 domain의 비공개 tool이 `app.tools` 결과에 새면 그 domain 밖 agent가 tool 이름과 모양을 얻는다.
-Deno.test("app.tools는 맡지 않은 domain의 비공개 tool을 싣지 않고 public tool은 싣는다", async () => {
+test("app.tools는 맡지 않은 domain의 비공개 tool을 싣지 않고 public tool은 싣는다", async () => {
   const handler = APP_TOOLS.find((t) => t.name === "app.tools")!.handler!;
   const core = (path: string) =>
     Promise.resolve(ok(
@@ -62,6 +64,6 @@ Deno.test("app.tools는 맡지 않은 domain의 비공개 tool을 싣지 않고 
     };
     return body.apps[0].tools.map((t) => t.name);
   };
-  assertEquals(await names([ITEMS]), ["mine", "open"]);
-  assertEquals(await names([]), ["open"]);
+  assert.deepStrictEqual(await names([ITEMS]), ["mine", "open"]);
+  assert.deepStrictEqual(await names([]), ["open"]);
 });

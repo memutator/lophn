@@ -1,5 +1,7 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { test } from "node:test";
+
 import { ok } from "../../../base/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import {
@@ -153,44 +155,44 @@ function setup() {
   };
 }
 
-Deno.test("coding session이 끝나면 맡긴 call은 `done`으로 한 번만 닫히고 맡긴 App Engineer session에 한 번만 알린다", () => {
+test("coding session이 끝나면 맡긴 call은 `done`으로 한 번만 닫히고 맡긴 App Engineer session에 한 번만 알린다", () => {
   const { db, tx, memory, transport, frames, start, revoked, delivered } =
     setup();
   const first = start(1);
-  assert(first.ok && first.value.status === "started");
+  assert.ok(first.ok && first.value.status === "started");
   const firstSession = first.value.session;
   const second = start(2);
-  assert(second.ok);
-  assertEquals(second.value, { status: "queued" });
-  assertEquals(frames("open").length, 1);
-  assertEquals(transport.lines()[0]?.waiting.length, 1);
+  assert.ok(second.ok);
+  assert.deepStrictEqual(second.value, { status: "queued" });
+  assert.deepStrictEqual(frames("open").length, 1);
+  assert.deepStrictEqual(transport.lines()[0]?.waiting.length, 1);
 
   // 터미널이 열렸다고 알려도 줄은 그대로다.
   const opened = frames("open")[0]!.request as string;
-  assert(applyTerminalResult(tx, memory, { request: opened, ok: true }).ok);
-  assertEquals(frames("open").length, 1);
+  assert.ok(applyTerminalResult(tx, memory, { request: opened, ok: true }).ok);
+  assert.deepStrictEqual(frames("open").length, 1);
 
-  assert(applyTerminalExited(tx, memory, firstSession).ok);
-  assertEquals(revoked(), [firstSession]);
+  assert.ok(applyTerminalExited(tx, memory, firstSession).ok);
+  assert.deepStrictEqual(revoked(), [firstSession]);
   // 같은 끝을 다시 알려도 call은 한 번만 닫히고 알림도 한 번이다.
-  assert(applyTerminalExited(tx, memory, firstSession).ok);
-  assertEquals(
+  assert.ok(applyTerminalExited(tx, memory, firstSession).ok);
+  assert.deepStrictEqual(
     db.prepare("SELECT state FROM agent_calls WHERE call = ?").get(call(1))
       ?.state,
     "done",
   );
-  assertEquals(delivered.length, 1);
-  assertEquals(delivered[0]!.session, SENDER);
-  assertEquals(delivered[0]!.kind, "reaction");
-  assertEquals(delivered[0]!.event, "CodingSessionEnded");
-  assertEquals(delivered[0]!.body, CODING_REACTION_TEXTS.ended);
+  assert.deepStrictEqual(delivered.length, 1);
+  assert.deepStrictEqual(delivered[0]!.session, SENDER);
+  assert.deepStrictEqual(delivered[0]!.kind, "reaction");
+  assert.deepStrictEqual(delivered[0]!.event, "CodingSessionEnded");
+  assert.deepStrictEqual(delivered[0]!.body, CODING_REACTION_TEXTS.ended);
   const plans = frames("open").map((request) =>
     request.plan as { session: string; env: Record<string, string> }
   );
-  assertEquals(plans.length, 2);
-  assert(plans[1]!.session !== firstSession);
-  assertEquals(transport.lines()[0]?.waiting.length, 0);
-  assertEquals(
+  assert.deepStrictEqual(plans.length, 2);
+  assert.ok(plans[1]!.session !== firstSession);
+  assert.deepStrictEqual(transport.lines()[0]?.waiting.length, 0);
+  assert.deepStrictEqual(
     db.prepare("SELECT count(*) AS n FROM coding_sessions WHERE ended = 0")
       .get()?.n,
     1,
@@ -198,58 +200,63 @@ Deno.test("coding session이 끝나면 맡긴 call은 `done`으로 한 번만 �
   db.close();
 });
 
-Deno.test("메시지는 idle일 때만 넣고 알 수 없는 상태에서는 거절한다", () => {
+test("메시지는 idle일 때만 넣고 알 수 없는 상태에서는 거절한다", () => {
   const { db, tx, memory, transport, frames, start, hook, sessionOf } = setup();
   const started = start(1);
-  assert(started.ok);
+  assert.ok(started.ok);
   const session = sessionOf();
   const send = (text: string) =>
     transport.send(tx, { session, call: call(1) as never, text });
 
   const unknown = send("hi");
-  assert(!unknown.ok && unknown.error.details?.reason === "state_unknown");
+  assert.ok(!unknown.ok && unknown.error.details?.reason === "state_unknown");
 
-  assert(hook("SessionStart", { session_id: "ext-1" }).ok);
+  assert.ok(hook("SessionStart", { session_id: "ext-1" }).ok);
   const delivered = send("one");
-  assert(delivered.ok && delivered.value.status === "delivered");
+  assert.ok(delivered.ok && delivered.value.status === "delivered");
   // 앞 메시지가 turn으로 이어지기 전에 온 메시지는 기다린다.
   const queued = send("two");
-  assert(queued.ok && queued.value.status === "queued");
-  assertEquals(frames("input").length, 1);
+  assert.ok(queued.ok && queued.value.status === "queued");
+  assert.deepStrictEqual(frames("input").length, 1);
 
-  assert(hook("UserPromptSubmit").ok);
-  assert(send("three").ok);
-  assertEquals(frames("input").length, 1);
+  assert.ok(hook("UserPromptSubmit").ok);
+  assert.ok(send("three").ok);
+  assert.deepStrictEqual(frames("input").length, 1);
   // turn이 끝나면 대기열에서 하나만 나간다.
-  assert(hook("Stop").ok);
-  assertEquals(frames("input").map((request) => request.text), ["one", "two"]);
+  assert.ok(hook("Stop").ok);
+  assert.deepStrictEqual(frames("input").map((request) => request.text), [
+    "one",
+    "two",
+  ]);
 
   const result = applyTerminalResult(tx, memory, {
     request: frames("input")[1]!.request as string,
     ok: true,
   });
-  assert(result.ok);
+  assert.ok(result.ok);
   db.close();
 });
 
 // contract: 거절된 권한 물음은 PostToolUse가 오지 않으므로 turn이 끝나면 닫혀 대기가 풀리고 대기열이 흐른다.
 // 현실적 회귀: session이 `waiting`에 영영 머물고 쌓인 메시지가 나가지 않는다.
 // 왜 지금 못 잡나: 위 행은 권한 물음 없이 turn만 돈다.
-Deno.test("권한 물음이 열린 채 turn이 끝나면 물음을 닫고 대기열의 메시지를 넣는다", () => {
+test("권한 물음이 열린 채 turn이 끝나면 물음을 닫고 대기열의 메시지를 넣는다", () => {
   const { db, tx, transport, frames, start, hook, sessionOf } = setup();
-  assert(start(1).ok);
+  assert.ok(start(1).ok);
   const session = sessionOf();
-  assert(hook("SessionStart", { session_id: "ext-1" }).ok);
-  assert(hook("UserPromptSubmit").ok);
-  assert(hook("PermissionRequest", { tool_name: "Bash" }).ok);
+  assert.ok(hook("SessionStart", { session_id: "ext-1" }).ok);
+  assert.ok(hook("UserPromptSubmit").ok);
+  assert.ok(hook("PermissionRequest", { tool_name: "Bash" }).ok);
   const queued = transport.send(tx, {
     session,
     call: call(1) as never,
     text: "later",
   });
-  assert(queued.ok && queued.value.status === "queued");
-  assertEquals(frames("input").length, 0);
-  assert(hook("Stop").ok);
-  assertEquals(frames("input").map((request) => request.text), ["later"]);
+  assert.ok(queued.ok && queued.value.status === "queued");
+  assert.deepStrictEqual(frames("input").length, 0);
+  assert.ok(hook("Stop").ok);
+  assert.deepStrictEqual(frames("input").map((request) => request.text), [
+    "later",
+  ]);
   db.close();
 });

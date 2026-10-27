@@ -3,7 +3,9 @@
 // 본체 파일 복사는 유효 backup이 아니다. 가장 최근 하나만 유지하되 진행 중 복원이
 // 참조하는 backup은 보존 한도 때문에 없애지 않는다.
 
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import { mkdir, readdir, rename, rm } from "node:fs/promises";
+
+import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import { openAppDatabase } from "./db.ts";
 import { type VerifiedDatabase, verifyDatabase } from "./integrity.ts";
 import { contained } from "./paths.ts";
@@ -30,13 +32,15 @@ function backupDir(dataArea: string): string {
 async function listBackupNames(dataArea: string): Promise<string[]> {
   const names: string[] = [];
   try {
-    for await (const entry of Deno.readDir(backupDir(dataArea))) {
-      if (!entry.isFile) continue;
+    for (
+      const entry of await readdir(backupDir(dataArea), { withFileTypes: true })
+    ) {
+      if (!entry.isFile()) continue;
       if (entry.name.endsWith(PENDING_SUFFIX)) continue;
       names.push(entry.name);
     }
   } catch (thrown) {
-    if (!(thrown instanceof Deno.errors.NotFound)) throw thrown;
+    if (errorCode(thrown) !== "ENOENT") throw thrown;
   }
   return names.sort();
 }
@@ -61,7 +65,7 @@ export async function createAppBackup(
       message: "backup leaves the data area",
     });
   }
-  await Deno.mkdir(backupDir(dataArea), { recursive: true });
+  await mkdir(backupDir(dataArea), { recursive: true });
   const pending = `${destination}${PENDING_SUFFIX}`;
   const opened = openAppDatabase(databasePath);
   if (!opened.ok) return opened;
@@ -71,10 +75,10 @@ export async function createAppBackup(
   if (!copied.ok) return copied;
   const verified = await verifyDatabase(pending);
   if (!verified.ok) {
-    await Deno.remove(pending).catch(() => {});
+    await rm(pending).catch(() => {});
     return verified;
   }
-  await Deno.rename(pending, destination);
+  await rename(pending, destination);
   return ok({ name, verified: verified.value });
 }
 
@@ -89,7 +93,7 @@ export async function retainAppBackups(
   const removed: string[] = [];
   for (const name of names) {
     if (keep.has(name)) continue;
-    await Deno.remove(`${backupDir(dataArea)}/${name}`);
+    await rm(`${backupDir(dataArea)}/${name}`);
     removed.push(name);
   }
   const retained = names.filter((name) => keep.has(name));

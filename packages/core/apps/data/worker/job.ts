@@ -2,7 +2,9 @@
 // 낸다. 한 앱 데이터 영역에서 job은 한 번에 하나이고, 경로는 데이터 영역 밖을
 // 벗어나지 못한다.
 
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import { realpath } from "node:fs/promises";
+
+import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import {
   type ActivationDataJobInput,
   type ActivationDataResult,
@@ -44,15 +46,15 @@ async function resolveInside(
   if (!joined.ok) return invalid(joined.error.message);
   let resolved: string;
   try {
-    resolved = await Deno.realPath(joined.value);
+    resolved = await realpath(joined.value);
   } catch (thrown) {
-    if (!(thrown instanceof Deno.errors.NotFound)) {
+    if (errorCode(thrown) !== "ENOENT") {
       return err({ code: "unavailable", message: "path cannot be resolved" });
     }
     // 아직 없는 파일은 부모 폴더 기준으로 확인한다.
     const parent = joined.value.slice(0, joined.value.lastIndexOf("/"));
     try {
-      const parentResolved = await Deno.realPath(parent);
+      const parentResolved = await realpath(parent);
       const name = joined.value.slice(parent.length + 1);
       resolved = `${parentResolved}/${name}`;
     } catch {

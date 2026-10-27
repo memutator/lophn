@@ -2,7 +2,9 @@
 // lock은 데이터 영역 안의 디렉터리고, 잡은 시각을 남긴다. job 자식이 죽으면
 // 그 시각이 한도를 넘긴 뒤에야 다음 job이 회수한다.
 
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+
+import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 
 const DATA_LOCK_NAME = "data.lock";
 const OWNER_FILE = "owner";
@@ -20,7 +22,7 @@ type LockOwner = {
 
 async function readOwner(path: string): Promise<LockOwner | null> {
   try {
-    const text = await Deno.readTextFile(`${path}/${OWNER_FILE}`);
+    const text = await readFile(`${path}/${OWNER_FILE}`, "utf8");
     const parsed = JSON.parse(text) as Partial<LockOwner>;
     if (typeof parsed.at !== "string") return null;
     return { at: parsed.at };
@@ -42,9 +44,9 @@ export async function acquireDataLock(
 ): Promise<Result<DataLock>> {
   const path = `${dataArea}/${DATA_LOCK_NAME}`;
   try {
-    await Deno.mkdir(path);
+    await mkdir(path);
   } catch (thrown) {
-    if (!(thrown instanceof Deno.errors.AlreadyExists)) {
+    if (errorCode(thrown) !== "EEXIST") {
       return err({ code: "unavailable", message: "data lock is unavailable" });
     }
     if (!stale(await readOwner(path), now)) {
@@ -54,9 +56,9 @@ export async function acquireDataLock(
       });
     }
     // 한도를 넘긴 lock이다. 죽은 자식이 남긴 것으로 보고 회수한다.
-    await Deno.remove(path, { recursive: true }).catch(() => {});
+    await rm(path, { recursive: true }).catch(() => {});
     try {
-      await Deno.mkdir(path);
+      await mkdir(path);
     } catch {
       return err({
         code: "conflict",
@@ -66,9 +68,9 @@ export async function acquireDataLock(
   }
   try {
     const owner: LockOwner = { at: new Date(now).toISOString() };
-    await Deno.writeTextFile(`${path}/${OWNER_FILE}`, JSON.stringify(owner));
+    await writeFile(`${path}/${OWNER_FILE}`, JSON.stringify(owner));
   } catch {
-    await Deno.remove(path, { recursive: true }).catch(() => {});
+    await rm(path, { recursive: true }).catch(() => {});
     return err({ code: "unavailable", message: "data lock is unavailable" });
   }
   let released = false;
@@ -76,7 +78,7 @@ export async function acquireDataLock(
     async release() {
       if (released) return;
       released = true;
-      await Deno.remove(path, { recursive: true });
+      await rm(path, { recursive: true });
     },
   });
 }

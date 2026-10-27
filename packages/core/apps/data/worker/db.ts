@@ -1,7 +1,9 @@
 // 앱 DB를 여는 유일한 자리. core·supervisor는 이 모듈을 import하지
 // 않는다. 운영 앱 프로세스가 자기 DB를 여는 것과 별개로, data worker만 여기서 연다.
 
+import { readFile } from "node:fs/promises";
 import { backup, DatabaseSync } from "node:sqlite";
+
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { sha256Hex } from "../../../../base/mod.ts";
 import {
@@ -151,7 +153,7 @@ export function openAppDatabase(path: string): Result<AppDatabase> {
 // 일관된 backup 바이트의 hash. DataBackup.database_hash가 가리킨다.
 export async function databaseHash(path: string): Promise<Result<string>> {
   try {
-    const bytes = await Deno.readFile(path);
+    const bytes = await readFile(path);
     return ok(`${HASH_PREFIX}${await sha256Hex(bytes)}`);
   } catch {
     return unavailable("backup bytes cannot be read");

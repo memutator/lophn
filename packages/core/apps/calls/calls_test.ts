@@ -1,4 +1,6 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import {
   createIdSource,
   err,
@@ -255,13 +257,13 @@ const okResponse: ProcessCallResponse = {
 };
 
 function status(result: Result<ToolCallOutput>): string {
-  assert(result.ok);
+  assert.ok(result.ok);
   return result.value.outcome.status === "denied"
     ? result.value.outcome.denial.code
     : result.value.outcome.status;
 }
 
-Deno.test("부른 쪽 종류가 credential과 다르거나 모르는 부모 invocation을 주장하면 handler까지 가지 않는다", async () => {
+test("부른 쪽 종류가 credential과 다르거나 모르는 부모 invocation을 주장하면 handler까지 가지 않는다", async () => {
   const t = setup();
   const a = newApp();
   const b = newApp();
@@ -380,9 +382,9 @@ Deno.test("부른 쪽 종류가 credential과 다르거나 모르는 부모 invo
   ];
   for (const [name, pending] of rows) {
     const result = await pending;
-    assert(!result.ok && result.error.code === "forbidden", name);
+    assert.ok(!result.ok && result.error.code === "forbidden", name);
   }
-  assertEquals(t.sent.length, 0);
+  assert.deepStrictEqual(t.sent.length, 0);
 
   // 이미 끝난 부모도 모른다.
   const gate = deferred<ProcessCallResponse>();
@@ -397,10 +399,10 @@ Deno.test("부른 쪽 종류가 credential과 다르거나 모르는 부모 invo
     actor: "app",
     app: a,
   });
-  assert(!after.ok && after.error.code === "forbidden");
+  assert.ok(!after.ok && after.error.code === "forbidden");
 });
 
-Deno.test("write는 앱마다 한 번에 하나씩 돌고 read는 동시에 돈다", async () => {
+test("write는 앱마다 한 번에 하나씩 돌고 read는 동시에 돈다", async () => {
   const t = setup();
   const a = newApp();
   const other = newApp();
@@ -422,16 +424,16 @@ Deno.test("write는 앱마다 한 번에 하나씩 돌고 read는 동시에 돈�
   await tick();
   // 해시 계산 순서는 부하에 따라 달라서 같은 앱의 어느 write가 먼저 도는지는 정해지지 않는다.
   // 같은 앱의 write 하나만 돌고 나머지 하나는 기다린다.
-  assertEquals(t.sent.length, 3);
+  assert.deepStrictEqual(t.sent.length, 3);
   const aWrites = t.sent.filter(
     (s) => s.app === a && s.request.tool.startsWith("w."),
   );
-  assertEquals(aWrites.length, 1);
-  assertEquals(
+  assert.deepStrictEqual(aWrites.length, 1);
+  assert.deepStrictEqual(
     t.sent.filter((s) => s.app === a && s.request.tool === "r.get").length,
     1,
   );
-  assertEquals(
+  assert.deepStrictEqual(
     t.sent.filter((s) => s.app === other).map((s) => s.request.tool),
     ["w.one"],
   );
@@ -439,8 +441,8 @@ Deno.test("write는 앱마다 한 번에 하나씩 돌고 read는 동시에 돈�
 
   gates.get(first.request.invocation)!.resolve(okResponse);
   await until(() => t.sent.length >= 4);
-  assertEquals(t.sent.length, 4);
-  assertEquals(
+  assert.deepStrictEqual(t.sent.length, 4);
+  assert.deepStrictEqual(
     t.sent
       .filter((s) => s.app === a && s.request.tool.startsWith("w."))
       .map((s) => s.request.tool)
@@ -450,35 +452,35 @@ Deno.test("write는 앱마다 한 번에 하나씩 돌고 read는 동시에 돈�
 
   for (const gate of gates.values()) gate.resolve(okResponse);
   const results = await Promise.all([w1, w2, r1, wOther]);
-  assertEquals(results.map(status), Array(4).fill("succeeded"));
+  assert.deepStrictEqual(results.map(status), Array(4).fill("succeeded"));
   const read = results[2];
-  assert(read.ok && read.value.invocation === null);
+  assert.ok(read.ok && read.value.invocation === null);
   // write는 끝에서 닫힌 기록이 남는다.
-  assertEquals(
+  assert.deepStrictEqual(
     [...t.records.values()].filter((r) => r.status === "succeeded").length,
     3,
   );
 });
 
-Deno.test("write tool 호출은 응답의 changeset을 붙여 invocation을 닫고, 성공한 read는 기록을 남기지 않는다", async () => {
+test("write tool 호출은 응답의 changeset을 붙여 invocation을 닫고, 성공한 read는 기록을 남기지 않는다", async () => {
   const t = setup();
   const a = newApp();
   t.state.handler = () =>
     Promise.resolve({ status: "ok", result: 1, changeset: btoa("cs") });
 
   const write = await t.path.call(person(a, "w.one"), { actor: "user" });
-  assertEquals(status(write), "succeeded");
+  assert.deepStrictEqual(status(write), "succeeded");
   const row = t.records.get(write.ok ? write.value.invocation! : "");
-  assertEquals(row?.status, "succeeded");
-  assert(row?.changeset);
+  assert.deepStrictEqual(row?.status, "succeeded");
+  assert.ok(row?.changeset);
 
   const before = t.records.size;
   const read = await t.path.call(person(a, "r.get"), { actor: "user" });
-  assert(read.ok && read.value.invocation === null);
-  assertEquals(t.records.size, before);
+  assert.ok(read.ok && read.value.invocation === null);
+  assert.deepStrictEqual(t.records.size, before);
 });
 
-Deno.test("호출 루프와 깊이 8 초과는 handler 전에 거절되고, 접수를 닫은 동안 온 호출은 붙잡혔다가 열리면 넘어간다", async () => {
+test("호출 루프와 깊이 8 초과는 handler 전에 거절되고, 접수를 닫은 동안 온 호출은 붙잡혔다가 열리면 넘어간다", async () => {
   const t = setup();
   const apps = Array.from({ length: 10 }, newApp);
 
@@ -491,17 +493,17 @@ Deno.test("호출 루프와 깊이 8 초과는 handler 전에 거절되고, 접�
       appCaller(app, next, request.invocation),
       { actor: "app", app },
     );
-    assert(inner.ok);
+    assert.ok(inner.ok);
     results.push(inner.value);
     return okResponse;
   };
   const chain = await t.path.call(person(apps[0], "r.get"), {
     actor: "user",
   });
-  assertEquals(status(chain), "succeeded");
+  assert.deepStrictEqual(status(chain), "succeeded");
   // 호출 깊이 8까지 가고 아홉째는 거절된다.
-  assertEquals(t.sent.length, 8);
-  assertEquals(
+  assert.deepStrictEqual(t.sent.length, 8);
+  assert.deepStrictEqual(
     results.map((r) => r.outcome.status === "denied" && r.outcome.denial.code)
       .filter(Boolean),
     ["call_too_deep"],
@@ -518,8 +520,8 @@ Deno.test("호출 루프와 깊이 8 초과는 handler 전에 거절되고, 접�
     return okResponse;
   };
   await t.path.call(person(apps[0], "r.get"), { actor: "user" });
-  assertEquals(t.sent.length, 1);
-  assert(
+  assert.deepStrictEqual(t.sent.length, 1);
+  assert.ok(
     results.at(-1)!.outcome.status === "denied" &&
       (results.at(-1)!.outcome as { denial: { code: string } }).denial.code ===
         "call_loop",
@@ -531,22 +533,22 @@ Deno.test("호출 루프와 깊이 8 초과는 handler 전에 거절되고, 접�
   t.intake.close(apps[0], "activation");
   const held = t.path.call(person(apps[0], "r.get"), { actor: "user" });
   await tick();
-  assertEquals(t.sent.length, 0);
+  assert.deepStrictEqual(t.sent.length, 0);
   t.state.release = REL2;
   t.intake.open(apps[0]);
-  assertEquals(status(await held), "succeeded");
-  assertEquals(t.sent[0].request.context.release, REL2);
+  assert.deepStrictEqual(status(await held), "succeeded");
+  assert.deepStrictEqual(t.sent[0].request.context.release, REL2);
 });
 
-Deno.test("changeset_dropped가 있는 응답은 unknown이 아니라 닫히고 요약에 남는다", () => {
+test("changeset_dropped가 있는 응답은 unknown이 아니라 닫히고 요약에 남는다", () => {
   const ok = settleResponse({
     status: "ok",
     result: 1,
     changeset: null,
     changeset_dropped: "too_large",
   });
-  assertEquals(ok.status, "succeeded");
-  assertEquals(ok.summary, {
+  assert.deepStrictEqual(ok.status, "succeeded");
+  assert.deepStrictEqual(ok.summary, {
     outcome: "succeeded",
     changeset_dropped: "too_large",
   });
@@ -556,9 +558,9 @@ Deno.test("changeset_dropped가 있는 응답은 unknown이 아니라 닫히고 
     changeset: null,
     changeset_dropped: "too_large",
   });
-  assertEquals(failed.status, "failed");
-  assertEquals(failed.summary.changeset_dropped, "too_large");
-  assertEquals(
+  assert.deepStrictEqual(failed.status, "failed");
+  assert.deepStrictEqual(failed.summary.changeset_dropped, "too_large");
+  assert.deepStrictEqual(
     decodeChangeset({
       status: "ok",
       result: 1,
@@ -569,7 +571,7 @@ Deno.test("changeset_dropped가 있는 응답은 unknown이 아니라 닫히고 
   );
 });
 
-Deno.test("previewOnly 호출은 live로 새지 않고 preview 호출은 ledger를 남기지 않는다", async () => {
+test("previewOnly 호출은 live로 새지 않고 preview 호출은 ledger를 남기지 않는다", async () => {
   const t = setup();
   const a = newApp();
   const preview = (tool: string, nonce = "pv-nonce-1"): ToolCallInput => ({
@@ -580,37 +582,37 @@ Deno.test("previewOnly 호출은 live로 새지 않고 preview 호출은 ledger�
 
   // live target과 사람이 아닌 호출자는 앱 process에 아무것도 보내지 않는다.
   const live = await t.path.call(person(a, "r.get"), only);
-  assert(!live.ok && live.error.code === "forbidden");
+  assert.ok(!live.ok && live.error.code === "forbidden");
   const agent = await t.path.call({
     ...preview("r.get"),
     caller: { kind: "agent", session: SES, turn: TRN, tool_call: TCL },
   }, { actor: "agent", previewOnly: true });
-  assert(!agent.ok && agent.error.code === "forbidden");
-  assertEquals(t.sent.length, 0);
+  assert.ok(!agent.ok && agent.error.code === "forbidden");
+  assert.deepStrictEqual(t.sent.length, 0);
 
   // release 없는 새 tool도 그 preview bundle의 선언 effect로 간다. 기록은 없다.
   t.state.preview.effects["w.new"] = "write";
   const done = await t.path.call(preview("w.new"), only);
-  assert(done.ok && done.value.invocation === null);
-  assertEquals(status(done), "succeeded");
-  assertEquals(t.sent.length, 1);
-  assertEquals(t.sent[0].request.context.effect, "write");
-  assertEquals(t.sent[0].request.context.release, null);
+  assert.ok(done.ok && done.value.invocation === null);
+  assert.deepStrictEqual(status(done), "succeeded");
+  assert.deepStrictEqual(t.sent.length, 1);
+  assert.deepStrictEqual(t.sent[0].request.context.effect, "write");
+  assert.deepStrictEqual(t.sent[0].request.context.release, null);
 
   // 선언 없는 tool과 지금 preview가 아닌 nonce는 보내지 않는다.
-  assertEquals(
+  assert.deepStrictEqual(
     status(await t.path.call(preview("w.none"), only)),
     "not_declared",
   );
-  assertEquals(
+  assert.deepStrictEqual(
     status(await t.path.call(preview("w.new", "pv-nonce-2"), only)),
     "not_declared",
   );
-  assertEquals(t.sent.length, 1);
-  assertEquals(t.records.size, 0);
+  assert.deepStrictEqual(t.sent.length, 1);
+  assert.deepStrictEqual(t.records.size, 0);
 });
 
-Deno.test("그 앱의 App Engineer만 그 앱의 preview tool을 부르고, 다른 앱의 App Engineer와 다른 role은 앱 process에 닿지 못한다", async () => {
+test("그 앱의 App Engineer만 그 앱의 preview tool을 부르고, 다른 앱의 App Engineer와 다른 role은 앱 process에 닿지 못한다", async () => {
   const a = newApp();
   const b = newApp();
   const project = ids.newId("prj");
@@ -640,18 +642,18 @@ Deno.test("그 앱의 App Engineer만 그 앱의 preview tool을 부르고, 다�
       caller: { kind: "agent", session: SES, turn: TRN, tool_call: TCL },
     }, { actor: "agent" });
     if (expected === "succeeded") {
-      assert(done.ok && done.value.invocation === null, label);
-      assertEquals(status(done), "succeeded", label);
-      assertEquals(t.sent.length, 1, label);
+      assert.ok(done.ok && done.value.invocation === null, label);
+      assert.deepStrictEqual(status(done), "succeeded", label);
+      assert.deepStrictEqual(t.sent.length, 1, label);
     } else {
-      assert(!done.ok && done.error.code === expected, label);
-      assertEquals(t.sent.length, 0, label);
+      assert.ok(!done.ok && done.error.code === expected, label);
+      assert.deepStrictEqual(t.sent.length, 0, label);
     }
-    assertEquals(t.records.size, 0, label);
+    assert.deepStrictEqual(t.records.size, 0, label);
   }
 });
 
-Deno.test("앱이 다른 앱 tool을 부를 때 active grant app.call이 그 tool을 덮지 않으면 handler에 가지 않고 막힌다", async () => {
+test("앱이 다른 앱 tool을 부를 때 active grant app.call이 그 tool을 덮지 않으면 handler에 가지 않고 막힌다", async () => {
   const t = setup();
   const from = newApp();
   const to = newApp();
@@ -687,16 +689,16 @@ Deno.test("앱이 다른 앱 tool을 부를 때 active grant app.call이 그 too
       );
       const reached = t.sent.length - before;
       seen.push(`${name}:${status(result)}:${reached}`);
-      assertEquals(status(result), want, name);
-      assertEquals(reached, want === "succeeded" ? 1 : 0, name);
+      assert.deepStrictEqual(status(result), want, name);
+      assert.deepStrictEqual(reached, want === "succeeded" ? 1 : 0, name);
     }
     return okResponse;
   };
   await t.path.call(person(from, "r.get"), { actor: "user" });
-  assertEquals(seen.length, rows.length);
+  assert.deepStrictEqual(seen.length, rows.length);
 });
 
-Deno.test("agent는 할당하지 않은 앱의 tool과 할당에서 뺀 tool을 부르지 못한다", async () => {
+test("agent는 할당하지 않은 앱의 tool과 할당에서 뺀 tool을 부르지 못한다", async () => {
   const t = setup();
   const assigned = newApp();
   const other = newApp();
@@ -716,12 +718,16 @@ Deno.test("agent는 할당하지 않은 앱의 tool과 할당에서 뺀 tool을 
     const result = await t.path.call(agentCall(app, tool), {
       actor: "agent",
     });
-    assertEquals(status(result), want, name);
-    assertEquals(t.sent.length - before, want === "succeeded" ? 1 : 0, name);
+    assert.deepStrictEqual(status(result), want, name);
+    assert.deepStrictEqual(
+      t.sent.length - before,
+      want === "succeeded" ? 1 : 0,
+      name,
+    );
   }
 });
 
-Deno.test("job과 workflow instance가 부르는 앱 tool은 만든 agent(job의 creator, project PM)의 할당이나 domain 밖이면 실행되지 않는다", async () => {
+test("job과 workflow instance가 부르는 앱 tool은 만든 agent(job의 creator, project PM)의 할당이나 domain 밖이면 실행되지 않는다", async () => {
   const assigned = newApp();
   const other = newApp();
   const rows: {
@@ -800,20 +806,20 @@ Deno.test("job과 workflow instance가 부르는 앱 tool은 만든 agent(job의
         { ...person(row.app, row.tool), caller },
         auth(),
       );
-      assertEquals(status(result), row.want, name);
+      assert.deepStrictEqual(status(result), row.want, name);
       if (row.want === "gate_blocked") {
-        assertEquals(t.sent.length, 0, name);
+        assert.deepStrictEqual(t.sent.length, 0, name);
         const [record] = [...t.records.values()];
-        assertEquals(record.status, "denied", name);
-        assertEquals(record.caller, caller, name);
+        assert.deepStrictEqual(record.status, "denied", name);
+        assert.deepStrictEqual(record.caller, caller, name);
       } else {
-        assertEquals(t.sent.length, 1, name);
+        assert.deepStrictEqual(t.sent.length, 1, name);
       }
     }
   }
 });
 
-Deno.test("앱 process의 parseProcessCall은 다섯 caller 종류에서 processCallRequestSchema와 같은 판정을 한다", () => {
+test("앱 process의 parseProcessCall은 다섯 caller 종류에서 processCallRequestSchema와 같은 판정을 한다", () => {
   const callers: [string, unknown, boolean][] = [
     ["person", { kind: "person", view_session: "v1" }, true],
     [
@@ -851,11 +857,15 @@ Deno.test("앱 process의 parseProcessCall은 다섯 caller 종류에서 process
         caller,
       },
     };
-    assertEquals(
+    assert.deepStrictEqual(
       processCallRequestSchema.safeParse(request).success,
       accepted,
       name,
     );
-    assertEquals(parseProcessCall(request) !== undefined, accepted, name);
+    assert.deepStrictEqual(
+      parseProcessCall(request) !== undefined,
+      accepted,
+      name,
+    );
   }
 });

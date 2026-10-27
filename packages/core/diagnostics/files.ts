@@ -1,5 +1,6 @@
 import { constants } from "node:fs";
-import { open } from "node:fs/promises";
+import { lstat, mkdir, open, realpath, rename, rm } from "node:fs/promises";
+import { errorCode } from "../../base/mod.ts";
 
 const LOG_FILE_MAX_BYTES = 10 * 1024 * 1024;
 const LOG_FILE_COUNT = 5;
@@ -14,19 +15,19 @@ export async function createLogFiles(root: string): Promise<{
   ) {
     throw new Error("invalid log root");
   }
-  const canonical = await Deno.realPath(root);
+  const canonical = await realpath(root);
   if (canonical !== root.replace(/\/$/, "")) throw new Error("unsafe log root");
   const directory = `${canonical}/logs`;
   try {
-    await Deno.mkdir(directory, { mode: 0o700 });
+    await mkdir(directory, { mode: 0o700 });
   } catch (error) {
-    if (!(error instanceof Deno.errors.AlreadyExists)) throw error;
+    if (errorCode(error) !== "EEXIST") throw error;
   }
-  const rootInfo = await Deno.lstat(canonical);
-  const directoryInfo = await Deno.lstat(directory);
+  const rootInfo = await lstat(canonical);
+  const directoryInfo = await lstat(directory);
   if (
-    !rootInfo.isDirectory || !directoryInfo.isDirectory ||
-    directoryInfo.isSymlink
+    !rootInfo.isDirectory() || !directoryInfo.isDirectory() ||
+    directoryInfo.isSymbolicLink()
   ) {
     throw new Error("unsafe log directory");
   }
@@ -35,41 +36,41 @@ export async function createLogFiles(root: string): Promise<{
     (_, i) => `${directory}/platform-${i}.jsonl`,
   );
   async function guard() {
-    if (await Deno.realPath(canonical) !== canonical) {
+    if (await realpath(canonical) !== canonical) {
       throw new Error("unsafe root");
     }
-    const current = await Deno.lstat(directory);
+    const current = await lstat(directory);
     if (
-      !current.isDirectory || current.isSymlink ||
+      !current.isDirectory() || current.isSymbolicLink() ||
       current.ino !== directoryInfo.ino || current.dev !== directoryInfo.dev
     ) throw new Error("log directory changed");
     for (const path of paths) {
       try {
-        const info = await Deno.lstat(path);
-        if (!info.isFile || info.isSymlink || info.nlink !== 1) {
+        const info = await lstat(path);
+        if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1) {
           throw new Error("unsafe log file");
         }
       } catch (error) {
-        if (!(error instanceof Deno.errors.NotFound)) throw error;
+        if (errorCode(error) !== "ENOENT") throw error;
       }
     }
   }
   async function remove(path: string) {
     try {
-      await Deno.remove(path);
+      await rm(path);
     } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) throw error;
+      if (errorCode(error) !== "ENOENT") throw error;
     }
   }
   await guard();
   // Repair only the fixed operational files, never ledger or arbitrary contents.
   for (const path of paths) {
     try {
-      if ((await Deno.lstat(path)).size > LOG_FILE_MAX_BYTES) {
+      if ((await lstat(path)).size > LOG_FILE_MAX_BYTES) {
         await remove(path);
       }
     } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) throw error;
+      if (errorCode(error) !== "ENOENT") throw error;
     }
   }
   let writing = false;
@@ -84,17 +85,17 @@ export async function createLogFiles(root: string): Promise<{
         await guard();
         let size = 0;
         try {
-          size = (await Deno.lstat(paths[0])).size;
+          size = (await lstat(paths[0])).size;
         } catch (error) {
-          if (!(error instanceof Deno.errors.NotFound)) throw error;
+          if (errorCode(error) !== "ENOENT") throw error;
         }
         if (size + bytes.length > LOG_FILE_MAX_BYTES) {
           await remove(paths[LOG_FILE_COUNT - 1]);
           for (let i = LOG_FILE_COUNT - 2; i >= 0; i--) {
             try {
-              await Deno.rename(paths[i], paths[i + 1]);
+              await rename(paths[i], paths[i + 1]);
             } catch (error) {
-              if (!(error instanceof Deno.errors.NotFound)) throw error;
+              if (errorCode(error) !== "ENOENT") throw error;
             }
           }
         }

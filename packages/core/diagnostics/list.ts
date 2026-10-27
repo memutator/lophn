@@ -1,5 +1,6 @@
+import { readdir, readFile } from "node:fs/promises";
 import type { Clock } from "../../base/mod.ts";
-import { ok } from "../../base/mod.ts";
+import { errorCode, ok } from "../../base/mod.ts";
 import {
   type DiagnosticRecord,
   diagnosticRecordSchema,
@@ -70,23 +71,23 @@ export function createLogRecordSource(
 async function logNames(directory: string): Promise<string[]> {
   const names: string[] = [];
   try {
-    for await (const entry of Deno.readDir(directory)) {
-      if (entry.isFile && /^platform-\d+\.jsonl$/.test(entry.name)) {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      if (entry.isFile() && /^platform-\d+\.jsonl$/.test(entry.name)) {
         names.push(entry.name);
       }
     }
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
+    if (errorCode(error) !== "ENOENT") throw error;
   }
   return names;
 }
 
 async function readText(path: string): Promise<string> {
   try {
-    return await Deno.readTextFile(path);
+    return await readFile(path, "utf8");
   } catch (error) {
     // 회전 중 지워진 파일은 빈 것으로 본다.
-    if (error instanceof Deno.errors.NotFound) return "";
+    if (errorCode(error) === "ENOENT") return "";
     throw error;
   }
 }

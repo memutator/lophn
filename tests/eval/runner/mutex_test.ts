@@ -1,7 +1,9 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import { serial } from "./mutex.ts";
 
-Deno.test("serial: 앞 호출이 끝나기 전에 다음 호출을 시작하지 않고, 앞이 던져도 다음이 돈다", async () => {
+test("serial: 앞 호출이 끝나기 전에 다음 호출을 시작하지 않고, 앞이 던져도 다음이 돈다", async () => {
   const log: string[] = [];
   let finishFirst!: () => void;
   const first = serial(async () => {
@@ -16,9 +18,9 @@ Deno.test("serial: 앞 호출이 끝나기 전에 다음 호출을 시작하지 
   });
   await Promise.resolve();
   await new Promise((r) => setTimeout(r, 5));
-  assertEquals(log, ["a start"]);
+  assert.deepStrictEqual(log, ["a start"]);
   finishFirst();
   await first.catch(() => {});
-  assertEquals(await second, "b");
-  assertEquals(log, ["a start", "a end", "b start"]);
+  assert.deepStrictEqual(await second, "b");
+  assert.deepStrictEqual(log, ["a start", "a end", "b start"]);
 });

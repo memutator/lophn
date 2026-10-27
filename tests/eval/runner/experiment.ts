@@ -1,7 +1,11 @@
+import { readdir, readFile } from "node:fs/promises";
+import process from "node:process";
+
 import {
   createIdSource,
   cryptoRandom,
   err,
+  errorCode,
   ok,
   type Result,
   systemClock,
@@ -283,10 +287,10 @@ async function readRepeats(
       e.kind === "diagnosis"
     );
     try {
-      for await (const f of Deno.readDir(`${EVAL_DIR}/${run}`)) {
-        if (!f.name.endsWith(".repeat.json")) continue;
+      for (const name of await readdir(`${EVAL_DIR}/${run}`)) {
+        if (!name.endsWith(".repeat.json")) continue;
         const found = JSON.parse(
-          await Deno.readTextFile(`${EVAL_DIR}/${run}/${f.name}`),
+          await readFile(`${EVAL_DIR}/${run}/${name}`, "utf8"),
         ) as RepeatFinding[];
         // 채점이 들어왔으면 대기 entry의 최신 item으로 바꾼다.
         for (const r of found) {
@@ -297,7 +301,7 @@ async function readRepeats(
         }
       }
     } catch (e) {
-      if (!(e instanceof Deno.errors.NotFound)) throw e;
+      if (errorCode(e) !== "ENOENT") throw e;
     }
   }
   return out;
@@ -423,7 +427,7 @@ export async function experimentCommand(
       }`,
     );
 
-    const key = readAnthropicKey(Deno.env);
+    const key = readAnthropicKey({ get: (name) => process.env[name] });
     if (key === undefined) {
       return fail("ANTHROPIC_API_KEY가 없다. .env에 두고 다시 돌린다.");
     }

@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+
 import { type Pool, trialKindOf } from "../experiment/parallel/mod.ts";
 import { outcomeOf } from "../experiment/spec/mod.ts";
 import { foldJudge, readPending } from "../judge/mod.ts";
@@ -121,8 +123,8 @@ export async function runScenario(args: ScenarioArgs): Promise<ScenarioRun> {
       await readPending(deps.evalDir, runId),
     ),
   };
-  await Deno.mkdir(args.runsDir, { recursive: true });
-  await Deno.writeTextFile(
+  await mkdir(args.runsDir, { recursive: true });
+  await writeFile(
     `${args.runsDir}/${runId}.json`,
     JSON.stringify(record, null, 2) + "\n",
   );

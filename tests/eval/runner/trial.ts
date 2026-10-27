@@ -1,3 +1,6 @@
+import { spawnSync } from "node:child_process";
+import { copyFile, mkdir, readdir, stat, writeFile } from "node:fs/promises";
+
 import type { Clock } from "../../../packages/base/mod.ts";
 import { sessionSnapshotsList } from "../../../packages/protocol/events/mod.ts";
 import { runProgramChecks } from "../checks/mod.ts";
@@ -260,7 +263,7 @@ export async function runTrial(
       judge: deps.judge,
     }, trial);
     if (repeats.length > 0) {
-      await Deno.writeTextFile(
+      await writeFile(
         `${deps.evalDir}/${deps.runId}/trial-${index}.repeat.json`,
         JSON.stringify(repeats, null, 2) + "\n",
       );
@@ -282,9 +285,9 @@ export async function runTrial(
     // 각 정리가 실패해도 다음을 한다. core log는 멈춘 이유를 아는 유일한 길이라 stop 뒤 지우기 전에 복사한다.
     await held.core?.stop().catch(() => {});
     if (held.run !== undefined) {
-      await Deno.mkdir(`${deps.evalDir}/${deps.runId}`, { recursive: true })
+      await mkdir(`${deps.evalDir}/${deps.runId}`, { recursive: true })
         .then(() =>
-          Deno.copyFile(
+          copyFile(
             `${held.run!.dir}/core.log`,
             `${deps.evalDir}/${deps.runId}/trial-${index}.core.log`,
           )
@@ -308,22 +311,24 @@ export async function runTrial(
 
 // `<home>/apps/<app id>/source`를 `<dest>/<app id>/source`로 복사한다.
 async function copyAppSources(home: string, dest: string): Promise<void> {
-  for await (const app of Deno.readDir(`${home}/apps`)) {
+  for (const app of await readdir(`${home}/apps`, { withFileTypes: true })) {
     const source = `${home}/apps/${app.name}/source`;
-    if (!app.isDirectory || !await exists(source)) continue;
-    await Deno.mkdir(`${dest}/${app.name}`, { recursive: true });
-    const copied = await new Deno.Command("cp", {
-      args: ["-r", source, `${dest}/${app.name}/source`],
-    }).output();
-    if (!copied.success) {
-      throw new Error(new TextDecoder().decode(copied.stderr));
+    if (!app.isDirectory() || !await exists(source)) continue;
+    await mkdir(`${dest}/${app.name}`, { recursive: true });
+    const copied = spawnSync("cp", [
+      "-r",
+      source,
+      `${dest}/${app.name}/source`,
+    ]);
+    if (copied.status !== 0) {
+      throw new Error(copied.stderr.toString());
     }
   }
 }
 
 async function exists(path: string): Promise<boolean> {
   try {
-    await Deno.stat(path);
+    await stat(path);
     return true;
   } catch {
     return false;

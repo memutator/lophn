@@ -1,3 +1,4 @@
+import process from "node:process";
 import { parseArgs } from "node:util";
 import {
   createIdSource,
@@ -115,7 +116,7 @@ export async function main(args: string[]): Promise<number> {
     return 1;
   }
 
-  const key = readAnthropicKey(Deno.env);
+  const key = readAnthropicKey({ get: (name) => process.env[name] });
   if (key === undefined) {
     console.log(
       "ANTHROPIC_API_KEY가 없어 진짜 provider를 부르지 않는다. .env에 두면 돈다.",

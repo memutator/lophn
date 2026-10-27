@@ -1,3 +1,5 @@
+import process from "node:process";
+
 import type { Pool } from "../experiment/parallel/mod.ts";
 
 // 첫 신호는 새 trial을 띄우지 않고 도는 trial을 기다린다. 둘째 신호는 기다리지 않고 core와 Claude Code를 끄고 끝낸다.
@@ -16,7 +18,7 @@ export function installSignals(
       return;
     }
     for (const trial of live) trial.stop().catch(() => {});
-    Deno.exit(130);
+    process.exit(130);
   };
   Deno.addSignalListener("SIGINT", handler);
   Deno.addSignalListener("SIGTERM", handler);

@@ -1,5 +1,8 @@
 // scorecard를 쓰거나(인자 없음) 두 run을 비교한다(`diff <idA> <idB>`).
-import { systemClock } from "../../../packages/base/mod.ts";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import process from "node:process";
+
+import { errorCode, systemClock } from "../../../packages/base/mod.ts";
 import { latestEntry } from "../versions/mod.ts";
 import { currentVersions } from "../versions/mod.ts";
 import type { Scenario } from "../types.ts";
@@ -16,27 +19,27 @@ const SCENARIOS_DIR = `${ROOT}/tests/eval/scenarios`;
 async function readScenarios(dir: string): Promise<Scenario[]> {
   const found: Scenario[] = [];
   try {
-    for await (const e of Deno.readDir(dir)) {
+    for (const e of await readdir(dir, { withFileTypes: true })) {
       const path = `${dir}/${e.name}`;
-      if (e.isDirectory) found.push(...await readScenarios(path));
+      if (e.isDirectory()) found.push(...await readScenarios(path));
       else if (e.name.endsWith(".scenario.ts")) {
         found.push((await import(path)).default as Scenario);
       }
     }
   } catch (e) {
-    if (!(e instanceof Deno.errors.NotFound)) throw e;
+    if (errorCode(e) !== "ENOENT") throw e;
   }
   return found.sort((a, b) => a.id.localeCompare(b.id));
 }
 
-const args = [...Deno.args];
+const args = process.argv.slice(2);
 if (args[0] === "diff") {
   const [a, b] = args.slice(1);
   if (a === undefined || b === undefined) {
     throw new Error("usage: main.ts diff <runIdA> <runIdB>");
   }
   const read = async (id: string) =>
-    JSON.parse(await Deno.readTextFile(`${RUNS_DIR}/${id}.json`));
+    JSON.parse(await readFile(`${RUNS_DIR}/${id}.json`, "utf8"));
   console.log(
     await diffRuns(await read(a), await read(b), {
       registryDir: REGISTRY_DIR,
@@ -57,8 +60,8 @@ if (args[0] === "diff") {
   const runs = await readRuns(RUNS_DIR);
   const date = systemClock.now().slice(0, 10);
   const file = `${ROOT}/tests/eval/scorecards/${date}.md`;
-  await Deno.mkdir(`${ROOT}/tests/eval/scorecards`, { recursive: true });
-  await Deno.writeTextFile(
+  await mkdir(`${ROOT}/tests/eval/scorecards`, { recursive: true });
+  await writeFile(
     file,
     renderScorecard(pickRows(runs, current), runs, { date, model }),
   );

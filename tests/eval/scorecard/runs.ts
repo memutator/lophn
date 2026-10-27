@@ -1,3 +1,6 @@
+import { readdir, readFile } from "node:fs/promises";
+
+import { errorCode } from "../../../packages/base/mod.ts";
 import type { RunRecord } from "../types.ts";
 
 export const RUNS_DIR = new URL("../runs", import.meta.url).pathname;
@@ -6,11 +9,11 @@ export const RUNS_DIR = new URL("../runs", import.meta.url).pathname;
 export async function readRuns(dir: string = RUNS_DIR): Promise<RunRecord[]> {
   const runs: RunRecord[] = [];
   try {
-    for await (const e of Deno.readDir(dir)) {
-      if (!e.isFile || !e.name.endsWith(".json")) continue;
+    for (const e of await readdir(dir, { withFileTypes: true })) {
+      if (!e.isFile() || !e.name.endsWith(".json")) continue;
       const file = `${dir}/${e.name}`;
       try {
-        const run = JSON.parse(await Deno.readTextFile(file)) as RunRecord;
+        const run = JSON.parse(await readFile(file, "utf8")) as RunRecord;
         if (typeof run.id !== "string" || run.id === "") {
           throw new Error("id가 없다");
         }
@@ -21,7 +24,7 @@ export async function readRuns(dir: string = RUNS_DIR): Promise<RunRecord[]> {
     }
   } catch (e) {
     // runs 폴더가 아직 없으면 run이 없는 것이다.
-    if (!(e instanceof Deno.errors.NotFound)) throw e;
+    if (errorCode(e) !== "ENOENT") throw e;
   }
   return runs;
 }

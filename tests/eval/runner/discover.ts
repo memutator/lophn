@@ -1,3 +1,6 @@
+import { readdir } from "node:fs/promises";
+
+import { errorCode } from "../../../packages/base/mod.ts";
 import type { Scenario } from "../types.ts";
 
 export const SCENARIOS_DIR = new URL("../scenarios/", import.meta.url).pathname;
@@ -7,15 +10,15 @@ export type Discovered = { scenario: Scenario; path: string };
 async function findFiles(dir: string): Promise<string[]> {
   const found: string[] = [];
   try {
-    for await (const entry of Deno.readDir(dir)) {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
       const path = `${dir}/${entry.name}`;
-      if (entry.isDirectory) found.push(...await findFiles(path));
-      else if (entry.isFile && entry.name.endsWith(".scenario.ts")) {
+      if (entry.isDirectory()) found.push(...await findFiles(path));
+      else if (entry.isFile() && entry.name.endsWith(".scenario.ts")) {
         found.push(path);
       }
     }
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
+    if (errorCode(error) !== "ENOENT") throw error;
   }
   return found;
 }

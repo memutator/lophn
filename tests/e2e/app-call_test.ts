@@ -14,7 +14,8 @@
 // text). 첫 대답은 요청의 tool 목록에서 tool로 끝나는 이름을 골라 부르는 함수 대답이다. tool 이름 규칙
 // (`<domain>_<tool>`, 길면 hash)을 test가 되풀이하지 않으려는 것이다. agent는 앱 place의 Operator다(비공개 tool은 그
 // domain을 맡은 agent만 본다). 앱 activation helper의 App Engineer 대답은 행 몫에 세지 않는다.
-import { assert, assertEquals, assertNotEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import {
   appCallTool,
   appInvocation,
@@ -80,7 +81,7 @@ const text = (value: string) => ({
 
 async function nonceOf(core: Core, app: string): Promise<string> {
   const { observation } = await core.call(appRuntime, { app });
-  assert(observation !== null, "앱 process 관측이 없다");
+  assert.ok(observation !== null, "앱 process 관측이 없다");
   return observation.process_nonce;
 }
 
@@ -93,7 +94,7 @@ async function items(core: Core, app: string): Promise<string> {
   return JSON.stringify(listed.outcome);
 }
 
-Deno.test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 실행하고 기록되며, frame 한도를 넘는 write도 성공으로 닫힌다", async (t) => {
+test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 실행하고 기록되며, frame 한도를 넘는 write도 성공으로 닫힌다", async (t) => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -103,7 +104,7 @@ Deno.test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process
     core = await bootCore(run, { env: await appCoreEnv() });
     await connectFakeProvider(core, fake);
     const put = await core.upload(NET_SECRET, new TextEncoder().encode(token));
-    assert(put.ok, "secrets/put가 거절됐다");
+    assert.ok(put.ok, "secrets/put가 거절됐다");
     const app = await activateTestApp(core, fake, {
       name: "Calls",
       slug: "calls",
@@ -128,7 +129,7 @@ Deno.test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process
       entries: [{ app: id, removed_tools: [] }],
     }, { revision: 0 });
 
-    await t.step("agent-calls-app", async () => {
+    await t.test("agent-calls-app", async () => {
       fake.reset();
       fake.script([
         { reply: callApp("t1", "add_item", { title: "first" }) },
@@ -143,24 +144,24 @@ Deno.test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process
         app: id,
         session,
       });
-      assertEquals(invocations.length, 1);
-      assertEquals(invocations[0].status, "succeeded");
-      assertEquals(invocations[0].caller, {
+      assert.deepStrictEqual(invocations.length, 1);
+      assert.deepStrictEqual(invocations[0].status, "succeeded");
+      assert.deepStrictEqual(invocations[0].caller, {
         kind: "agent",
         session,
         turn: turn.id,
         tool_call: tool_calls[0].id,
       });
-      assertNotEquals(invocations[0].changeset, null);
+      assert.notDeepStrictEqual(invocations[0].changeset, null);
       // app state
-      assert((await items(c, id)).includes("first"));
+      assert.ok((await items(c, id)).includes("first"));
       // fake: 둘째 요청의 tool_result에 앱의 응답(새 row)이 있다.
-      assert(
+      assert.ok(
         (lastToolResult(fake.journal()[1], "t1") ?? "").includes("first"),
       );
     });
 
-    await t.step("big-changeset", async () => {
+    await t.test("big-changeset", async () => {
       const nonce = await nonceOf(c, id);
       const called = await c.call(appCallTool, {
         target,
@@ -168,77 +169,80 @@ Deno.test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process
         input: { kb: 300 },
         caller: user,
       });
-      assertEquals(called.outcome.status, "succeeded");
-      assert(called.invocation !== null);
+      assert.deepStrictEqual(called.outcome.status, "succeeded");
+      assert.ok(called.invocation !== null);
       // ledger
       const { invocation } = await c.call(appInvocation, {
         invocation: called.invocation,
       });
-      assertEquals(invocation?.status, "succeeded");
-      assertEquals(invocation?.summary.changeset_dropped, "too_large");
-      assertEquals(invocation?.changeset, null);
+      assert.deepStrictEqual(invocation?.status, "succeeded");
+      assert.deepStrictEqual(
+        invocation?.summary.changeset_dropped,
+        "too_large",
+      );
+      assert.deepStrictEqual(invocation?.changeset, null);
       const { plan } = await c.call(appRewindPlan, {
         app: id,
         from_invocation: called.invocation,
       });
-      assertEquals(plan.blocked, null);
-      assertEquals(
+      assert.deepStrictEqual(plan.blocked, null);
+      assert.deepStrictEqual(
         plan.items.find((item) => item.invocation === called.invocation)
           ?.reverts_db,
         false,
       );
       // app state
-      assertEquals(
+      assert.deepStrictEqual(
         JSON.stringify(called.outcome),
         JSON.stringify({ status: "succeeded", result: { rows: 1 } }),
       );
       // process
-      assertEquals(await nonceOf(c, id), nonce);
+      assert.deepStrictEqual(await nonceOf(c, id), nonce);
     });
 
-    await t.step("call-from-person", async () => {
+    await t.test("call-from-person", async () => {
       const called = await c.call(appCallTool, {
         target,
         tool: "add_item",
         input: { title: "by-hand" },
         caller: user,
       });
-      assertEquals(called.outcome.status, "succeeded");
-      assert(called.invocation !== null);
+      assert.deepStrictEqual(called.outcome.status, "succeeded");
+      assert.ok(called.invocation !== null);
       // ledger
       const { invocation } = await c.call(appInvocation, {
         invocation: called.invocation,
       });
-      assertEquals(invocation?.status, "succeeded");
-      assertEquals(invocation?.caller, user);
-      assertNotEquals(invocation?.changeset, null);
+      assert.deepStrictEqual(invocation?.status, "succeeded");
+      assert.deepStrictEqual(invocation?.caller, user);
+      assert.notDeepStrictEqual(invocation?.changeset, null);
       // app state
-      assert((await items(c, id)).includes("by-hand"));
+      assert.ok((await items(c, id)).includes("by-hand"));
     });
 
-    await t.step("net-fetch-loopback", async () => {
+    await t.test("net-fetch-loopback", async () => {
       const called = await c.call(appCallTool, {
         target,
         tool: "fetch_local",
         caller: user,
       });
       // route: 앱이 secret 값을 모르므로 응답 어디에도 값이 없다.
-      assertEquals(called.outcome, {
+      assert.deepStrictEqual(called.outcome, {
         status: "succeeded",
         result: { status: 200, body: { hello: "net" } },
       });
-      assert(!JSON.stringify(called).includes(token));
+      assert.ok(!JSON.stringify(called).includes(token));
       // loopback 서버
-      assertEquals(loopback.seen, [`Bearer ${token}`]);
+      assert.deepStrictEqual(loopback.seen, [`Bearer ${token}`]);
       // ledger
-      assert(called.invocation !== null);
+      assert.ok(called.invocation !== null);
       const { invocation } = await c.call(appInvocation, {
         invocation: called.invocation,
       });
-      assertEquals(invocation?.status, "succeeded");
+      assert.deepStrictEqual(invocation?.status, "succeeded");
     });
 
-    await t.step("input-too-large", async () => {
+    await t.test("input-too-large", async () => {
       const nonce = await nonceOf(c, id);
       const before = (await c.call(appInvocations, { app: id })).invocations
         .length;
@@ -249,15 +253,15 @@ Deno.test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process
         caller: user,
       });
       // route
-      assert(!refused.ok);
-      assertEquals(refused.error.code, "invalid_input");
+      assert.ok(!refused.ok);
+      assert.deepStrictEqual(refused.error.code, "invalid_input");
       // ledger
-      assertEquals(
+      assert.deepStrictEqual(
         (await c.call(appInvocations, { app: id })).invocations.length,
         before,
       );
       // process
-      assertEquals(await nonceOf(c, id), nonce);
+      assert.deepStrictEqual(await nonceOf(c, id), nonce);
     });
   } finally {
     await core?.kill().catch(() => {});

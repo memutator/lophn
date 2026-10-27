@@ -10,7 +10,8 @@
 // fake 대답: 앞 세 행은 앱 activation(`activateTestApp`)의 App Engineer 대답(`release_prepare`·`release_activate`)뿐이라
 // 행의 상한(3)에 세지 않는다(`architecture/testing.md` "case 고르는 규칙" 4). `session-rewind-with-app`은 case마다
 // agent의 앱 호출과 끝 text, 둘이다.
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import {
   appCallTool,
   appInvocations,
@@ -22,6 +23,7 @@ import {
 import { agentAssignmentSet } from "../../packages/protocol/approvals/mod.ts";
 import {
   operatorCreate,
+  type RevertRecord,
   rewindList,
   sessionRewind,
   sessionRewindPreview,
@@ -29,7 +31,12 @@ import {
 import { activateTestApp, type TestApp } from "../support/app/activate.ts";
 import { appCoreEnv } from "../support/app/deps.ts";
 import { rewindPatch } from "../support/app/patch-rewind.ts";
-import { bootCore, type Core, createRun } from "../support/core/mod.ts";
+import {
+  bootCore,
+  type Core,
+  createRun,
+  type Output,
+} from "../support/core/mod.ts";
 import {
   connectFakeProvider,
   openSession,
@@ -50,7 +57,7 @@ async function call(core: Core, app: TestApp, tool: string, input?: unknown) {
     ...(input === undefined ? {} : { input: input as never }),
     caller: { kind: "person", view_session: "e2e" },
   });
-  assertEquals(
+  assert.deepStrictEqual(
     done.outcome.status,
     "succeeded",
     `${tool}: ${JSON.stringify(done.outcome)}`,
@@ -103,7 +110,7 @@ const addItemTool = (
   }),
 });
 
-Deno.test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌하면 아무것도 바꾸지 않고, 다른 write를 지우지 않는다", async () => {
+test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌하면 아무것도 바꾸지 않고, 다른 write를 지우지 않는다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -117,38 +124,38 @@ Deno.test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, �
     });
     const nonce = (await core.call(appRuntime, { app: live.app })).observation
       ?.process_nonce;
-    assert(nonce !== undefined);
+    assert.ok(nonce !== undefined);
 
     // rewind-many-writes: 합이 frame 한도를 넘는 write 셋이 한 번에 첫 write 이전으로 돌아간다.
     const first = await addBlobs(core, live);
-    assertEquals((await blobs(core, live)).count, 3);
+    assert.deepStrictEqual((await blobs(core, live)).count, 3);
     const plan = await core.call(appRewindPlan, {
       app: live.app,
       from_invocation: first[0]!,
     });
-    assertEquals(plan.plan.items.length, 3);
+    assert.deepStrictEqual(plan.plan.items.length, 3);
     const rewound = await core.call(appRewind, {
       app: live.app,
       from_invocation: first[0]!,
     });
     // app state
-    assertEquals((await blobs(core, live)).count, 0);
+    assert.deepStrictEqual((await blobs(core, live)).count, 0);
     // ledger
-    assertEquals(rewound.status, "applied");
-    assertEquals(
+    assert.deepStrictEqual(rewound.status, "applied");
+    assert.deepStrictEqual(
       (await rewindOf(core, live, first[0]!))?.invocations.slice().sort(),
       first.slice().sort(),
     );
-    assertEquals(
+    assert.deepStrictEqual(
       (await core.call(appInvocations, { app: live.app, reverted: true }))
         .invocations.length,
       3,
     );
     // process: 같은 앱 process가 살아 있고 결과를 모르는 호출이 없다
     const after = await core.call(appRuntime, { app: live.app });
-    assertEquals(after.state.state, "running");
-    assertEquals(after.observation?.process_nonce, nonce);
-    assertEquals(
+    assert.deepStrictEqual(after.state.state, "running");
+    assert.deepStrictEqual(after.observation?.process_nonce, nonce);
+    assert.deepStrictEqual(
       (await core.call(appInvocations, { app: live.app, status: "unknown" }))
         .invocations,
       [],
@@ -162,20 +169,20 @@ Deno.test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, �
       from_invocation: second[0]!,
     });
     // app state
-    assertEquals(await blobs(core, live), { count: 3, touched: 1 });
+    assert.deepStrictEqual(await blobs(core, live), { count: 3, touched: 1 });
     // ledger
     const record = await rewindOf(core, live, second[0]!);
-    assertEquals(record?.status, "cancelled");
-    assertEquals(record?.reason?.code, "conflict");
-    assertEquals(
+    assert.deepStrictEqual(record?.status, "cancelled");
+    assert.deepStrictEqual(record?.reason?.code, "conflict");
+    assert.deepStrictEqual(
       (await core.call(appInvocations, { app: live.app, reverted: true }))
         .invocations.length,
       3,
     );
     // process
     const alive = await core.call(appRuntime, { app: live.app });
-    assertEquals(alive.state.state, "running");
-    assertEquals(alive.observation?.process_nonce, nonce);
+    assert.deepStrictEqual(alive.state.state, "running");
+    assert.deepStrictEqual(alive.observation?.process_nonce, nonce);
 
     // writes-serialized: 동시에 부른 write는 따로 기록되어 rewind 하나가 다른 쪽을 지우지 않는다.
     const both = await Promise.all(
@@ -191,9 +198,9 @@ Deno.test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, �
       `${x.started_at}${x.id}`.localeCompare(`${y.started_at}${y.id}`)
     );
     // ledger
-    assertEquals(written.length, 2);
-    assert(written.every((item) => item.changeset !== null));
-    assertEquals(
+    assert.deepStrictEqual(written.length, 2);
+    assert.ok(written.every((item) => item.changeset !== null));
+    assert.deepStrictEqual(
       new Set(written.map((item) => item.changeset?.hash)).size,
       2,
     );
@@ -204,13 +211,15 @@ Deno.test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, �
       app: live.app,
       from_invocation: later.id,
     });
-    assertEquals(single.plan.items.map((item) => item.invocation), [later.id]);
+    assert.deepStrictEqual(single.plan.items.map((item) => item.invocation), [
+      later.id,
+    ]);
     await core.call(appRewind, { app: live.app, from_invocation: later.id });
     // app state: 먼저 시작한 호출의 item 하나만 남는다
     const kept_title = ["a", "b"][
       both.findIndex((one) => one.invocation === earlier.id)
     ]!;
-    assertEquals(await titles(core, live), [kept_title]);
+    assert.deepStrictEqual(await titles(core, live), [kept_title]);
 
     // session-rewind-with-app: 앱 place Operator session의 rewind에서 앱을 고르면 그 앱도 되돌아가고, 안 고르면 그대로다.
     // 비공개 tool은 그 domain을 맡은 agent만 보고, 앱 place의 Operator는 앱의 domain을 모두 맡는다.
@@ -235,29 +244,37 @@ Deno.test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, �
       const session = await openSession(core, operator);
       const { message } = await say(core, session, `add ${title}`);
       await waitTurnEnd(core, session);
-      assert((await titles(core, live)).includes(title));
-      const preview = await core.call(sessionRewindPreview, {
-        session,
-        checkpoint: message,
-        choice: "restore_all",
-      });
-      assertEquals(preview.app_writes.map((item) => item.app), [live.app]);
-      const header = await core.call(sessionRewind, {
-        id: core.ids.newId("rwd"),
-        session,
-        checkpoint: message,
-        choice: "restore_all",
-        accept_remaining: true,
-        preview_hash: preview.preview_hash,
-        summary_call: null,
-        files: [],
-        apps: choose ? [live.app] : [],
-      }, { session_state: "open", active_turn: null, applying_rewind: null });
-      const revert = (await core.call(rewindList, { session })).reverts.find(
-        (item) => item.id === header.id,
+      assert.ok((await titles(core, live)).includes(title));
+      // node:assert의 deepStrictEqual은 assertion signature라서, 서로의 값을 쓰는 route 호출이 이어지면
+      // type 추론이 순환한다. route 출력 type을 적어 끊는다.
+      const preview: Output<typeof sessionRewindPreview> = await core.call(
+        sessionRewindPreview,
+        { session, checkpoint: message, choice: "restore_all" },
       );
+      assert.deepStrictEqual(preview.app_writes.map((item) => item.app), [
+        live.app,
+      ]);
+      const header: Output<typeof sessionRewind> = await core.call(
+        sessionRewind,
+        {
+          id: core.ids.newId("rwd"),
+          session,
+          checkpoint: message,
+          choice: "restore_all",
+          accept_remaining: true,
+          preview_hash: preview.preview_hash,
+          summary_call: null,
+          files: [],
+          apps: choose ? [live.app] : [],
+        },
+        { session_state: "open", active_turn: null, applying_rewind: null },
+      );
+      const revert: RevertRecord | undefined =
+        (await core.call(rewindList, { session })).reverts.find(
+          (item) => item.id === header.id,
+        );
       // disk: 파일 복원은 앱 선택과 독립이다. 이 session은 file을 건드리지 않았다.
-      assertEquals(revert?.items, []);
+      assert.deepStrictEqual(revert?.items, []);
       const writes = preview.app_writes[0]!.invocations;
       if (choose) {
         // ledger: 앱 rewind는 대화 rewind가 끝난 뒤 따로 요청된다.
@@ -265,21 +282,24 @@ Deno.test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, �
           const found = await rewindOf(core!, live, writes[0]!);
           return found?.status === "applying" ? undefined : found;
         });
-        assertEquals(record.status, "applied");
-        assertEquals(
+        assert.deepStrictEqual(record.status, "applied");
+        assert.deepStrictEqual(
           (await core.call(rewindList, { session })).reverts.find((item) =>
             item.id === header.id
           )?.apps.map((item) => [item.app, item.result]),
           [[live.app, "applied"]],
         );
         // app state
-        assert(!(await titles(core, live)).includes(title));
+        assert.ok(!(await titles(core, live)).includes(title));
       } else {
         // ledger
-        assertEquals(revert?.apps, []);
-        assertEquals(await rewindOf(core, live, writes[0]!), undefined);
+        assert.deepStrictEqual(revert?.apps, []);
+        assert.deepStrictEqual(
+          await rewindOf(core, live, writes[0]!),
+          undefined,
+        );
         // app state
-        assert((await titles(core, live)).includes(title));
+        assert.ok((await titles(core, live)).includes(title));
       }
     }
   } finally {

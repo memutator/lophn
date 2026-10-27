@@ -10,8 +10,10 @@
 // fake 대답: helper(`prepareRelease`, `activateRelease`)가 거는 App Engineer 대답은 행 몫에 세지 않는다. preview 단계만 대답
 // 둘(tool 넷을 실은 대답 하나와 text)을 건다.
 //
-// 한 Deno.test, core 하나, 앱 둘. 앞 단계의 앱과 release를 다음 단계가 이어 쓰므로 순서대로 돈다.
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+// 한 test, core 하나, 앱 둘. 앞 단계의 앱과 release를 다음 단계가 이어 쓰므로 순서대로 돈다.
+import assert from "node:assert/strict";
+import { readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { test } from "node:test";
 import {
   releasesGetRecord,
   releasesListRecords,
@@ -44,9 +46,9 @@ import { startFakeServer } from "../support/fake-server/mod.ts";
 
 async function countFiles(dir: string): Promise<number> {
   let count = 0;
-  for await (const entry of Deno.readDir(dir)) {
-    if (entry.isDirectory) count += await countFiles(`${dir}/${entry.name}`);
-    else if (entry.isFile) count += 1;
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) count += await countFiles(`${dir}/${entry.name}`);
+    else if (entry.isFile()) count += 1;
   }
   return count;
 }
@@ -55,12 +57,12 @@ async function countFiles(dir: string): Promise<number> {
 const dropAddItemHandler: AppPatch = async (dir) => {
   const path = `${dir}/src/tools.ts`;
   const from = `  tool("add_item", addItemHandler(deps));\n`;
-  const text = await Deno.readTextFile(path);
+  const text = await readFile(path, "utf8");
   if (!text.includes(from)) throw new Error(`${path}에 patch 자리가 없다`);
-  await Deno.writeTextFile(path, text.replace(from, ""));
+  await writeFile(path, text.replace(from, ""));
 };
 
-Deno.test("E2E App Engineer가 준비하고 preview로 확인한 template 앱은 사람이 동의한 뒤에만 뜨고, preview는 live ledger와 data에 닿지 않으며, 떨어진 준비는 release를 남기지 않는다", async (t) => {
+test("E2E App Engineer가 준비하고 preview로 확인한 template 앱은 사람이 동의한 뒤에만 뜨고, preview는 live ledger와 data에 닿지 않으며, 떨어진 준비는 release를 남기지 않는다", async (t) => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -71,7 +73,7 @@ Deno.test("E2E App Engineer가 준비하고 preview로 확인한 template 앱은
     const notes = await startTestApp(c, fake, { name: "Notes", slug: "notes" });
     let release = "";
 
-    await t.step(
+    await t.test(
       "prepare-preview: 준비하고 preview로 확인해도 live ledger와 data는 그대로다",
       async () => {
         const prepared = await prepareRelease(c, fake, notes, {
@@ -126,81 +128,81 @@ Deno.test("E2E App Engineer가 준비하고 preview로 확인한 template 앱은
           ]),
         );
         for (const [name, result] of Object.entries(results)) {
-          assertEquals(
+          assert.deepStrictEqual(
             result.status,
             "success",
             `${name}: ${result.code} ${result.summary}`,
           );
         }
-        assertEquals(
+        assert.deepStrictEqual(
           (results.start!.content as { ready: boolean }).ready,
           true,
         );
         type Outcome = { outcome: { status: string; result?: unknown } };
-        assertEquals(
+        assert.deepStrictEqual(
           (results.add!.content as Outcome).outcome.status,
           "succeeded",
         );
         const listed = (results.list!.content as Outcome).outcome;
-        assertEquals(listed.status, "succeeded");
-        assert(
+        assert.deepStrictEqual(listed.status, "succeeded");
+        assert.ok(
           (listed.result as { rows: { title: string }[] }).rows.some((row) =>
             row.title === "from preview"
           ),
         );
         // ledger: preview 호출은 invocation을 남기지 않고 preview는 멈췄다.
-        assertEquals(
+        assert.deepStrictEqual(
           (await c.call(appInvocations, { app: notes.app })).invocations,
           [],
         );
-        assertEquals(
+        assert.deepStrictEqual(
           (await c.call(previewsGet, { app: notes.app })).observation,
           null,
         );
         // process: preview가 live process를 띄우지 않았다.
-        assertEquals(
+        assert.deepStrictEqual(
           (await c.call(appRuntime, { app: notes.app })).observation,
           null,
         );
       },
     );
 
-    await t.step(
+    await t.test(
       "first-activation-rejected: 첫 activation은 묻고, 거절하면 뜨지 않는다",
       async () => {
-        assertEquals(
+        assert.deepStrictEqual(
           (await activateRelease(c, fake, notes, release)).status,
           "waiting_consent",
         );
         const line = await approveActivation(c, notes, "reject");
-        assertEquals(line.release, release);
+        assert.deepStrictEqual(line.release, release);
         // route
-        assertEquals(
+        assert.deepStrictEqual(
           (await c.call(activationConsents, { app: notes.app })).consents,
           [],
         );
         // ledger
-        assertEquals(
+        assert.deepStrictEqual(
           (await c.call(releasesGetRecord, { release })).release?.status,
           "prepared",
         );
-        assertEquals(
+        assert.deepStrictEqual(
           (await c.call(appGet, { app: notes.app })).app.active_release,
           null,
         );
         // process
-        assertEquals(
+        assert.deepStrictEqual(
           (await c.call(appRuntime, { app: notes.app })).observation,
           null,
         );
       },
     );
 
-    await t.step(
+    await t.test(
       "activation-allowed: App Engineer가 다시 올리고 사람이 허락하면 그 release가 뜬다",
       async () => {
         // 거절된 prepared release는 App Engineer가 다시 부르는 것이 제품 길이다.
-        assertEquals(
+        assert.deepStrictEqual(
           (await activateRelease(c, fake, notes, release)).status,
           "waiting_consent",
         );
@@ -209,29 +211,31 @@ Deno.test("E2E App Engineer가 준비하고 preview로 확인한 template 앱은
 
         // disk: 제품이 새 data root에 깐 bundle 사본과 sdk 사본
         const record = (await c.call(releasesGetRecord, { release })).release;
-        assert(record !== null);
+        assert.ok(record !== null);
         const bundle = appBundleCopy(c.run.home, notes.app, record.bundle_hash);
-        assert((await countFiles(bundle)) < RELEASE_FILE_MAX_COUNT);
-        assert((await Deno.stat(`${bundle}/screens/items/main.js.map`)).isFile);
-        assertEquals(
-          (await Deno.stat(`${c.run.home}/sdk/ui/1.0.0`)).mode! & 0o222,
+        assert.ok((await countFiles(bundle)) < RELEASE_FILE_MAX_COUNT);
+        assert.ok(
+          (await stat(`${bundle}/screens/items/main.js.map`)).isFile(),
+        );
+        assert.deepStrictEqual(
+          (await stat(`${c.run.home}/sdk/ui/1.0.0`)).mode & 0o222,
           0,
         );
         // ledger
-        assertEquals(record.status, "active");
-        assertEquals(
+        assert.deepStrictEqual(record.status, "active");
+        assert.deepStrictEqual(
           (await c.call(appGet, { app: notes.app })).app.active_release,
           release,
         );
         // process·data: 앱 process가 실제로 답했고 preview의 쓰기는 live DB에 없다.
-        assertEquals(observed.ready, true);
+        assert.deepStrictEqual(observed.ready, true);
         const live = await c.call(appCallTool, {
           target: { mode: "live", app: notes.app, release: null },
           tool: "list_items",
           caller: { kind: "person", view_session: "e2e" },
         });
-        assert(live.outcome.status === "succeeded");
-        assertEquals(
+        assert.ok(live.outcome.status === "succeeded");
+        assert.deepStrictEqual(
           (live.outcome.result as { rows: { title: string }[] }).rows.some(
             (row) => row.title === "from preview",
           ),
@@ -240,7 +244,7 @@ Deno.test("E2E App Engineer가 준비하고 preview로 확인한 template 앱은
       },
     );
 
-    await t.step(
+    await t.test(
       "prepare-failed: 준비가 떨어지면 결과에 stage와 reason이 있고 release 행이 없다",
       async () => {
         const broken = await startTestApp(c, fake, {
@@ -252,15 +256,15 @@ Deno.test("E2E App Engineer가 준비하고 preview로 확인한 template 앱은
           goal: "Make the first release of the broken app",
         });
         // fake·route: probe 거절의 reason에 빠진 tool 이름이 실린다.
-        assert(failed.status === "failed", JSON.stringify(failed));
-        assertEquals(failed.stage, "handlers");
-        assertStringIncludes(failed.reason, "add_item");
+        assert.ok(failed.status === "failed", JSON.stringify(failed));
+        assert.deepStrictEqual(failed.stage, "handlers");
+        assert.ok(failed.reason.includes("add_item"), failed.reason);
         // ledger
-        assertEquals(
+        assert.deepStrictEqual(
           (await c.call(releasesListRecords, { app: broken.app })).releases,
           [],
         );
-        assertEquals(
+        assert.deepStrictEqual(
           (await c.call(appGet, { app: broken.app })).app.active_release,
           null,
         );

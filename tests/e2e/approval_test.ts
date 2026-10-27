@@ -1,8 +1,10 @@
-// 세 질문(ask 행은 아래 Deno.test에 따로 있다)
+// 세 질문(ask 행은 아래 test에 따로 있다)
 // - contract: boundary `approvals`(묻는 shell 명령은 사람의 결정 전에 실행되지 않고, `once`는 기다리던 그 호출을 풀고, 거절은 tool 결과로 agent에게 간다), `agent-tools`.
 // - 현실적 회귀: Gate를 건너뛰어 결정 전에 명령이 도는 수정, 거절했는데 도는 수정, 결정 뒤 turn이 이어 가지 못하는 수정.
 // - 왜 지금 test로 못 잡나: judge_test는 순수 판정만 본다. child의 `tool_gate/check` → core 메모리 request → 사람 route → child가 이어 가는 왕복은 process를 건너야 보인다.
-import { assert, assertEquals, assertNotEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir } from "node:fs/promises";
+import { test } from "node:test";
 import {
   askAnswer,
   askRead,
@@ -33,10 +35,10 @@ function toolResultOf(fake: FakeServer, id: string): string {
     messages: { role: string; content: unknown }[];
   };
   const last = body.messages.at(-1)!;
-  assertEquals(last.role, "user");
+  assert.deepStrictEqual(last.role, "user");
   const block = (last.content as { type: string; tool_use_id?: string }[])
     .find((item) => item.type === "tool_result" && item.tool_use_id === id);
-  assert(block, `둘째 요청에 ${id}의 tool_result가 없다`);
+  assert.ok(block, `둘째 요청에 ${id}의 tool_result가 없다`);
   return JSON.stringify((block as { content?: unknown }).content ?? null);
 }
 
@@ -65,7 +67,7 @@ async function askAndDecide(
   return { ask, before, calls: tool_calls, result: toolResultOf(fake, "t1") };
 }
 
-Deno.test("묻는 shell 명령은 허락 전에 실행되지 않고, once면 실행되며 거절하면 실행되지 않고 거절이 agent에게 간다", async () => {
+test("묻는 shell 명령은 허락 전에 실행되지 않고, once면 실행되며 거절하면 실행되지 않고 거절이 agent에게 간다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -74,13 +76,13 @@ Deno.test("묻는 shell 명령은 허락 전에 실행되지 않고, once면 실
     await connectFakeProvider(core, fake);
     // 두 행이 같은 project 폴더(proj)를 쓰되 폴더는 서로 다른 하위 폴더에 둔다.
     const folder = `${run.work}/proj`;
-    await Deno.mkdir(folder);
+    await mkdir(folder);
     const { project } = await openProject(core, folder);
 
     const once = await askAndDecide(core, fake, project, folder, "a", "once");
-    assertEquals(once.before, true);
-    assertEquals(await once.ask.exists(), false);
-    assertEquals(once.calls.map((c) => c.outcome?.kind), ["success"]);
+    assert.deepStrictEqual(once.before, true);
+    assert.deepStrictEqual(await once.ask.exists(), false);
+    assert.deepStrictEqual(once.calls.map((c) => c.outcome?.kind), ["success"]);
 
     const rejected = await askAndDecide(
       core,
@@ -90,12 +92,12 @@ Deno.test("묻는 shell 명령은 허락 전에 실행되지 않고, once면 실
       "b",
       "reject",
     );
-    assertEquals(rejected.before, true);
-    assertEquals(await rejected.ask.exists(), true);
-    assertEquals(rejected.calls.map((c) => c.outcome), [
+    assert.deepStrictEqual(rejected.before, true);
+    assert.deepStrictEqual(await rejected.ask.exists(), true);
+    assert.deepStrictEqual(rejected.calls.map((c) => c.outcome), [
       { kind: "not_executed", code: "rejected" },
     ]);
-    assertNotEquals(rejected.result, once.result);
+    assert.notDeepStrictEqual(rejected.result, once.result);
   } finally {
     await core?.kill().catch(() => {});
     await fake.close();
@@ -155,7 +157,7 @@ async function askRow(
   };
 }
 
-Deno.test("ask: 사람의 답과 기다리는 중 보낸 말이 tool 결과로 돌아가고 질문이 닫힌다", async () => {
+test("ask: 사람의 답과 기다리는 중 보낸 말이 tool 결과로 돌아가고 질문이 닫힌다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -165,29 +167,35 @@ Deno.test("ask: 사람의 답과 기다리는 중 보낸 말이 tool 결과로 �
 
     const answered = await askRow(core, fake, async (session, tool_call) => {
       const read = await core!.call(askRead, { session, tool_call });
-      assertEquals(read.questions[0].question, "Which?");
+      assert.deepStrictEqual(read.questions[0].question, "Which?");
       await core!.call(askAnswer, {
         session,
         tool_call,
         answers: [{ question: "Which?", status: "answered", answer: ["A"] }],
       });
     });
-    assert(answered.result.includes("submitted"), answered.result);
-    assert(answered.result.includes("A"), answered.result);
-    assertEquals(answered.calls.map((c) => c.outcome?.kind), ["success"]);
-    assertEquals(answered.questions, []);
-    assert(!answered.closed.ok && answered.closed.error.code === "not_found");
+    assert.ok(answered.result.includes("submitted"), answered.result);
+    assert.ok(answered.result.includes("A"), answered.result);
+    assert.deepStrictEqual(answered.calls.map((c) => c.outcome?.kind), [
+      "success",
+    ]);
+    assert.deepStrictEqual(answered.questions, []);
+    assert.ok(
+      !answered.closed.ok && answered.closed.error.code === "not_found",
+    );
 
     const spoken = await askRow(core, fake, async (session) => {
       await say(core!, session, "take B please");
     });
-    assert(spoken.result.includes("human_message"), spoken.result);
-    assert(spoken.result.includes("take B please"), spoken.result);
-    assertEquals(spoken.calls.map((c) => c.outcome?.kind), ["success"]);
-    assertEquals(spoken.questions, []);
+    assert.ok(spoken.result.includes("human_message"), spoken.result);
+    assert.ok(spoken.result.includes("take B please"), spoken.result);
+    assert.deepStrictEqual(spoken.calls.map((c) => c.outcome?.kind), [
+      "success",
+    ]);
+    assert.deepStrictEqual(spoken.questions, []);
     // 그 말은 tool 결과가 됐을 뿐 새 turn을 열지 않는다.
-    assertEquals((await turnsOf(core, spoken.session)).length, 1);
-    assert(!spoken.closed.ok && spoken.closed.error.code === "not_found");
+    assert.deepStrictEqual((await turnsOf(core, spoken.session)).length, 1);
+    assert.ok(!spoken.closed.ok && spoken.closed.error.code === "not_found");
   } finally {
     await core?.kill().catch(() => {});
     await fake.close();

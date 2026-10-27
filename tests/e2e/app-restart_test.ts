@@ -8,7 +8,10 @@
 //
 // fake 대답: 앱 activation(`activateTestApp`)의 App Engineer 대답(`release_prepare`·`release_activate`)뿐이라 행의 상한(3)에
 // 세지 않는다(`architecture/testing.md` "case 고르는 규칙" 4).
-import { assert, assertEquals, assertNotEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { readdir, readFile } from "node:fs/promises";
+import process from "node:process";
+import { test } from "node:test";
 import { CRASH_LIMIT } from "../../packages/core/apps/runtime/supervisor/restart-policy.ts";
 import { releasesGetRecord } from "../../packages/protocol/apps/activation/activation.ts";
 import {
@@ -50,10 +53,10 @@ const unknownReasons: readonly string[] = (toolCallOutputSchema.shape.outcome
 // 다르다.
 async function appPids(bundle: string): Promise<number[]> {
   const found: number[] = [];
-  for await (const entry of Deno.readDir("/proc")) {
+  for (const entry of await readdir("/proc", { withFileTypes: true })) {
     if (!/^\d+$/.test(entry.name)) continue;
     try {
-      const argv = await Deno.readTextFile(`/proc/${entry.name}/cmdline`);
+      const argv = await readFile(`/proc/${entry.name}/cmdline`, "utf8");
       if (argv.includes(bundle)) found.push(Number(entry.name));
     } catch { /* 그 사이 끝났다 */ }
   }
@@ -116,7 +119,7 @@ async function invocationOf(
 ): Promise<AppInvocation> {
   const { invocations } = await core.call(appInvocations, { app: app.app });
   const found = invocations.find((item) => item.id === id);
-  assert(found !== undefined, `${id}가 ledger에 없다`);
+  assert.ok(found !== undefined, `${id}가 ledger에 없다`);
   return found;
 }
 
@@ -126,7 +129,7 @@ async function countSlow(core: Core, app: TestApp): Promise<number> {
     tool: "count_slow",
     caller,
   });
-  assertEquals(
+  assert.deepStrictEqual(
     called.outcome.status,
     "succeeded",
     JSON.stringify(called.outcome),
@@ -166,10 +169,10 @@ async function withSlowApp(row: (slow: Slow) => Promise<void>): Promise<void> {
     const release = (await core.call(appRuntime, { app: app.app }))
       .observation!.release!;
     const record = (await core.call(releasesGetRecord, { release })).release;
-    assert(record !== null);
+    assert.ok(record !== null);
     const bundle = `${run.home}/apps/${app.app}/bundles/${record.bundle_hash}`;
     const pids = await appPids(bundle);
-    assertEquals(pids.length, 1);
+    assert.deepStrictEqual(pids.length, 1);
     const slow: Slow = {
       run,
       env,
@@ -198,7 +201,7 @@ async function newNonce(core: Core, app: TestApp, old: string) {
   });
 }
 
-Deno.test("E2E 앱 write 도중 core가 죽었다 켜지면 그 호출은 unknown으로 닫혀 다시 가지 않고 앱 process는 하나만 뜬다", async () => {
+test("E2E 앱 write 도중 core가 죽었다 켜지면 그 호출은 unknown으로 닫혀 다시 가지 않고 앱 process는 하나만 뜬다", async () => {
   await withSlowApp(async (slow) => {
     const { app, bundle } = slow;
     const sent = await startSlowWrite(slow.core, app, "one");
@@ -215,56 +218,56 @@ Deno.test("E2E 앱 write 도중 core가 죽었다 켜지면 그 호출은 unknow
 
     // ledger
     const closed = await invocationOf(core, app, sent.invocation);
-    assertEquals(closed.status, "unknown");
-    assertEquals(closed.summary["reason"], "core_restarted");
+    assert.deepStrictEqual(closed.status, "unknown");
+    assert.deepStrictEqual(closed.summary["reason"], "core_restarted");
     // route
-    assertEquals(
+    assert.deepStrictEqual(
       (await core.call(appRewindPlan, {
         app: app.app,
         from_invocation: sent.invocation,
       })).plan.blocked,
       { reason: "unrecoverable_write", invocation: sent.invocation },
     );
-    assertEquals(await countSlow(core, app), 1);
+    assert.deepStrictEqual(await countSlow(core, app), 1);
     // process
     const pids = await appPids(bundle);
-    assertEquals(pids.length, 1);
-    assertNotEquals(pids[0], slow.pid);
-    assertNotEquals(nonce, slow.nonce);
+    assert.deepStrictEqual(pids.length, 1);
+    assert.notDeepStrictEqual(pids[0], slow.pid);
+    assert.notDeepStrictEqual(nonce, slow.nonce);
   });
 });
 
-Deno.test("E2E 앱 write 도중 앱 process만 죽으면 그 호출은 unknown으로 닫혀 다시 가지 않고 새 process가 하나만 뜬다", async () => {
+test("E2E 앱 write 도중 앱 process만 죽으면 그 호출은 unknown으로 닫혀 다시 가지 않고 새 process가 하나만 뜬다", async () => {
   await withSlowApp(async (slow) => {
     const { core, app, bundle } = slow;
     const sent = await startSlowWrite(core, app, "one");
-    Deno.kill(slow.pid, "SIGKILL");
+    process.kill(slow.pid, "SIGKILL");
     const answered = await sent.call;
     const nonce = await newNonce(core, app, slow.nonce);
 
     // ledger: 이유는 부른 쪽에 돌아온 outcome에 있다. ledger summary에는 outcome만 남는다.
     const lost = await invocationOf(core, app, sent.invocation);
-    assertEquals(lost.status, "unknown");
-    assertEquals(lost.summary["outcome"], "unknown");
-    assert(
+    assert.deepStrictEqual(lost.status, "unknown");
+    assert.deepStrictEqual(lost.summary["outcome"], "unknown");
+    assert.ok(
       answered?.outcome.status === "unknown" &&
         unknownReasons.includes(answered.outcome.reason),
       `unknown 이유가 ${JSON.stringify(answered?.outcome)}`,
     );
     // route
-    assertEquals(
+    assert.deepStrictEqual(
       (await core.call(appRewindPlan, {
         app: app.app,
         from_invocation: sent.invocation,
       })).plan.blocked,
       { reason: "unrecoverable_write", invocation: sent.invocation },
     );
-    assertEquals(await countSlow(core, app), 1);
+    assert.deepStrictEqual(await countSlow(core, app), 1);
     // process: core는 살아 있고(위 호출이 답했다) 새 process가 하나 떴다.
     const pids = await appPids(bundle);
-    assertEquals(pids.length, 1);
-    assertNotEquals(pids[0], slow.pid);
-    assertNotEquals(nonce, slow.nonce);
+    assert.deepStrictEqual(pids.length, 1);
+    assert.notDeepStrictEqual(pids[0], slow.pid);
+    assert.notDeepStrictEqual(nonce, slow.nonce);
   });
 });
 
@@ -277,7 +280,7 @@ Deno.test("E2E 앱 write 도중 앱 process만 죽으면 그 호출은 unknown�
 //
 // 앞 두 행과 core를 같이 쓰지 않는다. 창 안의 종료를 세므로 둘째 행의 SIGKILL이 같은 창에 들어가면 멈추는 횟수가 행 순서에 묶인다.
 // fake 대답은 앱 activation helper의 것뿐이다.
-Deno.test("E2E 앱 process가 거듭 죽으면 자동 재시작이 멈추고 Gateway가 AppRestartHalted 하나를 받는다", async () => {
+test("E2E 앱 process가 거듭 죽으면 자동 재시작이 멈추고 Gateway가 AppRestartHalted 하나를 받는다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -297,7 +300,7 @@ Deno.test("E2E 앱 process가 거듭 죽으면 자동 재시작이 멈추고 Gat
     const record = (await core.call(releasesGetRecord, {
       release: seen.release!,
     })).release;
-    assert(record !== null);
+    assert.ok(record !== null);
     const bundle = `${run.home}/apps/${app.app}/bundles/${record.bundle_hash}`;
 
     for (let exit = 1; exit <= CRASH_LIMIT + 1; exit++) {
@@ -307,7 +310,7 @@ Deno.test("E2E 앱 process가 거듭 죽으면 자동 재시작이 멈추고 Gat
         caller,
       });
       // 응답을 보낸 뒤 죽으므로 결과를 모를 수는 있어도 거절되거나 handler가 실패해서는 안 된다.
-      assert(
+      assert.ok(
         called.outcome.status === "succeeded" ||
           called.outcome.status === "unknown",
         JSON.stringify(called.outcome),
@@ -328,23 +331,23 @@ Deno.test("E2E 앱 process가 거듭 죽으면 자동 재시작이 멈추고 Gat
       "event",
       (frame) => frame.event.type === "AppRestartHalted",
     );
-    assert(halted.event.type === "AppRestartHalted");
+    assert.ok(halted.event.type === "AppRestartHalted");
 
     // route
     const state = (await core.call(appRuntime, { app: app.app })).state;
-    assertEquals(state.state, "unavailable");
-    assertEquals(state.reason?.code, "crash_loop");
+    assert.deepStrictEqual(state.state, "unavailable");
+    assert.deepStrictEqual(state.reason?.code, "crash_loop");
     // event
-    assertEquals(halted.event.subject, app.app);
-    assertEquals(halted.event.payload.crashes, CRASH_LIMIT + 1);
-    assertEquals(
+    assert.deepStrictEqual(halted.event.subject, app.app);
+    assert.deepStrictEqual(halted.event.payload.crashes, CRASH_LIMIT + 1);
+    assert.deepStrictEqual(
       gateway.frames().filter((frame) =>
         frame.type === "event" && frame.event.type === "AppRestartHalted"
       ).length,
       1,
     );
     // process: 멈춘 뒤 다시 띄우지 않았다.
-    assertEquals(await appPids(bundle), []);
+    assert.deepStrictEqual(await appPids(bundle), []);
   } finally {
     await gateway?.close().catch(() => {});
     await core?.kill().catch(() => {});

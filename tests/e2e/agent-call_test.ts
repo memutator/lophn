@@ -15,7 +15,9 @@
 // Router의 dedup 키는 그 tcl id라서 session 둘이 열린다(retry 흉내가 안 된다). dedup 규칙은 router_test.ts가 지킨다.
 //
 // core는 file 전체에서 하나, 행마다 새 A/B session을 연다. 재시작 행은 core를 바꾸므로 마지막이다.
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir } from "node:fs/promises";
+import { test } from "node:test";
 import { appCreate } from "../../packages/protocol/apps/mod.ts";
 import {
   type AgentRef,
@@ -119,7 +121,7 @@ function withCallId(
 // tool_result 글은 JSON이고 내용이 content에 있다.
 function resultOf(request: JournalEntry, id: string) {
   const raw = lastToolResult(request, id);
-  assert(raw !== undefined, `요청에 ${id}의 tool_result가 없다`);
+  assert.ok(raw !== undefined, `요청에 ${id}의 tool_result가 없다`);
   return (JSON.parse(raw).content ?? {}) as Record<string, unknown>;
 }
 
@@ -127,7 +129,7 @@ const lane = (fake: FakeServer, name: string) =>
   fake.journal().filter((entry) => entry.lane === name);
 
 function assertNoMismatch(fake: FakeServer) {
-  assertEquals(
+  assert.deepStrictEqual(
     fake.journal().filter((entry) => entry.mismatch !== null).map((entry) =>
       `#${entry.n} ${entry.lane}: ${entry.mismatch}`
     ),
@@ -179,7 +181,7 @@ async function archive(core: Core, session: string): Promise<void> {
   });
 }
 
-Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도 보낸 쪽이 실패를 한 번 받는다", async (t) => {
+test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도 보낸 쪽이 실패를 한 번 받는다", async (t) => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -187,14 +189,14 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
     const folder = `${run.work}/proj`;
-    await Deno.mkdir(folder);
+    await mkdir(folder);
     const { project } = await openProject(core, folder);
     const pm: AgentRef = { role: "project_manager", project };
     const toPm = { role: "project_manager", place: { project: "proj" } };
     const c = core;
     // 실패하면 어느 요청이 어느 줄로 갔고 무엇이 어긋났는지 같이 보인다.
     const step = (name: string, body: () => Promise<void>) =>
-      t.step(name, async () => {
+      t.test(name, async () => {
         try {
           await body();
         } catch (error) {
@@ -233,20 +235,23 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
 
         // ledger: call은 B의 reply로 done이 됐고 B의 session은 하나만 열렸다.
         const call = await callOf(c, b);
-        assertEquals((await callRecord(c, call)).state, "done");
-        assertEquals((await sessionIds(c, pm)).length, known.length + 1);
+        assert.deepStrictEqual((await callRecord(c, call)).state, "done");
+        assert.deepStrictEqual(
+          (await sessionIds(c, pm)).length,
+          known.length + 1,
+        );
         // fake: 원문 대화가 아니라 body만 넘어가고 B의 답이 A의 셋째 요청에 있다.
         const toA = lane(fake, "lophn");
         const toB = lane(fake, "pm");
-        assert(JSON.stringify(toA[2].body).includes("pong"));
+        assert.ok(JSON.stringify(toA[2].body).includes("pong"));
         const first = JSON.stringify(toB[0].body);
-        assert(first.includes("ping"));
-        assert(!first.includes("LOPHN-ONLY-MARK"));
+        assert.ok(first.includes("ping"));
+        assert.ok(!first.includes("LOPHN-ONLY-MARK"));
         // ledger: A의 첫 turn은 B를 기다리지 않고 끝났고 B의 답은 그 뒤 새 turn을 열었다.
         const turns = await turnsOf(c, a);
-        assertEquals(turns[0].outcome?.kind, "completed");
-        assertEquals(resultOf(toA[1], "c1").state, "accepted");
-        assert(turns[1].started_at >= turns[0].finished_at!);
+        assert.deepStrictEqual(turns[0].outcome?.kind, "completed");
+        assert.deepStrictEqual(resultOf(toA[1], "c1").state, "accepted");
+        assert.ok(turns[1].started_at >= turns[0].finished_at!);
       },
     );
 
@@ -272,7 +277,7 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
         // ledger: call은 failed(receiver_ended)로 닫혔다.
         const call = await callOf(c, b);
         const record = await callRecord(c, call);
-        assertEquals([record.state, record.fail_reason], [
+        assert.deepStrictEqual([record.state, record.fail_reason], [
           "failed",
           "receiver_ended",
         ]);
@@ -280,10 +285,10 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
         const notices = (await messagesOf(c, a)).filter((m) =>
           m.reply_to === call
         );
-        assertEquals(notices.length, 1);
-        assertEquals(notices[0].from.kind, "program");
+        assert.deepStrictEqual(notices.length, 1);
+        assert.deepStrictEqual(notices[0].from.kind, "program");
         // fake: A의 요청은 call, tool 결과 뒤, 실패 알림 turn 셋뿐이다.
-        assertEquals(lane(fake, "lophn").length, 3);
+        assert.deepStrictEqual(lane(fake, "lophn").length, 3);
       },
     );
 
@@ -307,16 +312,16 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
 
         // fake: call의 tool_result가 failed와 not_found를 담는다.
         const result = resultOf(lane(fake, "lophn")[1], "c1");
-        assertEquals([result.state, result.fail_reason], [
+        assert.deepStrictEqual([result.state, result.fail_reason], [
           "failed",
           "not_found",
         ]);
         // route: 새 session이 열리지 않았다.
-        assertEquals(await sessionIds(c, pm), before);
+        assert.deepStrictEqual(await sessionIds(c, pm), before);
         // ledger: 이름을 못 푼 call은 받는 곳을 적을 수 없어 행이 없다.
         const read = await c.tryCall(callRead, { call: String(result.call) });
-        assert(!read.ok);
-        assertEquals(read.error.code, "not_found");
+        assert.ok(!read.ok);
+        assert.deepStrictEqual(read.error.code, "not_found");
       },
     );
 
@@ -338,12 +343,15 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
 
         // fake: tool_result가 failed·closed이고 새로 열라는 hint를 담는다.
         const result = resultOf(lane(fake, "lophn")[1], "c1");
-        assertEquals([result.state, result.fail_reason], ["failed", "closed"]);
-        assert(String(result.hint).includes("call its role and place"));
+        assert.deepStrictEqual([result.state, result.fail_reason], [
+          "failed",
+          "closed",
+        ]);
+        assert.ok(String(result.hint).includes("call its role and place"));
         // route: session이 새로 열리지 않았다.
-        assertEquals(await sessionIds(c, pm), known);
+        assert.deepStrictEqual(await sessionIds(c, pm), known);
         // ledger: B가 받은 message가 없다.
-        assertEquals(await messagesOf(c, b), []);
+        assert.deepStrictEqual(await messagesOf(c, b), []);
       },
     );
 
@@ -365,20 +373,20 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
         assertNoMismatch(fake);
 
         // route: B는 이 call의 message를 받았다.
-        assertEquals(
+        assert.deepStrictEqual(
           (await messagesOf(c, b)).filter((m) => m.call !== null).length,
           1,
         );
         // ledger: A가 받은 것은 사람 message 하나뿐이고 turn도 하나다.
-        assertEquals(
+        assert.deepStrictEqual(
           (await messagesOf(c, a)).filter((m) =>
             m.call !== null || m.reply_to !== null
           ),
           [],
         );
-        assertEquals((await turnsOf(c, a)).length, 1);
+        assert.deepStrictEqual((await turnsOf(c, a)).length, 1);
         // fake: A의 요청은 둘뿐이다.
-        assertEquals(lane(fake, "lophn").length, 2);
+        assert.deepStrictEqual(lane(fake, "lophn").length, 2);
       },
     );
 
@@ -420,13 +428,16 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
         assertNoMismatch(fake);
 
         // ledger: call이 done이다.
-        assertEquals((await callRecord(c, await callOf(c, b))).state, "done");
+        assert.deepStrictEqual(
+          (await callRecord(c, await callOf(c, b))).state,
+          "done",
+        );
         // fake: Operator의 셋째 요청에 App Engineer의 답이 있다.
-        assert(
+        assert.ok(
           JSON.stringify(lane(fake, "operator")[2].body).includes("fixed"),
         );
         // route: App Engineer session이 하나 열렸다.
-        assertEquals((await sessionIds(c, ae)).length, 1);
+        assert.deepStrictEqual((await sessionIds(c, ae)).length, 1);
       },
     );
 
@@ -467,12 +478,15 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
 
         // ledger: call은 cancelled다.
         const call = await callOf(c, b);
-        assertEquals((await callRecord(c, call)).state, "cancelled");
+        assert.deepStrictEqual((await callRecord(c, call)).state, "cancelled");
         // fake: B의 reply 결과는 오류가 아니라 closed: true다.
         const result = resultOf(lane(fake, "pm")[2], "t_reply");
-        assertEquals([result.closed, result.delivered], [true, false]);
+        assert.deepStrictEqual([result.closed, result.delivered], [
+          true,
+          false,
+        ]);
         // ledger: A는 그 reply를 입력으로 받지 않았다.
-        assertEquals(
+        assert.deepStrictEqual(
           (await messagesOf(c, a)).filter((m) => m.reply_to === call),
           [],
         );
@@ -506,16 +520,19 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
 
         // ledger: reply가 받은 session에서 call을 done으로 닫았다.
         const call = await callOf(c, b);
-        assertEquals((await callRecord(c, call)).state, "done");
+        assert.deepStrictEqual((await callRecord(c, call)).state, "done");
         // route: archive된 A에 reply 입력도 새 turn도 없다.
-        assertEquals((await turnsOf(c, a)).length, 1);
-        assertEquals(
+        assert.deepStrictEqual((await turnsOf(c, a)).length, 1);
+        assert.deepStrictEqual(
           (await messagesOf(c, a)).filter((m) => m.reply_to === call),
           [],
         );
         // fake: B의 reply는 오류 없이 전해지지 않음(delivered: false)만 알린다.
         const result = resultOf(lane(fake, "pm")[2], "t_reply");
-        assertEquals([result.closed, result.delivered], [false, false]);
+        assert.deepStrictEqual([result.closed, result.delivered], [
+          false,
+          false,
+        ]);
       },
     );
 
@@ -550,23 +567,26 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
         const callMessage = (await messagesOf(c, b)).find((m) =>
           m.call !== null
         )!;
-        assertEquals(turns.map((turn) => turn.input_message).slice(1), [
-          human,
-          callMessage.id,
-        ]);
+        assert.deepStrictEqual(
+          turns.map((turn) => turn.input_message).slice(1),
+          [
+            human,
+            callMessage.id,
+          ],
+        );
         // fake: 셋째 요청에는 사람 글이 있고, call 글은 넷째 요청에서 call 태그에 싸여 처음 나온다.
         const toB = lane(fake, "pm").map((e) => JSON.stringify(e.body));
-        assert(toB[2].includes("human-follow-up"));
-        assert(toB[3].includes("<lophn-call"));
+        assert.ok(toB[2].includes("human-follow-up"));
+        assert.ok(toB[3].includes("<lophn-call"));
         // 넷째 요청의 history에는 앞 turn이 가져간 사람 글이 있다.
-        assert(toB[3].includes("human-follow-up"));
+        assert.ok(toB[3].includes("human-follow-up"));
         // route: B의 turn은 셋이고 모두 completed다.
-        assertEquals(
+        assert.deepStrictEqual(
           turns.map((turn) => turn.outcome?.kind),
           ["completed", "completed", "completed"],
         );
         // 아직 가져가지 않은 call의 글은 앞선 turn의 prompt에 들어가지 않는다.
-        assert(
+        assert.ok(
           !toB[2].includes("call-body-marker"),
           "아직 turn이 가져가지 않은 call 글이 사람 message turn의 prompt에 태그 없이 들어갔다",
         );
@@ -600,22 +620,22 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
 
         // ledger: call은 failed(lophn_restarted)이고 B의 첫 turn은 restarted로 끊겼다.
         const record = await callRecord(after, call);
-        assertEquals([record.state, record.fail_reason], [
+        assert.deepStrictEqual([record.state, record.fail_reason], [
           "failed",
           "lophn_restarted",
         ]);
-        assertEquals((await turnsOf(after, b))[0].outcome, {
+        assert.deepStrictEqual((await turnsOf(after, b))[0].outcome, {
           kind: "interrupted",
           reason: "restarted",
         });
         // ledger: A는 알림을 입력 하나로 받았다.
-        assertEquals(
+        assert.deepStrictEqual(
           (await messagesOf(after, a)).filter((m) => m.reply_to === call)
             .length,
           1,
         );
         // fake: B 하나와 A 셋이다.
-        assertEquals(fake.journal().length, 4);
+        assert.deepStrictEqual(fake.journal().length, 4);
       },
     );
   } finally {

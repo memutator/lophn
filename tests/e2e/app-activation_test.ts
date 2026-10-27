@@ -11,9 +11,11 @@
 // fake 대답: 행의 fake 대답은 앱 activation helper(`deliverRelease`, `prepareRelease`, `activateRelease`)가 거는 App Engineer의
 // `release_prepare`·`release_activate`뿐이라 행 상한(3)에 세지 않는다(`architecture/testing.md` "case 고르는 규칙" 4).
 //
-// 한 Deno.test, core 하나, 앱 하나. `rewind-not-across-release` 이후 행은 앞 행이 만든 release를 이어 쓰므로 표 순서대로 돈다.
+// 한 test, core 하나, 앱 하나. `rewind-not-across-release` 이후 행은 앞 행이 만든 release를 이어 쓰므로 표 순서대로 돈다.
 // 모든 release는 처음 commit(v1)에 patch를 얹어 만든다.
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { readdir, readFile } from "node:fs/promises";
+import { test } from "node:test";
 import {
   activationActivatePrevious,
   activationsQueue,
@@ -68,7 +70,7 @@ function call(core: Core, app: string, tool: string, input?: unknown) {
 
 async function titles(core: Core, app: string): Promise<string[]> {
   const { outcome } = await call(core, app, "list_items");
-  assertEquals(outcome.status, "succeeded");
+  assert.deepStrictEqual(outcome.status, "succeeded");
   if (outcome.status !== "succeeded") return [];
   return (outcome.result as { rows: { title: string }[] }).rows.map((row) =>
     row.title
@@ -77,7 +79,7 @@ async function titles(core: Core, app: string): Promise<string[]> {
 
 async function recordOf(core: Core, release: string) {
   const { release: record } = await core.call(releasesGetRecord, { release });
-  assert(record !== null);
+  assert.ok(record !== null);
   return record;
 }
 
@@ -89,10 +91,10 @@ async function activeOf(core: Core, app: string): Promise<string | null> {
 async function appProcesses(core: Core, app: string): Promise<number> {
   const needle = `${core.run.home}/apps/${app}/bundles/`;
   let count = 0;
-  for await (const entry of Deno.readDir("/proc")) {
+  for (const entry of await readdir("/proc", { withFileTypes: true })) {
     if (!/^\d+$/.test(entry.name)) continue;
     try {
-      const cmd = await Deno.readTextFile(`/proc/${entry.name}/cmdline`);
+      const cmd = await readFile(`/proc/${entry.name}/cmdline`, "utf8");
       const args = cmd.split("\0");
       if (args.some((arg) => arg.startsWith(needle) && arg.endsWith(".ts"))) {
         count += 1;
@@ -102,7 +104,7 @@ async function appProcesses(core: Core, app: string): Promise<number> {
   return count;
 }
 
-Deno.test("E2E release activation은 실패하면 data와 이전 release를 그대로 두고, 넓어진 선언은 허락으로만 올리며, 재시작을 넘는다", async () => {
+test("E2E release activation은 실패하면 data와 이전 release를 그대로 두고, 넓어진 선언은 허락으로만 올리며, 재시작을 넘는다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -169,63 +171,63 @@ Deno.test("E2E release activation은 실패하면 data와 이전 release를 그�
     // fail-keeps-data: v1 data가 있을 때 실패하는 migration. 데이터를 잃지 않고 이전 release가 계속 서빙한다.
     const failing = await deliver([failingMigrationPatch]);
     // route(tool 결과): release_activate가 activation의 끝을 기다려 실패와 그 이유를 돌려준다.
-    assert(failing.activated.status === "failed");
-    assertEquals(failing.activated.failure.code, "migration_failed");
-    assertEquals(failing.activated.failure.restored, true);
-    assert(
+    assert.ok(failing.activated.status === "failed");
+    assert.deepStrictEqual(failing.activated.failure.code, "migration_failed");
+    assert.deepStrictEqual(failing.activated.failure.restored, true);
+    assert.ok(
       failing.activated.failure.summary.includes("step 1-2 was rolled back"),
     );
-    assert(
+    assert.ok(
       failing.activated.failure.summary.includes("UNIQUE constraint failed"),
     );
     // ledger: release 기록의 failure가 tool 결과와 같다.
     const failed = await recordOf(core, failing.release);
-    assertEquals(failed.status, "failed");
-    assertEquals(failed.failure, failing.activated.failure);
-    assertEquals(await activeOf(core, app.app), v1);
+    assert.deepStrictEqual(failed.status, "failed");
+    assert.deepStrictEqual(failed.failure, failing.activated.failure);
+    assert.deepStrictEqual(await activeOf(core, app.app), v1);
     // app state: 이전 release가 다시 떠서 data를 그대로 돌려준다.
     await until("v1이 다시 답함", async () => {
       const { outcome } = await call(core!, app.app, "list_items");
       return outcome.status === "succeeded" ? true : undefined;
     });
-    assertEquals(await titles(core, app.app), seeded);
+    assert.deepStrictEqual(await titles(core, app.app), seeded);
     const runtime = await core.call(appRuntime, { app: app.app });
-    assertEquals(runtime.state.state, "running");
-    assertEquals(runtime.observation?.release, v1);
+    assert.deepStrictEqual(runtime.state.state, "running");
+    assert.deepStrictEqual(runtime.observation?.release, v1);
 
     // widened-asks: 선언이 넓어지면 묻고, 허락 뒤에만 올린다. 앞 release는 안 넓어서 묻지 않았다.
     const widened = await deliver([widenPatch]);
     // route: 동의 줄이 하나 있고 넓어진 자원이 하나다.
-    assertEquals(widened.activated.status, "waiting_consent");
+    assert.deepStrictEqual(widened.activated.status, "waiting_consent");
     const { consents } = await core.call(activationConsents, { app: app.app });
-    assertEquals(consents.length, 1);
-    assertEquals(consents[0]!.release, widened.release);
-    assertEquals(consents[0]!.comparison.added_resources.length, 1);
+    assert.deepStrictEqual(consents.length, 1);
+    assert.deepStrictEqual(consents[0]!.release, widened.release);
+    assert.deepStrictEqual(consents[0]!.comparison.added_resources.length, 1);
     // ledger: 허락 전에는 올라가지 않았다.
-    assertEquals(await activeOf(core, app.app), v1);
+    assert.deepStrictEqual(await activeOf(core, app.app), v1);
     await approveActivation(core, app, "allow");
     // process
     await waitRunning(core, app, widened.release);
     // ledger
-    assertEquals(await activeOf(core, app.app), widened.release);
-    assertEquals((await recordOf(core, v1)).status, "superseded");
+    assert.deepStrictEqual(await activeOf(core, app.app), widened.release);
+    assert.deepStrictEqual((await recordOf(core, v1)).status, "superseded");
 
     // rewind-not-across-release: v1 때의 write는 rewind 대상으로 고를 수 없다.
     const rewind = await core.tryCall(appRewindPlan, {
       app: app.app,
       from_invocation: firstWrite.invocation!,
     });
-    assert(!rewind.ok);
-    assertEquals(rewind.error.code, "invalid_input");
+    assert.ok(!rewind.ok);
+    assert.deepStrictEqual(rewind.error.code, "invalid_input");
 
     // supersedes-pending: 묻는 release A는 허락하지 않고 두고, 안 묻는 더 새 release B가 시작하면 A의 동의 줄이 닫힌다.
     const pending = await deliver([widenPatch2]);
-    assertEquals(pending.activated.status, "waiting_consent");
+    assert.deepStrictEqual(pending.activated.status, "waiting_consent");
     const [stale] =
       (await core.call(activationConsents, { app: app.app })).consents;
-    assert(stale !== undefined);
+    assert.ok(stale !== undefined);
     const newer = await deliver([codeOnlyPatch]);
-    assertEquals(newer.activated.status, "active");
+    assert.deepStrictEqual(newer.activated.status, "active");
     await waitRunning(core, app, newer.release);
     // route: 낡은 동의는 쓰이지 않고 동의 줄에는 아무것도 없다.
     const late = await core.tryCall(
@@ -233,9 +235,9 @@ Deno.test("E2E release activation은 실패하면 data와 이전 release를 그�
       { release: pending.release, choice: "allow" },
       { requested_at: stale.requested_at },
     );
-    assert(!late.ok);
-    assertEquals(late.error.code, "conflict");
-    assertEquals(
+    assert.ok(!late.ok);
+    assert.deepStrictEqual(late.error.code, "conflict");
+    assert.deepStrictEqual(
       (await core.call(activationConsents, { app: app.app })).consents,
       [],
     );
@@ -246,15 +248,18 @@ Deno.test("E2E release activation은 실패하면 data와 이전 release를 그�
         frame.event.type === "ActivationConsentClosed" &&
         frame.event.subject === pending.release,
     );
-    assertEquals(closed.event.payload, {
+    assert.deepStrictEqual(closed.event.payload, {
       app: app.app,
       release: pending.release,
       outcome: "cancelled",
     });
     // ledger
-    assertEquals((await recordOf(core, pending.release)).status, "prepared");
+    assert.deepStrictEqual(
+      (await recordOf(core, pending.release)).status,
+      "prepared",
+    );
     // app state
-    assertEquals(await activeOf(core, app.app), newer.release);
+    assert.deepStrictEqual(await activeOf(core, app.app), newer.release);
 
     // rollback: 사람이 data schema가 같은 이전 release로 돌아간다. data는 그대로다.
     await core.call(activationActivatePrevious, {
@@ -263,17 +268,20 @@ Deno.test("E2E release activation은 실패하면 data와 이전 release를 그�
     });
     await waitRunning(core, app, widened.release);
     // ledger
-    assertEquals(await activeOf(core, app.app), widened.release);
-    assertEquals((await recordOf(core, newer.release)).status, "superseded");
+    assert.deepStrictEqual(await activeOf(core, app.app), widened.release);
+    assert.deepStrictEqual(
+      (await recordOf(core, newer.release)).status,
+      "superseded",
+    );
     // app state
-    assertEquals(await titles(core, app.app), seeded);
+    assert.deepStrictEqual(await titles(core, app.app), seeded);
     // route: superseded가 아닌 release로는 돌아갈 수 없다.
     const notBack = await core.tryCall(activationActivatePrevious, {
       release: failing.release,
       key: core.ids.newId("key"),
     });
-    assert(!notBack.ok);
-    assertEquals(notBack.error.code, "invalid_input");
+    assert.ok(!notBack.ok);
+    assert.deepStrictEqual(notBack.error.code, "invalid_input");
 
     // holds-calls: activation 도중 온 호출은 붙잡았다가 새 release가 받는다.
     const slowOne = await deliver([slowReadPatch]);
@@ -294,19 +302,19 @@ Deno.test("E2E release activation은 실패하면 data와 이전 release를 그�
       const count = entries.find((item) => item.release === swap)?.held_calls;
       return count === undefined || count < 1 ? undefined : count;
     });
-    assert(heldCalls >= 1);
+    assert.ok(heldCalls >= 1);
     // route: 둘 다 실패하지 않고 끝나고 activation도 올라간다.
     const heldDone = await held;
-    assertEquals(
+    assert.deepStrictEqual(
       [(await slow).outcome.status, heldDone.outcome.status],
       ["succeeded", "succeeded"],
     );
-    assertEquals((await activating).status, "active");
+    assert.deepStrictEqual((await activating).status, "active");
     // ledger: 붙잡았던 호출은 새 release가 받았다.
     const { invocation } = await core.call(appInvocation, {
       invocation: heldDone.invocation!,
     });
-    assertEquals(invocation?.release, swap);
+    assert.deepStrictEqual(invocation?.release, swap);
     // process
     await waitRunning(core, app, swap);
     seeded.push("held");
@@ -314,20 +322,23 @@ Deno.test("E2E release activation은 실패하면 data와 이전 release를 그�
     // allow-reapplied-after-restart: 허락 직후 core가 죽어도 허락이 적용되어 올라간다. 결정과 kill 사이에 적용이 끼는지는
     // 보장하지 못한다(어느 쪽이든 단정이 같다).
     const reapplied = await deliver([slowReadPatch, widenPatch3]);
-    assertEquals(reapplied.activated.status, "waiting_consent");
+    assert.deepStrictEqual(reapplied.activated.status, "waiting_consent");
     await approveActivation(core, app, "allow");
     await reboot();
     await waitRunning(core, app, reapplied.release);
     // ledger
-    assertEquals(await activeOf(core, app.app), reapplied.release);
-    assertEquals((await recordOf(core, reapplied.release)).status, "active");
+    assert.deepStrictEqual(await activeOf(core, app.app), reapplied.release);
+    assert.deepStrictEqual(
+      (await recordOf(core, reapplied.release)).status,
+      "active",
+    );
     // route: 같은 동의가 두 번 적용되지 않았다.
-    assertEquals(
+    assert.deepStrictEqual(
       (await core.call(activationConsents, { app: app.app })).consents,
       [],
     );
     // process
-    assertEquals(await appProcesses(core, app.app), 1);
+    assert.deepStrictEqual(await appProcesses(core, app.app), 1);
 
     // restart-resume: activation이 도는 도중 core가 죽어도 반쯤 바뀐 채 남지 않는다.
     const resumed = await prepareOnly([slowReadPatch, codeOnlyPatch]);
@@ -347,15 +358,15 @@ Deno.test("E2E release activation은 실패하면 data와 이전 release를 그�
     });
     // ledger: 활성 release가 하나이고 status와 맞다.
     const settledActive = await activeOf(core, app.app);
-    assertEquals(
+    assert.deepStrictEqual(
       settledActive,
       settledRecord.status === "active" ? resumed : reapplied.release,
     );
     // process
     await waitRunning(core, app, settledActive!);
-    assertEquals(await appProcesses(core, app.app), 1);
+    assert.deepStrictEqual(await appProcesses(core, app.app), 1);
     // app state
-    assertEquals(await titles(core, app.app), seeded);
+    assert.deepStrictEqual(await titles(core, app.app), seeded);
     await resuming;
     await slowAgain.catch(() => {});
 
@@ -363,16 +374,19 @@ Deno.test("E2E release activation은 실패하면 data와 이전 release를 그�
     const migrated = await deliver([okMigrationPatch]);
     await waitRunning(core, app, migrated.release);
     // ledger
-    assertEquals((await recordOf(core, migrated.release)).data_schema, 2);
+    assert.deepStrictEqual(
+      (await recordOf(core, migrated.release)).data_schema,
+      2,
+    );
     // route
     const back = await core.tryCall(activationActivatePrevious, {
       release: reapplied.release,
       key: core.ids.newId("key"),
     });
-    assert(!back.ok);
-    assertEquals(back.error.code, "invalid_input");
+    assert.ok(!back.ok);
+    assert.deepStrictEqual(back.error.code, "invalid_input");
     // app state
-    assertEquals(await titles(core, app.app), seeded);
+    assert.deepStrictEqual(await titles(core, app.app), seeded);
   } finally {
     await gateway?.close();
     await core?.kill().catch(() => {});

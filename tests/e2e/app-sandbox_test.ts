@@ -8,7 +8,10 @@
 //
 // fake 대답: App Engineer의 `release_prepare`·`release_activate`는 앱 activation helper(`activateTestApp`)가 거는 것이라
 // case의 fake 대답 상한(3)에 세지 않는다(`architecture/testing.md` "case 고르는 규칙" 4). 이 case 자신은 model을 쓰지 않는다.
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { readdirSync } from "node:fs";
+import { mkdir, readFile } from "node:fs/promises";
+import { test } from "node:test";
 import {
   appCallTool,
   appInvocations,
@@ -21,7 +24,7 @@ import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { connectFakeProvider } from "../support/core/human.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 
-Deno.test("E2E activate된 앱 process는 선언 밖의 파일 읽기·쓰기와 network에 닿지 못하고 정상 tool은 계속 된다", async () => {
+test("E2E activate된 앱 process는 선언 밖의 파일 읽기·쓰기와 network에 닿지 못하고 정상 tool은 계속 된다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -37,13 +40,13 @@ Deno.test("E2E activate된 앱 process는 선언 밖의 파일 읽기·쓰기와
 
     // 막히지 않았다면 닿았을 대상이 실제로 있어야 한다: 읽을 secrets.json, 쓸 수 있는 폴더, 요청을 셀 수 있는 서버.
     const secrets = `${core.run.home}/secrets.json`;
-    const before = await Deno.readFile(secrets);
+    const before = await readFile(secrets);
     const outside = `${core.run.work}/outside`;
-    await Deno.mkdir(outside);
+    await mkdir(outside);
     const journalBefore = fake.journal().length;
     const nonce = (await core.call(appRuntime, { app: app.app }))
       .observation?.process_nonce;
-    assert(nonce !== undefined);
+    assert.ok(nonce !== undefined);
 
     const call = (tool: string, input?: Record<string, string>) =>
       core!.call(appCallTool, {
@@ -59,28 +62,34 @@ Deno.test("E2E activate된 앱 process는 선언 밖의 파일 읽기·쓰기와
     });
     // route: 세 칸이 모두 막혔고, 정상 tool은 그 뒤에도 된다
     const outcome = escaped.outcome;
-    assert(outcome.status === "succeeded", JSON.stringify(outcome));
+    assert.ok(outcome.status === "succeeded", JSON.stringify(outcome));
     const rows = (outcome.result as { rows: unknown[] }).rows;
-    assertEquals(rows, [{
+    assert.deepStrictEqual(rows, [{
       secrets: "blocked",
       outside: "blocked",
       url: "blocked",
     }]);
-    assertEquals((await call("list_items")).outcome.status, "succeeded");
+    assert.deepStrictEqual(
+      (await call("list_items")).outcome.status,
+      "succeeded",
+    );
     const { invocations } = await core.call(appInvocations, { app: app.app });
-    assertEquals(invocations.filter((item) => item.status !== "succeeded"), []);
+    assert.deepStrictEqual(
+      invocations.filter((item) => item.status !== "succeeded"),
+      [],
+    );
 
     // process: 권한 오류가 process 죽음이 되지 않았다
-    assertEquals(
+    assert.deepStrictEqual(
       (await core.call(appRuntime, { app: app.app })).observation
         ?.process_nonce,
       nonce,
     );
     // disk
-    assertEquals([...Deno.readDirSync(outside)], []);
-    assertEquals(await Deno.readFile(secrets), before);
+    assert.deepStrictEqual(readdirSync(outside), []);
+    assert.deepStrictEqual(await readFile(secrets), before);
     // fake: 앱의 fetch가 닿지 않았다
-    assertEquals(
+    assert.deepStrictEqual(
       fake.journal().slice(journalBefore).filter((entry) =>
         entry.path === "/probe"
       ),

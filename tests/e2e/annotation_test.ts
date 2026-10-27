@@ -13,7 +13,8 @@
 //
 // core는 file 전체에서 하나다. 앱 A, B를 만들고 행은 table 순서로 돈다. `other-app`은 `new-session`이 만든
 // A의 annotation id를 쓴다(행 순서에 기댄다). shell main 역할은 test가 route를 직접 불러 맡는다.
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { sha256Hex } from "../../packages/base/mod.ts";
 import {
   type AnnotationInput,
@@ -157,25 +158,31 @@ const ROWS: Row[] = [
       const { session } = await core.call(agentSessionRead, {
         session: sent.session,
       });
-      assertEquals(session.agent, { role: "app_engineer", app: a });
+      assert.deepStrictEqual(session.agent, { role: "app_engineer", app: a });
       const messages = await humanMessagesOf(core, sent.session);
-      assertEquals(messages.length, 1);
-      assertEquals(messages[0].refs, [{ kind: "annotation", id: annotation }]);
+      assert.deepStrictEqual(messages.length, 1);
+      assert.deepStrictEqual(messages[0].refs, [{
+        kind: "annotation",
+        id: annotation,
+      }]);
 
       // fake
       const images = imagesIn(fake.journal()[1]);
-      assertEquals(images.length, 1);
-      assertEquals(images[0].data, PNG_BASE64);
+      assert.deepStrictEqual(images.length, 1);
+      assert.deepStrictEqual(images[0].data, PNG_BASE64);
 
       // ledger
       const { annotations } = await core.call(annotationsGet, {
         batch: sent.batch,
       });
-      assertEquals(annotations.length, 1);
-      assertEquals(annotations[0].target, { kind: "app", app: a });
-      assertEquals(annotations[0].release, release);
-      assertEquals(annotations[0].view.screen, "home");
-      assertEquals(annotations[0].screenshot?.hash, await sha256Hex(PNG));
+      assert.deepStrictEqual(annotations.length, 1);
+      assert.deepStrictEqual(annotations[0].target, { kind: "app", app: a });
+      assert.deepStrictEqual(annotations[0].release, release);
+      assert.deepStrictEqual(annotations[0].view.screen, "home");
+      assert.deepStrictEqual(
+        annotations[0].screenshot?.hash,
+        await sha256Hex(PNG),
+      );
     },
   },
   {
@@ -192,26 +199,26 @@ const ROWS: Row[] = [
       const turn = await waitTurnEnd(core, session, 0);
 
       // route
-      assertEquals(sent.session, session);
+      assert.deepStrictEqual(sent.session, session);
 
       // inbox
       const messages = await humanMessagesOf(core, session);
-      assertEquals(messages.length, 1);
-      assertEquals(messages[0].refs, [{
+      assert.deepStrictEqual(messages.length, 1);
+      assert.deepStrictEqual(messages[0].refs, [{
         kind: "annotation",
         id: sent.annotations[0],
       }]);
-      assertEquals(messages[0].turn, turn.id);
+      assert.deepStrictEqual(messages[0].turn, turn.id);
 
       // fake
-      assert(lastUserText(fake.journal()[0]).includes("NOTE-MARK"));
+      assert.ok(lastUserText(fake.journal()[0]).includes("NOTE-MARK"));
     },
   },
   {
     name: "other-app",
     async run(ctx) {
       const { core, fake, a, b, annotationOfA } = ctx;
-      assert(annotationOfA, "new-session 행이 먼저 돌아야 한다");
+      assert.ok(annotationOfA, "new-session 행이 먼저 돌아야 한다");
       fake.reset();
       const session = await openSession(core, {
         role: "app_engineer",
@@ -226,13 +233,13 @@ const ROWS: Row[] = [
 
       // ledger
       const { tool_calls } = await core.call(toolCallList, { turn: turn.id });
-      assertEquals(
+      assert.deepStrictEqual(
         tool_calls.find((call) => call.response_key === "t_image")?.outcome,
         { kind: "failure", code: "not_found" },
       );
 
       // fake
-      assertEquals(imagesIn(fake.journal()[1]).length, 0);
+      assert.deepStrictEqual(imagesIn(fake.journal()[1]).length, 0);
 
       // route
       const refused = await core.tryCall(annotationSend, {
@@ -240,8 +247,8 @@ const ROWS: Row[] = [
         session: session as never,
         annotations: [annotationOf(core.ids.newId("rel"), null)],
       });
-      assert(!refused.ok);
-      assertEquals(refused.error.code, "conflict");
+      assert.ok(!refused.ok);
+      assert.deepStrictEqual(refused.error.code, "conflict");
     },
   },
   {
@@ -265,20 +272,20 @@ const ROWS: Row[] = [
       });
 
       // route
-      assert(!refused.ok);
-      assertEquals(refused.error.code, "conflict");
+      assert.ok(!refused.ok);
+      assert.deepStrictEqual(refused.error.code, "conflict");
 
       // inbox
       const { sessions } = await core.call(agentSessionList, {
         agent: { role: "app_engineer", app: c },
         archived: "include",
       });
-      assertEquals(sessions.length, 0);
+      assert.deepStrictEqual(sessions.length, 0);
     },
   },
 ];
 
-Deno.test("annotation 묶음은 그 앱 project의 Project Manager에게만 가고 screenshot은 그 Project Manager만 model에 싣는다", async (t) => {
+test("annotation 묶음은 그 앱 project의 Project Manager에게만 가고 screenshot은 그 Project Manager만 model에 싣는다", async (t) => {
   const run = await createRun();
   let fake: FakeServer | undefined;
   let core: Core | undefined;
@@ -301,7 +308,7 @@ Deno.test("annotation 묶음은 그 앱 project의 Project Manager에게만 가�
       b: appB.id,
     };
     for (const row of ROWS) {
-      await t.step(row.name, () => row.run(ctx));
+      await t.test(row.name, () => row.run(ctx));
     }
   } finally {
     await core?.kill();

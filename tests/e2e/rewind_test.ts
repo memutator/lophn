@@ -5,7 +5,10 @@
 //   두 번 고친 file이 첫 상태가 아니라 중간 상태로 돌아가는 것.
 // - 왜 지금 test로 못 잡나: 앱 data rewind test와 달리 session rewind는 file tool(child process의 쓰기 기록)과
 //   core의 복원 처리기가 이어져야 보인다.
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { test } from "node:test";
+
 import {
   rewindList,
   sessionRewind,
@@ -93,7 +96,7 @@ async function rewindToBefore(
   return { preview, header, revert };
 }
 
-Deno.test("session rewind는 agent가 고친 file을 첫 상태로 되돌리고, 사람이 그 사이 고친 file은 덮어쓰지 않는다", async () => {
+test("session rewind는 agent가 고친 file을 첫 상태로 되돌리고, 사람이 그 사이 고친 file은 덮어쓰지 않는다", async () => {
   const run: Run = await createRun();
   let fake: FakeServer | undefined;
   let core: Core | undefined;
@@ -102,39 +105,48 @@ Deno.test("session rewind는 agent가 고친 file을 첫 상태로 되돌리고,
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
     const folder = `${run.work}/proj`;
-    await Deno.mkdir(folder);
-    await Deno.writeTextFile(`${folder}/a.md`, "v0");
-    await Deno.writeTextFile(`${folder}/b.md`, "v0");
+    await mkdir(folder);
+    await writeFile(`${folder}/a.md`, "v0");
+    await writeFile(`${folder}/b.md`, "v0");
     const { project } = await openProject(core, folder);
 
     // 행 1: 두 번 고친 a.md가 중간 상태(v1)가 아니라 첫 상태로 돌아간다.
     const first = await writeTwice(core, fake, project, "a.md");
-    assertEquals(await Deno.readTextFile(`${folder}/a.md`), "v2");
+    assert.deepStrictEqual(await readFile(`${folder}/a.md`, "utf8"), "v2");
     const restored = await rewindToBefore(
       core,
       first.session,
       first.checkpoint,
     );
-    assertEquals(await Deno.readTextFile(`${folder}/a.md`), "v0");
-    assertEquals(restored.revert?.outcome, "applied");
-    assertEquals(
+    assert.deepStrictEqual(await readFile(`${folder}/a.md`, "utf8"), "v0");
+    assert.deepStrictEqual(restored.revert?.outcome, "applied");
+    assert.deepStrictEqual(
       restored.revert?.items.map((item) => [item.target, item.result]),
       [["a.md", "restored"]],
     );
-    assertEquals(restored.preview.restore.map((item) => item.target), ["a.md"]);
-    assertEquals([restored.preview.skip, restored.preview.remain], [[], []]);
+    assert.deepStrictEqual(
+      restored.preview.restore.map((item) => item.target),
+      ["a.md"],
+    );
+    assert.deepStrictEqual([restored.preview.skip, restored.preview.remain], [
+      [],
+      [],
+    ]);
 
     // 행 2: 사람이 그 사이 고친 b.md는 건너뛴다.
     const second = await writeTwice(core, fake, project, "b.md");
-    assertEquals(await Deno.readTextFile(`${folder}/b.md`), "v2");
-    await Deno.writeTextFile(`${folder}/b.md`, "human edit");
+    assert.deepStrictEqual(await readFile(`${folder}/b.md`, "utf8"), "v2");
+    await writeFile(`${folder}/b.md`, "human edit");
     const kept = await rewindToBefore(core, second.session, second.checkpoint);
-    assertEquals(await Deno.readTextFile(`${folder}/b.md`), "human edit");
-    assertEquals(
+    assert.deepStrictEqual(
+      await readFile(`${folder}/b.md`, "utf8"),
+      "human edit",
+    );
+    assert.deepStrictEqual(
       kept.revert?.items.map((item) => [item.target, item.result, item.reason]),
       [["b.md", "skipped", "edited_outside"]],
     );
-    assertEquals(
+    assert.deepStrictEqual(
       kept.preview.skip.map((item) => [item.target, item.reason]),
       [["b.md", "edited_outside"]],
     );
@@ -151,7 +163,7 @@ Deno.test("session rewind는 agent가 고친 file을 첫 상태로 되돌리고,
 // - 현실적 회귀: pre-image가 core 메모리에만 있어 재시작 뒤 복원이 비는 것, 새로 만든 file의 되돌림이 사람 편집을
 //   지우는 것, accept_remaining이 false인데 일부만 복원되는 것, 도는 turn 위에서 rewind가 시작되는 것.
 // - 왜 지금 test로 못 잡나: 위 test는 재시작 없이 기존 file의 중간 상태와 edited_outside만 본다.
-Deno.test("session rewind는 재시작 뒤에도 되돌리고, 새 file의 사람 편집과 거절 조건의 file을 건드리지 않고, 도는 turn 위에서는 시작하지 않는다", async () => {
+test("session rewind는 재시작 뒤에도 되돌리고, 새 file의 사람 편집과 거절 조건의 file을 건드리지 않고, 도는 turn 위에서는 시작하지 않는다", async () => {
   const run: Run = await createRun();
   let fake: FakeServer | undefined;
   let core: Core | undefined;
@@ -160,14 +172,14 @@ Deno.test("session rewind는 재시작 뒤에도 되돌리고, 새 file의 사�
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
     const folder = `${run.work}/proj`;
-    await Deno.mkdir(folder);
+    await mkdir(folder);
     for (const name of ["a.md", "c.md", "d.md"]) {
-      await Deno.writeTextFile(`${folder}/${name}`, "v0");
+      await writeFile(`${folder}/${name}`, "v0");
     }
     const { project } = await openProject(core, folder);
-    const read = (name: string) => Deno.readTextFile(`${folder}/${name}`);
+    const read = (name: string) => readFile(`${folder}/${name}`, "utf8");
     const exists = (name: string) =>
-      Deno.stat(`${folder}/${name}`).then(() => true, () => false);
+      stat(`${folder}/${name}`).then(() => true, () => false);
 
     // after-restart: pre-image 기록이 재시작을 넘는다.
     const old = await writeTwice(core, fake, project, "a.md");
@@ -175,29 +187,35 @@ Deno.test("session rewind는 재시작 뒤에도 되돌리고, 새 file의 사�
     core = await bootCore(run);
     await settle(core);
     const restarted = await rewindToBefore(core, old.session, old.checkpoint);
-    assertEquals(await read("a.md"), "v0");
-    assertEquals(restarted.revert?.outcome, "applied");
-    assertEquals(
+    assert.deepStrictEqual(await read("a.md"), "v0");
+    assert.deepStrictEqual(restarted.revert?.outcome, "applied");
+    assert.deepStrictEqual(
       restarted.revert?.items.map((item) => [item.target, item.result]),
       [["a.md", "restored"]],
     );
-    assertEquals(restarted.preview.restore.map((item) => item.target), [
-      "a.md",
+    assert.deepStrictEqual(
+      restarted.preview.restore.map((item) => item.target),
+      [
+        "a.md",
+      ],
+    );
+    assert.deepStrictEqual([restarted.preview.skip, restarted.preview.remain], [
+      [],
+      [],
     ]);
-    assertEquals([restarted.preview.skip, restarted.preview.remain], [[], []]);
 
     // created-file: agent가 만든 file은 지우되, 그 사이 사람이 고친 것은 남긴다.
     const made = await writeFiles(core, fake, project, [
       ["new.md", "agent 1"],
       ["new2.md", "agent 2"],
     ]);
-    await Deno.writeTextFile(`${folder}/new2.md`, "human edit");
+    await writeFile(`${folder}/new2.md`, "human edit");
     const created = await rewindToBefore(core, made.session, made.checkpoint);
-    assertEquals([await exists("new.md"), await read("new2.md")], [
+    assert.deepStrictEqual([await exists("new.md"), await read("new2.md")], [
       false,
       "human edit",
     ]);
-    assertEquals(
+    assert.deepStrictEqual(
       created.revert?.items.map((item) => [
         item.target,
         item.result,
@@ -205,7 +223,7 @@ Deno.test("session rewind는 재시작 뒤에도 되돌리고, 새 file의 사�
       ]).sort(),
       [["new.md", "restored", null], ["new2.md", "skipped", "created_edited"]],
     );
-    assertEquals(
+    assert.deepStrictEqual(
       created.preview.skip.map((item) => [item.target, item.reason]),
       [["new2.md", "created_edited"]],
     );
@@ -217,22 +235,22 @@ Deno.test("session rewind는 재시작 뒤에도 되돌리고, 새 file의 사�
       ["d.md", "v1"],
       ["d.md", "v2"],
     ]);
-    await Deno.writeTextFile(`${folder}/d.md`, "human edit");
+    await writeFile(`${folder}/d.md`, "human edit");
     const blocked = await rewindToBefore(
       core,
       refused.session,
       refused.checkpoint,
       false,
     );
-    assertEquals(
+    assert.deepStrictEqual(
       [blocked.revert?.outcome, blocked.revert?.items],
       ["blocked", []],
     );
-    assertEquals([await read("c.md"), await read("d.md")], [
+    assert.deepStrictEqual([await read("c.md"), await read("d.md")], [
       "v2",
       "human edit",
     ]);
-    assertEquals(
+    assert.deepStrictEqual(
       blocked.preview.skip.map((item) => [item.target, item.reason]),
       [["d.md", "edited_outside"]],
     );
@@ -261,12 +279,15 @@ Deno.test("session rewind는 재시작 뒤에도 되돌리고, 새 file의 사�
       files: [],
       apps: [],
     }, { session_state: "open", active_turn: null, applying_rewind: null });
-    assertEquals(busy.ok ? "ok" : busy.error.code, "conflict");
+    assert.deepStrictEqual(busy.ok ? "ok" : busy.error.code, "conflict");
     await decide(core, session, request, "once");
     const turn = await waitTurnEnd(core, session);
-    assertEquals(turn.outcome?.kind, "completed");
-    assertEquals((await core.call(rewindList, { session })).reverts, []);
-    assertEquals(fake.journal().length, 2);
+    assert.deepStrictEqual(turn.outcome?.kind, "completed");
+    assert.deepStrictEqual(
+      (await core.call(rewindList, { session })).reverts,
+      [],
+    );
+    assert.deepStrictEqual(fake.journal().length, 2);
   } finally {
     await core?.kill().catch(() => {});
     await fake?.close();

@@ -6,7 +6,10 @@
 //   web_fetch의 주소 판정이 풀려 loopback으로 나가는 것.
 // - 왜 지금 test로 못 잡나: 두 번 모두 child를 실제로 띄워 확인하지 않았다. agent-tools_test는 목록·정의 일치만 보고
 //   harness는 in-process라 tool이 child에서 도는 길을 지나지 않는다.
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { test } from "node:test";
+
 import {
   agentDefinitionList,
   toolCallList,
@@ -30,7 +33,7 @@ const PIXEL = Uint8Array.from(
   (char) => char.charCodeAt(0),
 );
 
-Deno.test("E2E PM의 shell·skill·image·grep·operator.create가 돌고 web_fetch는 loopback으로 나가지 못한다", async () => {
+test("E2E PM의 shell·skill·image·grep·operator.create가 돌고 web_fetch는 loopback으로 나가지 못한다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -38,9 +41,9 @@ Deno.test("E2E PM의 shell·skill·image·grep·operator.create가 돌고 web_fe
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
     const proj = `${run.work}/proj`;
-    await Deno.mkdir(proj);
-    await Deno.writeFile(`${proj}/pic.png`, PIXEL);
-    await Deno.writeTextFile(`${proj}/notes.md`, "notes for the project\n");
+    await mkdir(proj);
+    await writeFile(`${proj}/pic.png`, PIXEL);
+    await writeFile(`${proj}/notes.md`, "notes for the project\n");
     const { project } = await openProject(core, proj);
     const session = await openSession(core, {
       role: "project_manager",
@@ -75,7 +78,7 @@ Deno.test("E2E PM의 shell·skill·image·grep·operator.create가 돌고 web_fe
     const turn = await waitTurnEnd(core, session);
 
     // disk
-    assertEquals(await Deno.readTextFile(`${proj}/made.txt`), "hi\n");
+    assert.deepStrictEqual(await readFile(`${proj}/made.txt`, "utf8"), "hi\n");
 
     // ledger
     const { tool_calls: calls } = await core.call(toolCallList, {
@@ -84,21 +87,24 @@ Deno.test("E2E PM의 shell·skill·image·grep·operator.create가 돌고 web_fe
     const outcome = (key: string) =>
       calls.find((c) => c.response_key === key)?.outcome;
     for (const key of ["shell", "skill", "image", "grep", "operator"]) {
-      assertEquals(outcome(key)?.kind, "success", key);
+      assert.deepStrictEqual(outcome(key)?.kind, "success", key);
     }
     // web/target.ts의 거절 code
-    assertEquals(outcome("web"), { kind: "failure", code: "invalid_input" });
+    assert.deepStrictEqual(outcome("web"), {
+      kind: "failure",
+      code: "invalid_input",
+    });
     const { agents } = await core.call(agentDefinitionList, {
       place: { kind: "project", id: project },
     });
-    assert(
+    assert.ok(
       agents.some((a) => a.kind === "operator" && a.name === "helper"),
       "helper Operator가 없다",
     );
 
     // fake가 받은 요청
     const journal = fake.journal();
-    assertEquals([...new Set(journal.map((entry) => entry.path))], [
+    assert.deepStrictEqual([...new Set(journal.map((entry) => entry.path))], [
       "/messages",
     ]);
     const body = journal[1].body as {
@@ -109,8 +115,8 @@ Deno.test("E2E PM의 shell·skill·image·grep·operator.create가 돌고 web_fe
     const shell = results.find((b) =>
       b.type === "tool_result" && b.tool_use_id === "shell"
     );
-    assert(shell, "둘째 요청에 shell tool_result가 없다");
-    assert(
+    assert.ok(shell, "둘째 요청에 shell tool_result가 없다");
+    assert.ok(
       JSON.stringify(shell).length <= 30 * 1024,
       "shell 출력이 상한을 넘음",
     );

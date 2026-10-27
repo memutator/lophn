@@ -6,7 +6,10 @@
 // - 왜 지금 test로 못 잡나: `ensure`의 unit은 파일 시스템 fake만 본다. 등록 command(storage tx) -> wiring 후속 -> 파일 ->
 //   정의 목록 route가 이어지는 것, 그리고 agent runtime child의 tool -> core `app.create` -> Router -> 새 session ->
 //   child의 새 turn은 process를 건너야 한다.
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir, stat } from "node:fs/promises";
+import { test } from "node:test";
+
 import { appList } from "../../packages/protocol/apps/mod.ts";
 import {
   agentDefinitionList,
@@ -48,15 +51,15 @@ async function assertNoSecondBuiltIn(
     place: place as never,
     definition: { name, body: "" },
   });
-  assert(!refused.ok);
-  assertEquals(refused.error.code, "invalid_input");
+  assert.ok(!refused.ok);
+  assert.deepStrictEqual(refused.error.code, "invalid_input");
   const after = await definitionsAt(core, place);
-  assertEquals(after.length, 1);
-  assertEquals(after[0].agent, built);
-  assertEquals(after[0].kind, "built_in");
+  assert.deepStrictEqual(after.length, 1);
+  assert.deepStrictEqual(after[0].agent, built);
+  assert.deepStrictEqual(after[0].kind, "built_in");
 }
 
-Deno.test("E2E 등록하면 PM·AE 정의가 하나 생기고 lophn이 앱을 등록해 AE를 부른다", async (t) => {
+test("E2E 등록하면 PM·AE 정의가 하나 생기고 lophn이 앱을 등록해 AE를 부른다", async (t) => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -65,25 +68,25 @@ Deno.test("E2E 등록하면 PM·AE 정의가 하나 생기고 lophn이 앱을 �
     await connectFakeProvider(core, fake);
     const c = core;
 
-    await t.step("project-creates-pm", async () => {
+    await t.test("project-creates-pm", async () => {
       const folder = `${run.work}/pm-proj`;
-      await Deno.mkdir(folder);
+      await mkdir(folder);
       const { project } = await openProject(c, folder);
       const place: Place = { kind: "project", id: project };
       const built = { role: "project_manager", project } as const;
 
       const before = await definitionsAt(c, place);
-      assertEquals(before.length, 1);
-      assertEquals(before[0].agent, built);
-      assertEquals(before[0].kind, "built_in");
+      assert.deepStrictEqual(before.length, 1);
+      assert.deepStrictEqual(before[0].agent, built);
+      assert.deepStrictEqual(before[0].kind, "built_in");
 
-      await Deno.stat(
+      await stat(
         `${run.home}/projects/${project}/agents/project-manager.md`,
       );
       await assertNoSecondBuiltIn(c, place, "Project Manager", built);
     });
 
-    await t.step("lophn-registers-then-calls", async () => {
+    await t.test("lophn-registers-then-calls", async () => {
       const body = "Build the todo list app.";
       const lophn = await openSession(c, { role: "lophn" });
       fake.script([
@@ -121,43 +124,53 @@ Deno.test("E2E 등록하면 PM·AE 정의가 하나 생기고 lophn이 앱을 �
       // ledger
       const { apps } = await c.call(appList, {});
       const todo = apps.filter((app) => app.name === "Todo List");
-      assertEquals(todo.length, 1);
+      assert.deepStrictEqual(todo.length, 1);
       const { tool_calls: calls } = await c.call(toolCallList, {
         turn: turn.id,
       });
       const outcomes = Object.fromEntries(
         calls.map((call) => [call.response_key, call.outcome?.kind]),
       );
-      assertEquals(outcomes, { t1: "success", t2: "success" });
+      assert.deepStrictEqual(outcomes, { t1: "success", t2: "success" });
 
       // route: App Engineer session이 열리고 맡긴 글이 입력에 있다.
       const agent = { role: "app_engineer", app: todo[0].id } as const;
       const deadline = Date.now() + 30_000;
       let sessions = (await c.call(agentSessionList, { agent })).sessions;
       while (sessions.length === 0) {
-        assert(
+        assert.ok(
           Date.now() < deadline,
           "App Engineer session이 열리지 않았다",
         );
         await new Promise((resolve) => setTimeout(resolve, 50));
         sessions = (await c.call(agentSessionList, { agent })).sessions;
       }
-      assertEquals(sessions.length, 1);
+      assert.deepStrictEqual(sessions.length, 1);
       const engineer = sessions[0].id;
       await waitTurnEnd(c, engineer);
       // 목록에는 App Engineer 자신의 답도 있어, call로 온 것만 본다.
       const messages = (await c.call(receivedMessageList, {
         session: engineer,
       })).messages.filter((message) => message.call !== null);
-      assertEquals(messages.length, 1);
-      assertEquals(messages[0].from, { kind: "agent", session: lophn });
+      assert.deepStrictEqual(messages.length, 1);
+      assert.deepStrictEqual(messages[0].from, {
+        kind: "agent",
+        session: lophn,
+      });
       const read = await c.call(messageBody, { message: messages[0].id });
-      assertEquals(read.content.parts, [{ kind: "text", text: body }]);
+      assert.deepStrictEqual(read.content.parts, [{
+        kind: "text",
+        text: body,
+      }]);
 
       // fake가 받은 요청
       const journal = fake.journal();
-      assertEquals(journal.length, 3);
-      assertEquals(journal.map((entry) => entry.mismatch), [null, null, null]);
+      assert.deepStrictEqual(journal.length, 3);
+      assert.deepStrictEqual(journal.map((entry) => entry.mismatch), [
+        null,
+        null,
+        null,
+      ]);
     });
   } finally {
     await core?.kill().catch(() => {});

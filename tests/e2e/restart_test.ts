@@ -5,7 +5,10 @@
 //   낡은 허락이 쓰이는 것, 재시작 뒤 새 message를 받지 못하는 것.
 // - 왜 지금 test로 못 잡나: interruptRunningTurns는 함수 단위 test도 없고, ledger 파일이 남고 새 process가 읽는
 //   core의 꺼졌다 켜짐은 process를 건너야 보인다.
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir, stat } from "node:fs/promises";
+import { test } from "node:test";
+
 import {
   agentSessionRead,
   modelCallList,
@@ -37,13 +40,13 @@ import { startFakeServer } from "../support/fake-server/mod.ts";
 // - 왜 지금 test로 못 잡나: 위 행은 interrupted turn과 사라진 허락 요청만 본다. 완료한 기록의 보존과 입력함에 쌓인 사람 message의
 //   운명은 ledger 파일이 남고 새 process가 읽는 재시작을 건너야 보인다.
 
-Deno.test("E2E core가 허락을 기다리다 꺼졌다 켜지면 turn은 interrupted로 닫히고 session은 새 message를 받는다", async () => {
+test("E2E core가 허락을 기다리다 꺼졌다 켜지면 turn은 interrupted로 닫히고 session은 새 message를 받는다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
   try {
     const folder = `${run.work}/proj`;
-    await Deno.mkdir(folder);
+    await mkdir(folder);
     const ask = await shellAsk(folder);
     fake.script([
       { reply: ask.reply("t1") },
@@ -67,24 +70,27 @@ Deno.test("E2E core가 허락을 기다리다 꺼졌다 켜지면 turn은 interr
     const { snapshots } = await core.call(sessionSnapshotsList, {
       sessions: [session],
     });
-    assertEquals(snapshots[0]?.turn_requests, []);
+    assert.deepStrictEqual(snapshots[0]?.turn_requests, []);
 
     await say(core, session, "again");
     await waitTurnEnd(core, session, 1);
 
     const turns = await turnsOf(core, session);
-    assertEquals(turns.map((turn) => [turn.state, turn.outcome?.kind]), [
-      ["finished", "interrupted"],
-      ["finished", "completed"],
-    ]);
+    assert.deepStrictEqual(
+      turns.map((turn) => [turn.state, turn.outcome?.kind]),
+      [
+        ["finished", "interrupted"],
+        ["finished", "completed"],
+      ],
+    );
     const first = turns[0].outcome;
-    assert(first?.kind === "interrupted");
-    assertEquals(first.reason, "restarted");
+    assert.ok(first?.kind === "interrupted");
+    assert.deepStrictEqual(first.reason, "restarted");
     const read = await core.call(agentSessionRead, { session });
-    assertEquals(read.session.lifecycle, "open");
+    assert.deepStrictEqual(read.session.lifecycle, "open");
 
-    assertEquals(await ask.exists(), true);
-    assertEquals(fake.journal().length, 2);
+    assert.deepStrictEqual(await ask.exists(), true);
+    assert.deepStrictEqual(fake.journal().length, 2);
   } finally {
     await core?.kill().catch(() => {});
     await fake.close();
@@ -92,7 +98,7 @@ Deno.test("E2E core가 허락을 기다리다 꺼졌다 켜지면 turn은 interr
   }
 });
 
-Deno.test("E2E core가 재시작돼도 완료한 turn의 기록과 provider 연결은 그대로이고 같은 session이 이어진다", async () => {
+test("E2E core가 재시작돼도 완료한 turn의 기록과 provider 연결은 그대로이고 같은 session이 이어진다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -122,18 +128,18 @@ Deno.test("E2E core가 재시작돼도 완료한 turn의 기록과 provider 연�
     await settle(core);
 
     // ledger: 재시작 전후 기록이 같다.
-    assertEquals(await records(core), before);
+    assert.deepStrictEqual(await records(core), before);
 
     await say(core, session, "second words");
     await waitTurnEnd(core, session, 1);
 
     // fake: provider 연결을 다시 하지 않았는데 key가 실리고 history가 이어진다.
     const request = fake.journal()[1];
-    assertEquals(request.headers["x-api-key"], key);
-    assert(JSON.stringify(request.body).includes("first words"));
+    assert.deepStrictEqual(request.headers["x-api-key"], key);
+    assert.ok(JSON.stringify(request.body).includes("first words"));
     // disk: key는 0600 secrets.json에 남아 있다.
-    const secrets = await Deno.stat(`${run.home}/${SECRET_FILE_NAME}`);
-    assertEquals(secrets.mode! & 0o777, 0o600);
+    const secrets = await stat(`${run.home}/${SECRET_FILE_NAME}`);
+    assert.deepStrictEqual(secrets.mode & 0o777, 0o600);
   } finally {
     await core?.kill().catch(() => {});
     await fake.close();
@@ -141,13 +147,13 @@ Deno.test("E2E core가 재시작돼도 완료한 turn의 기록과 provider 연�
   }
 });
 
-Deno.test("E2E core 재시작 직전에 받아 turn을 열지 못한 사람 message는 재시작 뒤 turn을 연다", async () => {
+test("E2E core 재시작 직전에 받아 turn을 열지 못한 사람 message는 재시작 뒤 turn을 연다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
   try {
     const folder = `${run.work}/proj`;
-    await Deno.mkdir(folder);
+    await mkdir(folder);
     fake.script([
       { reply: { kind: "stall", partial: { text: "thinking" } } },
       { reply: { kind: "text", text: "back" } },
@@ -174,20 +180,22 @@ Deno.test("E2E core 재시작 직전에 받아 turn을 열지 못한 사람 mess
 
     // ledger: 첫 turn은 재시작으로 닫히고 쌓였던 message가 둘째 turn을 연다.
     const turns = await turnsOf(core, session);
-    assertEquals(turns.length, 2);
-    assertEquals(turns[0].outcome, {
+    assert.deepStrictEqual(turns.length, 2);
+    assert.deepStrictEqual(turns[0].outcome, {
       kind: "interrupted",
       reason: "restarted",
     });
-    assertEquals(turns[1].outcome?.kind, "completed");
+    assert.deepStrictEqual(turns[1].outcome?.kind, "completed");
     const { messages } = await core.call(receivedMessageList, { session });
-    assertEquals(
+    assert.deepStrictEqual(
       messages.find((item) => item.id === queued)?.turn,
       turns[1].id,
     );
     // fake: 둘째 요청에 그 message의 글이 있다.
-    assertEquals(fake.journal().length, 2);
-    assert(JSON.stringify(fake.journal()[1].body).includes("queued request"));
+    assert.deepStrictEqual(fake.journal().length, 2);
+    assert.ok(
+      JSON.stringify(fake.journal()[1].body).includes("queued request"),
+    );
   } finally {
     await core?.kill().catch(() => {});
     await fake.close();

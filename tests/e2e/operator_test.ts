@@ -14,7 +14,10 @@
 // 둘째 domain `notes-shelf`). 앱 tool은 비공개라 그 domain을 맡은 agent만 보고, 둘째 domain의 공개 tool 하나는 누구나 본다.
 // Operator를 앱 place에 두면(정의에 domains가 없으니) 앱의 domain을 모두 맡는다. pm-creates-operator만 project를
 // 따로 열어 Project Manager를 쓴다.
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir, writeFile } from "node:fs/promises";
+import { test } from "node:test";
+
 import {
   appCallTool,
   appInvocations,
@@ -121,7 +124,7 @@ async function itemsOf(core: Core, app: string): Promise<string> {
     tool: "list_items",
     caller: { kind: "person", view_session: "e2e" },
   });
-  assertEquals(called.outcome.status, "succeeded");
+  assert.deepStrictEqual(called.outcome.status, "succeeded");
   return JSON.stringify(called.outcome);
 }
 
@@ -131,7 +134,7 @@ async function sessionWrites(core: Core, app: string, session: string) {
   return (await core.call(appInvocations, { app, session })).invocations;
 }
 
-Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할당에서 뺀 tool은 요청에 없고 불러도 실행되지 않으며, session 도중 할당이 바뀌면 목록은 그대로이고 notice만 온다", async () => {
+test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할당에서 뺀 tool은 요청에 없고 불러도 실행되지 않으며, session 도중 할당이 바뀌면 목록은 그대로이고 notice만 온다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -139,7 +142,7 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할�
     core = await bootCore(run, { env: await appCoreEnv() });
     await connectFakeProvider(core, fake);
     const folder = `${run.work}/proj`;
-    await Deno.mkdir(folder, { recursive: true });
+    await mkdir(folder, { recursive: true });
     const { project } = await openProject(core, folder);
     // 앱 tool의 domain은 그 앱의 active domain 이름이어야 하므로 둘째 domain은 release 준비 전에 만든다.
     const second = "notes-shelf";
@@ -174,7 +177,7 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할�
     await say(core, first.session, "add op-first");
     await waitTurnEnd(core, first.session);
     // fake
-    assertEquals(
+    assert.deepStrictEqual(
       appToolsOf(fake),
       [
         "notes-shelf_shelf_count",
@@ -185,13 +188,13 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할�
     );
     // ledger
     const written = await sessionWrites(core, id, first.session);
-    assertEquals(written.length, 1);
-    assertEquals(written[0].effect, "write");
-    assertEquals(written[0].status, "succeeded");
-    assertEquals(written[0].caller?.kind, "agent");
-    assert(written[0].changeset !== null);
+    assert.deepStrictEqual(written.length, 1);
+    assert.deepStrictEqual(written[0].effect, "write");
+    assert.deepStrictEqual(written[0].status, "succeeded");
+    assert.deepStrictEqual(written[0].caller?.kind, "agent");
+    assert.ok(written[0].changeset !== null);
     // app state
-    assert((await itemsOf(core, id)).includes("op-first"));
+    assert.ok((await itemsOf(core, id)).includes("op-first"));
 
     // removed: 할당에서 뺀 tool은 요청에 없고, model이 그래도 부르면 실행되지 않는다.
     fake.reset();
@@ -208,15 +211,15 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할�
     await say(core, removed.session, "add op-removed");
     await waitTurnEnd(core, removed.session);
     // fake
-    assertEquals(
+    assert.deepStrictEqual(
       appToolsOf(fake),
       ["notes-shelf_shelf_count", "notes-shelf_shelf_list", "notes_list_items"],
     );
-    assert(lastToolResult(fake.journal()[1], "t1")?.includes("not_found"));
+    assert.ok(lastToolResult(fake.journal()[1], "t1")?.includes("not_found"));
     // ledger
-    assertEquals(await sessionWrites(core, id, removed.session), []);
+    assert.deepStrictEqual(await sessionWrites(core, id, removed.session), []);
     // app state
-    assert(!(await itemsOf(core, id)).includes("op-removed"));
+    assert.ok(!(await itemsOf(core, id)).includes("op-removed"));
 
     // domain-narrowed: domain 하나로 좁힌 Operator의 요청에는 그 domain의 `DOMAIN.md`와 tool, 다른 domain의 public tool만 있다.
     const { domains } = await core.call(domainList, {
@@ -232,10 +235,10 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할�
         "Quokka rule",
       ]] as const
     ) {
-      await Deno.mkdir(domainFolder(core.run.home, domain.id), {
+      await mkdir(domainFolder(core.run.home, domain.id), {
         recursive: true,
       });
-      await Deno.writeTextFile(
+      await writeFile(
         domainDocFile(core.run.home, domain.id),
         `${rule}: answer in capital letters.\n`,
       );
@@ -253,9 +256,9 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할�
     await waitTurnEnd(core, narrowed.session);
     // fake
     const system = systemText(fake.journal()[0]);
-    assert(system.includes("Zebra rule"));
-    assert(!system.includes("Quokka rule"));
-    assertEquals(
+    assert.ok(system.includes("Zebra rule"));
+    assert.ok(!system.includes("Quokka rule"));
+    assert.deepStrictEqual(
       appToolsOf(fake),
       ["notes-shelf_shelf_count", "notes_add_item", "notes_list_items"],
     );
@@ -267,11 +270,11 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할�
     await say(core, bare.session, "hello");
     await waitTurnEnd(core, bare.session);
     // fake
-    assertEquals(appToolsOf(fake), []);
+    assert.deepStrictEqual(appToolsOf(fake), []);
     // ledger: 할당 줄이 없는 것도 빈 할당(revision 0)으로 읽힌다.
     const bareRead = await core.call(agentAssignmentGet, { agent: bare.ref });
-    assertEquals(bareRead.assignment.entries, []);
-    assertEquals(bareRead.revision, 0);
+    assert.deepStrictEqual(bareRead.assignment.entries, []);
+    assert.deepStrictEqual(bareRead.revision, 0);
 
     // assignment-added: session 도중 할당을 더해도 tool 목록은 그대로이고, notice는 program이 쓴 문장으로 tool 이름만 말한다.
     fake.reset();
@@ -289,23 +292,23 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할�
     await waitTurnEnd(core, added.session, 1);
     // fake
     const [before, after] = fake.journal();
-    assertEquals(
+    assert.deepStrictEqual(
       JSON.stringify((after.body as { tools: unknown }).tools),
       JSON.stringify((before.body as { tools: unknown }).tools),
     );
     const notice = lastUserText(after);
-    assert(notice.includes("tools_changed"));
-    assert(notice.includes(`${slug}_list_items`));
-    assert(notice.includes(`${slug}_add_item`));
+    assert.ok(notice.includes("tools_changed"));
+    assert.ok(notice.includes(`${slug}_list_items`));
+    assert.ok(notice.includes(`${slug}_add_item`));
     const declaration = await core.call(appTools, { app: id });
     for (const api of declaration.tools) {
-      assert(!notice.includes(api.description));
+      assert.ok(!notice.includes(api.description));
     }
     // ledger
     const addedRead = await core.call(agentAssignmentGet, { agent: added.ref });
-    assertEquals(addedRead.assignment.entries, assignAll);
-    assertEquals(addedRead.revision, 1);
-    assertEquals(await sessionWrites(core, id, added.session), []);
+    assert.deepStrictEqual(addedRead.assignment.entries, assignAll);
+    assert.deepStrictEqual(addedRead.revision, 1);
+    assert.deepStrictEqual(await sessionWrites(core, id, added.session), []);
 
     // pm-creates-operator: PM이 Operator를 만들어도 묻지 않고 할당은 비어 있다.
     fake.reset();
@@ -337,18 +340,18 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할�
     // ledger
     const list = await core.call(agentDefinitionList, { place });
     const made = list.agents.find((row) => row.name === "pm-made");
-    assert(made !== undefined);
+    assert.ok(made !== undefined);
     const madeRead = await core.call(agentAssignmentGet, { agent: made.agent });
-    assertEquals(madeRead.assignment.entries, []);
-    assertEquals(madeRead.revision, 0);
+    assert.deepStrictEqual(madeRead.assignment.entries, []);
+    assert.deepStrictEqual(madeRead.revision, 0);
     // fake: operator_create 입력에 할당·mcp_servers·skip 칸이 없다.
     const createTool = (fake.journal()[0].body as {
       tools: { name: string; input_schema: { properties: object } }[];
     }).tools.find((tool) => tool.name === "operator_create");
-    assert(createTool !== undefined);
+    assert.ok(createTool !== undefined);
     const keys = Object.keys(createTool.input_schema.properties);
-    assert(!keys.includes("mcp_servers") && !keys.includes("skip"));
-    assertEquals(
+    assert.ok(!keys.includes("mcp_servers") && !keys.includes("skip"));
+    assert.deepStrictEqual(
       keys.filter((key) => key.includes("assign") || key.includes("grant")),
       [],
     );

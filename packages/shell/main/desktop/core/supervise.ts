@@ -45,7 +45,7 @@ function packagedDenoDir(home: string = homedir()): string {
  * Electron의 Node로 `packages/core/main/daemon/main.ts`를 띄운다. argv·env에 credential은 없다.
  * Deno flags는 없다.
  */
-export function coreLaunch(options: LaunchOptions): CoreSpawn {
+function coreLaunch(options: LaunchOptions): CoreSpawn {
   const entry = join(
     options.repoRoot,
     "packages",

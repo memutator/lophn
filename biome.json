@@ -21,6 +21,7 @@
       "!tests/eval/runs",
       "!tests/eval/experiments",
       "!dist",
+      "!**/release",
       "!build"
     ]
   },

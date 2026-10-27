@@ -2,7 +2,9 @@
 // - contract: boundary `router`·`agent-sessions`(steer는 도는 turn의 다음 model 요청에 붙고 새 turn도 checkpoint도 만들지 않는다), `run-loop`.
 // - 현실적 회귀: steer가 다음 turn 입력으로 밀려 사람이 도는 turn에 끼어들 수 없는 것, steer로 들어간 message가 checkpoint가 되어 rewind 지점으로 잘못 보이는 것.
 // - 왜 지금 test로 못 잡나: steering 목록은 core 메모리(입력함)이고 child가 가져가는 길과 checkpoint 표는 process 둘을 건너야 이어진다. harness loop에 steering 행이 없다.
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir } from "node:fs/promises";
+import { test } from "node:test";
 import {
   receivedMessageList,
   sendMessage,
@@ -25,7 +27,7 @@ import {
   startFakeServer,
 } from "../support/fake-server/mod.ts";
 
-Deno.test("turn이 허락을 기다리는 중 보낸 steer는 다음 model 요청에 같이 실리고 새 turn도 checkpoint도 아니다", async () => {
+test("turn이 허락을 기다리는 중 보낸 steer는 다음 model 요청에 같이 실리고 새 turn도 checkpoint도 아니다", async () => {
   const run = await createRun();
   let fake: FakeServer | undefined;
   let core: Core | undefined;
@@ -34,7 +36,7 @@ Deno.test("turn이 허락을 기다리는 중 보낸 steer는 다음 model 요�
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
     const folder = `${run.work}/proj`;
-    await Deno.mkdir(folder);
+    await mkdir(folder);
     const ask = await shellAsk(folder);
     const { project } = await openProject(core, folder);
 
@@ -67,19 +69,25 @@ Deno.test("turn이 허락을 기다리는 중 보낸 steer는 다음 model 요�
       messages: { role: string; content: { type: string; text?: string }[] }[];
     };
     const last = body.messages.at(-1)!;
-    assertEquals(last.role, "user");
-    assert(last.content.some((block) => block.type === "tool_result"));
-    assert(
+    assert.deepStrictEqual(last.role, "user");
+    assert.ok(last.content.some((block) => block.type === "tool_result"));
+    assert.ok(
       last.content.some((block) => block.text?.includes("steer text")),
       "둘째 요청의 마지막 user message에 steer text가 없다",
     );
 
     // 단정 2: 새 turn이 열리지 않았고 steer는 그 turn에 들어갔다.
-    assertEquals((await turnsOf(core, session)).map((item) => item.id), [
-      turn.id,
-    ]);
+    assert.deepStrictEqual(
+      (await turnsOf(core, session)).map((item) => item.id),
+      [
+        turn.id,
+      ],
+    );
     const { messages } = await core.call(receivedMessageList, { session });
-    assertEquals(messages.find((item) => item.id === second)?.turn, turn.id);
+    assert.deepStrictEqual(
+      messages.find((item) => item.id === second)?.turn,
+      turn.id,
+    );
 
     // 단정 3: steer 메시지는 checkpoint가 아니고 turn을 연 메시지는 checkpoint다.
     const preview = (checkpoint: string) =>
@@ -88,8 +96,8 @@ Deno.test("turn이 허락을 기다리는 중 보낸 steer는 다음 model 요�
         checkpoint,
         choice: "messages_only",
       });
-    assertEquals((await preview(second)).ok, false);
-    assertEquals((await preview(first)).ok, true);
+    assert.deepStrictEqual((await preview(second)).ok, false);
+    assert.deepStrictEqual((await preview(first)).ok, true);
   } finally {
     await core?.kill().catch(() => {});
     await fake?.close();

@@ -6,7 +6,9 @@
 //   멈춘 뒤 도착한 `once`가 명령을 돌리는 것, session을 archive하거나 지웠는데 model 요청이 token을 계속 쓰는 것.
 // - 왜 지금 test로 못 잡나: harness loop는 `stop()`을 부르는 쪽(in-process)만 본다. core의 `turns/stop` → 감독 pipe →
 //   child의 loop → HTTP 연결 끊김과 shell process, 그리고 archive·delete의 연쇄는 process를 건너야 이어진다.
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir, readdir, readFile, stat } from "node:fs/promises";
+import { test } from "node:test";
 import {
   agentSessionRead,
   archiveSession,
@@ -55,15 +57,15 @@ async function within<T>(what: string, promise: Promise<T>): Promise<T> {
 
 async function filesUnder(dir: string): Promise<string[]> {
   const found: string[] = [];
-  for await (const entry of Deno.readDir(dir)) {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
     const path = `${dir}/${entry.name}`;
-    if (entry.isDirectory) found.push(...await filesUnder(path));
+    if (entry.isDirectory()) found.push(...await filesUnder(path));
     else found.push(path);
   }
   return found;
 }
 
-Deno.test("사람이 멈추면 진행 중인 model 요청이 끊기고 응답의 tool은 실행되지 않는다", async () => {
+test("사람이 멈추면 진행 중인 model 요청이 끊기고 응답의 tool은 실행되지 않는다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -84,7 +86,7 @@ Deno.test("사람이 멈추면 진행 중인 model 요청이 끊기고 응답의
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
     const proj = `${run.work}/proj`;
-    await Deno.mkdir(proj);
+    await mkdir(proj);
     const { project } = await openProject(core, proj);
     const session = await openSession(core, {
       role: "project_manager",
@@ -96,21 +98,24 @@ Deno.test("사람이 멈추면 진행 중인 model 요청이 끊기고 응답의
     const running = (await turnsOf(core, session)).find((turn) =>
       turn.state === "running"
     );
-    assert(running, "running turn이 있어야 한다");
+    assert.ok(running, "running turn이 있어야 한다");
     await stopTurn(core, running.id);
     await within("model 요청이 끊김", fake.aborted(1));
     const ended = await waitTurnEnd(core, session);
 
     // fake가 받은 요청: 멈춘 뒤 새 요청이나 retry가 없다.
-    assertEquals(fake.journal().length, 1);
+    assert.deepStrictEqual(fake.journal().length, 1);
     // ledger: 사람이 멈춘 이유로 닫히고 tool call 기록이 없다.
     const { turn } = await core.call(turnRead, { turn: ended.id });
-    assertEquals(turn.state, "finished");
-    assertEquals(turn.outcome, { kind: "interrupted", reason: "user_stopped" });
+    assert.deepStrictEqual(turn.state, "finished");
+    assert.deepStrictEqual(turn.outcome, {
+      kind: "interrupted",
+      reason: "user_stopped",
+    });
     const { tool_calls } = await core.call(toolCallList, { turn: ended.id });
-    assertEquals(tool_calls, []);
+    assert.deepStrictEqual(tool_calls, []);
     // disk: 쓰기가 일어나지 않았다.
-    assertEquals(await filesUnder(proj), []);
+    assert.deepStrictEqual(await filesUnder(proj), []);
   } finally {
     await core?.kill().catch(() => {});
     await fake.close();
@@ -131,7 +136,7 @@ async function inProject(
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
     const proj = `${run.work}/proj`;
-    await Deno.mkdir(proj);
+    await mkdir(proj);
     const { project } = await openProject(core, proj);
     await body({ core, fake, proj, project });
   } finally {
@@ -145,7 +150,7 @@ async function runningTurn(core: Core, session: string) {
   const running = (await turnsOf(core, session)).find((turn) =>
     turn.state === "running"
   );
-  assert(running, "running turn이 있어야 한다");
+  assert.ok(running, "running turn이 있어야 한다");
   return running;
 }
 
@@ -154,7 +159,7 @@ const stallReply = {
 } as const;
 const textReply = { reply: { kind: "text", text: "ok" } } as const;
 
-Deno.test("shell이 도는 중 멈추면 shell process group이 죽는다", async () => {
+test("shell이 도는 중 멈추면 shell process group이 죽는다", async () => {
   await inProject(async ({ core, fake, proj, project }) => {
     // /proc에서 찾을 표지다. core.ids의 무작위 값에서 숫자 다섯 자리를 만든다.
     const marker = `2999.${
@@ -163,9 +168,9 @@ Deno.test("shell이 도는 중 멈추면 shell process group이 죽는다", asyn
     }`;
     const alive = async () => {
       const found: number[] = [];
-      for await (const entry of Deno.readDir("/proc")) {
+      for (const entry of await readdir("/proc", { withFileTypes: true })) {
         if (!/^\d+$/.test(entry.name)) continue;
-        const argv = await Deno.readTextFile(`/proc/${entry.name}/cmdline`)
+        const argv = await readFile(`/proc/${entry.name}/cmdline`, "utf8")
           .catch(() => "");
         if (argv.includes(`sleep ${marker}`)) found.push(Number(entry.name));
       }
@@ -191,9 +196,12 @@ Deno.test("shell이 도는 중 멈추면 shell process group이 죽는다", asyn
     await until(
       "shell이 started를 씀",
       async () =>
-        await Deno.stat(`${proj}/started`).then(() => true, () => undefined),
+        await stat(`${proj}/started`).then(() => true, () => undefined),
     );
-    assert((await alive()).length > 0, "표지를 가진 process가 떠 있어야 한다");
+    assert.ok(
+      (await alive()).length > 0,
+      "표지를 가진 process가 떠 있어야 한다",
+    );
     await stopTurn(core, (await runningTurn(core, session)).id);
     const ended = await waitTurnEnd(core, session);
 
@@ -203,21 +211,21 @@ Deno.test("shell이 도는 중 멈추면 shell process group이 죽는다", asyn
       async () => (await alive()).length === 0 ? true : undefined,
     );
     // ledger: 사람이 멈춘 이유로 닫히고 shell call은 success가 아니다.
-    assertEquals(ended.outcome, {
+    assert.deepStrictEqual(ended.outcome, {
       kind: "interrupted",
       reason: "user_stopped",
     });
     const { tool_calls } = await core.call(toolCallList, { turn: ended.id });
-    assert(
+    assert.ok(
       tool_calls.every((call) => call.outcome?.kind !== "success"),
       "멈춘 shell call이 success로 기록됐다",
     );
     // fake가 받은 요청: 멈춘 뒤 새 요청이 없다.
-    assertEquals(fake.journal().length, 1);
+    assert.deepStrictEqual(fake.journal().length, 1);
   });
 });
 
-Deno.test("허락을 기다리는 중 멈추면 늦게 온 허락이 명령을 일으키지 못한다", async () => {
+test("허락을 기다리는 중 멈추면 늦게 온 허락이 명령을 일으키지 못한다", async () => {
   await inProject(async ({ core, fake, proj, project }) => {
     const ask = await shellAsk(proj);
     fake.script([{ reply: ask.reply("w1") }]);
@@ -236,31 +244,31 @@ Deno.test("허락을 기다리는 중 멈추면 늦게 온 허락이 명령을 �
     });
 
     // route: 늦은 허락은 거절되고 대기 중이던 요청은 비었다.
-    assert(!late.ok, "멈춘 뒤의 once가 받아들여졌다");
+    assert.ok(!late.ok, "멈춘 뒤의 once가 받아들여졌다");
     const { snapshots } = await core.call(sessionSnapshotsList, {
       sessions: [session],
     });
-    assertEquals(snapshots[0].turn_requests, []);
+    assert.deepStrictEqual(snapshots[0].turn_requests, []);
     // ledger
-    assertEquals(ended.outcome, {
+    assert.deepStrictEqual(ended.outcome, {
       kind: "interrupted",
       reason: "user_stopped",
     });
     const { tool_calls } = await core.call(toolCallList, { turn: ended.id });
-    assert(
+    assert.ok(
       tool_calls.every((call) => call.outcome?.kind !== "success"),
       "허락 없이 멈춘 call이 success로 기록됐다",
     );
     // disk
-    assertEquals(await ask.exists(), true);
+    assert.deepStrictEqual(await ask.exists(), true);
     // fake가 받은 요청
-    assertEquals(fake.journal().length, 1);
+    assert.deepStrictEqual(fake.journal().length, 1);
   });
 });
 
 // archive와 지움은 진행 중인 model 요청을 끊고, runtime child는 그대로 살아 다음 session의 turn을 돌린다.
 for (const how of ["archive", "delete"] as const) {
-  Deno.test(`session을 ${how === "archive" ? "archive하면" : "지우면"} 진행 중인 model 요청이 끊긴다`, async () => {
+  test(`session을 ${how === "archive" ? "archive하면" : "지우면"} 진행 중인 model 요청이 끊긴다`, async () => {
     await inProject(async ({ core, fake, project }) => {
       fake.script([stallReply, textReply]);
       const pm = { role: "project_manager", project } as const;
@@ -281,24 +289,24 @@ for (const how of ["archive", "delete"] as const) {
       const done = await waitTurnEnd(core, next);
 
       // fake가 받은 요청: 끊긴 요청 뒤 새 session의 요청이 정상 답을 받았다.
-      assertEquals(fake.journal().length, 2);
-      assertEquals(done.outcome?.kind, "completed");
+      assert.deepStrictEqual(fake.journal().length, 2);
+      assert.deepStrictEqual(done.outcome?.kind, "completed");
       // ledger
       if (how === "archive") {
         const archived = await core.call(agentSessionRead, { session });
-        assertEquals(archived.session.lifecycle, "archived");
+        assert.deepStrictEqual(archived.session.lifecycle, "archived");
         const closed = await core.call(turnRead, { turn: turn.id });
-        assertEquals(closed.turn.state, "finished");
-        assertEquals(closed.turn.outcome, {
+        assert.deepStrictEqual(closed.turn.state, "finished");
+        assert.deepStrictEqual(closed.turn.outcome, {
           kind: "interrupted",
           reason: "session_ended",
         });
       } else {
         const gone = await core.tryCall(agentSessionRead, { session });
-        assert(!gone.ok && gone.error.code === "not_found");
+        assert.ok(!gone.ok && gone.error.code === "not_found");
       }
       // process: runtime child가 그대로다.
-      assertEquals(await runtimePids(core.run.home), pids);
+      assert.deepStrictEqual(await runtimePids(core.run.home), pids);
     });
   });
 }

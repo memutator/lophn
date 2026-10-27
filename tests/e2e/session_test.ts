@@ -16,7 +16,9 @@
 //   닫힌다(보낸 lophn 3, 받는 PM 1). 두 session이 같은 시각에 model을 부르므로 role 전용 tool 이름으로 줄을 가른다.
 //
 // core는 file 전체에서 하나고, 행마다 새 project 폴더(run.work/<행 이름>)와 새 session을 쓴다.
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { lstat, mkdir, writeFile } from "node:fs/promises";
+import { test } from "node:test";
 import {
   type AgentRef,
   agentSessionList,
@@ -64,7 +66,7 @@ async function newProject(
   name: string,
 ): Promise<{ project: string; pm: AgentRef }> {
   const folder = `${core.run.work}/${name}`;
-  await Deno.mkdir(folder);
+  await mkdir(folder);
   const { project } = await openProject(core, folder, name);
   return { project, pm: { role: "project_manager", project } };
 }
@@ -103,10 +105,10 @@ function toolResultOf(fake: FakeServer, id: string): string {
     messages: { role: string; content: unknown }[];
   };
   const last = body.messages.at(-1)!;
-  assertEquals(last.role, "user");
+  assert.deepStrictEqual(last.role, "user");
   const block = (last.content as { type: string; tool_use_id?: string }[])
     .find((item) => item.type === "tool_result" && item.tool_use_id === id);
-  assert(block, `둘째 요청에 ${id}의 tool_result가 없다`);
+  assert.ok(block, `둘째 요청에 ${id}의 tool_result가 없다`);
   return JSON.stringify((block as { content?: unknown }).content ?? null);
 }
 
@@ -123,7 +125,7 @@ async function outcomesOf(core: Core, turn: string) {
 }
 
 async function exists(path: string): Promise<boolean> {
-  return await Deno.lstat(path).then(() => true, () => false);
+  return await lstat(path).then(() => true, () => false);
 }
 
 function callTool(to: unknown) {
@@ -231,7 +233,7 @@ async function rewindMessagesOnly(
   }, { session_state: "open", active_turn: null, applying_rewind: null });
 }
 
-Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨다", async (t) => {
+test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨다", async (t) => {
   const run: Run = await createRun();
   let fake: FakeServer | undefined;
   let core: Core | undefined;
@@ -243,7 +245,7 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
     const f = fake;
 
     // place-archive-holds-input
-    await t.step(
+    await t.test(
       "person-message: 보관 중에는 입력만 막히고 session은 열려 있어 꺼내면 이어서 받는다",
       async () => {
         f.reset();
@@ -253,27 +255,27 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
 
         await setArchived(c, project, true);
         const refused = await trySay(c, session, "while archived");
-        assert(!refused.ok);
-        assertEquals(refused.error.code, "conflict");
+        assert.ok(!refused.ok);
+        assert.deepStrictEqual(refused.error.code, "conflict");
 
         await setArchived(c, project, false);
         const { message } = await say(c, session, "after unarchive");
         await waitTurnEnd(c, session);
 
         // 거절된 message는 흔적이 없다. agent의 대답은 같은 session의 message로 따로 남는다.
-        assertEquals(
+        assert.deepStrictEqual(
           (await messagesOf(c, session)).filter((item) =>
             item.from.kind === "human"
           ).map((item) => item.id),
           [message],
         );
         const { session: read } = await c.call(agentSessionRead, { session });
-        assertEquals(read.lifecycle, "open");
-        assertEquals(f.journal().length, 1);
+        assert.deepStrictEqual(read.lifecycle, "open");
+        assert.deepStrictEqual(f.journal().length, 1);
       },
     );
 
-    await t.step(
+    await t.test(
       "agent-call: 보관된 place의 session에 보낸 call은 closed고 session은 안 끝난다",
       async () => {
         f.reset();
@@ -294,17 +296,17 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
         await say(c, caller, "call the project manager");
         await waitTurnEnd(c, caller);
 
-        assert(toolResultOf(f, "t1").includes("closed"));
-        assertEquals(await messagesOf(c, target), []);
+        assert.ok(toolResultOf(f, "t1").includes("closed"));
+        assert.deepStrictEqual(await messagesOf(c, target), []);
         const { session: read } = await c.call(agentSessionRead, {
           session: target,
         });
-        assertEquals(read.lifecycle, "open");
+        assert.deepStrictEqual(read.lifecycle, "open");
       },
     );
 
     // fork-copies-history
-    await t.step(
+    await t.test(
       "fork-at-point: 고른 지점까지의 message만 복사하고 turn은 가져가지 않는다",
       async () => {
         f.reset();
@@ -324,28 +326,35 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
           source: session,
           through_seq: point,
         });
-        assertEquals(forked.copied_messages, 3);
-        assertEquals(forked.forked_from, { session, through_seq: point });
+        assert.deepStrictEqual(forked.copied_messages, 3);
+        assert.deepStrictEqual(forked.forked_from, {
+          session,
+          through_seq: point,
+        });
 
         const copied = await messagesOf(c, forked.id);
-        assertEquals(
+        assert.deepStrictEqual(
           copied.map((item) => item.body),
           origin.slice(0, 3).map((item) => item.body),
         );
-        assertEquals(copied.map((item) => item.turn), [null, null, null]);
-        assertEquals(await ownTurnsOf(c, forked.id), []);
+        assert.deepStrictEqual(copied.map((item) => item.turn), [
+          null,
+          null,
+          null,
+        ]);
+        assert.deepStrictEqual(await ownTurnsOf(c, forked.id), []);
         const { session: original } = await c.call(agentSessionRead, {
           session,
         });
         const { session: copy } = await c.call(agentSessionRead, {
           session: forked.id,
         });
-        assertEquals(copy.agent, original.agent);
-        assertEquals(copy.lifecycle, "open");
+        assert.deepStrictEqual(copy.agent, original.agent);
+        assert.deepStrictEqual(copy.lifecycle, "open");
       },
     );
 
-    await t.step(
+    await t.test(
       "fork-skips-rewound: rewind가 숨긴 구간은 복사하지 않는다",
       async () => {
         f.reset();
@@ -369,14 +378,18 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
           source: session,
           through_seq: sent.created_seq,
         });
-        assertEquals(forked.copied_messages, 3);
-        assertEquals(await bodiesOf(c, forked.id), ["one", "a1", "three"]);
-        assertEquals(await ownTurnsOf(c, forked.id), []);
+        assert.deepStrictEqual(forked.copied_messages, 3);
+        assert.deepStrictEqual(await bodiesOf(c, forked.id), [
+          "one",
+          "a1",
+          "three",
+        ]);
+        assert.deepStrictEqual(await ownTurnsOf(c, forked.id), []);
       },
     );
 
     // role-place-mismatch
-    await t.step(
+    await t.test(
       "archived-project: 보관된 project에는 session을 열 수 없고 꺼내면 열린다",
       async () => {
         const { project, pm } = await newProject(c, "archived-project");
@@ -385,22 +398,22 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
           id: c.ids.newId("ses"),
           agent: pm,
         });
-        assert(!refused.ok);
-        assertEquals(refused.error.code, "conflict");
+        assert.ok(!refused.ok);
+        assert.deepStrictEqual(refused.error.code, "conflict");
         const none = await c.call(agentSessionList, {
           agent: pm,
           archived: "include",
         });
-        assertEquals(none.sessions, []);
+        assert.deepStrictEqual(none.sessions, []);
 
         await setArchived(c, project, false);
         const session = await openSession(c, pm);
         const { session: read } = await c.call(agentSessionRead, { session });
-        assertEquals(read.lifecycle, "open");
+        assert.deepStrictEqual(read.lifecycle, "open");
       },
     );
 
-    await t.step(
+    await t.test(
       "unknown-operator: 없는 Operator에는 session을 열 수 없다",
       async () => {
         const agent: AgentRef = { role: "operator", agent: c.ids.newId("agt") };
@@ -408,19 +421,22 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
           id: c.ids.newId("ses"),
           agent,
         });
-        assert(!refused.ok);
-        assertEquals(refused.error.code, "not_found");
-        assertEquals((await c.call(agentSessionList, { agent })).sessions, []);
+        assert.ok(!refused.ok);
+        assert.deepStrictEqual(refused.error.code, "not_found");
+        assert.deepStrictEqual(
+          (await c.call(agentSessionList, { agent })).sessions,
+          [],
+        );
       },
     );
 
-    await t.step(
+    await t.test(
       "lophn-reads-not-writes: lophn은 project 폴더를 읽고 쓰기 tool은 목록에 없다",
       async () => {
         f.reset();
         await newProject(c, "lophn-scope");
         const folder = `${c.run.work}/lophn-scope`;
-        await Deno.writeTextFile(`${folder}/notes.md`, "alpha");
+        await writeFile(`${folder}/notes.md`, "alpha");
         const session = await openSession(c, LOPHN);
         f.script([
           {
@@ -450,24 +466,24 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
 
         // fake
         const names = toolNamesOf(f);
-        assert(names.includes("file_read"));
+        assert.ok(names.includes("file_read"));
         for (const gone of ["file_write", "file_edit", "shell_run"]) {
-          assert(!names.includes(gone), `lophn에 ${gone}이 보인다`);
+          assert.ok(!names.includes(gone), `lophn에 ${gone}이 보인다`);
         }
-        assert(toolResultOf(f, "t-read").includes("alpha"));
+        assert.ok(toolResultOf(f, "t-read").includes("alpha"));
         // 없는 tool의 call은 tool_result로만 not_found를 돌려받고 ledger에는 행이 없다(tool 정의가 없어 진입하지 않는다).
-        assert(toolResultOf(f, "t-write").includes("not_found"));
+        assert.ok(toolResultOf(f, "t-write").includes("not_found"));
         // ledger
-        assertEquals(await outcomesOf(c, turn.id), {
+        assert.deepStrictEqual(await outcomesOf(c, turn.id), {
           "t-read": { kind: "success", code: "ok" },
         });
         // disk
-        assert(!await exists(`${folder}/new.md`));
+        assert.ok(!await exists(`${folder}/new.md`));
       },
     );
 
     for (const how of ["archive", "delete"] as const) {
-      await t.step(
+      await t.test(
         `${how}-call: session을 ${
           how === "archive" ? "archive하면" : "지우면"
         } 도는 turn, 대기 허락, 받은 call이 한 번에 닫힌다`,
@@ -492,31 +508,31 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
           // ledger
           if (how === "archive") {
             const closed = await c.call(turnRead, { turn: turn!.id });
-            assertEquals(closed.turn.state, "finished");
-            assertEquals(closed.turn.outcome, {
+            assert.deepStrictEqual(closed.turn.state, "finished");
+            assert.deepStrictEqual(closed.turn.outcome, {
               kind: "interrupted",
               reason: "session_ended",
             });
             const { session } = await c.call(agentSessionRead, {
               session: dst,
             });
-            assertEquals(session.lifecycle, "archived");
+            assert.deepStrictEqual(session.lifecycle, "archived");
           } else {
             const gone = await c.tryCall(agentSessionRead, { session: dst });
-            assert(!gone.ok && gone.error.code === "not_found");
+            assert.ok(!gone.ok && gone.error.code === "not_found");
           }
           // route
           const { call: closedCall } = await c.call(callRead, { call });
-          assertEquals(closedCall.state, "failed");
-          assertEquals(closedCall.fail_reason, "receiver_ended");
+          assert.deepStrictEqual(closedCall.state, "failed");
+          assert.deepStrictEqual(closedCall.fail_reason, "receiver_ended");
           const late = await c.tryCall(turnRequestDecide, {
             session: dst,
             request,
             choice: { kind: "once" },
           });
-          assert(!late.ok, "끝난 session의 늦은 once가 받아들여졌다");
+          assert.ok(!late.ok, "끝난 session의 늦은 once가 받아들여졌다");
           // disk
-          assert(await ask.exists(), "늦은 once가 명령을 돌렸다");
+          assert.ok(await ask.exists(), "늦은 once가 명령을 돌렸다");
         },
       );
     }

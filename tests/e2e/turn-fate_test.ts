@@ -5,7 +5,10 @@
 //   (`turns_running_session` unique index가 conflict를 낸다), 연속으로 죽는 child가 한도 안에서도 다시 뜨지 않는 것.
 // - 왜 지금 test로 못 잡나: restart_test는 core가 꺼지는 길(RecoverCalls)만 본다. child 단독 종료는 어떤 test도 안 보고,
 //   supervision은 process를 건너야 보인다.
-import { assertEquals, assertNotEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir } from "node:fs/promises";
+import process from "node:process";
+import { test } from "node:test";
 import { platformHealth } from "../../packages/protocol/server/mod.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
@@ -26,9 +29,9 @@ import {
 // agent runtime child 하나를 SIGKILL로 죽이고, 감독이 새 child를 ready로 띄울 때까지 기다린 뒤 옛 pid를 돌려준다.
 async function crash(core: Core): Promise<number> {
   const pids = await runtimePids(core.run.home);
-  assertEquals(pids.length, 1);
+  assert.deepStrictEqual(pids.length, 1);
   const old = pids[0];
-  Deno.kill(old, "SIGKILL");
+  process.kill(old, "SIGKILL");
   await until("agent runtime이 다시 뜸", async () => {
     const current = await runtimePids(core.run.home);
     if (current.length === 0 || current.includes(old)) return;
@@ -74,18 +77,24 @@ async function crashMidTurn(
 
   // ledger
   const turns = await turnsOf(core, session);
-  assertEquals(turns.map((turn) => [turn.state, turn.outcome?.kind]), [
-    ["finished", "interrupted"],
-    ["finished", "completed"],
-  ]);
-  assertEquals(turns[0].outcome, { kind: "interrupted", reason: "restarted" });
+  assert.deepStrictEqual(
+    turns.map((turn) => [turn.state, turn.outcome?.kind]),
+    [
+      ["finished", "interrupted"],
+      ["finished", "completed"],
+    ],
+  );
+  assert.deepStrictEqual(turns[0].outcome, {
+    kind: "interrupted",
+    reason: "restarted",
+  });
   // fake가 받은 요청: 끊긴 요청이 풀렸고 둘째 turn의 요청 하나만 더 왔다.
   await fake.aborted(1);
-  assertEquals(fake.journal().length, 2);
+  assert.deepStrictEqual(fake.journal().length, 2);
   // process
   const pids = await runtimePids(core.run.home);
-  assertEquals(pids.length, 1);
-  assertNotEquals(pids[0], old);
+  assert.deepStrictEqual(pids.length, 1);
+  assert.notStrictEqual(pids[0], old);
 }
 
 // c: 연속으로 죽는 child는 세 번까지 다시 뜨고 session은 계속 일한다.
@@ -101,18 +110,21 @@ async function consecutiveCrashes(core: Core, fake: FakeServer) {
 
   // process: 세 번 죽은 뒤에도 runtime이 하나 있고 감독이 available로 본다.
   const health = await core.call(platformHealth, {});
-  assertEquals(
+  assert.deepStrictEqual(
     health.observations.find((item) => item.component === "agent-runtime")
       ?.available,
     true,
   );
-  assertEquals((await runtimePids(core.run.home)).length, 1);
+  assert.deepStrictEqual((await runtimePids(core.run.home)).length, 1);
   // ledger와 fake: turn이 열려 끝났다.
-  assertEquals((await turnsOf(core, session))[0].outcome?.kind, "completed");
-  assertEquals(fake.journal().length, 1);
+  assert.deepStrictEqual(
+    (await turnsOf(core, session))[0].outcome?.kind,
+    "completed",
+  );
+  assert.deepStrictEqual(fake.journal().length, 1);
 }
 
-Deno.test("E2E agent runtime child가 사라져도 돌던 turn은 닫히고 session은 새 입력을 받는다", async () => {
+test("E2E agent runtime child가 사라져도 돌던 turn은 닫히고 session은 새 입력을 받는다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -120,7 +132,7 @@ Deno.test("E2E agent runtime child가 사라져도 돌던 turn은 닫히고 sess
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
     const folder = `${run.work}/proj`;
-    await Deno.mkdir(folder);
+    await mkdir(folder);
     await crashMidTurn(core, fake, folder);
     await core.kill();
     core = await bootCore(run);

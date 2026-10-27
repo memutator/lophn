@@ -6,7 +6,9 @@
 // - 왜 지금 test로 못 잡나: file-store_test·product-redactor_test·secret-refs_test 등은 저장·가림 함수만 본다. key가 child process에서
 //   실제 HTTP header로 나가는 길, redaction 길(child -> 감독 pipe -> core), 바꾸기·지우기, 그 뒤 ledger·log에 남은 것은 process를
 //   건너고 disk 전체를 봐야 알 수 있다.
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { test } from "node:test";
 import {
   agentSessionRead,
   messageBody,
@@ -44,12 +46,12 @@ import {
 // 파일 안에 key가 byte로 들어 있는 file의 path 목록. secrets.json은 건너뛴다.
 async function filesWith(dir: string, key: string): Promise<string[]> {
   const found: string[] = [];
-  for await (const entry of Deno.readDir(dir)) {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
     const path = `${dir}/${entry.name}`;
-    if (entry.isDirectory) {
+    if (entry.isDirectory()) {
       found.push(...await filesWith(path, key));
-    } else if (entry.isFile && entry.name !== SECRET_FILE_NAME) {
-      const text = new TextDecoder("latin1").decode(await Deno.readFile(path));
+    } else if (entry.isFile() && entry.name !== SECRET_FILE_NAME) {
+      const text = new TextDecoder("latin1").decode(await readFile(path));
       if (text.includes(key)) found.push(path);
     }
   }
@@ -93,10 +95,10 @@ async function withKeyedCore(
     await body(ctx);
     await core.stop();
     const secrets = `${run.home}/${SECRET_FILE_NAME}`;
-    await afterStop(await Deno.readTextFile(secrets), ctx);
-    assertEquals((await Deno.stat(secrets)).mode! & 0o777, 0o600);
+    await afterStop(await readFile(secrets, "utf8"), ctx);
+    assert.deepStrictEqual((await stat(secrets)).mode! & 0o777, 0o600);
     for (const each of ctx.keys) {
-      assertEquals(
+      assert.deepStrictEqual(
         (await filesWith(run.dir, each)).filter((path) =>
           !ctx.planted.includes(path)
         ),
@@ -141,7 +143,7 @@ async function ledgerText(
   ]);
 }
 
-Deno.test("E2E provider key는 model 요청 header에만 실리고 secrets.json 밖 어디에도 남지 않는다", async () => {
+test("E2E provider key는 model 요청 header에만 실리고 secrets.json 밖 어디에도 남지 않는다", async () => {
   await withKeyedCore(async ({ core, fake, provider, key }) => {
     const session = await openSession(core, { role: "lophn" });
     fake.script([{ reply: { kind: "text", text: "ok" } }]);
@@ -150,10 +152,10 @@ Deno.test("E2E provider key는 model 요청 header에만 실리고 secrets.json 
 
     // 1. fake가 받은 요청: key는 x-api-key 한 자리에만 있다.
     const [request] = fake.journal();
-    assertEquals(request.headers["x-api-key"], key);
+    assert.deepStrictEqual(request.headers["x-api-key"], key);
     const { "x-api-key": _sent, ...otherHeaders } = request.headers;
-    assert(!JSON.stringify(otherHeaders).includes(key));
-    assert(!JSON.stringify(request.body).includes(key));
+    assert.ok(!JSON.stringify(otherHeaders).includes(key));
+    assert.ok(!JSON.stringify(request.body).includes(key));
 
     // 3. route 출력(꺼내기 전에 core를 살려 둔다).
     const outputs = JSON.stringify([
@@ -166,19 +168,19 @@ Deno.test("E2E provider key는 model 요청 header에만 실리고 secrets.json 
       await core.call(toolCallList, { turn: turn.id }),
       await core.call(secretStatus, {}),
     ]);
-    assert(!outputs.includes(key));
-    assert(outputs.includes(provider));
+    assert.ok(!outputs.includes(key));
+    assert.ok(outputs.includes(provider));
   }, (secrets, { key }) => {
     // 2. disk: 양성 대조로 secrets.json에는 있다. 나머지(core.log 포함)에 없음은 helper가 본다.
-    assert(secrets.includes(key));
+    assert.ok(secrets.includes(key));
   });
 });
 
-Deno.test("E2E tool 결과에 key가 들어 있어도 model 요청·ledger·disk에서 지워진다", async () => {
+test("E2E tool 결과에 key가 들어 있어도 model 요청·ledger·disk에서 지워진다", async () => {
   await withKeyedCore(async ({ run, core, fake, key, planted }) => {
     const folder = `${run.work}/proj`;
-    await Deno.mkdir(folder);
-    await Deno.writeTextFile(`${folder}/.env`, `API_KEY=${key}\n`);
+    await mkdir(folder);
+    await writeFile(`${folder}/.env`, `API_KEY=${key}\n`);
     planted.push(`${folder}/.env`);
     const { project } = await openProject(core, folder);
     const session = await openSession(core, {
@@ -212,19 +214,19 @@ Deno.test("E2E tool 결과에 key가 들어 있어도 model 요청·ledger·disk
 
     // fake: 둘째 요청에 key도, LOPHN_ 환경 변수도, user token도 없다. 첫 요청 header에는 key가 있다.
     const [first, second] = fake.journal();
-    assertEquals(first.headers["x-api-key"], key);
+    assert.deepStrictEqual(first.headers["x-api-key"], key);
     const sent = JSON.stringify(second.body);
-    assert(sent.includes("API_KEY="), "tool 결과가 둘째 요청에 실려야 한다");
-    assert(!sent.includes(key));
-    assert(!sent.includes("LOPHN_"));
-    assert(!sent.includes(core.token));
+    assert.ok(sent.includes("API_KEY="), "tool 결과가 둘째 요청에 실려야 한다");
+    assert.ok(!sent.includes(key));
+    assert.ok(!sent.includes("LOPHN_"));
+    assert.ok(!sent.includes(core.token));
 
     // ledger: tool 결과 blob까지.
-    assert(!(await ledgerText(core, session, turn.id)).includes(key));
+    assert.ok(!(await ledgerText(core, session, turn.id)).includes(key));
   }, () => {});
 });
 
-Deno.test("E2E key를 바꾸면 다음 turn은 새 key를 쓰고 옛 key는 어디에도 없다", async () => {
+test("E2E key를 바꾸면 다음 turn은 새 key를 쓰고 옛 key는 어디에도 없다", async () => {
   await withKeyedCore(async (ctx) => {
     const { core, fake, provider, key: first } = ctx;
     const second = `sk-e2e-${core.ids.newId("key").split("_").pop()}`;
@@ -240,25 +242,25 @@ Deno.test("E2E key를 바꾸면 다음 turn은 새 key를 쓰고 옛 key는 어�
       `provider.${provider.slice("pvd_".length)}`,
       new TextEncoder().encode(second),
     );
-    assert(put.ok);
+    assert.ok(put.ok);
     await say(core, session, "again");
     await waitTurnEnd(core, session, 1);
 
     const [one, two] = fake.journal();
-    assertEquals(one.headers["x-api-key"], first);
-    assertEquals(two.headers["x-api-key"], second);
+    assert.deepStrictEqual(one.headers["x-api-key"], first);
+    assert.deepStrictEqual(two.headers["x-api-key"], second);
     const outputs = JSON.stringify([
       await core.call(providerRead, { provider }),
       await core.call(modelCallList, { session }),
     ]);
-    assert(!outputs.includes(first) && !outputs.includes(second));
+    assert.ok(!outputs.includes(first) && !outputs.includes(second));
   }, (secrets, { keys: [first, second] }) => {
-    assert(secrets.includes(second));
-    assert(!secrets.includes(first));
+    assert.ok(secrets.includes(second));
+    assert.ok(!secrets.includes(first));
   });
 });
 
-Deno.test("E2E key를 지우면 다음 turn은 요청을 보내지 않고 실패한다", async () => {
+test("E2E key를 지우면 다음 turn은 요청을 보내지 않고 실패한다", async () => {
   await withKeyedCore(async ({ core, fake, provider }) => {
     const session = await openSession(core, { role: "lophn" });
     fake.script([{ reply: { kind: "text", text: "one" } }]);
@@ -270,17 +272,17 @@ Deno.test("E2E key를 지우면 다음 turn은 요청을 보내지 않고 실패
     await say(core, session, "again");
     const turn = await waitTurnEnd(core, session, 1);
 
-    assertEquals(fake.journal().length, 1);
-    assertEquals(turn.outcome, {
+    assert.deepStrictEqual(fake.journal().length, 1);
+    assert.deepStrictEqual(turn.outcome, {
       kind: "failed",
       reason: "configuration_unavailable",
     });
   }, (secrets, { key }) => {
-    assert(!secrets.includes(key));
+    assert.ok(!secrets.includes(key));
   });
 });
 
-Deno.test("E2E provider 오류 본문이 key를 되울려도 ledger·log에 남지 않는다", async () => {
+test("E2E provider 오류 본문이 key를 되울려도 ledger·log에 남지 않는다", async () => {
   await withKeyedCore(async ({ core, fake, key }) => {
     const session = await openSession(core, { role: "lophn" });
     fake.script([{
@@ -299,8 +301,8 @@ Deno.test("E2E provider 오류 본문이 key를 되울려도 ledger·log에 남�
     await say(core, session, "hello");
     const turn = await waitTurnEnd(core, session);
 
-    assertEquals(fake.journal().length, 1);
-    assertEquals(turn.outcome?.kind, "failed");
-    assert(!(await ledgerText(core, session, turn.id)).includes(key));
+    assert.deepStrictEqual(fake.journal().length, 1);
+    assert.deepStrictEqual(turn.outcome?.kind, "failed");
+    assert.ok(!(await ledgerText(core, session, turn.id)).includes(key));
   }, () => {});
 });

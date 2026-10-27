@@ -149,15 +149,20 @@ export async function runShell(
     timedOut = true;
     kill();
   }, timeoutMs);
-  // 사람이 turn을 멈추면 group을 죽인다. 안 그러면 명령이 멈춘 뒤에도 돈다.
-  if (ctx.signal?.aborted) kill();
-  else ctx.signal?.addEventListener("abort", kill, { once: true });
+  // 사람이 turn을 멈추면 group을 죽인다. 안 그러면 명령이 멈춘 뒤에도 돈다. 죽인 명령은 성공이 아니다.
+  let stopped = false;
+  const stop = () => {
+    stopped = true;
+    kill();
+  };
+  if (ctx.signal?.aborted) stop();
+  else ctx.signal?.addEventListener("abort", stop, { once: true });
 
   const out = collect(child.stdout!);
   const errOut = collect(child.stderr!);
   const code = await exited;
   clearTimeout(timer);
-  ctx.signal?.removeEventListener("abort", kill);
+  ctx.signal?.removeEventListener("abort", stop);
   const empty: Collected = { text: "", truncated: false };
   const grace = <T>(promise: Promise<T>, fallback: T) =>
     Promise.race([
@@ -172,7 +177,7 @@ export async function runShell(
   ]);
 
   const content = {
-    exit_code: timedOut ? null : code,
+    exit_code: timedOut || stopped ? null : code,
     timed_out: timedOut,
     stdout: stdout.text,
     stderr: stderr.text,
@@ -181,10 +186,14 @@ export async function runShell(
   };
   const truncated = stdout.truncated || stderr.truncated;
   return ok({
-    status: timedOut ? "failure" : "success",
-    summary: timedOut ? `timed out after ${timeoutMs} ms` : `exit code ${code}`,
+    status: timedOut || stopped ? "failure" : "success",
+    summary: timedOut
+      ? `timed out after ${timeoutMs} ms`
+      : stopped
+      ? "stopped before it finished"
+      : `exit code ${code}`,
     content,
-    complete: !truncated && !timedOut,
+    complete: !truncated && !timedOut && !stopped,
     source: null,
     continuation: null,
     pending: [],

@@ -187,14 +187,15 @@ const TSC_PROJECTS: Record<string, string[]> = {
   core: ["packages/core"],
   "coding-agent": ["packages/coding-agent"],
   design: ["packages/design", "packages/design/wording"],
-  sdk: [],
+  sdk: ["packages/sdk"],
   shell: ["packages/shell/renderer"],
   tools: ["tools", "tools/wireframes"],
   tests: ["tests"],
 };
 // 앱과 flow 쪽은 wave 3까지 Deno로 돌아 deno check로 본다. tsconfig들의 exclude와 같은 목록이다.
 const DENO_CHECKED = [
-  "packages/sdk",
+  // packages/sdk의 tsconfig는 flow SDK를 뺀다(flow worker가 자기 모양으로 옮긴다).
+  "packages/sdk/flow",
   "packages/core/apps/runtime/entrypoint",
   "packages/core/apps/declaration/extract-child.ts",
   "packages/core/apps/releases/ui-build/eval-declaration.ts",

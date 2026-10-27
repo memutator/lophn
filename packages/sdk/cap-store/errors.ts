@@ -1,5 +1,4 @@
-// 거절은 필요한 permission 이름과 scope를 알린다. 이 값은 안내일 뿐
-// grant를 주지 않는다.
+// 경계의 오류다. 앱 process는 권한을 막지 않으므로 이 값은 보안 경계가 아니라 원인을 알리는 값이다.
 
 export type CapabilityErrorCode =
   | "invalid_input"

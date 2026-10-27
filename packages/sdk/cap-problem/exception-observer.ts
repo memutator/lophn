@@ -1,4 +1,4 @@
-import { REPORTING_LIMITS } from "@lophn/protocol/problems/sdk-report";
+import process from "node:process";
 import type {
   ExceptionObservationError,
   ExceptionObservationInput,
@@ -8,6 +8,7 @@ import type {
   ObservationMissingReason,
   ReportCompletion,
 } from "@lophn/protocol/problems/sdk-report";
+import { REPORTING_LIMITS } from "@lophn/protocol/problems/sdk-report";
 import { deliver, freezeDeep, queueRejection, utf8Length } from "./deliver.ts";
 
 const REPORT_PREFIX = "rpt";
@@ -17,7 +18,6 @@ export type ExceptionObserverDeps = {
   newId: (prefix: string) => string;
   sleep: (ms: number) => Promise<void>;
   currentInvocation: () => ObservationInvocationEvidence | null;
-  target?: EventTarget;
 };
 
 type Pending = { bytes: number };
@@ -81,7 +81,6 @@ function listen(
   deps: ExceptionObserverDeps,
   completions: Map<string, Promise<ReportCompletion>>,
 ): () => void {
-  const target = deps.target ?? globalThis;
   const queue = new Map<string, Pending>();
   let pendingBytes = 0;
   let installed = true;
@@ -130,22 +129,17 @@ function listen(
     );
   };
 
-  const onError = (event: Event) => {
-    capture("error", (event as ErrorEvent).error);
-  };
-  const onRejection = (event: Event) => {
-    capture(
-      "unhandledrejection",
-      event instanceof PromiseRejectionEvent ? event.reason : undefined,
-    );
-  };
-  target.addEventListener("error", onError);
-  target.addEventListener("unhandledrejection", onRejection);
+  // 앱 process는 Node라 DOM event 대신 process event로 처리 못한 예외를 받는다.
+  const onError = (error: unknown) => capture("error", error);
+  const onRejection = (reason: unknown) =>
+    capture("unhandledrejection", reason);
+  process.on("uncaughtException", onError);
+  process.on("unhandledRejection", onRejection);
 
   return () => {
     if (!installed) return;
     installed = false;
-    target.removeEventListener("error", onError);
-    target.removeEventListener("unhandledrejection", onRejection);
+    process.off("uncaughtException", onError);
+    process.off("unhandledRejection", onRejection);
   };
 }

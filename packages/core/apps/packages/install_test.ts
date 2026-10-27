@@ -107,6 +107,42 @@ test("설치 사본은 읽기 전용이고 다시 깔면 같고 소스가 바뀌
   });
 });
 
+test("사본은 package.json을 갖고 SDK 사본 의존을 상대 file: 경로로 바꾼다", async () => {
+  await withTemp(async (temp) => {
+    const packagesRoot = `${temp}/packages`;
+    const dataRoot = `${temp}/data`;
+    await tinyPackages(packagesRoot);
+    const uiManifest = (demo: string) =>
+      JSON.stringify({
+        name: "@lophn/ui",
+        version: "1.0.0",
+        dependencies: { "@lophn/demo": demo, react: "19.3.0" },
+      });
+    await writeFile(`${packagesRoot}/design/package.json`, uiManifest("1.0.0"));
+
+    assert.ok((await installSdkCopies({ dataRoot, packagesRoot })).ok);
+    const manifest = JSON.parse(
+      await readFile(`${dataRoot}/sdk/ui/1.0.0/package.json`, "utf8"),
+    );
+    assert.deepStrictEqual(manifest.dependencies, {
+      "@lophn/demo": "file:../../demo/1.0.0",
+      react: "19.3.0",
+    });
+
+    // 사본의 의존은 정확한 판만 된다. 범위는 install path를 만들 수 없다.
+    await writeFile(
+      `${packagesRoot}/design/package.json`,
+      uiManifest("^1.0.0"),
+    );
+    const failed = await installSdkCopies({ dataRoot, packagesRoot });
+    assert.deepStrictEqual(failed.ok, false);
+    assert.deepStrictEqual(
+      failed.ok ? undefined : failed.error.code,
+      "invalid_input",
+    );
+  });
+});
+
 test("깐 declaration·cap-store·cap-problem 사본이 repo 없이 import된다", async () => {
   await withTemp(async (dataRoot) => {
     const installed = await installSdkCopies({

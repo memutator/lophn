@@ -4,6 +4,9 @@
   "type": "module",
   "exports": "./mod.ts",
   "dependencies": {
+    "@lophn/declaration": "1.0.0",
+    "@lophn/ui": "1.0.0",
+    "@lophn/wording": "1.0.0",
     "@types/react": "19.3.0",
     "lucide-react": "1.51.0",
     "react": "19.3.0"

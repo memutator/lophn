@@ -3,8 +3,8 @@
 ## 목적
 
 앱이 자기 data 영역의 SQLite DB를 여는 얇은 client와 migration 도우미다. 추가
-permission은 없다. 앱 프로세스는 자기 data 영역에만 읽기·쓰기 flag를 가지며 다른
-앱 DB와 플랫폼 파일은 열 수 없다.
+permission은 없다. 앱 process는 권한을 막지 않으므로 기본 경로는 data 영역이지만,
+밖의 파일도 OS가 허락하면 열린다.
 
 ## 공개 API와 type
 
@@ -33,7 +33,7 @@ import { openStore } from "@lophn/cap-store";
 - write·external tool과 앱 시작이 도는 동안의 변경은 runtime이 SDK 훅으로
   changeset을 떠서 core에 넘긴다. 앱 code가 따로 할 일은 없다. 모든 표에 PRIMARY
   KEY를 둔다.
-- 자기 data 영역 밖 경로는 `CapabilityError`(`forbidden`, `fs.write`와 경로)다.
+- DB를 열지 못하면 `CapabilityError`(`unavailable`)다.
 - type: `Store`, `Migration`, `OpenStoreOptions`, `CapabilityError`
 
 ## 요구 permission

@@ -2,11 +2,10 @@
 
 ## 목적
 
-허락된 경로의 파일 read·write·watch를 얇은 typed client로 묶는다. 이 package를
-import해도 grant가 생기지 않는다. 실제 접근 범위는 앱 프로세스의 Deno flag이고,
-그 flag는 선언이 정하고 사람이 grant한 `fs.read`·`fs.write` 경로의 교집합이다.
-지금 되는 것: 선언에 `fs.read`·`fs.write`와 경로를 적고, 사람이 허락한 경로만
-읽고 쓴다.
+파일 read·write·watch를 얇은 typed client로 묶는다. 앱 process는 권한을 막지
+않으므로 OS가 허락하는 파일은 어디든 읽고 쓸 수 있다. 선언의 `fs.read`·`fs.write`는
+앱이 무엇에 닿는지 보이는 값이고, 이 package의 `checkDeclaration`이 그 선언을
+검사한다.
 
 ## 공개 API와 type
 
@@ -20,15 +19,14 @@ import {
 } from "@lophn/cap-fs";
 ```
 
-- `readFile(path)`, `readTextFile(path)` — `fs.read` 경로 안의 파일을 읽는다.
+- `readFile(path)`, `readTextFile(path)` — 파일을 읽는다.
 - `writeFile(path, bytes, { append?, createNew? })`,
-  `writeTextFile(path, text, options)` — `fs.write` 경로 안에 쓴다. `fs.write`는
-  `fs.read`를 포함하지 않는다.
-- `watch(paths, handler, { recursive? })` — `fs.read` 경로의 변경을 받는다.
+  `writeTextFile(path, text, options)` — 파일에 쓴다. `append`는 뒤에 잇고
+  `createNew`는 이미 있으면 실패한다.
+- `watch(paths, handler, { recursive? })` — 경로의 변경을 받는다.
   `{ close(), done }`를 돌려준다.
-- 거절은 `CapabilityError`다. `code === "forbidden"`이면 `permission`(`fs.read`
-  또는 `fs.write`)과 `scope`(`{ path, recursive }`)가 있다. 그 이름과 경로를
-  선언의 `permissions`에 선언하고 사람에게 grant를 요청한다.
+- 거절은 `CapabilityError`다. 없는 경로는 `not_found`, 이미 있는 경로는
+  `conflict`, 그 밖의 실패는 `unavailable`이다.
 - `checkDeclaration(declaration)` — 이 package를 쓰는 선언이 `fs.read` 또는
   `fs.write`를 빠뜨렸는지 검사한다.
 - type: `FsEvent`, `FsWatcher`, `WatchOptions`, `WriteOptions`,
@@ -36,9 +34,8 @@ import {
 
 ## 요구 permission
 
-`fs.read`, `fs.write` 중 쓰는 쪽. 경로는 이미 있는 정확한 절대 경로이고(폴더는
-recursive로만 허락한다) descendant만 포함한다. 운영 bundle은 읽기만 되고
-source·다른 앱 DB·플랫폼 credential·log는 어느 grant로도 열리지 않는다.
+없다. 앱은 권한 제한 없이 돈다. 선언의 `fs.read`·`fs.write`(경로·recursive)는
+앱이 무엇에 닿는지 보이는 값이고 `checkDeclaration`이 그것을 요구한다.
 
 ## peer 의존
 

@@ -16,15 +16,6 @@ import {
 export const DEFAULT_DATABASE_FILE = "app.sqlite";
 export const SCHEMA_TABLE = "lophn_data_schema";
 
-// Deno는 좁힌 flag에서 name이 NotCapable인 오류를 낸다(code는 ERR_SQLITE_ERROR로 덮인다).
-// Node --permission은 node:sqlite를 막지 않아 이 자리에서 permission 오류가 나오지 않는다(실측).
-// 그래도 fs 계층이 막는 경우를 위해 ERR_ACCESS_DENIED도 같이 본다.
-function denied(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  const { name, code } = error as { name?: string; code?: string };
-  return name === "NotCapable" || code === "ERR_ACCESS_DENIED";
-}
-
 type Connection = { db: DatabaseSync; sessions: Map<string, Session> };
 
 const connections = new Map<string, Connection>();
@@ -44,15 +35,7 @@ export function openConnection(file: string): DatabaseSync {
     db.exec("pragma journal_mode = wal");
     db.exec("pragma foreign_keys = on");
     db.exec("pragma busy_timeout = 5000");
-  } catch (error) {
-    if (denied(error)) {
-      throw new CapabilityError({
-        code: "forbidden",
-        message: `fs.write {"path":"${file}"} is outside the app data area. Keep the database in the app data path.`,
-        permission: "fs.write",
-        scope: { path: file, recursive: false },
-      });
-    }
+  } catch {
     throw new CapabilityError({
       code: "unavailable",
       message: "app database cannot be opened",

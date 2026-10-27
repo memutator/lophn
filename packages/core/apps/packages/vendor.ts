@@ -96,10 +96,8 @@ export const SUPPORT_SOURCES: readonly { source: string; skip: string[] }[] = [
 ];
 
 // 사본에 test와 testdata는 들 이유가 없다. 폴더 경로는 끝에 `/`가 붙어 들어온다.
+// package.json은 사본에 넣는다. npm이 사본을 package로 읽고 그 안의 의존을 풀어야 한다.
 export function keepSourceFile(path: string, skip: readonly string[]): boolean {
-  // package.json은 판 이름을 읽는 데만 쓴다. 사본에 넣으면 Deno가 그 폴더를 npm package로 보고
-  // build에서 node_modules linking을 요구한다.
-  if (path === "package.json") return false;
   if (
     path.split("/").some((part) => part === "testdata" || skip.includes(part))
   ) {

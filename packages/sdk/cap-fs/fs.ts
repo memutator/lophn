@@ -4,7 +4,7 @@ import {
   writeFile as writeFileNode,
 } from "node:fs/promises";
 import { resolve } from "node:path";
-import { CapabilityError, forbidden } from "./errors.ts";
+import { CapabilityError } from "./errors.ts";
 
 export type FsEvent = { kind: string; paths: string[] };
 
@@ -19,26 +19,9 @@ export type FsWatcher = {
   readonly done: Promise<void>;
 };
 
-type Access = "read" | "write";
-
-// 좁힌 권한에서 node:fs는 Deno일 때 name이 NotCapable인 오류(code 없음)를, Node일 때
-// code가 ERR_ACCESS_DENIED인 오류를 낸다(실측). 둘을 같은 SDK 오류로 옮긴다.
-function denied(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  const { name, code } = error as { name?: string; code?: string };
-  return name === "NotCapable" || code === "ERR_ACCESS_DENIED";
-}
-
-// 권한 flag가 막은 접근을 permission 이름과 정확한 경로로 바꾼다. 다른 실패도 삼키지 않고
-// 공통 코드로 바꾼다.
-function translate(
-  error: unknown,
-  access: Access,
-  path: string,
-  recursive: boolean,
-): unknown {
+// 실패를 공통 코드로 바꾼다. 앱 process는 권한을 막지 않으므로 permission 오류를 옮길 자리는 없다.
+function translate(error: unknown): unknown {
   if (error instanceof CapabilityError) return error;
-  if (denied(error)) return forbidden(`fs.${access}`, { path, recursive });
   const code = (error as { code?: unknown } | null | undefined)?.code;
   if (code === "ENOENT") {
     return new CapabilityError({
@@ -61,15 +44,11 @@ function translate(
   return error;
 }
 
-async function guarded<T>(
-  access: Access,
-  path: string,
-  work: () => Promise<T>,
-): Promise<T> {
+async function guarded<T>(work: () => Promise<T>): Promise<T> {
   try {
     return await work();
   } catch (error) {
-    throw translate(error, access, path, false);
+    throw translate(error);
   }
 }
 
@@ -79,12 +58,12 @@ function absolute(path: string | URL): string {
 
 export function readFile(path: string | URL): Promise<Uint8Array> {
   const target = absolute(path);
-  return guarded("read", target, () => readFileNode(target));
+  return guarded(() => readFileNode(target));
 }
 
 export function readTextFile(path: string | URL): Promise<string> {
   const target = absolute(path);
-  return guarded("read", target, () => readFileNode(target, "utf8"));
+  return guarded(() => readFileNode(target, "utf8"));
 }
 
 // SDK의 WriteOptions(append·createNew)는 node:fs에 없어 open flag로 옮긴다.
@@ -93,14 +72,13 @@ function writeFlag(options: WriteOptions): string {
   return options.append ? `a${exclusive}` : `w${exclusive}`;
 }
 
-// fs.write grant는 fs.read를 포함하지 않는다. append·덮어쓰기 모두 write만 요구한다.
 export function writeFile(
   path: string | URL,
   data: Uint8Array,
   options: WriteOptions = {},
 ): Promise<void> {
   const target = absolute(path);
-  return guarded("write", target, () =>
+  return guarded(() =>
     writeFileNode(target, data, { flag: writeFlag(options) }),
   );
 }
@@ -111,14 +89,13 @@ export function writeTextFile(
   options: WriteOptions = {},
 ): Promise<void> {
   const target = absolute(path);
-  return guarded("write", target, () =>
+  return guarded(() =>
     writeFileNode(target, text, { flag: writeFlag(options) }),
   );
 }
 
 type Opened = { path: string; directory: boolean; watcher: FSWatcher };
 
-// 감시는 read 접근이다. 허락 밖 경로는 시작할 때 그 경로 이름으로 거절한다.
 export function watch(
   paths: string | readonly string[],
   handler: (event: FsEvent) => void,
@@ -136,12 +113,11 @@ export function watch(
   try {
     for (const path of list) {
       try {
-        // fs.watch는 권한이 없어도 조용히 열리고 event가 오지 않는다(Node --permission 실측).
-        // stat으로 먼저 확인해 시작할 때 같은 오류를 낸다.
+        // event의 filename은 폴더를 감시할 때만 온다. 파일인지 먼저 봐 경로를 만드는 법을 정한다.
         const directory = statSync(path).isDirectory();
         opened.push({ path, directory, watcher: watchFs(path, { recursive }) });
       } catch (error) {
-        throw translate(error, "read", path, recursive);
+        throw translate(error);
       }
     }
   } catch (error) {
@@ -153,7 +129,7 @@ export function watch(
       ({ path, directory, watcher }) =>
         new Promise<void>((settle, reject) => {
           watcher.on("change", (kind, filename) => {
-            // Deno type은 filename에 Buffer도 허용한다. string이 아닌 값은 문자열로 만든다.
+            // node:fs type은 filename에 Buffer도 허용한다. string이 아닌 값은 문자열로 만든다.
             const name =
               filename === null
                 ? null
@@ -168,15 +144,13 @@ export function watch(
                 ],
               });
             } catch (error) {
-              // for-await 순회가 끝나면 감시도 끝났다. 같은 경계를 지키게 닫고 거절한다.
-              // Deno는 close가 'close' event를 그 자리에서 내므로 거절을 먼저 한다.
+              // handler가 던지면 감시를 닫고 done을 거절한다. close의 'close' event가 done을
+              // 먼저 이행시키지 않도록 거절을 먼저 한다.
               reject(error);
               watcher.close();
             }
           });
-          watcher.on("error", (error) =>
-            reject(translate(error, "read", path, recursive)),
-          );
+          watcher.on("error", (error) => reject(translate(error)));
           watcher.on("close", () => settle());
         }),
     ),

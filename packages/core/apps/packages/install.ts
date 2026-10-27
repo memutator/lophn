@@ -16,9 +16,11 @@ import {
 
 import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
 import {
-  packageNameSchema,
   type PackageRegisterVersionInput,
+  packageNameSchema,
+  packageVersionNameSchema,
 } from "../../../protocol/apps/mod.ts";
+import { sdkCopyDependency } from "./sdk-sync.ts";
 import {
   keepSourceFile,
   type SourceFile,
@@ -125,6 +127,74 @@ export function packageInstallPath(
   return split.value.scope === "me"
     ? ok(`sdk/@me/${split.value.part}/${version}`)
     : ok(`sdk/${split.value.part}/${version}`);
+}
+
+// 사본의 package.json은 npm이 읽는다. 사본끼리의 의존은 두 설치 위치 사이의 `file:` 상대 경로로 바꾼다.
+// 저장소에서는 npm workspace가 이름으로 풀지만, 사본은 앱 폴더 안에 있어 registry에 없는 @lophn·@me
+// 이름을 그대로 두면 npm이 registry에서 받으려 한다. npm 의존은 정확한 판 그대로 둔다.
+function rewriteDependencies(
+  installPath: string,
+  text: string,
+): Result<string> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return invalid("package.json is not JSON");
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return invalid("package.json is not an object");
+  }
+  const manifest = parsed as Record<string, unknown>;
+  for (const field of ["dependencies", "devDependencies"] as const) {
+    const value = manifest[field];
+    if (value === undefined) continue;
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return invalid(`${field} is not an object`);
+    }
+    const dependencies = value as Record<string, unknown>;
+    for (const [name, version] of Object.entries(dependencies)) {
+      if (!name.startsWith("@lophn/") && !name.startsWith("@me/")) continue;
+      if (
+        typeof version !== "string" ||
+        !packageVersionNameSchema.safeParse(version).success
+      ) {
+        return invalid(`${name} dependency needs one exact version`);
+      }
+      const dependencyPath = packageInstallPath(name, version);
+      if (!dependencyPath.ok) return dependencyPath;
+      dependencies[name] = sdkCopyDependency(installPath, dependencyPath.value);
+    }
+  }
+  return ok(`${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+// 사본으로 풀 file 목록이다. package.json이 있어야 npm이 사본을 package로 읽고, 그 안의 의존을 푼다.
+export function prepareCopyFiles(
+  name: string,
+  version: string,
+  files: readonly SourceFile[],
+): Result<SourceFile[]> {
+  const installPath = packageInstallPath(name, version);
+  if (!installPath.ok) return installPath;
+  const manifest = files.find((file) => file.path === "package.json");
+  if (manifest === undefined) {
+    return invalid(`package source has no package.json: ${name}@${version}`);
+  }
+  const text = rewriteDependencies(
+    installPath.value,
+    new TextDecoder().decode(manifest.bytes),
+  );
+  if (!text.ok) return text;
+  return ok(
+    sortFiles(
+      files.map((file) =>
+        file === manifest
+          ? { path: file.path, bytes: new TextEncoder().encode(text.value) }
+          : file,
+      ),
+    ),
+  );
 }
 
 // bundle과 안내 byte를 blob으로 준비한다. 준비한 byte의 hash만 ledger에 간다.
@@ -326,11 +396,17 @@ async function installSource(
     packagesRoot,
   );
   if (!vendored.ok) return vendored;
+  const prepared = prepareCopyFiles(
+    identity.value.name,
+    identity.value.version,
+    vendored.value,
+  );
+  if (!prepared.ok) return prepared;
   return await installCopy(
     dataRoot,
     identity.value.name,
     identity.value.version,
-    sortFiles(vendored.value),
+    prepared.value,
   );
 }
 

@@ -1,5 +1,5 @@
 // 이 package를 쓰는 앱 선언이 요구 permission을 빠뜨리면 거절한다.
-// import도 이 검사도 grant를 주지 않는다. grant는 apps/permissions의 사람 승인이다.
+// 앱 process는 권한을 막지 않으므로 이 검사는 선언이 무엇에 닿는지 보이는 값이지 보안 경계가 아니다.
 
 export const REQUIRED_PERMISSIONS: readonly (readonly string[])[] = [
   ["fs.read", "fs.write"],

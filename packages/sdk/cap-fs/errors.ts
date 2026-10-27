@@ -1,5 +1,4 @@
-// 거절은 필요한 permission 이름과 scope를 알린다. 이 값은 안내일 뿐
-// grant를 주지 않는다. 실제 강제는 Deno flag이고 SDK 검사는 보안 경계가 아니다.
+// 경계의 오류다. 앱 process는 파일 접근을 막지 않으므로 이 값은 보안 경계가 아니라 원인을 알리는 값이다.
 
 export type CapabilityErrorCode =
   | "invalid_input"
@@ -27,18 +26,4 @@ export class CapabilityError extends Error {
     this.permission = init.permission;
     this.scope = init.scope;
   }
-}
-
-export function forbidden(
-  permission: string,
-  scope: Record<string, unknown>,
-): CapabilityError {
-  return new CapabilityError({
-    code: "forbidden",
-    message: `${permission} ${JSON.stringify(
-      scope,
-    )} is not permitted. Declare this permission in the declaration and ask the person to grant it.`,
-    permission,
-    scope,
-  });
 }

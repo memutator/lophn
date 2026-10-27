@@ -1,11 +1,12 @@
-// 앱이 자기 data 영역의 SQLite DB를 여는 얇은 client다. 추가 permission은 없다.
-// 앱 프로세스는 자기 data 영역에만 읽기·쓰기 flag가 있고 다른 앱 DB·플랫폼 파일은 flag가 없다.
+// 앱이 자기 data 영역의 SQLite DB를 여는 얇은 client다. 추가 permission은 없다. 앱 process는 권한을
+// 막지 않으므로 기본 경로를 data 영역으로 두는 것은 지침이고, 밖의 파일도 OS가 허락하면 열린다.
 // schema 번호와 migration 이력은 data worker가 쓰는 같은 표(lophn_data_schema)를 쓴다.
-import type { DatabaseSync } from "node:sqlite";
+
 import { resolve } from "node:path";
+import type { DatabaseSync } from "node:sqlite";
 import {
-  type Migration,
   MIGRATION_PRIMARY_KEY_REQUIRED,
+  type Migration,
   tablesWithoutPrimaryKey,
 } from "../../protocol/apps/activation/migration-sql.ts";
 import {
@@ -18,8 +19,8 @@ import {
 import { CapabilityError } from "./errors.ts";
 import { readHost, type StoreHost } from "./host.ts";
 
-export { DEFAULT_DATABASE_FILE, SCHEMA_TABLE };
 export type { Migration };
+export { DEFAULT_DATABASE_FILE, SCHEMA_TABLE };
 
 const SCHEMA_SQL = [
   `create table if not exists ${SCHEMA_TABLE} (`,

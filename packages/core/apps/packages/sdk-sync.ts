@@ -4,7 +4,7 @@
 // `node_modules/@lophn/*` symlink의 실제 경로가 `node_modules` 밖이어야 하고, SDK가 쓰는 npm 의존은 그
 // 실제 경로에서 위로 올라가 앱의 `node_modules`에서 풀려야 한다.
 // SDK 사본끼리의 의존도 `file:../../<이름>/<판>`이라 같은 방법으로 따라가 복사한다.
-import { cp, readFile, rm, stat } from "node:fs/promises";
+import { chmod, cp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { join, normalize, relative } from "node:path";
 import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
 
@@ -43,6 +43,22 @@ function sdkPath(
     : undefined;
 }
 
+// 설치 사본은 파일 0444·폴더 0555다. 폴더의 쓰기 권한을 돌려주지 않으면 이전 사본을 지울 수 없다.
+async function removeCopy(target: string): Promise<void> {
+  async function open(directory: string): Promise<void> {
+    await chmod(directory, 0o755);
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      if (entry.isDirectory()) await open(`${directory}/${entry.name}`);
+    }
+  }
+  try {
+    await open(target);
+    await rm(target, { recursive: true });
+  } catch {
+    // 아직 사본이 없다.
+  }
+}
+
 // 복사한 `sdk/...` 경로 목록을 돌려준다. 설치되지 않은 판은 not_found다.
 export async function syncAppSdk(
   appDir: string,
@@ -73,8 +89,15 @@ export async function syncAppSdk(
           message: `SDK is not installed: ${path}`,
         });
       }
-      await rm(target, { recursive: true, force: true });
-      await cp(source, target, { recursive: true });
+      try {
+        await removeCopy(target);
+        await cp(source, target, { recursive: true });
+      } catch {
+        return err({
+          code: "unavailable",
+          message: `SDK copy could not be made: ${path}`,
+        });
+      }
       const copied = await readManifest(target);
       if (!copied.ok) return copied;
       pending.push({ from: target, manifest: copied.value });

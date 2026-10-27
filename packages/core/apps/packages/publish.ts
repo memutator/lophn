@@ -1,7 +1,8 @@
 // package.publish. App Engineer가 자기 앱 code의 일부를 @me package로 낸다.
 // 낼 때 사람 승인은 없다. 낸 version은 바뀌지 않는다.
-import { err, ok, type Result } from "../../../base/mod.ts";
+
 import type { z } from "zod";
+import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
   PackagePublishInput,
   PackageRegisterVersionInput,
@@ -10,15 +11,16 @@ import type {
 import type { MemoryHandler } from "../../server/mod.ts";
 import {
   extractCommit,
-  gitCommandRunner,
   type GitRunner,
+  gitCommandRunner,
 } from "../releases/mod.ts";
 import {
   bundleBytes,
   INSTALL_PRINCIPAL,
-  packageInstallPath,
   type PrepareBlob,
+  packageInstallPath,
   prepareBundleBlobs,
+  prepareCopyFiles,
   removeInstallCopy,
   sameInstallCopy,
   writeInstallCopy,
@@ -102,6 +104,9 @@ export function publishPackage(deps: PublishDeps): MemoryHandler {
     }
     const path = packageInstallPath(input.name, input.version);
     if (!path.ok) return path;
+    // 사본은 package.json을 갖고, 그 안의 @lophn·@me 의존은 설치 사본 사이의 `file:` 경로다.
+    const copy = prepareCopyFiles(input.name, input.version, files);
+    if (!copy.ok) return copy;
 
     const bundle = bundleBytes(files);
     const guide = new TextEncoder().encode(guideText(input.guide));
@@ -129,10 +134,10 @@ export function publishPackage(deps: PublishDeps): MemoryHandler {
 
     // 읽기 전용 설치 사본. 같은 byte의 사본이 이미 있으면(재시도) 그대로 둔다.
     const target = `${deps.dataRoot}/${path.value}`;
-    if (!(await sameInstallCopy(target, files))) {
+    if (!(await sameInstallCopy(target, copy.value))) {
       await removeInstallCopy(target);
-      const copied = await writeInstallCopy(target, files);
-      if (!copied.ok) return copied;
+      const written = await writeInstallCopy(target, copy.value);
+      if (!written.ok) return written;
     }
     return ok(registered.value);
   };

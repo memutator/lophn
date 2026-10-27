@@ -54,6 +54,8 @@ import { AppErrorBoundary, ToolButton, useTool } from "@lophn/app-ui";
 | `react`              | 19.3.0  |
 | `lucide-react`       | 1.51.0  |
 | `@lophn/declaration` | 1.0.0   |
+| `@lophn/ui`          | 1.0.0   |
+| `@lophn/wording`     | 1.0.0   |
 
 ## 사용
 

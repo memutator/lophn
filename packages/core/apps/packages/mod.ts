@@ -22,7 +22,6 @@ export {
   syncAppSdk,
 } from "./sdk-sync.ts";
 export {
-  devImportMap,
   scaffoldApp,
   type TemplateFailure,
   type TemplateFile,

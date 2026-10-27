@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { readdir, readFile, rm } from "node:fs/promises";
 import process from "node:process";
 import type { TemplateFile } from "../../../packages/core/apps/packages/template/files.ts";
-import { scaffoldApp } from "../../../packages/core/apps/packages/template/scaffold.ts";
+import { writeTemplateFiles } from "../../../packages/core/apps/packages/template/scaffold.ts";
 import { appDefaultSource } from "../../../packages/protocol/apps/mod.ts";
 import type { Core } from "../core/mod.ts";
 
@@ -94,7 +94,7 @@ export async function createAppSource(
   }
   if (options.sample !== false) {
     const files = await sampleFiles();
-    // scaffoldApp은 있는 file을 덮지 않으므로 겹치는 template file을 먼저 지운다. sample은 자기 screen(items)만
+    // writeTemplateFiles는 있는 file을 덮지 않으므로 겹치는 template file을 먼저 지운다. sample은 자기 screen(items)만
     // 선언하므로 template의 자리 표시 screen 폴더는 이름에 기대지 않고 모두 지운다.
     for (const file of files) {
       await rm(`${dir}/${file.path}`).catch(() => {});
@@ -104,7 +104,8 @@ export async function createAppSource(
         () => {},
       );
     }
-    const scaffolded = await scaffoldApp({
+    // 의존은 release 준비가 깐다. 여기서는 file만 겹쳐 쓴다.
+    const scaffolded = await writeTemplateFiles({
       files,
       dir,
       app: options.slug,

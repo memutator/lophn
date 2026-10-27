@@ -110,6 +110,8 @@ function stderrTail(text: string): string {
   return trimmed.length > 500 ? `...${trimmed.slice(-500)}` : trimmed;
 }
 
+const INSTALL_LIMIT_MS = 120_000;
+
 // npm은 platform의 것을 Electron의 Node로 돌린다(사용자 기계에 npm이 없을 수 있다).
 async function installDependencies(
   dir: string,
@@ -123,6 +125,9 @@ async function installDependencies(
     const child = spawn(command.command, command.args, {
       cwd: dir,
       stdio: ["ignore", "pipe", "pipe"],
+      // network가 없으면 npm은 몇 분씩 다시 시도한다. app.create가 그만큼 멈추지 않게 끊는다.
+      timeout: INSTALL_LIMIT_MS,
+      killSignal: "SIGKILL",
       // Node는 env를 통째로 바꾸므로 부모 환경(경로·HOME의 cache)을 직접 합친다.
       env: { ...process.env, ...command.env },
     });

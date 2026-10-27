@@ -9,6 +9,9 @@ import process from "node:process";
 import { err, ok, type Result } from "../../../base/mod.ts";
 
 const SHIM_FOLDER = "run/bin";
+// shim의 `npm`은 npm 앞에 앱의 SDK 사본을 맞추는 entry를 거친다.
+const NPM_ENTRY = new URL("../../apps/packages/npm-entry.ts", import.meta.url)
+  .pathname;
 
 // npm의 exports는 bin을 내보내지 않아 package.json 옆에서 찾는다.
 export function platformNpmCliPath(): string {
@@ -36,7 +39,7 @@ export async function installNodeShims(
   const folder = nodeShimFolder(dataRoot);
   const exec = shellQuote(process.execPath);
   try {
-    const npm = shellQuote(platformNpmCliPath());
+    const npm = `${shellQuote(NPM_ENTRY)} ${shellQuote(dataRoot)}`;
     await mkdir(folder, { recursive: true, mode: 0o755 });
     await writeShim(
       join(folder, "node"),

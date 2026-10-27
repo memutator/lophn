@@ -329,7 +329,7 @@ components:
     path: project-docs/architecture/ui-kit.md
     change_reasons:
       boundaries: [design, design-api, sdk-api, app-releases]
-      paths: [tools/wireframes/pages/index.ts, tools/check-kit.ts, packages/core/apps/packages/template/app/deno.json.tmpl, packages/core/apps/releases/ui-build/build.ts]
+      paths: [tools/wireframes/pages/index.ts, tools/check-kit.ts, packages/core/apps/packages/template/app/package.json.tmpl, packages/core/apps/releases/ui-build/build.ts]
       note: 분류를 더하거나 바꿀 때, 범용·전용을 가르는 기준이 바뀔 때.
 
   - id: architecture-appearance

@@ -58,8 +58,8 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 
 ## 사용자 앱에 닿는 길
 
-1. 앱 template(`packages/core/apps/packages/template/app/deno.json.tmpl`)이 `@lophn/ui`(root와 sub-path 11개)와 `@lophn/app-ui`, `@lophn/wording`, `@lophn/declaration`을 `lophn-sdk:<name>@1.0.0/<경로>`로 적는다. 사본 안 component가 bare import하는 npm 의존(react, radix, lucide, `@lezer/markdown`, catppuccin icon json, d3)도 같은 판으로 적는다. 앱의 import map이 사본 안 bare import까지 풀기 때문이다.
-2. `lophn-sdk:` 값은 data root의 설치 사본 `sdk/<이름 뒤쪽>/<판>`(`packageInstallPath`, 예: `sdk/ui/1.0.0`)을 가리킨다. 사본은 read-only다(file 0444, 폴더 0555). 앱 폴더의 개발용 map(`.lophn/import-map.json`)은 template의 `check`·`test`·`wording` task가 먼저 `scripts/refresh-import-map.ts`로 `deno.json`에서 다시 쓴다. `lophn-sdk:` 값의 설치 위치는 지금 map의 같은 판 항목에서 읽고 `npm:`·`jsr:`는 그대로 옮긴다. 그래서 앱이 `deno.json`에 더한 의존이 바로 풀린다. release 준비는 staging에서 map을 따로 만든다.
+1. 앱 template(`packages/core/apps/packages/template/app/package.json.tmpl`)이 `@lophn/ui`, `@lophn/app-ui`, `@lophn/wording`, `@lophn/declaration`을 `file:.lophn/sdk/<이름>/1.0.0`으로 적는다. 사본 안 component가 bare import하는 npm 의존(react, radix, lucide, `@lezer/markdown`, catppuccin icon, d3)은 SDK 사본의 `package.json`이 같은 판으로 적고, npm이 앱의 `node_modules`에 깐다.
+2. 설치 사본은 data root의 `sdk/<이름 뒤쪽>/<판>`(`packageInstallPath`, 예: `sdk/ui/1.0.0`)이다. read-only다(file 0444, 폴더 0555). 앱 폴더와 release staging은 그 사본을 `.lophn/sdk/...`에 실제 file로 복사한 뒤(`syncAppSdk`) npm으로 깐다. npm이 `node_modules/@lophn/*`를 그 사본으로 symlink하고, 실제 경로가 `node_modules` 밖이라 Node가 `.ts`를 그대로 돈다. agent shell의 `npm`은 의존을 까기 전에 사본을 먼저 맞춘다(`packages/core/apps/packages/npm-entry.ts`).
 3. 화면 build(`releases/ui-build/build.ts`)는 `FIXED_UI_DEPENDENCIES`(`@lophn/declaration`, `@lophn/ui`, `@lophn/app-ui`, `@lophn/wording`, `react`, `react-dom`)를 esbuild `external`로 둔다. `@lophn/ui/overlay` 같은 sub-path도 같이 external이다. 이 밖의 package는 build가 거절한다.
 4. release 준비(`releases/prepare/from-source.ts`)가 잠근 import의 설치 사본을 `readSdkCopies`로 읽어 release bundle에 굳힌다. 실행 중인 앱은 그 bundle의 사본만 본다.
 5. 앱을 고치는 agent는 template의 `AGENTS.md`(lophn-managed 절)에서 화면 component는 `@lophn/ui/<분류>`, 앱 bridge component는 `@lophn/app-ui`, 앱 CSS는 `tokens.css`의 변수만 쓰라고 안내받는다.

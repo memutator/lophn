@@ -1,6 +1,6 @@
-// release 준비 한 번을 권한을 좁힌 별도 Deno 자식(`packages/core/main/worker/release-job.ts`)으로 돌린다.
-// supervisor는 data root를 쓰지 못하므로 쓰기는 이 자식이 그 앱의 폴더(`apps/<app>`)에만
-// 한다. 자식은 build 뒤에 의존성과 migration 검사도 돈다(앱이 쓴 migration SQL은 core에서 돌리지 않는다).
+// release 준비 한 번을 별도 Deno 자식(`packages/core/main/worker/release-job.ts`)으로 돌린다. 자식은
+// lophn의 준비 code만 도는 process라 Deno 권한을 좁히지 않고 `--allow-all`로 띄운다.
+// 자식은 build 뒤에 의존성과 migration 검사도 돈다(앱이 쓴 migration SQL은 core에서 돌리지 않는다).
 // 취소·종료는 자식을 SIGKILL하고 끝난 것을 확인한 뒤에야 돌려준다. 끊긴 준비가 남긴 staging은 지운다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
@@ -12,7 +12,6 @@ import type {
 import {
   buildEnvironment,
   cacheBuildTools,
-  esbuildBinaries,
 } from "../../apps/releases/ui-build/binaries.ts";
 import {
   appFolder,
@@ -35,14 +34,12 @@ export function createChildPreparationRunner(options: {
     async run(job: PreparationJob, signal: AbortSignal) {
       const appRoot = appFolder(options.dataRoot, job.app);
       const deno = options.deno();
-      // 자식은 시작할 때 이미 받아 둔 esbuild 실행 파일만 `--allow-run`에 담을 수 있다. 빈 deno-dir(새 기계)에서는
-      // 아직 없으므로 자식을 띄우기 전에 build 도구를 받아 둔다.
+      // 빈 deno-dir(새 기계)에서 build 도구를 받는 시간이 자식의 준비 상한에 들지 않게 자식 밖에서 미리 받는다.
       const env = buildEnvironment(Deno.env.get("TMPDIR") ?? "/tmp");
       if (!await cacheBuildTools(deno, env, signal)) {
         return err({ stage: "build", reason: "build tools are unavailable" });
       }
-      // 자식은 git·deno·esbuild만 실행하고 환경은 몇 개 이름만 갖는다. 앱 source는 실행되지 않는다.
-      const programs = ["git", deno, ...await esbuildBinaries(options.denoDir)];
+      // 자식은 lophn의 준비 code만 돌고 앱 source는 실행되지 않는다. 환경은 필요한 이름 몇 개만 넘긴다.
       const child = new Deno.Command(deno, {
         clearEnv: true,
         env,
@@ -51,11 +48,7 @@ export function createChildPreparationRunner(options: {
           "--quiet",
           "--no-prompt",
           `--config=${REPO}/deno.json`,
-          `--allow-read=${job.source_path},${options.dataRoot}/sdk,${appRoot},${REPO},${options.denoDir}`,
-          `--allow-write=${appRoot}`,
-          // esbuild의 node 호환 spawn이 환경 전체 접근을 요구한다. 자식 환경이 이미 최소다.
-          "--allow-env",
-          `--allow-run=${programs.join(",")}`,
+          "--allow-all",
           JOB,
           JSON.stringify({
             dataRoot: options.dataRoot,

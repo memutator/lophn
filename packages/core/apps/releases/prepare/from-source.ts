@@ -9,11 +9,7 @@ import { devImportMap } from "../../packages/mod.ts";
 import { lockAppImports, readSdkCopies } from "../bundle/lock.ts";
 import { runtimeEntry } from "../bundle/runtime-entry.ts";
 import { readVendorFiles } from "../bundle/vendor.ts";
-import {
-  buildEnvironment,
-  denoDirOf,
-  esbuildBinaries,
-} from "../ui-build/binaries.ts";
+import { buildEnvironment, denoDirOf } from "../ui-build/binaries.ts";
 import { FIXED_UI_DEPENDENCIES } from "../ui-build/build.ts";
 import {
   extractCommit,
@@ -290,16 +286,13 @@ export async function prepareFromSource(
     }
 
     // 화면 build는 앱이 쓴 build script가 아니라 신뢰된 `ui-build/app-build.ts`가 한다. 앱 코드는 번들될
-    // 뿐 실행되지 않는다. run은 deno와 esbuild 실행 파일만(호출자가 `cacheBuildTools`로 미리 받아 둔다), env는 이름만 허락한다. write는 staging과, esbuild deno
-    // loader가 npm 사본을 hardlink로 모으는 deno-dir 폴더 셋이다(`Deno.link`는 원본 쪽에도 write를 요구해 npm 폴더가 든다).
+    // 뿐 실행되지 않는다. lophn 자신의 code라 Deno 권한을 좁히지 않는다: 좁히면 자식이 `node:*`로 받는
+    // 권한 요구에서 깨진다. env는 필요한 이름만 넘긴다.
     const built = await runDeno(deno, [
       "run",
       "--no-prompt",
       `--config=${REPO}/deno.json`,
-      `--allow-read=${staging},${sdkRoot},${denoDir}`,
-      `--allow-write=${staging},${denoDir}/npm,${denoDir}/deno_esbuild,${denoDir}/deno_esbuild_tmp`,
-      "--allow-env",
-      `--allow-run=${[deno, ...await esbuildBinaries(denoDir)].join(",")}`,
+      "--allow-all",
       APP_BUILD,
       staging,
       sdkRoot,

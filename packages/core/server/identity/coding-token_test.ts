@@ -1,4 +1,6 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import { cryptoRandom, manualClock } from "../../../base/mod.ts";
 import {
   CODING_CLI_COMMANDS,
@@ -19,7 +21,7 @@ const tokenRoutes = [
 ];
 const OUTSIDE = "approvals.decide";
 
-Deno.test("coding token은 그 앱 하나만 열고 회수하면 새 호출이 거절된다", async () => {
+test("coding token은 그 앱 하나만 열고 회수하면 새 호출이 거절된다", async () => {
   const registry = new CredentialRegistry({
     epoch: "epoch",
     random: cryptoRandom,
@@ -38,24 +40,24 @@ Deno.test("coding token은 그 앱 하나만 열고 회수하면 새 호출이 �
   const [s1, s2] = [id("ses", 1), id("ses", 2)];
   const first = tokens.issue({ session: s1, app: appA });
   const second = tokens.issue({ session: s2, app: appA });
-  assert(first.ok && second.ok);
+  assert.ok(first.ok && second.ok);
 
   const auth = await registry.authenticate(first.value.token);
-  assert(auth.ok);
+  assert.ok(auth.ok);
   const operation = tokenRoutes[0];
-  assert(registry.authorize(auth.value, operation, { app: appA }).ok);
+  assert.ok(registry.authorize(auth.value, operation, { app: appA }).ok);
   const otherApp = registry.authorize(auth.value, operation, { app: appB });
   // 다른 앱은 있는지도 알려 주지 않는다.
-  assert(!otherApp.ok && otherApp.error.code === "not_found");
+  assert.ok(!otherApp.ok && otherApp.error.code === "not_found");
   const outside = registry.authorize(auth.value, OUTSIDE, { app: appA });
-  assert(!outside.ok && outside.error.code === "forbidden");
+  assert.ok(!outside.ok && outside.error.code === "forbidden");
 
-  assert(tokens.revoke(s1).ok);
+  assert.ok(tokens.revoke(s1).ok);
   const revoked = await registry.authenticate(first.value.token);
-  assert(!revoked.ok && revoked.error.code === "unauthorized");
-  assertEquals(
+  assert.ok(!revoked.ok && revoked.error.code === "unauthorized");
+  assert.deepStrictEqual(
     revoked.ok ? "" : revoked.error.message.includes(first.value.token),
     false,
   );
-  assert((await registry.authenticate(second.value.token)).ok);
+  assert.ok((await registry.authenticate(second.value.token)).ok);
 });

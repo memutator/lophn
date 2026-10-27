@@ -1,4 +1,5 @@
 import { spawn as spawnNode } from "node:child_process";
+import process from "node:process";
 import { armTimer, pause } from "./deadline.ts";
 
 // 설치 환경의 고정 OS adapter 진입점. Deno 2.9.7의 Deno.kill(-pid, ...)은 unscoped --allow-run을
@@ -102,12 +103,12 @@ export async function confirmGroupGone(
   }
 }
 
-// child를 띄우기 전에 한 번 확인한다. core 자신의 실제 pid(Deno.pid, caller 값이나 PID 파일이
+// child를 띄우기 전에 한 번 확인한다. core 자신의 실제 pid(process.pid, caller 값이나 PID 파일이
 // 아니다)에 신호 0을 보내 본다. adapter가 없으면 false다.
 export async function checkKillAdapter(): Promise<boolean> {
-  if (!supportsProcessGroupEnforcement(Deno.build.os)) return false;
+  if (!supportsProcessGroupEnforcement(process.platform)) return false;
   try {
-    return (await runKillUtility(["-0", String(Deno.pid)])) === "ok";
+    return (await runKillUtility(["-0", String(process.pid)])) === "ok";
   } catch {
     return false;
   }

@@ -1,4 +1,6 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import { cryptoRandom, manualClock } from "../../../base/mod.ts";
 import { CredentialRegistry } from "./registry.ts";
 
@@ -31,25 +33,27 @@ function issue(
 }
 
 // agent credential은 그 session·turn에만 닿고, turn이 끝나면 더 쓰이지 않는다.
-Deno.test("an agent credential reaches only its own session and turn", async () => {
+test("an agent credential reaches only its own session and turn", async () => {
   const keys = registry();
   const issued = await issue(keys, SESSION, TURN);
-  assert(issued.ok);
+  assert.ok(issued.ok);
   const ref = { credential_ref: issued.value.credential_ref };
 
-  assert(keys.authorize(ref, "file.read", { session: SESSION, turn: TURN }).ok);
-  assertEquals(
+  assert.ok(
+    keys.authorize(ref, "file.read", { session: SESSION, turn: TURN }).ok,
+  );
+  assert.deepStrictEqual(
     keys.authorize(ref, "file.read", { session: id("ses", 2), turn: TURN }).ok,
     false,
   );
-  assertEquals(
+  assert.deepStrictEqual(
     keys.authorize(ref, "file.read", { session: SESSION, turn: id("trn", 2) })
       .ok,
     false,
   );
 
   // 다른 session의 이름으로 청하거나 turn을 빼면 발급되지 않는다.
-  assertEquals(
+  assert.deepStrictEqual(
     (await issue(keys, SESSION, TURN, `agent:${id("ses", 2)}` as never)).ok,
     false,
   );
@@ -59,10 +63,10 @@ Deno.test("an agent credential reaches only its own session and turn", async () 
     scope: { operations: ["file.read"], targets: { session: SESSION } },
     conditions: { session: SESSION, process: "agent-runtime" },
   });
-  assertEquals(withoutTurn.ok, false);
+  assert.deepStrictEqual(withoutTurn.ok, false);
 
-  assertEquals(keys.endBy("turn", TURN), 1);
-  assertEquals(
+  assert.deepStrictEqual(keys.endBy("turn", TURN), 1);
+  assert.deepStrictEqual(
     keys.authorize(ref, "file.read", {
       session: SESSION,
       turn: TURN,
@@ -72,7 +76,7 @@ Deno.test("an agent credential reaches only its own session and turn", async () 
 });
 
 // 앱 process가 다시 뜰 때 그 앱의 app credential만 끝나고, 같은 앱의 coding token은 남는다.
-Deno.test("ending an app's credentials leaves its coding token alive", () => {
+test("ending an app's credentials leaves its coding token alive", () => {
   const keys = new CredentialRegistry({
     epoch: "epoch",
     random: cryptoRandom,
@@ -100,9 +104,9 @@ Deno.test("ending an app's credentials leaves its coding token alive", () => {
     scope: { operations: ["ticket.show"], targets: { app } },
     conditions: { app },
   });
-  assert(appCredential.ok && codingToken.ok);
+  assert.ok(appCredential.ok && codingToken.ok);
 
-  assertEquals(keys.endBy("app", app, "app"), 1);
-  assertEquals(keys.revalidate(appCredential.value).ok, false);
-  assert(keys.revalidate(codingToken.value).ok);
+  assert.deepStrictEqual(keys.endBy("app", app, "app"), 1);
+  assert.deepStrictEqual(keys.revalidate(appCredential.value).ok, false);
+  assert.ok(keys.revalidate(codingToken.value).ok);
 });

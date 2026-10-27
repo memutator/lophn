@@ -1,4 +1,6 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import { manualClock } from "../../../base/mod.ts";
 import { encodeFrame } from "../../../protocol/base/mod.ts";
 import type { ParentMessage } from "../../../protocol/supervision/mod.ts";
@@ -46,7 +48,7 @@ function fakeChild() {
 }
 
 // 위험: ready 직후 되풀이해 죽는 child는 한도에 닿아야 하고, 오래 버틴 child의 끝은 연속 실패가 아니다.
-Deno.test("ready 뒤 60초를 버틴 child가 끝나야 재기동 횟수가 0으로 돌아간다", async () => {
+test("ready 뒤 60초를 버틴 child가 끝나야 재기동 횟수가 0으로 돌아간다", async () => {
   for (
     const [survivedMs, failures] of [[STABLE_MS, 0], [STABLE_MS - 1, 2]]
   ) {
@@ -77,7 +79,7 @@ Deno.test("ready 뒤 60초를 버틴 child가 끝나야 재기동 횟수가 0으
     await ready;
     clock.advance(survivedMs);
     child.exit(1);
-    assertEquals(await running, "ready-ended");
-    assertEquals(slot.failures, failures);
+    assert.deepStrictEqual(await running, "ready-ended");
+    assert.deepStrictEqual(slot.failures, failures);
   }
 });

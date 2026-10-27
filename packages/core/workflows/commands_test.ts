@@ -1,4 +1,6 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import { DatabaseSync } from "node:sqlite";
 import { ok } from "../../base/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
@@ -26,7 +28,7 @@ const plan = (step: string): HandoffPlan => ({
 });
 
 // 사람이 멈춘 instance에 늦게 온 report가 일을 다시 시작시키면 멈춘 뜻이 없어진다.
-Deno.test("a stopped instance is not handed: report with next records the line only and hand_now is a conflict", () => {
+test("a stopped instance is not handed: report with next records the line only and hand_now is a conflict", () => {
   const db = new DatabaseSync(":memory:");
   try {
     db.exec(workflowsSchemaSteps[0]!.sql);
@@ -66,12 +68,12 @@ Deno.test("a stopped instance is not handed: report with next records the line o
     const ctx = { actor: "machine" } as never;
     const seq = () => {
       const loaded = loadInstance(sql, WFI);
-      assert(loaded.ok && loaded.value !== null);
+      assert.ok(loaded.ok && loaded.value !== null);
       return loaded.value.state_seq;
     };
     const count = () => {
       const lines = loadLines(sql, WFI, { after: 0, limit: null });
-      assert(lines.ok);
+      assert.ok(lines.ok);
       return lines.value.length;
     };
     const report = () =>
@@ -98,13 +100,13 @@ Deno.test("a stopped instance is not handed: report with next records the line o
       started_by: { kind: "user" },
       handoff: { ...plan("a"), cause: "start" },
     }, {});
-    assert(created.ok);
-    assertEquals(delivered.length, 1);
+    assert.ok(created.ok);
+    assert.deepStrictEqual(delivered.length, 1);
 
     // 멈추기 전에는 같은 report가 입력을 하나 넣는다. 넘어가지 않으면 이 test가 헛돈다.
     const before = report();
-    assert(before.ok && before.value.handed?.outcome === "handed");
-    assertEquals(delivered.length, 2);
+    assert.ok(before.ok && before.value.handed?.outcome === "handed");
+    assert.deepStrictEqual(delivered.length, 2);
 
     const stop = commands.apply.handle(tx, ctx, {
       instance: WFI,
@@ -112,14 +114,14 @@ Deno.test("a stopped instance is not handed: report with next records the line o
       by: { kind: "user" },
       handoff: null,
     }, { state_seq: seq() });
-    assert(stop.ok);
+    assert.ok(stop.ok);
     const lines = count();
 
     const after = report();
-    assert(after.ok);
-    assertEquals(after.value.handed, null);
-    assertEquals(delivered.length, 2);
-    assertEquals(count(), lines + 1);
+    assert.ok(after.ok);
+    assert.deepStrictEqual(after.value.handed, null);
+    assert.deepStrictEqual(delivered.length, 2);
+    assert.deepStrictEqual(count(), lines + 1);
 
     const handNow = commands.apply.handle(tx, ctx, {
       instance: WFI,
@@ -127,10 +129,10 @@ Deno.test("a stopped instance is not handed: report with next records the line o
       by: { kind: "user" },
       handoff: plan("b"),
     }, { state_seq: seq() });
-    assert(!handNow.ok);
-    assertEquals(handNow.error.code, "conflict");
-    assertEquals(delivered.length, 2);
-    assertEquals(count(), lines + 1);
+    assert.ok(!handNow.ok);
+    assert.deepStrictEqual(handNow.error.code, "conflict");
+    assert.deepStrictEqual(delivered.length, 2);
+    assert.deepStrictEqual(count(), lines + 1);
   } finally {
     db.close();
   }

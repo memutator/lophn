@@ -7,7 +7,8 @@
 // - 읽거나 쓸 수 없으면 secret이 필요한 기능만 고정 문장 이유와 함께 unavailable이다. 환경 변수·다른 파일
 //   fallback은 없다.
 // - 반환 오류·log에는 고정 문장만 있다. 값도 경로도 싣지 않는다(예외의 message도 옮기지 않는다).
-import { err, ok, type Result } from "../../base/mod.ts";
+import { chmod, readFile, rename, rm, stat } from "node:fs/promises";
+import { err, errorCode, ok, type Result } from "../../base/mod.ts";
 import {
   SECRET_FILE_NAME,
   SECRET_INPUT_MAX_BYTES,
@@ -19,7 +20,7 @@ export { SECRET_FILE_NAME };
 
 const SECRET_FILE_MODE = 0o600;
 
-// fs 접근. test가 쓰기 실패를 끼운다. 없는 파일은 Deno.errors.NotFound를 던진다.
+// fs 접근. test가 쓰기 실패를 끼운다. 없는 파일은 ENOENT를 던진다.
 export type SecretFs = {
   readText(path: string): Promise<string>;
   mode(path: string): Promise<number>;
@@ -30,14 +31,14 @@ export type SecretFs = {
   remove(path: string): Promise<void>;
 };
 
-const denoSecretFs: SecretFs = {
-  readText: (path) => Deno.readTextFile(path),
+const nodeSecretFs: SecretFs = {
+  readText: (path) => readFile(path, "utf8"),
   async mode(path) {
-    return (await Deno.stat(path)).mode ?? SECRET_FILE_MODE;
+    return (await stat(path)).mode ?? SECRET_FILE_MODE;
   },
-  chmod: (path, mode) => Deno.chmod(path, mode),
+  chmod: (path, mode) => chmod(path, mode),
   async writeNew(path, text, mode) {
-    await Deno.remove(path).catch(() => {});
+    await rm(path).catch(() => {});
     const file = await Deno.open(path, { write: true, createNew: true, mode });
     try {
       await file.write(new TextEncoder().encode(text));
@@ -46,8 +47,8 @@ const denoSecretFs: SecretFs = {
       file.close();
     }
   },
-  rename: (from, to) => Deno.rename(from, to),
-  remove: (path) => Deno.remove(path),
+  rename: (from, to) => rename(from, to),
+  remove: (path) => rm(path),
 };
 
 export type SecretFileStore = {
@@ -82,7 +83,7 @@ export function createSecretFileStore(options: {
   // 값 없는 안전한 log. 고정 문장만 받는다.
   log?: (message: string) => void;
 }): SecretFileStore {
-  const fs = options.fs ?? denoSecretFs;
+  const fs = options.fs ?? nodeSecretFs;
   const log = options.log ?? (() => {});
   const path = `${options.root}/${SECRET_FILE_NAME}`;
   const temp = `${path}.tmp`;
@@ -115,7 +116,7 @@ export function createSecretFileStore(options: {
       }
       text = await fs.readText(path);
     } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
+      if (errorCode(error) === "ENOENT") {
         copy = new Map();
         failure = undefined;
         return ok(undefined);

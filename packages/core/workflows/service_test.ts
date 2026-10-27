@@ -1,4 +1,6 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
 import { DatabaseSync } from "node:sqlite";
 import { createIdSource, ok } from "../../base/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
@@ -23,7 +25,7 @@ const AT = "2026-10-22T00:00:00.000Z";
 
 // 켤 때 running인 flow instance를 닫는 것이 process를 다시 띄우면 바깥 효과가 두 번 난다.
 // agent instance는 handed 줄이 없을 뿐 건드리지 않는다.
-Deno.test("reconcile closes a running flow instance without launching again and leaves an agent instance alone", async () => {
+test("reconcile closes a running flow instance without launching again and leaves an agent instance alone", async () => {
   const db = new DatabaseSync(":memory:");
   try {
     db.exec(workflowsSchemaSteps[0]!.sql);
@@ -48,12 +50,12 @@ Deno.test("reconcile closes a running flow instance without launching again and 
     };
     const kinds = (id: string) => {
       const lines = loadLines(sql, id, { after: 0, limit: null });
-      assert(lines.ok);
+      assert.ok(lines.ok);
       return lines.value.map((l) => l.kind);
     };
     const stateOf = (id: string) => {
       const loaded = loadInstance(sql, id);
-      assert(loaded.ok && loaded.value !== null);
+      assert.ok(loaded.ok && loaded.value !== null);
       return loaded.value.state;
     };
 
@@ -67,7 +69,7 @@ Deno.test("reconcile closes a running flow instance without launching again and 
       started_by: { kind: "user" },
       handoff: null,
     }, {});
-    assert(created.ok);
+    assert.ok(created.ok);
     insertInstance(sql, {
       id: AGENT,
       project: PRJ,
@@ -99,7 +101,7 @@ Deno.test("reconcile closes a running flow instance without launching again and 
           const instance = loadInstance(sql, id);
           const lines = loadLines(sql, id, { after: 0, limit: null });
           const reports = lastReports(sql, id);
-          assert(
+          assert.ok(
             instance.ok && instance.value !== null && lines.ok && reports.ok,
           );
           return Promise.resolve(ok({
@@ -121,11 +123,15 @@ Deno.test("reconcile closes a running flow instance without launching again and 
     const agentBefore = kinds(AGENT);
     await service.reconcile();
 
-    assertEquals(kinds(FLOW), ["started", "lophn_restarted", "ended"]);
-    assertEquals(stateOf(FLOW), "ended");
-    assertEquals(kinds(AGENT), agentBefore);
-    assertEquals(stateOf(AGENT), "running");
-    assertEquals(launched, []);
+    assert.deepStrictEqual(kinds(FLOW), [
+      "started",
+      "lophn_restarted",
+      "ended",
+    ]);
+    assert.deepStrictEqual(stateOf(FLOW), "ended");
+    assert.deepStrictEqual(kinds(AGENT), agentBefore);
+    assert.deepStrictEqual(stateOf(AGENT), "running");
+    assert.deepStrictEqual(launched, []);
   } finally {
     db.close();
   }

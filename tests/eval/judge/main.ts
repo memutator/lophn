@@ -3,6 +3,8 @@
 //   deno task eval:judge <run> show <key>               subagent에게 줄 전문
 //   deno task eval:judge <run> set <key> --model <name> stdin의 JSON {"verdict", "quote"}를 기록
 // 종료 코드: 0 정상, 1 없는 run·key나 덮기 거절, 2 인자 오류.
+import { stat } from "node:fs/promises";
+import process from "node:process";
 import { loadJudgeDefinition } from "./definition.ts";
 import { foldRun } from "./fold.ts";
 import { canRegrade, gradeItem } from "./grade.ts";
@@ -15,16 +17,16 @@ const RUNS_DIR = `${ROOT}/tests/eval/runs`;
 
 function fail(code: number, message: string): never {
   console.error(message);
-  Deno.exit(code);
+  process.exit(code);
 }
 
-const [run, command, key, ...rest] = Deno.args;
+const [run, command, key, ...rest] = process.argv.slice(2);
 if (run === undefined) {
   fail(2, "usage: eval:judge <run> [show <key> | set <key> --model <name>]");
 }
 const known = await Promise.all(
   [`${EVAL_DIR}/${run}`, `${RUNS_DIR}/${run}.json`]
-    .map((p) => Deno.stat(p).then(() => true, () => false)),
+    .map((p) => stat(p).then(() => true, () => false)),
 );
 if (!known.some(Boolean)) fail(1, `not_found: 모르는 run ${run}`);
 const entries = await readPending(EVAL_DIR, run);
@@ -40,7 +42,7 @@ if (command === undefined) {
       `${e.key}\t${e.kind}\t${e.item.check}\t${e.criterion.name}@${e.criterion.n}\t${state}`,
     );
   }
-  Deno.exit(0);
+  process.exit(0);
 }
 
 if ((command !== "show" && command !== "set") || key === undefined) {
@@ -51,7 +53,7 @@ if (entry === undefined) fail(1, `not_found: ${run}에 ${key}가 없다`);
 
 if (command === "show") {
   console.log(renderForAgent(await loadJudgeDefinition(), entry));
-  Deno.exit(0);
+  process.exit(0);
 }
 
 const flag = rest.indexOf("--model");
@@ -59,9 +61,13 @@ const model = flag >= 0 ? rest[flag + 1] : undefined;
 if (model === undefined || model === "") fail(2, "--model <name>이 필요하다");
 let answer: { verdict?: unknown; quote?: unknown };
 try {
-  answer = JSON.parse(
-    new TextDecoder().decode(await new Response(Deno.stdin.readable).bytes()),
-  );
+  const decoder = new TextDecoder();
+  let input = "";
+  for await (const chunk of process.stdin) {
+    input += decoder.decode(chunk as Uint8Array, { stream: true });
+  }
+  input += decoder.decode();
+  answer = JSON.parse(input);
   if (typeof answer !== "object" || answer === null) {
     throw new Error("not object");
   }

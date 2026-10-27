@@ -1,3 +1,4 @@
+import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import type { Id } from "../../../packages/protocol/base/mod.ts";
 import { scaffoldApp } from "../../../packages/core/apps/packages/template/scaffold.ts";
@@ -23,17 +24,17 @@ function materialSource(
   dataRoot: string,
 ): AppPatch {
   return async (dir) => {
-    for await (const entry of Deno.readDir(dir)) {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
       if (entry.name === ".git" || entry.name === ".lophn") continue;
-      await Deno.remove(`${dir}/${entry.name}`, { recursive: true });
+      await rm(`${dir}/${entry.name}`, { recursive: true });
     }
     for (const file of material.files) {
       if (!file.path.startsWith(SOURCE) || !file.path.endsWith(TMPL)) continue;
       const path = `${dir}/${file.path.slice(SOURCE.length, -TMPL.length)}`;
-      await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), {
+      await mkdir(path.slice(0, path.lastIndexOf("/")), {
         recursive: true,
       });
-      await Deno.writeFile(path, file.bytes);
+      await writeFile(path, file.bytes);
     }
     // 개발용 import map은 등록 때 그 폴더의 deno.json으로 쓰인다. 재료의 deno.json으로 다시 써야 `deno task check`가 돈다.
     const scaffolded = await scaffoldApp({

@@ -1,3 +1,4 @@
+import { mkdir, writeFile } from "node:fs/promises";
 import { projectApi } from "../../../packages/protocol/projects/mod.ts";
 import type { Id } from "../../../packages/protocol/base/mod.ts";
 import type { SetupContext } from "../types.ts";
@@ -16,14 +17,14 @@ export async function restoreProjects(
   }[];
   for (const { name, title, purpose } of projects) {
     const folder = `${core.run.work}/${name}`;
-    await Deno.mkdir(folder, { recursive: true });
+    await mkdir(folder, { recursive: true });
     for (const file of material.files) {
       if (!file.path.startsWith(`${name}/`)) continue;
       const target = `${core.run.work}/${file.path}`;
-      await Deno.mkdir(target.slice(0, target.lastIndexOf("/")), {
+      await mkdir(target.slice(0, target.lastIndexOf("/")), {
         recursive: true,
       });
-      await Deno.writeFile(target, file.bytes);
+      await writeFile(target, file.bytes);
     }
     const id = material.manifest.ids[name] as Id<"prj">;
     await core.call(projectApi.register, {

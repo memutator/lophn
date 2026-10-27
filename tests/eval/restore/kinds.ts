@@ -1,3 +1,4 @@
+import { mkdir, writeFile } from "node:fs/promises";
 import { z } from "zod";
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import {
@@ -44,8 +45,8 @@ export async function restoreKinds(
   const { core } = ctx;
   // domain보다 먼저 놓는다. 만든 뒤에 쓰면 core가 이미 kind 파일 없음으로 읽은 것이 최대 2초 남는다.
   const path = domainKindsFile(core.run.home, spec.domain.id);
-  await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
-  await Deno.writeTextFile(path, textOf(material, "kinds.yaml"));
+  await mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+  await writeFile(path, textOf(material, "kinds.yaml"));
   await core.call(domainCreate, {
     ...spec.domain,
     owner: { kind: "project", id: project },

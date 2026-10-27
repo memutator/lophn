@@ -1,5 +1,6 @@
 // 재료는 `tests/eval/materials/<이름>/<n>/`의 `material.json`과 `files/`다. 내용 hash의 정본은 여기다.
-import { err, ok, type Result } from "../../../packages/base/mod.ts";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { err, errorCode, ok, type Result } from "../../../packages/base/mod.ts";
 import { idSchema } from "../../../packages/protocol/base/mod.ts";
 import type { MaterialKind, MaterialManifest } from "../types.ts";
 import { contentHash } from "./hash.ts";
@@ -35,10 +36,12 @@ export function splitRef(ref: string): { name: string; n: number } {
 
 async function readFiles(dir: string, prefix = ""): Promise<MaterialFile[]> {
   const found: MaterialFile[] = [];
-  for await (const entry of Deno.readDir(`${dir}/${prefix}`)) {
+  for (
+    const entry of await readdir(`${dir}/${prefix}`, { withFileTypes: true })
+  ) {
     const path = `${prefix}${entry.name}`;
-    if (entry.isDirectory) found.push(...await readFiles(dir, `${path}/`));
-    else found.push({ path, bytes: await Deno.readFile(`${dir}/${path}`) });
+    if (entry.isDirectory()) found.push(...await readFiles(dir, `${path}/`));
+    else found.push({ path, bytes: await readFile(`${dir}/${path}`) });
   }
   return found.sort((a, b) => a.path < b.path ? -1 : 1);
 }
@@ -50,7 +53,7 @@ export async function loadMaterial(
   const { name, n } = splitRef(ref);
   const dir = `${root}/${name}/${n}`;
   const manifest = JSON.parse(
-    await Deno.readTextFile(`${dir}/material.json`),
+    await readFile(`${dir}/material.json`, "utf8"),
   ) as MaterialManifest;
   // 오타를 일찍 잡는다.
   const prefix = ID_PREFIX[manifest.kind];
@@ -82,21 +85,21 @@ export async function writeMaterial(
 ): Promise<Result<void>> {
   const dir = `${root}/${name}/${n}`;
   try {
-    await Deno.stat(dir);
+    await stat(dir);
     return err({
       code: "conflict",
       message: `material ${name}@${n} already exists`,
     });
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
+    if (errorCode(error) !== "ENOENT") throw error;
   }
   for (const file of files) {
     const path = `${dir}/files/${file.path}`;
-    await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
-    await Deno.writeFile(path, file.bytes);
+    await mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+    await writeFile(path, file.bytes);
   }
   const content_hash = await contentHash(files);
-  await Deno.writeTextFile(
+  await writeFile(
     `${dir}/material.json`,
     json({ ...manifest, content_hash }),
   );

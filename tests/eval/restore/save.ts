@@ -1,4 +1,5 @@
-import { err, ok, type Result } from "../../../packages/base/mod.ts";
+import { readdir } from "node:fs/promises";
+import { err, errorCode, ok, type Result } from "../../../packages/base/mod.ts";
 import { releasesGetRecord } from "../../../packages/protocol/apps/activation/activation.ts";
 import { appGet } from "../../../packages/protocol/apps/mod.ts";
 import type { Core } from "../../support/core/mod.ts";
@@ -96,11 +97,13 @@ async function saveActiveApp(
 async function nextN(root: string, name: string): Promise<number> {
   let max = 0;
   try {
-    for await (const entry of Deno.readDir(`${root}/${name}`)) {
+    for (
+      const entry of await readdir(`${root}/${name}`, { withFileTypes: true })
+    ) {
       if (/^\d+$/.test(entry.name)) max = Math.max(max, Number(entry.name));
     }
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
+    if (errorCode(error) !== "ENOENT") throw error;
   }
   return max + 1;
 }

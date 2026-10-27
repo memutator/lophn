@@ -1,3 +1,5 @@
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { errorCode } from "../../../packages/base/mod.ts";
 import type { Criterion, JudgeItem } from "../types.ts";
 
 export type PendingJudge = {
@@ -26,13 +28,11 @@ export async function writePending(
   evalDir: string,
   entry: PendingJudge,
 ): Promise<void> {
-  await Deno.mkdir(folder(evalDir, entry.run), { recursive: true });
-  await Deno.writeTextFile(
+  await mkdir(folder(evalDir, entry.run), { recursive: true });
+  await writeFile(
     pendingPath(evalDir, entry.run, entry.key),
     text(entry),
-    {
-      createNew: true,
-    },
+    { flag: "wx" },
   );
 }
 
@@ -41,7 +41,7 @@ export async function rewritePending(
   evalDir: string,
   entry: PendingJudge,
 ): Promise<void> {
-  await Deno.writeTextFile(
+  await writeFile(
     pendingPath(evalDir, entry.run, entry.key),
     text(entry),
   );
@@ -53,14 +53,16 @@ export async function readPending(
 ): Promise<PendingJudge[]> {
   const entries: PendingJudge[] = [];
   try {
-    for await (const e of Deno.readDir(folder(evalDir, run))) {
-      if (!e.isFile || !e.name.endsWith(".json")) continue;
+    for (
+      const e of await readdir(folder(evalDir, run), { withFileTypes: true })
+    ) {
+      if (!e.isFile() || !e.name.endsWith(".json")) continue;
       entries.push(JSON.parse(
-        await Deno.readTextFile(`${folder(evalDir, run)}/${e.name}`),
+        await readFile(`${folder(evalDir, run)}/${e.name}`, "utf8"),
       ));
     }
   } catch (e) {
-    if (!(e instanceof Deno.errors.NotFound)) throw e;
+    if (errorCode(e) !== "ENOENT") throw e;
   }
   return entries.sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
 }

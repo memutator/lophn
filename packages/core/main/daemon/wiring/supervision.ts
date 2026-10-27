@@ -2,6 +2,7 @@ import process from "node:process";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { KindLaunchSpec } from "../../../../protocol/supervision/mod.ts";
 import { APPS_SUPERVISOR_KIND } from "../../../apps/control.ts";
+import { npmConfigEnvironment } from "../../../apps/releases/prepare/environment.ts";
 import { createSupervisor } from "../../../supervision/responsiveness/mod.ts";
 import type { IoListener, Supervisor, WiringFactory } from "./context.ts";
 
@@ -49,10 +50,8 @@ export const supervisionWiring: WiringFactory = () => ({
             ? { XDG_RUNTIME_DIR: process.env["XDG_RUNTIME_DIR"]! }
             : {}),
           ...(process.env["TMPDIR"] ? { TMPDIR: process.env["TMPDIR"]! } : {}),
-          // supervisor가 앱과 release job을 Deno로 띄울 때 쓴다.
-          ...(process.env["LOPHN_DENO"]
-            ? { LOPHN_DENO: process.env["LOPHN_DENO"]! }
-            : {}),
+          // release 준비의 npm이 같은 cache·offline 설정을 쓴다.
+          ...npmConfigEnvironment(),
         }),
       }),
     );

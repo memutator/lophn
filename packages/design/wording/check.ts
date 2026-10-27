@@ -1,5 +1,8 @@
 // 화면 코드의 고정 문구를 검사한다. 오류는 실패, 경고는 결과 목록이다.
+import { readdir, readFile, stat } from "node:fs/promises";
+
 import { parse } from "@formatjs/icu-messageformat-parser";
+import { errorCode } from "../../base/mod.ts";
 import { AREAS, en } from "./en.ts";
 import {
   ID_PREFIX,
@@ -279,14 +282,14 @@ async function collect(root: string): Promise<string[]> {
   async function visit(dir: string) {
     // 없는 대상(packages/sdk가 아직 없을 때)은 지나간다.
     try {
-      if (!(await Deno.stat(dir)).isDirectory) return;
+      if (!(await stat(dir)).isDirectory()) return;
     } catch (error) {
-      if (error instanceof Deno.errors.NotFound) return;
+      if (errorCode(error) === "ENOENT") return;
       throw error;
     }
-    for await (const entry of Deno.readDir(dir)) {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
       const path = `${dir}/${entry.name}`;
-      if (entry.isDirectory) {
+      if (entry.isDirectory()) {
         if (entry.name === "testdata" || entry.name === "node_modules") {
           continue;
         }
@@ -312,7 +315,7 @@ export async function checkScreens(
   for (const path of await collect(root)) {
     const relative = path.slice(root.length + 1);
     findings.push(
-      ...checkSource(relative, await Deno.readTextFile(path), en, options),
+      ...checkSource(relative, await readFile(path, "utf8"), en, options),
     );
   }
   // catalog 위반은 고칠 영역 file 이름으로 낸다.
@@ -321,7 +324,7 @@ export async function checkScreens(
     findings.push(
       ...checkSource(
         file,
-        await Deno.readTextFile(`${root}/${file}`),
+        await readFile(`${root}/${file}`, "utf8"),
         area,
         options,
       ),

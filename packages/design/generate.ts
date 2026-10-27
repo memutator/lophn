@@ -1,3 +1,7 @@
+import { readFile, writeFile } from "node:fs/promises";
+import process from "node:process";
+
+import { errorCode } from "../base/mod.ts";
 import { flatten, type FlatToken, renderCss } from "./flatten.ts";
 import { tokens } from "./tokens.ts";
 
@@ -68,11 +72,11 @@ export async function staleFiles(
   const stale: string[] = [];
   for (const [file, expected] of Object.entries(outputs)) {
     try {
-      if (await Deno.readTextFile(new URL(file, directory)) !== expected) {
+      if (await readFile(new URL(file, directory), "utf8") !== expected) {
         stale.push(file);
       }
     } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) throw error;
+      if (errorCode(error) !== "ENOENT") throw error;
       stale.push(file);
     }
   }
@@ -81,15 +85,15 @@ export async function staleFiles(
 
 if (import.meta.main) {
   const outputs = await generate();
-  if (Deno.args.includes("--check")) {
+  if (process.argv.slice(2).includes("--check")) {
     const stale = await staleFiles(outputs);
     if (stale.length) {
       console.error(`generated token 불일치: ${stale.join(", ")}`);
-      Deno.exit(1);
+      process.exit(1);
     }
   } else {
     for (const [file, content] of Object.entries(outputs)) {
-      await Deno.writeTextFile(
+      await writeFile(
         new URL(`./generated/${file}`, import.meta.url),
         content,
       );

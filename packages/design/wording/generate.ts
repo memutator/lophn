@@ -1,7 +1,11 @@
 // 영역 file(catalog/<영역>.ts)의 ICU 문장에서 placeholder 종류를 뽑아 catalog/<영역>.placeholders.ts를 만든다.
 // 실행: deno run --allow-read --allow-write packages/design/wording/generate.ts [--check]
+import { readdir, readFile, writeFile } from "node:fs/promises";
+import process from "node:process";
+
 import { parse, TYPE } from "@formatjs/icu-messageformat-parser";
 import type { MessageFormatElement } from "@formatjs/icu-messageformat-parser";
+import { errorCode } from "../../base/mod.ts";
 import { AREAS, en } from "./en.ts";
 
 type Kind = "string" | "number" | "plural" | "date";
@@ -117,12 +121,12 @@ async function main() {
   const dir = new URL("./catalog/", import.meta.url);
   // 영역 file이 AREAS에 없거나 영역 사이에 같은 key가 있으면 실패한다.
   const names = Object.keys(AREAS);
-  for await (const entry of Deno.readDir(dir)) {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
     const name = entry.name;
     if (!name.endsWith(".ts") || name.endsWith(".placeholders.ts")) continue;
     if (!names.includes(name.slice(0, -3))) {
       console.error(`catalog/${name}가 en.ts의 AREAS에 없다.`);
-      Deno.exit(1);
+      process.exit(1);
     }
   }
   const total = Object.values(AREAS).reduce(
@@ -135,30 +139,30 @@ async function main() {
         Object.keys(en).length
       }개, 영역 합 ${total}개.`,
     );
-    Deno.exit(1);
+    process.exit(1);
   }
   const stale: string[] = [];
   for (const [name, area] of Object.entries(AREAS)) {
     const file = `${name}.placeholders.ts`;
     const target = new URL(file, dir);
     const next = renderArea(name, area);
-    if (Deno.args.includes("--check")) {
+    if (process.argv.slice(2).includes("--check")) {
       let current = "";
       try {
-        current = await Deno.readTextFile(target);
+        current = await readFile(target, "utf8");
       } catch (error) {
-        if (!(error instanceof Deno.errors.NotFound)) throw error;
+        if (errorCode(error) !== "ENOENT") throw error;
       }
       if (current !== next) stale.push(`catalog/${file}`);
     } else {
-      await Deno.writeTextFile(target, next);
+      await writeFile(target, next);
     }
   }
   if (stale.length > 0) {
     console.error(
       `${stale.join(", ")}가 영역 file과 다르다. generate.ts를 다시 돌린다.`,
     );
-    Deno.exit(1);
+    process.exit(1);
   }
 }
 

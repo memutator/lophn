@@ -1,4 +1,5 @@
-import { assert, assertEquals, assertFalse } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 
 import {
   APPEARANCE_DEFAULTS,
@@ -26,9 +27,9 @@ const DANGEROUS = [
   "",
 ];
 
-Deno.test("Custom 글꼴 이름의 위험한 글자는 CSS에 들어가지 않는다", () => {
+test("Custom 글꼴 이름의 위험한 글자는 CSS에 들어가지 않는다", () => {
   for (const name of DANGEROUS) {
-    assertFalse(isFontName(name), JSON.stringify(name));
+    assert.ok(!isFontName(name), JSON.stringify(name));
     const chosen = {
       ...APPEARANCE_DEFAULTS,
       font: "custom",
@@ -39,8 +40,8 @@ Deno.test("Custom 글꼴 이름의 위험한 글자는 CSS에 들어가지 않�
       font_custom: name,
       code_font_custom: name,
     });
-    assertEquals(parsed?.font_custom, "");
-    assertEquals(parsed?.code_font_custom, "");
+    assert.deepStrictEqual(parsed?.font_custom, "");
+    assert.deepStrictEqual(parsed?.code_font_custom, "");
     // parse를 거치지 않고 바로 만들어도 이름은 CSS에 쓰이지 않는다.
     const css = appearanceCss({
       ...APPEARANCE_DEFAULTS,
@@ -49,28 +50,31 @@ Deno.test("Custom 글꼴 이름의 위험한 글자는 CSS에 들어가지 않�
       code_font: "custom",
       code_font_custom: name,
     });
-    assertEquals(css, "", JSON.stringify(name));
+    assert.deepStrictEqual(css, "", JSON.stringify(name));
   }
   for (const name of ["Fira Sans", "나눔고딕", "JetBrains_Mono-2"]) {
-    assert(isFontName(name), name);
+    assert.ok(isFontName(name), name);
     const css = appearanceCss({
       ...APPEARANCE_DEFAULTS,
       font: "custom",
       font_custom: name,
     });
-    assert(css.includes(`--font-sans: "${name}", `), css);
+    assert.ok(css.includes(`--font-sans: "${name}", `), css);
   }
 });
 
-Deno.test("목록 밖 선택은 appearance 전체가 거절된다", () => {
-  assertEquals(
+test("목록 밖 선택은 appearance 전체가 거절된다", () => {
+  assert.deepStrictEqual(
     parseAppearance({ ...APPEARANCE_DEFAULTS, accent: "red" }),
     undefined,
   );
-  assertEquals(
+  assert.deepStrictEqual(
     parseAppearance({ ...APPEARANCE_DEFAULTS, density: "9" }),
     undefined,
   );
-  assertEquals(parseAppearance(null), undefined);
-  assertEquals(parseAppearance(APPEARANCE_DEFAULTS), APPEARANCE_DEFAULTS);
+  assert.deepStrictEqual(parseAppearance(null), undefined);
+  assert.deepStrictEqual(
+    parseAppearance(APPEARANCE_DEFAULTS),
+    APPEARANCE_DEFAULTS,
+  );
 });

@@ -14,6 +14,7 @@ import {
   secretDestinationOf,
   type SecretFileUse,
 } from "../../../protocol/secrets/mod.ts";
+import { serve, type ServeHandle } from "../../server/serve.ts";
 import {
   type AuthDeadline,
   type CallbackListener,
@@ -288,16 +289,25 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
 // shell이 크롬 링크로 하고 이 listener는 닿는 요청만 받는다. 첫 callback 하나만 받는다.
 // 발급자가 `error`로 돌려보내면 받기는 forbidden으로 끝난다. 취소나 기다림 시한은 받기에 건 AbortSignal이 끊고
 // unavailable로 돌아온다.
-export function openCallbackListener(): Promise<Result<CallbackListener>> {
+export async function openCallbackListener(): Promise<
+  Result<CallbackListener>
+> {
   let settled: Callback | "refused" | null = null;
   let accepted: () => void = () => {};
   const incoming = new Promise<void>((resolve) => {
     accepted = resolve;
   });
-  let http: Deno.HttpServer<Deno.NetAddr>;
+  let port = 0;
+  let http: ServeHandle;
   try {
-    http = Deno.serve(
-      { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    http = await serve(
+      {
+        hostname: "127.0.0.1",
+        port: 0,
+        onListen: (addr) => {
+          port = addr.port;
+        },
+      },
       (request: Request) => {
         const url = new URL(request.url);
         if (settled !== null) {
@@ -324,49 +334,42 @@ export function openCallbackListener(): Promise<Result<CallbackListener>> {
       },
     );
   } catch {
-    return Promise.resolve(
-      err({
-        code: "unavailable",
-        message: "loopback callback port를 열 수 없다",
-      }),
-    );
+    return err({
+      code: "unavailable",
+      message: "loopback callback port를 열 수 없다",
+    });
   }
-  const port = http.addr.port;
-  return Promise.resolve(
-    ok({
-      port: () => port,
-      receive(signal: AbortSignal) {
-        const aborted = new Promise<null>((resolve) => {
-          if (signal.aborted) resolve(null);
-          else {
-            signal.addEventListener("abort", () => resolve(null), {
-              once: true,
-            });
-          }
-        });
-        return Promise.race([incoming, aborted]).then(
-          (how): Result<Callback> => {
-            if (settled === "refused") {
-              return err({
-                code: "forbidden",
-                message: "발급자가 로그인을 거절했다",
-              });
-            }
-            if (how === null || settled === null) {
-              return err({
-                code: "unavailable",
-                message: "callback이 오지 않았다",
-              });
-            }
-            return ok(settled);
-          },
-        );
-      },
-      close(): Promise<void> {
-        return Promise.resolve(http.shutdown());
-      },
-    }),
-  );
+  return ok({
+    port: () => port,
+    receive(signal: AbortSignal) {
+      const aborted = new Promise<null>((resolve) => {
+        if (signal.aborted) resolve(null);
+        else {
+          signal.addEventListener("abort", () => resolve(null), {
+            once: true,
+          });
+        }
+      });
+      return Promise.race([incoming, aborted]).then((how): Result<Callback> => {
+        if (settled === "refused") {
+          return err({
+            code: "forbidden",
+            message: "발급자가 로그인을 거절했다",
+          });
+        }
+        if (how === null || settled === null) {
+          return err({
+            code: "unavailable",
+            message: "callback이 오지 않았다",
+          });
+        }
+        return ok(settled);
+      });
+    },
+    close(): Promise<void> {
+      return http.shutdown();
+    },
+  });
 }
 
 type Callback = {

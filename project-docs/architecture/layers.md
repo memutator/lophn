@@ -39,7 +39,7 @@ core 코드를 어떻게 나누고 어느 쪽으로만 기대게 하는지, 그 
 
 Deno는 실행할 때 tree shaking을 하지 않는다. 파일 하나를 import하면 그 파일이 import하는 것을 끝까지 따라가 모두 읽고 top-level 코드를 실행한다. `import type`만 지워진다.
 
-core는 daemon main thread, writer·reader Worker, I/O child process(`platform/io`), agent runtime child process로 나뉘어 돈다. daemon과 writer·reader Worker, agent runtime child는 개발과 설치 모두 `--allow-all`이다(agent runtime은 launch spec의 `allow_all`, `packages/core/supervision/security/launch-spec.ts`). lophn 자신의 코드라 좁히지 않고, 개발·test와 같은 권한이어야 test한 것이 그대로 배포된다(`shell/main/desktop/core/supervise.ts`). 권한을 좁혀 띄우는 것은 I/O child와 정비 자식, AI가 쓴 코드를 돌리는 process(앱, flow, release 준비 자식)다. 그래서 import는 type 의존일 뿐 아니라 "이 process에 무엇이 실리나"를 정한다. 쓰지 않는 코드가 graph에 붙으면:
+core는 daemon main thread, writer·reader Worker, I/O child process(`platform/io`), agent runtime child process로 나뉘어 돈다. lophn 자신의 코드가 도는 process는 개발과 설치 모두 `--allow-all`이다: daemon, writer·reader Worker, I/O child, agent runtime, apps supervisor, kinds worker, 정비 자식, data job, release 준비 runner와 app-build child. lophn 자신의 코드라 좁히지 않고, 개발·test와 같은 권한이어야 test한 것이 그대로 배포된다(`shell/main/desktop/core/supervise.ts`). 권한을 좁혀 띄우는 것은 AI가 쓴 코드를 돌리는 process뿐이다: 앱 process와 preview, flow, 선언 검사·추출, release 준비의 선언 eval. 그래서 import는 type 의존일 뿐 아니라 "이 process에 무엇이 실리나"를 정한다. 쓰지 않는 코드가 graph에 붙으면:
 
 - 그 코드의 top-level이 권한 밖 일(환경 변수, 파일)을 하거나 Worker에 없는 API를 쓰면 process가 시작부터 죽는다. type check가 못 잡는다.
 - 상관없는 module을 고쳤는데 엉뚱한 process가 깨진다. 원인을 찾기 어렵다.

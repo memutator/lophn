@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { err, ok } from "../../../base/mod.ts";
 import type { ResolvedAgent } from "../../lophn-agent/agents/mod.ts";
 import type { CoreCall } from "../../lophn-agent/run-loop/core-call.ts";
@@ -76,7 +77,7 @@ function fakeCall(replies: Record<string, unknown>): CoreCall {
 
 const appPlace = { kind: "app", id: APP };
 
-Deno.test("domain A만 고른 Operator의 범위와 place 정보에는 A의 것만 있고 App Engineer에는 그릇의 domain 전부가 있다", async () => {
+test("domain A만 고른 Operator의 범위와 place 정보에는 A의 것만 있고 App Engineer에는 그릇의 domain 전부가 있다", async () => {
   const kind = (name: string) => ({
     name,
     summary: `${name} doc`,
@@ -110,16 +111,16 @@ Deno.test("domain A만 고른 Operator의 범위와 place 정보에는 A의 것�
     agent("operator", appPlace, [DOM_A]),
     files,
   );
-  assert(operator.ok);
+  assert.ok(operator.ok);
   const text = operator.value.place.text;
-  assert(text.includes("alpha") && text.includes("note"));
-  assert(text.includes("a-page") && text.includes(`/d/${DOM_A}/artifacts`));
+  assert.ok(text.includes("alpha") && text.includes("note"));
+  assert.ok(text.includes("a-page") && text.includes(`/d/${DOM_A}/artifacts`));
   for (const other of ["beta", "secret", "b-page", DOM_B]) {
-    assert(!text.includes(other), other);
+    assert.ok(!text.includes(other), other);
   }
   // DOMAIN.md·kinds.yaml·skills/가 든 domain 폴더는 Operator에게 열리지 않는다
-  assert(!text.includes(`Folder: /d/${DOM_A}\n`));
-  assertEquals(operator.value.scope, {
+  assert.ok(!text.includes(`Folder: /d/${DOM_A}\n`));
+  assert.deepStrictEqual(operator.value.scope, {
     read: ["/src/ledger", `/d/${DOM_A}/artifacts`],
     write: [`/d/${DOM_A}/artifacts`],
     base: "/src/ledger",
@@ -130,19 +131,19 @@ Deno.test("domain A만 고른 Operator의 범위와 place 정보에는 A의 것�
     agent("app_engineer", appPlace, [DOM_A, DOM_B]),
     files,
   );
-  assert(engineer.ok);
+  assert.ok(engineer.ok);
   for (const seen of ["alpha", "beta", "note", "secret", "a-page", "b-page"]) {
-    assert(engineer.value.place.text.includes(seen), seen);
+    assert.ok(engineer.value.place.text.includes(seen), seen);
   }
-  assert(engineer.value.place.text.includes(`Folder: /d/${DOM_A}\n`));
-  assertEquals(engineer.value.scope.write, [
+  assert.ok(engineer.value.place.text.includes(`Folder: /d/${DOM_A}\n`));
+  assert.deepStrictEqual(engineer.value.scope.write, [
     "/src/ledger",
     `/d/${DOM_A}`,
     `/d/${DOM_B}`,
   ]);
 });
 
-Deno.test("lophn의 지도에는 공개 tool만 실리고 package는 주인 앱 줄에 실린다", async () => {
+test("lophn의 지도에는 공개 tool만 실리고 package는 주인 앱 줄에 실린다", async () => {
   const tool = (name: string, isPublic: boolean) => ({
     name,
     title: name,
@@ -184,15 +185,17 @@ Deno.test("lophn의 지도에는 공개 tool만 실리고 package는 주인 앱 
     },
   });
   const read = await placeData(call, agent("lophn", null, []), files);
-  assert(read.ok);
+  assert.ok(read.ok);
   const text = read.value.place.text;
-  assert(text.includes("show (read) show does it"));
-  assert(!text.includes("hidden"));
-  assert(text.includes("show ← beta"));
-  assert(text.includes("- Ledger: keeps the books\n  Packages: @me/ui@1.0.0"));
+  assert.ok(text.includes("show (read) show does it"));
+  assert.ok(!text.includes("hidden"));
+  assert.ok(text.includes("show ← beta"));
+  assert.ok(
+    text.includes("- Ledger: keeps the books\n  Packages: @me/ui@1.0.0"),
+  );
 });
 
-Deno.test("project의 workflows 폴더는 그 place의 PM의 prompt와 쓰기 범위에만 있고 Operator에는 없다", async () => {
+test("project의 workflows 폴더는 그 place의 PM의 prompt와 쓰기 범위에만 있고 Operator에는 없다", async () => {
   const PRJ = id("prj", "1");
   const call = fakeCall({
     "/projects/get": {
@@ -224,15 +227,15 @@ Deno.test("project의 workflows 폴더는 그 place의 PM의 prompt와 쓰기 �
     } as ResolvedAgent,
     files,
   );
-  assert(pm.ok);
-  assert(pm.value.place.text.includes(`Workflows folder: ${workflows}\n`));
-  assertEquals(pm.value.scope.write, ["/p1", workflows]);
+  assert.ok(pm.ok);
+  assert.ok(pm.value.place.text.includes(`Workflows folder: ${workflows}\n`));
+  assert.deepStrictEqual(pm.value.scope.write, ["/p1", workflows]);
   const operator = await placeData(
     call,
     agent("operator", projectPlace, []),
     files,
   );
-  assert(operator.ok);
-  assert(!operator.value.place.text.includes("Workflows folder"));
-  assertEquals(operator.value.scope.write, ["/p1"]);
+  assert.ok(operator.ok);
+  assert.ok(!operator.value.place.text.includes("Workflows folder"));
+  assert.deepStrictEqual(operator.value.scope.write, ["/p1"]);
 });

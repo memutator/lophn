@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
 import type { ToolContext } from "../../lophn-agent/tools/spi.ts";
 import { KIND_TOOLS } from "./kind.ts";
@@ -8,7 +9,7 @@ const ALSO = "dom_01hzzzzzzzzzzzzzzzzzzzzzzb";
 const OTHER = "dom_01hzzzzzzzzzzzzzzzzzzzzzzc";
 
 // 자기 domain이 아닌 곳은 core를 부르지 않고 거절한다. 둘 이상인데 생략해도 거절이다.
-Deno.test("kind tools refuse a domain outside ctx.domains without calling core", async () => {
+test("kind tools refuse a domain outside ctx.domains without calling core", async () => {
   const calls: unknown[] = [];
   const ctxOf = (domains: string[]) =>
     ({
@@ -28,8 +29,11 @@ Deno.test("kind tools refuse a domain outside ctx.domains without calling core",
       const base = tool.name === "kind.list" ? { kind: "receipt" } : {};
       const input = domain === undefined ? base : { ...base, domain };
       const result = await tool.handler!(input, ctxOf(domains));
-      assertEquals(result.ok ? null : result.error.code, "invalid_input");
+      assert.deepStrictEqual(
+        result.ok ? null : result.error.code,
+        "invalid_input",
+      );
     }
   }
-  assertEquals(calls, []);
+  assert.deepStrictEqual(calls, []);
 });

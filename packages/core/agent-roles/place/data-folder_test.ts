@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import {
   appIdOfFolder,
   lophnAgentsFolder,
@@ -8,20 +9,23 @@ import {
   projectsDataArea,
 } from "./data-folder.ts";
 
-Deno.test("data root 아래 정의·설정 자리는 전과 같다", () => {
+test("data root 아래 정의·설정 자리는 전과 같다", () => {
   const project = { kind: "project", id: "prj_a1" } as const;
-  assertEquals(projectsDataArea("/r"), "/r/projects");
-  assertEquals(placeDataFolder("/r", project), "/r/projects/prj_a1");
-  assertEquals(placeAgentsFolder("/r", project), "/r/projects/prj_a1/agents");
-  assertEquals(
+  assert.deepStrictEqual(projectsDataArea("/r"), "/r/projects");
+  assert.deepStrictEqual(placeDataFolder("/r", project), "/r/projects/prj_a1");
+  assert.deepStrictEqual(
+    placeAgentsFolder("/r", project),
+    "/r/projects/prj_a1/agents",
+  );
+  assert.deepStrictEqual(
     placeDataFolder("/r", { kind: "app", id: "app_b2" }),
     "/r/apps/app_b2",
   );
-  assertEquals(lophnAgentsFolder("/r"), "/r/agents");
-  assertEquals(projectIdOfFolder("prj_a1"), "prj_a1");
-  assertEquals(appIdOfFolder("app_b2"), "app_b2");
-  assertEquals(appIdOfFolder("prj_a1"), null);
+  assert.deepStrictEqual(lophnAgentsFolder("/r"), "/r/agents");
+  assert.deepStrictEqual(projectIdOfFolder("prj_a1"), "prj_a1");
+  assert.deepStrictEqual(appIdOfFolder("app_b2"), "app_b2");
+  assert.deepStrictEqual(appIdOfFolder("prj_a1"), null);
   for (const name of ["app_b2", "prj_", "prj_A1", "x.json", "prj_a1/x"]) {
-    assertEquals(projectIdOfFolder(name), null);
+    assert.deepStrictEqual(projectIdOfFolder(name), null);
   }
 });

@@ -1,5 +1,10 @@
+import assert from "node:assert/strict";
+import { readFileSync, statSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "node:test";
 import { z } from "zod";
-import { assert, assertEquals } from "@std/assert";
 import { declareSetting } from "../../protocol/config/mod.ts";
 import { createSettingsRegistry } from "./registry.ts";
 import { createSettingsStore } from "./store.ts";
@@ -21,7 +26,7 @@ async function withStore(
     published: string[][],
   ) => void | Promise<void>,
 ) {
-  const root = await Deno.makeTempDir();
+  const root = await mkdtemp(join(tmpdir(), "lophn-settings-"));
   const published: string[][] = [];
   const store = createSettingsStore({
     root,
@@ -33,22 +38,22 @@ async function withStore(
     await run(store, `${root}/settings.json`, published);
   } finally {
     store.close();
-    await Deno.remove(root, { recursive: true });
+    await rm(root, { recursive: true });
   }
 }
 
-Deno.test("틀린 설정 값은 이유와 함께 거절되고 파일은 그대로다", async () => {
+test("틀린 설정 값은 이유와 함께 거절되고 파일은 그대로다", async () => {
   await withStore((store, file, published) => {
     const first = store.update([{
       key: "t.flag",
       action: "set",
       value: false,
     }]);
-    assert(first.ok);
-    assertEquals(first.value, { changed: ["t.flag"], rejected: [] });
-    assertEquals(published, [["t.flag"]]);
-    assertEquals((Deno.statSync(file).mode ?? 0) & 0o777, 0o600);
-    const before = Deno.readFileSync(file);
+    assert.ok(first.ok);
+    assert.deepStrictEqual(first.value, { changed: ["t.flag"], rejected: [] });
+    assert.deepStrictEqual(published, [["t.flag"]]);
+    assert.deepStrictEqual((statSync(file).mode ?? 0) & 0o777, 0o600);
+    const before = readFileSync(file);
 
     const secret = "do-not-echo-this-value";
     const cases = [
@@ -62,23 +67,23 @@ Deno.test("틀린 설정 값은 이유와 함께 거절되고 파일은 그대�
         { key: "t.theme", action: "set", value: "dark" },
         change,
       ]);
-      assert(result.ok);
-      assertEquals(result.value, {
+      assert.ok(result.ok);
+      assert.deepStrictEqual(result.value, {
         changed: [],
         rejected: [{ key: change.key, reason }],
       });
-      assert(!JSON.stringify(result).includes(secret));
-      assertEquals(Deno.readFileSync(file), before);
+      assert.ok(!JSON.stringify(result).includes(secret));
+      assert.deepStrictEqual(readFileSync(file), before);
     }
-    assertEquals(published.length, 1);
+    assert.deepStrictEqual(published.length, 1);
 
     // 같은 값의 set과 없는 key의 unset은 바꾼 것이 아니다.
     const same = store.update([
       { key: "t.flag", action: "set", value: false },
       { key: "t.theme", action: "unset" },
     ]);
-    assert(same.ok);
-    assertEquals(same.value.changed, []);
-    assertEquals(Deno.readFileSync(file), before);
+    assert.ok(same.ok);
+    assert.deepStrictEqual(same.value.changed, []);
+    assert.deepStrictEqual(readFileSync(file), before);
   });
 });

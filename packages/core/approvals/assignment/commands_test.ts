@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { agentAssignmentSetCommand } from "./commands.ts";
 
 const rows = [
@@ -8,7 +9,7 @@ const rows = [
   ["machine"],
 ];
 
-Deno.test("사람이 아닌 자격으로 SetAgentAssignment를 부르면 forbidden이다", () => {
+test("사람이 아닌 자격으로 SetAgentAssignment를 부르면 forbidden이다", () => {
   for (const [actor] of rows) {
     const result = agentAssignmentSetCommand.handle(
       undefined as never,
@@ -16,6 +17,6 @@ Deno.test("사람이 아닌 자격으로 SetAgentAssignment를 부르면 forbidd
       { agent: { role: "lophn" }, entries: [] },
       { revision: 0 },
     );
-    assertEquals(!result.ok && result.error.code, "forbidden", actor);
+    assert.deepStrictEqual(!result.ok && result.error.code, "forbidden", actor);
   }
 });

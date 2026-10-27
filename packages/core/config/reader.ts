@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import type { z } from "zod";
 import type {
   SettingDeclaration,
@@ -43,7 +44,7 @@ export function createFileSettingsReader(root: string): SettingsReader {
       let chosen: unknown;
       try {
         const file = JSON.parse(
-          Deno.readTextFileSync(`${root}/${SETTINGS_FILE_NAME}`),
+          readFileSync(`${root}/${SETTINGS_FILE_NAME}`, "utf8"),
         );
         chosen = file?.[setting.key];
       } catch {

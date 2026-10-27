@@ -1,4 +1,5 @@
-import { err, ok, type Result } from "../../base/mod.ts";
+import { rename, rm, writeFile } from "node:fs/promises";
+import { err, errorCode, ok, type Result } from "../../base/mod.ts";
 import {
   RUN_METADATA_NAME,
   USER_TOKEN_FILE_NAME,
@@ -34,8 +35,8 @@ export async function writeRunMetadata(
   const path = `${runDir}/${RUN_METADATA_NAME}`;
   const temporary = `${path}.tmp`;
   try {
-    await Deno.writeTextFile(temporary, text, { mode: 0o600 });
-    await Deno.rename(temporary, path);
+    await writeFile(temporary, text, { mode: 0o600 });
+    await rename(temporary, path);
   } catch {
     return err({
       code: "unavailable",
@@ -48,9 +49,9 @@ export async function writeRunMetadata(
 // 정상 종료에서만 지운다. 비정상 종료는 마지막 위치를 남겨 둔다.
 export async function removeRunMetadata(runDir: string): Promise<void> {
   try {
-    await Deno.remove(`${runDir}/${RUN_METADATA_NAME}`);
+    await rm(`${runDir}/${RUN_METADATA_NAME}`);
   } catch (thrown) {
-    if (!(thrown instanceof Deno.errors.NotFound)) throw thrown;
+    if (errorCode(thrown) !== "ENOENT") throw thrown;
   }
 }
 
@@ -62,8 +63,8 @@ export async function writeUserToken(
   const path = `${runDir}/${USER_TOKEN_FILE_NAME}`;
   const temporary = `${path}.tmp`;
   try {
-    await Deno.writeTextFile(temporary, token, { mode: 0o600 });
-    await Deno.rename(temporary, path);
+    await writeFile(temporary, token, { mode: 0o600 });
+    await rename(temporary, path);
   } catch {
     return err({
       code: "unavailable",
@@ -76,8 +77,8 @@ export async function writeUserToken(
 // 켤 때와 종료 때 지운다. file이 없으면 lophn이 꺼져 있다.
 export async function removeUserToken(runDir: string): Promise<void> {
   try {
-    await Deno.remove(`${runDir}/${USER_TOKEN_FILE_NAME}`);
+    await rm(`${runDir}/${USER_TOKEN_FILE_NAME}`);
   } catch (thrown) {
-    if (!(thrown instanceof Deno.errors.NotFound)) throw thrown;
+    if (errorCode(thrown) !== "ENOENT") throw thrown;
   }
 }

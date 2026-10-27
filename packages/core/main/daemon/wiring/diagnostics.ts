@@ -1,4 +1,5 @@
 import process from "node:process";
+import { Writable } from "node:stream";
 import { ok } from "../../../../base/mod.ts";
 import type { Diagnostic } from "../../../../protocol/supervision/mod.ts";
 import {
@@ -114,7 +115,7 @@ export const diagnosticsWiring: WiringFactory = () => {
               at: ctx.clock.now(),
             }),
           ),
-        stderr: Deno.stderr.writable,
+        stderr: Writable.toWeb(process.stderr),
         redact,
         exit: process.exit,
       });

@@ -1,4 +1,5 @@
 import process from "node:process";
+import { Readable, Writable } from "node:stream";
 import { startCore } from "./core.ts";
 import { writeParent } from "./parent.ts";
 import { startFailureReason } from "../../storage/migration/mod.ts";
@@ -8,9 +9,12 @@ const portArg = process.argv.slice(2).find((arg) => arg.startsWith("--port="));
 const port = portArg === undefined ? undefined : Number(portArg.slice(7));
 
 // Electron main이 물려 준 pipe. 터미널에서 직접 띄우면(stdin이 터미널) 신호로만 끝난다.
-const parent = Deno.stdin.isTerminal()
+const parent = process.stdin.isTTY
   ? undefined
-  : { stdin: Deno.stdin.readable, stdout: Deno.stdout.writable };
+  : {
+      stdin: Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>,
+      stdout: Writable.toWeb(process.stdout) as WritableStream<Uint8Array>,
+    };
 
 const started = await startCore({
   port,
@@ -33,6 +37,8 @@ if (!started.ok) {
 const core = started.value;
 const exitAfterShutdown = () =>
   void core.shutdown().then(() => process.exit(0));
-Deno.addSignalListener("SIGINT", exitAfterShutdown);
-Deno.addSignalListener("SIGTERM", exitAfterShutdown);
+process.on("SIGINT", exitAfterShutdown);
+process.on("SIGTERM", exitAfterShutdown);
 await core.done;
+// toWeb stream은 reader를 놓아도 stdin에 읽기 요청을 남겨 event loop를 붙든다. core가 끝났으면 읽기를 멈춰야 process가 끝난다.
+if (parent) process.stdin.pause();

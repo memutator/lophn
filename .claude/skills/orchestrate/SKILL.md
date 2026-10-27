@@ -37,7 +37,7 @@ lead는 task를 골라 worker에게 맡기고, 결과를 review해 그 계획의
 
 ### 2. worktree
 
-`project-docs/plan/tools/lead/launch.sh <계획> <id>...`가 main checkout의 `.claude/worktrees/<id>`와 branch `<단위>/<id>`(plan branch에서 갈라짐)를 만들고, `tools/worktree-prep.ts`로 root `node_modules`를 잇고, status를 `running`으로 한다. 새 worktree에서 `npm ci`를 돌리지 않는다(Electron과 node-pty를 다시 받아 느리다).
+`project-docs/plan/tools/lead/launch.sh <계획> <id>...`가 main checkout의 `.claude/worktrees/<id>`와 branch `<단위>/<id>`(plan branch에서 갈라짐)를 만들고, `tools/worktree-prep.ts`가 그 worktree에서 `npm ci`를 돌려 자기 `node_modules`를 만들고 Electron binary를 받고, status를 `running`으로 한다. worktree마다 한 번이라 느리다(Electron과 node-pty를 새로 받는다).
 
 ### 3. worker 띄우기
 
@@ -58,7 +58,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - 임시 file(move-files mapping, probe 출력)은 worktree 안 `.dev-data/<id>/`에 둔다. session scratchpad는 같이 도는 worker끼리 공유되어 mapping이 덮인 일이 있다.
 - 명령이 auto mode classifier에 막히면 다른 명령으로 우회하지 않고 보고한다. lead도 worker가 거절당한 명령을 대신 돌리지 않고 사람에게 묻는다(사용자 앱 방어를 지우는 변경의 check:full·commit이 막힌 일이 있다).
 - `deno task check:full`을 돌리고, 통과하면 branch에 commit한다(영어 명령형 한 줄과 본문. 요구 ID와 작업 번호 없음). push, merge, rebase, 다른 branch는 하지 않는다.
-- `node_modules`(symlink)는 작업 중에 생기는 것이라 commit하지 않는다. 고친 file을 path로 add하고 `git diff --cached --stat`을 본다.
+- `node_modules`는 worktree마다 `npm ci`로 생기는 것이라 commit하지 않는다. 고친 file을 path로 add하고 `git diff --cached --stat`을 본다.
 - 막히면 추측으로 넘어가지 말고 할 수 있는 데까지 하고 보고한다. 맡은 일을 "시간이 부족했다"며 남기지 않는다.
 - 보고는 brief의 "보고" 꼴로 쓰고, "무겁게 짠 것"과 "알려진 미완 동작" 칸을 빼지 않는다.
 
@@ -74,7 +74,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 
 | 볼 것 | 어떻게 |
 |---|---|
-| node_modules를 commit하지 않았다 | `git diff --stat plan/<계획>...<branch> \| grep node_modules`가 0줄. 있으면 merge하지 않는다. ff-merge가 main checkout의 진짜 `node_modules`를 덮어 지운 일이 있다 |
+| node_modules를 commit하지 않았다 | `git diff --stat plan/<계획>...<branch> \| grep node_modules`가 0줄. 있으면 merge하지 않는다. gitignore한 폴더라 diff에 나오면 잘못 add한 것이다 |
 | 소유 밖 file을 안 고쳤다 | `git diff --name-only plan/<계획>...<branch>`를 brief의 소유와 댄다. 예외: 지운 것을 가리키던 등록 줄만 뺀 것, wording catalog에 key를 더한 것 |
 | check가 통과한다 | worktree에서 `deno task check:full`. 빠른 check는 바뀐 package만 본다 |
 | 위험 test | brief의 "위험 test"가 이름으로 있고 통과한다 |

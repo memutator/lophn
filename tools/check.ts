@@ -1,7 +1,8 @@
-// 빠른 check: deno task check, full check: deno task check:full
+// 빠른 check: npm run check, full check: npm run check:full
 // 옵션: --full, --base <rev>
 import { type ChildProcess, spawn } from "node:child_process";
 import { stat } from "node:fs/promises";
+import { createRequire } from "node:module";
 import process from "node:process";
 import { PACKAGE_DEPENDENCIES } from "./check-deps.ts";
 
@@ -18,9 +19,13 @@ type Step = {
 type Result = { name: string; status: Status; ms?: number; note?: string };
 
 const SHELL_MAIN = "packages/shell/main";
-// Biome가 deno fmt·lint를 대신한다. native binary를 deno가 npm에서 받아 띄운다.
-const BIOME = "npm:@biomejs/biome@2.6.3";
-const BIOME_CMD = ["deno", "run", "-A", BIOME];
+// Biome는 native binary다. deno가 npm에서 받아 띄우던 것을 node_modules의 것을 직접 띄운다.
+const BIOME_CMD = ["node_modules/.bin/biome"];
+// test는 core를 import하므로 Temporal이 있는 Electron의 Node로 띄운다. plain node에는 Temporal이 없다.
+const ELECTRON = createRequire(import.meta.url)("electron") as string;
+// Deno 권한 오류를 단정하는 test라 deno test로 남는다. wave 3에서 --permission에 맞춰 다시 쓴다.
+const SANDBOX_BOUNDARY =
+  "packages/core/apps/permissions/sandbox-boundary_test.ts";
 const ALL_PACKAGES = [
   "base",
   "protocol",
@@ -46,12 +51,12 @@ const USES: Record<string, string[]> = {
   // 어느 package가 바뀌어도 harness가 같이 돈다.
   tests: ALL_PACKAGES.filter((p) => p !== "tests"),
 };
-// deno test의 discovery에서 뺀다. e2e는 `deno task e2e`, live는 `deno task test:live`로만 돈다.
+// check의 test에서 뺀다. e2e는 `npm run e2e`, live는 `npm run test:live`로만 돈다.
 const NOT_IN_CHECK = ["tests/e2e", "tests/live"];
 const under = (f: string, paths: string[]) =>
   paths.some((x) => f === x || f.startsWith(`${x}/`));
-// root deno.json의 exclude. 글로브 대신 file 목록을 줄 때 같이 뺀다.
-const DENO_EXCLUDED = [
+// file 목록을 만들 때 뺄 폴더. root deno.json의 exclude와 같다.
+const EXCLUDED = [
   "packages/shell/main/",
   "packages/shell/preload/",
   "node_modules/",
@@ -144,7 +149,7 @@ async function sourceFiles(folder: string): Promise<string[]> {
   const found: string[] = [];
   for (const f of new Set(all)) {
     if (!/\.tsx?$/.test(f)) continue;
-    if (DENO_EXCLUDED.some((x) => f.startsWith(x))) continue;
+    if (EXCLUDED.some((x) => f.startsWith(x))) continue;
     if (await exists(f)) found.push(f);
   }
   return found.sort();
@@ -161,7 +166,7 @@ async function packageFiles(
   const found: string[] = [];
   for (const f of new Set(all)) {
     if (!pattern.test(f)) continue;
-    if (DENO_EXCLUDED.some((x) => f.startsWith(x))) continue;
+    if (EXCLUDED.some((x) => f.startsWith(x))) continue;
     if (await exists(f)) found.push(f);
   }
   return found.sort();
@@ -175,6 +180,9 @@ async function exists(path: string): Promise<boolean> {
     return false;
   }
 }
+
+// package마다 tsconfig가 붙기 전까지 deno check로 본다. type check 명령을 만드는 곳은 여기 하나다.
+const typeCheck = (files: string[]): string[] => ["deno", "check", ...files];
 
 async function buildSteps(
   run: Set<string>,
@@ -220,66 +228,50 @@ async function buildSteps(
   }
   checks.push({
     name: "deps",
-    commands: [["deno", "run", "--allow-read", "tools/check-deps.ts"]],
+    commands: [["node", "tools/check-deps.ts"]],
   });
 
   if (full || run.size > 0) {
     checks.push({
       name: "source",
-      commands: [["deno", "run", "--allow-read", "tools/check-source.ts"]],
+      commands: [["node", "tools/check-source.ts"]],
     });
   } else skip("source", "돌 package 없음");
   // 폴더가 늘거나 줄어도, project-docs/*.yaml이 바뀌어도 돈다.
-  // yaml package는 parse할 때 process.env를 읽어 check-modules·check-docs에 --allow-env가 필요하다.
   if (full || catalogChanged || run.size > 0) {
     checks.push({
       name: "modules",
-      commands: [
-        [
-          "deno",
-          "run",
-          "--allow-read",
-          "--allow-env",
-          "tools/check-modules.ts",
-        ],
-      ],
+      commands: [["node", "tools/check-modules.ts"]],
     });
   } else skip("modules", "package와 catalog가 안 바뀜");
   // 문서만 바뀐 변경을 잡는 check라 조건 없이 돈다.
   checks.push({
     name: "docs",
-    commands: [
-      ["deno", "run", "--allow-read", "--allow-env", "tools/check-docs.ts"],
-    ],
+    commands: [["node", "tools/check-docs.ts"]],
   });
 
   if (full) {
-    // `deno check`에는 --ignore가 없어 file 목록을 준다. package마다 나누면 type check 메모리가 몇 배가 되므로 process 하나로 돈다.
+    // package마다 나누면 type check 메모리가 몇 배가 되므로 process 하나로 돈다.
     const files = (
       await Promise.all(ALL_PACKAGES.map((p) => sourceFiles(FOLDERS[p])))
     ).flat();
-    checks.push({ name: "check", commands: [["deno", "check", ...files]] });
+    checks.push({ name: "check", commands: [typeCheck(files)] });
   } else {
     for (const p of ALL_PACKAGES.filter((p) => run.has(p))) {
       const files = await sourceFiles(FOLDERS[p]);
       if (files.length === 0) continue;
-      checks.push({
-        name: `check ${p}`,
-        commands: [["deno", "check", ...files]],
-      });
+      checks.push({ name: `check ${p}`, commands: [typeCheck(files)] });
     }
   }
 
   if (has("design", "sdk", "shell")) {
     checks.push({
       name: "style",
-      commands: [
-        ["deno", "run", "--allow-read", "--allow-env", "tools/check-style.ts"],
-      ],
+      commands: [["node", "tools/check-style.ts"]],
     });
     checks.push({
       name: "wording",
-      commands: [["deno", "run", "--allow-read", "tools/check-wording.ts"]],
+      commands: [["node", "tools/check-wording.ts"]],
     });
   } else {
     skip("style", "design, sdk, shell이 안 돎");
@@ -288,34 +280,17 @@ async function buildSteps(
   if (has("design", "tools")) {
     checks.push({
       name: "kit",
-      commands: [["deno", "run", "--allow-read", "tools/check-kit.ts"]],
+      commands: [["node", "tools/check-kit.ts"]],
     });
   } else skip("kit", "design, tools가 안 돎");
   if (has("design")) {
     checks.push({
       name: "wording 생성",
-      commands: [
-        [
-          "deno",
-          "run",
-          "--allow-read",
-          "packages/design/wording/generate.ts",
-          "--check",
-        ],
-      ],
+      commands: [["node", "packages/design/wording/generate.ts", "--check"]],
     });
     checks.push({
       name: "token 생성",
-      commands: [
-        [
-          "deno",
-          "run",
-          "--allow-read",
-          "--allow-run",
-          "packages/design/generate.ts",
-          "--check",
-        ],
-      ],
+      commands: [["node", "packages/design/generate.ts", "--check"]],
     });
   } else {
     skip("wording 생성", "design이 안 돎");
@@ -364,27 +339,25 @@ async function buildSteps(
     }
   } else skip("shell main", "shell 쪽이 안 돎");
 
-  const testArgs = ["deno", "test", "--no-check"];
-  if (full) testArgs.push("--parallel");
-  // CLI --ignore는 root deno.json의 exclude를 더하지 않고 대체하므로 둘 다 담는다.
-  const ignore = [...DENO_EXCLUDED, ...NOT_IN_CHECK];
-  testArgs.push(
-    "--allow-all",
-    "--permit-no-files",
-    `--ignore=${ignore.join(",")}`,
-  );
-  if (!full) {
-    testArgs.push(
-      ...(
-        await Promise.all(
-          pkgFolders.map((f) => packageFiles(f, /_test\.tsx?$/)),
-        )
-      )
-        .flat()
-        .filter((f) => !under(f, NOT_IN_CHECK)),
-    );
+  // 바뀐 package의 test만 돈다. full이면 pkgFolders가 전부다.
+  const testFiles = (
+    await Promise.all(pkgFolders.map((f) => packageFiles(f, /_test\.tsx?$/)))
+  )
+    .flat()
+    .filter((f) => !under(f, NOT_IN_CHECK));
+  const nodeFiles = testFiles.filter((f) => f !== SANDBOX_BOUNDARY);
+  const commands: string[][] = [];
+  if (nodeFiles.length > 0) commands.push([ELECTRON, "--test", ...nodeFiles]);
+  if (nodeFiles.length < testFiles.length) {
+    commands.push([
+      "deno",
+      "test",
+      "--no-check",
+      "--allow-all",
+      SANDBOX_BOUNDARY,
+    ]);
   }
-  return { checks, test: { name: "test", commands: [testArgs] }, skipped };
+  return { checks, test: { name: "test", commands }, skipped };
 }
 
 const running = new Set<ChildProcess>();
@@ -414,10 +387,10 @@ async function runStep(step: Step): Promise<Done> {
     try {
       const child = spawn(command[0], command.slice(1), {
         cwd: step.cwd,
-        // test는 DENO_JOBS가 환경에 없으면 8로 돈다.
+        // Electron binary는 ELECTRON_RUN_AS_NODE가 있어야 Node처럼 뜬다.
         env:
-          command[1] === "test"
-            ? { ...process.env, DENO_JOBS: process.env.DENO_JOBS ?? "8" }
+          command[0] === ELECTRON
+            ? { ...process.env, ELECTRON_RUN_AS_NODE: "1" }
             : undefined,
         stdio: ["ignore", "pipe", "pipe"],
       });
@@ -548,8 +521,13 @@ async function main() {
   const { checks, test, skipped } = await buildSteps(run, full, catalogChanged);
   const results: Result[] = [];
   let ok = await runStage(checks, results);
-  if (ok) ok = await runStage([test], results);
-  else results.push({ name: "test", status: "건너뜀", note: "check 실패" });
+  if (!ok) {
+    results.push({ name: "test", status: "건너뜀", note: "check 실패" });
+  } else if (test.commands.length === 0) {
+    results.push({ name: "test", status: "건너뜀", note: "돌 package 없음" });
+  } else {
+    ok = await runStage([test], results);
+  }
   results.push(...skipped);
 
   console.log(table(results));

@@ -32,7 +32,6 @@ out=$(deno task check:full 2>&1) || { echo "$out" | tail -30; echo "STOP: plan b
 echo "plan branch full check ok"
 BOOT=$(project-docs/plan/tools/lead/boot.sh 2>&1); [ "$(echo "$BOOT" | grep -c "exit 0")" = 2 ] || { echo "STOP: boot failed after merge"; echo "$BOOT" | tail -6; exit 1; }; echo "boot ok"
 deno run -A packages/shell/renderer/build.ts >/dev/null 2>&1 || { echo "STOP: renderer build failed after merge"; exit 1; }; echo "renderer build ok"
-rm -f $W/node_modules
 chmod -R u+w $W/.dev-data 2>/dev/null  # core가 깐 읽기 전용 sdk 사본
 git worktree remove --force $W && git branch -q -D $B
 python3 -I project-docs/plan/tools/status.py $plan set $id merged $B $(git rev-parse --short HEAD)

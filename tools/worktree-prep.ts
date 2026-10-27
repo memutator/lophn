@@ -1,8 +1,10 @@
-// 새 worktree가 npm ci 없이 check를 돌게 root node_modules를 main checkout에서 잇는다.
+// 새 worktree에 자기 node_modules를 만들고 Electron binary까지 받는다.
+// npm workspace의 `@lophn/*`는 상대 경로 symlink라 다른 checkout의 node_modules를 빌려 쓰면
+// 그 package가 다른 checkout을 가리킨다.
 // 실행: deno run -A tools/worktree-prep.ts <worktree 경로>
 import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
-import { lstat, realpath, symlink } from "node:fs/promises";
+import { lstat, realpath } from "node:fs/promises";
 import process from "node:process";
 
 const MODULES = "node_modules";
@@ -27,6 +29,22 @@ async function git(cwd: string, ...args: string[]): Promise<string | null> {
     : null;
 }
 
+async function run(
+  cwd: string,
+  command: string,
+  args: string[],
+): Promise<void> {
+  const child = spawn(command, args, {
+    cwd,
+    stdio: ["ignore", "inherit", "inherit"],
+  });
+  const code = await new Promise<number | null>((resolve, reject) => {
+    child.on("close", resolve);
+    child.on("error", reject);
+  });
+  if (code !== 0) fail(`${command} ${args.join(" ")}가 실패했다`);
+}
+
 async function exists(path: string): Promise<boolean> {
   try {
     await lstat(path);
@@ -45,20 +63,16 @@ const top = await git(worktree, "rev-parse", "--show-toplevel");
 if (top === null || (await realpath(top)) !== worktree) {
   fail(`worktree가 아니다: ${arg}`);
 }
-const common = await git(
-  worktree,
-  "rev-parse",
-  "--path-format=absolute",
-  "--git-common-dir",
-);
-if (common === null) fail(`worktree가 아니다: ${arg}`);
-const main = common.replace(/\/[^/]+$/, "");
 
 const target = `${worktree}/${MODULES}`;
-if (await exists(target)) process.exit(0);
-const source = `${main}/${MODULES}`;
-if (!(await exists(source))) {
-  fail("main checkout에서 `npm install`을 먼저 돌린다.");
+if (!(await exists(target))) {
+  await run(worktree, "npm", [
+    "ci",
+    "--prefer-offline",
+    "--no-audit",
+    "--no-fund",
+  ]);
 }
-await symlink(source, target);
-console.log(`${target} -> ${source}`);
+// npm ci의 postinstall이 건너뛰어졌으면 require가 binary를 받는다. 이미 받았으면 그냥 지나간다.
+await run(worktree, "node", ["-e", "require('electron')"]);
+console.log(`${target} 준비 완료`);

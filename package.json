@@ -11,6 +11,25 @@
     "tools/wireframes",
     "packages/design/wording"
   ],
+  "scripts": {
+    "check": "node tools/check.ts",
+    "check:full": "node tools/check.ts --full",
+    "eval": "node --env-file=.env tests/eval/run.ts",
+    "eval:answer": "node tests/eval/human/main.ts",
+    "eval:experiment": "node --env-file=.env tests/eval/run.ts experiment",
+    "eval:gate": "node tests/eval/run.ts gate",
+    "eval:judge": "node tests/eval/judge/main.ts",
+    "eval:scorecard": "node tests/eval/scorecard/main.ts",
+    "wording": "node packages/design/wording/generate.ts",
+    "e2e": "ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron --test --test-concurrency=1 tests/e2e/*_test.ts",
+    "e2e:deps": "deno run --allow-all tests/support/app/prepare-deps.ts",
+    "test:live": "node --env-file=.env tests/live/run.ts",
+    "test:live:login": "node tests/live/login.ts",
+    "dev": "node tools/dev.ts dev",
+    "dev:core": "node tools/dev.ts dev:core",
+    "dev:mock": "node tools/dev.ts dev:mock",
+    "wireframes": "node tools/wireframes/build.ts"
+  },
   "dependencies": {
     "@biomejs/biome": "2.6.3",
     "@types/ws": "8.18.2",

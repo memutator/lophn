@@ -1,28 +1,32 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
 import { createScreenFileDeps, serveScreenFile } from "./mod.ts";
 
 // 화면 byte 요청은 그 screen 폴더 안의 파일만 내주고, `..`·절대 경로·밖을 가리키는 symlink·
 // 다른 screen·폴더는 모두 거절한다.
-Deno.test("screen file requests only serve files inside that screen folder", async () => {
-  const tmp = await Deno.makeTempDir();
+test("screen file requests only serve files inside that screen folder", async () => {
+  const tmp = await mkdtemp(join(tmpdir(), "lophn-screens-"));
   try {
     const bundle = `${tmp}/bundle`;
-    await Deno.mkdir(`${bundle}/screens/main/assets`, { recursive: true });
-    await Deno.mkdir(`${bundle}/screens/other`, { recursive: true });
-    await Deno.writeTextFile(`${bundle}/screens/main/index.html`, "<p>hi</p>");
-    await Deno.writeTextFile(`${bundle}/screens/main/assets/a.js`, "1");
-    await Deno.writeTextFile(`${bundle}/screens/main/big.png`, "x".repeat(20));
-    await Deno.writeTextFile(`${bundle}/screens/other/secret.html`, "other");
-    await Deno.writeTextFile(`${bundle}/manifest.json`, "{}");
-    await Deno.writeTextFile(`${tmp}/outside.txt`, "outside");
-    await Deno.symlink(`${tmp}/outside.txt`, `${bundle}/screens/main/out.txt`);
-    await Deno.symlink(`${tmp}/`, `${bundle}/screens/main/outdir`);
-    await Deno.symlink(
+    await mkdir(`${bundle}/screens/main/assets`, { recursive: true });
+    await mkdir(`${bundle}/screens/other`, { recursive: true });
+    await writeFile(`${bundle}/screens/main/index.html`, "<p>hi</p>");
+    await writeFile(`${bundle}/screens/main/assets/a.js`, "1");
+    await writeFile(`${bundle}/screens/main/big.png`, "x".repeat(20));
+    await writeFile(`${bundle}/screens/other/secret.html`, "other");
+    await writeFile(`${bundle}/manifest.json`, "{}");
+    await writeFile(`${tmp}/outside.txt`, "outside");
+    await symlink(`${tmp}/outside.txt`, `${bundle}/screens/main/out.txt`);
+    await symlink(`${tmp}/`, `${bundle}/screens/main/outdir`);
+    await symlink(
       `${bundle}/screens/other/secret.html`,
       `${bundle}/screens/main/other.html`,
     );
-    await Deno.symlink(
+    await symlink(
       `${bundle}/screens/main/index.html`,
       `${bundle}/screens/main/inside.html`,
     );
@@ -35,16 +39,16 @@ Deno.test("screen file requests only serve files inside that screen folder", asy
       serveScreenFile(deps, { target, screen, path });
 
     const index = await serve("main", "index.html");
-    assertEquals(
+    assert.deepStrictEqual(
       index.ok && new TextDecoder().decode(index.value.bytes),
       "<p>hi</p>",
     );
-    assertEquals(
+    assert.deepStrictEqual(
       index.ok && index.value.contentType,
       "text/html; charset=utf-8",
     );
-    assertEquals((await serve("main", "assets/a.js")).ok, true);
-    assertEquals((await serve("main", "inside.html")).ok, true);
+    assert.deepStrictEqual((await serve("main", "assets/a.js")).ok, true);
+    assert.deepStrictEqual((await serve("main", "inside.html")).ok, true);
 
     const code = async (screen: string, path: string) => {
       const r = await serve(screen, path);
@@ -69,9 +73,9 @@ Deno.test("screen file requests only serve files inside that screen folder", asy
       ["missing screen", "ghost", "index.html", "not_found"],
     ];
     for (const [name, screen, path, want] of rows) {
-      assertEquals(await code(screen, path), want, name);
+      assert.deepStrictEqual(await code(screen, path), want, name);
     }
   } finally {
-    await Deno.remove(tmp, { recursive: true });
+    await rm(tmp, { recursive: true });
   }
 });

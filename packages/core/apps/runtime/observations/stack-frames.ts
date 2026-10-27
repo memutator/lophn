@@ -1,6 +1,8 @@
 // 앱 예외 stack을 원래 source 줄로 푼다. 당시 release의 봉인된 bundle 사본
 // (`apps/<app>/bundles/<hash>/`)의 source map을 쓴다. 사본 밖 path, symlink, ".."는 읽지 않는다.
 // 봉인된 bundle은 agent의 file 범위 밖이라 log에는 풀린 줄만 남는다.
+import type { Stats } from "node:fs";
+import { lstat, readFile, stat } from "node:fs/promises";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { appBundleCopy } from "../../../../protocol/apps/mod.ts";
 
@@ -47,20 +49,20 @@ async function readIfInside(
   const full = `${root}/${path}`;
   try {
     // symlink는 읽지 않는다: bundle 사본 밖을 가리킬 수 있다.
-    const info = await Deno.lstat(full);
-    if (info.isSymlink) {
+    const info = await lstat(full);
+    if (info.isSymbolicLink()) {
       return err({
         code: "unavailable",
         message: "path가 symlink라 읽지 않는다",
       });
     }
-    if (!info.isFile) {
+    if (!info.isFile()) {
       return err({
         code: "unavailable",
         message: "path가 파일이 아니다",
       });
     }
-    return ok(await Deno.readTextFile(full));
+    return ok(await readFile(full, "utf8"));
   } catch {
     return err({ code: "unavailable", message: "파일을 읽지 못했다" });
   }
@@ -278,13 +280,13 @@ async function framesInsideBundle(
   copy: string,
   stack: string,
 ): Promise<StackFrame[] | null> {
-  let info: Deno.FileInfo;
+  let info: Stats;
   try {
-    info = await Deno.stat(copy);
+    info = await stat(copy);
   } catch {
     return null;
   }
-  if (!info.isDirectory) return null;
+  if (!info.isDirectory()) return null;
   const root = copy.endsWith("/") ? copy : `${copy}/`;
   const frames: StackFrame[] = [];
   const sites = stackSites(stack);
@@ -331,8 +333,8 @@ async function bundledSource(
   const relative = relativeToFolder(name);
   if (relative === null) return null;
   try {
-    const info = await Deno.stat(`${root}${relative}`);
-    return info.isFile ? relative : null;
+    const info = await stat(`${root}${relative}`);
+    return info.isFile() ? relative : null;
   } catch {
     return null;
   }

@@ -1,4 +1,9 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { readFileSync, statSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "node:test";
 import {
   createKnownSecretRegistry,
   createRedactionStream,
@@ -42,12 +47,12 @@ function sourceOf(text: string): ByteSource {
 }
 
 function linesOf(path: string) {
-  return Deno.readTextFileSync(path).split("\n").filter((line) => line !== "")
+  return readFileSync(path, "utf8").split("\n").filter((line) => line !== "")
     .map((line) => appLogLineSchema.parse(JSON.parse(line)));
 }
 
-Deno.test("log file에 secret이 redaction 없이 남지 않는다", async () => {
-  const dataRoot = await Deno.makeTempDir();
+test("log file에 secret이 redaction 없이 남지 않는다", async () => {
+  const dataRoot = await mkdtemp(join(tmpdir(), "lophn-app-log-"));
   try {
     const known = "KNOWN-secret-value-0123456789-abcdefghij";
     const token = "ghp_" + "a1B2c3D4e5".repeat(3);
@@ -66,20 +71,23 @@ Deno.test("log file에 secret이 redaction 없이 남지 않는다", async () =>
       text: "x".repeat(APP_LOG_TEXT_MAX_CHARS - 10) + known,
     });
 
-    const raw = Deno.readTextFileSync(appLogFile(dataRoot, APP));
-    assert(!raw.includes(known));
-    assert(!raw.includes(known.slice(0, 10)));
-    assert(!raw.includes(token));
+    const raw = readFileSync(appLogFile(dataRoot, APP), "utf8");
+    assert.ok(!raw.includes(known));
+    assert.ok(!raw.includes(known.slice(0, 10)));
+    assert.ok(!raw.includes(token));
     const lines = linesOf(appLogFile(dataRoot, APP));
-    assertEquals(lines.length, 4);
-    assertEquals(lines.map((line) => line.invocation), [null, INV, null, null]);
+    assert.deepStrictEqual(lines.length, 4);
+    assert.deepStrictEqual(
+      lines.map((line) => line.invocation),
+      [null, INV, null, null],
+    );
   } finally {
-    await Deno.remove(dataRoot, { recursive: true });
+    await rm(dataRoot, { recursive: true });
   }
 });
 
-Deno.test("log file은 상한을 넘지 않는다. 넘치면 오래된 줄부터 버린다", async () => {
-  const dataRoot = await Deno.makeTempDir();
+test("log file은 상한을 넘지 않는다. 넘치면 오래된 줄부터 버린다", async () => {
+  const dataRoot = await mkdtemp(join(tmpdir(), "lophn-app-log-"));
   try {
     const open = () =>
       createAppLogFile({
@@ -90,7 +98,7 @@ Deno.test("log file은 상한을 넘지 않는다. 넘치면 오래된 줄부터
       });
     const numbered = (n: number) =>
       `${String(n).padStart(8, "0")} `.padEnd(APP_LOG_TEXT_MAX_CHARS, "x");
-    const sizeOf = (path: string) => Deno.statSync(path).size;
+    const sizeOf = (path: string) => statSync(path).size;
     const current = appLogFile(dataRoot, APP);
     const previous = appLogPreviousFile(dataRoot, APP);
 
@@ -100,15 +108,15 @@ Deno.test("log file은 상한을 넘지 않는다. 넘치면 오래된 줄부터
     for (let n = 0; n < first; n++) {
       log.append({ invocation: null, text: numbered(n) });
     }
-    assert(sizeOf(current) <= APP_LOG_FILE_MAX_BYTES);
-    assert(sizeOf(previous) <= APP_LOG_FILE_MAX_BYTES);
+    assert.ok(sizeOf(current) <= APP_LOG_FILE_MAX_BYTES);
+    assert.ok(sizeOf(previous) <= APP_LOG_FILE_MAX_BYTES);
     const numbers = [...linesOf(previous), ...linesOf(current)].map((line) =>
       Number(line.text.slice(0, 8))
     );
-    assertEquals(numbers.at(-1), first - 1);
-    assert(numbers[0] > 0);
+    assert.deepStrictEqual(numbers.at(-1), first - 1);
+    assert.ok(numbers[0] > 0);
     for (let i = 1; i < numbers.length; i++) {
-      assertEquals(numbers[i], numbers[i - 1] + 1);
+      assert.deepStrictEqual(numbers[i], numbers[i - 1] + 1);
     }
 
     // supervisor가 다시 떠도 file에 남은 크기부터 센다.
@@ -116,9 +124,9 @@ Deno.test("log file은 상한을 넘지 않는다. 넘치면 오래된 줄부터
     for (let n = first; n < first + 30_000; n++) {
       log.append({ invocation: null, text: numbered(n) });
     }
-    assert(sizeOf(current) <= APP_LOG_FILE_MAX_BYTES);
-    assert(sizeOf(previous) <= APP_LOG_FILE_MAX_BYTES);
+    assert.ok(sizeOf(current) <= APP_LOG_FILE_MAX_BYTES);
+    assert.ok(sizeOf(previous) <= APP_LOG_FILE_MAX_BYTES);
   } finally {
-    await Deno.remove(dataRoot, { recursive: true });
+    await rm(dataRoot, { recursive: true });
   }
 });

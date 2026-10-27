@@ -3,6 +3,8 @@
 // 0으로 채우지 않는다. 설정한 RSS 한도의 85% 초과가 10분 지속될 때만
 // 수치와 기간을 관측으로 남긴다. Deno의 V8 heap 옵션은 RSS 한도가 아니므로
 // 한도로 읽지 않는다. 한도는 호출자가 RSS 한도로 설정한 값만 받는다.
+import { readFile } from "node:fs/promises";
+import process from "node:process";
 
 const MEMORY_SAMPLE_INTERVAL_MS = 60_000;
 const MEMORY_OVERRUN_WINDOW_MS = 600_000;
@@ -57,14 +59,14 @@ function rssKbOf(status: string): number | undefined {
 
 // Linux만 측정한다. 다른 OS는 reader가 없고 호출자는 표본이 없는 것으로 다룬다.
 export function procRssReader(
-  os: string = Deno.build.os,
+  os: string = process.platform,
   root = "/proc",
 ): RssReader | undefined {
   if (os !== "linux") return undefined;
   return async (pid) => {
     try {
-      const status = await Deno.readTextFile(`${root}/${pid}/status`);
-      const stat = await Deno.readTextFile(`${root}/${pid}/stat`);
+      const status = await readFile(`${root}/${pid}/status`, "utf8");
+      const stat = await readFile(`${root}/${pid}/stat`, "utf8");
       const kb = rssKbOf(status);
       const startTicks = startTicksOf(stat);
       if (kb === undefined || startTicks === undefined) return undefined;

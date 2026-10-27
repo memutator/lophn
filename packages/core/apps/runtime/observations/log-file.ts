@@ -1,5 +1,7 @@
 // 앱마다 file로 남기는 app log의 쓰기 쪽(계약은 protocol/apps/app-log.ts). 쓰는 쪽은 app supervisor 하나다.
 // 줄 redaction은 조립이 주입한다(최상위 경계는 contracts만 거친다).
+import { appendFileSync, mkdirSync, renameSync, statSync } from "node:fs";
+import { errorCode } from "../../../../base/mod.ts";
 import {
   APP_LOG_FILE_MAX_BYTES,
   APP_LOG_TEXT_MAX_CHARS,
@@ -47,21 +49,21 @@ export function createAppLogFile(deps: {
     // 쓰기 실패는 supervisor를 멈추지 않는다. 다음 줄에서 다시 시도한다.
     try {
       if (size === undefined) {
-        Deno.mkdirSync(appLogFolder(deps.dataRoot, deps.app), {
+        mkdirSync(appLogFolder(deps.dataRoot, deps.app), {
           recursive: true,
         });
         try {
-          size = Deno.statSync(file).size;
+          size = statSync(file).size;
         } catch (thrown) {
-          if (!(thrown instanceof Deno.errors.NotFound)) throw thrown;
+          if (errorCode(thrown) !== "ENOENT") throw thrown;
           size = 0;
         }
       }
       if (size > 0 && size + bytes > APP_LOG_FILE_MAX_BYTES) {
-        Deno.renameSync(file, appLogPreviousFile(deps.dataRoot, deps.app));
+        renameSync(file, appLogPreviousFile(deps.dataRoot, deps.app));
         size = 0;
       }
-      Deno.writeTextFileSync(file, line, { append: true });
+      appendFileSync(file, line);
       size += bytes;
     } catch {
       size = undefined;

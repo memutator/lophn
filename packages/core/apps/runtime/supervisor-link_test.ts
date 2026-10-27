@@ -1,4 +1,5 @@
-import { assert, assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { encodeFrame } from "../../../protocol/base/mod.ts";
 import {
   createAppProcessLink,
@@ -8,7 +9,7 @@ import { attachControlLink, OpError } from "./supervisor/control-link.ts";
 import type { Supervisor } from "./supervisor/supervisor.ts";
 
 // 지우면 rewind가 changeset이 많을 때 control frame 한도(256 KiB)에서 통째로 실패한다.
-Deno.test("frame 한도를 넘는 rewind 적용도 한 번에 되돌린다", async () => {
+test("frame 한도를 넘는 rewind 적용도 한 번에 되돌린다", async () => {
   // core → supervisor pipe. 실제 frame으로 만들어 한도를 넘는 control frame이면 여기서 던진다.
   const pipe: Uint8Array[] = [];
   let wake: (() => void) | undefined;
@@ -47,7 +48,7 @@ Deno.test("frame 한도를 넘는 rewind 적용도 한 번에 되돌린다", asy
       },
       ops: {
         "apps.apply": (payload, body) => {
-          assertEquals(payload, { app: "app_1" });
+          assert.deepStrictEqual(payload, { app: "app_1" });
           if (!body) throw new OpError("invalid_input", "no body");
           received = JSON.parse(new TextDecoder().decode(body)).changesets;
           return Promise.resolve({
@@ -103,7 +104,7 @@ Deno.test("frame 한도를 넘는 rewind 적용도 한 번에 되돌린다", asy
   wake?.();
   await link.closed;
 
-  assert(applied.ok);
-  assertEquals(applied.value, { status: "applied", count: 40 });
-  assertEquals(received, changesets);
+  assert.ok(applied.ok);
+  assert.deepStrictEqual(applied.value, { status: "applied", count: 40 });
+  assert.deepStrictEqual(received, changesets);
 });

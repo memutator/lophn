@@ -1,5 +1,6 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { test } from "node:test";
 import type { ReleaseRecord } from "../../../protocol/apps/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import { appsSchemaSteps } from "../registration/schema.ts";
@@ -24,7 +25,7 @@ const tool = (name: string, domain: string) => ({
   domain,
 });
 
-Deno.test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 domain이 하나인 Operator는 그 domain만 쓰는 쪽으로 센다", () => {
+test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 domain이 하나인 Operator는 그 domain만 쓰는 쪽으로 센다", () => {
   const db = new DatabaseSync(":memory:");
   for (const step of [...appsSchemaSteps, ...releasesSchemaSteps]) {
     db.exec(step.sql);
@@ -91,7 +92,7 @@ Deno.test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 dom
   const users = appToolUsers(sql, ports, APP);
   if (!users.ok) throw new Error(JSON.stringify(users.error));
   // a(alpha)는 beta를 맡은 PM이, b(beta)는 alpha를 고른 Operator가 쓴다. 자기 domain의 사용은 없다.
-  assertEquals(
+  assert.deepStrictEqual(
     users.ok && users.value.map((u) => `${u.tool}:${u.domain}`),
     ["a:dom_beta", "b:dom_alpha"],
   );

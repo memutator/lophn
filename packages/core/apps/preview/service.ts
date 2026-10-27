@@ -2,6 +2,8 @@
 // 운영 상태와 따로 시작·관측·종료하고, App 활성 참조·run_enabled·grant·activation·운영 data를 읽기
 // 외에는 건드리지 않는다. 쓰는 곳은 supervisor 통로와 core의 disposable 영역뿐이다.
 // 범위 밖 앱·release는 없는 것과 같은 not_found다.
+
+import type { z } from "zod";
 import { type Clock, err, ok, type Result } from "../../../base/mod.ts";
 import type {
   PreviewObservation,
@@ -13,14 +15,12 @@ import type {
   previewsStopOutputSchema,
 } from "../../../protocol/apps/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
-import type { z } from "zod";
 import type { ToolDeclaration } from "../declaration/mod.ts";
-import type { FlagSet } from "../permissions/mod.ts";
 import type { PreviewArea } from "./area.ts";
 import {
+  type PreviewObservationWire as ObservationWire,
   PREVIEW_STARTING,
   type PreviewLaunch,
-  type PreviewObservationWire as ObservationWire,
   validNonce,
 } from "./model.ts";
 
@@ -41,15 +41,12 @@ type PreviewSupervisor = {
 // 봉인된 bundle 사본을 preview 시작 입력으로 바꾸는 자리다. 앱의 것이 아니거나 없으면 undefined다.
 export type PreviewBundle = {
   entry: string;
-  importMap: string;
   // bundle 선언의 tool 선언. preview 대상 호출이 이 선언으로 판정된다.
   tools: readonly ToolDeclaration[];
   screens: NonNullable<PreviewLaunch["screens"]>;
   dataSchema: number;
   // bundle 파일 중 그 경로의 byte. fixture는 bundle 안의 파일이다.
   fixture(path: string): Promise<Uint8Array | undefined>;
-  // 운영 앱과 같은 flag 계산에 disposable 영역을 data로 준 결과다.
-  flags(dataPath: string): Result<FlagSet>;
 };
 
 export interface PreviewBundles {
@@ -223,11 +220,6 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
     const created = await deps.area.create(app, nonce, fixture);
     if (!created.ok) return created;
     const dataPath = created.value;
-    const flags = bundle.flags(dataPath);
-    if (!flags.ok) {
-      await deps.area.discard(app, nonce);
-      return flags;
-    }
     const input: PreviewLaunch = {
       app,
       nonce,
@@ -236,12 +228,7 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
       tools: bundle.tools.map((tool) => tool.name),
       screens: { ...bundle.screens },
       dataSchema: bundle.dataSchema,
-      flags: {
-        args: [...flags.value.args],
-        limits: [...flags.value.limits],
-      },
       entry: bundle.entry,
-      importMap: bundle.importMap,
       dataPath,
     };
     const started = await deps.supervisor.start(input);

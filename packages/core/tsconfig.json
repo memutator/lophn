@@ -1,9 +1,4 @@
 {
   "extends": "../../tsconfig.base.json",
-  "include": ["**/*.ts"],
-  "exclude": [
-    "apps/runtime/entrypoint/**",
-    "apps/declaration/extract-child.ts",
-    "apps/permissions/sandbox-boundary_test.ts"
-  ]
+  "include": ["**/*.ts"]
 }

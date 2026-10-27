@@ -2,7 +2,7 @@
 // - contract: boundary `server`·`supervision`(user token은 parent pipe hello 한 번으로만 나오고 data root가 격리된다).
 // - 현실적 회귀: hello frame 모양이나 권한 flag가 바뀌어 모든 E2E가 못 도는 것, 실행 폴더가 사람의 data root를
 //   가리키는 것, 읽기 전용 sdk 사본 때문에 지우기가 실패해 .dev-data가 쌓이는 것.
-// - 왜 지금 test로 못 잡나: core를 daemon으로 띄워 token을 받는 test가 없다(sandbox-boundary_test는 subprocess 한 번).
+// - 왜 지금 test로 못 잡나: core를 daemon으로 띄워 token을 받는 test가 없다.
 // 아래 둘째 core·끄기·손상 ledger 행(second-core, shutdown-stop, shutdown-kill, damaged-ledger)의 세 질문:
 // - contract: boundary `supervision`·`server`(instance lock, child 정리, 시작 실패 알림), `storage`(손상된 ledger를 열지 않고 원본을 지킨다).
 // - 현실적 회귀: instance lock이 풀려 두 core가 한 lophn.db를 여는 것, core가 꺼지는데 runtime의 model 요청이 열려 token을 계속 쓰는 것,

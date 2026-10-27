@@ -23,7 +23,6 @@ import {
   fromReadable,
   toWriter,
 } from "../../supervision/responsiveness/pipe.ts";
-import { denoBinary } from "../../supervision/security/node-command.ts";
 import { assembleSupervisor } from "./assembly.ts";
 import { unixControlTransport } from "./control-http.ts";
 import { createChildDataRunner } from "./data-runner.ts";
@@ -48,7 +47,8 @@ function writeFrame(bytes: Uint8Array): Promise<void> {
 
 const port: { value: number } = { value: 0 };
 
-// 앱마다 고정 자리의 socket이다(allow-net이 정확한 경로만 받아서 자리를 미리 허락한다).
+// 앱마다 고정 자리의 socket이다. 같은 앱은 다시 떠도 같은 경로를 쓰므로 이전 자식이 남긴 파일을
+// 새 자식 전에 그 경로에서 지우면 되고, socket 경로가 104byte 한도 안에 든다.
 // 이전 자식이 남긴 socket 파일은 종료 확인 뒤에 지운다.
 const slots = new Map<string, number>();
 // socket 폴더는 data root마다 나뉘므로 core와 같은 LOPHN_HOME이 있어야 한다.
@@ -136,10 +136,8 @@ const assembled = assembleSupervisor({
     clock: systemClock,
     random: { fill: (bytes: Uint8Array) => crypto.getRandomValues(bytes) },
   }),
-  deno: denoBinary,
   environment: {
     ...(process.env.HOME ? { home: process.env.HOME } : {}),
-    ...(process.env.DENO_DIR ? { denoDir: process.env.DENO_DIR } : {}),
     ...(process.env.XDG_CACHE_HOME
       ? { xdgCacheHome: process.env.XDG_CACHE_HOME }
       : {}),

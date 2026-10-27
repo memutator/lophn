@@ -8,19 +8,24 @@ import {
   ok,
   type Result,
 } from "../../../base/mod.ts";
+import { createKnownSecretRegistry } from "../../../base/redaction/mod.ts";
 import {
-  type AppChild,
-  type ControlTransport,
-  createRelay,
-  createSupervisor,
-  type DesiredApp,
-  OpError,
-  type OpHandlers,
-  type Supervisor,
-  type SupervisorDeps,
-  type SupervisorEvent,
-} from "../../apps/runtime/supervisor/mod.ts";
-import type { CoreLink } from "../../apps/runtime/core-link.ts";
+  appCallTool,
+  processApplyRequestSchema,
+  toolCallOutputSchema,
+} from "../../../protocol/apps/calls/mod.ts";
+import { appsSecretValue, CONTROL_PATHS } from "../../../protocol/apps/mod.ts";
+import {
+  type AppCallPort,
+  type BrokerChild,
+  type ReadyReceiver,
+} from "../../apps/permissions/mod.ts";
+import {
+  createPreviewLauncher,
+  type PreviewLauncher,
+  type PreviewScope,
+} from "../../apps/preview/mod.ts";
+import type { PreparationService } from "../../apps/releases/preparation.ts";
 import {
   activationAppInputSchema,
   appendLogInputSchema,
@@ -39,22 +44,21 @@ import {
   restartInputSchema,
   SUPERVISOR_OPS,
 } from "../../apps/runtime/control-protocol.ts";
-import type { PreparationService } from "../../apps/releases/preparation.ts";
-import type { DataJobRunner } from "./data-runner.ts";
+import type { CoreLink } from "../../apps/runtime/core-link.ts";
+import {
+  type CrashEvent,
+  crashLogText,
+} from "../../apps/runtime/observations/crash.ts";
+import {
+  type AppLogFile,
+  createAppLogFile,
+} from "../../apps/runtime/observations/log-file.ts";
 import {
   createMemoryObserver,
   type MemoryObserver,
   type RssReader,
 } from "../../apps/runtime/observations/memory.ts";
-import {
-  type CrashEvent,
-  crashLogText,
-} from "../../apps/runtime/observations/crash.ts";
 import { resolveStackFrames } from "../../apps/runtime/observations/stack-frames.ts";
-import {
-  type AppLogFile,
-  createAppLogFile,
-} from "../../apps/runtime/observations/log-file.ts";
 import {
   type ByteSource,
   createStreamDecoder,
@@ -65,36 +69,31 @@ import type {
   AppLaunch,
 } from "../../apps/runtime/processes/mod.ts";
 import {
-  createPreviewLauncher,
-  type PreviewLauncher,
-  type PreviewScope,
-} from "../../apps/preview/mod.ts";
-import { appsSecretValue, CONTROL_PATHS } from "../../../protocol/apps/mod.ts";
-import { createKnownSecretRegistry } from "../../../base/redaction/mod.ts";
-import {
-  type AppCallPort,
-  type BrokerChild,
-  type ReadyReceiver,
-  socketFlags,
-} from "../../apps/permissions/mod.ts";
-import {
-  appCallTool,
-  processApplyRequestSchema,
-  toolCallOutputSchema,
-} from "../../../protocol/apps/calls/mod.ts";
+  type AppChild,
+  type ControlTransport,
+  createRelay,
+  createSupervisor,
+  type DesiredApp,
+  OpError,
+  type OpHandlers,
+  type Supervisor,
+  type SupervisorDeps,
+  type SupervisorEvent,
+} from "../../apps/runtime/supervisor/mod.ts";
 import { createCoreBrokerAccess } from "./access.ts";
-import {
-  previewScopeFromBundle,
-  previewServicesFor,
-} from "./preview-broker.ts";
 import {
   type BrokerAdapters,
   createSupervisorBroker,
   type SupervisorBroker,
 } from "./broker.ts";
+import type { DataJobRunner } from "./data-runner.ts";
 import { lineRedactor } from "./log-redact.ts";
-import { createSecretDelivery, registeredByCore } from "./secret-delivery.ts";
+import {
+  previewScopeFromBundle,
+  previewServicesFor,
+} from "./preview-broker.ts";
 import { readRecordState, recordInput } from "./record.ts";
+import { createSecretDelivery, registeredByCore } from "./secret-delivery.ts";
 
 // control socket 요청(probe·open·close·shutdown)의 응답 한도와 기한이다. 호출·적용은 relay가 따로 쥔다.
 const CONTROL_TIMEOUT_MS = 5_000;
@@ -115,7 +114,6 @@ type SupervisorIo = {
   dataRoot?: string;
   clock: Clock;
   ids: IdSource;
-  deno: () => string;
   environment: AppEnvironment;
   socketPaths: (app: string) => { broker: string; control: string };
   nonce: () => string;
@@ -621,17 +619,12 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
   const deps: SupervisorDeps = {
     clock: io.clock,
     core,
-    deno: io.deno,
     environment: io.environment,
     socketPaths: io.socketPaths,
     nonce: io.nonce,
     credential: requestCredential,
     startChangeset: (processNonce) => startChangesets.get(processNonce),
     async spawn(request) {
-      // 두 socket의 허락은 시작마다 새로 정한 경로로 supervisor가 더한다. 다른 앱의 socket은 열지 않는다:
-      // 앱 사이 호출은 broker를 지나 core가 중계한다.
-      const sockets = socketFlags(request.sockets);
-      if (!sockets.ok) throw new Error(sockets.error.message);
       // 자식이 연결하기 전에 broker socket이 이미 듣고 있어야 한다. credential은 시작 입력에 있다.
       const credential = brokerCredentialOf(request.startLine);
       if (credential === undefined) {
@@ -652,13 +645,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       let spawned: Awaited<ReturnType<SupervisorIo["spawn"]>>;
       try {
         spawned = await io.spawn({
-          deno: request.deno,
           entry: request.entry,
-          flags: {
-            ...request.flags,
-            args: [...request.flags.args, ...sockets.value],
-          },
-          importMap: request.importMap,
           environment: request.environment,
           startLine: request.startLine,
         });
@@ -756,7 +743,6 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
   // core가 발급한 app credential이 아니다(같은 앱의 운영 자식 credential을 끝내지 않는다).
   const previews = createPreviewLauncher({
     clock: io.clock,
-    deno: io.deno,
     environment: io.environment,
     socketPaths: (app) => io.socketPaths(`preview:${app}`),
     credential: () => {
@@ -767,8 +753,6 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         .replace(/=+$/, "");
     },
     async spawn(request) {
-      const sockets = socketFlags(request.sockets);
-      if (!sockets.ok) throw new Error(sockets.error.message);
       // preview 자식도 연결하기 전에 broker socket이 듣고 있어야 한다. 외부에 닿는 서비스는 모두 대역이고
       // 선언은 그 bundle의 고정 선언이 정한다.
       const started = startFieldsOf(request.startLine);
@@ -795,13 +779,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       let spawned: Awaited<ReturnType<SupervisorIo["spawn"]>>;
       try {
         spawned = await io.spawn({
-          deno: request.deno,
           entry: request.entry,
-          flags: {
-            ...request.flags,
-            args: [...request.flags.args, ...sockets.value],
-          },
-          importMap: request.importMap,
           environment: request.environment,
           startLine: request.startLine,
         });

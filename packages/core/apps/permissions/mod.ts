@@ -1,52 +1,15 @@
-export {
-  canonicalOrder,
-  isSameOrInside,
-  type PathResolver,
-  type ProtectedRoots,
-  type ResolvedRequirement,
-  resolveRequirement,
-} from "./model.ts";
-export {
-  appFlags,
-  type FlagSet,
-  LIMIT_KEYS,
-  type LimitKey,
-  type PlatformPorts,
-  socketFlags,
-} from "./flags.ts";
-export {
-  credentialRoots,
-  keychainRoots,
-  protectedRoots,
-} from "./protected-paths.ts";
 export { realPathResolver } from "./adapters/realpath.ts";
-export { createGrantCommands, syncAppGrants } from "./commands.ts";
-export { loadGrants } from "./store.ts";
-export { createGrantsReads } from "./reads.ts";
-export { permissionsSchemaSteps } from "./schema.ts";
-export {
-  type AppFacts,
-  compareFacts,
-  type CurrentFacts,
-  currentFacts,
-  factsOf,
-  resourceLabel,
-} from "./facts.ts";
-export { type EffectiveScope, effectiveScope } from "./effective.ts";
-export type { BrokerChild } from "./broker/invocations.ts";
 export {
   type AccessState,
   type BrokerAccess,
   currentAccess,
 } from "./broker/access.ts";
 export {
-  type BrokerHub,
-  type BrokerServices,
-  type BrokerSession,
-  createBrokerEndpoint,
-  createBrokerHub,
-  serveBroker,
-} from "./broker/server.ts";
+  type AppCallPort,
+  type AppsCallService,
+  createAppsCallService,
+} from "./broker/apps-call.ts";
+export type { BrokerChild } from "./broker/invocations.ts";
 export {
   createNetFetchService,
   destinationAllowed,
@@ -55,26 +18,43 @@ export {
   type NetFetchService,
 } from "./broker/net-fetch.ts";
 export {
-  createSecretUseService,
-  type RedactionGate,
-  secretAllowed,
-  type SecretDelivery,
-  type SecretUseService,
-} from "./broker/secrets.ts";
-export {
-  type AppCallPort,
-  type AppsCallService,
-  createAppsCallService,
-} from "./broker/apps-call.ts";
+  createExceptionLogService,
+  type ExceptionLog,
+  type ExceptionLogService,
+} from "./broker/problems.ts";
 export {
   createReadyService,
   type ReadyReceiver,
   type ReadyService,
 } from "./broker/ready.ts";
 export {
-  createExceptionLogService,
-  type ExceptionLog,
-  type ExceptionLogService,
-} from "./broker/problems.ts";
+  createSecretUseService,
+  type RedactionGate,
+  type SecretDelivery,
+  type SecretUseService,
+  secretAllowed,
+} from "./broker/secrets.ts";
+export {
+  type BrokerHub,
+  type BrokerServices,
+  type BrokerSession,
+  createBrokerEndpoint,
+  createBrokerHub,
+  serveBroker,
+} from "./broker/server.ts";
+export { createGrantCommands, syncAppGrants } from "./commands.ts";
+export { type EffectiveScope, effectiveScope } from "./effective.ts";
+export {
+  type AppFacts,
+  type CurrentFacts,
+  compareFacts,
+  currentFacts,
+  factsOf,
+  resourceLabel,
+} from "./facts.ts";
+export { isSameOrInside, type PathResolver } from "./model.ts";
+export { createGrantsReads } from "./reads.ts";
+export { permissionsSchemaSteps } from "./schema.ts";
 export { secretAllowanceOver } from "./secret-allowance.ts";
 export { secretValueHandler } from "./secret-value.ts";
+export { loadGrants } from "./store.ts";

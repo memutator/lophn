@@ -8,17 +8,15 @@ import {
   type AppChild,
   type AppEnvironment,
   type ChildIdentity,
-  type ObservationWire as WireObservation,
-  type PreviewLaunch as WireLaunch,
   previewLaunchSchema,
+  type PreviewLaunch as WireLaunch,
+  type ObservationWire as WireObservation,
 } from "../runtime/mod.ts";
-import type { FlagSet } from "../permissions/mod.ts";
-import { previewFlagsViolation } from "./flags.ts";
 import {
+  type PreviewObservationWire as ObservationWire,
   PREVIEW_STARTING,
   PREVIEW_UNAVAILABLE,
   type PreviewLaunch,
-  type PreviewObservationWire as ObservationWire,
 } from "./model.ts";
 
 // core 쪽 모양(model.ts)과 supervisor 통로의 wire 모양(runtime/control-protocol)이 달라지면
@@ -43,10 +41,7 @@ type PreviewSpawnRequest = {
   release: string | null;
   nonce: string;
   sockets: { brokerSocket: string; controlSocket: string };
-  deno: string;
   entry: string;
-  flags: FlagSet;
-  importMap: string;
   environment: AppEnvironment;
   startLine: string;
   identity: ChildIdentity;
@@ -61,7 +56,6 @@ type PreviewChildIdentity = {
 
 type PreviewLauncherDeps = {
   clock: Clock;
-  deno: () => string;
   environment: AppEnvironment;
   // preview 자식의 두 socket. 같은 앱은 같은 자리를 쓴다(이전 자식 종료 확인 뒤에만 다시 쓴다).
   socketPaths: (app: string) => { broker: string; control: string };
@@ -251,10 +245,7 @@ export function createPreviewLauncher(
           brokerSocket: sockets.broker,
           controlSocket: sockets.control,
         },
-        deno: deps.deno(),
         entry: launch.entry,
-        flags: launch.flags,
-        importMap: launch.importMap,
         environment: deps.environment,
         startLine: startLine({
           launch,
@@ -409,10 +400,6 @@ export function createPreviewLauncher(
         });
       }
       const launch = parsed.data;
-      const violation = previewFlagsViolation(launch);
-      if (violation !== undefined) {
-        return err({ code: "invalid_input", message: violation });
-      }
       const slot = slotOf(launch.app);
       if (slot.entry?.launch.nonce === launch.nonce) {
         return err({ code: "conflict", message: "preview nonce is in use" });

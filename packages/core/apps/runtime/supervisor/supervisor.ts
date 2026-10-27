@@ -2,14 +2,13 @@
 // 이전 자식의 종료를 확인하기 전에는 다음 자식을 띄우지 않는다.
 import type { Clock } from "../../../../base/mod.ts";
 import type { AppProcessStartInput } from "../../../../protocol/apps/calls/mod.ts";
-import type { FlagSet } from "../../permissions/mod.ts";
 import type { CoreLink, RuntimeRecord } from "../core-link.ts";
+import { TERMINATING } from "../model.ts";
 import type { ChildIdentity } from "../processes/identity.ts";
 import { sameChild } from "../processes/identity.ts";
 import type { AppEnvironment } from "../processes/spawn.ts";
 import type { StopReason } from "../processes/terminate.ts";
 import { unexpected } from "../processes/terminate.ts";
-import { TERMINATING } from "../model.ts";
 import {
   backoffMs,
   crashLoop,
@@ -43,9 +42,7 @@ export type DesiredApp = {
   // 현재 선언의 화면과 크기. connection은 이 선언과의 교집합만 받는다.
   screens?: Record<string, ("full" | "panel" | "card")[]>;
   dataSchema: number;
-  flags: FlagSet;
   entry: string;
-  importMap: string;
   dataPath: string;
 };
 
@@ -72,7 +69,6 @@ export type SupervisorEvent =
 export type SupervisorDeps = {
   clock: Clock;
   core: CoreLink;
-  deno: () => string;
   environment: AppEnvironment;
   // 앱마다 정해진 자리의 두 socket이다. 같은 앱은 같은 자리를 쓴다(이전 자식 종료 확인 뒤에만 다시 쓴다).
   socketPaths: (app: string) => { broker: string; control: string };
@@ -122,12 +118,9 @@ const STOP_GRACE_MS = 10_000;
 type SpawnRequest = {
   app: string;
   release: string;
-  // 이번 시작의 두 socket. flag에는 없으니 띄우는 쪽이 socketFlags로 더한다.
+  // 이번 시작의 두 socket. 자식은 시작 입력의 경로로만 broker·control에 말한다.
   sockets: { brokerSocket: string; controlSocket: string };
-  deno: string;
   entry: string;
-  flags: FlagSet;
-  importMap: string;
   environment: AppEnvironment;
   startLine: string;
   identity: ChildIdentity;
@@ -392,10 +385,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       app: desired.app,
       release: desired.release,
       sockets: { brokerSocket: sockets.broker, controlSocket: sockets.control },
-      deno: deps.deno(),
       entry: desired.entry,
-      flags: desired.flags,
-      importMap: desired.importMap,
       environment: deps.environment,
       startLine: startLine({
         desired,

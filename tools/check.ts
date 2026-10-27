@@ -23,9 +23,6 @@ const SHELL_MAIN = "packages/shell/main";
 const BIOME_CMD = ["node_modules/.bin/biome"];
 // test는 core를 import하므로 Temporal이 있는 Electron의 Node로 띄운다. plain node에는 Temporal이 없다.
 const ELECTRON = createRequire(import.meta.url)("electron") as string;
-// Deno 권한 오류를 단정하는 test라 deno test로 남는다. wave 3에서 --permission에 맞춰 다시 쓴다.
-const SANDBOX_BOUNDARY =
-  "packages/core/apps/permissions/sandbox-boundary_test.ts";
 const ALL_PACKAGES = [
   "base",
   "protocol",
@@ -202,7 +199,6 @@ const DENO_CHECKED = [
   "packages/core/apps/declaration/extract-child.ts",
   "packages/core/apps/releases/ui-build/eval-declaration.ts",
   "packages/core/apps/releases/ui-build/app-build.ts",
-  SANDBOX_BOUNDARY,
   "tests/support/app/prepare-deps.ts",
 ];
 
@@ -367,18 +363,8 @@ async function buildSteps(
   )
     .flat()
     .filter((f) => !under(f, NOT_IN_CHECK));
-  const nodeFiles = testFiles.filter((f) => f !== SANDBOX_BOUNDARY);
   const commands: string[][] = [];
-  if (nodeFiles.length > 0) commands.push([ELECTRON, "--test", ...nodeFiles]);
-  if (nodeFiles.length < testFiles.length) {
-    commands.push([
-      "deno",
-      "test",
-      "--no-check",
-      "--allow-all",
-      SANDBOX_BOUNDARY,
-    ]);
-  }
+  if (testFiles.length > 0) commands.push([ELECTRON, "--test", ...testFiles]);
   return { checks, test: { name: "test", commands }, skipped };
 }
 

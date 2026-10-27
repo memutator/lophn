@@ -13,7 +13,9 @@ import {
   ok,
   type Result,
 } from "../../base/mod.ts";
+import { appTools } from "../../protocol/apps/declaration/read.ts";
 import {
+  type AppGrant,
   activationAskConsent,
   activationComplete,
   activationFail,
@@ -22,7 +24,6 @@ import {
   activationRecordDataRestore,
   activationStart,
   appCallTool,
-  type AppGrant,
   appGrantsList,
   appLogFile,
   appLogPreviousFile,
@@ -43,59 +44,29 @@ import {
   releaseRecord,
   releasesGetRecord,
 } from "../../protocol/apps/mod.ts";
-import { appTools } from "../../protocol/apps/declaration/read.ts";
 import type {
   AuthenticatedContext,
   RequestContext,
 } from "../../protocol/server/mod.ts";
 import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
-import type { MemoryHandler, ReadHandler } from "../server/mod.ts";
 import {
   type AppCredentialIssuer,
-  createAppCredentialIssuer,
   type CredentialRegistry,
+  createAppCredentialIssuer,
   type OperationPolicy,
 } from "../server/identity/mod.ts";
+import type { MemoryHandler, ReadHandler } from "../server/mod.ts";
+import type {
+  BlobPrepareCall,
+  PreparedRelayResult,
+} from "../storage/blobs/prepare-relay.ts";
 import {
   createTargetAuthorizer,
   openConnection,
   type Writer,
 } from "../storage/ledger/mod.ts";
 import { INSTALL_PRINCIPAL } from "./packages/install.ts";
-import { loadApp } from "./registration/mod.ts";
-import { createActivationQueueRead } from "./releases/reads.ts";
-import { bundleCopyPath, sealCopy } from "./releases/bundle/seal.ts";
-import {
-  dataChangesOf,
-  readBundleCopy,
-} from "./releases/activation/desired.ts";
-import { gitCommandRunner } from "./releases/prepare/git-extract.ts";
-import { loadActiveRelease, loadRelease } from "./releases/store.ts";
 import type { AppProcessLink } from "./ports.ts";
-import type { DesiredApp } from "./runtime/supervisor/mod.ts";
-import type { ConnectFacts } from "./runtime/connect.ts";
-import {
-  createAppProcessLink,
-  createSupervisorChannel,
-  createSupervisorClient,
-  runtimeObservationOf,
-  type SupervisorChannel,
-  type SupervisorClient,
-} from "./runtime/supervisor-link.ts";
-import {
-  type RuntimeSources,
-  withAppLogFile,
-  withRuntimeObservation,
-} from "./runtime/reads.ts";
-import {
-  type ActivationDriver,
-  createActivationDriver,
-} from "./releases/activation/assembly.ts";
-import type {
-  BlobPrepareCall,
-  PreparedRelayResult,
-} from "../storage/blobs/prepare-relay.ts";
-
 import { createFsPreviewArea } from "./preview/area.ts";
 import { createPreviewReads } from "./preview/reads.ts";
 import {
@@ -105,6 +76,34 @@ import {
   type PreviewService,
   unattachedPreviewService,
 } from "./preview/service.ts";
+import { loadApp } from "./registration/mod.ts";
+import {
+  type ActivationDriver,
+  createActivationDriver,
+} from "./releases/activation/assembly.ts";
+import {
+  dataChangesOf,
+  readBundleCopy,
+} from "./releases/activation/desired.ts";
+import { bundleCopyPath, sealCopy } from "./releases/bundle/seal.ts";
+import { gitCommandRunner } from "./releases/prepare/git-extract.ts";
+import { createActivationQueueRead } from "./releases/reads.ts";
+import { loadActiveRelease, loadRelease } from "./releases/store.ts";
+import type { ConnectFacts } from "./runtime/connect.ts";
+import {
+  type RuntimeSources,
+  withAppLogFile,
+  withRuntimeObservation,
+} from "./runtime/reads.ts";
+import type { DesiredApp } from "./runtime/supervisor/mod.ts";
+import {
+  createAppProcessLink,
+  createSupervisorChannel,
+  createSupervisorClient,
+  runtimeObservationOf,
+  type SupervisorChannel,
+  type SupervisorClient,
+} from "./runtime/supervisor-link.ts";
 
 export const APPS_SUPERVISOR_KIND = "apps/supervisor";
 export const APPS_CONTROL_PRINCIPAL = "machine:apps-control";
@@ -249,7 +248,6 @@ type AppsControlDeps = {
     ): Promise<Result<unknown>> | undefined;
     machine(): RequestContext | undefined;
     prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
-    platformPorts: () => readonly number[];
     domainNamesOf(app: string): Promise<Result<string[]>>;
   };
   // preview(`/previews/*`). disposable 영역은 data root 아래에 만든다. bundle을 여는 자리가
@@ -741,7 +739,6 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
           command: deps.activation.command,
           machine: deps.activation.machine,
           prepareBlob: deps.activation.prepareBlob,
-          platformPorts: deps.activation.platformPorts,
           domainNamesOf: deps.activation.domainNamesOf,
           reconcile: reconcileApp,
         });

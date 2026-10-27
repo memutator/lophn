@@ -15,7 +15,7 @@ test("bundle 사본 읽기는 앱의 domain에 없는 tool을 거절한다", asy
   const root = await mkdtemp(join(tmpdir(), "lophn-desired-"));
   try {
     const manifest = JSON.stringify({
-      entrypoint: "main.ts",
+      entrypoint: "lophn-entry.ts",
       files: [],
       dependencies: [],
     });
@@ -24,7 +24,6 @@ test("bundle 사본 읽기는 앱의 domain에 없는 tool을 거절한다", asy
     assert.ok(copy.ok);
     await mkdir(copy.value, { recursive: true });
     await writeFile(`${copy.value}/manifest.json`, manifest);
-    await writeFile(`${copy.value}/import-map.json`, "{}");
     await writeFile(
       `${copy.value}/declaration.json`,
       JSON.stringify({

@@ -1,11 +1,13 @@
 // 앱 프로세스 진입점. exception observer를 앱 code load 전에 설치한다.
-// observer specifier는 bundle 고정 import map이 해석하는 SDK specifier다.
+// observer는 platform 설치의 SDK 사본에서 온다. 앱 code는 호출자가 넘긴 앱 module URL 하나뿐이다.
 
 import type { Buffer } from "node:buffer";
 import { writeSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
+import { dirname } from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { createIdSource, systemClock } from "@lophn/base";
 import type { AppDeclaration } from "../../../../protocol/apps/declaration/mod.ts";
 import type { BrokerTransport } from "./broker-client.ts";
@@ -16,7 +18,6 @@ import { parseAppStart } from "./start-input.ts";
 import { publishReady, startRuntime } from "./startup.ts";
 
 const OBSERVER = "@lophn/cap-problem";
-const APP = "@lophn/app";
 const CRASH_REPORT_WAIT_MS = 2_000;
 
 type ObserverFactory = {
@@ -33,6 +34,8 @@ type ObserverFactory = {
 type MainDeps = {
   readLine: () => Promise<string | null>;
   importModule: (specifier: string) => Promise<unknown>;
+  // 앱의 main.ts URL. 사본 root에서 오는 앱 code 하나다.
+  appModule: string;
   clock?: { now: () => string; nowMs: () => number };
   ids?: { newId: (prefix: string) => string };
   declaration: AppDeclaration;
@@ -111,7 +114,7 @@ async function main(deps: MainDeps): Promise<void> {
       });
   };
   try {
-    await deps.importModule(APP);
+    await deps.importModule(deps.appModule);
   } catch (error) {
     started.state.store.end();
     throw error;
@@ -129,11 +132,11 @@ async function main(deps: MainDeps): Promise<void> {
   startControlServer(started.state, { exit });
 }
 
-// 앱 프로세스를 띄운다. 직접 실행하면 이 파일이, 준비한 bundle의 진입 파일(`bundle/runtime-entry.ts`가 만든다)이면
-// 그 파일이 부른다. 시작이 실패하면 이유를 stderr로 알리고 끝난다.
+// 앱 프로세스를 띄운다. 준비한 bundle의 진입 파일(`lophn-entry.ts`)이 앱 `main.ts`의 URL로 부른다.
+// 시작이 실패하면 이유를 stderr로 알리고 끝난다.
 // export를 지우지 않는다: bundle 진입 파일은 문자열로 만들어져(`bundle/runtime-entry.ts`) import를 찾는 도구가 보지 못한다.
-export async function run(): Promise<void> {
-  const reason = await boot().catch((error: unknown) =>
+export async function run(appModule: string): Promise<void> {
+  const reason = await boot(appModule).catch((error: unknown) =>
     error instanceof Error ? error.message : String(error),
   );
   if (reason) {
@@ -142,17 +145,14 @@ export async function run(): Promise<void> {
   }
 }
 
-if (import.meta.main) await run();
-
 // supervisor와 preview가 시작 입력을 stdin 한 줄로 준다. broker socket과 credential은 그
-// 줄에서, 선언은 `@lophn/app`이 가리키는 bundle 폴더에서 읽는다(앱 자식에는 env
-// 권한이 없다). 하나라도 없으면 stub으로 뜨지 않고 실패로 끝난다.
-async function boot(): Promise<void> {
+// 줄에서, 선언은 시작 module 옆(사본 root)에서 읽는다. 하나라도 없으면 stub으로 뜨지 않고 실패로 끝난다.
+async function boot(appModule: string): Promise<void> {
   const line = await readStdinLine();
   if (!line) throw new Error("app start input missing");
   const start = parseAppStart(line);
   if (!start) throw new Error("app start input is invalid");
-  const bundleDir = bundleDirectory();
+  const bundleDir = bundleDirectory(appModule);
   const declaration = await readDeclaration(bundleDir);
   if (!declaration) throw new Error("app declaration is missing");
   const broker = start.broker_socket;
@@ -160,6 +160,7 @@ async function boot(): Promise<void> {
   await main({
     readLine: () => Promise.resolve(line),
     importModule: (specifier) => import(specifier),
+    appModule,
     declaration,
     broker: unixBroker(broker),
     dataSchema: await bundleDataSchema(bundleDir),
@@ -168,11 +169,9 @@ async function boot(): Promise<void> {
   });
 }
 
-// `@lophn/app`이 가리키는 main.ts의 폴더다. 봉인 bundle 사본이면 declaration.json·migrations가
-// 이 폴더에 있다.
-function bundleDirectory(): string {
-  const url = new URL(import.meta.resolve("@lophn/app"));
-  return url.pathname.replace(/\/[^/]*$/, "");
+// 앱 `main.ts`가 있는 사본 root다. declaration.json·migrations가 이 폴더에 있다.
+function bundleDirectory(appModule: string): string {
+  return dirname(fileURLToPath(new URL(appModule)));
 }
 
 // bundle의 data schema는 `migrations/<from>-<to>.sql` 중 가장 큰 `to`다. migration이 없으면 DB를 쓰지

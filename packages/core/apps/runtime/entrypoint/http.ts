@@ -1,6 +1,6 @@
 // Unix socket HTTP/1.1. host는 lophn.invalid만 받는다.
-// 앱 process의 읽기 허락은 자신의 bundle과 data 폴더뿐이라 core의 server/를 import하지 못한다.
-// 그래서 node:http 위의 작은 server를 앱 process가 읽을 수 있는 이 폴더에 둔다.
+// 앱 entrypoint의 module graph는 core server의 zod·protocol graph까지 끌어오지 않으므로 node:http 위의
+// 작은 server를 이 폴더에 둔다.
 
 import type { Buffer } from "node:buffer";
 import {

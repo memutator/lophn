@@ -1,23 +1,21 @@
 // 운영 앱 자식의 실제 OS spawn. package는 기동 입력만 만들고 여기가 띄운다.
+
+import {
+  type AppLaunch,
+  appCommand,
+} from "../../apps/runtime/processes/mod.ts";
 import {
   type Spawned,
   spawnProcess,
 } from "../../supervision/responsiveness/process.ts";
-import {
-  appArgv,
-  appEnv,
-  type AppLaunch,
-  flagsAccepted,
-} from "../../apps/runtime/processes/mod.ts";
 
 export async function spawnApp(launch: AppLaunch): Promise<Spawned> {
-  if (!flagsAccepted(launch.flags)) {
-    throw new Error("app flags include a forbidden flag");
-  }
+  const command = appCommand(launch);
   const child = spawnProcess({
-    command: launch.deno,
-    args: appArgv(launch),
-    env: appEnv(launch.environment),
+    command: command.command,
+    args: command.args,
+    env: command.env,
+    cwd: command.cwd,
   });
   await child.stdin.write(new TextEncoder().encode(`${launch.startLine}\n`));
   await child.stdin.close();

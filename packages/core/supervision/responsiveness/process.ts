@@ -33,6 +33,8 @@ export type SpawnRequest = {
   command: string;
   args: string[];
   env: Record<string, string>;
+  // 없으면 부모의 cwd다.
+  cwd?: string;
 };
 
 // SIGKILL 뒤 leader의 exit status를 기다리는 한도.
@@ -50,6 +52,7 @@ export function spawnProcess(request: SpawnRequest): Spawned {
     detached: true,
     shell: false,
     env: request.env,
+    ...(request.cwd === undefined ? {} : { cwd: request.cwd }),
     stdio: ["pipe", "pipe", "pipe"],
   });
   // spawn 실패(ENOENT 등)의 'error'를 받지 않으면 core 전체가 죽는다. 실패는 pid로 판정한다.

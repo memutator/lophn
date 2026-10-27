@@ -1,9 +1,8 @@
 // 봉인 bundle 사본에서 앱 자식의 시작 입력을 만든다. 운영 DesiredApp과
-// preview의 `PreviewBundle`이 같은 함수로 사본의 entry·import map·command·화면·data schema·flag를 읽는다.
-// 사본의 모양: manifest.json, declaration.json, import-map.json(상대 경로는 사본 root 기준), 앱 코드와 build한
-// screens/, 설치 SDK 사본 sdk/<이름>/<version>/, 앱 deno.lock, migrations/<from>-<to>.sql. 자식의 읽기 허락은
-// 사본 root를 덮는다(`appFlags`의 bundle). 파일은 async로만 읽는다(core module graph).
-import { readFile, stat } from "node:fs/promises";
+// preview의 `PreviewBundle`이 같은 함수로 사본의 entry·화면·data schema를 읽는다.
+// 사본의 모양: manifest.json, declaration.json, 앱 code와 build한 screens/, 설치 SDK 사본
+// sdk/<이름>/<version>/, 앱 node_modules. 파일은 async로만 읽는다(core module graph).
+import { readFile } from "node:fs/promises";
 
 import {
   err,
@@ -23,30 +22,21 @@ import {
   type ToolDeclaration,
   validateDeclaration,
 } from "../../declaration/mod.ts";
-import {
-  appFlags,
-  type FlagSet,
-  type PlatformPorts,
-  type ResolvedRequirement,
-} from "../../permissions/mod.ts";
 import type { PreviewBundle, PreviewBundles } from "../../preview/mod.ts";
+import type { DesiredApp } from "../../runtime/mod.ts";
 import {
   bundleCopyPath,
   DECLARATION_COPY_NAME,
   MANIFEST_COPY_NAME,
 } from "../bundle/seal.ts";
-import type { DesiredApp } from "../../runtime/mod.ts";
-
-const IMPORT_MAP_COPY_NAME = "import-map.json";
 
 type ScreenSizes = Record<string, ("full" | "panel" | "card")[]>;
 
 type BundleParts = {
-  // 사본 root. 자식의 읽기 허락과 import map 상대 경로의 기준이다.
+  // 사본 root. 자식의 cwd와 상대 경로의 기준이다.
   root: string;
   manifest: BundleManifest;
   entry: string;
-  importMap: string;
   tools: ToolDeclaration[];
   screens: ScreenSizes;
   // migrations/<from>-<to>.sql 단계의 가장 큰 도착 schema다. 단계가 없으면 0이다.
@@ -155,7 +145,6 @@ export async function readBundleCopy(
       `${root}/${DECLARATION_COPY_NAME}`,
       "utf8",
     );
-    await stat(`${root}/${IMPORT_MAP_COPY_NAME}`);
   } catch {
     return unavailable("bundle copy is incomplete");
   }
@@ -181,7 +170,6 @@ export async function readBundleCopy(
     root,
     manifest,
     entry: `${root}/${manifest.entrypoint}`,
-    importMap: `${root}/${IMPORT_MAP_COPY_NAME}`,
     tools: declaration.value.tools,
     screens: Object.fromEntries(
       declaration.value.screens.map((screen) => [
@@ -191,32 +179,6 @@ export async function readBundleCopy(
     ),
     dataSchema: dataSchemaOf(manifest),
   });
-}
-
-// 사본의 앱 자식 flag다. data 영역과 grant에서 푼 요구 permission만 사본 root 읽기에 더해진다.
-// 받아 둔 npm·jsr 의존은 사본 안 `vendor/`·`node_modules/`에 있어서 자식은 network도 Deno cache도 쓰지 않는다
-// (`--cached-only`는 그대로다). 앱의 deno.json 대신 사본의 플랫폼 설정(`lophn.json`)을 읽는다. 이 설정이 vendor를
-// 켜야 하므로 `--no-config`와 jsr module 읽기를 막는 `--no-remote`, npm 읽기를 막는 `--no-npm`은 뺀다.
-const VENDOR_REPLACED = ["--no-config", "--no-remote", "--no-npm"];
-
-export function bundleFlags(
-  parts: Pick<BundleParts, "root">,
-  input: {
-    requirements: readonly ResolvedRequirement[];
-    dataPath: string;
-    platform: PlatformPorts;
-    protectedDenies: readonly string[];
-  },
-): Result<FlagSet> {
-  const flags = appFlags(
-    input.requirements,
-    { bundle: parts.root, data: input.dataPath },
-    input.platform,
-    input.protectedDenies,
-  );
-  if (!flags.ok) return flags;
-  const args = flags.value.args.filter((arg) => !VENDOR_REPLACED.includes(arg));
-  return ok({ ...flags.value, args: args.sort() });
 }
 
 // supervisor에 알리는 운영 앱의 원하는 상태다(apps/runtime `DesiredApp`). 사본에서 읽은 부분과 ledger가 정한
@@ -231,7 +193,6 @@ export function desiredFromBundle(
     archived: boolean;
     dataSchema: number;
     dataPath: string;
-    flags: FlagSet;
   },
 ): DesiredApp {
   return {
@@ -243,18 +204,15 @@ export function desiredFromBundle(
     tools: parts.tools.map((tool) => tool.name),
     screens: parts.screens,
     dataSchema: input.dataSchema,
-    flags: input.flags,
     entry: parts.entry,
-    importMap: parts.importMap,
     dataPath: input.dataPath,
   };
 }
 
-// preview가 여는 bundle이다. 같은 사본 읽기와 flag 계산에 disposable 영역을 data로 준다. grant가 없는
-// preview는 요구 permission이 없다. fixture는 manifest 파일 중 그 경로의 byte다.
+// preview가 여는 bundle이다. 같은 사본 읽기에 disposable 영역을 data로 준다. fixture는 manifest 파일 중
+// 그 경로의 byte다.
 export function createCopyPreviewBundles(options: {
   dataRoot: string;
-  platformPorts: () => readonly number[];
   domainNamesOf: DomainNamesOf;
 }): PreviewBundles {
   return {
@@ -270,7 +228,6 @@ export function createCopyPreviewBundles(options: {
       const parts = read.value;
       const bundle: PreviewBundle = {
         entry: parts.entry,
-        importMap: parts.importMap,
         tools: parts.tools,
         screens: parts.screens,
         dataSchema: parts.dataSchema,
@@ -285,14 +242,6 @@ export function createCopyPreviewBundles(options: {
           } catch {
             return undefined;
           }
-        },
-        flags(dataPath) {
-          return bundleFlags(parts, {
-            requirements: [],
-            dataPath,
-            platform: { ports: [...options.platformPorts()] },
-            protectedDenies: [],
-          });
         },
       };
       return ok(bundle);

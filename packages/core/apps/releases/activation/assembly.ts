@@ -1,7 +1,6 @@
 // core 안 activation 조립. 세 일을 한다.
-//   1. 운영 DesiredApp: 활성 release의 봉인 bundle 사본과 현재 grant에서 푼 permission으로 앱 자식의 flag를
-//      만들어 supervisor에 알린다(`bundleFlags`). AI가 쓴 앱 코드의 실수가 퍼지지 않게 선언 ∩ active grant 밖의 접근은
-//      flag에 없다.
+//   1. 운영 DesiredApp: 활성 release의 봉인 bundle 사본에서 앱 자식의 entry·화면·data schema를 읽어
+//      supervisor에 알린다. 앱은 권한 flag 없이 뜬다(사람이 2026-10-27에 정했다).
 //   2. activation: App Engineer의 `release.activate`(판정은 handler.ts)가 앱마다 하나만(queue.ts)
 //      시작한 release를 `activation.start`로 열고 `runActivation`이 순서대로 진행한다. core가 다시 뜨거나
 //      supervisor가 끊긴 뒤의 진행 중 시도는 `recoverActivation`이 ledger와 실제 관측에서 이어받는다.
@@ -11,31 +10,30 @@
 //   3. 이전 release로 돌아가기 요청(`activation_requests`)과 사람이 허락한 동의 줄(`activation_consents`)을 sweep이 읽어 시작한다.
 // Bus·호출 접수(drain)·changeset은 다른 module의 port라 조립이 `attach`로 늦게 끼운다.
 import { type FileHandle, mkdir, open } from "node:fs/promises";
-import process from "node:process";
 
 import {
-  canonicalize,
   type Clock,
+  canonicalize,
   err,
   type IdSource,
   ok,
   type Result,
 } from "../../../../base/mod.ts";
 import {
-  activationAskConsent,
   type ActivationComparison,
-  activationComplete,
   type ActivationDataResult,
-  activationFail,
   type ActivationQueueEntry,
+  type App,
+  type AppGrant,
+  activationAskConsent,
+  activationComplete,
+  activationFail,
   activationRecordBackup,
   activationRecordDataChange,
   activationRecordDataRestore,
   activationStart,
-  type App,
   appBundleCopy,
   appDataFolder,
-  type AppGrant,
   appRecordUnavailable,
   decodeActivationDataJobOutput,
   encodeActivationDataJobInput,
@@ -45,45 +43,35 @@ import {
 } from "../../../../protocol/apps/mod.ts";
 import type { RequestContext, Sql } from "../../../../protocol/server/mod.ts";
 import type { PreparedBlob } from "../../../../protocol/storage/mod.ts";
+import type { Bus } from "../../../events/ports.ts";
 import type {
   BlobPrepareCall,
   PreparedRelayResult,
 } from "../../../storage/blobs/prepare-relay.ts";
-import type { Bus } from "../../../events/ports.ts";
 
 import { openConnection } from "../../../storage/ledger/mod.ts";
+import { BACKUP_BLOB_PURPOSE } from "../../data/blobs.ts";
 import { loadApps } from "../../registration/mod.ts";
-import {
-  credentialRoots,
-  effectiveScope,
-  keychainRoots,
-  protectedRoots,
-  realPathResolver,
-  type ResolvedRequirement,
-  resolveRequirement,
-} from "../../permissions/mod.ts";
+import type { ConnectFacts } from "../../runtime/connect.ts";
+import type { DesiredApp } from "../../runtime/supervisor/mod.ts";
+import type { SupervisorClient } from "../../runtime/supervisor-link.ts";
 import { asksFor, compareForActivation } from "../compare.ts";
 import {
   loadActiveRelease,
   loadRelease,
   loadStoredDeclaration,
 } from "../store.ts";
+import { allowedConsents, waitingConsents } from "./consents.ts";
 import {
-  bundleFlags,
-  desiredFromBundle,
   type DomainNamesOf,
+  desiredFromBundle,
   readBundleCopy,
 } from "./desired.ts";
-import { allowedConsents, waitingConsents } from "./consents.ts";
 import { createActivationHandlers } from "./handler.ts";
 import { runActivation } from "./orchestrator.ts";
 import { createActivationQueue, type QueueEntry } from "./queue.ts";
 import { recoverActivation } from "./recovery.ts";
 import type { ActivationIntake, ActivationPorts, Attempt } from "./steps.ts";
-import { BACKUP_BLOB_PURPOSE } from "../../data/blobs.ts";
-import type { ConnectFacts } from "../../runtime/connect.ts";
-import type { SupervisorClient } from "../../runtime/supervisor-link.ts";
-import type { DesiredApp } from "../../runtime/supervisor/mod.ts";
 
 type Envelope = {
   command: string;
@@ -117,8 +105,6 @@ type ActivationDeps = {
   machine(): RequestContext | undefined;
   // blob 준비(I/O worker 중계). 바이트는 해석하지 않고 흘린다.
   prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
-  // loopback으로 core API에 닿지 못하게 막을 port. API를 연 뒤에 정해진다.
-  platformPorts: () => readonly number[];
   domainNamesOf: DomainNamesOf;
   // 원하는 앱 상태를 supervisor에 알린다(마지막 상태를 기억한다).
   reconcile(desired: DesiredApp): Promise<Result<void>>;
@@ -155,9 +141,6 @@ export type ActivationDriver = {
     release: string,
     state: { runEnabled: boolean; archived: boolean },
   ): Promise<Result<DesiredApp>>;
-  // grant 변경을 적용한 앱의 새 desired를 바로 알린다. 호출한 쪽이 앞서 붙들었으면 풀지 않는다.
-  // 알리지 못하면 false이고 다음 sweep이 이어서 맞춘다.
-  applyGrants(app: string): Promise<boolean>;
 };
 
 // 시작한 시도를 기다리는 상한. `shell.run`의 기본 timeout과 앱 tool 호출 상한(CALL_TIMEOUT_MS)과 같아 tool 하나가
@@ -176,9 +159,6 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
   const preparedBackups = new Map<string, PreparedBlob>();
   // 운영 desired를 마지막으로 알린 근거. 같으면 다시 만들지 않는다.
   const lastKeys = new Map<string, string>();
-  // 준비 모드로 띄운 후보의 desired. complete 뒤 첫 맞춤에서 같으면 이미 그 모양으로 떠 있어 다시 띄우지 않는다.
-  // complete가 grant를 바꾸면 flag가 달라져 다시 띄운다.
-  const candidates = new Map<string, string>();
   function withLedger<T>(read: (sql: Sql) => T): Result<T> {
     const opened = openConnection(deps.ledgerPath);
     if (!opened.ok) return unavailable("ledger is unavailable");
@@ -194,65 +174,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     return await deps.facts.grants(app);
   }
 
-  // 선언 ∩ active grant에서 푼 permission이다. 실제 경로를 풀지 못한 요구는 허락하지 않은 것과 같다.
-  async function requirementsOf(
-    app: string,
-    release: string,
-  ): Promise<Result<ResolvedRequirement[]>> {
-    const stored = withLedger((sql) => ({
-      declaration: loadStoredDeclaration(sql, release),
-      sources: loadApps(sql, undefined),
-    }));
-    if (!stored.ok) return stored;
-    if (
-      !stored.value.declaration.ok ||
-      stored.value.declaration.value === null
-    ) {
-      return unavailable("release is unavailable");
-    }
-    if (!stored.value.sources.ok) return unavailable("apps are unavailable");
-    const grants = await grantsOf(app);
-    if (!grants.ok) return grants;
-    const facts = stored.value.declaration.value.facts;
-    const effective = effectiveScope({
-      app,
-      facts,
-      grants: grants.value,
-      targetCommands: () => undefined,
-    });
-    const home = process.env.HOME ?? "";
-    const roots = protectedRoots(
-      home,
-      deps.dataRoot,
-      [`${deps.dataRoot}/apps`],
-      stored.value.sources.value.flatMap((entry) =>
-        entry.source_path === null ? [] : [entry.source_path],
-      ),
-    );
-    const resolved: ResolvedRequirement[] = [];
-    for (const entry of effective.access) {
-      // 앱이 듣는 socket은 Deno flag로 한정할 수 없어 허락하지 않는다.
-      if (entry.kind === "net.listen") continue;
-      const declared = facts.permissions.find(
-        (requirement) =>
-          requirement.kind === entry.kind &&
-          JSON.stringify(requirement.scope) === JSON.stringify(entry.scope),
-      );
-      const made = await resolveRequirement(
-        {
-          kind: entry.kind,
-          scope: entry.scope as never,
-          reason:
-            (declared as { reason?: string } | undefined)?.reason ?? "granted",
-        },
-        roots,
-        realPathResolver(home, deps.dataRoot),
-      );
-      if (made.ok) resolved.push(made.value);
-    }
-    return ok(resolved);
-  }
-
+  // 그 release의 봉인 사본과 ledger가 정한 실행 상태로 supervisor에 알릴 원하는 상태를 만든다.
   async function desiredFor(
     app: string,
     release: string,
@@ -275,23 +197,12 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     );
     if (!copy.ok) return copy;
     if (copy.value === undefined) return unavailable("bundle copy is missing");
-    const requirements = await requirementsOf(app, release);
-    if (!requirements.ok) return requirements;
     const dataPath = appDataFolder(deps.dataRoot, app);
     try {
       await mkdir(dataPath, { recursive: true });
     } catch {
       return unavailable("app data area cannot be made");
     }
-    const home = process.env.HOME ?? "";
-    const flags = bundleFlags(copy.value, {
-      requirements: requirements.value,
-      dataPath,
-      platform: { ports: [...deps.platformPorts()] },
-      // credential 폴더와 keychain은 어떤 grant로도 읽지 못한다.
-      protectedDenies: [...credentialRoots(home), ...keychainRoots(home)],
-    });
-    if (!flags.ok) return flags;
     return ok(
       desiredFromBundle(copy.value, {
         app,
@@ -301,7 +212,6 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
         archived: state.archived,
         dataSchema: Number(row.value.data_schema),
         dataPath,
-        flags: flags.value,
       }),
     );
   }
@@ -456,7 +366,6 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
           archived: false,
         });
         if (!desired.ok) return desired;
-        candidates.set(attempt.app, canonicalize(desired.value));
         const started = await deps.client.activationPrepare(desired.value);
         if (!started.ok) return started;
         if (!started.value.ok) {
@@ -795,17 +704,14 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     );
   }
 
-  // 앱 하나의 운영 desired를 맞춘다. 근거(App 행·grant)가 그대로면 다시 만들지 않는다. 맞췄으면 true다.
-  async function reconcileOne(app: App, resume: boolean): Promise<boolean> {
+  // 앱 하나의 운영 desired를 맞춘다. 근거(App 행)가 그대로면 다시 만들지 않는다. 맞췄으면 true다.
+  async function reconcileOne(app: App): Promise<boolean> {
     if (app.active_release === null) return false;
-    const grants = await grantsOf(app.id);
-    if (!grants.ok) return false;
     const key = JSON.stringify([
       app.revision,
       app.active_release,
       app.run_enabled,
       app.status,
-      grants.value.map((grant) => grant.id).sort(),
     ]);
     if (lastKeys.get(app.id) === key) return true;
     const desired = await desiredFor(app.id, app.active_release, {
@@ -814,20 +720,9 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     });
     // 봉인 사본을 읽지 못하면 알리지 않는다. 다음 sweep이 다시 본다.
     if (!desired.ok) return false;
-    // grant 집합이 달라지면 같은 release·bundle이어도 옛 OS flag를 가진 자식을 끝낸다. 방금 activation이 띄운
-    // 후보와 desired가 같으면 끝낼 자식이 없다.
-    const candidate = candidates.get(app.id);
-    candidates.delete(app.id);
-    const replacing =
-      lastKeys.has(app.id) && candidate !== canonicalize(desired.value);
-    if (replacing) {
-      const paused = await deps.client.activationPause(app.id);
-      if (!paused.ok || !paused.value) return false;
-    }
     const told = await deps.reconcile(desired.value);
     if (!told.ok) return false;
     lastKeys.set(app.id, key);
-    if (replacing && resume) await deps.client.activationResume(app.id);
     return true;
   }
 
@@ -839,7 +734,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     if (!apps.ok || !apps.value.ok) return;
     for (const app of apps.value.value) {
       if (attempting.has(app.id)) continue;
-      await reconcileOne(app, true);
+      await reconcileOne(app);
     }
   }
 
@@ -872,12 +767,6 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
       return Promise.resolve(ok({ entries, as_of_seq: headSeq() }));
     },
     desiredFor,
-    async applyGrants(app) {
-      const apps = withLedger((sql) => loadApps(sql, undefined));
-      if (!apps.ok || !apps.value.ok) return false;
-      const row = apps.value.value.find((entry) => entry.id === app);
-      return row === undefined ? false : await reconcileOne(row, false);
-    },
     async sweep() {
       if (!deps.bound()) return;
       if (late !== undefined) {

@@ -31,7 +31,7 @@ function forbidden(message: string): Result<never> {
 }
 
 // source를 감싸거나 source 안인 경로는 grant로 허락하지 않는다. 원장이 아는 앱 source만
-// 본다. 실제 경로 해석과 credential·데이터 root는 flag 계산이 한다.
+// 본다. 여기서는 선언된 경로를 lexical로 견준다.
 function outsideSources(
   tx: Pick<Tx, "sql">,
   scope: AppGrantScope,

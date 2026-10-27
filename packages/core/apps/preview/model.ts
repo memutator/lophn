@@ -2,7 +2,6 @@
 // 프로세스 메모리와 disposable 파일에만 있다.
 import type { RuntimeReason } from "../../../protocol/apps/mod.ts";
 import type { AppDeclaration } from "../declaration/mod.ts";
-import type { LimitKey } from "../permissions/mod.ts";
 
 // core가 supervisor에 알리는 preview 시작 입력이다. runtime/control-protocol의 PreviewLaunch와 같은
 // 모양이고(launcher.ts가 두 type이 같음을 컴파일 때 확인한다), core graph가 runtime 구현을
@@ -16,9 +15,7 @@ export type PreviewLaunch = {
   tools: string[];
   screens?: Record<string, ("full" | "panel" | "card")[]>;
   dataSchema: number;
-  flags: { args: string[]; limits: LimitKey[] };
   entry: string;
-  importMap: string;
   // disposable 영역. `apps/<app ID>/preview/<nonce>`다.
   dataPath: string;
 };

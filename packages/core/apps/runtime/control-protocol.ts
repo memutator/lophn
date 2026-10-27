@@ -10,7 +10,6 @@ import {
   processCallResponseSchema,
 } from "../../../protocol/apps/calls/mod.ts";
 import { errorBodySchema } from "../../../protocol/base/mod.ts";
-import { LIMIT_KEYS } from "../permissions/mod.ts";
 
 export const SUPERVISOR_OPS = {
   // 원하는 앱 상태를 알린다. 접수만 답하고 시작은 비동기다(관측으로 따라간다).
@@ -50,11 +49,6 @@ const releaseId = z.string().regex(/^rel_[0-7][0-9a-hjkmnp-tv-z]{25}$/);
 const sha256 = z.string().regex(/^[0-9a-f]{64}$/);
 const screenSize = z.enum(["full", "panel", "card"]);
 
-const flagsSchema = z.strictObject({
-  args: z.array(z.string()),
-  limits: z.array(z.enum(LIMIT_KEYS)),
-});
-
 export const desiredAppSchema = z.strictObject({
   app: z.string().min(1),
   release: z.string().min(1),
@@ -64,9 +58,7 @@ export const desiredAppSchema = z.strictObject({
   tools: z.array(z.string().min(1)),
   screens: z.record(z.string().min(1), z.array(screenSize).min(1)).optional(),
   dataSchema: z.number().int().nonnegative(),
-  flags: flagsSchema,
   entry: z.string().min(1),
-  importMap: z.string().min(1),
   dataPath: z.string().min(1),
 });
 export const reconcileOutputSchema = z.strictObject({
@@ -127,9 +119,7 @@ export const previewLaunchSchema = z.strictObject({
   tools: z.array(z.string().min(1)),
   screens: z.record(z.string().min(1), z.array(screenSize).min(1)).optional(),
   dataSchema: z.number().int().nonnegative(),
-  flags: flagsSchema,
   entry: z.string().min(1),
-  importMap: z.string().min(1),
   dataPath: z.string().min(1),
 });
 export type PreviewLaunch = z.infer<typeof previewLaunchSchema>;

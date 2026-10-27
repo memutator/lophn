@@ -21,7 +21,7 @@ export function installCrashExit(deps: {
       .catch(() => {})
       .then(() => deps.exit(1));
   };
-  // process event가 Deno와 Node 둘 다에서 처리 못한 예외를 알린다. listener가 있으면 기본 종료는 하지 않는다.
+  // process event가 처리 못한 예외를 알린다. listener가 있으면 기본 종료는 하지 않는다.
   process.on("uncaughtException", fail);
   process.on("unhandledRejection", fail);
 }

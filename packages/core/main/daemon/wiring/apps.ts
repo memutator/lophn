@@ -6,6 +6,12 @@ import {
   type Result,
   sha256Hex,
 } from "../../../../base/mod.ts";
+import type { PermissionScope } from "../../../../protocol/apps/declaration/mod.ts";
+import {
+  type AppGrant,
+  appGrantsList,
+  GRANT_LIST_MAX_COUNT,
+} from "../../../../protocol/apps/grants.ts";
 import {
   appConnectSource,
   appLogViewError,
@@ -15,12 +21,6 @@ import {
   packagesBuiltin,
   packagesGuideBody,
 } from "../../../../protocol/apps/mod.ts";
-import type { PermissionScope } from "../../../../protocol/apps/declaration/mod.ts";
-import {
-  type AppGrant,
-  appGrantsList,
-  GRANT_LIST_MAX_COUNT,
-} from "../../../../protocol/apps/grants.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import type { At } from "../../../../protocol/base/values.ts";
 import type { BusEvent } from "../../../../protocol/events/mod.ts";
@@ -29,33 +29,21 @@ import type {
   BlobReadInput,
   PreparedBlob,
 } from "../../../../protocol/storage/mod.ts";
+import { loadAssignment } from "../../../approvals/assignment/mod.ts";
+import { createAppCalls } from "../../../apps/calls/mod.ts";
 import {
-  appCredentialIssuer,
   APPS_CONTROL_CONTEXT,
   APPS_CONTROL_PRINCIPAL,
   APPS_SUPERVISOR_KIND,
-  appsOperationPolicies,
+  appCredentialIssuer,
   appSupervisorSpec,
+  appsOperationPolicies,
   createAppsControl,
   PACKAGE_PUBLISH_CONTEXT,
   SUPERVISOR_CREDENTIAL_OPERATIONS,
   withReleasePreparation,
 } from "../../../apps/control.ts";
-import { loadAssignment } from "../../../approvals/assignment/mod.ts";
-import { createAppCalls } from "../../../apps/calls/mod.ts";
-import { agentDomainPorts } from "../agent-domains.ts";
-import {
-  effectiveScope,
-  loadGrants,
-  secretValueHandler,
-} from "../../../apps/permissions/mod.ts";
-import {
-  type AppOAuth,
-  type AppOAuthDeclared,
-  createAppOAuth,
-} from "../../../apps/oauth/mod.ts";
-import { releaseFacts } from "../../../apps/releases/mod.ts";
-import { openCallbackListener } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
+import { checkDeclaration } from "../../../apps/declaration/check.ts";
 import {
   type ChangesetBlobs,
   closeUnfinishedInvocations,
@@ -64,22 +52,42 @@ import {
   observeInvocations,
 } from "../../../apps/invocations/mod.ts";
 import {
-  closeInterruptedRewinds,
-  createAppRewind,
-  createRewindReads,
-} from "../../../apps/rewind/mod.ts";
+  type AppOAuth,
+  type AppOAuthDeclared,
+  createAppOAuth,
+} from "../../../apps/oauth/mod.ts";
 import {
-  loadApp,
-  SOURCE_FOLDER_CONTEXT,
-  withSourceFolder,
-} from "../../../apps/registration/mod.ts";
-import { createScreenFileDeps } from "../../../apps/screens/mod.ts";
+  PACKAGE_GUIDE_BLOB_FIELD_NAME,
+  PACKAGE_GUIDE_BLOB_OWNER_KIND,
+  packageGuideOwnerKey,
+} from "../../../apps/packages/blobs.ts";
+import { readBuiltinSdk } from "../../../apps/packages/mod.ts";
+import { publishPackage } from "../../../apps/packages/publish.ts";
+import {
+  effectiveScope,
+  loadGrants,
+  secretValueHandler,
+} from "../../../apps/permissions/mod.ts";
 import type {
   AppViewSignal,
   BundleLocator,
   CallerDirectory,
   InvocationLedger,
 } from "../../../apps/ports.ts";
+import {
+  loadApp,
+  SOURCE_FOLDER_CONTEXT,
+  withSourceFolder,
+} from "../../../apps/registration/mod.ts";
+import { ACTIVATION_CONSENT_TOPIC } from "../../../apps/releases/activation/consents.ts";
+import { createCopyPreviewBundles } from "../../../apps/releases/activation/desired.ts";
+import { observeReleaseActivations } from "../../../apps/releases/activation/recovery.ts";
+import { releaseFacts } from "../../../apps/releases/mod.ts";
+import {
+  closeInterruptedRewinds,
+  createAppRewind,
+  createRewindReads,
+} from "../../../apps/rewind/mod.ts";
 import {
   appStatesOf,
   appToolLookupOf,
@@ -90,31 +98,23 @@ import {
   screenFileStream,
   withStartInvocation,
 } from "../../../apps/routes.ts";
+import { APP_RESTART_HALTED_TOPIC } from "../../../apps/runtime/commands.ts";
 import { viewErrorLogHandler } from "../../../apps/runtime/view-errors.ts";
+import { createScreenFileDeps } from "../../../apps/screens/mod.ts";
 import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
-import { checkDeclaration } from "../../../apps/declaration/check.ts";
+import { CRASH_LOCATIONS } from "../../../diagnostics/mod.ts";
 import { domainsOfOwner } from "../../../domains/mod.ts";
-import { publishPackage } from "../../../apps/packages/publish.ts";
-import { readBuiltinSdk } from "../../../apps/packages/mod.ts";
-import { createCopyPreviewBundles } from "../../../apps/releases/activation/desired.ts";
-import { observeReleaseActivations } from "../../../apps/releases/activation/recovery.ts";
-import {
-  PACKAGE_GUIDE_BLOB_FIELD_NAME,
-  PACKAGE_GUIDE_BLOB_OWNER_KIND,
-  packageGuideOwnerKey,
-} from "../../../apps/packages/blobs.ts";
+import { openCallbackListener } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
+import { createCallerDirectory } from "../../../lophn-agent/session/caller-directory.ts";
 import {
   authorize,
   CONDITION_TARGET_KEYS,
 } from "../../../server/identity/mod.ts";
-import { CRASH_LOCATIONS } from "../../../diagnostics/mod.ts";
-import { createCallerDirectory } from "../../../lophn-agent/session/caller-directory.ts";
-import { APP_RESTART_HALTED_TOPIC } from "../../../apps/runtime/commands.ts";
-import { ACTIVATION_CONSENT_TOPIC } from "../../../apps/releases/activation/consents.ts";
 import {
   openConnection,
   withAfterCommit,
 } from "../../../storage/ledger/mod.ts";
+import { agentDomainPorts } from "../agent-domains.ts";
 import { blobReadHandler } from "../runtime.ts";
 import {
   type AppsControl,
@@ -157,11 +157,6 @@ export const appsWiring: WiringFactory = () => {
         random: ctx.random,
       });
       oauth = appOAuth;
-      // preview 자식이 loopback으로 core API에 닿지 못하게 막을 port다. API를 연 뒤에 정해진다.
-      const apiPorts = () => {
-        const port = ctx.peek.server?.port ?? 0;
-        return port === 0 ? [] : [port];
-      };
       const machine = () => {
         const current = runtime.current(APPS_CONTROL_PRINCIPAL);
         return current.ok ? current.value : undefined;
@@ -203,14 +198,12 @@ export const appsWiring: WiringFactory = () => {
             ctx.writer.command(context as never, envelope as never),
           machine,
           prepareBlob: (call) => ctx.blobRelay.prepare(call),
-          platformPorts: apiPorts,
           domainNamesOf,
         },
         previews: {
           dataRoot: ctx.root.path,
           bundles: createCopyPreviewBundles({
             dataRoot: ctx.root.path,
-            platformPorts: apiPorts,
             domainNamesOf,
           }),
         },

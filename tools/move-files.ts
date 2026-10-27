@@ -916,7 +916,7 @@ if (import.meta.main) {
       for (const dir of await applyPlan(root, plan)) {
         console.log(`남은 옛 폴더(추적하지 않는 파일): ${dir}`);
       }
-      console.log("옮김. deno fmt와 deno check를 돌린다.");
+      console.log("옮김. deno task check를 돌린다.");
     }
   } catch (error) {
     console.error(

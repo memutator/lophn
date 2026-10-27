@@ -48,7 +48,7 @@ function isComment(line: string): boolean {
 }
 
 // source에서 `interface|type <name>` 선언 하나를 바로 위 주석과 함께 그대로 옮긴다. interface는 `}`에서, type은
-// 괄호 밖 `;`에서 끝난다(deno fmt가 type 끝에 `;`를 붙인다). 못 찾으면 null이다.
+// 괄호 밖 `;`에서 끝난다(Biome가 type 끝에 `;`를 붙인다). 못 찾으면 null이다.
 function declarationOf(
   lines: readonly string[],
   name: string,

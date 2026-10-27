@@ -43,9 +43,16 @@ export function renderTokenNames(flat: readonly FlatToken[]): string {
   ].join("\n");
 }
 
-async function formatVars(source: string): Promise<string> {
+// 생성한 file이 check.ts의 Biome format 단계를 그대로 통과하도록 같은 설정으로 맞춘다.
+async function formatVars(source: string, file: string): Promise<string> {
   const child = new Deno.Command(Deno.execPath(), {
-    args: ["fmt", "--ext=ts", "--quiet", "-"],
+    args: [
+      "run",
+      "-A",
+      "npm:@biomejs/biome@2.6.3",
+      "format",
+      `--stdin-file-path=${file}`,
+    ],
     stdin: "piped",
     stdout: "piped",
     stderr: "piped",
@@ -62,8 +69,8 @@ export async function generate(): Promise<Record<string, string>> {
   const flat = flatten();
   return {
     "tokens.css": `/* ${notice} */\n${renderCss(flat)}`,
-    "vars.ts": await formatVars(renderVars(flat)),
-    "token-names.ts": await formatVars(renderTokenNames(flat)),
+    "vars.ts": await formatVars(renderVars(flat), "vars.ts"),
+    "token-names.ts": await formatVars(renderTokenNames(flat), "token-names.ts"),
     "values.json": JSON.stringify({ _generated: notice, tokens }, null, 2) +
       "\n",
   };

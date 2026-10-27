@@ -18,6 +18,9 @@ type Step = {
 type Result = { name: string; status: Status; ms?: number; note?: string };
 
 const SHELL_MAIN = "packages/shell/main";
+// Biome가 deno fmt·lint를 대신한다. native binary를 deno가 npm에서 받아 띄운다.
+const BIOME = "npm:@biomejs/biome@2.6.3";
+const BIOME_CMD = ["deno", "run", "-A", BIOME];
 const ALL_PACKAGES = [
   "base",
   "protocol",
@@ -99,7 +102,7 @@ async function changedFiles(base?: string): Promise<string[]> {
 // "all"은 전부 바뀐 것으로 본다.
 function packageOf(file: string): string | "all" | undefined {
   if (
-    file === "deno.json" || file === "deno.lock" ||
+    file === "deno.json" || file === "deno.lock" || file === "biome.json" ||
     /^tools\/check[^/]*\.ts$/.test(file)
   ) return "all";
   if (file.startsWith("tools/")) return "tools";
@@ -139,8 +142,7 @@ async function sourceFiles(folder: string): Promise<string[]> {
   return found.sort();
 }
 
-// deno fmt·lint에 package 폴더를 통째로 주면 안쪽에 따로 config가 있는 폴더 옆의 file을 건너뛴다
-// (shell/ipc, sdk/cap-store에서 겪었다). 그래서 file을 하나씩 준다.
+// 바뀐 package의 file 목록을 만든다. Biome은 file로 줘도 biome.json의 include·exclude를 따른다.
 async function packageFiles(
   folder: string,
   pattern: RegExp,
@@ -175,18 +177,8 @@ async function buildSteps(
   const pkgFolders = ALL_PACKAGES.filter((p) => run.has(p)).map((p) =>
     FOLDERS[p]
   );
-  // md도 준다. package 안 deno.json이 md를 fmt하므로 full은 보는데 빠른 check만 놓쳐 main이 두 번 깨졌다.
-  // root config(tools, tests, sdk 등)는 md를 include하지 않는데, file로 주면 include를 넘어 fmt된다
-  // (tests/eval/scorecards가 그렇게 막혔다). 그래서 자기 deno.json이 있는 package의 md만 준다.
   const fmtFiles = (await Promise.all(
-    pkgFolders.map(async (f) =>
-      packageFiles(
-        f,
-        await exists(`${f}/deno.json`)
-          ? /\.(tsx?|js|jsonc?|md)$/
-          : /\.(tsx?|js|jsonc?)$/,
-      )
-    ),
+    pkgFolders.map((f) => packageFiles(f, /\.(tsx?|js|jsonc?)$/)),
   )).flat();
   const lintFiles = (await Promise.all(
     pkgFolders.map((f) => packageFiles(f, /\.(tsx?|js)$/)),
@@ -197,14 +189,27 @@ async function buildSteps(
     skipped.push({ name, status: "건너뜀", note });
 
   if (full) {
-    checks.push({ name: "fmt", commands: [["deno", "fmt", "--check"]] });
-    checks.push({ name: "lint", commands: [["deno", "lint"]] });
+    checks.push({ name: "fmt", commands: [[...BIOME_CMD, "format"]] });
+    checks.push({ name: "lint", commands: [[...BIOME_CMD, "lint"]] });
   } else if (pkgFolders.length > 0) {
     checks.push({
       name: "fmt",
-      commands: [["deno", "fmt", "--check", ...fmtFiles]],
+      commands: [[
+        ...BIOME_CMD,
+        "format",
+        "--no-errors-on-unmatched",
+        ...fmtFiles,
+      ]],
     });
-    checks.push({ name: "lint", commands: [["deno", "lint", ...lintFiles]] });
+    checks.push({
+      name: "lint",
+      commands: [[
+        ...BIOME_CMD,
+        "lint",
+        "--no-errors-on-unmatched",
+        ...lintFiles,
+      ]],
+    });
   } else {
     skip("fmt", "돌 package 없음");
     skip("lint", "돌 package 없음");
@@ -316,16 +321,15 @@ async function buildSteps(
   }
 
   if (has("shell")) {
-    const ignore = "--ignore=node_modules,dist";
+    // shell main과 preload는 root deno.json이 exclude하므로 따로 돈다. biome.json은 둘 다 include한다.
+    const dirs = [SHELL_MAIN, "packages/shell/preload"];
     checks.push({
       name: "shell fmt",
-      cwd: SHELL_MAIN,
-      commands: [["deno", "fmt", "--check", ignore, ".", "../preload"]],
+      commands: [[...BIOME_CMD, "format", ...dirs]],
     });
     checks.push({
       name: "shell lint",
-      cwd: SHELL_MAIN,
-      commands: [["deno", "lint", ignore, ".", "../preload"]],
+      commands: [[...BIOME_CMD, "lint", ...dirs]],
     });
   } else skip("shell fmt/lint", "shell이 안 돎");
   if (has("shell", "protocol", "base", "design", "coding-agent")) {

@@ -10,6 +10,7 @@
     "frozen": true
   },
   "imports": {
+    "@biomejs/biome": "npm:@biomejs/biome@2.6.3",
     "smol-toml": "npm:smol-toml@1.9.1",
     "yaml": "npm:yaml@2.9.1",
     "unpdf": "npm:unpdf@1.4.0",
@@ -33,33 +34,6 @@
     "dev:core": "deno run --allow-all tools/dev.ts dev:core",
     "dev:mock": "deno run --allow-all tools/dev.ts dev:mock",
     "wireframes": "deno run --allow-read --allow-write --allow-run --allow-env tools/wireframes/build.ts"
-  },
-  "fmt": {
-    "include": [
-      "**/*.ts",
-      "**/*.tsx",
-      "**/*.js",
-      "**/*.json",
-      "**/*.jsonc"
-    ],
-    "exclude": [
-      "tests/eval/materials/",
-      "tests/eval/registry/",
-      "tests/eval/runs/",
-      "tests/eval/experiments/"
-    ]
-  },
-  "lint": {
-    "include": [
-      "**/*.ts",
-      "**/*.tsx",
-      "**/*.js"
-    ],
-    "rules": {
-      "exclude": [
-        "no-slow-types"
-      ]
-    }
   },
   "exclude": [
     ".claude",

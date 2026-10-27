@@ -1,0 +1,100 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
+  "vcs": {
+    "enabled": false
+  },
+  "files": {
+    "includes": [
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.js",
+      "**/*.json",
+      "**/*.jsonc",
+      "**/*.yml",
+      "**/*.yaml",
+      "!**/node_modules",
+      "!.claude",
+      "!.dev-data",
+      "!project-docs",
+      "!tests/eval/materials",
+      "!tests/eval/registry",
+      "!tests/eval/runs",
+      "!tests/eval/experiments",
+      "!dist",
+      "!build"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 80,
+    "lineEnding": "lf",
+    "bracketSpacing": true,
+    "attributePosition": "auto"
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "jsxQuoteStyle": "double",
+      "quoteProperties": "asNeeded",
+      "trailingCommas": "all",
+      "semicolons": "always",
+      "arrowParentheses": "always",
+      "bracketSameLine": false,
+      "bracketSpacing": true,
+      "attributePosition": "auto",
+      "operatorLinebreak": "after"
+    }
+  },
+  "json": {
+    "formatter": {
+      "enabled": true,
+      "indentStyle": "space",
+      "indentWidth": 2,
+      "lineWidth": 80,
+      "lineEnding": "lf"
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "a11y": "off",
+      "complexity": {
+        "noCommaOperator": "off",
+        "noUselessContinue": "off",
+        "noUselessEscapeInRegex": "off",
+        "noUselessFragments": "off",
+        "noUselessUndefinedInitialization": "off",
+        "useIndexOf": "off",
+        "useLiteralKeys": "off",
+        "useOptionalChain": "off"
+      },
+      "correctness": {
+        "noUnsafeOptionalChaining": "off",
+        "noVoidTypeReturn": "off"
+      },
+      "performance": {
+        "useDomNodeTextContent": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off",
+        "useExportType": "off",
+        "useImportType": "off",
+        "useTemplate": "off"
+      },
+      "suspicious": {
+        "noAssignInExpressions": "off",
+        "noConfusingVoidType": "off",
+        "noImplicitAnyLet": "off",
+        "noMisleadingCharacterClass": "off",
+        "noRedeclare": "off",
+        "noShadowRestrictedNames": "off",
+        "noSparseArray": "off",
+        "noTemplateCurlyInString": "off",
+        "useIterableCallbackReturn": "off"
+      }
+    }
+  }
+}

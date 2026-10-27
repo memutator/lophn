@@ -1,4 +1,5 @@
 import process from "node:process";
+import { Readable, Writable } from "node:stream";
 import { err, ok, type Result, systemClock } from "../../../base/mod.ts";
 import type { ChildMessage } from "../../../protocol/supervision/mod.ts";
 import { createRpcClient } from "../../../protocol/client/mod.ts";
@@ -118,9 +119,9 @@ async function startAgentRuntime(input: {
   } & { listMcpTools?: McpKit["listTools"] }; // Grants 화면의 MCP tool 목록 읽기. 없으면 목록 요청에 답하지 않는다.
 }): Promise<Result<Runtime>> {
   const streams = input.streams ?? {
-    stdin: Deno.stdin.readable,
-    stdout: Deno.stdout.writable,
-    stderr: Deno.stderr.writable,
+    stdin: Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>,
+    stdout: Writable.toWeb(process.stdout) as WritableStream<Uint8Array>,
+    stderr: Writable.toWeb(process.stderr) as WritableStream<Uint8Array>,
   };
   const diagnostics = createDiagnosticWriter(streams.stderr);
   // child session은 stderr에 제어 frame을 쓰지 않는다. 진단은 같은 통로를 잠그지 않게 따로 둔다.
@@ -482,7 +483,7 @@ if (import.meta.main) {
   const uninstallCrash = installCrashHandler({
     target: globalThis,
     write: runtime.reportInternal,
-    stderr: Deno.stderr.writable,
+    stderr: Writable.toWeb(process.stderr) as WritableStream<Uint8Array>,
     redact,
     exit: process.exit,
   });
@@ -490,8 +491,8 @@ if (import.meta.main) {
     uninstallCrash();
     void runtime.shutdown().then(() => process.exit(0));
   };
-  Deno.addSignalListener("SIGINT", stop);
-  Deno.addSignalListener("SIGTERM", stop);
+  process.on("SIGINT", stop);
+  process.on("SIGTERM", stop);
   await runtime.done;
   uninstallCrash();
   process.exit(0);

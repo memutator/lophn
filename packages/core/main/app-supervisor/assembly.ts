@@ -638,7 +638,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         throw new Error("the start input has no broker credential");
       }
       const nonce = request.identity.processNonce;
-      const opened = broker.open({
+      const opened = await broker.open({
         child: {
           app: request.app,
           release: request.release,
@@ -780,7 +780,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         bundleHash: started.bundleHash,
         dataPath: started.dataPath,
       });
-      const opened = previewBroker.open({
+      const opened = await previewBroker.open({
         child: {
           app: request.app,
           release: request.release,

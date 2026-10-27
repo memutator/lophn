@@ -2,6 +2,7 @@
 // 묶이고 아래 서비스만 낸다. core API의 임의 proxy가 아니며 모르는 경로는 없는 경로와 같은
 // not_found다. 신원은 요청 본문이 정하지 않는다. 본문의 nonce·mode가 연결과 다르면 거절한다.
 import { asInternalError, err, type Result } from "../../../../base/mod.ts";
+import { serve } from "../../../server/serve.ts";
 import { ERROR_HTTP_STATUS } from "../../../../protocol/base/mod.ts";
 import { APP_BROKER_PATHS } from "../../../../protocol/apps/calls/mod.ts";
 import { NET_FETCH_BODY_MAX_BYTES } from "../../../../protocol/apps/mod.ts";
@@ -74,9 +75,15 @@ function routes(services: BrokerServices): Map<string, Handler> {
 }
 
 function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
+  const text = JSON.stringify(body);
+  return new Response(text, {
     status,
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      // 앱 process의 broker client는 연결이 닫힐 때까지 읽은 bytes를 그대로 JSON으로 읽는다.
+      // 길이를 적지 않으면 응답이 chunked로 나가 그 client가 본문을 못 읽는다(Deno.serve도 적었다).
+      "content-length": String(new TextEncoder().encode(text).byteLength),
+    },
   });
 }
 
@@ -208,12 +215,12 @@ export function createBrokerHub(): BrokerHub {
 type BrokerListener = { shutdown(): Promise<void> };
 
 // 앱별 broker socket을 듣는다. 신뢰 supervisor 프로세스에서만 부른다.
-export function serveBroker(
+export async function serveBroker(
   socketPath: string,
   endpoint: BrokerEndpoint,
-): BrokerListener {
-  const server = Deno.serve(
-    { transport: "unix", path: socketPath, onListen: () => {} },
+): Promise<BrokerListener> {
+  const server = await serve(
+    { transport: "unix", path: socketPath },
     (request) => endpoint.handle(request),
   );
   return { shutdown: () => server.shutdown() };

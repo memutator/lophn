@@ -81,7 +81,7 @@ type OpenedChild = {
 export type SupervisorBroker = {
   readonly hub: BrokerHub;
   // 자식을 띄우기 전에 부른다. 자식이 연결하기 전에 socket이 이미 듣고 있어야 한다.
-  open(opened: OpenedChild): Result<void>;
+  open(opened: OpenedChild): Promise<Result<void>>;
   // 자식 종료를 확인했다. socket을 닫고 그 자식의 연결·점유·열린 기록을 정리한다.
   closed(processNonce: string): Promise<void>;
   // 그 앱의 모든 연결을 새 요청부터 막는다.
@@ -96,7 +96,7 @@ export function createSupervisorBroker(deps: {
   serve?: (
     socketPath: string,
     endpoint: ReturnType<typeof createBrokerEndpoint>,
-  ) => BrokerListening;
+  ) => Promise<BrokerListening>;
   childExited?: (processNonce: string) => void;
 }): SupervisorBroker {
   const hub = createBrokerHub();
@@ -104,7 +104,7 @@ export function createSupervisorBroker(deps: {
   const listening = new Map<string, BrokerListening>();
   return {
     hub,
-    open(opened) {
+    async open(opened) {
       const session: BrokerSession = {
         child: opened.child,
         credential: opened.credential,
@@ -116,7 +116,7 @@ export function createSupervisorBroker(deps: {
       try {
         listening.set(
           opened.child.processNonce,
-          serve(opened.socketPath, endpoint),
+          await serve(opened.socketPath, endpoint),
         );
       } catch {
         hub.unregister(opened.child.processNonce);

@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { ok } from "../../../../base/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { toolGateHandler } from "./approvals.ts";
@@ -18,7 +19,7 @@ function credential(session: string, turn: string): AuthenticatedContext {
   } as AuthenticatedContext;
 }
 
-Deno.test("다른 session·turn의 자격으로는 Gate route를 부르지 못한다", async () => {
+test("다른 session·turn의 자격으로는 Gate route를 부르지 못한다", async () => {
   const touched: string[] = [];
   const handler = toolGateHandler({
     approvals: {
@@ -48,10 +49,13 @@ Deno.test("다른 session·turn의 자격으로는 Gate route를 부르지 못�
   };
   for (const who of [credential(OTHER, TRN), credential(SES, OTHER_TRN)]) {
     const refused = await handler(who, body);
-    assertEquals(refused.ok ? null : refused.error.code, "forbidden");
+    assert.deepStrictEqual(refused.ok ? null : refused.error.code, "forbidden");
   }
-  assertEquals(touched, []);
+  assert.deepStrictEqual(touched, []);
   // 같은 session·turn의 자격이면 Gate까지 닿는다.
-  assertEquals(await handler(credential(SES, TRN), body), ok({ kind: "run" }));
-  assertEquals(touched, ["judge"]);
+  assert.deepStrictEqual(
+    await handler(credential(SES, TRN), body),
+    ok({ kind: "run" }),
+  );
+  assert.deepStrictEqual(touched, ["judge"]);
 });

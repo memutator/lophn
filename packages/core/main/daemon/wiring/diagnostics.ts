@@ -1,3 +1,4 @@
+import process from "node:process";
 import { ok } from "../../../../base/mod.ts";
 import type { Diagnostic } from "../../../../protocol/supervision/mod.ts";
 import {
@@ -104,7 +105,7 @@ export const diagnosticsWiring: WiringFactory = () => {
           })),
         stderr: Deno.stderr.writable,
         redact,
-        exit: Deno.exit,
+        exit: process.exit,
       });
     },
     build(ctx) {

@@ -1,3 +1,5 @@
+import { stat } from "node:fs/promises";
+import process from "node:process";
 import { systemClock } from "../../../base/clock.ts";
 import { cryptoRandom } from "../../../base/random.ts";
 import type { Clock, RandomSource, Result } from "../../../base/mod.ts";
@@ -78,8 +80,8 @@ export async function startCore(options: CoreOptions): Promise<Result<Core>> {
   const clock = options.clock ?? systemClock;
   const random = options.random ?? cryptoRandom;
   const root = await resolveDataRoot({
-    lophnHome: options.lophnHome ?? Deno.env.get("LOPHN_HOME") ?? undefined,
-    home: options.home ?? Deno.env.get("HOME") ?? undefined,
+    lophnHome: options.lophnHome ?? process.env.LOPHN_HOME ?? undefined,
+    home: options.home ?? process.env.HOME ?? undefined,
   });
   if (!root.ok) return root;
   const locked = await acquireInstanceLock(root.value.run);
@@ -382,7 +384,7 @@ async function open(
 
 async function fileExists(path: string): Promise<boolean> {
   try {
-    return (await Deno.stat(path)).isFile;
+    return (await stat(path)).isFile();
   } catch {
     return false;
   }

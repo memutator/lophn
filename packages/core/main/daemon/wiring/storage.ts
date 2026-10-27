@@ -1,4 +1,7 @@
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import { spawn } from "node:child_process";
+import { appendFile, mkdir } from "node:fs/promises";
+import process from "node:process";
+import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import type { BlobFieldDefinition } from "../../../../protocol/storage/mod.ts";
 import {
   createBlobPrepareRelay,
@@ -210,25 +213,21 @@ async function runStoppedMaintenance(input: {
     import.meta.url,
   )
     .pathname;
-  let outcome: Deno.CommandOutput;
+  let success: boolean;
   try {
-    outcome = await new Deno.Command(Deno.execPath(), {
+    const child = spawn(Deno.execPath(), [
+      "run",
+      "--allow-all",
+      "--no-prompt",
+      entry,
+    ], {
       // lophn 자신의 process다. 권한을 좁혀도 막는 것이 없고, Deno의 node:*는
       // 좁힌 권한을 더 요구해 child만 깨진다.
-      args: [
-        "run",
-        "--allow-all",
-        "--no-prompt",
-        entry,
-      ],
-      stdin: "null",
-      stdout: "null",
-      stderr: "piped",
-      clearEnv: true,
-      signal,
+      stdio: ["ignore", "ignore", "ignore"],
+      // Node는 env를 주면 부모 환경을 통째로 대체한다(Deno의 clearEnv와 같다).
       env: {
-        ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
-        ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
+        ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
+        ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
         LOPHN_HOME: input.dataRoot,
         LOPHN_MAINTENANCE: JSON.stringify({
           ledger: input.ledgerPath,
@@ -237,13 +236,20 @@ async function runStoppedMaintenance(input: {
           nowMs: input.nowMs,
         }),
       },
-    }).output();
+      signal,
+    });
+    success = await new Promise<boolean>((resolve, reject) => {
+      child.on("error", reject);
+      child.on("close", (code) => resolve(code === 0));
+    });
   } catch {
-    // signal이 시간을 넘기면 Deno가 그 프로세스만 죽이고 output()이 거절된다.
+    // signal이 시간을 넘기면 child만 죽고 기다림이 거절된다.
     await noteMaintenanceFailure(input.dataRoot, signal.aborted);
     return;
   }
-  if (!outcome.success) await noteMaintenanceFailure(input.dataRoot, false);
+  if (!success) {
+    await noteMaintenanceFailure(input.dataRoot, signal.aborted);
+  }
 }
 
 // 유지보수 실패의 diagnostics 기록. 종료를 막지 않으므로 기록 실패도 삼킨다.
@@ -255,9 +261,9 @@ async function noteMaintenanceFailure(
   try {
     const directory = `${dataRoot}/logs`;
     try {
-      await Deno.mkdir(directory, { mode: 0o700 });
+      await mkdir(directory, { mode: 0o700 });
     } catch (error) {
-      if (!(error instanceof Deno.errors.AlreadyExists)) throw error;
+      if (errorCode(error) !== "EEXIST") throw error;
     }
     const record = {
       at: new Date().toISOString(),
@@ -270,10 +276,9 @@ async function noteMaintenanceFailure(
         ? "maintenance_gc timeout"
         : "Stopped maintenance did not run.",
     };
-    await Deno.writeTextFile(
+    await appendFile(
       `${directory}/maintenance.jsonl`,
       JSON.stringify(record) + "\n",
-      { append: true },
     );
   } catch {
     // 기록하지 못해도 종료는 그대로 끝난다.

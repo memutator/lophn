@@ -2,6 +2,9 @@
 // lophn의 준비 code만 도는 process라 Deno 권한을 좁히지 않고 `--allow-all`로 띄운다.
 // 자식은 build 뒤에 의존성과 migration 검사도 돈다(앱이 쓴 migration SQL은 core에서 돌리지 않는다).
 // 취소·종료는 자식을 SIGKILL하고 끝난 것을 확인한 뒤에야 돌려준다. 끊긴 준비가 남긴 staging은 지운다.
+import { type ChildProcess, spawn } from "node:child_process";
+import { rm } from "node:fs/promises";
+import process from "node:process";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
   PreparationFailure,
@@ -34,33 +37,30 @@ export function createChildPreparationRunner(options: {
       const appRoot = appFolder(options.dataRoot, job.app);
       const deno = options.deno();
       // 빈 deno-dir(새 기계)에서 build 도구를 받는 시간이 자식의 준비 상한에 들지 않게 자식 밖에서 미리 받는다.
-      const env = buildEnvironment(Deno.env.get("TMPDIR") ?? "/tmp");
+      const env = buildEnvironment(process.env.TMPDIR ?? "/tmp");
       if (!await cacheBuildTools(deno, env, signal)) {
         return err({ stage: "build", reason: "build tools are unavailable" });
       }
       // 자식은 lophn의 준비 code만 돌고 앱 source는 실행되지 않는다. 환경은 필요한 이름 몇 개만 넘긴다.
-      const child = new Deno.Command(deno, {
-        clearEnv: true,
+      // Node는 env를 주면 부모 환경을 통째로 대체한다(Deno의 clearEnv와 같다).
+      const child = spawn(deno, [
+        "run",
+        "--quiet",
+        "--no-prompt",
+        `--config=${REPO}/deno.json`,
+        "--allow-all",
+        JOB,
+        JSON.stringify({
+          dataRoot: options.dataRoot,
+          app: job.app,
+          sourceRoot: job.source_path,
+          commit: job.commit,
+          previousSchema: job.previous_schema,
+        }),
+      ], {
         env,
-        args: [
-          "run",
-          "--quiet",
-          "--no-prompt",
-          `--config=${REPO}/deno.json`,
-          "--allow-all",
-          JOB,
-          JSON.stringify({
-            dataRoot: options.dataRoot,
-            app: job.app,
-            sourceRoot: job.source_path,
-            commit: job.commit,
-            previousSchema: job.previous_schema,
-          }),
-        ],
-        stdin: "null",
-        stdout: "piped",
-        stderr: "null",
-      }).spawn();
+        stdio: ["ignore", "pipe", "ignore"],
+      });
       let stopped = false;
       const stop = () => {
         stopped = true;
@@ -75,9 +75,9 @@ export function createChildPreparationRunner(options: {
         options.limitMs ?? RELEASE_PREPARATION_LIMIT_MS,
       );
       try {
-        const output = await child.output();
+        const stdout = await collectStdout(child);
         if (stopped) {
-          await Deno.remove(`${appRoot}/staging`, { recursive: true }).catch(
+          await rm(`${appRoot}/staging`, { recursive: true }).catch(
             () => undefined,
           );
           return err({
@@ -85,13 +85,23 @@ export function createChildPreparationRunner(options: {
             reason: "the preparation was stopped (time limit)",
           });
         }
-        return readOutcome(new TextDecoder().decode(output.stdout));
+        return readOutcome(new TextDecoder().decode(stdout));
       } finally {
         clearTimeout(timer);
         signal.removeEventListener("abort", stop);
       }
     },
   };
+}
+
+// 자식이 끝날 때까지 stdout을 모은다. 'error'를 받지 않으면 spawn 실패(ENOENT 등)가 process를 죽인다.
+function collectStdout(child: ChildProcess): Promise<Uint8Array> {
+  const chunks: Buffer[] = [];
+  child.stdout!.on("data", (chunk: Buffer) => chunks.push(chunk));
+  return new Promise((resolve, reject) => {
+    child.on("error", reject);
+    child.on("close", () => resolve(Buffer.concat(chunks)));
+  });
 }
 
 const FAILURE_STAGES = ["build", "dependencies", "migration"] as const;

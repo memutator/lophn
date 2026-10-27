@@ -1,10 +1,11 @@
-import { assertEquals } from "@std/assert";
+import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { test } from "node:test";
 import { placeFoldersOf } from "./place-folders-glue.ts";
 
 // PM의 file 범위는 자기 project의 폴더와 그 project의 domain 폴더뿐이고, App Engineer는 자기 앱 source와 그 앱의
 // domain 폴더뿐이다. 다른 그릇의 domain 폴더나 앱 source가 들어오면 PM이 남의 앱이나 domain을 쓰게 된다.
-Deno.test("PM과 App Engineer의 쓰기 폴더는 자기 그릇의 폴더와 domain 폴더뿐이다", () => {
+test("PM과 App Engineer의 쓰기 폴더는 자기 그릇의 폴더와 domain 폴더뿐이다", () => {
   const db = new DatabaseSync(":memory:");
   db.exec(`
     create table sessions (id text, role text, place_kind text, place_id text);
@@ -28,12 +29,12 @@ Deno.test("PM과 App Engineer의 쓰기 폴더는 자기 그릇의 폴더와 dom
     all: (text: string, params: never[]) =>
       db.prepare(text).all(...params) as Record<string, never>[],
   };
-  assertEquals(placeFoldersOf({ sql }, "/data", "ses_pm"), [
+  assert.deepStrictEqual(placeFoldersOf({ sql }, "/data", "ses_pm"), [
     "/work/a",
     "/data/domains/dom_pa",
     "/data/projects/prj_a/workflows",
   ]);
-  assertEquals(placeFoldersOf({ sql }, "/data", "ses_ae"), [
+  assert.deepStrictEqual(placeFoldersOf({ sql }, "/data", "ses_ae"), [
     "/src/a",
     "/data/domains/dom_aa",
   ]);

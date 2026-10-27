@@ -1,4 +1,5 @@
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { appendFile, mkdir } from "node:fs/promises";
+import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
 import {
   coreToMainMessageSchema,
   type Diagnostic,
@@ -168,14 +169,13 @@ export function shellViewLog(
       try {
         const directory = `${dataRoot}/logs`;
         try {
-          await Deno.mkdir(directory, { mode: 0o700 });
+          await mkdir(directory, { mode: 0o700 });
         } catch (error) {
-          if (!(error instanceof Deno.errors.AlreadyExists)) throw error;
+          if (errorCode(error) !== "EEXIST") throw error;
         }
-        await Deno.writeTextFile(
+        await appendFile(
           `${directory}/shell-view.jsonl`,
           shellViewLogLine(diagnostic) + "\n",
-          { append: true },
         );
       } catch {
         // 기록하지 못해도 core와 main 통로는 그대로 간다.

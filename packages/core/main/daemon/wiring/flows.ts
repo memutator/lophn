@@ -1,3 +1,4 @@
+import process from "node:process";
 import { ok } from "../../../../base/mod.ts";
 import { appEnv } from "../../../apps/runtime/processes/mod.ts";
 import { createFlowHost } from "../../flow-host/host.ts";
@@ -17,10 +18,10 @@ export const flowsWiring: WiringFactory = () => {
         dataRoot: ctx.root.path,
         deno: Deno.execPath(),
         env: appEnv({
-          home: Deno.env.get("HOME"),
-          denoDir: Deno.env.get("DENO_DIR"),
-          xdgCacheHome: Deno.env.get("XDG_CACHE_HOME"),
-          path: Deno.env.get("PATH"),
+          home: process.env.HOME,
+          denoDir: process.env.DENO_DIR,
+          xdgCacheHome: process.env.XDG_CACHE_HOME,
+          path: process.env.PATH,
         }),
         clock: ctx.clock,
         runs: ctx.runService,

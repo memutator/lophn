@@ -1,6 +1,7 @@
 // kinds worker(documents/kinds)를 띄우고 부리는 조립. domain 그릇의 폴더와 kinds 파일의 변화를 보고, 새 위반을
 // 남지 않는 event로 알리고, `kind.get`·`kind.list`·`kind.check` core 메모리 route를 worker에 묻는 handler로 답한다.
 // 띄우지 못해도 core는 계속 선다: 읽기는 unavailable이다.
+import { mkdir } from "node:fs/promises";
 import { ok } from "../../../../base/mod.ts";
 import type { DomainOwner } from "../../../../protocol/domains/mod.ts";
 import type { Writer } from "../../../storage/ledger/mod.ts";
@@ -80,7 +81,7 @@ export const kindsWiring: WiringFactory = () => {
         epoch: ctx.epoch,
         apiPort: ctx.server.port,
         prepare: async () => {
-          await Deno.mkdir(`${ctx.root.path}/derived`, { recursive: true });
+          await mkdir(`${ctx.root.path}/derived`, { recursive: true });
         },
       });
       const attached = createKindsDispatcher({

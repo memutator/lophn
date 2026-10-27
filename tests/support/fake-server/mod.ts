@@ -2,6 +2,7 @@
 // 하나만 말한다(path `/messages`). 기대와 다른 요청과 queue가 빈 요청은 HTTP 400으로
 // 답한다. 500 계열은 제품이 temporary로 보고 retry해서 test가 헷갈린다.
 
+import { serve } from "../../../packages/core/server/serve.ts";
 import { type Held, toResponse } from "./reply.ts";
 import type { FakeServer, JournalEntry, Lane, Reply, Step } from "./types.ts";
 
@@ -35,7 +36,7 @@ function mismatchResponse(message: string): Response {
   );
 }
 
-// socket 없이 request를 직접 넣을 수 있는 몸체. startFakeServer가 Deno.serve를 얹는다.
+// socket 없이 request를 직접 넣을 수 있는 몸체. startFakeServer가 serve adapter를 얹는다.
 export function createFakeHandler(options: { fallback?: Reply } = {}) {
   // 줄마다 따로 꺼낸다. 기본 줄은 match가 없고 어느 줄에도 안 맞은 요청이 간다.
   type Queue = { steps: readonly Step[]; taken: number };
@@ -170,20 +171,18 @@ export function createFakeHandler(options: { fallback?: Reply } = {}) {
   };
 }
 
-export function startFakeServer(
+export async function startFakeServer(
   options: { fallback?: Reply } = {},
 ): Promise<FakeServer> {
   const { release, ...fake } = createFakeHandler(options);
-  const server = Deno.serve(
-    { hostname: "127.0.0.1", port: 0, onListen() {} },
-    fake.handle,
-  );
-  return Promise.resolve({
+  const server = await serve({ hostname: "127.0.0.1", port: 0 }, fake.handle);
+  const port = server.addr.transport === "tcp" ? server.addr.port : 0;
+  return {
     ...fake,
-    url: `http://127.0.0.1:${server.addr.port}`,
+    url: `http://127.0.0.1:${port}`,
     async close() {
       release();
       await server.shutdown();
     },
-  });
+  };
 }

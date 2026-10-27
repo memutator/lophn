@@ -30,6 +30,7 @@ import process from "node:process";
 
 import { errorCode } from "../packages/base/mod.ts";
 import { devCliLauncher } from "../packages/base/install/linux-install.ts";
+import { type ServeHandle, serve } from "../packages/core/server/serve.ts";
 import { HOOK_STDOUT } from "../packages/protocol/coding-agent/mod.ts";
 import { providerList } from "../packages/protocol/lophn-agent/mod.ts";
 import { createFakeHandler } from "../tests/support/fake-server/mod.ts";
@@ -108,7 +109,7 @@ function planRendererBuild(root: string): SpawnPlan {
  * fake server를 고정 port로 띄운다. 늘 같은 짧은 대답을 낸다. 이미 쓰는 port면 이유를 말하고
  * 실패한다(사람이 한 번에 하나만 띄우는 개발 도구라 고정 port를 쓴다).
  */
-function startDevFake(portText: string | undefined) {
+async function startDevFake(portText: string | undefined) {
   const port =
     portText === undefined || portText === ""
       ? DEFAULT_FAKE_PORT
@@ -116,12 +117,9 @@ function startDevFake(portText: string | undefined) {
   const fake = createFakeHandler({
     fallback: { kind: "text", text: "fake model: ok" },
   });
-  let server: Deno.HttpServer;
+  let server: ServeHandle;
   try {
-    server = Deno.serve(
-      { hostname: "127.0.0.1", port, onListen() {} },
-      fake.handle,
-    );
+    server = await serve({ hostname: "127.0.0.1", port }, fake.handle);
   } catch (error) {
     if (errorCode(error) === "EADDRINUSE") {
       throw new Error(
@@ -254,7 +252,7 @@ function planShell(
 }
 
 /** Ctrl+C·SIGTERM이 이 프로세스에 도착하면 된다. Windows는 SIGBREAK다. */
-function signalNames(os: string = process.platform): Deno.Signal[] {
+function signalNames(os: string = process.platform): NodeJS.Signals[] {
   return os === "win32" ? ["SIGBREAK"] : ["SIGINT", "SIGTERM"];
 }
 
@@ -380,11 +378,7 @@ async function launch(
       process.exit(0);
     };
     for (const name of signalNames()) {
-      try {
-        Deno.addSignalListener(name, stop);
-      } catch {
-        // 이 신호를 지원하지 않는 플랫폼이다.
-      }
+      process.on(name, stop);
     }
   }
 
@@ -408,7 +402,7 @@ async function launch(
   // 남긴 eval world는 그 run의 provider를 그대로 쓴다. fake를 심으면 world가 바뀐다.
   if (mode !== "dev:mock" && !kept && parentEnv[LIVE] !== "1") {
     try {
-      const fake = startDevFake(parentEnv[FAKE_PORT]);
+      const fake = await startDevFake(parentEnv[FAKE_PORT]);
       closers.push(fake.close);
       await plantFakeProvider(dataRoot, fake.url);
     } catch (error) {

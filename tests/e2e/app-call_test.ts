@@ -29,6 +29,7 @@ import {
   toolCallList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { CALL_BODY_MAX_BYTES } from "../../packages/core/apps/runtime/entrypoint/limits.ts";
+import { serve } from "../../packages/core/server/serve.ts";
 import { activateTestApp } from "../support/app/activate.ts";
 import { callPatch } from "../support/app/patch-call.ts";
 import { netFetchPatch } from "../support/app/patch-net.ts";
@@ -49,16 +50,14 @@ import { lastToolResult, toolNames } from "../support/fake-server/probe.ts";
 const user = { kind: "person", view_session: "e2e" } as const;
 
 // net-fetch-loopback 행의 loopback 상대다. 받은 요청 수와 Authorization을 남기고 JSON을 돌려준다.
-function startLoopback() {
+async function startLoopback() {
   const seen: (string | null)[] = [];
-  const server = Deno.serve(
-    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
-    (request) => {
-      seen.push(request.headers.get("authorization"));
-      return Response.json({ hello: "net" });
-    },
-  );
-  return { seen, port: server.addr.port, close: () => server.shutdown() };
+  const server = await serve({ hostname: "127.0.0.1", port: 0 }, (request) => {
+    seen.push(request.headers.get("authorization"));
+    return Response.json({ hello: "net" });
+  });
+  const port = server.addr.transport === "tcp" ? server.addr.port : 0;
+  return { seen, port, close: () => server.shutdown() };
 }
 
 const NET_SECRET = "e2e.net.token";
@@ -98,7 +97,7 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
-  const loopback = startLoopback();
+  const loopback = await startLoopback();
   const token = crypto.randomUUID();
   try {
     core = await bootCore(run, { env: await appCoreEnv() });

@@ -4,6 +4,7 @@
 // 줄을 못 맞춘 요청(빈 queue, 모르는 path·grant, 빠진 form 값)은 HTTP 400으로 답하고 journal에 차이를 남긴다.
 // 500 계열은 core가 unavailable로 읽어 test가 헷갈려서 쓰지 않는다.
 
+import { serve } from "../../../packages/core/server/serve.ts";
 import type {
   OAuthDefinition,
   ProviderDefinition,
@@ -92,7 +93,7 @@ function json(status: number, body: unknown): Response {
   });
 }
 
-// socket 없이 request를 직접 넣을 수 있는 몸체. startFakeIssuer가 Deno.serve를 얹는다.
+// socket 없이 request를 직접 넣을 수 있는 몸체. startFakeIssuer가 serve adapter를 얹는다.
 export function createFakeIssuerHandler(): IssuerHandler {
   const keys = crypto.subtle.generateKey(
     {
@@ -267,17 +268,13 @@ export function createFakeIssuerHandler(): IssuerHandler {
   return handler;
 }
 
-export function startFakeIssuer(): Promise<FakeIssuer> {
+export async function startFakeIssuer(): Promise<FakeIssuer> {
   const issuer = createFakeIssuerHandler();
-  const server = Deno.serve(
-    { hostname: "127.0.0.1", port: 0, onListen() {} },
-    issuer.handle,
-  );
+  const server = await serve({ hostname: "127.0.0.1", port: 0 }, issuer.handle);
   // definition·idToken이 handler.url을 읽으므로 같은 object에 port를 채워 돌려준다.
-  issuer.url = `http://127.0.0.1:${server.addr.port}`;
-  return Promise.resolve(
-    Object.assign(issuer, {
-      close: () => server.shutdown(),
-    }),
-  );
+  const port = server.addr.transport === "tcp" ? server.addr.port : 0;
+  issuer.url = `http://127.0.0.1:${port}`;
+  return Object.assign(issuer, {
+    close: () => server.shutdown(),
+  });
 }

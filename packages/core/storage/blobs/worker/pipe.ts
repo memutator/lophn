@@ -2,6 +2,7 @@
 // hash·fsync·설치는 이 경계만 한다. 임의 파일 경로는 받지 않고 JSON payload에
 // stream을 넣지 않는다. bytes는 supervision 요청의 channel에 묶인다.
 
+import { mkdir, writeFile } from "node:fs/promises";
 import { type ErrorCode } from "../../../../base/mod.ts";
 import {
   BLOB_PREPARE_OP,
@@ -177,11 +178,11 @@ async function recordPurpose(
     return;
   }
   try {
-    await Deno.mkdir(path.value.slice(0, path.value.lastIndexOf("/")), {
+    await mkdir(path.value.slice(0, path.value.lastIndexOf("/")), {
       recursive: true,
       mode: 0o700,
     });
-    await Deno.writeTextFile(
+    await writeFile(
       path.value,
       JSON.stringify({ purpose: prepared.purpose }) + "\n",
     );

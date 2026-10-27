@@ -4,6 +4,8 @@
 // 부르는 쪽이 deps의 실제 관측으로 조건을 채운다.
 // 관측(observeBlobGc)은 삭제가 아니므로 정상 동작 중에도 그대로 돈다.
 
+import { readdirSync } from "node:fs";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { assignmentOf, isSha256Hash, type RetentionRule } from "../mod.ts";
 import {
@@ -40,28 +42,29 @@ export async function listInstalledBlobs(
   }[] = [];
   let prefixes: string[];
   try {
-    prefixes = [...Deno.readDirSync(objects)].map((entry) => entry.name);
+    prefixes = readdirSync(objects, { withFileTypes: true }).map((entry) =>
+      entry.name
+    );
   } catch {
     return ok([]);
   }
   for (const prefix of prefixes) {
     let names: string[];
     try {
-      names = [...Deno.readDirSync(`${objects}/${prefix}`)].map((
-        entry,
-      ) => entry.name);
+      names = readdirSync(`${objects}/${prefix}`, { withFileTypes: true })
+        .map((entry) => entry.name);
     } catch {
       continue;
     }
     for (const suffix of names) {
       try {
-        const stat = await Deno.stat(`${objects}/${prefix}/${suffix}`);
-        if (!stat.isFile) continue;
-        const at = stat.mtime?.getTime() ?? 0;
+        const info = await stat(`${objects}/${prefix}/${suffix}`);
+        if (!info.isFile()) continue;
+        const at = info.mtime?.getTime() ?? 0;
         found.push({
           hash: `${prefix}${suffix}`,
           observedAtMs: at,
-          sizeBytes: stat.size,
+          sizeBytes: info.size,
           registeredAtMs: at,
         });
       } catch {
@@ -149,11 +152,11 @@ async function recordUnreferenced(
   const path = unreferencedPathFor(root, hash);
   if (!path.ok) return path;
   try {
-    await Deno.mkdir(path.value.slice(0, path.value.lastIndexOf("/")), {
+    await mkdir(path.value.slice(0, path.value.lastIndexOf("/")), {
       recursive: true,
       mode: 0o700,
     });
-    await Deno.writeTextFile(
+    await writeFile(
       path.value,
       `${JSON.stringify({ unreferenced_at_ms: atMs })}\n`,
     );
@@ -174,7 +177,7 @@ async function forgetUnreferenced(
   const path = unreferencedPathFor(root, hash);
   if (!path.ok) return path;
   try {
-    await Deno.remove(path.value);
+    await rm(path.value);
     return ok(undefined);
   } catch {
     // 이미 사라진 기록은 사라진 것으로 둔다.
@@ -203,7 +206,7 @@ function maintenanceObservation(deps: MaintenanceDeps): GcDeps {
     removeBlob: (hash) =>
       (async () => {
         try {
-          await Deno.remove(objectPathFor(deps.root, hash));
+          await rm(objectPathFor(deps.root, hash));
           return ok(undefined);
         } catch {
           return err({ code: "unavailable", message: "blob 삭제에 실패했다" });
@@ -213,19 +216,19 @@ function maintenanceObservation(deps: MaintenanceDeps): GcDeps {
       const entries: { name: string; observedAtMs: number }[] = [];
       let names: string[];
       try {
-        names = [
-          ...Deno.readDirSync(`${deps.root}/${BLOB_STORE_TMP_DIR}`),
-        ].map((entry) => entry.name);
+        names = readdirSync(`${deps.root}/${BLOB_STORE_TMP_DIR}`, {
+          withFileTypes: true,
+        }).map((entry) => entry.name);
       } catch {
         return ok([]);
       }
       for (const name of names) {
         try {
-          const stat = await Deno.stat(
+          const info = await stat(
             `${deps.root}/${BLOB_STORE_TMP_DIR}/${name}`,
           );
-          if (!stat.isFile) continue;
-          entries.push({ name, observedAtMs: stat.mtime?.getTime() ?? 0 });
+          if (!info.isFile()) continue;
+          entries.push({ name, observedAtMs: info.mtime?.getTime() ?? 0 });
         } catch {
           // 관측 중 사라진 파일은 목록에서 뺀다.
         }
@@ -235,7 +238,7 @@ function maintenanceObservation(deps: MaintenanceDeps): GcDeps {
     removeTmp: (name) =>
       (async () => {
         try {
-          await Deno.remove(`${deps.root}/${BLOB_STORE_TMP_DIR}/${name}`);
+          await rm(`${deps.root}/${BLOB_STORE_TMP_DIR}/${name}`);
           return ok(undefined);
         } catch {
           return err({
@@ -289,14 +292,16 @@ async function readRecordDir(
   const found = new Map<string, unknown>();
   let prefixes: string[];
   try {
-    prefixes = [...Deno.readDirSync(dir)].map((entry) => entry.name);
+    prefixes = readdirSync(dir, { withFileTypes: true }).map((entry) =>
+      entry.name
+    );
   } catch {
     return ok(found);
   }
   for (const prefix of prefixes) {
     let names: string[];
     try {
-      names = [...Deno.readDirSync(`${dir}/${prefix}`)].map(
+      names = readdirSync(`${dir}/${prefix}`, { withFileTypes: true }).map(
         (entry) => entry.name,
       );
     } catch {
@@ -309,7 +314,7 @@ async function readRecordDir(
       try {
         found.set(
           hash,
-          JSON.parse(await Deno.readTextFile(`${dir}/${prefix}/${name}`)),
+          JSON.parse(await readFile(`${dir}/${prefix}/${name}`, "utf8")),
         );
       } catch {
         // 읽지 못한 기록은 건너뛴다.

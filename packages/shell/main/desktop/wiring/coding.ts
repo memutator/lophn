@@ -235,7 +235,7 @@ export function register(ctx: ShellContext): Coding {
       void codingTerminals.handle(frame.request);
     }
   });
-  // `deno task dev:mock`의 project는 renderer 메모리에만 있어 core가 그 폴더를 모른다. 그때 터미널은
+  // `npm run dev:mock`의 project는 renderer 메모리에만 있어 core가 그 폴더를 모른다. 그때 터미널은
   // 실행마다 비우는 mock 데이터 root 안의 빈 폴더에서 연다.
   const mockFolder =
     process.env.LOPHN_DEV_MOCK === "1" ? join(dataRoot, "mock-terminal") : null;

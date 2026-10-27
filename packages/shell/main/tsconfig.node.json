@@ -1,5 +1,6 @@
 {
-  // deno check가 보던 파일. deno check와 같은 깊이로 보려고 noUncheckedIndexedAccess를 끈다.
+  // desktop main·core·wiring과 terminal host CLI는 esbuild가 묶는 runtime 코드라 tsconfig.json에서 뺀다.
+  // noUncheckedIndexedAccess를 켜면 함께 보는 packages/base가 오류를 내므로 이 project에서는 끈다.
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noUncheckedIndexedAccess": false

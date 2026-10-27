@@ -67,7 +67,7 @@ test("규칙 하나를 더하면 저장 직전에 다시 읽은 값에 그 줄�
         { pattern: "a *", action: "allow" },
         { pattern: "b *", action: "allow" },
       ],
-      [PROJECT_OFFICE]: [{ pattern: "deno test *", action: "allow" }],
+      [PROJECT_OFFICE]: [{ pattern: "npm test *", action: "allow" }],
     },
   };
 
@@ -86,7 +86,7 @@ test("규칙 하나를 더하면 저장 직전에 다시 읽은 값에 그 줄�
           { pattern: "b *", action: "allow" },
           { pattern: "npm publish *", action: "ask" },
         ],
-        [PROJECT_OFFICE]: [{ pattern: "deno test *", action: "allow" }],
+        [PROJECT_OFFICE]: [{ pattern: "npm test *", action: "allow" }],
       },
     },
   ]);

@@ -19,7 +19,7 @@ const shared = {
   outExtension: { ".js": ".cjs" },
   external: ["electron", "node-pty"],
   nodePaths: [join(root, "node_modules")],
-  // Deno workspace 이름은 esbuild가 모른다. 저장소 패키지로 묶는다.
+  // 저장소 패키지는 @lophn/<name> workspace 이름을 esbuild가 모르므로 여기서 직접 푼다.
   plugins: [lophnPackages(root)],
 };
 

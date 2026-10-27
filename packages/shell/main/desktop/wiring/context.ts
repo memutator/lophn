@@ -127,7 +127,7 @@ export function createShellContext(): ShellContext {
     events: [],
     frames: [],
   };
-  const core = connectCore({ here, dataRoot, windows, log, relay });
+  const core = connectCore({ here, dataRoot, windows, relay });
   const coreInternal: ShellContext["coreInternal"] = (
     kind,
     resource,

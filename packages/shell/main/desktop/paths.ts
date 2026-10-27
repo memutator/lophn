@@ -53,14 +53,12 @@ export function browserDataPath(dataRoot: string): string {
  */
 export function packagedInstall(resourcesPath: string): {
   root: string;
-  deno: string;
   platform: string;
   desktop: string;
 } {
   const root = dirname(resourcesPath);
   return {
     root,
-    deno: join(root, process.platform === "win32" ? "deno.exe" : "deno"),
     platform: join(root, "platform"),
     desktop: join(root, "desktop"),
   };

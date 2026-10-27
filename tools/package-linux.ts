@@ -1,6 +1,6 @@
 // Linux .deb 설치 묶음을 만든다.
 //
-//   deno run --allow-all tools/package-linux.ts [--out <dir>] [--skip-shell-build]
+//   node tools/package-linux.ts [--out <dir>] [--skip-shell-build]
 //
 // 산출물: <out>/lophn_<version>_amd64.deb (기본 <out>은 저장소의 build/linux).
 // 이 도구는 build만 한다. 설치·기동·sandbox 실제 확인은 tools/verify-linux-install.ts가 Ubuntu에서
@@ -8,14 +8,13 @@
 //
 // 묶음 배치(/opt/lophn/):
 //   lophn-desktop, chrome-sandbox(root 소유 4755), resources/  Electron(electron-builder `--linux dir`)
-//   deno                       앱과 flow가 wave 3까지 쓰는 Deno binary
-//   platform/                  packages source, deno.json, deno.lock, npm production node_modules/
+//   platform/                  packages source, npm production node_modules/
 //   desktop/                   빌드된 desktop 화면
 //   skills/                    coding agent skill 배포 원본
 //   sdk -> platform/packages/sdk
 // /usr/bin/{lophn-desktop,lophn} launcher, 데스크톱 항목, 아이콘.
 import { Buffer } from "node:buffer";
-import { execFileSync, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import {
   chmod,
   copyFile,
@@ -105,24 +104,6 @@ async function stagePlatform(pkg: string): Promise<void> {
     `${repo}/packages`,
     `${platform}/`,
   ]);
-  // 앱 화면 build는 Deno가 platform/deno.json으로 module을 푼다. 묶음에 없는 member는 workspace에서 뺀다.
-  const config = JSON.parse(await readFile(`${repo}/deno.json`, "utf8"));
-  config.workspace = config.workspace.filter(
-    (member: string) =>
-      !member.startsWith("./packages/shell") && !member.startsWith("./tools/"),
-  );
-  for (const key of ["tasks", "fmt", "lint", "test", "exclude"]) {
-    delete config[key];
-  }
-  config.nodeModulesDir = "manual";
-  // 묶음 workspace에서 빠진 member의 항목이 root deno.lock에 남아 frozen 검사가 실패한다.
-  // Deno 쪽은 앱 build 도구만 쓰므로 lock을 읽지 않는다(deno.lock은 wave 6에서 지운다).
-  config.lock = false;
-  await writeFile(
-    `${platform}/deno.json`,
-    JSON.stringify(config, null, 2) + "\n",
-  );
-  await copyFile(`${repo}/deno.lock`, `${platform}/deno.lock`);
   await stageNodeModules(platform);
 }
 
@@ -229,7 +210,7 @@ async function main(): Promise<void> {
 
   if (!process.argv.slice(2).includes("--skip-shell-build")) {
     await run("npm", ["--prefix", shellMain, "run", "build"]);
-    await run("deno", ["task", "build"], {
+    await run("node", [`${repo}/packages/shell/renderer/build.ts`], {
       cwd: `${repo}/packages/shell/renderer`,
     });
     // npm workspace는 shell main의 의존을 root node_modules로 올린다. electron-builder는 app dir의
@@ -261,15 +242,6 @@ async function main(): Promise<void> {
     await ensure(inPkg(pkg, layout.root)),
   );
   await chmod(inPkg(pkg, layout.chromeSandbox), SANDBOX_MODE);
-  // 앱과 flow는 wave 3까지 Deno로 뜬다. core는 이 binary를 LOPHN_DENO로 받는다.
-  await copyFile(
-    process.env.LOPHN_DENO_BINARY ??
-      execFileSync("sh", ["-c", "command -v deno"], {
-        encoding: "utf8",
-      }).trim(),
-    inPkg(pkg, layout.deno),
-  );
-  await chmod(inPkg(pkg, layout.deno), 0o755);
   await stagePlatform(pkg);
   await stageContent(pkg);
   await stageSystem(pkg);

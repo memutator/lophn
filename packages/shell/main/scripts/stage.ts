@@ -3,17 +3,15 @@
 //   npm run stage [--skip-renderer-build]
 //
 // Output: packages/shell/main/build/stage/
-//   bin/deno              Deno runtime (runs core daemon)
 //   bin/node-pty-prebuilt/lib/binding/*/pty.node  node-pty native module
 //   shell-main/dist/      main.cjs, preload.cjs (electron-builder에서 사용)
 //   shell-renderer/       shell renderer build output
 //   fonts/                design token 글꼴 (Pretendard Variable, JetBrains Mono)
-//   core/                 Deno workspace packages
+//   core/                 platform package source (core, protocol, base)
 //   STAGE.json            빌드 메타데이터
 
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 
 const mainRoot = path.resolve(__dirname, "..");
@@ -25,28 +23,6 @@ const targetPlatform = (process.env.LOPHN_TARGET_PLATFORM ??
 
 function log(msg: string): void {
   console.log(`[stage] ${msg}`);
-}
-
-function hostDeno(): string {
-  if (process.env.DENO) return process.env.DENO;
-  const p = path.join(
-    os.homedir(),
-    ".deno",
-    "bin",
-    process.platform === "win32" ? "deno.exe" : "deno",
-  );
-  return fs.existsSync(p) ? p : "deno";
-}
-
-function denoBinaryForTarget(): string {
-  const explicit = process.env.LOPHN_DENO_BINARY;
-  if (explicit) return explicit;
-  if (targetPlatform === process.platform && process.arch === "x64") {
-    return hostDeno();
-  }
-  throw new Error(
-    `no deno binary for ${targetPlatform}; download it from the deno releases page and set LOPHN_DENO_BINARY`,
-  );
 }
 
 function copyTree(
@@ -127,16 +103,6 @@ function stageCorePackages(): void {
     });
   }
 
-  // Copy deno.json and deno.lock for dependency resolution
-  const denoJson = path.join(repoRoot, "deno.json");
-  const denoLock = path.join(repoRoot, "deno.lock");
-  if (fs.existsSync(denoJson)) {
-    fs.copyFileSync(denoJson, path.join(dst, "deno.json"));
-  }
-  if (fs.existsSync(denoLock)) {
-    fs.copyFileSync(denoLock, path.join(dst, "deno.lock"));
-  }
-
   log("core packages staged");
 }
 
@@ -146,9 +112,9 @@ function stageRendererBundle(): void {
   fs.mkdirSync(dst, { recursive: true });
 
   if (!skipRendererBuild && fs.existsSync(path.join(rendererDir, "build.ts"))) {
-    log("building packages/shell/renderer (deno task build)");
+    log("building packages/shell/renderer (node build.ts)");
     try {
-      execFileSync("deno", ["task", "build"], {
+      execFileSync(process.execPath, [path.join(rendererDir, "build.ts")], {
         cwd: rendererDir,
         stdio: "inherit",
       });
@@ -167,29 +133,9 @@ function stageRendererBundle(): void {
   }
 }
 
-function stageBin(): string {
-  const bin = path.join(out, "bin");
-  fs.mkdirSync(bin, { recursive: true });
-  const exe = targetPlatform === "win32" ? "deno.exe" : "deno";
-  const src = denoBinaryForTarget();
-  fs.copyFileSync(src, path.join(bin, exe));
-  fs.chmodSync(path.join(bin, exe), 0o755);
-
-  let version = "unknown";
-  if (targetPlatform === process.platform) {
-    version =
-      execFileSync(path.join(bin, exe), ["--version"], {
-        encoding: "utf8",
-      }).split("\n")[0] ?? version;
-  }
-  log(`deno binary: ${src} (${version})`);
-  return version;
-}
-
 function main(): void {
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
-  const denoVersion = stageBin();
   stageShellMain();
   stageNodePty();
   stageFonts();
@@ -200,7 +146,6 @@ function main(): void {
     JSON.stringify(
       {
         built_at: new Date().toISOString(),
-        deno: denoVersion,
         platform: targetPlatform,
       },
       null,

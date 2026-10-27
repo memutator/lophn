@@ -7,9 +7,7 @@ const LINUX_INSTALL_ROOT = "/opt/lophn";
 // 설치 묶음 안의 위치. 모두 root 소유 읽기 전용이고 사람 데이터 root(H)와 겹치지 않는다.
 type LinuxInstallLayout = {
   root: string;
-  // 설치된 Deno binary. 앱과 flow가 wave 3까지 이 binary로 뜬다.
-  deno: string;
-  // 플랫폼 source·의존. deno.json, deno.lock, package.json, package-lock.json, node_modules/가 함께 있다.
+  // 플랫폼 source·의존. package.json, package-lock.json, node_modules/가 함께 있다.
   platform: string;
   // 빌드된 desktop 화면(renderer dist).
   desktop: string;
@@ -28,7 +26,6 @@ export function linuxInstallLayout(
   const base = root.replace(/\/$/, "");
   return {
     root: base,
-    deno: `${base}/deno`,
     platform: `${base}/platform`,
     desktop: `${base}/desktop`,
     skills: `${base}/skills`,
@@ -90,7 +87,7 @@ export function cliLauncher(
   return cliScript(launcherHead(layout, "lophn"), hookStdout);
 }
 
-// 개발 실행(`deno task dev`)의 `lophn`. 설치된 launcher와 같은 본문에 경로만 저장소 source로 바꾼다.
+// 개발 실행(`npm run dev`)의 `lophn`. 설치된 launcher와 같은 본문에 경로만 저장소 source로 바꾼다.
 // 전역 hook command가 이 파일의 경로라서 `hook`이 터미널 hook env 없이 부르면 CLI를 띄우지 않고 끝나는 것도 같다.
 export function devCliLauncher(
   paths: DevCliPaths,
@@ -124,7 +121,7 @@ function cliScript(head: string, hookStdout: readonly HookStdoutRow[]): string {
     "  esac",
     "  exit 0",
     "fi",
-    "# CLI는 lophn 자신의 코드라 Deno처럼 좁힐 권한이 없다. shell main과 같은 Node runtime으로 돈다.",
+    "# CLI는 lophn 자신의 코드라 권한을 좁히지 않는다. shell main과 같은 Node runtime으로 돈다.",
     'ELECTRON_RUN_AS_NODE=1 exec "$ELECTRON_BIN" \\',
     '  "$PLATFORM/packages/coding-agent/cli/main.ts" "$@"',
     "",
@@ -164,7 +161,7 @@ export function debControl(input: {
     `Depends: ${LINUX_DEPENDS.join(", ")}`,
     "Maintainer: lophn developers <lophn@localhost>",
     "Description: Client workspace for projects and apps with lophn",
-    " Electron desktop, Deno runtime, and the platform source in one install.",
+    " Electron desktop and the platform source in one install.",
     "",
   ].join("\n");
 }

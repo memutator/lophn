@@ -362,7 +362,7 @@ const REPORT_TOOL_BODIES: SceneData["toolBodies"] = {
 const WORKING_TOOL_BODIES: SceneData["toolBodies"] = {
   [toolId(6)]: {
     input: inputBody({
-      command: "deno task eval --week 41",
+      command: "npm run eval -- --week 41",
       description: "Run the weekly eval",
     }),
     output: shellBody("Ran 24 scenarios: 21 passed, 3 failed."),

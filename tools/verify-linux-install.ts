@@ -83,11 +83,8 @@ async function isDir(path: string): Promise<boolean> {
 async function checkLayout(): Promise<void> {
   const missing: string[] = [];
   for (const file of [
-    layout.deno,
     layout.desktopBinary,
     layout.chromeSandbox,
-    `${layout.platform}/deno.json`,
-    `${layout.platform}/deno.lock`,
     `${layout.platform}/package.json`,
     `${layout.platform}/package-lock.json`,
     `${layout.platform}/packages/core/main/daemon/main.ts`,
@@ -116,12 +113,6 @@ async function checkLayout(): Promise<void> {
     missing.length === 0 ? "pass" : "fail",
     missing.join(", "),
   );
-}
-
-// 시스템 Deno 없이(PATH 비움) 설치된 Deno만으로 시작한다.
-async function denoRuns(): Promise<void> {
-  const out = await run(layout.deno, ["--version"], { PATH: "" });
-  record("R5 설치된 Deno 실행(PATH 없음)", out.code === 0 ? "pass" : "fail");
 }
 
 async function tempHome(): Promise<{ home: string; data: string }> {
@@ -167,18 +158,16 @@ async function checkLaunchers(): Promise<void> {
   const cli = await runLauncher("lophn", ["help"]);
   record(
     "R6 lophn CLI가 설치된 Electron으로 시작",
-    cli.stdout.includes("commands:") ? "pass" : "fail",
+    cli.code === 0 && cli.stdout.trim() !== "" ? "pass" : "fail",
   );
 }
 
-// shell main이 core를 띄우는 것과 같은 launch(packaged flag, 앱과 flow용 Deno binary, DENO_DIR)다.
+// shell main이 core를 띄우는 것과 같은 launch다.
 async function startCore(home: string, data: string) {
   const core = spawnCore({
     repoRoot: layout.platform,
     dataRoot: data,
-    denoBinary: layout.deno,
-    packaged: true,
-    env: { HOME: home, DENO_DIR: `${home}/.cache/lophn/deno`, PATH: "" },
+    env: { HOME: home, PATH: "" },
   });
   const hello = await Promise.race([
     core.hello,
@@ -202,17 +191,16 @@ async function stopCore(core: {
 async function checkCoreOffline(): Promise<void> {
   const { home, data } = await tempHome();
   try {
-    // 새 Deno cache와 빈 PATH로 시작한다. core는 묶음의 node_modules만 읽고, 앱과 flow의 Deno는
-    // 필요할 때 이 cache를 채운다.
+    // 빈 PATH로 시작한다. core는 묶음의 node_modules만 읽고 설치본 밖의 도구를 부르지 않는다.
     const first = await startCore(home, data).catch((error) => error as Error);
     if (first instanceof Error) {
-      record("R4·R5·R8 의존성 다운로드 없는 core 시작", "fail", first.message);
+      record("R4·R8 의존성 다운로드 없는 core 시작", "fail", first.message);
       return;
     }
-    record("R4·R5 새 cache·system Deno 없이 core 시작", "pass");
+    record("R4·R8 빈 PATH로 core 시작", "pass");
     await stopCore(first.core);
 
-    // Deno cache를 지워도 H는 그대로다.
+    // 재시작해도 같은 data root를 그대로 쓴다.
     const before = await stat(`${data}/lophn.db`).then(
       (s) => s.size,
       () => -1,
@@ -220,10 +208,9 @@ async function checkCoreOffline(): Promise<void> {
     const ledgerId = await readFile(`${data}/ledger-id`, "utf8").catch(
       () => "",
     );
-    await rm(`${home}/.cache/lophn/deno`, { recursive: true });
     const second = await startCore(home, data).catch((error) => error as Error);
     if (second instanceof Error) {
-      record("R8 cache 삭제 뒤 재시작", "fail", second.message);
+      record("R8 재시작", "fail", second.message);
       return;
     }
     const after = await stat(`${data}/lophn.db`).then(
@@ -235,7 +222,7 @@ async function checkCoreOffline(): Promise<void> {
       ledgerId ===
         (await readFile(`${data}/ledger-id`, "utf8").catch(() => ""));
     record(
-      "R8 cache 삭제 뒤에도 H 유지·재시작",
+      "R8 재시작 뒤에도 H 유지",
       before > 0 && after > 0 && sameId ? "pass" : "fail",
     );
     await stopCore(second.core);
@@ -245,7 +232,6 @@ async function checkCoreOffline(): Promise<void> {
 }
 
 await checkLayout();
-await denoRuns();
 await checkLaunchers();
 await checkCoreOffline();
 

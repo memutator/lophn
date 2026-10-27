@@ -5,7 +5,6 @@ import { app, type BrowserWindow, ipcMain } from "electron";
 
 import { CORE_STATE_CHANNEL } from "../../../ipc/core.ts";
 import { startCoreConnection } from "../core/connection.ts";
-import { resolveAppDenoBinary } from "../core/deno-binary.ts";
 import { nodeFetch, nodeSockets, nodeStreamFetch } from "../core/node-io.ts";
 import { packagedInstall } from "../paths.ts";
 import type { CoreRelay, Registered, ShellContext } from "./context.ts";
@@ -14,27 +13,20 @@ type ConnectInput = {
   here: string;
   dataRoot: string;
   windows: Set<BrowserWindow>;
-  log: (message: string) => void;
   relay: CoreRelay;
 };
 
 // 창을 다 닫아도 core는 남긴다. 명시 종료(tray·OS 종료)만 core를 멈춘다.
 // Gateway 조건과 도착한 event, 호출 앞 처리는 relay에 영역이 덧붙인 것을 부른다.
 export function connectCore(input: ConnectInput) {
-  const { here, dataRoot, windows, log, relay } = input;
+  const { here, dataRoot, windows, relay } = input;
   return startCoreConnection({
     launch: {
-      // packaged는 설치 묶음의 platform/(source·lock·vendor)이고, 개발은 저장소 루트다.
+      // packaged는 설치 묶음의 platform/(source)이고, 개발은 저장소 루트다.
       repoRoot: app.isPackaged
         ? packagedInstall(process.resourcesPath).platform
         : join(here, "..", "..", "..", ".."),
       dataRoot,
-      // 앱과 flow는 wave 3까지 Deno로 돈다. core는 이 binary를 LOPHN_DENO로 받는다.
-      denoBinary: resolveAppDenoBinary(
-        { isPackaged: app.isPackaged, resourcesPath: process.resourcesPath },
-        log,
-      ),
-      packaged: app.isPackaged,
     },
     ipc: { handle: (channel, listener) => ipcMain.handle(channel, listener) },
     fetch: nodeFetch,

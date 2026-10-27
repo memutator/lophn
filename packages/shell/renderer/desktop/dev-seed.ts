@@ -38,7 +38,7 @@ const NOTES = [
   "> Quotes use the same 2px bar in both modes.",
   "",
   "```",
-  "deno task check",
+  "npm run check",
   "```",
   "",
   "## Next",

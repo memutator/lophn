@@ -78,7 +78,7 @@ export function openDesktopWindow(
 ): BrowserWindow | undefined {
   const { here, headless, windows, overlays } = ctx;
   let created: BrowserWindow | undefined;
-  // 개발 확인 전용(`deno task dev:mock`). renderer가 주소의 `mock`을 보고 core 대신 메모리 가짜
+  // 개발 확인 전용(`npm run dev:mock`). renderer가 주소의 `mock`을 보고 core 대신 메모리 가짜
   // 통로로 모든 화면을 채운다. `LOPHN_SHELL_START`의 시작 자리와 함께 쓴다.
   const desktopUrl =
     process.env.LOPHN_DEV_MOCK === "1" ? `${DESKTOP_URL}?mock` : DESKTOP_URL;

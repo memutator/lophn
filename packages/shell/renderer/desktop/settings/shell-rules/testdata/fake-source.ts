@@ -26,7 +26,7 @@ export const SAMPLE_SHELL_RULES: ShellRulesSetting = {
     { pattern: "npm publish *", action: "ask" },
   ],
   projects: {
-    [PROJECT_GROCERY]: [{ pattern: "deno task *", action: "allow" }],
+    [PROJECT_GROCERY]: [{ pattern: "npm run *", action: "allow" }],
   },
 };
 

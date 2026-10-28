@@ -8,10 +8,10 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
  보낸 쪽                                  Router (core/router)                    받는 쪽
  ───────                                  ────────────────────                    ───────
  person (메시지)             ─┐           받는 곳 풀기                        ┌─ lophn session
- agent-tools (call/reply/cancel) ─┤       ├ 새 session   : role+place로 하나    │   run-loop 입력함(메모리)
+ agent-tools (call/reply/cancel) ─┤       ├ 새 session   : agent 이름+place로 하나 │   run-loop 입력함(메모리)
  program (알림)              ─┘─ route ─▶ ├ 열린 session : session ID           │
                                           └ 둘 다        : 열려 있으면 거기,    │
-                                            닫혔으면 같은 role+place의 새 session ┘
+                                            닫혔으면 fallback의 agent+place 새 session ┘
                                           agent_calls 행(storage): agent가 보낸 것만
                                           unattended 표시: 봉투, 입력, 행에 싣는다
 
@@ -55,7 +55,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - 그래서 받은 순서와 turn 순서가 다르다. turn의 이력은 앞 turn들이 가져간 message를 turn 순서로 놓고 그 turn의 입력을 붙인다. 받은 순서로 자르면 아직 아무 turn도 가져가지 않은 call이 앞 turn의 prompt에 들어간다.
 - 닫힌 call에 늦게 온 답은 오류가 아니라 closed로 돌려준다. 받은 agent가 답이 전해지지 않았음을 알아야 하기 때문이다.
 - result의 답은 받은 agent가 reply로 직접 보내야 call이 done이 된다. lophn session은 저절로 끝나지 않아 program이 끝을 모른다.
-- 받는 곳이 role `coding_agent`로 풀리면 Router가 `invalid_input`으로 거절하고 call 행을 쓰지 않는다(`{role: "coding_agent", place}`로 부른 것, coding session id로 부른 것 모두. `packages/core/router/router.ts`의 `resolve`). 권한의 문제가 아니라 그런 받는 곳이 없는 것이라 누가 보내도 같은 답이다. coding session 층은 지웠다(`architecture/coding-agent.md`). 부를 수 있는 session 목록의 `queued_coding`은 늘 비어 있다.
+- call의 `to`는 `{session}`이나 `{agent, place?}`(+ `fallback`)다(`packages/protocol/lophn-agent/calls.ts`). `agent`는 agent 이름이고 place가 없으면 home이다. 이름은 전역에 하나라 하나로 풀린다. `fallback`은 session이 닫혔을 때 열 `{agent, place?}`다. 옛 role 주소(`{role, place?, name?}`)는 workflow가 아직 써서 Router가 `addressOfNamed`(`packages/core/router/model.ts`)로 새 주소로 바꿔 받는다. role `coding_agent`는 `invalid_input`이고 call 행을 쓰지 않는다.
 
 ## 왜 이 모양인가
 
@@ -64,7 +64,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - **Orleans식 "없으면 만든다"를 버렸다.** session을 여는 것이 token이라 보내는 쪽이 명시해야 한다.
 - **dead letter를 버렸다.** 조용히 버리면 보낸 agent는 일이 진행 중인 줄 안다. Erlang monitor의 DOWN처럼 이유를 돌려준다.
 - **상태는 accepted, done, failed, cancelled 넷이다. `sent`와 `declined`가 없다.** Router가 행 만들기와 입력 넣기를 한 번에 해서 sent로 머무는 때가 없다. declined와 done을 나눠도 program이 다르게 하는 일이 없고, "맡지 않겠다"는 글은 보낸 agent가 읽을 의미다. 그래서 맡지 않을 때도 reply로 이유를 보낸다. 봉투의 여는 방식 칸(tab, tui, headless)도 transport마다 값이 하나뿐이라 뺐다. 되살리고 싶어지면 이 이유를 먼저 본다.
-- **주소는 session ID다.** 사람이 읽는 label은 표시용이다. 이름을 주소로 쓰면 겹침 처리가 따로 필요하다. 열린 session 목록(ID와 상태)은 prompt가 아니라 tool result(`session.list`)로만 주어 prompt cache를 깨지 않는다. place prompt의 "Agents you can call"은 ID 없이 role과 이름만 싣고, session이 아직 없는 상대(lophn, 활성 project의 Project Manager, 활성 앱의 App Engineer, 정의에 있는 Operator)도 넣는다. call이 새 session을 열 수 있기 때문이다. 자기 자신만 뺀다.
+- **주소는 session ID다.** 사람이 읽는 label은 표시용이다. 이름을 주소로 쓰면 겹침 처리가 따로 필요하다. 열린 session 목록(ID와 상태)은 prompt가 아니라 tool result(`session.list`)로만 주어 prompt cache를 깨지 않는다. place prompt의 "Agents you can call"은 ID 없이 agent 이름만 싣고, session이 아직 없는 agent도 넣는다. call이 새 session을 열 수 있기 때문이다. 어느 place에서 열지는 보내는 쪽이 고른다.
 - **call을 판정하지 않는다.** 예전에는 call tool이 turn 안에서 묻고 Router가 tx 안에서 한 번 더 판정해 둘을 `gate_allowed`로 이었다. 부르는 것을 막아도 받은 agent의 할당이 이미 일을 거르고, 사람이 workflow에서 "call 금지 같은 딱딱한 규칙을 두지 않는다"고 정했다(`project-docs/products/roadmap/approval.md`).
 - **도는 turn에 끼우지 않는다.** 조사한 harness 대부분은 도는 turn을 끊지 않고 다음 model 요청 앞에 붙인다. lophn은 사람의 "그만"만 급하다고 보고 사람 메시지에만 steer를 열었다. 다른 agent의 입력까지 끼우면 입력 하나가 turn 하나라는 셈이 흐려진다.
 - **원문 넘기기와 fuzzy 매칭을 버렸다.** OpenAI handoff의 history 전달은 맥락 비용과 오염이 크고, CrewAI식 비슷한 이름 짐작은 엉뚱한 agent에게 일을 맡긴다.

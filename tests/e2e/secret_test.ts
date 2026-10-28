@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { test } from "node:test";
 import {
-  agentSessionRead,
+  placeSessionRead,
   messageBody,
   modelCallList,
   providerList,
@@ -19,6 +19,7 @@ import {
   toolCallList,
   turnBodyView,
   turnRead,
+  LOPHN_AGENT_ID,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   SECRET_FILE_NAME,
@@ -28,7 +29,7 @@ import {
 import {
   connectFakeProvider,
   openProject,
-  openSession,
+  openPlaceSession,
   say,
   waitTurnEnd,
 } from "../support/core/human.ts";
@@ -138,7 +139,7 @@ async function ledgerText(
     bodies,
     await core.call(modelCallList, { session }),
     await core.call(receivedMessageList, { session }),
-    await core.call(agentSessionRead, { session }),
+    await core.call(placeSessionRead, { session }),
     await core.call(turnRead, { turn }),
   ]);
 }
@@ -146,7 +147,7 @@ async function ledgerText(
 test("E2E provider key는 model 요청 header에만 실리고 secrets.json 밖 어디에도 남지 않는다", async () => {
   await withKeyedCore(
     async ({ core, fake, provider, key }) => {
-      const session = await openSession(core, { role: "lophn" });
+      const session = await openPlaceSession(core, LOPHN_AGENT_ID);
       fake.script([{ reply: { kind: "text", text: "ok" } }]);
       const sent = await say(core, session, "hello");
       const turn = await waitTurnEnd(core, session);
@@ -187,9 +188,9 @@ test("E2E tool 결과에 key가 들어 있어도 model 요청·ledger·disk에�
       await writeFile(`${folder}/.env`, `API_KEY=${key}\n`);
       planted.push(`${folder}/.env`);
       const { project } = await openProject(core, folder);
-      const session = await openSession(core, {
-        role: "project_manager",
-        project,
+      const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+        kind: "project",
+        id: project,
       });
       fake.script([
         {
@@ -241,7 +242,7 @@ test("E2E key를 바꾸면 다음 turn은 새 key를 쓰고 옛 key는 어디에
       const { core, fake, provider, key: first } = ctx;
       const second = `sk-e2e-${core.ids.newId("key").split("_").pop()}`;
       ctx.keys.push(second);
-      const session = await openSession(core, { role: "lophn" });
+      const session = await openPlaceSession(core, LOPHN_AGENT_ID);
       fake.script([
         { reply: { kind: "text", text: "one" } },
         { reply: { kind: "text", text: "two" } },
@@ -275,7 +276,7 @@ test("E2E key를 바꾸면 다음 turn은 새 key를 쓰고 옛 key는 어디에
 test("E2E key를 지우면 다음 turn은 요청을 보내지 않고 실패한다", async () => {
   await withKeyedCore(
     async ({ core, fake, provider }) => {
-      const session = await openSession(core, { role: "lophn" });
+      const session = await openPlaceSession(core, LOPHN_AGENT_ID);
       fake.script([{ reply: { kind: "text", text: "one" } }]);
       await say(core, session, "hello");
       await waitTurnEnd(core, session);
@@ -300,7 +301,7 @@ test("E2E key를 지우면 다음 turn은 요청을 보내지 않고 실패한�
 test("E2E provider 오류 본문이 key를 되울려도 ledger·log에 남지 않는다", async () => {
   await withKeyedCore(
     async ({ core, fake, key }) => {
-      const session = await openSession(core, { role: "lophn" });
+      const session = await openPlaceSession(core, LOPHN_AGENT_ID);
       fake.script([
         {
           reply: {

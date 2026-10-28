@@ -5,12 +5,13 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { test } from "node:test";
+import { LOPHN_AGENT_ID } from "../../packages/protocol/lophn-agent/mod.ts";
 import { sessionSnapshotsList } from "../../packages/protocol/events/mod.ts";
 import {
   connectFakeProvider,
   decide,
   openProject,
-  openSession,
+  openPlaceSession,
   say,
   turnsOf,
 } from "../support/core/human.ts";
@@ -31,9 +32,9 @@ test("E2E Gateway에 늦게 붙은 화면은 snapshot으로 대기 중인 허락
     await mkdir(folder);
     const ask = await shellAsk(folder);
     const { project } = await openProject(core, folder);
-    const session = await openSession(core, {
-      role: "project_manager",
-      project,
+    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+      kind: "project",
+      id: project,
     });
     fake.script([
       { reply: ask.reply("t1") },

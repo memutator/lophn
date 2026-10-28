@@ -9,15 +9,16 @@ import { SHELL_RULES_SETTING_KEY } from "../../packages/protocol/approvals/mod.t
 import { settingsList } from "../../packages/protocol/config/file.ts";
 import { sessionSnapshotsList } from "../../packages/protocol/events/mod.ts";
 import {
-  agentSessionRead,
+  placeSessionRead,
   changeSessionSkip,
   toolCallList,
+  LOPHN_AGENT_ID,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   connectFakeProvider,
   decide,
   openProject,
-  openSession,
+  openPlaceSession,
   say,
   settle,
   waitPermission,
@@ -63,9 +64,9 @@ test("shell 물음에 always로 답하면 규칙이 project 층에 남아 재시
     const folder = `${run.work}/proj`;
     await mkdir(folder);
     const { project } = await openProject(core, folder);
-    const session = await openSession(core, {
-      role: "project_manager",
-      project,
+    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+      kind: "project",
+      id: project,
     });
 
     // always: 물음이 규칙 pattern을 싣고, 답하면 명령이 돌고 규칙이 project 층에 남는다.
@@ -110,7 +111,7 @@ test("shell 물음에 always로 답하면 규칙이 project 층에 남아 재시
     );
 
     // skip이어도 floor deny. `~`는 core의 HOME(<run>/user-home)이라 판정이 틀려도 run 폴더 안이다.
-    const { session: read } = await core.call(agentSessionRead, { session });
+    const { session: read } = await core.call(placeSessionRead, { session });
     await core.call(
       changeSessionSkip,
       { session, skip: true },

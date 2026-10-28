@@ -7,12 +7,12 @@
 //   비어 늘 rejected인 것(연결을 보는 test가 없었다).
 // - 왜 지금 test로 못 잡나: 한도 계산은 unit이 있지만 실제 pipe와 앱 process의 한 transaction은 process를 건너야 한다.
 //
-// fake 대답: 앞 세 행은 앱 activation(`activateTestApp`)의 App Engineer 대답(`release_prepare`·`release_activate`)뿐이라
+// fake 대답: 앞 세 행은 앱 activation(`activateTestApp`)의 앱 place lophn session 대답(`release_prepare`·`release_activate`)뿐이라
 // 행의 상한(3)에 세지 않는다(`architecture/testing.md` "case 고르는 규칙" 4). `session-rewind-with-app`은 case마다
 // agent의 앱 호출과 끝 text, 둘이다.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { agentAssignmentSet } from "../../packages/protocol/approvals/mod.ts";
+import { assignmentSet } from "../../packages/protocol/approvals/mod.ts";
 import {
   appCallTool,
   appInvocations,
@@ -22,7 +22,7 @@ import {
   appRuntime,
 } from "../../packages/protocol/apps/mod.ts";
 import {
-  operatorCreate,
+  agentCreate,
   type RevertRecord,
   rewindList,
   sessionRewind,
@@ -33,7 +33,7 @@ import { appCoreEnv } from "../support/app/deps.ts";
 import { rewindPatch } from "../support/app/patch-rewind.ts";
 import {
   connectFakeProvider,
-  openSession,
+  openPlaceSession,
   say,
   until,
   waitTurnEnd,
@@ -225,20 +225,19 @@ test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌�
     ]!;
     assert.deepStrictEqual(await titles(core, live), [kept_title]);
 
-    // session-rewind-with-app: 앱 place Operator session의 rewind에서 앱을 고르면 그 앱도 되돌아가고, 안 고르면 그대로다.
-    // 비공개 tool은 그 domain을 맡은 agent만 보고, 앱 place의 Operator는 앱의 domain을 모두 맡는다.
+    // session-rewind-with-app: test가 만든 agent의 앱 place session의 rewind에서 앱을 고르면 그 앱도 되돌아가고, 안 고르면 그대로다.
+    // 비공개 tool은 그 domain을 받은 session만 보고, domains를 고르지 않은 agent는 앱 place에서 앱의 domain을 모두 받는다.
+    const place = { kind: "app", id: live.app } as const;
     const agent = core.ids.newId("agt");
-    await core.call(operatorCreate, {
+    await core.call(agentCreate, {
       id: agent,
-      place: { kind: "app", id: live.app },
       definition: { name: "Writer", body: "use the app" },
     });
-    const operator = { role: "operator", agent } as const;
     // tool 목록은 session을 열 때 고정되므로 열기 전에 할당한다.
     await core.call(
-      agentAssignmentSet,
+      assignmentSet,
       {
-        agent: operator,
+        agent,
         entries: [{ app: live.app, removed_tools: [] }],
       },
       { revision: 0 },
@@ -252,7 +251,7 @@ test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌�
           reply: { kind: "text", text: "added" },
         },
       ]);
-      const session = await openSession(core, operator);
+      const session = await openPlaceSession(core, agent, place);
       const { message } = await say(core, session, `add ${title}`);
       await waitTurnEnd(core, session);
       assert.ok((await titles(core, live)).includes(title));

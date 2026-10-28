@@ -11,11 +11,14 @@ import { lstat, mkdir, readFile, symlink } from "node:fs/promises";
 import { test } from "node:test";
 import { errorCode } from "../../packages/base/mod.ts";
 import { agentFilePathOf } from "../../packages/core/agent-places/place/instruction-rules.ts";
-import { toolCallList } from "../../packages/protocol/lophn-agent/mod.ts";
+import {
+  toolCallList,
+  LOPHN_AGENT_ID,
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   connectFakeProvider,
   openProject,
-  openSession,
+  openPlaceSession,
   say,
   waitTurnEnd,
 } from "../support/core/human.ts";
@@ -68,9 +71,9 @@ async function scope(
     await symlink(outside, `${proj}/link`);
     const { project } = await openProject(core, proj);
     await openProject(core, other);
-    const session = await openSession(core, {
-      role: "project_manager",
-      project,
+    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+      kind: "project",
+      id: project,
     });
     const definition = agentFilePathOf(run.home, {
       agent: "lophn",

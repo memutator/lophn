@@ -1,17 +1,15 @@
 # place-session
 
-lophn의 agent는 place(project 또는 app)에 놓이고, 그 agent와 하는 대화가 session이다. 이 문서는 어떤 agent가 어느 place에 몇 개 있는지, session이 언제 열리고 언제 끝나는지, 끝날 때 다른 장치(call, turn 안 request, 질문)에 무엇이 같이 일어나는지, session을 복사(fork)하거나 되돌릴(rewind) 때 무엇을 가져가고 무엇을 두고 가는지를 정한다. 이 경계가 흐려지면 끝난 session이 call을 붙잡거나, 다른 session의 skip이 새거나, 되돌린 대화에 낡은 요청이 남는다.
+lophn의 agent는 lophn과 사람이 만든 agent이고 정의는 전역이다. agent와 하는 대화가 session이고, session이 place(없음·project·app)를 갖는다. 이 문서는 session의 정체가 무엇인지, session이 언제 열리고 언제 끝나는지, 끝날 때 다른 장치(call, turn 안 request, 질문)에 무엇이 같이 일어나는지, session을 복사(fork)하거나 되돌릴(rewind) 때 무엇을 가져가고 무엇을 두고 가는지를 정한다. 이 경계가 흐려지면 끝난 session이 call을 붙잡거나, 다른 session의 skip이 새거나, 되돌린 대화에 낡은 요청이 남는다.
 
 ## 흐름
 
 ```
- project 등록 ──▶ Project Manager 정의 (project마다 하나)        ┐
- 앱 만들기    ──▶ App Engineer 정의 (앱마다 하나)                 ├ agents: 정의는 project 폴더나 앱 source가
- 첫 기동      ──▶ lophn 정의 (전체에 하나)                       │ 아니라 lophn data 안에 있는 파일
- 사람이 만듦  ──▶ Operator 정의 (project나 앱에 여럿)            ┘
+ 첫 기동      ──▶ lophn 정의 (고정 id lophn)             ┐ agents: <data>/agents/<id>.md
+ 사람이 만듦  ──▶ agent 정의 (agt_…, 이름은 전역에 하나)  ┘ project 등록·앱 만들기는 agent를 만들지 않는다
 
  session 열기 ◀── person | Router(call의 새 session, program 알림)
-    │ role+place 고정 (agent-sessions)
+    │ agent+place 고정 (agent-sessions). place는 없음(home), project, app
     ▼
   open ──── place 보관 ────▶ open인 채 새 입력만 막힘 (place를 꺼내면 이어서 받음)
     │
@@ -20,22 +18,22 @@ lophn의 agent는 place(project 또는 app)에 놓이고, 그 agent와 하는 �
          · 대기 request·질문 → cancelled   · 입력함 비움
          · SessionEnded 발행
 
- fork   : 이력만 복사한 새 session (같은 agent)
+ fork   : 이력만 복사한 새 session (같은 agent, 같은 place)
  rewind : 대화(+file tool이 바꾼 파일) ─ 사람이 앱을 고르면 ─▶ 앱 rewind (app-call)
 ```
 
 ## 지키는 것
 
-- role과 place는 session을 열 때 정해지고 바뀌지 않는다. role에 맞지 않는 place, 없거나 보관된 place에는 열지 않는다.
-  - agent 정의, 할당, 지침, file 범위가 모두 role+place에서 나온다. 열린 session의 role이나 place를 바꾸면 이미 쌓인 대화가 다른 agent의 것이 된다.
+- session의 정체는 (agent id, place)이고 열 때 정해져 바뀌지 않는다(`sessions.agent`, `place_kind`, `place_id`와 trigger `sessions_identity_immutable`). 정의가 없는 agent, 없거나 보관된 place에는 열지 않는다. 어느 agent든 어느 place에 열 수 있다.
+  - agent 정의, 할당, 지침, file 범위가 agent와 place에서 나온다. 열린 session의 agent나 place를 바꾸면 이미 쌓인 대화가 다른 agent의 것이 된다.
 - session을 여는 길은 사람과 Router 둘이고 같은 연산으로 연다. Router는 call과 workflow step의 새 session(`architecture/workflow.md`)과 program 알림(`open_session_or_new`)으로 연다.
-  - 열 때의 검사(role과 place, 보관 여부)를 한 곳에 두어야 어느 길로 열어도 같은 session이 된다.
-- role은 넷이다. lophn은 전체에 하나, Project Manager는 project마다 하나, App Engineer는 앱마다 하나, Operator는 사람이 project나 앱에 만든 만큼이다. 앞의 셋은 더하거나 지우지 않고 Operator만 사람이 만들고 지운다.
-  - place는 project 또는 app이다(`Place`). 앱은 project에 묶이지 않고 앱마다 app place가 있다. 앱의 일은 그 앱의 App Engineer가 맡는다.
+  - 열 때의 검사(agent 정의, place, 보관 여부)를 한 곳에 두어야 어느 길로 열어도 같은 session이 된다.
+- agent는 lophn과 사람이 만든 agent뿐이다. lophn은 지우지 못하고, 사람이 만든 agent는 사람이 만들고 지운다.
+  - place는 project 또는 app이고(`Place`) 없으면 home이다. 앱은 project에 묶이지 않고 앱마다 app place가 있다.
   - place는 그릇이고 경계는 그 안의 domain이다. agent가 받는 지침, kind, skill, tool은 맡은 domain의 것이다(`architecture/domain.md`).
-  - 정의는 파일이라 DB tx에 묶을 수 없다. 만들기는 멱등이다(있으면 그대로, 빈 파일). 등록과 파일 만들기 사이에 죽어도 다음 호출이 이어 만든다.
+  - 정의는 파일이라 DB tx에 묶을 수 없다. lophn 정의 만들기는 멱등이다(있으면 그대로).
 - run(`architecture/run.md`)도 `OpenSession`으로 session을 연다. 사람이 연 것과 같은 session이고 run이 끝나도 열린 채 남는다. 저절로 닫지 않는다. 화면은 sidebar에 그대로 두지 않고 그 session을 연 run 아래로 묶어 보인다(`--session`으로 이어 쓴 session은 원래 자리다).
-- session은 저절로 끝나지 않는다. 끝은 사람의 archive나 지움뿐이다(coding agent session은 process로 끝난다).
+- session은 저절로 끝나지 않는다. 끝은 사람의 archive나 지움뿐이다.
   - lophn agent는 일이 끝났다고 program에게 알리지 않는다. 열려 있어야 call과 reaction을 받을 수 있다.
 - archive와 지움은 모든 영향을 한 tx에 묶는다. 일부만 적용된 끝이 없어야 한다. 보낸 call의 답은 취소하지 않는다(받은 session에만 남는다).
   - 도는 turn은 interrupted(`session_ended`)로 닫고 진행한다. agent runtime child에도 `turn_stop`을 보내 진행 중인 model 요청을 끊는다. 끝나는 session이 받은 call은 receiver_ended로 닫혀 보낸 쪽이 안다.
@@ -44,9 +42,9 @@ lophn의 agent는 place(project 또는 app)에 놓이고, 그 agent와 하는 �
 - lophn이 꺼졌다 켜져도 열린 session은 열린 채다. 대신 메모리에 있던 것은 사라진다: 돌던 turn은 interrupted, 입력함(inbox)에 있던 call은 lophn_restarted로 닫힘, 대기 request와 질문은 cancelled다. 입력함에 있던 step 메시지는 다시 넣지 않고 workflow가 `lophn_restarted` 줄로 남긴다. session의 skip 표시는 표(`sessions.skip`)에 남는다.
   - 사람 메시지는 버리지 않는다. 켤 때 아직 turn이 가져가지 않은 사람 메시지를 받은 순서대로 입력함에 다시 넣어 turn을 연다. fork 사본, rewind가 숨긴 구간, 보관한 session과 place의 것은 뺀다. run 입력(`messages.unattended`가 1인 사람 메시지)도 뺀다. 그 run은 켤 때 `lophn_restarted`로 닫히는데, 다시 돌면 닫힌 run 뒤에 attended turn이 생겨 바깥 효과가 두 번 난다(`architecture/run.md`).
 - agent runtime child가 죽으면 그 child가 돌리던 turn은 interrupted(`restarted`)로 닫고 입력함 표시와 기다리던 request를 푼다. 닫지 않으면 session이 새 입력을 모두 `conflict`로 막는다.
-- fork는 이력만 복사한다. 같은 role, place, agent의 새 session이고 고른 지점까지의 확정 메시지를 가져간다. rewind가 숨긴 구간은 복사하지 않는다.
+- fork는 이력만 복사한다. 같은 agent, 같은 place의 새 session이고 고른 지점까지의 확정 메시지를 가져간다. rewind가 숨긴 구간은 복사하지 않는다.
   - 대기 request와 질문, 열린 call, rewind 기록은 원래 session의 turn에 묶여 있어 가져가지 않는다. 같은 파일을 두 session이 되돌리면 부딪친다.
-  - skip도 가져가지 않는다. 새 session은 Operator 정의의 기본값(Operator가 아니면 꺼짐)으로 시작한다.
+  - skip도 가져가지 않는다. 새 session은 agent 정의의 `skip` 기본값으로 시작한다.
 - checkpoint는 turn을 시작하는 입력(사람 메시지, call, 답, step)마다 생긴다. steer로 도는 turn에 들어간 메시지, fork 복사본, reaction, 알림은 아니다.
   - Claude Code checkpointing도 turn 중 보낸 메시지는 checkpoint로 치지 않는다.
 - session rewind는 도는 turn이 없을 때만 시작한다. 앱 data는 file까지 함께 되돌리는 선택(restore_all)에서, 사람이 고른 앱만 되돌린다. 안 고르면 그대로다.
@@ -66,7 +64,7 @@ lophn의 agent는 place(project 또는 app)에 놓이고, 그 agent와 하는 �
 
 ## 왜 이 모양인가
 
-- **agent는 place에 놓이고 session은 그 agent의 대화다.** 옛 assignment 상태 machine(누가 무엇을 맡았나)은 place에 놓인 agent와 할당으로 대체했다. 상태를 따로 추적하지 않아도, 맡기는 것은 call이고 허락은 할당이다.
+- **agent는 전역이고 place는 session이 갖는다(사람, 2026-10-28).** role(lophn, Project Manager, App Engineer, Operator)이 agent를 place에 묶었지만, place가 하는 일(file 범위, 받는 domain, credential 조건, prompt, 주소)은 모두 "session이 어디서 일하나"의 일이다. Claude Code, Codex, OpenCode도 agent 설정은 전역이고 작업 폴더는 session마다다. 옛 assignment 상태 machine(누가 무엇을 맡았나)은 agent와 할당으로 대체했다. 상태를 따로 추적하지 않아도, 맡기는 것은 call이고 허락은 할당이다.
 - **App Engineer는 앱마다 하나, session은 여럿이다.** Project Manager와 같은 모양이다. 앱은 project에 묶이지 않는 그릇이라 앱 코드의 일(설계, 선언, 구현, release)은 그 앱의 App Engineer가 맡고, Project Manager는 project의 domain과 Operator를 맡는다. 앱은 사람이 런처의 New app으로 직접 만들거나(그 앱의 App Engineer와 새 session으로 시작한다), lophn이 기획해 등록하고 그 앱의 App Engineer에게 call로 맡긴다. 구현은 App Engineer가 직접 한다.
 - **앱 place에는 project 지침이 없다.** 앱은 project에 묶이지 않으므로 App Engineer와 앱 place의 Operator는 `LOPHN.md`를 받지 않는다. 지침 층은 전역, 맡은 domain의 `DOMAIN.md`, agent 정의 본문이다.
 - **"이 session 동안" 허락은 없다.** 할당했으면 허락한 것이고, shell 규칙의 `ask`는 `always`로 규칙 줄을 더한다(`architecture/approval.md`). skip은 사람이 그 session에 켠 표시라 표에 남긴다.

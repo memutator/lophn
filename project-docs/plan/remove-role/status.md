@@ -14,8 +14,8 @@ lead만 고친다. `tools/status.py remove-role build`가 `tasks/*.md`에서 id,
 | `jobs-core` | jobs | 2 | runs-core, wireframe-sidebar | todo |  |  |  |
 | `place-prompts` | places | 2 | place-scope | todo |  |  |  |
 | `place-scope` | places | 2 | place-tools | todo |  |  |  |
-| `place-tools` | places | 2 | sessions-core | todo |  |  |  |
-| `router-core` | router | 2 | sessions-core | todo |  |  |  |
+| `place-tools` | places | 2 | sessions-core | running | places/place-tools |  |  |
+| `router-core` | router | 2 | sessions-core | running | router/router-core |  |  |
 | `runs-core` | runs | 2 | router-core, place-tools | todo |  |  |  |
 | `sessions-core` | sessions | 2 | agents-core | merged | sessions/sessions-core | 166ec9f32 |  |
 | `wireframe-agents` | wireframe | 2 | 없음 | merged | wireframe/wireframe-agents | 298875403 |  |

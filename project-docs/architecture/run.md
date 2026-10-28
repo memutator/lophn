@@ -20,8 +20,8 @@ run은 화면 없이 부르는 lophn agent 호출 하나, 또는 앱 tool 호출
 
  job scheduler (core 안, route 아님): RunService.start(input, origin) ─ 같은 길. agent는 이름을 이미 푼 agent_resolved 갈래
    origin이 있는 tool run만 앱 호출 경로를 program caller로 부른다 (만든 agent의 할당과 domain 거르기)
- flow host (core 안, route 아님): RunService.start(input, origin) ─ 같은 길. origin은 instance와 그 project의 PM
-   tool run은 앱 호출 경로를 flow caller로 부른다 (PM의 할당과 domain 거르기)
+ flow host (core 안, route 아님): RunService.start(input, origin) ─ 같은 길. origin은 instance와 그 creator(agent @ project)
+   tool run은 앱 호출 경로를 flow caller로 부른다 (creator의 할당과 domain 거르기)
 
  Bus: TurnEnded, SessionEnded ─▶ service가 깨어 표를 다시 본다 (정본은 표)
  켤 때: router가 돌던 turn을 닫은 뒤 reconcile
@@ -49,7 +49,7 @@ run은 화면 없이 부르는 lophn agent 호출 하나, 또는 앱 tool 호출
 시작
 - `StartRun`은 이름을 다 푼 뒤에 session을 열고 run을 만든다. 이름이 안 풀린(`not_found`) 첫 시도는 session도 run도 남기지 않는다.
   - 순서는 run 행(running) → session 열기 → 메시지 넣기다. 열기나 넣기가 실패하면 그 run을 `start_failed`로 닫는다.
-- core 안 시작은 `RunService.start(input, origin?)`다. `origin`은 job 갈래(job, job run, 그 job을 만든 agent와 place)와 instance 갈래(flow instance, 그 project의 PM과 project place) 가운데 하나이고, tag 없이 `job` 키와 `instance` 키로 가른다(`packages/core/runs/ports.ts`의 `RunOrigin`). 메모리에만 있고 route 입력(`StartRun`)에는 없다. 있으면 run의 `job`이나 `instance` 칸을 채운다. agent run은 `agent_resolved` 갈래도 받는다: 이름을 이미 푼 (agent id, place)를 주므로 이름 풀기를 건너뛴다. job이 만들 때 이름을 풀어 저장해 두기 때문이다. 나머지(session 열기, 입력, 끝을 아는 법)는 같다.
+- core 안 시작은 `RunService.start(input, origin?)`다. `origin`은 job 갈래(job, job run, 그 job을 만든 agent와 place)와 instance 갈래(flow instance, `workflow.yaml`의 `agent`와 project place) 가운데 하나이고, tag 없이 `job` 키와 `instance` 키로 가른다(`packages/core/runs/ports.ts`의 `RunOrigin`). 메모리에만 있고 route 입력(`StartRun`)에는 없다. 있으면 run의 `job`이나 `instance` 칸을 채운다. agent run은 `agent_resolved` 갈래도 받는다: 이름을 이미 푼 (agent id, place)를 주므로 이름 풀기를 건너뛴다. job이 만들 때 이름을 풀어 저장해 두기 때문이다. 나머지(session 열기, 입력, 끝을 아는 법)는 같다.
 - agent run은 `agent`(`AgentAddress`: agent 이름과 place, place가 없으면 home)와 `session`(이어 쓸 열린 session) 가운데 정확히 하나를 받는다. 읽을 수 없는 schema, 너무 긴 prompt는 `invalid_input`이다. 호출마다 새 session이고, `session`을 주면 그 session에 이어 넣는다(열린 session이 아니면 `conflict`).
 - 보내는 글은 prompt에, 입력 JSON과 "이 JSON Schema에 맞는 JSON 하나만 답하라"는 고정 영어 문장을 붙인 것이다(`runMessageText`).
 - run이 연 session은 열린 채 남는다(`session_opened`). `session`으로 이어 쓴 run은 session을 열지 않는다.
@@ -85,7 +85,7 @@ unattended
 tool run
 - 앱을 id, slug, 이름으로 푼다(없으면 `not_found`). `StartRun`은 run 행을 만들고 기다리지 않고 돌려준다. 호출은 뒤에서 돌고 끝나면 `SettleRun`한다.
 - 부른 쪽은 사람이다. 앱 화면에서 사람이 누르는 것과 같은 길이고 Gate를 거치지 않는다(`architecture/app-call.md`). run은 session이 없고 `view_session`에 run id를 싣는다.
-  - `origin`이 있는 tool run은 사람이 아니다. job이 연 것은 같은 길을 program caller로, flow instance가 연 것은 flow caller로 부른다. 자격은 그 job을 만든 agent와 place, 또는 그 project의 PM과 project place를 싣는다(`packages/core/main/daemon/wiring/runs.ts`의 `tools.call`). 그 agent의 지금 할당과 domain 거르기를 받고 막히면 run이 `tool_denied`다(`architecture/app-call.md`).
+  - `origin`이 있는 tool run은 사람이 아니다. job이 연 것은 같은 길을 program caller로, flow instance가 연 것은 flow caller로 부른다. 자격은 그 job을 만든 agent와 place, 또는 그 instance의 creator와 project place를 싣는다(`packages/core/main/daemon/wiring/runs.ts`의 `tools.call`). 그 agent의 지금 할당과 domain 거르기를 받고 막히면 run이 `tool_denied`다(`architecture/app-call.md`).
 - tool 이름이 없는 것은 `StartRun`에서 막지 않는다. run이 `tool_denied`로 실패한다. 선언을 미리 볼 port를 두지 않는 쪽이 단순하다.
 - 성공이면 `done`이고 result가 tool 결과다. 기록이 남지 않은 읽기면 `invocation`이 null이다.
 
@@ -119,6 +119,6 @@ CLI와 자격(`architecture/coding-agent.md`)
 - 새 session을 열 때 이름을 먼저 푼다. 안 풀린 채 session부터 열면 CLI의 project 먼저, app 나중 재시도가 session을 남긴다.
 - 취소할 때 run을 먼저 닫는다. 뒷일(입력 빼기, turn 멈추기)이 실패해도 run의 상태는 사람이 요청한 대로 남는다.
 - tool run은 사람이 부르는 길이다. 사람이 시킨 일이 승낙이고(`architecture/approval.md`), CLI는 사람의 입구다.
-- `origin`과 `agent_resolved`는 route 입력에 없고 core 안 `RunService.start`만 받는다. `origin`이 만든 agent(또는 PM)의 할당으로 앱 tool을 부르는 program·flow 자격이 되므로, route 입력으로 열려 있으면 누구든 남의 할당을 빌려 쓰는 길이 된다.
+- `origin`과 `agent_resolved`는 route 입력에 없고 core 안 `RunService.start`만 받는다. `origin`이 만든 agent(또는 flow creator)의 할당으로 앱 tool을 부르는 program·flow 자격이 되므로, route 입력으로 열려 있으면 누구든 남의 할당을 빌려 쓰는 길이 된다.
 - 자격은 가장 단순한 길이다. 같은 OS 사용자로 도는 agent가 file을 읽어 사람 자격을 쓸 수 있다는 위험은 신경 쓰지 않는다.
 - `invalid_output`을 오류 코드가 아니라 실패 이유로 둔다. 경계의 오류 코드는 일곱으로 두고, run이 어떻게 끝났는지는 run의 기록이다.

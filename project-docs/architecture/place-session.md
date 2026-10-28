@@ -50,12 +50,12 @@ lophn의 agent는 lophn과 사람이 만든 agent이고 정의는 전역이다. 
 - session rewind는 도는 turn이 없을 때만 시작한다. 앱 data는 file까지 함께 되돌리는 선택(restore_all)에서, 사람이 고른 앱만 되돌린다. 안 고르면 그대로다.
   - 앱 rewind는 시점 단위라 그 사이 다른 쪽의 변경도 함께 사라진다. 그래서 session rewind가 저절로 하지 않고, 사람에게 함께 되돌아갈 목록을 먼저 보인다.
   - 앱 rewind는 그 session의 첫 write invocation부터 요청한다. 앱 rewind가 거절되거나 취소돼도 대화와 파일은 되돌리지 않고, 결과만 기록에 남긴다. 앱 쪽 순서와 충돌 판단은 앱이 정한다.
-- file tool의 범위는 place가 정한다: Project Manager는 그 project의 폴더들(사람이 이은 것. 없을 수도 있다)과 그 project의 domain 폴더(`<data>/domains/<dom>/`), 그 project의 `workflows/`(`<data>/projects/<prj>/workflows/`)를 읽고 쓴다. `workflows/`는 PM에게만 열린다(`architecture/workflow.md`). App Engineer는 앱 source 폴더와 그 앱의 domain 폴더를 읽고 쓴다. Operator는 그릇 폴더(project의 폴더들, 앱 source)를 읽고, 고른 domain의 `artifacts/`를 쓴다. 앱 place의 Operator는 앱 source를 읽기만 한다(쓰기는 App Engineer의 일이다). lophn은 등록된 모든 project 폴더를 읽기만 한다.
-  - lophn은 기획하고 call로 맡기며 직접 쓰지 않는다. 쓰기 직전 파일 내용은 core가 허용 폴더 안에서 직접 읽어 rewind용으로 둔다. agent runtime이 보낸 내용을 믿지 않는다.
-  - 앱의 data와 release 사본(`<data>/apps/<app>/` 아래 `data/`, `bundles/`, `staging/`, `preview/`)은 어느 role의 범위에도 없다. 앱 data는 앱 tool로만 다루고 release 사본은 봉인된 것이다. 앱 source는 기본 자리(`<data>/apps/<app>/source`)이거나 사람이 이은 폴더이고, App Engineer의 범위는 그 source 폴더 하나다. 같은 `<data>/apps/<app>/`의 `agents/`(agent 정의)도 열지 않는다.
-  - 사람의 폴더가 없는 project의 `LOPHN.md`는 `<data>/projects/<prj>/LOPHN.md`이고 PM의 범위 밖이다. 사람이 editor로 고친다. 앱 place에는 `LOPHN.md`가 없다.
+- file tool의 범위는 session의 place 종류가 정한다: project place는 그 project의 폴더들(사람이 이은 것. 없을 수도 있다)과 받은 domain 폴더(`<data>/domains/<dom>/`), 그 project의 `workflows/`(`<data>/projects/<prj>/workflows/`)를 읽고 쓴다. app place는 앱 source 폴더와 받은 domain 폴더를 읽고 쓴다. home은 등록된 모든 project 폴더를 읽기만 한다.
+  - home의 session은 기획하고 call로 맡기며 직접 쓰지 않는다. 쓰기 직전 파일 내용은 core가 허용 폴더 안에서 직접 읽어 rewind용으로 둔다. agent runtime이 보낸 내용을 믿지 않는다.
+  - 앱의 data와 release 사본(`<data>/apps/<app>/` 아래 `data/`, `bundles/`, `staging/`, `preview/`)은 어느 place 종류의 범위에도 없다. 앱 data는 앱 tool로만 다루고 release 사본은 봉인된 것이다. 앱 source는 기본 자리(`<data>/apps/<app>/source`)이거나 사람이 이은 폴더이고, app place의 범위는 그 source 폴더 하나다. agent 정의(`<data>/agents/`)도 열지 않는다.
+  - 사람의 폴더가 없는 project의 `LOPHN.md`는 `<data>/projects/<prj>/LOPHN.md`이고 file 범위 밖이다. 사람이 editor로 고친다. 앱 place에는 `LOPHN.md`가 없다.
   - 범위는 상대 경로를 푸는 기준 `base`를 싣는다. 그릇의 첫 폴더(project의 첫 폴더, 앱 source)이고, 없으면 place의 data 폴더(`<data>/projects/<prj>`, `<data>/apps/<app>`)다. `base`는 상대 경로를 푸는 기준일 뿐 허락을 넓히지 않는다.
-  - `placeScope`(`packages/core/agent-places/place/place-folders.ts`)가 role과 place와 맡은 domain에서 이 범위를 만든다. turn의 file tool 범위와 rewind의 쓰기 폴더가 이것으로 만든다. rewind는 sessions 표만 보고 폴더를 정하므로 Operator에게는 그릇의 domain 폴더 전부를 넉넉히 잡고, 실제 쓰기는 file tool이 `artifacts/`로 좁힌다(`main/daemon/place-folders-glue.ts`). 범위 밖은 file tool이 `resolveInPlace`(`packages/core/lophn-agent/tools/file/scope.ts`)로 realpath를 보고 `forbidden` "path is outside the place"로 거절한다.
+  - `placeScope`(`packages/core/agent-places/place/place-folders.ts`)가 place와 받은 domain에서 이 범위를 만든다. turn의 file tool 범위와 rewind의 쓰기 폴더가 이것으로 만든다. rewind는 sessions 표만 보고 폴더를 정하므로 그릇의 domain 폴더 전부를 넉넉히 잡고, 실제 쓰기는 file tool이 받은 domain으로 좁힌다(`main/daemon/place-folders-glue.ts`). 범위 밖은 file tool이 `resolveInPlace`(`packages/core/lophn-agent/tools/file/scope.ts`)로 realpath를 보고 `forbidden` "path is outside the place"로 거절한다.
   - agent runtime child(`kind` `lophn-agent/runtime`)는 Electron의 Node로 뜨고 권한 flag가 없다(사람이 정했다). launch spec(`packages/core/supervision/security/launch-spec.ts`)에는 권한 칸이 없다(kind, entry, policy, memory limit만). child 하나가 여러 session을 돌리므로 session마다 띄우지 않고, 폴더·provider·MCP·skill 목록이 바뀌어도 child를 다시 띄우지 않는다.
 - 사람이 메시지에 붙인 이미지는 메시지 content(글뿐)에 넣지 않는다. 화면이 먼저 `message-images/upload`로 session에 올려 id(`att_...`)를 받고, 글 끝에 `Attached image: open with image.read path "attachment:<id>".` 줄을 적는다. agent는 `image.read`로 연다.
   - 바이트는 project 폴더 밖인 `<data>/message-images/<session>/<id>.<ext>`에 둔다(png, jpeg, gif, webp, 5 MiB 이하, 내용의 첫 byte로 형식 확인). agent의 file tool 범위 밖이고 `attachment:<id>`로만 열린다.
@@ -65,8 +65,8 @@ lophn의 agent는 lophn과 사람이 만든 agent이고 정의는 전역이다. 
 ## 왜 이 모양인가
 
 - **agent는 전역이고 place는 session이 갖는다(사람, 2026-10-28).** role(lophn, Project Manager, App Engineer, Operator)이 agent를 place에 묶었지만, place가 하는 일(file 범위, 받는 domain, credential 조건, prompt, 주소)은 모두 "session이 어디서 일하나"의 일이다. Claude Code, Codex, OpenCode도 agent 설정은 전역이고 작업 폴더는 session마다다. 옛 assignment 상태 machine(누가 무엇을 맡았나)은 agent와 할당으로 대체했다. 상태를 따로 추적하지 않아도, 맡기는 것은 call이고 허락은 할당이다.
-- **App Engineer는 앱마다 하나, session은 여럿이다.** Project Manager와 같은 모양이다. 앱은 project에 묶이지 않는 그릇이라 앱 코드의 일(설계, 선언, 구현, release)은 그 앱의 App Engineer가 맡고, Project Manager는 project의 domain과 Operator를 맡는다. 앱은 사람이 런처의 New app으로 직접 만들거나(그 앱의 App Engineer와 새 session으로 시작한다), lophn이 기획해 등록하고 그 앱의 App Engineer에게 call로 맡긴다. 구현은 App Engineer가 직접 한다.
-- **앱 place에는 project 지침이 없다.** 앱은 project에 묶이지 않으므로 App Engineer와 앱 place의 Operator는 `LOPHN.md`를 받지 않는다. 지침 층은 전역, 맡은 domain의 `DOMAIN.md`, agent 정의 본문이다.
+- **앱 일은 그 앱 place의 session이 한다.** 앱은 project에 묶이지 않는 그릇이라 앱 코드의 일(설계, 선언, 구현, release)은 그 앱 place에서 한다. 앱은 사람이 런처의 New app으로 직접 만들거나(그 앱 place의 lophn 새 session으로 시작한다), home의 lophn이 등록하고 그 앱 place의 lophn session에 call로 맡긴다.
+- **앱 place에는 project 지침이 없다.** 앱은 project에 묶이지 않으므로 앱 place의 session은 `LOPHN.md`를 받지 않는다. 지침 층은 전역, 맡은 domain의 `DOMAIN.md`, agent 정의 본문이다.
 - **"이 session 동안" 허락은 없다.** 할당했으면 허락한 것이고, shell 규칙의 `ask`는 `always`로 규칙 줄을 더한다(`architecture/approval.md`). skip은 사람이 그 session에 켠 표시라 표에 남긴다.
 - **agent runtime child 하나가 여러 session을 돈다.** 폴더·provider·MCP·skill 목록이 바뀌어도 다시 띄우지 않는다. session마다의 file 범위는 `placeScope`가 코드로 지킨다.
 - **fork는 있는 그대로 복사하되 묶인 것은 놓고 간다.** skip을 가져가면 한 번의 사람 결정이 두 session에 쓰이고, call을 가져가면 한 call에 받는 session이 둘이다.

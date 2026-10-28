@@ -16,7 +16,7 @@ core 코드를 어떻게 나누고 어느 쪽으로만 기대게 하는지, 그 
  core/main (composition root) ── 모두를 알고 조립만 한다. 업무 규칙을 두지 않는다
       │ 조립
       ▼
- apps    projects    domains    runs    workflows    jobs    agent-places   feature module / lophn role 층 (서로 모른다)
+ apps    projects    domains    runs    workflows    jobs    agent-places   feature module / place 종류 층 (서로 모른다)
       │         │          │        │          │         │          │
       ▼         ▼          ▼        ▼          ▼         ▼          ▼
                     lophn-agent                          agent harness
@@ -32,8 +32,8 @@ core 코드를 어떻게 나누고 어느 쪽으로만 기대게 하는지, 그 
 - `runs`는 lophn-agent와 다른 feature module을 import하지 않는다. agent 이름 풀기, 메시지 넣기, turn 읽기, 앱 tool 호출은 `runs/ports.ts`의 port이고 `core/main/daemon/wiring/runs.ts`가 끼운다(`architecture/run.md`).
 - `workflows`도 lophn-agent와 다른 feature module을 import하지 않는다. 정의 file 읽기, project 이름 풀기, turn 멈추기와 읽기, flow process 띄우기와 멈추기(`WorkflowFlows`)는 `workflows/ports.ts`의 port이고 `core/main/daemon/wiring/workflows.ts`와 `workflows-files.ts`가 끼운다(`architecture/workflow.md`). flow process를 띄우는 host와 `workflow.check`는 runs와 apps(SDK 설치 사본)를 같이 알아야 해서 `core/main/flow-host/`에 두고 `core/main/daemon/wiring/flows.ts`가 끼운다.
 - `jobs`도 lophn-agent와 다른 feature module을 import하지 않는다. agent·앱·project 이름 풀기와 시간대는 `jobs/ports.ts`의 port(`jobs.targets`, `jobs.zone`)이고 `core/main/daemon/wiring/jobs-registration.ts`가 꽂는다. scheduler가 run과 workflow instance를 시작하고 읽는 길(`runService`, `workflowService`, `ReadWorkflowInstance`)은 `core/main/daemon/wiring/jobs.ts`가 끼운다. 그래서 jobs의 규칙은 runs와 workflows의 표를 SQL로 읽지 않는다(`architecture/job.md`).
-- lophn-agent는 feature module과 role 층이 tool과 규칙을 꽂는 harness라 그들 아래에 둔다. role 이름, place 종류, feature module의 route를 몰라야 하는 쪽이다.
-- agent-places는 lophn의 role 층이다. role, role별 tool 목록, role prompt와 내장 skill, place 정보, role 규칙이 든 tool, credential의 role 몫을 갖는다. feature module과 같은 높이이고 서로 import하지 않는다.
+- lophn-agent는 feature module과 place 종류 층이 tool과 규칙을 꽂는 harness라 그들 아래에 둔다. place 종류의 규칙과 feature module의 route를 몰라야 하는 쪽이다.
+- agent-places는 lophn의 place 종류 층이다. place 종류별 tool 목록, 지침과 내장 skill, place 정보, place 규칙이 든 tool, credential의 place 몫을 갖는다. feature module과 같은 높이이고 서로 import하지 않는다.
 
 ## 실행 때 import가 뜻하는 것
 
@@ -57,8 +57,8 @@ core는 daemon main thread, writer·reader Worker, I/O child process(`platform/i
 - 바닥이 위층의 정보가 필요하면 wiring이 넘겨주거나 port로 받는다.
 
 **lophn-agent는 agent-places와 feature module을 import하지 않는다. agent-places와 feature module은 서로 import하지 않는다. feature module끼리도 import하지 않는다.**
-- 막는 것: harness가 꽂히는 쪽을 알게 되는 것(feature module이나 role을 더하고 뺄 때마다 harness를 고치게 된다). role 규칙과 feature module 구현이 엉키는 것. feature module 사이의 순환(하나만 떼어 이해하고 고칠 수 없다).
-- 둘을 다 알아야 하는 일(feature module의 읽기 함수를 role 층 규칙과 함께 harness에 꽂기)은 `core/main`이 한다. 예: reader·writer Worker가 싣는 팀 file `main/daemon/wiring/lophn-agent-team.ts`가 projects·apps·domains의 lookups와 Operator place 규칙을 `lophn-agent/register.ts`의 factory에 꽂는다.
+- 막는 것: harness가 꽂히는 쪽을 알게 되는 것(feature module이나 place 규칙을 더하고 뺄 때마다 harness를 고치게 된다). place 규칙과 feature module 구현이 엉키는 것. feature module 사이의 순환(하나만 떼어 이해하고 고칠 수 없다).
+- 둘을 다 알아야 하는 일(feature module의 읽기 함수를 place 종류 층 규칙과 함께 harness에 꽂기)은 `core/main`이 한다. 예: reader·writer Worker가 싣는 팀 file `main/daemon/wiring/lophn-agent-team.ts`가 projects·apps·domains의 lookups와 agent 이름 풀기를 `lophn-agent/register.ts`의 factory에 꽂는다.
 - 처음 규칙은 "feature module끼리 import 금지"였다. test runner(problems)가 앱을 띄우려 apps를 import해 한때 problems → apps 한 방향을 허락했고, test runner를 지워 처음 규칙으로 돌아왔다.
 - import를 지우려고 다른 module의 표를 SQL로 직접 읽게 바꾸지 않는다. 의존이 없어지지 않고 check가 못 보는 곳으로 숨는다. 못 끊으면 예외로 드러낸다.
 
@@ -78,13 +78,13 @@ core는 daemon main thread, writer·reader Worker, I/O child process(`platform/i
 | 장치 | `lophn-agent` (harness) | agent loop, tool registry·schema 검사·Gate 연결(`packages/core/lophn-agent/tools/registry.ts`, `packages/core/lophn-agent/tools/spi.ts`), prompt 조립 틀(층, 예산, cache marker), provider·model 호출 |
 | 범용 능력 | `lophn-agent` (harness) | file, shell, web, call, ask, MCP, skill tool |
 | feature module tool | 각 feature module | `apps/agent-tools/`(app, 앱 진단 읽기 `runtime.ts`, package, release, preview, visual), `domains/agent-tools.ts`(domain.list·get·create), `workflows/agent-tools.ts`(workflow.list·get·report·edit·check), `jobs/agent-tools.ts`(job.create·update·delete·list) |
-| lophn role 층 | `agent-places` | role별 tool 목록과 순서(`tool-lists.ts`), role 규칙이 든 tool(settings, instructions, operator, kind), credential의 role 몫(`credentials.ts`), 제품 고정 규칙과 role prompt(`roles/`), place 정보(`place/`), file tool hook(`hooks.ts`의 `LOPHN.md` Gate와 rewind 기록), role 표(`agents/role-table.ts`: built-in 이름·기본 profile·정의 file 자리), Operator 조회, place 폴더 규칙(`place/place-folders.ts`), data root 아래 자리(`place/data-folder.ts`)와 project 설정 층(`place/project-layer.ts`), 지침 읽기 규칙, session 이름 풀기, 내장 skill(`skills/`) |
+| place 종류 층 | `agent-places` | place 종류별 tool 목록과 순서(`tool-lists.ts`), place 규칙이 든 tool(settings, instructions, agent, kind), credential의 place 몫(`credentials.ts`), 제품 고정 규칙과 place 종류 지침(`prompts/`), place 정보(`place/`), file tool hook(`hooks.ts`의 `LOPHN.md` Gate와 rewind 기록), place 폴더 규칙(`place/place-folders.ts`), data root 아래 자리(`place/data-folder.ts`)와 project 설정 층(`place/project-layer.ts`), 지침 읽기 규칙, session 이름 풀기, 내장 skill(`skills/`) |
 
-- harness는 tool을 등록받은 목록으로만 안다. `core/main/agent-tools.ts`가 범용·feature module·role 층의 tool 정의를 모아 `TOOL_ORDER` 순서로 넘기고, role 목록·prompt·place 재료·credential 상한도 조립이 role 층에서 꽂는다.
+- harness는 tool을 등록받은 목록으로만 안다. `core/main/agent-tools.ts`가 범용·feature module·place 종류 층의 tool 정의를 모아 `TOOL_ORDER` 순서로 넘기고, place 종류 목록·prompt·place 재료·credential 상한도 조립이 그 층에서 꽂는다.
 - tool 정의 file은 agent runtime child에서 실린다(위 "실행 때 import가 뜻하는 것"). 그래서 protocol(route, schema), base, `lophn-agent/tools/spi.ts`만 import하고 handler는 `ctx.core`로 core route를 부른다. feature module의 store·DB 코드를 끌어오면 agent runtime에 sqlite가 딸려 간다.
 - tool 정의는 handler가 부르는 route를 `routes`에 적는다. agent credential의 상한은 그 route 이름이다(core는 route 이름으로 대조한다. tool 이름이 아니다).
-- 범용 tool 안의 lophn 규칙은 hook으로 뺀다. file tool의 `LOPHN.md` 쓰기 Gate와 rewind pre-image는 `FileHooks`로 role 층이 채운다. place 폴더 가두기는 role 층이 채운 `ToolContext.scope`로만 판정한다.
-- feature module tool 하나를 더할 때 고치는 곳: 그 module의 `agent-tools`와 protocol의 route, role 층 `tool-lists.ts`의 role 목록과 `TOOL_ORDER`에 한 줄씩.
-- role마다 다른 값과 규칙은 harness가 type만 갖고(`lophn-agent/agents/role-table.ts`의 `AgentRoleTable`, `places/ports.ts`의 `PlaceRoleRules`, `extensions/project-settings.ts`의 `ProjectLayer`) 값은 role 층이 낸다. 조립(`main/daemon/wiring/lophn-agent-team.ts`, `instructions-registration.ts`, `lophn-agent-registration.ts`, `main/agent-runtime/product-driver.ts`)이 꽂는다. role과 ref·session 행을 오가는 순수 변환(`placeOfAgentRef`, `agentRefOfColumns`, `agentIdentityOf`)은 role 정체성을 이미 가진 `protocol/lophn-agent/places.ts`에 둔다.
+- 범용 tool 안의 lophn 규칙은 hook으로 뺀다. file tool의 `LOPHN.md` 쓰기 Gate와 rewind pre-image는 `FileHooks`로 place 종류 층이 채운다. place 폴더 가두기는 그 층이 채운 `ToolContext.scope`로만 판정한다.
+- feature module tool 하나를 더할 때 고치는 곳: 그 module의 `agent-tools`와 protocol의 route, `agent-places/tool-lists.ts`의 place 종류 목록과 `TOOL_ORDER`에 한 줄씩.
+- place 종류마다 다른 값과 규칙은 harness가 type만 갖고(`places/ports.ts`의 `PlaceRoleRules`, `extensions/project-settings.ts`의 `ProjectLayer`) 값은 place 종류 층이 낸다. 조립(`main/daemon/wiring/lophn-agent-team.ts`, `instructions-registration.ts`, `lophn-agent-registration.ts`, `main/agent-runtime/product-driver.ts`)이 꽂는다. agent와 place의 순수 값(`AgentId`, `AgentAtPlace`, `placeKindOf`)은 `protocol/lophn-agent/places.ts`에 둔다.
 - 아직 harness 폴더에 feature module의 protocol import가 남은 file이 7개 있다(동적 앱 tool, `packages/core/lophn-agent/run-loop/runtime-access.ts`, file tool 일부). `tools/check-deps.ts`의 `HARNESS_LEFTOVERS`가 file마다 이유와 함께 목록으로 두고(rule `harness-domain`, 대상 protocol 이름은 `HARNESS_FEATURE_PROTOCOLS`) 새 위반만 막는다. 목록의 file이 위반을 다 없애면 check가 빼라고 알린다. `extensions/`처럼 import도 role 이름도 없이 role 규칙을 다시 짜는 곳은 check가 못 보므로 path·층 규칙은 role 층 값을 받아 쓴다.
 - feature module tool 정의 file(`apps/agent-tools/**`)은 base, protocol, 같은 폴더, `lophn-agent/tools/spi.ts`만 import하고, `agent-places/tools/**`는 storage·store·ledger·register와 `node:sqlite`를 import하지 않는다(rule `tool-file`).

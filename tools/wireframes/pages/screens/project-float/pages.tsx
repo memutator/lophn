@@ -19,18 +19,15 @@ const PLAN = {
   title: "plan.md",
 } as const;
 const TERM_1 = { key: "term_1", kind: "terminal", title: "grocery" } as const;
-// 접힌 terminal은 mount되지 않아 시작 전이라서, 이름이 저장된 coding terminal로 그린다.
-const CLAUDE = {
-  key: "term_claude",
+const TERM_2 = {
+  key: "term_2",
   kind: "terminal",
   title: "Fix the budget total",
-  coding: { session: "ses_01h455vb4pex5v6nkc6gd5fd01", product: "claude-code" },
 } as const;
-const CODEX = {
-  key: "term_codex",
+const TERM_3 = {
+  key: "term_3",
   kind: "terminal",
   title: "Add receipts page",
-  coding: { session: "ses_01h455vb4pex5v6nkc6gd5fd02", product: "codex" },
 } as const;
 // 칸에서 고른 탭의 경로가 상단 bar 왼쪽을 길게 차지해야 접힌 칸이 셋만 남는다.
 const LONG_NOTES = {
@@ -100,9 +97,9 @@ export function FloatStack() {
 const AT = { x: 40, y: 40, width: 360, height: 240 };
 const MINIMIZED: readonly FloatSpec[] = [
   { tab: README, rect: AT, minimized: true },
-  { tab: CLAUDE, rect: AT, minimized: true },
+  { tab: TERM_2, rect: AT, minimized: true },
   { tab: PLAN, rect: AT, minimized: true },
-  { tab: CODEX, rect: AT, minimized: true },
+  { tab: TERM_3, rect: AT, minimized: true },
   { tab: NOTES, rect: AT, minimized: true },
 ];
 

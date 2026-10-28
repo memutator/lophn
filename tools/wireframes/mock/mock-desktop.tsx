@@ -63,8 +63,6 @@ interface TabSpec {
   readonly domain?: string;
   readonly name?: string;
   readonly path?: string;
-  /** coding terminal이면 harness 표지. 저장된 title이 없는 일반 terminal 탭은 시작할 때까지 이름이 비어 있다. */
-  readonly coding?: { readonly session: string; readonly product: string };
 }
 
 export interface PaneSpec {
@@ -162,9 +160,7 @@ function storedTab(tab: TabSpec) {
         kind: tab.kind,
         key: tab.key,
         project_folder: tab.folder ?? "/home/mina/Documents/grocery",
-        ...(tab.coding === undefined
-          ? {}
-          : { coding: { ...tab.coding, title: tab.title } }),
+        title: tab.title,
       }
     : { kind: tab.kind, key: tab.key, path: tab.key };
 }

@@ -9,7 +9,6 @@
     "desktop/main.ts",
     "desktop/core/**/*.ts",
     "desktop/wiring/**/*.ts",
-    "terminal/coding/**/*.ts",
     "../terminal-host/cli.ts"
   ],
   "exclude": []

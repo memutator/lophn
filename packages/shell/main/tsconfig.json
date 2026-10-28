@@ -15,10 +15,5 @@
     "skipLibCheck": true
   },
   "include": ["**/*.ts", "../preload/**/*.ts", "../ipc/**/*.ts"],
-  "exclude": [
-    "desktop/core",
-    "terminal/coding",
-    "desktop/main.ts",
-    "desktop/wiring"
-  ]
+  "exclude": ["desktop/core", "desktop/main.ts", "desktop/wiring"]
 }

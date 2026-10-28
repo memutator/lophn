@@ -1,5 +1,5 @@
-// 앱 공간 gallery page들이 같이 쓰는 고정 데이터. 운영 패널과 문제 목록은 앞 화면의 fake source가 채우고 여기는 Orders 앱이 그린
-// 화면과 coding 터미널의 가짜 출력에 쓰는 것만 둔다.
+// 앱 공간 gallery page들이 같이 쓰는 고정 데이터. 운영 패널과 문제 목록은 앞 화면의 fake source가 채우고 여기는 Orders 앱
+// 화면과 run 목록의 고정 값을 둔다.
 
 import type { RunRecordView } from "../../../../packages/shell/renderer/workspace/sidebar/run-list.tsx";
 import { BUDGET_REVIEWER_ID } from "../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
@@ -21,10 +21,6 @@ export const ORDER_ROWS: readonly OrderRow[] = [
   { id: "1041", customer: "Jun Seo", status: "Shipped", total: "$73.00" },
   { id: "1040", customer: "Ari Choi", status: "Shipped", total: "$9.20" },
 ];
-
-// ---- coding 터미널 ----
-
-export const TASK = "Round discounted totals to the nearest cent";
 
 // ---- Background(run) 목록 ----
 

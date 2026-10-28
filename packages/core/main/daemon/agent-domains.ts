@@ -1,13 +1,10 @@
 // agent가 맡은 domain id와 앱 domain 이름의 id를 읽는 조립. 사용 관계(apps-usage)와 호출 Gate(apps)가 같은 셈을 쓴다.
 import type { UsagePorts } from "../../apps/usage/mod.ts";
-import { domainsOfOwner } from "../../domains/lookups.ts";
+import { activeDomainIds, domainsOfOwner } from "../../domains/lookups.ts";
 import { workingDomains } from "../../lophn-agent/agents/resolve.ts";
 import { placeDepsOf } from "../../lophn-agent/places/mod.ts";
-import {
-  agentRefOf,
-  loadSession,
-  placeOf,
-} from "../../lophn-agent/session/model.ts";
+import { loadSession, placeOf } from "../../lophn-agent/session/model.ts";
+import { placeKindOf } from "../../../protocol/lophn-agent/mod.ts";
 import type { DomainOwner } from "../../../protocol/domains/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 
@@ -22,7 +19,7 @@ export function agentDomainPorts(sql: Query): UsagePorts {
       return row === undefined
         ? null
         : {
-            role: agentRefOf(row).role,
+            kind: placeKindOf(placeOf(row)),
             domains: ports.agentDomains({
               agent: row.agent,
               place: placeOf(row),
@@ -34,6 +31,12 @@ export function agentDomainPorts(sql: Query): UsagePorts {
       const found = placeDepsOf(sql).agents.agent(agent);
       if (found === null) return [];
       return workingDomains(activeIds(place), found.domains);
+    },
+    chosenDomains(agent) {
+      const found = placeDepsOf(sql).agents.agent(agent);
+      if (found === null) return [];
+      const active = new Set(activeDomainIds(sql));
+      return found.domains.filter((id) => active.has(id));
     },
     domainOf(app, name) {
       return (

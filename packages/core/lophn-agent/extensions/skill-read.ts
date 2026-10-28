@@ -1,6 +1,10 @@
 import { err, ok } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import type { AgentPlace, Role } from "../../../protocol/lophn-agent/mod.ts";
+import {
+  type AgentPlace,
+  type PlaceKind,
+  placeKindOf,
+} from "../../../protocol/lophn-agent/mod.ts";
 import type { SkillReader } from "../tools/ports.ts";
 import {
   discoverSkills,
@@ -34,8 +38,8 @@ export type SkillSnapshotDeps = {
 
 type SkillSession = {
   id: Id<"ses">;
-  role: Role;
-  // agent가 놓인 place다. lophn은 null이라 전역 층만 본다.
+  kind: PlaceKind;
+  // agent가 놓인 place다. home은 null이라 전역 층만 본다.
   place: AgentPlace | null;
   // agent 정의가 고른 이름이다. 비면 고르지 않은 것이다.
   skills: readonly string[];
@@ -73,7 +77,7 @@ export async function createSkillSnapshot(
       domains: layer.domain_stores,
     },
     {
-      role: session.role,
+      kind: session.kind,
       off: [...new Set([...global.off, ...layer.off])],
     },
   );
@@ -193,7 +197,6 @@ export function turnSkillReader(
   deps: SkillSnapshotDeps,
   session: {
     id: string;
-    agent: { role: Role };
     place: AgentPlace | null;
   },
   enabled: readonly string[],
@@ -209,7 +212,7 @@ export function turnSkillReader(
       }
       snapshot ??= createSkillSnapshot(deps, {
         id: session.id as Id<"ses">,
-        role: session.agent.role,
+        kind: placeKindOf(session.place),
         place: session.place,
         skills: [],
       });

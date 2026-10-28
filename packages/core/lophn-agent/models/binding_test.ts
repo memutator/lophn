@@ -10,7 +10,7 @@ test("Anthropic 요청은 대화 끝 content block에 cache 표시를 달고 표
     images: false,
   })({
     system: [
-      { layer: "role", text: "r", cache: true },
+      { layer: "place_kind", text: "r", cache: true },
       { layer: "instructions", text: "i", cache: true },
       { layer: "skills", text: "s", cache: false },
       { layer: "place", text: "p", cache: true },

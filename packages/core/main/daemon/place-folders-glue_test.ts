@@ -3,9 +3,8 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { placeFoldersOf } from "./place-folders-glue.ts";
 
-// project place session의 file 범위는 자기 project의 폴더와 그 project의 domain 폴더뿐이고, app place session은
-// 자기 앱 source와 그 앱의 domain 폴더뿐이다. 다른 그릇의 domain 폴더나 앱 source가 들어오면 남의 앱이나 domain을 쓰게 된다.
-test("project place와 app place session의 쓰기 폴더는 자기 그릇의 폴더와 domain 폴더뿐이다", () => {
+// rewind의 쓰기 폴더는 그릇의 domain 폴더 전부다. 다른 그릇의 domain 폴더나 앱 source가 들어오면 남의 앱이나 domain을 쓰게 된다.
+test("project·app session의 rewind 쓰기 폴더는 자기 그릇의 폴더와 그 그릇의 domain 폴더 전부뿐이다", () => {
   const db = new DatabaseSync(":memory:");
   db.exec(`
     create table sessions (id text, agent text, place_kind text, place_id text);
@@ -14,6 +13,7 @@ test("project place와 app place session의 쓰기 폴더는 자기 그릇의 �
     create table domains (id text, name text, owner_kind text, owner_id text, status text);
     insert into sessions values ('ses_pm', 'lophn', 'project', 'prj_a');
     insert into sessions values ('ses_ae', 'agt_1', 'app', 'app_a');
+    insert into sessions values ('ses_home', 'lophn', null, null);
     insert into apps values ('app_a', 'prj_a', '/src/a', 'active');
     insert into apps values ('app_b', 'prj_b', '/src/b', 'active');
     insert into project_folders values ('prj_a', '/work/a', 0);
@@ -38,4 +38,6 @@ test("project place와 app place session의 쓰기 폴더는 자기 그릇의 �
     "/src/a",
     "/data/domains/dom_aa",
   ]);
+  assert.deepStrictEqual(placeFoldersOf({ sql }, "/data", "ses_home"), []);
+  assert.deepStrictEqual(placeFoldersOf({ sql }, "/data", "ses_missing"), []);
 });

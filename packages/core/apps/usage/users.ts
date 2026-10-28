@@ -41,7 +41,7 @@ export function appToolUsers(
   const assignees = appAssignees(sql, app);
   if (!assignees.ok) return assignees;
   for (const { agent, removed } of assignees.value) {
-    for (const domain of ports.agentDomains({ agent, place: null })) {
+    for (const domain of ports.chosenDomains(agent)) {
       for (const tool of tools) {
         if (tool.public && !removed.has(tool.name)) {
           add(tool.name, domain, "grant");

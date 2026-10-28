@@ -73,8 +73,7 @@ async function scope(
       project,
     });
     const definition = agentFilePathOf(run.home, {
-      role: "lophn",
-      operator: null,
+      agent: "lophn",
       place: null,
     });
     assert.ok(definition !== null);

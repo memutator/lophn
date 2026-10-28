@@ -37,7 +37,7 @@ test("turn은 맡은 domain의 DOMAIN.md만 읽고 이름순으로 잇는다", a
     dom_b: "rules of beta",
     dom_other: "must not be read",
   });
-  const result = await readTurnInstructions(deps, { role: "operator" }, [B, A]);
+  const result = await readTurnInstructions(deps, { kind: "project" }, [B, A]);
   assert.deepStrictEqual(
     requested.filter((r) => r.startsWith("domain:")),
     ["domain:dom_a", "domain:dom_b"],
@@ -53,7 +53,7 @@ test("turn은 맡은 domain의 DOMAIN.md만 읽고 이름순으로 잇는다", a
 test("예산을 넘은 domain부터 본문 없이 purpose 한 줄만 싣는다", async () => {
   const big = "x".repeat(DOMAIN_TEXT_BUDGET - 100);
   const { deps } = setup({ dom_a: big, dom_b: big });
-  const result = await readTurnInstructions(deps, { role: "operator" }, [A, B]);
+  const result = await readTurnInstructions(deps, { kind: "project" }, [A, B]);
   if (result.status !== "ready") throw new Error("blocked");
   const text = result.layers.find((l) => l.layer === "domain")?.text;
   assert.deepStrictEqual(

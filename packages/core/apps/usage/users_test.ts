@@ -77,8 +77,9 @@ test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 domain�
   grant(manager);
   const ports: UsagePorts = {
     sessionDomains: () => null,
-    agentDomains: (who) =>
-      who.agent === operator ? ["dom_alpha"] : ["dom_beta"],
+    agentDomains: () => [],
+    chosenDomains: (agent) =>
+      agent === operator ? ["dom_alpha"] : ["dom_beta"],
     domainOf: (_app, name) => DOMAINS[name] ?? null,
   };
 

@@ -101,13 +101,13 @@ function read(snapshot: ReadSnapshot, session: number, project?: string) {
   return file === null ? null : atob(file.content_base64);
 }
 
-test("lophn이 아닌 role은 자기 place 밖 project의 LOPHN.md를 읽지 못한다", () => {
+test("home session만 다른 project의 LOPHN.md를 읽는다", () => {
   const { root, snapshot } = setup();
   try {
     const table: [number, string | undefined, string | null][] = [
       // [session, 요청한 project, 결과]
-      [1, undefined, null], // lophn은 place가 없어 project 지침이 비어 있다
-      [1, PRJ_A, "rules of A"], // lophn은 어느 project든 읽는다
+      [1, undefined, null], // home session은 place가 없어 project 지침이 비어 있다
+      [1, PRJ_A, "rules of A"], // home session은 어느 project든 읽는다
       [1, PRJ_B, "rules of B"],
       [2, undefined, "rules of A"],
       [2, PRJ_A, "rules of A"],
@@ -146,10 +146,10 @@ test("domain 층은 session의 place 그릇에 든 domain의 DOMAIN.md만 읽는
         ? null
         : atob(result.value.file.content_base64);
     };
-    assert.deepStrictEqual(of(2, DOM_A), "doc of A"); // PM A는 자기 project의 domain
-    assert.deepStrictEqual(of(4, DOM_A), "forbidden"); // 다른 project의 PM
-    assert.deepStrictEqual(of(1, DOM_A), "forbidden"); // lophn은 place가 없다
-    assert.deepStrictEqual(of(3, DOM_A), "forbidden"); // 앱 engineer는 다른 그릇
+    assert.deepStrictEqual(of(2, DOM_A), "doc of A"); // project A session은 자기 project의 domain
+    assert.deepStrictEqual(of(4, DOM_A), "forbidden"); // 다른 project session
+    assert.deepStrictEqual(of(1, DOM_A), "forbidden"); // home session은 place가 없다
+    assert.deepStrictEqual(of(3, DOM_A), "forbidden"); // app session은 다른 그릇
     assert.deepStrictEqual(of(3, DOM_APP), null); // 자기 앱의 domain, 파일은 아직 없다
     assert.deepStrictEqual(of(2, undefined), "invalid_input");
   } finally {

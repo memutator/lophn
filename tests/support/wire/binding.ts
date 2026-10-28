@@ -105,7 +105,7 @@ export async function callWire(
   input: { tools?: PromptTool[]; user?: string } = {},
 ): Promise<ModelCallOutput> {
   const packed = binding.pack({
-    system: [{ layer: "role", text: "You are a test agent." }],
+    system: [{ layer: "place_kind", text: "You are a test agent." }],
     tools: input.tools ?? [],
     messages: [
       {

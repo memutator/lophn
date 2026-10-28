@@ -97,7 +97,7 @@ export function loopHarness(init: {
     context: () => {
       const context: TurnContext = {
         prompt: {
-          role_prompt: "You are a test agent.",
+          place_kind_prompt: "You are a test agent.",
           tools: harnessTools.map((tool) => ({
             name: tool.name,
             description: tool.name,

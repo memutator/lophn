@@ -25,8 +25,8 @@ import {
 // `ReadSkills` handler다. 내장, 전역, (project나 app을 주면) 그 그릇의 domain 층을 합친 skill 목록과
 // 끈 이름을 사람 화면과 machine에 준다. 같은 이름은 내장·전역 안에서 마지막 층이 덮고 가려진 쪽은 목록에 두지 않는다. domain 층 skill은
 // domain마다 한 줄이다(받는 쪽이 `pickSkills`로 이름마다 하나를 고른다). 끈 skill도
-// 목록에 남고 enabled만 false다. 끈 이름은 지금 발견되지 않는 것까지 그대로 돌려준다. 내장 skill은 role을 가리지
-// 않고 모두 낸다(어느 role의 것인지는 선언이 말한다).
+// 목록에 남고 enabled만 false다. 끈 이름은 지금 발견되지 않는 것까지 그대로 돌려준다. 내장 skill은 place 종류를 가리지
+// 않고 모두 낸다(어느 place 종류의 것인지는 선언이 말한다).
 
 // 다른 concern의 값을 읽는 길이다. 정본은 각 concern이고 여기서는 읽기만 한다.
 type SkillsReadLookups = {
@@ -109,7 +109,7 @@ export function createSkillsRead(deps: SkillsReadDeps): {
           listing = discoverSkills(
             deps.skillFiles,
             { ...lookups.skillSources(), domains },
-            { role: null, off },
+            { kind: null, off },
           );
         } catch {
           return err({

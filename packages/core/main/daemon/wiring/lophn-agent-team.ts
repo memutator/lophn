@@ -1,6 +1,6 @@
 // lophn-agent 팀 등록 file. writer·reader Worker가 이 file을 import해 팀 등록을 만든다.
 // lophn-agent(harness)는 domain과 agent-places를 import하지 못하므로, 둘을 아는 이 조립 file이 읽기 함수와
-// role 규칙을 port로 꽂는다.
+// place 종류 규칙을 port로 꽂는다.
 import { projectExists, projectIds } from "../../../projects/lookups.ts";
 import { appExists, appIds } from "../../../apps/lookups.ts";
 import { domainsOfOwner } from "../../../domains/lookups.ts";

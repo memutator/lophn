@@ -11,7 +11,7 @@ function layerNames(texts: string[]): string[] {
   return texts.map((text, i) => {
     const base =
       i === 0
-        ? "role"
+        ? "place_kind"
         : text.startsWith("# Instructions")
           ? "instructions"
           : text.startsWith("# Skills")

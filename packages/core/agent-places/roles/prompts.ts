@@ -1,24 +1,21 @@
 import { readFileSync } from "node:fs";
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { ok, type Result } from "../../../base/mod.ts";
+import type { PlaceKind } from "../../../protocol/lophn-agent/mod.ts";
 
 // Node는 text import가 없어 module을 읽을 때 한 번 읽는다. prompt 파일이 없으면 core가 뜨지 않는다.
 const prompt = (folder: string) =>
   readFileSync(new URL(`./${folder}/prompt.md`, import.meta.url), "utf8");
 
-const ROLE_PROMPTS: ReadonlyMap<string, string> = new Map([
-  ["lophn", prompt("lophn")],
-  ["project_manager", prompt("project-manager")],
-  ["app_engineer", prompt("app-engineer")],
-  ["operator", prompt("operator")],
-]);
+const PLACE_PROMPTS: Record<PlaceKind, string> = {
+  home: prompt("lophn"),
+  project: prompt("project-manager"),
+  app: prompt("app-engineer"),
+};
 
-// 제품 고정 규칙을 앞에 붙인 role 지침 글이다. turn prompt의 role 층에 그대로 들어간다.
-export function rolePrompt(role: string): Promise<Result<string>> {
-  const text = ROLE_PROMPTS.get(role);
+// 제품 고정 규칙을 앞에 붙인 place 종류 지침 글이다. turn prompt의 place_kind 층에 그대로 들어간다.
+export function placePrompt(kind: PlaceKind): Promise<Result<string>> {
   return Promise.resolve(
-    text === undefined
-      ? err({ code: "unavailable", message: "role prompt is not available" })
-      : ok(`${PRODUCT_INSTRUCTIONS}\n\n${text}`),
+    ok(`${PRODUCT_INSTRUCTIONS}\n\n${PLACE_PROMPTS[kind]}`),
   );
 }
 

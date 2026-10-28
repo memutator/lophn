@@ -1,9 +1,9 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { err, errorCode, ok, type Result } from "../../../packages/base/mod.ts";
 import { TOOL_ORDER } from "../../../packages/core/agent-places/tool-lists.ts";
-import { rolePrompt } from "../../../packages/core/agent-places/roles/prompts.ts";
+import { placePrompt } from "../../../packages/core/agent-places/roles/prompts.ts";
 import { parseSkillFrontmatter } from "../../../packages/core/lophn-agent/extensions/skills.ts";
-import type { Role } from "../../../packages/protocol/lophn-agent/mod.ts";
+import { PLACE_KINDS } from "../../../packages/protocol/lophn-agent/mod.ts";
 import { RESERVED_DOMAIN_NAMES } from "../../../packages/protocol/apps/declaration/mod.ts";
 import {
   MCP_TOOL_PREFIX,
@@ -33,14 +33,6 @@ import {
   type VariantTexts,
 } from "./registry.ts";
 
-// Role이 늘면 type check가 여기서 빠짐을 잡는다.
-const ROLE_SET: Record<Role, true> = {
-  lophn: true,
-  project_manager: true,
-  app_engineer: true,
-  operator: true,
-};
-export const ROLES = Object.keys(ROLE_SET);
 const SKILL_ROOTS = ["packages/core/agent-places/skills"];
 const TEMPLATE_DIR = "packages/core/apps/packages/template/app";
 // harness가 아니라 world의 tool이다. 앱 tool은 `<domain>_<tool>`이고 내장 자원 이름이 아닌 domain이다.
@@ -50,14 +42,18 @@ const isWorldTool = (wireName: string) =>
 
 const collapse = (text: string) => text.replace(/\s+/g, " ");
 
-async function readRole(role: string, texts?: VariantTexts): Promise<string> {
+async function readPlaceKind(
+  kind: string,
+  texts?: VariantTexts,
+): Promise<string> {
   if (texts !== undefined) {
-    const text = texts.role_prompts[role];
-    if (text === undefined) throw new Error(`role prompt missing: ${role}`);
+    const text = texts.role_prompts[kind];
+    if (text === undefined)
+      throw new Error(`place kind prompt missing: ${kind}`);
     return text;
   }
-  const text = await rolePrompt(role);
-  if (!text.ok) throw new Error(`role prompt missing: ${role}`);
+  const text = await placePrompt(kind as (typeof PLACE_KINDS)[number]);
+  if (!text.ok) throw new Error(`place kind prompt missing: ${kind}`);
   return text.value;
 }
 
@@ -119,10 +115,10 @@ async function textComponent(
 }
 
 async function measureInstruction(
-  role: string,
+  kind: string,
   texts?: VariantTexts,
 ): Promise<Measured> {
-  return textComponent("instruction", role, await readRole(role, texts));
+  return textComponent("instruction", kind, await readPlaceKind(kind, texts));
 }
 
 // 같은 model 이름이면 늘 같은 n이다.
@@ -175,8 +171,8 @@ export async function currentVersions(
   const root = deps.root ?? REPO_ROOT;
   const dir = deps.registryDir ?? REGISTRY_DIR;
   const measured: Measured[] = [];
-  for (const role of ROLES) {
-    measured.push(await measureInstruction(role, deps.texts));
+  for (const kind of PLACE_KINDS) {
+    measured.push(await measureInstruction(kind, deps.texts));
   }
   for (const name of await skillNames(root)) {
     const folder = (await skillFolder(root, name))!;
@@ -256,9 +252,9 @@ export async function seenComponents(
     .filter((c) => c.call.purpose === "judgment");
   if (calls.length === 0) return ok([]);
   try {
-    const roleByText = new Map<string, string>();
-    for (const role of ROLES) {
-      roleByText.set(await readRole(role, deps.texts), role);
+    const kindByText = new Map<string, string>();
+    for (const kind of PLACE_KINDS) {
+      kindByText.set(await readPlaceKind(kind, deps.texts), kind);
     }
     const wire = new Map(TOOL_ORDER.map((n) => [toWireToolName(n), n]));
     const tools = await toolFileTable(root);
@@ -272,14 +268,14 @@ export async function seenComponents(
       const body = bodyOf(c.request);
       add(await measureModel(body.model));
       const first = body.system[0]?.text;
-      const role =
-        typeof first === "string" ? roleByText.get(first) : undefined;
-      if (role === undefined) {
+      const kind =
+        typeof first === "string" ? kindByText.get(first) : undefined;
+      if (kind === undefined) {
         throw new InvalidInput(
-          `system[0] matches no role prompt: ${String(first).slice(0, 80)}`,
+          `system[0] matches no place kind prompt: ${String(first).slice(0, 80)}`,
         );
       }
-      add(await measureInstruction(role, deps.texts));
+      add(await measureInstruction(kind, deps.texts));
       for (const t of body.tools) {
         const wireName = String(t.name);
         if (isWorldTool(wireName)) continue;

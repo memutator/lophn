@@ -17,7 +17,6 @@ import {
   type ModelChoice,
   type Place,
   type Profile,
-  type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { skillReceived } from "../extensions/skills.ts";
 import type { AgentFileDefinition } from "./definition-file.ts";
@@ -49,7 +48,6 @@ type ResolveEnvironment = {
 
 type ResolveInput = {
   agent: AgentId;
-  role: Role;
   place: Place | null;
   definition: AgentFileDefinition | null;
   global_model: ModelChoice | null;
@@ -73,7 +71,6 @@ type ResolvedField = (typeof RESOLVED_FIELDS)[number];
 
 export type ResolvedAgent = {
   agent: AgentId;
-  role: Role;
   place: Place | null;
   name: string;
   profile: Profile;
@@ -96,7 +93,7 @@ export type ResolvedAgent = {
 export async function resolveAgent(
   input: ResolveInput,
 ): Promise<Result<ResolvedAgent, LophnError>> {
-  const { agent, role, place, definition, environment } = input;
+  const { agent, place, definition, environment } = input;
   if (agent !== LOPHN_AGENT_ID && definition === null) {
     return err({ code: "not_found", message: "agent definition not found" });
   }
@@ -134,7 +131,6 @@ export async function resolveAgent(
 
   const value: Omit<ResolvedAgent, "hash"> = {
     agent: copy(agent),
-    role,
     place: copy(place),
     name: lophn ? LOPHN_AGENT_NAME : (definition as AgentDefinition).name,
     profile: copy(profile),

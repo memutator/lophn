@@ -1,4 +1,4 @@
-import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
+import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   appToolIndex,
   appTools,
@@ -18,12 +18,7 @@ import {
   domainList,
   type DomainRecord,
 } from "../../../protocol/domains/mod.ts";
-import {
-  agentDefinitionList,
-  type AgentRef,
-  callSendable,
-  type Role,
-} from "../../../protocol/lophn-agent/mod.ts";
+import { agentList, placeKindOf } from "../../../protocol/lophn-agent/mod.ts";
 import { kindGet, projectApi } from "../../../protocol/projects/mod.ts";
 import type { ResolvedAgent } from "../../lophn-agent/agents/mod.ts";
 import {
@@ -70,16 +65,6 @@ type PlaceRead = {
 
 // place 정보의 kind 글 예산(글자 수). 고정값이라 session을 시작할 때 정한 것과 같다.
 const KIND_TEXT_BUDGET = 12000;
-
-// 부를 수 있는 agent 목록에 붙는 한 줄. agent 정의에 설명 칸이 없어 role마다 고정 문장이다.
-const ROLE_LINE: Record<Role, string> = {
-  lophn: "Plans work, registers apps, and hands work to others.",
-  project_manager:
-    "Looks after the project's folders and its domains: DOMAIN.md, kinds and skills.",
-  app_engineer:
-    "Designs, builds and releases the app, and looks after its domains.",
-  operator: "Works with the kinds and tools it was granted.",
-};
 
 const MAX_PAGES = 50;
 
@@ -133,7 +118,7 @@ async function readPlaceData(
   agent: ResolvedAgent,
   files: PlaceFiles,
 ): Promise<Result<PlaceRead>> {
-  const { role, place } = agent;
+  const { place } = agent;
   const projects = new Map<string, ProjectRecord>();
   const projectOf = async (id: string): Promise<Result<ProjectRecord>> => {
     const known = projects.get(id);
@@ -152,7 +137,7 @@ async function readPlaceData(
     appRecords.set(id, read.value.app);
     return ok(read.value.app);
   };
-  // active 앱 전체. lophn의 목록과 부를 수 있는 App Engineer 후보가 같이 쓴다.
+  // active 앱 전체. home의 앱 목록이 쓴다.
   let activeApps: Promise<Result<App[]>> | undefined;
   const readActiveApps = () =>
     (activeApps ??= pages(async (cursor) => {
@@ -204,13 +189,13 @@ async function readPlaceData(
     }
   }
 
-  // 이 agent가 맡은 domain. 읽지 못한 domain은 빼고 turn은 계속한다.
+  // 이 session이 받은 domain. 읽지 못한 domain은 빼고 turn은 계속한다.
   const domains: PlaceDomain[] = [];
   const scopeDomains: PlaceFacts["domains"][number][] = [];
   const kindDomains: Parameters<typeof buildKindText>[0]["domains"][number][] =
     [];
   const kindHashes: string[] = [];
-  if (place !== null && role !== "lophn") {
+  if (place !== null) {
     const listed = await pages(async (cursor) => {
       const read = await readOf(call, domainList, {
         owner: place,
@@ -240,7 +225,7 @@ async function readPlaceData(
           /* 폴더가 없으면 범위에서 빠진다 */
         }
         if (folder !== null) {
-          scopeDomains.push({ id: d.id, folder, artifactsFolder });
+          scopeDomains.push({ id: d.id, folder });
           artifacts = {
             folder: artifactsFolder,
             items: await files.listArtifacts(artifactsFolder).catch(() => []),
@@ -251,8 +236,7 @@ async function readPlaceData(
         name: d.name,
         title: d.title,
         purpose: d.purpose,
-        // Operator는 domain 폴더를 열지 못한다. 열리는 곳은 artifacts 폴더뿐이다.
-        folder: role === "operator" ? null : folder,
+        folder,
         artifacts,
       });
       // kind 글만 비우고 turn은 계속한다.
@@ -282,12 +266,12 @@ async function readPlaceData(
           text: buildKindText({ domains: kindDomains }),
         };
 
-  // lophn: 모든 project와 앱의 목록과 domain 지도. 폴더는 읽기만 열린다.
+  // home: 모든 project와 앱의 목록과 domain 지도. 폴더는 읽기만 열린다.
   const projectList: { name: string; purpose: string }[] = [];
   const appItems: PlaceData["apps"][number][] = [];
   const map: MapDomain[] = [];
   const allProjectFolders: string[] = [];
-  if (role === "lophn") {
+  if (place === null) {
     const listed = await pages(async (cursor) => {
       const read = await readOf(call, projectApi.list, {
         status: "active",
@@ -391,112 +375,28 @@ async function readPlaceData(
     }
   }
 
-  // 부를 수 있는 열린 session. 자기 session은 core가 뺐다.
-  const sendable = await readOf(call, callSendable, {});
-  if (!sendable.ok) return sendable;
-  const labels = new Map<string, string | null>();
-  const labelOf = async (
-    at: { kind: "project" | "app"; id: string } | null,
-  ): Promise<string | null> => {
-    if (at === null) return null;
-    const key = `${at.kind}:${at.id}`;
-    if (labels.has(key)) return labels.get(key) ?? null;
-    let name = at.id;
-    const read =
-      at.kind === "project" ? await projectOf(at.id) : await appOf(at.id);
-    if (read.ok) name = read.value.name;
-    const label = `${at.kind} ${name}`;
-    labels.set(key, label);
-    return label;
-  };
-  const agents = new Map<string, PlaceAgent>();
-  for (const session of sendable.value.sessions) {
-    if (session.role === "coding_agent") continue;
-    const label = await labelOf(session.place);
-    const found: PlaceAgent = {
-      role: session.role,
-      name: session.name,
-      place: label,
-      line: ROLE_LINE[session.role],
-    };
-    if (
-      found.role === role &&
-      found.name === agent.name &&
-      found.place === (await labelOf(place))
-    )
-      continue;
-    agents.set(`${found.role}\0${found.name}\0${found.place}`, found);
-  }
+  // 부를 수 있는 agent는 전역 정의 목록의 이름뿐이다. 자기 자신도 넣는다: 다른 place의 자기에게 call할 수 있다.
+  const listed = await readOf(call, agentList, {});
+  if (!listed.ok) return listed;
+  const agents: PlaceAgent[] = listed.value.agents
+    .filter((row) => row.issues.length === 0)
+    .map((row) => ({ name: row.name }));
 
-  // session이 아직 없는 상대도 부를 수 있다(call이 새 session을 연다). 자기 자신만 뺀다.
-  const own = canonicalize(agent.agent);
-  const add = async (
-    ref: AgentRef,
-    name: string,
-    at: { kind: "project" | "app"; id: string } | null,
-  ) => {
-    if (canonicalize(ref) === own) return;
-    const found: PlaceAgent = {
-      role: ref.role,
-      name,
-      place: await labelOf(at),
-      line: ROLE_LINE[ref.role],
-    };
-    const key = `${found.role}\0${found.name}\0${found.place}`;
-    if (!agents.has(key)) agents.set(key, found);
-  };
-  await add({ role: "lophn" }, "lophn", null);
-  const projectsRead = await pages(async (cursor) => {
-    const read = await readOf(call, projectApi.list, {
-      status: "active",
-      ...(cursor === undefined ? {} : { cursor }),
-    });
-    return read.ok
-      ? ok({
-          items: read.value.projects,
-          next_cursor: read.value.next_cursor,
-        })
-      : read;
-  });
-  for (const record of projectsRead.ok ? projectsRead.value : []) {
-    projects.set(record.id, record);
-    labels.set(`project:${record.id}`, `project ${record.name}`);
-    await add({ role: "project_manager", project: record.id }, record.name, {
-      kind: "project",
-      id: record.id,
-    });
-  }
-  const appsRead = await readActiveApps();
-  for (const record of appsRead.ok ? appsRead.value : []) {
-    await add({ role: "app_engineer", app: record.id }, record.name, {
-      kind: "app",
-      id: record.id,
-    });
-  }
-  const defined = await readOf(call, agentDefinitionList, {});
-  for (const row of defined.ok ? defined.value.agents : []) {
-    if (row.kind !== "operator" || row.issues.length > 0) continue;
-    await add(row.agent, row.name, row.place);
-  }
-
-  // PM의 turn 시작에 workflows 폴더를 만든다(없는 허용 폴더는 file scope가 건너뛴다). 만들지 못하면 범위에서 빠진 채 간다.
+  // project place의 turn 시작에 workflows 폴더를 만든다(없는 허용 폴더는 file scope가 건너뛴다). 만들지 못하면 범위에서 빠진 채 간다.
   let workflowsFolder: string | null = null;
   if (place?.kind === "project") {
     const folder = files.workflowsFolder(place.id);
     if (folder !== null) {
-      if (role === "project_manager") {
-        try {
-          await files.ensureDir(folder);
-          workflowsFolder = folder;
-        } catch {
-          /* 폴더가 없으면 범위에서 빠진다 */
-        }
-      } else workflowsFolder = folder;
+      try {
+        await files.ensureDir(folder);
+        workflowsFolder = folder;
+      } catch {
+        /* 폴더가 없으면 범위에서 빠진다 */
+      }
     }
   }
 
   const scope = placeScope({
-    role,
     place,
     projectFolders,
     appSource,
@@ -507,23 +407,23 @@ async function readPlaceData(
   });
   return ok({
     place: {
-      self: { role, name: agent.name },
+      self: { name: agent.name },
       project,
       app,
-      agents: [...agents.values()],
+      agents,
       kinds,
       domains,
       apps: appItems,
       projects: projectList,
       map,
       release,
-      workflowsFolder: role === "project_manager" ? workflowsFolder : null,
+      workflowsFolder,
     },
     scope,
   });
 }
 
-// prompt가 받는 place 값과 file 범위다. 글과 kind 글은 여기서 정해 harness는 role을 모른다.
+// prompt가 받는 place 값과 file 범위다. 글과 kind 글은 여기서 정해 harness는 place 종류만 안다.
 export async function placeData(
   call: CoreCall,
   agent: ResolvedAgent,
@@ -534,10 +434,9 @@ export async function placeData(
   const read = await readPlaceData(call, agent, files);
   if (!read.ok) return read;
   const { place, scope } = read.value;
-  const { role } = agent;
   return ok({
     place: {
-      text: placeInfo(role, place, KIND_TEXT_BUDGET),
+      text: placeInfo(placeKindOf(agent.place), place, KIND_TEXT_BUDGET),
       kinds: place.kinds,
       agents: place.agents,
     },

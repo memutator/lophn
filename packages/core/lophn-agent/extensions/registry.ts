@@ -1,7 +1,7 @@
 import type {
   AgentPlace,
   McpServer,
-  Role,
+  PlaceKind,
   SkillSource,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { PlaceFiles } from "./place-store.ts";
@@ -48,8 +48,8 @@ type ExtensionRegistryDeps = {
 
 export type ExtensionRegistry = {
   // 이 place의 agent가 발견하는 skill이다. 내장, 전역, domain 순으로 덮고 끈 것은 enabled false다. 내장 skill은
-  // `role`에 선언된 것만이고 null이면 모두다.
-  skills(place: AgentPlace, role: Role | null): SkillListing;
+  // `places`에 선언된 종류만이고 null이면 모두다.
+  skills(place: AgentPlace, kind: PlaceKind | null): SkillListing;
   // 이 place에서 쓸 수 있는 서버다. 전역에 project 층이 덮이고 이어진다. 앱 place에는 project 층이 없다.
   mcpServers(place: AgentPlace): readonly McpRuntimeServer[];
 };
@@ -58,9 +58,9 @@ function key(place: AgentPlace): string {
   return `${place.kind}:${place.id}`;
 }
 
-// 한 읽기의 등록부 하나를 같은 place의 여러 agent(PM과 그 project의 Operator)가 같이 쓴다. skill 목록은 role마다 다르다.
-function skillKey(place: AgentPlace, role: Role | null): string {
-  return `${key(place)}:${role ?? "all"}`;
+// 한 읽기의 등록부 하나를 같은 place의 여러 agent가 같이 쓴다. skill 목록은 place 종류마다 다르다.
+function skillKey(place: AgentPlace, kind: PlaceKind | null): string {
+  return `${key(place)}:${kind ?? "all"}`;
 }
 
 export function createExtensionRegistry(
@@ -89,8 +89,8 @@ export function createExtensionRegistry(
   }
 
   return {
-    skills(place, role) {
-      const found = skills.get(skillKey(place, role));
+    skills(place, kind) {
+      const found = skills.get(skillKey(place, kind));
       if (found !== undefined) return found;
       const off = [
         ...new Set([...deps.global.skillsOff, ...projectOf(place).skills_off]),
@@ -107,9 +107,9 @@ export function createExtensionRegistry(
             ),
           })),
         },
-        { role, off },
+        { kind, off },
       );
-      skills.set(skillKey(place, role), listing);
+      skills.set(skillKey(place, kind), listing);
       return listing;
     },
     mcpServers(place) {
@@ -132,7 +132,7 @@ export function createExtensionRegistry(
 }
 
 // `/` 메뉴의 skill 한 줄이다(이름마다 하나: `pickSkills`). 일하는 domain 밖의 domain skill과, agent 정의가 고른 이름이 있으면 그 밖의 skill은 selected=false다. 끌 수 없는 내장 skill은
-// 늘 켜져 있다. 지금 없는 고른 이름은 그대로 두어 아무 일도 하지 않는다. 받는 목록은 발견이 role로 거른 것이다.
+// 늘 켜져 있다. 지금 없는 고른 이름은 그대로 두어 아무 일도 하지 않는다. 받는 목록은 발견이 place 종류로 거른 것이다.
 export function commandSkillsOf(
   entries: SkillListing["entries"],
   chosen: readonly string[],

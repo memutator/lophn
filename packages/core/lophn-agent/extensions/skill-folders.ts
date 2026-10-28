@@ -1,5 +1,8 @@
 import process from "node:process";
-import type { AgentPlace, Role } from "../../../protocol/lophn-agent/mod.ts";
+import type {
+  AgentPlace,
+  PlaceKind,
+} from "../../../protocol/lophn-agent/mod.ts";
 import { domainList } from "../../../protocol/domains/mod.ts";
 import { skillFoldersSetting, skillsOffSetting } from "./settings.ts";
 import { createListSettingsReader } from "../../config/mod.ts";
@@ -37,7 +40,7 @@ type SkillStores = {
   layer: ProjectLayer;
 };
 
-// 내장 skill 폴더와 project 층 규칙은 role 층의 값이라 조립이 넘긴다.
+// 내장 skill 폴더와 project 층 규칙은 place 층의 값이라 조립이 넘긴다.
 type SkillStoreDeps = { projectLayer: ProjectLayer; bundledSkillsRoot: string };
 
 function dataRootOfEnv(): string | null {
@@ -98,11 +101,11 @@ async function domainStores(
   }));
 }
 
-// 층을 합친 목록이다. 내장 skill은 `role`에 선언된 것만이다. 전역과 project에서 끈 것이 enabled false다.
+// 층을 합친 목록이다. 내장 skill은 그 place 종류에 선언된 것만이다. 전역과 project에서 끈 것이 enabled false다.
 export async function registeredSkillEntries(
   machine: CoreCall,
   stores: SkillStores,
-  role: Role,
+  kind: PlaceKind,
 ): Promise<readonly SkillEntry[]> {
   const { roots, off } = await globalSkillSettings(machine);
   const port = productFiles(roots, stores);
@@ -115,7 +118,7 @@ export async function registeredSkillEntries(
       domains: await domainStores(machine, stores),
     },
     {
-      role,
+      kind,
       off: [...new Set([...off, ...projectOff(port, stores.project_file)])],
     },
   ).entries;

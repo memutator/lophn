@@ -5,10 +5,8 @@ import { type PlaceFacts, placeScope } from "./place-folders.ts";
 const domain = (id: string) => ({
   id,
   folder: `/data/domains/${id}`,
-  artifactsFolder: `/data/domains/${id}/artifacts`,
 });
 const base: PlaceFacts = {
-  role: "operator",
   place: null,
   projectFolders: ["/p1", "/p2"],
   appSource: "/app",
@@ -21,47 +19,33 @@ const workflows = "/data/projects/prj_a/workflows";
 const project = { kind: "project", id: "prj_a" } as const;
 const app = { kind: "app", id: "app_a" } as const;
 
-// 이 규칙이 넓어지면 Operator·App Engineer·lophn이 project의 workflows/를 쓴다. 쓰는 것은 그 project의 PM뿐이다.
-// 이 규칙이 넓어지면 PM이 앱 source를, App Engineer가 사람의 project 폴더를, 둘이 남의 domain이나 앱 data·agent 정의를 쓴다.
-test("PM에는 앱 source가 없고 App Engineer에는 project 폴더가 없으며 둘 다 facts의 domain 폴더만 연다", () => {
-  const pm = placeScope({ ...base, role: "project_manager", place: project });
-  assert.deepStrictEqual(pm, {
-    read: [
-      "/p1",
-      "/p2",
-      "/data/domains/dom_a",
-      "/data/domains/dom_b",
-      workflows,
-    ],
-    write: [
-      "/p1",
-      "/p2",
-      "/data/domains/dom_a",
-      "/data/domains/dom_b",
-      workflows,
-    ],
+// 이 규칙이 넓어지면 project place session이 앱 source를, app place session이 사람의 project 폴더나
+// workflows/를, home session이 아무 폴더나 쓴다.
+test("place 종류마다 쓰기 폴더는 그 그릇의 폴더와 받은 domain 폴더뿐이다", () => {
+  const projectPlace = placeScope({
+    ...base,
+    place: project,
+    domains: [domain("dom_a")],
+  });
+  assert.deepStrictEqual(projectPlace, {
+    read: ["/p1", "/p2", "/data/domains/dom_a", workflows],
+    write: ["/p1", "/p2", "/data/domains/dom_a", workflows],
     base: "/p1",
   });
-  const engineer = placeScope({ ...base, role: "app_engineer", place: app });
-  assert.deepStrictEqual(engineer, {
-    read: ["/app", "/data/domains/dom_a", "/data/domains/dom_b"],
-    write: ["/app", "/data/domains/dom_a", "/data/domains/dom_b"],
+  const appPlace = placeScope({
+    ...base,
+    place: app,
+    domains: [domain("dom_a")],
+  });
+  assert.deepStrictEqual(appPlace, {
+    read: ["/app", "/data/domains/dom_a"],
+    write: ["/app", "/data/domains/dom_a"],
     base: "/app",
   });
-  // 서로의 place에서는 아무것도 열리지 않는다
-  assert.deepStrictEqual(
-    placeScope({ ...base, role: "project_manager", place: app }),
-    { read: [], write: [] },
-  );
-  assert.deepStrictEqual(
-    placeScope({ ...base, role: "app_engineer", place: project }),
-    { read: [], write: [] },
-  );
-  // 폴더 없는 project의 PM은 domain 폴더만 열고 상대 경로 기준은 data 폴더다
+  // 폴더 없는 project는 domain 폴더와 workflows/만 열고 상대 경로 기준은 data 폴더다
   assert.deepStrictEqual(
     placeScope({
       ...base,
-      role: "project_manager",
       place: project,
       projectFolders: [],
       domains: [domain("dom_a")],
@@ -72,33 +56,9 @@ test("PM에는 앱 source가 없고 App Engineer에는 project 폴더가 없으�
       base: "/data/projects/prj_a",
     },
   );
-});
-
-test("domain A만 고른 Operator는 A의 artifacts 폴더만 연다", () => {
-  const picked = [domain("dom_a")];
-  // workflows/는 facts에 있어도 Operator에게 열리지 않는다
-  assert.deepStrictEqual(
-    placeScope({ ...base, place: project, domains: picked }),
-    {
-      read: ["/p1", "/p2", "/data/domains/dom_a/artifacts"],
-      write: ["/p1", "/p2", "/data/domains/dom_a/artifacts"],
-      base: "/p1",
-    },
-  );
-  // 앱 place에서 앱 source는 읽기만 한다
-  assert.deepStrictEqual(placeScope({ ...base, place: app, domains: picked }), {
-    read: ["/app", "/data/domains/dom_a/artifacts"],
-    write: ["/data/domains/dom_a/artifacts"],
-    base: "/app",
+  // home은 모든 project 폴더를 읽기만 한다
+  assert.deepStrictEqual(placeScope({ ...base, place: null }), {
+    read: ["/p1", "/p2", "/q"],
+    write: [],
   });
-});
-
-test("lophn은 모든 project 폴더를 읽기만 한다", () => {
-  assert.deepStrictEqual(
-    placeScope({ ...base, role: "lophn", place: project }),
-    {
-      read: ["/p1", "/p2", "/q"],
-      write: [],
-    },
-  );
 });

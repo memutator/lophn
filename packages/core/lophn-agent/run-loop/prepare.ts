@@ -17,7 +17,6 @@ import {
   placeKindOf,
   type PlaceSession,
   placeSessionRead,
-  type Role,
   startTurn,
   toWireToolName,
   TURN_BLOB_PURPOSES,
@@ -149,9 +148,9 @@ type PreparerDeps = {
   ): ToolPorts;
   // agent event를 Bus로 보내는 길(감독 pipe).
   events: AgentEventSink;
-  // 제품 고정 규칙을 포함한 role 지침 글.
-  rolePrompt(role: string): Promise<Result<string>>;
-  // prompt의 place 정보와 file tool이 닿는 폴더를 turn의 agent 자격 읽기로 모은다. role 규칙은 role 층이 쥔다.
+  // 제품 고정 규칙을 포함한 place 종류 지침 글.
+  placePrompt(kind: PlaceKind): Promise<Result<string>>;
+  // prompt의 place 정보와 file tool이 닿는 폴더를 turn의 agent 자격 읽기로 모은다. place 종류 규칙은 place 층이 쥔다.
   placeData(
     call: CoreCall,
     resolved: ResolvedAgent,
@@ -163,16 +162,17 @@ type PreparerDeps = {
   >;
   // place 종류가 고정한 tool 이름 목록. 어느 종류가 어느 tool을 보는지는 place 층이 정한다.
   placeTools(kind: PlaceKind): readonly string[];
-  // place 종류를 아직 role로 받는 port에 꾸며 넘기는 임시 표다. place-scope가 지운다.
-  roleOfKind(kind: PlaceKind): Role;
   instructions: InstructionDeps;
   // session마다 그 session으로 지침 파일을 읽는 통로. 있으면 `instructions.files` 대신 쓴다(core가 session의
   // place로 어느 project인지 정한다).
   instructionFilesFor?(session: Id<"ses">): InstructionDeps["files"];
   // turn 근거·결과와 model·tool 기록의 본문을 blob으로 먼저 저장하는 통로.
   blobs: BlobPort;
-  // 그 agent가 여는 자리에서 발견하는 skill이다: 전역 층에 그 자리 층을 더한다. 내장 skill은 그 role에 선언된 것만이다.
-  skills?(place: AgentPlace | null, role: Role): Promise<readonly SkillEntry[]>;
+  // 그 agent가 여는 자리에서 발견하는 skill이다: 전역 층에 그 자리 층을 더한다. 내장 skill은 그 place 종류에 선언된 것만이다.
+  skills?(
+    place: AgentPlace | null,
+    kind: PlaceKind,
+  ): Promise<readonly SkillEntry[]>;
   timezone?(): string | null;
   redact?: RedactText;
 };
@@ -538,8 +538,8 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     type Built = Omit<TurnContext, "keep"> & { compaction: string | null };
     let built: Promise<Result<Built>> | undefined;
     const build = async (): Promise<Result<Built>> => {
-      const role = await deps.rolePrompt(resolved.role);
-      if (!role.ok) return role;
+      const prompt = await deps.placePrompt(placeKindOf(resolved.place));
+      if (!prompt.ok) return prompt;
       const read = await readSessionConversation(machine, {
         session: seat.session,
         request: request.input.message,
@@ -560,7 +560,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           : [noticeText(toolsNotice(fixed.definitions, m.current))];
       return ok({
         prompt: {
-          role_prompt: role.value,
+          place_kind_prompt: prompt.value,
           // 정본 이름이다. model에는 wire 이름으로 간다.
           // 숨김 표시는 이 turn의 provider·model이 받을 때만 wire로 간다. 아니면 보통 정의다.
           tools: fixed.definitions.map((tool) => ({
@@ -573,7 +573,10 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           })),
           instructions,
           skills: promptSkills(
-            (await deps.skills?.(resolved.place, resolved.role)) ?? [],
+            (await deps.skills?.(
+              resolved.place,
+              placeKindOf(resolved.place),
+            )) ?? [],
             resolved,
           ),
           place: placed.value.place,
@@ -714,13 +717,11 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
 
     // 이번 turn의 resolved agent. 층을 합친 값을 turn 기준에 고정한다. model이 어느 층에도 없거나 정의가
     // 틀렸으면 필수 선택이 비었다는 뜻이라 이 turn만 시작하지 않는다.
-    const skills =
-      (await deps.skills?.(session.place, deps.roleOfKind(kind))) ?? [];
+    const skills = (await deps.skills?.(session.place, kind)) ?? [];
     let mcp: LoadedMcp | undefined;
     const made = await resolveTurnAgent(machine, {
       session: start.session,
       placeTools: deps.placeTools,
-      roleOfKind: deps.roleOfKind,
       skills: skills.filter((entry) => entry.enabled),
       mcp: async (off, place, ownServers) => {
         mcp = await loadMcp(start.session, {
@@ -747,7 +748,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         files:
           deps.instructionFilesFor?.(start.session) ?? deps.instructions.files,
       },
-      { role: deps.roleOfKind(kind) },
+      { kind },
       await readTurnDomains(machine, agent),
     );
     if (instructions.status === "blocked") {

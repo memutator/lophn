@@ -9,7 +9,7 @@ import {
 import {
   agentProfileImageRead,
   agentProfileImageUpload,
-  type AgentRef,
+  type AgentId,
   finishRewindSummary,
   instructionPreview,
   instructionsGet,
@@ -27,8 +27,8 @@ import {
   messageImageRead,
   messageImageUpload,
   type Place,
+  placeKindOf,
   QUEUED_INPUT_ROUTES,
-  type Role,
   readRewindSummary,
   recordRewindWrite,
   requestRewindSummary,
@@ -54,7 +54,6 @@ import {
   type AgentDeps,
   type AgentFileSystem,
   type AgentLookups,
-  agentIdOfRef,
   createAgentCommands,
   createAgentReads,
   domainsOf,
@@ -360,7 +359,7 @@ function registeredSkillsOff(sql: Pick<Tx["sql"], "get" | "all">): string[] {
   return settingsOf(sql)?.get(skillsOffSetting) ?? [];
 }
 
-// role 층이 정하는 skill 자리와 place 그릇의 domain을 읽는 길이다. 조립이 넘긴다.
+// place 층이 정하는 skill 자리와 place 그릇의 domain을 읽는 길이다. 조립이 넘긴다.
 type SkillLayers = {
   projectLayer: ProjectLayer;
   bundledSkillsRoot: string;
@@ -449,13 +448,14 @@ function agentLookups(
             .map((domain) => domain.id)
             .sort(),
     // 이 place의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 그릇의 domain 층을 더한다. 한 읽기 안에서 같은
-    // place는 같은 목록이다. lophn(place 없음)은 전역 층만이다.
-    skills: (place, role) =>
-      place === null
-        ? globalSkillNames(sql, layers, role)
+    // place는 같은 목록이다. home(place 없음)은 전역 층만이다.
+    skills: (place, _role) => {
+      return place === null
+        ? globalSkillNames(sql, layers)
         : (registryOf()
-            ?.skills(place, role)
-            .entries.filter((entry) => entry.enabled) ?? []),
+            ?.skills(place, placeKindOf(place))
+            .entries.filter((entry) => entry.enabled) ?? []);
+    },
     // agent 정의가 MCP tool을 고르지 않는다. 쓸 tool은 agent 할당과 설정한 층이 정한다.
     mcp: () => [],
     // 전역 기본 model.
@@ -465,16 +465,15 @@ function agentLookups(
   };
 }
 
-// 전역 층에서 발견하는 skill이다. 그 role에 선언된 내장 skill만이고 전역에서 끈 것은 뺀다.
+// 전역 층에서 발견하는 skill이다. home에 선언된 내장 skill만이고 전역에서 끈 것은 뺀다.
 function globalSkillNames(
   sql: Pick<Tx["sql"], "get" | "all">,
   layers: SkillLayers,
-  role: Role,
 ) {
   return discoverSkills(
     skillFiles,
     { ...globalSkillSources(sql, layers), domains: [] },
-    { role, off: registeredSkillsOff(sql) },
+    { kind: "home", off: registeredSkillsOff(sql) },
   ).entries.filter((entry) => entry.enabled);
 }
 
@@ -553,7 +552,7 @@ const UNATTACHED_REDACT = (): string | null => null;
 
 // GetInstructions는 LOPHN.md와 agent 정의 본문을 파일에서 읽는 reader Worker의 read다. 동기 file API는 core module
 // graph에 들일 수 없어 서빙은 instructions/files.ts의 reader 등록이 한다(core 조립의 팀 file
-// `main/daemon/wiring/instructions-registration.ts`가 project·앱 조회와 role 규칙을 꽂아 reader module로 붙인다). 여기
+// `main/daemon/wiring/instructions-registration.ts`가 project·앱 조회와 place 종류 규칙을 꽂아 reader module로 붙인다). 여기
 // handler는 route를 registry에 올릴 뿐 실행되지 않는다.
 function instructionsGetRoute(): ReadDefinition<typeof instructionsGet> {
   return {
@@ -612,11 +611,11 @@ export function createLedgerRegistration(
   };
 }
 
-// 다른 module의 표와 role 층의 값은 이 port로 받는다. core/main의 팀 file(wiring/lophn-agent-team.ts)이 꽂는다.
+// 다른 module의 표와 place 층의 값은 이 port로 받는다. core/main의 팀 file(wiring/lophn-agent-team.ts)이 꽂는다.
 // 값은 모두 Worker 안에서 팀 file을 import할 때 만들어진다.
 export type LophnAgentPorts = {
   lookups: PlaceLookups;
-  // 설정 층 규칙(project 층의 자리)과 내장 skill 폴더다. role 층의 값이다.
+  // 설정 층 규칙(project 층의 자리)과 내장 skill 폴더다. place 층의 값이다.
   projectLayer: ProjectLayer;
   bundledSkillsRoot: string;
 };
@@ -701,15 +700,13 @@ export function createLophnAgent(ports: LophnAgentPorts) {
   // 그 agent 정의가 고른 skill 이름과 일하는 domain id다. 정의를 읽지 못하면 고른 skill이 없고 domain은 없다.
   function chosenOf(
     sql: Pick<Tx["sql"], "get" | "all">,
-    agent: AgentRef,
+    agent: AgentId,
     place: Place | null,
   ): { skills: readonly string[]; domains: readonly string[] } {
     const none = { skills: [], domains: [] };
-    const id = agentIdOfRef(agent);
-    if (id === null) return none;
     const opened = openAgentContext(agentDeps, sql);
     if (!opened.ok) return none;
-    const loaded = loadAgent(opened.value, id);
+    const loaded = loadAgent(opened.value, agent);
     if (!loaded.ok || loaded.value === null) return none;
     return {
       skills: loaded.value.definition?.skills ?? [],
@@ -720,18 +717,19 @@ export function createLophnAgent(ports: LophnAgentPorts) {
   // `/` 명령 목록. 목록은 저장하지 않고 session의 agent에서 열 때마다 계산한다. skill은 그 session
   // place에서 그 agent가 쓸 수 있는 것이다: 전역 층에 그릇의 domain 층을 더하고, 일하는 domain 밖의 domain skill과
   // agent 정의가 고른 것이 있으면 그 밖의 것은 selected=false다.
-  // 내장 skill은 발견이 role로 거른다.
+  // 내장 skill은 발견이 place 종류로 거른다.
   const commandReads = createCommandReads({
     skills: (sql, session) => {
       const chosen = chosenOf(sql, session.agent, session.place);
+      const kind = placeKindOf(session.place);
       return commandSkillsOf(
         session.place === null
           ? discoverSkills(
               skillFiles,
               { ...globalSkillSources(sql, ports), domains: [] },
-              { role: session.role, off: registeredSkillsOff(sql) },
+              { kind, off: registeredSkillsOff(sql) },
             ).entries
-          : (extensionRegistry(sql, ports)?.skills(session.place, session.role)
+          : (extensionRegistry(sql, ports)?.skills(session.place, kind)
               .entries ?? []),
         chosen.skills,
         chosen.domains,

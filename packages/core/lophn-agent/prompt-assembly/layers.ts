@@ -34,7 +34,7 @@ export function historyMessages(
 }
 
 // ---- Anthropic wire 대응 ----
-// Anthropic 요청은 tools → system → messages 순이다. 그래서 role 층 system 끝의 marker가 tools를
+// Anthropic 요청은 tools → system → messages 순이다. 그래서 place_kind 층 system 끝의 marker가 tools를
 // 함께 덮는다. tools에는 marker를 따로 달지 않으므로 논리 경계 세 곳이 wire marker 세 개 이하다.
 
 const EPHEMERAL = { type: "ephemeral" } as const;

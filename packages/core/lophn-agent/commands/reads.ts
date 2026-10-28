@@ -1,25 +1,23 @@
 import { err, ok } from "../../../base/mod.ts";
 import {
-  type AgentRef,
+  type AgentId,
   commandsList,
   type Place,
-  type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   ReadDefinition,
   ReadSnapshot,
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
-import { agentRefOf, loadSession, placeOf } from "../session/model.ts";
+import { loadSession, placeOf } from "../session/model.ts";
 import { buildRegistry, type RegistrySkill } from "./registry.ts";
 
 // `/` 명령 목록 read. 목록은 저장하는 표가 아니라 session의 agent에서
 // 열 때마다 계산한다.
 
 type CommandSession = {
-  role: Role;
+  agent: AgentId;
   place: Place | null;
-  agent: AgentRef;
 };
 
 type CommandReadDeps = {
@@ -49,9 +47,8 @@ export function createCommandReads(deps: CommandReadDeps): {
           return err({ code: "not_found", message: "session not found" });
         }
         const session: CommandSession = {
-          role: agentRefOf(row).role,
+          agent: row.agent,
           place: placeOf(row),
-          agent: agentRefOf(row),
         };
         return ok({
           commands: buildRegistry(deps.skills(snapshot.sql, session)),

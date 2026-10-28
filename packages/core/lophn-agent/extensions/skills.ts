@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   BUILTIN_SKILLS,
-  type Role,
+  type PlaceKind,
   type SkillEntry as SkillRow,
   type SkillSource,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -10,7 +10,7 @@ import {
 // 셋이고 같은 이름은 마지막 층이 덮는다. 다만 domain 층 skill은 domain마다 따로 남는다. 어느 domain의 것이 이기는지는
 // agent가 일하는 domain을 거른 뒤 `pickSkills`가 정한다. 끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다.
 // 끄기는 이름 단위다. 발견은 동기다(core read handler가 동기라 비동기 발견을 부르지 못하고, 비동기 함수 안에서는 동기
-// 함수를 그대로 부를 수 있다). 파일 IO는 SkillFiles로 끼운다. 내장 skill은 `role`에 선언된 것만 후보다. 이 모듈은
+// 함수를 그대로 부를 수 있다). 파일 IO는 SkillFiles로 끼운다. 내장 skill은 `places`에 선언된 place 종류만 후보다. 이 모듈은
 // 사람의 실제 home이나 다른 harness 보관소를 열지 않는다. 부르는 쪽이 폴더를 정해서 준다. 발견 cache는 없다.
 // turn 시작마다 다시 읽어 그 turn의 판을 고정한다.
 
@@ -178,12 +178,12 @@ function undeclaredBuiltinReason(name: string): string | null {
     : null;
 }
 
-// 내장 skill은 선언한 role의 agent만 갖는다. role이 null이면 모두 본다(사람 화면의 목록).
-export function builtinForRole(name: string, role: Role | null): boolean {
+// 내장 skill은 선언한 place 종류만 갖는다. kind가 null이면 모두 본다(사람 화면의 목록).
+export function builtinForPlace(name: string, kind: PlaceKind | null): boolean {
   const builtin = declaredBuiltin(name);
   return (
     builtin !== undefined &&
-    (role === null || (builtin.roles as readonly Role[]).includes(role))
+    (kind === null || (builtin.places as readonly PlaceKind[]).includes(kind))
   );
 }
 
@@ -286,11 +286,11 @@ function attempt<T>(read: () => T): { ok: true; value: T } | { ok: false } {
   }
 }
 
-// role이 null이면 내장 skill을 모두 낸다(사람 화면만). off는 끈 이름의 합이다.
+// kind가 null이면 내장 skill을 모두 낸다(사람 화면만). off는 끈 이름의 합이다.
 export function discoverSkills(
   files: SkillFiles,
   sources: SkillSources,
-  options: { role: Role | null; off: readonly string[] },
+  options: { kind: PlaceKind | null; off: readonly string[] },
 ): SkillListing {
   const candidates: Candidate[] = [];
   const skipped: SkillSkipped[] = [];
@@ -425,7 +425,7 @@ export function discoverSkills(
   const visible = candidates.filter(
     (candidate) =>
       candidate.source !== "builtin" ||
-      builtinForRole(candidate.name, options.role),
+      builtinForPlace(candidate.name, options.kind),
   );
   return { entries: mergeSkillLayers(visible, options.off, skipped), skipped };
 }

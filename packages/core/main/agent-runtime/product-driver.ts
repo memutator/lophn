@@ -16,9 +16,6 @@ import {
   type AgentId,
   agentRead,
   instructionsGet,
-  type PlaceKind,
-  placeKindOf,
-  type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { instructionFilesOverCore } from "../../lophn-agent/instructions/mod.ts";
 import { abortableWait } from "../../lophn-agent/run-loop/mod.ts";
@@ -41,7 +38,7 @@ import {
 } from "../../lophn-agent/session/compactor.ts";
 import { createModelResolver } from "../../lophn-agent/models/resolve.ts";
 import { placeToolNames } from "../../agent-places/tool-lists.ts";
-import { rolePrompt } from "../../agent-places/roles/prompts.ts";
+import { placePrompt } from "../../agent-places/roles/prompts.ts";
 import { PROJECT_LAYER } from "../../agent-places/place/project-layer.ts";
 import { BUNDLED_SKILLS_ROOT } from "../../agent-places/skills/root.ts";
 import {
@@ -71,7 +68,7 @@ import { withPublicOnly } from "../../lophn-agent/tools/app-public.ts";
 import { UNWIRED_TOOL_PORTS } from "../../lophn-agent/run-loop/unwired.ts";
 import { FILE_HOOKS } from "../../agent-places/hooks.ts";
 
-// skill 발견이 쓰는 role 층의 자리 규칙이다. agent runtime child는 조립이라 role 층을 안다.
+// skill 발견이 쓰는 place 층의 자리 규칙이다. agent runtime child는 조립이라 place 층을 안다.
 const SKILL_PLACES = {
   projectLayer: PROJECT_LAYER,
   bundledSkillsRoot: BUNDLED_SKILLS_ROOT,
@@ -88,17 +85,6 @@ async function callerDomains(
   });
   if (!read.ok || read.value.issues.length > 0) return null;
   return read.value.effective.domains;
-}
-
-// place 종류를 옛 role로 꾸미는 임시 표. place-scope가 port를 place 종류로 바꾸면 지운다.
-const ROLE_OF_KIND = {
-  home: "lophn",
-  project: "project_manager",
-  app: "app_engineer",
-} as const satisfies Record<PlaceKind, Role>;
-
-function roleOfKind(kind: PlaceKind): Role {
-  return ROLE_OF_KIND[kind];
 }
 
 // 제품 runtime의 tool 묶음이다. 내장 tool의 정의·handler와 외부 MCP 등록 통로를 한 곳에서 낸다.
@@ -172,7 +158,7 @@ function placeFiles(): PlaceFiles {
   };
 }
 
-// 제품 runtime의 driver 재료. core 연결을 받아 turn 시작 재료와 기본 harness 묶음(내장 tool, 역할 prompt, model
+// 제품 runtime의 driver 재료. core 연결을 받아 turn 시작 재료와 기본 harness 묶음(내장 tool, place 종류 prompt, model
 // 선택 검증, 등록 skill 폴더)을 만든다. 아래는 조립이 채울 자리다: ToolContext의 바깥 연결(`toolPorts`). 지금은
 // 닫힌 연결이 들어 있다. agent event는 감독 pipe로 core Bus에 간다(`calls.events`).
 export function productDriver(options: { fetch?: typeof fetch } = {}) {
@@ -231,17 +217,15 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
           productSkillSnapshotDeps(calls.machine, SKILL_PLACES),
           {
             id: session.id,
-            agent: { role: roleOfKind(placeKindOf(session.place)) },
             place: session.place,
           },
           turn.skills,
         ),
       }),
       events: calls.events,
-      rolePrompt,
+      placePrompt,
       placeData: (call, agent) => placeData(call, agent, placeFiles()),
       placeTools: placeToolNames,
-      roleOfKind,
       instructions: {
         // turn 없이는 읽지 않는다. 실제 읽기는 아래 instructionFilesFor가 turn마다 연다.
         files: {
@@ -262,13 +246,13 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
           readOf(calls.machine, instructionsGet, input),
         ),
       redact: calls.redact,
-      // 그 agent 자리의 skill 폴더와 등록한 skill 폴더만 검사한다. 내장 skill은 그 role에 선언된 것만이다. 설정이 없으면
+      // 그 agent 자리의 skill 폴더와 등록한 skill 폴더만 검사한다. 내장 skill은 그 place 종류에 선언된 것만이다. 설정이 없으면
       // 빈 목록이다.
-      skills: (place, role) =>
+      skills: (place, kind) =>
         registeredSkillEntries(
           calls.machine,
           productSkillStores(place, SKILL_PLACES),
-          role,
+          kind,
         ),
     });
     // 사람이 요청한 Compact의 요약 call이다. 같은 model 선택 검증과 core 연결을 쓴다.
@@ -277,7 +261,6 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       ids,
       machine: calls.machine,
       placeTools: placeToolNames,
-      roleOfKind,
       blobs: calls.blobs,
       redact: calls.redact,
       resolveModel,

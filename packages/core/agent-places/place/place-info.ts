@@ -1,4 +1,4 @@
-import type { Role } from "../../../protocol/lophn-agent/places.ts";
+import type { PlaceKind } from "../../../protocol/lophn-agent/places.ts";
 import {
   type FolderRead,
   renderKindText,
@@ -9,7 +9,7 @@ import type {
 } from "../../lophn-agent/prompt-assembly/model.ts";
 import type { ArtifactEntry } from "./artifact-list.ts";
 
-// place 정보다. prompt에 넣을 잘 안 바뀌는 목록을 role별로 글로 만든다. 순수 함수이고 data는 호출하는
+// place 정보다. prompt에 넣을 잘 안 바뀌는 목록을 place 종류별로 글로 만든다. 순수 함수이고 data는 호출하는
 // 쪽이 core 읽기로 모은다. 열린 session 목록과 앱 화면의 상태는 자주 바뀌어서 넣지 않는다.
 // 예산은 글자 수이고 kind 글과 domain 지도에 각각 건다. session을 시작할 때 값을 고정해서 넘긴다.
 
@@ -29,7 +29,7 @@ type PlaceApp = {
   source: string | null;
 };
 
-// 이 agent가 맡은 domain 하나다. folder는 Operator에게는 열리지 않아 null이다.
+// 이 session이 맡은 domain 하나다. folder는 폴더를 만들지 못했으면 null이다.
 export type PlaceDomain = {
   name: string;
   title: string;
@@ -39,7 +39,7 @@ export type PlaceDomain = {
   artifacts: { folder: string; items: readonly ArtifactEntry[] } | null;
 };
 
-// lophn의 지도에서 domain 하나의 덩어리다.
+// home의 지도에서 domain 하나의 덩어리다.
 export type MapDomain = {
   name: string;
   // "project <name>" 또는 "app <name>"
@@ -52,37 +52,30 @@ export type MapDomain = {
 };
 
 export type PlaceData = {
-  self: { role: Role; name: string };
+  self: { name: string };
   // 이 agent가 놓인 place. project 또는 app 중 하나다.
   project: PlaceProject | null;
   app: (PlaceApp & { declaration: string }) | null;
   // grant 안의 다른 agent
   agents: readonly PlaceAgent[];
-  // 쓰고 있는 kind 글. lophn과 kind가 없는 그릇은 null.
+  // 쓰고 있는 kind 글. home과 kind가 없는 그릇은 null.
   kinds: PlaceKinds | null;
-  // 이 agent가 맡은 domain. lophn은 없다.
+  // 이 session이 받은 domain. home은 없다.
   domains: readonly PlaceDomain[];
-  // lophn은 모든 앱. packages는 그 앱이 주인인 package(name@version)다.
+  // home은 모든 앱. packages는 그 앱이 주인인 package(name@version)다.
   apps: readonly {
     name: string;
     purpose: string;
     packages: readonly string[];
   }[];
-  // lophn만
+  // home만
   projects: readonly { name: string; purpose: string }[];
-  // lophn만. domain마다 한 덩어리의 지도
+  // home만. domain마다 한 덩어리의 지도
   map: readonly MapDomain[];
   // 앱 place만. 앱의 활성 release가 없으면 null.
   release: { version: string; tool_names: readonly string[] } | null;
-  // project place의 PM만. 만들어 둔 workflows 폴더의 절대 path다. 다른 role은 null
+  // project place만. 만들어 둔 workflows 폴더의 절대 path다. home과 app place는 null
   workflowsFolder: string | null;
-};
-
-export const ROLE_LABEL: Record<Role, string> = {
-  lophn: "lophn",
-  project_manager: "Project Manager",
-  app_engineer: "App Engineer",
-  operator: "Operator",
 };
 
 function cmp(a: string, b: string): number {
@@ -137,17 +130,10 @@ function placeLines(data: PlaceData): string[] {
 
 function agentLines(agents: readonly PlaceAgent[]): string[] {
   if (agents.length === 0) return [];
-  const sorted = [...agents].sort((a, b) =>
-    cmp(`${a.role}\0${a.name}`, `${b.role}\0${b.name}`),
-  );
+  const sorted = [...agents].sort((a, b) => cmp(a.name, b.name));
   return [
-    "Agents you can call (use these names as the `to` of a call)",
-    ...sorted.map(
-      (a) =>
-        `- ${ROLE_LABEL[a.role]} ${a.name}${
-          a.place === null ? "" : ` (${a.place})`
-        }: ${a.line}`,
-    ),
+    "Agents you can call (use the name as `to.agent` of a call; add `place` for a project or an app, none for no place)",
+    ...sorted.map((a) => `- ${a.name}`),
   ];
 }
 
@@ -271,16 +257,18 @@ function kindLines(kinds: PlaceKinds | null, budget: number): string[] {
   return ["Kinds", renderKindText(kinds.text, "count")];
 }
 
-export function placeInfo(role: Role, data: PlaceData, budget: number): string {
+export function placeInfo(
+  kind: PlaceKind,
+  data: PlaceData,
+  budget: number,
+): string {
   const lines = [
     "# Your place",
-    `You are ${data.self.name}, ${
-      /^[AEIOU]/.test(ROLE_LABEL[role]) ? "an" : "a"
-    } ${ROLE_LABEL[role]}.`,
+    `You are ${data.self.name}.`,
     ...placeLines(data),
   ];
   const sections: string[][] = [agentLines(data.agents)];
-  if (role === "lophn") {
+  if (kind === "home") {
     sections.push(listLines("Projects", data.projects));
     sections.push(appListLines(data.apps));
     sections.push(domainMapLines(data.map, budget));

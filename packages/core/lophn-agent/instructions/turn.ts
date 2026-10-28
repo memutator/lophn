@@ -1,7 +1,7 @@
 import { sha256Hex } from "../../../base/mod.ts";
 import {
   PROMPT_INSTRUCTION_LAYERS,
-  type Role,
+  type PlaceKind,
 } from "../../../protocol/lophn-agent/mod.ts";
 import {
   inspectInstruction,
@@ -44,12 +44,12 @@ function cmp(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-// 전역 → project → domain → agent 순서(PROMPT_INSTRUCTION_LAYERS)로 읽는다. lophn은 place가 없어 project 층이
+// 전역 → project → domain → agent 순서(PROMPT_INSTRUCTION_LAYERS)로 읽는다. home은 place가 없어 project 층이
 // 비어 있다. domain 층은 맡은 domain의 DOMAIN.md를 이름순으로 `## <name>` 아래 한 글로 잇는다(고정 순서와 제목이라
 // 같은 재료는 같은 bytes다). deps.files는 그 session에 묶인 읽기다(instructionFilesOverCore).
 export async function readTurnInstructions(
   deps: InstructionDeps,
-  session: { role: Role },
+  session: { kind: PlaceKind },
   domains: readonly TurnDomain[],
 ): Promise<TurnInstructions> {
   const layers: TurnInstructionLayer[] = [];
@@ -80,7 +80,7 @@ export async function readTurnInstructions(
     return inspected.text;
   };
   for (const layer of PROMPT_INSTRUCTION_LAYERS) {
-    if (layer === "project" && session.role === "lophn") {
+    if (layer === "project" && session.kind === "home") {
       layers.push(absent(layer));
       continue;
     }

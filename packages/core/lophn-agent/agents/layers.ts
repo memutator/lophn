@@ -10,7 +10,6 @@ import {
   placeKindOf,
   placeSessionRead,
   projectModelRead,
-  type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import type { AgentFileDefinition } from "./definition-file.ts";
@@ -49,7 +48,6 @@ export async function resolveTurnAgent(
     session: string;
     skills: readonly AvailableSkill[];
     placeTools(kind: PlaceKind): readonly string[];
-    roleOfKind(kind: PlaceKind): Role;
     // 연결할 수 있는 MCP tool이다. 정의가 서버를 통째로 끈 이름을 먼저 알려 그 서버는 연결하지 않게 한다.
     mcp(
       off: ReadonlySet<string>,
@@ -80,7 +78,6 @@ export async function resolveTurnAgent(
 
   const place = session.place;
   const kind = placeKindOf(place);
-  const role = input.roleOfKind(kind);
   const definition = read.value.definition as AgentFileDefinition | null;
   const serversOff = new Set(
     (definition?.mcp_off ?? [])
@@ -106,7 +103,6 @@ export async function resolveTurnAgent(
 
   const resolved = await resolveAgent({
     agent,
-    role,
     place,
     definition,
     global_model: globalModel,

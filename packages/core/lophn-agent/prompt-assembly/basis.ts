@@ -22,7 +22,7 @@ export type SeenBasis = {
   tools: string[];
   // 쓰고 있는 kinds 파일의 hash. kind가 없으면 null.
   kinds: { hash: string } | null;
-  // `role name (place)` 꼴, 정렬
+  // 이름, 정렬
   agents: string[];
 };
 
@@ -31,9 +31,7 @@ function cmp(a: string, b: string): number {
 }
 
 function agentLine(agent: PlaceAgent): string {
-  return `${agent.role} ${agent.name}${
-    agent.place === null ? "" : ` (${agent.place})`
-  }`;
+  return agent.name;
 }
 
 export async function basisOf(input: {

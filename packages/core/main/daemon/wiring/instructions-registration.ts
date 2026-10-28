@@ -1,5 +1,5 @@
 // reader Worker가 팀 등록 file로 import한다. GetInstructions·PreviewGlobalInstructions의 reader 서빙에 project 조회와
-// role 규칙을 꽂는다. 동기 file API는 lophn-agent/instructions/files.ts 안에서 handler가 불릴 때만 쓴다.
+// place 종류 규칙을 꽂는다. 동기 file API는 lophn-agent/instructions/files.ts 안에서 handler가 불릴 때만 쓴다.
 import { placeDataFolder } from "../../../agent-places/place/data-folder.ts";
 import {
   agentFilePathOf,

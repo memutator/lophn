@@ -163,7 +163,7 @@ export async function callLive(
   if (!bound.ok) throw new Error(`resolve failed: ${bound.error.message}`);
   const binding = bound.value;
   const packed = binding.pack({
-    system: [{ layer: "role", text: "You are a test agent." }],
+    system: [{ layer: "place_kind", text: "You are a test agent." }],
     tools: TOOLS,
     messages: MESSAGES[row],
   });

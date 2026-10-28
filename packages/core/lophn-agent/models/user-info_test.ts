@@ -186,7 +186,7 @@ test("user 항목의 effort 값은 저장 검사를 통과해 chat 요청의 rea
       const bound = await resolve({ model: choice });
       assert.ok(bound.ok, JSON.stringify(bound));
       const packed = bound.value.pack({
-        system: [{ layer: "role", text: "x" }],
+        system: [{ layer: "place_kind", text: "x" }],
         tools: [],
         messages: [{ role: "user", parts: [{ kind: "text", text: "hi" }] }],
       });

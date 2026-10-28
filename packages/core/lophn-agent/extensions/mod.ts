@@ -5,7 +5,7 @@ export {
   skillsOffSetting,
 } from "./settings.ts";
 export {
-  builtinForRole,
+  builtinForPlace,
   discoverSkills,
   mergeSkillLayers,
   parseSkillFrontmatter,

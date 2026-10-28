@@ -15,11 +15,11 @@ export function createUsageReads(): ReadDefinition<typeof appUsage> {
       // 다른 domain의 사용 관계는 domain 경계를 넘어 보는 lophn만 읽는다.
       if (
         actor?.kind === "agent" &&
-        ports.sessionDomains(actor.id)?.role !== "lophn"
+        ports.sessionDomains(actor.id)?.kind !== "home"
       ) {
         return err({
           code: "forbidden",
-          message: "only the lophn agent reads app usage",
+          message: "only a home session reads app usage",
         });
       }
       let apps;

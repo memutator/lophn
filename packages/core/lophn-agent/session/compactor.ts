@@ -10,7 +10,6 @@ import {
   type ModelChoice,
   type PlaceKind,
   placeSessionCompactRequests,
-  type Role,
   startModelCall,
   takeRewindSummaryRequest,
   type TokenUsage,
@@ -94,7 +93,6 @@ type CompactorDeps = {
   // machine 자격의 loopback.
   machine: CoreCall;
   placeTools(kind: PlaceKind): readonly string[];
-  roleOfKind(kind: PlaceKind): Role;
   blobs: BlobPort;
   redact: RedactText;
   resolveModel(input: {
@@ -162,7 +160,6 @@ export function createCompactor(
       session: request.session,
       skills: [],
       placeTools: deps.placeTools,
-      roleOfKind: deps.roleOfKind,
       mcp: () => Promise.resolve([]),
     });
     return made.ok && made.value.kind === "resolved"

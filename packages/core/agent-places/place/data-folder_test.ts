@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   appIdOfFolder,
-  lophnAgentsFolder,
-  placeAgentsFolder,
   placeDataFolder,
   projectIdOfFolder,
   projectsDataArea,
@@ -14,14 +12,9 @@ test("data root 아래 정의·설정 자리는 전과 같다", () => {
   assert.deepStrictEqual(projectsDataArea("/r"), "/r/projects");
   assert.deepStrictEqual(placeDataFolder("/r", project), "/r/projects/prj_a1");
   assert.deepStrictEqual(
-    placeAgentsFolder("/r", project),
-    "/r/projects/prj_a1/agents",
-  );
-  assert.deepStrictEqual(
     placeDataFolder("/r", { kind: "app", id: "app_b2" }),
     "/r/apps/app_b2",
   );
-  assert.deepStrictEqual(lophnAgentsFolder("/r"), "/r/agents");
   assert.deepStrictEqual(projectIdOfFolder("prj_a1"), "prj_a1");
   assert.deepStrictEqual(appIdOfFolder("app_b2"), "app_b2");
   assert.deepStrictEqual(appIdOfFolder("prj_a1"), null);

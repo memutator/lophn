@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { rolePrompt } from "../../../packages/core/agent-places/roles/prompts.ts";
+import { placePrompt } from "../../../packages/core/agent-places/roles/prompts.ts";
 import { TOOL_ORDER } from "../../../packages/core/agent-places/tool-lists.ts";
 import { REPO_ROOT } from "../runner/paths.ts";
 import type {
@@ -71,7 +71,7 @@ async function write(root: string, rel: string, text: string) {
 const skillMd = (description: string, body: string) =>
   `---\nname: foo\ndescription: ${description}\n---\n${body}`;
 
-const lophn = await rolePrompt("lophn");
+const lophn = await placePrompt("home");
 if (!lophn.ok) throw new Error("lophn prompt");
 
 function modelCall(first: string): CollectedModelCall {
@@ -110,7 +110,7 @@ test("연 skill만 본문 버전을 갖고 수정은 그 component의 n만 올�
       return r.value.map(refText).filter((t) => !/^(assembly|runtime)/.test(t));
     };
     const base = [
-      "instruction:lophn@1",
+      "instruction:home@1",
       "model:claude-test@1",
       "skill-description:foo@1",
       "tool:settings.get@1",
@@ -194,7 +194,7 @@ test("classifyPath는 component, tool, runtime, core를 가르고 shell·design�
 });
 
 // TOOL_FILES에 없는 tool이 model 요청에 실리면 seenComponents가 돈을 쓴 trial을 기록 단계에서 멈춘다(domain tool이 그랬다).
-test("role이 받는 agent tool은 모두 TOOL_FILES의 source file에 정의돼 있다", async () => {
+test("place 종류가 받는 agent tool은 모두 TOOL_FILES의 source file에 정의돼 있다", async () => {
   const table = await toolFileTable(REPO_ROOT);
   assert.deepStrictEqual(
     TOOL_ORDER.filter((name) => !table.has(name)),
@@ -202,7 +202,7 @@ test("role이 받는 agent tool은 모두 TOOL_FILES의 source file에 정의돼
   );
 });
 
-test("texts를 주면 seenComponents가 variant의 role prompt body를 거절하지 않는다", async () => {
+test("texts를 주면 seenComponents가 variant의 place 종류 prompt body를 거절하지 않는다", async () => {
   await withTemp(async (dir) => {
     const root = `${dir}/root`;
     const registryDir = `${dir}/registry`;
@@ -211,10 +211,9 @@ test("texts를 주면 seenComponents가 variant의 role prompt body를 거절하
     const variantLophn = `${lophn.value}\nvariant edit`;
     const texts = {
       role_prompts: {
-        lophn: variantLophn,
-        project_manager: "pm",
-        app_engineer: "ae",
-        operator: "op",
+        home: variantLophn,
+        project: "pm",
+        app: "ae",
       },
     };
     const call = [modelCall(variantLophn)];

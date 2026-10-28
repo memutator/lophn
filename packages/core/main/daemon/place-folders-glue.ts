@@ -1,11 +1,7 @@
 // place가 file tool에 여는 폴더를 rewind의 쓰기 폴더에 잇는 glue다. 규칙은 agent-places의 place-folders가 갖고,
 // 여기는 project·앱·feature module의 lookups로 사실을 모아 넘긴다.
 import type { Sql } from "../../../protocol/server/mod.ts";
-import type { Role } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  domainArtifactsFolder,
-  domainFolder,
-} from "../../../protocol/domains/paths.ts";
+import { domainFolder } from "../../../protocol/domains/paths.ts";
 import { workflowsFolder } from "../../../protocol/workflows/paths.ts";
 import {
   type PlaceFacts,
@@ -18,9 +14,8 @@ import { projectFolderPaths } from "../../projects/lookups.ts";
 
 type Lookup = { sql: Pick<Sql, "get" | "all"> };
 
-// 그 session의 쓰기 폴더(절대 경로)다. place 종류에서 옛 role을 꾸민다(place-scope가 role을 지운다).
-// Operator가 고른 domain은 정의 file에 있어 sessions 표만으로 모른다. 그래서 Operator에게도 그릇의 domain 전부를
-// 넘겨 넉넉히 잡고, 실제 쓰기는 file tool이 고른 domain의 `artifacts/`로 좁힌다.
+// 그 session의 쓰기 폴더(절대 경로)다. rewind는 그릇의 domain 폴더 전부를 넉넉히 쓰고, turn 중 file tool은
+// 받은 domain의 폴더로 좁힌다.
 export function placeFoldersOf(
   lookup: Lookup,
   dataRoot: string,
@@ -36,14 +31,7 @@ export function placeFoldersOf(
   const id = String(found["place_id"]);
   const place: PlaceFacts["place"] =
     kind === "project" || kind === "app" ? { kind, id } : null;
-  const role: Role =
-    place === null
-      ? "lophn"
-      : place.kind === "project"
-        ? "project_manager"
-        : "app_engineer";
   const facts: PlaceFacts = {
-    role,
     place,
     projectFolders:
       place?.kind === "project" ? projectFolderPaths(sql, place.id) : [],
@@ -52,11 +40,7 @@ export function placeFoldersOf(
       place === null
         ? []
         : domainsOfOwner(sql, { kind: place.kind, id } as never, "active").map(
-            (d) => ({
-              id: d.id,
-              folder: domainFolder(dataRoot, d.id),
-              artifactsFolder: domainArtifactsFolder(dataRoot, d.id),
-            }),
+            (d) => ({ id: d.id, folder: domainFolder(dataRoot, d.id) }),
           ),
     dataFolder:
       place === null

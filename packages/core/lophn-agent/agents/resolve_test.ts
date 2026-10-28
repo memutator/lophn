@@ -3,7 +3,6 @@ import { test } from "node:test";
 import {
   type AgentDefinition,
   LOPHN_AGENT_ID,
-  ROLES,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { parseAgentFile } from "./definition-file.ts";
 import { type AvailableSkill, resolveAgent } from "./resolve.ts";
@@ -24,11 +23,9 @@ test("정의 파일에 tool을 적어도 받은 tool 목록은 바뀌지 않는�
   );
   assert.ok(!written.ok);
 
-  for (const role of ROLES) {
-    const lophn = role === "lophn";
+  for (const lophn of [true, false]) {
     const resolved = await resolveAgent({
       agent: lophn ? LOPHN_AGENT_ID : AGENT,
-      role,
       place: lophn ? null : { kind: "project", id: PROJECT },
       definition: lophn ? null : { name: "reviewer", body: "review" },
       global_model: MODEL,
@@ -54,7 +51,6 @@ test("agent가 domain 하나를 고르면 그 domain만 일하고 다른 domain�
   const resolve = async (definition: AgentDefinition, container = [A, B]) => {
     const resolved = await resolveAgent({
       agent: AGENT,
-      role: "operator",
       place: { kind: "project", id: PROJECT },
       definition,
       global_model: MODEL,

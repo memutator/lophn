@@ -28,17 +28,17 @@ import type {
 } from "./model.ts";
 import { type SkillListItem, skillListText } from "./skill-list.ts";
 
-// turn 하나의 prompt를 5장 순서로 조립한다: role 지침과 고정 규칙, 지침 층, skill 목록, place 정보,
+// turn 하나의 prompt를 5장 순서로 조립한다: place 종류 지침과 고정 규칙, 지침 층, skill 목록, place 정보,
 // 대화. 지침은 file이 아니라 값으로 받는다(turn 시작에 읽는 쪽이 따로 있다). I/O는 호출하는 쪽이 한다.
 
 export type TurnPromptInput = {
-  // 제품 고정 규칙을 포함한 role 지침 글.
-  role_prompt: string;
+  // 제품 고정 규칙을 포함한 place 종류 지침 글.
+  place_kind_prompt: string;
   // 정본 이름이다. model에는 `toWireToolName`을 거쳐 보낸다. 목록은 session을 시작할 때 고정한다.
   tools: readonly PromptTool[];
   instructions: InstructionTexts;
   skills: readonly SkillListItem[];
-  // role 층이 만든 place 정보. 글과 notice·판 비교가 쓰는 kind 글과 agent다.
+  // place 층이 만든 place 정보. 글과 notice·판 비교가 쓰는 kind 글과 agent다.
   place: {
     text: string;
     kinds: PlaceKinds | null;
@@ -186,18 +186,22 @@ function appendNotices(
   return [...messages, { role: "user", parts }];
 }
 
-// 경계 표시가 달리는 층. role 끝의 marker가 앞선 tools 목록도 덮는다.
-const CACHED: readonly SystemLayerKind[] = ["role", "instructions", "place"];
+// 경계 표시가 달리는 층. place_kind 끝의 marker가 앞선 tools 목록도 덮는다.
+const CACHED: readonly SystemLayerKind[] = [
+  "place_kind",
+  "instructions",
+  "place",
+];
 
 export async function assembleTurnPrompt(
   input: TurnPromptInput,
   deps: TurnPromptDeps,
 ): Promise<TurnPromptResult> {
-  if (input.role_prompt.trim() === "") {
+  if (input.place_kind_prompt.trim() === "") {
     return {
       status: "blocked",
-      reason: "role_missing",
-      message: "role 지침이 없다",
+      reason: "place_kind_missing",
+      message: "place 종류 지침이 없다",
     };
   }
   const budget = inputBudget(input.limits, input.reserved_output);
@@ -210,7 +214,7 @@ export async function assembleTurnPrompt(
   }
 
   const texts: [SystemLayerKind, string][] = [
-    ["role", input.role_prompt],
+    ["place_kind", input.place_kind_prompt],
     ["instructions", instructionsBlock(input.instructions)],
     ["skills", skillListText(input.skills)],
     ["place", input.place.text],

@@ -171,7 +171,7 @@ export function compactSummaryRequest(input: {
   return {
     system: [
       {
-        layer: "role",
+        layer: "place_kind",
         text: compactSummaryInstructions(input.cap),
       },
     ],

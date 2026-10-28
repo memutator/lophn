@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Id } from "../../../protocol/base/ids.ts";
-import type { AgentPlace, Role } from "../../../protocol/lophn-agent/mod.ts";
+import type {
+  AgentPlace,
+  PlaceKind,
+} from "../../../protocol/lophn-agent/mod.ts";
 import { createSkillSnapshot, type SkillSnapshotDeps } from "./skill-read.ts";
 import { receivedSkills } from "../agents/resolve.ts";
 import {
@@ -13,7 +16,7 @@ import {
 import { commandSkillsOf, createExtensionRegistry } from "./registry.ts";
 import type { ProjectLayer } from "./project-settings.ts";
 
-// 끌 수 없는 내장 skill은 어느 층에서 꺼도, 같은 이름의 사람 skill이 있어도 그대로 남는다. 이 규칙이 깨지면 role이
+// 끌 수 없는 내장 skill은 어느 층에서 꺼도, 같은 이름의 사람 skill이 있어도 그대로 남는다. 이 규칙이 깨지면 place가
 // 일하는 데 필요한 skill이 사람 설정 하나로 사라진다.
 
 const skillFile = (
@@ -50,7 +53,7 @@ const DOMAIN = "dom_01";
 
 type Case = {
   name: string;
-  role: Role;
+  kind: PlaceKind;
   // 같은 이름의 사람 skill을 둔 층
   human: ("global" | "domain")[];
   off: { global?: boolean; project?: boolean; agent?: boolean };
@@ -61,71 +64,71 @@ type Case = {
 const CASES: Case[] = [
   {
     name: "no human skill, nothing off",
-    role: "project_manager",
+    kind: "project",
     human: [],
     off: {},
     expect: "BUILTIN",
   },
   {
     name: "off at global",
-    role: "project_manager",
+    kind: "project",
     human: [],
     off: { global: true },
     expect: "BUILTIN",
   },
   {
     name: "off at project",
-    role: "project_manager",
+    kind: "project",
     human: [],
     off: { project: true },
     expect: "BUILTIN",
   },
   {
     name: "off at agent",
-    role: "project_manager",
+    kind: "project",
     human: [],
     off: { agent: true },
     expect: "BUILTIN",
   },
   {
     name: "off at every layer",
-    role: "project_manager",
+    kind: "project",
     human: [],
     off: { global: true, project: true, agent: true },
     expect: "BUILTIN",
   },
   {
     name: "global human skill with the same name",
-    role: "project_manager",
+    kind: "project",
     human: ["global"],
     off: {},
     expect: "BUILTIN",
   },
   {
     name: "domain human skill with the same name",
-    role: "project_manager",
+    kind: "project",
     human: ["domain"],
     off: {},
     expect: "BUILTIN",
   },
   {
     name: "human skills and off at every layer",
-    role: "project_manager",
+    kind: "project",
     human: ["global", "domain"],
     off: { global: true, project: true, agent: true },
     expect: "BUILTIN",
   },
-  // 내장 skill은 선언한 role의 것만이다. 다른 role에는 이름이 비어 있어 사람 skill이 그대로 쓰인다.
+  // 내장 skill은 선언한 place 종류의 것만이다. 다른 place 종류에는 이름이 비어 있어 사람 skill이 그대로 쓰인다.
   {
-    name: "other role has no built-in",
-    role: "operator",
+    name: "home has no project built-in",
+    kind: "home",
     human: [],
     off: {},
     expect: null,
   },
   {
-    name: "other role keeps its own skill of that name",
-    role: "operator",
+    name: "home keeps its own skill of that name",
+    kind: "home",
     human: ["domain"],
     off: {},
     expect: "DOMAIN",
@@ -162,7 +165,7 @@ for (const one of CASES) {
     };
     const snapshot = await createSkillSnapshot(deps, {
       id: SESSION,
-      role: one.role,
+      kind: one.kind,
       place: PLACE,
       skills: chosen,
     });
@@ -235,7 +238,7 @@ test("the agent gets only the skills it chose, all when it chose none, and a bui
   const receivedOf = async (skills: string[]) => {
     const snapshot = await createSkillSnapshot(deps, {
       id: SESSION,
-      role: "project_manager",
+      kind: "project",
       place: PLACE,
       skills,
     });
@@ -299,7 +302,7 @@ test("same-name skills in a global layer and domains go to the agent by the doma
   const bodyFor = async (domains: string[]) => {
     const snapshot = await createSkillSnapshot(deps, {
       id: SESSION,
-      role: "operator",
+      kind: "project",
       place: PLACE,
       skills: [],
       domains,
@@ -313,9 +316,9 @@ test("same-name skills in a global layer and domains go to the agent by the doma
   assert.deepStrictEqual(await bodyFor(["dom_a", "dom_b"]), "A");
 });
 
-// 내장 skill은 선언한 role의 prompt와 / 메뉴에만 뜬다. role을 건너뛰면 lophn과 Operator의 prompt에 읽을 수 없는
-// skill이 실리고(skill.read는 not_found), 한 읽기의 등록부를 같이 쓰는 PM과 Operator 중 먼저 읽은 쪽의 목록이 다른 쪽에 간다.
-test("a skill that names a role does not show up in the prompt and / menu of other roles", () => {
+// 내장 skill은 선언한 place 종류의 prompt와 / 메뉴에만 뜬다. 종류를 건너뛰면 읽을 수 없는 skill이 prompt에 실리고
+// (skill.read는 not_found), 한 읽기의 등록부를 같이 쓰는 다른 종류의 목록이 섞인다.
+test("내장 skill은 선언한 place 종류의 prompt와 `/` 메뉴에만 뜬다", () => {
   const files = treeOf({
     "/b/kinds-yaml/SKILL.md": skillFile("kinds-yaml", "", "built-in"),
     "/g/kinds-yaml/SKILL.md": skillFile("kinds-yaml", "", "human"),
@@ -352,26 +355,24 @@ test("a skill that names a role does not show up in the prompt and / menu of oth
   });
   const project: AgentPlace = { kind: "project", id: "prj_01" };
   const app: AgentPlace = { kind: "app", id: "app_01" };
-  const table: [Role, AgentPlace | null, string][] = [
-    ["lophn", null, "human"],
-    ["project_manager", project, "built-in"],
-    ["operator", project, "human"],
-    ["app_engineer", app, "built-in"],
-    ["operator", app, "human"],
+  const table: [PlaceKind, AgentPlace | null, string][] = [
+    ["home", null, "human"],
+    ["project", project, "built-in"],
+    ["app", app, "built-in"],
   ];
   const kindsYaml = (rows: readonly { name: string; description: string }[]) =>
     rows
       .filter((row) => row.name === "kinds-yaml")
       .map((row) => row.description);
-  for (const [role, place, expected] of table) {
-    const prompt = discoverSkills(files, sources, { role, off: [] }).entries;
-    assert.deepStrictEqual(kindsYaml(prompt), [expected], `prompt of ${role}`);
+  for (const [kind, place, expected] of table) {
+    const prompt = discoverSkills(files, sources, { kind, off: [] }).entries;
+    assert.deepStrictEqual(kindsYaml(prompt), [expected], `prompt of ${kind}`);
     // register.ts의 / 메뉴와 같은 갈래다.
     const menu = commandSkillsOf(
-      place === null ? prompt : registry.skills(place, role).entries,
+      place === null ? prompt : registry.skills(place, kind).entries,
       [],
       [],
     );
-    assert.deepStrictEqual(kindsYaml(menu), [expected], `menu of ${role}`);
+    assert.deepStrictEqual(kindsYaml(menu), [expected], `menu of ${kind}`);
   }
 });

@@ -17,7 +17,10 @@ export function agentDomainPorts(sql: Query): UsagePorts {
       const row = loadSession({ sql }, session);
       return row === undefined
         ? null
-        : { role: row.role, domains: ports.agentDomains(agentRefOf(row)) };
+        : {
+            role: agentRefOf(row).role,
+            domains: ports.agentDomains(agentRefOf(row)),
+          };
     },
     agentDomains(agent) {
       switch (agent.role) {

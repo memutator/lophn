@@ -20,7 +20,7 @@ function setup() {
   let seq = 0;
   const session = (id: string, forked: boolean, lifecycle = "open") =>
     sql.run(
-      `insert into sessions (id, role, lifecycle, forked_from_session,
+      `insert into sessions (id, agent, lifecycle, forked_from_session,
          forked_from_through_seq, created_seq, state_seq)
        values (?, 'lophn', ?, ?, ?, 1, 1)`,
       [id, lifecycle, forked ? "ses_origin" : null, forked ? 1 : null],

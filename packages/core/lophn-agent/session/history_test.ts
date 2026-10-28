@@ -25,7 +25,7 @@ function stub(rows: Row[], request: number): CoreCall {
         ok({
           session: {
             id: SELF,
-            agent: { role: "lophn" },
+            agent: "lophn",
             place: null,
             title: null,
             lifecycle: "open",

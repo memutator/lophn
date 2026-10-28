@@ -1,16 +1,17 @@
 import {
-  agentIdentityOf,
+  type AgentId,
   type AgentRef,
-  agentRefOfColumns,
-  type AgentSession,
+  LOPHN_AGENT_ID,
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
   type Place,
+  type PlaceSession,
   type ReceivedMessage,
-  type Role,
+  roleSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { CallRef } from "../../../protocol/lophn-agent/calls.ts";
 import { err, ok, type Result } from "../../../base/mod.ts";
+import type { Id } from "../../../protocol/base/ids.ts";
 import type {
   SchemaStep,
   SqlParams,
@@ -34,21 +35,19 @@ export const messageBodyFields: readonly BlobFieldDefinition[] = [
 ];
 
 // sessions·messages 표와 row 변환. 순수 함수와 읽기 조회만 있다. 상태 전이 규칙은 commands.ts, 읽기는
-// reads.ts가 맡는다. 본문은 열에 없고 hash만 남는다. session의 agent(role과 place)와 출처는 바뀌지
+// reads.ts가 맡는다. 본문은 열에 없고 hash만 남는다. session의 agent와 place와 출처는 바뀌지
 // 않고, archive한 session은 다시 열리지 않는다. 두 표의 순번(created_seq, state_seq)은 ledger event
 // 없이 표 안에서 이어 센다. 확정 메시지의 본문과 봉투는 덮어쓰지 않는다. session과 메시지는
 // DeleteSession만 지운다.
-// role과 place의 짝은 protocol의 `rolePlaceFits`와 같은 표다.
 export const conversationSchemaSteps: readonly SchemaStep[] = [
   {
     id: "lophn-agent.sessions.tables",
     sql: `
 create table sessions (
   id text primary key,
-  role text not null check (role in ('lophn', 'project_manager', 'app_engineer', 'operator')),
+  agent text not null,
   project text,
   app text,
-  operator text,
   place_kind text check (place_kind is null or place_kind in ('project', 'app')),
   place_id text,
   title text check (title is null or length(trim(title)) > 0),
@@ -64,20 +63,13 @@ create table sessions (
   check ((place_kind is null) = (place_id is null)),
   check (project is (case when place_kind = 'project' then place_id end)),
   check (app is (case when place_kind = 'app' then place_id end)),
-  check ((role = 'operator') = (operator is not null)),
-  check (
-    (role = 'lophn' and place_kind is null) or
-    (role = 'project_manager' and place_kind is 'project') or
-    (role = 'app_engineer' and place_kind is 'app') or
-    (role = 'operator' and place_kind is not null)
-  ),
   check ((forked_from_session is null) = (forked_from_through_seq is null)),
   check (forked_from_session is null or forked_from_session != id),
   check ((compaction_through_seq is null) = (compaction_summary_call is null))
 ) strict;
-create index sessions_agent on sessions (role, place_kind, place_id, operator, lifecycle);
+create index sessions_agent on sessions (agent, place_kind, place_id, lifecycle);
 create trigger sessions_identity_immutable
-before update of id, role, project, app, operator, place_kind, place_id,
+before update of id, agent, project, app, place_kind, place_id,
   forked_from_session, forked_from_through_seq,
   created_seq on sessions
 begin
@@ -151,10 +143,9 @@ function text(value: unknown): string | null {
 
 export type AgentSessionRow = {
   id: string;
-  role: Role;
+  agent: AgentId;
   project: string | null;
   app: string | null;
-  operator: string | null;
   place_kind: "project" | "app" | null;
   place_id: string | null;
   title: string | null;
@@ -171,7 +162,7 @@ export type AgentSessionRow = {
 // 다른 단위가 이 이름으로 import한다.
 export type SessionRow = AgentSessionRow;
 
-export const SESSION_COLUMNS = `id, role, project, app, operator, place_kind,
+export const SESSION_COLUMNS = `id, agent, project, app, place_kind,
   place_id, title, lifecycle, forked_from_session, forked_from_through_seq,
   model_selection, compaction_through_seq,
   compaction_summary_call, skip, created_seq, state_seq`;
@@ -179,10 +170,9 @@ export const SESSION_COLUMNS = `id, role, project, app, operator, place_kind,
 export function sessionRowOf(row: SqlRow): AgentSessionRow {
   return {
     id: String(row["id"]),
-    role: String(row["role"]) as Role,
+    agent: String(row["agent"]) as AgentId,
     project: text(row["project"]),
     app: text(row["app"]),
-    operator: text(row.operator),
     place_kind: text(row["place_kind"]) as AgentSessionRow["place_kind"],
     place_id: text(row["place_id"]),
     title: text(row["title"]),
@@ -227,33 +217,44 @@ export function placeOf(row: AgentSessionRow): Place | null {
     : ({ kind: row.place_kind, id: row.place_id } as Place);
 }
 
-export function agentRefOf(row: AgentSessionRow): AgentRef {
-  return agentRefOfColumns(row);
+// 옛 꼴을 내는 임시 다리다. 쓰는 곳을 옮기는 task(shell-events, router-core, place-tools,
+// jobs-core, place-scope)와 cleanup-core가 지운다.
+export function agentRefOfId(id: AgentId): AgentRef {
+  return id === LOPHN_AGENT_ID
+    ? { role: "lophn" }
+    : { role: roleSchema.enum.operator, agent: id as Id<"agt"> };
 }
 
-// 같은 agent인지 가르는 조건. 정체성 열은 role이 정한다.
-export function agentClause(agent: AgentRef): {
+export function agentRefOf(row: AgentSessionRow): AgentRef {
+  return agentRefOfId(row.agent);
+}
+
+// 같은 agent와 place의 session인지 가르는 조건.
+export function sessionClause(
+  agent: AgentId,
+  place: Place | null,
+): {
   sql: string;
-  params: string[];
+  params: (string | null)[];
 } {
-  const { role, column, value } = agentIdentityOf(agent);
-  return column === null
-    ? { sql: "role = ?", params: [role] }
-    : { sql: `role = ? and ${column} = ?`, params: [role, value!] };
+  return {
+    sql: "agent = ? and place_kind is ? and place_id is ?",
+    params: [agent, place?.kind ?? null, place?.id ?? null],
+  };
 }
 
 export function modelSelectionOf(
   row: AgentSessionRow,
-): AgentSession["model_selection"] {
+): PlaceSession["model_selection"] {
   return row.model_selection === null
     ? null
-    : (JSON.parse(row.model_selection) as AgentSession["model_selection"]);
+    : (JSON.parse(row.model_selection) as PlaceSession["model_selection"]);
 }
 
-export function agentSessionOf(row: AgentSessionRow): AgentSession {
+export function placeSessionOf(row: AgentSessionRow): PlaceSession {
   return {
     id: row.id,
-    agent: agentRefOf(row),
+    agent: row.agent,
     place: placeOf(row),
     title: row.title,
     lifecycle: row.lifecycle,
@@ -275,7 +276,7 @@ export function agentSessionOf(row: AgentSessionRow): AgentSession {
           },
     skip: row.skip,
     state_seq: row.state_seq,
-  } as AgentSession;
+  } as PlaceSession;
 }
 
 // session 표의 다음 순번이다. 세션을 열 때 created_seq와 state_seq가 같고 바뀔 때마다 이어 센다.

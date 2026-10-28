@@ -7,6 +7,7 @@ import {
   installPlaceEnvironment,
   UNWIRED_PLACE_DEPS,
 } from "../../../lophn-agent/places/mod.ts";
+import { agentDirectory } from "./lophn-agent-team.ts";
 
 // 열 수 있는지만 보므로 폴더가 있는지는 묻지 않는다.
 const ANY_FOLDER = { exists: () => true };
@@ -38,15 +39,13 @@ installPlaceEnvironment({
           ]),
         ),
     };
+    const agents = agentDirectory(sql);
     return {
       projects,
       apps,
+      agents,
       operators: UNWIRED_PLACE_DEPS.operators,
-      roles: createPlaceRoleRules({
-        projects,
-        apps,
-        operators: UNWIRED_PLACE_DEPS.operators,
-      }),
+      roles: createPlaceRoleRules({ projects, apps, agents }),
     };
   },
 });

@@ -6,7 +6,7 @@ import {
   toolGateInputSchema,
   turnRequestDecide,
 } from "../../../../protocol/approvals/mod.ts";
-import { agentSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
+import { placeSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import { turnRead } from "../../../../protocol/lophn-agent/turn-reads.ts";
 import type { TurnMode } from "../../../../protocol/lophn-agent/turn-values.ts";
 import {
@@ -22,11 +22,13 @@ import type {
   AgentRef,
   Place,
 } from "../../../../protocol/lophn-agent/places.ts";
+import type { AgentId } from "../../../../protocol/lophn-agent/places.ts";
 import { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { createApprovals } from "../../../approvals/mod.ts";
 import { loadAssignment } from "../../../approvals/assignment/mod.ts";
 import { agentIdOfRef } from "../../../lophn-agent/agents/bridge.ts";
+import { agentRefOfId } from "../../../lophn-agent/session/model.ts";
 import {
   shellRuleLayers,
   shellRulesSetting,
@@ -44,7 +46,7 @@ const APPROVALS_CONTEXT: AuthenticatedContext = {
   principal: APPROVALS_PRINCIPAL,
   actor: "machine",
   scope: {
-    operations: [agentSessionRead.name, turnRead.name],
+    operations: [placeSessionRead.name, turnRead.name],
     targets: {},
   },
   conditions: {},
@@ -206,17 +208,17 @@ export const approvalsWiring: WiringFactory = () => {
         },
         async sessionOf(session) {
           const found = await ctx.runtime.readers.read(
-            agentSessionRead,
+            placeSessionRead,
             APPROVALS_CONTEXT,
             { session },
           );
           if (!found.ok) return found;
           const { agent, place } = (
             found.value as {
-              session: { agent: { role: string }; place: Place | null };
+              session: { agent: AgentId; place: Place | null };
             }
           ).session;
-          return ok({ agent: agent as AgentRef, place });
+          return ok({ agent: agentRefOfId(agent), place });
         },
         async modeOf(turn) {
           const found = await ctx.runtime.readers.read(

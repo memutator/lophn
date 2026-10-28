@@ -29,21 +29,23 @@ function setup() {
   // session 하나와 그 turn의 checkpoint 하나를 만든다.
   const session = (
     id: string,
-    o: { role?: string; project: string; lifecycle?: string },
+    o: {
+      agent?: string;
+      place?: { kind: "project" | "app"; id: string };
+      lifecycle?: string;
+    },
   ) => {
-    const role = o.role ?? "project_manager";
-    const app = role === "app_engineer";
+    const place = o.place ?? PROJECT;
     sql.run(
-      `insert into sessions (id, role, project, app, operator, place_kind, place_id, lifecycle, created_seq, state_seq)
-       values (?, ?, ?, ?, ?, ?, ?, ?, 1, 1)`,
+      `insert into sessions (id, agent, project, app, place_kind, place_id, lifecycle, created_seq, state_seq)
+       values (?, ?, ?, ?, ?, ?, ?, 1, 1)`,
       [
         id,
-        role,
-        app ? null : o.project,
-        app ? "app_1" : null,
-        role === "operator" ? "agt_1" : null,
-        app ? "app" : "project",
-        app ? "app_1" : o.project,
+        o.agent ?? "agt_1",
+        place.kind === "project" ? place.id : null,
+        place.kind === "app" ? place.id : null,
+        place.kind,
+        place.id,
         o.lifecycle ?? "open",
       ],
     );
@@ -78,16 +80,15 @@ function setup() {
 
 const PROJECT = { kind: "project", id: "prj_a" } as const;
 const APP = { kind: "app", id: "app_1" } as const;
-const PROJECT_ROLES = ["project_manager", "operator"];
-const APP_ROLES = ["app_engineer", "operator"];
 
 test("artifact annotation의 받는 쪽은 그 domain 폴더에 마지막으로 쓴 그 owner place의 열린 session이다", () => {
   const { sql, session, write } = setup();
-  session("ses_a", { project: "prj_a" });
-  session("ses_b", { project: "prj_b" });
-  session("ses_closed", { project: "prj_a", lifecycle: "archived" });
-  session("ses_op", { project: "prj_a", role: "operator" });
-  session("ses_ae", { project: "prj_a", role: "app_engineer" });
+  session("ses_a", {});
+  session("ses_b", { place: { kind: "project", id: "prj_b" } });
+  session("ses_closed", { lifecycle: "archived" });
+  // 같은 그릇의 다른 agent session이다.
+  session("ses_op", { agent: "agt_2" });
+  session("ses_ae", { place: APP });
   const find = (
     root: string,
     name: string,
@@ -97,7 +98,6 @@ test("artifact annotation의 받는 쪽은 그 domain 폴더에 마지막으로 
       root,
       name,
       owner,
-      roles: owner.kind === "project" ? PROJECT_ROLES : APP_ROLES,
     })?.session ?? null;
 
   // 같은 이름이 두 domain에 있어도 그 domain의 root에 쓴 session만 나온다.
@@ -121,10 +121,10 @@ test("artifact annotation의 받는 쪽은 그 domain 폴더에 마지막으로 
   write("ses_ae", ROOT_A, "report/ae.html");
   assert.deepStrictEqual(find(ROOT_A, "report"), "ses_a");
 
-  // 앱이 owner면 앱 place의 App Engineer가 받고 PM은 받지 않는다.
+  // 앱이 owner면 앱 place의 session이 받고 project place의 session은 받지 않는다.
   assert.deepStrictEqual(find(ROOT_A, "report", APP), "ses_ae");
 
-  // Operator의 더 나중 쓰기가 이긴다.
+  // 같은 그릇의 다른 agent session의 더 나중 쓰기가 이긴다.
   write("ses_op", ROOT_A, "report/op.html");
   assert.deepStrictEqual(find(ROOT_A, "report"), "ses_op");
 

@@ -1,12 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import {
-  agentIdentityOf,
-  type AgentRef,
-  type Place,
-  placeOfAgentRef,
-  rolePlaceFits,
-} from "../../../protocol/lophn-agent/mod.ts";
+import type { AgentId, Place } from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import {
   agentRefOf,
@@ -38,36 +32,13 @@ function placeUsable(deps: PlaceDeps, place: Place): Result<void> {
   return ok(undefined);
 }
 
-// agent가 놓이는 place와 새 session의 skip 기본값(Operator 정의의 칸, Operator가 아니면 false)을 정한다.
-// place를 가진 agent는 그 place가 열 수 있는 곳이어야 한다.
-function placeOfAgent(
-  deps: PlaceDeps,
-  agent: AgentRef,
-): Result<{ place: Place | null; skip: boolean }> {
-  let place = placeOfAgentRef(agent);
-  let skip = false;
-  if (place === undefined) {
-    const operator = deps.operators.operator(agentIdentityOf(agent).value!);
-    if (operator === null) return fail("not_found", "operator not found");
-    place = operator.place;
-    skip = operator.skip;
-  }
-  if (!rolePlaceFits(agent.role, place)) {
-    return fail("invalid_input", "the place does not fit the role");
-  }
-  if (place !== null) {
-    const usable = placeUsable(deps, place);
-    if (!usable.ok) return usable;
-  }
-  return ok({ place, skip });
-}
-
 export function startSession(
   tx: Tx,
   deps: OpenDeps,
   input: {
     id: string;
-    agent: AgentRef;
+    agent: AgentId;
+    place: Place | null;
     // fork는 출처의 제목, model 선택, 출처 표시를 이어받는다. skip은 가져가지 않는다:
     // 새 session은 정의의 기본값으로 시작한다(place-session의 fork가 허락을 가져가지 않는 것과 같은 이유).
     inherit?: {
@@ -77,36 +48,34 @@ export function startSession(
     };
   },
 ): Result<AgentSessionRow> {
-  const opened = placeOfAgent(deps, input.agent);
-  if (!opened.ok) return opened;
-  const place = opened.value.place;
+  const definition = deps.agents.agent(input.agent);
+  if (definition === null) return fail("not_found", "agent not found");
+  const place = input.place;
+  if (place !== null) {
+    const usable = placeUsable(deps, place);
+    if (!usable.ok) return usable;
+  }
   const seq = nextSessionSeq(tx);
   const kind = place?.kind ?? null;
-  // place를 ref가 말하지 못하는 agent(Operator)는 자기 ID가 정체성 열에 들어간다.
-  const operatorId =
-    placeOfAgentRef(input.agent) === undefined
-      ? agentIdentityOf(input.agent).value
-      : null;
   const id = place?.id ?? null;
   const inherit = input.inherit;
   tx.sql.run(
-    `insert into sessions (id, role, project, app, operator, place_kind,
+    `insert into sessions (id, agent, project, app, place_kind,
        place_id, title, lifecycle, forked_from_session, forked_from_through_seq,
        model_selection, skip, created_seq, state_seq)
-     values (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?)`,
+     values (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?)`,
     [
       input.id,
-      input.agent.role,
+      input.agent,
       kind === "project" ? id : null,
       kind === "app" ? id : null,
-      operatorId,
       kind,
       id,
       inherit?.title ?? null,
       inherit?.forked_from?.session ?? null,
       inherit?.forked_from?.through_seq ?? null,
       inherit?.model_selection ?? null,
-      opened.value.skip ? 1 : 0,
+      definition.skip ? 1 : 0,
       seq,
       seq,
     ],

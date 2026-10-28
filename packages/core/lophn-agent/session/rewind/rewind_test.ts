@@ -60,8 +60,8 @@ function setup() {
     emit: () => 1,
   } as unknown as Tx;
   sql.run(
-    `insert into sessions (id, role, project, place_kind, place_id, created_seq, state_seq)
-     values (?, 'project_manager', 'prj_1', 'project', 'prj_1', 1, 1)`,
+    `insert into sessions (id, agent, project, place_kind, place_id, created_seq, state_seq)
+     values (?, 'agt_1', 'prj_1', 'project', 'prj_1', 1, 1)`,
     [SESSION],
   );
   // turn을 시작한 입력 메시지 둘이다. 둘 다 checkpoint다.

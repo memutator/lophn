@@ -5,6 +5,7 @@ import type { EndDeps, PlaceDeps } from "./ports.ts";
 export const UNWIRED_PLACE_DEPS: PlaceDeps = {
   projects: { project: () => null, projectByName: () => null },
   apps: { app: () => null, appByName: () => null },
+  agents: { agent: () => null, agents: () => [] },
   operators: { operator: () => null, operators: () => [] },
   roles: {
     nameOf: () => "",

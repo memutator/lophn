@@ -1,10 +1,10 @@
 import { err, type IdSource, ok, type Result } from "../../base/mod.ts";
 import {
-  agentSessionRead,
   MESSAGE_IMAGE_TYPES,
   messageImagePath,
   messageImageRead,
   messageImageUpload,
+  placeSessionRead,
 } from "../../protocol/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import type { ProfileReaders } from "./agents/profile-asset.ts";
@@ -114,7 +114,7 @@ export function messageImageUploadHandler(deps: MessageImageDeps) {
       return invalid("image bytes do not match the declared type and length");
     }
     // 없는 session 아래에 폴더를 만들지 않는다.
-    const session = await deps.readers.read(agentSessionRead, ctx, {
+    const session = await deps.readers.read(placeSessionRead, ctx, {
       session: input.data.session,
     });
     if (!session.ok) return session;

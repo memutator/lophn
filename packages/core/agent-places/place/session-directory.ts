@@ -3,7 +3,6 @@ import type { Id } from "../../../protocol/base/ids.ts";
 import type {
   CallAgent,
   NamedAgent,
-  Place,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   PlaceDeps,
@@ -17,9 +16,9 @@ function fail<T = never>(
   return err({ code, message });
 }
 
-// session 목록의 이름과 이름으로 받은 agent 고르기. project·앱·Operator 조회가 role마다 달라 role 층이 쥔다.
+// session 목록의 이름과 이름으로 받은 agent 고르기. project·앱·agent 정의 조회가 달라 place 층이 쥔다.
 export function createPlaceRoleRules(
-  deps: Pick<PlaceDeps, "projects" | "apps" | "operators">,
+  deps: Pick<PlaceDeps, "projects" | "apps" | "agents">,
 ): PlaceRoleRules {
   function resolveNamed(named: NamedAgent): Result<CallAgent> {
     const place = named.place;
@@ -50,32 +49,15 @@ export function createPlaceRoleRules(
         if (named.name === undefined) {
           return fail("invalid_input", "an Operator is named");
         }
-        let at: Place | null = null;
-        if (place !== undefined) {
-          const found =
-            "project" in place
-              ? deps.projects.projectByName(place.project)
-              : deps.apps.appByName(place.app);
-          if (found === null) return fail("not_found", "place not found");
-          at =
-            "project" in place
-              ? { kind: "project", id: found.id }
-              : { kind: "app", id: found.id };
-        }
-        const matches = deps.operators
-          .operators()
-          .filter(
-            (operator) =>
-              operator.name === named.name &&
-              (at === null ||
-                (operator.place.kind === at.kind &&
-                  operator.place.id === at.id)),
-          );
+        // 정의에 place가 없으므로 주소의 place로 거르지 않는다.
+        const matches = deps.agents
+          .agents()
+          .filter((agent) => agent.name === named.name);
         if (matches.length === 0) {
-          return fail("not_found", "operator not found");
+          return fail("not_found", "agent not found");
         }
         if (matches.length > 1) {
-          return fail("invalid_input", "the operator name is ambiguous");
+          return fail("invalid_input", "the agent name is ambiguous");
         }
         return ok({ role: "operator", agent: matches[0]!.id });
       }
@@ -94,7 +76,7 @@ export function createPlaceRoleRules(
         case "app_engineer":
           return deps.apps.app(ref.app as Id<"app">)?.name ?? "";
         case "operator":
-          return deps.operators.operator(ref.agent)?.name ?? "";
+          return deps.agents.agent(ref.agent)?.name ?? "";
       }
     },
     resolveNamed,

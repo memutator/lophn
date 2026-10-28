@@ -2,7 +2,6 @@ import { APP_TOOL_CONTRACT } from "../tools/mod.ts";
 import { EXTERNAL_TOOL_CONTRACT } from "../extensions/mod.ts";
 import {
   agentRead,
-  agentSessionRead,
   checkpointTurn,
   compactSession,
   decideToolCall,
@@ -20,6 +19,8 @@ import {
   messagesList,
   modelCallList,
   modelDefaultRead,
+  placeSessionCompactRequests,
+  placeSessionRead,
   projectModelRead,
   providerList,
   providerRead,
@@ -27,7 +28,6 @@ import {
   recordMessage,
   recordToolRequest,
   rewindList,
-  sessionCompactRequests,
   sessionSummary,
   startModelCall,
   startToolCall,
@@ -68,9 +68,9 @@ export const RUNTIME_MACHINE_ROUTES = [
   modelDefaultRead,
   // project 층 model. 전역 기본 → project → agent 정의 → session 순으로 쌓는다.
   projectModelRead,
-  agentSessionRead,
+  placeSessionRead,
   // 사람이 요청한 Compact를 끝낸다: 열린 요청을 읽고, 앞 구간의 요약 본문을 읽고, 요약 call을 잇거나 요청을 닫는다.
-  sessionCompactRequests,
+  placeSessionCompactRequests,
   sessionSummary,
   // 숨기거나 접은 구간은 이후 call의 입력에 들지 않는다: 되돌리기 기록에서 그 구간을 읽는다.
   rewindList,

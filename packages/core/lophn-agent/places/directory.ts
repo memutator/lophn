@@ -1,15 +1,19 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import type { Place } from "../../../protocol/lophn-agent/mod.ts";
+import {
+  type Place,
+  placeOfAgentRef,
+} from "../../../protocol/lophn-agent/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import type { SessionDirectory, TargetSession } from "../../router/ports.ts";
+import { agentIdOfRef } from "../agents/bridge.ts";
 import {
-  agentClause,
   agentRefOf,
   type AgentSessionRow,
   loadSession,
   placeOf,
   SESSION_COLUMNS,
+  sessionClause,
   sessionRowOf,
 } from "../session/model.ts";
 import { startSession } from "./lifecycle.ts";
@@ -28,8 +32,7 @@ function fail<T = never>(
   return err({ code, message });
 }
 
-// Router가 쓰는 SessionDirectory를 구현한다. lophn session만 다룬다. coding agent 대상은
-// coding agent 쪽 구현이 맡는다.
+// Router가 쓰는 SessionDirectory를 구현한다. lophn session만 다룬다.
 export function createSessionDirectory(
   deps: SessionDirectoryDeps,
 ): SessionDirectory {
@@ -60,7 +63,9 @@ export function createSessionDirectory(
     resolveAgent: deps.roles.resolveNamed,
     openOf(agent) {
       if (agent.role === "coding_agent") return null;
-      const which = agentClause(agent);
+      const id = agentIdOfRef(agent);
+      if (id === null) return null;
+      const which = sessionClause(id, placeOfAgentRef(agent) ?? null);
       const row = deps.sql().get(
         `select ${SESSION_COLUMNS} from sessions
          where lifecycle = 'open' and (${which.sql})
@@ -76,9 +81,12 @@ export function createSessionDirectory(
           "a coding agent session is not opened here",
         );
       }
+      const id = agentIdOfRef(agent);
+      if (id === null) return fail("not_found", "agent not found");
       const started = startSession(tx, deps, {
         id: tx.newId("ses"),
-        agent,
+        agent: id,
+        place: placeOfAgentRef(agent) ?? null,
       });
       return started.ok ? ok(targetOf(started.value)) : started;
     },

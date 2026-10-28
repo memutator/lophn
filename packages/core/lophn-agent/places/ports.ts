@@ -13,8 +13,9 @@ import type {
   ProjectDirectory,
   SessionEndEffects,
 } from "../ports.ts";
+import type { AgentDirectory } from "../agents/mod.ts";
 
-// Operator 정의가 어디에 있고 누구인지. 정의는 agent-definition이 가진 파일이라 wiring이 읽어 끼운다.
+// 옛 Operator 정의 조회. jobs-registration이 아직 읽는다. cleanup-core가 지운다.
 export type OperatorInfo = {
   id: Id<"agt">;
   name: string;
@@ -38,10 +39,11 @@ export type PlaceRoleRules = {
   resolveNamed(named: NamedAgent): Result<CallAgent>;
 };
 
-// session의 agent와 place를 확인하는 데 필요한 것. place 정보는 project와 앱 module의 port로 읽는다.
+// session의 agent와 place를 확인하는 데 필요한 것. agent 정의와 place 정보는 project·앱 module의 port로 읽는다.
 export type PlaceDeps = {
   projects: Pick<ProjectDirectory, "project" | "projectByName">;
   apps: Pick<AppDirectory, "app" | "appByName">;
+  agents: AgentDirectory;
   operators: OperatorDirectory;
   roles: PlaceRoleRules;
 };

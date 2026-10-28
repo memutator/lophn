@@ -8,8 +8,8 @@ import {
   finishRewindSummary,
   modelCallList,
   type ModelChoice,
+  placeSessionCompactRequests,
   type Role,
-  sessionCompactRequests,
   startModelCall,
   takeRewindSummaryRequest,
   type TokenUsage,
@@ -527,7 +527,7 @@ export function createCompactor(
       return summary;
     },
     async next() {
-      const listed = await readOf(machine, sessionCompactRequests, {});
+      const listed = await readOf(machine, placeSessionCompactRequests, {});
       if (!listed.ok) return { kind: "idle" };
       const first = listed.value.requests[0];
       if (first === undefined) return { kind: "idle" };

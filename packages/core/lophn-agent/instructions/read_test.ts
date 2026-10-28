@@ -70,13 +70,13 @@ function setup() {
   addDomain.run(DOM_A, "da", "da", "project", PRJ_A);
   addDomain.run(DOM_APP, "dapp", "dapp", "app", APP);
   const insert = db.prepare(
-    `insert into sessions (id, role, project, app, place_kind, place_id,
+    `insert into sessions (id, agent, project, app, place_kind, place_id,
        created_seq, state_seq) values (?, ?, ?, ?, ?, ?, 1, 1)`,
   );
   insert.run(sessionId(1), "lophn", null, null, null, null);
-  insert.run(sessionId(2), "project_manager", PRJ_A, null, "project", PRJ_A);
-  insert.run(sessionId(4), "project_manager", PRJ_C, null, "project", PRJ_C);
-  insert.run(sessionId(3), "app_engineer", null, APP, "app", APP);
+  insert.run(sessionId(2), "agt_1", PRJ_A, null, "project", PRJ_A);
+  insert.run(sessionId(4), "agt_2", PRJ_C, null, "project", PRJ_C);
+  insert.run(sessionId(3), "agt_3", null, APP, "app", APP);
   const snapshot = {
     as_of_seq: 1n,
     sql: {

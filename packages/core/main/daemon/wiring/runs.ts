@@ -2,10 +2,10 @@ import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
   type AgentRef,
-  agentSessionRead,
   messageBody,
   type NamedAgent,
-  openAgentSession,
+  placeSessionOpen,
+  placeSessionRead,
   placeOfAgentRef,
   receivedMessageList,
   receivedMessageRead,
@@ -13,6 +13,8 @@ import {
   stopTurn,
   turnRead,
 } from "../../../../protocol/lophn-agent/mod.ts";
+import { agentIdOfRef } from "../../../lophn-agent/agents/bridge.ts";
+import { agentRefOfId } from "../../../lophn-agent/session/model.ts";
 import type { Place } from "../../../../protocol/lophn-agent/mod.ts";
 import {
   runCancel,
@@ -52,10 +54,10 @@ const RUNS_CONTEXT: AuthenticatedContext = {
   actor: "user",
   scope: {
     operations: [
-      openAgentSession.name,
+      placeSessionOpen.name,
       sendMessage.name,
       stopTurn.name,
-      agentSessionRead.name,
+      placeSessionRead.name,
       receivedMessageRead.name,
       receivedMessageList.name,
       turnRead.name,
@@ -157,8 +159,8 @@ export const runsWiring: WiringFactory = () => {
           return Promise.resolve(found.ok ? found.value : found);
         },
         async agentOf(session: Id<"ses">) {
-          const found = await read<Output<typeof agentSessionRead>>(
-            agentSessionRead,
+          const found = await read<Output<typeof placeSessionRead>>(
+            placeSessionRead,
             { session },
           );
           if (!found.ok) return found;
@@ -169,12 +171,23 @@ export const runsWiring: WiringFactory = () => {
               message: "the session is not open",
             });
           }
-          return ok({ agent: s.agent, place: runPlaceOf(s.place) });
+          return ok({
+            agent: agentRefOfId(s.agent),
+            place: runPlaceOf(s.place),
+          });
         },
         async open(agent: AgentRef, session: Id<"ses">) {
-          const opened = await command(RUNS_CONTEXT, openAgentSession, {
+          const id = agentIdOfRef(agent);
+          if (id === null) {
+            return err({
+              code: "not_found" as const,
+              message: "agent not found",
+            });
+          }
+          const opened = await command(RUNS_CONTEXT, placeSessionOpen, {
             id: session,
-            agent,
+            agent: id,
+            place: placeOfAgentRef(agent) ?? null,
           });
           return opened.ok ? ok(undefined) : opened;
         },

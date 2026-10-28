@@ -8,7 +8,7 @@ import {
   type failSessionCompact,
   type forkSession,
   MESSAGE_BODY_OWNER_KIND,
-  openAgentSession,
+  placeSessionOpen,
   type recordMessage,
   renameSession,
   type requestSessionCompact,
@@ -31,7 +31,6 @@ import {
   type SendMessageDeps,
 } from "./message-commands.ts";
 import {
-  agentRefOf,
   loadSession,
   modelSelectionOf,
   nextSessionSeq,
@@ -55,7 +54,7 @@ type ConversationDeps = {
     ownerKind: string,
     ownerKeys: readonly string[],
   ) => Result<void>;
-  // session을 열 때 place와 Operator를 확인하고 SessionStarted를 낸다. 그 tx의 sql로 읽는다.
+  // session을 열 때 agent 정의와 place를 확인하고 SessionStarted를 낸다. 그 tx의 sql로 읽는다.
   open: (tx: Tx) => OpenDeps;
   // archive와 지움이 묶는 영향.
   end: EndDeps;
@@ -71,7 +70,7 @@ function openedOf(row: SessionRow) {
 }
 
 export function createConversationCommands(deps: ConversationDeps): {
-  open: CommandDefinition<typeof openAgentSession>;
+  open: CommandDefinition<typeof placeSessionOpen>;
   rename: CommandDefinition<typeof renameSession>;
   archive: CommandDefinition<typeof archiveSession>;
   delete: CommandDefinition<typeof deleteSession>;
@@ -89,14 +88,15 @@ export function createConversationCommands(deps: ConversationDeps): {
     fork: createForkCommand(deps.open),
     ...createCompactCommands(),
     open: {
-      route: openAgentSession,
-      handle(tx, ctx: RequestContext, input: Input<typeof openAgentSession>) {
+      route: placeSessionOpen,
+      handle(tx, ctx: RequestContext, input: Input<typeof placeSessionOpen>) {
         const user = requireUser(ctx);
         if (!user.ok) return user;
         const existing = loadSession(tx, input.id);
         if (existing !== undefined) {
           const same =
-            canonicalize(agentRefOf(existing)) === canonicalize(input.agent);
+            existing.agent === input.agent &&
+            canonicalize(placeOf(existing)) === canonicalize(input.place);
           if (!same) return reject("conflict", "session id already used");
           if (existing.lifecycle !== "open") {
             return reject("conflict", "session changed since it was opened");
@@ -106,6 +106,7 @@ export function createConversationCommands(deps: ConversationDeps): {
         const started = startSession(tx, deps.open(tx), {
           id: input.id,
           agent: input.agent,
+          place: input.place,
         });
         return started.ok ? ok(openedOf(started.value)) : started;
       },

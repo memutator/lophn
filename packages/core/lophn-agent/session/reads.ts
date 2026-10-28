@@ -1,24 +1,23 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  agentSessionList,
-  agentSessionRead,
+  placeSessionCompactRequests,
+  placeSessionList,
+  placeSessionRead,
   receivedMessageList,
   receivedMessageRead,
-  sessionCompactRequests,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { ReadDefinition } from "../../../protocol/server/mod.ts";
 import { sessionVisible, visibleSessions } from "./guards.ts";
 import {
-  agentClause,
-  agentRefOf,
-  agentSessionOf,
   loadMessage,
   loadSession,
   MESSAGE_COLUMNS,
   messageRowOf,
   placeOf,
+  placeSessionOf,
   receivedMessageOf,
   SESSION_COLUMNS,
+  sessionClause,
   sessionRowOf,
 } from "./model.ts";
 
@@ -55,27 +54,27 @@ function cursorOf(after: string): string {
 }
 
 export function createConversationReads(): {
-  session: ReadDefinition<typeof agentSessionRead>;
-  sessions: ReadDefinition<typeof agentSessionList>;
+  session: ReadDefinition<typeof placeSessionRead>;
+  sessions: ReadDefinition<typeof placeSessionList>;
   messages: ReadDefinition<typeof receivedMessageList>;
   message: ReadDefinition<typeof receivedMessageRead>;
-  compactRequests: ReadDefinition<typeof sessionCompactRequests>;
+  compactRequests: ReadDefinition<typeof placeSessionCompactRequests>;
 } {
   return {
     session: {
-      route: agentSessionRead,
+      route: placeSessionRead,
       handle(snapshot, ctx, input) {
         const row = loadSession(snapshot, input.session);
         if (row === undefined || !sessionVisible(ctx, row)) return notFound();
         return ok({
-          session: agentSessionOf(row),
+          session: placeSessionOf(row),
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });
       },
     },
     sessions: {
-      route: agentSessionList,
+      route: placeSessionList,
       handle(snapshot, ctx, input) {
         const after = cursorAfter(input.cursor);
         if (!after.ok) return after;
@@ -87,9 +86,9 @@ export function createConversationReads(): {
         });
         if (scope === undefined) return empty;
         // 목록은 agent별이다. 제목 검색은 화면이 이 결과의 제목만 거른다.
-        const which = agentClause(input.agent);
+        const which = sessionClause(input.agent, input.place);
         const clauses = ["created_seq > ?", `(${which.sql})`];
-        const params: (string | bigint)[] = [
+        const params: (string | bigint | null)[] = [
           after.value ?? 0n,
           ...which.params,
         ];
@@ -113,7 +112,7 @@ export function createConversationReads(): {
         const page = rows.slice(0, PAGE);
         const last = page[page.length - 1];
         return ok({
-          sessions: page.map(agentSessionOf),
+          sessions: page.map(placeSessionOf),
           as_of_seq: snapshot.as_of_seq,
           next_cursor:
             rows.length > PAGE && last !== undefined
@@ -124,7 +123,7 @@ export function createConversationReads(): {
     },
     // 열린 요청을 오래된 것부터 낸다. 도는 turn이 있는 session의 요청은 그 turn이 끝날 때까지 나오지 않는다.
     compactRequests: {
-      route: sessionCompactRequests,
+      route: placeSessionCompactRequests,
       handle(snapshot) {
         const rows = snapshot.sql.all(
           `select cast(r.request_seq as text) as request_seq, s.*
@@ -141,7 +140,7 @@ export function createConversationReads(): {
             const session = sessionRowOf(row);
             return {
               session: session.id,
-              agent: agentRefOf(session),
+              agent: session.agent,
               place: placeOf(session),
               request_seq: String(row["request_seq"]),
             };

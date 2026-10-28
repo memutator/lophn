@@ -28,7 +28,7 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import type { ReaderRegistration } from "../../storage/ledger/mod.ts";
 import { dataRootOf } from "../agents/store.ts";
-import { loadSession, placeOf } from "../session/model.ts";
+import { agentRefOf, loadSession, placeOf } from "../session/model.ts";
 import {
   encodeInstructionFile,
   INSTRUCTION_FILE_MAX_BYTES,
@@ -87,9 +87,13 @@ function loadInstructionSession(
   id: string,
 ): SessionRow | undefined {
   const found = loadSession(snapshot, id);
-  return found === undefined
-    ? undefined
-    : { role: found.role, operator: found.operator, place: placeOf(found) };
+  if (found === undefined) return undefined;
+  const ref = agentRefOf(found);
+  return {
+    role: ref.role,
+    operator: "agent" in ref ? ref.agent : null,
+    place: placeOf(found),
+  };
 }
 
 // 조립이 넘기는 조회와 규칙이다. project 표와 role별 정의 file 자리는 harness가 모른다.

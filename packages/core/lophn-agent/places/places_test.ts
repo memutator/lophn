@@ -3,9 +3,9 @@ import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { ok } from "../../../base/mod.ts";
 import {
-  type AgentRef,
   type forkSession,
-  rolePlaceFits,
+  LOPHN_AGENT_ID,
+  type Place,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
@@ -25,6 +25,7 @@ const PROJECT = "prj_00000000000000000000000001";
 const APP = "app_00000000000000000000000001";
 const OTHER_APP = "app_00000000000000000000000002";
 const OPERATOR = "agt_00000000000000000000000001";
+const MISSING_AGENT = "agt_00000000000000000000000009";
 
 // 저장소만 쓴다. 표는 실제 schema step 그대로다.
 function store() {
@@ -49,6 +50,7 @@ function store() {
 }
 
 const archivedPlaces = new Set<string>();
+let operatorSkip = false;
 const deps: OpenDeps = {
   projects: {
     project: (id) => ({ id, archived: archivedPlaces.has(id) }) as never,
@@ -61,11 +63,17 @@ const deps: OpenDeps = {
         : ({ id, archived: archivedPlaces.has(id) } as never),
     appByName: () => null,
   },
-  operators: {
-    operator: (id) =>
+  agents: {
+    agent: (id) =>
       id === OPERATOR
-        ? ({ id, name: "reviewer", place: { kind: "app", id: APP } } as never)
-        : null,
+        ? { id, name: "reviewer", domains: [], skip: operatorSkip }
+        : id === LOPHN_AGENT_ID
+          ? { id, name: "lophn", domains: [], skip: false }
+          : null,
+    agents: () => [],
+  },
+  operators: {
+    operator: () => null,
     operators: () => [],
   },
   roles: UNWIRED_PLACE_DEPS.roles,
@@ -93,30 +101,25 @@ function commandsOf() {
   });
 }
 
+function open(
+  tx: Tx,
+  input: { id: string; agent: string; place: Place | null },
+) {
+  return commandsOf().open.handle(tx, user, input as never, {} as never);
+}
+
 test("archive한 session은 입력을 받지 않고 보관한 place의 session도 받지 않는다", () => {
   const { sql, tx } = store();
   archivedPlaces.clear();
   const directory = createSessionDirectory({ ...deps, sql: () => sql });
-  const from = { kind: "human" as const };
-  const opened = directory.open(tx, { role: "app_engineer", app: APP }, from);
+  const opened = open(tx, {
+    id: "ses_a",
+    agent: OPERATOR,
+    place: { kind: "app", id: APP },
+  });
   assert.ok(opened.ok);
-  const session = opened.value.session;
+  const session = opened.value.id as never;
   assert.deepStrictEqual(directory.find(session)?.accepting, true);
-
-  // 같은 agent의 열린 session만 고른다. 다른 agent와 Operator는 찾지 못한다.
-  assert.deepStrictEqual(
-    directory.openOf({ role: "app_engineer", app: APP })?.session,
-    session,
-  );
-  assert.deepStrictEqual(
-    directory.openOf({ role: "app_engineer", app: OTHER_APP }),
-    null,
-  );
-  assert.deepStrictEqual(
-    directory.openOf({ role: "operator", agent: OPERATOR }),
-    null,
-  );
-  assert.deepStrictEqual(directory.openOf({ role: "lophn" }), null);
 
   // place를 보관하면 session은 열린 채 남고 입력만 거절한다. 다시 꺼내면 이어서 받는다.
   archivedPlaces.add(APP);
@@ -143,7 +146,11 @@ test("archive한 session은 입력을 받지 않고 보관한 place의 session�
 
   // 보관한 place에는 새 session도 열리지 않는다.
   archivedPlaces.add(APP);
-  const refused = directory.open(tx, { role: "app_engineer", app: APP }, from);
+  const refused = open(tx, {
+    id: "ses_b",
+    agent: OPERATOR,
+    place: { kind: "app", id: APP },
+  });
   assert.ok(!refused.ok && refused.error.code === "conflict");
   archivedPlaces.clear();
 });
@@ -151,14 +158,13 @@ test("archive한 session은 입력을 받지 않고 보관한 place의 session�
 test("fork는 이력만 복사하고 허락, 대기 요청, 열린 call, rewind 기록은 가져오지 않는다", () => {
   const { sql, tx } = store();
   archivedPlaces.clear();
-  const directory = createSessionDirectory({ ...deps, sql: () => sql });
-  const opened = directory.open(
-    tx,
-    { role: "operator", agent: OPERATOR },
-    { kind: "human" },
-  );
+  const opened = open(tx, {
+    id: "ses_source",
+    agent: OPERATOR,
+    place: { kind: "app", id: APP },
+  });
   assert.ok(opened.ok);
-  const source = opened.value.session;
+  const source = opened.value.id;
   const body = "a".repeat(64);
   for (const [seq, from] of [
     [1, "human"],
@@ -213,51 +219,83 @@ test("fork는 이력만 복사하고 허락, 대기 요청, 열린 call, rewind 
   const forkedRow = sql.get("select * from sessions where id = ?", [
     "ses_fork",
   ]);
-  assert.deepStrictEqual(forkedRow?.["operator"], OPERATOR);
+  assert.deepStrictEqual(forkedRow?.["agent"], OPERATOR);
+  assert.deepStrictEqual(forkedRow?.["place_kind"], "app");
+  assert.deepStrictEqual(forkedRow?.["place_id"], APP);
   assert.deepStrictEqual(forkedRow?.["compaction_through_seq"], null);
   assert.deepStrictEqual(forkedRow?.["forked_from_session"], source);
 });
 
-test("role과 place가 맞지 않는 session은 열리지 않는다", () => {
-  const { db, sql, tx } = store();
+test("열린 session의 agent와 place는 바뀌지 않고, 정의가 없는 agent나 없거나 보관한 place에는 열리지 않는다", () => {
+  const { sql, tx } = store();
   archivedPlaces.clear();
-  const bad: [string, string | null, string | null][] = [
-    ["lophn", "project", PROJECT],
-    ["project_manager", "app", APP],
-    ["app_engineer", "project", PROJECT],
-    ["project_manager", null, null],
-  ];
-  for (const [role, kind, id] of bad) {
-    assert.ok(
-      !rolePlaceFits(
-        role as never,
-        kind === null ? null : ({ kind, id } as never),
-      ),
-    );
-    assert.throws(() =>
-      db
-        .prepare(
-          `insert into sessions (id, role, project, app, place_kind, place_id,
-           created_seq, state_seq) values ('ses_bad', ?, ?, ?, ?, ?, 1, 1)`,
-        )
-        .run(
-          role,
-          kind === "project" ? id : null,
-          kind === "app" ? id : null,
-          kind,
-          id,
-        ),
-    );
-  }
+  const rows = () =>
+    Number(sql.get("select count(*) as n from sessions", [])?.["n"]);
 
-  // 없는 Operator와 없는 place는 열리지 않는다.
-  const directory = createSessionDirectory({ ...deps, sql: () => sql });
-  const from = { kind: "human" as const };
-  const missing: AgentRef[] = [
-    { role: "operator", agent: "agt_00000000000000000000000009" },
-    { role: "app_engineer", app: OTHER_APP },
+  archivedPlaces.add(PROJECT);
+  const refused: [string, Place | null, string][] = [
+    [MISSING_AGENT, null, "not_found"],
+    [OPERATOR, { kind: "app", id: OTHER_APP }, "conflict"],
+    [OPERATOR, { kind: "project", id: PROJECT }, "conflict"],
   ];
-  for (const agent of missing) {
-    assert.ok(!directory.open(tx, agent, from).ok);
+  for (const [agent, place, code] of refused) {
+    const done = open(tx, { id: "ses_bad", agent, place });
+    assert.ok(!done.ok && done.error.code === code, `${agent} ${code}`);
+    assert.deepStrictEqual(rows(), 0);
   }
+  archivedPlaces.clear();
+
+  // lophn @ project, agt_… @ app은 열린다.
+  assert.ok(
+    open(tx, {
+      id: "ses_project",
+      agent: LOPHN_AGENT_ID,
+      place: { kind: "project", id: PROJECT },
+    }).ok,
+  );
+  operatorSkip = true;
+  assert.ok(
+    open(tx, {
+      id: "ses_app",
+      agent: OPERATOR,
+      place: { kind: "app", id: APP },
+    }).ok,
+  );
+  operatorSkip = false;
+  assert.deepStrictEqual(
+    sql.get("select skip from sessions where id = 'ses_app'", [])?.["skip"],
+    1,
+  );
+
+  // 같은 id로 다른 place나 다른 agent를 열면 conflict이고 행은 그대로다.
+  for (const input of [
+    { id: "ses_app", agent: OPERATOR, place: { kind: "app", id: OTHER_APP } },
+    {
+      id: "ses_app",
+      agent: LOPHN_AGENT_ID,
+      place: { kind: "app", id: APP },
+    },
+  ] as const) {
+    const done = open(tx, input);
+    assert.ok(!done.ok && done.error.code === "conflict");
+  }
+  const row = sql.get(
+    "select agent, place_kind, place_id from sessions where id = 'ses_app'",
+    [],
+  );
+  assert.deepStrictEqual(
+    [row?.["agent"], row?.["place_kind"], row?.["place_id"]],
+    [OPERATOR, "app", APP],
+  );
+
+  // 열린 행의 agent와 place는 trigger가 지킨다.
+  assert.throws(() =>
+    sql.run("update sessions set agent = 'lophn' where id = 'ses_app'", []),
+  );
+  assert.throws(() =>
+    sql.run(
+      "update sessions set place_kind = 'project', place_id = 'prj_x' where id = 'ses_app'",
+      [],
+    ),
+  );
 });

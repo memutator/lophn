@@ -49,7 +49,7 @@ export function createCommandReads(deps: CommandReadDeps): {
           return err({ code: "not_found", message: "session not found" });
         }
         const session: CommandSession = {
-          role: row.role,
+          role: agentRefOf(row).role,
           place: placeOf(row),
           agent: agentRefOf(row),
         };

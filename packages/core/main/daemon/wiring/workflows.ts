@@ -1,7 +1,7 @@
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
-  agentSessionRead,
+  placeSessionRead,
   receivedMessageList,
   stopTurn,
   turnList,
@@ -60,7 +60,7 @@ const WORKFLOWS_CONTEXT: AuthenticatedContext = {
       turnRead.name,
       turnList.name,
       stopTurn.name,
-      agentSessionRead.name,
+      placeSessionRead.name,
     ],
     targets: {},
   },
@@ -424,8 +424,8 @@ export const workflowsWiring: WiringFactory = () => {
               let defaultProject: string | null = null;
               const session = who.conditions.session;
               if (input.project === undefined && session !== undefined) {
-                const found = await read<Output<typeof agentSessionRead>>(
-                  agentSessionRead,
+                const found = await read<Output<typeof placeSessionRead>>(
+                  placeSessionRead,
                   { session },
                 );
                 const place = found.ok ? found.value.session.place : null;

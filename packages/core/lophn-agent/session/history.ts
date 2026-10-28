@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  agentSessionRead,
   messageBody,
+  placeSessionRead,
   type ReceivedMessage,
   receivedMessageList,
   rewindList,
@@ -152,7 +152,7 @@ export async function readSessionConversation(
   },
 ): Promise<Result<SessionConversation>> {
   if (input.session === null) return ok({ compaction: null, messages: [] });
-  const session = await readOf(machine, agentSessionRead, {
+  const session = await readOf(machine, placeSessionRead, {
     session: input.session,
   });
   if (!session.ok) return session;

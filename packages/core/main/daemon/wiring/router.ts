@@ -1,9 +1,15 @@
 import { realpath } from "node:fs/promises";
-import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
+import {
+  canonicalize,
+  createIdSource,
+  err,
+  ok,
+  type Result,
+} from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
-  agentSessionRead,
-  openAgentSession,
+  placeSessionOpen,
+  placeSessionRead,
 } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import { sendMessage } from "../../../../protocol/lophn-agent/inputs.ts";
 import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
@@ -12,7 +18,12 @@ import { domainOwnerOf } from "../../../domains/lookups.ts";
 import { projectStatusOf } from "../../../projects/lookups.ts";
 import type { DomainOwner } from "../../../../protocol/domains/mod.ts";
 import { domainArtifactsFolder } from "../../../../protocol/domains/paths.ts";
-import type { AgentRef } from "../../../../protocol/lophn-agent/places.ts";
+import {
+  LOPHN_AGENT_ID,
+  type AgentRef,
+  type Place,
+  placeOfAgentRef,
+} from "../../../../protocol/lophn-agent/places.ts";
 import {
   callCancel,
   callReply,
@@ -80,9 +91,9 @@ const ANNOTATION_DELIVERY_CONTEXT: AuthenticatedContext = {
   actor: "user",
   scope: {
     operations: [
-      openAgentSession.name,
+      placeSessionOpen.name,
       sendMessage.name,
-      agentSessionRead.name,
+      placeSessionRead.name,
     ],
     targets: {},
   },
@@ -243,12 +254,6 @@ export const routerWiring: WiringFactory = () => {
         });
         return done.ok ? ok(done.value.result) : done;
       };
-      const refKey = (agent: AgentRef) =>
-        agent.role === "app_engineer"
-          ? `app:${agent.app}`
-          : agent.role === "project_manager"
-            ? `prj:${agent.project}`
-            : agent.role;
       // 지정된 session이 agent의 열린 session인지 본다. 아니면 conflict다.
       const checkOpenSession = async (
         session: string,
@@ -256,17 +261,23 @@ export const routerWiring: WiringFactory = () => {
         message: string,
       ): Promise<Result<void>> => {
         const found = await ctx.runtime.readers.read(
-          agentSessionRead,
+          placeSessionRead,
           ANNOTATION_DELIVERY_CONTEXT,
           { session },
         );
         if (!found.ok) return found;
-        const { agent: actual, lifecycle } = (
+        const {
+          agent: actual,
+          place,
+          lifecycle,
+        } = (
           found.value as {
-            session: { agent: AgentRef; lifecycle: string };
+            session: { agent: string; place: Place | null; lifecycle: string };
           }
         ).session;
-        const same = refKey(actual) === refKey(agent);
+        const same =
+          actual === LOPHN_AGENT_ID &&
+          canonicalize(place) === canonicalize(placeOfAgentRef(agent) ?? null);
         return same && lifecycle === "open"
           ? ok(undefined)
           : err({ code: "conflict", message });
@@ -278,9 +289,10 @@ export const routerWiring: WiringFactory = () => {
         input: { text: string; annotations: readonly string[] },
       ): Promise<Result<{ session: string; message: string }>> => {
         if (session === null) {
-          const opened = await run(openAgentSession, {
+          const opened = await run(placeSessionOpen, {
             id: ids.newId("ses"),
-            agent,
+            agent: LOPHN_AGENT_ID,
+            place: placeOfAgentRef(agent) ?? null,
           });
           if (!opened.ok) return opened;
           session = (opened.value as { id: string }).id;
@@ -338,7 +350,6 @@ export const routerWiring: WiringFactory = () => {
                 root,
                 name: input.name,
                 owner: owner.value,
-                roles: [agent.role, "operator"],
               }),
             );
             if (!found.ok) return found;

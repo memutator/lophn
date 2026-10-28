@@ -7,27 +7,25 @@ import type { AppGrant } from "../../../protocol/apps/grants.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { ToolEffect } from "../../../protocol/lophn-agent/tool-values.ts";
 import type {
+  AgentAtPlace,
   AgentId,
-  AgentRef,
 } from "../../../protocol/lophn-agent/places.ts";
 import { judge } from "../../approvals/gate/mod.ts";
-import { agentIdOfRef } from "../../lophn-agent/agents/bridge.ts";
 import type { VerifiedCaller } from "./caller.ts";
 
 export type CallGateDeps = {
   assignmentOf(agent: AgentId): Result<Assignment>;
   appGrantsOf(app: Id<"app">): Promise<Result<readonly AppGrant[]>>;
   // program·flow caller의 domain 거르기 재료. creator가 맡은 domain id와 앱 domain 이름의 id다.
-  agentDomainsOf(agent: AgentRef): Result<readonly string[]>;
+  agentDomainsOf(agent: AgentAtPlace): Result<readonly string[]>;
   toolDomainOf(app: Id<"app">, name: string): Result<string | null>;
 };
 
 function assignmentOf(
-  caller: AgentRef,
+  caller: AgentId,
   deps: CallGateDeps,
 ): Result<Pick<Assignment, "entries">> {
-  const agent = agentIdOfRef(caller);
-  return agent === null ? ok({ entries: [] }) : deps.assignmentOf(agent);
+  return deps.assignmentOf(caller);
 }
 
 // 앱 tool 판정은 shell 규칙을 보지 않는다.
@@ -68,7 +66,10 @@ export async function callAllowed(
     // agent의 tool 목록과 같은 규칙: 공개 tool이거나 creator가 맡은 domain의 tool.
     // 읽지 못하면 막는다.
     const id = deps.toolDomainOf(target.app, target.domain);
-    const domains = deps.agentDomainsOf(caller.agent);
+    const domains = deps.agentDomainsOf({
+      agent: caller.agent,
+      place: caller.place,
+    });
     if (!id.ok || !domains.ok || id.value === null) return ok(false);
     return ok(domains.value.includes(id.value));
   }

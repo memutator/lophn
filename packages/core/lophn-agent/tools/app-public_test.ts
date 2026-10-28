@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
-import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
 import { withPublicOnly } from "./app-public.ts";
 import type { AppToolkit } from "./app-toolkit.ts";
 
@@ -46,7 +45,7 @@ async function visible(mine: string[] | null, unreadable: string[] = []) {
     toolDomain: (app, name) =>
       Promise.resolve(unreadable.includes(app) ? null : idOf(app, name)),
   });
-  const loaded = await kit.load({ role: "lophn" } as AgentRef);
+  const loaded = await kit.load({ agent: "lophn", place: null });
   if (!loaded.ok) throw new Error("load failed");
   return loaded.value.views.map((view) => [
     view.app,

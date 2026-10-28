@@ -6,15 +6,15 @@ import {
 import {
   interruptTurns,
   OAUTH_REFRESH_LEAD_MS,
+  PLACE_KINDS,
   providerRead,
   type ProviderRecord,
   recordProviderModels,
   refreshProviderCredential,
-  ROLES,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import {
   agentConditions,
-  roleOperations,
+  placeOperations,
 } from "../../../agent-places/credentials.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
@@ -153,8 +153,8 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
     operations: (ctx) =>
       agentRuntimePolicies(
         ctx.allRoutes,
-        ROLES.flatMap((role) =>
-          roleOperations(role, agentTools({ file: FILE_HOOKS })),
+        PLACE_KINDS.flatMap((kind) =>
+          placeOperations(kind, agentTools({ file: FILE_HOOKS })),
         ),
       ),
     // agent runtime child. API가 열린 뒤에 띄워 hello 직후의 읽기가 닿는다. 띄우지 못해도 core는
@@ -204,8 +204,8 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       const started = await startAgentRuntimeChild({
         io: ctx.io,
-        operationsFor: (role) =>
-          roleOperations(role, agentTools({ file: FILE_HOOKS })),
+        operationsFor: (kind) =>
+          placeOperations(kind, agentTools({ file: FILE_HOOKS })),
         conditionsFor: agentConditions,
         diagnostic: (message) =>
           void ctx

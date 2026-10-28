@@ -215,7 +215,7 @@ export function createAppCalls(deps: AppCallsDeps): {
   }
 
   // preview는 일회용 DB라 rewind 대상이 아니고 release가 없을 수 있어 ledger를 쓰지 않는다.
-  // 부른 쪽은 사람이나 그 앱의 App Engineer다(verifyCaller). Gate도 줄도 기록도 없다.
+  // 부른 쪽은 사람이나 그 앱 place의 session이다(verifyCaller). Gate도 줄도 기록도 없다.
   async function callPreview(
     input: ToolCallInput,
     target: Extract<AppToolTarget, { mode: "preview" }>,

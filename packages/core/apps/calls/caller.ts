@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { ToolCallInput } from "../../../protocol/apps/calls/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import type { AgentRef, Place } from "../../../protocol/lophn-agent/places.ts";
+import type { AgentId, Place } from "../../../protocol/lophn-agent/places.ts";
 import type { CallerDirectory } from "../ports.ts";
 import type { Flight } from "./intake.ts";
 
@@ -13,13 +13,13 @@ export type CallAuth = {
   program?: {
     job: Id<"job">;
     job_run: Id<"jbr">;
-    agent: AgentRef;
+    agent: AgentId;
     place: Place | null;
   };
   // actor가 flow일 때만 있다. program과 같이 route는 만들지 못하고 core 안 run 연산만 만든다.
   flow?: {
     instance: Id<"wfi">;
-    agent: AgentRef;
+    agent: AgentId;
     place: Place | null;
   };
   previewOnly?: true;
@@ -30,7 +30,7 @@ export type VerifiedCaller =
   | { kind: "person" }
   | {
       kind: "agent";
-      agent: AgentRef;
+      agent: AgentId;
       place: Place | null;
       session: Id<"ses">;
       turn: Id<"trn">;
@@ -41,13 +41,13 @@ export type VerifiedCaller =
       kind: "program";
       job: Id<"job">;
       job_run: Id<"jbr">;
-      agent: AgentRef;
+      agent: AgentId;
       place: Place | null;
     }
   | {
       kind: "flow";
       instance: Id<"wfi">;
-      agent: AgentRef;
+      agent: AgentId;
       place: Place | null;
     };
 
@@ -82,7 +82,7 @@ export function verifyCaller(
 
   if (caller.kind === "agent") {
     const target = input.target;
-    // preview는 그 앱의 App Engineer만 부른다(아래 판정).
+    // preview는 그 앱 place의 session만 부른다(아래 판정).
     if (
       target.mode !== "preview" &&
       (target.mode !== "live" || target.release !== null)
@@ -100,12 +100,13 @@ export function verifyCaller(
     );
     if (!found.ok) return found;
     if (found.value === null) return forbidden("unknown tool call");
-    const { agent } = found.value;
     if (
       target.mode === "preview" &&
-      !(agent.role === "app_engineer" && agent.app === target.app)
+      !(
+        found.value.place?.kind === "app" && found.value.place.id === target.app
+      )
     ) {
-      return forbidden("only the App Engineer of the app calls its preview");
+      return forbidden("only a session in the app's place calls its preview");
     }
     return ok({
       kind: "agent",

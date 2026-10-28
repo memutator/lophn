@@ -1,7 +1,9 @@
 import type { z } from "zod";
 import type { Result } from "../../../base/mod.ts";
 import {
-  agentSessionRead,
+  type PlaceKind,
+  placeKindOf,
+  placeSessionRead,
   turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import {
@@ -15,7 +17,7 @@ import type { CredentialConditions } from "../../../protocol/server/mod.ts";
 import type { AgentCredentialIssuer } from "./mod.ts";
 
 // agent runtime 감독 pipe의 agent credential 발급. child가 보낸 요청은 신뢰하지 않는다. turn이 있고 진행
-// 중이며 요청한 session의 것인지, session이 열려 있는지, 요청한 operation이 그 session 역할의 상한 안인지를
+// 중이며 요청한 session의 것인지, session이 열려 있는지, 요청한 operation이 그 session place 종류의 상한 안인지를
 // core 자신의 기록으로 확인한다. 어느 하나라도 어긋나면 없는 turn과 똑같이 답하지 않는다.
 
 type CoreCall = (path: string, body: unknown) => Promise<Result<unknown>>;
@@ -34,14 +36,13 @@ export function createAgentCredentialLink(options: {
   machine: CoreCall;
   // 이 child process의 이름. credential의 process 조건이 된다.
   process: string;
-  // 역할의 operation 상한.
-  operationsFor: (role: string) => readonly string[];
-  // credential의 고정 조건. session과 turn, process에 역할이 더하는 조건을 얹는다.
+  // place 종류의 operation 상한.
+  operationsFor: (kind: PlaceKind) => readonly string[];
+  // credential의 고정 조건. session과 turn, process에 place가 더하는 조건을 얹는다.
   conditionsFor: (input: {
     session: string;
     turn: string;
     process: string;
-    role: string;
     place: { kind: string; id: string } | null;
   }) => CredentialConditions;
 }): AgentCredentialLink {
@@ -67,11 +68,11 @@ export function createAgentCredentialLink(options: {
       turn.turn.session !== message.session
     )
       return undefined;
-    const found = await read(agentSessionRead, { session: turn.turn.session });
+    const found = await read(placeSessionRead, { session: turn.turn.session });
     if (found === undefined || found.session.lifecycle !== "open")
       return undefined;
-    const role = found.session.agent.role;
-    const allowed = new Set(operationsFor(role));
+    const kind = placeKindOf(found.session.place);
+    const allowed = new Set(operationsFor(kind));
     const operations = [...new Set(message.operations)];
     if (operations.some((operation) => !allowed.has(operation))) {
       return undefined;
@@ -89,7 +90,6 @@ export function createAgentCredentialLink(options: {
         session: turn.turn.session,
         turn: message.turn,
         process: options.process,
-        role,
         place: found.session.place,
       }),
     });

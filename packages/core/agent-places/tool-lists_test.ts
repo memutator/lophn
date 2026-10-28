@@ -1,51 +1,76 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  ROLES,
+  PLACE_KINDS,
+  type PlaceKind,
   toWireToolName,
   WIRE_TOOL_NAME_PATTERN,
 } from "../../protocol/lophn-agent/mod.ts";
-import { builtinToolNames } from "./tool-lists.ts";
+import { placeToolNames } from "./tool-lists.ts";
 
 // 이름이 겹치면 tool 실행이 다른 tool로 간다.
-test("builtin tool wire names fit the provider rule and never collide", () => {
-  for (const role of ROLES) {
-    const names = builtinToolNames(role);
+test("place kind tool wire names fit the provider rule and never collide", () => {
+  for (const kind of PLACE_KINDS) {
+    const names = placeToolNames(kind);
     const wire = names.map(toWireToolName);
     for (const name of wire) assert.ok(WIRE_TOOL_NAME_PATTERN.test(name), name);
     assert.deepStrictEqual(
       new Set(wire).size,
       wire.length,
-      `${role} has a collision`,
+      `${kind} has a collision`,
     );
     assert.deepStrictEqual(
       new Set(names).size,
       names.length,
-      `${role} lists twice`,
+      `${kind} lists twice`,
     );
   }
 });
 
-// 앱 진단 tool은 사람이 lophn과 App Engineer로만 좁혔다. job tool은 lophn, Project Manager, App Engineer만 받는다.
-// Operator는 job이 부르는 쪽이고 credential 상한이 tool의 route에서 나오므로 목록에 없으면 job route에도 닿지 못한다.
-test("app diagnosis tools are only in the lophn and App Engineer lists, job tools only in the lophn, Project Manager and App Engineer lists", () => {
-  const table: [string[], string[]][] = [
+// 앱 진단 tool은 home과 app 종류가 받는다. job tool과 agent 정의 tool은 셋 다 받고, 작업 tool은 project와 app만,
+// workflow.check는 project만, 앱 쓰기는 app만 받는다.
+test("each tool appears only in the place kinds that do its work", () => {
+  const table: [string[], readonly PlaceKind[]][] = [
     [
       ["app.tools", "app.status", "app.logs", "app.invocations"],
-      ["lophn", "app_engineer"],
+      ["home", "app"],
     ],
     [
-      ["job.create", "job.update", "job.delete", "job.list"],
-      ["lophn", "project_manager", "app_engineer"],
+      [
+        "job.create",
+        "job.update",
+        "job.delete",
+        "job.list",
+        "agent.create",
+        "agent.update",
+      ],
+      PLACE_KINDS,
+    ],
+    [
+      ["file.write", "file.edit", "shell.run"],
+      ["project", "app"],
+    ],
+    [["workflow.check"], ["project"]],
+    [
+      [
+        "app.link_source",
+        "package.publish",
+        "release.prepare",
+        "release.activate",
+        "preview.start",
+        "preview.call",
+        "preview.stop",
+      ],
+      ["app"],
     ],
   ];
-  for (const [names, roles] of table) {
-    for (const role of ROLES) {
+  for (const [names, kinds] of table) {
+    for (const kind of PLACE_KINDS) {
       for (const name of names) {
         assert.deepStrictEqual(
-          builtinToolNames(role).includes(name),
-          roles.includes(role),
-          `${role} ${name}`,
+          placeToolNames(kind).includes(name),
+          kinds.includes(kind),
+          `${kind} ${name}`,
         );
       }
     }

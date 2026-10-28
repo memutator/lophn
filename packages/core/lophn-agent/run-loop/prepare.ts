@@ -10,11 +10,13 @@ import {
 } from "../../../base/mod.ts";
 import {
   type AgentPlace,
-  type AgentSession,
-  agentSessionRead,
   finishTurn,
   type McpServer,
   type ModelChoice,
+  type PlaceKind,
+  placeKindOf,
+  type PlaceSession,
+  placeSessionRead,
   type Role,
   startTurn,
   toWireToolName,
@@ -79,7 +81,7 @@ import {
   pickSkills,
 } from "../extensions/mod.ts";
 
-// 시작할 turn의 재료를 core 기록에서 모은다. session의 agent(role과 place)와 이번 turn의 resolved agent
+// 시작할 turn의 재료를 core 기록에서 모은다. session의 agent id와 place, 이번 turn의 resolved agent
 // (층을 합친 값), tool 목록, 적용 한도, 고정할 turn 근거(basis)를 만든다. tool 목록은 turn마다 새로 만들지
 // 않고 session의 첫 turn에서 만든 것을 쓴다(model에 보이는 `tools[]`가 session 동안 같다). 도중에 달라지면
 // 목록은 그대로 두고 대화 끝에 notice를 붙인다. model 선택의 검증(catalog·credential)은 주입한다.
@@ -142,7 +144,7 @@ type PreparerDeps = {
   // ToolContext의 바깥 연결. 끼우지 않으면 tool 호출은 닫힌 채 실패한다.
   // `core`는 이 turn의 agent 자격 loopback이고 `skills`는 resolved agent가 켠 skill 이름이다.
   toolPorts(
-    session: AgentSession,
+    session: PlaceSession,
     turn: { core: CoreCall; skills: readonly string[] },
   ): ToolPorts;
   // agent event를 Bus로 보내는 길(감독 pipe).
@@ -159,8 +161,10 @@ type PreparerDeps = {
       scope: { read: string[]; write: string[]; base?: string };
     }>
   >;
-  // role이 고정한 tool 이름 목록. 어느 role이 어느 tool을 보는지는 role 층이 정한다.
-  roleTools(role: Role): readonly string[];
+  // place 종류가 고정한 tool 이름 목록. 어느 종류가 어느 tool을 보는지는 place 층이 정한다.
+  placeTools(kind: PlaceKind): readonly string[];
+  // place 종류를 아직 role로 받는 port에 꾸며 넘기는 임시 표다. place-scope가 지운다.
+  roleOfKind(kind: PlaceKind): Role;
   instructions: InstructionDeps;
   // session마다 그 session으로 지침 파일을 읽는 통로. 있으면 `instructions.files` 대신 쓴다(core가 session의
   // place로 어느 project인지 정한다).
@@ -346,7 +350,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
   // session과 이번 turn의 resolved agent로 tool·model을 모은다.
   async function material(
     start: TurnStart,
-    session: AgentSession,
+    session: PlaceSession,
     agent: ResolvedAgent,
     mcp: LoadedMcp,
     turn: string,
@@ -373,7 +377,9 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     // 허락된 앱의 tool이다. 선언이나 할당을 읽지 못하면 그 앱은 없는 것과 같다.
     const apiKit = deps.toolkit.appTool;
     const loadedApi =
-      apiKit === undefined ? null : await apiKit.load(session.agent);
+      apiKit === undefined
+        ? null
+        : await apiKit.load({ agent: session.agent, place: session.place });
     const appTool =
       apiKit === undefined || loadedApi === null || !loadedApi.ok
         ? null
@@ -391,10 +397,10 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         ? model.value.deferrable
         : fixedNow.deferred !== null;
 
-    // role이 고정한 목록에 이 turn이 닿는 tool과 앱 tool, 외부 MCP tool을 더한다. 숨기지 않는 session에는 tool.load가 없다.
+    // place 종류가 고정한 목록에 이 turn이 닿는 tool과 앱 tool, 외부 MCP tool을 더한다. 숨기지 않는 session에는 tool.load가 없다.
     const plain: readonly ToolDefinition[] = [
       ...selectTools(
-        deps.roleTools(session.agent.role),
+        deps.placeTools(placeKindOf(session.place)),
         { input_media: model.value.inputMedia },
         deps.toolkit.definitions,
       ).filter((tool) => deferral || tool.name !== "tool.load"),
@@ -501,7 +507,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         turn: seat.turn as Id<"trn">,
         tool_call: toolCall,
         agent: session.agent,
-        role: session.agent.role,
+        kind: placeKindOf(session.place),
         mode,
         place,
         domains: resolved.domains,
@@ -686,11 +692,12 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         message: "the input has no session message",
       });
     }
-    const read = await readOf(machine, agentSessionRead, {
+    const read = await readOf(machine, placeSessionRead, {
       session: start.session,
     });
     if (!read.ok) return read;
     const session = read.value.session;
+    const kind = placeKindOf(session.place);
     const mode = turnModeOf(session, start.input);
     if (session.lifecycle !== "open") {
       return err({ code: "conflict", message: "the session is not open" });
@@ -708,11 +715,12 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     // 이번 turn의 resolved agent. 층을 합친 값을 turn 기준에 고정한다. model이 어느 층에도 없거나 정의가
     // 틀렸으면 필수 선택이 비었다는 뜻이라 이 turn만 시작하지 않는다.
     const skills =
-      (await deps.skills?.(session.place, session.agent.role)) ?? [];
+      (await deps.skills?.(session.place, deps.roleOfKind(kind))) ?? [];
     let mcp: LoadedMcp | undefined;
     const made = await resolveTurnAgent(machine, {
       session: start.session,
-      roleTools: deps.roleTools,
+      placeTools: deps.placeTools,
+      roleOfKind: deps.roleOfKind,
       skills: skills.filter((entry) => entry.enabled),
       mcp: async (off, place, ownServers) => {
         mcp = await loadMcp(start.session, {
@@ -739,7 +747,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         files:
           deps.instructionFilesFor?.(start.session) ?? deps.instructions.files,
       },
-      { role: session.agent.role },
+      { role: deps.roleOfKind(kind) },
       await readTurnDomains(machine, agent),
     );
     if (instructions.status === "blocked") {
@@ -825,7 +833,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const begin: BeginTurnInput = {
       turn,
       session: start.session,
-      role: session.agent.role,
+      kind,
       inputMessage: start.input.message,
       basis: basis.value.hash,
       basisSize: basis.value.size,

@@ -45,7 +45,7 @@ test("attended turn에서 ask 규칙에 걸린 shell 명령은 사람이 허락�
       );
     },
   };
-  const agent = { role: "lophn" as const };
+  const agent = "lophn";
   const ctx = {
     listed: [definition],
     agent,

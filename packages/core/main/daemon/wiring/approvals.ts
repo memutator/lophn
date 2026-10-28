@@ -19,16 +19,13 @@ import {
   type ToolGateDeps,
 } from "../../../lophn-agent/tool-judgment/mod.ts";
 import type {
-  AgentRef,
+  AgentId,
   Place,
 } from "../../../../protocol/lophn-agent/places.ts";
-import type { AgentId } from "../../../../protocol/lophn-agent/places.ts";
 import { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { createApprovals } from "../../../approvals/mod.ts";
 import { loadAssignment } from "../../../approvals/assignment/mod.ts";
-import { agentIdOfRef } from "../../../lophn-agent/agents/bridge.ts";
-import { agentRefOfId } from "../../../lophn-agent/session/model.ts";
 import {
   shellRuleLayers,
   shellRulesSetting,
@@ -79,7 +76,7 @@ export function toolGateHandler(deps: {
   approvals: ToolGateDeps["approvals"];
   sessionOf(
     session: string,
-  ): Promise<Result<{ agent: AgentRef; place: Place | null }>>;
+  ): Promise<Result<{ agent: AgentId; place: Place | null }>>;
   modeOf(turn: string): Promise<Result<TurnMode>>;
 }): MemoryHandler {
   return async (who, body) => {
@@ -114,16 +111,11 @@ export const approvalsWiring: WiringFactory = () => {
       // Bus는 events가 만들어 slot으로 낸다. slot이 비어 있으면 event를 버린다.
       const bus: Bus = ctx.peek.bus ?? DROPPING_BUS;
       // 할당은 ledger에서 그때그때 읽는다.
-      const assignmentOf = (agent: AgentRef) => {
-        const id = agentIdOfRef(agent);
-        if (id === null) return Promise.resolve(ok({ agent, entries: [] }));
+      const assignmentOf = (agent: AgentId) => {
         const connection = openConnection(ctx.ledgerPath);
         if (!connection.ok) return Promise.resolve(connection);
         try {
-          const found = loadAssignment(connection.value.sql, id);
-          return Promise.resolve(
-            found.ok ? ok({ agent, entries: found.value.entries }) : found,
-          );
+          return Promise.resolve(loadAssignment(connection.value.sql, agent));
         } finally {
           connection.value.close();
         }
@@ -218,7 +210,7 @@ export const approvalsWiring: WiringFactory = () => {
               session: { agent: AgentId; place: Place | null };
             }
           ).session;
-          return ok({ agent: agentRefOfId(agent), place });
+          return ok({ agent, place });
         },
         async modeOf(turn) {
           const found = await ctx.runtime.readers.read(

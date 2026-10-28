@@ -2,6 +2,7 @@ import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
   type AgentRef,
+  LOPHN_AGENT_ID,
   messageBody,
   type NamedAgent,
   placeSessionOpen,
@@ -315,7 +316,10 @@ export const runsWiring: WiringFactory = () => {
                 actor: "flow",
                 flow: {
                   instance: origin.instance,
-                  agent: origin.creator,
+                  agent:
+                    "agent" in origin.creator
+                      ? origin.creator.agent
+                      : LOPHN_AGENT_ID,
                   place: origin.creator_place,
                 },
               },
@@ -342,7 +346,10 @@ export const runsWiring: WiringFactory = () => {
                   program: {
                     job: origin.job,
                     job_run: origin.job_run,
-                    agent: origin.creator,
+                    agent:
+                      "agent" in origin.creator
+                        ? origin.creator.agent
+                        : LOPHN_AGENT_ID,
                     place: origin.creator_place,
                   },
                 },

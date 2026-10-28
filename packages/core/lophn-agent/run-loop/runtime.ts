@@ -1,7 +1,8 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   AGENT_RUNTIME_PRINCIPAL,
-  agentSessionRead,
+  type PlaceKind,
+  placeSessionRead,
   turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
@@ -66,7 +67,7 @@ type RouteLike = { name: string; kind: string };
 
 // 제품 registry의 발급 상한. machine은 command 정책에만 닿으므로 runtime의 machine route는 모두
 // command 정책으로 올리고, agent는 tool이 부르는 route를 route의 종류 그대로 올린다.
-// external_mcp_call은 route 이름이 없는 소유 contract라 command 정책으로 둔다. `agentOperations`는 모든 역할의 상한 합집합이라
+// external_mcp_call은 route 이름이 없는 소유 contract라 command 정책으로 둔다. `agentOperations`는 모든 place 종류의 상한 합집합이라
 // 상한과 발급 policy가 어긋나지 않는다.
 export function agentRuntimePolicies(
   routes: readonly RouteLike[],
@@ -118,7 +119,7 @@ function agentCredentialIssuer(
 
 // 발급 판정이 읽는 route뿐이다. 요청한 turn과 session을 core 자신의 기록과 대조한다.
 const LINK_READS: ReadonlyMap<string, ReadRoute> = new Map(
-  ([turnRead, agentSessionRead] as ReadRoute[]).map((route) => [
+  ([turnRead, placeSessionRead] as ReadRoute[]).map((route) => [
     routePath(route),
     route,
   ]),
@@ -131,8 +132,8 @@ export type AgentRuntimeChild = {
 
 type AgentRuntimeDeps = {
   io: Supervisor;
-  // 역할의 operation 상한과 agent credential의 조건. role 층이 정한다.
-  operationsFor: (role: string) => readonly string[];
+  // place 종류의 operation 상한과 agent credential의 조건. place 층이 정한다.
+  operationsFor: (kind: PlaceKind) => readonly string[];
   conditionsFor: Parameters<
     typeof createAgentCredentialLink
   >[0]["conditionsFor"];

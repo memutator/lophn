@@ -3,7 +3,7 @@ import type {
   GateCall,
   ToolGateResult,
 } from "../../../protocol/approvals/mod.ts";
-import type { AgentRef, Place } from "../../../protocol/lophn-agent/places.ts";
+import type { AgentId, Place } from "../../../protocol/lophn-agent/places.ts";
 import type { TurnMode } from "../../../protocol/lophn-agent/turn-values.ts";
 import type { Approvals } from "../../approvals/mod.ts";
 
@@ -15,7 +15,7 @@ export type ToolGateCall = {
   session: string;
   turn: string;
   toolCall: string;
-  agent: AgentRef;
+  agent: AgentId;
   place: Place | null;
   mode: TurnMode;
   tool: string;

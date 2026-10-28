@@ -25,7 +25,7 @@ const tool = (name: string, domain: string) => ({
   domain,
 });
 
-test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 domain이 하나인 Operator는 그 domain만 쓰는 쪽으로 센다", () => {
+test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 domain이 하나인 agent는 그 domain만 쓰는 쪽으로 센다", () => {
   const db = new DatabaseSync(":memory:");
   for (const step of [...appsSchemaSteps, ...releasesSchemaSteps]) {
     db.exec(step.sql);
@@ -77,8 +77,8 @@ test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 domain�
   grant(manager);
   const ports: UsagePorts = {
     sessionDomains: () => null,
-    agentDomains: (agent) =>
-      agent.role === "operator" ? ["dom_alpha"] : ["dom_beta"],
+    agentDomains: (who) =>
+      who.agent === operator ? ["dom_alpha"] : ["dom_beta"],
     domainOf: (_app, name) => DOMAINS[name] ?? null,
   };
 

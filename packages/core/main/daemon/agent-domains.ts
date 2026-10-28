@@ -3,7 +3,11 @@ import type { UsagePorts } from "../../apps/usage/mod.ts";
 import { domainsOfOwner } from "../../domains/lookups.ts";
 import { workingDomains } from "../../lophn-agent/agents/resolve.ts";
 import { placeDepsOf } from "../../lophn-agent/places/mod.ts";
-import { agentRefOf, loadSession } from "../../lophn-agent/session/model.ts";
+import {
+  agentRefOf,
+  loadSession,
+  placeOf,
+} from "../../lophn-agent/session/model.ts";
 import type { DomainOwner } from "../../../protocol/domains/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 
@@ -19,23 +23,17 @@ export function agentDomainPorts(sql: Query): UsagePorts {
         ? null
         : {
             role: agentRefOf(row).role,
-            domains: ports.agentDomains(agentRefOf(row)),
+            domains: ports.agentDomains({
+              agent: row.agent,
+              place: placeOf(row),
+            }),
           };
     },
-    agentDomains(agent) {
-      switch (agent.role) {
-        case "project_manager":
-          return activeIds({ kind: "project", id: agent.project });
-        case "app_engineer":
-          return activeIds({ kind: "app", id: agent.app });
-        case "operator": {
-          const found = placeDepsOf(sql).operators.operator(agent.agent);
-          if (found === null) return [];
-          return workingDomains(activeIds(found.place), found.domains);
-        }
-        default:
-          return [];
-      }
+    agentDomains({ agent, place }) {
+      if (place === null) return [];
+      const found = placeDepsOf(sql).agents.agent(agent);
+      if (found === null) return [];
+      return workingDomains(activeIds(place), found.domains);
     },
     domainOf(app, name) {
       return (

@@ -1,5 +1,5 @@
 import { ok } from "../../../base/mod.ts";
-import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
+import type { AgentAtPlace } from "../../../protocol/lophn-agent/places.ts";
 import type { AppToolkit } from "./app-toolkit.ts";
 import { buildAppTools } from "./app-tools.ts";
 
@@ -11,7 +11,7 @@ export function withPublicOnly(
   toolkit: AppToolkit,
   deps: {
     // agent가 일하는 domain id 전부. 읽지 못하면 null.
-    callerDomains(agent: AgentRef): Promise<readonly string[] | null>;
+    callerDomains(who: AgentAtPlace): Promise<readonly string[] | null>;
     // 앱의 domain 이름 → id. 읽지 못하면 null.
     toolDomain(app: string, name: string): Promise<string | null>;
   },

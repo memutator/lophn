@@ -5,7 +5,7 @@ import type {
   TurnRequest,
   TurnRequestOutcome,
 } from "../../protocol/approvals/mod.ts";
-import type { AgentRef, Place } from "../../protocol/lophn-agent/places.ts";
+import type { AgentId, Place } from "../../protocol/lophn-agent/places.ts";
 import type { TurnMode } from "../../protocol/lophn-agent/turn-values.ts";
 
 // `always`를 고르면 그 kind의 request에 하는 일. request의 `always_patterns`를 규칙으로 더하는 등이다.
@@ -28,7 +28,7 @@ export interface Approvals {
   judge(
     call: GateCall,
     who: {
-      agent: AgentRef;
+      agent: AgentId;
       session: string;
       place: Place | null;
       mode: TurnMode;

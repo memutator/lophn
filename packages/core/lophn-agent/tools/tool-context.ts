@@ -2,9 +2,9 @@ import type { Clock, IdSource } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { TurnMode } from "../../../protocol/lophn-agent/turn-values.ts";
 import type {
-  AgentRef,
+  AgentId,
   Place,
-  Role,
+  PlaceKind,
 } from "../../../protocol/lophn-agent/places.ts";
 import type { CallRouting } from "../ports.ts";
 import type { CoreCall } from "../run-loop/core-call.ts";
@@ -23,14 +23,15 @@ export type ToolContext = {
   turn: Id<"trn">;
   // 이 tool call의 ID. 재전송을 하나로 묶는 dedup 기준이다. 입력에서 받지 않는다.
   tool_call: Id<"tcl">;
-  // Gate의 GateCall에 싣는 호출자다. role과 place가 정체성을 다 말하지 못하는 Operator 때문에 둔다.
-  agent: AgentRef;
-  role: Role;
+  // Gate의 GateCall에 싣는 호출자다.
+  agent: AgentId;
+  // 이 session의 place 종류다. home이면 place가 null이다.
+  kind: PlaceKind;
   // 이 turn의 mode. 시작 때 정해 turn 동안 같다. call·reply가 unattended 표시를 싣고 ask가 사람 없음을 안다.
   // Gate 판정은 core가 turn 행에서 읽는다.
   mode: TurnMode;
   place: Place | null;
-  // Operator가 일하는 domain id. 비면 그릇의 domain 전부다.
+  // agent가 일하는 domain id. 비면 그릇의 domain 전부다.
   domains: readonly string[];
   // 그 session이 시작할 때 고정한 tool 목록.
   listed: readonly ToolDefinition[];

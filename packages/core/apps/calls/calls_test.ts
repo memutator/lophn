@@ -20,7 +20,7 @@ import type {
 import type { AgentAssignment } from "../../../protocol/approvals/mod.ts";
 import type { AppGrant } from "../../../protocol/apps/grants.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
+import type { AgentId, Place } from "../../../protocol/lophn-agent/places.ts";
 import type { AppProcessLink, InvocationLedger } from "../ports.ts";
 import type { CallAuth } from "./caller.ts";
 import { type AppCallsDeps, createAppCalls } from "./mod.ts";
@@ -60,8 +60,9 @@ function setup() {
     assignment: null as AgentAssignment["entries"] | null,
     // null이면 부른 앱이 만든 앱 모두의 tool을 부를 grant를 가졌다.
     grants: null as AppGrant[] | null,
-    // agentToolCall이 돌려주는 agent. null이면 tool call을 모른다.
-    agent: { role: "lophn" } as AgentRef | null,
+    // agentToolCall이 돌려주는 agent와 place. agent가 null이면 tool call을 모른다.
+    agent: "lophn" as AgentId | null,
+    place: null as Place | null,
     // 이름에 "priv."가 붙은 tool만 비공개고 domain은 "dom"이다. 기본 tool은 공개다.
     // creator가 맡은 domain id. null이면 읽지 못한다.
     domains: [] as string[] | null,
@@ -103,7 +104,7 @@ function setup() {
       agentToolCall: (_s, _t, tool) =>
         ok(
           tool === TCL && state.agent !== null
-            ? { agent: state.agent, place: null }
+            ? { agent: state.agent, place: state.place }
             : null,
         ),
     },
@@ -221,8 +222,7 @@ function flowAuth(instance = WFI): CallAuth {
     actor: "flow",
     flow: {
       instance,
-      // place-tools and workflows-core replace the flow creator.
-      agent: { role: "lophn" } as AgentRef,
+      agent: "lophn",
       place: { kind: "project", id: PRJ },
     },
   };
@@ -231,7 +231,7 @@ function flowAuth(instance = WFI): CallAuth {
 function programAuth(): CallAuth {
   return {
     actor: "program",
-    program: { job: JOB, job_run: RUN, agent: { role: "lophn" }, place: null },
+    program: { job: JOB, job_run: RUN, agent: "lophn", place: null },
   };
 }
 
@@ -621,29 +621,26 @@ test("previewOnly 호출은 live로 새지 않고 preview 호출은 ledger를 �
   assert.deepStrictEqual(t.records.size, 0);
 });
 
-test("그 앱의 App Engineer만 그 앱의 preview tool을 부르고, 다른 앱의 App Engineer와 다른 role은 앱 process에 닿지 못한다", async () => {
+test("그 앱 place의 session만 그 앱의 preview tool을 부르고, 다른 place의 session은 앱 process에 닿지 못한다", async () => {
   const a = newApp();
   const b = newApp();
   const project = ids.newId("prj");
-  const rows: [string, AgentRef | null, string][] = [
-    ["App Engineer of A", { role: "app_engineer", app: a }, "succeeded"],
-    ["App Engineer of B", { role: "app_engineer", app: b }, "forbidden"],
-    ["lophn", { role: "lophn" }, "forbidden"],
+  const rows: [string, AgentId | null, Place | null, string][] = [
+    ["app A place session", "lophn", { kind: "app", id: a }, "succeeded"],
+    ["app B place session", "lophn", { kind: "app", id: b }, "forbidden"],
+    ["home session", "lophn", null, "forbidden"],
     [
-      "Project Manager",
-      { role: "project_manager", project } as AgentRef,
+      "project place session",
+      "lophn",
+      { kind: "project", id: project },
       "forbidden",
     ],
-    [
-      "Operator",
-      { role: "operator", agent: ids.newId("agt") } as unknown as AgentRef,
-      "forbidden",
-    ],
-    ["unknown tool call", null, "forbidden"],
+    ["unknown tool call", null, null, "forbidden"],
   ];
-  for (const [label, agent, expected] of rows) {
+  for (const [label, agent, place, expected] of rows) {
     const t = setup();
     t.state.agent = agent;
+    t.state.place = place;
     t.state.preview.effects["w.new"] = "write";
     const done = await t.path.call(
       {
@@ -731,7 +728,7 @@ test("agent는 할당하지 않은 앱의 tool과 할당에서 뺀 tool을 부�
   }
 });
 
-test("job과 workflow instance가 부르는 앱 tool은 만든 agent(job의 creator, project PM)의 할당이나 domain 밖이면 실행되지 않는다", async () => {
+test("job과 workflow instance가 부르는 앱 tool은 만든 agent(job의 creator, flow instance의 creator)의 할당이나 domain 밖이면 실행되지 않는다", async () => {
   const assigned = newApp();
   const other = newApp();
   const rows: {

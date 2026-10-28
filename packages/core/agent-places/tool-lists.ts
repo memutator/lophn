@@ -1,6 +1,6 @@
-import type { Role } from "../../protocol/lophn-agent/mod.ts";
+import type { PlaceKind } from "../../protocol/lophn-agent/mod.ts";
 
-// role이 보는 내장 tool의 이름 목록과 model에 보이는 순서다. 정의는 각 tool file이 갖는다.
+// place 종류가 보는 내장 tool의 이름 목록과 model에 보이는 순서다. 정의는 각 tool file이 갖는다.
 
 const COMMON_TOOLS = [
   "file.read",
@@ -24,10 +24,10 @@ const COMMON_TOOLS = [
   "workflow.edit",
 ] as const;
 
-// lophn을 뺀 세 role이 갖는다.
+// 작업 tool은 home이 빼고 project·app이 갖는다.
 const WORK_TOOLS = ["file.write", "file.edit", "shell.run"] as const;
 
-// 읽기 tool은 모든 role이 갖는다.
+// 읽기 tool은 세 place 종류가 모두 갖는다.
 const READ_TOOLS = [
   "app.list",
   "app.get",
@@ -44,11 +44,11 @@ const READ_TOOLS = [
   "visual.show",
 ] as const;
 
-// lophn만. 나머지 role은 project 지침을 prompt로 받는다.
+// home만. project·app은 project 지침을 prompt로 받는다.
 const LOPHN_ONLY_READ_TOOLS = ["instructions.read"] as const;
 
-// 모든 앱의 tool 목록은 사람이 lophn과 App Engineer로만 좁혔다. 앱 상태·log·invocation 읽기도 앱을 진단하는
-// lophn과 App Engineer만 갖는다.
+// 모든 앱의 tool 목록은 사람이 home과 app 종류로만 좁혔다. 앱 상태·log·invocation 읽기도 앱을 진단하는
+// home과 app 종류만 갖는다.
 const APP_TOOL_NAMES = [
   "app.tools",
   "app.status",
@@ -56,7 +56,7 @@ const APP_TOOL_NAMES = [
   "app.invocations",
 ] as const;
 
-// Operator는 job이 부르는 쪽이라 job tool을 받지 않는다.
+// job tool은 세 place 종류가 모두 받는다.
 const JOB_TOOL_NAMES = [
   "job.create",
   "job.update",
@@ -64,9 +64,13 @@ const JOB_TOOL_NAMES = [
   "job.list",
 ] as const;
 
-const ROLE_WRITE_TOOLS = {
-  lophn: ["app.create"],
-  app_engineer: [
+// place 종류가 더하는 tool이다. 정의가 전역이라 agent.create·agent.update는 셋 다 받는다.
+const PLACE_TOOLS = {
+  home: [...LOPHN_ONLY_READ_TOOLS, "app.create", ...APP_TOOL_NAMES],
+  project: [...WORK_TOOLS, "domain.create", "workflow.check"],
+  app: [
+    ...WORK_TOOLS,
+    ...APP_TOOL_NAMES,
     "app.link_source",
     "package.publish",
     "release.prepare",
@@ -74,29 +78,20 @@ const ROLE_WRITE_TOOLS = {
     "preview.start",
     "preview.call",
     "preview.stop",
-    "agent.create",
-    "agent.update",
     "domain.create",
   ],
-  operator: [],
-  project_manager: [
-    "agent.create",
-    "agent.update",
-    "domain.create",
-    "workflow.check",
-  ],
-} as const satisfies Record<Role, readonly string[]>;
+} as const satisfies Record<PlaceKind, readonly string[]>;
 
-// role 고정 목록 = 공통 + 읽기 + (lophn이면 지침 읽기, 아니면 작업 tool) + role 쓰기.
+// place 종류 고정 목록 = 공통 + 읽기 + job + agent 정의 tool + place 종류 몫.
 // image.read를 vision 없는 model에서 빼는 일은 이 목록이 아니라 core registry가 한다.
-export function builtinToolNames(role: Role): readonly string[] {
+export function placeToolNames(kind: PlaceKind): readonly string[] {
   return [
     ...COMMON_TOOLS,
     ...READ_TOOLS,
-    ...(role === "lophn" ? LOPHN_ONLY_READ_TOOLS : WORK_TOOLS),
-    ...(role === "lophn" || role === "app_engineer" ? APP_TOOL_NAMES : []),
-    ...(role === "operator" ? [] : JOB_TOOL_NAMES),
-    ...ROLE_WRITE_TOOLS[role],
+    ...JOB_TOOL_NAMES,
+    "agent.create",
+    "agent.update",
+    ...PLACE_TOOLS[kind],
   ];
 }
 

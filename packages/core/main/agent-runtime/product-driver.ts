@@ -12,14 +12,16 @@ import {
 import { domainList } from "../../../protocol/domains/mod.ts";
 import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
 import {
-  type AgentRef,
+  type AgentAtPlace,
+  type AgentId,
   agentRead,
   instructionsGet,
-  placeOfAgentRef,
+  type PlaceKind,
+  placeKindOf,
+  type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { instructionFilesOverCore } from "../../lophn-agent/instructions/mod.ts";
 import { abortableWait } from "../../lophn-agent/run-loop/mod.ts";
-import { agentIdOfRef } from "../../lophn-agent/agents/bridge.ts";
 import { spawnStdioMcp } from "../../lophn-agent/extensions/mod.ts";
 import type { McpConnectionsDeps } from "../../lophn-agent/extensions/mod.ts";
 import type { CoreCalls } from "./main.ts";
@@ -38,7 +40,7 @@ import {
   createCompactor,
 } from "../../lophn-agent/session/compactor.ts";
 import { createModelResolver } from "../../lophn-agent/models/resolve.ts";
-import { builtinToolNames } from "../../agent-places/tool-lists.ts";
+import { placeToolNames } from "../../agent-places/tool-lists.ts";
 import { rolePrompt } from "../../agent-places/roles/prompts.ts";
 import { PROJECT_LAYER } from "../../agent-places/place/project-layer.ts";
 import { BUNDLED_SKILLS_ROOT } from "../../agent-places/skills/root.ts";
@@ -75,20 +77,28 @@ const SKILL_PLACES = {
   bundledSkillsRoot: BUNDLED_SKILLS_ROOT,
 };
 
-// agent가 일하는 domain id. 정의와 그 session의 place 그릇의 교집합이다. 읽지 못하면 null.
+// agent가 그 place에서 받는 domain id. 읽지 못하면 null.
 async function callerDomains(
   machine: CoreCall,
-  agent: AgentRef,
+  who: AgentAtPlace,
 ): Promise<string[] | null> {
-  const id = agentIdOfRef(agent);
-  if (id === null) return [];
-  const place = placeOfAgentRef(agent);
   const read = await readOf(machine, agentRead, {
-    agent: id,
-    ...(place === undefined || place === null ? {} : { place }),
+    agent: who.agent,
+    ...(who.place === null ? {} : { place: who.place }),
   });
   if (!read.ok || read.value.issues.length > 0) return null;
   return read.value.effective.domains;
+}
+
+// place 종류를 옛 role로 꾸미는 임시 표. place-scope가 port를 place 종류로 바꾸면 지운다.
+const ROLE_OF_KIND = {
+  home: "lophn",
+  project: "project_manager",
+  app: "app_engineer",
+} as const satisfies Record<PlaceKind, Role>;
+
+function roleOfKind(kind: PlaceKind): Role {
+  return ROLE_OF_KIND[kind];
 }
 
 // 제품 runtime의 tool 묶음이다. 내장 tool의 정의·handler와 외부 MCP 등록 통로를 한 곳에서 낸다.
@@ -106,11 +116,9 @@ function productToolkit(options: {
     appTool: withPublicOnly(
       createAppToolkit({
         machine: options.machine,
-        async assignment(agent) {
-          const id = agentIdOfRef(agent);
-          if (id === null) return ok({ entries: [] });
+        async assignment(agent: AgentId) {
           const read = await readOf(options.machine, assignmentGet, {
-            agent: id,
+            agent,
           });
           return read.ok ? ok(read.value.assignment) : read;
         },
@@ -221,14 +229,19 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
         router: routerOverCore(turn.core),
         skills: turnSkillReader(
           productSkillSnapshotDeps(calls.machine, SKILL_PLACES),
-          session,
+          {
+            id: session.id,
+            agent: { role: roleOfKind(placeKindOf(session.place)) },
+            place: session.place,
+          },
           turn.skills,
         ),
       }),
       events: calls.events,
       rolePrompt,
       placeData: (call, agent) => placeData(call, agent, placeFiles()),
-      roleTools: builtinToolNames,
+      placeTools: placeToolNames,
+      roleOfKind,
       instructions: {
         // turn 없이는 읽지 않는다. 실제 읽기는 아래 instructionFilesFor가 turn마다 연다.
         files: {
@@ -263,7 +276,8 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       clock: systemClock,
       ids,
       machine: calls.machine,
-      roleTools: builtinToolNames,
+      placeTools: placeToolNames,
+      roleOfKind,
       blobs: calls.blobs,
       redact: calls.redact,
       resolveModel,

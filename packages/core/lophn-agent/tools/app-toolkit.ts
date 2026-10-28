@@ -4,7 +4,10 @@ import type {
   Assignment,
   AssignmentEntry,
 } from "../../../protocol/approvals/mod.ts";
-import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
+import type {
+  AgentAtPlace,
+  AgentId,
+} from "../../../protocol/lophn-agent/places.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import {
   type AppToolEntry,
@@ -20,17 +23,17 @@ type AppToolLoad = Pick<AppToolSource, "views" | "entries">;
 
 export type AppToolkit = {
   // 지금의 선언과 할당.
-  load(agent: AgentRef): Promise<Result<AppToolLoad>>;
-  define(agent: AgentRef): Promise<Result<readonly AppToolEntry[]>>;
+  load(who: AgentAtPlace): Promise<Result<AppToolLoad>>;
+  define(who: AgentAtPlace): Promise<Result<readonly AppToolEntry[]>>;
 };
 
 export function createAppToolkit(options: {
   // machine 자격의 loopback. 앱의 활성 release 선언을 읽는다.
   machine: CoreCall;
-  assignment(agent: AgentRef): Promise<Result<Pick<Assignment, "entries">>>;
+  assignment(agent: AgentId): Promise<Result<Pick<Assignment, "entries">>>;
 }): AppToolkit {
-  async function load(agent: AgentRef): Promise<Result<AppToolLoad>> {
-    const assignment = await options.assignment(agent);
+  async function load(who: AgentAtPlace): Promise<Result<AppToolLoad>> {
+    const assignment = await options.assignment(who.agent);
     if (!assignment.ok) return assignment;
     const entries: AssignmentEntry[] = assignment.value.entries;
     const views: AppToolView[] = [];
@@ -52,8 +55,8 @@ export function createAppToolkit(options: {
 
   return {
     load,
-    async define(agent) {
-      const loaded = await load(agent);
+    async define(who) {
+      const loaded = await load(who);
       if (!loaded.ok) return loaded;
       return ok(await buildAppTools(loaded.value));
     },

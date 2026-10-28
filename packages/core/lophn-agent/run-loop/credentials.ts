@@ -1,12 +1,12 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { TurnMode } from "../../../protocol/lophn-agent/mod.ts";
+import type { PlaceKind, TurnMode } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   CredentialConditions,
   CredentialScope,
 } from "../../../protocol/server/mod.ts";
 
 // turn마다 agent credential을 받고 끝내는 자리(`agent:<ses>`). 발급은 core의 인증 경계가 하고 이 모듈은 그
-// port를 부른다. credential은 session 하나와 그 안에서 도는 turn 하나에 묶이고, 닿는 operation은 역할 상한
+// port를 부른다. credential은 session 하나와 그 안에서 도는 turn 하나에 묶이고, 닿는 operation은 place 종류 상한
 // 안이다. token은 메모리에만 있고 반환값 밖(log·오류·ledger)에 나가지 않는다.
 
 // 인증 경계의 발급 interface(CredentialRegistry와 같은 모양). lophn-agent는 최상위 사이 import 금지로 그
@@ -31,8 +31,8 @@ export type AgentTurnCredential = {
 type TurnCredentialOptions = {
   issuer: AgentCredentialIssuer;
   // agent actor가 닿을 수 있는 operation 이름. 인증 경계의 발급 상한 안이어야 한다. 함수이면 session의
-  // 역할마다 정한다.
-  operations: readonly string[] | ((role: string) => readonly string[]);
+  // place 종류마다 정한다.
+  operations: readonly string[] | ((kind: PlaceKind) => readonly string[]);
   // 감독 pipe가 정한 runtime process 이름.
   process: string;
 };
@@ -42,7 +42,7 @@ export type TurnCredentials = {
   open(input: {
     turn: string;
     session: string;
-    role: string;
+    kind: PlaceKind;
   }): Promise<Result<AgentTurnCredential>>;
   // turn 종료·멈춤 때. 새 사용은 즉시 막힌다.
   end(turn: string): number;
@@ -74,7 +74,7 @@ export function createTurnCredentials(
         scope: {
           operations: [
             ...(typeof options.operations === "function"
-              ? options.operations(input.role)
+              ? options.operations(input.kind)
               : options.operations),
           ],
           targets: { session: input.session, turn: input.turn },
@@ -130,7 +130,7 @@ export type StartTurnResult = {
 export type BeginTurnInput = {
   turn: string;
   session: string;
-  role: string;
+  kind: PlaceKind;
   // 입력함이 turn을 시작한 입력의 session 기록 message.
   inputMessage: string;
   basis: string;
@@ -169,7 +169,7 @@ export async function beginTurn(
   const credential = await deps.credentials.open({
     turn: input.turn,
     session: input.session,
-    role: input.role,
+    kind: input.kind,
   });
   if (!credential.ok) {
     return { ok: false, started: true, error: credential.error };

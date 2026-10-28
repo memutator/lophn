@@ -1,50 +1,65 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ROLES } from "../../protocol/lophn-agent/places.ts";
-import { builtinToolNames } from "../agent-places/tool-lists.ts";
+import { PLACE_KINDS } from "../../protocol/lophn-agent/places.ts";
+import { placeToolNames } from "../agent-places/tool-lists.ts";
 import { appConnectSource } from "../../protocol/apps/apps.ts";
+import { packagePublish } from "../../protocol/apps/package-routes.ts";
+import { previewsStart } from "../../protocol/apps/previews.ts";
+import {
+  releaseActivate,
+  releasePrepare,
+} from "../../protocol/apps/releases.ts";
 import {
   agentConditions,
-  roleOperations,
+  placeOperations,
 } from "../agent-places/credentials.ts";
 import { FILE_HOOKS } from "../agent-places/hooks.ts";
 import { agentTools } from "./agent-tools.ts";
 import { inputJsonSchema } from "../lophn-agent/tools/wire.ts";
 
 // agent credential 상한은 core가 대조하는 route 이름이어야 한다. tool 이름이면 command가 forbidden이다.
-test("App Engineer의 credential 상한에 app.link_source tool이 부르는 route 이름이 들고 Project Manager의 상한에는 없다", () => {
-  const operations = roleOperations(
-    "app_engineer",
-    agentTools({ file: FILE_HOOKS }),
-  );
-  assert.ok(operations.includes(appConnectSource.name));
+test("release·publish·preview·소스 연결 route는 app 종류의 credential 상한에만 있고, app place session의 credential은 그 앱 하나에 묶인다", () => {
+  const definitions = agentTools({ file: FILE_HOOKS });
+  const app = placeOperations("app", definitions);
+  const project = placeOperations("project", definitions);
+  const home = placeOperations("home", definitions);
+  for (const route of [
+    appConnectSource,
+    packagePublish,
+    releasePrepare,
+    releaseActivate,
+    previewsStart,
+  ]) {
+    assert.ok(app.includes(route.name), route.name);
+    assert.ok(!project.includes(route.name), route.name);
+    assert.ok(!home.includes(route.name), route.name);
+  }
   assert.deepStrictEqual(appConnectSource.name, "app.connect_source");
-  assert.ok(!operations.includes("app.link_source"));
-  const manager = roleOperations(
-    "project_manager",
-    agentTools({ file: FILE_HOOKS }),
-  );
-  assert.ok(!manager.includes(appConnectSource.name));
-  // 앱 place의 Operator는 App Engineer의 쓰기 route에 닿지 못하고 자기 앱 하나에 묶인다.
-  const operator = roleOperations("operator", agentTools({ file: FILE_HOOKS }));
-  assert.ok(!operator.includes(appConnectSource.name));
+  assert.ok(!app.includes("app.link_source"));
   const ids = { session: "s", turn: "t", process: "p" };
-  assert.deepStrictEqual(
-    agentConditions({
-      ...ids,
-      role: "operator",
-      place: { kind: "app", id: "app_1" },
-    }).app,
-    "app_1",
-  );
+  const inApp = agentConditions({
+    ...ids,
+    place: { kind: "app", id: "app_1" },
+  });
+  assert.deepStrictEqual(inApp.app, "app_1");
+  assert.ok(!("project" in inApp));
+  const inProject = agentConditions({
+    ...ids,
+    place: { kind: "project", id: "prj_1" },
+  });
+  assert.deepStrictEqual(inProject.project, "prj_1");
+  assert.ok(!("app" in inProject));
+  const atHome = agentConditions({ ...ids, place: null });
+  assert.ok(!("app" in atHome));
+  assert.ok(!("project" in atHome));
 });
 
 // selectTools는 정의 없는 이름을 조용히 건너뛴다. 어긋나면 agent가 그 tool을 말없이 못 본다.
-test("role 목록의 모든 이름에 정의가 있고 모든 정의가 어느 role 목록에 있다", () => {
+test("place 종류 목록의 모든 이름에 정의가 있고 모든 정의가 어느 목록에 있다", () => {
   const defined = new Set(
     agentTools({ file: FILE_HOOKS }).map((tool) => tool.name),
   );
-  const listed = new Set(ROLES.flatMap((role) => builtinToolNames(role)));
+  const listed = new Set(PLACE_KINDS.flatMap((kind) => placeToolNames(kind)));
   assert.deepStrictEqual(
     [...listed].filter((name) => !defined.has(name)),
     [],

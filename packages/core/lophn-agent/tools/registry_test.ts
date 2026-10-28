@@ -46,12 +46,12 @@ function fixture(gateVerdict: "run" | "deny" = "run") {
       handler: handler("file.read"),
     }),
     defineTool({
-      name: "operator.update",
+      name: "agent.update",
       description: "gated",
       effect: "write",
       input: z.strictObject({}),
       routes: [],
-      handler: handler("operator.update"),
+      handler: handler("agent.update"),
       gate: () => ({
         kind: "app_tool",
         app: "app_01J00000000000000000000000",
@@ -60,15 +60,16 @@ function fixture(gateVerdict: "run" | "deny" = "run") {
       }),
     }),
   ];
-  // role마다 고정되는 이름 목록이다.
+  // place 종류마다 고정되는 이름 목록이다.
   const NAMES = {
-    operator: ["file.read"],
-    app_engineer: ["file.read", "operator.update"],
+    home: ["file.read"],
+    app: ["file.read", "agent.update"],
   };
-  const context = (role: "operator" | "app_engineer"): ToolContext =>
+  const context = (kind: "home" | "app"): ToolContext =>
     ({
-      listed: selectTools(NAMES[role], MODEL, definitions),
-      agent: { role: "operator", agent: "agt_01J00000000000000000000000" },
+      listed: selectTools(NAMES[kind], MODEL, definitions),
+      agent: "agt_01J00000000000000000000000",
+      kind,
       session: "ses_01J00000000000000000000000",
       turn: "trn_01J00000000000000000000000",
       tool_call: "tcl_01J00000000000000000000000",
@@ -88,9 +89,9 @@ function fixture(gateVerdict: "run" | "deny" = "run") {
   return { ran, asked, context };
 }
 
-test("role의 고정 목록에 없는 tool은 목록에도 실행에도 나오지 않는다", async () => {
+test("place 종류의 고정 목록에 없는 tool은 목록에도 실행에도 나오지 않는다", async () => {
   const { ran, context } = fixture();
-  const ctx = context("operator");
+  const ctx = context("home");
   assert.deepStrictEqual(
     ctx.listed.map((tool) => tool.name),
     ["file.read"],
@@ -107,7 +108,7 @@ test("role의 고정 목록에 없는 tool은 목록에도 실행에도 나오�
 
 test("같은 wire 이름의 tool 둘은 목록을 만들 때 오류다", () => {
   const { context } = fixture();
-  const [first] = context("operator").listed;
+  const [first] = context("home").listed;
   const clash = { ...first!, name: "file_read" };
   const built = buildWireTable([first!, clash]);
   assert.ok(!built.ok);
@@ -115,13 +116,13 @@ test("같은 wire 이름의 tool 둘은 목록을 만들 때 오류다", () => {
 
 test("Gate가 막은 tool은 실행되지 않고 Gate 없는 tool은 Gate를 거치지 않는다", async () => {
   const { ran, asked, context } = fixture("deny");
-  const ctx = context("app_engineer");
+  const ctx = context("app");
 
   const read = await executeToolCall(ctx, "file_read", { path: "a.md" });
   assert.deepStrictEqual(read.executed, true);
   assert.deepStrictEqual(asked, []);
 
-  const gated = await executeToolCall(ctx, "operator_update", {});
+  const gated = await executeToolCall(ctx, "agent_update", {});
   assert.deepStrictEqual(gated.outcome, {
     kind: "not_executed",
     code: "denied",

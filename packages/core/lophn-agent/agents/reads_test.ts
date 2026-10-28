@@ -5,7 +5,7 @@ import type {
   ReadSnapshot,
   RequestContext,
 } from "../../../protocol/server/mod.ts";
-import { ROLE_TABLE } from "../../agent-roles/agents/role-table.ts";
+import { ROLE_TABLE } from "../../agent-places/agents/role-table.ts";
 import type { AgentFileSystem, AgentLookups } from "./ports.ts";
 import { createAgentReads } from "./reads.ts";
 

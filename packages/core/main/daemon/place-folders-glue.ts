@@ -1,4 +1,4 @@
-// place가 file tool에 여는 폴더를 rewind의 쓰기 폴더에 잇는 glue다. 규칙은 agent-roles의 place-folders가 갖고,
+// place가 file tool에 여는 폴더를 rewind의 쓰기 폴더에 잇는 glue다. 규칙은 agent-places의 place-folders가 갖고,
 // 여기는 project·앱·feature module의 lookups로 사실을 모아 넘긴다.
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { ROLES } from "../../../protocol/lophn-agent/mod.ts";
@@ -10,8 +10,8 @@ import { workflowsFolder } from "../../../protocol/workflows/paths.ts";
 import {
   type PlaceFacts,
   placeScope,
-} from "../../agent-roles/place/place-folders.ts";
-import { placeDataFolder } from "../../agent-roles/place/data-folder.ts";
+} from "../../agent-places/place/place-folders.ts";
+import { placeDataFolder } from "../../agent-places/place/data-folder.ts";
 import { appSourcePath } from "../../apps/lookups.ts";
 import { domainsOfOwner } from "../../domains/lookups.ts";
 import { projectFolderPaths } from "../../projects/lookups.ts";

@@ -15,12 +15,12 @@ import {
   agentProfileHandlers,
   messageImageHandlers,
 } from "../../../lophn-agent/register.ts";
-import { ROLE_TABLE } from "../../../agent-roles/agents/role-table.ts";
-import { withAppEngineer } from "../../../agent-roles/agents/app-engineer.ts";
+import { ROLE_TABLE } from "../../../agent-places/agents/role-table.ts";
+import { withAppEngineer } from "../../../agent-places/agents/app-engineer.ts";
 import {
   ensureAppEngineer,
   ensureLophn,
-} from "../../../agent-roles/agents/ensure.ts";
+} from "../../../agent-places/agents/ensure.ts";
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
 import { withProviderLogin } from "../../../lophn-agent/providers/login.ts";
 import { withProviderModelList } from "../../../lophn-agent/providers/model-list.ts";

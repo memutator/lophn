@@ -15,10 +15,10 @@ import {
 import {
   agentConditions,
   roleOperations,
-} from "../../../agent-roles/credentials.ts";
+} from "../../../agent-places/credentials.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
-import { FILE_HOOKS } from "../../../agent-roles/hooks.ts";
+import { FILE_HOOKS } from "../../../agent-places/hooks.ts";
 import { messageRemoveQueued } from "../../../lophn-agent/session/mod.ts";
 import type { ParentMessage } from "../../../../protocol/supervision/mod.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";

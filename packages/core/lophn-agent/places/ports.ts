@@ -30,7 +30,7 @@ export interface OperatorDirectory {
   operators(): readonly OperatorInfo[];
 }
 
-// role마다 다른 규칙. agent-roles가 project·앱·Operator 조회를 쥐고 만들어 wiring이 꽂는다.
+// role마다 다른 규칙. agent-places가 project·앱·Operator 조회를 쥐고 만들어 wiring이 꽂는다.
 export type PlaceRoleRules = {
   // 목록에 보일 agent 이름. 못 찾으면 빈 글이다.
   nameOf(ref: AgentRef): string;

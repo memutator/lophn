@@ -28,10 +28,10 @@ export const TOOL_FILES: readonly string[] = [
   "packages/core/lophn-agent/tools/bundles/web.ts",
   "packages/core/lophn-agent/tools/bundles/ask.ts",
   "packages/core/lophn-agent/tools/bundles/shell.ts",
-  "packages/core/agent-roles/tools/operator.ts",
-  "packages/core/agent-roles/tools/kind.ts",
-  "packages/core/agent-roles/tools/instructions.ts",
-  "packages/core/agent-roles/tools/settings.ts",
+  "packages/core/agent-places/tools/operator.ts",
+  "packages/core/agent-places/tools/kind.ts",
+  "packages/core/agent-places/tools/instructions.ts",
+  "packages/core/agent-places/tools/settings.ts",
 ];
 
 export type FileGroup =
@@ -47,15 +47,15 @@ export type FileGroup =
     }
   | { group: "skill"; name: string };
 
-const ROLES = "packages/core/agent-roles/roles";
+const ROLES = "packages/core/agent-places/roles";
 const NO_PACKAGE = /^packages\/(shell|design)\//;
 const INSTRUCTION = new RegExp(
   `^${ROLES}/(lophn|project-manager|app-engineer|operator)/prompt\\.md$`,
 );
-const SKILL = /^packages\/core\/agent-roles\/skills\/([^/]+)\//;
+const SKILL = /^packages\/core\/agent-places\/skills\/([^/]+)\//;
 const RUNTIME = [
   "packages/core/lophn-agent/",
-  "packages/core/agent-roles/",
+  "packages/core/agent-places/",
   "packages/core/main/agent-runtime/",
   "packages/core/main/agent-tools.ts",
   "packages/core/apps/agent-tools/",

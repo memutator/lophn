@@ -53,7 +53,7 @@ type McpSnapshotDeps = {
   // 테스트가 바꿔 끼운다. 기본은 설정 파일과 data root의 project 폴더다.
   global?: () => Result<McpRuntimeServer[]>;
   projects?: ProjectServerSource;
-  // 모든 Operator 정의 층의 서버다. harness는 agent-roles를 모르므로 조립이 읽어 넘긴다. 없으면 빈 목록이다.
+  // 모든 Operator 정의 층의 서버다. harness는 agent-places를 모르므로 조립이 읽어 넘긴다. 없으면 빈 목록이다.
   operators?: () => Promise<Result<readonly OperatorMcpEntry[]>>;
 };
 

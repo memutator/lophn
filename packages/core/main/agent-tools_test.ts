@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ROLES } from "../../protocol/lophn-agent/places.ts";
-import { builtinToolNames } from "../agent-roles/tool-lists.ts";
+import { builtinToolNames } from "../agent-places/tool-lists.ts";
 import { appConnectSource } from "../../protocol/apps/apps.ts";
-import { agentConditions, roleOperations } from "../agent-roles/credentials.ts";
-import { FILE_HOOKS } from "../agent-roles/hooks.ts";
+import {
+  agentConditions,
+  roleOperations,
+} from "../agent-places/credentials.ts";
+import { FILE_HOOKS } from "../agent-places/hooks.ts";
 import { agentTools } from "./agent-tools.ts";
 import { inputJsonSchema } from "../lophn-agent/tools/wire.ts";
 

@@ -1,7 +1,7 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { err, errorCode, ok, type Result } from "../../../packages/base/mod.ts";
-import { TOOL_ORDER } from "../../../packages/core/agent-roles/tool-lists.ts";
-import { rolePrompt } from "../../../packages/core/agent-roles/roles/prompts.ts";
+import { TOOL_ORDER } from "../../../packages/core/agent-places/tool-lists.ts";
+import { rolePrompt } from "../../../packages/core/agent-places/roles/prompts.ts";
 import { parseSkillFrontmatter } from "../../../packages/core/lophn-agent/extensions/skills.ts";
 import type { Role } from "../../../packages/protocol/lophn-agent/mod.ts";
 import { RESERVED_DOMAIN_NAMES } from "../../../packages/protocol/apps/declaration/mod.ts";
@@ -41,7 +41,7 @@ const ROLE_SET: Record<Role, true> = {
   operator: true,
 };
 export const ROLES = Object.keys(ROLE_SET);
-const SKILL_ROOTS = ["packages/core/agent-roles/skills"];
+const SKILL_ROOTS = ["packages/core/agent-places/skills"];
 const TEMPLATE_DIR = "packages/core/apps/packages/template/app";
 // harness가 아니라 world의 tool이다. 앱 tool은 `<domain>_<tool>`이고 내장 자원 이름이 아닌 domain이다.
 const isWorldTool = (wireName: string) =>

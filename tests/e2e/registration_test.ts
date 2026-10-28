@@ -1,5 +1,5 @@
 // 세 질문
-// - contract: boundary `agent-roles`(Project Manager는 project마다 하나이고 사람이 더하거나
+// - contract: boundary `agent-places`(Project Manager는 project마다 하나이고 사람이 더하거나
 //   지우지 못한다), `agent-tools`(lophn이 `app.create`와 `call`을 쓴다), `router`(이름으로 앱 project의 Project Manager의 새 session을 연다).
 // - 현실적 회귀: 등록 때 정의 파일이 안 만들어져 agent 정의가 비는 것, 사람이 built-in 이름의 Operator를 만들 수 있어
 //   PM이 둘이 되는 것, lophn이 앱을 등록했는데 그 App Engineer를 call로 부르지 못하는 것.

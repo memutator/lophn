@@ -3,8 +3,8 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { rolePrompt } from "../../../packages/core/agent-roles/roles/prompts.ts";
-import { TOOL_ORDER } from "../../../packages/core/agent-roles/tool-lists.ts";
+import { rolePrompt } from "../../../packages/core/agent-places/roles/prompts.ts";
+import { TOOL_ORDER } from "../../../packages/core/agent-places/tool-lists.ts";
 import { REPO_ROOT } from "../runner/paths.ts";
 import type {
   CollectedModelCall,
@@ -58,8 +58,8 @@ test("같은 내용은 같은 n, 바뀐 내용은 새 n, 옛 내용은 옛 n이�
 });
 
 const TOOL_SKILL = "packages/core/lophn-agent/tools/bundles/skill.ts";
-const TOOL_SETTINGS = "packages/core/agent-roles/tools/settings.ts";
-const SKILL_MD = "packages/core/agent-roles/skills/foo/SKILL.md";
+const TOOL_SETTINGS = "packages/core/agent-places/tools/settings.ts";
+const SKILL_MD = "packages/core/agent-places/skills/foo/SKILL.md";
 
 async function write(root: string, rel: string, text: string) {
   await mkdir(`${root}/${rel.slice(0, rel.lastIndexOf("/"))}`, {
@@ -151,7 +151,7 @@ test("연 skill만 본문 버전을 갖고 수정은 그 component의 n만 올�
 });
 
 test("classifyPath는 component, tool, runtime, core를 가르고 shell·design·test는 어디에도 넣지 않는다", () => {
-  const R = "packages/core/agent-roles";
+  const R = "packages/core/agent-places";
   const rows: [string, string][] = [
     [`${R}/roles/lophn/prompt.md`, "instruction"],
     [`${R}/roles/prompts.ts`, "instruction"],

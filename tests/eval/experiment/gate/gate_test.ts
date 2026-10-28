@@ -55,7 +55,7 @@ const pick = (...files: string[]) =>
 test("selectE2e never lets a changed product file pass without the e2e it touches", () => {
   const all = e2e.map((e) => e.file).sort();
   const table: [string, string[], boolean][] = [
-    ["packages/core/agent-roles/roles/lophn/prompt.md", [], false],
+    ["packages/core/agent-places/roles/lophn/prompt.md", [], false],
     [
       "packages/core/lophn-agent/run-loop/loop.ts",
       ["tests/e2e/loop_test.ts"],

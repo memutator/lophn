@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { lstat, mkdir, readFile, symlink } from "node:fs/promises";
 import { test } from "node:test";
 import { errorCode } from "../../packages/base/mod.ts";
-import { agentFilePathOf } from "../../packages/core/agent-roles/place/instruction-rules.ts";
+import { agentFilePathOf } from "../../packages/core/agent-places/place/instruction-rules.ts";
 import { toolCallList } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   connectFakeProvider,

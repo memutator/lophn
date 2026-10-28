@@ -12,8 +12,8 @@ import {
   userModelInfoRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { routePath } from "../../packages/protocol/base/mod.ts";
-import { builtinToolNames } from "../../packages/core/agent-roles/tool-lists.ts";
-import { FILE_HOOKS } from "../../packages/core/agent-roles/hooks.ts";
+import { builtinToolNames } from "../../packages/core/agent-places/tool-lists.ts";
+import { FILE_HOOKS } from "../../packages/core/agent-places/hooks.ts";
 import { agentTools } from "../../packages/core/main/agent-tools.ts";
 import { snapshotCatalogEntry } from "../../packages/core/lophn-agent/models/mod.ts";
 import { createModelResolver } from "../../packages/core/lophn-agent/models/resolve.ts";

@@ -5,7 +5,7 @@ import {
   AGENT_CHARACTER_SHAPES,
   type Profile,
 } from "../../../protocol/lophn-agent/agent-values.ts";
-import { ROLE_TABLE } from "../../agent-roles/agents/role-table.ts";
+import { ROLE_TABLE } from "../../agent-places/agents/role-table.ts";
 import { parseAgentFile, serializeAgentFile } from "./definition-file.ts";
 
 // serializer가 profile의 새 칸을 빠뜨리면 저장한 선택이 다음 읽기에서 사라진다.

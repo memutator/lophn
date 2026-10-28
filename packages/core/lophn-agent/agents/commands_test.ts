@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
 import type { AgentRef } from "../../../protocol/lophn-agent/mod.ts";
-import { ROLE_TABLE } from "../../agent-roles/agents/role-table.ts";
+import { ROLE_TABLE } from "../../agent-places/agents/role-table.ts";
 import { createNodeAgentFiles } from "./adapters/node-fs.ts";
 import { createAgentCommands } from "./commands.ts";
 import type { AgentLookups } from "./ports.ts";

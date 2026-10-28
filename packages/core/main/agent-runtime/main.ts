@@ -6,8 +6,8 @@ import { createRpcClient } from "../../../protocol/client/mod.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
 import { providerList } from "../../../protocol/lophn-agent/mod.ts";
 import type { ChildMessage } from "../../../protocol/supervision/mod.ts";
-import { roleOperations } from "../../agent-roles/credentials.ts";
-import { FILE_HOOKS } from "../../agent-roles/hooks.ts";
+import { roleOperations } from "../../agent-places/credentials.ts";
+import { FILE_HOOKS } from "../../agent-places/hooks.ts";
 import {
   CRASH_LOCATIONS,
   crashDiagnostic,

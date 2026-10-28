@@ -6,7 +6,7 @@ import {
   openCallbackListener,
 } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
 import { registeredMcpServers } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
-import { PROJECT_LAYER } from "../../../agent-roles/place/project-layer.ts";
+import { PROJECT_LAYER } from "../../../agent-places/place/project-layer.ts";
 import type { McpAuthControl, WiringFactory } from "./context.ts";
 
 export const lophnAgentExtensionsWiring: WiringFactory = () => {

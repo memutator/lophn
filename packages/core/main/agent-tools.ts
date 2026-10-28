@@ -1,5 +1,5 @@
-import { TOOL_ORDER } from "../agent-roles/tool-lists.ts";
-import { ROLE_AGENT_TOOLS } from "../agent-roles/tools/mod.ts";
+import { TOOL_ORDER } from "../agent-places/tool-lists.ts";
+import { ROLE_AGENT_TOOLS } from "../agent-places/tools/mod.ts";
 import { APPS_AGENT_TOOLS } from "../apps/agent-tools/mod.ts";
 import { DOMAIN_AGENT_TOOLS } from "../domains/agent-tools.ts";
 import { JOB_AGENT_TOOLS } from "../jobs/agent-tools.ts";

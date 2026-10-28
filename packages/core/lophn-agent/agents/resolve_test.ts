@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { type AgentRef, ROLES } from "../../../protocol/lophn-agent/mod.ts";
-import { ROLE_TABLE } from "../../agent-roles/agents/role-table.ts";
+import { ROLE_TABLE } from "../../agent-places/agents/role-table.ts";
 import { parseAgentFile } from "./definition-file.ts";
 import { type AvailableSkill, resolveAgent } from "./resolve.ts";
 

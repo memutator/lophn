@@ -38,20 +38,20 @@ import {
   createCompactor,
 } from "../../lophn-agent/session/compactor.ts";
 import { createModelResolver } from "../../lophn-agent/models/resolve.ts";
-import { builtinToolNames } from "../../agent-roles/tool-lists.ts";
-import { rolePrompt } from "../../agent-roles/roles/prompts.ts";
-import { ROLE_TABLE } from "../../agent-roles/agents/role-table.ts";
-import { PROJECT_LAYER } from "../../agent-roles/place/project-layer.ts";
-import { BUNDLED_SKILLS_ROOT } from "../../agent-roles/skills/root.ts";
+import { builtinToolNames } from "../../agent-places/tool-lists.ts";
+import { rolePrompt } from "../../agent-places/roles/prompts.ts";
+import { ROLE_TABLE } from "../../agent-places/agents/role-table.ts";
+import { PROJECT_LAYER } from "../../agent-places/place/project-layer.ts";
+import { BUNDLED_SKILLS_ROOT } from "../../agent-places/skills/root.ts";
 import {
   placeData,
   type PlaceFiles,
-} from "../../agent-roles/place/place-data.ts";
+} from "../../agent-places/place/place-data.ts";
 import { isAbsolute } from "node:path";
 import { lstat, mkdir, open, readdir } from "node:fs/promises";
 import process from "node:process";
-import { listArtifactEntries } from "../../agent-roles/place/artifact-list.ts";
-import { placeDataFolder } from "../../agent-roles/place/data-folder.ts";
+import { listArtifactEntries } from "../../agent-places/place/artifact-list.ts";
+import { placeDataFolder } from "../../agent-places/place/data-folder.ts";
 import { domainFolder } from "../../../protocol/domains/paths.ts";
 import { workflowsFolder } from "../../../protocol/workflows/paths.ts";
 import type { ProviderWatch } from "../../lophn-agent/providers/watch.ts";
@@ -68,7 +68,7 @@ import { createBuiltinToolkit } from "../../lophn-agent/tools/toolkit.ts";
 import { createAppToolkit } from "../../lophn-agent/tools/app-toolkit.ts";
 import { withPublicOnly } from "../../lophn-agent/tools/app-public.ts";
 import { UNWIRED_TOOL_PORTS } from "../../lophn-agent/run-loop/unwired.ts";
-import { FILE_HOOKS } from "../../agent-roles/hooks.ts";
+import { FILE_HOOKS } from "../../agent-places/hooks.ts";
 
 // skill 발견이 쓰는 role 층의 자리 규칙이다. agent runtime child는 조립이라 role 층을 안다.
 const SKILL_PLACES = {

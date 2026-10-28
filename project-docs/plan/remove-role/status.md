@@ -23,8 +23,8 @@ lead만 고친다. `tools/status.py remove-role build`가 `tasks/*.md`에서 id,
 | `workflows-core` | workflows | 2 | runs-core | merged | workflows/workflows-core | 951fc1ba7 |  |
 | `cli-run` | cli | 3 | 없음 | merged | cli/cli-run | fb7f5db82 |  |
 | `e2e-agents` | e2e | 3 | shell-events | merged | e2e/e2e-agents | 8490ff257 |  |
-| `e2e-apps` | e2e | 3 | e2e-agents | todo |  |  |  |
-| `eval-scenarios` | eval | 3 | shell-events | todo |  |  |  |
+| `e2e-apps` | e2e | 3 | e2e-agents | running | e2e/e2e-apps |  |  |
+| `eval-scenarios` | eval | 3 | shell-events | running | eval/eval-scenarios |  |  |
 | `shell-conversation` | shell | 3 | shell-events | merged | shell/shell-conversation | 0d686dbaf |  |
 | `shell-desktop` | shell | 3 | shell-events, shell-workspace | merged | shell/shell-desktop | b9cda7ee3 |  |
 | `shell-events` | shell | 3 | 없음 | merged | shell/shell-events | a21a5a22b |  |

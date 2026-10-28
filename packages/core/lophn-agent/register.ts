@@ -449,7 +449,7 @@ function agentLookups(
             .sort(),
     // 이 place의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 그릇의 domain 층을 더한다. 한 읽기 안에서 같은
     // place는 같은 목록이다. home(place 없음)은 전역 층만이다.
-    skills: (place, _role) => {
+    skills: (place) => {
       return place === null
         ? globalSkillNames(sql, layers)
         : (registryOf()

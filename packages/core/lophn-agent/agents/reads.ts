@@ -48,7 +48,7 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
   const model = effectiveModel(context, loaded, null);
   const definition = loaded.definition;
   const broken = loaded.issues.length > 0;
-  const skills = context.lookups.skills(null, "lophn");
+  const skills = context.lookups.skills(null);
   const mcp = context.lookups.mcp(null);
   const mcpOff = definition?.mcp_off ?? [];
   return {

@@ -1,6 +1,7 @@
 import {
   type HistoryMessage,
   type HistoryPart,
+  textTokens,
   wrapUntrusted,
 } from "../prompt-assembly/mod.ts";
 import type { CallResult } from "./tool-batch.ts";
@@ -72,6 +73,53 @@ function imageOf(
   return typeof media_type === "string" && typeof data_base64 === "string"
     ? { media_type, data_base64 }
     : null;
+}
+
+// turn 안 이력의 오래된 tool 결과 본문을 바꾸는 고정 문장이다. 원문은 tool 호출 기록에 그대로 있다.
+export const OMITTED_RESULT =
+  "[machine] This earlier tool result was removed to fit the context window. The call ran as recorded; call the tool again if you need its output.";
+
+// 줄이지 않는 것: 가장 최근 tool 결과 묶음 둘(model이 지금 보는 결과)과 skill 본문(따라야 할 지침이다).
+const KEEP_RESULT_BATCHES = 2;
+const PROTECTED_TOOLS = new Set(["skill.read", "skill_read"]);
+// 이보다 적게 줄어드는 결과는 바꾸지 않는다. 고정 문장이 거의 같은 크기라 cache만 흔든다.
+const MIN_SAVED_TOKENS = 50;
+
+// 가장 오래된 tool 결과부터 본문을 고정 문장으로 바꿔 need token 이상을 줄인다. 한 번 바꾼 결과는 다음
+// call에도 바뀐 채라 그 뒤 prefix가 다시 같다. tool_use와 결과의 짝, 이미지·참조 조각은 그대로 둔다.
+// 입력은 바꾸지 않는다. 줄인 것이 없으면 freed가 0이다.
+export function omitOldToolResults(
+  history: readonly HistoryMessage[],
+  need: number,
+): { history: HistoryMessage[]; freed: number } {
+  const names = new Map<string, string>();
+  for (const message of history) {
+    for (const part of message.parts) {
+      if (part.kind === "tool_use") names.set(part.id, part.name);
+    }
+  }
+  const batches = history.flatMap((message, at) =>
+    message.parts.some((part) => part.kind === "tool_result") ? [at] : [],
+  );
+  const kept = new Set(batches.slice(-KEEP_RESULT_BATCHES));
+  const saved = textTokens(OMITTED_RESULT);
+  let freed = 0;
+  const next = history.map((message, at): HistoryMessage => {
+    if (freed >= need || kept.has(at)) return message;
+    let changed = false;
+    const parts = message.parts.map((part): HistoryPart => {
+      if (freed >= need || part.kind !== "tool_result") return part;
+      if (part.text === OMITTED_RESULT) return part;
+      if (PROTECTED_TOOLS.has(names.get(part.id) ?? "")) return part;
+      const saving = textTokens(part.text) - saved;
+      if (saving < MIN_SAVED_TOKENS) return part;
+      freed += saving;
+      changed = true;
+      return { ...part, text: OMITTED_RESULT };
+    });
+    return changed ? { ...message, parts } : message;
+  });
+  return { history: next, freed };
 }
 
 // 최대 크기 이미지 둘이 blob 상한(16 MiB) 안에 들어가는 개수다.

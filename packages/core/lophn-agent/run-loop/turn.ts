@@ -1,12 +1,21 @@
 import type { Result } from "../../../base/mod.ts";
 import {
   assembleTurnPrompt,
+  estimateTokens,
   type HistoryMessage,
   type HistoryPart,
+  type PromptAnchor,
   sessionMaterial,
+  textTokens,
   type TurnPromptResult,
+  type WireSize,
 } from "../prompt-assembly/mod.ts";
-import { historyResultParts, KEEP_IMAGES, omitOldImages } from "./history.ts";
+import {
+  historyResultParts,
+  KEEP_IMAGES,
+  omitOldImages,
+  omitOldToolResults,
+} from "./history.ts";
 import {
   callWithinLimits,
   type ConfirmedFacts,
@@ -66,6 +75,16 @@ export type LoopState = {
   history: HistoryMessage[];
   // 연속으로 받은 partial 응답 수. 완전한 응답이 오면 0이 된다.
   partialRun: number;
+  // 앞 call의 실제 prompt token과 그때의 크기. 다음 call의 입력 예산을 여기서 잰다. 이력을 줄이면 버린다.
+  anchor: PromptAnchor | null;
+  // 이전 대화(session 이력)가 차지하는 token 추정. 첫 조립에서 한 번 잰다.
+  sessionTokens: number | null;
+  // 이 turn 첫 call의 prompt token과 그때의 이전 대화 token 추정.
+  opening: { tokens: number; session: number } | null;
+  // provider가 입력이 너무 크다고 거절해 이력을 줄이고 다시 보낸 수.
+  overflowRecoveries: number;
+  // 다음 turn을 시작하기 전에 이 session을 Compact한다.
+  compactNext: boolean;
   facts: {
     changes: string[];
     unexecuted: string[];
@@ -191,11 +210,57 @@ type Prepared = {
   inputs: PendingInputs;
 };
 
+// 조립 뒤 추정이 예산의 SHRINK_AT을 넘으면 turn 안 이력을 SHRINK_TO 아래로 줄인다. 한 번에 넉넉히 줄여
+// 줄일 때마다 나는 cache miss를 드물게 한다.
+const SHRINK_AT = 0.85;
+const SHRINK_TO = 0.6;
+// 첫 call이 예산의 COMPACT_AT보다 크고 그 가운데 이전 대화가 COMPACT_SESSION_SHARE 이상이면 다음 turn 전에
+// Compact한다. 이전 대화는 turn 안에서 줄일 수 없고, 남은 몫이 turn 안 tool loop의 자리다.
+const COMPACT_AT = 0.5;
+const COMPACT_SESSION_SHARE = 0.2;
+// provider가 입력이 크다고 거절했을 때 이력을 줄여 다시 보내는 최대 수.
+const OVERFLOW_RECOVERY_MAX = 2;
+
+// turn 안 이력의 오래된 tool 결과를 줄여 이 요청을 target token 아래로 내린다. 줄인 것이 없으면 false다.
+function shrinkHistory(
+  state: LoopState,
+  size: WireSize,
+  measured: number,
+  target: number,
+): boolean {
+  const need = Math.max(estimateTokens(size), measured) - target;
+  if (need <= 0) return false;
+  const shrunk = omitOldToolResults(state.history, need);
+  if (shrunk.freed === 0) return false;
+  state.history = shrunk.history;
+  // 줄인 뒤 크기는 다음 call의 실제 token이 올 때까지 크기로만 센다.
+  state.anchor = null;
+  return true;
+}
+
+// 이전 대화(Compact 요약 포함)가 차지하는 token 추정이다.
+function sessionTokens(context: TurnContext): number {
+  const material = sessionMaterial(context.session);
+  let tokens =
+    material.compact_summary === null
+      ? 0
+      : textTokens(material.compact_summary);
+  for (const message of material.history) {
+    for (const part of message.parts) {
+      if (part.kind === "text" || part.kind === "tool_result") {
+        tokens += textTokens(part.text);
+      }
+    }
+  }
+  return tokens;
+}
+
 function blockedEnd(
   state: LoopState,
   reason: Extract<TurnPromptResult, { status: "blocked" }>["reason"],
 ): Promise<TurnResult> {
-  // 입력이 예산을 넘는 것은 compaction의 몫이고 조립이 막힌 call은 보내지 않는다.
+  // turn 안에서 더 줄일 것이 없다. 다음 turn 전에 이전 대화를 Compact하고, 이 call은 보내지 않는다.
+  if (reason === "input_over_budget") state.compactNext = true;
   return failWith(
     state,
     reason === "input_over_budget"
@@ -269,12 +334,40 @@ async function prepare(
     if (!read.ok) return await failWith(state, "configuration_unavailable");
     const context = read.value;
     const assembled = await assembleTurnPrompt(
-      { ...context.prompt, history: historyOf(state, context, inputs) },
+      {
+        ...context.prompt,
+        history: historyOf(state, context, inputs),
+        anchor: state.anchor,
+      },
       { pack: deps.ports.model.pack },
     );
     if (assembled.status === "blocked") {
+      const over = assembled.over;
+      if (
+        over !== undefined &&
+        shrinkHistory(
+          state,
+          over.size,
+          over.measured_tokens,
+          Math.floor(over.input_budget * SHRINK_TO),
+        )
+      ) {
+        continue;
+      }
       return await blockedEnd(state, assembled.reason);
     }
+    if (
+      assembled.measured_tokens > assembled.input_budget * SHRINK_AT &&
+      shrinkHistory(
+        state,
+        assembled.size,
+        assembled.measured_tokens,
+        Math.floor(assembled.input_budget * SHRINK_TO),
+      )
+    ) {
+      continue;
+    }
+    state.sessionTokens ??= sessionTokens(context);
     context.keep(assembled.basis);
     // 오래 조립하는 사이 도착한 멈춤과 수정 입력을 놓치지 않는다.
     const reason = await stopped(state);
@@ -312,6 +405,8 @@ type ModelStep =
   | { kind: "partial"; attempt: ModelAttempt }
   // 새 입력이 와서 retry를 취소했다. 다음 turn이 새 입력으로 다시 조립한다.
   | { kind: "restart" }
+  // provider가 입력이 context보다 크다고 거절했다.
+  | { kind: "overflow" }
   | { kind: "end"; end: TurnResult };
 
 function failureReason(code: string | null): LoopFailureReason {
@@ -397,6 +492,7 @@ async function callModel(
       return { kind: "end", end: await abortEnd(state) };
     }
     limiter.endAttempt("failed");
+    if (outcome.code === "context_exceeded") return { kind: "overflow" };
     if (!isTransientFailure(outcome) || retries >= MODEL_RETRY_MAX) {
       return {
         kind: "end",
@@ -493,7 +589,9 @@ export async function runTurn(state: LoopState): Promise<TurnResult> {
     );
   }
   if (step.kind === "restart") return continueTurn;
+  if (step.kind === "overflow") return await afterOverflow(state, prepared);
   const attempt = step.attempt;
+  noteUsage(state, prepared, attempt);
   if (step.kind === "partial") {
     state.partialRun += 1;
     if (state.partialRun >= PARTIAL_RUN_MAX) {
@@ -516,6 +614,49 @@ export async function runTurn(state: LoopState): Promise<TurnResult> {
     attempt,
     new Set(prepared.inputs.steering.map((item) => item.id)),
   );
+}
+
+// 받은 응답의 실제 prompt token을 다음 call의 기준으로 둔다. 첫 call이면 다음 turn 전에 Compact할지 정한다.
+function noteUsage(
+  state: LoopState,
+  prepared: Prepared,
+  attempt: ModelAttempt,
+): void {
+  const prompt = prepared.prompt;
+  if (attempt.promptTokens !== undefined) {
+    state.anchor = { tokens: attempt.promptTokens, ...prompt.size };
+  }
+  if (state.opening !== null) return;
+  state.opening = {
+    tokens: attempt.promptTokens ?? prompt.measured_tokens,
+    session: state.sessionTokens ?? 0,
+  };
+  if (
+    state.opening.tokens > prompt.input_budget * COMPACT_AT &&
+    state.opening.session >= prompt.input_budget * COMPACT_SESSION_SHARE
+  ) {
+    state.compactNext = true;
+  }
+}
+
+// provider가 입력이 크다고 거절했다. 추정이 실제보다 작았다는 뜻이라 보낸 크기의 SHRINK_TO 아래로 줄여 다시
+// 보낸다. 줄일 것이 없으면 다음 turn 전에 Compact하게 두고 끝낸다.
+async function afterOverflow(
+  state: LoopState,
+  prepared: Prepared,
+): Promise<TurnResult> {
+  const prompt = prepared.prompt;
+  if (state.overflowRecoveries < OVERFLOW_RECOVERY_MAX) {
+    const target = Math.floor(
+      Math.min(prompt.input_budget, prompt.measured_tokens) * SHRINK_TO,
+    );
+    if (shrinkHistory(state, prompt.size, prompt.measured_tokens, target)) {
+      state.overflowRecoveries += 1;
+      return continueTurn;
+    }
+  }
+  state.compactNext = true;
+  return await failWith(state, "context_limit");
 }
 
 // 완전한 응답 하나를 처리한다: 응답을 그 응답의 agent message로 남기고, tool이면 묶음 실행·결과 기록, 답이면

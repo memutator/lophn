@@ -4,13 +4,15 @@ import {
   DATA_START_MARKER,
   defuseTransmittedText,
 } from "../safety/mod.ts";
+import { textTokens } from "./budget.ts";
 import type { HistoryMessage, HistoryPart, PromptRequest } from "./model.ts";
 
 // Compact summary의 준비이다. 순수 값과 계산만
 // 두고 I/O는 없다. 요약 call은 agent runtime이 하고, 여기는 요약 요청의 모양과 본문 크기를 정한다.
 
+// 요약 본문의 token 추정이다. 입력 예산과 같은 세기(`budget.ts`)를 쓴다.
 export function summaryBodyTokens(text: string): number {
-  return new TextEncoder().encode(text).byteLength;
+  return textTokens(text);
 }
 
 // ---- 이후 call의 조립 ----
@@ -118,10 +120,8 @@ export function sessionMaterial(conversation: SessionConversation): {
 
 // ---- 요약 요청 ----
 
-// 요약 재료의 한 메시지가 머리에 붙이는 말 이름의 크기(byte 근사). chunk 계산이 쓴다.
-const MESSAGE_FRAME_BYTES = 16;
-
-const encoder = new TextEncoder();
+// 요약 재료의 한 메시지가 머리에 붙이는 말 이름의 크기(token 근사). chunk 계산이 쓴다.
+const MESSAGE_FRAME_TOKENS = 6;
 
 function compactSummaryInstructions(cap: number): string {
   return [
@@ -134,9 +134,10 @@ function compactSummaryInstructions(cap: number): string {
     "3. What was verified, and the app or document evidence for it. Mark evidence that is stale or cannot be confirmed.",
     "4. What is undecided or left to do.",
     "Write none for a part with nothing in it. Keep every condition of a decision and every negation.",
+    "If the messages end with a question or a request that is still waiting for an answer, keep it word for word under 4.",
     "Never turn a one-time wish into a lasting preference or rule. Never claim an approval, a completion or a result that the messages do not show.",
-    `Use at most ${cap} tokens, counted as UTF-8 bytes, and end on a whole sentence.`,
-    "If an earlier summary is given, fold it into yours. Answer with the summary text only.",
+    `Use at most ${cap} tokens and end on a whole sentence.`,
+    "If an earlier summary is given, update it: keep everything it says that still holds, move finished work out of 4, and add what the new messages decide. Answer with the summary text only.",
   ].join("\n");
 }
 
@@ -180,23 +181,23 @@ export function compactSummaryRequest(input: {
   };
 }
 
-function frameBytes(message: SessionMessage): number {
-  return encoder.encode(message.text).byteLength + MESSAGE_FRAME_BYTES;
+function frameTokens(message: SessionMessage): number {
+  return textTokens(message.text) + MESSAGE_FRAME_TOKENS;
 }
 
-// 요약 재료를 순서를 지킨 chunk로 나눈다. 한 chunk의 크기는 maxBytes 이하이고 어떤 메시지도 빠지지
+// 요약 재료를 순서를 지킨 chunk로 나눈다. 한 chunk의 크기는 maxTokens 이하이고 어떤 메시지도 빠지지
 // 않는다. 한 메시지가 한 chunk보다 크면 몰래 자르지 않고 null이다(압축 실패).
 export function splitSummaryMaterial(
   messages: readonly SessionMessage[],
-  maxBytes: number,
+  maxTokens: number,
 ): SessionMessage[][] | null {
   const chunks: SessionMessage[][] = [];
   let current: SessionMessage[] = [];
   let used = 0;
   for (const message of messages) {
-    const size = frameBytes(message);
-    if (size > maxBytes) return null;
-    if (used + size > maxBytes) {
+    const size = frameTokens(message);
+    if (size > maxTokens) return null;
+    if (used + size > maxTokens) {
       chunks.push(current);
       current = [];
       used = 0;

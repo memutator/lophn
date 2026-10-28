@@ -218,7 +218,8 @@ export const requestSessionCompact = defineCommand({
     request_seq: seqSchema,
   }),
   compare: requestSessionCompactCompareSchema,
-  actors: ["user"],
+  // 사람의 Compact와, 이전 대화가 커진 session을 다음 turn 전에 runtime(machine)이 여는 Compact다.
+  actors: ["user", "machine"],
   errors: [...errors],
 });
 

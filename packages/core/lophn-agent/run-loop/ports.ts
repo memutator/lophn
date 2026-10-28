@@ -115,6 +115,9 @@ export type ModelAttempt = {
   text: string;
   // 완전 응답에서만 tool 요청이 있다. 인자는 응답의 JSON 글 그대로다.
   toolCalls: readonly { id: string; name: string; args: string }[];
+  // provider가 보고한 이 요청의 prompt token(새 입력 + cache 읽기 + cache 쓰기). 모르면 없다.
+  // 다음 call의 입력 예산을 이 값에서 잰다.
+  promptTokens?: number;
 };
 
 type ModelPort = {
@@ -261,4 +264,6 @@ export type TurnLoopHandle = {
   stop(reason: StopReason): void;
   // provider를 끄거나 MCP 서버 연결을 제거했다는 신호. 새 진입을 막고 진행 호출을 취소한다.
   revoke(change: { provider: true } | { server: string }): void;
+  // 끝난 turn이 다음 turn 전에 이 session을 Compact하라고 정했는지. 이전 대화가 커졌거나 넘쳤다.
+  compactNext(): boolean;
 };

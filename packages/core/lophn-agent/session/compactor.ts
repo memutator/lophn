@@ -10,6 +10,8 @@ import {
   type ModelChoice,
   type PlaceKind,
   placeSessionCompactRequests,
+  placeSessionRead,
+  requestSessionCompact,
   startModelCall,
   takeRewindSummaryRequest,
   type TokenUsage,
@@ -73,6 +75,9 @@ type RangeSummary =
 export type Compactor = {
   // 가장 오래된 열린 요청 하나를 끝낸다. 없으면 idle이다.
   next(): Promise<CompactResult>;
+  // 다음 turn을 시작하기 전에 runtime이 이 session을 Compact한다. 요청을 machine으로 열고 바로 끝낸다.
+  // 요약할 것이 없거나 요청을 열 수 없으면(도는 turn, 바뀐 session) idle이다.
+  compactNow(session: string): Promise<CompactResult>;
   // 사람이 요청한 "Summarize from here" 하나를 core에서 가져와 요약하고 끝난 call(또는 실패 이유)을 돌려준다.
   // 가져올 요청이 없거나 core에 닿지 못하면 idle이다.
   nextRange(): Promise<RangeSummary>;
@@ -506,7 +511,31 @@ export function createCompactor(
       : summary;
   }
 
+  async function compactNow(session: string): Promise<CompactResult> {
+    const read = await readSessionConversation(machine, {
+      session,
+      request: null,
+    });
+    if (!read.ok) return { kind: "idle" };
+    const visible = visibleMessages(read.value);
+    // 요약할 것이 없는 session에 요청을 열면 실패 event만 남는다.
+    if (recentStart(visible) === 0) return { kind: "idle" };
+    const current = await readOf(machine, placeSessionRead, { session });
+    if (!current.ok) return { kind: "idle" };
+    const seq = current.value.session.state_seq;
+    const requested = await commandOf(
+      machine,
+      requestSessionCompact,
+      { session },
+      { state: "open", state_seq: seq },
+      `${session}:auto-compact:${seq}`,
+    );
+    if (!requested.ok) return { kind: "idle" };
+    return await work({ session, request_seq: requested.value.request_seq });
+  }
+
   return {
+    compactNow,
     async nextRange() {
       const taken = await readOf(machine, takeRewindSummaryRequest, {});
       if (!taken.ok || taken.value.request === null) return { kind: "idle" };

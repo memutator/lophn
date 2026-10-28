@@ -372,11 +372,16 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       const recorded = await recordReply(id, "");
       if (!recorded.ok) return recorded;
     }
+    const promptTokens =
+      usage.input === null || usage.input <= 0
+        ? undefined
+        : usage.input + (usage.cache_read ?? 0) + (usage.cache_write ?? 0);
     return ok({
       id,
       outcome,
       text: output.text,
       toolCalls: output.toolCalls,
+      ...(promptTokens === undefined ? {} : { promptTokens }),
     });
   }
 

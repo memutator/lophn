@@ -22,6 +22,8 @@ type DriveDeps = {
   source: TurnSource;
   credentials: TurnCredentials;
   preparer: Pick<TurnPreparer, "prepare" | "forget">;
+  // 이전 대화가 커진 session을 다음 turn을 시작하기 전에 Compact한다. 실패해도 turn은 시작한다.
+  compact?(session: string): Promise<unknown>;
 };
 
 type DriveResult =
@@ -58,6 +60,9 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
       handle: TurnLoopHandle;
     }
   >();
+  // 끝난 turn이 다음 turn 전에 Compact하라고 정한 session. runtime이 다시 뜨면 잊는다: 그 뒤 넘치는 turn이
+  // 다시 정한다.
+  const compactBefore = new Set<string>();
 
   // turn 하나의 입력 길. 시작 입력은 StartTurn 뒤 입력함에서 꺼낸 것이다.
   function inputsOf(
@@ -77,6 +82,9 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
       if (!picked.ok) return { kind: "unavailable" };
       const start = picked.value;
       if (start === null) return { kind: "idle" };
+      if (compactBefore.delete(start.session)) {
+        await deps.compact?.(start.session);
+      }
       const prepared = await deps.preparer.prepare(start);
       if (!prepared.ok) return { kind: "unavailable" };
       if (prepared.value.kind === "closed") {
@@ -117,6 +125,7 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
         // turn 종료·멈춤에서 credential을 끝내고 session을 쉬는 상태로 돌린다.
         deps.credentials.end(turn.turn);
         active.delete(turn.turn);
+        if (handle.compactNext()) compactBefore.add(start.session);
         await deps.source.ended(start.session);
       });
       return { kind: "started", turn: turn.turn, done };
@@ -130,6 +139,7 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
       }
       deps.credentials.endSession(session);
       deps.preparer.forget(session);
+      compactBefore.delete(session);
     },
     async revokeProvider(provider) {
       for (const entry of [...active.values()]) {

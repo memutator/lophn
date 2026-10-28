@@ -296,7 +296,15 @@ async function startAgentRuntime(input: {
         signal: pumpStop.signal,
       });
     }
-    driver = createTurnDriver({ source, credentials, preparer });
+    driver = createTurnDriver({
+      source,
+      credentials,
+      preparer,
+      // 이전 대화가 커진 session은 다음 turn을 시작하기 전에 Compact한다.
+      ...(compactor === undefined
+        ? {}
+        : { compact: (session: string) => compactor.compactNow(session) }),
+    });
     if (input.pump === true) {
       pumping = startTurnPump({
         driver,

@@ -1,7 +1,13 @@
 import { canonicalize, sha256Hex } from "../../../base/mod.ts";
 import { toWireToolName } from "../../../protocol/lophn-agent/tool-catalog.ts";
 import { renderKindText } from "./kind-text.ts";
-import { inputBudget, measureWire } from "./budget.ts";
+import {
+  inputBudget,
+  measureSize,
+  type PromptAnchor,
+  type WireSize,
+  wireSize,
+} from "./budget.ts";
 import {
   type BasisDiff,
   basisOf,
@@ -49,6 +55,8 @@ export type TurnPromptInput = {
   seen?: SeenBasis;
   limits: ModelLimits;
   reserved_output: number;
+  // 같은 turn 앞 call의 실제 prompt token. 있으면 그 값에 늘어난 크기를 더해 잰다(`budget.ts`).
+  anchor?: PromptAnchor | null;
 };
 
 type TurnPromptDeps = { pack: WirePacker };
@@ -63,8 +71,16 @@ export type TurnPromptResult =
       cache_boundaries: CacheBoundary[];
       input_budget: number;
       measured_tokens: number;
+      // 잰 wire 크기. 다음 call이 이 call의 실제 token과 함께 기준으로 쓴다.
+      size: WireSize;
     }
-  | { status: "blocked"; reason: BlockedReason; message: string };
+  | {
+      status: "blocked";
+      reason: BlockedReason;
+      message: string;
+      // 입력이 예산을 넘었을 때(input_over_budget)만 있다. turn이 줄일 양을 정한다.
+      over?: { size: WireSize; input_budget: number; measured_tokens: number };
+    };
 
 const INSTRUCTION_TITLE = {
   global: "Global instructions",
@@ -246,12 +262,14 @@ export async function assembleTurnPrompt(
     tools,
     messages: appendNotices(historyMessages(input.history), notices),
   };
-  const measured = measureWire(deps.pack(request), request);
+  const size = wireSize(deps.pack(request), request);
+  const measured = measureSize(size, input.anchor);
   if (measured > budget.value) {
     return {
       status: "blocked",
       reason: "input_over_budget",
       message: "입력이 입력 예산을 넘는다",
+      over: { size, input_budget: budget.value, measured_tokens: measured },
     };
   }
 
@@ -271,5 +289,6 @@ export async function assembleTurnPrompt(
     cache_boundaries,
     input_budget: budget.value,
     measured_tokens: measured,
+    size,
   };
 }

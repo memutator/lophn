@@ -13,7 +13,7 @@ import type {
 import {
   reject,
   requireMachine,
-  requireUser,
+  requireUserOrMachine,
   sessionNotFound,
 } from "./guards.ts";
 import {
@@ -25,8 +25,9 @@ import {
 } from "./model.ts";
 import { publishAfterCommit } from "../run-loop/turn-events.ts";
 
-// Compact. 사람이 부를 때만 같은 session의 앞 구간 요약을 이후 call의 조립에 쓰게 정한다.
-// 요약 call은 짧은 transaction 안에서 부를 수 없어서 세 걸음으로 나눈다. 사람이 요청하고(Request),
+// Compact. 같은 session의 앞 구간 요약을 이후 call의 조립에 쓰게 정한다. 사람이 부르거나, 이전 대화가 커진
+// session이면 다음 turn을 시작하기 전에 runtime이 부른다.
+// 요약 call은 짧은 transaction 안에서 부를 수 없어서 세 걸음으로 나눈다. 사람이나 runtime이 요청하고(Request),
 // runtime이 session agent의 model에 요약 지시를 보내 요약을 받고, 끝까지 성공한 그 call을 구간과 함께
 // session에 이어 요청을 끝낸다(Compact). 요약이 실패하면 요청만 이유와 함께 닫는다(Fail). 요청의 진행은
 // session 행을 바꾸지 않아 입력 접수에 닿지 않고, 원문은 어느 경우에도 지우지 않는다.
@@ -122,8 +123,8 @@ export function createCompactCommands(): {
         input: Input<typeof requestSessionCompact>,
         compare,
       ): Result<{ id: string; request_seq: string }> {
-        const user = requireUser(ctx);
-        if (!user.ok) return user;
+        const actor = requireUserOrMachine(ctx);
+        if (!actor.ok) return actor;
         const session = loadSession(tx, input.session);
         if (session === undefined) return sessionNotFound();
         if (session.lifecycle !== "open") {

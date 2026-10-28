@@ -26,7 +26,15 @@ export function requireUser(ctx: RequestContext): Result<void> {
     : reject("forbidden", "only a person does this");
 }
 
-// Compact의 요약을 끝내는 일은 runtime(machine)이 한다. 요청만 사람이 한다.
+// Compact 요청은 사람이나 runtime(machine)이 한다. agent는 자기 session도 Compact하지 못한다.
+export function requireUserOrMachine(ctx: RequestContext): Result<void> {
+  const kind = parseActor(ctx.actor)?.kind;
+  return kind === "user" || kind === "machine"
+    ? ok(undefined)
+    : reject("forbidden", "only a person or the runtime does this");
+}
+
+// Compact의 요약을 끝내는 일은 runtime(machine)이 한다.
 export function requireMachine(ctx: RequestContext): Result<void> {
   return parseActor(ctx.actor)?.kind === "machine"
     ? ok(undefined)

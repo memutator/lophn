@@ -1,4 +1,13 @@
-export { inputBudget, measureWire } from "./budget.ts";
+export {
+  estimateTokens,
+  inputBudget,
+  measureSize,
+  measureWire,
+  type PromptAnchor,
+  textTokens,
+  type WireSize,
+  wireSize,
+} from "./budget.ts";
 export { summaryOutputCap } from "./compaction.ts";
 export {
   compactSummaryRequest,

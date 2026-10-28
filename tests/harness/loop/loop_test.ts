@@ -16,6 +16,7 @@ import {
   writeFileTool,
 } from "../../support/loop/harness.ts";
 import { assertRequestInvariants } from "../../support/loop/invariants.ts";
+import { OMITTED_RESULT } from "../../../packages/core/lophn-agent/run-loop/history.ts";
 import {
   answer,
   failed,
@@ -314,6 +315,60 @@ test("loop의 안전 규칙이 지켜진다", async (t) => {
             [end, h.model.requests.length, h.waits],
             [completed, 2, [10_000]],
           );
+        },
+      ],
+
+      [
+        "12a 입력이 너무 크다는 거절은 오래된 tool 결과를 줄여 다시 보내고, 줄일 것이 없으면 끝낸다",
+        async () => {
+          const bigRead: HarnessTool = {
+            name: "read_file",
+            effect: "read",
+            run: () => ({
+              status: "success",
+              code: "ok",
+              summary: "x".repeat(3000),
+            }),
+          };
+          const h = loopHarness({
+            steps: [
+              tools([call("t1", "read_file")]),
+              tools([call("t2", "read_file")]),
+              tools([call("t3", "read_file")]),
+              failed({ code: "context_exceeded" }),
+              answer("ok"),
+            ],
+            tools: [bigRead],
+          });
+          const handle = h.run();
+          const end = await handle.done;
+          settle(h);
+          const results = (i: number) =>
+            h.model.requests[i].prompt.request.messages.flatMap((message) =>
+              message.parts.flatMap((part) =>
+                part.kind === "tool_result"
+                  ? [part.text === OMITTED_RESULT ? "omitted" : part.id]
+                  : [],
+              ),
+            );
+          assert.deepStrictEqual(
+            [end, h.model.requests.length, results(3), results(4)],
+            [completed, 5, ["t1", "t2", "t3"], ["omitted", "t2", "t3"]],
+          );
+          // 이전 대화가 작으니 다음 turn 전에 Compact하지 않는다.
+          assert.deepStrictEqual(handle.compactNext(), false);
+
+          const bare = loopHarness({
+            steps: [failed({ code: "context_exceeded" })],
+          });
+          const bareHandle = bare.run();
+          assert.deepStrictEqual(
+            await bareHandle.done,
+            failedWith("context_limit"),
+          );
+          settle(bare);
+          // turn 안에서 줄일 것이 없으면 다음 turn 전에 이전 대화를 Compact한다.
+          assert.deepStrictEqual(bareHandle.compactNext(), true);
         },
       ],
 

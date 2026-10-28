@@ -38,7 +38,7 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 
 | 폴더 | 내놓는 것 |
 |---|---|
-| `loop/` | `scriptedModel`, `loopHarness`(나머지 `TurnPorts`와 `LoopDeps`, 진짜 file을 쓰는 `write_file` tool), `assertRequestInvariants`(tool_use·tool_result 짝, 대화 접두) |
+| `loop/` | `scriptedModel`, `loopHarness`(나머지 `TurnPorts`와 `LoopDeps`, 진짜 file을 쓰는 `write_file` tool), `assertRequestInvariants`(tool_use·tool_result 짝, 대화 접두. 앞부분에서 바뀌어도 되는 것은 context에 맞추려고 오래된 tool 결과 본문을 고정 문장으로 바꾼 것뿐) |
 | `wire/` | `loadFixture`, `replayFetch`, `wireBinding`(protocol 셋), `callWire` |
 | `fake-server/` | `startFakeServer`, `createFakeHandler`(socket 없는 몸체), `Reply`·`Step`·`JournalEntry` |
 | `core/` | `createRun`, `bootCore`(`env`, `repo` 옵션. `repo`는 다른 checkout의 core를 띄울 때만 준다), `tryBootCore`(기동 실패를 값으로), `Core`(`call`, `tryCall`, `upload`, `kill`, `stop`)와 session helper(`connectFakeProvider`, `openProject`, `openSession`, `say`, `turnsOf`, `waitTurnEnd`, `waitPermission`, `waitQuestion`, `decide`, `stopTurn`, `settle`, `until`), `shellAsk`(제품 ask 규칙 `rm -r*`에 걸리는 명령과 미리 만든 폴더. turn request를 열게 하는 공통 helper) |

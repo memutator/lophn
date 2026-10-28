@@ -27,6 +27,7 @@ import {
   receivedMessageList,
   recordMessage,
   recordToolRequest,
+  requestSessionCompact,
   rewindList,
   sessionSummary,
   startModelCall,
@@ -69,8 +70,10 @@ export const RUNTIME_MACHINE_ROUTES = [
   // project 층 model. 전역 기본 → project → agent 정의 → session 순으로 쌓는다.
   projectModelRead,
   placeSessionRead,
-  // 사람이 요청한 Compact를 끝낸다: 열린 요청을 읽고, 앞 구간의 요약 본문을 읽고, 요약 call을 잇거나 요청을 닫는다.
+  // Compact를 끝낸다: 열린 요청을 읽고, 앞 구간의 요약 본문을 읽고, 요약 call을 잇거나 요청을 닫는다.
+  // 이전 대화가 커진 session은 다음 turn 전에 runtime이 요청을 연다.
   placeSessionCompactRequests,
+  requestSessionCompact,
   sessionSummary,
   // 숨기거나 접은 구간은 이후 call의 입력에 들지 않는다: 되돌리기 기록에서 그 구간을 읽는다.
   rewindList,

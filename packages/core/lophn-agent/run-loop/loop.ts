@@ -49,6 +49,11 @@ export function startTurnLoop(
     serverCalls: new Map(),
     history: [],
     partialRun: 0,
+    anchor: null,
+    sessionTokens: null,
+    opening: null,
+    overflowRecoveries: 0,
+    compactNext: false,
     facts: { changes: [], unexecuted: [], unknown_effects: [] },
   };
 
@@ -61,6 +66,7 @@ export function startTurnLoop(
 
   return {
     done: run(),
+    compactNext: () => state.compactNext,
     stop(reason: StopReason) {
       // 새 진입은 이 순간부터 막히고 진행 중인 호출에는 중단을 요청한다.
       state.flags.stop ??= reason;

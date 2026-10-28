@@ -61,3 +61,19 @@ modules: [packages/core/lophn-agent, packages/protocol, packages/shell/renderer]
 
 정할 것:
 - C를 할지. 오류 본문에는 provider가 되돌려 보낸 credential 조각(예: "Incorrect API key provided: sk-…")이 섞일 수 있어 규칙이 생긴 것으로 보인다. redaction을 거치면 그 위험은 출력 blob과 같다. 추천: A·B를 먼저 하고, C는 같이 해도 되지만 secret 경계의 규칙을 바꾸는 것이라 사람이 정한다.
+
+## 한 place에서 skill 하나를 끄면 다른 place에서 받던 skill도 빠진다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer, packages/core/lophn-agent]
+```
+
+지금: agent 정의의 `skills`는 받을 skill 이름 목록이고, 비면 보이는 skill을 모두 받는다. 정의는 전역인데 편집 화면은 지금 place에서 보이는 skill만 안다. `packages/shell/renderer/workspace/agents/editor/definition-form.tsx`의 `toggleSkill`은 `skills`가 비었을 때 이 place에서 받는 이름(`received`)에서 하나를 뺀 목록을 저장하고, `toggleDomain`은 이 place에서 안 보이는 이름을 `skills`에서 지운다.
+
+영향: 사람이 project A에서 agent의 skill 하나를 끄면, 그 agent가 project B의 domain에서 받던 skill이 목록에 없어 B에서도 받지 않는다. 사람은 B의 편집 화면을 열기 전에는 모른다.
+
+고치려면:
+- 정의 꼴을 `skills_off`(끈 이름)로 바꾼다. 비면 다 받고, 이름이 있으면 그것만 뺀다. place와 상관없이 뜻이 같다(중간, 정의 꼴과 core 거르기와 화면).
+- 화면이 모든 place의 skill을 읽어 목록을 만든다(중간, 읽기가 place 수만큼 는다).
+- 추천: 앞의 것. 정의가 전역이 된 뒤 받는 목록은 place마다 달라 "받을 이름"이 맞지 않는다.

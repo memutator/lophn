@@ -1,16 +1,13 @@
 // lophn CLI의 실행 entry다. 조립만 하고 업무 규칙을 두지 않는다.
-// 표(`registry.ts`) 밖 command는 실행 전에 거절한다. 인증은 환경 변수 `LOPHN_CODING_TOKEN`이고, `user`
-// command만 token이 없을 때 data root의 user token file을 쓴다. 자격이 없으면 core를 부르는 command는
-// 아무것도 보내지 않는다.
+// 표(`registry.ts`) 밖 command는 실행 전에 거절한다. `user` command는 data root의 user token file을
+// 자격으로 쓴다. 자격이 없으면 core를 부르는 command는 아무것도 보내지 않는다. `local` command는
+// token 없이 core를 부르지 않는다.
 import { Buffer } from "node:buffer";
 import { readFileSync } from "node:fs";
 import process from "node:process";
 import type { z } from "zod";
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
-import {
-  CODING_TOKEN_ENV,
-  HOOK_STDIN_MAX_BYTES,
-} from "../../protocol/coding-agent/mod.ts";
+import { HOOK_STDIN_MAX_BYTES } from "../../protocol/coding-agent/mod.ts";
 import {
   type RpcFetch,
   USER_TOKEN_FILE_NAME,
@@ -150,26 +147,23 @@ export async function cliMain(
 ): Promise<number> {
   const parsed = parseArgs(argv);
   const env = options.env ?? ambientEnv();
-  const token = env.get(CODING_TOKEN_ENV)?.trim() || undefined;
   const readText = options.readText ?? readTextOrUndefined;
   const home = options.home ?? env.get("HOME") ?? "";
   const matched = matchCommand(parsed.positional);
-  // coding token이 없을 때 `user` 명령만 user token file을 읽는다.
+  // `user` 명령만 user token file을 읽는다.
   const userDataRoot = dataRootOf(env, home);
   const userTokenPath = `${
     userDataRoot ?? "<data root>"
   }/run/${USER_TOKEN_FILE_NAME}`;
   const userToken =
-    matched?.entry.auth === "user" &&
-    token === undefined &&
-    userDataRoot !== undefined
+    matched?.entry.auth === "user" && userDataRoot !== undefined
       ? readText(userTokenPath) || undefined
       : undefined;
   const output = createOutput({
     json: parsed.json,
     stdout: options.stdout,
     stderr: options.stderr,
-    secrets: [token, userToken].filter((value) => value !== undefined),
+    secrets: [userToken].filter((value) => value !== undefined),
   });
   const fail = async (error: LophnError) => {
     await output.failure(error);
@@ -261,14 +255,9 @@ export async function cliMain(
       ([key]) => !flagKeys.includes(key),
     ),
   );
-  // 자격이 있을 때만 core 주소를 찾고 client를 만든다. `user` 명령은 coding token이 먼저다.
+  // 자격이 있을 때만 core 주소를 찾고 client를 만든다.
   let client: RunContext["client"];
-  const credential =
-    entry.auth === "user"
-      ? (token ?? userToken)
-      : entry.auth === "coding_token"
-        ? token
-        : undefined;
+  const credential = entry.auth === "user" ? userToken : undefined;
   if (entry.auth === "user" && credential === undefined) {
     return await fail({
       code: "unavailable",
@@ -278,14 +267,13 @@ export async function cliMain(
   if (credential !== undefined) {
     const address = discoverDaemonAddress({
       env: env.get(LOPHN_DAEMON_URL),
-      dataRoot: entry.auth === "user" ? userDataRoot : env.get("LOPHN_HOME"),
+      dataRoot: userDataRoot,
       readText,
     });
     if (!address.ok) return await fail(address.error);
     client = createCoreClient({
       baseUrl: address.value.url,
       token: credential,
-      appScoped: token !== undefined,
       ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
     });
   }

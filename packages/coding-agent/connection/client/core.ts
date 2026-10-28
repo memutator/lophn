@@ -1,5 +1,5 @@
 // CLI가 core를 부르는 client다.
-// POST /<resource>/<method>에 Authorization bearer(coding token 또는 user token)로 붙고 쓰기는
+// POST /<resource>/<method>에 Authorization bearer(user token)로 붙고 쓰기는
 // idempotency key를 전달한다. 쓰기 응답을 잃으면 성공·domain 실패로 추측하지
 // 않고 effect_unknown 진단과 원래 key·commands/result 대상 read 안내를 돌려준다.
 import { err, ok, type Result } from "../../../base/mod.ts";
@@ -13,10 +13,8 @@ import {
 
 type CoreClientOptions = {
   baseUrl: string;
-  // `LOPHN_CODING_TOKEN`의 값 또는 user token file의 내용이다.
+  // user token file의 내용이다.
   token: string;
-  // coding token(앱 하나 범위)이면 참이다. 참일 때만 `not_found`를 "범위 밖" 글로 바꾼다.
-  appScoped: boolean;
   fetch?: RpcFetch;
 };
 
@@ -51,16 +49,6 @@ function effectUnknown(idempotencyKey: string, subject: string): LophnError {
       read: "commands/result",
     },
   };
-}
-
-// 없는 대상과 이 token 범위 밖 대상은 같은 답이다. core가 준 not_found의 메시지·details를
-// 버려 존재 여부가 새지 않게 한다.
-const UNREADABLE_MESSAGE =
-  "현재 token으로 읽을 수 없다. 없는 대상이거나 이 앱 범위 밖이다";
-
-function sameAsAbsent<T>(result: Result<T>): Result<T> {
-  if (result.ok || result.error.code !== "not_found") return result;
-  return err({ code: "not_found", message: UNREADABLE_MESSAGE });
 }
 
 export function createCoreClient(options: CoreClientOptions): CoreClient {
@@ -111,7 +99,7 @@ export function createCoreClient(options: CoreClientOptions): CoreClient {
         }
         return err(effectUnknown(body.idempotency_key, route.resource));
       }
-      return options.appScoped ? sameAsAbsent(err(failed)) : err(failed);
+      return err(failed);
     },
     async read(route, input) {
       if (route.kind === "command") {
@@ -120,8 +108,7 @@ export function createCoreClient(options: CoreClientOptions): CoreClient {
           message: "command route는 read로 보낼 수 없다",
         });
       }
-      const result = await rpcClient.call(route, input as never);
-      return options.appScoped ? sameAsAbsent(result) : result;
+      return rpcClient.call(route, input as never);
     },
   };
 }

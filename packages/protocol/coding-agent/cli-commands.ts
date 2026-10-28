@@ -1,33 +1,14 @@
 // coding agent CLI의 명령 목록. 이름, 입력, 출력, 인증을 묶는다.
-// 인증은 셋이다. `coding_token`은 환경 변수 `LOPHN_CODING_TOKEN`이다. `user`는 coding token이 있으면
-// 그것, 없으면 data root의 user token file이다(사람이 쓰는 run 명령). `local` 명령은 token 없이
-// core를 부르지 않는다(harness 명령은 Settings와 shell main이 exec로 부르고, `hook`은 harness가 부른다).
-// `app`은 route가 정한 대로다. core는 token에서 `app`을 채우지 않아 필수인 명령은
-// 앱 id를 입력에 넣어야 한다. 앱 id는 session을 맡긴 쪽이 첫 prompt로 알려 준다.
+// 인증은 `user`와 `local` 둘이다. `user`는 data root의 user token file을 쓴다(사람이 쓰는 run 명령).
+// `local` 명령은 token 없이 core를 부르지 않는다(harness 명령은 Settings와 shell main이 exec로 부르고,
+// `hook`은 harness가 부른다).
 import { z } from "zod";
-import { appGet } from "../apps/apps.ts";
-import { appTools } from "../apps/declaration/read.ts";
-import { appInvocations } from "../apps/calls/invocation.ts";
-import { packageVersionNameSchema } from "../apps/packages.ts";
-import { packagesList, packagesVersions } from "../apps/package-routes.ts";
-import { previewsStart, previewsStop } from "../apps/previews.ts";
-import { appLogs, appRuntime } from "../apps/runtime.ts";
 import type { Route } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { jsonValueSchema } from "../base/json-values.ts";
 import { toolNameSchema } from "../apps/channel-values.ts";
 import { harnessDetectionSchema, harnessIdSchema } from "./harnesses.ts";
-import { HARNESS_ROUTES } from "./harness-report.ts";
-import { codingMessageSend, MESSAGE_ROUTES } from "./message.ts";
 import { HOOK_EVENT_MAX_CHARS } from "./terminal-hook.ts";
-import { TERMINAL_ROUTES } from "./terminal-requests.ts";
-
-// coding route 배열이다. `registry.ts`가 펼쳐 모은다.
-export const CODING_ROUTES = [
-  ...MESSAGE_ROUTES,
-  ...HARNESS_ROUTES,
-  ...TERMINAL_ROUTES,
-] as const;
 
 const cliCommonSchema = z.strictObject({
   json: z.boolean().optional(),
@@ -56,21 +37,6 @@ function withCommon(input: z.ZodType): z.ZodType {
       (value) => value.input === undefined || value.input_file === undefined,
       { message: "input and input_file are exclusive" },
     );
-}
-
-function token(
-  name: string,
-  route: Route,
-  input: z.ZodType,
-  output: z.ZodType,
-): CodingCliCommand {
-  return {
-    name,
-    auth: "coding_token",
-    input: withCommon(input),
-    output,
-    route,
-  };
 }
 
 // 사람이 쓰는 명령이다. 입력은 route 입력이 아니라 CLI 칸이고, 명령이 route 입력을 만든다.
@@ -109,12 +75,6 @@ const harnessInstallOutputSchema = z.strictObject({
 const harnessDetections = z.array(harnessDetectionSchema);
 
 export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
-  token(
-    "message send",
-    codingMessageSend,
-    codingMessageSend.input,
-    codingMessageSend.output,
-  ),
   // `hook <harness> <event>`. payload는 stdin JSON이다. core를 부르지 않고 터미널의 hook socket에 한 줄을 쓴다.
   // `LPN_TERMINAL_HOOK`이 없으면 아무것도 하지 않고 성공한다.
   {
@@ -128,45 +88,6 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
     ),
     output: z.unknown(),
   },
-  token("app show", appGet, appGet.input, appGet.output),
-  token(
-    "app preview start",
-    previewsStart,
-    previewsStart.input,
-    previewsStart.output,
-  ),
-  token(
-    "app preview stop",
-    previewsStop,
-    previewsStop.input,
-    previewsStop.output,
-  ),
-  token("app status", appRuntime, appRuntime.input, appRuntime.output),
-  token("app declaration", appTools, appTools.input, appTools.output),
-  token(
-    "app invocations",
-    appInvocations,
-    appInvocations.input,
-    appInvocations.output,
-  ),
-  token("app logs", appLogs, appLogs.input, appLogs.output),
-  // 의존으로 선언된 package의 안내 읽기만 한다.
-  token(
-    "package list",
-    packagesList,
-    (packagesList.input as z.ZodObject).extend({
-      query: z.string().regex(/\S/).max(200).optional(),
-    }),
-    packagesList.output,
-  ),
-  token(
-    "package show",
-    packagesVersions,
-    (packagesVersions.input as z.ZodObject).extend({
-      version: packageVersionNameSchema.optional(),
-    }),
-    packagesVersions.output,
-  ),
   user(
     "agent run",
     z.strictObject({

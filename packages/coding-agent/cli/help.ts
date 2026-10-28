@@ -1,7 +1,6 @@
 // help는 command 표에서 만든다. 읽기와 변경은 표의 `mutates` 칸으로 가른다. 입력 칸은 command의 입력
 // schema에서 읽어 와서 따로 적지 않는다.
 import { z } from "zod";
-import { CODING_TOKEN_ENV } from "../../protocol/coding-agent/mod.ts";
 import { COMMANDS, findCommand } from "./registry.ts";
 import type { CommandEntry } from "./registry.ts";
 
@@ -110,11 +109,9 @@ export function helpText(name?: string): string {
       .join("")}`,
     entry.summary,
     `종류: ${entry.mutates ? "변경" : "읽기"}`,
-    entry.auth === "coding_token"
-      ? `인증: 환경 변수 ${CODING_TOKEN_ENV} (coding agent session의 터미널)`
-      : entry.auth === "user"
-        ? `인증: lophn이 켜져 있으면 data root의 user token file(coding agent session 안에서는 ${CODING_TOKEN_ENV})`
-        : "인증: 필요 없다(이 컴퓨터에서만 돈다)",
+    entry.auth === "user"
+      ? "인증: lophn이 켜져 있으면 data root의 user token file"
+      : "인증: 필요 없다(이 컴퓨터에서만 돈다)",
     ...(entry.auth === "user"
       ? userInputLines(entry, fields)
       : [

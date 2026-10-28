@@ -1,5 +1,5 @@
 // route 하나를 부르는 공통 흐름이다. command는 envelope(key, compare)로, 나머지는 입력 그대로 보낸다.
-// 표 밖 route는 부르지 않는다: 호출자가 `CODING_CLI_COMMANDS`의 route만 넘긴다.
+// 호출자는 `run.ts`·`workflow.ts`이고 `protocol/runs`·`protocol/workflows`의 route를 넘긴다.
 import type { LophnError, Result } from "../../base/mod.ts";
 import type { Route } from "../../protocol/base/mod.ts";
 import type { CoreClient } from "./client/core.ts";

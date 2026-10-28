@@ -13,10 +13,10 @@ lead만 고친다. `tools/status.py remove-role build`가 `tasks/*.md`에서 id,
 | `agents-core` | agents | 2 | 없음 | merged | agents/agents-core | c38a429f3 |  |
 | `jobs-core` | jobs | 2 | runs-core, wireframe-sidebar | todo |  |  |  |
 | `place-prompts` | places | 2 | place-scope | todo |  |  |  |
-| `place-scope` | places | 2 | place-tools | todo |  |  |  |
+| `place-scope` | places | 2 | place-tools | running | places/place-scope |  |  |
 | `place-tools` | places | 2 | sessions-core | merged | places/place-tools | e26d159bf |  |
 | `router-core` | router | 2 | sessions-core | merged | router/router-core | 8ac4e6012 |  |
-| `runs-core` | runs | 2 | router-core, place-tools | todo |  |  |  |
+| `runs-core` | runs | 2 | router-core, place-tools | merged | runs/runs-core | 87890c965 |  |
 | `sessions-core` | sessions | 2 | agents-core | merged | sessions/sessions-core | 166ec9f32 |  |
 | `wireframe-agents` | wireframe | 2 | 없음 | merged | wireframe/wireframe-agents | 298875403 |  |
 | `wireframe-sidebar` | wireframe | 2 | wireframe-agents | merged | wireframe/wireframe-sidebar | 6e964fc25 |  |

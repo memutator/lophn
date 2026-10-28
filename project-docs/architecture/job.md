@@ -114,7 +114,7 @@ job run
 - wiring 순서에서 jobs는 runs와 workflows 뒤다(`packages/core/main/daemon/assembly.ts`의 `WIRINGS`). 켤 때 둘을 맞춘 뒤에 첫 claim이 돈다.
 
 권한
-- job tool(`job.create`, `job.update`, `job.delete`, `job.list`)은 lophn, Project Manager, App Engineer가 받는다. Operator는 job이 부르는 쪽이라 받지 않는다(`packages/core/agent-roles/tool-lists.ts`의 `JOB_TOOL_NAMES`). `job.list`는 agent에게 자기가 만든 job만 준다.
+- job tool(`job.create`, `job.update`, `job.delete`, `job.list`)은 lophn, Project Manager, App Engineer가 받는다. Operator는 job이 부르는 쪽이라 받지 않는다(`packages/core/agent-places/tool-lists.ts`의 `JOB_TOOL_NAMES`). `job.list`는 agent에게 자기가 만든 job만 준다.
 - scheduler 쪽 route(`job.claim_due`, `job_run.open`, `job_run.started`, `job_run.ended`)는 machine 자격만 받는다. command 셋은 handler도 한 번 더 본다. 사람 쪽 route(`job.holds`, `job.decide_hold`, `job_run.list`)는 user만 받는다.
 - tool_run은 사람이 없는 호출이라 만든 agent의 지금 할당과 domain 거르기로 판정한다. mode는 unattended이고, 할당은 호출 때 읽는다. 막히면 호출이 `denied(gate_blocked)`로 기록되고 run은 실패한다(`architecture/app-call.md`, `architecture/approval.md`).
 - agent_run이 연 turn은 unattended다. 묻지 않고 deny만 막힌다. 사람이 agent에게 시킨 것이 승낙이다. 사람은 모든 job을 화면에서 보고 끌 수 있고, job의 일은 만든 agent의 할당 안에서만 돈다.

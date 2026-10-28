@@ -20,7 +20,7 @@
       "!tests/eval/registry",
       "!tests/eval/runs",
       "!tests/eval/experiments",
-      "!dist",
+      "!**/dist",
       "!**/release",
       "!build"
     ]

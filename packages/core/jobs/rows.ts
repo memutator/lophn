@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { AgentRef } from "../../protocol/lophn-agent/mod.ts";
+import type { AgentAtPlace } from "../../protocol/lophn-agent/mod.ts";
 import {
   type JobRecord,
   jobRecordSchema,
@@ -63,29 +63,26 @@ export function jobFromRow(
 }
 
 function creatorFromRow(row: Record<string, unknown>): unknown {
-  switch (row.creator_role) {
-    case "project_manager":
-      return { role: "project_manager", project: row.creator_id };
-    case "app_engineer":
-      return { role: "app_engineer", app: row.creator_id };
-    default:
-      return { role: "lophn" };
-  }
+  const place = row.creator_place;
+  return {
+    agent: row.creator_agent,
+    place:
+      place === null
+        ? null
+        : {
+            kind: String(place).startsWith("prj_") ? "project" : "app",
+            id: place,
+          },
+  };
 }
 
-// creatorFromRow와 짝이다. Operator는 job을 만들지 못하므로 표에 넣으면 CHECK가 막는다.
-export function creatorColumns(ref: AgentRef): {
-  creator_role: string;
-  creator_id: string | null;
+// creatorFromRow와 짝이다.
+export function creatorColumns(creator: AgentAtPlace): {
+  creator_agent: string;
+  creator_place: string | null;
 } {
-  switch (ref.role) {
-    case "lophn":
-      return { creator_role: "lophn", creator_id: null };
-    case "project_manager":
-      return { creator_role: ref.role, creator_id: ref.project };
-    case "app_engineer":
-      return { creator_role: ref.role, creator_id: ref.app };
-    case "operator":
-      return { creator_role: ref.role, creator_id: ref.agent };
-  }
+  return {
+    creator_agent: creator.agent,
+    creator_place: creator.place?.id ?? null,
+  };
 }

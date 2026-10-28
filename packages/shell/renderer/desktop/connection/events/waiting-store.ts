@@ -10,7 +10,7 @@ import type {
 } from "../../../../../protocol/events/mod.ts";
 import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
 import {
-  placeOfAgentRef,
+  LOPHN_AGENT_ID,
   type placeOutputSchema,
 } from "../../../../../protocol/lophn-agent/places.ts";
 import type { z } from "zod";
@@ -179,8 +179,11 @@ export function createWaitingStore(
       id: hold.job_run.id,
       kind: "job_hold",
       session: null,
-      agent: hold.job.creator,
-      place: placeOfAgentRef(hold.job.creator) ?? null,
+      agent:
+        hold.job.creator.agent === LOPHN_AGENT_ID
+          ? { role: "lophn" }
+          : { role: "operator", agent: hold.job.creator.agent },
+      place: hold.job.creator.place,
       receivedAt: hold.job_run.created_at,
       hold,
     };

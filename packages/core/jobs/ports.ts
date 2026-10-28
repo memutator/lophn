@@ -2,9 +2,8 @@ import type { Clock, Result } from "../../base/mod.ts";
 import { definePort } from "../../protocol/base/mod.ts";
 import type { Id } from "../../protocol/base/mod.ts";
 import type {
-  AgentRef,
-  NamedAgent,
-  Place,
+  AgentAddress,
+  AgentAtPlace,
 } from "../../protocol/lophn-agent/mod.ts";
 import type {
   JobRecord,
@@ -23,11 +22,9 @@ export const jobZonePort = definePort<{ zone(): string }>("jobs.zone");
 
 // job을 만들 때 이름을 푸는 port. 구현은 조립(core/main)이 꽂는다.
 export type JobTargets = {
-  creatorOf(session: Id<"ses">): AgentRef | undefined;
-  // coding agent는 invalid_input.
-  resolveAgent(
-    named: NamedAgent,
-  ): Result<{ agent: AgentRef; place: Place | null }>;
+  creatorOf(session: Id<"ses">): AgentAtPlace | undefined;
+  // 못 풀면 not_found.
+  resolveAgent(address: AgentAddress): Result<AgentAtPlace>;
   // 없으면 not_found.
   resolveApp(ref: string): Result<Id<"app">>;
   resolveProject(ref: string): Result<Id<"prj">>;

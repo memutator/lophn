@@ -1,5 +1,5 @@
 import { ok, type Result } from "../../base/mod.ts";
-import type { AgentRef } from "../../protocol/lophn-agent/mod.ts";
+import type { AgentAtPlace } from "../../protocol/lophn-agent/mod.ts";
 import type {
   JobAction,
   JobRecord,
@@ -35,14 +35,14 @@ export function loadJob(sql: Query, id: string): Result<JobRecord | null> {
 // id 오름차순이다. cursor는 page 마지막 job id다.
 export function loadJobs(
   sql: Query,
-  filter: { creator?: AgentRef; after?: string; limit: number },
+  filter: { creator?: AgentAtPlace; after?: string; limit: number },
 ): Result<JobRecord[]> {
   const where: string[] = [];
   const params: (string | number | null)[] = [];
   if (filter.creator !== undefined) {
-    const { creator_role, creator_id } = creatorColumns(filter.creator);
-    where.push("creator_role = ? AND creator_id IS ?");
-    params.push(creator_role, creator_id);
+    const { creator_agent, creator_place } = creatorColumns(filter.creator);
+    where.push("creator_agent = ? AND creator_place IS ?");
+    params.push(creator_agent, creator_place);
   }
   if (filter.after !== undefined) {
     where.push("id > ?");
@@ -67,7 +67,7 @@ export function insertJob(
   job: {
     id: string;
     title: string;
-    creator: AgentRef;
+    creator: AgentAtPlace;
     every: string;
     at: string | null;
     action: JobAction;
@@ -77,17 +77,17 @@ export function insertJob(
     created_at: string;
   },
 ): void {
-  const { creator_role, creator_id } = creatorColumns(job.creator);
+  const { creator_agent, creator_place } = creatorColumns(job.creator);
   sql.run(
     `INSERT INTO jobs
-      (id, title, creator_role, creator_id, every, at, action, missed_policy,
+      (id, title, creator_agent, creator_place, every, at, action, missed_policy,
        enabled, next_due_at, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       job.id,
       job.title,
-      creator_role,
-      creator_id,
+      creator_agent,
+      creator_place,
       job.every,
       job.at,
       JSON.stringify(job.action),

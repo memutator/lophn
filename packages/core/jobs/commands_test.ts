@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { ok } from "../../base/mod.ts";
-import type { AgentRef } from "../../protocol/lophn-agent/mod.ts";
+import type { AgentAtPlace } from "../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import { createJobCommands } from "./commands.ts";
@@ -14,16 +14,19 @@ const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
 const PRJ = "prj_01hzzzzzzzzzzzzzzzzzzzzzza";
 const LOPHN_1 = "ses_01hzzzzzzzzzzzzzzzzzzzzzza";
 const LOPHN_2 = "ses_01hzzzzzzzzzzzzzzzzzzzzzzb";
-const PM = "ses_01hzzzzzzzzzzzzzzzzzzzzzzc";
+const LOPHN_PRJ = "ses_01hzzzzzzzzzzzzzzzzzzzzzzc";
+const OTHER = "ses_01hzzzzzzzzzzzzzzzzzzzzzzd";
+const OTHER_AGENT = "agt_01hzzzzzzzzzzzzzzzzzzzzzza";
 
-const agents: Record<string, AgentRef> = {
-  [LOPHN_1]: { role: "lophn" },
-  [LOPHN_2]: { role: "lophn" },
-  [PM]: { role: "project_manager", project: PRJ },
+const agents: Record<string, AgentAtPlace> = {
+  [LOPHN_1]: { agent: "lophn", place: null },
+  [LOPHN_2]: { agent: "lophn", place: null },
+  [LOPHN_PRJ]: { agent: "lophn", place: { kind: "project", id: PRJ } },
+  [OTHER]: { agent: OTHER_AGENT, place: null },
 };
 
-// 다른 agent가 만든 job을 고치거나 지울 수 있으면 agent가 서로의 예약을 망가뜨린다.
-test("an agent cannot change or delete a job another agent made; a user changes and deletes any job", () => {
+// 같은 agent라도 다른 place에 있으면 남의 job이다. 그 job을 고치면 남의 할당으로 일을 시키는 길이 된다.
+test("agent는 같은 agent가 같은 place에서 만든 job만 고치고 지운다. 다른 place의 같은 agent와 다른 agent에게는 없는 job이고, 사람은 모두 고치고 지운다", () => {
   const db = new DatabaseSync(":memory:");
   try {
     db.exec(jobsSchemaSteps[0]!.sql);
@@ -69,47 +72,45 @@ test("an agent cannot change or delete a job another agent made; a user changes 
 
     const code = (result: { ok: boolean; error?: { code: string } }) =>
       result.ok ? "ok" : result.error!.code;
-    assert.deepStrictEqual(
-      code(
-        commands.update.handle(
-          tx,
-          agent(PM),
-          { job, title: "Mine" },
-          {} as never,
-        ),
-      ),
-      "not_found",
-    );
-    assert.deepStrictEqual(
-      code(commands.remove.handle(tx, agent(PM), { job }, {} as never)),
-      "not_found",
-    );
     const kept = loadJob(sql, job);
-    assert.ok(kept.ok && kept.value?.title === "Nightly");
+    assert.ok(kept.ok && kept.value !== null);
+    const unchanged = kept;
 
-    // 같은 lophn의 다른 session은 같은 agent다.
-    assert.deepStrictEqual(
-      code(
-        commands.update.handle(
-          tx,
-          agent(LOPHN_2),
-          { job, title: "Renamed" },
-          {} as never,
+    for (const [name, session] of [
+      ["another place", LOPHN_PRJ],
+      ["another agent", OTHER],
+    ] as const) {
+      assert.deepStrictEqual(
+        code(
+          commands.update.handle(
+            tx,
+            agent(session),
+            { job, title: `Changed by ${name}` },
+            {} as never,
+          ),
         ),
-      ),
-      "ok",
-    );
-    assert.deepStrictEqual(
-      code(
-        commands.update.handle(
-          tx,
-          user,
-          { job, title: "By user" },
-          {} as never,
-        ),
-      ),
-      "ok",
-    );
+        "not_found",
+      );
+      assert.deepStrictEqual(
+        code(commands.remove.handle(tx, agent(session), { job }, {} as never)),
+        "not_found",
+      );
+      assert.deepStrictEqual(loadJob(sql, job), unchanged);
+    }
+
+    // 같은 agent와 place의 다른 session은 같은 job을 다룬다.
+    for (const [session, title] of [
+      [LOPHN_2, "Renamed by another session"],
+      [null, "Renamed by user"],
+    ] as const) {
+      const who = session === null ? user : agent(session);
+      assert.deepStrictEqual(
+        code(commands.update.handle(tx, who, { job, title }, {} as never)),
+        "ok",
+      );
+      const renamed = loadJob(sql, job);
+      assert.ok(renamed.ok && renamed.value?.title === title);
+    }
 
     assert.deepStrictEqual(
       code(commands.remove.handle(tx, user, { job }, {} as never)),

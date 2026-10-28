@@ -6,6 +6,7 @@ import type { ActivationConsent } from "../../../../../protocol/apps/activation/
 import type { JobHold } from "../../../../../protocol/jobs/jobs.ts";
 import type { JobAction } from "../../../../../protocol/jobs/values.ts";
 import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
+import { LOPHN_AGENT_ID } from "../../../../../protocol/lophn-agent/places.ts";
 import type { WaitingEntry } from "../events/waiting-store.ts";
 import { turnChoicesOf, type WaitingChoice } from "./decide.ts";
 
@@ -242,7 +243,11 @@ function jobActionText(action: JobAction): string {
   switch (action.kind) {
     case "agent_run":
       return t("waiting.notice.job-agent", {
-        agent: agentLabel(action.agent),
+        agent: t(
+          action.agent === LOPHN_AGENT_ID
+            ? "waiting.label.agent-lophn"
+            : "waiting.label.agent-operator",
+        ),
       });
     case "tool_run":
       return t("waiting.notice.job-tool", {

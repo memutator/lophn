@@ -1,11 +1,6 @@
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
-  type AgentRef,
-  LOPHN_AGENT_ID,
-} from "../../../../protocol/lophn-agent/mod.ts";
-import { placeOfAgentRef } from "../../../../protocol/lophn-agent/mod.ts";
-import {
   jobClaimDue,
   jobRunEnded,
   jobRunOpen,
@@ -46,10 +41,6 @@ const JOBS_CONTEXT: AuthenticatedContext = {
   conditions: {},
   credential_ref: JOBS_PRINCIPAL,
 };
-
-// 저장된 job은 아직 옛 AgentRef다. jobs-core가 새 꼴로 다시 쓴다.
-const agentIdOfRef = (ref: AgentRef) =>
-  ref.role === "operator" ? ref.agent : LOPHN_AGENT_ID;
 
 const route = (r: { resource: string; method: string }) =>
   `${r.resource}/${r.method}`;
@@ -136,10 +127,7 @@ export const jobsWiring: WiringFactory = () => {
           const origin: RunOrigin = {
             job: job.id as Id<"job">,
             job_run: jobRun.id as Id<"jbr">,
-            creator: {
-              agent: agentIdOfRef(job.creator),
-              place: placeOfAgentRef(job.creator) ?? null,
-            },
+            creator: job.creator,
           };
           const input =
             action.input === undefined ? {} : { input: action.input };
@@ -148,7 +136,7 @@ export const jobsWiring: WiringFactory = () => {
               ? {
                   kind: "agent_resolved",
                   agent: {
-                    agent: agentIdOfRef(action.agent),
+                    agent: action.agent,
                     place: action.agent_place,
                   },
                   prompt: action.prompt,

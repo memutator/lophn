@@ -8,6 +8,7 @@ import {
   type JobRunRecord,
   type JobTurn,
 } from "../../protocol/jobs/mod.ts";
+import type { AgentAtPlace } from "../../protocol/lophn-agent/mod.ts";
 import type { ReadDefinition } from "../../protocol/server/mod.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
 import { jobTargetsPort } from "./ports.ts";
@@ -49,7 +50,7 @@ export function createJobReads(): {
       route: jobList,
       handle(snapshot, ctx, input) {
         const actor = parseActor(ctx.actor);
-        let creator;
+        let creator: AgentAtPlace | undefined;
         if (actor?.kind === "agent") {
           creator = snapshot
             .port(jobTargetsPort)

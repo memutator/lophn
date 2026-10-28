@@ -9,7 +9,7 @@ import {
   type JobRecord,
   jobUpdate,
 } from "../../protocol/jobs/mod.ts";
-import type { AgentRef } from "../../protocol/lophn-agent/mod.ts";
+import type { AgentAtPlace } from "../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
   RequestContext,
@@ -96,11 +96,11 @@ function resolveAction(tx: Tx, input: JobActionInput): Result<JobAction> {
   }
 }
 
-// agent는 자기와 같은 agent가 만든 job만 본다. 남의 job은 있는지도 알리지 않는다(not_found).
+// agent는 같은 agent가 같은 place에서 만든 job만 본다. 남의 job은 있는지도 알리지 않는다(not_found).
 // user는 어느 job이든 한다.
 function loadOwned(tx: Tx, ctx: RequestContext, id: string): Result<JobRecord> {
   const actor = parseActor(ctx.actor);
-  let me: AgentRef | undefined;
+  let me: AgentAtPlace | undefined;
   if (actor?.kind === "agent") {
     me = tx.port(jobTargetsPort).creatorOf(actor.id as Id<"ses">);
     if (me === undefined) return fail("forbidden", "the session is not known");
@@ -119,8 +119,6 @@ function loadOwned(tx: Tx, ctx: RequestContext, id: string): Result<JobRecord> {
   return ok(job);
 }
 
-const CREATOR_ROLES = ["lophn", "project_manager", "app_engineer"];
-
 export function createJobCommands(): {
   create: CommandDefinition<typeof jobCreate>;
   update: CommandDefinition<typeof jobUpdate>;
@@ -137,11 +135,8 @@ export function createJobCommands(): {
         const creator = tx
           .port(jobTargetsPort)
           .creatorOf(actor.id as Id<"ses">);
-        if (creator === undefined || !CREATOR_ROLES.includes(creator.role)) {
-          return fail(
-            "forbidden",
-            "only lophn, a Project Manager or an App Engineer creates a job",
-          );
+        if (creator === undefined) {
+          return fail("forbidden", "the session is not known");
         }
         const at = input.at ?? null;
         const checked = checkAt(input.every, at);

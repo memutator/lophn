@@ -190,33 +190,33 @@ function jobHold(
 export const JOB_HOLD_AGENT = () =>
   jobHold(11, 9, 1, {
     title: "Morning digest",
-    creator: { role: "lophn" },
+    creator: { agent: "lophn", place: null },
     every: "1d",
     at: "09:00",
     action: {
       kind: "agent_run",
-      agent: { role: "project_manager", project: PROJECT },
+      agent: "lophn",
       agent_place: { kind: "project", id: PROJECT },
       prompt:
         "Summarize yesterday's finished tasks and list the open questions for today.",
     },
   });
 
-/** App Engineer가 만든 앱 tool 호출. 한 번 놓쳤다. */
+/** 앱 place에서 만든 앱 tool 호출. 한 번 놓쳤다. */
 export const JOB_HOLD_TOOL = () =>
   jobHold(13, 6, 1, {
     title: "Archive old orders",
-    creator: { role: "app_engineer", app: ORDERS },
+    creator: { agent: "lophn", place: { kind: "app", id: ORDERS } },
     every: "12h",
     at: null,
     action: { kind: "tool_run", app: ORDERS, tool: "archive_old" },
   });
 
-/** Project Manager가 만든 workflow 시작. 세 번 놓쳤다. */
+/** project place에서 만든 workflow 시작. 세 번 놓쳤다. */
 export const JOB_HOLD_WORKFLOW = () =>
   jobHold(12, 48, 3, {
     title: "Weekly review",
-    creator: { role: "project_manager", project: PROJECT },
+    creator: { agent: "lophn", place: { kind: "project", id: PROJECT } },
     every: "7d",
     at: "10:00",
     action: {

@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import {
-  agentRefOutputSchema,
+  agentAddressSchema,
+  agentIdSchema,
   placeOutputSchema,
 } from "../lophn-agent/places.ts";
-import { namedAgentSchema } from "../lophn-agent/calls.ts";
 import { toolNameSchema } from "../apps/channel-values.ts";
 import {
   stepNameSchema,
@@ -56,7 +56,7 @@ const outputSchemaSchema = z.record(z.string(), z.json());
 export const jobActionInputSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("agent_run"),
-    agent: namedAgentSchema,
+    agent: agentAddressSchema,
     prompt: z.string().min(1),
     input: z.json().optional(),
     schema: outputSchemaSchema.optional(),
@@ -76,12 +76,12 @@ export const jobActionInputSchema = z.discriminatedUnion("kind", [
 ]);
 export type JobActionInput = z.infer<typeof jobActionInputSchema>;
 
-// 저장하고 읽는 꼴. agent_place는 부를 agent의 place다(lophn은 null, Operator는 정의의 place).
+// 저장하고 읽는 꼴. `agent`·`agent_place`는 만들 때 푼 부를 agent와 그 place다(home이면 null).
 // project 이름은 바뀌므로 workflow_start는 id로 저장한다.
 export const jobActionSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("agent_run"),
-    agent: agentRefOutputSchema,
+    agent: agentIdSchema,
     agent_place: placeOutputSchema.nullable(),
     prompt: z.string().min(1),
     input: z.json().optional(),

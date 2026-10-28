@@ -49,7 +49,7 @@ function setup() {
     insertJob(sql, {
       id,
       title: "t",
-      creator: { role: "lophn" },
+      creator: { agent: "lophn", place: null },
       every: "1h",
       at: null,
       action,

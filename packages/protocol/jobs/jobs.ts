@@ -3,7 +3,7 @@ import { defineCommand, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, readCursorSchema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
-import { agentRefOutputSchema } from "../lophn-agent/places.ts";
+import { agentAtPlaceOutputSchema } from "../lophn-agent/places.ts";
 import {
   jobActionInputSchema,
   jobActionSchema,
@@ -17,11 +17,11 @@ import {
 } from "./values.ts";
 
 // last_run은 저장하지 않고 읽을 때 그 job의 가장 새 job run으로 채운다.
-// creator는 lophn, Project Manager, App Engineer뿐이다. place는 placeOfAgentRef(creator)로 나온다.
+// creator는 job을 만든 session의 (agent, place)다.
 export const jobRecordSchema = z.object({
   id: jobIdSchema,
   title: jobTitleSchema,
-  creator: agentRefOutputSchema,
+  creator: agentAtPlaceOutputSchema,
   every: jobEverySchema,
   at: jobAtSchema.nullable(),
   action: jobActionSchema,
@@ -76,7 +76,7 @@ const jobRunRef = { job_run: jobRunIdSchema };
 
 // revision과 compare를 두지 않는다. 동시에 고치는 쪽이 사람 화면과 agent 정도라 마지막 쓰기가 이긴다.
 // 칸 사이 검사(at은 every가 d 단위일 때만)와 이름 풀기는 core가 본다.
-// 사람은 job을 만들지 못한다. 만든 agent가 lophn·Project Manager·App Engineer가 아니면 forbidden이다.
+// 사람은 job을 만들지 못한다.
 export const jobCreate = defineCommand({
   resource: "jobs",
   method: "create",
@@ -145,7 +145,7 @@ const readErrors = [
   "unavailable",
 ] as const;
 
-// agent에게는 자기와 같은 creator(AgentRef가 같은 것)의 job만, user에게는 모든 job을 준다. id 순 50개씩.
+// agent에게는 같은 agent가 같은 place에서 만든 job만, user에게는 모든 job을 준다. id 순 50개씩.
 export const jobList = defineRead({
   resource: "jobs",
   method: "list",

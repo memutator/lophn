@@ -4,11 +4,11 @@ lead만 고친다. `tools/status.py remove-role build`가 `tasks/*.md`에서 id,
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `agent-places-rename` | agent-places | 1 | 없음 | todo |  |  |  |
-| `coding-cli` | coding | 1 | 없음 | todo |  |  |  |
+| `agent-places-rename` | agent-places | 1 | 없음 | merged | agent-places/agent-places-rename | 69746990a |  |
+| `coding-cli` | coding | 1 | 없음 | running | coding/coding-cli |  |  |
 | `coding-core` | coding | 1 | coding-shell, coding-cli | todo |  |  |  |
-| `coding-shell` | coding | 1 | 없음 | todo |  |  |  |
-| `contract-agent` | contract | 1 | 없음 | todo |  |  |  |
+| `coding-shell` | coding | 1 | 없음 | running | coding/coding-shell |  |  |
+| `contract-agent` | contract | 1 | 없음 | running | contract/contract-agent |  |  |
 | `contract-session` | contract | 1 | contract-agent | todo |  |  |  |
 | `agents-core` | agents | 2 | 없음 | todo |  |  |  |
 | `jobs-core` | jobs | 2 | runs-core, wireframe-sidebar | todo |  |  |  |

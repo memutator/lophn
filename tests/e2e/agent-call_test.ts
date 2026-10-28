@@ -9,7 +9,7 @@
 //
 // 행의 fake 대답이 3개를 넘는다(README 정한 것 11의 예외): 보내는 session A와 받는 session B가 각자 turn을 돌고 서로의 입력을
 // 기다려야 하는 flow라 한 행이 4~9개가 된다. 대신 단계와 단정 상한은 지킨다. 줄은 요청의 tool 목록으로 가른다
-// (lophn은 app_create, PM은 operator_create(app_create·release_prepare 없이), App Engineer는 release_prepare, 그 외 call을 가진 것은 Operator).
+// (home은 app_create, project는 workflow_check(app_create·release_prepare 없이), app은 release_prepare).
 //
 // call-dedup 행은 두지 않는다. 같은 reply에 같은 tool call id를 두 번 넣어도 core는 tool call마다 새 tcl id를 만들고
 // Router의 dedup 키는 그 tcl id라서 session 둘이 열린다(retry 흉내가 안 된다). dedup 규칙은 router_test.ts가 지킨다.
@@ -20,12 +20,14 @@ import { mkdir } from "node:fs/promises";
 import { test } from "node:test";
 import { appCreate } from "../../packages/protocol/apps/mod.ts";
 import {
-  type AgentRef,
-  agentSessionList,
-  agentSessionRead,
+  agentCallRead,
+  agentCreate,
+  type AgentId,
   archiveSession,
-  callRead,
-  operatorCreate,
+  LOPHN_AGENT_ID,
+  type Place,
+  placeSessionList,
+  placeSessionRead,
   receivedMessageList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
@@ -33,8 +35,8 @@ import { shellAsk } from "../support/core/shell-ask.ts";
 import {
   connectFakeProvider,
   decide,
+  openPlaceSession,
   openProject,
-  openSession,
   say,
   settle,
   turnsOf,
@@ -57,28 +59,21 @@ import {
 } from "../support/fake-server/probe.ts";
 
 const names = (request: JournalEntry) => toolNames(request);
-const LOPHN: Lane = {
-  name: "lophn",
+// place 종류 셋은 전용 tool 이름으로 가른다.
+const HOME: Lane = {
+  name: "home",
   match: (r) => names(r).includes("app_create"),
 };
-const PM: Lane = {
-  name: "pm",
+const PROJECT: Lane = {
+  name: "project",
   match: (r) =>
-    names(r).includes("operator_create") &&
+    names(r).includes("workflow_check") &&
     !names(r).includes("app_create") &&
     !names(r).includes("release_prepare"),
 };
-const AE: Lane = {
-  name: "ae",
+const APP: Lane = {
+  name: "app",
   match: (r) => names(r).includes("release_prepare"),
-};
-const OPERATOR: Lane = {
-  name: "operator",
-  match: (r) =>
-    names(r).includes("call") &&
-    !["app_create", "operator_create", "release_prepare"].some((n) =>
-      names(r).includes(n),
-    ),
 };
 
 const text = (value: string): Step => ({
@@ -139,19 +134,24 @@ function assertNoMismatch(fake: FakeServer) {
   );
 }
 
-async function sessionIds(core: Core, agent: AgentRef): Promise<string[]> {
-  const { sessions } = await core.call(agentSessionList, { agent });
+async function sessionIds(
+  core: Core,
+  agent: AgentId,
+  place: Place | null,
+): Promise<string[]> {
+  const { sessions } = await core.call(placeSessionList, { agent, place });
   return sessions.map((session) => session.id);
 }
 
 // known에 없던 session이 열릴 때까지 기다려 그 id를 돌려준다.
 async function opened(
   core: Core,
-  agent: AgentRef,
+  agent: AgentId,
+  place: Place | null,
   known: string[],
 ): Promise<string> {
   return await until("새 session이 열림", async () =>
-    (await sessionIds(core, agent)).find((id) => !known.includes(id)),
+    (await sessionIds(core, agent, place)).find((id) => !known.includes(id)),
   );
 }
 
@@ -171,11 +171,11 @@ async function callOf(core: Core, receiver: string): Promise<string> {
 }
 
 async function callRecord(core: Core, call: string) {
-  return (await core.call(callRead, { call })).call;
+  return (await core.call(agentCallRead, { call })).call;
 }
 
 async function archive(core: Core, session: string): Promise<void> {
-  const { session: current } = await core.call(agentSessionRead, { session });
+  const { session: current } = await core.call(placeSessionRead, { session });
   await core.call(
     archiveSession,
     { session },
@@ -195,8 +195,9 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
     const folder = `${run.work}/proj`;
     await mkdir(folder);
     const { project } = await openProject(core, folder);
-    const pm: AgentRef = { role: "project_manager", project };
-    const toPm = { role: "project_manager", place: { project: "proj" } };
+    // 받는 쪽은 그 project place의 lophn이다.
+    const atProject: Place = { kind: "project", id: project };
+    const toProject = { agent: "lophn", place: { project: "proj" } };
     const c = core;
     // 실패하면 어느 요청이 어느 줄로 갔고 무엇이 어긋났는지 같이 보인다.
     const step = (name: string, body: () => Promise<void>) =>
@@ -223,23 +224,23 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         fake.reset();
         fake.script(
           [
-            callStep(toPm, "result", "ping"),
+            callStep(toProject, "result", "ping"),
             text("sent"),
             text("got the answer"),
           ],
-          LOPHN,
+          HOME,
         );
         fake.script(
           [
             withCallId("reply", (call) => ({ call, body: "pong", refs: [] })),
             text("replied"),
           ],
-          PM,
+          PROJECT,
         );
-        const known = await sessionIds(c, pm);
-        const a = await openSession(c, { role: "lophn" });
-        await say(c, a, "ask the project manager. LOPHN-ONLY-MARK");
-        const b = await opened(c, pm, known);
+        const known = await sessionIds(c, LOPHN_AGENT_ID, atProject);
+        const a = await openPlaceSession(c, LOPHN_AGENT_ID);
+        await say(c, a, "ask the project. LOPHN-ONLY-MARK");
+        const b = await opened(c, LOPHN_AGENT_ID, atProject, known);
         await waitTurnEnd(c, b);
         await waitTurnEnd(c, a, 1);
         assertNoMismatch(fake);
@@ -248,12 +249,12 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         const call = await callOf(c, b);
         assert.deepStrictEqual((await callRecord(c, call)).state, "done");
         assert.deepStrictEqual(
-          (await sessionIds(c, pm)).length,
+          (await sessionIds(c, LOPHN_AGENT_ID, atProject)).length,
           known.length + 1,
         );
         // fake: 원문 대화가 아니라 body만 넘어가고 B의 답이 A의 셋째 요청에 있다.
-        const toA = lane(fake, "lophn");
-        const toB = lane(fake, "pm");
+        const toA = lane(fake, "home");
+        const toB = lane(fake, "project");
         assert.ok(JSON.stringify(toA[2].body).includes("pong"));
         const first = JSON.stringify(toB[0].body);
         assert.ok(first.includes("ping"));
@@ -272,17 +273,17 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         fake.reset();
         fake.script(
           [
-            callStep(toPm, "result", "ping"),
+            callStep(toProject, "result", "ping"),
             text("sent"),
             text("noted the failure"),
           ],
-          LOPHN,
+          HOME,
         );
-        fake.script([text("done without a reply")], PM);
-        const known = await sessionIds(c, pm);
-        const a = await openSession(c, { role: "lophn" });
-        await say(c, a, "ask the project manager");
-        const b = await opened(c, pm, known);
+        fake.script([text("done without a reply")], PROJECT);
+        const known = await sessionIds(c, LOPHN_AGENT_ID, atProject);
+        const a = await openPlaceSession(c, LOPHN_AGENT_ID);
+        await say(c, a, "ask the project");
+        const b = await opened(c, LOPHN_AGENT_ID, atProject, known);
         await waitTurnEnd(c, b);
         await archive(c, b);
         await waitTurnEnd(c, a, 1);
@@ -302,7 +303,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         assert.deepStrictEqual(notices.length, 1);
         assert.deepStrictEqual(notices[0].from.kind, "program");
         // fake: A의 요청은 call, tool 결과 뒤, 실패 알림 turn 셋뿐이다.
-        assert.deepStrictEqual(lane(fake, "lophn").length, 3);
+        assert.deepStrictEqual(lane(fake, "home").length, 3);
       },
     );
 
@@ -313,33 +314,35 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         fake.script(
           [
             callStep(
-              {
-                role: "project_manager",
-                place: { project: "no-such-project" },
-              },
+              { agent: "lophn", place: { project: "no-such-project" } },
               "none",
               "hi",
             ),
             text("it failed"),
           ],
-          LOPHN,
+          HOME,
         );
-        const before = await sessionIds(c, pm);
-        const a = await openSession(c, { role: "lophn" });
+        const before = await sessionIds(c, LOPHN_AGENT_ID, atProject);
+        const a = await openPlaceSession(c, LOPHN_AGENT_ID);
         await say(c, a, "ask a project that does not exist");
         await waitTurnEnd(c, a);
         assertNoMismatch(fake);
 
         // fake: call의 tool_result가 failed와 not_found를 담는다.
-        const result = resultOf(lane(fake, "lophn")[1], "c1");
+        const result = resultOf(lane(fake, "home")[1], "c1");
         assert.deepStrictEqual(
           [result.state, result.fail_reason],
           ["failed", "not_found"],
         );
         // route: 새 session이 열리지 않았다.
-        assert.deepStrictEqual(await sessionIds(c, pm), before);
+        assert.deepStrictEqual(
+          await sessionIds(c, LOPHN_AGENT_ID, atProject),
+          before,
+        );
         // ledger: 이름을 못 푼 call은 받는 곳을 적을 수 없어 행이 없다.
-        const read = await c.tryCall(callRead, { call: String(result.call) });
+        const read = await c.tryCall(agentCallRead, {
+          call: String(result.call),
+        });
         assert.ok(!read.ok);
         assert.deepStrictEqual(read.error.code, "not_found");
       },
@@ -349,27 +352,30 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
       "call-closed-session: 닫힌 session으로의 call은 다시 열지 않고 실패한다",
       async () => {
         fake.reset();
-        const b = await openSession(c, pm);
+        const b = await openPlaceSession(c, LOPHN_AGENT_ID, atProject);
         await archive(c, b);
         fake.script(
           [callStep({ session: b }, "none", "hi"), text("it failed")],
-          LOPHN,
+          HOME,
         );
-        const known = await sessionIds(c, pm);
-        const a = await openSession(c, { role: "lophn" });
+        const known = await sessionIds(c, LOPHN_AGENT_ID, atProject);
+        const a = await openPlaceSession(c, LOPHN_AGENT_ID);
         await say(c, a, "ask the closed session");
         await waitTurnEnd(c, a);
         assertNoMismatch(fake);
 
         // fake: tool_result가 failed·closed이고 새로 열라는 hint를 담는다.
-        const result = resultOf(lane(fake, "lophn")[1], "c1");
+        const result = resultOf(lane(fake, "home")[1], "c1");
         assert.deepStrictEqual(
           [result.state, result.fail_reason],
           ["failed", "closed"],
         );
-        assert.ok(String(result.hint).includes("call its role and place"));
+        assert.ok(String(result.hint).includes("call its agent and place"));
         // route: session이 새로 열리지 않았다.
-        assert.deepStrictEqual(await sessionIds(c, pm), known);
+        assert.deepStrictEqual(
+          await sessionIds(c, LOPHN_AGENT_ID, atProject),
+          known,
+        );
         // ledger: B가 받은 message가 없다.
         assert.deepStrictEqual(await messagesOf(c, b), []);
       },
@@ -379,12 +385,12 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
       "call-none-no-reply: 답 없는 call은 보낸 쪽을 다시 깨우지 않는다",
       async () => {
         fake.reset();
-        fake.script([callStep(toPm, "none", "fyi"), text("sent")], LOPHN);
-        fake.script([text("noted")], PM);
-        const known = await sessionIds(c, pm);
-        const a = await openSession(c, { role: "lophn" });
+        fake.script([callStep(toProject, "none", "fyi"), text("sent")], HOME);
+        fake.script([text("noted")], PROJECT);
+        const known = await sessionIds(c, LOPHN_AGENT_ID, atProject);
+        const a = await openPlaceSession(c, LOPHN_AGENT_ID);
         await say(c, a, "tell the project manager");
-        const b = await opened(c, pm, known);
+        const b = await opened(c, LOPHN_AGENT_ID, atProject, known);
         await waitTurnEnd(c, b);
         await waitTurnEnd(c, a);
         assertNoMismatch(fake);
@@ -403,12 +409,12 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         );
         assert.deepStrictEqual((await turnsOf(c, a)).length, 1);
         // fake: A의 요청은 둘뿐이다.
-        assert.deepStrictEqual(lane(fake, "lophn").length, 2);
+        assert.deepStrictEqual(lane(fake, "home").length, 2);
       },
     );
 
     await step(
-      "operator-to-app-ae: Operator가 App Engineer를 부르면 같은 왕복이 돈다",
+      "agent-to-app: test가 만든 agent가 앱 이름으로 앱 place의 lophn을 부르면 같은 왕복이 돈다",
       async () => {
         fake.reset();
         const app = await c.call(
@@ -420,36 +426,34 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
           },
           {},
         );
-        const ae: AgentRef = { role: "app_engineer", app: app.id };
+        const atApp: Place = { kind: "app", id: app.id };
         const agent = c.ids.newId("agt");
-        await c.call(operatorCreate, {
+        await c.call(agentCreate, {
           id: agent,
-          place: { kind: "project", id: project },
           definition: { name: "reviewer", body: "review" },
         });
-        const operator: AgentRef = { role: "operator", agent };
         fake.script(
           [
             callStep(
-              { role: "app_engineer", place: { app: "Ledger App" } },
+              { agent: "lophn", place: { app: "Ledger App" } },
               "result",
               "need fix",
             ),
             text("sent"),
             text("got the fix"),
           ],
-          OPERATOR,
+          PROJECT,
         );
         fake.script(
           [
             withCallId("reply", (call) => ({ call, body: "fixed", refs: [] })),
             text("replied"),
           ],
-          AE,
+          APP,
         );
-        const o = await openSession(c, operator);
-        await say(c, o, "ask the app engineer");
-        const b = await opened(c, ae, []);
+        const o = await openPlaceSession(c, agent, atProject);
+        await say(c, o, "ask the app");
+        const b = await opened(c, LOPHN_AGENT_ID, atApp, []);
         await waitTurnEnd(c, b);
         await waitTurnEnd(c, o, 1);
         assertNoMismatch(fake);
@@ -459,12 +463,15 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
           (await callRecord(c, await callOf(c, b))).state,
           "done",
         );
-        // fake: Operator의 셋째 요청에 App Engineer의 답이 있다.
+        // fake: 보낸 쪽의 셋째 요청에 앱 place 쪽의 답이 있다.
         assert.ok(
-          JSON.stringify(lane(fake, "operator")[2].body).includes("fixed"),
+          JSON.stringify(lane(fake, "project")[2].body).includes("fixed"),
         );
-        // route: App Engineer session이 하나 열렸다.
-        assert.deepStrictEqual((await sessionIds(c, ae)).length, 1);
+        // route: 앱 place의 lophn session이 하나 열렸다.
+        assert.deepStrictEqual(
+          (await sessionIds(c, LOPHN_AGENT_ID, atApp)).length,
+          1,
+        );
       },
     );
 
@@ -476,7 +483,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         let sent = "";
         fake.script(
           [
-            callStep(toPm, "result", "ping"),
+            callStep(toProject, "result", "ping"),
             text("sent"),
             withCallId(
               "cancel",
@@ -485,7 +492,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
             ),
             text("cancelled"),
           ],
-          LOPHN,
+          HOME,
         );
         fake.script(
           [
@@ -494,12 +501,12 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
             text("replied"),
             text("saw the cancel"),
           ],
-          PM,
+          PROJECT,
         );
-        const known = await sessionIds(c, pm);
-        const a = await openSession(c, { role: "lophn" });
-        await say(c, a, "ask the project manager");
-        const b = await opened(c, pm, known);
+        const known = await sessionIds(c, LOPHN_AGENT_ID, atProject);
+        const a = await openPlaceSession(c, LOPHN_AGENT_ID);
+        await say(c, a, "ask the project");
+        const b = await opened(c, LOPHN_AGENT_ID, atProject, known);
         const { request } = await waitPermission(c, b);
         await waitTurnEnd(c, a);
         sent = await callOf(c, b);
@@ -513,7 +520,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         const call = await callOf(c, b);
         assert.deepStrictEqual((await callRecord(c, call)).state, "cancelled");
         // fake: B의 reply 결과는 오류가 아니라 closed: true다.
-        const result = resultOf(lane(fake, "pm")[2], "t_reply");
+        const result = resultOf(lane(fake, "project")[2], "t_reply");
         assert.deepStrictEqual(
           [result.closed, result.delivered],
           [true, false],
@@ -531,19 +538,22 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
       async () => {
         fake.reset();
         const ask = await shellAsk(folder, "call-sender-archived");
-        fake.script([callStep(toPm, "result", "ping"), text("sent")], LOPHN);
+        fake.script(
+          [callStep(toProject, "result", "ping"), text("sent")],
+          HOME,
+        );
         fake.script(
           [
             { reply: ask.reply("w1") },
             withCallId("reply", (call) => ({ call, body: "late", refs: [] })),
             text("replied"),
           ],
-          PM,
+          PROJECT,
         );
-        const known = await sessionIds(c, pm);
-        const a = await openSession(c, { role: "lophn" });
-        await say(c, a, "ask the project manager");
-        const b = await opened(c, pm, known);
+        const known = await sessionIds(c, LOPHN_AGENT_ID, atProject);
+        const a = await openPlaceSession(c, LOPHN_AGENT_ID);
+        await say(c, a, "ask the project");
+        const b = await opened(c, LOPHN_AGENT_ID, atProject, known);
         const { request } = await waitPermission(c, b);
         await waitTurnEnd(c, a);
         await archive(c, a);
@@ -561,7 +571,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
           [],
         );
         // fake: B의 reply는 오류 없이 전해지지 않음(delivered: false)만 알린다.
-        const result = resultOf(lane(fake, "pm")[2], "t_reply");
+        const result = resultOf(lane(fake, "project")[2], "t_reply");
         assert.deepStrictEqual(
           [result.closed, result.delivered],
           [false, false],
@@ -574,10 +584,10 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
       async () => {
         fake.reset();
         const ask = await shellAsk(folder, "inbox-order");
-        const b = await openSession(c, pm);
+        const b = await openPlaceSession(c, LOPHN_AGENT_ID, atProject);
         fake.script(
           [callStep({ session: b }, "none", "call-body-marker"), text("sent")],
-          LOPHN,
+          HOME,
         );
         fake.script(
           [
@@ -586,11 +596,11 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
             text("answered the human"),
             text("handled the call"),
           ],
-          PM,
+          PROJECT,
         );
         await say(c, b, "write the file");
         const { request } = await waitPermission(c, b);
-        const a = await openSession(c, { role: "lophn" });
+        const a = await openPlaceSession(c, LOPHN_AGENT_ID);
         await say(c, a, "tell the project manager");
         await waitTurnEnd(c, a);
         const human = (await say(c, b, "human-follow-up")).message;
@@ -608,7 +618,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
           [human, callMessage.id],
         );
         // fake: 셋째 요청에는 사람 글이 있고, call 글은 넷째 요청에서 call 태그에 싸여 처음 나온다.
-        const toB = lane(fake, "pm").map((e) => JSON.stringify(e.body));
+        const toB = lane(fake, "project").map((e) => JSON.stringify(e.body));
         assert.ok(toB[2].includes("human-follow-up"));
         assert.ok(toB[3].includes("<lophn-call"));
         // 넷째 요청의 history에는 앞 turn이 가져간 사람 글이 있다.
@@ -631,20 +641,20 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
       async () => {
         fake.reset();
         const ask = await shellAsk(folder, "restart-lost");
-        const b = await openSession(c, pm);
+        const b = await openPlaceSession(c, LOPHN_AGENT_ID, atProject);
         fake.script(
           [
             callStep({ session: b }, "result", "ping"),
             text("sent"),
             text("noted the restart"),
           ],
-          LOPHN,
+          HOME,
         );
-        fake.script([{ reply: ask.reply("w1") }], PM);
+        fake.script([{ reply: ask.reply("w1") }], PROJECT);
         await say(c, b, "write the file");
         await waitPermission(c, b);
-        const a = await openSession(c, { role: "lophn" });
-        await say(c, a, "ask the project manager");
+        const a = await openPlaceSession(c, LOPHN_AGENT_ID);
+        await say(c, a, "ask the project");
         await waitTurnEnd(c, a, 0);
         const call = await callOf(c, b);
         await c.kill();

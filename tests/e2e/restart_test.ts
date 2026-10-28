@@ -8,21 +8,20 @@
 import assert from "node:assert/strict";
 import { mkdir, stat } from "node:fs/promises";
 import { test } from "node:test";
-
+import { sessionSnapshotsList } from "../../packages/protocol/events/mod.ts";
 import {
-  agentSessionRead,
+  LOPHN_AGENT_ID,
   modelCallList,
+  placeSessionRead,
   receivedMessageList,
   toolCallList,
   turnList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { SECRET_FILE_NAME } from "../../packages/protocol/secrets/mod.ts";
-import { sessionSnapshotsList } from "../../packages/protocol/events/mod.ts";
-import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
+  openPlaceSession,
   openProject,
-  openSession,
   say,
   settle,
   turnsOf,
@@ -30,6 +29,7 @@ import {
   waitPermission,
   waitTurnEnd,
 } from "../support/core/human.ts";
+import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { shellAsk } from "../support/core/shell-ask.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 
@@ -55,9 +55,9 @@ test("E2E core가 허락을 기다리다 꺼졌다 켜지면 turn은 interrupted
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
     const { project } = await openProject(core, folder);
-    const session = await openSession(core, {
-      role: "project_manager",
-      project,
+    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+      kind: "project",
+      id: project,
     });
 
     await say(core, session, "write rules");
@@ -86,7 +86,7 @@ test("E2E core가 허락을 기다리다 꺼졌다 켜지면 turn은 interrupted
     const first = turns[0].outcome;
     assert.ok(first?.kind === "interrupted");
     assert.deepStrictEqual(first.reason, "restarted");
-    const read = await core.call(agentSessionRead, { session });
+    const read = await core.call(placeSessionRead, { session });
     assert.deepStrictEqual(read.session.lifecycle, "open");
 
     assert.deepStrictEqual(await ask.exists(), true);
@@ -106,7 +106,7 @@ test("E2E core가 재시작돼도 완료한 turn의 기록과 provider 연결은
     core = await bootCore(run);
     const key = `sk-e2e-${core.ids.newId("key").split("_").pop()}`;
     await connectFakeProvider(core, fake, { key });
-    const session = await openSession(core, { role: "lophn" });
+    const session = await openPlaceSession(core, LOPHN_AGENT_ID);
     fake.script([
       { reply: { kind: "text", text: "one" } },
       { reply: { kind: "text", text: "two" } },
@@ -161,9 +161,9 @@ test("E2E core 재시작 직전에 받아 turn을 열지 못한 사람 message�
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
     const { project } = await openProject(core, folder);
-    const session = await openSession(core, {
-      role: "project_manager",
-      project,
+    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+      kind: "project",
+      id: project,
     });
 
     await say(core, session, "first request");

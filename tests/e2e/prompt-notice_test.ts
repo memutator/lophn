@@ -5,16 +5,16 @@
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { test } from "node:test";
-
-import { bootCore, type Core, createRun } from "../support/core/mod.ts";
+import { LOPHN_AGENT_ID } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   connectFakeProvider,
+  openPlaceSession,
   openProject,
-  openSession,
   say,
   turnsOf,
   waitTurnEnd,
 } from "../support/core/human.ts";
+import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 import { lastUserText, systemText } from "../support/fake-server/probe.ts";
 
@@ -37,9 +37,9 @@ test("고친 지침은 다음 turn의 system과 notice로 닿고 AGENTS.md는 �
     await writeFile(`${proj}/LOPHN.md`, one);
     await writeFile(`${proj}/AGENTS.md`, decoy);
     const { project } = await openProject(core, proj);
-    const session = await openSession(core, {
-      role: "project_manager",
-      project,
+    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+      kind: "project",
+      id: project,
     });
 
     await say(core, session, "one");

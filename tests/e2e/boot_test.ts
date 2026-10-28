@@ -13,11 +13,18 @@ import assert from "node:assert/strict";
 import { readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { test } from "node:test";
 import { errorCode } from "../../packages/base/mod.ts";
-import { platformStatus } from "../../packages/protocol/server/mod.ts";
 import {
+  LOPHN_AGENT_ID,
   receivedMessageList,
   turnList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
+import { platformStatus } from "../../packages/protocol/server/mod.ts";
+import {
+  connectFakeProvider,
+  openPlaceSession,
+  say,
+  waitTurnEnd,
+} from "../support/core/human.ts";
 import {
   bootCore,
   type Core,
@@ -26,12 +33,6 @@ import {
 } from "../support/core/mod.ts";
 import { processesOf } from "../support/core/process.ts";
 import { tryBootCore } from "../support/core/try-boot.ts";
-import {
-  connectFakeProvider,
-  openSession,
-  say,
-  waitTurnEnd,
-} from "../support/core/human.ts";
 import {
   type FakeServer,
   startFakeServer,
@@ -123,7 +124,7 @@ async function bootWithOpenRequest(
   ]);
   const core = await env.boot();
   await connectFakeProvider(core, env.fake);
-  const session = await openSession(core, { role: "lophn" });
+  const session = await openPlaceSession(core, LOPHN_AGENT_ID);
   await say(core, session, "hello");
   await within("model 요청이 도착함", env.fake.arrived(1));
   return core;
@@ -134,7 +135,7 @@ test("같은 data root에 둘째 core는 시작하지 못하고 첫째의 data�
     fake.script([{ reply: { kind: "text", text: "hi" } }]);
     const first = await boot();
     await connectFakeProvider(first, fake);
-    const session = await openSession(first, { role: "lophn" });
+    const session = await openPlaceSession(first, LOPHN_AGENT_ID);
     await say(first, session, "hello");
     await waitTurnEnd(first, session);
     const location = `${run.home}/run/location.json`;

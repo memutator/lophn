@@ -16,6 +16,9 @@
 // domain을 맡은 agent만 본다). 앱 activation helper의 App Engineer 대답은 행 몫에 세지 않는다.
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { CALL_BODY_MAX_BYTES } from "../../packages/core/apps/runtime/entrypoint/limits.ts";
+import { serve } from "../../packages/core/server/serve.ts";
+import { agentAssignmentSet } from "../../packages/protocol/approvals/mod.ts";
 import {
   appCallTool,
   appInvocation,
@@ -23,24 +26,21 @@ import {
   appRewindPlan,
   appRuntime,
 } from "../../packages/protocol/apps/mod.ts";
-import { agentAssignmentSet } from "../../packages/protocol/approvals/mod.ts";
 import {
   operatorCreate,
   toolCallList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { CALL_BODY_MAX_BYTES } from "../../packages/core/apps/runtime/entrypoint/limits.ts";
-import { serve } from "../../packages/core/server/serve.ts";
 import { activateTestApp } from "../support/app/activate.ts";
+import { appCoreEnv } from "../support/app/deps.ts";
 import { callPatch } from "../support/app/patch-call.ts";
 import { netFetchPatch } from "../support/app/patch-net.ts";
-import { appCoreEnv } from "../support/app/deps.ts";
-import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
   openSession,
   say,
   waitTurnEnd,
 } from "../support/core/human.ts";
+import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   type JournalEntry,
   startFakeServer,

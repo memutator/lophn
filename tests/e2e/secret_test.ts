@@ -26,18 +26,18 @@ import {
   secretStatus,
 } from "../../packages/protocol/secrets/mod.ts";
 import {
-  bootCore,
-  type Core,
-  createRun,
-  type Run,
-} from "../support/core/mod.ts";
-import {
   connectFakeProvider,
   openProject,
   openSession,
   say,
   waitTurnEnd,
 } from "../support/core/human.ts";
+import {
+  bootCore,
+  type Core,
+  createRun,
+  type Run,
+} from "../support/core/mod.ts";
 import {
   type FakeServer,
   startFakeServer,

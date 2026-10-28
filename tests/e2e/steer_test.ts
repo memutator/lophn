@@ -6,21 +6,22 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { test } from "node:test";
 import {
+  LOPHN_AGENT_ID,
   receivedMessageList,
   sendMessage,
   sessionRewindPreview,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
   decide,
+  openPlaceSession,
   openProject,
-  openSession,
   say,
   turnsOf,
   waitPermission,
   waitTurnEnd,
 } from "../support/core/human.ts";
+import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { shellAsk } from "../support/core/shell-ask.ts";
 import {
   type FakeServer,
@@ -44,9 +45,9 @@ test("turn이 허락을 기다리는 중 보낸 steer는 다음 model 요청에 
       { reply: ask.reply("t1") },
       { reply: { kind: "text", text: "done" } },
     ]);
-    const session = await openSession(core, {
-      role: "project_manager",
-      project,
+    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+      kind: "project",
+      id: project,
     });
     const first = (await say(core, session, "write the rules")).message;
     const { request } = await waitPermission(core, session);

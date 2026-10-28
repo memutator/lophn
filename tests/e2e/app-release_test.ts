@@ -19,6 +19,7 @@ import {
   releasesListRecords,
 } from "../../packages/protocol/apps/activation/activation.ts";
 import { activationConsents } from "../../packages/protocol/apps/activation/consent.ts";
+import { appBundleCopy } from "../../packages/protocol/apps/app-storage.ts";
 import {
   appCallTool,
   appGet,
@@ -26,7 +27,6 @@ import {
   appRuntime,
   RELEASE_FILE_MAX_COUNT,
 } from "../../packages/protocol/apps/mod.ts";
-import { appBundleCopy } from "../../packages/protocol/apps/app-storage.ts";
 import { previewsGet } from "../../packages/protocol/apps/previews.ts";
 import {
   activateRelease,
@@ -40,8 +40,8 @@ import {
 } from "../support/app/activate.ts";
 import { appCoreEnv } from "../support/app/deps.ts";
 import type { AppPatch } from "../support/app/source.ts";
-import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { connectFakeProvider } from "../support/core/human.ts";
+import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 
 async function countFiles(dir: string): Promise<number> {

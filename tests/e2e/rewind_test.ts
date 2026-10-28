@@ -10,29 +10,30 @@ import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { test } from "node:test";
 
 import {
+  LOPHN_AGENT_ID,
   rewindList,
   sessionRewind,
   sessionRewindPreview,
 } from "../../packages/protocol/lophn-agent/mod.ts";
+import {
+  connectFakeProvider,
+  decide,
+  openPlaceSession,
+  openProject,
+  say,
+  settle,
+  waitPermission,
+  waitTurnEnd,
+} from "../support/core/human.ts";
 import {
   bootCore,
   type Core,
   createRun,
   type Run,
 } from "../support/core/mod.ts";
-import {
-  connectFakeProvider,
-  decide,
-  openProject,
-  openSession,
-  say,
-  settle,
-  waitPermission,
-  waitTurnEnd,
-} from "../support/core/human.ts";
 import { shellAsk } from "../support/core/shell-ask.ts";
-import { startFakeServer } from "../support/fake-server/mod.ts";
 import type { FakeServer } from "../support/fake-server/mod.ts";
+import { startFakeServer } from "../support/fake-server/mod.ts";
 
 // 파일을 차례로 쓰는 turn 하나를 돌리고 끝나기를 기다린다. 되돌릴 checkpoint(사람 메시지)를 돌려준다.
 async function writeFiles(
@@ -55,7 +56,10 @@ async function writeFiles(
     },
     { reply: { kind: "text", text: "done" } },
   ]);
-  const session = await openSession(core, { role: "project_manager", project });
+  const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+    kind: "project",
+    id: project,
+  });
   const { message } = await say(core, session, "change files");
   await waitTurnEnd(core, session);
   return { session, checkpoint: message };
@@ -272,9 +276,9 @@ test("session rewind는 재시작 뒤에도 되돌리고, 새 file의 사람 편
       { reply: ask.reply("t1") },
       { reply: { kind: "text", text: "done" } },
     ]);
-    const session = await openSession(core, {
-      role: "project_manager",
-      project,
+    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+      kind: "project",
+      id: project,
     });
     const { message } = await say(core, session, "write rules");
     const { request } = await waitPermission(core, session);

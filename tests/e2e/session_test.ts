@@ -1,7 +1,7 @@
 // 세 질문
-// - contract: boundary `agent-sessions`(role·place는 열 때 한 곳에서 검사한다, place를 보관해도 session은 안 끝난다, fork는 이력만 복사한다),
+// - contract: boundary `agent-sessions`(agent·place는 열 때 한 곳에서 검사한다, place를 보관해도 session은 안 끝난다, fork는 이력만 복사한다),
 //   `router`(보관된 place는 closed로 보인다).
-// - 현실적 회귀: project 보관이 PM session을 끝내거나 보관 중에도 message가 접수되는 것, 꺼낸 뒤 session이 이어지지 않는 것,
+// - 현실적 회귀: project 보관이 project place session을 끝내거나 보관 중에도 message가 접수되는 것, 꺼낸 뒤 session이 이어지지 않는 것,
 //   fork가 rewind로 숨긴 구간을 되살리는 것, call 길로 열 때만 place 검사가 빠지는 것.
 // - 왜 지금 test로 못 잡나: places_test와 session unit은 한 module 안의 SQL만 본다. 보관(projects) → accepting(places) →
 //   입력함·Router(router) → 새 입력의 turn이 이어지는 것은 module과 process를 건너야 이어진다.
@@ -13,22 +13,37 @@
 // - 왜 지금 test로 못 잡나: lifecycle unit은 한 tx 안의 SQL만 본다. 도는 turn(child)과 허락 대기(core 메모리)와 보낸 session의 새 입력
 //   (Router → 입력함 → 다음 turn)이 같이 맞아야 보인다.
 // - 이 두 행은 fake 대답이 4개다(README 정한 것 11의 상한 3을 넘는 예외). session 둘이 한 flow에서 각자 turn을 돌려야 call이 열리고
-//   닫힌다(보낸 lophn 3, 받는 PM 1). 두 session이 같은 시각에 model을 부르므로 role 전용 tool 이름으로 줄을 가른다.
+//   닫힌다(보낸 home lophn 3, 받는 project place lophn 1). 두 session이 같은 시각에 model을 부르므로 place 종류 전용 tool
+//   이름으로 줄을 가른다.
+//
+// project-tools-run 행
+// - contract: boundary `agent-tools`·`run-loop`(runtime child에서 tool이 돌고 place 종류의 operation 상한이 그 목록의 tool을
+//   막지 않는다), `agent-tool-spi`(상한은 tool 이름이 아니라 route 이름 기준이다), `agents`(agent를 만드는 tool은 할당을 주지 못한다).
+// - 현실적 회귀: tool이 route 상한에 막혀 turn이 실패하는 것(두 번 난 일), 이름이 route와 다른 command tool
+//   (`agent.create` → `CreateAgent`)이 막히는 것, web_fetch가 loopback으로 나가는 것, 만드는 tool 입력에
+//   할당·`mcp_servers`·`skip` 칸이 생기는 것.
+// - 왜 지금 test로 못 잡나: agent-tools_test는 목록·정의 일치만 보고 harness는 in-process라 tool이 child에서 도는 길을
+//   지나지 않는다.
 //
 // core는 file 전체에서 하나고, 행마다 새 project 폴더(run.work/<행 이름>)와 새 session을 쓴다.
 import assert from "node:assert/strict";
-import { lstat, mkdir, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, writeFile } from "node:fs/promises";
 import { test } from "node:test";
+import { assignmentGet } from "../../packages/protocol/approvals/mod.ts";
+import { turnRequestDecide } from "../../packages/protocol/approvals/turn-request.ts";
 import {
-  type AgentRef,
-  agentSessionList,
-  agentSessionRead,
+  type AgentId,
+  agentCallRead,
+  agentList,
   archiveSession,
-  callRead,
   deleteSession,
   forkSession,
+  LOPHN_AGENT_ID,
   messageBody,
-  openAgentSession,
+  type Place,
+  placeSessionList,
+  placeSessionOpen,
+  placeSessionRead,
   receivedMessageList,
   sendMessage,
   sessionRewind,
@@ -37,8 +52,16 @@ import {
   turnList,
   turnRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { turnRequestDecide } from "../../packages/protocol/approvals/turn-request.ts";
 import { projectApi } from "../../packages/protocol/projects/mod.ts";
+import {
+  connectFakeProvider,
+  openPlaceSession,
+  openProject,
+  say,
+  until,
+  waitPermission,
+  waitTurnEnd,
+} from "../support/core/human.ts";
 import {
   bootCore,
   type Core,
@@ -46,30 +69,32 @@ import {
   type Run,
 } from "../support/core/mod.ts";
 import { shellAsk } from "../support/core/shell-ask.ts";
-import {
-  connectFakeProvider,
-  openProject,
-  openSession,
-  say,
-  until,
-  waitPermission,
-  waitTurnEnd,
-} from "../support/core/human.ts";
-import { startFakeServer } from "../support/fake-server/mod.ts";
 import type { FakeServer } from "../support/fake-server/mod.ts";
+import { startFakeServer } from "../support/fake-server/mod.ts";
 import { toolNames } from "../support/fake-server/probe.ts";
-
-const LOPHN: AgentRef = { role: "lophn" };
 
 async function newProject(
   core: Core,
   name: string,
-): Promise<{ project: string; pm: AgentRef }> {
+): Promise<{ project: string; place: Place }> {
   const folder = `${core.run.work}/${name}`;
   await mkdir(folder);
   const { project } = await openProject(core, folder, name);
-  return { project, pm: { role: "project_manager", project } };
+  return { project, place: { kind: "project", id: project } };
 }
+
+// project place의 lophn session을 연다.
+const openAt = (core: Core, place: Place) =>
+  openPlaceSession(core, LOPHN_AGENT_ID, place);
+
+// 출력이 2 MiB가 넘어 12 KiB씩 상한이 걸린다. 표 안에 `|`를 쓰지 않으려고 pipe가 없다.
+const SHELL = "echo hi > made.txt; seq 1 400000";
+const PIXEL = Uint8Array.from(
+  atob(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  ),
+  (char) => char.charCodeAt(0),
+);
 
 async function setArchived(
   core: Core,
@@ -159,25 +184,28 @@ async function bodiesOf(core: Core, session: string): Promise<string[]> {
   return out;
 }
 
-// 받는 PM의 session은 보낸 쪽 call이 열 때까지 없다. list를 신호로 읽는다.
-async function waitReceiver(core: Core, pm: AgentRef): Promise<string> {
-  return await until("받는 PM session이 열림", async () => {
-    const { sessions } = await core.call(agentSessionList, { agent: pm });
+// 받는 project place session은 보낸 쪽 call이 열 때까지 없다. list를 신호로 읽는다.
+async function waitReceiver(core: Core, place: Place): Promise<string> {
+  return await until("받는 project place session이 열림", async () => {
+    const { sessions } = await core.call(placeSessionList, {
+      agent: LOPHN_AGENT_ID,
+      place,
+    });
     return sessions[0]?.id;
   });
 }
 
-// 허락을 기다리는 PM session에 lophn이 보낸 call이 열려 있는 상태를 만든다. 늦은 허락을 보낼 수 있게 request도 돌려준다.
+// 허락을 기다리는 project place session에 home의 lophn이 보낸 call이 열려 있는 상태를 만든다. 늦은 허락을 보낼 수 있게 request도 돌려준다.
 async function openCallWaitingPermission(
   core: Core,
   fake: FakeServer,
   name: string,
 ) {
   fake.reset();
-  const { pm } = await newProject(core, name);
+  const { place } = await newProject(core, name);
   const ask = await shellAsk(`${core.run.work}/${name}`);
   const callBody = JSON.stringify({
-    to: { role: "project_manager", place: { project: name } },
+    to: { agent: "lophn", place: { project: name } },
     reply: "result",
     body: "clean up",
     refs: [],
@@ -194,20 +222,20 @@ async function openCallWaitingPermission(
       textReply("failed noted"),
     ],
     {
-      name: "lophn",
+      name: "home",
       match: (request) => toolNames(request).includes("app_create"),
     },
   );
   fake.script([{ reply: ask.reply("w1") }], {
-    name: "pm",
+    name: "project",
     match: (request) =>
-      toolNames(request).includes("operator_create") &&
+      toolNames(request).includes("workflow_check") &&
       !toolNames(request).includes("app_create") &&
       !toolNames(request).includes("release_prepare"),
   });
-  const src = await openSession(core, LOPHN);
-  await say(core, src, "ask the project manager");
-  const dst = await waitReceiver(core, pm);
+  const src = await openPlaceSession(core, LOPHN_AGENT_ID);
+  await say(core, src, "ask the project");
+  const dst = await waitReceiver(core, place);
   const { request } = await waitPermission(core, dst);
   const [received] = await messagesOf(core, dst);
   return { src, dst, request, call: received!.call!, ask };
@@ -244,7 +272,7 @@ async function rewindMessagesOnly(
   );
 }
 
-test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨다", async (t) => {
+test("session 열기·보관·fork는 agent와 place, 이력의 규칙을 지킨다", async (t) => {
   const run: Run = await createRun();
   let fake: FakeServer | undefined;
   let core: Core | undefined;
@@ -261,8 +289,8 @@ test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨�
       async () => {
         f.reset();
         f.script([textReply("ok")]);
-        const { project, pm } = await newProject(c, "person-message");
-        const session = await openSession(c, pm);
+        const { project, place } = await newProject(c, "person-message");
+        const session = await openAt(c, place);
 
         await setArchived(c, project, true);
         const refused = await trySay(c, session, "while archived");
@@ -280,7 +308,7 @@ test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨�
             .map((item) => item.id),
           [message],
         );
-        const { session: read } = await c.call(agentSessionRead, { session });
+        const { session: read } = await c.call(placeSessionRead, { session });
         assert.deepStrictEqual(read.lifecycle, "open");
         assert.deepStrictEqual(f.journal().length, 1);
       },
@@ -290,9 +318,9 @@ test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨�
       "agent-call: 보관된 place의 session에 보낸 call은 closed고 session은 안 끝난다",
       async () => {
         f.reset();
-        const { project, pm } = await newProject(c, "agent-call");
-        const target = await openSession(c, pm);
-        const caller = await openSession(c, LOPHN);
+        const { project, place } = await newProject(c, "agent-call");
+        const target = await openAt(c, place);
+        const caller = await openPlaceSession(c, LOPHN_AGENT_ID);
         f.script([
           {
             reply: {
@@ -304,12 +332,12 @@ test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨�
         ]);
 
         await setArchived(c, project, true);
-        await say(c, caller, "call the project manager");
+        await say(c, caller, "call the project session");
         await waitTurnEnd(c, caller);
 
         assert.ok(toolResultOf(f, "t1").includes("closed"));
         assert.deepStrictEqual(await messagesOf(c, target), []);
-        const { session: read } = await c.call(agentSessionRead, {
+        const { session: read } = await c.call(placeSessionRead, {
           session: target,
         });
         assert.deepStrictEqual(read.lifecycle, "open");
@@ -322,8 +350,8 @@ test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨�
       async () => {
         f.reset();
         f.script([textReply("a1"), textReply("a2"), textReply("a3")]);
-        const { pm } = await newProject(c, "fork-at-point");
-        const session = await openSession(c, pm);
+        const { place } = await newProject(c, "fork-at-point");
+        const session = await openAt(c, place);
         for (const [index, text] of ["one", "two", "three"].entries()) {
           await say(c, session, text);
           await waitTurnEnd(c, session, index);
@@ -353,13 +381,15 @@ test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨�
           [null, null, null],
         );
         assert.deepStrictEqual(await ownTurnsOf(c, forked.id), []);
-        const { session: original } = await c.call(agentSessionRead, {
+        const { session: original } = await c.call(placeSessionRead, {
           session,
         });
-        const { session: copy } = await c.call(agentSessionRead, {
+        const { session: copy } = await c.call(placeSessionRead, {
           session: forked.id,
         });
+        // fork는 같은 agent, 같은 place다.
         assert.deepStrictEqual(copy.agent, original.agent);
+        assert.deepStrictEqual(copy.place, original.place);
         assert.deepStrictEqual(copy.lifecycle, "open");
       },
     );
@@ -369,8 +399,8 @@ test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨�
       async () => {
         f.reset();
         f.script([textReply("a1"), textReply("a2"), textReply("a3")]);
-        const { pm } = await newProject(c, "fork-skips-rewound");
-        const session = await openSession(c, pm);
+        const { place } = await newProject(c, "fork-skips-rewound");
+        const session = await openAt(c, place);
         await say(c, session, "one");
         await waitTurnEnd(c, session, 0);
         const second = await say(c, session, "two");
@@ -398,43 +428,45 @@ test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨�
       },
     );
 
-    // role-place-mismatch
     await t.test(
       "archived-project: 보관된 project에는 session을 열 수 없고 꺼내면 열린다",
       async () => {
-        const { project, pm } = await newProject(c, "archived-project");
+        const { project, place } = await newProject(c, "archived-project");
         await setArchived(c, project, true);
-        const refused = await c.tryCall(openAgentSession, {
+        const refused = await c.tryCall(placeSessionOpen, {
           id: c.ids.newId("ses"),
-          agent: pm,
+          agent: LOPHN_AGENT_ID,
+          place,
         });
         assert.ok(!refused.ok);
         assert.deepStrictEqual(refused.error.code, "conflict");
-        const none = await c.call(agentSessionList, {
-          agent: pm,
+        const none = await c.call(placeSessionList, {
+          agent: LOPHN_AGENT_ID,
+          place,
           archived: "include",
         });
         assert.deepStrictEqual(none.sessions, []);
 
         await setArchived(c, project, false);
-        const session = await openSession(c, pm);
-        const { session: read } = await c.call(agentSessionRead, { session });
+        const session = await openAt(c, place);
+        const { session: read } = await c.call(placeSessionRead, { session });
         assert.deepStrictEqual(read.lifecycle, "open");
       },
     );
 
     await t.test(
-      "unknown-operator: 없는 Operator에는 session을 열 수 없다",
+      "unknown-agent: 없는 agent에는 session을 열 수 없다",
       async () => {
-        const agent: AgentRef = { role: "operator", agent: c.ids.newId("agt") };
-        const refused = await c.tryCall(openAgentSession, {
+        const agent: AgentId = c.ids.newId("agt");
+        const refused = await c.tryCall(placeSessionOpen, {
           id: c.ids.newId("ses"),
           agent,
+          place: null,
         });
         assert.ok(!refused.ok);
         assert.deepStrictEqual(refused.error.code, "not_found");
         assert.deepStrictEqual(
-          (await c.call(agentSessionList, { agent })).sessions,
+          (await c.call(placeSessionList, { agent, place: null })).sessions,
           [],
         );
       },
@@ -447,7 +479,7 @@ test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨�
         await newProject(c, "lophn-scope");
         const folder = `${c.run.work}/lophn-scope`;
         await writeFile(`${folder}/notes.md`, "alpha");
-        const session = await openSession(c, LOPHN);
+        const session = await openPlaceSession(c, LOPHN_AGENT_ID);
         f.script([
           {
             reply: {
@@ -492,6 +524,85 @@ test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨�
       },
     );
 
+    await t.test(
+      "project-tools-run: project place의 tool이 runtime child에서 돌고 web_fetch는 loopback으로 나가지 못하며 agent를 만드는 tool은 할당을 주지 않는다",
+      async () => {
+        f.reset();
+        const { place } = await newProject(c, "project-tools");
+        const folder = `${c.run.work}/project-tools`;
+        await writeFile(`${folder}/pic.png`, PIXEL);
+        await writeFile(`${folder}/notes.md`, "notes for the project\n");
+        const session = await openAt(c, place);
+        const call = (id: string, name: string, args: unknown) => ({
+          id,
+          name,
+          arguments: JSON.stringify(args),
+        });
+        f.script([
+          {
+            reply: {
+              kind: "tool",
+              calls: [
+                call("shell", "shell_run", { command: SHELL }),
+                call("skill", "skill_read", { name: "kinds-yaml" }),
+                call("image", "image_read", { path: "pic.png" }),
+                call("grep", "file_grep", { pattern: "notes" }),
+                call("web", "web_fetch", { url: `${f.url}/probe` }),
+                call("agent", "agent_create", {
+                  name: "helper",
+                  body: "Help.",
+                }),
+              ],
+            },
+          },
+          textReply("done"),
+        ]);
+        await say(c, session, "use the tools");
+        // 물었다면 turn이 기다려 끝나지 않는다.
+        const turn = await waitTurnEnd(c, session);
+
+        // disk
+        assert.deepStrictEqual(
+          await readFile(`${folder}/made.txt`, "utf8"),
+          "hi\n",
+        );
+        // ledger
+        const outcomes = await outcomesOf(c, turn.id);
+        for (const key of ["shell", "skill", "image", "grep", "agent"]) {
+          assert.deepStrictEqual(outcomes[key]?.kind, "success", key);
+        }
+        // web/target.ts의 거절 code
+        assert.deepStrictEqual(outcomes["web"], {
+          kind: "failure",
+          code: "invalid_input",
+        });
+        const { agents } = await c.call(agentList, {});
+        const helper = agents.find((row) => row.name === "helper");
+        assert.ok(helper !== undefined, "helper agent가 없다");
+        const made = await c.call(assignmentGet, { agent: helper.agent });
+        assert.deepStrictEqual(made.assignment.entries, []);
+        assert.deepStrictEqual(made.revision, 0);
+        // fake: agent_create 입력에 할당·mcp_servers·skip 칸이 없다.
+        const createTool = (
+          f.journal()[0]!.body as {
+            tools: { name: string; input_schema: { properties: object } }[];
+          }
+        ).tools.find((tool) => tool.name === "agent_create");
+        assert.ok(createTool !== undefined);
+        const keys = Object.keys(createTool.input_schema.properties);
+        assert.ok(!keys.includes("mcp_servers") && !keys.includes("skip"));
+        assert.deepStrictEqual(
+          keys.filter((key) => key.includes("assign") || key.includes("grant")),
+          [],
+        );
+        // shell 출력 상한
+        assert.ok(
+          toolResultOf(f, "shell").length <= 30 * 1024,
+          "shell 출력이 상한을 넘음",
+        );
+      },
+    );
+
     for (const how of ["archive", "delete"] as const) {
       await t.test(
         `${how}-call: session을 ${
@@ -502,7 +613,7 @@ test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨�
           const { src, dst, request, call, ask } =
             await openCallWaitingPermission(c, f, name);
           const [turn] = await ownTurnsOf(c, dst);
-          const { session: current } = await c.call(agentSessionRead, {
+          const { session: current } = await c.call(placeSessionRead, {
             session: dst,
           });
           await c.call(
@@ -523,16 +634,16 @@ test("session 열기·보관·fork는 role과 place, 이력의 규칙을 지킨�
               kind: "interrupted",
               reason: "session_ended",
             });
-            const { session } = await c.call(agentSessionRead, {
+            const { session } = await c.call(placeSessionRead, {
               session: dst,
             });
             assert.deepStrictEqual(session.lifecycle, "archived");
           } else {
-            const gone = await c.tryCall(agentSessionRead, { session: dst });
+            const gone = await c.tryCall(placeSessionRead, { session: dst });
             assert.ok(!gone.ok && gone.error.code === "not_found");
           }
           // route
-          const { call: closedCall } = await c.call(callRead, { call });
+          const { call: closedCall } = await c.call(agentCallRead, { call });
           assert.deepStrictEqual(closedCall.state, "failed");
           assert.deepStrictEqual(closedCall.fail_reason, "receiver_ended");
           const late = await c.tryCall(turnRequestDecide, {

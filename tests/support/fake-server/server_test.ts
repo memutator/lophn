@@ -100,12 +100,12 @@ test("함수 대답은 앞 tool 결과의 id를 잇고, 줄은 대답을 가르�
       },
     },
   ]);
-  fake.script([{ reply: { kind: "text", text: "pm" } }], {
-    name: "pm",
-    match: (request) => toolNames(request).includes("operator_create"),
+  fake.script([{ reply: { kind: "text", text: "creator" } }], {
+    name: "creator",
+    match: (request) => toolNames(request).includes("agent_create"),
   });
-  fake.script([{ reply: { kind: "text", text: "engineer" } }], {
-    name: "engineer",
+  fake.script([{ reply: { kind: "text", text: "ticketer" } }], {
+    name: "ticketer",
     match: (request) => toolNames(request).includes("ticket_create"),
   });
   const result = (content: string) => ({
@@ -119,7 +119,7 @@ test("함수 대답은 앞 tool 결과의 id를 잇고, 줄은 대답을 가르�
 
   // 요청 순서가 줄 등록 순서와 달라도 각 줄의 대답을 받는다.
   await post(fake, { tools: [{ name: "ticket_create" }] });
-  await post(fake, { tools: [{ name: "operator_create" }] });
+  await post(fake, { tools: [{ name: "agent_create" }] });
   const chained = await read(await post(fake, result(`created ${ticket}`)));
 
   fake.script([
@@ -143,8 +143,8 @@ test("함수 대답은 앞 tool 결과의 id를 잇고, 줄은 대답을 가르�
     ],
     [
       [
-        ["engineer", 0],
-        ["pm", 0],
+        ["ticketer", 0],
+        ["creator", 0],
         [null, 0],
       ],
       JSON.stringify({ id: ticket }),

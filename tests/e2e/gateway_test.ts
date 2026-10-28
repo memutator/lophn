@@ -6,7 +6,6 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { test } from "node:test";
 import { sessionSnapshotsList } from "../../packages/protocol/events/mod.ts";
-import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
   decide,
@@ -15,6 +14,7 @@ import {
   say,
   turnsOf,
 } from "../support/core/human.ts";
+import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { shellAsk } from "../support/core/shell-ask.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 import { connectGateway, type Gateway } from "../support/gateway/mod.ts";

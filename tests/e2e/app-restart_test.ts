@@ -15,8 +15,8 @@ import { test } from "node:test";
 import { CRASH_LIMIT } from "../../packages/core/apps/runtime/supervisor/restart-policy.ts";
 import { releasesGetRecord } from "../../packages/protocol/apps/activation/activation.ts";
 import {
-  appCallTool,
   type AppInvocation,
+  appCallTool,
   appInvocations,
   appRewindPlan,
   appRuntime,
@@ -27,9 +27,10 @@ import {
   type TestApp,
   waitRunning,
 } from "../support/app/activate.ts";
-import { crashPatch } from "../support/app/patch-crash.ts";
 import { appCoreEnv } from "../support/app/deps.ts";
+import { crashPatch } from "../support/app/patch-crash.ts";
 import { slowPatch } from "../support/app/patch-restart.ts";
+import { connectFakeProvider, until } from "../support/core/human.ts";
 import {
   bootCore,
   type Core,
@@ -37,9 +38,8 @@ import {
   type Output,
   type Run,
 } from "../support/core/mod.ts";
-import { connectFakeProvider, until } from "../support/core/human.ts";
-import { connectGateway } from "../support/gateway/mod.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
+import { connectGateway } from "../support/gateway/mod.ts";
 
 const caller = { kind: "person", view_session: "e2e" } as const;
 

@@ -18,16 +18,19 @@ import {
   domainFolder,
   domainKindsFile,
 } from "../../packages/protocol/domains/mod.ts";
-import { agentSessionList } from "../../packages/protocol/lophn-agent/mod.ts";
+import {
+  LOPHN_AGENT_ID,
+  placeSessionList,
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import { kindCheck } from "../../packages/protocol/projects/mod.ts";
-import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
   openProject,
   until,
 } from "../support/core/human.ts";
-import { connectGateway, type Gateway } from "../support/gateway/mod.ts";
+import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
+import { connectGateway, type Gateway } from "../support/gateway/mod.ts";
 
 const KINDS = `kinds:
   - name: note
@@ -119,8 +122,9 @@ test("E2E kind 파일이 가리키는 문서에 새 위반이 생기면 Gateway�
         1,
       );
       // ledger: session이 열리지 않는다.
-      const { sessions } = await c.call(agentSessionList, {
-        agent: { role: "project_manager", project },
+      const { sessions } = await c.call(placeSessionList, {
+        agent: LOPHN_AGENT_ID,
+        place: { kind: "project", id: project },
       });
       assert.deepStrictEqual(sessions, []);
       // fake: 어떤 turn도 model을 부르지 않았다.

@@ -5,24 +5,25 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { test } from "node:test";
+import { sessionSnapshotsList } from "../../packages/protocol/events/mod.ts";
 import {
   askAnswer,
   askRead,
+  LOPHN_AGENT_ID,
   toolCallList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { sessionSnapshotsList } from "../../packages/protocol/events/mod.ts";
-import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
   decide,
+  openPlaceSession,
   openProject,
-  openSession,
   say,
   turnsOf,
   waitPermission,
   waitQuestion,
   waitTurnEnd,
 } from "../support/core/human.ts";
+import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { shellAsk } from "../support/core/shell-ask.ts";
 import {
   type FakeServer,
@@ -58,7 +59,10 @@ async function askAndDecide(
     { reply: ask.reply("t1") },
     { reply: { kind: "text", text: "done" } },
   ]);
-  const session = await openSession(core, { role: "project_manager", project });
+  const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+    kind: "project",
+    id: project,
+  });
   await say(core, session, "remove it");
   const { request } = await waitPermission(core, session);
   const before = await ask.exists();
@@ -142,7 +146,7 @@ async function askRow(
     { reply: { kind: "tool", calls: [ASK_CALL] } },
     { reply: { kind: "text", text: "done" } },
   ]);
-  const session = await openSession(core, { role: "lophn" });
+  const session = await openPlaceSession(core, LOPHN_AGENT_ID);
   await say(core, session, "decide something");
   const question = await waitQuestion(core, session);
   await answer(session, question.tool_call);

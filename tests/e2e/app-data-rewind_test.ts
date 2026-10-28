@@ -12,6 +12,7 @@
 // agent의 앱 호출과 끝 text, 둘이다.
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { agentAssignmentSet } from "../../packages/protocol/approvals/mod.ts";
 import {
   appCallTool,
   appInvocations,
@@ -20,7 +21,6 @@ import {
   appRewinds,
   appRuntime,
 } from "../../packages/protocol/apps/mod.ts";
-import { agentAssignmentSet } from "../../packages/protocol/approvals/mod.ts";
 import {
   operatorCreate,
   type RevertRecord,
@@ -32,18 +32,18 @@ import { activateTestApp, type TestApp } from "../support/app/activate.ts";
 import { appCoreEnv } from "../support/app/deps.ts";
 import { rewindPatch } from "../support/app/patch-rewind.ts";
 import {
-  bootCore,
-  type Core,
-  createRun,
-  type Output,
-} from "../support/core/mod.ts";
-import {
   connectFakeProvider,
   openSession,
   say,
   until,
   waitTurnEnd,
 } from "../support/core/human.ts";
+import {
+  bootCore,
+  type Core,
+  createRun,
+  type Output,
+} from "../support/core/mod.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 import { toolNames } from "../support/fake-server/probe.ts";
 

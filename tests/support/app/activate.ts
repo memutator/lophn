@@ -1,8 +1,8 @@
 // test용 앱을 제품의 길로 activate하는 준비다: `app.create`(core가 source 폴더를 깔고 앱에 잇는다) → 견본·patch commit →
-// App Engineer session → 가짜 model이 App Engineer로 `release_prepare` →
+// 앱 place의 lophn session → 가짜 model이 그 session으로 `release_prepare` →
 // `release_activate` → 사람의 `activation.consent` → running. data root에 release를 직접 깔지 않는다.
 //
-// App Engineer의 fake 대답은 session 하나의 줄(lane)로 건다. 줄은 요청의 tool 목록에 `release_prepare`가 있고 본문에
+// 앱 place session의 fake 대답은 session 하나의 줄(lane)로 건다. 줄은 요청의 tool 목록에 `release_prepare`가 있고 본문에
 // 이 앱의 사람 메시지(`App <id>:`)가 있는 요청이 받는다. 앱 id만으로 가르면 다른 앱의 id를 싣는 prompt와 섞인다.
 import { mkdir } from "node:fs/promises";
 
@@ -21,10 +21,11 @@ import {
   type ReleasePrepareOutput,
   type RuntimeObservation,
 } from "../../../packages/protocol/apps/mod.ts";
+import { LOPHN_AGENT_ID } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type { Core } from "../core/mod.ts";
 import {
+  openPlaceSession,
   openProject,
-  openSession,
   say,
   type Turn,
   turnsOf,
@@ -40,10 +41,10 @@ export type TestApp = {
   name: string;
   source: string;
   commit: string;
-  ae: string; // App Engineer session. e2e가 이 이름으로 읽는다
+  ae: string; // 앱 place의 lophn session. e2e가 이 이름으로 읽는다
 };
 
-// App Engineer turn 하나가 기다리는 상한: release 준비 360초 + activation 기다림 120초. lophn-agent에는 tool 호출 하나의
+// 앱 place session turn 하나가 기다리는 상한: release 준비 360초 + activation 기다림 120초. lophn-agent에는 tool 호출 하나의
 // 시간 한도가 없고(한도 timer는 model 호출만 끊는다) 실제 상한은 core 쪽이라, test 쪽 기다림만 이보다 길면 된다.
 const AE_TURN_WAIT_MS = 480_000;
 // 첫 activation은 앱 process를 처음 띄우고, drain은 5초 읽기를 기다린다.
@@ -72,7 +73,7 @@ async function appStateOf(core: Core, app: string): Promise<string> {
   }, runtime: ${runtime.state.state}`;
 }
 
-// 앱의 project 이름이다. Project Manager를 이름으로 가리키는 쪽(eval 시나리오)이 같은 규칙을 쓴다.
+// 앱의 project 이름이다. 그 project place를 이름으로 가리키는 쪽(eval 시나리오)이 같은 규칙을 쓴다.
 export const appProjectName = (slug: string) => `${slug}-project`;
 
 // 앱은 project 하나에 묶이므로 사람이 먼저 project를 등록한다. 폴더는 run의 work 아래 `<slug>-project` 하나다.
@@ -116,9 +117,9 @@ export async function startTestApp(
     ...(options.patch === undefined ? {} : { patch: options.patch }),
     ...(options.sample === undefined ? {} : { sample: options.sample }),
   });
-  const ae = await openSession(core, {
-    role: "app_engineer",
-    app: created.id,
+  const ae = await openPlaceSession(core, LOPHN_AGENT_ID, {
+    kind: "app",
+    id: created.id,
   });
   return {
     app: created.id,
@@ -181,7 +182,7 @@ export async function aeTurn(
     },
     () =>
       until(
-        `App Engineer turn ${index}이 끝남`,
+        `앱 place session turn ${index}이 끝남`,
         async () => {
           const found = (await turnsOf(core, app.ae))[index];
           return found?.state === "finished" ? found : undefined;

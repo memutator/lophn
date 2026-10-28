@@ -9,17 +9,18 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import process from "node:process";
 import { test } from "node:test";
+import { LOPHN_AGENT_ID } from "../../packages/protocol/lophn-agent/mod.ts";
 import { platformHealth } from "../../packages/protocol/server/mod.ts";
-import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
+  openPlaceSession,
   openProject,
-  openSession,
   say,
   turnsOf,
   until,
   waitTurnEnd,
 } from "../support/core/human.ts";
+import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { runtimePids } from "../support/core/process.ts";
 import {
   type FakeServer,
@@ -63,7 +64,10 @@ async function crashMidTurn(core: Core, fake: FakeServer, folder: string) {
     { reply: { kind: "text", text: "back" } },
   ]);
   const { project } = await openProject(core, folder);
-  const session = await openSession(core, { role: "project_manager", project });
+  const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+    kind: "project",
+    id: project,
+  });
   await say(core, session, "write x.md");
   await fake.arrived(1);
   const old = await crash(core);
@@ -99,7 +103,7 @@ async function crashMidTurn(core: Core, fake: FakeServer, folder: string) {
 async function consecutiveCrashes(core: Core, fake: FakeServer) {
   fake.reset();
   fake.script([{ reply: { kind: "text", text: "ok" } }]);
-  const session = await openSession(core, { role: "lophn" });
+  const session = await openPlaceSession(core, LOPHN_AGENT_ID);
   for (let n = 0; n < 3; n++) await crash(core);
   await say(core, session, "hello");
   await waitTurnEnd(core, session);

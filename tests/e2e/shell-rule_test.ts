@@ -5,15 +5,14 @@
 import assert from "node:assert/strict";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { test } from "node:test";
+import { SHELL_RULES_SETTING_KEY } from "../../packages/protocol/approvals/mod.ts";
+import { settingsList } from "../../packages/protocol/config/file.ts";
+import { sessionSnapshotsList } from "../../packages/protocol/events/mod.ts";
 import {
   agentSessionRead,
   changeSessionSkip,
   toolCallList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { SHELL_RULES_SETTING_KEY } from "../../packages/protocol/approvals/mod.ts";
-import { settingsList } from "../../packages/protocol/config/file.ts";
-import { sessionSnapshotsList } from "../../packages/protocol/events/mod.ts";
-import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
   decide,
@@ -24,6 +23,7 @@ import {
   waitPermission,
   waitTurnEnd,
 } from "../support/core/human.ts";
+import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { shellAsk } from "../support/core/shell-ask.ts";
 import {
   type FakeServer,

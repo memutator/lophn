@@ -26,19 +26,19 @@ import {
   SECRET_FILE_NAME,
   secretStatus,
 } from "../../packages/protocol/secrets/mod.ts";
+import { openSession, say, until, waitTurnEnd } from "../support/core/human.ts";
 import {
   bootCore,
   type Core,
   createRun,
   type Run,
 } from "../support/core/mod.ts";
-import { openSession, say, until, waitTurnEnd } from "../support/core/human.ts";
+import { connectOAuthProvider } from "../support/fake-oauth/login.ts";
+import { type FakeIssuer, startFakeIssuer } from "../support/fake-oauth/mod.ts";
 import {
   type FakeServer,
   startFakeServer,
 } from "../support/fake-server/mod.ts";
-import { type FakeIssuer, startFakeIssuer } from "../support/fake-oauth/mod.ts";
-import { connectOAuthProvider } from "../support/fake-oauth/login.ts";
 
 const LOGIN_MS = 30_000;
 

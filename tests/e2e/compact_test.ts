@@ -5,21 +5,22 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  agentSessionRead,
+  LOPHN_AGENT_ID,
   modelCallList,
+  placeSessionRead,
   receivedMessageList,
   requestSessionCompact,
   sessionSummary,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { bootCore, type Core, createRun } from "../support/core/mod.ts";
-import { runtimePids } from "../support/core/process.ts";
 import {
   connectFakeProvider,
-  openSession,
+  openPlaceSession,
   say,
   turnsOf,
   waitTurnEnd,
 } from "../support/core/human.ts";
+import { bootCore, type Core, createRun } from "../support/core/mod.ts";
+import { runtimePids } from "../support/core/process.ts";
 import {
   type FakeServer,
   type Reply,
@@ -66,12 +67,12 @@ const rows: Row[] = [
     name: "compact-ok",
     summary: { kind: "text", text: "SUMMARY-MARK" },
     async settled(core, session) {
-      const { session: read } = await core.call(agentSessionRead, { session });
+      const { session: read } = await core.call(placeSessionRead, { session });
       return read.compaction === null ? undefined : true;
     },
     async check(core, fake, session, first) {
       // ledger: 요약이 session에 이어지고 원문은 그대로다.
-      const { session: read } = await core.call(agentSessionRead, { session });
+      const { session: read } = await core.call(placeSessionRead, { session });
       assert.ok(read.compaction, "compaction이 있어야 한다");
       const summary = await core.call(sessionSummary, { session });
       assert.ok(summary.text.includes("SUMMARY-MARK"));
@@ -104,7 +105,7 @@ const rows: Row[] = [
     },
     async check(core, fake, session, _first, before) {
       // ledger: 요약이 없고 첫 turn의 메시지는 그대로다.
-      const { session: read } = await core.call(agentSessionRead, { session });
+      const { session: read } = await core.call(placeSessionRead, { session });
       assert.deepStrictEqual(read.compaction, null);
       const { messages } = await core.call(receivedMessageList, { session });
       assert.deepStrictEqual(
@@ -135,10 +136,10 @@ test("E2E compact는 성공하면 다음 요청이 요약을 쓰고 실패해도
         { reply: row.summary },
         { reply: { kind: "text", text: "second answer" } },
       ]);
-      const session = await openSession(live, { role: "lophn" });
+      const session = await openPlaceSession(live, LOPHN_AGENT_ID);
       const first = await say(live, session, `FIRST-MARK-${row.name}`);
       await waitTurnEnd(live, session);
-      const { session: read } = await live.call(agentSessionRead, { session });
+      const { session: read } = await live.call(placeSessionRead, { session });
       const { messages } = await live.call(receivedMessageList, { session });
       const before = {
         messages: messages.map((message) => message.id),

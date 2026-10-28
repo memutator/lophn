@@ -7,17 +7,18 @@ import { mkdir } from "node:fs/promises";
 import { test } from "node:test";
 
 import {
+  LOPHN_AGENT_ID,
   turnBodyView,
   turnRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
+  openPlaceSession,
   openProject,
-  openSession,
   say,
   waitTurnEnd,
 } from "../support/core/human.ts";
+import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 
 test("읽지 못한 지침은 조용히 빠지지 않는다: turn이 시작되지 않고 이유가 남으며 model 요청이 나가지 않는다", async () => {
@@ -32,9 +33,9 @@ test("읽지 못한 지침은 조용히 빠지지 않는다: turn이 시작되�
     // 폴더는 openFile이 항상 읽지 못하는 것(unavailable)으로 본다. 권한 000은 root에서 읽혀 버린다.
     await mkdir(`${proj}/LOPHN.md`);
     const { project } = await openProject(core, proj);
-    const session = await openSession(core, {
-      role: "project_manager",
-      project,
+    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+      kind: "project",
+      id: project,
     });
 
     await say(core, session, "hello");

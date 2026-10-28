@@ -1,13 +1,13 @@
 // 세 질문
 // - contract: boundary `apps`(annotation 저장은 앱 하나 범위이고 신원은 shell main이 정한 값으로 들어온다),
-//   `router`(전달은 그 앱 Project Manager에게 사람 메시지 하나다), `agent-tools`(`image_read`가 `annotation:<id>`를 core가
+//   `router`(전달은 그 앱 place의 session에 사람 메시지 하나다), `agent-tools`(`image_read`가 `annotation:<id>`를 core가
 //   agent 자격의 앱으로 거른 screenshot으로 연다), `core-api`.
-// - 현실적 회귀: 다른 앱의 annotation(앱 화면 속 정보, screenshot)을 다른 앱의 Project Manager가 읽는 것, 보내기가 다른 앱의
+// - 현실적 회귀: 다른 앱의 annotation(앱 화면 속 정보, screenshot)을 다른 앱 place의 session이 읽는 것, 보내기가 다른 앱의
 //   session으로 가는 것, 저장한 screenshot이 model에 실리지 않는 것(blob 경로·권한).
-// - 왜 지금 test가 못 잡나: `annotations_test.ts`는 저장과 읽기를 따로 보고, upload → blob → Router → Project Manager turn →
+// - 왜 지금 test가 못 잡나: `annotations_test.ts`는 저장과 읽기를 따로 보고, upload → blob → Router → 앱 place session turn →
 //   runtime의 `image_read` → model 요청까지 이어지는 길은 process를 건너야 한다.
 //
-// `archived-app` 행: boundary `apps`·`router`(보관한 앱은 새 입력을 받지 않는다), 회귀는 보관한 앱의 Project Manager에게
+// `archived-app` 행: boundary `apps`·`router`(보관한 앱은 새 입력을 받지 않는다), 회귀는 보관한 앱 place에
 // 새 session이 열리거나 저장이 거절됐는데 메시지가 먼저 가는 것, `annotations_test.ts`는 저장 command의 거절만 보고
 // 보내기 → 저장 → 전달에서 전달이 일어나지 않음(session이 열리지 않음)은 Router 쪽 상태까지 읽어야 보인다.
 //
@@ -23,21 +23,22 @@ import {
 } from "../../packages/protocol/apps/annotation.ts";
 import { appArchive, appCreate } from "../../packages/protocol/apps/mod.ts";
 import {
-  agentSessionList,
-  agentSessionRead,
+  LOPHN_AGENT_ID,
+  placeSessionList,
+  placeSessionRead,
   receivedMessageList,
   toolCallList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { bootCore, type Core, createRun } from "../support/core/mod.ts";
+import { uploadScreenshot } from "../support/annotation/upload.ts";
 import {
   connectFakeProvider,
-  openSession,
+  openPlaceSession,
   say,
   waitTurnEnd,
 } from "../support/core/human.ts";
-import { uploadScreenshot } from "../support/annotation/upload.ts";
-import { startFakeServer } from "../support/fake-server/mod.ts";
+import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import type { FakeServer, JournalEntry } from "../support/fake-server/mod.ts";
+import { startFakeServer } from "../support/fake-server/mod.ts";
 import { idIn, lastUserText } from "../support/fake-server/probe.ts";
 
 // 유효한 1x1 PNG
@@ -54,7 +55,7 @@ type Ctx = {
   fake: FakeServer;
   a: string;
   b: string;
-  // a와 b 앱의 project. 그 project의 Project Manager가 annotation을 받는다.
+  // a와 b 앱. 고른 agent가 없으면 그 앱 place의 lophn session이 annotation을 받는다.
   // new-session이 보낸 A의 annotation. other-app이 쓴다.
   annotationOfA?: string;
 };
@@ -157,10 +158,11 @@ const ROWS: Row[] = [
       await waitTurnEnd(core, sent.session, 0);
 
       // inbox
-      const { session } = await core.call(agentSessionRead, {
+      const { session } = await core.call(placeSessionRead, {
         session: sent.session,
       });
-      assert.deepStrictEqual(session.agent, { role: "app_engineer", app: a });
+      assert.deepStrictEqual(session.agent, "lophn");
+      assert.deepStrictEqual(session.place, { kind: "app", id: a });
       const messages = await humanMessagesOf(core, sent.session);
       assert.deepStrictEqual(messages.length, 1);
       assert.deepStrictEqual(messages[0].refs, [
@@ -194,9 +196,9 @@ const ROWS: Row[] = [
     async run(ctx) {
       const { core, fake, a } = ctx;
       fake.reset();
-      const session = await openSession(core, {
-        role: "app_engineer",
-        app: a as never,
+      const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+        kind: "app",
+        id: a,
       });
       fake.script([{ reply: { kind: "text", text: "noted" } }]);
       const { sent } = await ship(ctx, a, session, false);
@@ -226,9 +228,9 @@ const ROWS: Row[] = [
       const { core, fake, a, b, annotationOfA } = ctx;
       assert.ok(annotationOfA, "new-session 행이 먼저 돌아야 한다");
       fake.reset();
-      const session = await openSession(core, {
-        role: "app_engineer",
-        app: b as never,
+      const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+        kind: "app",
+        id: b,
       });
       fake.script([
         { reply: callImage(annotationOfA) },
@@ -290,8 +292,9 @@ const ROWS: Row[] = [
       assert.deepStrictEqual(refused.error.code, "conflict");
 
       // inbox
-      const { sessions } = await core.call(agentSessionList, {
-        agent: { role: "app_engineer", app: c },
+      const { sessions } = await core.call(placeSessionList, {
+        agent: LOPHN_AGENT_ID,
+        place: { kind: "app", id: c },
         archived: "include",
       });
       assert.deepStrictEqual(sessions.length, 0);
@@ -299,7 +302,7 @@ const ROWS: Row[] = [
   },
 ];
 
-test("annotation 묶음은 그 앱 project의 Project Manager에게만 가고 screenshot은 그 Project Manager만 model에 싣는다", async (t) => {
+test("annotation 묶음은 그 앱 place의 session에만 가고 screenshot은 그 session만 model에 싣는다", async (t) => {
   const run = await createRun();
   let fake: FakeServer | undefined;
   let core: Core | undefined;

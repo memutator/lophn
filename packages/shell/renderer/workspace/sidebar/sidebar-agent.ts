@@ -2,17 +2,10 @@
 // renderer는 protocol을 type check하지 않으므로 id는 문자열로 받는다.
 import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 
-/**
- * project sidebar에 보이는 역할. 지금 값은 `"lophn"`과 `"operator"`만 온다.
- * type의 나머지 값은 이 file 밖 `workspace.tsx`가 견주어 남아 있다.
- */
-export type SidebarAgentRole = "lophn" | "project_manager" | "operator";
-
 /** Agent 모양의 agent 줄 하나. */
 export interface SidebarAgent {
   /** agent id(`lophn` 또는 `agt_…`). */
   readonly assignment: string;
-  readonly role: SidebarAgentRole;
   /** 줄에 보이는 이름(고정 글자가 아니라 사람이 지은 이름일 수 있다). */
   readonly name: string;
   readonly profile: AvatarProfile;

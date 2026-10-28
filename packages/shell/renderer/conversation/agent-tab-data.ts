@@ -78,7 +78,9 @@ function senderOf(
   switch (from.kind) {
     case "human":
       return null;
-    case "agent": {
+    case "program":
+      return { kind: "program", label: null };
+    default: {
       // lophn은 이름이 고정이다. 다른 agent의 이름은 다음 thread 읽기가 채운다.
       const agent = ctx.agentOf(from.session);
       return {
@@ -87,10 +89,6 @@ function senderOf(
         name: agent === LOPHN_AGENT_ID ? LOPHN_AGENT_NAME : null,
       };
     }
-    case "coding_agent":
-      return { kind: "coding", product: null };
-    case "program":
-      return { kind: "program", label: null };
   }
 }
 

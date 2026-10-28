@@ -343,7 +343,7 @@ export function Desktop({
         annotate={annotate}
         overlay={overlay}
         session={route.session}
-        appEngineer={route.newSession}
+        startLophn={route.newSession}
         onOpenSession={openSession}
       />
     );

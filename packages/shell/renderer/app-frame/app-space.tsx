@@ -83,7 +83,7 @@ interface AppSpaceProps {
   /** 처음에 pane에 열어 둘 agent session. */
   session?: string;
   /** 이 앱 place의 lophn 새 session으로 열어 시작한다(방금 만든 앱). */
-  appEngineer?: boolean;
+  startLophn?: boolean;
   /** 이 공간의 pane에 없는 agent session을 연다(호스트가 그 session이 있는 화면으로 간다). */
   onOpenSession?: (session: string) => void;
 }
@@ -162,7 +162,7 @@ export function AppSpace({
   annotate: annotateApi,
   overlay,
   session,
-  appEngineer,
+  startLophn,
   onOpenSession,
 }: AppSpaceProps) {
   const [attempt, setAttempt] = useState(0);
@@ -181,13 +181,13 @@ export function AppSpace({
   const covers = useMemo(createViewCovers, []);
   // 오른쪽 패널. 열린 탭(details, agent)과 고른 탭, 패널을 보이는지는 따로 쥔다. 단추로 패널을 닫아도 탭의 상태는 남는다.
   const [pane, setPane] = useState<AgentPaneState | null>(
-    appEngineer
+    startLophn
       ? { mode: "agent", assignment: LOPHN_AGENT_ID, session: null }
       : null,
   );
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>("agent");
-  const [panelOpen, setPanelOpen] = useState(appEngineer === true);
+  const [panelOpen, setPanelOpen] = useState(startLophn === true);
   const agentList = useAppAgents(agents, app);
   const paneShown = pane !== null && agents !== undefined;
   const runRows = useAppRuns(

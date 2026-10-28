@@ -48,7 +48,7 @@ export interface AgentViewSlice {
   /** 그 session의 agent 탭을 연다. 이 project의 agent가 아니면 열지 않는다. */
   openSession(session: string): void;
   /** 이 project place에서 열려 있는 lophn session. 없으면 null. */
-  projectManagerSession(): string | null;
+  placeLophnSession(): string | null;
   /** session의 agent 이름. 이 project의 agent가 아니면 undefined. */
   nameOf(session: string): string | undefined;
   /** 이 project의 domain들의 artifact. 대화 글의 path를 link로 그리고 누르면 artifact 탭을 연다. */

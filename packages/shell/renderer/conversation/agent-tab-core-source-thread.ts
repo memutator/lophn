@@ -132,7 +132,9 @@ async function senderOf(
   switch (from.kind) {
     case "human":
       return null;
-    case "agent": {
+    case "program":
+      return { kind: "program", label: null };
+    default: {
       const agent = await agentOf(env, memo, from.session);
       return {
         kind: "agent",
@@ -140,10 +142,6 @@ async function senderOf(
         name: agent === null ? null : await agentNameOf(env, agent),
       };
     }
-    case "coding_agent":
-      return { kind: "coding", product: null };
-    case "program":
-      return { kind: "program", label: null };
   }
 }
 
@@ -187,7 +185,7 @@ export async function readEnvelope(
   if (base === null) return { ok: false, code: "not_found" };
   const sender = await withName(env, base, from);
   let session: Envelope["session"] = null;
-  if (from.kind === "agent" || from.kind === "coding_agent") {
+  if (from.kind !== "human" && from.kind !== "program") {
     const sent = await readSession(env, from.session);
     if (sent.ok) {
       session = { id: from.session, title: sent.value.title ?? "" };

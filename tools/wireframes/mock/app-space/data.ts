@@ -35,7 +35,7 @@ const ago = (minutes: number) =>
  * Orders tool run 둘(done, failed)은 session이 없다. agent run 하나와 tool run 하나(done)는 job이 열어 job 제목이 이름 자리에 온다. 다른 앱의 run이나 lophn run도 섞여 있어 목록이 이 앱 것만 남기는 것을 보인다.
  */
 export function fixedRuns(app: string): readonly RunRecordView[] {
-  const operator = {
+  const reviewer = {
     agent: BUDGET_REVIEWER_ID,
     place: { kind: "app", id: app },
   } as const;
@@ -43,7 +43,7 @@ export function fixedRuns(app: string): readonly RunRecordView[] {
     {
       id: "run_budget_running",
       kind: "agent",
-      target: { agent: operator },
+      target: { agent: reviewer },
       session: `${KNOWN}001`,
       session_opened: true,
       state: "running",
@@ -51,9 +51,9 @@ export function fixedRuns(app: string): readonly RunRecordView[] {
       job: null,
     },
     {
-      id: "run_operator_done",
+      id: "run_reviewer_done",
       kind: "agent",
-      target: { agent: operator },
+      target: { agent: reviewer },
       session: `${KNOWN}002`,
       session_opened: true,
       state: "done",
@@ -73,7 +73,7 @@ export function fixedRuns(app: string): readonly RunRecordView[] {
     {
       id: "run_budget_failed",
       kind: "agent",
-      target: { agent: operator },
+      target: { agent: reviewer },
       session: `${KNOWN}004`,
       session_opened: true,
       state: "failed",

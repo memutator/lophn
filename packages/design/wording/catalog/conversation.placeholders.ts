@@ -261,24 +261,12 @@ export type ConversationPlaceholders = {
   "conversation.label.search-sessions": {
     agent: "string";
   };
-  "conversation.label.sender-agent-named": {
-    role: "string";
-    name: "string";
-  };
   "conversation.label.sender-agent-other": Record<never, never>;
   "conversation.label.sender-based-on": Record<never, never>;
-  "conversation.label.sender-coding": {
-    product: "string";
-  };
-  "conversation.label.sender-coding-unknown": Record<never, never>;
   "conversation.label.sender-from": Record<never, never>;
   "conversation.label.sender-head-handed": Record<never, never>;
   "conversation.label.sender-head-why": Record<never, never>;
   "conversation.label.sender-program-unknown": Record<never, never>;
-  "conversation.label.sender-role-app-engineer": Record<never, never>;
-  "conversation.label.sender-role-lophn": Record<never, never>;
-  "conversation.label.sender-role-operator": Record<never, never>;
-  "conversation.label.sender-role-project-manager": Record<never, never>;
   "conversation.label.sender-sent-by": {
     sender: "string";
   };

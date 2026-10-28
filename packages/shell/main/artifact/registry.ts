@@ -193,7 +193,7 @@ export function createArtifactViews(deps: ArtifactViewsDeps) {
     return {
       view_session: entry.view_session,
       // page가 보낸 값이 아니라 open 때 main이 정한 source다.
-      // workflow artifact는 사람의 .html과 같은 file 길로 그 project의 PM이 받는다.
+      // workflow artifact는 사람의 .html과 같은 file 길로 그 project place의 lophn session이 받는다.
       target:
         entry.source.kind === "artifact"
           ? {

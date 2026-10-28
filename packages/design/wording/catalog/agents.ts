@@ -45,7 +45,6 @@ export const agents = {
   "agents.button.assign-app": "Assign app",
   "agents.button.choose-character": "Choose character",
   "agents.button.create-agent": "Create agent",
-  "agents.button.create-operator": "Create Operator",
   "agents.button.remove-app": "Remove app",
   "agents.button.remove-image": "Remove image",
   "agents.empty.grants-apps":
@@ -106,7 +105,6 @@ export const agents = {
   "agents.label.place-named": "{name} \u00b7 project",
   "agents.label.place-named-app": "{name} \u00b7 app",
   "agents.label.protected-key": "Key or token",
-  "agents.label.role-project-manager": "Project Manager",
   "agents.label.skip-start": "Start new sessions with Skip permissions",
   "agents.label.tab-definition": "Definition",
   "agents.label.tab-grants": "Grants",
@@ -131,8 +129,6 @@ export const agents = {
     "lophn takes no project's instructions. It reads a project's LOPHN.md when it works on that project.",
   "agents.notice.name-fixed-lophn":
     "lophn's name and profile can't be changed.",
-  "agents.notice.name-fixed-role":
-    "Every {owner, select, app {app} other {project}} has one {role}. The name can't be changed.",
   "agents.notice.place-help":
     "Where this agent works. Its sessions open in that place.",
   "agents.notice.profile-help":
@@ -162,7 +158,6 @@ export const agents = {
   "project-workspace.button.agent-editor-upload-image": "Upload image",
   "project-workspace.button.edit-instructions": "Edit",
   "project-workspace.button.new-agent": "New agent",
-  "project-workspace.button.new-operator": "New Operator",
   "project-workspace.button.open-agent": "Open",
   "project-workspace.empty.agent-editor-no-project":
     "This project has no instructions yet.",
@@ -176,7 +171,6 @@ export const agents = {
   "project-workspace.heading.agent-editor-skills": "Skills",
   "project-workspace.heading.agents-in-project": "Agents in {project}",
   "project-workspace.heading.agents-new-agent": "New agent",
-  "project-workspace.heading.agents-new-operator": "New Operator",
   "project-workspace.heading.instructions": "Instructions",
   "project-workspace.heading.mcp-servers": "MCP servers",
   "project-workspace.heading.skills": "Skills",
@@ -191,15 +185,11 @@ export const agents = {
   "project-workspace.label.agent-editor-model-unset":
     "Use project default — none chosen yet",
   "project-workspace.label.agent-editor-name": "Name",
-  "project-workspace.label.agent-kind-operator": "Operator",
   "project-workspace.label.agent-no-model": "No model",
   "project-workspace.label.agents-target": "the agents",
   "project-workspace.label.instructions-shared":
     "Shared by every agent in {project}",
   "project-workspace.label.open-agent-named": "Open {name}",
-  "project-workspace.label.role-app-engineer": "App Engineer",
-  "project-workspace.label.role-lophn": "lophn",
-  "project-workspace.label.role-operators": "Operators",
   "project-workspace.notice.agent-editor-delete-body":
     "Its open sessions close. The conversations stay.",
   "project-workspace.notice.agent-editor-issue":
@@ -268,7 +258,7 @@ export const agents = {
   "settings.label.on-computer": "Runs on this computer",
   "settings.label.over-web": "Connects over the web",
   "settings.label.providers-target": "your connections",
-  "settings.label.role-lophn": "lophn",
+  "settings.label.lophn-card": "lophn",
   "settings.label.server-address": "Address",
   "settings.label.server-arguments": "Arguments",
   "settings.label.server-auth": "Sign-in",

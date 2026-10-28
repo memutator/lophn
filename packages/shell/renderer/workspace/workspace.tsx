@@ -176,7 +176,7 @@ export interface WorkspaceProps {
   /** 처음 열 때 한 번 열 session(다른 project의 session toast). */
   session?: string;
   /** 처음 열 때 한 번 이 project place의 lophn을 연다. */
-  projectManager?: true;
+  startLophn?: true;
   /** 처음 열 때 한 번 열 파일. path는 디스크의 절대 경로다. */
   open?: { readonly path: string; readonly line?: number };
 }
@@ -791,10 +791,10 @@ export function Workspace(props: WorkspaceProps) {
   });
 
   // 시작 route(session·lophn·파일)는 이 project의 배치가 선 뒤 값마다 한 번 연다. session과 agent 목록을 아직 모르면 목록이 올 때 다시 본다.
-  const started = useRef<{ session?: string; pm?: true; open?: object }>({});
+  const started = useRef<{ session?: string; lophn?: true; open?: object }>({});
   useEffect(() => {
     if (readyProject !== projectId) return;
-    const { session, projectManager, open } = props;
+    const { session, startLophn, open } = props;
     if (open !== undefined && started.current.open !== open) {
       started.current.open = open;
       openFile(host, open.path, { line: open.line });
@@ -803,17 +803,17 @@ export function Workspace(props: WorkspaceProps) {
       if (openSessionTab(session)) started.current.session = session;
     }
     if (
-      projectManager !== undefined &&
-      started.current.pm !== projectManager &&
+      startLophn !== undefined &&
+      started.current.lophn !== startLophn &&
       openProjectLophn(reactionEnv)
     ) {
-      started.current.pm = projectManager;
+      started.current.lophn = startLophn;
     }
   }, [
     readyProject,
     projectId,
     props.session,
-    props.projectManager,
+    props.startLophn,
     props.open,
     sidebarAgents.agents,
     sessionIds,

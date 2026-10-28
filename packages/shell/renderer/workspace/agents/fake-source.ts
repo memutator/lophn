@@ -12,7 +12,7 @@ import {
   type UserModelRecord,
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { DomainView, ReadResult } from "../source.ts";
-import { isAppPlace, roleOf } from "./agent-key.ts";
+import { isAppPlace } from "./agent-key.ts";
 import { appsFor, domainNamesOf } from "./editor/grants-model.ts";
 import {
   ANTHROPIC,
@@ -335,7 +335,6 @@ export function createFakeAgentsSource(
     const model = definition.model ?? inheritedModel(at).value;
     return {
       assignment: key,
-      role: roleOf(key),
       name: item.name,
       profile: profileOf(key, item),
       model: {
@@ -359,7 +358,6 @@ export function createFakeAgentsSource(
     return {
       assignment: key,
       draftId: null,
-      role: roleOf(key),
       place: placeView(place),
       definition: item.definition,
       hash: item.hash,
@@ -533,7 +531,6 @@ export function createFakeAgentsSource(
         ok({
           assignment: null,
           draftId,
-          role: roleOf(draftId),
           place: placeView(project),
           definition: { body: "" },
           hash: null,

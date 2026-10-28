@@ -80,7 +80,7 @@ export function NewTabMenu(props: NewTabMenuProps) {
         </span>
       ),
       textValue: t("project-workspace.label.menu-agent"),
-      leading: lead(commonIcons.roles),
+      leading: lead(commonIcons.agents),
     });
   }
   if (props.onSearch) {

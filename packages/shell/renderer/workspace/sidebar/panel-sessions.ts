@@ -17,12 +17,9 @@ function sessionAtProject(entry: SessionEntry, project: string): boolean {
 }
 
 /**
- * role로 agent 줄을 찾는다. 여럿인 agent 줄은 이 함수로 찾지 않는다.
- */
-/**
  * 이 project place의 열린 lophn session 가운데 가장 최근 것.
  */
-export function openedProjectManagerSession(
+export function openedPlaceLophnSession(
   entries: readonly SessionEntry[],
   project: string,
 ): string | null {

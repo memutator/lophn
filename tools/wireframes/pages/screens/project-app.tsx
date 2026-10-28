@@ -69,7 +69,7 @@ const FLUSH = new Set([
   "terminal",
   "document",
   "agents",
-  "operator",
+  "agent-settings",
 ]);
 
 export const CHAT_TAB: TabSpec = {
@@ -350,7 +350,7 @@ export function ProjectApp({
             <AgentsBody open={open} />
           </PaddedTab>
         );
-      case "operator":
+      case "agent-settings":
         return (
           <PaddedTab bare>
             <AgentSettingsEditor

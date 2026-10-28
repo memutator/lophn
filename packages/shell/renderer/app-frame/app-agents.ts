@@ -1,7 +1,6 @@
 // 앱 공간 agent select의 후보를 전역 agent 목록(AgentsSource.list)에서 읽는다. 정렬은 AgentSelect가 한다.
 // 저장·삭제로 목록이 바뀌면 reload로 다시 읽는다.
 import { useCallback, useEffect, useState } from "react";
-import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/places.ts";
 import type { AvatarProfile } from "../parts/avatar/avatar.tsx";
 import type { AgentsSource } from "../workspace/agents/source.ts";
 import type { AppSpaceAgent } from "./agent-select.tsx";
@@ -29,7 +28,6 @@ export function useAppAgents(
           return [
             {
               assignment: row.assignment,
-              role: row.assignment === LOPHN_AGENT_ID ? "lophn" : "operator",
               name: row.name,
               profile,
             },

@@ -12,13 +12,10 @@ import { t } from "@lophn/wording";
 
 import styles from "./agent-select.module.css";
 
-type AppSpaceAgentRole = "lophn" | "app_engineer" | "operator";
-
 /** select 항목 하나. */
 export interface AppSpaceAgent {
   /** agent id(`lophn` 또는 `agt_…`). */
   readonly assignment: string;
-  readonly role: AppSpaceAgentRole;
   /** 항목에 보이는 이름(고정 글자가 아니라 사람이 지은 이름일 수 있다). */
   readonly name: string;
   readonly profile: AvatarProfile;
@@ -127,7 +124,7 @@ const RUNS = "runs";
 /** lophn, 다른 agent들(받은 순서). */
 function ordered(agents: readonly AppSpaceAgent[]): AppSpaceAgent[] {
   return [
-    ...agents.filter((agent) => agent.role === "lophn"),
-    ...agents.filter((agent) => agent.role !== "lophn"),
+    ...agents.filter((agent) => agent.assignment === "lophn"),
+    ...agents.filter((agent) => agent.assignment !== "lophn"),
   ];
 }

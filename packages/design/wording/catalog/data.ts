@@ -35,11 +35,7 @@ export const data = {
   "waiting.label.activation-first":
     "Declared by this version (nothing was active before)",
   "waiting.label.activation-new": "New since the last version",
-  "waiting.label.agent-app-engineer": "App Engineer",
-  "waiting.label.agent-coding": "Coding agent",
   "waiting.label.agent-lophn": "lophn",
-  "waiting.label.agent-operator": "Operator",
-  "waiting.label.agent-project-manager": "Project Manager",
   "waiting.label.agent-unnamed": "Agent",
   "waiting.label.declared-tool": "Other app",
   "waiting.label.declared-file-read": "File (read)",
@@ -92,8 +88,6 @@ export const data = {
   "waiting.notice.tool-write": "Changes data in {target}.",
   "waiting.notice.coding":
     "A coding agent is waiting for your answer in its terminal tab.",
-  "waiting.notice.coding-start":
-    "The coding agent hasn't reported in yet. You may need to confirm something in its terminal tab, such as trusting the folder.",
   "waiting.notice.decide-failed": "Couldn't send your answer. Try again.",
   "waiting.notice.empty": "No notifications.",
   "waiting.notice.job-agent": "Asks {agent}.",
@@ -128,7 +122,6 @@ export const data = {
   "waiting.title.activation": "Activate a new version of {app}",
   "waiting.title.tool": "Use {tool} in {app}",
   "waiting.title.coding": "Permission request in the terminal",
-  "waiting.title.coding-start": "Check the terminal",
   "waiting.title.mcp-tool": "Use the {tool} tool",
   "waiting.title.question": "Question",
   "waiting.title.shell": "Run a command",

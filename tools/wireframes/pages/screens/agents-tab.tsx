@@ -28,7 +28,7 @@ export const AGENTS_TAB_SPEC: TabSpec = {
 export function agentTab(id: string): TabSpec {
   return {
     key: `agent-edit:${id}`,
-    kind: "operator",
+    kind: "agent-settings",
     title: FAKE_AGENTS.find((agent) => agent.key === id)?.name ?? "New agent",
     sub: id,
   };
@@ -88,6 +88,3 @@ export function AgentSettingsEditor({
     </div>
   );
 }
-
-// project-app.tsx가 새 이름으로 옮기면 지운다.
-export const OperatorEditor = AgentSettingsEditor;

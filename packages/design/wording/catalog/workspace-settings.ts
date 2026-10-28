@@ -18,10 +18,7 @@ export const workspaceSettings = {
   "jobs.label.action-tool-detail": "{app} · {tool}",
   "jobs.label.action-workflow": "Starts a workflow",
   "jobs.label.action-workflow-detail": "{project} / {workflow}",
-  "jobs.label.agent-app-engineer": "App Engineer",
   "jobs.label.agent-lophn": "lophn",
-  "jobs.label.agent-operator": "an agent",
-  "jobs.label.agent-project-manager": "Project Manager",
   "jobs.label.agent-unnamed": "an agent",
   "jobs.label.at": "At",
   "jobs.label.created-by": "Created by {agent}",
@@ -116,8 +113,6 @@ export const workspaceSettings = {
   "settings.empty.coding-search": "No product matches your search.",
   "settings.empty.general": "No settings are declared yet.",
   "settings.empty.shell-rules": "No rules here yet.",
-  "settings.error.coding-defaults":
-    "The options weren't saved. Nothing changed. Try again.",
   "settings.error.coding-detect":
     "Couldn't check again. The earlier results are still shown.",
   "settings.error.coding-hooks-install":
@@ -134,7 +129,6 @@ export const workspaceSettings = {
     "lophn doesn't know this setting. Nothing was saved.",
   "settings.error.value-wrong-type":
     "That isn't the kind of value this setting takes. Nothing was saved, and the setting keeps its value.",
-  "settings.heading.coding-defaults": "Default run options",
   "settings.heading.shell-rules-built-in": "Built in",
   "settings.heading.shell-rules-project": "Project: {name}",
   "settings.heading.shell-rules-workspace": "Workspace",
@@ -172,22 +166,15 @@ export const workspaceSettings = {
   "settings.label.coding-col-executable": "Executable",
   "settings.label.coding-col-hooks": "Hooks",
   "settings.label.coding-col-product": "Product",
-  "settings.label.coding-col-takes-task": "Takes a task",
   "settings.label.coding-col-turn-end": "Turn-end signal",
-  "settings.label.coding-default-none": "No default",
-  "settings.label.coding-default-product": "Default product",
   "settings.label.coding-found": "Found",
   "settings.label.coding-hooks-failed": "Couldn't read or write",
   "settings.label.coding-hooks-installed": "Installed",
   "settings.label.coding-hooks-missing": "Not installed",
-  "settings.label.coding-launch-no": "Can't take a task",
-  "settings.label.coding-launch-yes": "Ready",
-  "settings.label.coding-model": "Model",
   "settings.label.coding-not-checked": "Not checked",
   "settings.label.coding-not-found": "Not found",
   "settings.label.coding-signal-no": "No signal",
   "settings.label.coding-signal-yes": "Has signal",
-  "settings.label.coding-stage-connect": "Connects to lophn",
   "settings.label.coding-target": "your coding agents",
   "settings.label.coding-version": "Version {version}",
   "settings.label.coding-version-unknown": "Version unknown",
@@ -251,16 +238,10 @@ export const workspaceSettings = {
   "settings.note.allowed-max": "Allowed: up to {max, number}.",
   "settings.note.allowed-min": "Allowed: at least {min, number}.",
   "settings.note.allowed-range": "Allowed: {min, number} to {max, number}.",
-  "settings.note.coding-default-used": "Used when none is picked.",
-  "settings.note.coding-defaults-saved": "Saved.",
   "settings.note.coding-detect-note":
     "These are the results from the last check. lophn only checks again when you ask.",
   "settings.note.coding-hooks":
     "Hooks let lophn show when a coding agent you start in a terminal is working or waiting for you. Installing them adds lines to the product's own settings file.",
-  "settings.note.coding-model":
-    "Leave it empty to use the product's own default model.",
-  "settings.note.coding-signal":
-    "Without a turn-end signal, lophn sends only the first prompt and no follow-up messages. A product that can't take the first prompt is not offered as a default.",
   "settings.note.not-set":
     "That feature won't start. Everything else keeps working.",
   "settings.note.shell-rules-built-in":

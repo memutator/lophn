@@ -3,7 +3,7 @@ import { readdir, readFile } from "node:fs/promises";
 import process from "node:process";
 
 import { checkDeclarationGraph } from "./deps-declaration.ts";
-import { readImports, readStringSites } from "./deps-imports.ts";
+import { readImports } from "./deps-imports.ts";
 import {
   directory,
   inside,
@@ -119,7 +119,7 @@ function coreLayerViolation(file: string, target: string): string | undefined {
   }
 }
 
-// harness 폴더가 feature module의 protocol과 role 이름을 아는 것(rule harness-domain). 앞 task가 못 끊은 file은 이유와 함께 면제한다.
+// harness 폴더가 feature module의 protocol을 아는 것(rule harness-domain). 앞 task가 못 끊은 file은 이유와 함께 면제한다.
 // 목록 file이 위반을 다 없애면 검사가 빼라고 알려준다.
 const HARNESS_DIR = `packages/core/${CORE_HARNESS}/`;
 const HARNESS_FEATURE_PROTOCOLS = [
@@ -128,7 +128,6 @@ const HARNESS_FEATURE_PROTOCOLS = [
   "projects",
   "coding-agent",
 ];
-const ROLE_NAMES = new Set(["project_manager", "app_engineer", "operator"]);
 const HARNESS_LEFTOVERS: ReadonlyMap<string, string> = new Map([
   [
     "packages/core/lophn-agent/run-loop/runtime-access.ts",
@@ -258,7 +257,7 @@ async function checkRepo(root: string): Promise<Violation[]> {
         file,
         line,
         "harness-domain",
-        `${CORE_HARNESS}는 feature module의 protocol과 role 이름을 모른다: ${what}`,
+        `${CORE_HARNESS}는 feature module의 protocol을 모른다: ${what}`,
       );
     }
   };
@@ -284,13 +283,6 @@ async function checkRepo(root: string): Promise<Violation[]> {
       /_test\.tsx?$/.test(file) || /\/(?:testing|testdata)\//.test(file);
     const source = await readFile(`${root}/${file}`, "utf8");
     sources.set(file, source);
-    if (!testCode && file.startsWith(HARNESS_DIR)) {
-      for (const { specifier, line } of readStringSites(source)) {
-        if (ROLE_NAMES.has(specifier)) {
-          harness(file, line, `role 이름 문자열 "${specifier}"`);
-        }
-      }
-    }
     for (const { specifier, line } of readImports(source)) {
       const relative =
         specifier.startsWith("./") || specifier.startsWith("../");

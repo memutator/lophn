@@ -76,7 +76,7 @@ function AgentCardView({
             <h3 className={styles.name} data-agent-name="">
               {row.name}
             </h3>
-            {row.role === "lophn" ? (
+            {row.assignment === "lophn" ? (
               <span className={styles.kind} data-agent-kind="">
                 {t("agents.label.built-in")}
               </span>

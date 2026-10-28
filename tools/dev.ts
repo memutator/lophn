@@ -438,7 +438,7 @@ async function launch(
     }
     const shellEnv = { ...parentEnv };
     if (mode === "dev:mock") shellEnv.LOPHN_DEV_MOCK = "1";
-    // 이 dev 프로세스에는 LOPHN_HOME이 core를 거르는 역할이 없다. shell main에도
+    // 이 dev 프로세스에는 LOPHN_HOME이 core를 거르는 일이 없다. shell main에도
     // 같은 root를 넣어 두 값이 갈라지지 않게 한다.
     shellEnv[LOPHN_HOME] = dataRoot;
     // shell main은 이 경로로 harness 감지·hook 설치를 하고, 설치된 hook command가 된다.

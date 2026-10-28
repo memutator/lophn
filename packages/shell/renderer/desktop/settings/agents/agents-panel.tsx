@@ -24,7 +24,7 @@ interface AgentsPanelProps {
 }
 
 // Settings › Agents. 모든 project에 적용되는 기본값이다. 위에서 아래로 전역 기본 model 하나, lophn 카드
-// ([Open lophn settings]), 모든 project의 지침(LOPHN.md 미리보기와 [Edit])다. role별 기본 model은 없다.
+// ([Open lophn settings]), 모든 project의 지침(LOPHN.md 미리보기와 [Edit])다. agent별 기본 model은 이 화면에 없다.
 // lophn 카드는 같은 panel 안 둘째 화면을 열고, 거기는 project 없는 agent editor다. Skills와 MCP server는 Tools and skills에 있다.
 
 type Loaded =
@@ -174,7 +174,7 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
 
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>
-              {t("settings.label.role-lophn")}
+              {t("settings.label.lophn-card")}
             </h2>
             <Card>
               <div className={styles.cardHead}>

@@ -40,7 +40,7 @@ interface ArtifactTabProps {
   /** [Edit source]. 입구 file의 절대 path. */
   onEditSource(file: string): void;
   /** pane에 열린 이 project place의 lophn session. 없으면 null. */
-  projectManagerSession(): string | null;
+  placeLophnSession(): string | null;
   /** session의 agent 이름. 모르면 undefined. */
   agentName(session: string): string | undefined;
   /** annotation을 받은 session의 agent 탭을 연다. */
@@ -212,7 +212,7 @@ function OpenTab(
 
   async function sendAnnotations(): Promise<void> {
     const sent = await annotating.send({
-      session: props.projectManagerSession(),
+      session: props.placeLophnSession(),
     });
     if (sent === null) return;
     toastKind.current = "sent";

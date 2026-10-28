@@ -1,5 +1,5 @@
 // Agents 탭과 agent editor가 읽고 쓰는 통로. 정의 파일의 칸과 칸별 값·출처는 protocol/lophn-agent의
-// agent-definitions·operators를, 할당은 approvals/assignment를 그대로 따르고, 화면이 contract만으로 만들 수 없는 것
+// agents를, 할당은 approvals/assignment를 그대로 따르고, 화면이 contract만으로 만들 수 없는 것
 // (켬·끔 줄, 놓을 곳 후보, 붙일 앱 목록)만 여기서 더한다. 화면은 이 통로를 지나는 값으로만 그리고 core를 직접 부르지 않는다.
 import type {
   AgentDefinitionIssue,
@@ -17,7 +17,6 @@ import type {
   UserModelItem,
   UserModelRecord,
 } from "../../../../protocol/lophn-agent/models.ts";
-import type { Role } from "../../../../protocol/lophn-agent/places.ts";
 import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
 import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts";
 import type { DomainView, ReadResult } from "../source.ts";
@@ -32,11 +31,9 @@ export type { ReadResult };
 
 /**
  * 목록의 줄. `assignment`는 agent id(`lophn`이거나 `agt_…`)다. 목록은 전역이고 lophn이 첫 줄이다.
- * `role`은 옛 소비자를 위한 값이라 lophn이면 `lophn`, 나머지는 `operator`만 낸다.
  */
 export interface AgentListRow {
   readonly assignment: string;
-  readonly role: Role;
   readonly name: string;
   readonly profile: Profile;
   readonly model: {
@@ -99,8 +96,6 @@ export interface AgentDetail {
    * 저장된 agent는 null이다.
    */
   readonly draftId: string | null;
-  /** 옛 소비자를 위한 값. lophn이면 `lophn`, 나머지는 `operator`다. */
-  readonly role: Role;
   /** 화면을 연 자리. Settings는 `none`이다. */
   readonly place: PlaceView;
   /** 정의 파일의 내용. 파일이 없거나 틀렸으면 본문만 빈 정의다. */

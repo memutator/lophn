@@ -44,7 +44,6 @@ export interface AgentProfile
 export interface AgentRow {
   readonly id: string;
   readonly name: string;
-  readonly operator?: boolean;
   readonly profile: AgentProfile;
 }
 
@@ -54,19 +53,16 @@ export const AGENT_ROWS: readonly AgentRow[] = [
   {
     id: "eval-analyst",
     name: "Eval analyst",
-    operator: true,
     profile: { shape: "pear", color: "lavender", image: true },
   },
   {
     id: "experiment-planner",
     name: "Experiment planner",
-    operator: true,
     profile: { shape: "round", color: "blue" },
   },
   {
     id: "budget-reviewer",
     name: "Budget reviewer",
-    operator: true,
     profile: { shape: "arch", color: "sage" },
   },
 ];

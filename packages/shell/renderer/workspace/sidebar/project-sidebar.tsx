@@ -56,7 +56,7 @@ const ACTIVITY_ENTRIES: readonly ActivityEntry[] = [
   {
     key: "agent",
     label: t("project-workspace.label.sidebar-tab-agent"),
-    icon: commonIcons.roles,
+    icon: commonIcons.agents,
   },
   {
     key: "artifact",

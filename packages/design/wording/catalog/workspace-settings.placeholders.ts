@@ -30,10 +30,7 @@ export type WorkspaceSettingsPlaceholders = {
     project: "string";
     workflow: "string";
   };
-  "jobs.label.agent-app-engineer": Record<never, never>;
   "jobs.label.agent-lophn": Record<never, never>;
-  "jobs.label.agent-operator": Record<never, never>;
-  "jobs.label.agent-project-manager": Record<never, never>;
   "jobs.label.agent-unnamed": Record<never, never>;
   "jobs.label.at": Record<never, never>;
   "jobs.label.created-by": {
@@ -143,7 +140,6 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.empty.coding-search": Record<never, never>;
   "settings.empty.general": Record<never, never>;
   "settings.empty.shell-rules": Record<never, never>;
-  "settings.error.coding-defaults": Record<never, never>;
   "settings.error.coding-detect": Record<never, never>;
   "settings.error.coding-hooks-install": Record<never, never>;
   "settings.error.font-name": Record<never, never>;
@@ -152,7 +148,6 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.error.value-out-of-range": Record<never, never>;
   "settings.error.value-unknown": Record<never, never>;
   "settings.error.value-wrong-type": Record<never, never>;
-  "settings.heading.coding-defaults": Record<never, never>;
   "settings.heading.shell-rules-built-in": Record<never, never>;
   "settings.heading.shell-rules-project": {
     name: "string";
@@ -189,22 +184,15 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.coding-col-executable": Record<never, never>;
   "settings.label.coding-col-hooks": Record<never, never>;
   "settings.label.coding-col-product": Record<never, never>;
-  "settings.label.coding-col-takes-task": Record<never, never>;
   "settings.label.coding-col-turn-end": Record<never, never>;
-  "settings.label.coding-default-none": Record<never, never>;
-  "settings.label.coding-default-product": Record<never, never>;
   "settings.label.coding-found": Record<never, never>;
   "settings.label.coding-hooks-failed": Record<never, never>;
   "settings.label.coding-hooks-installed": Record<never, never>;
   "settings.label.coding-hooks-missing": Record<never, never>;
-  "settings.label.coding-launch-no": Record<never, never>;
-  "settings.label.coding-launch-yes": Record<never, never>;
-  "settings.label.coding-model": Record<never, never>;
   "settings.label.coding-not-checked": Record<never, never>;
   "settings.label.coding-not-found": Record<never, never>;
   "settings.label.coding-signal-no": Record<never, never>;
   "settings.label.coding-signal-yes": Record<never, never>;
-  "settings.label.coding-stage-connect": Record<never, never>;
   "settings.label.coding-target": Record<never, never>;
   "settings.label.coding-version": {
     version: "string";
@@ -283,12 +271,8 @@ export type WorkspaceSettingsPlaceholders = {
     min: "number";
     max: "number";
   };
-  "settings.note.coding-default-used": Record<never, never>;
-  "settings.note.coding-defaults-saved": Record<never, never>;
   "settings.note.coding-detect-note": Record<never, never>;
   "settings.note.coding-hooks": Record<never, never>;
-  "settings.note.coding-model": Record<never, never>;
-  "settings.note.coding-signal": Record<never, never>;
   "settings.note.not-set": Record<never, never>;
   "settings.note.shell-rules-built-in": Record<never, never>;
   "settings.note.shell-rules-project": Record<never, never>;

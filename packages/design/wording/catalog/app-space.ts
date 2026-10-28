@@ -111,10 +111,6 @@ export const appSpace = {
   "app-detail.label.rewind-target": "the rewind plan",
   "app-detail.label.rewind-undo": "Undo the changes below in one step",
   "app-detail.label.rewound-title": "{name} is back to just before {time}",
-  "app-detail.label.role-app-engineer": "App Engineer",
-  "app-detail.label.role-lophn": "lophn",
-  "app-detail.label.role-operator": "Agent",
-  "app-detail.label.role-project-manager": "Project Manager",
   "app-detail.label.secret-not-set": "Not set",
   "app-detail.label.secret-set": "Set",
   "app-detail.label.session-unnamed": "session",
@@ -255,7 +251,6 @@ export const appSpace = {
     "{count, plural, one {# annotation} other {# annotations}} sent to the agent",
   "app-space.title.annotations-sent-to":
     "{count, plural, one {# annotation} other {# annotations}} sent to {agent}",
-  "app-space.title.coding-opened": "lophn opened {product}",
   "common.button.open-again": "Open again",
   "common.label.app-mode-live": "Live",
   "common.label.app-mode-preview": "Preview",

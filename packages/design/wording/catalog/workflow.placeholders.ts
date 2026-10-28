@@ -88,18 +88,6 @@ export type WorkflowPlaceholders = {
     who: "string";
     when: "string";
   };
-  "workflow.label.role-app-engineer": Record<never, never>;
-  "workflow.label.role-harness": Record<never, never>;
-  "workflow.label.role-human": Record<never, never>;
-  "workflow.label.role-job": {
-    title: "string";
-  };
-  "workflow.label.role-job-untitled": Record<never, never>;
-  "workflow.label.role-lophn": Record<never, never>;
-  "workflow.label.role-operator": Record<never, never>;
-  "workflow.label.role-program": Record<never, never>;
-  "workflow.label.role-project-manager": Record<never, never>;
-  "workflow.label.role-unknown": Record<never, never>;
   "workflow.label.running-count": {
     count: "plural";
   };

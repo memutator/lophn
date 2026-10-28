@@ -66,15 +66,15 @@ type TabKind =
   | "terminal"
   | "agent"
   | "agents"
-  | "operator";
+  | "agent-settings";
 
 const KIND_ICON: Record<TabKind, IconProps["icon"]> = {
   document: workspaceIcons.documentEditor,
   search: paletteIcons.search,
   terminal: workspaceIcons.terminal,
   agent: conversationIcons.dock,
-  agents: commonIcons.roles,
-  operator: commonIcons.roles,
+  agents: commonIcons.agents,
+  "agent-settings": commonIcons.agents,
 };
 
 export interface TabSpec {
@@ -226,7 +226,6 @@ const avatarOf = (profile: AgentProfile): AvatarProfile =>
 
 const AGENTS: readonly SidebarAgent[] = AGENT_ROWS.map((row) => ({
   assignment: row.id,
-  role: row.id === "lophn" ? ("lophn" as const) : ("operator" as const),
   name: row.name,
   profile: avatarOf(row.profile),
   waiting: false,
@@ -483,7 +482,7 @@ const job = (
   ...fields,
 });
 
-/** phroner에 걸린 job 넷(PM이 만든 것, PM을 부르는 것, Operator를 부르는 것, workflow를 시작하는 것)과 Grocery의 job 하나. 마지막은 보이지 않아야 한다. */
+/** phroner에 걸린 job 넷(project place의 lophn이 만든 것, 그 lophn을 부르는 것, 사람이 만든 agent를 부르는 것, workflow를 시작하는 것)과 Grocery의 job 하나. 마지막은 보이지 않아야 한다. */
 const JOBS: readonly JobView[] = [
   job(1, {
     title: "Weekly review",

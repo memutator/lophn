@@ -127,7 +127,7 @@ export const artifactKind: TabKindDef = {
         onTitle={(title) => host.patchTab(tab.key, { title }, { later: true })}
         onOpenLink={(url) => openBrowserTab(host, url)}
         onEditSource={(file) => openFile(host, file, { source: true })}
-        projectManagerSession={() => agents?.projectManagerSession() ?? null}
+        placeLophnSession={() => agents?.placeLophnSession() ?? null}
         agentName={(session) => agents?.nameOf(session)}
         onOpenSession={(session) => agents?.openSession(session)}
       />

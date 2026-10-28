@@ -1,8 +1,7 @@
 // 받은 메시지의 보낸 쪽 chip과, chip을 누르면 열리는 panel. 사람이 직접 쓰지 않은 입력(다른 agent의 부탁,
-// lophn이 보낸 알림, coding agent의 메시지, 배달 알림)이 chip을 단다. panel은 맡긴 글, 근거 링크, 보낸 session을
+// lophn이 보낸 알림, 배달 알림)이 chip을 단다. panel은 맡긴 글, 근거 링크, 보낸 session을
 // 읽어 보인다.
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
-import { VendorIcon, vendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { type MessageKey, t } from "@lophn/wording";
@@ -27,20 +26,9 @@ function senderLabel(sender: Sender): string {
   switch (sender.kind) {
     case "agent":
       return sender.name ?? t("conversation.label.sender-agent-other");
-    case "coding":
-      return sender.product === null
-        ? t("conversation.label.sender-coding-unknown")
-        : t("conversation.label.sender-coding", { product: sender.product });
     case "program":
       return sender.label ?? t("conversation.label.sender-program-unknown");
   }
-}
-
-/** coding agent가 보냈으면 그 harness의 vendor 아이콘. */
-function SenderIcon({ sender }: { sender: Sender }): ReactElement | null {
-  if (sender.kind !== "coding" || sender.product === null) return null;
-  const vendor = vendorOf(sender.product);
-  return vendor === undefined ? null : <VendorIcon vendor={vendor} size={14} />;
 }
 
 interface SenderChipProps {
@@ -68,7 +56,6 @@ export function SenderChip({
       <span className={styles.senderFrom}>
         {t("conversation.label.sender-from")}
       </span>
-      <SenderIcon sender={sender} />
       <span className={styles.senderName}>{label}</span>
       <Icon
         icon={open ? commonIcons.collapse : commonIcons.expand}
@@ -80,7 +67,6 @@ export function SenderChip({
 
 const HEAD: Record<Sender["kind"], MessageKey> = {
   agent: "conversation.label.sender-head-handed",
-  coding: "conversation.label.sender-head-handed",
   program: "conversation.label.sender-head-why",
 };
 
@@ -190,7 +176,7 @@ export function SenderPanel({
             {t("conversation.label.sender-sent-from")}
           </p>
           <p className={styles.sessionLink}>
-            <SessionIcon sender={sender} />
+            <Icon icon={commonIcons.openLink} pixels={iconPixels("small")} />
             <TextLink
               onClick={
                 onOpenSession === undefined
@@ -204,18 +190,6 @@ export function SenderPanel({
         </div>
       )}
     </section>
-  );
-}
-
-function SessionIcon({ sender }: { sender: Sender }): ReactElement {
-  const vendor =
-    sender.kind === "coding" && sender.product !== null
-      ? vendorOf(sender.product)
-      : undefined;
-  return vendor === undefined ? (
-    <Icon icon={commonIcons.openLink} pixels={iconPixels("small")} />
-  ) : (
-    <VendorIcon vendor={vendor} size={14} />
   );
 }
 

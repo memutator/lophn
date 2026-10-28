@@ -139,7 +139,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
   const fresh = detail.assignment === null;
   const lophn = detail.assignment === LOPHN_AGENT_ID;
   // credential 이름이 쓰는 이 agent의 id. 새 agent는 저장 전에 미리 받은 id를 쓴다.
-  const operatorId = detail.assignment ?? detail.draftId;
+  const agentId = detail.assignment ?? detail.draftId;
   const issuesOf = (name: FieldName) =>
     props.issues.filter((issue) => fieldOf(issue) === name);
   const loose = props.issues.filter((issue) => fieldOf(issue) === null);
@@ -408,9 +408,9 @@ export function DefinitionForm(props: DefinitionFormProps) {
             set("mcp_off", on ? rest : [...rest, { server_name: name }]);
           }}
         />
-        {operatorId === null ? null : addServer ? (
+        {agentId === null ? null : addServer ? (
           <ServerForm
-            scope={operatorId}
+            scope={agentId}
             taken={[...detail.mcpServers, ...own].map((row) => row.name)}
             onCancel={() => setAddServer(false)}
             onAdd={(server: McpServer) => {

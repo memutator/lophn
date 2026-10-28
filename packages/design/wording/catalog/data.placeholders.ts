@@ -45,11 +45,7 @@ export type DataPlaceholders = {
   "waiting.button.start-now": Record<never, never>;
   "waiting.label.activation-first": Record<never, never>;
   "waiting.label.activation-new": Record<never, never>;
-  "waiting.label.agent-app-engineer": Record<never, never>;
-  "waiting.label.agent-coding": Record<never, never>;
   "waiting.label.agent-lophn": Record<never, never>;
-  "waiting.label.agent-operator": Record<never, never>;
-  "waiting.label.agent-project-manager": Record<never, never>;
   "waiting.label.agent-unnamed": Record<never, never>;
   "waiting.label.declared-tool": Record<never, never>;
   "waiting.label.declared-file-read": Record<never, never>;
@@ -122,7 +118,6 @@ export type DataPlaceholders = {
     target: "string";
   };
   "waiting.notice.coding": Record<never, never>;
-  "waiting.notice.coding-start": Record<never, never>;
   "waiting.notice.decide-failed": Record<never, never>;
   "waiting.notice.empty": Record<never, never>;
   "waiting.notice.job-agent": {
@@ -180,7 +175,6 @@ export type DataPlaceholders = {
     app: "string";
   };
   "waiting.title.coding": Record<never, never>;
-  "waiting.title.coding-start": Record<never, never>;
   "waiting.title.mcp-tool": {
     tool: "string";
   };

@@ -31,7 +31,7 @@ import {
   windowSecretInputOpener,
 } from "../../desktop/settings/core-call.ts";
 import type { DomainView } from "../source.ts";
-import { isAgentId, isAppPlace, roleOf } from "./agent-key.ts";
+import { isAgentId, isAppPlace } from "./agent-key.ts";
 import {
   changeProjectSettings,
   placeOf,
@@ -107,7 +107,6 @@ function newAgentId(bytes: Uint8Array): string {
 function toRow(row: AgentRow): AgentListRow {
   return {
     assignment: row.agent,
-    role: roleOf(row.agent),
     name: row.name,
     profile: row.profile,
     model:
@@ -358,7 +357,6 @@ export function coreAgentsSource(
       value: {
         assignment: agent,
         draftId: null,
-        role: roleOf(agent),
         place: placeView,
         definition: value.definition ?? { body: "" },
         hash: value.hash,
@@ -513,7 +511,6 @@ export function coreAgentsSource(
       const detail: AgentDetail = {
         assignment: null,
         draftId,
-        role: roleOf(draftId),
         place: current,
         definition: { body: "" },
         hash: null,

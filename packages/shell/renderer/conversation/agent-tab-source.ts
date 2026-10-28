@@ -91,7 +91,6 @@ export type Sender =
       readonly agent: AgentId | null;
       readonly name: string | null;
     }
-  | { readonly kind: "coding"; readonly product: string | null }
   | { readonly kind: "program"; readonly label: string | null };
 
 /** 맡긴 글의 근거 링크. */

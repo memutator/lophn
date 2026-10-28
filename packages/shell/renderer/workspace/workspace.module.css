@@ -47,7 +47,7 @@
   background: var(--color-surface-base);
 }
 
-/* 떠 있는 안내 층: 추적 꺼짐·Operator·읽기 실패. 본문 높이를 쓰지 않고 왼쪽 아래에 뜬다.
+/* 떠 있는 안내 층: 추적 꺼짐·agent·읽기 실패. 본문 높이를 쓰지 않고 왼쪽 아래에 뜬다.
    오른쪽 아래는 notification chip 한 칸의 자리다. */
 .notices {
   position: absolute;

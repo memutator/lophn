@@ -2,10 +2,7 @@
 // Agents 탭이 저장·삭제로 목록을 바꾸면 reload로 다시 읽는다.
 import { useCallback, useEffect, useState } from "react";
 import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
-import type {
-  SidebarAgent,
-  SidebarAgentRole,
-} from "../sidebar/sidebar-agent.ts";
+import type { SidebarAgent } from "../sidebar/sidebar-agent.ts";
 import type { AgentsSource } from "./source.ts";
 
 export function useSidebarAgents(
@@ -32,12 +29,9 @@ export function useSidebarAgents(
                     row.profile.image,
                   ),
                 };
-          // SidebarAgentRole은 옛 꼴이라, 지금 나오는 lophn·operator 값은 그대로 들어간다.
-          const role = row.role as SidebarAgentRole;
           return [
             {
               assignment: row.assignment,
-              role,
               name: row.name,
               profile,
               // 답을 기다리는 session은 conversation 쪽이 알려 줄 때 켠다.

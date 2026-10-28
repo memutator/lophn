@@ -26,7 +26,7 @@ import {
 export const commonIcons = {
   projects: FolderKanban,
   documents: FileText,
-  roles: Users,
+  agents: Users,
   settings: Settings,
   search: Search,
   savedView: Bookmark,

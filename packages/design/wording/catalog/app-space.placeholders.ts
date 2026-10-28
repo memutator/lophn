@@ -148,10 +148,6 @@ export type AppSpacePlaceholders = {
     name: "string";
     time: "string";
   };
-  "app-detail.label.role-app-engineer": Record<never, never>;
-  "app-detail.label.role-lophn": Record<never, never>;
-  "app-detail.label.role-operator": Record<never, never>;
-  "app-detail.label.role-project-manager": Record<never, never>;
   "app-detail.label.secret-not-set": Record<never, never>;
   "app-detail.label.secret-set": Record<never, never>;
   "app-detail.label.session-unnamed": Record<never, never>;
@@ -300,9 +296,6 @@ export type AppSpacePlaceholders = {
   "app-space.title.annotations-sent-to": {
     count: "plural";
     agent: "string";
-  };
-  "app-space.title.coding-opened": {
-    product: "string";
   };
   "common.button.open-again": Record<never, never>;
   "common.label.app-mode-live": Record<never, never>;

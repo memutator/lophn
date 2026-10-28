@@ -31,7 +31,7 @@ export function openAgents(host: TabHost): void {
 export const agentsKind: TabKindDef = {
   kind: "agents",
   labelKey: "project-workspace.label.kind-agents",
-  icon: commonIcons.roles,
+  icon: commonIcons.agents,
   fromStored(stored, { key }) {
     const { agent } = stored;
     return {

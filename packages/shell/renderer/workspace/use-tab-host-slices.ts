@@ -26,7 +26,7 @@ import { openFile } from "./kinds/document-editor.tsx";
 import type { AgentsSlice, AgentViewSlice, TabHost } from "./kinds/host.ts";
 import {
   agentRow,
-  openedProjectManagerSession,
+  openedPlaceLophnSession,
   sessionDot,
 } from "./sidebar/panel-sessions.ts";
 import type { DomainView, WorkspaceSource } from "./source.ts";
@@ -137,8 +137,8 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
               session,
             });
           },
-          projectManagerSession: () =>
-            openedProjectManagerSession(sessionStates, project),
+          placeLophnSession: () =>
+            openedPlaceLophnSession(sessionStates, project),
           nameOf: (session) => rowOfSession(session)?.name,
           artifacts: {
             items: artifactList.items,

@@ -4,6 +4,7 @@ import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory, defineRead, defineUpload } from "../base/route.ts";
 import { sha256Schema } from "../base/values.ts";
+import { agentIdSchema } from "../lophn-agent/places.ts";
 import { preparedBlobSchema } from "../storage/blob.ts";
 import {
   appIdSchema,
@@ -139,12 +140,13 @@ export const annotationUploadScreenshot = defineUpload({
 
 // 묶음 하나를 target의 받는 쪽에게 사람 메시지로 보낸다. Router 전달이
 // 비동기라 ledger command가 아니라 memory route다. 저장은 core의 annotation module이 한다.
-// session은 app이면 앱 공간 agent pane에 열려 있는 그 앱 App Engineer의 session이다(없으면 null, 새 session).
-// artifact이면 pane에 열려 있는 그 domain owner의 PM 또는 App Engineer session이고, file이면 그 project의 PM session이다.
-// artifact에서는 core가 받는 쪽을 정할 때 쓰는 마지막 후보다.
+// app이면 agent(없으면 lophn)의 그 앱 place session이고, session이 null이면 새로 연다.
+// artifact이면 그 artifact를 마지막으로 쓴 열린 session이고, 없으면 domain 주인 그릇 place의 lophn session이다.
+// file이면 그 project place의 lophn session이다.
 export const annotationSendInputSchema = z
   .strictObject({
     target: annotationTargetSchema,
+    agent: agentIdSchema.optional(),
     session: idSchema("ses").nullable(),
     annotations: z
       .array(annotationInputSchema)
@@ -153,6 +155,9 @@ export const annotationSendInputSchema = z
   })
   .refine((value) => value.annotations.every((item, i) => item.n === i + 1), {
     message: "annotation n must run 1..N in order",
+  })
+  .refine((value) => value.target.kind === "app" || value.agent === undefined, {
+    message: "only app annotations choose an agent",
   })
   .refine(
     (value) =>

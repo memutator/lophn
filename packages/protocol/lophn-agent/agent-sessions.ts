@@ -5,8 +5,10 @@ import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { modelChoiceOutputSchema } from "./models.ts";
 import {
+  agentIdSchema,
   agentRefOutputSchema,
   agentRefSchema,
+  placeSchema,
   placeOutputSchema,
   rolePlaceFits,
 } from "./places.ts";
@@ -115,4 +117,100 @@ export const AGENT_SESSION_ROUTES = [
   openAgentSession,
   agentSessionRead,
   agentSessionList,
+] as const;
+
+export const placeSessionSchema = z
+  .object({
+    id: idSchema("ses"),
+    agent: agentIdSchema,
+    // null이면 home이다. session을 열 때 정해지고 바뀌지 않는다.
+    place: placeOutputSchema.nullable(),
+    title: sessionTitleSchema.nullable(),
+    lifecycle: sessionLifecycleSchema,
+    forked_from: forkOriginOutputSchema.nullable(),
+    // null이면 agent 기본값을 따른다. 다음 turn부터 resolve한다.
+    model_selection: modelChoiceOutputSchema.nullable(),
+    compaction: compactionOutputSchema.nullable(),
+    // 사람이 켠 동안 이 session의 turn은 허락을 묻지 않는다(deny는 막는다). 바꾸면 다음 turn부터 닿는다.
+    skip: z.boolean(),
+    state_seq: seqSchema,
+  })
+  .refine(
+    (value) =>
+      value.forked_from === null || value.forked_from.session !== value.id,
+    { message: "fork origin is the session itself" },
+  );
+export type PlaceSession = z.infer<typeof placeSessionSchema>;
+
+export const placeSessionOpen = defineCommand({
+  resource: "sessions",
+  method: "open",
+  name: "OpenSession",
+  input: z.strictObject({
+    id: idSchema("ses"),
+    agent: agentIdSchema,
+    place: placeSchema.nullable(),
+  }),
+  output: z.object({
+    id: idSchema("ses"),
+    lifecycle: z.literal("open"),
+    place: placeOutputSchema.nullable(),
+    state_seq: seqSchema,
+  }),
+  compare: z.strictObject({}),
+  actors: ["user"],
+  errors: [...commandErrors],
+});
+
+export const placeSessionRead = defineRead({
+  resource: "sessions",
+  method: "read",
+  name: "ReadSession",
+  input: z.strictObject({ session: idSchema("ses") }),
+  output: withReadCommon(z.object({ session: placeSessionSchema })),
+  actors: ["user", "agent", "machine"],
+  errors: [...readErrors],
+});
+
+export const placeSessionList = defineRead({
+  resource: "sessions",
+  method: "list",
+  name: "ListSessions",
+  input: z.strictObject({
+    agent: agentIdSchema,
+    place: placeSchema.nullable(),
+    archived: z.enum(SESSION_ARCHIVED_CHOICES).optional(),
+    cursor: readCursorSchema.optional(),
+  }),
+  output: withReadCommon(z.object({ sessions: z.array(placeSessionSchema) })),
+  actors: ["user", "agent", "machine"],
+  errors: [...readErrors],
+});
+
+export const placeSessionCompactRequests = defineRead({
+  resource: "sessions",
+  method: "compact-requests",
+  name: "ListSessionCompactRequests",
+  input: z.strictObject({}),
+  output: withReadCommon(
+    z.object({
+      requests: z.array(
+        z.object({
+          session: idSchema("ses"),
+          agent: agentIdSchema,
+          place: placeOutputSchema.nullable(),
+          request_seq: seqSchema,
+        }),
+      ),
+    }),
+  ),
+  actors: ["machine"],
+  errors: [...readErrors],
+});
+
+export const PLACE_SESSION_ROUTES = [
+  placeSessionOpen,
+  placeSessionRead,
+  placeSessionList,
+  placeSessionCompactRequests,
 ] as const;

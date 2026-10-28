@@ -236,6 +236,11 @@ function cyclicEdges(edges: Edge[]): Edge[] {
 // 쓰는 곳을 걷고 file을 지우면 여기서도 뺀다. cleanup 때 이 목록은 비어야 한다.
 const LEAVING_FILES = new Set(["packages/protocol/server/registration.ts"]);
 
+// annotation 입력과 lophn agent 계약이 AgentId를 함께 쓴다. places.ts는 base만 import하므로 실행 순환이 아니다.
+const PROTOCOL_CYCLE_EXCEPTIONS = new Set([
+  "packages/protocol/apps/annotation.ts\0../lophn-agent/places.ts",
+]);
+
 async function checkRepo(root: string): Promise<Violation[]> {
   root = normalize(root.startsWith("/") ? root : `${process.cwd()}/${root}`);
   const { files, paths } = await walk(root);
@@ -338,7 +343,14 @@ async function checkRepo(root: string): Promise<Violation[]> {
       const from = protocolTop(file);
       const to = target ? protocolTop(target) : undefined;
       // 순환은 제품 코드의 import로만 센다. test가 두 module을 같이 쓰는 것은 실행 순환이 아니다.
-      if (from && to && from !== to && !testCode && !LEAVING_FILES.has(file)) {
+      if (
+        from &&
+        to &&
+        from !== to &&
+        !testCode &&
+        !LEAVING_FILES.has(file) &&
+        !PROTOCOL_CYCLE_EXCEPTIONS.has(`${file}\0${specifier}`)
+      ) {
         edges.push({ from, to, file, line });
       }
       const targetPackage = target?.startsWith("packages/")

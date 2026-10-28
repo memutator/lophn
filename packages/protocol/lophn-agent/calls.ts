@@ -6,6 +6,9 @@ import { annotationIdSchema } from "../apps/annotation.ts";
 import { codingOptionsSchema } from "../coding-agent/harness-id.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import {
+  agentAddressSchema,
+  agentAtPlaceOutputSchema,
+  agentIdSchema,
   agentRefOutputSchema,
   agentRefSchema,
   placeOutputSchema,
@@ -289,4 +292,133 @@ export const CALL_ROUTES = [
   callCancel,
   callSendable,
   callRead,
+] as const;
+
+export const callAddressInputSchema = z.union([
+  z.strictObject({ session: idSchema("ses") }),
+  agentAddressSchema,
+  agentAddressSchema.extend({
+    session: idSchema("ses"),
+    fallback: z.literal("new"),
+  }),
+]);
+export type CallAddressInput = z.infer<typeof callAddressInputSchema>;
+
+export const callTargetSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("new_session"),
+    agent: agentAtPlaceOutputSchema,
+  }),
+  z.object({ kind: z.literal("open_session"), session: idSchema("ses") }),
+  z.object({
+    kind: z.literal("open_session_or_new"),
+    session: idSchema("ses"),
+    agent: agentAtPlaceOutputSchema,
+  }),
+]);
+export type CallTarget = z.infer<typeof callTargetSchema>;
+
+// Router 안에서 쓰는 풀린 봉투다. from은 core가 호출자 identity로 채운다.
+export const agentCallEnvelopeSchema = z
+  .object({
+    call: idSchema("cal"),
+    from: callFromOutputSchema,
+    to: callTargetSchema,
+    reply: callReplySchema,
+    body: z.string().min(1),
+    refs: z.array(callRefOutputSchema),
+    reply_to: idSchema("cal").nullable(),
+    // 보낸 쪽 tool call ID. agent가 보낸 call에만 있다.
+    dedup: z.string().min(1).nullable(),
+    // 보낸 turn의 mode가 unattended면 true. 답과 늦은 실패, 취소 알림이 이 표시를 따른다.
+    unattended: z.boolean(),
+  })
+  .refine((v) => v.dedup === null || v.from.kind === "agent", {
+    message: "dedup is only for an agent-originated call",
+  });
+export type AgentCallEnvelope = z.infer<typeof agentCallEnvelopeSchema>;
+
+// agent_calls 행이다. 내용(body, refs)은 받는 session 기록에 있다.
+export const agentCallRowSchema = z
+  .object({
+    call: idSchema("cal"),
+    from: callFromOutputSchema,
+    to: callTargetSchema,
+    // 배달이 실패하면 null이다.
+    receiver_session: idSchema("ses").nullable(),
+    reply: callReplySchema,
+    state: callStateSchema,
+    fail_reason: callFailReasonSchema.nullable(),
+    dedup: z.string().min(1).nullable(),
+    unattended: z.boolean(),
+    created_at: atSchema,
+    state_changed_at: atSchema,
+  })
+  .refine((v) => (v.state === "failed") === (v.fail_reason !== null), {
+    message: "fail_reason belongs to a failed call",
+  });
+export type AgentCallRow = z.infer<typeof agentCallRowSchema>;
+
+export const agentCallSend = defineCommand({
+  resource: "calls",
+  method: "send",
+  name: "SendCall",
+  input: z.strictObject({
+    to: callAddressInputSchema,
+    reply: callReplySchema,
+    body: z.string().min(1),
+    refs: z.array(callRefSchema),
+    dedup: z.string().min(1),
+    // 보낸 turn의 mode가 unattended일 때만 tool이 싣는다. model 입력에는 없다.
+    unattended: z.literal(true).optional(),
+  }),
+  output: z.object({
+    call: idSchema("cal"),
+    state: callStateSchema,
+    fail_reason: callFailReasonSchema.nullable(),
+  }),
+  compare: z.strictObject({}),
+  actors: ["agent"],
+  errors: [...commandErrors],
+});
+
+export const agentCallSendable = defineRead({
+  resource: "calls",
+  method: "sendable",
+  name: "ListSendableSessions",
+  input: z.strictObject({}),
+  output: withReadCommon(
+    z.object({
+      sessions: z.array(
+        z.object({
+          session: idSchema("ses"),
+          agent: agentIdSchema,
+          name: z.string(),
+          place: placeOutputSchema.nullable(),
+          state: z.enum(SENDABLE_SESSION_STATES),
+        }),
+      ),
+    }),
+  ),
+  actors: ["agent"],
+  errors: [...readErrors],
+});
+
+// 상태 구독은 없다. 누를 때 읽는다.
+export const agentCallRead = defineRead({
+  resource: "calls",
+  method: "read",
+  name: "ReadCall",
+  input: z.strictObject({ call: idSchema("cal") }),
+  output: withReadCommon(z.object({ call: agentCallRowSchema })),
+  actors: ["user", "agent", "machine"],
+  errors: [...readErrors],
+});
+
+export const AGENT_CALL_ROUTES = [
+  agentCallSend,
+  callReply,
+  callCancel,
+  agentCallSendable,
+  agentCallRead,
 ] as const;

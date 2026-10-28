@@ -25,7 +25,7 @@ lead만 고친다. `tools/status.py remove-role build`가 `tasks/*.md`에서 id,
 | `e2e-agents` | e2e | 3 | shell-events | todo |  |  |  |
 | `e2e-apps` | e2e | 3 | e2e-agents | todo |  |  |  |
 | `eval-scenarios` | eval | 3 | shell-events | todo |  |  |  |
-| `shell-conversation` | shell | 3 | shell-events | todo |  |  |  |
+| `shell-conversation` | shell | 3 | shell-events | merged | shell/shell-conversation | 0d686dbaf |  |
 | `shell-desktop` | shell | 3 | shell-events, shell-workspace | todo |  |  |  |
 | `shell-events` | shell | 3 | 없음 | merged | shell/shell-events | a21a5a22b |  |
 | `shell-workspace` | shell | 3 | shell-events | merged | shell/shell-workspace | f6706525e |  |

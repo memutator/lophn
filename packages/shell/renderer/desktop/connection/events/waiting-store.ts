@@ -8,10 +8,9 @@ import type {
   EventCondition,
   SessionSnapshot,
 } from "../../../../../protocol/events/mod.ts";
-import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
-import {
-  LOPHN_AGENT_ID,
-  type placeOutputSchema,
+import type {
+  AgentId,
+  placeOutputSchema,
 } from "../../../../../protocol/lophn-agent/places.ts";
 import type { z } from "zod";
 import type { TerminalApi, TerminalRuntime } from "../../../../ipc/terminal.ts";
@@ -35,7 +34,7 @@ interface QuestionRequest {
 interface Common {
   readonly id: string;
   readonly session: string | null;
-  readonly agent: CallAgent | null;
+  readonly agent: AgentId | null;
   readonly place: Place | null;
   /** event의 시각. snapshot에서 온 항목은 request가 만들어진 시각이다. */
   readonly receivedAt: string;
@@ -114,7 +113,7 @@ export function createWaitingStore(
   // main이 push하는 runtime에서만 안다. 창이 뜨기 전에 끝난 turn은 다음 push 때 보인다.
   const finished = new Map<string, FinishedTerminal>();
   // session의 agent와 place는 SessionStarted와 snapshot에 실려 온다.
-  const sessions = new Map<string, { agent: CallAgent; place: Place | null }>();
+  const sessions = new Map<string, { agent: AgentId; place: Place | null }>();
 
   function publish() {
     const list = [...entries.values()];
@@ -179,10 +178,7 @@ export function createWaitingStore(
       id: hold.job_run.id,
       kind: "job_hold",
       session: null,
-      agent:
-        hold.job.creator.agent === LOPHN_AGENT_ID
-          ? { role: "lophn" }
-          : { role: "operator", agent: hold.job.creator.agent },
+      agent: hold.job.creator.agent,
       place: hold.job.creator.place,
       receivedAt: hold.job_run.created_at,
       hold,

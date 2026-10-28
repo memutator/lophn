@@ -6,8 +6,9 @@ import { BrowserWindow, Notification } from "electron";
 
 import { en } from "../../../../design/wording/en.ts";
 import { sessionSnapshotsList } from "../../../../protocol/events/mod.ts";
-import { agentDefinitionRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
-import { agentSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
+import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import { placeSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
+import { LOPHN_AGENT_ID } from "../../../../protocol/lophn-agent/places.ts";
 import { askRead } from "../../../../protocol/lophn-agent/ask-tool.ts";
 import { messageBody } from "../../../../protocol/lophn-agent/messages.ts";
 import {
@@ -50,14 +51,6 @@ const TITLES = {
     plain: "common.title.agent-needs-permission",
     placed: "common.title.agent-needs-permission-in",
   },
-} as const;
-
-// 정의를 읽지 못할 때만 쓴다.
-const AGENT_LABELS = {
-  lophn: "waiting.label.agent-lophn",
-  operator: "waiting.label.agent-operator",
-  project_manager: "waiting.label.agent-project-manager",
-  app_engineer: "waiting.label.agent-app-engineer",
 } as const;
 
 // 이 파일이 읽는 core event payload의 칸(protocol/events/agent.ts).
@@ -220,25 +213,24 @@ export function createNoticeWiring(
   }
 
   // 누구의 어느 session인지. agent 이름·profile은 사람이 바꿀 수 있고 session 이름도 바뀌어서 알릴 때마다 읽는다.
-  // coding_agent는 이 알림의 대상이 아니다.
   async function who(session: string): Promise<UnseenSession | null> {
     const snapshots = await read("read", sessionSnapshotsList, {
       sessions: [session],
     });
     const agent = snapshots?.snapshots[0]?.agent;
-    if (
-      agent === undefined ||
-      agent === null ||
-      agent.role === "coding_agent"
-    ) {
-      return null;
-    }
+    if (agent === undefined) return null;
     const [definition, record] = await Promise.all([
-      read("read", agentDefinitionRead, { agent }),
-      read("read", agentSessionRead, { session }),
+      read("read", agentRead, { agent }),
+      read("read", placeSessionRead, { session }),
     ]);
+    // 정의를 읽지 못하면 이름 대신 lophn과 그 밖의 agent만 가른다.
     const name =
-      definition?.effective.name.value ?? word(AGENT_LABELS[agent.role]);
+      definition?.effective.name.value ??
+      word(
+        agent === LOPHN_AGENT_ID
+          ? "waiting.label.agent-lophn"
+          : "waiting.label.agent-unnamed",
+      );
     const profile = definition?.effective.profile.value;
     // 올린 이미지는 renderer만 읽을 주소가 있어 이름 첫 글자로 갈음한다(Agent 화면 머리와 같다).
     const face: AvatarFace =

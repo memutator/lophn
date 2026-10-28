@@ -2,19 +2,14 @@ import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, durationMsSchema } from "../base/values.ts";
 import { turnRequestSchema } from "../approvals/mod.ts";
-import {
-  callAgentOutputSchema,
-  callFromOutputSchema,
-} from "../lophn-agent/calls.ts";
-import { placeOutputSchema } from "../lophn-agent/places.ts";
+import { callFromOutputSchema } from "../lophn-agent/calls.ts";
+import { agentIdSchema, placeOutputSchema } from "../lophn-agent/places.ts";
 import { toolCallDisplaySchema } from "../lophn-agent/tool-values.ts";
 import { turnOutcomeOutputSchema } from "../lophn-agent/turn-values.ts";
 import { eventTypeSchema } from "../base/event.ts";
 
 // agent event는 session에서 일어나고 메모리로만 흐른다. seq가 없고 저장하지 않는다.
-// coding agent는 SessionStarted, MessageReceived, TurnStarted, TurnEnded, SessionEnded와
-// harness가 물어 올 때의 TurnRequestOpened·TurnRequestClosed만 낸다.
-// lophn agent의 ToolCallStarted·ToolCallEnded, QuestionAsked·QuestionResolved, CompactStarted·CompactEnded는 core가 낸다.
+// ToolCallStarted·ToolCallEnded, QuestionAsked·QuestionResolved, CompactStarted·CompactEnded는 core가 낸다.
 // MessageRecorded는 agent runtime이 감독 pipe로 내고 core가 Bus에 낸다.
 // ModelOutputStreamed(agent runtime이 보낸 날 글을 core가 redaction한 것)와 TurnResumed는 core가 낸다.
 // model 호출의 시작·끝은 event로 두지 않는다(쓰는 중인 글만 흐른다).
@@ -54,9 +49,8 @@ const modelCall = idSchema("mcl");
 const sessionStarted = defineAgentEvent(
   "SessionStarted",
   z.strictObject({
-    agent: callAgentOutputSchema,
+    agent: agentIdSchema,
     place: placeOutputSchema.nullable(),
-    external_session: z.string().min(1).nullable(),
     revived: z.boolean(),
   }),
 );
@@ -79,8 +73,7 @@ const turnStarted = defineAgentEvent(
   z.strictObject({ turn, input_message: idSchema("msg") }),
 );
 
-// outcome은 turnOutcomeSchema와 같은 값이다. active_ms는 lophn agent만 싣고 coding agent는 null이다
-// (harness가 사람 기다림을 알리지 않아 일한 시간을 모른다).
+// outcome은 turnOutcomeSchema와 같은 값이다. active_ms는 사람 기다림을 뺀 일한 시간이고 모르면 null이다.
 const turnEnded = defineAgentEvent(
   "TurnEnded",
   z.strictObject({

@@ -83,7 +83,7 @@ test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요청�
     snapshots: [
       {
         session: SES,
-        agent: { role: "lophn" },
+        agent: "lophn",
         place: null,
         state: "waiting",
         turn_requests: [permission(1)],
@@ -115,7 +115,7 @@ test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요청�
     snapshots: [
       {
         session: SES,
-        agent: { role: "lophn" },
+        agent: "lophn",
         place: null,
         state: "waiting",
         turn_requests: [permission(3)],

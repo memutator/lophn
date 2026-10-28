@@ -611,8 +611,9 @@ export function useAgentTabData(
   const ctx = useMemo<FoldContext>(
     () => ({
       roleOf: (other) => {
-        const role = known.find((one) => one.session === other)?.agent?.role;
-        return role === undefined || role === "coding_agent" ? null : role;
+        const agent = known.find((one) => one.session === other)?.agent;
+        if (agent === undefined || agent === null) return null;
+        return agent === "lophn" ? "lophn" : "operator";
       },
     }),
     [known],

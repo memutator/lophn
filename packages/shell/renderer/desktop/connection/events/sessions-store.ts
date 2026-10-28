@@ -6,8 +6,10 @@ import type {
   SessionSnapshot,
   SessionState,
 } from "../../../../../protocol/events/mod.ts";
-import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
-import type { placeOutputSchema } from "../../../../../protocol/lophn-agent/places.ts";
+import type {
+  AgentId,
+  placeOutputSchema,
+} from "../../../../../protocol/lophn-agent/places.ts";
 import type { LophnNoticeApi, UnseenSession } from "../../../../ipc/notice.ts";
 import type { EventClient } from "./client.ts";
 import { readSessionSnapshots } from "./snapshots.ts";
@@ -22,7 +24,7 @@ export interface SessionEntry {
   readonly archived: boolean;
   /** 끝났다면 이유. 끝난 session도 기록으로는 남는다(지운 것은 목록에서 빠진다). */
   readonly ended: EndReason | null;
-  readonly agent: CallAgent | null;
+  readonly agent: AgentId | null;
   readonly place: Place | null;
   /** 사람이 보지 않는 사이 turn이 끝났다(Agent 탭의 finished 점). main이 정하고 agent 이름·얼굴·session 이름까지 읽어 보낸다. */
   readonly unseen: UnseenSession | null;
@@ -51,7 +53,7 @@ interface Record_ {
   turnActive: boolean;
   pending: Set<string>;
   ended: EndReason | null;
-  agent: CallAgent | null;
+  agent: AgentId | null;
   place: Place | null;
 }
 

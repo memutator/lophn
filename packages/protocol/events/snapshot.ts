@@ -2,28 +2,22 @@ import { z } from "zod";
 import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, durationMsSchema } from "../base/values.ts";
-import { harnessIdSchema } from "../coding-agent/harness-id.ts";
 import { defineRead } from "../base/route.ts";
 import { turnRequestSchema } from "../approvals/mod.ts";
-import {
-  callAgentOutputSchema,
-  SENDABLE_SESSION_STATES,
-} from "../lophn-agent/calls.ts";
-import { placeOutputSchema } from "../lophn-agent/places.ts";
+import { SENDABLE_SESSION_STATES } from "../lophn-agent/calls.ts";
+import { agentIdSchema, placeOutputSchema } from "../lophn-agent/places.ts";
 
-// waiting은 대기 turn request나 질문이 있는 때, unknown은 coding agent가 harness 신호를 못 받았을 때다.
+// waiting은 대기 turn request나 질문이 있는 때다. unknown은 지금 내는 곳이 없다.
 const sessionStateSchema = z.enum(SENDABLE_SESSION_STATES);
 export type SessionState = z.infer<typeof sessionStateSchema>;
 
 // 질문 내용은 싣지 않는다. 질문 read로 읽는다.
 const sessionSnapshotSchema = z.object({
   session: idSchema("ses"),
-  // 창을 연 뒤 만난 session도 누구의 session인지(coding agent인지) 알게 싣는다.
-  agent: callAgentOutputSchema,
+  // 창을 연 뒤 만난 session도 누구의 session인지 알게 싣는다.
+  agent: agentIdSchema,
   place: placeOutputSchema.nullable(),
   state: sessionStateSchema,
-  // coding session만 싣는다. 첫 신호가 SessionStarted인 harness인지 창이 알아야 해서다.
-  harness: harnessIdSchema.optional(),
   // lophn session만 싣는다. 아직 저장되지 않은 model 호출 하나의 글(redaction을 거친 것)이고
   // text·reasoning의 길이가 그 뒤 delta의 offset이다.
   writing: z

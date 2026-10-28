@@ -134,8 +134,8 @@ const FINISHED = [
   {
     id: "session:1",
     target: { kind: "session", session: sid("ses", 1) },
-    face: { kind: "avatar", profile: { kind: "initial", text: "O" } },
-    label: "Operator",
+    face: { kind: "avatar", profile: { kind: "initial", text: "B" } },
+    label: "Bookkeeper",
     title: "Invoice import",
   },
 ] as const satisfies NonNullable<

@@ -3,7 +3,10 @@
 
 import { IconButton } from "@lophn/ui/primitives";
 import { t } from "@lophn/wording";
-import type { CallAgent } from "../../../../../../protocol/lophn-agent/calls.ts";
+import {
+  type AgentId,
+  LOPHN_AGENT_ID,
+} from "../../../../../../protocol/lophn-agent/places.ts";
 import { commonIcons } from "../../../../icons/mod.ts";
 import {
   Avatar,
@@ -12,23 +15,16 @@ import {
 import type { CardView } from "../model.ts";
 import styles from "../waiting.module.css";
 
-const FACES = {
-  lophn: { kind: "character", shape: "square", color: "coral" },
-  operator: { kind: "character", shape: "arch", color: "sage" },
-  project_manager: { kind: "character", shape: "capsule", color: "periwinkle" },
-  app_engineer: { kind: "character", shape: "wide", color: "yellow" },
-  coding_agent: { kind: "character", shape: "pear", color: "teal" },
+// 카드는 정의를 읽지 않는다. lophn(또는 모르는 쪽)과 그 밖의 agent 두 얼굴뿐이다.
+const LOPHN_FACE = {
+  kind: "character",
+  shape: "square",
+  color: "coral",
 } as const;
+const AGENT_FACE = { kind: "character", shape: "arch", color: "sage" } as const;
 
-function faceOf(
-  agent: CallAgent | null,
-  kind: CardView["kind"],
-): AvatarProfile {
-  return agent !== null
-    ? FACES[agent.role]
-    : kind === "activation"
-      ? FACES.app_engineer
-      : FACES.lophn;
+function faceOf(agent: AgentId | null): AvatarProfile {
+  return agent === null || agent === LOPHN_AGENT_ID ? LOPHN_FACE : AGENT_FACE;
 }
 
 export function Head({
@@ -37,13 +33,13 @@ export function Head({
   toggle,
 }: {
   view: CardView;
-  agent: CallAgent | null;
+  agent: AgentId | null;
   toggle?: { open: boolean; onToggle: () => void };
 }) {
   return (
     <div className={styles.who}>
       <span className={styles.face}>
-        <Avatar profile={faceOf(agent, view.kind)} size="sm" />
+        <Avatar profile={faceOf(agent)} size="sm" />
       </span>
       <div className={styles.whoText}>
         <p className={styles.title}>{view.title}</p>

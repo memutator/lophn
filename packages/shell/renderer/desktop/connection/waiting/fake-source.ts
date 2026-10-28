@@ -23,7 +23,7 @@ import {
   type AskQuestion,
   askRead,
 } from "../../../../../protocol/lophn-agent/ask-tool.ts";
-import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
+import type { AgentId } from "../../../../../protocol/lophn-agent/places.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";
 import { createFakeSource, type FakeSource } from "../events/fake-source.ts";
 import type { SettledRow } from "./settled.ts";
@@ -40,18 +40,18 @@ const ago = (minutes: number) =>
 
 interface FakeSession {
   readonly id: string;
-  readonly agent: CallAgent;
+  readonly agent: AgentId;
   readonly place: SessionSnapshot["place"];
 }
 
-const OPERATOR_SESSION: FakeSession = {
+const AGENT_SESSION: FakeSession = {
   id: id("ses", 1),
-  agent: { role: "operator", agent: id("agt", 1) },
+  agent: id("agt", 1),
   place: { kind: "project", id: PROJECT },
 };
 const LOPHN_SESSION: FakeSession = {
   id: id("ses", 4),
-  agent: { role: "lophn" },
+  agent: "lophn",
   place: null,
 };
 
@@ -79,7 +79,7 @@ function turnRequest(
 export const SHELL_COMMAND = () =>
   turnRequest(
     11,
-    OPERATOR_SESSION,
+    AGENT_SESSION,
     1,
     { kind: "shell", command: "git push --force origin main" },
     ["git push *"],
@@ -87,7 +87,7 @@ export const SHELL_COMMAND = () =>
 
 // 지금은 할당된 tool의 바깥 효과를 묻지 않아 실제로는 이 물음이 나오지 않는다. tool 카드의 그림 하나로 둔다.
 export const EXTERNAL_CALL = () =>
-  turnRequest(12, OPERATOR_SESSION, 4, {
+  turnRequest(12, AGENT_SESSION, 4, {
     kind: "mcp_tool",
     server: "mail",
     tool: "send_message",
@@ -276,14 +276,14 @@ export const SETTLED: readonly SettledRow[] = [
   {
     id: "settled-denied",
     title: "Run a command",
-    who: "Operator · Session 000001 · Project 000001",
+    who: "Agent · Session 000001 · Project 000001",
     state: "denied",
-    agent: "Operator",
+    agent: "Agent",
   },
   {
     id: "settled-cancelled",
     title: "Run a command",
-    who: "Operator · Session 000001 · Project 000001",
+    who: "Agent · Session 000001 · Project 000001",
     state: "cancelled",
   },
 ];
@@ -377,7 +377,6 @@ export function createFakeWaiting(
           payload: {
             agent: session.agent,
             place: session.place,
-            external_session: null,
             revived: false,
           },
         });

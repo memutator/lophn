@@ -13,6 +13,7 @@ import {
   useConnection,
 } from "../connection/connection.tsx";
 import { useSessions } from "../connection/events/hooks.tsx";
+import { LOPHN_AGENT_ID } from "../../../../protocol/lophn-agent/places.ts";
 import { WaitingLayer } from "../connection/waiting/waiting-layer.tsx";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
 import { sortApps } from "../../apps/model.ts";
@@ -104,7 +105,12 @@ export function Launcher({
     if (lophnSession === undefined) {
       setLophnSession(
         sessions
-          .filter((item) => item.ended === null && item.agent?.role === "lophn")
+          .filter(
+            (item) =>
+              item.ended === null &&
+              item.agent === LOPHN_AGENT_ID &&
+              item.place === null,
+          )
           .at(-1)?.session ?? null,
       );
     }

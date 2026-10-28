@@ -12,7 +12,6 @@ import {
 } from "../../../../protocol/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
-  agentRefOf,
   hasUnfinishedTurn,
   loadSession,
   openSessions,
@@ -103,7 +102,7 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
           const questions = ctx.questionWaits.list(row.id);
           snapshots.push({
             session: row.id,
-            agent: agentRefOf(row),
+            agent: row.agent,
             place: placeOf(row),
             state:
               turn_requests.length > 0 || questions.length > 0
@@ -115,7 +114,7 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
             elapsed: liveTurns.elapsed(row.id),
             turn_requests,
             questions,
-          } as SessionSnapshot);
+          } satisfies SessionSnapshot);
         }
         return snapshots;
       };

@@ -8,11 +8,12 @@ import type { PanelRun, PanelSession } from "./use-agent-panel.ts";
 import type { RunRecordView } from "./run-list.tsx";
 import type { TabDot } from "../../parts/tab-strip/tab-strip.tsx";
 
-// renderer session store의 agent를 읽는 한 곳. shell-events가 store를 AgentId로 바꿀 때 이 함수만 고친다.
+// renderer session store의 agent를 읽는 한 곳. store는 agent id를 싣는다.
 export function sessionAgentKey(entry: SessionEntry): string | null {
-  return agentKeyOf(entry.agent);
+  return entry.agent;
 }
 
+// run 기록의 agent 대상(옛 꼴)을 sidebar key로 옮긴다.
 function agentKeyOf(agent: CallAgent | null): string | null {
   if (agent === null) return null;
   if (agent.role === "lophn") return "lophn";

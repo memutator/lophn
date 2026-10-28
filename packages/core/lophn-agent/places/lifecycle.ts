@@ -3,7 +3,6 @@ import type { Id } from "../../../protocol/base/ids.ts";
 import type { AgentId, Place } from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import {
-  agentRefOf,
   type AgentSessionRow,
   loadSession,
   nextSessionSeq,
@@ -86,9 +85,8 @@ export function startSession(
     type: "SessionStarted",
     at: tx.now(),
     payload: {
-      agent: agentRefOf(row),
+      agent: row.agent,
       place: placeOf(row),
-      external_session: null,
       revived: false,
     },
   });

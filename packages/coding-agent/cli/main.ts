@@ -224,8 +224,16 @@ export async function cliMain(
       message: "<step> 위치 인자와 --step을 같이 쓰지 않는다",
     });
   }
+  if (parsed.app !== undefined && slots.includes("app")) {
+    return await fail({
+      code: "invalid_input",
+      message: "<app> 위치 인자와 --app을 같이 쓰지 않는다",
+    });
+  }
   // 이 칸들은 run·workflow 명령만 받는다. 다른 명령은 strict 입력이 "모르는 칸"으로 거절한다.
   if (parsed.agent !== undefined) candidate.agent = parsed.agent;
+  if (parsed.project !== undefined) candidate.project = parsed.project;
+  if (parsed.app !== undefined) candidate.app = parsed.app;
   if (parsed.session !== undefined) candidate.session = parsed.session;
   if (parsed.schema !== undefined) candidate.schema = parsed.schema;
   if (parsed.step !== undefined) candidate.step = parsed.step;

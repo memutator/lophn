@@ -50,7 +50,7 @@ function runRecord(result: string) {
   return {
     id: RUN_ID,
     kind: "agent",
-    target: { agent: { role: "lophn" } },
+    target: { agent: { agent: "lophn", place: null } },
     session: null,
     session_opened: false,
     input_message: null,

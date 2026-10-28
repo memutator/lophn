@@ -10,6 +10,8 @@ export type ParsedArgs = {
   input: string | undefined;
   inputFile: string | undefined;
   agent: string | undefined;
+  project: string | undefined;
+  app: string | undefined;
   session: string | undefined;
   schema: string | undefined;
   step: string | undefined;
@@ -23,6 +25,8 @@ const VALUE_FLAGS = [
   "--input",
   "--input-file",
   "--agent",
+  "--project",
+  "--app",
   "--session",
   "--schema",
   "--step",
@@ -40,6 +44,8 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     input: undefined,
     inputFile: undefined,
     agent: undefined,
+    project: undefined,
+    app: undefined,
     session: undefined,
     schema: undefined,
     step: undefined,
@@ -85,6 +91,8 @@ const FLAG_KEYS = {
   "--input": "input",
   "--input-file": "inputFile",
   "--agent": "agent",
+  "--project": "project",
+  "--app": "app",
   "--session": "session",
   "--schema": "schema",
   "--step": "step",

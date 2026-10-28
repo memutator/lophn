@@ -1,7 +1,10 @@
 // `lophn agent run`, `tool call`, `run wait|show|cancel`: 사람이 쓰는 run 명령이다. 입력은 route 입력이 아니라
 // CLI 칸이라 여기서 route 입력을 만든다. 기다리는 명령은 끝난 run의 값을 stdout에 내고, 실패·취소는 exit 4다.
 import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
-import type { AgentAddress } from "../../../protocol/lophn-agent/mod.ts";
+import {
+  type AgentAddress,
+  LOPHN_AGENT_NAME,
+} from "../../../protocol/lophn-agent/mod.ts";
 import {
   RUN_WAIT_MAX_MS,
   runCancel,
@@ -24,42 +27,6 @@ type Out = Promise<Result<unknown, LophnError>>;
 
 function invalid(message: string): LophnError {
   return { code: "invalid_input", message };
-}
-
-const AGENT_FORMS =
-  "lophn | pm:<project> | ae:<app> | operator:<이름> | operator:<project 또는 app>/<이름> | AgentAddress JSON";
-
-// `--agent`를 AgentAddress로 푼다. `operator:<x>/<이름>`은 place 종류를 말하지 않아 둘이다(project 먼저).
-function resolveAgent(text: string): Result<AgentAddress[], LophnError> {
-  if (text.startsWith("{")) {
-    try {
-      return ok([JSON.parse(text) as AgentAddress]);
-    } catch {
-      return err(invalid("--agent JSON을 읽지 못했다"));
-    }
-  }
-  if (text === "lophn") return ok([{ agent: "lophn" }]);
-  const colon = text.indexOf(":");
-  const kind = colon < 0 ? text : text.slice(0, colon);
-  const rest = colon < 0 ? "" : text.slice(colon + 1);
-  const bad = err(invalid(`--agent는 ${AGENT_FORMS} 꼴이다: ${text}`));
-  if (rest === "") return bad;
-  if (kind === "pm") {
-    return ok([{ agent: "lophn", place: { project: rest } }]);
-  }
-  if (kind === "ae") {
-    return ok([{ agent: "lophn", place: { app: rest } }]);
-  }
-  if (kind !== "operator") return bad;
-  const slash = rest.indexOf("/");
-  if (slash < 0) return ok([{ agent: rest }]);
-  const place = rest.slice(0, slash);
-  const name = rest.slice(slash + 1);
-  if (place === "" || name === "") return bad;
-  return ok([
-    { agent: name, place: { project: place } },
-    { agent: name, place: { app: place } },
-  ]);
 }
 
 function call(
@@ -107,14 +74,10 @@ async function finish(
 
 async function start(
   ctx: RunContext,
-  inputs: Record<string, unknown>[],
+  input: Record<string, unknown>,
   async: boolean,
 ): Promise<Result<unknown, LophnError>> {
-  let started = await call(ctx, runStart, inputs[0]);
-  // 이름이 안 풀린 첫 시도는 session도 run도 남기지 않아 다시 불러도 효과가 두 번 나지 않는다.
-  if (!started.ok && started.error.code === "not_found" && inputs.length > 1) {
-    started = await call(ctx, runStart, inputs[1]);
-  }
+  const started = await call(ctx, runStart, input);
   if (!started.ok) return started;
   const run = runOf(started.value);
   if (async) return ok(ctx.json ? run : run.id);
@@ -130,9 +93,20 @@ function optional(input: Record<string, unknown>, ...keys: string[]) {
 }
 
 function runAgent(input: Record<string, unknown>, ctx: RunContext): Out {
-  if (input.agent !== undefined && input.session !== undefined) {
+  // 이어 쓰는 session의 agent와 place는 열 때 정해져 바뀌지 않는다.
+  if (
+    input.session !== undefined &&
+    (input.agent !== undefined ||
+      input.project !== undefined ||
+      input.app !== undefined)
+  ) {
     return Promise.resolve(
-      err(invalid("--agent와 --session은 같이 쓰지 않는다")),
+      err(invalid("--session은 --agent·--project·--app과 같이 쓰지 않는다")),
+    );
+  }
+  if (input.project !== undefined && input.app !== undefined) {
+    return Promise.resolve(
+      err(invalid("--project와 --app은 같이 쓰지 않는다")),
     );
   }
   let schema: unknown;
@@ -157,21 +131,24 @@ function runAgent(input: Record<string, unknown>, ctx: RunContext): Out {
     ...(schema === undefined ? {} : { schema }),
   };
   if (input.session !== undefined) {
-    return start(ctx, [base], input.async === true);
+    return start(ctx, base, input.async === true);
   }
-  const agents = resolveAgent((input.agent as string | undefined) ?? "lophn");
-  if (!agents.ok) return Promise.resolve(agents);
-  return start(
-    ctx,
-    agents.value.map((agent) => ({ ...base, agent })),
-    input.async === true,
-  );
+  // place가 없으면 home이다. 이름이나 id는 core가 푼다.
+  const agent: AgentAddress = {
+    agent: (input.agent as string | undefined) ?? LOPHN_AGENT_NAME,
+    ...(input.project !== undefined
+      ? { place: { project: input.project as string } }
+      : input.app !== undefined
+        ? { place: { app: input.app as string } }
+        : {}),
+  };
+  return start(ctx, { ...base, agent }, input.async === true);
 }
 
 function callTool(input: Record<string, unknown>, ctx: RunContext): Out {
   return start(
     ctx,
-    [{ kind: "tool", ...optional(input, "app", "tool", "input") }],
+    { kind: "tool", ...optional(input, "app", "tool", "input") },
     input.async === true,
   );
 }

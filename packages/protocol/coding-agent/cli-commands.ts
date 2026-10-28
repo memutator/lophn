@@ -92,13 +92,17 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
     "agent run",
     z.strictObject({
       prompt: z.string().min(1),
-      agent: z
+      agent: z.string().min(1).optional().describe("agent 이름 (없으면 lophn)"),
+      project: z
         .string()
         .min(1)
         .optional()
-        .describe(
-          "lophn | pm:<project> | ae:<app> | operator:<이름> | operator:<project 또는 app>/<이름> | NamedAgent JSON (없으면 lophn)",
-        ),
+        .describe("place가 될 project의 이름이나 id. --app과 같이 쓰지 않는다"),
+      app: z
+        .string()
+        .min(1)
+        .optional()
+        .describe("place가 될 앱의 이름이나 id. --project와 같이 쓰지 않는다"),
       session: idSchema("ses").optional(),
       schema: z.string().min(1).optional().describe("출력 JSON Schema 글"),
       async: z.boolean().optional(),

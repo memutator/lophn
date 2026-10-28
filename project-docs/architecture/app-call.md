@@ -1,6 +1,6 @@
 # app-call
 
-앱은 선언의 `tools[]`에 MCP tool 모양으로 tool을 선언하고, 그 tool을 부르는 길은 여섯이다: 사람이 연 앱 화면, agent의 tool(그 앱의 App Engineer는 preview도), 다른 앱, coding agent의 MCP(preview만), job이 연 tool run(program), flow instance가 연 tool run(flow). 어느 길이든 같은 판정(부른 쪽 확인, 막기)과 같은 기록(invocation)과 같은 직렬화(write는 앱마다 하나씩)를 거쳐야 한다. 그래야 "이 호출이 앱 data에 한 일"을 호출 단위로 알고, 사람이 고른 시점으로 앱 data를 되돌릴 수 있다(rewind). 그래서 모든 호출은 core를 지나고, write 동안의 앱 DB 변경은 changeset으로 떠서 invocation에 붙여 보관한다.
+앱은 선언의 `tools[]`에 MCP tool 모양으로 tool을 선언하고, 그 tool을 부르는 길은 다섯이다: 사람이 연 앱 화면, agent의 tool(그 앱 place의 session은 preview도), 다른 앱, job이 연 tool run(program), flow instance가 연 tool run(flow). 어느 길이든 같은 판정(부른 쪽 확인, 막기)과 같은 기록(invocation)과 같은 직렬화(write는 앱마다 하나씩)를 거쳐야 한다. 그래야 "이 호출이 앱 data에 한 일"을 호출 단위로 알고, 사람이 고른 시점으로 앱 data를 되돌릴 수 있다(rewind). 그래서 모든 호출은 core를 지나고, write 동안의 앱 DB 변경은 changeset으로 떠서 invocation에 붙여 보관한다.
 
 ## 흐름
 
@@ -9,8 +9,7 @@
  agent  ── run-loop tool ─────┼─ core-api(app.call_tool) ─▶ 호출 경로 (core/apps/calls)
  app    ── sdk ─ broker ──────┤              1 부른 쪽 확인        (credential, 도는 turn·부모 invocation·job run·instance)
  program ── job run의 tool run ─┤   (core 안 run 연산만. route로는 못 연다)
- flow  ── instance의 tool run ──┤   (같다)
- coding agent ── MCP /mcp ────┘                preview만(previewOnly): preview bundle 선언으로 판정하고 기록·막기·줄 없이 보낸다
+ flow  ── instance의 tool run ──┘   (같다)
                                              2 막기               agent는 할당(judge), program·flow는 만든 agent의 할당(unattended)과 domain 거르기,
                                                                   앱은 active 앱 grant의 app.call. 묻지 않는다
                                              3 write·external이면 앱별 줄을 얻는다. read는 바로
@@ -89,7 +88,7 @@
   - 줄의 출처는 다섯이고 `text`의 꼴이 다르다. 앱의 stdout·stderr 한 줄은 그대로(머리 `[inv=<id>] `만 떼어 `invocation`으로), SDK `reportProblem(name, message?, details?)`은 `error <name>[: <message>][ <details JSON>]`, 잡히지 않은 예외는 `exception <name>: <message>` 한 줄에 이어 봉인된 bundle의 source map으로 원래 source 줄로 푼 frame마다 `  at <path>:<line>:<column>`, 화면 오류는 `view_error <observation> <name>: <message>`, 앱 process의 비정상 종료는 `process_exit <근거>: <message>`다(근거는 `unexpected_exit`, `v8_oom`, `start_failed`, `ready_timeout`, `crash_loop`). 의도한 정지는 쓰지 않는다. preview 자식(release 준비의 handler 검사 포함)의 출력과 오류는 쓰지 않는다. 화면 오류도 live 화면의 것만 쓴다.
   - 줄마다 redaction을 하고 그 뒤에 300자로 자른다. 순서가 바뀌면 자른 줄에 secret 일부가 남는다. supervisor의 redaction은 credential pattern과, core에서 받아 앱에 건넨 secret 값(`apps.secret_value`)을 지운다. log가 disk에 남으므로 바깥 응답에 되돌아온 secret을 앱이 찍어도 file에 남지 않게 하려는 것이다.
   - 읽기는 core route `apps/logs`(`app.logs`)다. core가 두 file을 바로 읽어 `invocation`, `since`(포함), `until`(제외)로 거르고 가장 최근 `limit`줄(기본 200, 최대 1000)을 오래된 것부터 준다. supervisor를 거치지 않으므로 앱이 멈췄거나 crash loop여도 읽힌다. 읽을 때 알려진 secret 값으로 한 번 더 지우고, 안전하게 만들지 못한 줄이 있으면 읽기 전체가 `unavailable`이다.
-  - actor는 user, coding_agent, agent, app이다. lophn과 App Engineer는 tool `app.logs`로 부른다. `coding_agent` actor는 쓰는 곳이 없고 wave 4가 지운다. 앱 상태(`app.status`)와 호출 기록(`app.invocations`)도 같은 식으로 읽어, 앱을 진단하는 쪽은 이 셋을 본다.
+  - actor는 user, agent, app이다. agent는 tool `app.logs`로 부른다. 앱 상태(`app.status`)와 호출 기록(`app.invocations`)도 같은 식으로 읽어, 앱을 진단하는 쪽은 이 셋을 본다.
 - 앱 process는 권한을 막지 않는다(사람이 정했다). SDK 셋(`@lophn/cap-net`, `@lophn/cap-secret`, `@lophn/cap-fs`)으로 나가는 일은 선언에 적고, net과 secret은 broker가 요청마다 선언 사실 ∩ 사람의 grant를 본다. fs는 선언이 무엇에 닿는지 보이는 값일 뿐 막지 않는다.
   - net: SDK의 요청은 앱 supervisor의 broker(`net/fetch`)가 보낸다. broker가 요청마다 목적지(host·port)를 선언 사실 ∩ grant로 검사한다. 앱 process의 network는 막지 않으므로 이 검사는 이 client를 지나는 요청에만 걸린다. redirect는 한 단계마다 같은 검사를 다시 받고, 플랫폼 port는 grant가 있어도 막는다. 이 검사가 틀리면 supervisor가 아무 곳이나 간다.
   - loopback 목적지는 http, 그 밖은 https다. 사람이 켠 같은 컴퓨터의 서비스를 부르려는 것이고 기계 밖으로 나가지 않는다. https에서 http로 내려가는 redirect는 거절한다.
@@ -112,7 +111,7 @@
 - **program caller를 따로 둔다.** 사람이 연 run의 호출은 사람의 호출이라 Gate를 거치지 않는다. job의 호출은 사람이 없는데 그 사슬을 맡긴 것은 agent가 만든 job이라, 만든 agent의 할당 안이어야 한다. agent caller는 도는 turn과 tool call을 싣고 그것으로 확인하는데 job에는 그것이 없다. 그래서 job과 job run을 싣고 core가 만든 자격과 맞춰 본다. person을 빌려 쓰면 Gate를 건너뛰고, agent를 빌려 쓰면 없는 turn을 만들어야 한다.
 - **flow caller를 program에서 가른다.** flow instance의 호출도 사람이 없고 자격의 agent(PM)가 따로 있어 판정은 program과 같다. 그래도 job이 없으니 본문과 자격이 맞춰 볼 것이 instance다. 같은 kind에 job과 instance를 nullable로 두면 parser 손 사본마다 둘 중 하나만 있는지를 다시 검사해야 한다.
 - **agent에게는 앱 tool이 그대로 tool로 보인다**(`<domain>_<tool>`, tool 이름의 `.`은 `_`, 예: `calendar_event_list`). 내장 tool의 `<자원>_<동사>`와 같은 꼴이다. domain 이름은 모든 domain에서 하나이고 `_`가 없어 앱 id 없이 겹치지 않는다. 내장 자원 이름과 `mcp`는 domain 이름으로 쓰지 못하고(`RESERVED_DOMAIN_NAMES`), 한 앱 안에서 이름이 같아지는 두 tool은 선언 검사가 거절한다. hash는 64자를 넘을 때만 붙인다. 앱 tool은 deferral이 켜진 session에서 이름만 알리고 domain 묶음으로 불러온다(`architecture/agent-definition.md`). 앱 할당과 release 선언 사실(tool 이름)의 교집합만 tool 정의가 되고 사람이 뺀 tool은 요청에 아예 없다. 효과(read, write, external)와 `outputSchema`는 tool 정의에 싣지 않고 core가 release의 선언에서 읽어 줄 세우기와 기록에 쓴다. 조사한 harness 모두 정의에 효과를 싣지 않고 호출 때 판정한다. tool 이름은 parse하지 않고 정의 목록이 (앱, tool)을 안다.
-- **선언은 MCP tool 모양 하나다.** 화면 bridge(`window.lophnApp.callTool`), SDK(`tool(name, handler)`), agent tool, coding agent MCP가 모두 같은 이름과 schema를 쓴다. lophn 칸(`effect`, `public`)은 MCP 정의 밖에 두고, 바깥에는 annotation으로만 보인다.
+- **선언은 MCP tool 모양 하나다.** 화면 bridge(`window.lophnApp.callTool`), SDK(`tool(name, handler)`), agent tool이 모두 같은 이름과 schema를 쓴다. lophn 칸(`effect`, `public`)은 MCP 정의 밖에 두고, 바깥에는 annotation으로만 보인다.
 - **session rewind가 앱 data를 저절로 되돌리지 않는다.** 시점 단위라 그 사이 다른 쪽의 변경도 함께 사라지기 때문이다. 사람이 앱을 골랐을 때만, 함께 되돌아갈 목록을 보인 뒤 같은 rewind로 간다(Claude Code의 rewind 메뉴가 코드와 대화를 따로 고르게 하는 것과 같다).
 - **바깥 net의 목적지 검사는 broker가 요청마다 한다.** 앱 process의 OS 권한을 막지 않으므로(사람이 정했다) process 권한으로는 목적지를 가둘 수 없다. 그래서 SDK 요청마다 현재 선언 사실 ∩ grant를 읽는 쪽을 골랐다.
 - **secret은 값을 앱에 주지 않고 전송 직전에 붙인다.** 앱이 값을 쥐면 응답, 오류, log로 새는 길을 앱 코드마다 막아야 한다. 앱은 쓰겠다는 요청만 내고, 값은 core가 supervisor에게 한 번 주어 붙인다.

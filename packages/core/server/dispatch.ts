@@ -164,7 +164,6 @@ function actorKind(actor: string): Route["actors"][number] | undefined {
   const kind = actor.split(":", 1)[0];
   if (
     kind === "user" ||
-    kind === "coding_agent" ||
     kind === "agent" ||
     kind === "app" ||
     kind === "machine"

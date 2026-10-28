@@ -79,7 +79,7 @@ const readErrors = [
   "conflict",
   "unavailable",
 ] as const;
-const readers = ["user", "coding_agent", "agent", "app"] as const;
+const readers = ["user", "agent", "app"] as const;
 
 export const projectApi = {
   register: defineCommand({

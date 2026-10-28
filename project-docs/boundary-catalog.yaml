@@ -47,7 +47,7 @@ elements:
 
       - id: apps
         kind: subsystem
-        description: 사람이 만들고 쓰는 앱. project에 묶이지 않는 그릇이고 앱마다 App Engineer가 있다.
+        description: 사람이 만들고 쓰는 앱. project에 묶이지 않는 그릇이다.
         children:
 
           - id: app-releases
@@ -88,11 +88,11 @@ elements:
 
       - id: agent-places
         kind: component
-        description: lophn role 층(lophn, Project Manager, App Engineer, Operator). role마다의 tool 목록, prompt, place 정보, role 표(built-in 이름·기본 profile·정의 file 자리), place 폴더 규칙, data root 아래 자리, 내장 skill.
+        description: lophn place 층(home, project, app). place 종류마다의 tool 목록, prompt, place 정보, lophn 내장 정의, place 폴더 규칙, data root 아래 자리, 내장 skill.
 
       - id: lophn-agent
         kind: subsystem
-        description: lophn 안의 agent를 정의하고 돌리는 harness. role 이름과 feature module의 route를 모르고 등록받은 tool로 돈다.
+        description: lophn 안의 agent를 정의하고 돌리는 harness. place 종류와 feature module의 route를 모르고 등록받은 tool로 돈다.
         children:
 
           - id: agents
@@ -191,7 +191,7 @@ elements:
 
   - id: user-package
     kind: extension
-    description: 앱의 App Engineer가 올린 사용자 package.
+    description: 앱 place의 session이 올린 사용자 package.
     depends_on:
       - sdk
 

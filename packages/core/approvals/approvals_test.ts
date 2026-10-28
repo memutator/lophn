@@ -30,7 +30,7 @@ test("사람이 아닌 자격은 turn request를 결정하지 못한다", async 
   );
   assert.ok(opened.ok);
 
-  for (const actor of [`agent:${SES}`, `coding_agent:${SES}`, "machine"]) {
+  for (const actor of [`agent:${SES}`, "machine"]) {
     const refused = await approvals.decide(
       { actor },
       {

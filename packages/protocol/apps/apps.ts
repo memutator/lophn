@@ -83,7 +83,7 @@ const appConnectSourceInputSchema = z.strictObject({
 });
 export const appInputSchema = z.strictObject({ app: appIdSchema });
 
-// 등록은 user 또는 전체 scope coding connection만 받는다.
+// 등록은 user와 agent만 받는다.
 export const appCreate = defineCommand({
   resource: "apps",
   method: "create",
@@ -91,10 +91,10 @@ export const appCreate = defineCommand({
   input: appCreateInputSchema,
   output: appSchema,
   compare: z.strictObject({}),
-  actors: ["user", "coding_agent", "agent"],
+  actors: ["user", "agent"],
   errors: ["forbidden", "invalid_input", "not_found", "conflict"],
 });
-// source 연결은 user, 그 앱 범위 connection, 그 앱의 App Engineer, core가 새 앱의 source를 이을 때 machine만 받는다.
+// source 연결은 user, 그 앱 place의 agent, core가 새 앱의 source를 이을 때 machine만 받는다.
 export const appConnectSource = defineCommand({
   resource: "apps",
   method: "connect_source",
@@ -102,7 +102,7 @@ export const appConnectSource = defineCommand({
   input: appConnectSourceInputSchema,
   output: appSchema,
   compare: appCompareSchema,
-  actors: ["user", "coding_agent", "agent", "machine"],
+  actors: ["user", "agent", "machine"],
   errors: ["forbidden", "invalid_input", "conflict", "not_found"],
 });
 export const appArchive = defineCommand({
@@ -153,7 +153,7 @@ const readErrors = [
   "unavailable",
 ] as const;
 // machine은 agent runtime이 앱 목록을 읽는다.
-const readActors = ["user", "coding_agent", "agent", "app", "machine"] as const;
+const readActors = ["user", "agent", "app", "machine"] as const;
 export const appList = defineRead({
   resource: "apps",
   method: "list",

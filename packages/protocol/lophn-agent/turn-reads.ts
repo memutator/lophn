@@ -29,7 +29,7 @@ const readErrors = [
   "unavailable",
 ] as const;
 
-const readActors = ["user", "agent", "machine", "coding_agent"] as const;
+const readActors = ["user", "agent", "machine"] as const;
 
 export const turnRead = defineRead({
   resource: "turns",

@@ -171,7 +171,7 @@ type Paths = {
   definition: string;
 };
 
-test("E2E PM은 권한 제한 없이 도는 runtime에서도 data root의 비밀과 설정을 읽거나 쓰지 못하고, project 폴더에는 쓴다", async () => {
+test("E2E project place session은 권한 제한 없이 도는 runtime에서도 data root의 비밀과 설정을 읽거나 쓰지 못하고, project 폴더에는 쓴다", async () => {
   await scope(
     (p): Row[][] => [
       [
@@ -213,7 +213,7 @@ test("E2E PM은 권한 제한 없이 도는 runtime에서도 data root의 비밀
   );
 });
 
-test("E2E PM은 다른 project 폴더와 자기 agent 정의 file에 쓰지 못한다", async () => {
+test("E2E project place session은 다른 project 폴더와 자기 agent 정의 file에 쓰지 못한다", async () => {
   await scope(
     (p): Row[][] => [
       [
@@ -237,7 +237,7 @@ test("E2E PM은 다른 project 폴더와 자기 agent 정의 file에 쓰지 못�
   );
 });
 
-test("E2E PM은 project 폴더 안 symlink를 따라 밖에 쓰지 못한다", async () => {
+test("E2E project place session은 project 폴더 안 symlink를 따라 밖에 쓰지 못한다", async () => {
   await scope(
     (): Row[][] => [
       [

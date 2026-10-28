@@ -38,7 +38,7 @@ const previewObservationSchema = z
   });
 export type PreviewObservation = z.infer<typeof previewObservationSchema>;
 
-const readActors = ["user", "coding_agent", "agent", "machine"] as const;
+const readActors = ["user", "agent", "machine"] as const;
 const readErrors = [
   "invalid_input",
   "unauthorized",

@@ -73,6 +73,6 @@ export const eventsList = defineRead({
   name: "ListEvents",
   input: eventsListInputSchema,
   output: eventsListOutputSchema,
-  actors: ["user", "coding_agent", "agent", "app", "machine"],
+  actors: ["user", "agent", "app", "machine"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });

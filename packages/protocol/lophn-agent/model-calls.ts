@@ -35,7 +35,7 @@ const readErrors = [
   "not_found",
   "unavailable",
 ] as const;
-const readActors = ["user", "agent", "machine", "coding_agent"] as const;
+const readActors = ["user", "agent", "machine"] as const;
 
 const startModelCallInputSchema = z
   .strictObject({

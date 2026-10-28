@@ -45,7 +45,7 @@ export const instructionPreview = defineRead({
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });
 
-// 지침은 4층이 이어 붙는다: 전역, project(LOPHN.md), domain(DOMAIN.md), agent. built-in role 지침은 prompt의
+// 지침은 4층이 이어 붙는다: 전역, project(LOPHN.md), domain(DOMAIN.md), agent. place 종류 지침은 prompt의
 // 고정 본문이라 층이 아니고 app 층은 없다. 이어 붙이는 순서가 이 배열 순서다.
 export const PROMPT_INSTRUCTION_LAYERS = [
   "global",

@@ -389,7 +389,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         fake.script([text("noted")], PROJECT);
         const known = await sessionIds(c, LOPHN_AGENT_ID, atProject);
         const a = await openPlaceSession(c, LOPHN_AGENT_ID);
-        await say(c, a, "tell the project manager");
+        await say(c, a, "tell lophn at the project");
         const b = await opened(c, LOPHN_AGENT_ID, atProject, known);
         await waitTurnEnd(c, b);
         await waitTurnEnd(c, a);
@@ -601,7 +601,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         await say(c, b, "write the file");
         const { request } = await waitPermission(c, b);
         const a = await openPlaceSession(c, LOPHN_AGENT_ID);
-        await say(c, a, "tell the project manager");
+        await say(c, a, "tell lophn at the project");
         await waitTurnEnd(c, a);
         const human = (await say(c, b, "human-follow-up")).message;
         await decide(c, b, request, "once");

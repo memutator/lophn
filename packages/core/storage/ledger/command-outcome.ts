@@ -26,13 +26,7 @@ function isThenable(value: unknown): boolean {
   );
 }
 
-const ACTOR_KINDS = [
-  "user",
-  "machine",
-  "coding_agent",
-  "agent",
-  "app",
-] as const;
+const ACTOR_KINDS = ["user", "machine", "agent", "app"] as const;
 
 type ActorKind = (typeof ACTOR_KINDS)[number];
 

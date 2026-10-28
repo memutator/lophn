@@ -264,7 +264,7 @@ const readErrors = [
   "forbidden",
   "unavailable",
 ] as const;
-const readActors = ["user", "agent", "machine", "coding_agent"] as const;
+const readActors = ["user", "agent", "machine"] as const;
 
 // 바꾸는 slot만 싣는다. null은 그 slot을 비운다. 나머지 slot은 그대로다.
 const settingsSeqCompare = z.strictObject({ settings_seq: seqSchema });

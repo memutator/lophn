@@ -212,8 +212,8 @@ test("texts를 주면 seenComponents가 variant의 place 종류 prompt body를 �
     const texts = {
       place_prompts: {
         home: variantLophn,
-        project: "pm",
-        app: "ae",
+        project: "project text",
+        app: "app text",
       },
     };
     const call = [modelCall(variantLophn)];

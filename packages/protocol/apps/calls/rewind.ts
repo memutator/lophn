@@ -114,7 +114,7 @@ export const appRewinds = defineRead({
   name: "app.rewinds",
   input: appRewindsInputSchema,
   output: withReadCommon(z.object({ rewinds: z.array(rewindSchema) })),
-  actors: ["user", "coding_agent", "agent", "machine"],
+  actors: ["user", "agent", "machine"],
   errors: [
     "invalid_input",
     "unauthorized",

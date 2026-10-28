@@ -5,7 +5,7 @@ import { toolEffectSchema } from "../lophn-agent/tool-values.ts";
 
 // Gate가 판정하는 호출 하나. kind로 가른다.
 // Gate는 core(`packages/core/approvals`)가 구현하는 IO 없는 순수 함수다:
-//   judge(call: GateCall, assignment: AgentAssignment | null, shell: ShellRuleLayers, mode: TurnMode): Judgment
+//   judge(call: GateCall, assignment: Assignment | null, shell: ShellRuleLayers, mode: TurnMode): Judgment
 // mode는 `lophn-agent/turn-values.ts`의 `TurnMode`다.
 export const gateCallSchema = z.discriminatedUnion("kind", [
   z.strictObject({

@@ -39,8 +39,7 @@ function invalid(message: string): Result<never> {
   return err({ code: "invalid_input", message });
 }
 
-// 등록은 사람과 lophn agent(앱 만들기 tool)만 한다. coding agent의 token은 앱 하나를 열 뿐이라
-// 새 앱을 등록하지 않는다. 앱의 `app:` actor는 route actors와 함께 거른다.
+// 등록은 사람과 agent(앱 만들기 tool)만 한다. 앱의 `app:` actor는 route actors와 함께 거른다.
 function requireCreator(ctx: RequestContext): Result<void> {
   const kind = parseActor(ctx.actor)?.kind;
   return kind === "user" || kind === "agent"
@@ -48,7 +47,7 @@ function requireCreator(ctx: RequestContext): Result<void> {
     : forbidden("app creation is user or lophn agent only");
 }
 
-// source 연결은 user, coding connection, 그 앱 place의 agent, core 안 machine 자격만 받는다. agent의 앱은
+// source 연결은 user, 그 앱 place의 agent, core 안 machine 자격만 받는다. agent의 앱은
 // 자격 조건이 정한다. machine 자격은 core 안에서만 만들고 operation 상한이 이 command 하나다(registration/source-folder.ts).
 function requireWriter(ctx: RequestContext, app: string): Result<void> {
   const kind = parseActor(ctx.actor)?.kind;
@@ -57,11 +56,9 @@ function requireWriter(ctx: RequestContext, app: string): Result<void> {
       ? ok(undefined)
       : forbidden("an agent connects only the app of its session's place");
   }
-  return kind === "user" || kind === "coding_agent" || kind === "machine"
+  return kind === "user" || kind === "machine"
     ? ok(undefined)
-    : forbidden(
-        "app changes are user, coding connection or app place agent only",
-      );
+    : forbidden("app changes are user or app place agent only");
 }
 
 // 등록은 전체 범위 요청만 받는다. 앱 하나 scope의 conditions.app은

@@ -37,7 +37,7 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
 - 할당하지 않은 앱의 tool은 `deny not_assigned`, 할당에서 뺀 tool은 `deny removed`다. 어느 mode에서나 막는다. tool 목록은 session 시작 때 고정하지만(`architecture/agent-definition.md`), 판정은 call 때 지금 할당을 읽어 session 도중 뺀 앱 tool도 바로 막는다. MCP tool은 `judge`가 늘 `run`을 내고(할당 줄이 없다), 연결 쪽 `call`(`packages/core/lophn-agent/extensions/mcp-toolkit.ts`)이 부를 때마다 전역·project 층 server 설정을 다시 읽어 꺼진 server(`mcp_off`)나 읽기 실패면 `unavailable`로 거절한다. 도는 turn 안에서 끈 server도 바로 막힌다. Operator 정의 층의 `off`는 turn 시작 때 읽은 값이라 다음 turn부터 막힌다.
 - `deny`는 어느 mode에서나 막는다. skip은 묻지 않는 것이지 금지를 푸는 것이 아니다.
 - `ask`는 attended에서만 묻는다. unattended와 skip에서는 `run`이 된다.
-- 사람의 결정은 사람 자격만 받는다(`DecideTurnRequest` actors `user`, handler도 한 번 더 본다). agent, coding agent, 앱, MCP server가 스스로 허락하면 판정이 의미 없다.
+- 사람의 결정은 사람 자격만 받는다(`DecideTurnRequest` actors `user`, handler도 한 번 더 본다). agent, 앱, MCP server가 스스로 허락하면 판정이 의미 없다.
 - agent는 자기 할당을 넓히지 못한다. 할당 쓰기(`SetAgentAssignment`)는 사람만 하고 읽기는 사람과 machine뿐이다. Operator 정의를 만들고 고치는 tool은 `mcp_servers`와 `skip`을 입력으로 받지 않는다.
 - 할당 저장은 revision을 비교한다. 다른 창이 먼저 저장했으면 `conflict`이고 화면이 다시 읽는다.
 - 선언(앱 선언의 효과, MCP `readOnlyHint`)은 믿는다.
@@ -54,7 +54,7 @@ turn mode
 - turn은 시작할 때 mode를 정해 `turns.mode`에 남기고 그 turn 동안 바꾸지 않는다(`turns_started_immutable`). 도는 turn에 사람이 steer한 메시지도 그 turn의 mode를 따른다. Gate는 그 turn 행의 mode로 판정하고, 못 읽으면 판정하지 않는다.
 - 정하는 순서는 unattended 입력, session skip, attended다(`packages/core/lophn-agent/run-loop/turn-mode.ts`). skip session이 받은 unattended call의 turn도 unattended다. skip이 먼저면 사슬 아래가 attended로 떨어져 사람 없이 멈춘다.
 - unattended는 call 봉투에 실려 따라간다. unattended turn이 보낸 call과 답에 표시가 실리고, 그 call의 늦은 실패와 취소 알림도 call 행의 표시를 따른다(`architecture/agent-call.md`). 답의 표시는 답한 turn에서 온다. 사람이 끼어든 attended turn의 답은 attended다.
-- reaction, coding agent 입력, 화면에서 사람이 보낸 메시지가 연 turn은 attended다. `SendMessage`에 `unattended: true`를 실어 넣은 사람 메시지(run 입력, `architecture/run.md`)가 연 turn은 unattended다. 사람 메시지의 이 표시는 run만 싣는다. workflow가 넣은 step 입력(`architecture/workflow.md`)도 unattended 표시를 싣는다. 사람이 instance를 시작한 것이 그 사슬을 맡긴 것이다. 표시는 할당을 넓히지 않는다.
+- reaction과 화면에서 사람이 보낸 메시지가 연 turn은 attended다. `SendMessage`에 `unattended: true`를 실어 넣은 사람 메시지(run 입력, `architecture/run.md`)가 연 turn은 unattended다. 사람 메시지의 이 표시는 run만 싣는다. workflow가 넣은 step 입력(`architecture/workflow.md`)도 unattended 표시를 싣는다. 사람이 instance를 시작한 것이 그 사슬을 맡긴 것이다. 표시는 할당을 넓히지 않는다.
 - job도 사람이 없는 일이다(`architecture/job.md`). job이 연 agent run의 turn은 run 입력이라 unattended이고 그 turn이 보낸 call 사슬도 따라간다. job이 시작한 instance의 step 입력도 같다. job의 tool 호출은 turn이 아니라 호출이라 mode를 turn 행에서 읽지 않는다. 만든 agent의 지금 할당을 `unattended`로 `judge`해 막기만 한다(`architecture/app-call.md`). 그래서 job은 만든 agent의 할당을 넓히지 못한다.
 - flow도 사람이 없는 일이다(`architecture/workflow.md` "flow"). flow가 연 agent run의 turn은 run 입력이라 unattended다. flow의 tool 호출은 그 project PM의 지금 할당을 `unattended`로 `judge`해 막기만 한다. code를 쓴 것이 PM이라 code로 PM의 할당을 넓히지 못한다. flow가 부르는 agent는 누구든 되지만 받은 agent는 자기 할당으로만 일한다.
 - unattended turn의 `ask` tool은 기다리지 않고 `unattended`를 바로 돌려준다. skip turn의 `ask`는 사람이 있으니 기다린다.

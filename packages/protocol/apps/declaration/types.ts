@@ -205,7 +205,6 @@ export const RESERVED_DOMAIN_NAMES: readonly string[] = [
   "settings",
   "visual",
   "instructions",
-  "operator",
   "workflow",
   "job",
   "mcp",

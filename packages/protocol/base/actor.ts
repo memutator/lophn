@@ -14,14 +14,11 @@ function prefixed(kind: string, id: z.ZodType<string>) {
     );
 }
 
-// coding agent는 옛 연결(`cac`)과 coding session(`ses`) 두 꼴의 principal을 쓴다.
-const codingAgentIdSchema = z.union([idSchema("cac"), idSchema("ses")]);
 // lophn agent는 session(`ses`)이 신원이다. assignment(`asg`)는 옛 run-loop가 쓰던 id다.
 const agentIdSchema = z.union([idSchema("ses"), idSchema("asg")]);
 
 export const actorSchema = z.union([
   z.enum(["user", "machine"]),
-  prefixed("coding_agent", codingAgentIdSchema),
   prefixed("agent", agentIdSchema),
   prefixed("app", idSchema("app")),
 ]);
@@ -31,7 +28,6 @@ export type Actor = z.infer<typeof actorSchema>;
 type ActorParts =
   | { kind: "user" }
   | { kind: "machine" }
-  | { kind: "coding_agent"; id: string }
   | { kind: "agent"; id: string }
   | { kind: "app"; id: string };
 

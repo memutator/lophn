@@ -1,13 +1,7 @@
 import { ERROR_CODES, type ErrorCode } from "../../base/mod.ts";
 import { z } from "zod";
 
-export const ACTOR_KINDS = [
-  "user",
-  "coding_agent",
-  "agent",
-  "app",
-  "machine",
-] as const;
+export const ACTOR_KINDS = ["user", "agent", "app", "machine"] as const;
 
 export type ActorKind = (typeof ACTOR_KINDS)[number];
 

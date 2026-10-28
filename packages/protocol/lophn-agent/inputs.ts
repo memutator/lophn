@@ -64,7 +64,7 @@ export const receivedEnvelopeSchema = z.object({
   step: z.object({ instance: idSchema("wfi"), step: z.string() }).nullable(),
 });
 
-// 받는 쪽이 본문의 tag를 고르는 기준이다. coding_agent 메시지는 call 종류로 들어온다.
+// 받는 쪽이 본문의 tag를 고르는 기준이다.
 const routedInputKindSchema = z.enum([
   "message",
   "call",

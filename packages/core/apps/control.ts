@@ -205,16 +205,6 @@ export function appsOperationPolicies(): OperationPolicy[] {
       }),
     ),
     { name: packageRegisterVersion.name, actors: ["machine"], kind: "command" },
-    // preview는 사람(전체 user 상한)과 coding agent가 연다.
-    ...[previewsStart, previewsGet, previewsStop].map(
-      (route): OperationPolicy => ({
-        name: route.name,
-        actors: ["coding_agent"],
-        kind: "read",
-      }),
-    ),
-    // 안내 원문 한 field만 읽는 좁은 읽기다. coding agent에 일반 blobs/read는 열지 않는다.
-    { name: packagesGuideBody.name, actors: ["coding_agent"], kind: "read" },
   ];
 }
 

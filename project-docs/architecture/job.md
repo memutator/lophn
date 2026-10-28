@@ -39,7 +39,7 @@ job
   - `agent_run`: 부를 agent(`{agent, place?}`, agent 이름이고 place가 없으면 home)와 prompt, 선택 입력 JSON과 출력 schema.
   - `tool_run`: 앱(id, slug, 이름)과 tool 이름, 선택 입력 JSON.
   - `workflow_start`: `<project 이름>/<name>`, 시작 입력 글, 선택 step. `kind: agent`와 `kind: flow`를 다 시작한다. step은 agent workflow의 시작 자리이고 flow에 주면 차례에 `invalid_input`으로 실패한다.
-- 이름은 만들 때(또는 `action`을 바꿀 때) core가 풀어 id로 저장한다(agent는 AgentRef와 place, 앱과 project는 id). 앱의 tool 이름과 workflow file은 차례에 부를 때 본다. 못 풀면 만들지 못하고(`not_found`, coding agent는 `invalid_input`), 차례에 못 찾으면 그 job run이 실패로 남는다.
+- 이름은 만들 때(또는 `action`을 바꿀 때) core가 풀어 id로 저장한다(agent는 agent id와 place, 앱과 project는 id). 앱의 tool 이름과 workflow file은 차례에 부를 때 본다. 못 풀면 만들지 못하고(`not_found`), 차례에 못 찾으면 그 job run이 실패로 남는다.
 - `title`은 1~80자이고 목록, card, run 줄과 instance 줄에 보일 이름이다.
 - 놓친 차례 정책은 `run`(켜지면 바로 한 번 돈다)과 `hold`(사람에게 묻는다) 둘이다.
 - 켜고 끄기(`enabled`)가 있다. 꺼진 job은 `next_due_at`이 null이고 돌지 않는다. 만들 때 `enabled`는 기본 true다.

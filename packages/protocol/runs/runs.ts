@@ -139,8 +139,7 @@ const startRunInputSchema = z.discriminatedUnion("kind", [
 
 // agent·session이 정확히 하나인지와 schema를 읽을 수 있는지는 core가 본다.
 // 그 판정을 두 곳에 두지 않으려고 입력 schema에 refine을 두지 않는다.
-// 이름을 다 풀고 나서 session을 연다. CLI가 operator:<x>/<이름>을 project로 먼저 부르고 not_found면
-// 앱으로 다시 부르므로, 안 풀린 첫 시도는 session도 run도 남기지 않는다.
+// 이름을 다 풀고 나서 session을 연다. 안 풀린 시도는 session도 run도 남기지 않는다.
 export const runStart = defineMemory({
   resource: "runs",
   method: "start",

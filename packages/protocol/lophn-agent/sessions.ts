@@ -1,20 +1,12 @@
 import { z } from "zod";
-import {
-  atSchema,
-  positiveRevisionSchema,
-  readCursorSchema,
-  seqSchema,
-} from "../base/values.ts";
+import { atSchema, seqSchema } from "../base/values.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
-import { agentRefOutputSchema, placeOutputSchema } from "./places.ts";
-import { workPlaceOutputSchema, workPlaceSchema } from "./scope.ts";
 import { modelChoiceOutputSchema, modelChoiceSchema } from "./models.ts";
 
-// Session은 agent(assignment) 하나와 자리(project 또는 app) 하나에 고정된다.
-// role이나 자리를 바꾸는 command가 없고, 사람이 `closed`로 만드는
-// command도 없다: 사람이 session을 치우는 길은 archive와 delete다.
+// Session은 agent 하나와 place 하나(없으면 home)에 고정된다.
+// agent나 place를 바꾸는 command가 없다. 사람이 session을 치우는 길은 archive와 delete다.
 
 // 제목의 글자는 사람이 보는 글자(grapheme cluster)다. 이모지나 결합 문자를 중간에서
 // 자르지 않는다. 자동 제목은 앞 60자, 사람이 rename한 제목은 120자 이하다.
@@ -40,10 +32,6 @@ export const sessionTitleSchema = z
     { message: "title is longer than 120 characters" },
   );
 
-const SESSION_STATES = ["open", "closed"] as const;
-// 사람이 닫는 이유는 없다. assignment 회수만 session을 닫는다.
-const SESSION_CLOSED_REASONS = ["assignment_withdrawn"] as const;
-
 const forkOriginFields = {
   session: idSchema("ses"),
   through_seq: seqSchema,
@@ -56,45 +44,6 @@ const compactionFields = {
   summary_call: idSchema("mcl"),
 };
 export const compactionOutputSchema = z.object(compactionFields);
-
-const sessionFields = {
-  id: idSchema("ses"),
-  assignment: idSchema("asg"),
-  work_place: workPlaceOutputSchema,
-  title: sessionTitleSchema.nullable(),
-  archived: z.boolean(),
-  state: z.enum(SESSION_STATES),
-  forked_from: forkOriginOutputSchema.nullable(),
-  // null이면 agent 기본값을 따른다. 다음 run부터 resolve한다.
-  model_selection: modelChoiceOutputSchema.nullable(),
-  compaction: compactionOutputSchema.nullable(),
-  closed_reason: z.enum(SESSION_CLOSED_REASONS).nullable(),
-  closed_at: atSchema.nullable(),
-  state_seq: seqSchema,
-};
-
-const sessionRecordSchema = z.object(sessionFields).refine(
-  (value) => {
-    const closed = value.state === "closed";
-    if ((value.closed_reason !== null) !== closed) return false;
-    if ((value.closed_at !== null) !== closed) return false;
-    return value.forked_from === null || value.forked_from.session !== value.id;
-  },
-  { message: "session close or fork origin is not coupled" },
-);
-
-// 열기: assignment가 enabled일 때만(paused·withdrawn 거절). 자리가 role 규칙(AE=담당 app,
-// Operator=scope, lophn=project/app, CE=project)에 맞는지는 assignment를 아는 owner가 검사한다.
-const openSessionInputSchema = z.strictObject({
-  id: idSchema("ses"),
-  assignment: idSchema("asg"),
-  work_place: workPlaceSchema,
-});
-
-const openSessionCompareSchema = z.strictObject({
-  assignment_revision: positiveRevisionSchema,
-  assignment_state: z.literal("enabled"),
-});
 
 const stateSeqCompareSchema = z.strictObject({ state_seq: seqSchema });
 
@@ -178,15 +127,6 @@ const changeSessionModelCompareSchema = z.strictObject({
   state_seq: seqSchema,
 });
 
-const closeSessionInputSchema = z.strictObject({
-  session: idSchema("ses"),
-  reason: z.enum(SESSION_CLOSED_REASONS),
-});
-const closeSessionCompareSchema = z.strictObject({
-  state_seq: seqSchema,
-  state: z.literal("open"),
-});
-
 const errors = [
   "invalid_input",
   "forbidden",
@@ -194,22 +134,6 @@ const errors = [
   "conflict",
   "unauthorized",
 ] as const;
-
-export const openSession = defineCommand({
-  resource: "sessions",
-  method: "open",
-  name: "OpenSession",
-  input: openSessionInputSchema,
-  output: z.object({
-    id: idSchema("ses"),
-    state: z.literal("open"),
-    work_place: workPlaceOutputSchema,
-    state_seq: seqSchema,
-  }),
-  compare: openSessionCompareSchema,
-  actors: ["user"],
-  errors: [...errors],
-});
 
 export const renameSession = defineCommand({
   resource: "sessions",
@@ -358,29 +282,6 @@ export const changeSessionSkip = defineCommand({
   errors: ["invalid_input", "not_found", "conflict", "unauthorized"],
 });
 
-export const closeSession = defineCommand({
-  resource: "sessions",
-  method: "close",
-  name: "CloseSession",
-  input: closeSessionInputSchema,
-  output: z.object({
-    id: idSchema("ses"),
-    state: z.literal("closed"),
-    reason: z.enum(SESSION_CLOSED_REASONS),
-    closed_at: atSchema,
-    state_seq: seqSchema,
-  }),
-  compare: closeSessionCompareSchema,
-  actors: ["machine"],
-  errors: [
-    "conflict",
-    "forbidden",
-    "unauthorized",
-    "invalid_input",
-    "not_found",
-  ],
-});
-
 const readErrors = [
   "invalid_input",
   "unauthorized",
@@ -388,62 +289,6 @@ const readErrors = [
   "not_found",
   "unavailable",
 ] as const;
-
-// 목록은 agent(assignment)와 자리별이다: 둘은 필수이고 다른 agent나 다른 자리의 session은
-// 섞이지 않는다. archived는 기본에서 뺀다(`exclude`, 생략과 같다);
-// Archived 보기는 `only`다. 제목 검색은 이 결과에서 제목만 대상으로 하는 화면의 거름이며
-// 메시지 본문은 읽지 않는다.
-const SESSION_ARCHIVED_FILTERS = ["exclude", "include", "only"] as const;
-const sessionListInputSchema = z.strictObject({
-  assignment: idSchema("asg"),
-  work_place: workPlaceSchema,
-  archived: z.enum(SESSION_ARCHIVED_FILTERS).optional(),
-  cursor: readCursorSchema.optional(),
-});
-
-export const sessionList = defineRead({
-  resource: "sessions",
-  method: "list",
-  name: "ListSessions",
-  input: sessionListInputSchema,
-  output: withReadCommon(
-    z.object({ sessions: z.array(sessionRecordSchema) }),
-  ).refine(
-    (value) =>
-      seqSchema.safeParse(value.as_of_seq).success &&
-      value.sessions.every(
-        (session) =>
-          seqSchema.safeParse(session.state_seq).success &&
-          BigInt(session.state_seq) <= BigInt(value.as_of_seq),
-      ),
-    { message: "session state is newer than read snapshot" },
-  ),
-  actors: ["user", "agent", "machine", "coding_agent"],
-  errors: [...readErrors],
-});
-
-// runtime이 요약을 시작할 요청을 읽는다. 끝나지 않은 run이 있는 session의 요청은 그 run이 끝날 때까지
-// 나오지 않는다. 가장 오래된 요청부터 나온다.
-export const sessionCompactRequests = defineRead({
-  resource: "sessions",
-  method: "compact-requests",
-  name: "ListSessionCompactRequests",
-  input: z.strictObject({}),
-  output: withReadCommon(
-    z.object({
-      requests: z.array(
-        z.object({
-          session: idSchema("ses"),
-          agent: agentRefOutputSchema,
-          place: placeOutputSchema.nullable(),
-          request_seq: seqSchema,
-        }),
-      ),
-    }),
-  ),
-  actors: ["machine"],
-  errors: [...readErrors],
-});
 
 // Compact가 session에 이은 요약의 본문이다. 요약은 원문을 대체하지 않는 derived라 호출의 출력이
 // 정본이고, 사람 화면은 이 본문을 일반 agent 답과 구별해 보인다. `revert`를 주면 그
@@ -473,7 +318,6 @@ export const sessionSummary = defineRead({
 // subject는 새 session이다.
 
 export const SESSION_COMMANDS = [
-  openSession,
   renameSession,
   archiveSession,
   deleteSession,
@@ -483,8 +327,5 @@ export const SESSION_COMMANDS = [
   failSessionCompact,
   changeSessionModel,
   changeSessionSkip,
-  closeSession,
-  sessionList,
-  sessionCompactRequests,
   sessionSummary,
 ] as const;

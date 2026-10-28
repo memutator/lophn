@@ -22,7 +22,6 @@ const ID_PREFIXES = {
   mcl: "ModelCall",
   tcl: "ToolCall",
   pvd: "Provider",
-  cac: "CodingAgentConnection",
   agt: "Agent",
   trn: "Turn",
   cal: "Call",

@@ -1,9 +1,5 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import {
-  absolutePathSchema,
-  projectApi,
-  projectResolveCwd,
-} from "../../../protocol/projects/mod.ts";
+import { projectApi } from "../../../protocol/projects/mod.ts";
 import type {
   ReadDefinition,
   ReadSnapshot,
@@ -79,7 +75,6 @@ export function createProjectReads(deps: ProjectReadDeps): {
   list: ReadDefinition<typeof projectApi.list>;
   get: ReadDefinition<typeof projectApi.get>;
   resolve: ReadDefinition<typeof projectApi.resolve>;
-  resolveCwd: ReadDefinition<typeof projectResolveCwd>;
 } {
   return {
     list: {
@@ -181,41 +176,6 @@ export function createProjectReads(deps: ProjectReadDeps): {
         return ok({
           project: recordOf(access.value, deps.folders),
           folder_path: found.value.folder_path,
-          as_of_seq: snapshot.as_of_seq,
-          next_cursor: null,
-        });
-      },
-    },
-    // coding agent CLI가 쓴다. 인증 경계가 채운 cwd가 닿는 project의 id만 돌려준다.
-    resolveCwd: {
-      route: projectResolveCwd,
-      handle(snapshot, ctx, _input) {
-        if (parseActor(ctx.actor)?.kind !== "coding_agent") {
-          return err({
-            code: "forbidden",
-            message: "cwd resolve is coding agent only",
-          });
-        }
-        // 없거나 모양이 아니면 fail-closed다.
-        const cwd = ctx.conditions.cwd;
-        if (cwd === undefined || !absolutePathSchema.safeParse(cwd).success) {
-          return notFound();
-        }
-        const projects = loadProjects(snapshot.sql);
-        if (!projects.ok) return projects;
-        const found = projectAt(projects.value, cwd);
-        if (!found.ok) return found;
-        if (found.value === null) return notFound();
-        const access = allowed(
-          snapshot,
-          ctx,
-          projectResolveCwd.name,
-          found.value.project,
-        );
-        if (!access.ok) return access;
-        if (access.value === null) return notFound();
-        return ok({
-          project: found.value.project.id,
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });

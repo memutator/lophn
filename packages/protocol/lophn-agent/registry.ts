@@ -1,10 +1,4 @@
-import {
-  closeSession,
-  openSession,
-  SESSION_COMMANDS,
-  sessionCompactRequests,
-  sessionList,
-} from "./sessions.ts";
+import { SESSION_COMMANDS } from "./sessions.ts";
 import { PLACE_SESSION_ROUTES } from "./agent-sessions.ts";
 import { MESSAGE_ROUTES, messagesList } from "./messages.ts";
 import { REVERT_ROUTES } from "./reverts.ts";
@@ -39,18 +33,7 @@ import {
 import { issuerRequestDone, issuerRequestTake } from "./issuer-requests.ts";
 
 export const ROUTES = [
-  // 옛 session·message route 가운데 새 route로 바뀐 것은 뺀다.
-  ...SESSION_COMMANDS.filter(
-    (route) =>
-      !(
-        [
-          openSession,
-          sessionList,
-          closeSession,
-          sessionCompactRequests,
-        ] as readonly unknown[]
-      ).includes(route),
-  ),
+  ...SESSION_COMMANDS,
   ...PLACE_SESSION_ROUTES,
   ...MESSAGE_ROUTES.filter((route) => route !== messagesList),
   ...REVERT_ROUTES,

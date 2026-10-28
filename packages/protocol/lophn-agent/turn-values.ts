@@ -105,9 +105,9 @@ export const turnStateSchema = z.enum(TURN_STATES);
 //   정하고 끝날 때까지 바꾸지 않는다. 도는 turn에 사람이 steer한 메시지도 그 turn의 mode를 따른다.
 // - session: `sessions.skip`(boolean), session record `skip`, 사람만 부르는 command
 //   `ChangeSessionSkip`(resource `sessions`, method `change-skip`, 입력 `{session, skip}`,
-//   compare `{state_seq}`, actors `user`). 새 Operator session은 정의의 `skip: true`면 켜진 채 열린다.
+//   compare `{state_seq}`, actors `user`). 새 session은 agent 정의의 `skip: true`면 켜진 채 열린다.
 //   fork한 session은 skip을 가져가지 않고 정의의 기본값으로 시작한다.
-// - 봉투: `unattended: boolean`이 `CallEnvelope`, `RoutedInput`(메모리), `agent_calls` 행에 있다.
+// - 봉투: `unattended: boolean`이 `AgentCallEnvelope`, `RoutedInput`(메모리), `agent_calls` 행에 있다.
 //   받은 봉투(`receivedEnvelopeSchema`)와 태그 글에는 싣지 않는다. `messages`에는 사람 메시지의 표시만
 //   `unattended` 열로 남는다(켤 때 입력함에 되돌리지 않으려고). 받은 turn의 mode는 메모리의
 //   `RoutedInput`에서 정하고 `turns.mode`에 남는다. `SendCall`·`ReplyCall` 입력에는

@@ -10,7 +10,7 @@ export type ShellAsk = {
   exists(): Promise<boolean>; // 폴더가 아직 있나
 };
 
-// folder는 place의 첫 폴더(PM이면 project 폴더). 같은 이름으로 다시 부르면 지운 폴더를 되살린다.
+// folder는 place의 첫 폴더(project place면 project 폴더). 같은 이름으로 다시 부르면 지운 폴더를 되살린다.
 export async function shellAsk(
   folder: string,
   name = "victim",

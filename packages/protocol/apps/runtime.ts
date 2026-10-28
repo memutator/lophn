@@ -166,7 +166,7 @@ export const appRecordUnavailable = defineCommand({
   errors: ["conflict", "invalid_input"],
 });
 
-const readActors = ["user", "coding_agent", "agent", "app"] as const;
+const readActors = ["user", "agent", "app"] as const;
 const readErrors = [
   "invalid_input",
   "unauthorized",

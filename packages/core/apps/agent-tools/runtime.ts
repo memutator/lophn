@@ -17,7 +17,7 @@ import {
 } from "../../lophn-agent/tools/spi.ts";
 import { z } from "zod";
 
-// 앱을 진단하는 읽기 tool. coding agent CLI(`app status`·`app logs`·`app invocations`)와 같은 route를 부른다.
+// 앱을 진단하는 읽기 tool.
 export const RUNTIME_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "app.status",

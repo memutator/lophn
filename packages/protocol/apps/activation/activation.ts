@@ -293,7 +293,7 @@ export const activationActivatePrevious = defineCommand({
   errors: ["forbidden", "conflict", "invalid_input"],
 });
 
-const readActors = ["user", "coding_agent", "agent", "app", "machine"] as const;
+const readActors = ["user", "agent", "app", "machine"] as const;
 const readErrors = [
   "invalid_input",
   "unauthorized",
@@ -312,7 +312,7 @@ export const activationsQueue = defineRead({
       entries: z.array(activationQueueEntrySchema),
     }),
   ),
-  actors: ["user", "agent", "coding_agent", "machine"],
+  actors: ["user", "agent", "machine"],
   errors: readErrors,
 });
 

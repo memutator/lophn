@@ -84,7 +84,7 @@ export const appInvocationSchema = z
   );
 export type AppInvocation = z.infer<typeof appInvocationSchema>;
 
-const readActors = ["user", "coding_agent", "agent", "machine"] as const;
+const readActors = ["user", "agent", "machine"] as const;
 const readErrors = [
   "invalid_input",
   "unauthorized",

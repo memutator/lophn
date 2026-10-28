@@ -48,7 +48,7 @@ export function createLedgerRegistration(
       commands.archive,
       commands.unarchive,
     ],
-    reads: [reads.list, reads.get, reads.resolve, reads.resolveCwd],
+    reads: [reads.list, reads.get, reads.resolve],
     apiReads: [
       projectSearchRead({
         ...(environment.projectSearch ?? UNATTACHED_SEARCH),
@@ -65,12 +65,7 @@ export function createLedgerRegistration(
 export function createReaderRegistration(): ReaderRegistration {
   const projectReads = createProjectReads({ folders: createFolderResolver() });
   return {
-    reads: [
-      projectReads.list,
-      projectReads.get,
-      projectReads.resolve,
-      projectReads.resolveCwd,
-    ],
+    reads: [projectReads.list, projectReads.get, projectReads.resolve],
     ports: new Map(),
   };
 }

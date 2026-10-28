@@ -116,7 +116,7 @@ const annotationBatchSchema = z.strictObject({
 });
 export type AnnotationBatch = z.infer<typeof annotationBatchSchema>;
 
-// 읽는 쪽 값. screenshot_path는 coding agent가 CLI로 읽는 blob object 파일 경로다.
+// 읽는 쪽 값. screenshot_path는 image.read가 읽는 blob object 파일 경로다.
 export const annotationReadSchema = z.strictObject({
   ...annotationSchema.shape,
   screenshot_path: z.string().nullable(),
@@ -201,7 +201,7 @@ export const annotationsGet = defineRead({
   name: "annotations.get",
   input: annotationsGetInputSchema,
   output: annotationsGetOutputSchema,
-  actors: ["user", "coding_agent", "agent"],
+  actors: ["user", "agent"],
   errors: [
     "invalid_input",
     "unauthorized",

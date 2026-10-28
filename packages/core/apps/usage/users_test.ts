@@ -56,7 +56,7 @@ test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 domain�
     declaration_hash: "0".repeat(64),
     data_schema: 1,
     data_changes: [],
-    created_by: "coding_agent:ses_01hzzzzzzzzzzzzzzzzzzzzzza",
+    created_by: "agent:ses_01hzzzzzzzzzzzzzzzzzzzzzza",
     created_at: "2026-10-16T00:00:00.000Z",
     status: "prepared",
   } as unknown as ReleaseRecord;

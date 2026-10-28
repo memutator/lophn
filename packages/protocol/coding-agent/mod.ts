@@ -19,7 +19,6 @@ export {
   type HookSignal,
   hookSignalOf,
 } from "./hook-signal.ts";
-export { type CodingOptions, codingOptionsSchema } from "./harness-id.ts";
 
 export * from "./harness-hooks.ts";
 export { harnessOfProcess } from "./harness-process.ts";

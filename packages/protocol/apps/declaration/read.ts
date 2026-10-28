@@ -75,7 +75,7 @@ export const appTools = defineRead({
   name: "app.tools",
   input: appInputSchema.extend({ release: releaseIdSchema.optional() }),
   output: appDeclarationOutputSchema,
-  actors: ["user", "coding_agent", "agent", "app", "machine"],
+  actors: ["user", "agent", "app", "machine"],
   errors: [
     "invalid_input",
     "unauthorized",

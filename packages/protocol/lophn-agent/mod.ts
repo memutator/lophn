@@ -1,4 +1,3 @@
-export * from "./scope.ts";
 export * from "./resolved-model.ts";
 export * from "./sessions.ts";
 export * from "./messages.ts";
@@ -25,7 +24,6 @@ export * from "./skill-settings.ts";
 export * from "./places.ts";
 export * from "./agent-sessions.ts";
 export * from "./session-rewinds.ts";
-export * from "./operators.ts";
 export * from "./turn-values.ts";
 export * from "./turns.ts";
 export * from "./turn-reads.ts";

@@ -4,7 +4,6 @@ import { assignmentSetCommand } from "./commands.ts";
 
 const rows = [
   ["agent:ses_0000000000000000000000000a"],
-  ["coding_agent:ses_0000000000000000000000000a"],
   ["app:app_0000000000000000000000000a"],
   ["machine"],
 ];

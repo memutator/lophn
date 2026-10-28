@@ -30,8 +30,8 @@ import {
 import { previewsGet } from "../../packages/protocol/apps/previews.ts";
 import {
   activateRelease,
-  aeToolResult,
-  aeTurn,
+  lophnToolResult,
+  lophnTurn,
   approveActivation,
   prepareRelease,
   startTestApp,
@@ -88,7 +88,7 @@ test("E2E 앱 place의 lophn이 준비하고 preview로 확인한 template 앱�
 
         let n = 0;
         const id = (name: string) => `pv_${name}_${n}`;
-        const previewed = await aeTurn(
+        const previewed = await lophnTurn(
           c,
           fake,
           notes,
@@ -124,7 +124,7 @@ test("E2E 앱 place의 lophn이 준비하고 preview로 확인한 template 앱�
         const results = Object.fromEntries(
           ["start", "add", "list", "stop"].map((name) => [
             name,
-            aeToolResult(previewed, id(name)),
+            lophnToolResult(previewed, id(name)),
           ]),
         );
         for (const [name, result] of Object.entries(results)) {

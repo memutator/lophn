@@ -41,7 +41,7 @@ export type AppGrant = z.infer<typeof appGrantSchema>;
 
 // grant.revoke는 사람의 결정이다.
 
-const readActors = ["user", "coding_agent", "agent", "app", "machine"] as const;
+const readActors = ["user", "agent", "app", "machine"] as const;
 const readErrors = [
   "invalid_input",
   "unauthorized",

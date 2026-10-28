@@ -160,7 +160,7 @@ const blobsRead = defineRead({
   name: "blob.read",
   input: blobReadInputSchema,
   output: blobReadResultSchema,
-  actors: ["user", "coding_agent", "agent", "app", "machine"],
+  actors: ["user", "agent", "app", "machine"],
   errors: [
     "invalid_input",
     "unauthorized",

@@ -7,7 +7,6 @@ import {
   modelChoiceSchema,
 } from "./models.ts";
 import { mcpServerSchema } from "./mcp-settings.ts";
-import type { Role } from "./places.ts";
 
 export * from "./agent-profile.ts";
 
@@ -35,10 +34,7 @@ export function agentNameKey(name: string): string {
 // 지침 파일 하나(agent 정의 본문 포함)의 상한이다.
 export const AGENT_BODY_MAX_BYTES = INSTRUCTION_FILE_MAX_BYTES;
 
-const AGENT_KINDS = ["built_in", "operator"] as const;
-export const agentKindSchema = z.enum(AGENT_KINDS);
-
-// 정의와 자리 설정이 놓이는 자리. 전역(global)은 자리가 아니다: built-in도 파일은 project나 앱 아래에 있다.
+// 자리 설정이 놓이는 자리. 전역(global)은 자리가 아니다.
 export const agentPlaceSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("project"), id: idSchema("prj") }),
   z.strictObject({ kind: z.literal("app"), id: idSchema("app") }),
@@ -48,8 +44,6 @@ export const agentPlaceOutputSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("app"), id: idSchema("app") }),
 ]);
 export type AgentPlace = z.infer<typeof agentPlaceSchema>;
-
-// Project Manager는 project에서만, App Engineer는 앱에서만 부른다. lophn와 Operator는 두 곳 모두다.
 
 // 끈 MCP. original_tool을 생략하면 그 서버 전체다.
 const mcpOffFields = {
@@ -82,7 +76,7 @@ function mcpKey(entry: { server_name: string; original_tool?: string }) {
 const skillsSchema = z.array(nonblankSchema).refine(unique, {
   message: "duplicate skill",
 });
-// Operator가 일하는 domain id. 비면 그릇의 domain 전부다. id가 그 그릇 것인지는 정의를 저장하는 쪽이 본다.
+// agent가 일하는 domain id. 비면 그릇의 domain 전부다. id가 그 그릇 것인지는 정의를 저장하는 쪽이 본다.
 const domainsSchema = z.array(idSchema("dom")).refine(unique, {
   message: "duplicate domain",
 });
@@ -163,13 +157,5 @@ export const agentCountsSchema = z.object({
 export type AgentCounts = z.infer<typeof agentCountsSchema>;
 
 // 목록의 정본은 assignment다. issues가 비어 있지 않으면 파일이 틀려 그 agent만 시작하지 않는다.
-// role마다 제품이 고정한 built-in 이름. Operator는 이 이름을 쓰지 못한다.
-export const BUILTIN_ROLE_NAMES: Record<Role, string> = {
-  lophn: "lophn",
-  project_manager: "Project Manager",
-  app_engineer: "App Engineer",
-  operator: "Operator",
-};
-
 // 주소가 이름이라 agent 이름은 전역에 하나다. `lophn`은 그 가운데 예약이고 내장 정의의 이름이다.
 export const LOPHN_AGENT_NAME = "lophn";

@@ -127,7 +127,7 @@ function unavailable(message: string): Result<never> {
   return err({ code: "unavailable", message });
 }
 
-// 사람, coding agent, agent가 preview를 연다. agent의 앱 범위는 credential의 operation과 앱 조건(authorize)이
+// 사람과 agent가 preview를 연다. agent의 앱 범위는 credential의 operation과 앱 조건(authorize)이
 // 정한다. 앱 자식과 machine은 열지 못한다.
 function actorKind(actor: string): string {
   return actor.split(":", 1)[0];
@@ -175,7 +175,7 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
     app: string,
   ): Promise<Result<void>> {
     const kind = actorKind(ctx.actor);
-    if (kind !== "user" && kind !== "coding_agent" && kind !== "agent") {
+    if (kind !== "user" && kind !== "agent") {
       return err({
         code: "forbidden",
         message: "this credential cannot use previews",

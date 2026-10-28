@@ -1,10 +1,8 @@
 // 사람이 화면에서 하는 일을 route 하나와 기다림으로 옮긴 helper다. flow의 단계는 test file에 쓴다.
 import {
   type AgentId,
-  type AgentRef,
   connectProvider,
   modelDefaultChange,
-  openAgentSession,
   type Place,
   placeSessionOpen,
   sendMessage,
@@ -113,15 +111,6 @@ export async function openProject(
     folders: [{ path: folder, description: "", subfolders: [] }],
   });
   return { project };
-}
-
-export async function openSession(
-  core: Core,
-  agent: AgentRef,
-): Promise<string> {
-  const id = core.ids.newId("ses");
-  await core.call(openAgentSession, { id, agent });
-  return id;
 }
 
 // agent와 place로 session 하나를 연다. place가 없으면 home이다.

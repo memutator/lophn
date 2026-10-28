@@ -41,7 +41,7 @@ export type TestApp = {
   name: string;
   source: string;
   commit: string;
-  ae: string; // 앱 place의 lophn session. e2e가 이 이름으로 읽는다
+  lophn: string; // 앱 place의 lophn session. e2e가 이 이름으로 읽는다
 };
 
 // 앱 place session turn 하나가 기다리는 상한: release 준비 360초 + activation 기다림 120초. lophn-agent에는 tool 호출 하나의
@@ -117,7 +117,7 @@ export async function startTestApp(
     ...(options.patch === undefined ? {} : { patch: options.patch }),
     ...(options.sample === undefined ? {} : { sample: options.sample }),
   });
-  const ae = await openPlaceSession(core, LOPHN_AGENT_ID, {
+  const lophn = await openPlaceSession(core, LOPHN_AGENT_ID, {
     kind: "app",
     id: created.id,
   });
@@ -127,13 +127,13 @@ export async function startTestApp(
     name: options.name,
     source: source.dir,
     commit: source.commit,
-    ae,
+    lophn,
   };
 }
 
-export function aeLane(app: TestApp) {
+export function lophnLane(app: TestApp) {
   return {
-    name: `ae-${app.app}`,
+    name: `lophn-${app.app}`,
     match: (request: JournalEntry) =>
       toolNames(request).includes("release_prepare") &&
       JSON.stringify(request.body).includes(`App ${app.app}:`),
@@ -146,22 +146,22 @@ export const tool = (id: string, name: string, args: unknown) => ({
 });
 
 // 이 turn에 aeLane이 받은 요청들(say 직전 journal 길이 뒤의 것)이다.
-export type AeTurn = { turn: Turn; requests: JournalEntry[] };
+export type LophnTurn = { turn: Turn; requests: JournalEntry[] };
 
-// steps를 aeLane(app)에 걸고 `App <app.app>: <text>`를 말한 뒤 그 turn이 끝날 때까지 기다린다.
+// steps를 lophnLane(app)에 걸고 `App <app.app>: <text>`를 말한 뒤 그 turn이 끝날 때까지 기다린다.
 // index는 이 turn의 순번(0부터)이고 같은 session에서 tool call id가 겹치지 않게 id에 붙인다.
-export async function aeTurn(
+export async function lophnTurn(
   core: Core,
   fake: FakeServer,
   app: TestApp,
   text: string,
   steps: (index: number) => Step[],
-): Promise<AeTurn> {
-  const lane = aeLane(app);
-  const index = (await turnsOf(core, app.ae)).length;
+): Promise<LophnTurn> {
+  const lane = lophnLane(app);
+  const index = (await turnsOf(core, app.lophn)).length;
   fake.script(steps(index), lane);
   const from = fake.journal().length;
-  await say(core, app.ae, `App ${app.app}: ${text}`);
+  await say(core, app.lophn, `App ${app.app}: ${text}`);
   const requestsOf = () =>
     fake
       .journal()
@@ -175,7 +175,7 @@ export async function aeTurn(
         .map((entry) => entry.mismatch)
         .join(" / ");
       return `turn ${index}: ${
-        (await turnsOf(core, app.ae))[index]?.state ?? "없음"
+        (await turnsOf(core, app.lophn))[index]?.state ?? "없음"
       }, lane 요청 ${requests.length}개${
         missed === "" ? "" : `, mismatch: ${missed}`
       }, ${await appStateOf(core, app.app)}`;
@@ -184,7 +184,7 @@ export async function aeTurn(
       until(
         `앱 place session turn ${index}이 끝남`,
         async () => {
-          const found = (await turnsOf(core, app.ae))[index];
+          const found = (await turnsOf(core, app.lophn))[index];
           return found?.state === "finished" ? found : undefined;
         },
         AE_TURN_WAIT_MS,
@@ -194,17 +194,17 @@ export async function aeTurn(
 }
 
 // 그 turn에서 tool call id의 결과(tool_result 글의 JSON)다.
-export type AeToolResult = {
+export type LophnToolResult = {
   status: "success" | "failure" | "uncertain" | "not_executed";
   code: string;
   summary: string;
   content: unknown;
 };
 
-export function aeToolResult(turn: AeTurn, id: string): AeToolResult {
+export function lophnToolResult(turn: LophnTurn, id: string): LophnToolResult {
   for (const request of turn.requests.toReversed()) {
     const text = lastToolResult(request, id);
-    if (text !== undefined) return JSON.parse(text) as AeToolResult;
+    if (text !== undefined) return JSON.parse(text) as LophnToolResult;
   }
   throw new Error(
     `tool call ${id}의 결과가 없다 (turn outcome ${JSON.stringify(
@@ -213,7 +213,7 @@ export function aeToolResult(turn: AeTurn, id: string): AeToolResult {
   );
 }
 
-function succeeded(name: string, result: AeToolResult): unknown {
+function succeeded(name: string, result: LophnToolResult): unknown {
   if (result.status !== "success") {
     throw new Error(`${name}: ${result.code} ${result.summary}`);
   }
@@ -232,7 +232,7 @@ export async function prepareRelease(
 ): Promise<ReleasePrepareOutput> {
   const id = (n: number) => `tc_prepare_${n}`;
   let index = 0;
-  const turn = await aeTurn(
+  const turn = await lophnTurn(
     core,
     fake,
     app,
@@ -246,7 +246,7 @@ export async function prepareRelease(
     },
   );
   return releasePrepare.output.parse(
-    succeeded("release_prepare", aeToolResult(turn, id(index))),
+    succeeded("release_prepare", lophnToolResult(turn, id(index))),
   );
 }
 
@@ -258,7 +258,7 @@ export async function activateRelease(
 ): Promise<ReleaseActivateOutput> {
   const id = (n: number) => `tc_activate_${n}`;
   let index = 0;
-  const turn = await aeTurn(core, fake, app, `Activate ${release}`, (n) => {
+  const turn = await lophnTurn(core, fake, app, `Activate ${release}`, (n) => {
     index = n;
     return [
       { reply: tool(id(n), "release_activate", { release }) },
@@ -266,7 +266,7 @@ export async function activateRelease(
     ];
   });
   return releaseActivate.output.parse(
-    succeeded("release_activate", aeToolResult(turn, id(index))),
+    succeeded("release_activate", lophnToolResult(turn, id(index))),
   );
 }
 
@@ -280,7 +280,7 @@ export async function deliverRelease(
   let index = 0;
   const prepareId = (n: number) => `tc_prepare_${n}`;
   const activateId = (n: number) => `tc_activate_${n}`;
-  const turn = await aeTurn(core, fake, app, options.goal, (n) => {
+  const turn = await lophnTurn(core, fake, app, options.goal, (n) => {
     index = n;
     return [
       { reply: tool(prepareId(n), "release_prepare", { app: app.app }) },
@@ -291,7 +291,7 @@ export async function deliverRelease(
           const out =
             result === undefined
               ? undefined
-              : ((JSON.parse(result) as AeToolResult).content as {
+              : ((JSON.parse(result) as LophnToolResult).content as {
                   status?: string;
                   release?: { id: string };
                 });
@@ -306,7 +306,7 @@ export async function deliverRelease(
     ];
   });
   const prepared = releasePrepare.output.parse(
-    succeeded("release_prepare", aeToolResult(turn, prepareId(index))),
+    succeeded("release_prepare", lophnToolResult(turn, prepareId(index))),
   );
   if (prepared.status !== "prepared") {
     throw new Error(
@@ -314,7 +314,7 @@ export async function deliverRelease(
     );
   }
   const activated = releaseActivate.output.parse(
-    succeeded("release_activate", aeToolResult(turn, activateId(index))),
+    succeeded("release_activate", lophnToolResult(turn, activateId(index))),
   );
   return { release: prepared.release.id, activated };
 }

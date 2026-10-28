@@ -30,7 +30,10 @@ import { EventsProvider } from "../../../../../packages/shell/renderer/desktop/c
 import { createFakeWaiting } from "../../../../../packages/shell/renderer/desktop/connection/waiting/fake-source.ts";
 import { mockAgentTabSource } from "../../../../../packages/shell/renderer/desktop/dev-mock/agent.ts";
 import { mockViews } from "../../../../../packages/shell/renderer/desktop/dev-mock/app-space.ts";
-import { createFakeAgentsSource } from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
+import {
+  BUDGET_REVIEWER_ID,
+  createFakeAgentsSource,
+} from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 // 터미널 탭이 쓰는 xterm 기본 배치.
 import "@xterm/xterm/css/xterm.css";
 
@@ -89,7 +92,7 @@ const GRANTS: Record<string, string> = {
 };
 const AGENT_KEY: Record<string, string> = {
   lophn: "lophn",
-  "App Engineer": "app_engineer",
+  "Budget reviewer": BUDGET_REVIEWER_ID,
 };
 const TAB_LABEL = {
   version: "app-detail.label.tab-version",
@@ -240,7 +243,7 @@ export function AppSpace(props: AppSpaceProps = {}) {
     const { panel, activity, pane } = props;
     if (pane !== undefined) {
       await press("[data-agent-select]");
-      await click(`[data-agent="${AGENT_KEY[pane.agent ?? "App Engineer"]}"]`);
+      await click(`[data-agent="${AGENT_KEY[pane.agent ?? "lophn"]}"]`);
     }
     if (panel !== undefined) {
       await click('[data-app-bar="app-details"]');

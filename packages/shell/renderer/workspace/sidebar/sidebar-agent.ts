@@ -3,16 +3,17 @@
 import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 
 /**
- * project sidebar에 보이는 역할. App Engineer는 앱 공간의 agent라 여기에 없다.
+ * project sidebar에 보이는 역할. 지금 값은 `"lophn"`과 `"operator"`만 온다.
+ * type의 나머지 값은 이 file 밖 `workspace.tsx`가 견주어 남아 있다.
  */
 export type SidebarAgentRole = "lophn" | "project_manager" | "operator";
 
 /** Agent 모양의 agent 줄 하나. */
 export interface SidebarAgent {
-  /** `asg_…` */
+  /** agent id(`lophn` 또는 `agt_…`). */
   readonly assignment: string;
   readonly role: SidebarAgentRole;
-  /** 줄에 보이는 이름(고정 글자가 아니다. Operator는 사람이 지은 이름). */
+  /** 줄에 보이는 이름(고정 글자가 아니라 사람이 지은 이름일 수 있다). */
   readonly name: string;
   readonly profile: AvatarProfile;
   /** 이 agent에 답을 기다리는 session이 하나라도 있다. 점은 저장하지 않는 표시 상태다. */

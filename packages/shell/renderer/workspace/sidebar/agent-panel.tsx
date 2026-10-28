@@ -93,15 +93,7 @@ export function AgentPanel({
           </button>
         </h2>
         <ul className={styles.list} role="list">
-          {view.builtins.map((group) => (
-            <Group key={group.agent.assignment} group={group} {...rowProps} />
-          ))}
-          {view.operators.length === 0 ? null : (
-            <li className={styles.subLabel}>
-              {t("project-workspace.label.role-operators")}
-            </li>
-          )}
-          {view.operators.map((group) => (
+          {view.agents.map((group) => (
             <Group key={group.agent.assignment} group={group} {...rowProps} />
           ))}
         </ul>

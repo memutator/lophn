@@ -13,7 +13,7 @@ import { TabStrip } from "../../../../packages/shell/renderer/parts/tab-strip/ta
 import { Palette, type PaletteItem } from "@lophn/ui/overlay";
 import { workspaceIcons } from "../../../../packages/shell/renderer/icons/mod.ts";
 
-import { AgentsBody, OperatorEditor } from "./agents-tab.tsx";
+import { AgentSettingsEditor, AgentsBody } from "./agents-tab.tsx";
 import {
   AGENTS_TAB,
   newConversationTab,
@@ -79,12 +79,6 @@ export const CHAT_TAB: TabSpec = {
 };
 // 상단 바 왼쪽 경로의 project 조각. 이 page는 project 하나뿐이다.
 const PROJECT_OPTIONS = [{ id: "phroner", label: "phroner" }];
-const ENGINEER_TAB: TabSpec = {
-  key: "chat:engineer",
-  kind: "agent",
-  title: "Project Manager",
-  sub: "engineer",
-};
 
 // 상단 검색(돋보기·Ctrl+K)의 후보. 파일은 이름이나 경로로 연다.
 const FILE_ITEM = (path: string): PaletteItem & { tab: () => TabSpec } => ({
@@ -291,9 +285,8 @@ export function ProjectApp({
     if (choice === "document") open(documentTab("docs/notes.md"));
     else if (choice === "terminal") newTerminal();
     else if (choice === "agent-lophn") open(CHAT_TAB);
-    else if (choice === "agent-project-manager") open(ENGINEER_TAB);
-    else if (choice.startsWith("agent-operator:")) {
-      open(newConversationTab(choice.slice("agent-operator:".length)));
+    else if (choice.startsWith("agent:")) {
+      open(newConversationTab(choice.slice("agent:".length)));
     } else if (choice === "search") open(filesTab);
   };
 
@@ -360,7 +353,7 @@ export function ProjectApp({
       case "operator":
         return (
           <PaddedTab bare>
-            <OperatorEditor
+            <AgentSettingsEditor
               id={tab.sub ?? "new"}
               onDone={() => close(tab.key)}
             />

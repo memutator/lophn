@@ -5,7 +5,7 @@ export function AppSpaceFrame() {
   return <AppSpace agentMenu />;
 }
 
-/** Background 목록. agent run은 아래에 그 run이 연 session이 있고 tool run은 session 줄이 없다. job이 연 run(Operator의 것과 tool run 하나)은 이름 자리에 job 제목이 오고 둘째 줄에 agent 또는 tool 이름이 온다. 다른 앱과 lophn의 run은 없다. */
+/** Background 목록. agent run은 아래에 그 run이 연 session이 있고 tool run은 session 줄이 없다. job이 연 run(agent run 하나와 tool run 하나)은 이름 자리에 job 제목이 오고 둘째 줄에 agent 또는 tool 이름이 온다. 다른 앱과 lophn의 run은 없다. */
 export function RunsList() {
   return <AppSpace runs="list" />;
 }
@@ -134,14 +134,11 @@ export function AnnotateList() {
 /** 두 탭이 한 줄에 선 패널. App details를 보고 있다. */
 export function SidePanelTabs() {
   return (
-    <AppSpace
-      panel="version"
-      pane={{ view: "details", agent: "App Engineer" }}
-    />
+    <AppSpace panel="version" pane={{ view: "details", agent: "lophn" }} />
   );
 }
 
 /** 앱 화면 옆에 붙은 agent 탭. title bar의 Agent select로 연다. */
 export function AgentPaneOpen() {
-  return <AppSpace pane={{ agent: "App Engineer" }} />;
+  return <AppSpace pane={{ agent: "lophn" }} />;
 }

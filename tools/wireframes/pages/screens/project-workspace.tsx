@@ -351,7 +351,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-agent-sidebar",
       title: "Sidebar · Agent",
       description:
-        "sidebar 맨 위 밑줄 탭에서 Agent를 고른 모양이다. lophn, Project Manager, Operators마다 열린 session이 아래에 들여 쓰여 있고 맨 아래에 Recent가 있다. session을 누르면 그 탭이 열리고 묶음 머리의 Manage는 Agents 탭을 연다.",
+        "sidebar 맨 위 밑줄 탭에서 Agent를 고른 모양이다. lophn과 사람이 만든 agent 셋이 한 목록이고 각자 이 project의 열린 session이 아래에 들여 쓰여 있다. 맨 아래에 Recent가 있고 session을 누르면 그 탭이 열리며 묶음 머리의 Manage는 Agents 탭을 연다.",
       render: () => <AgentsGroup />,
     },
     {
@@ -421,7 +421,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-project-tab-menu",
       title: "Project · new tab menu",
       description:
-        "탭 줄 끝의 + 메뉴를 펼친 상태다. Terminal 바로 뒤에 Browser가 있고, Agent 하위 메뉴에 lophn, Project Manager, Operator가 있다. Agents(관리 탭) 항목은 없다.",
+        "탭 줄 끝의 + 메뉴를 펼친 상태다. Terminal 바로 뒤에 Browser가 있고, Agent 하위 메뉴에 lophn과 사람이 만든 agent 셋이 있다. Agents(관리 탭) 항목은 없다.",
       render: () => <NewTabMenu />,
     },
     {

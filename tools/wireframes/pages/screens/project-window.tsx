@@ -224,16 +224,9 @@ const avatarOf = (profile: AgentProfile): AvatarProfile =>
     ? { kind: "image", src: PHOTO }
     : { kind: "character", shape: profile.shape, color: profile.color };
 
-const AGENTS: readonly SidebarAgent[] = AGENT_ROWS.filter(
-  (row) => row.id !== "operators",
-).map((row) => ({
+const AGENTS: readonly SidebarAgent[] = AGENT_ROWS.map((row) => ({
   assignment: row.id,
-  role:
-    row.operator === true
-      ? ("operator" as const)
-      : row.id === "lophn"
-        ? ("lophn" as const)
-        : ("project_manager" as const),
+  role: row.id === "lophn" ? ("lophn" as const) : ("operator" as const),
   name: row.name,
   profile: avatarOf(row.profile),
   waiting: false,
@@ -577,7 +570,7 @@ const JOBS: readonly JobView[] = [
 ];
 
 /**
- * project sidebar. 실제 `ProjectSidebar`에 phroner의 고정 data(연결 폴더 둘, lophn·Project Manager·Operator 둘과
+ * project sidebar. 실제 `ProjectSidebar`에 phroner의 고정 data(연결 폴더 둘, lophn과 사람이 만든 agent 셋과
  * 그 session)를 넘긴다. 접으면 activity bar만 남는다: 항목 넷(누르면 펼침) · 아래쪽 Terminal · Agent · Search.
  */
 export function PageSidebar(props: SidebarProps) {
@@ -634,8 +627,7 @@ type NewTabPick =
   | "document"
   | "terminal"
   | "agent-lophn"
-  | "agent-project-manager"
-  | `agent-operator:${string}`
+  | `agent:${string}`
   | "search"
   | "browser"
   | "app-panel";
@@ -670,15 +662,7 @@ export function PageNewTabMenu({
         name: agent.name,
         profile: agent.profile,
       }))}
-      onAgent={(id) =>
-        onPick(
-          id === "lophn"
-            ? "agent-lophn"
-            : id === "engineer"
-              ? "agent-project-manager"
-              : `agent-operator:${id}`,
-        )
-      }
+      onAgent={(id) => onPick(id === "lophn" ? "agent-lophn" : `agent:${id}`)}
       onSearch={() => onPick("search")}
       onAppPanel={() => onPick("app-panel")}
     />

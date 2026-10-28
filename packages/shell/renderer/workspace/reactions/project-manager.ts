@@ -1,4 +1,4 @@
-// 그 project의 Project Manager session을 연다. 이미 연 session이 있으면 그 session의 Agent 탭을, 없으면 새 session 탭을 연다.
+// 그 project place의 lophn session을 연다. 이미 연 session이 있으면 그 session의 Agent 탭을, 없으면 새 session 탭을 연다.
 import type { SessionEntry } from "../../desktop/connection/events/sessions-store.ts";
 import { openAgent } from "../kinds/agent.tsx";
 import type { TabHost } from "../kinds/host.ts";
@@ -16,9 +16,9 @@ interface ProjectManagerEnv {
   readonly agents: () => readonly SidebarAgent[];
 }
 
-/** Project Manager를 열 수 있으면 true. */
+/** 그 project place의 lophn session을 열 수 있으면 true. */
 export function openProjectManager(env: ProjectManagerEnv): boolean {
-  const row = agentByRole(env.agents(), "project_manager");
+  const row = agentByRole(env.agents(), "lophn");
   if (row === undefined || env.host().agentView === null) return false;
   openAgent(env.host(), {
     agent: row.assignment,

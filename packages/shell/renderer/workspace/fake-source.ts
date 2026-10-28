@@ -80,16 +80,16 @@ const FAKE_NOW = new Date("2026-10-22T09:30:00.000Z");
 type ReportLine = Extract<WorkflowLineView, { kind: "report" }>;
 
 const PROJECT = "prj_01h455vb4pex5v6nkc6gd5fd00";
-const PM_SESSION = "ses_01h455vb4pex5v6nkc6gd5fd11";
-const OP_SESSION = "ses_01h455vb4pex5v6nkc6gd5fd12";
-const PM_SESSION_2 = "ses_01h455vb4pex5v6nkc6gd5fd13";
+const LOPHN_SESSION = "ses_01h455vb4pex5v6nkc6gd5fd11";
+const ANALYST_SESSION = "ses_01h455vb4pex5v6nkc6gd5fd12";
+const LOPHN_SESSION_2 = "ses_01h455vb4pex5v6nkc6gd5fd13";
 
 const minutesAgo = (minutes: number) =>
   new Date(FAKE_NOW.getTime() - minutes * 60_000).toISOString();
 
 const PARTICIPANTS = {
-  pm: { role: "project_manager", name: "Project Manager" },
-  operator: { role: "operator", name: "Eval analyst" },
+  lophn: { role: "lophn", name: "lophn" },
+  analyst: { role: "agent", name: "Eval analyst" },
   human: { role: "human" },
 } as const;
 
@@ -105,10 +105,10 @@ export const FAKE_WORKFLOWS: readonly WorkflowEntryView[] = [
     startable: true,
     problem: null,
     steps: [
-      { name: "plan", by: "pm", with: null, next: ["execute"] },
-      { name: "execute", by: "operator", with: null, next: ["review"] },
-      { name: "review", by: "human", with: "pm", next: ["report", "plan"] },
-      { name: "report", by: "pm", with: null, next: ["end"] },
+      { name: "plan", by: "lophn", with: null, next: ["execute"] },
+      { name: "execute", by: "analyst", with: null, next: ["review"] },
+      { name: "review", by: "human", with: "lophn", next: ["report", "plan"] },
+      { name: "report", by: "lophn", with: null, next: ["end"] },
     ],
     artifacts: { static: true, instance: true },
   },
@@ -120,7 +120,7 @@ export const FAKE_WORKFLOWS: readonly WorkflowEntryView[] = [
     kind: "agent",
     startable: true,
     problem: null,
-    steps: [{ name: "review", by: "human", with: "pm", next: ["end"] }],
+    steps: [{ name: "review", by: "human", with: "lophn", next: ["end"] }],
     artifacts: { static: false, instance: false },
   },
   {
@@ -184,7 +184,7 @@ const IDS = {
 const EVAL_STEPS = [
   {
     name: "plan",
-    by: "pm",
+    by: "lophn",
     with: null,
     prompt:
       "Pick the next experiment from the open findings and write its plan.",
@@ -194,7 +194,7 @@ const EVAL_STEPS = [
   },
   {
     name: "execute",
-    by: "operator",
+    by: "analyst",
     with: null,
     prompt: "Carry out the experiment from the plan and collect the results.",
     in: "Path of the experiment plan",
@@ -204,7 +204,7 @@ const EVAL_STEPS = [
   {
     name: "review",
     by: "human",
-    with: "pm",
+    with: "lophn",
     prompt: "Go through the results with the user and agree on what they mean.",
     in: "Path of the results folder",
     out: "The agreed conclusion",
@@ -212,7 +212,7 @@ const EVAL_STEPS = [
   },
   {
     name: "report",
-    by: "pm",
+    by: "lophn",
     with: null,
     prompt: "Write the conclusion into the findings document.",
     in: "The agreed conclusion",
@@ -318,8 +318,8 @@ function startLines(
       by: lophn,
       kind: "handed",
       step: "plan",
-      participant: "pm",
-      receiver: PM_SESSION,
+      participant: "lophn",
+      receiver: LOPHN_SESSION,
       human_turn: false,
       cause: "start",
       session: "new",
@@ -341,7 +341,7 @@ const runningPlan = reportOf(
   IDS.running,
   3,
   14,
-  PM_SESSION,
+  LOPHN_SESSION,
   "plan",
   PLAN_TEXT,
   "execute",
@@ -366,8 +366,8 @@ const running: WorkflowInstanceDetailView = {
       by: lophn,
       kind: "handed",
       step: "execute",
-      participant: "operator",
-      receiver: OP_SESSION,
+      participant: "analyst",
+      receiver: ANALYST_SESSION,
       human_turn: false,
       cause: "report",
       session: "new",
@@ -382,7 +382,7 @@ const humanPlan = reportOf(
   IDS.humanTurn,
   3,
   62,
-  PM_SESSION,
+  LOPHN_SESSION,
   "plan",
   "Repeat exp-011 on the full scenario set with the chest-name fix. Plan: eval/experiments/exp-011.md.",
   "execute",
@@ -391,7 +391,7 @@ const humanRun = reportOf(
   IDS.humanTurn,
   5,
   25,
-  OP_SESSION,
+  ANALYST_SESSION,
   "execute",
   RUN_TEXT,
   "review",
@@ -416,8 +416,8 @@ const humanTurn: WorkflowInstanceDetailView = {
       by: lophn,
       kind: "handed",
       step: "execute",
-      participant: "operator",
-      receiver: OP_SESSION,
+      participant: "analyst",
+      receiver: ANALYST_SESSION,
       human_turn: false,
       cause: "report",
       session: "new",
@@ -430,8 +430,8 @@ const humanTurn: WorkflowInstanceDetailView = {
       by: lophn,
       kind: "handed",
       step: "review",
-      participant: "pm",
-      receiver: PM_SESSION_2,
+      participant: "lophn",
+      receiver: LOPHN_SESSION_2,
       human_turn: true,
       cause: "report",
       session: "new",
@@ -446,7 +446,7 @@ const endedPlan = reportOf(
   IDS.ended,
   3,
   300,
-  PM_SESSION,
+  LOPHN_SESSION,
   "plan",
   "Compare exp-014 results across both weeks. No new pass is needed.",
   "execute",
@@ -455,7 +455,7 @@ const endedRun = reportOf(
   IDS.ended,
   5,
   280,
-  OP_SESSION,
+  ANALYST_SESSION,
   "execute",
   "Collected both weeks. This week is 4 points better on route length.",
   "review",
@@ -464,7 +464,7 @@ const endedReview = reportOf(
   IDS.ended,
   7,
   250,
-  PM_SESSION_2,
+  LOPHN_SESSION_2,
   "review",
   REVIEW_TEXT,
   "report",
@@ -473,7 +473,7 @@ const endedReport = reportOf(
   IDS.ended,
   9,
   240,
-  PM_SESSION,
+  LOPHN_SESSION,
   "report",
   "Wrote the conclusion into loop/findings/F-012.md.",
   "end",
@@ -513,8 +513,8 @@ const ended: WorkflowInstanceDetailView = {
       by: lophn,
       kind: "handed",
       step: "execute",
-      participant: "operator",
-      receiver: OP_SESSION,
+      participant: "analyst",
+      receiver: ANALYST_SESSION,
       human_turn: false,
       cause: "report",
       session: "new",
@@ -527,8 +527,8 @@ const ended: WorkflowInstanceDetailView = {
       by: lophn,
       kind: "handed",
       step: "review",
-      participant: "pm",
-      receiver: PM_SESSION_2,
+      participant: "lophn",
+      receiver: LOPHN_SESSION_2,
       human_turn: true,
       cause: "report",
       session: "new",
@@ -541,8 +541,8 @@ const ended: WorkflowInstanceDetailView = {
       by: lophn,
       kind: "handed",
       step: "report",
-      participant: "pm",
-      receiver: PM_SESSION,
+      participant: "lophn",
+      receiver: LOPHN_SESSION,
       human_turn: false,
       cause: "report",
       session: "same",
@@ -564,7 +564,7 @@ const stoppedPlan = reportOf(
   IDS.stopped,
   3,
   190,
-  PM_SESSION,
+  LOPHN_SESSION,
   "plan",
   "Try exp-005 on the slow scenarios only. Plan: eval/experiments/exp-005.md.",
   "execute",
@@ -589,8 +589,8 @@ const stopped: WorkflowInstanceDetailView = {
       by: lophn,
       kind: "handed",
       step: "execute",
-      participant: "operator",
-      receiver: OP_SESSION,
+      participant: "analyst",
+      receiver: ANALYST_SESSION,
       human_turn: false,
       cause: "report",
       session: "new",
@@ -605,14 +605,14 @@ const stopped: WorkflowInstanceDetailView = {
   ],
 };
 
-// ---- not_handed: PM이 review 담당을 고쳤는데 참가자가 없다 ----
+// ---- not_handed: lophn이 review 담당을 고쳤는데 참가자가 없다 ----
 const notHandedInput =
   "Look into why the recipe lookup scenarios flip between attempts";
 const notHandedPlan = reportOf(
   IDS.notHanded,
   3,
   40,
-  PM_SESSION,
+  LOPHN_SESSION,
   "plan",
   "Do three passes of exp-007 on the same scenarios and compare the tool calls.",
   "execute",
@@ -621,7 +621,7 @@ const notHandedRun = reportOf(
   IDS.notHanded,
   5,
   22,
-  OP_SESSION,
+  ANALYST_SESSION,
   "execute",
   "Three passes done. The flips come from the order of two read tools. Results are in eval/results/exp-007.",
   "review",
@@ -646,8 +646,8 @@ const notHanded: WorkflowInstanceDetailView = {
       by: lophn,
       kind: "handed",
       step: "execute",
-      participant: "operator",
-      receiver: OP_SESSION,
+      participant: "analyst",
+      receiver: ANALYST_SESSION,
       human_turn: false,
       cause: "report",
       session: "new",
@@ -674,7 +674,7 @@ const restartedPlan = reportOf(
   IDS.restarted,
   3,
   95,
-  PM_SESSION,
+  LOPHN_SESSION,
   "plan",
   "Repeat exp-006 now that the inventory schema has the new field.",
   "execute",
@@ -699,8 +699,8 @@ const restarted: WorkflowInstanceDetailView = {
       by: lophn,
       kind: "handed",
       step: "execute",
-      participant: "operator",
-      receiver: OP_SESSION,
+      participant: "analyst",
+      receiver: ANALYST_SESSION,
       human_turn: false,
       cause: "report",
       session: "new",
@@ -712,7 +712,7 @@ const restarted: WorkflowInstanceDetailView = {
       by: lophn,
       kind: "lophn_restarted",
       step: "execute",
-      receiver: OP_SESSION,
+      receiver: ANALYST_SESSION,
     },
   ],
 };

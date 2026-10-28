@@ -1,6 +1,7 @@
-// 앱 공간 agent select의 후보를 그 앱 자리의 agent 목록(AgentsSource.list)에서 읽는다. 목록은 lophn, 그 앱의
-// App Engineer, 이 앱에 놓인 Operator들이다. 정렬은 AgentSelect가 한다. 저장·삭제로 목록이 바뀌면 reload로 다시 읽는다.
+// 앱 공간 agent select의 후보를 전역 agent 목록(AgentsSource.list)에서 읽는다. 정렬은 AgentSelect가 한다.
+// 저장·삭제로 목록이 바뀌면 reload로 다시 읽는다.
 import { useCallback, useEffect, useState } from "react";
+import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/places.ts";
 import type { AvatarProfile } from "../parts/avatar/avatar.tsx";
 import type { AgentsSource } from "../workspace/agents/source.ts";
 import type { AppSpaceAgent } from "./agent-select.tsx";
@@ -18,8 +19,6 @@ export function useAppAgents(
       if (!live || !result.ok) return;
       setAgents(
         result.value.flatMap((row) => {
-          // Project Manager는 project의 agent라 앱 공간에 오지 않는다.
-          if (row.role === "project_manager") return [];
           const profile: AvatarProfile =
             row.profile.kind === "character"
               ? row.profile
@@ -30,7 +29,7 @@ export function useAppAgents(
           return [
             {
               assignment: row.assignment,
-              role: row.role,
+              role: row.assignment === LOPHN_AGENT_ID ? "lophn" : "operator",
               name: row.name,
               profile,
             },

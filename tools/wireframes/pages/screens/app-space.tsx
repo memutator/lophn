@@ -44,21 +44,21 @@ export const appSpaceArea: Area = {
       id: "new-app-space",
       title: "App space · frame",
       description:
-        "앱 공간이다. 탭 줄 없이 앱 화면이 title bar 아래 전체를 쓴다. title bar에 [Annotate], 앱 상세 단추가 있고, 펼친 agent select에 lophn, App Engineer, Operator 둘, 구분선 아래 Background와 Manage가 있다.",
+        "앱 공간이다. 탭 줄 없이 앱 화면이 title bar 아래 전체를 쓴다. title bar에 [Annotate], 앱 상세 단추가 있고, 펼친 agent select에 lophn, Eval analyst, Experiment planner, Budget reviewer, 구분선 아래 Background와 Manage가 있다.",
       render: () => <AppSpaceFrame />,
     },
     {
       id: "new-app-agent-pane",
       title: "App space · agent tab",
       description:
-        "title bar의 Agent select로 연 오른쪽 패널이다. 앱 화면 옆에 붙고 머리 줄에 Agent 탭 하나가 있다. 안의 대화는 project 창 Agent 탭과 같은 component다.",
+        "title bar의 Agent select로 연 lophn pane이다. 앱 화면 옆에 붙고 머리 줄에 Agent 탭 하나가 있다. 안의 대화는 project 창 Agent 탭과 같은 component다.",
       render: () => <AgentPaneOpen />,
     },
     {
       id: "new-app-runs",
       title: "App space · Background",
       description:
-        "agent select의 Background를 골라 연 오른쪽 패널이다. 이 앱의 App Engineer와 Operator가 한 일(run)이 새것부터 있고 아래에 그 run이 연 session이 들여 쓰여 있다. 이 앱 tool을 부른 일은 session 줄이 없다. 시각과 상태는 줄 오른쪽 끝에 있고, session 줄을 누르면 같은 칸에 그 session이 열린다.",
+        "agent select의 Background를 골라 연 오른쪽 패널이다. 이 앱의 Budget reviewer agent run과 Orders tool run이 새것부터 있고 agent run 아래에 그 run이 연 session이 들여 쓰여 있다. tool을 부른 일은 session 줄이 없다. 시각과 상태는 줄 오른쪽 끝에 있고, session 줄을 누르면 같은 칸에 그 session이 열린다.",
       render: () => <RunsList />,
     },
     {
@@ -92,7 +92,7 @@ export const appSpaceArea: Area = {
       id: "new-app-version-failed",
       title: "App space · Version (apply failed)",
       description:
-        "적용 실패와 이유가 보인다. 이전 release가 그대로 활성이고 App Engineer가 이어 받는다는 안내가 있다.",
+        "적용 실패와 이유가 보인다. 이전 release가 그대로 활성이고 이 앱 place의 lophn이 이어 받는다는 안내가 있다.",
       render: () => <VersionFailed />,
     },
     {
@@ -197,7 +197,7 @@ export const appSpaceArea: Area = {
       id: "new-app-annotate-list",
       title: "App space · annotations list",
       description:
-        "모은 annotation 셋(요소 둘, 영역 하나)의 목록이다. 하나씩 지우거나 전부 지우고 [Send to App Engineer]로 한 번에 보낸다. App Engineer session의 메시지가 된다.",
+        "모은 annotation 셋(요소 둘, 영역 하나)의 목록이다. 하나씩 지우거나 전부 지우고 [Send to agent]로 한 번에 보낸다. 이 앱 place의 lophn session 메시지가 된다.",
       render: () => <AnnotateList />,
     },
   ],

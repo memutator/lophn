@@ -1,5 +1,5 @@
 // 앱 공간 위쪽 바의 agent select. 앱 공간은 lophn sidebar를 쓰지 않으므로
-// 이 select가 agent를 여는 유일한 길이다(알림의 [Ask App Engineer]는 select를 거치지 않는다).
+// 이 select가 agent를 여는 길이다.
 // 화면 값은 lophn-agent/agents의 목록 줄에서 부르는 쪽이 만든 view 값이다. renderer는 protocol을
 // type check하지 않으므로 id는 문자열로 받는다.
 import type { ReactElement } from "react";
@@ -16,17 +16,17 @@ type AppSpaceAgentRole = "lophn" | "app_engineer" | "operator";
 
 /** select 항목 하나. */
 export interface AppSpaceAgent {
-  /** agent key. 내장 role은 role 이름이고 Operator는 `agt_…`다. */
+  /** agent id(`lophn` 또는 `agt_…`). */
   readonly assignment: string;
   readonly role: AppSpaceAgentRole;
-  /** 항목에 보이는 이름(고정 글자가 아니다. Operator는 사람이 지은 이름). */
+  /** 항목에 보이는 이름(고정 글자가 아니라 사람이 지은 이름일 수 있다). */
   readonly name: string;
   readonly profile: AvatarProfile;
 }
 
 interface AgentSelectProps {
   /**
-   * 부르는 쪽이 읽은 agent. 순서는 component가 정한다: lophn, App Engineer, 이 앱의 Operator들(들어온 순서).
+   * 부르는 쪽이 읽은 agent. 순서는 component가 정한다: lophn, 다른 agent들(받은 순서).
    */
   agents: readonly AppSpaceAgent[];
   /** 옆 pane이 열려 있으면 단추가 눌린 모양이다. */
@@ -43,7 +43,7 @@ interface AgentSelectProps {
  * 약속하는 DOM(test가 단언):
  * - 닫힌 모습: 글자 없는 아이콘 단추 `button[data-agent-select][aria-haspopup="menu"]` 하나(Agent 아이콘과 chevron, 접근 이름 "Agent").
  *   열기 전에는 `role=menu`가 없다. 앱 view의 상태(crash·멈춤)와 상관없이 props만으로 열린다. 옆 pane이 열려 있으면 `aria-pressed`다.
- * - 열면 `role=menu`(portal) 안에 `role=menuitem`이 lophn, App Engineer, Operator들(들어온 순서), Background(`onRuns`가 있을
+ * - 열면 `role=menu`(portal) 안에 `role=menuitem`이 lophn, 다른 agent들(받은 순서), Background(`onRuns`가 있을
  *   때만), Manage 순서로 있다. agent 항목은 `[data-agent=<assignment>]`이고 안에 avatar(`[data-avatar]`)와 이름
  *   `[data-agent-name]`이 이 순서로 있다. Background는 `[data-agent-runs]`, Manage는 `[data-agent-manage]` "Manage"이며
  *   둘 다 `[data-agent]`가 아니다.
@@ -124,9 +124,10 @@ export function AgentSelect({
 const MANAGE = "manage";
 const RUNS = "runs";
 
-/** lophn, App Engineer, Operator들(들어온 순서). */
+/** lophn, 다른 agent들(받은 순서). */
 function ordered(agents: readonly AppSpaceAgent[]): AppSpaceAgent[] {
-  const pick = (role: AppSpaceAgentRole) =>
-    agents.filter((agent) => agent.role === role);
-  return [...pick("lophn"), ...pick("app_engineer"), ...pick("operator")];
+  return [
+    ...agents.filter((agent) => agent.role === "lophn"),
+    ...agents.filter((agent) => agent.role !== "lophn"),
+  ];
 }

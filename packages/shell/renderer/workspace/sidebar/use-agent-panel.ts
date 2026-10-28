@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 
 import type { RunRow, RunStateView } from "./run-list.tsx";
-import type { SidebarAgent, SidebarAgentRole } from "./sidebar-agent.ts";
+import type { SidebarAgent } from "./sidebar-agent.ts";
 
 /** Agent 모양이 쓰는 session 한 줄. `useSessions()`의 항목에서 부르는 쪽이 옮긴다. */
 export interface PanelSession {
@@ -45,21 +45,14 @@ interface RecentSession {
 }
 
 export interface AgentPanelView {
-  /** lophn · Project Manager 순서의 묶음. */
-  readonly builtins: readonly AgentGroup[];
-  /** Operator들(들어온 순서). */
-  readonly operators: readonly AgentGroup[];
+  /** 받은 agent 목록 그대로의 묶음(lophn이 첫 줄). */
+  readonly agents: readonly AgentGroup[];
   /** 새것부터 `RECENT_LIMIT`개. 비면 묶음이 없다. */
   readonly runs: readonly RunRow[];
   readonly recent: readonly RecentSession[];
 }
 
 const RECENT_LIMIT = 5;
-
-const BUILTIN_ORDER: Partial<Record<SidebarAgentRole, number>> = {
-  lophn: 0,
-  project_manager: 1,
-};
 
 function agentPanelOf(
   agents: readonly SidebarAgent[],
@@ -71,15 +64,9 @@ function agentPanelOf(
     agent,
     sessions: byRecent.filter((s) => s.open && s.agent === agent.assignment),
   });
-  const builtins = agents
-    .filter((agent) => agent.role !== "operator")
-    .sort(
-      (a, b) => (BUILTIN_ORDER[a.role] ?? 9) - (BUILTIN_ORDER[b.role] ?? 9),
-    );
   const names = new Map(agents.map((a) => [a.assignment, a]));
   return {
-    builtins: builtins.map(group),
-    operators: agents.filter((agent) => agent.role === "operator").map(group),
+    agents: agents.map(group),
     // job이 시간마다 run을 만들어도 sidebar가 자라지 않게 새것 몇 개만 보인다.
     runs: [...runs]
       .sort((a, b) => b.at - a.at)

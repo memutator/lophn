@@ -8,8 +8,24 @@ import type { PanelRun, PanelSession } from "./use-agent-panel.ts";
 import type { RunRecordView } from "./run-list.tsx";
 import type { TabDot } from "../../parts/tab-strip/tab-strip.tsx";
 
+// renderer session store의 agent를 읽는 한 곳. shell-events가 store를 AgentId로 바꿀 때 이 함수만 고친다.
+export function sessionAgentKey(entry: SessionEntry): string | null {
+  return agentKeyOf(entry.agent);
+}
+
+function agentKeyOf(agent: CallAgent | null): string | null {
+  if (agent === null) return null;
+  if (agent.role === "lophn") return "lophn";
+  if (agent.role === "operator") return agent.agent;
+  return null;
+}
+
+function sessionAtProject(entry: SessionEntry, project: string): boolean {
+  return entry.place?.kind === "project" && entry.place.id === project;
+}
+
 /**
- * role로 agent 줄을 찾는다. Operator는 여럿이라 이 함수로 찾지 않는다.
+ * role로 agent 줄을 찾는다. 여럿인 agent 줄은 이 함수로 찾지 않는다.
  */
 export function agentByRole(
   agents: readonly SidebarAgent[],
@@ -19,7 +35,7 @@ export function agentByRole(
 }
 
 /**
- * 이 project의 열린 Project Manager session 가운데 가장 최근 것.
+ * 이 project place의 열린 lophn session 가운데 가장 최근 것.
  */
 export function openedProjectManagerSession(
   entries: readonly SessionEntry[],
@@ -28,32 +44,10 @@ export function openedProjectManagerSession(
   const found = entries.filter(
     (entry) =>
       entry.ended === null &&
-      entry.agent?.role === "project_manager" &&
-      entry.agent.project === project,
+      sessionAgentKey(entry) === "lophn" &&
+      sessionAtProject(entry, project),
   );
   return found.length === 0 ? null : found[found.length - 1].session;
-}
-
-// agent ref를 sidebar의 agent 줄로 찾는다. 이 project에 놓인 agent와 lophn만 줄이 있다.
-// session과 run이 같은 규칙을 쓴다.
-function agentRowOf(
-  agent: CallAgent | null,
-  agents: readonly SidebarAgent[],
-  project: string,
-): SidebarAgent | undefined {
-  if (agent === null) return undefined;
-  if (agent.role === "lophn") return agentByRole(agents, "lophn");
-  if (agent.role === "project_manager") {
-    return agent.project === project
-      ? agentByRole(agents, "project_manager")
-      : undefined;
-  }
-  if (agent.role === "operator") {
-    return agents.find(
-      (row) => row.role === "operator" && row.assignment === agent.agent,
-    );
-  }
-  return undefined;
 }
 
 // session을 가진 agent를 sidebar의 agent 줄로 찾는다.
@@ -62,7 +56,9 @@ export function agentRow(
   agents: readonly SidebarAgent[],
   project: string,
 ): SidebarAgent | undefined {
-  return agentRowOf(entry.agent, agents, project);
+  const key = sessionAgentKey(entry);
+  if (key === null || !sessionAtProject(entry, project)) return undefined;
+  return agents.find((row) => row.assignment === key);
 }
 
 /** 대화 source(`AgentTabSource.sessions()`)가 읽은 session의 제목과 마지막 활동 시각(epoch ms). */
@@ -111,7 +107,7 @@ export function runOpenedSessions(
   );
 }
 
-/** project sidebar의 run 줄. agent run 가운데 sidebar가 agent 줄을 찾는 것만 남긴다(tool run은 앱 공간 몫). */
+/** project sidebar의 run 줄. place로 거르는 일은 부르는 쪽이 한다. agent run 가운데 sidebar가 agent 줄을 찾는 것만 남긴다(tool run은 앱 공간 몫). */
 export function panelRuns(
   records: readonly RunRecordView[],
   agents: readonly SidebarAgent[],
@@ -120,7 +116,9 @@ export function panelRuns(
 ): PanelRun[] {
   return records.flatMap((record): PanelRun[] => {
     if (record.kind !== "agent" || !("agent" in record.target)) return [];
-    const row = agentRowOf(record.target.agent, agents, project);
+    const key = agentKeyOf(record.target.agent);
+    if (key === null) return [];
+    const row = agents.find((item) => item.assignment === key);
     if (row === undefined) return [];
     return [
       {

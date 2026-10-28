@@ -20,7 +20,7 @@ import { type AppStatus, appStatus } from "../apps/model.ts";
 import type { AppRow, AppsSource, RunState } from "../apps/source.ts";
 import type { ReadResult } from "../workspace/source.ts";
 import type { RunRecordView } from "../workspace/sidebar/run-list.tsx";
-import { keyOf } from "../workspace/agents/agent-key.ts";
+import { sessionAgentKey } from "../workspace/sidebar/panel-sessions.ts";
 import type { AgentsSource } from "../workspace/agents/source.ts";
 import { AppDetail } from "./app-detail/app-detail.tsx";
 import type { AppDetailSource } from "./app-detail/source.ts";
@@ -78,7 +78,7 @@ interface AppSpaceProps {
   overlay?: OverlayApi;
   /** 처음에 pane에 열어 둘 agent session. */
   session?: string;
-  /** 이 앱의 App Engineer를 새 session으로 열어 시작한다(방금 만든 앱). */
+  /** 이 앱 place의 lophn 새 session으로 열어 시작한다(방금 만든 앱). */
   appEngineer?: boolean;
   /** 이 공간의 pane에 없는 agent session을 연다(호스트가 그 session이 있는 화면으로 간다). */
   onOpenSession?: (session: string) => void;
@@ -177,9 +177,7 @@ export function AppSpace({
   const covers = useMemo(createViewCovers, []);
   // 오른쪽 패널. 열린 탭(details, agent)과 고른 탭, 패널을 보이는지는 따로 쥔다. 단추로 패널을 닫아도 탭의 상태는 남는다.
   const [pane, setPane] = useState<AgentPaneState | null>(
-    appEngineer
-      ? { mode: "agent", assignment: "app_engineer", session: null }
-      : null,
+    appEngineer ? { mode: "agent", assignment: "lophn", session: null } : null,
   );
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>("agent");
@@ -224,17 +222,16 @@ export function AppSpace({
 
   const sessions = useSessions().sessions;
 
-  // 그 agent의 가장 최근 열린 session. lophn이 맡긴 일을 받은 session도 여기 있어서, 고르면 빈 새 session 대신
-  // 이어 가던 대화가 열린다. 새 session은 header의 session 목록에서 연다.
+  // 이 앱 place에서 그 agent의 가장 최근 열린 session. 고르면 빈 새 session 대신 이어 가던 대화가 열린다.
+  // 새 session은 header의 session 목록에서 연다.
   const latestSession = (assignment: string): string | null =>
     sessions
       .filter(
         (item) =>
           item.ended === null &&
-          item.agent !== null &&
-          item.agent.role !== "coding_agent" &&
-          keyOf(item.agent) === assignment &&
-          (item.agent.role !== "app_engineer" || item.agent.app === app),
+          item.place?.kind === "app" &&
+          item.place.id === app &&
+          sessionAgentKey(item) === assignment,
       )
       .at(-1)?.session ?? null;
 
@@ -257,7 +254,7 @@ export function AppSpace({
     showTab("agent");
   }
 
-  // 이 앱의 agent session이면 pane을 그 session으로 연다. session이 없으면 이 앱의 App Engineer 열린 session이다.
+  // 이 앱의 agent session이면 pane을 그 session으로 연다. session이 없으면 이 앱의 lophn 열린 session이다.
   function openSession(
     target: string | null,
     forApp: string | undefined,
@@ -267,22 +264,21 @@ export function AppSpace({
       if (forApp !== app) return false;
       setPane({
         mode: "agent",
-        assignment: "app_engineer",
-        session: latestSession("app_engineer"),
+        assignment: "lophn",
+        session: latestSession("lophn"),
       });
     } else {
-      const agent = sessions.find((item) => item.session === target)?.agent;
-      if (agent === undefined || agent === null) return false;
-      if (agent.role === "lophn") {
-        setPane({ mode: "agent", assignment: keyOf(agent), session: target });
-      } else if (agent.role === "app_engineer" && agent.app === app) {
-        setPane({ mode: "agent", assignment: keyOf(agent), session: target });
-      } else if (
-        agent.role === "operator" &&
-        agentList.agents.some((item) => item.assignment === agent.agent)
-      ) {
-        setPane({ mode: "agent", assignment: keyOf(agent), session: target });
-      } else return false;
+      const entry = sessions.find((item) => item.session === target);
+      const assignment = entry === undefined ? null : sessionAgentKey(entry);
+      if (
+        entry === undefined ||
+        assignment === null ||
+        entry.place?.kind !== "app" ||
+        entry.place.id !== app ||
+        !agentList.agents.some((item) => item.assignment === assignment)
+      )
+        return false;
+      setPane({ mode: "agent", assignment, session: target });
     }
     showTab("agent");
     return true;
@@ -334,7 +330,7 @@ export function AppSpace({
 
   async function sendAnnotations(): Promise<void> {
     const receiver =
-      pane?.mode === "agent" && pane.assignment === "app_engineer"
+      pane?.mode === "agent" && pane.assignment === "lophn"
         ? pane.session
         : null;
     const sent = await annotating.send(receiver);

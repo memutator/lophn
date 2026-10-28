@@ -2,9 +2,10 @@ import {
   closeSession,
   openSession,
   SESSION_COMMANDS,
+  sessionCompactRequests,
   sessionList,
 } from "./sessions.ts";
-import { AGENT_SESSION_ROUTES } from "./agent-sessions.ts";
+import { PLACE_SESSION_ROUTES } from "./agent-sessions.ts";
 import { MESSAGE_ROUTES, messagesList } from "./messages.ts";
 import { REVERT_ROUTES } from "./reverts.ts";
 import { sessionRewind, sessionRewindPreview } from "./session-rewinds.ts";
@@ -42,10 +43,15 @@ export const ROUTES = [
   ...SESSION_COMMANDS.filter(
     (route) =>
       !(
-        [openSession, sessionList, closeSession] as readonly unknown[]
+        [
+          openSession,
+          sessionList,
+          closeSession,
+          sessionCompactRequests,
+        ] as readonly unknown[]
       ).includes(route),
   ),
-  ...AGENT_SESSION_ROUTES,
+  ...PLACE_SESSION_ROUTES,
   ...MESSAGE_ROUTES.filter((route) => route !== messagesList),
   ...REVERT_ROUTES,
   sessionRewind,

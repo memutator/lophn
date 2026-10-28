@@ -2,7 +2,7 @@ import type { Result } from "../../base/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import type {
-  AgentCallRecord,
+  AgentCallRow,
   CallAgent,
   CallFailReason,
   CallFrom,
@@ -11,6 +11,10 @@ import type {
   CallState,
   NamedAgent,
 } from "../../protocol/lophn-agent/calls.ts";
+import type {
+  AgentAddress,
+  AgentAtPlace,
+} from "../../protocol/lophn-agent/places.ts";
 import type {
   InputDelivery,
   RoutedInputKind,
@@ -25,7 +29,7 @@ export type TargetSession = {
   session: Id<"ses">;
   // 지금 받을 수 있는 것은 lophn session 하나다.
   transport: "lophn";
-  agent: CallAgent;
+  agent: AgentAtPlace;
   // archive, 지움, place 보관이면 false(새 입력을 받지 않는다).
   accepting: boolean;
 };
@@ -63,12 +67,15 @@ export type RoutedInput = {
 
 export interface SessionDirectory {
   find(session: Id<"ses">): TargetSession | null;
-  // 이름(role, place의 project·앱 이름, Operator 이름)으로 받을 agent 하나를 고른다.
+  // agent 이름과 place 이름으로 받을 session 하나를 고른다. place가 없으면 home이다.
+  // 이름을 짐작하지 않는다. 없으면 not_found.
+  resolveAddress(address: AgentAddress): Result<AgentAtPlace>;
+  // 옛 이름 꼴. `runs-core`·`jobs-core`가 옮길 때까지 남기고 `cleanup-core`가 지운다.
   // 이름을 짐작하지 않는다. 없으면 not_found.
   resolveAgent(named: NamedAgent): Result<CallAgent>;
-  // 열린 session. 없으면 null.
+  // 열린 session. 없으면 null. Router는 부르지 않는다(`places_test.ts`만 부른다).
   openOf(agent: CallAgent): TargetSession | null;
-  open(tx: Tx, agent: CallAgent, opener: CallFrom): Result<TargetSession>;
+  open(tx: Tx, agent: AgentAtPlace, opener: CallFrom): Result<TargetSession>;
   // session 목록 tool이 쓴다.
   listOpen(): readonly (TargetSession & { name: string })[];
 }
@@ -93,21 +100,19 @@ export interface InputTransport {
 }
 
 export interface CallStore {
-  insert(tx: Tx, record: AgentCallRecord): Result<void>;
-  byDedup(tx: Tx, sender: Id<"ses">, dedup: string): AgentCallRecord | null;
-  read(tx: Tx, call: Id<"cal">): AgentCallRecord | null;
+  insert(tx: Tx, record: AgentCallRow): Result<void>;
+  byDedup(tx: Tx, sender: Id<"ses">, dedup: string): AgentCallRow | null;
+  read(tx: Tx, call: Id<"cal">): AgentCallRow | null;
   move(
     tx: Tx,
     call: Id<"cal">,
     to: Exclude<CallState, "accepted">,
     reason: CallFailReason | null,
-  ): Result<AgentCallRecord>;
+  ): Result<AgentCallRow>;
   // 받는 session의 turn이 이 입력을 가져갔음을 적는다. 재시작 때 잃어버린 call을 가리는 근거다.
   markConsumed(tx: Tx, call: Id<"cal">): Result<void>;
-  // 받는 session이 나중에 정해졌을 때 받는 session을 적는다.
-  setReceiver(tx: Tx, call: Id<"cal">, session: Id<"ses">): Result<void>;
   // 끝나지 않았고 아직 가져가지 않은 call. 입력함과 앱 줄이 메모리라 lophn을 켤 때 잃어버린 것이다.
-  lost(tx: Tx): readonly AgentCallRecord[];
+  lost(tx: Tx): readonly AgentCallRow[];
   // 이 session이 받은 끝나지 않은 call. archive나 지움에서 receiver_ended로 닫는다.
-  openReceivedBy(tx: Tx, session: Id<"ses">): readonly AgentCallRecord[];
+  openReceivedBy(tx: Tx, session: Id<"ses">): readonly AgentCallRow[];
 }

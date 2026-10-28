@@ -15,14 +15,14 @@ export type RouterEnvironment = {
   deps(view: SqlView, who: () => string): RouterDeps;
   // 켤 때 잃어버린 call을 닫는 같은 tx에서 도는 turn도 닫는다(run-loop의 몫이라 wiring이 끼운다).
   interruptRunningTurns?(tx: Tx): Result<number>;
-  // call이 닿을 session 목록에 더하는 정보. 없으면 place는 agent에서 읽고 상태는 unknown이다.
+  // call이 닿을 session 목록에 더하는 정보. 없으면 상태는 unknown이다.
   describe?: RouterDescribe;
 };
 
 type RouterDescribe = (
   view: SqlView,
   target: { session: string },
-) => { place: { kind: "project" | "app"; id: string } | null; state: string };
+) => { state: string };
 
 let installed: RouterEnvironment | undefined;
 

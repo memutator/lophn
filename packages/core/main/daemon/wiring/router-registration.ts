@@ -5,7 +5,6 @@ import {
   createSessionDirectory,
   placeDepsOf,
 } from "../../../lophn-agent/places/mod.ts";
-import { loadSession, placeOf } from "../../../lophn-agent/session/model.ts";
 import {
   createLophnInputTransport,
   interruptRunningTurns,
@@ -44,16 +43,12 @@ const environment: RouterEnvironment = {
   interruptRunningTurns: (tx) =>
     interruptRunningTurns(tx, publishAfterCommit, "restarted"),
   describe(view, target) {
-    const row = loadSession(view, target.session as never);
     const running =
       view.sql.get(
         "select 1 as found from turns where session = ? and state = 'running'",
         [target.session],
       ) !== undefined;
-    return {
-      place: row === undefined ? null : placeOf(row),
-      state: running ? "running" : "idle",
-    };
+    return { state: running ? "running" : "idle" };
   },
 };
 

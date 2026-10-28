@@ -1,11 +1,5 @@
 import { realpath } from "node:fs/promises";
-import {
-  canonicalize,
-  createIdSource,
-  err,
-  ok,
-  type Result,
-} from "../../../../base/mod.ts";
+import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
   placeSessionOpen,
@@ -20,14 +14,13 @@ import type { DomainOwner } from "../../../../protocol/domains/mod.ts";
 import { domainArtifactsFolder } from "../../../../protocol/domains/paths.ts";
 import {
   LOPHN_AGENT_ID,
-  type AgentRef,
+  type AgentAtPlace,
   type Place,
-  placeOfAgentRef,
 } from "../../../../protocol/lophn-agent/places.ts";
 import {
+  agentCallSend,
   callCancel,
   callReply,
-  callSend,
 } from "../../../../protocol/lophn-agent/calls.ts";
 import {
   archiveSession,
@@ -150,7 +143,7 @@ function createCallBodyPreparer(deps: {
     const input = envelope.input;
     const texts: string[] = [];
     let next = envelope;
-    if (name === callSend.name || name === callReply.name) {
+    if (name === agentCallSend.name || name === callReply.name) {
       const body = (input as { body?: unknown } | null)?.body;
       // 모양이 틀린 요청은 건드리지 않고 지나가 command의 schema 검사가 거절한다.
       if (typeof body !== "string") return ok(envelope);
@@ -211,17 +204,7 @@ export const routerWiring: WiringFactory = () => {
         inbox: ctx.inbox,
         publish: (event) => ctx.bus.publish(event),
       });
-      // 앱을 받는 일은 그 앱의 App Engineer가 맡는다.
-      const agentOfApp = (app: string): Result<AgentRef> => {
-        const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
-          appExists(lookup.sql, app),
-        );
-        if (!found.ok) return found;
-        return found.value
-          ? ok({ role: "app_engineer", app: app as Id<"app"> })
-          : err({ code: "not_found", message: "app not found" });
-      };
-      // domain을 받는 일은 그 domain 그릇의 agent가 맡는다. 없는 domain이나 보관한 owner는 not_found다.
+      // domain을 받는 일은 그 domain 그릇 place의 lophn이 맡는다. 없는 domain이나 보관한 owner는 not_found다.
       const ownerOfDomain = (domain: string): Result<DomainOwner> => {
         const found = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
           const owner = domainOwnerOf(lookup.sql, domain);
@@ -237,10 +220,6 @@ export const routerWiring: WiringFactory = () => {
           ? err({ code: "not_found", message: "domain or its owner not found" })
           : ok(found.value);
       };
-      const agentOfOwner = (owner: DomainOwner): AgentRef =>
-        owner.kind === "project"
-          ? { role: "project_manager", project: owner.id }
-          : { role: "app_engineer", app: owner.id };
       // 사람 메시지는 이미지를 싣지 않고 refs의 annotation으로 가리킨다. 보관한 앱이면 session 열기나 보내기가 conflict다.
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       // 사람 메시지는 본문 준비와 입력함 적용을 거쳐야 turn이 열린다. API server와 같은 접은 writer가 그 층을 가진다.
@@ -254,10 +233,10 @@ export const routerWiring: WiringFactory = () => {
         });
         return done.ok ? ok(done.value.result) : done;
       };
-      // 지정된 session이 agent의 열린 session인지 본다. 아니면 conflict다.
+      // 지정된 session이 받는 쪽(agent와 place)의 열린 session인지 본다. 아니면 conflict다.
       const checkOpenSession = async (
         session: string,
-        agent: AgentRef,
+        target: AgentAtPlace,
         message: string,
       ): Promise<Result<void>> => {
         const found = await ctx.runtime.readers.read(
@@ -275,24 +254,28 @@ export const routerWiring: WiringFactory = () => {
             session: { agent: string; place: Place | null; lifecycle: string };
           }
         ).session;
-        const same =
-          actual === LOPHN_AGENT_ID &&
-          canonicalize(place) === canonicalize(placeOfAgentRef(agent) ?? null);
+        const samePlace =
+          place === null
+            ? target.place === null
+            : target.place !== null &&
+              place.kind === target.place.kind &&
+              place.id === target.place.id;
+        const same = actual === target.agent && samePlace;
         return same && lifecycle === "open"
           ? ok(undefined)
           : err({ code: "conflict", message });
       };
-      // session을 정해 사람 메시지 하나로 넣는다. session이 null이면 agent의 새 session을 연다.
+      // session을 정해 사람 메시지 하나로 넣는다. session이 null이면 받는 쪽의 새 session을 연다.
       const sendHuman = async (
-        agent: AgentRef,
+        target: AgentAtPlace,
         session: string | null,
         input: { text: string; annotations: readonly string[] },
       ): Promise<Result<{ session: string; message: string }>> => {
         if (session === null) {
           const opened = await run(placeSessionOpen, {
             id: ids.newId("ses"),
-            agent: LOPHN_AGENT_ID,
-            place: placeOfAgentRef(agent) ?? null,
+            agent: target.agent,
+            place: target.place,
           });
           if (!opened.ok) return opened;
           session = (opened.value as { id: string }).id;
@@ -311,36 +294,51 @@ export const routerWiring: WiringFactory = () => {
         if (!sent.ok) return sent;
         return ok({ session, message });
       };
-      // 지정된 session이 있으면 agent의 열린 session인지 보고, 없으면 새 session에 넣는다.
+      // 지정된 session이 있으면 받는 쪽의 열린 session인지 보고, 없으면 새 session에 넣는다.
       const deliverTo = async (
-        agent: AgentRef,
+        target: AgentAtPlace,
         session: string | null,
         input: { text: string; annotations: readonly string[] },
         notOpen: string,
       ) => {
         if (session !== null) {
-          const checked = await checkOpenSession(session, agent, notOpen);
+          const checked = await checkOpenSession(session, target, notOpen);
           if (!checked.ok) return checked;
         }
-        return await sendHuman(agent, session, input);
+        return await sendHuman(target, session, input);
       };
       const delivery: AnnotationDelivery = {
         async deliver(input) {
-          const agent = agentOfApp(input.app);
-          if (!agent.ok) return agent;
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            appExists(lookup.sql, input.app),
+          );
+          if (!found.ok) return found;
+          if (!found.value) {
+            return err({ code: "not_found", message: "app not found" });
+          }
+          const target: AgentAtPlace = {
+            agent: input.agent,
+            place: { kind: "app", id: input.app as Id<"app"> },
+          };
           return await deliverTo(
-            agent.value,
+            target,
             input.session,
             input,
-            "not an open session of this app's engineer",
+            "not an open session of this agent in this app",
           );
         },
-        // 받는 쪽 후보 순서: (a) 그 domain의 artifacts 폴더에 마지막으로 쓴 열린 session(rewind 기록),
-        // (b) 입력 session(그 domain owner의 열린 PM 또는 App Engineer), (c) owner의 새 session.
+        // 받는 쪽 후보 순서: (a) 그 domain의 artifacts 폴더에 마지막으로 쓴 주인 그릇 place의 열린 session(rewind 기록),
+        // (b) 입력 session(주인 그릇 place의 lophn 열린 session), (c) 주인 그릇 place의 lophn 새 session.
         async deliverArtifact(input) {
           const owner = ownerOfDomain(input.domain);
           if (!owner.ok) return owner;
-          const agent = agentOfOwner(owner.value);
+          const target: AgentAtPlace = {
+            agent: LOPHN_AGENT_ID,
+            place:
+              owner.value.kind === "project"
+                ? { kind: "project", id: owner.value.id }
+                : { kind: "app", id: owner.value.id },
+          };
           const root = await realpath(
             domainArtifactsFolder(ctx.root.path, input.domain),
           ).catch(() => null);
@@ -354,23 +352,27 @@ export const routerWiring: WiringFactory = () => {
             );
             if (!found.ok) return found;
             if (found.value !== null) {
-              return await sendHuman(agent, found.value.session, input);
+              return await sendHuman(target, found.value.session, input);
             }
           }
           return await deliverTo(
-            agent,
+            target,
             input.session,
             input,
-            "not an open session of this domain's owner",
+            "not an open session of lophn in the domain's owner",
           );
         },
-        // 사람의 폴더에 있는 `.html`은 그 project의 PM이 받는다.
+        // 사람의 폴더에 있는 `.html`은 그 project place의 lophn이 받는다.
         async deliverFile(input) {
+          const target: AgentAtPlace = {
+            agent: LOPHN_AGENT_ID,
+            place: { kind: "project", id: input.project as Id<"prj"> },
+          };
           return await deliverTo(
-            { role: "project_manager", project: input.project as Id<"prj"> },
+            target,
             input.session,
             input,
-            "not an open session of this project's manager",
+            "not an open session of lophn in this project",
           );
         },
       };

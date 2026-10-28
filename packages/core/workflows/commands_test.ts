@@ -16,6 +16,7 @@ const WFI = "wfi_01hzzzzzzzzzzzzzzzzzzzzzza";
 const PRJ = "prj_01hzzzzzzzzzzzzzzzzzzzzzza";
 const SES = "ses_01hzzzzzzzzzzzzzzzzzzzzzza";
 const lophn = { role: "lophn" } as const;
+const lophnAtPlace = { agent: "lophn", place: null } as const;
 
 const plan = (step: string): HandoffPlan => ({
   step,
@@ -43,13 +44,14 @@ test("a stopped instance is not handed: report with next records the line only a
     const router = createRouter({
       directory: {
         find: () => null,
+        resolveAddress: () => ok(lophnAtPlace),
         resolveAgent: () => ok(lophn),
         openOf: () => null,
         open: () =>
           ok({
             session: SES,
             transport: "lophn",
-            agent: lophn,
+            agent: lophnAtPlace,
             accepting: true,
           } as never),
         listOpen: () => [],

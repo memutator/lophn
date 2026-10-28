@@ -9,6 +9,8 @@ export const UNWIRED_PLACE_DEPS: PlaceDeps = {
   operators: { operator: () => null, operators: () => [] },
   roles: {
     nameOf: () => "",
+    resolveAddress: () =>
+      err({ code: "not_found", message: "agent not found" }),
     resolveNamed: () => err({ code: "not_found", message: "agent not found" }),
   },
 };

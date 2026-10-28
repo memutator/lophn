@@ -1,19 +1,17 @@
 import { err, ok } from "../../base/mod.ts";
 import { parseActor } from "../../protocol/base/mod.ts";
 import {
-  type CallAgent,
-  callRead,
-  callSendable,
+  agentCallRead,
+  agentCallSendable,
 } from "../../protocol/lophn-agent/calls.ts";
-import type { Place } from "../../protocol/lophn-agent/places.ts";
 import type { ReadDefinition } from "../../protocol/server/mod.ts";
 import { routerEnvironment } from "./environment.ts";
 import { calId } from "./model.ts";
 import { readCall } from "./store.ts";
 
 // call을 누를 때 그때의 상태를 읽는다. 상태 구독은 없다. agent는 자기가 보냈거나 받은 call만 본다.
-const readCallRead: ReadDefinition<typeof callRead> = {
-  route: callRead,
+const readCallRead: ReadDefinition<typeof agentCallRead> = {
+  route: agentCallRead,
   handle(snapshot, ctx, input) {
     const read = readCall(snapshot, calId(input.call));
     if (!read.ok) return read;
@@ -35,21 +33,12 @@ const readCallRead: ReadDefinition<typeof callRead> = {
   },
 };
 
-// Project Manager와 App Engineer는 place가 곧 정체성이다. Operator의 place는 describe가 안다.
-function placeOf(agent: CallAgent): Place | null {
-  if (agent.role === "project_manager") {
-    return { kind: "project", id: agent.project };
-  }
-  if (agent.role === "app_engineer") return { kind: "app", id: agent.app };
-  return null;
-}
-
-// waiting·unknown은 지금 내는 곳이 없다. `queued_coding`도 늘 빈 목록이다.
+// waiting·unknown은 지금 내는 곳이 없다.
 const STATES = ["running", "waiting", "idle", "unknown"] as const;
 
 // 부를 수 있는 열린 session 목록. 목록은 prompt에 넣지 않고 tool이 읽는다.
-const sendableRead: ReadDefinition<typeof callSendable> = {
-  route: callSendable,
+const sendableRead: ReadDefinition<typeof agentCallSendable> = {
+  route: agentCallSendable,
   handle(snapshot, ctx) {
     const actor = parseActor(ctx.actor);
     if (actor === undefined || actor.kind !== "agent") {
@@ -60,7 +49,7 @@ const sendableRead: ReadDefinition<typeof callSendable> = {
     }
     const environment = routerEnvironment();
     if (!environment.ok) return environment;
-    const { directory, transport } = environment.value.deps(snapshot, () => "");
+    const { directory } = environment.value.deps(snapshot, () => "");
     const sessions = [];
     for (const target of directory.listOpen()) {
       if (target.session === actor.id || !target.accepting) continue;
@@ -68,18 +57,14 @@ const sendableRead: ReadDefinition<typeof callSendable> = {
       const state = STATES.find((one) => one === described?.state) ?? "unknown";
       sessions.push({
         session: target.session,
-        role: target.agent.role,
-        place:
-          described !== undefined
-            ? (described.place as Place | null)
-            : placeOf(target.agent),
+        agent: target.agent.agent,
         name: target.name,
+        place: target.agent.place,
         state,
       });
     }
     return ok({
       sessions,
-      queued_coding: [...transport.queued()],
       as_of_seq: snapshot.as_of_seq,
       next_cursor: null,
     });

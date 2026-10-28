@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../base/mod.ts";
-import type { AgentCallRecord } from "../../protocol/lophn-agent/calls.ts";
+import type { AgentCallRow } from "../../protocol/lophn-agent/calls.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import { createRouter } from "./router.ts";
 import type {
@@ -15,7 +15,8 @@ import type {
 
 const SENDER = "ses_sender";
 const RECEIVER = "ses_receiver";
-const lophn = { role: "lophn" } as const;
+const lophn = { agent: "lophn", place: null } as const;
+const callAgent = { role: "lophn" } as const;
 
 function target(session: string, accepting: boolean): TargetSession {
   return {
@@ -32,7 +33,7 @@ function setup(sessions: Record<string, TargetSession>) {
     now: () => "2026-10-16T00:00:00.000Z",
     newId: (prefix: string) => `${prefix}_${++counter}`,
   } as unknown as Tx;
-  const rows = new Map<string, AgentCallRecord>();
+  const rows = new Map<string, AgentCallRow>();
   const delivered: { to: string; input: RoutedInput }[] = [];
   const cancelled: boolean[] = [];
   let opened = 0;
@@ -56,7 +57,6 @@ function setup(sessions: Record<string, TargetSession>) {
       return ok(moved);
     },
     markConsumed: () => ok(undefined),
-    setReceiver: () => ok(undefined),
     lost: () => [],
     openReceivedBy: (_tx, session) =>
       [...rows.values()].filter(
@@ -65,7 +65,8 @@ function setup(sessions: Record<string, TargetSession>) {
   };
   const directory: SessionDirectory = {
     find: (session) => sessions[session] ?? null,
-    resolveAgent: () => ok(lophn),
+    resolveAddress: () => ok(lophn),
+    resolveAgent: () => ok(callAgent),
     openOf: () => null,
     open: () => {
       opened += 1;
@@ -97,7 +98,6 @@ const base = {
   body: "do it",
   refs: [],
   reply_to: null,
-  options: null,
   kind: "call",
   delivery: "next_turn",
 } as const;
@@ -160,7 +160,7 @@ test("the same dedup makes one call and one session", () => {
   const send = () =>
     router.route(tx, {
       ...base,
-      to: { role: "lophn" },
+      to: { agent: "lophn" },
       dedup: "tool-1",
     });
   const first = send();
@@ -175,7 +175,7 @@ test("the same dedup makes one call and one session", () => {
 // 권한 경계다. workflow가 보낸 step은 unattended 표시를 싣고 받는 session 하나에만, call 행 없이 닿는다.
 test("step 입력은 unattended 표시를 싣고 받는 session 하나에만 닿으며 call 행을 만들지 않는다", () => {
   const step = { instance: "wfi_1" as never, step: "review" };
-  for (const to of [{ session: RECEIVER }, { role: "lophn" }] as const) {
+  for (const to of [{ session: RECEIVER }, { agent: "lophn" }] as const) {
     const { tx, router, rows, delivered } = setup({
       [SENDER]: target(SENDER, true),
       [RECEIVER]: target(RECEIVER, true),
@@ -188,7 +188,6 @@ test("step 입력은 unattended 표시를 싣고 받는 session 하나에만 닿
       refs: [],
       reply_to: null,
       dedup: null,
-      options: null,
       kind: "step",
       delivery: "next_turn",
       step,

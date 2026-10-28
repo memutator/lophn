@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { ok } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import {
   type Place,
@@ -8,7 +8,6 @@ import type { Sql } from "../../../protocol/server/mod.ts";
 import type { SessionDirectory, TargetSession } from "../../router/ports.ts";
 import { agentIdOfRef } from "../agents/bridge.ts";
 import {
-  agentRefOf,
   type AgentSessionRow,
   loadSession,
   placeOf,
@@ -25,14 +24,7 @@ type SessionDirectoryDeps = OpenDeps & {
   sql(): Pick<Sql, "get" | "all">;
 };
 
-function fail<T = never>(
-  code: "not_found" | "invalid_input",
-  message: string,
-): Result<T> {
-  return err({ code, message });
-}
-
-// Router가 쓰는 SessionDirectory를 구현한다. lophn session만 다룬다.
+// Router가 쓰는 SessionDirectory를 구현한다. session 행이 곧 받는 곳이다.
 export function createSessionDirectory(
   deps: SessionDirectoryDeps,
 ): SessionDirectory {
@@ -50,7 +42,7 @@ export function createSessionDirectory(
     return {
       session: row.id as Id<"ses">,
       transport: "lophn",
-      agent: agentRefOf(row),
+      agent: { agent: row.agent, place: placeOf(row) },
       accepting: acceptsInput(row, placeArchived(placeOf(row))),
     };
   }
@@ -60,6 +52,7 @@ export function createSessionDirectory(
       const row = loadSession({ sql: deps.sql() }, session);
       return row === undefined ? null : targetOf(row);
     },
+    resolveAddress: deps.roles.resolveAddress,
     resolveAgent: deps.roles.resolveNamed,
     openOf(agent) {
       if (agent.role === "coding_agent") return null;
@@ -75,18 +68,10 @@ export function createSessionDirectory(
       return row === undefined ? null : targetOf(sessionRowOf(row));
     },
     open(tx, agent, _opener) {
-      if (agent.role === "coding_agent") {
-        return fail(
-          "invalid_input",
-          "a coding agent session is not opened here",
-        );
-      }
-      const id = agentIdOfRef(agent);
-      if (id === null) return fail("not_found", "agent not found");
       const started = startSession(tx, deps, {
         id: tx.newId("ses"),
-        agent: id,
-        place: placeOfAgentRef(agent) ?? null,
+        agent: agent.agent,
+        place: agent.place,
       });
       return started.ok ? ok(targetOf(started.value)) : started;
     },
@@ -101,7 +86,7 @@ export function createSessionDirectory(
         .map(sessionRowOf)
         .map((row) => ({
           ...targetOf(row),
-          name: deps.roles.nameOf(agentRefOf(row)),
+          name: deps.roles.nameOf(row.agent),
         }));
     },
   };

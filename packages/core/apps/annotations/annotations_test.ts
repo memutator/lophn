@@ -96,7 +96,11 @@ function open(status: "active" | "archived" = "active") {
       (found.handle as (...a: unknown[]) => never)(tx, ctx, body, {}),
     );
   };
-  const delivered: { text: string; annotations: readonly string[] }[] = [];
+  const delivered: {
+    text: string;
+    annotations: readonly string[];
+    agent?: string;
+  }[] = [];
   const annotations = createAnnotations({
     run,
     delivery: () => ({
@@ -223,7 +227,7 @@ const snapshotOf = (sql: unknown) =>
     }),
   }) as never;
 
-test("annotations.get: PM·Operator는 자기 project의 file과 자기 project가 owner인 domain의 artifact만, App Engineer는 자기 앱 것과 자기 앱이 owner인 domain의 artifact만 읽는다", async () => {
+test("annotations.get: project place session은 자기 project의 file과 그 project가 주인인 domain의 artifact만, app place session은 자기 앱 것과 그 앱이 주인인 domain의 artifact만 읽는다", async () => {
   const world = open();
   const send = async (target: { kind: string; [key: string]: unknown }) => {
     const sent = await world.send(USER, {

@@ -2,15 +2,19 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import type {
-  AgentCallRecord,
-  CallAgent,
+  AgentCallRow,
   CallFailReason,
   CallFrom,
   CallRef,
   CallState,
-  CallTo,
+  CallTarget,
 } from "../../protocol/lophn-agent/calls.ts";
+import type {
+  AgentAddress,
+  AgentAtPlace,
+} from "../../protocol/lophn-agent/places.ts";
 import {
+  addressOfNamed,
   addressingOf,
   calId,
   FAILURE_TEXTS,
@@ -52,7 +56,7 @@ export interface Router {
     tx: Tx,
     by: CallFrom,
     input: { call: string; reason?: string },
-  ): Result<AgentCallRecord>;
+  ): Result<AgentCallRow>;
   // session을 archive하거나 지울 때 그 session이 받은 열린 call을 failed(receiver_ended)로 닫는다.
   failReceivedBy(tx: Tx, session: string): Result<void>;
   // lophn을 켤 때 부른다. 입력함과 앱 줄이 메모리라 잃어버린 call을 failed(lophn_restarted)로 닫는다.
@@ -64,19 +68,12 @@ export interface Router {
 
 // 받는 곳을 푼 결과. 실패하면 이유와, 행에 남길 수 있는 풀린 받는 곳(이름을 못 풀었으면 null)이다.
 type Resolved =
-  | { ok: true; to: CallTo; target: TargetSession }
-  | { ok: false; reason: CallFailReason; to: CallTo | null };
+  | { ok: true; to: CallTarget; target: TargetSession }
+  | { ok: false; reason: CallFailReason; to: CallTarget | null };
 
-function failed(reason: CallFailReason, to: CallTo | null): Resolved {
+function failed(reason: CallFailReason, to: CallTarget | null): Resolved {
   return { ok: false, reason, to };
 }
-
-// coding agent는 call을 받지 않는다. 받는 곳이 없는 것이라 누가 보내도 같은 답이고 call 행을 쓰지 않는다.
-const notCoding = () =>
-  err({
-    code: "invalid_input" as const,
-    message: "a coding agent does not take calls",
-  });
 
 export function createRouter(deps: RouterDeps): Router {
   const { directory, transport, store } = deps;
@@ -84,8 +81,8 @@ export function createRouter(deps: RouterDeps): Router {
   function open(
     tx: Tx,
     from: CallFrom,
-    agent: CallAgent,
-    to: CallTo,
+    agent: AgentAtPlace,
+    to: CallTarget,
   ): Result<Resolved> {
     const opened = directory.open(tx, agent, from);
     if (opened.ok) return ok({ ok: true, to, target: opened.value });
@@ -101,52 +98,61 @@ export function createRouter(deps: RouterDeps): Router {
     input: RouteInput,
   ): Result<Resolved> {
     const addressing = addressingOf(input.to);
-    let to: CallTo;
+    let address: AgentAddress;
+    let session: string | null = null;
     switch (addressing.form) {
-      case "resolved":
-        if (
-          addressing.to.kind !== "open_session" &&
-          addressing.to.agent.role === "coding_agent"
-        )
-          return notCoding();
-        to = addressing.to;
+      case "session": {
+        const to: CallTarget = {
+          kind: "open_session",
+          session: addressing.session,
+        };
+        const target = directory.find(sesId(addressing.session));
+        if (target === null) return ok(failed("not_found", to));
+        if (!target.accepting) return ok(failed("closed", to));
+        return ok({ ok: true, to, target });
+      }
+      case "address":
+        address = addressing.address;
         break;
-      case "session":
-        to = { kind: "open_session", session: addressing.session };
+      case "address_or_session":
+        address = addressing.address;
+        session = addressing.session;
         break;
-      case "named":
+      case "named": {
+        const converted = addressOfNamed(addressing.named);
+        if (!converted.ok) return converted;
+        address = converted.value;
+        break;
+      }
       case "named_or_session": {
-        if (addressing.named.role === "coding_agent") return notCoding();
-        const agent = directory.resolveAgent(addressing.named);
-        if (!agent.ok) {
-          return agent.error.code === "not_found"
-            ? ok(failed("not_found", null))
-            : agent;
-        }
-        to =
-          addressing.form === "named"
-            ? { kind: "new_session", agent: agent.value }
-            : {
-                kind: "open_session_or_new",
-                session: addressing.session,
-                agent: agent.value,
-              };
+        const converted = addressOfNamed(addressing.named);
+        if (!converted.ok) return converted;
+        address = converted.value;
+        session = addressing.session;
+        break;
       }
     }
-    if (to.kind === "new_session") {
-      return open(tx, from, to.agent, to);
+    const resolved = directory.resolveAddress(address);
+    if (!resolved.ok) {
+      return resolved.error.code === "not_found"
+        ? ok(failed("not_found", null))
+        : resolved;
     }
-    const target = directory.find(sesId(to.session));
-    if (target?.agent.role === "coding_agent") return notCoding();
-    if (to.kind === "open_session") {
-      if (target === null) return ok(failed("not_found", to));
-      if (!target.accepting) return ok(failed("closed", to));
-      return ok({ ok: true, to, target });
+    const agent = resolved.value;
+    if (session === null) {
+      const to: CallTarget = { kind: "new_session", agent };
+      return open(tx, from, agent, to);
     }
+    const to: CallTarget = {
+      kind: "open_session_or_new",
+      session,
+      agent,
+    };
+    const target = directory.find(sesId(session));
     if (target !== null && target.accepting) {
       return ok({ ok: true, to, target });
     }
-    return open(tx, from, to.agent, to);
+    return open(tx, from, agent, to);
   }
 
   function inputOf(input: RouteInput, call: string | null): RoutedInput {
@@ -194,11 +200,11 @@ export function createRouter(deps: RouterDeps): Router {
     call: string,
     session: string,
     input: RouteInput,
-    to: CallTo,
+    to: CallTarget,
     receiver: string | null,
     state: CallState,
     reason: CallFailReason | null,
-  ): AgentCallRecord {
+  ): AgentCallRow {
     const at = tx.now();
     return {
       call,
@@ -219,7 +225,7 @@ export function createRouter(deps: RouterDeps): Router {
   function deliveryFailed(
     tx: Tx,
     input: RouteInput,
-    to: CallTo | null,
+    to: CallTarget | null,
     reason: CallFailReason,
   ): Result<RouteResult> {
     const from = input.from;
@@ -352,7 +358,7 @@ export function createRouter(deps: RouterDeps): Router {
     tx: Tx,
     by: CallFrom,
     input: { call: Id<"cal">; reason?: string },
-  ): Result<AgentCallRecord> {
+  ): Result<AgentCallRow> {
     const record = store.read(tx, calId(input.call));
     if (record === null) {
       return err({ code: "not_found", message: "call not found" });
@@ -383,7 +389,7 @@ export function createRouter(deps: RouterDeps): Router {
 
   function failAll(
     tx: Tx,
-    records: readonly AgentCallRecord[],
+    records: readonly AgentCallRow[],
     reason: CallFailReason,
     notify: boolean,
   ): Result<number> {

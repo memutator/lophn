@@ -3,18 +3,16 @@ import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import { fitted } from "../fit-result.ts";
 import type { ToolContext } from "../tool-context.ts";
 
-// 보낼 수 있는 열린 session과 줄에 서서 기다리는 coding 맡기기. 자기 session과 새 입력을 받지 않는 session은 Router가 이미 뺐다.
+// 보낼 수 있는 열린 session. 자기 session과 새 입력을 받지 않는 session은 Router가 이미 뺐다.
 export async function listSendable(
   ctx: ToolContext,
 ): Promise<Result<ToolResult>> {
   const read = await ctx.router.sendable();
   if (!read.ok) return read;
-  const { sessions, queued_coding } = read.value;
+  const { sessions } = read.value;
   return ok(
-    fitted(
-      `${sessions.length} sessions can be called`,
-      { sessions, queued_coding },
-      ["sessions", "queued_coding"],
-    ),
+    fitted(`${sessions.length} sessions can be called`, { sessions }, [
+      "sessions",
+    ]),
   );
 }

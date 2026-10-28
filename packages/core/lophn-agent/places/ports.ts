@@ -2,7 +2,9 @@ import type { Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { AgentEvent } from "../../../protocol/events/mod.ts";
 import type {
-  AgentRef,
+  AgentAddress,
+  AgentAtPlace,
+  AgentId,
   CallAgent,
   NamedAgent,
   Place,
@@ -34,7 +36,10 @@ export interface OperatorDirectory {
 // role마다 다른 규칙. agent-places가 project·앱·Operator 조회를 쥐고 만들어 wiring이 꽂는다.
 export type PlaceRoleRules = {
   // 목록에 보일 agent 이름. 못 찾으면 빈 글이다.
-  nameOf(ref: AgentRef): string;
+  nameOf(agent: AgentId): string;
+  // agent 이름과 place 이름으로 받을 session 하나를 고른다. place가 없으면 home이다.
+  resolveAddress(address: AgentAddress): Result<AgentAtPlace>;
+  // 옛 이름 꼴. `runs-core`·`jobs-core`가 옮길 때까지 남기고 `cleanup-core`가 지운다.
   // 이름으로 받은 agent 하나를 고른다. 이름을 짐작하지 않는다.
   resolveNamed(named: NamedAgent): Result<CallAgent>;
 };

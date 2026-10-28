@@ -1,8 +1,8 @@
 import {
+  agentCallSend,
+  agentCallSendable,
   callCancel,
   callReply,
-  callSend,
-  callSendable,
 } from "../../../../protocol/lophn-agent/calls.ts";
 import { commandOf, type CoreCall, readOf } from "../../run-loop/core-call.ts";
 import type { CallRouting } from "../../ports.ts";
@@ -12,9 +12,9 @@ import type { CallRouting } from "../../ports.ts";
 export function routerOverCore(core: CoreCall): CallRouting {
   const key = () => crypto.randomUUID();
   return {
-    send: (input) => commandOf(core, callSend, input, {}, key()),
+    send: (input) => commandOf(core, agentCallSend, input, {}, key()),
     reply: (input) => commandOf(core, callReply, input, {}, key()),
     cancel: (input) => commandOf(core, callCancel, input, {}, key()),
-    sendable: () => readOf(core, callSendable, {}),
+    sendable: () => readOf(core, agentCallSendable, {}),
   };
 }

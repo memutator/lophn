@@ -12,8 +12,6 @@ import type {
   CallFrom,
   CallRef,
   CallReply,
-  CallTo,
-  CallToInput,
   InputDelivery,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
@@ -46,13 +44,12 @@ type MessageRouter = {
     tx: Tx,
     input: {
       from: CallFrom;
-      to: CallToInput | CallTo;
+      to: { session: Id<"ses"> };
       reply: CallReply;
       body: string;
       refs: CallRef[];
       reply_to: null;
       dedup: null;
-      options: null;
       kind: "message";
       delivery: InputDelivery;
       message: Id<"msg">;
@@ -286,7 +283,6 @@ function sendWith(
     refs: input.refs,
     reply_to: null,
     dedup: null,
-    options: null,
     kind: "message",
     delivery,
     message: input.id as Id<"msg">,

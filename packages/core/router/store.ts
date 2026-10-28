@@ -1,11 +1,11 @@
 import { err, internalError, ok, type Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import {
-  type AgentCallRecord,
+  type AgentCallRow,
   callCanMove,
   type CallFailReason,
   type CallState,
-  callToSchema,
+  callTargetSchema,
 } from "../../protocol/lophn-agent/calls.ts";
 import type { PortKey } from "../../protocol/base/mod.ts";
 import type { Sql, Tx } from "../../protocol/server/mod.ts";
@@ -20,21 +20,21 @@ export type SqlView = {
 const COLUMNS = `call, from_session, "to", receiver_session, reply, state, fail_reason, dedup,
    unattended, created_at, state_at`;
 
-function recordOf(row: Record<string, unknown>): Result<AgentCallRecord> {
+function recordOf(row: Record<string, unknown>): Result<AgentCallRow> {
   let to: unknown;
   try {
     to = JSON.parse(String(row["to"]));
   } catch {
     return err(internalError());
   }
-  const parsed = callToSchema.safeParse(to);
+  const parsed = callTargetSchema.safeParse(to);
   if (!parsed.success) return err(internalError());
   return ok({
     call: row["call"] as Id<"cal">,
     from: { kind: "agent", session: row["from_session"] as Id<"ses"> },
     to: parsed.data,
     receiver_session: (row["receiver_session"] ?? null) as Id<"ses"> | null,
-    reply: row["reply"] as AgentCallRecord["reply"],
+    reply: row["reply"] as AgentCallRow["reply"],
     state: row["state"] as CallState,
     fail_reason: (row["fail_reason"] ?? null) as CallFailReason | null,
     dedup: (row["dedup"] ?? null) as string | null,
@@ -47,7 +47,7 @@ function recordOf(row: Record<string, unknown>): Result<AgentCallRecord> {
 export function readCall(
   view: SqlView,
   call: Id<"cal">,
-): Result<AgentCallRecord | null> {
+): Result<AgentCallRow | null> {
   const row = view.sql.get(
     `select ${COLUMNS} from agent_calls where call = ?`,
     [call],
@@ -57,8 +57,8 @@ export function readCall(
 
 function many(
   rows: readonly Record<string, unknown>[],
-): readonly AgentCallRecord[] {
-  const records: AgentCallRecord[] = [];
+): readonly AgentCallRow[] {
+  const records: AgentCallRow[] = [];
   for (const row of rows) {
     const record = recordOf(row);
     if (record.ok) records.push(record.value);
@@ -137,13 +137,6 @@ export function createCallStore(): CallStore {
       tx.sql.run(
         "update agent_calls set consumed = 1 where call = ? and state = 'accepted'",
         [call],
-      );
-      return ok(undefined);
-    },
-    setReceiver(tx, call, session) {
-      tx.sql.run(
-        "update agent_calls set receiver_session = ? where call = ? and receiver_session is null",
-        [session, call],
       );
       return ok(undefined);
     },

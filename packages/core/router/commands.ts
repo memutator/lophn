@@ -3,10 +3,10 @@ import { idSchema } from "../../protocol/base/ids.ts";
 import { defineCommand, parseActor } from "../../protocol/base/mod.ts";
 import { z } from "zod";
 import {
+  agentCallSend,
   callCancel,
   type CallFrom,
   callReply,
-  callSend,
 } from "../../protocol/lophn-agent/calls.ts";
 import type {
   CommandDefinition,
@@ -43,8 +43,8 @@ function agentSession(ctx: RequestContext): Result<string> {
   return ok(actor.id);
 }
 
-const sendCallCommand: CommandDefinition<typeof callSend> = {
-  route: callSend,
+const sendCallCommand: CommandDefinition<typeof agentCallSend> = {
+  route: agentCallSend,
   handle(tx, ctx, input) {
     const session = agentSession(ctx);
     if (!session.ok) return session;
@@ -58,7 +58,6 @@ const sendCallCommand: CommandDefinition<typeof callSend> = {
       refs: input.refs,
       reply_to: null,
       dedup: input.dedup,
-      options: input.options ?? null,
       kind: "call",
       delivery: "next_turn",
       unattended: input.unattended === true,

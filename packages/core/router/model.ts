@@ -1,16 +1,18 @@
+import { err, ok, type Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
-import type { CodingOptions } from "../../protocol/coding-agent/harness-id.ts";
 import type {
+  CallAddressInput,
   CallFailReason,
   CallFrom,
   CallRef,
   CallReply,
   CallState,
-  CallTo,
   CallToInput,
   NamedAgent,
 } from "../../protocol/lophn-agent/calls.ts";
 import type { InputDelivery } from "../../protocol/lophn-agent/inputs.ts";
+import { LOPHN_AGENT_NAME } from "../../protocol/lophn-agent/agent-values.ts";
+import type { AgentAddress } from "../../protocol/lophn-agent/places.ts";
 import type { RoutedInput } from "./ports.ts";
 
 // 순수 함수만 둔다. 받는 곳 해석 순서, 실패 이유를 오류로 바꾸는 규칙, 실패 알림 글.
@@ -22,15 +24,16 @@ export const calId = (value: string) => value as Id<"cal">;
 // route 한 번의 입력이다. 사람, program, agent가 모두 이 모양으로 넣는다.
 export type RouteInput = {
   from: CallFrom;
-  to: CallToInput | CallTo;
+  // workflow handoff가 새 꼴로 바뀔 때까지(`workflows-core`) 옛 이름 꼴도 받는다.
+  to: CallAddressInput | CallToInput;
   reply: CallReply;
   body: string;
   refs: readonly CallRef[];
   reply_to: string | null;
   // agent가 보낸 call에만 있다(tool call ID).
   dedup: string | null;
-  // 옛 envelope(input)이 채우지만 Router는 쓰지 않는다.
-  options: CodingOptions | null;
+  // 옛 envelope(input)이 채우지만 Router는 쓰지 않는다. `workflows-core`가 칸째 지운다.
+  options?: null;
   kind: RoutedInput["kind"];
   delivery: InputDelivery;
   // 사람 메시지는 보내는 쪽이 먼저 session 기록에 쓴 message ID를 싣는다.
@@ -51,21 +54,80 @@ export type RouteResult = {
   session: string | null;
 };
 
-// 보낸 쪽이 쓴 받는 곳이 어느 모양인지. 이미 풀린 CallTo는 `kind`가 있다.
+// 보낸 쪽이 쓴 받는 곳이 어느 모양인지.
 type Addressing =
-  | { form: "resolved"; to: CallTo }
   | { form: "session"; session: string }
+  | { form: "address"; address: AgentAddress }
+  | { form: "address_or_session"; address: AgentAddress; session: string }
   | { form: "named"; named: NamedAgent }
   | { form: "named_or_session"; named: NamedAgent; session: string };
 
-export function addressingOf(to: CallToInput | CallTo): Addressing {
-  if ("kind" in to) return { form: "resolved", to };
-  if (!("role" in to)) return { form: "session", session: to.session };
-  if ("session" in to) {
-    const { session, fallback: _fallback, ...named } = to;
-    return { form: "named_or_session", named, session };
+export function addressingOf(to: CallAddressInput | CallToInput): Addressing {
+  if ("role" in to) {
+    if ("session" in to) {
+      const { session, fallback: _fallback, ...named } = to;
+      return { form: "named_or_session", named, session };
+    }
+    return { form: "named", named: to };
   }
-  return { form: "named", named: to };
+  if ("agent" in to) {
+    if ("session" in to) {
+      const { session, fallback: _fallback, ...address } = to;
+      return { form: "address_or_session", address, session };
+    }
+    return { form: "address", address: to };
+  }
+  return { form: "session", session: to.session };
+}
+
+// 옛 이름 꼴을 새 주소로 옮긴다. `project_manager`·`app_engineer`는 그 place의 lophn이다.
+// workflow handoff가 새 꼴로 바뀌면(`workflows-core`) 지운다.
+export function addressOfNamed(named: NamedAgent): Result<AgentAddress> {
+  switch (named.role) {
+    case "lophn":
+      return ok({
+        agent: LOPHN_AGENT_NAME,
+        ...(named.place === undefined ? {} : { place: named.place }),
+      });
+    case "project_manager":
+      if (named.place === undefined || !("project" in named.place)) {
+        return err({
+          code: "invalid_input",
+          message: "a project manager needs a project",
+        });
+      }
+      return ok({
+        agent: LOPHN_AGENT_NAME,
+        place: { project: named.place.project },
+      });
+    case "app_engineer":
+      if (named.place === undefined || !("app" in named.place)) {
+        return err({
+          code: "invalid_input",
+          message: "an app engineer needs an app",
+        });
+      }
+      return ok({
+        agent: LOPHN_AGENT_NAME,
+        place: { app: named.place.app },
+      });
+    case "operator":
+      if (named.name === undefined) {
+        return err({
+          code: "invalid_input",
+          message: "an operator is named",
+        });
+      }
+      return ok({
+        agent: named.name,
+        ...(named.place === undefined ? {} : { place: named.place }),
+      });
+    case "coding_agent":
+      return err({
+        code: "invalid_input",
+        message: "a coding agent does not take calls",
+      });
+  }
 }
 
 export function isFinished(state: CallState): boolean {
@@ -91,7 +153,7 @@ export function failureCode(
 export const FAILURE_TEXTS: Record<CallFailReason, string> = {
   not_found: "The call was not delivered: no such agent or session.",
   closed:
-    "The call was not delivered: that session is closed. Call its role and place to open a new session.",
+    "The call was not delivered: that session is closed. Call its agent and place to open a new session.",
   receiver_ended: "The receiving session ended without replying.",
   lophn_restarted: "lophn restarted before the receiving session got the call.",
 };

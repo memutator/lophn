@@ -1,8 +1,16 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { Id } from "../../../protocol/base/ids.ts";
 import type {
+  AgentAddress,
+  AgentAtPlace,
+  AgentId,
   CallAgent,
   NamedAgent,
+  Place,
+} from "../../../protocol/lophn-agent/mod.ts";
+import {
+  agentNameKey,
+  LOPHN_AGENT_ID,
+  LOPHN_AGENT_NAME,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   PlaceDeps,
@@ -20,6 +28,39 @@ function fail<T = never>(
 export function createPlaceRoleRules(
   deps: Pick<PlaceDeps, "projects" | "apps" | "agents">,
 ): PlaceRoleRules {
+  // agent 이름은 전역에 하나다. 같은 key를 쓰는 정의 하나를 고른다.
+  function agentIdNamed(name: string): Result<AgentId> {
+    const key = agentNameKey(name);
+    const found = deps.agents
+      .agents()
+      .find((agent) => agentNameKey(agent.name) === key);
+    return found === undefined
+      ? fail("not_found", "agent not found")
+      : ok(found.id);
+  }
+
+  function resolveAddress(address: AgentAddress): Result<AgentAtPlace> {
+    const agent =
+      agentNameKey(address.agent) === agentNameKey(LOPHN_AGENT_NAME)
+        ? ok(LOPHN_AGENT_ID)
+        : agentIdNamed(address.agent);
+    if (!agent.ok) return agent;
+    const named = address.place;
+    let place: Place | null = null;
+    if (named !== undefined) {
+      if ("project" in named) {
+        const project = deps.projects.projectByName(named.project);
+        if (project === null) return fail("not_found", "project not found");
+        place = { kind: "project", id: project.id };
+      } else {
+        const app = deps.apps.appByName(named.app);
+        if (app === null) return fail("not_found", "app not found");
+        place = { kind: "app", id: app.id };
+      }
+    }
+    return ok({ agent: agent.value, place });
+  }
+
   function resolveNamed(named: NamedAgent): Result<CallAgent> {
     const place = named.place;
     switch (named.role) {
@@ -67,18 +108,11 @@ export function createPlaceRoleRules(
   }
 
   return {
-    nameOf(ref) {
-      switch (ref.role) {
-        case "lophn":
-          return "lophn";
-        case "project_manager":
-          return deps.projects.project(ref.project as Id<"prj">)?.name ?? "";
-        case "app_engineer":
-          return deps.apps.app(ref.app as Id<"app">)?.name ?? "";
-        case "operator":
-          return deps.agents.agent(ref.agent)?.name ?? "";
-      }
+    nameOf(agent) {
+      if (agent === LOPHN_AGENT_ID) return LOPHN_AGENT_NAME;
+      return deps.agents.agent(agent)?.name ?? "";
     },
+    resolveAddress,
     resolveNamed,
   };
 }

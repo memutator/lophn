@@ -9,7 +9,7 @@ const list = (values: readonly string[]) =>
   values.map((value) => `'${value}'`).join(", ");
 
 // agent가 보낸 call 한 행. 사람 메시지와 program 입력은 행이 없다.
-// - `to`는 풀린 받는 곳(JSON). 이름을 못 푼 call은 행이 없다.
+// - `to`는 풀린 받는 곳(`CallTarget` JSON). 이름을 못 푼 call은 행이 없다.
 // - `consumed`는 받는 session의 turn이 이 입력을 가져갔는지다. lophn을 켤 때 입력함(메모리)과 함께 잃어버린 call을
 //   가린다.
 // - `unattended`는 보낸 turn의 mode 표시다. 늦은 실패와 취소 알림이 이 표시를 따른다.

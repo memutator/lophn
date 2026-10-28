@@ -19,7 +19,7 @@ import { INSTRUCTION_ROUTES } from "./instructions.ts";
 import { skillsRead } from "./skill-settings.ts";
 import { TURN_COMMANDS } from "./turns.ts";
 import { TURN_READS } from "./turn-reads.ts";
-import { CALL_ROUTES } from "./calls.ts";
+import { AGENT_CALL_ROUTES } from "./calls.ts";
 import { QUEUED_INPUT_ROUTES, sendMessage } from "./inputs.ts";
 import { ASK_ROUTES } from "./ask-tool.ts";
 import { MESSAGE_IMAGE_ROUTES } from "./message-images.ts";
@@ -67,7 +67,7 @@ export const ROUTES = [
   skillsRead,
   ...TURN_COMMANDS,
   ...TURN_READS,
-  ...CALL_ROUTES,
+  ...AGENT_CALL_ROUTES,
   sendMessage,
   ...QUEUED_INPUT_ROUTES,
   ...ASK_ROUTES,

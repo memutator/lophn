@@ -11,7 +11,7 @@ lead만 고친다. `tools/status.py remove-role build`가 `tasks/*.md`에서 id,
 | `contract-agent` | contract | 1 | 없음 | merged | contract/contract-agent | f55de3390 |  |
 | `contract-session` | contract | 1 | contract-agent | merged | contract/contract-session | ec8edb917 |  |
 | `agents-core` | agents | 2 | 없음 | merged | agents/agents-core | c38a429f3 |  |
-| `jobs-core` | jobs | 2 | runs-core, wireframe-sidebar | todo |  |  |  |
+| `jobs-core` | jobs | 2 | runs-core, wireframe-sidebar | merged | jobs/jobs-core | 8f14de02e |  |
 | `place-prompts` | places | 2 | place-scope | todo |  |  |  |
 | `place-scope` | places | 2 | place-tools | running | places/place-scope |  |  |
 | `place-tools` | places | 2 | sessions-core | merged | places/place-tools | e26d159bf |  |
@@ -20,7 +20,7 @@ lead만 고친다. `tools/status.py remove-role build`가 `tasks/*.md`에서 id,
 | `sessions-core` | sessions | 2 | agents-core | merged | sessions/sessions-core | 166ec9f32 |  |
 | `wireframe-agents` | wireframe | 2 | 없음 | merged | wireframe/wireframe-agents | 298875403 |  |
 | `wireframe-sidebar` | wireframe | 2 | wireframe-agents | merged | wireframe/wireframe-sidebar | 6e964fc25 |  |
-| `workflows-core` | workflows | 2 | runs-core | todo |  |  |  |
+| `workflows-core` | workflows | 2 | runs-core | running | workflows/workflows-core |  |  |
 | `cli-run` | cli | 3 | 없음 | todo |  |  |  |
 | `e2e-agents` | e2e | 3 | shell-events | todo |  |  |  |
 | `e2e-apps` | e2e | 3 | e2e-agents | todo |  |  |  |

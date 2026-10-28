@@ -1,6 +1,5 @@
-// 출처: roadmap remove-role "왜"(넘기기가 비싸고, 버그를 찾은 agent가 고친다), project 지침 "kind가 필요하면
-// skill `kinds-yaml`로 그 domain의 `kinds.yaml`을 쓴다". project place의 agent는 kind 파일을 직접 고치고
-// 아무에게도 call하지 않는다. 지침 줄이 아직 product 문서에 없어 제안이다.
+// 출처: AGENT.md C1(사람, 2026-10-29), project 지침 "kind가 필요하면 skill `kinds-yaml`로 그 domain의
+// `kinds.yaml`을 쓴다". project place의 agent는 kind 파일을 직접 고치고 아무에게도 call하지 않는다.
 import {
   callCount,
   fixtureSession,
@@ -18,7 +17,7 @@ const KINDS_PATH = "domains/dom_0000000000000000000000tx01/kinds.yaml";
 const scenario: Scenario = {
   id: "O6",
   n: 6,
-  proposal: true,
+  proposal: false,
   world: ["projects-home@1", "tax-kinds@2", "agents-home@1"],
   real: [세무정리_tax],
   steps: [say(세무정리_tax, REQUEST), untilIdle()],

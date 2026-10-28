@@ -1,27 +1,21 @@
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
-  type AgentRef,
-  LOPHN_AGENT_ID,
+  type AgentAddress,
+  type AgentAtPlace,
   messageBody,
-  type NamedAgent,
   placeSessionOpen,
   placeSessionRead,
-  placeOfAgentRef,
   receivedMessageList,
   receivedMessageRead,
   sendMessage,
   stopTurn,
   turnRead,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import { agentIdOfRef } from "../../../lophn-agent/agents/bridge.ts";
-import { agentRefOfId } from "../../../lophn-agent/session/model.ts";
-import type { Place } from "../../../../protocol/lophn-agent/mod.ts";
 import {
   runCancel,
   runCreate,
   runList,
-  type RunPlace,
   runRead,
   type RunRecord,
   runSettle,
@@ -85,13 +79,6 @@ const RUNS_SETTLE_CONTEXT: AuthenticatedContext = {
   credential_ref: RUNS_SETTLE_PRINCIPAL,
 };
 
-const runPlaceOf = (place: Place | null): RunPlace | null =>
-  place === null
-    ? null
-    : place.kind === "project"
-      ? { project: place.id }
-      : { app: place.id };
-
 const route = (r: { resource: string; method: string }) =>
   `${r.resource}/${r.method}`;
 
@@ -135,27 +122,14 @@ export const runsWiring: WiringFactory = () => {
         read<Output<typeof turnRead>>(turnRead, { turn });
 
       const agents = {
-        // Router의 SessionDirectory.resolveAgent와 같은 이름 풀기다. 같은 snapshot에서 place도 정한다.
-        resolve(named: NamedAgent) {
+        // Router와 같은 주소 풀기다.
+        resolve(address: AgentAddress) {
           const found = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
-            const deps = placeDepsOf(lookup.sql);
-            const resolved = createSessionDirectory({
-              ...deps,
+            return createSessionDirectory({
+              ...placeDepsOf(lookup.sql),
               publish: () => {},
               sql: () => lookup.sql,
-            }).resolveAgent(named);
-            if (!resolved.ok) return resolved;
-            const agent = resolved.value as AgentRef;
-            const place = placeOfAgentRef(agent);
-            return ok({
-              agent,
-              place: runPlaceOf(
-                place === undefined
-                  ? (deps.operators.operator((agent as { agent: string }).agent)
-                      ?.place ?? null)
-                  : place,
-              ),
-            });
+            }).resolveAddress(address);
           });
           return Promise.resolve(found.ok ? found.value : found);
         },
@@ -173,22 +147,15 @@ export const runsWiring: WiringFactory = () => {
             });
           }
           return ok({
-            agent: agentRefOfId(s.agent),
-            place: runPlaceOf(s.place),
+            agent: s.agent,
+            place: s.place,
           });
         },
-        async open(agent: AgentRef, session: Id<"ses">) {
-          const id = agentIdOfRef(agent);
-          if (id === null) {
-            return err({
-              code: "not_found" as const,
-              message: "agent not found",
-            });
-          }
+        async open(agent: AgentAtPlace, session: Id<"ses">) {
           const opened = await command(RUNS_CONTEXT, placeSessionOpen, {
             id: session,
-            agent: id,
-            place: placeOfAgentRef(agent) ?? null,
+            agent: agent.agent,
+            place: agent.place,
           });
           return opened.ok ? ok(undefined) : opened;
         },
@@ -316,11 +283,8 @@ export const runsWiring: WiringFactory = () => {
                 actor: "flow",
                 flow: {
                   instance: origin.instance,
-                  agent:
-                    "agent" in origin.creator
-                      ? origin.creator.agent
-                      : LOPHN_AGENT_ID,
-                  place: origin.creator_place,
+                  agent: origin.creator.agent,
+                  place: origin.creator.place,
                 },
               },
             );
@@ -346,11 +310,8 @@ export const runsWiring: WiringFactory = () => {
                   program: {
                     job: origin.job,
                     job_run: origin.job_run,
-                    agent:
-                      "agent" in origin.creator
-                        ? origin.creator.agent
-                        : LOPHN_AGENT_ID,
-                    place: origin.creator_place,
+                    agent: origin.creator.agent,
+                    place: origin.creator.place,
                   },
                 },
               );

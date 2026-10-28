@@ -1,6 +1,7 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import { type Clock, err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
+import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/mod.ts";
 import { RUN_WAIT_MAX_MS } from "../../../protocol/runs/mod.ts";
 import {
   FLOW_ENTRY_FILE,
@@ -18,6 +19,7 @@ import {
   createStreamDecoder,
   drain,
 } from "../../apps/runtime/observations/stream-decoder.ts";
+import { addressOfNamed } from "../../router/model.ts";
 import type { InstanceOrigin, RunService } from "../../runs/mod.ts";
 import { settledWithin } from "../../supervision/responsiveness/deadline.ts";
 import {
@@ -138,11 +140,16 @@ export function createFlowHost(
     request: Extract<FlowRequest, { type: "agent" | "tool" }>,
     origin: InstanceOrigin,
   ): Promise<FlowOutcome | null> {
+    const address =
+      request.type === "agent" ? addressOfNamed(request.agent) : undefined;
+    if (address !== undefined && !address.ok) {
+      return failure(address.error.code, address.error.message);
+    }
     const started = await deps.runs.start(
       request.type === "agent"
         ? {
             kind: "agent",
-            agent: request.agent,
+            agent: address!.value,
             prompt: request.prompt,
             input: request.input,
             schema: request.schema,
@@ -177,8 +184,10 @@ export function createFlowHost(
   function handle(instance: Id<"wfi">, project: Id<"prj">, entry: Entry) {
     const origin: InstanceOrigin = {
       instance,
-      creator: { role: "project_manager", project },
-      creator_place: { kind: "project", id: project },
+      creator: {
+        agent: LOPHN_AGENT_ID,
+        place: { kind: "project", id: project },
+      },
     };
     return (request: FlowRequest) => {
       if (entry.exited) return;

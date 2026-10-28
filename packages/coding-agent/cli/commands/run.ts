@@ -1,7 +1,7 @@
 // `lophn agent run`, `tool call`, `run wait|show|cancel`: 사람이 쓰는 run 명령이다. 입력은 route 입력이 아니라
 // CLI 칸이라 여기서 route 입력을 만든다. 기다리는 명령은 끝난 run의 값을 stdout에 내고, 실패·취소는 exit 4다.
 import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
-import type { NamedAgent } from "../../../protocol/lophn-agent/mod.ts";
+import type { AgentAddress } from "../../../protocol/lophn-agent/mod.ts";
 import {
   RUN_WAIT_MAX_MS,
   runCancel,
@@ -27,38 +27,38 @@ function invalid(message: string): LophnError {
 }
 
 const AGENT_FORMS =
-  "lophn | pm:<project> | ae:<app> | operator:<이름> | operator:<project 또는 app>/<이름> | NamedAgent JSON";
+  "lophn | pm:<project> | ae:<app> | operator:<이름> | operator:<project 또는 app>/<이름> | AgentAddress JSON";
 
-// `--agent`를 NamedAgent로 푼다. `operator:<x>/<이름>`은 place 종류를 말하지 않아 둘이다(project 먼저).
-function resolveAgent(text: string): Result<NamedAgent[], LophnError> {
+// `--agent`를 AgentAddress로 푼다. `operator:<x>/<이름>`은 place 종류를 말하지 않아 둘이다(project 먼저).
+function resolveAgent(text: string): Result<AgentAddress[], LophnError> {
   if (text.startsWith("{")) {
     try {
-      return ok([JSON.parse(text) as NamedAgent]);
+      return ok([JSON.parse(text) as AgentAddress]);
     } catch {
       return err(invalid("--agent JSON을 읽지 못했다"));
     }
   }
-  if (text === "lophn") return ok([{ role: "lophn" }]);
+  if (text === "lophn") return ok([{ agent: "lophn" }]);
   const colon = text.indexOf(":");
   const kind = colon < 0 ? text : text.slice(0, colon);
   const rest = colon < 0 ? "" : text.slice(colon + 1);
   const bad = err(invalid(`--agent는 ${AGENT_FORMS} 꼴이다: ${text}`));
   if (rest === "") return bad;
   if (kind === "pm") {
-    return ok([{ role: "project_manager", place: { project: rest } }]);
+    return ok([{ agent: "lophn", place: { project: rest } }]);
   }
   if (kind === "ae") {
-    return ok([{ role: "app_engineer", place: { app: rest } }]);
+    return ok([{ agent: "lophn", place: { app: rest } }]);
   }
   if (kind !== "operator") return bad;
   const slash = rest.indexOf("/");
-  if (slash < 0) return ok([{ role: "operator", name: rest }]);
+  if (slash < 0) return ok([{ agent: rest }]);
   const place = rest.slice(0, slash);
   const name = rest.slice(slash + 1);
   if (place === "" || name === "") return bad;
   return ok([
-    { role: "operator", place: { project: place }, name },
-    { role: "operator", place: { app: place }, name },
+    { agent: name, place: { project: place } },
+    { agent: name, place: { app: place } },
   ]);
 }
 

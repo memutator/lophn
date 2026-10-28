@@ -2,13 +2,12 @@ import { z } from "zod";
 import { err, type IdSource, ok, type Result } from "../../base/mod.ts";
 import type { Id, JsonValue } from "../../protocol/base/mod.ts";
 import {
-  type AgentRef,
+  type AgentAtPlace,
   MESSAGE_CONTENT_MAX_BYTES,
   serializeMessageContent,
 } from "../../protocol/lophn-agent/mod.ts";
 import type {
   RunFailReason,
-  RunPlace,
   RunRecord,
   runStart,
 } from "../../protocol/runs/mod.ts";
@@ -23,10 +22,9 @@ import { readAnswer, runMessageText } from "./text.ts";
 
 type StartInput = z.output<typeof runStart.input>;
 // 이름을 이미 푼 agent로 부르는 갈래다. core 안 job만 쓰고 route 입력(runStart)에는 없다.
-type ResolvedAgentStart = {
+type AgentResolvedStart = {
   kind: "agent_resolved";
-  agent: AgentRef;
-  place: RunPlace | null;
+  agent: AgentAtPlace;
   prompt: string;
   input?: JsonValue;
   schema?: Record<string, JsonValue>;
@@ -159,15 +157,12 @@ export function createRunService(deps: {
   }
 
   async function startAgent(
-    input: Extract<StartInput, { kind: "agent" }> | ResolvedAgentStart,
+    input: Extract<StartInput, { kind: "agent" }> | AgentResolvedStart,
     origin: RunOrigin | undefined,
   ): Promise<Result<RunRecord>> {
     if (input.kind === "agent") {
       if ((input.agent === undefined) === (input.session === undefined)) {
         return invalid("give exactly one of agent and session");
-      }
-      if (input.agent?.role === "coding_agent") {
-        return invalid("a coding agent cannot run headless");
       }
     }
     if (input.schema !== undefined) {
@@ -189,12 +184,12 @@ export function createRunService(deps: {
     // 이름을 다 푼 뒤에만 session을 열고 run을 만든다. 첫 시도가 아무것도 남기면 안 된다.
     const resolved =
       input.kind === "agent_resolved"
-        ? ok({ agent: input.agent, place: input.place })
+        ? ok(input.agent)
         : input.agent !== undefined
           ? await agents.resolve(input.agent)
           : await agents.agentOf(input.session! as Id<"ses">);
     if (!resolved.ok) return resolved;
-    const { agent, place } = resolved.value;
+    const agent = resolved.value;
 
     const run = ids.newId("run") as Id<"run">;
     const message = ids.newId("msg") as Id<"msg">;
@@ -205,7 +200,6 @@ export function createRunService(deps: {
       id: run,
       kind: "agent",
       target: { agent },
-      place,
       session,
       session_opened: opened,
       input_message: message,
@@ -235,7 +229,6 @@ export function createRunService(deps: {
       id: run,
       kind: "tool",
       target: { app: app.value, tool: input.tool },
-      place: { app: app.value },
       session: null,
       session_opened: false,
       input_message: null,
@@ -339,7 +332,7 @@ export function createRunService(deps: {
 
   return {
     start(
-      input: StartInput | ResolvedAgentStart,
+      input: StartInput | AgentResolvedStart,
       origin?: RunOrigin,
     ): Promise<Result<RunRecord>> {
       return input.kind === "tool"

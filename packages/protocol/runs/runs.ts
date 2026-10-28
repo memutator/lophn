@@ -3,8 +3,12 @@ import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, readCursorSchema, seqSchema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
-import { agentRefOutputSchema, agentRefSchema } from "../lophn-agent/places.ts";
-import { namedAgentSchema } from "../lophn-agent/calls.ts";
+import {
+  agentAddressSchema,
+  agentAtPlaceOutputSchema,
+  agentAtPlaceSchema,
+  agentIdSchema,
+} from "../lophn-agent/places.ts";
 import {
   invocationIdSchema,
   jsonValueSchema,
@@ -72,9 +76,9 @@ export const runRecordSchema = z
   .object({
     id: idSchema("run"),
     kind: z.enum(RUN_KINDS),
-    // agent: 이름을 푼 agent. tool: 앱과 tool 이름.
+    // agent: 이름을 푼 (agent, place). tool: 앱과 tool 이름.
     target: z.union([
-      z.object({ agent: agentRefOutputSchema }),
+      z.object({ agent: agentAtPlaceOutputSchema }),
       z.object({ app: appIdSchema, tool: toolNameSchema }),
     ]),
     session: idSchema("ses").nullable(), // agent만. run이 연 session 또는 --session
@@ -119,7 +123,7 @@ const runRef = { run: idSchema("run") };
 const startRunInputSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("agent"),
-    agent: namedAgentSchema.optional(), // session과 정확히 하나. role coding_agent는 invalid_input
+    agent: agentAddressSchema.optional(), // session과 정확히 하나
     session: idSchema("ses").optional(), // 이어 쓰는 열린 session
     prompt: z.string().min(1),
     input: jsonValueSchema.optional(), // agent에게 보이는 입력 JSON
@@ -133,7 +137,7 @@ const startRunInputSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
-// agent·session이 정확히 하나인지, coding_agent, schema를 읽을 수 있는지는 core가 본다.
+// agent·session이 정확히 하나인지와 schema를 읽을 수 있는지는 core가 본다.
 // 그 판정을 두 곳에 두지 않으려고 입력 schema에 refine을 두지 않는다.
 // 이름을 다 풀고 나서 session을 연다. CLI가 operator:<x>/<이름>을 project로 먼저 부르고 not_found면
 // 앱으로 다시 부르므로, 안 풀린 첫 시도는 session도 run도 남기지 않는다.
@@ -173,16 +177,15 @@ export const runRead = defineRead({
 });
 
 // 새것이 앞이다. 화면이 project sidebar와 앱 공간마다 session event 때 읽고 job이 run을 많이 만들어서,
-// 거르기를 core에서 해 읽기를 작게 둔다. `agent`는 agent run의 target.agent와 정확히 같은 것, `place`는
-// 만들 때 기록한 place다(`place: {app}` 하나로 그 앱의 App Engineer run, 앱 place Operator run, tool run을
-// 같이 읽는다). 준 칸은 모두 맞아야 한다(AND).
+// 거르기를 core에서 해 읽기를 작게 둔다. `agent`는 그 agent의 run(place와 상관없다), `place`는 만들 때
+// 기록한 place다(그 place의 agent run과 그 앱의 tool run). 준 칸은 모두 맞아야 한다(AND).
 export const runList = defineRead({
   resource: "runs",
   method: "list",
   name: "ListRuns",
   input: z.strictObject({
     session: idSchema("ses").optional(),
-    agent: agentRefSchema.optional(),
+    agent: agentIdSchema.optional(),
     place: runPlaceSchema.optional(),
     state: z.enum(RUN_STATES).optional(),
     cursor: readCursorSchema.optional(),
@@ -219,34 +222,11 @@ export const runCancel = defineMemory({
 });
 
 const createTargetSchema = z.union([
-  z.strictObject({ agent: agentRefSchema }),
+  z.strictObject({ agent: agentAtPlaceSchema }),
   z.strictObject({ app: appIdSchema, tool: toolNameSchema }),
 ]);
 
-// 기록할 place가 target과 맞는가. Operator의 place는 AgentRef에 없어 이름을 푼 쪽이 넘긴다.
-function placeFits(
-  target: z.infer<typeof createTargetSchema>,
-  place: RunPlace | null,
-): boolean {
-  if (!("agent" in target)) {
-    return place !== null && "app" in place && place.app === target.app;
-  }
-  const ref = target.agent;
-  switch (ref.role) {
-    case "lophn":
-      return place === null;
-    case "project_manager":
-      return (
-        place !== null && "project" in place && place.project === ref.project
-      );
-    case "app_engineer":
-      return place !== null && "app" in place && place.app === ref.app;
-    case "operator":
-      return place !== null;
-  }
-}
-
-// place는 이 입력에만 있고 run 기록에는 싣지 않는다. 읽는 쪽은 ListRuns의 거르기로만 쓴다.
+// agent_key와 place_key는 target에서 만든다. run 기록에는 place를 싣지 않는다.
 export const runCreate = defineCommand({
   resource: "runs",
   method: "create",
@@ -256,7 +236,6 @@ export const runCreate = defineCommand({
       id: idSchema("run"),
       kind: z.enum(RUN_KINDS),
       target: createTargetSchema,
-      place: runPlaceSchema.nullable(),
       session: idSchema("ses").nullable(),
       session_opened: z.boolean(),
       input_message: idSchema("msg").nullable(),
@@ -265,10 +244,7 @@ export const runCreate = defineCommand({
       instance: idSchema("wfi").nullable(),
     })
     .refine(kindFits, KIND_MESSAGE)
-    .refine(notJobAndInstance, NOT_BOTH)
-    .refine((v) => placeFits(v.target, v.place), {
-      message: "run place does not fit its target",
-    }),
+    .refine(notJobAndInstance, NOT_BOTH),
   output: z.object({ run: runRecordSchema }),
   actors: ["machine"],
   errors: ["invalid_input", "unauthorized", "forbidden", "conflict"],

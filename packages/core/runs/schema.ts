@@ -9,7 +9,8 @@ const list = (values: readonly string[]) =>
   values.map((value) => `'${value}'`).join(", ");
 
 // run 한 행. 다른 module의 표(session, message, turn)는 물리 FK 없이 id만 적는다.
-// - agent_key·place_key는 ListRuns 거르기용이다. 만들 때 정하고 바뀌지 않는다.
+// - agent_key는 `<agent id>`(home) 또는 `<agent id>@<place id>`다. place_key와 함께 ListRuns
+//   거르기용이고 만들 때 정해 바뀌지 않는다.
 // - job은 그 run을 연 job의 id다. FK가 없어 job을 지워도 남는다.
 // - instance는 그 run을 연 flow instance의 id다. job과 함께 값이 되지 않는다.
 // - result는 JSON 글이다. JSON null과 SQL NULL은 읽을 때 둘 다 null이다.

@@ -2,32 +2,27 @@ import type { Result } from "../../base/mod.ts";
 import type { Id, JsonValue } from "../../protocol/base/mod.ts";
 import type { ToolCallOutput } from "../../protocol/apps/calls/call.ts";
 import type {
-  AgentRef,
-  NamedAgent,
-  Place,
+  AgentAddress,
+  AgentAtPlace,
   TurnOutcome,
 } from "../../protocol/lophn-agent/mod.ts";
-import type { RunPlace, RunRecord } from "../../protocol/runs/mod.ts";
+import type { RunRecord } from "../../protocol/runs/mod.ts";
 import type { runCreate, runSettle } from "../../protocol/runs/mod.ts";
 import type { Input } from "../../protocol/server/mod.ts";
 
-// Operator의 place는 AgentRef에 없다. 이름을 푸는 쪽(wiring)이 place를 같이 준다.
-export type ResolvedAgent = { agent: AgentRef; place: RunPlace | null };
-
 // job이 run을 열 때 붙이는 출처다. 메모리에만 있고 route 입력이 아니다.
-// creator는 job을 만든 agent, creator_place는 그 place다(run의 place가 아니다).
+// creator는 job을 만든 (agent, place)다.
 export type JobOrigin = {
   job: Id<"job">;
   job_run: Id<"jbr">;
-  creator: AgentRef;
-  creator_place: Place | null;
+  creator: AgentAtPlace;
 };
 
-// flow instance가 run을 열 때 붙이는 출처다. creator는 그 project의 PM이다.
+// flow instance가 run을 열 때 붙이는 출처다. creator는 flow의 앱 tool 호출을 맡는
+// (agent, project)다.
 export type InstanceOrigin = {
   instance: Id<"wfi">;
-  creator: AgentRef;
-  creator_place: Place | null;
+  creator: AgentAtPlace;
 };
 
 // tag 없이 `job` 키와 `instance` 키로 가른다. jobs wiring이 낸 값을 그대로 두려는 것이다.
@@ -39,13 +34,13 @@ export type TurnOfMessage = {
   outcome: TurnOutcome | null;
 };
 
-// lophn agent를 부르는 port. 구현은 hr-runs-wiring이 끼운다.
+// lophn agent를 부르는 port. 구현은 wiring/runs.ts가 끼운다.
 export type RunAgents = {
-  // 못 풀면 not_found, 여럿이면 invalid_input.
-  resolve(named: NamedAgent): Promise<Result<ResolvedAgent>>;
+  // 못 풀면 not_found.
+  resolve(address: AgentAddress): Promise<Result<AgentAtPlace>>;
   // 없으면 not_found, 열린 session이 아니면 conflict.
-  agentOf(session: Id<"ses">): Promise<Result<ResolvedAgent>>;
-  open(agent: AgentRef, session: Id<"ses">): Promise<Result<void>>;
+  agentOf(session: Id<"ses">): Promise<Result<AgentAtPlace>>;
+  open(agent: AgentAtPlace, session: Id<"ses">): Promise<Result<void>>;
   // unattended로 넣는다.
   send(
     session: Id<"ses">,

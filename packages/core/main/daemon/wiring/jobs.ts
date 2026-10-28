@@ -1,6 +1,9 @@
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
-import type { AgentRef, Place } from "../../../../protocol/lophn-agent/mod.ts";
+import {
+  type AgentRef,
+  LOPHN_AGENT_ID,
+} from "../../../../protocol/lophn-agent/mod.ts";
 import { placeOfAgentRef } from "../../../../protocol/lophn-agent/mod.ts";
 import {
   jobClaimDue,
@@ -8,7 +11,6 @@ import {
   jobRunOpen,
   jobRunStarted,
 } from "../../../../protocol/jobs/mod.ts";
-import type { RunPlace } from "../../../../protocol/runs/mod.ts";
 import type {
   AuthenticatedContext,
   Output,
@@ -45,13 +47,9 @@ const JOBS_CONTEXT: AuthenticatedContext = {
   credential_ref: JOBS_PRINCIPAL,
 };
 
-// wiring file끼리 import하지 않으므로 runs.ts의 같은 이름 함수를 한 벌 다시 둔다.
-const runPlaceOf = (place: Place | null): RunPlace | null =>
-  place === null
-    ? null
-    : place.kind === "project"
-      ? { project: place.id }
-      : { app: place.id };
+// 저장된 job은 아직 옛 AgentRef다. jobs-core가 새 꼴로 다시 쓴다.
+const agentIdOfRef = (ref: AgentRef) =>
+  ref.role === "operator" ? ref.agent : LOPHN_AGENT_ID;
 
 const route = (r: { resource: string; method: string }) =>
   `${r.resource}/${r.method}`;
@@ -138,8 +136,10 @@ export const jobsWiring: WiringFactory = () => {
           const origin: RunOrigin = {
             job: job.id as Id<"job">,
             job_run: jobRun.id as Id<"jbr">,
-            creator: job.creator as AgentRef,
-            creator_place: placeOfAgentRef(job.creator) ?? null,
+            creator: {
+              agent: agentIdOfRef(job.creator),
+              place: placeOfAgentRef(job.creator) ?? null,
+            },
           };
           const input =
             action.input === undefined ? {} : { input: action.input };
@@ -147,8 +147,10 @@ export const jobsWiring: WiringFactory = () => {
             action.kind === "agent_run"
               ? {
                   kind: "agent_resolved",
-                  agent: action.agent,
-                  place: runPlaceOf(action.agent_place),
+                  agent: {
+                    agent: agentIdOfRef(action.agent),
+                    place: action.agent_place,
+                  },
                   prompt: action.prompt,
                   ...input,
                   ...(action.schema === undefined

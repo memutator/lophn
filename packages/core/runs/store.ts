@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { AgentRef } from "../../protocol/lophn-agent/mod.ts";
+import type { AgentAtPlace, AgentId } from "../../protocol/lophn-agent/mod.ts";
 import type { RunPlace, RunRecord, RunState } from "../../protocol/runs/mod.ts";
 import { runRecordSchema } from "../../protocol/runs/mod.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
@@ -7,17 +7,10 @@ import type { Sql } from "../../protocol/server/mod.ts";
 type Query = Pick<Sql, "get" | "all">;
 
 // ListRuns의 거르기와 CreateRun이 같은 글로 비교하려고 한 함수를 같이 쓴다.
-export function agentKeyOf(agent: AgentRef): string {
-  switch (agent.role) {
-    case "lophn":
-      return "lophn";
-    case "project_manager":
-      return `project_manager:${agent.project}`;
-    case "app_engineer":
-      return `app_engineer:${agent.app}`;
-    case "operator":
-      return `operator:${agent.agent}`;
-  }
+export function agentKeyOf(agent: AgentAtPlace): string {
+  return agent.place === null
+    ? agent.agent
+    : `${agent.agent}@${agent.place.id}`;
 }
 
 export function placeKeyOf(place: RunPlace): string {
@@ -76,7 +69,6 @@ export function insertRun(
     id: string;
     kind: string;
     target: unknown;
-    place: RunPlace | null;
     session: string | null;
     session_opened: boolean;
     input_message: string | null;
@@ -86,7 +78,20 @@ export function insertRun(
     created_at: string;
   },
 ): void {
-  const agent = (run.target as { agent?: AgentRef }).agent;
+  const target = run.target as RunRecord["target"];
+  let agentKey: string | null = null;
+  let placeKey: string | null = null;
+  if ("agent" in target) {
+    agentKey = agentKeyOf(target.agent);
+    const place = target.agent.place;
+    if (place !== null) {
+      placeKey = placeKeyOf(
+        place.kind === "project" ? { project: place.id } : { app: place.id },
+      );
+    }
+  } else {
+    placeKey = placeKeyOf({ app: target.app });
+  }
   sql.run(
     `INSERT INTO runs
       (id, kind, target, session, session_opened, input_message, schema, job, instance, state,
@@ -104,8 +109,8 @@ export function insertRun(
       run.instance,
       run.created_at,
       nextStateSeq(sql),
-      agent === undefined ? null : agentKeyOf(agent),
-      run.place === null ? null : placeKeyOf(run.place),
+      agentKey,
+      placeKey,
     ],
   );
 }
@@ -115,7 +120,7 @@ export function listRuns(
   sql: Query,
   filter: {
     session?: string;
-    agent?: AgentRef;
+    agent?: AgentId;
     place?: RunPlace;
     state?: RunState;
     after?: string;
@@ -129,8 +134,8 @@ export function listRuns(
     params.push(filter.session);
   }
   if (filter.agent !== undefined) {
-    where.push("agent_key = ?");
-    params.push(agentKeyOf(filter.agent));
+    where.push("(agent_key = ? OR agent_key GLOB ?)");
+    params.push(filter.agent, `${filter.agent}@*`);
   }
   if (filter.place !== undefined) {
     where.push("place_key = ?");

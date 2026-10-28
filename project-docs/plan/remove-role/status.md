@@ -5,7 +5,7 @@ lead만 고친다. `tools/status.py remove-role build`가 `tasks/*.md`에서 id,
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `agent-places-rename` | agent-places | 1 | 없음 | merged | agent-places/agent-places-rename | 69746990a |  |
-| `coding-cli` | coding | 1 | 없음 | running | coding/coding-cli |  |  |
+| `coding-cli` | coding | 1 | 없음 | merged | coding/coding-cli | a7bb54541 |  |
 | `coding-core` | coding | 1 | coding-shell, coding-cli | todo |  |  |  |
 | `coding-shell` | coding | 1 | 없음 | merged | coding/coding-shell | 8b15dc853 |  |
 | `contract-agent` | contract | 1 | 없음 | merged | contract/contract-agent | f55de3390 |  |

@@ -75,18 +75,19 @@ test("an agent credential reaches only its own session and turn", async () => {
   );
 });
 
-// 앱 process가 다시 뜰 때 그 앱의 app credential만 끝나고, 같은 앱의 coding token은 남는다.
-test("ending an app's credentials leaves its coding token alive", () => {
+// 앱 process가 다시 뜰 때 그 앱의 app credential만 끝나고, 같은 앱에서 도는 agent의 turn credential은 남는다.
+test("앱 credential을 끝내도 같은 앱 조건의 agent credential은 남는다", () => {
   const keys = new CredentialRegistry({
     epoch: "epoch",
     random: cryptoRandom,
     clock: manualClock(Date.parse("2026-10-16T00:00:00Z")),
     operations: [
-      { name: "ticket.show", actors: ["app", "coding_agent"], kind: "read" },
+      { name: "ticket.show", actors: ["app", "agent"], kind: "read" },
     ],
   });
   const app = id("app", 1);
-  const coding = id("ses", 1);
+  const session = id("ses", 1);
+  const turn = id("trn", 1);
   const release = id("rel", 1);
   const process = id("prc", 1);
   const appCredential = keys.issue({
@@ -98,15 +99,15 @@ test("ending an app's credentials leaves its coding token alive", () => {
     },
     conditions: { app, release, process, mode: "live" },
   });
-  const codingToken = keys.issue({
-    actor: `coding_agent:${coding}`,
-    principal: `coding_agent:${coding}`,
-    scope: { operations: ["ticket.show"], targets: { app } },
-    conditions: { app },
+  const agentCredential = keys.issue({
+    actor: `agent:${session}`,
+    principal: `agent:${session}`,
+    scope: { operations: ["ticket.show"], targets: { session, turn } },
+    conditions: { app, session, turn },
   });
-  assert.ok(appCredential.ok && codingToken.ok);
+  assert.ok(appCredential.ok && agentCredential.ok);
 
   assert.deepStrictEqual(keys.endBy("app", app, "app"), 1);
   assert.deepStrictEqual(keys.revalidate(appCredential.value).ok, false);
-  assert.ok(keys.revalidate(codingToken.value).ok);
+  assert.ok(keys.revalidate(agentCredential.value).ok);
 });

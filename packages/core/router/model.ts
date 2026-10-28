@@ -19,7 +19,7 @@ import type { RoutedInput } from "./ports.ts";
 export const sesId = (value: string) => value as Id<"ses">;
 export const calId = (value: string) => value as Id<"cal">;
 
-// route 한 번의 입력이다. 사람, program, agent, coding agent가 모두 이 모양으로 넣는다.
+// route 한 번의 입력이다. 사람, program, agent가 모두 이 모양으로 넣는다.
 export type RouteInput = {
   from: CallFrom;
   to: CallToInput | CallTo;
@@ -29,6 +29,7 @@ export type RouteInput = {
   reply_to: string | null;
   // agent가 보낸 call에만 있다(tool call ID).
   dedup: string | null;
+  // 옛 envelope(input)이 채우지만 Router는 쓰지 않는다.
   options: CodingOptions | null;
   kind: RoutedInput["kind"];
   delivery: InputDelivery;

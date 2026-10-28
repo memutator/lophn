@@ -1,4 +1,3 @@
-import { codingAgentOperationPolicies } from "../../../apps/connections/operations.ts";
 import { CREDENTIAL_SCHEMA } from "../../../server/credentials.ts";
 import {
   CredentialRegistry,
@@ -14,12 +13,12 @@ export const serverWiring: WiringFactory = () => ({
     return [
       {
         name: "platform/status",
-        actors: ["user", "machine", "app", "agent", "coding_agent"],
+        actors: ["user", "machine", "app", "agent"],
         kind: "read",
       },
       {
         name: "platform/health",
-        actors: ["user", "machine", "app", "agent", "coding_agent"],
+        actors: ["user", "machine", "app", "agent"],
         kind: "read",
       },
       // 파일 작업 결과 기록. 사람 요청에 결합해 받은 worker만 쓴다.
@@ -43,11 +42,7 @@ export const serverWiring: WiringFactory = () => ({
         epoch: ctx.epoch,
         clock: ctx.clock,
         random: ctx.random,
-        // coding_agent 상한은 route가 선언한 actors를 따른다(blobs 제외).
-        operations: [
-          ...ctx.operations,
-          ...codingAgentOperationPolicies(ctx.allRoutes, ctx.operations),
-        ],
+        operations: ctx.operations,
       }),
     );
   },

@@ -1,5 +1,5 @@
 // session의 지금 상태, 대기 중인 turn request, 질문을 모아 내는 read. 화면이 붙거나 다시 붙을 때 읽는다.
-// 상태는 각 module이 내놓는 read와 함수에서 모으고(lophn-agent session·turn, coding session, approvals의 turn 안 request),
+// 상태는 각 module이 내놓는 read와 함수에서 모으고(lophn-agent session·turn, approvals의 turn 안 request),
 // 질문은 approvals가 낸 메모리 기다림에서 읽는다. 쓰는 중인 model 글(`writing`)은 같은 곳에서 만들고 여기서 싣는다.
 import { createIdSource, ok } from "../../../../base/mod.ts";
 import {
@@ -11,12 +11,6 @@ import {
   recordMessage,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import {
-  codingPlace,
-  liveSessions,
-  loadSession as loadCodingSession,
-  stateOf,
-} from "../../../apps/coding/store.ts";
 import {
   agentRefOf,
   hasUnfinishedTurn,
@@ -86,15 +80,6 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
         ],
         {
           send: (event) => {
-            // coding session은 사람 기다림을 알리지 않으므로 시간은 세지 않는다. 쓰는 중인 글을 비우는
-            // 것은 그대로다.
-            if (
-              event.type === "TurnStarted" &&
-              loadSession(lookup, event.session) === undefined
-            ) {
-              liveTurns.apply(event, false);
-              return;
-            }
             // 마지막 사람 기다림이 닫히면 `TurnResumed`다. 구독 안에서 바로 내면 같은 event를 받는 다른
             // 구독자보다 먼저 닿으므로 다음 microtask로 미룬다.
             const resumed = liveTurns.apply(event);
@@ -131,21 +116,6 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
             turn_requests,
             questions,
           } as SessionSnapshot);
-        }
-        const coding =
-          sessions === undefined
-            ? liveSessions(sql)
-            : sessions.flatMap((id) => loadCodingSession(sql, id) ?? []);
-        for (const row of coding) {
-          snapshots.push({
-            session: row.session,
-            agent: { role: "coding_agent", app: row.app },
-            place: codingPlace(sql, row.app),
-            state: stateOf(row),
-            harness: row.harness,
-            turn_requests: requests(row.session),
-            questions: [],
-          } satisfies SessionSnapshot);
         }
         return snapshots;
       };

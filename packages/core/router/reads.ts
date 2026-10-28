@@ -44,7 +44,7 @@ function placeOf(agent: CallAgent): Place | null {
   return null;
 }
 
-// waiting은 coding session만 낸다. lophn session은 reader가 못 봐서 구별하지 않는다. 구별이 필요해지면 turn 행에 적는 쪽을 본다.
+// waiting·unknown은 지금 내는 곳이 없다. `queued_coding`도 늘 빈 목록이다.
 const STATES = ["running", "waiting", "idle", "unknown"] as const;
 
 // 부를 수 있는 열린 session 목록. 목록은 prompt에 넣지 않고 tool이 읽는다.

@@ -1,7 +1,3 @@
-import {
-  codingDefaultHarness,
-  codingDefaultModel,
-} from "../../../apps/coding/mod.ts";
 import { shellRulesSetting } from "../../../approvals/shell-rules/mod.ts";
 import { lophnAgentSettings } from "../../../lophn-agent/register.ts";
 import type { WiringFactory } from "./context.ts";
@@ -12,8 +8,6 @@ export const settingDeclarationsWiring: WiringFactory = () => ({
   prepare(ctx) {
     ctx.provide("settingDeclarations", [
       ...lophnAgentSettings,
-      codingDefaultHarness,
-      codingDefaultModel,
       shellRulesSetting,
     ]);
   },

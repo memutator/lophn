@@ -1,7 +1,6 @@
 import type { Result } from "../../base/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
-import type { CodingOptions } from "../../protocol/coding-agent/harness-id.ts";
 import type {
   AgentCallRecord,
   CallAgent,
@@ -24,8 +23,8 @@ import type { NoticeKind } from "../../protocol/lophn-agent/input-tags.ts";
 // 받는 session 하나. Router가 배달 길을 고르는 데 쓴다.
 export type TargetSession = {
   session: Id<"ses">;
-  // lophn session은 run-loop 입력함, harness는 coding agent PTY다.
-  transport: "lophn" | "harness";
+  // 지금 받을 수 있는 것은 lophn session 하나다.
+  transport: "lophn";
   agent: CallAgent;
   // archive, 지움, place 보관이면 false(새 입력을 받지 않는다).
   accepting: boolean;
@@ -75,22 +74,21 @@ export interface SessionDirectory {
 }
 
 export interface InputTransport {
-  // lophn session이면 입력함에 넣고, harness session이면 PTY에 넣거나 그 앱의 줄에 세운다.
-  // 'queued'는 받는 쪽이 돌고 있거나 줄에 서 있어 아직 turn이 안 시작됐다는 뜻이다.
+  // lophn session의 입력함에 넣는다.
+  // 'queued'는 받는 쪽이 돌고 있어 아직 turn이 안 시작됐다는 뜻이다.
   deliver(
     tx: Tx,
     target: TargetSession,
     input: RoutedInput,
-    options: CodingOptions | null,
   ): Result<"delivered" | "queued">;
-  // 취소 입력(notice)을 넣고, 줄에 서 있던 coding 맡기기는 줄에서 뺀다.
+  // 취소 입력(notice)을 넣는다.
   cancel(
     tx: Tx,
     target: TargetSession | null,
     call: Id<"cal">,
     unattended: boolean,
   ): Result<void>;
-  // 앱 줄에 서서 기다리는 coding 맡기기. session 목록 tool이 함께 보인다.
+  // 늘 빈 목록이다. session 목록 tool이 싣는 칸이다.
   queued(): readonly { call: Id<"cal">; app: Id<"app"> }[];
 }
 
@@ -106,7 +104,7 @@ export interface CallStore {
   ): Result<AgentCallRecord>;
   // 받는 session의 turn이 이 입력을 가져갔음을 적는다. 재시작 때 잃어버린 call을 가리는 근거다.
   markConsumed(tx: Tx, call: Id<"cal">): Result<void>;
-  // 줄에서 기다리던 coding 맡기기가 나중에 session을 열었다. 받는 session을 적는다.
+  // 받는 session이 나중에 정해졌을 때 받는 session을 적는다.
   setReceiver(tx: Tx, call: Id<"cal">, session: Id<"ses">): Result<void>;
   // 끝나지 않았고 아직 가져가지 않은 call. 입력함과 앱 줄이 메모리라 lophn을 켤 때 잃어버린 것이다.
   lost(tx: Tx): readonly AgentCallRecord[];

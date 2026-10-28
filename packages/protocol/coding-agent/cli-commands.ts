@@ -19,7 +19,7 @@ const cliCommonSchema = z.strictObject({
 
 export type CodingCliCommand = {
   name: string;
-  auth: "coding_token" | "user" | "local";
+  auth: "user" | "local";
   input: z.ZodType;
   output: z.ZodType;
   route?: Route;

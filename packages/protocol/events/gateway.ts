@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 import { busEventSchema, eventConditionSchema } from "./bus.ts";
-import { codingTerminalFrameSchema } from "../coding-agent/terminal-requests.ts";
 
 // Gateway는 renderer가 건 조건으로 Bus를 걸러 보내는 WebSocket이다. 받는 principal은 사람 token 하나다.
 // replay도 ack도 없다. 놓치거나 끊기면 붙은 쪽이 snapshot부터 다시 읽는다.
@@ -39,13 +38,11 @@ const gatewayClosedFrameSchema = z.strictObject({
   reason: z.enum(GATEWAY_CLOSED_REASONS),
 });
 
-// ready·event·closed는 renderer에도 가는 frame이다. 터미널 요청 같은 shell main 전용 frame은
-// 이 목록에 따로 더하고, shell main이 renderer로 중계하지 않는다.
+// ready·event·closed는 renderer에도 가는 frame이다.
 const GATEWAY_SERVER_FRAMES = [
   gatewayReadyFrameSchema,
   gatewayEventFrameSchema,
   gatewayClosedFrameSchema,
-  codingTerminalFrameSchema,
 ] as const;
 
 export const gatewayServerFrameSchema = z.discriminatedUnion(

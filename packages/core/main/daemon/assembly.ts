@@ -13,8 +13,6 @@ import {
 import type { WiringFactory } from "./wiring/context.ts";
 import { appsWiring } from "./wiring/apps.ts";
 import { annotationsWiring } from "./wiring/annotations.ts";
-import { codingSessionsWiring } from "./wiring/coding-sessions.ts";
-import { codingMcpWiring } from "./wiring/coding-mcp.ts";
 import { approvalsWiring } from "./wiring/approvals.ts";
 import { configWiring } from "./wiring/config.ts";
 import { sdkInstallWiring } from "./wiring/sdk-install.ts";
@@ -48,7 +46,6 @@ import { supervisionWiring } from "./wiring/supervision.ts";
 import { createCoreRegistration as createApprovalsRegistration } from "../../approvals/registration.ts";
 import { createCoreRegistration as createRouterRegistration } from "./wiring/router-registration.ts";
 import { createCoreRegistration as createAnnotationsRegistration } from "../../apps/annotations/register.ts";
-import { createCoreRegistration as createCodingRegistration } from "../../apps/coding/register.ts";
 import { createCoreRegistration as createPlaceRegistration } from "./wiring/lophn-agent-registration.ts";
 import { createCoreRegistration as createUsageRegistration } from "./wiring/apps-usage.ts";
 import { createCoreRegistration as createDomainOwnersRegistration } from "./wiring/domains-registration.ts";
@@ -66,7 +63,6 @@ export const TEAMS = [
   { createCoreRegistration: createApprovalsRegistration },
   { createCoreRegistration: createRouterRegistration },
   { createCoreRegistration: createAnnotationsRegistration },
-  { createCoreRegistration: createCodingRegistration },
   { createCoreRegistration: createPlaceRegistration },
   { createCoreRegistration: createUsageRegistration },
   { createCoreRegistration: createDomainOwnersRegistration },
@@ -90,7 +86,6 @@ export const TEAM_MODULES = [
   new URL("../../approvals/registration.ts", import.meta.url).href,
   new URL("./wiring/router-registration.ts", import.meta.url).href,
   new URL("../../apps/annotations/register.ts", import.meta.url).href,
-  new URL("../../apps/coding/register.ts", import.meta.url).href,
   new URL("./wiring/lophn-agent-registration.ts", import.meta.url).href,
   new URL("./wiring/rewind-registration.ts", import.meta.url).href,
   new URL("./wiring/apps-usage.ts", import.meta.url).href,
@@ -123,10 +118,8 @@ export const WIRINGS: readonly WiringFactory[] = [
   approvalsWiring,
   routerWiring,
   appsWiring,
-  codingMcpWiring,
   lophnAgentRewindWiring,
   lophnAgentProviderLoginWiring,
-  codingSessionsWiring,
   annotationsWiring,
   runsWiring,
   workflowsWiring,

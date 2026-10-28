@@ -36,7 +36,7 @@ export type RouterDeps = {
 };
 
 export interface Router {
-  // 모든 보낸 쪽이 쓰는 입구. 사람, program, agent, coding agent.
+  // 모든 보낸 쪽이 쓰는 입구. 사람, program, agent.
   route(tx: Tx, input: RouteInput): Result<RouteResult>;
   reply(
     tx: Tx,
@@ -52,13 +52,6 @@ export interface Router {
     tx: Tx,
     by: CallFrom,
     input: { call: string; reason?: string },
-  ): Result<AgentCallRecord>;
-  // coding 쪽(coding session의 끝)이 맡긴 call을 닫는다. 같은 tx 안에서 부른다. 이미 끝났으면 그대로 둔다.
-  close(
-    tx: Tx,
-    call: string,
-    to: "done" | "failed",
-    reason: CallFailReason | null,
   ): Result<AgentCallRecord>;
   // session을 archive하거나 지울 때 그 session이 받은 열린 call을 failed(receiver_ended)로 닫는다.
   failReceivedBy(tx: Tx, session: string): Result<void>;
@@ -192,7 +185,6 @@ export function createRouter(deps: RouterDeps): Router {
       tx,
       target,
       failureInput(calId(call), reason, unattended),
-      null,
     );
     return delivered.ok ? ok(undefined) : delivered;
   }
@@ -279,12 +271,7 @@ export function createRouter(deps: RouterDeps): Router {
     }
     const { to, target } = resolved.value;
     const call = from.kind === "agent" ? tx.newId("cal") : null;
-    const delivered = transport.deliver(
-      tx,
-      target,
-      inputOf(input, call),
-      input.options,
-    );
+    const delivered = transport.deliver(tx, target, inputOf(input, call));
     if (!delivered.ok) return delivered;
     const state: CallState =
       delivered.value === "delivered" && input.reply === "none"
@@ -331,31 +318,26 @@ export function createRouter(deps: RouterDeps): Router {
     // 받을 session이 없어졌으면 답은 보낸 쪽 기록에만 남는다.
     let delivered = false;
     if (target !== null && target.accepting) {
-      const sent = transport.deliver(
-        tx,
-        target,
-        {
-          kind: "reply",
-          from: { kind: "agent", session: from.session },
-          call: calId(record.call),
-          reply_to: calId(record.call),
-          body: input.body,
-          refs: input.refs,
-          delivery: "next_turn",
-          message: null,
-          reply: null,
-          outcome:
-            asReceiver && record.reply === "result"
-              ? { state: "done", reason: null }
-              : null,
-          event: null,
-          notice: null,
-          step: null,
-          // 답의 표시는 답한 turn에서 온다. 사람이 끼어든 attended turn의 답은 attended다.
-          unattended: input.unattended === true,
-        },
-        null,
-      );
+      const sent = transport.deliver(tx, target, {
+        kind: "reply",
+        from: { kind: "agent", session: from.session },
+        call: calId(record.call),
+        reply_to: calId(record.call),
+        body: input.body,
+        refs: input.refs,
+        delivery: "next_turn",
+        message: null,
+        reply: null,
+        outcome:
+          asReceiver && record.reply === "result"
+            ? { state: "done", reason: null }
+            : null,
+        event: null,
+        notice: null,
+        step: null,
+        // 답의 표시는 답한 turn에서 온다. 사람이 끼어든 attended turn의 답은 attended다.
+        unattended: input.unattended === true,
+      });
       if (!sent.ok) return sent;
       delivered = true;
     }
@@ -399,20 +381,6 @@ export function createRouter(deps: RouterDeps): Router {
     return cancelled.ok ? moved : cancelled;
   }
 
-  function close(
-    tx: Tx,
-    call: Id<"cal">,
-    to: "done" | "failed",
-    reason: CallFailReason | null,
-  ): Result<AgentCallRecord> {
-    const record = store.read(tx, call);
-    if (record === null) {
-      return err({ code: "not_found", message: "call not found" });
-    }
-    if (isFinished(record.state)) return ok(record);
-    return store.move(tx, calId(call), to, to === "failed" ? reason : null);
-  }
-
   function failAll(
     tx: Tx,
     records: readonly AgentCallRecord[],
@@ -440,7 +408,6 @@ export function createRouter(deps: RouterDeps): Router {
     route,
     reply,
     cancel,
-    close,
     failReceivedBy(tx, session) {
       // 끝나는 session 자신이 보낸 call의 알림은 받을 곳이 없다.
       const records = store

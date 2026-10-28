@@ -78,7 +78,7 @@ function headOf(name: string, paths: string[]): string {
   ].join("\n");
 }
 
-// `lophn` CLI. 같은 플랫폼 daemon에 loopback으로 연결하고 token은 환경 변수 `LOPHN_CODING_TOKEN`으로 받는다.
+// `lophn` CLI. 같은 플랫폼 daemon에 loopback으로 연결하고 data root의 user token으로 인증한다.
 // lophn 자신의 코드라 권한 flag가 없다. 설치 묶음의 Electron binary를 Node로 쓴다.
 export function cliLauncher(
   layout: LinuxInstallLayout,

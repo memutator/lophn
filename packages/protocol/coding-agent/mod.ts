@@ -11,7 +11,6 @@ export {
 export { ROUTES } from "./registry.ts";
 export {
   canDeliverMessages,
-  canLaunch,
   HARNESS_ADAPTERS,
   type HarnessAdapter,
 } from "./harness-adapter.ts";
@@ -21,22 +20,8 @@ export {
   hookSignalOf,
 } from "./hook-signal.ts";
 export { type CodingOptions, codingOptionsSchema } from "./harness-id.ts";
-export {
-  codingLaunchPlanSchema,
-  firstPromptOf,
-  launchPlanOf,
-  PASTE_AFTER_HOOK_DEADLINE_MS,
-} from "./launch-plan.ts";
-
-export { withCodingMcp } from "./mcp-launch.ts";
 
 export * from "./harness-hooks.ts";
 export { harnessOfProcess } from "./harness-process.ts";
-export * from "./token.ts";
 export * from "./cli-commands.ts";
 export * from "./terminal-hook.ts";
-export * from "./message.ts";
-export * from "./harness-report.ts";
-export * from "./terminal-requests.ts";
-export * from "./transport.ts";
-export * from "./mcp.ts";

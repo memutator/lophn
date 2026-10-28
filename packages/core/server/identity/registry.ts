@@ -28,13 +28,8 @@ import {
 
 export type CredentialIssue = {
   // user·machine은 종류 문자열이고 나머지는 kind:id Actor다. agent runtime 경계만 agent credential을,
-  // app supervisor만 app credential을, coding session 쪽만 coding_agent credential을 발급한다.
-  actor:
-    | "user"
-    | "machine"
-    | `agent:${string}`
-    | `app:${string}`
-    | `coding_agent:${string}`;
+  // app supervisor만 app credential을 발급한다.
+  actor: "user" | "machine" | `agent:${string}` | `app:${string}`;
   principal: string;
   scope: CredentialScope;
   conditions: CredentialConditions;
@@ -85,7 +80,7 @@ function digestBytes(hex: string): Uint8Array {
   return Uint8Array.from(hex.match(/../g)!, (pair) => parseInt(pair, 16));
 }
 
-// 발급은 동기여야 해서(CodingTokens port) 동기 hash를 쓴다.
+// 발급은 동기 API라 동기 hash를 쓴다.
 function digestOf(token: string): Uint8Array {
   return new Uint8Array(createHash("sha256").update(token).digest());
 }
@@ -146,8 +141,7 @@ export class CredentialRegistry {
         (kind !== "user" &&
           kind !== "machine" &&
           kind !== "app" &&
-          kind !== "agent" &&
-          kind !== "coding_agent")
+          kind !== "agent")
       )
         return invalid();
       const context: AuthenticatedContext = parsed.data;
@@ -207,12 +201,6 @@ export class CredentialRegistry {
           context.scope.targets.turn !== context.conditions.turn
         )
           return invalid();
-      }
-      // coding token은 session 하나가 받은 앱 하나에 묶인다. 만료는 없고 session이 끝날 때 거둔다.
-      if (kind === "coding_agent") {
-        if (!context.conditions.app || input.principal !== input.actor) {
-          return invalid();
-        }
       }
       if (
         context.expires_at !== undefined &&
@@ -321,7 +309,7 @@ export class CredentialRegistry {
     return this.#finish(credentialRef, "ended");
   }
 
-  // `kind`를 주면 그 actor 종류만 끝낸다. 같은 앱 조건을 가진 coding token 같은 다른 종류는 남는다.
+  // `kind`를 주면 그 actor 종류만 끝낸다. 같은 앱 조건을 가진 앱 place agent의 turn credential은 남는다.
   endBy(
     condition: "app" | "task" | "process" | "turn" | "session" | "release",
     value: string,

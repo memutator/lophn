@@ -18,7 +18,6 @@ import type {
 import type {
   ApiServer,
   FileStreamHandler,
-  McpEndpoint,
   MemoryHandler,
   ReadHandler,
   UploadHandler,
@@ -134,8 +133,6 @@ export type Built = {
   fileStreams?: Iterable<readonly [string, FileStreamHandler]>;
   // `overlayReads` 같은 덧씌우기. runtime이 연 read 등록에 더한다.
   reads?: (reads: Map<string, ReadHandler>) => void;
-  // coding agent의 MCP endpoint. 하나만 낸다.
-  mcp?: McpEndpoint;
 };
 
 type Wiring = {
@@ -217,7 +214,7 @@ type Late = {
   secretAttach: SecretAttachPort;
   // events가 낸다.
   bus: Bus;
-  // Bus 밖 frame을 연결된 Gateway client 하나에 보낸다(coding-agent의 터미널 요청).
+  // Bus 밖 frame을 연결된 Gateway client 하나에 보낸다.
   gateway: GatewayFrames;
   // approvals가 낸다. tool gate와 turn 안 request.
   approvals: ApprovalsService;
@@ -228,7 +225,7 @@ type Late = {
   appViewSignal: AppViewSignal;
   // apps가 낸다. releases-problems(activation)와 places-sessions(rewind)가 쓴다.
   appIntake: AppIntake;
-  // 앱 tool 호출 길. coding agent MCP가 preview 호출에 쓴다.
+  // 앱 tool 호출 길. runs가 앱 tool을 부른다.
   appCallPath: AppToolCallPath;
   invocationLedger: InvocationLedger;
   appRewind: AppRewind;

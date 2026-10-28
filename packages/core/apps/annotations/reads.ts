@@ -6,7 +6,6 @@ import {
   type AnnotationTarget,
 } from "../../../protocol/apps/annotation.ts";
 import { domainLookupPort } from "../../../protocol/domains/mod.ts";
-import { CodingSessionLookup } from "../../../protocol/coding-agent/token.ts";
 import type {
   ReadDefinition,
   ReadSnapshot,
@@ -20,31 +19,21 @@ type Query = Pick<Sql, "get" | "all">;
 const notFound = () =>
   err({ code: "not_found" as const, message: "annotation does not exist" });
 
-// 호출자 범위. coding session은 token의 앱 하나, agent는 자격 조건의 앱(앱 place의 App Engineer·Operator)이나
-// project(프로젝트 place의 PM·Operator), 사람과 machine은 전체(null)다. 앱도 project도 조건에 없는 agent(lophn)는
-// 읽을 수 없다.
+// 호출자 범위. 사람과 machine은 전체(null)이고, agent는 자격 조건의 앱(앱 place의 App Engineer·Operator)이나
+// project(프로젝트 place의 PM·Operator)다. 조건에 앱도 project도 없는 agent(lophn)와 그 밖의 actor는 읽을 수 없다.
 type Scope = { app?: string; project?: string } | null;
 
 function callerScope(
-  snapshot: ReadSnapshot,
   ctx: Pick<RequestContext, "actor" | "conditions">,
 ): Result<Scope> {
   const actor = parseActor(ctx.actor);
-  if (actor?.kind === "coding_agent") {
-    let app: string | null;
-    try {
-      app = snapshot.port(CodingSessionLookup).appOf(actor.id);
-    } catch {
-      return err({
-        code: "unavailable",
-        message: "coding session lookup is not available",
-      });
-    }
-    return app === null
-      ? err({ code: "forbidden", message: "unknown coding session" })
-      : ok({ app });
+  if (actor?.kind === "user" || actor?.kind === "machine") return ok(null);
+  if (actor?.kind !== "agent") {
+    return err({
+      code: "forbidden",
+      message: "annotation is not readable for this actor",
+    });
   }
-  if (actor?.kind !== "agent") return ok(null);
   const { app, project } = ctx.conditions;
   if (app !== undefined || project !== undefined) {
     return ok({
@@ -90,7 +79,7 @@ export function createAnnotationReads(): {
     get: {
       route: annotationsGet,
       handle(snapshot, ctx, input) {
-        const scope = callerScope(snapshot, ctx);
+        const scope = callerScope(ctx);
         if (!scope.ok) return scope;
         const found =
           "annotation" in input

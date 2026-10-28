@@ -10,7 +10,7 @@ lead만 고친다. `tools/status.py remove-role build`가 `tasks/*.md`에서 id,
 | `coding-shell` | coding | 1 | 없음 | merged | coding/coding-shell | 8b15dc853 |  |
 | `contract-agent` | contract | 1 | 없음 | merged | contract/contract-agent | f55de3390 |  |
 | `contract-session` | contract | 1 | contract-agent | merged | contract/contract-session | ec8edb917 |  |
-| `agents-core` | agents | 2 | 없음 | todo |  |  |  |
+| `agents-core` | agents | 2 | 없음 | merged | agents/agents-core | c38a429f3 |  |
 | `jobs-core` | jobs | 2 | runs-core, wireframe-sidebar | todo |  |  |  |
 | `place-prompts` | places | 2 | place-scope | todo |  |  |  |
 | `place-scope` | places | 2 | place-tools | todo |  |  |  |
@@ -18,7 +18,7 @@ lead만 고친다. `tools/status.py remove-role build`가 `tasks/*.md`에서 id,
 | `router-core` | router | 2 | sessions-core | todo |  |  |  |
 | `runs-core` | runs | 2 | router-core, place-tools | todo |  |  |  |
 | `sessions-core` | sessions | 2 | agents-core | todo |  |  |  |
-| `wireframe-agents` | wireframe | 2 | 없음 | todo |  |  |  |
+| `wireframe-agents` | wireframe | 2 | 없음 | running | wireframe/wireframe-agents |  |  |
 | `wireframe-sidebar` | wireframe | 2 | wireframe-agents | todo |  |  |  |
 | `workflows-core` | workflows | 2 | runs-core | todo |  |  |  |
 | `cli-run` | cli | 3 | 없음 | todo |  |  |  |

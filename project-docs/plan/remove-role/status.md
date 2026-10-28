@@ -13,7 +13,7 @@ lead만 고친다. `tools/status.py remove-role build`가 `tasks/*.md`에서 id,
 | `agents-core` | agents | 2 | 없음 | merged | agents/agents-core | c38a429f3 |  |
 | `jobs-core` | jobs | 2 | runs-core, wireframe-sidebar | merged | jobs/jobs-core | 8f14de02e |  |
 | `place-prompts` | places | 2 | place-scope | todo |  |  |  |
-| `place-scope` | places | 2 | place-tools | running | places/place-scope |  |  |
+| `place-scope` | places | 2 | place-tools | merged | places/place-scope | 77310f564 |  |
 | `place-tools` | places | 2 | sessions-core | merged | places/place-tools | e26d159bf |  |
 | `router-core` | router | 2 | sessions-core | merged | router/router-core | 8ac4e6012 |  |
 | `runs-core` | runs | 2 | router-core, place-tools | merged | runs/runs-core | 87890c965 |  |

@@ -195,6 +195,7 @@ export const RESERVED_DOMAIN_NAMES: readonly string[] = [
   "skill",
   "tool",
   "app",
+  "agent",
   "domain",
   "declaration",
   "package",

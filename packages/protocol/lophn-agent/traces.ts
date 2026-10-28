@@ -9,7 +9,6 @@ import {
 import { defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
-import { agentRoleSchema } from "./scope.ts";
 import { turnOutcomeOutputSchema, turnStateSchema } from "./turn-values.ts";
 
 const count = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -99,7 +98,6 @@ export type TurnTrace = z.infer<typeof turnTraceSchema>;
 const agentTraceReadInputSchema = z
   .strictObject({
     target: traceTargetSchema,
-    role: agentRoleSchema.optional(),
     from_at: atSchema.optional(),
     through_at: atSchema.optional(),
     cursor: z.string().min(1).optional(),
@@ -138,7 +136,6 @@ const usageGroupSchema = z
   .strictObject({
     turn: idSchema("trn").nullable(),
     session: idSchema("ses").nullable(),
-    role: agentRoleSchema.nullable(),
     model: nonempty.nullable(),
     from_at: atSchema,
     through_at: atSchema,
@@ -178,7 +175,6 @@ const agentUsageReadInputSchema = z
   .strictObject({
     turn: idSchema("trn").optional(),
     session: idSchema("ses").optional(),
-    role: agentRoleSchema.optional(),
     model: nonempty.optional(),
     from_at: atSchema,
     through_at: atSchema,

@@ -1,5 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  type AgentId,
   type AgentPlace,
   type McpToolServer,
   mcpToolsList,
@@ -17,7 +18,7 @@ import type { AuthDeadline } from "./mod.ts";
 const MCP_TOOLS_WAIT_MS = 15_000;
 
 type Entry = {
-  request: { id: string; place: AgentPlace | null; agent: string | null };
+  request: { id: string; place: AgentPlace | null; agent: AgentId | null };
   taken: boolean;
   settle(servers: McpToolServer[]): void;
 };

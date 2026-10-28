@@ -71,14 +71,6 @@ function inPeriod(input: Read, at: string | null): boolean {
   );
 }
 
-function roleMatches(lookup: Lookup, input: Read, session: string): boolean {
-  if (input.role === undefined) return true;
-  const row = lookup.sql.get("select role from sessions where id = ?", [
-    session,
-  ]);
-  return row !== undefined && row["role"] === input.role;
-}
-
 const TURN_COLUMNS = `id, session, state, basis, started_at, finished_at,
   outcome_kind, outcome_reason, result, elapsed_active_ms, input_message`;
 
@@ -293,7 +285,6 @@ function turnTarget(
   if (
     turn === undefined ||
     !allowed(ctx, turn.session) ||
-    !roleMatches(lookup, input, turn.session) ||
     !inPeriod(input, turn.started_at)
   )
     return notFound();
@@ -317,9 +308,7 @@ function callTarget(
   const owner = turn === null ? undefined : loadTurn(lookup, turn);
   const session = owner?.session ?? text(row["session"]);
   const visible =
-    session === null
-      ? ownSession(ctx) === null && input.role === undefined
-      : allowed(ctx, session) && roleMatches(lookup, input, session);
+    session === null ? ownSession(ctx) === null : allowed(ctx, session);
   if (!visible || !inPeriod(input, text(row["started_at"]))) return notFound();
   const models = modelsOf([row]);
   const tools = toolsOf(lookup, "t.model_call = ?", id);
@@ -364,15 +353,8 @@ function sessionTarget(
   input: Read,
   id: string,
 ): Result<{ trace: TurnTrace; next: string | null }> {
-  const session = lookup.sql.get("select role from sessions where id = ?", [
-    id,
-  ]);
-  if (
-    session === undefined ||
-    !allowed(ctx, id) ||
-    (input.role !== undefined && session["role"] !== input.role)
-  )
-    return notFound();
+  const session = lookup.sql.get("select id from sessions where id = ?", [id]);
+  if (session === undefined || !allowed(ctx, id)) return notFound();
   const after = cursorAfter(input.cursor);
   if (!after.ok) return after;
   const limit = input.limit ?? PAGE;

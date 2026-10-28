@@ -6,6 +6,7 @@ import {
   modelChoiceOutputSchema,
   modelChoiceSchema,
 } from "./models.ts";
+import { mcpServerSchema } from "./mcp-settings.ts";
 import type { Role } from "./places.ts";
 
 export * from "./agent-profile.ts";
@@ -25,8 +26,8 @@ function utf8Bytes(value: string): number {
   return new TextEncoder().encode(value).length;
 }
 
-// 제품이 이름을 고정하는 built-in. Operator는 이 이름을 쓰지 못한다.
-// 같은 자리 Operator 사이의 이름 중복과 built-in 이름 충돌을 가리는 열쇠다: 앞뒤 공백과 영문 대소문자를 무시한다.
+// 정의가 전역이라 agent 이름은 전역에 하나다. 앞뒤 공백과 영문 대소문자를 무시해 견주는 열쇠다.
+// `lophn`은 예약 이름이라 사람이 만든 agent가 쓸 수 없다.
 export function agentNameKey(name: string): string {
   return name.trim().toLowerCase();
 }
@@ -96,23 +97,37 @@ const mcpOffListOutputSchema = z
     message: "duplicate mcp entry",
   });
 
-// 설정 칸. 어느 칸이 어느 agent에 있을 수 있는지(built-in은 name 없음)는 역할과 자리를 알아야 하므로
-// 파일을 읽고 쓰는 쪽이 검사한다.
+// agent 층 MCP 서버. 이름이 같은 서버는 둘 수 없다.
+const mcpServersSchema = z
+  .array(mcpServerSchema)
+  .max(32)
+  .refine(
+    (servers) =>
+      new Set(servers.map((server) => server.name)).size === servers.length,
+    { message: "mcp server names must be unique" },
+  );
+
+// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·profile 잠금과 사람만 쓰는 칸(`mcp_servers`, `skip`)의
+// 거절은 저장하는 쪽(core)이 본다.
 const frontmatterFields = {
-  name: agentNameSchema.optional(),
+  name: agentNameSchema,
   profile: profileSchema.optional(),
   model: modelChoiceSchema.optional(),
   skills: skillsSchema.optional(),
   domains: domainsSchema.optional(),
   mcp_off: mcpOffListSchema.optional(),
+  mcp_servers: mcpServersSchema.optional(),
+  skip: z.boolean().optional(),
 };
 const frontmatterOutputFields = {
-  name: agentNameSchema.optional(),
+  name: agentNameSchema,
   profile: profileOutputSchema.optional(),
   model: modelChoiceOutputSchema.optional(),
   skills: skillsSchema.optional(),
   domains: domainsSchema.optional(),
   mcp_off: mcpOffListOutputSchema.optional(),
+  mcp_servers: mcpServersSchema.optional(),
+  skip: z.boolean().optional(),
 };
 
 // AgentDefinition: 정의 파일 하나의 값. 본문이 그 agent의 지침이다.
@@ -124,6 +139,7 @@ export const agentDefinitionOutputSchema = z.object({
   ...frontmatterOutputFields,
   body: bodySchema,
 });
+export type AgentDefinition = z.infer<typeof agentDefinitionSchema>;
 
 // 값이 어느 층에서 왔나. place와 definition은 그 층의 자리를 함께 적는다.
 // 저장과 읽기의 전체 검사가 항목별로 알리는 이유다. field는 점 경로(`skills.1`, `model.api_key`)이고
@@ -154,3 +170,6 @@ export const BUILTIN_ROLE_NAMES: Record<Role, string> = {
   app_engineer: "App Engineer",
   operator: "Operator",
 };
+
+// 주소가 이름이라 agent 이름은 전역에 하나다. `lophn`은 그 가운데 예약이고 내장 정의의 이름이다.
+export const LOPHN_AGENT_NAME = "lophn";

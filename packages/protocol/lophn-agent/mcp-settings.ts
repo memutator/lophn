@@ -4,7 +4,7 @@ import { idSchema } from "../base/ids.ts";
 import { sha256Schema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { secretNameSchema } from "../secrets/secrets.ts";
-import { agentPlaceOutputSchema, agentPlaceSchema } from "./agent-values.ts";
+import { agentIdSchema, placeOutputSchema, placeSchema } from "./places.ts";
 import { skillNameSchema, SKILLS_OFF_MAX } from "./skill-settings.ts";
 
 const nonempty = z.string().regex(/\S/);
@@ -84,7 +84,7 @@ export const mcpServerSchema = z.discriminatedUnion("transport", [
 ]);
 export type McpServer = z.infer<typeof mcpServerSchema>;
 
-const mcpAuthPlaceSchema = agentPlaceSchema.nullable();
+const mcpAuthPlaceSchema = placeSchema.nullable();
 
 // MCP OAuth 2.1의 시작 입구다.
 // 사람이 서버 이름을 정하고 lophn이 S256 PKCE verifier·challenge와 무작위 state를 만들어
@@ -197,7 +197,7 @@ const mcpAuthStateOutputSchema = z.strictObject({
   servers: z.array(
     z.strictObject({
       name: mcpAuthServerName,
-      place: agentPlaceOutputSchema.nullable(),
+      place: placeOutputSchema.nullable(),
       state: mcpAuthStateSchema,
       reason: mcpAuthFailureSchema.nullable(),
     }),
@@ -239,8 +239,8 @@ export const mcpAuthCancel = defineMemory({
 // MCP 연결은 agent runtime child가 쥐고 core module graph에는 외부 연결이 없어서, core는 요청을 대기열에 놓고
 // runtime이 `request-take`·`request-done`으로 가져가 답한다(발급자 요청 `issuer-requests.ts`와 같은 길). 그 대기열 상태를 쥔 memory
 // route라서 reader Worker의 read로는 못 한다. place는 Grants를 여는 agent의 자리다: project면 전역 서버에 그 project
-// 층을 더한 목록이고 app이거나 null이면 전역 서버만이다. agent는 Grants를 여는 Operator의 id다: 그 Operator 정의 층의
-// 서버를 마지막 층으로 더한다. Operator가 아니면 null이다.
+// 층을 더한 목록이고 app이거나 null이면 전역 서버만이다. agent는 Grants를 여는 agent의 id(lophn 포함)다: 그 agent 정의 층의
+// 서버를 마지막 층으로 더한다. 정의 층을 더하지 않을 때 null이다.
 //
 // 서버마다 reason이 목록을 못 읽은 이유다. null이면 읽었다. 아니면 tools는 빈 배열이다.
 // - disabled: 설정에서 꺼진 서버.
@@ -267,7 +267,7 @@ export const mcpToolsList = defineMemory({
   name: "ListMcpTools",
   input: z.strictObject({
     place: mcpAuthPlaceSchema,
-    agent: idSchema("agt").nullable(),
+    agent: agentIdSchema.nullable(),
   }),
   output: z.strictObject({ servers: z.array(mcpToolServerSchema) }),
   actors: ["user"],
@@ -287,7 +287,7 @@ export const mcpToolsRequestTake = defineMemory({
       .strictObject({
         id: z.string().min(1).max(64),
         place: mcpAuthPlaceSchema,
-        agent: idSchema("agt").nullable(),
+        agent: agentIdSchema.nullable(),
       })
       .nullable(),
   }),

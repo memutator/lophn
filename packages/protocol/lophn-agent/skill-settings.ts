@@ -2,7 +2,7 @@ import { z } from "zod";
 import { defineRead } from "../base/route.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
-import type { Role } from "./places.ts";
+import type { PlaceKind, Role } from "./places.ts";
 
 // 전역에서 끈 skill의 정확한 이름이다. 전역 등록
 // 목록 쪽의 끄기라서 agent 정의의 `skills`(받을 것을 고른다)와 따로이고 여기서 끈 skill은 agent가 골라도 받지 못한다. 지금 발견되지
@@ -24,6 +24,7 @@ export type SkillSource = z.infer<typeof skillSourceSchema>;
 export const BUILTIN_SKILLS: readonly {
   name: string;
   roles: readonly Role[];
+  places: readonly PlaceKind[];
   can_disable: false;
   menu: boolean;
 }[] = [
@@ -39,44 +40,63 @@ export const BUILTIN_SKILLS: readonly {
   ].map((name) => ({
     name,
     roles: ["lophn"] as const,
+    places: ["home"] as const,
     can_disable: false as const,
     menu: false,
   })),
-  { name: "new-app", roles: ["lophn"], can_disable: false, menu: true },
-  { name: "repair-app", roles: ["lophn"], can_disable: false, menu: true },
+  {
+    name: "new-app",
+    roles: ["lophn"],
+    places: ["home"],
+    can_disable: false,
+    menu: true,
+  },
+  {
+    name: "repair-app",
+    roles: ["lophn"],
+    places: ["home"],
+    can_disable: false,
+    menu: true,
+  },
   {
     name: "guide-domains",
     roles: ["lophn", "project_manager", "app_engineer"],
+    places: ["home", "project", "app"],
     can_disable: false,
     menu: false,
   },
   {
     name: "guide-artifact",
     roles: ["project_manager", "app_engineer", "operator"],
+    places: ["project", "app"],
     can_disable: false,
     menu: false,
   },
   {
     name: "guide-workflows",
     roles: ["project_manager"],
+    places: ["project"],
     can_disable: false,
     menu: false,
   },
   {
     name: "check-kinds",
     roles: ["project_manager"],
+    places: ["project"],
     can_disable: false,
     menu: true,
   },
   {
     name: "design-app",
     roles: ["app_engineer"],
+    places: ["app"],
     can_disable: false,
     menu: false,
   },
   {
     name: "kinds-yaml",
     roles: ["project_manager", "app_engineer"],
+    places: ["project", "app"],
     can_disable: false,
     menu: false,
   },

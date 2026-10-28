@@ -3,7 +3,7 @@ import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { toolKeySchema } from "../apps/channel-values.ts";
-import { agentRefSchema } from "../lophn-agent/places.ts";
+import { agentIdSchema, agentRefSchema } from "../lophn-agent/places.ts";
 
 // 할당. agent가 부를 수 있는 앱과 그 앱에서 뺀 tool이다.
 // 줄은 앱뿐이다. MCP server는 설정한 층(전역, project, Operator 정의)이 곧 할당이고 끄기는 `mcp_off`라 줄이 없다.
@@ -87,3 +87,43 @@ export const AGENT_ASSIGNMENT_ROUTES = [
   agentAssignmentGet,
   agentAssignmentSet,
 ] as const;
+
+// ---------- 전역 agent 할당 ----------
+
+// agent는 id 하나다. 줄은 앱과 그 앱에서 뺀 tool이다.
+export const assignmentSchema = z.strictObject({
+  agent: agentIdSchema,
+  entries: entriesSchema,
+});
+export type Assignment = z.infer<typeof assignmentSchema>;
+
+export const assignmentGet = defineRead({
+  resource: "agent_assignments",
+  method: "get",
+  name: "GetAgentAssignment",
+  input: z.strictObject({ agent: agentIdSchema }),
+  output: withReadCommon(
+    z.object({
+      assignment: assignmentSchema,
+      revision: assignmentRevisionSchema,
+    }),
+  ),
+  actors: ["user", "machine"],
+  errors: [...readErrors],
+});
+
+export const assignmentSet = defineCommand({
+  resource: "agent_assignments",
+  method: "set",
+  name: "SetAgentAssignment",
+  input: z.strictObject({ agent: agentIdSchema, entries: entriesSchema }),
+  compare: z.strictObject({ revision: assignmentRevisionSchema }),
+  output: z.object({
+    assignment: assignmentSchema,
+    revision: assignmentRevisionSchema,
+  }),
+  actors: ["user"],
+  errors: [...readErrors, "conflict"],
+});
+
+export const ASSIGNMENT_ROUTES = [assignmentGet, assignmentSet] as const;

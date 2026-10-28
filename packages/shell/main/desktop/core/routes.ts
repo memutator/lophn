@@ -1,6 +1,6 @@
 // allowlist의 이름을 contract route 원본으로 되돌린다. schema 검사는 이 원본으로 한다.
 import {
-  AGENT_ASSIGNMENT_ROUTES,
+  ASSIGNMENT_ROUTES,
   turnRequestDecide,
 } from "../../../../protocol/approvals/mod.ts";
 import { ALL_ROUTES } from "../../../../protocol/mod.ts";
@@ -11,7 +11,7 @@ import type { Route } from "../../../../protocol/base/mod.ts";
 export const SHELL_ROUTES: readonly Route[] = [
   ...(ALL_ROUTES as readonly Route[]),
   turnRequestDecide as Route,
-  ...(AGENT_ASSIGNMENT_ROUTES as readonly Route[]),
+  ...(ASSIGNMENT_ROUTES as readonly Route[]),
 ];
 
 const BY_NAME = new Map<string, Route>();

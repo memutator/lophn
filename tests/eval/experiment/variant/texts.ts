@@ -11,7 +11,7 @@ const ELECTRON = createRequire(import.meta.url)("electron") as string;
 // .md를 text로 묶어 가져오는 코드라 이 프로세스에서 variant file을 import하면 module 해석이 이 checkout의
 // node_modules를 타서 어느 checkout 것인지 흐려진다. 그 checkout의 cwd에서 따로 돌려 JSON 한 줄로 받는다.
 const SCRIPT = `
-const { placePrompt } = await import("./packages/core/agent-places/roles/prompts.ts");
+const { placePrompt } = await import("./packages/core/agent-places/prompts/prompts.ts");
 const role_prompts = {};
 for (const kind of ${JSON.stringify(PLACE_KINDS)}) {
   const text = await placePrompt(kind);

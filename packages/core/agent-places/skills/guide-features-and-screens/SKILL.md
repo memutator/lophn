@@ -15,7 +15,7 @@ not guess from an internal name.
 The Launcher is the first window. Open a project card to reach the project
 window, or an app card to open an app. A project window keeps documents, the
 terminal and the project's agents in one place. An app window shows the app and,
-beside it, the App Engineer and Operators for that app.
+beside it, the agents you talk to about that app.
 
 You talk to an agent in a conversation. In a project window you pick the agent
 from the sidebar, in an app window from the agent select in the title bar, and
@@ -27,11 +27,12 @@ Projects holds the projects you registered. Inside a project, Documents opens
 documents as tabs. A project and an app each hold domains: boundaries of meaning
 and responsibility with their own kinds, notes, skills and result pages (see the
 skill `guide-domains`). To create or change a project's domains and kinds you
-ask Project Manager.
+ask an agent in the project window.
 
 Apps holds registered apps. App detail shows the current release, access
-(grants), connections and what changed. To build or change an app you ask its
-App Engineer, which designs and builds it.
+(grants), connections and what changed. To build or change an app you ask an
+agent in its app window, or lophn, which registers a new app and hands it to the
+app.
 
 Agents is where you see each agent's definition and change it. Settings is where
 you review and change product settings, including connections. The waiting list

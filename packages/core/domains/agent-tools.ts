@@ -20,8 +20,8 @@ import {
 } from "../lophn-agent/tools/spi.ts";
 import { z } from "zod";
 
-// agent의 그릇은 입력으로 받지 않고 place에서 정한다. project place는 PM(과 Operator)의 project,
-// app place는 App Engineer의 앱이다. place가 없는 lophn은 그릇이 없다.
+// agent의 그릇은 입력으로 받지 않고 place에서 정한다. session의 place가 그릇이다.
+// place가 없는 home session은 그릇이 없다.
 function ownerOf(ctx: ToolContext): DomainOwner | null {
   const place: { kind: string; id: string } | null = ctx.place;
   if (place === null) return null;

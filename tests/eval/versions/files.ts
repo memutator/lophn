@@ -47,11 +47,9 @@ export type FileGroup =
     }
   | { group: "skill"; name: string };
 
-const ROLES = "packages/core/agent-places/roles";
+const PROMPTS = "packages/core/agent-places/prompts";
 const NO_PACKAGE = /^packages\/(shell|design)\//;
-const INSTRUCTION = new RegExp(
-  `^${ROLES}/(lophn|project-manager|app-engineer|operator)/prompt\\.md$`,
-);
+const INSTRUCTION = new RegExp(`^${PROMPTS}/(home|project|app)\\.md$`);
 const SKILL = /^packages\/core\/agent-places\/skills\/([^/]+)\//;
 const RUNTIME = [
   "packages/core/lophn-agent/",
@@ -76,7 +74,7 @@ export function classifyPath(rel: string): FileGroup {
       ? { group: "core" }
       : none;
   }
-  if (INSTRUCTION.test(rel) || rel === `${ROLES}/prompts.ts`) {
+  if (INSTRUCTION.test(rel) || rel === `${PROMPTS}/prompts.ts`) {
     return { group: "instruction" };
   }
   const skill = SKILL.exec(rel);

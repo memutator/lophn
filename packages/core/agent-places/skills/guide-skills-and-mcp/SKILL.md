@@ -18,12 +18,11 @@ you are told why.
 
 lophn reads skills in three layers: the skills that shipped with lophn, your
 global skills, and the skills of a domain, which live in the `skills` folder of
-that domain. A domain's skills are written by the Project Manager or App
-Engineer that looks after it. An agent sees the skills of the domains it works
-with, so an Operator chooses among the skills of the domains it was given. If
-the same name appears in a domain and in the global layer, the domain one wins.
-A built-in skill is never replaced by a skill of the same name from you. It does
-not download or install a skill for you.
+that domain. A domain's skills are written by an agent that works with that
+domain. An agent sees the skills of the domains it works with. If the same name
+appears in a domain and in the global layer, the domain one wins. A built-in
+skill is never replaced by a skill of the same name from you. It does not
+download or install a skill for you.
 
 The agent sees each skill's name and description only. It reads the body with
 `skill.read` when it needs it. A skill body cannot add a tool, grant access,

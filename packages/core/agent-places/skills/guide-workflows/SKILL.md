@@ -38,11 +38,12 @@ does not read it or call it wrong.
 
 - `kind`: `agent`, or `flow`. With `flow`, a program (`flow.ts`) runs the steps;
   see Flow workflows below.
-- `participants`: a map from a key you choose to `{ role, place?, name? }`.
-  - `role` is one of `lophn`, `project_manager`, `app_engineer`, `operator`,
-    `human`, `harness`.
-  - `project_manager` and `operator` without `place` mean this project.
-    `app_engineer` needs `place: {app: <app name>}`. `operator` needs `name`.
+- `agent`: for a `flow`, the agent whose assignment and domains the app tool
+  calls use. It is an agent name; when left out it is lophn.
+- `participants`: a map from a key you choose to `{ agent, place? }`,
+  `{ kind: human }` or `{ kind: harness }`.
+  - `agent` is the agent's name. `place` is `{project: <name>}` or
+    `{app: <name>}`; when left out it is this instance's project, not home.
   - `harness` can be declared but a step cannot be handed to it yet.
 - `steps`: a map from a step name to `{ by, with?, prompt, in?, out?, next? }`.
   The first key is the first step.
@@ -57,9 +58,9 @@ does not read it or call it wrong.
 ```yaml
 kind: agent
 participants:
-  me: { role: human }
-  experimenter: { role: operator, name: experimenter }
-  runner: { role: operator, name: eval-runner }
+  me: { kind: human }
+  experimenter: { agent: experimenter }
+  runner: { agent: eval-runner }
 steps:
   spec:
     by: me
@@ -94,7 +95,7 @@ along. The folder is:
 └── artifacts/        optional
 ```
 
-lophn reads only `kind: flow` and `steps` from `workflow.yaml`. The keys of
+lophn reads `kind: flow`, `agent` and `steps` from `workflow.yaml`. The keys of
 `steps` are the step names that the screens and `report` use. The other fields
 (`by`, `prompt`, `participants`) are not read by lophn; use them as notes only.
 `flow.ts` may import other files of the same folder by a relative path.
@@ -103,7 +104,7 @@ lophn reads only `kind: flow` and `steps` from `workflow.yaml`. The keys of
 import { agent, input, report, tool } from "@lophn/flow";
 
 const draft = await agent<{ title: string }>({
-  agent: { role: "app_engineer", place: { app: "notes" } },
+  agent: { agent: "lophn", place: { app: "notes" } },
   prompt: "Write a title for this note.",
   input,
   schema: { type: "object", required: ["title"] },
@@ -121,7 +122,8 @@ The SDK `@lophn/flow` gives five things:
 - `input`: the text the instance was started with.
 - `instance`: the instance id.
 - `agent({ agent, prompt, input?, schema? })`: calls one agent as a run, waits
-  until it ends and gives its answer. `agent` is `{ role, place?, name? }`.
+  until it ends and gives its answer. `agent` is `{ agent, place? }` (place left
+  out means this instance's project).
 - `tool({ app, tool, input? })`: calls one tool of an app.
 - `report({ step, text, next? })`: the same as `workflow.report`. `next: "end"`
   ends the instance.
@@ -146,11 +148,12 @@ so import `@lophn/flow`, files of the same folder (write the `.ts` extension)
 and Node's built-in modules. Syntax that needs a transform, such as `enum` or
 `namespace`, fails at run; `workflow.check` reports it.
 
-Allotment: an app tool that a flow calls works only within your current
-allotment as the PM of this project and the domains you hold. Before you write
-the flow, ask the person with `ask` to allot that app to you. Without the
-allotment, `tool` comes back with `ok: false`. An agent that a flow calls can be
-anyone, but the agent works only within its own allotment.
+Allotment: an app tool that a flow calls works only within the current
+assignment of the agent named in `agent` of `workflow.yaml` (lophn when left
+out) and the domains that agent works with in this project. Before you write the
+flow, choose that agent and ask the person with `ask` to assign the app to it.
+Without the assignment, `tool` comes back with `ok: false`. An agent that a flow
+calls can be anyone, but the agent works only within its own assignment.
 
 After you write or change `flow.ts`, run `workflow.check` with
 `<project>/<name>` and read the type errors. It does not run the flow, so it

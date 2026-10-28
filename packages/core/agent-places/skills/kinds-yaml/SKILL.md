@@ -9,8 +9,7 @@ Use this when a domain has no kinds yet, when a person names a new kind of
 document, or when documents break the kinds (see "When documents break the
 kinds"). The kinds file belongs to a domain and lives in the domain's folder.
 The globs in it are relative to the folders of the project or app that holds the
-domain. You write it as the Project Manager or the App Engineer of that project
-or app.
+domain. You write it in a conversation at that project or app.
 
 ## 1. Read
 

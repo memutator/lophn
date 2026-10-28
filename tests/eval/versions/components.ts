@@ -1,7 +1,7 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { err, errorCode, ok, type Result } from "../../../packages/base/mod.ts";
 import { TOOL_ORDER } from "../../../packages/core/agent-places/tool-lists.ts";
-import { placePrompt } from "../../../packages/core/agent-places/roles/prompts.ts";
+import { placePrompt } from "../../../packages/core/agent-places/prompts/prompts.ts";
 import { parseSkillFrontmatter } from "../../../packages/core/lophn-agent/extensions/skills.ts";
 import { PLACE_KINDS } from "../../../packages/protocol/lophn-agent/mod.ts";
 import { RESERVED_DOMAIN_NAMES } from "../../../packages/protocol/apps/declaration/mod.ts";

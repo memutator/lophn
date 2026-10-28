@@ -30,7 +30,7 @@ export const BUILTIN_SKILLS: readonly {
 }[] = [
   ...[
     "guide-features-and-screens",
-    "guide-roles-and-assignments",
+    "guide-agents-and-assignments",
     "guide-questions-and-decisions",
     "guide-settings",
     "guide-connections",

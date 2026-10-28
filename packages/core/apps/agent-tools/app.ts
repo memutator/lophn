@@ -102,7 +102,7 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
     }),
     routes: [appCreate],
     description:
-      "Register a new app with a name and a one line purpose. An app of that name gets its first domain, and its App Engineer looks after it. A git repository started from the app template becomes the source folder of the app. If source_path in the result is null, the folder could not be made: connect a git folder with app.link_source.",
+      "Register a new app with a name and a one line purpose. An app of that name gets its first domain. Work on the app is done in a conversation at the app's place. A git repository started from the app template becomes the source folder of the app. If source_path in the result is null, the folder could not be made: connect a git folder with app.link_source.",
     effect: "write",
     handler: async (input, ctx) => {
       const { name, purpose } = input;

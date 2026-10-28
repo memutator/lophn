@@ -38,7 +38,7 @@ import {
 } from "../../lophn-agent/session/compactor.ts";
 import { createModelResolver } from "../../lophn-agent/models/resolve.ts";
 import { placeToolNames } from "../../agent-places/tool-lists.ts";
-import { placePrompt } from "../../agent-places/roles/prompts.ts";
+import { placePrompt } from "../../agent-places/prompts/prompts.ts";
 import { PROJECT_LAYER } from "../../agent-places/place/project-layer.ts";
 import { BUNDLED_SKILLS_ROOT } from "../../agent-places/skills/root.ts";
 import {

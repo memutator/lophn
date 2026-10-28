@@ -49,7 +49,7 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
       .strict(),
     routes: [domainList, agentCreate],
     description:
-      "Create an agent. Give its name, profile, model, skills, domains (domain names), mcp_off and instructions (body). Its grants, MCP servers and skip default are set by the person.",
+      "Create an agent. Give its name (unique; `lophn` is reserved), profile, model, skills, domains (none means all domains of the project or app it works in), mcp_off and instructions (body). Its assignments are given by the person.",
     effect: "write",
     handler: async (input, ctx) => {
       const { domains, ...rest } = input;
@@ -82,7 +82,7 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
       .strict(),
     routes: [agentList, agentRead, domainList, agentChange],
     description:
-      "Change an agent by name. Only the fields you send change. Its grants, MCP servers and skip default are set by the person.",
+      "Change an agent by name. Only the fields you send change. Its assignments are given by the person.",
     effect: "write",
     handler: async (input, ctx) => {
       const { agent, domains, ...rest } = input;

@@ -11,7 +11,7 @@ import {
 import { z } from "zod";
 import { idSchema } from "../../../protocol/base/ids.ts";
 
-// home만 갖는다. project·app은 project 지침을 prompt로 받는다.
+// home place 종류만 갖는다. project place의 session은 project 지침을 prompt로 받는다.
 export const INSTRUCTION_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "instructions.read",

@@ -38,15 +38,14 @@ folders of the domains it works with.
 
 ## Who makes and writes it
 
-The Project Manager makes the domains of a project and the App Engineer makes
-the domains of an app, with `domain.create` (a name, a title and a purpose). The
-person can make one too. The name is a slug and never changes. Making a domain
-needs no approval, because it adds no access. They write its kinds file,
-`DOMAIN.md` and skills with their file tools. An Operator writes only artifacts,
-and only in the domains the person gave it; when something else has to change it
-asks the Project Manager or App Engineer. A new app comes with a domain of its
-own name. An app always has at least one domain, so its last one cannot be
-archived. A project may have none. lophn proposes a new domain, a split or a
+An agent working in a project or an app makes that place's domains with
+`domain.create` (a name, a title and a purpose). The person can make one too. The
+name is a slug and never changes. Making a domain needs no approval, because it
+adds no access. It writes the kinds file, `DOMAIN.md` and skills of the domains
+it works with, with its file tools. When a domain it does not work with has to
+change, it asks lophn at that project or app. A new app comes with a domain of
+its own name. An app always has at least one domain, so its last one cannot be
+archived. A project may have none. At home, an agent proposes a new domain, a split or a
 merge; the person decides where the line goes.
 
 ## One container only
@@ -55,14 +54,14 @@ A domain belongs to one project or one app, and stays there. Another place does
 not make a second copy. It uses the domain's public tools, which the person
 assigns to an agent. Private tools do not show up outside their domain. A
 release that removes a public tool another domain uses does not stop the
-release; the App Engineer sees the users of that tool when it prepares the
-release.
+release; the conversation that prepares the release sees the users of that tool
+when it prepares the release.
 
 ## What an agent sees
 
-A Project Manager or App Engineer sees all the domains of its place. An Operator
-sees the domains named in its definition, or all of them if none are named. The
-prompt carries only those domains' `DOMAIN.md`, kinds and skills, and the tools
-list only those domains' tools plus the public tools the person assigned. Other
-files in the same project or app may be readable, but they are not the agent's
-work.
+An agent in a project or an app sees the domains named in its definition that
+belong to that place, or all of them if none are named. At home it works with no
+domain. The prompt carries only those domains' `DOMAIN.md`, kinds and skills, and
+the tools list only those domains' tools plus the public tools the person
+assigned. Other files in the same project or app may be readable, but they are
+not the agent's work.

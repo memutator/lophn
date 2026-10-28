@@ -35,9 +35,6 @@ A shell command that matches a deny rule is refused without asking, and that
 holds when the session skips questions or runs without a person. Those sessions
 do not ask, but they do not lift a deny rule.
 
-The questions a coding agent asks in its own terminal also show in the waiting
-list, but you answer them in that terminal.
-
 Everything else needs no question while the agent works. An app tool or MCP tool
 you assigned to the agent runs without asking. Calling another agent is neither
 asked nor blocked. Writing `LOPHN.md` is not asked either, and rewind undoes a

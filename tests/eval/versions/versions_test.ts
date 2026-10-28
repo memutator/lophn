@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { placePrompt } from "../../../packages/core/agent-places/roles/prompts.ts";
+import { placePrompt } from "../../../packages/core/agent-places/prompts/prompts.ts";
 import { TOOL_ORDER } from "../../../packages/core/agent-places/tool-lists.ts";
 import { REPO_ROOT } from "../runner/paths.ts";
 import type {
@@ -153,8 +153,8 @@ test("연 skill만 본문 버전을 갖고 수정은 그 component의 n만 올�
 test("classifyPath는 component, tool, runtime, core를 가르고 shell·design·test는 어디에도 넣지 않는다", () => {
   const R = "packages/core/agent-places";
   const rows: [string, string][] = [
-    [`${R}/roles/lophn/prompt.md`, "instruction"],
-    [`${R}/roles/prompts.ts`, "instruction"],
+    [`${R}/prompts/home.md`, "instruction"],
+    [`${R}/prompts/prompts.ts`, "instruction"],
     [`${R}/skills/kinds-yaml/SKILL.md`, "skill:kinds-yaml"],
     [`${R}/skills/root.ts`, "runtime"],
     [`${R}/skills/guide-rewind/SKILL.md`, "skill:guide-rewind"],

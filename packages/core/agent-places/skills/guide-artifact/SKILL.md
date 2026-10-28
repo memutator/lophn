@@ -24,10 +24,8 @@ artifacts.
 
 ## Who writes
 
-The Project Manager of a project and the App Engineer of an app write the
-artifacts of their own domains. An Operator writes only the artifacts of the
-domains it was given, and nothing else of a domain: `DOMAIN.md`, the kinds file
-and the skills are not its to write. lophn does not write artifacts.
+An agent working in a project or app writes the artifacts of the domains it
+works with. At home an agent writes no files.
 
 ## Folder shape
 
@@ -194,9 +192,6 @@ with, for example, `data/map.json`:
 }
 ```
 
-An Operator does not write kind files, but it can draw the same diagram in an
-artifact of a domain it was given.
-
 ## Changes show at once
 
 When you change a file in the folder, a tab that has it open reloads. There are
@@ -206,12 +201,11 @@ To go back, the person uses rewind.
 ## When the person sends annotations
 
 The person can mark the screen and send notes. They go to the last open session
-that wrote to that artifact's folder (a Project Manager, App Engineer or
-Operator), as a message. If there is none (those sessions are closed or have no
-record), the Project Manager of the project or the App Engineer of the app that
-holds the domain gets them. Open the screenshot with `image.read`.
+that wrote to that artifact's folder, as a message. If there is none (those
+sessions are closed or have no record), lophn at the project or app that holds
+the domain gets them. Open the screenshot with `image.read`.
 
 ## What you do not do
 
 - Do not make a page that calls tools or reads live app data. A screen like that
-  is an app, which the App Engineer of an app builds.
+  is an app, which is built in a conversation at that app.

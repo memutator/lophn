@@ -7,19 +7,14 @@ export type Outcome<T = unknown> =
   | { ok: true; result: T }
   | { ok: false; reason: string; message: string };
 
-export type NamedAgent = {
-  role:
-    | "lophn"
-    | "project_manager"
-    | "app_engineer"
-    | "operator"
-    | "coding_agent";
+// place가 없으면 이 workflow의 project다.
+export type AgentAddress = {
+  agent: string;
   place?: { project: string } | { app: string };
-  name?: string;
 };
 
 export type AgentRequest = {
-  agent: NamedAgent;
+  agent: AgentAddress;
   prompt: string;
   input?: unknown;
   schema?: Record<string, unknown>;

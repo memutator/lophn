@@ -59,12 +59,18 @@ export function participantsOf(
   declaration: AgentDeclaration,
 ): Record<string, Participant> {
   const out: Record<string, Participant> = {};
-  for (const [key, p] of Object.entries(declaration.participants)) {
-    out[key] = {
-      role: p.role,
-      ...(p.place !== undefined && { place: p.place }),
-      ...(p.name !== undefined && { name: p.name }),
-    };
+  for (const [key, raw] of Object.entries(declaration.participants)) {
+    // 선언은 모르는 칸을 받으므로 읽는 칸만 옮긴다.
+    const p = raw as Participant;
+    out[key] =
+      "kind" in p
+        ? p.kind === "harness"
+          ? { kind: "harness" }
+          : { kind: "human" }
+        : {
+            agent: p.agent,
+            ...(p.place !== undefined && { place: p.place }),
+          };
   }
   return out;
 }

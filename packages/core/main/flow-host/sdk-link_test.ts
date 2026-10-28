@@ -7,7 +7,7 @@ import { test } from "node:test";
 import { FLOW_SDK_NAME } from "../../../protocol/workflows/mod.ts";
 import { linkFlowSdk } from "./sdk-link.ts";
 
-// flow.ts가 SDK 사본이 아닌 다른 것을 import하면 PM이 쓴 code가 검사한 것과 다르게 돈다.
+// flow.ts가 SDK 사본이 아닌 다른 것을 import하면 project place의 agent가 쓴 code가 검사한 것과 다르게 돈다.
 test("a flow file resolves @lophn/flow to the installed SDK copy", async () => {
   const dataRoot = await mkdtemp(join(tmpdir(), "flow-sdk-link-"));
   try {

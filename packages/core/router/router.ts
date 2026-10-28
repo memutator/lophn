@@ -14,7 +14,6 @@ import type {
   AgentAtPlace,
 } from "../../protocol/lophn-agent/places.ts";
 import {
-  addressOfNamed,
   addressingOf,
   calId,
   FAILURE_TEXTS,
@@ -118,19 +117,6 @@ export function createRouter(deps: RouterDeps): Router {
         address = addressing.address;
         session = addressing.session;
         break;
-      case "named": {
-        const converted = addressOfNamed(addressing.named);
-        if (!converted.ok) return converted;
-        address = converted.value;
-        break;
-      }
-      case "named_or_session": {
-        const converted = addressOfNamed(addressing.named);
-        if (!converted.ok) return converted;
-        address = converted.value;
-        session = addressing.session;
-        break;
-      }
     }
     const resolved = directory.resolveAddress(address);
     if (!resolved.ok) {

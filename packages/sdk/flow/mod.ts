@@ -1,14 +1,14 @@
 import {
+  type AgentAddress,
   type AgentRequest,
   currentPort,
   type FlowPort,
-  type NamedAgent,
   type Outcome,
   type ReportRequest,
   type ToolRequest,
 } from "./wire.ts";
 
-export type { AgentRequest, NamedAgent, Outcome, ReportRequest, ToolRequest };
+export type { AgentAddress, AgentRequest, Outcome, ReportRequest, ToolRequest };
 
 function need(): FlowPort {
   const port = currentPort();

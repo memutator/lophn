@@ -71,6 +71,8 @@ export type WorkflowFlows = {
     project: Id<"prj">;
     workflow: string;
     input: string;
+    // flow의 앱 tool 호출을 맡는 agent 이름(선언의 agent, 없으면 lophn).
+    agent: string;
   }): Promise<Result<void>>;
   // process를 죽이고 그 instance가 연 run을 취소한다. process가 없으면 ok.
   stop(instance: Id<"wfi">): Promise<Result<void>>;

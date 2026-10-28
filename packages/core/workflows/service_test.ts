@@ -80,7 +80,7 @@ test("reconcile closes a running flow instance without launching again and leave
       project: PRJ,
       workflow: "demo",
       input: "go",
-      participants: { pm: { role: "lophn" } },
+      participants: { pm: { agent: "lophn" } },
       steps: [],
       current: null,
       started_by: { kind: "user" },

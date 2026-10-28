@@ -1,4 +1,3 @@
-import { err, ok, type Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import type {
   CallAddressInput,
@@ -7,11 +6,8 @@ import type {
   CallRef,
   CallReply,
   CallState,
-  CallToInput,
-  NamedAgent,
 } from "../../protocol/lophn-agent/calls.ts";
 import type { InputDelivery } from "../../protocol/lophn-agent/inputs.ts";
-import { LOPHN_AGENT_NAME } from "../../protocol/lophn-agent/agent-values.ts";
 import type { AgentAddress } from "../../protocol/lophn-agent/places.ts";
 import type { RoutedInput } from "./ports.ts";
 
@@ -24,16 +20,13 @@ export const calId = (value: string) => value as Id<"cal">;
 // route 한 번의 입력이다. 사람, program, agent가 모두 이 모양으로 넣는다.
 export type RouteInput = {
   from: CallFrom;
-  // workflow handoff가 새 꼴로 바뀔 때까지(`workflows-core`) 옛 이름 꼴도 받는다.
-  to: CallAddressInput | CallToInput;
+  to: CallAddressInput;
   reply: CallReply;
   body: string;
   refs: readonly CallRef[];
   reply_to: string | null;
   // agent가 보낸 call에만 있다(tool call ID).
   dedup: string | null;
-  // 옛 envelope(input)이 채우지만 Router는 쓰지 않는다. `workflows-core`가 칸째 지운다.
-  options?: null;
   kind: RoutedInput["kind"];
   delivery: InputDelivery;
   // 사람 메시지는 보내는 쪽이 먼저 session 기록에 쓴 message ID를 싣는다.
@@ -58,18 +51,9 @@ export type RouteResult = {
 type Addressing =
   | { form: "session"; session: string }
   | { form: "address"; address: AgentAddress }
-  | { form: "address_or_session"; address: AgentAddress; session: string }
-  | { form: "named"; named: NamedAgent }
-  | { form: "named_or_session"; named: NamedAgent; session: string };
+  | { form: "address_or_session"; address: AgentAddress; session: string };
 
-export function addressingOf(to: CallAddressInput | CallToInput): Addressing {
-  if ("role" in to) {
-    if ("session" in to) {
-      const { session, fallback: _fallback, ...named } = to;
-      return { form: "named_or_session", named, session };
-    }
-    return { form: "named", named: to };
-  }
+export function addressingOf(to: CallAddressInput): Addressing {
   if ("agent" in to) {
     if ("session" in to) {
       const { session, fallback: _fallback, ...address } = to;
@@ -78,56 +62,6 @@ export function addressingOf(to: CallAddressInput | CallToInput): Addressing {
     return { form: "address", address: to };
   }
   return { form: "session", session: to.session };
-}
-
-// 옛 이름 꼴을 새 주소로 옮긴다. `project_manager`·`app_engineer`는 그 place의 lophn이다.
-// workflow handoff가 새 꼴로 바뀌면(`workflows-core`) 지운다.
-export function addressOfNamed(named: NamedAgent): Result<AgentAddress> {
-  switch (named.role) {
-    case "lophn":
-      return ok({
-        agent: LOPHN_AGENT_NAME,
-        ...(named.place === undefined ? {} : { place: named.place }),
-      });
-    case "project_manager":
-      if (named.place === undefined || !("project" in named.place)) {
-        return err({
-          code: "invalid_input",
-          message: "a project manager needs a project",
-        });
-      }
-      return ok({
-        agent: LOPHN_AGENT_NAME,
-        place: { project: named.place.project },
-      });
-    case "app_engineer":
-      if (named.place === undefined || !("app" in named.place)) {
-        return err({
-          code: "invalid_input",
-          message: "an app engineer needs an app",
-        });
-      }
-      return ok({
-        agent: LOPHN_AGENT_NAME,
-        place: { app: named.place.app },
-      });
-    case "operator":
-      if (named.name === undefined) {
-        return err({
-          code: "invalid_input",
-          message: "an operator is named",
-        });
-      }
-      return ok({
-        agent: named.name,
-        ...(named.place === undefined ? {} : { place: named.place }),
-      });
-    case "coding_agent":
-      return err({
-        code: "invalid_input",
-        message: "a coding agent does not take calls",
-      });
-  }
 }
 
 export function isFinished(state: CallState): boolean {

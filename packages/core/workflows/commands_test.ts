@@ -15,7 +15,7 @@ import { loadInstance, loadLines } from "./store.ts";
 const WFI = "wfi_01hzzzzzzzzzzzzzzzzzzzzzza";
 const PRJ = "prj_01hzzzzzzzzzzzzzzzzzzzzzza";
 const SES = "ses_01hzzzzzzzzzzzzzzzzzzzzzza";
-const lophn = { role: "lophn" } as const;
+const lophnAddress = { agent: "lophn", place: { project: PRJ } } as const;
 const lophnAtPlace = { agent: "lophn", place: null } as const;
 
 const plan = (step: string): HandoffPlan => ({
@@ -24,7 +24,7 @@ const plan = (step: string): HandoffPlan => ({
   human_turn: false,
   cause: "report",
   session: "new",
-  delivery: { to: lophn, body: `do ${step}` },
+  delivery: { to: lophnAddress, body: `do ${step}` },
   unresolved: null,
 });
 
@@ -45,7 +45,7 @@ test("a stopped instance is not handed: report with next records the line only a
       directory: {
         find: () => null,
         resolveAddress: () => ok(lophnAtPlace),
-        resolveAgent: () => ok(lophn),
+        resolveAgent: () => ok(undefined as never),
         openOf: () => null,
         open: () =>
           ok({
@@ -105,7 +105,7 @@ test("a stopped instance is not handed: report with next records the line only a
         project: PRJ,
         workflow: "demo",
         input: "go",
-        participants: { pm: { role: "lophn" } },
+        participants: { pm: { agent: "lophn" } },
         steps: [],
         started_by: { kind: "user" },
         handoff: { ...plan("a"), cause: "start" },

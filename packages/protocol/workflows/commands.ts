@@ -2,7 +2,7 @@ import { z } from "zod";
 import { defineCommand } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { seqSchema } from "../base/values.ts";
-import { namedAgentSchema } from "../lophn-agent/calls.ts";
+import { agentAddressSchema } from "../lophn-agent/places.ts";
 import {
   participantKeySchema,
   participantSchema,
@@ -21,10 +21,10 @@ import {
   workflowInstanceSchema,
 } from "./instances.ts";
 
-// 받는 곳. CallToInput에 대입된다(맨 `{session}` 꼴은 plan이 만들지 않는다).
+// 받는 곳. CallAddressInput에 대입된다(맨 `{session}` 꼴은 plan이 만들지 않는다).
 const deliveryToSchema = z.union([
-  namedAgentSchema,
-  namedAgentSchema.extend({
+  agentAddressSchema,
+  agentAddressSchema.extend({
     session: idSchema("ses"),
     fallback: z.literal("new"),
   }),

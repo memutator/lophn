@@ -1,14 +1,21 @@
 import { z } from "zod";
+import { placeNameSchema } from "../lophn-agent/places.ts";
 import {
   participantKeySchema,
-  participantSchema,
   stepNameSchema,
   stepNextSchema,
 } from "./values.ts";
 
 // lophn이 읽는 칸만 검사한다. 모르는 칸은 틀렸다고 하지 않고 읽지도 않는다.
 // by·with·next가 가리키는 이름이 있는지는 읽을 때 보지 않는다(넘길 때 "넘기지 못함" 줄이 된다).
-const declarationParticipantSchema = z.looseObject(participantSchema.shape);
+const declarationParticipantSchema = z.union([
+  z.looseObject({ kind: z.literal("human") }),
+  z.looseObject({ kind: z.literal("harness") }),
+  z.looseObject({
+    agent: z.string().min(1),
+    place: placeNameSchema.optional(),
+  }),
+]);
 
 const declarationStepSchema = z.looseObject({
   by: participantKeySchema,
@@ -36,6 +43,7 @@ export const workflowDeclarationSchema = z.discriminatedUnion("kind", [
   // flow는 참가자가 없고 step 이름만 읽는다(화면이 줄 때문에 쓴다).
   z.looseObject({
     kind: z.literal("flow"),
+    agent: z.string().min(1).optional(),
     steps: z.record(stepNameSchema, z.unknown()).refine(hasStep, NEEDS_STEP),
   }),
 ]);

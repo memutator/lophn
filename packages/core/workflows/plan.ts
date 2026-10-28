@@ -1,4 +1,4 @@
-import type { NamedAgent } from "../../protocol/lophn-agent/mod.ts";
+import type { AgentAddress } from "../../protocol/lophn-agent/mod.ts";
 import type {
   HandoffPlan,
   InstanceStep,
@@ -11,7 +11,7 @@ import type {
 // 본문과 받는 곳을 앞에서 정해 받은 대로 넣는다.
 
 type NotHanded = NonNullable<HandoffPlan["unresolved"]>;
-type Resolved = { named: NamedAgent } | NotHanded;
+type Resolved = { address: AgentAddress } | NotHanded;
 
 const unresolved = (
   reason: NotHanded["reason"],
@@ -21,31 +21,20 @@ const unresolved = (
   message,
 });
 
-function nameOf(participant: Participant, project: string): Resolved {
-  const { role, place, name } = participant;
-  switch (role) {
-    case "lophn":
-      return { named: { role } };
-    case "project_manager":
-      return place !== undefined && "app" in place
-        ? unresolved("unresolved", "a project_manager needs a project place")
-        : { named: { role, place: { project: place?.project ?? project } } };
-    case "operator":
-      return name === undefined
-        ? unresolved("unresolved", "an operator participant needs a name")
-        : { named: { role, place: place ?? { project }, name } };
-    case "app_engineer":
-      return place !== undefined && "app" in place
-        ? { named: { role, place: { app: place.app } } }
-        : unresolved("unresolved", "an app_engineer needs an app place");
-    case "harness":
-      return unresolved(
-        "harness",
-        "a harness participant is not handed a step",
-      );
-    case "human":
-      return unresolved("no_with", "a human step needs a with participant");
+// 참가자는 늘 주소가 된다. place가 없으면 instance의 project다.
+// harness는 받기만 하고 넘기지 못하고, human은 with의 참가자가 받는다.
+function addressOf(participant: Participant, project: string): Resolved {
+  if ("kind" in participant) {
+    return participant.kind === "harness"
+      ? unresolved("harness", "a harness participant is not handed a step")
+      : unresolved("no_with", "a human step needs a with participant");
   }
+  return {
+    address: {
+      agent: participant.agent,
+      place: participant.place ?? { project },
+    },
+  };
 }
 
 export function planHandoff(input: {
@@ -77,7 +66,7 @@ export function planHandoff(input: {
     return fail(unresolved("unknown_participant", "the step's by is unknown"));
   }
   // 사람 step은 with 참가자의 agent session에 넘기고 사람이 그 session에서 일한다.
-  const human = by.role === "human";
+  const human = "kind" in by && by.kind === "human";
   let key = step.by;
   let participant = by;
   if (human) {
@@ -93,8 +82,8 @@ export function planHandoff(input: {
     key = step.with;
     participant = helper;
   }
-  const resolved = nameOf(participant, instance.project);
-  if (!("named" in resolved)) return fail(resolved);
+  const resolved = addressOf(participant, instance.project);
+  if (!("address" in resolved)) return fail(resolved);
 
   const same = session === "same" ? input.sameSession(key) : null;
   return {
@@ -104,8 +93,8 @@ export function planHandoff(input: {
     delivery: {
       to:
         same === null
-          ? resolved.named
-          : { ...resolved.named, session: same, fallback: "new" },
+          ? resolved.address
+          : { ...resolved.address, session: same, fallback: "new" },
       body: stepBody({ step, received }),
     },
     unresolved: null,

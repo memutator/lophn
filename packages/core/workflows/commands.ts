@@ -97,7 +97,6 @@ function handOff(
     refs: [],
     reply_to: null,
     dedup: null,
-    options: null,
     kind: "step",
     delivery: "next_turn",
     step: { instance: scope.instance as Id<"wfi">, step: plan.step },

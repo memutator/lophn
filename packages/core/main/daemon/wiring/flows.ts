@@ -1,6 +1,11 @@
 import process from "node:process";
 import { ok } from "../../../../base/mod.ts";
 import { appEnv } from "../../../apps/runtime/processes/mod.ts";
+import {
+  createSessionDirectory,
+  placeDepsOf,
+} from "../../../lophn-agent/places/mod.ts";
+import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { createFlowHost } from "../../flow-host/host.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
@@ -24,6 +29,17 @@ export const flowsWiring: WiringFactory = () => {
         }),
         clock: ctx.clock,
         runs: ctx.runService,
+        // runs wiring의 agents.resolve와 같은 길이다. snapshot이 실패하면 그 오류를 돌려준다.
+        resolveAgent(address) {
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            createSessionDirectory({
+              ...placeDepsOf(lookup.sql),
+              publish: () => {},
+              sql: () => lookup.sql,
+            }).resolveAddress(address),
+          );
+          return found.ok ? found.value : found;
+        },
         workflows: ctx.workflowService,
         redact: (line) => redactor(SOURCE, "text/plain", line),
       });

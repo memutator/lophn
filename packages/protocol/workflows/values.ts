@@ -1,15 +1,5 @@
 import { z } from "zod";
-
-export const WORKFLOW_ROLES = [
-  "lophn",
-  "project_manager",
-  "app_engineer",
-  "operator",
-  "human",
-  "harness",
-] as const;
-export const workflowRoleSchema = z.enum(WORKFLOW_ROLES);
-export type WorkflowRole = z.infer<typeof workflowRoleSchema>;
+import { placeNameSchema } from "../lophn-agent/places.ts";
 
 export const workflowNameSchema = z
   .string()
@@ -42,16 +32,16 @@ export const stepNextSchema = z.union([stepNameSchema, z.literal(STEP_END)]);
 
 export const participantKeySchema = z.string().min(1).max(63);
 
-export const participantSchema = z.strictObject({
-  role: workflowRoleSchema,
-  place: z
-    .union([
-      z.strictObject({ project: z.string().min(1) }),
-      z.strictObject({ app: z.string().min(1) }),
-    ])
-    .optional(),
-  name: z.string().min(1).optional(),
-});
+// step을 받는 참가자다. agent 이름과 place 이름(없으면 instance의 project)이거나,
+// with의 참가자 session에 사람 차례를 적는 human, 선언만 받고 넘기지 못하는 harness다.
+export const participantSchema = z.union([
+  z.strictObject({
+    agent: z.string().min(1),
+    place: placeNameSchema.optional(),
+  }),
+  z.strictObject({ kind: z.literal("human") }),
+  z.strictObject({ kind: z.literal("harness") }),
+]);
 export type Participant = z.infer<typeof participantSchema>;
 
 export const SESSION_CHOICES = ["new", "same"] as const;

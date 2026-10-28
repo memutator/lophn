@@ -1,7 +1,10 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import { type Clock, err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/mod.ts";
+import type {
+  AgentAddress,
+  AgentAtPlace,
+} from "../../../protocol/lophn-agent/mod.ts";
 import { RUN_WAIT_MAX_MS } from "../../../protocol/runs/mod.ts";
 import {
   FLOW_ENTRY_FILE,
@@ -19,7 +22,6 @@ import {
   createStreamDecoder,
   drain,
 } from "../../apps/runtime/observations/stream-decoder.ts";
-import { addressOfNamed } from "../../router/model.ts";
 import type { InstanceOrigin, RunService } from "../../runs/mod.ts";
 import { settledWithin } from "../../supervision/responsiveness/deadline.ts";
 import {
@@ -39,6 +41,8 @@ type FlowHostDeps = {
   env: Record<string, string>;
   clock: Clock;
   runs: Pick<RunService, "start" | "wait" | "cancelOfInstance">;
+  // launch에서 한 번 푼다. 도는 중 이름이 바뀌어 다른 agent의 할당으로 바뀌지 않게 한다.
+  resolveAgent(address: AgentAddress): Result<AgentAtPlace>;
   workflows: Pick<
     ReturnType<typeof createWorkflowService>,
     "report" | "programExited"
@@ -47,7 +51,7 @@ type FlowHostDeps = {
   redact(line: string): string | null;
 };
 
-// log의 자리. PM이 쓰는 workflow 폴더 밖이라 flow가 덮어쓰지 못한다.
+// log의 자리. project place의 session이 쓰는 workflow 폴더 밖이라 flow가 덮어쓰지 못한다.
 const FLOWS_FOLDER = "flows";
 const LOG_MAX_BYTES = 1024 * 1024;
 const TAIL_LINES = 10;
@@ -139,17 +143,16 @@ export function createFlowHost(
     entry: Entry,
     request: Extract<FlowRequest, { type: "agent" | "tool" }>,
     origin: InstanceOrigin,
+    project: Id<"prj">,
   ): Promise<FlowOutcome | null> {
-    const address =
-      request.type === "agent" ? addressOfNamed(request.agent) : undefined;
-    if (address !== undefined && !address.ok) {
-      return failure(address.error.code, address.error.message);
-    }
     const started = await deps.runs.start(
       request.type === "agent"
         ? {
             kind: "agent",
-            agent: address!.value,
+            agent: {
+              ...request.agent,
+              place: request.agent.place ?? { project },
+            },
             prompt: request.prompt,
             input: request.input,
             schema: request.schema,
@@ -181,14 +184,13 @@ export function createFlowHost(
     return failure("cancelled", "the run was cancelled");
   }
 
-  function handle(instance: Id<"wfi">, project: Id<"prj">, entry: Entry) {
-    const origin: InstanceOrigin = {
-      instance,
-      creator: {
-        agent: LOPHN_AGENT_ID,
-        place: { kind: "project", id: project },
-      },
-    };
+  function handle(
+    instance: Id<"wfi">,
+    project: Id<"prj">,
+    creator: AgentAtPlace,
+    entry: Entry,
+  ) {
+    const origin: InstanceOrigin = { instance, creator };
     return (request: FlowRequest) => {
       if (entry.exited) return;
       if (request.type === "report") {
@@ -216,7 +218,7 @@ export function createFlowHost(
         return;
       }
       void guard(
-        () => runOutcome(entry, request, origin),
+        () => runOutcome(entry, request, origin, project),
         (message) => failure("internal", message),
       ).then((outcome) => {
         if (outcome !== null) entry.respond(request.id, outcome);
@@ -229,10 +231,22 @@ export function createFlowHost(
     project: Id<"prj">;
     workflow: string;
     input: string;
+    agent: string;
   }): Promise<Result<void>> {
     const { instance, project } = start;
     const unavailable = (message: string) =>
       err({ code: "unavailable" as const, message });
+    const resolved = deps.resolveAgent({
+      agent: start.agent,
+      place: { project },
+    });
+    if (!resolved.ok) {
+      return err({
+        code: resolved.error.code,
+        message: `workflow agent ${start.agent}: ${resolved.error.message}`,
+      });
+    }
+    const creator = resolved.value;
     const installed = packageInstallPath(FLOW_SDK_NAME, FLOW_SDK_VERSION);
     if (!installed.ok) return installed;
     try {
@@ -288,7 +302,7 @@ export function createFlowHost(
       void child.terminate();
     };
     const reading = readRequests(child.stdout, {
-      request: handle(instance, project, entry),
+      request: handle(instance, project, creator, entry),
       invalid: (id, message) =>
         entry.respond(id, failure("invalid_input", message)),
       bad: closeChannel,

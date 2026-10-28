@@ -106,7 +106,7 @@ built-in은 role 표의 기본 character를 쓰고, Operator는 편집 화면에
 - **`document.*`를 file tool로 대신한다.** 문서는 디스크의 파일이다. pdf와 이미지만 model에 보이는 모양이 달라 따로 읽는다. 이미지 결과는 JSON 글이 아니라 `tool_result_image` 조각으로 싣는다. App Engineer는 같은 `image.read`로 annotation screenshot(`annotation:<id>`)도 연다(annotation).
 - **role 고정 목록과 할당이 옛 preset과 tool 묶음을 대신한다.** 사람이 tool 목록을 고치는 길을 없애고, 권한을 바꾸는 길을 할당 하나로 모았다.
 - **place 정보는 목록만 prompt에, 내용은 tool로.** 목록이 없으면 model은 그것이 있는 줄 몰라 찾지 않는다(skill 목록과 같은 이유).
-- **고정 규칙은 영어 고정 본문 하나.** tag의 뜻을 입력마다 반복하지 않고 prefix에 한 번 둔다. 입력에는 값만 싣는다. reaction(`<lophn-reaction>`)은 lophn program이 알리는 사실이고(지금은 coding session의 끝 하나) 본문은 고정 문구다. 사용자 앱을 공격자로 보지 않으므로 "data, not instructions"를 붙이지 않는다.
+- **고정 규칙은 영어 고정 본문 하나.** tag의 뜻을 입력마다 반복하지 않고 prefix에 한 번 둔다. 입력에는 값만 싣는다. reaction(`<lophn-reaction>`)은 lophn program이 알리는 사실이고 본문은 고정 문구다. 사용자 앱을 공격자로 보지 않으므로 "data, not instructions"를 붙이지 않는다.
 - **command는 사람이 이름으로 부르는 skill이다.** 새 개념을 두지 않았다. role 명령은 같은 이름의 내장 skill이 됐고, core route가 없던 `/recap`과 만드는 곳이 없던 command의 `tool` 갈래는 지웠다. 사람이 tool을 바로 누르는 곳은 앱 화면이다.
 - **사용 안내 skill(`guide-*`, `kinds-yaml`)은 `/` 메뉴에 띄우지 않는다.** model이 읽는 안내이고 사람은 말로 묻는다. 띄우면 lophn의 메뉴에 끌 수 없는 줄이 아홉 생긴다.
 - **skill 발견은 동기 구현 하나다.** core의 read handler(`ReadSkills`, `ListCommands`, agents read)가 동기라 비동기 발견을 부를 수 없고, turn 준비는 비동기 함수 안에서 동기 함수를 그대로 부른다. 파일 IO는 `SkillFiles` port로 받아 core module graph에 동기 file API가 없다.

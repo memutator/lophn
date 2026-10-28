@@ -325,7 +325,7 @@ interfaces:
 
   - id: coding-agent-cli-interface
     kind: interface
-    description: lophn 명령행의 계약. coding agent는 coding token으로, 사람은 user token(data root의 run/user-token)으로 쓴다.
+    description: lophn 명령행의 계약. 사람은 user token(data root의 run/user-token)으로 쓰고, harness는 hook 명령만 부른다.
     interface_type: protocol
     defined_by: coding-agent
     provided_by:
@@ -334,13 +334,3 @@ interfaces:
       - external-coding-agent
       - person
 
-  - id: coding-agent-mcp
-    kind: interface
-    description: coding agent가 맡은 앱의 tool을 그 앱의 preview에서 부르는 MCP endpoint.
-    interface_type: protocol
-    defined_by: protocol
-    provided_by:
-      - server
-      - apps
-    used_by:
-      - external-coding-agent

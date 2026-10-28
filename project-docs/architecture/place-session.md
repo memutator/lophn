@@ -28,10 +28,10 @@ lophn의 agent는 place(project 또는 app)에 놓이고, 그 agent와 하는 �
 
 - role과 place는 session을 열 때 정해지고 바뀌지 않는다. role에 맞지 않는 place, 없거나 보관된 place에는 열지 않는다.
   - agent 정의, 할당, 지침, file 범위가 모두 role+place에서 나온다. 열린 session의 role이나 place를 바꾸면 이미 쌓인 대화가 다른 agent의 것이 된다.
-- session을 여는 길은 사람과 Router 둘이고 같은 연산으로 연다. Router는 call과 workflow step의 새 session(`architecture/workflow.md`)과 program 알림(맡긴 coding session의 끝, `open_session_or_new`)으로 연다.
+- session을 여는 길은 사람과 Router 둘이고 같은 연산으로 연다. Router는 call과 workflow step의 새 session(`architecture/workflow.md`)과 program 알림(`open_session_or_new`)으로 연다.
   - 열 때의 검사(role과 place, 보관 여부)를 한 곳에 두어야 어느 길로 열어도 같은 session이 된다.
 - role은 넷이다. lophn은 전체에 하나, Project Manager는 project마다 하나, App Engineer는 앱마다 하나, Operator는 사람이 project나 앱에 만든 만큼이다. 앞의 셋은 더하거나 지우지 않고 Operator만 사람이 만들고 지운다.
-  - place는 project 또는 app이다(`Place`). 앱은 project에 묶이지 않고 앱마다 app place가 있다. 앱의 일은 그 앱의 App Engineer가 맡는다. coding agent는 lophn 밖의 제품이고 coding session의 place는 그 앱이다.
+  - place는 project 또는 app이다(`Place`). 앱은 project에 묶이지 않고 앱마다 app place가 있다. 앱의 일은 그 앱의 App Engineer가 맡는다.
   - place는 그릇이고 경계는 그 안의 domain이다. agent가 받는 지침, kind, skill, tool은 맡은 domain의 것이다(`architecture/domain.md`).
   - 정의는 파일이라 DB tx에 묶을 수 없다. 만들기는 멱등이다(있으면 그대로, 빈 파일). 등록과 파일 만들기 사이에 죽어도 다음 호출이 이어 만든다.
 - run(`architecture/run.md`)도 `OpenSession`으로 session을 연다. 사람이 연 것과 같은 session이고 run이 끝나도 열린 채 남는다. 저절로 닫지 않는다. 화면은 sidebar에 그대로 두지 않고 그 session을 연 run 아래로 묶어 보인다(`--session`으로 이어 쓴 session은 원래 자리다).

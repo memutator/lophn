@@ -96,7 +96,7 @@ npm run eval:scorecard -- diff A B  → 두 run의 버전·결과 차이(stdout)
 
 ## 아직 아닌 것
 
-- coding agent를 재는 길이 없다. 제품에 coding session을 띄우는 길이 없어(Router가 `coding_agent` call을 거절한다) driver와 수치를 지웠다. 연결을 살리기로 하면 그때 새로 쓴다.
+- coding agent를 재는 길이 없다. 제품에 coding session 층이 없어 driver와 수치를 지웠다. 연결을 살리기로 하면 그때 새로 쓴다.
 - 앱을 짓고, 진단하고, 산출물을 다음 재료로 넘기는 단위는 Node 앱 모양으로 다시 지을 때 harness도 함께 만든다(사람 역할, 끝난 world를 보는 live check, 시나리오 `setup`·`limits`·`callApi`·`save`). 지금은 판단 case만 돈다. 설계는 `project-docs/products/roadmap/eval.md`에 남아 있다.
 - 진짜 cache hit은 assembly 재기 뒤 작은 진짜 run으로 따로 봐야 한다. program이 하지 않는다.
 - `npm run eval`(experiment 밖)은 지금 checkout만 돈다. 고친 채 돌리면 working tree diff가 전체 기록에 남고 요약에는 `source.dirty`만 남는다.

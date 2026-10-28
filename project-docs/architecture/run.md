@@ -5,7 +5,7 @@ run은 화면 없이 부르는 lophn agent 호출 하나, 또는 앱 tool 호출
 ## 흐름
 
 ```
- CLI (lophn agent run | tool call | run wait|show|cancel)      user token(또는 coding token)
+ CLI (lophn agent run | tool call | run wait|show|cancel)      user token
    │  POST /runs/start | wait | cancel | read | list
    ▼
  runs service (core/runs)  ── port ──▶ wiring/runs.ts ──▶ lophn-agent 연산, 앱 호출 경로, ledger
@@ -121,5 +121,5 @@ CLI와 자격(`architecture/coding-agent.md`)
 - 취소할 때 run을 먼저 닫는다. 뒷일(입력 빼기, turn 멈추기)이 실패해도 run의 상태는 사람이 요청한 대로 남는다.
 - tool run은 사람이 부르는 길이다. 사람이 시킨 일이 승낙이고(`architecture/approval.md`), CLI는 사람의 입구다.
 - `origin`과 `agent_resolved`는 route 입력에 없고 core 안 `RunService.start`만 받는다. `origin`이 만든 agent(또는 PM)의 할당으로 앱 tool을 부르는 program·flow 자격이 되므로, route 입력으로 열려 있으면 누구든 남의 할당을 빌려 쓰는 길이 된다.
-- 자격은 가장 단순한 길이다. 같은 OS 사용자로 도는 agent가 file을 읽어 사람 자격을 쓸 수 있다는 위험은 신경 쓰지 않는다. coding session 안에서는 coding token이 먼저라 그 자리에서는 run을 부르지 못한다.
+- 자격은 가장 단순한 길이다. 같은 OS 사용자로 도는 agent가 file을 읽어 사람 자격을 쓸 수 있다는 위험은 신경 쓰지 않는다.
 - `invalid_output`을 오류 코드가 아니라 실패 이유로 둔다. 경계의 오류 코드는 일곱으로 두고, run이 어떻게 끝났는지는 run의 기록이다.

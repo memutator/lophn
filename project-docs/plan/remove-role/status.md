@@ -22,7 +22,7 @@ lead만 고친다. `tools/status.py remove-role build`가 `tasks/*.md`에서 id,
 | `wireframe-sidebar` | wireframe | 2 | wireframe-agents | merged | wireframe/wireframe-sidebar | 6e964fc25 |  |
 | `workflows-core` | workflows | 2 | runs-core | merged | workflows/workflows-core | 951fc1ba7 |  |
 | `cli-run` | cli | 3 | 없음 | merged | cli/cli-run | fb7f5db82 |  |
-| `e2e-agents` | e2e | 3 | shell-events | todo |  |  |  |
+| `e2e-agents` | e2e | 3 | shell-events | merged | e2e/e2e-agents | 8490ff257 |  |
 | `e2e-apps` | e2e | 3 | e2e-agents | todo |  |  |  |
 | `eval-scenarios` | eval | 3 | shell-events | todo |  |  |  |
 | `shell-conversation` | shell | 3 | shell-events | merged | shell/shell-conversation | 0d686dbaf |  |

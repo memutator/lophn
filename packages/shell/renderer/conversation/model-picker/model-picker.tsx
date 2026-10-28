@@ -1,4 +1,4 @@
-// model을 고르는 picker 하나. composer의 작은 단추(ModelPicker)와 Settings·Operator·project의 칸(ModelPickerField)이 같은
+// model을 고르는 picker 하나. composer의 작은 단추(ModelPicker)와 Settings·agent·project의 칸(ModelPickerField)이 같은
 // Popover 목록을 쓴다. 위에서부터 층 한 줄(대화만), 검색칸, 따르기 줄(있을 때), provider 묶음(vendor 아이콘),
 // 고른 model의 option 축, 맨 아래 Manage models 한 줄이다. 화면 코드에는 model 이름도
 // option 값도 없다. 정렬·거르기·option 축·기본 값 맞춤은 model catalog가 계산해 props로 주고, 이 component는 받은

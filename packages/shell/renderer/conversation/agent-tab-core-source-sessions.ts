@@ -2,18 +2,22 @@
 // (열기, 이름, archive, 지우기, fork, compact)와 권한 보기. 모두 snapshot read와 command이고 polling은 없다.
 import { t } from "@lophn/wording";
 
-import { agentAssignmentGet } from "../../../protocol/approvals/assignment.ts";
+import { assignmentGet } from "../../../protocol/approvals/assignment.ts";
 import { appGet } from "../../../protocol/apps/apps.ts";
 import { sessionSnapshotsList } from "../../../protocol/events/snapshot.ts";
-import { agentDefinitionRead } from "../../../protocol/lophn-agent/agent-definitions.ts";
+import { agentRead } from "../../../protocol/lophn-agent/agent-definitions.ts";
+import { LOPHN_AGENT_NAME } from "../../../protocol/lophn-agent/agent-values.ts";
 import {
-  type AgentSession,
-  agentSessionList,
-  agentSessionRead,
-  openAgentSession,
+  type PlaceSession,
+  placeSessionList,
+  placeSessionOpen,
+  placeSessionRead,
 } from "../../../protocol/lophn-agent/agent-sessions.ts";
-import type { CallAgent } from "../../../protocol/lophn-agent/calls.ts";
-import type { Place } from "../../../protocol/lophn-agent/places.ts";
+import {
+  type AgentId,
+  LOPHN_AGENT_ID,
+  type Place,
+} from "../../../protocol/lophn-agent/places.ts";
 import { receivedMessageList } from "../../../protocol/lophn-agent/received-messages.ts";
 import {
   archiveSession,
@@ -62,22 +66,25 @@ async function placeNameOf(
   return read.ok ? { ok: true, value: read.value.app.name } : read;
 }
 
-function roleLabel(agent: CallAgent["role"]): string {
-  switch (agent) {
-    case "lophn":
-      return t("waiting.label.agent-lophn");
-    case "project_manager":
-      return t("waiting.label.agent-project-manager");
-    case "app_engineer":
-      return t("waiting.label.agent-app-engineer");
-    case "operator":
-      return t("waiting.label.agent-operator");
-    case "coding_agent":
-      return t("waiting.label.agent-coding");
-  }
-}
+const agentNames = new WeakMap<Env, Map<string, Promise<string | null>>>();
 
-export { roleLabel };
+/** agent 이름. lophn은 바뀌지 않아 읽지 않는다. 다른 agent는 id마다 한 번 읽는다. 못 읽으면 null이다. */
+export function agentNameOf(env: Env, agent: AgentId): Promise<string | null> {
+  if (agent === LOPHN_AGENT_ID) return Promise.resolve(LOPHN_AGENT_NAME);
+  let known = agentNames.get(env);
+  if (known === undefined) {
+    known = new Map();
+    agentNames.set(env, known);
+  }
+  let found = known.get(agent);
+  if (found === undefined) {
+    found = env
+      .read(agentRead, { agent })
+      .then((read) => (read.ok ? read.value.effective.name.value : null));
+    known.set(agent, found);
+  }
+  return found;
+}
 
 // ---------------------------------------------------------------- 권한
 
@@ -91,7 +98,7 @@ async function appNameOf(env: Env, app: string): Promise<string> {
 async function readApps(
   env: Env,
 ): Promise<SourceResult<PermissionsView["apps"]>> {
-  const read = await env.read(agentAssignmentGet, { agent: env.agent });
+  const read = await env.read(assignmentGet, { agent: env.agent });
   if (!read.ok) return read;
   const apps = [];
   for (const entry of read.value.assignment.entries) {
@@ -124,9 +131,14 @@ export async function readFace(
 ): Promise<SourceResult<AgentFace>> {
   const known = cache.get();
   if (known !== undefined) return { ok: true, value: known };
-  const read = await env.read(agentDefinitionRead, { agent: env.agent });
+  const read = await env.read(agentRead, {
+    agent: env.agent,
+    ...(env.place === null ? {} : { place: env.place }),
+  });
   if (!read.ok) return read;
-  const { role, place, effective } = read.value;
+  const { effective } = read.value;
+  // 정의에는 place가 없다. 자리는 이 source의 place다.
+  const place = env.place;
   const named = await placeNameOf(env, place);
   if (!named.ok) return named;
   const apps = await readApps(env);
@@ -134,14 +146,14 @@ export async function readFace(
   const name = effective.name.value;
   const profile = effective.profile.value;
   const face: AgentFace = {
-    role,
+    agent: env.agent,
     name,
     // 올린 이미지는 renderer가 읽을 수 있는 주소가 없어 이름 첫 글자로 그린다.
     profile:
       profile.kind === "character"
         ? profile
         : { kind: "initial", text: name.slice(0, 1) },
-    place: { kind: place?.kind ?? "project", name: named.value },
+    place: place === null ? null : { kind: place.kind, name: named.value },
     permissionSummary: t("conversation.label.permission-summary", {
       count: apps.value.length,
     }),
@@ -155,8 +167,8 @@ export async function readFace(
 export async function readSession(
   env: Env,
   session: string,
-): Promise<SourceResult<AgentSession>> {
-  const read = await env.read(agentSessionRead, { session });
+): Promise<SourceResult<PlaceSession>> {
+  const read = await env.read(placeSessionRead, { session });
   return read.ok ? { ok: true, value: read.value.session } : read;
 }
 
@@ -202,8 +214,8 @@ export async function readSessions(
   times: ReturnType<typeof createActiveTimes>,
 ): Promise<SourceResult<SessionEntry[]>> {
   const listed = await env.pages(
-    agentSessionList,
-    { agent: env.agent, archived: "include" },
+    placeSessionList,
+    { agent: env.agent, place: env.place, archived: "include" },
     (out) => out.sessions,
   );
   if (!listed.ok) return listed;
@@ -242,8 +254,8 @@ export async function openSession(
   env: Env,
   id: string,
 ): Promise<SourceResult<{ state_seq: string }>> {
-  const opened = await env.command(openAgentSession, {
-    input: { id, agent: env.agent },
+  const opened = await env.command(placeSessionOpen, {
+    input: { id, agent: env.agent, place: env.place },
     compare: {},
     key: `sessions-open-${id}`,
   });

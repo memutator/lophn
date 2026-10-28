@@ -5,7 +5,7 @@
 import { askRead } from "../../../protocol/lophn-agent/ask-tool.ts";
 import type { ReceivedMessage } from "../../../protocol/lophn-agent/received-messages.ts";
 import { messageBody } from "../../../protocol/lophn-agent/messages.ts";
-import { agentDefinitionRead } from "../../../protocol/lophn-agent/agent-definitions.ts";
+import type { AgentId } from "../../../protocol/lophn-agent/places.ts";
 import {
   receivedMessageList,
   receivedMessageRead,
@@ -22,7 +22,6 @@ import {
 } from "../../../protocol/lophn-agent/turn-reads.ts";
 import { sessionSnapshotsList } from "../../../protocol/events/snapshot.ts";
 import type {
-  AgentRole,
   ApprovalCardRequest,
   AskedGroup,
   AskedQuestion,
@@ -50,13 +49,13 @@ import {
   type HiddenGroup,
   readHiddenGroups,
 } from "./agent-tab-core-source-rewind.ts";
-import { readSession } from "./agent-tab-core-source-sessions.ts";
+import { agentNameOf, readSession } from "./agent-tab-core-source-sessions.ts";
 import { liveFromWriting } from "./live-text.ts";
 
 /** 한 번 읽으면 바뀌지 않는 값. */
 interface ThreadMemo {
   readonly bodies: Map<string, readonly BodyPart[]>;
-  readonly roles: Map<string, AgentRole>;
+  readonly agents: Map<string, AgentId>;
   /** `<종류>:<id>` → tool 호출의 입력·결과 본문. */
   readonly views: Map<string, ToolCallBodyView>;
 }
@@ -64,7 +63,7 @@ interface ThreadMemo {
 export function createThreadMemo(): ThreadMemo {
   return {
     bodies: new Map(),
-    roles: new Map(),
+    agents: new Map(),
     views: new Map(),
   };
 }
@@ -111,17 +110,17 @@ function textOf(parts: readonly BodyPart[]): string {
     .join("\n");
 }
 
-async function roleOf(
+async function agentOf(
   env: Env,
   memo: ThreadMemo,
   session: string,
-): Promise<AgentRole | null> {
-  const known = memo.roles.get(session);
+): Promise<AgentId | null> {
+  const known = memo.agents.get(session);
   if (known !== undefined) return known;
   const read = await readSession(env, session);
   if (!read.ok) return null;
-  memo.roles.set(session, read.value.agent.role);
-  return read.value.agent.role;
+  memo.agents.set(session, read.value.agent);
+  return read.value.agent;
 }
 
 /** 이름은 chip을 누를 때 읽는다(`withName`). 사람이 직접 쓴 메시지는 보낸 쪽이 없다. */
@@ -133,12 +132,14 @@ async function senderOf(
   switch (from.kind) {
     case "human":
       return null;
-    case "agent":
+    case "agent": {
+      const agent = await agentOf(env, memo, from.session);
       return {
         kind: "agent",
-        role: await roleOf(env, memo, from.session),
-        name: null,
+        agent,
+        name: agent === null ? null : await agentNameOf(env, agent),
       };
+    }
     case "coding_agent":
       return { kind: "coding", product: null };
     case "program":
@@ -154,10 +155,8 @@ async function withName(
   if (sender.kind !== "agent" || from.kind !== "agent") return sender;
   const session = await readSession(env, from.session);
   if (!session.ok) return sender;
-  const def = await env.read(agentDefinitionRead, {
-    agent: session.value.agent,
-  });
-  return def.ok ? { ...sender, name: def.value.effective.name.value } : sender;
+  const name = await agentNameOf(env, session.value.agent);
+  return name === null ? sender : { ...sender, name };
 }
 
 function refsOf(refs: ReceivedMessage["refs"]): EvidenceRef[] {

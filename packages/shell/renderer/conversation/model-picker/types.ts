@@ -56,7 +56,7 @@ export interface ModelPickerProps {
   layer: AgentValueLayer | null;
   /** option 축을 보일 수 있는지. catalog를 읽지 못했으면 false라 "No options"를 말하지 않는다. 없으면 true다. */
   axesReady?: boolean;
-  /** 위 층의 값을 따르는 줄. Operator와 project의 Model 칸만 가진다. */
+  /** 위 층의 값을 따르는 줄. agent와 project의 Model 칸만 가진다. */
   follow?: FollowView;
 }
 

@@ -26,8 +26,8 @@ const SLICE: ArtifactsSlice = {
 };
 
 const AGENT = {
-  name: "Operator",
-  profile: { kind: "initial", text: "O" },
+  name: "Eval analyst",
+  profile: { kind: "initial", text: "E" },
 } as const;
 
 const ready = (text: string): BodyState => ({

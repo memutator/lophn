@@ -94,16 +94,16 @@ const SESSION_EARLIER = sessionId(2);
 export const SESSION_ARCHIVED = sessionId(3);
 
 const LOPHN: AgentFace = {
-  role: "lophn",
+  agent: "lophn",
   name: "lophn",
   profile: { kind: "character", shape: "pear", color: "lavender" },
   place: { kind: "project", name: "phroner" },
   permissionSummary: "2 apps assigned",
 };
 
-const APP_ENGINEER: AgentFace = {
-  role: "app_engineer",
-  name: "App Engineer",
+const EVAL_ANALYST: AgentFace = {
+  agent: fakeId("agt", 1),
+  name: "Eval analyst",
   profile: { kind: "character", shape: "wide", color: "yellow" },
   place: { kind: "app", name: "Eval board" },
   permissionSummary: LOPHN.permissionSummary,
@@ -422,7 +422,7 @@ function call(
 }
 
 const CALL_OPEN = {
-  to: "Operator · Eval analyst",
+  to: "Eval analyst",
   task: "Find what the 3 regressions have in common.",
   reply: "result",
   status: { state: "accepted", reason: null },
@@ -430,7 +430,7 @@ const CALL_OPEN = {
 } as const;
 
 const CALL_FAILED = {
-  to: "Operator · Experiment planner",
+  to: "Experiment planner",
   task: "Plan exp-013 so it isolates the recipe lookup.",
   reply: "result",
   status: { state: "failed", reason: "receiver_ended" },
@@ -438,7 +438,7 @@ const CALL_FAILED = {
 } as const;
 
 const CALL_CANCELLED = {
-  to: "Project Manager · phroner",
+  to: "lophn · phroner",
   task: "Check the eval context against the new reports.",
   reply: "result",
   status: { state: "cancelled", reason: null },
@@ -632,7 +632,7 @@ function sceneData(scene: AgentTabScene): SceneData {
         null,
       );
       const lophn = envelope(
-        { kind: "agent", role: "lophn", name: "lophn" },
+        { kind: "agent", agent: "lophn", name: "lophn" },
         "Keep the scenario names in Eval board as they are. A person asked for that, so do not rename them in the fix.",
         [
           {
@@ -644,7 +644,7 @@ function sceneData(scene: AgentTabScene): SceneData {
         { id: SESSION_EARLIER, title: "Weekly report" },
       );
       return {
-        agent: APP_ENGINEER,
+        agent: EVAL_ANALYST,
         title: "Eval board keeps crashing",
         entries: [
           received(
@@ -696,7 +696,7 @@ function sceneData(scene: AgentTabScene): SceneData {
       };
     case "call-replies": {
       const answer = envelope(
-        { kind: "agent", role: "operator", name: "Eval analyst" },
+        { kind: "agent", agent: fakeId("agt", 1), name: "Eval analyst" },
         "The 3 regressions share one cause: query-recipe-gap, sched-edit and wake-plant all call the lookup right after a plan edit.",
         [
           {
@@ -709,7 +709,7 @@ function sceneData(scene: AgentTabScene): SceneData {
       );
       const notice = envelope(
         { kind: "program", label: "lophn · Not answered" },
-        "The session of Operator · Experiment planner ended before it answered your request.",
+        "The session of Experiment planner ended before it answered your request.",
         [],
         null,
       );

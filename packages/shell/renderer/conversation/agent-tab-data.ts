@@ -4,6 +4,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { AgentEvent } from "../../../protocol/events/mod.ts";
+import { LOPHN_AGENT_NAME } from "../../../protocol/lophn-agent/agent-values.ts";
+import {
+  type AgentId,
+  LOPHN_AGENT_ID,
+} from "../../../protocol/lophn-agent/places.ts";
 import {
   useSessionEvents,
   useSessions,
@@ -11,7 +16,6 @@ import {
 import type { SessionEntry as KnownSession } from "../desktop/connection/events/sessions-store.ts";
 import type {
   AgentFace,
-  AgentRole,
   AgentTabSource,
   AskedQuestion,
   Sender,
@@ -31,8 +35,8 @@ import { foldDelta } from "./live-text.ts";
 
 /** event만으로는 알 수 없는 것을 아는 대로 채운다. */
 interface FoldContext {
-  /** 보낸 session의 role. 모르면 chip은 이름 없이 그려지고 누르면 읽는다. */
-  readonly roleOf: (session: string) => AgentRole | null;
+  /** 보낸 session의 agent. 모르면 chip은 이름 없이 그려지고 누르면 읽는다. */
+  readonly agentOf: (session: string) => AgentId | null;
 }
 
 const running = (turn: TurnView | null) =>
@@ -74,8 +78,15 @@ function senderOf(
   switch (from.kind) {
     case "human":
       return null;
-    case "agent":
-      return { kind: "agent", role: ctx.roleOf(from.session), name: null };
+    case "agent": {
+      // lophn은 이름이 고정이다. 다른 agent의 이름은 다음 thread 읽기가 채운다.
+      const agent = ctx.agentOf(from.session);
+      return {
+        kind: "agent",
+        agent,
+        name: agent === LOPHN_AGENT_ID ? LOPHN_AGENT_NAME : null,
+      };
+    }
     case "coding_agent":
       return { kind: "coding", product: null };
     case "program":
@@ -610,11 +621,8 @@ export function useAgentTabData(
 
   const ctx = useMemo<FoldContext>(
     () => ({
-      roleOf: (other) => {
-        const agent = known.find((one) => one.session === other)?.agent;
-        if (agent === undefined || agent === null) return null;
-        return agent === "lophn" ? "lophn" : "operator";
-      },
+      agentOf: (other) =>
+        known.find((one) => one.session === other)?.agent ?? null,
     }),
     [known],
   );

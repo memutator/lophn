@@ -12,7 +12,7 @@ import type {
   CallReply,
   CallState,
 } from "../../../protocol/lophn-agent/calls.ts";
-import type { Role } from "../../../protocol/lophn-agent/places.ts";
+import type { AgentId } from "../../../protocol/lophn-agent/places.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
 import type { ToolCallView } from "./activity/model.ts";
 import type { LiveText } from "./live-text.ts";
@@ -27,8 +27,6 @@ export type SourceResult<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly code: string };
 
-export type AgentRole = Role;
-
 /** 보내는 방식. 기본은 다음 turn이고, steer는 도는 turn에 들어간다. contract의 `InputDelivery`와 같다. */
 export type Delivery = "next_turn" | "steer";
 
@@ -42,11 +40,14 @@ export type AgentProfile =
 
 /** 화면이 고정해 보이는 agent와 그 자리. 머리·composer의 자리 이름·권한 요약이 여기서 온다. */
 export interface AgentFace {
-  readonly role: AgentRole;
+  readonly agent: AgentId;
   readonly name: string;
   readonly profile: AgentProfile;
-  /** lophn은 열린 자리, 나머지는 자기 자리다. */
-  readonly place: { readonly kind: "project" | "app"; readonly name: string };
+  /** 이 source의 session이 열리는 자리. home은 null이다. */
+  readonly place: {
+    readonly kind: "project" | "app";
+    readonly name: string;
+  } | null;
   /** 그 agent에 할당한 앱을 한 줄로 요약한 글. */
   readonly permissionSummary: string;
 }
@@ -87,7 +88,7 @@ export type BodyPart =
 export type Sender =
   | {
       readonly kind: "agent";
-      readonly role: AgentRole | null;
+      readonly agent: AgentId | null;
       readonly name: string | null;
     }
   | { readonly kind: "coding"; readonly product: string | null }
@@ -615,7 +616,7 @@ export interface AgentTabSource {
 
 /**
  * Agent 탭·앱 공간의 Agent 칸이 agent 하나의 통로를 얻는 함수다. 호스트가 아직 부르는 인자 모양을 그대로
- * 받는다(`assignment`의 값은 agent id다).
+ * 받는다. `assignment`는 agent id(lophn 또는 `agt_…`)이고 place의 `global`은 home이다.
  */
 export type AgentTabSourceFactory = (agent: {
   readonly assignment: string;

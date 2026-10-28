@@ -5,7 +5,7 @@ import { t } from "@lophn/wording";
 import type { z } from "zod";
 
 import { turnRequestDecide } from "../../../protocol/approvals/turn-request.ts";
-import { agentSessionList } from "../../../protocol/lophn-agent/agent-sessions.ts";
+import { placeSessionList } from "../../../protocol/lophn-agent/agent-sessions.ts";
 import { listCommands } from "../../../protocol/lophn-agent/command-filter.ts";
 import {
   type CommandEntry,
@@ -53,7 +53,10 @@ async function registryOf(
   session: string | null,
 ): Promise<SourceResult<readonly CommandEntry[]>> {
   if (session !== null) return await readRegistry(env, session);
-  const listed = await env.read(agentSessionList, { agent: env.agent });
+  const listed = await env.read(placeSessionList, {
+    agent: env.agent,
+    place: env.place,
+  });
   if (!listed.ok) return listed;
   const open = listed.value.sessions[0];
   return open === undefined

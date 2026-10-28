@@ -7,14 +7,14 @@
 import type { z } from "zod";
 
 import type { CommandRoute } from "../../../protocol/base/route.ts";
-import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
+import type { AgentId, Place } from "../../../protocol/lophn-agent/places.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import { type CommandBody, commandBody } from "../command-call.ts";
 import type { SourceResult } from "./agent-tab-source.ts";
 
 /** 이 source가 묶인 agent. factory가 받는 인자 그대로다. */
 export interface AgentTarget {
-  /** agent id다. Operator는 `agt_…`, 나머지는 place가 정체성이라 id를 쓰지 않는다. */
+  /** agent id(lophn 또는 `agt_…`). */
   readonly assignment: string;
   readonly place: {
     readonly kind: "global" | "project" | "app";
@@ -22,21 +22,10 @@ export interface AgentTarget {
   };
 }
 
-/**
- * factory 인자에서 agent를 가리키는 값을 만든다. Operator는 id로, Project Manager와 App Engineer는 project와 앱 자리로
- * 정해진다. lophn은 project 창과 앱 공간에서도 그 자리를 place로 받으므로 자리가 아니라 key로 가른다.
- */
-function agentRefOf(target: AgentTarget): AgentRef {
-  const { assignment, place } = target;
-  if (assignment.startsWith("agt_")) {
-    return { role: "operator", agent: assignment };
-  }
-  if (assignment === "lophn" || place.kind === "global") {
-    return { role: "lophn" };
-  }
-  return place.kind === "project"
-    ? { role: "project_manager", project: place.id }
-    : { role: "app_engineer", app: place.id };
+/** factory 인자의 place를 session의 place로 읽는다. `global`은 home이다. */
+function placeOf(target: AgentTarget): Place | null {
+  const { place } = target;
+  return place.kind === "global" ? null : { kind: place.kind, id: place.id };
 }
 
 // ---- route 호출 ----
@@ -111,7 +100,9 @@ function errorCodeOf(code: string | undefined): string {
 
 export interface Env {
   readonly target: AgentTarget;
-  readonly agent: AgentRef;
+  readonly agent: AgentId;
+  /** 이 source의 session이 열리는 place. home은 null이다. */
+  readonly place: Place | null;
   readonly now: () => number;
   /** 읽기 또는 memory route 하나. */
   read<R extends PlainRoute>(
@@ -166,7 +157,8 @@ export function createEnv(
 
   const env: Env = {
     target,
-    agent: agentRefOf(target),
+    agent: target.assignment,
+    place: placeOf(target),
     now,
     read: (route, input) => call(route.kind as "read" | "memory", route, input),
     command: (route, body) => call("command", route, commandBody(route, body)),

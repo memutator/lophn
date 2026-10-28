@@ -27,7 +27,7 @@ import type {
   SourceResult,
 } from "./agent-tab-source.ts";
 import { done, type Env } from "./agent-tab-core-source-env.ts";
-import { readSession, roleLabel } from "./agent-tab-core-source-sessions.ts";
+import { agentNameOf, readSession } from "./agent-tab-core-source-sessions.ts";
 
 // ---------------------------------------------------------------- 되돌린 구간
 
@@ -183,7 +183,8 @@ async function callerName(
   }
   if (caller.kind === "agent") {
     const read = await readSession(env, caller.session);
-    return read.ok ? roleLabel(read.value.agent.role) : caller.session;
+    if (!read.ok) return caller.session;
+    return (await agentNameOf(env, read.value.agent)) ?? caller.session;
   }
   const app = await env.read(appGet, { app: caller.app });
   return app.ok ? app.value.app.name : caller.app;

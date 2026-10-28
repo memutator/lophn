@@ -9,20 +9,12 @@ import { type MessageKey, t } from "@lophn/wording";
 
 import { commonIcons } from "../../icons/mod.ts";
 import type {
-  AgentRole,
   AgentTabSource,
   Envelope,
   EvidenceRef,
   Sender,
 } from "../agent-tab-source.ts";
 import styles from "./thread.module.css";
-
-const ROLE_LABEL: Record<AgentRole, MessageKey> = {
-  lophn: "conversation.label.sender-role-lophn",
-  project_manager: "conversation.label.sender-role-project-manager",
-  app_engineer: "conversation.label.sender-role-app-engineer",
-  operator: "conversation.label.sender-role-operator",
-};
 
 const EVIDENCE_LABEL: Record<EvidenceRef["kind"], MessageKey> = {
   file: "conversation.label.evidence-file",
@@ -33,18 +25,8 @@ const EVIDENCE_LABEL: Record<EvidenceRef["kind"], MessageKey> = {
 /** chip에 보이는 보낸 쪽 이름. event만으로 이름을 모르면 종류만 말한다. */
 function senderLabel(sender: Sender): string {
   switch (sender.kind) {
-    case "agent": {
-      const role = sender.role === null ? null : t(ROLE_LABEL[sender.role]);
-      if (role === null) {
-        return sender.name ?? t("conversation.label.sender-agent-other");
-      }
-      return sender.name === null || sender.name === role
-        ? role
-        : t("conversation.label.sender-agent-named", {
-            role,
-            name: sender.name,
-          });
-    }
+    case "agent":
+      return sender.name ?? t("conversation.label.sender-agent-other");
     case "coding":
       return sender.product === null
         ? t("conversation.label.sender-coding-unknown")

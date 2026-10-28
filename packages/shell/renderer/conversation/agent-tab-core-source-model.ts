@@ -9,7 +9,7 @@ import {
   type ModelChoice,
 } from "../../../protocol/lophn-agent/models.ts";
 import {
-  agentDefinitionRead,
+  agentRead,
   type AgentValueLayer,
 } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import { providerList } from "../../../protocol/lophn-agent/providers.ts";
@@ -21,7 +21,7 @@ import {
 } from "../workspace/agents/model-picker-data.ts";
 import type { ModelsView } from "../workspace/agents/source.ts";
 import type { PickerModelRef } from "./model-picker/types.ts";
-import type { AgentSession } from "../../../protocol/lophn-agent/agent-sessions.ts";
+import type { PlaceSession } from "../../../protocol/lophn-agent/agent-sessions.ts";
 import type { ModelView, SourceResult } from "./agent-tab-source.ts";
 import {
   type Env,
@@ -36,7 +36,7 @@ const MODEL_TTL_MS = 5000;
 
 interface Context {
   readonly models: ModelsView;
-  readonly record: AgentSession | null;
+  readonly record: PlaceSession | null;
   readonly current: ModelChoice | null;
   /** current가 온 층. current가 없으면 null이다. */
   readonly layer: AgentValueLayer | null;
@@ -108,7 +108,10 @@ export function createModelPart(env: Env): ModelPart {
   async function defaultFor(): Promise<SourceResult<Inherited>> {
     const known = defaultModel.get();
     if (known !== undefined) return { ok: true, value: known };
-    const read = await env.read(agentDefinitionRead, { agent: env.agent });
+    const read = await env.read(agentRead, {
+      agent: env.agent,
+      ...(env.place === null ? {} : { place: env.place }),
+    });
     if (!read.ok) return read;
     const effective = read.value.effective.model;
     const value: Inherited = {
@@ -122,7 +125,7 @@ export function createModelPart(env: Env): ModelPart {
   async function context(
     session: string | null,
   ): Promise<SourceResult<Context>> {
-    let record: AgentSession | null = null;
+    let record: PlaceSession | null = null;
     if (session !== null) {
       const read = await readSession(env, session);
       if (!read.ok) return read;
@@ -193,7 +196,7 @@ export function createModelPart(env: Env): ModelPart {
   /** 고른 model을 session에 저장한다. session이 아직 없으면 쥐고 있다가 session을 열 때 저장한다. */
   async function store(
     session: string | null,
-    record: AgentSession | null,
+    record: PlaceSession | null,
     choice: ModelChoice,
   ): Promise<SourceResult<ModelChoice>> {
     if (session === null || record === null) {

@@ -1,6 +1,9 @@
 // call 읽기와 취소, 그리고 대화에 놓이는 call 블록. 상태 구독은 없고 블록을 누를 때 읽는다. 블록은 이 session이 부른
 // `call` tool의 입력과 결과에서 그린다.
-import { callCancel, callRead } from "../../../protocol/lophn-agent/calls.ts";
+import {
+  agentCallRead,
+  callCancel,
+} from "../../../protocol/lophn-agent/calls.ts";
 import type {
   CallReply,
   CallStatus,
@@ -8,7 +11,7 @@ import type {
   SourceResult,
 } from "./agent-tab-source.ts";
 import { dropValue, type Env } from "./agent-tab-core-source-env.ts";
-import { readSession, roleLabel } from "./agent-tab-core-source-sessions.ts";
+import { agentNameOf, readSession } from "./agent-tab-core-source-sessions.ts";
 
 export async function readCallState(
   env: Env,
@@ -22,7 +25,7 @@ async function readCall(
   env: Env,
   call: string,
 ): Promise<SourceResult<{ status: CallStatus; session: string | null }>> {
-  const read = await env.read(callRead, { call });
+  const read = await env.read(agentCallRead, { call });
   if (!read.ok) return read;
   const { state, fail_reason, receiver_session } = read.value.call;
   return {
@@ -67,28 +70,25 @@ function callIdIn(output: unknown): string | null {
 
 const REPLIES: readonly string[] = ["none", "result", "conversation"];
 
-/** 받는 곳을 사람이 읽는 말로: "Operator · Eval analyst". */
+/** 받는 곳을 사람이 읽는 말로: "Eval analyst · Eval board". `call` 입력의 이름을 그대로 쓴다. */
 async function toLabel(env: Env, to: Json): Promise<string> {
-  if (typeof to["session"] === "string" && to["role"] === undefined) {
+  if (typeof to["session"] === "string") {
     const read = await readSession(env, to["session"]);
     if (!read.ok) return to["session"];
-    const role = roleLabel(read.value.agent.role);
-    return read.value.title === null ? role : `${role} · ${read.value.title}`;
+    const name = (await agentNameOf(env, read.value.agent)) ?? "";
+    return [name, read.value.title ?? ""]
+      .filter((part) => part !== "")
+      .join(" · ");
   }
-  const role =
-    typeof to["role"] === "string"
-      ? roleLabel(to["role"] as Parameters<typeof roleLabel>[0])
-      : "";
+  const agent = typeof to["agent"] === "string" ? to["agent"] : "";
   const place = asRecord(to["place"]);
   const where =
-    typeof to["name"] === "string"
-      ? to["name"]
-      : typeof place?.["project"] === "string"
-        ? place["project"]
-        : typeof place?.["app"] === "string"
-          ? place["app"]
-          : "";
-  return [role, where].filter((part) => part !== "").join(" · ");
+    typeof place?.["project"] === "string"
+      ? place["project"]
+      : typeof place?.["app"] === "string"
+        ? place["app"]
+        : "";
+  return [agent, where].filter((part) => part !== "").join(" · ");
 }
 
 /** `call` tool의 입력과 결과로 블록 하나를 만든다. 결과에 call id가 없으면(배달 전 실패) 블록이 없다. */

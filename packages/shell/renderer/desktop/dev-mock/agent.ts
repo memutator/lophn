@@ -33,12 +33,12 @@ export function mockAgentTabSource(
           if (!read.ok) return { ok: false, code: read.message };
           const grants = await agents.grants(project, agent.assignment);
           if (!grants.ok) return { ok: false, code: grants.message };
-          const { role, place, effective } = read.value;
+          const { place, effective } = read.value;
           const profile = effective.profile.value;
           return {
             ok: true,
             value: {
-              role,
+              agent: agent.assignment,
               name: effective.name.value,
               profile:
                 profile.kind === "character"
@@ -51,10 +51,14 @@ export function mockAgentTabSource(
                         profile.image,
                       ),
                     },
-              place: {
-                kind: place.kind === "app" ? "app" : "project",
-                name: place.name,
-              },
+              // home(global)은 자리 칸이 없다.
+              place:
+                agent.place.kind === "global"
+                  ? null
+                  : {
+                      kind: place.kind === "app" ? "app" : "project",
+                      name: place.name,
+                    },
               permissionSummary: t("conversation.label.permission-summary", {
                 count: grants.value.entries.length,
               }),

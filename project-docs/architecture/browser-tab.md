@@ -101,5 +101,4 @@ workspace pane에서 인터넷 page를 여는 탭 kind `browser`의 메커니즘
 - **다른 OS 창으로 탭을 옮기면 `<webview>` 탭은 다시 load되고 그 탭의 DevTools는 닫힌다.** `<webview>`는 그것을 띄운 page에 묶인다. 다시 load 없이 옮길 수 있는 것은 native 항목(popup, DevTools)뿐이고, 그 소유 창은 `registry.ts` 항목의 `window`다. Detach·Dock이 `moveViews`로 이 `window`를 바꾸므로 popup의 adopt·요청 검사는 옮긴 뒤의 창을 기준으로 한다(`workspace-layout.md`).
 - **bridge에 ack를 두었다.** push만 하고 `pane`으로 답하면 그 terminal의 Workspace가 마운트되지 않은 때(Settings·app space route, 닫힌 창) URL이 조용히 사라진다. OAuth 로그인 URL을 잃으면 사람이 다시 할 길이 없다.
 - **bridge는 `desktop/main.ts`가 아니라 `wiring/coding.ts`가 만든다.** terminal IPC가 만들어지는 곳이다.
-- **coding 탭은 `BROWSER`를 받지 않는다.** coding 탭은 app space 패널에 붙고 그 route에는 Workspace(pane)가 없어 browser 탭을 열 곳이 없다. 넣으려면 app space에서 project 창 Workspace로 가는 길을 먼저 정해야 한다.
 - **설정은 renderer가 밀어 넣지 않고 main이 요청마다 읽는다.** 낡은 값을 들 일이 없고, terminal link도 main을 거치므로 판정이 한 곳이다.

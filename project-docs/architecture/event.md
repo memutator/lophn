@@ -59,15 +59,14 @@ agent event와 화면
 - Gateway는 느린 구독자를 버퍼 한도에서 끊고 Bus는 던진 sink를 해제한다. 구독자 하나 때문에 publish가 막히면 command 경로가 막힌다.
 - core는 toast를 모르고 toast는 shell의 정책이다. 끊긴 사이 놓친 toast는 다시 띄우지 않는다. 앱 멈춤과 kind 위반의 toast는 renderer가 남지 않는 event를 듣고 띄운다. agent의 turn 끝·권한 물음·질문 알림은 renderer가 아니라 shell main이 같은 event를 듣고 터미널 agent와 같은 규칙으로 toast나 OS 알림을 정한다(`architecture/terminal-agent.md`).
 - 사람 화면에 가는 것은 앱 화면과 agent 결과(대화)뿐이다. call의 진행은 agent끼리의 일이라 화면의 대상이 아니다.
-- 꺼졌다 켜지면 돌던 turn은 interrupted로 닫고 그 turn의 turn 안 request와 질문은 cancelled다. activation 동의 대기는 apps의 표에 남는다(`architecture/activation.md`). coding agent는 신호를 받기 전까지 unknown이다.
+- 꺼졌다 켜지면 돌던 turn은 interrupted로 닫고 그 turn의 turn 안 request와 질문은 cancelled다. activation 동의 대기는 apps의 표에 남는다(`architecture/activation.md`).
 
 ## 왜 이 모양인가
 
 - 모든 변경을 event로 만들던 옛 구조는 type이 150개 가까이 되었고 화면 구독도 ledger를 읽었다. 반응이 필요한 10개 안팎을 domain event로 남겼다가, 그 일도 아는 command가 같은 tx에서 하게 되어 domain event와 Reactor를 모두 지웠다. 상태는 각 module의 표가 정본이다.
 - 일반 change notification(어느 대상이 바뀜)은 두지 않았다. 받을 화면이 없다. 열린 앱 화면을 다시 그리는 것과 workflow instance, job을 다시 읽는 것만 남지 않는 event로 둔다. workflow는 session 밖(CLI)에서도 바뀌고 job도 scheduler가 바꾸어 session event로 알 수 없다.
 - agent event를 저장하는 안은 버렸다. 조사한 harness(Claude Code, Codex, OpenCode, Hermes 등)와 paseo 모두 대화는 session 기록이 정본이고 event는 흘리는 신호다. seq와 replay는 비용만 든다. 대신 snapshot에 대기 중인 요청까지 담아, 늦게 붙은 화면도 답을 기다리는 요청을 본다.
-- agent event 집합은 여러 harness의 lifecycle을 나란히 놓고 공통분모로 골랐다. turn 시작 신호가 없는 곳(Claude Code)과 session 시작이 첫 turn인 곳(Hermes, OpenClaw)이 있어서, coding agent는 harness가 알려 준 것만 바꾸고 나머지는 process 종료로 알거나 unknown으로 둔다.
-- coding agent의 끝남은 turn 종료가 아니라 session(터미널 process)의 끝이다. turn이 끝난 것은 멈췄다는 뜻일 뿐이다. 일을 해냈는지는 program이 판정하지 않고 맡긴 App Engineer가 마지막 메시지와 앱 source를 보고 정한다.
+- agent event 집합은 여러 harness의 lifecycle을 나란히 놓고 공통분모로 골랐다. 그때 함께 쓰던 coding session 층은 지웠고(`architecture/coding-agent.md`) 지금은 lophn session만 낸다.
 - event에 반응하는 장치(Reactor)를 두지 않는다. 마지막 반응(맡긴 coding session의 끝, 이제 지운 층)도 command가 같은 tx에서 call을 닫게 되어, 반응할 event 없이 cursor, 멱등 key, backoff만 지는 장치가 남아 지웠다. 따로 반응하는 길은 같은 사실을 두 길이 알리게 하기도 했다. lophn 사용자에게 hook을 여는 안도 하지 않았다.
 - 앱이 자기 업무 사실을 lophn에 밀어 넣는 길(push)은 없다. Operator가 읽기 앱 tool로 읽는다.
 - 앱 오류가 나면 App Engineer를 자동으로 여는 흐름을 지웠다. problem 상태 machine과 보고 길이 계약에 비해 무거웠고, 진단은 agent가 앱 log를 직접 읽으면 된다. 사람에게는 toast가 남는다.

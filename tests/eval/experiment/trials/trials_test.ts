@@ -72,7 +72,7 @@ const run = (
   started_at: "",
   scenario: { kind: "scenario", name: "s", n: scenarioN },
   materials: [],
-  components: [ref("lophn", 1)],
+  components: [ref("home", 1)],
   core: { kind: "core", name: "core", n: 1 },
   grader: {
     criteria: [],
@@ -88,7 +88,7 @@ const run = (
 test("flakyScenarios: only same-version splits count, not version differences or other scenario n", () => {
   const want = [{ id: "s", n: 1 }];
   const flaky = (runs: RunRecord[]) => flakyScenarios(runs, want).has("s");
-  const b = [ref("lophn", 2)];
+  const b = [ref("home", 2)];
 
   // 한 run 안의 갈림
   assert.deepStrictEqual(
@@ -110,7 +110,7 @@ test("flakyScenarios: only same-version splits count, not version differences or
   );
   // 한 run 안에서 trial의 components가 달라 묶음이 갈림
   assert.deepStrictEqual(
-    flaky([run("a", [trial(0, true, [ref("lophn", 1)]), trial(1, false, b)])]),
+    flaky([run("a", [trial(0, true, [ref("home", 1)]), trial(1, false, b)])]),
     false,
   );
   // 시나리오 n이 다른 run은 세지 않는다

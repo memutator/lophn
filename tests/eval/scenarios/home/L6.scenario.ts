@@ -1,4 +1,4 @@
-// 출처: AGENT-ROLE L6 (제안) — 제품을 묻는 말은 사용 안내 skill(`guide-*`)로 답한다. 만들거나 넘기지 않는다.
+// 출처: AGENT-ROLE L6 (제안). 제품을 묻는 말은 사용 안내 skill(`guide-*`)로 답한다. 만들거나 넘기지 않는다.
 import {
   callCount,
   fixtureSession,
@@ -6,9 +6,10 @@ import {
   toolCount,
 } from "../../checks/mod.ts";
 import { say, type Scenario, untilIdle } from "../../types.ts";
-import { AE_가계부, LOPHN } from "./common.ts";
+import { LOPHN, LOPHN_가계부 } from "./common.ts";
 
-const REQUEST = "Operator는 뭐고 누가 만들어?";
+const REQUEST = "agent는 뭐고 누가 만들어?";
+const GUIDE = "guide-agents-and-assignments";
 const readGuide = (name: string) => ({
   tool: "skill.read",
   effect: "read" as const,
@@ -17,7 +18,7 @@ const readGuide = (name: string) => ({
 
 const scenario: Scenario = {
   id: "L6",
-  n: 4,
+  n: 5,
   proposal: true,
   world: [],
   real: [LOPHN],
@@ -25,18 +26,14 @@ const scenario: Scenario = {
   checks: [
     toolCount("read-guide", {
       tool: "skill.read",
-      input: { name: "guide-roles-and-assignments" },
+      input: { name: GUIDE },
       count: { min: 1 },
     }),
     callCount("no-call", { count: 0 }),
     toolCount("no-app-create", { tool: "app.create", count: 0 }),
   ],
   fixtures: {
-    right: [
-      fixtureTrial([
-        fixtureSession(LOPHN, [readGuide("guide-roles-and-assignments")]),
-      ]),
-    ],
+    right: [fixtureTrial([fixtureSession(LOPHN, [readGuide(GUIDE)])])],
     wrong: [
       {
         trial: fixtureTrial([fixtureSession(LOPHN, [])]),
@@ -51,8 +48,8 @@ const scenario: Scenario = {
       {
         trial: fixtureTrial([
           fixtureSession(LOPHN, [
-            readGuide("guide-roles-and-assignments"),
-            { call: { to: AE_가계부, reply: "result" } },
+            readGuide(GUIDE),
+            { call: { to: LOPHN_가계부, reply: "result" } },
           ]),
         ]),
         fails: ["no-call"],

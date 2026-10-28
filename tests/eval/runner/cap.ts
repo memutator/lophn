@@ -1,4 +1,4 @@
-// role agent 비용의 합이 상한을 넘으면 새 trial을 띄우지 않는다.
+// 참가자 agent 비용의 합이 상한을 넘으면 새 trial을 띄우지 않는다.
 export type Cap = {
   add(usd: number): void;
   exceeded(): boolean;

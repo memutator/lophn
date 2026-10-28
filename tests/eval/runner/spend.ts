@@ -3,13 +3,13 @@ import { sessionSnapshotsList } from "../../../packages/protocol/events/mod.ts";
 import { modelCallList } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type { Core } from "../../support/core/mod.ts";
 
-// trial 하나의 role agent 비용 상한. judge는 key 호출이 아니다.
+// trial 하나의 참가자 agent 비용 상한. judge는 key 호출이 아니다.
 export const TRIAL_CAP_USD = 50;
 
 const PRICED = ["reported", "estimated", "free"];
 
 // 요청 body를 읽는 collectSessions는 주기적으로 읽기에 무거워 model call 기록만 더한다. 규칙은 metricsOf의 cost_usd와 같다.
-export async function roleSpendUsd(core: Core): Promise<number> {
+export async function agentSpendUsd(core: Core): Promise<number> {
   const { snapshots } = await core.call(sessionSnapshotsList, {});
   let sum = 0;
   for (const item of snapshots) {
@@ -33,25 +33,25 @@ export async function roleSpendUsd(core: Core): Promise<number> {
   return sum;
 }
 
-// everyMs가 지나야 roleSpend를 다시 읽는다. 그 사이는 앞 값을 쓴다.
+// everyMs가 지나야 agentSpend를 다시 읽는다. 그 사이는 앞 값을 쓴다.
 export function createSpendGuard(deps: {
   limitUsd: number;
-  roleSpend: () => Promise<number>;
+  agentSpend: () => Promise<number>;
   clock: Clock;
   everyMs?: number;
 }): { over(): Promise<string | null> } {
   const everyMs = deps.everyMs ?? 30_000;
   let readAt: number | null = null;
-  let role = 0;
+  let spent = 0;
   return {
     async over() {
       const now = deps.clock.nowMs();
       if (readAt === null || now - readAt >= everyMs) {
-        role = await deps.roleSpend();
+        spent = await deps.agentSpend();
         readAt = now;
       }
-      return role > deps.limitUsd
-        ? `trial 비용 $${role.toFixed(4)} > 상한 $${deps.limitUsd}`
+      return spent > deps.limitUsd
+        ? `trial 비용 $${spent.toFixed(4)} > 상한 $${deps.limitUsd}`
         : null;
     },
   };

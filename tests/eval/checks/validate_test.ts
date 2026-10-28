@@ -6,11 +6,11 @@ import { fixtureSession, fixtureTrial } from "./fixtures.ts";
 import { validateFixtures } from "./validate.ts";
 
 const sent = fixtureTrial([
-  fixtureSession({ role: "lophn" }, [
-    { call: { to: { role: "lophn" }, reply: "none" } },
+  fixtureSession({ agent: "lophn" }, [
+    { call: { to: { agent: "lophn" }, reply: "none" } },
   ]),
 ]);
-const empty = fixtureTrial([fixtureSession({ role: "lophn" }, [])]);
+const empty = fixtureTrial([fixtureSession({ agent: "lophn" }, [])]);
 
 const scenario = (fx: Scenario["fixtures"]): Scenario => ({
   id: "x",

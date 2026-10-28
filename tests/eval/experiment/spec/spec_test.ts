@@ -13,7 +13,7 @@ const good = () => ({
   hypothesis: "fewer repeated asks",
   start_run: "run-1",
   model: "claude-sonnet-5-5",
-  change: { from: "instruction:lophn@3", to: "instruction:lophn@4" },
+  change: { from: "instruction:home@3", to: "instruction:home@4" },
   target: [{ scenario: "a" }],
   cases: [{ scenario: "b", checks: ["c1"] }],
   judgment: { rule: "default@1" },

@@ -20,7 +20,6 @@ import {
   writePending,
 } from "../judge/mod.ts";
 import { attachRealModels } from "../provider/mod.ts";
-import { agentRefOf } from "../restore/mod.ts";
 import {
   type CheckResult,
   type Criterion,
@@ -34,8 +33,8 @@ import {
 import { seenComponents } from "../versions/mod.ts";
 import { serial } from "./mutex.ts";
 import { extraRoots } from "./roots.ts";
-import { createSpendGuard, roleSpendUsd } from "./spend.ts";
-import { runSteps } from "./steps.ts";
+import { agentSpendUsd, createSpendGuard } from "./spend.ts";
+import { openRoots, runSteps } from "./steps.ts";
 import { type Held, prepareTrialWorld, releaseWorld } from "./world.ts";
 
 export type TrialDeps = {
@@ -50,7 +49,7 @@ export type TrialDeps = {
   judge: JudgeDefinition;
   log: (line: string) => void;
   registryDir: string;
-  trialBudgetUsd: number; // trial 하나의 role agent 비용 상한
+  trialBudgetUsd: number; // trial 하나의 참가자 agent 비용 상한
   variant: Variant; // core가 가리키는 checkout
   keep?: boolean; // 끝난 world를 지우지 않는다. 사람이 데스크톱 앱(LOPHN_DEV_HOME)으로 열어 본다
   repeatCriterion: Criterion; // 같은 호출을 되풀이했는지 보는 진단 criterion
@@ -73,22 +72,24 @@ export async function runTrial(
   try {
     const { run, core, ctx } = await prepareTrialWorld(deps, scenario, held);
 
+    // session을 t0 전에 열어도 turn이 없어 collect의 t0 거르기와 부딪치지 않는다.
+    const roots = new Map<string, string>();
+    await openRoots(core, ctx.world, scenario.real, roots);
     await attachRealModels(core, {
       key: deps.key,
       model: deps.model,
       options: deps.effort === undefined ? {} : { effort: deps.effort },
-      real: scenario.real.map((p) => agentRefOf(ctx.world, p)),
+      sessions: [...roots.values()],
     });
 
     const spend = createSpendGuard({
       limitUsd: deps.trialBudgetUsd,
-      roleSpend: () => roleSpendUsd(core),
+      agentSpend: () => agentSpendUsd(core),
       clock: deps.clock,
     });
 
     // 첫 step 직전이 t0다. collector가 이보다 먼저 시작한 turn(되살리기의 흔적)을 뺀다.
     const startedAt = deps.clock.now();
-    const roots = new Map<string, string>();
     const settle = await runSteps({
       core,
       restore: ctx,
@@ -101,7 +102,7 @@ export async function runTrial(
     });
     const finishedAt = deps.clock.now();
 
-    // step이 깨운 role agent도 기록에 든다. 후보 가운데 t0 뒤 turn이 없는 것은 버린다.
+    // step이 깨운 참가자 agent도 기록에 든다. 후보 가운데 t0 뒤 turn이 없는 것은 버린다.
     const rootIds = [...roots.values()];
     const extra = new Set(
       extraRoots(

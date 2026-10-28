@@ -9,7 +9,7 @@ const ref = (name: string, n: number, kind = "instruction"): VersionRef => ({
   name,
   n,
 });
-const change = { from: ref("lophn", 3), to: ref("lophn", 4) };
+const change = { from: ref("home", 3), to: ref("home", 4) };
 
 test("checkChange: spec의 from이 안 바뀌었으면 막고, to의 n이나 다른 변경은 알리기만 한다", () => {
   const wrong = checkChange(change, [
@@ -26,8 +26,8 @@ test("checkChange: spec의 from이 안 바뀌었으면 막고, to의 n이나 다
 
   const guess = checkChange(change, [
     {
-      from: ref("lophn", 3),
-      to: ref("lophn", 5),
+      from: ref("home", 3),
+      to: ref("home", 5),
     },
   ]);
   assert.ok(

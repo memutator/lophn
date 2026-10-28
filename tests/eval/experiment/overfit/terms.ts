@@ -1,3 +1,4 @@
+import { LOPHN_AGENT_NAME } from "../../../../packages/protocol/lophn-agent/mod.ts";
 import type { Participant, Scenario } from "../../types.ts";
 import { isAscii, normalize } from "./text.ts";
 
@@ -22,7 +23,12 @@ export function scenarioTerms(
   const texts: string[] = [];
   const addParticipant = (p: Participant) => {
     const place = p.place as { app?: string; project?: string } | undefined;
-    raw.push(place?.app, place?.project, p.name);
+    // lophn은 모든 지침에 나와 이름으로 세면 늘 경고가 된다.
+    raw.push(
+      place?.app,
+      place?.project,
+      p.agent === LOPHN_AGENT_NAME ? undefined : p.agent,
+    );
   };
   for (const step of scenario.steps) {
     if (step.kind === "say") {

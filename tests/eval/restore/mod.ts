@@ -1,8 +1,13 @@
 // trial마다 새 data root에 재료를 제품 route로 되살린다.
 import { ok, type Result } from "../../../packages/base/mod.ts";
-import type { AgentRef } from "../../../packages/protocol/lophn-agent/mod.ts";
+import {
+  type AgentAtPlace,
+  LOPHN_AGENT_ID,
+  LOPHN_AGENT_NAME,
+} from "../../../packages/protocol/lophn-agent/mod.ts";
 import type { Core } from "../../support/core/mod.ts";
 import type { Participant, RestoreContext, WorldIds } from "../types.ts";
+import { restoreAgents } from "./agents.ts";
 import { restoreApps } from "./apps.ts";
 import { restoreKinds } from "./kinds.ts";
 import {
@@ -11,11 +16,10 @@ import {
   orderMaterials,
   verifyMaterial,
 } from "./manifest.ts";
-import { restoreOperators } from "./operators.ts";
 import { restoreProjects } from "./projects.ts";
 
 export function restoreContext(core: Core): RestoreContext {
-  return { core, world: { apps: {}, projects: {}, operators: {} } };
+  return { core, world: { apps: {}, projects: {}, agents: {} } };
 }
 
 async function restoreOne(
@@ -31,8 +35,8 @@ async function restoreOne(
       return ok(undefined);
     case "kinds":
       return await restoreKinds(ctx, material);
-    case "operator":
-      await restoreOperators(ctx, material);
+    case "agent":
+      await restoreAgents(ctx, material);
       return ok(undefined);
   }
 }
@@ -56,29 +60,28 @@ export async function restoreWorld(
   return ok(undefined);
 }
 
-// `Participant`를 이름으로 풀어 `AgentRef`로 만든다. 못 풀면 던진다.
-export function agentRefOf(
+// `Participant`를 이름으로 풀어 agent id와 place로 만든다. 못 풀면 던진다.
+export function agentAtPlaceOf(
   world: WorldIds,
   participant: Participant,
-): AgentRef {
-  const { role, place, name } = participant;
-  const found = <T>(id: T | undefined, key: string | undefined): T => {
-    if (id === undefined) throw new Error(`cannot resolve ${role} ${key}`);
+): AgentAtPlace {
+  const { agent, place } = participant;
+  const found = <T>(id: T | undefined, key: string): T => {
+    if (id === undefined) throw new Error(`cannot resolve ${key}`);
     return id;
   };
-  switch (role) {
-    case "lophn":
-      return { role };
-    case "project_manager": {
-      const project =
-        place !== undefined && "project" in place ? place.project : undefined;
-      return { role, project: found(world.projects[project ?? ""], project) };
-    }
-    case "app_engineer": {
-      const app = place !== undefined && "app" in place ? place.app : undefined;
-      return { role, app: found(world.apps[app ?? ""], app) };
-    }
-    case "operator":
-      return { role, agent: found(world.operators[name ?? ""], name) };
+  const id =
+    agent === LOPHN_AGENT_NAME
+      ? LOPHN_AGENT_ID
+      : found(world.agents[agent], `agent ${agent}`);
+  if (place === undefined) return { agent: id, place: null };
+  if ("app" in place) {
+    const app = found(world.apps[place.app], `app ${place.app}`);
+    return { agent: id, place: { kind: "app", id: app } };
   }
+  const project = found(
+    world.projects[place.project],
+    `project ${place.project}`,
+  );
+  return { agent: id, place: { kind: "project", id: project } };
 }

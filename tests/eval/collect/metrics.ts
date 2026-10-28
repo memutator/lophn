@@ -125,10 +125,10 @@ export function metricsOf(session: SessionRecord): Metrics {
   }
 
   m.agent_calls = session.sent_calls.map((s) => {
-    const to = s.to as { role?: unknown } | null;
+    const to = s.to as { agent?: unknown } | null;
     return {
-      receiver_role:
-        s.receiver?.role ?? (typeof to?.role === "string" ? to.role : null),
+      receiver_agent:
+        s.receiver_name ?? (typeof to?.agent === "string" ? to.agent : null),
       reply: s.reply,
       state: s.state,
       failed: s.outcome?.kind !== "success" || s.state === "failed",

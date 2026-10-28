@@ -11,7 +11,7 @@ export type Waiting = {
 
 export type Snapshot = {
   running: string[]; // state가 running인 session
-  waiting: Waiting[]; // ask 질문이나 turn request를 기다리며 멈춘 role agent session
+  waiting: Waiting[]; // ask 질문이나 turn request를 기다리며 멈춘 참가자 agent session
   unstarted: { session: string; message: string }[]; // turn이 아직 가져가지 않은 입력
 };
 

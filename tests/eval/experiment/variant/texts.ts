@@ -12,13 +12,13 @@ const ELECTRON = createRequire(import.meta.url)("electron") as string;
 // node_modules를 타서 어느 checkout 것인지 흐려진다. 그 checkout의 cwd에서 따로 돌려 JSON 한 줄로 받는다.
 const SCRIPT = `
 const { placePrompt } = await import("./packages/core/agent-places/prompts/prompts.ts");
-const role_prompts = {};
+const place_prompts = {};
 for (const kind of ${JSON.stringify(PLACE_KINDS)}) {
   const text = await placePrompt(kind);
   if (!text.ok) throw new Error("place kind prompt missing: " + kind);
-  role_prompts[kind] = text.value;
+  place_prompts[kind] = text.value;
 }
-console.log(JSON.stringify({ role_prompts }));
+console.log(JSON.stringify({ place_prompts }));
 `;
 
 export async function variantTexts(

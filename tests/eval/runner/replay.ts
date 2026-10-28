@@ -1,10 +1,9 @@
 import type { ReplayPort } from "../experiment/assembly/mod.ts";
 import { resolveVariant, type Variant } from "../experiment/variant/mod.ts";
 import { attachRealModels } from "../provider/mod.ts";
-import { agentRefOf } from "../restore/mod.ts";
 import { systemClock } from "../../../packages/base/mod.ts";
 import { REPO_ROOT } from "./paths.ts";
-import { runSteps } from "./steps.ts";
+import { openRoots, runSteps } from "./steps.ts";
 import { type Held, prepareTrialWorld, releaseWorld } from "./world.ts";
 
 // trial과 같은 길로 시나리오를 돌리되 real 참가자의 model만 endpoint(fake provider)로 보낸다. judge와 check는 돌리지 않는다.
@@ -32,17 +31,19 @@ export function createReplayPort(
           scenario,
           held,
         );
+        const roots = new Map<string, string>();
+        await openRoots(core, ctx.world, scenario.real, roots);
         await attachRealModels(core, {
           key: "replay",
           model,
-          real: scenario.real.map((p) => agentRefOf(ctx.world, p)),
+          sessions: [...roots.values()],
           endpoint,
         });
         const settle = await runSteps({
           core,
           restore: ctx,
           scenario,
-          roots: new Map(),
+          roots,
           clock: systemClock,
           sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
           log,

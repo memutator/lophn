@@ -3,8 +3,8 @@ import { test } from "node:test";
 import type { Outcome, OutcomeState, Role } from "../spec/mod.ts";
 import { decide, type VerdictEntry, type VerdictInput } from "./mod.ts";
 
-const from = { kind: "instruction", name: "lophn", n: 3 } as const;
-const to = { kind: "instruction", name: "lophn", n: 4 } as const;
+const from = { kind: "instruction", name: "home", n: 3 } as const;
+const to = { kind: "instruction", name: "home", n: 4 } as const;
 
 // "p"=통과 "f"=떨어짐 "?"=judge 채점 대기(떨어진 것은 없다) "F"=program check가 떨어졌고 judge는 아직 대기
 function outs(s: string): Outcome[] {

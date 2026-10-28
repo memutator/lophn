@@ -143,7 +143,7 @@ test("연 skill만 본문 버전을 갖고 수정은 그 component의 n만 올�
     );
 
     const bad = await seenComponents(
-      [{ model_calls: [modelCall("not a role prompt")], tool_calls: [] }],
+      [{ model_calls: [modelCall("not a place prompt")], tool_calls: [] }],
       { root, registryDir },
     );
     assert.deepStrictEqual(bad.ok ? null : bad.error.code, "invalid_input");
@@ -210,7 +210,7 @@ test("texts를 주면 seenComponents가 variant의 place 종류 prompt body를 �
     await write(root, TOOL_SETTINGS, 'defineTool({ name: "settings.get" });');
     const variantLophn = `${lophn.value}\nvariant edit`;
     const texts = {
-      role_prompts: {
+      place_prompts: {
         home: variantLophn,
         project: "pm",
         app: "ae",

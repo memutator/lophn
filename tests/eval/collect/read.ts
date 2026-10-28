@@ -2,13 +2,15 @@ import { appList } from "../../../packages/protocol/apps/mod.ts";
 import type { Route } from "../../../packages/protocol/base/mod.ts";
 import { projectList } from "../../../packages/protocol/projects/mod.ts";
 import {
-  type AgentRef,
-  agentSessionRead,
+  type AgentId,
+  agentCallRead,
+  agentList,
   type CallFailReason,
-  callRead,
   type CallReply,
   type CallState,
   modelCallList,
+  type Place,
+  placeSessionRead,
   toolCallList,
   turnBodyView,
   turnList,
@@ -56,7 +58,11 @@ async function readAll<T>(
   return all;
 }
 
-type Names = { app: Map<string, string>; project: Map<string, string> };
+type Names = {
+  app: Map<string, string>;
+  project: Map<string, string>;
+  agent: Map<string, string>;
+};
 
 async function readNames(port: ReadPort): Promise<Names> {
   const apps = await readAll(async (cursor) => {
@@ -67,25 +73,22 @@ async function readNames(port: ReadPort): Promise<Names> {
     const out = (await read(port, projectList, { cursor }))!;
     return { items: out.projects, next_cursor: out.next_cursor };
   });
+  const { agents } = (await read(port, agentList, {}))!;
   return {
     app: new Map(apps.map((a) => [a.id, a.name])),
     project: new Map(projects.map((p) => [p.id, p.name])),
+    agent: new Map(agents.map((a) => [a.agent, a.name])),
   };
 }
 
-function placeOf(agent: AgentRef, names: Names): PlaceName | null {
-  if (agent.role === "app_engineer") {
-    const name = names.app.get(agent.app);
-    return name === undefined ? null : { kind: "app", id: agent.app, name };
-  }
-  if (agent.role === "project_manager") {
-    const name = names.project.get(agent.project);
-    return name === undefined
-      ? null
-      : { kind: "project", id: agent.project, name };
-  }
-  return null;
+function placeOf(place: Place | null, names: Names): PlaceName | null {
+  if (place === null) return null;
+  const name = (place.kind === "app" ? names.app : names.project).get(place.id);
+  return name === undefined ? null : { kind: place.kind, id: place.id, name };
 }
+
+const nameOf = (agent: AgentId, names: Names): string =>
+  names.agent.get(agent) ?? agent;
 
 type CallContent = {
   call?: string;
@@ -100,9 +103,14 @@ async function readSession(
   names: Names,
   readBlob: BlobReader | undefined,
 ): Promise<SessionRecord | null> {
-  const found = await read(port, agentSessionRead, { session }, true);
+  const found = await read(
+    port,
+    placeSessionRead,
+    { session: session as never },
+    true,
+  );
   if (found === null) return null;
-  const agent = found.session.agent;
+  const { agent, place } = found.session;
 
   // t0보다 먼저 시작한 turn은 되살리기의 흔적이라 그 turn의 call과 함께 뺀다.
   const turns = (
@@ -181,7 +189,8 @@ async function readSession(
   return {
     session,
     agent,
-    place: placeOf(agent, names),
+    agent_name: nameOf(agent, names),
+    place: placeOf(place, names),
     turns,
     model_calls,
     tool_calls,
@@ -214,28 +223,37 @@ async function sentCall(
     fail_reason: content.fail_reason ?? null,
     record: null,
     receiver: null,
+    receiver_name: null,
     receiver_session: null,
     receiver_place: null,
   };
   if (sent.call === null) return sent;
-  const out = await read(port, callRead, { call: sent.call as never }, true);
+  const out = await read(
+    port,
+    agentCallRead,
+    { call: sent.call as never },
+    true,
+  );
   if (out === null) return sent;
   const record = out.call;
   sent.record = record;
   sent.receiver_session = record.receiver_session;
+  let to: { agent: AgentId; place: Place | null } | null = null;
   if (record.to.kind === "open_session") {
     const opened = await read(
       port,
-      agentSessionRead,
+      placeSessionRead,
       { session: record.to.session },
       true,
     );
-    sent.receiver = opened?.session.agent ?? null;
-  } else if (record.to.agent.role !== "coding_agent") {
-    sent.receiver = record.to.agent;
+    to = opened?.session ?? null;
+  } else {
+    to = record.to.agent;
   }
-  if (sent.receiver !== null) {
-    sent.receiver_place = placeOf(sent.receiver, names);
+  if (to !== null) {
+    sent.receiver = to.agent;
+    sent.receiver_name = nameOf(to.agent, names);
+    sent.receiver_place = placeOf(to.place, names);
   }
   return sent;
 }

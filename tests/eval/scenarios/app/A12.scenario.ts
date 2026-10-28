@@ -1,4 +1,4 @@
-// 출처: AGENT-ROLE A12 (제안). 앱 밖의 재사용 판단은 lophn에게 답을 받지 않는 call로 맡긴다.
+// 출처: AGENT-ROLE A12 (제안), app 지침 "앱 밖의 재사용은 home의 lophn에게 답을 받지 않는 call로".
 import {
   callCount,
   fixtureSession,
@@ -8,35 +8,35 @@ import {
 } from "../../checks/mod.ts";
 import { relayCompleteInput } from "../../judge/mod.ts";
 import { say, type Scenario, untilIdle } from "../../types.ts";
-import { AE_가계부, AE_할일, LOPHN } from "./common.ts";
+import { LOPHN, LOPHN_가계부, LOPHN_할일 } from "./common.ts";
 
 const REQUEST =
   "이 합계 기능을 다른 앱에서도 쓰게 공통 package로 빼는 게 좋을까?";
-const TO_LOPHN = { target: LOPHN, reply: "none" } as const;
+const TO_HOME = { target: LOPHN, reply: "none" } as const;
 
 const scenario: Scenario = {
   id: "A12",
-  n: 3,
+  n: 4,
   proposal: true,
   world: ["apps-home@1"],
-  real: [AE_가계부],
-  steps: [say(AE_가계부, REQUEST), untilIdle()],
+  real: [LOPHN_가계부],
+  steps: [say(LOPHN_가계부, REQUEST), untilIdle()],
   checks: [
-    callCount("call-to-lophn", { count: { min: 1 }, where: TO_LOPHN }),
+    callCount("call-to-home", { count: { min: 1 }, where: TO_HOME }),
     toolCount("no-package-publish", { tool: "package.publish", count: 0 }),
     {
       kind: "judge",
       id: "relays-request",
-      premise: ["call-to-lophn"],
+      premise: ["call-to-home"],
       criterion: "relay-complete@1",
       input: ({ trial }) =>
-        relayCompleteInput(REQUEST, sentCalls(trial, TO_LOPHN)[0]?.body ?? ""),
+        relayCompleteInput(REQUEST, sentCalls(trial, TO_HOME)[0]?.body ?? ""),
     },
   ],
   fixtures: {
     right: [
       fixtureTrial([
-        fixtureSession(AE_가계부, [
+        fixtureSession(LOPHN_가계부, [
           {
             call: {
               to: LOPHN,
@@ -50,19 +50,19 @@ const scenario: Scenario = {
     wrong: [
       {
         trial: fixtureTrial([
-          fixtureSession(AE_가계부, [
+          fixtureSession(LOPHN_가계부, [
             { tool: "package.publish", effect: "write" },
           ]),
         ]),
-        fails: ["call-to-lophn", "no-package-publish"],
+        fails: ["call-to-home", "no-package-publish"],
       },
       {
         trial: fixtureTrial([
-          fixtureSession(AE_가계부, [
-            { call: { to: AE_할일, reply: "result" } },
+          fixtureSession(LOPHN_가계부, [
+            { call: { to: LOPHN_할일, reply: "result" } },
           ]),
         ]),
-        fails: ["call-to-lophn"],
+        fails: ["call-to-home"],
       },
     ],
   },

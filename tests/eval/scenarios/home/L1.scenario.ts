@@ -1,4 +1,5 @@
-// 출처: AGENT-ROLE L1 (제안) — 요구가 모호하면 만들거나 넘기기 전에 사람에게 빠진 결정을 묻는다.
+// 출처: AGENT-ROLE L1 (제안), home 지침 "사람이 원하는 것을 정하지 못했으면 의도가 분명해질 때까지 묻는다".
+// 요구가 모호하면 만들거나 넘기기 전에 사람에게 빠진 결정을 묻는다.
 import {
   callCount,
   fixtureAppCreate,
@@ -14,7 +15,7 @@ const REQUEST = "가계부 비슷한 걸 만들고 싶은데 아직 잘 모르�
 
 const scenario: Scenario = {
   id: "L1",
-  n: 4,
+  n: 5,
   proposal: true,
   world: [],
   real: [LOPHN],

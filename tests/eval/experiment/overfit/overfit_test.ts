@@ -10,19 +10,19 @@ import { findOverfit } from "./mod.ts";
 const scenario = {
   id: "L4-app",
   n: 1,
-  real: [{ role: "operator", place: { app: "가계부" }, name: "Mina" }],
+  real: [{ agent: "Mina", place: { app: "가계부" } }],
   steps: [
     {
       kind: "say",
-      to: { role: "project_agent", place: { project: "tax" } },
+      to: { agent: "lophn", place: { project: "tax" } },
       text: "영수증을 보여 줘",
     },
   ],
 } as unknown as Scenario;
 
 const change = {
-  from: { kind: "instruction", name: "lophn", n: 3 },
-  to: { kind: "instruction", name: "lophn", n: 4 },
+  from: { kind: "instruction", name: "home", n: 3 },
+  to: { kind: "instruction", name: "home", n: 4 },
 } as const;
 const run = (before: string, after: string) =>
   findOverfit({ change, before: { "": before }, after: { "": after } }, [

@@ -15,7 +15,8 @@ npm run eval -- --scenario <id> | --all [--model m] [--effort e] [--trials N] [-
       runner/trial.ts
         createRun · bootCore(evalCoreSettings())      tests/support/core, provider/
         restoreWorld(world)                          restore/
-        attachRealModels(real 가운데 role agent)      provider/attach.ts
+        openRoots(real 참가자마다 place session)      runner/steps.ts
+        attachRealModels(그 session에 session model)  provider/attach.ts
         t0 ─────────────────────────────────────────────
         runSteps: say · untilIdle                    runner/steps.ts, runner/idle.ts
           쉬는 동안 비용 상한(runner/spend.ts)
@@ -45,11 +46,11 @@ npm run eval:scorecard -- diff A B  → 두 run의 버전·결과 차이(stdout)
 
 | 자리 | 하는 일 |
 |---|---|
-| `tests/eval/types.ts` | 계약. 버전, 참가자(role agent)와 단계(`say`, `untilIdle`), check, 시나리오(`world`, `real`, `steps`, `checks`, `fixtures`), 수집 기록, 수치, trial·run 기록, 재료, scorecard 행의 type과 constructor |
+| `tests/eval/types.ts` | 계약. 버전, 참가자(agent 이름과 place, call의 `to`와 같은 꼴)와 단계(`say`, `untilIdle`), check, 시나리오(`world`, `real`, `steps`, `checks`, `fixtures`), 수집 기록, 수치, trial·run 기록, 재료, scorecard 행의 type과 constructor |
 | `tests/eval/versions/` | hash 규칙(`hash.ts`), registry 읽기·쓰기(`registry.ts`), file을 component로 가르기(`files.ts`의 `classifyPath`, `TOOL_FILES`), 지금 checkout의 버전과 본 component(`components.ts`), 작성자가 n을 정하는 것의 hash(`authored.ts`), git 출처(`source.ts`) |
 | `tests/eval/registry/` | `<kind>/<name>.json`. n → hash, 글 component·criterion·judge는 내용도. commit한다 |
 | `tests/eval/materials/<이름>/<n>/` | `material.json`(kind, 고정 id, needs, content_hash)과 `files/`. commit한다 |
-| `tests/eval/restore/` | 재료 읽기와 hash 확인(`manifest.ts`), 종류별 되살리기(`apps.ts`, `projects.ts`, `kinds.ts`, `operators.ts`). 재료는 제품 route로만 되살리고 model을 쓰지 않는다 |
+| `tests/eval/restore/` | 재료 읽기와 hash 확인(`manifest.ts`), 종류별 되살리기(`apps.ts`, `projects.ts`, `kinds.ts`, `agents.ts`). 재료는 제품 route로만 되살리고 model을 쓰지 않는다. agent 정의는 전역이라 place 없이 되살린다 |
 | `tests/eval/provider/` | `.env` key 읽기, core 설정(`EVAL_MODEL_ATTEMPTS`), `real` 참가자에게만 agent 층 model 붙이기 |
 | `tests/eval/collect/` | 제품 읽기 route로 session·turn·model call·tool call·call 읽기, 요청 body blob 읽기(`blob.ts`), 공통 수치(`metrics.ts`), 전체 기록 쓰기 |
 | `tests/eval/checks/` | program check builder(`calls.ts`, `tools.ts`), 기록 helper(`records.ts`), fixture builder(`fixtures.ts`), fixture 확인(`validate.ts`), check 실행(`run.ts`) |
@@ -57,14 +58,14 @@ npm run eval:scorecard -- diff A B  → 두 run의 버전·결과 차이(stdout)
 | `tests/eval/experiment/` | experiment 조각. spec·result 꼴과 읽기·검사·잠금(`spec/`), run 고르기(`select/`), trial 정책(`trials/`), 판정 `default@1`(`verdict/`), 다른 checkout(`variant/`), gate(`gate/`), 동시 수와 예산의 pool(`parallel/`), 시나리오 고유 단어 경고(`overfit/`), prefix 재기(`assembly/`), 되풀이 진단(`repeat/`), CLI 입구(`mod.ts`) |
 | `tests/eval/experiments/<id>/` | `spec.json`(사람이 쓰고 commit), `result.json`(program의 판정), `run.md`(runner), `report.md`(experimenter). commit한다 |
 | `tests/eval/runner/` | CLI(`cli.ts`, `experiment.ts`), 시나리오 찾기, 쉼 판정(`idle.ts`), 단계(`steps.ts`), trial 하나(`trial.ts`)와 그 world(`world.ts`), 시나리오 하나의 trial들(`scenario.ts`), run 비용 상한(`cap.ts`), trial 비용 상한(`spend.ts`), registry 쓰기 줄 세우기(`mutex.ts`), spec 잠금 사실(`lock.ts`), replay port(`replay.ts`) |
-| `tests/eval/scenarios/<group>/` | 판단 case 11개. `lophn/`(5), `project-manager/`(2), `app-engineer/`(2), `operator/`(2). 사람은 개발자가 아니라서 tool 이름과 입출력을 말하지 않는다. 같은 폴더의 `common.ts`는 시나리오가 아니다. 참가자는 role 넷 모두다 |
+| `tests/eval/scenarios/<place 종류>/` | 판단 case 8개. 폴더는 말 상대(진짜 model을 받는 참가자)의 place 종류다: `home/`(4), `project/`(2), `app/`(2). 사람은 개발자가 아니라서 tool 이름과 입출력을 말하지 않는다. 같은 폴더의 `common.ts`는 시나리오가 아니다. 참가자는 lophn의 세 place와 사람이 만든 agent 하나(`agents-home@1`의 `세무정리`)다 |
 | `tests/eval/scorecard/` | run 요약 읽기, 시나리오마다 run 고르기와 낡음(`pick.ts`), markdown(`markdown.ts`), run diff(`diff.ts`) |
 | `tests/eval/runs/`, `tests/eval/scorecards/` | run 요약과 날짜가 붙은 scorecard. commit한다 |
 | `.dev-data/eval/<run>/` | trial마다 전체 기록(대답 글, 요청 body, diff), core.log, 되풀이 진단(`trial-N.repeat.json`), 채점 대기(`judge/<key>.json`). git 밖 |
 
 ## 지키는 것
 
-- **진짜 model은 `real` 참가자만 받는다.** 되살리기는 제품 route만 부르므로 model이 필요 없고, core의 전역 기본 model은 처음부터 `null`이다. `attachRealModels`는 기본이 비어 있지 않으면 던지고, `real`에는 agent 층 model만 붙인다. 나머지의 turn은 `failed / configuration_unavailable`로 곧바로 끝나고 provider를 부르지 않는다. 그래서 call을 받아도 그쪽 비용은 0이다. 이 끝남은 정상이고, 쉼 판정과 수치에서 오류로 다루지 않는다.
+- **진짜 model은 `real` 참가자만 받는다.** 되살리기는 제품 route만 부르므로 model이 필요 없고, core의 전역 기본 model은 처음부터 `null`이다. `attachRealModels`는 기본이 비어 있지 않으면 던지고, t0 전에 연 `real` 참가자의 session에만 session model을 붙인다. 정의에 붙이지 않는 이유는 정의가 전역이라 같은 lophn의 다른 place session(call로 열린 받는 쪽)도 model을 받기 때문이다. session model은 call로 연 session에 이어지지 않는다(fork만 잇는다). 나머지의 turn은 `failed / configuration_unavailable`로 곧바로 끝나고 provider를 부르지 않는다. 그래서 call을 받아도 그쪽 비용은 0이다. 이 끝남은 정상이고, 쉼 판정과 수치에서 오류로 다루지 않는다.
 - **key는 변수로만 든다.** `readAnthropicKey`가 env에서 읽고 `secrets/put`으로 core에 넣는다. 로그, 오류 message, run 기록에 넣지 않는다. core process는 env를 비운 채 뜬다(`tests/support/core`).
 - **되살리기의 흔적은 기록에 섞이지 않는다.** runner가 첫 단계 직전 시각을 t0(`TrialRecord.started_at`)으로 남긴다. collect는 runner가 연 session에서 시작해 call의 받는 session을 따라가고, t0 전에 시작한 turn과 그 model·tool call을 버린다.
 - **요청 body는 eval의 data root에서만 읽는다.** body를 내놓는 product route가 없다(`blobs/read`가 `model_call/input`을 막는다). `collect/blob.ts`가 `<run.home>/blobs/sha256/..`을 `objectPathFor`로 찾아 읽고, hash가 다르면 `null`이다. 제품에 route를 더하지 않는다.
@@ -73,9 +74,9 @@ npm run eval:scorecard -- diff A B  → 두 run의 버전·결과 차이(stdout)
 - **버전은 hash로 고정한다.** 재료, 시나리오, criterion, judge의 n은 쓴 사람이 정하고, registry는 같은 n의 내용이 바뀌면 거절하고("n을 올려라") 지금 가장 큰 n 이하의 새 n도 거절한다. 빈 n을 건너뛴 새 n은 받는다(file의 n이 registry보다 앞서는 일이 흔하다). component·core·`checks`의 n은 registry가 hash마다 붙인다. 같은 내용은 같은 n이고 옛 내용으로 돌아가면 옛 n이다. `tool:X`는 X를 정의하는 source file(`TOOL_FILES`) 전체로 재므로, 한 file의 tool은 같이 오른다. 재료·registry·runs data는 `biome.json`의 `files.includes`에서 뺀다. 쓰는 쪽이 `JSON.stringify(v, null, 2) + "\n"`로 쓰고 쓴 byte로 hash를 재기 때문이다.
 - **run은 진짜 model이 본 것만 남긴다.** `components`는 요청 body에 실린 instruction·tool·skill 설명과, turn 중에 `skill.read`로 연 것이다. scorecard는 run이 본 component·재료·시나리오·grader의 n을 지금 checkout과 대어 낡음을 적는다. run이 보지 않은 component가 바뀐 것은 낡음이 아니다.
 - **채점 순서.** program check가 먼저다. judge check는 `premise`의 program check가 모두 통과하고 trial이 `idle`로 끝났을 때만 item이 된다. item은 채점 대기 file로 남고(`CheckResult.pending`, scorecard의 "채점 대기"), eval을 돌리는 agent가 `eval:judge`로 verdict와 인용을 넣으면 `foldJudge`가 check에 접는다. verdict는 criterion의 enum이고, 인용이 judge 입력 안에 글자 그대로 있어야 한다. 그 밖의 답은 `error`로 남고 `error`만 다시 채점할 수 있다. 정상으로 채점된 item은 덮지 않는다. 늘 `cannot_tell`을 허용하고, 점수 없이 verdict만 남긴다. 채점한 model은 item마다 `JudgeItem.model`에 남는다.
-- **비용 상한.** runner는 끝난 trial의 `cost_usd`(role agent model call의 USD cost)를 더해 `--budget`(`eval` 기본 $50, experiment는 spec의 `budget_usd`, `--budget`으로 덮는다) 이상이면 새 trial을 띄우지 않는다. judge는 eval을 돌리는 agent가 하므로 이 합에 없다. 값을 모르는 call(`unpriced_calls`)이 있으면 한 번 경고한다. 판단 case는 core 설정 `lophn-agent.run.model_attempts`를 15로 낮춰 돈다.
+- **비용 상한.** runner는 끝난 trial의 `cost_usd`(참가자 agent model call의 USD cost)를 더해 `--budget`(`eval` 기본 $50, experiment는 spec의 `budget_usd`, `--budget`으로 덮는다) 이상이면 새 trial을 띄우지 않는다. judge는 eval을 돌리는 agent가 하므로 이 합에 없다. 값을 모르는 call(`unpriced_calls`)이 있으면 한 번 경고한다. 판단 case는 core 설정 `lophn-agent.run.model_attempts`를 15로 낮춰 돈다.
 - **`tests/eval`의 `*_test.ts`는 `npm run check`에서 돈다.** 그래서 모두 순수하다. core를 띄우지 않고, process·network·진짜 provider를 쓰지 않는다. runner와 시나리오 file은 test file이 아니다.
-- **trial 상한.** role agent의 비용이 trial마다 `--trial-budget`(기본 $50)을 넘으면 그 trial을 timeout으로 끝낸다. 쉬기는 단계마다 기본 300초까지 기다리고, turn이 되지 않은 입력도 300초가 지나면 timeout이다.
+- **trial 상한.** 참가자 agent의 비용이 trial마다 `--trial-budget`(기본 $50)을 넘으면 그 trial을 timeout으로 끝낸다. 쉬기는 단계마다 기본 300초까지 기다리고, turn이 되지 않은 입력도 300초가 지나면 timeout이다.
 - **check는 순서대로.** `runProgramChecks`는 배열 순서대로 하나씩 돈다. check는 trial 기록만 읽고 core나 world를 바꾸지 않는다.
 - **요약과 전체 기록.** 요약(`tests/eval/runs/<RunRecord.id>.json`)은 버전, check verdict, judge item(입력, verdict, 인용), 공통 수치다. 대답 글, 요청 body, working tree diff는 `.dev-data/eval/<RunRecord.id>/`에만 둔다. `.dev-data`는 schema가 바뀌면 지우므로, 기준 run을 다시 쓰려면 요약이 그보다 오래 남아야 한다.
   - `--keep`이면 trial이 끝나도 world(임시 data root)를 지우지 않고 core만 끈다. `LOPHN_DEV_HOME=<그 home> npm run dev`가 그 root를 데스크톱 앱으로 연다(fake provider를 심지 않는다). 다 본 뒤 그 폴더는 사람이 지운다.

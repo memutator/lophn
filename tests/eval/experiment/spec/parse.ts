@@ -37,7 +37,7 @@ function ref(label: string, value: string, problems: string[]) {
   }
 }
 
-// 파일의 ref는 글(`instruction:lophn@3`)이고 읽으면 VersionRef다.
+// 파일의 ref는 글(`instruction:home@3`)이고 읽으면 VersionRef다.
 export function parseSpec(
   value: unknown,
   folderId?: string,

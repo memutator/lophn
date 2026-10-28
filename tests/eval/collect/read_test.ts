@@ -5,9 +5,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  agentSessionRead,
-  callRead,
+  agentCallRead,
+  agentList,
   modelCallList,
+  placeSessionRead,
   toolCallList,
   turnBodyView,
   turnList,
@@ -27,10 +28,11 @@ const ok = (value: unknown) => ({
 });
 
 const sessions: Record<string, unknown> = {
-  ses_root: { id: "ses_root", agent: { role: "lophn" } },
-  ses_pm: {
-    id: "ses_pm",
-    agent: { role: "project_manager", project: "prj_tax" },
+  ses_root: { id: "ses_root", agent: "lophn", place: null },
+  ses_tax: {
+    id: "ses_tax",
+    agent: "lophn",
+    place: { kind: "project", id: "prj_tax" },
   },
 };
 const turns: Record<string, unknown[]> = {
@@ -38,7 +40,7 @@ const turns: Record<string, unknown[]> = {
     { id: "trn_old", session: "ses_root", started_at: OLD, finished_at: OLD },
     { id: "trn_new", session: "ses_root", started_at: NEW, finished_at: NEW },
   ],
-  ses_pm: [],
+  ses_tax: [],
 };
 const toolCall = (id: string, turn: string, outcome: unknown) => ({
   id,
@@ -59,14 +61,14 @@ const toolCalls = [
   },
 ];
 const inputs: Record<string, unknown> = {
-  tcl_old: { to: { role: "lophn" }, reply: "none", body: "old" },
+  tcl_old: { to: { agent: "lophn" }, reply: "none", body: "old" },
   tcl_blocked: {
-    to: { role: "project_manager", place: { project: "hr" } },
+    to: { agent: "lophn", place: { project: "hr" } },
     reply: "none",
     body: "blocked",
   },
   tcl_sent: {
-    to: { role: "project_manager", place: { project: "tax" } },
+    to: { agent: "lophn", place: { project: "tax" } },
     reply: "result",
     body: "hi",
   },
@@ -80,7 +82,9 @@ const port: ReadPort = {
         return ok({ apps: [] });
       case projectList:
         return ok({ projects: [{ id: "prj_tax", name: "tax" }] });
-      case agentSessionRead:
+      case agentList:
+        return ok({ agents: [{ agent: "lophn", name: "lophn" }] });
+      case placeSessionRead:
         return ok({ session: sessions[i.session] });
       case turnList:
         return ok({ turns: turns[i.session] });
@@ -102,15 +106,18 @@ const port: ReadPort = {
                 },
           truncated: false,
         });
-      case callRead:
+      case agentCallRead:
         return ok({
           call: {
             call: "cal_1",
             to: {
               kind: "new_session",
-              agent: { role: "project_manager", project: "prj_tax" },
+              agent: {
+                agent: "lophn",
+                place: { kind: "project", id: "prj_tax" },
+              },
             },
-            receiver_session: "ses_pm",
+            receiver_session: "ses_tax",
           },
         });
     }
@@ -122,7 +129,7 @@ test("t0 앞 turn의 call은 빼고 막힌 call과 새 session에 간 call은 �
   const records = await collectSessions({ port }, ["ses_root"], T0);
   assert.deepStrictEqual(
     records.map((r) => r.session),
-    ["ses_root", "ses_pm"],
+    ["ses_root", "ses_tax"],
   );
   const root = records[0];
   assert.deepStrictEqual(
@@ -140,8 +147,12 @@ test("t0 앞 turn의 call은 빼고 막힌 call과 새 session에 간 call은 �
   );
   assert.deepStrictEqual(
     [sent.order, sent.reply, sent.call, sent.receiver_session],
-    [1, "result", "cal_1", "ses_pm"],
+    [1, "result", "cal_1", "ses_tax"],
   );
-  assert.deepStrictEqual(sent.receiver_place?.name, "tax");
+  assert.deepStrictEqual(
+    [sent.receiver_name, sent.receiver_place?.name],
+    ["lophn", "tax"],
+  );
+  assert.deepStrictEqual(root.place, null);
   assert.deepStrictEqual(records[1].place?.name, "tax");
 });

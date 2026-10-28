@@ -48,12 +48,13 @@ export function matchWhere(c: SentCall, where: CallWhere): boolean {
   );
 }
 
-type NameForm = { role: string; place?: unknown; name?: unknown };
+type NameForm = { agent: string; place?: unknown };
 
+// `call` 입력의 to 가운데 이름 꼴(`{ agent, place? }`). `{ session }`은 아니다.
 function nameForm(to: unknown): NameForm | null {
   return typeof to === "object" &&
     to !== null &&
-    typeof (to as { role?: unknown }).role === "string"
+    typeof (to as { agent?: unknown }).agent === "string"
     ? (to as NameForm)
     : null;
 }
@@ -65,18 +66,26 @@ function placeKindName(place: unknown): [string, string] | null {
   return null;
 }
 
+const samePlace = (
+  want: [string, string] | null,
+  got: [string, string] | null,
+): boolean =>
+  want === null
+    ? got === null
+    : got !== null && got[0] === want[0] && got[1] === want[1];
+
+// 받는 agent 이름과 place가 같아야 한다. t.place가 없으면 받는 쪽이 home이어야 해서 home의 lophn과
+// 앱·project place의 lophn이 갈린다. 기록이 없으면 `call` 입력의 to에 같은 규칙을 쓴다.
 export function matchTarget(c: SentCall, t: Participant): boolean {
-  const to = nameForm(c.to);
-  if (t.name !== undefined && (to === null || to.name !== t.name)) return false;
-  if (c.receiver !== null) {
-    if (c.receiver.role !== t.role) return false;
-    if (t.place === undefined) return true;
-    const [kind, name] = placeKindName(t.place)!;
-    return c.receiver_place?.kind === kind && c.receiver_place.name === name;
+  const want = placeKindName(t.place);
+  if (c.receiver_name !== null) {
+    const got: [string, string] | null =
+      c.receiver_place === null
+        ? null
+        : [c.receiver_place.kind, c.receiver_place.name];
+    return c.receiver_name === t.agent && samePlace(want, got);
   }
-  if (to === null || to.role !== t.role) return false;
-  if (t.place === undefined) return true;
-  const want = placeKindName(t.place)!;
-  const got = placeKindName(to.place);
-  return got !== null && got[0] === want[0] && got[1] === want[1];
+  const to = nameForm(c.to);
+  if (to === null || to.agent !== t.agent) return false;
+  return samePlace(want, placeKindName(to.place));
 }

@@ -1,10 +1,14 @@
 // case 작성자가 right/wrong fixture를 짧게 쓰는 builder. 기록은 zod를 통과시키지 않고 type으로 한 번 cast한다.
 import type {
-  AgentCallRecord,
-  AgentRef,
+  AgentCallRow,
+  AgentId,
   CallFailReason,
   CallReply,
   ToolCall,
+} from "../../../packages/protocol/lophn-agent/mod.ts";
+import {
+  LOPHN_AGENT_ID,
+  LOPHN_AGENT_NAME,
 } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type {
   CollectedToolCall,
@@ -48,22 +52,15 @@ function placeName(p: Participant): PlaceName | null {
   };
 }
 
-function refOf(p: Participant): AgentRef {
-  const place = placeName(p);
-  switch (p.role) {
-    case "lophn":
-      return { role: "lophn" };
-    case "project_manager":
-      return { role: "project_manager", project: place!.id } as AgentRef;
-    case "operator":
-      return { role: "operator", agent: `agt_fx_${p.name ?? ""}` } as AgentRef;
-    case "app_engineer":
-      return { role: "app_engineer", app: place!.id } as AgentRef;
-  }
+function refOf(p: Participant): AgentId {
+  return p.agent === LOPHN_AGENT_NAME
+    ? LOPHN_AGENT_ID
+    : (`agt_fx_${p.agent}` as AgentId);
 }
 
+// 같은 agent라도 place가 다르면 다른 session이다.
 function sessionOf(p: Participant): string {
-  return `ses_fx_${p.role}_${placeName(p)?.name ?? p.name ?? ""}`;
+  return `ses_fx_${p.agent}_${placeName(p)?.name ?? "home"}`;
 }
 
 export function fixtureTrial(sessions: SessionRecord[]): TrialRecord {
@@ -183,6 +180,7 @@ export function fixtureSession(
     const input = { to, reply, body, refs: [] };
     const base = { tool: "call", effect: "read" as const };
     const receiver = refOf(to);
+    const receiverPlace = placeName(to);
     const sent = {
       tool_call: `tcl_fx_${String(i).padStart(4, "0")}`,
       order: sent_calls.length,
@@ -197,15 +195,25 @@ export function fixtureSession(
       ({
         call: `cal_fx_${i}`,
         from: { kind: "agent", session },
-        to: { kind: "new_session", agent: receiver },
+        to: {
+          kind: "new_session",
+          agent: {
+            agent: receiver,
+            place:
+              receiverPlace === null
+                ? null
+                : { kind: receiverPlace.kind, id: receiverPlace.id },
+          },
+        },
         receiver_session: state === "failed" ? null : `ses_fx_to_${i}`,
         reply,
         state,
         fail_reason: reason,
         dedup: null,
+        unattended: false,
         created_at: AT,
         state_changed_at: AT,
-      }) as AgentCallRecord;
+      }) as AgentCallRow;
     const done = (
       kind: "success" | "failure" | "not_executed",
       code: string,
@@ -228,6 +236,7 @@ export function fixtureSession(
         fail_reason: null,
         record: null,
         receiver: null,
+        receiver_name: null,
         receiver_session: null,
         receiver_place: null,
       });
@@ -248,8 +257,9 @@ export function fixtureSession(
         fail_reason: reason,
         record: rec,
         receiver: failed ? null : receiver,
+        receiver_name: failed ? null : to.agent,
         receiver_session: rec.receiver_session,
-        receiver_place: failed ? null : placeName(to),
+        receiver_place: failed ? null : receiverPlace,
       });
     }
   });
@@ -257,6 +267,7 @@ export function fixtureSession(
   return {
     session,
     agent: refOf(agent),
+    agent_name: agent.agent,
     place: placeName(agent),
     turns: [],
     model_calls: [],

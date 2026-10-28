@@ -47,7 +47,7 @@ async function readPlaceKind(
   texts?: VariantTexts,
 ): Promise<string> {
   if (texts !== undefined) {
-    const text = texts.role_prompts[kind];
+    const text = texts.place_prompts[kind];
     if (text === undefined)
       throw new Error(`place kind prompt missing: ${kind}`);
     return text;

@@ -53,7 +53,7 @@ function run(id: string, startedAt: string, over: Partial<RunRecord> = {}) {
     started_at: startedAt,
     scenario: ref("scenario", "L4-app", 1),
     materials: [ref("material", "apps-home", 1)],
-    components: [ref("instruction", "lophn", 4)],
+    components: [ref("instruction", "home", 4)],
     core: ref("core", "core", 32),
     grader: {
       criteria: [],
@@ -81,7 +81,7 @@ const current: Current = {
     { id: "L5-none", n: 1, proposal: true, world: [], checks: [] },
   ],
   versions: new Map([
-    ["instruction:lophn", ref("instruction", "lophn", 4)],
+    ["instruction:home", ref("instruction", "home", 4)],
     ["skill:other", ref("skill", "other", 9)],
     ["core:core", ref("core", "core", 32)],
     ["checks:checks", ref("checks", "checks", 4)],
@@ -98,7 +98,7 @@ test("지금 version을 본 run 가운데 가장 늦은 것을 고르고 다르�
   };
   const runs = [
     run("old-instruction", "2026-10-03", {
-      components: [ref("instruction", "lophn", 3)],
+      components: [ref("instruction", "home", 3)],
     }),
     run("valid-early", "2026-10-01"),
     // current에 skill:other가 있지만 이 run들은 본 적이 없어 낡음이 아니다.
@@ -119,7 +119,7 @@ test("지금 version을 본 run 가운데 가장 늦은 것을 고르고 다르�
     current,
   )[0];
   assert.deepStrictEqual(stale.run, "old-instruction");
-  assert.deepStrictEqual(stale.stale, ["instruction:lophn@3 → @4"]);
+  assert.deepStrictEqual(stale.stale, ["instruction:home@3 → @4"]);
 
   const checks = pickRows(
     [

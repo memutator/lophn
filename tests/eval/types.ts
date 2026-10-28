@@ -10,14 +10,13 @@
 
 import type { Id } from "../../packages/protocol/base/mod.ts";
 import type {
-  AgentCallRecord,
-  AgentRef,
+  AgentAddress,
+  AgentCallRow,
+  AgentId,
   CallFailReason,
   CallReply,
   CallState,
   ModelCallRecord,
-  NamedAgent,
-  Role,
   ToolCall,
   ToolOutcome,
   TurnRecord,
@@ -56,9 +55,9 @@ export type RegistryEntry = {
 
 // ---- 참가자와 단계 ----
 
-// 글(place, name)은 call 도구의 `to`가 맞추는 이름과 같다: 앱은 app.name(예 "가계부"), project는 project.name
-// (예 "tax"), Operator는 자기 name. 앱의 일은 그 앱의 App Engineer가 맡는다.
-export type Participant = Omit<NamedAgent, "role"> & { role: Role };
+// call 도구의 `to`와 같은 이름 꼴이다: agent는 정의의 name(예 "lophn", "세무정리"), place는 앱이면 app.name
+// (예 "가계부"), project면 project.name(예 "tax"). place가 없으면 home이다.
+export type Participant = AgentAddress;
 
 export type Step =
   | { kind: "say"; to: Participant; text: string } // 사람 말 한 줄
@@ -68,7 +67,7 @@ export type Step =
 export type WorldIds = {
   apps: Record<string, Id<"app">>; // app.name → id
   projects: Record<string, Id<"prj">>; // project.name → id
-  operators: Record<string, Id<"agt">>; // Operator name → id
+  agents: Record<string, Id<"agt">>; // agent name → id
 };
 
 // 재료를 되살리는 동안의 core와 지금까지 되살린 world.
@@ -149,16 +148,18 @@ export type SentCall = {
   call: string | null; // cal_... tool이 success로 끝났을 때 output.content.call
   state: CallState | null; // output.content.state
   fail_reason: CallFailReason | null; // output.content.fail_reason
-  record: AgentCallRecord | null; // callRead 결과. call이 null이거나 행이 없으면 null
-  receiver: AgentRef | null; // record.to에서 풀린 받는 agent. 모르면 null
+  record: AgentCallRow | null; // agentCallRead 결과. call이 null이거나 행이 없으면 null
+  receiver: AgentId | null; // record.to에서 풀린 받는 agent. 모르면 null
+  receiver_name: string | null; // 받는 agent의 name
   receiver_session: string | null; // record.receiver_session
   receiver_place: PlaceName | null;
 };
 
 export type SessionRecord = {
   session: string;
-  agent: AgentRef;
-  place: PlaceName | null;
+  agent: AgentId;
+  agent_name: string;
+  place: PlaceName | null; // null이면 home
   turns: TurnRecord[];
   model_calls: CollectedModelCall[]; // modelCallList 순서(id 순)
   tool_calls: CollectedToolCall[]; // toolCallList 순서(id 순 = 시간 순)
@@ -194,7 +195,7 @@ export type Metrics = {
   };
   truncated_calls: number; // outcome.kind가 partial인 model call
   agent_calls: {
-    receiver_role: string | null;
+    receiver_agent: string | null; // 받는 agent의 name
     reply: CallReply;
     state: CallState | null;
     failed: boolean;
@@ -278,7 +279,7 @@ export type RunRecord = {
 // ---- 재료 ----
 
 // `app`은 앱 source만, `active_app`은 source에 active 표시와 release 이력을 얹은 것이다.
-export type MaterialKind = "app" | "project" | "kinds" | "operator";
+export type MaterialKind = "app" | "project" | "kinds" | "agent";
 
 // `tests/eval/materials/<이름>/<n>/material.json`의 내용이다. 이름과 n은 폴더가 정한다.
 export type MaterialManifest = {

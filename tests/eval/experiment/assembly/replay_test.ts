@@ -159,23 +159,23 @@ test("sideStat이 prefix가 깨진 call과 layer를 짚고 없어진 layer는 �
   });
   const stat = sideStat([
     [
-      b("role", "r", "R"),
+      b("place_kind", "r", "R"),
       b("instructions", "i1", "# Instructions\nbe brief"),
       b("place", "p1", "place A"),
     ],
     [
-      b("role", "r", "R"),
+      b("place_kind", "r", "R"),
       b("instructions", "i1", "# Instructions\nbe brief"),
       b("place", "p2", "place B"),
     ],
-    [b("role", "r", "R"), b("place", "p3", "place B")],
+    [b("place_kind", "r", "R"), b("place", "p3", "place B")],
   ]);
   const by = (layer: string) => stat.layers.find((l) => l.layer === layer)!;
   assert.deepStrictEqual(
     stat.layers.map((l) => l.layer),
-    ["role", "instructions", "place"],
+    ["place_kind", "instructions", "place"],
   );
-  assert.deepStrictEqual(by("role").rate, 1);
+  assert.deepStrictEqual(by("place_kind").rate, 1);
   assert.deepStrictEqual(
     [by("instructions").stable, by("instructions").pairs],
     [1, 2],

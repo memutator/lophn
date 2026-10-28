@@ -18,7 +18,7 @@ const ref = (
   name,
   n,
 });
-const X = ref("instruction", "lophn", 3);
+const X = ref("instruction", "home", 3);
 
 const metrics = {
   tokens: {
@@ -89,7 +89,7 @@ const scenarios = ["t", "t-none", "g", "stale", "k", "c"].map((id) => ({
 const current: Current = {
   scenarios,
   versions: new Map([
-    ["instruction:lophn", X],
+    ["instruction:home", X],
     ["skill:ask", ref("skill", "ask", 2)],
     ["core:core", ref("core", "core", 5)],
     ["checks:checks", ref("checks", "checks", 2)],
@@ -103,7 +103,7 @@ const spec = (target: string[]): ExperimentSpec => ({
   hypothesis: "h",
   start_run: "r1",
   model: "claude-sonnet-5-5",
-  change: { from: X, to: ref("instruction", "lophn", 4) },
+  change: { from: X, to: ref("instruction", "home", 4) },
   target: target.map((scenario) => ({ scenario, checks: ["c1"] })),
   cases: [{ scenario: "c" }],
   judgment: { rule: "default@1" },
@@ -158,8 +158,8 @@ test("selectRuns reruns only scenarios whose valid run saw X@a, drops stale runs
 
   // 기준 checkout의 X 버전이 spec과 다르면 고르지 않는다
   const moved = new Map(current.versions).set(
-    "instruction:lophn",
-    ref("instruction", "lophn", 4),
+    "instruction:home",
+    ref("instruction", "home", 4),
   );
   const wrong = selectRuns(spec(["t"]), runs, { ...current, versions: moved });
   assert.ok(!wrong.ok);

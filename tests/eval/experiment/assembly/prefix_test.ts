@@ -15,7 +15,7 @@ test("prefixBoundaries가 제품 assembleTurnPrompt의 cache_boundaries와 같�
   let body: unknown = null;
   const result = await assembleTurnPrompt(
     {
-      place_kind_prompt: "You are the operator.",
+      place_kind_prompt: "You are in an app place.",
       tools: [
         {
           name: "skill.read",

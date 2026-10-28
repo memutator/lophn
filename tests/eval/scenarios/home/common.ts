@@ -1,32 +1,28 @@
-// lophn 판단 case들이 같이 쓰는 참가자와 judge 입력 helper. 시나리오가 아니라 runner가 읽지 않는다.
+// home 시나리오가 같이 쓰는 참가자와 judge 입력 helper. 시나리오가 아니라 runner가 읽지 않는다.
 import type { AskInput } from "../../../../packages/protocol/lophn-agent/ask-tool.ts";
 import { type CallWhere, sentCalls, toolCallsOf } from "../../checks/mod.ts";
 import type { Participant, TrialRecord } from "../../types.ts";
 
-export const LOPHN: Participant = { role: "lophn" };
-// 앱의 일은 그 앱의 App Engineer가 받는다. 이름은 app.name이다.
-export const AE_가계부: Participant = {
-  role: "app_engineer",
+// 이름은 call 도구의 `to`가 맞추는 이름과 같다. 앱은 app.name, project는 project.name이다.
+export const LOPHN: Participant = { agent: "lophn" };
+export const LOPHN_가계부: Participant = {
+  agent: "lophn",
   place: { app: "가계부" },
 };
-export const AE_할일: Participant = {
-  role: "app_engineer",
+export const LOPHN_할일: Participant = {
+  agent: "lophn",
   place: { app: "할일" },
 };
-export const AE_캘린더: Participant = {
-  role: "app_engineer",
+export const LOPHN_캘린더: Participant = {
+  agent: "lophn",
   place: { app: "캘린더" },
 };
-export const AE_알림: Participant = {
-  role: "app_engineer",
-  place: { app: "알림" },
-};
-export const PM_tax: Participant = {
-  role: "project_manager",
+export const LOPHN_tax: Participant = {
+  agent: "lophn",
   place: { project: "tax" },
 };
-export const PM_hr: Participant = {
-  role: "project_manager",
+export const LOPHN_hr: Participant = {
+  agent: "lophn",
   place: { project: "hr" },
 };
 

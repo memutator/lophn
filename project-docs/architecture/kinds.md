@@ -5,7 +5,7 @@ domain의 문서가 어떤 모양이어야 하는지는 그 domain의 kind 파�
 ## 흐름
 
 ```
- PM | App Engineer: file.write ──▶ <data>/domains/<dom>/kinds.yaml (그 그릇의 domain 폴더 전체가 file 범위, rewind된다)
+ project·앱 place session: file.write ──▶ <data>/domains/<dom>/kinds.yaml (그 그릇의 domain 폴더 전체가 file 범위, rewind된다)
                          │
  core watch (500ms 합침) ─┤  domain 폴더(재귀 아님, kinds.yaml 이벤트만) + kind glob이 가리키는 그릇 폴더
                          ▼
@@ -27,7 +27,7 @@ domain의 문서가 어떤 모양이어야 하는지는 그 domain의 kind 파�
 
 - kind 파일은 domain마다 하나이고 자리는 `<data>/domains/<dom>/kinds.yaml`이다(`domainKindsFile`, `packages/protocol/domains/paths.ts`). release도 draft도 거치지 않는다. 파일이 없으면 그 domain에는 kind가 없다.
   - 판(draft, test, submit)이 하던 일은 검사와 되돌리기다. 검사는 바뀔 때 program이 하고, 되돌리기는 rewind가 한다.
-- kind 파일을 쓰는 것은 그 domain 그릇의 PM(project)이나 App Engineer(앱)뿐이다. `placeScope`가 둘에게 그 그릇의 domain 폴더 전체를 read·write로 주므로 `kinds.yaml`은 따로 연 파일 항목이 아니다. Operator의 범위에는 domain의 `artifacts/`만 있고 lophn의 범위에는 없다.
+- kind 파일을 쓰는 것은 그 domain을 받은 그릇 place(project나 앱)의 session뿐이다. `placeScope`가 받은 domain의 폴더 전체를 read·write로 주므로 `kinds.yaml`은 따로 연 파일 항목이 아니다. home의 session의 범위에는 없다.
   - domain 폴더는 turn을 시작할 때 place 정보를 만들면서 core가 만든다(`architecture/artifact.md`). kind 감시를 열 때도 만든다. 폴더가 없으면 감시가 열리지 않아 처음 쓴 `kinds.yaml`을 놓친다. 같은 폴더에 `DOMAIN.md`, `skills/`, `artifacts/`가 있다.
   - rewind의 쓰기 폴더도 domain 폴더 단위다(`placeFoldersOf`).
   - kind 파일이 가리키는 문서(glob)는 domain 폴더가 아니라 그 그릇의 폴더 기준이다. project면 등록 폴더들, 앱이면 source 폴더다. 그릇이 없거나 보관됐거나 폴더가 없으면(source가 없는 앱) 그 domain은 훑지 않고 읽기는 `not_found`다.
@@ -46,11 +46,11 @@ domain의 문서가 어떤 모양이어야 하는지는 그 domain의 kind 파�
   - core를 켠 뒤 그 domain의 첫 sync는 기준만 두고 알리지 않는다. 앞 결과가 메모리에 없어 모든 위반이 새것으로 보이기 때문이다. 실패한 sync(답 없음, 모양 틀림)는 기준을 바꾸지 않는다.
   - 목록이 200개에서 잘렸어도(`truncated`) 같게 비교한다. 알림은 상태를 바꾸지 않으므로 잘린 목록 사이의 거짓 알림은 받아들인다.
   - agent는 사람이 말하거나 스스로 볼 때 `kind.check`로 지금 상태를 검사한다.
-- `kind.get`·`kind.list`·`kind.check`는 core memory route다(`packages/core/projects/kinds/host/handlers.ts`). 입력은 `{domain}`이다. handler는 agent의 자격 그릇(`conditions.project` 또는 `conditions.app`)이 그 domain의 owner일 때만 열고, 아니면 `not_found`다. 그릇 조건이 없는 agent(lophn)는 `forbidden`이다. 앱 place의 Operator는 `conditions.app`으로 그 앱의 domain을 읽는다. user와 machine은 막지 않는다. 같은 그릇 안에서 어느 domain을 읽을지는 tool이 정한다.
+- `kind.get`·`kind.list`·`kind.check`는 core memory route다(`packages/core/projects/kinds/host/handlers.ts`). 입력은 `{domain}`이다. handler는 agent의 자격 그릇(`conditions.project` 또는 `conditions.app`)이 그 domain의 owner일 때만 열고, 아니면 `not_found`다. 그릇 조건이 없는 home의 session은 `forbidden`이다. user와 machine은 막지 않는다. 같은 그릇 안에서 어느 domain을 읽을지는 tool이 정한다.
   - tool `kind.list`·`kind.check`(`packages/core/agent-places/tools/kind.ts`)는 입력 `domain`이 agent가 맡은 domain(`ctx.domains`) 안이어야 하고 아니면 core를 부르지 않는다. 맡은 domain이 하나뿐이면 생략할 수 있다.
-- prompt의 kind 글(`<lophn-kinds>`)은 맡은 domain마다 한 덩이(`Domain <name>`)로 싣는다. PM과 App Engineer는 그릇의 domain 전부를, Operator는 고른 domain을 받는다. kind 이름, 한 줄, glob, key, 칸 이름과 type(enum 값, ref 대상, required, list)을 domain 이름순, kind 이름순으로 결정적으로 조립한다. 예산을 넘으면 `full` → `names` → `count`다(모든 domain에 같은 level). kind 파일이 틀려 앞의 것을 쓰는 domain에는 그 사실을 한 줄 덧붙인다.
+- prompt의 kind 글(`<lophn-kinds>`)은 맡은 domain마다 한 덩이(`Domain <name>`)로 싣는다. 받는 domain은 정의의 `domains`와 place로 정한다(비면 그 그릇의 active domain 전부). kind 이름, 한 줄, glob, key, 칸 이름과 type(enum 값, ref 대상, required, list)을 domain 이름순, kind 이름순으로 결정적으로 조립한다. 예산을 넘으면 `full` → `names` → `count`다(모든 domain에 같은 level). kind 파일이 틀려 앞의 것을 쓰는 domain에는 그 사실을 한 줄 덧붙인다.
   - 바뀜은 쓰고 있는 kind 파일의 hash(`applied_hash`)로 본다. 다르면 `kinds_changed` notice와 새 글을 붙인다.
-  - PM과 App Engineer의 place 정보에는 domain마다 폴더 경로(`Folder:`)가 있어, 파일이 아직 없어도 처음 쓸 자리를 안다.
+  - project·앱 place 정보에는 domain마다 폴더 경로(`Folder:`)가 있어, 파일이 아직 없어도 처음 쓸 자리를 안다.
 
 ## 왜 이 모양인가
 

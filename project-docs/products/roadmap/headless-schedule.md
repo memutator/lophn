@@ -1,7 +1,8 @@
 # headless와 schedule: 남은 것
 
 상태: 로드맵. 2026-10-20 사람이 방향을 내고 planner가 정리했다. headless run은 계획 `headless-run`으로(`project-docs/architecture/run.md`), job은 계획 `schedule-job`으로(`project-docs/architecture/job.md`), flow는 계획 `flow`로(`project-docs/architecture/workflow.md` "flow"), 앱 secret의 OAuth와 `netFetch` 본문은 계획 `app-oauth`로(`project-docs/architecture/app-call.md`) land했다. 이 문서에 남은 것은 gdrive 앱으로 끝남 기준을 돌려 보는 것이다.
-배경 문서: `project-docs/architecture/job.md`, `project-docs/architecture/run.md`, `project-docs/architecture/workflow.md`, `project-docs/architecture/app-call.md`, `project-docs/products/AGENT-ROLE.md`.
+2026-10-28: 계획 `remove-role`이 role을 없앴다. agent는 lophn과 사람이 만든 agent이고 session이 place(home, project, app)를 갖는다(`products/AGENT.md`, changelog `0.9.0`). 아래에서 Project Manager는 그 project place의 session, App Engineer는 그 앱 place의 session, Operator는 사람이 만든 agent로 읽는다.
+배경 문서: `project-docs/architecture/job.md`, `project-docs/architecture/run.md`, `project-docs/architecture/workflow.md`, `project-docs/architecture/app-call.md`, `project-docs/products/AGENT.md`.
 
 ## 왜
 

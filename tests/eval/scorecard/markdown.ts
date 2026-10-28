@@ -111,7 +111,7 @@ export function renderScorecard(
   out.push("", "## 제안 줄에서 나온 case", "");
   const proposals = rows.filter((r) => r.proposal);
   out.push(
-    "떨어지면 model보다 AGENT-ROLE의 그 줄이나 지침이 틀렸을 수 있다.",
+    "떨어지면 model보다 AGENT.md의 그 줄이나 지침이 틀렸을 수 있다.",
     "",
   );
   if (proposals.length === 0) out.push("없음");

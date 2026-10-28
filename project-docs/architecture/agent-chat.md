@@ -53,7 +53,7 @@ secret
 - tool 줄은 도는 중(`ToolCallStarted`를 접는 `agent-tab-data.ts`)과 snapshot(`agent-tab-core-source-thread.ts`)이 같은 묶기 함수(`packages/shell/renderer/conversation/activity/tool-groups.ts`)를 쓴다. 그래서 turn이 끝나 snapshot을 다시 읽어도 줄이 뛰지 않는다. 이어진 read·list·search는 하나로, command·web은 category마다, other는 같은 tool끼리 묶고, 사이에 agent message가 오면 끊는다. 펼친 call의 입력·출력은 사람 화면용 body view(64 KiB, 지금의 redaction)로 읽는다.
 - highlight는 Shiki의 JS regex engine을 Worker에서 돌리고 token 배열을 React span으로 그린다. HTML 문자열을 넣지 않고 CSP(`shell-protocol.ts`, wasm·eval 없음)를 바꾸지 않는다. 자라는 code block은 받은 결과가 지금 code의 앞부분이면 그만큼 칠하고 나머지는 plain으로 붙인다.
 - 승인 카드에는 agent가 쓴 설명(`shell.run`의 `description`)을 싣지 않는다. `description`은 tool 줄 제목에만 쓴다(`architecture/approval.md` "카드 내용은 program이 GateCall에서 만든다").
-- "Worked for"는 active다. 기다린 시간(wall − active)은 1초 이상일 때 완료 줄 tooltip이다. 일하는 중 줄은 `active + (now − 기준 시각)`이라 기다림 뒤에 건너뛰지 않는다. coding agent는 `active_ms`가 null이라 wall이다.
+- "Worked for"는 active다. 기다린 시간(wall − active)은 1초 이상일 때 완료 줄 tooltip이다. 일하는 중 줄은 `active + (now − 기준 시각)`이라 기다림 뒤에 건너뛰지 않는다. `active_ms`를 모르는 turn(null)은 wall이다.
 
 ## 왜 이 모양인가
 

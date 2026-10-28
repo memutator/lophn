@@ -105,7 +105,6 @@ export const conversation = {
   "conversation.label.call-reply-none": "No answer expected",
   "conversation.label.call-reply-result": "Answer expected",
   "conversation.label.call-working-together": "Working together",
-  "conversation.label.coding-queued": "Waiting for a coding agent",
   "conversation.label.composer-message": "Message",
   "conversation.label.delete-session": "Delete {title}",
   "conversation.label.duration-hours": "{hours, number}h",

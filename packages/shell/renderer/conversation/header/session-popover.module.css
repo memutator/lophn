@@ -225,24 +225,6 @@
   outline: none;
 }
 
-/* 앱의 줄에서 기다리는 coding 맡기기. session이 아니라 눌러도 열리지 않는다. */
-.queued {
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  height: var(--menu-row);
-  padding: var(--space-0) var(--space-4) var(--space-0) var(--space-6);
-  color: var(--color-text-secondary);
-}
-
-.queuedIcon {
-  display: inline-flex;
-  flex: none;
-  width: var(--space-5);
-  justify-content: center;
-}
-
 /* header의 "[avatar] 이름 · 제목 ▾" 단추 */
 .trigger {
   box-sizing: border-box;

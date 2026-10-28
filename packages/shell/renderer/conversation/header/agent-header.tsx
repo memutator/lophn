@@ -23,12 +23,9 @@ import styles from "./agent-header.module.css";
 import { forkAndOpen } from "./fork.ts";
 import {
   AgentFace,
-  type QueuedCodingView,
   SessionSwitcher,
   type SessionSwitcherProps,
 } from "./session-popover.tsx";
-
-export type { QueuedCodingView } from "./session-popover.tsx";
 
 /** header가 자기 밖에 맡기는 일: 탭에서 session을 여는 길. */
 interface AgentHeaderHost {
@@ -46,7 +43,6 @@ interface AgentHeaderProps {
   session: SessionEntry | null;
   /** 그 agent의 session 전부(archive한 것 포함). */
   sessions: readonly SessionEntry[];
-  queuedCoding?: readonly QueuedCodingView[];
   now: Date;
   source: Pick<
     AgentTabSource,
@@ -137,7 +133,6 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
       agent={agent}
       current={session}
       sessions={props.sessions}
-      queuedCoding={props.queuedCoding}
       now={props.now}
       onSwitch={host.switchSession}
       onNew={host.newSession}

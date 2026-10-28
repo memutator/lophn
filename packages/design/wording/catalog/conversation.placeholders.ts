@@ -116,7 +116,6 @@ export type ConversationPlaceholders = {
   "conversation.label.call-reply-none": Record<never, never>;
   "conversation.label.call-reply-result": Record<never, never>;
   "conversation.label.call-working-together": Record<never, never>;
-  "conversation.label.coding-queued": Record<never, never>;
   "conversation.label.composer-message": Record<never, never>;
   "conversation.label.delete-session": {
     title: "string";

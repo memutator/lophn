@@ -1,6 +1,7 @@
 # problem과 ticket 덜어내기: 남은 것은 coding agent 연결의 크기
 
 상태: 로드맵, 정할 것 없음. 2026-10-20 사람이 problem과 ticket 모델이 너무 빡빡하다며 방향을 냈고, 2026-10-21 "최대한 덜어낸다"로 정하고 App Engineer가 앱을 직접 짓기로 했다. 계획 넷(`problem-remove`, `approval-simplify`, `ae-builds`, `reactor-remove`)이 land했고 변경과 결정은 `project-docs/products/change-log/0.6.0.md`에 있다. 마지막으로 남았던 coding agent 연결의 크기는 2026-10-26에 정했다(hook·감지·설치를 남긴다).
+2026-10-28: 계획 `remove-role`이 role을 없앴다. agent는 lophn과 사람이 만든 agent이고 session이 place(home, project, app)를 갖는다(`products/AGENT.md`, changelog `0.9.0`). 아래에서 Project Manager는 그 project place의 session, App Engineer는 그 앱 place의 session, Operator는 사람이 만든 agent로 읽는다.
 배경 문서: `project-docs/architecture/coding-agent.md`, `project-docs/products/roadmap/approval.md`, `project-docs/products/roadmap/workflow.md`.
 
 ## 정한 것 (사람)

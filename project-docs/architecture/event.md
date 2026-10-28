@@ -33,7 +33,7 @@ core 안에서 일어난 일은 두 부류로 갈린다. program이나 agent가 
 이어서 움직이는 일
 - 뒤에 꼭 움직여야 하는 일은 그 일을 아는 command가 상태 변경과 같은 tx에서 한다. event를 남겨 다른 곳이 반응하게 하지 않는다. 따로 하면 꺼진 사이 상태만 바뀌고 반응이 빠지며, 다시 하게 하는 장치(cursor, 멱등 key, backoff)를 져야 한다.
 - 꺼진 사이 끝나지 못한 일은 켤 때 그 owner의 복구가 자기 표에서 찾아 닫는다(Router의 call 복구 `RecoverCalls`, `architecture/agent-call.md`).
-- program은 스스로 정해 agent를 부르지 않는다. 앱의 오류나 activation 실패로 agent session을 열지 않는다. activation 실패는 `release.activate`를 부른 App Engineer에게 결과로 돌아간다(`architecture/activation.md`). 앱이 어떻게 도는지는 App Engineer와 lophn이 앱 상태와 앱 log(`app.status`, `app.logs`, `app.invocations`)를 직접 읽어 안다(`architecture/app-call.md`).
+- program은 스스로 정해 agent를 부르지 않는다. 앱의 오류나 activation 실패로 agent session을 열지 않는다. activation 실패는 `release.activate`를 부른 session에 결과로 돌아간다(`architecture/activation.md`). 앱이 어떻게 도는지는 agent가 앱 상태와 앱 log(`app.status`, `app.logs`, `app.invocations`)를 직접 읽어 안다(`architecture/app-call.md`).
 - 정해진 때 agent를 부르는 것은 사람이 시킨 일이다. agent가 만든 job이 차례가 되면 run으로 agent를 부르는데(`architecture/job.md`), 이것은 program이 정한 반응이 아니라 사람이 agent에게 시킨 일의 실행이다. 앱 상태나 event에 반응해 부르는 길이 아니고 시각만 본다.
 - job의 scheduler는 기록 event나 Bus에 얹지 않는다. 뒤에 움직일 일은 그 일을 아는 job command가 같은 tx에서 표를 고치고, scheduler는 표를 읽는다. 꺼진 사이 놓친 차례는 켤 때 첫 claim이 표에서 찾아 접는다.
 - job이나 job run을 바꾼 command가 commit되면 jobs wiring이 `JobChanged`(subject job, payload `job_run`)를 한 번 낸다. 남지 않는 event다. 받는 곳은 대기 목록(hold card)과 job 화면과 project 창의 Scheduled jobs panel이고, 받으면 다시 읽는다. 같은 commit 뒤에 scheduler도 깨워 timer를 다시 건다. 놓친 화면은 열 때 다시 읽고, 정본은 표다(`architecture/job.md`).
@@ -68,6 +68,6 @@ agent event와 화면
 - agent event를 저장하는 안은 버렸다. 조사한 harness(Claude Code, Codex, OpenCode, Hermes 등)와 paseo 모두 대화는 session 기록이 정본이고 event는 흘리는 신호다. seq와 replay는 비용만 든다. 대신 snapshot에 대기 중인 요청까지 담아, 늦게 붙은 화면도 답을 기다리는 요청을 본다.
 - agent event 집합은 여러 harness의 lifecycle을 나란히 놓고 공통분모로 골랐다. 그때 함께 쓰던 coding session 층은 지웠고(`architecture/coding-agent.md`) 지금은 lophn session만 낸다.
 - event에 반응하는 장치(Reactor)를 두지 않는다. 마지막 반응(맡긴 coding session의 끝, 이제 지운 층)도 command가 같은 tx에서 call을 닫게 되어, 반응할 event 없이 cursor, 멱등 key, backoff만 지는 장치가 남아 지웠다. 따로 반응하는 길은 같은 사실을 두 길이 알리게 하기도 했다. lophn 사용자에게 hook을 여는 안도 하지 않았다.
-- 앱이 자기 업무 사실을 lophn에 밀어 넣는 길(push)은 없다. Operator가 읽기 앱 tool로 읽는다.
-- 앱 오류가 나면 App Engineer를 자동으로 여는 흐름을 지웠다. problem 상태 machine과 보고 길이 계약에 비해 무거웠고, 진단은 agent가 앱 log를 직접 읽으면 된다. 사람에게는 toast가 남는다.
+- 앱이 자기 업무 사실을 lophn에 밀어 넣는 길(push)은 없다. agent가 읽기 앱 tool로 읽는다.
+- 앱 오류가 나면 앱 place의 session을 자동으로 여는 흐름을 지웠다. problem 상태 machine과 보고 길이 계약에 비해 무거웠고, 진단은 agent가 앱 log를 직접 읽으면 된다. 사람에게는 toast가 남는다.
 - program이 agent를 부르는 reaction(새 일 handler와 그 설정)을 모두 지웠다. 마지막 것(activation 실패)은 `release.activate`의 결과가 대신하고 사람에게는 toast가 남는다. 정기적으로 앱을 살피게 하고 싶으면 사람이 시킨다(job이나 workflow). job이 정해진 때 agent를 부르는 것은 반응 장치가 아니라 사람이 시킨 일의 실행이다. 앞서 reaction의 물음(보류 request 길)은 `approval.md`가 지웠다.

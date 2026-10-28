@@ -1,4 +1,4 @@
-// 출처: AGENT-ROLE L6 (제안). 제품을 묻는 말은 사용 안내 skill(`guide-*`)로 답한다. 만들거나 넘기지 않는다.
+// 출처: AGENT.md L6 (제안). 제품을 묻는 말은 사용 안내 skill(`guide-*`)로 답한다. 만들거나 넘기지 않는다.
 import {
   callCount,
   fixtureSession,

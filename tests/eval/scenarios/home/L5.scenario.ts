@@ -1,4 +1,4 @@
-// 출처: AGENT-ROLE L5 (제안). project 안의 일은 그 project place의 lophn에게 넘기고 결과를 받는다
+// 출처: AGENT.md L5 (제안). project 안의 일은 그 project place의 lophn에게 넘기고 결과를 받는다
 // (remove-role README "domain 일을 받는 쪽은 주인 그릇 place의 lophn session").
 import { callCount, fixtureSession, fixtureTrial } from "../../checks/mod.ts";
 import { relayCompleteInput } from "../../judge/mod.ts";

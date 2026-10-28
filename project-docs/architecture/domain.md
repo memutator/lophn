@@ -78,5 +78,5 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
 - **경계를 그릇이 아니라 domain에 둔다.** 저장소 하나(project)에도 업무가 여럿이고, 앱 하나에도 다루는 객체가 여럿이다. 그릇을 경계로 두면 project 하나가 커질 때 agent가 모든 지침과 tool을 받는다. 그릇은 폴더·source·release를 주는 작업 공간으로 남긴다.
 - **domain을 다른 그릇에 또 만들지 않고 공개 tool로 참조한다.** 같은 업무를 두 곳에 두면 뜻이 갈라진다. 다른 그릇은 할당으로 public tool을 받아 쓰고, 지우는 release는 준비 결과에 드러난다.
 - **`DOMAIN.md`는 place 정보가 아니라 지침 층에 둔다.** 사람이 쓴 지침이라 조용히 빼지 않는 층 규칙(`architecture/agent-definition.md`)을 그대로 받는다. place 정보는 program이 만든 목록만 싣는다.
-- **domain을 받은 session은 그 domain의 계약과 artifact를 모두 쓴다(사람, 2026-10-28).** 예전에는 Operator가 artifact만 쓰고 계약은 PM에게 call했다. role이 없어지며 버그를 찾은 agent가 고친다.
+- **domain을 받은 session은 그 domain의 계약과 artifact를 모두 쓴다(사람, 2026-10-28).** 예전에는 사람이 만든 agent가 artifact만 쓰고 계약은 project의 담당 agent에게 call했다. role이 없어지며 버그를 찾은 agent가 고친다.
 - **domain 이름을 모든 domain에서 하나로 둔다.** agent tool 이름, 사용 관계, 화면이 이름 하나로 domain을 가리킬 수 있다. 바꾸기를 두지 않아 이름이 곧 신원처럼 쓰인다.

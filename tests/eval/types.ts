@@ -114,7 +114,7 @@ export type Fixtures = {
 export type Scenario = {
   id: string;
   n: number;
-  proposal: boolean; // AGENT-ROLE의 "(제안)" 줄에서 나온 case. 떨어지면 model보다 그 줄이나 지침이 틀렸을 수 있다
+  proposal: boolean; // AGENT.md의 "(제안)" 줄에서 나온 case. 떨어지면 model보다 그 줄이나 지침이 틀렸을 수 있다
   world: string[]; // 재료 `이름@n` 목록. 되살리는 순서는 재료의 needs가 정한다
   real: Participant[]; // 진짜 model을 받는 참가자. 나머지는 model이 없다
   steps: Step[];

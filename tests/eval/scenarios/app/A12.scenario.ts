@@ -1,4 +1,4 @@
-// 출처: AGENT-ROLE A12 (제안), app 지침 "앱 밖의 재사용은 home의 lophn에게 답을 받지 않는 call로".
+// 출처: AGENT.md A12 (제안), app 지침 "앱 밖의 재사용은 home의 lophn에게 답을 받지 않는 call로".
 import {
   callCount,
   fixtureSession,

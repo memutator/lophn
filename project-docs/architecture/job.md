@@ -136,6 +136,6 @@ job run
 - `revision`과 `compare`를 두지 않는다. 동시에 고치는 쪽이 사람 화면과 만든 agent 정도라 마지막 쓰기가 이기게 두는 쪽이 단순하다.
 - place를 job의 칸으로 두지 않는다. place는 `creator`에서 나오고 job은 project를 건너기도 한다(home에서 만든 job은 place가 없다). 칸으로 두면 `creator`나 `action`과 어긋날 수 있다. 화면의 "걸린 job"은 읽을 때 가른다.
 - cron을 쓰지 않는다. 간격과 하루 중 시각으로 쓰려는 일(10일마다, 매일 09:00)이 다 된다. 서머타임 규칙도 한 곳(`schedule.ts`)에 있다. 모자라면 그때 더한다.
-- 자동 재시도는 없다. 같은 바깥 효과가 두 번 날 수 있고, 틀린 답을 다시 하는 것은 부르는 쪽(사람이나 flow)이 정할 일이다(`project-docs/products/AGENT-ROLE.md` 7절).
+- 자동 재시도는 없다. 같은 바깥 효과가 두 번 날 수 있고, 틀린 답을 다시 하는 것은 부르는 쪽(사람이나 flow)이 정할 일이다(`project-docs/products/AGENT.md` 7절).
 - 지운 job의 run과 instance는 끝까지 돈다. 바깥 효과를 이미 시작한 일을 job을 지웠다고 끊지 않는다. 제목이 사라질 뿐이다.
 - 알려진 미완은 `project-docs/issues/job.md`다.

@@ -6,7 +6,7 @@
 # 흐름: plan(범위를 catalog ID로) → implement(commit이 path를 바꿈) → changelog(바뀐 module을 판마다)
 #       → 이 목록에서 change_reasons가 걸린 조각을 다시 본다.
 #
-# - roles: 이 저장소의 agent role. lophn 제품 안의 role(PM, App Engineer 등)이 아니다.
+# - roles: 이 저장소의 agent role(planner, lead, worker 등). lophn 제품 안의 agent가 아니다.
 # - components: 조각. 첫 role의 절에 둔다.
 #   - id: 영어 kebab-case. 파일 전체에서 하나.
 #   - kind: 꼴과 실리는 방식. instruction(늘 실리는 지침), skill(작업 종류에 따라 실림), doc(필요할 때 읽는 설명),
@@ -79,11 +79,11 @@ components:
     change_reasons:
       note: 제품 범위나 하지 않는 것이 바뀔 때. 코드 변경으로는 걸지 않는다.
 
-  - id: agent-role
+  - id: agent-policy
     kind: doc
     roles: [planner]
-    description: lophn 제품 안의 agent 목록, place, 책임, call과 사람에게 올림의 정책.
-    path: project-docs/products/AGENT-ROLE.md
+    description: lophn 제품 안의 agent와 place, place마다의 책임, session 사이 call과 사람에게 올림의 정책.
+    path: project-docs/products/AGENT.md
     change_reasons:
       boundaries: [agents, agent-places, router, workflows, jobs]
 
@@ -284,7 +284,7 @@ components:
   - id: architecture-annotation
     kind: doc
     roles: [planner, lead]
-    description: 앱 화면에 남긴 annotation이 그 앱의 App Engineer에게 가는 길.
+    description: 앱 화면과 artifact에 남긴 annotation이 그 place의 session에게 가는 길.
     path: project-docs/architecture/annotation.md
     change_reasons:
       boundaries: [sdk]
@@ -354,7 +354,7 @@ components:
   - id: architecture-domain
     kind: doc
     roles: [planner, lead]
-    description: domain entity(project나 app 안의 책임 경계). owner, 앱의 첫 domain, 지침 층과 Operator 좁히기, 앱 tool의 domain, 다른 domain의 비공개 tool 거르기, domain 사이 장치(release 막기, 깨우기, lophn 지도, package 주인).
+    description: domain entity(project나 app 안의 책임 경계). owner, 앱의 첫 domain, 지침 층과 정의의 domain 좁히기, 앱 tool의 domain, 다른 domain의 비공개 tool 거르기, domain 사이 장치(release 막기, 깨우기, lophn 지도, package 주인).
     path: project-docs/architecture/domain.md
     change_reasons:
       boundaries: [domains, apps, agent-places, agents, agent-tools, kinds]

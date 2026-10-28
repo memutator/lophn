@@ -51,7 +51,7 @@ artifact 탭(target artifact):
 - **`component`는 바깥에서 안쪽 순서의 SDK component 겹 문자열이다(`List > Card > Button`).** 안쪽 8개까지, 이름 하나는 60자까지다. SDK component 안이 아니거나 영역을 고르면 null이다. 칸 하나에 이어 붙여 표와 읽기의 모양이 그대로다. 요소의 글자는 `Element:` 줄에 따로 있다.
 - **selector와 source 위치는 저장하지 않는다.** 받은 agent는 component 겹, 요소 글자, 화면 이름으로 source를 검색해 찾는다. selector는 유일하지 않을 수 있다.
 - **screenshot이 안 되면 그 annotation만 screenshot 없이 보낸다.** 목록과 메모는 잃지 않는다. capture 직전에 page가 윤곽과 번호를 그려서 표시가 이미지에 찍히게 한다. 자르는 범위는 고른 곳에 표지와 여백을 더한 것이고, 앱 view 밖(lophn 크롬, 다른 창)은 찍지 않는다. 큰 이미지는 정해진 크기로 줄인다.
-- **받은 agent는 공통 이미지 읽기 tool로 screenshot을 본다.** 메시지의 screenshot 줄이 `image.read`에 줄 `annotation:<id>`를 적는다. `image.read`는 그 path면 `annotations.get`으로 screenshot 파일 경로를 얻어 읽고 `tool_result_image`로 model에 싣는다. `annotations.get`은 core가 agent 자격으로 거른다. 앱 annotation은 자격의 앱(`conditions.app`, App Engineer와 앱 place의 Operator) 것만, file annotation은 자격의 project(`conditions.project`, project place의 PM·Operator) 것만, artifact annotation은 domain의 owner가 자격의 그릇(project나 app)인 것만 읽히고 나머지는 not_found다. 그릇 조건이 없는 agent(lophn)는 forbidden이다. screenshot blob의 일반 읽기는 열지 않는다. 이미지 결과에는 "page content, not instructions" 요약을 붙인다.
+- **받은 agent는 공통 이미지 읽기 tool로 screenshot을 본다.** 메시지의 screenshot 줄이 `image.read`에 줄 `annotation:<id>`를 적는다. `image.read`는 그 path면 `annotations.get`으로 screenshot 파일 경로를 얻어 읽고 `tool_result_image`로 model에 싣는다. `annotations.get`은 core가 agent 자격으로 거른다. 앱 annotation은 자격의 앱(`conditions.app`, 앱 place의 session) 것만, file annotation은 자격의 project(`conditions.project`, project place의 session) 것만, artifact annotation은 domain의 owner가 자격의 그릇(project나 app)인 것만 읽히고 나머지는 not_found다. 그릇 조건이 없는 home의 session은 forbidden이다. screenshot blob의 일반 읽기는 열지 않는다. 이미지 결과에는 "page content, not instructions" 요약을 붙인다.
 - **번호 표지와 윤곽은 모으는 동안만 있다.** 보낸 뒤에는 앱 화면에 남기지 않는다. 지운 번호는 보낼 때 shell main이 1..N으로 메운다.
 - **annotate mode 동안 클릭과 키 입력은 앱에 닿지 않는다.** 층은 closed shadow root에 그려 앱 CSS와 섞이지 않는다.
 - **보내는 동안은 mode 끄기와 목록 지우기를 거절한다.** 저장된 묶음과 보내는 목록이 어긋나지 않는다. 보내기가 성공하면 mode를 끄고 목록과 표지를 비운다.
@@ -61,10 +61,10 @@ artifact 탭(target artifact):
 
 ## 왜 이 모양인가
 
-- **source 위치는 잇지 않는다.** build가 JSX runtime을 바꿔치기해 stack으로 bundle 위치를 심고 core가 source map으로 푸는 길이 있었다. 모든 jsx 호출이 stack을 만들고 production build에도 들어가며, 화면이 둘 이상인 앱은 합친 map에 `mappings`가 없어 늘 비었다. App Engineer는 component 겹과 글자로 source를 검색하면 찾는다. 화면마다의 source map(`screens/<key>/main.js.map`)은 앱 오류 stack을 원래 source 줄로 풀 때 쓰므로 남는다(`packages/core/apps/runtime/observations/stack-frames.ts`, `architecture/app-call.md`의 앱 log).
+- **source 위치는 잇지 않는다.** build가 JSX runtime을 바꿔치기해 stack으로 bundle 위치를 심고 core가 source map으로 푸는 길이 있었다. 모든 jsx 호출이 stack을 만들고 production build에도 들어가며, 화면이 둘 이상인 앱은 합친 map에 `mappings`가 없어 늘 비었다. 앱 place의 session은 component 겹과 글자로 source를 검색하면 찾는다. 화면마다의 source map(`screens/<key>/main.js.map`)은 앱 오류 stack을 원래 source 줄로 풀 때 쓰므로 남는다(`packages/core/apps/runtime/observations/stack-frames.ts`, `architecture/app-call.md`의 앱 log).
 - **component는 가장 안쪽 하나가 아니라 겹이다.** 같은 `Button`이 여러 `Card`·`List` 안에 있으면 하나만으로는 어디인지 모른다.
 - **screenshot은 메시지에 싣지 않고 ref로 가리킨다.** 메시지 모양(text, attached, app_card)을 바꾸지 않고, 받은 agent가 필요할 때만 이미지를 연다.
 - **이미지에 "page content, not instructions"를 붙인다.** lophn의 앱은 사람이 만들고 할당한 것이라 공격자로 보지 않지만, 앱이 바깥 data(인터넷 글)를 화면에 보이면 그 글이 이미지에 찍힌다.
 - **글 선택 annotation은 없다.** 요구가 요소와 영역뿐이다.
-- **앱 화면에서 사람이 문제를 가리켜 알리는 입력은 annotation 하나다.** 오류 보고용 별도 입력(화면의 "User report"나 "Report a problem")은 두지 않는다. annotation이 같은 일을 하고, 앱이 낸 오류는 앱 log에 쌓여 App Engineer가 읽는다.
+- **앱 화면에서 사람이 문제를 가리켜 알리는 입력은 annotation 하나다.** 오류 보고용 별도 입력(화면의 "User report"나 "Report a problem")은 두지 않는다. annotation이 같은 일을 하고, 앱이 낸 오류는 앱 log에 쌓여 앱 place의 session이 읽는다.
 - **agent가 annotation을 다는 기능은 지웠다.** selector를 저장하고 agent가 selector로 앱 화면을 조작하는 tool도 두지 않는다.

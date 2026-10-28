@@ -136,6 +136,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - 권한 분류기는 session마다 그 session에 사람이 직접 한 말만 본다. planner가 전한 사람의 허락("진짜 provider 맘껏 써")은 lead session에서 통하지 않아, `LOPHN_LAND_SKIP_E2E=1 land.sh`("CI Bypass")와 진짜 model eval 명령("Real-World Transactions")이 막혔다. 계획에 이런 일이 있으면 사람이 자리를 비우기 전에 lead session에 직접 말하게 한다. 다른 session에 대신 돌려 달라고 하지 않는다.
 - planner나 lead가 main에서 문서를 바로 고쳐도 `npm run check:full`을 돈다. `npm run check`가 못 보는 문서 fmt로 main이 깨진 일이 있다.
 - 이슈와 문서의 path는 저장소 root부터 쓴다. package 안에서 줄인 path는 docs check가 "없는 path"로 막는다.
+- 층 하나를 지우는 cleanup의 끝남 grep은 이름(type, route, 표)만 잡는다. 그 층만 쓰던 화면 칸은 이름이 달라 남는다(remove-role 뒤 session popover의 "Waiting for a coding agent" 칸과 `queuedCoding` prop이 넘기는 곳 없이 남았다). 지운 층의 화면 문구 key로 한 번 더 grep하고, 그 key를 쓰는 component의 prop을 넘기는 곳이 있는지 본다.
 
 ## 사람에게 알리는 때
 

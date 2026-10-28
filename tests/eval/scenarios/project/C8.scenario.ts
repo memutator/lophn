@@ -1,4 +1,4 @@
-// 출처: AGENT-ROLE C8 (제안), project 지침 "새 project나 project 밖의 기획은 home의 lophn에게 답을 받지 않는 call로".
+// 출처: AGENT.md C8 (제안), project 지침 "새 project나 project 밖의 기획은 home의 lophn에게 답을 받지 않는 call로".
 // 새 앱은 home에서 등록하므로 project place의 lophn은 home의 lophn에게 넘긴다.
 // 말 상대가 project place에 있으려면 project가 있어야 해서 projects-home@1을 둔다.
 import {

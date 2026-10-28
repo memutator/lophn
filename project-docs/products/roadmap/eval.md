@@ -1,16 +1,17 @@
 # eval: 진짜 model이 lophn의 일을 잘하나
 
 상태: 로드맵. 계획 `eval-base`(기초와 판단 case), `eval-coding`(진짜 coding agent, 사람 역할, 캘린더 단위), `eval-experiment`(experiment, agent 채점), `test-restore`(case를 현재 계약에 맞춰 되살림)는 모두 land했다. 그 코드는 `project-docs/architecture/eval.md`가 적는다. 이 문서에 남은 것은 설계의 배경과 아직 만들지 않은 것이다. domain model과 구조는 2026-10-18 planner와 사람이 다시 정했다. 그림은 artifact "lophn eval 설계"(https://claude.ai/artifact/P9TagQSccLQAgRWFcDeD6g)에 있다.
+2026-10-28: 계획 `remove-role`이 role을 없앴다. agent는 lophn과 사람이 만든 agent이고 session이 place(home, project, app)를 갖는다(`products/AGENT.md`, changelog `0.9.0`). 아래에서 Project Manager는 그 project place의 session, App Engineer는 그 앱 place의 session, Operator는 사람이 만든 agent로 읽는다.
 계획 `test-restore`가 아래 case 표와 확인 목록을 지금 계약에 맞췄다(coding agent 없음, App Engineer가 앱을 직접 짓고 release까지 낸다, grant 대신 assignment, `guide.read` 대신 `guide-*` skill, approval 대신 activation 동의). 새 설계로 진짜 model을 돌려 보는 것은 사람의 다음 일이다.
 
 2026-10 Node 전환에서 앱 모양이 Deno project에서 Node 앱으로 바뀌었다. 그 모양에 묶여 있던 판단 case 여덟(`L4-new`, `L7`, `O4`, `calendar-api`, `calendar-dev`, `calendar-diagnose`, `calendar-maintain`, `calendar-user`)과 그 재료를 지웠다. 그 case들만 쓰던 harness 기능도 지웠다: 사람 역할(`tests/eval/human/`, `npm run eval:answer`), 시나리오의 `human`·`approve`·`save`·`limits`·`callApi`·`setup`, 끝난 world를 보는 check(`tests/eval/checks/app/`), criterion `app-design`·`asked-again`·`card-covered`·`facts-separated`·`root-cause`. 지금 harness는 판단 case 11개만 돈다. 아래 캘린더 단위, 요구 카드, 설계·재사용·진단 확인, 산출물 저장, 기다림 한도 설계는 Node 앱 모양으로 다시 지을 때의 기준으로 남긴다.
 계획이 land할 때마다 이 설계 가운데 만든 것을 실제 코드 path와 함께 `project-docs/architecture/eval.md`로 옮기고, 여기서는 지운다. architecture 문서는 지금 코드만 적기 때문이다.
-배경 문서: `project-docs/products/AGENT-ROLE.md`, `project-docs/architecture/testing.md`, `project-docs/architecture/agent-definition.md`, AGENTS.md "속도"·"사람에게 묻는 것".
+배경 문서: `project-docs/products/AGENT.md`, `project-docs/architecture/testing.md`, `project-docs/architecture/agent-definition.md`, AGENTS.md "속도"·"사람에게 묻는 것".
 
 ## 왜
 
 - test 층 다섯(`architecture/testing.md`)은 정해 둔 입력에 pass/fail이 결정적으로 갈리는 것만 본다. fake는 대답을 test가 정하므로 판단이 없다. live는 진짜 model을 부르지만 대답 내용을 보지 않는다(`tests/live/suite.ts:173-199`).
-- AGENT-ROLE의 L1~L7은 "의미 판단이라 program이 강제하지 않는다". T19는 "agent 지침의 규칙이고 program이 막지는 않는다". 앱을 만들고, 이미 있는 것을 다시 쓰고, 문제를 진단하는 일도 role 지침과 model이 한다. 이것을 재는 장치가 없다.
+- AGENT.md의 L1~L7은 "의미 판단이라 program이 강제하지 않는다". T19는 "agent 지침의 규칙이고 program이 막지는 않는다". 앱을 만들고, 이미 있는 것을 다시 쓰고, 문제를 진단하는 일도 role 지침과 model이 한다. 이것을 재는 장치가 없다.
 - instruction, skill, tool definition, prompt 조립을 고쳐도 그것이 정말 나아졌는지 확인할 길이 없다. 고친 것이 시나리오 하나에만 맞춰졌는지도 모른다.
 
 ## 무엇을 재나
@@ -474,10 +475,10 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 
 ## case 고르는 규칙
 
-1. case는 lophn에서 뽑는다: AGENT-ROLE 항목, role 지침의 줄, architecture의 "지키는 것", lophn의 bug·이슈 기록, 위 "제품 빈틈". 다른 harness의 시나리오를 옮기지 않는다. 다른 harness는 만드는 법을 볼 때만 쓴다. bug·이슈 기록에는 진짜 model의 판단이 아직 없으므로, eval이 찾은 실패가 다음 case의 출처가 된다.
+1. case는 lophn에서 뽑는다: AGENT.md 항목, place 종류 지침의 줄, architecture의 "지키는 것", lophn의 bug·이슈 기록, 위 "제품 빈틈". 다른 harness의 시나리오를 옮기지 않는다. 다른 harness는 만드는 법을 볼 때만 쓴다. bug·이슈 기록에는 진짜 model의 판단이 아직 없으므로, eval이 찾은 실패가 다음 case의 출처가 된다.
 2. program이 이미 막는 것은 재지 않는다(assignment, Gate, role의 tool 목록, 폴더 scope, `operatorPlaceAllowed`). pass 조건은 그 agent의 tool로 어길 수 있는 것만 된다.
 3. 결과를 채점한다: call의 받는 쪽과 답 방식, disk, 앱 tool의 대답, 앱 log, 질문·허락. 순서는 순서 자체가 규칙일 때만 본다(첫 `release.prepare` 앞에 `DESIGN.md`). 글은 program이 단정하지 않는다. 글의 뜻은 judge check가 고정된 criterion과 enum으로 본다.
-4. AGENT-ROLE의 "(제안)" 줄에서 나온 case는 표시한다. 그런 case가 떨어지면 model보다 그 줄이나 지침이 틀렸을 수 있다.
+4. AGENT.md의 "(제안)" 줄에서 나온 case는 표시한다. 그런 case가 떨어지면 model보다 그 줄이나 지침이 틀렸을 수 있다.
 5. 확인이 위 "제품 빈틈" 때문에 떨어지면 scorecard에 제품 탓으로 따로 적는다.
 6. 시나리오의 경계는 agent loop가 끝나고 산출물이 남는 곳에 둔다(위 "단위와 의존").
 

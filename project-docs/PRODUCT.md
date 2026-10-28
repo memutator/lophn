@@ -51,7 +51,7 @@ lophn 안에서는 이렇게 나뉜다.
 | 주체 | 맡는 일 |
 |---|---|
 | 사람 | 도메인을 이야기한다. 무엇을 만들지와 취향을 정한다. 앞에서 한 번 허락한다(grant). 결과를 확인한다. workflow에서는 step을 맡아 agent와 논의하는 참가자다 |
-| lophn agent | 무엇을 만들고 고칠지 정한다(lophn은 기획하고 맡기며 경계를 넘는 판단을 한다. Project Manager는 한 project와 그 domain을, App Engineer는 한 앱의 코드와 그 domain을 맡는다). 개인 앱은 App Engineer가 직접 설계하고 짓고 고친다. 쓰고 돌본다(Operator). 길고 복잡한 coding agent의 일은 하지 않는다 |
+| lophn agent | 무엇을 만들고 고칠지 정하고, 짓고, 쓰고 돌본다. agent는 lophn과 사람이 만든 agent이고, 하는 일은 session이 일하는 place가 정한다: home에서는 기획하고 맡기며 경계를 넘는 판단을, project에서는 그 project와 domain을, 앱에서는 그 앱의 코드와 domain을 맡는다. 개인 앱은 그 앱 place의 session이 직접 설계하고 짓고 고친다. 길고 복잡한 coding agent의 일은 하지 않는다 |
 | coding agent | 길고 복잡한 코딩을 맡는다. 사람이 원래 쓰던 Claude Code, Codex 등이다 |
 | lophn program | 결정적인 판정을 맡는다: release 고정과 검사, 관측과 앱 log, grant 판정, invocation 기록과 rewind, event. workflow에서는 판정하지 않고 말한 대로 기록하고 보이고 전한다(아래) |
 
@@ -60,8 +60,8 @@ lophn 안에서는 이렇게 나뉜다.
 agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어떤 사실이 필요할 때 그것을 사람에게 들을지 program에게 들을지를 정해야 한다. 이것은 정해진 공식이 아니다. 그 일에서 누가 무엇을 이미 알고, 그 일이 얼마나 자주 일어나고, 각자에게 맡기면 무엇이 드는지를 그때그때 견줘 가장 말이 되는 쪽에 둔다.
 
 예: pdf 문서의 목차.
-- pdf의 목차는 program이 결정적으로 뽑지 못한다. 그래서 Project Manager가 만든다.
-- 그럼 pdf가 바뀌었을 때 목차를 다시 만들어야 한다는 것은 누가 알아야 할까. 처음에는 program이 파일 hash로 바뀜을 감지하고, Project Manager를 불러, 목차가 정말 바뀌었는지 확인하게 하는 안이 나왔다.
+- pdf의 목차는 program이 결정적으로 뽑지 못한다. 그래서 그 project place의 agent가 만든다.
+- 그럼 pdf가 바뀌었을 때 목차를 다시 만들어야 한다는 것은 누가 알아야 할까. 처음에는 program이 파일 hash로 바뀜을 감지하고, agent를 불러, 목차가 정말 바뀌었는지 확인하게 하는 안이 나왔다.
 - 하지만 hash가 바뀌었다고 목차가 바뀐 것은 아니다. 다시 저장만 해도 hash는 바뀐다. 게다가 바뀜을 감지하려면 file watch나 주기 검사 같은 장치를 따로 둬야 하고, 그 뒤에 agent 호출과 확인이 또 붙는다.
 - pdf는 잘 바뀌지 않고, 바꾼 사람은 자기가 무엇을 바꿨는지 이미 안다. "pdf 바꿨으니 목차 새로 뽑아줘" 한마디가 가장 정확하고 가장 싸다.
 - 그래서 목차를 다시 만드는 계기는 사람의 요청이다. program은 감지하지 않는다.
@@ -70,7 +70,7 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 
 ### workflow에서 lophn program은 최대한 약하다
 
-사람과 agent 여럿이 step을 넘기며 도는 일(workflow)은 project의 PM이 정의하고, 사람이나 job이 instance로 시작한다(`architecture/workflow.md`). PM이 쓴 code가 agent와 앱 tool을 불러 가며 이끄는 workflow(flow)도 같다.
+사람과 agent 여럿이 step을 넘기며 도는 일(workflow)은 그 project place의 agent가 정의하고, 사람이나 job이 instance로 시작한다(`architecture/workflow.md`). agent가 쓴 code가 agent와 앱 tool을 불러 가며 이끄는 workflow(flow)도 같다.
 - lophn program은 workflow 안의 agent와 program이 하는 말을 믿고, 기록하고, 보이고, 다음 담당에게 전할 뿐이다. step이 통과했는지 모르고, 순서를 강제하지 않는다.
 - 아무리 정형화된 일이라도 예외 처리는 program이 할 수 없다. 그래서 정책과 예외(순서 바꾸기, 다시 하기, 뒤 step 고치기)는 workflow 안의 agent가 instance를 고쳐 다룬다.
 - 진짜 결정적이고 딱딱한 제약이 필요하면 그것은 그 workflow가 쓰는 program의 책임이다. lophn core는 workflow의 domain을 모른다.
@@ -86,13 +86,13 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 - lophn agent, coding agent, lophn process가 함께 고친다.
 - 쓸데없는 결정 피로를 줄인다. 결정은 앞에서 몰아서 하고 그 뒤에는 믿고 쓰며, 실수는 묻는 것으로 막지 않고 rewind로 복구한다.
 
-**축 2. agent의 결과를 GUI로 추상화한다.** 사람에게 최종적으로 오는 interface가 채팅 화면에 갇혀서는 안 된다. 그렇다고 ERP 화면을 다시 만드는 것도 아니다. 예를 들어 ERP를 agent에게 시킨다면, 사람에게는 agent의 결과를 추상화한 새로운 GUI가 필요하다. 앱에 대해서도 사람에게 필요한 것은 로그 화면이 아니다. 앱 개발에서도 사람에게 필요한 것은 작업 목록이 아니라 내 앱에서 무엇이 달라졌는지다. 설계 메모나 agent끼리 주고받는 call처럼 agent가 만들고 읽는 것은 사람 화면에 따로 보이지 않는다. 사람이 맡긴 workflow instance의 진행은 보인다. workflow가 project 창 layout의 맨 위 단위(desk)이고, PM이 고르면 node로 그린 artifact가 그 상태를 보인다.
+**축 2. agent의 결과를 GUI로 추상화한다.** 사람에게 최종적으로 오는 interface가 채팅 화면에 갇혀서는 안 된다. 그렇다고 ERP 화면을 다시 만드는 것도 아니다. 예를 들어 ERP를 agent에게 시킨다면, 사람에게는 agent의 결과를 추상화한 새로운 GUI가 필요하다. 앱에 대해서도 사람에게 필요한 것은 로그 화면이 아니다. 앱 개발에서도 사람에게 필요한 것은 작업 목록이 아니라 내 앱에서 무엇이 달라졌는지다. 설계 메모나 agent끼리 주고받는 call처럼 agent가 만들고 읽는 것은 사람 화면에 따로 보이지 않는다. 사람이 맡긴 workflow instance의 진행은 보인다. workflow가 project 창 layout의 맨 위 단위(desk)이고, 정의할 때 고르면 node로 그린 artifact가 그 상태를 보인다.
 
 ## 5. 하지 않는 것
 
 | 하지 않는 것 | 이유 |
 |---|---|
-| coding agent 만들기 | 길고 복잡한 코딩은 사람이 원래 쓰던 coding agent가 한다. lophn은 그것이 붙을 통로를 연다. 개인 앱은 작아서 App Engineer가 직접 짓고, 그 앱과 context에 가장 잘 닿는 것도 App Engineer다 |
+| coding agent 만들기 | 길고 복잡한 코딩은 사람이 원래 쓰던 coding agent가 한다. 개인 앱은 작아서 그 앱 place의 lophn agent가 직접 짓고, 그 앱과 context에 가장 잘 닿는 것도 그 session이다 |
 | 채팅 중심 비서 | 사람에게는 UI가 필요하다(4절 축 2) |
 | 앱 마켓 | 한 사람에게 맞춘 앱이 목적이다(2절) |
 | 사용자 도메인을 범용 모델로 미리 만들기 | 필요할 때 agent가 그 사람에게 맞춰 만든다(2절) |
@@ -102,12 +102,12 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 
 **MVP**
 - 데스크톱 앱(shell)과 로컬 core
-- lophn agent: lophn, Project Manager, App Engineer, Operator
-- coding agent 연결: 터미널 탭의 TUI, CLI, MCP. App Engineer는 coding agent에게 맡기지 않는다(연결을 얼마나 남길지는 보류)
-- 앱: App Engineer가 직접 짓기(선언, 코드, 앱 test), release 준비와 검사, preview, activation, 실행, data, 앱 log, 사람이 넣는 앱 secret과 OAuth sign-in(값은 앱에 주지 않는다)
+- lophn agent: lophn과 사람이 만든 agent. 정의는 전역이고 session이 place(home, project, app)를 갖는다
+- coding agent: 사람이 터미널 탭에서 쓰는 coding agent의 상태(icon, 점, 알림)와 hook 설치. lophn agent는 coding agent에게 일을 맡기지 않는다
+- 앱: 그 앱 place의 session이 직접 짓기(선언, 코드, 앱 test), release 준비와 검사, preview, activation, 실행, data, 앱 log, 사람이 넣는 앱 secret과 OAuth sign-in(값은 앱에 주지 않는다)
 - domain: kind 파일과 검사, `DOMAIN.md`, skill, artifact, 앱 tool의 domain
 - grant와 approval, event, rewind
-- workflow: project에 정의(`workflow.yaml`, `workflow.md`, 고르는 artifact), instance와 report, 사람 step, workflow마다의 desk. PM이 쓴 code(`flow.ts`)가 agent와 앱 tool을 부르는 flow
+- workflow: project에 정의(`workflow.yaml`, `workflow.md`, 고르는 artifact), instance와 report, 사람 step, workflow마다의 desk. project place의 agent가 쓴 code(`flow.ts`)가 agent와 앱 tool을 부르는 flow
 - job: agent가 만들어 정해진 때 agent 호출, 앱 tool 호출, workflow 시작을 돌린다. 놓친 차례를 사람에게 묻고(hold), 사람은 화면에서 보고 끄고 지운다(`architecture/job.md`)
 
 **그다음**
@@ -118,7 +118,7 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 
 | 문서 | 다루는 것 |
 |---|---|
-| `products/AGENT-ROLE.md` | agent 목록, place, 책임, agent 사이의 call과 사람에게 올림(escalate) 정책 |
+| `products/AGENT.md` | agent와 place, place마다의 책임, session 사이의 call과 사람에게 올림(escalate) 정책 |
 | `boundary-catalog.yaml` | lophn을 이루는 경계와 공개 계약 |
 | `module-catalog.yaml` | 코드 module ↔ 경계 |
 | `architecture/` | 여러 module에 걸친 메커니즘과 그 이유 |

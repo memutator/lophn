@@ -5,7 +5,7 @@ agent가 쓴 정적 HTML 결과(artifact)를 사람이 탭으로 보는 메커�
 ## 흐름
 
 ```
- agent (그 domain을 맡은 PM·App Engineer·Operator)
+ agent (그 domain을 받은 project·앱 place의 session)
    place 정보의 Artifacts 줄 ── domain마다 Folder: <data>/domains/<dom>/artifacts (절대 path) + 목록(name, title, description)
    file.write <Folder>/<name>/index.html, data/*.json ── rewind 기록(root = artifacts 폴더 realpath, path = <name>/…)
    대화에 그 path를 말한다
@@ -34,16 +34,16 @@ agent가 쓴 정적 HTML 결과(artifact)를 사람이 탭으로 보는 메커�
 
  core
    annotations.send(target artifact) ─▶ 저장 ─▶ deliverArtifact
-     (a) rewind 기록에서 그 domain 그릇의 열린 session(PM 또는 App Engineer, Operator) 가운데 그 폴더에 마지막으로 쓴 것
-     (b) 없으면 입력 session(그 그릇의 열린 PM이나 App Engineer여야 한다) 또는 새 session
-   annotations.send(target file: 사람의 .html) ─▶ deliverFile: 그 project의 PM
+     (a) rewind 기록에서 그 domain 그릇 place의 열린 session 가운데 그 폴더에 마지막으로 쓴 것
+     (b) 없으면 입력 session(그 그릇 place의 열린 lophn session이어야 한다) 또는 그 그릇 place의 lophn 새 session
+   annotations.send(target file: 사람의 .html) ─▶ deliverFile: 그 project place의 lophn
    annotations.get ── 자격 조건 project로 그 project가 그릇인 domain의 artifact annotation만 ─▶ image.read "annotation:<id>"
 ```
 
 ## 지키는 것
 
 - **자리는 `<data>/domains/<dom>/artifacts/<name>/`이고 `<name>`은 slug다.** 신원은 `{domain, name}`이다. 입구 `index.html`이 일반 file이면 artifact다. symlink 폴더와 symlink 입구는 세지 않는다. 이름 규칙은 protocol의 `artifactNameSchema`(= `slugSchema`)이고 shell은 `ipc/artifact.ts`에 사본을 둔다(shell main은 zod를 싣는 protocol file을 import하지 못한다).
-- **쓰는 것은 그 domain을 맡은 agent뿐이다.** `placeScope`가 그 그릇의 PM과 App Engineer에게는 domain 폴더 전체를, Operator에게는 고른 domain의 `artifacts/`만 read·write로 주고, lophn에게는 주지 않는다. 사람의 폴더(project 폴더, 앱 source)가 목록 앞에 남는다. 상대 path의 기준이 첫 폴더라서 agent는 artifact를 절대 path로 쓴다(내장 skill `guide-artifact`).
+- **쓰는 것은 그 domain을 맡은 agent뿐이다.** `placeScope`가 project·앱 place의 session에게 받은 domain의 폴더 전체를 read·write로 주고, home의 session에게는 주지 않는다. 사람의 폴더(project 폴더, 앱 source)가 목록 앞에 남는다. 상대 path의 기준이 첫 폴더라서 agent는 artifact를 절대 path로 쓴다(내장 skill `guide-artifact`).
 - **domain 폴더와 그 안의 `skills/`, `artifacts/`는 turn을 시작할 때 place 정보를 만들면서 core가 만든다.** file tool은 없는 허용 폴더를 건너뛰므로 첫 artifact를 쓰려면 폴더가 있어야 한다. 만들지 못하면 그 turn은 그 domain 폴더 없이 간다.
 - **목록은 program이 관례 자리에서 결정적으로 만든다.** 제목과 설명은 `index.html` 앞 64 KiB의 `<title>`·`<meta name="description">`에서 읽고 120자·300자로 자른다. shell main(`artifact/list.ts`)과 core(`place/artifact-list.ts`)가 같은 규칙의 사본을 갖는다. core는 shell을 import하지 못한다. prompt에는 domain 이름순, 이름 순으로 전체 50개까지 싣는다.
 - **봉한 scheme은 root 안의 일반 file만 준다.** `..` 마디, 역슬래시, NUL, 풀 수 없는 percent-encoding은 거절하고, 어휘 검사 뒤 realpath도 `root + sep` 안이어야 한다(접두사만 같은 형제 폴더는 밖이다). 그 path를 `O_NOFOLLOW`로 열어 일반 file이고 4 MiB 이하일 때만 준다. 그 밖은 모두 404다.
@@ -57,8 +57,8 @@ agent가 쓴 정적 HTML 결과(artifact)를 사람이 탭으로 보는 메커�
 - **main frame은 같은 host의 `lophn-artifact:`로만 간다.** 같은 폴더 안의 다른 HTML로 가는 상대 link는 된다. http·https는 막고, 사용자 입력 5000ms 안이면 renderer에 알려 browser 탭으로 연다. `window.open`은 늘 거절한다. permission은 거절하고 download는 취소한다. subframe도 같은 host만이다.
 - **preload에는 annotate layer만 있다.** tool을 부르는 bridge는 없다. 이것이 앱 화면과 갈리는 곳이다.
 - **annotation의 신원은 shell main이 view의 source로 정한다.** page가 보낸 값은 쓰지 않는다. artifact annotation에는 release와 screen이 없다(null). 사람의 `.html`이면 target이 `file`(`{project}`)이다.
-- **annotation을 받는 쪽은 그 폴더에 마지막으로 쓴 session이다.** rewind 기록(`rewind_files`의 root가 그 domain의 artifacts 폴더의 realpath, path가 `<name>/`로 시작, 되돌려지지 않은 쓰기)에서 그 domain 그릇의 place에 놓인 열린 session(그 그릇의 PM이나 App Engineer, Operator) 가운데 마지막 것을 고른다. root가 domain마다 달라 같은 이름의 artifact가 다른 domain에 있어도 섞이지 않는다. 없으면 pane에 열린 그 그릇의 PM이나 App Engineer session이고, 그 session이 그 그릇의 열린 PM·App Engineer가 아니면 conflict로 거절한다. pane에 그런 session이 없으면 새 session이다. 사람의 `.html`은 늘 그 project의 PM이 받는다.
-- **artifact annotation을 읽는 것은 그 domain 그릇의 agent다.** 자격 조건 `project`(PM, project place의 Operator)는 그 project가 그릇인 domain의 artifact target과 사람의 `.html`(file) target을, 조건 `app`(App Engineer, 앱 place의 Operator)은 그 앱이 그릇인 domain의 artifact target을 읽는다. 다른 그릇 것은 not_found이고, 그릇 조건이 없는 agent(lophn)는 forbidden이다(`architecture/annotation.md`).
+- **annotation을 받는 쪽은 그 폴더에 마지막으로 쓴 session이다.** rewind 기록(`rewind_files`의 root가 그 domain의 artifacts 폴더의 realpath, path가 `<name>/`로 시작, 되돌려지지 않은 쓰기)에서 그 domain 그릇 place의 열린 session 가운데 마지막 것을 고른다. root가 domain마다 달라 같은 이름의 artifact가 다른 domain에 있어도 섞이지 않는다. 없으면 pane에 열린 그 그릇 place의 lophn session이고, 그 session이 그 그릇 place의 열린 lophn session이 아니면 conflict로 거절한다. pane에 그런 session이 없으면 그 그릇 place의 lophn 새 session이다. 사람의 `.html`은 늘 그 project place의 lophn이 받는다.
+- **artifact annotation을 읽는 것은 그 domain 그릇의 agent다.** 자격 조건 `project`(project place의 session)는 그 project가 그릇인 domain의 artifact target과 사람의 `.html`(file) target을, 조건 `app`(앱 place의 session)은 그 앱이 그릇인 domain의 artifact target을 읽는다. 다른 그릇 것은 not_found이고, 그릇 조건이 없는 home의 session은 forbidden이다(`architecture/annotation.md`).
 - **파일이 바뀌면 열린 탭이 다시 load한다.** artifact는 폴더 전체, 사람의 `.html`은 그 폴더 바로 아래만 지켜본다(사람의 폴더는 클 수 있다). 150ms 동안 모아 한 번 다시 load한다.
 - **같은 창에서 같은 source는 view 하나다.** 탭이 다시 mount되어도 view를 새로 만들지 않는다. 폴더가 없으면 view를 만들지 않고 탭이 안내와 [Try again]을 그린다.
 

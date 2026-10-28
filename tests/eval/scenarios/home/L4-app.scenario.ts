@@ -1,4 +1,4 @@
-// 출처: AGENT-ROLE L4 (제안). 이미 있는 앱에 하는 일은 그 앱 place의 lophn에게 답을 받지 않는 call로 한 번 넘긴다
+// 출처: AGENT.md L4 (제안). 이미 있는 앱에 하는 일은 그 앱 place의 lophn에게 답을 받지 않는 call로 한 번 넘긴다
 // (remove-role README "domain 일을 받는 쪽은 주인 그릇 place의 lophn session").
 import {
   callCount,

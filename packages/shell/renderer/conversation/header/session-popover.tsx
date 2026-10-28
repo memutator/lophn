@@ -11,7 +11,6 @@ import {
   useState,
 } from "react";
 import { Avatar } from "../../parts/avatar/avatar.tsx";
-import { VendorIcon, vendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import { Popover } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
@@ -29,13 +28,6 @@ import type {
   SessionStatus,
 } from "../agent-tab-source.ts";
 import styles from "./session-popover.module.css";
-
-/** 그 앱의 줄에서 기다리는 coding 맡기기 하나. 앞 session이 끝나면 열린다. */
-export interface QueuedCodingView {
-  readonly id: string;
-  /** coding agent의 product 이름("Claude Code"). vendor 아이콘도 이 이름으로 고른다. */
-  readonly product: string;
-}
 
 const GROUPS: readonly { group: "today" | "earlier"; head: MessageKey }[] = [
   { group: "today", head: "common.label.range-today" },
@@ -85,7 +77,6 @@ export interface SessionSwitcherProps {
   current: { readonly id: string; readonly title: string | null } | null;
   /** 그 agent의 session 전부(archive한 것 포함). 정렬은 여기서 한다. */
   sessions: readonly SessionEntry[];
-  queuedCoding?: readonly QueuedCodingView[];
   now: Date;
   /** 줄을 눌렀다. popover는 닫힌다. archive한 줄이면 기록만 읽는 탭이 열린다. */
   onSwitch: (session: string) => void;
@@ -224,7 +215,6 @@ function Switcher(
     (entry) => !entry.archived && titleOf(entry).toLowerCase().includes(needle),
   );
   const archived = byRecent.filter((entry) => entry.archived);
-  const queued = props.queuedCoding ?? [];
 
   const startRename = (entry: SessionEntry) => {
     setDeleting(null);
@@ -388,26 +378,6 @@ function Switcher(
           agent: agent.name,
         })}
       >
-        {queued.length === 0 ? null : (
-          <div role="group" aria-label={t("conversation.label.coding-queued")}>
-            <p className={styles.groupHead} data-session-group>
-              {t("conversation.label.coding-queued")}
-            </p>
-            {queued.map((item) => {
-              const vendor = vendorOf(item.product);
-              return (
-                <div key={item.id} className={styles.queued} data-queued-coding>
-                  <span className={styles.queuedIcon}>
-                    {vendor === undefined ? null : (
-                      <VendorIcon vendor={vendor} />
-                    )}
-                  </span>
-                  <span className={styles.sessionTitle}>{item.product}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
         {live.length === 0 ? (
           <p className={styles.noMatch} data-no-match>
             {t("conversation.notice.session-no-match")}

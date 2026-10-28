@@ -25,7 +25,7 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
 ```
 
 - 할당은 사람이 agent에게 앱을 붙이고 그 앱에서 뺄 tool을 적는 것이다(`agent_assignments`, 줄은 `{app, removed_tools}`). 할당한 앱의 tool만 그 agent의 tool 목록에 뜬다.
-- MCP server는 설정한 층(전역, project, Operator 정의)이 곧 할당이다. 끄기는 `mcp_off`다. 할당 줄이 없다.
+- MCP server는 설정한 층(전역, project, agent 정의)이 곧 할당이다. 끄기는 `mcp_off`다. 할당 줄이 없다.
 - 효과(read, write, external)는 판정에 쓰지 않는다. 할당한 tool은 바깥 효과도 묻지 않는다(사람, 2026-10-21). 효과는 기록과 재시도에만 쓰인다.
 - 사람이 앱 화면에서 누르는 것, 사람이 보내는 메시지, agent call, 지침 파일(`LOPHN.md`) 쓰기, file·web·pdf·image tool은 묻지 않는다. file tool은 place가 범위이고 쓰기는 rewind로 되돌린다.
 - coding agent의 tool call은 harness의 일이다. lophn은 harness의 물음을 대기 목록에 비추기만 하고(`subject.kind: "harness"`) 답은 터미널에서 한다.
@@ -34,11 +34,11 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
 
 판정
 - `judge`는 IO 없는 함수다(`packages/core/approvals/gate/judge.ts`). 시각, 상태, 전역을 읽지 않는다. 같은 입력은 같은 결과다.
-- 할당하지 않은 앱의 tool은 `deny not_assigned`, 할당에서 뺀 tool은 `deny removed`다. 어느 mode에서나 막는다. tool 목록은 session 시작 때 고정하지만(`architecture/agent-definition.md`), 판정은 call 때 지금 할당을 읽어 session 도중 뺀 앱 tool도 바로 막는다. MCP tool은 `judge`가 늘 `run`을 내고(할당 줄이 없다), 연결 쪽 `call`(`packages/core/lophn-agent/extensions/mcp-toolkit.ts`)이 부를 때마다 전역·project 층 server 설정을 다시 읽어 꺼진 server(`mcp_off`)나 읽기 실패면 `unavailable`로 거절한다. 도는 turn 안에서 끈 server도 바로 막힌다. Operator 정의 층의 `off`는 turn 시작 때 읽은 값이라 다음 turn부터 막힌다.
+- 할당하지 않은 앱의 tool은 `deny not_assigned`, 할당에서 뺀 tool은 `deny removed`다. 어느 mode에서나 막는다. tool 목록은 session 시작 때 고정하지만(`architecture/agent-definition.md`), 판정은 call 때 지금 할당을 읽어 session 도중 뺀 앱 tool도 바로 막는다. MCP tool은 `judge`가 늘 `run`을 내고(할당 줄이 없다), 연결 쪽 `call`(`packages/core/lophn-agent/extensions/mcp-toolkit.ts`)이 부를 때마다 전역·project 층 server 설정을 다시 읽어 꺼진 server(`mcp_off`)나 읽기 실패면 `unavailable`로 거절한다. 도는 turn 안에서 끈 server도 바로 막힌다. agent 정의 층의 `off`는 turn 시작 때 읽은 값이라 다음 turn부터 막힌다.
 - `deny`는 어느 mode에서나 막는다. skip은 묻지 않는 것이지 금지를 푸는 것이 아니다.
 - `ask`는 attended에서만 묻는다. unattended와 skip에서는 `run`이 된다.
 - 사람의 결정은 사람 자격만 받는다(`DecideTurnRequest` actors `user`, handler도 한 번 더 본다). agent, 앱, MCP server가 스스로 허락하면 판정이 의미 없다.
-- agent는 자기 할당을 넓히지 못한다. 할당 쓰기(`SetAgentAssignment`)는 사람만 하고 읽기는 사람과 machine뿐이다. Operator 정의를 만들고 고치는 tool은 `mcp_servers`와 `skip`을 입력으로 받지 않는다.
+- agent는 자기 할당을 넓히지 못한다. 할당 쓰기(`SetAgentAssignment`)는 사람만 하고 읽기는 사람과 machine뿐이다. agent 정의를 만들고 고치는 tool(`agent.create`, `agent.update`)은 `mcp_servers`와 `skip`을 입력으로 받지 않는다.
 - 할당 저장은 revision을 비교한다. 다른 창이 먼저 저장했으면 `conflict`이고 화면이 다시 읽는다.
 - 선언(앱 선언의 효과, MCP `readOnlyHint`)은 믿는다.
 
@@ -58,7 +58,7 @@ turn mode
 - job도 사람이 없는 일이다(`architecture/job.md`). job이 연 agent run의 turn은 run 입력이라 unattended이고 그 turn이 보낸 call 사슬도 따라간다. job이 시작한 instance의 step 입력도 같다. job의 tool 호출은 turn이 아니라 호출이라 mode를 turn 행에서 읽지 않는다. 만든 agent의 지금 할당을 `unattended`로 `judge`해 막기만 한다(`architecture/app-call.md`). 그래서 job은 만든 agent의 할당을 넓히지 못한다.
 - flow도 사람이 없는 일이다(`architecture/workflow.md` "flow"). flow가 연 agent run의 turn은 run 입력이라 unattended다. flow의 tool 호출은 그 project PM의 지금 할당을 `unattended`로 `judge`해 막기만 한다. code를 쓴 것이 PM이라 code로 PM의 할당을 넓히지 못한다. flow가 부르는 agent는 누구든 되지만 받은 agent는 자기 할당으로만 일한다.
 - unattended turn의 `ask` tool은 기다리지 않고 `unattended`를 바로 돌려준다. skip turn의 `ask`는 사람이 있으니 기다린다.
-- skip은 session 표시다. 사람만 켜고 끈다(`ChangeSessionSkip`). Operator 정의의 `skip`이 그 Operator 새 session의 기본값이고, 이 칸도 사람만 쓴다. skip은 call을 따라 가지 않는다. fork는 skip을 가져가지 않고 정의의 기본값으로 시작한다.
+- skip은 session 표시다. 사람만 켜고 끈다(`ChangeSessionSkip`). agent 정의의 `skip`이 그 agent 새 session의 기본값이고, 이 칸도 사람만 쓴다. skip은 call을 따라 가지 않는다. fork는 skip을 가져가지 않고 정의의 기본값으로 시작한다.
 
 shell 규칙
 - 규칙은 `{pattern, action}`이고 action은 `allow | ask | deny`다. `*`는 아무 글자, `\*`는 글자 그대로의 `*`다. `*`가 없는 pattern은 그 명령과 똑같을 때만 맞고, 끝의 ` *`는 그 앞까지만 있어도 맞는다. 공백은 줄여 맞춘다.
@@ -74,7 +74,7 @@ shell 규칙
 - 옛 approval은 intent 7종, grant 저장소 3, 묻는 길 2(turn 안, 보류 request와 applier), fingerprint, "이 session 동안" 허락, agent call 두 번 판정이 있었다. 할당했는데 실행 때 또 묻고, 사람이 없는 실행은 기한 없이 기다렸다. 다른 harness 다섯(Codex, OpenCode, Hermes, OpenClaw, oh-my-pi)은 모두 묻는 길이 기다리는 turn 하나이고 주 gate가 shell이다(`project-docs/products/roadmap/approval.md`).
 - 보류 request 길을 지웠다. 쓰던 둘 가운데 reaction의 `ask`는 지웠고(그 reaction 설정이 없어졌다), activation 동의는 activation module이 자기 상태로 갖는다.
 - 바깥 효과 tool도 묻지 않는다. "시킨 것이 승낙", "할당이 허락"을 그대로 따른 사람의 결정이다. 다시 묻기로 하면 `judge`의 `ASK_EXTERNAL_WHEN_ATTENDED` 한 줄을 켜고 할당 줄에 묻지 않을 tool 칸을 더한다.
-- agent call은 묻지도 막지도 않는다. 받은 agent는 자기 할당으로만 일한다(AGENT-ROLE T5, T6). 누구를 부르는지는 지침과 workflow의 일이다.
+- agent call은 묻지도 막지도 않는다. 받은 agent는 자기 할당으로만 일한다(`products/AGENT.md` T5, T6). 누구를 부르는지는 지침과 workflow의 일이다.
 - job은 agent가 만들고 정해진 때 사람 없이 돈다. 그래서 job이 부르는 agent run, instance, 앱 tool은 모두 unattended이고 할당이 허락이다. job이 만든 agent의 할당 밖의 일을 하면 agent가 job으로 자기 할당을 넓히는 셈이고, 다른 agent가 job을 고치면 남의 할당을 빌리는 셈이다. 그래서 job의 tool 호출은 호출 때 만든 agent의 지금 할당을 읽고 job은 만든 agent만 고친다. flow는 PM이 쓴 code라 같은 이유로 PM의 할당이 허락이다.
 - workflow를 쓴다는 것은 바깥 효과까지 책임지겠다는 뜻이고 사람이 loop에서 자주 빠진다. 그래서 unattended는 묻지 않고, 시작한 사람이 그 사슬 전체를 시켰으니 call을 따라 간다. skip은 사람이 그 대화에 정한 것이라 따라 가지 않는다.
 - shell 규칙은 prefix와 `*`, 마지막 일치다(OpenCode, Codex). regex 사전(Hermes)과 명령 parser(OpenCode의 tree-sitter)는 쓰지 않는다. 조각의 길이를 고르는 표 없이 `<앞 두 낱말> *`로 `always`의 줄을 만든다.

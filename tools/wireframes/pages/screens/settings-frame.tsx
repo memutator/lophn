@@ -122,7 +122,6 @@ export function SettingsFrame({
           onInstructions={noop}
           onProject={noop}
           onOpenSession={noop}
-          onAnswerInTerminal={noop}
         />
       </GalleryConnectHost>
     </EventsProvider>

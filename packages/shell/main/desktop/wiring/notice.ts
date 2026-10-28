@@ -220,7 +220,7 @@ export function createNoticeWiring(
   }
 
   // 누구의 어느 session인지. agent 이름·profile은 사람이 바꿀 수 있고 session 이름도 바뀌어서 알릴 때마다 읽는다.
-  // coding session은 터미널 쪽 tracker가 알려서 건너뛴다.
+  // coding_agent는 이 알림의 대상이 아니다.
   async function who(session: string): Promise<UnseenSession | null> {
     const snapshots = await read("read", sessionSnapshotsList, {
       sessions: [session],

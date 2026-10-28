@@ -1,23 +1,11 @@
 // 앱 공간의 오른쪽 패널 하나. 머리는 TabStrip이고 열린 것이 탭이다: App details(운영 패널), Agent(Agent 화면, 또는
-// Manage가 여는 앱 자리의 agent 관리 화면), lophn이 연 coding 터미널. 창이 넓으면 앱 화면 옆 열이고 좁으면 앱 화면을
+// Manage가 여는 앱 자리의 agent 관리 화면). 창이 넓으면 앱 화면 옆 열이고 좁으면 앱 화면을
 // 덮는다. 덮는 동안에도 앱 view는 숨지 않고 패널이 덮지 않는 영역으로 준다. 탭 몸은 모두 mount해 두고 고르지 않은 것만
-// 숨겨, 탭을 바꿔도 안의 상태(app-detail 탭, 대화 입력, 터미널)를 잃지 않는다.
-import {
-  type ReactElement,
-  type ReactNode,
-  useMemo,
-  useRef,
-  useSyncExternalStore,
-} from "react";
+// 숨겨, 탭을 바꿔도 안의 상태(app-detail 탭, 대화 입력)를 잃지 않는다.
+import { type ReactElement, type ReactNode, useMemo, useRef } from "react";
 import { Avatar } from "../parts/avatar/avatar.tsx";
-import {
-  type TabDot,
-  type TabItem,
-  TabStrip,
-} from "../parts/tab-strip/tab-strip.tsx";
-import { VendorIcon, vendorOf } from "../parts/vendor-icon/vendor-icon.tsx";
+import { type TabItem, TabStrip } from "../parts/tab-strip/tab-strip.tsx";
 import { Icon } from "@lophn/ui/primitives";
-import { Toast } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
 import { appSpaceIcons, conversationIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
@@ -26,13 +14,9 @@ import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts"
 import { AgentView, type AgentViewHost } from "../conversation/agent-view.tsx";
 import { useConversation } from "../conversation/window-deps.tsx";
 import { DraftStore } from "../conversation/drafts.ts";
-import { useSessions } from "../desktop/connection/events/hooks.tsx";
-import type { TerminalDeps } from "../terminal/deps.ts";
-import { TerminalTab } from "../terminal/terminal-tab.tsx";
 import { AgentsPage } from "../workspace/agents/agents-page.tsx";
 import type { AgentsSource } from "../workspace/agents/source.ts";
 import { RunList, type RunRow } from "../workspace/sidebar/run-list.tsx";
-import { STAY } from "./annotate/use-view-toast.ts";
 import type { AppSpaceAgent } from "./agent-select.tsx";
 import { useViewCover } from "./embedded-view.tsx";
 import type { SettingsPane } from "../desktop/settings/model.ts";
@@ -66,16 +50,7 @@ export type AgentPaneState =
   | { readonly mode: "manage"; readonly agent: string | null }
   | { readonly mode: "runs" };
 
-export type PanelTab = "details" | "agent" | "terminal";
-
-/** lophn이 연 coding 터미널 탭. */
-export interface PaneTerminal {
-  readonly key: string;
-  readonly title: string;
-  readonly project: string;
-  readonly product: string;
-  readonly session: string;
-}
+export type PanelTab = "details" | "agent";
 
 interface SidePanelProps {
   /** 열린 탭들. 순서대로 줄에 선다. 비어 있으면 패널이 없다. */
@@ -83,12 +58,12 @@ interface SidePanelProps {
   /** 보이는 탭. tabs 가운데 하나다. */
   tab: PanelTab;
   onTab: (tab: PanelTab) => void;
-  /** 탭을 닫았다. 터미널은 호출자가 닫기 확인을 거친다. */
+  /** 탭을 닫았다. */
   onCloseTab: (tab: PanelTab) => void;
   placement: SidePanelPlacement;
   /** App details 탭의 내용. */
   details: ReactNode;
-  /** agent 탭이 보이는 것. details·terminal만 열려 있으면 없다. */
+  /** agent 탭이 보이는 것. details만 열려 있으면 없다. */
   state: AgentPaneState | null;
   app: string;
   appName: string;
@@ -100,11 +75,6 @@ interface SidePanelProps {
   runs?: readonly RunRow[];
   /** 없으면 Agent 화면을 열 수 없다("준비 안 됨"). */
   agentViewSource?: AgentTabSourceFactory;
-  /** lophn이 연 coding 터미널. 있을 때만 터미널 탭이 있다. */
-  coding?: { readonly tab: PaneTerminal; readonly deps: TerminalDeps };
-  /** 터미널을 열었다는 알림을 머리 아래에 보인다. */
-  opened: boolean;
-  onOpenedClose: () => void;
   onState: (state: AgentPaneState) => void;
   /** app 층 LOPHN.md를 연다. */
   onInstructions?: () => void;
@@ -117,10 +87,8 @@ interface SidePanelProps {
 export function SidePanel(props: SidePanelProps): ReactElement | null {
   const ref = useRef<HTMLElement>(null);
   useViewCover(ref, props.placement === "overlay");
-  const { state, coding, tab } = props;
+  const { state, tab } = props;
   if (props.tabs.length === 0) return null;
-  const vendor =
-    coding === undefined ? undefined : vendorOf(coding.tab.product);
   const agentBody =
     state === null ? null : state.mode === "manage" ? (
       <ManageBody {...props} agent={state.agent} />
@@ -157,75 +125,12 @@ export function SidePanel(props: SidePanelProps): ReactElement | null {
       {agentBody === null ? null : (
         <div className={`${styles.body} ${shown("agent")}`}>{agentBody}</div>
       )}
-      {coding !== undefined ? (
-        <div className={`${styles.body} ${shown("terminal")}`}>
-          <TerminalTab
-            key={coding.tab.key}
-            tabKey={coding.tab.key}
-            project={coding.tab.project}
-            folderRef={null}
-            active={tab === "terminal" && props.placement !== "hidden"}
-            deps={coding.deps}
-            coding={{
-              product: coding.tab.product,
-              session: coding.tab.session,
-              app: props.app,
-            }}
-          />
-        </div>
-      ) : null}
-      {props.opened && coding !== undefined ? (
-        <div className={styles.toast} data-agent-pane-toast="">
-          <Toast
-            title={t("app-space.title.coding-opened", {
-              product: coding.tab.product,
-            })}
-            lead={
-              vendor === undefined ? undefined : (
-                <VendorIcon vendor={vendor} size={16} />
-              )
-            }
-            actions={[
-              {
-                id: "show",
-                label: t("app-space.button.show-terminal"),
-              },
-            ]}
-            onAction={() => {
-              props.onTab("terminal");
-              props.onOpenedClose();
-            }}
-            onClose={props.onOpenedClose}
-            timer={STAY}
-          />
-        </div>
-      ) : null}
     </aside>
   );
 }
 
-// 터미널 탭의 점. 물음을 기다리면 waiting, 끝났으면 ended다.
-function useTerminalDot(coding: PaneTerminal | undefined, deps?: TerminalDeps) {
-  const { sessions } = useSessions();
-  const store = deps?.store;
-  const phase = useSyncExternalStore(
-    (listener) => store?.subscribe(listener) ?? (() => {}),
-    () => (coding === undefined ? undefined : store?.get(coding.key))?.phase,
-  );
-  if (coding === undefined) return null;
-  const entry = sessions.find((item) => item.session === coding.session);
-  const dot: TabDot | null =
-    phase?.kind === "ended" || (entry !== undefined && entry.ended !== null)
-      ? "ended"
-      : entry?.state === "waiting"
-        ? "waiting"
-        : null;
-  return dot;
-}
-
 function Head(props: SidePanelProps): ReactElement {
-  const { state, agents, coding } = props;
-  const dot = useTerminalDot(coding?.tab, coding?.deps);
+  const { state, agents } = props;
   const agent =
     state?.mode === "agent"
       ? agents.find((item) => item.assignment === state.assignment)
@@ -258,24 +163,6 @@ function Head(props: SidePanelProps): ReactElement {
               ) : (
                 <Avatar profile={agent.profile} size="sm" />
               ),
-          },
-    terminal:
-      coding === undefined
-        ? null
-        : {
-            key: "terminal",
-            title: coding.tab.title,
-            ...(vendorOf(coding.tab.product) === undefined
-              ? {}
-              : {
-                  icon: (
-                    <VendorIcon
-                      vendor={vendorOf(coding.tab.product)!}
-                      size={14}
-                    />
-                  ),
-                }),
-            dot,
           },
   };
   const tabs = props.tabs.flatMap((name) => items[name] ?? []);

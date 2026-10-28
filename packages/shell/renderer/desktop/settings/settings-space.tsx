@@ -51,8 +51,6 @@ interface SettingsSpaceProps {
   settingsPanels?: SettingsPanels;
   /** 대기 목록 질문 카드의 [Open session]. */
   onOpenSession: (session: string) => void;
-  /** 대기 목록 coding agent 카드의 [Answer in terminal]. */
-  onAnswerInTerminal: (session: string) => void;
 }
 
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [] };
@@ -71,7 +69,6 @@ export function SettingsSpace({
   onInstructions,
   settingsPanels,
   onOpenSession,
-  onAnswerInTerminal,
 }: SettingsSpaceProps) {
   const [settingsPane, setSettingsPane] = useState<SettingsPane>(
     initialPane ?? DEFAULT_PANE,
@@ -168,10 +165,7 @@ export function SettingsSpace({
           }
           trailing={
             <span className={styles.trailing}>
-              <WaitingLayer
-                onOpenSession={onOpenSession}
-                onAnswerInTerminal={onAnswerInTerminal}
-              />
+              <WaitingLayer onOpenSession={onOpenSession} />
               <PaletteButton />
             </span>
           }

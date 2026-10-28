@@ -10,8 +10,6 @@ import { SHELL_ROUTES } from "./routes.ts";
 // - Grants의 MCP tool 목록 읽기(`agent-mcp-tools/list`). 같은 resource의 `take`·`done`은 runtime만 부른다.
 // - 대기 목록의 turn request 결정(`turn_requests/decide`)과 질문 읽기·답(`ask/read`·`ask/answer`)
 // - 대화 입력함의 지금 보내기·빼기(`session_inputs/steer_now`·`remove`)
-// - Settings의 coding agent harness 목록(`coding_agent_harnesses/list`). 감지 보고(`report`)와 터미널 결과·종료
-//   알림(`coding_agent_terminals/*`)은 main이 자기 신원으로 보내므로 renderer는 부르지 않는다.
 // - workflow 목록 읽기와 시작·멈춤(Workflows 탭과 sidebar). 보고(`report`)와 고치기(`edit`)는 agent가 부르므로 renderer는 부르지 않는다.
 // 다른 memory route는 main의 고정 통로만 부른다.
 const RENDERER_MEMORY_ROUTES: readonly string[] = [
@@ -34,7 +32,6 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:ask/answer",
   "memory:session_inputs/steer_now",
   "memory:session_inputs/remove",
-  "memory:coding_agent_harnesses/list",
   "memory:workflows/list",
   "memory:workflows/start",
   "memory:workflows/stop",

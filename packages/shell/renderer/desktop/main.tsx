@@ -221,28 +221,6 @@ export function Desktop({
       setRoute(openProject(route.project, { session }));
     } else setRoute(openLauncher(session));
   };
-  // coding agent 카드의 [Answer in terminal]. 그 session의 탭이 이 창에도 main에도 없으면 그 session의 창으로 간 뒤 다시 고른다.
-  const [focusRequest, setFocusRequest] = useState<{ session: string } | null>(
-    null,
-  );
-  useEffect(() => {
-    if (focusRequest !== null) {
-      void terminal?.store.focusSession(focusRequest.session);
-    }
-  }, [focusRequest]);
-  const answerInTerminal = (session: string) => {
-    void (async () => {
-      if (
-        terminal !== undefined &&
-        (await terminal.store.focusSession(session))
-      ) {
-        return;
-      }
-      openSession(session);
-      setFocusRequest({ session });
-    })();
-  };
-
   // 저장한 appearance를 시작할 때 적용한다. core가 준비되면 읽는다.
   const appearance = settingsPanels?.appearance;
   useEffect(() => {
@@ -367,7 +345,6 @@ export function Desktop({
         onLauncher={launcher}
         annotate={annotate}
         overlay={overlay}
-        terminal={terminal}
         session={route.session}
         appEngineer={route.appEngineer}
         onOpenSession={openSession}
@@ -395,7 +372,6 @@ export function Desktop({
             : undefined
         }
         onOpenSession={openSession}
-        onAnswerInTerminal={answerInTerminal}
       />
     );
   } else {
@@ -410,7 +386,6 @@ export function Desktop({
         onApp={appSpace}
         onNewApp={(app) => setRoute(openNewApp(app))}
         onOpenSession={openSession}
-        onAnswerInTerminal={answerInTerminal}
         agentViewSource={agentViewSource}
         lophnRequest={lophnRequest}
       />

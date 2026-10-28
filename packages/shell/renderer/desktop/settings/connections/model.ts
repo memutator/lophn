@@ -1,4 +1,4 @@
-// Coding agents 화면의 순수 계산: 제품마다 감지 결과와 맡길 수 있는지를 en 문구와 tone으로 바꾼다.
+// Coding agents 화면의 순수 계산: 제품마다 감지 결과를 en 문구와 tone으로 바꾼다.
 // 존재만으로 version이 확인됐다고 하지 않는다. 확인 못한 것은 확인 못했다고 말한다.
 import type { StatusTone } from "@lophn/ui";
 import { t } from "@lophn/wording";
@@ -38,14 +38,9 @@ export function versionText(harness: HarnessSettingsView): string | null {
     : t("settings.label.coding-version-unknown");
 }
 
-/** 못 찾은 제품은 turn 끝 신호도 맡길 수 있는지도 말하지 않는다. */
+/** 못 찾은 제품은 turn 끝 신호를 말하지 않는다. */
 export function shown(harness: HarnessSettingsView): boolean {
   return harness.discovery === "detected";
-}
-
-/** 기본 제품으로 고를 수 있는 제품: 첫 prompt를 넘길 수 있는 것뿐이다. */
-export function pickable(harness: HarnessSettingsView): boolean {
-  return harness.can_launch;
 }
 
 /** unsupported는 hook이 없는 제품이라 보일 것도 누를 것도 없다. */

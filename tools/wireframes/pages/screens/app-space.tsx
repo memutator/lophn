@@ -15,10 +15,6 @@ import {
   AnnotateList,
   AnnotatePicking,
   AppSpaceFrame,
-  CodingEnded,
-  CodingOpenedToast,
-  CodingPermission,
-  CodingRunning,
   RewindConfirm,
   RewindConflict,
   RewindDone,
@@ -35,7 +31,7 @@ import { MockDesktop } from "../../mock/mock-desktop.tsx";
 export const appSpaceArea: Area = {
   id: "app-space",
   title: "App space",
-  summary: "앱 공간. Version, Access, Activity, rewind, annotate, coding 탭.",
+  summary: "앱 공간. Version, Access, Activity, rewind, annotate.",
   pages: [
     {
       id: "app-space",
@@ -75,7 +71,7 @@ export const appSpaceArea: Area = {
       id: "new-app-side-panel",
       title: "App space · side panel tabs",
       description:
-        "오른쪽 패널 하나에 App details, Agent, coding 터미널이 탭 줄로 선다. 탭마다 아이콘과 닫기 ×가 있고 마지막 탭을 닫으면 패널이 닫힌다. title bar의 App details와 Agent 단추는 해당 탭을 열거나 고르고, 이미 고른 탭이면 패널을 닫는다. 탭을 바꿔도 안의 상태는 그대로다.",
+        "오른쪽 패널 하나에 App details, Agent가 탭 줄로 선다. 탭마다 아이콘과 닫기 ×가 있고 마지막 탭을 닫으면 패널이 닫힌다. title bar의 App details와 Agent 단추는 해당 탭을 열거나 고르고, 이미 고른 탭이면 패널을 닫는다. 탭을 바꿔도 안의 상태는 그대로다.",
       render: () => <SidePanelTabs />,
     },
     {
@@ -203,34 +199,6 @@ export const appSpaceArea: Area = {
       description:
         "모은 annotation 셋(요소 둘, 영역 하나)의 목록이다. 하나씩 지우거나 전부 지우고 [Send to App Engineer]로 한 번에 보낸다. App Engineer session의 메시지가 된다.",
       render: () => <AnnotateList />,
-    },
-    {
-      id: "new-app-coding-toast",
-      title: "App space · coding tab opened",
-      description:
-        "App Engineer가 일을 맡기자 lophn이 coding 터미널을 열었다. agent 대화에 focus가 그대로 있고 pane 위쪽 toast로 알린다. 패널 탭 줄에 harness 아이콘이 붙은 터미널 탭이 생겼다.",
-      render: () => <CodingOpenedToast />,
-    },
-    {
-      id: "new-app-coding-terminal",
-      title: "App space · coding terminal tab",
-      description:
-        "패널 탭 줄에서 바꿔 본 coding 터미널이다. harness 아이콘과 launch plan의 title이 탭 이름이고 터미널 바탕은 pane과 같다.",
-      render: () => <CodingRunning />,
-    },
-    {
-      id: "new-app-coding-permission",
-      title: "App space · coding permission prompt",
-      description:
-        "대기 목록에서 coding agent의 권한 요청을 눌러 온 장면이다. 그 터미널로 focus가 오고 물음은 TUI 안에 있다. 답은 TUI에서 한다.",
-      render: () => <CodingPermission />,
-    },
-    {
-      id: "new-app-coding-ended",
-      title: "App space · coding session ended",
-      description:
-        "끝난 coding session이다. 상태 줄만 있고 다시 시작 단추는 없다. 새 맡기기는 새 터미널로 열린다.",
-      render: () => <CodingEnded />,
     },
   ],
 };

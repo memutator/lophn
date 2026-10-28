@@ -33,7 +33,7 @@ export type SessionEvent = {
 };
 
 export type SessionNoticesDeps = {
-  /** lophn agent session의 agent와 session 이름. coding session(터미널 쪽이 알린다)이나 모르는 session은 null이다. */
+  /** lophn agent session의 agent와 session 이름. 모르는 session은 null이다. */
   who(session: string): Promise<UnseenSession | null>;
   /** 알림 본문. 모르면 없다. */
   bodyOf(

@@ -12,7 +12,6 @@ import { useEventClient } from "../events/hooks.tsx";
 import type { WaitingEntry } from "../events/waiting-store.ts";
 import { ActivationCard } from "./cards/activation-card.tsx";
 import { JobHoldCard } from "./cards/job-hold-card.tsx";
-import { CodingCard } from "./cards/coding-card.tsx";
 import type { OnDecide } from "./cards/decision.tsx";
 import {
   type DecideCardProps,
@@ -28,7 +27,7 @@ import styles from "./waiting.module.css";
 const GROUPS = [
   {
     title: "waiting.label.group-permission",
-    kinds: ["permission", "coding", "coding_start"],
+    kinds: ["permission"],
   },
   { title: "waiting.label.group-question", kinds: ["question"] },
   { title: "waiting.label.group-activation", kinds: ["activation"] },
@@ -149,7 +148,6 @@ export function WaitingPanel({
   finished,
   initial,
   onOpenSession,
-  onAnswerInTerminal,
   onShowFinished,
 }: {
   entries: readonly WaitingEntry[];
@@ -157,7 +155,6 @@ export function WaitingPanel({
   finished: readonly FinishedRow[];
   initial?: PanelInitial;
   onOpenSession: (session: string) => void;
-  onAnswerInTerminal: (session: string) => void;
   onShowFinished: (target: NoticeTarget) => void;
 }) {
   const core = useEventClient().core;
@@ -186,16 +183,6 @@ export function WaitingPanel({
     switch (entry.kind) {
       case "permission":
         return <PermissionCard key={entry.id} {...props} />;
-      case "coding":
-      case "coding_start":
-        return (
-          <CodingCard
-            key={entry.id}
-            entry={entry}
-            view={view}
-            onAnswerInTerminal={onAnswerInTerminal}
-          />
-        );
       case "question":
         return (
           <QuestionCard

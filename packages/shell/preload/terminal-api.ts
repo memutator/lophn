@@ -5,7 +5,6 @@ import {
   TERMINAL_BRIDGE_OPEN_CHANNEL,
   TERMINAL_CLOSE_CHANNEL,
   TERMINAL_FOCUS_CHANNEL,
-  TERMINAL_FOCUS_SESSION_CHANNEL,
   TERMINAL_INPUT_CHANNEL,
   TERMINAL_LINK_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
@@ -87,7 +86,6 @@ export function createTerminalApi(transport: TerminalTransport): TerminalApi {
     restart: (input) => invoke(TERMINAL_RESTART_CHANNEL, input),
     snapshot: (input) => invoke(TERMINAL_SNAPSHOT_CHANNEL, input),
     focus: (input) => invoke(TERMINAL_FOCUS_CHANNEL, input),
-    focusSession: (input) => invoke(TERMINAL_FOCUS_SESSION_CHANNEL, input),
     openLink: (input) => invoke(TERMINAL_LINK_CHANNEL, input),
     ackBridgeOpen: (input) => invoke(TERMINAL_BRIDGE_ACK_CHANNEL, input),
     onBridgeOpen(listener) {

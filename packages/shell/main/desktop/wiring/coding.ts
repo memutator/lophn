@@ -1,4 +1,4 @@
-// harness 감지, 터미널 supervisor, 터미널·coding IPC.
+// harness 감지, 터미널 supervisor, 터미널 IPC.
 import { app } from "electron";
 import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
@@ -10,10 +10,6 @@ import {
   removeTerminalIpc,
   TerminalFocusTable,
 } from "../../terminal/controller.ts";
-import {
-  type CodingTerminalRequests,
-  createCodingTerminalRequests,
-} from "../../terminal/coding/requests.ts";
 import { createHookAsker } from "../../terminal/agent/hook-ask.ts";
 import { createHookInstaller } from "../../terminal/agent/hook-install.ts";
 import { createTerminalIpc } from "../../terminal/ipc.ts";
@@ -30,7 +26,6 @@ import {
 } from "../coding-ipc.ts";
 import {
   canDeliverMessages,
-  canLaunch,
   HARNESS_ADAPTERS,
   HARNESS_HOOKS,
   harnessDetectionSchema,
@@ -78,11 +73,6 @@ function harnessLabel(harness: string): string {
 /** 뒤 영역(종료 흐름)이 쓰는 터미널 supervisor. */
 export type Coding = Registered & {
   terminals: ReturnType<typeof createSupervisor>;
-  /**
-   * core가 Gateway frame(`coding_terminal`)으로 보낸 요청 하나를 받는다. frame을 이 함수에 잇는 일은
-   * platform 단위가 한다. frame은 renderer로 중계하지 않는다.
-   */
-  codingTerminals: CodingTerminalRequests;
 };
 
 export function register(ctx: ShellContext): Coding {
@@ -112,29 +102,16 @@ export function register(ctx: ShellContext): Coding {
     },
     facts: (id) => ({
       label: HARNESS_ADAPTERS[id].label,
-      can_launch: canLaunch(id),
       can_deliver_messages: canDeliverMessages(id),
     }),
   };
   const harnessSettings = createHarnessSettings({
     catalog,
-    core: () => core.session(),
     cli:
       lophnCli === null
         ? null
         : childCliRunner({ command: lophnCli, env: cliEnv }),
   });
-  // core에 붙은 직후 감지를 한 번 읽어 알린다. 안 하면 사람이 Settings를 열기 전까지 core가 맡기기를
-  // `not_connected`로 거절한다.
-  const detectOnConnect = setInterval(() => {
-    if (core.session() !== null) {
-      clearInterval(detectOnConnect);
-      void harnessSettings.read();
-    } else if (core.state.state.startsWith("failed")) {
-      clearInterval(detectOnConnect);
-    }
-  }, 500);
-
   // terminal IPC. sender·frame 검사는 registry로, focus·generation은 ipc.ts가 본다.
   // folder_ref는 documents의 등록 폴더 read를 다시 해석하고, 출력은 잡아 당기는
   // snapshot으로만 renderer에 다시 보인다.
@@ -188,7 +165,7 @@ export function register(ctx: ShellContext): Coding {
       terminalRef?: string;
     }) => asker.show({ ...input, label: harnessLabel(input.harness) }),
   };
-  // 전역 hook 등록의 묻기·놓기. coding 탭을 열 때와 사람 터미널이 harness를 처음 알아봤을 때, Settings가 쓴다.
+  // 전역 hook 등록의 묻기·놓기. 사람 터미널이 harness를 처음 알아봤을 때와 Settings가 쓴다.
   const installer = createHookInstaller({
     runCli:
       lophnCli === null
@@ -215,26 +192,6 @@ export function register(ctx: ShellContext): Coding {
     identified: (harness, terminalRef) =>
       installer.ensureOnce(harness, terminalRef),
   });
-  // core 요청으로 연 coding 탭. 결과와 끝은 사람 token으로 core에 알린다.
-  const codingTerminals = createCodingTerminalRequests({
-    supervisor: terminals,
-    focus: terminalFocus,
-    reportResult: (body) =>
-      ctx.coreInternal("memory", "coding_agent_terminals", "result", body),
-    reportExited: (body) =>
-      ctx.coreInternal("memory", "coding_agent_terminals", "exited", body),
-    installer,
-    hooks: agent.hooks,
-    opened: (terminalRef, harness) =>
-      agent.tracker.registerCoding(terminalRef, harness),
-    publish: (runtime) => agent.publish(agent.tracker.decorate(runtime)),
-  });
-  // Gateway가 main에만 보내는 coding 터미널 요청.
-  ctx.relay.frames.push((frame) => {
-    if (frame.type === "coding_terminal" && "request" in frame) {
-      void codingTerminals.handle(frame.request);
-    }
-  });
   // `npm run dev:mock`의 project는 renderer 메모리에만 있어 core가 그 폴더를 모른다. 그때 터미널은
   // 실행마다 비우는 mock 데이터 root 안의 빈 폴더에서 연다.
   const mockFolder =
@@ -251,7 +208,6 @@ export function register(ctx: ShellContext): Coding {
       },
     },
     host: terminals,
-    coding: codingTerminals,
     bridge: bridgeWiring.bridge,
     hooks: agent.hooks,
     shellInit: agent.shellInit,
@@ -277,9 +233,7 @@ export function register(ctx: ShellContext): Coding {
 
   return {
     terminals,
-    codingTerminals,
     stop() {
-      clearInterval(detectOnConnect);
       removeTerminalIpc({ handle: () => {}, removeHandler: ipc.removeHandler });
       removeCodingIpc(ipc);
       terminals.stop();

@@ -49,11 +49,6 @@ const OPERATOR_SESSION: FakeSession = {
   agent: { role: "operator", agent: id("agt", 1) },
   place: { kind: "project", id: PROJECT },
 };
-const CODING_SESSION: FakeSession = {
-  id: id("ses", 3),
-  agent: { role: "coding_agent", app: ORDERS },
-  place: { kind: "app", id: ORDERS },
-};
 const LOPHN_SESSION: FakeSession = {
   id: id("ses", 4),
   agent: { role: "lophn" },
@@ -97,14 +92,6 @@ export const EXTERNAL_CALL = () =>
     server: "mail",
     tool: "send_message",
     effect: "external",
-  });
-
-export const CODING_ASK = () =>
-  turnRequest(14, CODING_SESSION, 2, {
-    kind: "harness",
-    harness: "claude",
-    tool: "Bash",
-    summary: null,
   });
 
 const RELEASE_6 = id("rel", 6);
@@ -273,7 +260,6 @@ type Item =
 /** 모든 종류가 섞인 한 목록. */
 export const allItems = (): readonly Item[] => [
   SHELL_COMMAND(),
-  CODING_ASK(),
   "question",
   ACTIVATION(),
   JOB_HOLD_AGENT(),

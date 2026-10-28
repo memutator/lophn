@@ -36,7 +36,7 @@ test("hook ingress drops unknown key, oversized and malformed lines and routes a
     JSON.stringify({ v: 1, key, event: "Stop" + extra });
 
   ingress.handleLine(line(KEY)); // issue만 하고 bind하지 않은 key
-  ingress.bind(KEY, "term_1", "ses_1");
+  ingress.bind(KEY, "term_1");
   ingress.handleLine(line("b".repeat(64))); // 모르는 key
   ingress.handleLine("{not json");
   ingress.handleLine(JSON.stringify({ v: 2, key: KEY }));
@@ -47,7 +47,6 @@ test("hook ingress drops unknown key, oversized and malformed lines and routes a
   assert.deepEqual(routed, [
     {
       terminal_ref: "term_1",
-      session: "ses_1",
       harness: "claude",
       event: "Stop",
       payload: {},

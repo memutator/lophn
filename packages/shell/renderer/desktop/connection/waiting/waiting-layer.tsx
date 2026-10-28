@@ -28,8 +28,6 @@ export function useWaitingPanel(): {
 export interface WaitingLayerProps {
   /** 질문 카드의 [Open session]. */
   readonly onOpenSession: (session: string) => void;
-  /** coding agent 카드의 [Answer in terminal]. */
-  readonly onAnswerInTerminal: (session: string) => void;
   /** gallery가 정해진 상태로 시작할 때만 준다. */
   readonly initial?: PanelInitial & {
     readonly open?: boolean;
@@ -38,11 +36,7 @@ export interface WaitingLayerProps {
   };
 }
 
-export function WaitingLayer({
-  onOpenSession,
-  onAnswerInTerminal,
-  initial,
-}: WaitingLayerProps) {
+export function WaitingLayer({ onOpenSession, initial }: WaitingLayerProps) {
   const { entries } = useWaiting();
   const finished = useFinished(initial?.finished);
   // 배지는 "볼 것이 있다"는 뜻이라 끝난 줄도 센다.
@@ -105,10 +99,6 @@ export function WaitingLayer({
             onOpenSession={(session) => {
               setOpen(false);
               onOpenSession(session);
-            }}
-            onAnswerInTerminal={(session) => {
-              setOpen(false);
-              onAnswerInTerminal(session);
             }}
             onShowFinished={(target) => {
               setOpen(false);

@@ -10,8 +10,6 @@ import {
   terminalCloseSchema,
   type TerminalFocus,
   terminalFocusSchema,
-  type TerminalFocusSession,
-  terminalFocusSessionSchema,
   type TerminalInput,
   terminalInputSchema,
   type TerminalLink,
@@ -67,11 +65,6 @@ export type TerminalIpc = {
   ): Promise<IpcResult<TerminalReply | TerminalSnapshotReply>>;
   /** 사람이 고른 탭이 바뀌었다. 표에 적을 뿐 host에는 보내지 않는다. */
   focus(event: IpcEvent, input: unknown): Promise<IpcResult<null>>;
-  /** 대기 목록에서 누른 coding session의 탭을 고른다. 탭이 없으면 `no_terminal`로 거절한다. */
-  focusSession(
-    event: IpcEvent,
-    input: unknown,
-  ): Promise<IpcResult<TerminalReply>>;
   /** terminal에서 Ctrl/Cmd-click한 link. 어디에서 열지는 bridge가 정한다. */
   link(event: IpcEvent, input: unknown): Promise<IpcResult<null>>;
   /** bridge push를 받은 renderer의 답. browser 탭을 열었을 때만 온다. */
@@ -84,7 +77,6 @@ const runningStub = (ref: string, generation: number): TerminalRuntime => ({
   folder_ref: "",
   cwd_at_start: "",
   program_path: "",
-  launch_kind: "shell",
   state: "running",
   generation,
   columns: 80,
@@ -102,8 +94,6 @@ export function createTerminalIpc(deps: {
   host: { request(message: unknown): Promise<TerminalReply> };
   /** 살아 있는 탭을 닫기 전에 사람이 확인한다. false면 runtime을 유지한다. */
   confirmClose?: (runtime: TerminalRuntime) => Promise<boolean>;
-  /** coding session ↔ 터미널 탭 표. 탭 runtime을 창에 다시 알리고 돌려준다. */
-  coding?: { reveal(session: string): TerminalRuntime | undefined };
   /** 꺼져 있으면(win32, 준비 실패) 없다. shell 탭은 OS browser를 쓴다. */
   bridge?: TerminalBridge;
   /** 터미널 안 harness hook 길. 꺼져 있으면(win32, 준비 실패) 없다. */
@@ -287,23 +277,5 @@ export function createTerminalIpc(deps: {
       deps.bridge?.ack(parsed.value.request, parsed.value.opened);
       return Promise.resolve({ ok: true, value: null });
     },
-    focusSession: (event, input) =>
-      guarded<TerminalFocusSession>(
-        event,
-        terminalFocusSessionSchema,
-        input,
-        (value) => {
-          const runtime = deps.coding?.reveal(value.session);
-          return Promise.resolve(
-            runtime === undefined
-              ? {
-                  ok: false,
-                  reason: "no_terminal",
-                  message: "session has no terminal tab",
-                }
-              : { ok: true, runtime },
-          );
-        },
-      ),
   };
 }

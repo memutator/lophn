@@ -15,8 +15,6 @@ import styles from "./terminal.module.css";
 
 type BannerState =
   | { kind: "ended"; ending: Ending; exitCode: number | null }
-  /** coding 탭이 끝났다. 다시 시작은 없고 다음 맡기기가 새 session을 시작한다. */
-  | { kind: "session_ended" }
   | { kind: "refused"; reason: Refusal };
 
 interface ExitBannerProps {
@@ -39,28 +37,19 @@ export function ExitBanner({
   const mark =
     state.kind === "refused"
       ? { label: t(REFUSAL_KEY[state.reason]), tone: "critical" as const }
-      : state.kind === "session_ended"
-        ? { label: t("terminal.label.session-ended"), tone: "neutral" as const }
-        : (() => {
-            const { wording, tone } = endingWording(
-              state.ending,
-              state.exitCode,
-            );
-            const label =
-              wording.key === "terminal.status.exited"
-                ? t(wording.key, wording.values)
-                : t(wording.key);
-            return { label, tone };
-          })();
+      : (() => {
+          const { wording, tone } = endingWording(state.ending, state.exitCode);
+          const label =
+            wording.key === "terminal.status.exited"
+              ? t(wording.key, wording.values)
+              : t(wording.key);
+          return { label, tone };
+        })();
   const restartLabel =
     state.kind === "refused"
       ? t("terminal.button.try-again")
       : t("terminal.button.start-again");
   const ending = state.kind === "ended" ? state.ending : state.kind;
-  const note =
-    state.kind === "session_ended" ? (
-      <span data-next-handoff="">{t("terminal.notice.next-handoff")}</span>
-    ) : null;
   const restart = onRestart ? (
     <Tooltip content={restartLabel}>
       <IconButton
@@ -87,7 +76,6 @@ export function ExitBanner({
             className={styles.placeholderIcon}
           />
           <StatusMark tone={mark.tone} label={mark.label} />
-          {note}
           {restart}
         </div>
       </div>
@@ -96,7 +84,6 @@ export function ExitBanner({
   return (
     <div className={styles.banner} data-exit-banner={ending} role="status">
       <StatusMark tone={mark.tone} label={mark.label} />
-      {note}
       {restart}
     </div>
   );

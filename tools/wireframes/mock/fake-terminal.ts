@@ -37,7 +37,6 @@ export function fakeTerminal(project: string): TerminalApi {
     folder_ref: "fld_gallery",
     cwd_at_start: "/home/mina/Documents/grocery",
     program_path: "/bin/bash",
-    launch_kind: "shell",
     state: "running",
     generation: 1,
     columns: 80,
@@ -71,7 +70,6 @@ export function fakeTerminal(project: string): TerminalApi {
       });
     },
     focus: () => ok(null),
-    focusSession: () => ok({ ok: true, runtime: runtime() }),
     onRuntime: () => () => {},
     openLink: () => ok(null),
     ackBridgeOpen: () => ok(null),

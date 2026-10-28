@@ -99,7 +99,7 @@ const settingsPanels = mock?.settingsPanels ?? {
   shellRules: coreShellRulesSource(core),
   jobs: coreJobsSource(core),
   appearance: coreAppearanceSource(core),
-  coding: coreCodingConnectionsSource(core, { coding: windowCodingApi() }),
+  coding: coreCodingConnectionsSource({ core, coding: windowCodingApi() }),
   browser: windowBrowserSettings(),
 };
 // 작업대는 제품 core 통로로 읽고 쓴다.

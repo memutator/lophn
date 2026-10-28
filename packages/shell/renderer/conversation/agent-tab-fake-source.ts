@@ -75,10 +75,6 @@ function at(minutes: number): string {
   return new Date(NOW + minutes * 60_000).toISOString();
 }
 
-// core의 CODING_REACTION_TEXTS.ended와 같은 글. renderer는 core를 import하지 않는다.
-const CODING_ENDED_TEXT =
-  "The coding session ended. Its last message to you says what it did.";
-
 function fakeId(prefix: string, n: number): string {
   return `${prefix}_01h455vb4pex5v6nkc6gd5f${String(n).padStart(3, "0")}`;
 }
@@ -625,7 +621,7 @@ function sceneData(scene: AgentTabScene): SceneData {
     case "sender-chips": {
       const notice = envelope(
         { kind: "program", label: null },
-        CODING_ENDED_TEXT,
+        "The nightly eval moved to 08:00. The next run starts in 20 minutes.",
         [
           {
             kind: "session",
@@ -647,42 +643,27 @@ function sceneData(scene: AgentTabScene): SceneData {
         ],
         { id: SESSION_EARLIER, title: "Weekly report" },
       );
-      const coding = envelope(
-        { kind: "coding", product: "Claude Code" },
-        "I finished the lookup change and the checks pass. Do you want the scenario names kept as they are?",
-        [
-          {
-            kind: "session",
-            text: "Claude Code · Eval board",
-            target: sessionId(9),
-          },
-          { kind: "file", text: "src/lookup.ts", target: "src/lookup.ts" },
-        ],
-        { id: sessionId(9), title: "Claude Code · Eval board" },
-      );
       return {
         agent: APP_ENGINEER,
         title: "Eval board keeps crashing",
         entries: [
-          received(1, 30, CODING_ENDED_TEXT, notice.sender),
+          received(
+            1,
+            30,
+            "The nightly eval moved to 08:00. The next run starts in 20 minutes.",
+            notice.sender,
+          ),
           received(
             2,
             36,
             "About the fix for P-12: keep the scenario names as they are.",
             lophn.sender,
           ),
-          received(
-            3,
-            52,
-            "The lookup change is done and the checks pass.",
-            coding.sender,
-          ),
         ],
         turn: working(),
         envelopes: {
           [messageId(1)]: notice,
           [messageId(2)]: lophn,
-          [messageId(3)]: coding,
         },
       };
     }

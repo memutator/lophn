@@ -130,12 +130,10 @@ import { openFile } from "./kinds/document-editor.tsx";
 import { openTerminal as openTerminalTab } from "./kinds/terminal.tsx";
 import { openAppPanel } from "./kinds/app-panel.tsx";
 import type { TerminalDeps } from "../terminal/deps.ts";
-import { useTerminalOpenRequests } from "../terminal/use-terminal-open-requests.ts";
 import {
   openBridgeUrl,
   useBridgeOpenRequests,
 } from "../terminal/use-bridge-open-requests.ts";
-import { openCodingTerminal } from "./kinds/terminal.tsx";
 import { NoticeCard } from "./notice-card.tsx";
 import {
   ViewCoversProvider,
@@ -828,17 +826,12 @@ export function Workspace(props: WorkspaceProps) {
     sessionIds,
   ]);
 
-  // core 요청으로 열린 coding 터미널은 이 project의 것만 붙이고 보던 탭을 바꾸지 않는다.
-  useTerminalOpenRequests((request) => {
-    if (terminal === undefined || request.runtime.project !== projectId) return;
-    openCodingTerminal(host, request);
-  });
   useBridgeOpenRequests(terminal?.bridge ?? null, (request) =>
     terminal === undefined
       ? false
       : openBridgeUrl(hostRef.current, terminal.store, request),
   );
-  // 대기 목록 카드가 터미널 session을 고르면 그 탭을 고른다.
+  // 알림을 누르면 그 터미널 탭을 고른다.
   useEffect(() => {
     if (terminal === undefined) return;
     return terminal.store.onSelect((key) => {
@@ -1419,9 +1412,6 @@ export function Workspace(props: WorkspaceProps) {
                     <WaitingLayer
                       onOpenSession={(session) =>
                         runToastAction({ kind: "session", session })
-                      }
-                      onAnswerInTerminal={(session) =>
-                        void terminal?.store.focusSession(session)
                       }
                     />
                     {noticesHidden && hasNotices ? (

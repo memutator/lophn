@@ -55,8 +55,6 @@ interface LauncherProps {
   newProjectId?: () => string;
   /** 대기 목록 질문 카드의 [Open session]. 호스트가 그 session으로 보낸다. */
   onOpenSession?: (session: string) => void;
-  /** 대기 목록 coding agent 카드의 [Answer in terminal]. */
-  onAnswerInTerminal?: (session: string) => void;
   /** lophn 대화 통로. 없으면 lophn 단추를 두지 않는다. */
   agentViewSource?: AgentTabSourceFactory;
   /** 호스트가 lophn 패널을 그 session으로 열라고 한다. 요청마다 새 객체여야 같은 session도 다시 연다. */
@@ -79,7 +77,6 @@ export function Launcher({
   onNewApp,
   newProjectId,
   onOpenSession = noop,
-  onAnswerInTerminal = noop,
   agentViewSource,
   lophnRequest,
 }: LauncherProps) {
@@ -126,10 +123,7 @@ export function Launcher({
         trailing={
           gated ? undefined : (
             <span className={styles.topActions}>
-              <WaitingLayer
-                onOpenSession={onOpenSession}
-                onAnswerInTerminal={onAnswerInTerminal}
-              />
+              <WaitingLayer onOpenSession={onOpenSession} />
               <SettingsEntry onSettings={onSettings} />
             </span>
           )

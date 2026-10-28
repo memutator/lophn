@@ -278,19 +278,12 @@ export function cardOf(entry: WaitingEntry, now = new Date()): CardView {
     choices: [] as readonly WaitingChoice[],
   };
   switch (entry.kind) {
-    case "coding_start":
-      return {
-        ...base,
-        title: t("waiting.title.coding-start"),
-        description: t("waiting.notice.coding-start"),
-      };
     case "question":
       return {
         ...base,
         title: t("waiting.title.question"),
         description: t("waiting.notice.question-loading"),
       };
-    case "coding":
     case "permission":
       return { ...base, ...permissionView(entry.request) };
     case "job_hold":

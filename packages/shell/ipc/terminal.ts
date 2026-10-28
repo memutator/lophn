@@ -63,13 +63,6 @@ export const terminalFocusSchema = z
   })
   .strict();
 
-/** 대기 목록에서 누른 coding session의 터미널 탭을 고른다. */
-export const terminalFocusSessionSchema = z
-  .object({
-    session: z.string().regex(/^ses_[0-7][0-9a-hjkmnp-tv-z]{25}$/),
-  })
-  .strict();
-
 /** terminal에서 Ctrl/Cmd-click한 link. 어디에서 열지는 main이 정한다. */
 export const terminalLinkSchema = z
   .object({
@@ -106,7 +99,6 @@ export type TerminalFocus = {
   focused: boolean;
 };
 
-export type TerminalFocusSession = { session: string };
 export type TerminalLink = { terminal_ref: string; url: string };
 export type TerminalBridgeAck = { request: string; opened: boolean };
 /** terminal 안 프로그램이 URL을 browser 탭으로 열어 달라고 했다. */
@@ -125,18 +117,7 @@ export type TerminalFailure =
   | "unreadable"
   | "spawn_failed"
   | "kill_unconfirmed"
-  | "host_lost"
-  | "no_terminal";
-
-/** coding TUI의 첫 prompt 전달 결과. argv는 `none`, 입력 전달은 pending에서 셋 중 하나로 끝난다. */
-type PromptOutcome = "none" | "pending" | "delivered" | "not_delivered";
-
-/** coding session의 터미널 탭 표지. coding 탭은 제목으로 구별하고 끝나면 끝난 상태로만 보인다. */
-type TerminalCodingSession = {
-  session: string;
-  app: string;
-  prompt: PromptOutcome;
-};
+  | "host_lost";
 
 /**
  * 터미널 안에서 도는 coding agent(harness). 무엇이 도는지는 foreground process나 hook이, 상태는
@@ -157,7 +138,6 @@ export type TerminalRuntime = {
   folder_ref: string;
   cwd_at_start: string;
   program_path: string;
-  launch_kind: "shell" | "coding_tui";
   state: TerminalStateName;
   generation: number;
   columns: number;
@@ -166,12 +146,6 @@ export type TerminalRuntime = {
   failure_reason: TerminalFailure | null;
   output_seq: number;
   dropped_output: boolean;
-  /** coding session의 탭일 때만 있다. */
-  coding_session?: TerminalCodingSession;
-  /** 탭 제목이다. coding 탭은 제목으로 구별한다. */
-  title?: string;
-  /** 탭 icon을 고르는 제품 이름(harness id)이다. */
-  product?: string;
   /** 지금 이 터미널에서 도는 coding agent. 없으면 없다. */
   agent?: TerminalAgent;
 };
@@ -232,17 +206,13 @@ export interface TerminalApi {
     input: TerminalSnapshot,
   ): Promise<TerminalCall<TerminalSnapshotReply | TerminalReject>>;
   focus(input: TerminalFocus): Promise<TerminalCall<null>>;
-  /** 그 session의 터미널 탭을 고른다. 없으면 `no_terminal`로 거절한다. */
-  focusSession(
-    input: TerminalFocusSession,
-  ): Promise<TerminalCall<TerminalReply>>;
   /** terminal에서 Ctrl/Cmd-click한 link를 main에 넘긴다. */
   openLink(input: TerminalLink): Promise<TerminalCall<null>>;
   /** main이 push한 bridge 요청에 browser 탭을 열었는지 답한다. */
   ackBridgeOpen(input: TerminalBridgeAck): Promise<TerminalCall<null>>;
   /** main이 URL을 browser 탭으로 열어 달라고 push한다. 구독 해지를 돌려준다. */
   onBridgeOpen(listener: (open: TerminalBridgeOpen) => void): () => void;
-  /** main이 새 터미널(coding 탭 포함)을 열거나 상태가 바뀔 때마다 runtime을 보낸다. 구독 해지를 돌려준다. */
+  /** main이 새 터미널을 열거나 상태가 바뀔 때마다 runtime을 보낸다. 구독 해지를 돌려준다. */
   onRuntime(listener: (runtime: TerminalRuntime) => void): () => void;
   /** main이 그 터미널 탭을 골라 보이라고 보낸다(OS 알림 누름). 구독 해지를 돌려준다. */
   onReveal(listener: (reveal: TerminalReveal) => void): () => void;
@@ -256,7 +226,6 @@ export const TERMINAL_CLOSE_CHANNEL = "shell:terminal-close";
 export const TERMINAL_RESTART_CHANNEL = "shell:terminal-restart";
 export const TERMINAL_SNAPSHOT_CHANNEL = "shell:terminal-snapshot";
 export const TERMINAL_FOCUS_CHANNEL = "shell:terminal-focus";
-export const TERMINAL_FOCUS_SESSION_CHANNEL = "shell:terminal-focus-session";
 export const TERMINAL_LINK_CHANNEL = "shell:terminal-link";
 export const TERMINAL_BRIDGE_ACK_CHANNEL = "shell:terminal-bridge-ack";
 export const TERMINAL_BRIDGE_OPEN_CHANNEL = "shell:terminal-bridge-open";

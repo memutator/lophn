@@ -1,5 +1,5 @@
 // 앱 공간(`/apps/:app`). 위쪽 바 아래 전체에 그 앱의 native view 하나를 붙이고, 옆에 오른쪽 패널 하나를 연다. 패널은
-// 탭 줄이 있고 App details·Agent·coding 터미널이 탭이다. 좁은 창에서는 패널이 본문을 덮되 앱 view는 덮이지 않는 영역으로 줄어든다.
+// 탭 줄이 있고 App details·Agent가 탭이다. 좁은 창에서는 패널이 본문을 덮되 앱 view는 덮이지 않는 영역으로 줄어든다.
 // 다른 공간으로 가면 이 공간이 사라지며 그 view를 닫는다(EmbeddedView).
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
@@ -20,8 +20,6 @@ import { type AppStatus, appStatus } from "../apps/model.ts";
 import type { AppRow, AppsSource, RunState } from "../apps/source.ts";
 import type { ReadResult } from "../workspace/source.ts";
 import type { RunRecordView } from "../workspace/sidebar/run-list.tsx";
-import { closeTerminalTab, type TerminalDeps } from "../terminal/deps.ts";
-import { useTerminalOpenRequests } from "../terminal/use-terminal-open-requests.ts";
 import { keyOf } from "../workspace/agents/agent-key.ts";
 import type { AgentsSource } from "../workspace/agents/source.ts";
 import { AppDetail } from "./app-detail/app-detail.tsx";
@@ -29,7 +27,6 @@ import type { AppDetailSource } from "./app-detail/source.ts";
 import {
   type AgentPaneState,
   type PanelTab,
-  type PaneTerminal,
   SidePanel,
   sidePanelPlacement,
 } from "./side-panel.tsx";
@@ -85,8 +82,6 @@ interface AppSpaceProps {
   appEngineer?: boolean;
   /** 이 공간의 pane에 없는 agent session을 연다(호스트가 그 session이 있는 화면으로 간다). */
   onOpenSession?: (session: string) => void;
-  /** 터미널 탭 통로. 있어야 lophn이 연 coding 터미널을 pane에 받는다. */
-  terminal?: TerminalDeps;
 }
 
 type AppRecord =
@@ -165,7 +160,6 @@ export function AppSpace({
   session,
   appEngineer,
   onOpenSession,
-  terminal,
 }: AppSpaceProps) {
   const [attempt, setAttempt] = useState(0);
   const { record, run, setRun } = useAppRecord(source, app, attempt);
@@ -181,17 +175,15 @@ export function AppSpace({
 
   // 창마다 하나인 덮개 목록. 좁은 창의 오른쪽 패널이 앱 view 자리를 덮는다.
   const covers = useMemo(createViewCovers, []);
-  // 오른쪽 패널. 열린 탭(details, agent, terminal)과 고른 탭, 패널을 보이는지는 따로 쥔다. 단추로 패널을 닫아도 탭의 상태는 남는다.
+  // 오른쪽 패널. 열린 탭(details, agent)과 고른 탭, 패널을 보이는지는 따로 쥔다. 단추로 패널을 닫아도 탭의 상태는 남는다.
   const [pane, setPane] = useState<AgentPaneState | null>(
     appEngineer
       ? { mode: "agent", assignment: "app_engineer", session: null }
       : null,
   );
-  const [coding, setCoding] = useState<PaneTerminal | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>("agent");
   const [panelOpen, setPanelOpen] = useState(appEngineer === true);
-  const [opened, setOpened] = useState(false);
   const agentList = useAppAgents(agents, app);
   const paneShown = pane !== null && agents !== undefined;
   const runRows = useAppRuns(
@@ -201,12 +193,9 @@ export function AppSpace({
     agentViewSource,
     paneShown && pane.mode === "runs",
   );
-  const terminalShown =
-    terminal !== undefined && coding !== null && agents !== undefined;
   const tabs: PanelTab[] = [
     ...(detailsOpen ? ["details" as const] : []),
     ...(paneShown ? ["agent" as const] : []),
-    ...(terminalShown ? ["terminal" as const] : []),
   ];
   const shownTab = tabs.includes(panelTab) ? panelTab : (tabs[0] ?? null);
   const placement = sidePanelPlacement(
@@ -314,52 +303,9 @@ export function AppSpace({
     if (!openSession(target, undefined)) onOpenSession?.(target);
   }
 
-  // core 요청으로 열린 coding 터미널. 이 앱의 것만 패널의 터미널 탭으로 두고 보던 탭에서 focus를 옮기지 않는다.
-  useTerminalOpenRequests((request) => {
-    if (terminal === undefined || agents === undefined) return;
-    if (request.coding.app !== app) return;
-    terminal.store.requestFromCore(request);
-    setCoding({
-      key: request.tab.key,
-      title: request.tab.title,
-      project: request.runtime.project,
-      product: request.coding.product,
-      session: request.coding.session,
-    });
-    setOpened(true);
-    // 패널이 안 보이면 열되, 열린 탭이 없던 때만 agent를 보인다.
-    if (!panelVisible || shownTab === null) {
-      setPane(
-        (current) =>
-          current ?? {
-            mode: "agent",
-            assignment: "app_engineer",
-            session: latestSession("app_engineer"),
-          },
-      );
-      setPanelTab("agent");
-    }
-    setPanelOpen(true);
-  }, terminal?.bridge ?? null);
-
-  // 대기 목록 카드의 [Answer in terminal]이 이 pane의 터미널을 고르면 터미널 탭으로 바꾼다.
-  useEffect(() => {
-    if (terminal === undefined || coding === null) return;
-    return terminal.store.onSelect((key) => {
-      if (key === coding.key) showTab("terminal");
-    });
-  }, [terminal, coding]);
-
   function closeTab(name: PanelTab): void {
     if (name === "details") setDetailsOpen(false);
     else if (name === "agent") setPane(null);
-    else if (terminal !== undefined && coding !== null) {
-      void closeTerminalTab(terminal, coding.key).then((closed) => {
-        if (!closed) return;
-        setCoding(null);
-        setOpened(false);
-      });
-    }
   }
 
   // ---- annotate ----
@@ -489,14 +435,7 @@ export function AppSpace({
                 },
               }
             : {})}
-          decisions={
-            <WaitingLayer
-              onOpenSession={showSession}
-              onAnswerInTerminal={(target) =>
-                void terminal?.store.focusSession(target)
-              }
-            />
-          }
+          decisions={<WaitingLayer onOpenSession={showSession} />}
           agentSelect={
             agents ? (
               <AgentSelect
@@ -580,11 +519,6 @@ export function AppSpace({
             agents={agentList.agents}
             runs={runRows}
             {...(agentViewSource === undefined ? {} : { agentViewSource })}
-            {...(terminal !== undefined && coding !== null
-              ? { coding: { tab: coding, deps: terminal } }
-              : {})}
-            opened={opened}
-            onOpenedClose={() => setOpened(false)}
             onState={setPane}
             {...(onInstructions === undefined ? {} : { onInstructions })}
             {...(onSettings === undefined ? {} : { onSettings })}

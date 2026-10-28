@@ -129,15 +129,14 @@ export function AnnotateList() {
   );
 }
 
-// ---- 오른쪽 패널: App details, agent, coding 터미널 탭 ----
+// ---- 오른쪽 패널: App details, agent 탭 ----
 
-/** 세 탭이 한 줄에 선 패널. App details를 보고 있다. */
+/** 두 탭이 한 줄에 선 패널. App details를 보고 있다. */
 export function SidePanelTabs() {
   return (
     <AppSpace
       panel="version"
       pane={{ view: "details", agent: "App Engineer" }}
-      terminal="running"
     />
   );
 }
@@ -145,28 +144,4 @@ export function SidePanelTabs() {
 /** 앱 화면 옆에 붙은 agent 탭. title bar의 Agent select로 연다. */
 export function AgentPaneOpen() {
   return <AppSpace pane={{ agent: "App Engineer" }} />;
-}
-
-/** App Engineer가 맡기자 lophn이 터미널을 열었다. focus는 agent에 그대로 두고 pane 위쪽 toast로 알린다. */
-export function CodingOpenedToast() {
-  return (
-    <AppSpace
-      pane={{ view: "agent", agent: "App Engineer" }}
-      terminal="running"
-      openedToast
-    />
-  );
-}
-
-export function CodingRunning() {
-  return <AppSpace pane={{ view: "terminal" }} terminal="running" />;
-}
-
-/** 대기 목록에서 coding agent의 권한 요청을 눌러 왔다. 터미널에 focus가 오고 물음은 TUI 안에 있다. */
-export function CodingPermission() {
-  return <AppSpace pane={{ view: "terminal" }} terminal="permission" />;
-}
-
-export function CodingEnded() {
-  return <AppSpace pane={{ view: "terminal" }} terminal="ended" />;
 }

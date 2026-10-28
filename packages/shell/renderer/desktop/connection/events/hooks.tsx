@@ -50,7 +50,6 @@ export function EventsProvider({
         client,
         () => new Date().toISOString(),
         (globalThis as { lophnTerminal?: TerminalApi }).lophnTerminal ?? null,
-        { set: setTimeout, clear: clearTimeout },
       ),
       sessions: createSessionsStore(
         client,

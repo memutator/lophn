@@ -3,8 +3,6 @@
 import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
 import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
 import type { JobHold } from "../../../../../protocol/jobs/jobs.ts";
-import { HOOK_EVENT_TABLE } from "../../../../../protocol/coding-agent/hook-signal.ts";
-import type { HarnessId } from "../../../../../protocol/coding-agent/harnesses.ts";
 import type {
   BusEvent,
   EventCondition,
@@ -44,14 +42,11 @@ interface Common {
 }
 
 export type WaitingEntry =
-  // coding은 harness가 물어 온 것이다. 답은 터미널에서 한다.
   | (Common & {
-      readonly kind: "permission" | "coding";
+      readonly kind: "permission";
       readonly request: TurnRequest;
     })
   | (Common & { readonly kind: "question"; readonly request: QuestionRequest })
-  // 터미널을 열었는데 첫 hook 신호가 없다. folder trust 같은 확인에서 멈췄을 수 있다. id는 start:<session>이다.
-  | (Common & { readonly kind: "coding_start" })
   // id는 release다. 같은 release는 한 줄이다.
   | (Common & {
       readonly kind: "activation";
@@ -78,7 +73,6 @@ export interface WaitingState {
 const WAITING_CONDITION: EventCondition = {
   types: [
     "SessionStarted",
-    "SessionEnded",
     "TurnRequestOpened",
     "TurnRequestClosed",
     "QuestionAsked",
@@ -90,12 +84,6 @@ const WAITING_CONDITION: EventCondition = {
   ],
 };
 
-/**
- * runtime(터미널을 연 창)과 snapshot(뒤에 연 창, 다시 붙은 창) 두 길이 같은 delay를 쓴다.
- * 정상 시작의 SessionStart는 이보다 빨리 온다고 보고 정한 값이다(근거 기록 없음). 이보다 늦으면 항목이 뜬다.
- */
-const STARTING_QUIET_MS = 5000;
-
 function folderName(path: string): string {
   return (
     path
@@ -103,18 +91,6 @@ function folderName(path: string): string {
       .filter((part) => part !== "")
       .at(-1) ?? ""
   );
-}
-
-/** `setTimeout` 꼴. 전역을 읽지 않으려고 인자로 받는다. */
-export interface Timer {
-  set(run: () => void, ms: number): unknown;
-  clear(handle: unknown): void;
-}
-
-/** 첫 신호가 SessionStarted인 harness만 터미널 시작 뒤 첫 신호를 기다릴 수 있다. */
-function startsWithSessionStart(harness: string | undefined): boolean {
-  const table = HOOK_EVENT_TABLE[harness as HarnessId];
-  return table !== undefined && Object.values(table).includes("SessionStarted");
 }
 
 interface WaitingStore {
@@ -128,7 +104,6 @@ export function createWaitingStore(
   client: EventClient,
   now: () => string,
   terminals: Pick<TerminalApi, "onRuntime"> | null,
-  timer: Timer,
 ): WaitingStore {
   const state = createValueStore<WaitingState>({
     entries: [],
@@ -140,55 +115,6 @@ export function createWaitingStore(
   const finished = new Map<string, FinishedTerminal>();
   // session의 agent와 place는 SessionStarted와 snapshot에 실려 온다.
   const sessions = new Map<string, { agent: CallAgent; place: Place | null }>();
-
-  // 첫 신호를 기다리는 coding session(runtime이나 snapshot에서 알았다). 항목이 뜬 뒤에도 끝날 때까지 남는다.
-  const waitingStart = new Map<string, unknown>();
-  // 첫 신호를 들었거나 끝난 session. runtime이 state마다 다시 와도 다시 세지 않는다.
-  const done = new Set<string>();
-
-  function stopWaitingStart(session: string) {
-    done.add(session);
-    if (!waitingStart.has(session)) return false;
-    timer.clear(waitingStart.get(session));
-    waitingStart.delete(session);
-    return entries.delete(`start:${session}`);
-  }
-
-  function waitStart(
-    session: string,
-    app: string,
-    harness: string | undefined,
-  ) {
-    if (done.has(session) || waitingStart.has(session)) return;
-    if (!startsWithSessionStart(harness)) return;
-    waitingStart.set(
-      session,
-      timer.set(() => {
-        const known = sessions.get(session);
-        put({
-          id: `start:${session}`,
-          kind: "coding_start",
-          session,
-          agent: known?.agent ?? { role: "coding_agent", app },
-          place: known?.place ?? { kind: "app", id: app },
-          receivedAt: now(),
-        });
-        publish();
-      }, STARTING_QUIET_MS),
-    );
-  }
-
-  function watchStart(runtime: TerminalRuntime) {
-    const coding = runtime.coding_session;
-    if (runtime.launch_kind !== "coding_tui" || !coding) return;
-    const session = coding.session;
-    if (done.has(session)) return;
-    if (runtime.state === "exited" || runtime.state === "unknown") {
-      if (stopWaitingStart(session)) publish();
-      return;
-    }
-    waitStart(session, coding.app, runtime.product);
-  }
 
   function publish() {
     const list = [...entries.values()];
@@ -207,7 +133,7 @@ export function createWaitingStore(
       const next = {
         terminalRef: ref,
         harness: agent.harness,
-        title: runtime.title || folderName(runtime.cwd_at_start),
+        title: folderName(runtime.cwd_at_start),
       };
       const before = finished.get(ref);
       if (before?.harness === next.harness && before.title === next.title) {
@@ -227,7 +153,7 @@ export function createWaitingStore(
     const known = sessions.get(request.session);
     return {
       id: request.id,
-      kind: request.subject.kind === "harness" ? "coding" : "permission",
+      kind: "permission",
       session: request.session,
       agent: known?.agent ?? null,
       place: known?.place ?? null,
@@ -284,11 +210,7 @@ export function createWaitingStore(
           agent: event.payload.agent,
           place: event.payload.place,
         });
-        if (!stopWaitingStart(event.session)) return;
-        break;
-      case "SessionEnded":
-        if (!stopWaitingStart(event.session)) return;
-        break;
+        return;
       case "TurnRequestOpened":
         put(permission(event.payload.request, event.at));
         break;
@@ -375,23 +297,9 @@ export function createWaitingStore(
     consents: ActivationConsent[];
     holds: JobHold[] | null;
   }) {
-    // snapshot에서 첫 신호를 들은 session이거나 없는 session은 기다리지 않는다.
-    for (const session of [...waitingStart.keys()]) {
-      const snapshot = read.snapshots.find((one) => one.session === session);
-      if (snapshot?.state !== "unknown") stopWaitingStart(session);
-    }
-    // 이미 첫 신호를 들은 session은 done에 넣어, 다시 붙은 뒤 온 runtime event가 새로 세지 않게 한다.
-    for (const snapshot of read.snapshots) {
-      if (snapshot.agent.role !== "coding_agent") continue;
-      if (snapshot.state === "unknown") {
-        waitStart(snapshot.session, snapshot.agent.app, snapshot.harness);
-      } else stopWaitingStart(snapshot.session);
-    }
-    // coding_start는 snapshot에 없다. hold를 못 읽었으면 지금의 hold 항목도 그대로 둔다.
+    // hold를 못 읽었으면 지금의 hold 항목도 그대로 둔다.
     const kept = [...entries.values()].filter(
-      (entry) =>
-        entry.kind === "coding_start" ||
-        (read.holds === null && entry.kind === "job_hold"),
+      (entry) => read.holds === null && entry.kind === "job_hold",
     );
     const next = replaceTurnRequests(read.snapshots);
     for (const one of read.consents) next.push(consent(one));
@@ -409,7 +317,6 @@ export function createWaitingStore(
     start() {
       const stopRuntime = terminals?.onRuntime((runtime) => {
         noteFinished(runtime);
-        watchStart(runtime);
       });
       const stopEvents = client.subscribe(
         WAITING_CONDITION,
@@ -418,7 +325,6 @@ export function createWaitingStore(
       return () => {
         stopRuntime?.();
         stopEvents();
-        for (const handle of waitingStart.values()) timer.clear(handle);
       };
     },
   };

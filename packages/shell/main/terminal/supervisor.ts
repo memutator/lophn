@@ -160,9 +160,7 @@ export function createSupervisor(options: {
       // 사람이 누른 열기·다시 시작만 죽은 host 뒤를 살린다. input·resize·close·
       // snapshot 같은 자동 경로는 죽은 host에 닿지 않는다.
       const current =
-        type === "open" || type === "open-coding" || type === "restart"
-          ? revive()
-          : ensure();
+        type === "open" || type === "restart" ? revive() : ensure();
       if (!current || current.killed || !current.stdin) {
         return Promise.resolve({
           ok: false,
@@ -182,14 +180,6 @@ export function createSupervisor(options: {
             ok: false,
             reason: "host_lost",
             message: "generation does not match",
-          });
-        }
-        // coding TUI는 자동 resume·재spawn이 없고 shell로 바뀌지도 않는다. 새 맡기기만 새 탭을 연다.
-        if (terminal.launch_kind === "coding_tui") {
-          return Promise.resolve({
-            ok: false,
-            reason: "spawn_failed",
-            message: "coding TUI starts again only from a new start",
           });
         }
         if (

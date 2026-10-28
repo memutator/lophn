@@ -108,8 +108,6 @@ export type AgentTracker = {
   tabFocused(terminalRef: string): void;
   /** 창이 focus를 받았다. 이미 골라 둔 탭의 못 본 것을 지운다. */
   windowFocused(): void;
-  /** lophn이 띄운 coding 터미널. 제품을 처음부터 안다. */
-  registerCoding(terminalRef: string, harness: string): void;
   /** 터미널이 끝났다. */
   gone(terminalRef: string): void;
   /** runtime에 지금의 agent를 싣는다. harness가 없으면 agent 칸이 없다. */
@@ -270,11 +268,6 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
           push(ref, entry);
         }
       }
-    },
-    registerCoding(ref, harness) {
-      const entry = entryOf(ref);
-      Object.assign(entry, fresh(harness, true));
-      push(ref, entry);
     },
     gone(ref) {
       entries.delete(ref);

@@ -3,7 +3,6 @@
 import { existsSync, statSync } from "node:fs";
 import { createInterface } from "node:readline";
 
-import { createCodingHost } from "./launch-plan.ts";
 import type { HostRequest } from "./main.ts";
 import { hostFromNodePty } from "./main.ts";
 
@@ -21,7 +20,6 @@ const host = hostFromNodePty({
     }
   },
   schedule: (done) => setImmediate(done),
-  coding: createCodingHost(),
   // 끝난 process의 runtime을 요청의 답이 아니라 id 없는 줄로 먼저 알린다.
   onRuntime: (runtime) =>
     process.stdout.write(JSON.stringify({ runtime }) + "\n"),

@@ -41,17 +41,12 @@ interface TerminalTabProps {
   onStarted?: (info: { title: string | null; folderRef: string }) => void;
   /**
    * 탭 줄에 보이는 이름과 그 이름을 정하는 입력. 사람이 붙인 이름 > agent의 터미널 제목 > 자동 이름.
-   * 탭 줄이 없는 자리(side panel의 coding 터미널)는 주지 않는다.
+   * 탭 줄이 없는 자리는 주지 않는다.
    */
   naming?: {
     name: { shown: string; person: string | null; auto: string };
     onName: (name: string) => void;
   };
-  /**
-   * lophn(core 요청)이 연 coding 터미널 탭이다. 새 PTY를 열지도 다시 시작하지도 않고, 끝나면
-   * session이 끝났다고만 보인다. `ended`는 runtime이 없는 복원 탭을 끝난 것으로 보인다.
-   */
-  coding?: { product: string; session: string; app: string; ended?: boolean };
 }
 
 const IDLE: Phase = { kind: "idle" };
@@ -88,7 +83,6 @@ export function TerminalTab({
   deps,
   onStarted,
   naming,
-  coding,
 }: TerminalTabProps) {
   const { store, bridge } = deps;
   const subscribe = useCallback(
@@ -188,8 +182,7 @@ export function TerminalTab({
 
   const open = useCallback(
     async (folder: string | null) => {
-      // coding 탭은 main이 연 runtime에만 붙는다. 새 PTY는 사람이 열지 않는다.
-      if (coding !== undefined || opening.has(tabKey)) return;
+      if (opening.has(tabKey)) return;
       if (!bridge) {
         store.update(tabKey, {
           phase: { kind: "refused", reason: "unavailable" },
@@ -219,12 +212,11 @@ export function TerminalTab({
         opening.delete(tabKey);
       }
     },
-    [bridge, store, tabKey, project, begin, coding !== undefined],
+    [bridge, store, tabKey, project, begin],
   );
 
   // 사람이 누른 다시 시작. 옛 입력을 다시 보내지 않고 새 generation으로 연다.
   const restart = useCallback(async () => {
-    if (coding !== undefined) return;
     const current = store.get(tabKey);
     const ended = current?.phase.kind === "ended" ? current.phase : null;
     if (bridge && current?.terminalRef && ended?.runtime) {
@@ -244,7 +236,7 @@ export function TerminalTab({
       return;
     }
     await open(current?.folderRef ?? folderRef);
-  }, [bridge, store, tabKey, folderRef, begin, open, coding !== undefined]);
+  }, [bridge, store, tabKey, folderRef, begin, open]);
 
   // xterm 표시는 탭 화면이 있는 동안만 산다. 사라져도 shell은 host에 남는다.
   useEffect(() => {
@@ -292,7 +284,7 @@ export function TerminalTab({
   }, [deps, store, tabKey, bridge]);
 
   // 처음 그릴 때: 살아 있는 runtime이 있으면 다시 붙고, 아니면 시작한다. 터미널 탭은 보일 때만 그려지므로
-  // 복원한 탭은 사람이 그 탭을 볼 때 새 shell이 뜬다. coding 탭은 main이 연 runtime에만 붙어 끝난 것으로 남는다.
+  // 복원한 탭은 사람이 그 탭을 볼 때 새 shell이 뜬다.
   useEffect(() => {
     lastSeqRef.current = 0;
     const current = store.get(tabKey);
@@ -315,10 +307,8 @@ export function TerminalTab({
         });
     } else if (current?.requested && current.phase.kind === "opening") {
       void open(current.folderRef ?? folderRef);
-    } else if (!current && coding === undefined) {
-      void open(folderRef);
     } else if (!current) {
-      store.update(tabKey, { phase: IDLE });
+      void open(folderRef);
     }
     // 탭마다 한 번이다.
   }, [tabKey]);
@@ -394,14 +384,7 @@ export function TerminalTab({
   // 보일 출력이 있으면 그 아래 한 줄, 없으면 탭 가운데 자리표시다.
   const variant = showScreen ? "bar" : "center";
   let banner = null;
-  const codingEnded =
-    coding !== undefined &&
-    (coding.ended === true ||
-      phase.kind === "idle" ||
-      (phase.kind === "ended" && phase.ending === "exited"));
-  if (codingEnded && phase.kind !== "live") {
-    banner = <ExitBanner variant={variant} state={{ kind: "session_ended" }} />;
-  } else if (phase.kind === "ended") {
+  if (phase.kind === "ended") {
     banner = (
       <ExitBanner
         variant={variant}
@@ -410,7 +393,7 @@ export function TerminalTab({
           ending: phase.ending,
           exitCode: phase.runtime?.exit_code ?? null,
         }}
-        onRestart={coding === undefined ? () => void restart() : undefined}
+        onRestart={() => void restart()}
       />
     );
   } else if (phase.kind === "refused") {
@@ -419,7 +402,7 @@ export function TerminalTab({
         variant={variant}
         state={{ kind: "refused", reason: phase.reason }}
         onRestart={
-          phase.reason === "no_folder" || coding !== undefined
+          phase.reason === "no_folder"
             ? undefined
             : () => void open(entry?.folderRef ?? folderRef)
         }
@@ -432,7 +415,6 @@ export function TerminalTab({
       className={styles.terminal}
       data-terminal-tab={tabKey}
       data-phase={phase.kind}
-      data-coding-session={coding?.session}
     >
       {missing && showScreen ? <MissingOutput /> : null}
       {phase.kind === "choose" ? (

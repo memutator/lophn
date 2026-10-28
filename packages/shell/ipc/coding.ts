@@ -41,7 +41,7 @@ export type HarnessName = (typeof HARNESS_IDS)[number];
 
 /** renderer가 부를 수 있는 호출. 이름이 없으면 main이 거절한다. */
 export const codingCallSchema = z.discriminatedUnion("op", [
-  /** 제품마다 감지 결과와 맡길 수 있는지를 읽는다. 처음에만 감지하고 이후는 마지막 결과다. */
+  /** 제품마다 감지 결과를 읽는다. 처음에만 감지하고 이후는 마지막 결과다. */
   z.strictObject({ op: z.literal("harnesses") }),
   /** 사람이 [Detect again]을 누를 때만. 화면이 열릴 때·다시 들어올 때는 보내지 않는다. */
   z.strictObject({ op: z.literal("refresh") }),
@@ -106,16 +106,14 @@ export type HarnessDiscovery =
   | "unknown"
   | "error";
 
-/** Settings가 제품마다 보이는 값. `reason`은 맡길 수 없거나 메시지를 못 넣는 까닭이고 없으면 null이다. */
+/** Settings가 제품마다 보이는 값. */
 export interface HarnessSettingsView {
   readonly harness_id: HarnessName;
   readonly label: string;
   readonly discovery: HarnessDiscovery;
   readonly version: string | null;
   readonly version_result: "verified" | "unknown" | "error";
-  readonly can_launch: boolean;
   readonly can_deliver_messages: boolean;
-  readonly reason: string | null;
   /** 감지한 때. 감지 결과를 읽지 못했으면 없다. */
   readonly observed_at?: string;
   /** 찾은 실행 파일 경로. 못 찾았으면 없거나 null이다. */

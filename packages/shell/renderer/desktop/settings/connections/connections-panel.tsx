@@ -1,13 +1,12 @@
-// Settings › Coding agents. 제품마다 실행 파일, version, turn 끝 신호, 맡길 수 있는지를 보이고
-// 기본 실행 옵션을 정한다. 연결 만들기·범위·이름·회수와 doctor 단계는 없다. 감지는 사람이
-// [Detect again]을 누를 때만 다시 한다.
+// Settings › Coding agents. 제품마다 실행 파일, version, turn 끝 신호를 보인다. 연결 만들기·범위·이름·회수와
+// doctor 단계는 없다. 감지는 사람이 [Detect again]을 누를 때만 다시 한다.
 import { useCallback, useState } from "react";
 import {
   harnessVendorOf,
   VendorIcon,
 } from "../../../parts/vendor-icon/vendor-icon.tsx";
 import { Button } from "@lophn/ui/primitives";
-import { Field, Input, SearchFilter } from "@lophn/ui/input";
+import { SearchFilter } from "@lophn/ui/input";
 import { ErrorState, Loading, Skeleton, StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
@@ -20,14 +19,12 @@ import {
   hookText,
   hookTone,
   matchesQuery,
-  pickable,
   shown,
   sortedByFound,
   versionText,
 } from "./model.ts";
 import type {
   CodingConnectionsSource,
-  CodingDefaults,
   HarnessHookView,
   HarnessName,
   HarnessSettingsView,
@@ -45,8 +42,6 @@ type Loaded =
       readonly harnesses: readonly HarnessSettingsView[];
     };
 
-const EMPTY_DEFAULTS: CodingDefaults = { harness: null, model: "" };
-
 /** 제품 이름 앞에 vendor 아이콘을 붙인다. 아이콘은 이름이 아니라 harness id로 고른다. */
 function ProductName({
   harness,
@@ -63,7 +58,6 @@ function ProductName({
     </span>
   );
 }
-
 export function CodingConnectionsPanel({
   source,
 }: CodingConnectionsPanelProps) {
@@ -74,8 +68,6 @@ export function CodingConnectionsPanel({
   const [hooks, setHooks] = useState<readonly HarnessHookView[]>([]);
   const [installing, setInstalling] = useState<HarnessName | null>(null);
   const [installFailed, setInstallFailed] = useState(false);
-  const [defaults, setDefaults] = useState<CodingDefaults>(EMPTY_DEFAULTS);
-  const [saved, setSaved] = useState<"idle" | "saved" | "failed">("idle");
   const [query, setQuery] = useState("");
 
   const load = useCallback(() => {
@@ -88,9 +80,6 @@ export function CodingConnectionsPanel({
     });
     void source.hookStatus().then((read) => {
       if (read.ok) setHooks(read.value);
-    });
-    void source.defaults().then((read) => {
-      if (read.ok) setDefaults(read.value);
     });
   }, [source]);
   useReload(source, load);
@@ -113,15 +102,6 @@ export function CodingConnectionsPanel({
     setInstalling(null);
     if (read.ok) setHooks(read.value);
     setInstallFailed(!done.ok || done.value.status !== "installed");
-  }
-
-  async function save(): Promise<void> {
-    setSaved("idle");
-    const result = await source.saveDefaults({
-      ...defaults,
-      model: defaults.model.trim(),
-    });
-    setSaved(result.ok ? "saved" : "failed");
   }
 
   if (loaded.state === "failed") {
@@ -178,7 +158,6 @@ export function CodingConnectionsPanel({
                 <th scope="col">{t("settings.label.coding-col-product")}</th>
                 <th scope="col">{t("settings.label.coding-col-executable")}</th>
                 <th scope="col">{t("settings.label.coding-col-turn-end")}</th>
-                <th scope="col">{t("settings.label.coding-col-takes-task")}</th>
                 <th scope="col">{t("settings.label.coding-col-hooks")}</th>
               </tr>
             </thead>
@@ -202,56 +181,7 @@ export function CodingConnectionsPanel({
             {t("settings.empty.coding-search")}
           </p>
         ) : null}
-        <p className={`${styles.lineHelp} ${styles.groupBlock}`}>
-          {t("settings.note.coding-signal")}
-        </p>
         <p className={styles.lineHelp}>{t("settings.note.coding-hooks")}</p>
-        <section className={styles.groupBlock}>
-          <h2 className={styles.groupTitle}>
-            {t("settings.heading.coding-defaults")}
-          </h2>
-          <div className={styles.options}>
-            <ProductPicker
-              harnesses={harnesses}
-              value={defaults.harness}
-              onChange={(harness) => {
-                setSaved("idle");
-                setDefaults({ ...defaults, harness });
-              }}
-            />
-            <Field
-              label={t("settings.label.coding-model")}
-              help={t("settings.note.coding-model")}
-            >
-              <Input
-                value={defaults.model}
-                onChange={(event) => {
-                  setSaved("idle");
-                  setDefaults({ ...defaults, model: event.target.value });
-                }}
-              />
-            </Field>
-            <div className={styles.endSlot}>
-              <Button
-                variant="primary"
-                data-action="save"
-                onClick={() => void save()}
-              >
-                {t("settings.button.save")}
-              </Button>
-            </div>
-            {saved === "saved" ? (
-              <p className={styles.lineHelp} role="status" data-saved="">
-                {t("settings.note.coding-defaults-saved")}
-              </p>
-            ) : null}
-            {saved === "failed" ? (
-              <p className={styles.rejected} role="alert" data-saved="failed">
-                {t("settings.error.coding-defaults")}
-              </p>
-            ) : null}
-          </div>
-        </section>
       </Loading>
     </div>
   );
@@ -301,25 +231,6 @@ function HarnessRow({
         )}
       </td>
       <td>
-        {found ? (
-          <div className={styles.cell}>
-            <StatusMark
-              tone={harness.can_launch ? "good" : "critical"}
-              label={
-                harness.can_launch
-                  ? t("settings.label.coding-launch-yes")
-                  : t("settings.label.coding-launch-no")
-              }
-            />
-            {harness.reason === null ? null : (
-              <span className={styles.caption}>{harness.reason}</span>
-            )}
-          </div>
-        ) : (
-          <span className={styles.dim}>-</span>
-        )}
-      </td>
-      <td>
         <HookCell hook={hook} installing={installing} onInstall={onInstall} />
       </td>
     </tr>
@@ -353,50 +264,5 @@ function HookCell({
         </Button>
       ) : null}
     </div>
-  );
-}
-
-/** 기본 제품 고르기. 제품마다 아이콘이 붙은 줄이다. 맡길 수 없는 제품은 목록에 없다. */
-function ProductPicker({
-  harnesses,
-  value,
-  onChange,
-}: {
-  harnesses: readonly HarnessSettingsView[];
-  value: HarnessName | null;
-  onChange: (harness: HarnessName | null) => void;
-}) {
-  const legend = t("settings.label.coding-default-product");
-  return (
-    <fieldset className={styles.productPicker}>
-      <legend>{legend}</legend>
-      <div role="radiogroup" aria-label={legend}>
-        <button
-          type="button"
-          role="radio"
-          aria-checked={value === null}
-          className={styles.productOption}
-          onClick={() => onChange(null)}
-        >
-          {t("settings.label.coding-default-none")}
-        </button>
-        {harnesses.filter(pickable).map((harness) => (
-          <button
-            key={harness.harness_id}
-            type="button"
-            role="radio"
-            aria-checked={harness.harness_id === value}
-            className={styles.productOption}
-            data-product={harness.harness_id}
-            onClick={() => onChange(harness.harness_id)}
-          >
-            <ProductName harness={harness.harness_id} label={harness.label} />
-          </button>
-        ))}
-      </div>
-      <span className={styles.lineHelp}>
-        {t("settings.note.coding-default-used")}
-      </span>
-    </fieldset>
   );
 }

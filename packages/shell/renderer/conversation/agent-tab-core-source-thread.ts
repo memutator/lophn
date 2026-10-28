@@ -560,7 +560,7 @@ export async function readThread(
   const current = latestTurn(turns.value);
   const running = current !== null && current.state === "running";
   const sessionSnapshot = snapshot.value.snapshots[0];
-  // harness 물음은 대기 목록의 coding 카드가 그린다.
+  // harness 물음은 이 대화에 그리지 않는다.
   let approval: ApprovalCardRequest | null = null;
   for (const one of sessionSnapshot?.turn_requests ?? []) {
     if (one.subject.kind === "harness") continue;

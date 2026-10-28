@@ -16,14 +16,14 @@ test("보고 있으면 알리지 않고, 아니면 focus 창의 toast, 창이 �
 const sessionsOf = (unseen: { session: string }[]) =>
   unseen.map((one) => one.session);
 
-test("못 본 turn 끝은 탭이 보이거나 다음 turn이 시작하면 지우고, 끊은 turn과 coding session은 알리지 않는다", async () => {
+test("못 본 turn 끝은 탭이 보이거나 다음 turn이 시작하면 지우고, 끊은 turn과 모르는 session은 알리지 않는다", async () => {
   const sent: SessionNotice[] = [];
   const published: string[][] = [];
   let looking = false;
   const notices = createSessionNotices({
     who: (session) =>
       Promise.resolve(
-        session === "ses_coding"
+        session === "ses_unknown"
           ? null
           : {
               session,
@@ -48,7 +48,7 @@ test("못 본 turn 끝은 탭이 보이거나 다음 turn이 시작하면 지우
     });
 
   await ended("ses_a", "interrupted");
-  await ended("ses_coding", "completed");
+  await ended("ses_unknown", "completed");
   assert.equal(sent.length, 0);
 
   await ended("ses_a", "completed");

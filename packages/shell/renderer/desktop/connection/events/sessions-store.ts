@@ -112,7 +112,7 @@ export function createSessionsStore(
       case "SessionStarted": {
         const { agent, place } = event.payload;
         records.set(event.session, {
-          base: agent.role === "coding_agent" ? "unknown" : "idle",
+          base: "idle",
           turnActive: false,
           pending: new Set(),
           ended: null,

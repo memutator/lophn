@@ -27,33 +27,24 @@ import {
 import type { CoreSource } from "../../../../../packages/shell/renderer/desktop/connection/connection.ts";
 import { createEventClient } from "../../../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { EventsProvider } from "../../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
-import {
-  CODING_ASK,
-  createFakeWaiting,
-} from "../../../../../packages/shell/renderer/desktop/connection/waiting/fake-source.ts";
+import { createFakeWaiting } from "../../../../../packages/shell/renderer/desktop/connection/waiting/fake-source.ts";
 import { mockAgentTabSource } from "../../../../../packages/shell/renderer/desktop/dev-mock/agent.ts";
 import { mockViews } from "../../../../../packages/shell/renderer/desktop/dev-mock/app-space.ts";
-import { TerminalStore } from "../../../../../packages/shell/renderer/terminal/store.ts";
-import { createXtermView } from "../../../../../packages/shell/renderer/terminal/xterm-view.ts";
 import { createFakeAgentsSource } from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 // 터미널 탭이 쓰는 xterm 기본 배치.
 import "@xterm/xterm/css/xterm.css";
 
-import {
-  type CodingScene,
-  codingBridge,
-} from "../../../mock/app-space/coding-terminal.ts";
 import { APP_NAME, fixedRuns } from "../../../mock/app-space/data.ts";
 import {
   OrdersView,
   type ViewMarks,
 } from "../../../mock/app-space/orders-view.tsx";
-import { click, find, press, useDrive, wait } from "../../../mock/drive.ts";
+import { click, press, useDrive } from "../../../mock/drive.ts";
 
 type OpsTab = "version" | "access" | "activity";
 type ActivationState = "applied" | "applying" | "failed";
 type RewindStage = "confirm" | "running" | "done" | "conflict";
-type PaneView = "agent" | "terminal" | "details";
+type PaneView = "agent" | "details";
 
 interface Annotation {
   readonly n: number;
@@ -87,31 +78,10 @@ interface AppSpaceProps {
   };
   /** 오른쪽 패널에 agent 탭을 열어 둔다. 보이는 탭(details는 panel과 함께 쓴다)과 agent. */
   readonly pane?: { readonly view?: PaneView; readonly agent?: string };
-  /** lophn이 연 coding 터미널이 있다. 패널 탭 줄에서 agent와 바꿔 본다. */
-  readonly terminal?: CodingScene;
-  /** 열려 있는 pane 위쪽에 toast를 띄운 채 시작한다. */
-  readonly openedToast?: boolean;
 }
 
 const APP = "app_01h455vb4pex5v6nkc6gd5fd01";
 const RELEASE = "rel_01h455vb4pex5v6nkc6gd5fd07";
-const PROJECTS = [
-  {
-    id: "prj_01h455vb4pex5v6nkc6gd5fd01",
-    name: "phroner",
-    folder: "~/Documents/phroner",
-  },
-  {
-    id: "prj_01h455vb4pex5v6nkc6gd5fd02",
-    name: "grocery",
-    folder: "~/Documents/grocery",
-  },
-  {
-    id: "prj_01h455vb4pex5v6nkc6gd5fd03",
-    name: "taxes-2026",
-    folder: "~/Documents/taxes-2026",
-  },
-] as const;
 const GRANTS: Record<string, string> = {
   host: GRANT_HOST,
   secret: GRANT_SECRET,
@@ -192,21 +162,8 @@ function build(props: AppSpaceProps, onRegion: (region: HTMLElement) => void) {
       return state;
     },
   };
-  const scene = props.terminal;
-  const bridge =
-    scene === undefined ? undefined : codingBridge(scene, PROJECTS[0].id);
   return {
     views,
-    bridge,
-    terminal:
-      bridge === undefined
-        ? undefined
-        : {
-            bridge,
-            store: new TerminalStore(null, bridge),
-            createView: createXtermView,
-            confirmClose: () => Promise.resolve(false),
-          },
     source: fakeApps({
       rows: [appRow(APP, APP_NAME, { release: RELEASE })],
       runs: { [APP]: "running" },
@@ -242,11 +199,7 @@ function build(props: AppSpaceProps, onRegion: (region: HTMLElement) => void) {
         note: item.memo,
       })),
     }),
-    events: createEventClient(
-      withRunSessions(
-        createFakeWaiting(scene === "permission" ? [CODING_ASK()] : []),
-      ),
-    ),
+    events: createEventClient(withRunSessions(createFakeWaiting())),
   };
 }
 
@@ -284,7 +237,11 @@ export function AppSpace(props: AppSpaceProps = {}) {
   useEffect(() => fakes.annotate.subscribeState(setAnnotating), [fakes]);
 
   useDrive(async () => {
-    const { panel, activity, pane, terminal } = props;
+    const { panel, activity, pane } = props;
+    if (pane !== undefined) {
+      await press("[data-agent-select]");
+      await click(`[data-agent="${AGENT_KEY[pane.agent ?? "App Engineer"]}"]`);
+    }
     if (panel !== undefined) {
       await click('[data-app-bar="app-details"]');
       await press('[role="tab"]', t(TAB_LABEL[panel]));
@@ -302,26 +259,10 @@ export function AppSpace(props: AppSpaceProps = {}) {
       await press("[data-agent-select]");
       await click("[data-agent-runs]");
     }
-    // 터미널만 있는 장면은 coding 요청이 agent 탭을 함께 연다. panel과 함께 쓰면 요청이 탭을 더하지 않으니 select로 연다.
-    if (pane !== undefined && (terminal === undefined || panel !== undefined)) {
-      await press("[data-agent-select]");
-      await click(`[data-agent="${AGENT_KEY[pane.agent ?? "App Engineer"]}"]`);
-    }
     if (props.annotate !== undefined) {
       await click('[data-app-bar="annotate"]');
     }
-    if (terminal !== undefined) {
-      // 터미널을 연다는 알림은 늘 뜬다. 보여 달라는 쪽이 아니면 닫아 둔다.
-      await wait(150);
-      fakes.bridge!.emit();
-      await find("[data-agent-pane-toast]");
-      if (pane?.view === "terminal") {
-        await click("[data-agent-pane-toast] button", "Show terminal");
-      } else if (props.openedToast !== true) {
-        await click('[data-agent-pane-toast] button[aria-label="Close"]');
-      }
-      if (pane?.view === "details") await click('[data-tab-key="details"]');
-    }
+    if (pane?.view === "details") await click('[data-tab-key="details"]');
   });
 
   return (
@@ -335,7 +276,6 @@ export function AppSpace(props: AppSpaceProps = {}) {
         agentViewSource={fakes.agentViewSource}
         runs={fakes.runs}
         annotate={fakes.annotate}
-        {...(fakes.terminal === undefined ? {} : { terminal: fakes.terminal })}
         windowWidth={1280}
         onLauncher={noop}
       />

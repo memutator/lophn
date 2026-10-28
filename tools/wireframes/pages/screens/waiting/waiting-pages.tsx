@@ -114,13 +114,7 @@ function Over({
       <ProjectApp
         sidebar={{ foldersClosed: true }}
         panes={[{ tabs: [DOC], selected: DOC.key }]}
-        titleExtra={
-          <WaitingLayer
-            onOpenSession={noop}
-            onAnswerInTerminal={noop}
-            initial={initial}
-          />
-        }
+        titleExtra={<WaitingLayer onOpenSession={noop} initial={initial} />}
       >
         {toasts ? <Toasts /> : null}
       </ProjectApp>
@@ -151,7 +145,7 @@ const FINISHED = [
 const idOf = (item: { request: { id: string } } | { release: string }) =>
   "request" in item ? item.request.id : item.release;
 
-/** 대기 목록: 모든 session의 대기 요청이 한 목록에 종류별로 나뉜다. 권한 요청(shell 명령과 coding agent), 질문, activation 동의 세 묶음이다. coding agent의 물음은 lophn에서 답하지 않고 터미널 탭으로 보낸다. */
+/** 대기 목록: 모든 session의 대기 요청이 한 목록에 종류별로 나뉜다. 권한 요청, 질문, activation 동의 세 묶음이다. */
 export const WaitingList = () => (
   <Over items={allItems()} initial={{ open: true, finished: FINISHED }} />
 );

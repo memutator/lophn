@@ -11,19 +11,17 @@ export type HookLine = {
 
 export type RoutedHook = {
   terminal_ref: string;
-  /** lophn이 띄운 coding 터미널이면 그 session이다. */
-  session?: string;
   harness: string;
   event: string;
   payload: unknown;
 };
 
-/** terminal IPC와 coding 요청이 hook 길을 부르는 모양. */
+/** terminal IPC가 hook 길을 부르는 모양. */
 export interface TerminalHooks {
   /** 새 터미널에 줄 env. 길이 꺼져 있으면 null. key를 만들 뿐 표에 넣지 않는다. */
   issue(): { key: string; env: Record<string, string> } | null;
   /** open이 성공한 뒤 key를 그 터미널에 묶는다. 묶이지 않은 key의 줄은 버린다. */
-  bind(key: string, terminalRef: string, session?: string): void;
+  bind(key: string, terminalRef: string): void;
   /** 터미널이 닫혔다. 그 터미널의 key를 버린다. */
   revoke(terminalRef: string): void;
 }
@@ -42,7 +40,7 @@ export type IngressDeps = {
 export function createHookIngress(
   deps: IngressDeps,
 ): TerminalHooks & { handleLine(line: string): void } {
-  const routes = new Map<string, { terminal_ref: string; session?: string }>();
+  const routes = new Map<string, { terminal_ref: string }>();
 
   return {
     issue() {
@@ -54,11 +52,8 @@ export function createHookIngress(
         },
       };
     },
-    bind(key, terminalRef, session) {
-      routes.set(key, {
-        terminal_ref: terminalRef,
-        ...(session === undefined ? {} : { session }),
-      });
+    bind(key, terminalRef) {
+      routes.set(key, { terminal_ref: terminalRef });
     },
     revoke(terminalRef) {
       for (const [key, route] of routes) {

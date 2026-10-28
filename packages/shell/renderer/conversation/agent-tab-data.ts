@@ -97,7 +97,7 @@ function senderOf(
  * - ToolCallStarted·ToolCallEnded: tool 줄은 snapshot과 같은 묶기 함수(`toolEntriesOf`)로 묶는다. ask·call·
  *   edit/write는 줄을 만들지 않는다. 그 turn의 live 글은 버린다(글이 있는 응답은 tool보다 먼저 저장되어
  *   `MessageRecorded`가 먼저 온다).
- * - TurnRequest*·Question*: `pending`과 결과 줄. harness 물음은 접지 않는다(coding 카드가 그린다). 질문 내용은
+ * - TurnRequest*·Question*: `pending`과 결과 줄. harness 물음은 이 대화에 그리지 않는다. 질문 내용은
  *   event에 없어 따로 읽고, 허락 범위(once·always)도 event에 없어 결과 줄은 범위를 모른다.
  * 모자란 칸(편집 카드, call 블록, 답 내용)은 turn이 끝난 뒤 snapshot을 다시 읽어 채운다.
  */

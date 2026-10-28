@@ -1,6 +1,5 @@
 // 터미널 안에서 도는 coding agent를 따라가는 길을 앱에 올린다. harness hook의 unix socket, foreground
 // process argv와 hook으로 상태를 따라가는 tracker, 못 본 turn 끝·권한 물음의 알림(notice.ts가 어디에 띄울지 정한다)이다.
-// 사람이 연 터미널과 lophn이 띄운 coding 터미널이 같은 길이고, coding 터미널의 hook은 core에도 넘긴다.
 // socket은 browser bridge의 per-run 폴더에 선다. 어느 단계든 실패하면 hook 없이 뜬다(foreground만 쓴다).
 import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -71,7 +70,7 @@ export function createAgentWiring(options: {
       notice_.harness in HARNESS_ADAPTERS
         ? HARNESS_ADAPTERS[notice_.harness as HarnessId].label
         : notice_.harness;
-    const place = runtime?.title || basename(runtime?.cwd_at_start ?? "");
+    const place = basename(runtime?.cwd_at_start ?? "");
     return notice.show({
       kind: notice_.kind,
       agent: label,
@@ -137,16 +136,6 @@ export function createAgentWiring(options: {
       },
       onHook(hook) {
         tracker.hook(hook.terminal_ref, hook.harness, hook.event, hook.payload);
-        if (hook.session === undefined) return;
-        // coding session의 hook은 core가 session 상태로 센다. 못 보내도 터미널 표시는 그대로다.
-        void ctx
-          .coreInternal("memory", "coding_agent_terminals", "hook", {
-            session: hook.session,
-            harness: hook.harness,
-            event: hook.event,
-            payload: hook.payload,
-          })
-          .catch(() => undefined);
       },
     });
     try {
@@ -179,7 +168,7 @@ export function createAgentWiring(options: {
 
   const hooks: TerminalHooks = {
     issue: () => (live && !stopped ? live.issue() : null),
-    bind: (key, ref, session) => live?.bind(key, ref, session),
+    bind: (key, ref) => live?.bind(key, ref),
     revoke: (ref) => live?.revoke(ref),
   };
 

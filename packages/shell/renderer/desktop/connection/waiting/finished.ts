@@ -37,7 +37,7 @@ export function finishedRows(
     title: terminal.title,
   }));
   for (const entry of sessions) {
-    // coding agent session은 터미널 쪽이 알린다. main의 unseen에도 들지 않는다.
+    // unseen이 없는 session은 줄이 없다.
     if (entry.unseen === null) continue;
     rows.push({
       id: `session:${entry.session}`,

@@ -5,7 +5,7 @@ job은 정해진 때 저절로 도는 일 하나다. 주기(`every`, 선택 `at`
 ## 흐름
 
 ```
- agent: tool job.create | update | delete | list         (lophn, Project Manager, App Engineer)
+ agent: tool job.create | update | delete | list         (어느 place 종류의 session이든)
  사람: Settings › System › Scheduled jobs 화면            job.update | delete | list | job_run.list
  사람: 대기 목록의 hold card                              job.holds | job.decide_hold
    │  이름 풀기(agent·앱·project)와 시간대는 port (jobs.targets, jobs.zone)
@@ -36,18 +36,18 @@ job은 정해진 때 저절로 도는 일 하나다. 주기(`every`, 선택 `at`
 job
 - 주기는 `every`와 `at`이다. `every`는 `<수><m|h|d>`(분, 시간, 일, 수는 1~99999)이고 cron 문법은 받지 않는다. `at`(`HH:MM`)은 `d` 단위 주기에만 둘 수 있다(아니면 `invalid_input`). 시각은 이 컴퓨터의 local 시간대이고 시간대는 port로 받는다(`jobs.zone`, 구현은 wiring이 `Intl.DateTimeFormat`으로 꽂는다).
 - 할 일은 셋 가운데 하나다.
-  - `agent_run`: 부를 agent(`{role, place?, name?}`)와 prompt, 선택 입력 JSON과 출력 schema.
+  - `agent_run`: 부를 agent(`{agent, place?}`, agent 이름이고 place가 없으면 home)와 prompt, 선택 입력 JSON과 출력 schema.
   - `tool_run`: 앱(id, slug, 이름)과 tool 이름, 선택 입력 JSON.
   - `workflow_start`: `<project 이름>/<name>`, 시작 입력 글, 선택 step. `kind: agent`와 `kind: flow`를 다 시작한다. step은 agent workflow의 시작 자리이고 flow에 주면 차례에 `invalid_input`으로 실패한다.
 - 이름은 만들 때(또는 `action`을 바꿀 때) core가 풀어 id로 저장한다(agent는 AgentRef와 place, 앱과 project는 id). 앱의 tool 이름과 workflow file은 차례에 부를 때 본다. 못 풀면 만들지 못하고(`not_found`, coding agent는 `invalid_input`), 차례에 못 찾으면 그 job run이 실패로 남는다.
 - `title`은 1~80자이고 목록, card, run 줄과 instance 줄에 보일 이름이다.
 - 놓친 차례 정책은 `run`(켜지면 바로 한 번 돈다)과 `hold`(사람에게 묻는다) 둘이다.
 - 켜고 끄기(`enabled`)가 있다. 꺼진 job은 `next_due_at`이 null이고 돌지 않는다. 만들 때 `enabled`는 기본 true다.
-- `last_run`은 저장하지 않고 읽을 때 그 job의 가장 새 job run으로 채운다. place도 칸이 아니라 `creator`에서 `placeOfAgentRef`로 나온다.
+- `last_run`은 저장하지 않고 읽을 때 그 job의 가장 새 job run으로 채운다. place는 `creator`의 place다.
 
 만들고 고치는 쪽
-- job을 만드는 것은 agent뿐이다(`job.create`의 actor는 agent). 만든 session의 agent가 lophn, Project Manager, App Engineer가 아니면 `forbidden`이다. 만든 agent(`creator`)가 job에 남고 그 agent의 지금 할당이 tool_run의 허락이 된다.
-- agent는 자기 `creator`와 같은 agent(AgentRef가 같은 것)가 만든 job만 고치고 지우고 읽는다. 남의 job은 있는지도 알리지 않는다(`not_found`). 사람은 모든 job을 고치고 끄고 지우고 읽는다. 사람은 만들지 못한다.
+- job을 만드는 것은 agent뿐이다(`job.create`의 actor는 agent). 만든 쪽(`creator`)은 그 session의 (agent, place)이고(`jobs.creator_agent`, `creator_place`) job에 남는다. 그 agent의 지금 할당이 tool_run의 허락이 된다.
+- agent는 같은 agent, 같은 place가 만든 job만 고치고 지우고 읽는다. 남의 job은 있는지도 알리지 않는다(`not_found`). 사람은 모든 job을 고치고 끄고 지우고 읽는다. 사람은 만들지 못한다.
 - 다른 agent가 고칠 수 있으면 남의 할당으로 일을 시키는 길이 되기 때문이다. 위험 test가 있다(`packages/core/jobs/commands_test.ts`).
 - job이 연 agent run의 agent도 job tool을 받아 job을 만들 수 있다. 막지 않는다. program은 약하게 두고, 고치기는 만든 agent만 하며, 사람은 모든 job을 화면에서 본다.
 - job 지우기는 job과 그 job run을 지운다(FK 없이 command가 두 표를 같이 지운다). 도는 run이나 instance는 끝까지 돈다. 지운 job이 남긴 run과 instance에서는 job 제목이 사라진다(id만 남는다).
@@ -114,14 +114,14 @@ job run
 - wiring 순서에서 jobs는 runs와 workflows 뒤다(`packages/core/main/daemon/assembly.ts`의 `WIRINGS`). 켤 때 둘을 맞춘 뒤에 첫 claim이 돈다.
 
 권한
-- job tool(`job.create`, `job.update`, `job.delete`, `job.list`)은 lophn, Project Manager, App Engineer가 받는다. Operator는 job이 부르는 쪽이라 받지 않는다(`packages/core/agent-places/tool-lists.ts`의 `JOB_TOOL_NAMES`). `job.list`는 agent에게 자기가 만든 job만 준다.
+- job tool(`job.create`, `job.update`, `job.delete`, `job.list`)은 세 place 종류 목록에 모두 든다(`packages/core/agent-places/tool-lists.ts`의 `JOB_TOOL_NAMES`). `job.list`는 agent에게 자기가 만든 job만 준다.
 - scheduler 쪽 route(`job.claim_due`, `job_run.open`, `job_run.started`, `job_run.ended`)는 machine 자격만 받는다. command 셋은 handler도 한 번 더 본다. 사람 쪽 route(`job.holds`, `job.decide_hold`, `job_run.list`)는 user만 받는다.
 - tool_run은 사람이 없는 호출이라 만든 agent의 지금 할당과 domain 거르기로 판정한다. mode는 unattended이고, 할당은 호출 때 읽는다. 막히면 호출이 `denied(gate_blocked)`로 기록되고 run은 실패한다(`architecture/app-call.md`, `architecture/approval.md`).
 - agent_run이 연 turn은 unattended다. 묻지 않고 deny만 막힌다. 사람이 agent에게 시킨 것이 승낙이다. 사람은 모든 job을 화면에서 보고 끌 수 있고, job의 일은 만든 agent의 할당 안에서만 돈다.
 
 화면
 - Settings › System › Scheduled jobs는 모든 job을 한곳에 모은다(job은 project를 건너고 lophn이 만든 job은 place가 없다). 줄마다 제목, 주기, 다음 차례, 마지막 결과를 보이고 켜고 끄기, 제목·주기·놓친 차례 정책 고치기, 지우기, 기록(`job_run.list`)을 한다. 할 일(`action`)을 고치거나 job을 만드는 단추는 없다. 기록 줄에서 session이나 project로 가는 길은 이미 있는 길(`onOpenSession`, [Open project])뿐이다.
-- project 창 activity bar의 Scheduled jobs panel은 그 project와 걸린 job과 그 규칙을 보인다. 걸린 job은 그 project의 Project Manager가 만든 것, 그 project의 agent를 부르는 것, 그 project의 workflow를 시작하는 것이다(`creator`와 `action`으로 가르고 계약은 바꾸지 않는다). 줄은 제목, Switch, 주기, 다음 차례나 대기 상태이고 줄과 "Open all jobs"는 Settings의 같은 화면을 연다(`packages/shell/renderer/workspace/sidebar/job-panel.tsx`, 거르기는 `desktop/settings/jobs/model.ts`의 `jobsOfProject`).
+- project 창 activity bar의 Scheduled jobs panel은 그 project와 걸린 job과 그 규칙을 보인다. 걸린 job은 그 project place의 session이 만든 것, 그 project의 agent를 부르는 것, 그 project의 workflow를 시작하는 것이다(`creator`와 `action`으로 가르고 계약은 바꾸지 않는다). 줄은 제목, Switch, 주기, 다음 차례나 대기 상태이고 줄과 "Open all jobs"는 Settings의 같은 화면을 연다(`packages/shell/renderer/workspace/sidebar/job-panel.tsx`, 거르기는 `desktop/settings/jobs/model.ts`의 `jobsOfProject`).
 - 대기 목록의 hold card는 셋째 read source다(앞 둘은 session snapshot과 activation 동의). `job.holds`로 통째로 맞추고 `JobChanged`를 받을 때 다시 읽는다(`packages/shell/renderer/desktop/connection/waiting/`의 `cards/job-hold-card.tsx`). [Start now]와 [Skip]은 `job.decide_hold`다. 결정한 card는 다시 읽을 때 빠지고 toast는 없다.
 - run 줄과 instance 줄은 job 제목을 보인다. run 줄은 이름 자리에 제목을 두고 agent 이름이나 tool 이름은 둘째 줄이다. instance 줄은 시작한 쪽이 job이면 제목을 보인다. 제목은 읽는 곳이 `job.list`를 읽어 job id로 붙인다(`packages/shell/renderer/workspace/core-source.ts`). 지운 job의 옛 줄은 제목 없이 원래 이름으로 보인다. 제목은 꾸밈이라 읽기에 실패해도 run과 instance 읽기는 그대로 간다.
 - 화면이 다시 읽는 신호는 `JobChanged`(subject job, payload `job_run`)다. 남지 않는 event라 놓친 화면은 열 때 다시 읽는다(`architecture/event.md`). run과 instance 줄은 지금의 session event와 `WorkflowInstanceChanged` 때 다시 읽으므로 따로 알리지 않는다.
@@ -134,7 +134,7 @@ job run
 - hold를 job마다 한 줄에 접는다. 몇 번을 놓쳤든 사람에게 같은 질문을 쌓지 않는다. 제때 온 차례가 돌면 그 줄은 쓸모가 없어져 `superseded`로 닫는다.
 - program caller를 앱 호출 경로에 따로 둔다. 사람이 연 run은 사람의 호출이라 Gate를 거치지 않지만, job의 호출은 사람이 없다. 만든 agent의 할당 안이어야 하므로 agent caller와 같은 판정을 받되, 부른 turn이나 tool call이 없어 job과 job run을 싣는다. 그 자격(`CallAuth.program`)은 route가 만들지 못하고 core 안 run 연산만 만든다. 본문의 caller는 주장일 뿐이라 core가 만든 자격과 맞춰 본다. 앱 process의 caller parser(`packages/core/apps/runtime/entrypoint/wire.ts`)는 protocol schema의 손 사본이라(앱 process는 Zod를 싣지 않는다) 네 종류를 같이 받아야 한다. 하나를 놓치면 job의 앱 호출이 모두 말없이 거절된다.
 - `revision`과 `compare`를 두지 않는다. 동시에 고치는 쪽이 사람 화면과 만든 agent 정도라 마지막 쓰기가 이기게 두는 쪽이 단순하다.
-- place를 job의 칸으로 두지 않는다. place는 `creator`에서 나오고 job은 project를 건너기도 한다(lophn이 만든 job은 place가 없다). 칸으로 두면 `creator`나 `action`과 어긋날 수 있다. 화면의 "걸린 job"은 읽을 때 가른다.
+- place를 job의 칸으로 두지 않는다. place는 `creator`에서 나오고 job은 project를 건너기도 한다(home에서 만든 job은 place가 없다). 칸으로 두면 `creator`나 `action`과 어긋날 수 있다. 화면의 "걸린 job"은 읽을 때 가른다.
 - cron을 쓰지 않는다. 간격과 하루 중 시각으로 쓰려는 일(10일마다, 매일 09:00)이 다 된다. 서머타임 규칙도 한 곳(`schedule.ts`)에 있다. 모자라면 그때 더한다.
 - 자동 재시도는 없다. 같은 바깥 효과가 두 번 날 수 있고, 틀린 답을 다시 하는 것은 부르는 쪽(사람이나 flow)이 정할 일이다(`project-docs/products/AGENT-ROLE.md` 7절).
 - 지운 job의 run과 instance는 끝까지 돈다. 바깥 효과를 이미 시작한 일을 job을 지웠다고 끊지 않는다. 제목이 사라질 뿐이다.

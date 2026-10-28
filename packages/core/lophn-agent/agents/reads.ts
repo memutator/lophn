@@ -1,9 +1,10 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  agentDefinitionList,
-  agentDefinitionRead,
-  type AgentDefinitionRow,
+  agentList,
+  agentRead,
+  type AgentRow,
   type AgentValueLayer,
+  LOPHN_AGENT_ID,
   type ModelChoice,
   type Place,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -12,58 +13,48 @@ import type {
   Output,
   ReadDefinition,
   ReadSnapshot,
-  RequestContext,
 } from "../../../protocol/server/mod.ts";
 import {
   type AgentContext,
   domainsOf,
-  listOperators,
+  listAgents,
   loadAgent,
   type Loaded,
   nameOf,
   openAgentContext,
   profileOf,
 } from "./inspect.ts";
-import { agentCallerRule } from "./caller.ts";
 import type { AgentDeps } from "./ports.ts";
 import { receivedSkills } from "./resolve.ts";
-
-// 읽기는 동기 handler다. 목록의 정본은 place(project, 앱)와 Operator 정의 파일이고 정의 파일은 읽을 때마다
-// 같은 검사를 한다.
 
 function notFound(what: string): Result<never> {
   return err({ code: "not_found", message: `${what} not found` });
 }
 
-// model은 agent 정의가 먼저이고 비면 project 층, 그 다음 전역 기본이다. 어느 층에도 없으면 null이다.
-// 출처가 global일 때만 turn 때 layers.ts가 전역 값으로 쓰므로 source를 정확히 내야 한다.
 function effectiveModel(
   context: AgentContext,
   loaded: Loaded,
+  place: Place | null,
 ): { value: ModelChoice; source: AgentValueLayer } | null {
   const own = loaded.definition?.model;
   if (own !== undefined) return { value: own, source: "agent" };
-  const project = context.lookups.projectModel(loaded.place);
+  const project = context.lookups.projectModel(place);
   if (project !== null) return { value: project, source: "project" };
   const global = context.lookups.modelDefault();
   return global === null ? null : { value: global, source: "global" };
 }
 
-function rowOf(context: AgentContext, loaded: Loaded): AgentDefinitionRow {
-  const model = effectiveModel(context, loaded);
-  const { lookups, roles } = context;
+function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
+  const model = effectiveModel(context, loaded, null);
   const definition = loaded.definition;
   const broken = loaded.issues.length > 0;
-  const skills = lookups.skills(loaded.place, loaded.role);
-  const mcp = lookups.mcp(loaded.place);
-  const chosenSkills = definition?.skills ?? [];
+  const skills = context.lookups.skills(null, "lophn");
+  const mcp = context.lookups.mcp(null);
   const mcpOff = definition?.mcp_off ?? [];
   return {
-    agent: loaded.ref,
-    kind: roles.kindOf(loaded.role),
-    place: loaded.place,
-    name: nameOf(roles, loaded),
-    profile: profileOf(roles, loaded),
+    agent: loaded.agent,
+    name: nameOf(loaded),
+    profile: profileOf(loaded),
     model:
       model === null
         ? null
@@ -78,8 +69,8 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentDefinitionRow {
       : {
           skills: receivedSkills(
             skills,
-            chosenSkills,
-            domainsOf(context, loaded),
+            definition?.skills ?? [],
+            domainsOf(context, loaded, null),
           ).length,
           mcp: mcp.filter(
             (tool) =>
@@ -95,107 +86,66 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentDefinitionRow {
 }
 
 export function createAgentReads(deps: AgentDeps): {
-  list: ReadDefinition<typeof agentDefinitionList>;
-  read: ReadDefinition<typeof agentDefinitionRead>;
+  list: ReadDefinition<typeof agentList>;
+  read: ReadDefinition<typeof agentRead>;
 } {
   return {
     list: {
-      route: agentDefinitionList,
+      route: agentList,
       handle(
         snapshot: ReadSnapshot,
-        ctx: RequestContext,
-        input: Input<typeof agentDefinitionList>,
-      ): Result<Output<typeof agentDefinitionList>> {
-        const rule = agentCallerRule(
-          snapshot.sql,
-          ctx,
-          deps.operatorPlaceAllowed,
-        );
-        if (!rule.ok) return rule;
-        if (rule.value !== null) {
-          const allowed = rule.value(input.place ?? null);
-          if (!allowed.ok) return allowed;
-        }
+        _ctx,
+        _input: Input<typeof agentList>,
+      ): Result<Output<typeof agentList>> {
         const context = openAgentContext(deps, snapshot.sql);
         if (!context.ok) return context;
-        const { lookups } = context.value;
-        const within = input.place;
-        if (within !== undefined && !lookups.placeExists(within)) {
-          return notFound("place");
-        }
-        // built-in 다음에 Operator 순서다.
-        const refs = context.value.roles.builtinRefs(
-          within === undefined ? lookups.places() : [within],
-        );
-        const agents: AgentDefinitionRow[] = [];
-        for (const ref of refs) {
-          const loaded = loadAgent(context.value, ref);
-          if (!loaded.ok) return loaded;
-          if (loaded.value !== null) {
-            agents.push(rowOf(context.value, loaded.value));
-          }
-        }
-        const operators = listOperators(context.value, within);
-        if (!operators.ok) return operators;
-        for (const operator of operators.value) {
-          agents.push(rowOf(context.value, operator));
-        }
+        const listed = listAgents(context.value);
+        if (!listed.ok) return listed;
         return ok({
-          agents,
+          agents: listed.value.map((loaded) => rowOf(context.value, loaded)),
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });
       },
     },
     read: {
-      route: agentDefinitionRead,
+      route: agentRead,
       handle(
         snapshot: ReadSnapshot,
-        ctx: RequestContext,
-        input: Input<typeof agentDefinitionRead>,
-      ): Result<Output<typeof agentDefinitionRead>> {
-        const rule = agentCallerRule(
-          snapshot.sql,
-          ctx,
-          deps.operatorPlaceAllowed,
-        );
-        if (!rule.ok) return rule;
+        _ctx,
+        input: Input<typeof agentRead>,
+      ): Result<Output<typeof agentRead>> {
         const context = openAgentContext(deps, snapshot.sql);
         if (!context.ok) return context;
+        const place = input.place ?? null;
+        if (place !== null && !context.value.lookups.placeExists(place)) {
+          return notFound("place");
+        }
         const found = loadAgent(context.value, input.agent);
         if (!found.ok) return found;
+        if (found.value === null) return notFound("agent");
         const loaded = found.value;
-        if (loaded === null) return notFound("agent");
-        if (rule.value !== null) {
-          const allowed = rule.value(loaded.place as Place | null);
-          if (!allowed.ok) return allowed;
-        }
-        const model = effectiveModel(context.value, loaded);
-        const { roles } = context.value;
-        const operator = roles.isOperator(loaded.role);
-        const profile = profileOf(roles, loaded);
+        const model = effectiveModel(context.value, loaded, place);
+        const profile = profileOf(loaded);
         return ok({
-          agent: loaded.ref,
-          role: loaded.role,
-          place: loaded.place as Place | null,
+          agent: loaded.agent,
           definition: loaded.definition,
           hash: loaded.file?.hash ?? null,
           effective: {
             name: {
-              value: nameOf(roles, loaded),
-              source: operator ? "agent" : "global",
+              value: nameOf(loaded),
+              source: loaded.agent === LOPHN_AGENT_ID ? "global" : "agent",
             },
             profile: {
               value: profile,
               source:
-                loaded.definition !== null &&
-                "profile" in loaded.definition &&
-                loaded.definition.profile !== undefined
+                loaded.agent !== LOPHN_AGENT_ID &&
+                loaded.definition?.profile !== undefined
                   ? "agent"
                   : "global",
             },
             model,
-            domains: domainsOf(context.value, loaded),
+            domains: domainsOf(context.value, loaded, place),
           },
           issues: loaded.issues,
           as_of_seq: snapshot.as_of_seq,

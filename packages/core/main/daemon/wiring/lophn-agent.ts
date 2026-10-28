@@ -2,25 +2,19 @@
 // wiring이 둘이다(assembly.ts의 순서가 접는 순서다).
 import { createIdSource, ok } from "../../../../base/mod.ts";
 import {
+  agentProfileImageRead,
+  agentProfileImageUpload,
   messageImagePath,
   messageImageRead,
   messageImageUpload,
-  profileImageRead,
-  profileImageUpload,
   providerRead,
   type ProviderRecord,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import { appCreate } from "../../../../protocol/apps/mod.ts";
 import {
   agentProfileHandlers,
   messageImageHandlers,
 } from "../../../lophn-agent/register.ts";
-import { ROLE_TABLE } from "../../../agent-places/agents/role-table.ts";
-import { withAppEngineer } from "../../../agent-places/agents/app-engineer.ts";
-import {
-  ensureAppEngineer,
-  ensureLophn,
-} from "../../../agent-places/agents/ensure.ts";
+import { ensureLophn } from "../../../agent-places/agents/ensure.ts";
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
 import { withProviderLogin } from "../../../lophn-agent/providers/login.ts";
 import { withProviderModelList } from "../../../lophn-agent/providers/model-list.ts";
@@ -46,11 +40,7 @@ export const lophnAgentWiring: WiringFactory = () => ({
     );
   },
   build(ctx) {
-    const profiles = agentProfileHandlers(
-      ctx.runtime.readers,
-      ctx.root.path,
-      ROLE_TABLE,
-    );
+    const profiles = agentProfileHandlers(ctx.runtime.readers, ctx.root.path);
     const images = messageImageHandlers(
       ctx.runtime.readers,
       ctx.root.path,
@@ -61,27 +51,15 @@ export const lophnAgentWiring: WiringFactory = () => ({
     return ok({
       // image.read의 `attachment:<id>` 풀이: agent가 자기 session의 이미지만 푼다.
       memory: [[key(messageImagePath), images.path]],
-      writer: (inner) =>
-        withAppEngineer(
-          inner,
-          // 앱을 등록하면 그 앱의 App Engineer 정의 파일을 만든다.
-          (app) => {
-            ensureAppEngineer(
-              { files: createNodeAgentFiles(), root: ctx.root.path },
-              app,
-            );
-          },
-          appCreate.name,
-        ),
       // profile 이미지 올리기: agent는 reader가 보고 파일은 core가 비동기로 쓴다.
       uploads: [
-        [key(profileImageUpload), profiles.upload],
+        [key(agentProfileImageUpload), profiles.upload],
         [key(messageImageUpload), images.upload],
       ],
       // 큰 파일을 core 메모리에 모으지 않고 창 단위로 흘리는 file route.
       // profile 이미지 읽기: 정의의 profile이 가리키는 파일을 실제 형식의 Content-Type으로 흘린다.
       fileStreams: [
-        [key(profileImageRead), profiles.file],
+        [key(agentProfileImageRead), profiles.file],
         [key(messageImageRead), images.file],
       ],
     });

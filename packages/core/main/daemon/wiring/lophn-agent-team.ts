@@ -4,9 +4,7 @@
 import { projectExists, projectIds } from "../../../projects/lookups.ts";
 import { appExists, appIds } from "../../../apps/lookups.ts";
 import { domainsOfOwner } from "../../../domains/lookups.ts";
-import { operatorPlaceAllowed } from "../../../agent-places/tools/operator-place.ts";
-import { createOperatorDirectory } from "../../../agent-places/agents/operator-directory.ts";
-import { ROLE_TABLE } from "../../../agent-places/agents/role-table.ts";
+import { createAgentDirectory } from "../../../lophn-agent/agents/directory.ts";
 import { PROJECT_LAYER } from "../../../agent-places/place/project-layer.ts";
 import { BUNDLED_SKILLS_ROOT } from "../../../agent-places/skills/root.ts";
 import { createLophnAgent } from "../../../lophn-agent/register.ts";
@@ -25,13 +23,11 @@ const agent = createLophnAgent({
         name,
       })),
   },
-  operatorPlaceAllowed,
-  roles: ROLE_TABLE,
   projectLayer: PROJECT_LAYER,
   bundledSkillsRoot: BUNDLED_SKILLS_ROOT,
 });
 
 export const lophnAgentDefinitions = agent.lophnAgentDefinitions;
 export const createReaderRegistration = agent.createReaderRegistration;
-export const operatorDirectory = createOperatorDirectory(agent.openAgents);
-export const operatorMcpServers = agent.operatorMcpServers;
+export const agentDirectory = createAgentDirectory(agent.openAgents);
+export const agentMcpServers = agent.agentMcpServers;

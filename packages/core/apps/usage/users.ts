@@ -1,6 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { appAssignees } from "../../approvals/assignment/usage.ts";
+import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/places.ts";
 import { loadActiveDeclaration } from "../releases/store.ts";
 import type { UsagePorts } from "./ports.ts";
 
@@ -41,7 +42,11 @@ export function appToolUsers(
   const assignees = appAssignees(sql, app);
   if (!assignees.ok) return assignees;
   for (const { agent, removed } of assignees.value) {
-    for (const domain of ports.agentDomains(agent)) {
+    const ref =
+      agent === LOPHN_AGENT_ID
+        ? ({ role: "lophn" } as const)
+        : ({ role: "operator", agent } as const);
+    for (const domain of ports.agentDomains(ref)) {
       for (const tool of tools) {
         if (tool.public && !removed.has(tool.name)) {
           add(tool.name, domain, "grant");

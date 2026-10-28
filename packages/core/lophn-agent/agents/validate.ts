@@ -1,23 +1,19 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  type AgentDefinition,
   type AgentDefinitionIssue,
+  type AgentId,
   agentNameKey,
-  type BuiltinDefinition,
-  type OperatorDefinition,
-  type Place,
-  type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { serializeAgentFile } from "./definition-file.ts";
-import type { AgentRoleTable } from "./role-table.ts";
 import {
   type AgentContext,
   issuesOfError,
-  listOperators,
+  listAgents,
   nameOf,
 } from "./inspect.ts";
 
-// 저장 때의 전체 검사. 파일 모양 검사에 파일만으로 알 수 없는 것을 더한다: 같은 place Operator 사이의
-// 이름 중복. 틀린 칸은 하나도 빠뜨리지 않고 모아 한 번에 알린다.
+// 저장 때의 전체 검사. 파일 모양 검사에 파일만으로 알 수 없는 이름 중복을 더한다.
 
 function invalidInput(issues: AgentDefinitionIssue[]): Result<never> {
   return err({
@@ -38,68 +34,42 @@ function addAll(
   }
 }
 
-// 이 place의 다른 Operator가 같은 이름을 쓰는가. 틀린 파일은 이름을 알 수 없어 겹쳤다고 하지 않는다.
+// 이름은 전역이다. 틀린 file은 이름을 알 수 없어 겹침에 넣지 않는다.
 function duplicateName(
   context: AgentContext,
-  place: Place,
-  self: string | null,
+  self: AgentId,
   name: string,
 ): Result<boolean> {
-  const others = listOperators(context, place);
+  const others = listAgents(context);
   if (!others.ok) return others;
   const key = agentNameKey(name);
   return ok(
     others.value.some(
       (other) =>
-        (other.ref as { agent: string }).agent !== self &&
-        other.definition !== null &&
-        agentNameKey(nameOf(context.roles, other)) === key,
+        other.agent !== self &&
+        other.issues.length === 0 &&
+        agentNameKey(nameOf(other)) === key,
     ),
   );
 }
 
 // 맞으면 파일에 쓸 글을 돌려준다.
-export function checkOperator(input: {
+export function checkAgent(input: {
   context: AgentContext;
-  // Operator의 role이다. 호출하는 쪽이 표의 operatorRef나 입력의 ref에서 꺼낸다.
-  role: Role;
-  place: Place;
-  id: string | null;
-  definition: OperatorDefinition;
+  agent: AgentId;
+  definition: AgentDefinition;
 }): Result<string> {
-  const { context, place, id, definition, role } = input;
+  const { context, agent, definition } = input;
   const issues: AgentDefinitionIssue[] = [];
-
-  const text = serializeAgentFile(
-    definition,
-    { role, place: place.kind },
-    context.roles,
-  );
+  const text = serializeAgentFile(definition, { agent });
   if (!text.ok) addAll(issues, issuesOfError(text.error));
 
-  if (definition.name.trim() !== "") {
-    const taken = duplicateName(context, place, id, definition.name);
+  if (!issues.some((issue) => issue.field === "name")) {
+    const taken = duplicateName(context, agent, definition.name);
     if (!taken.ok) return taken;
     if (taken.value) addAll(issues, [{ field: "name", code: "duplicate" }]);
   }
 
-  // 저장 때 한 번만 본다. 그 뒤 domain이 보관되면 resolve의 교집합이 그 id를 뺀다.
-  const inPlace = context.lookups.domains(place);
-  definition.domains?.forEach((id, i) => {
-    if (!inPlace.includes(id)) {
-      addAll(issues, [{ field: `domains.${i}`, code: "unknown" }]);
-    }
-  });
-
   if (issues.length > 0 || !text.ok) return invalidInput(issues);
   return ok(text.value);
-}
-
-export function checkBuiltin(
-  roles: AgentRoleTable,
-  role: Role,
-  definition: BuiltinDefinition,
-): Result<string> {
-  const text = serializeAgentFile(definition, { role, place: null }, roles);
-  return text.ok ? ok(text.value) : invalidInput(issuesOfError(text.error));
 }

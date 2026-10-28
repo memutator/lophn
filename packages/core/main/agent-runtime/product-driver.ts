@@ -6,20 +6,20 @@ import {
   systemClock,
 } from "../../../base/mod.ts";
 import {
-  agentAssignmentGet,
+  assignmentGet,
   toolGateCheck,
 } from "../../../protocol/approvals/mod.ts";
 import { domainList } from "../../../protocol/domains/mod.ts";
 import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
 import {
-  agentDefinitionRead,
   type AgentRef,
+  agentRead,
   instructionsGet,
   placeOfAgentRef,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { instructionFilesOverCore } from "../../lophn-agent/instructions/mod.ts";
 import { abortableWait } from "../../lophn-agent/run-loop/mod.ts";
-import { workingDomains } from "../../lophn-agent/agents/resolve.ts";
+import { agentIdOfRef } from "../../lophn-agent/agents/bridge.ts";
 import { spawnStdioMcp } from "../../lophn-agent/extensions/mod.ts";
 import type { McpConnectionsDeps } from "../../lophn-agent/extensions/mod.ts";
 import type { CoreCalls } from "./main.ts";
@@ -40,7 +40,6 @@ import {
 import { createModelResolver } from "../../lophn-agent/models/resolve.ts";
 import { builtinToolNames } from "../../agent-places/tool-lists.ts";
 import { rolePrompt } from "../../agent-places/roles/prompts.ts";
-import { ROLE_TABLE } from "../../agent-places/agents/role-table.ts";
 import { PROJECT_LAYER } from "../../agent-places/place/project-layer.ts";
 import { BUNDLED_SKILLS_ROOT } from "../../agent-places/skills/root.ts";
 import {
@@ -76,31 +75,20 @@ const SKILL_PLACES = {
   bundledSkillsRoot: BUNDLED_SKILLS_ROOT,
 };
 
-// agent가 일하는 domain id. PM·App Engineer는 place 그릇의 active domain 전부이고, Operator는 정의의 place와
-// domains(고른 것 ∩ 그릇의 active domain, 고른 것이 없을 때만 전부 — resolve와 같다)가 정한다. lophn은 없다. 읽지 못하면 null.
+// agent가 일하는 domain id. 정의와 그 session의 place 그릇의 교집합이다. 읽지 못하면 null.
 async function callerDomains(
   machine: CoreCall,
   agent: AgentRef,
 ): Promise<string[] | null> {
-  let place = placeOfAgentRef(agent);
-  let chosen: readonly string[] = [];
-  if (place === undefined) {
-    const read = await readOf(machine, agentDefinitionRead, { agent });
-    if (!read.ok) return null;
-    place = read.value.place;
-    const definition = read.value.definition;
-    if (definition !== null && "domains" in definition) {
-      chosen = definition.domains ?? [];
-    }
-  }
-  if (place === null) return [];
-  const listed = await readOf(machine, domainList, {
-    owner: place,
-    status: "active",
+  const id = agentIdOfRef(agent);
+  if (id === null) return [];
+  const place = placeOfAgentRef(agent);
+  const read = await readOf(machine, agentRead, {
+    agent: id,
+    ...(place === undefined || place === null ? {} : { place }),
   });
-  if (!listed.ok) return null;
-  const ids = listed.value.domains.map((one) => one.id);
-  return workingDomains(ids, chosen);
+  if (!read.ok || read.value.issues.length > 0) return null;
+  return read.value.effective.domains;
 }
 
 // 제품 runtime의 tool 묶음이다. 내장 tool의 정의·handler와 외부 MCP 등록 통로를 한 곳에서 낸다.
@@ -119,8 +107,10 @@ function productToolkit(options: {
       createAppToolkit({
         machine: options.machine,
         async assignment(agent) {
-          const read = await readOf(options.machine, agentAssignmentGet, {
-            agent,
+          const id = agentIdOfRef(agent);
+          if (id === null) return ok({ entries: [] });
+          const read = await readOf(options.machine, assignmentGet, {
+            agent: id,
           });
           return read.ok ? ok(read.value.assignment) : read;
         },
@@ -205,7 +195,6 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
     // 만들어 넘기므로 productDriver 호출마다 하나를 만든다.
     const mcpKit = createMcpToolkit({
       machine: calls.machine,
-      operatorRef: ROLE_TABLE.operatorRef,
       connections: mcpConnectionsDeps(calls.secrets),
     });
     const preparer = createTurnPreparer({
@@ -240,7 +229,6 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       rolePrompt,
       placeData: (call, agent) => placeData(call, agent, placeFiles()),
       roleTools: builtinToolNames,
-      roles: ROLE_TABLE,
       instructions: {
         // turn 없이는 읽지 않는다. 실제 읽기는 아래 instructionFilesFor가 turn마다 연다.
         files: {
@@ -276,7 +264,6 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       ids,
       machine: calls.machine,
       roleTools: builtinToolNames,
-      roles: ROLE_TABLE,
       blobs: calls.blobs,
       redact: calls.redact,
       resolveModel,

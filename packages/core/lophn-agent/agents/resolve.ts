@@ -7,24 +7,33 @@ import {
   sha256Hex,
 } from "../../../base/mod.ts";
 import {
+  type AgentDefinition,
   type AgentDefinitionIssue,
-  type AgentRef,
+  type AgentId,
   type AgentValueLayer,
+  LOPHN_AGENT_ID,
+  LOPHN_AGENT_NAME,
   type McpTool,
   type ModelChoice,
   type Place,
   type Profile,
   type Role,
-  rolePlaceFits,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { skillReceived } from "../extensions/skills.ts";
 import type { AgentFileDefinition } from "./definition-file.ts";
-import type { AgentRoleTable } from "./role-table.ts";
 
-// 설정 층을 합쳐 turn마다 고정하는 resolved agent를 만든다. 읽은 값만 받는 순수 함수라 파일도 시각도
-// 만지지 않는다: 정의 파일은 호출하는 쪽이 읽어 파싱해 넘기고, 같은 입력이면 같은 값과 hash가 나온다.
+export const LOPHN_PROFILE: Profile = {
+  kind: "character",
+  shape: "square",
+  color: "coral",
+};
 
-// 제품이 고정하거나 다른 concern이 정하는 값이다. 테스트가 작은 값으로 바꿔 끼운다.
+export const AGENT_DEFAULT_PROFILE: Profile = {
+  kind: "character",
+  shape: "arch",
+  color: "sage",
+};
+
 // 환경이 준 skill 한 개다. 끌 수 없는 내장 skill인지와 domain 층 skill의 domain을 같이 알린다(아니면 null).
 export type AvailableSkill = {
   name: string;
@@ -33,29 +42,20 @@ export type AvailableSkill = {
 };
 
 type ResolveEnvironment = {
-  // 정의에 profile이 없을 때의 기본 character.
-  default_profile: Profile;
-  // 이 place에서 쓸 수 있는 skill과 MCP tool. domain 층 skill은 domain마다 한 줄이다(등록 순서).
   skills: readonly AvailableSkill[];
   mcp: readonly McpTool[];
-  // 이 place 그릇의 active domain id(id 순). lophn은 빈 목록이다.
   domains: readonly string[];
 };
 
 type ResolveInput = {
-  agent: AgentRef;
-  // Project Manager와 App Engineer와 Operator의 place. lophn은 null이다.
+  agent: AgentId;
+  role: Role;
   place: Place | null;
-  // 정의 파일이 없으면 null(built-in 기본). Operator는 파일이 있어야 agent다.
   definition: AgentFileDefinition | null;
-  // 전역 기본 model, project 층 model, composer에서 이 session만 고른 model. 없으면 null이다.
   global_model: ModelChoice | null;
   project_model?: ModelChoice | null;
   session_model: ModelChoice | null;
-  // role이 고정한 tool 이름 목록. 어느 tool이 있는지는 role 층이 정한다.
   tools: readonly string[];
-  // role마다 다른 이름 규칙. role 층이 정한다.
-  roles: AgentRoleTable;
   environment: ResolveEnvironment;
 };
 
@@ -72,60 +72,33 @@ const RESOLVED_FIELDS = [
 type ResolvedField = (typeof RESOLVED_FIELDS)[number];
 
 export type ResolvedAgent = {
-  agent: AgentRef;
+  agent: AgentId;
   role: Role;
   place: Place | null;
   name: string;
   profile: Profile;
-  // 정의 본문의 sha256이다. 본문은 지침 읽기가 따로 한다.
   agent_instructions: string;
   model: ModelChoice;
   tools: string[];
   skills: string[];
   mcp: McpTool[];
-  // agent가 일하는 구체 domain id(id 순). 정의가 고른 것과 그릇의 active domain의 교집합이고, 고르지 않았으면
-  // 그릇의 active domain 전부다.
   domains: string[];
   sources: Record<ResolvedField, AgentValueLayer>;
   hash: string;
 };
 
-// 값마다 마지막 층이 이긴다(전역 → project → agent → session). 규칙:
-// - model은 ModelChoice 하나를 통째로 쓴다(option을 층끼리 섞지 않는다). 어느 층에도 없으면
-//   invalid_input(`model` required)이고 turn을 시작하지 않는다. role별 기본은 없다.
-// - tools는 role이 고정한 목록이다. 정의에 무엇을 적어도 바뀌지 않는다. 앱·MCP는 agent 할당이
-//   session을 시작할 때 붙인다.
-// - domains는 정의가 고른 domain과 환경이 준 그릇의 domain의 교집합이고, 고른 것이 없으면 그릇의 domain 전부다.
-//   고른 id가 그 뒤 보관되면 교집합이 빼므로 agent는 그대로 시작한다.
-// - skills는 환경이 준 것(전역과 domain 층을 합친 것) 가운데 전역·내장 skill과 위 domains의 skill만 후보로 하고,
-//   그 안에서 정의의 skills에 고른 것(환경 순서)이다. 고른 것이 없으면 후보 전부다. 끌 수 없는 내장 skill은
-//   고르지 않아도 받는다. mcp는 환경이 준 것 가운데 mcp_off에 없는 것(등록 순서)이다.
-//   등록에 없는 이름은 무시한다.
+// 값마다 마지막 층이 이긴다(전역 → project → agent → session).
+// - model은 ModelChoice 하나를 통째로 쓴다. 어느 층에도 없으면 turn을 시작하지 않는다.
+// - tools는 place 종류가 고정한 목록이다. 정의에 무엇을 적어도 바뀌지 않는다.
+// - domains는 정의가 고른 domain과 환경이 준 그릇의 domain의 교집합이다.
+// - skills는 환경이 준 것 가운데 전역·내장 skill과 맡은 domain의 skill이고, 정의가 고른 이름만 남긴다.
 // - agent_instructions는 정의 본문의 sha256Hex(정의가 없으면 빈 글), hash는 hash를 뺀 값의 fingerprint다.
-// - sources: 값마다 그 값을 준 층. 정의는 칸을 실제로 가질 때만(profile·model·본문·비어 있지 않은 목록)
-//   `agent`이고 아니면 `global`이다.
-// 오류: Operator인데 정의가 없으면 not_found, role이 그 place에 올 수 없으면 invalid_input(`place`
-// not_allowed), Operator 정의에 name이 없으면 invalid_input(`name` required).
 export async function resolveAgent(
   input: ResolveInput,
 ): Promise<Result<ResolvedAgent, LophnError>> {
-  const { agent, place, definition, environment } = input;
-  const { roles } = input;
-  const role = agent.role;
-  const operator = roles.isOperator(role);
-
-  if (!rolePlaceFits(role, place)) {
-    return invalid([{ field: "place", code: "not_allowed" }]);
-  }
-  if (operator && definition === null) {
-    return err({ code: "not_found", message: "operator definition not found" });
-  }
-  const given =
-    operator && definition !== null && "name" in definition
-      ? definition.name
-      : undefined;
-  if (operator && (given === undefined || given.trim().length === 0)) {
-    return invalid([{ field: "name", code: "required" }]);
+  const { agent, role, place, definition, environment } = input;
+  if (agent !== LOPHN_AGENT_ID && definition === null) {
+    return err({ code: "not_found", message: "agent definition not found" });
   }
 
   const modelLayers: [ModelChoice | null | undefined, AgentValueLayer][] = [
@@ -140,16 +113,13 @@ export async function resolveAgent(
   }
 
   const body = definition?.body ?? "";
-  const profile =
-    definition !== null && "profile" in definition
-      ? definition.profile
-      : undefined;
+  const lophn = agent === LOPHN_AGENT_ID;
+  const profile = lophn
+    ? LOPHN_PROFILE
+    : (definition?.profile ?? AGENT_DEFAULT_PROFILE);
   const chosenSkills = definition?.skills ?? [];
   const mcpOff = definition?.mcp_off ?? [];
-  const chosenDomains =
-    definition !== null && "domains" in definition
-      ? (definition.domains ?? [])
-      : [];
+  const chosenDomains = definition?.domains ?? [];
   const domains = workingDomains(environment.domains, chosenDomains);
   const skills = receivedSkills(environment.skills, chosenSkills, domains);
   const mcp = environment.mcp.filter(
@@ -166,8 +136,8 @@ export async function resolveAgent(
     agent: copy(agent),
     role,
     place: copy(place),
-    name: operator ? (given as string) : (roles.builtinName(role) as string),
-    profile: copy(profile ?? environment.default_profile),
+    name: lophn ? LOPHN_AGENT_NAME : (definition as AgentDefinition).name,
+    profile: copy(profile),
     agent_instructions: await sha256Hex(body),
     model: copy(chosen[0] as ModelChoice),
     tools: [...input.tools],
@@ -175,8 +145,8 @@ export async function resolveAgent(
     mcp: copy(mcp),
     domains,
     sources: {
-      name: operator ? "agent" : "global",
-      profile: profile === undefined ? "global" : "agent",
+      name: lophn ? "global" : "agent",
+      profile: lophn || definition?.profile === undefined ? "global" : "agent",
       agent_instructions: body.length > 0 ? "agent" : "global",
       model: chosen[1],
       tools: "global",
@@ -188,7 +158,6 @@ export async function resolveAgent(
   return ok({ ...value, hash: await fingerprint(value) });
 }
 
-// agent가 일하는 domain id다. 고른 것이 없으면 그릇의 domain 전부이고, 있으면 그릇에 있는 것만이다(그릇 순서).
 export function workingDomains(
   container: readonly string[],
   chosen: readonly string[],
@@ -198,7 +167,6 @@ export function workingDomains(
     : container.filter((id) => chosen.includes(id));
 }
 
-// 받는 skill 이름이다(환경 순서). 규칙은 `skillReceived`다. 같은 이름이 층마다 있으면 하나로 센다.
 export function receivedSkills(
   available: readonly AvailableSkill[],
   chosen: readonly string[],

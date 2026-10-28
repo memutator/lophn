@@ -26,6 +26,7 @@ import { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { createApprovals } from "../../../approvals/mod.ts";
 import { loadAssignment } from "../../../approvals/assignment/mod.ts";
+import { agentIdOfRef } from "../../../lophn-agent/agents/bridge.ts";
 import {
   shellRuleLayers,
   shellRulesSetting,
@@ -112,10 +113,15 @@ export const approvalsWiring: WiringFactory = () => {
       const bus: Bus = ctx.peek.bus ?? DROPPING_BUS;
       // 할당은 ledger에서 그때그때 읽는다.
       const assignmentOf = (agent: AgentRef) => {
+        const id = agentIdOfRef(agent);
+        if (id === null) return Promise.resolve(ok({ agent, entries: [] }));
         const connection = openConnection(ctx.ledgerPath);
         if (!connection.ok) return Promise.resolve(connection);
         try {
-          return Promise.resolve(loadAssignment(connection.value.sql, agent));
+          const found = loadAssignment(connection.value.sql, id);
+          return Promise.resolve(
+            found.ok ? ok({ agent, entries: found.value.entries }) : found,
+          );
         } finally {
           connection.value.close();
         }
@@ -210,9 +216,7 @@ export const approvalsWiring: WiringFactory = () => {
               session: { agent: { role: string }; place: Place | null };
             }
           ).session;
-          return agent.role === "coding_agent"
-            ? err({ code: "forbidden", message: "not a lophn agent" })
-            : ok({ agent: agent as AgentRef, place });
+          return ok({ agent: agent as AgentRef, place });
         },
         async modeOf(turn) {
           const found = await ctx.runtime.readers.read(

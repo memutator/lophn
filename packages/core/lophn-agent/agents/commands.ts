@@ -1,10 +1,11 @@
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import {
-  builtinAgentChange,
-  operatorChange,
-  operatorCreate,
-  operatorDelete,
-  type Place,
+  agentChange,
+  agentCreate,
+  agentDelete,
+  LOPHN_AGENT_ID,
+  LOPHN_AGENT_NAME,
   type Profile,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
@@ -15,21 +16,15 @@ import type {
   RequestContext,
   Tx,
 } from "../../../protocol/server/mod.ts";
-import {
-  type AgentContext,
-  findOperator,
-  loadAgent,
-  openAgentContext,
-} from "./inspect.ts";
-import { agentCallerRule } from "./caller.ts";
+import { type AgentContext, loadAgent, openAgentContext } from "./inspect.ts";
 import type { AgentDeps } from "./ports.ts";
+import { LOPHN_PROFILE } from "./resolve.ts";
 import { staleImagePaths } from "./profile-asset.ts";
-import { checkBuiltin, checkOperator } from "./validate.ts";
+import { agentSlotOf } from "./store.ts";
+import { checkAgent } from "./validate.ts";
 
-// 정의의 삭제와 built-in 저장은 사람만 한다(route actors). Operator는 agent도 만들고 고치되 자기 place 안에서만 한다. 순서는 입력 검사 → CAS 비교 → 쓰기다. 파일은 마지막에 쓰고,
-// 쓰기가 실패하면 handler가 err를 돌려 전체가 되돌아간다. 정의 저장은 event를 내지 않는다.
-// Project Manager와 App Engineer는 place가 생길 때 ensure가 만든다: 사람은 이름이 Operator의 id인 정의만
-// 만들고 지울 수 있고(operatorCreate·operatorDelete), built-in은 내용만 바꾼다(builtinAgentChange).
+// 정의 저장과 삭제는 사람과 agent가 할 수 있다. lophn의 이름·profile은 고정이고 lophn은 지울 수 없다.
+// agent 자격은 `mcp_servers`와 `skip`을 바꾸지 못한다: 그 두 칸은 사람의 승인 경계다.
 
 function notFound(what: string): Result<never> {
   return err({ code: "not_found", message: `${what} not found` });
@@ -39,18 +34,21 @@ function conflict(what: string): Result<never> {
   return err({ code: "conflict", message: `${what} hash changed` });
 }
 
-// 정의를 쓴 뒤 저장한 profile이 가리키지 않는 `avatar.*`를 지운다. 정의 파일은 이미 바뀌었으므로
-// 여기서 실패해도 저장을 되돌리지 않는다(되돌리면 파일과 ledger가 어긋난다). 지우지 못한 파일은 정의가
-// 가리키지 않아 agent의 답을 바꾸지 않고, 다음 저장이 목록을 다시 보고 지운다.
+function same(left: unknown, right: unknown): boolean {
+  return canonicalize(left ?? null) === canonicalize(right ?? null);
+}
+
 function removeStaleImages(
   deps: AgentDeps,
   context: AgentContext,
-  place: Place,
-  operator: string,
+  agent: string,
   profile: Profile | undefined,
 ): void {
-  const folder = context.roles.agentsFolderOf(context.store.root, place);
-  for (const path of staleImagePaths(folder, operator, profile)) {
+  for (const path of staleImagePaths(
+    `${context.store.root}/agents`,
+    agent,
+    profile,
+  )) {
     try {
       deps.files.remove(path);
     } catch {
@@ -63,92 +61,111 @@ function open(deps: AgentDeps, tx: Tx): Result<AgentContext> {
   return openAgentContext(deps, tx.sql);
 }
 
+function agentActor(ctx: RequestContext): boolean {
+  return parseActor(ctx.actor)?.kind === "agent";
+}
+
 export function createAgentCommands(deps: AgentDeps): {
-  create: CommandDefinition<typeof operatorCreate>;
-  change: CommandDefinition<typeof operatorChange>;
-  delete: CommandDefinition<typeof operatorDelete>;
-  changeBuiltin: CommandDefinition<typeof builtinAgentChange>;
+  create: CommandDefinition<typeof agentCreate>;
+  change: CommandDefinition<typeof agentChange>;
+  delete: CommandDefinition<typeof agentDelete>;
 } {
   return {
     create: {
-      route: operatorCreate,
+      route: agentCreate,
       handle(
         tx: Tx,
         ctx: RequestContext,
-        input: Input<typeof operatorCreate>,
-      ): Result<Output<typeof operatorCreate>> {
-        const rule = agentCallerRule(tx.sql, ctx, deps.operatorPlaceAllowed);
-        if (!rule.ok) return rule;
-        const { place, definition, id } = input;
-        if (rule.value !== null) {
-          const allowed = rule.value(place);
-          if (!allowed.ok) return allowed;
+        input: Input<typeof agentCreate>,
+      ): Result<Output<typeof agentCreate>> {
+        if (
+          agentActor(ctx) &&
+          (input.definition.mcp_servers !== undefined ||
+            input.definition.skip !== undefined)
+        ) {
+          return err({
+            code: "forbidden",
+            message: "an agent cannot set MCP servers or skip",
+          });
         }
         const context = open(deps, tx);
         if (!context.ok) return context;
-        if (!context.value.lookups.placeExists(place)) {
-          return notFound("place");
-        }
-        const existing = findOperator(context.value, id);
+        const existing = loadAgent(context.value, input.id);
         if (!existing.ok) return existing;
         if (existing.value !== null) {
-          return err({ code: "conflict", message: "operator already exists" });
+          return err({ code: "conflict", message: "agent already exists" });
         }
-        const ref = context.value.roles.operatorRef(id);
-        const checked = checkOperator({
+        const checked = checkAgent({
           context: context.value,
-          role: ref.role,
-          place,
-          id,
-          definition,
-        });
-        if (!checked.ok) return checked;
-        const slot = context.value.roles.slotOf(
-          context.value.store.root,
-          ref,
-          place,
-        )!;
-        const written = context.value.store.write(slot, checked.value);
-        if (!written.ok) return written;
-        removeStaleImages(deps, context.value, place, id, definition.profile);
-        return ok({ agent: id, hash: written.value });
-      },
-    },
-    change: {
-      route: operatorChange,
-      handle(
-        tx: Tx,
-        ctx: RequestContext,
-        input: Input<typeof operatorChange>,
-        compare: Compare<typeof operatorChange>,
-      ): Result<Output<typeof operatorChange>> {
-        const rule = agentCallerRule(tx.sql, ctx, deps.operatorPlaceAllowed);
-        if (!rule.ok) return rule;
-        const context = open(deps, tx);
-        if (!context.ok) return context;
-        const found = findOperator(context.value, input.agent);
-        if (!found.ok) return found;
-        if (found.value === null) return notFound("agent");
-        const { place, slot, file } = found.value;
-        if (rule.value !== null) {
-          const allowed = rule.value(place);
-          if (!allowed.ok) return allowed;
-        }
-        if (compare.hash !== file.hash) return conflict("agent file");
-        const checked = checkOperator({
-          context: context.value,
-          role: context.value.roles.operatorRef(input.agent).role,
-          place,
-          id: input.agent,
+          agent: input.id,
           definition: input.definition,
         });
         if (!checked.ok) return checked;
+        const slot = agentSlotOf(context.value.store.root, input.id);
         const written = context.value.store.write(slot, checked.value);
         if (!written.ok) return written;
         removeStaleImages(
           deps,
           context.value,
-          place,
+          input.id,
+          input.definition.profile,
+        );
+        return ok({ agent: input.id, hash: written.value });
+      },
+    },
+    change: {
+      route: agentChange,
+      handle(
+        tx: Tx,
+        ctx: RequestContext,
+        input: Input<typeof agentChange>,
+        compare: Compare<typeof agentChange>,
+      ): Result<Output<typeof agentChange>> {
+        const context = open(deps, tx);
+        if (!context.ok) return context;
+        const found = loadAgent(context.value, input.agent);
+        if (!found.ok) return found;
+        if (found.value === null) return notFound("agent");
+        const loaded = found.value;
+        if (compare.hash !== (loaded.file?.hash ?? null)) {
+          return conflict("agent file");
+        }
+        if (
+          agentActor(ctx) &&
+          (!same(
+            input.definition.mcp_servers,
+            loaded.definition?.mcp_servers,
+          ) ||
+            !same(input.definition.skip, loaded.definition?.skip))
+        ) {
+          return err({
+            code: "forbidden",
+            message: "an agent cannot set MCP servers or skip",
+          });
+        }
+        if (input.agent === LOPHN_AGENT_ID) {
+          const profile = input.definition.profile;
+          if (
+            input.definition.name !== LOPHN_AGENT_NAME ||
+            (profile !== undefined && !same(profile, LOPHN_PROFILE))
+          ) {
+            return err({
+              code: "forbidden",
+              message: "lophn's name and profile are fixed",
+            });
+          }
+        }
+        const checked = checkAgent({
+          context: context.value,
+          agent: input.agent,
+          definition: input.definition,
+        });
+        if (!checked.ok) return checked;
+        const written = context.value.store.write(loaded.slot, checked.value);
+        if (!written.ok) return written;
+        removeStaleImages(
+          deps,
+          context.value,
           input.agent,
           input.definition.profile,
         );
@@ -156,55 +173,30 @@ export function createAgentCommands(deps: AgentDeps): {
       },
     },
     delete: {
-      route: operatorDelete,
+      route: agentDelete,
       handle(
         tx: Tx,
         _ctx: RequestContext,
-        input: Input<typeof operatorDelete>,
-        compare: Compare<typeof operatorDelete>,
-      ): Result<Output<typeof operatorDelete>> {
+        input: Input<typeof agentDelete>,
+        compare: Compare<typeof agentDelete>,
+      ): Result<Output<typeof agentDelete>> {
+        if (input.agent === LOPHN_AGENT_ID) {
+          return err({ code: "forbidden", message: "lophn cannot be deleted" });
+        }
         const context = open(deps, tx);
         if (!context.ok) return context;
-        const found = findOperator(context.value, input.agent);
+        const found = loadAgent(context.value, input.agent);
         if (!found.ok) return found;
         if (found.value === null) return notFound("agent");
-        const { place, slot, file } = found.value;
-        if (compare.hash !== file.hash) return conflict("agent file");
-        const removed = context.value.store.remove(slot);
+        const loaded = found.value;
+        if (loaded.file === null) return notFound("agent");
+        if (compare.hash !== loaded.file.hash) {
+          return conflict("agent file");
+        }
+        const removed = context.value.store.remove(loaded.slot);
         if (!removed.ok) return removed;
-        removeStaleImages(deps, context.value, place, input.agent, undefined);
-        return ok({ agent: input.agent, hash: file.hash });
-      },
-    },
-    changeBuiltin: {
-      route: builtinAgentChange,
-      handle(
-        tx: Tx,
-        _ctx: RequestContext,
-        input: Input<typeof builtinAgentChange>,
-        compare: Compare<typeof builtinAgentChange>,
-      ): Result<Output<typeof builtinAgentChange>> {
-        const context = open(deps, tx);
-        if (!context.ok) return context;
-        // place가 없는 Project Manager와 App Engineer는 agent가 아니다. 파일이 없어도 있는 place의
-        // built-in은 agent이고 처음 저장이 파일을 만든다.
-        const loaded = loadAgent(context.value, input.agent);
-        if (!loaded.ok) return loaded;
-        if (loaded.value === null) return notFound("agent");
-        const before = loaded.value.file?.hash ?? null;
-        if (compare.hash !== before) return conflict("agent file");
-        const checked = checkBuiltin(
-          deps.roles,
-          input.agent.role,
-          input.definition,
-        );
-        if (!checked.ok) return checked;
-        const written = context.value.store.write(
-          loaded.value.slot,
-          checked.value,
-        );
-        if (!written.ok) return written;
-        return ok({ agent: input.agent, hash: written.value });
+        removeStaleImages(deps, context.value, input.agent, undefined);
+        return ok({ agent: input.agent, hash: loaded.file.hash });
       },
     },
   };

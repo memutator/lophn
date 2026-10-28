@@ -1,22 +1,34 @@
 import { ok, type Result } from "../../../base/mod.ts";
 import type {
-  AgentAssignment,
+  Assignment,
   ShellRuleLayers,
 } from "../../../protocol/approvals/mod.ts";
 import type { AppGrant } from "../../../protocol/apps/grants.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { ToolEffect } from "../../../protocol/lophn-agent/tool-values.ts";
-import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
+import type {
+  AgentId,
+  AgentRef,
+} from "../../../protocol/lophn-agent/places.ts";
 import { judge } from "../../approvals/gate/mod.ts";
+import { agentIdOfRef } from "../../lophn-agent/agents/bridge.ts";
 import type { VerifiedCaller } from "./caller.ts";
 
 export type CallGateDeps = {
-  assignmentOf(agent: AgentRef): Result<AgentAssignment>;
+  assignmentOf(agent: AgentId): Result<Assignment>;
   appGrantsOf(app: Id<"app">): Promise<Result<readonly AppGrant[]>>;
-  // program·flow caller의 domain 거르기 재료. creator(또는 PM)가 맡은 domain id와 앱 domain 이름의 id다.
+  // program·flow caller의 domain 거르기 재료. creator가 맡은 domain id와 앱 domain 이름의 id다.
   agentDomainsOf(agent: AgentRef): Result<readonly string[]>;
   toolDomainOf(app: Id<"app">, name: string): Result<string | null>;
 };
+
+function assignmentOf(
+  caller: AgentRef,
+  deps: CallGateDeps,
+): Result<Pick<Assignment, "entries">> {
+  const agent = agentIdOfRef(caller);
+  return agent === null ? ok({ entries: [] }) : deps.assignmentOf(agent);
+}
 
 // 앱 tool 판정은 shell 규칙을 보지 않는다.
 const NO_SHELL_RULES: ShellRuleLayers = { floor: [], layers: [] };
@@ -37,8 +49,8 @@ export async function callAllowed(
 ): Promise<Result<boolean>> {
   if (caller.kind === "program" || caller.kind === "flow") {
     // 할당은 호출 때 읽는다. job과 flow 호출은 사람이 없는 호출이다.
-    // 할당을 읽는 agent는 job의 creator 또는 flow instance의 project PM이다.
-    const assignment = deps.assignmentOf(caller.agent);
+    // 할당을 읽는 agent는 job의 creator 또는 flow instance의 creator다.
+    const assignment = assignmentOf(caller.agent, deps);
     if (!assignment.ok) return assignment;
     const judged = judge(
       {
@@ -61,7 +73,7 @@ export async function callAllowed(
     return ok(domains.value.includes(id.value));
   }
   if (caller.kind === "agent") {
-    const assignment = deps.assignmentOf(caller.agent);
+    const assignment = assignmentOf(caller.agent, deps);
     if (!assignment.ok) return assignment;
     const judged = judge(
       {

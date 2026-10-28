@@ -1,22 +1,22 @@
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 import {
-  type AgentAssignment,
-  agentAssignmentSchema,
+  type Assignment,
+  assignmentSchema,
   type AssignmentEntry,
 } from "../../../protocol/approvals/mod.ts";
-import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
+import type { AgentId } from "../../../protocol/lophn-agent/places.ts";
 import type { Sql, Tx } from "../../../protocol/server/mod.ts";
 
-export type AssignmentRow = { assignment: AgentAssignment; revision: number };
+export type AssignmentRow = { assignment: Assignment; revision: number };
 
 // 줄이 없는 agent는 아무 앱도 할당되지 않았고 revision은 0이다.
 export function loadAssignmentRow(
   sql: Pick<Sql, "get">,
-  agent: AgentRef,
+  agent: AgentId,
 ): Result<AssignmentRow> {
   const row = sql.get(
     "select entries, revision from agent_assignments where agent = ?",
-    [canonicalize(agent)],
+    [agent],
   );
   if (row === undefined) {
     return ok({ assignment: { agent, entries: [] }, revision: 0 });
@@ -27,7 +27,7 @@ export function loadAssignmentRow(
   } catch {
     return invalidStored();
   }
-  const parsed = agentAssignmentSchema.safeParse({ agent, entries });
+  const parsed = assignmentSchema.safeParse({ agent, entries });
   if (!parsed.success) return invalidStored();
   return ok({ assignment: parsed.data, revision: Number(row["revision"]) });
 }
@@ -38,15 +38,15 @@ function invalidStored(): Result<never> {
 
 export function loadAssignment(
   sql: Pick<Sql, "get">,
-  agent: AgentRef,
-): Result<AgentAssignment> {
+  agent: AgentId,
+): Result<Assignment> {
   const row = loadAssignmentRow(sql, agent);
   return row.ok ? ok(row.value.assignment) : row;
 }
 
 export function saveAssignment(
   tx: Pick<Tx, "sql" | "now">,
-  agent: AgentRef,
+  agent: AgentId,
   entries: readonly AssignmentEntry[],
   revision: number,
 ): void {
@@ -54,6 +54,6 @@ export function saveAssignment(
     `insert into agent_assignments (agent, entries, revision, updated_at) values (?, ?, ?, ?)
      on conflict (agent) do update
      set entries = excluded.entries, revision = excluded.revision, updated_at = excluded.updated_at`,
-    [canonicalize(agent), canonicalize(entries), revision, tx.now()],
+    [agent, canonicalize(entries), revision, tx.now()],
   );
 }

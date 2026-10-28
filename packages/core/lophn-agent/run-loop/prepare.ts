@@ -57,7 +57,6 @@ import type { AppToolkit } from "../tools/app-toolkit.ts";
 import { buildAppTools } from "../tools/app-tools.ts";
 import { type CannotStart, resolveTurnAgent } from "../agents/layers.ts";
 import type { ResolvedAgent } from "../agents/mod.ts";
-import type { AgentRoleTable } from "../agents/role-table.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import {
   createCorePorts,
@@ -162,8 +161,6 @@ type PreparerDeps = {
   >;
   // role이 고정한 tool 이름 목록. 어느 role이 어느 tool을 보는지는 role 층이 정한다.
   roleTools(role: Role): readonly string[];
-  // role마다 다른 이름·기본 profile 규칙. role 층이 정해 조립이 넘긴다.
-  roles: AgentRoleTable;
   instructions: InstructionDeps;
   // session마다 그 session으로 지침 파일을 읽는 통로. 있으면 `instructions.files` 대신 쓴다(core가 session의
   // place로 어느 project인지 정한다).
@@ -716,7 +713,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const made = await resolveTurnAgent(machine, {
       session: start.session,
       roleTools: deps.roleTools,
-      roles: deps.roles,
       skills: skills.filter((entry) => entry.enabled),
       mcp: async (off, place, ownServers) => {
         mcp = await loadMcp(start.session, {

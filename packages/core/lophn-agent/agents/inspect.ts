@@ -1,17 +1,21 @@
 import { ok, type Result } from "../../../base/mod.ts";
 import {
   type AgentDefinitionIssue,
-  type AgentRef,
+  type AgentId,
+  LOPHN_AGENT_ID,
+  LOPHN_AGENT_NAME,
   type Place,
-  placeOfAgentRef,
-  type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { type AgentFileDefinition, parseAgentFile } from "./definition-file.ts";
 import type { AgentDeps, AgentLookups, ReadSql } from "./ports.ts";
-import type { AgentRoleTable } from "./role-table.ts";
-import { workingDomains } from "./resolve.ts";
+import {
+  AGENT_DEFAULT_PROFILE,
+  LOPHN_PROFILE,
+  workingDomains,
+} from "./resolve.ts";
 import {
   type AgentFile,
+  agentSlotOf,
   type AgentSlot,
   type AgentStore,
   createAgentStore,
@@ -23,7 +27,6 @@ import {
 export type AgentContext = {
   lookups: AgentLookups;
   store: AgentStore;
-  roles: AgentRoleTable;
 };
 
 export function openAgentContext(
@@ -34,10 +37,7 @@ export function openAgentContext(
   if (!root.ok) return root;
   return ok({
     lookups: deps.lookups(sql),
-    store: createAgentStore(deps.files, root.value, (place) =>
-      deps.roles.agentsFolderOf(root.value, place),
-    ),
-    roles: deps.roles,
+    store: createAgentStore(deps.files, root.value),
   });
 }
 
@@ -47,11 +47,9 @@ export function issuesOfError(error: unknown): AgentDefinitionIssue[] {
   return details?.issues ?? [];
 }
 
-// 읽은 agent 하나. 정의 파일이 없는 built-in은 file과 definition이 null이다.
+// 읽은 agent 하나. lophn은 file이 없어도 agent이고 definition은 null이다.
 export type Loaded = {
-  ref: AgentRef;
-  role: Role;
-  place: Place | null;
+  agent: AgentId;
   slot: AgentSlot;
   file: AgentFile | null;
   definition: AgentFileDefinition | null;
@@ -59,124 +57,63 @@ export type Loaded = {
 };
 
 // agent가 일하는 domain id다. 정의가 고른 것과 그 place 그릇의 active domain의 교집합이다.
-export function domainsOf(context: AgentContext, loaded: Loaded): string[] {
-  const chosen =
-    loaded.definition !== null && "domains" in loaded.definition
-      ? (loaded.definition.domains ?? [])
-      : [];
-  return workingDomains(context.lookups.domains(loaded.place), chosen);
-}
-
-// Operator는 ref에 place가 없어 place 폴더를 훑어 파일이 있는 곳을 찾는다.
-export function findOperator(
+export function domainsOf(
   context: AgentContext,
-  id: string,
-): Result<{ place: Place; slot: AgentSlot; file: AgentFile } | null> {
-  for (const place of context.lookups.places()) {
-    const slot = context.roles.slotOf(
-      context.store.root,
-      context.roles.operatorRef(id),
-      place,
-    )!;
-    const file = context.store.read(slot);
-    if (!file.ok) return file;
-    if (file.value !== null) return ok({ place, slot, file: file.value });
-  }
-  return ok(null);
+  loaded: Loaded,
+  place: Place | null,
+): string[] {
+  const chosen = loaded.definition?.domains ?? [];
+  return workingDomains(context.lookups.domains(place), chosen);
 }
 
-// 이 agent를 읽는다. 없는 place의 agent와 파일이 없는 Operator는 agent가 아니라 null이다.
 export function loadAgent(
   context: AgentContext,
-  ref: AgentRef,
+  agent: AgentId,
 ): Result<Loaded | null> {
-  let place: Place | null = null;
-  let slot: AgentSlot | null;
-  let file: AgentFile | null = null;
-  // place가 ref에 없는 agent(Operator)는 place 폴더를 훑어 찾는다.
-  const refPlace = placeOfAgentRef(ref);
-  if (refPlace === undefined) {
-    const found = findOperator(context, operatorIdOf(ref));
-    if (!found.ok) return found;
-    if (found.value === null) return ok(null);
-    ({ place, slot, file } = found.value);
-  } else {
-    place = refPlace;
-    if (place !== null && !context.lookups.placeExists(place)) return ok(null);
-    slot = context.roles.slotOf(context.store.root, ref)!;
-    const read = context.store.read(slot);
-    if (!read.ok) return read;
-    file = read.value;
-  }
-
-  return ok(parsedAgent(context.roles, ref, place, slot, file));
-}
-
-export function operatorIdOf(ref: AgentRef): string {
-  return (ref as { agent: string }).agent;
+  const slot = agentSlotOf(context.store.root, agent);
+  const read = context.store.read(slot);
+  if (!read.ok) return read;
+  if (read.value === null && agent !== LOPHN_AGENT_ID) return ok(null);
+  return ok(parsedAgent(agent, slot, read.value));
 }
 
 function parsedAgent(
-  roles: AgentRoleTable,
-  ref: AgentRef,
-  place: Place | null,
+  agent: AgentId,
   slot: AgentSlot,
   file: AgentFile | null,
 ): Loaded {
   let definition: AgentFileDefinition | null = null;
   const issues: AgentDefinitionIssue[] = [];
   if (file !== null) {
-    const parsed = parseAgentFile(
-      file.text,
-      {
-        role: ref.role,
-        place: place?.kind ?? null,
-      },
-      roles,
-    );
+    const parsed = parseAgentFile(file.text, { agent });
     if (parsed.ok) definition = parsed.value;
     else issues.push(...issuesOfError(parsed.error));
   }
-  return { ref, role: ref.role, place, slot, file, definition, issues };
+  return { agent, slot, file, definition, issues };
 }
 
-// 이름과 profile은 Operator는 정의가, built-in은 제품이 정한다.
-export function nameOf(roles: AgentRoleTable, loaded: Loaded): string {
-  const builtin = roles.builtinName(loaded.role);
-  if (builtin !== null) return builtin;
-  const name =
-    loaded.definition !== null && "name" in loaded.definition
-      ? loaded.definition.name
-      : undefined;
-  return name ?? operatorIdOf(loaded.ref);
+export function nameOf(loaded: Loaded): string {
+  if (loaded.agent === LOPHN_AGENT_ID) return LOPHN_AGENT_NAME;
+  return loaded.definition?.name ?? loaded.agent;
 }
 
-export function profileOf(roles: AgentRoleTable, loaded: Loaded) {
-  const profile =
-    loaded.definition !== null && "profile" in loaded.definition
-      ? loaded.definition.profile
-      : undefined;
-  return profile ?? roles.defaultProfile(loaded.role);
+export function profileOf(loaded: Loaded) {
+  if (loaded.agent === LOPHN_AGENT_ID) return LOPHN_PROFILE;
+  return loaded.definition?.profile ?? AGENT_DEFAULT_PROFILE;
 }
 
-// 모든 Operator의 id와 이름과 place. 틀린 파일은 이름을 알 수 없어 id가 이름이다.
-export function listOperators(
-  context: AgentContext,
-  within?: Place,
-): Result<Loaded[]> {
-  const found: Loaded[] = [];
-  for (const place of within === undefined
-    ? context.lookups.places()
-    : [within]) {
-    const ids = context.store.operatorIds(place);
-    if (!ids.ok) return ids;
-    for (const id of ids.value) {
-      const ref = context.roles.operatorRef(id);
-      const slot = context.roles.slotOf(context.store.root, ref, place)!;
-      const file = context.store.read(slot);
-      if (!file.ok) return file;
-      found.push(parsedAgent(context.roles, ref, place, slot, file.value));
-    }
+// lophn이 첫 줄이고 그 뒤는 `agents/`의 id 순서다. 틀린 file도 목록에 남아 issues를 보인다.
+export function listAgents(context: AgentContext): Result<Loaded[]> {
+  const loaded: Loaded[] = [];
+  const lophn = loadAgent(context, LOPHN_AGENT_ID);
+  if (!lophn.ok) return lophn;
+  if (lophn.value !== null) loaded.push(lophn.value);
+  const ids = context.store.agentIds();
+  if (!ids.ok) return ids;
+  for (const id of ids.value) {
+    const agent = loadAgent(context, id as AgentId);
+    if (!agent.ok) return agent;
+    if (agent.value !== null) loaded.push(agent.value);
   }
-  return ok(found);
+  return ok(loaded);
 }

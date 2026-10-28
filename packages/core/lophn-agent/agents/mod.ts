@@ -9,13 +9,19 @@ export { createAgentReads } from "./reads.ts";
 export {
   type AgentContext,
   domainsOf,
-  listOperators,
+  listAgents,
   loadAgent,
   type Loaded,
   nameOf,
   openAgentContext,
-  operatorIdOf,
+  profileOf,
 } from "./inspect.ts";
+export { agentIdOfRef } from "./bridge.ts";
+export {
+  type AgentDirectory,
+  type AgentInfo,
+  createAgentDirectory,
+} from "./directory.ts";
 export {
   type ProfileAssetDeps,
   type ProfileFileHandler,
@@ -25,7 +31,6 @@ export {
   type ProfileReaders,
   type ProfileUploadHandler,
 } from "./profile-asset.ts";
-export type { AgentRoleTable } from "./role-table.ts";
 export type {
   AgentDeps,
   AgentFileSystem,
@@ -37,6 +42,7 @@ export {
   type AgentFile,
   type AgentSlot,
   type AgentStore,
+  agentSlotOf,
   createAgentStore,
   dataRootOf,
 } from "./store.ts";

@@ -16,7 +16,7 @@ import { TargetAuthorization } from "../../../protocol/server/mod.ts";
 import type { RequestContext, Sql, Tx } from "../../../protocol/server/mod.ts";
 import { createProjectCommands } from "./commands.ts";
 import { createFolderResolver } from "./folder-resolver.ts";
-import { folderResolverPort, projectManagerProvisioningPort } from "./ports.ts";
+import { folderResolverPort } from "./ports.ts";
 import { projectsSchemaSteps } from "./schema.ts";
 
 const user: RequestContext = {
@@ -36,26 +36,16 @@ function setup() {
     get: (query, params) => db.prepare(query).get(...params) as never,
     all: (query, params) => db.prepare(query).all(...params) as never,
   };
-  const managers: string[] = [];
   const resolver = createFolderResolver();
   const ports = new Map<unknown, unknown>([
     [TargetAuthorization, () => ok(undefined)],
     [folderResolverPort, resolver],
-    [
-      projectManagerProvisioningPort,
-      {
-        create: (_tx: Tx, project: string) => {
-          managers.push(project);
-          return ok(undefined);
-        },
-      },
-    ],
   ]);
   const tx = {
     sql,
     port: (key: unknown) => ports.get(key),
   } as unknown as Tx;
-  return { db, sql, tx, managers, commands: createProjectCommands() };
+  return { db, sql, tx, commands: createProjectCommands() };
 }
 
 const PROJECT = "prj_00000000000000000000000001";
@@ -133,19 +123,18 @@ test("하위 폴더는 연결한 폴더 밖을 거절한다", () => {
 });
 
 test("폴더 없이도 등록된다", () => {
-  const { db, tx, managers, commands } = setup();
+  const { db, tx, commands } = setup();
   try {
     const empty = commands.register.handle(tx, user, input([]), {});
     assert.ok(empty.ok);
     assert.deepStrictEqual(empty.value.folders, []);
-    assert.deepStrictEqual(managers, [PROJECT]);
   } finally {
     db.close();
   }
 });
 
 test("보관해도 폴더의 파일은 그대로다", () => {
-  const { db, tx, managers, commands } = setup();
+  const { db, tx, commands } = setup();
   const root = mkdtempSync(join(tmpdir(), "lophn-registry-"));
   try {
     writeFileSync(join(root, "note.md"), "hello");
@@ -156,7 +145,6 @@ test("보관해도 폴더의 파일은 그대로다", () => {
       {},
     );
     assert.ok(registered.ok);
-    assert.deepStrictEqual(managers, [PROJECT]);
 
     const archived = commands.archive.handle(
       tx,

@@ -19,7 +19,7 @@ import {
   validateFolderRoots,
   validateSubfolderPaths,
 } from "./model.ts";
-import { folderResolverPort, projectManagerProvisioningPort } from "./ports.ts";
+import { folderResolverPort } from "./ports.ts";
 import { recordOf } from "./record.ts";
 import {
   insertProject,
@@ -139,13 +139,8 @@ export function createProjectCommands(): {
           [],
         );
         if (!subfolders.ok) return subfolders;
-        const manager = portOf(tx, projectManagerProvisioningPort);
-        if (manager === undefined) return unwired("project manager");
         const project: Project = { ...candidate, revision: "1" };
         insertProject(tx, project);
-        // 같은 tx 안에서 그 project의 Project Manager를 만든다. 실패하면 등록도 없던 일이다.
-        const created = manager.create(tx, project.id);
-        if (!created.ok) return created;
         return ok(recordOf(project, resolver.value));
       },
     },

@@ -221,7 +221,8 @@ function flowAuth(instance = WFI): CallAuth {
     actor: "flow",
     flow: {
       instance,
-      agent: { role: "project_manager", project: PRJ } as AgentRef,
+      // place-tools and workflows-core replace the flow creator.
+      agent: { role: "lophn" } as AgentRef,
       place: { kind: "project", id: PRJ },
     },
   };

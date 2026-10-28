@@ -56,13 +56,12 @@ function toolkit(connected: string[], projectOff: string[] = []) {
             : { settings },
         ),
       ),
-    operatorRef: (agent) => ({ role: "operator", agent }) as never,
     connections: {} as never,
     create: () => connections,
   }).toolkit("asg");
 }
 
-test("Operator 정의 층의 server는 그 Operator의 turn 준비에만 연결된다", async () => {
+test("agent 정의 층의 server는 그 agent의 turn 준비에만 연결된다", async () => {
   const own = { servers: [stdioServer("mine")], off: ["shared"] };
 
   const withLayer: string[] = [];

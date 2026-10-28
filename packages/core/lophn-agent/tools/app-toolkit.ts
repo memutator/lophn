@@ -1,7 +1,7 @@
 import { ok, type Result } from "../../../base/mod.ts";
 import { appTools } from "../../../protocol/apps/declaration/read.ts";
 import type {
-  AgentAssignment,
+  Assignment,
   AssignmentEntry,
 } from "../../../protocol/approvals/mod.ts";
 import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
@@ -27,7 +27,7 @@ export type AppToolkit = {
 export function createAppToolkit(options: {
   // machine 자격의 loopback. 앱의 활성 release 선언을 읽는다.
   machine: CoreCall;
-  assignment(agent: AgentRef): Promise<Result<AgentAssignment>>;
+  assignment(agent: AgentRef): Promise<Result<Pick<Assignment, "entries">>>;
 }): AppToolkit {
   async function load(agent: AgentRef): Promise<Result<AppToolLoad>> {
     const assignment = await options.assignment(agent);

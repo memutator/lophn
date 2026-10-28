@@ -1,5 +1,5 @@
 import type {
-  AgentAssignment,
+  Assignment,
   GateCall,
   Judgment,
   ShellRuleLayers,
@@ -19,7 +19,7 @@ function askIn(mode: TurnMode): Judgment {
 // IO 없는 순수 함수다. 같은 입력은 같은 결과다.
 export function judge(
   call: GateCall,
-  assignment: AgentAssignment | null,
+  assignment: Pick<Assignment, "entries"> | null,
   shell: ShellRuleLayers,
   mode: TurnMode,
 ): Judgment {

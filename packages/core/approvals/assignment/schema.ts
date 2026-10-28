@@ -1,6 +1,6 @@
 import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
-// 할당은 agent마다 한 줄이다. agent는 canonical JSON이고 entries는 AgentAssignment의 entries다.
+// 할당은 agent마다 한 줄이다. agent는 AgentId 글 그대로이고 entries는 Assignment의 entries다.
 // 줄이 있으면 한 번 이상 쓴 것이라 revision은 1부터다(줄 없음이 0).
 export const ASSIGNMENT_SCHEMA_STEPS: SchemaStep[] = [
   {

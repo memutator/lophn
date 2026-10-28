@@ -16,4 +16,4 @@ export {
 export { loadProject, loadProjects } from "./store.ts";
 export { recordOf } from "./record.ts";
 export { createProjectReads, projectInfoList, projectInfoOf } from "./reads.ts";
-export { folderResolverPort, projectManagerProvisioningPort } from "./ports.ts";
+export { folderResolverPort } from "./ports.ts";

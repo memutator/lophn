@@ -1,11 +1,14 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { agentAssignmentSchema } from "../../../protocol/approvals/mod.ts";
-import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
+import { assignmentSchema } from "../../../protocol/approvals/mod.ts";
+import {
+  type AgentId,
+  agentIdSchema,
+} from "../../../protocol/lophn-agent/places.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 
 // 앱을 할당받은 agent와 그 앱에서 뺀(removed) tool. 앱 줄이 있으면 뺀 것 말고는 전부 열려 있다.
 // 사용 관계(app.usage)가 읽는다.
-export type AppAssignee = { agent: AgentRef; removed: ReadonlySet<string> };
+export type AppAssignee = { agent: AgentId; removed: ReadonlySet<string> };
 
 export function appAssignees(
   sql: Pick<Sql, "all">,
@@ -16,10 +19,11 @@ export function appAssignees(
     "select agent, entries from agent_assignments",
     [],
   )) {
+    const agent = agentIdSchema.safeParse(row["agent"]);
     let parsed;
     try {
-      parsed = agentAssignmentSchema.safeParse({
-        agent: JSON.parse(String(row["agent"])),
+      parsed = assignmentSchema.safeParse({
+        agent: agent.success ? agent.data : undefined,
         entries: JSON.parse(String(row["entries"])),
       });
     } catch {

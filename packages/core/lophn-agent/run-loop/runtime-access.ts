@@ -1,7 +1,7 @@
 import { APP_TOOL_CONTRACT } from "../tools/mod.ts";
 import { EXTERNAL_TOOL_CONTRACT } from "../extensions/mod.ts";
 import {
-  agentDefinitionRead,
+  agentRead,
   agentSessionRead,
   checkpointTurn,
   compactSession,
@@ -43,7 +43,7 @@ import {
 import { domainList } from "../../../protocol/domains/mod.ts";
 import { appGet, appRuntime } from "../../../protocol/apps/mod.ts";
 import {
-  agentAssignmentGet,
+  assignmentGet,
   toolGateCheck,
 } from "../../../protocol/approvals/mod.ts";
 import { appTools } from "../../../protocol/apps/declaration/read.ts";
@@ -61,7 +61,7 @@ export const RUNTIME_MACHINE_ROUTES = [
   providerList,
   turnList,
   turnRead,
-  agentDefinitionRead,
+  agentRead,
   providerRead,
   // 사람이 적은 custom model 정보(catalog user 층). model resolver가 turn마다 읽는다.
   userModelInfoRead,
@@ -110,7 +110,7 @@ export const RUNTIME_MACHINE_ROUTES = [
   // domain 읽기는 turn을 시작할 때 맡은 domain의 이름과 purpose, skill 발견과 tool 목록이 쓴다.
   appTools,
   appGet,
-  agentAssignmentGet,
+  assignmentGet,
   domainList,
   // confirm 재검사의 프로세스 nonce. agent credential은 turn이 running일 때만 있다.
   appRuntime,

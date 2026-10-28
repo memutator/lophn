@@ -1,13 +1,13 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  agentDefinitionRead,
+  type AgentId,
   type AgentPlace,
+  agentRead,
   type McpServer,
   type McpToolServer,
   projectExtensionSettingsRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
-import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
 import {
   checkMcpConfig,
   createMcpConnections,
@@ -41,8 +41,6 @@ type RefreshState = "fresh" | "refreshing" | "failed";
 type McpToolkitDeps = {
   // machine 자격의 loopback. 사람의 registry(settings/get)를 읽는다.
   machine: CoreCall;
-  // Operator id로 그 agent를 가리키는 값을 만든다. role 이름은 조립이 안다.
-  operatorRef(id: string): AgentRef;
   connections: McpConnectionsDeps;
   // 연결 관리를 직접 주입하면 주어진 것을 쓴다(테스트). 없으면 deps로 만든다.
   // onListChanged는 이 모듈이 붙인다.
@@ -53,11 +51,11 @@ export type McpKit = {
   // turn마다 받는 등록 통로다. prepare.ts의 Toolkit.mcp다.
   toolkit(assignment: string): McpToolkit;
   // Grants 화면이 읽는 서버별 tool 목록이다. turn의 등록·재조회 상태와 따로 이 호출 전용 연결로 읽는다.
-  // agent가 Operator id면 그 정의 층의 서버를 마지막 층으로 더한다. 그 Operator의 mcp_off는 적용하지 않는다:
+  // agent가 있으면 그 정의 층의 서버를 마지막 층으로 더한다. 그 agent의 mcp_off는 적용하지 않는다:
   // 끈 server도 목록에 보여야 사람이 tool을 assign해 둘 수 있고, 끄기는 turn 준비가 맡는다.
   listTools(
     place: AgentPlace | null,
-    agent: string | null,
+    agent: AgentId | null,
   ): Promise<Result<McpToolServer[]>>;
   // 데몬 종료다. 모든 연결을 닫는다.
   endAll(): Promise<void>;
@@ -165,13 +163,11 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
     return ok(mergeMcpLayers(layers));
   }
 
-  // Operator 정의 층이다. 정의를 읽지 못했거나 틀렸으면 그 층이 없는 것과 같다(fails closed).
-  async function operatorLayer(
-    agent: string,
+  // agent 정의 층이다. 정의를 읽지 못했거나 틀렸으면 그 층이 없는 것과 같다(fails closed).
+  async function agentLayer(
+    agent: AgentId,
   ): Promise<McpSourceOptions["agent"]> {
-    const read = await readOf(deps.machine, agentDefinitionRead, {
-      agent: deps.operatorRef(agent),
-    });
+    const read = await readOf(deps.machine, agentRead, { agent });
     if (!read.ok || read.value.issues.length > 0) return undefined;
     const definition = read.value.definition as {
       mcp_servers?: readonly McpServer[];
@@ -443,7 +439,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
     async listTools(place, agent) {
       const registered = await serversOf(
         place,
-        agent === null ? undefined : await operatorLayer(agent),
+        agent === null ? undefined : await agentLayer(agent),
       );
       if (!registered.ok) return registered;
       const checked = checkMcpConfig(registered.value);

@@ -30,13 +30,10 @@ test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 domain�
   for (const step of [...appsSchemaSteps, ...releasesSchemaSteps]) {
     db.exec(step.sql);
   }
-  const grant = (agent: unknown) =>
+  const grant = (agent: string) =>
     db
       .prepare("INSERT INTO agent_assignments VALUES (?, ?)")
-      .run(
-        JSON.stringify(agent),
-        JSON.stringify([{ app: APP, removed_tools: [] }]),
-      );
+      .run(agent, JSON.stringify([{ app: APP, removed_tools: [] }]));
   db.exec(`CREATE TABLE agent_assignments (agent TEXT, entries TEXT);
     CREATE TABLE invocations (app TEXT, caller_kind TEXT, operation TEXT, session TEXT)`);
   db.prepare(
@@ -73,15 +70,9 @@ test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 domain�
     "UPDATE releases SET status = 'active', activated_at = ? WHERE id = ?",
   ).run(record.created_at, record.id);
 
-  // Operator는 정의에서 alpha만 골랐다(그 port 규칙은 wiring이 갖는다). PM은 beta를 맡는다.
-  const operator = {
-    role: "operator",
-    agent: "agt_01hzzzzzzzzzzzzzzzzzzzzzza",
-  };
-  const manager = {
-    role: "project_manager",
-    project: "prj_01hzzzzzzzzzzzzzzzzzzzzzzb",
-  };
+  // 사람이 만든 agent는 alpha만 골랐고(그 port 규칙은 wiring이 갖는다), lophn은 beta를 맡는다.
+  const operator = "agt_01hzzzzzzzzzzzzzzzzzzzzzza";
+  const manager = "lophn";
   grant(operator);
   grant(manager);
   const ports: UsagePorts = {
@@ -93,7 +84,7 @@ test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 domain�
 
   const users = appToolUsers(sql, ports, APP);
   if (!users.ok) throw new Error(JSON.stringify(users.error));
-  // a(alpha)는 beta를 맡은 PM이, b(beta)는 alpha를 고른 Operator가 쓴다. 자기 domain의 사용은 없다.
+  // a(alpha)는 beta를 맡은 lophn이, b(beta)는 alpha를 고른 agent가 쓴다. 자기 domain의 사용은 없다.
   assert.deepStrictEqual(
     users.ok && users.value.map((u) => `${u.tool}:${u.domain}`),
     ["a:dom_beta", "b:dom_alpha"],

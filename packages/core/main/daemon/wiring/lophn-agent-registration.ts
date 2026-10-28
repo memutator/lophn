@@ -1,29 +1,12 @@
 // projects와 lophn-agent가 서로를 import하지 않으므로 이 wiring file이 둘을 writer·reader Worker 안에서 잇는다.
 // Worker가 팀 등록 file로 import한다.
-// - project 등록 command가 같은 tx 안에서 부르는 Project Manager 만들기
-// - session을 열고 Router가 session 목록을 읽을 때 쓰는 project, 앱, Operator 조회
-import { ok } from "../../../../base/mod.ts";
-import {
-  projectInfoOf,
-  projectManagerProvisioningPort,
-} from "../../../projects/registry/mod.ts";
-import { defineTxPort } from "../../../storage/ledger/mod.ts";
-import { dataRootOf } from "../../../lophn-agent/agents/store.ts";
-import { ensureProjectManager } from "../../../agent-places/agents/ensure.ts";
-import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
+// - session을 열고 Router가 session 목록을 읽을 때 쓰는 project와 앱 조회
+import { projectInfoOf } from "../../../projects/registry/mod.ts";
 import { createPlaceRoleRules } from "../../../agent-places/place/session-directory.ts";
-import { operatorDirectory } from "./lophn-agent-team.ts";
-import { installPlaceEnvironment } from "../../../lophn-agent/places/mod.ts";
-
-// 동기 file API는 core 프로세스의 module graph에 정적으로 두지 않는다. adapter는 URL로 연다.
-const NODE_AGENT_FILES = new URL(
-  "../../../lophn-agent/agents/adapters/node-fs.ts",
-  import.meta.url,
-).href;
-const { createNodeAgentFiles } = (await import(NODE_AGENT_FILES)) as {
-  createNodeAgentFiles(): AgentFileSystem;
-};
-const files = createNodeAgentFiles();
+import {
+  installPlaceEnvironment,
+  UNWIRED_PLACE_DEPS,
+} from "../../../lophn-agent/places/mod.ts";
 
 // 열 수 있는지만 보므로 폴더가 있는지는 묻지 않는다.
 const ANY_FOLDER = { exists: () => true };
@@ -55,12 +38,15 @@ installPlaceEnvironment({
           ]),
         ),
     };
-    const operators = operatorDirectory(sql);
     return {
       projects,
       apps,
-      operators,
-      roles: createPlaceRoleRules({ projects, apps, operators }),
+      operators: UNWIRED_PLACE_DEPS.operators,
+      roles: createPlaceRoleRules({
+        projects,
+        apps,
+        operators: UNWIRED_PLACE_DEPS.operators,
+      }),
     };
   },
 });
@@ -77,21 +63,6 @@ function appOf(row: Record<string, unknown> | undefined) {
   } as never;
 }
 
-// 정의는 파일이라 tx에 묶이지 않는다. 파일을 만들지 못하면 등록도 되돌리고, 이미 만든 파일이 있으면 그대로 둔다.
-const ports = [
-  defineTxPort(projectManagerProvisioningPort, () => ({
-    create(tx, project) {
-      const root = dataRootOf(tx.sql, undefined);
-      if (!root.ok) return root;
-      const ensured = ensureProjectManager(
-        { files, root: root.value },
-        project,
-      );
-      return ensured.ok ? ok(undefined) : ensured;
-    },
-  })),
-];
-
 export function createCoreRegistration() {
-  return { ports };
+  return { ports: [] };
 }

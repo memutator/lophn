@@ -5,7 +5,6 @@ import type {
   Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
-import type { AgentRoleTable } from "./role-table.ts";
 import type { AvailableSkill } from "./resolve.ts";
 
 // agents가 바깥에서 받는 것들이다. 파일 IO와 다른 concern의 값은 모두 여기서 받아 시험이 바꿔 끼운다.
@@ -28,8 +27,6 @@ export type ReadSql = Pick<Tx["sql"], "get" | "all">;
 // 다른 concern의 값을 읽는 길. 정본은 각 concern이고 여기서는 읽기만 한다.
 export type AgentLookups = {
   placeExists(place: Place): boolean;
-  // 있는 project와 앱 전부. 목록과 Operator 찾기가 훑는다.
-  places(): Place[];
   // 이 place 그릇의 active domain id다(id 순). lophn(place 없음)은 빈 목록이다.
   domains(place: Place | null): readonly string[];
   // 이 place의 agent가 쓸 수 있는 skill 이름과 MCP tool이다. 전역 층에 그릇의 domain 층을 더한 것이고
@@ -55,16 +52,7 @@ export type PlaceLookups = {
 
 export type AgentDeps = {
   files: AgentFileSystem;
-  // role마다 다른 값과 규칙(정의 file 자리, built-in 이름, Operator 판정). role 층이 만들고 조립이 꽂는다.
-  roles: AgentRoleTable;
   lookups(sql: ReadSql): AgentLookups;
-  // agent가 Operator를 만들고 고칠 수 있는 place인지의 규칙이다. role 층이 정하고 조립이 꽂는다.
-  // ownPlace는 그 session의 place다.
-  operatorPlaceAllowed(
-    role: Role,
-    ownPlace: Place | null,
-    target: Place,
-  ): boolean;
   // 없으면 ledger 파일이 있는 폴더가 data root다.
   dataRoot?: string;
 };

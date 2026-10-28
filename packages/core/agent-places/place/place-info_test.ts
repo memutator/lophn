@@ -233,7 +233,7 @@ test("project의 workflows 폴더는 그 place의 PM의 prompt와 쓰기 범위�
     call,
     {
       ...agent("project_manager", projectPlace, []),
-      agent: { role: "project_manager", project: PRJ },
+      agent: "lophn",
     } as ResolvedAgent,
     files,
   );

@@ -27,7 +27,6 @@ import {
 } from "../prompt-assembly/mod.ts";
 import { estimatedCost } from "../usage/mod.ts";
 import { resolveTurnAgent } from "../agents/layers.ts";
-import type { AgentRoleTable } from "../agents/role-table.ts";
 import { commandOf, type CoreCall, readOf } from "../run-loop/core-call.ts";
 import { cappedOutput, type ModelBinding } from "../models/binding.ts";
 import {
@@ -94,7 +93,6 @@ type CompactorDeps = {
   // machine 자격의 loopback.
   machine: CoreCall;
   roleTools(role: Role): readonly string[];
-  roles: AgentRoleTable;
   blobs: BlobPort;
   redact: RedactText;
   resolveModel(input: {
@@ -162,7 +160,6 @@ export function createCompactor(
       session: request.session,
       skills: [],
       roleTools: deps.roleTools,
-      roles: deps.roles,
       mcp: () => Promise.resolve([]),
     });
     return made.ok && made.value.kind === "resolved"

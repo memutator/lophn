@@ -7,6 +7,8 @@ import {
   askWait,
 } from "../../protocol/lophn-agent/ask-tool.ts";
 import {
+  agentProfileImageRead,
+  agentProfileImageUpload,
   type AgentRef,
   finishRewindSummary,
   instructionPreview,
@@ -25,8 +27,6 @@ import {
   messageImageRead,
   messageImageUpload,
   type Place,
-  profileImageRead,
-  profileImageUpload,
   QUEUED_INPUT_ROUTES,
   type Role,
   readRewindSummary,
@@ -54,10 +54,11 @@ import {
   type AgentDeps,
   type AgentFileSystem,
   type AgentLookups,
+  agentIdOfRef,
   createAgentCommands,
   createAgentReads,
   domainsOf,
-  listOperators,
+  listAgents,
   loadAgent,
   openAgentContext,
   type PlaceLookups,
@@ -69,9 +70,8 @@ import {
   profileImageFileHandler,
   profileImageUploadHandler,
 } from "./agents/mod.ts";
-import type { AgentRoleTable } from "./agents/role-table.ts";
 import { createCommandReads } from "./commands/mod.ts";
-import type { OperatorMcpEntry } from "./extensions/mcp-snapshot.ts";
+import type { AgentMcpEntry } from "./extensions/mcp-snapshot.ts";
 import {
   commandSkillsOf,
   createExtensionRegistry,
@@ -263,7 +263,7 @@ const conversationCommands = createConversationCommands({
   send: { router: messageRouter, directory: messageDirectory },
   deleteSessionRecords,
   eraseBlobRefs,
-  // project와 앱, Operator 정의는 wiring이 놓는다(places/environment.ts). 놓기 전에는 새 session을 열지 못한다.
+  // project와 앱, agent 정의는 wiring이 놓는다(places/environment.ts). 놓기 전에는 새 session을 열지 못한다.
   // SessionStarted는 commit 뒤에 Bus로 간다.
   open: openDepsOf,
   // 도는 turn은 session이 끝나는 같은 Tx에서 닫는다. 입력함 비우기와 Bus event는 commit 뒤에 main thread가 한다.
@@ -448,10 +448,6 @@ function agentLookups(
             .domains(sql, place)
             .map((domain) => domain.id)
             .sort(),
-    places: () => [
-      ...places.projectIds(sql).map((id) => ({ kind: "project" as const, id })),
-      ...places.appIds(sql).map((id) => ({ kind: "app" as const, id })),
-    ],
     // 이 place의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 그릇의 domain 층을 더한다. 한 읽기 안에서 같은
     // place는 같은 목록이다. lophn(place 없음)은 전역 층만이다.
     skills: (place, role) =>
@@ -503,13 +499,11 @@ const {
 export function agentProfileHandlers(
   readers: ProfileReaders,
   dataRoot: string,
-  roles: AgentRoleTable,
 ): { upload: ProfileUploadHandler; file: ProfileFileHandler } {
   const deps: ProfileAssetDeps = {
     root: dataRoot,
     files: createNodeProfileImageFiles(),
     readers,
-    roles,
   };
   return {
     upload: profileImageUploadHandler(deps),
@@ -622,8 +616,6 @@ export function createLedgerRegistration(
 // 값은 모두 Worker 안에서 팀 file을 import할 때 만들어진다.
 export type LophnAgentPorts = {
   lookups: PlaceLookups;
-  operatorPlaceAllowed: AgentDeps["operatorPlaceAllowed"];
-  roles: AgentRoleTable;
   // 설정 층 규칙(project 층의 자리)과 내장 skill 폴더다. role 층의 값이다.
   projectLayer: ProjectLayer;
   bundledSkillsRoot: string;
@@ -647,35 +639,35 @@ export function createLophnAgent(ports: LophnAgentPorts) {
   const agentDeps: AgentDeps = {
     files: createNodeAgentFiles(),
     lookups: (sql) => agentLookups(ports.lookups, sql, ports),
-    roles: ports.roles,
-    operatorPlaceAllowed: ports.operatorPlaceAllowed,
   };
   const agentCommands = createAgentCommands(agentDeps);
   const agentReads = createAgentReads(agentDeps);
 
-  // sql로 agent 정의를 읽는 길이다. wiring이 이것으로 Operator 조회를 만들어 places 환경에 끼운다.
+  // sql로 agent 정의를 읽는 길이다. wiring이 이것으로 agent 조회를 만들어 places 환경에 끼운다.
   function openAgents(sql: Pick<Tx["sql"], "get" | "all">) {
     return openAgentContext(agentDeps, sql);
   }
 
-  // 모든 Operator 정의 층의 MCP 서버다. `mcp.` secret 목적지가 이 목록을 읽는다. 정의 파일이
-  // 틀린 Operator는 건너뛴다(project 층이 틀린 파일을 건너뛰는 것과 같다).
-  function operatorMcpServers(
+  // 모든 agent 정의 층의 MCP 서버다. `mcp.` secret 목적지가 이 목록을 읽는다. 정의 파일이
+  // 틀린 agent는 건너뛴다(project 층이 틀린 파일을 건너뛰는 것과 같다).
+  function agentMcpServers(
     sql: Pick<Tx["sql"], "get" | "all">,
-  ): Result<OperatorMcpEntry[]> {
+  ): Result<AgentMcpEntry[]> {
     const context = openAgents(sql);
     if (!context.ok) return context;
-    const listed = listOperators(context.value);
+    const listed = listAgents(context.value);
     if (!listed.ok) return listed;
-    const found: OperatorMcpEntry[] = [];
+    const found: AgentMcpEntry[] = [];
     for (const loaded of listed.value) {
-      const { definition, place } = loaded;
-      if (loaded.issues.length > 0 || definition === null || place === null) {
+      const { definition } = loaded;
+      if (loaded.issues.length > 0 || definition === null) {
         continue;
       }
-      if (!("mcp_servers" in definition)) continue;
       for (const server of definition.mcp_servers ?? []) {
-        found.push({ place, server: runtimeServerOfLayer(server, place) });
+        found.push({
+          agent: loaded.agent,
+          server: runtimeServerOfLayer(server, null),
+        });
       }
     }
     return ok(found);
@@ -710,15 +702,18 @@ export function createLophnAgent(ports: LophnAgentPorts) {
   function chosenOf(
     sql: Pick<Tx["sql"], "get" | "all">,
     agent: AgentRef,
+    place: Place | null,
   ): { skills: readonly string[]; domains: readonly string[] } {
     const none = { skills: [], domains: [] };
+    const id = agentIdOfRef(agent);
+    if (id === null) return none;
     const opened = openAgentContext(agentDeps, sql);
     if (!opened.ok) return none;
-    const loaded = loadAgent(opened.value, agent);
+    const loaded = loadAgent(opened.value, id);
     if (!loaded.ok || loaded.value === null) return none;
     return {
       skills: loaded.value.definition?.skills ?? [],
-      domains: domainsOf(opened.value, loaded.value),
+      domains: domainsOf(opened.value, loaded.value, place),
     };
   }
 
@@ -728,7 +723,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
   // 내장 skill은 발견이 role로 거른다.
   const commandReads = createCommandReads({
     skills: (sql, session) => {
-      const chosen = chosenOf(sql, session.agent);
+      const chosen = chosenOf(sql, session.agent, session.place);
       return commandSkillsOf(
         session.place === null
           ? discoverSkills(
@@ -775,7 +770,6 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       agentCommands.create,
       agentCommands.change,
       agentCommands.delete,
-      agentCommands.changeBuiltin,
       projectExtensionCommands.change,
       turnCommands.start,
       turnCommands.checkpoint,
@@ -875,8 +869,8 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       ...QUEUED_INPUT_ROUTES,
     ],
     // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
-    uploadRoutes: [profileImageUpload, messageImageUpload],
-    files: [profileImageRead, messageImageRead],
+    uploadRoutes: [agentProfileImageUpload, messageImageUpload],
+    files: [agentProfileImageRead, messageImageRead],
     // MCP OAuth의 시작·완료·상태·취소 입구다. handler는 core 조립(packages/core/lophn-agent/register.ts)이
     // createMcpAuthControl(mcp-auth.ts)로 붙인다. route만 등록한다.
   };
@@ -920,6 +914,6 @@ export function createLophnAgent(ports: LophnAgentPorts) {
     lophnAgentDefinitions,
     createReaderRegistration,
     openAgents,
-    operatorMcpServers,
+    agentMcpServers,
   };
 }

@@ -7,7 +7,7 @@ import { Dialog } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import { agentName, MISSED_OPTIONS } from "./model.ts";
-import type { JobPatch, JobView, MissedPolicy } from "./source.ts";
+import type { JobPatch, JobNames, JobView, MissedPolicy } from "./source.ts";
 import styles from "./jobs.module.css";
 
 const UNITS = [
@@ -18,10 +18,12 @@ const UNITS = [
 
 export function EditDialog({
   job,
+  names,
   onSave,
   onClose,
 }: {
   job: JobView;
+  names: JobNames;
   onSave: (patch: Required<JobPatch>) => void;
   onClose: () => void;
 }) {
@@ -107,7 +109,9 @@ export function EditDialog({
           />
         </Field>
         <p className={styles.note}>
-          {t("jobs.note.edit-readonly", { agent: agentName(job.creator) })}
+          {t("jobs.note.edit-readonly", {
+            agent: agentName(job.creator.agent, names),
+          })}
         </p>
       </div>
     </Dialog>

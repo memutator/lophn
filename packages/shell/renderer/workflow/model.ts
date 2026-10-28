@@ -20,8 +20,8 @@ export const shownOf = (
 /** job이 한 일의 담당 글. 지워진 job은 제목이 null이다. */
 export const jobWho = (title: string | null): string =>
   title === null
-    ? t("workflow.label.role-job-untitled")
-    : t("workflow.label.role-job", { title });
+    ? t("workflow.label.participant-job-untitled")
+    : t("workflow.label.participant-job", { title });
 
 export const STATE_KEY: Record<Shown, MessageKey> = {
   running: "workflow.label.state-running",
@@ -45,15 +45,6 @@ export const STEP_KEY: Record<StepShown, MessageKey> = {
   waiting: "workflow.label.step-waiting",
 };
 
-const ROLE_KEY: Record<string, MessageKey> = {
-  lophn: "workflow.label.role-lophn",
-  project_manager: "workflow.label.role-project-manager",
-  app_engineer: "workflow.label.role-app-engineer",
-  operator: "workflow.label.role-operator",
-  human: "workflow.label.role-human",
-  harness: "workflow.label.role-harness",
-};
-
 /** 넘기지 못한 이유(protocol의 `NOT_HANDED_REASONS`) → 글. 모르는 값은 unresolved 글이다. */
 const NOT_HANDED_KEY: Record<string, MessageKey> = {
   unknown_step: "workflow.note.not-handed-unknown-step",
@@ -66,8 +57,24 @@ const NOT_HANDED_KEY: Record<string, MessageKey> = {
 export const notHandedKey = (reason: string): MessageKey =>
   NOT_HANDED_KEY[reason] ?? "workflow.note.not-handed-unresolved";
 
-export const roleKey = (role: string): MessageKey =>
-  ROLE_KEY[role] ?? "workflow.label.role-unknown";
+/** 참가자 글. agent는 workflow.yaml에 쓴 이름 그대로이고 place는 적힌 것만 붙인다. */
+export function participantText(
+  participant: WorkflowInstanceView["participants"][string],
+): string {
+  if ("kind" in participant) {
+    return t(
+      participant.kind === "human"
+        ? "workflow.label.participant-human"
+        : "workflow.label.participant-harness",
+    );
+  }
+  const { agent, place } = participant;
+  if (place === undefined) return agent;
+  return t("workflow.label.participant-placed", {
+    agent,
+    place: "project" in place ? place.project : place.app,
+  });
+}
 
 export const runningCount = (
   instances: readonly WorkflowInstanceSummaryView[],

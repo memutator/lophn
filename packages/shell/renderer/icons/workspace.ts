@@ -45,7 +45,7 @@ export const workspaceIcons = {
   terminal: SquareTerminal,
   appPanel: AppWindow,
   notices: Bell,
-  // Operator editor의 [Delete Operator]와 [Upload image].
+  // agent editor의 [Delete]와 [Upload image].
   trash: Trash2,
   upload: Upload,
   // 탭 우클릭 menu.

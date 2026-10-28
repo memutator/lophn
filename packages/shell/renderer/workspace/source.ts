@@ -202,8 +202,18 @@ export interface WorkflowInstanceView {
   readonly workflow: string;
   readonly input: string;
   readonly state: WorkflowState;
+  /** workflow.yaml의 참가자. agent는 agent 이름이고 place가 없으면 instance의 project다. */
   readonly participants: Readonly<
-    Record<string, { readonly role: string; readonly name?: string }>
+    Record<
+      string,
+      | {
+          readonly agent: string;
+          readonly place?:
+            | { readonly project: string }
+            | { readonly app: string };
+        }
+      | { readonly kind: "human" | "harness" }
+    >
   >;
   readonly steps: readonly {
     readonly name: string;

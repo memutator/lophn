@@ -142,7 +142,7 @@ export const launcherArea: Area = {
       id: "new-launcher-new-app",
       title: "Launcher · new app",
       description:
-        "Apps section의 + 단추나 비었음 안내가 여는 dialog다. 이름과 한 줄 목적을 받고, 만들면 그 앱 공간이 App Engineer의 새 session과 함께 열린다. 이름이 겹치면 dialog에 오류가 보인다.",
+        "Apps section의 + 단추나 비었음 안내가 여는 dialog다. 이름과 한 줄 목적을 받고, 만들면 그 앱 공간이 그 앱 place의 lophn 새 session과 함께 열린다. 이름이 겹치면 dialog에 오류가 보인다.",
       render: () => <LauncherNewApp />,
     },
     {

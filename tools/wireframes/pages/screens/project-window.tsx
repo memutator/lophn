@@ -487,7 +487,7 @@ const job = (
 const JOBS: readonly JobView[] = [
   job(1, {
     title: "Weekly review",
-    creator: { role: "project_manager", project: PROJECT_ID },
+    creator: { agent: "lophn", place: { kind: "project", id: PROJECT_ID } },
     every: "7d",
     at: "10:00",
     action: {
@@ -500,12 +500,12 @@ const JOBS: readonly JobView[] = [
   }),
   job(2, {
     title: "Morning digest",
-    creator: { role: "lophn" },
+    creator: { agent: "lophn", place: null },
     every: "1d",
     at: "09:00",
     action: {
       kind: "agent_run",
-      agent: { role: "project_manager", project: PROJECT_ID },
+      agent: "lophn",
       agent_place: { kind: "project", id: PROJECT_ID },
       prompt: "Summarize yesterday's finished tasks.",
     },
@@ -515,12 +515,12 @@ const JOBS: readonly JobView[] = [
   }),
   job(3, {
     title: "Bookkeeping notes",
-    creator: { role: "lophn" },
+    creator: { agent: "lophn", place: null },
     every: "1d",
     at: "23:30",
     action: {
       kind: "agent_run",
-      agent: { role: "operator", agent: "agt_bookkeeper" },
+      agent: "agt_bookkeeper",
       agent_place: { kind: "project", id: PROJECT_ID },
       prompt: "Write today's bookkeeping notes.",
     },
@@ -534,7 +534,7 @@ const JOBS: readonly JobView[] = [
   }),
   job(4, {
     title: "Nightly eval run",
-    creator: { role: "lophn" },
+    creator: { agent: "lophn", place: null },
     every: "1d",
     at: "02:00",
     action: {
@@ -551,12 +551,12 @@ const JOBS: readonly JobView[] = [
   }),
   job(5, {
     title: "Grocery price check",
-    creator: { role: "project_manager", project: GROCERY_ID },
+    creator: { agent: "lophn", place: { kind: "project", id: GROCERY_ID } },
     every: "6h",
     at: null,
     action: {
       kind: "agent_run",
-      agent: { role: "project_manager", project: GROCERY_ID },
+      agent: "lophn",
       agent_place: { kind: "project", id: GROCERY_ID },
       prompt: "Compare this week's prices.",
     },

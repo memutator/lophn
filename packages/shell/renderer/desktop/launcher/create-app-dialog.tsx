@@ -15,7 +15,7 @@ interface CreateAppDialogProps {
   onCreated: (created: { id: string }) => void;
 }
 
-// 새 앱 창: 이름과 한 줄 목적. 만들면 그 앱의 App Engineer와 이어서 시작한다.
+// 새 앱 창: 이름과 한 줄 목적. 만들면 그 앱 place의 lophn 새 session으로 이어서 시작한다.
 export function CreateAppDialog({
   open,
   source,

@@ -22,7 +22,7 @@ import {
   headLines,
   jobWho,
   notHandedKey,
-  roleKey,
+  participantText,
   shownOf,
   STEP_KEY,
   stepRows,
@@ -42,12 +42,10 @@ const STEP_ICON = {
 
 const participantName = (instance: WorkflowInstanceView, key: string) => {
   const participant = instance.participants[key];
-  return participant === undefined
-    ? key
-    : (participant.name ?? t(roleKey(participant.role)));
+  return participant === undefined ? key : participantText(participant);
 };
 
-// step 담당 글. 사람 step은 "You, with Project Manager"다.
+// step 담당 글. 사람 step은 "You, with lophn"다.
 function assignee(
   instance: WorkflowInstanceView,
   step: WorkflowInstanceView["steps"][number],
@@ -66,9 +64,11 @@ function whoOf(
   detail: WorkflowInstanceDetailView,
   line: WorkflowLineView,
 ): string {
-  if (line.by.kind === "user") return t("workflow.label.role-human");
-  if (line.by.kind === "lophn") return t("workflow.label.role-lophn");
-  if (line.by.kind === "program") return t("workflow.label.role-program");
+  if (line.by.kind === "user") return t("workflow.label.participant-human");
+  if (line.by.kind === "lophn") return t("workflow.label.participant-lophn");
+  if (line.by.kind === "program") {
+    return t("workflow.label.participant-program");
+  }
   if (line.by.kind === "job") {
     const by = detail.instance.started_by;
     return jobWho(by.kind === "job" ? by.title : null);
@@ -79,7 +79,7 @@ function whoOf(
   );
   return handed?.kind === "handed"
     ? participantName(detail.instance, handed.participant)
-    : t("workflow.label.role-unknown");
+    : t("workflow.label.participant-unknown");
 }
 
 // edit 줄. step이 필요한 op인데 step이 없으면 "고쳤다"로만 읽는다.

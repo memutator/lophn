@@ -1,15 +1,10 @@
 // Scheduled jobs가 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은 core-source.ts만 안다.
 // 화면이 쓰는 칸만 담는다. project 창의 job panel도 이 통로와 model.ts를 그대로 쓴다.
 import type { JobRunState } from "../../../../../protocol/jobs/values.ts";
+import type { AgentId } from "../../../../../protocol/lophn-agent/places.ts";
 import type { SourceResult } from "../../../source-result.ts";
 
 export type { JobRunState, SourceResult };
-
-export type AgentRefView =
-  | { readonly role: "lophn" }
-  | { readonly role: "project_manager"; readonly project: string }
-  | { readonly role: "app_engineer"; readonly app: string }
-  | { readonly role: "operator"; readonly agent: string };
 
 export type PlaceView =
   | { readonly kind: "project"; readonly id: string }
@@ -18,7 +13,7 @@ export type PlaceView =
 export type JobActionView =
   | {
       readonly kind: "agent_run";
-      readonly agent: AgentRefView;
+      readonly agent: AgentId;
       readonly agent_place: PlaceView | null;
       readonly prompt: string;
     }
@@ -38,7 +33,11 @@ export type MissedPolicy = "run" | "hold";
 export interface JobView {
   readonly id: string;
   readonly title: string;
-  readonly creator: AgentRefView;
+  /** 만든 session의 agent와 place. home은 place가 null이다. */
+  readonly creator: {
+    readonly agent: AgentId;
+    readonly place: PlaceView | null;
+  };
   /** `30m`, `6h`, `1d`처럼 숫자와 단위(m, h, d). */
   readonly every: string;
   /** `09:00`. every가 d 단위일 때만 있다. */
@@ -69,8 +68,8 @@ export interface JobRunView {
 export interface JobNames {
   readonly apps: Readonly<Record<string, string>>;
   readonly projects: Readonly<Record<string, string>>;
-  /** Operator agent id → 이름. */
-  readonly operators: Readonly<Record<string, string>>;
+  /** agent id → 이름(lophn 포함). */
+  readonly agents: Readonly<Record<string, string>>;
 }
 
 export interface JobPatch {

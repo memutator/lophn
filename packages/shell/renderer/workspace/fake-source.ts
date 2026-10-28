@@ -88,9 +88,9 @@ const minutesAgo = (minutes: number) =>
   new Date(FAKE_NOW.getTime() - minutes * 60_000).toISOString();
 
 const PARTICIPANTS = {
-  lophn: { role: "lophn", name: "lophn" },
-  analyst: { role: "agent", name: "Eval analyst" },
-  human: { role: "human" },
+  lophn: { agent: "lophn" },
+  analyst: { agent: "Eval analyst" },
+  human: { kind: "human" },
 } as const;
 
 const FLOW_STEPS = ["fetch", "summarize", "publish"] as const;

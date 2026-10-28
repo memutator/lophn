@@ -207,7 +207,7 @@ export function KitOverlay() {
                     onOpenChange={setOpen}
                     container={container}
                     width="wide"
-                    title="Operator run"
+                    title="Agent run"
                     actions={<Close onClick={() => setOpen(false)} />}
                   >
                     Wide fits longer text, such as a run log or a diff that
@@ -395,8 +395,8 @@ export function KitOverlay() {
         </Row>
         <Row label="1 action">
           <Toast
-            title="1 Operator repeats a check here"
-            actions={[{ id: "see", label: "See Operators" }]}
+            title="1 agent repeats a check here"
+            actions={[{ id: "see", label: "See agents" }]}
             {...stop}
           />
         </Row>

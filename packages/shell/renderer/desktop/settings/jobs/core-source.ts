@@ -6,7 +6,7 @@ import {
   jobRunList,
   jobUpdate,
 } from "../../../../../protocol/jobs/jobs.ts";
-import { agentDefinitionList } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
+import { agentList } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import { coreAppsSource } from "../../../apps/core-source.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { readProjects } from "../../launcher/projects/core-source.ts";
@@ -68,13 +68,11 @@ export function coreJobsSource(core: CoreSource): JobsSource {
       const [projects, apps, agents] = await Promise.all([
         readProjects(core),
         coreAppsSource(core).list(),
-        call<{
-          agents: { agent: { role: string; agent?: string }; name: string }[];
-        }>(
+        call<{ agents: { agent: string; name: string }[] }>(
           core,
           "read",
-          agentDefinitionList.resource,
-          agentDefinitionList.method,
+          agentList.resource,
+          agentList.method,
           {},
         ),
       ]);
@@ -85,13 +83,9 @@ export function coreJobsSource(core: CoreSource): JobsSource {
         apps: apps.ok
           ? Object.fromEntries(apps.value.map((one) => [one.id, one.name]))
           : {},
-        operators: agents.ok
+        agents: agents.ok
           ? Object.fromEntries(
-              agents.value.agents.flatMap((row) =>
-                row.agent.role === "operator"
-                  ? [[row.agent.agent!, row.name]]
-                  : [],
-              ),
+              agents.value.agents.map((row) => [row.agent, row.name]),
             )
           : {},
       };

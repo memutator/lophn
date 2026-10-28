@@ -143,6 +143,7 @@ export function JobsPanel({
       {editing === null ? null : (
         <EditDialog
           job={editing}
+          names={names ?? { apps: {}, projects: {}, agents: {} }}
           onClose={() => setEditing(null)}
           onSave={(patch) => {
             const job = editing.id;

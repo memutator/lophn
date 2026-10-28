@@ -173,8 +173,8 @@ export function Desktop({
   const beforeSettings = useRef<Route | null>(null);
   // Settings로 간다. 이미 Settings여도 고른 항목부터 다시 연다.
   const settingsSpace = (pane?: SettingsPane) => {
-    // Settings 자신과, Settings에서 연 전역 지침 편집기는 앞 자리가 아니다. 한 번 쓰고 끝나는 시작값(열 파일,
-    // Project Manager)은 버려 돌아올 때 다시 일어나지 않게 한다.
+    // Settings 자신과, Settings에서 연 전역 지침 편집기는 앞 자리가 아니다. 한 번 쓰고 끝나는 시작값(열 파일)은
+    // 버려 돌아올 때 다시 일어나지 않게 한다.
     const global =
       route.space === "instructions" && route.instructions?.layer === "global";
     if (route.space !== "settings" && !global) {
@@ -205,8 +205,8 @@ export function Desktop({
     else setRoute(openProject(target.project, { open: target.file }));
   };
 
-  // session을 그 session이 있는 창에서 연다. project의 session은 그 project 창, 앱의 session은 그 앱 공간이다.
-  // place가 없는 lophn의 session은 지금 project 창이면 거기서 열고, 아니면 런처의 lophn 패널에서 연다.
+  // session을 그 session의 place에서 연다. project의 session은 그 project 창, 앱의 session은 그 앱 공간,
+  // home(place 없음)이거나 모르는 session은 런처의 lophn 패널이다. project 창은 그 project place의 session만 보인다.
   const { sessions } = useSessions();
   const known = useRef(sessions);
   known.current = sessions;
@@ -217,9 +217,7 @@ export function Desktop({
     if (place?.kind === "project") {
       setRoute(openProject(place.id, { session }));
     } else if (place?.kind === "app") setRoute(openApp(place.id, session));
-    else if (route.space === "project" && route.project) {
-      setRoute(openProject(route.project, { session }));
-    } else setRoute(openLauncher(session));
+    else setRoute(openLauncher(session));
   };
   // 저장한 appearance를 시작할 때 적용한다. core가 준비되면 읽는다.
   const appearance = settingsPanels?.appearance;
@@ -286,7 +284,6 @@ export function Desktop({
         detached={detached}
         agentViewSource={agentViewSource}
         session={route.session}
-        projectManager={route.projectManager}
         open={route.open}
       />
     );
@@ -346,7 +343,7 @@ export function Desktop({
         annotate={annotate}
         overlay={overlay}
         session={route.session}
-        appEngineer={route.appEngineer}
+        appEngineer={route.newSession}
         onOpenSession={openSession}
       />
     );

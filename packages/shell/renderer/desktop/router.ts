@@ -24,10 +24,8 @@ export interface Route {
   readonly instructions?: InstructionsPlace;
   /** project·app 공간에서 열어 시작할 session. launcher 공간에서는 lophn 패널이 열 session이다. */
   readonly session?: string;
-  /** app 공간에서 그 앱의 App Engineer를 새 session으로 열어 시작한다. */
-  readonly appEngineer?: true;
-  /** project 공간에서 그 project의 Project Manager를 열어 시작한다. */
-  readonly projectManager?: true;
+  /** app 공간에서 그 앱 place의 lophn을 새 session으로 열어 시작한다. */
+  readonly newSession?: true;
   /** project 공간에서 열어 시작할 파일. path는 디스크의 절대 경로다. */
   readonly open?: { readonly path: string; readonly line?: number };
 }
@@ -49,7 +47,7 @@ export function openSettings(settingsPane?: SettingsPane): Route {
 /** 프로젝트 작업대로 이동한다. */
 export function openProject(
   project: string,
-  start: Pick<Route, "session" | "projectManager" | "open"> = {},
+  start: Pick<Route, "session" | "open"> = {},
 ): Route {
   return { space: "project", project, ...start };
 }
@@ -66,9 +64,9 @@ export function openApp(app: string, session?: string): Route {
     : { space: "app", app, session };
 }
 
-/** 방금 만든 앱의 앱 공간으로 이동한다. 오른쪽 패널이 App Engineer의 새 session으로 열린다. */
+/** 방금 만든 앱의 앱 공간으로 이동한다. 오른쪽 패널이 그 앱 place의 lophn 새 session으로 열린다. */
 export function openNewApp(app: string): Route {
-  return { space: "app", app, appEngineer: true };
+  return { space: "app", app, newSession: true };
 }
 
 /** detached 창(탭 하나만 그리는 OS 창)으로 시작한다. */

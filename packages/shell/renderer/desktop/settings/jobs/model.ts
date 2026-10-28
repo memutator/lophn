@@ -3,8 +3,12 @@ import type { StatusTone } from "@lophn/ui";
 import { formatRelativeTime, type MessageKey, t } from "@lophn/wording";
 
 import { shortId } from "../../connection/waiting/model.ts";
+import { LOPHN_AGENT_NAME } from "../../../../../protocol/lophn-agent/agent-values.ts";
+import {
+  type AgentId,
+  LOPHN_AGENT_ID,
+} from "../../../../../protocol/lophn-agent/places.ts";
 import type {
-  AgentRefView,
   JobActionView,
   JobNames,
   JobRunState,
@@ -27,14 +31,14 @@ export function scheduleText(every: string, at: string | null): string {
     : t(EVERY_KEY[unit], { n });
 }
 
-/** 이 project에 걸린 job: 그 project의 PM이 만들었거나, 그 project의 agent를 부르거나, 그 project의 workflow를 시작하는 것. */
+/** 이 project에 걸린 job: 그 project place의 agent가 만들었거나, 그 project의 agent를 부르거나, 그 project의 workflow를 시작하는 것. */
 export function jobsOfProject(
   jobs: readonly JobView[],
   project: string,
 ): JobView[] {
   return jobs.filter(
     ({ creator, action }) =>
-      (creator.role === "project_manager" && creator.project === project) ||
+      (creator.place?.kind === "project" && creator.place.id === project) ||
       (action.kind === "agent_run" &&
         action.agent_place?.kind === "project" &&
         action.agent_place.id === project) ||
@@ -51,17 +55,14 @@ export function nextText(job: JobView, now: Date): string {
   });
 }
 
-export function agentName(agent: AgentRefView): string {
-  switch (agent.role) {
-    case "lophn":
-      return t("jobs.label.agent-lophn");
-    case "project_manager":
-      return t("jobs.label.agent-project-manager");
-    case "app_engineer":
-      return t("jobs.label.agent-app-engineer");
-    case "operator":
-      return t("jobs.label.agent-operator");
-  }
+/** agent 이름. 표에 없으면 lophn은 고정 이름이고 나머지는 이름 모르는 agent다. */
+export function agentName(agent: AgentId, names: JobNames): string {
+  return (
+    names.agents[agent] ??
+    (agent === LOPHN_AGENT_ID
+      ? LOPHN_AGENT_NAME
+      : t("jobs.label.agent-unnamed"))
+  );
 }
 
 const nameOf = (table: Readonly<Record<string, string>>, id: string) =>
@@ -76,10 +77,7 @@ export function actionText(
     case "agent_run":
       return {
         summary: t("jobs.label.action-agent", {
-          agent:
-            action.agent.role === "operator"
-              ? (names.operators[action.agent.agent] ?? agentName(action.agent))
-              : agentName(action.agent),
+          agent: agentName(action.agent, names),
         }),
         detail: action.prompt,
       };
@@ -102,22 +100,20 @@ export function actionText(
   }
 }
 
-export function creatorText(creator: AgentRefView, names: JobNames): string {
-  const agent = agentName(creator);
-  switch (creator.role) {
-    case "project_manager":
-      return t("jobs.label.created-by-place", {
-        agent,
-        place: nameOf(names.projects, creator.project),
-      });
-    case "app_engineer":
-      return t("jobs.label.created-by-place", {
-        agent,
-        place: nameOf(names.apps, creator.app),
-      });
-    default:
-      return t("jobs.label.created-by", { agent });
-  }
+export function creatorText(
+  creator: JobView["creator"],
+  names: JobNames,
+): string {
+  const agent = agentName(creator.agent, names);
+  const { place } = creator;
+  if (place === null) return t("jobs.label.created-by", { agent });
+  return t("jobs.label.created-by-place", {
+    agent,
+    place: nameOf(
+      place.kind === "project" ? names.projects : names.apps,
+      place.id,
+    ),
+  });
 }
 
 export const MISSED_OPTIONS: readonly {

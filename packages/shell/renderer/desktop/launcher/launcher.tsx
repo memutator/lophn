@@ -50,7 +50,7 @@ interface LauncherProps {
   apps?: AppsSource;
   /** 그 앱의 앱 공간으로 이동한다. */
   onApp?: (app: string) => void;
-  /** New app으로 만든 앱의 앱 공간으로 이동한다. App Engineer와 새 session으로 시작한다. */
+  /** New app으로 만든 앱의 앱 공간으로 이동한다. 그 앱 place의 lophn 새 session으로 시작한다. */
   onNewApp?: (app: string) => void;
   /** 새 프로젝트 id. 테스트가 고정한다. */
   newProjectId?: () => string;

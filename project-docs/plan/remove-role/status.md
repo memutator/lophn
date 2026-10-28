@@ -31,4 +31,4 @@ lead만 고친다. `tools/status.py remove-role build`가 `tasks/*.md`에서 id,
 | `shell-workspace` | shell | 3 | shell-events | merged | shell/shell-workspace | f6706525e |  |
 | `cleanup-core` | cleanup | 4 | 없음 | merged | cleanup/cleanup-core | 8c775e17a |  |
 | `cleanup-protocol` | cleanup | 4 | cleanup-core, cleanup-shell | todo |  |  |  |
-| `cleanup-shell` | cleanup | 4 | 없음 | running | cleanup/cleanup-shell |  |  |
+| `cleanup-shell` | cleanup | 4 | 없음 | merged | cleanup/cleanup-shell | a979b0b1b |  |

@@ -9,7 +9,7 @@ lead만 고친다. `tools/status.py remove-role build`가 `tasks/*.md`에서 id,
 | `coding-core` | coding | 1 | coding-shell, coding-cli | todo |  |  |  |
 | `coding-shell` | coding | 1 | 없음 | running | coding/coding-shell |  |  |
 | `contract-agent` | contract | 1 | 없음 | merged | contract/contract-agent | f55de3390 |  |
-| `contract-session` | contract | 1 | contract-agent | todo |  |  |  |
+| `contract-session` | contract | 1 | contract-agent | merged | contract/contract-session | ec8edb917 |  |
 | `agents-core` | agents | 2 | 없음 | todo |  |  |  |
 | `jobs-core` | jobs | 2 | runs-core, wireframe-sidebar | todo |  |  |  |
 | `place-prompts` | places | 2 | place-scope | todo |  |  |  |

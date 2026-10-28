@@ -145,7 +145,7 @@ export class CredentialRegistry {
       )
         return invalid();
       const context: AuthenticatedContext = parsed.data;
-      // agent의 앱 조건(App Engineer의 담당 앱)은 target을 앱에 고정하지 않는다. 앱 없는 대상(SDK 계약,
+      // agent의 앱 조건(앱 place session의 앱)은 target을 앱에 고정하지 않는다. 앱 없는 대상(SDK 계약,
       // handoff 고정 근거)도 닿아야 하고, 범위는 ledger의 target 판정이 앱 조건으로 가른다.
       if (
         kind !== "agent" &&

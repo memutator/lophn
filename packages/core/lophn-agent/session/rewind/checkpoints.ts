@@ -3,6 +3,7 @@ import {
   type Checkpoint,
   checkpointSchema,
 } from "../../../../protocol/lophn-agent/mod.ts";
+import type { CallFrom } from "../../../../protocol/lophn-agent/calls.ts";
 import type { Tx } from "../../../../protocol/server/mod.ts";
 
 // Checkpoint는 turn을 시작하는 Router 입력(사람 메시지, call, 답)마다 생긴다. 메시지를 접수하는 같은
@@ -12,7 +13,7 @@ import type { Tx } from "../../../../protocol/server/mod.ts";
 type CheckpointMessage = {
   id: string;
   session: string;
-  from_kind: "human" | "program" | "agent" | "coding_agent";
+  from_kind: CallFrom["kind"];
   // 사람 메시지가 아니면 null이다.
   delivery: "next_turn" | "steer" | null;
   copied_from: string | null;

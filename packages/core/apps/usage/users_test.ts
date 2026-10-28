@@ -71,15 +71,15 @@ test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 domain�
   ).run(record.created_at, record.id);
 
   // 사람이 만든 agent는 alpha만 골랐고(그 port 규칙은 wiring이 갖는다), lophn은 beta를 맡는다.
-  const operator = "agt_01hzzzzzzzzzzzzzzzzzzzzzza";
+  const reviewer = "agt_01hzzzzzzzzzzzzzzzzzzzzzza";
   const manager = "lophn";
-  grant(operator);
+  grant(reviewer);
   grant(manager);
   const ports: UsagePorts = {
     sessionDomains: () => null,
     agentDomains: () => [],
     chosenDomains: (agent) =>
-      agent === operator ? ["dom_alpha"] : ["dom_beta"],
+      agent === reviewer ? ["dom_alpha"] : ["dom_beta"],
     domainOf: (_app, name) => DOMAINS[name] ?? null,
   };
 

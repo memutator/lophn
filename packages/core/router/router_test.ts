@@ -16,7 +16,6 @@ import type {
 const SENDER = "ses_sender";
 const RECEIVER = "ses_receiver";
 const lophn = { agent: "lophn", place: null } as const;
-const callAgent = { role: "lophn" } as const;
 
 function target(session: string, accepting: boolean): TargetSession {
   return {
@@ -66,8 +65,6 @@ function setup(sessions: Record<string, TargetSession>) {
   const directory: SessionDirectory = {
     find: (session) => sessions[session] ?? null,
     resolveAddress: () => ok(lophn),
-    resolveAgent: () => ok(callAgent),
-    openOf: () => null,
     open: () => {
       opened += 1;
       return ok(sessions[RECEIVER]!);
@@ -86,7 +83,6 @@ function setup(sessions: Record<string, TargetSession>) {
         cancelled.push(unattended);
         return ok(undefined);
       },
-      queued: () => [],
     },
   });
   return { tx, router, rows, delivered, cancelled, opened: () => opened };

@@ -11,9 +11,9 @@ const APP_A = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
 const APP_B = "app_01hzzzzzzzzzzzzzzzzzzzzzzb";
 const AGENT = "agent:ses_01hzzzzzzzzzzzzzzzzzzzzzza";
 
-// 앱 A에 묶인 Project Manager는 다른 앱의 tool 목록은 읽지만 log·호출 기록은 여전히 not_found다.
+// 앱 A에 묶인 agent 자격은 다른 앱의 tool 목록은 읽지만 log·호출 기록은 여전히 not_found다.
 // 목록 route가 앱 범위 판정을 하지 않는 것이 log·호출 기록으로 번지면 다른 앱 데이터가 샌다.
-test("Project Manager 자격은 다른 앱의 tool 목록을 읽지만 다른 앱의 log·호출 기록은 여전히 not_found다", () => {
+test("앱 하나에 묶인 agent 자격은 다른 앱의 tool 목록을 읽지만 다른 앱의 log·호출 기록은 여전히 not_found다", () => {
   const db = new DatabaseSync(":memory:");
   for (const step of appsSchemaSteps) db.exec(step.sql);
   for (const [id, slug] of [

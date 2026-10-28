@@ -67,7 +67,7 @@ async function exists(path: string): Promise<boolean> {
 
 // 앱의 기본 source 자리(`appDefaultSource`)에 template을 깐다. 임시 폴더에서 commit까지 만든 뒤 옮겨, 있는 폴더는 늘 commit이 있다.
 // 이미 있는 폴더는 commit이 있을 때만(앞서 깔다 연결 전에 끊긴 경우) 그대로 쓰고 아니면 덮지 않고 오류다.
-// 새 저장소에는 저장소 안 git 설정을 남긴다. 이어서 App Engineer가 commit할 때 사람의 전역 이름에 기대지 않게 한다.
+// 새 저장소에는 저장소 안 git 설정을 남긴다. 이어서 앱 place의 session이 commit할 때 사람의 전역 이름에 기대지 않게 한다.
 async function scaffold(
   target: ScaffoldTarget,
   dataRoot: string,

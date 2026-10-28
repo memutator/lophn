@@ -7,7 +7,7 @@ import type { ToolContext } from "../tool-context.ts";
 import { executeToolCall } from "../work.ts";
 import { TOOL_TOOLS } from "./tool.ts";
 
-// session 목록 밖 tool을 펼치면 role 목록과 할당이라는 권한 경계를 넘는다.
+// session 목록 밖 tool을 펼치면 place 종류 목록과 할당이라는 권한 경계를 넘는다.
 test("tool.load는 그 session의 숨긴 tool만 펼친다", async () => {
   const stub = (name: string) =>
     defineTool({

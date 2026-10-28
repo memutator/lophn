@@ -6,7 +6,6 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   amendRevertInstall,
-  closeSession,
   deleteSession,
   type PreparedFile,
   recordRewindApps,
@@ -365,10 +364,7 @@ export function withRewindFiles(writer: Writer, deps: RewindFilesDeps): Writer {
   return {
     ...writer,
     command(ctx, envelope) {
-      if (
-        envelope.command === deleteSession.name ||
-        envelope.command === closeSession.name
-      ) {
+      if (envelope.command === deleteSession.name) {
         return erasedAfter(envelope, writer.command(ctx, envelope));
       }
       if (

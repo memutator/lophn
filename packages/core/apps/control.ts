@@ -489,7 +489,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     stage: "build" | "dependencies" | "migration" | "handlers" | "release",
     reason: string,
   ) => ok({ status: "failed" as const, stage, reason });
-  // App Engineer가 앱 source의 HEAD로 release를 준비한다. 순서: HEAD, build와 의존성·migration 검사(supervisor의
+  // 앱 place의 session이 앱 source의 HEAD로 release를 준비한다. 순서: HEAD, build와 의존성·migration 검사(supervisor의
   // 준비 자식), 봉인, handler 검사(preview로 한 번 띄움), release 확정. 검사에 떨어진 것은 오류가 아니라
   // failed 결과다: 오류 code는 model에 고정 글만 닿아 떨어진 이유가 가려진다. release 행은 마지막 단계에서만 생긴다.
   const releasePrepareHandler: MemoryHandler = async (ctx, input) => {
@@ -681,7 +681,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
       preparing.delete(app);
     }
   };
-  // App Engineer가 자기 앱의 prepared release를 올린다. 범위 밖과 없는 release는 같은 not_found다.
+  // 앱 place의 session이 그 앱의 prepared release를 올린다. 범위 밖과 없는 release는 같은 not_found다.
   // memory 처리기는 operation을 따로 보지 않아 여기서 직접 판정한다.
   const releaseActivateHandler: MemoryHandler = async (ctx, input) => {
     if (activation === null) {

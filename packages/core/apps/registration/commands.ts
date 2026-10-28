@@ -48,18 +48,20 @@ function requireCreator(ctx: RequestContext): Result<void> {
     : forbidden("app creation is user or lophn agent only");
 }
 
-// source 연결은 user, coding connection, 그 앱의 App Engineer, core 안 machine 자격만 받는다. App Engineer의 앱은
+// source 연결은 user, coding connection, 그 앱 place의 agent, core 안 machine 자격만 받는다. agent의 앱은
 // 자격 조건이 정한다. machine 자격은 core 안에서만 만들고 operation 상한이 이 command 하나다(registration/source-folder.ts).
 function requireWriter(ctx: RequestContext, app: string): Result<void> {
   const kind = parseActor(ctx.actor)?.kind;
   if (kind === "agent") {
     return ctx.conditions.app === app
       ? ok(undefined)
-      : forbidden("an App Engineer connects only its own app");
+      : forbidden("an agent connects only the app of its session's place");
   }
   return kind === "user" || kind === "coding_agent" || kind === "machine"
     ? ok(undefined)
-    : forbidden("app changes are user, coding connection or App Engineer only");
+    : forbidden(
+        "app changes are user, coding connection or app place agent only",
+      );
 }
 
 // 등록은 전체 범위 요청만 받는다. 앱 하나 scope의 conditions.app은

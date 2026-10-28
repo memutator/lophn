@@ -5,9 +5,6 @@ import type {
   AgentAddress,
   AgentAtPlace,
   AgentId,
-  CallAgent,
-  NamedAgent,
-  Place,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import type {
@@ -17,31 +14,12 @@ import type {
 } from "../ports.ts";
 import type { AgentDirectory } from "../agents/mod.ts";
 
-// 옛 Operator 정의 조회. jobs-registration이 아직 읽는다. cleanup-core가 지운다.
-export type OperatorInfo = {
-  id: Id<"agt">;
-  name: string;
-  place: Place;
-  // 정의 file이 고른 domain id. 안 골랐으면 빈 목록이다.
-  domains: readonly string[];
-  // 정의의 skip 기본값. 없으면 false.
-  skip: boolean;
-};
-
-export interface OperatorDirectory {
-  operator(id: string): OperatorInfo | null;
-  operators(): readonly OperatorInfo[];
-}
-
-// role마다 다른 규칙. agent-places가 project·앱·Operator 조회를 쥐고 만들어 wiring이 꽂는다.
-export type PlaceRoleRules = {
+// 이름 규칙. agent-places가 project·앱·agent 조회를 쥐고 만들어 wiring이 꽂는다.
+export type PlaceNameRules = {
   // 목록에 보일 agent 이름. 못 찾으면 빈 글이다.
   nameOf(agent: AgentId): string;
   // agent 이름과 place 이름으로 받을 session 하나를 고른다. place가 없으면 home이다.
   resolveAddress(address: AgentAddress): Result<AgentAtPlace>;
-  // 옛 이름 꼴. `runs-core`·`jobs-core`가 옮길 때까지 남기고 `cleanup-core`가 지운다.
-  // 이름으로 받은 agent 하나를 고른다. 이름을 짐작하지 않는다.
-  resolveNamed(named: NamedAgent): Result<CallAgent>;
 };
 
 // session의 agent와 place를 확인하는 데 필요한 것. agent 정의와 place 정보는 project·앱 module의 port로 읽는다.
@@ -49,8 +27,7 @@ export type PlaceDeps = {
   projects: Pick<ProjectDirectory, "project" | "projectByName">;
   apps: Pick<AppDirectory, "app" | "appByName">;
   agents: AgentDirectory;
-  operators: OperatorDirectory;
-  roles: PlaceRoleRules;
+  names: PlaceNameRules;
 };
 
 export type OpenDeps = PlaceDeps & {

@@ -20,7 +20,7 @@ export function placePrompt(kind: PlaceKind): Promise<Result<string>> {
   );
 }
 
-// 제품 공통 지시. 역할과 상관없이 모든 session의 맨 앞에 온다. tag 목록을 코드에서 끼우지 않고
+// 제품 공통 지시. place 종류와 상관없이 모든 session의 맨 앞에 온다. tag 목록을 코드에서 끼우지 않고
 // 고정 문장으로 둔다(cache). 설명하는 tag의 이름은 protocol의 INPUT_TAGS에 있어야 한다.
 // reaction은 받을 agent가 없어 설명하지 않는다.
 export const PRODUCT_INSTRUCTIONS = `You are an agent inside lophn, a local workspace where a person has software built, used and maintained by agents.

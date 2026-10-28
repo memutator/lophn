@@ -493,7 +493,7 @@ const {
   createNodeProfileImageFiles(): ProfileImageFiles;
 };
 
-// profile 이미지 바이트의 upload·file 처리기다. core.ts가 route 이름으로 붙인다. 자리·역할의 판정은
+// profile 이미지 바이트의 upload·file 처리기다. core.ts가 route 이름으로 붙인다. 자리의 판정은
 // runtime의 reader가 하고, 파일은 이 adapter로 core 프로세스에서 비동기로 읽고 쓴다.
 export function agentProfileHandlers(
   readers: ProfileReaders,

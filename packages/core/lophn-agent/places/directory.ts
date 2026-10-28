@@ -1,18 +1,13 @@
 import { ok } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import {
-  type Place,
-  placeOfAgentRef,
-} from "../../../protocol/lophn-agent/mod.ts";
+import type { Place } from "../../../protocol/lophn-agent/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import type { SessionDirectory, TargetSession } from "../../router/ports.ts";
-import { agentIdOfRef } from "../agents/bridge.ts";
 import {
   type AgentSessionRow,
   loadSession,
   placeOf,
   SESSION_COLUMNS,
-  sessionClause,
   sessionRowOf,
 } from "../session/model.ts";
 import { startSession } from "./lifecycle.ts";
@@ -20,7 +15,7 @@ import { acceptsInput } from "./model.ts";
 import type { OpenDeps } from "./ports.ts";
 
 type SessionDirectoryDeps = OpenDeps & {
-  // 지금 transaction의 sql이다. Router가 한 tx 안에서 부르는 find와 openOf, listOpen이 읽는다.
+  // 지금 transaction의 sql이다. Router가 한 tx 안에서 부르는 find와 listOpen이 읽는다.
   sql(): Pick<Sql, "get" | "all">;
 };
 
@@ -52,21 +47,7 @@ export function createSessionDirectory(
       const row = loadSession({ sql: deps.sql() }, session);
       return row === undefined ? null : targetOf(row);
     },
-    resolveAddress: deps.roles.resolveAddress,
-    resolveAgent: deps.roles.resolveNamed,
-    openOf(agent) {
-      if (agent.role === "coding_agent") return null;
-      const id = agentIdOfRef(agent);
-      if (id === null) return null;
-      const which = sessionClause(id, placeOfAgentRef(agent) ?? null);
-      const row = deps.sql().get(
-        `select ${SESSION_COLUMNS} from sessions
-         where lifecycle = 'open' and (${which.sql})
-         order by created_seq desc limit 1`,
-        which.params,
-      );
-      return row === undefined ? null : targetOf(sessionRowOf(row));
-    },
+    resolveAddress: deps.names.resolveAddress,
     open(tx, agent, _opener) {
       const started = startSession(tx, deps, {
         id: tx.newId("ses"),
@@ -86,7 +67,7 @@ export function createSessionDirectory(
         .map(sessionRowOf)
         .map((row) => ({
           ...targetOf(row),
-          name: deps.roles.nameOf(row.agent),
+          name: deps.names.nameOf(row.agent),
         }));
     },
   };

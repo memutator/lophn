@@ -2,11 +2,8 @@
 // Worker가 팀 등록 file로 import한다.
 // - session을 열고 Router가 session 목록을 읽을 때 쓰는 project와 앱 조회
 import { projectInfoOf } from "../../../projects/registry/mod.ts";
-import { createPlaceRoleRules } from "../../../agent-places/place/session-directory.ts";
-import {
-  installPlaceEnvironment,
-  UNWIRED_PLACE_DEPS,
-} from "../../../lophn-agent/places/mod.ts";
+import { createPlaceNameRules } from "../../../agent-places/place/session-directory.ts";
+import { installPlaceEnvironment } from "../../../lophn-agent/places/mod.ts";
 import { agentDirectory } from "./lophn-agent-team.ts";
 
 // 열 수 있는지만 보므로 폴더가 있는지는 묻지 않는다.
@@ -44,8 +41,7 @@ installPlaceEnvironment({
       projects,
       apps,
       agents,
-      operators: UNWIRED_PLACE_DEPS.operators,
-      roles: createPlaceRoleRules({ projects, apps, agents }),
+      names: createPlaceNameRules({ projects, apps, agents }),
     };
   },
 });

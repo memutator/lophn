@@ -1,7 +1,7 @@
 // core 안 activation 조립. 세 일을 한다.
 //   1. 운영 DesiredApp: 활성 release의 봉인 bundle 사본에서 앱 자식의 entry·화면·data schema를 읽어
 //      supervisor에 알린다. 앱은 권한 flag 없이 뜬다(사람이 2026-10-27에 정했다).
-//   2. activation: App Engineer의 `release.activate`(판정은 handler.ts)가 앱마다 하나만(queue.ts)
+//   2. activation: 앱 place session의 `release.activate`(판정은 handler.ts)가 앱마다 하나만(queue.ts)
 //      시작한 release를 `activation.start`로 열고 `runActivation`이 순서대로 진행한다. core가 다시 뜨거나
 //      supervisor가 끊긴 뒤의 진행 중 시도는 `recoverActivation`이 ledger와 실제 관측에서 이어받는다.
 //      단계의 실제 일은 `ActivationPorts`로 끼운다: 자식 종료·후보 준비·열기는 supervisor, 앱 DB 작업은

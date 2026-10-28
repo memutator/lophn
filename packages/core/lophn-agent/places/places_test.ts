@@ -24,7 +24,7 @@ import { UNWIRED_END_DEPS, UNWIRED_PLACE_DEPS } from "./unwired.ts";
 const PROJECT = "prj_00000000000000000000000001";
 const APP = "app_00000000000000000000000001";
 const OTHER_APP = "app_00000000000000000000000002";
-const OPERATOR = "agt_00000000000000000000000001";
+const REVIEWER = "agt_00000000000000000000000001";
 const MISSING_AGENT = "agt_00000000000000000000000009";
 
 // 저장소만 쓴다. 표는 실제 schema step 그대로다.
@@ -50,7 +50,7 @@ function store() {
 }
 
 const archivedPlaces = new Set<string>();
-let operatorSkip = false;
+let reviewerSkip = false;
 const deps: OpenDeps = {
   projects: {
     project: (id) => ({ id, archived: archivedPlaces.has(id) }) as never,
@@ -65,18 +65,14 @@ const deps: OpenDeps = {
   },
   agents: {
     agent: (id) =>
-      id === OPERATOR
-        ? { id, name: "reviewer", domains: [], skip: operatorSkip }
+      id === REVIEWER
+        ? { id, name: "reviewer", domains: [], skip: reviewerSkip }
         : id === LOPHN_AGENT_ID
           ? { id, name: "lophn", domains: [], skip: false }
           : null,
     agents: () => [],
   },
-  operators: {
-    operator: () => null,
-    operators: () => [],
-  },
-  roles: UNWIRED_PLACE_DEPS.roles,
+  names: UNWIRED_PLACE_DEPS.names,
   publish: () => {},
 };
 
@@ -114,7 +110,7 @@ test("archive한 session은 입력을 받지 않고 보관한 place의 session�
   const directory = createSessionDirectory({ ...deps, sql: () => sql });
   const opened = open(tx, {
     id: "ses_a",
-    agent: OPERATOR,
+    agent: REVIEWER,
     place: { kind: "app", id: APP },
   });
   assert.ok(opened.ok);
@@ -148,7 +144,7 @@ test("archive한 session은 입력을 받지 않고 보관한 place의 session�
   archivedPlaces.add(APP);
   const refused = open(tx, {
     id: "ses_b",
-    agent: OPERATOR,
+    agent: REVIEWER,
     place: { kind: "app", id: APP },
   });
   assert.ok(!refused.ok && refused.error.code === "conflict");
@@ -160,7 +156,7 @@ test("fork는 이력만 복사하고 허락, 대기 요청, 열린 call, rewind 
   archivedPlaces.clear();
   const opened = open(tx, {
     id: "ses_source",
-    agent: OPERATOR,
+    agent: REVIEWER,
     place: { kind: "app", id: APP },
   });
   assert.ok(opened.ok);
@@ -219,7 +215,7 @@ test("fork는 이력만 복사하고 허락, 대기 요청, 열린 call, rewind 
   const forkedRow = sql.get("select * from sessions where id = ?", [
     "ses_fork",
   ]);
-  assert.deepStrictEqual(forkedRow?.["agent"], OPERATOR);
+  assert.deepStrictEqual(forkedRow?.["agent"], REVIEWER);
   assert.deepStrictEqual(forkedRow?.["place_kind"], "app");
   assert.deepStrictEqual(forkedRow?.["place_id"], APP);
   assert.deepStrictEqual(forkedRow?.["compaction_through_seq"], null);
@@ -235,8 +231,8 @@ test("열린 session의 agent와 place는 바뀌지 않고, 정의가 없는 age
   archivedPlaces.add(PROJECT);
   const refused: [string, Place | null, string][] = [
     [MISSING_AGENT, null, "not_found"],
-    [OPERATOR, { kind: "app", id: OTHER_APP }, "conflict"],
-    [OPERATOR, { kind: "project", id: PROJECT }, "conflict"],
+    [REVIEWER, { kind: "app", id: OTHER_APP }, "conflict"],
+    [REVIEWER, { kind: "project", id: PROJECT }, "conflict"],
   ];
   for (const [agent, place, code] of refused) {
     const done = open(tx, { id: "ses_bad", agent, place });
@@ -253,15 +249,15 @@ test("열린 session의 agent와 place는 바뀌지 않고, 정의가 없는 age
       place: { kind: "project", id: PROJECT },
     }).ok,
   );
-  operatorSkip = true;
+  reviewerSkip = true;
   assert.ok(
     open(tx, {
       id: "ses_app",
-      agent: OPERATOR,
+      agent: REVIEWER,
       place: { kind: "app", id: APP },
     }).ok,
   );
-  operatorSkip = false;
+  reviewerSkip = false;
   assert.deepStrictEqual(
     sql.get("select skip from sessions where id = 'ses_app'", [])?.["skip"],
     1,
@@ -269,7 +265,7 @@ test("열린 session의 agent와 place는 바뀌지 않고, 정의가 없는 age
 
   // 같은 id로 다른 place나 다른 agent를 열면 conflict이고 행은 그대로다.
   for (const input of [
-    { id: "ses_app", agent: OPERATOR, place: { kind: "app", id: OTHER_APP } },
+    { id: "ses_app", agent: REVIEWER, place: { kind: "app", id: OTHER_APP } },
     {
       id: "ses_app",
       agent: LOPHN_AGENT_ID,
@@ -285,7 +281,7 @@ test("열린 session의 agent와 place는 바뀌지 않고, 정의가 없는 age
   );
   assert.deepStrictEqual(
     [row?.["agent"], row?.["place_kind"], row?.["place_id"]],
-    [OPERATOR, "app", APP],
+    [REVIEWER, "app", APP],
   );
 
   // 열린 행의 agent와 place는 trigger가 지킨다.

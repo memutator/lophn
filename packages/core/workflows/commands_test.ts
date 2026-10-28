@@ -20,7 +20,7 @@ const lophnAtPlace = { agent: "lophn", place: null } as const;
 
 const plan = (step: string): HandoffPlan => ({
   step,
-  participant: "pm",
+  participant: "planner",
   human_turn: false,
   cause: "report",
   session: "new",
@@ -45,8 +45,6 @@ test("a stopped instance is not handed: report with next records the line only a
       directory: {
         find: () => null,
         resolveAddress: () => ok(lophnAtPlace),
-        resolveAgent: () => ok(undefined as never),
-        openOf: () => null,
         open: () =>
           ok({
             session: SES,
@@ -63,7 +61,6 @@ test("a stopped instance is not handed: report with next records the line only a
           return ok("delivered" as const);
         },
         cancel: () => ok(undefined),
-        queued: () => [],
       },
     });
     const commands = createWorkflowCommands(() => ok(router));
@@ -105,7 +102,7 @@ test("a stopped instance is not handed: report with next records the line only a
         project: PRJ,
         workflow: "demo",
         input: "go",
-        participants: { pm: { agent: "lophn" } },
+        participants: { planner: { agent: "lophn" } },
         steps: [],
         started_by: { kind: "user" },
         handoff: { ...plan("a"), cause: "start" },

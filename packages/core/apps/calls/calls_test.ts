@@ -17,7 +17,7 @@ import type {
   ToolCallInput,
   ToolCallOutput,
 } from "../../../protocol/apps/calls/mod.ts";
-import type { AgentAssignment } from "../../../protocol/approvals/mod.ts";
+import type { Assignment } from "../../../protocol/approvals/mod.ts";
 import type { AppGrant } from "../../../protocol/apps/grants.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { AgentId, Place } from "../../../protocol/lophn-agent/places.ts";
@@ -57,7 +57,7 @@ function setup() {
     // 지금 preview의 선언. nonce가 다르면 선언이 없다.
     preview: { nonce: "pv-nonce-1", effects: {} as Record<string, string> },
     // null이면 만든 앱을 모두 할당했다(위험 test가 범위를 줄인다).
-    assignment: null as AgentAssignment["entries"] | null,
+    assignment: null as Assignment["entries"] | null,
     // null이면 부른 앱이 만든 앱 모두의 tool을 부를 grant를 가졌다.
     grants: null as AppGrant[] | null,
     // agentToolCall이 돌려주는 agent와 place. agent가 null이면 tool call을 모른다.

@@ -12,7 +12,7 @@ import type { ProjectLayer } from "./project-settings.ts";
 
 // 등록한 MCP server의 snapshot 재료다. 전역 설정 위에 모든 project의 `extensions.json`을 더한다.
 // `mcp.` secret 목적지와 MCP OAuth begin의 서버 조회가 이 snapshot을 읽는다.
-// agent 정의가 가진 서버는 정의 파일에 있어 조립이 `operators`로 넘긴다. `registeredMcpServers`에는 섞지 않는다:
+// agent 정의가 가진 서버는 정의 파일에 있어 조립이 `agents`로 넘긴다. `registeredMcpServers`에는 섞지 않는다:
 // OAuth begin은 place로 서버를 고르는데 agent 정의 층 서버는 로그인 길이 없다.
 
 // 전역(Workspace) 서버다. 설정 파일에서 읽는다. 읽지 못하면 빈 목록이다.
@@ -48,13 +48,13 @@ const fsProjectSource: ProjectServerSource = {
 };
 
 type McpSnapshotDeps = {
-  // project 폴더 규칙이다. role 층의 값을 조립이 넘긴다.
+  // project 폴더 규칙이다. place 층의 값을 조립이 넘긴다.
   projectLayer: ProjectLayer;
   // 테스트가 바꿔 끼운다. 기본은 설정 파일과 data root의 project 폴더다.
   global?: () => Result<McpRuntimeServer[]>;
   projects?: ProjectServerSource;
   // 모든 agent 정의 층의 서버다. harness는 agent-places를 모르므로 조립이 읽어 넘긴다. 없으면 빈 목록이다.
-  operators?: () => Promise<Result<readonly AgentMcpEntry[]>>;
+  agents?: () => Promise<Result<readonly AgentMcpEntry[]>>;
 };
 
 // agent 정의 층 서버와 그 agent id다.
@@ -95,10 +95,10 @@ export async function mcpServerSnapshot(
 ): Promise<Result<McpRuntimeServer[]>> {
   const registered = await registeredMcpServers(ledgerPath, deps);
   if (!registered.ok) return registered;
-  const operators = (await deps.operators?.()) ?? ok([]);
-  if (!operators.ok) return operators;
+  const agents = (await deps.agents?.()) ?? ok([]);
+  if (!agents.ok) return agents;
   return ok([
     ...registered.value.map((entry) => entry.server),
-    ...operators.value.map((entry) => entry.server),
+    ...agents.value.map((entry) => entry.server),
   ]);
 }

@@ -5,7 +5,7 @@ import { publishAfterCommit } from "../run-loop/turn-events.ts";
 import type { EndDeps, OpenDeps, PlaceDeps } from "./ports.ts";
 import { UNWIRED_PLACE_DEPS } from "./unwired.ts";
 
-// project, 앱, Operator 정의는 다른 module의 것이라 읽는 길을 wiring이 끼운다. tx나 snapshot마다 그 sql을 보는
+// project, 앱, agent 정의는 다른 module의 것이라 읽는 길을 wiring이 끼운다. tx나 snapshot마다 그 sql을 보는
 // 구현이 필요해서 요청마다 만든다. writer·reader Worker는 wiring 등록 file을 import하는 것으로 이 환경을 놓는다.
 type PlaceEnvironment = {
   deps(sql: Pick<Sql, "get" | "all">): PlaceDeps;

@@ -274,7 +274,7 @@ test("the agent gets only the skills it chose, all when it chose none, and a bui
   });
 });
 
-// 합치기에서 진 skill은 agent가 그 domain을 고르지 않아도 돌아오지 않아, domain을 좁힌 Operator가 받아야 할 skill을
+// 합치기에서 진 skill은 agent가 그 domain을 고르지 않아도 돌아오지 않아, domain을 좁힌 agent가 받아야 할 skill을
 // 조용히 잃었다.
 test("same-name skills in a global layer and domains go to the agent by the domains it works in", async () => {
   const port = treeOf({

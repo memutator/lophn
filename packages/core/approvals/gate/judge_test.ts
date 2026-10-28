@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  type AgentAssignment,
+  type Assignment,
   type GateCall,
   type Judgment,
   PRODUCT_SHELL_RULES,
@@ -79,16 +79,16 @@ test("floor deny와 사람이 쓴 deny 규칙은 unattended와 skip에서도 막
 });
 
 test("할당하지 않은 앱 tool과 뺀 tool은 어느 mode에서도 막는다", () => {
-  const agent = { role: "lophn" } as const;
-  const other: AgentAssignment = {
+  const agent = "lophn" as const;
+  const other: Assignment = {
     agent,
     entries: [{ app: OTHER, removed_tools: [] }],
   };
-  const removed: AgentAssignment = {
+  const removed: Assignment = {
     agent,
     entries: [{ app: APP, removed_tools: ["notes.add"] }],
   };
-  const assigned: AgentAssignment = {
+  const assigned: Assignment = {
     agent,
     entries: [{ app: APP, removed_tools: ["notes.drop"] }],
   };

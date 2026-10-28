@@ -5,7 +5,7 @@ import type { AgentMcpEntry } from "../../../lophn-agent/extensions/mcp-snapshot
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { agentMcpServers } from "./lophn-agent-team.ts";
 
-export function readOperatorMcp(
+export function readAgentMcp(
   ledgerPath: string,
 ): Promise<Result<readonly AgentMcpEntry[]>> {
   const read = ledgerSnapshot(ledgerPath, (lookup) =>

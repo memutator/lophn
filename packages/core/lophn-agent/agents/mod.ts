@@ -16,7 +16,6 @@ export {
   openAgentContext,
   profileOf,
 } from "./inspect.ts";
-export { agentIdOfRef } from "./bridge.ts";
 export {
   type AgentDirectory,
   type AgentInfo,

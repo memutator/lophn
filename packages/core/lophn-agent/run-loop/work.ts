@@ -150,9 +150,6 @@ export function createLophnInputTransport(deps: {
         unattended,
       });
     },
-    queued() {
-      return [];
-    },
   };
 }
 

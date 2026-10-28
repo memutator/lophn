@@ -39,7 +39,7 @@ export type DomainSkillLayer = {
   domainIdOfFolder(name: string): string | null;
 };
 
-// project 층의 자리 규칙이다. harness는 이 규칙을 모르고 조립이 role 층의 값을 넘긴다.
+// project 층의 자리 규칙이다. harness는 이 규칙을 모르고 조립이 place 층의 값을 넘긴다.
 export type ProjectLayer = {
   domains: DomainSkillLayer;
   // place의 project id다. project 층이 없는 place(앱)는 null이다.

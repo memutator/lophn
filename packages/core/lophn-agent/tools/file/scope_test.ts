@@ -68,7 +68,7 @@ test("file tool은 place 폴더 밖과 밖으로 나가는 symlink를 거절한�
       false,
     );
 
-    // 폴더 없는 project의 PM: 상대 경로는 base(project의 data 폴더)에서 풀리고 base 자체는 허락이 아니다.
+    // 폴더 없는 project place의 session: 상대 경로는 base(project의 data 폴더)에서 풀리고 base 자체는 허락이 아니다.
     const data = join(temp, "projects", "prj_a");
     await mkdir(join(data, "skills"), { recursive: true });
     const noFolder = {

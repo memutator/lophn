@@ -29,7 +29,7 @@ const environment: RouterEnvironment = {
       publish: (event) => view.port(afterCommit).push(AGENT_EVENT_TOPIC, event),
       sql: () => view.sql,
     });
-    // lophn session은 입력함이 받는다. `queued()`는 늘 빈 목록이다.
+    // lophn session은 입력함이 받는다.
     const transport = createLophnInputTransport({
       record: (tx, session, input) =>
         createReceivedRecorder({ principal: who }).record(tx, session, input),

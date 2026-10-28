@@ -34,7 +34,7 @@ export function requireMachine(ctx: RequestContext): Result<void> {
 }
 
 // null은 제한 없음, 문자열은 그 session만, undefined는 아무것도 보지 못함. user·machine은 모든
-// session을 보고 agent는 자기 session만 본다(actor는 `agent:ses_…`). 그 밖(coding_agent, app)은 없는
+// session을 보고 agent는 자기 session만 본다(actor는 `agent:ses_…`). 그 밖(app)은 없는
 // session과 똑같이 답한다.
 export function visibleSessions(
   ctx: RequestContext,

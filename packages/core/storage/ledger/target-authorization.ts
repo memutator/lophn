@@ -30,7 +30,7 @@ export function createTargetAuthorizer(
   };
 }
 
-// 앱 하나에 묶인 agent(App Engineer의 `conditions.app`)의 target이 그 앱의 것이 아니면 범위 밖이다.
+// 앱 하나에 묶인 agent(앱 place session의 `conditions.app`)의 target이 그 앱의 것이 아니면 범위 밖이다.
 // 앱 조건은 target에 채워지므로(mergeTarget) 앱을 말하지 않은 target이 자기 앱으로 통과하지 않게
 // owner가 준 사실로 먼저 닫는다. 범위 밖은 없는 대상과 같은 답이다.
 // - 문서·자리: owner는 문서 자리가 앱일 때만 target의 앱을 준다. 앱을 말하지 않은 문서는 범위 밖이다.

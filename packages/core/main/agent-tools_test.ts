@@ -70,7 +70,7 @@ test("place 종류 목록의 모든 이름에 정의가 있고 모든 정의가 
   );
 });
 
-// tool 입력 하나라도 JSON Schema로 바뀌지 않으면 그 role의 turn이 준비 단계에서 조용히 멈춘다.
+// tool 입력 하나라도 JSON Schema로 바뀌지 않으면 그 place 종류의 turn이 준비 단계에서 조용히 멈춘다.
 test("모든 내장 tool의 입력이 model에 보낼 JSON Schema로 바뀐다", () => {
   const failed: string[] = [];
   for (const tool of agentTools({ file: FILE_HOOKS })) {

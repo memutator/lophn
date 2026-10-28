@@ -24,7 +24,6 @@ import {
 } from "../../../../protocol/lophn-agent/calls.ts";
 import {
   archiveSession,
-  closeSession,
   deleteSession,
   MESSAGE_CONTENT_MAX_BYTES,
   MESSAGE_CONTENT_PURPOSE,
@@ -159,11 +158,7 @@ function createCallBodyPreparer(deps: {
       next = { ...envelope, input: { ...(input as object), body: safe } };
     } else if (name === callCancel.name) {
       texts.push(CANCEL_TEXT);
-    } else if (
-      name === archiveSession.name ||
-      name === deleteSession.name ||
-      name === closeSession.name
-    ) {
+    } else if (name === archiveSession.name || name === deleteSession.name) {
       // 받은 call이 receiver_ended로 닫히며 보낸 session에 가는 알림이다.
       texts.push(FAILURE_TEXTS.receiver_ended);
     } else return ok(envelope);

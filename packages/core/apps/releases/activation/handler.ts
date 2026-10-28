@@ -1,4 +1,4 @@
-// activation 판정. 계기는 App Engineer의 `release.activate`(driver의 `activate`)이고, 선언이 넓어지거나
+// activation 판정. 계기는 앱 place session의 `release.activate`(driver의 `activate`)이고, 선언이 넓어지거나
 // data 손실 migration이 있거나 첫 activation일 때만 사람에게 묻는다(동의 표, consents.ts). 묻지 않으면 그 앱의 activation을
 // 곧바로 시작한다. 사람이 허락하면 driver sweep이 허락한 줄을 `consented`로 넘겨 시작한다.
 // 앱에 이미 돌고 있는 activation이 있으면 conflict다. 일하는 것은 driver다(assembly.ts). 이 file은 판정만 하고 IO는 deps로 받는다.

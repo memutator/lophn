@@ -88,7 +88,7 @@ test("artifact annotation의 받는 쪽은 그 domain 폴더에 마지막으로 
   session("ses_closed", { lifecycle: "archived" });
   // 같은 그릇의 다른 agent session이다.
   session("ses_op", { agent: "agt_2" });
-  session("ses_ae", { place: APP });
+  session("ses_app", { place: APP });
   const find = (
     root: string,
     name: string,
@@ -118,11 +118,11 @@ test("artifact annotation의 받는 쪽은 그 domain 폴더에 마지막으로 
 
   // 닫힌 session과 다른 place의 쓰기는 건너뛰고 앞선 쓰기로 간다.
   write("ses_closed", ROOT_A, "report/new.html");
-  write("ses_ae", ROOT_A, "report/ae.html");
+  write("ses_app", ROOT_A, "report/app.html");
   assert.deepStrictEqual(find(ROOT_A, "report"), "ses_a");
 
   // 앱이 owner면 앱 place의 session이 받고 project place의 session은 받지 않는다.
-  assert.deepStrictEqual(find(ROOT_A, "report", APP), "ses_ae");
+  assert.deepStrictEqual(find(ROOT_A, "report", APP), "ses_app");
 
   // 같은 그릇의 다른 agent session의 더 나중 쓰기가 이긴다.
   write("ses_op", ROOT_A, "report/op.html");

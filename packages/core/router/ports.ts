@@ -3,13 +3,11 @@ import type { Tx } from "../../protocol/server/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import type {
   AgentCallRow,
-  CallAgent,
   CallFailReason,
   CallFrom,
   CallRef,
   CallReply,
   CallState,
-  NamedAgent,
 } from "../../protocol/lophn-agent/calls.ts";
 import type {
   AgentAddress,
@@ -70,11 +68,6 @@ export interface SessionDirectory {
   // agent 이름과 place 이름으로 받을 session 하나를 고른다. place가 없으면 home이다.
   // 이름을 짐작하지 않는다. 없으면 not_found.
   resolveAddress(address: AgentAddress): Result<AgentAtPlace>;
-  // 옛 이름 꼴. `runs-core`·`jobs-core`가 옮길 때까지 남기고 `cleanup-core`가 지운다.
-  // 이름을 짐작하지 않는다. 없으면 not_found.
-  resolveAgent(named: NamedAgent): Result<CallAgent>;
-  // 열린 session. 없으면 null. Router는 부르지 않는다(`places_test.ts`만 부른다).
-  openOf(agent: CallAgent): TargetSession | null;
   open(tx: Tx, agent: AgentAtPlace, opener: CallFrom): Result<TargetSession>;
   // session 목록 tool이 쓴다.
   listOpen(): readonly (TargetSession & { name: string })[];
@@ -95,8 +88,6 @@ export interface InputTransport {
     call: Id<"cal">,
     unattended: boolean,
   ): Result<void>;
-  // 늘 빈 목록이다. session 목록 tool이 싣는 칸이다.
-  queued(): readonly { call: Id<"cal">; app: Id<"app"> }[];
 }
 
 export interface CallStore {

@@ -177,7 +177,7 @@ export function createKindsWatch(deps: KindsWatchDeps): KindsWatch {
       }
     }
 
-    // PM이 처음 kinds.yaml을 쓸 때 폴더 감시가 이미 열려 있어야 한다.
+    // project place의 session이 처음 kinds.yaml을 쓸 때 폴더 감시가 이미 열려 있어야 한다.
     // 폴더가 없으면 감시가 열리지 않아 처음 쓴 kinds.yaml을 놓치므로 먼저 만든다. 못 만들면 incomplete라 다음에 다시 시도한다.
     const kindsDir = domainFolder(deps.dataRoot, domain);
     try {

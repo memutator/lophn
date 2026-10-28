@@ -1,15 +1,12 @@
 import {
   type AgentId,
-  type AgentRef,
-  LOPHN_AGENT_ID,
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
   type Place,
   type PlaceSession,
   type ReceivedMessage,
-  roleSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { CallRef } from "../../../protocol/lophn-agent/calls.ts";
+import type { CallFrom, CallRef } from "../../../protocol/lophn-agent/calls.ts";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type {
@@ -84,7 +81,7 @@ end;
 create table messages (
   id text primary key,
   session text not null references sessions (id) on delete restrict,
-  from_kind text not null check (from_kind in ('human', 'program', 'agent', 'coding_agent')),
+  from_kind text not null check (from_kind in ('human', 'program', 'agent')),
   from_ref text,
   call text,
   reply_to text,
@@ -217,18 +214,6 @@ export function placeOf(row: AgentSessionRow): Place | null {
     : ({ kind: row.place_kind, id: row.place_id } as Place);
 }
 
-// 옛 꼴을 내는 임시 다리다. 쓰는 곳을 옮기는 task(shell-events, router-core, place-tools,
-// jobs-core, place-scope)와 cleanup-core가 지운다.
-export function agentRefOfId(id: AgentId): AgentRef {
-  return id === LOPHN_AGENT_ID
-    ? { role: "lophn" }
-    : { role: roleSchema.enum.operator, agent: id as Id<"agt"> };
-}
-
-export function agentRefOf(row: AgentSessionRow): AgentRef {
-  return agentRefOfId(row.agent);
-}
-
 // 같은 agent와 place의 session인지 가르는 조건.
 export function sessionClause(
   agent: AgentId,
@@ -300,7 +285,7 @@ export function nextMessageSeq(lookup: Lookup): number {
 type MessageRow = {
   id: string;
   session: string;
-  from_kind: "human" | "program" | "agent" | "coding_agent";
+  from_kind: CallFrom["kind"];
   from_ref: string | null;
   call: string | null;
   reply_to: string | null;

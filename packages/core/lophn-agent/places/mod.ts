@@ -5,8 +5,6 @@ export { endSession, startSession } from "./lifecycle.ts";
 export type {
   EndDeps,
   OpenDeps,
-  OperatorDirectory,
-  OperatorInfo,
   PlaceDeps,
 } from "./ports.ts";
 

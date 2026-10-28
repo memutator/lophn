@@ -11,7 +11,7 @@ import type { FileHooks } from "../ports.ts";
 import type { ToolContext } from "../tool-context.ts";
 import { fail, fsFail, resolveInPlace } from "./scope.ts";
 
-// 쓰기는 hook이 감싼다(role 층이 쓰기 기록을 남긴다).
+// 쓰기는 hook이 감싼다(place 층이 쓰기 기록을 남긴다).
 async function writeText(
   ctx: ToolContext,
   hooks: FileHooks,

@@ -11,9 +11,9 @@ import type { AgentViewSlice } from "../kinds/host.ts";
 import styles from "./agent-tab.module.css";
 
 interface AgentTabProps {
-  /** agent id. Operator는 `agt_…`이고, 나머지는 place가 정체성이다. */
+  /** agent id. lophn이거나 `agt_…`다. */
   agent: string;
-  /** 탭을 연 project. agent의 자리다. lophn은 자리가 없어 null이다. */
+  /** 탭을 연 project. 그 탭 session의 place다. */
   place: string | null;
   slice: AgentViewSlice;
   session: string | null;

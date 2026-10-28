@@ -17,9 +17,9 @@ interface AnnotationPanelProps {
   onRemove: (n: number) => void;
   onClear: () => void;
   onSend: () => void;
-  /** 보내기 단추와 안내 글. 없으면 앱 화면의 글(App Engineer)이다. */
-  sendLabel?: string;
-  note?: string;
+  /** 보내기 단추와 안내 글. 받는 쪽을 말한다. */
+  sendLabel: string;
+  note: string;
   /** native view가 가리지 않게 덮개로 알리려는 쪽이 panel 요소를 얻는 ref. */
   panelRef?: RefObject<HTMLElement | null>;
 }
@@ -31,8 +31,8 @@ export function AnnotationPanel({
   onRemove,
   onClear,
   onSend,
-  sendLabel = t("app-space.button.send-annotations"),
-  note = t("app-space.text.annotations-note"),
+  sendLabel,
+  note,
   panelRef,
 }: AnnotationPanelProps) {
   return (

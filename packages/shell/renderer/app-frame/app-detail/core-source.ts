@@ -22,6 +22,12 @@ import type { CommandRoute } from "../../../../protocol/base/route.ts";
 import { activationActivatePrevious } from "../../../../protocol/apps/activation/activation.ts";
 import { appGrantRevoke } from "../../../../protocol/apps/grants.ts";
 import type { CoreCall } from "../../../ipc/core.ts";
+import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import { placeSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
+import {
+  LOPHN_AGENT_ID,
+  LOPHN_AGENT_NAME,
+} from "../../../../protocol/lophn-agent/mod.ts";
 import { commandBody, type CompareOf } from "../../command-call.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
 import {
@@ -35,7 +41,6 @@ import type {
   AccessView,
   ActivationStep,
   ActivityRow,
-  AgentRole,
   AppDetailSource,
   AppDomainRow,
   AppToolRow,
@@ -326,8 +331,9 @@ function lookups(core: CoreSource) {
   const releases = new Map<string, Promise<number | null>>();
   const sessions = new Map<
     string,
-    Promise<{ role: AgentRole; title: string | null } | null>
+    Promise<{ agent: string; title: string | null } | null>
   >();
+  const agents = new Map<string, Promise<string | null>>();
   return {
     appName(app: string): Promise<string | null> {
       let found = apps.get(app);
@@ -358,16 +364,35 @@ function lookups(core: CoreSource) {
       let found = sessions.get(session);
       if (found === undefined) {
         found = read<{
-          session: { title: string | null; agent: { role: AgentRole } };
-        }>(core, "sessions", "read", { session }).then((result) =>
+          session: { title: string | null; agent: string };
+        }>(core, placeSessionRead.resource, placeSessionRead.method, {
+          session,
+        }).then((result) =>
           result.ok
             ? {
-                role: result.value.session.agent.role,
+                agent: result.value.session.agent,
                 title: result.value.session.title,
               }
             : null,
         );
         sessions.set(session, found);
+      }
+      return found;
+    },
+    // 부른 agent는 몇 안 되어 id마다 한 번 읽는다. lophn은 이름이 고정이다.
+    agentName(agent: string): Promise<string | null> {
+      if (agent === LOPHN_AGENT_ID) return Promise.resolve(LOPHN_AGENT_NAME);
+      let found = agents.get(agent);
+      if (found === undefined) {
+        found = read<{ effective: { name: { value: string } } }>(
+          core,
+          agentRead.resource,
+          agentRead.method,
+          { agent },
+        ).then((result) =>
+          result.ok ? result.value.effective.name.value : null,
+        );
+        agents.set(agent, found);
       }
       return found;
     },
@@ -385,9 +410,12 @@ async function callerOf(
       return { kind: "person" };
     case "agent": {
       const session = await names.session(caller.session);
+      const name =
+        session === null ? null : await names.agentName(session.agent);
       return {
         kind: "agent",
-        role: session?.role ?? "operator",
+        agent: session?.agent ?? "",
+        name,
         session: caller.session,
         title: session?.title ?? null,
         turn: caller.turn,

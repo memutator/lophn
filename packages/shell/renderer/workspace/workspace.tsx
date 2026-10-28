@@ -10,7 +10,7 @@ import { t } from "@lophn/wording";
 import { TopBar } from "../desktop/top-bar/top-bar.tsx";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
-import { openProjectManager } from "./reactions/project-manager.ts";
+import { openProjectLophn } from "./reactions/project-lophn.ts";
 import { useToastHandler } from "./reactions/toast-handler.ts";
 import { DeskSelector, PathSep } from "./top-path/desk-selector.tsx";
 import { ProjectSelector } from "./top-path/project-selector.tsx";
@@ -73,7 +73,6 @@ import type { JobsSource } from "../desktop/settings/jobs/source.ts";
 import { ProjectSidebar } from "./sidebar/project-sidebar.tsx";
 import type { RailAction } from "./sidebar/activity-bar.tsx";
 import {
-  agentByRole,
   type KnownSessions,
   panelRuns,
   panelSessions,
@@ -139,6 +138,7 @@ import {
   ViewCoversProvider,
   ViewKeepsProvider,
 } from "../app-frame/embedded-view.tsx";
+import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/places.ts";
 import styles from "./workspace.module.css";
 
 export interface WorkspaceProps {
@@ -175,7 +175,7 @@ export interface WorkspaceProps {
   agentViewSource?: AgentTabSourceFactory;
   /** 처음 열 때 한 번 열 session(다른 project의 session toast). */
   session?: string;
-  /** 처음 열 때 한 번 Project Manager를 연다. */
+  /** 처음 열 때 한 번 이 project place의 lophn을 연다. */
   projectManager?: true;
   /** 처음 열 때 한 번 열 파일. path는 디스크의 절대 경로다. */
   open?: { readonly path: string; readonly line?: number };
@@ -252,10 +252,7 @@ export function Workspace(props: WorkspaceProps) {
       sidebarAgents.agents.map(async (row) => {
         const read = await agentViewSource({
           assignment: row.assignment,
-          place:
-            row.role === "lophn"
-              ? { kind: "global", id: "" }
-              : { kind: "project", id: projectId },
+          place: { kind: "project", id: projectId },
         }).sessions();
         return read.ok ? read.value : [];
       }),
@@ -278,22 +275,16 @@ export function Workspace(props: WorkspaceProps) {
     };
   }, [agentViewSource, sidebarAgents.agents, projectId, sessionIds]);
   // sidebar의 Background 묶음. run event가 계약에 없어서 처음과 session 상태가 바뀔 때마다 다시 읽는다.
-  // 이 project에 놓인 agent(Project Manager·Operator)의 run과 lophn의 run을 합친다.
+  // 이 project place에서 돈 run이다. home의 run은 런처 lophn 패널의 것이다.
   const [runRecords, setRunRecords] = useState<readonly RunRecordView[]>([]);
   useEffect(() => {
     let live = true;
-    void Promise.all([
-      source.runs({ place: { project: projectId } }),
-      source.runs({ agent: { role: "lophn" } }),
-    ]).then(([inProject, lophn]) => {
+    void source.runs({ place: { project: projectId } }).then((inProject) => {
       if (!live) return;
-      // 하나라도 실패하면 앞 값을 둔다.
-      if (!inProject.ok || !lophn.ok) return;
-      const byId = new Map(
-        [...inProject.value, ...lophn.value].map((run) => [run.id, run]),
-      );
+      // 실패하면 앞 값을 둔다.
+      if (!inProject.ok) return;
       setRunRecords(
-        [...byId.values()].sort(
+        [...inProject.value].sort(
           (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at),
         ),
       );
@@ -737,9 +728,11 @@ export function Workspace(props: WorkspaceProps) {
     if (reply?.ok) openFile(host, reply.value.path);
   };
 
-  // 이 project의 role로 agent를 찾아 그 Agent 탭을 연다. agent 목록을 아직 읽지 못했으면 열지 않고 false다.
-  const openRole = (role: "lophn" | "project_manager"): boolean => {
-    const row = agentByRole(sidebarAgents.agents, role);
+  // 이 project place의 lophn Agent 탭을 연다. agent 목록을 아직 읽지 못했으면 열지 않고 false다.
+  const openLophn = (): boolean => {
+    const row = sidebarAgents.agents.find(
+      (item) => item.assignment === LOPHN_AGENT_ID,
+    );
     if (agentViewSource === undefined || row === undefined) return false;
     openAgent(host, { agent: row.assignment, name: row.name });
     return true;
@@ -797,7 +790,7 @@ export function Workspace(props: WorkspaceProps) {
     openSession: openSessionTab,
   });
 
-  // 시작 route(session·Project Manager·파일)는 이 project의 배치가 선 뒤 값마다 한 번 연다. session과 agent 목록을 아직 모르면 목록이 올 때 다시 본다.
+  // 시작 route(session·lophn·파일)는 이 project의 배치가 선 뒤 값마다 한 번 연다. session과 agent 목록을 아직 모르면 목록이 올 때 다시 본다.
   const started = useRef<{ session?: string; pm?: true; open?: object }>({});
   useEffect(() => {
     if (readyProject !== projectId) return;
@@ -812,7 +805,7 @@ export function Workspace(props: WorkspaceProps) {
     if (
       projectManager !== undefined &&
       started.current.pm !== projectManager &&
-      openProjectManager(reactionEnv)
+      openProjectLophn(reactionEnv)
     ) {
       started.current.pm = projectManager;
     }
@@ -1144,7 +1137,7 @@ export function Workspace(props: WorkspaceProps) {
     if (action === "terminal") openTerminalTab(host);
     else if (action === "browser") {
       if (browserApi !== null) openBrowserTab(host);
-    } else if (action === "agent") openRole("lophn");
+    } else if (action === "agent") openLophn();
     else openSearchShortcut(host);
   };
 

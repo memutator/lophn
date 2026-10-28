@@ -1,7 +1,7 @@
 // 작업대가 읽는 통로. documents의 projects get·문서 목록 read 결과와
 // layout 저장·복원만 담는다.
 // core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
-import type { CallAgent } from "../../../protocol/lophn-agent/calls.ts";
+import type { AgentId } from "../../../protocol/lophn-agent/places.ts";
 import type { FileFailure } from "../../ipc/files.ts";
 import type { AgentsSource } from "./agents/source.ts";
 import type { FileSearchSource } from "./search/source.ts";
@@ -80,7 +80,7 @@ export type FileOpResult =
 /** `runs/list`의 거르기 칸. 같은 이름의 `ListRuns` 입력으로 간다. */
 export interface RunFilter {
   readonly place?: { readonly project: string } | { readonly app: string };
-  readonly agent?: CallAgent;
+  readonly agent?: AgentId;
 }
 
 /** `workflows` 목록의 한 줄. 틀린 선언도 `invalid`로 남겨 자리를 잃지 않게 한다. workflow-shell의 desk selector도 읽는다. */

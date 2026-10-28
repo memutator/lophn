@@ -275,6 +275,10 @@ export function createAnnotate(deps: AnnotateDeps) {
           target:
             target.kind === "app" ? { kind: "app", app: target.app } : target,
           session: request.session,
+          // 고른 agent는 app target만 받는다.
+          ...(target.kind === "app" && request.agent !== undefined
+            ? { agent: request.agent }
+            : {}),
           annotations,
         });
         reply = sent.ok

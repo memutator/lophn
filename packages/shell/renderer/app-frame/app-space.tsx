@@ -44,6 +44,10 @@ import {
 } from "./embedded-view.tsx";
 import { useToastHandler } from "./toast-handler.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
+import {
+  LOPHN_AGENT_ID,
+  LOPHN_AGENT_NAME,
+} from "../../../protocol/lophn-agent/mod.ts";
 import styles from "./app-space.module.css";
 
 interface AppSpaceProps {
@@ -177,7 +181,9 @@ export function AppSpace({
   const covers = useMemo(createViewCovers, []);
   // 오른쪽 패널. 열린 탭(details, agent)과 고른 탭, 패널을 보이는지는 따로 쥔다. 단추로 패널을 닫아도 탭의 상태는 남는다.
   const [pane, setPane] = useState<AgentPaneState | null>(
-    appEngineer ? { mode: "agent", assignment: "lophn", session: null } : null,
+    appEngineer
+      ? { mode: "agent", assignment: LOPHN_AGENT_ID, session: null }
+      : null,
   );
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>("agent");
@@ -264,8 +270,8 @@ export function AppSpace({
       if (forApp !== app) return false;
       setPane({
         mode: "agent",
-        assignment: "lophn",
-        session: latestSession("lophn"),
+        assignment: LOPHN_AGENT_ID,
+        session: latestSession(LOPHN_AGENT_ID),
       });
     } else {
       const entry = sessions.find((item) => item.session === target);
@@ -328,16 +334,25 @@ export function AppSpace({
     }
   }, [annotateOn]);
 
+  // 받는 쪽은 pane이 보이는 agent다. pane이 agent를 보이지 않으면 lophn의 새 session이다.
+  // 사람이 고른 agent와 보내기 단추 글이 늘 같아야 받는 쪽을 안다.
+  const receiver =
+    pane?.mode === "agent"
+      ? { agent: pane.assignment, session: pane.session }
+      : { agent: LOPHN_AGENT_ID, session: null };
+  const receiverName =
+    agentList.agents.find((item) => item.assignment === receiver.agent)?.name ??
+    LOPHN_AGENT_NAME;
+
   async function sendAnnotations(): Promise<void> {
-    const receiver =
-      pane?.mode === "agent" && pane.assignment === "lophn"
-        ? pane.session
-        : null;
     const sent = await annotating.send(receiver);
     if (sent === null) return;
     toastKind.current = "sent";
     toast.show({
-      title: t("app-space.title.annotations-sent", { count: sent.sent }),
+      title: t("app-space.title.annotations-sent-to", {
+        count: sent.sent,
+        agent: receiverName,
+      }),
       body: t("app-space.text.annotations-sent"),
     });
   }
@@ -487,6 +502,12 @@ export function AppSpace({
                 onRemove={annotating.remove}
                 onClear={() => annotating.remove("all")}
                 onSend={() => void sendAnnotations()}
+                sendLabel={t("app-space.button.send-annotations-to", {
+                  agent: receiverName,
+                })}
+                note={t("app-space.text.annotations-note-to", {
+                  agent: receiverName,
+                })}
               />
             ) : null}
           </div>

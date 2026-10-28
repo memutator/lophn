@@ -222,6 +222,7 @@ export const appSpace = {
   "app-space.button.clear-annotations": "Clear all",
   "app-space.button.manage-agents": "Manage",
   "app-space.button.send-annotations": "Send to agent",
+  "app-space.button.send-annotations-to": "Send to {agent}",
   "app-space.button.show-terminal": "Show terminal",
   "app-space.empty.agent-not-ready": "This agent can't open here yet.",
   "app-space.empty.archived":
@@ -245,11 +246,15 @@ export const appSpace = {
     "Click an element or drag an area, then write a note.",
   "app-space.text.annotations-note":
     "They go to the agent as one message. They don't become problems.",
+  "app-space.text.annotations-note-to":
+    "They go to {agent} in this app as one message. They don't become problems.",
   "app-space.text.annotations-sent":
     "They arrive in its session as one message.",
   "app-space.title.annotate-on": "Annotate is on",
   "app-space.title.annotations-sent":
     "{count, plural, one {# annotation} other {# annotations}} sent to the agent",
+  "app-space.title.annotations-sent-to":
+    "{count, plural, one {# annotation} other {# annotations}} sent to {agent}",
   "app-space.title.coding-opened": "lophn opened {product}",
   "common.button.open-again": "Open again",
   "common.label.app-mode-live": "Live",

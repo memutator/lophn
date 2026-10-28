@@ -264,6 +264,9 @@ export type AppSpacePlaceholders = {
   "app-space.button.clear-annotations": Record<never, never>;
   "app-space.button.manage-agents": Record<never, never>;
   "app-space.button.send-annotations": Record<never, never>;
+  "app-space.button.send-annotations-to": {
+    agent: "string";
+  };
   "app-space.button.show-terminal": Record<never, never>;
   "app-space.empty.agent-not-ready": Record<never, never>;
   "app-space.empty.archived": Record<never, never>;
@@ -286,10 +289,17 @@ export type AppSpacePlaceholders = {
   "app-space.label.this-app": Record<never, never>;
   "app-space.text.annotate-on": Record<never, never>;
   "app-space.text.annotations-note": Record<never, never>;
+  "app-space.text.annotations-note-to": {
+    agent: "string";
+  };
   "app-space.text.annotations-sent": Record<never, never>;
   "app-space.title.annotate-on": Record<never, never>;
   "app-space.title.annotations-sent": {
     count: "plural";
+  };
+  "app-space.title.annotations-sent-to": {
+    count: "plural";
+    agent: "string";
   };
   "app-space.title.coding-opened": {
     product: "string";

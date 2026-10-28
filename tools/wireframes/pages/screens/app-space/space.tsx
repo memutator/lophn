@@ -112,11 +112,7 @@ const RUN_SNAPSHOTS: readonly SessionSnapshot[] = fixedRuns(APP).flatMap(
       ? [
           {
             session: run.session,
-            // run 기록은 아직 옛 agent 꼴이다. snapshot은 agent id를 싣는다.
-            agent:
-              run.target.agent.role === "operator"
-                ? run.target.agent.agent
-                : "lophn",
+            agent: run.target.agent.agent,
             place: { kind: "app" as const, id: APP },
             state:
               run.state === "running"

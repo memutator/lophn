@@ -1,9 +1,8 @@
 // `useSessions()`의 session 상태를 sidebar의 Agent 모양과 Agent 탭의 상태 점이 읽는 값으로 옮긴다.
 import { t } from "@lophn/wording";
 
-import type { CallAgent } from "../../../../protocol/lophn-agent/calls.ts";
 import type { SessionEntry } from "../../desktop/connection/events/sessions-store.ts";
-import type { SidebarAgent, SidebarAgentRole } from "./sidebar-agent.ts";
+import type { SidebarAgent } from "./sidebar-agent.ts";
 import type { PanelRun, PanelSession } from "./use-agent-panel.ts";
 import type { RunRecordView } from "./run-list.tsx";
 import type { TabDot } from "../../parts/tab-strip/tab-strip.tsx";
@@ -13,14 +12,6 @@ export function sessionAgentKey(entry: SessionEntry): string | null {
   return entry.agent;
 }
 
-// run 기록의 agent 대상(옛 꼴)을 sidebar key로 옮긴다.
-function agentKeyOf(agent: CallAgent | null): string | null {
-  if (agent === null) return null;
-  if (agent.role === "lophn") return "lophn";
-  if (agent.role === "operator") return agent.agent;
-  return null;
-}
-
 function sessionAtProject(entry: SessionEntry, project: string): boolean {
   return entry.place?.kind === "project" && entry.place.id === project;
 }
@@ -28,13 +19,6 @@ function sessionAtProject(entry: SessionEntry, project: string): boolean {
 /**
  * role로 agent 줄을 찾는다. 여럿인 agent 줄은 이 함수로 찾지 않는다.
  */
-export function agentByRole(
-  agents: readonly SidebarAgent[],
-  role: Exclude<SidebarAgentRole, "operator">,
-): SidebarAgent | undefined {
-  return agents.find((row) => row.role === role);
-}
-
 /**
  * 이 project place의 열린 lophn session 가운데 가장 최근 것.
  */
@@ -117,8 +101,7 @@ export function panelRuns(
 ): PanelRun[] {
   return records.flatMap((record): PanelRun[] => {
     if (record.kind !== "agent" || !("agent" in record.target)) return [];
-    const key = agentKeyOf(record.target.agent);
-    if (key === null) return [];
+    const key = record.target.agent.agent;
     const row = agents.find((item) => item.assignment === key);
     if (row === undefined) return [];
     return [

@@ -39,7 +39,7 @@ interface ArtifactTabProps {
   onOpenLink(url: string): void;
   /** [Edit source]. 입구 file의 절대 path. */
   onEditSource(file: string): void;
-  /** 이 project에서 pane에 열려 있는 Project Manager session. 없으면 null. */
+  /** pane에 열린 이 project place의 lophn session. 없으면 null. */
   projectManagerSession(): string | null;
   /** session의 agent 이름. 모르면 undefined. */
   agentName(session: string): string | undefined;
@@ -211,7 +211,9 @@ function OpenTab(
   }, [annotateOn]);
 
   async function sendAnnotations(): Promise<void> {
-    const sent = await annotating.send(props.projectManagerSession());
+    const sent = await annotating.send({
+      session: props.projectManagerSession(),
+    });
     if (sent === null) return;
     toastKind.current = "sent";
     toast.show({

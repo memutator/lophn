@@ -1,5 +1,5 @@
-// 앱 공간의 Background 목록 줄. run 기록(`AppSpace.runs`)에서 이 앱의 것만 남겨 줄로 옮긴다: 이 앱의 tool run, App Engineer와
-// 이 앱에 놓인 Operator의 agent run. lophn과 Project Manager의 run은 project sidebar 몫이다.
+// 앱 공간의 Background 목록 줄. run 기록(`AppSpace.runs`)에서 이 앱의 것만 남겨 줄로 옮긴다: 이 앱의 tool run과
+// 이 앱 place에서 돈 agent run(그 agent가 앱 agent select에 있을 때). 다른 place의 run은 그 place 몫이다.
 // run event가 계약에 없어서, 목록을 열 때와 열려 있는 동안 session 상태(`useSessions()`)가 바뀔 때마다 다시 읽는다.
 import { useEffect, useMemo, useState } from "react";
 import { t } from "@lophn/wording";
@@ -42,21 +42,19 @@ export function useAppRuns(
       const known = new Map<string, { title: string | null; at: number }>();
       if (agentViewSource !== undefined) {
         await Promise.all(
-          agents
-            .filter((agent) => agent.role !== "lophn")
-            .map(async (agent) => {
-              const sessionsRead = await agentViewSource({
-                assignment: agent.assignment,
-                place: { kind: "app", id: app },
-              }).sessions();
-              if (!sessionsRead.ok) return;
-              for (const entry of sessionsRead.value) {
-                known.set(entry.id, {
-                  title: entry.title,
-                  at: Date.parse(entry.activeAt) || 0,
-                });
-              }
-            }),
+          agents.map(async (agent) => {
+            const sessionsRead = await agentViewSource({
+              assignment: agent.assignment,
+              place: { kind: "app", id: app },
+            }).sessions();
+            if (!sessionsRead.ok) return;
+            for (const entry of sessionsRead.value) {
+              known.set(entry.id, {
+                title: entry.title,
+                at: Date.parse(entry.activeAt) || 0,
+              });
+            }
+          }),
         );
       }
       if (live) setLoaded({ records, known });
@@ -67,12 +65,7 @@ export function useAppRuns(
   }, [read, active, app, agents, agentViewSource, sessions]);
 
   return useMemo(() => {
-    const operators = new Map(
-      agents
-        .filter((agent) => agent.role === "operator")
-        .map((agent) => [agent.assignment, agent]),
-    );
-    const engineer = agents.find((agent) => agent.role === "app_engineer");
+    const byId = new Map(agents.map((agent) => [agent.assignment, agent]));
     return [...loaded.records]
       .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
       .flatMap((record): RunRow[] => {
@@ -93,12 +86,8 @@ export function useAppRuns(
             : [];
         }
         const target = record.target.agent;
-        const agent =
-          target.role === "app_engineer" && target.app === app
-            ? engineer
-            : target.role === "operator"
-              ? operators.get(target.agent)
-              : undefined;
+        const atApp = target.place?.kind === "app" && target.place.id === app;
+        const agent = atApp ? byId.get(target.agent) : undefined;
         if (agent === undefined) return [];
         return [
           {

@@ -155,17 +155,14 @@ export interface AccessView {
 
 // ---- Activity ----
 
-export type AgentRole =
-  | "lophn"
-  | "project_manager"
-  | "app_engineer"
-  | "operator";
-
 export type Caller =
   | { readonly kind: "person" }
   | {
       readonly kind: "agent";
-      readonly role: AgentRole;
+      /** agent id(lophn 또는 agt_…). */
+      readonly agent: string;
+      /** agent 이름. 읽지 못하면 null이다. */
+      readonly name: string | null;
       readonly session: string;
       /** session 이름. 읽지 못하면 null이다. */
       readonly title: string | null;

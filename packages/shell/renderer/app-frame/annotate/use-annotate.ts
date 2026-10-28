@@ -15,8 +15,11 @@ interface Annotate {
   readonly failure: SendFailure | null;
   setMode(on: boolean): void;
   remove(n: number | "all"): void;
-  /** 받을 session은 agent pane에 열려 있는 App Engineer의 session이다. 없으면 null. */
-  send(session: string | null): Promise<AnnotateSendResult | null>;
+  /** 받는 쪽. agent는 앱 화면에서만 고르고(artifact·file은 core가 정한다) session은 그 agent의 열린 session, 없으면 null이다. */
+  send(to: {
+    session: string | null;
+    agent?: string;
+  }): Promise<AnnotateSendResult | null>;
 }
 
 export function useAnnotate(
@@ -59,11 +62,15 @@ export function useAnnotate(
       setFailure(null);
       call((api, view_session) => api.remove({ view_session, n }));
     },
-    async send(session) {
+    async send({ session, agent }) {
       if (api === undefined || viewSession === null) return null;
       setFailure(null);
       try {
-        return await api.send({ view_session: viewSession, session });
+        return await api.send({
+          view_session: viewSession,
+          session,
+          ...(agent === undefined ? {} : { agent }),
+        });
       } catch (error) {
         setFailure(
           error instanceof Error && error.message === "conflict"

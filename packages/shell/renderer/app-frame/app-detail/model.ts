@@ -4,7 +4,6 @@ import { formatDate, t } from "@lophn/wording";
 import type {
   ActivationStep,
   ActivityRow,
-  AgentRole,
   Caller,
   CallState,
   LossLine,
@@ -152,20 +151,13 @@ export function oauthStatus(
 
 // ---- Activity ----
 
-const ROLE_TEXT: Record<AgentRole, () => string> = {
-  lophn: () => t("app-detail.label.role-lophn"),
-  project_manager: () => t("app-detail.label.role-project-manager"),
-  app_engineer: () => t("app-detail.label.role-app-engineer"),
-  operator: () => t("app-detail.label.role-operator"),
-};
-
 /** 행에 보이는 부른 쪽 이름. */
 export function callerText(caller: Caller): string {
   switch (caller.kind) {
     case "person":
       return t("app-detail.label.caller-person");
     case "agent":
-      return ROLE_TEXT[caller.role]();
+      return caller.name ?? t("app-detail.label.caller-agent-unnamed");
     case "app":
       return t("app-detail.label.caller-app", {
         name: caller.appName ?? t("app-detail.label.caller-app-unnamed"),

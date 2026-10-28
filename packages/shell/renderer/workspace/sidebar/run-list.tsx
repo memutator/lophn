@@ -6,7 +6,10 @@ import { iconPixels } from "@lophn/ui/shared";
 import { settingsIcons } from "../../icons/mod.ts";
 import { formatRelativeTime, t } from "@lophn/wording";
 
-import type { CallAgent } from "../../../../protocol/lophn-agent/calls.ts";
+import type {
+  AgentId,
+  Place,
+} from "../../../../protocol/lophn-agent/places.ts";
 import type { PanelSession } from "./use-agent-panel.ts";
 import styles from "./project-sidebar.module.css";
 
@@ -16,9 +19,14 @@ export type RunStateView = "running" | "done" | "failed" | "cancelled";
 export interface RunRecordView {
   readonly id: string;
   readonly kind: "agent" | "tool";
-  /** agent: 이름을 푼 agent(`SessionEntry.agent`와 같은 `CallAgent`). tool: 앱 id와 tool 이름. */
+  /** agent: 이름을 푼 agent와 그 session의 place. tool: 앱 id와 tool 이름. */
   readonly target:
-    | { readonly agent: CallAgent }
+    | {
+        readonly agent: {
+          readonly agent: AgentId;
+          readonly place: Place | null;
+        };
+      }
     | { readonly app: string; readonly tool: string };
   readonly session: string | null;
   readonly session_opened: boolean;

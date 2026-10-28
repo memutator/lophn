@@ -36,8 +36,8 @@ const ago = (minutes: number) =>
  */
 export function fixedRuns(app: string): readonly RunRecordView[] {
   const operator = {
-    role: "operator",
-    agent: BUDGET_REVIEWER_ID as `agt_${string}`,
+    agent: BUDGET_REVIEWER_ID,
+    place: { kind: "app", id: app },
   } as const;
   return [
     {
@@ -106,7 +106,7 @@ export function fixedRuns(app: string): readonly RunRecordView[] {
     {
       id: "run_lophn",
       kind: "agent",
-      target: { agent: { role: "lophn" } },
+      target: { agent: { agent: "lophn", place: null } },
       session: null,
       session_opened: false,
       state: "done",

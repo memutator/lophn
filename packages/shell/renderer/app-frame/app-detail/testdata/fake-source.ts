@@ -182,7 +182,8 @@ const SECRETS: Record<SecretsFake, readonly (readonly [string, SecretInfo])[]> =
 const YOU: Caller = { kind: "person" };
 const ANALYST: Caller = {
   kind: "agent",
-  role: "operator",
+  agent: "agt_01h455vb4pex5v6nkc6gd5fd09",
+  name: "Order analyst",
   session: "ses_01h455vb4pex5v6nkc6gd5fd01",
   title: "Weekly order digest",
   turn: "trn_01h455vb4pex5v6nkc6gd5fd03",

@@ -48,10 +48,9 @@ run은 화면 없이 부르는 lophn agent 호출 하나, 또는 앱 tool 호출
 
 시작
 - `StartRun`은 이름을 다 푼 뒤에 session을 열고 run을 만든다. 이름이 안 풀린(`not_found`) 첫 시도는 session도 run도 남기지 않는다.
-  - CLI는 `operator:<x>/<이름>`의 `<x>`를 project로 먼저 부르고 `not_found`면 앱으로 다시 부른다. 첫 시도가 무엇이든 남기면 둘째 시도가 일을 두 번 만든다.
   - 순서는 run 행(running) → session 열기 → 메시지 넣기다. 열기나 넣기가 실패하면 그 run을 `start_failed`로 닫는다.
-- core 안 시작은 `RunService.start(input, origin?)`다. `origin`은 job 갈래(job, job run, 그 job을 만든 agent와 place)와 instance 갈래(flow instance, 그 project의 PM과 project place) 가운데 하나이고, tag 없이 `job` 키와 `instance` 키로 가른다(`packages/core/runs/ports.ts`의 `RunOrigin`). 메모리에만 있고 route 입력(`StartRun`)에는 없다. 있으면 run의 `job`이나 `instance` 칸을 채운다. agent run은 `agent_resolved` 갈래도 받는다: 이름을 이미 푼 AgentRef와 place를 주므로 이름 풀기를 건너뛴다. job이 만들 때 이름을 풀어 저장해 두기 때문이다. 나머지(session 열기, 입력, 끝을 아는 법)는 같다.
-- agent run은 `agent`(NamedAgent)와 `session`(이어 쓸 열린 session) 가운데 정확히 하나를 받는다. role `coding_agent`, 읽을 수 없는 schema, 너무 긴 prompt는 `invalid_input`이다. 호출마다 새 session이고, `session`을 주면 그 session에 이어 넣는다(열린 session이 아니면 `conflict`).
+- core 안 시작은 `RunService.start(input, origin?)`다. `origin`은 job 갈래(job, job run, 그 job을 만든 agent와 place)와 instance 갈래(flow instance, 그 project의 PM과 project place) 가운데 하나이고, tag 없이 `job` 키와 `instance` 키로 가른다(`packages/core/runs/ports.ts`의 `RunOrigin`). 메모리에만 있고 route 입력(`StartRun`)에는 없다. 있으면 run의 `job`이나 `instance` 칸을 채운다. agent run은 `agent_resolved` 갈래도 받는다: 이름을 이미 푼 (agent id, place)를 주므로 이름 풀기를 건너뛴다. job이 만들 때 이름을 풀어 저장해 두기 때문이다. 나머지(session 열기, 입력, 끝을 아는 법)는 같다.
+- agent run은 `agent`(`AgentAddress`: agent 이름과 place, place가 없으면 home)와 `session`(이어 쓸 열린 session) 가운데 정확히 하나를 받는다. 읽을 수 없는 schema, 너무 긴 prompt는 `invalid_input`이다. 호출마다 새 session이고, `session`을 주면 그 session에 이어 넣는다(열린 session이 아니면 `conflict`).
 - 보내는 글은 prompt에, 입력 JSON과 "이 JSON Schema에 맞는 JSON 하나만 답하라"는 고정 영어 문장을 붙인 것이다(`runMessageText`).
 - run이 연 session은 열린 채 남는다(`session_opened`). `session`으로 이어 쓴 run은 session을 열지 않는다.
 - 자동 재시도는 없다. 다시 하기는 부르는 쪽의 일이다.
@@ -92,8 +91,8 @@ tool run
 
 읽기
 - `ListRuns`는 `session`, `agent`, `place`, `state`로 거르고(모두 맞아야 한다) 새것이 앞이며 50개씩 `cursor`로 읽는다. 화면이 session event마다 읽고 뒤에 job이 run을 쌓으므로 거르기는 core가 한다.
-- place는 만들 때 기록한다. agent run은 그 agent의 place(lophn은 없음), tool run은 그 앱이다. `place: {app}` 하나로 그 앱의 App Engineer run, 앱 place Operator run, tool run을 같이 읽는다. place는 표의 칸이고 run 기록에는 싣지 않는다.
-  - Operator의 place는 `AgentRef`에 없어서(`placeOfAgentRef`) 이름을 푸는 쪽(wiring)이 이름을 풀 때, 또는 `session`으로 이어 쓸 때 그 session을 읽어 place를 정해 `CreateRun`에 싣는다.
+- place는 만들 때 기록한다. agent run은 그 session의 place(home은 없음), tool run은 그 앱이다. `place: {app}` 하나로 그 앱 place의 agent run과 tool run을 같이 읽는다. run 기록의 agent 대상은 `{agent, place}`이고, 거르기용 `runs.agent_key`는 `<agent id>`(home) 또는 `<agent id>@<place id>`다. `ListRuns`의 `agent`는 agent id다.
+  - `session`으로 이어 쓸 때는 그 session을 읽어 agent와 place를 정해 `CreateRun`에 싣는다.
 - run event는 계약에 없다. 화면은 session event 때 다시 읽는다.
 
 CLI와 자격(`architecture/coding-agent.md`)

@@ -6,7 +6,7 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 
 기본 profile은 `{ kind: "character", shape, color }`다. shape 6종과 color 8종은 protocol이 고정하고, shell의 `parts/avatar/character.tsx`가 한 body path와 점 눈 두 개로 SVG를 그린다. 표정은 고정이고 형태·색으로 agent를 구별한다. sidebar, 대화, Agents 카드, 알림은 같은 Avatar를 쓴다.
 
-built-in은 role 표의 기본 character를 쓰고, Operator는 편집 화면에서 형태·색을 따로 고르거나 이미지를 올린다. 정의 파일에는 shape·color 또는 `{ kind: "image", image: "avatar.<ext>" }`만 저장한다. 올린 이미지는 png·jpg·webp만 받으며 SVG는 제품이 그리는 기본 character에만 쓴다. main 알림과 대화 머리에서 올린 이미지 주소를 풀 수 없으면 이름 첫 글자를 쓴다.
+lophn은 고정 character를 쓰고 바꾸지 못한다. 사람이 만든 agent는 편집 화면에서 형태·색을 고르거나 이미지를 올린다. 정의 파일에는 shape·color 또는 `{ kind: "image", image: "avatar.<ext>" }`만 저장한다. 올린 이미지는 png·jpg·webp만 받으며 SVG는 제품이 그리는 기본 character에만 쓴다. main 알림과 대화 머리에서 올린 이미지 주소를 풀 수 없으면 이름 첫 글자를 쓴다.
 
 `dev:mock`도 편집 화면과 대화가 같은 AgentsSource를 쓴다. 대화 기록만 장면별 fake이고 이름·role·profile은 요청한 agent의 정의에서 읽는다. 정의나 grant를 저장하면 열린 대화의 `changed` 구독에도 알려 다시 읽는다.
 
@@ -40,15 +40,15 @@ built-in은 role 표의 기본 character를 쓰고, Operator는 편집 화면에
 - **같은 재료는 같은 bytes다.** 정렬하고, 시각·무작위에 기대지 않는다. tag 목록도 코드에서 끼우지 않고 고정 문장으로 둔다. 뭔가 하나라도 흔들리면 cache 경계가 매번 달라진다.
 - **cache 표시는 system 층 셋과 대화 끝 하나다.** Anthropic 요청은 표시를 넷까지 받아 그 안에 든다. 대화 끝 표시는 마지막 message의 마지막 content block에 단다(`packages/core/lophn-agent/providers/adapters/messages.ts`의 `buildRequest`). 끝 block은 turn마다 새로 생긴 tool 결과나 사람 글이라 다음 call은 앞 call이 쓴 prefix를 읽는다. 앱 하나를 짓는 turn은 model call이 백 번 가까이 되어 대화를 cache하지 않으면 매 call 대화 전체를 새 입력으로 낸다. tools는 system 앞이라 role 층 표시가 함께 덮는다.
 - **사람이 쓴 지침은 조용히 빼지 않는다.** 한 층이라도 못 읽거나 상한을 넘으면 turn을 시작하지 않는다. 빠진 채 일하면 사람이 모른다. 읽은 지침은 redaction을 거치고, 끝나지 않으면 역시 시작하지 않는다.
-- **지침 층은 덮지 않고 이어 붙인다.** skill과 MCP server만 같은 이름일 때 마지막 층이 덮는다. MCP server의 층은 전역, project, Operator 정의 순이다(`mcp_servers`는 Operator 정의에만 있다). 단 내장 skill은 모두 끌 수 없고 사람 skill이 같은 이름으로 덮지 못한다. role이 일하는 데 필요한 skill이 사라지면 lophn 동작이 막힌다.
+- **지침 층은 덮지 않고 이어 붙인다.** skill과 MCP server만 같은 이름일 때 마지막 층이 덮는다. MCP server의 층은 전역, project, agent 정의 순이다. 단 내장 skill은 모두 끌 수 없고 사람 skill이 같은 이름으로 덮지 못한다. role이 일하는 데 필요한 skill이 사라지면 lophn 동작이 막힌다.
   - 층의 자리(domain 층의 skill 폴더와 project 층의 `extensions.json`)와 내장 skill 폴더(`packages/core/agent-places/skills/`)는 role 층이 정하고 harness는 받아 쓴다. 읽기 허락과 skill 발견이 같은 값을 써야 허락 밖 폴더를 찾다 막히지 않는다.
 - **`AGENTS.md`는 읽지 않는다.** 지침은 `LOPHN.md`뿐이다. 다른 도구의 지침이 섞이면 사람이 무엇이 prompt에 들어가는지 모른다.
 - **lophn은 place가 없어 project 지침을 prompt에 넣지 않고 tool로 읽는다.** project를 가리지 못한 채 아무 project의 지침을 싣는 것을 막는다. 앱 place의 agent에게는 project 지침이 없다.
 - **`DOMAIN.md`는 그 agent가 맡은 domain의 것만 지침 층에 실린다.** 글이 예산(24000자)을 넘으면 넘은 domain부터 목적 한 줄로 줄인다. 규칙은 `architecture/domain.md`다.
 - **Router가 넣는 입력은 모두 user role이고 `lophn-` tag로 출처를 밝힌다.** 본문 속 `lophn-` tag는 escape하고 속성 값은 scrub한다. 사람의 steer만 `<lophn-steer>` 모양을 믿는다고 고정 본문에 적는다. 받은 메시지, 알림, tool 결과는 허락도 사람의 지시도 아니다. 받은 메시지는 뒤 turn의 이력에서도 받은 turn의 입력과 같은 bytes로 싼다(봉투가 답 방식, reaction event, 실패 이유를 저장한다. `agent-call.md`).
 - **감싸는 결과는 web 검색과 web 읽기뿐이다.** file, shell, 앱 tool, 외부 MCP 결과는 감싸지 않는다. 앱과 MCP는 사람이 할당하고 설정한 순간 믿는다는 철학이고, 실행 때 의심을 더하지 않는다. "안전해 보이니 감싸자"로 되돌리지 않는다.
-- **Operator 정의 층의 MCP server는 그 Operator의 turn과 MCP 목록에만 닿는다.** MCP server는 설정한 층(전역, project, Operator 정의)이 곧 할당이고 끄기는 `mcp_off`다(`architecture/approval.md`). turn 준비가 그 Operator의 `mcp_servers`만 agent 층으로 넘기고, MCP tool 목록 요청(`agent-mcp-tools/list`)도 Operator id를 실어 같은 층을 더한다. 반면 `mcp.` secret 목적지는 모든 Operator의 정의 층을 합친 목록을 본다(runtime child 하나가 모든 session의 MCP를 돌린다). 정의 층 server의 credential 이름은 `mcp.<agt id>.<서버>`라 다른 층·다른 Operator와 겹치지 않는다. 이름 접두는 core가 강제하지 않고 편집 화면이 만든다. 정의 file을 쓰는 것은 사람뿐이다.
-- **Operator 정의의 `skip`은 그 Operator 새 session의 skip 기본값이다.** 켜 두면 새 session이 skip으로 시작해 shell `ask`를 묻지 않는다(deny 규칙은 막는다). `mcp_servers`처럼 사람만 쓴다: PM과 App Engineer의 `operator.create`·`operator.update` 입력에 없다. session의 skip은 사람이 대화 화면에서 켜고 끄고(`ChangeSessionSkip`), fork한 session은 skip을 가져가지 않고 정의의 기본값으로 시작한다(`architecture/place-session.md`).
+- **agent 정의 층의 MCP server는 그 agent의 turn과 MCP 목록에만 닿는다.** MCP server는 설정한 층(전역, project, agent 정의)이 곧 할당이고 끄기는 `mcp_off`다(`architecture/approval.md`). turn 준비가 그 agent의 `mcp_servers`만 agent 층으로 넘기고, MCP tool 목록 요청(`agent-mcp-tools/list`)도 agent id를 실어 같은 층을 더한다. 반면 `mcp.` secret 목적지는 모든 agent의 정의 층을 합친 목록을 본다(runtime child 하나가 모든 session의 MCP를 돌린다). 정의 층 server의 credential 이름은 `mcp.<agent id>.<서버>`라 다른 층·다른 agent와 겹치지 않는다. 이름 접두는 core가 강제하지 않고 편집 화면이 만든다. 정의 file을 쓰는 것은 사람뿐이다.
+- **agent 정의의 `skip`은 그 agent 새 session의 skip 기본값이다.** 켜 두면 새 session이 skip으로 시작해 shell `ask`를 묻지 않는다(deny 규칙은 막는다). `mcp_servers`처럼 사람만 쓴다: `agent.create`·`agent.update` 입력에 없다. session의 skip은 사람이 대화 화면에서 켜고 끄고(`ChangeSessionSkip`), fork한 session은 skip을 가져가지 않고 정의의 기본값으로 시작한다(`architecture/place-session.md`).
 - **tool 목록은 session을 시작할 때 고정한다.** session 도중 activation이나 할당으로 앱 tool, MCP tool이 더해지거나 빠져도 `tools[]`는 그대로 두고 대화 끝에 notice로 알린다. 빠진 tool은 목록에 남아도 부를 때 막힌다. 앱 tool은 Gate가 지금 할당을 읽고, MCP tool은 연결 쪽 `call`이 지금 server 설정을 다시 읽는다(`architecture/approval.md`). notice는 program이 쓴 고정 문장만 쓰고 앱이 쓴 글(tool 설명)은 넣지 않는다. notice도 다음 turn부터는 이력의 앞부분(prefix)이라, 앱 글이 들어가면 그 글이 바뀔 때마다 같은 재료가 같은 bytes가 아니게 되어 cache가 깨진다.
 - **role의 tool 목록은 코드가 고정하고, 목록 밖 tool은 정의에도 실행에도 없다.** 사람은 목록을 넓히거나 좁히지 않는다. 넓히는 길은 할당 하나다. 읽기 tool은 모든 role에 주고 쓰기 tool만 role로 나눈다. 목록은 role 층(`agent-places/tool-lists.ts`)에 있고, 목록의 이름마다 정의가 있고 정의마다 어느 목록에 든다(`main/agent-tools_test.ts`). 어긋나면 agent가 그 tool을 말없이 못 본다.
 - **tool 정의는 늦게 싣는다: 숨긴 tool은 이름만 알리고 `tool.load`로 펼친다.** 숨김은 정의를 늦게 싣는 장치이고 role 구분이 아니다(role 구분은 위 목록이 한다).
@@ -69,7 +69,9 @@ built-in은 role 표의 기본 character를 쓰고, Operator는 편집 화면에
 - **file tool은 place 폴더 안에 가둔다.** realpath로 판정하고, 새 파일이면 가장 가까운 상위 폴더의 realpath에 이름을 붙여 판정한다. 끊어진 symlink는 따라 쓰면 밖에 쓰게 되므로 거절한다. 읽기와 쓰기는 Gate를 거치지 않고 쓰기는 rewind로 되돌린다. `LOPHN.md` 쓰기도 묻지 않는다. shell은 shell 규칙으로 Gate를 거친다(`architecture/approval.md`).
 - **agent 정의는 lophn data에 있어 file tool이 닿지 않는다.** agent가 자기 정의를 file tool로 고쳐 할당을 우회하지 못한다. 지침 파일(`LOPHN.md`)과 domain 폴더의 `DOMAIN.md`·`kinds.yaml`·`skills/`는 그 범위의 agent가 묻지 않고 쓴다(rewind로 되돌린다).
 - **shell은 환경 변수 허용 목록만 넘긴다.** lophn token과 secret은 이름으로 막는 것이 아니라 목록에 없어서 나갈 수 없다. 앱 data는 앱 tool로만 다루고 앱 DB는 직접 열지 않는다(고정 본문).
-- **Operator 정의를 만들고 고치는 tool은 할당을 주지 못한다.** 할당, 정의 층 MCP server, skip 기본값은 사람이 정한다. agent가 자기 권한을 넓히거나 묻기를 끄는 길이 없어야 한다.
+- **agent 정의를 만들고 고치는 tool(`agent.create`, `agent.update`)은 할당을 주지 못한다.** 할당, 정의 층 MCP server, skip 기본값은 사람이 정한다. agent가 자기 권한을 넓히거나 묻기를 끄는 길이 없어야 한다.
+- **agent 정의는 전역이고 꼴이 하나다.** 자리는 `<data>/agents/<id>.md`(올린 avatar는 그 옆)이고 칸은 name, profile, model, skills, domains, mcp_off, mcp_servers, skip, 본문이다(`agentDefinitionSchema`, `packages/protocol/lophn-agent/agent-values.ts`). route는 `agents/*`다. lophn은 고정 id `lophn`의 내장 정의라 지우지 못하고 이름과 profile을 바꾸지 못한다(`forbidden`). agent 이름은 전역에 하나이고 `lophn`은 예약이다. 주소가 이름이라 겹치면 받는 agent가 하나로 정해지지 않는다. 등록(project, 앱)은 agent를 만들지 않는다.
+- **할당은 agent id마다 한 줄이다**(`agent_assignments.agent`, route `assignments/*`). 정의가 전역이라 할당도 place를 갖지 않는다.
 - **tool 결과는 model에 약 24 KiB까지만 싣는다.** shell도 stream마다 앞 12 KiB와 뒤 12 KiB만 남기고 가운데는 생략 표시로 바꾼다. 오류는 끝에 나오므로 뒤를 버리지 않는다. 출력 많은 명령 한 번이 context를 채우지 않게 한다.
 - **model 요청에 싣는 이미지는 그 turn의 최신 둘뿐이다.** 오래된 이미지 조각은 빼고 짝 tool 결과 글 끝에 `[image omitted]`를 붙인다. 요청 body 전체를 blob으로 저장하고 그 상한이 16 MiB라, 이미지가 쌓이면 model call을 보내지 못한다. 입력 예산은 이미지를 base64 byte가 아니라 이미지당 고정 token(4096)으로 센다. byte=token 가정은 이미지에 맞지 않아 screenshot 하나로 `context_limit`이 난다.
 - **provider credential(API key, 구독 OAuth access token)은 `secrets.json`의 이름 `provider.<id>`로만 가리킨다.** ConnectProvider는 그 provider 몫의 이름만 받는다. 값은 core가 전송 직전에 그 이름을 가진 회수되지 않은 provider의 endpoint origin과 요청 목적지가 같을 때만 읽어 agent runtime의 전송 callback 하나에 준다. 값은 ledger, event, log, 오류, model 입력에 없다. 다른 이름을 가리킬 수 있으면 앱·MCP secret이 provider endpoint로 나간다.

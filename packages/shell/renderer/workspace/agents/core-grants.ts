@@ -1,14 +1,14 @@
 // 할당을 읽고 저장하는 부분과 붙일 수 있는 앱 목록. 붙은 것은 agent_assignments가, 붙일 수 있는 앱과 tool은
 // 앱 목록과 활성 release의 선언이 말한다. MCP server는 설정한 층이 곧 할당이라 여기에 없다.
 import {
-  agentAssignmentSet,
+  assignmentSet,
   type AssignmentEntry,
 } from "../../../../protocol/approvals/assignment.ts";
-import type { AgentRef } from "../../../../protocol/lophn-agent/places.ts";
 import type { DomainView } from "../source.ts";
-import { refOf } from "./agent-key.ts";
+import { isAgentId } from "./agent-key.ts";
+import { placeOf } from "./core-extensions.ts";
 import { type Link, unavailable } from "./core-link.ts";
-import { appsFor, domainNamesOf } from "./editor/grants-model.ts";
+import { appsFor } from "./editor/grants-model.ts";
 import type { GrantApp, GrantsView, ReadResult } from "./source.ts";
 
 interface AppRow {
@@ -57,41 +57,43 @@ async function appCatalog(link: Link): Promise<GrantApp[]> {
   return found;
 }
 
-/** agent가 일할 domain의 이름. lophn은 놓인 곳이 없어 없다. */
+/** agent가 이 자리에서 받는 domain의 이름. `effective.domains`를 그 자리 그릇의 것으로 바꾼다. */
 async function agentDomainNames(
   link: Link,
   place: string | null,
-  ref: AgentRef,
+  agent: string,
   domains: (place: string) => Promise<ReadResult<readonly DomainView[]>>,
 ): Promise<string[]> {
   if (place === null) return [];
   const container = await domains(place);
   if (!container.ok) return [];
-  const read = await link.read<{ definition: { domains?: string[] } | null }>(
-    "agent-definitions",
+  const read = await link.read<{ effective: { domains: string[] } }>(
+    "agents",
     "read",
-    { agent: ref },
+    { agent, place: placeOf(place) },
   );
-  const chosen = read.ok ? (read.value.definition?.domains ?? []) : [];
-  return domainNamesOf(chosen, container.value);
+  if (!read.ok) return [];
+  const received = read.value.effective.domains;
+  return container.value
+    .filter((one) => received.includes(one.id))
+    .map((one) => one.name);
 }
 
 export async function readGrants(
   link: Link,
   place: string | null,
-  key: string,
+  agent: string,
   domains: (place: string) => Promise<ReadResult<readonly DomainView[]>>,
 ): Promise<ReadResult<GrantsView>> {
-  const ref = refOf(place, key);
-  if (ref === null) return { ok: false, message: "not_found" };
+  if (!isAgentId(agent)) return { ok: false, message: "not_found" };
   const read = await link.read<{
     assignment: { entries: AssignmentEntry[] };
     revision: number;
-  }>("agent_assignments", "get", { agent: ref });
+  }>("agent_assignments", "get", { agent });
   if (!read.ok) return read;
   const [apps, agentDomains] = await Promise.all([
     appCatalog(link),
-    agentDomainNames(link, place, ref, domains),
+    agentDomainNames(link, place, agent, domains),
   ]);
   return {
     ok: true,
@@ -105,16 +107,15 @@ export async function readGrants(
 
 export function saveGrants(
   link: Link,
-  place: string | null,
-  key: string,
+  _place: string | null,
+  agent: string,
   entries: readonly AssignmentEntry[],
   revision: number,
 ): Promise<ReadResult<{ readonly revision: number }>> {
-  const ref = refOf(place, key);
-  if (ref === null) return Promise.resolve(unavailable);
+  if (!isAgentId(agent)) return Promise.resolve(unavailable);
   return link
-    .command(agentAssignmentSet, {
-      input: { agent: ref, entries },
+    .command(assignmentSet, {
+      input: { agent, entries },
       compare: { revision },
     })
     .then((reply) =>

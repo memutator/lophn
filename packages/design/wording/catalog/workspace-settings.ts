@@ -22,6 +22,7 @@ export const workspaceSettings = {
   "jobs.label.agent-lophn": "lophn",
   "jobs.label.agent-operator": "an agent",
   "jobs.label.agent-project-manager": "Project Manager",
+  "jobs.label.agent-unnamed": "an agent",
   "jobs.label.at": "At",
   "jobs.label.created-by": "Created by {agent}",
   "jobs.label.created-by-place": "Created by {agent} · {place}",
@@ -140,7 +141,7 @@ export const workspaceSettings = {
   "settings.intro.appearance":
     "How lophn looks. Changes apply as soon as you choose.",
   "settings.intro.coding":
-    "Products on this computer that App Engineers can hand a task to.",
+    "Coding agents on this computer that lophn can set up.",
   "settings.intro.diagnostics":
     "Whether each part of lophn can be used right now. Checks run only when you press the button.",
   "settings.intro.general":
@@ -250,8 +251,7 @@ export const workspaceSettings = {
   "settings.note.allowed-max": "Allowed: up to {max, number}.",
   "settings.note.allowed-min": "Allowed: at least {min, number}.",
   "settings.note.allowed-range": "Allowed: {min, number} to {max, number}.",
-  "settings.note.coding-default-used":
-    "Used when an App Engineer does not pick one.",
+  "settings.note.coding-default-used": "Used when none is picked.",
   "settings.note.coding-defaults-saved": "Saved.",
   "settings.note.coding-detect-note":
     "These are the results from the last check. lophn only checks again when you ask.",

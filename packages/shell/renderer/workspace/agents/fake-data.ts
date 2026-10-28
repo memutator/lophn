@@ -1,5 +1,5 @@
-// fake source와 gallery가 같이 쓰는 값. tools/wireframes의 phroner 예시(Project Manager, Operator 둘, 앱 Budget tracker의
-// App Engineer, lophn)와 층마다 정한 model·skill·MCP, 붙일 앱과 할당을 contract 모양으로 담는다.
+// fake source와 gallery가 같이 쓰는 값. tools/wireframes의 phroner 예시(lophn과 사람이 만든 agent 셋)와 층마다 정한
+// model·skill·MCP, 붙일 앱과 할당을 contract 모양으로 담는다.
 
 import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
 import type {
@@ -144,9 +144,7 @@ export const CATALOG: readonly CatalogEntry[] = [
 
 export interface FakeAgent {
   readonly key: string;
-  readonly role: "lophn" | "project_manager" | "app_engineer" | "operator";
   readonly name: string;
-  readonly place: "none" | "project" | "app";
   readonly summary: string;
   readonly definition: AgentDraft;
 }
@@ -159,12 +157,11 @@ export const AVATAR_SRC = AVATAR;
 export const FAKE_AGENTS: readonly FakeAgent[] = [
   {
     key: "lophn",
-    role: "lophn",
     name: "lophn",
-    place: "none",
     summary:
       "Talks with you about lophn itself: your projects, apps and settings.",
     definition: {
+      name: "lophn",
       profile: { kind: "character", shape: "square", color: "coral" },
       body: `Answer in short plain sentences.
 When a question is about one project, read that project's LOPHN.md first.`,
@@ -172,39 +169,8 @@ When a question is about one project, read that project's LOPHN.md first.`,
     },
   },
   {
-    key: "project_manager",
-    role: "project_manager",
-    name: "Project Manager",
-    place: "project",
-    summary: "Keeps this project's kinds in shape.",
-    definition: {
-      body: "",
-      skills: ["plain-writing", "weekly-report"],
-      mcp_off: [{ server_name: "fetch" }, { server_name: "github" }],
-    },
-  },
-  {
-    key: "app_engineer",
-    role: "app_engineer",
-    name: "App Engineer",
-    place: "app",
-    summary: "Builds and repairs Budget tracker from its source folder.",
-    definition: {
-      model: {
-        provider: ANTHROPIC,
-        model_name: "Opus 5.5",
-        option_values: { effort: "high", speed: "standard" },
-      },
-      body: "Keep the app small. Change one tool at a time and run the app's test before you ask me to check it.",
-      skills: ["plain-writing", "cite-documents"],
-      mcp_off: [{ server_name: "fetch" }],
-    },
-  },
-  {
     key: EVAL_ANALYST_ID,
-    role: "operator",
     name: "Eval analyst",
-    place: "project",
     summary: "Explains what changed in the eval loop and why it matters.",
     definition: {
       name: "Eval analyst",
@@ -242,9 +208,7 @@ Keep answers short. Name the scenario for every regression.`,
   },
   {
     key: EXPERIMENT_PLANNER_ID,
-    role: "operator",
     name: "Experiment planner",
-    place: "project",
     summary: "Plans the next experiments from what the project documents say.",
     definition: {
       name: "Experiment planner",
@@ -259,9 +223,7 @@ change to try and how you will know it worked. Ask before you create files.`,
   },
   {
     key: BUDGET_REVIEWER_ID,
-    role: "operator",
     name: "Budget reviewer",
-    place: "app",
     summary: "Reads the month's expenses and flags what looks off.",
     definition: {
       name: "Budget reviewer",
@@ -339,7 +301,7 @@ export const APP_SKILLS: readonly SkillRow[] = [
   },
 ];
 
-/** Project Manager가 가진 내장 skill. 끌 수 없다. */
+/** project 자리에서 보이는 내장 skill. 끌 수 없다. */
 export const BUILT_IN_SKILLS: readonly SkillRow[] = [
   {
     name: "kinds-yaml",
@@ -478,6 +440,4 @@ export const FAKE_GRANTS: Readonly<Record<string, readonly AssignmentEntry[]>> =
       { app: APP_ID, removed_tools: [] },
       { app: EVAL_BOARD_ID, removed_tools: [] },
     ],
-    project_manager: [{ app: APP_ID, removed_tools: [] }],
-    app_engineer: [{ app: APP_ID, removed_tools: [] }],
   };

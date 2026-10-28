@@ -13,7 +13,6 @@ import {
   DEFAULT_AGENT_CHARACTER,
   type Profile,
 } from "../../../../../protocol/lophn-agent/agent-values.ts";
-import type { Role } from "../../../../../protocol/lophn-agent/places.ts";
 import { workspaceIcons } from "../../../icons/mod.ts";
 import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
 import type {
@@ -33,14 +32,6 @@ const LAYER_LABEL: Record<SkillLayer | McpLayer, MessageKey> = {
   project: "agents.label.layer-project",
   agent: "agents.label.layer-agent",
 };
-
-/** role 이름. 카드의 chip과 editor 제목 옆에 쓴다. */
-export const ROLE_LABEL = {
-  lophn: "project-workspace.label.role-lophn",
-  project_manager: "agents.label.role-project-manager",
-  app_engineer: "project-workspace.label.role-app-engineer",
-  operator: "project-workspace.label.agent-kind-operator",
-} as const satisfies Record<Role, MessageKey>;
 
 const STATUS_LABEL: Record<"off" | "connected" | "needs-sign-in", MessageKey> =
   {
@@ -218,7 +209,7 @@ interface ProfileFieldProps {
   readonly value: Profile;
   /** 올린 이미지 파일 이름을 화면이 읽을 수 있는 주소로 푼다. */
   readonly imageSrc: (image: string) => string;
-  /** 새 Operator는 저장하기 전에는 이미지를 올릴 수 없다. */
+  /** 새 agent는 저장하기 전에는 이미지를 올릴 수 없다. */
   readonly canUpload: boolean;
   readonly onChange: (profile: Profile) => void;
   readonly onUpload: (file: File) => void;

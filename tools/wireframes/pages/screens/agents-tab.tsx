@@ -24,13 +24,12 @@ export const AGENTS_TAB_SPEC: TabSpec = {
   title: `${PROJECT_NAME} · Agents`,
 };
 
-/** agent 설정 화면을 여는 탭. 새 Operator는 id가 "new"다. */
+/** agent 설정 화면을 여는 탭. 새 agent는 id가 "new"다. */
 export function agentTab(id: string): TabSpec {
   return {
     key: `agent-edit:${id}`,
     kind: "operator",
-    title:
-      FAKE_AGENTS.find((agent) => agent.key === id)?.name ?? "New Operator",
+    title: FAKE_AGENTS.find((agent) => agent.key === id)?.name ?? "New agent",
     sub: id,
   };
 }
@@ -56,14 +55,17 @@ export function AgentsBody({ open }: { open: Open }) {
   );
 }
 
-/** agent 하나의 설정 탭. id가 "new"면 새 Operator다. steps는 gallery가 상태를 고정하려고 mount 뒤에 누를 것이다. */
-export function OperatorEditor({
+/** agent 하나의 설정 탭. id가 "new"면 새 agent다. steps는 gallery가 상태를 고정하려고 mount 뒤에 누를 것이다. */
+export function AgentSettingsEditor({
   id,
+  place = "project",
   onDone,
   steps = [],
   source: options,
 }: {
   id: string;
+  /** 화면을 연 자리다. `app`이면 앱 그릇의 skill·MCP·domain을 그린다. */
+  place?: "project" | "app";
   onDone: () => void;
   steps?: readonly Step[];
   /** provider와 project 층 model의 상태. */
@@ -71,7 +73,7 @@ export function OperatorEditor({
 }) {
   const source = useMemo(() => createFakeAgentsSource(options), []);
   useDrive(() => runSteps(steps));
-  const inApp = FAKE_AGENTS.find((agent) => agent.key === id)?.place === "app";
+  const inApp = place === "app";
   return (
     <div>
       <AgentEditor
@@ -86,3 +88,6 @@ export function OperatorEditor({
     </div>
   );
 }
+
+// project-app.tsx가 새 이름으로 옮기면 지운다.
+export const OperatorEditor = AgentSettingsEditor;

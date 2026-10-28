@@ -31,13 +31,12 @@ import type {
 export type { ReadResult };
 
 /**
- * 목록의 줄. `assignment`는 agent를 가리키는 값이다: 내장 role은 role 이름이고 Operator는 `agt_…` ID다
- * (agent-key.ts). 소비자가 이 값을 그대로 돌려주면 source가 푼다.
+ * 목록의 줄. `assignment`는 agent id(`lophn`이거나 `agt_…`)다. 목록은 전역이고 lophn이 첫 줄이다.
+ * `role`은 옛 소비자를 위한 값이라 lophn이면 `lophn`, 나머지는 `operator`만 낸다.
  */
 export interface AgentListRow {
   readonly assignment: string;
   readonly role: Role;
-  readonly kind: "built_in" | "operator";
   readonly name: string;
   readonly profile: Profile;
   readonly model: {
@@ -51,7 +50,7 @@ export interface AgentListRow {
 
 /** Agents 탭 본문 한 번에 필요한 값. */
 export interface AgentsOverview {
-  /** Project Manager(앱 자리면 App Engineer)와 Operator들 순서의 목록. lophn은 전역이라 이 탭에 없다. */
+  /** 전역 목록 전부(lophn이 첫 줄). */
   readonly agents: readonly AgentListRow[];
   /** 같이 쓰는 `LOPHN.md`. 파일이 없거나 읽을 수 없으면 빈 글이다. */
   readonly instructions: ProjectInstructionsView;
@@ -67,9 +66,9 @@ export interface AgentsOverview {
 }
 
 /**
- * 정의 파일 한 개의 값. Operator는 모든 칸이 있고 내장 role은 model·skills·mcp_off·body만 있다.
- * `skills`는 받을 skill 이름이고 비면 보이는 skill을 모두 받는다. `domains`는 일할 domain의 id이고 비면 그 그릇의 domain 전부다.
- * 파일에는 사람이 바꾼 칸만 있어 없는 칸은 상속이다.
+ * 정의 파일 한 개의 값. 모든 agent가 같은 칸을 갖는다. `skills`는 받을 skill 이름이고 비면 보이는 skill을 모두 받는다.
+ * `domains`는 일할 domain의 id이고 비면 그 그릇의 domain 전부다. lophn의 `name`·`profile`은 바꾸지 못하고
+ * `mcp_servers`·`skip`은 사람만 쓴다. 파일에는 사람이 바꾼 칸만 있어 없는 칸은 상속이다.
  */
 export interface AgentDraft {
   readonly name?: string;
@@ -79,28 +78,30 @@ export interface AgentDraft {
   readonly domains?: readonly string[];
   readonly mcp_off?: readonly McpOff[];
   readonly mcp_servers?: readonly McpServer[];
-  /** 새 session을 skip으로 시작한다. Operator만 가지고 사람만 쓴다. */
+  /** 새 session을 skip으로 시작한다. 사람만 쓴다. */
   readonly skip?: boolean;
   readonly body: string;
 }
 
-/** agent가 놓인 곳. lophn은 놓인 곳이 없다. */
+/** 화면을 연 자리. `kind: "none"`은 Settings다. */
 export interface PlaceView {
   readonly kind: "project" | "app" | "none";
   readonly id: string | null;
   readonly name: string;
 }
 
-/** editor 하나가 여는 agent의 값. 새 Operator는 assignment와 hash가 null이다. */
+/** editor 하나가 여는 agent의 값. 새 agent는 assignment와 hash가 null이다. */
 export interface AgentDetail {
+  /** 저장된 agent의 `AgentId`. 새 agent는 null이다. */
   readonly assignment: string | null;
   /**
-   * 새 Operator가 저장 전에 미리 가진 id(`agt_…`). credential 이름 `mcp.<agt id>.<server>`에 id가 먼저 필요해서다.
+   * 새 agent가 저장 전에 미리 가진 id(`agt_…`). credential 이름 `mcp.<agt id>.<server>`에 id가 먼저 필요해서다.
    * 저장된 agent는 null이다.
    */
   readonly draftId: string | null;
+  /** 옛 소비자를 위한 값. lophn이면 `lophn`, 나머지는 `operator`다. */
   readonly role: Role;
-  readonly kind: "built_in" | "operator";
+  /** 화면을 연 자리. Settings는 `none`이다. */
   readonly place: PlaceView;
   /** 정의 파일의 내용. 파일이 없거나 틀렸으면 본문만 빈 정의다. */
   readonly definition: AgentDraft;
@@ -121,14 +122,6 @@ export interface AgentDetail {
   readonly mcpServers: readonly McpRow[];
   /** project 지침. lophn은 project 지침을 받지 않아 null이다. */
   readonly instructions: ProjectInstructionsView | null;
-  /** 새 Operator를 놓을 수 있는 곳. 처음 항목이 기본이다. 저장된 agent는 빈 목록이다. */
-  readonly places: readonly PlaceChoice[];
-}
-
-export interface PlaceChoice {
-  readonly kind: "project" | "app";
-  readonly id: string;
-  readonly name: string;
 }
 
 /** 연결된 provider. definition은 catalog 항목과 맞추는 key다. */
@@ -170,14 +163,12 @@ export interface ModelsView {
 }
 
 export interface SaveInput {
-  /** 새 Operator는 null이다. */
+  /** 새 agent는 null이다. */
   readonly assignment: string | null;
-  /** 새 Operator가 만들 때 쓸 id(`AgentDetail.draftId`). 저장된 agent는 null이다. */
+  /** 새 agent가 만들 때 쓸 id(`AgentDetail.draftId`). 저장된 agent는 null이다. */
   readonly draftId: string | null;
-  /** 새 Operator를 놓을 곳의 id. 저장된 agent는 쓰지 않는다. */
-  readonly place: string | null;
   readonly definition: AgentDraft;
-  /** 읽을 때의 파일 hash. 새 Operator는 null이다. */
+  /** 읽을 때의 파일 hash. 새 agent는 null이다. */
   readonly hash: string | null;
 }
 
@@ -223,11 +214,11 @@ export interface GrantsView {
 }
 
 export interface AgentsSource {
-  /** 이 자리의 agent 목록. sidebar의 Agents 묶음이 이것만 읽는다. */
+  /** 전역 agent 목록(lophn이 첫 줄). sidebar의 Agents 묶음이 이것만 읽는다. 첫 인자는 화면을 연 자리다. */
   list(project: string): Promise<ReadResult<readonly AgentListRow[]>>;
   overview(project: string): Promise<ReadResult<AgentsOverview>>;
   models(): Promise<ReadResult<ModelsView>>;
-  /** 이 자리(project나 앱) 그릇의 active domain 목록. Operator가 고를 수 있는 domain이다. */
+  /** 이 자리(project나 앱) 그릇의 active domain 목록. agent가 고를 수 있는 domain이다. */
   domains(place: string): Promise<ReadResult<readonly DomainView[]>>;
   /** custom provider의 model 목록을 다시 읽는다. 성공하면 true다. */
   refreshModels(provider: string): Promise<boolean>;
@@ -247,13 +238,13 @@ export interface AgentsSource {
     key: UserModelKey,
     seq: string,
   ): Promise<ReadResult<UserModels>>;
-  /** project가 null이면 lophn 전체의 설정이다. */
+  /** 첫 인자는 화면을 연 자리(project나 앱, Settings는 null)다. agent는 두 번째 인자 하나로 가리킨다. */
   readAgent(
     project: string | null,
     assignment: string,
   ): Promise<ReadResult<AgentDetail>>;
-  /** 첫 저장 전의 Operator. 상속하는 값은 이 자리가 정한다. */
-  newOperator(project: string): Promise<ReadResult<AgentDetail>>;
+  /** 첫 저장 전의 agent. 상속하는 값은 화면을 연 자리가 정한다. */
+  newAgent(project: string): Promise<ReadResult<AgentDetail>>;
   saveAgent(project: string | null, input: SaveInput): Promise<SaveResult>;
   deleteAgent(
     project: string,

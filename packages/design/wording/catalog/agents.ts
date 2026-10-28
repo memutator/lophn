@@ -41,14 +41,16 @@ export const agents = {
   "agents.notice.skills-project":
     "A switch turns a skill on or off for this project. Workspace skills can be turned off here too.",
   "agents.notice.tab-lead":
-    "The agents that work here. lophn is one agent for all of lophn, so you set it up in Settings \u203a Agents.",
+    "These agents work in every project and app. A session works in the place where you open it.",
   "agents.button.assign-app": "Assign app",
   "agents.button.choose-character": "Choose character",
+  "agents.button.create-agent": "Create agent",
   "agents.button.create-operator": "Create Operator",
   "agents.button.remove-app": "Remove app",
   "agents.button.remove-image": "Remove image",
   "agents.empty.grants-apps":
     "No apps. An assigned app brings all of its tools.",
+  "agents.heading.all-agents": "All agents",
   "agents.heading.grants-apps": "Apps",
   "agents.heading.server-form": "Add a server for this agent only",
   "agents.heading.skip": "Skip permissions",
@@ -84,7 +86,7 @@ export const agents = {
     "{used, number} of {total, number} tools",
   "agents.label.grants-target": "the grants",
   "agents.label.instructions-head-placed":
-    "Project instructions \u00b7 LOPHN.md in {project} \u2014 read by every agent placed there",
+    "Project instructions \u00b7 LOPHN.md in {project} \u2014 read by every agent working there",
   "agents.label.instructions-head-unknown":
     "Project instructions \u00b7 LOPHN.md",
   "agents.label.layer-agent": "This agent",
@@ -111,16 +113,16 @@ export const agents = {
   "agents.notice.credential-later":
     "If the server needs a key or token, lophn asks for it in a protected prompt after you add it.",
   "agents.notice.domains-gone":
-    "A domain this Operator had chosen is gone from here. It is dropped when you save.",
+    "A domain this agent had chosen is gone from here. It is dropped when you save.",
   "agents.notice.grants-after-create":
-    "You can assign apps in the Grants tab once the Operator exists.",
+    "You can assign apps in the Grants tab once the agent exists.",
   "agents.notice.app-no-project":
     "An app has no project instructions. Only the instructions below apply here.",
   "agents.notice.grants-apply-now": "Changes in Grants apply right away.",
   "agents.notice.grants-lead":
     "What {name} can use besides its own tools. Anything you don't assign here, {name} can't use.",
   "agents.notice.grants-mcp-layers":
-    "MCP servers are set where you add them: Settings \u203a Tools and skills, the project, or this Operator's Definition.",
+    "MCP servers are set where you add them: Settings \u203a Tools and skills, the project, or this agent's Definition.",
   "agents.notice.instructions-help":
     "Read after the project instructions. Your Workspace instructions come before both.",
   "agents.notice.instructions-help-lophn":
@@ -128,11 +130,11 @@ export const agents = {
   "agents.notice.lophn-no-project":
     "lophn takes no project's instructions. It reads a project's LOPHN.md when it works on that project.",
   "agents.notice.name-fixed-lophn":
-    "There is one lophn for everything. The name can't be changed.",
+    "lophn's name and profile can't be changed.",
   "agents.notice.name-fixed-role":
     "Every {owner, select, app {app} other {project}} has one {role}. The name can't be changed.",
   "agents.notice.place-help":
-    "Where this Operator works. Its sessions open in that place.",
+    "Where this agent works. Its sessions open in that place.",
   "agents.notice.profile-help":
     "Choose a shape and color, or upload an image. It shows next to the agent's messages.",
   "agents.notice.protected-key":
@@ -153,12 +155,13 @@ export const agents = {
   "agents.title.upload-failed": "Couldn't upload",
   "project-workspace.button.add-server": "Add server",
   "project-workspace.button.add-skill": "Add skill",
-  "project-workspace.button.agent-editor-delete": "Delete Operator",
+  "project-workspace.button.agent-editor-delete": "Delete agent",
   "project-workspace.button.agent-editor-delete-confirm": "Delete",
   "project-workspace.button.agent-editor-edit-project": "Edit LOPHN.md",
   "project-workspace.button.agent-editor-save": "Save",
   "project-workspace.button.agent-editor-upload-image": "Upload image",
   "project-workspace.button.edit-instructions": "Edit",
+  "project-workspace.button.new-agent": "New agent",
   "project-workspace.button.new-operator": "New Operator",
   "project-workspace.button.open-agent": "Open",
   "project-workspace.empty.agent-editor-no-project":
@@ -172,6 +175,7 @@ export const agents = {
   "project-workspace.heading.agent-editor-profile": "Profile",
   "project-workspace.heading.agent-editor-skills": "Skills",
   "project-workspace.heading.agents-in-project": "Agents in {project}",
+  "project-workspace.heading.agents-new-agent": "New agent",
   "project-workspace.heading.agents-new-operator": "New Operator",
   "project-workspace.heading.instructions": "Instructions",
   "project-workspace.heading.mcp-servers": "MCP servers",

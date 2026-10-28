@@ -1,14 +1,13 @@
-// AgentsSource를 제품 core로 잇는다. token·port는 main에 있고 이 쪽은 route 이름과 입력만 보낸다. agent는 AgentRef로
-// 가리키고 화면에는 key(agent-key.ts)로 나간다. 저장 거절(invalid_input)은 details의 항목별 이유를 issues로 그대로 싣는다.
+// AgentsSource를 제품 core로 잇는다. token·port는 main에 있고 이 쪽은 route 이름과 입력만 보낸다. agent는 AgentId로
+// 가리킨다. 저장 거절(invalid_input)은 details의 항목별 이유를 issues로 그대로 싣는다.
 // 앱 자리에는 project 층이 없어 project 층 model 고르기, skill 켬·끔, server 켬·끔은 unavailable로 답한다.
 // profile 이미지는 byte route(upload·file)로 올리고 읽는다. 읽은 이미지는 blob URL로 기억하고, 목록과 상세를
 // 읽을 때 미리 받아 두어 imageSrc는 기다리지 않고 답한다.
-import type { AgentDefinitionRow } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import {
-  builtinAgentChange,
-  operatorChange,
-  operatorCreate,
-  operatorDelete,
+  agentChange,
+  agentCreate,
+  agentDelete,
+  type AgentRow,
 } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import type {
@@ -22,6 +21,7 @@ import {
   saveUserModelInfo,
 } from "../../../../protocol/lophn-agent/models.ts";
 import { refreshProviderModels } from "../../../../protocol/lophn-agent/providers.ts";
+import { LOPHN_AGENT_ID } from "../../../../protocol/lophn-agent/places.ts";
 import type { FilesApi } from "../../../ipc/files.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
 import type { SecretInputOpenApi } from "../../../ipc/secret-input.ts";
@@ -31,9 +31,10 @@ import {
   windowSecretInputOpener,
 } from "../../desktop/settings/core-call.ts";
 import type { DomainView } from "../source.ts";
-import { isAppPlace, keyOf, OPERATOR_ID, refOf } from "./agent-key.ts";
+import { isAgentId, isAppPlace, roleOf } from "./agent-key.ts";
 import {
   changeProjectSettings,
+  placeOf,
   readGlobalModel,
   readInstructions,
   readServers,
@@ -50,7 +51,6 @@ import type {
   AgentsSource,
   HiddenModel,
   ModelsView,
-  PlaceChoice,
   PlaceView,
   ReadResult,
   SaveInput,
@@ -63,7 +63,7 @@ const PAGE_LIMIT = 20;
 // catalog는 항목이 많아 page가 많다(page당 row 예산이 있다).
 const CATALOG_PAGE_LIMIT = 60;
 
-/** Operator ID의 본문: 소문자 Crockford base32 26자, 첫 글자는 0~7이다. */
+/** agent ID의 본문: 소문자 Crockford base32 26자, 첫 글자는 0~7이다. */
 const CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz";
 
 const DEFAULT_PROFILE = {
@@ -79,7 +79,7 @@ interface AgentsDeps {
   files: Pick<FilesApi, "read"> | undefined;
   /** command key의 무작위 부분. 테스트가 고정한다. */
   random: () => string;
-  /** 새 Operator ID의 무작위 byte. 테스트가 고정한다. */
+  /** 새 agent ID의 무작위 byte. 테스트가 고정한다. */
   bytes: () => Uint8Array;
   /** MCP credential을 받는 보호 입력 창. */
   openSecret: SecretInputOpenApi["open"] | undefined;
@@ -96,7 +96,7 @@ function windowFiles(): Pick<FilesApi, "read"> | undefined {
   return bridge && typeof bridge.read === "function" ? bridge : undefined;
 }
 
-function newOperatorId(bytes: Uint8Array): string {
+function newAgentId(bytes: Uint8Array): string {
   const body = Array.from(
     bytes.slice(0, 26),
     (byte, index) => CROCKFORD[index === 0 ? byte % 8 : byte % 32],
@@ -104,26 +104,10 @@ function newOperatorId(bytes: Uint8Array): string {
   return `agt_${body}`;
 }
 
-const placeOf = (place: string) => ({
-  kind: isAppPlace(place) ? ("app" as const) : ("project" as const),
-  id: place,
-});
-
-// 정의 파일의 칸 가운데 이 role이 가질 수 있는 것만 보낸다: 내장 role은 model·받을 skill·MCP 끄기와 지침뿐이다.
-function builtInDefinition(draft: AgentDraft) {
+function toRow(row: AgentRow): AgentListRow {
   return {
-    ...(draft.model === undefined ? {} : { model: draft.model }),
-    ...(draft.skills === undefined ? {} : { skills: draft.skills }),
-    ...(draft.mcp_off === undefined ? {} : { mcp_off: draft.mcp_off }),
-    body: draft.body,
-  };
-}
-
-function toRow(row: AgentDefinitionRow): AgentListRow {
-  return {
-    assignment: keyOf(row.agent),
-    role: row.agent.role,
-    kind: row.kind,
+    assignment: row.agent,
+    role: roleOf(row.agent),
     name: row.name,
     profile: row.profile,
     model:
@@ -153,27 +137,22 @@ export function coreAgentsSource(
     "openSecret" in deps ? deps.openSecret : windowSecretInputOpener();
   const link: Link = createLink(core, random);
 
-  // 읽은 profile 이미지의 blob URL. 키는 `<agent key>/<이미지 이름>`이다. 이름은 `avatar.<ext>` 하나뿐이라
+  // 읽은 profile 이미지의 blob URL. 키는 `<agent id>/<이미지 이름>`이다. 이름은 `avatar.<ext>` 하나뿐이라
   // 다시 올리면 uploadImage가 새 값으로 바꾼다.
   const images = new Map<string, string>();
-  const loadImage = async (
-    project: string | null,
-    key: string,
-    image: string,
-  ) => {
-    const ref = refOf(project, key);
-    if (ref === null || images.has(`${key}/${image}`)) return;
+  const loadImage = async (agent: string, image: string) => {
+    if (images.has(`${agent}/${image}`)) return;
     try {
       const reply = await core.call({
         kind: "file",
         resource: "profile-images",
         method: "read",
-        body: { agent: ref },
+        body: { agent },
       });
       if (!reply.ok) return;
       const file = reply.value as { bytes: Uint8Array; contentType: string };
       images.set(
-        `${key}/${image}`,
+        `${agent}/${image}`,
         URL.createObjectURL(
           new Blob([file.bytes.slice()], { type: file.contentType }),
         ),
@@ -280,18 +259,19 @@ export function coreAgentsSource(
       : result;
   };
 
-  const list = async (place: string): Promise<ReadResult<AgentListRow[]>> => {
-    const result = await link.read<{ agents: AgentDefinitionRow[] }>(
-      "agent-definitions",
+  // 전역 목록이다. 첫 인자는 화면을 연 자리지만 목록은 자리에 속하지 않아 쓰지 않는다.
+  const list = async (_place: string): Promise<ReadResult<AgentListRow[]>> => {
+    const result = await link.read<{ agents: AgentRow[] }>(
+      "agents",
       "list",
-      { place: placeOf(place) },
+      {},
     );
     if (!result.ok) return result;
     const rows = result.value.agents.map(toRow);
     await Promise.all(
       rows.map((row) =>
         row.profile.kind === "image"
-          ? loadImage(place, row.assignment, row.profile.image)
+          ? loadImage(row.assignment, row.profile.image)
           : undefined,
       ),
     );
@@ -333,13 +313,10 @@ export function coreAgentsSource(
 
   const detailOf = async (
     place: string | null,
-    key: string,
+    agent: string,
   ): Promise<ReadResult<AgentDetail>> => {
-    const ref = refOf(place, key);
-    if (ref === null) return { ok: false, message: "not_found" };
+    if (!isAgentId(agent)) return { ok: false, message: "not_found" };
     const read = await link.read<{
-      role: AgentDetail["role"];
-      place: { kind: "project" | "app"; id: string } | null;
       definition: AgentDraft | null;
       hash: string | null;
       effective: {
@@ -355,31 +332,33 @@ export function coreAgentsSource(
           value: ModelChoice;
           source: "global" | "project" | "agent" | "session";
         } | null;
+        domains: string[];
       };
       issues: AgentDetail["issues"];
-    }>("agent-definitions", "read", { agent: ref });
+    }>("agents", "read", {
+      agent,
+      ...(place === null ? {} : { place: placeOf(place) }),
+    });
     if (!read.ok) return read;
     const value = read.value;
-    const where = value.place;
     const placeView: PlaceView =
-      where === null
+      place === null
         ? { kind: "none", id: null, name: "" }
-        : { kind: where.kind, id: where.id, name: await nameOf(where.id) };
-    const skills = await readSkills(link, where?.id ?? null, value.role);
+        : { kind: placeOf(place).kind, id: place, name: await nameOf(place) };
+    const skills = await readSkills(link, place);
     if (!skills.ok) return skills;
-    const servers = await readServers(link, where?.id ?? null);
+    const servers = await readServers(link, place);
     if (!servers.ok) return servers;
-    const text = where === null ? null : await instructionsOf(where.id);
+    const text = place === null ? null : await instructionsOf(place);
     if (value.effective.profile.value.kind === "image") {
-      await loadImage(place, key, value.effective.profile.value.image);
+      await loadImage(agent, value.effective.profile.value.image);
     }
     return {
       ok: true,
       value: {
-        assignment: key,
+        assignment: agent,
         draftId: null,
-        role: value.role,
-        kind: value.role === "operator" ? "operator" : "built_in",
+        role: roleOf(agent),
         place: placeView,
         definition: value.definition ?? { body: "" },
         hash: value.hash,
@@ -392,7 +371,6 @@ export function coreAgentsSource(
         skills: skills.value,
         mcpServers: servers.value,
         instructions: text,
-        places: [],
       },
     };
   };
@@ -416,7 +394,7 @@ export function coreAgentsSource(
     async overview(project) {
       const agents = await list(project);
       if (!agents.ok) return agents;
-      const skills = await readSkills(link, project, null);
+      const skills = await readSkills(link, project);
       if (!skills.ok) return skills;
       const servers = await readServers(link, project);
       if (!servers.ok) return servers;
@@ -430,7 +408,7 @@ export function coreAgentsSource(
           );
       const text = await instructionsOf(project);
       const view: AgentsOverview = {
-        agents: agents.value.filter((row) => row.role !== "lophn"),
+        agents: agents.value,
         instructions: text ?? { text: "", project: null },
         projectModel: {
           chosen: chosen?.ok ? chosen.value.model : null,
@@ -518,42 +496,15 @@ export function coreAgentsSource(
         : { ok: false, message: removed.code };
     },
 
-    readAgent: (project, key) => detailOf(project, key),
+    readAgent: (project, agent) => detailOf(project, agent),
 
-    async newOperator(project) {
-      const current: PlaceChoice = {
+    async newAgent(project) {
+      const current: PlaceView = {
         ...placeOf(project),
         name: await nameOf(project),
       };
-      const projects = await link.read<{
-        projects: { id: string; title: string }[];
-      }>("projects", "list", {});
-      const apps = await link.read<{
-        apps: { id: string; name: string; status: string }[];
-      }>("apps", "list", {});
-      const others: PlaceChoice[] = [
-        ...(projects.ok
-          ? projects.value.projects.map(
-              (one): PlaceChoice => ({
-                kind: "project",
-                id: one.id,
-                name: one.title,
-              }),
-            )
-          : []),
-        ...(apps.ok
-          ? apps.value.apps
-              .filter((one) => one.status === "active")
-              .map(
-                (one): PlaceChoice => ({
-                  kind: "app",
-                  id: one.id,
-                  name: one.name,
-                }),
-              )
-          : []),
-      ].filter((one) => one.id !== project);
-      const skills = await readSkills(link, project, "operator");
+      const draftId = newAgentId(bytes());
+      const skills = await readSkills(link, project);
       if (!skills.ok) return skills;
       const servers = await readServers(link, project);
       if (!servers.ok) return servers;
@@ -561,9 +512,8 @@ export function coreAgentsSource(
       const global = await readGlobalModel(link);
       const detail: AgentDetail = {
         assignment: null,
-        draftId: newOperatorId(bytes()),
-        role: "operator",
-        kind: "operator",
+        draftId,
+        role: roleOf(draftId),
         place: current,
         definition: { body: "" },
         hash: null,
@@ -579,12 +529,11 @@ export function coreAgentsSource(
         skills: skills.value,
         mcpServers: servers.value,
         instructions: text,
-        places: [current, ...others],
       };
       return { ok: true, value: detail };
     },
 
-    async saveAgent(project, input: SaveInput): Promise<SaveResult> {
+    async saveAgent(_project, input: SaveInput): Promise<SaveResult> {
       const failed = (reply: { code: string; error: unknown }): SaveResult => ({
         ok: false,
         message: reply.code,
@@ -592,13 +541,9 @@ export function coreAgentsSource(
       });
       const draft = input.definition;
       if (input.assignment === null) {
-        const id = input.draftId ?? newOperatorId(bytes());
-        const created = await link.command(operatorCreate, {
-          input: {
-            id,
-            place: placeOf(input.place ?? project ?? ""),
-            definition: draft,
-          },
+        const id = input.draftId ?? newAgentId(bytes());
+        const created = await link.command(agentCreate, {
+          input: { id, definition: draft },
           compare: {},
         });
         if (!created.ok) return failed(created);
@@ -611,45 +556,47 @@ export function coreAgentsSource(
           },
         };
       }
-      const operator = OPERATOR_ID.test(input.assignment);
-      const ref = refOf(project, input.assignment);
-      if (ref === null) return { ok: false, message: "not_found", issues: [] };
-      // 이번 저장에서 새로 생긴 server를 가리려고 저장 전 정의의 server 이름을 읽는다.
-      const before =
-        operator && (draft.mcp_servers ?? []).length > 0
-          ? await link.read<{ definition: AgentDraft | null }>(
-              "agent-definitions",
-              "read",
-              { agent: ref },
-            )
-          : null;
-      const compare = { hash: input.hash };
-      const saved = operator
-        ? await link.command(operatorChange, {
-            input: { agent: input.assignment, definition: draft },
-            compare,
-          })
-        : await link.command(builtinAgentChange, {
-            input: { agent: ref, definition: builtInDefinition(draft) },
-            compare,
-          });
-      if (!saved.ok) return failed(saved);
-      // 저장 전 정의를 읽지 못했으면 어느 server가 새 것인지 몰라 값을 묻지 않는다.
-      if (before === null || before.ok) {
-        await enterNewCredentials(
-          draft.mcp_servers ?? [],
-          before?.ok ? (before.value.definition?.mcp_servers ?? []) : [],
-        );
+      if (!isAgentId(input.assignment)) {
+        return { ok: false, message: "not_found", issues: [] };
       }
+      // 이번 저장에서 새로 생긴 server를 가리려고, 그리고 lophn의 잠긴 name·profile을 그대로 보내려고 읽는다.
+      const before = await link.read<{
+        definition: AgentDraft | null;
+        effective: {
+          name: { value: string };
+          profile: { value: AgentListRow["profile"] };
+        };
+      }>("agents", "read", { agent: input.assignment });
+      if (!before.ok) {
+        return { ok: false, message: before.message, issues: [] };
+      }
+      const stored = before.value.definition;
+      const definition: AgentDraft =
+        input.assignment === LOPHN_AGENT_ID
+          ? {
+              ...draft,
+              name: stored?.name ?? before.value.effective.name.value,
+              profile: stored?.profile ?? before.value.effective.profile.value,
+            }
+          : draft;
+      const saved = await link.command(agentChange, {
+        input: { agent: input.assignment, definition },
+        compare: { hash: input.hash },
+      });
+      if (!saved.ok) return failed(saved);
+      await enterNewCredentials(
+        definition.mcp_servers ?? [],
+        stored?.mcp_servers ?? [],
+      );
       return {
         ok: true,
         value: { assignment: input.assignment, hash: saved.value.hash },
       };
     },
 
-    async deleteAgent(_project, key, hash) {
-      const deleted = await link.command(operatorDelete, {
-        input: { agent: key },
+    async deleteAgent(_project, agent, hash) {
+      const deleted = await link.command(agentDelete, {
+        input: { agent },
         compare: { hash },
       });
       return deleted.ok
@@ -657,9 +604,8 @@ export function coreAgentsSource(
         : { ok: false, message: deleted.code };
     },
 
-    async uploadImage(project, key, file) {
-      const ref = refOf(project, key);
-      if (ref === null) return { ok: false, message: "not_found" };
+    async uploadImage(_project, agent, file) {
+      if (!isAgentId(agent)) return { ok: false, message: "not_found" };
       let bytes: Uint8Array;
       try {
         bytes = new Uint8Array(await file.arrayBuffer());
@@ -670,7 +616,7 @@ export function coreAgentsSource(
         kind: "upload",
         resource: "profile-images",
         method: "upload",
-        body: { agent: ref, content_type: file.type, bytes: bytes.byteLength },
+        body: { agent, content_type: file.type, bytes: bytes.byteLength },
         bytes,
       });
       if (!uploaded.ok) {
@@ -678,11 +624,11 @@ export function coreAgentsSource(
       }
       const image = (uploaded.value as { profile: { image: string } }).profile
         .image;
-      images.set(`${key}/${image}`, URL.createObjectURL(file));
+      images.set(`${agent}/${image}`, URL.createObjectURL(file));
       return { ok: true, value: { image } };
     },
 
-    imageSrc: (_project, key, image) => images.get(`${key}/${image}`) ?? "",
+    imageSrc: (_project, agent, image) => images.get(`${agent}/${image}`) ?? "",
 
     async setProjectModel(project, choice) {
       if (isAppPlace(project)) return unavailable;
@@ -727,9 +673,9 @@ export function coreAgentsSource(
       });
     },
 
-    grants: (project, key) => readGrants(link, project, key, domains),
+    grants: (project, agent) => readGrants(link, project, agent, domains),
 
-    setGrants: (project, key, entries, revision) =>
-      saveGrants(link, project, key, entries, revision),
+    setGrants: (project, agent, entries, revision) =>
+      saveGrants(link, project, agent, entries, revision),
   };
 }

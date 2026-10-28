@@ -1,63 +1,62 @@
 import type { Area } from "../types.ts";
 import {
+  AgentCreatePage,
+  AgentEditorPage,
   AgentGrantsAppPage,
   AgentGrantsPage,
+  AgentModelPickerPage,
   AgentServerFormPage,
-  AppEngineerEditorPage,
-  AppOperatorEditorPage,
-  OperatorCreatePage,
-  OperatorEditorPage,
-  OperatorModelPickerPage,
+  AppPlaceEditorPage,
+  LophnEditorPage,
   ProjectAgentsPage,
 } from "./agent-setup/agent-setup-pages.tsx";
 
 export const agentSettingsArea: Area = {
   id: "agent-settings",
   title: "Agent settings",
-  summary:
-    "프로젝트 Agents 탭, Operator·App Engineer 편집, MCP server 추가, 앱 할당.",
+  summary: "프로젝트 Agents 탭, agent 편집, MCP server 추가, 앱 할당.",
   pages: [
     {
       id: "new-project-agents",
       title: "Agent settings · project Agents tab",
       description:
-        "Project Manager 카드(project마다 하나), Operator 카드와 [New Operator], 같이 쓰는 지침(LOPHN.md), project 층 model 하나, 층 표시가 붙은 skill과 MCP가 있다. lophn은 이 탭에 없고 Settings › Agents에서 정한다. sidebar Agents 묶음의 Manage로 연다.",
+        "전역 agent 카드 목록(lophn 카드에 Built-in chip)과 [New agent], 같이 쓰는 지침(LOPHN.md), project 층 model 하나, 층 표시가 붙은 skill과 MCP가 있다. sidebar Agents 묶음의 Manage로 연다.",
       render: () => <ProjectAgentsPage />,
     },
     {
       id: "new-operator-editor",
-      title: "Agent settings · Operator",
+      title: "Agent settings · agent",
       description:
-        "사람이 만든 Operator의 설정이다. 프로필, 이름, 놓인 곳, project 지침과 이 agent 지침을 같이 보이는 블록, model, Domains(체크 목록, 하나도 고르지 않으면 그 project나 앱의 전부), 고른 domain별로 묶인 skill, MCP, 새 session을 Skip permissions로 시작하는 기본값 체크가 있다(사람만 쓰는 칸이고 꺼져 있다). Model 칸은 대화와 같은 picker이고(맨 아래 Manage models 줄) 칸 아래에 지금 model이 온 층(이 agent가 골랐다)이 한 줄로 보인다. Built-in instructions 줄과 Permissions 칸은 없고 Definition과 Grants 탭이 있다.",
-      render: () => <OperatorEditorPage />,
+        "사람이 만든 agent의 설정이다. 프로필, 이름, project 지침과 이 agent 지침을 같이 보이는 블록, model, Domains(체크 목록, 하나도 고르지 않으면 그 project나 앱의 전부), 고른 domain별로 묶인 skill, MCP, 새 session을 Skip permissions로 시작하는 기본값 체크가 있다(사람만 쓰는 칸이고 꺼져 있다). Model 칸은 대화와 같은 picker이고(맨 아래 Manage models 줄) 칸 아래에 지금 model이 온 층(이 agent가 골랐다)이 한 줄로 보인다. Built-in instructions 줄과 Permissions 칸은 없고 Definition과 Grants 탭이 있다.",
+      render: () => <AgentEditorPage />,
     },
     {
       id: "new-operator-model-picker",
-      title: "Agent settings · Operator model picker",
+      title: "Agent settings · agent model picker",
       description:
-        'Operator의 Model 칸 picker를 연 상태다. 맨 위에 "Use project default — …" 줄이 있고 그 아래에 검색칸, provider별 model이 있다. 맨 아래에 Manage models 줄이 있다. 칸 아래 한 줄이 층이다.',
-      render: () => <OperatorModelPickerPage />,
+        'agent의 Model 칸 picker를 연 상태다. 맨 위에 "Use project default — …" 줄이 있고 그 아래에 검색칸, provider별 model이 있다. 맨 아래에 Manage models 줄이 있다. 칸 아래 한 줄이 층이다.',
+      render: () => <AgentModelPickerPage />,
     },
     {
       id: "new-operator-create",
-      title: "Agent settings · new Operator",
+      title: "Agent settings · new agent",
       description:
-        "같은 화면에서 새 Operator를 만든다. 놓을 곳(project나 앱)을 고른다. Grants 탭은 만든 뒤에 열린다.",
-      render: () => <OperatorCreatePage />,
+        "같은 화면에서 새 agent를 만든다. Grants 탭은 만든 뒤에 열린다.",
+      render: () => <AgentCreatePage />,
     },
     {
-      id: "new-agent-editor-app-engineer",
-      title: "Agent settings · App Engineer",
+      id: "new-agent-editor-lophn",
+      title: "Agent settings · lophn",
       description:
-        "고정 role agent의 설정이다. 이름은 고정이고 놓인 곳은 앱이다. 앱에는 project 지침(LOPHN.md)이 없어 지침 블록에 안내와 이 agent의 지침만 있다.",
-      render: () => <AppEngineerEditorPage />,
+        "lophn은 고정 id의 내장 agent다. 이름과 profile 칸이 잠기고 Delete가 없다. 나머지 칸은 다른 agent와 같다.",
+      render: () => <LophnEditorPage />,
     },
     {
       id: "new-agent-editor-app-operator",
-      title: "Agent settings · Operator in an app",
+      title: "Agent settings · agent in an app",
       description:
-        "앱에 놓은 Operator의 설정이다. 놓인 곳이 앱이고, 앱에는 project 지침이 없어 지침은 이 agent의 본문뿐이다. Domains 칸은 앱의 domain을 고르고, 고르지 않았으면 앱의 전부다.",
-      render: () => <AppOperatorEditorPage />,
+        "앱 자리에서 연 agent의 설정이다. 앱에는 project 지침이 없어 지침은 이 agent의 본문뿐이다. Domains 칸은 앱의 domain을 고르고, 고르지 않았으면 앱의 전부다.",
+      render: () => <AppPlaceEditorPage />,
     },
     {
       id: "new-agent-mcp-server-form",
@@ -70,7 +69,7 @@ export const agentSettingsArea: Area = {
       id: "new-agent-grants",
       title: "Agent settings · grants",
       description:
-        "agent에게 맡길 것은 앱 하나다. 앱 tool은 이 agent가 일하는 domain의 것이면 모두, 다른 domain의 것이면 public만 보인다. 효과별 기본값 표는 없다. 아래에 MCP server는 설정한 곳(Workspace, project, 이 Operator의 Definition)이 할당이라는 한 줄만 있다.",
+        "agent에게 맡길 것은 앱 하나다. 앱 tool은 이 agent가 일하는 domain의 것이면 모두, 다른 domain의 것이면 public만 보인다. 효과별 기본값 표는 없다. 아래에 MCP server는 설정한 곳(Workspace, project, 이 agent의 Definition)이 할당이라는 한 줄만 있다.",
       render: () => <AgentGrantsPage />,
     },
     {

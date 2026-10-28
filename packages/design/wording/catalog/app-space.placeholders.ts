@@ -65,6 +65,7 @@ export type AppSpacePlaceholders = {
   "app-detail.label.called-by-person": Record<never, never>;
   "app-detail.label.called-by-program": Record<never, never>;
   "app-detail.label.called-by-restart": Record<never, never>;
+  "app-detail.label.caller-agent-unnamed": Record<never, never>;
   "app-detail.label.caller-app": {
     name: "string";
   };

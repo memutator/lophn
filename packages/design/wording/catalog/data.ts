@@ -40,6 +40,7 @@ export const data = {
   "waiting.label.agent-lophn": "lophn",
   "waiting.label.agent-operator": "Operator",
   "waiting.label.agent-project-manager": "Project Manager",
+  "waiting.label.agent-unnamed": "Agent",
   "waiting.label.declared-tool": "Other app",
   "waiting.label.declared-file-read": "File (read)",
   "waiting.label.declared-file-write": "File (write)",

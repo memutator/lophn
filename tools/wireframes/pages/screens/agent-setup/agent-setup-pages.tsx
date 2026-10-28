@@ -8,7 +8,11 @@ import {
   EVAL_ANALYST_ID,
   type FakeAgentsOptions,
 } from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
-import { AGENTS_TAB_SPEC, agentTab, OperatorEditor } from "../agents-tab.tsx";
+import {
+  AGENTS_TAB_SPEC,
+  AgentSettingsEditor,
+  agentTab,
+} from "../agents-tab.tsx";
 import { ProjectApp } from "../project-app.tsx";
 import type { TabSpec } from "../project-window.tsx";
 import { SettingsFrame } from "../settings-frame.tsx";
@@ -32,11 +36,18 @@ function editor(
   id: string,
   steps: readonly Step[] = [],
   source?: FakeAgentsOptions,
+  place: "project" | "app" = "project",
 ) {
   return alone({
     ...agentTab(id),
     body: (
-      <OperatorEditor id={id} onDone={() => {}} steps={steps} source={source} />
+      <AgentSettingsEditor
+        id={id}
+        place={place}
+        onDone={() => {}}
+        steps={steps}
+        source={source}
+      />
     ),
   });
 }
@@ -47,11 +58,11 @@ const GRANTS_TAB: Step = () =>
 /** project의 Agents 탭. sidebar Agents 묶음 머리의 Manage가 연다. */
 export const ProjectAgentsPage = () => alone(AGENTS_TAB_SPEC, true);
 
-/** 사람이 만든 Operator의 설정. */
-export const OperatorEditorPage = () => editor(EVAL_ANALYST_ID);
+/** 사람이 만든 agent의 설정. */
+export const AgentEditorPage = () => editor(EVAL_ANALYST_ID);
 
-/** Operator의 Model 칸 picker를 연 상태. project 층에 고른 model이 있어 맨 위 줄이 "Use project default — Haiku 5.5"다. */
-export const OperatorModelPickerPage = () =>
+/** agent의 Model 칸 picker를 연 상태. project 층에 고른 model이 있어 맨 위 줄이 "Use project default — Haiku 5.5"다. */
+export const AgentModelPickerPage = () =>
   editor(
     EVAL_ANALYST_ID,
     [
@@ -69,14 +80,15 @@ export const OperatorModelPickerPage = () =>
     },
   );
 
-/** 새 Operator를 만든다. 놓을 곳을 고른다. */
-export const OperatorCreatePage = () => editor("new");
+/** 새 agent를 만든다. */
+export const AgentCreatePage = () => editor("new");
 
-/** App Engineer의 설정. 앱에는 project 지침이 없어 지침 블록에 안내만 있다. */
-export const AppEngineerEditorPage = () => editor("app_engineer");
+/** lophn의 설정. 이름·profile이 잠기고 Delete가 없다. */
+export const LophnEditorPage = () => editor("lophn");
 
-/** 앱에 놓인 Operator의 설정. */
-export const AppOperatorEditorPage = () => editor(BUDGET_REVIEWER_ID);
+/** 앱 자리에서 연 agent의 설정. 앱에는 project 지침이 없어 지침 블록에 안내만 있다. */
+export const AppPlaceEditorPage = () =>
+  editor(BUDGET_REVIEWER_ID, [], undefined, "app");
 
 /** agent 층에서 MCP server를 더하는 form을 연 상태. */
 export const AgentServerFormPage = () =>

@@ -1,7 +1,6 @@
-// project의 Agents 탭 본문. 위에서부터 Project Manager 카드(project마다 하나), 이 project의 Operator 카드들과
-// [New Operator], 같이 쓰는 LOPHN.md, project 층 model 하나, skill, MCP server와 맨 아래 "Agent definitions are stored in
-// lophn, not in your project folder." 한 줄이다. lophn은 전체에 하나라 이 탭에 없고 Settings에서 정한다.
-// 앱 자리에서는 Project Manager 자리에 그 앱의 App Engineer가 온다. [Open]이 여는 editor는 editor/agent-editor.tsx가 맡는다.
+// project의 Agents 탭 본문. 위에서부터 전역 agent 카드 목록(lophn이 첫 줄)과 [New agent], 같이 쓰는 LOPHN.md,
+// project 층 model 하나, skill, MCP server와 맨 아래 "Agent definitions are stored in lophn, not in your project folder."
+// 한 줄이다. [Open]이 여는 editor는 editor/agent-editor.tsx가 맡는다.
 
 import { Card } from "@lophn/ui/layout";
 import { Button } from "@lophn/ui/primitives";
@@ -12,7 +11,7 @@ import { commonIcons } from "../../icons/mod.ts";
 import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import styles from "./agents-tab.module.css";
 import { ModelField, type ModelFieldSource } from "./editor/model-field.tsx";
-import { McpList, ROLE_LABEL, SkillList } from "./editor/parts.tsx";
+import { McpList, SkillList } from "./editor/parts.tsx";
 import type { AgentListRow, AgentsOverview, ModelsView } from "./source.ts";
 import type { ImageSrc } from "./views.ts";
 
@@ -26,8 +25,8 @@ interface AgentsTabProps {
   readonly imageSrc: ImageSrc;
   /** 카드의 [Open]. 같은 탭 안에서 그 agent의 editor를 연다. */
   readonly onOpenAgent: (assignment: string) => void;
-  /** [New Operator]. */
-  readonly onNewOperator: () => void;
+  /** [New agent]. */
+  readonly onNewAgent: () => void;
   /** Instructions의 [Edit]. LOPHN.md의 문서 탭을 연다. */
   readonly onEditInstructions: () => void;
   readonly onProjectModel: (choice: ModelChoice | null) => void;
@@ -69,8 +68,6 @@ function AgentCardView({
       className={styles.card}
       data-agent-card=""
       data-assignment={row.assignment}
-      data-role={row.role}
-      data-kind={row.kind}
     >
       <Card>
         <div className={styles.cardBody}>
@@ -79,9 +76,11 @@ function AgentCardView({
             <h3 className={styles.name} data-agent-name="">
               {row.name}
             </h3>
-            <span className={styles.kind} data-agent-kind="">
-              {t(ROLE_LABEL[row.role])}
-            </span>
+            {row.role === "lophn" ? (
+              <span className={styles.kind} data-agent-kind="">
+                {t("agents.label.built-in")}
+              </span>
+            ) : null}
           </div>
           <ul className={styles.facts}>
             <li data-agent-model="">
@@ -134,8 +133,6 @@ function Section({
 
 export function AgentsTab(props: AgentsTabProps): ReactElement {
   const { overview } = props;
-  const builtIn = overview.agents.filter((row) => row.kind === "built_in");
-  const operators = overview.agents.filter((row) => row.kind === "operator");
   const preview = overview.instructions.text
     .split("\n")
     .slice(0, PREVIEW_LINES)
@@ -143,44 +140,24 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
   const inherited = overview.projectModel.inherited;
   return (
     <div className={styles.page} data-agents-tab="">
-      <h1 className={styles.title}>
-        {t("project-workspace.heading.agents-in-project", {
-          project: props.projectName,
-        })}
-      </h1>
+      <h1 className={styles.title}>{t("project-workspace.heading.agents")}</h1>
       <p className={styles.lead}>{t("agents.notice.tab-lead")}</p>
 
-      {builtIn.map((row) => (
-        <Section
-          key={row.assignment}
-          name="built-in"
-          heading={t(ROLE_LABEL[row.role])}
-        >
-          <ul className={styles.cards}>
-            <AgentCardView
-              row={row}
-              imageSrc={props.imageSrc}
-              onOpen={() => props.onOpenAgent(row.assignment)}
-            />
-          </ul>
-        </Section>
-      ))}
-
       <Section
-        name="operators"
-        heading={t("project-workspace.label.role-operators")}
+        name="agents"
+        heading={t("agents.heading.all-agents")}
         action={
           <Button
             variant="primary"
             icon={commonIcons.add}
-            onClick={props.onNewOperator}
+            onClick={props.onNewAgent}
           >
-            {t("project-workspace.button.new-operator")}
+            {t("project-workspace.button.new-agent")}
           </Button>
         }
       >
         <ul className={styles.cards}>
-          {operators.map((row) => (
+          {overview.agents.map((row) => (
             <AgentCardView
               key={row.assignment}
               row={row}

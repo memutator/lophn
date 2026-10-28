@@ -29,7 +29,9 @@ export const domain = {
   "domain.notice.all-of-project": "All domains of this project.",
   "domain.notice.app-last": "An app keeps at least one domain.",
   "domain.notice.archived": "Archived {title}.",
+  "domain.notice.none-here":
+    "None of the chosen domains are here, so this agent works without a domain here.",
   "domain.notice.only-chosen":
-    "Only the chosen domains' DOMAIN.md, kinds and skills reach this Operator.",
+    "Only the chosen domains' DOMAIN.md, kinds and skills reach this agent here.",
   "domain.title.create": "New domain",
 } as const;

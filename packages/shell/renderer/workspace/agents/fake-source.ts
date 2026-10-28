@@ -1,5 +1,5 @@
-// AgentsSource의 메모리 구현. dev mock 작업대와 gallery가 쓴다. phroner project에 Project Manager · Operator 둘이,
-// 앱 Budget tracker에 App Engineer가 있는 상태에서 시작하고, 저장·삭제·model·켬·끔·grant가 메모리에서 이어지며 쓰는 명령을
+// AgentsSource의 메모리 구현. dev mock 작업대와 gallery가 쓴다. lophn과 사람이 만든 agent 셋이 있는 상태에서 시작하고,
+// 화면을 연 자리가 skill·MCP·지침·model 층을 정한다. 저장·삭제·model·켬·끔·grant가 메모리에서 이어지며 쓰는 명령을
 // 순서대로 calls에 남긴다. 실제 core의 거절(항목별 이유·conflict)은 failNext…로 세운다.
 
 import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
@@ -12,12 +12,11 @@ import {
   type UserModelRecord,
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { DomainView, ReadResult } from "../source.ts";
-import { isAppPlace } from "./agent-key.ts";
+import { isAppPlace, roleOf } from "./agent-key.ts";
 import { appsFor, domainNamesOf } from "./editor/grants-model.ts";
 import {
   ANTHROPIC,
   APP_DOMAINS,
-  APP_ID,
   APP_NAME,
   APP_SKILLS,
   AVATAR_SRC,
@@ -25,7 +24,6 @@ import {
   CATALOG,
   FAKE_AGENTS,
   FAKE_GRANTS,
-  type FakeAgent,
   GLOBAL_MCP,
   GLOBAL_MODEL,
   GLOBAL_SKILLS,
@@ -46,6 +44,7 @@ import type {
   GrantsView,
   HiddenModel,
   ModelsView,
+  PlaceView,
   SaveInput,
   SaveResult,
   UserModelKey,
@@ -107,8 +106,6 @@ export interface FakeAgentsSource extends AgentsSource {
 }
 
 interface Stored {
-  readonly role: FakeAgent["role"];
-  readonly place: FakeAgent["place"];
   readonly name: string;
   readonly summary: string;
   readonly definition: AgentDraft;
@@ -122,8 +119,6 @@ const DEFAULT_PROFILE = {
 } as const;
 const BUILT_IN_PROFILE = {
   lophn: { kind: "character", shape: "square", color: "coral" },
-  project_manager: { kind: "character", shape: "capsule", color: "periwinkle" },
-  app_engineer: { kind: "character", shape: "wide", color: "yellow" },
 } as const;
 
 const ok = <T>(value: T): ReadResult<T> => ({ ok: true, value });
@@ -232,8 +227,6 @@ export function createFakeAgentsSource(
     FAKE_AGENTS.map((agent) => [
       agent.key,
       {
-        role: agent.role,
-        place: agent.place,
         name: agent.name,
         summary: agent.summary,
         definition: agent.definition,
@@ -286,36 +279,49 @@ export function createFakeAgentsSource(
     return { ok: false, message };
   };
 
-  const skillsFor = (item: Stored, atProject: boolean): SkillRow[] => [
-    ...(item.role === "project_manager" ? BUILT_IN_SKILLS : []),
+  type PlaceKind = "none" | "project" | "app";
+  const placeKind = (place: string | null): PlaceKind =>
+    place === null ? "none" : isAppPlace(place) ? "app" : "project";
+  const placeView = (place: string | null): PlaceView =>
+    place === null
+      ? { kind: "none", id: null, name: "" }
+      : isAppPlace(place)
+        ? { kind: "app", id: place, name: APP_NAME }
+        : { kind: "project", id: place, name: PROJECT_NAME };
+
+  const skillsFor = (at: PlaceKind): SkillRow[] => [
+    ...(at === "project" ? BUILT_IN_SKILLS : []),
     ...GLOBAL_SKILLS,
-    ...(atProject
+    ...(at === "project"
       ? PROJECT_SKILLS.map((row) => ({
           ...row,
           on: !projectSkillOff.has(row.name),
         }))
-      : item.place === "none"
-        ? []
-        : APP_SKILLS),
+      : at === "app"
+        ? APP_SKILLS
+        : []),
   ];
-  const mcpFor = (atProject: boolean): McpRow[] => [
+  const mcpFor = (at: PlaceKind): McpRow[] => [
     ...GLOBAL_MCP,
-    ...(atProject
+    ...(at === "project"
       ? PROJECT_MCP.map((row) => ({ ...row, on: !projectMcpOff.has(row.name) }))
       : []),
   ];
 
-  const inheritedModel = (item: Stored) =>
-    item.place === "project" && projectModel !== null
+  const inheritedModel = (at: PlaceKind) =>
+    at === "project" && projectModel !== null
       ? { value: projectModel, source: "project" as const }
       : { value: GLOBAL_MODEL, source: "global" as const };
 
-  const rowOf = (key: string, item: Stored): AgentListRow => {
+  const profileOf = (key: string, item: Stored) =>
+    item.definition.profile ??
+    (key === "lophn" ? BUILT_IN_PROFILE.lophn : DEFAULT_PROFILE);
+
+  const rowOf = (key: string, item: Stored, at: PlaceKind): AgentListRow => {
     const definition = item.definition;
-    const atProject = item.place === "project";
     const picked = definition.skills ?? [];
     const mcpOff = (definition.mcp_off ?? []).map((entry) => entry.server_name);
-    const skills = skillsFor(item, atProject).filter(
+    const skills = skillsFor(at).filter(
       (row) =>
         row.on &&
         (picked.length === 0 || row.builtIn || picked.includes(row.name)),
@@ -324,27 +330,19 @@ export function createFakeAgentsSource(
       (server) => server.enabled,
     ).length;
     const mcp =
-      mcpFor(atProject).filter((row) => row.on && !mcpOff.includes(row.name))
-        .length + own;
-    const builtIn = item.role !== "operator";
-    const model = definition.model ?? inheritedModel(item).value;
+      mcpFor(at).filter((row) => row.on && !mcpOff.includes(row.name)).length +
+      own;
+    const model = definition.model ?? inheritedModel(at).value;
     return {
       assignment: key,
-      role: item.role,
-      kind: builtIn ? "built_in" : "operator",
+      role: roleOf(key),
       name: item.name,
-      profile:
-        definition.profile ??
-        (item.role === "operator"
-          ? DEFAULT_PROFILE
-          : BUILT_IN_PROFILE[item.role]),
+      profile: profileOf(key, item),
       model: {
         provider: model.provider,
         model_name: model.model_name,
         source:
-          definition.model === undefined
-            ? inheritedModel(item).source
-            : "agent",
+          definition.model === undefined ? inheritedModel(at).source : "agent",
       },
       issues: [],
       counts: {
@@ -354,48 +352,28 @@ export function createFakeAgentsSource(
     };
   };
 
-  const placeOf = (item: Stored) =>
-    item.place === "none"
-      ? { kind: "none" as const, id: null, name: "All of lophn" }
-      : item.place === "app"
-        ? { kind: "app" as const, id: APP_ID, name: APP_NAME }
-        : { kind: "project" as const, id: PROJECT, name: PROJECT_NAME };
-
-  const detailOf = (key: string): AgentDetail => {
+  const detailOf = (key: string, place: string | null): AgentDetail => {
     const item = stored.get(key)!;
-    const row = rowOf(key, item);
-    const atProject = item.place === "project";
-    const model = inheritedModel(item);
+    const at = placeKind(place);
+    const row = rowOf(key, item, at);
     return {
       assignment: key,
       draftId: null,
-      role: item.role,
-      kind: row.kind,
-      place: placeOf(item),
+      role: roleOf(key),
+      place: placeView(place),
       definition: item.definition,
       hash: item.hash,
       effective: {
         name: { value: item.name, source: "agent" },
         profile: { value: row.profile, source: "agent" },
       },
-      inheritedModel: model,
+      inheritedModel: inheritedModel(at),
       issues: [],
-      skills: skillsFor(item, atProject),
-      mcpServers: mcpFor(atProject),
+      skills: skillsFor(at),
+      mcpServers: mcpFor(at),
       instructions:
-        item.role === "lophn" || item.place === "app"
-          ? null
-          : { text: LOPHN_MD, project: PROJECT_NAME },
-      places: [],
+        at === "project" ? { text: LOPHN_MD, project: PROJECT_NAME } : null,
     };
-  };
-
-  const here = (project: string) => {
-    const app = isAppPlace(project);
-    return [...stored].filter(
-      ([, item]) =>
-        item.place === "none" || item.place === (app ? "app" : "project"),
-    );
   };
 
   return {
@@ -417,7 +395,11 @@ export function createFakeAgentsSource(
 
     list(project) {
       return Promise.resolve(
-        ok(here(project).map(([key, item]) => rowOf(key, item))),
+        ok(
+          [...stored].map(([key, item]) =>
+            rowOf(key, item, placeKind(project)),
+          ),
+        ),
       );
     },
 
@@ -427,18 +409,17 @@ export function createFakeAgentsSource(
         overviewFailure = null;
         return Promise.resolve({ ok: false, message });
       }
-      const atProject = !isAppPlace(project);
+      const at = placeKind(project);
       return Promise.resolve(
         ok({
-          agents: here(project)
-            .filter(([, item]) => item.place !== "none")
-            .map(([key, item]) => rowOf(key, item)),
-          instructions: atProject
-            ? { text: LOPHN_MD, project: PROJECT_NAME }
-            : { text: "", project: null },
+          agents: [...stored].map(([key, item]) => rowOf(key, item, at)),
+          instructions:
+            at === "project"
+              ? { text: LOPHN_MD, project: PROJECT_NAME }
+              : { text: "", project: null },
           projectModel: { chosen: projectModel, inherited: GLOBAL_MODEL },
-          skills: skillsFor({ role: "operator" } as Stored, atProject),
-          mcpServers: mcpFor(atProject),
+          skills: skillsFor(at),
+          mcpServers: mcpFor(at),
         }),
       );
     },
@@ -540,41 +521,32 @@ export function createFakeAgentsSource(
     readAgent(_project, key) {
       return Promise.resolve(
         stored.has(key)
-          ? ok(detailOf(key))
+          ? ok(detailOf(key, _project))
           : { ok: false, message: "not_found" },
       );
     },
 
-    newOperator(project) {
-      const inherited = projectModel ?? GLOBAL_MODEL;
-      const app = isAppPlace(project);
+    newAgent(project) {
+      const at = placeKind(project);
+      const draftId = `agt_${`nw${created + 1}`.padStart(26, "0")}`;
       return Promise.resolve(
         ok({
           assignment: null,
-          draftId: `agt_${`nw${created + 1}`.padStart(26, "0")}`,
-          role: "operator",
-          kind: "operator",
-          place: app
-            ? { kind: "app", id: project, name: APP_NAME }
-            : { kind: "project", id: project, name: PROJECT_NAME },
+          draftId,
+          role: roleOf(draftId),
+          place: placeView(project),
           definition: { body: "" },
           hash: null,
           effective: {
             name: { value: "", source: "global" },
             profile: { value: DEFAULT_PROFILE, source: "global" },
           },
-          inheritedModel: {
-            value: inherited,
-            source: projectModel === null ? "global" : "project",
-          },
+          inheritedModel: inheritedModel(at),
           issues: [],
-          skills: skillsFor({ role: "operator" } as Stored, !app),
-          mcpServers: mcpFor(!app),
-          instructions: app ? null : { text: LOPHN_MD, project: PROJECT_NAME },
-          places: [
-            { kind: "project", id: PROJECT, name: PROJECT_NAME },
-            { kind: "app", id: APP_ID, name: APP_NAME },
-          ],
+          skills: skillsFor(at),
+          mcpServers: mcpFor(at),
+          instructions:
+            at === "project" ? { text: LOPHN_MD, project: PROJECT_NAME } : null,
         } satisfies AgentDetail),
       );
     },
@@ -616,10 +588,6 @@ export function createFakeAgentsSource(
         `agt_${`nw${created}`.padStart(26, "0")}`;
       const hash = nextHash();
       stored.set(key, {
-        role: existing?.role ?? "operator",
-        place:
-          existing?.place ??
-          (input.place !== null && isAppPlace(input.place) ? "app" : "project"),
         name: input.definition.name ?? existing?.name ?? "",
         summary: existing?.summary ?? "",
         definition: input.definition,
@@ -683,12 +651,9 @@ export function createFakeAgentsSource(
     grants(_project, key): Promise<ReadResult<GrantsView>> {
       const item = stored.get(key);
       const agentDomains =
-        item === undefined || item.place === "none"
+        item === undefined || _project === null
           ? []
-          : domainNamesOf(
-              item.definition.domains ?? [],
-              item.place === "app" ? APP_DOMAINS : PROJECT_DOMAINS,
-            );
+          : domainNamesOf(item.definition.domains ?? [], domainsAt(_project));
       return Promise.resolve(
         ok({
           entries: grants.get(key) ?? [],

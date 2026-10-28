@@ -42,10 +42,12 @@ export type AgentsPlaceholders = {
   "agents.notice.tab-lead": Record<never, never>;
   "agents.button.assign-app": Record<never, never>;
   "agents.button.choose-character": Record<never, never>;
+  "agents.button.create-agent": Record<never, never>;
   "agents.button.create-operator": Record<never, never>;
   "agents.button.remove-app": Record<never, never>;
   "agents.button.remove-image": Record<never, never>;
   "agents.empty.grants-apps": Record<never, never>;
+  "agents.heading.all-agents": Record<never, never>;
   "agents.heading.grants-apps": Record<never, never>;
   "agents.heading.server-form": Record<never, never>;
   "agents.heading.skip": Record<never, never>;
@@ -158,6 +160,7 @@ export type AgentsPlaceholders = {
   "project-workspace.button.agent-editor-save": Record<never, never>;
   "project-workspace.button.agent-editor-upload-image": Record<never, never>;
   "project-workspace.button.edit-instructions": Record<never, never>;
+  "project-workspace.button.new-agent": Record<never, never>;
   "project-workspace.button.new-operator": Record<never, never>;
   "project-workspace.button.open-agent": Record<never, never>;
   "project-workspace.empty.agent-editor-no-project": Record<never, never>;
@@ -174,6 +177,7 @@ export type AgentsPlaceholders = {
   "project-workspace.heading.agents-in-project": {
     project: "string";
   };
+  "project-workspace.heading.agents-new-agent": Record<never, never>;
   "project-workspace.heading.agents-new-operator": Record<never, never>;
   "project-workspace.heading.instructions": Record<never, never>;
   "project-workspace.heading.mcp-servers": Record<never, never>;

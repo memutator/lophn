@@ -16,7 +16,7 @@ export const artifact = {
   "artifact.text.annotate-on":
     "Click an element or drag an area, then write a note.",
   "artifact.text.annotations-note":
-    "They go as one message to the agent that last wrote this artifact, or to the Project Manager, and aren't reported as problems.",
+    "They go as one message to the agent that last wrote this artifact, or to lophn where it lives, and aren't reported as problems.",
   "artifact.text.annotations-sent":
     "They arrived as one message in its session.",
   "artifact.text.memo-note": "Notes stay here until you send them all.",

@@ -7,7 +7,10 @@ import {
   BUILTIN_SKILLS,
   type SkillEntry,
 } from "../../../../protocol/lophn-agent/skill-settings.ts";
-import type { Role } from "../../../../protocol/lophn-agent/places.ts";
+import {
+  placeKindOf,
+  type Place,
+} from "../../../../protocol/lophn-agent/places.ts";
 import type { FilesApi } from "../../../ipc/files.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
 import type { ReadResult } from "../source.ts";
@@ -23,11 +26,16 @@ function detailOf(server: McpServer): string {
     : server.http.url;
 }
 
-/** 이 자리에서 보이는 skill. 내장 skill은 그 role의 agent만 갖는다(role이 null이면 모두 보인다). */
+/** 자리 id에서 계약의 place를 만든다. 앱 id가 아니면 project다. */
+export const placeOf = (place: string): Place => ({
+  kind: isAppPlace(place) ? "app" : "project",
+  id: place,
+});
+
+/** 이 자리에서 보이는 skill. 내장 skill은 그 place 종류가 가진 것만 보인다. */
 export async function readSkills(
   link: Link,
   place: string | null,
-  role: Role | null,
 ): Promise<ReadResult<SkillRow[]>> {
   const result = await link.read<{ skills: SkillEntry[] }>("skills", "read", {
     ...(place === null
@@ -37,18 +45,16 @@ export async function readSkills(
         : { project: place }),
   });
   if (!result.ok) return result;
+  const kind = placeKindOf(place === null ? null : placeOf(place));
   return {
     ok: true,
     value: result.value.skills
       .filter(
         (skill) =>
           skill.source !== "builtin" ||
-          role === null ||
-          (
-            BUILTIN_SKILLS.find((one) => one.name === skill.name)?.roles as
-              | readonly Role[]
-              | undefined
-          )?.includes(role),
+          BUILTIN_SKILLS.find(
+            (one) => one.name === skill.name,
+          )?.places.includes(kind),
       )
       .map((skill) => ({
         name: skill.name,

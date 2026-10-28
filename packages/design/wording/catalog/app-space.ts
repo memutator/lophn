@@ -45,6 +45,7 @@ export const appSpace = {
   "app-detail.label.called-by-person": "You, from the app screen",
   "app-detail.label.called-by-program": "A scheduled job",
   "app-detail.label.called-by-restart": "lophn, when the app restarted",
+  "app-detail.label.caller-agent-unnamed": "An agent",
   "app-detail.label.caller-app": "{name} (app)",
   "app-detail.label.caller-app-unnamed": "Another app",
   "app-detail.label.caller-flow": "Workflow",
@@ -163,9 +164,9 @@ export const appSpace = {
   "app-detail.note.conflict-unknown":
     "The changes could not be reversed safely. The whole rewind was cancelled. New calls are accepted again and the held calls continued.",
   "app-detail.note.failed-called":
-    "App Engineer was called and will pick this up.",
+    "The agent that applied this version sees why it failed.",
   "app-detail.note.failed-unchanged":
-    "Nothing you use has changed. App Engineer was called and will pick this up.",
+    "Nothing you use has changed. The agent that applied this version sees why it failed.",
   "app-detail.note.go-back-busy":
     "Not available while a release is being applied.",
   "app-detail.note.go-back-schema":
@@ -220,7 +221,7 @@ export const appSpace = {
   "app-space.button.app-details": "App details",
   "app-space.button.clear-annotations": "Clear all",
   "app-space.button.manage-agents": "Manage",
-  "app-space.button.send-annotations": "Send to App Engineer",
+  "app-space.button.send-annotations": "Send to agent",
   "app-space.button.show-terminal": "Show terminal",
   "app-space.empty.agent-not-ready": "This agent can't open here yet.",
   "app-space.empty.archived":
@@ -229,7 +230,7 @@ export const appSpace = {
   "app-space.empty.not-found": "This app isn't here anymore.",
   "app-space.empty.screen-not-ready": "This app's screen can't open here yet.",
   "app-space.error.annotations-archived":
-    "This app is archived, so App Engineer can't take new messages. Restore it in Apps first.",
+    "This app is archived, so it can't take new messages. Restore it in Apps first.",
   "app-space.error.annotations-failed":
     "The annotations didn't go through. Try again.",
   "app-space.heading.agents": "Agents",
@@ -243,13 +244,13 @@ export const appSpace = {
   "app-space.text.annotate-on":
     "Click an element or drag an area, then write a note.",
   "app-space.text.annotations-note":
-    "They go to App Engineer as one message. They don't become problems.",
+    "They go to the agent as one message. They don't become problems.",
   "app-space.text.annotations-sent":
     "They arrive in its session as one message.",
   "app-space.title.annotate-on": "Annotate is on",
   "app-space.title.annotations-sent":
-    "{count, plural, one {# annotation} other {# annotations}} sent to App Engineer",
-  "app-space.title.coding-opened": "App Engineer opened {product}",
+    "{count, plural, one {# annotation} other {# annotations}} sent to the agent",
+  "app-space.title.coding-opened": "lophn opened {product}",
   "common.button.open-again": "Open again",
   "common.label.app-mode-live": "Live",
   "common.label.app-mode-preview": "Preview",

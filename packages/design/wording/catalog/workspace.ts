@@ -42,7 +42,7 @@ export const workspace = {
   "launcher.button.show-details": "Show details",
   "launcher.button.unarchive": "Unarchive",
   "launcher.dialog.new-app-note":
-    "An app starts with a name and a one-line purpose. Its App Engineer builds it from there.",
+    "An app starts with a name and a one-line purpose. lophn builds it from there.",
   "launcher.dialog.register-note":
     "A project is a name, a purpose and the folders it works in, if any.",
   "launcher.empty.no-apps": "No apps yet.",
@@ -81,7 +81,7 @@ export const workspace = {
   "launcher.failure.update-newer-schema":
     "Update lophn to the newer version, then start it again.",
   "launcher.field.app-purpose-help":
-    "One line about what the app is for. Its App Engineer reads this.",
+    "One line about what the app is for. Agents working on it read this.",
   "launcher.field.purpose-help": "What the project is for. Agents read this.",
   "launcher.heading.apps": "Apps",
   "launcher.heading.archived": "Archived",

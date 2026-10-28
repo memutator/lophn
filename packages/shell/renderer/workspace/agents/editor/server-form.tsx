@@ -20,7 +20,7 @@ const HEADER = /^[A-Za-z0-9-]{1,64}$/;
 const CALL_TIMEOUT_MS = 60_000;
 
 interface ServerFormProps {
-  /** credential 이름 `mcp.<scope>.<server>`의 scope. 전역은 `global`, Operator 정의 층은 그 Operator의 `agt_…` id다. */
+  /** credential 이름 `mcp.<scope>.<server>`의 scope. 전역은 `global`, agent 정의 층은 그 agent의 id다. */
   readonly scope: string;
   /** 이미 있는 이름. 같은 이름은 받지 않는다. */
   readonly taken: readonly string[];

@@ -1,8 +1,8 @@
 import type { CharacterProfile } from "../../../packages/protocol/lophn-agent/agent-values.ts";
 import type { FakePicker } from "../../../packages/shell/renderer/conversation/agent-tab-fake-source.ts";
 import type { TabSpec } from "../pages/screens/project-window.tsx";
-// agent 화면의 고정 데이터와, 데이터에서 탭을 만드는 작은 함수들. phroner 예시 project의 lophn·Project
-// Manager·Operator 둘과 agent별 session이다. model과 option은 models-data.ts(catalog)에서만 온다.
+// agent 화면의 고정 데이터와, 데이터에서 탭을 만드는 작은 함수들. phroner 예시 project의 lophn과 사람이 만든
+// agent 셋, agent별 session이다. model과 option은 models-data.ts(catalog)에서만 온다.
 import type { Step } from "./drive.ts";
 import type { ModelSelection } from "./model-options.ts";
 
@@ -48,20 +48,9 @@ export interface AgentRow {
   readonly profile: AgentProfile;
 }
 
-/** sidebar Agents 묶음의 줄. "operators"는 줄이 아니라 아래 Operator들의 작은 머리다. */
+/** sidebar Agents 묶음의 줄. 목록은 전역이고 lophn이 첫 줄이다. */
 export const AGENT_ROWS: readonly AgentRow[] = [
   { id: "lophn", name: "lophn", profile: { shape: "square", color: "coral" } },
-  {
-    id: "engineer",
-    name: "Project Manager",
-    profile: { shape: "capsule", color: "periwinkle" },
-  },
-  {
-    id: "operators",
-    name: "Operators",
-    operator: true,
-    profile: { shape: "arch", color: "sage" },
-  },
   {
     id: "eval-analyst",
     name: "Eval analyst",
@@ -73,6 +62,12 @@ export const AGENT_ROWS: readonly AgentRow[] = [
     name: "Experiment planner",
     operator: true,
     profile: { shape: "round", color: "blue" },
+  },
+  {
+    id: "budget-reviewer",
+    name: "Budget reviewer",
+    operator: true,
+    profile: { shape: "arch", color: "sage" },
   },
 ];
 
@@ -169,16 +164,15 @@ export const SESSIONS: readonly SessionRow[] = [
   },
   {
     id: "release-ctx",
-    agent: "Project Manager",
+    agent: "lophn",
     title: "Release notes context",
     when: "yesterday",
     state: "idle",
     group: "earlier",
-    sub: "engineer",
   },
   {
     id: "failing",
-    agent: "Project Manager",
+    agent: "lophn",
     title: "Failing scenarios",
     when: "12 min ago",
     state: "working",
@@ -186,7 +180,7 @@ export const SESSIONS: readonly SessionRow[] = [
   },
   {
     id: "board-crash",
-    agent: "App Engineer",
+    agent: "lophn",
     title: "Eval board keeps crashing",
     when: "2 min ago",
     state: "working",
@@ -249,7 +243,7 @@ export const RUN_SESSIONS: readonly SessionRow[] = [
   },
   {
     id: "run-links",
-    agent: "Project Manager",
+    agent: "lophn",
     title: "Check release notes links",
     when: "3 h ago",
     state: "idle",
@@ -291,7 +285,7 @@ export const RUNS: readonly RunData[] = [
   },
   {
     id: "run-3",
-    agent: "Project Manager",
+    agent: "lophn",
     when: "3 h ago",
     state: "failed",
     session: "run-links",

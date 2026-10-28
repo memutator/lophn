@@ -50,6 +50,7 @@ export type DataPlaceholders = {
   "waiting.label.agent-lophn": Record<never, never>;
   "waiting.label.agent-operator": Record<never, never>;
   "waiting.label.agent-project-manager": Record<never, never>;
+  "waiting.label.agent-unnamed": Record<never, never>;
   "waiting.label.declared-tool": Record<never, never>;
   "waiting.label.declared-file-read": Record<never, never>;
   "waiting.label.declared-file-write": Record<never, never>;

@@ -1,5 +1,5 @@
 // Agents 탭의 본문 전체. 목록(AgentsTab)과 같은 탭 안에서 여는 editor(AgentEditor)를 source에 잇는다. 읽기와 설정 바꾸기는
-// 여기서 쥐고, 바꾸지 못했다는 알림은 탭 위쪽 toast다. 열어 둔 agent는 탭의 필드(layout)에 남고, 첫 저장 전의 새 Operator는
+// 여기서 쥐고, 바꾸지 못했다는 알림은 탭 위쪽 toast다. 열어 둔 agent는 탭의 필드(layout)에 남고, 첫 저장 전의 새 agent는
 // 이 탭 안의 상태일 뿐이다.
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { ErrorState, Skeleton } from "@lophn/ui/feedback";
@@ -39,7 +39,7 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
   const [models, setModels] = useState<ModelsView | null>(null);
   const [reloads, setReloads] = useState(0);
   const [failed, setFailed] = useState(false);
-  // 첫 저장 전의 새 Operator editor. 열어 둔 agent가 있으면 그쪽이 먼저다.
+  // 첫 저장 전의 새 agent editor. 열어 둔 agent가 있으면 그쪽이 먼저다.
   const [creating, setCreating] = useState(false);
 
   const reload = useCallback(() => setReloads((count) => count + 1), []);
@@ -136,7 +136,7 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
           source.imageSrc(project, assignment, image)
         }
         onOpenAgent={(assignment) => props.onAgent(assignment)}
-        onNewOperator={() => setCreating(true)}
+        onNewAgent={() => setCreating(true)}
         onEditInstructions={props.onEditInstructions}
         onProjectModel={(choice: ModelChoice | null) =>
           change(() => source.setProjectModel(project, choice))

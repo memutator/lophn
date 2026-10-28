@@ -1,5 +1,5 @@
-// agent 하나의 설정 화면. Project Manager, App Engineer, Operator, lophn이 같은 화면을 쓰고 새 Operator 만들기도 같다.
-// Definition 탭에 profile·이름·놓을 곳·지침·model·skill·MCP가 있고 Grants 탭에서 맡길 것을 붙인다. source에서 agent를
+// agent 하나의 설정 화면. 저장된 agent와 새 agent가 같은 화면을 쓴다.
+// Definition 탭에 profile·이름·지침·model·skill·MCP가 있고 Grants 탭에서 맡길 것을 붙인다. source에서 agent를
 // 읽어 form 값을 쥐고, 저장·삭제·이미지 올리기·grant 바꾸기를 source로 보낸다. 저장 실패·충돌 같은 알림은 그 탭 위쪽 toast다.
 
 import { ErrorState, Skeleton } from "@lophn/ui/feedback";
@@ -12,6 +12,7 @@ import { type ReactElement, useEffect, useRef, useState } from "react";
 import type { AssignmentEntry } from "../../../../../protocol/approvals/assignment.ts";
 
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
+import { LOPHN_AGENT_ID } from "../../../../../protocol/lophn-agent/places.ts";
 import { workspaceIcons } from "../../../icons/mod.ts";
 import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
 import type { DomainView } from "../../source.ts";
@@ -25,13 +26,12 @@ import type {
 import styles from "./agent-editor.module.css";
 import { DefinitionForm } from "./definition-form.tsx";
 import { GrantsPanel } from "./grants-panel.tsx";
-import { ROLE_LABEL } from "./parts.tsx";
 
 /** editor가 source에서 쓰는 것. 설정 화면의 lophn 편집도 이만 채우면 된다. */
 export type AgentEditorSource = Pick<
   AgentsSource,
   | "readAgent"
-  | "newOperator"
+  | "newAgent"
   | "saveAgent"
   | "deleteAgent"
   | "uploadImage"
@@ -53,7 +53,7 @@ interface AgentEditorProps {
   readonly project: string | null;
   /** 그 곳의 이름. */
   readonly projectName: string;
-  /** 열 agent를 가리키는 값. 새 Operator는 null이다. */
+  /** 열 agent를 가리키는 값. 새 agent는 null이다. */
   readonly agent: string | null;
   /** 저장·삭제·취소로 editor를 떠난다. */
   readonly onDone: () => void;
@@ -85,12 +85,6 @@ interface Notice {
   readonly body: MessageKey;
 }
 
-// domain과 skill 이름은 놓을 곳의 것이라 곳을 바꾸면 비운다.
-function withoutPlaceFields(definition: AgentDraft): AgentDraft {
-  const { domains: _domains, skills: _skills, ...rest } = definition;
-  return rest;
-}
-
 function Loading(): ReactElement {
   return (
     <div className={styles.fill} data-agent-editor="loading">
@@ -100,7 +94,7 @@ function Loading(): ReactElement {
 }
 
 // 지우기는 확인을 한 번 받은 뒤에만 부른다. 저장은 확인이 없다.
-function DeleteOperator({
+function DeleteAgent({
   name,
   onDelete,
 }: {
@@ -151,7 +145,6 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   const [state, setState] = useState<Loaded>({ kind: "loading" });
   const [models, setModels] = useState<ModelsView | null>(null);
   const [tab, setTab] = useState<Section>("definition");
-  const [place, setPlace] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
   const [grants, setGrants] = useState<GrantsLoaded>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
@@ -175,7 +168,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     setState({ kind: "loading" });
     const opened =
       agent === null
-        ? source.newOperator(project ?? "")
+        ? source.newAgent(project ?? "")
         : source.readAgent(project, agent);
     void opened.then((result) => {
       if (!live) return;
@@ -185,8 +178,6 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
         else setState({ kind: "failed" });
         return;
       }
-      const first = result.value.places[0];
-      setPlace(first === undefined ? "" : `${first.kind}:${first.id}`);
       setState({
         kind: "ready",
         detail: result.value,
@@ -200,26 +191,20 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     // props.onDone은 부르는 쪽이 만드는 함수라 바뀔 때마다 다시 읽지 않는다.
   }, [source, project, agent, attempt]);
 
-  // Operator가 고를 domain은 놓인 곳 그릇의 것이다. 새 Operator는 놓을 곳을 바꾸면 다시 읽는다.
-  const placeId =
-    state.kind !== "ready"
-      ? null
-      : state.detail.assignment === null
-        ? place.slice(place.indexOf(":") + 1)
-        : state.detail.place.id;
+  // agent가 고를 domain은 화면을 연 자리 그릇의 것이다. Settings에는 그릇이 없다.
   useEffect(() => {
     setDomains(null);
-    if (placeId === null || placeId === "") return;
+    if (project === null) return;
     let live = true;
-    void source.domains(placeId).then((result) => {
+    void source.domains(project).then((result) => {
       if (live) setDomains(result.ok ? result.value : null);
     });
     return () => {
       live = false;
     };
-  }, [source, placeId]);
+  }, [source, project]);
 
-  // Grants 탭은 열 때 읽는다. 새 Operator는 저장하기 전에는 붙일 수 없다.
+  // Grants 탭은 열 때 읽는다. 새 agent는 저장하기 전에는 붙일 수 없다.
   useEffect(() => {
     if (tab !== "grants" || agent === null) return;
     let live = true;
@@ -253,6 +238,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
 
   const { detail, definition } = state;
   const fresh = detail.assignment === null;
+  const lophn = detail.assignment === LOPHN_AGENT_ID;
   const edit = (next: AgentDraft) =>
     setState((current) =>
       current.kind === "ready" ? { ...current, definition: next } : current,
@@ -271,38 +257,12 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
         };
   })();
 
-  // 새 Operator의 놓을 곳을 바꾸면 그 곳에서 보이는 skill·MCP·지침을 다시 읽고, 그 곳 domain이 아닌 값은 정의에서 뺀다.
-  const changePlace = (next: string) => {
-    setPlace(next);
-    void source
-      .newOperator(next.slice(next.indexOf(":") + 1))
-      .then((result) => {
-        if (!result.ok) return;
-        const { skills, mcpServers, instructions } = result.value;
-        setState((current) =>
-          current.kind !== "ready"
-            ? current
-            : {
-                ...current,
-                detail: { ...current.detail, skills, mcpServers, instructions },
-                definition: withoutPlaceFields(current.definition),
-              },
-        );
-      });
-  };
-
   const save = () => {
-    // 그릇에 없어진 domain은 저장에서 뺀다(칸은 안내만 보인다). 비면 칸 자체를 뺀다.
-    const { domains: chosen = [], ...rest } = definition;
-    const here = domains?.map((one) => one.id);
-    const stay =
-      here === undefined ? chosen : chosen.filter((id) => here.includes(id));
     void source
       .saveAgent(project, {
         assignment: detail.assignment,
         draftId: detail.draftId,
-        place: fresh ? place.slice(place.indexOf(":") + 1) : null,
-        definition: stay.length === 0 ? rest : { ...rest, domains: stay },
+        definition,
         hash: detail.hash,
       })
       .then((result) => {
@@ -416,10 +376,10 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
       )}
       <h1 className={styles.title}>
         <Avatar profile={shown} size="md" />
-        {fresh ? t("project-workspace.heading.agents-new-operator") : name}
-        {fresh ? null : (
-          <span className={styles.chip}>{t(ROLE_LABEL[detail.role])}</span>
-        )}
+        {fresh ? t("project-workspace.heading.agents-new-agent") : name}
+        {lophn ? (
+          <span className={styles.chip}>{t("agents.label.built-in")}</span>
+        ) : null}
       </h1>
       <Tabs value={tab} onValueChange={(value) => setTab(value as Section)}>
         <TabList>
@@ -437,8 +397,6 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             source={source}
             placeName={props.projectName}
             domains={domains}
-            place={place}
-            onPlace={changePlace}
             imageSrc={(image) =>
               detail.assignment === null
                 ? ""
@@ -452,7 +410,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             <Button onClick={props.onDone}>{t("common.button.cancel")}</Button>
             <Button variant="primary" onClick={save}>
               {fresh
-                ? t("agents.button.create-operator")
+                ? t("agents.button.create-agent")
                 : t("project-workspace.button.agent-editor-save")}
             </Button>
           </div>
@@ -461,8 +419,8 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             {t("project-workspace.notice.agent-editor-model-help")}{" "}
             {t("agents.notice.stored-in-lophn")}
           </p>
-          {detail.kind === "operator" && !fresh ? (
-            <DeleteOperator name={name} onDelete={remove} />
+          {!fresh && !lophn ? (
+            <DeleteAgent name={name} onDelete={remove} />
           ) : null}
         </TabPanel>
         <TabPanel value="grants">

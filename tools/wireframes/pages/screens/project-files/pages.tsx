@@ -3,7 +3,6 @@
 import { Palette } from "@lophn/ui/overlay";
 
 import { workspaceIcons } from "../../../../../packages/shell/renderer/icons/mod.ts";
-import { AGENT_ROWS } from "../../../mock/agents-data.ts";
 import { type, useDrive } from "../../../mock/drive.ts";
 import { documentTab } from "../../../mock/phroner-data.ts";
 import { ProjectApp, type ProjectAppProps } from "../project-app.tsx";
@@ -38,11 +37,10 @@ function solo(tab: TabSpec, extra: Partial<ProjectAppProps> = {}) {
 
 /** sidebar · Agent. agent마다 그 agent의 열린 session이 아래에 들여 쓰여 있고 맨 아래에 Recent가 있다. 묶음 머리의 Manage는 Agents 탭을 연다. */
 export function AgentsGroup() {
-  const manager = AGENT_ROWS.find((row) => !row.operator && row.id !== "lophn");
   const tab = documentTab(EXP);
   return (
     <ProjectApp
-      sidebar={{ mode: "agent", hoverAgent: manager?.id }}
+      sidebar={{ mode: "agent", hoverAgent: "eval-analyst" }}
       panes={[{ tabs: [tab], selected: tab.key }]}
     />
   );

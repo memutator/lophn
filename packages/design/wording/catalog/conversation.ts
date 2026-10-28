@@ -308,7 +308,7 @@ export const conversation = {
     "This message wasn't sent. It's still in the box, so you can send it again.",
   "conversation.notice.offline": "You can send once lophn is connected again.",
   "conversation.notice.permissions-mcp":
-    "MCP servers are set in Workspace, in the project, or on this Operator.",
+    "MCP servers are set in Workspace, in the project, or on this agent.",
   "conversation.notice.permissions-no-apps": "No apps are assigned.",
   "conversation.notice.permissions-edited-in-agents":
     "Apps are assigned in Agents.",

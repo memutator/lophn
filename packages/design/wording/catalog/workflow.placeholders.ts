@@ -71,6 +71,19 @@ export type WorkflowPlaceholders = {
   };
   "workflow.label.note-stopped": Record<never, never>;
   "workflow.label.notes": Record<never, never>;
+  "workflow.label.participant-harness": Record<never, never>;
+  "workflow.label.participant-human": Record<never, never>;
+  "workflow.label.participant-job": {
+    title: "string";
+  };
+  "workflow.label.participant-job-untitled": Record<never, never>;
+  "workflow.label.participant-lophn": Record<never, never>;
+  "workflow.label.participant-placed": {
+    agent: "string";
+    place: "string";
+  };
+  "workflow.label.participant-program": Record<never, never>;
+  "workflow.label.participant-unknown": Record<never, never>;
   "workflow.label.report-by": {
     who: "string";
     when: "string";

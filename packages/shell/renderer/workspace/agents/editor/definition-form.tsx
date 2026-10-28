@@ -1,21 +1,18 @@
-// agent 설정의 Definition 탭. 위에서부터 Profile · Name · Place · Instructions · Model · Domains(Operator) · Skills · MCP servers · Skip permissions(Operator).
+// agent 설정의 Definition 탭. 위에서부터 Profile · Name · Instructions · Model · Domains · Skills · MCP servers · Skip permissions.
 // 정의 파일은 사람이 바꾼 칸만 가지므로 definition에 없는 칸은 상속이고, 상속하는 값은 detail이 준다.
 // 저장 때 거절된 항목(issues)은 그 칸 안에 보인다.
 import { type ReactNode, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
-import { Checkbox, Field, Input, Select } from "@lophn/ui/input";
+import { Checkbox, Field, Input } from "@lophn/ui/input";
 import { t } from "@lophn/wording";
 
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
+import { LOPHN_AGENT_ID } from "../../../../../protocol/lophn-agent/places.ts";
 import { commonIcons } from "../../../icons/mod.ts";
+import { Avatar } from "../../../parts/avatar/avatar.tsx";
 import type { DomainView } from "../../source.ts";
-import type {
-  AgentDetail,
-  AgentDraft,
-  ModelsView,
-  PlaceChoice,
-} from "../source.ts";
+import type { AgentDetail, AgentDraft, ModelsView } from "../source.ts";
 import type { McpRow, SkillRow } from "../views.ts";
 import { ModelField, type ModelFieldSource } from "./model-field.tsx";
 import {
@@ -30,7 +27,6 @@ import styles from "./agent-editor.module.css";
 type FieldName =
   | "profile"
   | "name"
-  | "place"
   | "instructions"
   | "model"
   | "domains"
@@ -85,8 +81,6 @@ function Group({
   );
 }
 
-const placeValue = (place: PlaceChoice) => `${place.kind}:${place.id}`;
-
 function instructionsHead(detail: AgentDetail, placeName: string): string {
   const project =
     detail.instructions?.project ??
@@ -129,11 +123,8 @@ interface DefinitionFormProps {
   readonly source: ModelFieldSource;
   /** agent가 놓인 곳의 이름(Agents 탭이 열린 project나 앱). */
   readonly placeName: string;
-  /** 이 agent가 놓인(새 Operator면 고른) 곳 그릇의 active domain. 읽지 못했으면 null이다. */
+  /** 화면을 연 자리 그릇의 active domain. 읽지 못했으면 null이다. */
   readonly domains: readonly DomainView[] | null;
-  /** 새 Operator를 놓을 곳. */
-  readonly place: string;
-  readonly onPlace: (place: string) => void;
   readonly imageSrc: (image: string) => string;
   readonly onChange: (definition: AgentDraft) => void;
   readonly onUpload: (file: File) => void;
@@ -146,8 +137,8 @@ export function DefinitionForm(props: DefinitionFormProps) {
   // domain을 바꿔 목록 밖이 된 skill 이름. 다음에 domain을 바꿀 때까지 알린다.
   const [dropped, setDropped] = useState<readonly string[]>([]);
   const fresh = detail.assignment === null;
-  const builtIn = detail.kind === "built_in";
-  // credential 이름이 쓰는 이 Operator의 id. 내장 role은 정의에 server를 두지 않아 없다.
+  const lophn = detail.assignment === LOPHN_AGENT_ID;
+  // credential 이름이 쓰는 이 agent의 id. 새 agent는 저장 전에 미리 받은 id를 쓴다.
   const operatorId = detail.assignment ?? detail.draftId;
   const issuesOf = (name: FieldName) =>
     props.issues.filter((issue) => fieldOf(issue) === name);
@@ -157,27 +148,28 @@ export function DefinitionForm(props: DefinitionFormProps) {
     onChange(withField(definition, key, value));
 
   const picked = definition.skills ?? [];
-  // Operator는 일할 domain을 고르고(비면 그릇의 전부), skill은 고른 domain의 것만 목록에 든다.
+  // agent는 일할 domain을 고르고(비면 그릇의 전부), skill은 고른 domain의 것만 목록에 든다.
   // domain 없는 skill(전역)은 어느 domain을 골라도 든다.
-  const placeIsApp = fresh
-    ? props.place.startsWith("app:")
-    : detail.place.kind === "app";
-  const grouped = !builtIn && props.domains !== null;
+  const placeIsApp = detail.place.kind === "app";
+  const grouped = props.domains !== null;
   const containerDomains = props.domains ?? [];
   const containerIds = containerDomains.map((one) => one.id);
   const chosenIds = (definition.domains ?? []).filter((id) =>
     containerIds.includes(id),
   );
-  const goneDomains =
-    props.domains !== null &&
-    (definition.domains ?? []).length > chosenIds.length;
   const activeIds = chosenIds.length === 0 ? containerIds : chosenIds;
   const visibleIn = (ids: readonly string[]) => (row: SkillRow) =>
     !grouped || row.domain === undefined || ids.includes(row.domain);
   const toggleDomain = (id: string, on: boolean) => {
-    const next = containerIds.filter((one) =>
-      one === id ? on : chosenIds.includes(one),
+    const others = (definition.domains ?? []).filter(
+      (one) => !containerIds.includes(one),
     );
+    const next = [
+      ...others,
+      ...containerIds.filter((one) =>
+        one === id ? on : chosenIds.includes(one),
+      ),
+    ];
     const nowVisible = detail.skills
       .filter(visibleIn(next.length === 0 ? containerIds : next))
       .map((row) => row.name);
@@ -219,30 +211,25 @@ export function DefinitionForm(props: DefinitionFormProps) {
           model: modelName(inherited.value),
         });
 
-  const placeText =
-    detail.place.kind === "none"
-      ? t("agents.label.place-lophn")
-      : t(
-          detail.place.kind === "app"
-            ? "agents.label.place-named-app"
-            : "agents.label.place-named",
-          { name: detail.place.name },
-        );
-  const fixedName = builtIn
-    ? detail.role === "lophn"
-      ? t("agents.notice.name-fixed-lophn")
-      : t("agents.notice.name-fixed-role", {
-          owner: detail.role === "app_engineer" ? "app" : "project",
-          role: detail.effective.name.value,
-        })
-    : null;
+  const profile = definition.profile ?? detail.effective.profile.value;
+  const shownProfile =
+    profile.kind === "character"
+      ? profile
+      : { kind: "image" as const, src: props.imageSrc(profile.image) };
 
   return (
     <form className={styles.form} onSubmit={(event) => event.preventDefault()}>
-      {builtIn ? null : (
+      {lophn ? (
+        <Group
+          name="profile"
+          heading={t("project-workspace.heading.agent-editor-profile")}
+        >
+          <Avatar profile={shownProfile} size="lg" />
+        </Group>
+      ) : (
         <>
           <ProfileField
-            value={definition.profile ?? detail.effective.profile.value}
+            value={profile}
             imageSrc={props.imageSrc}
             canUpload={!fresh}
             onChange={(profile) => set("profile", profile)}
@@ -252,7 +239,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
         </>
       )}
 
-      {builtIn ? (
+      {lophn ? (
         <Group
           name="name"
           heading={t("project-workspace.label.agent-editor-name")}
@@ -260,7 +247,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
           <p className={styles.fixed} data-fixed-name="">
             {detail.effective.name.value}
           </p>
-          <p className={styles.note}>{fixedName}</p>
+          <p className={styles.note}>{t("agents.notice.name-fixed-lophn")}</p>
         </Group>
       ) : (
         <div data-field="name">
@@ -275,38 +262,13 @@ export function DefinitionForm(props: DefinitionFormProps) {
         </div>
       )}
 
-      {fresh ? (
-        <Field
-          label={t("agents.label.place")}
-          help={t("agents.notice.place-help")}
-        >
-          <Select
-            options={detail.places.map((place) => ({
-              value: placeValue(place),
-              label: t("agents.label.place-choice", {
-                name: place.name,
-                kind: place.kind,
-              }),
-            }))}
-            value={props.place}
-            onValueChange={props.onPlace}
-          />
-        </Field>
-      ) : (
-        <Group name="place" heading={t("agents.label.place")}>
-          <p className={styles.fixed}>{placeText}</p>
-        </Group>
-      )}
-
       <InstructionsBlock
         project={detail.instructions}
         head={instructionsHead(detail, props.placeName)}
         note={
-          detail.role === "lophn"
-            ? t("agents.notice.lophn-no-project")
-            : detail.place.kind === "app"
-              ? t("agents.notice.app-no-project")
-              : undefined
+          detail.place.kind === "app"
+            ? t("agents.notice.app-no-project")
+            : undefined
         }
         value={definition.body}
         help={
@@ -352,17 +314,16 @@ export function DefinitionForm(props: DefinitionFormProps) {
             ))}
           </div>
           <p className={styles.note}>
-            {chosenIds.length > 0
-              ? t("domain.notice.only-chosen")
-              : t(
+            {(definition.domains ?? []).length === 0
+              ? t(
                   placeIsApp
                     ? "domain.notice.all-of-app"
                     : "domain.notice.all-of-project",
-                )}
+                )
+              : chosenIds.length > 0
+                ? t("domain.notice.only-chosen")
+                : t("domain.notice.none-here")}
           </p>
-          {goneDomains ? (
-            <p className={styles.note}>{t("agents.notice.domains-gone")}</p>
-          ) : null}
           <Issues issues={issuesOf("domains")} />
         </Group>
       ) : null}
@@ -447,7 +408,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
             set("mcp_off", on ? rest : [...rest, { server_name: name }]);
           }}
         />
-        {builtIn || operatorId === null ? null : addServer ? (
+        {operatorId === null ? null : addServer ? (
           <ServerForm
             scope={operatorId}
             taken={[...detail.mcpServers, ...own].map((row) => row.name)}
@@ -471,18 +432,16 @@ export function DefinitionForm(props: DefinitionFormProps) {
         <Issues issues={issuesOf("mcp")} />
       </Group>
 
-      {detail.kind === "operator" ? (
-        <Group name="skip" heading={t("agents.heading.skip")}>
-          <Checkbox
-            size="sm"
-            label={t("agents.label.skip-start")}
-            checked={definition.skip === true}
-            onCheckedChange={(on) => set("skip", on ? true : undefined)}
-          />
-          <p className={styles.note}>{t("agents.notice.skip-help")}</p>
-          <Issues issues={issuesOf("skip")} />
-        </Group>
-      ) : null}
+      <Group name="skip" heading={t("agents.heading.skip")}>
+        <Checkbox
+          size="sm"
+          label={t("agents.label.skip-start")}
+          checked={definition.skip === true}
+          onCheckedChange={(on) => set("skip", on ? true : undefined)}
+        />
+        <p className={styles.note}>{t("agents.notice.skip-help")}</p>
+        <Issues issues={issuesOf("skip")} />
+      </Group>
 
       <Issues issues={loose} />
     </form>

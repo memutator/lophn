@@ -36,6 +36,7 @@ export type DomainPlaceholders = {
   "domain.notice.archived": {
     title: "string";
   };
+  "domain.notice.none-here": Record<never, never>;
   "domain.notice.only-chosen": Record<never, never>;
   "domain.title.create": Record<never, never>;
 };

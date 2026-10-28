@@ -34,6 +34,7 @@ export type WorkspaceSettingsPlaceholders = {
   "jobs.label.agent-lophn": Record<never, never>;
   "jobs.label.agent-operator": Record<never, never>;
   "jobs.label.agent-project-manager": Record<never, never>;
+  "jobs.label.agent-unnamed": Record<never, never>;
   "jobs.label.at": Record<never, never>;
   "jobs.label.created-by": {
     agent: "string";

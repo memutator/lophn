@@ -71,7 +71,7 @@ interface ModelFieldProps {
   readonly onChange: (choice: ModelChoice | null) => void;
 }
 
-/** 위 층의 값을 따르는 Model 칸(Operator 정의, project). 바꾸면 Changed와 [Reset]이 붙는다. */
+/** 위 층의 값을 따르는 Model 칸(agent 정의, project). 바꾸면 Changed와 [Reset]이 붙는다. */
 export function ModelField({
   models,
   source,

@@ -2,10 +2,14 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  checkChord,
+  compileBindings,
   KEYBINDINGS,
   type KeyInput,
   type KeyPlatform,
   matchKey,
+  parseKeyOverrides,
+  resolveBindings,
 } from "./keybindings.ts";
 
 function inputOf(chord: string, key = ""): KeyInput {
@@ -107,4 +111,55 @@ test("한글 입력 상태의 키와 modifier가 더 붙은 키를 가려서 판
     matchKey(inputOf("Alt+Digit1"), "other", "main"),
     null,
   );
+});
+
+test("사람이 바꾼 키는 검사를 지난 것만 덮고 main이 받는 키도 바뀐 키를 따른다", () => {
+  // 모르는 id, 읽을 수 없는 chord, 너무 많은 chord는 버리고 그 줄은 표의 키다. 빈 배열은 키를 뺀 것이다.
+  const overrides = parseKeyOverrides({
+    "tab.close": ["Ctrl+Shift+KeyW"],
+    "sidebar.toggle": [],
+    "no.such": ["Ctrl+KeyJ"],
+    "tab.next": ["Ctrl+Bogus"],
+    "tab.prev": [
+      "Ctrl+KeyA",
+      "Ctrl+KeyB",
+      "Ctrl+KeyC",
+      "Ctrl+KeyD",
+      "Ctrl+KeyE",
+    ],
+  });
+  assert.deepStrictEqual(overrides, {
+    "tab.close": ["Ctrl+Shift+KeyW"],
+    "sidebar.toggle": [],
+  });
+  assert.deepStrictEqual(parseKeyOverrides("broken"), {});
+
+  const compiled = compileBindings(resolveBindings("other", overrides));
+  const hit = (chord: string, only?: "main") =>
+    matchKey(inputOf(chord), "other", only, compiled)?.command ?? null;
+  assert.deepStrictEqual(hit("Ctrl+Shift+KeyW", "main"), "tab.close");
+  assert.deepStrictEqual(hit("Ctrl+KeyW", "main"), null);
+  assert.deepStrictEqual(hit("Ctrl+KeyB"), null);
+  assert.deepStrictEqual(hit("Ctrl+Tab", "main"), "tab.next");
+
+  // 겹침은 modifier 순서와 상관없이 잡고, 팔레트 키와 modifier 없는 키는 받지 않는다.
+  const taken = checkChord("Shift+Ctrl+KeyW", "pane.split", "other", overrides);
+  assert.deepStrictEqual(
+    taken.ok ? null : [taken.reason, "by" in taken ? taken.by.command : null],
+    ["taken", "tab.close"],
+  );
+  assert.deepStrictEqual(
+    checkChord("Ctrl+KeyW", "pane.split", "other", overrides).ok,
+    true,
+  );
+  for (const [chord, reason] of [
+    ["Ctrl+KeyK", "reserved"],
+    ["KeyJ", "needs_modifier"],
+    ["Shift+KeyJ", "needs_modifier"],
+    ["Ctrl+Bogus", "unsupported"],
+  ] as const) {
+    const check = checkChord(chord, "pane.split", "other", {});
+    assert.deepStrictEqual(check.ok ? null : check.reason, reason, chord);
+  }
+  assert.deepStrictEqual(checkChord("F5", "pane.split", "other", {}).ok, true);
 });

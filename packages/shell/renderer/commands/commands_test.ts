@@ -17,6 +17,7 @@ function setup() {
     registry,
     platform: "other",
     inShell: (target) => target === "terminal",
+    ignores: (target) => target === "capture",
   });
   return { registry, keybindings, logged };
 }

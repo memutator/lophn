@@ -18,6 +18,8 @@ import { ExtensionsPanel } from "./extensions/extensions-panel.tsx";
 import { GeneralPanel } from "./general/general-panel.tsx";
 import { JobsPanel } from "./jobs/jobs-panel.tsx";
 import type { JobsSource } from "./jobs/source.ts";
+import { KeyboardPanel } from "./keyboard/keyboard-panel.tsx";
+import type { KeyboardSource } from "./keyboard/source.ts";
 import type { SettingsPane } from "./model.ts";
 import { ProviderList } from "./providers/provider-list.tsx";
 import type { ProviderSettingsSource } from "./providers/settings-source.ts";
@@ -36,6 +38,7 @@ export type SettingsPanels = Pick<
   | "coding"
   | "appearance"
   | "browser"
+  | "keyboard"
   | "jobs"
 >;
 
@@ -62,6 +65,8 @@ interface SettingsScreenProps {
   appearance?: AppearanceSource;
   /** Browser 항목. 없으면 준비 전 안내다. */
   browser?: BrowserSettingsSource;
+  /** Keyboard 항목. 없으면 준비 전 안내다. */
+  keyboard?: KeyboardSource;
   /** Scheduled jobs 항목. 없으면 준비 전 안내다. */
   jobs?: JobsSource;
   /** 기록 줄의 [Open session]. */
@@ -85,6 +90,7 @@ export function SettingsScreen({
   shellRules,
   appearance,
   browser,
+  keyboard,
   jobs,
   onOpenSession,
   onProject,
@@ -146,6 +152,8 @@ export function SettingsScreen({
             </div>
           )
         );
+      case "keyboard":
+        return keyboard && <KeyboardPanel source={keyboard} />;
       case "providers":
         return (
           providers && (

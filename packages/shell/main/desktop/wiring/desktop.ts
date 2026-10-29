@@ -20,7 +20,14 @@ import {
   FOLDER_PICK_CHANNEL,
 } from "../../../ipc/folder-picker.ts";
 import { OPEN_EXTERNAL_CHANNEL } from "../../../ipc/open-external.ts";
-import { isMainCommand } from "../../../ipc/keybindings.ts";
+import {
+  type CompiledBindings,
+  compileBindings,
+  isMainCommand,
+  KEYBINDINGS_CHANNEL,
+  parseKeyOverrides,
+  resolveBindings,
+} from "../../../ipc/keybindings.ts";
 import { WINDOW_SHORTCUT_CHANNEL } from "../../../ipc/shortcuts.ts";
 import { WINDOW_CONTROL_CHANNEL } from "../../../ipc/window-controls.ts";
 import {
@@ -57,6 +64,7 @@ import { listenShortcuts } from "../shortcuts.ts";
 import { startSingleInstance } from "../single-instance.ts";
 import { installTray, TRAY_ICON_SIZE, type TrayFactory } from "../tray.ts";
 import { createWindowControl } from "../window-controls.ts";
+import { checkCaller } from "../ipc-guard.ts";
 import type { AppViews } from "./app-views.ts";
 import type { Coding } from "./coding.ts";
 import type { Registered, ShellContext } from "./context.ts";
@@ -236,36 +244,53 @@ export function register(
       }),
   });
 
+  // 사람이 Settings › Keyboard에서 바꾼 키. desktop 창 본문이 보내면 검사해서 main이 먼저 받는 키도 따른다.
+  // 이 OS의 것만 온다. 값이 틀리면 그 줄은 표의 키다.
+  let compiled: CompiledBindings | undefined;
+  const platformKeys = process.platform === "darwin" ? "mac" : "other";
+  ipc.handle(KEYBINDINGS_CHANNEL, (event, input: unknown) => {
+    const caller = checkCaller(overlays.overlayRegistry(), event);
+    if (!caller.ok || caller.value.origin.host !== "desktop") return;
+    compiled = compileBindings(
+      resolveBindings(platformKeys, parseKeyOverrides(input)),
+    );
+  });
+
   // 창 안 shortcut. 창 본문·overlay·앱 view·browser 탭 어디에 focus가 있어도 그 창의 shell
   // renderer가 받는다. 보호 창이나 다른 창의 키는 shell 창이 아니라서 건드리지 않는다.
   app.on("web-contents-created", (_event, contents) => {
-    listenShortcuts(contents, process.platform, (shortcut, send) => {
-      // browser 탭의 <webview> guest는 창의 자식 view가 아니라서 host를 통해 창을 찾는다.
-      const host =
-        contents.getType() === "webview" ? contents.hostWebContents : null;
-      const window = [...windows].find(
-        (window) =>
-          !window.isDestroyed() &&
-          (window.webContents === contents ||
-            (host !== null && window.webContents === host) ||
-            window.contentView.children.some(
-              (view) =>
-                view instanceof WebContentsView &&
-                view.webContents === contents,
-            )),
-      );
-      if (!window) return false;
-      // shell renderer 자신의 키는 macOS(menu가 먼저 가져간다)에서만 main이 삼킨다. 다른 OS는
-      // renderer의 keydown이 받아야 터미널에서 Ctrl+W 같은 키를 shell로 보낼 수 있다.
-      if (
-        window.webContents === contents &&
-        process.platform !== "darwin" &&
-        isMainCommand(shortcut)
-      )
-        return false;
-      if (send) window.webContents.send(WINDOW_SHORTCUT_CHANNEL, shortcut);
-      return true;
-    });
+    listenShortcuts(
+      contents,
+      process.platform,
+      (shortcut, send) => {
+        // browser 탭의 <webview> guest는 창의 자식 view가 아니라서 host를 통해 창을 찾는다.
+        const host =
+          contents.getType() === "webview" ? contents.hostWebContents : null;
+        const window = [...windows].find(
+          (window) =>
+            !window.isDestroyed() &&
+            (window.webContents === contents ||
+              (host !== null && window.webContents === host) ||
+              window.contentView.children.some(
+                (view) =>
+                  view instanceof WebContentsView &&
+                  view.webContents === contents,
+              )),
+        );
+        if (!window) return false;
+        // shell renderer 자신의 키는 macOS(menu가 먼저 가져간다)에서만 main이 삼킨다. 다른 OS는
+        // renderer의 keydown이 받아야 터미널에서 Ctrl+W 같은 키를 shell로 보낼 수 있다.
+        if (
+          window.webContents === contents &&
+          process.platform !== "darwin" &&
+          isMainCommand(shortcut)
+        )
+          return false;
+        if (send) window.webContents.send(WINDOW_SHORTCUT_CHANNEL, shortcut);
+        return true;
+      },
+      () => compiled,
+    );
   });
 
   // 창을 다 닫아도 main은 남는다. 종료는 tray의 명시 행동이다.
@@ -328,6 +353,7 @@ export function register(
       ipc.removeHandler(FOLDER_PICK_CHANNEL);
       ipc.removeHandler(FILE_PICK_CHANNEL);
       ipc.removeHandler(WINDOW_CONTROL_CHANNEL);
+      ipc.removeHandler(KEYBINDINGS_CHANNEL);
       ipc.removeHandler(OPEN_EXTERNAL_CHANNEL);
       globalPalette?.dispose();
       ctx.tray.current?.destroy();

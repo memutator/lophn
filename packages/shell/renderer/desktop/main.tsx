@@ -49,10 +49,14 @@ import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnShellAnnotateApi } from "../../ipc/annotation.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
+import type { KeybindingsApi } from "../../ipc/keybindings.ts";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { CommandsProvider } from "../commands/react.tsx";
 import { createWindowCommands } from "../commands/window.ts";
 import { currentPlatform } from "./top-bar/platform.ts";
+
+// desktop preload만 연다(entry.tsx의 bridges와 같은 꼴). gallery·dev 창에는 없어 main이 먼저 받는 키는 표의 키로 남는다.
+const keybindingsBridge = globalThis as { lophnKeybindings?: KeybindingsApi };
 
 interface DesktopProps {
   source: CoreSource;
@@ -168,6 +172,8 @@ export function Desktop({
       createWindowCommands({
         platform: keyPlatform,
         log: (message, error) => console.error(message, error),
+        tellMain: (overrides) =>
+          keybindingsBridge.lophnKeybindings?.set(overrides),
       }),
     [keyPlatform],
   );
@@ -248,6 +254,17 @@ export function Desktop({
       });
     });
   }, [appearance]);
+  // 사람이 바꾼 단축키도 시작할 때 덮는다. Settings를 열지 않아도 바뀐 키가 듣는다.
+  const keyboard = settingsPanels?.keyboard;
+  useEffect(() => {
+    if (keyboard === undefined) return;
+    return keyboard.watch((state) => {
+      if (state.state !== "ready") return;
+      void keyboard.read().then((read) => {
+        if (read.ok) commands.setOverrides(read.value[keyPlatform] ?? {});
+      });
+    });
+  }, [keyboard, commands, keyPlatform]);
 
   // modal(dialog·palette)이 뜨면 scrim이 창의 위쪽 줄도 덮고 그 줄은 끌기에서 빠진다. 스타일은 chrome.css다.
   useEffect(() => {

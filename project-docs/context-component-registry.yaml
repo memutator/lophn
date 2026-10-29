@@ -300,11 +300,11 @@ components:
   - id: architecture-keybindings
     kind: doc
     roles: [planner, lead]
-    description: desktop 창의 단축키가 OS 전역·main before-input-event·renderer keydown 중 어디서 받혀 command registry의 id로 가는가. 키 삼키기·충돌·해제 규칙.
+    description: desktop 창의 단축키가 OS 전역·main before-input-event·renderer keydown 중 어디서 받혀 command registry의 id로 가는가. 키 삼키기·충돌·해제 규칙, Settings › Keyboard에서 사람이 바꾼 키가 창과 main에 덮이는 길.
     path: project-docs/architecture/keybindings.md
     change_reasons:
       boundaries: [shell]
-      paths: [packages/shell/ipc/keybindings.ts, packages/shell/ipc/shortcuts.ts, packages/shell/renderer/commands/, packages/shell/main/desktop/shortcuts.ts]
+      paths: [packages/shell/ipc/keybindings.ts, packages/shell/ipc/shortcuts.ts, packages/shell/renderer/commands/, packages/shell/main/desktop/shortcuts.ts, packages/shell/renderer/desktop/settings/keyboard/]
 
   - id: architecture-agent-chat
     kind: doc

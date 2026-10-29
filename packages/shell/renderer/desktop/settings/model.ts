@@ -12,6 +12,7 @@ export type SettingsPane =
   | "general"
   | "appearance"
   | "browser"
+  | "keyboard"
   | "providers"
   | "agents"
   | "tools"
@@ -55,6 +56,11 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
         id: "browser",
         label: "settings.label.tab-browser",
         icon: settingsIcons.browser,
+      },
+      {
+        id: "keyboard",
+        label: "settings.label.tab-keyboard",
+        icon: settingsIcons.keyboard,
       },
     ],
   },

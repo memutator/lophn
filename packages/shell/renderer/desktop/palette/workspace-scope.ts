@@ -2,7 +2,7 @@
 // 고르면 작업대 안의 대상(탭 고르기, 파일 탭 열기, bookmark를 새 browser 탭에서 열기, 행동)으로만 간다.
 import { t } from "@lophn/wording";
 
-import { commandLabel } from "../../../ipc/keybindings.ts";
+import { commandLabel, type KeyOverrides } from "../../../ipc/keybindings.ts";
 import { tabKindLabel, tabKindOf } from "../../workspace/kinds/registry.ts";
 import type {
   FloatItem,
@@ -50,6 +50,8 @@ interface WorkspaceScopeInput {
   /** 터미널 통로가 있을 때만 터미널 열기 행이 있다. */
   readonly terminal: boolean;
   readonly platform: WindowPlatform;
+  /** 사람이 바꾼 키. hint가 바뀐 키를 보인다. */
+  readonly keys: KeyOverrides;
   /** 이 프로젝트의 키워드 검색. */
   readonly search?: (query: string) => Promise<readonly FileFound[]>;
   readonly go: (target: WorkspaceTarget) => void;
@@ -119,6 +121,8 @@ function actions(input: WorkspaceScopeInput): PaletteEntry<WorkspaceTarget>[] {
             commandLabel(
               "terminal.focus",
               input.platform === "mac" ? "mac" : "other",
+              undefined,
+              input.keys,
             ) ?? undefined,
           ),
         ]

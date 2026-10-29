@@ -152,7 +152,7 @@ import type {
 import { DeskSelector, PathSep } from "./top-path/desk-selector.tsx";
 import { ProjectSelector } from "./top-path/project-selector.tsx";
 import { focusPaneBody } from "./focus-pane.ts";
-import { useCommands } from "../commands/react.tsx";
+import { useCommands, useWindowCommands } from "../commands/react.tsx";
 import { useTabHostSlices } from "./use-tab-host-slices.ts";
 import styles from "./workspace.module.css";
 
@@ -1180,6 +1180,7 @@ export function Workspace(props: WorkspaceProps) {
 
   // 창 팔레트의 작업대 행. 고르면 이 작업대 안의 대상으로만 간다.
   const palette = usePaletteEnv();
+  const windowCommands = useWindowCommands();
   usePaletteScope(() =>
     workspaceScope({
       view,
@@ -1187,6 +1188,7 @@ export function Workspace(props: WorkspaceProps) {
       bookmarks: bookmarkList.state === "ok" ? bookmarkList.bookmarks : [],
       terminal: terminal !== undefined,
       platform: palette.platform,
+      keys: windowCommands?.overrides() ?? {},
       search: palette.search
         ? (query) => palette.search!(query, { kind: "project", id: projectId })
         : undefined,

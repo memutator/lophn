@@ -1,7 +1,7 @@
 // Settings의 새 설계 page. 모두 인자 없이 한 상태를 그린다.
 
 import { SettingsFrame } from "./settings-frame.tsx";
-import { click, press, type } from "../../mock/drive.ts";
+import { click, find, press, type } from "../../mock/drive.ts";
 import {
   JOB_DIGEST,
   JOB_ORDERS,
@@ -94,6 +94,35 @@ const BOOKMARKS: Bookmark[] = [
 /** Settings › Browser: Bookmarks와 Browsing data([Clear browsing data]). */
 export const SettingsBrowser = () => (
   <SettingsFrame pane="browser" browser={{ bookmarks: BOOKMARKS }} />
+);
+
+/** Settings › Keyboard. 바꾼 키가 없다. */
+export const SettingsKeyboard = () => <SettingsFrame pane="keyboard" />;
+
+/** Settings › Keyboard: 탭 닫기를 바꾸고 sidebar 키를 뺀 뒤, Open a file에 이미 쓰는 키를 눌러 막힌 상태. */
+export const SettingsKeyboardChanged = () => (
+  <SettingsFrame
+    pane="keyboard"
+    keyboard={{
+      other: { "tab.close": ["Ctrl+Alt+KeyQ"], "sidebar.toggle": [] },
+      mac: { "tab.close": ["Cmd+Alt+KeyQ"], "sidebar.toggle": [] },
+    }}
+    steps={[
+      () => click('[data-key-change="files.quick-open"]'),
+      async () => {
+        const field = await find("[data-key-capture]");
+        field.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Tab",
+            code: "Tab",
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      },
+    ]}
+  />
 );
 
 /** Settings › Browser: Links 구역. web과 local link 둘 다 Browser tab으로 연다. */

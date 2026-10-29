@@ -47,6 +47,7 @@ import {
 } from "./launcher/projects/core-source.ts";
 import { coreSettingsSource } from "./settings/core-source.ts";
 import { coreAppearanceSource } from "./settings/appearance/core-source.ts";
+import { coreKeyboardSource } from "./settings/keyboard/core-source.ts";
 import { coreJobsSource } from "./settings/jobs/core-source.ts";
 import { coreShellRulesSource } from "./settings/shell-rules/core-source.ts";
 import { windowBrowserSettings } from "./settings/browser/window-source.ts";
@@ -102,6 +103,7 @@ const settingsPanels = mock?.settingsPanels ?? {
   shellRules: coreShellRulesSource(core),
   jobs: coreJobsSource(core),
   appearance: coreAppearanceSource(core),
+  keyboard: coreKeyboardSource(core),
   coding: coreCodingConnectionsSource({ core, coding: windowCodingApi() }),
   browser: windowBrowserSettings(),
 };

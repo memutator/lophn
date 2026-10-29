@@ -1,7 +1,7 @@
 // 창 안 shortcut. OS 전역 단축키로 등록하지 않고 창에 속한 webContents의
 // before-input-event만 본다. 그래서 다른 앱에 focus가 있으면 Ctrl+K가 lophn에 오지 않는다.
 // 앱 view·overlay·터미널에 focus가 있어도 같은 창의 shell renderer가 받는다.
-import { matchKey } from "../../ipc/keybindings.ts";
+import { type CompiledBindings, matchKey } from "../../ipc/keybindings.ts";
 import {
   type PaletteShortcut,
   WINDOW_SHORTCUTS,
@@ -52,6 +52,7 @@ function letterOf(input: KeyInput): string {
 function windowShortcut(
   input: KeyInput,
   platform: string,
+  compiled: CompiledBindings | undefined,
 ): WindowShortcut | null {
   if (input.type !== "keyDown") return null;
   const mac = platform === "darwin";
@@ -78,6 +79,7 @@ function windowShortcut(
     },
     mac ? "mac" : "other",
     "main",
+    compiled,
   );
   return hit === null ? null : (hit.command as WindowShortcut);
 }
@@ -98,9 +100,11 @@ export function listenShortcuts(
   source: InputSource,
   platform: string,
   deliver: (shortcut: WindowShortcut, send: boolean) => boolean,
+  /** 사람이 바꾼 키를 덮은 표. 없으면 기본 표다. */
+  compiled: () => CompiledBindings | undefined = () => undefined,
 ): void {
   source.on("before-input-event", (event, input) => {
-    const shortcut = windowShortcut(input, platform);
+    const shortcut = windowShortcut(input, platform, compiled());
     if (shortcut !== null && deliver(shortcut, input.isAutoRepeat !== true)) {
       event.preventDefault();
     }

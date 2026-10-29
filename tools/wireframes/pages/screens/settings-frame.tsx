@@ -20,6 +20,8 @@ import {
 import { fakeBrowserSettings } from "../../../../packages/shell/renderer/desktop/settings/browser/testdata/fake-source.ts";
 import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
 import type { LinkValues } from "../../../../packages/shell/renderer/desktop/settings/browser/source.ts";
+import { fakeKeyboard } from "../../../../packages/shell/renderer/desktop/settings/keyboard/testdata/fake-source.ts";
+import type { StoredKeybindings } from "../../../../packages/shell/renderer/desktop/settings/keyboard/source.ts";
 import { CUSTOM_PROVIDER } from "../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 import { GalleryConnectHost } from "../../mock/connect-host.tsx";
 import { runSteps, type Step, useDrive } from "../../mock/drive.ts";
@@ -44,6 +46,8 @@ interface SettingsFrameProps {
   };
   /** Scheduled jobs 항목의 job. 안 쓰면 dev mock의 대표 job이다. */
   readonly jobs?: Partial<FakeJobsOptions>;
+  /** Keyboard 항목의 저장된 키. 안 쓰면 바꾼 키가 없다. */
+  readonly keyboard?: StoredKeybindings;
   /** custom provider를 붙일 수 있게 한다. found는 연결 뒤 목록을 찾고, empty는 /models가 없어 목록이 비어 있다. */
   readonly customList?: "found" | "empty";
   /** mount 뒤에 차례로 하는 동작. */
@@ -61,6 +65,7 @@ export function SettingsFrame({
   browser,
   jobs,
   customList,
+  keyboard,
   steps = [],
 }: SettingsFrameProps = {}) {
   const mock = useMemo(() => devMock("?mock")!, []);
@@ -87,6 +92,9 @@ export function SettingsFrame({
         ? {}
         : { browser: fakeBrowserSettings(browser).source }),
       ...(jobs === undefined ? {} : { jobs: fakeJobs(jobs).source }),
+      ...(keyboard === undefined
+        ? {}
+        : { keyboard: fakeKeyboard({ value: keyboard }).source }),
       // 같은 id의 custom provider를 두 fake가 알아야 연결 뒤 목록 읽기가 그 provider를 찾는다.
       ...(customList === undefined
         ? {}
@@ -104,7 +112,16 @@ export function SettingsFrame({
             }).source,
           }),
     }),
-    [mock, appearance, providers, noDefaultModel, browser, jobs, customList],
+    [
+      mock,
+      appearance,
+      providers,
+      noDefaultModel,
+      browser,
+      jobs,
+      customList,
+      keyboard,
+    ],
   );
   useDrive(() => runSteps(steps));
   return (

@@ -52,6 +52,11 @@ export interface KeybindingService {
    * 부를 수 없으면(없거나 when이 막으면) 다음 것을 본다. 아무도 못 받으면 키를 넘긴다.
    */
   register(binding: KeybindingInput): Disposable;
+  /**
+   * 창의 기본 바인딩(작업대 단축키 표에 사람이 바꾼 키를 덮은 것)을 통째로 바꾼다. register로 묶은
+   * 것보다 늘 뒤에 본다. 사람이 키를 바꿔도 기능이 묶은 바인딩의 앞뒤가 바뀌지 않게.
+   */
+  setDefaults(bindings: readonly KeybindingInput[]): void;
   /** 키를 받았으면 true다. 받은 키만 preventDefault·stopPropagation 한다. */
   handle(event: KeyEventLike): boolean;
   /**
@@ -72,12 +77,20 @@ export function createKeybindingService(deps: {
   platform: KeyPlatform;
   /** 터미널(xterm) 안의 target인가. 그 안에서 Linux·Windows의 Ctrl+글자 하나는 shell로 보낸다. */
   inShell: (target: unknown) => boolean;
+  /** 키를 아예 보지 않을 target(Settings에서 새 키를 받는 칸). */
+  ignores: (target: unknown) => boolean;
 }): KeybindingService {
   let bound: readonly Bound[] = [];
+  let defaults: readonly Bound[] = [];
   const listening = new Map<KeyTarget, number>();
+  const toBound = (binding: KeybindingInput): Bound => ({
+    command: binding.command,
+    arg: binding.arg,
+    chords: binding[deps.platform].map(parseChord),
+  });
   const handle = (event: KeyEventLike): boolean => {
     // 한글 입력 중(조합)은 입력기가 받는다.
-    if (event.isComposing) return false;
+    if (event.isComposing || deps.ignores(event.target)) return false;
     const input = {
       key: event.key,
       code: event.code,
@@ -86,8 +99,7 @@ export function createKeybindingService(deps: {
       alt: event.altKey,
       shift: event.shiftKey,
     };
-    for (let at = bound.length - 1; at >= 0; at--) {
-      const item = bound[at]!;
+    for (const item of [...bound].reverse().concat(defaults)) {
       const chord = item.chords.find((one) => chordMatches(one, input));
       if (chord === undefined) continue;
       if (shellOwns(chord, deps.platform) && deps.inShell(event.target)) {
@@ -105,12 +117,11 @@ export function createKeybindingService(deps: {
   const listener = (event: KeyEventLike) => void handle(event);
   return {
     handle,
+    setDefaults(bindings) {
+      defaults = bindings.map(toBound);
+    },
     register(binding) {
-      const item: Bound = {
-        command: binding.command,
-        arg: binding.arg,
-        chords: binding[deps.platform].map(parseChord),
-      };
+      const item = toBound(binding);
       bound = [...bound, item];
       let disposed = false;
       return {

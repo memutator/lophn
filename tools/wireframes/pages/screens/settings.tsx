@@ -26,6 +26,8 @@ import {
   SettingsCoding,
   SettingsDiagnostics,
   SettingsGeneral,
+  SettingsKeyboard,
+  SettingsKeyboardChanged,
   SettingsJobsDelete,
   SettingsJobsEdit,
   SettingsJobsEmpty,
@@ -234,6 +236,20 @@ export const settingsArea: Area = {
       description:
         "browser 탭의 Bookmarks 목록과 Browsing data 구역이다. [Clear browsing data]는 모든 browser 탭이 같이 쓰는 로그인과 site data, cache를 지운다.",
       render: () => <SettingsBrowser />,
+    },
+    {
+      id: "settings-keyboard",
+      title: "Settings · Keyboard",
+      description:
+        "작업대 단축키를 줄마다 보이는 Settings 항목이다. 줄 오른쪽 끝의 키 칸을 누르면 새 키를 받고, 받은 키는 바로 저장되어 그 OS에서만 바뀐다.",
+      render: () => <SettingsKeyboard />,
+    },
+    {
+      id: "settings-keyboard-changed",
+      title: "Settings · Keyboard · changed",
+      description:
+        "탭 닫기를 다른 키로 바꾸고 sidebar 키를 뺀 상태다. 바꾼 줄에는 [Reset to default]가, 아래에는 [Reset all shortcuts]가 있다. Open a file 줄이 새 키를 받는 중이고 이미 쓰는 키(Ctrl+Tab)를 눌러 막혔다.",
+      render: () => <SettingsKeyboardChanged />,
     },
     {
       id: "settings-browser-links",

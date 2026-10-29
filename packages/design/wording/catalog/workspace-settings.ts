@@ -101,6 +101,9 @@ export const workspaceSettings = {
   "settings.button.connect-with": "Connect {name}",
   "settings.button.detect-again": "Detect again",
   "settings.button.install-hooks": "Install hooks",
+  "settings.button.key-change": "Change {name}",
+  "settings.button.key-reset": "Reset {name}",
+  "settings.button.keys-reset-all": "Reset all shortcuts",
   "settings.button.remove-entry": "Remove {item}",
   "settings.button.reset-default": "Reset to default",
   "settings.button.revoke": "Revoke",
@@ -122,6 +125,13 @@ export const workspaceSettings = {
     "The hooks weren't uninstalled. Try again.",
   "settings.error.font-name":
     "Use only letters, numbers, spaces, hyphens, and underscores.",
+  "settings.error.key-needs-modifier":
+    "Hold {modifiers} with the key. A key on its own would stop you typing it.",
+  "settings.error.key-reserved":
+    "This key opens search or the launcher, so it can't be used here.",
+  "settings.error.key-taken": "{key} is already used for {name}.",
+  "settings.error.key-unsupported": "That key can't be used for a shortcut.",
+  "settings.error.keys-load-failed": "Could not load your shortcuts.",
   "settings.error.value-invalid":
     "That value isn't accepted. Nothing was saved, and the setting keeps its value.",
   "settings.error.value-not-saved":
@@ -143,6 +153,8 @@ export const workspaceSettings = {
     "Whether each part of lophn can be used right now. Checks run only when you press the button.",
   "settings.intro.general":
     "Settings that lophn declares. Only values you change are saved; every other value follows its default.",
+  "settings.intro.keyboard":
+    "Shortcuts for tabs, panes, and the sidebar in a project. Changes apply on this computer's system only, as soon as you press the new key.",
   "settings.intro.shell-rules":
     "Before lophn runs a command for an agent, it checks these rules. Deny blocks the command, Ask waits for your answer, and Allow lets it run. The last matching rule wins, and project rules come after Workspace rules. A command that matches no rule runs. In a pattern, * matches any text.",
   "settings.label.accent": "Accent",
@@ -200,6 +212,27 @@ export const workspaceSettings = {
   "settings.label.group-agents": "Agents",
   "settings.label.group-general": "General",
   "settings.label.group-system": "System",
+  "settings.label.key-capture": "Press the new keys for {name}",
+  "settings.label.key-explorer-focus": "Focus the file explorer",
+  "settings.label.key-files-quick-open": "Open a file",
+  "settings.label.key-none": "No shortcut",
+  "settings.label.key-pane-focus": "Focus pane {n, number}",
+  "settings.label.key-pane-split": "Split the pane",
+  "settings.label.key-search-open": "Search in files",
+  "settings.label.key-sidebar-toggle": "Show or hide the sidebar",
+  "settings.label.key-tab-close": "Close the tab",
+  "settings.label.key-tab-last": "Go to the last tab",
+  "settings.label.key-tab-move-left": "Move the tab left",
+  "settings.label.key-tab-move-right": "Move the tab right",
+  "settings.label.key-tab-next": "Next tab",
+  "settings.label.key-tab-nth": "Go to tab {n, number}",
+  "settings.label.key-tab-prev": "Previous tab",
+  "settings.label.key-tab-reopen": "Reopen the closed tab",
+  "settings.label.key-tab-to-next-pane": "Move the tab to the next pane",
+  "settings.label.key-tab-to-prev-pane": "Move the tab to the previous pane",
+  "settings.label.key-terminal-focus": "Open or focus the terminal",
+  "settings.label.keyboard-command": "Command",
+  "settings.label.keyboard-keys": "Shortcut",
   "settings.label.shell-action-allow": "Allow",
   "settings.label.shell-action-ask": "Ask",
   "settings.label.shell-action-deny": "Deny",
@@ -220,6 +253,7 @@ export const workspaceSettings = {
   "settings.label.tab-extensions": "Tools and skills",
   "settings.label.tab-general": "General",
   "settings.label.tab-jobs": "Scheduled jobs",
+  "settings.label.tab-keyboard": "Keyboard",
   "settings.label.tab-providers": "Providers",
   "settings.label.tab-shell-rules": "Shell rules",
   "settings.label.text-size": "Text size",
@@ -245,6 +279,8 @@ export const workspaceSettings = {
     "These are the results from the last check. lophn only checks again when you ask.",
   "settings.note.coding-hooks":
     "Hooks let lophn show when a coding agent you start in a terminal is working or waiting for you. Installing them adds lines to the product's own settings file, and uninstalling removes only those lines.",
+  "settings.note.key-capture":
+    "Press Esc to cancel. Press Backspace to remove the shortcut.",
   "settings.note.not-set":
     "That feature won't start. Everything else keeps working.",
   "settings.note.shell-rules-built-in":

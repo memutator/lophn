@@ -42,7 +42,7 @@ export type MainCommand =
 
 export type KeyPlatform = "mac" | "other";
 
-interface Binding {
+export interface Binding {
   readonly command: Command;
   /** tab.nth는 1~9와 0(마지막 탭), pane.focus는 칸 번호(1부터). */
   readonly arg?: number;
@@ -179,11 +179,79 @@ interface Compiled {
   readonly other: readonly Chord[];
 }
 
-const COMPILED: readonly Compiled[] = KEYBINDINGS.map((binding) => ({
-  binding,
-  mac: binding.mac.map(parseChord),
-  other: binding.other.map(parseChord),
-}));
+/** 사람이 바꾼 키. binding id(`tab.close`, `tab.nth:1`) → 이 기기 platform의 chord. 없는 id는 표의 키다. */
+export type KeyOverrides = Readonly<Record<string, readonly string[]>>;
+
+/** renderer가 사람이 바꾼 키를 main에 알리는 channel. main이 먼저 받는 키도 바뀐 키를 따른다. */
+export const KEYBINDINGS_CHANNEL = "shell:keybindings";
+
+export interface KeybindingsApi {
+  set(overrides: KeyOverrides): void;
+}
+
+export function bindingId(binding: Binding): string {
+  return binding.arg === undefined
+    ? binding.command
+    : `${binding.command}:${binding.arg}`;
+}
+
+const NAMED_KEYS =
+  "Backquote|Backslash|BracketLeft|BracketRight|Comma|Period|Slash|Semicolon|Quote|Minus|Equal|" +
+  "ArrowUp|ArrowDown|ArrowLeft|ArrowRight|PageUp|PageDown|Home|End|Tab|Enter|Space|Escape|" +
+  "Backspace|Delete|Insert";
+const CHORD_TEXT = new RegExp(
+  `^(?:(?:Ctrl|Cmd|Alt|Shift)\\+)*(?:Key[A-Z]|Digit[0-9]|F[1-9]|F1[0-2]|${NAMED_KEYS})$`,
+);
+const MAX_CHORDS = 4;
+
+/** 받은 값에서 표에 있는 id와 읽을 수 있는 chord만 남긴다. 저장 파일이나 IPC 값이 틀려도 키가 죽지 않게. */
+export function parseKeyOverrides(value: unknown): KeyOverrides {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  const ids = new Set(KEYBINDINGS.map(bindingId));
+  const out: Record<string, readonly string[]> = {};
+  for (const [id, chords] of Object.entries(value)) {
+    if (!ids.has(id) || !Array.isArray(chords)) continue;
+    const valid = chords.filter(
+      (chord): chord is string =>
+        typeof chord === "string" && CHORD_TEXT.test(chord),
+    );
+    if (valid.length === chords.length && valid.length <= MAX_CHORDS) {
+      out[id] = valid;
+    }
+  }
+  return out;
+}
+
+/** 표에 사람이 바꾼 키를 덮은 바인딩. 덮는 것은 이 기기 platform의 chord뿐이다. */
+export function resolveBindings(
+  platform: KeyPlatform,
+  overrides: KeyOverrides,
+): readonly Binding[] {
+  return KEYBINDINGS.map((binding) => {
+    const chords = overrides[bindingId(binding)];
+    return chords === undefined ? binding : { ...binding, [platform]: chords };
+  });
+}
+
+export interface CompiledBindings {
+  readonly list: readonly Compiled[];
+}
+
+export function compileBindings(
+  bindings: readonly Binding[],
+): CompiledBindings {
+  return {
+    list: bindings.map((binding) => ({
+      binding,
+      mac: binding.mac.map(parseChord),
+      other: binding.other.map(parseChord),
+    })),
+  };
+}
+
+const COMPILED = compileBindings(KEYBINDINGS);
 
 /** DOM KeyboardEvent와 Electron Input에서 같은 모양으로 옮긴 키 입력. */
 export interface KeyInput {
@@ -226,13 +294,14 @@ export function shellOwns(chord: Chord, platform: KeyPlatform): boolean {
   );
 }
 
-/** 키 입력에 맞는 바인딩. `main`이면 main이 받는 것만 본다. */
+/** 키 입력에 맞는 바인딩. `main`이면 main이 받는 것만 본다. 사람이 키를 바꿨으면 compiled로 그 표를 준다. */
 export function matchKey(
   input: KeyInput,
   platform: KeyPlatform,
   only?: "main",
+  compiled: CompiledBindings = COMPILED,
 ): KeyHit | null {
-  for (const { binding, mac, other } of COMPILED) {
+  for (const { binding, mac, other } of compiled.list) {
     if (only === "main" && !binding.main?.includes(platform)) continue;
     const chord = (platform === "mac" ? mac : other).find((item) =>
       chordMatches(item, input),
@@ -247,6 +316,57 @@ export function matchKey(
   return null;
 }
 
+/** 이 표에 없는데 main이 먼저 가져가는 창 키. ipc/shortcuts.ts의 창 팔레트·런처와 전역 팔레트 키다. */
+const RESERVED: Readonly<Record<KeyPlatform, readonly string[]>> = {
+  mac: ["Cmd+KeyK", "Cmd+Shift+KeyL", "Cmd+Shift+KeyK"],
+  other: ["Ctrl+KeyK", "Ctrl+Shift+KeyL", "Ctrl+Shift+KeyK"],
+};
+
+export type ChordCheck =
+  | { readonly ok: true }
+  | {
+      readonly ok: false;
+      readonly reason: "unsupported" | "needs_modifier" | "reserved";
+    }
+  | { readonly ok: false; readonly reason: "taken"; readonly by: Binding };
+
+function sameChord(a: Chord, b: Chord): boolean {
+  return (
+    a.code === b.code &&
+    a.ctrl === b.ctrl &&
+    a.meta === b.meta &&
+    a.alt === b.alt &&
+    a.shift === b.shift
+  );
+}
+
+/**
+ * 사람이 binding id에 새로 고른 chord를 받을 수 있는가. modifier 없는 키는 입력칸의 글자를 삼키고,
+ * 팔레트·런처 키는 main이 먼저 가져가며, 다른 바인딩과 같은 키는 한쪽이 듣지 않는다.
+ */
+export function checkChord(
+  text: string,
+  id: string,
+  platform: KeyPlatform,
+  overrides: KeyOverrides,
+): ChordCheck {
+  if (!CHORD_TEXT.test(text)) return { ok: false, reason: "unsupported" };
+  const chord = parseChord(text);
+  const fKey = /^F([1-9]|1[0-2])$/.test(chord.code);
+  if (!fKey && !chord.ctrl && !chord.meta && !chord.alt) {
+    return { ok: false, reason: "needs_modifier" };
+  }
+  if (RESERVED[platform].some((one) => sameChord(parseChord(one), chord))) {
+    return { ok: false, reason: "reserved" };
+  }
+  const by = resolveBindings(platform, overrides).find(
+    (binding) =>
+      bindingId(binding) !== id &&
+      binding[platform].some((one) => sameChord(parseChord(one), chord)),
+  );
+  return by === undefined ? { ok: true } : { ok: false, reason: "taken", by };
+}
+
 export function isMainCommand(value: unknown): value is MainCommand {
   return KEYBINDINGS.some(
     (binding) => binding.command === value && binding.main !== undefined,
@@ -256,12 +376,42 @@ export function isMainCommand(value: unknown): value is MainCommand {
 const GLYPHS: Readonly<Record<string, string>> = {
   Backquote: "`",
   Backslash: "\\",
+  BracketLeft: "[",
+  BracketRight: "]",
+  Comma: ",",
+  Period: ".",
+  Slash: "/",
+  Semicolon: ";",
+  Quote: "'",
+  Minus: "-",
+  Equal: "=",
+  ArrowUp: "↑",
+  ArrowDown: "↓",
   ArrowLeft: "←",
   ArrowRight: "→",
 };
 
+const MODIFIER_CODES = /^(Control|Meta|Alt|Shift|OS)(Left|Right)?$/;
+
+/**
+ * Settings에서 누른 키를 chord 글자로. modifier만 누른 중이면 null이다. 물리 자리(code)로 적어
+ * 한글 입력 상태나 배열이 달라도 같은 글자가 된다.
+ */
+export function chordOfInput(input: KeyInput): string | null {
+  const code = input.code ?? "";
+  if (code === "" || MODIFIER_CODES.test(code)) return null;
+  return [
+    ...(input.ctrl ? ["Ctrl"] : []),
+    ...(input.meta ? ["Cmd"] : []),
+    ...(input.alt ? ["Alt"] : []),
+    ...(input.shift ? ["Shift"] : []),
+    code,
+  ].join("+");
+}
+
 /** 사람이 읽는 키 이름. macOS는 ⌃⌥⇧⌘ 기호를 붙여 쓰고 다른 OS는 Ctrl+Shift+처럼 +로 잇는다. */
-function chordLabel(chord: Chord, platform: KeyPlatform): string {
+export function chordLabel(text: string, platform: KeyPlatform): string {
+  const chord = parseChord(text);
   const key = GLYPHS[chord.code] ?? chord.code.replace(/^(Key|Digit)/, "");
   if (platform === "mac") {
     return `${chord.ctrl ? "⌃" : ""}${chord.alt ? "⌥" : ""}${
@@ -281,9 +431,10 @@ export function commandLabel(
   command: Command,
   platform: KeyPlatform,
   arg?: number,
+  overrides: KeyOverrides = {},
 ): string | null {
-  const found = COMPILED.find(
-    ({ binding }) => binding.command === command && binding.arg === arg,
+  const found = resolveBindings(platform, overrides).find(
+    (binding) => binding.command === command && binding.arg === arg,
   );
   const chord = found?.[platform][0];
   return chord === undefined ? null : chordLabel(chord, platform);

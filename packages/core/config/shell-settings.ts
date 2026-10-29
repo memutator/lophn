@@ -78,6 +78,17 @@ const localLinksSetting = declareSetting({
   default: "browser_tab",
 });
 
+// 사람이 바꾼 작업대 단축키. OS마다 따로다(macOS는 Cmd, 다른 OS는 Ctrl). binding id와 chord 글자는
+// shell(packages/shell/ipc/keybindings.ts parseKeyOverrides)이 검사하고 모르는 것은 버린다.
+const overrides = z
+  .record(z.string().max(64), z.array(z.string().max(64)).max(4))
+  .refine((value) => Object.keys(value).length <= 64);
+const keybindingsSetting = declareSetting({
+  key: "shell.keybindings",
+  type: z.object({ mac: overrides, other: overrides }).partial(),
+  default: {},
+});
+
 export const shellSettings = [
   themeSetting,
   accentSetting,
@@ -91,4 +102,5 @@ export const shellSettings = [
   densitySetting,
   webLinksSetting,
   localLinksSetting,
+  keybindingsSetting,
 ] as const;

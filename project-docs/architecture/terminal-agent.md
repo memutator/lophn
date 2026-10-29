@@ -6,6 +6,16 @@
 
 ## 흐름
 
+터미널 화면과 출력은 React tab의 mount와 수명을 나눈다. 창마다 `TerminalDisplays`가 한 번 본 terminal의 xterm·DOM·마지막 seq를 유지한다. 같은 project 안의 tab·pane·desk·float 전환은 DOM을 다시 붙이고 fit·focus만 한다. 숨은 terminal도 새 출력은 파싱하며, xterm의 IntersectionObserver가 보이지 않는 화면의 drawing을 쉰다. 탭을 닫거나 다른 창으로 옮기거나 project를 떠나면 view와 출력 구독을 놓는다. PTY의 수명은 별도다.
+
+처음 붙을 때만 `snapshot { after_seq: 0, watch: true }`로 읽고 구독한다. main은 main-frame guard를 통과한 창만 구독 표에 넣는다. terminal-host는 새 출력을 16ms 또는 64Ki 문자 단위로 묶어 private pipe로 보내고, main은 해당 terminal을 구독한 shell 창에만 push한다. idle polling은 없다. snapshot을 기다리는 동안 온 push는 seq로 겹침을 빼고 이어 쓰며, 다른 generation의 늦은 출력은 버린다. 종료·host-lost도 구독한 창에 push한다. 창 reload·crash·close는 구독 표를 비운다.
+
+focus가 없는 xterm의 새 질의 응답은 `respond`로 보내며 main은 그 창이 terminal을 구독했는지와 generation을 확인한다. 사람의 입력은 기존 focus 검사를 거치는 `input`이고, `respond`는 agent의 human-input·interrupt 신호를 만들지 않는다. 이미 처리했던 출력을 처음 재생할 때는 질의 응답을 보내지 않는다.
+
+새 PTY의 ref는 주입한 `IdSource`로 만들고, 같은 PTY의 restart는 generation을 올린다. host가 사라졌다 새로 떠도 옛 ref를 새 PTY에 재사용하지 않아, 보관한 view와 늦은 입력이 새 shell에 섞이지 않는다.
+
+다른 창이나 새 renderer에 붙는 경우는 기존 raw buffer를 한 번 재생한다. raw 보관 상한은 5MiB·LF 10,000개·chunk 10,000개 중 먼저 닿는 쪽이다(chunk 상한은 작은 write의 객체 비용을 제한한다). xterm scrollback은 별도 10,000줄이다. raw의 LF는 chunk 경계와 무관하게 세며, 상한 때문에 오래된 출력이 빠져도 별도 배너를 띄우지 않는다. 출력은 disk에 저장하지 않는다. pipe reader는 조각에서 newline을 찾고 완성된 줄을 한 번 join하며 UTF-8 decoder 상태를 유지한다.
+
 ```
 사람이 터미널을 연다 ─ shell main: 터미널 key 발급, env LPN_TERMINAL_HOOK={socket,key}(+ browser bridge env)
                       ─▶ terminal-host PTY($SHELL -l, bash·zsh·fish는 시작 층으로 `codex`·`opencode`·`kilo`·`cline` 함수를 끼운다)

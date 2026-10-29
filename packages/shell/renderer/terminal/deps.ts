@@ -7,11 +7,13 @@ import { centerAnchor, overlayConsumer } from "../overlay/consumer.ts";
 import { endingOf, phaseOfRuntime } from "./model.ts";
 import type { TerminalStore } from "./store.ts";
 import type { TerminalView } from "./xterm-view.ts";
+import { TerminalDisplays } from "./displays.ts";
 
 export interface TerminalDeps {
   /** preload 통로. 없으면 터미널을 열지 않는다. */
   readonly bridge: TerminalApi | null;
   readonly store: TerminalStore;
+  readonly displays: TerminalDisplays;
   /** edge는 host 둘레 여백을 덮는 canvas다(xterm-view `paintEdges`). */
   readonly createView: (
     host: HTMLElement,
@@ -19,8 +21,6 @@ export interface TerminalDeps {
   ) => TerminalView;
   /** 살아 있는 터미널 닫기를 사람에게 묻는다. true일 때만 닫는다. */
   readonly confirmClose: () => Promise<boolean>;
-  /** 출력 당겨 읽기 간격. */
-  readonly pollMs?: number;
 }
 
 const CLOSE_CHOICE = "close-terminal";
@@ -90,9 +90,11 @@ export function windowTerminalDeps(
     lophnShell?: OverlayApi;
   };
   const overlay = scope.lophnShell;
+  const bridge = scope.lophnTerminal ?? null;
   return {
-    bridge: scope.lophnTerminal ?? null,
+    bridge,
     store,
+    displays: new TerminalDisplays(store, bridge),
     createView,
     confirmClose: overlay
       ? overlayCloseConfirm(overlay)

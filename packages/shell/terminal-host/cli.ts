@@ -2,11 +2,43 @@
 // 줄마다 JSON 요청을 읽고 같은 줄로 답한다.
 import { existsSync, statSync } from "node:fs";
 import { createInterface } from "node:readline";
+import { createIdSource } from "../../base/id.ts";
+import { systemClock } from "../../base/clock.ts";
+import { cryptoRandom } from "../../base/random.ts";
 
 import type { HostRequest } from "./main.ts";
 import { hostFromNodePty } from "./main.ts";
+import type { TerminalOutput } from "../ipc/terminal.ts";
+
+// 작은 PTY write마다 pipe·IPC를 깨우지 않고, 큰 출력을 한 JSON 줄에 무제한 쌓지도 않는다.
+function batchOutput(send: (output: readonly TerminalOutput[]) => void) {
+  let output: TerminalOutput[] = [];
+  let chars = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  function flush(): void {
+    if (timer !== undefined) clearTimeout(timer);
+    timer = undefined;
+    if (output.length === 0) return;
+    send(output);
+    output = [];
+    chars = 0;
+  }
+  return {
+    flush,
+    write(chunk: TerminalOutput) {
+      if (chars + chunk.chunk.length > 64 * 1024) flush();
+      output.push(chunk);
+      chars += chunk.chunk.length;
+      timer ??= setTimeout(flush, 16);
+    },
+  };
+}
+const output = batchOutput((chunks) =>
+  process.stdout.write(JSON.stringify({ output: chunks }) + "\n"),
+);
 
 const host = hostFromNodePty({
+  ids: createIdSource({ clock: systemClock, random: cryptoRandom }),
   env: process.env,
   platform: process.platform,
   exists: (file) => existsSync(file),
@@ -21,8 +53,11 @@ const host = hostFromNodePty({
   },
   schedule: (done) => setImmediate(done),
   // 끝난 process의 runtime을 요청의 답이 아니라 id 없는 줄로 먼저 알린다.
-  onRuntime: (runtime) =>
-    process.stdout.write(JSON.stringify({ runtime }) + "\n"),
+  onRuntime(runtime) {
+    output.flush();
+    process.stdout.write(JSON.stringify({ runtime }) + "\n");
+  },
+  onOutput: (chunk) => output.write(chunk),
 });
 
 // 어느 harness TUI가 도는지는 foreground process가 바뀔 때만 알린다. 새 process가 뜨는 것을 받는 event가 없어 훑는다.

@@ -88,12 +88,3 @@ export function ExitBanner({
     </div>
   );
 }
-
-// 상한·단절로 빠진 출력이 있다는 표시.
-export function MissingOutput() {
-  return (
-    <div className={styles.missing} data-output-missing="">
-      <StatusMark tone="warning" label={t("terminal.status.output-missing")} />
-    </div>
-  );
-}

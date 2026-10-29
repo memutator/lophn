@@ -19,6 +19,7 @@ import {
 } from "../../terminal/controller.ts";
 import { createTerminalIpc } from "../../terminal/ipc.ts";
 import { createSupervisor, spawnNodeHost } from "../../terminal/supervisor.ts";
+import { TerminalOutputs } from "../../terminal/output.ts";
 import {
   childCliRunner,
   createHarnessSettings,
@@ -112,8 +113,7 @@ export function register(ctx: ShellContext): Coding {
         : childCliRunner({ command: lophnCli, env: cliEnv }),
   });
   // terminal IPC. sender·frame 검사는 registry로, focus·generation은 ipc.ts가 본다.
-  // folder_ref는 documents의 등록 폴더 read를 다시 해석하고, 출력은 잡아 당기는
-  // snapshot으로만 renderer에 다시 보인다.
+  // folder_ref는 documents의 등록 폴더 read를 다시 해석한다. 첫 snapshot 뒤에는 구독한 창에만 출력을 보낸다.
   const terminalFocus = new TerminalFocusTable();
   // 전역 hook·skill 등록은 lophn 창의 dialog로 묻는다. 그 터미널을 고른 창, 모르면 마지막으로 focus를 받은
   // 창이다(detached 창은 창 밖에서 온 일을 받지 않는다). headless는 묻지 않는다.
@@ -191,11 +191,26 @@ export function register(ctx: ShellContext): Coding {
     identified: (harness, terminalRef) =>
       installer.ensureOnce(harness, terminalRef),
   });
+  const outputs = new TerminalOutputs((contentsId, channel, value) => {
+    const window = [...ctx.windows].find(
+      (item) => !item.isDestroyed() && item.webContents.id === contentsId,
+    );
+    window?.webContents.send(channel, value);
+  });
+  const offOutputs = terminals.on({
+    output: (chunks) => outputs.output(chunks),
+    runtime: (runtime) => outputs.runtime(agent.tracker.decorate(runtime)),
+    hostLost() {
+      for (const runtime of terminals.runtimes())
+        outputs.runtime(agent.tracker.decorate(runtime));
+    },
+  });
   // `npm run dev:mock`의 project는 renderer 메모리에만 있어 core가 그 폴더를 모른다. 그때 터미널은
   // 실행마다 비우는 mock 데이터 root 안의 빈 폴더에서 연다.
   const mockFolder =
     process.env.LOPHN_DEV_MOCK === "1" ? join(dataRoot, "mock-terminal") : null;
   const terminalIpc = createTerminalIpc({
+    outputs,
     registry: overlays.overlayRegistry(),
     focus: terminalFocus,
     folders: {
@@ -237,16 +252,24 @@ export function register(ctx: ShellContext): Coding {
       asker,
     }),
   );
-  ctx.windowHooks.created.push((window) =>
-    attachTerminalSurface(overlays.overlayRegistry(), window),
-  );
-  ctx.windowHooks.closed.push((window) =>
-    terminalFocus.forget(window.contentsId),
-  );
+  ctx.windowHooks.created.push((window) => {
+    attachTerminalSurface(overlays.overlayRegistry(), window);
+    const contents = window.webContents;
+    contents.on("did-start-navigation", (event) => {
+      if (event.isMainFrame && !event.isSameDocument)
+        outputs.forget(contents.id);
+    });
+    contents.on("render-process-gone", () => outputs.forget(contents.id));
+  });
+  ctx.windowHooks.closed.push((window) => {
+    terminalFocus.forget(window.contentsId);
+    outputs.forget(window.contentsId);
+  });
 
   return {
     terminals,
     stop() {
+      offOutputs();
       removeTerminalIpc({ handle: () => {}, removeHandler: ipc.removeHandler });
       removeCodingIpc(ipc);
       terminals.stop();

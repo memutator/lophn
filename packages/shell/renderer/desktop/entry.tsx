@@ -134,7 +134,7 @@ const start: Route | undefined = seed
             : location.hash === "#settings"
               ? openSettings()
               : undefined;
-// 창마다 하나. 탭과 host runtime의 대응만 갖고 출력은 갖지 않는다.
+// 창마다 하나. runtime의 대응과 살아 있는 xterm을 tab mount와 별도로 유지한다.
 const terminal = windowTerminalDeps(new TerminalStore(), (host, edge) =>
   createXtermView(host, edge),
 );

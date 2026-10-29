@@ -483,7 +483,21 @@ export function Workspace(props: WorkspaceProps) {
     for (const key of webviews.keys()) {
       if (!shown.has(key)) webviews.release(key);
     }
-  }, [desks, keeps, webviews]);
+    const terminals = new Set(
+      Object.values(desks.desks)
+        .flatMap((desk) => [
+          ...desk.panes.flatMap((pane) => pane.tabs),
+          ...desk.floats.map((float) => float.tab),
+        ])
+        .filter((tab) => tab.kind === "terminal")
+        .map((tab) => tab.key),
+    );
+    props.terminal?.displays.retain(projectId, terminals);
+  }, [desks, keeps, webviews, props.terminal, projectId]);
+  useEffect(
+    () => () => props.terminal?.displays.retain(projectId, new Set()),
+    [props.terminal, projectId],
+  );
   // 떠나면 남은 것을 모두 닫는다. 자식의 cleanup이 부모 뒤에 보관하므로 한 틱 미룬다.
   useEffect(
     () => () => {

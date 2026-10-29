@@ -146,13 +146,10 @@ interface OutputStep {
   readonly writes: readonly string[];
   /** 다음 snapshot의 after_seq. */
   readonly lastSeq: number;
-  /** 상한이나 단절로 빠진 출력이 있다. */
-  readonly missing: boolean;
 }
 
 /**
- * snapshot 출력을 이어 붙인다. 이미 쓴 seq는 버리고, seq가 건너뛰었거나 host가
- * dropped를 표시하면 출력 일부 없음으로 본다. 다른 generation의 늦은 출력은 쓰지 않는다.
+ * snapshot과 push가 겹친 출력을 한 번만 쓴다. 다른 generation의 늦은 출력은 쓰지 않는다.
  */
 export function acceptOutput(
   lastSeq: number,
@@ -161,15 +158,12 @@ export function acceptOutput(
 ): OutputStep {
   const writes: string[] = [];
   let seq = lastSeq;
-  let missing = false;
   for (const item of output) {
     if (item.generation !== generation || item.seq <= seq) continue;
-    if (item.seq > seq + 1) missing = true;
-    if (item.dropped_output) missing = true;
     writes.push(item.chunk);
     seq = item.seq;
   }
-  return { writes, lastSeq: seq, missing };
+  return { writes, lastSeq: seq };
 }
 
 /** 붙여넣기 같은 큰 입력을 IPC 상한(8192자) 안으로 자른다. 순서는 유지한다. */

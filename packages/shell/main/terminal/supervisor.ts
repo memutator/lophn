@@ -4,8 +4,13 @@
 // 그 host에서 새 터미널을 연다. 옛 입력은 재생하지 않는다.
 
 import { type ChildProcess, spawn } from "node:child_process";
+import { StringDecoder } from "node:string_decoder";
 
-import type { TerminalReply, TerminalRuntime } from "../../ipc/terminal.ts";
+import type {
+  TerminalOutput,
+  TerminalReply,
+  TerminalRuntime,
+} from "../../ipc/terminal.ts";
 
 type HostProcess = {
   stdin: { write(data: string): void } | null;
@@ -27,6 +32,7 @@ export type ForegroundChange = {
 /** host에서 온 runtime(요청의 답에 실린 것과 process가 끝났다는 줄)과 host가 사라진 일을 듣는다. */
 type SupervisorListener = {
   runtime?(runtime: TerminalRuntime): void;
+  output?(output: readonly TerminalOutput[]): void;
   foreground?(change: ForegroundChange): void;
   hostLost?(): void;
 };
@@ -76,7 +82,6 @@ export function createSupervisor(options: {
 
   function onExit(): void {
     lost = true;
-    hostLost();
     for (const [id, resolve] of pending) {
       pending.delete(id);
       resolve({
@@ -93,6 +98,7 @@ export function createSupervisor(options: {
         runtime.exit_code = null;
       }
     }
+    hostLost();
   }
 
   function onLine(line: string): void {
@@ -100,6 +106,7 @@ export function createSupervisor(options: {
       id?: string;
       reply?: TerminalReply;
       runtime?: TerminalRuntime;
+      output?: TerminalOutput[];
       foreground?: ForegroundChange;
     };
     try {
@@ -111,6 +118,9 @@ export function createSupervisor(options: {
       for (const listener of listeners) {
         listener.foreground?.(parsed.foreground);
       }
+    }
+    if (parsed.output) {
+      for (const listener of listeners) listener.output?.(parsed.output);
     }
     if (parsed.runtime) {
       refreshRuntime(parsed.runtime);
@@ -208,7 +218,6 @@ export function createSupervisor(options: {
     },
     stop() {
       lost = true;
-      hostLost();
       try {
         child?.kill("SIGTERM");
       } catch {
@@ -225,26 +234,31 @@ export function createSupervisor(options: {
       }
       runtimes.clear();
       for (const runtime of gone) runtimes.set(runtime.terminal_ref, runtime);
+      hostLost();
       return gone;
     },
   };
 }
 
-async function readLines(
+export async function readLines(
   stream: AsyncIterable<string | Uint8Array>,
   onLine: (line: string) => void,
 ): Promise<void> {
-  let buffer = "";
+  const decoder = new StringDecoder("utf8");
+  let parts: string[] = [];
   for await (const piece of stream) {
-    buffer +=
-      typeof piece === "string" ? piece : new TextDecoder().decode(piece);
-    let nl = buffer.indexOf("\n");
+    const text = typeof piece === "string" ? piece : decoder.write(piece);
+    let start = 0;
+    let nl = text.indexOf("\n");
     while (nl >= 0) {
-      const line = buffer.slice(0, nl);
-      buffer = buffer.slice(nl + 1);
+      parts.push(text.slice(start, nl));
+      const line = parts.join("");
+      parts = [];
       if (line.length > 0) onLine(line);
-      nl = buffer.indexOf("\n");
+      start = nl + 1;
+      nl = text.indexOf("\n", start);
     }
+    if (start < text.length) parts.push(text.slice(start));
   }
 }
 

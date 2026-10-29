@@ -2,6 +2,7 @@
 import { useMemo } from "react";
 
 import { TerminalStore } from "../../../../packages/shell/renderer/terminal/store.ts";
+import { TerminalDisplays } from "../../../../packages/shell/renderer/terminal/displays.ts";
 import { TerminalTab } from "../../../../packages/shell/renderer/terminal/terminal-tab.tsx";
 import { createXtermView } from "../../../../packages/shell/renderer/terminal/xterm-view.ts";
 import { PROJECT_GROCERY } from "../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
@@ -15,10 +16,12 @@ const KEY = "gallery-terminal";
 export function TerminalBody() {
   const deps = useMemo(() => {
     const store = new TerminalStore(null, null);
+    const bridge = fakeTerminal(PROJECT_GROCERY);
     store.request(KEY);
     return {
-      bridge: fakeTerminal(PROJECT_GROCERY),
+      bridge,
       store,
+      displays: new TerminalDisplays(store, bridge),
       createView: createXtermView,
       confirmClose: () => Promise.resolve(false),
     };

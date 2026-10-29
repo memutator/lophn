@@ -1,5 +1,5 @@
 // shell renderer가 쓰는 터미널 통로. 채널 이름과 Electron event는 closure 안에만 있다.
-// 출력은 renderer가 snapshot으로 당겨 읽는다. 터미널 출력을 다른 곳으로 보내지 않는다.
+// 첫 출력은 snapshot으로 받고, 이후 출력은 구독한 창에만 push한다.
 import {
   TERMINAL_AGENT_SESSION_RENAME_CHANNEL,
   TERMINAL_AGENT_SESSIONS_CHANGED_CHANNEL,
@@ -9,8 +9,10 @@ import {
   TERMINAL_CLOSE_CHANNEL,
   TERMINAL_FOCUS_CHANNEL,
   TERMINAL_INPUT_CHANNEL,
+  TERMINAL_RESPONSE_CHANNEL,
   TERMINAL_LINK_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
+  TERMINAL_OUTPUT_CHANNEL,
   TERMINAL_RESIZE_CHANNEL,
   TERMINAL_RESTART_CHANNEL,
   TERMINAL_REVEAL_CHANNEL,
@@ -21,6 +23,7 @@ import {
   type TerminalBridgeOpen,
   type TerminalCall,
   type TerminalReveal,
+  type TerminalOutput,
   type TerminalRuntime,
 } from "../ipc/terminal.ts";
 
@@ -93,10 +96,18 @@ export function createTerminalApi(transport: TerminalTransport): TerminalApi {
   return Object.freeze({
     open: (input) => invoke(TERMINAL_OPEN_CHANNEL, input),
     input: (input) => invoke(TERMINAL_INPUT_CHANNEL, input),
+    respond: (input) => invoke(TERMINAL_RESPONSE_CHANNEL, input),
     resize: (input) => invoke(TERMINAL_RESIZE_CHANNEL, input),
     close: (input) => invoke(TERMINAL_CLOSE_CHANNEL, input),
     restart: (input) => invoke(TERMINAL_RESTART_CHANNEL, input),
     snapshot: (input) => invoke(TERMINAL_SNAPSHOT_CHANNEL, input),
+    onOutput(listener) {
+      const callback = (_event: unknown, payload: unknown) => {
+        if (Array.isArray(payload)) listener(payload as TerminalOutput[]);
+      };
+      transport.on(TERMINAL_OUTPUT_CHANNEL, callback);
+      return () => transport.removeListener(TERMINAL_OUTPUT_CHANNEL, callback);
+    },
     focus: (input) => invoke(TERMINAL_FOCUS_CHANNEL, input),
     openLink: (input) => invoke(TERMINAL_LINK_CHANNEL, input),
     ackBridgeOpen: (input) => invoke(TERMINAL_BRIDGE_ACK_CHANNEL, input),

@@ -62,6 +62,7 @@ type FolderSource = {
 export type TerminalIpc = {
   open(event: IpcEvent, input: unknown): Promise<IpcResult<TerminalReply>>;
   input(event: IpcEvent, input: unknown): Promise<IpcResult<TerminalReply>>;
+  respond(event: IpcEvent, input: unknown): Promise<IpcResult<TerminalReply>>;
   resize(event: IpcEvent, input: unknown): Promise<IpcResult<TerminalReply>>;
   close(event: IpcEvent, input: unknown): Promise<IpcResult<TerminalReply>>;
   restart(event: IpcEvent, input: unknown): Promise<IpcResult<TerminalReply>>;
@@ -126,6 +127,10 @@ export function createTerminalIpc(deps: {
   ) => Promise<TerminalAgentSession[]>;
   /** 저장한 session을 다시 여는 명령 한 줄. resume 규칙이 없는 harness면 null이다. */
   resumeLine?: (resume: TerminalResume) => string | null;
+  outputs?: {
+    watch(contentsId: number, terminalRef: string, enabled: boolean): void;
+    watching(contentsId: number, terminalRef: string): boolean;
+  };
 }): TerminalIpc {
   const withAgent = (reply: TerminalReply): TerminalReply =>
     deps.agent && reply.ok
@@ -223,6 +228,22 @@ export function createTerminalIpc(deps: {
           return reply;
         },
       ),
+    respond: (event, input) =>
+      guarded<TerminalInput>(
+        event,
+        terminalInputSchema,
+        input,
+        async (value) => {
+          if (!deps.outputs?.watching(event.sender.id, value.terminal_ref)) {
+            return {
+              ok: false,
+              reason: "host_lost",
+              message: "terminal is not subscribed",
+            };
+          }
+          return await deps.host.request({ type: "input", ...value });
+        },
+      ),
     resize: (event, input) =>
       guarded<TerminalResize>(
         event,
@@ -274,12 +295,20 @@ export function createTerminalIpc(deps: {
         event,
         terminalSnapshotSchema,
         input,
-        async (value) =>
-          await deps.host.request({
+        async (value) => {
+          if (value.watch !== undefined) {
+            deps.outputs?.watch(
+              event.sender.id,
+              value.terminal_ref,
+              value.watch,
+            );
+          }
+          return await deps.host.request({
             type: "snapshot",
             terminal_ref: value.terminal_ref,
             after_seq: value.after_seq,
-          }),
+          });
+        },
       ),
     focus: (event, input) => {
       const caller = checkCaller(deps.registry, event);

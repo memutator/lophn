@@ -148,6 +148,7 @@ function DetachedTab({
   });
   const key = taken.tab.key;
   useEffect(() => () => webviews.release(key), [webviews, key]);
+  useEffect(() => () => terminal?.displays.release(key), [terminal, key]);
 
   const view = useMemo<WorkspaceView>(
     () => ({

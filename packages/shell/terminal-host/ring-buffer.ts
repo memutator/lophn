@@ -1,9 +1,10 @@
-// 터미널마다 10,000줄과 5,242,880 UTF-8 bytes 중 먼저 닿는 쪽.
+// 재연결용 raw 출력은 LF 10,000개, chunk 10,000개, 5 MiB 중 먼저 닿는 쪽까지 둔다.
 // 오래된 완전한 chunk부터 빼고, 남은 큰 chunk는 문자 경계로 자른다.
 // disk·ledger·blob·log에 쓰지 않는다.
 
 const MAX_LINES = 10_000;
 const MAX_BYTES = 5_242_880;
+const MAX_CHUNKS = 10_000;
 
 type Chunk = {
   seq: number;
@@ -37,9 +38,16 @@ export class RingBuffer {
   }
 
   /** renderer가 다시 붙을 때 살아 있는 buffer만 돌려준다. */
-  snapshot(): { chunks: Chunk[]; dropped: boolean } {
+  snapshot(after = 0): { chunks: Chunk[]; dropped: boolean } {
+    let lo = 0;
+    let hi = this.#chunks.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (this.#chunks[mid]!.seq <= after) lo = mid + 1;
+      else hi = mid;
+    }
     return {
-      chunks: this.#chunks.map((chunk) => ({ ...chunk })),
+      chunks: this.#chunks.slice(lo).map((chunk) => ({ ...chunk })),
       dropped: this.dropped,
     };
   }
@@ -64,7 +72,9 @@ export class RingBuffer {
   #trim(): void {
     while (
       this.#chunks.length > 1 &&
-      (this.#lines > MAX_LINES || this.#bytes > MAX_BYTES)
+      (this.#lines > MAX_LINES ||
+        this.#bytes > MAX_BYTES ||
+        this.#chunks.length > MAX_CHUNKS)
     ) {
       const oldest = this.#chunks.shift();
       if (!oldest) break;
@@ -90,11 +100,10 @@ export class RingBuffer {
 
 function countLines(text: string): number {
   if (text.length === 0) return 0;
-  let lines = 1;
+  let lines = 0;
   for (let i = 0; i < text.length; i++) {
     if (text.charCodeAt(i) === 10) lines++;
   }
-  if (text.endsWith("\n")) lines--;
   return lines;
 }
 

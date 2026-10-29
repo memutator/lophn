@@ -258,7 +258,6 @@ export type ProjectPlaceholders = {
   "terminal.status.exited": {
     code: "string";
   };
-  "terminal.status.output-missing": Record<never, never>;
   "terminal.status.start-failed": Record<never, never>;
   "terminal.status.stop-unconfirmed": Record<never, never>;
   "terminal.status.unknown": Record<never, never>;

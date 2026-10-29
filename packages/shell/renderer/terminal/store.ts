@@ -37,6 +37,7 @@ interface RefStorage {
 }
 
 export class TerminalStore {
+  readonly #opening = new Set<string>();
   readonly #entries = new Map<string, TerminalEntry>();
   readonly #listeners = new Set<() => void>();
   readonly #selectors = new Set<(key: string) => void>();
@@ -69,6 +70,16 @@ export class TerminalStore {
 
   get(key: string): TerminalEntry | undefined {
     return this.#entries.get(key);
+  }
+
+  beginOpen(key: string): boolean {
+    if (this.#opening.has(key)) return false;
+    this.#opening.add(key);
+    return true;
+  }
+
+  endOpen(key: string): void {
+    this.#opening.delete(key);
   }
 
   /** 탭의 터미널 안에서 도는 coding agent. 없으면 undefined다. */

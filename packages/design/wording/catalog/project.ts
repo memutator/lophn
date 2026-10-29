@@ -224,7 +224,6 @@ export const project = {
   "terminal.notice.next-handoff": "The next hand-off starts a new session.",
   "terminal.status.ended": "The shell ended.",
   "terminal.status.exited": "The shell ended with exit code {code}.",
-  "terminal.status.output-missing": "Some earlier output isn't shown.",
   "terminal.status.start-failed": "The shell couldn't start.",
   "terminal.status.stop-unconfirmed":
     "lophn couldn't confirm that this shell stopped.",

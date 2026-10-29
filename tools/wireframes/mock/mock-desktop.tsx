@@ -36,6 +36,7 @@ import type {
 import { ConversationProvider } from "../../../packages/shell/renderer/conversation/window-deps.tsx";
 import { DraftStore } from "../../../packages/shell/renderer/conversation/drafts.ts";
 import { TerminalStore } from "../../../packages/shell/renderer/terminal/store.ts";
+import { TerminalDisplays } from "../../../packages/shell/renderer/terminal/displays.ts";
 import { createXtermView } from "../../../packages/shell/renderer/terminal/xterm-view.ts";
 import { fakeTerminal } from "./fake-terminal.ts";
 // 터미널 탭이 쓰는 xterm 기본 배치.
@@ -222,9 +223,12 @@ export function MockDesktop(props: MockDesktopProps) {
                 layout: layoutOf(panes, floats ?? []),
               }),
           };
+    const terminalBridge = fakeTerminal(PROJECT_GROCERY);
+    const terminalStore = new TerminalStore(null, null);
     const terminal = {
-      bridge: fakeTerminal(PROJECT_GROCERY),
-      store: new TerminalStore(null),
+      bridge: terminalBridge,
+      store: terminalStore,
+      displays: new TerminalDisplays(terminalStore, terminalBridge),
       createView: createXtermView,
       confirmClose: () => Promise.resolve(false),
     };

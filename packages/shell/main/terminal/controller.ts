@@ -10,6 +10,7 @@ import {
   TERMINAL_CLOSE_CHANNEL,
   TERMINAL_FOCUS_CHANNEL,
   TERMINAL_INPUT_CHANNEL,
+  TERMINAL_RESPONSE_CHANNEL,
   TERMINAL_LINK_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
   TERMINAL_RESIZE_CHANNEL,
@@ -36,6 +37,7 @@ export function registerTerminalIpc(register: MainIpc, ipc: TerminalIpc): void {
   for (const [channel, method] of [
     [TERMINAL_OPEN_CHANNEL, "open"],
     [TERMINAL_INPUT_CHANNEL, "input"],
+    [TERMINAL_RESPONSE_CHANNEL, "respond"],
     [TERMINAL_RESIZE_CHANNEL, "resize"],
     [TERMINAL_CLOSE_CHANNEL, "close"],
     [TERMINAL_RESTART_CHANNEL, "restart"],
@@ -61,6 +63,7 @@ export function removeTerminalIpc(register: MainIpc): void {
   for (const channel of [
     TERMINAL_OPEN_CHANNEL,
     TERMINAL_INPUT_CHANNEL,
+    TERMINAL_RESPONSE_CHANNEL,
     TERMINAL_RESIZE_CHANNEL,
     TERMINAL_CLOSE_CHANNEL,
     TERMINAL_RESTART_CHANNEL,

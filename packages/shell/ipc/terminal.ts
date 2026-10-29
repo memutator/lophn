@@ -75,6 +75,8 @@ export const terminalSnapshotSchema = z
     terminal_ref: ref,
     /** 이 seq 뒤의 chunk만 받는다. 없으면 살아 있는 buffer 전체다. */
     after_seq: z.number().int().min(0).optional(),
+    /** true면 이후 출력을 이 창에 push하고, false면 구독을 놓는다. */
+    watch: z.boolean().optional(),
   })
   .strict();
 
@@ -130,7 +132,11 @@ export type TerminalResize = {
   rows: number;
 };
 export type TerminalClose = { terminal_ref: string; generation: number };
-export type TerminalSnapshot = { terminal_ref: string; after_seq?: number };
+export type TerminalSnapshot = {
+  terminal_ref: string;
+  after_seq?: number;
+  watch?: boolean;
+};
 export type TerminalFocus = {
   terminal_ref: string;
   generation: number;
@@ -274,12 +280,15 @@ export type TerminalCall<T> =
 export interface TerminalApi {
   open(input: TerminalOpen): Promise<TerminalCall<TerminalReply>>;
   input(input: TerminalInput): Promise<TerminalCall<TerminalReply>>;
+  /** 숨은 xterm이 새 출력의 terminal 질의에 답한다. 사람의 입력으로 취급하지 않는다. */
+  respond(input: TerminalInput): Promise<TerminalCall<TerminalReply>>;
   resize(input: TerminalResize): Promise<TerminalCall<TerminalReply>>;
   close(input: TerminalClose): Promise<TerminalCall<TerminalReply>>;
   restart(input: TerminalClose): Promise<TerminalCall<TerminalReply>>;
   snapshot(
     input: TerminalSnapshot,
   ): Promise<TerminalCall<TerminalSnapshotReply | TerminalReject>>;
+  onOutput(listener: (output: readonly TerminalOutput[]) => void): () => void;
   focus(input: TerminalFocus): Promise<TerminalCall<null>>;
   /** terminal에서 Ctrl/Cmd-click한 link를 main에 넘긴다. */
   openLink(input: TerminalLink): Promise<TerminalCall<null>>;
@@ -308,10 +317,12 @@ export interface TerminalApi {
 export const TERMINAL_STATE_CHANNEL = "shell:terminal-state";
 export const TERMINAL_OPEN_CHANNEL = "shell:terminal-open";
 export const TERMINAL_INPUT_CHANNEL = "shell:terminal-input";
+export const TERMINAL_RESPONSE_CHANNEL = "shell:terminal-response";
 export const TERMINAL_RESIZE_CHANNEL = "shell:terminal-resize";
 export const TERMINAL_CLOSE_CHANNEL = "shell:terminal-close";
 export const TERMINAL_RESTART_CHANNEL = "shell:terminal-restart";
 export const TERMINAL_SNAPSHOT_CHANNEL = "shell:terminal-snapshot";
+export const TERMINAL_OUTPUT_CHANNEL = "shell:terminal-output";
 export const TERMINAL_FOCUS_CHANNEL = "shell:terminal-focus";
 export const TERMINAL_LINK_CHANNEL = "shell:terminal-link";
 export const TERMINAL_BRIDGE_ACK_CHANNEL = "shell:terminal-bridge-ack";

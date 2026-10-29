@@ -4,8 +4,10 @@
 import type {
   TerminalReply,
   TerminalRuntime,
+  TerminalOutput,
   TerminalSnapshotReply,
 } from "../ipc/terminal.ts";
+import type { IdSource } from "../../base/id.ts";
 import { resolveLoginShell, stripPlatformEnv } from "./env.ts";
 import {
   nodePtyAdapter,
@@ -56,6 +58,7 @@ export type HostRequest =
   | { id: string; type: "host-lost" };
 
 type HostDeps = {
+  ids: IdSource;
   pty: PtyAdapter;
   env: Readonly<Record<string, string | undefined>>;
   platform: NodeJS.Platform;
@@ -67,6 +70,7 @@ type HostDeps = {
   controlFd?: number;
   /** process가 끝나 runtime이 바뀌었다. 요청의 답이 아니라 host가 먼저 알린다. */
   onRuntime?: (runtime: TerminalRuntime) => void;
+  onOutput?: (output: TerminalOutput) => void;
 };
 
 type Session = {
@@ -104,7 +108,6 @@ type Host = {
 
 function createHost(deps: HostDeps): Host {
   const sessions = new Map<string, Session>();
-  let seq = 0;
 
   function start(
     previous: Session | undefined,
@@ -123,7 +126,8 @@ function createHost(deps: HostDeps): Host {
     });
     if (!program) return reject("spawn_failed", "login shell was not found");
 
-    const terminalRef = previous?.runtime.terminal_ref ?? `term_${++seq}`;
+    // host를 다시 띄워도 옛 view·대기 중 입력의 ref를 새 PTY에 재사용하지 않는다.
+    const terminalRef = previous?.runtime.terminal_ref ?? deps.ids.newId("trm");
     const shellEnv = request.env ?? previous?.env;
     const generation = previous ? previous.runtime.generation + 1 : 1;
     const runtime: TerminalRuntime = {
@@ -196,6 +200,13 @@ function createHost(deps: HostDeps): Host {
     const stored = session.buffer.push(chunk);
     session.runtime.output_seq = stored.seq;
     session.runtime.dropped_output = session.buffer.dropped;
+    deps.onOutput?.({
+      terminal_ref: session.runtime.terminal_ref,
+      generation: session.runtime.generation,
+      seq: stored.seq,
+      chunk: stored.text,
+      dropped_output: session.buffer.dropped,
+    });
   }
 
   function sessionAt(ref: string, generation: number): Session | undefined {
@@ -250,21 +261,18 @@ function createHost(deps: HostDeps): Host {
       if (request.type === "snapshot") {
         const session = sessions.get(request.terminal_ref);
         if (!session) return reject("host_lost", "terminal is gone");
-        const snap = session.buffer.snapshot();
-        const after = request.after_seq ?? 0;
+        const snap = session.buffer.snapshot(request.after_seq ?? 0);
         // runtime을 같이 실어야 renderer가 종료·exit code·결과 불명을 본다.
         return {
           ok: true,
           runtime: { ...session.runtime },
-          output: snap.chunks
-            .filter((chunk) => chunk.seq > after)
-            .map((chunk) => ({
-              terminal_ref: session.runtime.terminal_ref,
-              generation: session.runtime.generation,
-              seq: chunk.seq,
-              chunk: chunk.text,
-              dropped_output: snap.dropped,
-            })),
+          output: snap.chunks.map((chunk) => ({
+            terminal_ref: session.runtime.terminal_ref,
+            generation: session.runtime.generation,
+            seq: chunk.seq,
+            chunk: chunk.text,
+            dropped_output: snap.dropped,
+          })),
         };
       }
       const session = sessionAt(request.terminal_ref, request.generation);

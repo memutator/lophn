@@ -21,6 +21,7 @@ function ok<T>(value: T): Promise<TerminalCall<T>> {
 }
 
 export function fakeTerminal(project: string): TerminalApi {
+  const listeners = new Set<(output: readonly TerminalOutput[]) => void>();
   const ref = "term_gallery";
   const chunks: TerminalOutput[] = [
     {
@@ -59,7 +60,13 @@ export function fakeTerminal(project: string): TerminalApi {
         chunk: text === "\r" ? `\r\n${PROMPT}` : text,
         dropped_output: false,
       });
+      for (const listener of listeners) listener([chunks.at(-1)!]);
       return ok({ ok: true, runtime: runtime() });
+    },
+    respond: () => ok({ ok: true, runtime: runtime() }),
+    onOutput(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     snapshot({ after_seq }) {
       const after = after_seq ?? 0;

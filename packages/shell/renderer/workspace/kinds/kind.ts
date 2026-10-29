@@ -32,7 +32,7 @@ export interface TabKindDef {
   dotOf?(tab: TabItem, host: TabHost): TabDot | null;
   /**
    * 사람이 탭 이름을 바꿨다. null이면 사람이 붙인 이름을 지우고 자동 이름으로 돌아간다. 이 hook을 선언한
-   * kind만 탭 줄의 이름 바꾸기(더블클릭, 탭 menu의 Rename)가 생긴다. 지금은 터미널만이다.
+   * kind만 탭 줄의 이름 바꾸기(더블클릭, 탭 menu의 Rename)가 생긴다. 지금은 터미널과 Agent 탭이다(Agent 탭은 session 제목을 바꾼다).
    */
   rename?(tab: TabItem, name: string | null, host: TabHost): void;
   /** true면 닫은 탭 다시 열기가 건너뛴다(PTY처럼 닫으면 이어 갈 수 없는 탭). */

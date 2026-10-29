@@ -61,11 +61,12 @@ export function DefaultModelDialog({
           models={models}
           source={agents.editor}
           value={null}
+          showAll
+          error={
+            failed ? t("agents.error.settings-model-save-failed") : undefined
+          }
           onChange={(choice) => void choose(choice)}
         />
-        {failed ? (
-          <p role="status">{t("settings.agents.action-failed")}</p>
-        ) : null}
       </ManageModelsContext.Provider>
     </Dialog>
   );

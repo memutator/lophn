@@ -58,7 +58,8 @@ function modelLine(
 export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   const [screen, setScreen] = useState<Screen>("list");
-  const [failed, setFailed] = useState(false);
+  // 실패는 그 칸 바로 아래에 보인다. 화면 위쪽 한 줄은 무엇이 안 됐는지 말하지 못한다.
+  const [failed, setFailed] = useState<"model" | "instructions" | null>(null);
   // 고른 model은 저장이 끝나기 전에도 바로 보인다. 저장하지 못하면 읽은 값으로 돌아간다.
   const [picked, setPicked] = useState<ModelChoice | null>(null);
   const alive = useRef(true);
@@ -130,11 +131,14 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
   const view = loaded.state === "ready" ? loaded.view : null;
   const models = loaded.state === "ready" ? loaded.models : null;
 
-  async function act(call: () => Promise<SourceResult<null>>): Promise<void> {
-    setFailed(false);
+  async function act(
+    what: "model" | "instructions",
+    call: () => Promise<SourceResult<null>>,
+  ): Promise<void> {
+    setFailed(null);
     const done = await call();
     if (!alive.current) return;
-    if (!done.ok) setFailed(true);
+    if (!done.ok) setFailed(what);
     load();
   }
 
@@ -148,11 +152,6 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
           <p className={styles.lead}>
             {t("agents.notice.settings-agents-lead")}
           </p>
-          {failed ? (
-            <p className={styles.notice} role="status" data-notice="failed">
-              {t("settings.agents.action-failed")}
-            </p>
-          ) : null}
 
           <section>
             <h2 className={styles.sectionTitle}>
@@ -165,9 +164,14 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
               models={models}
               source={source.editor}
               value={chosen}
+              error={
+                failed === "model"
+                  ? t("agents.error.settings-model-save-failed")
+                  : undefined
+              }
               onChange={(choice) => {
                 setPicked(choice);
-                void act(() => source.changeDefaultModel(choice));
+                void act("model", () => source.changeDefaultModel(choice));
               }}
             />
           </section>
@@ -225,7 +229,9 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
               <Button
                 size="sm"
                 data-action="edit-instructions"
-                onClick={() => void act(() => source.openInstructions())}
+                onClick={() =>
+                  void act("instructions", () => source.openInstructions())
+                }
               >
                 {t("settings.button.edit")}
               </Button>
@@ -235,6 +241,11 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
                 {t("agents.label.settings-instructions-path")}
               </span>
             </p>
+            {failed === "instructions" ? (
+              <p className={styles.error} role="alert" data-notice="failed">
+                {t("agents.error.settings-instructions-failed")}
+              </p>
+            ) : null}
             {view.instructionsPreview === null ? (
               <p className={styles.empty} data-instructions-empty="">
                 {t("settings.agents.no-instructions")}

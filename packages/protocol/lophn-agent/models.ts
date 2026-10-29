@@ -225,15 +225,15 @@ export const catalogStateSchema = z.strictObject(stateFields);
 const catalogStateOutputSchema = z.object(stateFields);
 export type CatalogState = z.infer<typeof catalogStateSchema>;
 
-// 끈 model 목록이다. 기본이 "켬"이라 끈 것만 적는다. 새 model과 새 provider는 적지 않아도 켜져 있다.
-const hiddenFields = {
+// 켠 model 목록이다. 기본이 "끔"이라 켠 것만 적는다. 새 model과 새 provider는 적지 않으면 꺼져 있다.
+const shownFields = {
   provider: idSchema("pvd"),
   model_name: nonblankSchema,
 };
-const hiddenModelSchema = z.strictObject(hiddenFields);
-const hiddenModelOutputSchema = z.object(hiddenFields);
+const shownModelSchema = z.strictObject(shownFields);
+const shownModelOutputSchema = z.object(shownFields);
 
-function uniqueHidden(
+function uniqueShown(
   items: readonly { provider: string; model_name: string }[],
 ): boolean {
   return (
@@ -241,22 +241,22 @@ function uniqueHidden(
       .size === items.length
   );
 }
-const duplicateHidden = { message: "duplicate hidden model" };
-const hiddenModelsItemsSchema = z
-  .array(hiddenModelSchema)
-  .refine(uniqueHidden, duplicateHidden);
-const hiddenOutputItemsSchema = z
-  .array(hiddenModelOutputSchema)
-  .refine(uniqueHidden, duplicateHidden);
-const hiddenModelsSchema = z.strictObject({
-  items: hiddenModelsItemsSchema,
+const duplicateShown = { message: "duplicate shown model" };
+const shownModelsItemsSchema = z
+  .array(shownModelSchema)
+  .refine(uniqueShown, duplicateShown);
+const shownOutputItemsSchema = z
+  .array(shownModelOutputSchema)
+  .refine(uniqueShown, duplicateShown);
+const shownModelsSchema = z.strictObject({
+  items: shownModelsItemsSchema,
   settings_seq: seqSchema,
 });
-const hiddenModelsOutputSchema = z.object({
-  items: hiddenOutputItemsSchema,
+const shownModelsOutputSchema = z.object({
+  items: shownOutputItemsSchema,
   settings_seq: seqSchema,
 });
-export type HiddenModels = z.infer<typeof hiddenModelsSchema>;
+export type ShownModels = z.infer<typeof shownModelsSchema>;
 
 const readErrors = [
   "invalid_input",
@@ -269,13 +269,13 @@ const readActors = ["user", "agent", "machine"] as const;
 // 바꾸는 slot만 싣는다. null은 그 slot을 비운다. 나머지 slot은 그대로다.
 const settingsSeqCompare = z.strictObject({ settings_seq: seqSchema });
 
-// 끈 목록을 통째로 바꾼다. model 하나를 끄고 켜는 일도, provider 전체를 끄고 켜는 일도 새 목록 하나다.
-export const changeHiddenModels = defineCommand({
-  resource: "hidden-models",
+// 켠 목록을 통째로 바꾼다. model 하나를 끄고 켜는 일도, provider 전체를 끄고 켜는 일도 새 목록 하나다.
+export const changeShownModels = defineCommand({
+  resource: "shown-models",
   method: "change",
-  name: "ChangeHiddenModels",
-  input: z.strictObject({ items: hiddenModelsItemsSchema }),
-  output: z.object({ hidden: hiddenModelsOutputSchema }),
+  name: "ChangeShownModels",
+  input: z.strictObject({ items: shownModelsItemsSchema }),
+  output: z.object({ shown: shownModelsOutputSchema }),
   compare: settingsSeqCompare,
   actors: ["user"],
   errors: [
@@ -287,12 +287,12 @@ export const changeHiddenModels = defineCommand({
   ],
 });
 
-export const hiddenModelsRead = defineRead({
-  resource: "hidden-models",
+export const shownModelsRead = defineRead({
+  resource: "shown-models",
   method: "read",
-  name: "ReadHiddenModels",
+  name: "ReadShownModels",
   input: z.strictObject({}),
-  output: withReadCommon(z.object({ hidden: hiddenModelsOutputSchema })),
+  output: withReadCommon(z.object({ shown: shownModelsOutputSchema })),
   actors: readActors,
   errors: [...readErrors],
 });
@@ -509,8 +509,8 @@ export const MODEL_ROUTES = [
   modelDefaultChange,
   projectModelRead,
   projectModelChange,
-  changeHiddenModels,
-  hiddenModelsRead,
+  changeShownModels,
+  shownModelsRead,
   saveUserModelInfo,
   removeUserModelInfo,
   userModelInfoRead,

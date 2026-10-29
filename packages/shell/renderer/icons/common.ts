@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Circle,
   CircleCheck,
+  CircleX,
   CirclePlay,
   CircleStop,
   FileText,
@@ -39,6 +40,8 @@ export const commonIcons = {
   expand: ChevronRight,
   collapse: ChevronDown,
   workflow: Workflow,
+  // 저장하지 못한 칸 옆의 오류 표시.
+  failed: CircleX,
   // workflow 탭이 instance와 step의 상태를 아이콘으로도 보이는 데 쓴다.
   stateRunning: CirclePlay,
   stateEnded: CircleCheck,

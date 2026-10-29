@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { CatalogEntry } from "./models.ts";
-import { selectableModels } from "./model-picker.ts";
+import { orderPicker, selectableModels } from "./model-picker.ts";
 
 // 필요한 칸만 채운 catalog 항목이다. selectableModels는 정의와 이름만 본다.
 const entry = (provider_definition: string, model_name: string) =>
@@ -85,5 +85,27 @@ test("selectableModels: 사람이 정보를 적은 항목은 알려 준 목록�
       reported: null,
     }).map((model) => model.model_name),
     ["m1", "m2", "typed"],
+  );
+});
+
+test("orderPicker: 켠 model과 지금 쓰는 model만 보이고 검색은 이름으로 거른다", () => {
+  const pair = (provider: string, model_name: string) => ({
+    provider,
+    model_name,
+  });
+  const models = [pair("a", "m1"), pair("a", "m2"), pair("b", "m3")];
+  const layout = orderPicker({
+    shown: [pair("a", "m1")],
+    models,
+    current: pair("b", "m3"),
+    query: "",
+  });
+  assert.deepStrictEqual(layout.providers, [
+    { provider: "a", models: [pair("a", "m1")] },
+    { provider: "b", models: [pair("b", "m3")] },
+  ]);
+  assert.deepStrictEqual(
+    orderPicker({ shown: [], models, current: null, query: "" }).providers,
+    [],
   );
 });

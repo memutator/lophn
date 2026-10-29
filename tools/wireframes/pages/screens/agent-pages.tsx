@@ -29,6 +29,7 @@ import {
   CUSTOM_PROVIDER,
   type FakeAgentsOptions as FakeEditorOptions,
   OPENAI,
+  XAI,
 } from "../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 import { click, press, type Step, type } from "../../mock/drive.ts";
 import { ProjectApp, type ProjectAppProps } from "./project-app.tsx";
@@ -37,6 +38,8 @@ import type { TabSpec } from "./project-window.tsx";
 
 const DOC = documentTab("eval/experiments/exp-008-query-tools.md");
 const SIDEBAR = { foldersClosed: true } as const;
+// picker에 보이는 model 이름. Haiku와 Mini는 켜지 않았다.
+const PICKER_SHOWN = ["Opus 5.5", "Sonnet 5.5", "GPT-6.1 Sol", "Grok 4.7"];
 
 // 문서 탭 하나 뒤에 이 탭을 열어 고른 한 칸.
 function withTab(tab: TabSpec, extra: Partial<ProjectAppProps> = {}) {
@@ -56,12 +59,12 @@ const weekly = (chat: ChatInit, extra: Partial<ProjectAppProps> = {}) =>
 export const AgentConversation = ConversationScene;
 /** 일하는 중에 보낸 메시지가 쌓인 "다음 turn" 줄과 [Send now]. */
 export const AgentQueuedMessage = QueuedMessageScene;
-/** model picker를 펼친 상태. 켠 model의 provider 묶음, 고른 model의 option 축, 맨 아래 Manage models 줄, 머리의 층 한 줄("이 대화"). 꺼 둔 model은 목록에 없다. */
+/** model picker를 펼친 상태. 켠 model의 provider 묶음, 고른 model의 option 축, 맨 아래 Manage models 줄, 머리의 층 한 줄("이 대화"). 켜지 않은 model은 목록에 없다. */
 export const AgentModelPicker = () =>
   weekly({
     stage: "report",
     modelDemo: "picker",
-    picker: { layer: "session", hidden: ["Haiku 5.5", "GPT-6.1 Mini"] },
+    picker: { layer: "session", shown: PICKER_SHOWN },
   });
 /** 보일 model이 없는 picker(provider를 붙이지 않은 상태). 안내와 Manage models 줄만 있다. */
 export const ModelPickerEmpty = () =>
@@ -75,15 +78,17 @@ export const ModelPickerInherited = () =>
   weekly({
     stage: "report",
     modelDemo: "picker",
-    picker: { layer: "project", hidden: ["Haiku 5.5", "GPT-6.1 Mini"] },
+    picker: { layer: "project", shown: PICKER_SHOWN },
   });
 
-// Manage models 창이 읽는 상태. 셋이 연결돼 있고 Anthropic의 Haiku와 OpenAI의 Mini는 꺼져 있다.
+// Manage models 창이 읽는 상태. 셋이 연결돼 있고 Anthropic의 Haiku와 OpenAI의 Mini는 켜지 않았다.
 const MANAGE: FakeEditorOptions = {
   providers: "several",
-  hidden: [
-    { provider: ANTHROPIC, model_name: "Haiku 5.5" },
-    { provider: OPENAI, model_name: "GPT-6.1 Mini" },
+  shown: [
+    { provider: ANTHROPIC, model_name: "Opus 5.5" },
+    { provider: ANTHROPIC, model_name: "Sonnet 5.5" },
+    { provider: OPENAI, model_name: "GPT-6.1 Sol" },
+    { provider: XAI, model_name: "Grok 4.7" },
   ],
 };
 
@@ -97,7 +102,7 @@ export const ManageModels = () => manage(MANAGE);
 export const ManageModelsCustom = () =>
   manage({
     providers: "custom",
-    hidden: [{ provider: CUSTOM_PROVIDER, model_name: "qwen-3-coder" }],
+    shown: [{ provider: CUSTOM_PROVIDER, model_name: "llama-3.3-70b" }],
   });
 /** [Refresh models]가 실패해 앞 목록이 그대로 있고 창 안에 실패 한 줄이 보인다. */
 export const ManageModelsRefreshFailed = () =>

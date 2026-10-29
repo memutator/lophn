@@ -133,10 +133,12 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     onRun: props.onCommand,
     onProblem: props.onProblem,
   });
+  // model이 없으면 보내도 turn이 시작하지 못한다. 보내기 전에 막고 이유를 입력칸 안에 보인다.
   const canSend =
     !locked &&
     !offline &&
     !tooLong &&
+    !picker.noModel &&
     (draft.text.trim().length > 0 || draft.attachments.length > 0);
 
   const attach = (added: readonly Attachment[], missed: number) => {
@@ -305,6 +307,11 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
               {t("conversation.error.too-long")}
             </p>
           ) : null}
+          {picker.noModel ? (
+            <p className={styles.problem} data-no-model="" role="status">
+              {t("conversation.error.no-model")}
+            </p>
+          ) : null}
           {working && slash.menu === null ? (
             <p className={styles.working} data-working-note="">
               {t("conversation.notice.working-next-turn", {
@@ -335,7 +342,7 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
               }}
             />
             <span className={styles.spacer} />
-            <ModelPicker {...picker} />
+            <ModelPicker {...picker.props} />
             {working ? (
               <Button
                 size="sm"

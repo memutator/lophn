@@ -70,7 +70,7 @@ export interface FollowView {
 /** Manage models 창의 model 한 줄. */
 export interface ManageModelView {
   readonly modelName: string;
-  readonly hidden: boolean;
+  readonly shown: boolean;
   /** catalog가 아는 입력 media. 모르면 null이다. */
   readonly inputMedia: readonly ModelMedia[] | null;
   /** catalog가 아는 context 한도. 모르면 null이다. */
@@ -83,7 +83,7 @@ export interface ManageModelView {
 export interface ManageProviderView {
   readonly id: string;
   readonly name: string;
-  /** 이 provider에서 고를 수 있는 model과 끈 여부. */
+  /** 이 provider에서 고를 수 있는 model과 켠 여부. */
   readonly models: readonly ManageModelView[];
   /** model 목록을 다시 읽을 수 있는 provider(custom)다. */
   readonly refreshable: boolean;

@@ -91,6 +91,7 @@ function commandsOf() {
       directory: { find: () => null },
     },
     deleteSessionRecords: () => ok(undefined),
+    catalog: () => [],
     eraseBlobRefs: () => ok(undefined),
     open: () => deps,
     end: UNWIRED_END_DEPS,

@@ -82,6 +82,25 @@
   line-height: var(--type-caption-line);
 }
 
+/* 꺼진 model을 접은 한 줄. 누르면 그 아래에 펼친다. */
+.offToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-md-height);
+  padding: var(--space-0);
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--type-small-size);
+  cursor: pointer;
+}
+
+.offToggle:hover {
+  color: var(--color-text-primary);
+}
+
 /* model 정보를 적을 수 있는 묶음 아래: 안내와 오른쪽 끝의 [Add model] */
 .addModel {
   display: flex;

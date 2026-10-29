@@ -5,7 +5,6 @@ import type {
 import { effortAxisOf } from "../../../protocol/lophn-agent/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { loadUserModel } from "./store.ts";
-import { snapshotCatalogEntry } from "./snapshot-catalog.ts";
 
 // 사람이 적은 model 정보를 catalog의 user 층 항목으로 옮긴다. catalog를 읽는 곳 셋(ReadModelCatalog,
 // turn resolver, 저장할 때 검사)이 모두 이 함수를 거치므로 같은 입력에 같은 항목이 나온다.
@@ -51,14 +50,19 @@ export function userEntryOf(record: UserModelRecord): CatalogEntry {
   };
 }
 
-// 저장할 때 검사가 보는 항목이다. 사람이 적은 정보가 같은 열쇠의 동봉 snapshot 항목을 덮는다.
+// 저장할 때 검사가 보는 항목이다. 사람이 적은 정보가 같은 열쇠의 catalog 항목을 덮는다. base는 catalog 읽기와 같은
+// 바탕(derived catalog, 없으면 동봉 snapshot)이다.
 export function checkEntryOf(
   sql: Pick<Sql, "get">,
+  base: readonly CatalogEntry[],
   definition: string,
   modelName: string,
 ): CatalogEntry | undefined {
   const record = loadUserModel(sql, definition, modelName);
-  return record === undefined
-    ? snapshotCatalogEntry(definition, modelName)
-    : userEntryOf(record);
+  if (record !== undefined) return userEntryOf(record);
+  return base.find(
+    (entry) =>
+      entry.provider_definition === definition &&
+      entry.model_name === modelName,
+  );
 }

@@ -42,7 +42,7 @@ import type {
   AgentsOverview,
   AgentsSource,
   GrantsView,
-  HiddenModel,
+  ShownModel,
   ModelsView,
   PlaceView,
   SaveInput,
@@ -86,7 +86,7 @@ type FakeCall =
       entries: readonly AssignmentEntry[];
       revision: number;
     }
-  | { method: "setHidden"; items: readonly HiddenModel[] }
+  | { method: "setShown"; items: readonly ShownModel[] }
   | { method: "refreshModels"; provider: string }
   | { method: "saveModelInfo"; item: UserModelItem; seq: string }
   | { method: "removeModelInfo"; key: UserModelKey; seq: string };
@@ -134,8 +134,8 @@ export interface FakeAgentsOptions {
   readonly customListed?: boolean;
   /** project 층에 처음부터 고른 model. */
   readonly projectModel?: ModelChoice;
-  /** 처음부터 끈 model. */
-  readonly hidden?: readonly HiddenModel[];
+  /** 처음부터 켠 model. 없으면 꺼져 있다. */
+  readonly shown?: readonly ShownModel[];
   /** [Refresh models]가 늘 실패한다(앞 목록은 그대로다). */
   readonly refreshFails?: boolean;
   /** 사람이 정보를 읽은 뒤 다른 창이 판을 바꾼 상태다. 읽은 판으로 보내는 첫 저장·지우기는 conflict가 된다. */
@@ -247,7 +247,7 @@ export function createFakeAgentsSource(
   const projectMcpOff = new Set(
     PROJECT_MCP.filter((row) => !row.on).map((row) => row.name),
   );
-  let hidden: readonly HiddenModel[] = options.hidden ?? [];
+  let shown: readonly ShownModel[] = options.shown ?? [];
   // 사람이 적은 custom provider model 정보. custom provider를 붙인 상태에서만 처음부터 하나가 있다.
   let userModels: UserModels = {
     seq: "1",
@@ -464,7 +464,7 @@ export function createFakeAgentsSource(
             ...OTHER_CATALOG,
             ...userModels.items.map(userEntryOf),
           ],
-          hidden,
+          shown,
         }),
       );
     },
@@ -480,9 +480,9 @@ export function createFakeAgentsSource(
       return Promise.resolve(true);
     },
 
-    setHidden(items) {
-      calls.push({ method: "setHidden", items });
-      hidden = items;
+    setShown(items) {
+      calls.push({ method: "setShown", items });
+      shown = items;
       return Promise.resolve(ok(items));
     },
 

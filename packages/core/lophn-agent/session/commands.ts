@@ -1,4 +1,5 @@
 import { canonicalize, ok, type Result } from "../../../base/mod.ts";
+import type { CatalogEntry } from "../../../protocol/lophn-agent/mod.ts";
 import {
   archiveSession,
   changeSessionModel,
@@ -37,6 +38,7 @@ import {
   placeOf,
   type SessionRow,
 } from "./model.ts";
+import { defaultIfUnset, showChosen } from "../models/store.ts";
 import { checkSessionModel } from "./session-model.ts";
 import { renameSessionTitle } from "./session-title.ts";
 
@@ -48,6 +50,8 @@ type ConversationDeps = {
   // 세션을 지울 때 같은 Tx에서 그 세션의 turn 기록을 지운다. 기록을 가진 concern마다
   // 자기 몫을 지우고 조립이 그것들을 잇는다. 메시지는 이 함수를 부르기 전에 지워져 있다.
   deleteSessionRecords: (tx: Tx, session: string) => Result<void>;
+  // model 선택 저장 검사가 보는 catalog. 화면이 읽는 catalog와 같은 바탕이다.
+  catalog: (tx: Tx) => readonly CatalogEntry[];
   // 메시지 본문의 blob 영구 참조를 지운다(platform/blob-store). 소유 행인 메시지보다 먼저 부른다.
   eraseBlobRefs: (
     tx: Tx,
@@ -230,7 +234,7 @@ export function createConversationCommands(deps: ConversationDeps): {
         }
         // null은 agent 기본값으로 돌아가는 것이라 검사할 선택이 없다.
         if (input.model !== null) {
-          const checked = checkSessionModel(tx, input.model);
+          const checked = checkSessionModel(tx, deps.catalog(tx), input.model);
           if (!checked.ok) return checked;
         }
         if (session.state_seq !== compare.state_seq) {
@@ -245,6 +249,11 @@ export function createConversationCommands(deps: ConversationDeps): {
             session.id,
           ],
         );
+        // 사람이 고른 model은 picker에 보이고, 전역 기본이 비어 있으면 첫 선택이 기본이 된다.
+        if (input.model !== null) {
+          showChosen(tx.sql, input.model);
+          defaultIfUnset(tx.sql, input.model);
+        }
         return ok({
           id: session.id,
           model_selection: input.model,

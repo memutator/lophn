@@ -298,6 +298,7 @@ function itemsOf(
           <ProviderError
             key={entry.id}
             turn={entry.turn}
+            code={entry.code}
             message={entry.message}
             source={props.source}
           />,

@@ -132,7 +132,7 @@ export interface ProviderChoice {
   readonly refreshable: boolean;
 }
 
-export interface HiddenModel {
+export interface ShownModel {
   readonly provider: string;
   readonly model_name: string;
 }
@@ -153,8 +153,8 @@ export interface UserModelKey {
 export interface ModelsView {
   readonly providers: readonly ProviderChoice[];
   readonly catalog: readonly CatalogEntry[];
-  /** 사람이 끈 model. 여기 없는 model은 켜져 있다. */
-  readonly hidden: readonly HiddenModel[];
+  /** 사람이 켠 model. 여기 없는 model은 꺼져 있다. */
+  readonly shown: readonly ShownModel[];
 }
 
 export interface SaveInput {
@@ -217,10 +217,10 @@ export interface AgentsSource {
   domains(place: string): Promise<ReadResult<readonly DomainView[]>>;
   /** custom provider의 model 목록을 다시 읽는다. 성공하면 true다. */
   refreshModels(provider: string): Promise<boolean>;
-  /** 끈 model 목록 전체를 바꾸고 바뀐 목록을 돌려준다. */
-  setHidden(
-    items: readonly HiddenModel[],
-  ): Promise<ReadResult<readonly HiddenModel[]>>;
+  /** 켠 model 목록 전체를 바꾸고 바뀐 목록을 돌려준다. */
+  setShown(
+    items: readonly ShownModel[],
+  ): Promise<ReadResult<readonly ShownModel[]>>;
   /** 사람이 적은 custom provider model 정보와 그 판. */
   userModels(): Promise<ReadResult<UserModels>>;
   /** model 정보 하나를 더하거나 고친다. 판이 어긋나면 message가 conflict다. */

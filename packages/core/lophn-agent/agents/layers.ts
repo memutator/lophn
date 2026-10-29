@@ -23,7 +23,7 @@ import {
 // project 층 model을 core의 읽기 route로 모은다. 합치는 규칙은 agents의 resolveAgent다.
 
 export type CannotStart = {
-  reason: "configuration_unavailable" | "target_unavailable";
+  reason: "configuration_unavailable" | "target_unavailable" | "model_required";
   why: "model_required" | "agent_invalid" | "agent_missing";
 };
 
@@ -123,7 +123,7 @@ export async function resolveTurnAgent(
   }
   if (resolved.error.code === "invalid_input") {
     return issueFields(resolved.error).includes("model")
-      ? cannot("configuration_unavailable", "model_required")
+      ? cannot("model_required", "model_required")
       : cannot("configuration_unavailable", "agent_invalid");
   }
   return resolved;

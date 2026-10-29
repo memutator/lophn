@@ -134,7 +134,7 @@ export function entitlementAllows(
   return !isEntitlement(kind, reported) || reported!.includes(modelName);
 }
 
-// 선택 화면의 규칙이다. 끈 model 목록은 HiddenModels.items다.
+// 선택 화면의 규칙이다. 켠 model 목록은 ShownModels.items다.
 
 // 선택 화면에 보일 수 있는 model 하나다. 연결된 provider의 현재 catalog에서 온다.
 type PickerModel = { provider: string; model_name: string };
@@ -149,10 +149,10 @@ function pairKey(model: PickerModel): string {
   return JSON.stringify([model.provider, model.model_name]);
 }
 
-// 끈 model은 빼되, 지금 쓰는 model(current)은 꺼져 있어도 보인다. 안 보이면 지금 무엇을 쓰는지 모른다.
+// 켠 model만 보이되, 지금 쓰는 model(current)은 꺼져 있어도 보인다. 안 보이면 지금 무엇을 쓰는지 모른다.
 // query는 대소문자를 가리지 않는 model 이름 부분 일치다. 빈 query(공백만 포함)는 전부 보인다.
 export function orderPicker(input: {
-  hidden: readonly PickerModel[];
+  shown: readonly PickerModel[];
   models: readonly PickerModel[];
   current: PickerModel | null;
   query: string;
@@ -160,15 +160,15 @@ export function orderPicker(input: {
   const needle = input.query.trim().toLowerCase();
   const matches = (model: PickerModel) =>
     needle === "" || model.model_name.toLowerCase().includes(needle);
-  const hidden = new Set(input.hidden.map(pairKey));
+  const on = new Set(input.shown.map(pairKey));
   const currentKey = input.current === null ? null : pairKey(input.current);
-  const shown = (model: PickerModel) =>
-    !hidden.has(pairKey(model)) || pairKey(model) === currentKey;
+  const visible = (model: PickerModel) =>
+    on.has(pairKey(model)) || pairKey(model) === currentKey;
 
   // Map은 삽입 순서를 지키므로 provider 묶음은 입력에서 처음 나온 순서가 된다.
   const groups = new Map<string, PickerModel[]>();
   for (const model of input.models) {
-    if (!matches(model) || !shown(model)) continue;
+    if (!matches(model) || !visible(model)) continue;
     const group = groups.get(model.provider);
     if (group) group.push(model);
     else groups.set(model.provider, [model]);
@@ -179,16 +179,16 @@ export function orderPicker(input: {
   };
 }
 
-// targets(model 하나, 또는 provider의 지금 model 전부)를 끄거나(hide) 켠다. 결과는 ChangeHiddenModels의
+// targets(model 하나, 또는 provider의 지금 model 전부)를 켜거나(show) 끈다. 결과는 ChangeShownModels의
 // 입력이 된다. 입력을 바꾸지 않는다. provider 단위로 따로 저장하지 않는다.
-export function setHidden(
-  hidden: readonly PickerModel[],
+export function setShown(
+  shown: readonly PickerModel[],
   targets: readonly PickerModel[],
-  hide: boolean,
+  show: boolean,
 ): PickerModel[] {
   const keys = new Set(targets.map(pairKey));
-  const kept = hidden.filter((item) => !keys.has(pairKey(item)));
-  if (!hide) return kept;
+  const kept = shown.filter((item) => !keys.has(pairKey(item)));
+  if (!show) return kept;
   return [
     ...kept,
     ...targets.map((model) => ({

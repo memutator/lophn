@@ -43,7 +43,7 @@ function open() {
   const tx = { sql, now: () => "2026-10-18T00:00:00.000Z" } as unknown as Tx;
   const commands = createModelCommands({
     definitionKey: () => DEFINITION,
-    catalogEntry: (definition, name) => checkEntryOf(sql, definition, name),
+    catalogEntry: (definition, name) => checkEntryOf(sql, [], definition, name),
     projectExists: () => true,
   });
   return { db, sql, tx, commands };

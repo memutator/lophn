@@ -795,7 +795,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         found.error.code === "invalid_input"
         ? await closeUnstarted(
             start,
-            { reason: "configuration_unavailable", why: "model_required" },
+            { reason: "configuration_unavailable", why: "model_unusable" },
             limits.value,
             mode,
           )

@@ -99,6 +99,8 @@ import {
 } from "./message-images.ts";
 import { CATALOG_AUTO_UPDATE_KEY } from "./models/catalog-refresh.ts";
 import {
+  bundledSnapshot,
+  catalogBase,
   checkEntryOf,
   createModelCommands,
   createModelReads,
@@ -218,13 +220,32 @@ function providerDefinitionKey(
   }
 }
 
-// model 기본값 저장 검사 deps. 항목은 사람이 적은 정보(user 층)와 동봉 snapshot에서 읽는다.
+// derived catalog 파일의 동기 reader다. ledger 파일이 있는 폴더가 data root다.
+function readDerived(
+  sql: Pick<Tx["sql"], "get" | "all">,
+  name: string,
+): string | null {
+  const root = dataRootOf(sql, undefined);
+  if (!root.ok) return null;
+  return createNodeAgentFiles().read(
+    `${root.value}/derived/lophn-agent/${name}`,
+  );
+}
+
+// 저장 검사가 보는 catalog. 화면이 읽는 catalog(ReadModelCatalog)와 같은 바탕이다.
+function checkCatalog(tx: Tx) {
+  return catalogBase({ readDerived, snapshot: bundledSnapshot }, tx.sql)
+    .catalog;
+}
+
+// model 기본값 저장 검사 deps. 항목은 사람이 적은 정보(user 층)와 derived catalog에서 읽는다.
 function modelCommandDeps(places: PlaceLookups, tx: Tx): ModelCommandDeps {
+  const base = checkCatalog(tx);
   return {
     projectExists: (id) => places.projectExists(tx.sql, id),
     definitionKey: (provider) => providerDefinitionKey(tx.sql, provider),
     catalogEntry: (providerDefinition, modelName) =>
-      checkEntryOf(tx.sql, providerDefinition, modelName),
+      checkEntryOf(tx.sql, base, providerDefinition, modelName),
   };
 }
 
@@ -261,6 +282,7 @@ const conversationCommands = createConversationCommands({
   // Router와 session 목록은 wiring이 놓는다. 놓기 전에는 사람 메시지를 받지 못한다.
   send: { router: messageRouter, directory: messageDirectory },
   deleteSessionRecords,
+  catalog: checkCatalog,
   eraseBlobRefs,
   // project와 앱, agent 정의는 wiring이 놓는다(places/environment.ts). 놓기 전에는 새 session을 열지 못한다.
   // SessionStarted는 commit 뒤에 Bus로 간다.
@@ -627,13 +649,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
   );
   const modelReads = createModelReads({
     projectExists: (sql, id) => ports.lookups.projectExists(sql, id),
-    readDerived(sql, name) {
-      const root = dataRootOf(sql, undefined);
-      if (!root.ok) return null;
-      return createNodeAgentFiles().read(
-        `${root.value}/derived/lophn-agent/${name}`,
-      );
-    },
+    readDerived,
   });
   const agentDeps: AgentDeps = {
     files: createNodeAgentFiles(),
@@ -759,7 +775,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       commands.cancelLogin,
       modelCommands.changeDefault,
       modelCommands.changeProject,
-      modelCommands.changeHidden,
+      modelCommands.changeShown,
       modelCommands.saveUserInfo,
       modelCommands.removeUserInfo,
       usage.start,
@@ -803,7 +819,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       reads.list,
       modelReads.modelDefault,
       modelReads.projectModel,
-      modelReads.hidden,
+      modelReads.shown,
       modelReads.userInfo,
       modelReads.catalog,
       usageReads.read,
@@ -882,7 +898,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
         reads.list,
         modelReads.modelDefault,
         modelReads.projectModel,
-        modelReads.hidden,
+        modelReads.shown,
         modelReads.userInfo,
         modelReads.catalog,
         usageReads.read,

@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 
-import { setHidden } from "../../../../../protocol/lophn-agent/model-picker.ts";
+import { setShown } from "../../../../../protocol/lophn-agent/model-picker.ts";
 import {
   type ManageModelsApi,
   ManageModelsContext,
@@ -20,7 +20,7 @@ import type { ManageProviderView } from "../../../conversation/model-picker/type
 import { manageProviders } from "../../../workspace/agents/model-picker-data.ts";
 import type {
   AgentsSource,
-  HiddenModel,
+  ShownModel,
   ModelsView,
   UserModels,
 } from "../../../workspace/agents/source.ts";
@@ -30,7 +30,7 @@ type ManageSource = Pick<
   AgentsSource,
   | "models"
   | "refreshModels"
-  | "setHidden"
+  | "setShown"
   | "userModels"
   | "saveModelInfo"
   | "removeModelInfo"
@@ -61,7 +61,7 @@ export function ManageModelsHost({
     Pick<ManageModelsOptions, "notice" | "addModel"> & { key: number }
   >({ key: 0 });
   const closed = useRef<(() => void) | undefined>(undefined);
-  const hidden = useRef<readonly HiddenModel[]>([]);
+  const shown = useRef<readonly ShownModel[]>([]);
   // 저장·지우기의 compare 기준: 마지막으로 읽은 model 정보의 판.
   const userSeq = useRef("");
   const queue = useRef<Promise<unknown>>(Promise.resolve());
@@ -84,7 +84,7 @@ export function ManageModelsHost({
       return;
     }
     setLoadFailed(false);
-    hidden.current = read.value.hidden;
+    shown.current = read.value.shown;
     userSeq.current = readUser.value.seq;
     setModels(read.value);
     setUser(readUser.value);
@@ -110,13 +110,13 @@ export function ManageModelsHost({
 
   const change = (
     targets: readonly { provider: string; model_name: string }[],
-    hide: boolean,
+    show: boolean,
   ) => {
     queue.current = queue.current.then(async () => {
-      const next = setHidden(hidden.current, targets, hide);
-      hidden.current = next;
-      setModels((now) => (now === null ? now : { ...now, hidden: next }));
-      const written = await source.setHidden(next);
+      const next = setShown(shown.current, targets, show);
+      shown.current = next;
+      setModels((now) => (now === null ? now : { ...now, shown: next }));
+      const written = await source.setShown(next);
       // 저장하지 못하면 core에 있는 값으로 되돌린다.
       if (!written.ok) await load();
     });
@@ -169,16 +169,16 @@ export function ManageModelsHost({
               },
             })
           }
-          onToggleModel={(provider, modelName, hide) =>
-            change([{ provider, model_name: modelName }], hide)
+          onToggleModel={(provider, modelName, show) =>
+            change([{ provider, model_name: modelName }], show)
           }
-          onToggleProvider={(provider, hide) =>
+          onToggleProvider={(provider, show) =>
             change(
               modelsOf(provider).map((model) => ({
                 provider,
                 model_name: model.modelName,
               })),
-              hide,
+              show,
             )
           }
           onRefresh={async (provider) => {

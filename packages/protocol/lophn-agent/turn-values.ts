@@ -23,11 +23,16 @@ const TURN_OUTCOME_REASONS = {
     "effect_unknown",
     "clock_uncertain",
     "configuration_unavailable",
+    // 이 session·agent·project·전역 어디에도 model을 고르지 않았다. 사람이 model을 고르면 풀린다.
+    "model_required",
     "target_unavailable",
     "no_answer",
   ],
   interrupted: ["user_stopped", "restarted", "session_ended"],
 } as const;
+
+// 화면이 실패 이유마다 문구를 고른다.
+export const TURN_FAILED_REASONS = TURN_OUTCOME_REASONS.failed;
 
 export const turnOutcomeSchema = z.discriminatedUnion("kind", [
   z.strictObject({

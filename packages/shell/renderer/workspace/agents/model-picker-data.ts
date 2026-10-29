@@ -123,6 +123,8 @@ export interface PickerBinding {
   readonly layer: AgentValueLayer | null;
   /** 새로 고른 값. */
   readonly choose: (choice: ModelChoice) => void;
+  /** 켠 목록과 상관없이 고를 수 있는 model 전부를 보인다. 방금 연결해 아직 켠 model이 없을 때 쓴다. */
+  readonly showAll?: boolean;
 }
 
 const NONE: PickerModelRef = { provider: "", modelName: "" };
@@ -158,7 +160,7 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
           })),
         );
   const layout = orderPicker({
-    hidden: models?.hidden ?? [],
+    shown: binding.showAll ? available : (models?.shown ?? []),
     models: available,
     current:
       current === null
@@ -218,7 +220,7 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
 }
 
 /**
- * Manage models 창에 보일 provider 묶음. 연결된 provider마다 고를 수 있는 model(selectableModels)과 끈 여부, catalog가 아는
+ * Manage models 창에 보일 provider 묶음. 연결된 provider마다 고를 수 있는 model(selectableModels)과 켠 여부, catalog가 아는
  * 입력 media·context, 사람이 적은 정보를 싣는다. `first`(방금 연결한 provider)가 있으면 그 묶음이 맨 위다.
  */
 export function manageProviders(
@@ -226,8 +228,8 @@ export function manageProviders(
   user: UserModels,
   first: string | null,
 ): ManageProviderView[] {
-  const hidden = new Set(
-    models.hidden.map((item) =>
+  const shown = new Set(
+    models.shown.map((item) =>
       JSON.stringify([item.provider, item.model_name]),
     ),
   );
@@ -237,9 +239,7 @@ export function manageProviders(
       name: provider.name,
       models: modelsOf(models, provider).map((selectable) => ({
         modelName: selectable.model_name,
-        hidden: hidden.has(
-          JSON.stringify([provider.id, selectable.model_name]),
-        ),
+        shown: shown.has(JSON.stringify([provider.id, selectable.model_name])),
         inputMedia: selectable.entry?.input_media ?? null,
         contextLimit: selectable.entry?.context_limit ?? null,
         info:

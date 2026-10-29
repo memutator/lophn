@@ -15,7 +15,7 @@ import type {
   ModelChoice,
 } from "../../../../protocol/lophn-agent/models.ts";
 import {
-  changeHiddenModels,
+  changeShownModels,
   projectModelChange,
   removeUserModelInfo,
   saveUserModelInfo,
@@ -49,7 +49,7 @@ import type {
   AgentListRow,
   AgentsOverview,
   AgentsSource,
-  HiddenModel,
+  ShownModel,
   ModelsView,
   PlaceView,
   ReadResult,
@@ -229,19 +229,19 @@ export function coreAgentsSource(
     return { ok: true as const, value: rows };
   };
 
-  const hiddenModels = async () => {
+  const shownModels = async () => {
     const result = await link.read<{
-      hidden: { items: HiddenModel[]; settings_seq: string };
-    }>("hidden-models", "read", {});
+      shown: { items: ShownModel[]; settings_seq: string };
+    }>("shown-models", "read", {});
     return result.ok
       ? {
           ok: true as const,
           value: {
-            items: result.value.hidden.items.map((item) => ({
+            items: result.value.shown.items.map((item) => ({
               provider: item.provider,
               model_name: item.model_name,
             })),
-            seq: result.value.hidden.settings_seq,
+            seq: result.value.shown.settings_seq,
           },
         }
       : result;
@@ -438,14 +438,14 @@ export function coreAgentsSource(
         if (catalog.value.next_cursor === null) break;
         cursor = catalog.value.next_cursor;
       }
-      const hidden = await hiddenModels();
-      if (!hidden.ok) return hidden;
+      const shown = await shownModels();
+      if (!shown.ok) return shown;
       const view: ModelsView = {
         providers: registered.value.map((provider) =>
           providerChoiceOf(provider, entries),
         ),
         catalog: entries,
-        hidden: hidden.value.items,
+        shown: shown.value.items,
       };
       return { ok: true, value: view };
     },
@@ -458,15 +458,15 @@ export function coreAgentsSource(
       return refreshed.ok;
     },
 
-    async setHidden(items) {
-      const current = await hiddenModels();
+    async setShown(items) {
+      const current = await shownModels();
       if (!current.ok) return current;
-      const changed = await link.command(changeHiddenModels, {
+      const changed = await link.command(changeShownModels, {
         input: { items },
         compare: { settings_seq: current.value.seq },
       });
       return changed.ok
-        ? { ok: true, value: changed.value.hidden.items }
+        ? { ok: true, value: changed.value.shown.items }
         : { ok: false, message: changed.code };
     },
 

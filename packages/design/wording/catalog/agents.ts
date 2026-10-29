@@ -17,6 +17,10 @@ export const agents = {
     "lophn forgets the saved key or sign-in for {name}. Agents can't use it until you connect again.",
   "agents.notice.providers-disconnect-failed":
     "Couldn't disconnect. Nothing changed. Try again.",
+  "agents.error.settings-model-save-failed":
+    "Couldn't save this model. The previous one is kept. Try again.",
+  "agents.error.settings-instructions-failed":
+    "Couldn't open the instructions. Try again.",
   "agents.notice.settings-agents-lead":
     "Defaults for every project. A project or an agent can change them.",
   "agents.notice.settings-default-model-help":

@@ -20,7 +20,11 @@ interface ModelPickerInput {
   onProblem: () => void;
 }
 
-export function useModelPicker(input: ModelPickerInput): ModelPickerProps {
+/** picker props와, 읽어 보니 어느 층에도 model이 없다는 사실. 없으면 보내도 turn이 시작하지 못한다. */
+export function useModelPicker(input: ModelPickerInput): {
+  readonly props: ModelPickerProps;
+  readonly noModel: boolean;
+} {
   const { source, session, onProblem } = input;
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -49,21 +53,24 @@ export function useModelPicker(input: ModelPickerInput): ModelPickerProps {
   };
 
   return {
-    open,
-    onOpenChange: (next) => {
-      setOpen(next);
-      if (!next) setQuery("");
+    noModel: view !== null && view.current.modelName === "",
+    props: {
+      open,
+      onOpenChange: (next) => {
+        setOpen(next);
+        if (!next) setQuery("");
+      },
+      current: view?.current ?? NO_MODEL,
+      currentLabel: view?.currentLabel ?? t("conversation.label.model-unknown"),
+      axes: view?.axes ?? [],
+      optionValues: view?.optionValues ?? {},
+      query,
+      layout: view?.layout ?? { providers: [] },
+      onQueryChange: setQuery,
+      onPick: (model) => void apply(source.chooseModel(session, model, query)),
+      onOptionChange: (axis, value) =>
+        void apply(source.setModelOption(session, axis, value, query)),
+      layer: view?.layer ?? null,
     },
-    current: view?.current ?? NO_MODEL,
-    currentLabel: view?.currentLabel ?? t("conversation.label.model-unknown"),
-    axes: view?.axes ?? [],
-    optionValues: view?.optionValues ?? {},
-    query,
-    layout: view?.layout ?? { providers: [] },
-    onQueryChange: setQuery,
-    onPick: (model) => void apply(source.chooseModel(session, model, query)),
-    onOptionChange: (axis, value) =>
-      void apply(source.setModelOption(session, axis, value, query)),
-    layer: view?.layer ?? null,
   };
 }

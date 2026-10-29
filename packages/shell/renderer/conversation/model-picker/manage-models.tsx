@@ -29,9 +29,9 @@ export interface ManageModelsProps {
   onClose: () => void;
   /** [Connect provider]. 연결 대화창이 이 창 위에 열린다. */
   onConnect: () => void;
-  onToggleModel: (provider: string, modelName: string, hidden: boolean) => void;
-  /** provider toggle. 그 provider의 지금 model 전부를 끄거나(hidden) 켠다. */
-  onToggleProvider: (provider: string, hidden: boolean) => void;
+  onToggleModel: (provider: string, modelName: string, shown: boolean) => void;
+  /** provider toggle. 그 provider의 지금 model 전부를 켜거나(shown) 끈다. */
+  onToggleProvider: (provider: string, shown: boolean) => void;
   /** custom provider의 목록을 다시 읽는다. 성공하면 true다. 실패해도 앞 목록은 그대로다. */
   onRefresh: (provider: string) => Promise<boolean>;
   /** custom provider model의 정보를 저장한다. 새 model이면 이름이 새로 생긴다. */
@@ -146,13 +146,51 @@ function ProviderGroup({
   onRefresh: (provider: string) => void;
   onForm: (target: FormTarget) => void;
 }) {
+  const [openOff, setOpenOff] = useState(false);
   const needle = query.trim().toLowerCase();
   const shown = provider.models.filter(
     (model) => needle === "" || model.modelName.toLowerCase().includes(needle),
   );
   // 검색 중에는 맞는 model이 없는 묶음을 숨긴다.
   if (needle !== "" && shown.length === 0) return null;
-  const anyOn = provider.models.some((model) => !model.hidden);
+  const anyOn = provider.models.some((model) => model.shown);
+  // 하나라도 켰으면 꺼진 model은 한 줄로 접는다. 하나도 안 켰으면 고를 것이 모두 보여야 한다. 검색은 접힘을 무시한다.
+  const folds = anyOn && needle === "";
+  const on = folds ? shown.filter((model) => model.shown) : shown;
+  const off = folds ? shown.filter((model) => !model.shown) : [];
+  const row = (model: ManageModelView) => (
+    <div
+      key={model.modelName}
+      className={styles.row}
+      data-model={model.modelName}
+    >
+      <span className={styles.name}>{model.modelName}</span>
+      <ModelFacts model={model} />
+      {provider.editable ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          data-edit-model=""
+          onClick={() =>
+            onForm({
+              provider: provider.id,
+              modelName: model.modelName,
+              info: model.info,
+            })
+          }
+        >
+          {t("conversation.button.edit-model")}
+        </Button>
+      ) : null}
+      <Toggle
+        label={model.modelName}
+        on={model.shown}
+        onChange={(next) =>
+          props.onToggleModel(provider.id, model.modelName, next)
+        }
+      />
+    </div>
+  );
   return (
     <section
       className={styles.group}
@@ -178,7 +216,7 @@ function ProviderGroup({
           })}
           on={anyOn}
           disabled={provider.models.length === 0}
-          onChange={(on) => props.onToggleProvider(provider.id, !on)}
+          onChange={(on) => props.onToggleProvider(provider.id, on)}
         />
       </div>
       {provider.models.length === 0 ? (
@@ -186,39 +224,25 @@ function ProviderGroup({
           {t("conversation.notice.no-listed-models")}
         </p>
       ) : null}
-      {shown.map((model) => (
-        <div
-          key={model.modelName}
-          className={styles.row}
-          data-model={model.modelName}
-        >
-          <span className={styles.name}>{model.modelName}</span>
-          <ModelFacts model={model} />
-          {provider.editable ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              data-edit-model=""
-              onClick={() =>
-                onForm({
-                  provider: provider.id,
-                  modelName: model.modelName,
-                  info: model.info,
-                })
-              }
-            >
-              {t("conversation.button.edit-model")}
-            </Button>
-          ) : null}
-          <Toggle
-            label={model.modelName}
-            on={!model.hidden}
-            onChange={(on) =>
-              props.onToggleModel(provider.id, model.modelName, !on)
-            }
-          />
-        </div>
-      ))}
+      {on.map(row)}
+      {off.length === 0 ? null : (
+        <>
+          <button
+            type="button"
+            className={styles.offToggle}
+            aria-expanded={openOff}
+            data-off-models=""
+            onClick={() => setOpenOff((was) => !was)}
+          >
+            <Icon
+              icon={openOff ? commonIcons.collapse : commonIcons.expand}
+              pixels={iconPixels("base")}
+            />
+            {t("conversation.button.off-models", { count: off.length })}
+          </button>
+          {openOff ? off.map(row) : null}
+        </>
+      )}
       {provider.editable && needle === "" ? (
         <div className={styles.addModel} data-manage-section="add-model">
           <p className={styles.note}>{t("conversation.notice.custom-model")}</p>

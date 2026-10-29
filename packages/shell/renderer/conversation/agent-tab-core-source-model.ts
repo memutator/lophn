@@ -4,7 +4,7 @@
 // option 값은 모두 catalog가 준다. 바꾼 값 맞춤은 안내 없이 조용히 맞춘다.
 import {
   type CatalogEntry,
-  hiddenModelsRead,
+  shownModelsRead,
   modelCatalogRead,
   type ModelChoice,
 } from "../../../protocol/lophn-agent/models.ts";
@@ -72,7 +72,7 @@ interface ModelPart {
 }
 
 export function createModelPart(env: Env): ModelPart {
-  // catalog는 크고 자주 바뀌지 않아 기억한다. provider와 끈 model은 Manage models 창에서 바뀌므로 매번 읽는다.
+  // catalog는 크고 자주 바뀌지 않아 기억한다. provider와 켠 model은 Manage models 창에서 바뀌므로 매번 읽는다.
   const catalog: Memo<readonly CatalogEntry[]> = memo(env.now, MODEL_TTL_MS);
   const defaultModel: Memo<Inherited> = memo(env.now, MODEL_TTL_MS);
   let pending: ModelChoice | null = null;
@@ -87,8 +87,8 @@ export function createModelPart(env: Env): ModelPart {
       entries = read.ok ? read.value : [];
       if (read.ok) catalog.set(entries);
     }
-    const hidden = await env.read(hiddenModelsRead, {});
-    if (!hidden.ok) return hidden;
+    const shown = await env.read(shownModelsRead, {});
+    if (!shown.ok) return shown;
     return {
       ok: true,
       value: {
@@ -96,7 +96,7 @@ export function createModelPart(env: Env): ModelPart {
           providerChoiceOf(provider, entries),
         ),
         catalog: entries,
-        hidden: hidden.value.hidden.items.map((item) => ({
+        shown: shown.value.shown.items.map((item) => ({
           provider: item.provider,
           model_name: item.model_name,
         })),

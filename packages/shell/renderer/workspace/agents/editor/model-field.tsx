@@ -20,12 +20,14 @@ function useFieldPicker({
   current,
   layer,
   choose,
+  showAll,
 }: {
   models: ModelsView | null;
   source?: ModelFieldSource;
   current: ModelChoice | null;
   layer: AgentValueLayer | null;
   choose: (choice: ModelChoice) => void;
+  showAll?: boolean;
 }): ModelPickerProps {
   const [state, setState] = useState({ open: false, query: "" });
   // 연결 대화창을 거쳐 다시 열 때 onOpenChange가 옛 state를 쥐고 있어 state.open으로는 열림을 가릴 수 없다.
@@ -50,6 +52,7 @@ function useFieldPicker({
       current,
       layer,
       choose,
+      showAll,
     }),
     axesReady: shown !== null,
   };
@@ -116,6 +119,10 @@ interface DefaultModelFieldProps {
   readonly source?: ModelFieldSource;
   readonly value: ModelChoice | null;
   readonly onChange: (choice: ModelChoice) => void;
+  /** 고른 값을 저장하지 못한 이유 한 줄. */
+  readonly error?: string;
+  /** 켠 목록과 상관없이 고를 수 있는 model 전부를 보인다(provider를 막 연결해 켠 model이 없을 때). */
+  readonly showAll?: boolean;
 }
 
 /** 위 층이 없는 model 칸(Workspace 전역 기본). model과 그 model의 option 축을 고른다. */
@@ -124,6 +131,8 @@ export function DefaultModelField({
   source,
   value,
   onChange,
+  error,
+  showAll,
 }: DefaultModelFieldProps) {
   const picker = useFieldPicker({
     models,
@@ -131,12 +140,14 @@ export function DefaultModelField({
     current: value,
     layer: null,
     choose: onChange,
+    showAll,
   });
   return (
     <div className={styles.group}>
       <ModelPickerField
         props={picker}
         label={t("project-workspace.heading.agent-editor-model")}
+        error={error}
       />
     </div>
   );

@@ -32,6 +32,9 @@ export type ConversationPlaceholders = {
   "conversation.button.manage-models": Record<never, never>;
   "conversation.button.model-reset": Record<never, never>;
   "conversation.button.permissions-edit": Record<never, never>;
+  "conversation.button.off-models": {
+    count: "plural";
+  };
   "conversation.button.preview-image": {
     name: "string";
   };
@@ -68,11 +71,25 @@ export type ConversationPlaceholders = {
   "conversation.error.load-failed": Record<never, never>;
   "conversation.error.load-models": Record<never, never>;
   "conversation.error.message-body": Record<never, never>;
+  "conversation.error.no-model": Record<never, never>;
   "conversation.error.open-failed": Record<never, never>;
   "conversation.error.refresh-models": Record<never, never>;
   "conversation.error.stop-failed": Record<never, never>;
   "conversation.error.too-long": Record<never, never>;
   "conversation.error.tool-body-failed": Record<never, never>;
+  "conversation.error.turn-active-limit": Record<never, never>;
+  "conversation.error.turn-clock-uncertain": Record<never, never>;
+  "conversation.error.turn-configuration-unavailable": Record<never, never>;
+  "conversation.error.turn-context-limit": Record<never, never>;
+  "conversation.error.turn-effect-unknown": Record<never, never>;
+  "conversation.error.turn-model-attempt-limit": Record<never, never>;
+  "conversation.error.turn-model-error": Record<never, never>;
+  "conversation.error.turn-model-required": Record<never, never>;
+  "conversation.error.turn-no-answer": Record<never, never>;
+  "conversation.error.turn-repeated-tool-failure": Record<never, never>;
+  "conversation.error.turn-stall-limit": Record<never, never>;
+  "conversation.error.turn-target-unavailable": Record<never, never>;
+  "conversation.error.turn-tool-error": Record<never, never>;
   "conversation.label.approval": Record<never, never>;
   "conversation.label.approval-app": {
     id: "string";

@@ -1,6 +1,6 @@
 import type {
-  HiddenModels,
   ModelChoice,
+  ShownModels,
   UserModelInfo,
   UserModelRecord,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -8,7 +8,7 @@ import type { Sql } from "../../../protocol/server/mod.ts";
 
 type Query = Pick<Sql, "get" | "all">;
 
-// ledger 표에서 model 선택과 끈 model을 읽는다. command(CAS 비교)와 read가 같은 모양을 쓴다.
+// ledger 표에서 model 선택과 켠 model을 읽는다. command(CAS 비교)와 read가 같은 모양을 쓴다.
 
 export const GLOBAL_SCOPE = "global";
 
@@ -54,12 +54,12 @@ export function saveChoice(
   );
 }
 
-export function loadHidden(sql: Query): HiddenModels {
+export function loadShown(sql: Query): ShownModels {
   const rows = sql.all(
-    "select provider, model_name from model_hidden order by provider, model_name",
+    "select provider, model_name from model_shown order by provider, model_name",
     [],
   );
-  const seq = sql.get("select seq from model_hidden_seq", []);
+  const seq = sql.get("select seq from model_shown_seq", []);
   return {
     items: rows.map((row) => ({
       provider: String(row["provider"]),
@@ -67,6 +67,40 @@ export function loadHidden(sql: Query): HiddenModels {
     })),
     settings_seq: String(seq?.["seq"] ?? 0),
   };
+}
+
+// 사람이 고른 model은 picker에 보여야 한다. 이미 켜져 있으면 seq도 올리지 않는다.
+export function showChosen(
+  sql: Pick<Sql, "get" | "run">,
+  choice: ModelChoice,
+): void {
+  const inserted = sql.run(
+    "insert or ignore into model_shown (provider, model_name) values (?, ?)",
+    [choice.provider, choice.model_name],
+  );
+  if (Number(inserted.changes) === 0) return;
+  bumpShownSeq(sql);
+}
+
+export function bumpShownSeq(sql: Pick<Sql, "get" | "run">): string {
+  const row = sql.get("select seq from model_shown_seq", []);
+  const next = String(Number(row?.["seq"] ?? 0) + 1);
+  sql.run(
+    `insert into model_shown_seq (one, seq) values (1, ?)
+     on conflict (one) do update set seq = excluded.seq`,
+    [next],
+  );
+  return next;
+}
+
+// 전역 기본이 비어 있을 때 처음 고른 model이 기본이 된다. 다음 대화가 model 없이 실패하지 않게 한다.
+export function defaultIfUnset(
+  sql: Pick<Sql, "get" | "all" | "run">,
+  choice: ModelChoice,
+): void {
+  if (loadChoice(sql, GLOBAL_SCOPE) === null) {
+    saveChoice(sql, GLOBAL_SCOPE, choice);
+  }
 }
 
 function userRecord(row: Record<string, unknown>): UserModelRecord {

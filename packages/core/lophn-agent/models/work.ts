@@ -339,8 +339,32 @@ type CatalogReadDeps = {
   userEntries(sql: ReadSnapshot["sql"]): CatalogEntry[];
 };
 
-// catalog의 read 정의. derived 파일을 읽고, 없거나 깨졌으면 동봉 snapshot으로 답한다.
-// refresh는 runtime 작업이므로 read는 여기 없다.
+// derived 파일을 읽고, 없거나 깨졌으면 동봉 snapshot을 쓴다. catalog 읽기와 저장 검사가 같은 바탕을 본다.
+// 저장 검사가 snapshot만 보면 갱신으로 들어온 model의 option 값을 모두 거절한다.
+export function catalogBase(
+  deps: Pick<CatalogReadDeps, "readDerived" | "snapshot">,
+  sql: ReadSnapshot["sql"],
+): { catalog: CatalogEntry[]; state: CatalogState } {
+  try {
+    const catalogText = deps.readDerived(sql, "catalog.json");
+    const stateText = deps.readDerived(sql, "catalog-state.json");
+    if (catalogText !== null && stateText !== null) {
+      const catalog = parseEntries(catalogText);
+      const state = parseState(stateText);
+      if (catalog !== undefined && state !== undefined) {
+        return { catalog, state };
+      }
+    }
+  } catch {
+    // 읽지 못한 파일은 없는 것과 같이 snapshot으로 답한다.
+  }
+  return {
+    catalog: deps.snapshot.entries,
+    state: initialState(true, deps.snapshot.hash),
+  };
+}
+
+// catalog의 read 정의. refresh는 runtime 작업이므로 read는 여기 없다.
 export function createCatalogRead(
   deps: CatalogReadDeps,
 ): ReadDefinition<typeof modelCatalogRead> {
@@ -361,22 +385,7 @@ export function createCatalogRead(
           message: "catalog read actor 아니다",
         });
       }
-      let catalog: CatalogEntry[] | undefined;
-      let state: CatalogState | undefined;
-      try {
-        const catalogText = deps.readDerived(snapshot.sql, "catalog.json");
-        const stateText = deps.readDerived(snapshot.sql, "catalog-state.json");
-        if (catalogText !== null && stateText !== null) {
-          catalog = parseEntries(catalogText);
-          state = parseState(stateText);
-        }
-      } catch {
-        // 읽지 못한 파일은 없는 것과 같이 snapshot으로 답한다.
-      }
-      if (catalog === undefined || state === undefined) {
-        catalog = deps.snapshot.entries;
-        state = initialState(true, deps.snapshot.hash);
-      }
+      const { catalog, state } = catalogBase(deps, snapshot.sql);
       // user 층이 같은 열쇠의 항목을 이긴다. 나머지 항목의 순서는 그대로 둔다(cursor가 위치다).
       const typed = deps.userEntries(snapshot.sql);
       const typedKeys = new Set(

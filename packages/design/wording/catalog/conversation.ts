@@ -25,6 +25,8 @@ export const conversation = {
   "conversation.button.manage-models": "Manage models",
   "conversation.button.model-reset": "Reset",
   "conversation.button.permissions-edit": "Edit in Agents",
+  "conversation.button.off-models":
+    "{count, plural, one {# model off} other {# models off}}",
   "conversation.button.preview-image": "Preview {name}",
   "conversation.button.question-next": "Next",
   "conversation.button.question-submit": "Submit",
@@ -65,6 +67,8 @@ export const conversation = {
     "Couldn't load this conversation. Try again.",
   "conversation.error.load-models": "Couldn't load models. Try again.",
   "conversation.error.message-body": "Couldn't load this message.",
+  "conversation.error.no-model":
+    "Choose a model to send. Open the model menu below.",
   "conversation.error.open-failed":
     "Couldn't start a new conversation. Try again.",
   "conversation.error.refresh-models":
@@ -73,6 +77,28 @@ export const conversation = {
   "conversation.error.too-long":
     "This message is too long to send. Shorten it, or split it into parts.",
   "conversation.error.tool-body-failed": "Couldn't load the input and output.",
+  "conversation.error.turn-active-limit":
+    "The agent reached its working time limit and stopped.",
+  "conversation.error.turn-clock-uncertain":
+    "lophn couldn't trust the system clock, so it stopped.",
+  "conversation.error.turn-configuration-unavailable":
+    "The chosen model or its provider can't be used right now. Check the model below, or Settings → Providers.",
+  "conversation.error.turn-context-limit":
+    "This conversation is too long for the model. Compact it, or start a new one.",
+  "conversation.error.turn-effect-unknown":
+    "lophn couldn't tell whether the last action finished. Check it before trying again.",
+  "conversation.error.turn-model-attempt-limit":
+    "The model failed too many times in a row.",
+  "conversation.error.turn-model-error": "The model returned an error.",
+  "conversation.error.turn-model-required":
+    "No model is chosen yet. Pick one in the model menu below, then try again.",
+  "conversation.error.turn-no-answer":
+    "The agent finished without writing an answer.",
+  "conversation.error.turn-repeated-tool-failure":
+    "The same tool kept failing, so the agent stopped.",
+  "conversation.error.turn-stall-limit": "The agent stopped making progress.",
+  "conversation.error.turn-target-unavailable": "This agent no longer exists.",
+  "conversation.error.turn-tool-error": "A tool failed and the agent stopped.",
   "conversation.label.approval": "Approval",
   "conversation.label.approval-app": "App {id}",
   "conversation.label.approval-allowed": "Allowed",

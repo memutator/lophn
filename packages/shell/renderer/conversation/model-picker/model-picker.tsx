@@ -294,17 +294,21 @@ export function ModelPicker(props: ModelPickerProps): ReactNode {
 
 /**
  * 칸 모양 trigger(고른 model과 provider, vendor 아이콘). 따르는 칸은 따르기 줄의 글을 보인다. 바꾼 칸(`reset`)에는
- * Changed와 [Reset]이 붙고, 지금 model의 층 한 줄이 칸 아래에 있다.
+ * Changed와 [Reset]이 붙고, 지금 model의 층 한 줄이 칸 아래에 있다. 저장하지 못했으면(`error`) option 축 바로 아래에
+ * 빨간 한 줄이 붙는다. 칸 밖에 두면 무엇이 안 됐는지 모른다.
  */
 export function ModelPickerField({
   props,
   label,
   reset,
+  error,
 }: {
   props: ModelPickerProps;
   label: string;
   /** 바꾼 칸이면 값을 되돌리는 길. 따르는 중이거나 되돌릴 위 층이 없으면 없다. */
   reset?: { readonly note?: string; readonly onReset: () => void };
+  /** 고른 값을 저장하지 못한 이유 한 줄. */
+  error?: string;
 }) {
   const provider = providerNameOf(props);
   const vendor = provider === undefined ? undefined : vendorOf(provider);
@@ -348,6 +352,12 @@ export function ModelPickerField({
       {props.axesReady !== false && props.current.modelName !== "" ? (
         <OptionAxes selection={props} onChange={props.onOptionChange} />
       ) : null}
+      {error === undefined ? null : (
+        <p className={styles.fieldError} role="alert" data-model-field-error="">
+          <Icon icon={commonIcons.failed} pixels={iconPixels("base")} />
+          <span>{error}</span>
+        </p>
+      )}
       {reset === undefined ? null : (
         <p className={styles.changedRow}>
           <span className={styles.changed}>

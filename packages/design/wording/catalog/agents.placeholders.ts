@@ -24,6 +24,8 @@ export type AgentsPlaceholders = {
     name: "string";
   };
   "agents.notice.providers-disconnect-failed": Record<never, never>;
+  "agents.error.settings-model-save-failed": Record<never, never>;
+  "agents.error.settings-instructions-failed": Record<never, never>;
   "agents.notice.settings-agents-lead": Record<never, never>;
   "agents.notice.settings-default-model-help": Record<never, never>;
   "agents.notice.settings-lophn-purpose": Record<never, never>;

@@ -1,7 +1,7 @@
 import {
-  hiddenModelsRead,
   modelDefaultRead,
   projectModelRead,
+  shownModelsRead,
   userModelInfoRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { err, ok } from "../../../base/mod.ts";
@@ -12,7 +12,7 @@ import type {
 import {
   GLOBAL_SCOPE,
   loadChoice,
-  loadHidden,
+  loadShown,
   loadUserModels,
 } from "./store.ts";
 import { userEntryOf } from "./user-entry.ts";
@@ -29,7 +29,7 @@ export function createModelReads(deps: {
 }): {
   modelDefault: ReadDefinition<typeof modelDefaultRead>;
   projectModel: ReadDefinition<typeof projectModelRead>;
-  hidden: ReadDefinition<typeof hiddenModelsRead>;
+  shown: ReadDefinition<typeof shownModelsRead>;
   userInfo: ReadDefinition<typeof userModelInfoRead>;
   catalog: ReturnType<typeof createCatalogRead>;
 } {
@@ -57,11 +57,11 @@ export function createModelReads(deps: {
         });
       },
     },
-    hidden: {
-      route: hiddenModelsRead,
+    shown: {
+      route: shownModelsRead,
       handle(snapshot) {
         return ok({
-          hidden: loadHidden(snapshot.sql),
+          shown: loadShown(snapshot.sql),
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });

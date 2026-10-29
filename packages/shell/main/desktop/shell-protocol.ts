@@ -9,6 +9,9 @@ const SHELL_CSP = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self'",
+  // 글자마다 붙는 style 속성(색·크기)은 허용한다. GPU를 못 쓸 때 터미널(xterm DOM renderer)이 truecolor를 이것으로
+  // 칠한다. 막으면 Claude Code 글자가 모두 흰색이 된다. inline <style> 요소는 계속 막는다(style-src-elem은 style-src를 따른다).
+  "style-src-attr 'unsafe-inline'",
   "font-src 'self'",
   // 편집기가 이미지와 pdf(`<embed>`)를 blob URL로 그린다.
   "img-src 'self' data: blob:",

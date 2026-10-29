@@ -1,4 +1,4 @@
-/* 아이콘 색. shell CSP(style-src 'self')는 innerHTML의 style 속성을 막으므로, 색은 data 속성에 두고 여기서 token을 입힌다. */
+/* 아이콘 색. Catppuccin 색은 어두운 바탕용이라 data 속성에 두고 여기서 theme token(light Latte, dark Macchiato)을 입힌다. */
 .icon {
   display: inline-flex;
   flex: none;

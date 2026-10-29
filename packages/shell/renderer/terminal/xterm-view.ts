@@ -371,16 +371,26 @@ export function createXtermView(
       ? adoptInlineStyles(host)
       : () => {};
   term.open(host);
-  // 셀 색(truecolor)은 DOM renderer가 style 속성으로 칠하는데 shell CSP가 그 속성을 막는다. WebGL renderer는
-  // canvas에 그려 속성이 필요 없다. WebGL2가 없거나 context를 잃으면 addon을 버려 DOM renderer로 돌아가고,
-  // 그때는 truecolor 글자가 theme 전경색으로 보인다.
-  const webgl = new parts.WebglAddon();
-  try {
-    term.loadAddon(webgl);
-    webgl.onContextLoss(() => webgl.dispose());
-  } catch {
-    webgl.dispose();
-  }
+  // 셀은 WebGL renderer가 그린다(빠르다). WebGL2가 없거나 context를 잃으면 addon을 버려 DOM renderer로 돌아가고,
+  // 다음 fit·focus 때 다시 붙여 본다. GPU process가 되살아나도 xterm은 스스로 WebGL로 돌아오지 않는다.
+  // DOM renderer도 truecolor를 칠한다(shell CSP의 `style-src-attr`).
+  let webgl: WebglLike | null = null;
+  const attachWebgl = () => {
+    if (webgl !== null) return;
+    const addon = new parts.WebglAddon();
+    try {
+      term.loadAddon(addon);
+    } catch {
+      addon.dispose();
+      return;
+    }
+    webgl = addon;
+    addon.onContextLoss(() => {
+      addon.dispose();
+      if (webgl === addon) webgl = null;
+    });
+  };
+  attachWebgl();
   const unwatch =
     typeof getComputedStyle === "function"
       ? watchTokens(host, retheme)
@@ -399,9 +409,13 @@ export function createXtermView(
       });
     },
     reset: () => term.reset(),
-    focus: () => term.focus(),
+    focus() {
+      attachWebgl();
+      term.focus();
+    },
     fit() {
       retheme();
+      attachWebgl();
       try {
         fitAddon.fit();
       } catch {

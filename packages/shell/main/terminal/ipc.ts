@@ -14,9 +14,13 @@ import {
   terminalInputSchema,
   type TerminalLink,
   terminalLinkSchema,
+  type TerminalAgentSession,
+  terminalAgentSessionsSchema,
+  type TerminalAgentSessionsQuery,
   type TerminalOpen,
   terminalOpenSchema,
   type TerminalReply,
+  type TerminalResume,
   type TerminalResize,
   terminalResizeSchema,
   terminalRestartSchema,
@@ -69,6 +73,11 @@ export type TerminalIpc = {
   link(event: IpcEvent, input: unknown): Promise<IpcResult<null>>;
   /** bridge push를 받은 renderer의 답. browser 탭을 열었을 때만 온다. */
   bridgeAck(event: IpcEvent, input: unknown): Promise<IpcResult<null>>;
+  /** 그 project에서 저장한 coding agent session. 새것부터다. */
+  agentSessions(
+    event: IpcEvent,
+    input: unknown,
+  ): Promise<IpcResult<TerminalAgentSession[]>>;
 };
 
 const runningStub = (ref: string, generation: number): TerminalRuntime => ({
@@ -102,6 +111,10 @@ export function createTerminalIpc(deps: {
   shellInit?: () => string | null;
   /** 터미널 안 coding agent 상태. runtime 답에 agent를 싣고, 사람의 입력·focus를 알린다. */
   agent?: Pick<AgentTracker, "decorate" | "humanInput" | "tabFocused">;
+  /** 저장한 coding agent session. 꺼져 있으면 없다. */
+  agentSessions?: (project: string) => Promise<TerminalAgentSession[]>;
+  /** 저장한 session을 다시 여는 명령 한 줄. resume 규칙이 없는 harness면 null이다. */
+  resumeLine?: (resume: TerminalResume) => string | null;
 }): TerminalIpc {
   const withAgent = (reply: TerminalReply): TerminalReply =>
     deps.agent && reply.ok
@@ -148,6 +161,19 @@ export function createTerminalIpc(deps: {
           }
           if (hooked !== null) {
             deps.hooks?.bind(hooked.key, reply.runtime.terminal_ref);
+          }
+          const line =
+            value.resume === undefined
+              ? null
+              : (deps.resumeLine?.(value.resume) ?? null);
+          if (line !== null) {
+            // main이 치는 글이라 사람 입력용 focus 검사와 humanInput 알림을 거치지 않는다.
+            await deps.host.request({
+              type: "input",
+              terminal_ref: reply.runtime.terminal_ref,
+              generation: reply.runtime.generation,
+              text: `${line}\r`,
+            });
           }
         }
         // 여러 등록 폴더면 시작하지 않고 고를 목록을 돌려준다.
@@ -276,6 +302,19 @@ export function createTerminalIpc(deps: {
       if (!parsed.ok) return Promise.resolve(parsed);
       deps.bridge?.ack(parsed.value.request, parsed.value.opened);
       return Promise.resolve({ ok: true, value: null });
+    },
+    agentSessions: async (event, input) => {
+      const caller = checkCaller(deps.registry, event);
+      if (!caller.ok) return caller;
+      const parsed = checkInput<TerminalAgentSessionsQuery>(
+        terminalAgentSessionsSchema,
+        input,
+      );
+      if (!parsed.ok) return parsed;
+      return {
+        ok: true,
+        value: (await deps.agentSessions?.(parsed.value.project)) ?? [],
+      };
     },
   };
 }

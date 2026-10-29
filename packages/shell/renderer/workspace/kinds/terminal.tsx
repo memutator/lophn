@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
+import type { TerminalResume } from "../../../ipc/terminal.ts";
 import { closeTerminalTab } from "../../terminal/deps.ts";
 import { tabName } from "../../terminal/model.ts";
 import { TerminalTab } from "../../terminal/terminal-tab.tsx";
@@ -19,13 +20,19 @@ const TAB_KEY = /^[A-Za-z0-9._:-]+$/;
 
 let terminalCount = 0;
 
-/** 사람이 누른 터미널 열기. 시작 폴더는 탭 화면이 main에 묻는다. */
-export function openTerminal(host: TabHost): void {
+/**
+ * 사람이 누른 터미널 열기. 시작 폴더는 탭 화면이 main에 묻는다.
+ * 저장한 session을 열 때만 폴더와 resume을 준다.
+ */
+export function openTerminal(
+  host: TabHost,
+  options: { folderRef?: string; resume?: TerminalResume } = {},
+): void {
   const terminal = host.props.terminal;
   if (!terminal) return;
   const key = `terminal-${Date.now().toString(36)}-${++terminalCount}`;
   const title = host.projectTitle ?? t("project-workspace.label.kind-terminal");
-  terminal.store.request(key);
+  terminal.store.request(key, options.folderRef ?? null, options.resume);
   host.openTab({
     key,
     kind: "terminal",

@@ -29,6 +29,7 @@ import type { SidebarAgent } from "./sidebar-agent.ts";
 import {
   type PanelRun,
   type PanelSession,
+  type PanelTerminal,
   useAgentPanel,
 } from "./use-agent-panel.ts";
 import { WorkflowPanel } from "./workflow-panel.tsx";
@@ -87,9 +88,10 @@ interface ProjectSidebarProps {
   project: ProjectView | null;
   /** Explorer가 폴더를 읽는 통로. */
   source: WorkspaceSource;
-  /** Agent 모양의 agent 줄(`useSidebarAgents`)과 session 줄(`useSessions()`에서 옮긴 값). */
+  /** Agent 모양의 agent 줄(`useSidebarAgents`)과 session 줄(`useSessions()`에서 옮긴 값), 터미널 coding agent session. */
   agents: readonly SidebarAgent[];
   sessions: readonly PanelSession[];
+  terminals: readonly PanelTerminal[];
   /** Background(run) 묶음의 줄. 비면 묶음이 없다. */
   runs?: readonly PanelRun[];
   /** Artifacts 탭 본문. 목록은 이 panel이 읽는다. */
@@ -123,6 +125,7 @@ interface ProjectSidebarProps {
   /** Agent 줄 hover의 +. 주지 않으면 `onAgent`와 같다. */
   onNewSession?: (agent: SidebarAgent) => void;
   onSession: (session: PanelSession) => void;
+  onTerminal: (terminal: PanelTerminal) => void;
   onManage: () => void;
   onToggle: () => void;
   onSettings: () => void;
@@ -136,6 +139,7 @@ export function ProjectSidebar({
   source,
   agents,
   sessions,
+  terminals,
   runs,
   artifactPanel = null,
   onOpenDomainDoc,
@@ -154,6 +158,7 @@ export function ProjectSidebar({
   onAgent,
   onNewSession,
   onSession,
+  onTerminal,
   onManage,
   onToggle,
   onSettings,
@@ -172,7 +177,7 @@ export function ProjectSidebar({
     setTab("explorer");
     setFocusAsked(hasFolders);
   }, [focusExplorer]);
-  const panel = useAgentPanel(agents, sessions, runs);
+  const panel = useAgentPanel(agents, sessions, terminals, runs);
   const collapsed = mode === "collapsed";
   // 접혀 있거나 열린 항목을 다시 누르면 접힘 상태가 바뀐다. 다른 항목이면 panel만 바뀐다.
   const select = (key: SidebarTab) => {
@@ -230,6 +235,7 @@ export function ProjectSidebar({
                 onAgent={onAgent}
                 onNewSession={onNewSession}
                 onSession={onSession}
+                onTerminal={onTerminal}
                 onManage={onManage}
               />
             ) : null}

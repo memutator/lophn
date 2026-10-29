@@ -46,6 +46,7 @@ import type { SidebarAgent } from "../../../../packages/shell/renderer/workspace
 import type {
   PanelRun,
   PanelSession,
+  PanelTerminal,
 } from "../../../../packages/shell/renderer/workspace/sidebar/use-agent-panel.ts";
 import {
   AGENT_ROWS,
@@ -231,14 +232,8 @@ const AGENTS: readonly SidebarAgent[] = AGENT_ROWS.map((row) => ({
   waiting: false,
 }));
 
-// 열린 탭이 있는 session. 나머지는 Recent에만 오른다.
-const OPEN = new Set([
-  "weekly",
-  "harness",
-  "failing",
-  "week41",
-  "next-experiments",
-]);
+// 열린 탭이 있는 session(Current). 나머지는 Recent에만 오른다.
+const OPEN = new Set(["weekly", "harness"]);
 
 const MINUTE = 60_000;
 const NOW = Date.now();
@@ -266,12 +261,73 @@ const PANEL_SESSIONS: readonly PanelSession[] = SESSIONS.flatMap((row) => {
       id: row.id,
       title: row.title,
       agent,
-      status: row.state,
+      dot: row.state === "idle" ? null : row.state,
       open: OPEN.has(row.id),
       at: whenMs(row.when),
     },
   ];
 });
+
+// 터미널 coding agent session. live는 이 창의 탭에서 도는 것(Current), saved는 main이 저장만 해 둔 것(Recent)이다.
+const terminalOf = (
+  key: string,
+  harness: string,
+  label: string,
+  title: string,
+  when: string,
+  dot: PanelTerminal["dot"],
+  live: boolean,
+): PanelTerminal => ({
+  key,
+  harness,
+  label,
+  title,
+  dot,
+  at: whenMs(when),
+  live: live ? { tabKey: key } : null,
+  saved: live
+    ? null
+    : { folderRef: "fld_gallery", externalSession: key, resumable: true },
+});
+
+const PANEL_TERMINALS: readonly PanelTerminal[] = [
+  terminalOf(
+    "terminal-claude",
+    "claude",
+    "Claude Code",
+    "Fix flaky retry in the scenario runner",
+    "1 min ago",
+    "working",
+    true,
+  ),
+  terminalOf(
+    "terminal-codex",
+    "codex",
+    "Codex",
+    "Split the eval board loader",
+    "8 min ago",
+    "finished",
+    true,
+  ),
+  terminalOf(
+    "ses_opencode",
+    "opencode",
+    "OpenCode",
+    "Add a dry-run flag to the export script",
+    "30 min ago",
+    null,
+    false,
+  ),
+  terminalOf(
+    "ses_grok",
+    "grok",
+    "Grok",
+    "Why does the rubric loader skip yaml files",
+    "45 min ago",
+    null,
+    false,
+  ),
+];
 
 const panelSessionOf = (
   row: SessionRow,
@@ -284,7 +340,7 @@ const panelSessionOf = (
         id: row.id,
         title: row.title,
         agent,
-        status: row.state,
+        dot: row.state === "idle" ? null : row.state,
         open,
         at: whenMs(row.when),
       };
@@ -593,6 +649,7 @@ export function PageSidebar(props: SidebarProps) {
           onOpenJobs={() => {}}
           agents={AGENTS}
           sessions={PANEL_SESSIONS}
+          terminals={PANEL_TERMINALS}
           {...(props.runs === true ? { runs: PANEL_RUNS } : {})}
           current={props.current === undefined ? null : absolute(props.current)}
           initialTab={props.mode}
@@ -613,6 +670,7 @@ export function PageSidebar(props: SidebarProps) {
             );
             if (row) props.onSession?.(row);
           }}
+          onTerminal={() => {}}
           onManage={props.onManage}
           onToggle={props.onToggle}
           onSettings={() => {}}

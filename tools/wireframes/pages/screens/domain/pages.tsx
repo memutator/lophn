@@ -44,6 +44,7 @@ export function ProjectDomainsEmpty() {
         source={source}
         agents={[]}
         sessions={[]}
+        terminals={[]}
         initialTab="domain"
         onOpenFile={noop}
         onMove={(from, to) => source.rename(from, to)}
@@ -51,6 +52,7 @@ export function ProjectDomainsEmpty() {
         onRail={noop}
         onAgent={noop}
         onSession={noop}
+        onTerminal={noop}
         onManage={noop}
         onToggle={noop}
         onSettings={noop}

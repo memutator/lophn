@@ -49,29 +49,31 @@ export type KnownSessions = ReadonlyMap<
   { readonly title: string | null; readonly at: number }
 >;
 
+/**
+ * sidebar의 lophn session 줄. `tabs`는 이 창에 열린 Agent 탭의 session id → 그 탭의 제목이다. 탭이 열린 session은
+ * Current, 닫은 session은 Recent다. 제목은 탭 제목을 먼저 쓴다(탭 줄과 sidebar가 같은 이름을 보인다).
+ */
 export function panelSessions(
   entries: readonly SessionEntry[],
   agents: readonly SidebarAgent[],
   project: string,
   known: KnownSessions = new Map(),
+  tabs: ReadonlyMap<string, string> = new Map(),
 ): PanelSession[] {
   return entries.flatMap((entry) => {
     const row = agentRow(entry, agents, project);
     if (row === undefined) return [];
     // session store는 제목과 시각을 싣지 않는다. 대화 source가 읽어 준 것이 있으면 그것을 쓴다.
     const read = known.get(entry.session);
+    const tabTitle = tabs.get(entry.session);
     return [
       {
         id: entry.session,
-        title: read?.title ?? t("conversation.label.session-untitled"),
+        title:
+          tabTitle ?? read?.title ?? t("conversation.label.session-untitled"),
         agent: row.assignment,
-        status:
-          entry.state === "waiting"
-            ? "waiting"
-            : entry.state === "running"
-              ? "working"
-              : "idle",
-        open: entry.ended === null,
+        dot: sessionDot(entries, entry.session),
+        open: tabTitle !== undefined,
         at: read?.at ?? 0,
       },
     ];

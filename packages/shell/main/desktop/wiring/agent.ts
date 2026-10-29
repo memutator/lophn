@@ -6,6 +6,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { basename } from "node:path";
 
 import {
+  TERMINAL_AGENT_SESSIONS_CHANGED_CHANNEL,
+  type TerminalAgentSession,
   TERMINAL_STATE_CHANNEL,
   type TerminalRuntime,
 } from "../../../ipc/terminal.ts";
@@ -20,6 +22,7 @@ import {
   TERMINAL_HOOK_LINE_MAX_BYTES,
   terminalHookLineSchema,
 } from "../../../../protocol/coding-agent/terminal-hook.ts";
+import { createAgentSessionStore } from "../../terminal/agent/session-store.ts";
 import {
   createHookIngress,
   type TerminalHooks,
@@ -50,6 +53,8 @@ export function createAgentWiring(options: {
   shellInit(): string | null;
   /** 창 모두에 runtime을 push한다. */
   publish(runtime: TerminalRuntime): void;
+  /** 그 project에서 저장한 coding agent session. 새것부터다. */
+  listSessions(project: string): Promise<TerminalAgentSession[]>;
   stop(): void;
 } {
   const { ctx, notice, terminals } = options;
@@ -81,6 +86,14 @@ export function createAgentWiring(options: {
     });
   }
 
+  const sessions = createAgentSessionStore({
+    dataRoot: ctx.dataRoot,
+    now: () => Date.now(),
+    resumable: (harness) =>
+      harness in HARNESS_ADAPTERS &&
+      HARNESS_ADAPTERS[harness as HarnessId].session.resume !== null,
+  });
+
   const tracker = createAgentTracker({
     harnessOfProcess,
     interruptKeys: (harness) =>
@@ -93,6 +106,32 @@ export function createAgentWiring(options: {
     looking: (ref) => notice.looking({ kind: "terminal", terminal_ref: ref }),
     notify,
     identified: options.identified,
+    sessionSeen(info) {
+      const runtime = terminals
+        .runtimes()
+        .find((item) => item.terminal_ref === info.terminal_ref);
+      if (runtime === undefined) return;
+      void sessions
+        .note({
+          project: runtime.project,
+          folder_ref: runtime.folder_ref,
+          cwd: runtime.cwd_at_start,
+          harness: info.harness,
+          external_session: info.session,
+          title: info.title,
+        })
+        .then((list) => {
+          for (const window of ctx.windows) {
+            if (!window.isDestroyed()) {
+              window.webContents.send(TERMINAL_AGENT_SESSIONS_CHANGED_CHANNEL, {
+                project: runtime.project,
+                sessions: list,
+              });
+            }
+          }
+        })
+        .catch((cause) => ctx.log(`agent session not saved: ${String(cause)}`));
+    },
   });
 
   terminals.on({
@@ -177,6 +216,7 @@ export function createAgentWiring(options: {
     tracker,
     shellInit: () => (live && !stopped ? shellInit : null),
     publish,
+    listSessions: (project) => sessions.list(project),
     stop() {
       stopped = true;
       void server.then((started) => started?.stop()).catch(() => {});

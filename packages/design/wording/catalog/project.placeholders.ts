@@ -174,6 +174,7 @@ export type ProjectPlaceholders = {
   "project-workspace.error.files-failed": Record<never, never>;
   "project-workspace.error.load-failed": Record<never, never>;
   "project-workspace.heading.agents": Record<never, never>;
+  "project-workspace.heading.current": Record<never, never>;
   "project-workspace.label.activity-bar": Record<never, never>;
   "project-workspace.label.agent-waiting": Record<never, never>;
   "project-workspace.label.choose-app": Record<never, never>;

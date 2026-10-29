@@ -16,6 +16,10 @@ export type AgentSignal = {
   /** TurnEnded가 payload로 받은 마지막 답이나 오류 글. */
   message?: string;
   request?: { tool: string | null; summary: string | null };
+  /** hook이 알려 준 harness의 session id. */
+  external_session?: string;
+  /** TurnStarted가 payload로 받은 prompt 한 줄. */
+  prompt?: string;
 };
 
 export type AgentNotice = {
@@ -45,6 +49,13 @@ export type AgentTrackerDeps = {
   notify(notice: AgentNotice): boolean;
   /** 사람 터미널에서 foreground로 harness를 처음 알아봤다. 설치를 물을 때다. */
   identified?(harness: string, terminalRef: string): void;
+  /** session id를 아는 터미널에서 hook이 왔다. 저장은 부르는 쪽이 정한다. */
+  sessionSeen?(info: {
+    terminal_ref: string;
+    harness: string;
+    session: string;
+    title: string | null;
+  }): void;
 };
 
 type Entry = {
@@ -58,6 +69,12 @@ type Entry = {
   fixed: boolean;
   /** 이 harness의 hook을 한 번이라도 들었다. 아니면 상태는 unknown이다. */
   heard: boolean;
+  /** 이 harness의 hook을 한 번이라도 들었다. 끊어서 heard가 내려가도 남는다. */
+  hooked: boolean;
+  /** hook이 알려 준 harness의 session id. */
+  session: string | null;
+  /** 그 session의 첫 prompt 한 줄. */
+  title: string | null;
   running: boolean;
   /** 대기 중인 권한 물음 수. */
   waiting: number;
@@ -71,11 +88,22 @@ const fresh = (
   fixed: boolean,
 ): Pick<
   Entry,
-  "harness" | "fixed" | "heard" | "running" | "waiting" | "unseen"
+  | "harness"
+  | "fixed"
+  | "heard"
+  | "hooked"
+  | "session"
+  | "title"
+  | "running"
+  | "waiting"
+  | "unseen"
 > => ({
   harness,
   fixed,
   heard: false,
+  hooked: false,
+  session: null,
+  title: null,
   running: false,
   waiting: 0,
   unseen: false,
@@ -91,7 +119,14 @@ function agentOf(entry: Entry): TerminalAgent | undefined {
         : entry.running
           ? "running"
           : "idle";
-  return { harness: entry.harness, state, unseen: entry.unseen };
+  return {
+    harness: entry.harness,
+    state,
+    unseen: entry.unseen,
+    hooked: entry.hooked,
+    ...(entry.session === null ? {} : { session: entry.session }),
+    ...(entry.title === null ? {} : { title: entry.title }),
+  };
 }
 
 export type AgentTracker = {
@@ -201,8 +236,20 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
         Object.assign(entry, fresh(harness, false));
       }
       entry.heard = true;
+      entry.hooked = true;
+      // /clear나 resume은 같은 터미널에서 session을 바꾼다. 새 session의 제목은 새 prompt에서 다시 받는다.
+      if (
+        signal.external_session !== undefined &&
+        signal.external_session !== entry.session
+      ) {
+        entry.session = signal.external_session;
+        entry.title = null;
+      }
       switch (signal.type) {
         case "TurnStarted":
+          if (entry.title === null && signal.prompt !== undefined) {
+            entry.title = signal.prompt;
+          }
           entry.running = true;
           entry.unseen = false;
           break;
@@ -236,10 +283,16 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
           entry.waiting = 0;
           entry.heard = false;
           break;
-        case "SessionStarted":
-          break;
       }
       push(ref, entry);
+      if (entry.session !== null) {
+        deps.sessionSeen?.({
+          terminal_ref: ref,
+          harness,
+          session: entry.session,
+          title: entry.title,
+        });
+      }
     },
     humanInput(ref, text) {
       const entry = entries.get(ref);

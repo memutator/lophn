@@ -37,7 +37,7 @@ import {
   postinstScript,
   SANDBOX_MODE,
 } from "../packages/base/install/linux-install.ts";
-import { HOOK_STDOUT } from "../packages/protocol/coding-agent/mod.ts";
+import { hookStdoutRows } from "../packages/protocol/coding-agent/mod.ts";
 
 const repo = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const shellMain = `${repo}/packages/shell/main`;
@@ -165,7 +165,7 @@ async function stageSystem(pkg: string): Promise<void> {
   await symlink(DESKTOP_LAUNCHER_TARGET, `${pkg}${LINUX_LAUNCHERS.desktop}`);
   await write(
     `${pkg}${LINUX_LAUNCHERS.cli}`,
-    cliLauncher(layout, HOOK_STDOUT),
+    cliLauncher(layout, hookStdoutRows()),
     0o755,
   );
   await write(

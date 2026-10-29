@@ -1,6 +1,8 @@
 // shell renderer가 쓰는 터미널 통로. 채널 이름과 Electron event는 closure 안에만 있다.
 // 출력은 renderer가 snapshot으로 당겨 읽는다. 터미널 출력을 다른 곳으로 보내지 않는다.
 import {
+  TERMINAL_AGENT_SESSIONS_CHANGED_CHANNEL,
+  TERMINAL_AGENT_SESSIONS_CHANNEL,
   TERMINAL_BRIDGE_ACK_CHANNEL,
   TERMINAL_BRIDGE_OPEN_CHANNEL,
   TERMINAL_CLOSE_CHANNEL,
@@ -13,6 +15,7 @@ import {
   TERMINAL_REVEAL_CHANNEL,
   TERMINAL_SNAPSHOT_CHANNEL,
   TERMINAL_STATE_CHANNEL,
+  type TerminalAgentSessionsChanged,
   type TerminalApi,
   type TerminalBridgeOpen,
   type TerminalCall,
@@ -67,6 +70,14 @@ function isReveal(value: unknown): value is TerminalReveal {
   );
 }
 
+function isAgentSessionsChanged(
+  value: unknown,
+): value is TerminalAgentSessionsChanged {
+  if (typeof value !== "object" || value === null) return false;
+  const change = value as { project?: unknown; sessions?: unknown };
+  return typeof change.project === "string" && Array.isArray(change.sessions);
+}
+
 export function createTerminalApi(transport: TerminalTransport): TerminalApi {
   async function invoke<T>(
     channel: string,
@@ -109,6 +120,18 @@ export function createTerminalApi(transport: TerminalTransport): TerminalApi {
       };
       transport.on(TERMINAL_STATE_CHANNEL, callback);
       return () => transport.removeListener(TERMINAL_STATE_CHANNEL, callback);
+    },
+    agentSessions: (input) => invoke(TERMINAL_AGENT_SESSIONS_CHANNEL, input),
+    onAgentSessions(listener) {
+      const callback = (_event: unknown, payload: unknown) => {
+        if (isAgentSessionsChanged(payload)) listener(payload);
+      };
+      transport.on(TERMINAL_AGENT_SESSIONS_CHANGED_CHANNEL, callback);
+      return () =>
+        transport.removeListener(
+          TERMINAL_AGENT_SESSIONS_CHANGED_CHANNEL,
+          callback,
+        );
     },
   } satisfies TerminalApi);
 }

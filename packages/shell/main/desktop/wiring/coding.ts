@@ -27,7 +27,6 @@ import {
 import {
   canDeliverMessages,
   HARNESS_ADAPTERS,
-  HARNESS_HOOKS,
   harnessDetectionSchema,
 } from "../../../../protocol/coding-agent/mod.ts";
 import { createAgentWiring } from "./agent.ts";
@@ -177,8 +176,8 @@ export function register(ctx: ShellContext): Coding {
           }),
     hookCommand: app.isPackaged ? undefined : (lophnCli ?? undefined),
     hasHook: (harness) =>
-      harness in HARNESS_HOOKS &&
-      HARNESS_HOOKS[harness as keyof typeof HARNESS_HOOKS] !== null,
+      harness in HARNESS_ADAPTERS &&
+      HARNESS_ADAPTERS[harness as keyof typeof HARNESS_ADAPTERS].hook !== null,
     register,
   });
   const bridgeWiring = createBridgeWiring(ctx);
@@ -212,6 +211,19 @@ export function register(ctx: ShellContext): Coding {
     hooks: agent.hooks,
     shellInit: agent.shellInit,
     agent: agent.tracker,
+    agentSessions: agent.listSessions,
+    resumeLine: (resume) => {
+      if (!(resume.harness in HARNESS_ADAPTERS)) return null;
+      const adapter =
+        HARNESS_ADAPTERS[resume.harness as keyof typeof HARNESS_ADAPTERS];
+      if (adapter.session.resume === null) return null;
+      return [
+        adapter.commands[0],
+        ...adapter.session.resume.map((arg) =>
+          arg.replace("{id}", resume.external_session),
+        ),
+      ].join(" ");
+    },
   });
   registerTerminalIpc(ipc, terminalIpc);
   // Settings › Coding agents의 감지. desktop 창 본문만 부른다.

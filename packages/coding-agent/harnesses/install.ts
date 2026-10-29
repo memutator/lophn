@@ -1,15 +1,13 @@
 // 사용자 전역(home 기준)에 hook 설정을 놓고, lophn이 전에 놓은 얇은 skill 사본 가운데 지운 skill의 것만 지운다.
 // hook은 harness마다 한 번이다. plugin 파일은 우리 파일이라 내용이 다르면 덮는다. 설정 file은 사람이
 // 쓴 다른 key·다른 hook을 보존하고 우리 항목(command가 `lophn hook <harness> `나 개발 경로의 `<절대 경로> hook <harness> `로 시작)만 바꾼다.
-// 놓을 hook 위치와 꼴은 `HARNESS_HOOKS`, 듣는 event는 `HOOK_EVENT_TABLE`의 key다.
+// 놓을 hook 위치와 꼴은 `HARNESS_ADAPTERS[id].hook`, 듣는 event는 `events`의 key다.
 import { parse as parseToml } from "smol-toml";
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
   HARNESS_ADAPTERS,
-  HARNESS_HOOKS,
   type HarnessHook,
   type HarnessId,
-  HOOK_EVENT_TABLE,
   TERMINAL_HOOK_ENV,
 } from "../../protocol/coding-agent/mod.ts";
 import { codexHookHash, codexHookKey } from "./codex-trust.ts";
@@ -99,7 +97,7 @@ async function codexTrustOf(
   const hooks = (JSON.parse(hooksText) as Json).hooks;
   if (!isObject(hooks)) return [];
   const trusts: Trust[] = [];
-  for (const event of Object.keys(HOOK_EVENT_TABLE.codex)) {
+  for (const event of Object.keys(HARNESS_ADAPTERS.codex.events)) {
     const groups = Array.isArray(hooks[event])
       ? (hooks[event] as unknown[])
       : [];
@@ -273,7 +271,7 @@ async function installHook(
   spec: HarnessHook,
 ): Promise<HookStep> {
   const { harness, home, dryRun } = input;
-  const events = Object.keys(HOOK_EVENT_TABLE[harness]);
+  const events = Object.keys(HARNESS_ADAPTERS[harness].events);
   const at = (path: string) => `${home}/${path}`;
   // 넘긴 command(개발 경로)가 없으면 놓을 때는 PATH의 `lophn`이고, dry_run은 놓인 command를 그대로 쓴다(command만 다른 것은
   // 놓을 것으로 보지 않는다).
@@ -495,7 +493,7 @@ export async function installGlobal(
             adapter.skill_dir,
             input.dryRun,
           );
-    const spec = HARNESS_HOOKS[input.harness];
+    const spec = HARNESS_ADAPTERS[input.harness].hook;
     const hook: HookStep =
       spec === null ? none : await installHook(ports, { ...input, home }, spec);
     if (hook.conflict !== undefined) {

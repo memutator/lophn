@@ -75,5 +75,7 @@ export function fakeTerminal(project: string): TerminalApi {
     ackBridgeOpen: () => ok(null),
     onBridgeOpen: () => () => {},
     onReveal: () => () => {},
+    agentSessions: () => ok([]),
+    onAgentSessions: () => () => {},
   };
 }

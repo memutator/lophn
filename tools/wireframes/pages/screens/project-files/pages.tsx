@@ -35,7 +35,7 @@ function solo(tab: TabSpec, extra: Partial<ProjectAppProps> = {}) {
   );
 }
 
-/** sidebar · Agent. agent마다 그 agent의 열린 session이 아래에 들여 쓰여 있고 맨 아래에 Recent가 있다. 묶음 머리의 Manage는 Agents 탭을 연다. */
+/** sidebar · Agent. Agents(lophn agent만), Current(열린 lophn session과 터미널 coding agent session), Recent(끝난 lophn session과 저장한 터미널 session) 순이다. 묶음 머리의 Manage는 Agents 탭을 연다. */
 export function AgentsGroup() {
   const tab = documentTab(EXP);
   return (

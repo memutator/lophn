@@ -71,6 +71,7 @@ import type { TabAwareResult } from "./sidebar/explorer.tsx";
 import { ArtifactPanel } from "./sidebar/artifact-panel.tsx";
 import type { JobsSource } from "../desktop/settings/jobs/source.ts";
 import { ProjectSidebar } from "./sidebar/project-sidebar.tsx";
+import { usePanelTerminals } from "./sidebar/use-panel-terminals.ts";
 import type { RailAction } from "./sidebar/activity-bar.tsx";
 import {
   type KnownSessions,
@@ -90,7 +91,7 @@ import type {
 } from "./source.ts";
 import type { RunRecordView } from "./sidebar/run-list.tsx";
 import { desksFromStored, toStoredLayout } from "./layout-map.ts";
-import { agentOf } from "./agent/tab-fields.ts";
+import { agentOf, sessionOf } from "./agent/tab-fields.ts";
 import {
   PaletteButton,
   useMainCommand,
@@ -1338,14 +1339,36 @@ export function Workspace(props: WorkspaceProps) {
 
   const currentTab = focused?.tabs.find((tab) => tab.key === focused.selected);
 
+  // sidebar의 Current는 이 창에 열린 탭이고 이름과 점은 탭 줄과 같다. 다른 자리·떼어 낸 창의 탭도 이 창의 것이다.
+  const windowTabs = allDeskTabs(desks);
+  const agentTabTitles = new Map(
+    windowTabs.flatMap((tab) => {
+      if (tab.kind !== "agent") return [];
+      const session = sessionOf(tab);
+      return session === null ? [] : [[session, tab.title] as const];
+    }),
+  );
+  const terminalTabs = windowTabs.flatMap((tab) =>
+    tab.kind === "terminal"
+      ? [
+          {
+            key: tab.key,
+            title: tab.title,
+            dot: tabKindOf(tab.kind)?.dotOf?.(tab, host) ?? null,
+          },
+        ]
+      : [],
+  );
   // run이 연 session은 sidebar의 session 목록에서 빼 그 run 아래에 둔다.
   const allSessions = panelSessions(
     sessionStates,
     sidebarAgents.agents,
     projectId,
     knownSessions,
+    agentTabTitles,
   );
   const runOpened = runOpenedSessions(runRecords);
+  const panelTerminals = usePanelTerminals(terminal, projectId, terminalTabs);
 
   return (
     <ViewCoversProvider value={covers}>
@@ -1437,6 +1460,7 @@ export function Workspace(props: WorkspaceProps) {
                   sessions={allSessions.filter(
                     (item) => !runOpened.has(item.id),
                   )}
+                  terminals={panelTerminals}
                   runs={panelRuns(
                     runRecords,
                     sidebarAgents.agents,
@@ -1483,6 +1507,23 @@ export function Workspace(props: WorkspaceProps) {
                         agent: row.assignment,
                         name: row.name,
                         session: session.id,
+                      });
+                    }
+                  }}
+                  onTerminal={(item) => {
+                    if (item.live !== null) {
+                      terminal?.store.select(item.live.tabKey);
+                    } else if (item.saved !== null) {
+                      openTerminalTab(host, {
+                        folderRef: item.saved.folderRef,
+                        ...(item.saved.resumable
+                          ? {
+                              resume: {
+                                harness: item.harness,
+                                external_session: item.saved.externalSession,
+                              },
+                            }
+                          : {}),
                       });
                     }
                   }}

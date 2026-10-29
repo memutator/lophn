@@ -126,3 +126,36 @@ test("a hook from another harness does not flip a tab the process identified, an
   unknown.hook("t", "claude", "Start", {});
   assert.deepEqual(adopted, ["claude:running"]);
 });
+
+test("TurnStarted가 다른 session id를 싣고 오면 session을 바꾸고 제목을 새 prompt로 다시 받는다", () => {
+  const seen: { session: string | null; title: string | null }[] = [];
+  const runtime = { terminal_ref: "t", state: "running" } as TerminalRuntime;
+  const tracker = createAgentTracker({
+    harnessOfProcess: () => null,
+    interruptKeys: () => ["escape", "ctrl-c"],
+    signalOf: (_harness, _event, payload) => {
+      const { session, prompt } = payload as {
+        session: string;
+        prompt: string;
+      };
+      return { type: "TurnStarted", external_session: session, prompt };
+    },
+    runtimeOf: () => runtime,
+    publish: (rt) =>
+      seen.push({
+        session: rt.agent?.session ?? null,
+        title: rt.agent?.title ?? null,
+      }),
+    looking: () => true,
+    notify: () => false,
+  });
+  tracker.hook("t", "claude", "UserPromptSubmit", {
+    session: "a",
+    prompt: "one",
+  });
+  tracker.hook("t", "claude", "UserPromptSubmit", {
+    session: "b",
+    prompt: "two",
+  });
+  assert.deepEqual(seen.at(-1), { session: "b", title: "two" });
+});

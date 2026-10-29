@@ -6,6 +6,7 @@
 import type {
   TerminalAgent,
   TerminalApi,
+  TerminalResume,
   TerminalRuntime,
 } from "../../ipc/terminal.ts";
 import type { Phase } from "./model.ts";
@@ -17,6 +18,8 @@ export interface TerminalEntry {
   readonly terminalRef: string | null;
   readonly generation: number;
   readonly phase: Phase;
+  /** 처음 여는 한 번만 main이 shell 뒤에 resume 명령을 친다. 저장하지 않고, 열 때 비운다. */
+  readonly resume?: TerminalResume;
 }
 
 const STORAGE_KEY = "lophn.terminal.tabs";
@@ -102,7 +105,10 @@ export class TerminalStore {
     if (
       before?.harness === next?.harness &&
       before?.state === next?.state &&
-      before?.unseen === next?.unseen
+      before?.unseen === next?.unseen &&
+      before?.hooked === next?.hooked &&
+      before?.session === next?.session &&
+      before?.title === next?.title
     )
       return;
     if (next === undefined) this.#agents.delete(runtime.terminal_ref);
@@ -115,19 +121,29 @@ export class TerminalStore {
   reveal(terminalRef: string): void {
     for (const [key, entry] of this.#entries) {
       if (entry.terminalRef !== terminalRef) continue;
-      for (const select of this.#selectors) select(key);
+      this.select(key);
       return;
     }
   }
 
+  /** 작업대가 그 탭을 고르게 한다. sidebar의 터미널 session 줄이 쓴다. */
+  select(key: string): void {
+    for (const select of this.#selectors) select(key);
+  }
+
   /** 사람이 터미널 열기를 눌렀다. 탭 화면이 그려지면 시작한다. */
-  request(key: string, folderRef: string | null = null): void {
+  request(
+    key: string,
+    folderRef: string | null = null,
+    resume?: TerminalResume,
+  ): void {
     this.#entries.set(key, {
       requested: true,
       folderRef,
       terminalRef: null,
       generation: 0,
       phase: { kind: "opening" },
+      ...(resume === undefined ? {} : { resume }),
     });
     this.#changed();
   }

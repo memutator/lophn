@@ -4,7 +4,6 @@
 import {
   HARNESS_ADAPTERS,
   type HarnessId,
-  HOOK_EVENT_TABLE,
   TERMINAL_HOOK_ENV,
 } from "../../protocol/coding-agent/mod.ts";
 
@@ -93,10 +92,10 @@ ${answerSource()}
 `;
 }
 
-// pi extension이다. 듣는 event는 `HOOK_EVENT_TABLE.pi`다. 조사로 확인하지 못한 API가 있다(host가
+// pi extension이다. 듣는 event는 `HARNESS_ADAPTERS.pi.events`다. 조사로 확인하지 못한 API가 있다(host가
 // 아직 검증하지 않았다): `ctx.sessionManager.getSessionId()`, `agent_settled`의 `aborted`.
 function piExtension(command: string): string {
-  const events = Object.keys(HOOK_EVENT_TABLE.pi);
+  const events = Object.keys(HARNESS_ADAPTERS.pi.events);
   return `${head("pi", command)}
 ${ROLE_ANSWER}
 
@@ -224,7 +223,7 @@ export default function (amp: any) {
 }
 
 // OpenCode 계열(opencode, kilo, mimocode) plugin이다. 셋은 같은 plugin API라 본문이 같고 harness 이름만 다르다. 듣는 event는
-// 그 harness의 `HOOK_EVENT_TABLE`(1.x event 이름)이다.
+// 그 harness의 `events`(1.x event 이름)이다.
 //  - turn의 시작·끝(`session.status`)은 root session의 것만 넘긴다. 하위 session은 session 조회의 parentID로 가른다.
 //    조회가 실패하면 root가 아닌 것으로 보고 넘기지 않는다(하위 session의 idle이 turn 끝으로 잘못 읽히는 쪽이 더 나쁘다).
 //  - 권한·질문(\`permission.*\`, \`question.*\`)은 하위 session의 것도 root session의 것으로 바꿔 넘긴다. 사람이 답해야 하는 것은
@@ -237,7 +236,7 @@ export default function (amp: any) {
 // \`{type, data}\`다). 1.x는 default의 \`server\`나 named export 함수를 읽으며 둘이 같은 함수여야 두 번 불리지 않는다.
 // 2.x event를 1.x 이름과 모양으로 바꾸는 곳은 이 plugin 한 곳이다.
 function opencodePlugin(harness: HarnessId, command: string): string {
-  const events = Object.keys(HOOK_EVENT_TABLE[harness]);
+  const events = Object.keys(HARNESS_ADAPTERS[harness].events);
   return `${head(harness, command)}
 const EVENTS = new Set(${JSON.stringify(events)});
 // session id → root session id. 조회가 실패하면 null이다.

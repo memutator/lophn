@@ -190,15 +190,20 @@ export function TerminalTab({
         return;
       }
       opening.add(tabKey);
+      // 다시 열기 명령은 처음 한 번만 보낸다. 다시 시작이 같은 명령을 또 치지 않게 비운다.
+      const resume = store.get(tabKey)?.resume;
       store.update(tabKey, {
         requested: true,
         folderRef: folder,
         phase: { kind: "opening" },
+        resume: undefined,
       });
       try {
-        const reply = await bridge.open(
-          folder === null ? { project } : { project, folder_ref: folder },
-        );
+        const reply = await bridge.open({
+          project,
+          ...(folder === null ? {} : { folder_ref: folder }),
+          ...(resume === undefined ? {} : { resume }),
+        });
         if (!reply.ok) {
           store.update(tabKey, {
             phase: { kind: "refused", reason: "unavailable" },

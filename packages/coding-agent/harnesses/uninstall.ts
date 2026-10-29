@@ -3,11 +3,10 @@
 // 고칠 file을 모두 계산한 뒤 하나라도 못 만들면 아무것도 쓰지 않고 `failed`다.
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
-  HARNESS_HOOKS,
+  HARNESS_ADAPTERS,
   type HARNESS_UNINSTALL_OUTCOMES,
   type HarnessHook,
   type HarnessId,
-  HOOK_EVENT_TABLE,
   TERMINAL_HOOK_ENV,
 } from "../../protocol/coding-agent/mod.ts";
 import { hermesHooksWithout, kimiHooksWithout } from "./block-hooks.ts";
@@ -293,7 +292,7 @@ async function uninstallHook(
       const dir = at(spec.path);
       const step = await changeFiles(
         ports,
-        Object.keys(HOOK_EVENT_TABLE[harness]).map((event) => ({
+        Object.keys(HARNESS_ADAPTERS[harness].events).map((event) => ({
           path: `${dir}/${event}`,
           // 사람이 같은 이름으로 쓴 script는 남긴다.
           make: (text: string) => (CLINE_OWNED.test(text) ? REMOVE : text),
@@ -316,7 +315,7 @@ export async function uninstallGlobal(
   ports: InstallPorts,
   input: { harness: HarnessId; home: string },
 ): Promise<Result<{ hook: UninstallOutcome; files: string[] }, LophnError>> {
-  const spec = HARNESS_HOOKS[input.harness];
+  const spec = HARNESS_ADAPTERS[input.harness].hook;
   if (spec === null) return ok({ hook: "not_supported", files: [] });
   try {
     const step = await uninstallHook(

@@ -96,7 +96,7 @@ export function devCliLauncher(
   return cliScript(devLauncherHead(paths), hookStdout);
 }
 
-// hook이 stdout에 써야 하는 글이다(`harness-hooks.ts`의 `HOOK_STDOUT`). event `*`는 그 harness의 나머지 전부다.
+// hook이 stdout에 써야 하는 글이다(`HARNESS_ADAPTERS[id].stdout`). event `*`는 그 harness의 나머지 전부다.
 type HookStdoutRow = { harness: string; event: string; stdout: string };
 
 // env 없이 일찍 끝나는 hook도 `lophn hook`과 같은 stdout을 내도록 같은 표로 `case`를 만든다. 정확한 event가 `*`보다 먼저다.
@@ -114,7 +114,7 @@ function cliScript(head: string, hookStdout: readonly HookStdoutRow[]): string {
   return [
     head,
     "# 전역 hook은 lophn과 상관없는 harness 실행마다 불린다. 터미널 hook env가 없으면 CLI를 띄우지 않고 끝낸다.",
-    "# harness가 stdout을 요구하는 hook(`HOOK_STDOUT`)은 같은 글만 쓰고 끝낸다.",
+    "# harness가 stdout을 요구하는 hook(`stdout`)은 같은 글만 쓰고 끝낸다.",
     'if [ "${1:-}" = hook ] && [ -z "${LPN_TERMINAL_HOOK:-}" ]; then',
     '  case "${2:-}:${3:-}" in',
     ...hookStdoutCase(hookStdout),

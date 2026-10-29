@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { HarnessId } from "./harness-id.ts";
+import { HARNESS_ADAPTERS } from "./harness-adapter.ts";
+import { HARNESS_IDS, type HarnessId } from "./harness-id.ts";
 import { type HookSignal, hookSignalOf } from "./hook-signal.ts";
 
 const status = (type: string, lophn_outcome?: string) => ({
@@ -235,10 +236,54 @@ const CASES: [string, HarnessId, string, unknown, HookSignal | null][] = [
     { reason: "reload" },
     null,
   ],
+  // session id는 SessionStarted만이 아니라 모든 신호에서 읽는다(/clear·resume으로 바뀐 session을 따라가려고).
+  [
+    "claude: UserPromptSubmit의 session_id",
+    "claude",
+    "UserPromptSubmit",
+    { session_id: "s-1" },
+    { type: "TurnStarted", external_session: "s-1" },
+  ],
+  [
+    "opencode: properties.sessionID",
+    "opencode",
+    "permission.replied",
+    { type: "permission.replied", properties: { sessionID: "ses_1" } },
+    { type: "PermissionResolved", external_session: "ses_1" },
+  ],
+  // 틀린 id 때문에 신호를 버리지 않는다.
+  [
+    "claude: 모양이 틀린 session_id",
+    "claude",
+    "Stop",
+    { session_id: 7 },
+    { type: "TurnEnded", outcome: "completed" },
+  ],
 ];
 
 test("harness별 hook 신호 판정", () => {
   for (const [name, harness, event, payload, want] of CASES) {
     assert.deepStrictEqual(hookSignalOf(harness, event, payload), want, name);
+  }
+});
+
+test("harness 항목의 hook·events·session이 서로 맞는다", () => {
+  for (const id of HARNESS_IDS) {
+    const { hook, events, session } = HARNESS_ADAPTERS[id];
+    if (Object.keys(events).length > 0) {
+      assert.notEqual(hook, null, `${id}: events가 있으면 놓을 hook이 있다`);
+    }
+    if (session.resume !== null) {
+      assert.ok(session.id.length > 0, `${id}: resume은 session id가 필요하다`);
+      assert.ok(
+        Object.keys(events).length > 0,
+        `${id}: resume은 hook이 필요하다`,
+      );
+      assert.equal(
+        session.resume.filter((arg) => arg.includes("{id}")).length,
+        1,
+        `${id}: {id}는 한 번`,
+      );
+    }
   }
 });

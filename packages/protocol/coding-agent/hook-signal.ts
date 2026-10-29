@@ -1,6 +1,7 @@
 // harness hook 신호를 agent event로 바꾸기 전의 중간값이다. 순수 함수이고 화면 출력이나 transcript는
 // 읽지 않는다. 상태 계산은 core가 한다.
-import type { HarnessId } from "./harnesses.ts";
+import { HARNESS_ADAPTERS } from "./harness-adapter.ts";
+import type { HarnessId } from "./harness-id.ts";
 
 const HOOK_SIGNAL_TYPES = [
   "SessionStarted",
@@ -13,8 +14,10 @@ const HOOK_SIGNAL_TYPES = [
 
 export type HookSignal = {
   type: (typeof HOOK_SIGNAL_TYPES)[number];
-  // SessionStarted. hook이 실제로 준 것만 담는다.
+  // hook이 실제로 준 session id만 담는다. 어느 event에서든 읽는다(`session.id`).
   external_session?: string;
+  // TurnStarted. hook payload가 싣는 사용자 prompt다. session 제목으로 쓴다.
+  prompt?: string;
   // TurnEnded.
   outcome?: "completed" | "failed" | "interrupted";
   // TurnEnded. hook payload가 직접 싣는 마지막 답(실패면 오류 글)이다. transcript는 읽지 않는다.
@@ -26,200 +29,6 @@ export type HookSignal = {
 };
 
 type SignalType = HookSignal["type"];
-
-// harness 별 event 이름 → 신호다. 표에 없는 이름은 신호가 아니다. 이름은 harness가 내는 그대로다(대소문자 포함).
-// json·toml·script·hermes 형식은 설치가 이 표의 key를 그대로 hook event로 놓는다. 그래서 여기에는 매핑하는 event만 둔다.
-// plugin·extension 형식은 plugin 본문이 이 이름으로 hook을 부른다.
-// PostToolUse·permission.replied는 tool이 실행됐거나 답이 왔다는 뜻이라 PermissionResolved다(대기 중이 아니면 core가 무시한다).
-// 같은 이름이 payload로 갈리는 것은 hookSignalOf가 가른다(opencode `session.status`, droid `Notification`, grok `Stop`).
-// hook이 없는 harness는 표가 비어 있다(foreground icon만).
-const OPENCODE_EVENTS = {
-  "session.status": "TurnEnded",
-  "permission.asked": "PermissionRequested",
-  "permission.replied": "PermissionResolved",
-  "question.asked": "PermissionRequested",
-  "question.replied": "PermissionResolved",
-  "question.rejected": "PermissionResolved",
-} as const;
-
-// Claude 꼴(SessionStart·UserPromptSubmit·Stop·StopFailure·PermissionRequest·PostToolUse(Failure)·SessionEnd)이다.
-const CLAUDE_SHAPED = {
-  SessionStart: "SessionStarted",
-  UserPromptSubmit: "TurnStarted",
-  Stop: "TurnEnded",
-  StopFailure: "TurnEnded",
-  PermissionRequest: "PermissionRequested",
-  PostToolUse: "PermissionResolved",
-  // 실패하거나 거절된 tool도 대기 중인 권한 물음을 끝낸다.
-  PostToolUseFailure: "PermissionResolved",
-  SessionEnd: "SessionEnded",
-} as const;
-
-export const HOOK_EVENT_TABLE: Readonly<
-  Record<HarnessId, Readonly<Record<string, SignalType>>>
-> = {
-  claude: {
-    ...CLAUDE_SHAPED,
-    // 수동 /compact는 UserPromptSubmit만 내고 Stop을 내지 않는다.
-    PostCompact: "TurnEnded",
-    // AskUserQuestion은 PreToolUse에서 막힌다. 설치는 이 matcher만 건다.
-    PreToolUse: "PermissionRequested",
-  },
-  codex: {
-    SessionStart: "SessionStarted",
-    UserPromptSubmit: "TurnStarted",
-    Stop: "TurnEnded",
-    // Interrupt hook은 Codex 0.150 이상에만 있다. 낮은 판은 이 hook을 부르지 않을 뿐이다.
-    Interrupt: "TurnEnded",
-    PermissionRequest: "PermissionRequested",
-    PostToolUse: "PermissionResolved",
-    // plan mode의 request_user_input은 PermissionRequest 없이 PreToolUse에서 막힌다.
-    PreToolUse: "PermissionRequested",
-  },
-  opencode: OPENCODE_EVENTS,
-  kilo: OPENCODE_EVENTS,
-  mimocode: OPENCODE_EVENTS,
-  pi: {
-    session_start: "SessionStarted",
-    agent_start: "TurnStarted",
-    agent_settled: "TurnEnded",
-    session_shutdown: "SessionEnded",
-  },
-  omp: {
-    session_start: "SessionStarted",
-    agent_start: "TurnStarted",
-    agent_end: "TurnEnded",
-    tool_approval_requested: "PermissionRequested",
-    tool_approval_resolved: "PermissionResolved",
-  },
-  amp: {
-    "session.start": "SessionStarted",
-    "agent.start": "TurnStarted",
-    "agent.end": "TurnEnded",
-  },
-  cursor: {
-    sessionStart: "SessionStarted",
-    beforeSubmitPrompt: "TurnStarted",
-    stop: "TurnEnded",
-    sessionEnd: "SessionEnded",
-  },
-  copilot: {
-    SessionStart: "SessionStarted",
-    UserPromptSubmit: "TurnStarted",
-    Stop: "TurnEnded",
-    ErrorOccurred: "TurnEnded",
-    SessionEnd: "SessionEnded",
-    // PermissionRequest는 allow·ask·deny 판정 전에 오므로 쓰지 않는다.
-    Notification: "PermissionRequested",
-    PostToolUse: "PermissionResolved",
-    PostToolUseFailure: "PermissionResolved",
-  },
-  kimi: {
-    SessionStart: "SessionStarted",
-    UserPromptSubmit: "TurnStarted",
-    Stop: "TurnEnded",
-    StopFailure: "TurnEnded",
-    // Esc는 Stop 대신 Interrupt를 낸다.
-    Interrupt: "TurnEnded",
-    PermissionRequest: "PermissionRequested",
-    PermissionResult: "PermissionResolved",
-    // AskUserQuestion은 PreToolUse에서 막힌다. 설치는 이 matcher만 건다.
-    PreToolUse: "PermissionRequested",
-    PostToolUse: "PermissionResolved",
-    PostToolUseFailure: "PermissionResolved",
-    SessionEnd: "SessionEnded",
-  },
-  kiro: {
-    SessionStart: "SessionStarted",
-    UserPromptSubmit: "TurnStarted",
-    Stop: "TurnEnded",
-    SessionEnd: "SessionEnded",
-  },
-  antigravity: {
-    PreInvocation: "TurnStarted",
-    Stop: "TurnEnded",
-  },
-  grok: {
-    SessionStart: "SessionStarted",
-    UserPromptSubmit: "TurnStarted",
-    Stop: "TurnEnded",
-    StopFailure: "TurnEnded",
-    StopCancelled: "TurnEnded",
-    SessionEnd: "SessionEnded",
-  },
-  droid: {
-    SessionStart: "SessionStarted",
-    UserPromptSubmit: "TurnStarted",
-    Stop: "TurnEnded",
-    SessionEnd: "SessionEnded",
-    // permission_prompt는 권한 물음이고, 사람이 끊으면 Stop 대신 idle_prompt가 온다.
-    Notification: "PermissionRequested",
-    PostToolUse: "PermissionResolved",
-  },
-  devin: {
-    SessionStart: "SessionStarted",
-    UserPromptSubmit: "TurnStarted",
-    Stop: "TurnEnded",
-    PermissionRequest: "PermissionRequested",
-    PostToolUse: "PermissionResolved",
-    SessionEnd: "SessionEnded",
-  },
-  qwen: CLAUDE_SHAPED,
-  qoder: CLAUDE_SHAPED,
-  hermes: {
-    on_session_start: "SessionStarted",
-    pre_llm_call: "TurnStarted",
-    // 이름과 달리 turn이 끝날 때마다 온다.
-    on_session_end: "TurnEnded",
-    on_human_input_request: "PermissionRequested",
-    on_human_input_resolved: "PermissionResolved",
-    on_session_finalize: "SessionEnded",
-  },
-  muse: {
-    SessionStart: "SessionStarted",
-    UserPromptSubmit: "TurnStarted",
-    Stop: "TurnEnded",
-    StopFailure: "TurnEnded",
-    // 권한은 Notification의 permission_prompt만 본다(PermissionRequest와 같이 보면 두 번 센다).
-    Notification: "PermissionRequested",
-    PostToolUse: "PermissionResolved",
-    PostToolUseFailure: "PermissionResolved",
-    SessionEnd: "SessionEnded",
-  },
-  codebuddy: {
-    UserPromptSubmit: "TurnStarted",
-    Stop: "TurnEnded",
-    StopFailure: "TurnEnded",
-    // AskUserQuestion도 이 길로 온다. PermissionRequest는 같이 보지 않는다(두 번 센다).
-    Notification: "PermissionRequested",
-    PostToolUse: "PermissionResolved",
-    PostToolUseFailure: "PermissionResolved",
-    SessionEnd: "SessionEnded",
-  },
-  "command-code": {
-    SessionStart: "SessionStarted",
-    // UserPromptSubmit이 없어 첫 tool 호출을 turn 시작으로 본다. 도구 없는 turn은 running이 되지 않는다.
-    PreToolUse: "TurnStarted",
-    Stop: "TurnEnded",
-  },
-  "prime-agent": {},
-  cline: {
-    UserPromptSubmit: "TurnStarted",
-    TaskComplete: "TurnEnded",
-    TaskCancel: "TurnEnded",
-    TaskError: "TurnEnded",
-    SessionShutdown: "SessionEnded",
-  },
-  letta: {
-    SessionStart: "SessionStarted",
-    UserPromptSubmit: "TurnStarted",
-    Stop: "TurnEnded",
-    PermissionRequest: "PermissionRequested",
-    PostToolUse: "PermissionResolved",
-    PostToolUseFailure: "PermissionResolved",
-    SessionEnd: "SessionEnded",
-  },
-};
 
 const TEXT_MAX_CODE_POINTS = 1_024;
 
@@ -300,12 +109,20 @@ function outcomeOf(value: unknown): Outcome {
   return value === "failed" || value === "interrupted" ? value : "completed";
 }
 
-function sessionStarted(id: unknown): HookSignal | null {
-  const text = textOf(id);
-  if (text === INVALID) return null;
-  return text === null
-    ? { type: "SessionStarted" }
-    : { type: "SessionStarted", external_session: text };
+// 이 harness의 `session.id` 경로 중 처음으로 값이 있는 것이다. 모양이 틀린 id는 없는 것으로 본다(신호는 버리지 않는다).
+function sessionOf(
+  harness: HarnessId,
+  payload: Record<string, unknown>,
+): string | undefined {
+  for (const path of HARNESS_ADAPTERS[harness].session.id) {
+    let value: unknown = payload;
+    for (const key of path.split(".")) {
+      value = isRecord(value) ? value[key] : undefined;
+    }
+    const text = textOf(value);
+    if (text !== null && text !== INVALID) return text;
+  }
+  return undefined;
 }
 
 export function hookSignalOf(
@@ -313,8 +130,23 @@ export function hookSignalOf(
   event: string,
   payload: unknown,
 ): HookSignal | null {
-  const base = HOOK_EVENT_TABLE[harness][event];
+  const base = HARNESS_ADAPTERS[harness].events[event];
   if (base === undefined || !isRecord(payload)) return null;
+  const signal = signalOf(harness, base, event, payload);
+  if (signal === null) return null;
+  // /clear나 resume으로 session이 바뀌는 것은 어느 event에서든 알 수 있어 모든 신호에서 읽는다.
+  const external_session = sessionOf(harness, payload);
+  return external_session === undefined
+    ? signal
+    : { ...signal, external_session };
+}
+
+function signalOf(
+  harness: HarnessId,
+  base: SignalType,
+  event: string,
+  payload: Record<string, unknown>,
+): HookSignal | null {
   switch (harness) {
     case "opencode":
     case "kilo":
@@ -370,14 +202,6 @@ function isSubagent(
       return payload.agent_id !== undefined;
   }
 }
-
-const SESSION_ID_KEYS = [
-  "session_id",
-  "sessionId",
-  "conversation_id",
-  "conversationId",
-  "taskId",
-];
 
 function turnOutcome(
   harness: HarnessId,
@@ -441,15 +265,17 @@ function commandHookSignal(
   if (event === "SessionStart" && payload.source === "compact") return null;
   if (event === "SessionEnd" && payload.reason === "clear") return null;
   switch (type) {
-    case "SessionStarted": {
-      const id = SESSION_ID_KEYS.map((key) => payload[key]).find(
-        (value) => value !== undefined && value !== null,
-      );
-      return sessionStarted(id);
-    }
-    case "TurnStarted":
+    case "TurnStarted": {
       // letta의 slash command는 model turn이 아니다.
-      return payload.is_command === true ? null : { type };
+      if (payload.is_command === true) return null;
+      // sidebar 제목으로 쓰는 한 줄이라 첫 줄만 둔다.
+      const prompt = summaryOf(
+        typeof payload.prompt === "string"
+          ? payload.prompt.trimStart().split("\n")[0]
+          : undefined,
+      );
+      return prompt === null ? { type } : { type, prompt };
+    }
     case "TurnEnded": {
       const outcome = turnOutcome(harness, event, payload);
       if (outcome === null) return null;
@@ -558,9 +384,7 @@ function piSignal(
   switch (event) {
     // reload는 같은 session을 다시 읽는 것이다.
     case "session_start":
-      return payload.reason === "reload"
-        ? null
-        : sessionStarted(payload.session_id);
+      return payload.reason === "reload" ? null : { type };
     case "agent_settled":
       return pluginTurnEnded(
         type,
@@ -583,7 +407,7 @@ function ompSignal(
 ): HookSignal | null {
   switch (event) {
     case "session_start":
-      return sessionStarted(payload.session_id);
+      return { type };
     case "agent_end":
       return pluginTurnEnded(
         type,
@@ -608,7 +432,7 @@ function ampSignal(
 ): HookSignal | null {
   switch (event) {
     case "session.start":
-      return sessionStarted(payload.session_id);
+      return { type };
     case "agent.end":
       return pluginTurnEnded(
         type,

@@ -13,14 +13,15 @@ export {
   canDeliverMessages,
   HARNESS_ADAPTERS,
   type HarnessAdapter,
+  type HarnessHook,
+  hookStdout,
+  hookStdoutRows,
 } from "./harness-adapter.ts";
 export {
-  HOOK_EVENT_TABLE,
   type HookSignal,
   hookSignalOf,
 } from "./hook-signal.ts";
 
-export * from "./harness-hooks.ts";
 export { harnessOfProcess } from "./harness-process.ts";
 export * from "./cli-commands.ts";
 export * from "./terminal-hook.ts";

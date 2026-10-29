@@ -31,7 +31,7 @@ import process from "node:process";
 import { devCliLauncher } from "../packages/base/install/linux-install.ts";
 import { errorCode } from "../packages/base/mod.ts";
 import { type ServeHandle, serve } from "../packages/core/server/serve.ts";
-import { HOOK_STDOUT } from "../packages/protocol/coding-agent/mod.ts";
+import { hookStdoutRows } from "../packages/protocol/coding-agent/mod.ts";
 import { providerList } from "../packages/protocol/lophn-agent/mod.ts";
 import { connectFakeProvider } from "../tests/support/core/human.ts";
 import { bootCore } from "../tests/support/core/mod.ts";
@@ -215,7 +215,7 @@ async function writeDevCli(root: string): Promise<string> {
   await mkdir(dir, { recursive: true });
   await writeFile(
     `${path}.tmp`,
-    devCliLauncher({ electron, platform: root }, HOOK_STDOUT),
+    devCliLauncher({ electron, platform: root }, hookStdoutRows()),
     { mode: 0o755 },
   );
   await rename(`${path}.tmp`, path);

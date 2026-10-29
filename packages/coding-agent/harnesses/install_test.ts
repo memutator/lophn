@@ -2,10 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  HARNESS_HOOKS,
+  HARNESS_ADAPTERS,
   HARNESS_IDS,
   type HarnessId,
-  HOOK_EVENT_TABLE,
 } from "../../protocol/coding-agent/mod.ts";
 import { installGlobal, type InstallPorts } from "./install.ts";
 import { uninstallGlobal } from "./uninstall.ts";
@@ -264,7 +263,7 @@ trust_level = "trusted"
   ].map((one) => one[1]);
   assert.deepStrictEqual(
     added.length,
-    Object.keys(HOOK_EVENT_TABLE.codex).length,
+    Object.keys(HARNESS_ADAPTERS.codex.events).length,
   );
   assert.deepStrictEqual(added.includes(`${hooksFile}:stop:1:0`), true);
   assert.deepStrictEqual(
@@ -317,7 +316,7 @@ test("OpenCode plugin은 본문이 다르면 dry_run이 missing이고 command만
 // 왜 지금 못 잡나: 형식마다 쓰는 쪽과 비교하는 쪽이 따로 있어 한쪽만 고치면 어긋난다.
 test("hook이 있는 모든 harness는 설치 뒤 dry_run이 unchanged이고 다시 설치해도 file이 그대로다", async () => {
   for (const harness of HARNESS_IDS) {
-    if (HARNESS_HOOKS[harness] === null) continue;
+    if (HARNESS_ADAPTERS[harness].hook === null) continue;
     for (const command of [undefined, "/dev/cli/lophn"]) {
       const files = new Map<string, string>();
       const base = { harness, home: "/home/u", now: NOW, command };
@@ -450,7 +449,7 @@ test("hermes 설치는 config.yaml의 표시한 block과 allowlist의 우리 승
   assert.deepStrictEqual(approvals[0], other);
   assert.deepStrictEqual(
     approvals.slice(1).map((one: { event: string }) => one.event),
-    Object.keys(HOOK_EVENT_TABLE.hermes),
+    Object.keys(HARNESS_ADAPTERS.hermes.events),
   );
   // 개발 command로 바꾸면 우리 승인은 새 command로 바뀌고 사람의 것은 남는다.
   await installGlobal(memory(files), {
@@ -461,7 +460,7 @@ test("hermes 설치는 config.yaml의 표시한 block과 allowlist의 우리 승
   const swapped = JSON.parse(files.get(allowlist)!).approvals;
   assert.deepStrictEqual(
     swapped.length,
-    1 + Object.keys(HOOK_EVENT_TABLE.hermes).length,
+    1 + Object.keys(HARNESS_ADAPTERS.hermes.events).length,
   );
   assert.deepStrictEqual(
     swapped[1].command.startsWith("/dev/lophn hook hermes "),
@@ -552,7 +551,7 @@ test("cline 설치는 사람의 script를 덮지 않고 우리 script만 실행 
   );
   assert.deepStrictEqual(
     modes.length,
-    Object.keys(HOOK_EVENT_TABLE.cline).length,
+    Object.keys(HARNESS_ADAPTERS.cline.events).length,
   );
   assert.deepStrictEqual(
     files.get(`${dir}/TaskComplete`),
@@ -605,7 +604,7 @@ test("kiro·antigravity·cursor 설치는 사람의 항목을 보존한다", asy
 // 현실적 회귀: 형식 하나의 지우기가 우리 항목을 못 알아봐 [Uninstall hooks] 뒤에도 hook이 남거나 file이 반쯤 남는다.
 test("hook이 있는 모든 harness는 놓고 지우면 흔적이 없고 dry_run이 다시 missing이다", async () => {
   for (const harness of HARNESS_IDS) {
-    if (HARNESS_HOOKS[harness] === null) continue;
+    if (HARNESS_ADAPTERS[harness].hook === null) continue;
     for (const command of [undefined, "/dev/cli/lophn"]) {
       const files = new Map<string, string>();
       const base = { harness, home: "/home/u", now: NOW, command };

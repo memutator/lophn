@@ -8,12 +8,27 @@ const ref = z
   .regex(/^[A-Za-z0-9_-]+$/);
 const generation = z.number().int().positive();
 
+// 저장한 coding agent session을 다시 연다. id는 hook이 준 그대로이고 main이 harness의 resume 명령으로 바꿔 친다.
+const resume = z
+  .object({
+    harness: z.string().min(1).max(40),
+    external_session: z
+      .string()
+      .min(1)
+      .max(200)
+      .regex(/^[A-Za-z0-9._:-]+$/),
+  })
+  .strict();
+
 export const terminalOpenSchema = z
   .object({
     project: ref,
     folder_ref: ref.optional(),
+    resume: resume.optional(),
   })
   .strict();
+
+export const terminalAgentSessionsSchema = z.object({ project: ref }).strict();
 
 export const terminalInputSchema = z
   .object({
@@ -79,7 +94,14 @@ export const terminalBridgeAckSchema = z
   })
   .strict();
 
-export type TerminalOpen = { project: string; folder_ref?: string };
+export type TerminalResume = { harness: string; external_session: string };
+export type TerminalOpen = {
+  project: string;
+  folder_ref?: string;
+  /** 있으면 shell이 뜬 뒤 main이 그 harness의 resume 명령을 친다. */
+  resume?: TerminalResume;
+};
+export type TerminalAgentSessionsQuery = { project: string };
 export type TerminalInput = {
   terminal_ref: string;
   generation: number;
@@ -130,6 +152,37 @@ export type TerminalAgent = {
   state: "running" | "waiting" | "idle" | "unknown";
   /** 사람이 그 탭을 보지 않는 사이 turn이 끝났거나 물음이 왔다. 그 탭을 고르면 지워진다. */
   unseen: boolean;
+  /** 이 harness의 hook을 한 번이라도 들었다. 끊어서 state가 unknown이 돼도 남는다. */
+  hooked: boolean;
+  /** hook이 알려 준 harness의 session id. 저장한 session과 이 터미널을 잇는다. */
+  session?: string;
+  /** 그 session의 첫 prompt 한 줄. 모르면 없다. */
+  title?: string;
+};
+
+/**
+ * lophn 터미널에서 hook이 session id를 알려 준 coding agent session 하나. shell main이 project마다 저장한다.
+ * 상태(running·waiting)는 저장하지 않는다.
+ */
+export type TerminalAgentSession = {
+  harness: string;
+  external_session: string;
+  project: string;
+  folder_ref: string;
+  cwd: string;
+  /** 첫 prompt 한 줄. 모르면 null이다. */
+  title: string | null;
+  /** epoch ms. */
+  started_at: number;
+  last_at: number;
+  /** harness에 resume 규칙이 있어 다시 열 수 있다. */
+  resumable: boolean;
+};
+
+/** 그 project의 저장한 session이 바뀌었다. 새것부터다. */
+export type TerminalAgentSessionsChanged = {
+  project: string;
+  sessions: TerminalAgentSession[];
 };
 
 export type TerminalRuntime = {
@@ -216,6 +269,14 @@ export interface TerminalApi {
   onRuntime(listener: (runtime: TerminalRuntime) => void): () => void;
   /** main이 그 터미널 탭을 골라 보이라고 보낸다(OS 알림 누름). 구독 해지를 돌려준다. */
   onReveal(listener: (reveal: TerminalReveal) => void): () => void;
+  /** 그 project에서 저장한 coding agent session. 새것부터다. */
+  agentSessions(
+    input: TerminalAgentSessionsQuery,
+  ): Promise<TerminalCall<TerminalAgentSession[]>>;
+  /** 저장한 session이 바뀔 때마다 그 project의 목록을 보낸다. 구독 해지를 돌려준다. */
+  onAgentSessions(
+    listener: (change: TerminalAgentSessionsChanged) => void,
+  ): () => void;
 }
 
 export const TERMINAL_STATE_CHANNEL = "shell:terminal-state";
@@ -230,3 +291,6 @@ export const TERMINAL_LINK_CHANNEL = "shell:terminal-link";
 export const TERMINAL_BRIDGE_ACK_CHANNEL = "shell:terminal-bridge-ack";
 export const TERMINAL_BRIDGE_OPEN_CHANNEL = "shell:terminal-bridge-open";
 export const TERMINAL_REVEAL_CHANNEL = "shell:terminal-reveal";
+export const TERMINAL_AGENT_SESSIONS_CHANNEL = "shell:terminal-agent-sessions";
+export const TERMINAL_AGENT_SESSIONS_CHANGED_CHANNEL =
+  "shell:terminal-agent-sessions-changed";

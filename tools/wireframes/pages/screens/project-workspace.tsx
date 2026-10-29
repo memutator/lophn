@@ -115,6 +115,7 @@ function SidebarWorkflowsEmpty() {
           source={source}
           agents={[]}
           sessions={[]}
+          terminals={[]}
           initialTab="workflow"
           onOpenFile={noop}
           onMove={(from, to) => source.rename(from, to)}
@@ -122,6 +123,7 @@ function SidebarWorkflowsEmpty() {
           onRail={noop}
           onAgent={noop}
           onSession={noop}
+          onTerminal={noop}
           onManage={noop}
           onToggle={noop}
           onSettings={noop}
@@ -351,14 +353,14 @@ export const projectWorkspaceArea: Area = {
       id: "new-agent-sidebar",
       title: "Sidebar · Agent",
       description:
-        "sidebar 맨 위 밑줄 탭에서 Agent를 고른 모양이다. lophn과 사람이 만든 agent 셋이 한 목록이고 각자 이 project의 열린 session이 아래에 들여 쓰여 있다. 맨 아래에 Recent가 있고 session을 누르면 그 탭이 열리며 묶음 머리의 Manage는 Agents 탭을 연다.",
+        'sidebar 맨 위 밑줄 탭에서 Agent를 고른 모양이다. Agents에는 lophn과 사람이 만든 agent만 있고, 열린 session은 Current에 lophn session과 터미널에서 도는 coding agent(Claude Code, Codex)가 아이콘, 제목, 오른쪽 끝 상태 점으로 섞여 있다. Recent에는 끝난 lophn session과 저장해 둔 터미널 session(OpenCode, Grok)이 제목과 "이름 · 시각"으로 있다. 묶음 머리의 Manage는 Agents 탭을 연다.',
       render: () => <AgentsGroup />,
     },
     {
       id: "new-agent-sidebar-runs",
       title: "Sidebar · Agent · Background",
       description:
-        "Agents와 Recent 사이의 Background 묶음이다. 화면 없이 시작된 일(CLI, 예약)이 run 줄로 있고, 받은 agent의 avatar와 이름, 시작 시각, 상태가 보인다. 일하는 중은 점, 실패와 취소는 글자이고 끝난 것은 시각만 있다. run이 연 session은 그 줄 아래에 들여 쓰여 있고 Agents 묶음과 Recent에는 없다. 맨 아래 lophn run은 기존 session으로 이어 쓴 것이라 아래가 비어 있다. 새것부터 5개만 보인다.",
+        "Current와 Recent 사이의 Background 묶음이다. 화면 없이 시작된 일(CLI, 예약)이 run 줄로 있고, 받은 agent의 avatar와 이름, 시작 시각, 상태가 보인다. 일하는 중은 점, 실패와 취소는 글자이고 끝난 것은 시각만 있다. run이 연 session은 그 줄 아래에 들여 쓰여 있고 점이 오른쪽 끝에 있으며 Current와 Recent에는 없다. 맨 아래 lophn run은 기존 session으로 이어 쓴 것이라 아래가 비어 있다. 새것부터 5개만 보인다.",
       render: () => <AgentsRuns />,
     },
     {

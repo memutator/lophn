@@ -1,6 +1,7 @@
-// Background(run) 목록. run 줄 아래에 그 run이 연 session을 agent 묶음의 session처럼 들여 쓴다. project sidebar의 Agent 쪽과
-// 앱 공간의 오른쪽 패널이 같이 쓰므로 session 줄(`SessionItem`)도 여기에 둔다(sidebar의 agent 묶음도 이것을 쓴다).
+// Background(run) 목록. run 줄 아래에 그 run이 연 session을 들여 쓴다. project sidebar의 Agent 쪽과
+// 앱 공간의 오른쪽 패널이 같이 쓴다. 상태 점은 탭 줄과 같은 `TabStateDot`이다.
 import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
+import { TabStateDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { settingsIcons } from "../../icons/mod.ts";
@@ -52,37 +53,14 @@ export interface RunRow {
   readonly session: PanelSession | null;
 }
 
-function Dot({ status }: { status: PanelSession["status"] }) {
-  const label =
-    status === "waiting"
-      ? t("project-workspace.label.agent-waiting")
-      : status === "working"
-        ? t("common.label.tab-working")
-        : undefined;
-  return (
-    <span
-      className={styles.sessionDot}
-      data-state={status === "idle" ? undefined : status}
-      role={label === undefined ? undefined : "img"}
-      aria-label={label}
-    />
-  );
-}
-
-export function SessionItem({
+// run 아래 session 줄. 시각은 run 줄에 있어 점만 오른쪽 끝에 둔다.
+function SessionItem({
   session,
-  agentName,
-  hideWhen,
   onSession,
 }: {
   session: PanelSession;
-  /** true면 오른쪽 시각을 보이지 않는다(run 아래 session 줄은 run 줄에 시각이 있다). */
-  hideWhen?: boolean;
-  /** 있으면 제목 아래에 "agent · 시각"을 보인다(Recent). */
-  agentName?: string;
   onSession: (session: PanelSession) => void;
 }) {
-  const when = formatRelativeTime(new Date(session.at), new Date());
   return (
     <li className={styles.li}>
       <button
@@ -91,18 +69,8 @@ export function SessionItem({
         data-session={session.id}
         onClick={() => onSession(session)}
       >
-        <Dot status={session.status} />
-        <span className={styles.sessionText}>
-          <span className={styles.label}>{session.title}</span>
-          {agentName === undefined ? null : (
-            <span className={styles.sessionMeta}>
-              {agentName} · {when}
-            </span>
-          )}
-        </span>
-        {agentName === undefined && hideWhen !== true ? (
-          <span className={styles.sessionWhen}>{when}</span>
-        ) : null}
+        <span className={styles.label}>{session.title}</span>
+        {session.dot === null ? null : <TabStateDot dot={session.dot} />}
       </button>
     </li>
   );
@@ -158,16 +126,12 @@ export function RunList({
               <RunMeta run={run} />
             </span>
             {run.session === null && run.state === "running" ? (
-              <Dot status="working" />
+              <TabStateDot dot="working" />
             ) : null}
           </div>
           {run.session === null ? null : (
             <ul className={`${styles.list} ${styles.sessions}`} role="list">
-              <SessionItem
-                session={run.session}
-                hideWhen
-                onSession={onSession}
-              />
+              <SessionItem session={run.session} onSession={onSession} />
             </ul>
           )}
         </li>

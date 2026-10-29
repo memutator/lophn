@@ -1,6 +1,7 @@
 // shell renderer가 쓰는 터미널 통로. 채널 이름과 Electron event는 closure 안에만 있다.
 // 출력은 renderer가 snapshot으로 당겨 읽는다. 터미널 출력을 다른 곳으로 보내지 않는다.
 import {
+  TERMINAL_AGENT_SESSION_RENAME_CHANNEL,
   TERMINAL_AGENT_SESSIONS_CHANGED_CHANNEL,
   TERMINAL_AGENT_SESSIONS_CHANNEL,
   TERMINAL_BRIDGE_ACK_CHANNEL,
@@ -122,6 +123,8 @@ export function createTerminalApi(transport: TerminalTransport): TerminalApi {
       return () => transport.removeListener(TERMINAL_STATE_CHANNEL, callback);
     },
     agentSessions: (input) => invoke(TERMINAL_AGENT_SESSIONS_CHANNEL, input),
+    renameAgentSession: (input) =>
+      invoke(TERMINAL_AGENT_SESSION_RENAME_CHANNEL, input),
     onAgentSessions(listener) {
       const callback = (_event: unknown, payload: unknown) => {
         if (isAgentSessionsChanged(payload)) listener(payload);

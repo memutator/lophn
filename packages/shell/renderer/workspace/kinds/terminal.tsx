@@ -5,6 +5,7 @@ import { t } from "@lophn/wording";
 
 import type { TerminalResume } from "../../../ipc/terminal.ts";
 import { closeTerminalTab } from "../../terminal/deps.ts";
+import type { TerminalStore } from "../../terminal/store.ts";
 import { tabName } from "../../terminal/model.ts";
 import { TerminalTab } from "../../terminal/terminal-tab.tsx";
 import type { TabItem } from "../model.ts";
@@ -53,6 +54,19 @@ function autoOf(tab: TabItem): string {
   return typeof auto === "string" ? auto : tab.title;
 }
 
+/**
+ * 탭에 지금 보일 이름. 탭 화면(`TerminalTab`)과 workspace가 같은 계산을 쓴다. 탭 화면이 없는 숨은 탭도
+ * hook이 알린 session 이름을 따라가야 하기 때문이다.
+ */
+export function terminalTabTitle(tab: TabItem, store: TerminalStore): string {
+  return tabName({
+    person: personOf(tab),
+    sessionName: store.agentOf(tab.key)?.name ?? null,
+    agentTitle: store.agentTitleOf(tab.key),
+    auto: autoOf(tab),
+  });
+}
+
 // 사람이 plain 터미널에서 직접 띄운 coding agent도 main이 알려 주면 그 제품 아이콘을 쓴다.
 function agentTabIcon(tab: TabItem, host: TabHost): ReactNode | null {
   const agent = host.props.terminal?.store.agentOf(tab.key);
@@ -92,17 +106,29 @@ export const terminalKind: TabKindDef = {
   dotOf: agentTabDot,
   rename(tab, name, host) {
     const person = name?.trim() || null;
+    const terminal = host.props.terminal;
     host.patchTab(tab.key, (current) => {
       const { name: _, ...rest } = current.fields ?? {};
       return {
         fields: person === null ? rest : { ...rest, name: person },
         title: tabName({
           person,
-          agentTitle: host.props.terminal?.store.agentTitleOf(tab.key) ?? null,
+          sessionName: terminal?.store.agentOf(tab.key)?.name ?? null,
+          agentTitle: terminal?.store.agentTitleOf(tab.key) ?? null,
           auto: autoOf(current),
         }),
       };
     });
+    // 저장한 session에도 사람의 이름을 써 고정한다. 지우면(null) 고정을 풀어 harness 이름이 다시 들어온다.
+    const agent = terminal?.store.agentOf(tab.key);
+    if (terminal?.bridge && agent?.session !== undefined) {
+      void terminal.bridge.renameAgentSession({
+        project: host.projectId,
+        harness: agent.harness,
+        external_session: agent.session,
+        name: person?.slice(0, 200) ?? null,
+      });
+    }
   },
   fromStored(stored, { key }) {
     const person = typeof stored.name === "string" ? stored.name : null;

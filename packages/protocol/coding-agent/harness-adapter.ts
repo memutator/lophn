@@ -54,6 +54,7 @@ export type HarnessHook =
 // 같은 event 이름 표를 OpenCode 계열 셋이 나눠 쓴다.
 const OPENCODE_EVENTS = {
   "session.status": "TurnEnded",
+  "session.updated": "SessionNamed",
   "permission.asked": "PermissionRequested",
   "permission.replied": "PermissionResolved",
   "question.asked": "PermissionRequested",
@@ -105,6 +106,8 @@ export type HarnessAdapter = {
     // session id가 있는 hook payload 경로다. 중첩은 `.`로 잇는다(`properties.sessionID`). 어느 event에서든 읽는다.
     // 비어 있으면 hook이 id를 주지 않는다.
     id: readonly string[];
+    // harness가 정한 session 이름이 있는 hook payload 경로다(`id`와 같은 방식). 비어 있으면 payload에 이름이 없다.
+    name: readonly string[];
     // 저장한 session을 다시 여는 인자다. command(`commands[0]`) 뒤에 붙이고 `{id}`를 session id로 바꾼다. 모르면 null이다.
     resume: readonly string[] | null;
   };
@@ -136,6 +139,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["session_id"],
+      name: [],
       // 확인함: claude --help
       resume: ["--resume", "{id}"],
     },
@@ -170,6 +174,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["session_id"],
+      name: [],
       // 확인함: codex --help
       resume: ["resume", "{id}"],
     },
@@ -195,6 +200,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["properties.sessionID"],
+      name: ["properties.info.title", "properties.title"],
       // 확인함: opencode --help
       resume: ["--session", "{id}"],
     },
@@ -222,6 +228,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["session_id"],
+      name: ["session_name"],
       resume: null,
     },
   },
@@ -252,6 +259,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["session_id"],
+      name: [],
       // 확인함: hermes --help
       resume: ["--resume", "{id}"],
     },
@@ -278,6 +286,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["session_id"],
+      name: ["session_name"],
       // 확인함: omp --help
       resume: ["--resume={id}"],
     },
@@ -305,6 +314,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: { beforeSubmitPrompt: '{"continue":true}', "*": "{}" },
     session: {
       id: ["conversation_id"],
+      name: [],
       // herdr agent_resume.rs 표. 여기서 실행해 보지 못함
       resume: ["--resume", "{id}"],
     },
@@ -337,6 +347,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["session_id"],
+      name: [],
       // herdr agent_resume.rs 표. 여기서 실행해 보지 못함
       resume: ["--resume={id}"],
     },
@@ -373,6 +384,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["session_id"],
+      name: [],
       // herdr agent_resume.rs 표. 여기서 실행해 보지 못함
       resume: ["--session", "{id}"],
     },
@@ -400,6 +412,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["session_id"],
+      name: [],
       // 확인함: kiro-cli --help
       resume: ["chat", "--resume-id", "{id}"],
     },
@@ -425,6 +438,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: { Stop: '{"decision":"stop"}', "*": "{}" },
     session: {
       id: ["conversationId"],
+      name: [],
       // 확인함: agy --help
       resume: ["--conversation", "{id}"],
     },
@@ -450,6 +464,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["session_id"],
+      name: ["session_title"],
       // 확인함: grok --help
       resume: ["--resume", "{id}"],
     },
@@ -479,6 +494,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["session_id"],
+      name: ["session_title"],
       // herdr agent_resume.rs 표. 여기서 실행해 보지 못함
       resume: ["--resume", "{id}"],
     },
@@ -503,6 +519,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["session_id"],
+      name: [],
       resume: null,
     },
   },
@@ -526,6 +543,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["session_id"],
+      name: ["session_title"],
       // 확인함: devin --help
       resume: ["--resume", "{id}"],
     },
@@ -543,6 +561,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["session_id"],
+      name: ["session_title"],
       // herdr agent_resume.rs 표. 여기서 실행해 보지 못함
       resume: ["--resume", "{id}"],
     },
@@ -560,6 +579,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["session_id"],
+      name: ["session_title"],
       // herdr agent_resume.rs 표. 여기서 실행해 보지 못함
       resume: ["--resume", "{id}"],
     },
@@ -592,6 +612,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["session_id"],
+      name: [],
       resume: null,
     },
   },
@@ -617,6 +638,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["session_id"],
+      name: ["session_title"],
       resume: null,
     },
   },
@@ -642,6 +664,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: [],
+      name: ["session_title"],
       resume: null,
     },
   },
@@ -658,6 +681,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: [],
+      name: [],
       resume: null,
     },
   },
@@ -677,6 +701,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["properties.sessionID"],
+      name: ["properties.info.title", "properties.title"],
       resume: null,
     },
   },
@@ -700,6 +725,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     // taskId는 실제 Cline payload로 확인하지 못했다.
     session: {
       id: ["taskId"],
+      name: [],
       // 확인함: cline --help
       resume: ["--id", "{id}"],
     },
@@ -738,6 +764,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["session_id"],
+      name: [],
       // herdr agent_resume.rs 표. 여기서 실행해 보지 못함
       resume: ["--conversation", "{id}"],
     },
@@ -758,6 +785,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["properties.sessionID"],
+      name: ["properties.info.title", "properties.title"],
       // herdr agent_resume.rs 표. 여기서 실행해 보지 못함
       resume: ["--session", "{id}"],
     },

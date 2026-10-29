@@ -81,7 +81,7 @@ export function usePanelTerminals(
           key: tab.key,
           harness: agent.harness,
           label: harnessLabel(agent.harness),
-          title: tab.title,
+          title: agent.name ?? tab.title,
           dot: tab.dot,
           at:
             (id === undefined ? undefined : savedBySession.get(id)?.last_at) ??
@@ -99,7 +99,7 @@ export function usePanelTerminals(
               key: `${item.harness}:${item.external_session}`,
               harness: item.harness,
               label: harnessLabel(item.harness),
-              title: item.title ?? harnessLabel(item.harness),
+              title: item.name ?? item.title ?? harnessLabel(item.harness),
               dot: null,
               at: item.last_at,
               live: null,

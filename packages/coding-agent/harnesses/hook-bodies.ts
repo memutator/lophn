@@ -116,8 +116,16 @@ ${events
     } catch {
       // session id를 읽지 못하면 싣지 않는다.
     }
+    let session_name: string | undefined;
+    try {
+      const name = pi.getSessionName?.();
+      if (typeof name === "string" && name !== "") session_name = name;
+    } catch {
+      // 이름을 읽지 못하면 싣지 않는다.
+    }
     run("${event}", {
       session_id,
+      session_name,
       aborted: event?.aborted === true,
       reason: event?.reason,${
         event === "agent_settled" ? "\n      lophn_message: answer," : ""
@@ -158,19 +166,29 @@ export default function (omp: any) {
   if (!process.env.${TERMINAL_HOOK_ENV} || process.env.OMPCODE) return;
   let running = false;
   const main = (ctx: any) => ctx?.agent?.kind === "main";
+  // 사람이 붙인 session 이름이다. 없거나 못 읽으면 싣지 않는다.
+  const nameOf = (): string | undefined => {
+    try {
+      const name = omp.getSessionName?.();
+      return typeof name === "string" && name !== "" ? name : undefined;
+    } catch {
+      return undefined;
+    }
+  };
   omp.on("session_start", (_event: any, ctx: any) => {
-    if (main(ctx)) run("session_start", { session_id: sessionOf(ctx) });
+    if (main(ctx)) run("session_start", { session_id: sessionOf(ctx), session_name: nameOf() });
   });
   omp.on("agent_start", (_event: any, ctx: any) => {
     if (!main(ctx)) return;
     running = true;
-    run("agent_start", { session_id: sessionOf(ctx) });
+    run("agent_start", { session_id: sessionOf(ctx), session_name: nameOf() });
   });
   omp.on("agent_end", (event: any, ctx: any) => {
     if (!main(ctx) || event?.willContinue === true || !running) return;
     running = false;
     run("agent_end", {
       session_id: sessionOf(ctx),
+      session_name: nameOf(),
       outcome: outcomeOf(event?.messages),
       lophn_message: answerOf(event?.messages),
     });
@@ -179,6 +197,7 @@ export default function (omp: any) {
     if (main(ctx)) {
       run("tool_approval_requested", {
         session_id: sessionOf(ctx),
+        session_name: nameOf(),
         tool_name: event?.toolName,
         reason: event?.reason,
       });
@@ -188,6 +207,7 @@ export default function (omp: any) {
     if (main(ctx)) {
       run("tool_approval_resolved", {
         session_id: sessionOf(ctx),
+        session_name: nameOf(),
         tool_name: event?.toolName,
       });
     }
@@ -224,7 +244,7 @@ export default function (amp: any) {
 
 // OpenCode 계열(opencode, kilo, mimocode) plugin이다. 셋은 같은 plugin API라 본문이 같고 harness 이름만 다르다. 듣는 event는
 // 그 harness의 `events`(1.x event 이름)이다.
-//  - turn의 시작·끝(`session.status`)은 root session의 것만 넘긴다. 하위 session은 session 조회의 parentID로 가른다.
+//  - turn의 시작·끝(\`session.status\`)은 root session의 것만 넘긴다. 하위 session은 session 조회의 parentID로 가른다.
 //    조회가 실패하면 root가 아닌 것으로 보고 넘기지 않는다(하위 session의 idle이 turn 끝으로 잘못 읽히는 쪽이 더 나쁘다).
 //  - 권한·질문(\`permission.*\`, \`question.*\`)은 하위 session의 것도 root session의 것으로 바꿔 넘긴다. 사람이 답해야 하는 것은
 //    root의 turn을 막는다.
@@ -243,6 +263,8 @@ const EVENTS = new Set(${JSON.stringify(events)});
 const roots = new Map();
 // root session id → session.error가 정한 outcome. 다음 idle이 쓰고 지운다.
 const failures = new Map();
+// root session id → 마지막으로 본 제목. 바뀐 제목만 넘긴다.
+const names = new Map();
 
 // SDK 세대마다 get의 인자 모양이 달라 둘 다 시도한다.
 async function sessionOf1(client, id) {
@@ -314,7 +336,7 @@ async function rootOf(getSession, id) {
 async function forward(getSession, getMessage, type, properties) {
   try {
     if (type !== "session.error" && !EVENTS.has(type)) return;
-    const id = properties?.sessionID;
+    const id = type === "session.updated" ? (properties?.info?.id ?? properties?.sessionID) : properties?.sessionID;
     if (typeof id !== "string") return;
     const root = await rootOf(getSession, id);
     if (root === null) return;
@@ -325,6 +347,14 @@ async function forward(getSession, getMessage, type, properties) {
     if (root !== id) return;
     if (type === "session.error") {
       failures.set(id, properties.error?.name === "MessageAbortedError" ? "interrupted" : "failed");
+      return;
+    }
+    if (type === "session.updated") {
+      // 제목이 바뀐 root session만 알린다.
+      const title = properties.info?.title ?? properties.title;
+      if (typeof title !== "string" || title === "" || names.get(id) === title) return;
+      names.set(id, title);
+      run(type, { type, properties: { ...properties, sessionID: id } });
       return;
     }
     if (type !== "session.status") return;
@@ -359,6 +389,8 @@ function eventOf1({ type, data }) {
     case "question.asked":
     case "question.replied":
     case "question.rejected":
+      return [type, data];
+    case "session.updated":
       return [type, data];
     default:
       return null;

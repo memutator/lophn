@@ -1,4 +1,12 @@
-import { type ReactNode, useEffect, useReducer, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { TabItem as StripTab } from "../parts/tab-strip/tab-strip.tsx";
 import { Icon, IconButton } from "@lophn/ui/primitives";
 import type { SettingsPane } from "../desktop/settings/model.ts";
@@ -127,7 +135,10 @@ import { openAgents } from "./kinds/agents.tsx";
 import { openSearchShortcut } from "./kinds/search.tsx";
 import { tabKindOf } from "./kinds/registry.ts";
 import { openFile } from "./kinds/document-editor.tsx";
-import { openTerminal as openTerminalTab } from "./kinds/terminal.tsx";
+import {
+  openTerminal as openTerminalTab,
+  terminalTabTitle,
+} from "./kinds/terminal.tsx";
 import { openAppPanel } from "./kinds/app-panel.tsx";
 import type { TerminalDeps } from "../terminal/deps.ts";
 import {
@@ -1369,6 +1380,26 @@ export function Workspace(props: WorkspaceProps) {
   );
   const runOpened = runOpenedSessions(runRecords);
   const panelTerminals = usePanelTerminals(terminal, projectId, terminalTabs);
+
+  // 숨은 탭은 TerminalTab 화면이 없어 hook이 알린 session 이름을 못 받는다. store가 바뀔 때 여기서 이름을 맞춘다.
+  const subscribeTerminal = useCallback(
+    (listener: () => void) => terminal?.store.subscribe(listener) ?? (() => {}),
+    [terminal],
+  );
+  const terminalVersion = useSyncExternalStore(
+    subscribeTerminal,
+    () => terminal?.store.version() ?? 0,
+  );
+  useEffect(() => {
+    if (terminal === undefined) return;
+    for (const tab of allDeskTabs(latestDesks.current)) {
+      if (tab.kind !== "terminal") continue;
+      const title = terminalTabTitle(tab, terminal.store);
+      if (title !== tab.title) {
+        host.patchTab(tab.key, { title }, { later: true });
+      }
+    }
+  }, [terminalVersion, terminal, windowTabs]);
 
   return (
     <ViewCoversProvider value={covers}>

@@ -40,7 +40,7 @@ interface TerminalTabProps {
   /** 시작한 폴더를 탭 제목과 layout에 남긴다. */
   onStarted?: (info: { title: string | null; folderRef: string }) => void;
   /**
-   * 탭 줄에 보이는 이름과 그 이름을 정하는 입력. 사람이 붙인 이름 > agent의 터미널 제목 > 자동 이름.
+   * 탭 줄에 보이는 이름과 그 이름을 정하는 입력. 사람이 붙인 이름 > harness session 이름 > agent의 터미널 제목 > 자동 이름.
    * 탭 줄이 없는 자리는 주지 않는다.
    */
   naming?: {
@@ -95,11 +95,13 @@ export function TerminalTab({
   // agent와 제목은 store version이 알린다. 숨은 탭은 이 화면이 없어 다시 고를 때까지 이름이 그대로다.
   useSyncExternalStore(subscribe, () => store.version());
   const agentTitle = store.agentTitleOf(tabKey);
+  const sessionName = store.agentOf(tabKey)?.name ?? null;
   const nextName =
     naming === undefined
       ? null
       : tabName({
           person: naming.name.person,
+          sessionName,
           agentTitle,
           auto: naming.name.auto,
         });

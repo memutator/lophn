@@ -16,12 +16,6 @@ export function register(ctx: ShellContext, detached: Detached): Registered {
   registerLayoutIpc(ipc, {
     registry: overlays.overlayRegistry(),
     store: createLayoutStore(dataRoot),
-    bounds: (event) => {
-      const parent = windowOf(event);
-      if (!parent) return null;
-      const box = parent.getBounds();
-      return { x: box.x, y: box.y, width: box.width, height: box.height };
-    },
     detachedBounds: (event) => {
       const parent = windowOf(event);
       return parent ? detached.boundsOf(ctx.windowRef(parent)) : new Map();

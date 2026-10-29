@@ -1,5 +1,6 @@
 // 프로젝트 작업대의 layout 저장·복원. desktop 창 본문만 부른다. renderer는 탭을 보내고,
-// 창 bounds와 schema 판은 여기서 채운 뒤 파일 schema로 검사한다.
+// detached 창 bounds와 schema 판은 여기서 채운 뒤 파일 schema로 검사한다. desktop 창 자리는 layout에 두지 않는다
+// (`workspace/window-state.ts`).
 import { z } from "zod";
 
 import {
@@ -59,36 +60,8 @@ interface LayoutIpcMain {
 interface LayoutIpcDeps {
   registry: ContentsRegistry;
   store: LayoutStore;
-  /** 이 창의 bounds. 없거나 숫자가 아니면 기본 960×600이다. */
-  bounds(event: IpcEvent): {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null;
   /** 이 창에 딸린 살아 있는 detached 창의 bounds(탭 key별). 저장할 때 renderer가 보낸 값을 덮어쓴다. */
   detachedBounds(event: IpcEvent): ReadonlyMap<string, WindowBounds>;
-}
-
-function clampInt(
-  value: number,
-  min: number,
-  max: number,
-  fallback: number,
-): number {
-  if (!Number.isFinite(value)) return fallback;
-  return Math.min(max, Math.max(min, Math.round(value)));
-}
-
-function clampBounds(
-  raw: { x: number; y: number; width: number; height: number } | null,
-): WindowBounds {
-  return {
-    x: clampInt(raw?.x ?? 0, -32768, 32768, 0),
-    y: clampInt(raw?.y ?? 0, -32768, 32768, 0),
-    width: clampInt(raw?.width ?? 960, 1, 32768, 960),
-    height: clampInt(raw?.height ?? 600, 1, 32768, 600),
-  };
 }
 
 export function registerLayoutIpc(
@@ -156,7 +129,6 @@ export function registerLayoutIpc(
       const valid = validateLayout({
         schema_version: SCHEMA_VERSION,
         project: parsed.value.project,
-        window_bounds: clampBounds(deps.bounds(event)),
         active_desk: parsed.value.active_desk,
         desks,
       });

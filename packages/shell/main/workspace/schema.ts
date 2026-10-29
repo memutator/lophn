@@ -1,4 +1,5 @@
 // WorkspaceLayout 값. 파일 계약이다. 판 2부터 떠 있는 탭(floats)이, 판 3부터 detached 탭(OS 창)이, 판 4부터 자리(desk)가 있다.
+// 판 5에서 쓰지 않던 desktop 창 bounds(`window_bounds`)를 뺐다. 창 자리는 `window-state.ts`가 앱에 하나 둔다.
 // renderer가 보내는 wire 모양은 ipc/workspace.ts가 정한다. 여기는 파일에 남는
 // schema 원본과 검증·기본값의 순수 동작만 둔다.
 import { z } from "zod";
@@ -6,7 +7,7 @@ import { z } from "zod";
 import { type LayoutTab, tabKindOf } from "./kinds/registry.ts";
 import { tabKey } from "./kinds/values.ts";
 
-export const LAYOUT_SCHEMA_VERSION = 4;
+export const LAYOUT_SCHEMA_VERSION = 5;
 
 // default 자리의 key. workflow 이름은 slug라 `_`로 시작할 수 없어 겹치지 않는다. renderer model.ts의 DEFAULT_DESK와 짝이다.
 export const DEFAULT_DESK = "_default";
@@ -45,7 +46,7 @@ const layoutPaneSchema = z
     { message: "selected_tab is not in tabs" },
   );
 
-// 정수 rectangle. 창 bounds와 floated 탭의 rect, detached 창 bounds가 같이 쓴다. 과도한 크기는 받지 않는다.
+// 정수 rectangle. floated 탭의 rect와 detached 창 bounds가 같이 쓴다. 과도한 크기는 받지 않는다.
 const windowBounds = z.strictObject({
   x: z.number().int().min(-32768).max(32768),
   y: z.number().int().min(-32768).max(32768),
@@ -100,7 +101,6 @@ export const workspaceLayoutSchema = z
   .strictObject({
     schema_version: z.literal(LAYOUT_SCHEMA_VERSION),
     project: z.string().regex(/^prj_[0-7][0-9a-hjkmnp-tv-z]{25}$/),
-    window_bounds: windowBounds,
     active_desk: deskKey,
     desks: z.record(deskKey, deskSchema),
   })

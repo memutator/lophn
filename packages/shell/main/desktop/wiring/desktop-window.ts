@@ -3,6 +3,7 @@ import {
   app,
   BrowserWindow,
   type Event as ElectronEvent,
+  screen,
   shell,
 } from "electron";
 import { writeFileSync } from "node:fs";
@@ -17,9 +18,12 @@ import { openExternalLink } from "../open-external.ts";
 import { DESKTOP_URL } from "../shell-protocol.ts";
 import {
   type CreatedWindow,
+  MIN_WINDOW_HEIGHT,
+  MIN_WINDOW_WIDTH,
   openWindow,
   type WindowConfig,
 } from "../window.ts";
+import { clampToWorkAreas } from "../work-area.ts";
 import { stateOf } from "../window-controls.ts";
 import type { WindowBounds } from "../../workspace/layout.ts";
 import type { ShellContext } from "./context.ts";
@@ -34,6 +38,32 @@ export type DesktopWindows = {
 let shotSerial = 0;
 
 type NavigationEvent = ElectronEvent & { url: string; isMainFrame: boolean };
+
+/** 이미 떠 있는 desktop 창이 있으면 새 창을 이만큼 비켜 연다. 같은 자리에 겹쳐 뜨면 새 창이 열린 줄 모른다. */
+const CASCADE_STEP = 32;
+
+/** 창을 옮기거나 크기를 바꾸는 동안 저장을 이만큼 미룬다. 끄는 동안은 매 픽셀 event가 온다. */
+const SAVE_DEBOUNCE_MS = 500;
+
+/**
+ * 새 desktop 창의 자리. 마지막으로 저장한 자리를 지금 화면 안으로 당긴다. 다른 desktop 창이 떠 있으면 그만큼
+ * 비켜 연다. 저장한 적 없으면 undefined이고 OS가 기본 크기 창을 놓는다.
+ */
+function restoredPlace(ctx: ShellContext) {
+  const saved = ctx.windowState.current;
+  if (saved === null) return undefined;
+  const shift = recentWindow(ctx) === undefined ? 0 : CASCADE_STEP;
+  const bounds = clampToWorkAreas(
+    {
+      ...saved.bounds,
+      x: saved.bounds.x + shift,
+      y: saved.bounds.y + shift,
+    },
+    screen.getAllDisplays().map((display) => display.workArea),
+    { width: MIN_WINDOW_WIDTH, height: MIN_WINDOW_HEIGHT },
+  );
+  return { bounds, maximized: saved.maximized };
+}
 
 /**
  * 창 밖에서 온 일(전역 팔레트 키)을 가장 최근 창에 시킨다. 사람이
@@ -77,6 +107,9 @@ export function openDesktopWindow(
   start?: { hash: string; bounds?: WindowBounds },
 ): BrowserWindow | undefined {
   const { here, headless, windows, overlays } = ctx;
+  // detached 창은 layout이 탭마다 자리를 갖는다. 앱 전체의 마지막 자리는 desktop 창만 쓰고 고친다.
+  const place = start === undefined ? restoredPlace(ctx) : undefined;
+  const bounds = start?.bounds ?? place?.bounds;
   let created: BrowserWindow | undefined;
   // 개발 확인 전용(`npm run dev:mock`). renderer가 주소의 `mock`을 보고 core 대신 메모리 가짜
   // 통로로 모든 화면을 채운다. `LOPHN_SHELL_START`의 시작 자리와 함께 쓴다.
@@ -91,7 +124,9 @@ export function openDesktopWindow(
     // `LOPHN_SHELL_START=project:<id>`는 그 프로젝트 작업대부터, `settings`는 Settings부터,
     // `app:<id>`는 그 앱 공간부터 연다.
     // `instructions:global`·`instructions:project:<id>`는 그 [Instructions] 편집기부터 연다.
-    ...(start?.bounds ? { bounds: start.bounds } : {}),
+    ...(bounds ? { bounds } : {}),
+    // 저장한 자리로 여는 창은 숨긴 채 만들고 크기를 맞춘 뒤 보인다(`rememberPlace`).
+    ...(place ? { show: false } : {}),
     detached: start !== undefined,
     url:
       start !== undefined
@@ -170,6 +205,7 @@ export function openDesktopWindow(
         windows.add(window);
         created = window;
         for (const reaction of ctx.windowHooks.created) reaction(window);
+        if (start === undefined) rememberPlace(ctx, window, place);
         const contentsId = window.webContents.id;
         const ref = ctx.windowRef(window);
         window.on("closed", () => {
@@ -197,6 +233,51 @@ export function openDesktopWindow(
     },
   });
   return created;
+}
+
+/**
+ * 저장한 크기·최대화를 되살리고, 옮기거나 크기를 바꾸거나 최대화·되돌리거나 닫을 때 그 자리를 저장한다. 최대화한
+ * 창은 되돌렸을 때의 자리(`getNormalBounds`)를 함께 둔다. 최소화와 전체 화면은 저장하지 않는다(다시 열 때 그
+ * 모양이면 창이 안 보이거나 상단 바가 없다).
+ */
+function rememberPlace(
+  ctx: ShellContext,
+  window: BrowserWindow,
+  place: { bounds: WindowBounds; maximized: boolean } | undefined,
+): void {
+  if (place !== undefined) {
+    // Wayland(KWin)에서는 Electron이 창이 뜰 모니터를 몰라 만들 때 크기를 primary 모니터 안으로 자르고, 보인 뒤
+    // 바꾼 크기도 받지 않는다. 숨긴 채 만든 창에 저장한 크기를 다시 건 뒤 보이면 그 크기로 뜬다(KWin에서 확인).
+    // 자리(x·y)는 Wayland에서 compositor가 정한다. X11·macOS·Windows는 만들 때의 크기·자리가 이미 맞다.
+    window.once("ready-to-show", () => {
+      if (window.isDestroyed()) return;
+      window.setSize(place.bounds.width, place.bounds.height);
+      if (place.maximized) window.maximize();
+      reveal(window, ctx.headless);
+    });
+  }
+  let timer: NodeJS.Timeout | undefined;
+  const save = () => {
+    clearTimeout(timer);
+    if (window.isDestroyed() || window.isMinimized() || window.isFullScreen()) {
+      return;
+    }
+    const { x, y, width, height } = window.getNormalBounds();
+    ctx.windowState.save({
+      bounds: { x, y, width, height },
+      maximized: window.isMaximized(),
+    });
+  };
+  const later = () => {
+    clearTimeout(timer);
+    timer = setTimeout(save, SAVE_DEBOUNCE_MS);
+  };
+  // Linux에는 moved가 없어 move와 resize를 같이 듣는다.
+  window.on("move", later);
+  window.on("resize", later);
+  window.on("maximize", save);
+  window.on("unmaximize", save);
+  window.on("close", save);
 }
 
 function wrap(window: BrowserWindow): CreatedWindow {

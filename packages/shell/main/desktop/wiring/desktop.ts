@@ -280,7 +280,8 @@ export function register(
   });
 
   if (instance.acquired) {
-    app.whenReady().then(() => {
+    // 첫 창이 마지막 자리로 열리게 창보다 먼저 읽는다.
+    Promise.all([app.whenReady(), ctx.windowState.load()]).then(() => {
       const serve = createShellHandler({ distDir: ctx.rendererDist() });
       protocol.handle("lophn-shell", (request) =>
         serve(request).then(

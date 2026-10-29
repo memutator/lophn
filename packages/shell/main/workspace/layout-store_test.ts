@@ -34,7 +34,6 @@ function layout(
   return {
     schema_version: SCHEMA_VERSION,
     project,
-    window_bounds: { x: 0, y: 0, width: 960, height: 600 },
     active_desk: DEFAULT_DESK,
     desks,
   };

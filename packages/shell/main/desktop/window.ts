@@ -28,6 +28,7 @@ interface WindowOptions {
   /** main이 검증한 공간 이름. 런처는 없다. */
   spaceName?: string;
   preload: string;
+  /** false면 숨긴 채 만든다. 부르는 쪽이 크기를 맞춘 뒤 보인다. */
   show?: boolean;
   /** 이 자리와 크기로 연다(detached 창). 너비·높이는 최소 아래로 내려가지 않는다. */
   bounds?: WindowBounds;
@@ -37,6 +38,7 @@ interface WindowOptions {
 
 export interface WindowConfig {
   x?: number;
+  show?: boolean;
   y?: number;
   width: number;
   height: number;
@@ -55,6 +57,7 @@ function windowConfig(options: WindowOptions): WindowConfig {
   const minHeight = options.detached ? MIN_DETACHED_HEIGHT : MIN_WINDOW_HEIGHT;
   return {
     ...(options.bounds ? { x: options.bounds.x, y: options.bounds.y } : {}),
+    ...(options.show === false ? { show: false } : {}),
     width: Math.max(options.bounds?.width ?? MIN_WINDOW_WIDTH, minWidth),
     height: Math.max(options.bounds?.height ?? MIN_WINDOW_HEIGHT, minHeight),
     minWidth,

@@ -15,6 +15,10 @@ import type { CoreConnection } from "../core/connection.ts";
 import { type HeadlessMode, readHeadless } from "../headless.ts";
 import { packagedInstall, resolveDataRoot } from "../paths.ts";
 import { appIconPath, type InstalledTray } from "../tray.ts";
+import {
+  createWindowStateStore,
+  type WindowState,
+} from "../../workspace/window-state.ts";
 import { connectCore } from "./core.ts";
 import {
   type DesktopWindows,
@@ -94,6 +98,15 @@ export type ShellContext = {
   quit: { requested: boolean; active: () => boolean };
   tray: { current: InstalledTray | undefined };
   desktop: DesktopWindows;
+  /**
+   * 마지막 desktop 창의 자리. 앱이 준비되기 전에 `load`로 파일에서 한 번 읽고, 창을 옮기거나 닫을 때 `save`로
+   * 고친다. 새 창은 이 값으로 연다. detached 창은 쓰지 않는다(layout이 탭마다 자리를 갖는다).
+   */
+  windowState: {
+    current: WindowState | null;
+    load(): Promise<void>;
+    save(state: WindowState): void;
+  };
   windowRef(window: BrowserWindow): string;
   windowOfRef(ref: string): BrowserWindow | undefined;
   shellWindowOf(sender: unknown): BrowserWindow | undefined;
@@ -143,6 +156,7 @@ export function createShellContext(): ShellContext {
         });
   };
 
+  const windowStates = createWindowStateStore(dataRoot);
   const ctx: ShellContext = {
     here,
     dataRoot,
@@ -172,6 +186,16 @@ export function createShellContext(): ShellContext {
     closeGuards: new CloseGuards(),
     quit: { requested: false, active: () => false },
     tray: { current: undefined },
+    windowState: {
+      current: null,
+      async load() {
+        ctx.windowState.current = await windowStates.read();
+      },
+      save(state) {
+        ctx.windowState.current = state;
+        void windowStates.write(state);
+      },
+    },
     desktop: {
       open: () => openDesktopWindow(ctx),
       show: () => showDesktopWindow(ctx),

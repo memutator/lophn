@@ -37,6 +37,7 @@ export function ThreadScroll({
   const listRef = useRef<HTMLDivElement>(null);
   const following = useRef(initialScroll === null);
   const seen = useRef(count);
+  const lastTop = useRef(0);
   const [unseen, setUnseen] = useState(0);
 
   useLayoutEffect(() => {
@@ -65,14 +66,17 @@ export function ThreadScroll({
   const handleScroll = () => {
     const list = listRef.current;
     if (!list) return;
-    const bottom = atBottom(
-      list.scrollTop,
-      list.scrollHeight,
-      list.clientHeight,
-    );
+    const { scrollTop, scrollHeight, clientHeight } = list;
+    // 위로 올리면 맨 아래 여유 안이어도 따라가기를 멈춘다. 따라가는 채로 두면 이 scroll의 저장이 부른 render가
+    // 맨 아래로 되돌려 작은 wheel이 먹힌다. 본문이 줄어 맨 아래에 붙은 채 내려간 것은 올린 것이 아니다.
+    const up =
+      scrollTop < lastTop.current &&
+      scrollHeight - scrollTop - clientHeight > 1;
+    lastTop.current = scrollTop;
+    const bottom = !up && atBottom(scrollTop, scrollHeight, clientHeight);
     following.current = bottom;
     if (bottom) setUnseen(0);
-    onScroll(bottom ? null : list.scrollTop);
+    onScroll(bottom ? null : scrollTop);
   };
 
   const jump = () => {

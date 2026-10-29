@@ -132,6 +132,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.button.key-reset": {
     name: "string";
   };
+  "settings.button.key-search-by-key": Record<never, never>;
   "settings.button.keys-reset-all": Record<never, never>;
   "settings.button.remove-entry": {
     item: "string";
@@ -253,6 +254,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.key-pane-focus": Record<never, never>;
   "settings.label.key-pane-split": Record<never, never>;
   "settings.label.key-search": Record<never, never>;
+  "settings.label.key-search-by-key": Record<never, never>;
   "settings.label.key-search-open": Record<never, never>;
   "settings.label.key-sidebar-toggle": Record<never, never>;
   "settings.label.key-tab-close": Record<never, never>;
@@ -328,6 +330,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.note.key-files-quick-open": Record<never, never>;
   "settings.note.key-pane-focus": Record<never, never>;
   "settings.note.key-pane-split": Record<never, never>;
+  "settings.note.key-search-by-key": Record<never, never>;
   "settings.note.key-search-open": Record<never, never>;
   "settings.note.key-sidebar-toggle": Record<never, never>;
   "settings.note.key-tab-close": Record<never, never>;

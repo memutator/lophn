@@ -2,7 +2,7 @@
 // 검색 칸이 이름·설명·키로 줄을 거른다. 키 칸을 누르면 그 줄이 새 키를 받고, 받은 키는 바로 저장해 창의
 // keybinding service와 main에 덮는다. 번호 줄(n번째 탭, n번째 칸)은 modifier 하나를 받아 모든 번호에 붙인다.
 import { type KeyboardEvent, useCallback, useState } from "react";
-import { Button, Kbd } from "@lophn/ui/primitives";
+import { Button, IconButton, Kbd } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { SearchFilter } from "@lophn/ui/input";
 import { t } from "@lophn/wording";
@@ -17,6 +17,7 @@ import {
 } from "../../../../ipc/keybindings.ts";
 import { KEY_CAPTURE_ATTRIBUTE } from "../../../commands/window.ts";
 import { useWindowCommands } from "../../../commands/react.tsx";
+import { settingsIcons } from "../../../icons/mod.ts";
 import { useReload } from "../use-reload.ts";
 import styles from "../settings.module.css";
 import {
@@ -26,6 +27,7 @@ import {
   keyRows,
   modifierOfInput,
   numberedKeys,
+  rowsWithChord,
   withKeys,
   withoutPlatform,
 } from "./model.ts";
@@ -80,6 +82,9 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
   const platform: KeyPlatform = commands?.platform ?? "other";
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   const [query, setQuery] = useState("");
+  // 키로 찾기. 켜면 검색 칸이 누른 키를 받고 그 키를 쓰는 줄만 보인다.
+  const [byKey, setByKey] = useState(false);
+  const [pressed, setPressed] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [problem, setProblem] = useState<{ id: string; text: string } | null>(
     null,
@@ -125,12 +130,39 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
   const stored = loaded.state === "ready" ? loaded.stored : null;
   const overrides = stored?.[platform] ?? {};
   const rows = keyRows(platform, overrides);
-  const shown = filterRows(rows, query, (row) => rowKeyText(row, platform));
+  const shown = byKey
+    ? pressed === null
+      ? rows
+      : rowsWithChord(rows, pressed)
+    : filterRows(rows, query, (row) => rowKeyText(row, platform));
   const anyChanged = rows.some((row) => row.changed);
 
   function stop() {
     setEditing(null);
     setProblem(null);
+  }
+
+  function record(event: KeyboardEvent<HTMLElement>) {
+    // Tab만 누르면 칸을 떠난다. 나머지 키는 page로도 command로도 가지 않고 이 칸이 받는다.
+    const plain =
+      !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
+    if (plain && event.key === "Tab") return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.nativeEvent.isComposing || event.repeat) return;
+    if (plain && (event.key === "Backspace" || event.key === "Escape")) {
+      setPressed(null);
+      return;
+    }
+    const text = chordOfInput({
+      key: event.key,
+      code: event.code,
+      ctrl: event.ctrlKey,
+      meta: event.metaKey,
+      alt: event.altKey,
+      shift: event.shiftKey,
+    });
+    if (text !== null) setPressed(text);
   }
 
   function capture(
@@ -197,11 +229,50 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
       <Loading loading={stored === null} placeholder={<Skeleton lines={6} />}>
         {stored === null ? null : (
           <>
-            <div className={styles.searchRow}>
-              <SearchFilter
-                value={query}
-                onChange={setQuery}
-                label={t("settings.label.key-search")}
+            <div className={`${styles.searchRow} ${styles.keySearchRow}`}>
+              {byKey ? (
+                <div className={styles.keySearch}>
+                  <span className={styles.keySearchLabel}>
+                    {t("settings.label.key-search-by-key")}
+                  </span>
+                  <div
+                    className={styles.keyRecord}
+                    tabIndex={0}
+                    role="searchbox"
+                    aria-label={t("settings.label.key-search-by-key")}
+                    data-key-record=""
+                    {...{ [KEY_CAPTURE_ATTRIBUTE]: "" }}
+                    ref={(element) => {
+                      if (element !== null && pressed === null) element.focus();
+                    }}
+                    onKeyDown={record}
+                  >
+                    {pressed === null ? (
+                      <span className={styles.lineHelp}>
+                        {t("settings.note.key-search-by-key")}
+                      </span>
+                    ) : (
+                      <Kbd keys={[chordLabel(pressed, platform)]} />
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <SearchFilter
+                  value={query}
+                  onChange={setQuery}
+                  label={t("settings.label.key-search")}
+                />
+              )}
+              <IconButton
+                icon={settingsIcons.keyboard}
+                label={t("settings.button.key-search-by-key")}
+                aria-pressed={byKey}
+                variant={byKey ? "secondary" : "ghost"}
+                data-key-search-toggle=""
+                onClick={() => {
+                  setByKey((on) => !on);
+                  setPressed(null);
+                }}
               />
             </div>
             {shown.length === 0 ? (

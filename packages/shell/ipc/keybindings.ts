@@ -330,7 +330,8 @@ export type ChordCheck =
     }
   | { readonly ok: false; readonly reason: "taken"; readonly by: Binding };
 
-function sameChord(a: Chord, b: Chord): boolean {
+/** 두 chord가 같은 키 조합인가. 글자의 modifier 순서는 보지 않는다. */
+export function sameChord(a: Chord, b: Chord): boolean {
   return (
     a.code === b.code &&
     a.ctrl === b.ctrl &&

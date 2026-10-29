@@ -580,3 +580,46 @@
   outline: none;
   cursor: text;
 }
+
+/* Keyboard 검색 줄. 글 검색 칸이나 키 받는 칸이 폭을 채우고, 오른쪽 끝에 키로 찾기 토글이 칸 아래쪽에 맞춰 선다. */
+.keySearchRow {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.keySearchRow > :first-child {
+  flex: 1;
+}
+
+.keySearch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--field-gap);
+  min-width: var(--space-0);
+}
+
+.keySearchLabel {
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+}
+
+/* design Input(sm)과 같은 모양이라 토글을 눌러도 칸이 움직이지 않는다. */
+.keyRecord {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: var(--control-sm-height);
+  padding: var(--space-0) var(--control-sm-pad-x);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-base);
+  outline: none;
+  cursor: text;
+}
+
+.keyRecord:focus-visible {
+  border-color: var(--color-focus);
+}

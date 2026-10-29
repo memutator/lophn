@@ -103,6 +103,7 @@ export const workspaceSettings = {
   "settings.button.install-hooks": "Install hooks",
   "settings.button.key-change": "Change {name}",
   "settings.button.key-reset": "Reset {name}",
+  "settings.button.key-search-by-key": "Search by pressing keys",
   "settings.button.keys-reset-all": "Reset all shortcuts",
   "settings.button.remove-entry": "Remove {item}",
   "settings.button.reset-default": "Reset to default",
@@ -223,6 +224,7 @@ export const workspaceSettings = {
   "settings.label.key-pane-focus": "Focus a pane",
   "settings.label.key-pane-split": "Split the pane",
   "settings.label.key-search": "Search shortcuts",
+  "settings.label.key-search-by-key": "Press a shortcut",
   "settings.label.key-search-open": "Search in files",
   "settings.label.key-sidebar-toggle": "Show or hide the sidebar",
   "settings.label.key-tab-close": "Close the tab",
@@ -293,6 +295,8 @@ export const workspaceSettings = {
     "Moves to a pane by number. 1 is the left pane and 2 is the right pane.",
   "settings.note.key-pane-split":
     "Moves the current tab to a new pane on the right.",
+  "settings.note.key-search-by-key":
+    "Press keys to find what uses them. Backspace clears.",
   "settings.note.key-search-open":
     "Opens the sidebar's search to find text across this project's files.",
   "settings.note.key-sidebar-toggle":

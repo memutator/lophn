@@ -11,6 +11,7 @@ import {
   type KeyOverrides,
   type KeyPlatform,
   parseChord,
+  sameChord,
   resolveBindings,
 } from "../../../../ipc/keybindings.ts";
 import type { StoredKeybindings } from "./source.ts";
@@ -171,6 +172,26 @@ export function filterRows(
       text.toLowerCase().includes(needle),
     ),
   );
+}
+
+/**
+ * 누른 키 조합을 쓰는 줄. 키로 찾기 토글이 켜졌을 때 쓴다. 번호 줄은 modifier가 같고 누른 키가 그 줄의 숫자면
+ * 맞는다(Alt+3이면 탭 번호 줄).
+ */
+export function rowsWithChord(
+  rows: readonly KeyRow[],
+  chord: string,
+): readonly KeyRow[] {
+  const pressed = parseChord(chord);
+  return rows.filter((row) => {
+    if (row.kind === "single") {
+      return row.chords.some((one) => sameChord(parseChord(one), pressed));
+    }
+    if (row.modifier === null) return false;
+    return row.numbers.some((n) =>
+      sameChord(parseChord(`${row.modifier}+Digit${n}`), pressed),
+    );
+  });
 }
 
 function sameAsTable(

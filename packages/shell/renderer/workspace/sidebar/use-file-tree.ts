@@ -43,31 +43,38 @@ export function useFileTree(source: WorkspaceSource, root: string | null) {
       sequence.current.set(path, mine);
       const read = await source.list(path);
       if (sequence.current.get(path) !== mine) return;
-      const isRoot = path === latest.current.root;
-      if (!read.ok && !isRoot && latest.current.levels.has(path)) {
-        // 펼쳐 둔 하위 폴더가 사라졌다.
-        setLevels((current) => {
-          const next = new Map(current);
-          next.delete(path);
-          return next;
-        });
-        setExpanded((current) => {
-          const next = new Set(current);
-          next.delete(path);
-          return next;
-        });
+      if (!read.ok) {
+        const isRoot = path === latest.current.root;
+        const known = latest.current.levels.has(path);
+        if (known && !isRoot && read.message === "not_found") {
+          // 펼쳐 둔 하위 폴더가 디스크에서 사라졌다.
+          setLevels((current) => {
+            const next = new Map(current);
+            next.delete(path);
+            return next;
+          });
+          setExpanded((current) => {
+            const next = new Set(current);
+            next.delete(path);
+            return next;
+          });
+          return;
+        }
+        // 이미 읽은 폴더의 다시 읽기가 잠시 실패하면(main이 core를 못 읽는 등) 앞서 읽은 것을 둔다.
+        // 실패를 "사라짐"으로 읽으면 펼친 폴더가 저절로 닫힌다.
+        if (known) return;
+        setLevels((current) => new Map(current).set(path, "failed"));
         return;
       }
       setLevels((current) => {
         const before = current.get(path);
         if (
-          read.ok &&
           before !== undefined &&
           before !== "failed" &&
           sameEntries(before, read.value)
         )
           return current;
-        return new Map(current).set(path, read.ok ? read.value : "failed");
+        return new Map(current).set(path, read.value);
       });
     },
     [source],

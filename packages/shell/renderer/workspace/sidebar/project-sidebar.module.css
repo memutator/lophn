@@ -22,9 +22,12 @@
   background: var(--color-surface-subtle);
 }
 
+/* 오른쪽 margin은 `.resizer`가 panel 안으로 들어오는 자리다. 없으면 scrollbar 오른쪽이 resizer 밑에 깔려
+   그 위의 wheel과 thumb 끌기가 sidebar 폭 끌기로 먹힌다. */
 .body {
   flex: 1;
   min-height: var(--space-0);
+  margin-right: var(--space-2);
   overflow-y: auto;
   padding: var(--space-2) var(--space-4) var(--space-6);
 }
@@ -114,7 +117,8 @@
   line-height: var(--type-small-line);
 }
 
-/* 오른쪽 경계 위 8px 잡는 영역. 잡거나 올리면 2px 선이 보인다. */
+/* 오른쪽 경계 위 8px 잡는 영역. 잡거나 올리면 2px 선이 보인다. 안쪽 반은 panel 위라 오른쪽 칸이 native 앱 view여도
+   잡힌다. 그 반 밑에는 `.body`의 오른쪽 margin만 있다. */
 .resizer {
   position: absolute;
   top: var(--space-0);

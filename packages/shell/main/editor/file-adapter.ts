@@ -169,6 +169,15 @@ export function createFileAdapter(options: FileAdapterOptions): FileAdapter {
   const secrets = join(options.dataRoot, "secrets.json");
   // 같은 경로의 쓰기는 한 줄로 선다. 기대 hash 비교와 교체 사이에 다른 쓰기가 끼지 않게 한다.
   const queues = new Map<string, Promise<unknown>>();
+  // 같은 순간의 list들은 연결 폴더 읽기 하나를 나눠 쓴다. Explorer는 펼친 폴더마다 list를 한꺼번에 보내는데
+  // list마다 core를 부르면 core의 principal당 HTTP 동시 한도(16)를 넘어 list와 renderer의 core 호출이 unavailable로 진다.
+  let foldersRead: Promise<readonly string[] | null> | null = null;
+  const connectedFolders = () => {
+    foldersRead ??= options.folders().finally(() => {
+      foldersRead = null;
+    });
+    return foldersRead;
+  };
 
   /** 정규화한 경로. 절대 경로가 아니거나 secret 파일이면 거절이다. */
   async function accept(
@@ -261,7 +270,7 @@ export function createFileAdapter(options: FileAdapterOptions): FileAdapter {
   return {
     async list(path) {
       return await guarded(path, async (clean) => {
-        const folders = await options.folders();
+        const folders = await connectedFolders();
         if (folders === null) return fail("unavailable");
         // 실제 경로로 비교해 연결 폴더 밖으로 나가는 symlink를 거절한다.
         const real = await realPath(clean);

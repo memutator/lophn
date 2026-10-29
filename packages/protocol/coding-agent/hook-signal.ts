@@ -123,7 +123,7 @@ function textAt(
       value = isRecord(value) ? value[key] : undefined;
     }
     const text = textOf(value);
-    if (text !== null && text !== INVALID) return text;
+    if (text !== null && text !== INVALID && text !== "") return text;
   }
   return undefined;
 }

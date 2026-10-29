@@ -16,6 +16,7 @@ function note(id: string, title: string | null) {
     harness: "claude",
     external_session: id,
     title,
+    name: null,
   };
 }
 
@@ -40,6 +41,7 @@ test("같은 session은 started_at과 처음 받은 title을 지키고, 50개를
         ...note("a", "first prompt"),
         started_at: 1000,
         last_at: 3000,
+        pinned: false,
         resumable: true,
       },
     ]);

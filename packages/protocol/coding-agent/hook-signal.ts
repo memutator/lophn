@@ -10,6 +10,7 @@ const HOOK_SIGNAL_TYPES = [
   "PermissionRequested",
   "PermissionResolved",
   "SessionEnded",
+  "SessionNamed",
 ] as const;
 
 export type HookSignal = {
@@ -18,6 +19,8 @@ export type HookSignal = {
   external_session?: string;
   // TurnStarted. hook payload가 싣는 사용자 prompt다. session 제목으로 쓴다.
   prompt?: string;
+  // harness가 정한 session 이름이다. 어느 event에서든 읽는다(`session.name`). SessionNamed는 이것만 알린다.
+  name?: string;
   // TurnEnded.
   outcome?: "completed" | "failed" | "interrupted";
   // TurnEnded. hook payload가 직접 싣는 마지막 답(실패면 오류 글)이다. transcript는 읽지 않는다.
@@ -109,12 +112,12 @@ function outcomeOf(value: unknown): Outcome {
   return value === "failed" || value === "interrupted" ? value : "completed";
 }
 
-// 이 harness의 `session.id` 경로 중 처음으로 값이 있는 것이다. 모양이 틀린 id는 없는 것으로 본다(신호는 버리지 않는다).
-function sessionOf(
-  harness: HarnessId,
+// payload에서 `paths` 중 처음으로 값이 있는 문자열이다. 모양이 틀린 값은 없는 것으로 본다(신호는 버리지 않는다).
+function textAt(
+  paths: readonly string[],
   payload: Record<string, unknown>,
 ): string | undefined {
-  for (const path of HARNESS_ADAPTERS[harness].session.id) {
+  for (const path of paths) {
     let value: unknown = payload;
     for (const key of path.split(".")) {
       value = isRecord(value) ? value[key] : undefined;
@@ -134,11 +137,15 @@ export function hookSignalOf(
   if (base === undefined || !isRecord(payload)) return null;
   const signal = signalOf(harness, base, event, payload);
   if (signal === null) return null;
-  // /clear나 resume으로 session이 바뀌는 것은 어느 event에서든 알 수 있어 모든 신호에서 읽는다.
-  const external_session = sessionOf(harness, payload);
-  return external_session === undefined
-    ? signal
-    : { ...signal, external_session };
+  // /clear나 resume으로 session이 바뀌는 것은 어느 event에서든 알 수 있어 모든 신호에서 읽는다. 이름도 같다.
+  const { id, name } = HARNESS_ADAPTERS[harness].session;
+  const external_session = textAt(id, payload);
+  const sessionName = textAt(name, payload);
+  return {
+    ...signal,
+    ...(external_session === undefined ? {} : { external_session }),
+    ...(sessionName === undefined ? {} : { name: sessionName }),
+  };
 }
 
 function signalOf(

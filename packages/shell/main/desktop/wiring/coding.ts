@@ -212,6 +212,7 @@ export function register(ctx: ShellContext): Coding {
     shellInit: agent.shellInit,
     agent: agent.tracker,
     agentSessions: agent.listSessions,
+    renameAgentSession: agent.renameSession,
     resumeLine: (resume) => {
       if (!(resume.harness in HARNESS_ADAPTERS)) return null;
       const adapter =

@@ -4,6 +4,7 @@
 import type { BrowserWindow } from "electron";
 
 import {
+  TERMINAL_AGENT_SESSION_RENAME_CHANNEL,
   TERMINAL_AGENT_SESSIONS_CHANNEL,
   TERMINAL_BRIDGE_ACK_CHANNEL,
   TERMINAL_CLOSE_CHANNEL,
@@ -28,7 +29,7 @@ interface MainIpc {
 }
 
 /**
- * terminal 채널 열 개를 ipcMain에 등록한다. sender·frame·URL·입력 검사는
+ * terminal 채널을 ipcMain에 등록한다. sender·frame·URL·입력 검사는
  * TerminalIpc가 본다.
  */
 export function registerTerminalIpc(register: MainIpc, ipc: TerminalIpc): void {
@@ -43,6 +44,7 @@ export function registerTerminalIpc(register: MainIpc, ipc: TerminalIpc): void {
     [TERMINAL_LINK_CHANNEL, "link"],
     [TERMINAL_BRIDGE_ACK_CHANNEL, "bridgeAck"],
     [TERMINAL_AGENT_SESSIONS_CHANNEL, "agentSessions"],
+    [TERMINAL_AGENT_SESSION_RENAME_CHANNEL, "renameAgentSession"],
   ] as const) {
     const invoke = ipc[method] as unknown as (
       event: never,
@@ -67,6 +69,7 @@ export function removeTerminalIpc(register: MainIpc): void {
     TERMINAL_LINK_CHANNEL,
     TERMINAL_BRIDGE_ACK_CHANNEL,
     TERMINAL_AGENT_SESSIONS_CHANNEL,
+    TERMINAL_AGENT_SESSION_RENAME_CHANNEL,
   ]) {
     register.removeHandler(channel);
   }

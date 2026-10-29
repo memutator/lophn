@@ -245,6 +245,18 @@ const CASES: [string, HarnessId, string, unknown, HookSignal | null][] = [
     { type: "TurnStarted", external_session: "s-1" },
   ],
   [
+    "claude: session_title이 name으로 실린다",
+    "claude",
+    "UserPromptSubmit",
+    { session_id: "s-1", session_title: "my title", prompt: "hi" },
+    {
+      type: "TurnStarted",
+      prompt: "hi",
+      external_session: "s-1",
+      name: "my title",
+    },
+  ],
+  [
     "opencode: properties.sessionID",
     "opencode",
     "permission.replied",

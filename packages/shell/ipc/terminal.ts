@@ -30,6 +30,15 @@ export const terminalOpenSchema = z
 
 export const terminalAgentSessionsSchema = z.object({ project: ref }).strict();
 
+export const terminalAgentSessionRenameSchema = z
+  .object({
+    project: ref,
+    harness: resume.shape.harness,
+    external_session: resume.shape.external_session,
+    name: z.string().min(1).max(200).nullable(),
+  })
+  .strict();
+
 export const terminalInputSchema = z
   .object({
     terminal_ref: ref,
@@ -102,6 +111,13 @@ export type TerminalOpen = {
   resume?: TerminalResume;
 };
 export type TerminalAgentSessionsQuery = { project: string };
+export type TerminalAgentSessionRename = {
+  project: string;
+  harness: string;
+  external_session: string;
+  /** null이면 사람이 정한 이름을 지우고 고정을 푼다. */
+  name: string | null;
+};
 export type TerminalInput = {
   terminal_ref: string;
   generation: number;
@@ -158,6 +174,8 @@ export type TerminalAgent = {
   session?: string;
   /** 그 session의 첫 prompt 한 줄. 모르면 없다. */
   title?: string;
+  /** hook이 알려 준 harness의 session 이름. 모르면 없다. */
+  name?: string;
 };
 
 /**
@@ -172,6 +190,10 @@ export type TerminalAgentSession = {
   cwd: string;
   /** 첫 prompt 한 줄. 모르면 null이다. */
   title: string | null;
+  /** harness나 사람이 붙인 session 이름. 모르면 null이다. */
+  name: string | null;
+  /** 사람이 이름을 정했다. true면 이후 hook이 준 이름이 name을 덮어쓰지 않는다. */
+  pinned: boolean;
   /** epoch ms. */
   started_at: number;
   last_at: number;
@@ -273,6 +295,10 @@ export interface TerminalApi {
   agentSessions(
     input: TerminalAgentSessionsQuery,
   ): Promise<TerminalCall<TerminalAgentSession[]>>;
+  /** 탭 이름을 저장한 session에 쓰고 고정한다. name이 null이면 고정을 푼다. 바뀐 목록을 돌려준다. */
+  renameAgentSession(
+    input: TerminalAgentSessionRename,
+  ): Promise<TerminalCall<TerminalAgentSession[]>>;
   /** 저장한 session이 바뀔 때마다 그 project의 목록을 보낸다. 구독 해지를 돌려준다. */
   onAgentSessions(
     listener: (change: TerminalAgentSessionsChanged) => void,
@@ -294,3 +320,5 @@ export const TERMINAL_REVEAL_CHANNEL = "shell:terminal-reveal";
 export const TERMINAL_AGENT_SESSIONS_CHANNEL = "shell:terminal-agent-sessions";
 export const TERMINAL_AGENT_SESSIONS_CHANGED_CHANNEL =
   "shell:terminal-agent-sessions-changed";
+export const TERMINAL_AGENT_SESSION_RENAME_CHANNEL =
+  "shell:terminal-agent-session-rename";

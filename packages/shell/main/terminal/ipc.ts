@@ -15,6 +15,8 @@ import {
   type TerminalLink,
   terminalLinkSchema,
   type TerminalAgentSession,
+  type TerminalAgentSessionRename,
+  terminalAgentSessionRenameSchema,
   terminalAgentSessionsSchema,
   type TerminalAgentSessionsQuery,
   type TerminalOpen,
@@ -78,6 +80,11 @@ export type TerminalIpc = {
     event: IpcEvent,
     input: unknown,
   ): Promise<IpcResult<TerminalAgentSession[]>>;
+  /** 탭 이름을 저장한 session에 쓰고 고정한다. name이 null이면 고정을 푼다. */
+  renameAgentSession(
+    event: IpcEvent,
+    input: unknown,
+  ): Promise<IpcResult<TerminalAgentSession[]>>;
 };
 
 const runningStub = (ref: string, generation: number): TerminalRuntime => ({
@@ -113,6 +120,10 @@ export function createTerminalIpc(deps: {
   agent?: Pick<AgentTracker, "decorate" | "humanInput" | "tabFocused">;
   /** 저장한 coding agent session. 꺼져 있으면 없다. */
   agentSessions?: (project: string) => Promise<TerminalAgentSession[]>;
+  /** 저장한 session의 이름을 바꾸고 고정한다. 꺼져 있으면 없다. */
+  renameAgentSession?: (
+    input: TerminalAgentSessionRename,
+  ) => Promise<TerminalAgentSession[]>;
   /** 저장한 session을 다시 여는 명령 한 줄. resume 규칙이 없는 harness면 null이다. */
   resumeLine?: (resume: TerminalResume) => string | null;
 }): TerminalIpc {
@@ -314,6 +325,19 @@ export function createTerminalIpc(deps: {
       return {
         ok: true,
         value: (await deps.agentSessions?.(parsed.value.project)) ?? [],
+      };
+    },
+    renameAgentSession: async (event, input) => {
+      const caller = checkCaller(deps.registry, event);
+      if (!caller.ok) return caller;
+      const parsed = checkInput<TerminalAgentSessionRename>(
+        terminalAgentSessionRenameSchema,
+        input,
+      );
+      if (!parsed.ok) return parsed;
+      return {
+        ok: true,
+        value: (await deps.renameAgentSession?.(parsed.value)) ?? [],
       };
     },
   };

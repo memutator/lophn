@@ -8,6 +8,7 @@ import { basename } from "node:path";
 import {
   TERMINAL_AGENT_SESSIONS_CHANGED_CHANNEL,
   type TerminalAgentSession,
+  type TerminalAgentSessionRename,
   TERMINAL_STATE_CHANNEL,
   type TerminalRuntime,
 } from "../../../ipc/terminal.ts";
@@ -55,6 +56,10 @@ export function createAgentWiring(options: {
   publish(runtime: TerminalRuntime): void;
   /** 그 project에서 저장한 coding agent session. 새것부터다. */
   listSessions(project: string): Promise<TerminalAgentSession[]>;
+  /** 탭 이름을 저장한 session에 쓰고 고정한다(null이면 고정을 푼다). 바뀐 목록을 push하고 돌려준다. */
+  renameSession(
+    input: TerminalAgentSessionRename,
+  ): Promise<TerminalAgentSession[]>;
   stop(): void;
 } {
   const { ctx, notice, terminals } = options;
@@ -94,6 +99,17 @@ export function createAgentWiring(options: {
       HARNESS_ADAPTERS[harness as HarnessId].session.resume !== null,
   });
 
+  function pushSessions(project: string, list: TerminalAgentSession[]): void {
+    for (const window of ctx.windows) {
+      if (!window.isDestroyed()) {
+        window.webContents.send(TERMINAL_AGENT_SESSIONS_CHANGED_CHANNEL, {
+          project,
+          sessions: list,
+        });
+      }
+    }
+  }
+
   const tracker = createAgentTracker({
     harnessOfProcess,
     interruptKeys: (harness) =>
@@ -119,17 +135,9 @@ export function createAgentWiring(options: {
           harness: info.harness,
           external_session: info.session,
           title: info.title,
+          name: info.name,
         })
-        .then((list) => {
-          for (const window of ctx.windows) {
-            if (!window.isDestroyed()) {
-              window.webContents.send(TERMINAL_AGENT_SESSIONS_CHANGED_CHANNEL, {
-                project: runtime.project,
-                sessions: list,
-              });
-            }
-          }
-        })
+        .then((list) => pushSessions(runtime.project, list))
         .catch((cause) => ctx.log(`agent session not saved: ${String(cause)}`));
     },
   });
@@ -217,6 +225,11 @@ export function createAgentWiring(options: {
     shellInit: () => (live && !stopped ? shellInit : null),
     publish,
     listSessions: (project) => sessions.list(project),
+    async renameSession(input) {
+      const list = await sessions.rename(input);
+      pushSessions(input.project, list);
+      return list;
+    },
     stop() {
       stopped = true;
       void server.then((started) => started?.stop()).catch(() => {});

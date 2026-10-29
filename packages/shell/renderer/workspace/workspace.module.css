@@ -22,6 +22,11 @@
   flex: none;
 }
 
+/* 탭을 끌어 titlebar에 놓으면 최소화된다. */
+.topBar[data-drop] {
+  box-shadow: inset 0 0 0 var(--border-focus-width) var(--color-focus);
+}
+
 .leading {
   display: flex;
   flex: 1;

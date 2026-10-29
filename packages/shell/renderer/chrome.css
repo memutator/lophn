@@ -1,6 +1,11 @@
 /* shell 화면의 기본: 크롬 글자는 선택되지 않고 끌려가지 않는다.
    읽고 고치는 본문, 입력, 터미널, code, 복사할 값만 선택된다.
    본문 모듈(reading·conversation·confirmation)은 자기 root에 user-select: text를 둔다. */
+html,
+body {
+  height: 100%;
+}
+
 body {
   -webkit-user-select: none;
   user-select: none;
@@ -40,7 +45,7 @@ samp,
   z-index: var(--z-backdrop);
 }
 
-:root:is([data-overlay-modal], [data-page-modal]) * {
+:root:is([data-overlay-modal], [data-page-modal], [data-tab-dragging]) * {
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }

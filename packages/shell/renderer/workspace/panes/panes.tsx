@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode, useState } from "react";
 import {
+  TAB_MIME,
   type TabItem as StripTab,
   TabStrip,
 } from "../../parts/tab-strip/tab-strip.tsx";
@@ -13,6 +14,7 @@ import {
   applyDrag,
   BREAKPOINT_MD,
   type CloseScope,
+  type PaneDropZone,
   type PaneState,
   ratioFromDrag,
   SPLIT_EQUAL,
@@ -64,6 +66,8 @@ interface PanesProps {
   onRatio: (ratio: number) => void;
   /** Explorer에서 끌어 온 파일을 그 칸에 연다. */
   onDropPath: (pane: number, path: string) => void;
+  /** 탭을 칸 본문의 왼쪽·가운데·오른쪽에 놓았다. */
+  onDropTab?: (pane: number, key: string, zone: PaneDropZone) => void;
   /** 마지막 칸 탭 줄 끝의 새 탭(+) 단추. */
   newTab?: ReactNode;
   /** 탭 줄이 그리는 탭 하나(아이콘, 이름 뒤 상태 점). */
@@ -102,6 +106,7 @@ export function Panes({
   onMove,
   onRatio,
   onDropPath,
+  onDropTab,
   newTab,
   stripTab,
   renderTab,
@@ -202,6 +207,9 @@ export function Panes({
               onReorder={(key, before) => onMove(key, index, before)}
               onFocus={() => onFocus(index)}
               onDropPath={(path) => onDropPath(index, path)}
+              onDropTab={
+                onDropTab && ((key, zone) => onDropTab(index, key, zone))
+              }
             />
           </Fragment>
         );
@@ -236,6 +244,7 @@ interface PaneViewProps {
   onReorder: (key: string, before: string | null) => void;
   onFocus: () => void;
   onDropPath: (path: string) => void;
+  onDropTab?: (key: string, zone: PaneDropZone) => void;
 }
 
 function PaneView({
@@ -263,6 +272,7 @@ function PaneView({
   onReorder,
   onFocus,
   onDropPath,
+  onDropTab,
 }: PaneViewProps) {
   const [menu, setMenu] = useState<{
     key: string;
@@ -272,6 +282,8 @@ function PaneView({
   const [renaming, setRenaming] = useState<string | null>(null);
   // Explorer의 파일을 이 칸 위로 끄는 중이다.
   const [dropping, setDropping] = useState(false);
+  // 탭을 이 칸 본문 위로 끄는 중이다. 놓으면 갈 자리.
+  const [tabDrop, setTabDrop] = useState<PaneDropZone | null>(null);
   const menuTab =
     menu === null ? undefined : pane.tabs.find((tab) => tab.key === menu.key);
   const menuPath = menuTab === undefined ? null : pathOf(menuTab);
@@ -410,6 +422,7 @@ function PaneView({
           : { width: `${width}px`, flexBasis: `${width}px` }
       }
       data-drop={dropping ? "" : undefined}
+      data-tab-drop={tabDrop ?? undefined}
       onPointerDown={onFocus}
       onFocusCapture={onFocus}
       onDragOver={(event) => {
@@ -470,6 +483,30 @@ function PaneView({
         }`}
         data-pane-body=""
         role="tabpanel"
+        onDragOver={(event) => {
+          if (!onDropTab || !event.dataTransfer.types.includes(TAB_MIME)) {
+            return;
+          }
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          const box = event.currentTarget.getBoundingClientRect();
+          const ratio = (event.clientX - box.left) / box.width;
+          setTabDrop(ratio < 0.25 ? "left" : ratio > 0.75 ? "right" : "center");
+        }}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+            setTabDrop(null);
+          }
+        }}
+        onDrop={(event) => {
+          const key = event.dataTransfer.getData(TAB_MIME);
+          if (tabDrop === null || key === "") return;
+          event.preventDefault();
+          const zone = tabDrop;
+          setTabDrop(null);
+          delete document.documentElement.dataset.tabDragging;
+          onDropTab?.(key, zone);
+        }}
       >
         {kept.map(({ tab, node }) => (
           <div

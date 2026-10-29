@@ -4,7 +4,10 @@ import { IconButton } from "@lophn/ui/primitives";
 import { useObservedSize } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 
-import type { TabItem as StripTab } from "../../parts/tab-strip/tab-strip.tsx";
+import {
+  TAB_MIME,
+  type TabItem as StripTab,
+} from "../../parts/tab-strip/tab-strip.tsx";
 import { TabStateDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import { workspaceIcons } from "../../icons/mod.ts";
 import type { FloatItem, TabItem } from "../model.ts";
@@ -110,6 +113,15 @@ function Row({
             className={styles.chip}
             style={{ width: CHIP_WIDTH }}
             data-minimized-chip={tab.key}
+            draggable
+            onDragStart={(event) => {
+              event.dataTransfer.setData(TAB_MIME, tab.key);
+              event.dataTransfer.effectAllowed = "move";
+              document.documentElement.dataset.tabDragging = "";
+            }}
+            onDragEnd={() => {
+              delete document.documentElement.dataset.tabDragging;
+            }}
             onContextMenu={(event) => {
               event.preventDefault();
               setMenu({
@@ -129,14 +141,16 @@ function Row({
               <span className={styles.title}>{tab.title}</span>
               {strip.dot ? <TabStateDot dot={strip.dot} /> : null}
             </button>
-            <IconButton
-              icon={workspaceIcons.close}
-              label={t("project-workspace.button.minimized-close", {
-                title: tab.title,
-              })}
-              size="sm"
-              onClick={() => onClose(tab.key)}
-            />
+            <span className={styles.close}>
+              <IconButton
+                icon={workspaceIcons.close}
+                label={t("project-workspace.button.minimized-close", {
+                  title: tab.title,
+                })}
+                size="sm"
+                onClick={() => onClose(tab.key)}
+              />
+            </span>
           </div>
         );
       })}

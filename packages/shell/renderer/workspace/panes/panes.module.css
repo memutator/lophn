@@ -38,6 +38,25 @@
   font-family: var(--font-sans);
 }
 
+/* 탭을 끌어 놓을 자리의 미리보기. 본문 scroll과 무관하게 탭 줄 아래 칸 영역에 고정된다. */
+.pane[data-tab-drop]::after {
+  content: "";
+  position: absolute;
+  inset: var(--control-lg-height) var(--space-0) var(--space-0) var(--space-0);
+  border: var(--border-focus-width) solid var(--color-focus);
+  background: var(--color-selection);
+  pointer-events: none;
+  z-index: var(--z-sticky);
+}
+
+.pane[data-tab-drop="left"]::after {
+  right: 50%;
+}
+
+.pane[data-tab-drop="right"]::after {
+  left: 50%;
+}
+
 .narrow {
   padding-right: var(--layout-pane-padding-narrow);
   padding-left: var(--layout-pane-padding-narrow);

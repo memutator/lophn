@@ -164,6 +164,17 @@ export function moveTab(
   toPane: number,
   before?: string | null,
 ): WorkspaceView {
+  // floated 탭은 먼저 칸에 넣는다. 그 탭뿐인 한 칸에서는 나눌 것이 없어 pane 0에 둔다.
+  if (isFloated(view, key)) {
+    view = dockTab(view, key);
+    if (
+      toPane === 1 &&
+      view.panes.length === 1 &&
+      view.panes[0]!.tabs.length < 2
+    ) {
+      toPane = 0;
+    }
+  }
   // 한 칸에서 오른쪽으로 옮기면 새 칸을 연다. 탭이 하나뿐이면 나눌 것이 없다.
   if (toPane === 1 && view.panes.length === 1) {
     if (view.panes[0]!.tabs.length < 2) return view;
@@ -241,6 +252,53 @@ export function moveTabBy(
   }
   const to = from + delta;
   return to < 0 || to >= view.panes.length ? view : moveTab(view, key, to);
+}
+
+export type PaneDropZone = "center" | "left" | "right";
+
+/**
+ * 탭을 칸 본문에 놓는다. 한 칸이면 left·right가 칸을 나누고 center는 그 칸에서 탭을 고른다. 두 칸이면
+ * 왼쪽 칸에서는 right만 오른쪽 칸으로, 오른쪽 칸에서는 left만 왼쪽 칸으로 보내고 나머지는 놓은 칸에 둔다.
+ * floated(minimized 포함) 탭은 먼저 칸에 넣는다.
+ */
+export function dropTabOnPane(
+  view: WorkspaceView,
+  key: string,
+  pane: number,
+  zone: PaneDropZone,
+): WorkspaceView {
+  if (isFloated(view, key)) view = dockTab(view, key);
+  const from = holderOf(view, key);
+  if (from < 0) return view;
+  if (view.panes.length === 1) {
+    if (zone === "right") return moveTab(view, key, 1);
+    if (zone === "left") return moveTabBy(view, key, -1);
+  }
+  const target =
+    view.panes.length === 1
+      ? 0
+      : pane === 0
+        ? zone === "right"
+          ? 1
+          : 0
+        : zone === "left"
+          ? 0
+          : 1;
+  if (target !== from) return moveTab(view, key, target);
+  return {
+    ...view,
+    focusedPane: target,
+    panes: view.panes.map((item, index) =>
+      index === target
+        ? {
+            tabs: item.tabs.map((tab) =>
+              tab.key === key ? { ...tab, preview: false } : tab,
+            ),
+            selected: key,
+          }
+        : item,
+    ),
+  };
 }
 
 /**

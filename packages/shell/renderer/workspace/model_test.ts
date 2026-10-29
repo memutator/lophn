@@ -14,12 +14,14 @@ import {
   deskOfTab,
   detachTab,
   dockTab,
+  dropTabOnPane,
   emptyView,
   findTab,
   floatTab,
   isDetached,
   mergeDeskIntoDefault,
   minimizeFloat,
+  minimizeTab,
   moveTab,
   moveTabBy,
   openAcrossDesks,
@@ -108,6 +110,53 @@ test("한 칸에서 왼쪽·오른쪽으로 옮겨 나눠도 탭이 사라지거
   const reopened = reopenTab(view, tab("x"), 0, 1);
   assert.deepStrictEqual(keys(reopened), [["a", "x", "b", "c"]]);
   assert.deepStrictEqual(reopenTab(reopened, tab("x"), 0, 0), reopened);
+});
+
+test("탭을 칸 본문에 놓아 나누고 옮기고 minimized에서 꺼내도 탭이 정확히 한 자리에만 있다", () => {
+  const area = { width: 1000, height: 700 };
+  const view = viewOf({ tabs: [tab("a"), tab("b"), tab("c")], selected: "a" });
+  const keys = (v: WorkspaceView) =>
+    allTabs(v)
+      .map((t) => t.key)
+      .sort();
+  const panes = (v: WorkspaceView) =>
+    v.panes.map((pane) => pane.tabs.map((item) => item.key));
+  const same = (v: WorkspaceView) =>
+    assert.deepStrictEqual(keys(v), ["a", "b", "c"]);
+
+  const right = dropTabOnPane(view, "b", 0, "right");
+  assert.deepStrictEqual(panes(right), [["a", "c"], ["b"]]);
+  const left = dropTabOnPane(view, "b", 0, "left");
+  assert.deepStrictEqual(panes(left), [["b"], ["a", "c"]]);
+  const center = dropTabOnPane(view, "c", 0, "center");
+  assert.strictEqual(center.panes[0]!.selected, "c");
+
+  const back = dropTabOnPane(right, "b", 0, "center");
+  assert.deepStrictEqual(panes(back), [["a", "c", "b"]]);
+  const over = dropTabOnPane(back, "a", 0, "right");
+  assert.deepStrictEqual(panes(dropTabOnPane(over, "c", 1, "left")), [
+    ["c", "b"],
+    ["a"],
+  ]);
+
+  const minimized = minimizeTab(right, "b", area);
+  assert.strictEqual(minimized.floats.length, 1);
+  const dropped = dropTabOnPane(minimized, "b", 0, "center");
+  assert.deepStrictEqual(dropped.floats, []);
+  same(dropped);
+  const split = dropTabOnPane(minimizeTab(view, "b", area), "b", 0, "right");
+  assert.deepStrictEqual(panes(split), [["a", "c"], ["b"]]);
+  same(split);
+
+  // 그 탭뿐인 한 칸에서 floated 탭을 놓아도 나뉘지 않는다.
+  const lone = minimizeTab(
+    viewOf({ tabs: [tab("x")], selected: "x" }),
+    "x",
+    area,
+  );
+  const docked = dropTabOnPane(lone, "x", 0, "right");
+  assert.deepStrictEqual(panes(docked), [["x"]]);
+  assert.deepStrictEqual(docked.floats, []);
 });
 
 test("float, dock, minimize, restore, raise, detach, attach, close를 이어서 해도 탭이 사라지거나 둘이 되지 않는다", () => {

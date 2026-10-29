@@ -41,7 +41,7 @@ export interface TabItem {
 }
 
 /** 탭을 끌 때 dataTransfer에 싣는 type. 값은 탭 key다. */
-const TAB_MIME = "application/x-lophn-tab";
+export const TAB_MIME = "application/x-lophn-tab";
 
 type DropMark = { readonly key: string; readonly side: "before" | "after" };
 
@@ -188,6 +188,7 @@ export function TabStrip({
     const key = event.dataTransfer.getData(TAB_MIME);
     const mark = drop;
     setDrop(null);
+    delete document.documentElement.dataset.tabDragging;
     if (!onReorder || key === "") return;
     event.preventDefault();
     if (mark === null || mark === "end") {
@@ -283,8 +284,12 @@ export function TabStrip({
                   onDragStart={(event) => {
                     event.dataTransfer.setData(TAB_MIME, tab.key);
                     event.dataTransfer.effectAllowed = "move";
+                    document.documentElement.dataset.tabDragging = "";
                   }}
-                  onDragEnd={() => setDrop(null)}
+                  onDragEnd={() => {
+                    setDrop(null);
+                    delete document.documentElement.dataset.tabDragging;
+                  }}
                 >
                   {tab.icon === undefined ? null : (
                     <span className={styles.icon}>{tab.icon}</span>

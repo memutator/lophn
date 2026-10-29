@@ -46,7 +46,10 @@ import { TopBar } from "../desktop/top-bar/top-bar.tsx";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import { windowInstructionsSource } from "../editor/instructions-entry.tsx";
 import { workspaceIcons } from "../icons/mod.ts";
-import type { TabItem as StripTab } from "../parts/tab-strip/tab-strip.tsx";
+import {
+  TAB_MIME,
+  type TabItem as StripTab,
+} from "../parts/tab-strip/tab-strip.tsx";
 import type { TerminalDeps } from "../terminal/deps.ts";
 import {
   openBridgeUrl,
@@ -93,6 +96,7 @@ import {
   findTab,
   floatTab,
   isDetached,
+  dropTabOnPane,
   isFloated,
   mapDeskTabs,
   mapTabs,
@@ -554,6 +558,8 @@ export function Workspace(props: WorkspaceProps) {
   // 접히지 않은 패널이 없으면 칸이다.
   const [floatFocused, setFloatFocused] = useState(false);
   const inFloats = floatFocused && topFloat(view) !== undefined;
+  // 탭을 titlebar 위로 끄는 중이다. 놓으면 최소화된다.
+  const [topDrop, setTopDrop] = useState(false);
   // 맨 위 패널이 접히거나 닫히면 focus는 칸으로 돌아간다.
   const leaveTopFloat = (key: string) => {
     if (topFloat(latest.current)?.tab.key !== key) return;
@@ -1425,7 +1431,36 @@ export function Workspace(props: WorkspaceProps) {
       <ViewKeepsProvider value={keeps}>
         <WebviewHostProvider value={webviews}>
           <div className={styles.workspace} data-space="project" ref={frameRef}>
-            <div className={styles.topBar}>
+            <div
+              className={styles.topBar}
+              data-drop={topDrop ? "" : undefined}
+              onDragOver={(event) => {
+                if (!event.dataTransfer.types.includes(TAB_MIME)) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                setTopDrop(true);
+              }}
+              onDragLeave={(event) => {
+                if (
+                  !event.currentTarget.contains(event.relatedTarget as Node)
+                ) {
+                  setTopDrop(false);
+                }
+              }}
+              onDrop={(event) => {
+                setTopDrop(false);
+                delete document.documentElement.dataset.tabDragging;
+                const key = event.dataTransfer.getData(TAB_MIME);
+                if (key === "") return;
+                event.preventDefault();
+                if (isFloated(latest.current, key)) {
+                  leaveTopFloat(key);
+                  update(minimizeFloat(latest.current, key));
+                } else if (mainSize !== undefined) {
+                  update(minimizeTab(latest.current, key, mainSize));
+                }
+              }}
+            >
               <TopBar
                 leading={
                   <span className={styles.leading}>
@@ -1625,6 +1660,11 @@ export function Workspace(props: WorkspaceProps) {
                 <Panes
                   view={view}
                   focusedPane={inFloats ? null : view.focusedPane}
+                  onDropTab={(pane, key, zone) => {
+                    setFloatFocused(false);
+                    update(dropTabOnPane(latest.current, key, pane, zone));
+                    focusPaneBody(latest.current.focusedPane);
+                  }}
                   onDropPath={(pane, path) => {
                     setFloatFocused(false);
                     update({ ...latest.current, focusedPane: pane });

@@ -64,6 +64,20 @@
   white-space: nowrap;
 }
 
+/* 닫기 단추는 hover나 안의 focus에서만 보인다(탭 줄의 닫기 단추와 같다). */
+.close {
+  display: flex;
+  flex: none;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chip:hover .close,
+.chip:focus-within .close {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 /* 오른쪽 클릭한 자리에 menu를 붙잡아 두는 빈 anchor. */
 .menuAnchor {
   position: fixed;

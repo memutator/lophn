@@ -117,6 +117,7 @@ export const project = {
   "project-workspace.button.move-pane": "Move to other pane",
   "project-workspace.button.new-session-with": "New session with {agent}",
   "project-workspace.button.new-tab": "New tab",
+  "project-workspace.button.remove-recent": "Remove from Recent",
   "project-workspace.button.show-notices": "Show notices",
   "project-workspace.button.split-pane": "Open in side pane",
   "project-workspace.button.tab-close": "Close",

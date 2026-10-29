@@ -1,20 +1,20 @@
 // project 창의 sidebar = activity bar + panel. 왼쪽 activity bar(늘 보임)에서 Explorer / Agents / Artifacts / Domains / Workflows
 // (통로가 있으면 Scheduled jobs도) 가운데 하나를 고르면 오른쪽 panel(머리: launcher 단추·project 이름)에 그 본문이 보인다. 접으면 bar만 남는다.
+
+import { t } from "@lophn/wording";
 import {
-  type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type PointerEvent as ReactPointerEvent,
   useEffect,
   useState,
 } from "react";
+import type { JobsSource } from "../../desktop/settings/jobs/source.ts";
 import {
   artifactIcons,
   commonIcons,
   settingsIcons,
   workspaceIcons,
 } from "../../icons/mod.ts";
-import { t } from "@lophn/wording";
-
-import type { JobsSource } from "../../desktop/settings/jobs/source.ts";
 import type { ProjectView, WorkspaceSource } from "../source.ts";
 import {
   ActivityBar,
@@ -24,16 +24,18 @@ import {
 import { AgentPanel } from "./agent-panel.tsx";
 import { DomainPanel } from "./domain-panel.tsx";
 import { Explorer, type TabAwareResult } from "./explorer.tsx";
+import { useHiddenRecent } from "./hidden-recent.ts";
 import { JobPanel } from "./job-panel.tsx";
+import styles from "./project-sidebar.module.css";
 import type { SidebarAgent } from "./sidebar-agent.ts";
 import {
+  type PanelItem,
   type PanelRun,
   type PanelSession,
   type PanelTerminal,
   useAgentPanel,
 } from "./use-agent-panel.ts";
 import { WorkflowPanel } from "./workflow-panel.tsx";
-import styles from "./project-sidebar.module.css";
 
 export type SidebarTab =
   | "explorer"
@@ -177,7 +179,19 @@ export function ProjectSidebar({
     setTab("explorer");
     setFocusAsked(hasFolders);
   }, [focusExplorer]);
-  const panel = useAgentPanel(agents, sessions, terminals, runs);
+  const recentHidden = useHiddenRecent(project?.id ?? null);
+  const panel = useAgentPanel(
+    agents,
+    sessions,
+    terminals,
+    runs,
+    recentHidden.hidden,
+  );
+  const removeRecent = (item: PanelItem) =>
+    recentHidden.hide(
+      item.kind === "session" ? item.session.id : item.terminal.key,
+      item.at,
+    );
   const collapsed = mode === "collapsed";
   // 접혀 있거나 열린 항목을 다시 누르면 접힘 상태가 바뀐다. 다른 항목이면 panel만 바뀐다.
   const select = (key: SidebarTab) => {
@@ -236,6 +250,7 @@ export function ProjectSidebar({
                 onNewSession={onNewSession}
                 onSession={onSession}
                 onTerminal={onTerminal}
+                onRemove={removeRecent}
                 onManage={onManage}
               />
             ) : null}

@@ -136,6 +136,7 @@ export type ProjectPlaceholders = {
     agent: "string";
   };
   "project-workspace.button.new-tab": Record<never, never>;
+  "project-workspace.button.remove-recent": Record<never, never>;
   "project-workspace.button.show-notices": Record<never, never>;
   "project-workspace.button.split-pane": Record<never, never>;
   "project-workspace.button.tab-close": Record<never, never>;

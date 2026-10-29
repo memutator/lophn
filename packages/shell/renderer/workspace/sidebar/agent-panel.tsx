@@ -2,10 +2,12 @@
 // session과 터미널 coding agent session), Background(run), Recent(탭을 닫은 lophn session과 저장한 터미널 session)다.
 // Current와 Recent 줄은 둘 다 한 줄 [아이콘][제목]이고, Current만 오른쪽 끝에 탭 줄과 같은 상태 점이 온다.
 
+import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
 import { IconButton } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
-import { commonIcons } from "../../icons/mod.ts";
+import { useState } from "react";
+import { commonIcons, workspaceIcons } from "../../icons/mod.ts";
 import { Avatar } from "../../parts/avatar/avatar.tsx";
 import { TabStateDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import {
@@ -29,6 +31,8 @@ interface AgentPanelProps {
   onNewSession?: (agent: SidebarAgent) => void;
   onSession: (session: PanelSession) => void;
   onTerminal: (terminal: PanelTerminal) => void;
+  /** Recent 줄을 목록에서 지운다. transcript는 지우지 않는다. */
+  onRemove: (item: PanelItem) => void;
   onManage: () => void;
 }
 
@@ -38,9 +42,11 @@ function PanelRow({
   recent,
   onSession,
   onTerminal,
+  onMenu,
 }: {
   item: PanelItem;
   recent: boolean;
+  onMenu: (item: PanelItem, at: { x: number; y: number }) => void;
 } & Pick<AgentPanelProps, "onSession" | "onTerminal">) {
   const session = item.kind === "session";
   const title = session ? item.session.title : item.terminal.title;
@@ -56,6 +62,11 @@ function PanelRow({
         onClick={() =>
           session ? onSession(item.session) : onTerminal(item.terminal)
         }
+        onContextMenu={(event) => {
+          if (!recent) return;
+          event.preventDefault();
+          onMenu(item, { x: event.clientX, y: event.clientY });
+        }}
       >
         <span className={styles.rowIcon}>
           {session ? (
@@ -77,9 +88,27 @@ export function AgentPanel({
   onNewSession,
   onSession,
   onTerminal,
+  onRemove,
   onManage,
 }: AgentPanelProps) {
-  const rowProps = { onSession, onTerminal };
+  const [menu, setMenu] = useState<{
+    readonly item: PanelItem;
+    readonly x: number;
+    readonly y: number;
+  } | null>(null);
+  const rowProps = {
+    onSession,
+    onTerminal,
+    onMenu: (item: PanelItem, at: { x: number; y: number }) =>
+      setMenu({ item, ...at }),
+  };
+  const menuItems: readonly MenuItem[] = [
+    {
+      id: "remove",
+      label: t("project-workspace.button.remove-recent"),
+      leading: <MenuIcon icon={workspaceIcons.trash} />,
+    },
+  ];
   return (
     <>
       <section className={styles.section} data-agents="">
@@ -171,6 +200,25 @@ export function AgentPanel({
           ))}
         </ul>
       </section>
+      {menu === null ? null : (
+        <Menu
+          open
+          onOpenChange={(open) => {
+            if (!open) setMenu(null);
+          }}
+          trigger={
+            <span
+              className={styles.menuAnchor}
+              style={{ left: menu.x, top: menu.y }}
+            />
+          }
+          items={menuItems}
+          onSelect={(id) => {
+            if (id === "remove") onRemove(menu.item);
+            setMenu(null);
+          }}
+        />
+      )}
     </>
   );
 }

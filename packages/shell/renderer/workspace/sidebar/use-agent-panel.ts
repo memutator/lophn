@@ -80,18 +80,25 @@ export interface AgentPanelView {
   readonly agents: readonly SidebarAgent[];
   /** 열린 session. 비면 묶음이 없다. */
   readonly current: readonly PanelItem[];
-  /** 새것부터 `RECENT_LIMIT`개. 비면 묶음이 없다. */
+  /** 새것부터 `RUN_LIMIT`개. 비면 묶음이 없다. */
   readonly runs: readonly RunRow[];
+  /** 최근 7일 안에 움직인 session. 사람이 지운 줄은 그 시각보다 새로워지기 전까지 뺀다. */
   readonly recent: readonly PanelItem[];
 }
 
-const RECENT_LIMIT = 5;
+const RUN_LIMIT = 5;
+const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** 사람이 Recent에서 지운 줄의 key → 지운 때(epoch ms). */
+export type HiddenRecent = ReadonlyMap<string, number>;
 
 function agentPanelOf(
   agents: readonly SidebarAgent[],
   sessions: readonly PanelSession[],
   terminals: readonly PanelTerminal[],
   runs: readonly PanelRun[],
+  hidden: HiddenRecent,
+  now: number,
 ): AgentPanelView {
   const names = new Map(agents.map((a) => [a.assignment, a]));
   const items: PanelItem[] = [
@@ -140,21 +147,31 @@ function agentPanelOf(
               },
             ];
       })
-      .slice(0, RECENT_LIMIT),
-    recent: items.filter((item) => !item.open).slice(0, RECENT_LIMIT),
+      .slice(0, RUN_LIMIT),
+    recent: items.filter((item) => {
+      if (item.open) return false;
+      const hiddenAt = hidden.get(
+        item.kind === "session" ? item.session.id : item.terminal.key,
+      );
+      if (hiddenAt !== undefined && item.at <= hiddenAt) return false;
+      // 시각을 모르는 줄은 7일 경계로 지우지 않는다.
+      return item.at === 0 || now - item.at <= RECENT_WINDOW_MS;
+    }),
   };
 }
 
 const NO_RUNS: readonly PanelRun[] = [];
+const NO_HIDDEN: HiddenRecent = new Map();
 
 export function useAgentPanel(
   agents: readonly SidebarAgent[],
   sessions: readonly PanelSession[],
   terminals: readonly PanelTerminal[],
   runs: readonly PanelRun[] = NO_RUNS,
+  hidden: HiddenRecent = NO_HIDDEN,
 ): AgentPanelView {
   return useMemo(
-    () => agentPanelOf(agents, sessions, terminals, runs),
-    [agents, sessions, terminals, runs],
+    () => agentPanelOf(agents, sessions, terminals, runs, hidden, Date.now()),
+    [agents, sessions, terminals, runs, hidden],
   );
 }

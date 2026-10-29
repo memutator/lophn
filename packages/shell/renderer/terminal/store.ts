@@ -9,7 +9,7 @@ import type {
   TerminalResume,
   TerminalRuntime,
 } from "../../ipc/terminal.ts";
-import type { Phase } from "./model.ts";
+import { type Phase, stripStatusGlyphs } from "./model.ts";
 
 export interface TerminalEntry {
   /** 사람이 이 탭에서 터미널을 열었다. 아직 시작 전일 수 있다. */
@@ -85,10 +85,14 @@ export class TerminalStore {
       : (this.#titles.get(ref) ?? null);
   }
 
-  /** 터미널이 낸 제목을 적는다. 같으면 아무것도 하지 않는다. */
+  /**
+   * 터미널이 낸 제목을 적는다. spinner 같은 상태 글리프를 먼저 떼어, 프레임만 바뀌는 동안에는
+   * store가 흔들리지 않게 한다(이 store를 구독하는 workspace가 매 프레임 다시 그리지 않는다).
+   */
   noteTitle(terminalRef: string, title: string): void {
-    if (this.#titles.get(terminalRef) === title) return;
-    this.#titles.set(terminalRef, title);
+    const name = stripStatusGlyphs(title);
+    if (this.#titles.get(terminalRef) === name) return;
+    this.#titles.set(terminalRef, name);
     this.#version += 1;
     for (const listener of this.#listeners) listener();
   }

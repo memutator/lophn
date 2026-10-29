@@ -1,6 +1,6 @@
 // project sidebar의 Agent 쪽. 위에서부터 Agents(lophn agent, hover의 +로 새 session), Current(이 창에 탭이 열린 lophn
 // session과 터미널 coding agent session), Background(run), Recent(탭을 닫은 lophn session과 저장한 터미널 session)다.
-// Current와 Recent 줄은 [아이콘][제목]이고 Current는 오른쪽 끝에 탭 줄과 같은 상태 점, Recent는 제목 아래에 "이름 · 시각"이 온다.
+// Current와 Recent 줄은 둘 다 한 줄 [아이콘][제목]이고, Current만 오른쪽 끝에 탭 줄과 같은 상태 점이 온다.
 import { Avatar } from "../../parts/avatar/avatar.tsx";
 import { TabStateDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import {
@@ -10,7 +10,7 @@ import {
 import { IconButton } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { commonIcons } from "../../icons/mod.ts";
-import { formatRelativeTime, t } from "@lophn/wording";
+import { t } from "@lophn/wording";
 
 import type {
   AgentPanelView,
@@ -46,7 +46,6 @@ function PanelRow({
   const title = session ? item.session.title : item.terminal.title;
   const dot = session ? item.session.dot : item.terminal.dot;
   const vendor = session ? undefined : harnessVendorOf(item.terminal.harness);
-  const meta = session ? item.agent.name : item.terminal.label;
   return (
     <li className={styles.li}>
       <button
@@ -65,14 +64,7 @@ function PanelRow({
             <VendorIcon vendor={vendor} size={iconPixels("large")} />
           )}
         </span>
-        <span className={styles.sessionText}>
-          <span className={styles.label}>{title}</span>
-          {recent ? (
-            <span className={styles.sessionMeta}>
-              {meta} · {formatRelativeTime(new Date(item.at), new Date())}
-            </span>
-          ) : null}
-        </span>
+        <span className={styles.label}>{title}</span>
         {recent || dot === null ? null : <TabStateDot dot={dot} />}
       </button>
     </li>

@@ -1,10 +1,12 @@
 /* model picker. 위에서부터 층 한 줄, 검색칸, 따르기 줄, provider 묶음, option 축, 맨 아래 Manage models 줄. */
+/* 폭은 panel 폭이 바닥이고 option 축 한 줄이 더 길면 그만큼 넓어진다. 값 단추가 다음 줄로 떨어지지 않게 한다. */
 .picker {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  width: var(--layout-container-panel);
+  width: max-content;
+  min-width: var(--layout-container-panel);
   max-width: 100%;
 }
 
@@ -32,9 +34,12 @@
   color: var(--color-text-muted);
 }
 
+/* 긴 model 이름이 picker를 넓히지 않게 목록은 폭 계산에서 빠지고 picker 폭을 그대로 쓴다. */
 .list {
   display: flex;
   flex-direction: column;
+  width: var(--space-0);
+  min-width: 100%;
   overflow: auto;
 }
 
@@ -89,23 +94,25 @@
   border-top: var(--border-width) solid var(--color-border-subtle);
 }
 
+/* 축 이름은 묶음 머리처럼 위에 두고 값 단추는 그 아래 한 줄이다. */
 .axis {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
+  flex-direction: column;
+  gap: var(--space-2);
   padding: var(--space-0) var(--space-4);
 }
 
 .axisLabel {
-  color: var(--color-text-secondary);
-  font-size: var(--type-small-size);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--font-weight-medium);
 }
 
+/* picker 안에서는 picker가 넓어져 한 줄이다. 줄을 넘기는 것은 창이 그보다 좁을 때뿐이다. */
 .values {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
   gap: var(--space-1);
 }
 

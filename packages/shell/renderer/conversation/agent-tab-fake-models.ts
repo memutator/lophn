@@ -21,6 +21,7 @@ export const effortLowToMax: PickerAxisView = {
     { value: "low", label: "Low" },
     { value: "medium", label: "Medium" },
     { value: "high", label: "High" },
+    { value: "very_high", label: "XHigh" },
     { value: "maximum", label: "Max" },
   ],
 };

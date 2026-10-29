@@ -168,7 +168,6 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
   });
   const nameOf = (id: string) =>
     providers.find((provider) => provider.id === id)?.name ?? id;
-  const label = modelLabelOf(models);
   const choiceOf = (model: PickerModelRef): ModelChoice => {
     const entry = models === null ? undefined : entryOf(models, model);
     return {
@@ -187,10 +186,11 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
       current === null
         ? NONE
         : { provider: current.provider, modelName: current.model_name },
+    // 단추가 값이 있는 축의 이름을 뒤에 붙이므로 여기는 model 이름만 준다.
     currentLabel:
       current === null
         ? t("project-workspace.label.agent-no-model")
-        : label(current),
+        : current.model_name,
     axes: axesOf(models, current),
     optionValues: current?.option_values ?? {},
     query: state.query,

@@ -1358,6 +1358,26 @@ export function Workspace(props: WorkspaceProps) {
       return session === null ? [] : [[session, tab.title] as const];
     }),
   );
+  // 탭을 닫으면 그 session의 제목은 knownSessions로만 남는다. 이름을 바꾼 탭의 마지막 제목을 Recent에도 남긴다.
+  const agentTabTitleKey = [...agentTabTitles]
+    .map(([session, title]) => `${session}\0${title}`)
+    .join("\n");
+  const latestAgentTabTitles = useRef(agentTabTitles);
+  latestAgentTabTitles.current = agentTabTitles;
+  useEffect(() => {
+    const titles = latestAgentTabTitles.current;
+    setKnownSessions((prev) => {
+      let next: Map<string, { title: string | null; at: number }> | null = null;
+      for (const [session, title] of titles) {
+        if (title === "") continue;
+        const old = prev.get(session);
+        if (old?.title === title) continue;
+        next ??= new Map(prev);
+        next.set(session, { title, at: old?.at ?? 0 });
+      }
+      return next ?? prev;
+    });
+  }, [agentTabTitleKey]);
   const terminalTabs = windowTabs.flatMap((tab) =>
     tab.kind === "terminal"
       ? [

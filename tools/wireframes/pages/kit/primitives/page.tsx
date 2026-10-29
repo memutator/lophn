@@ -10,6 +10,7 @@ import {
 } from "@lophn/ui/primitives";
 import {
   commonIcons,
+  conversationIcons,
   workspaceIcons,
 } from "../../../../../packages/shell/renderer/icons/mod.ts";
 
@@ -35,6 +36,12 @@ export function KitPrimitives() {
             ))}
             <Button variant={variant} icon={commonIcons.add}>
               With icon
+            </Button>
+            <Button
+              variant={variant}
+              trailingIcon={conversationIcons.openSession}
+            >
+              Open
             </Button>
             <Button variant={variant} disabled>
               Disabled

@@ -18,7 +18,8 @@ export const TEXT_ATTRIBUTES = new Set([
   "label",
 ]);
 
-// ui-ux README 3절에서 화면에 내보이지 않기로 한 안쪽 개념.
+// ui-ux README 3절에서 화면에 내보이지 않기로 한 안쪽 개념. handoff는 답 없이 맡긴 call을 화면에서 부르는 말이라 뺐다(사람,
+// 2026-10-29).
 export const INTERNAL_WORDS = [
   "ledger",
   "release",
@@ -27,7 +28,6 @@ export const INTERNAL_WORDS = [
   "snapshot",
   "redaction",
   "claim",
-  "handoff",
   "run",
   "ticket",
   "grant",

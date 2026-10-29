@@ -119,7 +119,7 @@ export interface CallStatus {
   readonly reason: CallFailReason | null;
 }
 
-/** 이 session이 보낸 call 블록. 상태는 thread를 읽은 때의 것이고 누르면 `callState`로 다시 읽는다. */
+/** 이 session이 보낸 call 블록. 상태는 thread를 읽은 때의 것이고 취소한 뒤 `callState`로 다시 읽는다. */
 export interface CallView {
   /** call id(`cal_…`). */
   readonly call: string;
@@ -498,7 +498,7 @@ export interface AgentTabSource {
   body(message: string): Promise<SourceResult<readonly BodyPart[]>>;
   /** 보낸 쪽 chip을 누르면 읽는다: 맡긴 글, 근거 링크, 보낸 session. */
   envelope(message: string): Promise<SourceResult<Envelope>>;
-  /** call 블록을 누르면 읽는다. 상태가 바뀌어도 따로 알리지 않는다. */
+  /** call 블록이 취소한 뒤 읽는다. 상태가 바뀌어도 따로 알리지 않는다. */
   callState(call: string): Promise<SourceResult<CallStatus>>;
   /** QuestionAsked는 내용을 싣지 않는다. 풀린 묶음은 not_found다. */
   questions(

@@ -96,15 +96,8 @@ export const conversation = {
   "conversation.label.approval-target-mcp-tool": "{tool} on {server}",
   "conversation.label.archived": "Archived",
   "conversation.label.attached-image": "Attached image",
-  "conversation.label.call-answered": "Answered",
   "conversation.label.call-cancelled": "Cancelled",
-  "conversation.label.call-delivered": "Delivered",
   "conversation.label.call-failed": "Failed",
-  "conversation.label.call-in-progress": "In progress",
-  "conversation.label.call-reply-conversation": "Back and forth",
-  "conversation.label.call-reply-none": "No answer expected",
-  "conversation.label.call-reply-result": "Answer expected",
-  "conversation.label.call-working-together": "Working together",
   "conversation.label.composer-message": "Message",
   "conversation.label.delete-session": "Delete {title}",
   "conversation.label.duration-hours": "{hours, number}h",
@@ -254,24 +247,14 @@ export const conversation = {
   "conversation.note.tool-body-truncated": "Only the first 64 KiB is shown.",
   "conversation.notice.answer-failed": "Couldn't send your answers. Try again.",
   "conversation.notice.approval-paused": "{agent} is paused until you decide.",
-  "conversation.notice.call-answered": "The answer is in the messages below.",
-  "conversation.notice.call-as-of":
-    "Read when you opened this. Later changes are not announced.",
   "conversation.notice.call-cancel-failed": "Couldn't cancel it. Try again.",
   "conversation.notice.call-cancelled": "It was cancelled before it finished.",
-  "conversation.notice.call-delivered":
-    "The task reached the session. No answer was asked for.",
   "conversation.notice.call-fail-closed": "That session is closed.",
   "conversation.notice.call-fail-lophn-restarted":
     "lophn restarted before it finished.",
   "conversation.notice.call-fail-not-found": "That session couldn't be found.",
   "conversation.notice.call-fail-receiver-ended":
     "The other session ended before it answered.",
-  "conversation.notice.call-unreadable":
-    "Couldn't read the current state. This is the last one lophn knew.",
-  "conversation.notice.call-waiting": "Waiting for the answer from {to}.",
-  "conversation.notice.call-working-together":
-    "{to} is working on it. Messages go back and forth until it reports.",
   "conversation.notice.custom-model":
     "Add models this provider doesn't list, and tell lophn what they can do.",
   "conversation.notice.decide-failed":
@@ -371,7 +354,9 @@ export const conversation = {
   "conversation.title.add-model": "Add model",
   "conversation.title.approval-command": "{agent} wants to run a command",
   "conversation.title.approval-run": "{agent} wants to run {tool}",
-  "conversation.title.call-handed": "Handed to {to}",
+  "conversation.title.call-asked": "Asked {to}",
+  "conversation.title.call-handoff": "Handoff to {to}",
+  "conversation.title.call-working-with": "Working with {to}",
   "conversation.title.edit-model": "Edit model",
   "conversation.title.manage-models": "Manage models",
   "conversation.title.permissions": "Permissions · {agent}",

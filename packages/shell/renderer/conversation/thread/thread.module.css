@@ -152,31 +152,28 @@
   gap: var(--space-3);
 }
 
-.callToggle {
+.callTitle {
   display: inline-flex;
   align-items: center;
   gap: var(--space-3);
   min-width: var(--space-0);
-  padding: var(--space-0);
-  border: var(--space-0);
-  background: transparent;
   color: var(--color-text-primary);
-  font: inherit;
   font-size: var(--type-small-size);
-  cursor: pointer;
 }
 
 .callTo {
   font-weight: var(--font-weight-medium);
 }
 
-.callMode {
-  color: var(--color-text-muted);
+.callActions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .callTask {
   margin: var(--space-0);
-  padding-left: var(--space-6);
   overflow: hidden;
   color: var(--color-text-secondary);
   font-size: var(--type-small-size);
@@ -185,22 +182,7 @@
   white-space: nowrap;
 }
 
-.callStatus {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: var(--space-3) var(--space-0) var(--space-0) var(--space-6);
-  padding-top: var(--space-3);
-  border-top: var(--border-width) solid var(--color-border-subtle);
-}
-
-.callDetail {
-  margin: var(--space-0);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-}
-
-.callAsOf {
+.callNote {
   margin: var(--space-0);
   color: var(--color-text-muted);
   font-size: var(--type-caption-size);

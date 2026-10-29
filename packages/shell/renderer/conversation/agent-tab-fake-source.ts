@@ -421,6 +421,14 @@ function call(
   };
 }
 
+const CALL_HANDOFF = {
+  to: "lophn · Recipes",
+  task: "The person wants a weekly meal plan screen in Recipes. Decided: plans by week, one recipe per meal.",
+  reply: "none",
+  status: { state: "done", reason: null },
+  session: sessionId(12),
+} as const;
+
 const CALL_OPEN = {
   to: "Eval analyst",
   task: "Find what the 3 regressions have in common.",
@@ -674,6 +682,7 @@ function sceneData(scene: AgentTabScene): SceneData {
         entries: [
           user(1, 43, "Why did those 3 scenarios regress?"),
           agent(2, 44),
+          call(4, 44, CALL_HANDOFF),
           call(1, 44, CALL_OPEN),
           agent(3, 45),
           call(2, 47, CALL_CANCELLED),

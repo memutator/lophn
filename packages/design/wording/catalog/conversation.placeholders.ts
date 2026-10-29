@@ -107,15 +107,8 @@ export type ConversationPlaceholders = {
   };
   "conversation.label.archived": Record<never, never>;
   "conversation.label.attached-image": Record<never, never>;
-  "conversation.label.call-answered": Record<never, never>;
   "conversation.label.call-cancelled": Record<never, never>;
-  "conversation.label.call-delivered": Record<never, never>;
   "conversation.label.call-failed": Record<never, never>;
-  "conversation.label.call-in-progress": Record<never, never>;
-  "conversation.label.call-reply-conversation": Record<never, never>;
-  "conversation.label.call-reply-none": Record<never, never>;
-  "conversation.label.call-reply-result": Record<never, never>;
-  "conversation.label.call-working-together": Record<never, never>;
   "conversation.label.composer-message": Record<never, never>;
   "conversation.label.delete-session": {
     title: "string";
@@ -333,22 +326,12 @@ export type ConversationPlaceholders = {
   "conversation.notice.approval-paused": {
     agent: "string";
   };
-  "conversation.notice.call-answered": Record<never, never>;
-  "conversation.notice.call-as-of": Record<never, never>;
   "conversation.notice.call-cancel-failed": Record<never, never>;
   "conversation.notice.call-cancelled": Record<never, never>;
-  "conversation.notice.call-delivered": Record<never, never>;
   "conversation.notice.call-fail-closed": Record<never, never>;
   "conversation.notice.call-fail-lophn-restarted": Record<never, never>;
   "conversation.notice.call-fail-not-found": Record<never, never>;
   "conversation.notice.call-fail-receiver-ended": Record<never, never>;
-  "conversation.notice.call-unreadable": Record<never, never>;
-  "conversation.notice.call-waiting": {
-    to: "string";
-  };
-  "conversation.notice.call-working-together": {
-    to: "string";
-  };
   "conversation.notice.custom-model": Record<never, never>;
   "conversation.notice.decide-failed": Record<never, never>;
   "conversation.notice.message-loading": Record<never, never>;
@@ -432,7 +415,13 @@ export type ConversationPlaceholders = {
     agent: "string";
     tool: "string";
   };
-  "conversation.title.call-handed": {
+  "conversation.title.call-asked": {
+    to: "string";
+  };
+  "conversation.title.call-handoff": {
+    to: "string";
+  };
+  "conversation.title.call-working-with": {
     to: "string";
   };
   "conversation.title.edit-model": Record<never, never>;

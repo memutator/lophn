@@ -58,7 +58,7 @@ test("a stopped instance is not handed: report with next records the line only a
       transport: {
         deliver: (_tx, _to, input) => {
           delivered.push(input);
-          return ok("delivered" as const);
+          return ok(undefined);
         },
         cancel: () => ok(undefined),
       },

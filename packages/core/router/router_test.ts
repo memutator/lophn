@@ -77,7 +77,7 @@ function setup(sessions: Record<string, TargetSession>) {
     transport: {
       deliver: (_tx, to, input) => {
         delivered.push({ to: to.session, input });
-        return ok("delivered" as const);
+        return ok(undefined);
       },
       cancel: (_tx, _to, _call, unattended) => {
         cancelled.push(unattended);

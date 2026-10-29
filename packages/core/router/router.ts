@@ -265,19 +265,29 @@ export function createRouter(deps: RouterDeps): Router {
     const call = from.kind === "agent" ? tx.newId("cal") : null;
     const delivered = transport.deliver(tx, target, inputOf(input, call));
     if (!delivered.ok) return delivered;
-    const state: CallState =
-      delivered.value === "delivered" && input.reply === "none"
-        ? "done"
-        : "accepted";
     const receiver = target.session;
     if (call !== null && from.kind === "agent") {
       const stored = store.insert(
         tx,
-        newRecord(tx, call, from.session, input, to, receiver, state, null),
+        newRecord(
+          tx,
+          call,
+          from.session,
+          input,
+          to,
+          receiver,
+          "accepted",
+          null,
+        ),
       );
       if (!stored.ok) return stored;
     }
-    return ok({ call, state, fail_reason: null, session: receiver });
+    return ok({
+      call,
+      state: "accepted",
+      fail_reason: null,
+      session: receiver,
+    });
   }
 
   function reply(

@@ -16,6 +16,7 @@ import {
   Search,
   SearchCheck,
   Square,
+  SquareArrowOutUpRight,
   X,
 } from "lucide-react";
 
@@ -39,4 +40,6 @@ export const conversationIcons = {
   copied: Check,
   attach: Plus,
   removeAttachment: X,
+  // 맡긴 일을 받은 session으로 옮겨 간다.
+  openSession: SquareArrowOutUpRight,
 } as const satisfies Record<string, LucideIcon>;

@@ -66,7 +66,7 @@ export const agentArea: Area = {
       id: "new-agent-call-open",
       title: "Agent · handed-over task",
       description:
-        "다른 agent에게 맡긴 일의 블록이다. 받는 곳, 맡긴 글 한 줄, 답 방식이 보이고 누르면 그때의 상태를 읽는다. 끝나지 않은 일에는 [Cancel]이 있다. 상태가 바뀌어도 따로 알리지 않는다.",
+        "다른 agent에게 맡긴 일의 블록이다. 머리 줄이 답 방식에 맞는 말(Handoff to, Asked, Working with)과 받는 곳을 보이고, 그 아래 맡긴 글 한 줄이다. 오른쪽 끝 [Open conversation ↗]이 받은 session을 연다. 끝나지 않은 일에는 그 앞에 [Cancel]이 있다. 펼치는 상태 칸은 없다.",
       render: () => <AgentCallOpen />,
     },
     {

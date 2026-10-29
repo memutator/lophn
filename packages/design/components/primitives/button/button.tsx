@@ -21,6 +21,8 @@ export interface ButtonProps extends NativeButton {
   variant?: ButtonVariant;
   size?: ControlSize;
   icon?: LucideIcon;
+  // 글 뒤에 붙는 아이콘. 누르면 다른 곳으로 옮겨 가는 조작(열기)에 쓴다.
+  trailingIcon?: LucideIcon;
   children: ReactNode;
   ref?: Ref<HTMLButtonElement>;
 }
@@ -30,6 +32,7 @@ export function Button({
   variant = "secondary",
   size = "md",
   icon,
+  trailingIcon,
   children,
   type = "button",
   ref,
@@ -47,6 +50,9 @@ export function Button({
     >
       {icon && <Icon icon={icon} pixels={controlIconPixels(size)} />}
       <span className={styles.label}>{children}</span>
+      {trailingIcon && (
+        <Icon icon={trailingIcon} pixels={controlIconPixels(size)} />
+      )}
     </button>
   );
 }

@@ -33,7 +33,7 @@ export const QueuedMessageScene = () => <Scene sub="queued" />;
 export const RequestErrorScene = () => <Scene sub="request-error" />;
 /** 받은 메시지의 보낸 쪽 chip 셋(program의 reaction, 다른 agent, coding agent). 마지막 chip은 눌러서 panel을 열었다. */
 export const SenderChipsScene = () => <Scene sub="sender-chips" />;
-/** 보낸 session의 call 블록을 펼친 모습: 받는 곳, 맡긴 글 한 줄, 답 방식, 그때의 상태. */
+/** 보낸 session의 call 블록: handoff, 답을 기다리는 call, 취소한 call. */
 export const CallOpenScene = () => <Scene sub="call-open" />;
 /** call이 끝난 모습 둘. 답과 실패는 블록이 아니라 그 call에 이어지는 새 메시지로 보인다. */
 export const CallRepliesScene = () => <Scene sub="call-replies" />;

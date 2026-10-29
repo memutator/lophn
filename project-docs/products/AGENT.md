@@ -126,7 +126,7 @@ J1~J6은 정해진 때 도는 일(job)을 만들고 job이 agent를 부를 때�
 ## 3. 넘기는 길
 
 - R1. call: agent가 다른 session에 일을 맡기는 것은 모두 call이다. 보내는 쪽이 받는 곳(새 session, 열린 session, 열린 session이 없으면 새 session)과 답 방식을 고른다.
-- R2. 답 방식은 셋이다: 답을 받지 않음(none), 결과 하나를 받음(result), 대화로 주고받음(conversation). 예전에 handoff라 부르던 것은 답을 받지 않는 call이고, 결과를 받던 escalate는 결과를 받는 call이다.
+- R2. 답 방식은 셋이다: 답을 받지 않음(none), 결과 하나를 받음(result), 대화로 주고받음(conversation). 답을 받지 않는 call을 화면에서는 handoff라 부르고, 사람은 그 블록의 [Open conversation]으로 받은 session에 가서 일을 잇는다. 결과를 받던 escalate는 결과를 받는 call이다.
 - R4. 사람에게 올림(escalate): 사람의 결정이나 취향이 필요하면 session에서 사람에게 묻는다. 이것은 call도 동작 허락(approval)도 아니다. escalate라는 말은 이것에만 쓴다.
 - R6. step 메시지: 사람이 시작한 workflow instance에서 참가자의 report나 고치기가 말한 step의 담당에게 program이 넣는 입력이다. call이 아니다(call 행과 답 방식이 없다). 답 대신 report를 낸다(W1).
 - R7. job의 run: job의 차례마다 program이 연 run의 입력이다. 받는 agent와 place는 job에 적힌 것이고 call이 아니다(call 행과 답 방식이 없다). 입력은 사람이 없는 입력(unattended)이고 답은 run 기록에 남는다(J3).

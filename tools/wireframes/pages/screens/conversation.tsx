@@ -47,10 +47,6 @@ const DEMOS: Readonly<
     scene: "sender-chips",
     steps: [() => click("[data-actor=received] button", undefined, 2)],
   },
-  "call-open": {
-    scene: "call-open",
-    steps: [() => click("[data-call] button[aria-expanded]")],
-  },
   "approval-deny": {
     scene: "approval",
     steps: [
@@ -168,6 +164,7 @@ export function Conversation({
           openPermissions: () => {},
           openAgentSettings: () => {},
           openForked: setSession,
+          openSession: () => {},
           showUsage: () => {},
           closeTab: () => {},
         }}

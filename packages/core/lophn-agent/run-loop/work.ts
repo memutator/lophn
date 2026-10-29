@@ -91,16 +91,6 @@ export function createLophnInputTransport(deps: {
   // 부르고 wiring이 places-sessions 쪽 쓰기 helper를 끼운다.
   record(tx: Tx, session: Id<"ses">, input: RoutedInput): Result<Id<"msg">>;
 }): InputTransport {
-  // 받는 session이 지금 turn을 돌고 있는지는 정본인 turns 표로 본다(입력함의 running은 main에 있다).
-  function running(tx: Tx, session: Id<"ses">): boolean {
-    return (
-      tx.sql.get(
-        "select 1 as found from turns where session = ? and state = 'running'",
-        [session],
-      ) !== undefined
-    );
-  }
-
   function put(tx: Tx, session: Id<"ses">, input: RoutedInput): Result<void> {
     let message = input.message;
     if (message === null) {
@@ -124,10 +114,7 @@ export function createLophnInputTransport(deps: {
           message: "not a lophn session",
         });
       }
-      const idle = !running(tx, target.session);
-      const stored = put(tx, target.session, input);
-      if (!stored.ok) return stored;
-      return ok(idle ? ("delivered" as const) : ("queued" as const));
+      return put(tx, target.session, input);
     },
     cancel(tx, target, call, unattended) {
       if (target === null || target.transport !== "lophn") {

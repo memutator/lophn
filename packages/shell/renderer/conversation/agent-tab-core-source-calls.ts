@@ -1,5 +1,5 @@
-// call 읽기와 취소, 그리고 대화에 놓이는 call 블록. 상태 구독은 없고 블록을 누를 때 읽는다. 블록은 이 session이 부른
-// `call` tool의 입력과 결과에서 그린다.
+// call 읽기와 취소, 그리고 대화에 놓이는 call 블록. 상태 구독은 없고 thread를 읽을 때와 블록이 취소한 뒤 읽는다. 블록은
+// 이 session이 부른 `call` tool의 입력과 결과에서 그린다.
 import {
   agentCallRead,
   callCancel,

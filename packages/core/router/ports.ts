@@ -75,12 +75,7 @@ export interface SessionDirectory {
 
 export interface InputTransport {
   // lophn session의 입력함에 넣는다.
-  // 'queued'는 받는 쪽이 돌고 있어 아직 turn이 안 시작됐다는 뜻이다.
-  deliver(
-    tx: Tx,
-    target: TargetSession,
-    input: RoutedInput,
-  ): Result<"delivered" | "queued">;
+  deliver(tx: Tx, target: TargetSession, input: RoutedInput): Result<void>;
   // 취소 입력(notice)을 넣는다.
   cancel(
     tx: Tx,
@@ -100,7 +95,8 @@ export interface CallStore {
     to: Exclude<CallState, "accepted">,
     reason: CallFailReason | null,
   ): Result<AgentCallRow>;
-  // 받는 session의 turn이 이 입력을 가져갔음을 적는다. 재시작 때 잃어버린 call을 가리는 근거다.
+  // 받는 session의 turn이 이 입력을 가져갔음을 적는다. 답 없는 call은 여기서 done이 된다. 재시작 때 잃어버린 call을
+  // 가리는 근거다.
   markConsumed(tx: Tx, call: Id<"cal">): Result<void>;
   // 끝나지 않았고 아직 가져가지 않은 call. 입력함과 앱 줄이 메모리라 lophn을 켤 때 잃어버린 것이다.
   lost(tx: Tx): readonly AgentCallRow[];

@@ -23,5 +23,5 @@ where you start; do not ask again for what they already said.
    is decided and what is not. Do not design the app in detail; that is done in
    the app's conversation.
 5. Tell the person who took it and where they continue: the conversation your
-   hand-off opened. They open it with "Open conversation" on the hand-off in
+   handoff opened. They open it with "Open conversation" on the handoff in
    this chat, or by opening the app and picking lophn in the app window.

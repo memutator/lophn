@@ -38,6 +38,8 @@ export type WorkspacePlaceholders = {
   "launcher.button.choose-location": Record<never, never>;
   "launcher.button.create-app": Record<never, never>;
   "launcher.button.details": Record<never, never>;
+  "launcher.button.float-mode": Record<never, never>;
+  "launcher.button.full-mode": Record<never, never>;
   "launcher.button.hide-details": Record<never, never>;
   "launcher.button.lophn": Record<never, never>;
   "launcher.button.more": {

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { OverlayApi, OverlayIdentity } from "../../../ipc/overlay.ts";
-import { centerAnchor, overlayConsumer } from "../../overlay/consumer.ts";
+import { overlayConsumer, toastAnchor } from "../../overlay/consumer.ts";
 
 interface ViewToast {
   readonly title: string;
@@ -86,7 +86,7 @@ export function useViewToast(overlay: OverlayApi | undefined): {
           {
             requestId,
             kind: "notification",
-            anchorRect: centerAnchor(),
+            anchorRect: toastAnchor(),
             model: {
               label: toast.title,
               ...(toast.body === undefined ? {} : { text: toast.body }),

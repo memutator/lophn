@@ -241,9 +241,14 @@ function planShell(
   options: { dataRoot: string; env?: Record<string, string> },
 ): SpawnPlan {
   const main = `${root}/packages/shell/main`;
+  const extra =
+    process.argv.includes("--no-sandbox") ||
+    process.env.ELECTRON_NO_SANDBOX === "1"
+      ? ["--no-sandbox"]
+      : [];
   return {
     command: `${root}/node_modules/.bin/electron`,
-    args: [`${main}/dist/main.cjs`, "--home", options.dataRoot],
+    args: [...extra, `${main}/dist/main.cjs`, "--home", options.dataRoot],
     // LOPHN_HOME은 --home이 정하므로 여기서는 넣지 않는다.
     env: { ...options.env },
   };

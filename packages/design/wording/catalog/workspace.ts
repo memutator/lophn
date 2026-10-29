@@ -32,6 +32,8 @@ export const workspace = {
   "launcher.button.choose-location": "Choose new location",
   "launcher.button.create-app": "Create",
   "launcher.button.details": "Details",
+  "launcher.button.float-mode": "Floating mode",
+  "launcher.button.full-mode": "Full mode",
   "launcher.button.hide-details": "Hide details",
   "launcher.button.lophn": "Ask lophn",
   "launcher.button.more": "More actions for {name}",

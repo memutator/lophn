@@ -24,6 +24,22 @@
   padding-right: var(--space-0);
 }
 
+/* rail이 있는 바는 Windows·Linux에서 왼쪽 패딩 없이 rail이 0px부터 시작한다. */
+.bar[data-has-rail]:is([data-platform="windows"], [data-platform="linux"]) {
+  padding-left: var(--space-0);
+}
+
+.rail {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--layout-sidebar-collapsed);
+  height: 100%;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
 /* 창 단추 셋. 바 높이를 채우고 끌기에서 빠진다. 단추 묶음은 138px(46px 셋)다. */
 .controls {
   display: flex;

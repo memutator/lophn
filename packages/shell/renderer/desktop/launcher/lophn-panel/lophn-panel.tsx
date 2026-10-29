@@ -74,6 +74,7 @@ export function LophnPanel({
   const [saved, setSaved] = useState<FloatRect | null>(null);
   // 이동·resize 중 미리보기. 놓을 때만 saved에 올린다.
   const [preview, setPreview] = useState<FloatRect | null>(null);
+  const [full, setFull] = useState(false);
 
   useLayoutEffect(() => {
     const element = hostRef.current;
@@ -142,27 +143,55 @@ export function LophnPanel({
           icon={
             <Icon icon={conversationIcons.dock} pixels={iconPixels("small")} />
           }
-          x={rect.x}
-          y={rect.y}
-          width={rect.width}
-          height={rect.height}
+          full={full}
+          x={full ? 0 : rect.x}
+          y={full ? 0 : rect.y}
+          width={full ? area.width : rect.width}
+          height={full ? area.height : rect.height}
           active
-          onMoveStart={(event) =>
-            drag(event, (dx, dy) => movedRect(base, dx, dy, area))
+          onMoveStart={
+            full
+              ? undefined
+              : (event) =>
+                  drag(event, (dx, dy) => movedRect(base, dx, dy, area))
           }
-          onResizeStart={(edge: FloatEdge, event) =>
-            drag(event, (dx, dy) => resizedRect(base, edge, dx, dy, area))
+          onResizeStart={
+            full
+              ? undefined
+              : (edge: FloatEdge, event) =>
+                  drag(event, (dx, dy) => resizedRect(base, edge, dx, dy, area))
           }
           actions={
-            <Tooltip content={close}>
-              <IconButton
-                icon={workspaceIcons.close}
-                label={close}
-                size="sm"
-                data-lophn-panel-close=""
-                onClick={onClose}
-              />
-            </Tooltip>
+            <>
+              <Tooltip
+                content={
+                  full
+                    ? t("launcher.button.float-mode")
+                    : t("launcher.button.full-mode")
+                }
+              >
+                <IconButton
+                  icon={full ? workspaceIcons.float : workspaceIcons.restore}
+                  label={
+                    full
+                      ? t("launcher.button.float-mode")
+                      : t("launcher.button.full-mode")
+                  }
+                  size="sm"
+                  data-lophn-panel-mode={full ? "full" : "float"}
+                  onClick={() => setFull((f) => !f)}
+                />
+              </Tooltip>
+              <Tooltip content={close}>
+                <IconButton
+                  icon={workspaceIcons.close}
+                  label={close}
+                  size="sm"
+                  data-lophn-panel-close=""
+                  onClick={onClose}
+                />
+              </Tooltip>
+            </>
           }
         >
           <div className={styles.agent}>
@@ -172,6 +201,30 @@ export function LophnPanel({
               session={session}
               onSessionChange={onSession}
               host={host}
+              trailing={
+                full ? (
+                  <>
+                    <Tooltip content={t("launcher.button.float-mode")}>
+                      <IconButton
+                        icon={workspaceIcons.float}
+                        label={t("launcher.button.float-mode")}
+                        size="sm"
+                        data-lophn-panel-mode="float"
+                        onClick={() => setFull(false)}
+                      />
+                    </Tooltip>
+                    <Tooltip content={close}>
+                      <IconButton
+                        icon={workspaceIcons.close}
+                        label={close}
+                        size="sm"
+                        data-lophn-panel-close=""
+                        onClick={onClose}
+                      />
+                    </Tooltip>
+                  </>
+                ) : undefined
+              }
             />
           </div>
         </FloatPanel>

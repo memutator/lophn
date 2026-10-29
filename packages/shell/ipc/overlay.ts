@@ -211,15 +211,9 @@ export function modal(kind: OverlayKind): boolean {
 }
 // menu·popover도 본문 전체를 덮는다. 크기를 어림하지 않고 Radix가 trigger 자리에서 본문 안으로 뒤집고 밀게 한다.
 export function fullBody(kind: OverlayKind): boolean {
-  return [
-    "menu",
-    "popover",
-    "dialog",
-    "palette",
-    "sheet",
-    "drag",
-    "notification",
-  ].includes(kind);
+  return ["menu", "popover", "dialog", "palette", "sheet", "drag"].includes(
+    kind,
+  );
 }
 export function inside(rect: Rect, body: Rect): boolean {
   return (

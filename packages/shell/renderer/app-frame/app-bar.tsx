@@ -67,9 +67,9 @@ export function AppBar({
   const marking = annotate !== undefined;
   return (
     <TopBar
+      rail={<LauncherButton onLauncher={onLauncher} />}
       leading={
         <span className={styles.leading}>
-          <LauncherButton onLauncher={onLauncher} />
           <span className={styles.name} data-app-name="">
             {name ?? ""}
           </span>

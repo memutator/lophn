@@ -1,6 +1,6 @@
 // project 창과 Settings 공간 왼쪽 끝의 icon 세로 줄. 위쪽은 panel 항목, project 창은 아래쪽에 바로 가기(Terminal, Browser,
 // Agent, Search)와 맨 밑 Settings가 더 있다. 항목을 누르면 그 panel을 열고 열린 항목을 다시 누르면 접는다. 열린 항목에는
-// 왼쪽 띠와 배경을 둔다.
+// 오른쪽 띠와 배경을 둔다.
 import { Icon, type IconProps } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
@@ -77,7 +77,7 @@ export function ActivityBar<K extends string>({
                 data-activity={entry.key}
                 onClick={() => onSelect(entry.key)}
               >
-                <Icon icon={entry.icon} pixels={iconPixels("large")} />
+                <Icon icon={entry.icon} pixels={18} />
               </button>
             </Tooltip>
           );
@@ -99,7 +99,7 @@ export function ActivityBar<K extends string>({
                 data-rail-action={action}
                 onClick={() => onRail(action)}
               >
-                <Icon icon={RAIL_ICONS[action]} pixels={iconPixels("large")} />
+                <Icon icon={RAIL_ICONS[action]} pixels={18} />
               </button>
             </Tooltip>
           ))}
@@ -111,7 +111,7 @@ export function ActivityBar<K extends string>({
               data-entry="settings"
               onClick={onSettings}
             >
-              <Icon icon={settingsEntryIcon} pixels={iconPixels("large")} />
+              <Icon icon={settingsEntryIcon} pixels={18} />
             </button>
           </Tooltip>
         </div>

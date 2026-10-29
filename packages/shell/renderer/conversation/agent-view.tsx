@@ -5,6 +5,7 @@
 import { IconButton } from "@lophn/ui/primitives";
 import { formatRelativeTime, t } from "@lophn/wording";
 import {
+  type ReactNode,
   useCallback,
   useEffect,
   useRef,
@@ -92,6 +93,8 @@ interface AgentViewProps {
   now?: () => number;
   /** 지금 보는 session의 제목. 새 session이거나 제목이 없으면 null이다. 탭 제목이 따라간다. */
   onSessionTitle?: (title: string | null) => void;
+  /** header 오른쪽 끝(Compact 우측)에 놓을 조각. */
+  trailing?: ReactNode;
 }
 
 /** 열려 있는 panel. 하나만 열린다. */
@@ -516,6 +519,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
         }}
         onChanged={() => void refresh()}
         detail={<ViewDetailSelect value={detail} onChange={setDetail} />}
+        trailing={props.trailing}
       />
       {offline || data.failed ? (
         <p className={styles.stale} data-stale="">

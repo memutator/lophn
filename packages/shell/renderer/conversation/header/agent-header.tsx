@@ -53,6 +53,8 @@ interface AgentHeaderProps {
   onChanged: () => void;
   /** 보기 상세 menu 자리(Messages·Compact·Everything). */
   detail?: ReactNode;
+  /** detail/menu 오른쪽 끝에 더할 조각 (예: home full mode controller). */
+  trailing?: ReactNode;
 }
 
 type MoreAction = "rename" | "fork" | "archive";
@@ -174,6 +176,7 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
             }
           />
         )}
+        {props.trailing}
       </ViewBar>
     </div>
   );

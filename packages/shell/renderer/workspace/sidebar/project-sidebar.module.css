@@ -182,7 +182,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: var(--space-11);
+  height: var(--control-lg-height);
   margin: var(--space-0);
   padding: var(--space-0);
   border: var(--space-0);
@@ -203,7 +203,7 @@
   outline-offset: calc(var(--border-focus-offset) * -1);
 }
 
-/* 열린 항목: 왼쪽 띠와 배경 둘 다. */
+/* 열린 항목: 오른쪽 띠와 배경 둘 다. */
 .activityButton[data-active] {
   background: var(--color-selection);
   color: var(--color-text-primary);
@@ -214,7 +214,7 @@
   position: absolute;
   top: var(--space-0);
   bottom: var(--space-0);
-  left: var(--space-0);
+  right: var(--space-0);
   width: var(--tab-indicator);
   background: var(--color-focus);
 }

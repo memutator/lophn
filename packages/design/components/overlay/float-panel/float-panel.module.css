@@ -22,6 +22,16 @@
   display: none;
 }
 
+.panel[data-full] {
+  border: none;
+  box-shadow: none;
+}
+
+.panel[data-full] .body {
+  border-right: none;
+  border-bottom: none;
+}
+
 /* 높이는 탭 줄과 같다. 아래선도 탭 줄과 같은 그림자로 그린다. */
 .bar {
   position: relative;

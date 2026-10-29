@@ -21,6 +21,8 @@ export interface FloatPanelProps {
   // 맨 위 패널. 위 bar의 강조선이 focus 색이 된다.
   active?: boolean;
   // 그리지 않되 mount는 유지한다.
+  // 전체 화면 모드. 테두리와 그림자, resize 손잡이가 없다.
+  full?: boolean;
   hidden?: boolean;
   // 패널 어디든 pointer가 눌리거나 focus가 들어오면 부른다.
   onRaise?: () => void;
@@ -54,6 +56,7 @@ export function FloatPanel({
   width,
   height,
   active = false,
+  full = false,
   hidden = false,
   onRaise,
   onMoveStart,
@@ -68,34 +71,38 @@ export function FloatPanel({
       style={{ left: x, top: y, width, height }}
       aria-label={title}
       data-float-panel=""
+      data-full={full ? "" : undefined}
       data-active={active ? "" : undefined}
       onPointerDownCapture={onRaise}
       onFocusCapture={onRaise}
       {...componentMark("FloatPanel")}
     >
-      <div
-        className={styles.bar}
-        onPointerDown={(event) => {
-          if ((event.target as HTMLElement).closest("button")) return;
-          onMoveStart?.(event);
-        }}
-      >
-        {icon !== undefined && <span className={styles.icon}>{icon}</span>}
-        <span className={styles.title}>{title}</span>
-        {badge}
-        {actions !== undefined && (
-          <div className={styles.actions}>{actions}</div>
-        )}
-      </div>
-      <div className={styles.body}>{children}</div>
-      {EDGES.map((edge) => (
+      {!full && (
         <div
-          key={edge}
-          className={cx(styles.handle, styles[edge])}
-          data-float-edge={edge}
-          onPointerDown={(event) => onResizeStart?.(edge, event)}
-        />
-      ))}
+          className={styles.bar}
+          onPointerDown={(event) => {
+            if ((event.target as HTMLElement).closest("button")) return;
+            onMoveStart?.(event);
+          }}
+        >
+          {icon !== undefined && <span className={styles.icon}>{icon}</span>}
+          <span className={styles.title}>{title}</span>
+          {badge}
+          {actions !== undefined && (
+            <div className={styles.actions}>{actions}</div>
+          )}
+        </div>
+      )}
+      <div className={styles.body}>{children}</div>
+      {!full &&
+        EDGES.map((edge) => (
+          <div
+            key={edge}
+            className={cx(styles.handle, styles[edge])}
+            data-float-edge={edge}
+            onPointerDown={(event) => onResizeStart?.(edge, event)}
+          />
+        ))}
     </section>
   );
 }

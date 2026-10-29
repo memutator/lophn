@@ -5,7 +5,11 @@ import { t } from "@lophn/wording";
 
 import type { CodingApi, HookAsk, HookResult } from "../../../ipc/coding.ts";
 import type { OverlayApi } from "../../../ipc/overlay.ts";
-import { centerAnchor, overlayConsumer } from "../../overlay/consumer.ts";
+import {
+  centerAnchor,
+  overlayConsumer,
+  toastAnchor,
+} from "../../overlay/consumer.ts";
 
 export type HookPromptApi = Pick<
   CodingApi,
@@ -111,7 +115,7 @@ export function HookPromptHost({
           {
             requestId,
             kind: "notification",
-            anchorRect: centerAnchor(),
+            anchorRect: toastAnchor(),
             model: {
               label: t("common.title.coding-agent-registered", {
                 harness: result.label,

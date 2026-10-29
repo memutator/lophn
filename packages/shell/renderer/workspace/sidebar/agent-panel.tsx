@@ -72,7 +72,7 @@ function PanelRow({
           {session ? (
             <Avatar profile={item.agent.profile} size="sm" />
           ) : vendor === undefined ? null : (
-            <VendorIcon vendor={vendor} size={iconPixels("large")} />
+            <VendorIcon vendor={vendor} size={iconPixels("base")} />
           )}
         </span>
         <span className={styles.label}>{title}</span>

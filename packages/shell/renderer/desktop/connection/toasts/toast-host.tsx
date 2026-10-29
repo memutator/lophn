@@ -10,7 +10,7 @@ import type {
   OverlayIdentity,
   OverlayLead,
 } from "../../../../ipc/overlay.ts";
-import { centerAnchor, overlayConsumer } from "../../../overlay/consumer.ts";
+import { overlayConsumer, toastAnchor } from "../../../overlay/consumer.ts";
 import { useEventClient } from "../events/hooks.tsx";
 import { REACTION_EVENT_TYPES, reactionsOf } from "../events/reactions.ts";
 import { runToastAction } from "./toast-actions.ts";
@@ -53,7 +53,7 @@ export function ToastHost({ overlay }: { overlay: OverlayApi }) {
           {
             requestId,
             kind: "notification",
-            anchorRect: centerAnchor(),
+            anchorRect: toastAnchor(),
             model: {
               label: text.title,
               text: text.body,

@@ -139,9 +139,9 @@ export function SettingsSpace({
     >
       <div className={styles.topBar}>
         <TopBar
+          rail={<LauncherButton onLauncher={onLauncher} />}
           leading={
             <span className={styles.leading}>
-              <LauncherButton onLauncher={onLauncher} />
               {shown.mode === "hidden" ? null : (
                 <Tooltip content={toggleLabel}>
                   <IconButton

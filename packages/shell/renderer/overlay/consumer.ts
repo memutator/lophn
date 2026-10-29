@@ -29,6 +29,33 @@ export function centerAnchor(): {
   };
 }
 
+const TOP_BAR_HEIGHT = 36;
+const TOAST_WIDTH = 440;
+const TOAST_HEIGHT = 320;
+
+/**
+ * 상단 가운데 toast 자리. 상단 bar(36px) 바로 아래 가운데에 둔다.
+ * fullBody가 아니므로 overlay view는 이 영역만 차지하고, 나머지 창의 클릭을 가로채지 않는다.
+ */
+export function toastAnchor(): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  const width = Math.min(TOAST_WIDTH, Math.max(200, globalThis.innerWidth));
+  const x = Math.max(0, Math.round((globalThis.innerWidth - width) / 2));
+  return {
+    x,
+    y: TOP_BAR_HEIGHT,
+    width,
+    height: Math.min(
+      TOAST_HEIGHT,
+      Math.max(40, globalThis.innerHeight - TOP_BAR_HEIGHT),
+    ),
+  };
+}
+
 type Completion = OverlayOutcome | OverlayDragUpdate | OverlayQuery;
 type Opener = {
   element: HTMLElement;

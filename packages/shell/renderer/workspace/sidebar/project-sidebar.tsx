@@ -206,7 +206,7 @@ export function ProjectSidebar({
       // `width`는 panel 폭이다. 열리면 activity bar 폭을 더한다. 접히면 bar만 남아 `width`가 이미 bar 폭이다.
       style={{
         width: collapsed
-          ? `${width}px`
+          ? "var(--layout-sidebar-collapsed)"
           : `calc(${width}px + var(--layout-sidebar-collapsed))`,
       }}
       aria-label={t("project-workspace.sidebar.label")}

@@ -150,7 +150,7 @@ export const tokens = {
   breakpoint: { sm: 640, md: 1024, lg: 1280 },
   layout: {
     panePadding: { narrow: "16px", wide: "32px" },
-    sidebar: { min: "200px", max: "400px", collapsed: "56px" },
+    sidebar: { min: "200px", max: "400px", collapsed: "44px" },
     // 공용 layout이 페이지 가로 scroll 없이 읽기와 조작을 주는 가장 좁은 패널·카드 폭.
     container: { panel: "320px", card: "240px" },
   },

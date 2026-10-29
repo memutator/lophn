@@ -1,11 +1,11 @@
 // project-workspace 틀의 순수 규칙. 화면은 이 값을 그대로 그린다.
 // 치수는 shell/desktop, shell/editor, shell/design-system 문서를 따른다.
 
-/** sidebar 기본 폭. drag로 200~400px, 접힘 56px. */
+/** sidebar 기본 폭. drag로 200~400px, 접힘 44px. */
 export const SIDEBAR_WIDTH = 240;
 const SIDEBAR_MIN = 200;
 const SIDEBAR_MAX = 400;
-const SIDEBAR_COLLAPSED = 56;
+const SIDEBAR_COLLAPSED = 44;
 
 /** 반응형 경계. */
 const BREAKPOINT_SM = 640;

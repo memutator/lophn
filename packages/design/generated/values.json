@@ -334,7 +334,7 @@
       "sidebar": {
         "min": "200px",
         "max": "400px",
-        "collapsed": "56px"
+        "collapsed": "44px"
       },
       "container": {
         "panel": "320px",

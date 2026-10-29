@@ -1476,9 +1476,9 @@ export function Workspace(props: WorkspaceProps) {
               }}
             >
               <TopBar
+                rail={<LauncherButton onLauncher={onLauncher} />}
                 leading={
                   <span className={styles.leading}>
-                    <LauncherButton onLauncher={onLauncher} />
                     <ProjectSelector
                       options={projectOptions}
                       active={projectId}

@@ -116,8 +116,9 @@ function viewHost(
 ): AgentViewHost {
   const agent = agentOf(tab)!;
   return {
-    // 편집 카드의 [Open]. 그 파일을 파일 탭으로 연다.
-    openFile: slice.openFile,
+    // 편집 카드의 [Open]. 그 파일을 파일 탭으로 연다. 자리는 이 탭을 source로 `showAfter`가 정한다.
+    openFile: (path) => slice.openFile(path, tab.key),
+    runCommand: slice.runCommand,
     artifacts: slice.artifacts,
     // 권한 요약과 `/permissions`는 Agents 화면의 Permissions로 간다.
     openPermissions: () => openAgents(host),

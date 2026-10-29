@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { app } from "electron";
+import { app, clipboard } from "electron";
 import {
   canDeliverMessages,
   HARNESS_ADAPTERS,
@@ -228,6 +228,29 @@ export function register(ctx: ShellContext): Coding {
     agent: agent.tracker,
     agentSessions: agent.listSessions,
     renameAgentSession: agent.renameSession,
+    // headless 확인은 사람 장치의 clipboard를 건드리지 않는다.
+    ...(ctx.headless.headless ? {} : { clipboard }),
+    // shell은 시작 층(rc)을 읽는 동안 친 글을 버리고, rc를 읽는 동안은 출력도 없다. 첫 출력(prompt) 뒤 300ms
+    // 잠잠하면 친다. prompt는 열기 답보다 늦게 나오므로 듣기 전에 지나가지 않는다. 5초면 그냥 친다.
+    settled: (terminalRef) =>
+      new Promise<void>((resolve) => {
+        const done = () => {
+          clearTimeout(quiet);
+          clearTimeout(cap);
+          off();
+          resolve();
+        };
+        let quiet: NodeJS.Timeout | undefined;
+        const cap = setTimeout(done, 5000);
+        const off = terminals.on({
+          output(chunks) {
+            if (!chunks.some((chunk) => chunk.terminal_ref === terminalRef))
+              return;
+            clearTimeout(quiet);
+            quiet = setTimeout(done, 300);
+          },
+        });
+      }),
     resumeLine: (resume) => {
       if (!(resume.harness in HARNESS_ADAPTERS)) return null;
       const adapter =

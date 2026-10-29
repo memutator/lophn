@@ -56,11 +56,14 @@ import { QueuedMessages } from "./queued/queued-messages.tsx";
 import { RewindPanel } from "./session-rewind/rewind-panel.tsx";
 import type { SlashEntryView } from "./slash-menu/types.ts";
 import { windowPathOf, windowReadImage } from "./window-paths.ts";
+import { RunCodeProvider } from "./message-list/run-code.ts";
 
 /** Agent 화면이 자기 밖에 맡기는 일: 탭·파일·설정으로 가는 길. */
 export interface AgentViewHost {
   /** 편집 카드의 [Open]이 그 파일(프로젝트 안 경로)의 탭을 연다. */
   openFile?: (path: string) => void;
+  /** 대화의 shell 코드 블록을 새 터미널에서 실행한다. 없거나 null이면 실행 단추가 없다. */
+  runCommand?: ((command: string) => void) | null;
   /** 글 안 artifact path의 link. 없는 창은 글 그대로 그린다. */
   artifacts?: ArtifactsSlice;
   /** 권한 요약과 `/permissions`가 Agents 화면의 Permissions로 간다. */
@@ -535,39 +538,41 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
         </p>
       )}
       <div className={styles.stage}>
-        <AgentThread
-          key={key}
-          agent={agent}
-          entries={thread?.entries ?? []}
-          detail="compact"
-          live={thread?.live ?? null}
-          outgoing={draft.outgoing}
-          working={working}
-          now={now}
-          imageUrl={imageUrl}
-          readOnly={readOnly}
-          drafts={drafts}
-          source={source}
-          initialScroll={draft.scroll}
-          onScroll={(position) => drafts.save(key, { scroll: position })}
-          rewindOpen={layer?.kind === "rewind" ? layer.message : null}
-          onRewind={(message) =>
-            setLayer(
-              layer?.kind === "rewind" && layer.message === message
-                ? null
-                : { kind: "rewind", message },
-            )
-          }
-          onFork={(message) => void fork(message)}
-          onCheck={() => void check()}
-          onResend={() => void sendAgain()}
-          onOpenFile={host.openFile}
-          onOpenRef={(ref: EvidenceRef) => {
-            if (ref.kind === "file") host.openFile?.(ref.target);
-          }}
-          onOpenSession={host.openSession}
-          artifacts={host.artifacts}
-        />
+        <RunCodeProvider value={host.runCommand ?? null}>
+          <AgentThread
+            key={key}
+            agent={agent}
+            entries={thread?.entries ?? []}
+            detail="compact"
+            live={thread?.live ?? null}
+            outgoing={draft.outgoing}
+            working={working}
+            now={now}
+            imageUrl={imageUrl}
+            readOnly={readOnly}
+            drafts={drafts}
+            source={source}
+            initialScroll={draft.scroll}
+            onScroll={(position) => drafts.save(key, { scroll: position })}
+            rewindOpen={layer?.kind === "rewind" ? layer.message : null}
+            onRewind={(message) =>
+              setLayer(
+                layer?.kind === "rewind" && layer.message === message
+                  ? null
+                  : { kind: "rewind", message },
+              )
+            }
+            onFork={(message) => void fork(message)}
+            onCheck={() => void check()}
+            onResend={() => void sendAgain()}
+            onOpenFile={host.openFile}
+            onOpenRef={(ref: EvidenceRef) => {
+              if (ref.kind === "file") host.openFile?.(ref.target);
+            }}
+            onOpenSession={host.openSession}
+            artifacts={host.artifacts}
+          />
+        </RunCodeProvider>
         {layer === null ? null : (
           <div className={styles.layer} data-panel-layer={layer.kind}>
             {layer.kind === "rewind" && session !== null ? (

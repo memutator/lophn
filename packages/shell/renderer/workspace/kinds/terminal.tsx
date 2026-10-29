@@ -14,8 +14,10 @@ import { tabName } from "../../terminal/model.ts";
 import type { TerminalStore } from "../../terminal/store.ts";
 import { TerminalTab } from "../../terminal/terminal-tab.tsx";
 import type { TabItem } from "../model.ts";
+import { openFile } from "./document-editor.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
+import { openAt } from "../open-policy.ts";
 
 const TAB_KEY = /^[A-Za-z0-9._:-]+$/;
 
@@ -23,23 +25,38 @@ let terminalCount = 0;
 
 /**
  * 사람이 누른 터미널 열기. 시작 폴더는 탭 화면이 main에 묻는다.
- * 저장한 session을 열 때만 폴더와 resume을 준다.
+ * 저장한 session을 열 때만 폴더와 resume을 준다. `command`는 대화 코드 블록의 실행이고 floated로 연다
+ * (`openAt`의 run).
  */
 export function openTerminal(
   host: TabHost,
-  options: { folderRef?: string; resume?: TerminalResume } = {},
+  options: {
+    folderRef?: string;
+    resume?: TerminalResume;
+    command?: string;
+  } = {},
 ): void {
   const terminal = host.props.terminal;
   if (!terminal) return;
   const key = `terminal-${Date.now().toString(36)}-${++terminalCount}`;
   const title = host.projectTitle ?? t("project-workspace.label.kind-terminal");
-  terminal.store.request(key, options.folderRef ?? null, options.resume);
-  host.openTab({
+  terminal.store.request(key, options.folderRef ?? null, {
+    ...(options.resume === undefined ? {} : { resume: options.resume }),
+    ...(options.command === undefined ? {} : { command: options.command }),
+  });
+  const tab: TabItem = {
     key,
     kind: "terminal",
     title,
     fields: { auto: title },
-  });
+  };
+  const at = openAt(
+    host.view,
+    undefined,
+    options.command === undefined ? "show" : "run",
+  );
+  if (at.kind === "float") host.openFloat(tab);
+  else host.openTab(tab);
 }
 
 // 이름의 두 입력. 사람이 붙인 이름과 자동 이름(폴더 제목)은 fields에 두고,
@@ -206,6 +223,27 @@ export const terminalKind: TabKindDef = {
             };
           })
         }
+        // 경로가 디스크의 파일일 때만 link다. 부모 폴더 한 단계를 읽어 본다.
+        paths={{
+          exists: async (path) => {
+            const cut = path.lastIndexOf("/");
+            const read = await host.props.source.list(
+              path.slice(0, cut) || "/",
+            );
+            const name = path.slice(cut + 1);
+            return (
+              read.ok &&
+              read.value.some(
+                (entry) => entry.kind === "file" && entry.name === name,
+              )
+            );
+          },
+          open: (path, line) =>
+            openFile(host, path, {
+              from: tab.key,
+              ...(line === undefined ? {} : { line }),
+            }),
+        }}
       />
     );
   },

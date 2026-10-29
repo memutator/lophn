@@ -166,6 +166,12 @@
   padding: var(--space-2) var(--space-2) var(--space-0) var(--space-5);
 }
 
+.codeActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
 .language {
   color: var(--color-text-muted);
   font-family: var(--font-mono);

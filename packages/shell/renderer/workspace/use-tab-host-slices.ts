@@ -24,6 +24,7 @@ import { openAgent } from "./kinds/agent.tsx";
 import { openArtifact } from "./kinds/artifact.tsx";
 import { openFile } from "./kinds/document-editor.tsx";
 import type { AgentsSlice, AgentViewSlice, TabHost } from "./kinds/host.ts";
+import { openTerminal } from "./kinds/terminal.tsx";
 import {
   agentRow,
   openedPlaceLophnSession,
@@ -43,6 +44,8 @@ interface TabHostSlicesInput {
   /** 이 창에서 앱 화면을 여는 길. detached 창은 noop이다. */
   onSettings: (pane?: SettingsPane) => void;
   onProjectInstructions?: () => void;
+  /** false면 이 창은 floated 탭을 둘 수 없다(detached 창). 코드 블록의 실행 단추를 두지 않는다. */
+  floats?: boolean;
 }
 
 // project 창(Workspace)과 detached 창(DetachedTab)이 같이 쓰는 TabHost slice와 view 보관소.
@@ -121,7 +124,16 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
           factory: agentViewSource,
           drafts: conversation?.drafts ?? localDrafts,
           ...(conversation?.now === undefined ? {} : { now: conversation.now }),
-          openFile: (path) => openFile(hostRef.current(), path),
+          openFile: (path, from) =>
+            openFile(
+              hostRef.current(),
+              path,
+              from === undefined ? {} : { from },
+            ),
+          runCommand:
+            terminalStore === undefined || input.floats === false
+              ? null
+              : (command) => openTerminal(hostRef.current(), { command }),
           profileOf: (agent) =>
             sidebarAgents.agents.find((row) => row.assignment === agent)
               ?.profile,

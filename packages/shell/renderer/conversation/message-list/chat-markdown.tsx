@@ -1,7 +1,12 @@
 // agent가 쓴 글 하나를 chat 모양 markdown으로 그린다. artifact path는 button link, link는 shell 창 밖으로,
 // image는 불러오지 않고 alt 글의 link로 둔다(agent 답의 image 주소로 대화가 새지 않게 한다).
 import type { ReactElement, ReactNode } from "react";
+import { IconButton } from "@lophn/ui/primitives";
 import { Markdown } from "@lophn/ui/reading";
+import { t } from "@lophn/wording";
+
+import { workspaceIcons } from "../../icons/mod.ts";
+import { runnable, useRunCode } from "./run-code.ts";
 
 import { artifactMentions } from "../../../../protocol/domains/artifact.ts";
 import { windowLinkOpener } from "../../desktop/settings/core-call.ts";
@@ -26,6 +31,7 @@ export function ChatMarkdown({
 }: ChatMarkdownProps): ReactElement {
   useArtifactReload(text, artifacts);
   const open = windowLinkOpener();
+  const run = useRunCode();
   const renderText =
     artifacts === undefined
       ? undefined
@@ -53,6 +59,19 @@ export function ChatMarkdown({
       images="link"
       onOpenLink={open === undefined ? undefined : (href) => void open(href)}
       renderText={renderText}
+      codeAction={
+        run === null
+          ? undefined
+          : (code, language) =>
+              runnable(code, language) ? (
+                <IconButton
+                  icon={workspaceIcons.terminal}
+                  size="sm"
+                  label={t("conversation.button.run-in-terminal")}
+                  onClick={() => run(code)}
+                />
+              ) : undefined
+      }
     />
   );
 }

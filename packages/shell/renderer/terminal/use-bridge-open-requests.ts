@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 
 import type { TerminalApi } from "../../ipc/terminal.ts";
 import type { TabHost } from "../workspace/kinds/host.ts";
-import { allTabs, type WorkspaceView } from "../workspace/model.ts";
+import { showAfter } from "../workspace/open-policy.ts";
 import type { TerminalStore } from "./store.ts";
 
 interface BridgeOpenRequest {
@@ -15,27 +15,7 @@ interface BridgeOpenRequest {
 
 let bridgeCount = 0;
 
-/**
- * 새 탭을 넣을 자리. pane이 둘이면 terminal 반대쪽 pane의 마지막 탭 뒤, 하나면 terminal 바로 뒤다.
- * terminal이 floated이거나 pane에 없으면 undefined이고 focus pane 끝에 연다.
- */
-export function bridgeAfter(
-  view: WorkspaceView,
-  terminalKey: string,
-): string | undefined {
-  const at = view.panes.findIndex((pane) =>
-    pane.tabs.some((tab) => tab.key === terminalKey),
-  );
-  if (at < 0) return undefined;
-  if (view.panes.length !== 2) return terminalKey;
-  return view.panes[1 - at].tabs.at(-1)?.key;
-}
-
-/**
- * 이 창의 어느 desk에든 그 terminal이 있으면 URL을 browser 탭으로 열고 true. 없으면 false다.
- * 다른 desk의 terminal이면 그 desk로 건너가 terminal 바로 뒤에 연다(그 desk의 view를 몰라
- * 반대쪽 pane 규칙은 쓰지 않는다).
- */
+/** 이 창의 어느 desk에든 그 terminal이 있으면 URL을 browser 탭으로 열고 true. 없으면 false다. 자리는 `showAfter`다. */
 export function openBridgeUrl(
   host: TabHost,
   store: TerminalStore,
@@ -55,7 +35,6 @@ export function openBridgeUrl(
   } catch {
     // 주소로 읽히지 않으면 url 그대로 이름이다.
   }
-  const visible = allTabs(host.view).some((tab) => tab.key === terminal.key);
   host.openTab(
     {
       key: `browser-bridge-${Date.now().toString(36)}-${++bridgeCount}`,
@@ -63,7 +42,7 @@ export function openBridgeUrl(
       title,
       fields: { url: request.url },
     },
-    { after: visible ? bridgeAfter(host.view, terminal.key) : terminal.key },
+    showAfter(host.view, terminal.key),
   );
   return true;
 }

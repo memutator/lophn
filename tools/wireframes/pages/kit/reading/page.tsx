@@ -9,6 +9,9 @@ import {
   Toc,
 } from "@lophn/ui/reading";
 
+import { IconButton } from "@lophn/ui/primitives";
+import { SquareTerminal } from "lucide-react";
+
 import { WeeklyReport } from "./weekly-report.tsx";
 import { Example, kit, Page, Row, Section } from "../kit.tsx";
 
@@ -136,6 +139,21 @@ export function KitReading() {
           <CodeBlock
             code="plain text without a language"
             clipboard={CLIPBOARD}
+          />
+        </Row>
+        <Row label="with action">
+          <CodeBlock
+            code="ls -la"
+            language="bash"
+            clipboard={CLIPBOARD}
+            action={
+              <IconButton
+                icon={SquareTerminal}
+                size="sm"
+                label="Run in terminal"
+                onClick={NOOP}
+              />
+            }
           />
         </Row>
       </Section>

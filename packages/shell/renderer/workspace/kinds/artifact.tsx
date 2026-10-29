@@ -10,6 +10,7 @@ import { openFile } from "./document-editor.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 import type { TabItem } from "../model.ts";
+import { showAfter } from "../open-policy.ts";
 
 /** domain의 artifact를 탭으로 연다. 이미 열려 있으면 고르기만 한다. */
 export function openArtifact(
@@ -25,14 +26,21 @@ export function openArtifact(
   });
 }
 
-/** 사람의 폴더에 있는 .html을 탭으로 연다(절대 path). */
-export function openArtifactFile(host: TabHost, path: string): void {
-  host.openTab({
-    key: `artifact-file:${path}`,
-    kind: "artifact",
-    title: fileNameOf(path),
-    fields: { project: host.projectId, path },
-  });
+/** 사람의 폴더에 있는 .html을 탭으로 연다(절대 path). `from`은 연 탭의 key다(`showAfter`). */
+export function openArtifactFile(
+  host: TabHost,
+  path: string,
+  from?: string,
+): void {
+  host.openTab(
+    {
+      key: `artifact-file:${path}`,
+      kind: "artifact",
+      title: fileNameOf(path),
+      fields: { project: host.projectId, path },
+    },
+    showAfter(host.view, from),
+  );
 }
 
 /** project의 workflow artifact를 탭으로 연다. 탭 이름은 page의 title을 따른다(없으면 workflow). */

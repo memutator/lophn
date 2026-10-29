@@ -50,6 +50,7 @@ export type ConversationPlaceholders = {
   "conversation.button.resend": Record<never, never>;
   "conversation.button.retry": Record<never, never>;
   "conversation.button.rewind-go": Record<never, never>;
+  "conversation.button.run-in-terminal": Record<never, never>;
   "conversation.button.rewind-here": Record<never, never>;
   "conversation.button.save": Record<never, never>;
   "conversation.button.send": Record<never, never>;

@@ -20,11 +20,33 @@ const resume = z
   })
   .strict();
 
+/**
+ * 열자마자 shell에 넣을 명령(대화 코드 블록의 실행 단추). 제어 문자는 줄바꿈과 tab만 받는다. escape가 숨은
+ * 글이 터미널을 움직이지 않게 한다.
+ */
+export const terminalCommandSchema = z
+  .string()
+  .min(1)
+  .max(8192)
+  .refine(
+    (text) =>
+      [...text].every((char) => {
+        const code = char.codePointAt(0)!;
+        return (
+          code === 0x09 ||
+          code === 0x0a ||
+          (code >= 0x20 && code !== 0x7f && (code < 0x80 || code > 0x9f))
+        );
+      }),
+    "command has control characters",
+  );
+
 export const terminalOpenSchema = z
   .object({
     project: ref,
     folder_ref: ref.optional(),
     resume: resume.optional(),
+    command: terminalCommandSchema.optional(),
   })
   .strict();
 
@@ -89,6 +111,11 @@ export const terminalFocusSchema = z
   })
   .strict();
 
+/** 터미널에서 고른 글. main이 OS clipboard에 쓴다. shell 창 session은 web clipboard permission을 거절한다. */
+export const terminalCopySchema = z
+  .object({ text: z.string().min(1).max(60_000) })
+  .strict();
+
 /** terminal에서 Ctrl/Cmd-click한 link. 어디에서 열지는 main이 정한다. */
 export const terminalLinkSchema = z
   .object({
@@ -111,6 +138,8 @@ export type TerminalOpen = {
   folder_ref?: string;
   /** 있으면 shell이 뜬 뒤 main이 그 harness의 resume 명령을 친다. */
   resume?: TerminalResume;
+  /** 있으면 shell이 뜬 뒤 main이 넣는다. 한 줄이면 실행하고, 여러 줄이면 붙여 넣기만 한다(Enter는 사람). */
+  command?: string;
 };
 export type TerminalAgentSessionsQuery = { project: string };
 export type TerminalAgentSessionRename = {
@@ -292,6 +321,10 @@ export interface TerminalApi {
   focus(input: TerminalFocus): Promise<TerminalCall<null>>;
   /** terminal에서 Ctrl/Cmd-click한 link를 main에 넘긴다. */
   openLink(input: TerminalLink): Promise<TerminalCall<null>>;
+  /** 사람이 Ctrl+Shift+C로 고른 글을 OS clipboard에 쓴다. */
+  copy(input: { text: string }): Promise<TerminalCall<null>>;
+  /** 사람이 Ctrl+Shift+V를 눌렀다. OS clipboard의 글을 돌려준다. */
+  paste(): Promise<TerminalCall<string>>;
   /** main이 push한 bridge 요청에 browser 탭을 열었는지 답한다. */
   ackBridgeOpen(input: TerminalBridgeAck): Promise<TerminalCall<null>>;
   /** main이 URL을 browser 탭으로 열어 달라고 push한다. 구독 해지를 돌려준다. */
@@ -325,6 +358,8 @@ export const TERMINAL_SNAPSHOT_CHANNEL = "shell:terminal-snapshot";
 export const TERMINAL_OUTPUT_CHANNEL = "shell:terminal-output";
 export const TERMINAL_FOCUS_CHANNEL = "shell:terminal-focus";
 export const TERMINAL_LINK_CHANNEL = "shell:terminal-link";
+export const TERMINAL_COPY_CHANNEL = "shell:terminal-copy";
+export const TERMINAL_PASTE_CHANNEL = "shell:terminal-paste";
 export const TERMINAL_BRIDGE_ACK_CHANNEL = "shell:terminal-bridge-ack";
 export const TERMINAL_BRIDGE_OPEN_CHANNEL = "shell:terminal-bridge-open";
 export const TERMINAL_REVEAL_CHANNEL = "shell:terminal-reveal";

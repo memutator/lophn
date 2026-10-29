@@ -38,6 +38,7 @@ export const conversation = {
   "conversation.button.resend": "Send again",
   "conversation.button.retry": "Retry",
   "conversation.button.rewind-go": "Rewind",
+  "conversation.button.run-in-terminal": "Run in terminal",
   "conversation.button.rewind-here": "Rewind to here",
   "conversation.button.save": "Save",
   "conversation.button.send": "Send",

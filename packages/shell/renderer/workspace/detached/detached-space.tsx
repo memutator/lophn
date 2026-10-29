@@ -143,6 +143,7 @@ function DetachedTab({
     source: workspace,
     agentViewSource,
     terminalStore: terminal?.store,
+    floats: false,
     host: () => hostRef.current,
     onSettings: noop,
   });

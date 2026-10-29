@@ -20,6 +20,8 @@ export interface TerminalEntry {
   readonly phase: Phase;
   /** 처음 여는 한 번만 main이 shell 뒤에 resume 명령을 친다. 저장하지 않고, 열 때 비운다. */
   readonly resume?: TerminalResume;
+  /** 처음 여는 한 번만 main이 shell에 넣는 명령(대화 코드 블록의 실행). resume과 같이 열 때 비운다. */
+  readonly command?: string;
 }
 
 const STORAGE_KEY = "lophn.terminal.tabs";
@@ -150,7 +152,7 @@ export class TerminalStore {
   request(
     key: string,
     folderRef: string | null = null,
-    resume?: TerminalResume,
+    once: { resume?: TerminalResume; command?: string } = {},
   ): void {
     this.#entries.set(key, {
       requested: true,
@@ -158,7 +160,8 @@ export class TerminalStore {
       terminalRef: null,
       generation: 0,
       phase: { kind: "opening" },
-      ...(resume === undefined ? {} : { resume }),
+      ...(once.resume === undefined ? {} : { resume: once.resume }),
+      ...(once.command === undefined ? {} : { command: once.command }),
     });
     this.#changed();
   }

@@ -15,7 +15,7 @@
   flex: 1;
   min-height: var(--space-0);
   /* 오른쪽 여백은 xterm scrollbar 자리(폭 --space-3, xterm-view)가 대신한다. 여백을 또 두면 오른쪽만 넓어진다. */
-  padding: var(--space-2) var(--space-0) var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-0) var(--space-4) var(--space-3);
   background: var(--color-surface-base);
   overflow: hidden;
   /* scroll한 뒤 위·왼쪽에 생기는 xterm 그림자(기본 #000)는 밝은 바탕에서 띠로 보인다. 탭 본문과 이어지게 끈다. */

@@ -2,6 +2,7 @@ import { t } from "@lophn/wording";
 import {
   type CSSProperties,
   Fragment,
+  type ReactNode,
   useEffect,
   useRef,
   useState,
@@ -20,6 +21,8 @@ export interface CodeBlockProps {
   // fence info의 첫 낱말(언어 이름). 글로만 보이고 해석하지 않는다.
   language?: string;
   clipboard?: Clipboard;
+  // 복사 단추 앞에 둘 단추(대화의 실행 단추). 호출자가 그린다.
+  action?: ReactNode;
 }
 
 interface Highlighted {
@@ -70,6 +73,7 @@ export function CodeBlock({
   code,
   language,
   clipboard = systemClipboard,
+  action,
 }: CodeBlockProps) {
   const highlighter = useHighlighter();
   const [highlighted, setHighlighted] = useState<Highlighted | null>(null);
@@ -100,11 +104,14 @@ export function CodeBlock({
     <figure className={styles.codeBlock}>
       <div className={styles.codeHead}>
         <span className={styles.language}>{language}</span>
-        <CopyButton
-          text={code}
-          label={t("common.button.copy-code")}
-          clipboard={clipboard}
-        />
+        <span className={styles.codeActions}>
+          {action}
+          <CopyButton
+            text={code}
+            label={t("common.button.copy-code")}
+            clipboard={clipboard}
+          />
+        </span>
       </div>
       <pre className={styles.pre}>
         <code>

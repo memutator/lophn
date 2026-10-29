@@ -1,7 +1,9 @@
 // xterm.js 표시. 출력은 제목·색·커서 같은 표시로만 해석한다. clipboard(OSC 52)·자동 링크
 // (OSC 8)·파일·앱·플랫폼 동작 handler는 등록하지 않고, 그 escape는 parser에서 먹어 xterm
-// 기본 동작(링크 열기 확인 창)도 생기지 않게 한다. 화면에 보이는 http/https 글자만 Ctrl/Cmd-click
-// 하면 `onLink`로 알리고, 여는 것은 듣는 쪽이 한다.
+// 기본 동작(링크 열기 확인 창)도 생기지 않게 한다. 화면에 보이는 http/https 글자와 파일 경로만 Ctrl/Cmd-click
+// 하면 `onLink`·`onPathLink`로 알리고, 여는 것은 듣는 쪽이 한다. clipboard는 사람이 누른 키(Linux·Windows의
+// Ctrl+Shift+C/V)로만 쓴다. macOS의 Cmd+C/V는 창 menu가 하므로 여기서 받지 않는다.
+import { pathMatches } from "./path-links.ts";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -23,9 +25,23 @@ export interface TerminalView {
   onData(listener: (text: string) => void): () => void;
   /** 보이는 http/https 링크를 Ctrl/Cmd-click했다. 그냥 click은 알리지 않는다. */
   onLink(listener: (url: string) => void): () => void;
+  /**
+   * 보이는 파일 경로에 link를 단다. `resolve`가 그 글자를 디스크에 있는 절대 경로로 바꾸면(없으면 null) 밑줄이
+   * 생기고, Ctrl/Cmd-click하면 `open`을 부른다.
+   */
+  onPathLink(handlers: {
+    resolve(path: string): Promise<string | null>;
+    open(path: string, line: number | undefined): void;
+  }): () => void;
   /** program이 OSC 0/2로 터미널 제목을 바꿨다. */
   onTitle(listener: (title: string) => void): () => void;
   dispose(): void;
+}
+
+/** OS clipboard. main이 쓰고 읽는다. 실패하면 copy는 조용히 끝나고 paste는 빈 글이다. */
+export interface TerminalClipboard {
+  copy(text: string): Promise<void>;
+  paste(): Promise<string>;
 }
 
 /** 출력이 바꿔도 동작이 생기지 않게 먹는 OSC 번호. 8은 링크, 52는 clipboard다. */
@@ -39,15 +55,29 @@ interface CellLike {
   isBgRGB(): boolean;
   isBgPalette(): boolean;
   getBgColor(): number;
+  getChars(): string;
+  getWidth(): number;
+}
+
+interface LineLike {
+  readonly length: number;
+  getCell(x: number, cell?: CellLike): CellLike | undefined;
 }
 
 interface BufferLike {
   readonly type: "normal" | "alternate";
   readonly viewportY: number;
-  getLine(
-    y: number,
-  ): { getCell(x: number, cell?: CellLike): CellLike | undefined } | undefined;
+  getLine(y: number): LineLike | undefined;
   getNullCell(): CellLike;
+}
+
+interface LinkLike {
+  range: {
+    start: { x: number; y: number };
+    end: { x: number; y: number };
+  };
+  text: string;
+  activate(event: MouseEvent, text: string): void;
 }
 
 interface XtermLike {
@@ -63,6 +93,16 @@ interface XtermLike {
       callback: (data: string) => boolean,
     ): { dispose(): void };
   };
+  hasSelection(): boolean;
+  getSelection(): string;
+  paste(data: string): void;
+  attachCustomKeyEventHandler(handler: (event: KeyboardEvent) => boolean): void;
+  registerLinkProvider(provider: {
+    provideLinks(
+      y: number,
+      callback: (links: LinkLike[] | undefined) => void,
+    ): void;
+  }): { dispose(): void };
   open(element: HTMLElement): void;
   loadAddon(addon: unknown): void;
   write(data: string, callback?: () => void): void;
@@ -321,12 +361,13 @@ function adoptInlineStyles(root: HTMLElement): () => void {
 
 /**
  * xterm.js를 host 요소에 연다. edge는 host를 둘러싼 여백 전체를 덮는 canvas이고 `paintEdges`가 칠한다.
- * parts는 테스트가 바꾼다.
+ * clipboard가 없으면 Ctrl+Shift+C/V는 아무것도 하지 않는다. parts는 테스트가 바꾼다.
  */
 export function createXtermView(
   host: HTMLElement,
   edge: HTMLCanvasElement,
   parts: XtermParts = REAL,
+  clipboard: TerminalClipboard | null = null,
 ): TerminalView {
   let theme = themeOf(host);
   const term = new parts.Terminal({
@@ -364,6 +405,74 @@ export function createXtermView(
       for (const listener of linkListeners) listener(uri);
     }),
   );
+  // Linux·Windows의 Ctrl+C는 shell의 SIGINT라 복사는 Ctrl+Shift+C, 붙여 넣기는 Ctrl+Shift+V다. 고른 글이 없으면
+  // Ctrl+Shift+C도 shell로 보내지 않고 먹는다. paste는 xterm이 bracketed paste로 감싸 줄마다 실행되지 않는다.
+  // shell 창 session은 web clipboard permission을 거절하므로 OS clipboard는 main이 쓴다(`clipboard`).
+  const mac = /Mac OS X|Macintosh/.test(globalThis.navigator?.userAgent ?? "");
+  term.attachCustomKeyEventHandler((event) => {
+    if (
+      mac ||
+      !event.ctrlKey ||
+      !event.shiftKey ||
+      event.altKey ||
+      event.metaKey ||
+      (event.code !== "KeyC" && event.code !== "KeyV")
+    )
+      return true;
+    if (event.type === "keydown") {
+      event.preventDefault();
+      if (event.code === "KeyC") {
+        if (term.hasSelection()) void clipboard?.copy(term.getSelection());
+      } else {
+        void clipboard?.paste().then((text) => {
+          if (text !== "") term.paste(text);
+        });
+      }
+    }
+    return false;
+  });
+  let pathLinks: Parameters<TerminalView["onPathLink"]>[0] | null = null;
+  const pathProvider = term.registerLinkProvider({
+    provideLinks(y, callback) {
+      const handlers = pathLinks;
+      const line = term.buffer.active.getLine(y - 1);
+      if (handlers === null || line === undefined) return callback(undefined);
+      // 넓은 글자(한글)는 cell 둘을 쓰므로 글자 index마다 column(1부터)을 적는다.
+      let text = "";
+      const columns: number[] = [];
+      const cell = term.buffer.active.getNullCell();
+      for (let x = 0; x < line.length; x += 1) {
+        const found = line.getCell(x, cell);
+        if (found === undefined || found.getWidth() === 0) continue;
+        const chars = found.getChars() || " ";
+        for (let i = 0; i < chars.length; i += 1) columns.push(x + 1);
+        text += chars;
+      }
+      const matches = pathMatches(text);
+      if (matches.length === 0) return callback(undefined);
+      void Promise.all(
+        matches.map(async (match) => {
+          const absolute = await handlers.resolve(match.path).catch(() => null);
+          if (absolute === null) return null;
+          const link: LinkLike = {
+            range: {
+              start: { x: columns[match.start]!, y },
+              end: { x: columns[match.end - 1]!, y },
+            },
+            text: text.slice(match.start, match.end),
+            activate(event) {
+              if (event.ctrlKey || event.metaKey)
+                handlers.open(absolute, match.line);
+            },
+          };
+          return link;
+        }),
+      ).then((links) => {
+        const kept = links.filter((link) => link !== null);
+        callback(kept.length === 0 ? undefined : kept);
+      });
+    },
+  });
   const release =
     typeof MutationObserver === "function" &&
     typeof CSSStyleSheet === "function" &&
@@ -437,6 +546,12 @@ export function createXtermView(
       linkListeners.add(listener);
       return () => linkListeners.delete(listener);
     },
+    onPathLink(handlers) {
+      pathLinks = handlers;
+      return () => {
+        if (pathLinks === handlers) pathLinks = null;
+      };
+    },
     onTitle(listener) {
       const subscription = term.onTitleChange(listener);
       return () => subscription.dispose();
@@ -444,6 +559,7 @@ export function createXtermView(
     dispose() {
       for (const handler of swallowed) handler.dispose();
       rendered.dispose();
+      pathProvider.dispose();
       unwatch();
       release();
       term.dispose();

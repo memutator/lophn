@@ -22,6 +22,8 @@ export interface MarkdownProps extends ParseOptions {
   // 있으면 link를 창 안에서 따라가지 않고 호출자가 연다(외부 링크 정책은 shell이 맡는다).
   onOpenLink?: (href: string) => void;
   clipboard?: Clipboard;
+  // 있으면 code block마다 복사 단추 앞에 둘 단추를 그린다(대화의 실행 단추). 없으면 undefined를 낸다.
+  codeAction?: (code: string, language: string | undefined) => ReactNode;
 }
 
 interface RenderContext {
@@ -29,6 +31,7 @@ interface RenderContext {
   clipboard: Clipboard;
   images: "show" | "link";
   renderText?: (text: string, kind: "text" | "code") => ReactNode;
+  codeAction?: MarkdownProps["codeAction"];
   // <a> 안에서는 다른 <a>를 만들지 않는다.
   inLink?: boolean;
 }
@@ -195,6 +198,7 @@ function block(item: Block, index: number, context: RenderContext): ReactNode {
           code={item.text}
           language={item.language}
           clipboard={context.clipboard}
+          action={context.codeAction?.(item.text, item.language)}
         />
       );
     case "quote":
@@ -269,6 +273,7 @@ export function Markdown({
   images = "show",
   renderText,
   clipboard = systemClipboard,
+  codeAction,
 }: MarkdownProps) {
   const document = useMemo(
     () => parseMarkdown(source, { resolveImage }),
@@ -282,7 +287,13 @@ export function Markdown({
           : styles.markdown
       }
     >
-      {blocks(document.blocks, { onOpenLink, clipboard, images, renderText })}
+      {blocks(document.blocks, {
+        onOpenLink,
+        clipboard,
+        images,
+        renderText,
+        codeAction,
+      })}
     </div>
   );
 }

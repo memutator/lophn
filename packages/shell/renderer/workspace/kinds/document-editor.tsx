@@ -11,13 +11,15 @@ import type { TabItem } from "../model.ts";
 import type { WorkspaceSource } from "../source.ts";
 import type { TabHost } from "./host.ts";
 import { openArtifactFile } from "./artifact.tsx";
+import { showAfter } from "../open-policy.ts";
 import type { TabKindDef } from "./kind.ts";
 
 /**
- * 파일을 탭으로 연다. 탭 key는 경로이고 이미 그 칸에 있으면 고르기만 한다. preview면 그 칸의 preview 탭
+ * 파일을 탭으로 연다. 탭 key는 경로이고 이미 열려 있으면 그 자리에서 보인다. preview면 그 칸의 preview 탭
  * 자리를 바꿔 쓰는 탭으로 연다(Explorer 한 번 클릭). line이 있으면(검색
- * 결과) 열린 탭도 그 줄로 간다. 사이드바·팔레트·검색·대화의 결과 링크가 모두 이 함수를 부른다.
- * .html은 artifact 탭으로 열고, `source`면 소스를 text 편집기로 연다.
+ * 결과) 열린 탭도 그 줄로 간다. 사이드바·팔레트·검색·대화·터미널의 결과 링크가 모두 이 함수를 부른다.
+ * `from`은 연 탭의 key이고 새 탭의 자리는 `showAfter`가 정한다. .html은 artifact 탭으로 열고, `source`면
+ * 소스를 text 편집기로 연다.
  */
 export function openFile(
   host: TabHost,
@@ -26,23 +28,27 @@ export function openFile(
     readonly line?: number;
     readonly preview?: boolean;
     readonly source?: boolean;
+    readonly from?: string;
   } = {},
 ): void {
   if (fileKindOf(path) === "html" && options.source !== true) {
-    openArtifactFile(host, path);
+    openArtifactFile(host, path, options.from);
     return;
   }
   const fields =
     options.line === undefined
       ? undefined
       : { line: options.line, nonce: Date.now() };
-  host.openTab({
-    key: path,
-    kind: "document_editor",
-    title: fileNameOf(path),
-    ...(fields === undefined ? {} : { fields }),
-    ...(options.preview === true ? { preview: true } : {}),
-  });
+  host.openTab(
+    {
+      key: path,
+      kind: "document_editor",
+      title: fileNameOf(path),
+      ...(fields === undefined ? {} : { fields }),
+      ...(options.preview === true ? { preview: true } : {}),
+    },
+    showAfter(host.view, options.from),
+  );
   if (fields !== undefined) host.patchTab(path, { fields });
 }
 

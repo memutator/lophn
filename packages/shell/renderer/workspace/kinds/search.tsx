@@ -7,6 +7,7 @@ import { paletteIcons } from "../../icons/mod.ts";
 import { TAB_KEY } from "../agent/tab-fields.ts";
 import type { TabItem } from "../model.ts";
 import { FileSearch } from "../search/file-search.tsx";
+import { openFile } from "./document-editor.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 
@@ -30,27 +31,6 @@ function openKeywordSearch(host: TabHost): void {
     title: t("file-search.label.tab"),
     fields: { query: "", folder: "" },
   });
-}
-
-/**
- * 검색 결과의 줄에서 파일을 연다. 탭 key는 파일 경로다. 이미 열려 있으면 그 탭을 고르고 줄만 바꾼다.
- * 열린 탭이 그 줄로 scroll하는 것은 파일 탭이 한다.
- */
-function openFileAt(host: TabHost, path: string, line: number): void {
-  const open = host.view.panes
-    .flatMap((pane) => pane.tabs)
-    .find((tab) => tab.kind === "document_editor" && tab.key === path);
-  if (open === undefined) {
-    host.openTab({
-      key: path,
-      kind: "document_editor",
-      title: path.split("/").at(-1) ?? path,
-      fields: { line },
-    });
-    return;
-  }
-  host.openTab(open);
-  host.patchTab(path, (tab) => ({ fields: { ...tab.fields, line } }));
 }
 
 /** 바로 가기 rail과 `+`가 부르는 Search 탭 열기. 열린 검색 탭이 있으면 그 탭을 고르고 없으면 새로 연다. */
@@ -103,7 +83,7 @@ export const searchKind: TabKindDef = {
         search={search}
         initialQuery={query}
         initialFolder={folder}
-        onOpen={(path, line) => openFileAt(host, path, line)}
+        onOpen={(path, line) => openFile(host, path, { line, from: tab.key })}
         onState={(next) =>
           host.patchTab(
             tab.key,

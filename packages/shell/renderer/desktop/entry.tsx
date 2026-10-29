@@ -19,7 +19,10 @@ import { catalogSource } from "./palette/core-catalog.ts";
 import type { HookPromptApi } from "./hook-prompt/hook-prompt-host.tsx";
 import { windowTerminalDeps } from "../terminal/deps.ts";
 import { TerminalStore } from "../terminal/store.ts";
-import { createXtermView } from "../terminal/xterm-view.ts";
+import {
+  createXtermView,
+  type TerminalClipboard,
+} from "../terminal/xterm-view.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
 import {
   type AppViewsDeps,
@@ -134,10 +137,24 @@ const start: Route | undefined = seed
             : location.hash === "#settings"
               ? openSettings()
               : undefined;
-// 창마다 하나. runtime의 대응과 살아 있는 xterm을 tab mount와 별도로 유지한다.
-const terminal = windowTerminalDeps(new TerminalStore(), (host, edge) =>
-  createXtermView(host, edge),
-);
+// 창마다 하나. runtime의 대응과 살아 있는 xterm을 tab mount와 별도로 유지한다. 터미널 clipboard는 main이 쓴다.
+// view는 처음 그릴 때 만들어지므로 그때는 `terminal`이 있다.
+const terminal = windowTerminalDeps(new TerminalStore(), (host, edge) => {
+  const bridge = terminal.bridge;
+  const clipboard: TerminalClipboard | null =
+    bridge === null
+      ? null
+      : {
+          copy: async (text) => {
+            await bridge.copy({ text: text.slice(0, 60_000) });
+          },
+          paste: async () => {
+            const reply = await bridge.paste();
+            return reply.ok ? reply.value : "";
+          },
+        };
+  return createXtermView(host, edge, undefined, clipboard);
+});
 
 // 창 안 팔레트. overlay와 shortcut 통로는 desktop preload가 연다.
 const bridges = globalThis as {

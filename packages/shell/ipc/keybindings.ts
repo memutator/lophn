@@ -7,7 +7,8 @@
 // 같은 글자가 닿도록 key도 함께 본다. modifier는 정확히 같아야 맞는다(Ctrl+Alt+1은 Alt+1이 아니다).
 //
 // 터미널(xterm)에 focus가 있을 때: Linux·Windows에서 Ctrl+글자 하나(Ctrl+W·B·P)는 shell이 쓰므로
-// 앱이 받지 않고 shell로 보낸다(VS Code의 commandsToSkipShell과 같은 생각). 나머지(Ctrl+Tab,
+// 앱이 받지 않고 shell로 보낸다(VS Code의 commandsToSkipShell과 같은 생각). Ctrl+Shift+C·V는 터미널의
+// 복사·붙여 넣기라 이 표에 두지 않는다(renderer/terminal/xterm-view.ts). 나머지(Ctrl+Tab,
 // Ctrl+PageUp/Down, Alt+숫자, Ctrl+숫자, Ctrl+Shift+글자, Ctrl+`, Ctrl+\)는 앱이 받는다.
 // macOS의 Cmd 조합은 shell과 겹치지 않아 모두 앱이 받는다.
 

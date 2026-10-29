@@ -35,8 +35,10 @@ export interface AgentViewSlice {
   /** 창마다 하나인 입력 메모리. 탭을 닫았다 열어도 쓰던 글이 남는다. */
   readonly drafts: DraftStore;
   readonly now?: () => number;
-  /** 대화의 결과 링크가 파일(절대 경로)을 연다. */
-  openFile(path: string): void;
+  /** 대화의 결과 링크가 파일(절대 경로)을 연다. `from`은 그 대화 탭의 key다(`showAfter`). */
+  openFile(path: string, from?: string): void;
+  /** 대화의 shell 코드 블록을 floated 새 터미널에서 실행한다. 터미널 통로가 없으면 null이다. */
+  readonly runCommand: ((command: string) => void) | null;
   /** 탭 줄이 그리는 agent의 profile 아이콘. 목록에 없으면 undefined. */
   profileOf(agent: string): AvatarProfile | undefined;
   /** 탭 줄의 상태 점. session이 없거나 쉬는 중이면 null이다. */

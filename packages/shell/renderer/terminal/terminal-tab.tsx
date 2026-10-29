@@ -16,6 +16,7 @@ import {
 import type { TerminalEntry } from "./store.ts";
 import styles from "./terminal.module.css";
 import type { TerminalView } from "./xterm-view.ts";
+import { resolvePath } from "./path-links.ts";
 
 interface TerminalTabProps {
   tabKey: string;
@@ -27,6 +28,14 @@ interface TerminalTabProps {
   deps: TerminalDeps;
   /** 시작한 폴더를 탭 제목과 layout에 남긴다. */
   onStarted?: (info: { title: string | null; folderRef: string }) => void;
+  /**
+   * 출력의 파일 경로 link. `exists`가 true인 절대 경로만 link가 되고 Ctrl/Cmd-click하면 `open`이다. 상대 경로는
+   * shell을 시작한 폴더 기준이다(shell이 `cd`한 뒤의 폴더는 모른다). 없으면 경로 link가 없다.
+   */
+  paths?: {
+    exists(path: string): Promise<boolean>;
+    open(path: string, line: number | undefined): void;
+  };
   /**
    * 탭 줄에 보이는 이름과 그 이름을 정하는 입력. 사람이 붙인 이름 > harness session 이름 > agent의 터미널 제목 > 자동 이름.
    * 탭 줄이 없는 자리는 주지 않는다.
@@ -50,6 +59,7 @@ export function TerminalTab({
   deps,
   onStarted,
   naming,
+  paths,
 }: TerminalTabProps) {
   const { store, bridge } = deps;
   const subscribe = useCallback(
@@ -87,6 +97,8 @@ export function TerminalTab({
   const viewRef = useRef<TerminalView | null>(null);
   const lastSize = useRef<string>("");
   const size = useObservedSize(screenRef);
+  const latestPaths = useRef(paths);
+  latestPaths.current = paths;
 
   const begin = useCallback(
     (runtime: TerminalRuntime) => {
@@ -116,19 +128,21 @@ export function TerminalTab({
         return;
       }
       if (!store.beginOpen(tabKey)) return;
-      // 다시 열기 명령은 처음 한 번만 보낸다. 다시 시작이 같은 명령을 또 치지 않게 비운다.
-      const resume = store.get(tabKey)?.resume;
+      // 다시 열기·실행 명령은 처음 한 번만 보낸다. 다시 시작이 같은 명령을 또 치지 않게 비운다.
+      const { resume, command } = store.get(tabKey) ?? {};
       store.update(tabKey, {
         requested: true,
         folderRef: folder,
         phase: { kind: "opening" },
         resume: undefined,
+        command: undefined,
       });
       try {
         const reply = await bridge.open({
           project,
           ...(folder === null ? {} : { folder_ref: folder }),
           ...(resume === undefined ? {} : { resume }),
+          ...(command === undefined ? {} : { command }),
         });
         if (!reply.ok) {
           store.update(tabKey, {
@@ -194,8 +208,22 @@ export function TerminalTab({
       if (!bridge || !terminalRef) return;
       void bridge.openLink({ terminal_ref: terminalRef, url });
     });
+    const offPath = view.onPathLink({
+      resolve: async (path) => {
+        const current = store.get(tabKey)?.phase;
+        const cwd =
+          current?.kind === "live" || current?.kind === "ended"
+            ? current.runtime?.cwd_at_start
+            : undefined;
+        if (latestPaths.current === undefined || cwd === undefined) return null;
+        const absolute = resolvePath(path, cwd);
+        return (await latestPaths.current.exists(absolute)) ? absolute : null;
+      },
+      open: (path, line) => latestPaths.current?.open(path, line),
+    });
     return () => {
       offLink();
+      offPath();
       display.host.remove();
       display.edge.remove();
       viewRef.current = null;

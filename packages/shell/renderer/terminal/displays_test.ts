@@ -94,6 +94,7 @@ function setup() {
       };
     },
     onLink: () => () => {},
+    onPathLink: () => () => {},
     onTitle: () => () => {},
     dispose: () => {
       disposed++;

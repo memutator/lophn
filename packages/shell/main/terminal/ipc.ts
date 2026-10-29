@@ -25,6 +25,7 @@ import {
   terminalCloseSchema,
   terminalFocusSchema,
   terminalInputSchema,
+  terminalCopySchema,
   terminalLinkSchema,
   terminalOpenSchema,
   terminalResizeSchema,
@@ -74,6 +75,10 @@ export type TerminalIpc = {
   focus(event: IpcEvent, input: unknown): Promise<IpcResult<null>>;
   /** terminal에서 Ctrl/Cmd-click한 link. 어디에서 열지는 bridge가 정한다. */
   link(event: IpcEvent, input: unknown): Promise<IpcResult<null>>;
+  /** 사람이 고른 터미널 글을 OS clipboard에 쓴다. */
+  copy(event: IpcEvent, input: unknown): Promise<IpcResult<null>>;
+  /** OS clipboard의 글. 붙여 넣기는 renderer의 xterm이 한다. */
+  paste(event: IpcEvent, input: unknown): Promise<IpcResult<string>>;
   /** bridge push를 받은 renderer의 답. browser 탭을 열었을 때만 온다. */
   bridgeAck(event: IpcEvent, input: unknown): Promise<IpcResult<null>>;
   /** 그 project에서 저장한 coding agent session. 새것부터다. */
@@ -104,6 +109,16 @@ const runningStub = (ref: string, generation: number): TerminalRuntime => ({
   dropped_output: false,
 });
 
+/**
+ * 열 때 넣을 명령의 입력 글. 한 줄이면 Enter까지 쳐서 실행한다. 여러 줄이면 bracketed paste로 감싸 붙여 넣기만
+ * 한다. 줄마다 실행되지 않고 사람이 보고 Enter를 누른다(bash·zsh는 5.1부터 bracketed paste가 기본이다).
+ */
+function commandInput(command: string | undefined): string | null {
+  const text = command?.replace(/\r\n?/g, "\n").replace(/\n+$/, "") ?? "";
+  if (text.trim() === "") return null;
+  return text.includes("\n") ? `\x1b[200~${text}\x1b[201~` : `${text}\r`;
+}
+
 export function createTerminalIpc(deps: {
   registry: ContentsRegistry;
   focus: FocusTable;
@@ -127,6 +142,16 @@ export function createTerminalIpc(deps: {
   ) => Promise<TerminalAgentSession[]>;
   /** 저장한 session을 다시 여는 명령 한 줄. resume 규칙이 없는 harness면 null이다. */
   resumeLine?: (resume: TerminalResume) => string | null;
+  /** OS clipboard(Electron 44 `clipboard`). 없으면(headless) 복사는 버리고 붙여 넣기는 빈 글이다. */
+  clipboard?: {
+    writeText(text: string): Promise<void>;
+    readText(): Promise<string>;
+  };
+  /**
+   * 새 shell이 시작 층을 다 읽을 때까지 기다린다(출력이 잠잠해질 때). 그 전에 친 글은 시작 중에 버려진다.
+   * 없으면 기다리지 않는다.
+   */
+  settled?: (terminalRef: string) => Promise<void>;
   outputs?: {
     watch(contentsId: number, terminalRef: string, enabled: boolean): void;
     watching(contentsId: number, terminalRef: string): boolean;
@@ -182,13 +207,16 @@ export function createTerminalIpc(deps: {
             value.resume === undefined
               ? null
               : (deps.resumeLine?.(value.resume) ?? null);
-          if (line !== null) {
+          const typed =
+            line !== null ? `${line}\r` : commandInput(value.command);
+          if (typed !== null) {
+            await deps.settled?.(reply.runtime.terminal_ref);
             // main이 치는 글이라 사람 입력용 focus 검사와 humanInput 알림을 거치지 않는다.
             await deps.host.request({
               type: "input",
               terminal_ref: reply.runtime.terminal_ref,
               generation: reply.runtime.generation,
-              text: `${line}\r`,
+              text: typed,
             });
           }
         }
@@ -331,6 +359,22 @@ export function createTerminalIpc(deps: {
       if (!parsed.ok) return parsed;
       await deps.bridge?.openLink(parsed.value);
       return { ok: true, value: null };
+    },
+    copy: async (event, input) => {
+      const caller = checkCaller(deps.registry, event);
+      if (!caller.ok) return caller;
+      const parsed = checkInput<{ text: string }>(terminalCopySchema, input);
+      if (!parsed.ok) return parsed;
+      await deps.clipboard?.writeText(parsed.value.text).catch(() => {});
+      return { ok: true, value: null };
+    },
+    paste: async (event) => {
+      const caller = checkCaller(deps.registry, event);
+      if (!caller.ok) return caller;
+      const text = deps.clipboard
+        ? await deps.clipboard.readText().catch(() => "")
+        : "";
+      return { ok: true, value: text };
     },
     bridgeAck: (event, input) => {
       const caller = checkCaller(deps.registry, event);

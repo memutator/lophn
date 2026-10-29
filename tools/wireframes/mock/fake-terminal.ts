@@ -79,6 +79,8 @@ export function fakeTerminal(project: string): TerminalApi {
     focus: () => ok(null),
     onRuntime: () => () => {},
     openLink: () => ok(null),
+    copy: () => ok(null),
+    paste: () => ok(""),
     ackBridgeOpen: () => ok(null),
     onBridgeOpen: () => () => {},
     onReveal: () => () => {},

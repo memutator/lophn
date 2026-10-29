@@ -164,6 +164,24 @@ export const agentKind: TabKindDef = {
     );
   },
   dotOf: (tab, host) => host.agentView?.dotOf(sessionOf(tab)) ?? null,
+  // 탭 이름은 lophn session 제목이다. session 제목은 비울 수 없어 빈 이름은 무시한다.
+  rename(tab, name, host) {
+    const trimmed = name?.trim();
+    const session = sessionOf(tab);
+    const agent = agentOf(tab);
+    const place = placeOf(tab);
+    if (!trimmed || session === null || agent === null || place === null) {
+      return;
+    }
+    const source = host.agentView?.factory({
+      assignment: agent,
+      place: { kind: "project", id: place },
+    });
+    if (source === undefined) return;
+    void source.renameSession(session, trimmed).then((result) => {
+      if (result.ok) host.patchTab(tab.key, () => ({ title: trimmed }));
+    });
+  },
   fromStored(stored, { key }) {
     const { agent, work_place: place, session } = stored;
     if (typeof agent !== "string" || agent.length === 0 || agent.length > 128) {

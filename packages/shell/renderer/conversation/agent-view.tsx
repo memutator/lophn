@@ -90,6 +90,8 @@ interface AgentViewProps {
   /** 대화가 비어 있는 동안 입력칸에 보이는 첫 안내. */
   hint?: string;
   now?: () => number;
+  /** 지금 보는 session의 제목. 새 session이거나 제목이 없으면 null이다. 탭 제목이 따라간다. */
+  onSessionTitle?: (title: string | null) => void;
 }
 
 /** 열려 있는 panel. 하나만 열린다. */
@@ -170,6 +172,11 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
 
   const { agent, thread, refresh } = data;
   const entry = data.sessions.find((item) => item.id === session) ?? null;
+  const sessionTitle = session === null ? null : (entry?.title ?? null);
+  // 머리글 이름 바꾸기 뒤의 refresh도 이 읽기를 거치므로 탭 제목이 같은 길로 따라간다.
+  useEffect(() => {
+    props.onSessionTitle?.(sessionTitle);
+  }, [session, sessionTitle]);
   const key = session ?? newSessionKey(agent ?? null);
   const draft = drafts.draft(key);
   const turn = thread?.turn ?? null;

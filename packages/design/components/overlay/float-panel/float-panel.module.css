@@ -74,14 +74,19 @@
   align-items: center;
 }
 
+/* 오른쪽과 아래의 바탕색 테두리는 `.e`·`.s` 손잡이 자리다. 없으면 본문 scrollbar(세로는 오른쪽, 가로는 아래)가
+   손잡이 밑에 깔려 그 위의 wheel과 thumb 끌기가 패널 resize로 먹힌다. */
 .body {
   flex: 1;
   min-height: var(--space-0);
+  border-right: var(--space-3) solid var(--color-surface-base);
+  border-bottom: var(--space-3) solid var(--color-surface-base);
   background: var(--color-surface-base);
   overflow: hidden;
 }
 
-/* 투명한 손잡이가 가장자리에 겹친다. 모서리는 변보다 뒤에 그려져 겹친 곳에서 이긴다. */
+/* 투명한 손잡이가 가장자리에 겹친다. 모서리는 변보다 뒤에 그려져 겹친 곳에서 이긴다. 오른쪽·아래 변 손잡이는 `.body`의
+   테두리 위에만 있다. 모서리 손잡이(12px)는 테두리보다 6px 더 들어와 scrollbar 끝을 조금 덮는다. */
 .handle {
   position: absolute;
   z-index: var(--z-sticky);

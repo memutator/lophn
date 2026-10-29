@@ -43,6 +43,13 @@
   padding-left: var(--layout-pane-padding-narrow);
 }
 
+/* 경계 왼쪽의 칸은 본문 오른쪽에 `.grab`이 이 칸 위로 들어오는 폭(4px)만큼 바탕색 테두리를 둔다. 없으면 본문
+   scrollbar 오른쪽 반이 `.grab` 밑에 깔려 그 위의 wheel과 thumb 끌기가 경계 끌기로 먹힌다. 테두리는 scrollbar
+   바깥이라 scrollbar가 그만큼 안으로 들어온다. */
+.pane:has(+ .divider) > .body {
+  border-right: var(--space-2) solid var(--color-surface-base);
+}
+
 /* 터미널처럼 본문을 스스로 채우는 탭. 여백과 칸 scroll 없이 그 탭이 맡는다. */
 .flush {
   padding: var(--space-0);

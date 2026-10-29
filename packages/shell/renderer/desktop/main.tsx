@@ -50,6 +50,9 @@ import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnShellAnnotateApi } from "../../ipc/annotation.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
+import { CommandsProvider } from "../commands/react.tsx";
+import { createWindowCommands } from "../commands/window.ts";
+import { currentPlatform } from "./top-bar/platform.ts";
 
 interface DesktopProps {
   source: CoreSource;
@@ -157,6 +160,21 @@ export function Desktop({
   hookPrompt,
   detached,
 }: DesktopProps) {
+  // 창 하나의 command 표와 키 listener 하나. 공간이 바뀌어도 같은 것을 쓰고 공간이 자기 command를 올린다.
+  const keyPlatform =
+    (palette?.platform ?? currentPlatform()) === "mac" ? "mac" : "other";
+  const commands = useMemo(
+    () =>
+      createWindowCommands({
+        platform: keyPlatform,
+        log: (message, error) => console.error(message, error),
+      }),
+    [keyPlatform],
+  );
+  useEffect(() => {
+    const listening = commands.keybindings.listen(document);
+    return () => listening.dispose();
+  }, [commands]);
   const [route, setRoute] = useState<Route>(initial);
   // 런처의 lophn 패널이 열 session. route가 바뀔 때마다 새 객체라 같은 session도 다시 연다.
   const lophnRequest = useMemo(
@@ -390,22 +408,24 @@ export function Desktop({
   }
   // 창 shortcut의 런처 복귀와 팔레트는 어느 공간에서든 이 한 곳에서 받는다.
   const tree = (
-    <PaletteProvider deps={palette} onLauncher={launcher}>
-      <DefaultToastHandler
-        openSession={openSession}
-        goApp={(app) => setRoute(openApp(app))}
-      />
-      {space}
-      {overlay && route.space !== "detached" ? (
-        <ToastHost overlay={overlay} />
-      ) : null}
-      {overlay && hookPrompt ? (
-        <HookPromptHost overlay={overlay} coding={hookPrompt} />
-      ) : null}
-      {intents && route.space !== "detached" ? (
-        <DesktopIntents intents={intents} catalog={catalog} go={go} />
-      ) : null}
-    </PaletteProvider>
+    <CommandsProvider value={commands}>
+      <PaletteProvider deps={palette} onLauncher={launcher}>
+        <DefaultToastHandler
+          openSession={openSession}
+          goApp={(app) => setRoute(openApp(app))}
+        />
+        {space}
+        {overlay && route.space !== "detached" ? (
+          <ToastHost overlay={overlay} />
+        ) : null}
+        {overlay && hookPrompt ? (
+          <HookPromptHost overlay={overlay} coding={hookPrompt} />
+        ) : null}
+        {intents && route.space !== "detached" ? (
+          <DesktopIntents intents={intents} catalog={catalog} go={go} />
+        ) : null}
+      </PaletteProvider>
+    </CommandsProvider>
   );
   // model picker 같은 곳에서도 provider 연결 화면을 열 수 있게 화면 전체를 감싼다.
   return settingsPanels?.providers && settingsPanels.agents ? (

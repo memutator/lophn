@@ -15,7 +15,7 @@ import { paletteIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { OverlayApi } from "../../../ipc/overlay.ts";
-import type { MainCommand } from "../../../ipc/keybindings.ts";
+import { useWindowCommands } from "../../commands/react.tsx";
 import type { ShortcutApi } from "../../../ipc/shortcuts.ts";
 import { currentPlatform, type WindowPlatform } from "../top-bar/platform.ts";
 import { windowShortcutLabel } from "./labels.ts";
@@ -44,8 +44,6 @@ export interface PaletteDeps {
 interface PaletteHub {
   register(scope: PaletteScope<unknown>): () => void;
   toggle(opener: HTMLElement): void;
-  /** main이 먼저 받아 보낸 작업대 command를 듣는다(Cmd+W). 듣는 쪽이 없으면 키만 삼킨다. */
-  onCommand(listener: (command: MainCommand) => void): () => void;
   /**
    * 전역 팔레트. 지금 공간과 상관없이 받은 scope로 연다. 이미 열려 있으면 그대로
    * 둔다(여닫는 창 팔레트와 다르다).
@@ -84,16 +82,12 @@ export function PaletteProvider({
   const platform = deps?.platform ?? currentPlatform();
   const search = deps?.search;
   const available = deps !== undefined;
-  const commands = useRef(new Set<(command: MainCommand) => void>());
+  const commands = useWindowCommands();
   const hub = useMemo<PaletteHub>(
     () => ({
       platform,
       search,
       available,
-      onCommand(listener) {
-        commands.current.add(listener);
-        return () => void commands.current.delete(listener);
-      },
       register(scope) {
         scopes.current = [...scopes.current, scope];
         return () => {
@@ -124,14 +118,15 @@ export function PaletteProvider({
     const release = deps.shortcuts.subscribe((shortcut) => {
       if (shortcut === "palette") hub.toggle(activeElement());
       else if (shortcut === "launcher") launcher.current();
-      else for (const listener of commands.current) listener(shortcut);
+      // main이 먼저 받아 보낸 작업대 command. 주인(작업대)이 없는 공간이면 키만 삼킨 것이다.
+      else commands?.registry.execute(shortcut);
     });
     return () => {
       release();
       created.dispose();
       if (opener.current === created) opener.current = null;
     };
-  }, [deps, hub]);
+  }, [deps, hub, commands]);
   return (
     <PaletteContext.Provider value={hub}>{children}</PaletteContext.Provider>
   );
@@ -163,14 +158,6 @@ export function usePaletteScope<T>(build: () => PaletteScope<T>): void {
     };
     return hub.register(scope);
   }, [hub]);
-}
-
-/** main이 먼저 받아 보낸 작업대 command를 듣는다. 처리기는 그릴 때마다 새로 넘겨도 된다. */
-export function useMainCommand(handler: (command: MainCommand) => void): void {
-  const hub = useContext(PaletteContext);
-  const latest = useRef(handler);
-  latest.current = handler;
-  useEffect(() => hub?.onCommand((command) => latest.current(command)), [hub]);
 }
 
 /** 창 팔레트를 연다(Ctrl/Cmd+P). 이미 열려 있으면 닫는다. 팔레트가 없는 창에서는 아무것도 하지 않는다. */

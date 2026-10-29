@@ -6,7 +6,7 @@ import {
   type KeyInput,
   type KeyPlatform,
   matchKey,
-} from "../../ipc/keybindings.ts";
+} from "./keybindings.ts";
 
 function inputOf(chord: string, key = ""): KeyInput {
   const parts = chord.split("+");

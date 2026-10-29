@@ -1,5 +1,6 @@
 // 작업대 단축키 표 하나. key 판정과 바인딩이 모두 여기 있고, 받는 곳(main·renderer)도 이 표에 적는다.
-// main(shortcuts.ts)은 `main`이 적힌 것만, renderer(workspace/use-keybindings.ts)는 나머지를 받는다.
+// main(shortcuts.ts)은 `main`이 적힌 것만, renderer(commands/keybinding-service.ts)는 표 전체를 받는다.
+// 표의 command 이름이 renderer command registry의 id다.
 // 이 파일은 main·preload·renderer가 함께 부르므로 import가 없다.
 //
 // chord는 "Ctrl+Shift+KeyT"처럼 modifier(Ctrl·Cmd·Alt·Shift)와 KeyboardEvent.code 하나다.
@@ -145,7 +146,8 @@ export const KEYBINDINGS: readonly Binding[] = [
   ),
 ];
 
-interface Chord {
+/** 판정할 수 있게 푼 chord 하나. renderer의 keybinding service도 같은 판정을 쓴다. */
+export interface Chord {
   readonly text: string;
   readonly code: string;
   /** 글자 키는 배열이 달라도 닿도록 key도 본다. */
@@ -156,7 +158,7 @@ interface Chord {
   readonly shift: boolean;
 }
 
-function parse(text: string): Chord {
+export function parseChord(text: string): Chord {
   const parts = text.split("+");
   const code = parts.at(-1)!;
   const mods = parts.slice(0, -1);
@@ -179,8 +181,8 @@ interface Compiled {
 
 const COMPILED: readonly Compiled[] = KEYBINDINGS.map((binding) => ({
   binding,
-  mac: binding.mac.map(parse),
-  other: binding.other.map(parse),
+  mac: binding.mac.map(parseChord),
+  other: binding.other.map(parseChord),
 }));
 
 /** DOM KeyboardEvent와 Electron Input에서 같은 모양으로 옮긴 키 입력. */
@@ -200,7 +202,7 @@ export interface KeyHit {
   readonly shell: boolean;
 }
 
-function chordMatches(chord: Chord, input: KeyInput): boolean {
+export function chordMatches(chord: Chord, input: KeyInput): boolean {
   if (
     chord.ctrl !== input.ctrl ||
     chord.meta !== input.meta ||
@@ -212,8 +214,8 @@ function chordMatches(chord: Chord, input: KeyInput): boolean {
   return chord.letter !== null && input.key.toLowerCase() === chord.letter;
 }
 
-// Ctrl 하나만 누른 글자 키. macOS에서는 Cmd를 쓰므로 해당 없다.
-function shellOwns(chord: Chord, platform: KeyPlatform): boolean {
+/** Ctrl 하나만 누른 글자 키. 터미널에 focus가 있으면 shell이 쓴다. macOS에서는 Cmd를 쓰므로 해당 없다. */
+export function shellOwns(chord: Chord, platform: KeyPlatform): boolean {
   return (
     platform === "other" &&
     chord.letter !== null &&

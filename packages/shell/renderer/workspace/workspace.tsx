@@ -17,7 +17,7 @@ import {
   type LophnDetachedApi,
   slimDetachedTab,
 } from "../../ipc/detached.ts";
-import type { Command } from "../../ipc/keybindings.ts";
+import { type Command, KEYBINDINGS } from "../../ipc/keybindings.ts";
 import {
   ViewCoversProvider,
   ViewKeepsProvider,
@@ -30,7 +30,6 @@ import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import {
   PaletteButton,
-  useMainCommand,
   useOpenPalette,
   usePaletteEnv,
   usePaletteScope,
@@ -152,7 +151,8 @@ import type {
 } from "./source.ts";
 import { DeskSelector, PathSep } from "./top-path/desk-selector.tsx";
 import { ProjectSelector } from "./top-path/project-selector.tsx";
-import { focusPaneBody, useKeybindings } from "./use-keybindings.ts";
+import { focusPaneBody } from "./focus-pane.ts";
+import { useCommands } from "../commands/react.tsx";
 import { useTabHostSlices } from "./use-tab-host-slices.ts";
 import styles from "./workspace.module.css";
 
@@ -204,6 +204,10 @@ interface Loaded {
 
 const EMPTY_LOADED: Loaded = { project: null, files: [], failed: false };
 const CLOSED_TABS_MAX = 10;
+// 작업대가 주인인 command id. 단축키 표에 있는 것 모두다.
+const WORKSPACE_COMMANDS: readonly Command[] = [
+  ...new Set(KEYBINDINGS.map((binding) => binding.command)),
+];
 
 // OS 파일 선택기. 창에 통로가 없으면 Document 항목을 두지 않는다.
 function filePicker(): (() => Promise<string | null>) | undefined {
@@ -1224,8 +1228,8 @@ export function Workspace(props: WorkspaceProps) {
     }),
   );
 
-  // 작업대 단축키. 표(ipc/keybindings.ts)가 key를 정하고 여기서는 command를 한다. main이 먼저
-  // 받는 것(macOS의 Cmd+W)도 같은 command로 온다. 지금 배치는 latest에서 읽는다.
+  // 작업대 단축키의 command는 작업대가 갖는다. 키는 창의 keybinding service가 표(ipc/keybindings.ts)로
+  // 정하고, main이 먼저 받는 것(macOS의 Cmd+W)도 같은 command id로 온다. 지금 배치는 latest에서 읽는다.
   const openQuickFiles = useOpenPalette();
   const runCommand = (command: Command, arg?: number) => {
     const current = latest.current;
@@ -1351,12 +1355,14 @@ export function Workspace(props: WorkspaceProps) {
         return;
     }
   };
-  const runRef = useRef(runCommand);
-  runRef.current = runCommand;
-  useKeybindings(palette.platform === "mac" ? "mac" : "other", (command, arg) =>
-    runRef.current(command, arg),
+  useCommands(
+    Object.fromEntries(
+      WORKSPACE_COMMANDS.map((command) => [
+        command,
+        (arg: unknown) => runCommand(command, arg as number | undefined),
+      ]),
+    ),
   );
-  useMainCommand((command) => runRef.current(command));
 
   const canDetach = (tab: TabItem) => tabKindOf(tab.kind)?.noDetach !== true;
   const detachProps =

@@ -299,7 +299,7 @@ guard: packages/shell/main/desktop/coding-connection_test.ts "`lophn --json`의 
 kind: bug
 modules: [packages/shell/main, packages/shell/ipc]
 closed: fixed
-guard: packages/shell/renderer/workspace/keybindings_test.ts "한글 입력 상태의 키와 modifier가 더 붙은 키를 가려서 판정한다"
+guard: packages/shell/ipc/keybindings_test.ts "한글 입력 상태의 키와 modifier가 더 붙은 키를 가려서 판정한다"
 ```
 
 지금: 두 갈래다.

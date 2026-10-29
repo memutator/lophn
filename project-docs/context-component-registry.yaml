@@ -297,6 +297,15 @@ components:
     change_reasons:
       boundaries: [shell]
 
+  - id: architecture-keybindings
+    kind: doc
+    roles: [planner, lead]
+    description: desktop 창의 단축키가 OS 전역·main before-input-event·renderer keydown 중 어디서 받혀 command registry의 id로 가는가. 키 삼키기·충돌·해제 규칙.
+    path: project-docs/architecture/keybindings.md
+    change_reasons:
+      boundaries: [shell]
+      paths: [packages/shell/ipc/keybindings.ts, packages/shell/ipc/shortcuts.ts, packages/shell/renderer/commands/, packages/shell/main/desktop/shortcuts.ts]
+
   - id: architecture-agent-chat
     kind: doc
     roles: [planner, lead]

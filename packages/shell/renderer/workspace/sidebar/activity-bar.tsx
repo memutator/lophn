@@ -1,5 +1,6 @@
-// project 창 왼쪽 끝의 icon 세로 줄. 위쪽은 panel 항목, 아래쪽은 바로 가기(Terminal, Browser, Agent, Search)와 맨 밑 Settings.
-// 항목을 누르면 그 panel을 열고 열린 항목을 다시 누르면 접는다. 열린 항목에는 왼쪽 띠와 배경을 둔다.
+// project 창과 Settings 공간 왼쪽 끝의 icon 세로 줄. 위쪽은 panel 항목, project 창은 아래쪽에 바로 가기(Terminal, Browser,
+// Agent, Search)와 맨 밑 Settings가 더 있다. 항목을 누르면 그 panel을 열고 열린 항목을 다시 누르면 접는다. 열린 항목에는
+// 왼쪽 띠와 배경을 둔다.
 import { Icon, type IconProps } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
@@ -15,8 +16,8 @@ import { t } from "@lophn/wording";
 import type { SidebarTab } from "./project-sidebar.tsx";
 import styles from "./project-sidebar.module.css";
 
-export interface ActivityEntry {
-  readonly key: SidebarTab;
+export interface ActivityEntry<K extends string = SidebarTab> {
+  readonly key: K;
   readonly label: string;
   readonly icon: IconProps["icon"];
 }
@@ -31,7 +32,7 @@ const RAIL_ICONS: Readonly<Record<RailAction, IconProps["icon"]>> = {
   search: paletteIcons.search,
 };
 
-export function ActivityBar({
+export function ActivityBar<K extends string>({
   entries,
   selected,
   open,
@@ -39,14 +40,15 @@ export function ActivityBar({
   onRail,
   onSettings,
 }: {
-  entries: readonly ActivityEntry[];
+  entries: readonly ActivityEntry<K>[];
   /** 마지막으로 고른 panel. */
-  selected: SidebarTab;
+  selected: K;
   /** panel이 열려 있다. 접히면 열린 항목 표시가 없다. */
   open: boolean;
-  onSelect: (key: SidebarTab) => void;
-  onRail: (action: RailAction) => void;
-  onSettings: () => void;
+  onSelect: (key: K) => void;
+  /** 아래쪽 바로 가기. 없으면(Settings 공간) 아래쪽 묶음이 없다. */
+  onRail?: (action: RailAction) => void;
+  onSettings?: () => void;
 }) {
   const labels: Readonly<Record<RailAction, string>> = {
     terminal: t("project-workspace.label.rail-terminal"),
@@ -82,36 +84,38 @@ export function ActivityBar({
         })}
       </div>
       <div className={styles.activitySpacer} />
-      <div
-        className={styles.activityGroup}
-        role="group"
-        aria-label={t("project-workspace.label.rail-shortcuts")}
-      >
-        {RAIL_ACTIONS.map((action) => (
-          <Tooltip key={action} content={labels[action]}>
+      {onRail === undefined || onSettings === undefined ? null : (
+        <div
+          className={styles.activityGroup}
+          role="group"
+          aria-label={t("project-workspace.label.rail-shortcuts")}
+        >
+          {RAIL_ACTIONS.map((action) => (
+            <Tooltip key={action} content={labels[action]}>
+              <button
+                type="button"
+                className={styles.activityButton}
+                aria-label={labels[action]}
+                data-rail-action={action}
+                onClick={() => onRail(action)}
+              >
+                <Icon icon={RAIL_ICONS[action]} pixels={iconPixels("large")} />
+              </button>
+            </Tooltip>
+          ))}
+          <Tooltip content={t("common.button.settings")}>
             <button
               type="button"
               className={styles.activityButton}
-              aria-label={labels[action]}
-              data-rail-action={action}
-              onClick={() => onRail(action)}
+              aria-label={t("common.button.settings")}
+              data-entry="settings"
+              onClick={onSettings}
             >
-              <Icon icon={RAIL_ICONS[action]} pixels={iconPixels("large")} />
+              <Icon icon={settingsEntryIcon} pixels={iconPixels("large")} />
             </button>
           </Tooltip>
-        ))}
-        <Tooltip content={t("common.button.settings")}>
-          <button
-            type="button"
-            className={styles.activityButton}
-            aria-label={t("common.button.settings")}
-            data-entry="settings"
-            onClick={onSettings}
-          >
-            <Icon icon={settingsEntryIcon} pixels={iconPixels("large")} />
-          </button>
-        </Tooltip>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

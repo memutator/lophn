@@ -132,6 +132,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.button.reset-default": Record<never, never>;
   "settings.button.revoke": Record<never, never>;
   "settings.button.run-checks": Record<never, never>;
+  "settings.button.uninstall-hooks": Record<never, never>;
   "settings.diagnostics.check-failed": Record<never, never>;
   "settings.diagnostics.last-run": {
     time: "string";
@@ -142,6 +143,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.empty.shell-rules": Record<never, never>;
   "settings.error.coding-detect": Record<never, never>;
   "settings.error.coding-hooks-install": Record<never, never>;
+  "settings.error.coding-hooks-uninstall": Record<never, never>;
   "settings.error.font-name": Record<never, never>;
   "settings.error.value-invalid": Record<never, never>;
   "settings.error.value-not-saved": Record<never, never>;

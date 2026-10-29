@@ -4,9 +4,11 @@ import { test } from "node:test";
 import {
   HARNESS_HOOKS,
   HARNESS_IDS,
+  type HarnessId,
   HOOK_EVENT_TABLE,
 } from "../../protocol/coding-agent/mod.ts";
 import { installGlobal, type InstallPorts } from "./install.ts";
+import { uninstallGlobal } from "./uninstall.ts";
 
 // file Map 위의 대역이다. 폴더는 file의 path 앞부분이거나 `dirs`에 든 빈 폴더다.
 function memory(
@@ -596,4 +598,172 @@ test("kiro·antigravity·cursor 설치는 사람의 항목을 보존한다", asy
     });
     assert.deepStrictEqual(one.kept(files.get(one.path)!), true, one.harness);
   }
+});
+
+// contract: 어떤 harness든 빈 home에 놓고 지우면 lophn 흔적(command, 표시 block, managed 경로, env 이름, Codex trust)이 남지 않고
+// dry_run은 다시 missing이며, 또 지우면 unchanged다.
+// 현실적 회귀: 형식 하나의 지우기가 우리 항목을 못 알아봐 [Uninstall hooks] 뒤에도 hook이 남거나 file이 반쯤 남는다.
+test("hook이 있는 모든 harness는 놓고 지우면 흔적이 없고 dry_run이 다시 missing이다", async () => {
+  for (const harness of HARNESS_IDS) {
+    if (HARNESS_HOOKS[harness] === null) continue;
+    for (const command of [undefined, "/dev/cli/lophn"]) {
+      const files = new Map<string, string>();
+      const base = { harness, home: "/home/u", now: NOW, command };
+      await installGlobal(memory(files), { ...base, dryRun: false });
+      const done = await uninstallGlobal(memory(files), base);
+      assert.deepStrictEqual(done.ok && done.value.hook, "removed", harness);
+      const left = [...files].filter(([, text]) =>
+        /lophn|LPN_TERMINAL_HOOK|hooks\.state/.test(text),
+      );
+      assert.deepStrictEqual(left, [], harness);
+      const dry = await installGlobal(memory(files), { ...base, dryRun: true });
+      assert.deepStrictEqual(dry.ok && dry.value.hook, "missing", harness);
+      const again = await uninstallGlobal(memory(files), base);
+      assert.deepStrictEqual(
+        again.ok && again.value.hook,
+        "unchanged",
+        harness,
+      );
+    }
+  }
+});
+
+// contract: 지우기는 사람이 쓴 설정을 놓기 전 그대로 돌려놓는다. 글 형식(JSONC, TOML, YAML)은 byte 그대로이고, 다시 직렬화하는 JSON은
+// 값이 같다. 사람이 우리 group에 더한 handler와 같은 이름의 사람 script는 남고, 파싱되지 않는 file은 건드리지 않는다.
+// 현실적 회귀: 우리 것을 지우다 사람의 hook·주석·승인 기록·env 이름이 같이 사라진다.
+test("지우기는 사람의 설정을 놓기 전 그대로 두고 우리 것만 지운다", async () => {
+  const home = "/home/u";
+  const mine = { type: "command", command: "my-stop-hook" };
+  const texts: { harness: HarnessId; path: string; original: string }[] = [
+    {
+      harness: "claude",
+      path: SETTINGS,
+      original: `${JSON.stringify({ model: "x", hooks: { Stop: [{ hooks: [mine] }] } }, null, 2)}\n`,
+    },
+    {
+      harness: "devin",
+      path: `${home}/.config/devin/config.json`,
+      original: `{
+  // 내 설정
+  "theme": "dark", /* 메모 */
+  "hooks": {
+    // 다른 도구의 hook
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "other stop" }] },
+    ],
+  },
+}
+`,
+    },
+    {
+      harness: "kimi",
+      path: `${home}/.kimi-code/config.toml`,
+      original: `# 내 설정\ndefault_model = "k"\n\n[[hooks]]\nevent = "Stop"\ncommand = "mine"\ntimeout = 5\n`,
+    },
+    {
+      harness: "hermes",
+      path: `${home}/.hermes/config.yaml`,
+      original: `# 내 설정\nmodel: x\nhooks:\n  # 내 hook\n  pre_tool_call:\n    - command: "mine"\nplugins:\n  enabled: []\n`,
+    },
+    {
+      harness: "muse",
+      path: `${home}/.config/muse/settings.json`,
+      original: `${JSON.stringify({ schema_version: 1, model: "m", managed_hooks_env_vars: ["MINE"] }, null, 2)}\n`,
+    },
+    {
+      harness: "antigravity",
+      path: `${home}/.gemini/config/hooks.json`,
+      original: `${JSON.stringify({ mine: { Stop: [{ type: "command", command: "mine" }] } }, null, 2)}\n`,
+    },
+  ];
+  for (const one of texts) {
+    const files = new Map([[one.path, one.original]]);
+    const base = { harness: one.harness, home, now: NOW };
+    await installGlobal(memory(files), { ...base, dryRun: false });
+    await uninstallGlobal(memory(files), base);
+    assert.deepStrictEqual(files.get(one.path), one.original, one.harness);
+  }
+
+  // Hermes 승인 기록은 사람의 것만 남는다.
+  const allowlist = `${home}/.hermes/shell-hooks-allowlist.json`;
+  const other = {
+    event: "pre_tool_call",
+    command: "mine",
+    approved_at: "t",
+    script_mtime_at_approval: null,
+  };
+  const approvals = new Map([
+    [allowlist, JSON.stringify({ approvals: [other] })],
+  ]);
+  const hermes = { harness: "hermes", home, now: NOW } as const;
+  await installGlobal(memory(approvals), { ...hermes, dryRun: false });
+  await uninstallGlobal(memory(approvals), hermes);
+  assert.deepStrictEqual(JSON.parse(approvals.get(allowlist)!), {
+    approvals: [other],
+  });
+
+  // 사람이 우리 group에 더한 handler는 남는다.
+  const claude = { harness: "claude", home, now: NOW } as const;
+  const grouped = new Map<string, string>();
+  await installGlobal(memory(grouped), { ...claude, dryRun: false });
+  const doc = JSON.parse(grouped.get(SETTINGS)!);
+  doc.hooks.Stop[0].hooks.push(mine);
+  grouped.set(SETTINGS, JSON.stringify(doc));
+  await uninstallGlobal(memory(grouped), claude);
+  assert.deepStrictEqual(JSON.parse(grouped.get(SETTINGS)!), {
+    hooks: { Stop: [{ hooks: [mine] }] },
+  });
+
+  // 같은 이름의 사람 script는 남는다.
+  const dir = `${home}/.cline/hooks`;
+  const cline = { harness: "cline", home, now: NOW } as const;
+  const scripts = new Map<string, string>();
+  await installGlobal(memory(scripts), { ...cline, dryRun: false });
+  scripts.set(`${dir}/TaskStart`, "#!/bin/sh\necho mine\n");
+  await uninstallGlobal(memory(scripts), cline);
+  assert.deepStrictEqual(
+    [...scripts],
+    [[`${dir}/TaskStart`, "#!/bin/sh\necho mine\n"]],
+  );
+
+  const broken = new Map([[SETTINGS, "{ 내가 쓰는 중"]]);
+  const refused = await uninstallGlobal(memory(broken), claude);
+  assert.deepStrictEqual(refused.ok && refused.value.hook, "failed");
+  assert.deepStrictEqual(broken.get(SETTINGS), "{ 내가 쓰는 중");
+});
+
+// contract: Codex에서 지우면 우리 trust 기록만 지우고, 우리 group 뒤에 있던 다른 도구의 기록은 당겨진 위치의 key로 옮긴다.
+// config.toml의 나머지 byte는 그대로다.
+// 현실적 회귀: index가 당겨진 다른 도구(orca 등)의 hook을 Codex가 새 hook으로 보고 조용히 건너뛴다.
+test("codex 지우기는 우리 trust 기록만 지우고 당겨진 다른 도구의 기록을 새 key로 옮긴다", async () => {
+  const hooksFile = "/home/u/.codex/hooks.json";
+  const configFile = "/home/u/.codex/config.toml";
+  const codex = { harness: "codex", home: "/home/u", now: NOW } as const;
+  const original = `# 내 설정
+model = "x"
+
+[projects."/work"]
+trust_level = "trusted"
+`;
+  const mine = { hooks: [{ type: "command", command: "mine" }] };
+  const orca = { hooks: [{ type: "command", command: "orca stop" }] };
+  const files = new Map<string, string>([
+    [configFile, original],
+    [hooksFile, JSON.stringify({ hooks: { Stop: [mine] } })],
+  ]);
+  await installGlobal(memory(files), { ...codex, dryRun: false });
+  // 우리 뒤(index 2)에 다른 도구가 group과 trust 기록을 더했다.
+  const doc = JSON.parse(files.get(hooksFile)!);
+  doc.hooks.Stop.push(orca);
+  files.set(hooksFile, JSON.stringify(doc));
+  const orcaTable = (index: number) =>
+    `[hooks.state."${hooksFile}:stop:${index}:0"]\ntrusted_hash = "sha256:orca"\n`;
+  files.set(configFile, `${files.get(configFile)}\n${orcaTable(2)}`);
+
+  const done = await uninstallGlobal(memory(files), codex);
+  assert.deepStrictEqual(done.ok && done.value.hook, "removed");
+  assert.deepStrictEqual(JSON.parse(files.get(hooksFile)!), {
+    hooks: { Stop: [mine, orca] },
+  });
+  assert.deepStrictEqual(files.get(configFile), `${original}\n${orcaTable(1)}`);
 });

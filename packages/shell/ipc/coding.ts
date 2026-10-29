@@ -52,6 +52,11 @@ export const codingCallSchema = z.discriminatedUnion("op", [
     op: z.literal("install_hooks"),
     harness: z.enum(HARNESS_IDS),
   }),
+  /** 사람이 Settings에서 [Uninstall hooks]를 누를 때만. 우리 항목만 지운다. */
+  z.strictObject({
+    op: z.literal("uninstall_hooks"),
+    harness: z.enum(HARNESS_IDS),
+  }),
   /** 사람이 hook 설치 확인 dialog에서 고른 답. request는 main이 push한 것이다. */
   z.strictObject({
     op: z.literal("hook_answer"),
@@ -95,7 +100,7 @@ export type HookInstallStatus =
 export interface HarnessHookView {
   readonly harness_id: HarnessName;
   readonly status: HookInstallStatus;
-  /** missing이면 놓을 file, installed를 막 놓았으면 쓴 file의 절대 경로다. */
+  /** missing이면 놓을 file, installed를 막 놓았으면 쓴 file, 막 지웠으면 고친 file의 절대 경로다. */
   readonly files: readonly string[];
 }
 
@@ -143,6 +148,7 @@ export interface CodingApi {
   refresh(): Promise<CodingReply<readonly HarnessSettingsView[]>>;
   hookStatus(): Promise<CodingReply<readonly HarnessHookView[]>>;
   installHooks(harness: HarnessName): Promise<CodingReply<HarnessHookView>>;
+  uninstallHooks(harness: HarnessName): Promise<CodingReply<HarnessHookView>>;
   /** main이 보낸 hook 설치 확인에 답한다. */
   answerHookAsk(input: {
     request: string;

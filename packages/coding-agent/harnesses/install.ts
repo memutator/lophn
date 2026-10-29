@@ -88,7 +88,7 @@ async function removeRetiredSkills(
 // Codex는 새·바뀐 hook을 사람이 /hooks에서 trust하기 전까지 건너뛴다. trust 기록은 hooks.json과 같은 폴더의
 // config.toml에 있어서, 우리 hook마다 `[hooks.state."<key>"] trusted_hash`를 대신 쓴다. 기록은 hooks.json을 쓴 뒤의
 // 실제 group·handler 위치(key)와 그 handler의 hash로 만든다. 다른 도구의 기록은 건드리지 않는다.
-const CODEX_CONFIG_PATH = ".codex/config.toml";
+export const CODEX_CONFIG_PATH = ".codex/config.toml";
 
 type Trust = { key: string; hash: string };
 
@@ -151,7 +151,7 @@ function withTrust(text: string, trusts: Trust[]): string {
   return out;
 }
 
-function trustedHashes(text: string | null): Json | null {
+export function trustedHashes(text: string | null): Json | null {
   if (text === null) return {};
   try {
     const hooks = parseToml(text).hooks;
@@ -255,7 +255,7 @@ function allowlistText(
 }
 
 // Cline은 event마다 script file 하나를 읽고, 이름이 event다. 인자를 못 받아 event 이름을 script에 박는다.
-const CLINE_OWNED = /^#!\/bin\/sh\nexec "[^"\n]*" hook cline \w+\n$/;
+export const CLINE_OWNED = /^#!\/bin\/sh\nexec "[^"\n]*" hook cline \w+\n$/;
 
 function clineScript(command: string, event: string): string {
   return `#!/bin/sh\nexec "${command}" hook cline ${event}\n`;

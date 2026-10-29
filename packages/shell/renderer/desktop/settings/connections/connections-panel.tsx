@@ -42,6 +42,8 @@ type Loaded =
       readonly harnesses: readonly HarnessSettingsView[];
     };
 
+type HookAction = "install" | "uninstall";
+
 /** 제품 이름 앞에 vendor 아이콘을 붙인다. 아이콘은 이름이 아니라 harness id로 고른다. */
 function ProductName({
   harness,
@@ -66,8 +68,8 @@ export function CodingConnectionsPanel({
   const [detectFailed, setDetectFailed] = useState(false);
   // 읽지 못했으면 비어 있어 hook 칸은 "-"다. 제품 감지와 따로 읽어 서로 막지 않는다.
   const [hooks, setHooks] = useState<readonly HarnessHookView[]>([]);
-  const [installing, setInstalling] = useState<HarnessName | null>(null);
-  const [installFailed, setInstallFailed] = useState(false);
+  const [changing, setChanging] = useState<HarnessName | null>(null);
+  const [hookFailed, setHookFailed] = useState<HookAction | null>(null);
   const [query, setQuery] = useState("");
 
   const load = useCallback(() => {
@@ -93,15 +95,22 @@ export function CodingConnectionsPanel({
     else setDetectFailed(true);
   }
 
-  async function installHooks(harness: HarnessName): Promise<void> {
-    setInstalling(harness);
-    setInstallFailed(false);
-    const done = await source.installHooks(harness);
+  async function changeHooks(
+    harness: HarnessName,
+    action: HookAction,
+  ): Promise<void> {
+    setChanging(harness);
+    setHookFailed(null);
+    const done =
+      action === "install"
+        ? await source.installHooks(harness)
+        : await source.uninstallHooks(harness);
     // 쓴 결과를 믿지 않고 다시 읽어 보인다.
     const read = await source.hookStatus();
-    setInstalling(null);
+    setChanging(null);
     if (read.ok) setHooks(read.value);
-    setInstallFailed(!done.ok || done.value.status !== "installed");
+    const wanted = action === "install" ? "installed" : "missing";
+    if (!done.ok || done.value.status !== wanted) setHookFailed(action);
   }
 
   if (loaded.state === "failed") {
@@ -141,16 +150,23 @@ export function CodingConnectionsPanel({
           {t("settings.error.coding-detect")}
         </p>
       ) : null}
-      {installFailed ? (
+      {hookFailed === "install" ? (
         <p className={styles.rejected} role="alert" data-hooks="failed">
           {t("settings.error.coding-hooks-install")}
+        </p>
+      ) : null}
+      {hookFailed === "uninstall" ? (
+        <p className={styles.rejected} role="alert" data-hooks="failed">
+          {t("settings.error.coding-hooks-uninstall")}
         </p>
       ) : null}
       <Loading
         loading={loaded.state === "loading"}
         placeholder={<Skeleton lines={5} />}
       >
-        <SearchFilter value={query} onChange={setQuery} />
+        <div className={styles.searchRow}>
+          <SearchFilter value={query} onChange={setQuery} />
+        </div>
         <div className={styles.tableScroll}>
           <table className={styles.table}>
             <thead>
@@ -169,19 +185,26 @@ export function CodingConnectionsPanel({
                   hook={hooks.find(
                     (hook) => hook.harness_id === harness.harness_id,
                   )}
-                  installing={installing === harness.harness_id}
-                  onInstall={() => void installHooks(harness.harness_id)}
+                  changing={changing === harness.harness_id}
+                  onChange={(action) =>
+                    void changeHooks(harness.harness_id, action)
+                  }
                 />
               ))}
             </tbody>
           </table>
         </div>
         {rows.length === 0 ? (
-          <p className={styles.lineHelp} data-search="empty">
+          <p
+            className={`${styles.lineHelp} ${styles.tableNote}`}
+            data-search="empty"
+          >
             {t("settings.empty.coding-search")}
           </p>
         ) : null}
-        <p className={styles.lineHelp}>{t("settings.note.coding-hooks")}</p>
+        <p className={`${styles.lineHelp} ${styles.tableNote}`}>
+          {t("settings.note.coding-hooks")}
+        </p>
       </Loading>
     </div>
   );
@@ -190,13 +213,13 @@ export function CodingConnectionsPanel({
 function HarnessRow({
   harness,
   hook,
-  installing,
-  onInstall,
+  changing,
+  onChange,
 }: {
   harness: HarnessSettingsView;
   hook: HarnessHookView | undefined;
-  installing: boolean;
-  onInstall: () => void;
+  changing: boolean;
+  onChange: (action: HookAction) => void;
 }) {
   const found = shown(harness);
   const version = versionText(harness);
@@ -231,21 +254,21 @@ function HarnessRow({
         )}
       </td>
       <td>
-        <HookCell hook={hook} installing={installing} onInstall={onInstall} />
+        <HookCell hook={hook} changing={changing} onChange={onChange} />
       </td>
     </tr>
   );
 }
 
-/** 전역 hook 상태. 안 놓였을 때만 [Install hooks]가 있고, hook이 없는 제품은 "-"다. */
+/** 전역 hook 상태. 안 놓였으면 [Install hooks], 놓였으면 [Uninstall hooks]가 있고, hook이 없는 제품은 "-"다. */
 function HookCell({
   hook,
-  installing,
-  onInstall,
+  changing,
+  onChange,
 }: {
   hook: HarnessHookView | undefined;
-  installing: boolean;
-  onInstall: () => void;
+  changing: boolean;
+  onChange: (action: HookAction) => void;
 }) {
   const text = hook === undefined ? null : hookText(hook);
   if (hook === undefined || text === null) {
@@ -256,11 +279,21 @@ function HookCell({
       <StatusMark tone={hookTone(hook)} label={text} />
       {hook.status === "missing" ? (
         <Button
-          disabled={installing}
+          disabled={changing}
           data-action="install-hooks"
-          onClick={onInstall}
+          onClick={() => onChange("install")}
         >
           {t("settings.button.install-hooks")}
+        </Button>
+      ) : null}
+      {hook.status === "installed" ? (
+        <Button
+          variant="ghost"
+          disabled={changing}
+          data-action="uninstall-hooks"
+          onClick={() => onChange("uninstall")}
+        >
+          {t("settings.button.uninstall-hooks")}
         </Button>
       ) : null}
     </div>

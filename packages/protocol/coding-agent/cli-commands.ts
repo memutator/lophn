@@ -55,20 +55,49 @@ export const HARNESS_INSTALL_OUTCOMES = [
   "failed",
 ] as const;
 const harnessInstallOutcomeSchema = z.enum(HARNESS_INSTALL_OUTCOMES);
+// 개발 실행의 hook command다. hook command는 shell 문자열이 되므로 공백·따옴표·`..` 없는 절대 경로만 받는다.
+const hookCommandSchema = z
+  .string()
+  .regex(/^\/[\w./-]+$/)
+  .refine((path) => !path.includes(".."));
 export const harnessInstallInputSchema = z.strictObject({
   harness: harnessIdSchema,
   dry_run: z.boolean().optional(),
-  // 개발 실행의 hook command다. hook command는 shell 문자열이 되므로 공백·따옴표·`..` 없는 절대 경로만 받는다.
-  command: z
-    .string()
-    .regex(/^\/[\w./-]+$/)
-    .refine((path) => !path.includes(".."))
-    .optional(),
+  command: hookCommandSchema.optional(),
 });
 // `files`는 쓴(`dry_run`이면 쓸) 절대 경로다.
 const harnessInstallOutputSchema = z.strictObject({
   skill: harnessInstallOutcomeSchema,
   hook: harnessInstallOutcomeSchema,
+  files: z.array(z.string()),
+});
+
+// 모든 harness의 `install --dry_run`을 한 process에서 돈다. Settings가 harness마다 process를 띄우지 않게 한다.
+export const harnessStatusInputSchema = z.strictObject({
+  command: hookCommandSchema.optional(),
+});
+const harnessStatusOutputSchema = z.array(
+  z.strictObject({
+    harness: harnessIdSchema,
+    skill: harnessInstallOutcomeSchema,
+    hook: harnessInstallOutcomeSchema,
+    files: z.array(z.string()),
+  }),
+);
+
+export const HARNESS_UNINSTALL_OUTCOMES = [
+  "removed",
+  // 지울 우리 항목이 없다.
+  "unchanged",
+  "not_supported",
+  "failed",
+] as const;
+export const harnessUninstallInputSchema = z.strictObject({
+  harness: harnessIdSchema,
+});
+// `files`는 고치거나 지운 절대 경로다.
+const harnessUninstallOutputSchema = z.strictObject({
+  hook: z.enum(HARNESS_UNINSTALL_OUTCOMES),
   files: z.array(z.string()),
 });
 
@@ -164,5 +193,17 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
     auth: "local",
     input: withCommon(harnessInstallInputSchema),
     output: harnessInstallOutputSchema,
+  },
+  {
+    name: "harness status",
+    auth: "local",
+    input: withCommon(harnessStatusInputSchema),
+    output: harnessStatusOutputSchema,
+  },
+  {
+    name: "harness uninstall",
+    auth: "local",
+    input: withCommon(harnessUninstallInputSchema),
+    output: harnessUninstallOutputSchema,
   },
 ];

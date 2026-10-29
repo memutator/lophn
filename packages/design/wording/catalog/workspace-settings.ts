@@ -105,6 +105,7 @@ export const workspaceSettings = {
   "settings.button.reset-default": "Reset to default",
   "settings.button.revoke": "Revoke",
   "settings.button.run-checks": "Run checks",
+  "settings.button.uninstall-hooks": "Uninstall hooks",
   "settings.diagnostics.check-failed":
     "The check couldn't start right now. Try again.",
   "settings.diagnostics.last-run": "Last run at {time}.",
@@ -117,6 +118,8 @@ export const workspaceSettings = {
     "Couldn't check again. The earlier results are still shown.",
   "settings.error.coding-hooks-install":
     "The hooks weren't installed. Nothing changed. Try again.",
+  "settings.error.coding-hooks-uninstall":
+    "The hooks weren't uninstalled. Try again.",
   "settings.error.font-name":
     "Use only letters, numbers, spaces, hyphens, and underscores.",
   "settings.error.value-invalid":
@@ -241,7 +244,7 @@ export const workspaceSettings = {
   "settings.note.coding-detect-note":
     "These are the results from the last check. lophn only checks again when you ask.",
   "settings.note.coding-hooks":
-    "Hooks let lophn show when a coding agent you start in a terminal is working or waiting for you. Installing them adds lines to the product's own settings file.",
+    "Hooks let lophn show when a coding agent you start in a terminal is working or waiting for you. Installing them adds lines to the product's own settings file, and uninstalling removes only those lines.",
   "settings.note.not-set":
     "That feature won't start. Everything else keeps working.",
   "settings.note.shell-rules-built-in":

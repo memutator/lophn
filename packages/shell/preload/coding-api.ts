@@ -61,6 +61,7 @@ export function createCodingApi(transport: CodingTransport): CodingApi {
     refresh: () => call({ op: "refresh" }),
     hookStatus: () => call({ op: "hook_status" }),
     installHooks: (harness) => call({ op: "install_hooks", harness }),
+    uninstallHooks: (harness) => call({ op: "uninstall_hooks", harness }),
     answerHookAsk: ({ request, accepted }) =>
       call({ op: "hook_answer", request, accepted }),
     onHookAsk: (listener) =>

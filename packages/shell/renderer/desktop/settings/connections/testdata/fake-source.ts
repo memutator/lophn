@@ -90,6 +90,7 @@ interface FakeConnections {
     refresh: number;
     hookStatus: number;
     installed: HarnessName[];
+    uninstalled: HarnessName[];
   };
 }
 
@@ -101,6 +102,7 @@ export function fakeConnections(
     refresh: 0,
     hookStatus: 0,
     installed: [],
+    uninstalled: [],
   };
   let hooks =
     options.hooks?.ok === false ? [] : [...(options.hooks?.value ?? HOOKS)];
@@ -132,6 +134,16 @@ export function fakeConnections(
       const done: HarnessHookView = {
         harness_id: id,
         status: "installed",
+        files: [],
+      };
+      hooks = hooks.map((hook) => (hook.harness_id === id ? done : hook));
+      return Promise.resolve({ ok: true, value: done });
+    },
+    uninstallHooks(id) {
+      calls.uninstalled.push(id);
+      const done: HarnessHookView = {
+        harness_id: id,
+        status: "missing",
         files: [],
       };
       hooks = hooks.map((hook) => (hook.harness_id === id ? done : hook));

@@ -177,6 +177,15 @@
   margin-bottom: var(--space-5);
 }
 
+/* 표 위 검색 칸과 표 아래 안내. 표 테두리와 붙지 않게 띄운다. */
+.searchRow {
+  margin-bottom: var(--space-5);
+}
+
+.tableNote {
+  margin-top: var(--space-4);
+}
+
 .tableScroll {
   width: 100%;
   overflow: auto;

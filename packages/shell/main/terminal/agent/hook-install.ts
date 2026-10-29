@@ -1,6 +1,7 @@
 // harness의 전역 hook을 놓는 흐름. 열 때 `dry_run`으로 있는지만 보고, 없으면 사람에게 한 번 물은 뒤 놓는다
-// (coding 탭을 여는 길과 사람 터미널이 harness를 처음 알아봤을 때 쓴다). 묻기는 lophn 창의 dialog다. Settings의 상태 보기와
-// [Install hooks]도 같은 CLI 호출이다. 묻거나 놓기가 실패해도 호출한 쪽은 막지 않는다.
+// (coding 탭을 여는 길과 사람 터미널이 harness를 처음 알아봤을 때 쓴다). 묻기는 lophn 창의 dialog다. Settings의 상태 보기
+// (`harness status` 한 번으로 모든 harness), [Install hooks], [Uninstall hooks]도 같은 CLI 호출이다. 묻거나 놓기가 실패해도
+// 호출한 쪽은 막지 않는다.
 import type { HarnessHookView, HarnessName } from "../../../ipc/coding.ts";
 import { HARNESS_IDS } from "../../../ipc/coding.ts";
 
@@ -51,6 +52,8 @@ export type HookInstaller = {
   status(): Promise<HarnessHookView[]>;
   /** 사람이 [Install hooks]를 눌렀다. 누른 것이 허락이라 묻지 않는다. */
   install(harness: HarnessName): Promise<HarnessHookView>;
+  /** 사람이 [Uninstall hooks]를 눌렀다. 이 실행에서는 그 harness를 다시 묻지 않는다. */
+  uninstall(harness: HarnessName): Promise<HarnessHookView>;
 };
 
 function installResult(data: unknown): Install | null {
@@ -180,6 +183,76 @@ export function createHookInstaller(deps: HookInstallerDeps): HookInstaller {
     }
   }
 
+  // 모든 harness를 CLI 한 번(`harness status`)으로 본다. harness마다 process를 띄우면 화면이 열릴 때마다 수십 개가 뜬다.
+  async function status(): Promise<HarnessHookView[]> {
+    const rows = new Map<string, Install>();
+    let failed = false;
+    if (deps.runCli !== null) {
+      try {
+        const ran = await deps.runCli([
+          "harness",
+          "status",
+          "--input",
+          JSON.stringify(
+            deps.hookCommand === undefined ? {} : { command: deps.hookCommand },
+          ),
+        ]);
+        if (ran.ok && Array.isArray(ran.data)) {
+          for (const item of ran.data) {
+            const found = installResult(item);
+            const harness = (item as { harness?: unknown } | null)?.harness;
+            if (found !== null && typeof harness === "string") {
+              rows.set(harness, found);
+            }
+          }
+        } else failed = true;
+      } catch {
+        failed = true;
+      }
+    }
+    return HARNESS_IDS.map((id) => {
+      if (deps.runCli === null || !deps.hasHook(id)) {
+        return viewOf(id, "not_supported", []);
+      }
+      const found = rows.get(id);
+      return failed || found === undefined
+        ? viewOf(id, "failed", [])
+        : viewOf(id, found.hook, found.files);
+    });
+  }
+
+  async function uninstall(harness: HarnessName): Promise<HarnessHookView> {
+    if (deps.runCli === null || !deps.hasHook(harness)) {
+      return viewOf(harness, "not_supported", []);
+    }
+    // 사람이 지웠으니 이 실행에서 터미널이 그 harness를 알아봐도 다시 묻지 않는다.
+    asked.add(harness);
+    try {
+      const ran = await deps.runCli([
+        "harness",
+        "uninstall",
+        "--input",
+        JSON.stringify({ harness }),
+      ]);
+      const done = ran.ok
+        ? (ran.data as { hook?: unknown; files?: unknown } | null)
+        : null;
+      const files = Array.isArray(done?.files)
+        ? done.files.filter((file): file is string => typeof file === "string")
+        : [];
+      // 지웠거나 지울 것이 없으면 이제 놓이지 않은 상태다.
+      return done?.hook === "removed" || done?.hook === "unchanged"
+        ? viewOf(harness, "missing", files)
+        : viewOf(
+            harness,
+            done?.hook === "not_supported" ? "not_supported" : "failed",
+            files,
+          );
+    } catch {
+      return viewOf(harness, "failed", []);
+    }
+  }
+
   return {
     ensureRegistered,
     ensureOnce(harness, terminalRef) {
@@ -187,7 +260,8 @@ export function createHookInstaller(deps: HookInstallerDeps): HookInstaller {
       asked.add(harness);
       void ensureRegistered(harness, terminalRef);
     },
-    status: () => Promise.all(HARNESS_IDS.map((id) => run(id, true))),
+    status,
     install: (harness) => run(harness, false),
+    uninstall,
   };
 }

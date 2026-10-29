@@ -183,3 +183,57 @@ export function hermesHooksText(
     return null;
   }
 }
+
+// 표시한 block을 줄째 지운다. `gapBefore`면 놓을 때 block 앞에 띄운 빈 줄 하나도 지운다. block이 없으면 text 그대로,
+// 표시가 깨졌으면 null이다.
+function withoutBlock(
+  text: string,
+  begin: string,
+  end: string,
+  gapBefore: boolean,
+): string | null {
+  const lines = text.split("\n");
+  const found = blockLines(lines, begin, end);
+  if (found === undefined) return null;
+  if (found === null) return text;
+  const from =
+    gapBefore && found[0] > 0 && lines[found[0] - 1] === ""
+      ? found[0] - 1
+      : found[0];
+  lines.splice(from, found[1] - from + 1);
+  return lines.join("\n");
+}
+
+// Kimi config.toml에서 우리 block을 지운다. 놓을 때 사람의 글 뒤에 빈 줄 하나를 띄웠으므로 그것도 지운다.
+export function kimiHooksWithout(text: string): string | null {
+  try {
+    parseToml(text);
+  } catch {
+    return null;
+  }
+  const next = withoutBlock(text, KIMI_BEGIN, KIMI_END, true);
+  if (next === null || next === text) return next;
+  try {
+    parseToml(next);
+  } catch {
+    return null;
+  }
+  return next;
+}
+
+// Hermes config.yaml에서 우리 block을 지운다. 끝에 붙였든 사람의 `hooks:` 안에 끼웠든 block 줄만 지우면 놓기 전과 같다.
+export function hermesHooksWithout(text: string): string | null {
+  try {
+    parseYaml(text);
+  } catch {
+    return null;
+  }
+  const next = withoutBlock(text, HERMES_BEGIN, HERMES_END, false);
+  if (next === null || next === text) return next;
+  try {
+    parseYaml(next);
+  } catch {
+    return null;
+  }
+  return next;
+}

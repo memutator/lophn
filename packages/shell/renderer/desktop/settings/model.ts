@@ -7,7 +7,7 @@ import type { LucideIcon } from "lucide-react";
 import { settingsIcons } from "../../icons/mod.ts";
 import type { AuthWay } from "./source.ts";
 
-/** Settings의 항목. sidebar의 Settings 아래에 고르는 줄로 놓이고, 고른 항목의 본문 하나가 화면이 된다. */
+/** Settings의 항목. Settings 공간 sidebar에 묶음별로 모두 줄지어 놓이고, 고른 항목의 본문 하나가 화면이 된다. */
 export type SettingsPane =
   | "general"
   | "appearance"

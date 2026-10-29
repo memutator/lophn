@@ -61,7 +61,7 @@ export type CommandEntry = {
 };
 
 // 읽기 명령의 마지막 단어다. 이름 pattern만으로 읽기를 가릴 수 있어야 하므로 변경 명령은 이 단어를 쓰지 않는다.
-const READ_WORDS = ["show", "wait", "detect"] as const;
+const READ_WORDS = ["show", "wait", "detect", "status"] as const;
 
 function isReadName(name: string): boolean {
   const last = name.split(" ").at(-1) ?? name;

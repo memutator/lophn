@@ -79,7 +79,7 @@ export const settingsArea: Area = {
       id: "new-settings-general",
       title: "Settings · General",
       description:
-        "Settings 항목은 sidebar의 Settings 아래 묶음(General, Agents, System)으로 들어가고 항목마다 아이콘이 있다. General은 선언한 항목을 타입대로 보이고, 값을 바꾸는 칸은 줄 오른쪽 끝 고정 열에 있다. 사람이 정한 값과 기본값을 나눠 보이고, 범위를 넘은 값은 거절 이유가 보인다.",
+        "Settings sidebar는 project 창 sidebar의 panel 꼴이다. 묶음(General, Agents, System)마다 제목과 항목 줄을 아이콘과 함께 모두 놓는다. 위쪽 바의 단추로 접으면 항목 아이콘만 activity bar 꼴로 남는다. General은 선언한 항목을 타입대로 보이고, 값을 바꾸는 칸은 줄 오른쪽 끝 고정 열에 있다. 사람이 정한 값과 기본값을 나눠 보이고, 범위를 넘은 값은 거절 이유가 보인다.",
       render: () => <SettingsGeneral />,
     },
     {
@@ -176,7 +176,7 @@ export const settingsArea: Area = {
       id: "new-settings-coding",
       title: "Settings · Coding agents",
       description:
-        "제품마다 vendor 아이콘과 실행 파일, version, 로그인, turn 끝 신호 있음과 없음, 첫 prompt를 맡길 수 있는지, skill 설치 실패를 보인다. 기본 제품은 아이콘이 붙은 줄에서 고르고, [Detect again]이 있다. 연결 만들기와 회수는 없다.",
+        "제품마다 vendor 아이콘과 실행 파일, version, turn 끝 신호 있음과 없음, 전역 hook 상태를 보인다. 검색 칸은 표 위에 띄워 둔다. hook이 놓이지 않은 제품에는 [Install hooks], 놓인 제품에는 [Uninstall hooks]가 있다. [Detect again]이 있다. 연결 만들기와 회수는 없다.",
       render: () => <SettingsCoding />,
     },
     {

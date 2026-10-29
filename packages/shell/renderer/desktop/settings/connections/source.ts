@@ -21,4 +21,6 @@ export interface CodingConnectionsSource {
   hookStatus(): Promise<SourceResult<readonly HarnessHookView[]>>;
   /** 사람이 [Install hooks]를 누를 때만 부른다. 제품의 전역 설정 file에 hook을 쓴다. */
   installHooks(harness: HarnessName): Promise<SourceResult<HarnessHookView>>;
+  /** 사람이 [Uninstall hooks]를 누를 때만 부른다. 제품의 전역 설정 file에서 lophn 항목만 지운다. */
+  uninstallHooks(harness: HarnessName): Promise<SourceResult<HarnessHookView>>;
 }

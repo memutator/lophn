@@ -12,7 +12,7 @@ import {
   sameJson,
 } from "./install-common.ts";
 
-type JsonHook = Extract<HarnessHook, { format: "json" }>;
+export type JsonHook = Extract<HarnessHook, { format: "json" }>;
 
 // 한 항목이 가진 command들이다(shape마다 칸이 다르다).
 function commandsOf(entry: unknown): unknown[] {
@@ -171,5 +171,69 @@ export function jsonHooksText(
     doc.hooks = hooks;
   }
   if (text !== null && sameJson(before, doc)) return text;
+  return `${JSON.stringify(doc, null, indentOf(text))}\n`;
+}
+
+// 항목에서 우리 handler만 뺀 것이다. 남는 것이 없으면 undefined, 우리 것이 없으면 그 항목 그대로다.
+// 사람이 우리 group에 자기 handler를 더했어도 그 handler는 남긴다.
+export function withoutOwned(harness: HarnessId, entry: unknown): unknown {
+  if (isObject(entry) && Array.isArray(entry.hooks)) {
+    const kept = entry.hooks.filter(
+      (handler) =>
+        !(isObject(handler) && ownedCommand(harness, handler.command)),
+    );
+    if (kept.length === entry.hooks.length) return entry;
+    return kept.length === 0 ? undefined : { ...entry, hooks: kept };
+  }
+  return ownedEntry(harness, entry) ? undefined : entry;
+}
+
+// 우리 항목을 지운 본문이다. 우리 것만 남았던 event key와 그래서 빈 `hooks`도 지운다. 지울 것이 없으면 text 그대로다.
+export function jsonHooksWithout(
+  text: string,
+  input: { harness: HarnessId; hook: JsonHook },
+): string | null {
+  const { harness, hook } = input;
+  let doc: Json;
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (!isObject(parsed)) return null;
+    doc = parsed;
+  } catch {
+    return null;
+  }
+  const before = structuredClone(doc);
+  if (hook.shape === "named") {
+    delete doc.lophn;
+  } else if (hook.shape === "kiro") {
+    if (doc.hooks !== undefined && !Array.isArray(doc.hooks)) return null;
+    if (Array.isArray(doc.hooks)) {
+      doc.hooks = doc.hooks.filter((entry) => !ownedEntry(harness, entry));
+    }
+  } else {
+    if (doc.hooks !== undefined && !isObject(doc.hooks)) return null;
+    const hooks = doc.hooks;
+    if (isObject(hooks)) {
+      for (const [event, list] of Object.entries(hooks)) {
+        if (!Array.isArray(list)) continue;
+        const kept = list.flatMap((entry) => {
+          const left = withoutOwned(harness, entry);
+          return left === undefined ? [] : [left];
+        });
+        if (
+          kept.length === list.length &&
+          kept.every((one, i) => one === list[i])
+        ) {
+          continue;
+        }
+        if (kept.length === 0) delete hooks[event];
+        else hooks[event] = kept;
+      }
+      if (Object.keys(hooks).length === 0 && !sameJson(before, doc)) {
+        delete doc.hooks;
+      }
+    }
+  }
+  if (sameJson(before, doc)) return text;
   return `${JSON.stringify(doc, null, indentOf(text))}\n`;
 }

@@ -1,5 +1,5 @@
 // CodingConnectionsSource를 main의 통로로 만든다. 제품마다 감지 결과와 다시 감지는 main IPC
-// (`lophnCoding`의 `harnesses`·`refresh`·`hookStatus`·`installHooks`)이다. 응답은 main의 contract client가
+// (`lophnCoding`의 `harnesses`·`refresh`·`hookStatus`·`installHooks`·`uninstallHooks`)이다. 응답은 main의 contract client가
 // 이미 검사했다. 연결 생성·회수·token은 이 통로에 없다.
 import type {
   CodingReply,
@@ -16,6 +16,7 @@ interface CodingSettingsApi {
   refresh(): Promise<CodingReply<unknown>>;
   hookStatus(): Promise<CodingReply<readonly HarnessHookView[]>>;
   installHooks(harness: HarnessName): Promise<CodingReply<HarnessHookView>>;
+  uninstallHooks(harness: HarnessName): Promise<CodingReply<HarnessHookView>>;
 }
 
 export function windowCodingApi(): CodingSettingsApi | undefined {
@@ -85,6 +86,15 @@ export function coreCodingConnectionsSource(
       if (deps.coding === undefined) return unavailable;
       try {
         return mapped(await deps.coding.installHooks(harness));
+      } catch {
+        return unavailable;
+      }
+    },
+
+    async uninstallHooks(harness) {
+      if (deps.coding === undefined) return unavailable;
+      try {
+        return mapped(await deps.coding.uninstallHooks(harness));
       } catch {
         return unavailable;
       }

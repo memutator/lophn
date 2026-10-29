@@ -77,9 +77,21 @@ export function SettingsSpace({
     chosenWidth: SIDEBAR_WIDTH,
     collapsedByUser: false,
   });
+  // 좁은 창에서 기본으로 접힌 것을 사람이 펼쳤으면 그 선택을 덮지 않는다(project 창과 같다).
+  const [userExpanded, setUserExpanded] = useState(false);
   const frameRef = useRef<HTMLDivElement>(null);
   const frameSize = useObservedSize(frameRef);
-  const shown = sidebarView(frameSize?.width ?? windowWidth, sidebar, false);
+  const shown = sidebarView(
+    frameSize?.width ?? windowWidth,
+    sidebar,
+    userExpanded,
+  );
+  const toggleSidebar = () => {
+    if (shown.mode === "collapsed") {
+      setSidebar((state) => ({ ...state, collapsedByUser: false }));
+      setUserExpanded(true);
+    } else setSidebar((state) => ({ ...state, collapsedByUser: true }));
+  };
   const toggleLabel =
     shown.mode === "collapsed"
       ? t("project-workspace.button.expand-sidebar")
@@ -137,12 +149,7 @@ export function SettingsSpace({
                     label={toggleLabel}
                     data-sidebar-toggle=""
                     aria-expanded={shown.mode === "open"}
-                    onClick={() =>
-                      setSidebar((state) => ({
-                        ...state,
-                        collapsedByUser: shown.mode !== "collapsed",
-                      }))
-                    }
+                    onClick={toggleSidebar}
                   />
                 </Tooltip>
               )}

@@ -1,21 +1,21 @@
 // terminal 탭 kind. 시작 폴더 참조만 남기고 PTY는 복원하지 않는다.
-import type { ReactNode } from "react";
-import { workspaceIcons } from "../../icons/mod.ts";
-import { t } from "@lophn/wording";
 
+import { t } from "@lophn/wording";
+import type { ReactNode } from "react";
 import type { TerminalResume } from "../../../ipc/terminal.ts";
-import { closeTerminalTab } from "../../terminal/deps.ts";
-import type { TerminalStore } from "../../terminal/store.ts";
-import { tabName } from "../../terminal/model.ts";
-import { TerminalTab } from "../../terminal/terminal-tab.tsx";
-import type { TabItem } from "../model.ts";
-import type { TabHost } from "./host.ts";
-import type { TabKindDef } from "./kind.ts";
+import { workspaceIcons } from "../../icons/mod.ts";
+import type { TabDot } from "../../parts/tab-strip/tab-strip.tsx";
 import {
   harnessVendorOf,
   VendorIcon,
 } from "../../parts/vendor-icon/vendor-icon.tsx";
-import type { TabDot } from "../../parts/tab-strip/tab-strip.tsx";
+import { closeTerminalTab } from "../../terminal/deps.ts";
+import { tabName } from "../../terminal/model.ts";
+import type { TerminalStore } from "../../terminal/store.ts";
+import { TerminalTab } from "../../terminal/terminal-tab.tsx";
+import type { TabItem } from "../model.ts";
+import type { TabHost } from "./host.ts";
+import type { TabKindDef } from "./kind.ts";
 
 const TAB_KEY = /^[A-Za-z0-9._:-]+$/;
 

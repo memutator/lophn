@@ -4,44 +4,44 @@
 import type { ZodType } from "zod";
 
 import {
-  type TerminalBridgeAck,
-  terminalBridgeAckSchema,
-  type TerminalClose,
-  terminalCloseSchema,
-  type TerminalFocus,
-  terminalFocusSchema,
-  type TerminalInput,
-  terminalInputSchema,
-  type TerminalLink,
-  terminalLinkSchema,
   type TerminalAgentSession,
   type TerminalAgentSessionRename,
-  terminalAgentSessionRenameSchema,
-  terminalAgentSessionsSchema,
   type TerminalAgentSessionsQuery,
+  type TerminalBridgeAck,
+  type TerminalClose,
+  type TerminalFocus,
+  type TerminalInput,
+  type TerminalLink,
   type TerminalOpen,
-  terminalOpenSchema,
   type TerminalReply,
-  type TerminalResume,
   type TerminalResize,
-  terminalResizeSchema,
-  terminalRestartSchema,
+  type TerminalResume,
   type TerminalRuntime,
   type TerminalSnapshot,
   type TerminalSnapshotReply,
+  terminalAgentSessionRenameSchema,
+  terminalAgentSessionsSchema,
+  terminalBridgeAckSchema,
+  terminalCloseSchema,
+  terminalFocusSchema,
+  terminalInputSchema,
+  terminalLinkSchema,
+  terminalOpenSchema,
+  terminalResizeSchema,
+  terminalRestartSchema,
   terminalSnapshotSchema,
 } from "../../ipc/terminal.ts";
+import { SHELL_INIT_ENV } from "../../terminal-host/shell-integration.ts";
+import type { TerminalBridge } from "../browser-bridge/types.ts";
 import {
+  type ContentsRegistry,
   checkCaller,
   checkInput,
-  type ContentsRegistry,
   type IpcEvent,
   type IpcResult,
 } from "../desktop/ipc-guard.ts";
-import type { TerminalBridge } from "../browser-bridge/types.ts";
-import type { AgentTracker } from "./agent/tracker.ts";
 import type { TerminalHooks } from "./agent/ingress.ts";
-import { SHELL_INIT_ENV } from "../../terminal-host/shell-integration.ts";
+import type { AgentTracker } from "./agent/tracker.ts";
 
 type FocusTable = {
   focused(

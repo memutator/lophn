@@ -4,14 +4,6 @@
 import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { basename } from "node:path";
-
-import {
-  TERMINAL_AGENT_SESSIONS_CHANGED_CHANNEL,
-  type TerminalAgentSession,
-  type TerminalAgentSessionRename,
-  TERMINAL_STATE_CHANNEL,
-  type TerminalRuntime,
-} from "../../../ipc/terminal.ts";
 import {
   HARNESS_ADAPTERS,
   type HarnessId,
@@ -23,11 +15,20 @@ import {
   TERMINAL_HOOK_LINE_MAX_BYTES,
   terminalHookLineSchema,
 } from "../../../../protocol/coding-agent/terminal-hook.ts";
-import { createAgentSessionStore } from "../../terminal/agent/session-store.ts";
+import {
+  TERMINAL_AGENT_SESSIONS_CHANGED_CHANNEL,
+  TERMINAL_STATE_CHANNEL,
+  type TerminalAgentSession,
+  type TerminalAgentSessionRename,
+  type TerminalRuntime,
+} from "../../../ipc/terminal.ts";
+import { writeShellInit } from "../../../terminal-host/shell-integration.ts";
+import { excerpt } from "../../notice/excerpt.ts";
 import {
   createHookIngress,
   type TerminalHooks,
 } from "../../terminal/agent/ingress.ts";
+import { createAgentSessionStore } from "../../terminal/agent/session-store.ts";
 import { listenHooks } from "../../terminal/agent/socket.ts";
 import {
   type AgentNotice,
@@ -35,10 +36,8 @@ import {
   createAgentTracker,
 } from "../../terminal/agent/tracker.ts";
 import type { Supervisor } from "../../terminal/supervisor.ts";
-import { writeShellInit } from "../../../terminal-host/shell-integration.ts";
-import type { NoticeWiring } from "./notice.ts";
-import { excerpt } from "../../notice/excerpt.ts";
 import type { ShellContext } from "./context.ts";
+import type { NoticeWiring } from "./notice.ts";
 
 export function createAgentWiring(options: {
   ctx: ShellContext;

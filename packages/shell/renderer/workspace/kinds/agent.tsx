@@ -5,10 +5,11 @@
 import { useEffect } from "react";
 
 import type { LophnNoticeApi } from "../../../ipc/notice.ts";
-import { conversationIcons } from "../../icons/mod.ts";
-
 import type { AgentViewHost } from "../../conversation/agent-view.tsx";
 import type { Draft } from "../../conversation/drafts.ts";
+import { runToastAction } from "../../desktop/connection/toasts/toast-actions.ts";
+import { conversationIcons } from "../../icons/mod.ts";
+import { Avatar } from "../../parts/avatar/avatar.tsx";
 import { AgentNotReady, AgentTab } from "../agent/agent-tab.tsx";
 import {
   agentOf,
@@ -19,10 +20,8 @@ import {
 } from "../agent/tab-fields.ts";
 import { isDetached, type TabItem, type WorkspaceView } from "../model.ts";
 import { openAgents } from "./agents.tsx";
-import { runToastAction } from "../../desktop/connection/toasts/toast-actions.ts";
 import type { AgentViewSlice, TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
-import { Avatar } from "../../parts/avatar/avatar.tsx";
 
 interface OpenAgentInput {
   /** sidebar의 agent 줄이 주는 agent id. */

@@ -1,6 +1,9 @@
 // Agent 화면: 한 agent의 한 session을 보이는 탭 본문. 위에서 아래로 header, 대화 줄, composer 위의 질문·승인 카드와
 // "다음 turn" 줄, composer를 부품 그대로 묶는다. rewind·권한은 대화 위에 하나만 여는 panel 층이다. core와는
 // AgentTabSource로만 말하고 탭을 열고 닫는 일, 파일과 설정으로 가는 일은 host가 한다.
+
+import { IconButton } from "@lophn/ui/primitives";
+import { formatRelativeTime, t } from "@lophn/wording";
 import {
   useCallback,
   useEffect,
@@ -8,13 +11,17 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { IconButton } from "@lophn/ui/primitives";
+import { composeAttachmentText } from "../../../protocol/lophn-agent/message-attachments.ts";
 import { retryIcon } from "../icons/mod.ts";
-import { formatRelativeTime, t } from "@lophn/wording";
-
 import { newId } from "../prefixed-id.ts";
+import type { ArtifactsSlice } from "../workspace/kinds/host.ts";
 import type { ViewDetail } from "./activity/model.ts";
 import { ViewDetailSelect } from "./activity/view-detail-select.tsx";
+import {
+  type AgentTabData,
+  useAgentTabData,
+  useAgentTabList,
+} from "./agent-tab-data.ts";
 import type {
   AgentTabSource,
   EvidenceRef,
@@ -22,12 +29,8 @@ import type {
   SessionEntry,
   SourceResult,
 } from "./agent-tab-source.ts";
-import {
-  type AgentTabData,
-  useAgentTabData,
-  useAgentTabList,
-} from "./agent-tab-data.ts";
 import { AgentThread } from "./agent-thread.tsx";
+import styles from "./agent-view.module.css";
 import {
   excerptOf,
   messagesOf,
@@ -47,16 +50,13 @@ import {
   startSend,
 } from "./delivery-state.ts";
 import type { DraftStore } from "./drafts.ts";
-import { composeAttachmentText } from "../../../protocol/lophn-agent/message-attachments.ts";
-import { windowPathOf, windowReadImage } from "./window-paths.ts";
 import { AgentHeader } from "./header/agent-header.tsx";
+import { PermissionsView } from "./permissions-view/permissions-view.tsx";
 import { QuestionCard } from "./question-card/question-card.tsx";
 import { QueuedMessages } from "./queued/queued-messages.tsx";
 import { RewindPanel } from "./session-rewind/rewind-panel.tsx";
-import { PermissionsView } from "./permissions-view/permissions-view.tsx";
-import type { ArtifactsSlice } from "../workspace/kinds/host.ts";
 import type { SlashEntryView } from "./slash-menu/types.ts";
-import styles from "./agent-view.module.css";
+import { windowPathOf, windowReadImage } from "./window-paths.ts";
 
 /** Agent 화면이 자기 밖에 맡기는 일: 탭·파일·설정으로 가는 길. */
 export interface AgentViewHost {

@@ -76,6 +76,7 @@ export function fakeTerminal(project: string): TerminalApi {
     onBridgeOpen: () => () => {},
     onReveal: () => () => {},
     agentSessions: () => ok([]),
+    renameAgentSession: () => ok([]),
     onAgentSessions: () => () => {},
   };
 }

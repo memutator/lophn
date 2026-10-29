@@ -81,7 +81,7 @@ export function usePanelTerminals(
           key: tab.key,
           harness: agent.harness,
           label: harnessLabel(agent.harness),
-          title: agent.name ?? tab.title,
+          title: tab.title,
           dot: tab.dot,
           at:
             (id === undefined ? undefined : savedBySession.get(id)?.last_at) ??

@@ -1,17 +1,22 @@
 // harness 감지, 터미널 supervisor, 터미널 IPC.
-import { app } from "electron";
+
 import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-
+import { app } from "electron";
+import {
+  canDeliverMessages,
+  HARNESS_ADAPTERS,
+  harnessDetectionSchema,
+} from "../../../../protocol/coding-agent/mod.ts";
+import { createHookAsker } from "../../terminal/agent/hook-ask.ts";
+import { createHookInstaller } from "../../terminal/agent/hook-install.ts";
 import {
   attachTerminalSurface,
   registerTerminalIpc,
   removeTerminalIpc,
   TerminalFocusTable,
 } from "../../terminal/controller.ts";
-import { createHookAsker } from "../../terminal/agent/hook-ask.ts";
-import { createHookInstaller } from "../../terminal/agent/hook-install.ts";
 import { createTerminalIpc } from "../../terminal/ipc.ts";
 import { createSupervisor, spawnNodeHost } from "../../terminal/supervisor.ts";
 import {
@@ -24,15 +29,10 @@ import {
   registerCodingIpc,
   removeCodingIpc,
 } from "../coding-ipc.ts";
-import {
-  canDeliverMessages,
-  HARNESS_ADAPTERS,
-  harnessDetectionSchema,
-} from "../../../../protocol/coding-agent/mod.ts";
 import { createAgentWiring } from "./agent.ts";
 import { createBridgeWiring } from "./bridge.ts";
-import { createNoticeWiring } from "./notice.ts";
 import type { CallResult, Registered, ShellContext } from "./context.ts";
+import { createNoticeWiring } from "./notice.ts";
 
 type CallSession = {
   call(

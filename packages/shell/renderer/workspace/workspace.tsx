@@ -1,3 +1,7 @@
+import { Tooltip } from "@lophn/ui/overlay";
+import { Icon, IconButton } from "@lophn/ui/primitives";
+import { iconPixels, useObservedSize } from "@lophn/ui/shared";
+import { t } from "@lophn/wording";
 import {
   type ReactNode,
   useCallback,
@@ -7,33 +11,77 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { TabItem as StripTab } from "../parts/tab-strip/tab-strip.tsx";
-import { Icon, IconButton } from "@lophn/ui/primitives";
-import type { SettingsPane } from "../desktop/settings/model.ts";
-import { Tooltip } from "@lophn/ui/overlay";
-import { iconPixels, useObservedSize } from "@lophn/ui/shared";
-import { workspaceIcons } from "../icons/mod.ts";
-import { t } from "@lophn/wording";
-
-import { TopBar } from "../desktop/top-bar/top-bar.tsx";
-import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
+import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/places.ts";
+import {
+  type DetachedEvent,
+  type LophnDetachedApi,
+  slimDetachedTab,
+} from "../../ipc/detached.ts";
+import type { Command } from "../../ipc/keybindings.ts";
+import {
+  ViewCoversProvider,
+  ViewKeepsProvider,
+} from "../app-frame/embedded-view.tsx";
+import { useBookmarks } from "../browser/bookmarks.ts";
+import { useBrowserApi } from "../browser/browser-api.tsx";
+import { WebviewHostProvider, WebviewLayer } from "../browser/webview-host.tsx";
+import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
-import { openProjectLophn } from "./reactions/project-lophn.ts";
-import { useToastHandler } from "./reactions/toast-handler.ts";
-import { DeskSelector, PathSep } from "./top-path/desk-selector.tsx";
-import { ProjectSelector } from "./top-path/project-selector.tsx";
-import { MinimizedBar } from "./minimized/minimized-bar.tsx";
-import { LauncherButton } from "./launcher-button.tsx";
+import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
+import {
+  PaletteButton,
+  useMainCommand,
+  useOpenPalette,
+  usePaletteEnv,
+  usePaletteScope,
+} from "../desktop/palette/host.tsx";
+import {
+  focusTab,
+  topFloat,
+  workspaceScope,
+} from "../desktop/palette/workspace-scope.ts";
+import type { JobsSource } from "../desktop/settings/jobs/source.ts";
+import type { SettingsPane } from "../desktop/settings/model.ts";
+import { TopBar } from "../desktop/top-bar/top-bar.tsx";
+import type { EditorDeps } from "../editor/document-view.tsx";
+import { windowInstructionsSource } from "../editor/instructions-entry.tsx";
+import { workspaceIcons } from "../icons/mod.ts";
+import type { TabItem as StripTab } from "../parts/tab-strip/tab-strip.tsx";
+import type { TerminalDeps } from "../terminal/deps.ts";
+import {
+  openBridgeUrl,
+  useBridgeOpenRequests,
+} from "../terminal/use-bridge-open-requests.ts";
+import { NewTabMenu } from "./add-tab-menu.tsx";
+import { agentOf, sessionOf } from "./agent/tab-fields.ts";
 import { startPointerDrag } from "./drag.ts";
+import { Floats } from "./floats/floats.tsx";
+import { distinctAgentTab, openAgent } from "./kinds/agent.tsx";
+import { openAgents } from "./kinds/agents.tsx";
+import { openAppPanel } from "./kinds/app-panel.tsx";
+import { openArtifact } from "./kinds/artifact.tsx";
+import { openBrowserTab } from "./kinds/browser.tsx";
+import { openFile } from "./kinds/document-editor.tsx";
+import type { TabHost } from "./kinds/host.ts";
+import { tabKindOf } from "./kinds/registry.ts";
+import { openSearchShortcut } from "./kinds/search.tsx";
+import {
+  openTerminal as openTerminalTab,
+  terminalTabTitle,
+} from "./kinds/terminal.tsx";
+import { openWorkflow, workflowTab } from "./kinds/workflow.tsx";
+import { LauncherButton } from "./launcher-button.tsx";
+import { desksFromStored, toStoredLayout } from "./layout-map.ts";
+import { MinimizedBar } from "./minimized/minimized-bar.tsx";
 import {
   activeView,
   allDeskTabs,
   applyDrag,
   attachDetached,
+  type CloseScope,
   clampSidebar,
   closeDetached,
   closeFloat,
-  type CloseScope,
   closeTab,
   closeTargets,
   DEFAULT_DESK,
@@ -61,12 +109,12 @@ import {
   raiseFloat,
   reopenTab,
   restoreFloat,
+  SIDEBAR_WIDTH,
+  type SidebarState,
   setActiveView,
   setDeskView,
   setFloatRect,
   shiftTab,
-  SIDEBAR_WIDTH,
-  type SidebarState,
   sidebarView,
   stepTab,
   switchDesk,
@@ -75,21 +123,22 @@ import {
   type WorkspaceDesks,
   type WorkspaceView,
 } from "./model.ts";
-import type { TabAwareResult } from "./sidebar/explorer.tsx";
-import { ArtifactPanel } from "./sidebar/artifact-panel.tsx";
-import type { JobsSource } from "../desktop/settings/jobs/source.ts";
-import { ProjectSidebar } from "./sidebar/project-sidebar.tsx";
-import { usePanelTerminals } from "./sidebar/use-panel-terminals.ts";
+import { NoticeCard } from "./notice-card.tsx";
+import { Panes } from "./panes/panes.tsx";
+import { openProjectLophn } from "./reactions/project-lophn.ts";
+import { useToastHandler } from "./reactions/toast-handler.ts";
 import type { RailAction } from "./sidebar/activity-bar.tsx";
+import { ArtifactPanel } from "./sidebar/artifact-panel.tsx";
+import type { TabAwareResult } from "./sidebar/explorer.tsx";
 import {
   type KnownSessions,
   panelRuns,
   panelSessions,
   runOpenedSessions,
 } from "./sidebar/panel-sessions.ts";
-import { Panes } from "./panes/panes.tsx";
-import { Floats } from "./floats/floats.tsx";
-import { NewTabMenu } from "./add-tab-menu.tsx";
+import { ProjectSidebar } from "./sidebar/project-sidebar.tsx";
+import type { RunRecordView } from "./sidebar/run-list.tsx";
+import { usePanelTerminals } from "./sidebar/use-panel-terminals.ts";
 import type {
   FileRow,
   ProjectView,
@@ -97,60 +146,10 @@ import type {
   WorkflowEntryView,
   WorkspaceSource,
 } from "./source.ts";
-import type { RunRecordView } from "./sidebar/run-list.tsx";
-import { desksFromStored, toStoredLayout } from "./layout-map.ts";
-import { agentOf, sessionOf } from "./agent/tab-fields.ts";
-import {
-  PaletteButton,
-  useMainCommand,
-  useOpenPalette,
-  usePaletteEnv,
-  usePaletteScope,
-} from "../desktop/palette/host.tsx";
-import type { Command } from "../../ipc/keybindings.ts";
-import {
-  type DetachedEvent,
-  type LophnDetachedApi,
-  slimDetachedTab,
-} from "../../ipc/detached.ts";
+import { DeskSelector, PathSep } from "./top-path/desk-selector.tsx";
+import { ProjectSelector } from "./top-path/project-selector.tsx";
 import { focusPaneBody, useKeybindings } from "./use-keybindings.ts";
-import {
-  focusTab,
-  topFloat,
-  workspaceScope,
-} from "../desktop/palette/workspace-scope.ts";
-import type { EditorDeps } from "../editor/document-view.tsx";
-import { windowInstructionsSource } from "../editor/instructions-entry.tsx";
-import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
-import type { TabHost } from "./kinds/host.ts";
 import { useTabHostSlices } from "./use-tab-host-slices.ts";
-import { distinctAgentTab, openAgent } from "./kinds/agent.tsx";
-import { openBrowserTab } from "./kinds/browser.tsx";
-import { openArtifact } from "./kinds/artifact.tsx";
-import { openWorkflow, workflowTab } from "./kinds/workflow.tsx";
-import { useBrowserApi } from "../browser/browser-api.tsx";
-import { useBookmarks } from "../browser/bookmarks.ts";
-import { WebviewHostProvider, WebviewLayer } from "../browser/webview-host.tsx";
-import { openAgents } from "./kinds/agents.tsx";
-import { openSearchShortcut } from "./kinds/search.tsx";
-import { tabKindOf } from "./kinds/registry.ts";
-import { openFile } from "./kinds/document-editor.tsx";
-import {
-  openTerminal as openTerminalTab,
-  terminalTabTitle,
-} from "./kinds/terminal.tsx";
-import { openAppPanel } from "./kinds/app-panel.tsx";
-import type { TerminalDeps } from "../terminal/deps.ts";
-import {
-  openBridgeUrl,
-  useBridgeOpenRequests,
-} from "../terminal/use-bridge-open-requests.ts";
-import { NoticeCard } from "./notice-card.tsx";
-import {
-  ViewCoversProvider,
-  ViewKeepsProvider,
-} from "../app-frame/embedded-view.tsx";
-import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/places.ts";
 import styles from "./workspace.module.css";
 
 export interface WorkspaceProps {

@@ -8,7 +8,7 @@ import { createAgentSessionStore } from "./session-store.ts";
 
 const PRJ = "prj_00000000000000000000000000";
 
-function note(id: string, title: string | null) {
+function note(id: string, title: string | null, name: string | null = null) {
   return {
     project: PRJ,
     folder_ref: `${PRJ}_0`,
@@ -16,7 +16,7 @@ function note(id: string, title: string | null) {
     harness: "claude",
     external_session: id,
     title,
-    name: null,
+    name,
   };
 }
 
@@ -62,6 +62,38 @@ test("같은 session은 started_at과 처음 받은 title을 지키고, 50개를
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, "prj_corrupt.json"), "{not json");
     assert.deepEqual(await store.list("prj_corrupt"), []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("사람이 붙인 session 이름은 hook 이름에 덮이지 않고, 이름을 지우면 다시 hook 이름을 따른다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-agent-name-"));
+  try {
+    const store = createAgentSessionStore({
+      dataRoot: root,
+      now: () => 1000,
+      resumable: () => true,
+    });
+    await store.note(note("a", "prompt", "hook name"));
+    await store.rename({
+      project: PRJ,
+      harness: "claude",
+      external_session: "a",
+      name: "my name",
+    });
+
+    const pinned = await store.note(note("a", "prompt", "later hook name"));
+    assert.equal(pinned[0]?.name, "my name");
+
+    await store.rename({
+      project: PRJ,
+      harness: "claude",
+      external_session: "a",
+      name: null,
+    });
+    const unpinned = await store.note(note("a", "prompt", "later hook name"));
+    assert.equal(unpinned[0]?.name, "later hook name");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -1,3 +1,5 @@
+import { useObservedSize } from "@lophn/ui/shared";
+import { t } from "@lophn/wording";
 import {
   useCallback,
   useEffect,
@@ -5,8 +7,6 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { useObservedSize } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
 
 import type {
   TerminalRuntime,
@@ -26,8 +26,8 @@ import {
   tabName,
 } from "./model.ts";
 import type { TerminalEntry } from "./store.ts";
-import type { TerminalView } from "./xterm-view.ts";
 import styles from "./terminal.module.css";
+import type { TerminalView } from "./xterm-view.ts";
 
 interface TerminalTabProps {
   tabKey: string;

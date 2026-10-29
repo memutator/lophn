@@ -139,7 +139,8 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     stdout: {},
     session: {
       id: ["session_id"],
-      name: [],
+      // SessionStart·UserPromptSubmit payload의 custom title. 생성된 제목은 오지 않는다.
+      name: ["session_title"],
       // 확인함: claude --help
       resume: ["--resume", "{id}"],
     },

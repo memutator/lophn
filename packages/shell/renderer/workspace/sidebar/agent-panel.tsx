@@ -1,26 +1,26 @@
 // project sidebar의 Agent 쪽. 위에서부터 Agents(lophn agent, hover의 +로 새 session), Current(이 창에 탭이 열린 lophn
 // session과 터미널 coding agent session), Background(run), Recent(탭을 닫은 lophn session과 저장한 터미널 session)다.
 // Current와 Recent 줄은 둘 다 한 줄 [아이콘][제목]이고, Current만 오른쪽 끝에 탭 줄과 같은 상태 점이 온다.
+
+import { IconButton } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
+import { t } from "@lophn/wording";
+import { commonIcons } from "../../icons/mod.ts";
 import { Avatar } from "../../parts/avatar/avatar.tsx";
 import { TabStateDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import {
   harnessVendorOf,
   VendorIcon,
 } from "../../parts/vendor-icon/vendor-icon.tsx";
-import { IconButton } from "@lophn/ui/primitives";
-import { iconPixels } from "@lophn/ui/shared";
-import { commonIcons } from "../../icons/mod.ts";
-import { t } from "@lophn/wording";
-
+import styles from "./project-sidebar.module.css";
+import { RunList } from "./run-list.tsx";
+import type { SidebarAgent } from "./sidebar-agent.ts";
 import type {
   AgentPanelView,
   PanelItem,
   PanelSession,
   PanelTerminal,
 } from "./use-agent-panel.ts";
-import { RunList } from "./run-list.tsx";
-import type { SidebarAgent } from "./sidebar-agent.ts";
-import styles from "./project-sidebar.module.css";
 
 interface AgentPanelProps {
   view: AgentPanelView;

@@ -4,5 +4,5 @@ lead만 고친다. `tools/status.py shell-fixes build`가 `tasks/*.md`에서 id,
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `editor-unified-find` | editor | 1 | 없음 | todo |  |  |  |
-| `workspace-tab-dnd` | workspace | 1 | 없음 | todo |  |  |  |
+| `editor-unified-find` | editor | 1 | 없음 | running | editor/editor-unified-find |  |  |
+| `workspace-tab-dnd` | workspace | 1 | 없음 | running | workspace/workspace-tab-dnd |  |  |

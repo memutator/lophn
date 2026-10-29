@@ -9,8 +9,8 @@ project 창이 가진 탭이 어디에 있는가를 정하는 메커니즘이다
    WorkspaceView { panes(1-2), splitRatio, focusedPane, floats[], detached[] }
    FloatItem { tab, rect, minimized, originPane }  배열 순서 = 위아래 순서(마지막이 맨 위)
    DetachedItem { tab, bounds }                    bounds = OS 화면 좌표, 배열 순서 = 뗀 순서
-   순수 함수: floatTab, dockTab, openFloat, minimizeFloat, restoreFloat, raiseFloat, closeFloat, setFloatRect,
-             detachTab, openDetachedTab, attachDetached, closeDetached
+   순수 함수: floatTab, dockTab, openFloat, minimizeTab, minimizeFloat, restoreFloat, raiseFloat, closeFloat, setFloatRect,
+             dropTabOnPane, detachTab, openDetachedTab, attachDetached, closeDetached
    desk 층: switchDesk, openAcrossDesks, deskOfTab, allDeskTabs, mapDeskTabs, vanishedDesks, mergeDeskIntoDefault
         │
         │ 바뀔 때마다 storableDesks(transient 탭 빼기) ─▶ toStoredLayout ─▶ layout:save { project, active_desk, desks }
@@ -66,7 +66,7 @@ project 창이 가진 탭이 어디에 있는가를 정하는 메커니즘이다
 - **native view는 세 층으로 쌓인다.** pane view < floated view(floats 순서) < overlay. main의 `appViewOrder`가 view를 붙이거나 층이 바뀔 때만 다시 쌓는다(bounds만 바뀐 호출은 다시 쌓지 않는다). Electron의 `addChildView`가 이미 붙은 view를 맨 위로 옮기는 것을 쓴다.
 - **DOM 패널이 아래층 native view 위에 뜨면 cover로 native view를 줄인다.** native view는 DOM 위에 그려진다. floated 패널은 자기 층으로 cover를 등록하고, native view는 자기 층보다 위 층의 cover만 뺀 칸 중 가장 큰 사각형에 그린다. 같은 층끼리는 빼지 않는다(floated app panel이 자기 패널 cover에 줄지 않는다). side panel의 cover는 층이 없어 늘 위다. 패널을 옮기면 크기가 같아도 `ViewCovers.changed()`로 다시 잰다.
 - **app panel의 native view는 탭이 사는 동안 산다.** Float, Dock, 접기로 `EmbeddedView`가 다시 mount되어도 view를 닫지 않고 `ViewKeeps`(창마다 하나, renderer)에 숨겨 두었다가 같은 탭 key로 다시 쓴다. page를 다시 load하지 않으므로 쓰던 page 상태와 popup의 `window.opener`가 남는다. 탭이 layout에서 사라지면(`allTabs`에 없으면) 닫고, `Workspace`가 unmount되면 모두 닫는다. 열기 입력이 바뀌면 옛 view를 닫고 새로 연다.
-- **여는 길은 탭 menu의 Float·Detach, 패널 bar의 Minimize·Dock·Detach·Close, 상단 bar span(누르기, right-click의 Restore·Dock·Close), 명령 palette(Float tab, Dock panel, Minimize panel), detached 창 bar의 [Dock]이다.** 기본 단축키는 없고 Detach는 palette 명령도 없다. palette의 Dock·Minimize 대상은 맨 위의 접히지 않은 패널이다. minimized 패널은 먼저 펴야 Detach할 수 있다.
+- **여는 길은 탭 menu의 Float·Detach, 패널 bar의 Minimize·Dock·Detach·Close, 상단 bar span(누르기, hover × 닫기, right-click의 Restore·Dock·Close, 탭 줄·칸 본문으로 끌기), 탭을 끌어 칸 본문(왼쪽·오른쪽·가운데)에 놓아 화면을 나누거나 옮기기(`dropTabOnPane`), 탭을 끌어 상단 titlebar에 놓아 최소화하기, 명령 palette(Float tab, Dock panel, Minimize panel), detached 창 bar의 [Dock]이다.** 기본 단축키는 없고 Detach는 palette 명령도 없다. palette의 Dock·Minimize 대상은 맨 위의 접히지 않은 패널이다. minimized 패널은 먼저 펴야 Detach할 수 있다.
 
 ## 왜 이 모양인가
 

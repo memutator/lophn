@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   ArrowLeftRight,
   ArrowUp,
-  BookOpen,
   CaseSensitive,
   ChevronDown,
   ChevronUp,
@@ -28,7 +27,6 @@ import {
 // 문서 머리·찾기 줄·형식 문제·저장 상태·notice가 쓰는 아이콘. 화면이 lucide를 직접 들이지 않도록 이 묶음이 고른다.
 export const editorIcons = {
   edit: PencilLine,
-  read: BookOpen,
   menu: Ellipsis,
   findPrevious: ArrowUp,
   findNext: ArrowDown,

@@ -16,8 +16,6 @@ import { composeAttachmentText } from "../../../protocol/lophn-agent/message-att
 import { retryIcon } from "../icons/mod.ts";
 import { newId } from "../prefixed-id.ts";
 import type { ArtifactsSlice } from "../workspace/kinds/host.ts";
-import type { ViewDetail } from "./activity/model.ts";
-import { ViewDetailSelect } from "./activity/view-detail-select.tsx";
 import {
   type AgentTabData,
   useAgentTabData,
@@ -168,7 +166,6 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
   };
   const now = props.now ?? Date.now;
   useSyncExternalStore(drafts.subscribe, drafts.version);
-  const [detail, setDetail] = useState<ViewDetail>("compact");
   const [layer, setLayer] = useState<Layer | null>(null);
   const [permissions, setPermissions] = useState<PermissionsData | null>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
@@ -518,7 +515,6 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           openForked: host.openForked,
         }}
         onChanged={() => void refresh()}
-        detail={<ViewDetailSelect value={detail} onChange={setDetail} />}
         trailing={props.trailing}
       />
       {offline || data.failed ? (
@@ -543,7 +539,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           key={key}
           agent={agent}
           entries={thread?.entries ?? []}
-          detail={detail}
+          detail="compact"
           live={thread?.live ?? null}
           outgoing={draft.outgoing}
           working={working}

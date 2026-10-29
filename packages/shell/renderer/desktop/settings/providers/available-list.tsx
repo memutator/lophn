@@ -72,7 +72,7 @@ export function AvailableList({
               className={styles.item}
               data-available={definition.key}
             >
-              <span className={styles.identity}>
+              <span className={styles.availableIdentity}>
                 <ProviderName name={definition.name} />
                 {definition.hint === null ? null : (
                   <span className={styles.hint} data-hint="">

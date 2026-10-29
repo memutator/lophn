@@ -143,12 +143,3 @@
   content: "";
 }
 
-/* header의 보기 상세 select는 label을 눈에서만 감춘다. 이름은 스크린리더에 남는다. */
-.viewDetail label {
-  position: absolute;
-  width: var(--border-width);
-  height: var(--border-width);
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}

@@ -51,9 +51,7 @@ interface AgentHeaderProps {
   host: AgentHeaderHost;
   /** session 목록이나 제목이 바뀌었다. 목록을 다시 읽는다. */
   onChanged: () => void;
-  /** 보기 상세 menu 자리(Messages·Compact·Everything). */
-  detail?: ReactNode;
-  /** detail/menu 오른쪽 끝에 더할 조각 (예: home full mode controller). */
+  /** menu 오른쪽 끝에 더할 조각 (예: home full mode controller). */
   trailing?: ReactNode;
 }
 
@@ -157,7 +155,6 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
             {t("conversation.label.archived")}
           </span>
         ) : null}
-        {props.detail}
         {session === null ? null : (
           <Menu
             items={items.map((item) => ({

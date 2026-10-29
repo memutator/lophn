@@ -272,8 +272,12 @@ export function ManageModelsDialog(props: ManageModelsProps) {
             <p className={styles.leadText}>
               {t("conversation.notice.manage-models-lead")}
             </p>
-            <Button size="sm" variant="secondary" onClick={props.onConnect}>
-              <Icon icon={commonIcons.add} pixels={iconPixels("base")} />
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={commonIcons.add}
+              onClick={props.onConnect}
+            >
               {t("conversation.button.connect-provider")}
             </Button>
           </div>

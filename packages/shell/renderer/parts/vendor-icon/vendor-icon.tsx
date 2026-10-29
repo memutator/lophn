@@ -15,6 +15,7 @@ import devin from "./devin.svg";
 import droid from "./droid.svg";
 import google from "./google.svg";
 import grok from "./grok.svg";
+import groq from "./groq.svg";
 import hermes from "./hermes.svg";
 import kilo from "./kilo.svg";
 import kimi from "./kimi.svg";
@@ -65,6 +66,7 @@ const RAW_ICONS = {
   google,
   xai,
   openrouter,
+  groq,
   deepseek,
   ollama,
   mistral,
@@ -85,6 +87,7 @@ export function vendorOf(name: string): Vendor | undefined {
   const key = name.toLowerCase().replace(/\s+/g, "-");
   if (key in ICONS) return key as Vendor;
   if (key === "gemini" || key === "google-gemini") return "google";
+  if (key === "google-antigravity") return "antigravity";
   if (key === "hermes-agent") return "hermes";
   if (key === "claude-code") return "claude";
   if (key === "codex") return "openai";
@@ -98,6 +101,7 @@ const PROVIDER_VENDORS: ReadonlySet<Vendor> = new Set<Vendor>([
   "google",
   "xai",
   "openrouter",
+  "groq",
   "deepseek",
   "ollama",
   "mistral",

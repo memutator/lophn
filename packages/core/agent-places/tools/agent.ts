@@ -74,7 +74,6 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "agent.update",
-    defer: true,
     input: agentDefinitionSchema
       .omit({ name: true, mcp_servers: true, skip: true })
       .partial()

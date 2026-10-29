@@ -29,8 +29,8 @@ Sections, in this order:
 
 Look before you design, and write what you found under Reuse.
 
-- `package.list` lists the installed SDK packages and the packages other apps
-  published. `package.get` with a name gives a package's guide.
+- `package.read` lists the installed SDK packages and the packages other apps
+  published. `package.read` with a name gives a package's guide.
 - The guide of `@lophn/ui` is the screen kit: its parts by category, a line on
   when to use each, and their props. Read it before you write Screens.
 - `app.tools` lists other apps' tools. Declare the ones you use in

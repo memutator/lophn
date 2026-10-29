@@ -9,8 +9,8 @@ The person called this with `/repair-app`. You do not fix the app yourself; you
 find out what went wrong and hand it to lophn at that app.
 
 1. Find which app. Take it from what the person wrote after the name. If it is
-   not there, read `app.list` and ask which one with `ask`.
-2. Read what happened: `app.get`, `app.status`, `app.logs` (recent errors;
+   not there, list the apps with `app.read` and ask which one with `ask`.
+2. Read what happened: `app.read` with its ID, `app.status`, `app.logs` (recent errors;
    narrow with `since`) and `app.invocations` with `status: "failed"`.
 3. Tell the person what you found. Separate what you confirmed from what you
    suppose, and say "not confirmed" for any number you did not read. Do not

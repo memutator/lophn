@@ -11,7 +11,7 @@ where you start; do not ask again for what they already said.
 1. Find out what the app should do and who it is for. Use `ask`, one question at
    a time.
 2. Look at what exists before you decide: the domain map in your place
-   information, `app.list`, `app.get`, `app.tools` and `package.list`. Compare
+   information, `app.read`, `app.tools` and `package.read`. Compare
    the options in the order of your instructions (change an existing app, build
    on a package, build a new app), recommend the first that fits, and let the
    person choose with `ask`.

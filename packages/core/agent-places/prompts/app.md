@@ -88,10 +88,10 @@ information). Use `app.link_source` only for an existing git repo with a commit.
 - Public tools are promises; write them in `DESIGN.md`. `removed_public_tools`
   lists each public tool a release removes and the domains using it. The program
   does not block it. Before you activate, tell lophn at each such domain's
-  project or app (`domain.get` gives the owner) with `call`, no reply expected,
-  and ask the person, or bring the tool back.
+  project or app (`domain.read` with its ID gives the owner) with `call`, no
+  reply expected, and ask the person, or bring the tool back.
 - A problem in another app's package goes to lophn at that app (`owner_app` from
-  `package.get`) with `call`, no reply expected.
+  `package.read`) with `call`, no reply expected.
 - When the person gives you a job, do it with the kinds of your domains and the
   tools you were given. Read before you judge, and leave the result where the
   person can see it, with the evidence you read.

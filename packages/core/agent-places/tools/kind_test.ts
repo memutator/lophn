@@ -23,6 +23,7 @@ test("kind tools refuse a domain outside ctx.domains without calling core", asyn
     [[MINE, ALSO], OTHER],
     [[MINE, ALSO], undefined],
     [[], undefined],
+    [[], OTHER],
   ];
   for (const [domains, domain] of refused) {
     for (const tool of KIND_TOOLS) {

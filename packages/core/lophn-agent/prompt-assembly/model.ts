@@ -13,7 +13,8 @@ export type PromptTool = {
   name: string;
   description: string;
   input_schema: unknown;
-  // 이름만 알리고 정의는 `tool.load`가 펼친다. 요청이 켜진 session이고 이번 provider·model이 받을 때만 true다.
+  // 첫 요청에 정의를 싣지 않는 tool이다. 이름은 tool.load 설명이 알리고 정의는 tool.load 결과가 펼친다.
+  // native loading을 받는 packer는 defer_loading으로 싣고, 그 밖의 packer는 tools[]에서 뺀다(`inlineToolLoading`).
   deferred?: boolean;
 };
 
@@ -29,7 +30,7 @@ export type HistoryPart =
       media_type: string;
       data_base64: string;
     }
-  // tool.load가 불러온 tool의 wire 이름이다. id는 tool_result와 같고 adapter가 tool reference나 글로 바꾼다.
+  // tool.load가 불러온 tool의 wire 이름이다. id는 tool_result와 같고 packer가 tool reference나 정의 글로 바꾼다.
   | { kind: "tool_result_reference"; id: string; names: string[] }
   | { kind: "reasoning"; text: string };
 

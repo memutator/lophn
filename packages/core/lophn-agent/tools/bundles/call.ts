@@ -29,13 +29,9 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
     input: callToolInput,
     routes: [agentCallSend],
     description:
-      "Hand work to another agent. Returns the call ID at once and your turn goes on. " +
-      "to: {session} an open session (see session.list), or {agent, place?} a new session of that agent " +
-      "(agent is the agent's name; place is {project: name} or {app: name}; no place means home), " +
-      'or both with fallback: "new" to use the open session and open a new one if it is closed. Names must match exactly. ' +
-      "reply: none (no answer), result (the receiver answers with reply) or conversation (both sides keep talking with reply). " +
-      "body: what you hand over. refs: links {kind: file|session|annotation, ...}. " +
-      "If it fails, the result says why (not_found, closed). A closed session is not reopened; call its agent and place to open a new one.",
+      "Hand work to an agent asynchronously; returns a call ID. to.session uses an open session (session.list); to.agent/place opens a new one using exact names (no place means home). " +
+      'Supply both with fallback:"new" to open a replacement when the session is closed. Closed sessions stay closed. ' +
+      "reply: none requires no answer; result asks the receiver to reply; conversation lets both sides continue via reply.",
     effect: "read",
     handler: async (input, ctx) => {
       const sent = await ctx.router.send({
@@ -105,7 +101,6 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "session.list",
-    defer: true,
     input: none,
     routes: [agentCallSendable],
     description:

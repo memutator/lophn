@@ -162,6 +162,8 @@ type PreparerDeps = {
   >;
   // place 종류가 고정한 tool 이름 목록. 어느 종류가 어느 tool을 보는지는 place 층이 정한다.
   placeTools(kind: PlaceKind): readonly string[];
+  // 그 가운데 첫 요청부터 정의를 싣는 이름이다. 나머지와 앱·MCP tool은 tool.load로 정의를 읽는다. 정책은 place 층이 정한다.
+  exposedTools(kind: PlaceKind): readonly string[];
   instructions: InstructionDeps;
   // session마다 그 session으로 지침 파일을 읽는 통로. 있으면 `instructions.files` 대신 쓴다(core가 session의
   // place로 어느 project인지 정한다).
@@ -208,21 +210,39 @@ export type TurnPreparer = {
 };
 
 // session을 시작할 때 고정한 tool 목록이다. 정의는 model에 보인 그대로이고 handler는 turn마다 붙인다.
-// deferred는 deferred-tools를 켠 session이 숨긴 tool의 정본 이름이다. 꺼진 session은 null이고 끝까지 끈다:
-// 숨겨 둔 적 없는 tool을 이력이 이미 불렀을 수 있다.
+// deferred는 첫 요청에 정의를 싣지 않는 tool의 정본 이름이다. provider와 무관하게 정하고, native loading을 쓸지는 turn마다
+// packer가 정한다.
 type FixedTools = {
   definitions: readonly ToolDefinition[];
   key: string;
-  deferred: ReadonlySet<string> | null;
+  deferred: ReadonlySet<string>;
 };
 
-// 숨긴 tool의 wire 이름을 정렬해 tool.load 설명 끝에 붙인다. 같은 session은 늘 같은 bytes다.
+// 목록 한 줄의 안내 길이다. 정의 전체는 tool.load가 읽는다.
+const SUMMARY_MAX = 100;
+
+// 숨긴 tool의 wire 이름과 짧은 안내를 이름 순으로 tool.load 설명 끝에 붙인다. 같은 session은 늘 같은 bytes다.
+// 안내는 설명의 첫 문장이고 줄바꿈 없이 자른다.
 function describeToolLoad(
   tool: ToolDefinition,
-  deferred: ReadonlySet<string>,
+  hidden: readonly ToolDefinition[],
 ): ToolDefinition {
-  const wire = [...deferred].map(toWireToolName).sort();
-  return { ...tool, description: `${tool.description} ${wire.join(", ")}` };
+  const lines = hidden
+    .map((entry) => {
+      const text = entry.description.replace(/\s+/g, " ").trim();
+      const first = text.split(/(?<=\.)\s/)[0] ?? "";
+      const summary =
+        first.length > SUMMARY_MAX
+          ? `${first.slice(0, SUMMARY_MAX - 1)}…`
+          : first;
+      const wire = toWireToolName(entry.name);
+      return summary === "" ? wire : `${wire}: ${summary}`;
+    })
+    .sort();
+  return {
+    ...tool,
+    description: `${tool.description}\n${lines.join("\n")}`,
+  };
 }
 
 // 지난 turn이 본 prompt의 판이다. compaction 경계(through_seq)를 같이 두어 Compact 뒤 첫 turn은 seen 없이 부른다.
@@ -390,38 +410,35 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const model = await deps.resolveModel({ model: agent.model });
     if (!model.ok) return model;
 
-    // 켤지는 session의 첫 turn이 정하고 그 뒤로는 바꾸지 않는다.
+    // 숨김은 session의 첫 turn이 정하고 그 뒤로는 바꾸지 않는다.
     const fixedNow = fixedBySession.get(start.session);
-    const deferral =
-      fixedNow === undefined
-        ? model.value.deferrable
-        : fixedNow.deferred !== null;
+    const kind = placeKindOf(session.place);
 
-    // place 종류가 고정한 목록에 이 turn이 닿는 tool과 앱 tool, 외부 MCP tool을 더한다. 숨기지 않는 session에는 tool.load가 없다.
+    // place 종류가 고정한 목록에 이 turn이 닿는 tool과 앱 tool, 외부 MCP tool을 더한다.
     const plain: readonly ToolDefinition[] = [
       ...selectTools(
-        deps.placeTools(placeKindOf(session.place)),
+        deps.placeTools(kind),
         { input_media: model.value.inputMedia },
         deps.toolkit.definitions,
-      ).filter((tool) => deferral || tool.name !== "tool.load"),
+      ),
       ...(appTool?.tools ?? []).map((tool) => tool.definition),
       ...external.map((tool) => tool.definition),
     ];
-    // 숨기는 것은 defer 표시가 있는 내장 tool과 앱 tool, 외부 MCP tool 전부다.
-    const deferred: ReadonlySet<string> | null = !deferral
-      ? null
-      : (fixedNow?.deferred ??
-        new Set(
-          plain
-            .filter((tool) => tool.defer === true || tool.origin !== "builtin")
-            .map((tool) => tool.name),
-        ));
-    const current =
-      deferred === null
-        ? plain
-        : plain.map((tool) =>
-            tool.name === "tool.load" ? describeToolLoad(tool, deferred) : tool,
-          );
+    // 숨기는 것은 place 정책이 첫 요청에 싣지 않는 내장 tool과 앱 tool, 외부 MCP tool 전부다.
+    const exposed = new Set(deps.exposedTools(kind));
+    const deferred: ReadonlySet<string> =
+      fixedNow?.deferred ??
+      new Set(
+        plain
+          .filter(
+            (tool) => tool.origin !== "builtin" || !exposed.has(tool.name),
+          )
+          .map((tool) => tool.name),
+      );
+    const hidden = plain.filter((tool) => deferred.has(tool.name));
+    const current = plain.map((tool) =>
+      tool.name === "tool.load" ? describeToolLoad(tool, hidden) : tool,
+    );
     const seat: TurnSeat = { turn, session: start.session };
     return ok({
       agent,
@@ -470,7 +487,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       seat.session,
     ]);
     const operations = new Set(runOperations(fixed.definitions));
-    const deferred = fixed.deferred ?? new Set<string>();
+    const deferred = fixed.deferred;
     const listed: ToolDefinition[] = fixed.definitions.map((tool) => {
       const handler = legacy.get(tool.name);
       if (tool.handler !== undefined || handler === undefined) return tool;
@@ -567,9 +584,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
             name: tool.name,
             description: tool.description,
             input_schema: tool.inputSchema ?? z.toJSONSchema(tool.input),
-            ...(model.deferrable && deferred.has(tool.name)
-              ? { deferred: true }
-              : {}),
+            ...(deferred.has(tool.name) ? { deferred: true } : {}),
           })),
           instructions,
           skills: promptSkills(

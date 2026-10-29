@@ -16,6 +16,8 @@ type InputRejection = {
 // 숫자를 숫자로 받는 경로를 막는다.
 const PARSE = { reportInput: true } as const;
 
+// 첫 문제 하나만 알린다. 모르는 key는 그 이름을, 그 밖은 zod 설명 글을 붙인다. 설명 글은 schema가 기대한 것(type,
+// 범위, 형식)이고 입력 값은 담지 않는다. model이 왕복 없이 고칠 수 있게 하려는 것이다.
 export function checkInput(
   schema: z.ZodType,
   input: unknown,
@@ -23,13 +25,21 @@ export function checkInput(
   const parsed = schema.safeParse(input, PARSE);
   if (parsed.success) return ok(parsed.data);
   const issue = parsed.error.issues[0];
-  const path = issue === undefined ? "" : issue.path.join(".");
+  if (issue === undefined) {
+    return err({
+      code: "invalid_input",
+      message: "tool input does not match the definition",
+      path: "",
+    });
+  }
+  const path = issue.path.join(".");
+  const detail =
+    issue.code === "unrecognized_keys"
+      ? `unknown key ${issue.keys.join(", ")}`
+      : issue.message;
   return err({
     code: "invalid_input",
-    message:
-      issue === undefined
-        ? "tool input does not match the definition"
-        : `tool input does not match the definition at ${path || "input"}`,
+    message: `tool input does not match the definition at ${path || "input"}: ${detail}`,
     path,
   });
 }

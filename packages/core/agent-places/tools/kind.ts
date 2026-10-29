@@ -5,6 +5,7 @@ import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
 import {
   kindCheck,
   kindCheckQuerySchema,
+  conditionSchema,
   kindList,
   kindListQuerySchema,
 } from "../../../protocol/projects/mod.ts";
@@ -34,19 +35,36 @@ function domainOf(given: string | undefined, ctx: ToolContext): Result<string> {
 }
 
 const domainInput = { domain: domainIdSchema.optional() };
+const listInput = z.strictObject({
+  ...domainInput,
+  ...kindListQuerySchema.shape,
+});
+const nestedCondition = conditionSchema.options[1].shape.not.unwrap();
+// 같은 조건 tree를 세 번씩 펼치면 schema가 커진다. model에는 한 층과 재귀 모양만 알리고 실행은 listInput으로 검사한다.
+const listInputSchema = z.toJSONSchema(listInput, {
+  override({ zodSchema, jsonSchema }) {
+    if (zodSchema !== nestedCondition) return;
+    for (const key of Object.keys(jsonSchema)) delete jsonSchema[key];
+    Object.assign(jsonSchema, {
+      type: "object",
+      description:
+        "A condition in the same leaf or all/any/not form as where. The whole where tree has at most 3 levels and 20 terms per group.",
+    });
+  },
+});
+delete listInputSchema.$schema;
 
 export const KIND_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "kind.list",
-    input: z.strictObject({ ...domainInput, ...kindListQuerySchema.shape }),
+    input: listInput,
+    inputSchema: listInputSchema,
     routes: [kindList],
     description:
-      "List the documents (items) of one kind of a domain, or aggregate them. domain: the domain to read (may be left out when you have only one). Kind names and fields are in the kind text of your prompt. " +
-      "where: a condition { field, op, value } with op eq, ne, in, lt, lte, gt, gte, contains or exists (exists takes no value); combine with { all: [...] }, { any: [...] } or { not: ... } (up to three levels). " +
-      "sort: [{ field, dir }]; fields: the fields to return; limit (default 50, max 200); cursor: next_cursor of the previous page. " +
-      "aggregate: [{ op: count|sum|min|max, field, as }] with one optional group_by field (cannot be combined with sort, fields, limit or cursor). " +
-      "Documents with unreadable or mistyped values are left out and counted in skipped; read kind.check for why. " +
-      "Relations are not followed: call it again with the key you got, for example list vendor, then list receipt where vendor eq that key.",
+      "Query or aggregate documents of one kind in your domains; omit domain when you have one. Kind names and fields are in your prompt. " +
+      "where accepts a leaf {field, op, value} or nested all/any/not groups (up to 3 levels); exists omits value, other ops require it. " +
+      "limit defaults to 50; pass next_cursor as cursor for another page. aggregate/group_by cannot combine with sort, fields, limit or cursor. " +
+      "Invalid documents are counted in skipped; use kind.check for details. Query related kinds separately using the returned keys.",
     effect: "read",
     handler: async (input, ctx) => {
       const { domain: given, ...query } = input;
@@ -84,7 +102,7 @@ export const KIND_TOOLS: readonly ToolDefinition[] = [
     input: z.strictObject({ ...domainInput, ...kindCheckQuerySchema.shape }),
     routes: [kindCheck],
     description:
-      "Run the format check of a domain's kinds now: errors of kinds.yaml itself and the documents that break it. domain: the domain to check (may be left out when you have only one). kind narrows to one kind; limit and cursor page the violations.",
+      "Check kinds.yaml and documents in one of your domains. Omit domain when you have one; kind filters violations, limit/cursor page them.",
     effect: "read",
     handler: async (input, ctx): Promise<Result<ToolResult>> => {
       const { domain: given, ...query } = input;

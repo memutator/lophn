@@ -44,6 +44,7 @@ export function modelClassOf(model: string): "gemini" | "claude" | "other" {
 
 // ── 요청 번역 ─────────────────────────────────────────────────────────────
 
+// 공통 tool loading을 거친 이력이다. tool.load 결과는 이미 정의 글이라 참조 조각이 없다.
 type HistoryMessage = {
   role: "user" | "assistant";
   parts: readonly (
@@ -56,7 +57,6 @@ type HistoryMessage = {
         media_type: string;
         data_base64: string;
       }
-    | { kind: "tool_result_reference"; id: string; names: string[] }
   )[];
 };
 
@@ -104,16 +104,6 @@ export function cloudCodeContents(
       } else if (part.kind === "tool_result") {
         if (names.has(part.id)) responses.set(part.id, { output: part.text });
         else texts.push(part.text);
-      } else if (part.kind === "tool_result_reference") {
-        const loaded = `Loaded: ${part.names.join(", ")}`;
-        const found = responses.get(part.id);
-        if (found !== undefined) {
-          found.output = [found.output, loaded]
-            .filter((v) => v !== "")
-            .join("\n");
-        } else if (names.has(part.id)) {
-          responses.set(part.id, { output: loaded });
-        } else texts.push(loaded);
       } else if (part.kind === "tool_result_image") {
         if (options.images) {
           pictures.push({

@@ -21,7 +21,6 @@ const nonblank = z.string().refine((value) => value.trim().length > 0, {
 export const VISUAL_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "visual.show",
-    defer: true,
     input: z.strictObject({ app: idSchema("app"), view: nonblank }),
     routes: [appTools, recordMessage],
     description:

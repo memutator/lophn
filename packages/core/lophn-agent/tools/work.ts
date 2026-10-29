@@ -30,7 +30,8 @@ export type ToolHandler = (
 ) => Promise<Result<ToolResult>>;
 
 // 기계가 구별하는 코드는 유지하고, 문장만 안전하게 고정한다. forbidden과
-// not_found는 같은 문장이라 범위 밖 대상의 이름·존재가 새지 않는다.
+// not_found는 같은 문장이라 범위 밖 대상의 이름·존재가 새지 않는다. invalid_input만 handler 문장을 그대로 싣는다:
+// 입력의 어느 부분이 왜 틀렸는지 알아야 model이 고치고, 그 문장은 model이 보낸 입력에 대한 것이다.
 const FAILURE_SUMMARIES: Readonly<Record<string, string>> = {
   invalid_input: "tool input is not valid",
   unauthorized: "tool call is not authorized",
@@ -137,8 +138,11 @@ export async function executeToolCall(
   const produced = await definition.handler(checked.value, ctx);
   if (!produced.ok) {
     const code = FAILURE_CODES.get(produced.error.code) ?? "internal";
-    // handler 문장은 대상 이름·존재를 담을 수 있어 공통 코드 문장만 돌려준다.
-    const summary = FAILURE_SUMMARIES[code] ?? "tool call failed";
+    // handler 문장은 대상 이름·존재를 담을 수 있어 공통 코드 문장만 돌려준다. 입력이 틀렸다는 문장은 그대로 싣는다.
+    const summary =
+      code === "invalid_input"
+        ? `${FAILURE_SUMMARIES.invalid_input}: ${produced.error.message}`
+        : (FAILURE_SUMMARIES[code] ?? "tool call failed");
     return {
       ...stopped(name, "failure", code, summary, effect),
       executed: true,

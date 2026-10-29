@@ -13,7 +13,7 @@ export const SKILL_TOOLS: readonly ToolDefinition[] = [
     input: z.strictObject({ name: nonblank, path: path.optional() }),
     routes: [],
     description:
-      "Read a skill by name. Without path it returns the skill body; with path it returns a file that comes with the skill. A turn that is running reads the version the turn started with. A skill that is off cannot be read.",
+      "Read an enabled skill's body, or its bundled file at path. Uses the version captured at turn start.",
     effect: "read",
     handler: async (input, ctx) => {
       const { name, path } = input;

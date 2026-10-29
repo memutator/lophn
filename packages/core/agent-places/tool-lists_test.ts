@@ -6,7 +6,7 @@ import {
   toWireToolName,
   WIRE_TOOL_NAME_PATTERN,
 } from "../../protocol/lophn-agent/mod.ts";
-import { placeToolNames } from "./tool-lists.ts";
+import { exposedToolNames, placeToolNames } from "./tool-lists.ts";
 
 // 이름이 겹치면 tool 실행이 다른 tool로 간다.
 test("place kind tool wire names fit the provider rule and never collide", () => {
@@ -23,6 +23,12 @@ test("place kind tool wire names fit the provider rule and never collide", () =>
       new Set(names).size,
       names.length,
       `${kind} lists twice`,
+    );
+    // 목록에 없는 이름을 노출 정책에 두면 이름을 바꾼 tool이 말없이 숨는다.
+    assert.deepStrictEqual(
+      exposedToolNames(kind).filter((name) => !names.includes(name)),
+      [],
+      `${kind} exposes a tool it does not list`,
     );
   }
 });
@@ -48,6 +54,10 @@ test("each tool appears only in the place kinds that do its work", () => {
     ],
     [
       ["file.write", "file.edit", "shell.run"],
+      ["project", "app"],
+    ],
+    [
+      ["kind.list", "kind.check"],
       ["project", "app"],
     ],
     [["workflow.check"], ["project"]],

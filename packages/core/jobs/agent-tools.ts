@@ -22,9 +22,9 @@ import {
 } from "../lophn-agent/tools/spi.ts";
 
 const SCHEDULE_NOTE =
-  "`every` is `<number><m|h|d>` (minutes, hours, days; e.g. `30m`, `6h`, `1d`). `at` is a local `HH:MM` of this computer and is only for `d` units. `missed_policy` says what to do with a turn lophn missed while it was off: `run` runs it once when lophn is back on, `hold` leaves a card that asks the person.";
+  "every uses m/h/d (minutes/hours/days); at is this computer's local HH:MM, only for d. After downtime, missed_policy run runs once; hold asks the person.";
 const ACTION_NOTE =
-  "Each turn runs without a person, and `action` is one of: `agent_run` (a new session of the agent `{agent, place?}` with `prompt`; `agent` is the agent's name and `place` is `{project: name}` or `{app: name}`, with no place meaning home), `tool_run` (one tool call of an app, which runs only within the allotment of the agent that created the job), `workflow_start` (starts an instance of an agent or flow workflow, named `<project name>/<name>`, with `text`; `step` picks where an agent workflow starts and is `invalid_input` for a flow).";
+  "Runs unattended. agent_run opens a new session (agent/place use exact names; no place means home). tool_run uses the creator agent's app assignment. workflow_start names <project>/<workflow>; step is only for agent workflows, not flows.";
 const OWN_NOTE =
   "You can change or delete only jobs you created in this place.";
 const RESTART_NOTE =
@@ -33,7 +33,6 @@ const RESTART_NOTE =
 export const JOB_AGENT_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "job.create",
-    defer: true,
     input: z.strictObject({
       title: jobTitleSchema,
       every: jobEverySchema,
@@ -43,7 +42,7 @@ export const JOB_AGENT_TOOLS: readonly ToolDefinition[] = [
       enabled: z.boolean().optional(),
     }),
     routes: [jobCreate],
-    description: `Create a scheduled job that repeats on its own. ${SCHEDULE_NOTE} ${ACTION_NOTE} \`enabled\` defaults to true.`,
+    description: `Create a repeating job; enabled defaults to true. ${SCHEDULE_NOTE} ${ACTION_NOTE}`,
     effect: "write",
     handler: async (input, ctx) => {
       const made = await commandOf(
@@ -59,7 +58,6 @@ export const JOB_AGENT_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "job.update",
-    defer: true,
     input: z.strictObject({
       job: jobIdSchema,
       title: jobTitleSchema.optional(),
@@ -70,7 +68,7 @@ export const JOB_AGENT_TOOLS: readonly ToolDefinition[] = [
       enabled: z.boolean().optional(),
     }),
     routes: [jobUpdate],
-    description: `Change a scheduled job. Omit a field to keep it; \`at: null\` clears the time of day; \`action\` replaces the whole action. ${RESTART_NOTE} ${SCHEDULE_NOTE} ${ACTION_NOTE} ${OWN_NOTE}`,
+    description: `Update a job. Omitted fields stay; at:null clears the time; action replaces the whole action. ${RESTART_NOTE} ${SCHEDULE_NOTE} ${ACTION_NOTE} ${OWN_NOTE}`,
     effect: "write",
     handler: async (input, ctx) => {
       const body = Object.fromEntries(
@@ -89,7 +87,6 @@ export const JOB_AGENT_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "job.delete",
-    defer: true,
     input: z.strictObject({ job: jobIdSchema }),
     routes: [jobDelete],
     description: `Delete a scheduled job and its history; a run or workflow instance already running goes on. ${OWN_NOTE}`,
@@ -108,7 +105,6 @@ export const JOB_AGENT_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "job.list",
-    defer: true,
     input: z.strictObject({}),
     routes: [jobList],
     description:

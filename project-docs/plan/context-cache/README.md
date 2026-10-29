@@ -26,7 +26,7 @@
 | 예산을 넘으면 | 보내지 않고 turn이 `context_limit`으로 끝난다. provider overflow 오류도 `context_limit` | `packages/core/lophn-agent/run-loop/turn.ts`, `packages/core/lophn-agent/providers/failures.ts`의 `OVERFLOW_PATTERNS` |
 | compact | 사람이 부를 때만. 최근 사람 message 3개를 남기고, 요약 상한은 `min(예산/10, 4000)` byte(약 1k token) | `packages/core/lophn-agent/session/compactor.ts`의 `KEEP_RECENT`, `packages/core/lophn-agent/prompt-assembly/compaction.ts`의 `summaryOutputCap` |
 | turn 사이 이력 | user·assistant 글과 `tool.load` 재생뿐이다. turn 안의 tool loop는 다음 turn에 실리지 않는다. 그래서 context가 넘치는 곳은 거의 **turn 안**(앱 짓기 turn은 call 약 100번, tool 결과 하나 약 24 KiB)이다 | `packages/core/lophn-agent/session/history.ts`의 `readSessionConversation` |
-| tool deferral | built-in `anthropic`의 Claude 4.5 이상만. `defer_loading` + `tool.load` → `tool_reference` | `packages/core/lophn-agent/providers/definitions.ts`의 `supportsDeferredTools`, `packages/core/lophn-agent/tools/bundles/tool.ts` |
+| tool deferral | 모든 provider에서 숨긴다(place별 `exposedToolNames`). 공통 경로는 정의를 `tools[]`에서 빼고 `tool.load` 결과 글에 싣고 `tool_call`로 부른다. native는 built-in `anthropic`의 Claude 4.5 이상만(`defer_loading` + `tool_reference`) | `packages/core/lophn-agent/prompt-assembly/loading.ts`, `packages/core/lophn-agent/models/binding.ts`, `packages/core/lophn-agent/providers/definitions.ts`의 `supportsDeferredTools`, `packages/core/lophn-agent/tools/bundles/tool.ts` |
 | MCP tool 이름 | `mcp__<server>__<tool>`, 64자 상한 이미 있음 | `packages/core/lophn-agent/extensions/mcp-tools.ts` |
 
 ## credential별 결론
@@ -79,7 +79,6 @@
 | 15턴 checkpoint, 두 번째 대화 표시, system 표시 수 조정 | turn 안 call은 lookback 20 안에서 이어진다. 효과를 재기 전에는 만들지 않는다 |
 | GPT-5.6 explicit breakpoint, 12h, `previous_response_id` chain | implicit cache로 충분하다. `store:false`는 정한 설계다 |
 | provider native compaction(Anthropic `compact`, OpenAI compaction) | 줄일 것이 turn 안 tool 결과라 local 대체가 단순하다 |
-| Chat Completions·Antigravity·custom의 tool 지연(dispatcher) | 선언된 dispatcher tool로 부르게 하는 설계(`research_notes/omp-cache-compaction-tool-loading/tool-loading.md`의 device 방식)는 model 정확도를 eval로 재야 한다. L4 결과를 보고 roadmap으로 올린다 |
 | 오래된 이미지 빼기를 묶어서 하기 | 새 이미지마다 빠지는 이미지는 끝에서 셋째라 다시 쓰는 범위가 작다 |
 | Bedrock, Vertex, Codex backend | lophn에 없는 provider다 |
 
@@ -113,4 +112,4 @@ brief는 쓰지 않는다(task가 적고 결정이 위에 있다). lead가 worke
   - `cache-tail`: "cache 표시는 system 층 셋과 대화 끝 하나다" 절에 "notice 같은 그 call에만 붙는 글에는 달지 않는다"와 다는 곳(packer).
   - `cache-ttl`·`cache-openai`: credential별 cache 표 한 줄씩.
   - `defer-responses`: "tool 정의는 늦게 싣는다"의 켜는 곳과 "OpenAI responses의 `tool_search` … 아직 켜지 않는다" 문장.
-- 다 끝나면: changelog 열린 판(`project-docs/products/change-log/0.9.0.md`)에 항목. 결정은 위 "정한 것"의 `(agent)`와 사람 결정. 범위 밖의 dispatcher tool 지연은 L4 결과와 함께 `project-docs/products/roadmap/`에 한 편으로 올린다. 계획 폴더를 지운다.
+- 다 끝나면: changelog 열린 판(`project-docs/products/change-log/0.9.0.md`)에 항목. 결정은 위 "정한 것"의 `(agent)`와 사람 결정. 공통 dispatcher(`tool_call`)는 0.9.0 "tool 정의를 모든 provider에서 늦게 싣는다"로 끝났다. `defer-responses`는 Responses packer에 native 갈래를 더하는 일이 된다(지금 Responses는 공통 경로다). 계획 폴더를 지운다.

@@ -42,9 +42,9 @@ const editInput = z.strictObject({
 });
 
 const TEXT_NOTE =
-  "`text` is a short note of at most 8 KiB (UTF-8); put longer content in a file and write its path.";
+  "text: at most 8 KiB UTF-8; put longer content in a file and pass its path.";
 const STATE_NOTE =
-  "Only an instance the user stopped is a `conflict` for workflow.edit (workflow.report still leaves the line but hands nothing). An instance that `end` ended comes back to `running` when a report or `hand_now` actually hands a step.";
+  "User-stopped instances reject edits; reports are recorded but hand nothing. Handing a step resumes an instance ended by end.";
 
 function handedSummary(
   verb: string,
@@ -60,7 +60,6 @@ function handedSummary(
 export const WORKFLOW_AGENT_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "workflow.list",
-    defer: true,
     input: z.strictObject({ project: z.string().min(1).optional() }),
     routes: [workflowList],
     description:
@@ -83,7 +82,7 @@ export const WORKFLOW_AGENT_TOOLS: readonly ToolDefinition[] = [
     name: "workflow.get",
     input: z.strictObject({ instance: idSchema("wfi") }),
     routes: [workflowInstanceRead],
-    description: `Read a workflow instance: state, steps, current step, the last report of each step and the last ${LAST_LINES} lines. \`lines\` and \`last_reports\` are newest first. A \`lophn_restarted\` line means lophn was off and on again and the message of that step may not have reached the turn. It is not handed again; hand it again with workflow.edit \`hand_now\` if needed. A line \`by: program\` is a report that a flow made; \`program_exited\` says the flow process ended (its exit code and the last stderr line), and the instance is \`ended\` then.`,
+    description: `Read a workflow instance's state, steps, latest reports and last ${LAST_LINES} lines, newest first. After lophn_restarted, a step message may be undelivered; use workflow.edit hand_now to resend if needed. program_exited ends a flow instance and records its exit code and last stderr line.`,
     effect: "read",
     handler: async (input, ctx) => {
       let cursor: string | undefined;
@@ -128,7 +127,7 @@ export const WORKFLOW_AGENT_TOOLS: readonly ToolDefinition[] = [
       session: sessionChoiceSchema.optional(),
     }),
     routes: [workflowReport],
-    description: `Report the result of a step of a workflow instance. \`next\` is a step name or "end" and hands that step; omit it to leave a progress note without handing anything. \`session\` is "new" or "same". ${TEXT_NOTE} ${STATE_NOTE} The line is kept even if the step was not handed; the summary says why.`,
+    description: `Report a step result. next hands a step or ends the instance; omit it for a progress note. The report stays even if handing fails; the summary explains why. ${TEXT_NOTE} ${STATE_NOTE}`,
     effect: "write",
     handler: async (input, ctx) => {
       const done = await readOf(ctx.core, workflowReport, input);
@@ -140,7 +139,7 @@ export const WORKFLOW_AGENT_TOOLS: readonly ToolDefinition[] = [
     name: "workflow.edit",
     input: editInput,
     routes: [workflowEdit],
-    description: `Edit a running workflow instance. \`op\` and the fields it needs: add_step needs \`step\` (an object { name, by, with?, prompt, in?, out?, next? }) and may take \`after\` (a step name); update_step needs \`name\` and \`patch\`; remove_step needs \`name\`; end needs nothing; hand_now needs \`step\` (a step name) and may take \`text\` and \`session\` ("new" or "same"). ${TEXT_NOTE} ${STATE_NOTE}`,
+    description: `Edit an instance. add_step: step object, optional after. update_step: name and patch. remove_step: name. end: no extra fields. hand_now: step name, optional text/session. ${TEXT_NOTE} ${STATE_NOTE}`,
     effect: "write",
     handler: async (input, ctx) => {
       const body = Object.fromEntries(
@@ -153,11 +152,10 @@ export const WORKFLOW_AGENT_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "workflow.check",
-    defer: true,
     input: z.strictObject({ workflow: workflowKeySchema }),
     routes: [workflowCheck],
     description:
-      "Type-check the flow.ts of a flow workflow (`<project>/<name>`) against the installed `@lophn/flow` SDK and return the errors. Type check only: it does not run the flow and does not start an instance. No errors means it passes.",
+      "Type-check the flow named <project>/<workflow> against the installed @lophn/flow SDK. Returns type errors; does not execute or start the flow.",
     effect: "read",
     handler: async (input, ctx) => {
       const checked = await readOf(ctx.core, workflowCheck, input);

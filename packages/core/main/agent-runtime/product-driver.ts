@@ -37,7 +37,10 @@ import {
   createCompactor,
 } from "../../lophn-agent/session/compactor.ts";
 import { createModelResolver } from "../../lophn-agent/models/resolve.ts";
-import { placeToolNames } from "../../agent-places/tool-lists.ts";
+import {
+  exposedToolNames,
+  placeToolNames,
+} from "../../agent-places/tool-lists.ts";
 import { placePrompt } from "../../agent-places/prompts/prompts.ts";
 import { PROJECT_LAYER } from "../../agent-places/place/project-layer.ts";
 import { BUNDLED_SKILLS_ROOT } from "../../agent-places/skills/root.ts";
@@ -226,6 +229,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       placePrompt,
       placeData: (call, agent) => placeData(call, agent, placeFiles()),
       placeTools: placeToolNames,
+      exposedTools: exposedToolNames,
       instructions: {
         // turn 없이는 읽지 않는다. 실제 읽기는 아래 instructionFilesFor가 turn마다 연다.
         files: {

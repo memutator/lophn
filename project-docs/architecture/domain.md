@@ -4,7 +4,7 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
 
 여러 곳에 걸친다.
 - 값: `packages/protocol/domains/`(id·이름·owner `values.ts`, route·event `domains.ts`, port `ports.ts`, 자리 `paths.ts`, artifact 값 `artifact.ts`)
-- core module: `packages/core/domains/`(표, command, 읽기, lookup, port, agent tool `domain.list`·`domain.get`·`domain.create`)
+- core module: `packages/core/domains/`(표, command, 읽기, lookup, port, agent tool `domain.read`·`domain.create`)
 - 그릇 확인: `packages/core/main/daemon/wiring/domains-registration.ts`(`ownerLookupPort`)
 - 앱의 첫 domain: `packages/core/apps/registration/commands.ts`의 `create`(`domainProvisioningPort`)
 - 맡은 domain: `packages/core/lophn-agent/agents/resolve.ts`
@@ -57,7 +57,7 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
 - **`domains` module은 projects·apps를 import하지 않는다.** `domain.create`가 그릇이 있는지 보는 길은 wiring이 꽂는 `ownerLookupPort`다. 앱을 만드는 command는 `domainProvisioningPort`로 같은 tx 안에서 domain을 만든다. 그 command가 이미 그릇을 확인했으므로 provisioning은 owner를 다시 보지 않는다.
 - **앱은 domain이 0개가 되지 않는다.** `app.create`가 같은 tx에서 `{name: slug, title: name, purpose: description, owner: app}`을 만든다. 그 이름이 이미 있으면 앱도 만들지 않는다(`conflict`). 앱의 마지막 active domain은 보관하지 못한다. project는 domain이 0개여도 된다(폴더와 coding만 쓰는 project).
 - **`domain.create`는 Gate에 묻지 않는다.** 그릇 안에 만드는 것이라 권한이 넓어지지 않는다. agent는 자격 조건(`conditions.project`·`conditions.app`)의 그릇에만 만들고, 조건이 없는 agent(lophn)는 만들지 못한다. id를 미리 정하는 것과 보관·되살리기는 사람만 한다.
-- **읽기는 그릇 안이다.** 자격 조건이 있는 agent는 자기 그릇의 domain만 읽고 다른 그릇은 `not_found`다. 조건이 없는 agent와 사람·machine은 전부 읽는다. agent tool `domain.list`는 입력 없이 부른 agent의 place 그릇의 domain을 주고, place가 없는 lophn에게는 전부 준다.
+- **읽기는 그릇 안이다.** 자격 조건이 있는 agent는 자기 그릇의 domain만 읽고 다른 그릇은 `not_found`다. 조건이 없는 agent와 사람·machine은 전부 읽는다. agent tool `domain.read`는 `domain`을 생략하면 부른 agent의 place 그릇의 domain을 주고(place가 없는 lophn에게는 전부), 주면 그 domain 하나를 같은 범위 검사로 읽는다.
 - **prompt·tool·file 범위의 단위는 맡은 domain이다.** 같은 그릇 안의 다른 파일을 읽는 것은 막지 않는다. 사람은 공격자가 아니고, 막을 것은 agent의 실수다. 폴더 경계와 rewind가 그것을 막는다.
 - **`DOMAIN.md`는 맡은 domain의 것만 읽는다.** reader는 session의 place 그릇이 그 domain의 owner일 때만 열고, 아니면 `forbidden`이다(`instructions/files.ts`). 맡은 domain의 파일만 읽고 다른 domain에는 읽기 요청도 내지 않는다. 한 domain이라도 크기 상한을 넘거나 UTF-8이 아니면 다른 층처럼 turn을 시작하지 않는다. 없는 파일은 건너뛴다.
   - 이은 글이 24000자(`DOMAIN_TEXT_BUDGET`)를 넘으면 넘은 domain부터 본문 대신 목적 한 줄과 "full text: read DOMAIN.md"만 싣는다. domains를 고르지 않은 agent는 그릇의 domain을 모두 받으므로 domain이 많으면 여기에 걸린다.

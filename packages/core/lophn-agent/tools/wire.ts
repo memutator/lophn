@@ -54,8 +54,9 @@ export function toolForWireName(
 export function inputJsonSchema(
   definition: ToolDefinition,
 ): Record<string, unknown> {
-  return (
-    definition.inputSchema ??
-    (z.toJSONSchema(definition.input) as Record<string, unknown>)
-  );
+  if (definition.inputSchema !== undefined) return definition.inputSchema;
+  const schema = z.toJSONSchema(definition.input);
+  // tool API가 schema 방언을 정하므로 생성기의 dialect 표시는 반복해서 싣지 않는다.
+  delete schema.$schema;
+  return schema as Record<string, unknown>;
 }

@@ -297,6 +297,7 @@ export function createModelResolver(deps: ModelResolverDeps) {
             model: limits.sent_model_name,
             images,
             maxTokens: anthropicMaxTokens(requestPatch, limits.output_limit),
+            native: deferrable,
             requestPatch,
           })
         : provider.protocol === "openai-responses"

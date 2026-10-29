@@ -1,4 +1,5 @@
 import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
+import { dispatchTarget } from "../tools/dispatch.ts";
 import type {
   Pause,
   ToolCallRequest,
@@ -16,15 +17,18 @@ import {
 // 한 model 응답의 tool 묶음 처리.
 // 모든 call이 읽기로 확인된 묶음만 병렬이고 그 밖에는 요청 순서로 하나씩 한다. 결과는 언제나 요청
 // 순서다. 없는 tool·잘못된 인자는 인자를 고치지 않고 call별 결과로 돌려준다.
+// `tool_call`은 여기서 대상 tool의 호출로 푼다. 효과·병렬·retry·기록·Gate가 모두 대상 tool을 기준으로 한다.
 
 type ModelToolCall = { id: string; name: string; args: string };
 
 export type CallResult = {
   key: string;
   order: number;
+  // 실행한 tool의 wire 이름과 입력이다. `tool_call`이면 푼 대상이다. 해석할 수 없었으면 원문 글이다.
   name: string;
-  // 요청한 입력 그대로다. 해석할 수 없었으면 원문 글이다.
   input: unknown;
+  // model이 보낸 호출 그대로다. 이력의 tool_use 짝은 이 값으로 만든다.
+  called: { name: string; input: unknown };
   // 기록한 ToolCall ID. 중단 요청에 답하지 않아 모를 때만 null이다.
   tool_call: string | null;
   status: ToolDone["status"];
@@ -136,6 +140,7 @@ export async function awaitAbortable<T>(
 
 function toResult(
   request: ToolCallRequest,
+  called: CallResult["called"],
   done: ToolDone,
   entries: number,
 ): CallResult {
@@ -144,6 +149,7 @@ function toResult(
     order: request.order,
     name: request.name,
     input: request.input,
+    called,
     tool_call: done.tool_call,
     status: done.status,
     code: done.code,
@@ -156,37 +162,40 @@ export async function runToolBatch(
   control: BatchControl,
   calls: readonly ModelToolCall[],
 ): Promise<BatchOutcome> {
+  const parsed = calls.map((call) => parseToolArgs(call.args));
+  const called = calls.map((call, index) => {
+    const args = parsed[index];
+    return { name: call.name, input: args.ok ? args.value : call.args };
+  });
   const requests: ToolCallRequest[] = calls.map((call, order) => {
-    const parsed = parseToolArgs(call.args);
+    const args = parsed[order];
+    const target = args.ok
+      ? dispatchTarget(call.name, args.value)
+      : { name: call.name, input: call.args };
     return {
       model_call: control.modelCall,
       key: call.id,
       order,
-      name: call.name,
-      input: parsed.ok ? parsed.value : call.args,
+      name: target.name,
+      input: target.input,
       attempt: 0,
       retry_of: null,
     };
   });
   const infos = requests.map((request) => control.tools.info(request.name));
-  const valid = calls.map((call) => parseToolArgs(call.args).ok);
+  const valid = parsed.map((args) => args.ok);
 
-  async function notExecuted(
-    request: ToolCallRequest,
-    code: string,
-  ): Promise<CallResult> {
-    const done = await control.tools.close(request, {
+  async function notExecuted(index: number, code: string): Promise<CallResult> {
+    const done = await control.tools.close(requests[index], {
       status: "not_executed",
       code,
       summary: notExecutedText(code),
     });
-    return toResult(request, done, 0);
+    return toResult(requests[index], called[index], done, 0);
   }
 
-  async function entered(
-    request: ToolCallRequest,
-    info: ToolInfo,
-  ): Promise<CallResult> {
+  async function entered(index: number, info: ToolInfo): Promise<CallResult> {
+    const request = requests[index];
     let entries = 0;
     async function once(next: ToolCallRequest): Promise<ToolDone | null> {
       entries += 1;
@@ -208,6 +217,7 @@ export async function runToolBatch(
         order: request.order,
         name: request.name,
         input: request.input,
+        called: called[index],
         tool_call: null,
         status: "uncertain",
         code: "abort_unconfirmed",
@@ -245,7 +255,7 @@ export async function runToolBatch(
       if (next === null) return unconfirmed();
       current = next;
     }
-    return toResult(request, current, entries);
+    return toResult(request, called[index], current, entries);
   }
 
   // 시작 직전에 멈춤·한도·설정 회수·새 입력을 다시 본다. 막히면 미실행이다.
@@ -253,10 +263,11 @@ export async function runToolBatch(
     const request = requests[index];
     const info = infos[index];
     const blocked = (await control.gate(info?.server ?? null)) ?? held;
-    if (blocked !== null) return await notExecuted(request, blocked);
+    if (blocked !== null) return await notExecuted(index, blocked);
     if (info === undefined) {
       return toResult(
         request,
+        called[index],
         await control.tools.close(request, {
           status: "failure",
           code: "not_found",
@@ -268,6 +279,7 @@ export async function runToolBatch(
     if (!valid[index]) {
       return toResult(
         request,
+        called[index],
         await control.tools.close(request, {
           status: "failure",
           code: "invalid_input",
@@ -276,7 +288,7 @@ export async function runToolBatch(
         0,
       );
     }
-    return await entered(request, info);
+    return await entered(index, info);
   }
 
   const parallel =

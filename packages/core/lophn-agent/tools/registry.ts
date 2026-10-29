@@ -30,9 +30,6 @@ export type ToolDefinition = {
   // registry와 Gate만 읽는다. model에 보이는 정의에는 없다.
   effect: ToolEffect;
   origin: ToolOrigin;
-  // 이름만 알리고 정의는 `tool.load`가 펼친다. Claude Code의 shouldDefer와 같고 모든 place 종류에 같다.
-  // 앱 tool과 외부 MCP tool은 이 칸 없이 늘 숨는다(origin).
-  defer?: true;
   // 실행. 정의에 handler가 없는 tool(앱, MCP)은 handlers 표로 실행한다.
   handler?: ToolCallHandler;
   // 사람 화면의 tool 줄 제목이다. 값은 실행기 검사(`input`)를 지난 입력만 받고 redaction 전 글이다.

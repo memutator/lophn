@@ -3,6 +3,8 @@ import type { JsonObject } from "../../../protocol/base/mod.ts";
 import {
   anthropicSystem,
   anthropicTools,
+  type InlineRequest,
+  inlineToolLoading,
   type PromptMessage,
   type PromptRequest,
   type WirePacker,
@@ -53,7 +55,7 @@ export type ModelBinding = {
   invoke: InvokeModelCall;
   // provider가 켜져 있고 쓸 수 있는지.
   available(): Promise<boolean>;
-  // 이 provider·model이 defer_loading과 tool_reference를 받는지. session의 켜짐은 prepare가 따로 정한다.
+  // 이 provider·model이 native tool loading(defer_loading과 tool_reference)을 받는지. 아니면 packer가 공통 loading을 쓴다.
   deferrable: boolean;
 };
 
@@ -79,18 +81,18 @@ export function deferralHeaders(
   };
 }
 
-// tool.load의 결과를 글로 그릴 때(tool reference를 쓰지 않는 요청) 쓰는 문장이다.
-function loadedText(names: readonly string[]): string {
-  return `Loaded: ${names.join(", ")}`;
-}
+// native 요청에서 불러온 tool이 지금 숨긴 정의에 하나도 없을 때(runtime이 다시 떠 목록이 바뀐 session) 쓰는 문장이다.
+const LOADED_GONE = "The loaded tools are no longer available.";
 
 // 이미지 입력이 없는 model에는 이미지를 보내지 않고 글 한 줄로 바꾼다.
 const IMAGE_OMITTED = "(image omitted: this model does not accept image input)";
 
+// tool.load 결과는 tool_reference로 싣는다: API가 그 자리에서 숨긴 정의를 펼친다. hidden은 이 요청의 숨긴 정의 이름이고,
+// 그 밖의 이름을 참조하면 API가 요청을 거절한다. 공통 loading 요청은 참조 조각이 이미 정의 글로 바뀌어 여기 오지 않는다.
 function anthropicMessages(
   messages: readonly PromptMessage[],
   images: boolean,
-  deferred: boolean,
+  hidden: ReadonlySet<string>,
 ): unknown[] {
   return messages.map((message) => {
     const content: Record<string, unknown>[] = [];
@@ -137,31 +139,25 @@ function anthropicMessages(
           ];
         }
       } else if (part.kind === "tool_result_reference") {
-        // 숨긴 tool을 쓰는 요청이면 결과가 tool reference뿐이다. 아니면 결과 글 뒤에 이름을 글로 잇는다.
+        const names = part.names.filter((name) => hidden.has(name));
+        const loaded =
+          names.length === 0
+            ? LOADED_GONE
+            : names.map((name) => ({
+                type: "tool_reference",
+                tool_name: name,
+              }));
         const result = content.find(
           (block) =>
             block.type === "tool_result" && block.tool_use_id === part.id,
         );
-        const references = deferred
-          ? part.names.map((name) => ({
-              type: "tool_reference",
-              tool_name: name,
-            }))
-          : null;
         if (result === undefined) {
           content.push({
             type: "tool_result",
             tool_use_id: part.id,
-            content: references ?? loadedText(part.names),
+            content: loaded,
           });
-        } else if (references !== null) {
-          result.content = references;
-        } else {
-          const text = result.content;
-          result.content = Array.isArray(text)
-            ? [...text, { type: "text", text: loadedText(part.names) }]
-            : [text, loadedText(part.names)].filter((v) => v !== "").join("\n");
-        }
+        } else result.content = loaded;
       }
     }
     return { role: message.role, content };
@@ -170,47 +166,48 @@ function anthropicMessages(
 
 // Anthropic Messages 번역. cache 표시는 system 층(anthropicSystem)과 대화 끝(buildRequest)이 단다.
 // model은 요청에 실을 이름(sent_model_name)이고 requestPatch는 option 값이 싣는 조각이다.
-// 이름만 알리는 정의에는 defer_loading을 붙인다. anthropicTools는 request.tools와 같은 순서다.
-function deferredAnthropicTools(request: PromptRequest) {
-  return anthropicTools(request).map((tool, at) =>
-    request.tools[at].deferred === true
-      ? { ...tool, defer_loading: true }
-      : tool,
-  );
-}
-
+// native면 숨긴 정의에 defer_loading을 붙여 모두 싣는다. anthropicTools는 request.tools와 같은 순서다.
 export function anthropicPacker(input: {
   model: string;
   maxTokens: number;
   images: boolean;
+  native: boolean;
   requestPatch?: JsonObject;
 }): WirePacker {
-  return (request: PromptRequest) => ({
-    body: buildMessages({
-      model: input.model,
-      max_tokens: input.maxTokens,
-      system: anthropicSystem(request),
-      messages: anthropicMessages(
-        request.messages,
-        input.images,
-        request.tools.some((tool) => tool.deferred === true),
-      ),
-      tools: deferredAnthropicTools(request),
-      request_patch: input.requestPatch,
-    }),
-    opaque_bytes: 0,
-  });
+  return (request: PromptRequest) => {
+    const shaped = input.native ? request : inlineToolLoading(request);
+    const hidden = new Set(
+      shaped.tools
+        .filter((tool) => tool.deferred === true)
+        .map((tool) => tool.name),
+    );
+    return {
+      body: buildMessages({
+        model: input.model,
+        max_tokens: input.maxTokens,
+        system: anthropicSystem(shaped),
+        messages: anthropicMessages(shaped.messages, input.images, hidden),
+        tools: anthropicTools(shaped).map((tool, at) =>
+          shaped.tools[at].deferred === true
+            ? { ...tool, defer_loading: true }
+            : tool,
+        ),
+        request_patch: input.requestPatch,
+      }),
+      opaque_bytes: 0,
+    };
+  };
 }
 
 // system 층은 하나의 지시문으로 잇는다. OpenAI 계열은 cache를 자동으로 하므로 경계 표시가 없다.
-function systemText(request: PromptRequest): string {
+function systemText(request: Pick<PromptRequest, "system">): string {
   return request.system.map((block) => block.text).join("\n\n");
 }
 
 // OpenAI Responses 번역. function_call.call_id와 function_call_output.call_id가 대응한다.
 // 연속한 text 조각은 한 message item이고 tool 결과·호출은 자기 item이다.
 function responsesInput(
-  messages: readonly PromptMessage[],
+  messages: InlineRequest["messages"],
   images: boolean,
 ): unknown[] {
   const items: unknown[] = [];
@@ -267,27 +264,6 @@ function responsesInput(
             extra,
           ];
         }
-      } else if (part.kind === "tool_result_reference") {
-        const result = items.find((item) => {
-          const typed = item as { type: string; call_id?: string };
-          return (
-            typed.type === "function_call_output" && typed.call_id === part.id
-          );
-        }) as { output: string | unknown[] } | undefined;
-        if (result === undefined) {
-          items.push({
-            type: "function_call_output",
-            call_id: part.id,
-            output: loadedText(part.names),
-          });
-        } else if (typeof result.output === "string") {
-          result.output = `${result.output}\n${loadedText(part.names)}`;
-        } else {
-          result.output.push({
-            type: "input_text",
-            text: loadedText(part.names),
-          });
-        }
       }
     }
   }
@@ -300,28 +276,31 @@ export function responsesPacker(input: {
   images: boolean;
   requestPatch?: JsonObject;
 }): WirePacker {
-  return (request: PromptRequest) => ({
-    body: buildResponses({
-      model: input.model,
-      instructions: systemText(request),
-      input: responsesInput(request.messages, input.images),
-      tools: request.tools.map((tool) => ({
-        type: "function" as const,
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.input_schema,
-      })),
-      max_output_tokens: input.maxTokens,
-      request_patch: input.requestPatch,
-    }).body,
-    opaque_bytes: 0,
-  });
+  return (request: PromptRequest) => {
+    const shaped = inlineToolLoading(request);
+    return {
+      body: buildResponses({
+        model: input.model,
+        instructions: systemText(shaped),
+        input: responsesInput(shaped.messages, input.images),
+        tools: shaped.tools.map((tool) => ({
+          type: "function" as const,
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.input_schema,
+        })),
+        max_output_tokens: input.maxTokens,
+        request_patch: input.requestPatch,
+      }).body,
+      opaque_bytes: 0,
+    };
+  };
 }
 
 // OpenAI Chat Completions 번역. assistant의 tool_calls[].id와 tool message의
 // tool_call_id가 대응한다. 사람이 읽을 추론 본문은 보내지 않는다.
 function chatMessages(
-  messages: readonly PromptMessage[],
+  messages: InlineRequest["messages"],
   images: boolean,
 ): unknown[] {
   const out: unknown[] = [];
@@ -368,18 +347,6 @@ function chatMessages(
       flush();
       if (part.kind === "tool_result") {
         out.push({ role: "tool", tool_call_id: part.id, content: part.text });
-      } else if (part.kind === "tool_result_reference") {
-        const result = out.find((item) => {
-          const typed = item as { role: string; tool_call_id?: string };
-          return typed.role === "tool" && typed.tool_call_id === part.id;
-        }) as { content: string } | undefined;
-        if (result === undefined) {
-          out.push({
-            role: "tool",
-            tool_call_id: part.id,
-            content: loadedText(part.names),
-          });
-        } else result.content = `${result.content}\n${loadedText(part.names)}`;
       } else if (part.kind === "tool_result_image") {
         pictures.push(
           images
@@ -410,25 +377,28 @@ export function chatPacker(input: {
   provider: string;
   requestPatch?: JsonObject;
 }): WirePacker {
-  return (request: PromptRequest) => ({
-    body: buildChat({
-      model: input.model,
-      provider: input.provider,
-      system: systemText(request),
-      messages: chatMessages(request.messages, input.images),
-      tools: request.tools.map((tool) => ({
-        type: "function" as const,
-        function: {
-          name: tool.name,
-          description: tool.description,
-          parameters: tool.input_schema,
-        },
-      })),
-      max_tokens: input.maxTokens,
-      request_patch: input.requestPatch,
-    }),
-    opaque_bytes: 0,
-  });
+  return (request: PromptRequest) => {
+    const shaped = inlineToolLoading(request);
+    return {
+      body: buildChat({
+        model: input.model,
+        provider: input.provider,
+        system: systemText(shaped),
+        messages: chatMessages(shaped.messages, input.images),
+        tools: shaped.tools.map((tool) => ({
+          type: "function" as const,
+          function: {
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.input_schema,
+          },
+        })),
+        max_tokens: input.maxTokens,
+        request_patch: input.requestPatch,
+      }),
+      opaque_bytes: 0,
+    };
+  };
 }
 
 // Google Cloud Code Assist 번역. envelope(project·requestId·label·sessionId)는 보내기 직전에 cloudCodeShape가 씌운다.
@@ -438,15 +408,18 @@ export function cloudCodePacker(input: {
   images: boolean;
   requestPatch?: JsonObject;
 }): WirePacker {
-  return (request: PromptRequest) => ({
-    body: buildCloudCode({
-      model: input.model,
-      system: systemText(request),
-      messages: request.messages,
-      tools: request.tools,
-      images: input.images,
-      request_patch: input.requestPatch,
-    }),
-    opaque_bytes: 0,
-  });
+  return (request: PromptRequest) => {
+    const shaped = inlineToolLoading(request);
+    return {
+      body: buildCloudCode({
+        model: input.model,
+        system: systemText(shaped),
+        messages: shaped.messages,
+        tools: shaped.tools,
+        images: input.images,
+        request_patch: input.requestPatch,
+      }),
+      opaque_bytes: 0,
+    };
+  };
 }

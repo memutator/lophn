@@ -708,12 +708,13 @@ async function afterModel(
   if (attempt.text.trim() !== "") {
     parts.push({ kind: "text", text: attempt.text });
   }
+  // tool_use는 model이 보낸 그대로다. tool_result 짝과 provider의 호출 검사가 그 이름·입력을 본다.
   for (const result of batch.results) {
     parts.push({
       kind: "tool_use",
       id: result.key,
-      name: result.name,
-      input: result.input,
+      name: result.called.name,
+      input: result.called.input,
     });
   }
   state.history.push({ role: "assistant", parts });

@@ -10,9 +10,8 @@ export const ASK_TOOLS: readonly ToolDefinition[] = [
     input: askInputSchema,
     routes: [],
     description:
-      `Ask the person 1 to 4 questions, each with a short header, 2 to 4 options (label and one-line description) and multiSelect. The person can always answer in their own words. The turn waits for the answer. ${ASK_TOOL_RULES} ` +
-      "The result is outcome submitted (answers in question order), cancelled, or human_message when the person sent a message instead; read that message yourself to see whether it answers. " +
-      "In a turn with no person present it does not wait and returns unattended: decide yourself, or leave it undone and say what is left.",
+      `Ask the person and wait for answers; free-text answers are always allowed. Each question needs a short header and options with one-line descriptions. ${ASK_TOOL_RULES} ` +
+      "Returns submitted, cancelled, or human_message (read it to see whether it answers). Unattended turns return unattended immediately; decide yourself or report what remains.",
     effect: "read",
     handler: async (input, ctx) => {
       // skip turn은 사람이 곁에 있으므로 기다린다. 사람이 없는 turn만 묻지 않는다.

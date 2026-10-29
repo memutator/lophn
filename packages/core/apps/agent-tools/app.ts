@@ -26,35 +26,31 @@ const nonblank = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",
 });
 const path = z.string().min(1);
-const none = z.strictObject({});
 
 export const APP_TOOLS: readonly ToolDefinition[] = [
+  // 목록과 상세는 같은 읽기 범위다(둘 다 agent 자격의 `app.list`·`app.get` route). 지정한 앱이 없거나 범위 밖이면
+  // 그 route의 오류이고 목록으로 바꾸지 않는다.
   defineTool({
-    name: "app.list",
-    input: none,
-    routes: [appList],
-    description: "List the registered apps.",
+    name: "app.read",
+    input: z.strictObject({ app: idSchema("app").optional() }),
+    routes: [appList, appGet],
+    description:
+      "List the registered apps, or read one app (name, description, status, active release and source folder) when you give its ID.",
     effect: "read",
-    handler: async (_input, ctx) => {
+    handler: async (input, ctx) => {
+      if (input.app !== undefined) {
+        const read = await readOf(ctx.core, appGet, { app: input.app });
+        if (!read.ok) return read;
+        return ok(
+          fitted(`app ${read.value.app.name}`, { app: read.value.app }),
+        );
+      }
       const read = await readOf(ctx.core, appList, {});
       if (!read.ok) return read;
       const { body, more } = readBody(read.value);
       return ok(
         fitted(countSummary("apps", body.apps.length, more), body, ["apps"]),
       );
-    },
-  }),
-  defineTool({
-    name: "app.get",
-    input: z.strictObject({ app: idSchema("app") }),
-    routes: [appGet],
-    description:
-      "Read an app: name, description, status, active release and source folder.",
-    effect: "read",
-    handler: async (input, ctx) => {
-      const read = await readOf(ctx.core, appGet, { app: input.app });
-      if (!read.ok) return read;
-      return ok(fitted(`app ${read.value.app.name}`, { app: read.value.app }));
     },
   }),
   defineTool({

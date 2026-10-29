@@ -38,7 +38,7 @@ export const RUNTIME_TOOLS: readonly ToolDefinition[] = [
     input: appLogsReadInputSchema,
     routes: [appLogs],
     description:
-      "Read an app's log, newest lines last: its own output, `error <name>[: <message>][ <details JSON>]` lines from reportProblem, uncaught exceptions as `exception <name>: <message>` followed by `  at <path>:<line>:<column>` source frames, screen errors as `view_error <observation> <name>: <message>` lines, and abnormal process ends as `process_exit <reason>: <message>`. Narrow it with invocation, since (inclusive), until (exclusive) and limit.",
+      "Read app output, reported problems, exceptions, screen errors and process exits; newest lines last. Filter by invocation, since (inclusive), until (exclusive) and limit.",
     effect: "read",
     handler: async (input, ctx) => {
       const read = await readOf(ctx.core, appLogs, input);

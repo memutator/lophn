@@ -57,6 +57,6 @@ domain의 문서가 어떤 모양이어야 하는지는 그 domain의 kind 파�
 - **판을 두지 않는다.** 예전에는 draft·test·submit 판과 bundle을 두었다. 그 일은 바뀔 때의 검사와 rewind로 충분하다. 문서만 있는 project를 코드 release 장치에 묶지 않는다(AGENTS.md "속도").
 - **문서 위반이 막지 않는다.** 문서는 사람의 것이다. 막으면 schema를 바꿀 때마다 일이 멈춘다. 새 위반은 사람에게 알리고, schema와 문서 가운데 무엇을 고칠지는 PM이 판단한다.
 - **검사는 별도 process가 한다.** 사람의 파일을 파싱하는 일을 core 밖 다른 process에 둔다. core는 감시와 dispatcher만 맡는다. 위반은 worker 답으로 실어 온다.
-- **조회는 부를 때 짠다.** 예전에는 PM이 search를 미리 선언했다. 이제 agent가 prompt의 kind 글을 보고 `kind.list`의 조건, 정렬, 집계를 부를 때 준다. 조건 schema는 세 층(묶음, 묶음, leaf)까지만 풀어 쓴다. tool 입력이 `z.toJSONSchema`로 model에 가는데 재귀는 `$ref`가 되고, 층마다 크기가 곱으로 늘기 때문이다.
+- **조회는 부를 때 짠다.** 예전에는 PM이 search를 미리 선언했다. 이제 agent가 prompt의 kind 글을 보고 `kind.list`의 조건, 정렬, 집계를 부를 때 준다. 실행 검증은 세 층(묶음, 묶음, leaf)까지의 조건 schema를 쓴다. model용 JSON Schema는 첫 층만 펼치고 하위 조건은 같은 모양의 object라고 설명한다. `$ref` 없이 반복 크기를 줄이면서 all/any/not와 집계 기능, 실제 깊이·형식 검증을 유지하기 위해서다. kind tool은 맡은 domain만 다루므로 작업 domain이 없는 home에는 노출하지 않는다.
 - **위반을 저장하지 않는다.** 저장된 위반 행을 읽던 곳은 `problem.list`의 domain 갈래뿐이었고 `kind.check`와 겹쳤다. 사람에게 알리는 데는 메모리 비교면 된다. 잃은 것은 "해결됨, 다시 열림" 이력이다.
 - **kind 파일을 domain에 둔다.** 같은 project 안에서도 업무마다 문서 모양이 다르고, 앱의 domain도 같은 장치를 쓴다. 파일 범위, prompt, tool, 위반을 받는 쪽이 모두 같은 domain 단위로 좁혀진다.

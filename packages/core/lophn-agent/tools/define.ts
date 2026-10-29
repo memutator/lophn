@@ -11,8 +11,8 @@ type ToolSpec<I extends z.ZodType> = {
   name: string;
   description: string;
   effect: ToolDefinition["effect"];
-  defer?: true;
   input: I;
+  inputSchema?: ToolDefinition["inputSchema"];
   // handler가 core에 부르는 route(helper가 부르는 것도 포함)다. 빠지면 command가 credential 상한에서 forbidden이다.
   routes: readonly { name: string }[];
   // 실행기가 `input`으로 이미 검사한 값을 받는다.
@@ -34,9 +34,11 @@ export function defineTool<I extends z.ZodType>(
     name: spec.name,
     description: spec.description,
     input: spec.input,
+    ...(spec.inputSchema === undefined
+      ? {}
+      : { inputSchema: spec.inputSchema }),
     effect: spec.effect,
     origin: "builtin",
-    ...(spec.defer === undefined ? {} : { defer: true as const }),
     // 실행기가 spec.input으로 검사한 뒤에만 부르므로 입력 type이 맞다.
     handler: spec.handler as ToolCallHandler,
     ...(spec.gate === undefined

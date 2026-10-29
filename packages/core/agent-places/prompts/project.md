@@ -53,7 +53,7 @@ pass a job step by step. Before you make or change one, read the skill
 - When you hear that a public tool your domains use has changed, read the change
   and check the skills that call it before you use it again.
 - A problem in a package goes to lophn at the app that owns it (`owner_app` from
-  `package.get`) with `call`, no reply expected.
+  `package.read`) with `call`, no reply expected.
 
 ## What you do not do
 

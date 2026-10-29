@@ -1,21 +1,14 @@
 // 탭 안 맨 위의 view bar 한 줄. 왼쪽에는 짧은 정보(project 밖 표시, 파일 정보, 열린 줄)만 두고
-// 경로는 위쪽 breadcrumb에 있다. 오른쪽에는 저장 상태, Edit·Read(md만), Info, … menu가 있다.
+// 경로는 위쪽 breadcrumb에 있다. 오른쪽에는 저장 상태, Info, … menu가 있다.
 import type { ReactNode } from "react";
-import { Button, IconButton, Kbd } from "@lophn/ui/primitives";
+import { Button, IconButton } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
-import { Menu, MenuIcon, Tooltip } from "@lophn/ui/overlay";
+import { Menu, MenuIcon } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
-import { currentPlatform } from "../desktop/top-bar/platform.ts";
 import { editorIcons, workspaceIcons } from "../icons/mod.ts";
-import type { FileKind } from "./model.ts";
 import type { SaveState } from "./save-state.ts";
 import styles from "./view-bar.module.css";
-
-/** CommandOrControl+E를 이 OS의 글자로 보인다. */
-function editShortcut(): readonly string[] {
-  return currentPlatform() === "mac" ? ["⌘", "E"] : ["Ctrl", "E"];
-}
 
 interface ViewBarProps {
   /** 왼쪽 한 줄. */
@@ -90,12 +83,9 @@ function SaveMark({ state, onConflict, onRetry }: SaveMarkProps) {
 }
 
 interface FileActionsProps {
-  kind: FileKind;
   /** 글 파일만 저장 상태가 있다. 이미지와 pdf는 보기만 한다. */
   state: SaveState | null;
-  editing: boolean;
   infoOpen: boolean;
-  onEditing: () => void;
   onInfo: () => void;
   onDelete: () => void;
   onConflict?: () => void;
@@ -104,19 +94,13 @@ interface FileActionsProps {
 
 /** view bar 오른쪽의 조작. */
 export function FileActions({
-  kind,
   state,
-  editing,
   infoOpen,
-  onEditing,
   onInfo,
   onDelete,
   onConflict,
   onRetry,
 }: FileActionsProps) {
-  const editLabel = editing
-    ? t("document.button.read")
-    : t("document.button.edit");
   return (
     <>
       {state === null ? (
@@ -124,26 +108,6 @@ export function FileActions({
       ) : (
         <SaveMark state={state} onConflict={onConflict} onRetry={onRetry} />
       )}
-      {kind === "markdown" ? (
-        <Tooltip
-          content={
-            <span className={styles.tip}>
-              {editLabel}
-              <Kbd keys={editShortcut()} />
-            </span>
-          }
-        >
-          <IconButton
-            icon={editing ? editorIcons.read : editorIcons.edit}
-            label={editLabel}
-            size="sm"
-            aria-pressed={editing}
-            aria-keyshortcuts="Control+E Meta+E"
-            data-edit-toggle=""
-            onClick={onEditing}
-          />
-        </Tooltip>
-      ) : null}
       <IconButton
         icon={workspaceIcons.infoPanel}
         label={t("document.button.info")}

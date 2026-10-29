@@ -145,7 +145,6 @@ export type CommonPlaceholders = {
     harness: "string";
   };
   "document.button.check-again": Record<never, never>;
-  "document.button.read": Record<never, never>;
   "document.label.saving": Record<never, never>;
   "launcher.button.reconnect": Record<never, never>;
   "launcher.button.retry": Record<never, never>;

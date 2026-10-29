@@ -1,4 +1,4 @@
-// 글 파일 탭(md와 그 밖의 text). md는 읽기와 live preview 편집이 같은 기둥을 쓰고, 그 밖의 text는
+// 글 파일 탭(md와 그 밖의 text). md는 live preview 편집기이고, 그 밖의 text는
 // CodeMirror 편집기다. 글은 창의 편집 session이 들고, 고침은 저장 버튼 없이 저장 흐름으로 간다.
 // 밖에서 바뀐 파일과 충돌은 탭 위쪽 toast로 알린다.
 import {
@@ -24,7 +24,6 @@ import { MarkdownPane } from "./markdown-pane.tsx";
 import { fileKindOf, languageOf, outlineOf, sectionKeyOf } from "./model.ts";
 import { fileNameOf } from "./model.ts";
 import { ConflictToast, NoticeToast, ReloadedToast } from "./notices.tsx";
-import { revealInReading } from "./reveal.ts";
 import type { ReplaceCause, SaveSession, SaveState } from "./save-state.ts";
 import { useTextFile } from "./use-file.ts";
 import { ReadOnlyText } from "./viewers/read-only-text.tsx";
@@ -115,7 +114,6 @@ function ReadyTextFile({
   const name = fileNameOf(path);
   const [text, setText] = useState(initial);
   const [state, setState] = useState<SaveState>(session.facts.state);
-  const [editing, setEditing] = useState(false);
   const [reloaded, setReloaded] = useState(false);
   const [conflictShown, setConflictShown] = useState(true);
   const [comparing, setComparing] = useState<string | null>(null);
@@ -124,7 +122,6 @@ function ReadyTextFile({
   const [width] = useReadingWidth(readingWidth);
   const editorRef = useRef<EditorHandle>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const articleRef = useRef<HTMLDivElement>(null);
   const restoreTarget = useRef(initialPosition?.scroll_offset ?? 0);
   // 복원 scroll이 잡히기 전의 0은 저장 위치를 지우지 않는다.
   const restoreHold = useRef(restoreTarget.current > 0);
@@ -194,44 +191,19 @@ function ReadyTextFile({
     };
   }, [kind, path]);
 
-  const toggleEdit = useCallback(() => {
-    if (kind !== "markdown") return;
-    setEditing((value) => !value);
-    void session.flush();
-  }, [kind, session]);
-
+  // 검색 결과로 열면 그 줄로 간다.
   useEffect(() => {
-    if (editing) editorRef.current?.focus();
-  }, [editing]);
-
-  // 검색 결과로 열면 그 줄로 간다. 읽기 모드와 편집 모드 모두다.
-  useEffect(() => {
-    if (line === undefined) return;
-    const article = articleRef.current;
-    const scroller = scrollRef.current;
-    if (kind === "markdown" && !editing && article && scroller) {
-      revealInReading(article, scroller, text, line);
-    } else {
-      editorRef.current?.revealLine(line);
-    }
+    if (line !== undefined) editorRef.current?.revealLine(line);
   }, [line, lineNonce]);
 
   const headingTops = useCallback((): number[] => {
     const scroller = scrollRef.current;
-    const article = articleRef.current;
     if (!scroller || !sections) return [];
     const base = scroller.getBoundingClientRect().top - scroller.scrollTop;
-    if (editing) {
-      return sections.map(
-        (section) => (editorRef.current?.lineTop?.(section.line) ?? 0) - base,
-      );
-    }
-    const headings = article?.querySelectorAll("h1, h2, h3, h4, h5, h6") ?? [];
-    return sections.map((_, index) => {
-      const heading = headings[index];
-      return heading ? heading.getBoundingClientRect().top - base : 0;
-    });
-  }, [editing, sections]);
+    return sections.map(
+      (section) => (editorRef.current?.lineTop?.(section.line) ?? 0) - base,
+    );
+  }, [sections]);
 
   const onScroll = () => {
     const scroller = scrollRef.current;
@@ -255,15 +227,7 @@ function ReadyTextFile({
   };
 
   const jump = (target: { key: string; line: number }) => {
-    const scroller = scrollRef.current;
-    const index =
-      sections?.findIndex((section) => section.key === target.key) ?? -1;
-    if (editing || !scroller || index < 0) {
-      editorRef.current?.revealLine(target.line);
-      return;
-    }
-    const top = headingTops()[index];
-    if (top !== undefined) scroller.scrollTop = Math.max(0, top - HEAD_OFFSET);
+    editorRef.current?.revealLine(target.line);
   };
 
   const openCompare = async () => {
@@ -278,13 +242,18 @@ function ReadyTextFile({
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const mod = event.metaKey || event.ctrlKey;
-    if (!mod || event.altKey || event.shiftKey) return;
+    if (!mod || event.shiftKey) return;
     const key = event.key.toLowerCase();
-    if (key === "e" && kind === "markdown") {
+    if (
+      key === "f" ||
+      (event.altKey && event.code === "KeyF") ||
+      (key === "h" && !event.altKey)
+    ) {
+      // 편집기 밖(탭 틀, view bar)에 focus가 있어도 찾기가 열린다.
       event.preventDefault();
       event.stopPropagation();
-      toggleEdit();
-    } else if (key === "s") {
+      editorRef.current?.openFind(event.altKey || key === "h");
+    } else if (key === "s" && !event.altKey) {
       // 저장 버튼은 없다. 이 키는 지금 쓰는 것이다.
       event.preventDefault();
       event.stopPropagation();
@@ -323,10 +292,8 @@ function ReadyTextFile({
       <MarkdownPane
         text={text}
         label={name}
-        editing={editing}
         width={width}
         scrollRef={scrollRef}
-        articleRef={articleRef}
         editorRef={editorRef}
         onChange={onChange}
         onScroll={onScroll}
@@ -353,8 +320,6 @@ function ReadyTextFile({
       meta={kind === "text" ? (extension ?? "text").toUpperCase() : null}
       line={line}
       state={state}
-      editing={editing}
-      onEditing={toggleEdit}
       onConflict={() => setConflictShown(true)}
       onRetry={() => void session.retry()}
       info={{

@@ -103,7 +103,6 @@ export const common = {
   "common.title.quit": "Quit lophn?",
   "common.title.register-coding-agent": "Set up lophn for {harness}?",
   "document.button.check-again": "Check again",
-  "document.button.read": "Read",
   "document.label.saving": "Saving…",
   "launcher.button.reconnect": "Reconnect",
   "launcher.button.retry": "Try again",

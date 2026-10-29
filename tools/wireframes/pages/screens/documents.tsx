@@ -16,7 +16,6 @@ import {
   fileKindOf as editorKindOf,
   outlineOf,
 } from "../../../../packages/shell/renderer/editor/model.ts";
-import { revealInReading } from "../../../../packages/shell/renderer/editor/reveal.ts";
 import { fileKindOf } from "../../mock/project-files/file-data.ts";
 import type {
   FileInit,
@@ -54,16 +53,12 @@ const textOf = (path: string) => fakeTextOf(path) ?? "";
 export function DocumentPane({
   path,
   info,
-  editing,
-  onEditing,
   file,
 }: {
   path: string;
   info: InfoPanel | null;
   onInfo?: (panel: InfoPanel) => void;
   onToggleInfo?: () => void;
-  editing: boolean;
-  onEditing: () => void;
   file?: FileInit;
 }) {
   const kind = fileKindOf(path);
@@ -78,16 +73,12 @@ export function DocumentPane({
   const [comparing, setComparing] = useState(file?.compare ?? false);
   const [width] = useReadingWidth(READING_WIDTH);
   const scroller = useRef<HTMLDivElement>(null);
-  const article = useRef<HTMLDivElement>(null);
   const editor = useRef<MarkdownEditorHandle>(null);
   const [current, setCurrent] = useState(outline?.[0]?.key);
   // 검색 결과로 열린 줄이 있으면 그 줄로 간다.
   useEffect(() => {
     if (file?.line === undefined || kind !== "markdown") return;
-    if (editing) editor.current?.revealLine(file.line);
-    else if (article.current && scroller.current) {
-      revealInReading(article.current, scroller.current, text, file.line);
-    }
+    editor.current?.revealLine(file.line);
   }, [file?.line]);
   const conflict = status === "conflict";
   const resolve = () => {
@@ -112,8 +103,6 @@ export function DocumentPane({
       meta={metaOf(path)}
       line={file?.line}
       state={kind === "image" || kind === "pdf" ? null : status}
-      editing={editing}
-      onEditing={onEditing}
       info={{
         size: facts.size,
         modifiedAt: facts.modifiedAt,
@@ -121,10 +110,7 @@ export function DocumentPane({
         currentKey: current,
         onJump: (section) => {
           setCurrent(section.key);
-          const heading = [
-            ...(article.current?.querySelectorAll("h1, h2") ?? []),
-          ].find((element) => element.textContent?.trim() === section.title);
-          heading?.scrollIntoView({ block: "start", behavior: "smooth" });
+          editor.current?.revealLine(section.line);
         },
       }}
       initialInfo={info ?? undefined}
@@ -137,10 +123,8 @@ export function DocumentPane({
         <MarkdownPane
           text={text}
           label={path}
-          editing={editing}
           width={width}
           scrollRef={scroller}
-          articleRef={article}
           editorRef={editor}
         />
       ) : kind === "text" ? (

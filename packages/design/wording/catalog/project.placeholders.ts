@@ -24,7 +24,6 @@ export type ProjectPlaceholders = {
   "document.button.compare": Record<never, never>;
   "document.button.delete": Record<never, never>;
   "document.button.discard-changes": Record<never, never>;
-  "document.button.edit": Record<never, never>;
   "document.button.find-close": Record<never, never>;
   "document.button.find-match-case": Record<never, never>;
   "document.button.find-next": Record<never, never>;

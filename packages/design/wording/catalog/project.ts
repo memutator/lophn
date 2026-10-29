@@ -20,7 +20,6 @@ export const project = {
   "document.button.compare": "Compare",
   "document.button.delete": "Delete",
   "document.button.discard-changes": "Discard changes",
-  "document.button.edit": "Edit",
   "document.button.find-close": "Close find",
   "document.button.find-match-case": "Match case",
   "document.button.find-next": "Next match",

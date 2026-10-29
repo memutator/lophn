@@ -7,7 +7,7 @@ import { t } from "@lophn/wording";
 
 import styles from "./find-bar.module.css";
 
-interface FindBarProps {
+export interface FindBarProps {
   query: string;
   onQuery: (query: string) => void;
   caseSensitive: boolean;

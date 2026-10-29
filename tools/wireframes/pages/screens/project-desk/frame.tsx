@@ -141,12 +141,7 @@ export function DeskWindow({
     tab.kind === "terminal" ? (
       <TerminalBody />
     ) : (
-      <DocumentPane
-        path={tab.key}
-        info={null}
-        editing={false}
-        onEditing={() => {}}
-      />
+      <DocumentPane path={tab.key} info={null} />
     );
 
   return (

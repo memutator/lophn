@@ -159,13 +159,6 @@ export function ProjectApp({
   const [info, setInfo] = useState<Record<string, InfoPanel>>(
     initialInfo === undefined ? {} : { [initialInfo.tab]: initialInfo.panel },
   );
-  const [editing, setEditing] = useState<ReadonlySet<string>>(
-    new Set(
-      initial.flatMap((pane) =>
-        pane.tabs.filter((tab) => tab.file?.editing).map((tab) => tab.key),
-      ),
-    ),
-  );
   const [answer, setAnswer] = useState<string | null>(null);
   const [tabStates, setTabStates] = useState<
     Readonly<Record<string, TabState>>
@@ -306,12 +299,6 @@ export function ProjectApp({
               if (next[tab.key] === undefined) next[tab.key] = "info";
               else delete next[tab.key];
               setInfo(next);
-            }}
-            editing={editing.has(tab.key)}
-            onEditing={() => {
-              const next = new Set(editing);
-              if (!next.delete(tab.key)) next.add(tab.key);
-              setEditing(next);
             }}
           />
         );

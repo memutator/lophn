@@ -1,10 +1,25 @@
 /* text 편집기. 탭 본문 전체를 쓰고 CodeMirror class는 전역이라 .editor 아래로만 고친다. */
 .editor {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: var(--space-0);
   min-height: var(--space-0);
   overflow: hidden;
   background: var(--color-surface-base);
+}
+
+.find {
+  flex: none;
+  padding: var(--space-0) var(--space-4) var(--space-0)
+    var(--layout-pane-padding-wide);
+}
+
+.host {
+  flex: 1;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+  overflow: hidden;
 }
 
 .editor :global(.cm-editor) {
@@ -58,6 +73,15 @@
 
 .editor :global(.cm-hit-line) {
   background: var(--color-selection);
+}
+
+.editor :global(.cm-lp-match) {
+  border-radius: var(--radius-xs);
+  background: var(--color-selection);
+}
+
+.editor :global(.cm-lp-match-current) {
+  outline: var(--border-width) solid var(--color-focus);
 }
 
 .editor :global(.cm-tk-key) {

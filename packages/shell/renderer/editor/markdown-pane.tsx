@@ -1,7 +1,6 @@
-// md 본문 칸. 읽기와 live preview 편집이 같은 scroll 칸·기둥·배경을 쓰고 본문 자리만 바뀐다.
+// md 본문 칸. live preview 편집기가 scroll 칸과 읽기 기둥 안에 놓인다.
 import type { Ref, RefObject } from "react";
 import { ReadingFrame, type ReadingWidth } from "@lophn/ui/layout";
-import { Markdown } from "@lophn/ui/reading";
 
 import {
   MarkdownEditor,
@@ -14,10 +13,8 @@ interface MarkdownPaneProps {
   text: string;
   /** 편집기의 접근 이름. */
   label: string;
-  editing: boolean;
   width: ReadingWidth;
   scrollRef?: Ref<HTMLDivElement>;
-  articleRef?: Ref<HTMLDivElement>;
   editorRef?: RefObject<MarkdownEditorHandle | null>;
   onChange?: (text: string) => void;
   onScroll?: () => void;
@@ -26,10 +23,8 @@ interface MarkdownPaneProps {
 export function MarkdownPane({
   text,
   label,
-  editing,
   width,
   scrollRef,
-  articleRef,
   editorRef,
   onChange,
   onScroll,
@@ -44,24 +39,16 @@ export function MarkdownPane({
       onScroll={onScroll}
     >
       <ReadingFrame width={width}>
-        <div ref={articleRef} className={styles.article} data-document-body="">
-          {editing ? (
-            <MarkdownEditor
-              ref={editorRef}
-              initialText={text}
-              label={label}
-              onChange={onChange}
-            />
-          ) : (
-            <Markdown
-              source={text}
-              onOpenLink={
-                openLink === undefined
-                  ? undefined
-                  : (href) => void openLink(href)
-              }
-            />
-          )}
+        <div className={styles.article} data-document-body="">
+          <MarkdownEditor
+            ref={editorRef}
+            initialText={text}
+            label={label}
+            onChange={onChange}
+            onOpenLink={
+              openLink === undefined ? undefined : (href) => void openLink(href)
+            }
+          />
         </div>
       </ReadingFrame>
     </div>

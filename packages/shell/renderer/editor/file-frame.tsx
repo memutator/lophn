@@ -27,8 +27,6 @@ interface FileFrameProps {
   line?: number;
   /** 글 파일의 저장 상태. 이미지와 pdf는 null(보기만)이다. */
   state: SaveState | null;
-  editing?: boolean;
-  onEditing?: () => void;
   onConflict?: () => void;
   onRetry?: () => void;
   /** 정보 panel의 내용. onTab·tab은 틀이 가진다. */
@@ -51,8 +49,6 @@ export function FileFrame({
   meta,
   line,
   state,
-  editing = false,
-  onEditing = () => {},
   onConflict,
   onRetry,
   info,
@@ -80,11 +76,8 @@ export function FileFrame({
     >
       <ViewBar lead={<FileMeta outside={outside} meta={meta} line={line} />}>
         <FileActions
-          kind={kind}
           state={state}
-          editing={editing}
           infoOpen={tab !== null}
-          onEditing={onEditing}
           onInfo={() => setTab(tab === null ? "info" : null)}
           onDelete={() => setConfirming(true)}
           onConflict={onConflict}

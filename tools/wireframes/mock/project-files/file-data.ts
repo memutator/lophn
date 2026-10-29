@@ -86,8 +86,6 @@ export interface FileInit {
   readonly compare?: boolean;
   /** 검색 결과로 열려 이 줄로 scroll한 상태. */
   readonly line?: number;
-  /** 편집 모드로 시작한다(md). */
-  readonly editing?: boolean;
 }
 
 /** view bar 왼쪽에 한 줄로 보이는 viewer 정보. 경로는 뺀다. */

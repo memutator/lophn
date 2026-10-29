@@ -1,4 +1,6 @@
-// 문서 안 찾기의 순수 규칙. 정규식 없이 글자 그대로 찾고 대소문자 구별 하나만 고른다.
+// 문서 안 찾기 규칙과 편집기 위 일치 칠하기. 정규식 없이 글자 그대로 찾고 대소문자 구별 하나만 고른다.
+import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
+import { StateEffect, StateField } from "@codemirror/state";
 import { t } from "@lophn/wording";
 
 export interface Match {
@@ -86,3 +88,38 @@ export function replaceAll(
   }
   return { text: out + text.slice(last), count: matches.length };
 }
+
+export const setFindMatches = StateEffect.define<{
+  matches: readonly Match[];
+  current: number;
+}>();
+
+const matchMark = Decoration.mark({ class: "cm-lp-match" });
+const currentMark = Decoration.mark({
+  class: "cm-lp-match cm-lp-match-current",
+});
+
+/** 편집기 글 위에 일치를 칠한다. markdown과 text 편집기가 같이 쓴다. */
+export const findField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(value, transaction) {
+    for (const effect of transaction.effects) {
+      if (effect.is(setFindMatches)) {
+        const length = transaction.state.doc.length;
+        return Decoration.set(
+          effect.value.matches
+            .filter((match) => match.to <= length && match.to > match.from)
+            .map((match, index) =>
+              (index === effect.value.current ? currentMark : matchMark).range(
+                match.from,
+                match.to,
+              ),
+            ),
+          true,
+        );
+      }
+    }
+    return transaction.docChanged ? value.map(transaction.changes) : value;
+  },
+  provide: (field) => EditorView.decorations.from(field),
+});

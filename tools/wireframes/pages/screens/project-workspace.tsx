@@ -169,13 +169,13 @@ const TERMINAL_PANES: readonly PaneSpec[] = [
 export const projectWorkspaceArea: Area = {
   id: "project-workspace",
   title: "Project workspace",
-  summary: "프로젝트 작업대. sidebar, 탭, 문서 읽기·편집, 파일 작업, 검색.",
+  summary: "프로젝트 작업대. sidebar, 탭, 문서 편집, 파일 작업, 검색.",
   pages: [
     {
       id: "project-document",
       title: "Project workspace · document tab",
       description:
-        "프로젝트 작업대의 문서 탭. 왼쪽 sidebar에서 문서를 고르고 읽기·편집을 같은 기둥에서 한다.",
+        "프로젝트 작업대의 문서 탭. 왼쪽 sidebar에서 문서를 고르고 live preview 편집기에서 읽고 고친다.",
       render: () => (
         <MockDesktop
           route={openProject(PROJECT_GROCERY)}
@@ -498,16 +498,16 @@ export const projectWorkspaceArea: Area = {
     },
     {
       id: "new-document-tab",
-      title: "Document · read",
+      title: "Document",
       description:
-        "md 문서 탭이다. 탭 key는 파일 경로이고 view bar는 한 줄로, 오른쪽에 저장 상태, Edit, Info, …가 있다. 판 번호, 판 hint, 형식 문제 표시는 없다.",
+        "md 문서 탭이다. 탭 key는 파일 경로이고 view bar는 한 줄로, 오른쪽에 저장 상태, Info, …가 있다. 본문은 늘 live preview 편집기이고 Edit·Read 전환은 없다. Ctrl+F로 찾기 줄이, Ctrl+Alt+F로 바꾸기 줄이 편집기 위에 열린다. 판 번호, 판 hint, 형식 문제 표시는 없다.",
       render: () => <DocumentTabPage />,
     },
     {
       id: "new-document-editing",
-      title: "Document · editing",
+      title: "Document · saving",
       description:
-        "md를 고치는 중이고 저장 상태가 Saving…이다. 저장 상태는 디스크 저장과 충돌만 있다.",
+        "md를 고치는 중이고 view bar의 저장 상태가 Saving…이다. 저장 상태는 디스크 저장과 충돌만 있다.",
       render: () => <MarkdownEditing />,
     },
     {

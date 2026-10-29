@@ -20,11 +20,16 @@ import {
 import { adoptHeadStyles } from "../adopt-styles.ts";
 import { lineFlash, revealLine as flashLine } from "../line-flash.ts";
 import type { CodeLanguage } from "../model.ts";
+import { FindBar } from "../find/find-bar.tsx";
+import { findField } from "../find/find.ts";
+import { useEditorFind } from "../find/use-editor-find.ts";
 import { minimalChange } from "../live-preview.ts";
 import styles from "./text-editor.module.css";
 
 export interface TextEditorHandle {
   focus(): void;
+  /** 찾기 줄을 연다. replace면 바꾸기 줄도 연다. */
+  openFind(replace?: boolean): void;
   /** n번째 줄(1부터)을 가운데로 보이고 커서를 두고 잠깐 칠한다. */
   revealLine(line: number): void;
   /** 바깥에서 고른 글로 바꾼다(디스크 재읽기, 충돌 해결). 바뀐 범위만 고친다. */
@@ -102,6 +107,8 @@ export function TextEditor({
   const view = useRef<EditorView | null>(null);
   const latest = useRef({ onChange });
   latest.current = { onChange };
+  const find = useEditorFind(view);
+  const { onDocChanged } = find;
 
   useEffect(() => {
     if (!host.current) return;
@@ -122,6 +129,7 @@ export function TextEditor({
               ? [yaml()]
               : []),
           tokens,
+          findField,
           lineFlash,
           EditorView.contentAttributes.of({
             "aria-label": label,
@@ -129,6 +137,7 @@ export function TextEditor({
           }),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
+              onDocChanged();
               latest.current.onChange?.(update.state.doc.toString());
             }
           }),
@@ -147,6 +156,7 @@ export function TextEditor({
     ref,
     () => ({
       focus: () => view.current?.focus(),
+      openFind: (replace = false) => find.openFind(replace),
       revealLine(line: number) {
         if (view.current) flashLine(view.current, line);
       },
@@ -157,8 +167,21 @@ export function TextEditor({
         if (change) editor.dispatch({ changes: change });
       },
     }),
-    [],
+    [find.openFind],
   );
 
-  return <div className={styles.editor} ref={host} data-text-editor="" />;
+  return (
+    <div
+      className={styles.editor}
+      onKeyDownCapture={find.onKeyDown}
+      data-text-editor=""
+    >
+      {find.open ? (
+        <div className={styles.find}>
+          <FindBar {...find.bar} />
+        </div>
+      ) : null}
+      <div className={styles.host} ref={host} />
+    </div>
+  );
 }

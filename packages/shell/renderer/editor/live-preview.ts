@@ -40,7 +40,7 @@ import {
   previewSpans,
   type Span,
 } from "./preview.ts";
-import type { Match } from "./find/find.ts";
+import { findField } from "./find/find.ts";
 import { IMAGE_OFF, svgIcon } from "./svg-icon.ts";
 
 interface LivePreviewOptions {
@@ -427,40 +427,6 @@ const blockPreview = StateField.define<DecorationSet>({
     )
       return blockDecorations(transaction.state);
     return value;
-  },
-  provide: (field) => EditorView.decorations.from(field),
-});
-
-export const setFindMatches = StateEffect.define<{
-  matches: readonly Match[];
-  current: number;
-}>();
-
-const matchMark = Decoration.mark({ class: "cm-lp-match" });
-const currentMark = Decoration.mark({
-  class: "cm-lp-match cm-lp-match-current",
-});
-
-const findField = StateField.define<DecorationSet>({
-  create: () => Decoration.none,
-  update(value, transaction) {
-    for (const effect of transaction.effects) {
-      if (effect.is(setFindMatches)) {
-        const length = transaction.state.doc.length;
-        return Decoration.set(
-          effect.value.matches
-            .filter((match) => match.to <= length && match.to > match.from)
-            .map((match, index) =>
-              (index === effect.value.current ? currentMark : matchMark).range(
-                match.from,
-                match.to,
-              ),
-            ),
-          true,
-        );
-      }
-    }
-    return transaction.docChanged ? value.map(transaction.changes) : value;
   },
   provide: (field) => EditorView.decorations.from(field),
 });

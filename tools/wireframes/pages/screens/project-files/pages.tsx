@@ -68,9 +68,9 @@ export function ExplorerRootMenu() {
   );
 }
 
-/** 문서 탭 · 편집. 디스크에 저장되는 중이다. 판 번호도 형식 문제 표시도 없다. */
+/** 문서 탭 · 저장 중. md는 늘 live preview 편집기로 열리고 디스크에 저장되는 중이다. 판 번호도 형식 문제 표시도 없다. */
 export function MarkdownEditing() {
-  return solo(documentTab(EXP, { editing: true, status: "saving" }));
+  return solo(documentTab(EXP, { status: "saving" }));
 }
 
 /** text 파일 편집기. 확장자가 json·yaml이면 줄 번호가 있는 편집기로 열고 고친다. */
@@ -151,14 +151,12 @@ export function FileReloaded() {
 
 /** 고치는 중에 디스크가 바뀜. 충돌을 알리고 어느 쪽을 남길지 고른다. */
 export function FileConflict() {
-  return solo(documentTab(EXP, { editing: true, status: "conflict" }));
+  return solo(documentTab(EXP, { status: "conflict" }));
 }
 
 /** 충돌 · 디스크 쪽과 비교. 두 쪽을 나란히 보고 어느 쪽을 남길지 고른다. */
 export function FileConflictCompare() {
-  return solo(
-    documentTab(EXP, { editing: true, status: "conflict", compare: true }),
-  );
+  return solo(documentTab(EXP, { status: "conflict", compare: true }));
 }
 
 /** project의 LOPHN.md는 일반 파일이라 따로 둔 진입 없이 일반 문서 탭으로 열린다. */

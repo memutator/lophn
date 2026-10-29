@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
 import {
   type AgentPlace,
   mcpAuthBegin,
@@ -18,6 +18,7 @@ import { serve, type ServeHandle } from "../../server/serve.ts";
 import {
   type AuthDeadline,
   type CallbackListener,
+  type CallbackOptions,
   createMcpOAuth,
   type HttpFetch,
   type McpOAuthServer,
@@ -284,60 +285,87 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
   };
 }
 
-// OAuth loopback callback listener다(MCP 서버와 ChatGPT 로그인이 같이 쓴다). 127.0.0.1에만 듣는다.
+// OAuth loopback callback listener다(MCP 서버, 앱, 구독 provider 로그인이 같이 쓴다). loopback에만 듣는다.
 // 사람이 OS browser에서 돌아온 callback 요청을 받아 code·state·발급 client_id를 옮긴다. 실제 browser 열기는
-// shell이 크롬 링크로 하고 이 listener는 닿는 요청만 받는다. 첫 callback 하나만 받는다.
-// 발급자가 `error`로 돌려보내면 받기는 forbidden으로 끝난다. 취소나 기다림 시한은 받기에 건 AbortSignal이 끊고
-// unavailable로 돌아온다.
-export async function openCallbackListener(): Promise<
-  Result<CallbackListener>
-> {
+// shell이 크롬 링크로 하고 이 listener는 닿는 요청만 받는다. 맞는 callback 하나만 받는다: path나 state가 다르거나
+// code가 빈 요청은 400으로 돌려보내고 계속 기다린다. 발급자가 `error`로 돌려보내면(state를 정했으면 그 state와 함께
+// 와야 한다) 받기는 forbidden으로 끝난다. 취소나 기다림 시한은 받기에 건 AbortSignal이 끊고 unavailable로 돌아온다.
+// 정한 port를 다른 프로세스가 쓰고 있으면 conflict다.
+export async function openCallbackListener(
+  options: CallbackOptions = {},
+): Promise<Result<CallbackListener>> {
   let settled: Callback | "refused" | null = null;
   let accepted: () => void = () => {};
   const incoming = new Promise<void>((resolve) => {
     accepted = resolve;
   });
-  let port = 0;
-  let http: ServeHandle;
-  try {
-    http = await serve(
-      {
-        hostname: "127.0.0.1",
-        port: 0,
-        onListen: (addr) => {
-          port = addr.port;
-        },
-      },
-      (request: Request) => {
-        const url = new URL(request.url);
-        if (settled !== null) {
-          return new Response("이미 받은 로그인이다", { status: 409 });
-        }
-        if (url.searchParams.get("error") !== null) {
-          settled = "refused";
-          accepted();
-          return new Response(CALLBACK_REFUSED, CALLBACK_PAGE);
-        }
-        const code = url.searchParams.get("code");
-        const state = url.searchParams.get("state");
-        if (code === null || code.length === 0 || state === null) {
-          return new Response("요청 값이 부족하다", { status: 400 });
-        }
-        settled = {
-          code,
-          state,
-          iss: url.searchParams.get("iss"),
-          client_id: url.searchParams.get("client_id"),
-        };
-        accepted();
-        return new Response(CALLBACK_DONE, CALLBACK_PAGE);
-      },
-    );
-  } catch {
-    return err({
-      code: "unavailable",
-      message: "loopback callback port를 열 수 없다",
-    });
+  let port = options.port ?? 0;
+  const handler = (request: Request) => {
+    const url = new URL(request.url);
+    if (settled !== null) {
+      return new Response("이미 받은 로그인이다", { status: 409 });
+    }
+    if (options.path !== undefined && url.pathname !== options.path) {
+      return new Response("모르는 주소다", { status: 404 });
+    }
+    const state = url.searchParams.get("state");
+    const ours = options.state === undefined || state === options.state;
+    if (url.searchParams.get("error") !== null && ours) {
+      settled = "refused";
+      accepted();
+      return new Response(CALLBACK_REFUSED, CALLBACK_PAGE);
+    }
+    const code = url.searchParams.get("code");
+    if (code === null || code.length === 0 || state === null || !ours) {
+      return new Response("요청 값이 맞지 않는다", { status: 400 });
+    }
+    settled = {
+      code,
+      state,
+      iss: url.searchParams.get("iss"),
+      client_id: url.searchParams.get("client_id"),
+    };
+    accepted();
+    return new Response(CALLBACK_DONE, CALLBACK_PAGE);
+  };
+  const servers: ServeHandle[] = [];
+  const closeAll = () =>
+    Promise.all(servers.map((server) => server.shutdown())).then(() => {});
+  for (const hostname of options.hosts ?? ["127.0.0.1"]) {
+    try {
+      servers.push(
+        await serve(
+          {
+            hostname,
+            port,
+            onListen: (addr) => {
+              port = addr.port;
+            },
+          },
+          handler,
+        ),
+      );
+    } catch (thrown) {
+      const code = errorCode(thrown);
+      // IPv6가 없는 기계에서는 ::1을 잡을 수 없다. 그 주소로 오는 callback도 없다.
+      if (
+        servers.length > 0 &&
+        (code === "EADDRNOTAVAIL" || code === "EAFNOSUPPORT")
+      ) {
+        continue;
+      }
+      await closeAll();
+      return code === "EADDRINUSE"
+        ? err({
+            code: "conflict",
+            message: "다른 프로그램이 로그인 callback port를 쓰고 있다",
+            details: { reason: "callback_port_in_use" },
+          })
+        : err({
+            code: "unavailable",
+            message: "loopback callback port를 열 수 없다",
+          });
+    }
   }
   return ok({
     port: () => port,
@@ -367,7 +395,7 @@ export async function openCallbackListener(): Promise<
       });
     },
     close(): Promise<void> {
-      return http.shutdown();
+      return closeAll();
     },
   });
 }

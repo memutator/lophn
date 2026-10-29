@@ -3,6 +3,7 @@
 // 같은 collector와 판정 표를 쓰게 하려는 것이다. 판정 규칙을 둘로 나누지 않는다.
 // 읽을 수 없는 본문은 null이다. 호출자는 원인 불명으로 둔다.
 
+import { cloudCodeFrames } from "./cloud-code.ts";
 import type { SseFrame } from "./stream.ts";
 
 type Json = Record<string, unknown>;
@@ -228,7 +229,8 @@ export function framesFromBatch(
   protocol:
     | "anthropic-messages"
     | "openai-responses"
-    | "openai-chat-completions",
+    | "openai-chat-completions"
+    | "cloud-code-assist",
   text: string | null,
 ): SseFrame[] | null {
   if (text === null) return null;
@@ -238,6 +240,7 @@ export function framesFromBatch(
   } catch {
     return null;
   }
+  if (protocol === "cloud-code-assist") return cloudCodeFrames(parsed);
   const root = object(parsed);
   if (root === null) return null;
   if (protocol === "anthropic-messages") return messagesFrames(root);

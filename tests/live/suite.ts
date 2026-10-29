@@ -138,6 +138,7 @@ export async function callLive(
       refreshed_at: null,
       model_blocks: [],
       reported_models: null,
+      account: null,
     },
     revision: 1,
   };

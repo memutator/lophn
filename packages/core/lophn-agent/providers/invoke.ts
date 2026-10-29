@@ -10,7 +10,16 @@ import type {
   TokenUsage,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { AuthTransport } from "./adapters/auth-transport.ts";
-import { joinEndpoint, verifyStateFree } from "./adapters/compat.ts";
+import {
+  applyCloudCodeFrames,
+  createCloudCodeStreamResult,
+  judgeCloudCode,
+} from "./adapters/cloud-code.ts";
+import {
+  joinEndpoint,
+  type ShapedCall,
+  verifyStateFree,
+} from "./adapters/compat.ts";
 import {
   applyChatFrames,
   completeToolCalls,
@@ -48,6 +57,7 @@ const PATHS = {
   "anthropic-messages": "/messages",
   "openai-responses": "/responses",
   "openai-chat-completions": "/chat/completions",
+  "cloud-code-assist": "/v1internal:streamGenerateContent?alt=sse",
 } as const;
 
 const ANTHROPIC_VERSION = "2023-06-01";
@@ -68,6 +78,12 @@ type InvokeDeps = {
   // 지금 시각(ms)을 atSchema 꼴로 옮긴다.
   at: (ms: number) => string;
   idle?: IdleDeps;
+  // 구독 client profile이 보내기 직전 요청을 다시 만든다(Claude Code). 없으면 packer의 body를 그대로 보낸다.
+  shape?: (input: {
+    endpoint: string;
+    session: string | null;
+    body: Record<string, unknown>;
+  }) => ShapedCall | null;
 };
 
 function emptyUsage(revision: string): TokenUsage {
@@ -179,6 +195,30 @@ function collectorFor(
           kind: verdict.kind,
           finishReason: out.incompleteReason ?? out.responseStatus ?? null,
           errorType: out.errorType === "?" ? undefined : out.errorType,
+          errorMessage: out.errorMessage,
+          providerCode: verdict.providerCode ?? null,
+        };
+      },
+    };
+  }
+  if (protocol === "cloud-code-assist") {
+    const out = createCloudCodeStreamResult();
+    return {
+      push: pushInto(
+        out,
+        (frames) => applyCloudCodeFrames(out, frames),
+        () => out.reasoningEnded,
+      ),
+      finish() {
+        const verdict = judgeCloudCode(out);
+        return {
+          text: out.text,
+          reasoning: out.reasoning,
+          toolCalls: out.toolCalls,
+          usage: out.usage,
+          kind: verdict.kind,
+          finishReason: out.finishReason ?? null,
+          errorType: out.errorType,
           errorMessage: out.errorMessage,
           providerCode: verdict.providerCode ?? null,
         };
@@ -304,12 +344,22 @@ async function invoke(
   if (input.model.protocol === "anthropic-messages") {
     headers["anthropic-version"] = ANTHROPIC_VERSION;
   }
+  const shaped =
+    deps.shape?.({
+      endpoint: input.endpoint,
+      session: input.session,
+      body: input.body,
+    }) ?? null;
+  if (deps.shape !== undefined && shaped === null) {
+    return err({ code: "internal", message: "요청 본문을 만들지 못했다" });
+  }
   idle.touch();
   const sent = await deps.transport.send({
-    url: joinEndpoint(input.endpoint, PATHS[input.model.protocol]),
+    url:
+      shaped?.url ?? joinEndpoint(input.endpoint, PATHS[input.model.protocol]),
     method: "POST",
-    headers,
-    body: JSON.stringify({ ...input.body, stream: true }),
+    headers: shaped?.headers ?? headers,
+    body: shaped?.body ?? JSON.stringify({ ...input.body, stream: true }),
     signal: combined,
   });
   const usageRevision = input.usageRevision;
@@ -402,7 +452,14 @@ async function invoke(
   const extra = {
     text: collected.text,
     reasoning: collected.reasoning,
-    toolCalls: collected.kind === "complete" ? collected.toolCalls : [],
+    toolCalls:
+      collected.kind === "complete"
+        ? collected.toolCalls.map((call) =>
+            shaped === null
+              ? call
+              : { ...call, name: shaped.toolName(call.name) },
+          )
+        : [],
     usage: { ...usage, definition_revision: usageRevision },
     firstOutputMs,
   };

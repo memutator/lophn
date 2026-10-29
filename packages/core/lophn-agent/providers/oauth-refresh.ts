@@ -1,29 +1,72 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { ProviderRecord } from "../../../protocol/lophn-agent/mod.ts";
+import type {
+  OAuthDefinition,
+  ProviderRecord,
+} from "../../../protocol/lophn-agent/mod.ts";
 import type {
   SecretFileUse,
   SecretStorePort,
 } from "../../../protocol/secrets/mod.ts";
-import { type IssuerFetch, objectOf, positive, text } from "./oauth.ts";
-import { loadProviderTokens, providerTokenNames } from "./oauth-secrets.ts";
+import { type IssuerFetch, objectOf, positive, text } from "./issuer-http.ts";
+import { claudeRefreshRequest } from "./oauth-claude.ts";
+import { antigravityRefreshRequest } from "./oauth-antigravity.ts";
 import {
-  readReportedModels,
-  reportedModelsEndpoint,
-} from "./reported-models.ts";
+  loadProviderTokens,
+  type ProviderTokenMeta,
+  providerTokenNames,
+} from "./oauth-secrets.ts";
+import { readAccountModels, readsAccountModels } from "./reported-models.ts";
 
 // 구독 provider의 OAuth access token 갱신이다. agent runtime이 model 호출에 실을 token(`provider.<id>`)을 달라고
 // 할 때 core가 값을 건네기 직전에 부른다(runtime-secret.ts의 providerOAuth hook). 만료가 lead보다 가까우면
 // 발급자 요청 대기열로 refresh_token grant를 보내고 새 token을 저장한 뒤 credential의 만료를 올린다.
+// token을 바꾸는 곳은 이 core 하나다. inference·model 목록·quota가 따로 갱신하지 않는다.
 // - refresh token은 회전한다. 같은 token을 두 번 보내면 발급자가 둘 다 폐기하므로 provider마다 한 번에 하나만 돈다.
 // - 회전한 refresh token을 먼저 저장한다. 잃으면 사람이 다시 로그인해야 한다.
 // - 발급자가 grant를 거절하면(400·401, invalid_grant) credential을 revoked로 하고 token을 건네지 않는다.
 // - 그 밖의 실패(발급자에 닿지 못함, 5xx, 이상한 응답)는 지금 token이 아직 살아 있으면 그대로 건넨다.
+// - lead는 실제 만료 5분 전 하나다. Claude Code는 응답 TTL에서 6분 앞을 갱신 시점으로 쓰지만 여기는 lead 하나로 줄였다.
 // token과 응답 본문은 오류·log에 싣지 않는다.
 // ChatGPT 계정의 model 목록은 token을 건넨 뒤에 읽는다(갱신 직후, 그리고 목록이 아직 없을 때). 읽는 데 발급자 대기열
 // 기한(8초)까지 걸릴 수 있어 token을 기다리게 하지 않는다. 실패는 삼키고 앞서 저장한 목록은 남긴다.
 
 const ACCESS_DEFAULT_S = 3_600;
 const ACCESS_NAME = /^provider\.([^.]+)$/;
+// 받은 token의 저장을 같은 값으로 다시 해 보는 횟수다.
+const SAVE_ATTEMPTS = 3;
+
+// product마다 refresh grant의 모양이 다르다. ChatGPT는 첫 로그인에 발급받은 client_id를 쓴다.
+function refreshRequestOf(
+  oauth: OAuthDefinition,
+  stored: { refresh: string; meta: ProviderTokenMeta },
+): { url: string; init: RequestInit } | null {
+  if (oauth.product === "claude") {
+    return claudeRefreshRequest(oauth, stored.refresh);
+  }
+  if (oauth.product === "antigravity") {
+    return antigravityRefreshRequest(oauth, stored.refresh);
+  }
+  const clientId =
+    oauth.product === "chatgpt" ? stored.meta.client_id : oauth.client_id;
+  if (clientId === null) return null;
+  const fields: Record<string, string> = {
+    grant_type: "refresh_token",
+    refresh_token: stored.refresh,
+    client_id: clientId,
+    ...(oauth.product === "chatgpt" ? { resource: oauth.resource } : {}),
+  };
+  return {
+    url: oauth.token_endpoint,
+    init: {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        accept: "application/json",
+      },
+      body: new URLSearchParams(fields).toString(),
+    },
+  };
+}
 
 export type RefreshRecord =
   | { expires_at: string }
@@ -55,16 +98,12 @@ export function createProviderRefresher(deps: {
 
   // provider마다 한 번에 하나만 돈다. 기다리지 않고 돌려보낸다.
   function readModelsLater(provider: ProviderRecord): void {
-    const endpoint = reportedModelsEndpoint(provider);
-    if (endpoint === null || reads.has(provider.id)) return;
+    const source = { ...provider, account: provider.credential.account };
+    if (!readsAccountModels(source) || reads.has(provider.id)) return;
     const read = (async () => {
       const access = deps.secrets.get(providerTokenNames(provider.id).access);
       if (!access.ok) return;
-      const models = await readReportedModels(
-        deps.http,
-        endpoint,
-        access.value,
-      );
+      const models = await readAccountModels(deps.http, source, access.value);
       if (models === null) return;
       const latest = await deps.readProvider(provider.id);
       if (!latest.ok || latest.value === null) return;
@@ -81,22 +120,17 @@ export function createProviderRefresher(deps: {
     if (oauth === null || !stored.ok) {
       return err({ code: "unavailable", message: "저장된 token이 없다" });
     }
-    const clientId =
-      oauth.product === "chatgpt"
-        ? stored.value.meta.client_id
-        : oauth.client_id;
-    if (clientId === null) {
+    const request = refreshRequestOf(oauth, stored.value);
+    // Antigravity token은 계정 project와 함께여야 쓸 수 있다. project 없는 기록은 다시 로그인해야 한다.
+    const incomplete =
+      oauth.product === "antigravity" &&
+      provider.credential.account?.project_id == null;
+    if (request === null || incomplete) {
       return err({
         code: "unavailable",
         message: "저장된 token meta가 깨졌다",
       });
     }
-    const fields: Record<string, string> = {
-      grant_type: "refresh_token",
-      refresh_token: stored.value.refresh,
-      client_id: clientId,
-      ...(oauth.product === "chatgpt" ? { resource: oauth.resource } : {}),
-    };
     const still = (): Result<void> => {
       const expires = Date.parse(provider.credential.expires_at ?? "");
       return Number.isFinite(expires) && expires > deps.nowMs()
@@ -106,18 +140,20 @@ export function createProviderRefresher(deps: {
     let status: number;
     let body: Record<string, unknown>;
     try {
-      const response = await deps.http(oauth.token_endpoint, {
-        method: "POST",
-        headers: {
-          "content-type": "application/x-www-form-urlencoded",
-          accept: "application/json",
-        },
-        body: new URLSearchParams(fields).toString(),
-      });
+      const response = await deps.http(request.url, request.init);
       status = response.status;
       body = objectOf(await response.text());
     } catch {
       return still();
+    }
+    // 기다리는 동안 Disconnect하거나 다시 로그인했으면 늦은 답으로 지금 연결을 덮거나 지운 token을 되살리지 않는다.
+    const latest = await deps.readProvider(provider.id);
+    if (
+      !latest.ok ||
+      latest.value === null ||
+      latest.value.credential.logged_in_at !== provider.credential.logged_in_at
+    ) {
+      return err({ code: "unavailable", message: "연결이 바뀌었다" });
     }
     if (status === 400 || status === 401 || body["error"] === "invalid_grant") {
       const revoked = await recordWithRetry(provider, {
@@ -132,21 +168,27 @@ export function createProviderRefresher(deps: {
     const access = text(body["access_token"]);
     if (status !== 200 || access === null) return still();
     const names = providerTokenNames(provider.id);
+    // 발급자가 refresh token을 새로 주지 않으면 지금 것을 그대로 쓴다. 새로 준 것은 저장이 잠깐 실패해도 같은 값으로
+    // 다시 쓴다: 옛 refresh token은 이미 썼을 수 있어 다시 보내지 않는다.
     const rotated = text(body["refresh_token"]);
     if (rotated !== null) {
-      const put = await deps.secrets.put(names.refresh, rotated);
-      if (!put.ok) {
-        return err({ code: "unavailable", message: "token을 저장하지 못했다" });
-      }
+      const put = await putAgain(names.refresh, rotated);
+      if (!put.ok) return put;
     }
-    const put = await deps.secrets.put(names.access, access);
-    if (!put.ok) {
-      return err({ code: "unavailable", message: "token을 저장하지 못했다" });
-    }
+    const put = await putAgain(names.access, access);
+    if (!put.ok) return put;
     const seconds = positive(body["expires_in"]) ?? ACCESS_DEFAULT_S;
     return await recordWithRetry(provider, {
       expires_at: new Date(deps.nowMs() + seconds * 1000).toISOString(),
     });
+  }
+
+  async function putAgain(name: string, value: string): Promise<Result<void>> {
+    for (let attempt = 0; attempt < SAVE_ATTEMPTS; attempt++) {
+      const put = await deps.secrets.put(name, value);
+      if (put.ok) return ok(undefined);
+    }
+    return err({ code: "unavailable", message: "token을 저장하지 못했다" });
   }
 
   // 읽은 뒤 provider revision이 바뀌었으면(다른 갱신, 상태 기록) 다시 읽어 한 번 더 기록한다.

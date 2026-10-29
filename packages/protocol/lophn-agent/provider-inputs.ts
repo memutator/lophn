@@ -6,6 +6,7 @@ import {
   CREDENTIAL_STATES,
   modelBlockSchema,
   OAUTH_FLOWS,
+  providerAccountSchema,
   providerAuthKindSchema,
   providerDefinitionSchema,
   providerProtocolSchema,
@@ -73,12 +74,15 @@ export const connectProviderInputSchema = z
     auth_kind: providerAuthKindSchema,
     credential: z.strictObject({ secret: secretNameSchema }).nullable(),
     expires_at: atSchema.optional(),
+    // 구독 로그인이 확정한 계정이다. core의 로그인 처리기만 싣는다.
+    account: providerAccountSchema.optional(),
   })
   .refine(
     (value) =>
       targetFits(value, value.auth_kind) &&
       (value.auth_kind === "none") === (value.credential === null) &&
-      (value.auth_kind === "oauth") === (value.expires_at !== undefined),
+      (value.auth_kind === "oauth") === (value.expires_at !== undefined) &&
+      (value.auth_kind === "oauth" || value.account === undefined),
     {
       message:
         "endpoint, protocol or credential is outside the provider definition",

@@ -69,6 +69,7 @@ export async function wireBinding(
       refreshed_at: null,
       model_blocks: [],
       reported_models: null,
+      account: null,
     },
     revision: 1,
   };

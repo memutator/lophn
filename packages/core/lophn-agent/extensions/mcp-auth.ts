@@ -102,7 +102,16 @@ export type CallbackListener = {
   close(): Promise<void>;
 };
 
-// callback listener port를 만든다. 실제 loopback listener는 이 모듈 밖의
+// 발급자에 등록된 callback 주소로 들을 때 쓴다. 비우면 127.0.0.1의 빈 port에서 아무 path나 받는다.
+export type CallbackOptions = {
+  // 듣는 loopback 주소다. localhost를 광고하는 발급자는 127.0.0.1과 ::1을 둘 다 잡아 다른 프로세스가 callback을
+  // 가로채지 못하게 한다.
+  hosts?: readonly string[];
+  port?: number;
+  path?: string;
+  // 이 시도의 state다. 다른 state의 callback은 받지 않고(400) 기다림을 잇는다.
+  state?: string;
+};
 // port에서 만들고, 테스트는 가짜를 끼운다.
 
 // OAuth 시작이다. authorization URL을 만들고 사람이 연다.

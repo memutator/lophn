@@ -5,8 +5,7 @@ import { type ProviderCredential } from "../../../protocol/lophn-agent/mod.ts";
 
 // ---- 과금 경로 ----
 
-// API key는 API 과금, ChatGPT·SuperGrok OAuth는 구독이다. Claude OAuth 자리는
-// 없다. 확정되지 않은 청구액은 모름이다.
+// API key는 API 과금, ChatGPT·SuperGrok·Claude OAuth는 구독이다. 확정되지 않은 청구액은 모름이다.
 
 // credential이 지금 쓸 수 있는가. usage_wait는 until 도달까지 막는다. model 전용 대기는 그
 // model에만 막는다. rejected·revoked는 쓸 수 없다. provider에는 credential이 하나라

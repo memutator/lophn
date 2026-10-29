@@ -16,16 +16,21 @@ export const PROVIDER_PROTOCOLS = [
   "anthropic-messages",
   "openai-responses",
   "openai-chat-completions",
+  // Google Cloud Code Assist의 `v1internal:streamGenerateContent`다. Antigravity 구독 계정만 쓴다.
+  "cloud-code-assist",
 ] as const;
 export const providerProtocolSchema = z.enum(PROVIDER_PROTOCOLS);
 
 const PROVIDER_AUTH_KINDS = ["api_key", "oauth", "none"] as const;
 export const providerAuthKindSchema = z.enum(PROVIDER_AUTH_KINDS);
 
-// 구독 OAuth는 ChatGPT와 SuperGrok만 쓴다. Claude OAuth는 두지 않는다: Anthropic이
-// 제3자 앱의 Claude.ai 로그인과 구독 credential 사용을 금지한다.
-// chatgpt는 OpenAI 공식 Sign in with ChatGPT(PKCE + 127.0.0.1 loopback, 첫 로그인에 client를
-// 동적 등록)이고 supergrok은 device code다. product가 flow를 정한다.
+// 구독 OAuth product다. product가 flow를 정한다.
+// - chatgpt: OpenAI 공식 Sign in with ChatGPT(PKCE + 127.0.0.1 loopback, 첫 로그인에 client를 동적 등록).
+// - supergrok: device code.
+// - claude: Claude account의 PKCE + 고정 loopback callback. Anthropic 공식 문서는 제3자 앱의 Claude.ai 로그인과
+//   구독 credential 사용을 허락하지 않는다. 사람이 그 위험을 알고 고른 연결이다.
+// - antigravity: Google account의 PKCE + 고정 loopback callback. 로그인 끝에 Cloud Code Assist project를 확정한다.
+//   여기서 쓰는 `v1internal` API는 Google이 제3자 API로 공개 보장한 것이 아니다.
 export const OAUTH_FLOWS = ["pkce_loopback", "device_code"] as const;
 export type OAuthFlow = (typeof OAUTH_FLOWS)[number];
 
@@ -72,19 +77,54 @@ const supergrokFields = {
   token_endpoint: issuerUrlSchema,
   scopes: scopesSchema,
 };
+// 발급자에 등록된 callback 주소라 port와 path까지 고정이다. browser를 열기 전에 이 port로 듣는다.
+const redirectUriSchema = z
+  .string()
+  .refine(
+    (value) =>
+      loopback(value) &&
+      new URL(value).protocol === "http:" &&
+      new URL(value).port !== "",
+    { message: "expected a loopback http url with a port" },
+  );
+const claudeFields = {
+  product: z.literal("claude"),
+  client_id: nonblankSchema,
+  authorization_endpoint: issuerUrlSchema,
+  token_endpoint: issuerUrlSchema,
+  // token 응답에 계정·조직이 빠졌을 때 채우는 곳이다.
+  account_endpoint: issuerUrlSchema,
+  redirect_uri: redirectUriSchema,
+  scopes: scopesSchema,
+};
+// installed-app client라 client_secret은 공개 배포된 값이다. 사람의 비밀이 아니다.
+const antigravityFields = {
+  product: z.literal("antigravity"),
+  client_id: nonblankSchema,
+  client_secret: nonblankSchema,
+  authorization_endpoint: issuerUrlSchema,
+  token_endpoint: issuerUrlSchema,
+  userinfo_endpoint: issuerUrlSchema,
+  redirect_uri: redirectUriSchema,
+  scopes: scopesSchema,
+};
 
 const oauthDefinitionSchema = z.discriminatedUnion("product", [
   z.strictObject(chatgptFields),
   z.strictObject(supergrokFields),
+  z.strictObject(claudeFields),
+  z.strictObject(antigravityFields),
 ]);
 const oauthDefinitionOutputSchema = z.discriminatedUnion("product", [
   z.object(chatgptFields),
   z.object(supergrokFields),
+  z.object(claudeFields),
+  z.object(antigravityFields),
 ]);
 export type OAuthDefinition = z.infer<typeof oauthDefinitionSchema>;
 
 export function oauthFlowOf(definition: OAuthDefinition): OAuthFlow {
-  return definition.product === "chatgpt" ? "pkce_loopback" : "device_code";
+  return definition.product === "supergrok" ? "device_code" : "pkce_loopback";
 }
 
 const definitionFields = {
@@ -172,6 +212,19 @@ export const UNAVAILABLE_REASONS = [
   "refresh_revoked",
 ] as const;
 
+// 구독 로그인이 확정한 계정이다. 비밀이 아니다. 화면의 계정 표시와 provider가 요구하는 요청 metadata(Claude의
+// account, Google의 project)에 쓴다. 모르는 칸은 null이다.
+const providerAccountFields = {
+  id: nonblankSchema.nullable(),
+  email: nonblankSchema.nullable(),
+  organization_id: nonblankSchema.nullable(),
+  organization_name: nonblankSchema.nullable(),
+  project_id: nonblankSchema.nullable(),
+};
+export const providerAccountSchema = z.strictObject(providerAccountFields);
+const providerAccountOutputSchema = z.object(providerAccountFields);
+export type ProviderAccount = z.infer<typeof providerAccountSchema>;
+
 const credentialFields = {
   kind: providerAuthKindSchema,
   secret_ref: providerSecretRefSchema.nullable(),
@@ -185,6 +238,8 @@ const credentialFields = {
   model_blocks: z.array(modelBlockSchema),
   // ChatGPT 계정이 쓸 수 있는 model 이름이다. null은 아직 못 읽었다는 뜻이고 그때는 거르지 않는다.
   reported_models: z.array(nonblankSchema).nullable(),
+  // 구독 OAuth 연결에만 있다.
+  account: providerAccountSchema.nullable(),
 };
 
 function credentialShape(value: {
@@ -194,8 +249,10 @@ function credentialShape(value: {
   unavailable_reason: string | null;
   until: string | null;
   model_blocks: readonly { model_name: string }[];
+  account: unknown;
 }): boolean {
   const secret = (value.kind === "none") === (value.secret_ref === null);
+  const account = value.kind === "oauth" || value.account === null;
   const waiting = value.state === "usage_wait";
   const reason =
     value.state === "available"
@@ -203,6 +260,7 @@ function credentialShape(value: {
       : value.unavailable_reason !== null;
   return (
     secret &&
+    account &&
     reason &&
     waiting === (value.until !== null) &&
     unique(value.model_blocks.map((block) => block.model_name))
@@ -219,6 +277,7 @@ const providerCredentialOutputSchema = z
     ...credentialFields,
     secret_ref: providerSecretRefOutputSchema.nullable(),
     model_blocks: z.array(modelBlockOutputSchema),
+    account: providerAccountOutputSchema.nullable(),
   })
   .refine(credentialShape, {
     message: "credential state, secret and model blocks do not agree",

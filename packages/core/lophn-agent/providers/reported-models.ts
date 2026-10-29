@@ -1,6 +1,10 @@
-import type { ProviderRecord } from "../../../protocol/lophn-agent/mod.ts";
+import type {
+  ProviderAccount,
+  ProviderRecord,
+} from "../../../protocol/lophn-agent/mod.ts";
 import { builtinProviderDefinition } from "./definitions.ts";
-import type { IssuerFetch } from "./oauth.ts";
+import type { IssuerFetch } from "./issuer-http.ts";
+import { readAntigravityModels } from "./oauth-antigravity.ts";
 
 // provider가 알려 주는 model 목록이다. ChatGPT 구독 계정과 custom provider(`GET {endpoint}/models`)가 같은 모양을 쓴다.
 // ChatGPT는 같은 Bearer로 `GET /v1/models`를 읽고 `visibility`가 "list"인 것만 남긴다.
@@ -83,4 +87,32 @@ export async function readReportedModels(
   } catch {
     return null;
   }
+}
+
+type AccountTarget = Pick<ProviderRecord, "definition" | "endpoint"> & {
+  account: ProviderAccount | null;
+};
+
+// 구독 계정의 model 목록을 읽는 곳이 있는가. Antigravity는 계정 project의 roster(POST)다.
+export function readsAccountModels(provider: AccountTarget): boolean {
+  return provider.definition.oauth?.product === "antigravity"
+    ? provider.account?.project_id != null
+    : reportedModelsEndpoint(provider) !== null;
+}
+
+export async function readAccountModels(
+  http: IssuerFetch,
+  provider: AccountTarget,
+  access: string,
+): Promise<string[] | null> {
+  if (provider.definition.oauth?.product === "antigravity") {
+    const project = provider.account?.project_id ?? null;
+    return project === null
+      ? null
+      : await readAntigravityModels(http, provider.endpoint, project, access);
+  }
+  const endpoint = reportedModelsEndpoint(provider);
+  return endpoint === null
+    ? null
+    : await readReportedModels(http, endpoint, access);
 }

@@ -16,6 +16,16 @@ export function joinEndpoint(base: string, path: string): string {
   return trimmed + inner;
 }
 
+// 구독 client profile이 보내기 직전에 다시 만든 요청이다(Claude Code, Antigravity).
+export type ShapedCall = {
+  url: string;
+  headers: Record<string, string>;
+  // 보낼 byte 그대로다. 다시 직렬화하지 않는다(Claude cch가 이 byte의 hash다).
+  body: string;
+  // 응답의 tool 이름을 요청의 원래 이름으로 되돌린다.
+  toolName(name: string): string;
+};
+
 // 인증 없음은 127.0.0.1·::1·localhost에만 허용된다. Ollama·LM Studio·
 // llama.cpp의 loopback endpoint가 여기 해당한다. 파싱 실패는 fail closed다.
 
@@ -66,12 +76,19 @@ type StateFreeVerdict = {
 // messages.ts의 reasoningFor가 실패를 내고 run-loop가 configuration_unavailable로
 // 끝낸다.
 export function verifyStateFree(input: {
-  protocol: "openai-responses" | "openai-chat-completions";
+  protocol:
+    | "openai-responses"
+    | "openai-chat-completions"
+    | "cloud-code-assist";
   // 이번 요청에 재전송 대상 opaque 상태가 있었는가.
   pendingReasoning: boolean;
   reasoningRequired: boolean;
 }): StateFreeVerdict {
   if (!input.pendingReasoning) return { continuable: true, adjustment: "none" };
+  // Cloud Code는 thought signature를 이력에 싣지 않는다. 다음 call은 서명 없이 이어 간다.
+  if (input.protocol === "cloud-code-assist") {
+    return { continuable: true, adjustment: "none" };
+  }
   if (input.protocol === "openai-responses") {
     return { continuable: true, adjustment: "reasoning_item_dropped" };
   }

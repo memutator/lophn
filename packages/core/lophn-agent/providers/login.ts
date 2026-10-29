@@ -23,12 +23,10 @@ import {
   recordProviderModels,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { SecretStorePort } from "../../../protocol/secrets/secret-file.ts";
-import type { CallbackListener } from "../extensions/mod.ts";
-import {
-  readReportedModels,
-  reportedModelsEndpoint,
-} from "./reported-models.ts";
-import { createProviderOAuth, type IssuerFetch } from "./oauth.ts";
+import type { CallbackListener, CallbackOptions } from "../extensions/mod.ts";
+import { readAccountModels, readsAccountModels } from "./reported-models.ts";
+import { createProviderOAuth } from "./oauth.ts";
+import type { IssuerFetch } from "./issuer-http.ts";
 import {
   hostIdOf,
   providerSecretName,
@@ -46,11 +44,13 @@ type Target = {
 
 export type ProviderLoginDeps = {
   http: IssuerFetch;
-  openListener(): Promise<Result<CallbackListener>>;
+  openListener(options?: CallbackOptions): Promise<Result<CallbackListener>>;
   secrets: Pick<SecretStorePort, "get" | "put" | "delete">;
   newKey(): string;
   nowMs(): number;
   random: RandomSource;
+  // 계정 준비(onboarding)를 다시 볼 때까지 쉰다. test가 바로 돌아오게 한다.
+  wait?: (ms: number) => Promise<void>;
 };
 
 // writer queue 앞의 처리기. login 세 command만 가로채고 나머지 command와 Writer
@@ -65,6 +65,7 @@ export function withProviderLogin(
     hostId: () => hostIdOf(deps.secrets, deps.random),
     nowMs: deps.nowMs,
     random: deps.random,
+    ...(deps.wait === undefined ? {} : { wait: deps.wait }),
   });
   const at = (ms: number) => new Date(ms).toISOString();
 
@@ -119,6 +120,7 @@ export function withProviderLogin(
         auth_kind: "oauth",
         credential: { secret: providerSecretName(provider) },
         expires_at: at(tokens.expires_at_ms),
+        ...(tokens.account === null ? {} : { account: tokens.account }),
       },
       idempotency_key: deps.newKey(),
       compare: {},
@@ -133,9 +135,9 @@ export function withProviderLogin(
     }
     const record = (connected.value.result as { provider: unknown }).provider;
     // 계정 model 목록은 로그인 결과를 기다리게 하지 않고 뒤에서 읽는다. 실패하면 token을 처음 건넬 때(prepareToken) 다시 읽는다.
-    const endpoint = reportedModelsEndpoint(target);
-    if (endpoint !== null) {
-      void readReportedModels(deps.http, endpoint, tokens.access)
+    const source = { ...target, account: tokens.account };
+    if (readsAccountModels(source)) {
+      void readAccountModels(deps.http, source, tokens.access)
         .then((models) =>
           models === null
             ? undefined

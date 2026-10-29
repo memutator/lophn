@@ -15,8 +15,8 @@ const MODELS_URL = "https://api.openai.com/v1/models";
 const NOW = Date.parse("2026-10-17T00:00:00.000Z");
 const at = (ms: number) => new Date(ms).toISOString();
 
-// 실제 provider 표에 ChatGPT 로그인으로 연결한 provider 하나를 두고, 그 token 셋을 가짜 저장소에 둔다.
-function setup(expiresAtMs: number) {
+// 실제 provider 표에 구독 로그인으로 연결한 provider 하나를 두고, 그 token 셋을 가짜 저장소에 둔다.
+function setup(expiresAtMs: number, product: "chatgpt" | "claude" = "chatgpt") {
   const db = new DatabaseSync(":memory:");
   for (const step of providerSchemaSteps) db.exec(step.sql);
   const sql: Sql = {
@@ -26,7 +26,9 @@ function setup(expiresAtMs: number) {
   };
   const tx = { now: () => at(NOW), sql } as unknown as Tx;
   const commands = createProviderCommands();
-  const definition = builtinProviderDefinition("openai");
+  const definition = builtinProviderDefinition(
+    product === "chatgpt" ? "openai" : "anthropic",
+  );
   assert.ok(definition.ok);
   const connected = commands.connect.handle(
     tx,
@@ -35,8 +37,12 @@ function setup(expiresAtMs: number) {
       id: ID,
       name: "OpenAI",
       definition: definition.value,
-      endpoint: "https://api.openai.com/v1",
-      protocol: "openai-responses",
+      endpoint:
+        product === "chatgpt"
+          ? "https://api.openai.com/v1"
+          : "https://api.anthropic.com/v1",
+      protocol:
+        product === "chatgpt" ? "openai-responses" : "anthropic-messages",
       auth_kind: "oauth",
       credential: { secret: ACCESS },
       expires_at: at(expiresAtMs),
@@ -55,7 +61,11 @@ function setup(expiresAtMs: number) {
     return found.value;
   };
   // models: 계정 model 목록 GET의 답이다(없으면 발급자 대기열이 닿지 못한 것처럼 던진다).
-  const refresher = (answer: Response, models?: () => Response) =>
+  const sent: { url: string; init: RequestInit }[] = [];
+  const refresher = (
+    answer: Response | (() => Promise<Response>),
+    models?: () => Response,
+  ) =>
     createProviderRefresher({
       readProvider: (provider) => Promise.resolve(loadProvider(sql, provider)),
       secrets: {
@@ -72,8 +82,13 @@ function setup(expiresAtMs: number) {
           return Promise.resolve(ok({ names: [] }) as never);
         },
       },
-      http: (url) => {
-        if (url !== MODELS_URL) return Promise.resolve(answer);
+      http: (url, init) => {
+        sent.push({ url, init });
+        if (url !== MODELS_URL) {
+          return typeof answer === "function"
+            ? answer()
+            : Promise.resolve(answer);
+        }
         return models === undefined
           ? Promise.reject(new Error("no runtime"))
           : Promise.resolve(models());
@@ -112,7 +127,17 @@ function setup(expiresAtMs: number) {
         "update provider_credentials set expires_at = ? where provider = ?",
       )
       .run(at(ms), ID);
-  return { secrets, read, refresher, expire };
+  const disconnect = () => {
+    const removed = commands.disconnect.handle(
+      tx,
+      { actor: "user" } as RequestContext,
+      { provider: ID } as never,
+      { revision: read().revision },
+    );
+    assert.ok(removed.ok);
+    secrets.clear();
+  };
+  return { secrets, read, refresher, expire, sent, disconnect };
 }
 
 const use = {
@@ -202,4 +227,62 @@ test("갱신하면 계정 model 목록이 저장되고, 읽기가 틀려도 갱�
     assert.deepStrictEqual(t.secrets.get(ACCESS), "A");
     assert.deepStrictEqual(t.read().credential.reported_models, kept);
   }
+});
+
+test("Claude 갱신은 JSON grant를 보내고 refresh token이 안 오면 지금 것을 지키며, 기다리는 동안 끊은 연결은 되살리지 않는다", async () => {
+  const claude = {
+    ...use,
+    destination: {
+      kind: "https" as const,
+      origin: "https://api.anthropic.com",
+    },
+  };
+  const kept = setup(NOW + 60_000, "claude");
+  const fresh = await kept
+    .refresher(Response.json({ access_token: "NEW-ACCESS", expires_in: 3600 }))
+    .prepareToken(claude);
+  assert.deepStrictEqual(fresh, ok(undefined));
+  const grant = kept.sent[0]!;
+  const headers = new Headers(grant.init.headers);
+  assert.deepStrictEqual(
+    [
+      grant.url,
+      headers.get("content-type"),
+      headers.get("anthropic-beta"),
+      JSON.parse(String(grant.init.body)),
+      kept.secrets.get(ACCESS),
+      kept.secrets.get(`${ACCESS}.refresh`),
+    ],
+    [
+      "https://api.anthropic.com/v1/oauth/token",
+      "application/json",
+      "oauth-2025-04-20",
+      {
+        grant_type: "refresh_token",
+        client_id: "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
+        refresh_token: "OLD-REFRESH",
+      },
+      "NEW-ACCESS",
+      "OLD-REFRESH",
+    ],
+  );
+
+  // 발급자의 답을 기다리는 사이 사람이 연결을 끊었다. 늦게 온 token은 저장하지 않는다.
+  const gone = setup(NOW + 60_000, "claude");
+  let answer: (response: Response) => void = () => {};
+  const late = new Promise<Response>((resolve) => {
+    answer = resolve;
+  });
+  const pending = gone.refresher(() => late).prepareToken(claude);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  gone.disconnect();
+  answer(
+    Response.json({
+      access_token: "LATE-ACCESS",
+      refresh_token: "LATE-REFRESH",
+      expires_in: 3600,
+    }),
+  );
+  const result = await pending;
+  assert.deepStrictEqual([result?.ok, [...gone.secrets.keys()]], [false, []]);
 });

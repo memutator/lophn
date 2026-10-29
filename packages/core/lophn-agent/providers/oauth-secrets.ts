@@ -19,7 +19,7 @@ export function providerTokenNames(provider: string): {
 }
 
 // meta는 비밀이 아니지만 token과 함께 바뀌어 같은 저장소에 둔다. client_id는 ChatGPT가 첫 로그인에 발급한 것이고
-// (갱신이 쓴다), subject는 검증한 id_token의 sub다. SuperGrok은 둘 다 null이다.
+// (갱신이 쓴다), subject는 검증한 id_token의 sub(ChatGPT)나 계정 id(Claude)다. SuperGrok은 둘 다 null이다.
 export type ProviderTokenMeta = {
   client_id: string | null;
   subject: string | null;

@@ -77,6 +77,8 @@ const PAGE_LIMIT = 20;
 const PRODUCTS: Readonly<Record<string, string>> = {
   chatgpt: "ChatGPT",
   supergrok: "SuperGrok",
+  claude: "Claude",
+  antigravity: "Google Antigravity",
 };
 /** login-complete가 발급자에 닿지 못해 연달아 실패해도 다시 부르는 횟수. */
 const COMPLETE_MISSES = 3;
@@ -110,11 +112,11 @@ function definitionRowOf(value: BuiltinDefinition): ProviderDefinitionRow {
   };
 }
 
-/** API base. 내장 정의의 models 주소는 `<base>/models`다. */
+/** API base. 내장 정의의 model 목록 주소는 base 바로 아래 한 칸이다(`<base>/models`, Cloud Code는 `<base>/v1internal:fetchAvailableModels`). */
 function baseOf(modelsEndpoint: string | null): string | null {
-  return modelsEndpoint !== null && modelsEndpoint.endsWith("/models")
-    ? modelsEndpoint.slice(0, -"/models".length)
-    : null;
+  if (modelsEndpoint === null) return null;
+  const cut = modelsEndpoint.lastIndexOf("/");
+  return cut > "https://".length ? modelsEndpoint.slice(0, cut) : null;
 }
 
 /** 등록된 provider를 쪽마다 모두 읽는다. */

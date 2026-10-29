@@ -14,7 +14,7 @@ import {
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import type { SecretStorePort } from "../../../protocol/secrets/secret-file.ts";
 import type { CommandSuccess, Writer } from "../../storage/ledger/mod.ts";
-import type { IssuerFetch } from "./oauth.ts";
+import type { IssuerFetch } from "./issuer-http.ts";
 import { providerSecretName } from "./oauth-secrets.ts";
 import { customModelsEndpoint, readReportedModels } from "./reported-models.ts";
 

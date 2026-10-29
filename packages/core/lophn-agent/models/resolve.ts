@@ -1,3 +1,4 @@
+import process from "node:process";
 import { err, formatAt, ok, type Result } from "../../../base/mod.ts";
 import {
   type CallModel,
@@ -21,6 +22,15 @@ import {
   withRequestHeaders,
 } from "../providers/mod.ts";
 import type { IdleDeps } from "../providers/invoke.ts";
+import {
+  type ClaudeHost,
+  claudeCodeProfile,
+  claudeHostOf,
+} from "../providers/adapters/claude-code.ts";
+import {
+  antigravityUserAgent,
+  cloudCodeShape,
+} from "../providers/adapters/cloud-code.ts";
 import { secretDestinationOf } from "../../../protocol/secrets/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import { supportsDeferredTools } from "../providers/definitions.ts";
@@ -28,6 +38,7 @@ import {
   anthropicPacker,
   cappedOutput,
   chatPacker,
+  cloudCodePacker,
   deferralHeaders,
   type ModelBinding,
   OUTPUT_CAP,
@@ -114,6 +125,8 @@ type ModelResolverDeps = {
   fetch?: typeof fetch;
   nowMs?: () => number;
   idle?: IdleDeps;
+  // Claude Code client profile이 싣는 OS·CPU 값이다. 없으면 이 프로세스의 것이다.
+  host?: ClaudeHost;
 };
 
 export function createModelResolver(deps: ModelResolverDeps) {
@@ -235,14 +248,46 @@ export function createModelResolver(deps: ModelResolverDeps) {
       provider.definition.key,
       selection.model_name,
     );
+    const optionHeaders = deferralHeaders(limits.request_headers, deferrable);
+    // Claude 구독 token은 Claude Code client profile로만 보낸다. API key 요청 모양은 그대로다.
+    const claude =
+      credential.kind === "oauth" &&
+      provider.definition.oauth?.product === "claude";
+    const cloudCode = provider.protocol === "cloud-code-assist";
+    const project = credential.account?.project_id ?? null;
+    if (cloudCode && project === null) {
+      return err({
+        code: "unavailable",
+        message: "the Antigravity account has no project; sign in again",
+      });
+    }
+    const platform = deps.host ?? claudeHostOf(process.platform, process.arch);
     const invoke = createInvokeModelCall({
-      transport: withRequestHeaders(
-        transport,
-        deferralHeaders(limits.request_headers, deferrable),
-      ),
+      transport: withRequestHeaders(transport, optionHeaders),
       nowMs,
       at: formatAt,
       idle: deps.idle,
+      ...(claude
+        ? {
+            shape: claudeCodeProfile({
+              provider: provider.id,
+              account: credential.account,
+              host: platform,
+              betas: Object.entries(optionHeaders).find(
+                ([name]) => name.toLowerCase() === "anthropic-beta",
+              )?.[1],
+            }),
+          }
+        : cloudCode && project !== null
+          ? {
+              shape: cloudCodeShape({
+                project,
+                model: limits.sent_model_name,
+                userAgent: antigravityUserAgent(process.platform),
+                nowMs,
+              }),
+            }
+          : {}),
     });
     const requestPatch = limits.request_patch;
     const images = limits.input_media.includes("image");
@@ -261,13 +306,19 @@ export function createModelResolver(deps: ModelResolverDeps) {
               maxTokens: cappedOutput(limits),
               requestPatch,
             })
-          : chatPacker({
-              model: limits.sent_model_name,
-              images,
-              maxTokens: cappedOutput(limits),
-              provider: provider.definition.key,
-              requestPatch,
-            });
+          : provider.protocol === "cloud-code-assist"
+            ? cloudCodePacker({
+                model: limits.sent_model_name,
+                images,
+                requestPatch,
+              })
+            : chatPacker({
+                model: limits.sent_model_name,
+                images,
+                maxTokens: cappedOutput(limits),
+                provider: provider.definition.key,
+                requestPatch,
+              });
 
     const call: CallModel = {
       provider: selection.provider,

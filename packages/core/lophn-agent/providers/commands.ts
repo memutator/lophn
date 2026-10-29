@@ -81,8 +81,8 @@ function insertCredential(
   tx.sql.run(
     `insert into provider_credentials
       (provider, kind, secret_name, revision,
-       state, unavailable_reason, until, expires_at, logged_in_at, refreshed_at)
-     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       state, unavailable_reason, until, expires_at, logged_in_at, refreshed_at, account)
+     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       providerId,
       value.kind,
@@ -94,6 +94,7 @@ function insertCredential(
       value.expires_at,
       value.logged_in_at,
       value.refreshed_at,
+      value.account === null ? null : JSON.stringify(value.account),
     ],
   );
 }
@@ -235,6 +236,7 @@ export function createProviderCommands(): {
           refreshed_at: null,
           model_blocks: [],
           reported_models: null,
+          account: input.account ?? null,
         });
         if (!credential.ok) return credential;
         const record = assertRecord({

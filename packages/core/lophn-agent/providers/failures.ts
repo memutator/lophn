@@ -618,6 +618,14 @@ const STREAM_TYPE_STATUS: Readonly<Record<string, number>> = {
   not_found_error: 404,
   request_too_large: 413,
   invalid_request_error: 400,
+  // Google RPC status(Cloud Code Assist의 root error.status)다.
+  UNAVAILABLE: 503,
+  INTERNAL: 500,
+  RESOURCE_EXHAUSTED: 429,
+  UNAUTHENTICATED: 401,
+  PERMISSION_DENIED: 403,
+  NOT_FOUND: 404,
+  INVALID_ARGUMENT: 400,
 };
 
 // 200 응답 stream 안의 오류 event(Anthropic error frame, Responses response.failed,

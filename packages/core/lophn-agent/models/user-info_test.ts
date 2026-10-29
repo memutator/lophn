@@ -164,6 +164,7 @@ test("user 항목의 effort 값은 저장 검사를 통과해 chat 요청의 rea
         refreshed_at: null,
         model_blocks: [],
         reported_models: null,
+        account: null,
       },
       revision: 1,
     } as unknown as ProviderRecord;

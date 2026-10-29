@@ -14,7 +14,7 @@ create table providers (
   definition_key text not null check (length(trim(definition_key)) > 0),
   definition text not null,
   endpoint text not null,
-  protocol text not null check (protocol in ('anthropic-messages', 'openai-responses', 'openai-chat-completions')),
+  protocol text not null check (protocol in ('anthropic-messages', 'openai-responses', 'openai-chat-completions', 'cloud-code-assist')),
   revision integer not null check (revision >= 1)
 ) strict;
 create index providers_definition_key_id on providers (definition_key, id);
@@ -35,6 +35,7 @@ create table provider_credentials (
   logged_in_at text,
   refreshed_at text,
   reported_models text,
+  account text,
   check ((kind in ('api_key', 'oauth')) = (secret_name is not null)),
   check (
     (state = 'usage_wait') = (until is not null)

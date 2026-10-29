@@ -40,6 +40,7 @@ function custom(): ProviderRecord {
       refreshed_at: null,
       model_blocks: [],
       reported_models: ["old"],
+      account: null,
     },
     revision: 1,
   } as ProviderRecord;

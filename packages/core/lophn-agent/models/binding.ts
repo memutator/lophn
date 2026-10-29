@@ -11,6 +11,7 @@ import {
   buildRequest as buildChat,
   imagePart,
 } from "../providers/adapters/chat-completions.ts";
+import { buildCloudCodeRequest as buildCloudCode } from "../providers/adapters/cloud-code.ts";
 import {
   buildRequest as buildMessages,
   imageBlock,
@@ -424,6 +425,26 @@ export function chatPacker(input: {
         },
       })),
       max_tokens: input.maxTokens,
+      request_patch: input.requestPatch,
+    }),
+    opaque_bytes: 0,
+  });
+}
+
+// Google Cloud Code Assist 번역. envelope(project·requestId·label·sessionId)는 보내기 직전에 cloudCodeShape가 씌운다.
+// output 상한은 싣지 않는다: 계정 model의 상한을 모르고 server가 그 model의 기본값을 쓴다.
+export function cloudCodePacker(input: {
+  model: string;
+  images: boolean;
+  requestPatch?: JsonObject;
+}): WirePacker {
+  return (request: PromptRequest) => ({
+    body: buildCloudCode({
+      model: input.model,
+      system: systemText(request),
+      messages: request.messages,
+      tools: request.tools,
+      images: input.images,
       request_patch: input.requestPatch,
     }),
     opaque_bytes: 0,

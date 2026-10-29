@@ -3,9 +3,24 @@
     "key": "anthropic",
     "display_name": "Anthropic",
     "protocols": ["anthropic-messages"],
-    "auth_kinds": ["api_key"],
+    "auth_kinds": ["api_key", "oauth"],
     "models_endpoint": "https://api.anthropic.com/v1/models",
-    "oauth": null,
+    "oauth": {
+      "product": "claude",
+      "client_id": "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
+      "authorization_endpoint": "https://claude.ai/oauth/authorize",
+      "token_endpoint": "https://api.anthropic.com/v1/oauth/token",
+      "account_endpoint": "https://api.anthropic.com/api/claude_cli/bootstrap?entrypoint=cli&model=claude-opus-4-8",
+      "redirect_uri": "http://localhost:54545/callback",
+      "scopes": [
+        "org:create_api_key",
+        "user:profile",
+        "user:inference",
+        "user:sessions:claude_code",
+        "user:mcp_servers",
+        "user:file_upload"
+      ]
+    },
     "revision": "2026-10"
   },
   {
@@ -88,6 +103,31 @@
     "auth_kinds": ["api_key"],
     "models_endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/models",
     "oauth": null,
+    "revision": "2026-10"
+  },
+  {
+    "key": "google-antigravity",
+    "display_name": "Google Antigravity",
+    "protocols": ["cloud-code-assist"],
+    "auth_kinds": ["oauth"],
+    "models_endpoint": "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
+    "oauth": {
+      "product": "antigravity",
+      "client_id": "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com",
+      "client_secret": "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",
+      "authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+      "token_endpoint": "https://oauth2.googleapis.com/token",
+      "userinfo_endpoint": "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
+      "redirect_uri": "http://127.0.0.1:51121/oauth-callback",
+      "scopes": [
+        "https://www.googleapis.com/auth/cloud-platform",
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/userinfo.profile",
+        "https://www.googleapis.com/auth/cclog",
+        "https://www.googleapis.com/auth/experimentsandconfigs",
+        "https://www.googleapis.com/auth/aicode"
+      ]
+    },
     "revision": "2026-10"
   }
 ]

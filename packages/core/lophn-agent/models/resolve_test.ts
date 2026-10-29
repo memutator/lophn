@@ -56,6 +56,7 @@ function resolverFor(
       refreshed_at: null,
       model_blocks: [],
       reported_models: account.reported_models,
+      account: null,
     },
     revision: 1,
   };

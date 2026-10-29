@@ -147,6 +147,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.diagnostics.not-run": Record<never, never>;
   "settings.empty.coding-search": Record<never, never>;
   "settings.empty.general": Record<never, never>;
+  "settings.empty.key-search": Record<never, never>;
   "settings.empty.shell-rules": Record<never, never>;
   "settings.error.coding-detect": Record<never, never>;
   "settings.error.coding-hooks-install": Record<never, never>;
@@ -155,13 +156,15 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.error.key-needs-modifier": {
     modifiers: "string";
   };
+  "settings.error.key-numbered-needs-modifier": {
+    modifiers: "string";
+  };
   "settings.error.key-reserved": Record<never, never>;
   "settings.error.key-taken": {
     key: "string";
     name: "string";
   };
   "settings.error.key-unsupported": Record<never, never>;
-  "settings.error.keys-load-failed": Record<never, never>;
   "settings.error.value-invalid": Record<never, never>;
   "settings.error.value-not-saved": Record<never, never>;
   "settings.error.value-out-of-range": Record<never, never>;
@@ -243,27 +246,25 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.key-explorer-focus": Record<never, never>;
   "settings.label.key-files-quick-open": Record<never, never>;
   "settings.label.key-none": Record<never, never>;
-  "settings.label.key-pane-focus": {
-    n: "number";
+  "settings.label.key-numbered": {
+    modifier: "string";
   };
+  "settings.label.key-numbered-mixed": Record<never, never>;
+  "settings.label.key-pane-focus": Record<never, never>;
   "settings.label.key-pane-split": Record<never, never>;
+  "settings.label.key-search": Record<never, never>;
   "settings.label.key-search-open": Record<never, never>;
   "settings.label.key-sidebar-toggle": Record<never, never>;
   "settings.label.key-tab-close": Record<never, never>;
-  "settings.label.key-tab-last": Record<never, never>;
   "settings.label.key-tab-move-left": Record<never, never>;
   "settings.label.key-tab-move-right": Record<never, never>;
   "settings.label.key-tab-next": Record<never, never>;
-  "settings.label.key-tab-nth": {
-    n: "number";
-  };
+  "settings.label.key-tab-nth": Record<never, never>;
   "settings.label.key-tab-prev": Record<never, never>;
   "settings.label.key-tab-reopen": Record<never, never>;
   "settings.label.key-tab-to-next-pane": Record<never, never>;
   "settings.label.key-tab-to-prev-pane": Record<never, never>;
   "settings.label.key-terminal-focus": Record<never, never>;
-  "settings.label.keyboard-command": Record<never, never>;
-  "settings.label.keyboard-keys": Record<never, never>;
   "settings.label.shell-action-allow": Record<never, never>;
   "settings.label.shell-action-ask": Record<never, never>;
   "settings.label.shell-action-deny": Record<never, never>;
@@ -322,6 +323,23 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.note.coding-detect-note": Record<never, never>;
   "settings.note.coding-hooks": Record<never, never>;
   "settings.note.key-capture": Record<never, never>;
+  "settings.note.key-capture-numbered": Record<never, never>;
+  "settings.note.key-explorer-focus": Record<never, never>;
+  "settings.note.key-files-quick-open": Record<never, never>;
+  "settings.note.key-pane-focus": Record<never, never>;
+  "settings.note.key-pane-split": Record<never, never>;
+  "settings.note.key-search-open": Record<never, never>;
+  "settings.note.key-sidebar-toggle": Record<never, never>;
+  "settings.note.key-tab-close": Record<never, never>;
+  "settings.note.key-tab-move-left": Record<never, never>;
+  "settings.note.key-tab-move-right": Record<never, never>;
+  "settings.note.key-tab-next": Record<never, never>;
+  "settings.note.key-tab-nth": Record<never, never>;
+  "settings.note.key-tab-prev": Record<never, never>;
+  "settings.note.key-tab-reopen": Record<never, never>;
+  "settings.note.key-tab-to-next-pane": Record<never, never>;
+  "settings.note.key-tab-to-prev-pane": Record<never, never>;
+  "settings.note.key-terminal-focus": Record<never, never>;
   "settings.note.not-set": Record<never, never>;
   "settings.note.shell-rules-built-in": Record<never, never>;
   "settings.note.shell-rules-project": Record<never, never>;

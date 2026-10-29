@@ -116,6 +116,7 @@ export const workspaceSettings = {
     "No check has run yet. Checks run only when you press the button.",
   "settings.empty.coding-search": "No product matches your search.",
   "settings.empty.general": "No settings are declared yet.",
+  "settings.empty.key-search": "No shortcut matches your search.",
   "settings.empty.shell-rules": "No rules here yet.",
   "settings.error.coding-detect":
     "Couldn't check again. The earlier results are still shown.",
@@ -127,11 +128,12 @@ export const workspaceSettings = {
     "Use only letters, numbers, spaces, hyphens, and underscores.",
   "settings.error.key-needs-modifier":
     "Hold {modifiers} with the key. A key on its own would stop you typing it.",
+  "settings.error.key-numbered-needs-modifier":
+    "Hold {modifiers}. The numbers are added for you.",
   "settings.error.key-reserved":
     "This key opens search or the launcher, so it can't be used here.",
   "settings.error.key-taken": "{key} is already used for {name}.",
   "settings.error.key-unsupported": "That key can't be used for a shortcut.",
-  "settings.error.keys-load-failed": "Could not load your shortcuts.",
   "settings.error.value-invalid":
     "That value isn't accepted. Nothing was saved, and the setting keeps its value.",
   "settings.error.value-not-saved":
@@ -216,23 +218,23 @@ export const workspaceSettings = {
   "settings.label.key-explorer-focus": "Focus the file explorer",
   "settings.label.key-files-quick-open": "Open a file",
   "settings.label.key-none": "No shortcut",
-  "settings.label.key-pane-focus": "Focus pane {n, number}",
+  "settings.label.key-numbered": "{modifier}+number",
+  "settings.label.key-numbered-mixed": "Changed for some numbers",
+  "settings.label.key-pane-focus": "Focus a pane",
   "settings.label.key-pane-split": "Split the pane",
+  "settings.label.key-search": "Search shortcuts",
   "settings.label.key-search-open": "Search in files",
   "settings.label.key-sidebar-toggle": "Show or hide the sidebar",
   "settings.label.key-tab-close": "Close the tab",
-  "settings.label.key-tab-last": "Go to the last tab",
   "settings.label.key-tab-move-left": "Move the tab left",
   "settings.label.key-tab-move-right": "Move the tab right",
   "settings.label.key-tab-next": "Next tab",
-  "settings.label.key-tab-nth": "Go to tab {n, number}",
+  "settings.label.key-tab-nth": "Go to a tab by number",
   "settings.label.key-tab-prev": "Previous tab",
   "settings.label.key-tab-reopen": "Reopen the closed tab",
   "settings.label.key-tab-to-next-pane": "Move the tab to the next pane",
   "settings.label.key-tab-to-prev-pane": "Move the tab to the previous pane",
   "settings.label.key-terminal-focus": "Open or focus the terminal",
-  "settings.label.keyboard-command": "Command",
-  "settings.label.keyboard-keys": "Shortcut",
   "settings.label.shell-action-allow": "Allow",
   "settings.label.shell-action-ask": "Ask",
   "settings.label.shell-action-deny": "Deny",
@@ -281,6 +283,37 @@ export const workspaceSettings = {
     "Hooks let lophn show when a coding agent you start in a terminal is working or waiting for you. Installing them adds lines to the product's own settings file, and uninstalling removes only those lines.",
   "settings.note.key-capture":
     "Press Esc to cancel. Press Backspace to remove the shortcut.",
+  "settings.note.key-capture-numbered":
+    "Press the modifier keys with any number. Press Esc to cancel. Press Backspace to remove the shortcut.",
+  "settings.note.key-explorer-focus":
+    "Opens the sidebar and moves to the list of files and folders.",
+  "settings.note.key-files-quick-open":
+    "Opens search and commands, where you can type a file name.",
+  "settings.note.key-pane-focus":
+    "Moves to a pane by number. 1 is the left pane and 2 is the right pane.",
+  "settings.note.key-pane-split":
+    "Moves the current tab to a new pane on the right.",
+  "settings.note.key-search-open":
+    "Opens the sidebar's search to find text across this project's files.",
+  "settings.note.key-sidebar-toggle":
+    "Folds the sidebar to its icons, or opens it again.",
+  "settings.note.key-tab-close": "Closes the tab you're looking at.",
+  "settings.note.key-tab-move-left":
+    "Moves the current tab one place to the left in its pane.",
+  "settings.note.key-tab-move-right":
+    "Moves the current tab one place to the right in its pane.",
+  "settings.note.key-tab-next": "Goes to the next tab in the pane.",
+  "settings.note.key-tab-nth":
+    "Goes to tab 1 to 9 in the pane by its place. 0 goes to the last tab.",
+  "settings.note.key-tab-prev": "Goes to the previous tab in the pane.",
+  "settings.note.key-tab-reopen":
+    "Opens the tab you closed most recently, where it was.",
+  "settings.note.key-tab-to-next-pane":
+    "Moves the current tab to the pane on the right.",
+  "settings.note.key-tab-to-prev-pane":
+    "Moves the current tab to the pane on the left.",
+  "settings.note.key-terminal-focus":
+    "Goes to a terminal tab in this project, or opens one if there is none.",
   "settings.note.not-set":
     "That feature won't start. Everything else keeps working.",
   "settings.note.shell-rules-built-in":

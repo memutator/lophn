@@ -143,13 +143,18 @@ test("사람이 바꾼 키는 검사를 지난 것만 덮고 main이 받는 키�
   assert.deepStrictEqual(hit("Ctrl+Tab", "main"), "tab.next");
 
   // 겹침은 modifier 순서와 상관없이 잡고, 팔레트 키와 modifier 없는 키는 받지 않는다.
-  const taken = checkChord("Shift+Ctrl+KeyW", "pane.split", "other", overrides);
+  const taken = checkChord(
+    "Shift+Ctrl+KeyW",
+    ["pane.split"],
+    "other",
+    overrides,
+  );
   assert.deepStrictEqual(
     taken.ok ? null : [taken.reason, "by" in taken ? taken.by.command : null],
     ["taken", "tab.close"],
   );
   assert.deepStrictEqual(
-    checkChord("Ctrl+KeyW", "pane.split", "other", overrides).ok,
+    checkChord("Ctrl+KeyW", ["pane.split"], "other", overrides).ok,
     true,
   );
   for (const [chord, reason] of [
@@ -158,8 +163,19 @@ test("사람이 바꾼 키는 검사를 지난 것만 덮고 main이 받는 키�
     ["Shift+KeyJ", "needs_modifier"],
     ["Ctrl+Bogus", "unsupported"],
   ] as const) {
-    const check = checkChord(chord, "pane.split", "other", {});
+    const check = checkChord(chord, ["pane.split"], "other", {});
     assert.deepStrictEqual(check.ok ? null : check.reason, reason, chord);
   }
-  assert.deepStrictEqual(checkChord("F5", "pane.split", "other", {}).ok, true);
+  assert.deepStrictEqual(
+    checkChord("F5", ["pane.split"], "other", {}).ok,
+    true,
+  );
+  // 번호 줄은 자기 번호들의 키와 겹쳐도 되지만 다른 줄의 번호 키(Ctrl+1 칸)와는 안 된다.
+  const tabs = Array.from({ length: 10 }, (_, n) => `tab.nth:${n}`);
+  assert.deepStrictEqual(checkChord("Alt+Digit3", tabs, "other", {}).ok, true);
+  const pane = checkChord("Ctrl+Digit1", tabs, "other", {});
+  assert.deepStrictEqual(
+    pane.ok ? null : "by" in pane ? pane.by.command : pane.reason,
+    "pane.focus",
+  );
 });

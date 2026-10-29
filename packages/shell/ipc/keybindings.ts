@@ -341,12 +341,13 @@ function sameChord(a: Chord, b: Chord): boolean {
 }
 
 /**
- * 사람이 binding id에 새로 고른 chord를 받을 수 있는가. modifier 없는 키는 입력칸의 글자를 삼키고,
- * 팔레트·런처 키는 main이 먼저 가져가며, 다른 바인딩과 같은 키는 한쪽이 듣지 않는다.
+ * 사람이 새로 고른 chord를 받을 수 있는가. own은 이 chord를 받을 binding id들이다(번호 줄은 번호마다 하나).
+ * modifier 없는 키는 입력칸의 글자를 삼키고, 팔레트·런처 키는 main이 먼저 가져가며, 다른 바인딩과 같은
+ * 키는 한쪽이 듣지 않는다.
  */
 export function checkChord(
   text: string,
-  id: string,
+  own: readonly string[],
   platform: KeyPlatform,
   overrides: KeyOverrides,
 ): ChordCheck {
@@ -361,7 +362,7 @@ export function checkChord(
   }
   const by = resolveBindings(platform, overrides).find(
     (binding) =>
-      bindingId(binding) !== id &&
+      !own.includes(bindingId(binding)) &&
       binding[platform].some((one) => sameChord(parseChord(one), chord)),
   );
   return by === undefined ? { ok: true } : { ok: false, reason: "taken", by };
@@ -409,21 +410,36 @@ export function chordOfInput(input: KeyInput): string | null {
   ].join("+");
 }
 
-/** 사람이 읽는 키 이름. macOS는 ⌃⌥⇧⌘ 기호를 붙여 쓰고 다른 OS는 Ctrl+Shift+처럼 +로 잇는다. */
-export function chordLabel(text: string, platform: KeyPlatform): string {
-  const chord = parseChord(text);
-  const key = GLYPHS[chord.code] ?? chord.code.replace(/^(Key|Digit)/, "");
+function modifierParts(chord: Chord, platform: KeyPlatform): string[] {
   if (platform === "mac") {
-    return `${chord.ctrl ? "⌃" : ""}${chord.alt ? "⌥" : ""}${
-      chord.shift ? "⇧" : ""
-    }${chord.meta ? "⌘" : ""}${key}`;
+    return [
+      chord.ctrl ? "⌃" : "",
+      chord.alt ? "⌥" : "",
+      chord.shift ? "⇧" : "",
+      chord.meta ? "⌘" : "",
+    ].filter((part) => part !== "");
   }
   return [
     ...(chord.ctrl ? ["Ctrl"] : []),
     ...(chord.alt ? ["Alt"] : []),
     ...(chord.shift ? ["Shift"] : []),
-    key,
-  ].join("+");
+  ];
+}
+
+/** 사람이 읽는 키 이름. macOS는 ⌃⌥⇧⌘ 기호를 붙여 쓰고 다른 OS는 Ctrl+Shift+처럼 +로 잇는다. */
+export function chordLabel(text: string, platform: KeyPlatform): string {
+  const chord = parseChord(text);
+  const key = GLYPHS[chord.code] ?? chord.code.replace(/^(Key|Digit)/, "");
+  const mods = modifierParts(chord, platform);
+  return platform === "mac"
+    ? `${mods.join("")}${key}`
+    : [...mods, key].join("+");
+}
+
+/** modifier만의 이름(`Ctrl+Shift`, `⌃⇧`). 번호 줄처럼 끝 key가 정해지지 않은 키를 보일 때 쓴다. */
+export function modifierLabel(modifier: string, platform: KeyPlatform): string {
+  const mods = modifierParts(parseChord(`${modifier}+Digit0`), platform);
+  return mods.join(platform === "mac" ? "" : "+");
 }
 
 /** command의 첫 chord 이름. 팔레트 행의 hint가 쓴다. */

@@ -8,7 +8,7 @@ import type {
   TerminalSnapshotReply,
 } from "../ipc/terminal.ts";
 import type { IdSource } from "../../base/id.ts";
-import { resolveLoginShell, stripPlatformEnv } from "./env.ts";
+import { resolveLoginShell, terminalEnv } from "./env.ts";
 import {
   nodePtyAdapter,
   type PtyAdapter,
@@ -157,7 +157,7 @@ function createHost(deps: HostDeps): Host {
     sessions.set(terminalRef, session);
     try {
       // strip 뒤에 덮어야 더한 LPN_ 값이 지워지지 않는다.
-      const env = { ...stripPlatformEnv(deps.env), ...shellEnv };
+      const env = { ...terminalEnv(deps.env), ...shellEnv };
       const integrated = integrateShell(program.file, program.args, env);
       const handle = deps.pty.spawn({
         file: program.file,

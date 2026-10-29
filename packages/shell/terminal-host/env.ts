@@ -43,6 +43,17 @@ export function stripPlatformEnv(
   return out;
 }
 
+/**
+ * 터미널 shell이 받는 env. 터미널 능력은 lophn을 띄운 process에서 물려받지 않고 lophn이 정한다. xterm은
+ * truecolor를 그리지만 TERM(xterm-256color)만으로는 program이 모른다. Claude Code(chalk)·Codex는 COLORTERM이
+ * 없으면 256색으로 내려 자기 색을 근사한다. lophn을 COLORTERM 없는 곳(launcher, agent)에서 띄우면 그렇게 됐다.
+ */
+export function terminalEnv(
+  source: Readonly<Record<string, string | undefined>>,
+): Record<string, string> {
+  return { ...stripPlatformEnv(source), COLORTERM: "truecolor" };
+}
+
 type ShellProgram = {
   file: string;
   args: string[];

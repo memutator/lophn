@@ -44,7 +44,7 @@ workspace pane에서 인터넷 page를 여는 탭 kind `browser`의 메커니즘
      shim.ts writeShim: browser(sh, 0700: ELECTRON_RUN_AS_NODE=1 exec <execPath> browser.js) · browser.js(0600)
      socket.ts listenBridge: b.sock (0600)
    shell 탭 열기: terminal/ipc.ts open ─ bridge.issue() ─▶ {key(64 hex), env: {BROWSER: <shim>, LPN_BROWSER_BRIDGE: {"socket","key"}}}
-     host open 요청의 env ─▶ host가 stripPlatformEnv 뒤에 덮는다(restart도 같은 env) ─ 답이 ok ─▶ bind(key, terminal_ref)
+     host open 요청의 env ─▶ host가 `terminalEnv`(stripPlatformEnv + `COLORTERM=truecolor`) 뒤에 덮는다(restart도 같은 env) ─ 답이 ok ─▶ bind(key, terminal_ref)
      탭을 닫아 close가 exited ─▶ revoke(terminal_ref)
    child가 $BROWSER <url>:
      shim ─ {v:1,key,url}\n ─▶ b.sock ─▶ bridge.handleLine: parseBridgeRequest → key 표 → 설정(web/local) linkTarget

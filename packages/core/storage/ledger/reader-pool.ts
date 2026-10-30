@@ -1,7 +1,7 @@
 import { Worker } from "node:worker_threads";
-import { err, ok, type Result } from "../../../base/mod.ts";
-import type { RequestContext } from "../../../protocol/server/mod.ts";
+import { err, type Logger, ok, type Result } from "../../../base/mod.ts";
 import type { ReadRoute } from "../../../protocol/base/mod.ts";
+import type { RequestContext } from "../../../protocol/server/mod.ts";
 import type { KnownSecretChannel } from "./known-secrets.ts";
 import { READ_TIMEOUT_MS, readKey } from "./reads.ts";
 
@@ -47,12 +47,13 @@ const RESPAWN_BACKOFF_MS: readonly number[] = [
 ];
 
 type ReaderPoolOptions = {
+  logger: Logger;
   respawnLimit?: number;
   backoffMs?: readonly number[];
   // 다시 띄운 reader가 healthy가 된 뒤 부른다. 새 reader는 알려진 secret 값을 모르는 채(ready 아님)
   // 시작하므로 소유자가 현재 값을 다시 넣는다(secret store sync). 그동안 그 reader는 fail-closed다.
   onRespawn?: () => Promise<unknown> | void;
-  // 한도를 넘겨 더 다시 띄우지 않게 됐을 때 한 번 부른다. 기본은 console.error 한 줄이다.
+  // 한도를 넘겨 더 다시 띄우지 않게 됐을 때 한 번 부른다. 기본은 logger.error 한 줄이다.
   onExhausted?: (limit: number) => void;
 };
 
@@ -65,7 +66,7 @@ const unavailable = () =>
 export async function createReaderPool(
   path: string,
   registrationModules: readonly URL[],
-  options: ReaderPoolOptions = {},
+  options: ReaderPoolOptions,
 ): Promise<Result<ReaderPool>> {
   const respawnLimit = options.respawnLimit ?? READER_RESPAWN_LIMIT;
   const backoff = options.backoffMs ?? RESPAWN_BACKOFF_MS;
@@ -126,9 +127,12 @@ export async function createReaderPool(
         try {
           if (options.onExhausted) options.onExhausted(respawnLimit);
           else {
-            console.error(
-              `reader pool: respawn limit (${respawnLimit}) reached; isolated readers stay isolated`,
-            );
+            options.logger.error({
+              component: "reader-pool",
+              event: "respawn_exhausted",
+              message: "isolated readers stay isolated",
+              fields: { limit: respawnLimit },
+            });
           }
         } catch {
           /* 알림 실패가 pool을 막지 않는다 */

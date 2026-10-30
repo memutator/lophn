@@ -1,26 +1,26 @@
 import { err, ok } from "../../../../base/mod.ts";
-import { secretAllowanceOver } from "../../../apps/permissions/mod.ts";
-import { releaseFacts } from "../../../apps/releases/mod.ts";
-import { providerSecretDestinations } from "../../../lophn-agent/providers/mod.ts";
-import { createSecretDestinations } from "../../../lophn-agent/secret-destinations.ts";
-import { mcpServerSnapshot } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
-import { readAgentMcp } from "./agent-mcp.ts";
-import { PROJECT_LAYER } from "../../../agent-places/place/project-layer.ts";
 import {
   secretDelete,
   secretPut,
   secretStatus,
 } from "../../../../protocol/secrets/mod.ts";
+import { PROJECT_LAYER } from "../../../agent-places/place/project-layer.ts";
+import { secretAllowanceOver } from "../../../apps/permissions/mod.ts";
+import { releaseFacts } from "../../../apps/releases/mod.ts";
+import { mcpServerSnapshot } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
+import { providerSecretDestinations } from "../../../lophn-agent/providers/mod.ts";
+import { createSecretDestinations } from "../../../lophn-agent/secret-destinations.ts";
 import {
   createFileSecretAttach,
   createSecretFileStore,
   openSecretStore,
+  type SecretStore,
   secretDeleteHandler,
   secretPutHandler,
   secretStatusHandler,
-  type SecretStore,
 } from "../../../secrets/mod.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
+import { readAgentMcp } from "./agent-mcp.ts";
 import type { WiringFactory } from "./context.ts";
 
 const key = (route: { resource: string; method: string }) =>
@@ -34,7 +34,12 @@ export const secretsWiring: WiringFactory = () => {
     prepare(ctx) {
       const file = createSecretFileStore({
         root: ctx.root.path,
-        log: (message) => console.error(`secrets: ${message}`),
+        log: (message) =>
+          ctx.telemetry.logger.warn({
+            component: "secrets",
+            event: "file_store",
+            message,
+          }),
       });
       store = openSecretStore({
         file,
@@ -115,7 +120,13 @@ export const secretsWiring: WiringFactory = () => {
       // 파일을 열고 값을 reader pool에 올린다. API가 열리기 전이라 첫 요청 전에 알려진 값이 맞다. 못 읽으면
       // secret 기능만 unavailable이고 redactor가 막힌 채 재시도한다.
       const opened = await secrets.open();
-      if (!opened.ok) console.error("secrets: secret 파일을 열지 못했다");
+      if (!opened.ok) {
+        ctx.telemetry.logger.error({
+          component: "secrets",
+          event: "open_failed",
+          message: "secret 파일을 열지 못했다",
+        });
+      }
       // 다시 뜬 reader는 알려진 값을 모른다. 현재 값을 다시 올린다.
       ctx.runtime.onReaderRespawn(() => secrets.sync());
       return ok({

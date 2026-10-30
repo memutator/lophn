@@ -88,7 +88,11 @@ export const annotationsWiring: WiringFactory = () => {
           prepared: [],
         });
         if (!done.ok) {
-          console.error(`annotations: sweep failed (${done.error.code})`);
+          ctx.telemetry.logger.error({
+            component: "annotations",
+            event: "sweep_failed",
+            fields: { code: done.error.code },
+          });
         }
       };
       timer = setInterval(sweep, SWEEP_INTERVAL_MS);

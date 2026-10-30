@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { err, type IdSource, ok, type Result } from "../../base/mod.ts";
+import {
+  err,
+  type IdSource,
+  type Logger,
+  ok,
+  type Result,
+} from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/mod.ts";
 import { LOPHN_AGENT_NAME } from "../../protocol/lophn-agent/mod.ts";
 import type { Input, Output } from "../../protocol/server/mod.ts";
@@ -60,8 +66,17 @@ export function createWorkflowService(deps: {
   store: WorkflowStore;
   flows: WorkflowFlows;
   ids: IdSource;
+  logger: Logger;
 }) {
-  const { files, projects, turns, store, flows, ids } = deps;
+  const { files, projects, turns, store, flows, ids, logger } = deps;
+
+  const skip = (id: string, code: string): void => {
+    logger.warn({
+      component: "workflows",
+      event: "skipped",
+      fields: { instance: id, code },
+    });
+  };
 
   // 상태를 읽어 command 입력을 만들고 state_seq로 건다. conflict면 다시 읽어 state_seq가 바뀌었을 때만
   // 최대 3번 건다. 안 바뀌었으면 진짜 conflict다.
@@ -380,7 +395,12 @@ export function createWorkflowService(deps: {
         try {
           await restarted(id);
         } catch (e) {
-          console.error(`workflows: could not reconcile ${id} (${e})`);
+          logger.error({
+            component: "workflows",
+            event: "reconcile_failed",
+            message: `workflows: could not reconcile ${id}`,
+            fields: { error: String(e) },
+          });
         }
       }
     },
@@ -388,7 +408,3 @@ export function createWorkflowService(deps: {
 }
 
 export type WorkflowService = ReturnType<typeof createWorkflowService>;
-
-function skip(id: string, code: string): void {
-  console.error(`workflows: skipped ${id} (${code})`);
-}

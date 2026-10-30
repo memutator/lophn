@@ -15,3 +15,19 @@ export {
   platformStatusReads,
   type StatusSource,
 } from "./status.ts";
+export { createHealth, type Health } from "./health.ts";
+export {
+  captureCpuProfile,
+  captureRuntimeSnapshot,
+  installSnapshotSignal,
+  type RuntimeSnapshot,
+  writeHeapSnapshot,
+  writeRuntimeSnapshot,
+} from "./snapshot.ts";
+export { tracedCall, tracedFetch } from "./spans.ts";
+export {
+  createTelemetry,
+  readTelemetryConfig,
+  type Telemetry,
+  type TelemetryConfig,
+} from "./telemetry.ts";

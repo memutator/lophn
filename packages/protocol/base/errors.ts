@@ -6,6 +6,13 @@ export const errorBodySchema = z.object({
     code: z.enum(ERROR_CODES),
     message: z.string(),
     details: z.record(z.string(), z.unknown()).optional(),
+    // core log와 trace를 찾는 열쇠(W3C trace id, 32 hex). 응답을 낸 요청의 trace다.
+    trace_id: z
+      .string()
+      .regex(/^[0-9a-f]{32}$/)
+      .optional(),
+    // 부른 쪽이 다음에 할 일 한 줄. code마다 정해진 문장이다.
+    hint: z.string().optional(),
   }),
 });
 

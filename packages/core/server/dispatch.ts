@@ -119,6 +119,8 @@ export type DispatchDeps = {
     name: string,
     work: () => Promise<HttpResult>,
   ) => Promise<HttpResult>;
+  // handler가 던진 것을 경계에서 internal로 바꾸기 전에 받는다. 응답에는 원문이 나가지 않는다.
+  onThrown?: (thrown: unknown) => void;
 };
 
 type HttpResult =
@@ -216,6 +218,7 @@ export async function dispatchHttp(
     try {
       return await upload(request, route, ctx, deps);
     } catch (thrown) {
+      deps.onThrown?.(thrown);
       return rejected(asInternalError(thrown));
     }
   }
@@ -261,6 +264,7 @@ export async function dispatchHttp(
     }
     return rejected({ code: "not_found", message: "route not found" });
   } catch (thrown) {
+    deps.onThrown?.(thrown);
     return rejected(asInternalError(thrown));
   }
 }

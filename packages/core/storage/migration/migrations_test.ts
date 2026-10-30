@@ -3,12 +3,20 @@ import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { manualClock } from "../../../base/mod.ts";
-import { confirmStartup } from "./mod.ts";
-import { applyMigrations, startFailureReason } from "./mod.ts";
+import { type Logger, manualClock } from "../../../base/mod.ts";
+import { applyMigrations, confirmStartup, startFailureReason } from "./mod.ts";
 
 const step1 = { id: "a", sql: "create table a (id text primary key)" };
 const step2 = { id: "b", sql: "create table b (id text primary key)" };
+
+const logger: Logger = {
+  log: () => {},
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  flush: () => Promise.resolve(),
+};
 
 const names = async (dir: string) => {
   const out: string[] = [];
@@ -50,10 +58,10 @@ test("복구본은 최근 하나만 두고 정상 기동이 지운다", async ()
     // 적용할 step이 없으면 복구본을 새로 만들지 않는다.
     const same = await applyMigrations(path, [step1, step2, step3], deps);
     assert.deepStrictEqual(same, { ok: true, value: 0 });
-    await confirmStartup(root);
+    await confirmStartup(root, logger);
     assert.deepStrictEqual(await names(`${root}/recovery`), []);
     // 없는 폴더는 오류가 아니다.
-    await confirmStartup(root);
+    await confirmStartup(root, logger);
   } finally {
     await rm(root, { recursive: true });
   }

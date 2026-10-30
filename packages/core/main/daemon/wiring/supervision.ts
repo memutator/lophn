@@ -16,9 +16,10 @@ export const supervisionWiring: WiringFactory = () => ({
         env: (kind) => ({
           LOPHN_WORKER_KIND: kind,
           LOPHN_HOME: ctx.root.path,
-          // child가 자기 설정과 도구(git 등)를 찾는 데 필요한 둘만 준다. 그 밖 환경은 복사하지 않는다.
+          // child가 자기 설정과 도구(git 등)를 찾는 데 필요한 둘과 telemetry 설정만 준다. 그 밖 환경은 복사하지 않는다.
           ...(process.env["HOME"] ? { HOME: process.env["HOME"]! } : {}),
           ...(process.env["PATH"] ? { PATH: process.env["PATH"]! } : {}),
+          ...telemetryEnvironment(),
         }),
       }),
     );
@@ -56,6 +57,23 @@ export const supervisionWiring: WiringFactory = () => ({
     );
   },
 });
+
+// child도 core와 같은 수집기로 span을 보낸다. secret이 아닌 설정 값만이다.
+const TELEMETRY_ENV = [
+  "LOPHN_TELEMETRY",
+  "LOPHN_LOG_LEVEL",
+  "LOPHN_LOG_FORMAT",
+  "OTEL_EXPORTER_OTLP_ENDPOINT",
+] as const;
+
+function telemetryEnvironment(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const key of TELEMETRY_ENV) {
+    const value = process.env[key];
+    if (value !== undefined && value !== "") env[key] = value;
+  }
+  return env;
+}
 
 // 올라온 listener를 올린 순서대로 부른다.
 function ioListeners(listeners: readonly IoListener[]): Required<IoListener> {

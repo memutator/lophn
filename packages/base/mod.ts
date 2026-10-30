@@ -20,4 +20,4 @@ export { formatSeq, parseSeq } from "./seq.ts";
 export { invertAll } from "./changeset-invert.ts";
 export { canonicalize } from "./canonical-json.ts";
 export { fingerprint, sha256Hex } from "./hash.ts";
-export { type Logger } from "./log.ts";
+export { type Logger, type LogLevel } from "./log.ts";

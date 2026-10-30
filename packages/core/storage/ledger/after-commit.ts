@@ -1,6 +1,7 @@
+import type { Logger } from "../../../base/mod.ts";
 import { definePort } from "../../../protocol/base/mod.ts";
-import type { Writer } from "./writer.ts";
 import { defineTxPort, type TxPortRegistration } from "./tx-ports.ts";
+import type { Writer } from "./writer.ts";
 
 // command handler는 writer Worker에서 돌고 입력함과 Bus는 main thread에 있다. 그래서 handler는
 // 입력함에 넣기와 agent event 내기를 "commit 뒤 할 일"로 모아 두고, `CommandSuccess`에 실려 main으로
@@ -50,6 +51,7 @@ export const requestPrincipal = definePort<RequestPrincipal>(
 export function withAfterCommit(
   writer: Writer,
   apply: (actions: readonly CommitAction[]) => void,
+  logger: Logger,
 ): Writer {
   return {
     ...writer,
@@ -61,7 +63,11 @@ export function withAfterCommit(
           try {
             apply(actions);
           } catch (thrown) {
-            console.error("after-commit actions failed", thrown);
+            logger.error({
+              component: "after-commit",
+              event: "apply_failed",
+              fields: { error: String(thrown) },
+            });
           }
         }
       }

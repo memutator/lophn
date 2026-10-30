@@ -2,6 +2,14 @@ import type { Buffer } from "node:buffer";
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import type { Clock, Logger } from "../../base/mod.ts";
+import {
+  describeThrown,
+  formatTraceparent,
+  parseTraceparent,
+  type RedMetrics,
+  type Span,
+  type Tracer,
+} from "../../base/telemetry/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
   DEFAULT_API_PORT,
@@ -65,6 +73,13 @@ export type ApiServerOptions = {
   bodyLimit?: DispatchDeps["bodyLimit"];
   // 무인증 실패·Origin 거부의 제한된 안전 log. ledger event는 만들지 않는다.
   logger?: Logger;
+  // 요청마다 server span 하나와 RED metric. 응답에는 traceparent·x-trace-id가 붙는다.
+  telemetry?: { tracer: Tracer; red: RedMetrics };
+  // `/healthz`·`/readyz`. 없으면 둘은 not_found다.
+  health?: {
+    live(): unknown;
+    ready(): Promise<{ status: number; body: unknown }>;
+  };
   registry?: RouteRegistry;
   // command·HTTP·event 입장 한도(responsiveness 2.3 표). 없으면 createAdmission()이다.
   admission?: Admission;
@@ -110,26 +125,82 @@ export async function startApiServer(
       );
       return admitted ? await work() : commandRefused();
     },
+    onThrown: (thrown) =>
+      options.logger?.error({
+        component: "api",
+        event: "handler_threw",
+        fields: describeThrown(thrown),
+      }),
   };
   // bind 뒤에 실제 port를 채운다. 그 전에는 요청이 오지 않는다.
   let port = requested;
 
   async function onRequest(request: Request): Promise<Response> {
+    const telemetry = options.telemetry;
+    if (!telemetry) return await guarded(request, undefined);
+    const started = performance.now();
+    const path = new URL(request.url).pathname;
+    // 등록 route와 health만 이름으로 센다. 나머지 path를 그대로 쓰면 metric 칸이 끝없이 는다.
+    const route =
+      registry.lookup(path) !== undefined || path === HEALTHZ || path === READYZ
+        ? path
+        : "unmatched";
+    const span = telemetry.tracer.startSpan(`${request.method} ${route}`, {
+      kind: "server",
+      attributes: {
+        "http.request.method": request.method,
+        "http.route": route,
+      },
+      ...withParent(request.headers.get("traceparent")),
+    });
+    const response = await telemetry.tracer.context.run(span.context, () =>
+      guarded(request, span),
+    );
+    response.headers.set("traceparent", formatTraceparent(span.context));
+    response.headers.set("x-trace-id", span.context.traceId);
+    span.setAttribute("http.response.status_code", response.status);
+    if (response.status >= 500) span.setStatus("error");
+    span.end();
+    telemetry.red.observe({
+      route,
+      method: request.method,
+      status: response.status,
+      durationMs: performance.now() - started,
+    });
+    return response;
+  }
+
+  async function guarded(
+    request: Request,
+    span: Span | undefined,
+  ): Promise<Response> {
     try {
-      return await respond(request);
-    } catch {
+      return await respond(request, span?.context.traceId);
+    } catch (thrown) {
+      options.logger?.error({
+        component: "api",
+        event: "request_threw",
+        fields: describeThrown(thrown),
+      });
       // 경계 밖 throw는 stack·원문 없이 internal이다.
-      return json(failure({ code: "internal", message: "internal error" }));
+      return json(
+        failure({ code: "internal", message: "internal error" }),
+        span?.context.traceId,
+      );
     }
   }
 
-  async function respond(request: Request): Promise<Response> {
+  async function respond(
+    request: Request,
+    traceId: string | undefined,
+  ): Promise<Response> {
     if (headerBytes(request) > MAX_HEADER_BYTES) {
       return json(
         failure({
           code: "invalid_input",
           message: "headers exceed limit",
         }),
+        traceId,
       );
     }
 
@@ -152,18 +223,22 @@ export async function startApiServer(
         component: "api",
         event: origin !== null ? "origin_rejected" : "auth_rejected",
       });
-      return json(decision.failure);
+      return json(decision.failure, traceId);
+    }
+    if (url.pathname === HEALTHZ || url.pathname === READYZ) {
+      return await health(request, url.pathname, traceId);
     }
     if (isSubscribePath(url.pathname)) {
       // upgrade 요청은 adapter가 fetch handler 대신 upgrade callback으로 넘긴다.
       return json(
         failure({ code: "invalid_input", message: "upgrade required" }),
+        traceId,
       );
     }
     // HTTP 동시 요청 한도(128·principal당 16)는 인증 뒤 같은 시점에 결정한다. queue 없다.
     const arrival = admission.enterHttp(decision.context.principal);
     if (!arrival.ok) {
-      return json(failure(arrival.error));
+      return json(failure(arrival.error), traceId);
     }
     // stream 응답은 본문이 끝날 때까지 입장 자리를 붙잡는다. 아래 finally는 그때 풀지 않는다.
     let streaming = false;
@@ -175,6 +250,7 @@ export async function startApiServer(
             code: "not_found",
             message: "route not found",
           }),
+          traceId,
         );
       }
       const result = await dispatchHttp(request, entry, decision.context, deps);
@@ -205,10 +281,38 @@ export async function startApiServer(
           },
         );
       }
-      return Response.json(result.json, { status: result.status });
+      return Response.json(
+        result.status >= 400 && traceId !== undefined
+          ? withTraceId(result.json, traceId)
+          : result.json,
+        { status: result.status },
+      );
     } finally {
       if (!streaming) arrival.value.release();
     }
+  }
+
+  // 인증한 caller만 본다(heap·구성 요소 상태는 같은 사용자의 다른 process에게도 내보이지 않는다).
+  async function health(
+    request: Request,
+    path: string,
+    traceId: string | undefined,
+  ): Promise<Response> {
+    if (!options.health) {
+      return json(
+        failure({ code: "not_found", message: "route not found" }),
+        traceId,
+      );
+    }
+    if (request.method !== "GET") {
+      return json(
+        failure({ code: "invalid_input", message: "method not allowed" }),
+        traceId,
+      );
+    }
+    if (path === HEALTHZ) return Response.json(options.health.live());
+    const ready = await options.health.ready();
+    return Response.json(ready.body, { status: ready.status });
   }
 
   // upgrade는 respond를 거치지 않는다. HTTP와 같은 순서로 gate를 본다.
@@ -409,6 +513,27 @@ function commandRefused(): { status: number; json: unknown } {
   };
 }
 
-function json(reason: ReturnType<typeof failure>): Response {
-  return Response.json(errorBody(reason.error), { status: reason.status });
+const HEALTHZ = "/healthz";
+const READYZ = "/readyz";
+
+// 받은 traceparent가 맞는 모양일 때만 부모로 잇는다. 없거나 틀리면 새 trace다.
+function withParent(header: string | null) {
+  const parent = parseTraceparent(header);
+  return parent ? { parent } : {};
+}
+
+// dispatch가 만든 오류 body에 이 요청의 trace id를 더한다.
+function withTraceId(body: unknown, traceId: string): unknown {
+  if (typeof body !== "object" || body === null || !("error" in body)) {
+    return body;
+  }
+  const error = body.error;
+  if (typeof error !== "object" || error === null) return body;
+  return { ...body, error: { ...error, trace_id: traceId } };
+}
+
+function json(reason: ReturnType<typeof failure>, traceId?: string): Response {
+  return Response.json(errorBody(reason.error, traceId), {
+    status: reason.status,
+  });
 }

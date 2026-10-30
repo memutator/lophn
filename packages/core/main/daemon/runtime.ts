@@ -1,5 +1,5 @@
 import { Worker } from "node:worker_threads";
-import type { Clock, Result } from "../../../base/mod.ts";
+import type { Clock, Logger, Result } from "../../../base/mod.ts";
 import { err, internalError, ok } from "../../../base/mod.ts";
 import {
   type AuthenticatedContext,
@@ -11,12 +11,14 @@ import type {
   BlobReadInput,
   PreparedBlob,
 } from "../../../protocol/storage/mod.ts";
-import type { ReadHandler } from "../../server/mod.ts";
-import { createWorkspaceRelay, type WorkspaceRelay } from "../../server/mod.ts";
 import {
   platformStatusReads,
   type StatusSource,
 } from "../../diagnostics/mod.ts";
+import { authorize } from "../../server/identity/mod.ts";
+import type { ReadHandler } from "../../server/mod.ts";
+import { createWorkspaceRelay, type WorkspaceRelay } from "../../server/mod.ts";
+import { finishBlobRead, planBlobRead } from "../../storage/blobs/mod.ts";
 import {
   createReaderPool,
   openConnection,
@@ -27,8 +29,6 @@ import type {
   WriterRequest,
   WriterResponse,
 } from "../../storage/ledger/writer-message.ts";
-import { finishBlobRead, planBlobRead } from "../../storage/blobs/mod.ts";
-import { authorize } from "../../server/identity/mod.ts";
 import type { Assembled } from "./registration.ts";
 
 export type CoreRuntime = {
@@ -83,6 +83,7 @@ const WRITER_DEAD = {
 export async function openRuntime(input: {
   ledgerPath: string;
   clock: Clock;
+  logger: Logger;
   seed: number;
   modules: readonly string[];
   assembled: Assembled;
@@ -123,6 +124,7 @@ export async function openRuntime(input: {
       ...readerModules,
     ],
     {
+      logger: input.logger,
       onRespawn: () => Promise.all(respawnHooks.map((hook) => hook())),
     },
   );

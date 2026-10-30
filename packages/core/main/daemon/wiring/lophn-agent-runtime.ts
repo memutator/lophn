@@ -1,4 +1,5 @@
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
 import {
   removeQueued,
   steerQueuedNow,
@@ -7,21 +8,24 @@ import {
   interruptTurns,
   OAUTH_REFRESH_LEAD_MS,
   PLACE_KINDS,
-  providerRead,
   type ProviderRecord,
+  providerRead,
   recordProviderModels,
   refreshProviderCredential,
 } from "../../../../protocol/lophn-agent/mod.ts";
+import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import type { ParentMessage } from "../../../../protocol/supervision/mod.ts";
 import {
   agentConditions,
   placeOperations,
 } from "../../../agent-places/credentials.ts";
-import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import type { Id } from "../../../../protocol/base/ids.ts";
 import { FILE_HOOKS } from "../../../agent-places/hooks.ts";
-import { messageRemoveQueued } from "../../../lophn-agent/session/mod.ts";
-import type { ParentMessage } from "../../../../protocol/supervision/mod.ts";
-import type { MemoryHandler } from "../../../server/mod.ts";
+import { createProviderRefresher } from "../../../lophn-agent/providers/oauth-refresh.ts";
+import {
+  createInbox,
+  createTurnSource,
+  createTurnStarter,
+} from "../../../lophn-agent/run-loop/mod.ts";
 import {
   AGENT_RUNTIME_KIND,
   AGENT_RUNTIME_TASK,
@@ -29,13 +33,9 @@ import {
   agentRuntimePolicies,
   startAgentRuntimeChild,
 } from "../../../lophn-agent/run-loop/runtime.ts";
-import {
-  createInbox,
-  createTurnSource,
-  createTurnStarter,
-} from "../../../lophn-agent/run-loop/mod.ts";
 import { createAgentRuntimeSecrets } from "../../../lophn-agent/run-loop/runtime-secret.ts";
-import { createProviderRefresher } from "../../../lophn-agent/providers/oauth-refresh.ts";
+import { messageRemoveQueued } from "../../../lophn-agent/session/mod.ts";
+import type { MemoryHandler } from "../../../server/mod.ts";
 import { agentTools } from "../../agent-tools.ts";
 import type { WiringFactory } from "./context.ts";
 
@@ -214,7 +214,12 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
               payload: { ...message.payload, component: AGENT_RUNTIME_KIND },
             })
             .catch(() => {}),
-        stderr: (line) => console.error(`agent runtime: ${line}`),
+        stderr: (line) =>
+          ctx.telemetry.logger.info({
+            component: "agent-runtime",
+            event: "child_stderr",
+            message: line,
+          }),
         registry: ctx.registry,
         record: (context) => runtime.record(context),
         turns: createTurnSource({
@@ -251,7 +256,13 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
         }),
       });
       if (started.ok) agentRuntime = started.value;
-      else console.error(`agent runtime: ${started.error.message}`);
+      else {
+        ctx.telemetry.logger.error({
+          component: "agent-runtime",
+          event: "start_failed",
+          message: started.error.message,
+        });
+      }
       // 사람의 멈춤이나 session 끝남(archive·delete)이 turn 행을 닫으면(TurnEnded) 그 뒤에 child에 알려 진행 중인 model 요청과 tool을 끊게 한다.
       // child가 다시 뜨는 중이라 못 보내면 버린다: 새 child는 닫힌 turn을 시작하지 않는다.
       stopWatching = ctx.bus.subscribe([{ types: ["TurnEnded"] }], {

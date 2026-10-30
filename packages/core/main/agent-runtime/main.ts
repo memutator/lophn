@@ -1,6 +1,17 @@
 import process from "node:process";
 import { Readable, Writable } from "node:stream";
-import { err, ok, type Result, systemClock } from "../../../base/mod.ts";
+import {
+  cryptoRandom,
+  err,
+  ok,
+  type Result,
+  systemClock,
+} from "../../../base/mod.ts";
+import {
+  createTelemetry,
+  readTelemetryConfig,
+} from "../../diagnostics/telemetry.ts";
+import { tracedFetch } from "../../diagnostics/spans.ts";
 import { type ReadRoute, routePath } from "../../../protocol/base/mod.ts";
 import { createRpcClient } from "../../../protocol/client/mod.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
@@ -477,9 +488,20 @@ function streamWriter(stream: WritableStream<Uint8Array>) {
 }
 
 if (import.meta.main) {
+  // provider·MCP·models.dev 호출이 이 process에서 나간다. 호출마다 client span이고, core와 같은 수집기로 간다.
+  // log는 stderr로 가고 core가 child_stderr로 다시 싣는다.
+  const { config } = readTelemetryConfig(process.env);
+  const telemetry = createTelemetry({
+    service: "lophn-agent-runtime",
+    clock: systemClock,
+    random: cryptoRandom,
+    config,
+    write: (line) => void process.stderr.write(`${line}\n`),
+  });
+  const traced = tracedFetch(fetch, telemetry.tracer);
   const started = await startAgentRuntime({
-    driver: productDriver(),
-    catalogFetch: fetch,
+    driver: productDriver({ fetch: traced }),
+    catalogFetch: traced,
     pump: true,
   });
   if (!started.ok) {
@@ -495,11 +517,15 @@ if (import.meta.main) {
   });
   const stop = () => {
     uninstallCrash();
-    void runtime.shutdown().then(() => process.exit(0));
+    void runtime
+      .shutdown()
+      .then(() => telemetry.shutdown())
+      .then(() => process.exit(0));
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
   await runtime.done;
   uninstallCrash();
+  await telemetry.shutdown();
   process.exit(0);
 }

@@ -24,14 +24,15 @@ import {
   workflowStart,
   workflowStop,
 } from "../../../../protocol/workflows/mod.ts";
-import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { placeDepsOf } from "../../../lophn-agent/places/mod.ts";
+import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
+import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import {
   type CommandEnvelope,
   type KnownSecretMatch,
-  withAfterCommit,
   type Writer,
+  withAfterCommit,
 } from "../../../storage/ledger/mod.ts";
 import {
   createWorkflowService,
@@ -39,11 +40,10 @@ import {
   WORKFLOW_CHANGED_TOPIC,
   type WorkflowFlows,
 } from "../../../workflows/mod.ts";
-import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
-import { createProductRedactor, type WiringFactory } from "./context.ts";
 import { checkWorkflow } from "../../flow-host/check.ts";
-import { createWorkflowFiles } from "./workflows-files.ts";
+import { createProductRedactor, type WiringFactory } from "./context.ts";
 import { prepareTexts } from "./router.ts";
+import { createWorkflowFiles } from "./workflows-files.ts";
 
 // workflow service가 상태를 읽고 쓰고 turn을 멈추는 core 안 machine 자격이다. step 메시지 본문 blob은 command를 부른
 // 자격의 이름으로 준비돼 있어야 받는 session 기록이 읽는다(agent-call.md). 기동 때 ledger에 기록한다.
@@ -368,6 +368,7 @@ export const workflowsWiring: WiringFactory = () => {
         store,
         flows,
         ids,
+        logger: ctx.telemetry.logger,
       });
       service = built;
       ctx.provide("workflowService", built);
@@ -391,26 +392,30 @@ export const workflowsWiring: WiringFactory = () => {
       return ok({
         writer: (inner) =>
           withStepText(
-            withAfterCommit(inner, (actions) => {
-              // 다른 topic은 router의 applier가 따로 본다.
-              for (const action of actions) {
-                if (action.topic !== WORKFLOW_CHANGED_TOPIC) continue;
-                const changed = action.data as {
-                  instance: Id<"wfi">;
-                  project: Id<"prj">;
-                  workflow: string;
-                };
-                ctx.bus.publish({
-                  type: "WorkflowInstanceChanged",
-                  subject: changed.instance,
-                  at: ctx.clock.now(),
-                  payload: {
-                    project: changed.project,
-                    workflow: changed.workflow,
-                  },
-                });
-              }
-            }),
+            withAfterCommit(
+              inner,
+              (actions) => {
+                // 다른 topic은 router의 applier가 따로 본다.
+                for (const action of actions) {
+                  if (action.topic !== WORKFLOW_CHANGED_TOPIC) continue;
+                  const changed = action.data as {
+                    instance: Id<"wfi">;
+                    project: Id<"prj">;
+                    workflow: string;
+                  };
+                  ctx.bus.publish({
+                    type: "WorkflowInstanceChanged",
+                    subject: changed.instance,
+                    at: ctx.clock.now(),
+                    payload: {
+                      project: changed.project,
+                      workflow: changed.workflow,
+                    },
+                  });
+                }
+              },
+              ctx.telemetry.logger,
+            ),
             {
               relay: () => ctx.bodyPrepare,
               known: () => ctx.knownSecrets,
@@ -454,11 +459,15 @@ export const workflowsWiring: WiringFactory = () => {
         ],
       });
     },
-    async start() {
+    async start(ctx) {
       try {
         await service!.reconcile();
       } catch (e) {
-        console.error(`workflows: could not reconcile instances (${e})`);
+        ctx.telemetry.logger.error({
+          component: "workflows",
+          event: "reconcile_failed",
+          fields: { error: String(e) },
+        });
       }
       return ok(undefined);
     },

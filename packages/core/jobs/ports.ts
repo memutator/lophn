@@ -1,15 +1,15 @@
-import type { Clock, Result } from "../../base/mod.ts";
-import { definePort } from "../../protocol/base/mod.ts";
+import type { Clock, Logger, Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/mod.ts";
-import type {
-  AgentAddress,
-  AgentAtPlace,
-} from "../../protocol/lophn-agent/mod.ts";
+import { definePort } from "../../protocol/base/mod.ts";
 import type {
   JobRecord,
   JobRunRecord,
   JobTurn,
 } from "../../protocol/jobs/mod.ts";
+import type {
+  AgentAddress,
+  AgentAtPlace,
+} from "../../protocol/lophn-agent/mod.ts";
 
 // 시각은 Clock으로 읽고 timer는 이 port로 받는다. 테스트는 가짜를 꽂는다.
 export type JobTimers = {
@@ -86,6 +86,7 @@ export type JobSchedulerDeps = {
   timers: JobTimers;
   store: JobSchedulerStore;
   starter: JobStarter;
+  logger: Logger;
 };
 
 export type JobScheduler = {

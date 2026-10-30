@@ -26,11 +26,35 @@ export function failure(error: LophnError): RequestFailure {
   return { status: ERROR_HTTP_STATUS[error.code], error };
 }
 
-export function errorBody(error: LophnError): ErrorBody {
+// code마다 부른 쪽이 다음에 할 일. 원인 문장(message)과 달리 고정 문장이라 secret이 섞이지 않는다.
+const HINTS: Record<LophnError["code"], string> = {
+  invalid_input:
+    "Check the request body against the route schema; the message names the failing part.",
+  unauthorized:
+    "Send Authorization: Bearer <token>; the user token is in <data root>/run/user-token while core runs.",
+  forbidden:
+    "This credential's actor or scope does not allow the route; use a credential issued for it.",
+  not_found:
+    "The route or the target id does not exist; check the path /<resource>/<method> and the id.",
+  conflict:
+    "The target changed since it was read; read it again and retry with the new compare value.",
+  unavailable:
+    "A core component is down or busy; check GET /readyz and retry later.",
+  internal:
+    "Core failed unexpectedly; search core stderr (or the OTLP backend) for this trace_id.",
+};
+
+// trace_id는 응답을 낸 요청의 trace다. log와 span에서 같은 id로 찾는다.
+export function errorBody(error: LophnError, traceId?: string): ErrorBody {
   const body: ErrorBody = {
-    error: { code: error.code, message: error.message },
+    error: {
+      code: error.code,
+      message: error.message,
+      hint: HINTS[error.code],
+    },
   };
   if (error.details !== undefined) body.error.details = error.details;
+  if (traceId !== undefined) body.error.trace_id = traceId;
   return body;
 }
 

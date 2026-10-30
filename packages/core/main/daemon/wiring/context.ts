@@ -45,7 +45,7 @@ import type {
 } from "../../../storage/blobs/prepare-relay.ts";
 import type { BlobFieldDefinition } from "../../../../protocol/storage/mod.ts";
 import type { SettingsStore } from "../../../config/mod.ts";
-import type { StatusSource } from "../../../diagnostics/mod.ts";
+import type { StatusSource, Telemetry } from "../../../diagnostics/mod.ts";
 import type { ComponentCheck } from "../../../diagnostics/ports.ts";
 import type { Bus, GatewayFrames } from "../../../events/mod.ts";
 import type { ApprovalsService } from "../../../approvals/approvals.ts";
@@ -306,6 +306,8 @@ export type WiringContext = {
   readonly random: RandomSource;
   readonly root: DataRoot;
   readonly ledgerPath: string;
+  // 이 process의 구조화 log·trace·metric. console.error 대신 telemetry.logger를 쓴다.
+  readonly telemetry: Telemetry;
   // 구동기가 쓴다. status와 restore가 읽는다.
   ready: boolean;
   stopped: boolean;
@@ -323,6 +325,7 @@ export function createWiringContext(base: {
   random: RandomSource;
   root: DataRoot;
   ledgerPath: string;
+  telemetry: Telemetry;
 }): WiringContext {
   const slots: Partial<Late> = {};
   const ctx = {

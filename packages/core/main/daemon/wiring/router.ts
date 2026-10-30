@@ -1,27 +1,19 @@
 import { realpath } from "node:fs/promises";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
+import { createProductRedactor } from "../../../../base/redaction/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
+import type { DomainOwner } from "../../../../protocol/domains/mod.ts";
+import { domainArtifactsFolder } from "../../../../protocol/domains/paths.ts";
 import {
   placeSessionOpen,
   placeSessionRead,
 } from "../../../../protocol/lophn-agent/agent-sessions.ts";
-import { sendMessage } from "../../../../protocol/lophn-agent/inputs.ts";
-import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
-import { appExists, appStatusOf } from "../../../apps/lookups.ts";
-import { domainOwnerOf } from "../../../domains/lookups.ts";
-import { projectStatusOf } from "../../../projects/lookups.ts";
-import type { DomainOwner } from "../../../../protocol/domains/mod.ts";
-import { domainArtifactsFolder } from "../../../../protocol/domains/paths.ts";
-import {
-  LOPHN_AGENT_ID,
-  type AgentAtPlace,
-  type Place,
-} from "../../../../protocol/lophn-agent/places.ts";
 import {
   agentCallSend,
   callCancel,
   callReply,
 } from "../../../../protocol/lophn-agent/calls.ts";
+import { sendMessage } from "../../../../protocol/lophn-agent/inputs.ts";
 import {
   archiveSession,
   deleteSession,
@@ -30,25 +22,33 @@ import {
   messageBody,
   serializeMessageContent,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import { createProductRedactor } from "../../../../base/redaction/mod.ts";
 import {
-  prepareBytes,
-  rejected,
-} from "../../../lophn-agent/session/message-body.ts";
-import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
-import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
-import { lastArtifactWriter } from "../../../lophn-agent/session/rewind/mod.ts";
-import { createInboxApplier } from "../../../lophn-agent/run-loop/mod.ts";
-import { INBOX_PUT_TOPIC } from "../../../lophn-agent/run-loop/topics.ts";
+  type AgentAtPlace,
+  LOPHN_AGENT_ID,
+  type Place,
+} from "../../../../protocol/lophn-agent/places.ts";
+import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
+import { appExists, appStatusOf } from "../../../apps/lookups.ts";
+import { domainOwnerOf } from "../../../domains/lookups.ts";
 import {
   createSessionDirectory,
   placeDepsOf,
 } from "../../../lophn-agent/places/mod.ts";
-import { unstartedHumanMessages } from "../../../lophn-agent/session/message-commands.ts";
+import { createInboxApplier } from "../../../lophn-agent/run-loop/mod.ts";
+import { INBOX_PUT_TOPIC } from "../../../lophn-agent/run-loop/topics.ts";
+import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import {
-  callsRecover,
+  prepareBytes,
+  rejected,
+} from "../../../lophn-agent/session/message-body.ts";
+import { unstartedHumanMessages } from "../../../lophn-agent/session/message-commands.ts";
+import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
+import { lastArtifactWriter } from "../../../lophn-agent/session/rewind/mod.ts";
+import { projectStatusOf } from "../../../projects/lookups.ts";
+import {
   CANCEL_TEXT,
+  callsRecover,
   FAILURE_TEXTS,
 } from "../../../router/mod.ts";
 import {
@@ -56,8 +56,8 @@ import {
   type KnownSecretMatch,
   type LedgerConnection,
   openConnection,
-  withAfterCommit,
   type Writer,
+  withAfterCommit,
 } from "../../../storage/ledger/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
@@ -380,7 +380,7 @@ export const routerWiring: WiringFactory = () => {
       return ok({
         writer: (inner) =>
           withCallBody(
-            withAfterCommit(inner, apply),
+            withAfterCommit(inner, apply, ctx.telemetry.logger),
             createCallBodyPreparer({
               relay: () => ctx.bodyPrepare,
               known: () => ctx.knownSecrets,
@@ -412,9 +412,11 @@ export const routerWiring: WiringFactory = () => {
         prepared: [],
       });
       if (!done.ok) {
-        console.error(
-          `router: could not close lost calls (${done.error.code})`,
-        );
+        ctx.telemetry.logger.error({
+          component: "router",
+          event: "close_lost_calls_failed",
+          fields: { code: done.error.code },
+        });
       }
       // 본문은 blob이라 tx 안에서 읽지 못한다. 같은 ledger를 읽는 main thread 연결로 가려 읽는다.
       if (eventsConnection !== undefined) {
@@ -434,9 +436,11 @@ export const routerWiring: WiringFactory = () => {
             `${messageBody.resource}/${messageBody.method}`,
           )!(ROUTER_CONTEXT, { message: pending.id });
           if (!body.ok) {
-            console.error(
-              `router: could not requeue a received message (${body.error.code})`,
-            );
+            ctx.telemetry.logger.error({
+              component: "router",
+              event: "requeue_message_failed",
+              fields: { code: body.error.code },
+            });
             continue;
           }
           const { content } = body.value as {

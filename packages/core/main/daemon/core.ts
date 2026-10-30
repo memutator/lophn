@@ -29,7 +29,17 @@ import {
   removeUserToken,
   writeUserToken,
 } from "../../install-and-update/run-metadata.ts";
-import { CRASH_LOCATIONS } from "../../diagnostics/mod.ts";
+import {
+  CRASH_LOCATIONS,
+  createHealth,
+  createTelemetry,
+  type Health,
+  installSnapshotSignal,
+  readTelemetryConfig,
+  type Telemetry,
+  tracedCall,
+} from "../../diagnostics/mod.ts";
+import { describeThrown } from "../../../base/telemetry/mod.ts";
 import { assemble } from "./registration.ts";
 import type { TeamModule } from "../../storage/ledger/team-module.ts";
 import { openRuntime } from "./runtime.ts";
@@ -62,6 +72,8 @@ export type CoreOptions = {
   wirings: readonly WiringFactory[];
   clock?: Clock;
   random?: RandomSource;
+  // 없으면 process env(LOPHN_TELEMETRY 등)로 만들고 stderr에 쓴다.
+  telemetry?: Telemetry;
   // Electron main이 물려 준 stdin/stdout.
   parent?: ParentPipe;
 };
@@ -79,6 +91,7 @@ type Core = {
 export async function startCore(options: CoreOptions): Promise<Result<Core>> {
   const clock = options.clock ?? systemClock;
   const random = options.random ?? cryptoRandom;
+  const telemetry = options.telemetry ?? telemetryFromEnv(clock, random);
   const root = await resolveDataRoot({
     lophnHome: options.lophnHome ?? process.env.LOPHN_HOME ?? undefined,
     home: options.home ?? process.env.HOME ?? undefined,
@@ -90,7 +103,14 @@ export async function startCore(options: CoreOptions): Promise<Result<Core>> {
   // lock을 잡은 뒤에 지워야 이미 도는 core의 file을 지우지 않는다.
   await removeUserToken(root.value.run);
 
-  const opened = await open(options, root.value, locked.value, clock, random);
+  const opened = await open(
+    options,
+    root.value,
+    locked.value,
+    clock,
+    random,
+    telemetry,
+  );
   if (!opened.ok) {
     // 기동이 실패하면 위치 metadata와 user token을 남기지 않고 lock을 푼다.
     await removeRunMetadata(root.value.run);
@@ -107,10 +127,18 @@ async function open(
   lock: InstanceLock,
   clock: Clock,
   random: RandomSource,
+  telemetry: Telemetry,
 ): Promise<Result<Core>> {
   const ledgerPath = `${root.path}/lophn.db`;
   const wirings = options.wirings.map((make) => make());
-  const ctx = createWiringContext({ options, clock, random, root, ledgerPath });
+  const ctx = createWiringContext({
+    options,
+    clock,
+    random,
+    root,
+    ledgerPath,
+    telemetry,
+  });
 
   // wiring이 넘긴 환경은 팀 조립과 platform 조립이 같이 읽는다. 각자 자기 key만 읽는다.
   const environment = Object.assign(
@@ -181,10 +209,37 @@ async function open(
     assembled: assembled.value,
     source: ctx.statusSource,
     blob: ctx.blobRead.deps,
+    logger: telemetry.logger,
   });
   if (!openedRuntime.ok) return openedRuntime;
   const runtime = openedRuntime.value;
+  // writer command 하나, reader read 하나가 span이다. API의 server span 아래로 이어진다.
+  const writerCommand = runtime.writer.command.bind(runtime.writer);
+  runtime.writer.command = tracedCall(
+    telemetry.tracer,
+    "ledger.command",
+    (_ctx, envelope) => ({
+      "db.system.name": "sqlite",
+      "db.operation.name": "command",
+      "lophn.command": envelope.command,
+    }),
+    writerCommand,
+  );
+  const readerRead = runtime.readers.read.bind(runtime.readers);
+  runtime.readers.read = tracedCall(
+    telemetry.tracer,
+    "ledger.read",
+    (route) => ({
+      "db.system.name": "sqlite",
+      "db.operation.name": "read",
+      "lophn.read": `${route.resource}/${route.method}`,
+    }),
+    readerRead,
+  );
   ctx.provide("runtime", runtime);
+  // API 직전에 만들고 ready 뒤에 신호를 건다. 그 앞에서 기동이 실패해도 남는 timer·listener가 없다.
+  let health: Health | undefined;
+  let uninstallSnapshot = () => {};
 
   // 종료 순서: 새 command·prepare 입장 닫기(ready = false) → 구독·감시·worker 통로
   // 정리(closeIntake) → server.stop() → closeChildren(앱 제어) → 앱 supervisor 정지 → io 정지 →
@@ -227,13 +282,20 @@ async function open(
           if ((await wiring.stopped?.(ctx, stoppedAt)) === "handled") break;
         }
       } finally {
+        uninstallSnapshot();
+        health?.close();
         try {
           await removeRunMetadata(root.run);
         } finally {
           try {
             await removeUserToken(root.run);
           } finally {
-            await lock.release();
+            try {
+              await lock.release();
+            } finally {
+              telemetry.logger.info({ component: "core", event: "stopped" });
+              await telemetry.shutdown();
+            }
           }
         }
       }
@@ -288,6 +350,13 @@ async function open(
       message: `memory route와 handler가 맞지 않는다: ${unmatched.join(", ")}`,
     });
   }
+  health = createHealth({
+    service: SERVICE_NAME,
+    clock,
+    ready: () => ctx.ready,
+    checks: () => ctx.componentChecks,
+    readers: () => runtime.readers.health(),
+  });
   let server: ApiServer;
   try {
     server = await startApiServer({
@@ -306,8 +375,12 @@ async function open(
       uploads: merged((built) => built.uploads),
       // 큰 파일을 core 메모리에 모으지 않고 창 단위로 흘리는 file route.
       fileStreams: merged((built) => built.fileStreams),
+      logger: telemetry.logger,
+      telemetry,
+      health,
     });
   } catch {
+    health.close();
     await runtime.close();
     return err({ code: "unavailable", message: "API를 열 수 없다" });
   }
@@ -318,6 +391,7 @@ async function open(
     startedAt: clock.now(),
   });
   if (!recorded.ok) {
+    health.close();
     await server.stop();
     await runtime.close();
     return recorded;
@@ -325,12 +399,33 @@ async function open(
   for (const wiring of wirings) {
     const started = await wiring.start?.(ctx);
     if (started !== undefined && !started.ok) {
+      health.close();
       await server.stop();
       await runtime.close();
       return started;
     }
   }
   ctx.ready = true;
+  // `kill -USR2 <pid>`가 <data root>/diagnostics/에 자원 요약과 CPU profile을 남긴다.
+  uninstallSnapshot = installSnapshotSignal({
+    dir: `${root.path}/diagnostics`,
+    clock,
+    heap: process.env.LOPHN_HEAP_SNAPSHOT === "1",
+    done: (paths) =>
+      telemetry.logger.info({
+        component: "diagnostics",
+        event: "snapshot_written",
+        fields: {
+          files: paths.map((path) => path.slice(root.path.length + 1)),
+        },
+      }),
+    failed: (thrown) =>
+      telemetry.logger.error({
+        component: "diagnostics",
+        event: "snapshot_failed",
+        fields: describeThrown(thrown),
+      }),
+  });
   for (const wiring of wirings) await wiring.afterReady?.(ctx);
 
   // 부모 pipe는 호출자가 명시할 때만 연다. 터미널에서 직접 띄우면 종료는 신호가 담당한다.
@@ -385,7 +480,37 @@ async function open(
         },
       )
     : Promise.resolve();
+  telemetry.logger.info({
+    component: "core",
+    event: "started",
+    fields: {
+      port: server.port,
+      telemetry: telemetry.config.mode,
+      pid: process.pid,
+    },
+  });
   return ok(core);
+}
+
+const SERVICE_NAME = "lophn-core";
+
+function telemetryFromEnv(clock: Clock, random: RandomSource): Telemetry {
+  const { config, problems } = readTelemetryConfig(process.env);
+  const telemetry = createTelemetry({
+    service: SERVICE_NAME,
+    clock,
+    random,
+    config,
+    write: (line) => void process.stderr.write(`${line}\n`),
+  });
+  for (const problem of problems) {
+    telemetry.logger.warn({
+      component: "telemetry",
+      event: "config_ignored",
+      message: problem,
+    });
+  }
+  return telemetry;
 }
 
 async function fileExists(path: string): Promise<boolean> {

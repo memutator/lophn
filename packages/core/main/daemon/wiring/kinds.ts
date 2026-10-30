@@ -4,8 +4,8 @@
 import { mkdir } from "node:fs/promises";
 import { ok } from "../../../../base/mod.ts";
 import type { DomainOwner } from "../../../../protocol/domains/mod.ts";
-import type { Writer } from "../../../storage/ledger/mod.ts";
-import { openConnection } from "../../../storage/ledger/mod.ts";
+import { appSourcePath, appStatusOf } from "../../../apps/lookups.ts";
+import { activeDomainIds, domainOwnerOf } from "../../../domains/lookups.ts";
 import {
   createKindsDispatcher,
   type KindsDispatcher,
@@ -17,9 +17,9 @@ import {
   createKindsWatch,
   type KindsWatch,
 } from "../../../projects/kinds/host/watch/service.ts";
-import { appSourcePath, appStatusOf } from "../../../apps/lookups.ts";
-import { activeDomainIds, domainOwnerOf } from "../../../domains/lookups.ts";
 import { projectRootsOf } from "../../../projects/lookups.ts";
+import type { Writer } from "../../../storage/ledger/mod.ts";
+import { openConnection } from "../../../storage/ledger/mod.ts";
 import { createWorkerChannel, type WiringFactory } from "./context.ts";
 
 type Connection = Extract<
@@ -96,7 +96,12 @@ export const kindsWiring: WiringFactory = () => {
             payload: { domain, count },
           }),
         nowMs: () => performance.now(),
-        log: (message) => console.error(`kinds worker: ${message}`),
+        log: (message) =>
+          ctx.telemetry.logger.warn({
+            component: "kinds-worker",
+            event: "dispatch",
+            message,
+          }),
       });
       dispatcher = attached;
       watch = createKindsWatch({
@@ -112,7 +117,12 @@ export const kindsWiring: WiringFactory = () => {
         },
         catchUp: (domain) => attached.sync(domain, { force: true }),
         watchFs: nodeWatchFs,
-        log: (message) => console.error(message),
+        log: (message) =>
+          ctx.telemetry.logger.warn({
+            component: "kinds-watch",
+            event: "watch",
+            message,
+          }),
       });
       void watch.start();
       return Promise.resolve(ok(undefined));

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
-
 import { DatabaseSync } from "node:sqlite";
-import { createIdSource, ok } from "../../base/mod.ts";
+import { test } from "node:test";
+import { createIdSource, type Logger, ok } from "../../base/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
+import { createSql } from "../storage/ledger/sqlite.ts";
 import { createWorkflowCommands } from "./commands.ts";
 import type { WorkflowFlows } from "./ports.ts";
 import { workflowsSchemaSteps } from "./schema.ts";
@@ -16,12 +16,20 @@ import {
   loadLines,
   runningInstances,
 } from "./store.ts";
-import { createSql } from "../storage/ledger/sqlite.ts";
 
 const FLOW = "wfi_01hzzzzzzzzzzzzzzzzzzzzzza";
 const AGENT = "wfi_01hzzzzzzzzzzzzzzzzzzzzzzb";
 const PRJ = "prj_01hzzzzzzzzzzzzzzzzzzzzzza";
 const AT = "2026-10-22T00:00:00.000Z";
+
+const logger: Logger = {
+  log: () => {},
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  flush: () => Promise.resolve(),
+};
 
 // 켤 때 running인 flow instance를 닫는 것이 process를 다시 띄우면 바깥 효과가 두 번 난다.
 // agent instance는 handed 줄이 없을 뿐 건드리지 않는다.
@@ -97,6 +105,7 @@ test("reconcile closes a running flow instance without launching again and leave
       files: {} as never,
       projects: {} as never,
       turns: {} as never,
+      logger,
       store: {
         create: (input) =>
           Promise.resolve(commands.create.handle(tx, ctx, input, {})),

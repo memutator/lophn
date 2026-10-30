@@ -76,7 +76,8 @@ export const storageWiring: WiringFactory = () => {
     },
     // API가 요청을 받기 시작했고 이번 기동에서 적용한 step이 없으면 정상 기동이다. 이전 복구본을 지운다.
     async afterReady(ctx) {
-      if (ctx.migrationsApplied === 0) await confirmStartup(ctx.root.path);
+      if (ctx.migrationsApplied === 0)
+        await confirmStartup(ctx.root.path, ctx.telemetry.logger);
     },
     closeWork() {
       if (pruneTimer !== undefined) clearInterval(pruneTimer);

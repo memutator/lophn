@@ -4,7 +4,13 @@ import { spawn } from "node:child_process";
 import { lstat, realpath, rename, rm } from "node:fs/promises";
 import process from "node:process";
 
-import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
+import {
+  err,
+  errorCode,
+  type Logger,
+  ok,
+  type Result,
+} from "../../../base/mod.ts";
 import { appDefaultSource } from "../../../protocol/apps/app-storage.ts";
 import {
   type App,
@@ -156,6 +162,7 @@ export function withSourceFolder(
   inner: Writer,
   deps: {
     dataRoot: string;
+    logger: Logger;
     // 잇기도 전체 writer를 지난다.
     writer(): Writer;
   },
@@ -180,7 +187,11 @@ export function withSourceFolder(
         return done;
       const app = done.value.result as App;
       const fail = (reason: string) => {
-        console.error(`app ${app.id}: source folder not prepared: ${reason}`);
+        deps.logger.error({
+          component: "apps-source",
+          event: "source_folder_unprepared",
+          message: `app ${app.id}: source folder not prepared: ${reason}`,
+        });
         return done;
       };
       const dir = await scaffold(app, deps.dataRoot);

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { manualClock, ok } from "../../base/mod.ts";
+import { type Logger, manualClock, ok } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/mod.ts";
 import type { JobTurn } from "../../protocol/jobs/mod.ts";
 import type { JobSchedulerStore, JobStarter } from "./ports.ts";
@@ -12,6 +12,15 @@ const flush = async () => {
 
 const JOB_RUN = "jbr_01hzzzzzzzzzzzzzzzzzzzzzza" as Id<"jbr">;
 const INSTANCE = "wfi_01hzzzzzzzzzzzzzzzzzzzzzza" as Id<"wfi">;
+
+const logger: Logger = {
+  log: () => {},
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  flush: () => Promise.resolve(),
+};
 
 // 차례가 온 순간의 겹침 판정이 지금 instance 상태를 보려면 끝난 instance의 줄을 claim 앞에서 닫아야 한다.
 for (const [state, closedAs] of [
@@ -58,6 +67,7 @@ for (const [state, closedAs] of [
       },
       store,
       starter,
+      logger,
     });
 
     await scheduler.start();

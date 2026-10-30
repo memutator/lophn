@@ -1,5 +1,11 @@
 import { mkdir, readdir, rm, stat } from "node:fs/promises";
-import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
+import {
+  err,
+  errorCode,
+  type Logger,
+  ok,
+  type Result,
+} from "../../../base/mod.ts";
 import { openConnection } from "../ledger/mod.ts";
 
 // 복구본 안의 ledger 파일 이름.
@@ -153,12 +159,19 @@ export async function createRecoveryCopy(
 
 // 정상 기동(이번 기동에서 적용한 step 0개, API가 요청을 받기 시작함)이 확인되면 복구본을 지운다.
 // 복구본을 만든 그 기동은 부르지 않는다. 없는 폴더는 오류가 아니다.
-export async function confirmStartup(root: string): Promise<void> {
+export async function confirmStartup(
+  root: string,
+  logger: Logger,
+): Promise<void> {
   try {
     await rm(`${root}/${RECOVERY_DIR}`, { recursive: true });
   } catch (thrown) {
     if (errorCode(thrown) !== "ENOENT") {
-      console.error("recovery: 복구본을 지우지 못했다");
+      logger.error({
+        component: "recovery",
+        event: "cleanup_failed",
+        message: "recovery: 복구본을 지우지 못했다",
+      });
     }
   }
 }

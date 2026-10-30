@@ -69,6 +69,16 @@ components:
       paths: [package.json, tools/]
       note: check 단계를 더하거나 뺄 때.
 
+  - id: tool-doctor
+    kind: tool
+    roles: [all]
+    description: 개발 환경을 스스로 진단한다. Node·npm·git·Electron·sandbox, .env, telemetry env, dependency·binary, dev data root·port, core /readyz, 바깥 연결을 보고, --fix로 안전한 것만 고친다.
+    path: tools/doctor/
+    run: npm run doctor
+    change_reasons:
+      paths: [package.json, package-lock.json, tools/dev.ts, .env.example]
+      note: check 목록이나 fix가 바뀔 때.
+
   # ── planner ──
 
   - id: product
@@ -305,6 +315,15 @@ components:
     change_reasons:
       boundaries: [shell]
       paths: [packages/shell/ipc/keybindings.ts, packages/shell/ipc/shortcuts.ts, packages/shell/renderer/commands/, packages/shell/main/desktop/shortcuts.ts, packages/shell/renderer/desktop/settings/keyboard/]
+
+  - id: architecture-observability
+    kind: doc
+    roles: [planner, lead]
+    description: core의 구조화 log·trace·metric이 어디서 생겨 stderr와 OTLP(loopback 수집기)로 가는가, 설정 env, `/healthz`·`/readyz`의 판정, 오류 봉투의 hint·trace_id, SIGUSR2 자원 snapshot, `npm run doctor`의 점검과 `--fix`.
+    path: project-docs/architecture/observability.md
+    change_reasons:
+      boundaries: [diagnostics, server]
+      paths: [packages/base/telemetry/, packages/protocol/base/errors.ts, tools/doctor/]
 
   - id: architecture-agent-chat
     kind: doc

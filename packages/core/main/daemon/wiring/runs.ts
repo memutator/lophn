@@ -13,11 +13,11 @@ import {
   turnRead,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import {
+  type RunRecord,
   runCancel,
   runCreate,
   runList,
   runRead,
-  type RunRecord,
   runSettle,
   runStart,
   runWait,
@@ -27,11 +27,11 @@ import type {
   Input,
   Output,
 } from "../../../../protocol/server/mod.ts";
-import { messageRemoveQueued } from "../../../lophn-agent/session/mod.ts";
 import {
   createSessionDirectory,
   placeDepsOf,
 } from "../../../lophn-agent/places/mod.ts";
+import { messageRemoveQueued } from "../../../lophn-agent/session/mod.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import {
   createRunService,
@@ -414,7 +414,11 @@ export const runsWiring: WiringFactory = () => {
       try {
         await service!.reconcile();
       } catch (e) {
-        console.error(`runs: could not reconcile runs (${e})`);
+        ctx.telemetry.logger.error({
+          component: "runs",
+          event: "reconcile_failed",
+          fields: { error: String(e) },
+        });
       }
       return ok(undefined);
     },

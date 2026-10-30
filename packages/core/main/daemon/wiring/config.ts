@@ -7,8 +7,8 @@ import {
   createSettingsReader,
   createSettingsRegistry,
   createSettingsStore,
-  settingsListHandler,
   type SettingsStore,
+  settingsListHandler,
   settingsUpdateHandler,
   shellSettings,
 } from "../../../config/mod.ts";
@@ -49,7 +49,12 @@ export const configWiring: WiringFactory = () => {
             at: ctx.clock.now(),
             payload: { keys },
           }),
-        log: (message) => console.error(message),
+        log: (message) =>
+          ctx.telemetry.logger.warn({
+            component: "settings",
+            event: "store",
+            message,
+          }),
       });
       ctx.provide("settings", createSettingsReader(store));
       const settingsStore = store;

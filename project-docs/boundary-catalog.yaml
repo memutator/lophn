@@ -149,7 +149,7 @@ elements:
 
       - id: diagnostics
         kind: component
-        description: lophn 자체의 운영 log, crash 기록, 상태 점검.
+        description: lophn 자체의 운영 log, crash 기록, 상태 점검. core process의 구조화 log·trace·metric(telemetry), `/healthz`·`/readyz`, 자원 snapshot도 여기다.
 
   - id: shell
     kind: application

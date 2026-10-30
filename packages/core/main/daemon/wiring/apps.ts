@@ -359,8 +359,13 @@ export const appsWiring: WiringFactory = () => {
                   }
                 }
               },
+              ctx.telemetry.logger,
             ),
-            { dataRoot: ctx.root.path, writer: () => ctx.writer },
+            {
+              dataRoot: ctx.root.path,
+              logger: ctx.telemetry.logger,
+              writer: () => ctx.writer,
+            },
           ),
         memory: [
           ...appOAuth.handlers,

@@ -10,7 +10,7 @@ const MIN_SLEEP_MS = 1_000;
 // 깨어나는 길(timer, wake, 최대 잠)이 무엇이든 바퀴는 같다. 한 번에 한 바퀴만 돈다.
 // 기록 event나 Bus에 얹지 않는다. 신호는 wiring이 wake()로 준다.
 export function createJobScheduler(deps: JobSchedulerDeps): JobScheduler {
-  const { clock, timers, store, starter } = deps;
+  const { clock, timers, store, starter, logger } = deps;
   let handle: { value: unknown } | undefined;
   let cycle: Promise<void> | undefined;
   let again = false;
@@ -42,17 +42,26 @@ export function createJobScheduler(deps: JobSchedulerDeps): JobScheduler {
     if (done.error.code === "not_found" || done.error.code === "conflict") {
       return;
     }
-    console.error(
-      `jobs: ${what} failed (${done.error.code}: ${done.error.message})`,
-    );
+    logger.error({
+      component: "jobs",
+      event: "job_run_update_failed",
+      message: `jobs: ${what} failed`,
+      fields: {
+        code: done.error.code,
+        reason: done.error.message,
+      },
+    });
   };
 
   async function closeFinished(): Promise<void> {
     const open = await store.open();
     if (!open.ok) {
-      console.error(
-        `jobs: could not read open job runs (${open.error.message})`,
-      );
+      logger.error({
+        component: "jobs",
+        event: "open_read_failed",
+        message: "jobs: could not read open job runs",
+        fields: { reason: open.error.message },
+      });
       return;
     }
     for (const { job, job_run } of open.value) {
@@ -120,9 +129,12 @@ export function createJobScheduler(deps: JobSchedulerDeps): JobScheduler {
     await closeFinished();
     const claimed = await store.claimDue(!startupDone);
     if (!claimed.ok) {
-      console.error(
-        `jobs: could not claim due jobs (${claimed.error.message})`,
-      );
+      logger.error({
+        component: "jobs",
+        event: "claim_due_failed",
+        message: "jobs: could not claim due jobs",
+        fields: { reason: claimed.error.message },
+      });
       sleep(RETRY_MS);
       return;
     }
@@ -152,7 +164,11 @@ export function createJobScheduler(deps: JobSchedulerDeps): JobScheduler {
         try {
           await lap();
         } catch (e) {
-          console.error(`jobs: scheduler lap failed (${e})`);
+          logger.error({
+            component: "jobs",
+            event: "lap_failed",
+            fields: { error: String(e) },
+          });
           sleep(RETRY_MS);
         }
       } while (again && !stopped);

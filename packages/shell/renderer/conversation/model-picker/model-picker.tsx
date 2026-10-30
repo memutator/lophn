@@ -283,7 +283,12 @@ export function ModelPicker(props: ModelPickerProps): ReactNode {
       props={props}
       inChat
       trigger={
-        <Button size="sm" variant="ghost" data-model-button="">
+        <Button
+          size="sm"
+          variant="ghost"
+          trailingIcon={conversationIcons.expand}
+          data-model-button=""
+        >
           {buttonText(props)}
           <Icon icon={conversationIcons.expand} pixels={iconPixels("base")} />
         </Button>

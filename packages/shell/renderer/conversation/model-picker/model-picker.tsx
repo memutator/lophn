@@ -290,7 +290,6 @@ export function ModelPicker(props: ModelPickerProps): ReactNode {
           data-model-button=""
         >
           {buttonText(props)}
-          <Icon icon={conversationIcons.expand} pixels={iconPixels("base")} />
         </Button>
       }
     />

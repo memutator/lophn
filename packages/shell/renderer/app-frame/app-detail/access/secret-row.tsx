@@ -1,5 +1,6 @@
 // Access 탭의 secret 줄. 값과 token은 어디에도 그리지 않는다. 값은 보호된 입력 창이 받는다(source가 연다).
-// plain secret은 [Set value], OAuth secret은 client id·client secret·[Sign in]과 상태를 가진다.
+// plain secret은 [Set value]·[Change value]·[Remove value], OAuth secret은 client id·client secret·[Sign in]·
+// [Sign out]과 상태를 가진다.
 import { type ReactNode, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Field, Input } from "@lophn/ui/input";
@@ -16,10 +17,12 @@ type OAuth = NonNullable<SecretInfo["oauth"]>;
 
 export interface SecretActions {
   setValue(): void;
+  removeValue(): void;
   setClientId(clientId: string): void;
   setClientSecret(): void;
   signIn(): void;
   cancelSignIn(): void;
+  signOut(): void;
 }
 
 /** 이름 줄. [Revoke]는 오른쪽 끝에 그대로 있고 plain 줄의 [Set value]가 그 왼쪽에 붙는다. */
@@ -178,24 +181,31 @@ function ClientSecret({ set, onSet }: { set: boolean; onSet: () => void }) {
 
 function SignIn({ oauth, actions }: { oauth: OAuth; actions: SecretActions }) {
   const { state, clientId } = oauth;
+  // failed도 남은 token이 있을 수 있다(실패 기억은 지워지지 않고, 갱신할 수 없는 접근 token도 남는다).
+  const canSignOut = state === "signed_in" || state === "failed";
   const action =
     state === "in_progress" ? (
       <Button size="sm" onClick={actions.cancelSignIn}>
         {t("app-detail.button.cancel")}
       </Button>
-    ) : state === "none" ? (
-      <Button
-        size="sm"
-        variant="primary"
-        disabled={clientId === null}
-        onClick={actions.signIn}
-      >
-        {t("app-detail.button.sign-in")}
-      </Button>
     ) : (
-      <Button size="sm" onClick={actions.signIn}>
-        {t("app-detail.button.sign-in-again")}
-      </Button>
+      <>
+        {canSignOut ? (
+          <Button size="sm" onClick={actions.signOut}>
+            {t("app-detail.button.sign-out")}
+          </Button>
+        ) : null}
+        <Button
+          size="sm"
+          variant={state === "none" ? "primary" : undefined}
+          disabled={state === "none" && clientId === null}
+          onClick={actions.signIn}
+        >
+          {state === "none"
+            ? t("app-detail.button.sign-in")
+            : t("app-detail.button.sign-in-again")}
+        </Button>
+      </>
     );
   const below =
     state !== "none"
@@ -244,11 +254,18 @@ export function SecretRow({
             revoke={revoke}
           >
             {revoking ? null : (
-              <Button size="sm" onClick={actions.setValue}>
-                {info.configured
-                  ? t("app-detail.button.change-value")
-                  : t("app-detail.button.set-value")}
-              </Button>
+              <>
+                <Button size="sm" onClick={actions.setValue}>
+                  {info.configured
+                    ? t("app-detail.button.change-value")
+                    : t("app-detail.button.set-value")}
+                </Button>
+                {info.configured ? (
+                  <Button size="sm" onClick={actions.removeValue}>
+                    {t("app-detail.button.remove-value")}
+                  </Button>
+                ) : null}
+              </>
             )}
           </Head>
         </div>

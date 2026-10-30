@@ -164,6 +164,7 @@ export function createLedgerRegistration(
       commands.archive,
       commands.unarchive,
       commands.rename,
+      commands.editFolders,
       grants.revoke,
       runtime.enableExecution,
       runtime.disableExecution,

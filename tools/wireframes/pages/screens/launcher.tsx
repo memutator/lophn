@@ -49,7 +49,7 @@ export const launcherArea: Area = {
       id: "launcher-projects",
       title: "Launcher · with projects",
       description:
-        "프로젝트 카드가 있는 런처. 카드는 이름·목적·문서 수·추적 상태를 보이고, 카드를 누르면 그 프로젝트 작업대로 간다.",
+        "프로젝트 카드가 있는 런처. 카드는 첫 글자 표식·이름·목적·폴더 수(사라진 폴더면 Folder not found)를 보이고, 카드를 누르면 그 프로젝트 작업대로 간다.",
       render: () => <MockDesktop />,
     },
     {
@@ -84,7 +84,7 @@ export const launcherArea: Area = {
       id: "new-launcher-projects",
       title: "Launcher · project cards",
       description:
-        "런처의 project 카드(이름, 목적, 폴더 수 또는 Folder not found와 [Choose new location])와 앱 카드다. 카드마다 ⋯ 메뉴가 있고, 오른쪽 위 톱니 단추가 Settings로 간다. 보관한 것은 맨 아래 접힌 Archived에 있다.",
+        "런처의 project 카드(이름, 목적, 폴더 수 또는 Folder not found와 [Choose new location])와 앱 카드다. 카드 이름 앞에 첫 글자 표식이 붙는다(project는 둥근 사각형, 앱은 원). 카드마다 ⋯ 메뉴가 있고, 오른쪽 위 톱니 단추가 Settings로 간다. 보관한 것은 맨 아래 접힌 Archived에 있다.",
       render: () => <LauncherProjects />,
     },
     {

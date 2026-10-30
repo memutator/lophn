@@ -20,20 +20,20 @@ export const projectDeskArea: Area = {
   id: "project-desk",
   title: "Project desk",
   summary:
-    "project 창 위쪽 바 왼쪽의 `project ▾ / desk ▾`. project를 고르면 그 project를 연다. 자리(desk)를 바꾸면 탭, floated 패널, 접힌 span이 그 자리 것으로 바뀐다.",
+    "project 창 위쪽 바 왼쪽의 place switcher(윗줄에 종류, 아랫줄에 이름)와 `/ desk ▾`. place를 고르면 그 place를 이 창에서 연다. 자리(desk)를 바꾸면 탭, floated 패널, 접힌 span이 그 자리 것으로 바뀐다.",
   pages: [
     {
       id: "project-desk-default",
       title: "Project desk · no workflow",
       description:
-        "workflow가 없는 project. 고를 자리가 하나뿐이라 왼쪽에 `project ▾`만 있고 `/ desk ▾`는 없다. 파일 경로 breadcrumb은 없다.",
+        "workflow가 없는 project. 고를 자리가 하나뿐이라 왼쪽에 place switcher만 있고 `/ desk ▾`는 없다. 파일 경로 breadcrumb은 없다.",
       render: () => <DeskWindow options={OPTIONS_NONE} />,
     },
     {
       id: "project-desk-switch",
       title: "Project desk · switch",
       description:
-        "workflow 둘과 틀린 선언 하나. 왼쪽의 `project ▾`와 `desk ▾`를 눌러 project와 자리를 바꾼다. 자리를 바꾸면 pane의 탭, floated 패널, 접힌 span이 그 자리 것으로 통째로 바뀐다.",
+        "workflow 둘과 틀린 선언 하나. 왼쪽의 place switcher와 `desk ▾`를 눌러 place와 자리를 바꾼다. 자리를 바꾸면 pane의 탭, floated 패널, 접힌 span이 그 자리 것으로 통째로 바뀐다.",
       render: () => <DeskWindow options={OPTIONS_ALL} />,
     },
     {
@@ -47,7 +47,7 @@ export const projectDeskArea: Area = {
       id: "project-desk-project-menu",
       title: "Project desk · project menu",
       description:
-        "project menu를 연 모양. 지금 project에 check가 붙고, 고르면 그 project를 이 창에서 연다(launcher에서 project card를 누른 것과 같다).",
+        "place switcher를 연 모양. Projects와 Apps 두 묶음이 각각 최근에 연 순서로 서고, 줄마다 첫 글자 표식이 붙는다. 지금 project에 check가 붙고, 고르면 그 place를 이 창에서 연다(launcher에서 card를 누른 것과 같다).",
       render: () => <MenuOpen kind="project" options={OPTIONS_ALL} />,
     },
     {

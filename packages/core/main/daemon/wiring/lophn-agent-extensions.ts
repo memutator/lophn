@@ -27,6 +27,7 @@ export const lophnAgentExtensionsWiring: WiringFactory = () => {
         registered: () =>
           registeredMcpServers(ctx.ledgerPath, { projectLayer: PROJECT_LAYER }),
         vault: createMcpOAuthVault({ secrets: ctx.secretStore }),
+        secrets: ctx.secretStore,
         nowMs: () => ctx.clock.nowMs(),
       });
       control = created;

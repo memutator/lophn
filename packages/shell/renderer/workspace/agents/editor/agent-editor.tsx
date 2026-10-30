@@ -23,6 +23,7 @@ import type {
   GrantsView,
   ModelsView,
 } from "../source.ts";
+import type { McpLogin, McpRow, McpStatus } from "../views.ts";
 import styles from "./agent-editor.module.css";
 import { DefinitionForm } from "./definition-form.tsx";
 import { GrantsPanel } from "./grants-panel.tsx";
@@ -45,6 +46,8 @@ export type AgentEditorSource = Pick<
   | "removeModelInfo"
   | "grants"
   | "setGrants"
+  | "signInMcp"
+  | "cancelMcpSignIn"
 >;
 
 interface AgentEditorProps {
@@ -152,6 +155,8 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   const saving = useRef<Promise<void>>(Promise.resolve());
   const revision = useRef(0);
   const [domains, setDomains] = useState<readonly DomainView[] | null>(null);
+  // 이 화면이 시작해 아직 callback을 기다리는 MCP 로그인이다.
+  const [signingIn, setSigningIn] = useState<readonly string[]>([]);
 
   useEffect(() => {
     let live = true;
@@ -310,6 +315,61 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
       });
   };
 
+  // 로그인 뒤에는 그 줄의 상태만 바꾼다: 저장하지 않은 정의 편집을 다시 읽어 잃지 않는다.
+  const patchLogin = (
+    name: string,
+    login: Pick<McpLogin, "state">,
+    status: McpStatus,
+  ) =>
+    setState((current) =>
+      current.kind !== "ready"
+        ? current
+        : {
+            ...current,
+            detail: {
+              ...current.detail,
+              mcpServers: current.detail.mcpServers.map((row) =>
+                row.name === name && row.login !== undefined
+                  ? {
+                      ...row,
+                      status,
+                      login: { ...row.login, state: login.state, reason: null },
+                    }
+                  : row,
+              ),
+            },
+          },
+    );
+
+  const signIn = (row: McpRow) => {
+    const login = row.login;
+    if (login === undefined || signingIn.includes(row.name)) return;
+    setSigningIn((was) => [...was, row.name]);
+    void source.signInMcp(row.name, login).then((result) => {
+      setSigningIn((was) => was.filter((one) => one !== row.name));
+      if (!result.ok) {
+        setNotice({
+          title: "agents.title.sign-in-failed",
+          body: "agents.error.mcp-sign-in-failed",
+        });
+      }
+      patchLogin(
+        row.name,
+        { state: result.ok ? "signed_in" : "none" },
+        result.ok ? "connected" : "needs-sign-in",
+      );
+    });
+  };
+
+  const cancelSignIn = (row: McpRow) => {
+    void source
+      .cancelMcpSignIn(row.name, { place: row.login?.place ?? null })
+      .then(() => {
+        setSigningIn((was) => was.filter((one) => one !== row.name));
+        patchLogin(row.name, { state: "none" }, "needs-sign-in");
+      });
+  };
+
   const upload = (file: File) => {
     if (detail.assignment === null) return;
     void source.uploadImage(project, detail.assignment, file).then((result) => {
@@ -405,6 +465,9 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             onChange={edit}
             onUpload={upload}
             onEditProjectInstructions={props.onEditProjectInstructions}
+            onSignIn={signIn}
+            onCancelSignIn={cancelSignIn}
+            signingIn={signingIn}
           />
           <div className={styles.formActions}>
             <Button onClick={props.onDone}>{t("common.button.cancel")}</Button>

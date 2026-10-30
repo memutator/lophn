@@ -21,6 +21,7 @@ import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.
 import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts";
 import type { DomainView, ReadResult } from "../source.ts";
 import type {
+  McpLogin,
   McpRow,
   ProjectInstructionsView,
   SkillRow,
@@ -267,6 +268,13 @@ export interface AgentsSource {
   ): Promise<ReadResult<null>>;
   /** project 층 MCP server를 켜고 끈다. agent 층은 정의의 mcp_off로 저장한다. */
   setMcp(project: string, name: string, on: boolean): Promise<ReadResult<null>>;
+  /** OAuth MCP server 로그인을 시작하고 사람이 browser에서 돌아올 때까지 기다린다. */
+  signInMcp(name: string, login: McpLogin): Promise<ReadResult<null>>;
+  /** 기다리는 MCP 로그인을 그만둔다. */
+  cancelMcpSignIn(
+    name: string,
+    login: Pick<McpLogin, "place">,
+  ): Promise<ReadResult<null>>;
   /** 이 agent에 붙은 할당과 붙일 수 있는 앱. project가 null이면 lophn이다. */
   grants(
     project: string | null,

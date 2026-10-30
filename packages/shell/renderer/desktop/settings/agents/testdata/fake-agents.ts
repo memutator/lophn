@@ -26,7 +26,9 @@ type AgentsCall =
   | readonly ["skill", string, boolean]
   | readonly ["add-server"]
   | readonly ["create-server", string]
-  | readonly ["server", string, boolean];
+  | readonly ["server", string, boolean]
+  | readonly ["sign-in", string]
+  | readonly ["cancel-sign-in", string];
 
 type Failing =
   | "read"
@@ -37,7 +39,9 @@ type Failing =
   | "skill"
   | "add-server"
   | "create-server"
-  | "server";
+  | "server"
+  | "sign-in"
+  | "cancel-sign-in";
 
 interface FakeAgentsOptions {
   view?: AgentsSettingsView;
@@ -143,6 +147,36 @@ export function fakeAgents(options: FakeAgentsOptions = {}) {
           status: "connected",
         },
       ];
+      return Promise.resolve(ok());
+    },
+    signInServer(row) {
+      calls.push(["sign-in", row.name]);
+      const failed = fail("sign-in");
+      if (failed) return Promise.resolve(failed);
+      servers = servers.map((one) =>
+        one.name === row.name && one.login !== undefined
+          ? {
+              ...one,
+              status: "connected",
+              login: { ...one.login, state: "signed_in", reason: null },
+            }
+          : one,
+      );
+      return Promise.resolve(ok());
+    },
+    cancelServerSignIn(row) {
+      calls.push(["cancel-sign-in", row.name]);
+      const failed = fail("cancel-sign-in");
+      if (failed) return Promise.resolve(failed);
+      servers = servers.map((one) =>
+        one.name === row.name && one.login !== undefined
+          ? {
+              ...one,
+              status: "needs-sign-in",
+              login: { ...one.login, state: "none", reason: null },
+            }
+          : one,
+      );
       return Promise.resolve(ok());
     },
     setServerEnabled(name, enabled) {

@@ -262,8 +262,8 @@ export type TerminalRuntime = {
   agent?: TerminalAgent;
 };
 
-/** OS 알림을 누르면 main이 그 터미널 탭을 고르라고 보낸다. */
-export type TerminalReveal = { terminal_ref: string };
+/** OS 알림이나 toast를 누르면 main이 그 터미널 탭을 고르라고 보낸다. project는 그 터미널이 속한 project다. */
+export type TerminalReveal = { terminal_ref: string; project: string };
 
 export type TerminalOutput = {
   terminal_ref: string;

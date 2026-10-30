@@ -17,6 +17,8 @@ export interface Route {
   readonly session?: string;
   /** app 공간에서 그 앱 place의 lophn을 새 session으로 열어 시작한다. */
   readonly newSession?: true;
+  /** project 공간에서 열어 시작할 터미널의 terminal_ref(다른 project의 터미널 알림). */
+  readonly terminal?: string;
   /** project 공간에서 열어 시작할 파일. path는 디스크의 절대 경로다. */
   readonly open?: { readonly path: string; readonly line?: number };
 }
@@ -38,7 +40,7 @@ export function openSettings(settingsPane?: SettingsPane): Route {
 /** 프로젝트 작업대로 이동한다. */
 export function openProject(
   project: string,
-  start: Pick<Route, "session" | "open"> = {},
+  start: Pick<Route, "session" | "open" | "terminal"> = {},
 ): Route {
   return { space: "project", project, ...start };
 }

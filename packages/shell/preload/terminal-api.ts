@@ -69,10 +69,11 @@ function isBridgeOpen(value: unknown): value is TerminalBridgeOpen {
 }
 
 function isReveal(value: unknown): value is TerminalReveal {
+  if (typeof value !== "object" || value === null) return false;
+  const reveal = value as { terminal_ref?: unknown; project?: unknown };
   return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { terminal_ref?: unknown }).terminal_ref === "string"
+    typeof reveal.terminal_ref === "string" &&
+    typeof reveal.project === "string"
   );
 }
 

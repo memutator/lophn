@@ -182,7 +182,12 @@ export function register(ctx: ShellContext): Coding {
   });
   const bridgeWiring = createBridgeWiring(ctx);
   // 터미널 안 coding agent의 hook socket·상태·알림. 사람 터미널은 foreground process가 harness를 알려 준다.
-  const notice = createNoticeWiring(ctx, terminalFocus);
+  const notice = createNoticeWiring(
+    ctx,
+    terminalFocus,
+    (ref) =>
+      terminals.runtimes().find((item) => item.terminal_ref === ref)?.project,
+  );
   const agent = createAgentWiring({
     ctx,
     notice,

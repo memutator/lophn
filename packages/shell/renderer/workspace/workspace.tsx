@@ -199,6 +199,8 @@ export interface WorkspaceProps {
   session?: string;
   /** 처음 열 때 한 번 이 project place의 lophn을 연다. */
   startLophn?: true;
+  /** 처음 열 때 한 번 고를 터미널의 terminal_ref(다른 project의 터미널 알림). */
+  revealTerminal?: string;
   /** 처음 열 때 한 번 열 파일. path는 디스크의 절대 경로다. */
   open?: { readonly path: string; readonly line?: number };
 }
@@ -822,7 +824,12 @@ export function Workspace(props: WorkspaceProps) {
   });
 
   // 시작 route(session·lophn·파일)는 이 project의 배치가 선 뒤 값마다 한 번 연다. session과 agent 목록을 아직 모르면 목록이 올 때 다시 본다.
-  const started = useRef<{ session?: string; lophn?: true; open?: object }>({});
+  const started = useRef<{
+    session?: string;
+    lophn?: true;
+    open?: object;
+    terminal?: string;
+  }>({});
   useEffect(() => {
     if (readyProject !== projectId) return;
     const { session, startLophn, open } = props;
@@ -832,6 +839,15 @@ export function Workspace(props: WorkspaceProps) {
     }
     if (session !== undefined && started.current.session !== session) {
       if (openSessionTab(session)) started.current.session = session;
+    }
+    const reveal = props.revealTerminal;
+    if (
+      reveal !== undefined &&
+      terminal !== undefined &&
+      started.current.terminal !== reveal
+    ) {
+      started.current.terminal = reveal;
+      terminal.store.reveal(reveal);
     }
     if (
       startLophn !== undefined &&
@@ -845,6 +861,7 @@ export function Workspace(props: WorkspaceProps) {
     projectId,
     props.session,
     props.startLophn,
+    props.revealTerminal,
     props.open,
     sidebarAgents.agents,
     sessionIds,

@@ -243,6 +243,19 @@ export function Desktop({
     } else if (place?.kind === "app") setRoute(openApp(place.id, session));
     else setRoute(openLauncher(session));
   };
+  // 다른 project나 공간에 있을 때 터미널 알림을 누르면 그 터미널의 project로 가서 연다. 같은 project면 store가 탭을 고른다.
+  const terminalBridge = terminal?.bridge;
+  useEffect(
+    () =>
+      terminalBridge?.onReveal(({ project, terminal_ref }) =>
+        setRoute((current) =>
+          current.space === "project" && current.project === project
+            ? current
+            : openProject(project, { terminal: terminal_ref }),
+        ),
+      ),
+    [terminalBridge],
+  );
   // 저장한 appearance를 시작할 때 적용한다. core가 준비되면 읽는다.
   const appearance = settingsPanels?.appearance;
   useEffect(() => {
@@ -309,6 +322,7 @@ export function Desktop({
         detached={detached}
         agentViewSource={agentViewSource}
         session={route.session}
+        revealTerminal={route.terminal}
         open={route.open}
       />
     );

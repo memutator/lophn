@@ -93,6 +93,8 @@ export type NoticeWiring = Registered & {
 export function createNoticeWiring(
   ctx: ShellContext,
   focus: TerminalFocusTable,
+  // 그 터미널이 속한 project. 터미널을 모르면 undefined다.
+  projectOf: (terminalRef: string) => string | undefined,
 ): NoticeWiring {
   const visibility = new SessionVisibility();
   let serial = 0;
@@ -132,9 +134,12 @@ export function createNoticeWiring(
     window.show();
     window.focus();
     if (target.kind === "terminal") {
+      const project = projectOf(target.terminal_ref);
+      if (project === undefined) return;
       for (const item of live) {
         item.webContents.send(TERMINAL_REVEAL_CHANNEL, {
           terminal_ref: target.terminal_ref,
+          project,
         });
       }
     } else {

@@ -17,7 +17,7 @@ const absolutePath = z.string().regex(/^(\/|[A-Za-z]:\\).+/);
 // 아니면 external이다. credential은 `secrets.json`의 이름 참조다: 값은 보호 입력 창을 거쳐 `secrets/put`으로만 들어오고
 // 설정 파일에는 이름만 남는다. 이름은 `mcp.`로 시작해야 한다(보통 `mcp.<global 또는 project id>.<서버>`). 설정이
 // `provider.`나 OAuth token(`mcp-oauth.`)을 가리켜 그 값이 MCP URL로 가지 않게 한다. OAuth token은 core가 서버
-// 자리와 이름으로 정한 `mcp-oauth.` 이름에 둔다.
+// 소유자(place 또는 agent)와 이름으로 정한 `mcp-oauth.` 이름에 둔다.
 const secretCredentialSchema = z.strictObject({
   secret: secretNameSchema.startsWith("mcp."),
 });
@@ -93,14 +93,16 @@ const mcpAuthPlaceSchema = placeSchema.nullable();
 // mcp-oauth.ts)에만 산다. 기다리는 시한은 5분이다. ledger queue를 거치지 않는다(작업 메모리가
 // 곧 상태다). 진행 중인 로그인을 그만두려면 `CancelMcpAuth`다.
 //
-// 서버는 이름만으로 하나가 정해지지 않는다: 서로 다른 자리가 같은 이름의 서버를 따로 둘 수 있다.
-// 그래서 시작·완료 입력은 서버가 등록된 자리를 함께 받는다.
+// 서버는 이름만으로 하나가 정해지지 않는다: 서로 다른 소유자(전역, project·app 자리, agent 정의)가 같은 이름의
+// 서버를 따로 둘 수 있다. 그래서 시작·완료 입력은 서버의 소유자를 함께 받는다.
 export const mcpAuthBeginInputSchema = z.strictObject({
   // 등록한 서버 이름이다. 위 nameSchema와 같은 규칙이다.
   name: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
   // 서버가 등록된 자리다. 전역 서버는 자리가 아니므로 null이다(이웃 route는 전역을 다른
   // 설정이 맡아 자리만 받지만, 이 입구는 전역 서버의 로그인도 열어야 해서 null을 둔다).
   place: mcpAuthPlaceSchema,
+  // 서버가 등록된 agent 정의다. project·app 자리나 전역 서버면 null이다. place와 둘 다 있으면 거절이다.
+  agent: agentIdSchema.nullable(),
   // 사람이 등록한 client_id다(동적 등록을 지원하지 않는 서버도 이 하나로 진행한다).
   client_id: z.string().min(1).max(200),
   scopes: z.array(z.string().min(1).max(128)).max(32),
@@ -136,8 +138,9 @@ export const mcpAuthBegin = defineMemory({
 // 어디에도 없다.
 export const mcpAuthCompleteInputSchema = z.strictObject({
   name: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
-  // 시작이 받은 자리와 같다: 서버가 등록된 자리이고 전역 서버는 null이다.
+  // 시작이 받은 소유자와 같다: 서버가 등록된 자리(전역은 null) 또는 agent 정의.
   place: mcpAuthPlaceSchema,
+  agent: agentIdSchema.nullable(),
   // 사람 credential의 loopback callback port다.
   callback_port: z.number().int().positive(),
 });
@@ -162,7 +165,7 @@ export const mcpAuthComplete = defineMemory({
   ],
 });
 
-// 로그인 상태 read다. 서버(이름+자리)마다 지금 상태와 실패 이유 코드만 돌려준다.
+// 로그인 상태 read다. 서버(이름+소유자)마다 지금 상태와 실패 이유 코드만 돌려준다.
 // 상태는 끝난 세션의 기억이 아니라 core가 지금 쥔 것이다: 진행 중인 로그인(작업 메모리), 마지막 실패,
 // 그리고 보관한 token이 지금 설정(발급자·URL·client)과 맞는지다.
 // - none: 로그인하지 않았거나 설정이 바뀌어 옛 token을 쓰지 않는다.
@@ -189,7 +192,12 @@ const mcpAuthServerName = z.string().regex(/^[A-Za-z0-9_-]{1,32}$/);
 export const mcpAuthStateInputSchema = z.strictObject({
   servers: z
     .array(
-      z.strictObject({ name: mcpAuthServerName, place: mcpAuthPlaceSchema }),
+      z.strictObject({
+        name: mcpAuthServerName,
+        place: mcpAuthPlaceSchema,
+        // 서버가 등록된 agent 정의다. project·app 자리나 전역 서버면 null이다.
+        agent: agentIdSchema.nullable(),
+      }),
     )
     .max(64),
 });
@@ -198,6 +206,7 @@ const mcpAuthStateOutputSchema = z.strictObject({
     z.strictObject({
       name: mcpAuthServerName,
       place: placeOutputSchema.nullable(),
+      agent: agentIdSchema.nullable(),
       state: mcpAuthStateSchema,
       reason: mcpAuthFailureSchema.nullable(),
     }),
@@ -220,6 +229,8 @@ export const mcpAuthState = defineMemory({
 export const mcpAuthCancelInputSchema = z.strictObject({
   name: mcpAuthServerName,
   place: mcpAuthPlaceSchema,
+  // 서버가 등록된 agent 정의다. project·app 자리나 전역 서버면 null이다.
+  agent: agentIdSchema.nullable(),
 });
 const mcpAuthCancelOutputSchema = z.object({
   cancelled: z.boolean(),

@@ -50,7 +50,7 @@ test("OAuth token은 각자 알려진 값이 되고 갱신이 거절되면 세 �
   });
   await store.open();
   const vault = createMcpOAuthVault({ secrets: store });
-  const key = { place: null, name: "srv" };
+  const key = { place: null, agent: null, name: "srv" };
   const server = {
     key,
     issuer: "https://id.example.com",

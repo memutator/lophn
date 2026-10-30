@@ -562,3 +562,22 @@ guard: packages/core/lophn-agent/extensions/mcp-auth-control_test.ts "MCP 로그
 - 중간: dynamic client registration까지 한다. 등록 결과(client id, secret)를 둘 secret 이름 공간과 등록 끝점 호출(발급자 호출 대기열)이 더 필요하다.
 
 닫음: 첫째 안으로 고쳤다. 전역(Settings › Tools and skills)과 project 층 server form이 OAuth 2.1(issuer, client ID, scopes)을 받고, client secret은 더한 뒤 보호 입력으로 `mcp.<scope>.<server>.client`에 받는다(받지 않으면 public client). `oauthServerOf`(`packages/core/lophn-agent/extensions/mcp-auth-control.ts`)가 그 이름의 값을 secret store에서 읽어 교환·refresh 본문에만 싣는다. `begin`(`mcp-oauth.ts`)은 `${issuer}/.well-known/oauth-authorization-server`를 발급자 대기열로 먼저 읽어 https 끝점을 쓰고, 없거나 맞지 않으면 `${issuer}/authorize|token`이다. OAuth 줄에는 로그인 전 [Sign in], 기다리는 동안 [Cancel]이 있고 begin → OS browser → complete로 끝난다. dynamic client registration은 하지 않았다. agent 정의 층 server는 남은 이슈(`issues/agent-definition.md`)다.
+
+## agent 정의 층의 OAuth MCP server는 sign-in할 길이 없다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/shell/renderer]
+closed: fixed
+guard: packages/core/lophn-agent/extensions/mcp-auth-control_test.ts "agent 정의 층 서버의 로그인은 agent id 이름에 보관하고 그 서버에만 붙인다"
+```
+
+지금: MCP OAuth의 begin·state·`prepareToken`은 `registeredMcpServers`(`packages/core/lophn-agent/extensions/mcp-snapshot.ts`)가 낸 전역·project 층 server만 찾는다. agent 정의 층 server는 일부러 그 목록에 넣지 않는다(place로 server를 고르는데 agent 층은 place가 아니다). 그래서 agent 편집 화면의 server form은 OAuth 2.1을 고르지 못하고(`ServerForm`의 `oauth`가 꺼짐), 설정 file에 손으로 `oauth2`를 써도 그 줄은 늘 Needs sign-in이다.
+
+영향: 사람이 OAuth MCP server를 한 agent에만 붙일 수 없다. 전역이나 project 층에 두면 다른 agent도 그 server를 받는다.
+
+고치려면:
+- 중간(추천): `mcpAuthBegin`·`mcpAuthState`·`mcpAuthCancel` 입력의 `place`에 agent 정의 층(`{kind: "agent", id}` 같은 꼴)을 더하고, `registeredMcpServers`가 agent 층도 그 자리로 낸다. token 이름은 이미 `mcp-oauth.<scope>.<server>`라 scope에 agent id를 쓴다. 그 뒤 agent 편집 화면의 `ServerForm`에 `oauth`를 켠다.
+- 작음: 지금처럼 agent 층에서는 OAuth를 막아 둔다. 전역·project 층으로 충분하면 kept로 닫는다.
+
+닫음: 첫째 안으로 고쳤다. 단 자리(`place`)를 넓히지 않고 `agent-mcp-auth/*` 입력과 state 출력에 `agent`(agent id 또는 null)를 따로 더했다. place와 agent가 둘 다 있으면 `invalid_input`이다. `McpAuthKey`가 `{place, agent, name}`이고 agent 층 server의 token 이름은 `mcp-oauth.<agent id>.<server>.*`다(`runtimeServerOfLayer(server, place, agent)`). `registeredMcpServers`가 모든 agent 정의의 server를 agent와 함께 내고, turn 준비와 tool 목록은 agent 층 server를 그 agent id로 만든다. agent 편집 화면은 OAuth 2.1을 고르고, 저장된 정의의 OAuth server 줄에 [Sign in]·[Cancel]이 있다. 저장하지 않은 편집의 새 server에는 로그인이 없다(core는 저장한 정의 파일을 읽는다).

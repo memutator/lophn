@@ -323,25 +323,33 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     login: Pick<McpLogin, "state">,
     status: McpStatus,
   ) =>
-    setState((current) =>
-      current.kind !== "ready"
-        ? current
-        : {
-            ...current,
-            detail: {
-              ...current.detail,
-              mcpServers: current.detail.mcpServers.map((row) =>
-                row.name === name && row.login !== undefined
-                  ? {
-                      ...row,
-                      status,
-                      login: { ...row.login, state: login.state, reason: null },
-                    }
-                  : row,
-              ),
-            },
-          },
-    );
+    setState((current) => {
+      if (current.kind !== "ready") return current;
+      const own = current.detail.agentMcpLogins[name];
+      return {
+        ...current,
+        detail: {
+          ...current.detail,
+          mcpServers: current.detail.mcpServers.map((row) =>
+            row.name === name && row.login !== undefined
+              ? {
+                  ...row,
+                  status,
+                  login: { ...row.login, state: login.state, reason: null },
+                }
+              : row,
+          ),
+          // 정의 층 줄은 detail의 로그인 기록에서 그린다. 저장하지 않은 편집은 건드리지 않는다.
+          agentMcpLogins:
+            own === undefined
+              ? current.detail.agentMcpLogins
+              : {
+                  ...current.detail.agentMcpLogins,
+                  [name]: { ...own, state: login.state, reason: null },
+                },
+        },
+      };
+    });
 
   const signIn = (row: McpRow) => {
     const login = row.login;
@@ -365,7 +373,10 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
 
   const cancelSignIn = (row: McpRow) => {
     void source
-      .cancelMcpSignIn(row.name, { place: row.login?.place ?? null })
+      .cancelMcpSignIn(row.name, {
+        place: row.login?.place ?? null,
+        agent: row.login?.agent ?? null,
+      })
       .then(() => {
         setSigningIn((was) => was.filter((one) => one !== row.name));
         patchLogin(row.name, { state: "none" }, "needs-sign-in");

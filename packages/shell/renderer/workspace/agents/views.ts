@@ -62,11 +62,13 @@ export type McpLayer = "global" | "project" | "agent";
 export type McpStatus = "connected" | "needs-sign-in" | null;
 
 /**
- * OAuth server의 로그인 상태다. `place`는 서버가 등록된 자리이고(전역은 null) 로그인은 이 자리로 부른다.
- * `client_id`·`scopes`는 등록한 설정값이라 화면이 begin에 그대로 넣는다.
+ * OAuth server의 로그인 상태다. `place`·`agent`는 서버의 소유자이고(전역은 둘 다 null) 로그인은 이 소유자로
+ * 부른다. `client_id`·`scopes`는 등록한 설정값이라 화면이 begin에 그대로 넣는다.
  */
 export interface McpLogin {
   readonly place: Place | null;
+  /** agent 정의 층 서버면 그 agent의 id다. 그 밖에는 null이다. */
+  readonly agent: string | null;
   readonly client_id: string;
   readonly scopes: readonly string[];
   readonly state: McpAuthStateName;
@@ -80,6 +82,6 @@ export interface McpRow {
   readonly layer: McpLayer;
   readonly on: boolean;
   readonly status: McpStatus;
-  /** OAuth server이고 화면이 로그인을 시작할 수 있으면 있다. 자리를 알 수 없는 층(agent 정의)은 없다. */
+  /** OAuth server이고 화면이 로그인을 시작할 수 있으면 있다. agent 정의 층은 저장된 정의의 서버에만 있다. */
   readonly login?: McpLogin;
 }

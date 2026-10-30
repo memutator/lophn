@@ -117,6 +117,11 @@ export interface AgentDetail {
   readonly skills: readonly SkillRow[];
   /** 전역과 project 층 MCP server. 이 agent 층은 정의의 mcp_servers다. */
   readonly mcpServers: readonly McpRow[];
+  /**
+   * 저장된 정의가 가진 OAuth server의 로그인 상태(이름별). core가 읽는 정의 파일의 서버만 있어 저장하지 않은
+   * 편집의 새 server에는 로그인이 없다.
+   */
+  readonly agentMcpLogins: Readonly<Record<string, McpLogin>>;
   /** project 지침. lophn은 project 지침을 받지 않아 null이다. */
   readonly instructions: ProjectInstructionsView | null;
 }
@@ -274,7 +279,7 @@ export interface AgentsSource {
   /** 기다리는 MCP 로그인을 그만둔다. */
   cancelMcpSignIn(
     name: string,
-    login: Pick<McpLogin, "place">,
+    login: Pick<McpLogin, "place" | "agent">,
   ): Promise<ReadResult<null>>;
   /** 이 agent에 붙은 할당과 붙일 수 있는 앱. project가 null이면 lophn이다. */
   grants(

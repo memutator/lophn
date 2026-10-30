@@ -62,7 +62,11 @@ function toolkit(connected: string[], projectOff: string[] = []) {
 }
 
 test("agent 정의 층의 server는 그 agent의 turn 준비에만 연결된다", async () => {
-  const own = { servers: [stdioServer("mine")], off: ["shared"] };
+  const own = {
+    id: "agt_00000000000000000000000001" as const,
+    servers: [stdioServer("mine")],
+    off: ["shared"],
+  };
 
   const withLayer: string[] = [];
   await toolkit(withLayer).source("a", { place, agent: own });

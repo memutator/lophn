@@ -7,6 +7,7 @@ import {
 } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
 import { registeredMcpServers } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
 import { PROJECT_LAYER } from "../../../agent-places/place/project-layer.ts";
+import { readAgentMcp } from "./agent-mcp.ts";
 import type { McpAuthControl, WiringFactory } from "./context.ts";
 
 export const lophnAgentExtensionsWiring: WiringFactory = () => {
@@ -25,7 +26,10 @@ export const lophnAgentExtensionsWiring: WiringFactory = () => {
         fetch: ctx.issuerRequests.fetch,
         openListener: openCallbackListener,
         registered: () =>
-          registeredMcpServers(ctx.ledgerPath, { projectLayer: PROJECT_LAYER }),
+          registeredMcpServers(ctx.ledgerPath, {
+            projectLayer: PROJECT_LAYER,
+            agents: () => readAgentMcp(ctx.ledgerPath),
+          }),
         vault: createMcpOAuthVault({ secrets: ctx.secretStore }),
         secrets: ctx.secretStore,
         nowMs: () => ctx.clock.nowMs(),

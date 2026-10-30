@@ -35,7 +35,7 @@ interface ServerFormProps {
   readonly onCancel: () => void;
   /** 열릴 때 화면 가운데로 스크롤한다. */
   readonly scrollIntoView?: boolean;
-  /** OAuth 로그인 방식을 고르게 한다. agent 정의 층 server는 core에 로그인 길이 없어 끈다. */
+  /** OAuth 로그인 방식을 고르게 한다. agent 정의 층 server도 core가 정의 파일에서 찾아 로그인한다. */
   readonly oauth?: boolean;
 }
 

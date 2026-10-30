@@ -81,8 +81,18 @@ type FakeCall =
   | { method: "setProjectModel"; choice: ModelChoice | null }
   | { method: "setSkill"; name: string; on: boolean }
   | { method: "setMcp"; name: string; on: boolean }
-  | { method: "signInMcp"; name: string; place: Place | null }
-  | { method: "cancelMcpSignIn"; name: string; place: Place | null }
+  | {
+      method: "signInMcp";
+      name: string;
+      place: Place | null;
+      agent: string | null;
+    }
+  | {
+      method: "cancelMcpSignIn";
+      name: string;
+      place: Place | null;
+      agent: string | null;
+    }
   | {
       method: "setGrants";
       assignment: string;
@@ -375,6 +385,26 @@ export function createFakeAgentsSource(
       issues: [],
       skills: skillsFor(at),
       mcpServers: mcpFor(at),
+      // 저장된 정의의 OAuth server는 로그인 전이다. 화면은 그 줄에 [Sign in]을 그린다.
+      agentMcpLogins: Object.fromEntries(
+        (item.definition.mcp_servers ?? []).flatMap((server) =>
+          server.transport === "http" && server.http.auth.kind === "oauth2"
+            ? [
+                [
+                  server.name,
+                  {
+                    place: null,
+                    agent: key,
+                    client_id: server.http.auth.client_id,
+                    scopes: server.http.auth.scopes,
+                    state: "none" as const,
+                    reason: null,
+                  },
+                ],
+              ]
+            : [],
+        ),
+      ),
       instructions:
         at === "project" ? { ...lophnFile, project: PROJECT_NAME } : null,
     };
@@ -546,6 +576,7 @@ export function createFakeAgentsSource(
           issues: [],
           skills: skillsFor(at),
           mcpServers: mcpFor(at),
+          agentMcpLogins: {},
           instructions:
             at === "project" ? { ...lophnFile, project: PROJECT_NAME } : null,
         } satisfies AgentDetail),
@@ -637,12 +668,22 @@ export function createFakeAgentsSource(
     },
 
     signInMcp(name, login) {
-      calls.push({ method: "signInMcp", name, place: login.place });
+      calls.push({
+        method: "signInMcp",
+        name,
+        place: login.place,
+        agent: login.agent,
+      });
       return Promise.resolve(ok(null));
     },
 
     cancelMcpSignIn(name, login) {
-      calls.push({ method: "cancelMcpSignIn", name, place: login.place });
+      calls.push({
+        method: "cancelMcpSignIn",
+        name,
+        place: login.place,
+        agent: login.agent,
+      });
       return Promise.resolve(ok(null));
     },
 

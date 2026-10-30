@@ -95,28 +95,34 @@ async function readGlobalServers(link: Link): Promise<ReadResult<McpServer[]>> {
   };
 }
 
-// 이 자리에서 보이는 server 한 대와 그 층·자리다. 로그인은 자리로 부르므로 자리를 함께 든다.
+// 이 자리에서 보이는 server 한 대와 그 층·소유자다. 로그인은 소유자(place 또는 agent 정의)로 부르므로 소유자를
+// 함께 든다.
 interface ServerEntry {
   readonly server: McpServer;
   readonly layer: McpLayer;
   readonly place: Place | null;
+  readonly agent: string | null;
+}
+
+function oauthAuthOf(server: McpServer) {
+  return server.transport === "http" && server.http.auth.kind === "oauth2"
+    ? server.http.auth
+    : null;
 }
 
 /**
- * OAuth server의 로그인 상태를 이름과 자리로 한 번에 묻는다. 읽지 못하면 로그인 정보 없이 그대로 그린다(로그인
- * 단추도 없다). OAuth가 아닌 server는 묻지 않는다.
+ * OAuth server의 로그인 상태를 소유자와 이름으로 한 번에 묻는다. 읽지 못하면 로그인 정보 없이 그대로 그린다
+ * (로그인 단추도 없다). OAuth가 아닌 server는 묻지 않는다.
  */
-async function rowsWithLogins(
+async function readLogins(
   link: Link,
   entries: readonly ServerEntry[],
-  enabled: (entry: ServerEntry) => boolean,
-): Promise<McpRow[]> {
-  const asked = entries.filter(
-    (entry) =>
-      entry.server.transport === "http" &&
-      entry.server.http.auth.kind === "oauth2",
-  );
-  let states: { state: McpAuthStateName; reason: McpAuthFailure | null }[] = [];
+): Promise<(McpLogin | undefined)[]> {
+  const asked = entries.filter((entry) => oauthAuthOf(entry.server) !== null);
+  let states: {
+    state: McpAuthStateName;
+    reason: McpAuthFailure | null;
+  }[] = [];
   if (asked.length > 0) {
     const read = await link.memory<{
       servers: { state: McpAuthStateName; reason: McpAuthFailure | null }[];
@@ -124,18 +130,35 @@ async function rowsWithLogins(
       servers: asked.map((entry) => ({
         name: entry.server.name,
         place: entry.place,
+        agent: entry.agent,
       })),
     });
     if (read.ok) states = read.value.servers;
   }
   return entries.map((entry) => {
+    const auth = oauthAuthOf(entry.server);
+    if (auth === null) return undefined;
+    const state = states[asked.indexOf(entry)];
+    return {
+      place: entry.place,
+      agent: entry.agent,
+      client_id: auth.client_id,
+      scopes: auth.scopes,
+      state: state?.state ?? "none",
+      reason: state?.reason ?? null,
+    };
+  });
+}
+
+async function rowsWithLogins(
+  link: Link,
+  entries: readonly ServerEntry[],
+  enabled: (entry: ServerEntry) => boolean,
+): Promise<McpRow[]> {
+  const logins = await readLogins(link, entries);
+  return entries.map((entry, at) => {
     const { server } = entry;
-    const auth =
-      server.transport === "http" && server.http.auth.kind === "oauth2"
-        ? server.http.auth
-        : null;
-    const at = auth === null ? -1 : asked.indexOf(entry);
-    const state = at < 0 ? undefined : states[at];
+    const login = logins[at];
     const on = enabled(entry);
     return {
       name: server.name,
@@ -143,24 +166,38 @@ async function rowsWithLogins(
       layer: entry.layer,
       on,
       status:
-        auth === null
+        login === undefined
           ? null
-          : state?.state === "signed_in"
+          : login.state === "signed_in"
             ? "connected"
             : "needs-sign-in",
-      ...(auth === null
-        ? {}
-        : {
-            login: {
-              place: entry.place,
-              client_id: auth.client_id,
-              scopes: auth.scopes,
-              state: state?.state ?? "none",
-              reason: state?.reason ?? null,
-            },
-          }),
+      ...(login === undefined ? {} : { login }),
     } satisfies McpRow;
   });
+}
+
+/**
+ * agent 정의가 가진 OAuth server의 로그인 상태다. core는 저장한 정의 파일을 읽으므로 여기 서버는 저장된
+ * 정의(`detail.definition.mcp_servers`)에서 온다. 저장하지 않은 편집에는 로그인이 없다.
+ */
+export async function readAgentServerLogins(
+  link: Link,
+  agent: string,
+  servers: readonly McpServer[],
+): Promise<Readonly<Record<string, McpLogin>>> {
+  const entries = servers.map((server) => ({
+    server,
+    layer: "agent" as const,
+    place: null,
+    agent,
+  }));
+  const logins = await readLogins(link, entries);
+  return Object.fromEntries(
+    entries.flatMap((entry, at) => {
+      const login = logins[at];
+      return login === undefined ? [] : [[entry.server.name, login] as const];
+    }),
+  );
 }
 
 interface ProjectSettings {
@@ -236,6 +273,7 @@ export async function readServers(
           server,
           layer: "global" as const,
           place: null,
+          agent: null,
         })),
         (entry) => entry.server.enabled,
       ),
@@ -256,11 +294,13 @@ export async function readServers(
             server,
             layer: "global" as const,
             place: null,
+            agent: null,
           })),
         ...project.value.servers.map((server) => ({
           server,
           layer: "project" as const,
           place: placeOfProject,
+          agent: null,
         })),
       ],
       (entry) =>
@@ -286,6 +326,7 @@ export async function signInMcpServer(
     {
       name: server.name,
       place: server.login.place,
+      agent: server.login.agent,
       client_id: server.login.client_id,
       scopes: [...server.login.scopes],
     },
@@ -303,12 +344,14 @@ export async function signInMcpServer(
     await link.memory("agent-mcp-auth", "cancel", {
       name: server.name,
       place: server.login.place,
+      agent: server.login.agent,
     });
     return { ok: false, message: "unavailable" };
   }
   const done = await link.memory("agent-mcp-auth", "complete", {
     name: server.name,
     place: server.login.place,
+    agent: server.login.agent,
     callback_port: begun.value.callback_port,
   });
   return done.ok ? { ok: true, value: null } : done;
@@ -319,12 +362,13 @@ export function cancelMcpSignIn(
   link: Link,
   server: {
     readonly name: string;
-    readonly login: { readonly place: Place | null };
+    readonly login: Pick<McpLogin, "place" | "agent">;
   },
 ): Promise<ReadResult<null>> {
   return link.memory("agent-mcp-auth", "cancel", {
     name: server.name,
     place: server.login.place,
+    agent: server.login.agent,
   });
 }
 

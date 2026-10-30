@@ -93,7 +93,7 @@ export function createAppOAuth(deps: AppOAuthDeps): AppOAuth {
     const names = appOAuthNames(name);
     const clientId = text(names.client_id) ?? "";
     return {
-      key: { place: null, name },
+      key: { place: null, agent: null, name },
       issuer: declared.token_endpoint,
       serverUrl: declared.authorization_endpoint,
       clientId,
@@ -172,7 +172,7 @@ export function createAppOAuth(deps: AppOAuthDeps): AppOAuth {
       return err({ code: "invalid_input", message: "입력이 올바르지 않다" });
     }
     const cancelled = await oauth.cancel({
-      key: { place: null, name: parsed.data.name },
+      key: { place: null, agent: null, name: parsed.data.name },
     });
     return ok({ cancelled });
   };
@@ -183,7 +183,7 @@ export function createAppOAuth(deps: AppOAuthDeps): AppOAuth {
       return err({ code: "invalid_input", message: "입력이 올바르지 않다" });
     }
     const removed = await oauth.signOut({
-      key: { place: null, name: parsed.data.name },
+      key: { place: null, agent: null, name: parsed.data.name },
     });
     return removed.ok ? ok({ signed_out: true }) : removed;
   };

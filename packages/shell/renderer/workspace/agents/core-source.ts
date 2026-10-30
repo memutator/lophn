@@ -39,6 +39,7 @@ import {
   changeProjectSettings,
   placeOf,
   readGlobalModel,
+  readAgentServerLogins,
   readInstructions,
   windowFiles,
   windowInstructions,
@@ -354,6 +355,7 @@ export function coreAgentsSource(
     const servers = await readServers(link, place);
     if (!servers.ok) return servers;
     const text = place === null ? null : await instructionsOf(place);
+    const saved = value.definition ?? { body: "" };
     if (value.effective.profile.value.kind === "image") {
       await loadImage(agent, value.effective.profile.value.image);
     }
@@ -363,7 +365,7 @@ export function coreAgentsSource(
         assignment: agent,
         draftId: null,
         place: placeView,
-        definition: value.definition ?? { body: "" },
+        definition: saved,
         hash: value.hash,
         effective: {
           name: value.effective.name,
@@ -373,6 +375,11 @@ export function coreAgentsSource(
         issues: value.issues,
         skills: skills.value,
         mcpServers: servers.value,
+        agentMcpLogins: await readAgentServerLogins(
+          link,
+          agent,
+          saved.mcp_servers ?? [],
+        ),
         instructions: text,
       },
     };
@@ -532,6 +539,7 @@ export function coreAgentsSource(
         issues: [],
         skills: skills.value,
         mcpServers: servers.value,
+        agentMcpLogins: {},
         instructions: text,
       };
       return { ok: true, value: detail };

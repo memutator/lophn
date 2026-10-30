@@ -1,36 +1,43 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { AgentPlace } from "../../../protocol/lophn-agent/mod.ts";
+import type { AgentId, AgentPlace } from "../../../protocol/lophn-agent/mod.ts";
 import {
   type SecretDestination,
   secretDestinationOf,
 } from "../../../protocol/secrets/mod.ts";
 
-// MCP OAuth token 보관. `secrets.json`에 서버(place+이름)마다 세 이름을 둔다: `mcp-oauth.<scope>.<server>.access`,
-// `.refresh`, `.meta`. scope는 전역 서버면 `global`, 아니면 place id다. 같은 이름의 서버도 place가 다르면 따로다.
+// MCP OAuth token 보관. `secrets.json`에 서버(소유자+이름)마다 세 이름을 둔다: `mcp-oauth.<scope>.<server>.access`,
+// `.refresh`, `.meta`. scope는 agent 정의 층 서버면 그 agent id, 전역 서버면 `global`, 아니면 place id다. 같은
+// 이름의 서버도 소유자가 다르면 따로다.
 // - 접근 token과 갱신 token은 각자 이름이다. 알려진 값 registry가 값 전체로 맞추므로 JSON 하나로 합치면 token 하나를
 //   redaction할 수 없다.
 // - meta(만료, token endpoint, binding)는 비밀이 아니지만 저장소를 하나로 두려고 같은 파일에 JSON으로 둔다. binding
 //   (발급자·서버 URL·client)이 지금 설정과 다르면 옛 token을 쓰지 않는다.
 // - secret store의 put이 값을 알려진 값으로 먼저 올리고 지움이 회수한다. 여기서 따로 맞출 것이 없다.
 
-// 한 서버의 식별이다. 전역(Workspace) 서버는 place가 null이다.
-export type McpAuthKey = { place: AgentPlace | null; name: string };
+// 한 서버의 식별이다. 전역(Workspace) 서버는 place와 agent가 모두 null이고, project·app 서버는 place만, agent
+// 정의 층 서버는 agent만 있다.
+export type McpAuthKey = {
+  place: AgentPlace | null;
+  agent: AgentId | null;
+  name: string;
+};
 
-function scopeOf(place: AgentPlace | null): string {
-  return place === null ? "global" : place.id;
+function scopeOf(key: McpAuthKey): string {
+  if (key.agent !== null) return key.agent;
+  return key.place === null ? "global" : key.place.id;
 }
 
-// 서버 하나를 가리키는 문자열이다(작업 메모리의 열쇠). place가 다르면 같은 이름도 다르다.
+// 서버 하나를 가리키는 문자열이다(작업 메모리의 열쇠). 소유자가 다르면 같은 이름도 다르다.
 export function mcpAuthKeyId(key: McpAuthKey): string {
-  return `${scopeOf(key.place)}\0${key.name}`;
+  return `${scopeOf(key)}\0${key.name}`;
 }
 
 export type McpTokenNames = { access: string; refresh: string; meta: string };
 
-// 서버 하나의 token 이름이다. 서버 이름과 place에서 정해진다: 설정 schema는 `mcp-oauth.` 이름을 받지 않으므로
+// 서버 하나의 token 이름이다. 서버 이름과 소유자에서 정해진다: 설정 schema는 `mcp-oauth.` 이름을 받지 않으므로
 // 설정이 다른 서버의 token을 가리킬 수 없다.
 export function mcpTokenNames(key: McpAuthKey): McpTokenNames {
-  const base = `mcp-oauth.${scopeOf(key.place)}.${key.name}`;
+  const base = `mcp-oauth.${scopeOf(key)}.${key.name}`;
   return {
     access: `${base}.access`,
     refresh: `${base}.refresh`,

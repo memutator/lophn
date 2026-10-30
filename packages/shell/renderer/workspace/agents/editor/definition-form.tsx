@@ -13,7 +13,7 @@ import { commonIcons } from "../../../icons/mod.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
 import type { DomainView } from "../../source.ts";
 import type { AgentDetail, AgentDraft, ModelsView } from "../source.ts";
-import type { McpRow, SkillRow } from "../views.ts";
+import type { McpLogin, McpRow, SkillRow } from "../views.ts";
 import type { InstructionsPort } from "./instructions-editor.tsx";
 import { ModelField, type ModelFieldSource } from "./model-field.tsx";
 import {
@@ -104,15 +104,29 @@ function withField(
   return next as unknown as AgentDraft;
 }
 
-function ownServers(definition: AgentDraft): McpRow[] {
-  return (definition.mcp_servers ?? []).map((server) => ({
-    name: server.name,
-    detail:
-      server.transport === "stdio" ? server.stdio.executable : server.http.url,
-    layer: "agent",
-    on: server.enabled,
-    status: null,
-  }));
+function ownServers(
+  definition: AgentDraft,
+  logins: Readonly<Record<string, McpLogin>>,
+): McpRow[] {
+  return (definition.mcp_servers ?? []).map((server) => {
+    const login = logins[server.name];
+    return {
+      name: server.name,
+      detail:
+        server.transport === "stdio"
+          ? server.stdio.executable
+          : server.http.url,
+      layer: "agent",
+      on: server.enabled,
+      status:
+        login === undefined
+          ? null
+          : login.state === "signed_in"
+            ? "connected"
+            : "needs-sign-in",
+      ...(login === undefined ? {} : { login }),
+    };
+  });
 }
 
 interface DefinitionFormProps {
@@ -204,7 +218,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
   const mcpOff = (definition.mcp_off ?? [])
     .filter((entry) => entry.original_tool === undefined)
     .map((entry) => entry.server_name);
-  const own = ownServers(definition);
+  const own = ownServers(definition, detail.agentMcpLogins);
 
   // 위 층이 정한 값을 따를 때 보이는 따르기 선택지.
   const inherited = detail.inheritedModel;
@@ -422,6 +436,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
         {agentId === null ? null : addServer ? (
           <ServerForm
             scope={agentId}
+            oauth
             taken={[...detail.mcpServers, ...own].map((row) => row.name)}
             onCancel={() => setAddServer(false)}
             onAdd={(server: McpServer) => {

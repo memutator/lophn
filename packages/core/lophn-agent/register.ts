@@ -667,7 +667,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       for (const server of definition.mcp_servers ?? []) {
         found.push({
           agent: loaded.agent,
-          server: runtimeServerOfLayer(server, null),
+          server: runtimeServerOfLayer(server, null, loaded.agent),
         });
       }
     }

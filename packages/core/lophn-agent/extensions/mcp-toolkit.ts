@@ -155,7 +155,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
     if (agent !== undefined) {
       layers.push({
         servers: agent.servers.map((server) =>
-          runtimeServerOfLayer(server, place),
+          runtimeServerOfLayer(server, null, agent.id),
         ),
         off: agent.off,
       });
@@ -172,7 +172,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
     const definition = read.value.definition as {
       mcp_servers?: readonly McpServer[];
     } | null;
-    return { servers: definition?.mcp_servers ?? [], off: [] };
+    return { id: agent, servers: definition?.mcp_servers ?? [], off: [] };
   }
 
   // 전체 tools/list를 다시 읽는다. 끝나면 fresh, 못 하면 failed다.

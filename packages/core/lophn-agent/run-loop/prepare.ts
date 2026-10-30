@@ -9,6 +9,7 @@ import {
   type Result,
 } from "../../../base/mod.ts";
 import {
+  type AgentId,
   type AgentPlace,
   finishTurn,
   type McpServer,
@@ -94,7 +95,11 @@ export type McpSourceOptions = {
   place?: AgentPlace | null;
   skip?: ReadonlySet<string>;
   only?: ReadonlySet<string>;
-  agent?: { servers: readonly McpServer[]; off: readonly string[] };
+  agent?: {
+    id: AgentId;
+    servers: readonly McpServer[];
+    off: readonly string[];
+  };
 };
 
 export type McpToolkit = {
@@ -742,7 +747,11 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         mcp = await loadMcp(start.session, {
           place,
           skip: off,
-          agent: { servers: ownServers ?? [], off: [...off] },
+          agent: {
+            id: session.agent,
+            servers: ownServers ?? [],
+            off: [...off],
+          },
         });
         return (mcp.source?.tools ?? []).map((tool) => ({
           server_name: tool.server,

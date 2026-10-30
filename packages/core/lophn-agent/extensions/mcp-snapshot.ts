@@ -10,10 +10,9 @@ import {
 } from "./project-servers.ts";
 import type { ProjectLayer } from "./project-settings.ts";
 
-// 등록한 MCP server의 snapshot 재료다. 전역 설정 위에 모든 project의 `extensions.json`을 더한다.
-// `mcp.` secret 목적지와 MCP OAuth begin의 서버 조회가 이 snapshot을 읽는다.
-// agent 정의가 가진 서버는 정의 파일에 있어 조립이 `agents`로 넘긴다. `registeredMcpServers`에는 섞지 않는다:
-// OAuth begin은 place로 서버를 고르는데 agent 정의 층 서버는 로그인 길이 없다.
+// 등록한 MCP server의 snapshot 재료다. 전역 설정 위에 모든 project의 `extensions.json`과 모든 agent 정의의
+// 서버를 더한다. `mcp.` secret 목적지와 MCP OAuth begin의 서버 조회가 이 snapshot을 읽는다.
+// agent 정의가 가진 서버는 정의 파일에 있어 조립이 `agents`로 넘긴다.
 
 // 전역(Workspace) 서버다. 설정 파일에서 읽는다. 읽지 못하면 빈 목록이다.
 function globalMcpServers(root: string): Result<McpRuntimeServer[]> {
@@ -63,14 +62,16 @@ export type AgentMcpEntry = {
   server: McpRuntimeServer;
 };
 
-// 서버와 그 서버가 놓인 곳이다. 전역(Workspace) 서버는 place가 null이다.
+// 서버와 그 서버가 놓인 곳이다. 전역(Workspace) 서버는 place와 agent가 모두 null이고, project·app 서버는
+// place만, agent 정의 층 서버는 agent만 있다.
 export type RegisteredMcpServer = {
   place: AgentPlace | null;
+  agent: AgentId | null;
   server: McpRuntimeServer;
 };
 
-// 전역 서버가 먼저고 project 서버가 project id 순으로 따른다. 서로 다른 place의 같은 이름은 모두 남고 `place`로
-// 가른다: OAuth 시작이 입력의 place로 서버를 고른다.
+// 전역 서버가 먼저고 project 서버가 project id 순으로, agent 정의 층 서버가 마지막으로 따른다. 서로 다른
+// 소유자의 같은 이름은 모두 남고 `place`·`agent`로 가른다: OAuth 시작이 입력의 소유자로 서버를 고른다.
 export async function registeredMcpServers(
   ledgerPath: string,
   deps: McpSnapshotDeps,
@@ -83,9 +84,20 @@ export async function registeredMcpServers(
     deps.projects ?? fsProjectSource,
     deps.projectLayer,
   );
+  const agents = (await deps.agents?.()) ?? ok([]);
+  if (!agents.ok) return agents;
   return ok([
-    ...global.value.map((server) => ({ place: null, server })),
+    ...global.value.map((server) => ({
+      place: null,
+      agent: null,
+      server,
+    })),
     ...projects,
+    ...agents.value.map(({ agent, server }) => ({
+      place: null,
+      agent,
+      server,
+    })),
   ]);
 }
 
@@ -95,10 +107,5 @@ export async function mcpServerSnapshot(
 ): Promise<Result<McpRuntimeServer[]>> {
   const registered = await registeredMcpServers(ledgerPath, deps);
   if (!registered.ok) return registered;
-  const agents = (await deps.agents?.()) ?? ok([]);
-  if (!agents.ok) return agents;
-  return ok([
-    ...registered.value.map((entry) => entry.server),
-    ...agents.value.map((entry) => entry.server),
-  ]);
+  return ok(registered.value.map((entry) => entry.server));
 }

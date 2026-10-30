@@ -223,6 +223,7 @@ export function coreAgentsSettingsSource(
                 : {
                     login: {
                       place: null,
+                      agent: null,
                       client_id: auth.client_id ?? "",
                       scopes: auth.scopes ?? [],
                       state: login?.state ?? ("none" as const),
@@ -321,7 +322,10 @@ export function coreAgentsSettingsSource(
     async cancelServerSignIn(row) {
       const done = await cancelMcpSignIn(link, {
         name: row.name,
-        login: { place: row.login?.place ?? null },
+        login: {
+          place: row.login?.place ?? null,
+          agent: row.login?.agent ?? null,
+        },
       });
       return done.ok
         ? { ok: true, value: null }

@@ -16,7 +16,11 @@ export type ProjectServerSource = {
 };
 
 // 서버와 그 서버가 놓인 project다. 같은 이름의 서버가 서로 다른 project에 있어도 따로 남는다.
-type ProjectMcpEntry = { place: AgentPlace; server: McpRuntimeServer };
+type ProjectMcpEntry = {
+  place: AgentPlace;
+  agent: null;
+  server: McpRuntimeServer;
+};
 
 // 모든 project의 설정 파일이 가진 서버를 project id 순으로 모은다. 틀린 파일이나 읽지 못한 파일은 그
 // project 서버만 빠진다. project 폴더가 아닌 이름은 project가 아니다.
@@ -42,7 +46,11 @@ export async function collectProjectMcpEntries(
       if (!parsed.ok) continue;
       const place = { kind: "project", id } as AgentPlace;
       for (const server of parsed.value.mcp_servers) {
-        found.push({ place, server: runtimeServerOfLayer(server, place) });
+        found.push({
+          place,
+          agent: null,
+          server: runtimeServerOfLayer(server, place),
+        });
       }
     } catch {
       // 읽지 못한 project는 서버가 없는 것으로 닫는다.

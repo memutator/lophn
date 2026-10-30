@@ -27,7 +27,7 @@ export const agentSettingsArea: Area = {
       id: "agent-settings-agent",
       title: "Agent settings · agent",
       description:
-        "사람이 만든 agent의 설정이다. 프로필, 이름, project 지침과 이 agent 지침을 같이 보이는 블록, model, Domains(체크 목록, 하나도 고르지 않으면 그 project나 앱의 전부), 고른 domain별로 묶인 skill, MCP, 새 session을 Skip permissions로 시작하는 기본값 체크가 있다(사람만 쓰는 칸이고 꺼져 있다). Model 칸은 대화와 같은 picker이고(맨 아래 Manage models 줄) 칸 아래에 지금 model이 온 층(이 agent가 골랐다)이 한 줄로 보인다. MCP 줄 중 OAuth로 로그인하는 server는 아직 로그인하지 않았으면 오른쪽에 [Sign in]이 있다. Built-in instructions 줄과 Permissions 칸은 없고 Definition과 Grants 탭이 있다.",
+        "사람이 만든 agent의 설정이다. 프로필, 이름, project 지침과 이 agent 지침을 같이 보이는 블록, model, Domains(체크 목록, 하나도 고르지 않으면 그 project나 앱의 전부), 고른 domain별로 묶인 skill, MCP, 새 session을 Skip permissions로 시작하는 기본값 체크가 있다(사람만 쓰는 칸이고 꺼져 있다). Model 칸은 대화와 같은 picker이고(맨 아래 Manage models 줄) 칸 아래에 지금 model이 온 층(이 agent가 골랐다)이 한 줄로 보인다. MCP 줄 중 OAuth로 로그인하는 server(이 agent 층의 linear 포함)는 아직 로그인하지 않았으면 오른쪽에 [Sign in]이 있다. Built-in instructions 줄과 Permissions 칸은 없고 Definition과 Grants 탭이 있다.",
       render: () => <AgentEditorPage />,
     },
     {
@@ -62,7 +62,7 @@ export const agentSettingsArea: Area = {
       id: "new-agent-mcp-server-form",
       title: "Agent settings · add MCP server",
       description:
-        "agent 층에서 MCP server를 더하는 form이다. 이름, 연결 방식, 실행이나 주소, 로그인 방식(None, Bearer, API key)만 받고 key와 token은 더한 뒤 보호 입력으로 받는다. OAuth 2.1은 agent 정의 층에 로그인 길이 없어 고를 수 없고 전역(Settings › Tools and skills)과 project 층에서만 고른다.",
+        "agent 층에서 MCP server를 더하는 form에 web 주소와 OAuth 2.1 로그인을 고른 상태다. 이름, 연결 방식, 실행이나 주소, 로그인 방식(None, Bearer, API key, OAuth 2.1)과 OAuth issuer·client ID·scopes를 받고 key·token·client secret은 더한 뒤 보호 입력으로 받는다. OAuth 2.1 server는 정의를 저장한 뒤 그 줄의 [Sign in]으로 로그인한다.",
       render: () => <AgentServerFormPage />,
     },
     {

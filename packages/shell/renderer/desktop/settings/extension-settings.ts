@@ -85,7 +85,11 @@ export async function authStates(
       reason: ServerSignInReason | null;
     }[];
   }>(core, "memory", "agent-mcp-auth", "state", {
-    servers: asked.map((server) => ({ name: server.name, place: null })),
+    servers: asked.map((server) => ({
+      name: server.name,
+      place: null,
+      agent: null,
+    })),
   });
   if (!read.ok) return null;
   return new Map(

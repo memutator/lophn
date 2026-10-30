@@ -152,7 +152,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     commands: ["codex"],
     process: {},
     version_probe: { argv: ["codex", "--version"] },
-    interrupt_keys: ["escape", "ctrl-c"],
+    interrupt_keys: [],
     skill_dir: ".agents/skills",
     // 확인함: ~/.codex/hooks.json, feature flag 불필요(hook 기본 켜짐). 다만 codex는 새·바뀐 hook을
     // 사람이 /hooks에서 trust하기 전까지 건너뛴다(learn.chatgpt.com/docs/hooks). 설치가 같은 폴더의 config.toml에 trust 기록을 쓴다.
@@ -299,7 +299,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     commands: ["cursor-agent"],
     process: { packages: ["cursor-agent/versions/"] },
     version_probe: null,
-    interrupt_keys: ["escape", "ctrl-c"],
+    interrupt_keys: [],
     skill_dir: null,
     hook: {
       format: "json",
@@ -360,7 +360,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     commands: ["kimi", "kimi-code"],
     process: { packages: ["@moonshot-ai/kimi-code"] },
     version_probe: null,
-    interrupt_keys: ["escape", "ctrl-c"],
+    interrupt_keys: [],
     skill_dir: null,
     hook: {
       format: "toml_block",

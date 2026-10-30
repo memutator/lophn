@@ -43,7 +43,15 @@ import {
   ViewCoversProvider,
 } from "./embedded-view.tsx";
 import { useToastHandler } from "./toast-handler.ts";
+import type { CatalogSource } from "../desktop/palette/catalog.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
+import { PlaceSwitcher } from "../workspace/top-path/place-selector.tsx";
+import {
+  type PlaceRef,
+  readRecentPlaces,
+  rememberPlace,
+} from "../workspace/top-path/recent-places.ts";
+import { usePlaceLists } from "../workspace/top-path/use-place-lists.ts";
 import {
   LOPHN_AGENT_ID,
   LOPHN_AGENT_NAME,
@@ -82,6 +90,10 @@ interface AppSpaceProps {
   startLophn?: boolean;
   /** 이 공간의 pane에 없는 agent session을 연다(호스트가 그 session이 있는 화면으로 간다). */
   onOpenSession?: (session: string) => void;
+  /** 위쪽 바의 place switcher에 넣을 project·app 목록. 없으면 지금 앱 하나만 보인다. */
+  places?: CatalogSource;
+  /** place switcher에서 고른 place를 연다(호스트가 그 공간으로 간다). */
+  onOpenPlace?: (place: PlaceRef) => void;
 }
 
 type AppRecord =
@@ -158,12 +170,16 @@ export function AppSpace({
   session,
   startLophn,
   onOpenSession,
+  places,
+  onOpenPlace,
 }: AppSpaceProps) {
   const [attempt, setAttempt] = useState(0);
   const { record, run, setRun } = useAppRecord(source, app, attempt);
   const row = record.state === "ready" ? record.row : null;
   const release = row && !row.archived ? row.release : null;
   const entry = useEntry(source, app, release);
+  const placeLists = usePlaceLists(places);
+  const [recentPlaces, setRecentPlaces] = useState(readRecentPlaces);
 
   const frameRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -424,6 +440,23 @@ export function AppSpace({
           name={row?.name ?? null}
           status={status}
           onLauncher={onLauncher}
+          placeSwitcher={
+            onOpenPlace === undefined ? undefined : (
+              <PlaceSwitcher
+                active={{ kind: "app", id: app }}
+                activeName={row?.name ?? undefined}
+                projects={placeLists.projects}
+                apps={placeLists.apps}
+                recent={recentPlaces}
+                onOpenChange={(open) => {
+                  if (!open) return;
+                  placeLists.read();
+                  setRecentPlaces(readRecentPlaces());
+                }}
+                onSelect={onOpenPlace}
+              />
+            )
+          }
           detailsOpen={panelVisible && shownTab === "details"}
           onDetails={() => {
             if (panelVisible && shownTab === "details") setPanelOpen(false);

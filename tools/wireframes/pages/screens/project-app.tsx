@@ -1,5 +1,5 @@
 // 동작하는 project 화면. 칸마다 탭 줄이 있고, activity bar 바로 가기·sidebar·+ 메뉴·검색·상단 검색·toast·대화·문서의 링크가 탭을 열면
-// 탭 줄에 그 탭이 생기고 선택된다(이미 열린 탭이면 그 탭을 고른다). 실제 TopBar·ProjectSelector·Palette·Menu와
+// 탭 줄에 그 탭이 생기고 선택된다(이미 열린 탭이면 그 탭을 고른다). 실제 TopBar·PlaceSwitcher·Palette·Menu와
 // 실제 sidebar(`ProjectSidebar`)·design `TabStrip`·`NewTabMenu`를 쓴다(고정 data는 project-window.tsx가 넘긴다).
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
@@ -7,7 +7,7 @@ import {
   PaletteButton,
   TopBar,
 } from "../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
-import { ProjectSelector } from "../../../../packages/shell/renderer/workspace/top-path/project-selector.tsx";
+import { PlaceSwitcher } from "../../../../packages/shell/renderer/workspace/top-path/place-selector.tsx";
 import { LauncherButton } from "../../../../packages/shell/renderer/workspace/launcher-button.tsx";
 import { TabStrip } from "../../../../packages/shell/renderer/parts/tab-strip/tab-strip.tsx";
 import { Palette, type PaletteItem } from "@lophn/ui/overlay";
@@ -359,9 +359,10 @@ export function ProjectApp({
             leading={
               <div className={workspace.leading}>
                 <LauncherButton onLauncher={() => {}} />
-                <ProjectSelector
-                  options={PROJECT_OPTIONS}
-                  active="phroner"
+                <PlaceSwitcher
+                  active={{ kind: "project", id: "phroner" }}
+                  projects={PROJECT_OPTIONS}
+                  apps={[]}
                   onSelect={() => {}}
                 />
               </div>

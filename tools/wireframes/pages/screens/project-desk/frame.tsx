@@ -17,9 +17,10 @@ import {
   PathSep,
 } from "../../../../../packages/shell/renderer/workspace/top-path/desk-selector.tsx";
 import {
-  type ProjectOption,
-  ProjectSelector,
-} from "../../../../../packages/shell/renderer/workspace/top-path/project-selector.tsx";
+  type PlaceOption,
+  PlaceSwitcher,
+} from "../../../../../packages/shell/renderer/workspace/top-path/place-selector.tsx";
+import type { PlaceRef } from "../../../../../packages/shell/renderer/workspace/top-path/recent-places.ts";
 import { MinimizedBar } from "../../../../../packages/shell/renderer/workspace/minimized/minimized-bar.tsx";
 import { Floats } from "../../../../../packages/shell/renderer/workspace/floats/floats.tsx";
 import { TabStrip } from "../../../../../packages/shell/renderer/parts/tab-strip/tab-strip.tsx";
@@ -40,7 +41,7 @@ import { GalleryConnectHost } from "../../../mock/connect-host.tsx";
 import { TerminalBody } from "../bodies.tsx";
 import { DocumentPane } from "../documents.tsx";
 import { PageSidebar, stripTabsOf, type TabSpec } from "../project-window.tsx";
-import { DEFAULT_KEY, LAYOUTS, PROJECTS } from "./desks.ts";
+import { APPS, DEFAULT_KEY, LAYOUTS, PROJECTS, RECENT } from "./desks.ts";
 
 const specOf = (tab: TabItem): TabSpec => ({
   key: tab.key,
@@ -73,16 +74,20 @@ export function DeskBar({
   );
 }
 
-/** 왼쪽 경로: project, workflow가 있으면 `/ desk`. desk 목록이 기본 자리뿐이면 desk 조각을 그리지 않는다. */
+/** 왼쪽 경로: place switcher, workflow가 있으면 `/ desk`. desk 목록이 기본 자리뿐이면 desk 조각을 그리지 않는다. */
 export function PathLeading({
   projects,
+  apps = APPS,
+  recent = RECENT,
   project,
   onProject,
   desks,
   desk,
   onDesk,
 }: {
-  projects: readonly ProjectOption[];
+  projects: readonly PlaceOption[];
+  apps?: readonly PlaceOption[];
+  recent?: readonly PlaceRef[];
   project: string;
   onProject: (id: string) => void;
   desks: readonly DeskOption[];
@@ -91,10 +96,12 @@ export function PathLeading({
 }) {
   return (
     <>
-      <ProjectSelector
-        options={projects}
-        active={project}
-        onSelect={onProject}
+      <PlaceSwitcher
+        active={{ kind: "project", id: project }}
+        projects={projects}
+        apps={apps}
+        recent={recent}
+        onSelect={(place) => onProject(place.id)}
       />
       {desks.length > 1 ? (
         <>
@@ -109,7 +116,7 @@ export function PathLeading({
 export interface DeskWindowProps {
   readonly options: readonly DeskOption[];
   /** project menu의 목록. 읽지 못했으면 지금 project 하나다. */
-  readonly projects?: readonly ProjectOption[];
+  readonly projects?: readonly PlaceOption[];
   /** 시작할 때 켜진 자리. */
   readonly active?: string;
   /** 접힌 sidebar로 시작한다. */

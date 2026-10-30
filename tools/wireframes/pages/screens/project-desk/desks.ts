@@ -5,7 +5,8 @@ import type {
   WorkspaceView,
 } from "../../../../../packages/shell/renderer/workspace/model.ts";
 import { t } from "@lophn/i18n";
-import type { ProjectOption } from "../../../../../packages/shell/renderer/workspace/top-path/project-selector.tsx";
+import type { PlaceOption } from "../../../../../packages/shell/renderer/workspace/top-path/place-selector.tsx";
+import type { PlaceRef } from "../../../../../packages/shell/renderer/workspace/top-path/recent-places.ts";
 import type { DeskOption } from "../../../../../packages/shell/renderer/workspace/top-path/desk-selector.tsx";
 
 const doc = (path: string): TabItem => ({
@@ -61,13 +62,22 @@ export const DESK_NIGHTLY: DeskOption = {
   invalid: true,
 };
 
-export const PROJECTS: readonly ProjectOption[] = [
+export const PROJECTS: readonly PlaceOption[] = [
   { id: "prj_phroner", label: "phroner" },
   { id: "prj_grocery", label: "grocery-budget" },
   { id: "prj_eval", label: "eval-lab" },
 ];
 // 목록을 못 읽으면 지금 project 하나뿐이다.
-export const PROJECTS_FAILED: readonly ProjectOption[] = [PROJECTS[0]!];
+export const PROJECTS_FAILED: readonly PlaceOption[] = [PROJECTS[0]!];
+export const APPS: readonly PlaceOption[] = [
+  { id: "app_orders", label: "orders" },
+  { id: "app_budget", label: "budget-review" },
+];
+// 최근 연 place. project와 app이 섞여 최근 것부터 온다.
+export const RECENT: readonly PlaceRef[] = [
+  { kind: "app", id: "app_orders" },
+  { kind: "project", id: "prj_grocery" },
+];
 
 /** workflow가 없는 project. */
 export const OPTIONS_NONE: readonly DeskOption[] = [DESK_MAIN];

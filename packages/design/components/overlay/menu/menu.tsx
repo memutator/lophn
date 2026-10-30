@@ -23,6 +23,8 @@ export interface MenuItem {
   disabled?: boolean;
   // 이 항목 위에 구분선을 긋는다. 항목 묶음의 경계에 쓴다.
   separatorBefore?: boolean;
+  // 이 항목 위에 다는 묶음 이름. 항목이 아닌 글이라 키보드 이동과 typeahead가 지나친다.
+  heading?: string;
 }
 
 export interface MenuProps {
@@ -83,6 +85,11 @@ export function Menu({
               {item.separatorBefore === true ? (
                 <Radix.Separator className={styles.separator} />
               ) : null}
+              {item.heading === undefined ? null : (
+                <Radix.Label className={styles.heading}>
+                  {item.heading}
+                </Radix.Label>
+              )}
               <Radix.Item
                 className={styles.item}
                 disabled={item.disabled}

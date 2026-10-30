@@ -18,6 +18,8 @@ interface AppBarProps {
   name: string | null;
   status: AppStatus | null;
   onLauncher: () => void;
+  /** 있으면 앱 이름 자리에 place switcher를 둔다. 없으면 앱 이름 글자만 둔다. */
+  placeSwitcher?: ReactNode;
   detailsOpen: boolean;
   onDetails: () => void;
   /** 없으면(annotate 통로가 없는 창) Annotate 단추를 두지 않는다. */
@@ -58,6 +60,7 @@ export function AppBar({
   name,
   status,
   onLauncher,
+  placeSwitcher,
   detailsOpen,
   onDetails,
   annotate,
@@ -70,9 +73,11 @@ export function AppBar({
       rail={<LauncherButton onLauncher={onLauncher} />}
       leading={
         <span className={styles.leading}>
-          <span className={styles.name} data-app-name="">
-            {name ?? ""}
-          </span>
+          {placeSwitcher ?? (
+            <span className={styles.name} data-app-name="">
+              {name ?? ""}
+            </span>
+          )}
           {status ? (
             <span data-app-status={status}>
               <StatusMark

@@ -19,9 +19,9 @@ export function groupLabel(group: PaletteGroup): string {
     case "actions":
       return t("common.heading.palette-actions");
     case "projects":
-      return t("common.heading.palette-projects");
+      return t("common.heading.projects");
     case "apps":
-      return t("common.heading.palette-apps");
+      return t("common.heading.apps");
   }
 }
 

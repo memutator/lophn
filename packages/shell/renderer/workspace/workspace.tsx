@@ -34,6 +34,7 @@ import {
   usePaletteEnv,
   usePaletteScope,
 } from "../desktop/palette/host.tsx";
+import type { CatalogSource } from "../desktop/palette/catalog.ts";
 import {
   focusTab,
   topFloat,
@@ -150,7 +151,13 @@ import type {
   WorkspaceSource,
 } from "./source.ts";
 import { DeskSelector, PathSep } from "./top-path/desk-selector.tsx";
-import { ProjectSelector } from "./top-path/project-selector.tsx";
+import { PlaceSwitcher } from "./top-path/place-selector.tsx";
+import {
+  type PlaceRef,
+  readRecentPlaces,
+  rememberPlace,
+} from "./top-path/recent-places.ts";
+import { usePlaceLists } from "./top-path/use-place-lists.ts";
 import { focusPaneBody } from "./focus-pane.ts";
 import { useCommands, useWindowCommands } from "../commands/react.tsx";
 import { useTabHostSlices } from "./use-tab-host-slices.ts";
@@ -165,8 +172,10 @@ export interface WorkspaceProps {
   bodyWidth: number;
   /** 런처로 돌아간다. */
   onLauncher: () => void;
-  /** 상단 바 project selector에서 고른 project를 이 창에서 연다. 없으면 목록을 고를 수 없다. */
-  onOpenProject?: (project: string) => void;
+  /** 상단 바 place switcher에서 고른 place를 이 창에서 연다. 없으면 지금 project 하나만 보인다. */
+  onOpenPlace?: (place: PlaceRef) => void;
+  /** switcher의 project·app 목록. 없으면 지금 project 하나만 보인다. */
+  places?: CatalogSource;
   /** Settings로 간다. 항목을 주면 그 항목부터 연다. */
   onSettings: (pane?: SettingsPane) => void;
   /** sidebar Scheduled jobs 탭의 통로. 없으면 그 항목을 두지 않는다. */
@@ -316,9 +325,9 @@ export function Workspace(props: WorkspaceProps) {
   const [workflowList, setWorkflowList] = useState<ReadResult<
     readonly WorkflowEntryView[]
   > | null>(null);
-  const [projectList, setProjectList] = useState<ReadResult<
-    readonly { id: string; title: string }[]
-  > | null>(null);
+  // 상단 바 place switcher의 목록과 최근 연 place. 최근 목록은 menu를 열 때마다 다시 읽는다.
+  const placeLists = usePlaceLists(props.places);
+  const [recentPlaces, setRecentPlaces] = useState(readRecentPlaces);
   // 자리(desk)마다 view 하나. 화면이 그리고 고치는 것은 보이는 자리의 view뿐이다.
   const [desks, setDesks] = useState(() => desksFromView(emptyView()));
   const view = activeView(desks);
@@ -397,16 +406,6 @@ export function Workspace(props: WorkspaceProps) {
           .filter((key) => key !== DEFAULT_DESK)
           .map((key) => ({ key, label: key }))),
   ];
-  const listedProjects = (
-    projectList?.ok === true ? projectList.value : []
-  ).map((item) => ({ id: item.id, label: item.title }));
-  // 지금 project가 목록에 없으면(목록을 못 읽었거나 막 보관됨) 앞에 둔다.
-  const projectOptions = listedProjects.some((item) => item.id === projectId)
-    ? listedProjects
-    : [
-        { id: projectId, label: loaded.project?.title ?? "" },
-        ...listedProjects,
-      ];
   const focused = view.panes[view.focusedPane];
   const contentWidth = mainSize?.width ?? bodyWidth;
 
@@ -619,16 +618,14 @@ export function Workspace(props: WorkspaceProps) {
       setWorkflowList(result);
       if (result.ok) mergeVanished(result.value.map((entry) => entry.name));
     });
-    void source.projects().then((result) => {
-      if (shownProject.current === mine) setProjectList(result);
-    });
+    placeLists.read();
+    setRecentPlaces(readRecentPlaces());
   };
   const readListsOnOpen = (open: boolean) => {
     if (open) readLists();
   };
   useEffect(() => {
     setWorkflowList(null);
-    setProjectList(null);
     if (readyProject === projectId) readLists();
   }, [projectId, source, readyProject]);
 
@@ -1506,13 +1503,21 @@ export function Workspace(props: WorkspaceProps) {
                 rail={<LauncherButton onLauncher={onLauncher} />}
                 leading={
                   <span className={styles.leading}>
-                    <ProjectSelector
-                      options={projectOptions}
-                      active={projectId}
-                      onSelect={(id) => {
-                        if (id !== projectId) props.onOpenProject?.(id);
-                      }}
+                    <PlaceSwitcher
+                      active={{ kind: "project", id: projectId }}
+                      activeName={loaded.project?.title}
+                      projects={placeLists.projects}
+                      apps={placeLists.apps}
+                      recent={recentPlaces}
                       onOpenChange={readListsOnOpen}
+                      onSelect={(place) => {
+                        if (
+                          place.kind !== "project" ||
+                          place.id !== projectId
+                        ) {
+                          props.onOpenPlace?.(place);
+                        }
+                      }}
                     />
                     {deskOptions.length > 1 ? (
                       <>

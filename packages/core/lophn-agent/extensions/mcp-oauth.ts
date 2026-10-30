@@ -4,6 +4,7 @@ import type {
   McpAuthStateName,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { HttpFetch } from "./adapters/mcp-http.ts";
+import { httpRequest } from "./adapters/mcp-http.ts";
 import {
   type AuthDeadline,
   type CallbackListener,
@@ -69,6 +70,52 @@ type McpOAuth = {
 
 function reauth(message = "재인증이 필요하다"): Result<never> {
   return err({ code: "forbidden", message });
+}
+
+// 발급자의 metadata에서 authorization·token 끝점을 찾는다. MCP는 발급자가 https이고 찾은 끝점도 https일 때만
+// 받는다. 없거나 모양이 다르면 undefined이고 부르는 쪽이 발급자 아래 기본 끝점을 쓴다.
+async function discoverEndpoints(
+  issuer: string,
+  fetch: HttpFetch,
+): Promise<{ authorization: string; token: string } | undefined> {
+  const base = issuer.replace(/\/+$/, "");
+  const response = await httpRequest(
+    fetch,
+    `${base}/.well-known/oauth-authorization-server`,
+    {
+      method: "GET",
+      headers: { accept: "application/json" },
+      signal: new AbortController().signal,
+    },
+  );
+  if (!response.ok || response.status !== 200) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(new TextDecoder().decode(response.body));
+  } catch {
+    return undefined;
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return undefined;
+  }
+  const record = parsed as Record<string, unknown>;
+  const authorization = record["authorization_endpoint"];
+  const token = record["token_endpoint"];
+  if (typeof authorization !== "string" || typeof token !== "string") {
+    return undefined;
+  }
+  // MCP는 발급자가 https이므로 찾은 끝점도 https여야 한다.
+  try {
+    if (
+      new URL(authorization).protocol !== "https:" ||
+      new URL(token).protocol !== "https:"
+    ) {
+      return undefined;
+    }
+  } catch {
+    return undefined;
+  }
+  return { authorization, token };
 }
 
 export function createMcpOAuth(options: {
@@ -190,10 +237,12 @@ export function createMcpOAuth(options: {
   return {
     async begin(server, input) {
       const base = server.issuer.replace(/\/+$/, "");
-      const endpoints = server.endpoints ?? {
-        authorization: `${base}/authorize`,
-        token: `${base}/token`,
-      };
+      // MCP는 발급자의 metadata를 먼저 본다. 없으면 지금까지처럼 발급자 아래 끝점을 쓴다.
+      const endpoints = server.endpoints ??
+        (await discoverEndpoints(server.issuer, options.fetch)) ?? {
+          authorization: `${base}/authorize`,
+          token: `${base}/token`,
+        };
       // MCP는 발급자에서 만든 끝점이라 https만 받는다.
       if (server.endpoints === undefined) {
         let protocol: string | null = null;

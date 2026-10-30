@@ -131,23 +131,44 @@ interface McpListProps {
   readonly lockOff?: boolean;
   readonly showLayer?: boolean;
   readonly onToggle: (name: string, on: boolean) => void;
+  /** OAuth server의 로그인을 시작한다. 없으면 로그인 단추를 그리지 않는다. */
+  readonly onSignIn?: (row: McpRow) => void;
+  /** 기다리는 로그인을 그만둔다. */
+  readonly onCancelSignIn?: (row: McpRow) => void;
+  /** 이 화면이 시작해 기다리는 server 이름. 이 줄은 [Cancel]을 그린다. */
+  readonly signingIn?: readonly string[];
 }
 
-/** MCP server 목록. 이름 옆 점이 연결 상태다. */
+/** MCP server 목록. 이름 옆 점이 연결 상태다. OAuth server는 로그인하지 않았으면 오른쪽에 [Sign in]이 있다. */
 export function McpList({
   items,
   offNames = [],
   lockOff = false,
   showLayer = true,
   onToggle,
+  onSignIn,
+  onCancelSignIn,
+  signingIn = [],
 }: McpListProps) {
   return (
     <ul className={styles.toggleList}>
       {items.map((item) => {
         const on = item.on && !offNames.includes(item.name);
         const text = statusText(on, item.status);
+        const login = on ? item.login : undefined;
+        const canSignIn =
+          login !== undefined &&
+          onSignIn !== undefined &&
+          login.state !== "signed_in";
+        const waiting =
+          login !== undefined &&
+          (signingIn.includes(item.name) || login.state === "in_progress");
         return (
-          <li key={item.name} className={styles.toggleRow} data-mcp={item.name}>
+          <li
+            key={item.name}
+            className={`${styles.toggleRow} ${styles.mcpRow}`}
+            data-mcp={item.name}
+          >
             <span className={styles.toggleMain}>
               <span className={styles.toggleName}>
                 <span
@@ -172,6 +193,27 @@ export function McpList({
             ) : (
               <span />
             )}
+            <span className={styles.toggleCell}>
+              {login !== undefined && onSignIn !== undefined ? (
+                waiting ? (
+                  <Button
+                    size="sm"
+                    data-action="cancel-sign-in"
+                    onClick={() => onCancelSignIn?.(item)}
+                  >
+                    {t("common.button.cancel")}
+                  </Button>
+                ) : canSignIn ? (
+                  <Button
+                    size="sm"
+                    data-action="sign-in"
+                    onClick={() => onSignIn(item)}
+                  >
+                    {t("agents.button.sign-in")}
+                  </Button>
+                ) : null
+              ) : null}
+            </span>
             <RowToggle
               label={item.name}
               checked={on}

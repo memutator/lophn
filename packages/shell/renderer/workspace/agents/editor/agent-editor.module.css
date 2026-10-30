@@ -264,6 +264,11 @@
   justify-self: start;
 }
 
+/* MCP 줄은 OAuth 로그인 단추 열이 하나 더 있다 */
+.mcpRow {
+  grid-template-columns: 1fr calc(var(--space-12) + var(--space-8)) auto var(--space-11);
+}
+
 .toggleMain {
   display: flex;
   flex-direction: column;

@@ -10,16 +10,22 @@
 // - 전역 skill 목록: global-skills/read. 끄고 켜기는 skills_off 설정을 settings apply로 바꾼다.
 import { modelDefaultChange } from "../../../../../protocol/lophn-agent/models.ts";
 import type { FolderPickerApi } from "../../../../ipc/folder-picker.ts";
+import {
+  cancelMcpSignIn,
+  readGlobalModel,
+  signInMcpServer,
+} from "../../../workspace/agents/core-extensions.ts";
 import { coreAgentsSource } from "../../../workspace/agents/core-source.ts";
 import { createLink } from "../../../workspace/agents/core-link.ts";
-import { readGlobalModel } from "../../../workspace/agents/core-extensions.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { windowFolderPicker } from "../../launcher/projects/core-source.ts";
+import type { OpenExternalApi } from "../../../../ipc/open-external.ts";
 import type { SecretInputOpenApi } from "../../../../ipc/secret-input.ts";
 import {
   call,
   command,
   enterSecret,
+  windowLinkOpener,
   windowSecretInputOpener,
 } from "../core-call.ts";
 import {
@@ -93,6 +99,8 @@ function statusOf(
 interface AgentsDeps {
   picker: FolderPickerApi | undefined;
   openSecret: SecretInputOpenApi["open"] | undefined;
+  /** OAuth 로그인의 authorize 주소를 OS browser로 여는 통로. */
+  openLink: OpenExternalApi["openExternal"] | undefined;
   /** 새 command key를 만든다. 테스트가 고정한다. */
   random: () => string;
 }
@@ -104,6 +112,7 @@ export function coreAgentsSettingsSource(
   const picker = "picker" in deps ? deps.picker : windowFolderPicker();
   const openSecret =
     "openSecret" in deps ? deps.openSecret : windowSecretInputOpener();
+  const openLink = "openLink" in deps ? deps.openLink : windowLinkOpener();
   const random = deps.random ?? (() => crypto.randomUUID().slice(0, 8));
   const link = createLink(core, random);
   const editor = coreAgentsSource(core);
@@ -190,13 +199,31 @@ export function coreAgentsSettingsSource(
             on: skill.enabled,
             builtIn: false,
           })),
-          servers: serverValues.map((server) => ({
-            name: server.name,
-            detail: detailOf(server),
-            layer: "global" as const,
-            on: server.enabled,
-            status: statusOf(server, states, logins),
-          })),
+          servers: serverValues.map((server): McpRow => {
+            const auth =
+              server.transport === "http" && server.http?.auth.kind === "oauth2"
+                ? server.http.auth
+                : null;
+            const login = logins?.get(server.name);
+            return {
+              name: server.name,
+              detail: detailOf(server),
+              layer: "global" as const,
+              on: server.enabled,
+              status: statusOf(server, states, logins),
+              ...(auth === null
+                ? {}
+                : {
+                    login: {
+                      place: null,
+                      client_id: auth.client_id ?? "",
+                      scopes: auth.scopes ?? [],
+                      state: login?.state ?? ("none" as const),
+                      reason: login?.reason ?? null,
+                    },
+                  }),
+            };
+          }),
         },
       };
     },
@@ -252,17 +279,46 @@ export function coreAgentsSettingsSource(
         random,
       );
       if (!added.ok) return added;
-      // key나 token이 필요한 server는 값을 보호 입력으로 받는다. 값은 이 화면을 지나지 않는다.
+      // key·token·client secret이 필요한 server는 값을 보호 입력으로 받는다. 값은 이 화면을 지나지 않는다.
       const auth = server.transport === "http" ? server.http.auth : null;
-      if (auth?.kind === "bearer" || auth?.kind === "api_key") {
+      const secret =
+        auth?.kind === "bearer" || auth?.kind === "api_key"
+          ? auth.credential.secret
+          : auth?.kind === "oauth2"
+            ? auth.client_credential?.secret
+            : undefined;
+      if (secret !== undefined) {
         // server는 이미 더해졌다. 창을 열지 못하거나 취소해도 더한 일은 되돌리지 않고 상태로 보인다.
         await enterSecret(openSecret, {
-          name: auth.credential.secret,
+          name: secret,
           purpose: "mcp",
           subject: server.name,
         });
       }
       return added;
+    },
+
+    async signInServer(row) {
+      if (row.login === undefined) {
+        return { ok: false, code: "invalid_input" };
+      }
+      const done = await signInMcpServer(link, openLink, {
+        name: row.name,
+        login: row.login,
+      });
+      return done.ok
+        ? { ok: true, value: null }
+        : { ok: false, code: done.message };
+    },
+
+    async cancelServerSignIn(row) {
+      const done = await cancelMcpSignIn(link, {
+        name: row.name,
+        login: { place: row.login?.place ?? null },
+      });
+      return done.ok
+        ? { ok: true, value: null }
+        : { ok: false, code: done.message };
     },
 
     async setServerEnabled(name, enabled) {

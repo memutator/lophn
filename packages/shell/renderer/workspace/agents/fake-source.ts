@@ -4,6 +4,7 @@
 
 import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
 import type { AgentDefinitionIssue } from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import type { Place } from "../../../../protocol/lophn-agent/places.ts";
 import {
   type CatalogEntry,
   effortAxisOf,
@@ -80,6 +81,8 @@ type FakeCall =
   | { method: "setProjectModel"; choice: ModelChoice | null }
   | { method: "setSkill"; name: string; on: boolean }
   | { method: "setMcp"; name: string; on: boolean }
+  | { method: "signInMcp"; name: string; place: Place | null }
+  | { method: "cancelMcpSignIn"; name: string; place: Place | null }
   | {
       method: "setGrants";
       assignment: string;
@@ -629,6 +632,16 @@ export function createFakeAgentsSource(
       if (failed !== null) return Promise.resolve(failed);
       if (on) projectSkillOff.delete(name);
       else projectSkillOff.add(name);
+      return Promise.resolve(ok(null));
+    },
+
+    signInMcp(name, login) {
+      calls.push({ method: "signInMcp", name, place: login.place });
+      return Promise.resolve(ok(null));
+    },
+
+    cancelMcpSignIn(name, login) {
+      calls.push({ method: "cancelMcpSignIn", name, place: login.place });
       return Promise.resolve(ok(null));
     },
 

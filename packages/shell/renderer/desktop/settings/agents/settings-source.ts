@@ -49,4 +49,8 @@ export interface AgentsSettingsSource {
   /** 전역 MCP server를 더한다. 값(key·token)은 이 모양에 없고 필요하면 보호 입력이 받는다. */
   createServer(server: McpServer): Promise<SourceResult<null>>;
   setServerEnabled(name: string, enabled: boolean): Promise<SourceResult<null>>;
+  /** OAuth MCP server 로그인을 시작하고 사람이 browser에서 돌아올 때까지 기다린다. */
+  signInServer(row: McpRow): Promise<SourceResult<null>>;
+  /** 기다리는 로그인을 그만둔다. */
+  cancelServerSignIn(row: McpRow): Promise<SourceResult<null>>;
 }

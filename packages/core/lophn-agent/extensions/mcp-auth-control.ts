@@ -13,6 +13,7 @@ import {
 import {
   secretDestinationOf,
   type SecretFileUse,
+  type SecretStorePort,
 } from "../../../protocol/secrets/mod.ts";
 import { serve, type ServeHandle } from "../../server/serve.ts";
 import {
@@ -53,6 +54,8 @@ type McpAuthControlDeps = {
   registered(): Promise<Result<RegisteredMcpServer[]>>;
   // token 보관이다(`secrets.json`).
   vault: McpOAuthVault;
+  // 사람이 넣은 client secret 값이다. 값은 발급자 요청 본문에만 실리고 응답·log에 남지 않는다.
+  secrets: Pick<SecretStorePort, "get">;
   nowMs(): number;
   // 기다림 시한 timer다. 없으면 제품 timer다.
   deadline?: AuthDeadline;
@@ -74,19 +77,23 @@ function sameOrigin(url: string, destination: SecretFileUse["destination"]) {
   );
 }
 
-// OAuth로 로그인하는 http 서버만 McpOAuthServer가 된다.
+// OAuth로 로그인하는 http 서버만 McpOAuthServer가 된다. client secret은 사람이 넣은 값을 이름으로 읽는다.
 function oauthServerOf(
   place: AgentPlace | null,
   server: McpRuntimeServer,
+  secretValue: (name: string) => string | null,
 ): McpOAuthServer | undefined {
   if (server.transport !== "http" || server.http.auth.kind !== "oauth2") {
     return undefined;
   }
+  const auth = server.http.auth;
   return {
     key: { place, name: server.name },
-    issuer: server.http.auth.issuer,
+    issuer: auth.issuer,
     serverUrl: server.http.url,
-    clientId: server.http.auth.client_id,
+    clientId: auth.client_id,
+    clientSecret:
+      auth.client_secret === null ? null : secretValue(auth.client_secret),
   };
 }
 
@@ -119,6 +126,12 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
     deadline: deps.deadline ?? timerDeadline,
   });
 
+  // 사람이 넣은 client secret 값이다. 없는 이름과 빈 값은 없는 것으로 본다.
+  function secretValue(name: string): string | null {
+    const got = deps.secrets.get(name);
+    return got.ok && got.value !== "" ? got.value : null;
+  }
+
   async function registeredServerOf(
     place: AgentPlace | null,
     name: string,
@@ -147,7 +160,7 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
         message: "oauth2 인증은 http 서버만 고른다",
       });
     }
-    const server = oauthServerOf(place, config.value);
+    const server = oauthServerOf(place, config.value, secretValue);
     if (server === undefined) {
       return err({
         code: "invalid_input",
@@ -234,7 +247,9 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
         (entry) => entry.server.name === name && samePlace(entry.place, place),
       );
       const server =
-        found === undefined ? undefined : oauthServerOf(place, found.server);
+        found === undefined
+          ? undefined
+          : oauthServerOf(place, found.server, secretValue);
       // 등록하지 않았거나 OAuth가 아닌 서버는 로그인할 것이 없다.
       const report =
         server === undefined
@@ -264,7 +279,7 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
       }
       // 이 이름을 자기 접근 token으로 가진 켜진 서버만 쓴다. token은 로그인한 서버의 URL origin에만 간다.
       const match = loaded.value.find((entry) => {
-        const server = oauthServerOf(entry.place, entry.server);
+        const server = oauthServerOf(entry.place, entry.server, secretValue);
         return (
           server !== undefined &&
           entry.server.enabled &&
@@ -278,7 +293,9 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
           message: "secret 전송을 허용하지 않는다",
         });
       }
-      return await oauth.access(oauthServerOf(match.place, match.server)!);
+      return await oauth.access(
+        oauthServerOf(match.place, match.server, secretValue)!,
+      );
     },
 
     endAll: () => oauth.endAll(),

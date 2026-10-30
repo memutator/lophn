@@ -129,6 +129,12 @@ interface DefinitionFormProps {
   readonly onChange: (definition: AgentDraft) => void;
   readonly onUpload: (file: File) => void;
   readonly onEditProjectInstructions: () => void;
+  /** OAuth MCP server의 [Sign in]. */
+  readonly onSignIn: (row: McpRow) => void;
+  /** 기다리는 로그인의 [Cancel]. */
+  readonly onCancelSignIn: (row: McpRow) => void;
+  /** 이 화면이 시작해 기다리는 server 이름. */
+  readonly signingIn: readonly string[];
 }
 
 export function DefinitionForm(props: DefinitionFormProps) {
@@ -388,6 +394,9 @@ export function DefinitionForm(props: DefinitionFormProps) {
           items={[...detail.mcpServers, ...own]}
           offNames={mcpOff}
           lockOff
+          onSignIn={props.onSignIn}
+          onCancelSignIn={props.onCancelSignIn}
+          signingIn={props.signingIn}
           onToggle={(name, on) => {
             if (own.some((row) => row.name === name)) {
               set(

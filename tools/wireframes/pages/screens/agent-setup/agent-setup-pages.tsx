@@ -90,10 +90,17 @@ export const LophnEditorPage = () => editor("lophn");
 export const AppPlaceEditorPage = () =>
   editor(BUDGET_REVIEWER_ID, [], undefined, "app");
 
-/** agent 층에서 MCP server를 더하는 form을 연 상태. */
+/** agent 층에서 MCP server를 더하는 form을 열고 web 주소와 OAuth 2.1 로그인을 고른 상태. */
 export const AgentServerFormPage = () =>
   editor(EVAL_ANALYST_ID, [
     () => press("[data-field=mcp] button", t("settings.button.add-server")),
+    () => press("[data-server-field=transport] [role=combobox]"),
+    () => click("[role=option]", t("settings.label.over-web")),
+    () => press("[data-server-field=auth] [role=combobox]"),
+    () => click("[role=option]", t("agents.label.auth-oauth2")),
+    () => type("[data-server-field=issuer]", "https://mcp.notion.com"),
+    () => type("[data-server-field=client-id]", "notion-client"),
+    () => type("[data-server-field=scopes]", "read write"),
   ]);
 
 /** Grants 탭. 붙인 앱과 앱마다 뺀 tool. MCP server는 설정한 층이 할당이라 한 줄 안내만 있다. */

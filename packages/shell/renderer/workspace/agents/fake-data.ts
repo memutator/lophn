@@ -327,6 +327,20 @@ export const GLOBAL_MCP: readonly McpRow[] = [
     on: false,
     status: null,
   },
+  {
+    name: "notion",
+    detail: "Searches your pages",
+    layer: "global",
+    on: true,
+    status: "needs-sign-in",
+    login: {
+      place: null,
+      client_id: "notion-client",
+      scopes: ["read"],
+      state: "none",
+      reason: null,
+    },
+  },
 ];
 
 export const PROJECT_MCP: readonly McpRow[] = [
@@ -341,8 +355,15 @@ export const PROJECT_MCP: readonly McpRow[] = [
     name: "linear",
     detail: "Planning board",
     layer: "project",
-    on: false,
+    on: true,
     status: "needs-sign-in",
+    login: {
+      place: { kind: "project", id: PROJECT_ID },
+      client_id: "linear-client",
+      scopes: ["read"],
+      state: "none",
+      reason: null,
+    },
   },
 ];
 

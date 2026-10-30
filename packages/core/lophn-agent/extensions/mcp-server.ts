@@ -25,6 +25,8 @@ type RuntimeAuth =
       kind: "oauth2";
       issuer: string;
       client_id: string;
+      // 사람이 넣은 client secret의 `secrets.json` 이름이다. 값은 OAuth 입구가 읽는다.
+      client_secret: string | null;
       scopes: string[];
       // 이 서버(place와 이름)의 접근 token 이름이다. 로그인했는지는 보관이 말한다.
       token: string;
@@ -116,6 +118,10 @@ export function runtimeServerOfLayer(
                   kind: "oauth2",
                   issuer: auth.issuer,
                   client_id: auth.client_id,
+                  client_secret:
+                    auth.client_credential === null
+                      ? null
+                      : auth.client_credential.secret,
                   scopes: [...auth.scopes],
                   token: mcpTokenNames({ place, name: server.name }).access,
                 },

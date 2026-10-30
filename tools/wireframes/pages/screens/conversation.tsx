@@ -116,8 +116,9 @@ function stepsOf(tab: TabSpec): readonly Step[] {
     const slash = chat.slash;
     steps.push(() => type(COMPOSER, slash));
   }
-  if (chat.view === "permissions") {
-    steps.push(() => type(COMPOSER, "/permissions", true));
+  if (chat.view !== undefined) {
+    const view = chat.view;
+    steps.push(() => type(COMPOSER, `/${view}`, true));
   }
   return steps;
 }

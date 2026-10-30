@@ -16,3 +16,4 @@ export {
   readBodyBytes,
 } from "./body-read.ts";
 export { sessionSummaryRead } from "./summary-read.ts";
+export { sessionStatusReadDefinition } from "./status.ts";

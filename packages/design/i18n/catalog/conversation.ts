@@ -241,6 +241,33 @@ export const conversation = {
   "conversation.label.slash-menu": "Commands",
   "conversation.label.slash-unknown": "Unknown command: /{name}",
   "conversation.label.provider-toggle": "Show all {provider} models",
+  "conversation.label.status-account": "Account",
+  "conversation.label.status-context": "Context window",
+  "conversation.label.status-context-value":
+    "{used, number} of {limit, number} tokens ({percent, number}% used)",
+  "conversation.label.status-cost": "Cost",
+  "conversation.label.status-cost-estimated": "About {amount} {currency}",
+  "conversation.label.status-cost-reported": "{amount} {currency}",
+  "conversation.label.status-cost-subscription": "Included in your plan",
+  "conversation.label.status-cost-unknown": "Unknown",
+  "conversation.label.status-model": "Model",
+  "conversation.label.status-provider": "Provider",
+  "conversation.label.status-provider-available": "{provider} · connected",
+  "conversation.label.status-provider-rejected":
+    "{provider} · sign-in rejected",
+  "conversation.label.status-provider-revoked": "{provider} · signed out",
+  "conversation.label.status-provider-wait":
+    "{provider} · usage limit until {time}",
+  "conversation.label.status-session": "Session",
+  "conversation.label.status-tokens": "Tokens",
+  "conversation.label.status-tokens-value":
+    "{input, number} in ({cached, number} cached) · {output, number} out",
+  "conversation.label.status-tokens-value-uncached":
+    "{input, number} in · {output, number} out",
+  "conversation.label.status-turns": "Turns",
+  "conversation.label.status-turns-value":
+    "{turns, plural, one {# turn} other {# turns}} · {calls, plural, one {# model request} other {# model requests}}",
+  "conversation.label.status-of": "Status of this session",
   "conversation.label.status-stopped": "Stopped",
   "conversation.label.status-working": "Working",
   "conversation.label.steer": "Steer · went into the running turn",
@@ -391,5 +418,6 @@ export const conversation = {
   "conversation.title.rewind": "Rewind to here",
   "project-workspace.notice.agent-not-ready":
     "Conversations aren't ready yet. Try again in a moment.",
+  "conversation.title.status": "Status",
   "conversation.title.sender-details": "Sender details",
 } as const;

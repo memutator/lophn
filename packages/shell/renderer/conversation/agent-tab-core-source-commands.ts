@@ -83,7 +83,13 @@ export async function readCommands(
 }
 
 /** session이 있어야 하는 전역 명령. */
-const SESSION_ONLY = new Set(["rename", "archive", "compact", "fork"]);
+const SESSION_ONLY = new Set([
+  "rename",
+  "archive",
+  "compact",
+  "fork",
+  "status",
+]);
 
 /**
  * skill 명령은 skill을 쓰라는 한 줄과 `/이름` 뒤의 글이 든 사람의 메시지로 접수한다. 목록은 다시 읽지 않는다. 그 사이 skill이

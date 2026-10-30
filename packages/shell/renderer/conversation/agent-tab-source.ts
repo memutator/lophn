@@ -428,6 +428,49 @@ export interface PermissionsView {
   }[];
 }
 
+/**
+ * `/status`가 여는 보기. 모르는 값은 null이고 0이 아니다. token 합은 알려진 call만 더했고, 한 call이라도
+ * 모르면 그 칸은 null이다.
+ */
+export interface StatusView {
+  readonly session: string;
+  readonly title: string | null;
+  /** session이 고른 model, 없으면 마지막 call이 쓴 model. 아직 아무것도 없으면 null이다. */
+  readonly model: {
+    readonly name: string;
+    readonly options: Readonly<Record<string, string>>;
+  } | null;
+  /** 그 model의 provider와 credential 상태. 연결이 없으면 null이다. */
+  readonly provider: {
+    readonly name: string;
+    /** vendor 아이콘을 고르는 정의 key(openai, anthropic …). */
+    readonly definition: string;
+    readonly account: string | null;
+    readonly state: "available" | "usage_wait" | "rejected" | "revoked";
+    /** usage_wait가 풀리는 시각. */
+    readonly until: string | null;
+  } | null;
+  /** 마지막 판단 call이 보낸 prompt 크기와 그 model의 창 한도. */
+  readonly context: { readonly tokens: number; readonly limit: number } | null;
+  readonly calls: number;
+  readonly turns: number;
+  readonly inputTokens: number | null;
+  readonly outputTokens: number | null;
+  /** cache에서 읽은 입력 token. */
+  readonly cacheReadTokens: number | null;
+  /** 금액. kind·통화가 다르면 따로 센다. 하나라도 모르면 그 묶음의 amount는 null이다. */
+  readonly costs: readonly {
+    readonly kind:
+      | "reported"
+      | "estimated"
+      | "subscription"
+      | "free"
+      | "unknown";
+    readonly currency: string | null;
+    readonly amount: string | null;
+  }[];
+}
+
 // ---- rewind ----
 
 /** 이 session이 고른 시점 뒤에 앱에 한 write. 결과를 모르는 write는 되돌릴 수 없다. */
@@ -542,6 +585,8 @@ export interface AgentTabSource {
   ): Promise<SourceResult<void>>;
   /** `/permissions`와 입력칸 아래 요약. */
   permissions(session: string | null): Promise<SourceResult<PermissionsView>>;
+  /** `/status`. 창 크기와 이 session의 누적 사용량을 한 번에 읽는다. */
+  status(session: string): Promise<SourceResult<StatusView>>;
 
   // 쓰기
   send(input: SendInput): Promise<SourceResult<void>>;

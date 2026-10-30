@@ -45,6 +45,10 @@ const BUILTIN_TABLE: Record<
     title: "Permissions",
     description: "Show the apps and MCP servers this agent can use",
   },
+  status: {
+    title: "Status",
+    description: "Show this session's model, context and usage",
+  },
 };
 
 const BUILTIN_NAMES: ReadonlySet<string> = new Set(BUILTIN_COMMAND_IDS);

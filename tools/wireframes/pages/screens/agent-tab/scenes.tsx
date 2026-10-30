@@ -57,3 +57,7 @@ export const RewindScene = () => <Scene sub="rewind" />;
 export const PermissionsScene = () => (
   <Scene sub="working" chat={{ view: "permissions" }} />
 );
+/** `/status`: session id, model, 계정, 창을 쓴 만큼, 이 session의 token과 금액. */
+export const StatusScene = () => (
+  <Scene sub="working" chat={{ view: "status" }} />
+);

@@ -10,6 +10,7 @@ import {
   AgentConversation,
   AgentModelPicker,
   AgentPermissions,
+  AgentStatus,
   AgentQuestion,
   AgentQuestionAnswered,
   AgentQuestionEnded,
@@ -144,6 +145,13 @@ export const agentArea: Area = {
       description:
         "/permissions 보기다. 할당한 앱마다 뺀 tool이 보이고, MCP server는 설정한 곳(Workspace, project, 이 agent)에서 정한다는 한 줄이 있다. 입력칸 아래 권한 요약을 눌러도 같은 보기가 열린다.",
       render: () => <AgentPermissions />,
+    },
+    {
+      id: "new-agent-status",
+      title: "Agent · status",
+      description:
+        "/status 보기다. session id, model과 effort, provider 연결 상태와 계정, 마지막 요청이 창을 얼마나 썼는지, 이 session의 turn·token·금액이 이름·값 두 열로 보인다. 구독 연결은 금액 대신 plan에 포함됐다고 보인다.",
+      render: () => <AgentStatus />,
     },
     {
       id: "new-agent-model-picker",

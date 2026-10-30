@@ -136,6 +136,7 @@ import {
   messageBodyFields,
   messageBodyRead,
   removeQueuedCommand,
+  sessionStatusReadDefinition,
   sessionSummaryRead,
   takeSteering,
 } from "./session/mod.ts";
@@ -303,6 +304,7 @@ const conversationCommands = createConversationCommands({
   },
 });
 const conversationReads = createConversationReads();
+const sessionStatusRead = sessionStatusReadDefinition();
 
 // session 되돌리기. file tool의 쓰기 기록(RecordRewindFile), Rewind, 설치 정정
 // (AmendRevertInstall), 앱 rewind 요청 결과(RecordRewindApps)를 올린다. checkpoint는 메시지를 접수하는 Tx가,
@@ -823,6 +825,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       conversationReads.messages,
       conversationReads.message,
       conversationReads.compactRequests,
+      sessionStatusRead,
       commandReads.list,
       toolReads.read,
       traceReads.read,
@@ -901,6 +904,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
         conversationReads.messages,
         conversationReads.message,
         conversationReads.compactRequests,
+        sessionStatusRead,
         commandReads.list,
         toolReads.read,
         traceReads.read,

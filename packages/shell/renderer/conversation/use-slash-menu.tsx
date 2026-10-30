@@ -112,10 +112,14 @@ export function useSlashMenu(input: SlashMenuInput): SlashMenuControl {
       return;
     }
     const entries = entriesOf(read.value);
-    // 이름만 쳤으면 고른 줄이 우선이고, 인자를 쳤으면 이름이 같은 것이다.
-    const chosen =
-      (spaced ? undefined : entries[highlight]) ??
-      entries.find((entry) => entry.name === name);
+    // 인자를 쳤으면 이름이 같은 것이다. 이름만 쳤으면 화살표로 고른 줄이 우선이다. 고르지 않았으면(첫 줄)
+    // 이름이 꼭 맞는 명령이 이긴다. `/status`는 설명에 "status"가 든 MCP가 첫 줄이라 MCP가 돌던 일이 있다.
+    const exact = entries.find((entry) => entry.name === name);
+    const chosen = spaced
+      ? exact
+      : highlight === 0
+        ? (exact ?? entries[0])
+        : entries[highlight];
     if (chosen === undefined) setUnknown({ kind: "unknown", name });
     else latest.current.onRun(chosen, argument.trim());
   };

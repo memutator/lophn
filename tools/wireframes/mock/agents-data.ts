@@ -33,7 +33,7 @@ export interface ChatInit {
   /** composer가 처음 가리키는 model. 없으면 `SESSION_MODEL`이다. */
   readonly model?: ModelSelection;
   /** `/` 명령이 대화 화면에 낸 보기를 연 채 시작한다. */
-  readonly view?: "permissions";
+  readonly view?: "permissions" | "status";
 }
 
 export interface AgentProfile

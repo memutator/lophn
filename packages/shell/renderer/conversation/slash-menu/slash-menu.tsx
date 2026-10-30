@@ -11,6 +11,7 @@ import {
   commonIcons,
   conversationIcons,
   editorIcons,
+  launcherIcons,
   settingsIcons,
 } from "../../icons/mod.ts";
 import styles from "./slash-menu.module.css";
@@ -56,6 +57,7 @@ const ICONS: Readonly<Record<string, IconType>> = {
   mcp: settingsIcons.providers,
   skills: settingsIcons.tools,
   permissions: commonIcons.settings,
+  status: launcherIcons.details,
 };
 
 function iconOf(entry: SlashEntryView): IconType {

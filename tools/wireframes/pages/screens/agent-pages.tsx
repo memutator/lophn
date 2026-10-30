@@ -14,6 +14,7 @@ import {
   CallRepliesScene,
   ConversationScene,
   PermissionsScene,
+  StatusScene,
   QuestionAnsweredScene,
   QuestionEndedScene,
   QuestionScene,
@@ -189,6 +190,8 @@ export const AgentCommandsFiltered = () =>
   withTab(workingTab({ slash: "/re" }));
 /** `/permissions`의 보기. */
 export const AgentPermissions = PermissionsScene;
+/** `/status`의 보기. */
+export const AgentStatus = StatusScene;
 /** 질문 카드. */
 export const AgentQuestion = QuestionScene;
 /** 질문에 답한 뒤. */

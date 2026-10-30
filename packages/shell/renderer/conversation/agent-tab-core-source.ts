@@ -25,6 +25,7 @@ import {
 } from "./agent-tab-core-source-commands.ts";
 import { createImageSource } from "./agent-tab-core-source-images.ts";
 import { createModelPart } from "./agent-tab-core-source-model.ts";
+import { readStatus } from "./agent-tab-core-source-status.ts";
 import {
   createRewindIds,
   previewRewind,
@@ -102,6 +103,7 @@ function createSource(
     runCommand: (session, entry, argument, key) =>
       runCommand(env, session, entry, argument, key),
     permissions: () => readPermissions(env),
+    status: (session) => readStatus(env, session),
 
     send: (input) => sendText(env, input),
     uploadImage: (session, image) => images.uploadImage(session, image),

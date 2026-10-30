@@ -1,0 +1,73 @@
+/* `/status`가 대화 화면 안에 여는 panel. 권한 panel과 같은 틀에 이름·값 두 열이다. */
+.panel {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: var(--dialog-width-wide);
+  max-height: 100%;
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  box-shadow: var(--shadow-popover);
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-5);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.title {
+  font-weight: var(--font-weight-semibold);
+}
+
+.body {
+  display: grid;
+  grid-template-columns: max-content minmax(var(--space-0), 1fr);
+  column-gap: var(--space-6);
+  row-gap: var(--space-3);
+  margin: var(--space-0);
+  padding: var(--space-5);
+  overflow: auto;
+}
+
+.name {
+  color: var(--color-text-muted);
+}
+
+.value {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+  margin: var(--space-0);
+  overflow-wrap: anywhere;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* 창을 얼마나 썼는가. 바탕 띠 위에 쓴 만큼 채운다. */
+.bar {
+  height: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-muted);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-text-secondary);
+}

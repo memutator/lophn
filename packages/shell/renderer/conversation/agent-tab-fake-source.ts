@@ -26,6 +26,7 @@ import type {
   Envelope,
   ModelView,
   PermissionsView,
+  StatusView,
   QuestionAnswer,
   QueuedView,
   RewindPreviewView,
@@ -904,6 +905,27 @@ const PERMISSIONS_VIEW: PermissionsView = {
   ],
 };
 
+// 구독 OAuth 연결의 session. 금액은 구독이라 알 수 없고 token만 보인다.
+const statusView = (session: string): StatusView => ({
+  session,
+  title: "Weekly report",
+  model: { name: "gpt-6.1-sol", options: { effort: "high" } },
+  provider: {
+    name: "OpenAI",
+    definition: "openai",
+    account: "me@example.com",
+    state: "available",
+    until: null,
+  },
+  context: { tokens: 86_508, limit: 1_050_000 },
+  calls: 14,
+  turns: 3,
+  inputTokens: 412_890,
+  outputTokens: 11_531,
+  cacheReadTokens: 301_440,
+  costs: [{ kind: "subscription", currency: null, amount: null }],
+});
+
 const REWIND_PREVIEW: RewindPreviewView = {
   files: [
     { path: "docs/reports/2026-w41.md", skipped: null },
@@ -1032,6 +1054,7 @@ const NEEDS_SESSION = new Set([
   "compact",
   "fork",
   "permissions",
+  "status",
 ]);
 
 function filterGroups(
@@ -1231,6 +1254,7 @@ export function createFakeAgentTabSource(
     commands: (session, query) => ok(filterGroups(query, session !== null)),
     runCommand: () => DONE,
     permissions: () => ok(PERMISSIONS_VIEW),
+    status: (session) => ok(statusView(session)),
 
     uploadImage(_session, image) {
       const id = nextId("att");

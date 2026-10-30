@@ -27,6 +27,7 @@ import type {
   PermissionsView as PermissionsData,
   SessionEntry,
   SourceResult,
+  StatusView as StatusData,
 } from "./agent-tab-source.ts";
 import { AgentThread } from "./agent-thread.tsx";
 import styles from "./agent-view.module.css";
@@ -51,6 +52,7 @@ import {
 import type { DraftStore } from "./drafts.ts";
 import { AgentHeader } from "./header/agent-header.tsx";
 import { PermissionsView } from "./permissions-view/permissions-view.tsx";
+import { StatusView } from "./status-view/status-view.tsx";
 import { QuestionCard } from "./question-card/question-card.tsx";
 import { QueuedMessages } from "./queued/queued-messages.tsx";
 import { RewindPanel } from "./session-rewind/rewind-panel.tsx";
@@ -101,7 +103,8 @@ interface AgentViewProps {
 /** 열려 있는 panel. 하나만 열린다. */
 type Layer =
   | { readonly kind: "rewind"; readonly message: string }
-  | { readonly kind: "permissions" };
+  | { readonly kind: "permissions" }
+  | { readonly kind: "status" };
 
 type Problem =
   | "open-failed"
@@ -171,6 +174,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
   useSyncExternalStore(drafts.subscribe, drafts.version);
   const [layer, setLayer] = useState<Layer | null>(null);
   const [permissions, setPermissions] = useState<PermissionsData | null>(null);
+  const [status, setStatus] = useState<StatusData | null>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
 
   const { agent, thread, refresh } = data;
@@ -373,6 +377,14 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
     if (await loadPermissions()) setLayer({ kind: "permissions" });
   };
 
+  const showStatus = async () => {
+    if (session === null) return;
+    const read = await source.status(session);
+    if (!read.ok) return fail();
+    setStatus(read.value);
+    setLayer({ kind: "status" });
+  };
+
   const runSlash = (command: SlashEntryView, argument: string) => {
     const clear = () => drafts.save(key, { text: "", selection: [0, 0] });
     if (command.source === "builtin") {
@@ -416,6 +428,9 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
         case "permissions":
           clear();
           return void showPermissions();
+        case "status":
+          clear();
+          return void showStatus();
         case "mcp":
         case "skills":
           clear();
@@ -592,6 +607,9 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
                 onClose={() => setLayer(null)}
                 onEdit={host.openPermissions}
               />
+            ) : null}
+            {layer.kind === "status" && status !== null ? (
+              <StatusView status={status} onClose={() => setLayer(null)} />
             ) : null}
           </div>
         )}

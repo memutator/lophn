@@ -30,6 +30,7 @@ export const COMMANDS_GROUP: SlashGroupView = {
       "Permissions",
       "Show the apps and MCP servers this agent can use",
     ),
+    builtin("status", "Status", "Show this session's model, context and usage"),
   ],
 };
 

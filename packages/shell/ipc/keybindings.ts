@@ -25,6 +25,7 @@ export type Command =
   | "tab.to-next-pane"
   | "pane.focus"
   | "pane.split"
+  | "pane.split-down"
   | "sidebar.toggle"
   | "explorer.focus"
   | "search.open"
@@ -102,6 +103,11 @@ const FIXED: readonly Binding[] = [
     mac: ["Cmd+Ctrl+ArrowRight"],
   },
   { command: "pane.split", other: ["Ctrl+Backslash"], mac: ["Cmd+Backslash"] },
+  {
+    command: "pane.split-down",
+    other: ["Ctrl+Shift+Backslash"],
+    mac: ["Cmd+Shift+Backslash"],
+  },
   { command: "sidebar.toggle", other: ["Ctrl+KeyB"], mac: ["Cmd+KeyB"] },
   {
     command: "explorer.focus",
@@ -121,8 +127,8 @@ const FIXED: readonly Binding[] = [
   { command: "files.quick-open", other: ["Ctrl+KeyP"], mac: ["Cmd+KeyP"] },
 ];
 
-// 칸은 최대 둘이다. 셋째 칸 번호는 두지 않는다.
-const PANES = [1, 2];
+// 칸은 최대 여섯이다. 번호는 칸 순서(왼쪽·위에서 오른쪽·아래로)다.
+const PANES = [1, 2, 3, 4, 5, 6];
 // Alt+숫자는 macOS에서 Option 글자 입력이라 mac은 Ctrl+숫자다. 0은 마지막 탭.
 const TAB_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
 

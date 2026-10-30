@@ -38,7 +38,10 @@ const view = (
       ? []
       : [{ tabs: second, selected: second[0]!.key }]),
   ],
-  splitRatio: 0.5,
+  layout:
+    second.length === 0
+      ? "leaf"
+      : { dir: "row", ratio: 0.5, a: "leaf", b: "leaf" },
   focusedPane: 0,
   floats,
   detached: [],

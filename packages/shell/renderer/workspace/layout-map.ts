@@ -11,6 +11,12 @@ import {
   type WorkspaceView,
 } from "./model.ts";
 import { tabKindOf } from "./kinds/registry.ts";
+import {
+  evenRow,
+  type LayoutNode,
+  leafCount,
+  MAX_PANES,
+} from "./layout-tree.ts";
 
 // 탭 key는 kind마다 다르다. 파일 탭은 절대 경로이고 나머지는 짧은 이름이다.
 const TAB_KEY_MAX = 4096;
@@ -83,7 +89,13 @@ function floatFromStored(value: unknown): FloatItem | null {
       height: rect.height as number,
     },
     minimized: float.minimized === true,
-    originPane: float.origin_pane === 1 ? 1 : 0,
+    originPane:
+      typeof float.origin_pane === "number" &&
+      Number.isInteger(float.origin_pane) &&
+      float.origin_pane >= 0 &&
+      float.origin_pane < MAX_PANES
+        ? float.origin_pane
+        : 0,
     ...(typeof float.docked_at === "number" && float.minimized === true
       ? { dockedAt: float.docked_at }
       : {}),
@@ -115,12 +127,45 @@ function detachedFromStored(value: unknown): DetachedItem | null {
   };
 }
 
+function parseNode(value: unknown): LayoutNode | null {
+  if (value === "leaf") return "leaf";
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("dir" in value) ||
+    !("ratio" in value) ||
+    !("a" in value) ||
+    !("b" in value)
+  ) {
+    return null;
+  }
+  const { dir, ratio } = value;
+  const a = parseNode(value.a);
+  const b = parseNode(value.b);
+  if (
+    (dir !== "row" && dir !== "column") ||
+    typeof ratio !== "number" ||
+    !(ratio > 0 && ratio < 1) ||
+    a === null ||
+    b === null
+  ) {
+    return null;
+  }
+  return { dir, ratio, a, b };
+}
+
+/** 저장된 칸 배치 tree. 잎 수가 칸 수와 다르거나 모양이 틀리면 같은 폭으로 늘어놓는다. */
+function nodeFromStored(value: unknown, leaves: number): LayoutNode {
+  const node = parseNode(value);
+  return node !== null && leafCount(node) === leaves ? node : evenRow(leaves);
+}
+
 /** 저장된 자리 하나를 view로 바꾼다. 검증은 main이 이미 했다. */
 function viewOfDesk(desk: unknown): WorkspaceView | null {
   if (typeof desk !== "object" || desk === null) return null;
   const value = desk as {
     panes?: { tabs?: unknown[]; selected_tab?: string | null }[];
-    split_ratio?: number;
+    layout?: unknown;
     focused_pane?: number;
     floats?: unknown;
     detached?: unknown;
@@ -141,7 +186,7 @@ function viewOfDesk(desk: unknown): WorkspaceView | null {
     typeof value.focused_pane === "number" ? value.focused_pane : 0;
   return {
     panes,
-    splitRatio: typeof value.split_ratio === "number" ? value.split_ratio : 0.5,
+    layout: nodeFromStored(value.layout, panes.length),
     focusedPane: focused >= 0 && focused < panes.length ? focused : 0,
     floats: Array.isArray(value.floats)
       ? value.floats.flatMap((float) => {
@@ -179,7 +224,7 @@ export function desksFromStored(layout: unknown): WorkspaceDesks | null {
 
 interface StoredDesk {
   panes: { tabs: Record<string, unknown>[]; selected_tab: string | null }[];
-  split_ratio: number;
+  layout: LayoutNode;
   focused_pane: number;
   floats: {
     tab: Record<string, unknown>;
@@ -196,7 +241,7 @@ interface StoredDesk {
 
 /** view 하나를 schema 상한 안의 자리로 줄인다. transient 탭은 이미 빠진 view를 받는다. */
 function storedDesk(view: WorkspaceView): StoredDesk {
-  const panes = view.panes.slice(0, 2).map((pane) => {
+  const panes = view.panes.slice(0, MAX_PANES).map((pane) => {
     const tabs = pane.tabs.flatMap((tab) => {
       const stored = toStoredTab(tab);
       return stored === null ? [] : [stored];
@@ -207,8 +252,9 @@ function storedDesk(view: WorkspaceView): StoredDesk {
     return { tabs, selected_tab: selected };
   });
   const kept = panes.length > 0 ? panes : [{ tabs: [], selected_tab: null }];
-  const ratio =
-    view.splitRatio > 0 && view.splitRatio < 1 ? view.splitRatio : 0.5;
+  // 잎 수가 칸 수와 다르면(칸을 줄여 저장한 경우) 같은 폭으로 늘어놓는다.
+  const layout =
+    leafCount(view.layout) === kept.length ? view.layout : evenRow(kept.length);
   const focused =
     view.focusedPane >= 0 && view.focusedPane < kept.length
       ? view.focusedPane
@@ -223,7 +269,7 @@ function storedDesk(view: WorkspaceView): StoredDesk {
               tab,
               rect: float.rect,
               minimized: float.minimized,
-              origin_pane: float.originPane === 1 ? 1 : 0,
+              origin_pane: Math.min(float.originPane, MAX_PANES - 1),
               ...(float.dockedAt === undefined
                 ? {}
                 : { docked_at: float.dockedAt }),
@@ -239,7 +285,7 @@ function storedDesk(view: WorkspaceView): StoredDesk {
     .slice(0, 20);
   return {
     panes: kept,
-    split_ratio: ratio,
+    layout,
     focused_pane: focused,
     floats,
     detached,

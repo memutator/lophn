@@ -386,10 +386,14 @@ export function ProjectApp({
             onManage={() => open(AGENTS_TAB)}
             onSession={(row) => open(sessionTab(row))}
           />
-          <div className={paneStyles.panes}>
+          <div className={paneStyles.panes} style={{ display: "flex" }}>
             {panes.map((pane, index) => {
               return (
-                <section key={index} className={paneStyles.pane}>
+                <section
+                  key={index}
+                  className={paneStyles.pane}
+                  style={{ position: "relative", flex: "1 1 0" }}
+                >
                   <TabStrip
                     tabs={stripTabsOf(pane.tabs, tabStates)}
                     selected={pane.selected}

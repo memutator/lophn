@@ -6,17 +6,18 @@ project 창이 가진 탭이 어디에 있는가를 정하는 메커니즘이다
 
 ```
  renderer/workspace/model.ts ── WorkspaceDesks { active, desks: { _default | <workflow 이름> → WorkspaceView } }
-   WorkspaceView { panes(1-2), splitRatio, focusedPane, floats[], detached[] }
+   WorkspaceView { panes(1-6), layout(LayoutNode), focusedPane, floats[], detached[] }
+   LayoutNode = "leaf" | { dir: row|column, ratio, a, b }  잎 순서 = panes 순서 (renderer/workspace/layout-tree.ts)
    FloatItem { tab, rect, minimized, originPane }  배열 순서 = 위아래 순서(마지막이 맨 위)
    DetachedItem { tab, bounds }                    bounds = OS 화면 좌표, 배열 순서 = 뗀 순서
    순수 함수: floatTab, dockTab, openFloat, minimizeTab, minimizeFloat, restoreFloat, raiseFloat, closeFloat, setFloatRect,
-             dropTabOnPane, detachTab, openDetachedTab, attachDetached, closeDetached
+             splitTab, dropTabOnPane, detachTab, openDetachedTab, attachDetached, closeDetached
    desk 층: switchDesk, openAcrossDesks, deskOfTab, allDeskTabs, mapDeskTabs, vanishedDesks, mergeDeskIntoDefault
         │
         │ 바뀔 때마다 storableDesks(transient 탭 빼기) ─▶ toStoredLayout ─▶ layout:save { project, active_desk, desks }
         ▼                                                   (main이 모든 desk의 detached bounds를 살아 있는 창 값으로 덮는다)
- main/workspace/schema.ts ── <data>/shell/layouts/<prj_id>.json (LAYOUT_SCHEMA_VERSION 5, desk 1~200개, desk마다 floats·detached 각 최대 20)
-                             판이 다르면 unsupported_schema, 새로 만든다. 옛 <data>/shell/layout.json은 읽지 않는다
+ main/workspace/schema.ts ── <data>/shell/layouts/<prj_id>.json (LAYOUT_SCHEMA_VERSION 6, desk 1~200개, desk마다 floats·detached 각 최대 20)
+                             판 5는 읽을 때 판 6으로 올린다(`upgradeFromV5`). 그 밖의 다른 판은 unsupported_schema, 새로 만든다. 옛 <data>/shell/layout.json은 읽지 않는다
  main/workspace/window-state.ts ── <data>/shell/window.json { bounds, maximized } 앱에 하나. desktop 창의 마지막 자리
 
  Detach (project 창 workspace.tsx)                         detached 창 (#detached=<key>, renderer/workspace/detached/)
@@ -27,7 +28,7 @@ project 창이 가진 탭이 어디에 있는가를 정하는 메커니즘이다
    changed·open-tab·closed·opened event ◀──────────────── main ◀── patchTab·openTab·removeTab·popup
 
  workspace.tsx
-   .content ─┬─ Panes          (docked 탭. 고른 탭만 mount, keep kind는 숨긴 채 mount)
+   .content ─┬─ Panes          (docked 탭. 고른 탭만 mount, keep kind는 숨긴 채 mount. `arrange`가 layout tree를 칸·divider 사각형으로 풀고 칸은 absolute로 놓는다)
              └─ Floats         (.floats 층, stacking context 없음. 첫 자식이 browser `<webview>` 그릇. 패널마다 FloatPanel, z-index = --z-sticky + 층 번호 × 2)
    TopBar.leading ── ProjectSelector ▾ / DeskSelector ▾ ─ MinimizedBar (접힌 패널 span, 넘치면 +N menu)
      (top-path/desk-selector.tsx의 PathMenu. desk 조각은 workflow가 있을 때만. 좁으면 span → desk 이름 → project 이름 순으로 준다)
@@ -50,7 +51,7 @@ project 창이 가진 탭이 어디에 있는가를 정하는 메커니즘이다
 - **화면이 그리고 고치는 것은 보이는 desk의 view뿐이다.** 떠난 desk의 탭은 고르지 않은 docked 탭처럼 React에서 unmount한다. terminal은 창의 `TerminalDisplays`가 xterm·DOM·출력 구독을 유지해 돌아오면 다시 붙이며 과거 raw 출력을 다시 재생하지 않는다. app panel·artifact의 native view는 `ViewKeeps`가 `allDeskTabs`로 판정해 desk를 건너도 살고, 일반 browser 탭의 `<webview>`는 놓는다(돌아오면 page를 다시 load한다). 떠난 desk의 detached 창은 닫지 않고 숨긴다(`showOnly`, main의 `DetachedEntry.hidden`). PTY와 앱 view가 그대로 산다. 숨은 창이 예기치 않게 사라지면 그 탭이 있는 desk의 view가 `docked`를 받는다. 복원 때는 보이는 desk의 detached 창만 열고, 다른 desk의 것은 그 desk로 갈 때 `showOnly`의 `missing`으로 연다. `showOnly`는 보낸 project 창의 detached 창만 건드리고 detached 창이 부르면 `forbidden`이다(`ipc_test.ts`). key를 만들거나 열린 탭을 찾는 곳(agent 탭 번호, 같은 session 재사용, 파일 이름 바꾸기, 닫은 탭 다시 열기, 대기 목록의 terminal)은 `host.windowTabs()`·`allDeskTabs`로 모든 desk를 본다.
 - **workflow 탭은 자기 workflow의 desk에 산다.** `TabKindDef.homeDesk`가 있는 탭을 여는 길(sidebar의 workflow 줄, `openWorkflow`)은 어디에도 열려 있지 않으면 그 desk로 가서 연다. 그 desk가 보이면 sidebar Workflows의 그 줄이 강조된다.
 - **탭을 찾고 바꾸는 곳은 pane, floats, detached를 모두 본다.** `findTab`, `allTabs`, `mapTabs`를 쓴다. pane만 보는 `holderOf`는 `model.ts` 밖에 내놓지 않는다. `host.openTab`, `patchTab`, `removeTab`, 닫은 탭 다시 열기, 파일 이름 바꾸기, 대기 목록의 terminal 고르기가 floated 탭에도 같다. 닫은 floated 탭은 docked로 돌아온다. detached 탭을 여는 길은 모두 그 창을 앞으로 가져오고, 닫는 길(`removeTab`)은 그 창을 닫고 항목을 버린다. palette 탭 행에는 보이는 desk의 pane과 floats의 탭만 나온다.
-- **탭 안에서 연 것의 자리는 `workspace/open-policy.ts`의 `openAt` 하나가 정한다.** 터미널(shell, coding agent)의 URL·파일 경로, lophn agent 대화의 파일 link, 검색 결과처럼 탭(source) 안에서 연 새 탭은 source 자리로 정한다. source가 pane에 있고 pane이 둘이면 반대쪽 pane 끝(agent 옆에서 연 문서가 agent를 가리지 않고 문서 쪽에 모인다), pane이 하나면 source 바로 뒤(pane을 자동으로 나누지 않는다), source가 floated·minimized·detached이거나 없으면 focus pane 끝, 보이지 않는 desk면 source 바로 뒤(`openTab`이 그 desk로 건너간다)다. 대화 코드 블록의 실행(`run`)은 floated 새 터미널이다. 이미 열린 탭은 이 규칙을 거치지 않고 있는 자리에서 보인다(`openAcrossDesks`). 여는 쪽은 `openFile(host, path, { from })`처럼 source key만 넘기고 `after`를 스스로 계산하지 않는다. `open-policy_test.ts`가 표로 본다.
+- **탭 안에서 연 것의 자리는 `workspace/open-policy.ts`의 `openAt` 하나가 정한다.** 터미널(shell, coding agent)의 URL·파일 경로, lophn agent 대화의 파일 link, 검색 결과처럼 탭(source) 안에서 연 새 탭은 source 자리로 정한다. source가 pane에 있고 pane이 둘 이상이면 다음 pane(칸 순서, 끝이면 처음) 끝(agent 옆에서 연 문서가 agent를 가리지 않고 문서 쪽에 모인다), pane이 하나면 source 바로 뒤(pane을 자동으로 나누지 않는다), source가 floated·minimized·detached이거나 없으면 focus pane 끝, 보이지 않는 desk면 source 바로 뒤(`openTab`이 그 desk로 건너간다)다. 대화 코드 블록의 실행(`run`)은 floated 새 터미널이다. 이미 열린 탭은 이 규칙을 거치지 않고 있는 자리에서 보인다(`openAcrossDesks`). 여는 쪽은 `openFile(host, path, { from })`처럼 source key만 넘기고 `after`를 스스로 계산하지 않는다. `open-policy_test.ts`가 표로 본다.
 - **project 창 renderer가 detached 항목까지 layout 전체를 갖고 저장한다.** detached 창은 자기 탭 하나를 main을 거쳐 받고(`take`), 바뀐 값(`changed`), 탭 열기(`open-tab`, project 창에 docked로), 닫기(`closed`)를 main을 거쳐 project 창에 알린다. layout 파일은 project id마다 하나(`<data>/shell/layouts/<prj_id>.json`)이고 마지막에 쓴 것이 이기므로 저장하는 곳은 하나다. project 창은 project마다 `Workspace`를 새로 mount한다(`key`). 그렇지 않으면 저장된 layout이 없는 project로 갈 때 앞 project의 탭이 남아 그 project의 layout으로 저장된다. main은 탭 값을 열어 보지 않고(key와 kind만) 같은 project 창에만 중계하며, 보낸 창으로 역할을 가려 `forbidden`으로 막는다(`main/desktop/detached/ipc.ts`). detached 창 bounds는 main이 저장할 때 살아 있는 창 값으로 채우고, 창을 옮기거나 크기를 바꾸면 `moved`로 project 창에 다시 저장하게 한다.
 - **desktop 창의 자리는 layout이 아니라 앱에 하나다(`window.json`).** 한 창이 런처·project·settings를 오가므로 창 자리는 project에 속하지 않는다. desktop 창을 옮기거나 크기를 바꾸면 500ms 뒤에, 최대화·되돌림·닫기 때는 바로 마지막 자리를 쓴다. 최대화한 창은 되돌렸을 때의 자리(`getNormalBounds`)와 `maximized`를 둔다. 최소화와 전체 화면은 쓰지 않는다. 새 desktop 창(시작, tray, 단일 instance 요청)은 그 자리를 지금 화면 작업 영역 안으로 당겨(`desktop/work-area.ts`) 열고, 다른 desktop 창이 떠 있으면 32px 비켜 연다. detached 창은 이 값을 쓰지도 고치지도 않는다.
 - **앱 place의 오른쪽 패널 모양은 앱마다 localStorage에 기억한다(`app-frame/app-layout.ts`).** 패널 열림·고른 탭·details 탭 유무·보던 agent와 session을 `lophn.app-layout.<app>`에 쓰고 `AppSpace`가 mount할 때 읽는다. 앱 place에는 layout file이 없고 desk도 없다. manage pane은 저장하지 않는다. 새 session 요청(`startLophn`)은 저장값보다 먼저다. 폭은 앱 구분 없이 `panel-width.ts` 값 하나다.
@@ -68,7 +69,15 @@ project 창이 가진 탭이 어디에 있는가를 정하는 메커니즘이다
 - **native view는 세 층으로 쌓인다.** pane view < floated view(floats 순서) < overlay. main의 `appViewOrder`가 view를 붙이거나 층이 바뀔 때만 다시 쌓는다(bounds만 바뀐 호출은 다시 쌓지 않는다). Electron의 `addChildView`가 이미 붙은 view를 맨 위로 옮기는 것을 쓴다.
 - **DOM 패널이 아래층 native view 위에 뜨면 cover로 native view를 줄인다.** native view는 DOM 위에 그려진다. floated 패널은 자기 층으로 cover를 등록하고, native view는 자기 층보다 위 층의 cover만 뺀 칸 중 가장 큰 사각형에 그린다. 같은 층끼리는 빼지 않는다(floated app panel이 자기 패널 cover에 줄지 않는다). side panel의 cover는 층이 없어 늘 위다. 패널을 옮기면 크기가 같아도 `ViewCovers.changed()`로 다시 잰다.
 - **app panel의 native view는 탭이 사는 동안 산다.** Float, Dock, 접기로 `EmbeddedView`가 다시 mount되어도 view를 닫지 않고 `ViewKeeps`(창마다 하나, renderer)에 숨겨 두었다가 같은 탭 key로 다시 쓴다. page를 다시 load하지 않으므로 쓰던 page 상태와 popup의 `window.opener`가 남는다. 탭이 layout에서 사라지면(`allTabs`에 없으면) 닫고, `Workspace`가 unmount되면 모두 닫는다. 열기 입력이 바뀌면 옛 view를 닫고 새로 연다.
-- **여는 길은 탭 menu의 Float·Detach, 패널 bar의 Minimize·Dock·Detach·Close, 상단 bar span(누르기, hover × 닫기, right-click의 Restore·Dock·Close, 탭 줄·칸 본문으로 끌기), 탭을 끌어 칸 본문(왼쪽·오른쪽·가운데)에 놓아 화면을 나누거나 옮기기(`dropTabOnPane`), 탭을 끌어 상단 titlebar에 놓아 최소화하기, 명령 palette(Float tab, Dock panel, Minimize panel), detached 창 bar의 [Dock]이다.** 기본 단축키는 없고 Detach는 palette 명령도 없다. palette의 Dock·Minimize 대상은 맨 위의 접히지 않은 패널이다. minimized 패널은 먼저 펴야 Detach할 수 있다.
+- **여는 길은 탭 menu의 Float·Detach, 패널 bar의 Minimize·Dock·Detach·Close, 상단 bar span(누르기, hover × 닫기, right-click의 Restore·Dock·Close, 탭 줄·칸 본문으로 끌기), 탭을 끌어 칸 본문(왼쪽·오른쪽·위·아래·가운데)에 놓아 화면을 나누거나 옮기기(`dropTabOnPane`), 탭 menu의 Split Right·Split Down과 칸 탭 줄 끝의 단추, 단축키 `pane.split`·`pane.split-down`(`splitTab`), 탭을 끌어 상단 titlebar에 놓아 최소화하기, 명령 palette(Float tab, Dock panel, Minimize panel), detached 창 bar의 [Dock]이다.** 기본 단축키는 없고 Detach는 palette 명령도 없다. palette의 Dock·Minimize 대상은 맨 위의 접히지 않은 패널이다. minimized 패널은 먼저 펴야 Detach할 수 있다.
+
+## 칸 배치
+
+- **`layout` tree의 잎 수는 늘 `panes` 수와 같다.** 칸을 넣고 뺄 때는 `panes`와 tree를 같은 index로 같이 고친다(`splitTab`은 `splitLeaf`, `dropEmptyPane`은 `removeLeaf`). schema가 어긋난 desk를 거절하고, 읽을 때 renderer(`layout-map.ts`)는 어긋나거나 모양이 틀린 tree를 같은 폭의 가로 배치로 바꿔 탭을 잃지 않는다.
+- **칸이 비면 그 잎만 빠지고 형제가 그 자리를 채운다.** 나머지 배치와 비율은 남는다. focus는 같은 칸에 두고, 그 칸이 지워졌으면 그 자리로 온 칸이다.
+- **모든 칸이 최소 크기(폭 320, 높이 240)로 들어가지 않으면 focus 칸 하나만 그린다.** 저장된 tree와 탭 소속은 바꾸지 않는다(`fitsArea`).
+- **경계 drag는 양쪽 하위 배치의 최소 크기 안에서 비율을 바꾼다.** 놓을 때만 저장하고 두 번 누르면 50:50이다. 나눔은 root부터 `a`/`b`를 이은 경로로 가리킨다(`setRatio`).
+- **칸 번호(`pane.focus` 1~6, palette의 Pane N)는 잎 순서(왼쪽·위에서 오른쪽·아래로)다.**
 
 ## 왜 이 모양인가
 
@@ -77,7 +86,7 @@ project 창이 가진 탭이 어디에 있는가를 정하는 메커니즘이다
 - **desk를 건너 탭 key가 겹치는지는 schema가 거절하지 않는다.** 거절하면 읽기가 손상이 되어 layout 전체를 잃는다. 겹침은 model과 그 위험 test가 막는다.
 - **desk를 바꿀 때 detached 창은 "보일 key 목록" 한 번으로 맞춘다.** 창마다 부르면 중간에 일부만 바뀐 채 남을 수 있다. 창이 없는 key를 main이 열지 않는 까닭은 열기에 필요한 탭 값과 bounds를 renderer가 갖고 있고, 이미 있는 창에 `open`을 부르면 앞으로 가져와 focus를 뺏어서다. 보이기는 focus 없이(`showInactive`) 한다.
 - **selector는 상단 bar 왼쪽 경로다(사람).** 가운데에 두면 minimized span 단추가 쓸 자리가 줄어든다. 파일 경로 breadcrumb은 project 창에서 뺐다. project 조각도 menu라 active project를 이 창에서 연다. place switcher(`top-path/place-selector.tsx`)의 trigger는 윗줄에 종류(Project/App), 아랫줄에 이름이고, 열면 Projects와 Apps 두 묶음이 각각 최근에 연 순서로 선다(Recent 묶음 없음, 검색 없음). 목록 줄에만 place 표식(`parts/place-mark`)이 붙는다. 이미지가 없으면 첫 글자와 id로 고른 색이다.
-- **`originPane`은 번호다.** pane은 최대 둘이다. pane이 사라져 번호가 어긋나면 focus pane으로 보낸다.
+- **`originPane`은 번호다.** pane은 최대 여섯이다(`MAX_PANES`, schema와 renderer가 같은 값을 따로 적는다). pane이 사라져 번호가 어긋나면 focus pane으로 보낸다.
 - **floats 개수(20)는 schema만 막는다.** 사람이 20개를 띄울 일이 없다.
 - **새 패널은 `.content` 가운데 60% 크기로 겹쳐 뜬다.** 비껴 놓기(cascade)는 하지 않는다.
 - **겹치는 동안 native view를 cover로 줄인다.** 버린 안: 겹치는 동안 마지막 `capturePage` 그림을 보이기(page가 멈춘다), DOM 패널도 native view로 띄우기(패널마다 shell renderer 하나라 가장 크다). 잃는 것은 패널을 옮길 때마다 page 크기가 바뀌어 다시 layout되는 것이다.
@@ -89,3 +98,5 @@ project 창이 가진 탭이 어디에 있는가를 정하는 메커니즘이다
 - **두 방향(project 창, detached 창)을 IPC 하나(`ipc/detached.ts`, `window.lophnDetached`)로 묶는다.** 같은 renderer bundle과 preload를 쓰는 창이고 main이 보낸 창으로 역할을 가른다. 통로를 둘로 가르면 preload·노출·type이 두 벌이 된다.
 - **보통 browser 탭은 옮기지 않고 다시 load한다(사람).** `<webview>`는 그것을 띄운 shell 문서에 묶여 다른 부모로 옮기면 guest가 다시 만들어진다. 쓰던 form, scroll, 그 page가 연 popup의 `window.opener`를 잃는다. page를 지킬 수 있는 곳은 native view뿐이고 그것이 `window.opener`가 걸린 popup이다.
 - **detached 창 안의 popup은 또 하나의 detached 창이다.** 가장 단순하게 `window.opener`를 지킨다. 대안인 project 창 floats 층으로 옮기기는 opener 소유 이동이 더 필요하다. `open`의 bounds에 opener 창 가운데 features의 크기를 넣고, 화면 작업 영역 안으로 당긴다. detached 창만 최소 크기가 320×240이다(다른 창과 bounds가 없는 detached 창은 960×600).
+- **칸 배치는 칸 목록이 아니라 tree다(사람).** 좌우로만 나누는 값(`split_ratio`)으로는 위아래 나눔을 담지 못하고, VS Code처럼 칸 안을 다시 나누려면 중첩이 필요하다. 칸마다 사각형을 저장하는 안은 경계 하나를 옮길 때 이웃 칸을 모두 다시 계산해야 해서 버렸다. 칸은 최대 6개다.
+- **판 5 파일은 읽을 때 올린다.** 좌우 두 칸이던 `split_ratio`는 `row` 나눔 하나가 된다(`layout.ts`의 `upgradeFromV5`). 쓰던 탭 배치를 새로 만들지 않으려는 것이고 다음 저장에서 판 6 파일이 된다(AGENTS.md "호환성").

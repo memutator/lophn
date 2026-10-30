@@ -62,10 +62,7 @@ function tabs(view: WorkspaceView): PaletteEntry<WorkspaceTarget>[] {
   return view.panes.flatMap((pane, index) =>
     pane.tabs.map((tab) => {
       const kind = tabKindLabel(tab.kind);
-      const side =
-        index === 0
-          ? t("common.label.palette-left-pane")
-          : t("common.label.palette-right-pane");
+      const side = t("common.label.palette-pane", { number: index + 1 });
       return {
         group: "tabs" as const,
         key: `tab:${index}:${tab.key}`,

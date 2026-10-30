@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { evenRow } from "./layout-tree.ts";
 import type { TabItem, WorkspaceView } from "./model.ts";
 import { type OpenAt, openAt } from "./open-policy.ts";
 
@@ -19,7 +20,7 @@ const view = (
     tabs: keys.map(tab),
     selected: keys[0] ?? null,
   })),
-  splitRatio: 0.5,
+  layout: evenRow(panes.length),
   focusedPane: 0,
   floats: floats.map((key) => ({
     tab: tab(key),
@@ -45,6 +46,12 @@ test("연 탭의 자리에 따라 새 탭이 source를 가리지 않는 자리�
     [
       "pane 둘, 반대쪽 끝",
       view([["a.md"], ["claude"]]),
+      "claude",
+      { kind: "pane", after: "a.md" },
+    ],
+    [
+      "pane 셋, 마지막 칸이면 처음 칸으로 돈다",
+      view([["a.md"], ["b.md"], ["claude"]]),
       "claude",
       { kind: "pane", after: "a.md" },
     ],

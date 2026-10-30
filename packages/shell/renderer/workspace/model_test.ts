@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { evenRow, leafCount } from "./layout-tree.ts";
+
 import {
   activeView,
   allDeskTabs,
@@ -24,6 +26,7 @@ import {
   minimizeTab,
   moveTab,
   moveTabBy,
+  splitTab,
   openAcrossDesks,
   openDetachedTab,
   openFloat,
@@ -49,7 +52,7 @@ const tab = (key: string, preview = false): TabItem => ({
 
 const viewOf = (pane: PaneState): WorkspaceView => ({
   panes: [pane],
-  splitRatio: 0.5,
+  layout: "leaf",
   focusedPane: 0,
   floats: [],
   detached: [],
@@ -134,10 +137,12 @@ test("탭을 칸 본문에 놓아 나누고 옮기고 minimized에서 꺼내도 
   const back = dropTabOnPane(right, "b", 0, "center");
   assert.deepStrictEqual(panes(back), [["a", "c", "b"]]);
   const over = dropTabOnPane(back, "a", 0, "right");
-  assert.deepStrictEqual(panes(dropTabOnPane(over, "c", 1, "left")), [
-    ["c", "b"],
-    ["a"],
-  ]);
+  // 칸 가장자리에 놓으면 그 칸 곁에 새 칸이 생긴다. 위아래도 같다.
+  const three = dropTabOnPane(over, "c", 1, "left");
+  assert.deepStrictEqual(panes(three), [["b"], ["c"], ["a"]]);
+  const down = dropTabOnPane(three, "a", 0, "bottom");
+  assert.deepStrictEqual(panes(down), [["b"], ["a"], ["c"]]);
+  assert.strictEqual(leafCount(down.layout), down.panes.length);
 
   const minimized = minimizeTab(right, "b", area);
   assert.strictEqual(minimized.floats.length, 1);
@@ -159,6 +164,43 @@ test("탭을 칸 본문에 놓아 나누고 옮기고 minimized에서 꺼내도 
   assert.deepStrictEqual(docked.floats, []);
 });
 
+test("칸을 나누고 닫아도 배치 tree의 잎 수가 칸 수와 같고 탭이 사라지거나 둘이 되지 않는다", () => {
+  const start = viewOf({
+    tabs: [tab("a"), tab("b"), tab("c"), tab("d"), tab("e"), tab("f")],
+    selected: "a",
+  });
+  const sides = ["right", "bottom", "left", "top", "right"] as const;
+  let view = start;
+  const keys = ["b", "c", "d", "e", "f"];
+  keys.forEach((key, at) => {
+    view = splitTab(view, key, Math.min(at, view.panes.length - 1), sides[at]!);
+    assert.strictEqual(leafCount(view.layout), view.panes.length);
+  });
+  assert.strictEqual(view.panes.length, 6);
+  assert.deepStrictEqual(
+    allTabs(view)
+      .map((item) => item.key)
+      .sort(),
+    ["a", "b", "c", "d", "e", "f"],
+  );
+  // 여섯 칸이 최대다. 더 나누지 않는다.
+  assert.strictEqual(splitTab(view, "a", 0, "right"), view);
+  // 탭을 닫아 칸이 비면 그 잎만 빠지고 나머지 배치는 남는다.
+  for (const key of keys) {
+    const at = view.panes.findIndex((pane) =>
+      pane.tabs.some((item) => item.key === key),
+    );
+    view = closeTab(view, at, key);
+    assert.strictEqual(leafCount(view.layout), view.panes.length);
+    assert.ok(view.focusedPane < view.panes.length);
+  }
+  assert.deepStrictEqual(
+    allTabs(view).map((item) => item.key),
+    ["a"],
+  );
+  assert.strictEqual(view.layout, "leaf");
+});
+
 test("float, dock, minimize, restore, raise, detach, attach, close를 이어서 해도 탭이 사라지거나 둘이 되지 않는다", () => {
   const area = { width: 1000, height: 700 };
   const bounds = { x: 100, y: 80, width: 800, height: 600 };
@@ -167,7 +209,7 @@ test("float, dock, minimize, restore, raise, detach, attach, close를 이어서 
       { tabs: [tab("a"), tab("b"), tab("c")], selected: "a" },
       { tabs: [tab("d"), tab("e")], selected: "d" },
     ],
-    splitRatio: 0.5,
+    layout: evenRow(2),
     focusedPane: 0,
     floats: [
       {
@@ -364,7 +406,7 @@ test("transient 탭은 저장할 view에 없다", () => {
       { tabs: [tab("a"), transient("t1")], selected: "t1" },
       { tabs: [transient("t2")], selected: "t2" },
     ],
-    splitRatio: 0.5,
+    layout: evenRow(2),
     focusedPane: 1,
     floats: [
       {
@@ -426,7 +468,7 @@ test("자리에서 float, detach하고 자리를 바꾸고 건너 열고 합쳐�
     detached: WorkspaceView["detached"] = [],
   ): WorkspaceView => ({
     panes,
-    splitRatio: 0.5,
+    layout: evenRow(panes.length),
     focusedPane: 0,
     floats,
     detached,

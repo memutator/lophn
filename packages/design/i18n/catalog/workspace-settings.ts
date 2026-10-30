@@ -222,7 +222,8 @@ export const workspaceSettings = {
   "settings.label.key-numbered": "{modifier}+number",
   "settings.label.key-numbered-mixed": "Changed for some numbers",
   "settings.label.key-pane-focus": "Focus a pane",
-  "settings.label.key-pane-split": "Split the pane",
+  "settings.label.key-pane-split": "Split the pane to the right",
+  "settings.label.key-pane-split-down": "Split the pane downward",
   "settings.label.key-search": "Search shortcuts",
   "settings.label.key-search-by-key": "Press a shortcut",
   "settings.label.key-search-open": "Search in files",
@@ -292,9 +293,11 @@ export const workspaceSettings = {
   "settings.note.key-files-quick-open":
     "Opens search and commands, where you can type a file name.",
   "settings.note.key-pane-focus":
-    "Moves to a pane by number. 1 is the left pane and 2 is the right pane.",
+    "Moves to a pane by number. Panes are numbered left to right, then top to bottom.",
   "settings.note.key-pane-split":
     "Moves the current tab to a new pane on the right.",
+  "settings.note.key-pane-split-down":
+    "Moves the current tab to a new pane below.",
   "settings.note.key-search-by-key":
     "Press keys to find what uses them. Backspace clears.",
   "settings.note.key-search-open":

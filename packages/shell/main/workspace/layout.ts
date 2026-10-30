@@ -1,5 +1,7 @@
 // WorkspaceLayout의 검증과 기본값, 읽던 위치
 // 보존의 순수 동작만 둔다. schema 원본은 schema.ts가 정한다.
+import { z } from "zod";
+
 import {
   LAYOUT_SCHEMA_VERSION,
   type LayoutFile,
@@ -9,8 +11,10 @@ import {
 } from "./schema.ts";
 import { tabKindOf } from "./kinds/registry.ts";
 
+export { MAX_PANES } from "./schema.ts";
 export type {
   LayoutFile,
+  LayoutNode,
   LayoutTab,
   WindowBounds,
   WorkspaceDesk,
@@ -25,7 +29,8 @@ export type LayoutResult =
 
 /**
  * 파일에서 읽은 값을 검증한다. 미지원 schema와 손상은 안전한 오류로 빈 layout을
- * 가리킨다. 원본 파일은 바꾸지 않는다.
+ * 가리킨다. 원본 파일은 바꾸지 않는다. 판 5(좌우 두 칸, `split_ratio`)는 판 6으로 올려 읽는다. 쓰던 탭
+ * 배치를 잃지 않으려는 것이고, 다음 저장에서 판 6 파일이 된다.
  */
 export function parseLayoutFile(value: unknown): LayoutResult {
   if (
@@ -35,13 +40,50 @@ export function parseLayoutFile(value: unknown): LayoutResult {
     typeof (value as { schema_version: unknown }).schema_version === "number"
   ) {
     const version = (value as { schema_version: number }).schema_version;
-    if (version !== SCHEMA_VERSION) {
+    if (version === 5) value = upgradeFromV5(value);
+    else if (version !== SCHEMA_VERSION) {
       return { ok: false, reason: "unsupported_schema" };
     }
   }
   const parsed = layoutFileSchema.safeParse(skipUnregisteredTabs(value));
   if (!parsed.success) return { ok: false, reason: "corrupt" };
   return { ok: true, layout: parsed.data.layout };
+}
+
+// 판 5 파일의 모양. 칸은 하나거나 좌우 둘이었고, 둘이면 `split_ratio`가 왼쪽 몫이다.
+const v5FileSchema = z.looseObject({
+  layout: z.looseObject({
+    desks: z.record(
+      z.string(),
+      z.looseObject({ panes: z.array(z.unknown()), split_ratio: z.unknown() }),
+    ),
+  }),
+});
+
+// 맞지 않으면 그대로 돌려줘 schema 검증이 손상으로 판단한다.
+function upgradeFromV5(file: unknown): unknown {
+  const parsed = v5FileSchema.safeParse(file);
+  if (!parsed.success) return file;
+  const { layout } = parsed.data;
+  const desks = Object.fromEntries(
+    Object.entries(layout.desks).map(
+      ([name, { split_ratio: ratio, ...desk }]) => [
+        name,
+        {
+          ...desk,
+          layout:
+            desk.panes.length === 2
+              ? { dir: "row", ratio, a: "leaf", b: "leaf" }
+              : "leaf",
+        },
+      ],
+    ),
+  );
+  return {
+    ...parsed.data,
+    schema_version: SCHEMA_VERSION,
+    layout: { ...layout, schema_version: SCHEMA_VERSION, desks },
+  };
 }
 
 /**

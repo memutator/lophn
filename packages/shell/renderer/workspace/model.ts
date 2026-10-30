@@ -1,6 +1,14 @@
 // project-workspace 틀의 순수 규칙. 화면은 이 값을 그대로 그린다.
 // 치수는 shell/desktop, shell/editor, shell/design-system 문서를 따른다.
 
+import {
+  type LayoutNode,
+  MAX_PANES,
+  type PaneSide,
+  removeLeaf,
+  splitLeaf,
+} from "./layout-tree.ts";
+
 /** sidebar 기본 폭. drag로 200~400px, 접힘 44px. */
 export const SIDEBAR_WIDTH = 240;
 const SIDEBAR_MIN = 200;
@@ -10,11 +18,6 @@ const SIDEBAR_COLLAPSED = 44;
 /** 반응형 경계. */
 const BREAKPOINT_SM = 640;
 export const BREAKPOINT_MD = 1024;
-
-/** 칸 최소 폭·경계·잡는 영역. */
-const PANE_MIN = 480;
-const SPLIT_DIVIDER = 1;
-export const SPLIT_EQUAL = 0.5;
 
 type SidebarMode = "open" | "collapsed" | "hidden";
 
@@ -91,8 +94,11 @@ export interface PaneState {
 
 export interface WorkspaceView {
   readonly panes: readonly PaneState[];
-  /** 왼쪽 칸 비율. 0보다 크고 1보다 작다. */
-  readonly splitRatio: number;
+  /**
+   * 칸 배치 tree. 잎 수가 `panes` 수와 같고 i번째 잎(왼쪽·위에서 오른쪽·아래로 읽은 순서)이 i번째 칸이다.
+   * 칸을 넣고 뺄 때는 `panes`와 이 tree를 같은 index로 같이 고친다.
+   */
+  readonly layout: LayoutNode;
   readonly focusedPane: number;
   /** workspace 위에 뜬 패널. 배열 순서가 위아래 순서다(마지막이 맨 위). */
   readonly floats: readonly FloatItem[];
@@ -156,7 +162,8 @@ export function normalizePane(pane: PaneState): PaneState {
 
 /**
  * 탭을 옮긴다. 원본 칸에서 빼고 대상 칸의 `before` 탭 앞에 넣는다(없으면 끝). 같은 칸이어도
- * `before`를 주면 순서만 바꾼다. 옮긴 탭이 선택이 되고 focus는 대상 칸으로 간다. 옮긴 탭은 고정 탭이 된다.
+ * `before`를 주면 순서만 바꾼다. 옮긴 탭이 선택이 되고 focus는 대상 칸으로 간다. 옮긴 탭은 고정 탭이다.
+ * 새 칸은 만들지 않는다(`splitTab`).
  */
 export function moveTab(
   view: WorkspaceView,
@@ -164,22 +171,7 @@ export function moveTab(
   toPane: number,
   before?: string | null,
 ): WorkspaceView {
-  // floated 탭은 먼저 칸에 넣는다. 그 탭뿐인 한 칸에서는 나눌 것이 없어 pane 0에 둔다.
-  if (isFloated(view, key)) {
-    view = dockTab(view, key);
-    if (
-      toPane === 1 &&
-      view.panes.length === 1 &&
-      view.panes[0]!.tabs.length < 2
-    ) {
-      toPane = 0;
-    }
-  }
-  // 한 칸에서 오른쪽으로 옮기면 새 칸을 연다. 탭이 하나뿐이면 나눌 것이 없다.
-  if (toPane === 1 && view.panes.length === 1) {
-    if (view.panes[0]!.tabs.length < 2) return view;
-    view = { ...view, panes: [...view.panes, { tabs: [], selected: null }] };
-  }
+  if (isFloated(view, key)) view = dockTab(view, key);
   if (toPane < 0 || toPane >= view.panes.length) return view;
   const fromPane = holderOf(view, key);
   if (fromPane < 0 || (fromPane === toPane && before === undefined)) {
@@ -211,7 +203,45 @@ export function moveTab(
   });
   const moved = { ...view, panes, focusedPane: toPane };
   const kept = dropEmptyPane(moved);
-  return kept === moved ? moved : { ...kept, focusedPane: 0 };
+  return kept === moved ? moved : { ...kept, focusedPane: holderOf(kept, key) };
+}
+
+/**
+ * 탭을 `pane` 곁에 새 칸을 만들어 옮긴다. left·top이면 새 칸이 앞, right·bottom이면 뒤다. 그 탭뿐인 칸을
+ * 제 곁으로 나누거나 칸이 MAX_PANES개면 나누지 않고 그대로다.
+ */
+export function splitTab(
+  view: WorkspaceView,
+  key: string,
+  pane: number,
+  side: PaneSide,
+): WorkspaceView {
+  if (isFloated(view, key)) view = dockTab(view, key);
+  const from = holderOf(view, key);
+  if (
+    from < 0 ||
+    pane < 0 ||
+    pane >= view.panes.length ||
+    view.panes.length >= MAX_PANES ||
+    (from === pane && view.panes[pane]!.tabs.length < 2)
+  ) {
+    return view;
+  }
+  const at = side === "left" || side === "top" ? pane : pane + 1;
+  const split: WorkspaceView = {
+    ...view,
+    panes: [
+      ...view.panes.slice(0, at),
+      { tabs: [], selected: null },
+      ...view.panes.slice(at),
+    ],
+    layout: splitLeaf(
+      view.layout,
+      pane,
+      side === "left" || side === "right" ? "row" : "column",
+    ),
+  };
+  return moveTab(split, key, at);
 }
 
 /** 탭을 같은 칸 안에서 한 칸 왼쪽(-1)이나 오른쪽(1)으로 옮긴다. 끝이면 그대로다. */
@@ -230,8 +260,8 @@ export function shiftTab(
 }
 
 /**
- * 탭을 이웃 칸으로 옮긴다(-1 왼쪽, 1 오른쪽). 한 칸이면 나눠서 옮기고, 왼쪽으로 나누면 새 칸이
- * 왼쪽에 선다. 이미 끝 칸이면 그대로다.
+ * 탭을 이웃 칸으로 옮긴다(-1 앞, 1 뒤. 칸 순서는 `layout`의 잎 순서다). 한 칸이면 나눠서 옮기고, 왼쪽으로
+ * 나누면 새 칸이 왼쪽에 선다. 이미 끝 칸이면 그대로다.
  */
 export function moveTabBy(
   view: WorkspaceView,
@@ -241,25 +271,17 @@ export function moveTabBy(
   const from = holderOf(view, key);
   if (from < 0) return view;
   if (view.panes.length === 1) {
-    const split = moveTab(view, key, 1);
-    if (split === view || delta === 1) return split;
-    return {
-      ...split,
-      panes: [...split.panes].reverse(),
-      splitRatio: 1 - split.splitRatio,
-      focusedPane: 0,
-    };
+    return splitTab(view, key, 0, delta === 1 ? "right" : "left");
   }
   const to = from + delta;
   return to < 0 || to >= view.panes.length ? view : moveTab(view, key, to);
 }
 
-export type PaneDropZone = "center" | "left" | "right";
+export type PaneDropZone = "center" | PaneSide;
 
 /**
- * 탭을 칸 본문에 놓는다. 한 칸이면 left·right가 칸을 나누고 center는 그 칸에서 탭을 고른다. 두 칸이면
- * 왼쪽 칸에서는 right만 오른쪽 칸으로, 오른쪽 칸에서는 left만 왼쪽 칸으로 보내고 나머지는 놓은 칸에 둔다.
- * floated(minimized 포함) 탭은 먼저 칸에 넣는다.
+ * 탭을 칸 본문에 놓는다. 가장자리(left·right·top·bottom)면 그 칸 곁에 새 칸을 만들어 옮기고(`splitTab`),
+ * 나눌 수 없거나 center면 그 칸에 넣어 고른다. floated(minimized 포함) 탭은 먼저 칸에 넣는다.
  */
 export function dropTabOnPane(
   view: WorkspaceView,
@@ -269,27 +291,17 @@ export function dropTabOnPane(
 ): WorkspaceView {
   if (isFloated(view, key)) view = dockTab(view, key);
   const from = holderOf(view, key);
-  if (from < 0) return view;
-  if (view.panes.length === 1) {
-    if (zone === "right") return moveTab(view, key, 1);
-    if (zone === "left") return moveTabBy(view, key, -1);
+  if (from < 0 || pane < 0 || pane >= view.panes.length) return view;
+  if (zone !== "center") {
+    const split = splitTab(view, key, pane, zone);
+    if (split !== view) return split;
   }
-  const target =
-    view.panes.length === 1
-      ? 0
-      : pane === 0
-        ? zone === "right"
-          ? 1
-          : 0
-        : zone === "left"
-          ? 0
-          : 1;
-  if (target !== from) return moveTab(view, key, target);
+  if (from !== pane) return moveTab(view, key, pane);
   return {
     ...view,
-    focusedPane: target,
+    focusedPane: pane,
     panes: view.panes.map((item, index) =>
-      index === target
+      index === pane
         ? {
             tabs: item.tabs.map((tab) =>
               tab.key === key ? { ...tab, preview: false } : tab,
@@ -486,9 +498,27 @@ function dropEmptyPane(view: WorkspaceView): WorkspaceView {
   const kept = view.panes.filter((pane) => pane.tabs.length > 0);
   if (kept.length === view.panes.length) return view;
   if (kept.length === 0) {
-    return { ...view, panes: [{ tabs: [], selected: null }], focusedPane: 0 };
+    return {
+      ...view,
+      panes: [{ tabs: [], selected: null }],
+      layout: "leaf",
+      focusedPane: 0,
+    };
   }
-  return { ...view, panes: kept, focusedPane: 0 };
+  // 뒤 칸부터 지워야 앞 칸의 index가 그대로다. focus는 같은 칸에 두고, 그 칸이 지워졌으면 그 자리로 온 칸이다.
+  let layout = view.layout;
+  let removedBefore = 0;
+  for (let index = view.panes.length - 1; index >= 0; index--) {
+    if (view.panes[index]!.tabs.length > 0) continue;
+    layout = removeLeaf(layout, index);
+    if (index < view.focusedPane) removedBefore++;
+  }
+  return {
+    ...view,
+    panes: kept,
+    layout,
+    focusedPane: Math.min(view.focusedPane - removedBefore, kept.length - 1),
+  };
 }
 
 const FLOAT_SHARE = 0.6;
@@ -901,7 +931,7 @@ export interface WorkspaceDesks {
 export function emptyView(): WorkspaceView {
   return {
     panes: [{ tabs: [], selected: null }],
-    splitRatio: SPLIT_EQUAL,
+    layout: "leaf",
     focusedPane: 0,
     floats: [],
     detached: [],
@@ -1120,53 +1150,6 @@ export function mergeDeskIntoDefault(
     active: desks.active === key ? DEFAULT_DESK : desks.active,
     desks: { ...rest, [DEFAULT_DESK]: base },
   };
-}
-
-interface SplitLayout {
-  /** 화면에 그릴 칸 수. 폭이 부족하면 1이다. */
-  readonly visiblePanes: 1 | 2;
-  /** 왼쪽 칸 폭. 한 칸 보기에서는 전체 폭. */
-  readonly leftWidth: number;
-  readonly rightWidth: number;
-  /** 한 칸 보기에서 보이는 칸. focus 칸이다. */
-  readonly shownPane: number;
-}
-
-/**
- * 두 칸을 그릴 폭이 있는지. 각 칸 480px와 경계 1px가 필요하다.
- * 부족하면 저장된 비율·탭 소속을 바꾸지 않고 한 칸 보기로 표시한다.
- */
-export function splitLayout(
-  bodyWidth: number,
-  view: WorkspaceView,
-): SplitLayout {
-  const twoPanes = view.panes.length === 2;
-  if (!twoPanes || bodyWidth < PANE_MIN * 2 + SPLIT_DIVIDER) {
-    return {
-      visiblePanes: 1,
-      leftWidth: bodyWidth,
-      rightWidth: 0,
-      shownPane: Math.min(view.focusedPane, view.panes.length - 1),
-    };
-  }
-  const left = Math.round((bodyWidth - SPLIT_DIVIDER) * view.splitRatio);
-  const clamped = Math.min(
-    bodyWidth - SPLIT_DIVIDER - PANE_MIN,
-    Math.max(PANE_MIN, left),
-  );
-  return {
-    visiblePanes: 2,
-    leftWidth: clamped,
-    rightWidth: bodyWidth - SPLIT_DIVIDER - clamped,
-    shownPane: view.focusedPane,
-  };
-}
-
-/** 경계 drag로 비율을 바꾼다. 두 칸 각각 480px를 넘지 않게 가둔다. */
-export function ratioFromDrag(bodyWidth: number, leftWidth: number): number {
-  const usable = bodyWidth - SPLIT_DIVIDER;
-  const clamped = Math.min(usable - PANE_MIN, Math.max(PANE_MIN, leftWidth));
-  return clamped / usable;
 }
 
 /** 상단 경로의 한 조각(Settings의 breadcrumb이 쓴다). */

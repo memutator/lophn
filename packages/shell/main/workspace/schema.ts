@@ -1,5 +1,6 @@
 // WorkspaceLayout 값. 파일 계약이다. 판 2부터 떠 있는 탭(floats)이, 판 3부터 detached 탭(OS 창)이, 판 4부터 자리(desk)가 있다.
 // 판 5에서 쓰지 않던 desktop 창 bounds(`window_bounds`)를 뺐다. 창 자리는 `window-state.ts`가 앱에 하나 둔다.
+// 판 6에서 좌우 두 칸의 `split_ratio`를 칸 배치 tree(`layout`)로 바꿨다. 칸은 최대 6개이고 위아래로도 나뉜다.
 // renderer가 보내는 wire 모양은 ipc/workspace.ts가 정한다. 여기는 파일에 남는
 // schema 원본과 검증·기본값의 순수 동작만 둔다.
 import { z } from "zod";
@@ -7,7 +8,10 @@ import { z } from "zod";
 import { type LayoutTab, tabKindOf } from "./kinds/registry.ts";
 import { tabKey } from "./kinds/values.ts";
 
-export const LAYOUT_SCHEMA_VERSION = 5;
+export const LAYOUT_SCHEMA_VERSION = 6;
+
+// 칸 최대 수. renderer layout-tree.ts의 MAX_PANES와 짝이다.
+export const MAX_PANES = 6;
 
 // default 자리의 key. workflow 이름은 slug라 `_`로 시작할 수 없어 겹치지 않는다. renderer model.ts의 DEFAULT_DESK와 짝이다.
 export const DEFAULT_DESK = "_default";
@@ -61,7 +65,11 @@ const layoutFloatSchema = z.strictObject({
   tab: layoutTabSchema,
   rect: windowBounds,
   minimized: z.boolean(),
-  origin_pane: z.number().int().min(0).max(1),
+  origin_pane: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_PANES - 1),
   // 탭 menu의 Minimize로 칸에서 바로 접은 탭의 그 칸 안 자리. 복원하면 floating이 아니라 이 자리로 간다.
   docked_at: z.number().int().min(0).max(1000).optional(),
 });
@@ -72,17 +80,51 @@ const layoutDetachedSchema = z.strictObject({
   bounds: windowBounds,
 });
 
+// 칸 배치 tree. 잎은 "leaf"이고 나눔은 row(a가 왼쪽)나 column(a가 위)이다. ratio는 a가 차지하는 몫이다.
+// 잎의 순서(왼쪽·위에서 오른쪽·아래로)가 panes의 순서다. renderer layout-tree.ts의 LayoutNode와 짝이다.
+export type LayoutNode =
+  | "leaf"
+  | {
+      dir: "row" | "column";
+      ratio: number;
+      a: LayoutNode;
+      b: LayoutNode;
+    };
+
+const layoutNodeSchema: z.ZodType<LayoutNode> = z.lazy(() =>
+  z.union([
+    z.literal("leaf"),
+    z.strictObject({
+      dir: z.enum(["row", "column"]),
+      ratio: z.number().finite().gt(0).lt(1),
+      a: layoutNodeSchema,
+      b: layoutNodeSchema,
+    }),
+  ]),
+);
+
+function leafCount(node: LayoutNode): number {
+  return node === "leaf" ? 1 : leafCount(node.a) + leafCount(node.b);
+}
+
 // 자리 하나. 판 3의 최상위 칸과 같은 값이 자리마다 있다.
 const deskSchema = z
   .strictObject({
-    panes: z.array(layoutPaneSchema).min(1).max(2),
-    split_ratio: z.number().finite().gt(0).lt(1),
-    focused_pane: z.number().int().min(0).max(1),
+    panes: z.array(layoutPaneSchema).min(1).max(MAX_PANES),
+    layout: layoutNodeSchema,
+    focused_pane: z
+      .number()
+      .int()
+      .min(0)
+      .max(MAX_PANES - 1),
     floats: z.array(layoutFloatSchema).max(20),
     detached: z.array(layoutDetachedSchema).max(20),
   })
   .refine((desk) => desk.focused_pane < desk.panes.length, {
     message: "focused_pane is not a valid pane index",
+  })
+  .refine((desk) => leafCount(desk.layout) === desk.panes.length, {
+    message: "layout leaves do not match panes",
   });
 
 export type WorkspaceDesk = z.infer<typeof deskSchema>;

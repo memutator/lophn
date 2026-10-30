@@ -66,6 +66,10 @@ const WORDING: Readonly<Record<Command, Wording>> = {
     name: "settings.label.key-pane-split",
     help: "settings.note.key-pane-split",
   },
+  "pane.split-down": {
+    name: "settings.label.key-pane-split-down",
+    help: "settings.note.key-pane-split-down",
+  },
   "sidebar.toggle": {
     name: "settings.label.key-sidebar-toggle",
     help: "settings.note.key-sidebar-toggle",

@@ -15,7 +15,7 @@ export type OpenAt =
  * 연 탭(source)이 있는 자리로 새 탭의 자리를 정한다.
  * - run은 floated다. 실행을 보고 닫는 잠깐의 터미널이라 pane 배치를 바꾸지 않는다.
  * - source가 보이는 desk에 없으면 source 바로 뒤다. `openTab`이 그 desk로 건너간다.
- * - source가 pane에 있고 pane이 둘이면 반대쪽 pane 끝이다. source(agent, 터미널)를 가리지 않는다.
+ * - source가 pane에 있고 pane이 둘 이상이면 다음 pane(칸 순서, 끝이면 처음) 끝이다. source(agent, 터미널)를 가리지 않는다.
  * - pane이 하나면 source 바로 뒤다. 자동으로 나누면 layout이 바뀐다.
  * - source가 floated·minimized·detached이거나 없으면 focus pane 끝이다. 패널과 창은 그대로 둔다.
  */
@@ -32,11 +32,9 @@ export function openAt(
     pane.tabs.some((tab) => tab.key === source),
   );
   if (at < 0) return { kind: "pane" };
-  if (view.panes.length !== 2) return { kind: "pane", after: source };
-  return {
-    kind: "pane",
-    after: view.panes[1 - at]!.tabs.at(-1)?.key ?? source,
-  };
+  if (view.panes.length < 2) return { kind: "pane", after: source };
+  const next = view.panes[(at + 1) % view.panes.length]!;
+  return { kind: "pane", after: next.tabs.at(-1)?.key ?? source };
 }
 
 /** show 자리의 `openTab` option. */

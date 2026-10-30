@@ -20,7 +20,7 @@ function desk(path: string): WorkspaceDesk {
   const tab = { kind: "document_editor" as const, key: path, path };
   return {
     panes: [{ tabs: [tab], selected_tab: tab.key }],
-    split_ratio: 0.5,
+    layout: "leaf" as const,
     focused_pane: 0,
     floats: [],
     detached: [],

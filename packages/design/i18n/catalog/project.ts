@@ -114,7 +114,6 @@ export const project = {
   "project-workspace.button.minimized-count": "+{count}",
   "project-workspace.button.minimized-more":
     "{count, plural, one {# more minimized panel} other {# more minimized panels}}",
-  "project-workspace.button.move-pane": "Move to other pane",
   "project-workspace.button.new-session-with": "New session with {agent}",
   "project-workspace.button.new-tab": "New tab",
   "project-workspace.button.remove-recent": "Remove from Recent",
@@ -133,6 +132,8 @@ export const project = {
   "project-workspace.button.tab-minimize": "Minimize",
   "project-workspace.button.tab-rename": "Rename",
   "project-workspace.button.tab-reveal": "Reveal in Explorer",
+  "project-workspace.button.tab-split-down": "Split Down",
+  "project-workspace.button.tab-split-right": "Split Right",
   "project-workspace.empty.no-folders": "No project folder.",
   "project-workspace.empty.no-tabs": "Nothing open in this pane.",
   "project-workspace.error.explorer-action-failed":

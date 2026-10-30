@@ -310,7 +310,6 @@ export function Desktop({
         projectId={route.project}
         source={workspace}
         windowWidth={windowWidth}
-        bodyWidth={windowWidth - 240}
         onLauncher={launcher}
         onOpenPlace={openPlace}
         places={catalog}

@@ -205,13 +205,17 @@ export function DeskWindow({
             onManage={() => {}}
           />
           <div ref={content} className={workspace.content}>
-            <div className={paneStyles.panes}>
+            <div className={paneStyles.panes} style={{ display: "flex" }}>
               {view.panes.map((pane, index) => {
                 const tab = pane.tabs.find(
                   (item) => item.key === pane.selected,
                 );
                 return (
-                  <section key={index} className={paneStyles.pane}>
+                  <section
+                    key={index}
+                    className={paneStyles.pane}
+                    style={{ position: "relative", flex: "1 1 0" }}
+                  >
                     <TabStrip
                       tabs={stripTabsOf(pane.tabs.map(specOf))}
                       selected={pane.selected ?? ""}

@@ -175,7 +175,10 @@ function layoutOf(panes: readonly PaneSpec[], floats: readonly FloatSpec[]) {
           tabs: pane.tabs.map(storedTab),
           selected_tab: pane.selected,
         })),
-        split_ratio: 0.5,
+        layout:
+          panes.length === 2
+            ? { dir: "row", ratio: 0.5, a: "leaf", b: "leaf" }
+            : "leaf",
         focused_pane: 0,
         floats: floats.map((float) => ({
           tab: storedTab(float.tab),

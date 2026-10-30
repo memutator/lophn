@@ -154,7 +154,7 @@ function DetachedTab({
   const view = useMemo<WorkspaceView>(
     () => ({
       panes: [{ tabs: [], selected: null }],
-      splitRatio: 0.5,
+      layout: "leaf",
       focusedPane: 0,
       floats: [],
       detached: [{ tab, bounds: BOUNDS }],
@@ -166,7 +166,6 @@ function DetachedTab({
     projectId: project,
     source: workspace,
     windowWidth: globalThis.innerWidth,
-    bodyWidth: globalThis.innerWidth,
     onLauncher: noop,
     onSettings: noop,
     editor,

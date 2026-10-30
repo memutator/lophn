@@ -120,6 +120,7 @@ import {
   setFloatRect,
   shiftTab,
   sidebarView,
+  splitTab,
   stepTab,
   switchDesk,
   type TabItem,
@@ -127,6 +128,7 @@ import {
   type WorkspaceDesks,
   type WorkspaceView,
 } from "./model.ts";
+import { setRatio } from "./layout-tree.ts";
 import { NoticeCard } from "./notice-card.tsx";
 import { Panes } from "./panes/panes.tsx";
 import { openProjectLophn } from "./reactions/project-lophn.ts";
@@ -168,8 +170,6 @@ export interface WorkspaceProps {
   source: WorkspaceSource;
   /** 창 폭. 테스트가 고정하고 화면은 관측값을 넘긴다. */
   windowWidth: number;
-  /** 칸을 그릴 본문 폭. */
-  bodyWidth: number;
   /** 런처로 돌아간다. */
   onLauncher: () => void;
   /** 상단 바 place switcher에서 고른 place를 이 창에서 연다. 없으면 지금 project 하나만 보인다. */
@@ -236,15 +236,8 @@ function filePicker(): (() => Promise<string | null>) | undefined {
 
 // 프로젝트 작업대. sidebar·상단 경로·탭 줄·두 칸을 한 화면에 모은다.
 export function Workspace(props: WorkspaceProps) {
-  const {
-    projectId,
-    source,
-    windowWidth,
-    bodyWidth,
-    onLauncher,
-    onSettings,
-    terminal,
-  } = props;
+  const { projectId, source, windowWidth, onLauncher, onSettings, terminal } =
+    props;
   const browserApi = useBrowserApi();
   const bookmarkList = useBookmarks();
   // Agent 탭의 통로. 없으면 Agent 탭을 열지 않는다.
@@ -409,7 +402,6 @@ export function Workspace(props: WorkspaceProps) {
           .map((key) => ({ key, label: key }))),
   ];
   const focused = view.panes[view.focusedPane];
-  const contentWidth = mainSize?.width ?? bodyWidth;
 
   // 비동기 닫기·시작 결과는 그 사이 바뀐 배치에 적용한다.
   const latestDesks = useRef(desks);
@@ -1348,9 +1340,16 @@ export function Workspace(props: WorkspaceProps) {
         return;
       }
       case "pane.split":
-        // 이미 나뉘었으면 더 나눌 칸이 없다.
-        if (current.panes.length === 1 && pane.selected !== null) {
-          update(moveTab(current, pane.selected, 1));
+      case "pane.split-down":
+        if (pane.selected !== null) {
+          update(
+            splitTab(
+              current,
+              pane.selected,
+              at,
+              command === "pane.split" ? "right" : "bottom",
+            ),
+          );
           focusPaneBody(latest.current.focusedPane);
         }
         return;
@@ -1743,7 +1742,6 @@ export function Workspace(props: WorkspaceProps) {
                     update({ ...latest.current, focusedPane: pane });
                     openFile(host, path);
                   }}
-                  bodyWidth={contentWidth}
                   windowWidth={measuredWindow}
                   onSelect={(pane, key) => {
                     setFloatFocused(false);
@@ -1788,7 +1786,17 @@ export function Workspace(props: WorkspaceProps) {
                   onMove={(key, toPane, before) =>
                     update(moveTab(view, key, toPane, before))
                   }
-                  onRatio={(ratio) => update({ ...view, splitRatio: ratio })}
+                  onSplit={(pane, key, side) => {
+                    setFloatFocused(false);
+                    update(splitTab(latest.current, key, pane, side));
+                    focusPaneBody(latest.current.focusedPane);
+                  }}
+                  onRatio={(path, ratio) =>
+                    update({
+                      ...latest.current,
+                      layout: setRatio(latest.current.layout, path, ratio),
+                    })
+                  }
                   newTab={
                     <NewTabMenu
                       {...(pickFile === undefined

@@ -138,7 +138,7 @@ const SEEDED: WorkspaceSource = {
                 selected_tab: "term_1",
               },
             ],
-            split_ratio: 0.5,
+            layout: { dir: "row", ratio: 0.5, a: "leaf", b: "leaf" },
             focused_pane: 0,
             floats: [],
             detached: [],

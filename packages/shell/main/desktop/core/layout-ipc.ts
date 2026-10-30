@@ -17,6 +17,7 @@ import {
 } from "../ipc-guard.ts";
 import type { LayoutStore } from "../../workspace/layout-store.ts";
 import {
+  MAX_PANES,
   SCHEMA_VERSION,
   toLayoutFile,
   validateLayout,
@@ -34,9 +35,13 @@ const saveInput = z.strictObject({
     .record(
       z.string().min(1).max(200),
       z.strictObject({
-        panes: z.array(z.unknown()).min(1).max(2),
-        split_ratio: z.number(),
-        focused_pane: z.number().int().min(0).max(1),
+        panes: z.array(z.unknown()).min(1).max(MAX_PANES),
+        layout: z.unknown(),
+        focused_pane: z
+          .number()
+          .int()
+          .min(0)
+          .max(MAX_PANES - 1),
         floats: z.array(z.unknown()).max(20),
         detached: z
           .array(z.strictObject({ tab: z.unknown(), bounds: z.unknown() }))

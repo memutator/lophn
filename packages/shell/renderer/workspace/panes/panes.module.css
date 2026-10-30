@@ -1,6 +1,6 @@
 /* 옛 SplitPane처럼 칸마다 탭 줄과 따로 scroll하는 본문. */
 .panes {
-  display: flex;
+  position: relative;
   flex: 1;
   width: 100%;
   min-width: var(--space-0);
@@ -8,9 +8,8 @@
 }
 
 .pane {
-  position: relative;
+  position: absolute;
   display: flex;
-  flex: 1 1 0;
   flex-direction: column;
   min-width: var(--space-0);
   min-height: var(--space-0);
@@ -21,10 +20,7 @@
   box-shadow: inset 0 0 0 var(--border-focus-width) var(--color-focus);
 }
 
-.sized {
-  flex-grow: 0;
-  flex-shrink: 0;
-}
+/* 칸 자리(left·top·width·height)는 Panes가 style로 준다. 한 칸 보기는 inset 0이다. */
 
 /* 본문 여백 위 24px, 좌우 32px. 창 1024px 미만이나 칸 640px 미만은 16px. */
 .body {
@@ -57,16 +53,28 @@
   left: 50%;
 }
 
+.pane[data-tab-drop="top"]::after {
+  bottom: calc(50% - var(--control-lg-height) / 2);
+}
+
+.pane[data-tab-drop="bottom"]::after {
+  top: calc(50% + var(--control-lg-height) / 2);
+}
+
 .narrow {
   padding-right: var(--layout-pane-padding-narrow);
   padding-left: var(--layout-pane-padding-narrow);
 }
 
-/* 경계 왼쪽의 칸은 본문 오른쪽에 `.grab`이 이 칸 위로 들어오는 폭(4px)만큼 바탕색 테두리를 둔다. 없으면 본문
-   scrollbar 오른쪽 반이 `.grab` 밑에 깔려 그 위의 wheel과 thumb 끌기가 경계 끌기로 먹힌다. 테두리는 scrollbar
+/* 경계에 닿은 칸은 본문 오른쪽·아래에 `.grab`이 이 칸 위로 들어오는 폭(4px)만큼 바탕색 테두리를 둔다. 없으면 본문
+   scrollbar 반이 `.grab` 밑에 깔려 그 위의 wheel과 thumb 끌기가 경계 끌기로 먹힌다. 테두리는 scrollbar
    바깥이라 scrollbar가 그만큼 안으로 들어온다. */
-.pane:has(+ .divider) > .body {
+.pane[data-edge-right] > .body {
   border-right: var(--space-2) solid var(--color-surface-base);
+}
+
+.pane[data-edge-bottom] > .body {
+  border-bottom: var(--space-2) solid var(--color-surface-base);
 }
 
 /* 터미널처럼 본문을 스스로 채우는 탭. 여백과 칸 scroll 없이 그 탭이 맡는다. */
@@ -148,12 +156,9 @@
   line-height: var(--type-small-line);
 }
 
-/* 경계 1px. 가운데 8px가 잡는 영역이고 올리거나 잡으면 2px 선이 보인다. */
+/* 경계 1px. 가운데 8px가 잡는 영역이고 올리거나 잡으면 2px 선이 보인다. 자리는 Panes가 style로 준다. */
 .divider {
-  position: relative;
-  flex: none;
-  align-self: stretch;
-  width: var(--border-width);
+  position: absolute;
   background: var(--color-border-base);
   outline: none;
   touch-action: none;
@@ -183,6 +188,27 @@
   pointer-events: none;
   z-index: var(--z-sticky);
   transition: opacity var(--motion-duration-short) var(--motion-ease);
+}
+
+.divider[data-dir="column"] > .grab {
+  top: 50%;
+  right: var(--space-0);
+  bottom: auto;
+  left: var(--space-0);
+  width: auto;
+  height: var(--space-4);
+  transform: translateY(-50%);
+  cursor: row-resize;
+}
+
+.divider[data-dir="column"]::after {
+  top: 50%;
+  right: var(--space-0);
+  bottom: auto;
+  left: var(--space-0);
+  width: auto;
+  height: var(--border-focus-width);
+  transform: translateY(-50%);
 }
 
 .divider:hover::after,

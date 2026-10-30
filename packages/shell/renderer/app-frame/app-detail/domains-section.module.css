@@ -38,8 +38,14 @@
   border-radius: var(--radius-sm);
 }
 
-.row + .row {
+.item + .item {
   margin-top: var(--space-2);
+}
+
+/* 그 줄 바로 아래에 펼치는 DOMAIN.md 편집기. */
+.doc {
+  margin-top: var(--space-3);
+  margin-bottom: var(--space-4);
 }
 
 .text {

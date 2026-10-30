@@ -13,6 +13,7 @@ import type {
   AgentsSettingsSource,
   AgentsSettingsView,
   ExtensionsView,
+  InstructionsFile,
   McpRow,
   ModelChoice,
   SkillRow,
@@ -21,7 +22,7 @@ import type {
 
 type AgentsCall =
   | readonly ["change-model", ModelChoice]
-  | readonly ["instructions"]
+  | readonly ["instructions", string]
   | readonly ["add-skill"]
   | readonly ["skill", string, boolean]
   | readonly ["add-server"]
@@ -63,7 +64,7 @@ const VIEW: AgentsSettingsView = {
     model: null,
     apps: grants.length,
   },
-  instructionsPreview: GLOBAL_LOPHN_MD,
+  instructions: { text: GLOBAL_LOPHN_MD, hash: "1".padStart(64, "0") },
 };
 
 const EXTENSIONS: ExtensionsView = {
@@ -101,9 +102,22 @@ export function fakeAgents(options: FakeAgentsOptions = {}) {
       view = { ...view, defaultModel: choice };
       return Promise.resolve(ok());
     },
-    openInstructions() {
-      calls.push(["instructions"]);
-      return Promise.resolve(fail("instructions") ?? ok());
+    readInstructions() {
+      return Promise.resolve({ ok: true, value: view.instructions });
+    },
+    writeInstructions(text, hash) {
+      calls.push(["instructions", text]);
+      const failed = fail("instructions");
+      if (failed) return Promise.resolve(failed as SourceResult<never>);
+      if (hash !== view.instructions.hash) {
+        return Promise.resolve({ ok: false, code: "conflict" });
+      }
+      const written: InstructionsFile = {
+        text,
+        hash: String(Number(hash ?? "0") + 1).padStart(64, "0"),
+      };
+      view = { ...view, instructions: written };
+      return Promise.resolve({ ok: true, value: written });
     },
     addServer() {
       calls.push(["add-server"]);

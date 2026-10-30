@@ -2,6 +2,7 @@ import type { Area } from "../types.ts";
 import type { ReactNode } from "react";
 import { openSettings } from "../../../../packages/shell/renderer/desktop/router.ts";
 import {
+  SettingsAgentsInstructionsPage,
   SettingsAgentsPage,
   SettingsConnectCustomPage,
   SettingsConnectPage,
@@ -162,10 +163,17 @@ export const settingsArea: Area = {
       render: () => <SettingsAgentsPage />,
     },
     {
+      id: "settings-agents-instructions",
+      title: "Settings · Agents › editing instructions",
+      description:
+        "모든 project의 지침(LOPHN.md) 상자의 [Edit]을 누르면 같은 자리가 파일 탭과 같은 markdown 편집기(live preview)가 된다. [Cancel]·[Save]가 오른쪽 끝에 있고, 다른 곳에서 파일이 바뀌었으면 저장하지 않고 [Reload]를 보인다. 따로 열리는 편집기 화면은 없다.",
+      render: () => <SettingsAgentsInstructionsPage />,
+    },
+    {
       id: "new-settings-lophn",
       title: "Settings · Agents › lophn",
       description:
-        "lophn의 설정이다. agent 설정 화면과 같고 project 지침 칸은 없다. 놓인 곳은 lophn 전체이고 Grants 탭이 있다.",
+        "lophn의 설정이다. agent 설정 화면과 같고 project 지침 칸은 없다. 놓인 곳은 lophn 전체이고 Grants 탭이 있다. 폭은 다른 Settings 항목과 같은 기둥이다.",
       render: () => <SettingsLophnPage />,
     },
     {

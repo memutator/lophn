@@ -10,6 +10,10 @@ import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import { commonIcons } from "../../icons/mod.ts";
 import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import styles from "./agents-tab.module.css";
+import {
+  InstructionsEditor,
+  type InstructionsPort,
+} from "./editor/instructions-editor.tsx";
 import { ModelField, type ModelFieldSource } from "./editor/model-field.tsx";
 import { McpList, SkillList } from "./editor/parts.tsx";
 import type { AgentListRow, AgentsOverview, ModelsView } from "./source.ts";
@@ -27,8 +31,8 @@ interface AgentsTabProps {
   readonly onOpenAgent: (assignment: string) => void;
   /** [New agent]. */
   readonly onNewAgent: () => void;
-  /** Instructions의 [Edit]. LOPHN.md의 문서 탭을 연다. */
-  readonly onEditInstructions: () => void;
+  /** Instructions의 LOPHN.md를 이 자리에서 고치는 길. */
+  readonly instructions: InstructionsPort;
   readonly onProjectModel: (choice: ModelChoice | null) => void;
   readonly onToggleSkill: (name: string, on: boolean) => void;
   readonly onAddSkill: () => void;
@@ -36,7 +40,7 @@ interface AgentsTabProps {
   readonly onAddServer: () => void;
 }
 
-/** 카드 미리보기로 보이는 LOPHN.md 줄 수. */
+/** 미리보기로 보이는 LOPHN.md 줄 수. */
 const PREVIEW_LINES = 3;
 
 function avatarProfile(row: AgentListRow, imageSrc: ImageSrc): AvatarProfile {
@@ -133,10 +137,6 @@ function Section({
 
 export function AgentsTab(props: AgentsTabProps): ReactElement {
   const { overview } = props;
-  const preview = overview.instructions.text
-    .split("\n")
-    .slice(0, PREVIEW_LINES)
-    .join("\n");
   const inherited = overview.projectModel.inherited;
   return (
     <div className={styles.page} data-agents-tab="">
@@ -168,33 +168,25 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
         </ul>
       </Section>
 
-      <Section
-        name="instructions"
-        heading={t("project-workspace.heading.instructions")}
-        action={
-          <Button size="sm" onClick={props.onEditInstructions}>
-            {t("project-workspace.button.edit-instructions")}
-          </Button>
-        }
-      >
-        <p className={styles.lead}>
-          {t("project-workspace.label.instructions-shared", {
-            project: props.projectName,
-          })}
-        </p>
-        {preview.trim() === "" ? (
+      {overview.instructions === null ? null : (
+        <Section
+          name="instructions"
+          heading={t("project-workspace.heading.instructions")}
+        >
+          <InstructionsEditor
+            head={t("project-workspace.label.instructions-shared", {
+              project: props.projectName,
+            })}
+            file={overview.instructions}
+            lines={PREVIEW_LINES}
+            empty={t("project-workspace.empty.no-instructions")}
+            port={props.instructions}
+          />
           <p className={styles.note}>
-            {t("project-workspace.empty.no-instructions")}
+            {t("project-workspace.info.instructions-file")}
           </p>
-        ) : (
-          <pre className={styles.preview} data-instructions-preview="">
-            {preview}
-          </pre>
-        )}
-        <p className={styles.note}>
-          {t("project-workspace.info.instructions-file")}
-        </p>
-      </Section>
+        </Section>
+      )}
 
       <Section name="model" heading={t("agents.heading.model-for-project")}>
         <ModelField

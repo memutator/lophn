@@ -51,7 +51,7 @@ import type {
   UserModelKey,
   UserModels,
 } from "./source.ts";
-import type { McpRow, SkillRow } from "./views.ts";
+import type { InstructionsFile, McpRow, SkillRow } from "./views.ts";
 
 export {
   ANTHROPIC,
@@ -92,7 +92,8 @@ type FakeCall =
   | { method: "setShown"; items: readonly ShownModel[] }
   | { method: "refreshModels"; provider: string }
   | { method: "saveModelInfo"; item: UserModelItem; seq: string }
-  | { method: "removeModelInfo"; key: UserModelKey; seq: string };
+  | { method: "removeModelInfo"; key: UserModelKey; seq: string }
+  | { method: "writeInstructions"; text: string; hash: string | null };
 
 export interface FakeAgentsSource extends AgentsSource {
   changed(listener: () => void): () => void;
@@ -241,6 +242,8 @@ export function createFakeAgentsSource(
     Object.entries(FAKE_GRANTS),
   );
   const grantRevisions = new Map<string, number>();
+  // project의 LOPHN.md. 쓸 때마다 hash가 바뀌어 옛 hash로 쓰면 conflict다.
+  let lophnFile: InstructionsFile = { text: LOPHN_MD, hash: nextHash() };
   let projectModel: ModelChoice | null = options.projectModel ?? null;
   let customListed = options.customListed ?? true;
   // 층에서 끈 skill(project 층)과 끈 MCP server(project 층).
@@ -373,7 +376,7 @@ export function createFakeAgentsSource(
       skills: skillsFor(at),
       mcpServers: mcpFor(at),
       instructions:
-        at === "project" ? { text: LOPHN_MD, project: PROJECT_NAME } : null,
+        at === "project" ? { ...lophnFile, project: PROJECT_NAME } : null,
     };
   };
 
@@ -415,9 +418,7 @@ export function createFakeAgentsSource(
         ok({
           agents: [...stored].map(([key, item]) => rowOf(key, item, at)),
           instructions:
-            at === "project"
-              ? { text: LOPHN_MD, project: PROJECT_NAME }
-              : { text: "", project: null },
+            at === "project" ? { ...lophnFile, project: PROJECT_NAME } : null,
           projectModel: { chosen: projectModel, inherited: GLOBAL_MODEL },
           skills: skillsFor(at),
           mcpServers: mcpFor(at),
@@ -546,7 +547,7 @@ export function createFakeAgentsSource(
           skills: skillsFor(at),
           mcpServers: mcpFor(at),
           instructions:
-            at === "project" ? { text: LOPHN_MD, project: PROJECT_NAME } : null,
+            at === "project" ? { ...lophnFile, project: PROJECT_NAME } : null,
         } satisfies AgentDetail),
       );
     },
@@ -681,6 +682,28 @@ export function createFakeAgentsSource(
       grantRevisions.set(key, revision + 1);
       notify();
       return Promise.resolve(ok({ revision: revision + 1 }));
+    },
+
+    readInstructions(project) {
+      return Promise.resolve(
+        placeKind(project) === "project"
+          ? ok(lophnFile)
+          : { ok: false, message: "unavailable" },
+      );
+    },
+
+    writeInstructions(project, text, hash) {
+      calls.push({ method: "writeInstructions", text, hash });
+      if (placeKind(project) !== "project") {
+        return Promise.resolve({ ok: false, message: "unavailable" });
+      }
+      const failed = takeChangeFailure();
+      if (failed !== null) return Promise.resolve(failed);
+      if (hash !== lophnFile.hash) {
+        return Promise.resolve({ ok: false, message: "conflict" });
+      }
+      lophnFile = { text, hash: nextHash() };
+      return Promise.resolve(ok(lophnFile));
     },
   };
 }

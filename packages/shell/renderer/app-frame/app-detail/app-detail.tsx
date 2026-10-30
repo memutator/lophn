@@ -4,7 +4,6 @@
 import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
 import { t } from "@lophn/wording";
 
-import { InstructionsButton } from "../../editor/instructions-entry.tsx";
 import { AccessTab } from "./access/access-tab.tsx";
 import { ActivityTab } from "./activity/activity-tab.tsx";
 import { DomainsSection } from "./domains-section.tsx";
@@ -17,10 +16,6 @@ interface AppDetailProps {
   /** 사람이 지은 앱 이름. */
   name: string;
   source: AppDetailSource;
-  /** app 층 [Instructions]. 없으면 단추를 두지 않는다. */
-  onInstructions?: () => void;
-  /** Domains 줄 menu의 Open DOMAIN.md. 없으면 그 항목은 아무것도 하지 않는다. */
-  onOpenDomainDoc?: (domain: string) => void;
   /** 호출 기록의 agent session을 연다. 없으면 session 이름만 보인다. */
   onOpenSession?: (session: string) => void;
   now?: () => Date;
@@ -32,8 +27,6 @@ export function AppDetail({
   app,
   name,
   source,
-  onInstructions,
-  onOpenDomainDoc,
   onOpenSession,
   now = systemNow,
 }: AppDetailProps) {
@@ -43,9 +36,8 @@ export function AppDetail({
         <h3 className={styles.name} data-app-detail-name="">
           {name}
         </h3>
-        {onInstructions ? <InstructionsButton onOpen={onInstructions} /> : null}
       </div>
-      <DomainsSection app={app} source={source} onOpenDoc={onOpenDomainDoc} />
+      <DomainsSection app={app} source={source} />
       <Tabs defaultValue="version">
         <TabList>
           <Tab value="version" size="sm">

@@ -19,12 +19,16 @@ export const agents = {
     "Couldn't disconnect. Nothing changed. Try again.",
   "agents.error.settings-model-save-failed":
     "Couldn't save this model. The previous one is kept. Try again.",
-  "agents.error.settings-instructions-failed":
-    "Couldn't open the instructions. Try again.",
+  "agents.error.instructions-conflict":
+    "This file changed somewhere else. Reload to see it. Your text here isn't saved.",
+  "agents.error.instructions-save-failed":
+    "Couldn't save the instructions. Nothing changed. Try again.",
   "agents.notice.settings-agents-lead":
     "Defaults for every project. A project or an agent can change them.",
   "agents.notice.settings-default-model-help":
     "One model for every agent. A project, or an agent's own settings, can pick another.",
+  "agents.notice.settings-instructions-help":
+    "Every lophn agent reads this first, in every project and app.",
   "agents.notice.settings-lophn-purpose":
     "Talks with you about lophn itself: your projects, apps and settings.",
   "agents.notice.settings-tools-elsewhere":
@@ -161,7 +165,6 @@ export const agents = {
   "project-workspace.button.add-skill": "Add skill",
   "project-workspace.button.agent-editor-delete": "Delete agent",
   "project-workspace.button.agent-editor-delete-confirm": "Delete",
-  "project-workspace.button.agent-editor-edit-project": "Edit LOPHN.md",
   "project-workspace.button.agent-editor-save": "Save",
   "project-workspace.button.agent-editor-upload-image": "Upload image",
   "project-workspace.button.edit-instructions": "Edit",

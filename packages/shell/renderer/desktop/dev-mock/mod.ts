@@ -5,7 +5,6 @@
 import type { LophnShellAnnotateApi } from "../../../ipc/annotation.ts";
 import type { LophnShellViewsApi } from "../../../ipc/app-frame.ts";
 import type { LophnBrowserApi } from "../../../ipc/browser.ts";
-import type { InstructionsApi } from "../../../ipc/instructions.ts";
 import type { AppDetailSource } from "../../app-frame/app-detail/source.ts";
 import type { AppViewsDeps } from "../../app-frame/app-views.tsx";
 import { fakeAnnotate } from "../../app-frame/testdata/fake-annotate.ts";
@@ -25,7 +24,7 @@ import type { SettingsSource } from "../settings/source.ts";
 import { mockApps, mockSettings, mockSettingsPanels } from "./admin.ts";
 import { mockAgentTabSource } from "./agent.ts";
 import { mockAppDetail, mockAppViews, mockViews } from "./app-space.ts";
-import { mockInstructions, mockProjects } from "./launcher.ts";
+import { mockProjects } from "./launcher.ts";
 import { mockCore, mockEvents } from "./requests.ts";
 
 export interface DevMock {
@@ -49,7 +48,6 @@ export interface DevMock {
   readonly agentViewSource: AgentTabSourceFactory;
   /** 대기 목록이 읽는 event 연결(fake Gateway). */
   readonly events: CoreSource;
-  readonly instructions: InstructionsApi;
 }
 
 /** 주소에 mock이 있는지. */
@@ -112,6 +110,5 @@ export function devMock(
     browser: fakeBrowserApi().api,
     agentViewSource: mockAgentTabSource(agents),
     events: mockEvents(),
-    instructions: mockInstructions(),
   };
 }

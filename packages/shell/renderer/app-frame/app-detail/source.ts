@@ -3,6 +3,7 @@
 // 이 화면이 쓰는 field만 옮긴 것이다.
 import type { SourceResult } from "../../source-result.ts";
 import type { DomainActions, DomainView } from "../../workspace/source.ts";
+import type { InstructionsFile } from "../../workspace/agents/views.ts";
 
 export type { SourceResult };
 
@@ -260,6 +261,14 @@ export interface AppDomainRow extends DomainView {
 export interface AppDetailSource extends DomainActions {
   /** 앱의 active domain들. tool 수는 active release의 선언에서 센다(release가 없으면 0). */
   domains(app: string): Promise<SourceResult<readonly AppDomainRow[]>>;
+  /** domain의 DOMAIN.md. 아직 없으면 빈 글과 null hash다(첫 저장이 만든다). */
+  readDomainDoc(domain: string): Promise<SourceResult<InstructionsFile>>;
+  /** DOMAIN.md를 통째로 쓴다. hash가 디스크와 다르면 code가 conflict이고 파일은 그대로다. */
+  writeDomainDoc(
+    domain: string,
+    text: string,
+    hash: string | null,
+  ): Promise<SourceResult<InstructionsFile>>;
 
   versions(app: string): Promise<SourceResult<VersionView>>;
   /** 이 release를 지금 활성 release와 견준 늘어난 선언과 손실 단계. */

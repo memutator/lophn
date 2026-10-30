@@ -4,19 +4,25 @@
 //
 // - 전역 기본 model: model-default 읽기와 바꾸기.
 // - lophn 카드와 둘째 화면: Agents 탭과 같은 AgentsSource(workspace/agents)의 project 없는 읽기·저장이다.
-// - 모든 project의 LOPHN.md 미리보기: 사람이 읽는 instructions/preview다. [Edit]이 여는 전역 지침 편집기는 shell
-//   (settings 화면)이 연결하므로 openInstructions는 unavailable이다.
+// - 모든 project의 LOPHN.md: 경로는 shell main(`instructions.open`)이 알려 주고 읽기·쓰기는 main file 통로다.
+//   Agents 화면이 그 자리에서 고친다.
 // - [Add server]로 Tools and skills 자리로 옮기는 일도 settings 화면이 감싸 주므로 addServer는 unavailable이다.
-// - 전역 skill 목록: global-skills/read. 끄고 켜기는 skills_off 설정을 settings apply로 바꾼다.
+// - 전역 skill 목록: skills/read(project·app 없이 읽으면 내장과 전역 층). 끄고 켜기는 skills_off 설정을 settings apply로 바꾼다.
 import { modelDefaultChange } from "../../../../../protocol/lophn-agent/models.ts";
 import type { FolderPickerApi } from "../../../../ipc/folder-picker.ts";
 import {
   cancelMcpSignIn,
   readGlobalModel,
+  readInstructions,
   signInMcpServer,
+  windowFiles,
+  windowInstructions,
+  writeInstructions,
 } from "../../../workspace/agents/core-extensions.ts";
 import { coreAgentsSource } from "../../../workspace/agents/core-source.ts";
 import { createLink } from "../../../workspace/agents/core-link.ts";
+import type { InstructionsApi } from "../../../../ipc/instructions.ts";
+import type { FilesApi } from "../../../../ipc/files.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { windowFolderPicker } from "../../launcher/projects/core-source.ts";
 import type { OpenExternalApi } from "../../../../ipc/open-external.ts";
@@ -49,23 +55,13 @@ import type {
 interface SkillValue {
   name: string;
   description: string;
+  source: "builtin" | "global" | "domain";
   enabled: boolean;
-}
-
-interface PreviewValue {
-  text: string;
-  truncated: boolean;
 }
 
 const SKILLS_OFF = "lophn-agent.extensions.skills_off";
 
 const UNAVAILABLE = { ok: false, code: "unavailable" } as const;
-
-/** 미리보기 본문. 빈 파일은 보일 것이 없고, 잘렸으면 말줄임으로 알린다. */
-function previewOf(value: PreviewValue | null): string | null {
-  if (value === null || value.text === "") return null;
-  return value.truncated ? `${value.text}…` : value.text;
-}
 
 /** 줄 밑에 보이는 한 줄: 주소 또는 실행 파일. credential은 싣지 않는다. */
 function detailOf(server: McpServerValue): string {
@@ -101,6 +97,10 @@ interface AgentsDeps {
   openSecret: SecretInputOpenApi["open"] | undefined;
   /** OAuth 로그인의 authorize 주소를 OS browser로 여는 통로. */
   openLink: OpenExternalApi["openExternal"] | undefined;
+  /** 지침 파일의 경로를 알려 주는 main 통로. 없으면 지침은 읽지도 쓰지도 못한다. */
+  instructions: InstructionsApi | undefined;
+  /** 지침 파일을 읽고 쓰는 main file 통로. 없으면 지침은 읽지도 쓰지도 못한다. */
+  files: Pick<FilesApi, "read" | "write"> | undefined;
   /** 새 command key를 만든다. 테스트가 고정한다. */
   random: () => string;
 }
@@ -114,6 +114,15 @@ export function coreAgentsSettingsSource(
     "openSecret" in deps ? deps.openSecret : windowSecretInputOpener();
   const openLink = "openLink" in deps ? deps.openLink : windowLinkOpener();
   const random = deps.random ?? (() => crypto.randomUUID().slice(0, 8));
+  const instructions =
+    "instructions" in deps ? deps.instructions : windowInstructions();
+  const files = "files" in deps ? deps.files : windowFiles();
+  const global = { layer: "global" } as const;
+  // workspace/agents 쪽 결과(message)를 settings 화면의 결과(code)로 옮긴다.
+  const asSource = <T>(
+    result: { ok: true; value: T } | { ok: false; message: string },
+  ): SourceResult<T> =>
+    result.ok ? result : { ok: false, code: result.message };
   const link = createLink(core, random);
   const editor = coreAgentsSource(core);
 
@@ -137,22 +146,14 @@ export function coreAgentsSettingsSource(
       const model = await readGlobalModel(link);
       if (!model.ok) return { ok: false, code: model.message };
       const lophn = await lophnSummary();
-      // 미리보기는 못 읽으면 그 칸만 비운다.
-      const preview = await call<{ preview: PreviewValue | null }>(
-        core,
-        "read",
-        "instructions",
-        "preview",
-        {},
-      );
+      // 지침은 못 읽으면 빈 칸으로 보인다. 고쳐 저장하면 hash가 맞지 않아 conflict로 막힌다.
+      const file = await readInstructions(instructions, files, global);
       return {
         ok: true,
         value: {
           defaultModel: model.value,
           lophn,
-          instructionsPreview: preview.ok
-            ? previewOf(preview.value.preview)
-            : null,
+          instructions: file.ok ? file.value : { text: "", hash: null },
         },
       };
     },
@@ -166,7 +167,13 @@ export function coreAgentsSettingsSource(
       return changed.ok ? { ok: true, value: null } : changed;
     },
 
-    openInstructions: () => Promise.resolve(UNAVAILABLE),
+    readInstructions: async () =>
+      asSource(await readInstructions(instructions, files, global)),
+
+    writeInstructions: async (text, hash) =>
+      asSource(
+        await writeInstructions(instructions, files, global, text, hash),
+      ),
 
     addServer: () => Promise.resolve(UNAVAILABLE),
 
@@ -174,7 +181,7 @@ export function coreAgentsSettingsSource(
       const skills = await call<{ skills: SkillValue[] }>(
         core,
         "read",
-        "global-skills",
+        "skills",
         "read",
         {},
       );
@@ -197,7 +204,7 @@ export function coreAgentsSettingsSource(
             detail: skill.description,
             layer: "global" as const,
             on: skill.enabled,
-            builtIn: false,
+            builtIn: skill.source === "builtin",
           })),
           servers: serverValues.map((server): McpRow => {
             const auth =
@@ -250,7 +257,7 @@ export function coreAgentsSettingsSource(
       const listed = await call<{ skills: SkillValue[]; skills_off: string[] }>(
         core,
         "read",
-        "global-skills",
+        "skills",
         "read",
         {},
       );

@@ -22,6 +22,7 @@ import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts
 import type { DomainView, ReadResult } from "../source.ts";
 import type {
   McpLogin,
+  InstructionsFile,
   McpRow,
   ProjectInstructionsView,
   SkillRow,
@@ -50,8 +51,8 @@ export interface AgentListRow {
 export interface AgentsOverview {
   /** 전역 목록 전부(lophn이 첫 줄). */
   readonly agents: readonly AgentListRow[];
-  /** 같이 쓰는 `LOPHN.md`. 파일이 없거나 읽을 수 없으면 빈 글이다. */
-  readonly instructions: ProjectInstructionsView;
+  /** 같이 쓰는 `LOPHN.md`. 앱 자리에는 project 지침이 없어 null이다. 파일이 없거나 읽을 수 없으면 빈 글이다. */
+  readonly instructions: ProjectInstructionsView | null;
   /** 이 project가 고른 model 하나(null이면 Workspace 기본을 따른다)와 따를 Workspace 기본. */
   readonly projectModel: {
     readonly chosen: ModelChoice | null;
@@ -287,4 +288,15 @@ export interface AgentsSource {
     entries: readonly AssignmentEntry[],
     revision: number,
   ): Promise<ReadResult<{ readonly revision: number }>>;
+  /** project의 `LOPHN.md`를 다시 읽는다. 앱 자리에는 없어 unavailable이다. */
+  readInstructions(project: string): Promise<ReadResult<InstructionsFile>>;
+  /**
+   * project의 `LOPHN.md`를 통째로 쓴다. hash는 읽은 때의 값이고, 그사이 파일이 바뀌었으면 message가 conflict이고
+   * 파일은 그대로다.
+   */
+  writeInstructions(
+    project: string,
+    text: string,
+    hash: string | null,
+  ): Promise<ReadResult<InstructionsFile>>;
 }

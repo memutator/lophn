@@ -40,6 +40,9 @@ import {
   placeOf,
   readGlobalModel,
   readInstructions,
+  windowFiles,
+  windowInstructions,
+  writeInstructions,
   readServers,
   readSkills,
   signInMcpServer,
@@ -77,10 +80,10 @@ const DEFAULT_PROFILE = {
 } as const;
 
 interface AgentsDeps {
-  /** project의 LOPHN.md를 여는 main 통로. 없으면 지침 미리보기는 빈 글이다. */
+  /** 지침 파일의 경로를 알려 주는 main 통로. 없으면 지침은 읽지도 쓰지도 못한다(unavailable). */
   instructions: InstructionsApi | undefined;
-  /** project의 LOPHN.md를 읽는 main file 통로. 없으면 지침 미리보기는 빈 글이다. */
-  files: Pick<FilesApi, "read"> | undefined;
+  /** 지침 파일을 읽고 쓰는 main file 통로. 없으면 지침은 읽지도 쓰지도 못한다(unavailable). */
+  files: Pick<FilesApi, "read" | "write"> | undefined;
   /** command key의 무작위 부분. 테스트가 고정한다. */
   random: () => string;
   /** 새 agent ID의 무작위 byte. 테스트가 고정한다. */
@@ -89,17 +92,6 @@ interface AgentsDeps {
   openSecret: SecretInputOpenApi["open"] | undefined;
   /** OAuth 로그인의 authorize 주소를 OS browser로 여는 통로. */
   openLink: OpenExternalApi["openExternal"] | undefined;
-}
-
-function windowInstructions(): InstructionsApi | undefined {
-  const bridge = (globalThis as { lophnInstructions?: InstructionsApi })
-    .lophnInstructions;
-  return bridge && typeof bridge.open === "function" ? bridge : undefined;
-}
-
-function windowFiles(): Pick<FilesApi, "read"> | undefined {
-  const bridge = (globalThis as { lophnFiles?: FilesApi }).lophnFiles;
-  return bridge && typeof bridge.read === "function" ? bridge : undefined;
 }
 
 function newAgentId(bytes: Uint8Array): string {
@@ -386,16 +378,18 @@ export function coreAgentsSource(
     };
   };
 
-  // project 지침. 그 project 폴더의 LOPHN.md다. 앱 자리에는 project 지침이 없다.
-  const instructionsOf = async (
-    place: string,
-  ): Promise<{ text: string; project: string } | null> =>
-    isAppPlace(place)
-      ? null
-      : {
-          text: await readInstructions(instructions, files, place),
-          project: await nameOf(place),
-        };
+  // project 지침. 그 project 폴더의 LOPHN.md다. 앱 자리에는 project 지침이 없다. 읽지 못하면 빈 글이다.
+  const instructionsOf = async (place: string) => {
+    if (isAppPlace(place)) return null;
+    const read = await readInstructions(instructions, files, {
+      layer: "project",
+      place,
+    });
+    return {
+      ...(read.ok ? read.value : { text: "", hash: null }),
+      project: await nameOf(place),
+    };
+  };
 
   return {
     list,
@@ -420,7 +414,7 @@ export function coreAgentsSource(
       const text = await instructionsOf(project);
       const view: AgentsOverview = {
         agents: agents.value,
-        instructions: text ?? { text: "", project: null },
+        instructions: text,
         projectModel: {
           chosen: chosen?.ok ? chosen.value.model : null,
           inherited: global.ok ? global.value : null,
@@ -692,5 +686,24 @@ export function coreAgentsSource(
 
     setGrants: (project, agent, entries, revision) =>
       saveGrants(link, project, agent, entries, revision),
+
+    readInstructions: (project) =>
+      isAppPlace(project)
+        ? Promise.resolve(unavailable)
+        : readInstructions(instructions, files, {
+            layer: "project",
+            place: project,
+          }),
+
+    writeInstructions: (project, text, hash) =>
+      isAppPlace(project)
+        ? Promise.resolve(unavailable)
+        : writeInstructions(
+            instructions,
+            files,
+            { layer: "project", place: project },
+            text,
+            hash,
+          ),
   };
 }

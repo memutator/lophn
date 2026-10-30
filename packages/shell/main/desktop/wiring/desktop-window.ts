@@ -123,7 +123,6 @@ export function openDesktopWindow(
     // 개발 확인 전용. 제품 실행은 이 변수를 주지 않는다.
     // `LOPHN_SHELL_START=project:<id>`는 그 프로젝트 작업대부터, `settings`는 Settings부터,
     // `app:<id>`는 그 앱 공간부터 연다.
-    // `instructions:global`·`instructions:project:<id>`는 그 [Instructions] 편집기부터 연다.
     ...(bounds ? { bounds } : {}),
     // 저장한 자리로 여는 창은 숨긴 채 만들고 크기를 맞춘 뒤 보인다(`rememberPlace`).
     ...(place ? { show: false } : {}),
@@ -137,17 +136,13 @@ export function openDesktopWindow(
                 process.env.LOPHN_SHELL_START ?? "",
               )
             ? `${desktopUrl}#project=${process.env.LOPHN_SHELL_START!.slice(8)}`
-            : /^instructions:(global|project:prj_[0-9a-z]{26})$/.test(
-                  process.env.LOPHN_SHELL_START ?? "",
-                )
-              ? `${desktopUrl}#instructions=${process.env.LOPHN_SHELL_START!.slice(13)}`
-              : process.env.LOPHN_SHELL_START === "settings"
-                ? `${desktopUrl}#settings`
-                : /^app:app_[0-9a-z]{26}$/.test(
-                      process.env.LOPHN_SHELL_START ?? "",
-                    )
-                  ? `${desktopUrl}#app=${process.env.LOPHN_SHELL_START!.slice(4)}`
-                  : desktopUrl,
+            : process.env.LOPHN_SHELL_START === "settings"
+              ? `${desktopUrl}#settings`
+              : /^app:app_[0-9a-z]{26}$/.test(
+                    process.env.LOPHN_SHELL_START ?? "",
+                  )
+                ? `${desktopUrl}#app=${process.env.LOPHN_SHELL_START!.slice(4)}`
+                : desktopUrl,
     windows: {
       create: (config: WindowConfig) => {
         const window = new BrowserWindow(

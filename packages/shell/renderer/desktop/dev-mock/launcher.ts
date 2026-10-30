@@ -1,4 +1,4 @@
-// mock 모드의 런처 프로젝트 카드와 [Instructions] 통로. 등록과 보관은 메모리 목록에만 더한다.
+// mock 모드의 런처 프로젝트 카드. 등록과 보관은 메모리 목록에만 더한다.
 import type {
   ProjectItem,
   ProjectsSource,
@@ -7,8 +7,6 @@ import {
   fakeProjects,
   folderItem,
 } from "../launcher/projects/testdata/fake-projects.ts";
-import type { InstructionsApi } from "../../../ipc/instructions.ts";
-import { SEED_INSTRUCTIONS_DOCUMENT } from "../dev-seed.ts";
 import { PROJECT_GROCERY, PROJECT_OFFICE, PROJECT_TAX } from "./ids.ts";
 
 const PROJECTS: readonly ProjectItem[] = [
@@ -46,19 +44,4 @@ export function mockProjects(): ProjectsSource {
     missingFolder: "/home/mina/Documents/office",
     picked: "/home/mina/Documents/new-project",
   }).source;
-}
-
-/** 지침 문서는 시드 편집기가 여는 문서 하나다. */
-export function mockInstructions(): InstructionsApi {
-  return {
-    open: () =>
-      Promise.resolve({
-        ok: true,
-        value: {
-          document: SEED_INSTRUCTIONS_DOCUMENT,
-          version: "ver_instructions",
-          path: SEED_INSTRUCTIONS_DOCUMENT,
-        },
-      }),
-  };
 }

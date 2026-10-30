@@ -296,7 +296,6 @@ export function MockDesktop(props: MockDesktopProps) {
                   appDetail={mock.appDetail}
                   views={mock.views}
                   annotate={annotate}
-                  instructions={mock.instructions}
                 />
               </EventsProvider>
             </ConversationProvider>

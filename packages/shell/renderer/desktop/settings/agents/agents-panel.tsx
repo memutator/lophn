@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
 
 import { AgentEditor } from "../../../workspace/agents/editor/agent-editor.tsx";
+import { InstructionsEditor } from "../../../workspace/agents/editor/instructions-editor.tsx";
 import { DefaultModelField } from "../../../workspace/agents/editor/model-field.tsx";
 import { modelLabelOf } from "../../../workspace/agents/model-picker-data.ts";
 import type { ModelsView } from "../../../workspace/agents/source.ts";
@@ -16,7 +17,6 @@ import type {
   AgentsSettingsView,
   LophnSummary,
   ModelChoice,
-  SourceResult,
 } from "./settings-source.ts";
 
 interface AgentsPanelProps {
@@ -24,8 +24,9 @@ interface AgentsPanelProps {
 }
 
 // Settings › Agents. 모든 project에 적용되는 기본값이다. 위에서 아래로 전역 기본 model 하나, lophn 카드
-// ([Open lophn settings]), 모든 project의 지침(LOPHN.md 미리보기와 [Edit])다. agent별 기본 model은 이 화면에 없다.
-// lophn 카드는 같은 panel 안 둘째 화면을 열고, 거기는 project 없는 agent editor다. Skills와 MCP server는 Tools and skills에 있다.
+// ([Open lophn settings]), 모든 project의 지침(LOPHN.md)이다. 지침은 이 자리에서 [Edit]으로 고친다. agent별 기본 model은
+// 이 화면에 없다. lophn 카드는 같은 panel 안 둘째 화면을 열고, 거기는 project 없는 agent editor다.
+// Skills와 MCP server는 Tools and skills에 있다.
 
 type Loaded =
   | { readonly state: "loading" }
@@ -59,7 +60,7 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   const [screen, setScreen] = useState<Screen>("list");
   // 실패는 그 칸 바로 아래에 보인다. 화면 위쪽 한 줄은 무엇이 안 됐는지 말하지 못한다.
-  const [failed, setFailed] = useState<"model" | "instructions" | null>(null);
+  const [failed, setFailed] = useState(false);
   // 고른 model은 저장이 끝나기 전에도 바로 보인다. 저장하지 못하면 읽은 값으로 돌아간다.
   const [picked, setPicked] = useState<ModelChoice | null>(null);
   const alive = useRef(true);
@@ -109,9 +110,9 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
           project={null}
           projectName=""
           agent="lophn"
+          inColumn
           onDone={back}
           onChanged={() => {}}
-          onEditProjectInstructions={() => {}}
         />
       </div>
     );
@@ -131,14 +132,11 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
   const view = loaded.state === "ready" ? loaded.view : null;
   const models = loaded.state === "ready" ? loaded.models : null;
 
-  async function act(
-    what: "model" | "instructions",
-    call: () => Promise<SourceResult<null>>,
-  ): Promise<void> {
-    setFailed(null);
-    const done = await call();
+  async function changeModel(choice: ModelChoice): Promise<void> {
+    setFailed(false);
+    const done = await source.changeDefaultModel(choice);
     if (!alive.current) return;
-    if (!done.ok) setFailed(what);
+    if (!done.ok) setFailed(true);
     load();
   }
 
@@ -165,13 +163,13 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
               source={source.editor}
               value={chosen}
               error={
-                failed === "model"
+                failed
                   ? t("agents.error.settings-model-save-failed")
                   : undefined
               }
               onChange={(choice) => {
                 setPicked(choice);
-                void act("model", () => source.changeDefaultModel(choice));
+                void changeModel(choice);
               }}
             />
           </section>
@@ -222,40 +220,30 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
           </section>
 
           <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <h2 className={styles.sectionTitle}>
-                {t("settings.heading.agents-instructions")}
-              </h2>
-              <Button
-                size="sm"
-                data-action="edit-instructions"
-                onClick={() =>
-                  void act("instructions", () => source.openInstructions())
-                }
-              >
-                {t("settings.button.edit")}
-              </Button>
-            </div>
+            <h2 className={styles.sectionTitle}>
+              {t("settings.heading.agents-instructions")}
+            </h2>
             <p className={styles.sectionLead}>
-              <span className={styles.mono}>
-                {t("agents.label.settings-instructions-path")}
-              </span>
+              {t("agents.notice.settings-instructions-help")}
             </p>
-            {failed === "instructions" ? (
-              <p className={styles.error} role="alert" data-notice="failed">
-                {t("agents.error.settings-instructions-failed")}
-              </p>
-            ) : null}
-            {view.instructionsPreview === null ? (
-              <p className={styles.empty} data-instructions-empty="">
-                {t("settings.agents.no-instructions")}
-              </p>
-            ) : (
-              <pre className={styles.code} data-instructions-preview="">
-                {view.instructionsPreview}
-              </pre>
-            )}
-            <p className={styles.note}>
+            <InstructionsEditor
+              head={t("agents.label.settings-instructions-path")}
+              file={view.instructions}
+              empty={t("settings.agents.no-instructions")}
+              port={{
+                read: async () => {
+                  const read = await source.readInstructions();
+                  return read.ok ? read : { ok: false, message: read.code };
+                },
+                write: async (text, hash) => {
+                  const written = await source.writeInstructions(text, hash);
+                  return written.ok
+                    ? written
+                    : { ok: false, message: written.code };
+                },
+              }}
+            />
+            <p className={`${styles.note} ${styles.after}`}>
               {t("agents.notice.settings-tools-elsewhere")}
             </p>
           </section>

@@ -16,12 +16,21 @@ import {
   type Place,
 } from "../../../../protocol/lophn-agent/places.ts";
 import type { FilesApi } from "../../../ipc/files.ts";
-import type { InstructionsApi } from "../../../ipc/instructions.ts";
+import type {
+  InstructionsApi,
+  InstructionsPlace,
+} from "../../../ipc/instructions.ts";
 import type { OpenExternalApi } from "../../../ipc/open-external.ts";
 import type { ReadResult } from "../source.ts";
 import { isAppPlace } from "./agent-key.ts";
 import type { Link } from "./core-link.ts";
-import type { McpLayer, McpLogin, McpRow, SkillRow } from "./views.ts";
+import type {
+  InstructionsFile,
+  McpLayer,
+  McpLogin,
+  McpRow,
+  SkillRow,
+} from "./views.ts";
 
 const MCP_SERVERS = "lophn-agent.extensions.mcp_servers";
 
@@ -331,24 +340,80 @@ export async function readGlobalModel(
   return result.ok ? { ok: true, value: result.value.default } : result;
 }
 
+/** 지침 파일의 경로를 알려 주는 main 통로(`lophnInstructions`). */
+export function windowInstructions(): InstructionsApi | undefined {
+  const bridge = (globalThis as { lophnInstructions?: InstructionsApi })
+    .lophnInstructions;
+  return bridge && typeof bridge.open === "function" ? bridge : undefined;
+}
+
+/** 지침 파일을 읽고 쓰는 main file 통로(`lophnFiles`). 파일 편집기와 같은 길이다. */
+export function windowFiles(): Pick<FilesApi, "read" | "write"> | undefined {
+  const bridge = (globalThis as { lophnFiles?: FilesApi }).lophnFiles;
+  return bridge &&
+    typeof bridge.read === "function" &&
+    typeof bridge.write === "function"
+    ? bridge
+    : undefined;
+}
+
+async function instructionsPath(
+  instructions: InstructionsApi | undefined,
+  target: InstructionsPlace,
+): Promise<string | null> {
+  if (instructions === undefined) return null;
+  const opened = await instructions.open({ target });
+  return opened.ok ? opened.value.path : null;
+}
+
 /**
- * 자리의 LOPHN.md 글. [Edit]이 여는 path(`instructions.open`)를 shell main의 file read로 읽는다.
- * 파일이 없거나 읽을 수 없으면 빈 글이다.
+ * 지침 파일(전역·project의 LOPHN.md)의 글과 hash. 경로는 main(`instructions.open`)이 알려 주고 글은 shell main의
+ * file read로 읽는다. 파일이 아직 없으면 빈 글과 null hash다(첫 저장이 만든다).
  */
 export async function readInstructions(
   instructions: InstructionsApi | undefined,
   files: Pick<FilesApi, "read"> | undefined,
-  place: string,
-): Promise<string> {
-  if (instructions === undefined || files === undefined) return "";
+  target: InstructionsPlace,
+): Promise<ReadResult<InstructionsFile>> {
+  if (files === undefined) return { ok: false, message: "unavailable" };
   try {
-    const opened = await instructions.open({
-      target: { layer: "project", place },
-    });
-    if (!opened.ok) return "";
-    const read = await files.read({ path: opened.value.path });
-    return read.ok ? read.value.text : "";
+    const path = await instructionsPath(instructions, target);
+    if (path === null) return { ok: false, message: "unavailable" };
+    const read = await files.read({ path });
+    if (read.ok) {
+      return {
+        ok: true,
+        value: { text: read.value.text, hash: read.value.hash },
+      };
+    }
+    return read.code === "not_found"
+      ? { ok: true, value: { text: "", hash: null } }
+      : { ok: false, message: read.code };
   } catch {
-    return "";
+    return { ok: false, message: "unavailable" };
+  }
+}
+
+/**
+ * 지침 파일을 통째로 쓴다. hash는 읽을 때 받은 값이고 디스크가 그사이 바뀌었으면 main이 `conflict`로 거절하고
+ * 디스크는 그대로다. hash가 null이면 파일을 새로 만들고, 이미 있으면 `conflict`다.
+ */
+export async function writeInstructions(
+  instructions: InstructionsApi | undefined,
+  files: Pick<FilesApi, "write"> | undefined,
+  target: InstructionsPlace,
+  text: string,
+  hash: string | null,
+): Promise<ReadResult<InstructionsFile>> {
+  if (files === undefined) return { ok: false, message: "unavailable" };
+  try {
+    const path = await instructionsPath(instructions, target);
+    if (path === null) return { ok: false, message: "unavailable" };
+    const written = await files.write({ path, base_hash: hash, text });
+    return written.ok
+      ? { ok: true, value: { text, hash: written.value.hash } }
+      : { ok: false, message: written.code };
+  } catch {
+    return { ok: false, message: "unavailable" };
   }
 }

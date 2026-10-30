@@ -8,12 +8,14 @@ export const domain = {
     "This project has no domains yet. Add one for each area of work, such as experiments or findings, so agents get kinds, skills and artifacts for it.",
   "domain.error.archive-refused": "Couldn't archive {title}.",
   "domain.error.create-failed": "Couldn't create the domain. Try again.",
+  "domain.error.doc-failed": "Couldn't open DOMAIN.md. Try again.",
   "domain.error.load-failed": "Couldn't load the domains.",
   "domain.error.name-invalid":
     "Use lowercase letters, digits and single hyphens, starting with a letter.",
   "domain.error.name-taken":
     "A domain with this name already exists. Names stay taken even after a domain is archived.",
   "domain.heading.list": "Domains",
+  "domain.label.doc": "DOMAIN.md \u00b7 {name}",
   "domain.label.name": "Name",
   "domain.label.pick": "domains",
   "domain.label.purpose": "Purpose",

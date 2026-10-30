@@ -85,6 +85,8 @@ type Entry = {
   /** 대기 중인 권한 물음 수. */
   waiting: number;
   unseen: boolean;
+  /** 사람이 친 끊기 key로 내렸다. 끝 신호가 아니라 짐작이라, 뒤에 tool이 끝났다는 hook이 오면 되돌린다. */
+  guessed: boolean;
   /** 마지막으로 push한 agent 값(JSON, 없으면 "null"). 같으면 다시 push하지 않는다. */
   pushed: string;
 };
@@ -104,6 +106,7 @@ const fresh = (
   | "running"
   | "waiting"
   | "unseen"
+  | "guessed"
 > => ({
   harness,
   fixed,
@@ -115,6 +118,7 @@ const fresh = (
   running: false,
   waiting: 0,
   unseen: false,
+  guessed: false,
 });
 
 function agentOf(entry: Entry): TerminalAgent | undefined {
@@ -266,10 +270,12 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
           }
           entry.running = true;
           entry.unseen = false;
+          entry.guessed = false;
           break;
         case "TurnEnded":
           entry.running = false;
           entry.waiting = 0;
+          entry.guessed = false;
           if (signal.outcome !== "interrupted") {
             notify(
               ref,
@@ -291,10 +297,16 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
         case "PermissionResolved":
           // 한 물음을 두 event로 알리는 harness가 있어 하나씩 줄이면 센 수가 남아 waiting이 풀리지 않는다.
           entry.waiting = 0;
+          // 키로 내린 뒤에 tool이 끝났으면 turn은 안 끊긴 것이다(끊긴 tool은 이 hook을 내지 않는다).
+          if (entry.guessed) {
+            entry.guessed = false;
+            entry.running = true;
+          }
           break;
         case "SessionEnded":
           entry.running = false;
           entry.waiting = 0;
+          entry.guessed = false;
           entry.heard = false;
           break;
         case "SessionNamed":
@@ -324,6 +336,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       entry.running = false;
       entry.waiting = 0;
       entry.heard = false;
+      entry.guessed = true;
       push(ref, entry);
     },
     tabFocused(ref) {

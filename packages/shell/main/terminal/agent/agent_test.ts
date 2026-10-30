@@ -159,3 +159,23 @@ test("TurnStarted가 다른 session id를 싣고 오면 session을 바꾸고 제
   });
   assert.deepEqual(seen.at(-1), { session: "b", title: "two" });
 });
+
+test("키로 내린 뒤 tool이 끝났다는 hook이 오면 running으로 돌아오고, turn이 끝난 뒤의 늦은 hook은 되살리지 않는다", () => {
+  const pushed: string[] = [];
+  const tracker = trackerFor(pushed);
+  tracker.foreground("t", ["claude"]);
+  tracker.hook("t", "claude", "Start", {});
+  tracker.humanInput("t", "\x03"); // 입력을 지우려던 Ctrl-C. turn은 안 끊겼다.
+  tracker.hook("t", "claude", "Answer", {}); // tool이 끝났다.
+  tracker.humanInput("t", "\x1b"); // 이번에는 진짜 끊었다.
+  tracker.hook("t", "claude", "Stop", {});
+  tracker.hook("t", "claude", "Answer", {}); // 끝난 turn 뒤의 늦은 hook
+  assert.deepEqual(pushed, [
+    "claude:unknown",
+    "claude:running",
+    "claude:unknown",
+    "claude:running",
+    "claude:unknown",
+    "claude:idle",
+  ]);
+});

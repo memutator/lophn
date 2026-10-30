@@ -544,7 +544,7 @@ test("session 열기·보관·fork는 agent와 place, 이력의 규칙을 지킨
               kind: "tool",
               calls: [
                 call("shell", "shell_run", { command: SHELL }),
-                call("skill", "skill_read", { name: "kinds-yaml" }),
+                call("skill", "skill_read", { name: "write-kinds" }),
                 call("image", "image_read", { path: "pic.png" }),
                 call("grep", "file_grep", { pattern: "notes" }),
                 call("web", "web_fetch", { url: `${f.url}/probe` }),

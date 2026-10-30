@@ -155,9 +155,9 @@ test("classifyPath는 component, tool, runtime, core를 가르고 shell·design�
   const rows: [string, string][] = [
     [`${R}/prompts/home.md`, "instruction"],
     [`${R}/prompts/prompts.ts`, "instruction"],
-    [`${R}/skills/kinds-yaml/SKILL.md`, "skill:kinds-yaml"],
+    [`${R}/skills/write-kinds/SKILL.md`, "skill:write-kinds"],
     [`${R}/skills/root.ts`, "runtime"],
-    [`${R}/skills/guide-rewind/SKILL.md`, "skill:guide-rewind"],
+    [`${R}/skills/make-domain/SKILL.md`, "skill:make-domain"],
     [`${R}/tools/settings.ts`, "tool"],
     [
       "packages/core/apps/packages/template/app/tests/items_test.ts.tmpl",

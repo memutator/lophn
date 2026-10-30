@@ -97,11 +97,11 @@ flow
 - stderr는 줄마다 redaction을 거쳐 `<data>/flows/<instance>.log`에 쌓인다(1 MiB에서 멈춘다). workflow 폴더 밖에 둔다. process가 끝나면 host는 그 instance가 연 running run을 취소하고(`cancelOfInstance`) `program_exited` 줄에 끝 code(신호로 죽으면 null)와 stderr 끝 10줄(줄마다 500자)을 남긴다. 그때 instance가 `running`이면 `ended`로 닫는다(by lophn). 남은 참가자가 없어 아무도 이어 갈 수 없다. lophn은 성공인지 판정하지 않는다.
 - core가 꺼질 때 host는 process를 모두 끝내지만 줄을 쓰지 않는다. instance는 `running`으로 남아 다음 켤 때 닫힌다(위 "켤 때와 멈춤").
 - agent는 instance를 시작하지 못한다. 쓴 `flow.ts`는 `workflow.check`(`CheckWorkflow`, project place 목록에만)로 본다. 설치된 `@lophn/flow`에 대고 platform의 `tsc --noEmit`만 돌려(실행하지 않는다) 오류 줄을 돌려준다(`packages/core/main/flow-host/check.ts`). 원격·npm import는 오류다.
-- SDK `@lophn/flow`는 `input`, `instance`, `agent(...)`, `tool(...)`, `report(...)` 다섯을 낸다. protocol과 Zod를 import하지 않고 통로 모양을 손으로 옮겼다. 다른 SDK처럼 `<data>/sdk`에 깔린다. 쓰는 법은 project place의 내장 skill `guide-workflows`의 "Flow workflows"다.
+- SDK `@lophn/flow`는 `input`, `instance`, `agent(...)`, `tool(...)`, `report(...)` 다섯을 낸다. protocol과 Zod를 import하지 않고 통로 모양을 손으로 옮겼다. 다른 SDK처럼 `<data>/sdk`에 깔린다. 쓰는 법은 project place의 내장 skill `write-workflow`의 "Flow workflows"다.
 
 쓰기 범위
 - project의 `workflows/`는 그 project place의 session이 file tool로 읽고 쓴다(`placeScope`). app place와 home에는 열리지 않는다. 폴더는 project place의 turn 시작에 만들고, place 정보에 `Workflows folder:` 줄로 절대 경로가 보인다. rewind의 쓰기 폴더도 같은 규칙을 따른다(`architecture/domain.md`).
-- 정의를 만들고 고치는 법은 project place의 내장 skill `guide-workflows`다.
+- 정의를 만들고 고치는 법은 project place의 내장 skill `write-workflow`다.
 
 agent tool과 CLI
 - agent tool `workflow.list`, `workflow.get`, `workflow.report`, `workflow.edit`을 모든 place 종류가 받는다. `workflow.check`는 project place만 받는다("flow"). 누구든 참가자일 수 있다. 시작하는 tool은 없다. 정해진 때 시작하는 길은 job의 `workflow_start`이고 그 job은 `job.create`로 만든다(`architecture/job.md`). `workflow.list`는 project를 주지 않으면 그 agent의 project place를 쓴다.

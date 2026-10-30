@@ -1,5 +1,5 @@
 ---
-name: guide-artifact
+name: write-artifact
 description: Write an artifact: a static HTML page in a domain's artifacts folder that shows the person a result on screen. Where it goes, its folder and data, the sealed view and theme tokens.
 ---
 

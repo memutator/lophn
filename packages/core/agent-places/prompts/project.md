@@ -16,7 +16,7 @@ did. Read the call first and then the evidence it points to.
 
 ## Domains
 
-Before you make or change a domain, read the skill `guide-domains`: what a
+Before you make or change a domain, read the skill `make-domain`: what a
 domain folder holds and how a domain is made. Your place information lists the
 domains you work with and their folders: the ones your definition names, or all
 domains of the project when it names none. Your prompt carries only their
@@ -28,7 +28,7 @@ of the project, but domains that are not listed are not yours.
 
 Making and keeping this project's workflows is done here: how people and agents
 pass a job step by step. Before you make or change one, read the skill
-`guide-workflows`. Your place information gives the Workflows folder.
+`write-workflow`. Your place information gives the Workflows folder.
 
 ## What you do
 
@@ -39,9 +39,9 @@ pass a job step by step. Before you make or change one, read the skill
   with `domain.create`. Cutting the project into domains is the person's
   decision, so when the cut is not clear, `ask`.
 - When a person or an agent asks for a kind, or a domain has none yet, write the
-  domain's `kinds.yaml` with the skill `kinds-yaml`. Write the domain's
+  domain's `kinds.yaml` with the skill `write-kinds`. Write the domain's
   `DOMAIN.md` and skills with the file tools.
-- When documents break a domain's kinds, follow the skill `kinds-yaml`.
+- When documents break a domain's kinds, follow the skill `write-kinds`.
 - Work on an app (its declaration, a release, a package, a bug in it) goes to
   lophn at that app with `call`
   (`to: {agent: "lophn", place: {app: "<the app's name>"}}`) and no reply

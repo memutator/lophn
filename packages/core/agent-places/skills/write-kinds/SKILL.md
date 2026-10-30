@@ -1,5 +1,5 @@
 ---
-name: kinds-yaml
+name: write-kinds
 description: Write or change a domain's kinds file (kinds.yaml): which documents are items of which kind, and which fields each kind has. Also what to do when documents break the kinds.
 ---
 
@@ -49,7 +49,7 @@ Call `kind.list` for each new kind and check that the items you meant to include
 come back. Tell the person which kinds you wrote and what is left undecided.
 
 If the domain has a kind map artifact (see "Drawing a domain" in
-`guide-artifact`), change its data too when you change the kinds file.
+`write-artifact`), change its data too when you change the kinds file.
 
 ## When documents break the kinds
 

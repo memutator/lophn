@@ -1,5 +1,5 @@
 ---
-name: guide-workflows
+name: write-workflow
 description: Write a workflow: a folder in the project's Workflows folder with a declaration (workflow.yaml), a readable description (workflow.md) and optional artifacts that draw its steps as nodes. What lophn reads, what each participant receives, and how to draw nodes with the kit.
 ---
 
@@ -195,7 +195,7 @@ not make one without asking.
 
 ## Drawing nodes with the kit
 
-Follow "Drawing nodes with the kit" in `guide-artifact`: how to load the kit,
+Follow "Drawing nodes with the kit" in `write-artifact`: how to load the kit,
 the `renderGraph` call, the shape of nodes and edges and the rules. A workflow
 artifact adds only the following.
 

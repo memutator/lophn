@@ -20,14 +20,14 @@ your definition names, or all domains of the app when it names none. Your prompt
 carries only their `DOMAIN.md` and kinds, and you see their skills and tools plus
 the public tools of other domains the person assigned to you. You may be able to
 read other files of the app, but domains that are not listed are not yours.
-Before you make or change a domain, read the skill `guide-domains`: what a domain
+Before you make or change a domain, read the skill `make-domain`: what a domain
 folder holds and how a domain is made.
 
 - When you declare a tool in `lophn.ts`, its `domain` is the domain of the
   object the tool handles. The app has a domain with its own name. If another
   domain is needed, make it with `domain.create`. A tool that names a domain the
   app does not have blocks the release.
-- When documents break a domain's kinds, follow the skill `kinds-yaml`.
+- When documents break a domain's kinds, follow the skill `write-kinds`.
 
 ## Designing the app
 

@@ -57,7 +57,7 @@ type Case = {
   // 같은 이름의 사람 skill을 둔 층
   human: ("global" | "domain")[];
   off: { global?: boolean; project?: boolean; agent?: boolean };
-  // 최종 kinds-yaml의 본문. null이면 목록에 없다.
+  // 최종 write-kinds의 본문. null이면 목록에 없다.
   expect: "BUILTIN" | "GLOBAL" | "DOMAIN" | null;
 };
 
@@ -136,20 +136,20 @@ const CASES: Case[] = [
 ];
 
 for (const one of CASES) {
-  test(`kinds-yaml stays: ${one.name}`, async () => {
+  test(`write-kinds stays: ${one.name}`, async () => {
     const files: Record<string, string> = {
-      "/b/kinds-yaml/SKILL.md": skillFile("kinds-yaml", "BUILTIN"),
+      "/b/write-kinds/SKILL.md": skillFile("write-kinds", "BUILTIN"),
       "/b/spare-builtin/SKILL.md": skillFile("spare-builtin", "BUILTIN"),
     };
     if (one.human.includes("global")) {
-      files["/g/kinds-yaml/SKILL.md"] = skillFile("kinds-yaml", "GLOBAL");
+      files["/g/write-kinds/SKILL.md"] = skillFile("write-kinds", "GLOBAL");
     }
     if (one.human.includes("domain")) {
-      files["/p/kinds-yaml/SKILL.md"] = skillFile("kinds-yaml", "DOMAIN");
+      files["/p/write-kinds/SKILL.md"] = skillFile("write-kinds", "DOMAIN");
     }
     const port = treeOf(files);
-    const globalOff = one.off.global ? ["kinds-yaml"] : [];
-    const projectOff = one.off.project ? ["kinds-yaml"] : [];
+    const globalOff = one.off.global ? ["write-kinds"] : [];
+    const projectOff = one.off.project ? ["write-kinds"] : [];
     // 정의가 다른 skill만 골랐다.
     const chosen = one.off.agent ? ["spare-builtin"] : [];
     const deps: SkillSnapshotDeps = {
@@ -170,8 +170,10 @@ for (const one of CASES) {
       skills: chosen,
     });
 
-    const listed = snapshot.skills.find((skill) => skill.name === "kinds-yaml");
-    const read = await snapshot.reader.read(SESSION, "kinds-yaml");
+    const listed = snapshot.skills.find(
+      (skill) => skill.name === "write-kinds",
+    );
+    const read = await snapshot.reader.read(SESSION, "write-kinds");
     if (one.expect === null) {
       assert.deepStrictEqual(listed, undefined);
       assert.deepStrictEqual(read.ok, false);
@@ -224,7 +226,7 @@ test("a skill that can be turned off goes off, and a human skill of the same nam
 
 test("the agent gets only the skills it chose, all when it chose none, and a built-in that cannot be turned off always", async () => {
   const port = treeOf({
-    "/b/kinds-yaml/SKILL.md": skillFile("kinds-yaml", "BUILTIN"),
+    "/b/write-kinds/SKILL.md": skillFile("write-kinds", "BUILTIN"),
     "/g/a/SKILL.md": skillFile("a", "A"),
     "/g/b/SKILL.md": skillFile("b", "B"),
   });
@@ -249,7 +251,7 @@ test("the agent gets only the skills it chose, all when it chose none, and a bui
     const listed = snapshot.skills.filter((s) => s.enabled).map((s) => s.name);
     const available = snapshot.skills.map((s) => ({
       name: s.name,
-      can_disable: s.name !== "kinds-yaml",
+      can_disable: s.name !== "write-kinds",
       domain: null,
     }));
     return {
@@ -257,18 +259,18 @@ test("the agent gets only the skills it chose, all when it chose none, and a bui
       // resolve가 받는 이름도 목록과 같다.
       resolved: receivedSkills(available, skills, []),
       b: await code("b"),
-      builtin: await code("kinds-yaml"),
+      builtin: await code("write-kinds"),
     };
   };
   assert.deepStrictEqual(await receivedOf([]), {
-    listed: ["a", "b", "kinds-yaml"],
-    resolved: ["a", "b", "kinds-yaml"],
+    listed: ["a", "b", "write-kinds"],
+    resolved: ["a", "b", "write-kinds"],
     b: "ok",
     builtin: "ok",
   });
   assert.deepStrictEqual(await receivedOf(["a", "missing"]), {
-    listed: ["a", "kinds-yaml"],
-    resolved: ["a", "kinds-yaml"],
+    listed: ["a", "write-kinds"],
+    resolved: ["a", "write-kinds"],
     b: "forbidden",
     builtin: "ok",
   });
@@ -320,8 +322,8 @@ test("same-name skills in a global layer and domains go to the agent by the doma
 // (skill.read는 not_found), 한 읽기의 등록부를 같이 쓰는 다른 종류의 목록이 섞인다.
 test("내장 skill은 선언한 place 종류의 prompt와 `/` 메뉴에만 뜬다", () => {
   const files = treeOf({
-    "/b/kinds-yaml/SKILL.md": skillFile("kinds-yaml", "", "built-in"),
-    "/g/kinds-yaml/SKILL.md": skillFile("kinds-yaml", "", "human"),
+    "/b/write-kinds/SKILL.md": skillFile("write-kinds", "", "built-in"),
+    "/g/write-kinds/SKILL.md": skillFile("write-kinds", "", "human"),
   });
   const sources: SkillSources = {
     bundled: "/b",
@@ -362,7 +364,7 @@ test("내장 skill은 선언한 place 종류의 prompt와 `/` 메뉴에만 뜬�
   ];
   const kindsYaml = (rows: readonly { name: string; description: string }[]) =>
     rows
-      .filter((row) => row.name === "kinds-yaml")
+      .filter((row) => row.name === "write-kinds")
       .map((row) => row.description);
   for (const [kind, place, expected] of table) {
     const prompt = discoverSkills(files, sources, { kind, off: [] }).entries;

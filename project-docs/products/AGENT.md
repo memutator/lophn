@@ -33,7 +33,7 @@ L1~L11은 home 지침(`packages/core/agent-places/prompts/home.md`)에 쓰는 �
 - L3. 사람이 새 project를 원하면, home의 session은 기존 project 안에 domain으로 두기, 기존 domain을 넓히기, 새 project 만들기 순서로 견주어 기획한다. (제안)
 - L4. 기획이 앱을 만들거나 고치는 일로 정해지면, home의 session은 그 앱 place의 lophn에게 답을 받지 않는 call로 맡기고 그 session이 설계하고 직접 짓는다. 새 앱이면 home의 session이 먼저 앱을 등록한다(project를 고르지 않는다). 등록하면 앱의 source 폴더가 생긴다. (등록을 뺀 나머지는 제안)
 - L5. 기획에 자료 묶음이나 검색이 필요하면, home의 session은 그 project place의 lophn에게 결과를 받는 call로 맡긴다. (제안)
-- L6. 사람이 lophn 사용법이나 설정의 뜻을 물으면, home의 session은 사용 안내 skill(`guide-*`)과 지금 설정값으로 답한다. (제안)
+- L6. 사람이 설정의 뜻을 물으면, home의 session은 지금 설정값과 그 정의(`settings.get`)로 답한다. (제안)
 - L7. 사람이 앱이 잘 도는지 물으면, home의 session은 앱 상태, 앱 log, 실패한 호출 기록을 읽어 확인한 사실과 해석을 나눠 답한다. 사람이 `/repair-app`으로 부르면 고치기는 그 앱 place의 lophn에게 call로 넘긴다. (제안)
 - L9. 사람이 새 앱이나 앱의 변경을 원하면, home의 session은 기획 전에 place 정보의 domain 지도(domain마다 owner, 목적, 공개 tool, 그 공개 tool을 쓰는 다른 domain, 앱마다 그 앱이 주인인 package)에서 다른 domain의 공개 tool이나 package가 이미 그 일을 하는지 본다. 있으면 그것을 쓰는 안을 먼저 견준다.
 - L10. 기획이 다른 domain의 공개 tool을 쓰거나, tool을 공개로 내거나, 코드를 package로 옮기는 것처럼 domain 경계를 넘으면, home의 session은 이유와 함께 사람에게 제안하고 사람이 정한다. 같은 package나 공개 tool을 여러 domain이 쓰는지는 지도에서 읽고, program이 알려 주지 않는다.

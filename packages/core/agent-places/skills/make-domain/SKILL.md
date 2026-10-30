@@ -1,5 +1,5 @@
 ---
-name: guide-domains
+name: make-domain
 description: What a domain is (a boundary of meaning and responsibility inside a project or app), what it holds, who makes and writes it, and what each agent sees of it.
 ---
 
@@ -23,7 +23,7 @@ folders of the domains it works with.
   used at once, with no draft and no release. If it is wrong, the last valid one
   keeps being used, and `kind.check` shows why. Other agents read the kinds with
   `kind.list` and `kind.check`; with more than one domain they give `domain`. It
-  is written with the skill `kinds-yaml`. An app domain usually has none,
+  is written with the skill `write-kinds`. An app domain usually has none,
   because its objects live in the app's data and are reached through tools.
 - **`DOMAIN.md`**: what the domain means, how to use it, and the rules the
   program cannot check. Its text is in the prompt of every agent that works in

@@ -1,4 +1,4 @@
-// 출처: AGENT.md C1(사람, 2026-10-29), project 지침 "kind가 필요하면 skill `kinds-yaml`로 그 domain의
+// 출처: AGENT.md C1(사람, 2026-10-29), project 지침 "kind가 필요하면 skill `write-kinds`로 그 domain의
 // `kinds.yaml`을 쓴다". project place의 agent는 kind 파일을 직접 고치고 아무에게도 call하지 않는다.
 import {
   callCount,

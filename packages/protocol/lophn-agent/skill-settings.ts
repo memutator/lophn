@@ -27,21 +27,6 @@ export const BUILTIN_SKILLS: readonly {
   can_disable: false;
   menu: boolean;
 }[] = [
-  ...[
-    "guide-features-and-screens",
-    "guide-agents-and-assignments",
-    "guide-questions-and-decisions",
-    "guide-settings",
-    "guide-connections",
-    "guide-skills-and-mcp",
-    "guide-instructions",
-    "guide-rewind",
-  ].map((name) => ({
-    name,
-    places: ["home"] as const,
-    can_disable: false as const,
-    menu: false,
-  })),
   {
     name: "new-app",
     places: ["home"],
@@ -55,25 +40,25 @@ export const BUILTIN_SKILLS: readonly {
     menu: true,
   },
   {
-    name: "guide-domains",
+    name: "make-domain",
     places: ["home", "project", "app"],
     can_disable: false,
     menu: false,
   },
   {
-    name: "guide-artifact",
+    name: "write-artifact",
     places: ["project", "app"],
     can_disable: false,
     menu: false,
   },
   {
-    name: "guide-workflows",
+    name: "write-workflow",
     places: ["project"],
     can_disable: false,
     menu: false,
   },
   {
-    name: "check-kinds",
+    name: "check-domains",
     places: ["project"],
     can_disable: false,
     menu: true,
@@ -85,7 +70,7 @@ export const BUILTIN_SKILLS: readonly {
     menu: false,
   },
   {
-    name: "kinds-yaml",
+    name: "write-kinds",
     places: ["project", "app"],
     can_disable: false,
     menu: false,

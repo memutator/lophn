@@ -31,18 +31,18 @@
     "models_endpoint": "https://api.openai.com/v1/models",
     "oauth": {
       "product": "chatgpt",
-      "issuer": "https://auth.openai.com",
-      "authorization_endpoint": "https://auth.openai.com/api/accounts/authorize",
-      "token_endpoint": "https://auth.openai.com/api/accounts/oauth/token",
-      "jwks_uri": "https://auth.openai.com/.well-known/jwks.json",
-      "resource": "https://api.openai.com/v1",
+      "client_id": "app_EMoamEEZ73f0CkXaXp7hrann",
+      "authorization_endpoint": "https://auth.openai.com/oauth/authorize",
+      "token_endpoint": "https://auth.openai.com/oauth/token",
+      "redirect_uri": "http://localhost:1455/auth/callback",
+      "inference_endpoint": "https://chatgpt.com/backend-api/codex",
       "scopes": [
         "openid",
         "profile",
         "email",
         "offline_access",
-        "resource.invoke",
-        "chatgpt.tokens.use.direct"
+        "api.connectors.read",
+        "api.connectors.invoke"
       ]
     },
     "revision": "2026-10"

@@ -1,5 +1,4 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { RandomSource } from "../../../base/mod.ts";
 import type { SecretStorePort } from "../../../protocol/secrets/secret-file.ts";
 
 // provider credential의 `secrets.json` 이름이다. API key와 OAuth access token이 같은 이름 `provider.<id>`를 쓰고
@@ -18,10 +17,8 @@ export function providerTokenNames(provider: string): {
   return { access, refresh: `${access}.refresh`, meta: `${access}.meta` };
 }
 
-// meta는 비밀이 아니지만 token과 함께 바뀌어 같은 저장소에 둔다. client_id는 ChatGPT가 첫 로그인에 발급한 것이고
-// (갱신이 쓴다), subject는 검증한 id_token의 sub(ChatGPT)나 계정 id(Claude)다. SuperGrok은 둘 다 null이다.
+// meta는 비밀이 아니지만 token과 함께 바뀌어 같은 저장소에 둔다. subject는 계정 id(ChatGPT·Claude)다. SuperGrok은 null이다.
 export type ProviderTokenMeta = {
-  client_id: string | null;
   subject: string | null;
 };
 
@@ -83,39 +80,10 @@ export async function removeProviderTokens(
 function metaOf(text: string): ProviderTokenMeta | null {
   try {
     const value = JSON.parse(text);
-    const field = (key: string) =>
-      typeof value?.[key] === "string" ? (value[key] as string) : null;
-    return { client_id: field("client_id"), subject: field("subject") };
+    return {
+      subject: typeof value?.subject === "string" ? value.subject : null,
+    };
   } catch {
     return null;
   }
-}
-
-// ChatGPT 로그인의 `ext_agent_host_id`다. 설치마다 하나이고 한 번 만들면 다시 쓴다. 비밀이 아니지만 data root의
-// 다른 저장 자리(settings는 사람이 고치는 선언, ledger-id는 restore 때 바뀐다)보다 맞아 `secrets.json`에 둔다.
-// 이름 앞머리가 provider·mcp가 아니라 어떤 목적지로도 안 나간다.
-const HOST_ID_NAME = "provider-oauth.host-id";
-
-export async function hostIdOf(
-  secrets: Secrets,
-  random: RandomSource,
-): Promise<Result<string>> {
-  const saved = secrets.get(HOST_ID_NAME);
-  if (saved.ok) return ok(saved.value);
-  const bytes = new Uint8Array(16);
-  random.fill(bytes);
-  // RFC 4122 v4 꼴로 맞춘다.
-  bytes[6] = (bytes[6]! & 0x0f) | 0x40;
-  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
-  const hex = [...bytes]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-  const id = `urn:uuid:${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(
-    12,
-    16,
-  )}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-  const put = await secrets.put(HOST_ID_NAME, id);
-  return put.ok
-    ? ok(id)
-    : err({ code: "unavailable", message: "설치 id를 저장하지 못했다" });
 }

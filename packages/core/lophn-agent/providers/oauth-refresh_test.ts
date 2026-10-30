@@ -11,7 +11,8 @@ import { providerSchemaSteps } from "./schema.ts";
 
 const ID = "pvd_00000000000000000000000001";
 const ACCESS = "provider.00000000000000000000000001";
-const MODELS_URL = "https://api.openai.com/v1/models";
+const ENDPOINT = "https://chatgpt.com/backend-api/codex";
+const MODELS_URL = `${ENDPOINT}/models?client_version=0.159.0`;
 const NOW = Date.parse("2026-10-17T00:00:00.000Z");
 const at = (ms: number) => new Date(ms).toISOString();
 
@@ -38,9 +39,7 @@ function setup(expiresAtMs: number, product: "chatgpt" | "claude" = "chatgpt") {
       name: "OpenAI",
       definition: definition.value,
       endpoint:
-        product === "chatgpt"
-          ? "https://api.openai.com/v1"
-          : "https://api.anthropic.com/v1",
+        product === "chatgpt" ? ENDPOINT : "https://api.anthropic.com/v1",
       protocol:
         product === "chatgpt" ? "openai-responses" : "anthropic-messages",
       auth_kind: "oauth",
@@ -53,7 +52,7 @@ function setup(expiresAtMs: number, product: "chatgpt" | "claude" = "chatgpt") {
   const secrets = new Map([
     [ACCESS, "OLD-ACCESS"],
     [`${ACCESS}.refresh`, "OLD-REFRESH"],
-    [`${ACCESS}.meta`, JSON.stringify({ client_id: "oaiapp_x", subject: "u" })],
+    [`${ACCESS}.meta`, JSON.stringify({ subject: "u" })],
   ]);
   const read = () => {
     const found = loadProvider(sql, ID);
@@ -142,7 +141,7 @@ function setup(expiresAtMs: number, product: "chatgpt" | "claude" = "chatgpt") {
 
 const use = {
   name: ACCESS,
-  destination: { kind: "https" as const, origin: "https://api.openai.com" },
+  destination: { kind: "https" as const, origin: "https://chatgpt.com" },
 };
 
 test("갱신은 회전한 refresh token을 저장하고, invalid_grant면 credential을 revoked로 하고 token을 내주지 않는다", async () => {
@@ -158,14 +157,28 @@ test("갱신은 회전한 refresh token을 저장하고, invalid_grant면 creden
     )
     .prepareToken(use);
   assert.deepStrictEqual(fresh, ok(undefined));
+  const grant = rotated.sent[0]!;
   assert.deepStrictEqual(
     [
+      grant.url,
+      Object.fromEntries(new URLSearchParams(String(grant.init.body))),
       rotated.secrets.get(ACCESS),
       rotated.secrets.get(`${ACCESS}.refresh`),
       rotated.read().credential.state,
       rotated.read().credential.expires_at,
     ],
-    ["NEW-ACCESS", "NEW-REFRESH", "available", at(NOW + 3_600_000)],
+    [
+      "https://auth.openai.com/oauth/token",
+      {
+        grant_type: "refresh_token",
+        client_id: "app_EMoamEEZ73f0CkXaXp7hrann",
+        refresh_token: "OLD-REFRESH",
+      },
+      "NEW-ACCESS",
+      "NEW-REFRESH",
+      "available",
+      at(NOW + 3_600_000),
+    ],
   );
 
   // 발급자가 grant를 거절하면 revoked가 되고 token을 내주지 않는다.
@@ -204,10 +217,10 @@ test("갱신하면 계정 model 목록이 저장되고, 읽기가 틀려도 갱�
     Response.json({ access_token: "A", refresh_token: "R", expires_in: 3600 });
   const listed = () =>
     Response.json({
-      data: [
-        { id: "gpt-5", visibility: "list" },
-        { id: "gpt-5-pro", visibility: "hide" },
-        { id: "gpt-5-mini" },
+      models: [
+        { slug: "gpt-5", visibility: "list" },
+        { slug: "gpt-5-pro", visibility: "hide" },
+        { slug: "gpt-5-mini" },
       ],
     });
   const kept = ["gpt-5", "gpt-5-mini"];

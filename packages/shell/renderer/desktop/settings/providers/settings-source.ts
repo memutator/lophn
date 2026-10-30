@@ -29,12 +29,8 @@ export interface ProviderDefinitionRow {
   readonly hint: string | null;
   /** 정의가 알려 준 인증 방식. 화면은 이 안에 있는 것만 고르게 한다. */
   readonly ways: readonly AuthWay[];
-  /** 공식 로그인이 있는 정의만. product는 단추에 쓰는 제품 이름(예: "ChatGPT")이다. */
-  readonly signIn: {
-    readonly product: string;
-    /** 단추 문구. ChatGPT는 OpenAI의 branding 규칙대로 "Continue with"다. */
-    readonly button: "continue" | "sign-in";
-  } | null;
+  /** 구독 로그인이 있는 정의만. product는 단추에 쓰는 제품 이름(예: "ChatGPT")이다. */
+  readonly signIn: { readonly product: string } | null;
   /** 사람이 직접 만드는 provider(ID·이름·Base URL·API 입력). */
   readonly custom: boolean;
 }

@@ -1,9 +1,10 @@
-// 구독 provider 로그인 E2E가 발급자 자리에 쓰는 fake OAuth 발급자. device authorization,
-// token(authorization_code·device_code·refresh_token grant), jwks 셋만 말한다. 발급자 주소는 provider
+// 구독 provider 로그인 E2E가 발급자 자리에 쓰는 fake OAuth 발급자. device authorization과
+// token(authorization_code·device_code·refresh_token grant)만 말한다. 발급자 주소는 provider
 // 정의 data라 정의만 이 주소로 채우면 core는 진짜 발급자와 똑같이 부른다.
 // 줄을 못 맞춘 요청(빈 queue, 모르는 path·grant, 빠진 form 값)은 HTTP 400으로 답하고 journal에 차이를 남긴다.
 // 500 계열은 core가 unavailable로 읽어 test가 헷갈려서 쓰지 않는다.
 
+import { createServer } from "node:net";
 import { serve } from "../../../packages/core/server/serve.ts";
 import type {
   OAuthDefinition,
@@ -16,7 +17,6 @@ export type IssuerReply =
       access: string;
       refresh: string;
       expires_in?: number;
-      scope?: string;
       id_token?: string;
     }
   | { kind: "pending" }
@@ -47,32 +47,21 @@ export type IssuerJournalEntry = {
 export type IssuerHandler = {
   /** startFakeIssuer가 port를 알면 채운다. handler만 쓰는 unit은 이 기본값을 본다. */
   url: string;
+  /** ChatGPT 정의의 고정 callback port. 진짜 정의처럼 port가 정해져 있고 startFakeIssuer가 빈 port를 골라 채운다. */
+  callbackPort: number;
   definition(product: "chatgpt" | "supergrok"): ProviderDefinition;
   script(steps: IssuerScript): void;
-  idToken(claims: {
-    aud: string;
-    nonce: string;
-    sub?: string;
-    exp?: number;
-  }): Promise<string>;
+  /** ChatGPT 계정 id를 claim에 담은 JWT 꼴 access token. core는 서명을 보지 않는다. */
+  accessToken(account: string): string;
   journal(): readonly IssuerJournalEntry[];
   handle(request: Request): Promise<Response>;
 };
 
 export type FakeIssuer = IssuerHandler & { close(): Promise<void> };
 
-const KID = "e2e";
 const DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";
-// core가 chatgpt에서 요구하는 scope 하나가 들어 있다. supergrok은 받은 scope를 읽지 않아 같은 값이어도 된다.
-const GRANTED_SCOPE = "openid offline_access chatgpt.tokens.use.direct";
 const REQUIRED: Record<string, readonly string[]> = {
-  authorization_code: [
-    "client_id",
-    "code",
-    "code_verifier",
-    "redirect_uri",
-    "resource",
-  ],
+  authorization_code: ["client_id", "code", "code_verifier", "redirect_uri"],
   [DEVICE_GRANT]: ["client_id", "device_code"],
   refresh_token: ["client_id", "refresh_token"],
 };
@@ -95,16 +84,6 @@ function json(status: number, body: unknown): Response {
 
 // socket 없이 request를 직접 넣을 수 있는 몸체. startFakeIssuer가 serve adapter를 얹는다.
 export function createFakeIssuerHandler(): IssuerHandler {
-  const keys = crypto.subtle.generateKey(
-    {
-      name: "RSASSA-PKCS1-v1_5",
-      modulusLength: 2048,
-      publicExponent: new Uint8Array([1, 0, 1]),
-      hash: "SHA-256",
-    },
-    true,
-    ["sign", "verify"],
-  );
   let steps: IssuerScript = {};
   let taken: Record<string, number> = {};
   const entries: IssuerJournalEntry[] = [];
@@ -147,12 +126,6 @@ export function createFakeIssuerHandler(): IssuerHandler {
     const expect = (method: string, path: string) =>
       entry.method === method && entry.path === path;
 
-    if (expect("GET", "/jwks")) {
-      const jwk = await crypto.subtle.exportKey("jwk", (await keys).publicKey);
-      return json(200, {
-        keys: [{ ...jwk, kid: KID, alg: "RS256", use: "sig" }],
-      });
-    }
     if (expect("POST", "/device/code")) {
       const device = steps.device;
       if (device === undefined) return miss("no scripted device start");
@@ -200,24 +173,24 @@ export function createFakeIssuerHandler(): IssuerHandler {
       refresh_token: reply.refresh,
       token_type: "Bearer",
       expires_in: reply.expires_in ?? 3600,
-      scope: reply.scope ?? GRANTED_SCOPE,
       ...(reply.id_token === undefined ? {} : { id_token: reply.id_token }),
     });
   }
 
   const handler: IssuerHandler = {
     url: "http://issuer.test",
+    callbackPort: 1455,
     definition(product) {
       const oauth: OAuthDefinition =
         product === "chatgpt"
           ? {
               product,
-              issuer: handler.url,
+              client_id: "e2e-client",
               authorization_endpoint: `${handler.url}/authorize`,
               token_endpoint: `${handler.url}/token`,
-              jwks_uri: `${handler.url}/jwks`,
-              resource: `${handler.url}/resource`,
-              scopes: ["openid", "offline_access", "chatgpt.tokens.use.direct"],
+              redirect_uri: `http://127.0.0.1:${handler.callbackPort}/auth/callback`,
+              inference_endpoint: `${handler.url}/codex`,
+              scopes: ["openid", "offline_access"],
             }
           : {
               product,
@@ -245,22 +218,12 @@ export function createFakeIssuerHandler(): IssuerHandler {
       };
       taken = {};
     },
-    async idToken(claims) {
+    accessToken(account) {
       const part = (value: unknown) =>
         base64url(new TextEncoder().encode(JSON.stringify(value)));
-      const input = `${part({ alg: "RS256", kid: KID, typ: "JWT" })}.${part({
-        iss: handler.url,
-        aud: claims.aud,
-        nonce: claims.nonce,
-        sub: claims.sub ?? "e2e-subject",
-        exp: claims.exp ?? Math.floor(Date.now() / 1000) + 3600,
-      })}`;
-      const signature = await crypto.subtle.sign(
-        "RSASSA-PKCS1-v1_5",
-        (await keys).privateKey,
-        new TextEncoder().encode(input),
-      );
-      return `${input}.${base64url(new Uint8Array(signature))}`;
+      return `${part({ alg: "none" })}.${part({
+        "https://api.openai.com/auth": { chatgpt_account_id: account },
+      })}.x`;
     },
     journal: () => entries,
     handle,
@@ -268,12 +231,22 @@ export function createFakeIssuerHandler(): IssuerHandler {
   return handler;
 }
 
+// 비어 있는 loopback port 하나. 닫은 뒤 core가 곧 같은 port를 연다.
+async function freePort(): Promise<number> {
+  const probe = createServer();
+  await new Promise<void>((resolve) => probe.listen(0, "127.0.0.1", resolve));
+  const address = probe.address();
+  await new Promise<void>((resolve) => probe.close(() => resolve()));
+  return typeof address === "object" && address !== null ? address.port : 0;
+}
+
 export async function startFakeIssuer(): Promise<FakeIssuer> {
   const issuer = createFakeIssuerHandler();
   const server = await serve({ hostname: "127.0.0.1", port: 0 }, issuer.handle);
-  // definition·idToken이 handler.url을 읽으므로 같은 object에 port를 채워 돌려준다.
+  // definition이 handler.url을 읽으므로 같은 object에 port를 채워 돌려준다.
   const port = server.addr.transport === "tcp" ? server.addr.port : 0;
   issuer.url = `http://127.0.0.1:${port}`;
+  issuer.callbackPort = await freePort();
   return Object.assign(issuer, {
     close: () => server.shutdown(),
   });

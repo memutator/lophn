@@ -25,7 +25,8 @@ const PROVIDER_AUTH_KINDS = ["api_key", "oauth", "none"] as const;
 export const providerAuthKindSchema = z.enum(PROVIDER_AUTH_KINDS);
 
 // 구독 OAuth product다. product가 flow를 정한다.
-// - chatgpt: OpenAI 공식 Sign in with ChatGPT(PKCE + 127.0.0.1 loopback, 첫 로그인에 client를 동적 등록).
+// - chatgpt: Codex CLI의 ChatGPT 로그인(고정 client, PKCE + 고정 loopback `localhost:1455/auth/callback`). 이 token은
+//   Codex backend(`chatgpt.com/backend-api/codex`)로 보낸다. OpenAI 공식 Sign in with ChatGPT가 아니다.
 // - supergrok: device code.
 // - claude: Claude account의 PKCE + 고정 loopback callback. Anthropic 공식 문서는 제3자 앱의 Claude.ai 로그인과
 //   구독 credential 사용을 허락하지 않는다. 사람이 그 위험을 알고 고른 연결이다.
@@ -61,22 +62,6 @@ const scopesSchema = z.array(nonblankSchema).min(1).refine(unique, {
   message: "scopes repeat",
 });
 
-const chatgptFields = {
-  product: z.literal("chatgpt"),
-  issuer: issuerUrlSchema,
-  authorization_endpoint: issuerUrlSchema,
-  token_endpoint: issuerUrlSchema,
-  jwks_uri: issuerUrlSchema,
-  resource: issuerUrlSchema,
-  scopes: scopesSchema,
-};
-const supergrokFields = {
-  product: z.literal("supergrok"),
-  client_id: nonblankSchema,
-  device_authorization_endpoint: issuerUrlSchema,
-  token_endpoint: issuerUrlSchema,
-  scopes: scopesSchema,
-};
 // 발급자에 등록된 callback 주소라 port와 path까지 고정이다. browser를 열기 전에 이 port로 듣는다.
 const redirectUriSchema = z
   .string()
@@ -87,6 +72,23 @@ const redirectUriSchema = z
       new URL(value).port !== "",
     { message: "expected a loopback http url with a port" },
   );
+const chatgptFields = {
+  product: z.literal("chatgpt"),
+  client_id: nonblankSchema,
+  authorization_endpoint: issuerUrlSchema,
+  token_endpoint: issuerUrlSchema,
+  redirect_uri: redirectUriSchema,
+  // 이 로그인으로 연결하면 provider endpoint가 이 주소다(API key 연결은 정의의 models_endpoint 쪽 그대로).
+  inference_endpoint: issuerUrlSchema,
+  scopes: scopesSchema,
+};
+const supergrokFields = {
+  product: z.literal("supergrok"),
+  client_id: nonblankSchema,
+  device_authorization_endpoint: issuerUrlSchema,
+  token_endpoint: issuerUrlSchema,
+  scopes: scopesSchema,
+};
 const claudeFields = {
   product: z.literal("claude"),
   client_id: nonblankSchema,

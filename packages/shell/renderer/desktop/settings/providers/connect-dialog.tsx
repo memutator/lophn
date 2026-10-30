@@ -232,12 +232,10 @@ function methodName(
   way: Exclude<AuthWay, "none">,
 ): string {
   switch (way) {
-    case "oauth": {
-      const product = definition.signIn?.product ?? definition.name;
-      return definition.signIn?.button === "continue"
-        ? t("settings.label.method-continue", { product })
-        : t("settings.label.method-sign-in", { product });
-    }
+    case "oauth":
+      return t("settings.label.method-sign-in", {
+        product: definition.signIn?.product ?? definition.name,
+      });
     case "api_key":
       return t("settings.label.way-api-key");
   }

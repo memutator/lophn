@@ -104,10 +104,7 @@ function definitionRowOf(value: BuiltinDefinition): ProviderDefinitionRow {
     signIn:
       value.oauth === null
         ? null
-        : {
-            product: PRODUCTS[value.oauth.product] ?? value.display_name,
-            button: value.oauth.product === "chatgpt" ? "continue" : "sign-in",
-          },
+        : { product: PRODUCTS[value.oauth.product] ?? value.display_name },
     custom: false,
   };
 }
@@ -273,7 +270,12 @@ export function coreProviderSettingsSource(
     definition: BuiltinDefinition,
     progress: SignInProgress | undefined,
   ): Promise<WindowOutcome> {
-    const route = routeOf(definition);
+    // ChatGPT 로그인 token은 Codex backend로 보낸다. 그 밖의 구독은 API key와 같은 주소다.
+    const base = routeOf(definition);
+    const route =
+      base !== null && definition.oauth?.product === "chatgpt"
+        ? { ...base, endpoint: definition.oauth.inference_endpoint }
+        : base;
     if (route === null) return UNAVAILABLE;
     const id = idFor(definition.key);
     const begun = await command(core, loginBegin, {

@@ -20,7 +20,6 @@ export {
 export { credentialUsable } from "./credentials.ts";
 export { listProviders, loadProvider } from "./store.ts";
 export {
-  hostIdOf,
   loadProviderTokens,
   providerSecretName,
   providerTokenNames,

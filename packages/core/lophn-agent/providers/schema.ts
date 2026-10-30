@@ -60,4 +60,31 @@ create table provider_credential_model_blocks (
 create index provider_credential_model_blocks_until
   on provider_credential_model_blocks (until);`,
   },
+  // ChatGPT 구독 로그인을 공식 Sign in with ChatGPT에서 Codex client로 바꿨다. 저장한 정의는 옛 모양이라 읽히지 않고,
+  // 옛 token은 다른 client의 것이라 Codex backend가 받지 않는다. 정의와 endpoint를 새 내장 정의로 바꾸고 credential을
+  // revoked(refresh_revoked)로 둔다. 사람은 Disconnect 뒤 다시 로그인한다. 그 provider를 고른 agent의 선택은 남는다.
+  {
+    id: "lophn-agent.harness-provider.chatgpt-codex-login",
+    sql: `
+update providers
+set definition = json_set(
+      definition,
+      '$.oauth',
+      json('{"product":"chatgpt","client_id":"app_EMoamEEZ73f0CkXaXp7hrann","authorization_endpoint":"https://auth.openai.com/oauth/authorize","token_endpoint":"https://auth.openai.com/oauth/token","redirect_uri":"http://localhost:1455/auth/callback","inference_endpoint":"https://chatgpt.com/backend-api/codex","scopes":["openid","profile","email","offline_access","api.connectors.read","api.connectors.invoke"]}')
+    ),
+    endpoint = 'https://chatgpt.com/backend-api/codex',
+    revision = revision + 1
+where json_extract(definition, '$.oauth.product') = 'chatgpt';
+update provider_credentials
+set state = 'revoked',
+    unavailable_reason = 'refresh_revoked',
+    until = null,
+    reported_models = null,
+    revision = revision + 1
+where kind = 'oauth'
+  and provider in (
+    select id from providers
+    where json_extract(definition, '$.oauth.product') = 'chatgpt'
+  );`,
+  },
 ];

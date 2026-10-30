@@ -332,26 +332,27 @@ export function applyResponsesFrames(
   for (const frame of frames) applyFrame(out, frame);
 }
 
-// usage 정규화. OpenAI는 cache를 input 합계 안에 둔다. 새 입력은
-// input에서 cached를 빼고 하한 0이다. 값 모름은 0이 아니라 null이다.
+// input은 cache 읽기·쓰기를 뺀 보통 입력이고 하한 0이다. OpenAI는 둘 다 input_tokens_details 안에 둔다
+// (cached_tokens, cache_write_tokens). 값 모름은 0이 아니라 null이다.
 function responsesUsage(raw: Record<string, unknown>): TokenUsage {
   const inputDetails = raw.input_tokens_details as
-    | { cached_tokens?: unknown }
+    | { cached_tokens?: unknown; cache_write_tokens?: unknown }
     | undefined;
   const outputDetails = raw.output_tokens_details as
     | { reasoning_tokens?: unknown }
     | undefined;
   const inputTokens = asCount(raw.input_tokens);
   const cached = asCount(inputDetails?.cached_tokens);
+  const written = asCount(inputDetails?.cache_write_tokens);
   const input =
-    inputTokens !== null && cached !== null
-      ? Math.max(0, inputTokens - cached)
-      : inputTokens;
+    inputTokens === null
+      ? null
+      : Math.max(0, inputTokens - (cached ?? 0) - (written ?? 0));
   return {
     input,
     output: asCount(raw.output_tokens),
     cache_read: cached,
-    cache_write: asCount(raw.cache_write_tokens),
+    cache_write: written,
     reasoning: asCount(outputDetails?.reasoning_tokens),
     // OpenAI는 cache를 input 합계 안에 둔다.
     cache_in_input: true,

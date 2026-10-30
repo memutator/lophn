@@ -164,19 +164,13 @@ const CREDENTIAL_CODES: readonly string[] = [
   "organization_spend_limit_exceeded",
   "project_spend_limit_exceeded",
 ];
-// ChatGPT 구독 token(Sign in with ChatGPT)의 거절 code다. 다시 보내도 같으니 retry하지 않는다.
-// 한도는 사람이 ChatGPT 설정에서 보고, 자격·범위 거절은 API key나 다시 로그인으로 푼다.
-// 본문 꼴이 확인되지 않아 구조화 code가 아니면 문구 조각에서도 찾는다.
+// Codex backend의 ChatGPT plan 한도 code다. 다시 보내도 같으니 retry하지 않는다. 한도는 사람이 ChatGPT 설정에서 보고,
+// plan에 없는 기능은 API key로 푼다. 본문 꼴이 확인되지 않아 구조화 code가 아니면 문구 조각에서도 찾는다.
 const SUBSCRIPTION_CODES: Readonly<
   Record<string, "quota" | "plan_access" | "authentication">
 > = {
-  subscription_sharing_usage_limit_exceeded: "quota",
-  subscription_sharing_user_not_eligible: "plan_access",
-  subscription_sharing_unsupported_capability: "plan_access",
-  subscription_sharing_route_not_supported: "plan_access",
-  chatpass_v2_scope_not_authorized: "plan_access",
-  subscription_sharing_invalid_user: "authentication",
-  chatpass_v2_invalid_authorization_context: "authentication",
+  usage_limit_reached: "quota",
+  usage_not_included: "plan_access",
 };
 
 function subscriptionReason(input: {

@@ -28,7 +28,6 @@ import { readAccountModels, readsAccountModels } from "./reported-models.ts";
 import { createProviderOAuth } from "./oauth.ts";
 import type { IssuerFetch } from "./issuer-http.ts";
 import {
-  hostIdOf,
   providerSecretName,
   removeProviderTokens,
   saveProviderTokens,
@@ -62,7 +61,6 @@ export function withProviderLogin(
   const login = createProviderOAuth<Target>({
     http: deps.http,
     openListener: deps.openListener,
-    hostId: () => hostIdOf(deps.secrets, deps.random),
     nowMs: deps.nowMs,
     random: deps.random,
     ...(deps.wait === undefined ? {} : { wait: deps.wait }),

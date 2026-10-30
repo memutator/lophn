@@ -22,7 +22,15 @@ test("계정 model 목록 응답이 틀리면 null이고, 맞으면 숨긴 것�
     ],
     ["200이 아님", new Response("{}", { status: 401 }), null],
     ["JSON 아님", new Response("<html>"), null],
-    ["data 없음", Response.json({ models: [{ id: "a" }] }), null],
+    [
+      "Codex 꼴 models[].slug",
+      Response.json({
+        models: [{ slug: "b" }, { slug: "a", visibility: "hide" }],
+      }),
+      ["b"],
+    ],
+    ["목록 칸 없음", Response.json({ items: [{ id: "a" }] }), null],
+    ["Codex 꼴인데 slug 없음", Response.json({ models: [{ id: "a" }] }), null],
     ["id 없음", Response.json({ data: [{ name: "a" }] }), null],
     [
       "보이는 항목 0개",

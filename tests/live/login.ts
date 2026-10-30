@@ -6,6 +6,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import process from "node:process";
 import { providerSecretName } from "../../packages/core/lophn-agent/providers/oauth-secrets.ts";
+import {
+  codexModelsHeaders,
+  codexModelsUrl,
+} from "../../packages/core/lophn-agent/providers/adapters/codex.ts";
 import { parseReportedModels } from "../../packages/core/lophn-agent/providers/reported-models.ts";
 import {
   loginBegin,
@@ -44,17 +48,18 @@ async function login(core: Core): Promise<number> {
   const { definitions } = await core.call(providerDefinitions, {});
   const definition = definitions.find((item) => item.key === "openai");
   assert.ok(definition !== undefined, "openai 정의가 없다");
+  assert.ok(definition.oauth?.product === "chatgpt", "ChatGPT 로그인이 없다");
   const provider = core.ids.newId("pvd");
   const begun = await core.call(loginBegin, {
     provider,
     name: "ChatGPT",
     definition,
-    endpoint: "https://api.openai.com/v1",
+    endpoint: definition.oauth.inference_endpoint,
     protocol: "openai-responses",
   });
   console.log(
     "이 컴퓨터의 browser에서 아래 주소를 열어 ChatGPT로 로그인하라" +
-      "(원격이면 callback 포트를 port-forward 해야 한다).\n",
+      "(원격이면 callback 포트 1455를 port-forward 해야 한다).\n",
   );
   console.log(begun.sign_in.url);
   console.log("\n로그인을 기다린다…");
@@ -92,9 +97,12 @@ async function login(core: Core): Promise<number> {
   );
 
   // 응답 모양을 직접 확인한다: 칸 이름이 맞는지 보는 진단이다. token은 찍지 않는다.
+  const account = (await core.call(providerRead, { provider })).provider
+    .credential.account;
   const listed = await diagnose(
     provider,
-    definition.models_endpoint ?? "https://api.openai.com/v1/models",
+    codexModelsUrl(definition.oauth.inference_endpoint),
+    codexModelsHeaders(account),
   );
   const names = fromCore ?? listed;
 
@@ -130,6 +138,7 @@ async function login(core: Core): Promise<number> {
 async function diagnose(
   provider: string,
   endpoint: string,
+  headers: Record<string, string>,
 ): Promise<string[] | null> {
   const secrets = JSON.parse(
     await readFile(`${LIVE_HOME}/secrets.json`, "utf8"),
@@ -139,10 +148,7 @@ async function diagnose(
   let response: Response;
   try {
     response = await fetch(endpoint, {
-      headers: {
-        authorization: `Bearer ${access}`,
-        accept: "application/json",
-      },
+      headers: { ...headers, authorization: `Bearer ${access}` },
     });
   } catch (error) {
     console.log(
@@ -161,10 +167,12 @@ async function diagnose(
   }
   const top = json as Record<string, unknown>;
   console.log(`최상위 칸: ${Object.keys(top ?? {}).join(", ")}`);
-  const items = Array.isArray(top?.["data"]) ? (top["data"] as unknown[]) : [];
+  const items = Array.isArray(top?.["models"])
+    ? (top["models"] as unknown[])
+    : [];
   const first = items[0] as Record<string, unknown> | undefined;
   console.log(
-    `data 항목 ${items.length}개, 첫 항목 칸: ${Object.keys(first ?? {}).join(
+    `models 항목 ${items.length}개, 첫 항목 칸: ${Object.keys(first ?? {}).join(
       ", ",
     )}`,
   );

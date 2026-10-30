@@ -262,7 +262,6 @@ export const agents = {
   "settings.label.custom-url": "Base URL",
   "settings.label.extensions-target": "your tools and skills",
   "settings.label.login-signed-in": "Signed in",
-  "settings.label.method-continue": "Continue with {product}",
   "settings.label.method-opens-browser": "Opens your browser",
   "settings.label.method-sign-in": "Sign in with {product}",
   "settings.label.off": "Off",

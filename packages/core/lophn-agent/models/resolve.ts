@@ -31,6 +31,7 @@ import {
   antigravityUserAgent,
   cloudCodeShape,
 } from "../providers/adapters/cloud-code.ts";
+import { codexShape } from "../providers/adapters/codex.ts";
 import { secretDestinationOf } from "../../../protocol/secrets/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import { supportsDeferredTools } from "../providers/definitions.ts";
@@ -253,6 +254,10 @@ export function createModelResolver(deps: ModelResolverDeps) {
     const claude =
       credential.kind === "oauth" &&
       provider.definition.oauth?.product === "claude";
+    // ChatGPT 구독 token은 Codex backend 모양으로 보낸다.
+    const codex =
+      credential.kind === "oauth" &&
+      provider.definition.oauth?.product === "chatgpt";
     const cloudCode = provider.protocol === "cloud-code-assist";
     const project = credential.account?.project_id ?? null;
     if (cloudCode && project === null) {
@@ -278,16 +283,23 @@ export function createModelResolver(deps: ModelResolverDeps) {
               )?.[1],
             }),
           }
-        : cloudCode && project !== null
+        : codex
           ? {
-              shape: cloudCodeShape({
-                project,
-                model: limits.sent_model_name,
-                userAgent: antigravityUserAgent(process.platform),
-                nowMs,
+              shape: codexShape({
+                provider: provider.id,
+                account: credential.account,
               }),
             }
-          : {}),
+          : cloudCode && project !== null
+            ? {
+                shape: cloudCodeShape({
+                  project,
+                  model: limits.sent_model_name,
+                  userAgent: antigravityUserAgent(process.platform),
+                  nowMs,
+                }),
+              }
+            : {}),
     });
     const requestPatch = limits.request_patch;
     const images = limits.input_media.includes("image");

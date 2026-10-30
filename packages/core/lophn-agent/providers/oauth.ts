@@ -1,14 +1,12 @@
 // 구독 OAuth 로그인 작업이다. begin이 사람이 OS browser에서 열 주소를 내고, complete는 기다리지 않고 한 번 보고
 // 돌아온다(아직이면 pending, 끝났으면 token). 화면이 interval_ms마다 complete를 다시 부른다.
-// - chatgpt: OpenAI 공식 Sign in with ChatGPT. PKCE(S256) + 127.0.0.1 loopback(`/auth/callback`). 첫 로그인은
-//   `client_id=dynamic_agent_client`로 등록하고 callback의 발급 client_id로 교환한다. id_token은 JWKS 서명·issuer·
-//   audience·exp·nonce를 검증하고, granted scope에 `chatgpt.tokens.use.direct`가 없으면 plan usage가 없는 것이다.
+// - chatgpt: Codex CLI의 ChatGPT 로그인. PKCE(S256) + 발급자에 등록된 고정 loopback callback. 교환은 oauth-chatgpt.ts가 한다.
 // - claude: Claude account. PKCE(S256) + 발급자에 등록된 고정 loopback callback. 교환은 oauth-claude.ts가 한다.
 // - antigravity: Google account. PKCE(S256) + 고정 loopback callback. 교환 뒤 Cloud Code project까지 정해야 연결이다
 //   (oauth-antigravity.ts).
 // - supergrok: RFC 8628 device code. complete마다 token endpoint를 한 번 poll한다.
 // 발급자 주소와 client 값은 모두 provider 정의 data다. 상수 주소가 없어 fake 발급자도 정의만 바꿔 돈다.
-// 값(state·nonce·verifier·device_code·token)은 이 작업 메모리와 complete의 결과에만 있고 ledger·event·log·오류에
+// 값(state·verifier·device_code·token)은 이 작업 메모리와 complete의 결과에만 있고 ledger·event·log·오류에
 // 싣지 않는다. network(발급자 요청 대기열)·listener·시각·무작위 값은 deps로 받는다.
 
 import { err, ok, type Result } from "../../../base/mod.ts";
@@ -19,13 +17,8 @@ import {
   type ProviderAccount,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { CallbackListener, CallbackOptions } from "../extensions/mod.ts";
-import {
-  type IssuerFetch,
-  positive,
-  postForm,
-  send,
-  text,
-} from "./issuer-http.ts";
+import { type IssuerFetch, positive, postForm, text } from "./issuer-http.ts";
+import { chatGptAuthorizeUrl, chatGptExchange } from "./oauth-chatgpt.ts";
 import { claudeAuthorizeUrl, claudeExchange } from "./oauth-claude.ts";
 import {
   antigravityAccount,
@@ -34,11 +27,6 @@ import {
 } from "./oauth-antigravity.ts";
 import type { ProviderTokenMeta } from "./oauth-secrets.ts";
 
-// 발급자에게 보내는 이름이다. 동의 화면과 ChatGPT 설정의 앱 목록에 보인다.
-const OAUTH_APP_NAME = "lophn";
-const CHATGPT_REGISTER_CLIENT = "dynamic_agent_client";
-const CHATGPT_PLAN_SCOPE = "chatgpt.tokens.use.direct";
-const CHATGPT_LOGIN_MS = 15 * 60_000;
 // 고정 callback으로 돌아오기를 기다리는 시간이다. 그동안 그 port를 쥔다.
 const FIXED_CALLBACK_MS = 5 * 60_000;
 const CALLBACK_CHECK_MS = 1_000;
@@ -53,7 +41,7 @@ export type OAuthTokens = {
   refresh: string;
   expires_at_ms: number;
   meta: ProviderTokenMeta;
-  // 로그인이 확정한 계정이다. ChatGPT·SuperGrok은 null이다.
+  // 로그인이 확정한 계정이다. SuperGrok은 null이다.
   account: ProviderAccount | null;
 };
 
@@ -92,7 +80,6 @@ type Session<T> = {
       stop: AbortController;
       callback: Callback | null;
       state: string;
-      nonce: string;
       verifier: string;
       redirectUri: string;
     }
@@ -120,7 +107,6 @@ function listenerOptions(redirectUri: string, state: string): CallbackOptions {
 export function createProviderOAuth<T extends { endpoint: string }>(deps: {
   http: IssuerFetch;
   openListener(options?: CallbackOptions): Promise<Result<CallbackListener>>;
-  hostId(): Promise<Result<string>>;
   nowMs(): number;
   random: RandomSource;
   // 계정 준비(onboarding)를 다시 볼 때까지 쉰다.
@@ -172,7 +158,6 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
     pending: {
       listener: CallbackListener;
       state: string;
-      nonce: string;
       verifier: string;
       redirectUri: string;
       signIn: string;
@@ -194,7 +179,6 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
       stop,
       callback: null,
       state: pending.state,
-      nonce: pending.nonce,
       verifier: pending.verifier,
       redirectUri: pending.redirectUri,
     };
@@ -211,52 +195,10 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
     };
   }
 
-  async function beginChatGpt(
-    provider: string,
-    oauth: Extract<OAuthDefinition, { product: "chatgpt" }>,
-    target: T,
-  ): Promise<Result<OAuthBegin>> {
-    const hostId = await deps.hostId();
-    if (!hostId.ok) return hostId;
-    const state = randomText(32);
-    const opened = await deps.openListener({ path: "/auth/callback", state });
-    if (!opened.ok) return opened;
-    const listener = opened.value;
-    const nonce = randomText(32);
-    const verifier = randomText(32);
-    const redirectUri = `http://127.0.0.1:${listener.port()}/auth/callback`;
-    const url = new URL(oauth.authorization_endpoint);
-    for (const [key, value] of Object.entries({
-      response_type: "code",
-      client_id: CHATGPT_REGISTER_CLIENT,
-      agent_name_hint: OAUTH_APP_NAME,
-      ext_agent_host_id: hostId.value,
-      redirect_uri: redirectUri,
-      scope: oauth.scopes.join(" "),
-      resource: oauth.resource,
-      state,
-      nonce,
-      code_challenge: await pkceChallenge(verifier),
-      code_challenge_method: "S256",
-    }))
-      url.searchParams.set(key, value);
-    return ok(
-      startPkce(provider, oauth, target, {
-        listener,
-        state,
-        nonce,
-        verifier,
-        redirectUri,
-        signIn: url.toString(),
-        windowMs: CHATGPT_LOGIN_MS,
-      }),
-    );
-  }
-
   // browser를 열기 전에 등록된 port로 듣는다. 그 port를 다른 프로그램이 쓰면 conflict로 끝난다.
   async function beginFixed(
     provider: string,
-    oauth: Extract<OAuthDefinition, { product: "claude" | "antigravity" }>,
+    oauth: PkceOAuth,
     target: T,
   ): Promise<Result<OAuthBegin>> {
     const state = randomText(32);
@@ -271,14 +213,15 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
       challenge: await pkceChallenge(verifier),
     };
     const signIn =
-      oauth.product === "claude"
-        ? claudeAuthorizeUrl(oauth, authorize)
-        : antigravityAuthorizeUrl(oauth, authorize);
+      oauth.product === "chatgpt"
+        ? chatGptAuthorizeUrl(oauth, authorize)
+        : oauth.product === "claude"
+          ? claudeAuthorizeUrl(oauth, authorize)
+          : antigravityAuthorizeUrl(oauth, authorize);
     return ok(
       startPkce(provider, oauth, target, {
         listener: opened.value,
         state,
-        nonce: "",
         verifier,
         redirectUri: oauth.redirect_uri,
         signIn,
@@ -359,42 +302,22 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
     if (callback.value.state !== session.state) {
       return refused("로그인 응답이 이 시도의 것이 아니다");
     }
-    const clientId = callback.value.client_id;
-    if (clientId === null) return refused("발급자가 client를 등록하지 않았다");
-    const exchanged = await postForm(deps.http, oauth.token_endpoint, {
-      grant_type: "authorization_code",
-      client_id: clientId,
+    const granted = await chatGptExchange(deps.http, oauth, {
       code: callback.value.code,
-      code_verifier: session.verifier,
-      redirect_uri: session.redirectUri,
-      resource: oauth.resource,
+      verifier: session.verifier,
+      redirectUri: session.redirectUri,
+      nowMs: deps.nowMs,
     });
-    if (!exchanged.ok) return exchanged;
-    if (exchanged.value.status !== 200) {
-      return refused("발급자가 token 교환을 거절했다");
-    }
-    const body = exchanged.value.body;
-    const tokens = tokensOf(body, deps.nowMs());
-    if (tokens === null) return refused("token 응답이 모자라다");
-    if (!grantedScopes(body).includes(CHATGPT_PLAN_SCOPE)) {
-      return refused("이 ChatGPT 계정은 plan usage를 허락하지 않았다");
-    }
-    const subject = await verifiedSubject(deps.http, {
-      idToken: text(body["id_token"]),
-      jwksUri: oauth.jwks_uri,
-      issuer: oauth.issuer,
-      clientId,
-      nonce: session.nonce,
-      nowMs: deps.nowMs(),
-    });
-    if (!subject.ok) return subject;
+    if (!granted.ok) return granted;
     return ok({
       state: "done",
       target: session.target,
       tokens: {
-        ...tokens,
-        meta: { client_id: clientId, subject: subject.value },
-        account: null,
+        access: granted.value.access,
+        refresh: granted.value.refresh,
+        expires_at_ms: granted.value.expires_at_ms,
+        meta: { subject: granted.value.account.id },
+        account: granted.value.account,
       },
     });
   }
@@ -428,7 +351,7 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
         access: granted.value.access,
         refresh: granted.value.refresh,
         expires_at_ms: granted.value.expires_at_ms,
-        meta: { client_id: null, subject: granted.value.account.id },
+        meta: { subject: granted.value.account.id },
         account: granted.value.account,
       },
     });
@@ -468,7 +391,7 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
       target: session.target,
       tokens: {
         ...granted.value,
-        meta: { client_id: null, subject: null },
+        meta: { subject: null },
         account: account.value,
       },
     });
@@ -501,7 +424,7 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
         target: session.target,
         tokens: {
           ...tokens,
-          meta: { client_id: null, subject: null },
+          meta: { subject: null },
           account: null,
         },
       });
@@ -525,13 +448,10 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
   return {
     async begin(provider, oauth, target) {
       await sweep();
-      if (oauth.product === "chatgpt") {
-        return await beginChatGpt(provider, oauth, target);
+      if (oauth.product === "supergrok") {
+        return await beginDevice(provider, oauth, target);
       }
-      if (oauth.product === "claude" || oauth.product === "antigravity") {
-        return await beginFixed(provider, oauth, target);
-      }
-      return await beginDevice(provider, oauth, target);
+      return await beginFixed(provider, oauth, target);
     },
     async complete(provider, login) {
       await sweep();
@@ -592,14 +512,6 @@ function tokensOf(
   };
 }
 
-function grantedScopes(body: Record<string, unknown>): string[] {
-  const value = body["scope"] ?? body["scopes"];
-  if (typeof value === "string") return value.split(/\s+/);
-  return Array.isArray(value)
-    ? value.filter((scope): scope is string => typeof scope === "string")
-    : [];
-}
-
 // ---- base64url / PKCE ----
 
 function base64url(bytes: Uint8Array): string {
@@ -611,16 +523,6 @@ function base64url(bytes: Uint8Array): string {
     .replaceAll("=", "");
 }
 
-function fromBase64url(value: string): Uint8Array<ArrayBuffer> {
-  const normalized =
-    value.replaceAll("-", "+").replaceAll("_", "/") +
-    "=".repeat((4 - (value.length % 4)) % 4);
-  const binary = atob(normalized);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
 // RFC 7636 S256 challenge다.
 export async function pkceChallenge(verifier: string): Promise<string> {
   const digest = await crypto.subtle.digest(
@@ -628,105 +530,4 @@ export async function pkceChallenge(verifier: string): Promise<string> {
     new TextEncoder().encode(verifier),
   );
   return base64url(new Uint8Array(digest));
-}
-
-// ---- id_token 검증(RS256 서명·issuer·audience·exp·nonce) ----
-
-function jwtPart(jwt: string, index: 0 | 1): Record<string, unknown> | null {
-  const parts = jwt.split(".");
-  if (parts.length !== 3) return null;
-  try {
-    return objectOrNull(
-      JSON.parse(new TextDecoder().decode(fromBase64url(parts[index]!))),
-    );
-  } catch {
-    return null;
-  }
-}
-
-function objectOrNull(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-async function rs256Verified(
-  jwt: string,
-  jwk: Record<string, unknown>,
-): Promise<boolean> {
-  const [header, payload, signature] = jwt.split(".");
-  if (typeof jwk["n"] !== "string" || typeof jwk["e"] !== "string") {
-    return false;
-  }
-  try {
-    const key = await crypto.subtle.importKey(
-      "jwk",
-      { kty: "RSA", n: jwk["n"], e: jwk["e"], alg: "RS256", ext: true },
-      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-      false,
-      ["verify"],
-    );
-    return await crypto.subtle.verify(
-      "RSASSA-PKCS1-v1_5",
-      key,
-      fromBase64url(signature!),
-      new TextEncoder().encode(`${header}.${payload}`),
-    );
-  } catch {
-    return false;
-  }
-}
-
-async function verifiedSubject(
-  http: IssuerFetch,
-  input: {
-    idToken: string | null;
-    jwksUri: string;
-    issuer: string;
-    clientId: string;
-    nonce: string;
-    nowMs: number;
-  },
-): Promise<Result<string>> {
-  const bad = refused("id_token을 믿을 수 없다");
-  if (input.idToken === null) return bad;
-  const header = jwtPart(input.idToken, 0);
-  const claims = jwtPart(input.idToken, 1);
-  if (header === null || claims === null || header["alg"] !== "RS256") {
-    return bad;
-  }
-  const jwks = await send(http, input.jwksUri, {
-    method: "GET",
-    headers: { accept: "application/json" },
-  });
-  if (!jwks.ok) return jwks;
-  const keys = Array.isArray(jwks.value.body["keys"])
-    ? jwks.value.body["keys"].map(objectOrNull).filter((key) => key !== null)
-    : [];
-  const kid = header["kid"];
-  const candidates = keys.filter(
-    (key) => key["kty"] === "RSA" && (kid === undefined || key["kid"] === kid),
-  );
-  let signed = false;
-  for (const key of candidates) {
-    if (await rs256Verified(input.idToken, key)) {
-      signed = true;
-      break;
-    }
-  }
-  const audience = claims["aud"];
-  const audiences = Array.isArray(audience) ? audience : [audience];
-  const exp = claims["exp"];
-  const subject = text(claims["sub"]);
-  if (
-    !signed ||
-    claims["iss"] !== input.issuer ||
-    !audiences.includes(input.clientId) ||
-    typeof exp !== "number" ||
-    exp * 1000 <= input.nowMs ||
-    claims["nonce"] !== input.nonce ||
-    subject === null
-  )
-    return bad;
-  return ok(subject);
 }

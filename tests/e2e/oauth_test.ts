@@ -167,13 +167,12 @@ test("device code 로그인이 발급자 간격을 지키고 secret 셋을 저�
   });
 });
 
-test("PKCE 로그인이 loopback callback으로 끝나고 code와 token이 secrets.json 밖에 남지 않는다", async () => {
+test("PKCE 로그인이 고정 loopback callback으로 끝나고 code와 token이 secrets.json 밖에 남지 않는다", async () => {
   await withFakes(async ({ run, fake, issuer, core }) => {
     const provider = core.ids.newId("pvd");
-    const access = core.ids.newId("key");
+    const access = issuer.accessToken("acct-e2e");
     const refresh = core.ids.newId("key");
     const code = core.ids.newId("key");
-    const clientId = `oaiapp_${core.ids.newId("key")}`;
 
     const started = await core.call(loginBegin, {
       provider,
@@ -184,19 +183,8 @@ test("PKCE 로그인이 loopback callback으로 끝나고 code와 token이 secre
     });
     const params = new URL(started.sign_in.url).searchParams;
     const redirect = params.get("redirect_uri")!;
-    const idToken = await issuer.idToken({
-      aud: clientId,
-      nonce: params.get("nonce")!,
-    });
     issuer.script({
-      authorization_code: [
-        {
-          kind: "tokens",
-          access,
-          refresh,
-          id_token: idToken,
-        },
-      ],
+      authorization_code: [{ kind: "tokens", access, refresh }],
     });
     const pending = await core.call(loginComplete, {
       provider,
@@ -207,7 +195,6 @@ test("PKCE 로그인이 loopback callback으로 끝나고 code와 token이 secre
       `${redirect}?${new URLSearchParams({
         code,
         state: params.get("state")!,
-        client_id: clientId,
       })}`,
     );
     await callback.body?.cancel();
@@ -223,10 +210,15 @@ test("PKCE 로그인이 loopback callback으로 끝나고 code와 token이 secre
       LOGIN_MS,
     );
 
-    // 1. 발급자: code 교환에 verifier와 redirect_uri가 있고 jwks를 읽음
+    // 1. 발급자: 정의의 고정 callback 주소로 돌아오고, code 교환에 verifier와 그 주소가 있음
     assert.deepStrictEqual(pending.state, "pending");
-    const journal = issuer.journal();
-    const exchange = journal.filter((entry) => entry.path === "/token");
+    assert.deepStrictEqual(
+      redirect,
+      `http://127.0.0.1:${issuer.callbackPort}/auth/callback`,
+    );
+    const exchange = issuer
+      .journal()
+      .filter((entry) => entry.path === "/token");
     assert.deepStrictEqual(exchange.length, 1);
     const form = exchange[0]!.form;
     const verifier = form["code_verifier"];
@@ -234,17 +226,12 @@ test("PKCE 로그인이 loopback callback으로 끝나고 code와 token이 secre
     assert.deepStrictEqual(form["code"], code);
     assert.deepStrictEqual(form["redirect_uri"], redirect);
     assert.ok(verifier !== undefined && verifier.length > 0);
-    assert.deepStrictEqual(
-      journal.filter(
-        (entry) => entry.path === "/jwks" && entry.method === "GET",
-      ).length,
-      1,
-    );
 
-    // 2. ledger
+    // 2. ledger: token claim의 ChatGPT 계정이 credential 계정이다
     const { provider: record } = await core.call(providerRead, { provider });
     assert.deepStrictEqual(record.credential.kind, "oauth");
     assert.deepStrictEqual(record.credential.state, "available");
+    assert.deepStrictEqual(record.credential.account?.id, "acct-e2e");
 
     // 3. disk: secrets.json에는 있고 나머지(core.log 포함)에는 없다.
     await core.stop();
@@ -253,8 +240,7 @@ test("PKCE 로그인이 loopback callback으로 끝나고 code와 token이 secre
     assert.deepStrictEqual(secrets[name], access);
     assert.deepStrictEqual(secrets[`${name}.refresh`], refresh);
     assert.ok(secrets[`${name}.meta`] !== undefined);
-    assert.ok(secrets["provider-oauth.host-id"] !== undefined);
-    for (const value of [code, verifier, access, refresh, idToken]) {
+    for (const value of [code, verifier, access, refresh]) {
       assert.deepStrictEqual(await filesWith(run.dir, value), []);
     }
   });
@@ -281,7 +267,6 @@ test("취소한 로그인의 callback listener가 닫힌다", async () => {
           `${redirect}?${new URLSearchParams({
             code: "x",
             state: params.get("state")!,
-            client_id: "y",
           })}`,
         ),
       TypeError,

@@ -8,13 +8,10 @@ import type {
   SecretStorePort,
 } from "../../../protocol/secrets/mod.ts";
 import { type IssuerFetch, objectOf, positive, text } from "./issuer-http.ts";
+import { chatGptRefreshRequest } from "./oauth-chatgpt.ts";
 import { claudeRefreshRequest } from "./oauth-claude.ts";
 import { antigravityRefreshRequest } from "./oauth-antigravity.ts";
-import {
-  loadProviderTokens,
-  type ProviderTokenMeta,
-  providerTokenNames,
-} from "./oauth-secrets.ts";
+import { loadProviderTokens, providerTokenNames } from "./oauth-secrets.ts";
 import { readAccountModels, readsAccountModels } from "./reported-models.ts";
 
 // 구독 provider의 OAuth access token 갱신이다. agent runtime이 model 호출에 실을 token(`provider.<id>`)을 달라고
@@ -35,25 +32,24 @@ const ACCESS_NAME = /^provider\.([^.]+)$/;
 // 받은 token의 저장을 같은 값으로 다시 해 보는 횟수다.
 const SAVE_ATTEMPTS = 3;
 
-// product마다 refresh grant의 모양이 다르다. ChatGPT는 첫 로그인에 발급받은 client_id를 쓴다.
+// product마다 refresh grant의 모양이 다르다.
 function refreshRequestOf(
   oauth: OAuthDefinition,
-  stored: { refresh: string; meta: ProviderTokenMeta },
-): { url: string; init: RequestInit } | null {
+  refresh: string,
+): { url: string; init: RequestInit } {
+  if (oauth.product === "chatgpt") {
+    return chatGptRefreshRequest(oauth, refresh);
+  }
   if (oauth.product === "claude") {
-    return claudeRefreshRequest(oauth, stored.refresh);
+    return claudeRefreshRequest(oauth, refresh);
   }
   if (oauth.product === "antigravity") {
-    return antigravityRefreshRequest(oauth, stored.refresh);
+    return antigravityRefreshRequest(oauth, refresh);
   }
-  const clientId =
-    oauth.product === "chatgpt" ? stored.meta.client_id : oauth.client_id;
-  if (clientId === null) return null;
   const fields: Record<string, string> = {
     grant_type: "refresh_token",
-    refresh_token: stored.refresh,
-    client_id: clientId,
-    ...(oauth.product === "chatgpt" ? { resource: oauth.resource } : {}),
+    refresh_token: refresh,
+    client_id: oauth.client_id,
   };
   return {
     url: oauth.token_endpoint,
@@ -120,15 +116,15 @@ export function createProviderRefresher(deps: {
     if (oauth === null || !stored.ok) {
       return err({ code: "unavailable", message: "저장된 token이 없다" });
     }
-    const request = refreshRequestOf(oauth, stored.value);
+    const request = refreshRequestOf(oauth, stored.value.refresh);
     // Antigravity token은 계정 project와 함께여야 쓸 수 있다. project 없는 기록은 다시 로그인해야 한다.
-    const incomplete =
+    if (
       oauth.product === "antigravity" &&
-      provider.credential.account?.project_id == null;
-    if (request === null || incomplete) {
+      provider.credential.account?.project_id == null
+    ) {
       return err({
         code: "unavailable",
-        message: "저장된 token meta가 깨졌다",
+        message: "저장된 계정에 project가 없다",
       });
     }
     const still = (): Result<void> => {

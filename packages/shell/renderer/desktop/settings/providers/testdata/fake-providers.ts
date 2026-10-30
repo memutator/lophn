@@ -57,12 +57,12 @@ const ANTHROPIC_DEFINITION = definition("anthropic", "Anthropic");
 
 const OPENAI_DEFINITION = definition("openai", "OpenAI", {
   ways: ["oauth", "api_key"],
-  signIn: { product: "ChatGPT", button: "continue" },
+  signIn: { product: "ChatGPT" },
 });
 
 const XAI_DEFINITION = definition("xai", "xAI", {
   ways: ["oauth", "api_key"],
-  signIn: { product: "SuperGrok", button: "sign-in" },
+  signIn: { product: "SuperGrok" },
 });
 
 const CUSTOM_DEFINITION = definition("custom", "Custom provider", {

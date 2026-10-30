@@ -17,7 +17,7 @@ agent는 lophn과 사람이 만든 agent 둘이다. agent는 place에 놓이지 
 - P5. 앱은 project에 묶이지 않는다. 앱마다 app place가 있고 앱은 home에서 등록한다. 등록할 때 agent를 만들지 않는다. project도 마찬가지다.
 - P6. coding agent는 lophn 밖의 harness다. lophn은 coding agent에게 일을 맡기지 않는다. 사람이 터미널 탭에서 자기 coding agent를 쓰는 것은 lophn agent의 일과 별개이고, lophn은 그 탭의 상태(icon, 점, 알림)만 보인다(`architecture/terminal-agent.md`).
 - P7. 사람은 project 창 sidebar(모든 agent), 런처의 Ask lophn 패널, 앱 화면 title bar의 agent select(모든 agent), toast로 agent를 부른다. 고르면 그 place의 session이 열린다.
-- P8. project place의 session은 그 project의 `LOPHN.md`를 지침으로 같이 읽는다. app place에는 `LOPHN.md`가 없다. home의 session은 project 지침을 tool로 읽는다.
+- P8. project place의 session은 그 project의 `LOPHN.md`를 지침으로 같이 읽는다. app place와 home에는 project 지침이 없다.
 - P10. project는 사람의 폴더 없이도 등록할 수 있다(폴더 0개 project). 폴더가 없는 project의 `LOPHN.md`는 lophn data의 project 자리에 있고, project place session의 file 범위 밖이라 사람이 editor로 고친다.
 - P11. 그릇(project, app)마다 domain이 있다. project는 0개여도 되고, 앱은 등록할 때 앱 이름의 domain이 하나 생겨 0개가 되지 않는다. domain은 그 그릇 place의 session이 만들고, 사람도 만든다.
 - P12. session은 받은 domain의 `DOMAIN.md`, kind, skill, tool만 받는다. 정의의 `domains`가 비면 그 place 그릇의 active domain 전부, 있으면 그 가운데 그 그릇의 것만 받는다(0개일 수 있다). home은 0개다. 다른 그릇의 domain은 할당받은 공개 tool로만 쓴다.

@@ -54,13 +54,11 @@ export const PROMPT_INSTRUCTION_LAYERS = [
   "agent",
 ] as const;
 
-// `project`는 lophn이 `instructions.read`로 다른 project의 LOPHN.md를 읽을 때만 준다. 없으면 session의 place가
-// 가리키는 project다. `domain`은 layer가 `domain`일 때 필수이고 아니면 거절이다. 출력과 상한은 위
-// `instructionReadFileSchema`다.
+// 어느 project의 LOPHN.md인지는 session의 place로 정한다. `domain`은 layer가 `domain`일 때 필수이고 아니면 거절이다.
+// 출력과 상한은 위 `instructionReadFileSchema`다.
 const instructionsGetInputSchema = z.strictObject({
   session: idSchema("ses"),
   layer: z.enum(PROMPT_INSTRUCTION_LAYERS),
-  project: idSchema("prj").optional(),
   domain: idSchema("dom").optional(),
 });
 

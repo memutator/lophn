@@ -40,9 +40,6 @@ const READ_TOOLS = [
   "visual.show",
 ] as const;
 
-// home만. project·app은 project 지침을 prompt로 받는다.
-const LOPHN_ONLY_READ_TOOLS = ["instructions.read"] as const;
-
 // 모든 앱의 tool 목록은 사람이 home과 app 종류로만 좁혔다. 앱 상태·log·invocation 읽기도 앱을 진단하는
 // home과 app 종류만 갖는다.
 const APP_TOOL_NAMES = [
@@ -65,7 +62,7 @@ const KIND_TOOL_NAMES = ["kind.list", "kind.check"] as const;
 
 // place 종류가 더하는 tool이다. 정의가 전역이라 agent.create·agent.update는 셋 다 받는다.
 const PLACE_TOOLS = {
-  home: [...LOPHN_ONLY_READ_TOOLS, "app.create", ...APP_TOOL_NAMES],
+  home: ["app.create", ...APP_TOOL_NAMES],
   project: [
     ...WORK_TOOLS,
     ...KIND_TOOL_NAMES,
@@ -175,7 +172,6 @@ export const TOOL_ORDER = [
   "kind.check",
   "settings.get",
   "visual.show",
-  "instructions.read",
   "agent.create",
   "agent.update",
   "workflow.list",

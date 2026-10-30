@@ -19,8 +19,7 @@ There are five layers, in this order:
    agent.
 3. The project instructions, the `LOPHN.md` file in the project folder, which
    you edit in the project window. An agent working in the project reads it as
-   part of its prompt. At home an agent reads it with a tool when it works on
-   that project. An app has none.
+   part of its prompt. Home and apps have none.
 4. The domain instructions, the `DOMAIN.md` file of each domain the agent works
    with. They say what the domain means and the rules the program cannot check.
    The agent's prompt carries only the `DOMAIN.md` of its own domains. At home

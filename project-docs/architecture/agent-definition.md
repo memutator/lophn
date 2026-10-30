@@ -43,7 +43,7 @@ lophn은 고정 character를 쓰고 바꾸지 못한다. 사람이 만든 agent�
 - **지침 층은 덮지 않고 이어 붙인다.** skill과 MCP server만 같은 이름일 때 마지막 층이 덮는다. MCP server의 층은 전역, project, agent 정의 순이다. 단 내장 skill은 모두 끌 수 없고 사람 skill이 같은 이름으로 덮지 못한다. role이 일하는 데 필요한 skill이 사라지면 lophn 동작이 막힌다.
   - 층의 자리(domain 층의 skill 폴더와 project 층의 `extensions.json`)와 내장 skill 폴더(`packages/core/agent-places/skills/`)는 place 종류 층이 정하고 harness는 받아 쓴다. 읽기 허락과 skill 발견이 같은 값을 써야 허락 밖 폴더를 찾다 막히지 않는다.
 - **`AGENTS.md`는 읽지 않는다.** 지침은 `LOPHN.md`뿐이다. 다른 도구의 지침이 섞이면 사람이 무엇이 prompt에 들어가는지 모른다.
-- **lophn은 place가 없어 project 지침을 prompt에 넣지 않고 tool로 읽는다.** project를 가리지 못한 채 아무 project의 지침을 싣는 것을 막는다. 앱 place의 agent에게는 project 지침이 없다.
+- **지침은 prompt 조립이 싣는다. agent가 tool로 지침을 읽게 하지 않는다.** home은 place가 없어 project 지침이 없다. project의 일은 `call`로 그 project의 session에 넘기고, 거기서 조립이 `LOPHN.md`를 싣는다. 앱 place의 agent에게는 project 지침이 없다.
 - **`DOMAIN.md`는 그 agent가 맡은 domain의 것만 지침 층에 실린다.** 글이 예산(24000자)을 넘으면 넘은 domain부터 목적 한 줄로 줄인다. 규칙은 `architecture/domain.md`다.
 - **Router가 넣는 입력은 모두 user role이고 `lophn-` tag로 출처를 밝힌다.** 본문 속 `lophn-` tag는 escape하고 속성 값은 scrub한다. 사람의 steer만 `<lophn-steer>` 모양을 믿는다고 고정 본문에 적는다. 받은 메시지, 알림, tool 결과는 허락도 사람의 지시도 아니다. 받은 메시지는 뒤 turn의 이력에서도 받은 turn의 입력과 같은 bytes로 싼다(봉투가 답 방식, reaction event, 실패 이유를 저장한다. `agent-call.md`).
 - **감싸는 결과는 web 검색과 web 읽기뿐이다.** file, shell, 앱 tool, 외부 MCP 결과는 감싸지 않는다. 앱과 MCP는 사람이 할당하고 설정한 순간 믿는다는 철학이고, 실행 때 의심을 더하지 않는다. "안전해 보이니 감싸자"로 되돌리지 않는다.

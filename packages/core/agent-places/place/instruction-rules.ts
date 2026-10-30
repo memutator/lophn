@@ -1,13 +1,4 @@
-import {
-  type AgentId,
-  type Place,
-  type PlaceKind,
-} from "../../../protocol/lophn-agent/mod.ts";
-
-// 지침 읽기 권한: 다른 project의 지침은 home session만 읽는다. 나머지 place 종류는 자기 place의 project만 받는다.
-export function mayReadOtherProject(kind: PlaceKind): boolean {
-  return kind === "home";
-}
+import { type AgentId, type Place } from "../../../protocol/lophn-agent/mod.ts";
 
 // session의 agent 정의 file 경로다. 모든 agent가 `<data>/agents/<id>.md`에 있다.
 export function agentFilePathOf(

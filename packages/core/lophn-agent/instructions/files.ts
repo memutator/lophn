@@ -1,7 +1,7 @@
 // 사람 지침(LOPHN.md) 읽기 통로의 core 쪽 길(lophn-agent/instructions). LOPHN.md는 document·판 없이 그냥
 // 파일이라 GetInstructions는 읽을 때마다 파일을 연다: 전역 `~/.lophn/LOPHN.md`(data root), project의
 // LOPHN.md(첫 등록 폴더 바로 아래, 폴더가 없으면 `<data>/projects/<prj>/`), domain의 DOMAIN.md(`<data>/domains/<dom>/`), 그리고 agent 정의 본문이다.
-// 어느 project인지는 읽는 쪽이 정하지 않고 그 session의 place로 정한다(home session만 project를 골라 읽는다).
+// 어느 project인지는 읽는 쪽이 정하지 않고 그 session의 place로 정한다.
 // 읽기만 있다. 파일 저장은 사람이 editor에서 하고 agent는 만들 길이 없다.
 // 이 모듈은 core가 정적으로 import하지 않는다(팀 file wiring/instructions-registration.ts만 reader Worker가 부른다). 동기
 // file API는 reader Worker 안에서만 쓴다(core_imports_test).
@@ -21,8 +21,6 @@ import {
   instructionsGet,
   type AgentId,
   type Place,
-  type PlaceKind,
-  placeKindOf,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   ReadDefinition,
@@ -94,12 +92,10 @@ function loadInstructionSession(
 
 // 조립이 넘기는 조회와 규칙이다. project 표와 agent 정의 file 자리는 harness가 모른다.
 export type InstructionReadDeps = {
-  projectExists(sql: ReadSnapshot["sql"], project: string): boolean;
   projectFirstFolder(sql: ReadSnapshot["sql"], project: string): string | null;
   // 등록 폴더가 없는 project의 지침은 data root의 project 자리에 있다.
   projectDataFolder(root: string, project: string): string;
   agentFilePathOf(root: string, session: SessionRow): string | null;
-  mayReadOtherProject(kind: PlaceKind): boolean;
   // domain의 그릇. 없는 domain이면 null이다.
   domainOwnerOf(
     sql: ReadSnapshot["sql"],
@@ -155,14 +151,12 @@ function readAgentBody(
 
 // GetInstructions의 읽기. 층 하나의 파일을 돌려준다(부재는 null).
 // - domain 칸은 session의 place 그릇에 든 domain만 받는다. 아니면 forbidden이다.
-// - project 칸은 home session만 다른 project를 줄 수 있다. 다른 place 종류는 자기 place의 project만 받는다.
-// - 칸이 없으면 session의 place가 가리키는 project다. home과 앱 place는 project 지침이 없다.
+// - project 층은 session의 place가 가리키는 project다. home과 앱 place는 project 지침이 없다.
 function readInstruction(
   deps: InstructionReadDeps,
   snapshot: ReadSnapshot,
   sessionId: string,
   layer: InstructionLayerKind,
-  requested: string | undefined,
   domain: string | undefined,
 ): Result<InstructionFile | null> {
   if ((layer === "domain") !== (domain !== undefined)) {
@@ -189,17 +183,7 @@ function readInstruction(
     }
     return openFile(domainDocFile(root.value, domain!));
   }
-  const own = ownProject(session);
-  if (requested !== undefined && requested !== own) {
-    if (!deps.mayReadOtherProject(placeKindOf(session.place))) {
-      return err({
-        code: "forbidden",
-        message: "only a home session reads another project's instructions",
-      });
-    }
-    if (!deps.projectExists(snapshot.sql, requested)) return notFound();
-  }
-  const project = requested ?? own;
+  const project = ownProject(session);
   if (project === null) return ok(null);
   const folder =
     deps.projectFirstFolder(snapshot.sql, project) ??
@@ -229,7 +213,6 @@ function instructionsGetHandler(
           snapshot,
           input.session,
           input.layer,
-          input.project,
           input.domain,
         );
         if (!file.ok) return file;

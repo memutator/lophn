@@ -87,42 +87,32 @@ function setup() {
   return { root, snapshot };
 }
 
-function read(snapshot: ReadSnapshot, session: number, project?: string) {
+function read(snapshot: ReadSnapshot, session: number) {
   const handler = createReaderRegistration().reads[0] as ReadDefinition<
     typeof instructionsGet
   >;
   const result = handler.handle(
     snapshot,
     {} as never,
-    { session: sessionId(session), layer: "project", project } as never,
+    { session: sessionId(session), layer: "project" } as never,
   );
   if (!result.ok) return result.error.code;
   const file = result.value.file;
   return file === null ? null : atob(file.content_base64);
 }
 
-test("home session만 다른 project의 LOPHN.md를 읽는다", () => {
+test("project 층은 session의 place가 가리키는 project의 LOPHN.md만 읽는다", () => {
   const { root, snapshot } = setup();
   try {
-    const table: [number, string | undefined, string | null][] = [
-      // [session, 요청한 project, 결과]
-      [1, undefined, null], // home session은 place가 없어 project 지침이 비어 있다
-      [1, PRJ_A, "rules of A"], // home session은 어느 project든 읽는다
-      [1, PRJ_B, "rules of B"],
-      [2, undefined, "rules of A"],
-      [2, PRJ_A, "rules of A"],
-      [2, PRJ_B, "forbidden"],
-      [3, undefined, null], // 앱 그릇에는 LOPHN.md가 없다
-      [3, PRJ_A, "forbidden"],
-      [1, PRJ_C, "rules of C"], // 폴더 없는 project는 data 자리의 파일이다
-      [4, undefined, "rules of C"],
+    const table: [number, string | null][] = [
+      // [session, 결과]
+      [1, null], // home session은 place가 없어 project 지침이 비어 있다
+      [2, "rules of A"],
+      [3, null], // 앱 그릇에는 LOPHN.md가 없다
+      [4, "rules of C"], // 폴더 없는 project는 data 자리의 파일이다
     ];
-    for (const [session, project, expected] of table) {
-      assert.deepStrictEqual(
-        read(snapshot, session, project),
-        expected,
-        `${session} ${project}`,
-      );
+    for (const [session, expected] of table) {
+      assert.deepStrictEqual(read(snapshot, session), expected, `${session}`);
     }
   } finally {
     rmSync(root, { recursive: true });

@@ -48,8 +48,6 @@ how lophn works and how their apps are doing.
   `app.read` and `app.status`, recent errors in its log with `app.logs`, failed
   tool calls with `app.invocations` (`status: "failed"`). Say "not confirmed"
   for numbers you did not read.
-- Project instructions are not in your prompt. When you work on something in a
-  project, read its instructions with `instructions.read`.
 - `call` takes one short text of what you want. Point to evidence by ID or file
   path. Do not paste your conversation.
 - A claim in a plan must point to something you read. State risk first.

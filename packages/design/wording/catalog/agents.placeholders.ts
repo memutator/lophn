@@ -129,7 +129,6 @@ export type AgentsPlaceholders = {
   "agents.notice.grants-mcp-layers": Record<never, never>;
   "agents.notice.instructions-help": Record<never, never>;
   "agents.notice.instructions-help-lophn": Record<never, never>;
-  "agents.notice.lophn-no-project": Record<never, never>;
   "agents.notice.name-fixed-lophn": Record<never, never>;
   "agents.notice.place-help": Record<never, never>;
   "agents.notice.profile-help": Record<never, never>;

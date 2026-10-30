@@ -129,8 +129,6 @@ export const agents = {
     "Read after the project instructions. Your Workspace instructions come before both.",
   "agents.notice.instructions-help-lophn":
     "Read after your Workspace instructions (Settings \u203a Agents).",
-  "agents.notice.lophn-no-project":
-    "lophn takes no project's instructions. It reads a project's LOPHN.md when it works on that project.",
   "agents.notice.name-fixed-lophn":
     "lophn's name and profile can't be changed.",
   "agents.notice.place-help":

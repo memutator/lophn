@@ -45,6 +45,7 @@ import {
   appsOAuthBegin,
   appsOAuthCancel,
   appsOAuthClientSet,
+  appsOAuthSignOut,
   appsOAuthState,
 } from "./oauth.ts";
 import { appsSecretValue } from "./secret-use.ts";
@@ -85,6 +86,7 @@ export const ROUTES = [
   appsOAuthClientSet,
   appsOAuthBegin,
   appsOAuthCancel,
+  appsOAuthSignOut,
   appsOAuthState,
   appUsage,
   ...APP_GRANT_ROUTES,

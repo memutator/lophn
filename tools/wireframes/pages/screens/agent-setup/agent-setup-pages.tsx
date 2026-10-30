@@ -114,6 +114,14 @@ export const SettingsAgentsPage = () => (
   />
 );
 
+/** Settings › Agents에서 모든 project의 지침 [Edit]을 눌러 그 자리에서 markdown 편집기로 고치는 중. */
+export const SettingsAgentsInstructionsPage = () => (
+  <SettingsFrame
+    pane="agents"
+    steps={[() => click("[data-action=edit-instructions]")]}
+  />
+);
+
 /** Settings › Agents › lophn. [Open lophn settings]를 눌러 연 둘째 화면이다. */
 export const SettingsLophnPage = () => (
   <Driven
@@ -204,3 +212,20 @@ export const SettingsDefaultModelPromptPage = () => (
 
 /** Settings › Tools and skills. */
 export const SettingsToolsPage = () => <SettingsFrame pane="tools" />;
+
+/** Settings › Tools and skills: 전역 server를 더하는 form에 web 주소와 OAuth 2.1 로그인을 고른 상태. */
+export const SettingsToolsOAuthFormPage = () => (
+  <SettingsFrame
+    pane="tools"
+    steps={[
+      () => press('[data-action="add-server"]'),
+      () => press("[data-server-field=transport] [role=combobox]"),
+      () => click("[role=option]", t("settings.label.over-web")),
+      () => press("[data-server-field=auth] [role=combobox]"),
+      () => click("[role=option]", t("agents.label.auth-oauth2")),
+      () => type("[data-server-field=issuer]", "https://mcp.notion.com"),
+      () => type("[data-server-field=client-id]", "notion-client"),
+      () => type("[data-server-field=scopes]", "read write"),
+    ]}
+  />
+);

@@ -19,12 +19,16 @@ export const agents = {
     "Couldn't disconnect. Nothing changed. Try again.",
   "agents.error.settings-model-save-failed":
     "Couldn't save this model. The previous one is kept. Try again.",
-  "agents.error.settings-instructions-failed":
-    "Couldn't open the instructions. Try again.",
+  "agents.error.instructions-conflict":
+    "This file changed somewhere else. Reload to see it. Your text here isn't saved.",
+  "agents.error.instructions-save-failed":
+    "Couldn't save the instructions. Nothing changed. Try again.",
   "agents.notice.settings-agents-lead":
     "Defaults for every project. A project or an agent can change them.",
   "agents.notice.settings-default-model-help":
     "One model for every agent. A project, or an agent's own settings, can pick another.",
+  "agents.notice.settings-instructions-help":
+    "Every lophn agent reads this first, in every project and app.",
   "agents.notice.settings-lophn-purpose":
     "Talks with you about lophn itself: your projects, apps and settings.",
   "agents.notice.settings-tools-elsewhere":
@@ -51,6 +55,7 @@ export const agents = {
   "agents.button.create-agent": "Create agent",
   "agents.button.remove-app": "Remove app",
   "agents.button.remove-image": "Remove image",
+  "agents.button.sign-in": "Sign in",
   "agents.empty.grants-apps":
     "No apps. An assigned app brings all of its tools.",
   "agents.heading.all-agents": "All agents",
@@ -61,6 +66,7 @@ export const agents = {
   "agents.label.auth-api-key": "API key in a header",
   "agents.label.auth-bearer": "Bearer token",
   "agents.label.auth-none": "None",
+  "agents.label.auth-oauth2": "OAuth 2.1",
   "agents.label.character-shape": "Shape",
   "agents.label.character-color": "Color",
   "agents.label.character-square": "Square",
@@ -109,6 +115,7 @@ export const agents = {
   "agents.label.place-named": "{name} \u00b7 project",
   "agents.label.place-named-app": "{name} \u00b7 app",
   "agents.label.protected-key": "Key or token",
+  "agents.label.protected-secret": "Client secret",
   "agents.label.skip-start": "Start new sessions with Skip permissions",
   "agents.label.tab-definition": "Definition",
   "agents.label.tab-grants": "Grants",
@@ -145,17 +152,19 @@ export const agents = {
     "The chip says which layer a skill comes from. Switch a skill off to leave it out for this agent. A skill that is off in a layer above stays off.",
   "agents.notice.skills-dropped":
     "Left out because their domain is no longer chosen: {names}.",
+  "agents.error.mcp-sign-in-failed":
+    "The server didn't finish signing in. Try again.",
   "agents.title.change-failed": "Couldn't change that",
   "agents.title.delete-failed": "Couldn't delete",
   "agents.title.providers-disconnect": "Disconnect {name}?",
   "agents.title.save-conflict": "Changed since you opened it",
   "agents.title.save-failed": "Couldn't save",
+  "agents.title.sign-in-failed": "Couldn't sign in",
   "agents.title.upload-failed": "Couldn't upload",
   "project-workspace.button.add-server": "Add server",
   "project-workspace.button.add-skill": "Add skill",
   "project-workspace.button.agent-editor-delete": "Delete agent",
   "project-workspace.button.agent-editor-delete-confirm": "Delete",
-  "project-workspace.button.agent-editor-edit-project": "Edit LOPHN.md",
   "project-workspace.button.agent-editor-save": "Save",
   "project-workspace.button.agent-editor-upload-image": "Upload image",
   "project-workspace.button.edit-instructions": "Edit",
@@ -264,9 +273,12 @@ export const agents = {
   "settings.label.server-address": "Address",
   "settings.label.server-arguments": "Arguments",
   "settings.label.server-auth": "Sign-in",
+  "settings.label.server-client-id": "Client ID",
   "settings.label.server-header": "Header name",
+  "settings.label.server-issuer": "Issuer",
   "settings.label.server-name": "Name",
   "settings.label.server-program": "Program",
+  "settings.label.server-scopes": "Scopes",
   "settings.label.server-transport": "How it connects",
   "settings.label.sign-in-how": "How do you want to sign in to {name}?",
   "settings.label.status-connected": "Connected",
@@ -289,16 +301,25 @@ export const agents = {
   "settings.server.address-help":
     "A secure web address, or one on this computer.",
   "settings.server.arguments-help": "One per line. They are passed as written.",
+  "settings.server.error-client-id":
+    "Enter the client ID the service gave you, up to 200 characters.",
   "settings.server.error-header": "Use letters, numbers and dashes, up to 64.",
+  "settings.server.error-issuer":
+    "Enter a secure web address starting with https://.",
   "settings.server.error-name":
     "Use letters, numbers, dashes and underscores, up to 32.",
   "settings.server.error-path":
     "Enter the full path of the program, starting from the top folder.",
+  "settings.server.error-scopes": "Up to 32 scopes, each up to 128 characters.",
   "settings.server.error-taken": "A server with this name already exists.",
   "settings.server.error-url":
     "Enter a secure web address, or one on this computer.",
+  "settings.server.issuer-help":
+    "The service's OAuth issuer address. lophn asks it where to sign in.",
   "settings.server.program-help":
     "The full path of the program to start on this computer.",
+  "settings.server.scopes-help":
+    "Separate with spaces or commas. Leave empty to ask for no scopes.",
   "settings.status.plan-access":
     "Your plan doesn't allow this. Check that your plan includes it.",
   "settings.status.sign-in-problem":

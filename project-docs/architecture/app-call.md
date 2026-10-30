@@ -98,6 +98,7 @@
   - OAuth secret: 선언의 `secret.use`에 `oauth`(authorize·token 끝점, scope, 추가 authorize parameter)가 있으면 그 이름의 값은 사람이 sign-in해 받은 access token이다. 사람이 앱 Access 탭에서 client id와 client secret(선택)을 넣고 [Sign in]을 누르면 core가 loopback callback을 열고 authorize URL(PKCE)을 만들고 shell이 OS browser로 연다. core가 background에서 callback을 받아 token으로 바꾸고 화면은 상태(`apps/oauth_state`)를 다시 읽는다. 끝점은 https이거나 loopback http다.
   - OAuth secret의 값은 `apps.secret_value`가 보내기 직전에 core가 refresh한다(남은 시간 5분 이하, 이름마다 한 번에 하나, 발급자 호출 대기열). 발급자가 400·401·`invalid_grant`로 거절하면 access·refresh·meta를 지우고 상태를 `failed`(`refresh_rejected`)로 두며 앱은 `conflict`("oauth sign-in required")를 받는다. 닿지 못하거나 5xx면 지금 token이 만료 전일 때 그 token을 보내고, 만료 뒤면 `unavailable`이다. client id나 선언의 끝점·scope·parameter가 바뀌면 옛 token을 쓰지 않는다(상태 `none`).
   - refresh token, meta, client id·secret은 `app-oauth.<이름>.refresh|.meta|.client_id|.client`에 두고 어느 호출로도 보내지 않는다(`core/secrets/file-attach.ts`). OAuth가 없는 secret의 값도 사람이 같은 탭에서 보호된 입력 창으로 넣는다.
+  - 사람은 같은 탭에서 값을 지운다. plain secret의 [Remove value]는 `secrets/delete`이고, OAuth secret의 [Sign out]은 `apps.oauth_sign_out`이 진행 중인 시도를 버리고 access·refresh·meta를 지운다(client id·secret은 남는다). grant [Revoke]는 값을 지우지 않는다. 앱 secret 이름은 전역이라 같은 이름을 선언한 다른 앱도 그 값을 쓴다.
   - fs: `@lophn/cap-fs`는 OS가 허락하는 파일을 어디든 읽고 쓴다. 선언의 `fs.read`·`fs.write`(경로)는 앱이 무엇에 닿는지 보이는 값이고 `checkDeclaration`이 그것을 요구한다. 운영 bundle의 사본은 file 0444·폴더 0555다.
   - broker는 live 자식의 요청만 받는다. 준비 모드와 preview의 자식이 같은 통로를 부르면 거절한다(`liveOnly`). SDK의 stand-in이 그 자리를 채운다.
 
@@ -116,7 +117,7 @@
 - **바깥 net의 목적지 검사는 broker가 요청마다 한다.** 앱 process의 OS 권한을 막지 않으므로(사람이 정했다) process 권한으로는 목적지를 가둘 수 없다. 그래서 SDK 요청마다 현재 선언 사실 ∩ grant를 읽는 쪽을 골랐다.
 - **secret은 값을 앱에 주지 않고 전송 직전에 붙인다.** 앱이 값을 쥐면 응답, 오류, log로 새는 길을 앱 코드마다 막아야 한다. 앱은 쓰겠다는 요청만 내고, 값은 core가 supervisor에게 한 번 주어 붙인다.
 - **OAuth access token은 선언한 secret 이름 그대로 둔다.** 그러면 broker의 판정, `apps.secret_value`, supervisor의 Bearer 붙이기가 OAuth를 몰라도 된다. OAuth가 더하는 것은 값을 보내기 직전의 refresh 하나다. 앱이 token을 받아 직접 refresh하면 refresh token이 앱 코드에 닿는다.
-- **refresh 거절만 sign-in을 끝낸다.** MCP OAuth는 400 이상을 모두 거절로 보지만 앱 OAuth는 400·401·`invalid_grant`만 그렇게 본다(provider 구독 OAuth와 같다). 발급자의 일시 오류로 사람이 다시 sign-in해야 하는 일을 막으려는 것이다.
+- **refresh 거절만 sign-in을 끝낸다.** 앱 OAuth와 MCP OAuth(같은 refresh 코드 `packages/core/lophn-agent/extensions/mcp-auth.ts`의 `refreshToken`), provider 구독 OAuth 모두 400·401·`invalid_grant`만 거절로 본다. 발급자의 일시 오류(5xx, 닿지 못함)에는 만료 전 token을 그대로 쓴다. 사람이 다시 sign-in해야 하는 일을 막으려는 것이다.
 - **client는 사람이 그 서비스에 만든 것을 넣는다.** Google 같은 곳은 자동 등록이 없고, lophn이 자기 client를 들고 다니려면 서비스마다 심사를 받아야 한다. OAuth는 표준 authorization code와 PKCE로만 열고 서비스에 맞춘 것은 선언의 추가 parameter(`access_type=offline` 같은 것)뿐이다.
 - **앱 log를 앱마다 file로 남기고 쓰는 쪽을 supervisor 하나로 했다.** 앱 안에서 쓰게 하면 앱 code가 log를 지우거나 고칠 수 있다. supervisor는 이미 앱의 stdout·stderr를 쥐고 있고 lophn의 코드라, 앱이 쓴 줄과 lophn이 아는 사실(비정상 종료, 화면 오류)을 같은 file에 같은 redaction으로 쌓는다. 메모리 buffer가 아니라 file인 것은 앱이 죽거나 supervisor가 다시 뜬 뒤에도 원인을 읽어야 해서다.
 - **저장하는 problem 모델 대신 log를 primitive로 둔다.** 오류를 상태 machine(열림, 닫힘), 묶음, 보고 표로 올리면 계약과 tool이 앱 쪽 진단보다 무거워진다. lophn은 줄을 남기고 읽게만 하고, 무엇이 문제인지 읽고 판단하는 일은 agent가 한다.

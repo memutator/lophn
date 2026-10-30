@@ -16,8 +16,6 @@ import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import { domainDocFile } from "../../../protocol/domains/paths.ts";
 import {
-  INSTRUCTION_PREVIEW_MAX_BYTES,
-  instructionPreview,
   instructionsGet,
   type AgentId,
   type Place,
@@ -34,7 +32,6 @@ import {
   INSTRUCTION_FILE_MAX_BYTES,
   type InstructionFile,
   type InstructionLayerKind,
-  previewInstruction,
 } from "./mod.ts";
 
 const FILE_NAME = "LOPHN.md";
@@ -47,11 +44,8 @@ function notFound(): Result<never> {
   return err({ code: "not_found", message: "instruction not found" });
 }
 
-// 처음 maxBytes까지만 읽고 실제 크기를 함께 낸다. 파일이 없으면 null, 있는데 읽지 못하면(폴더·권한) unavailable이다.
-function openFile(
-  path: string,
-  maxBytes = INSTRUCTION_FILE_MAX_BYTES,
-): Result<InstructionFile | null> {
+// 처음 INSTRUCTION_FILE_MAX_BYTES까지만 읽고 실제 크기를 함께 낸다. 파일이 없으면 null, 있는데 읽지 못하면(폴더·권한) unavailable이다.
+function openFile(path: string): Result<InstructionFile | null> {
   let fd: number;
   try {
     fd = openSync(path, "r");
@@ -61,7 +55,9 @@ function openFile(
   try {
     const stat = fstatSync(fd);
     if (!stat.isFile()) return unavailable();
-    const bytes = new Uint8Array(Math.min(stat.size, maxBytes));
+    const bytes = new Uint8Array(
+      Math.min(stat.size, INSTRUCTION_FILE_MAX_BYTES),
+    );
     let read = 0;
     while (read < bytes.length) {
       const count = readSync(fd, bytes, read, bytes.length - read, null);
@@ -228,48 +224,11 @@ function instructionsGetHandler(
   };
 }
 
-// PreviewGlobalInstructions. 사람 화면이 모든 project의 LOPHN.md(data root) 앞부분을 읽는다. turn을 모르고 전역 층
-// 하나뿐이다. 읽는 길은 GetInstructions와 같은 reader Worker라 core 흐름과 ledger writer를 붙잡지 않는다.
-function instructionPreviewHandler(): ReadDefinition<
-  typeof instructionPreview
-> {
-  return {
-    route: instructionPreview,
-    handle(snapshot) {
-      try {
-        const root = dataRootOf(snapshot.sql, undefined);
-        if (!root.ok) return unavailable();
-        const file = openFile(
-          `${root.value}/${FILE_NAME}`,
-          INSTRUCTION_PREVIEW_MAX_BYTES,
-        );
-        if (!file.ok) return file;
-        if (file.value === null) {
-          return ok({
-            preview: null,
-            as_of_seq: snapshot.as_of_seq,
-            next_cursor: null,
-          });
-        }
-        const preview = previewInstruction(file.value);
-        if (!preview.ok) return preview;
-        return ok({
-          preview: preview.value,
-          as_of_seq: snapshot.as_of_seq,
-          next_cursor: null,
-        });
-      } catch {
-        return unavailable();
-      }
-    },
-  };
-}
-
 export function createInstructionReads(
   deps: InstructionReadDeps,
 ): ReaderRegistration {
   return {
-    reads: [instructionsGetHandler(deps), instructionPreviewHandler()],
+    reads: [instructionsGetHandler(deps)],
     ports: new Map(),
   };
 }

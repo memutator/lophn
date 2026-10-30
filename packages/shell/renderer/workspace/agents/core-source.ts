@@ -24,21 +24,28 @@ import { refreshProviderModels } from "../../../../protocol/lophn-agent/provider
 import { LOPHN_AGENT_ID } from "../../../../protocol/lophn-agent/places.ts";
 import type { FilesApi } from "../../../ipc/files.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
+import type { OpenExternalApi } from "../../../ipc/open-external.ts";
 import type { SecretInputOpenApi } from "../../../ipc/secret-input.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
 import {
   enterSecret,
+  windowLinkOpener,
   windowSecretInputOpener,
 } from "../../desktop/settings/core-call.ts";
 import type { DomainView } from "../source.ts";
 import { isAgentId, isAppPlace } from "./agent-key.ts";
 import {
+  cancelMcpSignIn,
   changeProjectSettings,
   placeOf,
   readGlobalModel,
   readInstructions,
+  windowFiles,
+  windowInstructions,
+  writeInstructions,
   readServers,
   readSkills,
+  signInMcpServer,
 } from "./core-extensions.ts";
 import { readGrants, saveGrants } from "./core-grants.ts";
 import { createLink, issuesOf, type Link, unavailable } from "./core-link.ts";
@@ -73,27 +80,18 @@ const DEFAULT_PROFILE = {
 } as const;
 
 interface AgentsDeps {
-  /** project의 LOPHN.md를 여는 main 통로. 없으면 지침 미리보기는 빈 글이다. */
+  /** 지침 파일의 경로를 알려 주는 main 통로. 없으면 지침은 읽지도 쓰지도 못한다(unavailable). */
   instructions: InstructionsApi | undefined;
-  /** project의 LOPHN.md를 읽는 main file 통로. 없으면 지침 미리보기는 빈 글이다. */
-  files: Pick<FilesApi, "read"> | undefined;
+  /** 지침 파일을 읽고 쓰는 main file 통로. 없으면 지침은 읽지도 쓰지도 못한다(unavailable). */
+  files: Pick<FilesApi, "read" | "write"> | undefined;
   /** command key의 무작위 부분. 테스트가 고정한다. */
   random: () => string;
   /** 새 agent ID의 무작위 byte. 테스트가 고정한다. */
   bytes: () => Uint8Array;
   /** MCP credential을 받는 보호 입력 창. */
   openSecret: SecretInputOpenApi["open"] | undefined;
-}
-
-function windowInstructions(): InstructionsApi | undefined {
-  const bridge = (globalThis as { lophnInstructions?: InstructionsApi })
-    .lophnInstructions;
-  return bridge && typeof bridge.open === "function" ? bridge : undefined;
-}
-
-function windowFiles(): Pick<FilesApi, "read"> | undefined {
-  const bridge = (globalThis as { lophnFiles?: FilesApi }).lophnFiles;
-  return bridge && typeof bridge.read === "function" ? bridge : undefined;
+  /** OAuth 로그인의 authorize 주소를 OS browser로 여는 통로. */
+  openLink: OpenExternalApi["openExternal"] | undefined;
 }
 
 function newAgentId(bytes: Uint8Array): string {
@@ -134,6 +132,7 @@ export function coreAgentsSource(
     deps.bytes ?? (() => crypto.getRandomValues(new Uint8Array(26)));
   const openSecret =
     "openSecret" in deps ? deps.openSecret : windowSecretInputOpener();
+  const openLink = "openLink" in deps ? deps.openLink : windowLinkOpener();
   const link: Link = createLink(core, random);
 
   // 읽은 profile 이미지의 blob URL. 키는 `<agent id>/<이미지 이름>`이다. 이름은 `avatar.<ext>` 하나뿐이라
@@ -277,7 +276,7 @@ export function coreAgentsSource(
     return { ok: true, value: rows };
   };
 
-  // 이번 저장에서 새로 생긴 bearer·api_key server의 값을 보호 입력으로 받는다. 값은 이 파일을 지나지 않는다.
+  // 이번 저장에서 새로 생긴 bearer·api_key·oauth2 server의 값을 보호 입력으로 받는다. 값은 이 파일을 지나지 않는다.
   // 저장은 이미 끝났다. 창을 열지 못하거나 취소해도 되돌리지 않는다(전역 server 추가와 같다).
   const enterNewCredentials = async (
     servers: readonly McpServer[],
@@ -287,9 +286,15 @@ export function coreAgentsSource(
       if (server.transport !== "http") continue;
       if (before.some((one) => one.name === server.name)) continue;
       const auth = server.http.auth;
-      if (auth.kind !== "bearer" && auth.kind !== "api_key") continue;
+      const secret =
+        auth.kind === "bearer" || auth.kind === "api_key"
+          ? auth.credential.secret
+          : auth.kind === "oauth2"
+            ? auth.client_credential?.secret
+            : undefined;
+      if (secret === undefined) continue;
       await enterSecret(openSecret, {
-        name: auth.credential.secret,
+        name: secret,
         purpose: "mcp",
         subject: server.name,
       });
@@ -373,16 +378,18 @@ export function coreAgentsSource(
     };
   };
 
-  // project 지침. 그 project 폴더의 LOPHN.md다. 앱 자리에는 project 지침이 없다.
-  const instructionsOf = async (
-    place: string,
-  ): Promise<{ text: string; project: string } | null> =>
-    isAppPlace(place)
-      ? null
-      : {
-          text: await readInstructions(instructions, files, place),
-          project: await nameOf(place),
-        };
+  // project 지침. 그 project 폴더의 LOPHN.md다. 앱 자리에는 project 지침이 없다. 읽지 못하면 빈 글이다.
+  const instructionsOf = async (place: string) => {
+    if (isAppPlace(place)) return null;
+    const read = await readInstructions(instructions, files, {
+      layer: "project",
+      place,
+    });
+    return {
+      ...(read.ok ? read.value : { text: "", hash: null }),
+      project: await nameOf(place),
+    };
+  };
 
   return {
     list,
@@ -407,7 +414,7 @@ export function coreAgentsSource(
       const text = await instructionsOf(project);
       const view: AgentsOverview = {
         agents: agents.value,
-        instructions: text ?? { text: "", project: null },
+        instructions: text,
         projectModel: {
           chosen: chosen?.ok ? chosen.value.model : null,
           inherited: global.ok ? global.value : null,
@@ -670,9 +677,33 @@ export function coreAgentsSource(
       });
     },
 
+    signInMcp: (name, login) =>
+      signInMcpServer(link, openLink, { name, login }),
+
+    cancelMcpSignIn: (name, login) => cancelMcpSignIn(link, { name, login }),
+
     grants: (project, agent) => readGrants(link, project, agent, domains),
 
     setGrants: (project, agent, entries, revision) =>
       saveGrants(link, project, agent, entries, revision),
+
+    readInstructions: (project) =>
+      isAppPlace(project)
+        ? Promise.resolve(unavailable)
+        : readInstructions(instructions, files, {
+            layer: "project",
+            place: project,
+          }),
+
+    writeInstructions: (project, text, hash) =>
+      isAppPlace(project)
+        ? Promise.resolve(unavailable)
+        : writeInstructions(
+            instructions,
+            files,
+            { layer: "project", place: project },
+            text,
+            hash,
+          ),
   };
 }

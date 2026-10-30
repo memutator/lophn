@@ -1,5 +1,6 @@
 import type { Area } from "../types.ts";
 import {
+  AppDomainDoc,
   AppDomains,
   NewDomainDialogPage,
   ProjectDomains,
@@ -46,6 +47,13 @@ export const domainArea: Area = {
       description:
         "앱의 마지막 domain 줄이다. menu의 Archive가 꺼지고 이유를 tooltip으로 보인다. 앱은 domain이 하나 이상 있어야 한다.",
       render: () => <AppDomains last />,
+    },
+    {
+      id: "domain-app-doc",
+      title: "Domains in an app · editing DOMAIN.md",
+      description:
+        "줄 menu의 Open DOMAIN.md를 누르면 그 줄 바로 아래가 파일 탭과 같은 markdown 편집기가 된다. [Cancel]·[Save]가 오른쪽 끝이고 다른 화면으로 옮겨 가지 않는다.",
+      render: () => <AppDomainDoc />,
     },
   ],
 };

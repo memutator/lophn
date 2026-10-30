@@ -4,10 +4,21 @@
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
 import type { ModelChoice } from "../../../../../protocol/lophn-agent/models.ts";
 import type { AgentEditorSource } from "../../../workspace/agents/editor/agent-editor.tsx";
-import type { McpRow, SkillRow } from "../../../workspace/agents/views.ts";
+import type {
+  InstructionsFile,
+  McpRow,
+  SkillRow,
+} from "../../../workspace/agents/views.ts";
 import type { SourceResult } from "../source.ts";
 
-export type { AgentEditorSource, McpRow, ModelChoice, SkillRow, SourceResult };
+export type {
+  AgentEditorSource,
+  InstructionsFile,
+  McpRow,
+  ModelChoice,
+  SkillRow,
+  SourceResult,
+};
 
 /** lophn 카드가 보이는 것. lophn은 전체에 하나다. */
 export interface LophnSummary {
@@ -22,8 +33,8 @@ export interface AgentsSettingsView {
   /** 전역 기본 model 하나. 아직 고르지 않았으면 null이다. */
   readonly defaultModel: ModelChoice | null;
   readonly lophn: LophnSummary;
-  /** 모든 project의 LOPHN.md 앞부분. 아직 없으면 null이다. */
-  readonly instructionsPreview: string | null;
+  /** 모든 project의 LOPHN.md. 아직 없으면 빈 글과 null hash다. */
+  readonly instructions: InstructionsFile;
 }
 
 /** Tools and skills가 보이는 전역 층. */
@@ -38,8 +49,13 @@ export interface AgentsSettingsSource {
   changeDefaultModel(choice: ModelChoice): Promise<SourceResult<null>>;
   /** lophn의 설정 화면(project 없는 agent editor)이 쓰는 통로. model 목록도 여기서 읽는다. */
   readonly editor: AgentEditorSource;
-  /** 모든 project의 LOPHN.md를 문서 탭으로 연다. 편집은 그 탭에서 한다. */
-  openInstructions(): Promise<SourceResult<null>>;
+  /** 모든 project의 LOPHN.md를 다시 읽는다. */
+  readInstructions(): Promise<SourceResult<InstructionsFile>>;
+  /** 모든 project의 LOPHN.md를 통째로 쓴다. hash가 디스크와 다르면 code가 conflict이고 파일은 그대로다. */
+  writeInstructions(
+    text: string,
+    hash: string | null,
+  ): Promise<SourceResult<InstructionsFile>>;
   /** Tools and skills 자리로 옮겨 server를 더하게 한다(settings 화면이 감싸 준다). */
   addServer(): Promise<SourceResult<null>>;
   readExtensions(): Promise<SourceResult<ExtensionsView>>;
@@ -49,4 +65,8 @@ export interface AgentsSettingsSource {
   /** 전역 MCP server를 더한다. 값(key·token)은 이 모양에 없고 필요하면 보호 입력이 받는다. */
   createServer(server: McpServer): Promise<SourceResult<null>>;
   setServerEnabled(name: string, enabled: boolean): Promise<SourceResult<null>>;
+  /** OAuth MCP server 로그인을 시작하고 사람이 browser에서 돌아올 때까지 기다린다. */
+  signInServer(row: McpRow): Promise<SourceResult<null>>;
+  /** 기다리는 로그인을 그만둔다. */
+  cancelServerSignIn(row: McpRow): Promise<SourceResult<null>>;
 }

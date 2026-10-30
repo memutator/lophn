@@ -22,8 +22,6 @@ export interface AgentsSlice {
   readonly source: AgentsSource;
   /** 목록이나 정의가 바뀌었다. sidebar의 Agents 묶음이 다시 읽는다. */
   changed(): void;
-  /** project의 LOPHN.md 편집을 연다. */
-  editInstructions(): void;
   /** Settings의 Tools and skills로 간다(skill·MCP 등록이 있는 곳). */
   openExtensions(): void;
 }

@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { err, manualClock, ok } from "../../../base/mod.ts";
-import { APP_OAUTH_SIGN_IN_REQUIRED } from "../../../protocol/apps/mod.ts";
+import {
+  APP_OAUTH_SIGN_IN_REQUIRED,
+  appsOAuthState,
+} from "../../../protocol/apps/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import {
   createFakeIssuerHandler,
@@ -121,8 +124,34 @@ async function run(reply: IssuerReply | "throws", expiresInMs: number) {
   const state = await app.handlers.get("apps/oauth_state")!(caller, {
     app: APP,
   });
-  return { result, store, state };
+  return { result, store, state, app, caller };
 }
+
+test("signing out removes the tokens and keeps the client", async () => {
+  const { app, caller, store } = await run("throws", 60_000);
+  store.set(`app-oauth.${NAME}.client`, "client-secret-1");
+
+  const signedOut = await app.handlers.get("apps/oauth_sign_out")!(caller, {
+    app: APP,
+    name: NAME,
+  });
+  assert.ok(signedOut.ok);
+  assert.deepStrictEqual(store.has(NAME), false);
+  assert.deepStrictEqual(store.has(`app-oauth.${NAME}.refresh`), false);
+  assert.deepStrictEqual(store.has(`app-oauth.${NAME}.meta`), false);
+  assert.deepStrictEqual(store.get(`app-oauth.${NAME}.client_id`), "client-1");
+  assert.deepStrictEqual(
+    store.get(`app-oauth.${NAME}.client`),
+    "client-secret-1",
+  );
+
+  const state = await app.handlers.get("apps/oauth_state")!(caller, {
+    app: APP,
+  });
+  assert.ok(state.ok);
+  const lines = appsOAuthState.output.parse(state.value);
+  assert.deepStrictEqual(lines.secrets[0]?.state, "none");
+});
 
 test("a rejected refresh signs the user out, an unreachable issuer does not", async () => {
   const rejected: Array<IssuerReply | "throws"> = [

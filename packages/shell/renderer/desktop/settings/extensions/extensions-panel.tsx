@@ -16,6 +16,7 @@ import { McpList, SkillList } from "../../../workspace/agents/editor/parts.tsx";
 import type {
   AgentsSettingsSource,
   ExtensionsView,
+  McpRow,
   SourceResult,
 } from "../agents/settings-source.ts";
 import styles from "./extensions.module.css";
@@ -53,6 +54,8 @@ export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   const [notice, setNotice] = useState<Notice | null>(null);
   const [adding, setAdding] = useState(false);
+  // 이 화면이 시작해 아직 callback을 기다리는 로그인이다.
+  const [signingIn, setSigningIn] = useState<readonly string[]>([]);
   const alive = useRef(true);
 
   const load = useCallback(() => {
@@ -95,6 +98,23 @@ export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
     const done = await call();
     if (!alive.current) return;
     if (!done.ok) setNotice({ kind: "failed" });
+    load();
+  }
+
+  async function signIn(row: McpRow): Promise<void> {
+    setNotice(null);
+    setSigningIn((was) => [...was, row.name]);
+    const done = await source.signInServer(row);
+    if (!alive.current) return;
+    setSigningIn((was) => was.filter((one) => one !== row.name));
+    if (!done.ok) setNotice({ kind: "failed" });
+    load();
+  }
+
+  async function cancelSignIn(row: McpRow): Promise<void> {
+    await source.cancelServerSignIn(row);
+    if (!alive.current) return;
+    setSigningIn((was) => was.filter((one) => one !== row.name));
     load();
   }
 
@@ -179,6 +199,7 @@ export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
             {adding ? (
               <ServerForm
                 scope="global"
+                oauth
                 taken={view.servers.map((server) => server.name)}
                 scrollIntoView
                 onAdd={(server) => void add(server)}
@@ -193,6 +214,9 @@ export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
               <McpList
                 items={view.servers}
                 showLayer={false}
+                signingIn={signingIn}
+                onSignIn={(row) => void signIn(row)}
+                onCancelSignIn={(row) => void cancelSignIn(row)}
                 onToggle={(name, on) =>
                   void act(() => source.setServerEnabled(name, on))
                 }

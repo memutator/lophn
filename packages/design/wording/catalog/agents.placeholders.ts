@@ -25,9 +25,11 @@ export type AgentsPlaceholders = {
   };
   "agents.notice.providers-disconnect-failed": Record<never, never>;
   "agents.error.settings-model-save-failed": Record<never, never>;
-  "agents.error.settings-instructions-failed": Record<never, never>;
+  "agents.error.instructions-conflict": Record<never, never>;
+  "agents.error.instructions-save-failed": Record<never, never>;
   "agents.notice.settings-agents-lead": Record<never, never>;
   "agents.notice.settings-default-model-help": Record<never, never>;
+  "agents.notice.settings-instructions-help": Record<never, never>;
   "agents.notice.settings-lophn-purpose": Record<never, never>;
   "agents.notice.settings-tools-elsewhere": Record<never, never>;
   "agents.notice.settings-tools-lead": Record<never, never>;
@@ -47,6 +49,7 @@ export type AgentsPlaceholders = {
   "agents.button.create-agent": Record<never, never>;
   "agents.button.remove-app": Record<never, never>;
   "agents.button.remove-image": Record<never, never>;
+  "agents.button.sign-in": Record<never, never>;
   "agents.empty.grants-apps": Record<never, never>;
   "agents.heading.all-agents": Record<never, never>;
   "agents.heading.grants-apps": Record<never, never>;
@@ -56,6 +59,7 @@ export type AgentsPlaceholders = {
   "agents.label.auth-api-key": Record<never, never>;
   "agents.label.auth-bearer": Record<never, never>;
   "agents.label.auth-none": Record<never, never>;
+  "agents.label.auth-oauth2": Record<never, never>;
   "agents.label.character-shape": Record<never, never>;
   "agents.label.character-color": Record<never, never>;
   "agents.label.character-square": Record<never, never>;
@@ -115,6 +119,7 @@ export type AgentsPlaceholders = {
     name: "string";
   };
   "agents.label.protected-key": Record<never, never>;
+  "agents.label.protected-secret": Record<never, never>;
   "agents.label.skip-start": Record<never, never>;
   "agents.label.tab-definition": Record<never, never>;
   "agents.label.tab-grants": Record<never, never>;
@@ -139,6 +144,7 @@ export type AgentsPlaceholders = {
   "agents.notice.skills-dropped": {
     names: "string";
   };
+  "agents.error.mcp-sign-in-failed": Record<never, never>;
   "agents.title.change-failed": Record<never, never>;
   "agents.title.delete-failed": Record<never, never>;
   "agents.title.providers-disconnect": {
@@ -146,12 +152,12 @@ export type AgentsPlaceholders = {
   };
   "agents.title.save-conflict": Record<never, never>;
   "agents.title.save-failed": Record<never, never>;
+  "agents.title.sign-in-failed": Record<never, never>;
   "agents.title.upload-failed": Record<never, never>;
   "project-workspace.button.add-server": Record<never, never>;
   "project-workspace.button.add-skill": Record<never, never>;
   "project-workspace.button.agent-editor-delete": Record<never, never>;
   "project-workspace.button.agent-editor-delete-confirm": Record<never, never>;
-  "project-workspace.button.agent-editor-edit-project": Record<never, never>;
   "project-workspace.button.agent-editor-save": Record<never, never>;
   "project-workspace.button.agent-editor-upload-image": Record<never, never>;
   "project-workspace.button.edit-instructions": Record<never, never>;
@@ -258,9 +264,12 @@ export type AgentsPlaceholders = {
   "settings.label.server-address": Record<never, never>;
   "settings.label.server-arguments": Record<never, never>;
   "settings.label.server-auth": Record<never, never>;
+  "settings.label.server-client-id": Record<never, never>;
   "settings.label.server-header": Record<never, never>;
+  "settings.label.server-issuer": Record<never, never>;
   "settings.label.server-name": Record<never, never>;
   "settings.label.server-program": Record<never, never>;
+  "settings.label.server-scopes": Record<never, never>;
   "settings.label.server-transport": Record<never, never>;
   "settings.label.sign-in-how": {
     name: "string";
@@ -279,12 +288,17 @@ export type AgentsPlaceholders = {
   "settings.notice.sign-in-code": Record<never, never>;
   "settings.server.address-help": Record<never, never>;
   "settings.server.arguments-help": Record<never, never>;
+  "settings.server.error-client-id": Record<never, never>;
   "settings.server.error-header": Record<never, never>;
+  "settings.server.error-issuer": Record<never, never>;
   "settings.server.error-name": Record<never, never>;
   "settings.server.error-path": Record<never, never>;
+  "settings.server.error-scopes": Record<never, never>;
   "settings.server.error-taken": Record<never, never>;
   "settings.server.error-url": Record<never, never>;
+  "settings.server.issuer-help": Record<never, never>;
   "settings.server.program-help": Record<never, never>;
+  "settings.server.scopes-help": Record<never, never>;
   "settings.status.plan-access": Record<never, never>;
   "settings.status.sign-in-problem": Record<never, never>;
   "settings.status.sign-in-waiting": Record<never, never>;

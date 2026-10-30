@@ -13,6 +13,7 @@ import type {
   AgentsSettingsSource,
   AgentsSettingsView,
   ExtensionsView,
+  InstructionsFile,
   McpRow,
   ModelChoice,
   SkillRow,
@@ -21,12 +22,14 @@ import type {
 
 type AgentsCall =
   | readonly ["change-model", ModelChoice]
-  | readonly ["instructions"]
+  | readonly ["instructions", string]
   | readonly ["add-skill"]
   | readonly ["skill", string, boolean]
   | readonly ["add-server"]
   | readonly ["create-server", string]
-  | readonly ["server", string, boolean];
+  | readonly ["server", string, boolean]
+  | readonly ["sign-in", string]
+  | readonly ["cancel-sign-in", string];
 
 type Failing =
   | "read"
@@ -37,7 +40,9 @@ type Failing =
   | "skill"
   | "add-server"
   | "create-server"
-  | "server";
+  | "server"
+  | "sign-in"
+  | "cancel-sign-in";
 
 interface FakeAgentsOptions {
   view?: AgentsSettingsView;
@@ -59,7 +64,7 @@ const VIEW: AgentsSettingsView = {
     model: null,
     apps: grants.length,
   },
-  instructionsPreview: GLOBAL_LOPHN_MD,
+  instructions: { text: GLOBAL_LOPHN_MD, hash: "1".padStart(64, "0") },
 };
 
 const EXTENSIONS: ExtensionsView = {
@@ -97,9 +102,22 @@ export function fakeAgents(options: FakeAgentsOptions = {}) {
       view = { ...view, defaultModel: choice };
       return Promise.resolve(ok());
     },
-    openInstructions() {
-      calls.push(["instructions"]);
-      return Promise.resolve(fail("instructions") ?? ok());
+    readInstructions() {
+      return Promise.resolve({ ok: true, value: view.instructions });
+    },
+    writeInstructions(text, hash) {
+      calls.push(["instructions", text]);
+      const failed = fail("instructions");
+      if (failed) return Promise.resolve(failed as SourceResult<never>);
+      if (hash !== view.instructions.hash) {
+        return Promise.resolve({ ok: false, code: "conflict" });
+      }
+      const written: InstructionsFile = {
+        text,
+        hash: String(Number(hash ?? "0") + 1).padStart(64, "0"),
+      };
+      view = { ...view, instructions: written };
+      return Promise.resolve({ ok: true, value: written });
     },
     addServer() {
       calls.push(["add-server"]);
@@ -143,6 +161,36 @@ export function fakeAgents(options: FakeAgentsOptions = {}) {
           status: "connected",
         },
       ];
+      return Promise.resolve(ok());
+    },
+    signInServer(row) {
+      calls.push(["sign-in", row.name]);
+      const failed = fail("sign-in");
+      if (failed) return Promise.resolve(failed);
+      servers = servers.map((one) =>
+        one.name === row.name && one.login !== undefined
+          ? {
+              ...one,
+              status: "connected",
+              login: { ...one.login, state: "signed_in", reason: null },
+            }
+          : one,
+      );
+      return Promise.resolve(ok());
+    },
+    cancelServerSignIn(row) {
+      calls.push(["cancel-sign-in", row.name]);
+      const failed = fail("cancel-sign-in");
+      if (failed) return Promise.resolve(failed);
+      servers = servers.map((one) =>
+        one.name === row.name && one.login !== undefined
+          ? {
+              ...one,
+              status: "needs-sign-in",
+              login: { ...one.login, state: "none", reason: null },
+            }
+          : one,
+      );
       return Promise.resolve(ok());
     },
     setServerEnabled(name, enabled) {

@@ -31,18 +31,3 @@ modules: [packages/core/lophn-agent, packages/core/apps]
 고치려면:
 - 작음(추천): 실패 이유를 `app-oauth.<이름>.meta` 자리에 남긴다. 지울 때 meta를 `{ failed: reason }`으로 바꿔 쓰고 `report`가 읽는다. MCP는 지금처럼 메모리에 둔다.
 - 두지 않음: 이유 글만 잃고 다시 sign-in하면 풀리니 kept로 닫는다.
-
-## 앱 secret 값과 OAuth sign-in을 지울 길이 없다
-
-```yaml
-kind: bug
-modules: [packages/shell/renderer, packages/core/apps, packages/core/secrets]
-```
-
-지금: 앱 Access 탭은 값 넣기([Set value], [Set client secret], [Sign in])만 있다. shell에서 `secrets/delete`를 부르는 곳은 provider 설정(`packages/shell/renderer/desktop/settings/providers/core-source.ts`)뿐이다. grant를 [Revoke]해도 core는 `secrets.json`의 값을 지우지 않는다. 앱 OAuth token은 refresh가 거절될 때만 지워진다.
-
-영향: 사람이 앱의 Google sign-in을 끝내거나(sign-out) 넣은 API key를 지우려면 서비스 쪽에서 client나 token을 폐기해야 한다. lophn 안에 refresh token이 남아 있고 화면은 계속 "Signed in"이다.
-
-고치려면:
-- 작음(추천): secret 줄에 [Sign out]·[Remove value]를 둔다. plain은 `secrets/delete`, OAuth는 새 route `apps.oauth_sign_out`이 vault의 `remove`(access·refresh·meta)를 부른다. client id·secret은 남긴다. wireframe을 먼저 고친다.
-- 중간: grant를 [Revoke]하면 그 secret 값과 OAuth token을 같이 지운다. 같은 이름을 선언한 다른 앱도 같은 값을 쓰므로(앱 secret 이름은 전역이다) 다른 앱이 쓰는 값까지 지워진다.

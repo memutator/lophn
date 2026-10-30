@@ -1,14 +1,7 @@
-import type { InstructionsPlace } from "../../ipc/instructions.ts";
 import type { SettingsPane } from "./settings/model.ts";
 
 // 창 안의 자리. 새 기본 창은 언제나 런처에서 시작한다.
-type Space =
-  | "launcher"
-  | "settings"
-  | "project"
-  | "app"
-  | "instructions"
-  | "detached";
+type Space = "launcher" | "settings" | "project" | "app" | "detached";
 
 export interface Route {
   readonly space: Space;
@@ -20,8 +13,6 @@ export interface Route {
   readonly app?: string;
   /** settings 공간에서 처음 보일 항목. 없으면 General이다. */
   readonly settingsPane?: SettingsPane;
-  /** instructions 공간이 여는 지침 층. settings·project-workspace·app-detail의 [Instructions]가 쓴다. */
-  readonly instructions?: InstructionsPlace;
   /** project·app 공간에서 열어 시작할 session. launcher 공간에서는 lophn 패널이 열 session이다. */
   readonly session?: string;
   /** app 공간에서 그 앱 place의 lophn을 새 session으로 열어 시작한다. */
@@ -50,11 +41,6 @@ export function openProject(
   start: Pick<Route, "session" | "open"> = {},
 ): Route {
   return { space: "project", project, ...start };
-}
-
-/** [Instructions] 편집기로 이동한다. */
-export function openInstructions(place: InstructionsPlace): Route {
-  return { space: "instructions", instructions: place };
 }
 
 /** 앱 공간으로 이동한다. */

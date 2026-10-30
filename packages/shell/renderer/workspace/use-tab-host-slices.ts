@@ -43,7 +43,6 @@ interface TabHostSlicesInput {
   terminalStore?: TerminalStore;
   /** 이 창에서 앱 화면을 여는 길. detached 창은 noop이다. */
   onSettings: (pane?: SettingsPane) => void;
-  onProjectInstructions?: () => void;
   /** false면 이 창은 floated 탭을 둘 수 없다(detached 창). 코드 블록의 실행 단추를 두지 않는다. */
   floats?: boolean;
 }
@@ -51,13 +50,7 @@ interface TabHostSlicesInput {
 // project 창(Workspace)과 detached 창(DetachedTab)이 같이 쓰는 TabHost slice와 view 보관소.
 // 창마다 다른 것(openTab·openFloat·patchTab·removeTab·view)은 호출하는 쪽이 host에 직접 넣는다.
 export function useTabHostSlices(input: TabHostSlicesInput) {
-  const {
-    project,
-    source,
-    agentViewSource,
-    onSettings,
-    onProjectInstructions,
-  } = input;
+  const { project, source, agentViewSource, onSettings } = input;
   const agentsSource = source.agentsSource;
   // 값은 쓰지 않고 agent가 바뀔 때 이 hook을 쓴 창이 다시 그려지게만 한다.
   const terminalStore = input.terminalStore;
@@ -167,7 +160,6 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
       : {
           source: agentsSource,
           changed: sidebarAgents.reload,
-          editInstructions: () => onProjectInstructions?.(),
           openExtensions: () => onSettings("tools"),
         };
 

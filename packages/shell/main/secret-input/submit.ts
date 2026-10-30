@@ -1,5 +1,4 @@
-// 제출: 보호 입력의 값을 UTF-8 byte로 만들어 core `secrets/put` upload로 올린다. 값이 있는 곳은
-// 이 제출 동안의 main 메모리와 upload 본문뿐이고, 끝나면 byte를 0으로 덮는다. 결과는 고정 오류만
+// 제출: 보호 입력의 값을 UTF-8 byte로 만들어 core `secrets/put` upload로 올린다. 결과는 고정 오류만
 // 돌려준다. 값, core 오류 원문, OS 오류 원문은 log·오류·IPC 결과 어디에도 넣지 않는다.
 import {
   SECRET_INPUT_MAX_BYTES,
@@ -46,7 +45,5 @@ export async function submitSecret(
     };
   } catch {
     return { ok: false, code: "unavailable" };
-  } finally {
-    bytes.fill(0);
   }
 }

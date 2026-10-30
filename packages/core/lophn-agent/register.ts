@@ -11,7 +11,6 @@ import {
   agentProfileImageUpload,
   type AgentId,
   finishRewindSummary,
-  instructionPreview,
   instructionsGet,
   issuerRequestDone,
   issuerRequestTake,
@@ -588,19 +587,6 @@ function instructionsGetRoute(): ReadDefinition<typeof instructionsGet> {
   };
 }
 
-// PreviewGlobalInstructions도 같은 reader Worker가 서빙한다(instruction-files.ts). 사람 화면의 읽기다.
-function instructionPreviewRoute(): ReadDefinition<typeof instructionPreview> {
-  return {
-    route: instructionPreview,
-    handle() {
-      return err({
-        code: "unavailable" as const,
-        message: "지침 미리보기는 reader Worker가 서빙한다",
-      });
-    },
-  };
-}
-
 export function createLedgerRegistration(
   environment: {
     messageBody?: MessageBodyEnvironment;
@@ -844,7 +830,6 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       revertReads.checkpoints,
       revertReads.list,
       instructionsGetRoute(),
-      instructionPreviewRoute(),
     ],
     // model.call 본문은 blob 참조만 남는다. tool call 입력·출력도 같은 종류다.
     // 메시지 본문은 영구 참조다.

@@ -2,7 +2,12 @@
 // 여기는 화면이 contract만으로 만들 수 없는 것(model 표시 이름, 이미지 주소, 켬·끔 줄, project 지침 글)만 더한다.
 // renderer는 protocol을 type으로만 쓴다.
 import type { AgentValueLayer } from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import type {
+  McpAuthFailure,
+  McpAuthStateName,
+} from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
+import type { Place } from "../../../../protocol/lophn-agent/places.ts";
 
 /**
  * model 선택을 사람이 읽는 글로 바꾼다("Sonnet 5.5 · Medium"). model 이름과 option 표시 이름은 catalog가
@@ -16,12 +21,17 @@ export type ModelLabel = (choice: ModelChoice) => string;
  */
 export type ImageSrc = (assignment: string, image: string) => string;
 
+/** 지침 파일 하나의 글과 그 hash. 파일이 아직 없으면 text가 빈 글이고 hash가 null이다(첫 저장이 만든다). */
+export interface InstructionsFile {
+  readonly text: string;
+  readonly hash: string | null;
+}
+
 /**
  * project 지침 `LOPHN.md`. 파일이 없거나 비면 text가 빈 글이다. project는 그 지침이 속한 project의 이름이고,
  * 알 수 없으면 null이다(앱 자리 agent의 project 폴더를 모를 때).
  */
-export interface ProjectInstructionsView {
-  readonly text: string;
+export interface ProjectInstructionsView extends InstructionsFile {
   readonly project: string | null;
 }
 
@@ -51,6 +61,18 @@ export type McpLayer = "global" | "project" | "agent";
 /** 연결 상태. 지금 열려 있는지 읽는 길이 없으면 null이고 점은 중립 색이다. */
 export type McpStatus = "connected" | "needs-sign-in" | null;
 
+/**
+ * OAuth server의 로그인 상태다. `place`는 서버가 등록된 자리이고(전역은 null) 로그인은 이 자리로 부른다.
+ * `client_id`·`scopes`는 등록한 설정값이라 화면이 begin에 그대로 넣는다.
+ */
+export interface McpLogin {
+  readonly place: Place | null;
+  readonly client_id: string;
+  readonly scopes: readonly string[];
+  readonly state: McpAuthStateName;
+  readonly reason: McpAuthFailure | null;
+}
+
 /** MCP server 한 줄. */
 export interface McpRow {
   readonly name: string;
@@ -58,4 +80,6 @@ export interface McpRow {
   readonly layer: McpLayer;
   readonly on: boolean;
   readonly status: McpStatus;
+  /** OAuth server이고 화면이 로그인을 시작할 수 있으면 있다. 자리를 알 수 없는 층(agent 정의)은 없다. */
+  readonly login?: McpLogin;
 }

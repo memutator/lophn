@@ -12,10 +12,14 @@ export type DomainPlaceholders = {
     title: "string";
   };
   "domain.error.create-failed": Record<never, never>;
+  "domain.error.doc-failed": Record<never, never>;
   "domain.error.load-failed": Record<never, never>;
   "domain.error.name-invalid": Record<never, never>;
   "domain.error.name-taken": Record<never, never>;
   "domain.heading.list": Record<never, never>;
+  "domain.label.doc": {
+    name: "string";
+  };
   "domain.label.name": Record<never, never>;
   "domain.label.pick": Record<never, never>;
   "domain.label.purpose": Record<never, never>;

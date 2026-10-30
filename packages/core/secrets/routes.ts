@@ -47,8 +47,7 @@ export function secretDeleteHandler(store: Pick<SecretStore, "delete">) {
   return handler;
 }
 
-// body를 읽어 UTF-8 문자열로 바꿔 put하고 byte 배열을 0으로 덮는다. header의 bytes와 body 길이가 다르거나
-// 상한을 넘으면 invalid_input이다.
+// body를 읽어 UTF-8 문자열로 바꿔 put한다. header의 bytes와 body 길이가 다르거나 상한을 넘으면 invalid_input이다.
 export function secretPutHandler(store: Pick<SecretStore, "put">) {
   const handler: UploadHandler = async (_ctx, rawInput, body) => {
     const input = secretPut.input.safeParse(rawInput);
@@ -68,13 +67,11 @@ export function secretPutHandler(store: Pick<SecretStore, "put">) {
         const next = await reader.read();
         if (next.done) break;
         if (length + next.value.length > declared) {
-          next.value.fill(0);
           await reader.cancel().catch(() => {});
           return INVALID("secret input does not match the body");
         }
         value.set(next.value, length);
         length += next.value.length;
-        next.value.fill(0);
       }
       if (length !== declared) {
         return INVALID("secret input does not match the body");
@@ -90,8 +87,6 @@ export function secretPutHandler(store: Pick<SecretStore, "put">) {
     } catch {
       // stream이 도중에 오류로 끝났다(길이 위반·끊김).
       return INVALID("secret input does not match the body");
-    } finally {
-      value.fill(0);
     }
   };
   return handler;

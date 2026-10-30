@@ -21,6 +21,8 @@ import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.
 import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts";
 import type { DomainView, ReadResult } from "../source.ts";
 import type {
+  McpLogin,
+  InstructionsFile,
   McpRow,
   ProjectInstructionsView,
   SkillRow,
@@ -49,8 +51,8 @@ export interface AgentListRow {
 export interface AgentsOverview {
   /** 전역 목록 전부(lophn이 첫 줄). */
   readonly agents: readonly AgentListRow[];
-  /** 같이 쓰는 `LOPHN.md`. 파일이 없거나 읽을 수 없으면 빈 글이다. */
-  readonly instructions: ProjectInstructionsView;
+  /** 같이 쓰는 `LOPHN.md`. 앱 자리에는 project 지침이 없어 null이다. 파일이 없거나 읽을 수 없으면 빈 글이다. */
+  readonly instructions: ProjectInstructionsView | null;
   /** 이 project가 고른 model 하나(null이면 Workspace 기본을 따른다)와 따를 Workspace 기본. */
   readonly projectModel: {
     readonly chosen: ModelChoice | null;
@@ -267,6 +269,13 @@ export interface AgentsSource {
   ): Promise<ReadResult<null>>;
   /** project 층 MCP server를 켜고 끈다. agent 층은 정의의 mcp_off로 저장한다. */
   setMcp(project: string, name: string, on: boolean): Promise<ReadResult<null>>;
+  /** OAuth MCP server 로그인을 시작하고 사람이 browser에서 돌아올 때까지 기다린다. */
+  signInMcp(name: string, login: McpLogin): Promise<ReadResult<null>>;
+  /** 기다리는 MCP 로그인을 그만둔다. */
+  cancelMcpSignIn(
+    name: string,
+    login: Pick<McpLogin, "place">,
+  ): Promise<ReadResult<null>>;
   /** 이 agent에 붙은 할당과 붙일 수 있는 앱. project가 null이면 lophn이다. */
   grants(
     project: string | null,
@@ -279,4 +288,15 @@ export interface AgentsSource {
     entries: readonly AssignmentEntry[],
     revision: number,
   ): Promise<ReadResult<{ readonly revision: number }>>;
+  /** project의 `LOPHN.md`를 다시 읽는다. 앱 자리에는 없어 unavailable이다. */
+  readInstructions(project: string): Promise<ReadResult<InstructionsFile>>;
+  /**
+   * project의 `LOPHN.md`를 통째로 쓴다. hash는 읽은 때의 값이고, 그사이 파일이 바뀌었으면 message가 conflict이고
+   * 파일은 그대로다.
+   */
+  writeInstructions(
+    project: string,
+    text: string,
+    hash: string | null,
+  ): Promise<ReadResult<InstructionsFile>>;
 }

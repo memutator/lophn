@@ -2,6 +2,7 @@ import type { Area } from "../types.ts";
 import type { ReactNode } from "react";
 import { openSettings } from "../../../../packages/shell/renderer/desktop/router.ts";
 import {
+  SettingsAgentsInstructionsPage,
   SettingsAgentsPage,
   SettingsConnectCustomPage,
   SettingsConnectPage,
@@ -10,6 +11,7 @@ import {
   SettingsProvidersConnectedEmptyPage,
   SettingsProvidersConnectedFoundPage,
   SettingsProvidersPage,
+  SettingsToolsOAuthFormPage,
   SettingsToolsPage,
 } from "./agent-setup/agent-setup-pages.tsx";
 import {
@@ -161,18 +163,32 @@ export const settingsArea: Area = {
       render: () => <SettingsAgentsPage />,
     },
     {
+      id: "settings-agents-instructions",
+      title: "Settings · Agents › editing instructions",
+      description:
+        "모든 project의 지침(LOPHN.md) 상자의 [Edit]을 누르면 같은 자리가 파일 탭과 같은 markdown 편집기(live preview)가 된다. [Cancel]·[Save]가 오른쪽 끝에 있고, 다른 곳에서 파일이 바뀌었으면 저장하지 않고 [Reload]를 보인다. 따로 열리는 편집기 화면은 없다.",
+      render: () => <SettingsAgentsInstructionsPage />,
+    },
+    {
       id: "new-settings-lophn",
       title: "Settings · Agents › lophn",
       description:
-        "lophn의 설정이다. agent 설정 화면과 같고 project 지침 칸은 없다. 놓인 곳은 lophn 전체이고 Grants 탭이 있다.",
+        "lophn의 설정이다. agent 설정 화면과 같고 project 지침 칸은 없다. 놓인 곳은 lophn 전체이고 Grants 탭이 있다. 폭은 다른 Settings 항목과 같은 기둥이다.",
       render: () => <SettingsLophnPage />,
     },
     {
       id: "new-settings-tools",
       title: "Settings · Tools and skills",
       description:
-        "전역 skill 켬과 끔, 전역 MCP server다. 같은 이름은 project나 agent 층이 덮는다는 안내가 있다.",
+        "전역 skill 켬과 끔, 전역 MCP server다. 같은 이름은 project나 agent 층이 덮는다는 안내가 있다. OAuth로 로그인하는 server는 아직 로그인하지 않았으면 줄 오른쪽에 [Sign in]이 있다.",
       render: () => <SettingsToolsPage />,
+    },
+    {
+      id: "new-settings-tools-oauth-form",
+      title: "Settings · Tools and skills · add OAuth server",
+      description:
+        "전역 MCP server를 더하는 form에 web 주소와 OAuth 2.1 로그인을 고른 상태다. issuer(https), client ID, scopes(공백이나 쉼표로 가름)를 받고 client secret은 더한 뒤 보호 입력으로 받는다. 받지 않으면 public client로 sign-in한다.",
+      render: () => <SettingsToolsOAuthFormPage />,
     },
     {
       id: "new-settings-coding",

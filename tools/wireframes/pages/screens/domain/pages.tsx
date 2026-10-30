@@ -109,3 +109,12 @@ export function AppDomains({ last = false }: { last?: boolean }) {
   });
   return <AppSpace panel="version" />;
 }
+
+/** 앱 상세 Domains 줄 menu의 Open DOMAIN.md. 그 줄 아래가 markdown 편집기가 된다. */
+export function AppDomainDoc() {
+  useDrive(async () => {
+    await openRowMenu("Orders");
+    await click('[role="menuitem"]', "Open DOMAIN.md");
+  });
+  return <AppSpace panel="version" />;
+}

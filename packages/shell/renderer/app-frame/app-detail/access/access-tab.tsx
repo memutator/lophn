@@ -24,14 +24,16 @@ interface AccessTabProps {
 // 정리가 끝났는지, sign-in이 돌아왔는지 보려고 다시 읽는 간격.
 const POLL_MS = 2000;
 
-type Problem = "revoke" | "secret" | "sign-in";
+type Problem = "revoke" | "secret" | "remove" | "sign-in";
 
 const problemTitle = (problem: Problem) =>
   problem === "revoke"
     ? t("app-detail.error.revoke-failed")
     : problem === "secret"
       ? t("app-detail.error.secret-failed")
-      : t("app-detail.error.sign-in-failed");
+      : problem === "remove"
+        ? t("app-detail.error.remove-failed")
+        : t("app-detail.error.sign-in-failed");
 
 export function AccessTab({ app, source, now }: AccessTabProps) {
   // 이 화면에서 거두기를 접수한 grant.
@@ -97,6 +99,8 @@ export function AccessTab({ app, source, now }: AccessTabProps) {
               return {
                 setValue: () =>
                   void change(source.setSecretValue(name, subject), "secret"),
+                removeValue: () =>
+                  void change(source.removeSecretValue(name), "remove"),
                 setClientId: (clientId) =>
                   void change(
                     source.setOAuthClientId(app, name, clientId),
@@ -110,6 +114,7 @@ export function AccessTab({ app, source, now }: AccessTabProps) {
                 signIn: () => void change(source.signIn(app, name), "sign-in"),
                 cancelSignIn: () =>
                   void change(source.cancelSignIn(app, name), "sign-in"),
+                signOut: () => void change(source.signOut(app, name), "remove"),
               };
             }}
           />

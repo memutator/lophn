@@ -4,6 +4,7 @@ import type {
   McpAuthStateName,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { HttpFetch } from "./adapters/mcp-http.ts";
+import { httpRequest } from "./adapters/mcp-http.ts";
 import {
   type AuthDeadline,
   type CallbackListener,
@@ -42,11 +43,6 @@ export type McpOAuthServer = {
   params?: Record<string, string>;
   // token이 묶이는 조합이다. 없으면 `{ issuer, server_url, client_id }`다.
   binding?: Record<string, string>;
-  // refresh 응답을 거절(재인증 필요)로 볼지 정한다. 기본은 status >= 400이다.
-  refreshRejected?: (
-    status: number,
-    body: Record<string, unknown> | null,
-  ) => boolean;
 };
 
 type McpAuthReport = {
@@ -64,6 +60,8 @@ type McpOAuth = {
   complete(server: McpOAuthServer): Promise<Result<void>>;
   // 기다리는 로그인을 그만둔다. 보관한 token은 건드리지 않는다. 그만둔 것이 없으면 false다.
   cancel(server: Pick<McpOAuthServer, "key">): Promise<boolean>;
+  // 보관한 token 셋과 진행 중인 시도·실패 기억을 버린다. client는 vault 밖이라 남는다.
+  signOut(server: Pick<McpOAuthServer, "key">): Promise<Result<void>>;
   report(server: McpOAuthServer): Promise<McpAuthReport>;
   // 연결이 접근 token을 붙이기 전에 쓸 수 있게 한다(만료가 가까우면 갱신). 로그인이 필요하면 forbidden(재인증
   // 필요), 발급자에 닿지 못하면 unavailable(연결 실패)로 구별한다.
@@ -76,6 +74,52 @@ function reauth(message = "재인증이 필요하다"): Result<never> {
   return err({ code: "forbidden", message });
 }
 
+// 발급자의 metadata에서 authorization·token 끝점을 찾는다. MCP는 발급자가 https이고 찾은 끝점도 https일 때만
+// 받는다. 없거나 모양이 다르면 undefined이고 부르는 쪽이 발급자 아래 기본 끝점을 쓴다.
+async function discoverEndpoints(
+  issuer: string,
+  fetch: HttpFetch,
+): Promise<{ authorization: string; token: string } | undefined> {
+  const base = issuer.replace(/\/+$/, "");
+  const response = await httpRequest(
+    fetch,
+    `${base}/.well-known/oauth-authorization-server`,
+    {
+      method: "GET",
+      headers: { accept: "application/json" },
+      signal: new AbortController().signal,
+    },
+  );
+  if (!response.ok || response.status !== 200) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(new TextDecoder().decode(response.body));
+  } catch {
+    return undefined;
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return undefined;
+  }
+  const record = parsed as Record<string, unknown>;
+  const authorization = record["authorization_endpoint"];
+  const token = record["token_endpoint"];
+  if (typeof authorization !== "string" || typeof token !== "string") {
+    return undefined;
+  }
+  // MCP는 발급자가 https이므로 찾은 끝점도 https여야 한다.
+  try {
+    if (
+      new URL(authorization).protocol !== "https:" ||
+      new URL(token).protocol !== "https:"
+    ) {
+      return undefined;
+    }
+  } catch {
+    return undefined;
+  }
+  return { authorization, token };
+}
+
 export function createMcpOAuth(options: {
   vault: McpOAuthVault;
   fetch: HttpFetch;
@@ -84,8 +128,6 @@ export function createMcpOAuth(options: {
   waitMs?: number;
   deadline: AuthDeadline;
   refreshSkewMs?: number;
-  // true면 refresh가 닿지 못해도 지금 token이 만료 전이면 그대로 쓴다(일시 오류로 sign-in을 잃지 않는다).
-  keepValidOnUnavailable?: boolean;
 }): McpOAuth {
   const { vault } = options;
   const sessions = new Map<string, ReturnType<typeof createMcpAuth>>();
@@ -156,8 +198,7 @@ export function createMcpOAuth(options: {
       return ok(undefined);
     }
     // 일시 오류로 sign-in을 잃지 않으려면 아직 만료 전인 token은 그대로 쓴다.
-    const stillValid =
-      options.keepValidOnUnavailable === true && expiresAt > options.nowMs();
+    const stillValid = expiresAt > options.nowMs();
     if (grant.refresh_token === null) {
       if (stillValid) return ok(undefined);
       await discard(key, "expired");
@@ -169,9 +210,6 @@ export function createMcpOAuth(options: {
         refreshToken: grant.refresh_token,
         clientId: server.clientId,
         clientSecret: server.clientSecret ?? null,
-        ...(server.refreshRejected === undefined
-          ? {}
-          : { rejected: server.refreshRejected }),
       },
       options.fetch,
       new AbortController().signal,
@@ -201,10 +239,12 @@ export function createMcpOAuth(options: {
   return {
     async begin(server, input) {
       const base = server.issuer.replace(/\/+$/, "");
-      const endpoints = server.endpoints ?? {
-        authorization: `${base}/authorize`,
-        token: `${base}/token`,
-      };
+      // MCP는 발급자의 metadata를 먼저 본다. 없으면 지금까지처럼 발급자 아래 끝점을 쓴다.
+      const endpoints = server.endpoints ??
+        (await discoverEndpoints(server.issuer, options.fetch)) ?? {
+          authorization: `${base}/authorize`,
+          token: `${base}/token`,
+        };
       // MCP는 발급자에서 만든 끝점이라 https만 받는다.
       if (server.endpoints === undefined) {
         let protocol: string | null = null;
@@ -273,6 +313,17 @@ export function createMcpOAuth(options: {
     async cancel(server) {
       const session = sessions.get(mcpAuthKeyId(server.key));
       return session === undefined ? false : await session.cancel();
+    },
+
+    async signOut(server) {
+      const id = mcpAuthKeyId(server.key);
+      const session = sessions.get(id);
+      if (session !== undefined) {
+        await session.cancel();
+        sessions.delete(id);
+      }
+      failures.delete(id);
+      return await vault.remove(server.key);
     },
 
     async report(server) {

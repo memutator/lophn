@@ -365,6 +365,16 @@ export function fakeDetail(options: FakeOptions = {}) {
   let rewinding = false;
   // 앱의 domain은 0개가 되지 못한다(마지막 보관은 거절).
   const domainStore = fakeDomainStore(DOMAINS, true);
+  // domain마다의 DOMAIN.md. 쓸 때마다 hash가 바뀌어 옛 hash로 쓰면 conflict다.
+  const domainDocs = new Map<string, { text: string; hash: string }>(
+    DOMAINS.map((row, index) => [
+      row.id,
+      {
+        text: `# ${row.title}\n${row.purpose}`,
+        hash: String(index + 1).padStart(64, "0"),
+      },
+    ]),
+  );
 
   const reply = <T>(name: string, value: T): Promise<SourceResult<T>> => {
     calls.push([name]);
@@ -538,6 +548,20 @@ export function fakeDetail(options: FakeOptions = {}) {
           : { ok: true, value: rows },
       );
     },
+    readDomainDoc: (domain) =>
+      reply("domain-doc", domainDocs.get(domain) ?? { text: "", hash: null }),
+    writeDomainDoc: (domain, text, hash) => {
+      calls.push(["write-domain-doc", domain]);
+      if ((domainDocs.get(domain)?.hash ?? null) !== hash) {
+        return Promise.resolve({ ok: false, code: "conflict" });
+      }
+      const next = {
+        text,
+        hash: String(Number(hash ?? "0") + 10).padStart(64, "0"),
+      };
+      domainDocs.set(domain, next);
+      return Promise.resolve({ ok: true, value: next });
+    },
     versions: () => reply("versions", versionsView()),
     changes: (id) => {
       calls.push(["changes", id]);
@@ -566,6 +590,10 @@ export function fakeDetail(options: FakeOptions = {}) {
       calls.push(["setSecretValue", name, subject]);
       return acted("setSecretValue", "stored" as const);
     },
+    removeSecretValue: (name) => {
+      calls.push(["removeSecretValue", name]);
+      return acted("removeSecretValue", true as const);
+    },
     setOAuthClientId: (app, name, clientId) => {
       calls.push(["setOAuthClientId", app, name, clientId]);
       return acted("setOAuthClientId", true as const);
@@ -581,6 +609,10 @@ export function fakeDetail(options: FakeOptions = {}) {
     cancelSignIn: (app, name) => {
       calls.push(["cancelSignIn", app, name]);
       return acted("cancelSignIn", true as const);
+    },
+    signOut: (app, name) => {
+      calls.push(["signOut", app, name]);
+      return acted("signOut", true as const);
     },
     activity: () =>
       reply("activity", {

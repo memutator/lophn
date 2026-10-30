@@ -35,8 +35,16 @@ import {
   windowLinkOpener,
   windowSecretInputOpener,
 } from "../../desktop/settings/core-call.ts";
+import {
+  readInstructions,
+  windowFiles,
+  windowInstructions,
+  writeInstructions,
+} from "../../workspace/agents/core-extensions.ts";
 import { coreDomainActions } from "../../workspace/domains/core-calls.ts";
 import type { DomainView } from "../../workspace/source.ts";
+import type { FilesApi } from "../../../ipc/files.ts";
+import type { InstructionsApi } from "../../../ipc/instructions.ts";
 import type {
   AccessView,
   ActivationStep,
@@ -456,6 +464,10 @@ interface AppDetailDeps {
   /** 보호 입력 창. */
   openSecret: SecretInputOpenApi["open"] | undefined;
   openLink: OpenExternalApi["openExternal"] | undefined;
+  /** DOMAIN.md의 경로를 알려 주는 main 통로. 없으면 읽지도 쓰지도 못한다. */
+  instructions: InstructionsApi | undefined;
+  /** DOMAIN.md를 읽고 쓰는 main file 통로. 없으면 읽지도 쓰지도 못한다. */
+  files: Pick<FilesApi, "read" | "write"> | undefined;
 }
 
 const stored = async <T>(
@@ -472,8 +484,30 @@ export function coreAppDetailSource(
   const openSecret =
     "openSecret" in deps ? deps.openSecret : windowSecretInputOpener();
   const openLink = "openLink" in deps ? deps.openLink : windowLinkOpener();
+  const instructions =
+    "instructions" in deps ? deps.instructions : windowInstructions();
+  const files = "files" in deps ? deps.files : windowFiles();
   return {
     ...coreDomainActions(core),
+
+    async readDomainDoc(domain) {
+      const read = await readInstructions(instructions, files, {
+        layer: "domain",
+        place: domain,
+      });
+      return read.ok ? read : { ok: false, code: read.message };
+    },
+
+    async writeDomainDoc(domain, text, hash) {
+      const written = await writeInstructions(
+        instructions,
+        files,
+        { layer: "domain", place: domain },
+        text,
+        hash,
+      );
+      return written.ok ? written : { ok: false, code: written.message };
+    },
 
     async domains(app) {
       const [list, declared] = await Promise.all([
@@ -693,6 +727,9 @@ export function coreAppDetailSource(
     setSecretValue: (name, subject) =>
       enterSecret(openSecret, { name, purpose: "app", subject }),
 
+    removeSecretValue: (name) =>
+      stored(call(core, "memory", "secrets", "delete", { name })),
+
     setOAuthClientId: (app, name, clientId) =>
       stored(
         call(core, "memory", "apps", "oauth_client_set", {
@@ -734,6 +771,9 @@ export function coreAppDetailSource(
 
     cancelSignIn: (app, name) =>
       stored(call(core, "memory", "apps", "oauth_cancel", { app, name })),
+
+    signOut: (app, name) =>
+      stored(call(core, "memory", "apps", "oauth_sign_out", { app, name })),
 
     async activity(app) {
       const [invocations, releases, active] = await Promise.all([

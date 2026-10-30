@@ -10,6 +10,7 @@ export type AppSpacePlaceholders = {
   "app-detail.button.go-back": {
     release: "string";
   };
+  "app-detail.button.remove-value": Record<never, never>;
   "app-detail.button.revoke": Record<never, never>;
   "app-detail.button.rewind-app": {
     name: "string";
@@ -20,9 +21,11 @@ export type AppSpacePlaceholders = {
   "app-detail.button.set-value": Record<never, never>;
   "app-detail.button.sign-in": Record<never, never>;
   "app-detail.button.sign-in-again": Record<never, never>;
+  "app-detail.button.sign-out": Record<never, never>;
   "app-detail.error.go-back-failed": {
     release: "string";
   };
+  "app-detail.error.remove-failed": Record<never, never>;
   "app-detail.error.revoke-failed": Record<never, never>;
   "app-detail.error.rewind-failed": Record<never, never>;
   "app-detail.error.secret-failed": Record<never, never>;

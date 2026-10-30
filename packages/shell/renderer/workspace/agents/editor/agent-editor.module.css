@@ -1,14 +1,22 @@
 /* agent 설정 화면(Definition·Grants 탭)과 skill·MCP 줄 같은 조각. 같은 token만 쓰고, 토글과 행동 단추는 줄 오른쪽 끝 고정 열에 둔다. */
 
+/* 폭은 Agents 탭 목록과 같은 기둥이다. 목록에서 [Open]을 눌러도 본문 폭이 바뀌지 않는다. */
 .page {
   box-sizing: border-box;
   position: relative;
   width: 100%;
-  max-width: var(--page-form);
+  max-width: calc(var(--page-reading-wide) + var(--layout-pane-padding-wide) *
+    2);
   margin-inline: auto;
   padding: var(--layout-pane-padding-wide);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
+}
+
+/* Settings처럼 폭과 여백을 이미 둔 기둥 안에서는 그 기둥을 그대로 채운다. */
+.page.inColumn {
+  max-width: none;
+  padding: var(--space-0);
 }
 
 .fill {
@@ -207,14 +215,14 @@
   line-height: var(--type-small-line);
 }
 
-/* 지침 블록 */
-.projectInstr {
+/* 지침 파일 상자: 머리 줄(이름 | [Edit])과 앞 줄 몇 개. [Edit]을 누르면 같은 자리가 글칸이 된다. */
+.instr {
   border: var(--border-width) solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   background: var(--color-surface-subtle);
 }
 
-.projectInstrHead {
+.instrHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -224,7 +232,7 @@
   font-size: var(--type-small-size);
 }
 
-.projectInstrBody {
+.instrBody {
   margin: var(--space-0);
   padding: var(--space-0) var(--space-4) var(--space-4);
   color: var(--color-text-muted);
@@ -234,11 +242,47 @@
   white-space: pre-wrap;
 }
 
-.projectInstrEmpty {
+.instrEmpty {
   margin: var(--space-0);
   padding: var(--space-0) var(--space-4) var(--space-4);
   color: var(--color-text-muted);
   font-size: var(--type-small-size);
+}
+
+.instrEdit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--field-gap);
+}
+
+.instrLabel {
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+}
+
+/* 파일 탭과 같은 markdown 편집기를 글칸 테두리 안에 둔다. 빈 파일도 네 줄 높이다. focus 때는 테두리 색만 바뀐다. */
+.instrBox {
+  box-sizing: border-box;
+  min-height: calc(var(--type-reading-line) * 4);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-base);
+  cursor: text;
+}
+
+.instrBox:focus-within {
+  border-color: var(--color-focus);
+}
+
+.instrBox[data-invalid] {
+  border-color: var(--status-critical-marker);
+}
+
+.instrEdit > .formActions {
+  margin-top: var(--space-3);
 }
 
 /* 켬/끔 줄(skill, MCP server): 이름·설명 | 층 chip | 토글. chip과 토글 열은 폭이 고정이라 줄마다 같은 위치다. */
@@ -262,6 +306,11 @@
 
 .toggleRow > .chip {
   justify-self: start;
+}
+
+/* MCP 줄은 OAuth 로그인 단추 열이 하나 더 있다 */
+.mcpRow {
+  grid-template-columns: 1fr calc(var(--space-12) + var(--space-8)) auto var(--space-11);
 }
 
 .toggleMain {

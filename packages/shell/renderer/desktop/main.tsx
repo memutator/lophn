@@ -14,17 +14,12 @@ import { Launcher } from "./launcher/launcher.tsx";
 import {
   LAUNCHER,
   openApp,
-  openInstructions,
   openLauncher,
   openNewApp,
   openProject,
   openSettings,
   type Route,
 } from "./router.ts";
-import {
-  InstructionsEntry,
-  type InstructionsSource,
-} from "../editor/instructions-entry.tsx";
 import { Workspace } from "../workspace/workspace.tsx";
 import { DetachedSpace } from "../workspace/detached/detached-space.tsx";
 import type { LophnDetachedApi } from "../../ipc/detached.ts";
@@ -77,8 +72,6 @@ interface DesktopProps {
   palette?: PaletteDeps;
   /** main이 시키는 것(전역 팔레트). 없으면 받지 않는다. */
   intents?: IntentApi;
-  /** [Instructions] 통로. 없으면 instructions 공간을 열지 않는다. */
-  instructions?: InstructionsSource;
   /** 런처의 프로젝트 카드·등록·보관·detail 통로. 없으면 카드는 비었음 상태다. */
   projects?: ProjectsSource;
   /** 런처의 앱 카드·보관과 앱 공간의 통로. 없으면 앱 공간을 열지 않는다. */
@@ -152,7 +145,6 @@ export function Desktop({
   palette,
   projects,
   intents,
-  instructions,
   apps,
   settings,
   settingsPanels,
@@ -197,11 +189,8 @@ export function Desktop({
   const beforeSettings = useRef<Route | null>(null);
   // Settings로 간다. 이미 Settings여도 고른 항목부터 다시 연다.
   const settingsSpace = (pane?: SettingsPane) => {
-    // Settings 자신과, Settings에서 연 전역 지침 편집기는 앞 자리가 아니다. 한 번 쓰고 끝나는 시작값(열 파일)은
-    // 버려 돌아올 때 다시 일어나지 않게 한다.
-    const global =
-      route.space === "instructions" && route.instructions?.layer === "global";
-    if (route.space !== "settings" && !global) {
+    // Settings 자신은 앞 자리가 아니다. 한 번 쓰고 끝나는 시작값(열 파일)은 버려 돌아올 때 다시 일어나지 않게 한다.
+    if (route.space !== "settings") {
       beforeSettings.current =
         route.space === "project" && route.project
           ? openProject(route.project, { session: route.session })
@@ -213,13 +202,6 @@ export function Desktop({
     setRoute(openSettings(pane));
   };
   const appSpace = (app: string) => setRoute(openApp(app));
-  // domain 지침(DOMAIN.md)을 연 앱 공간. [Back]이 그 앱 공간으로 돌아간다. 한 번 쓰고 끝나는 시작값(session)은 버린다.
-  const beforeDomainDoc = useRef<Route | null>(null);
-  const openDomainDoc = (domain: string) => {
-    beforeDomainDoc.current =
-      route.space === "app" && route.app ? openApp(route.app) : null;
-    setRoute(openInstructions({ layer: "domain", place: domain }));
-  };
   // 전역 팔레트에서 고른 대상. Workspace 팔레트와 같은 목적지로만 간다.
   const go = (target: DesktopTarget) => {
     if (target.kind === "launcher") launcher();
@@ -302,17 +284,6 @@ export function Desktop({
         onOpenProject={(project) => setRoute(openProject(project))}
         onSettings={settingsSpace}
         jobs={settingsPanels?.jobs}
-        onProjectInstructions={
-          instructions
-            ? () =>
-                setRoute(
-                  openInstructions({
-                    layer: "project",
-                    place: route.project!,
-                  }),
-                )
-            : undefined
-        }
         onOpenApp={apps ? appSpace : undefined}
         editor={editor}
         terminal={terminal}
@@ -334,28 +305,6 @@ export function Desktop({
           agentViewSource={agentViewSource}
         />
       ) : null;
-  } else if (
-    route.space === "instructions" &&
-    route.instructions &&
-    instructions &&
-    editor &&
-    live
-  ) {
-    space = (
-      <InstructionsEntry
-        place={route.instructions}
-        source={instructions}
-        editor={editor}
-        // 전역 지침은 settings에서 왔으니 settings로 돌아간다.
-        onBack={
-          route.instructions.layer === "global"
-            ? () => settingsSpace()
-            : route.instructions.layer === "domain"
-              ? () => setRoute(beforeDomainDoc.current ?? LAUNCHER)
-              : launcher
-        }
-      />
-    );
   } else if (route.space === "app" && route.app && apps && live) {
     space = (
       <AppSpace
@@ -372,7 +321,6 @@ export function Desktop({
         }
         agentViewSource={agentViewSource}
         onSettings={settingsSpace}
-        onDomainDoc={instructions ? openDomainDoc : undefined}
         windowWidth={windowWidth}
         onLauncher={launcher}
         annotate={annotate}
@@ -398,11 +346,6 @@ export function Desktop({
         onApp={appSpace}
         settings={settings}
         settingsPanels={settingsPanels}
-        onInstructions={
-          instructions
-            ? () => setRoute(openInstructions({ layer: "global" }))
-            : undefined
-        }
         onOpenSession={openSession}
       />
     );

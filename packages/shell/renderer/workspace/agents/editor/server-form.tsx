@@ -1,5 +1,6 @@
-// agent 층에서 MCP server를 더하는 form. 이름·연결 방식·실행이나 주소·로그인 방식만 받고 key나 token 값은 받지 않는다.
-// 값은 더한 뒤 보호 입력으로 받는다(ProtectedKeyNote). 설정 화면의 전역 server 추가도 이 form을 쓴다.
+// agent 층에서 MCP server를 더하는 form. 이름·연결 방식·실행이나 주소·로그인 방식과 OAuth의 issuer·client id·scopes만
+// 받고 key·token·client secret 값은 받지 않는다. 값은 더한 뒤 보호 입력으로 받는다(ProtectedKeyNote). 설정 화면의
+// 전역 server 추가도 이 form을 쓴다.
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Field, Input, Select, Textarea } from "@lophn/ui/input";
@@ -11,13 +12,19 @@ import { ProtectedKeyNote } from "./parts.tsx";
 import styles from "./agent-editor.module.css";
 
 type Transport = "stdio" | "http";
-type Auth = "none" | "bearer" | "api_key";
+type Auth = "none" | "bearer" | "api_key" | "oauth2";
 
 const NAME = /^[A-Za-z0-9_-]{1,32}$/;
 const EXECUTABLE = /^(\/|[A-Za-z]:\\).+/;
 const URL = /^(https:\/\/\S+|http:\/\/(127\.0\.0\.1|\[::1\])(:\d+)?(\/\S*)?)$/;
+const ISSUER = /^https:\/\/\S+$/;
 const HEADER = /^[A-Za-z0-9-]{1,64}$/;
 const CALL_TIMEOUT_MS = 60_000;
+
+/** 사람이 쓴 scope 목록이다. 공백이나 쉼표로 가른다. */
+function splitScopes(value: string): string[] {
+  return value.split(/[\s,]+/).filter((one) => one !== "");
+}
 
 interface ServerFormProps {
   /** credential 이름 `mcp.<scope>.<server>`의 scope. 전역은 `global`, agent 정의 층은 그 agent의 id다. */
@@ -28,6 +35,8 @@ interface ServerFormProps {
   readonly onCancel: () => void;
   /** 열릴 때 화면 가운데로 스크롤한다. */
   readonly scrollIntoView?: boolean;
+  /** OAuth 로그인 방식을 고르게 한다. agent 정의 층 server는 core에 로그인 길이 없어 끈다. */
+  readonly oauth?: boolean;
 }
 
 function serverOf(
@@ -40,6 +49,9 @@ function serverOf(
     url: string;
     auth: Auth;
     header: string;
+    issuer: string;
+    clientId: string;
+    scopes: string;
   },
 ): McpServer {
   const base = {
@@ -72,7 +84,18 @@ function serverOf(
           ? { kind: "none" }
           : fields.auth === "bearer"
             ? { kind: "bearer", credential }
-            : { kind: "api_key", credential, header_name: fields.header },
+            : fields.auth === "api_key"
+              ? { kind: "api_key", credential, header_name: fields.header }
+              : {
+                  kind: "oauth2",
+                  issuer: fields.issuer,
+                  client_id: fields.clientId,
+                  // public client는 값이 없어도 된다. 없으면 client secret 없이 교환한다.
+                  client_credential: {
+                    secret: `mcp.${scope}.${fields.name}.client`,
+                  },
+                  scopes: splitScopes(fields.scopes),
+                },
     },
   };
 }
@@ -83,6 +106,7 @@ export function ServerForm({
   onAdd,
   onCancel,
   scrollIntoView = false,
+  oauth = false,
 }: ServerFormProps) {
   const [name, setName] = useState("");
   const [transport, setTransport] = useState<Transport>("stdio");
@@ -91,6 +115,9 @@ export function ServerForm({
   const [url, setUrl] = useState("");
   const [auth, setAuth] = useState<Auth>("none");
   const [header, setHeader] = useState("");
+  const [issuer, setIssuer] = useState("");
+  const [clientId, setClientId] = useState("");
+  const [scopes, setScopes] = useState("");
   const [tried, setTried] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -114,10 +141,28 @@ export function ServerForm({
     transport === "http" && auth === "api_key" && !HEADER.test(header)
       ? t("settings.server.error-header")
       : undefined;
+  const oauth2 = transport === "http" && auth === "oauth2";
+  const scopeList = splitScopes(scopes);
+  const issuerError =
+    oauth2 && !ISSUER.test(issuer)
+      ? t("settings.server.error-issuer")
+      : undefined;
+  const clientIdError =
+    oauth2 && (clientId === "" || clientId.length > 200)
+      ? t("settings.server.error-client-id")
+      : undefined;
+  const scopesError =
+    oauth2 &&
+    (scopeList.length > 32 || scopeList.some((one) => one.length > 128))
+      ? t("settings.server.error-scopes")
+      : undefined;
   const invalid =
     nameError !== undefined ||
     targetError !== undefined ||
-    headerError !== undefined;
+    headerError !== undefined ||
+    issuerError !== undefined ||
+    clientIdError !== undefined ||
+    scopesError !== undefined;
   // 이름이 겹치는 것은 치는 도중에도 바로 알린다.
   const dup = name !== "" && taken.includes(name);
 
@@ -139,16 +184,18 @@ export function ServerForm({
           onChange={(event) => setName(event.currentTarget.value)}
         />
       </Field>
-      <Field label={t("settings.label.server-transport")}>
-        <Select
-          options={[
-            { value: "stdio", label: t("settings.label.on-computer") },
-            { value: "http", label: t("settings.label.over-web") },
-          ]}
-          value={transport}
-          onValueChange={(value) => setTransport(value as Transport)}
-        />
-      </Field>
+      <div data-server-field="transport">
+        <Field label={t("settings.label.server-transport")}>
+          <Select
+            options={[
+              { value: "stdio", label: t("settings.label.on-computer") },
+              { value: "http", label: t("settings.label.over-web") },
+            ]}
+            value={transport}
+            onValueChange={(value) => setTransport(value as Transport)}
+          />
+        </Field>
+      </div>
       {transport === "stdio" ? (
         <>
           <Field
@@ -184,17 +231,27 @@ export function ServerForm({
               onChange={(event) => setUrl(event.currentTarget.value)}
             />
           </Field>
-          <Field label={t("settings.label.server-auth")}>
-            <Select
-              options={[
-                { value: "none", label: t("agents.label.auth-none") },
-                { value: "bearer", label: t("agents.label.auth-bearer") },
-                { value: "api_key", label: t("agents.label.auth-api-key") },
-              ]}
-              value={auth}
-              onValueChange={(value) => setAuth(value as Auth)}
-            />
-          </Field>
+          <div data-server-field="auth">
+            <Field label={t("settings.label.server-auth")}>
+              <Select
+                options={[
+                  { value: "none", label: t("agents.label.auth-none") },
+                  { value: "bearer", label: t("agents.label.auth-bearer") },
+                  { value: "api_key", label: t("agents.label.auth-api-key") },
+                  ...(oauth
+                    ? [
+                        {
+                          value: "oauth2",
+                          label: t("agents.label.auth-oauth2"),
+                        },
+                      ]
+                    : []),
+                ]}
+                value={auth}
+                onValueChange={(value) => setAuth(value as Auth)}
+              />
+            </Field>
+          </div>
           {auth === "api_key" ? (
             <Field
               label={t("settings.label.server-header")}
@@ -206,11 +263,51 @@ export function ServerForm({
               />
             </Field>
           ) : null}
+          {auth === "oauth2" ? (
+            <>
+              <Field
+                label={t("settings.label.server-issuer")}
+                help={t("settings.server.issuer-help")}
+                error={tried ? issuerError : undefined}
+              >
+                <Input
+                  data-server-field="issuer"
+                  value={issuer}
+                  onChange={(event) => setIssuer(event.currentTarget.value)}
+                />
+              </Field>
+              <Field
+                label={t("settings.label.server-client-id")}
+                error={tried ? clientIdError : undefined}
+              >
+                <Input
+                  data-server-field="client-id"
+                  value={clientId}
+                  onChange={(event) => setClientId(event.currentTarget.value)}
+                />
+              </Field>
+              <Field
+                label={t("settings.label.server-scopes")}
+                help={t("settings.server.scopes-help")}
+                error={tried ? scopesError : undefined}
+              >
+                <Input
+                  data-server-field="scopes"
+                  value={scopes}
+                  onChange={(event) => setScopes(event.currentTarget.value)}
+                />
+              </Field>
+            </>
+          ) : null}
         </>
       )}
       {transport === "http" && auth !== "none" ? (
         <ProtectedKeyNote
-          title={t("agents.label.protected-key")}
+          title={t(
+            auth === "oauth2"
+              ? "agents.label.protected-secret"
+              : "agents.label.protected-key",
+          )}
           text={t("agents.notice.protected-key")}
         />
       ) : (
@@ -233,6 +330,9 @@ export function ServerForm({
                 url,
                 auth,
                 header,
+                issuer,
+                clientId,
+                scopes,
               }),
             );
           }}

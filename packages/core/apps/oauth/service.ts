@@ -5,6 +5,7 @@ import {
   appsOAuthBegin,
   appsOAuthCancel,
   appsOAuthClientSet,
+  appsOAuthSignOut,
   appsOAuthState,
 } from "../../../protocol/apps/mod.ts";
 import type { OAuthDeclaration } from "../../../protocol/apps/declaration/mod.ts";
@@ -45,7 +46,7 @@ export type AppOAuthDeps = {
 };
 
 export type AppOAuth = {
-  // "apps/oauth_client_set" | "apps/oauth_begin" | "apps/oauth_cancel" | "apps/oauth_state"
+  // "apps/oauth_client_set" | "apps/oauth_begin" | "apps/oauth_cancel" | "apps/oauth_sign_out" | "apps/oauth_state"
   handlers: ReadonlyMap<string, MemoryHandler>;
   // secretValueHandler의 prepare hook. OAuth 선언이 아닌 이름이면 undefined다.
   prepare(input: {
@@ -62,16 +63,6 @@ const SIGN_IN_REQUIRED = err({
   code: "conflict" as const,
   message: APP_OAUTH_SIGN_IN_REQUIRED,
 });
-
-// 발급자가 400·401·invalid_grant로 답하면 refresh token이 죽은 것이다. 그 밖(5xx 등)은 일시 오류다.
-function refreshRejected(
-  status: number,
-  body: Record<string, unknown> | null,
-): boolean {
-  return (
-    status === 400 || status === 401 || body?.["error"] === "invalid_grant"
-  );
-}
 
 export function createAppOAuth(deps: AppOAuthDeps): AppOAuth {
   const { secrets } = deps;
@@ -90,7 +81,6 @@ export function createAppOAuth(deps: AppOAuthDeps): AppOAuth {
     ...(deps.waitMs === undefined ? {} : { waitMs: deps.waitMs }),
     deadline: deps.deadline ?? timerDeadline,
     refreshSkewMs: REFRESH_SKEW_MS,
-    keepValidOnUnavailable: true,
   });
 
   function text(name: string): string | null {
@@ -120,7 +110,6 @@ export function createAppOAuth(deps: AppOAuthDeps): AppOAuth {
         params: JSON.stringify(declared.params ?? {}),
         client_id: clientId,
       },
-      refreshRejected,
     };
   }
 
@@ -188,6 +177,17 @@ export function createAppOAuth(deps: AppOAuthDeps): AppOAuth {
     return ok({ cancelled });
   };
 
+  const signOut: MemoryHandler = async (_ctx, body) => {
+    const parsed = appsOAuthSignOut.input.safeParse(body);
+    if (!parsed.success) {
+      return err({ code: "invalid_input", message: "입력이 올바르지 않다" });
+    }
+    const removed = await oauth.signOut({
+      key: { place: null, name: parsed.data.name },
+    });
+    return removed.ok ? ok({ signed_out: true }) : removed;
+  };
+
   const state: MemoryHandler = async (_ctx, body) => {
     const parsed = appsOAuthState.input.safeParse(body);
     if (!parsed.success) {
@@ -214,6 +214,7 @@ export function createAppOAuth(deps: AppOAuthDeps): AppOAuth {
       ["apps/oauth_client_set", clientSet],
       ["apps/oauth_begin", begin],
       ["apps/oauth_cancel", cancel],
+      ["apps/oauth_sign_out", signOut],
       ["apps/oauth_state", state],
     ]),
 

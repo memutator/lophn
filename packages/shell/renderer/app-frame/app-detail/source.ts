@@ -3,6 +3,7 @@
 // 이 화면이 쓰는 field만 옮긴 것이다.
 import type { SourceResult } from "../../source-result.ts";
 import type { DomainActions, DomainView } from "../../workspace/source.ts";
+import type { InstructionsFile } from "../../workspace/agents/views.ts";
 
 export type { SourceResult };
 
@@ -260,6 +261,14 @@ export interface AppDomainRow extends DomainView {
 export interface AppDetailSource extends DomainActions {
   /** 앱의 active domain들. tool 수는 active release의 선언에서 센다(release가 없으면 0). */
   domains(app: string): Promise<SourceResult<readonly AppDomainRow[]>>;
+  /** domain의 DOMAIN.md. 아직 없으면 빈 글과 null hash다(첫 저장이 만든다). */
+  readDomainDoc(domain: string): Promise<SourceResult<InstructionsFile>>;
+  /** DOMAIN.md를 통째로 쓴다. hash가 디스크와 다르면 code가 conflict이고 파일은 그대로다. */
+  writeDomainDoc(
+    domain: string,
+    text: string,
+    hash: string | null,
+  ): Promise<SourceResult<InstructionsFile>>;
 
   versions(app: string): Promise<SourceResult<VersionView>>;
   /** 이 release를 지금 활성 release와 견준 늘어난 선언과 손실 단계. */
@@ -275,6 +284,8 @@ export interface AppDetailSource extends DomainActions {
     name: string,
     subject: string,
   ): Promise<SourceResult<"stored" | "cancelled">>;
+  /** plain secret 값을 지운다. 이름은 앱 사이에 공유되므로 같은 이름을 쓰는 다른 앱의 값도 함께 사라진다. */
+  removeSecretValue(name: string): Promise<SourceResult<true>>;
   setOAuthClientId(
     app: string,
     name: string,
@@ -288,6 +299,8 @@ export interface AppDetailSource extends DomainActions {
   /** sign-in 주소를 OS browser로 연다. 끝나기는 기다리지 않고, 화면이 access()를 다시 읽어 본다. */
   signIn(app: string, name: string): Promise<SourceResult<true>>;
   cancelSignIn(app: string, name: string): Promise<SourceResult<true>>;
+  /** 앱 OAuth token 셋을 지운다. client id와 client secret은 남는다. */
+  signOut(app: string, name: string): Promise<SourceResult<true>>;
 
   activity(app: string): Promise<SourceResult<ActivityView>>;
   rewindPlan(app: string, from: string): Promise<SourceResult<RewindPlanView>>;

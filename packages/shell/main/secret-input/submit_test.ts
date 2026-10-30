@@ -16,11 +16,9 @@ const CASES: Array<[string, "invalid_input" | "unavailable"]> = [
 ];
 
 for (const [code, expected] of CASES) {
-  test(`secret 제출이 ${code}로 실패해도 값은 결과에 없고 byte는 0으로 덮인다`, async () => {
-    let sent: Uint8Array | undefined;
+  test(`secret 제출이 ${code}로 실패해도 값은 결과에 없다`, async () => {
     const core: SecretCore = {
-      upload(_resource, _method, _input, bytes) {
-        sent = bytes;
+      upload() {
         if (code === "throws") {
           return Promise.reject(new Error(`failed with ${VALUE}`));
         }
@@ -33,17 +31,14 @@ for (const [code, expected] of CASES) {
     const reply = await submitSecret(core, { name: "API_KEY", value: VALUE });
     assert.deepEqual(reply, { ok: false, code: expected });
     assert.ok(!JSON.stringify(reply).includes(VALUE));
-    assert.ok(sent !== undefined && sent.every((byte) => byte === 0));
   });
 }
 
-test("secret 제출이 성공하면 이름과 byte 수만 올리고 byte는 0으로 덮인다", async () => {
-  let sent: Uint8Array | undefined;
+test("secret 제출이 성공하면 이름과 byte 수만 올린다", async () => {
   let seen: unknown;
   let during = "";
   const core: SecretCore = {
     upload(_resource, _method, input, bytes) {
-      sent = bytes;
       seen = input;
       during = new TextDecoder().decode(bytes);
       return Promise.resolve({ ok: true, value: {} });
@@ -53,5 +48,4 @@ test("secret 제출이 성공하면 이름과 byte 수만 올리고 byte는 0으
   assert.deepEqual(reply, { ok: true });
   assert.equal(during, VALUE);
   assert.deepEqual(seen, { name: "API_KEY", bytes: VALUE.length });
-  assert.ok(sent !== undefined && sent.every((byte) => byte === 0));
 });

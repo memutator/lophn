@@ -19,7 +19,12 @@ import {
 // 순서다. 없는 tool·잘못된 인자는 인자를 고치지 않고 call별 결과로 돌려준다.
 // `tool_call`은 여기서 대상 tool의 호출로 푼다. 효과·병렬·retry·기록·Gate가 모두 대상 tool을 기준으로 한다.
 
-type ModelToolCall = { id: string; name: string; args: string };
+type ModelToolCall = {
+  id: string;
+  name: string;
+  args: string;
+  signature?: string;
+};
 
 export type CallResult = {
   key: string;
@@ -28,7 +33,7 @@ export type CallResult = {
   name: string;
   input: unknown;
   // model이 보낸 호출 그대로다. 이력의 tool_use 짝은 이 값으로 만든다.
-  called: { name: string; input: unknown };
+  called: { name: string; input: unknown; signature?: string };
   // 기록한 ToolCall ID. 중단 요청에 답하지 않아 모를 때만 null이다.
   tool_call: string | null;
   status: ToolDone["status"];
@@ -165,7 +170,11 @@ export async function runToolBatch(
   const parsed = calls.map((call) => parseToolArgs(call.args));
   const called = calls.map((call, index) => {
     const args = parsed[index];
-    return { name: call.name, input: args.ok ? args.value : call.args };
+    return {
+      name: call.name,
+      input: args.ok ? args.value : call.args,
+      ...(call.signature === undefined ? {} : { signature: call.signature }),
+    };
   });
   const requests: ToolCallRequest[] = calls.map((call, order) => {
     const args = parsed[order];

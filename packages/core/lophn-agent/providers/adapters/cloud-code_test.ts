@@ -55,7 +55,12 @@ test("stream은 잘린 chunk에서도 thinking·두 tool call·usage를 한 번�
       reasoning: "I will read two files.",
       text: "",
       calls: [
-        { id: "call-a", name: "read_file", args: '{"path":"a.txt"}' },
+        {
+          id: "call-a",
+          name: "read_file",
+          args: '{"path":"a.txt"}',
+          signature: "c3ludGhldGljLXNpZ25hdHVyZQ==",
+        },
         { id: "call-b", name: "read_file", args: '{"path":"b.txt"}' },
       ],
       usage: [8, 5, 4, 2],
@@ -95,6 +100,7 @@ test("병렬 tool 결과는 역순으로 와도 call 순서대로 한 user turn�
             id: "call-a",
             name: "read_file",
             input: { path: "a.txt" },
+            signature: "c2lnLWE=",
           },
           {
             kind: "tool_use",
@@ -153,7 +159,8 @@ test("병렬 tool 결과는 역순으로 와도 call 순서대로 한 user turn�
         "sessionId",
       ],
       user: { role: "user", parts: [{ text: "Read a.txt and b.txt" }] },
-      signatures: ["skip_thought_signature_validator", null],
+      // 받은 서명은 그대로 돌려보내고, 서명 없는 뒤 call에는 아무것도 달지 않는다.
+      signatures: ["c2lnLWE=", null],
       results: [
         {
           functionResponse: {

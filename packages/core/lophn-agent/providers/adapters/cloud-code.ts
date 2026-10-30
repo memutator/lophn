@@ -4,7 +4,8 @@
 // - 응답: `{"response": GenerateContentResponse}` frame을 누적해 text·thinking·tool call·usage를 낸다. HTTP 200이어도
 //   root error·prompt 차단·finishReason 없는 끝은 성공이 아니다.
 // header와 label 값은 2026-10 조사 snapshot의 Antigravity client profile이고 Google이 공개 보장한 API가 아니다.
-// thought signature는 lophn 이력에 남지 않는다. Gemini의 functionCall에는 서명 검사를 건너뛰는 표시를 대신 싣는다.
+// Gemini의 thought signature는 받은 functionCall에 붙여 같은 turn의 다음 요청에 그대로 돌려보낸다. 저장한 이력(앞
+// turn)에는 없어서, 그때는 서명 검사를 건너뛰는 표시를 대신 싣는다.
 
 import type { TokenUsage } from "../../../../protocol/lophn-agent/mod.ts";
 import { joinEndpoint, type ShapedCall } from "./compat.ts";
@@ -49,7 +50,13 @@ type HistoryMessage = {
   role: "user" | "assistant";
   parts: readonly (
     | { kind: "text"; text: string }
-    | { kind: "tool_use"; id: string; name: string; input: unknown }
+    | {
+        kind: "tool_use";
+        id: string;
+        name: string;
+        input: unknown;
+        signature?: string;
+      }
     | { kind: "tool_result"; id: string; text: string }
     | {
         kind: "tool_result_image";
@@ -79,15 +86,20 @@ export function cloudCodeContents(
         } else if (part.kind === "tool_use") {
           names.set(part.id, part.name);
           order.set(part.id, order.size);
+          // 받은 서명이 있으면 그것을, 없으면 call마다 첫 functionCall에만 건너뛰는 표시를 단다.
+          const signature =
+            options.gemini && part.signature !== undefined
+              ? part.signature
+              : options.gemini && first
+                ? SKIP_SIGNATURE
+                : undefined;
           parts.push({
             functionCall: {
               name: part.name,
               args: isRecord(part.input) ? part.input : {},
               id: part.id,
             },
-            ...(options.gemini && first
-              ? { thoughtSignature: SKIP_SIGNATURE }
-              : {}),
+            ...(signature === undefined ? {} : { thoughtSignature: signature }),
           });
           first = false;
         }
@@ -320,6 +332,8 @@ type CloudCodeStream = {
   // thinking 뒤에 다른 조각이 왔다. delta 시각을 재는 쪽이 끝을 안다.
   reasoningEnded: boolean;
   toolCalls: ToolCall[];
+  // functionCall 없이 먼저 온 서명이다. 다음 functionCall에 붙인다.
+  pendingSignature?: string;
   finishReason?: string;
   responseId?: string;
   usage?: TokenUsage;
@@ -406,13 +420,26 @@ function applyFrame(out: CloudCodeStream, frame: SseFrame): void {
         given !== null && !taken.has(given)
           ? given
           : `cca_${out.toolCalls.length + 1}`;
+      const signature =
+        typeof part.thoughtSignature === "string" &&
+        part.thoughtSignature !== ""
+          ? part.thoughtSignature
+          : out.pendingSignature;
+      out.pendingSignature = undefined;
       out.toolCalls.push({
         id,
         name: typeof call.name === "string" ? call.name : "",
         args: JSON.stringify(isRecord(call.args) ? call.args : {}),
+        ...(signature === undefined ? {} : { signature }),
       });
       if (out.reasoning !== null) out.reasoningEnded = true;
       continue;
+    }
+    if (
+      typeof part.thoughtSignature === "string" &&
+      part.thoughtSignature !== ""
+    ) {
+      out.pendingSignature = part.thoughtSignature;
     }
     if (typeof part.text !== "string" || part.text === "") continue;
     if (part.thought === true) {

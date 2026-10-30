@@ -202,12 +202,10 @@ function appendNotices(
   return [...messages, { role: "user", parts }];
 }
 
-// 경계 표시가 달리는 층. place_kind 끝의 marker가 앞선 tools 목록도 덮는다.
-const CACHED: readonly SystemLayerKind[] = [
-  "place_kind",
-  "instructions",
-  "place",
-];
+// 경계 표시가 달리는 층. place_kind 끝의 marker가 앞선 tools 목록도 덮는다. Anthropic은 한 요청에 표시 넷만 받는다.
+// system에 둘을 두고 대화에 둘(끝과 그 앞 user turn)을 둔다. 대화 쪽이 하나면 한 번에 20 block 넘게 늘어난 요청이
+// 앞 cache를 찾지 못한다. instructions는 사람이 지침을 고칠 때만 바뀌어 place 경계에 함께 둔다.
+const CACHED: readonly SystemLayerKind[] = ["place_kind", "place"];
 
 export async function assembleTurnPrompt(
   input: TurnPromptInput,

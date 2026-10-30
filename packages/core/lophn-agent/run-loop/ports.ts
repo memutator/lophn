@@ -114,7 +114,12 @@ export type ModelAttempt = {
   outcome: ModelOutcome;
   text: string;
   // 완전 응답에서만 tool 요청이 있다. 인자는 응답의 JSON 글 그대로다.
-  toolCalls: readonly { id: string; name: string; args: string }[];
+  toolCalls: readonly {
+    id: string;
+    name: string;
+    args: string;
+    signature?: string;
+  }[];
   // provider가 보고한 이 요청의 prompt token(새 입력 + cache 읽기 + cache 쓰기). 모르면 없다.
   // 다음 call의 입력 예산을 이 값에서 잰다.
   promptTokens?: number;

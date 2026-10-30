@@ -715,6 +715,9 @@ async function afterModel(
       id: result.key,
       name: result.called.name,
       input: result.called.input,
+      ...(result.called.signature === undefined
+        ? {}
+        : { signature: result.called.signature }),
     });
   }
   state.history.push({ role: "assistant", parts });

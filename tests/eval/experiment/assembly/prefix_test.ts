@@ -70,5 +70,5 @@ test("prefixBoundaries가 제품 assembleTurnPrompt의 cache_boundaries와 같�
     ours.map((b) => [b.layer, b.prefix_hash]),
     result.cache_boundaries.map((b) => [b.after, b.prefix_hash]),
   );
-  assert.deepStrictEqual(ours.length, 3);
+  assert.deepStrictEqual(ours.length, 2);
 });

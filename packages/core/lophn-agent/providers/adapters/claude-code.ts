@@ -25,6 +25,9 @@ const CCH_SEED = 0x4d659218e32a3268n;
 const CCH_PLACEHOLDER = "00000";
 // Anthropic이 한 요청에 받는 cache_control 표시 수다.
 const CACHE_MARKS_MAX = 4;
+// 구독 요청의 cache 수명이다. Claude Code도 plan 안에서는 1시간을 쓴다. 5분이면 tool 실행이나 사람의 답을 기다리는
+// 사이에 cache가 사라진다. 모든 표시를 같은 값으로 두어 "긴 TTL이 짧은 것보다 앞" 규칙에 걸리지 않는다.
+const CACHE_CONTROL = { type: "ephemeral", ttl: "1h" } as const;
 // 이 순서로 직렬화한다. 나머지 칸은 packer가 둔 순서로 뒤에 붙고 stream이 마지막이다.
 const LEADING_KEYS = [
   "model",
@@ -120,6 +123,17 @@ function countCacheMarks(value: unknown): number {
   return count;
 }
 
+// packer가 단 표시(5분)를 구독 수명으로 바꾼다. 다른 칸은 그대로다.
+function withLongCache<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(withLongCache) as T;
+  if (!isRecord(value)) return value;
+  const out: Block = {};
+  for (const [key, item] of Object.entries(value)) {
+    out[key] = key === "cache_control" ? CACHE_CONTROL : withLongCache(item);
+  }
+  return out as T;
+}
+
 // custom tool은 wire 이름 앞에 `_`를 붙인다. type이 있는 server tool은 그대로다.
 function wireToolName(name: string): string {
   return `_${name}`;
@@ -201,7 +215,7 @@ export function claudeCodeProfile(options: {
       : typeof packed.system === "string" && packed.system !== ""
         ? [{ type: "text", text: packed.system }]
         : [];
-    const renamed = renameToolUses(messages);
+    const renamed = withLongCache(renameToolUses(messages));
     const room =
       countCacheMarks(system) +
         countCacheMarks(renamed) +
@@ -219,11 +233,11 @@ export function claudeCodeProfile(options: {
         {
           type: "text",
           text: IDENTITY,
-          ...(room ? { cache_control: { type: "ephemeral" } } : {}),
+          ...(room ? { cache_control: CACHE_CONTROL } : {}),
         },
-        ...system,
+        ...withLongCache(system),
       ],
-      tools,
+      tools: withLongCache(tools),
       metadata: {
         user_id: JSON.stringify({
           device_id: deviceId,

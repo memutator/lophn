@@ -5,6 +5,7 @@
 
 import type { TokenUsage } from "../../../../protocol/lophn-agent/mod.ts";
 import type { JsonObject } from "../../../../protocol/base/mod.ts";
+import { recordOf } from "../issuer-http.ts";
 import { mergeRequestPatch } from "./request-patch.ts";
 import type { SseFrame } from "./stream.ts";
 
@@ -39,26 +40,53 @@ type ToolDefinition = {
   input_schema: unknown;
 };
 
-// cache 표시. 타입은 ephemeral뿐이다. ttl 필드를 보내지 않으면 5분 기본이다.
-// 표시는 system 층(최대 셋. turn-prompt.ts의 CACHED)과 대화 끝 하나라 Anthropic 상한 4개 안이다.
+// cache 표시. 타입은 ephemeral뿐이다. ttl 필드를 보내지 않으면 5분 기본이다(구독은 claude-code.ts가 1시간으로 바꾼다).
+// 표시는 system 층 둘(turn-prompt.ts의 CACHED)과 대화 쪽 둘이라 Anthropic 상한 4개 안이다.
 // tools는 system 앞이라 place 종류 층 표시가 함께 덮는다.
 const CACHE_CONTROL = { type: "ephemeral" } as const;
 
-// 대화 끝 표시. 마지막 message의 마지막 content block에 달고 원본은 고치지 않는다.
-// 끝 block은 turn마다 새로 생긴 tool 결과나 사람 글이라 다음 call이 앞 call이 쓴 prefix를 읽는다.
-function markConversationEnd(messages: readonly unknown[]): unknown[] {
-  const last = messages[messages.length - 1] as
-    | { content?: unknown }
-    | undefined;
-  if (!Array.isArray(last?.content) || last.content.length === 0) {
-    return [...messages];
+function withMark(message: unknown): unknown {
+  const record = recordOf(message);
+  if (record === null || !Array.isArray(record.content)) return message;
+  const blocks = [...record.content];
+  const end = recordOf(blocks[blocks.length - 1]);
+  if (end === null) return message;
+  blocks[blocks.length - 1] = { ...end, cache_control: CACHE_CONTROL };
+  return { ...record, content: blocks };
+}
+
+// Anthropic이 한 요청에 받는 표시 수다. 넘으면 요청 전체를 거절한다.
+const CACHE_MARKS_MAX = 4;
+
+function marksIn(value: unknown): number {
+  if (Array.isArray(value)) {
+    return value.reduce((sum: number, item) => sum + marksIn(item), 0);
   }
-  const blocks = [...last.content];
-  blocks[blocks.length - 1] = {
-    ...(blocks[blocks.length - 1] as Record<string, unknown>),
-    cache_control: CACHE_CONTROL,
-  };
-  return [...messages.slice(0, -1), { ...last, content: blocks }];
+  const record = recordOf(value);
+  if (record === null) return 0;
+  return record.cache_control === undefined ? 0 : 1;
+}
+
+// 대화 쪽 표시. 마지막 message와 그 앞 user message의 마지막 block에 달고 원본은 고치지 않는다.
+// 끝 block은 새로 생긴 tool 결과나 사람 글이라 다음 call이 이 call이 쓴 prefix를 읽는다. Anthropic은 표시마다
+// 앞쪽 20 block까지만 찾아서, 한 call에 tool 결과가 많이 늘면 끝 표시 하나로는 앞 call의 entry에 닿지 못한다.
+// 그 앞 user message 표시가 두 번째 찾기의 출발점이다. system·tools가 쓴 표시를 뺀 남은 자리만 쓴다.
+function markConversation(
+  messages: readonly unknown[],
+  room: number,
+): unknown[] {
+  const out = [...messages];
+  const last = out.length - 1;
+  if (last < 0 || room <= 0) return out;
+  out[last] = withMark(out[last]);
+  if (room < 2) return out;
+  for (let at = last - 2; at >= 0; at--) {
+    if (recordOf(out[at])?.role === "user") {
+      out[at] = withMark(out[at]);
+      break;
+    }
+  }
+  return out;
 }
 
 // tool 결과 안의 이미지 block이다.
@@ -152,11 +180,13 @@ export function buildRequest(input: {
   // option 값이 싣는 조각이다. 만든 body에 깊게 합친다.
   request_patch?: JsonObject;
 }): Record<string, unknown> {
+  const head = marksIn(input.system) + marksIn(input.tools);
   const body: Record<string, unknown> = {
     model: input.model,
     max_tokens: input.max_tokens,
-    messages: markConversationEnd(
+    messages: markConversation(
       pairedMessages(input.messages, input.reasoning),
+      CACHE_MARKS_MAX - head,
     ),
   };
   if (input.system !== undefined) {
@@ -170,7 +200,13 @@ export function buildRequest(input: {
 
 // ── SSE 응답 번역 ─────────────────────────────────────────────────────────
 
-export type ToolCall = { id: string; name: string; args: string };
+// signature는 Gemini functionCall의 thoughtSignature다. 같은 turn의 다음 요청에 그대로 돌려보낸다.
+export type ToolCall = {
+  id: string;
+  name: string;
+  args: string;
+  signature?: string;
+};
 
 // stream 결과. tool 인자는 content_block_stop을 본 것만 완성이다.
 type StreamResult = {

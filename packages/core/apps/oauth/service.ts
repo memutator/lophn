@@ -63,16 +63,6 @@ const SIGN_IN_REQUIRED = err({
   message: APP_OAUTH_SIGN_IN_REQUIRED,
 });
 
-// 발급자가 400·401·invalid_grant로 답하면 refresh token이 죽은 것이다. 그 밖(5xx 등)은 일시 오류다.
-function refreshRejected(
-  status: number,
-  body: Record<string, unknown> | null,
-): boolean {
-  return (
-    status === 400 || status === 401 || body?.["error"] === "invalid_grant"
-  );
-}
-
 export function createAppOAuth(deps: AppOAuthDeps): AppOAuth {
   const { secrets } = deps;
   const vault = createMcpOAuthVault({
@@ -90,7 +80,6 @@ export function createAppOAuth(deps: AppOAuthDeps): AppOAuth {
     ...(deps.waitMs === undefined ? {} : { waitMs: deps.waitMs }),
     deadline: deps.deadline ?? timerDeadline,
     refreshSkewMs: REFRESH_SKEW_MS,
-    keepValidOnUnavailable: true,
   });
 
   function text(name: string): string | null {
@@ -120,7 +109,6 @@ export function createAppOAuth(deps: AppOAuthDeps): AppOAuth {
         params: JSON.stringify(declared.params ?? {}),
         client_id: clientId,
       },
-      refreshRejected,
     };
   }
 

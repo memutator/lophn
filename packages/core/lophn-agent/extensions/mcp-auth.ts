@@ -276,11 +276,6 @@ export async function refreshToken(
     refreshToken: string;
     clientId: string;
     clientSecret: string | null;
-    // 거절(재인증 필요)로 볼 응답이다. 기본은 status >= 400이다.
-    rejected?: (
-      status: number,
-      body: Record<string, unknown> | null,
-    ) => boolean;
   },
   fetch: HttpFetch,
   signal: AbortSignal,
@@ -306,8 +301,13 @@ export async function refreshToken(
     });
   }
   if (response.status !== 200) {
-    const rejected = input.rejected ?? ((status: number) => status >= 400);
-    if (rejected(response.status, jsonRecord(response.body))) {
+    // 400·401·invalid_grant만 refresh token이 죽은 것이다. 그 밖(5xx 등)은 일시 오류라 sign-in을 지우지 않는다.
+    const failure = jsonRecord(response.body);
+    if (
+      response.status === 400 ||
+      response.status === 401 ||
+      failure?.["error"] === "invalid_grant"
+    ) {
       // 갱신 거절(폐기된 refresh token 등)은 재인증 필요다.
       return err({
         code: "forbidden",

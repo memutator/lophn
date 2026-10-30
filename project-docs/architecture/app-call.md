@@ -116,7 +116,7 @@
 - **바깥 net의 목적지 검사는 broker가 요청마다 한다.** 앱 process의 OS 권한을 막지 않으므로(사람이 정했다) process 권한으로는 목적지를 가둘 수 없다. 그래서 SDK 요청마다 현재 선언 사실 ∩ grant를 읽는 쪽을 골랐다.
 - **secret은 값을 앱에 주지 않고 전송 직전에 붙인다.** 앱이 값을 쥐면 응답, 오류, log로 새는 길을 앱 코드마다 막아야 한다. 앱은 쓰겠다는 요청만 내고, 값은 core가 supervisor에게 한 번 주어 붙인다.
 - **OAuth access token은 선언한 secret 이름 그대로 둔다.** 그러면 broker의 판정, `apps.secret_value`, supervisor의 Bearer 붙이기가 OAuth를 몰라도 된다. OAuth가 더하는 것은 값을 보내기 직전의 refresh 하나다. 앱이 token을 받아 직접 refresh하면 refresh token이 앱 코드에 닿는다.
-- **refresh 거절만 sign-in을 끝낸다.** MCP OAuth는 400 이상을 모두 거절로 보지만 앱 OAuth는 400·401·`invalid_grant`만 그렇게 본다(provider 구독 OAuth와 같다). 발급자의 일시 오류로 사람이 다시 sign-in해야 하는 일을 막으려는 것이다.
+- **refresh 거절만 sign-in을 끝낸다.** 앱 OAuth와 MCP OAuth(같은 refresh 코드 `packages/core/lophn-agent/extensions/mcp-auth.ts`의 `refreshToken`), provider 구독 OAuth 모두 400·401·`invalid_grant`만 거절로 본다. 발급자의 일시 오류(5xx, 닿지 못함)에는 만료 전 token을 그대로 쓴다. 사람이 다시 sign-in해야 하는 일을 막으려는 것이다.
 - **client는 사람이 그 서비스에 만든 것을 넣는다.** Google 같은 곳은 자동 등록이 없고, lophn이 자기 client를 들고 다니려면 서비스마다 심사를 받아야 한다. OAuth는 표준 authorization code와 PKCE로만 열고 서비스에 맞춘 것은 선언의 추가 parameter(`access_type=offline` 같은 것)뿐이다.
 - **앱 log를 앱마다 file로 남기고 쓰는 쪽을 supervisor 하나로 했다.** 앱 안에서 쓰게 하면 앱 code가 log를 지우거나 고칠 수 있다. supervisor는 이미 앱의 stdout·stderr를 쥐고 있고 lophn의 코드라, 앱이 쓴 줄과 lophn이 아는 사실(비정상 종료, 화면 오류)을 같은 file에 같은 redaction으로 쌓는다. 메모리 buffer가 아니라 file인 것은 앱이 죽거나 supervisor가 다시 뜬 뒤에도 원인을 읽어야 해서다.
 - **저장하는 problem 모델 대신 log를 primitive로 둔다.** 오류를 상태 machine(열림, 닫힘), 묶음, 보고 표로 올리면 계약과 tool이 앱 쪽 진단보다 무거워진다. lophn은 줄을 남기고 읽게만 하고, 무엇이 문제인지 읽고 판단하는 일은 agent가 한다.

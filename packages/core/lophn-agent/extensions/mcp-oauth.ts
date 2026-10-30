@@ -42,11 +42,6 @@ export type McpOAuthServer = {
   params?: Record<string, string>;
   // token이 묶이는 조합이다. 없으면 `{ issuer, server_url, client_id }`다.
   binding?: Record<string, string>;
-  // refresh 응답을 거절(재인증 필요)로 볼지 정한다. 기본은 status >= 400이다.
-  refreshRejected?: (
-    status: number,
-    body: Record<string, unknown> | null,
-  ) => boolean;
 };
 
 type McpAuthReport = {
@@ -84,8 +79,6 @@ export function createMcpOAuth(options: {
   waitMs?: number;
   deadline: AuthDeadline;
   refreshSkewMs?: number;
-  // true면 refresh가 닿지 못해도 지금 token이 만료 전이면 그대로 쓴다(일시 오류로 sign-in을 잃지 않는다).
-  keepValidOnUnavailable?: boolean;
 }): McpOAuth {
   const { vault } = options;
   const sessions = new Map<string, ReturnType<typeof createMcpAuth>>();
@@ -156,8 +149,7 @@ export function createMcpOAuth(options: {
       return ok(undefined);
     }
     // 일시 오류로 sign-in을 잃지 않으려면 아직 만료 전인 token은 그대로 쓴다.
-    const stillValid =
-      options.keepValidOnUnavailable === true && expiresAt > options.nowMs();
+    const stillValid = expiresAt > options.nowMs();
     if (grant.refresh_token === null) {
       if (stillValid) return ok(undefined);
       await discard(key, "expired");
@@ -169,9 +161,6 @@ export function createMcpOAuth(options: {
         refreshToken: grant.refresh_token,
         clientId: server.clientId,
         clientSecret: server.clientSecret ?? null,
-        ...(server.refreshRejected === undefined
-          ? {}
-          : { rejected: server.refreshRejected }),
       },
       options.fetch,
       new AbortController().signal,

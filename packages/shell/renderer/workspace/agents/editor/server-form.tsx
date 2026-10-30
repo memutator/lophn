@@ -35,6 +35,8 @@ interface ServerFormProps {
   readonly onCancel: () => void;
   /** 열릴 때 화면 가운데로 스크롤한다. */
   readonly scrollIntoView?: boolean;
+  /** OAuth 로그인 방식을 고르게 한다. agent 정의 층 server는 core에 로그인 길이 없어 끈다. */
+  readonly oauth?: boolean;
 }
 
 function serverOf(
@@ -104,6 +106,7 @@ export function ServerForm({
   onAdd,
   onCancel,
   scrollIntoView = false,
+  oauth = false,
 }: ServerFormProps) {
   const [name, setName] = useState("");
   const [transport, setTransport] = useState<Transport>("stdio");
@@ -235,7 +238,14 @@ export function ServerForm({
                   { value: "none", label: t("agents.label.auth-none") },
                   { value: "bearer", label: t("agents.label.auth-bearer") },
                   { value: "api_key", label: t("agents.label.auth-api-key") },
-                  { value: "oauth2", label: t("agents.label.auth-oauth2") },
+                  ...(oauth
+                    ? [
+                        {
+                          value: "oauth2",
+                          label: t("agents.label.auth-oauth2"),
+                        },
+                      ]
+                    : []),
                 ]}
                 value={auth}
                 onValueChange={(value) => setAuth(value as Auth)}

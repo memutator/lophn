@@ -10,6 +10,7 @@ import {
   SettingsProvidersConnectedEmptyPage,
   SettingsProvidersConnectedFoundPage,
   SettingsProvidersPage,
+  SettingsToolsOAuthFormPage,
   SettingsToolsPage,
 } from "./agent-setup/agent-setup-pages.tsx";
 import {
@@ -171,8 +172,15 @@ export const settingsArea: Area = {
       id: "new-settings-tools",
       title: "Settings · Tools and skills",
       description:
-        "전역 skill 켬과 끔, 전역 MCP server다. 같은 이름은 project나 agent 층이 덮는다는 안내가 있다.",
+        "전역 skill 켬과 끔, 전역 MCP server다. 같은 이름은 project나 agent 층이 덮는다는 안내가 있다. OAuth로 로그인하는 server는 아직 로그인하지 않았으면 줄 오른쪽에 [Sign in]이 있다.",
       render: () => <SettingsToolsPage />,
+    },
+    {
+      id: "new-settings-tools-oauth-form",
+      title: "Settings · Tools and skills · add OAuth server",
+      description:
+        "전역 MCP server를 더하는 form에 web 주소와 OAuth 2.1 로그인을 고른 상태다. issuer(https), client ID, scopes(공백이나 쉼표로 가름)를 받고 client secret은 더한 뒤 보호 입력으로 받는다. 받지 않으면 public client로 sign-in한다.",
+      render: () => <SettingsToolsOAuthFormPage />,
     },
     {
       id: "new-settings-coding",

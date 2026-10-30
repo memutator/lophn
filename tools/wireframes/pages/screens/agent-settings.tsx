@@ -62,7 +62,7 @@ export const agentSettingsArea: Area = {
       id: "new-agent-mcp-server-form",
       title: "Agent settings · add MCP server",
       description:
-        "agent 층에서 MCP server를 더하는 form에 web 주소와 OAuth 2.1 로그인을 고른 상태다. 이름, 연결 방식, 실행이나 주소, 로그인 방식과 OAuth issuer·client ID·scopes를 받고 client secret은 더한 뒤 보호 입력으로 받는다.",
+        "agent 층에서 MCP server를 더하는 form이다. 이름, 연결 방식, 실행이나 주소, 로그인 방식(None, Bearer, API key)만 받고 key와 token은 더한 뒤 보호 입력으로 받는다. OAuth 2.1은 agent 정의 층에 로그인 길이 없어 고를 수 없고 전역(Settings › Tools and skills)과 project 층에서만 고른다.",
       render: () => <AgentServerFormPage />,
     },
     {

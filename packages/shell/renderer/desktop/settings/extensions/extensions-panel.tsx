@@ -199,6 +199,7 @@ export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
             {adding ? (
               <ServerForm
                 scope="global"
+                oauth
                 taken={view.servers.map((server) => server.name)}
                 scrollIntoView
                 onAdd={(server) => void add(server)}

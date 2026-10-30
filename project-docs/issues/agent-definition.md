@@ -17,25 +17,6 @@ modules: [packages/core/lophn-agent]
 
 정한 것: 필요해지는 형식 하나씩만 더한다.
 
-## MCP OAuth server는 사람이 만들 수도 sign-in할 수도 없다
-
-```yaml
-kind: bug
-modules: [packages/core/lophn-agent, packages/shell/renderer, packages/protocol]
-```
-
-지금:
-- 설정 schema(`packages/protocol/lophn-agent/mcp-settings.ts`의 `layerAuthSchema`)는 `oauth2`(`issuer`, `client_id`, `client_credential`, `scopes`)를 받지만 server form(`packages/shell/renderer/workspace/agents/editor/server-form.tsx`)의 인증 선택은 `none`·`bearer`·`api_key`뿐이다.
-- core에 `agent-mcp-auth/begin|complete|state|cancel` route가 있고 shell allowlist에도 있지만 화면은 `state`만 부른다(`packages/shell/renderer/desktop/settings/extension-settings.ts`의 `authStates`). sign-in을 여는 단추가 없어 oauth2 server는 늘 `needs-sign-in`이다.
-- 끝점은 discovery 없이 `${issuer}/authorize`·`${issuer}/token`으로 만든다(`packages/core/lophn-agent/extensions/mcp-oauth.ts`의 `begin`). dynamic client registration도 없어 사람이 미리 만든 client id만 쓴다.
-- `client_credential`은 schema에만 있고 읽는 곳이 없다. `mcp-auth-control.ts`의 `oauthServerOf`가 넘기지 않아 token 교환과 refresh는 client secret 없이 간다.
-
-영향: 사람은 OAuth가 필요한 MCP server(대부분의 hosted MCP)를 쓸 수 없다. 설정 file을 손으로 써도 sign-in할 길이 없고, 끝점이 `/authorize`·`/token`이 아니거나 client secret이 필요한 발급자는 sign-in해도 교환이 실패한다.
-
-고치려면:
-- 작음~중간(추천): 앱 OAuth가 연 인자(`endpoints`, `clientSecret`)를 MCP도 쓴다. `oauthServerOf`가 `client_credential`을 읽어 `clientSecret`으로 넘기고, server form에 `oauth2`와 [Sign in](앱 Access 탭과 같은 begin → OS browser → 상태 폴링 꼴)을 둔다. discovery(`/.well-known/oauth-authorization-server`)는 `endpoints`를 채우는 한 단계로 더한다.
-- 중간: dynamic client registration까지 한다. 등록 결과(client id, secret)를 둘 secret 이름 공간과 등록 끝점 호출(발급자 호출 대기열)이 더 필요하다.
-
 ## provider 호출이 실패하면 왜 실패했는지 근거가 어디에도 남지 않는다
 
 ```yaml
@@ -77,3 +58,18 @@ modules: [packages/shell/renderer, packages/core/lophn-agent]
 - 정의 꼴을 `skills_off`(끈 이름)로 바꾼다. 비면 다 받고, 이름이 있으면 그것만 뺀다. place와 상관없이 뜻이 같다(중간, 정의 꼴과 core 거르기와 화면).
 - 화면이 모든 place의 skill을 읽어 목록을 만든다(중간, 읽기가 place 수만큼 는다).
 - 추천: 앞의 것. 정의가 전역이 된 뒤 받는 목록은 place마다 달라 "받을 이름"이 맞지 않는다.
+
+## agent 정의 층의 OAuth MCP server는 sign-in할 길이 없다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/shell/renderer]
+```
+
+지금: MCP OAuth의 begin·state·`prepareToken`은 `registeredMcpServers`(`packages/core/lophn-agent/extensions/mcp-snapshot.ts`)가 낸 전역·project 층 server만 찾는다. agent 정의 층 server는 일부러 그 목록에 넣지 않는다(place로 server를 고르는데 agent 층은 place가 아니다). 그래서 agent 편집 화면의 server form은 OAuth 2.1을 고르지 못하고(`ServerForm`의 `oauth`가 꺼짐), 설정 file에 손으로 `oauth2`를 써도 그 줄은 늘 Needs sign-in이다.
+
+영향: 사람이 OAuth MCP server를 한 agent에만 붙일 수 없다. 전역이나 project 층에 두면 다른 agent도 그 server를 받는다.
+
+고치려면:
+- 중간(추천): `mcpAuthBegin`·`mcpAuthState`·`mcpAuthCancel` 입력의 `place`에 agent 정의 층(`{kind: "agent", id}` 같은 꼴)을 더하고, `registeredMcpServers`가 agent 층도 그 자리로 낸다. token 이름은 이미 `mcp-oauth.<scope>.<server>`라 scope에 agent id를 쓴다. 그 뒤 agent 편집 화면의 `ServerForm`에 `oauth`를 켠다.
+- 작음: 지금처럼 agent 층에서는 OAuth를 막아 둔다. 전역·project 층으로 충분하면 kept로 닫는다.

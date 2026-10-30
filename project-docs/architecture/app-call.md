@@ -98,6 +98,7 @@
   - OAuth secret: 선언의 `secret.use`에 `oauth`(authorize·token 끝점, scope, 추가 authorize parameter)가 있으면 그 이름의 값은 사람이 sign-in해 받은 access token이다. 사람이 앱 Access 탭에서 client id와 client secret(선택)을 넣고 [Sign in]을 누르면 core가 loopback callback을 열고 authorize URL(PKCE)을 만들고 shell이 OS browser로 연다. core가 background에서 callback을 받아 token으로 바꾸고 화면은 상태(`apps/oauth_state`)를 다시 읽는다. 끝점은 https이거나 loopback http다.
   - OAuth secret의 값은 `apps.secret_value`가 보내기 직전에 core가 refresh한다(남은 시간 5분 이하, 이름마다 한 번에 하나, 발급자 호출 대기열). 발급자가 400·401·`invalid_grant`로 거절하면 access·refresh·meta를 지우고 상태를 `failed`(`refresh_rejected`)로 두며 앱은 `conflict`("oauth sign-in required")를 받는다. 닿지 못하거나 5xx면 지금 token이 만료 전일 때 그 token을 보내고, 만료 뒤면 `unavailable`이다. client id나 선언의 끝점·scope·parameter가 바뀌면 옛 token을 쓰지 않는다(상태 `none`).
   - refresh token, meta, client id·secret은 `app-oauth.<이름>.refresh|.meta|.client_id|.client`에 두고 어느 호출로도 보내지 않는다(`core/secrets/file-attach.ts`). OAuth가 없는 secret의 값도 사람이 같은 탭에서 보호된 입력 창으로 넣는다.
+  - 사람은 같은 탭에서 값을 지운다. plain secret의 [Remove value]는 `secrets/delete`이고, OAuth secret의 [Sign out]은 `apps.oauth_sign_out`이 진행 중인 시도를 버리고 access·refresh·meta를 지운다(client id·secret은 남는다). grant [Revoke]는 값을 지우지 않는다. 앱 secret 이름은 전역이라 같은 이름을 선언한 다른 앱도 그 값을 쓴다.
   - fs: `@lophn/cap-fs`는 OS가 허락하는 파일을 어디든 읽고 쓴다. 선언의 `fs.read`·`fs.write`(경로)는 앱이 무엇에 닿는지 보이는 값이고 `checkDeclaration`이 그것을 요구한다. 운영 bundle의 사본은 file 0444·폴더 0555다.
   - broker는 live 자식의 요청만 받는다. 준비 모드와 preview의 자식이 같은 통로를 부르면 거절한다(`liveOnly`). SDK의 stand-in이 그 자리를 채운다.
 

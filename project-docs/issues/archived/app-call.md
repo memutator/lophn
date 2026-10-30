@@ -94,3 +94,22 @@ guard: packages/core/apps/runtime/entrypoint/fit_test.ts
 - 응답을 bytes frame stream으로 보낸다(중간).
 
 닫음: `RESULT_MAX_BYTES`는 `CALL_RESPONSE_MAX_BYTES - 1024`(결과 밖 칸 몫)라 상한 안의 결과는 changeset을 빼면 늘 control frame에 든다. 같은 이유로 입력 상한 `CALL_BODY_MAX_BYTES`도 `CONTROL_MAX_BYTES - 2 * 1024`(target·envelope 몫)로 낮췄고, core가 그보다 큰 입력은 보내기 전에 `invalid_input`으로 거절한다(`createAppProcessLink.call`). 큰 값은 blob이나 file로 넘긴다.
+
+## 앱 secret 값과 OAuth sign-in을 지울 길이 없다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer, packages/core/apps, packages/core/secrets]
+closed: fixed
+guard: packages/core/apps/oauth/service_test.ts "signing out removes the tokens and keeps the client"
+```
+
+지금: 앱 Access 탭은 값 넣기([Set value], [Set client secret], [Sign in])만 있다. shell에서 `secrets/delete`를 부르는 곳은 provider 설정(`packages/shell/renderer/desktop/settings/providers/core-source.ts`)뿐이다. grant를 [Revoke]해도 core는 `secrets.json`의 값을 지우지 않는다. 앱 OAuth token은 refresh가 거절될 때만 지워진다.
+
+영향: 사람이 앱의 Google sign-in을 끝내거나(sign-out) 넣은 API key를 지우려면 서비스 쪽에서 client나 token을 폐기해야 한다. lophn 안에 refresh token이 남아 있고 화면은 계속 "Signed in"이다.
+
+고치려면:
+- 작음(추천): secret 줄에 [Sign out]·[Remove value]를 둔다. plain은 `secrets/delete`, OAuth는 새 route `apps.oauth_sign_out`이 vault의 `remove`(access·refresh·meta)를 부른다. client id·secret은 남긴다. wireframe을 먼저 고친다.
+- 중간: grant를 [Revoke]하면 그 secret 값과 OAuth token을 같이 지운다. 같은 이름을 선언한 다른 앱도 같은 값을 쓰므로(앱 secret 이름은 전역이다) 다른 앱이 쓰는 값까지 지워진다.
+
+닫음: 첫째 안으로 고쳤다. 앱 Access 탭의 plain secret 줄은 값이 있으면 [Remove value]가 `secrets/delete`를 부른다. OAuth 줄은 `signed_in`·`failed`일 때 [Sign out]이 새 route `apps.oauth_sign_out`(`packages/protocol/apps/oauth.ts`)을 부르고, core(`packages/core/apps/oauth/service.ts`)가 `createMcpOAuth`의 `signOut`으로 진행 중인 시도와 실패 기억을 버리고 vault의 access·refresh·meta를 지운다. client id와 client secret은 남는다. grant [Revoke]는 값을 지우지 않는다(앱 secret 이름은 전역이라 다른 앱이 같은 값을 쓴다).

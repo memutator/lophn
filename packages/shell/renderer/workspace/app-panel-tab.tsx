@@ -8,7 +8,7 @@ import { Button } from "@lophn/ui/primitives";
 import { List, ListItem } from "@lophn/ui/data";
 import { EmptyState, ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { workspaceIcons } from "../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { AppFrameViewState } from "../../ipc/app-frame.ts";
 import {

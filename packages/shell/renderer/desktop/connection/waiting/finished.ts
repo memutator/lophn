@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { HARNESS_ADAPTERS } from "../../../../../protocol/coding-agent/harness-adapter.ts";
 import type { HarnessId } from "../../../../../protocol/coding-agent/harness-id.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import type { NoticeTarget } from "../../../../ipc/notice.ts";
 import type { AvatarFace } from "../../../../ipc/overlay.ts";
 import { useSessions, useWaiting } from "../events/hooks.tsx";

@@ -2,7 +2,7 @@
 // 바깥 자원 거두기, 앱 data rewind를 한다. 오른쪽 패널(`side-panel.tsx`)의 App details 탭 본문이다. 사람은
 // release를 고르거나 쓰기 시작하지 않는다. 결정은 확인 창 없이 이 탭에서 바로 한다.
 import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { AccessTab } from "./access/access-tab.tsx";
 import { ActivityTab } from "./activity/activity-tab.tsx";

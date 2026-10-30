@@ -1,6 +1,6 @@
 // bookmark 목록을 읽고 바꾸는 hook. 다른 창이 바꾸면 subscribe로 다시 읽는다.
 import { useEffect, useState } from "react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type {
   Bookmark,

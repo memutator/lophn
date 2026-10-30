@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ListFilter } from "lucide-react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { Button } from "../../primitives/button/button.tsx";
 import { Checkbox } from "../checkbox/checkbox.tsx";
 import { Field } from "../field/field.tsx";

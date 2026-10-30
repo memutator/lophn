@@ -1,4 +1,4 @@
-import { formatRelativeTime, t } from "@lophn/wording";
+import { formatRelativeTime, t } from "@lophn/i18n";
 import { componentMark } from "../../_shared/shared.ts";
 import styles from "./stale-note.module.css";
 

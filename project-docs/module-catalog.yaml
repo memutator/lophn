@@ -24,7 +24,7 @@ modules:
 
   - path: packages/design
     boundary: design
-    notes: 화면 문구는 직접 쓰지 않고 wording key로 쓴다(wording/).
+    notes: lophn 화면 문구는 직접 쓰지 않고 i18n message key로 쓴다(i18n/).
 
   - path: packages/sdk
     boundary: sdk

@@ -9,7 +9,7 @@ import {
 } from "react";
 import { Search } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { Icon } from "../../primitives/icon/icon.tsx";
 import { Kbd } from "../../primitives/kbd/kbd.tsx";
 import { useReturnFocus } from "../return-focus.ts";

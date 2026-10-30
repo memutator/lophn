@@ -5,7 +5,7 @@ import { useCallback, useRef, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { Dialog, Toast } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { useJobChanges } from "../../connection/events/hooks.tsx";
 import { useReload } from "../use-reload.ts";

@@ -4,7 +4,7 @@
 
 import { Card } from "@lophn/ui/layout";
 import { Button } from "@lophn/ui/primitives";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import type { ReactElement, ReactNode } from "react";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import { commonIcons } from "../../icons/mod.ts";

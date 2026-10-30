@@ -4,11 +4,10 @@ import { Button } from "@lophn/ui/primitives";
 import { Field, Input } from "@lophn/ui/input";
 import { AppShell } from "@lophn/ui/layout";
 import { ReadState } from "@lophn/ui/feedback";
-import { t } from "../../wording/t.ts";
 import { addItem, type Item, listItems } from "./bridge.ts";
 import styles from "./app.module.css";
 
-// items 화면. 목록과 새 항목 입력 하나다. 문구는 모두 en catalog의 key고, 읽기 결과의 loading·
+// items 화면. 목록과 새 항목 입력 하나다. 읽기 결과의 loading·
 // empty·error는 @lophn/ui/feedback의 ReadState가 그린다. 앱 DB 구조나 이 화면 전용 prop은 SDK로 올리지 않는다.
 export function App() {
   const [items, setItems] = useState<Item[]>([]);
@@ -47,11 +46,11 @@ export function App() {
   }
 
   return (
-    <AppShell title={t("items.title.screen")}>
+    <AppShell title="Items">
       <form className={styles.form} onSubmit={submit}>
         <Field
-          label={t("items.label.new-item")}
-          error={saveFailed ? t("items.error.save-failed") : undefined}
+          label="New item"
+          error={saveFailed ? "Couldn't save the item. Try again." : undefined}
         >
           <Input
             value={title}
@@ -61,25 +60,25 @@ export function App() {
         </Field>
         <div className={styles.actions}>
           <Button type="submit" variant="primary">
-            {t("items.button.add")}
+            Add
           </Button>
         </div>
       </form>
       <ReadState
         loading={loading}
-        failed={failed ? t("items.label.items") : undefined}
+        failed={failed ? "items" : undefined}
         onRetry={() => void load()}
         isEmpty={items.length === 0}
         empty={{
           icon: Inbox,
-          message: t("items.empty.none"),
+          message: "No items yet. Add the first one.",
           action: {
-            label: t("items.button.reload"),
+            label: "Reload",
             onSelect: () => void load(),
           },
         }}
       >
-        <p>{t("items.label.count", { count: items.length })}</p>
+        <p>{items.length === 1 ? "1 item" : `${items.length} items`}</p>
         <ul className={styles.list}>
           {items.map((item) => <li key={item.id}>{item.title}</li>)}
         </ul>

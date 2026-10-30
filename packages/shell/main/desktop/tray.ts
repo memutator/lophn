@@ -4,7 +4,7 @@
 import { join } from "node:path";
 
 import type { AutostartState } from "./autostart.ts";
-import { word } from "./wording.ts";
+import { word } from "./i18n.ts";
 
 type TrayItemId = "launcher" | "autostart" | "quit";
 

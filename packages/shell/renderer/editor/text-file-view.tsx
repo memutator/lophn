@@ -13,7 +13,7 @@ import {
 } from "react";
 import { useReadingWidth } from "@lophn/ui/layout";
 import { ErrorState, Skeleton } from "@lophn/ui/feedback";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { FileFailure } from "../../ipc/files.ts";
 import { ConflictCompare } from "./conflict/conflict-compare.tsx";

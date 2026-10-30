@@ -1,7 +1,7 @@
 // composer의 `/` 명령(목록과 실행)과 대화의 쓰기: 보내기, 입력함의 메시지, 멈춤, 다시 하기, 질문 답, 허락 결정.
 // 명령 목록은 그 session의 agent 기준 registry를 core에서 읽어 protocol의 거르기 규칙에 먹인 것이다(표를 여기에 다시
 // 적지 않는다). 일하는 중 고른 명령도 모두 다음 turn에 들어가므로 끝나기를 기다리지 않는다.
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import type { z } from "zod";
 
 import { turnRequestDecide } from "../../../protocol/approvals/turn-request.ts";

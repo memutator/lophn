@@ -20,7 +20,7 @@ import {
   launcherIcons,
   paletteIcons,
 } from "../../icons/mod.ts";
-import { type MessageKey, t } from "@lophn/wording";
+import { type MessageKey, t } from "@lophn/i18n";
 
 import type {
   AgentProfile,

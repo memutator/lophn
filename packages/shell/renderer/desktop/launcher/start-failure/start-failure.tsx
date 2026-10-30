@@ -3,7 +3,7 @@ import { type ReactElement, useId, useState } from "react";
 import { Button, Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { connectionFailedIcon, retryIcon } from "../../../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { StartFailure } from "./model.ts";
 import styles from "./start-failure.module.css";

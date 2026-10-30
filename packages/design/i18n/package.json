@@ -1,0 +1,9 @@
+{
+  "name": "@lophn/i18n",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": "./mod.ts",
+  "dependencies": {
+    "@formatjs/intl": "6.1.2"
+  }
+}

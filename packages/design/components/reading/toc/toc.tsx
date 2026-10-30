@@ -1,4 +1,4 @@
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { Field } from "../../input/field/field.tsx";
 import { Select } from "../../input/select/select.tsx";
 import { useTocPlacement } from "../../layout/page-frames/toc-placement.ts";

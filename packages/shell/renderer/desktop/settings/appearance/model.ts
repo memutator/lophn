@@ -2,7 +2,7 @@
 // theme은 이 문서의 data-theme에 쓰고, 나머지(accent·배경·글꼴·글자 크기·밀도)는 token을 덮어쓰는 CSS라서
 // main이 모든 문서에 넣는다(wiring/appearance.ts). 그래서 여기서는 값 전체를 main에 보내기만 한다.
 import { appearancePresets, parseAppearance } from "@lophn/ui";
-import type { MessageKey } from "@lophn/wording";
+import type { MessageKey } from "@lophn/i18n";
 
 import type { AppearanceApi } from "../../../../ipc/appearance.ts";
 import type { AppearanceId, AppearanceValues } from "./source.ts";

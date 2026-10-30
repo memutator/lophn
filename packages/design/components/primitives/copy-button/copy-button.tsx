@@ -1,5 +1,5 @@
 import { Check, Copy } from "lucide-react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { IconButton } from "../icon-button/icon-button.tsx";
 import { type Clipboard, componentMark } from "../../_shared/shared.ts";
 import styles from "./copy-button.module.css";
@@ -8,7 +8,7 @@ import { useCopy } from "./use-copy.ts";
 export interface CopyButtonProps {
   // 복사할 전체 값.
   text: string;
-  // 아이콘 버튼 이름. wording key 문구를 준다.
+  // 아이콘 버튼 이름. message key 문구를 준다.
   label: string;
   clipboard: Clipboard;
 }

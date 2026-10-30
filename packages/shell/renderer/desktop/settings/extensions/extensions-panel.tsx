@@ -7,7 +7,7 @@ import {
 } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
 import { commonIcons } from "../../../icons/mod.ts";

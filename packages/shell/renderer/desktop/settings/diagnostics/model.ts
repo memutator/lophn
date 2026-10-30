@@ -1,6 +1,6 @@
 // Diagnostics의 순수 규칙: 구성 요소 이름과 점검 시각을 화면 말로 바꾼다. 모르는 이름은 지어내지 않고
 // 저장 이름을 읽기 쉽게만 바꾼다.
-import { formatDate, t } from "@lophn/wording";
+import { formatDate, t } from "@lophn/i18n";
 
 import { slugText } from "../model.ts";
 

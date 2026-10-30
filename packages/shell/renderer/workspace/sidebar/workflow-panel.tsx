@@ -5,7 +5,7 @@ import { ErrorState } from "@lophn/ui/feedback";
 import { Tooltip } from "@lophn/ui/overlay";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { useWorkflowChanges } from "../../desktop/connection/events/hooks.tsx";
 import { commonIcons, editorIcons } from "../../icons/mod.ts";

@@ -1,7 +1,7 @@
 // Model 칸. 대화와 같은 picker(conversation/model-picker)를 칸 모양 trigger로 감싼다. 선택지·option 축·정렬은 모두
 // catalog가 주고 화면 코드에는 model 이름도 option 값도 없다. 목록은 열 때마다 다시 읽어 Manage models 창에서 바꾼 것이 보이게 한다.
 import { useRef, useState } from "react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { AgentValueLayer } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { ModelChoice } from "../../../../../protocol/lophn-agent/models.ts";

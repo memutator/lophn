@@ -1,5 +1,5 @@
 // 시작 실패 화면의 다섯 경우. core 연결 상태가 어느 경우인지 정한다.
-import type { MessageKey } from "@lophn/wording";
+import type { MessageKey } from "@lophn/i18n";
 import type { ConnectionState } from "../../../../ipc/core.ts";
 
 type SchemaReason = NonNullable<ConnectionState["schemaFailure"]>;

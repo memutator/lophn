@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Dialog } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { ManageModelsContext } from "../../../conversation/model-picker/manage-context.ts";
 import { DefaultModelField } from "../../../workspace/agents/editor/model-field.tsx";

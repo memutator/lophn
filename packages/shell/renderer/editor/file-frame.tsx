@@ -4,7 +4,7 @@
 import { type KeyboardEventHandler, type ReactNode, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Dialog } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import {
   FileInfoPanel,

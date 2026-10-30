@@ -5,7 +5,7 @@ import { TabStateDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { settingsIcons } from "../../icons/mod.ts";
-import { formatRelativeTime, t } from "@lophn/wording";
+import { formatRelativeTime, t } from "@lophn/i18n";
 
 import type {
   AgentId,

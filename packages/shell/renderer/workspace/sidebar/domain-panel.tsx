@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { ErrorState } from "@lophn/ui/feedback";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { commonIcons } from "../../icons/mod.ts";
 import { DomainMenu } from "../domains/domain-menu.tsx";

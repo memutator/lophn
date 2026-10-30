@@ -1,6 +1,6 @@
 // 소스 낱말 검사: 주석과 test 이름의 옛 요구 ID·작업 번호, 쓰지 않는 말.
 // 실행: node tools/check-source.ts [root]
-// 이름과 경로의 판·단계·작업 번호는 check-deps.ts가, 화면 문구는 check-wording.ts가 본다.
+// 이름과 경로의 판·단계·작업 번호는 check-deps.ts가 본다.
 import { readFile } from "node:fs/promises";
 import process from "node:process";
 

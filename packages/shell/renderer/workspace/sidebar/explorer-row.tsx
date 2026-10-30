@@ -10,7 +10,7 @@ import {
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { FileIcon, Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { FileRow } from "./use-file-tree.ts";
 import styles from "./project-sidebar.module.css";

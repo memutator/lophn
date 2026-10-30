@@ -1,5 +1,5 @@
 import { CircleX } from "lucide-react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { Button } from "../../primitives/button/button.tsx";
 import { Icon } from "../../primitives/icon/icon.tsx";
 import { componentMark, iconPixels } from "../../_shared/shared.ts";

@@ -1,6 +1,6 @@
 // 프로젝트 작업대의 팔레트 행. 열린 탭·파일·bookmark·행동 순서이고
 // 고르면 작업대 안의 대상(탭 고르기, 파일 탭 열기, bookmark를 새 browser 탭에서 열기, 행동)으로만 간다.
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { commandLabel, type KeyOverrides } from "../../../ipc/keybindings.ts";
 import { tabKindLabel, tabKindOf } from "../../workspace/kinds/registry.ts";

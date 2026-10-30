@@ -1,7 +1,7 @@
 // model picker가 그릴 값을 catalog에서 만든다. 정렬·거르기·값 맞춤은 protocol의
 // model-picker 규칙이 하고, 여기는 그 결과를 picker component의 props 모양으로 옮기고 고른 값을 ModelChoice로
 // 돌려주는 연결만 한다. model 이름과 option 이름·값은 모두 catalog가 주고 화면 코드에는 없다.
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { AgentValueLayer } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import type {

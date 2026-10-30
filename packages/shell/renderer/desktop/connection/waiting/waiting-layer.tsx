@@ -1,7 +1,7 @@
 // 위쪽 바 안의 알림 단추와 그 아래로 열리는 panel. 위쪽 바의 오른쪽 slot에 꽂는다. 호스트(project 창, 앱 공간,
 // 런처)는 callback만 준다.
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import { notificationsIcon } from "../../../icons/mod.ts";

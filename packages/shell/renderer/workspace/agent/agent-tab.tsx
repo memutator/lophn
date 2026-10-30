@@ -1,7 +1,7 @@
 // Agent 탭의 본문. agent 하나의 source를 factory로 얻어 Agent 화면에 넘기고, 화면이 읽은
 // agent 이름을 탭 제목으로 알린다. 보는 session은 탭이 쥐고 화면은 바꾸자고 말하기만 한다.
 
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {

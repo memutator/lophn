@@ -1,7 +1,7 @@
 // 받은 메시지 한 개. 왼쪽에 놓이고(내 메시지는 오른쪽 bubble) 위에 보낸 쪽 chip이 붙는다. chip을 누르면 그 아래로
 // panel이 열린다. `replyTo`는 어느 부탁에 대한 답인지 한 줄로 잇는 글이다.
 import { type ReactElement, type ReactNode, useState } from "react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type {
   AgentTabSource,

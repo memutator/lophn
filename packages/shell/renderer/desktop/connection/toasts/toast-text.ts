@@ -1,5 +1,5 @@
-// 반응(Reaction)의 문구 key를 화면 글로 바꾼다. 문구는 wording key로만 만든다.
-import { t } from "@lophn/wording";
+// 반응(Reaction)의 문구 key를 화면 글로 바꾼다. 문구는 message key로만 만든다.
+import { t } from "@lophn/i18n";
 import type { Reaction } from "../events/reactions.ts";
 import { shortId } from "../waiting/model.ts";
 

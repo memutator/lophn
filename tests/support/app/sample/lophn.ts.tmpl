@@ -1,68 +1,59 @@
-import { type AppDeclaration, defineApp } from "@lophn/declaration";
-import { en } from "./src/wording/en.ts";
+import { defineApp } from "@lophn/declaration";
 
 // 이 선언이 정본이다. 코드를 바꾸기 전에 먼저 바꾼다.
-// 사람에게 보이는 이름·설명은 en catalog 문구고, tool 이름·screen의 key는 문구와 별개의 식별자다.
-// catalog 문구를 바꿔도 key는 같다(tests/wording_test.ts).
-type Text = Readonly<Record<keyof typeof en, string>>;
-
-export function makeDeclaration(text: Text = en): AppDeclaration {
-  return defineApp({
-    name: "{{TITLE}}",
-    description: text["common.summary.app"],
-    screens: [
-      {
-        key: "items",
-        label: text["items.title.screen"],
-        path: "/screens/items/index.html",
-        sizes: ["full", "panel", "card"],
-      },
-    ],
-    tools: [
-      {
-        name: "list_items",
-        title: text["items.label.list-items"],
-        description: text["items.summary.list-items"],
-        effect: "read",
-        inputSchema: null,
-        domain: "{{APP}}",
-        public: false,
-      },
-      {
-        name: "add_item",
-        title: text["items.label.add-item"],
-        description: text["items.summary.add-item"],
-        effect: "write",
-        inputSchema: {
-          type: "object",
-          properties: {
-            title: {
-              type: "string",
-              description: text["items.summary.item-title"],
-              minLength: 1,
-              maxLength: 200,
-            },
+// 사람에게 보이는 이름·설명은 문장이고, tool 이름·screen의 key는 문장과 별개의 식별자다.
+export default defineApp({
+  name: "{{TITLE}}",
+  description: "Keep a short list of items.",
+  screens: [
+    {
+      key: "items",
+      label: "Items",
+      path: "/screens/items/index.html",
+      sizes: ["full", "panel", "card"],
+    },
+  ],
+  tools: [
+    {
+      name: "list_items",
+      title: "List items",
+      description: "Read the saved items, newest first.",
+      effect: "read",
+      inputSchema: null,
+      domain: "{{APP}}",
+      public: false,
+    },
+    {
+      name: "add_item",
+      title: "Add item",
+      description: "Save one new item.",
+      effect: "write",
+      inputSchema: {
+        type: "object",
+        properties: {
+          title: {
+            type: "string",
+            description: "The text of the new item.",
+            minLength: 1,
+            maxLength: 200,
           },
-          required: ["title"],
-          additionalProperties: false,
         },
-        domain: "{{APP}}",
-        public: false,
+        required: ["title"],
+        additionalProperties: false,
       },
-    ],
-    permissions: [],
-    app_connections: [],
-    // 정확한 version만 쓴다. package.json의 SDK 의존과 같아야 한다(tests/declaration_test.ts).
-    sdk_dependencies: [
-      { name: "@lophn/declaration", version: "1.0.0" },
-      { name: "@lophn/cap-problem", version: "1.0.0" },
-      { name: "@lophn/cap-tool", version: "1.0.0" },
-      { name: "@lophn/cap-store", version: "1.0.0" },
-      { name: "@lophn/ui", version: "1.0.0" },
-      { name: "@lophn/app-ui", version: "1.0.0" },
-      { name: "@lophn/wording", version: "1.0.0" },
-    ],
-  });
-}
-
-export default makeDeclaration();
+      domain: "{{APP}}",
+      public: false,
+    },
+  ],
+  permissions: [],
+  app_connections: [],
+  // 정확한 version만 쓴다. package.json의 SDK 의존과 같아야 한다(tests/declaration_test.ts).
+  sdk_dependencies: [
+    { name: "@lophn/declaration", version: "1.0.0" },
+    { name: "@lophn/cap-problem", version: "1.0.0" },
+    { name: "@lophn/cap-tool", version: "1.0.0" },
+    { name: "@lophn/cap-store", version: "1.0.0" },
+    { name: "@lophn/ui", version: "1.1.0" },
+    { name: "@lophn/app-ui", version: "1.1.0" },
+  ],
+});

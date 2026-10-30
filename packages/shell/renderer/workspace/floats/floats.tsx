@@ -9,7 +9,7 @@ import {
 } from "react";
 import { type FloatEdge, FloatPanel, Tooltip } from "@lophn/ui/overlay";
 import { IconButton } from "@lophn/ui/primitives";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { TabItem as StripTab } from "../../parts/tab-strip/tab-strip.tsx";
 import { TabStateDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";

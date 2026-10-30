@@ -3,7 +3,7 @@ import { Button, IconButton } from "@lophn/ui/primitives";
 import { Field, Input, Textarea } from "@lophn/ui/input";
 import { Dialog, Tooltip } from "@lophn/ui/overlay";
 import { launcherIcons } from "../../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { newId } from "../../prefixed-id.ts";
 import { addFolder, usableTitle } from "./model.ts";

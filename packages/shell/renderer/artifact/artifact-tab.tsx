@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { EmptyState, ErrorState } from "@lophn/ui/feedback";
 import { Toast } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type {
   ArtifactSource,

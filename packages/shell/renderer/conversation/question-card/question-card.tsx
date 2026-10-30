@@ -10,7 +10,7 @@ import {
 } from "react";
 import { Button, Icon, Kbd } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { commonIcons } from "../../icons/mod.ts";
 import type {
   AnsweredLine,

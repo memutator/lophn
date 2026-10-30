@@ -16,7 +16,7 @@ type AxisView = {
   default_value: string | null;
 };
 
-// model을 바꿔 값을 맞췄다는 알림 한 건이다. 문구는 shell/wording이 만든다.
+// model을 바꿔 값을 맞췄다는 알림 한 건이다. 문구는 design/i18n이 만든다.
 type OptionNotice = { axis: string; from: string; to: string };
 
 type FitResult = {

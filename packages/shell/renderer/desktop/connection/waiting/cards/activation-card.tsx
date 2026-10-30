@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { StatusMark } from "@lophn/ui/feedback";
 import { DiffMark } from "@lophn/ui/reading";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import type { Line } from "../model.ts";
 import styles from "../waiting.module.css";
 import { Decision } from "./decision.tsx";

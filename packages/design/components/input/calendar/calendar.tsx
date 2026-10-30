@@ -1,6 +1,6 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { formatDate, t } from "@lophn/wording";
+import { formatDate, t } from "@lophn/i18n";
 import { IconButton } from "../../primitives/icon-button/icon-button.tsx";
 import { componentMark } from "../../_shared/shared.ts";
 import { toDay } from "../filter/range.ts";

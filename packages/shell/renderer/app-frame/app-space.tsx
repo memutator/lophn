@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { Toast } from "@lophn/ui/overlay";
 import { useObservedSize } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { LophnShellAnnotateApi } from "../../ipc/annotation.ts";
 import type {

@@ -5,7 +5,7 @@ import { type KeyboardEvent, useCallback, useState } from "react";
 import { Button, IconButton, Kbd } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { SearchFilter } from "@lophn/ui/input";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import {
   type ChordCheck,

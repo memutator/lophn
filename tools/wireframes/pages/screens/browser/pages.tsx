@@ -2,7 +2,7 @@
 // 없어서 webview 그릇이 빈 page 자리를 그린다. page 상태(주소, 제목, favicon, 뒤로 가기)와 bookmark는
 // fake browser 통로로 정하고, 열린 menu·popover·DevTools는 mount 뒤에 사람이 하듯이 눌러 만든다.
 import { useEffect, useMemo } from "react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { Palette } from "@lophn/ui/overlay";
 
 import { openProject } from "../../../../../packages/shell/renderer/desktop/router.ts";

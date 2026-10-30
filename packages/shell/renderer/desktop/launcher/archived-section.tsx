@@ -1,6 +1,6 @@
 import { Button, Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { appSpaceIcons, commonIcons, launcherIcons } from "../../icons/mod.ts";
 
 import styles from "./launcher.module.css";

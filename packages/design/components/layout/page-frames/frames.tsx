@@ -1,6 +1,6 @@
 import { type ReactNode, useRef } from "react";
 import { ArrowLeft } from "lucide-react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { Button } from "../../primitives/button/button.tsx";
 import { useObservedSize } from "../../_shared/resize.ts";
 import { componentMark, cx } from "../../_shared/shared.ts";

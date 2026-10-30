@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Dialog, Toast } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import styles from "../settings.module.css";
 import { BookmarkRows } from "./bookmark-rows.tsx";

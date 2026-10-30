@@ -1,7 +1,7 @@
 // 탭 kind registry. kind를 더하려면 kinds/<kind>.ts(x)를 쓰고 아래 목록에 한 줄을 더한다.
 // 탭 줄·layout map·칸은 이 목록을 돈다. 새 탭(+) menu의 항목은 이 목록이 아니라
 // add-tab-menu.tsx가 정한다.
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { agentKind } from "./agent.tsx";
 import { agentsKind } from "./agents.tsx";

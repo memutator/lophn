@@ -3,7 +3,7 @@
 import type { ReactElement, ReactNode } from "react";
 import { IconButton } from "@lophn/ui/primitives";
 import { Markdown } from "@lophn/ui/reading";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { workspaceIcons } from "../../icons/mod.ts";
 import { runnable, useRunCode } from "./run-code.ts";

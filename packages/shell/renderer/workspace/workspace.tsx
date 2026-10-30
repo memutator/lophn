@@ -1,7 +1,7 @@
 import { Tooltip } from "@lophn/ui/overlay";
 import { Icon, IconButton } from "@lophn/ui/primitives";
 import { iconPixels, useObservedSize } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import {
   type ReactNode,
   useCallback,

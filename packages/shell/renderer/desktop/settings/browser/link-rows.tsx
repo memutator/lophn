@@ -2,7 +2,7 @@
 // 고르면 바로 저장하고, 저장하지 못하면 앞의 값으로 돌아간다.
 import { useEffect, useState } from "react";
 import { Select } from "@lophn/ui/input";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { NamedControl } from "../general/named-control.tsx";
 import styles from "../settings.module.css";

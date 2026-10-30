@@ -66,10 +66,10 @@ async function tinyPackages(dir: string) {
   await put("design/package.json", '{"name":"@lophn/ui","version":"1.0.0"}');
   await put("design/mod.ts", "export {};\n");
   await put(
-    "design/wording/package.json",
-    '{"name":"@lophn/wording","version":"1.0.0"}',
+    "design/i18n/package.json",
+    '{"name":"@lophn/i18n","version":"1.0.0"}',
   );
-  await put("design/wording/mod.ts", "export {};\n");
+  await put("design/i18n/mod.ts", "export {};\n");
 }
 
 test("설치 사본은 읽기 전용이고 다시 깔면 같고 소스가 바뀌면 새 byte로 바뀐다", async () => {
@@ -82,7 +82,7 @@ test("설치 사본은 읽기 전용이고 다시 깔면 같고 소스가 바뀌
     assert.ok(first.ok);
     assert.deepStrictEqual(
       first.value.map((item) => item.name),
-      ["@lophn/demo", "@lophn/ui", "@lophn/wording"],
+      ["@lophn/demo", "@lophn/ui", "@lophn/i18n"],
     );
     // 판 폴더(`sdk/<이름>/<판>`)부터 아래가 사본이다. 위 두 단은 새 판을 놓으려고 쓸 수 있다.
     const copies = first.value.map((item) => item.install_path);

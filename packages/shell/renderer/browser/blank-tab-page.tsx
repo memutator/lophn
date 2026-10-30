@@ -1,7 +1,7 @@
 // 빈 주소 칸으로 연 탭에서 native view 대신 그리는 bookmark 목록. 누르면 이 탭에서 열고
 // Ctrl/Cmd-click이나 가운데 click은 새 탭에서 연다.
 import type { MouseEvent } from "react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { type Bookmarks, hostOf } from "./bookmarks.ts";
 import { Favicon } from "./favicon.tsx";

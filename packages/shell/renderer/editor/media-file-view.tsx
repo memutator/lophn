@@ -2,7 +2,7 @@
 // 편집 단추도 없다.
 import { useEffect, useState } from "react";
 import { ErrorState, Skeleton } from "@lophn/ui/feedback";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { DocumentViewProps } from "./document-view.tsx";
 import { FileFrame, FileStatus } from "./file-frame.tsx";

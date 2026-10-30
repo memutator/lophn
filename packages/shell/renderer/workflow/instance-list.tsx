@@ -2,7 +2,7 @@
 import { useEffect, useRef } from "react";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { commonIcons } from "../icons/mod.ts";
 import type { WorkflowInstanceSummaryView } from "../workspace/source.ts";

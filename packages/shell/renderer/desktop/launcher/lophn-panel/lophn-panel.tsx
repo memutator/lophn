@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { FloatPanel, Tooltip } from "@lophn/ui/overlay";
 import { Icon, IconButton } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";

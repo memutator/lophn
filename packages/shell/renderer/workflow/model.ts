@@ -1,5 +1,5 @@
-// workflow 탭이 읽은 값을 화면에 그릴 꼴로 바꾸는 순수 함수와 protocol 값 → wording key 표.
-import { formatRelativeTime, type MessageKey, t } from "@lophn/wording";
+// workflow 탭이 읽은 값을 화면에 그릴 꼴로 바꾸는 순수 함수와 protocol 값 → message key 표.
+import { formatRelativeTime, type MessageKey, t } from "@lophn/i18n";
 
 import type {
   WorkflowInstanceDetailView,

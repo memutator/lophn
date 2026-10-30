@@ -1,5 +1,5 @@
 import { useObservedSize } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 
 import type { TerminalRuntime } from "../../ipc/terminal.ts";

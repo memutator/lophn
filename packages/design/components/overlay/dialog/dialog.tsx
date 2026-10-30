@@ -9,7 +9,7 @@ export type DialogWidth = "default" | "wide";
 export interface DialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  // 사람이 읽는 제목. 호출자가 wording key나 owner 문구로 준다.
+  // 사람이 읽는 제목. 호출자가 message key나 owner 문구로 준다.
   title: string;
   children?: ReactNode;
   // 오른쪽 끝에 주 행동을 둔 버튼 줄.

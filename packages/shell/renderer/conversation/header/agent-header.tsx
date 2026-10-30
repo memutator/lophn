@@ -11,7 +11,7 @@ import {
 import { IconButton } from "@lophn/ui/primitives";
 import { Menu } from "@lophn/ui/overlay";
 import { editorIcons } from "../../icons/mod.ts";
-import { type MessageKey, t } from "@lophn/wording";
+import { type MessageKey, t } from "@lophn/i18n";
 
 import { ViewBar } from "../../editor/view-bar.tsx";
 import type {

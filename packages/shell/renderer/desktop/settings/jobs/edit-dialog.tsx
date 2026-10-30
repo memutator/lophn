@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Field, Input, Select } from "@lophn/ui/input";
 import { Dialog } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { agentName, MISSED_OPTIONS } from "./model.ts";
 import type { JobPatch, JobNames, JobView, MissedPolicy } from "./source.ts";

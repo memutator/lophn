@@ -7,7 +7,7 @@ import { Shimmer, useDelayedLoading } from "@lophn/ui/feedback";
 import { Tooltip } from "@lophn/ui/overlay";
 import { iconPixels, systemClipboard } from "@lophn/ui/shared";
 import { conversationIcons, editorIcons } from "../../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { duration } from "../activity/worked-for.tsx";
 import styles from "./turns.module.css";

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Field, Textarea } from "@lophn/ui/input";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import type { WaitingChoice } from "../decide.ts";
 import styles from "../waiting.module.css";
 

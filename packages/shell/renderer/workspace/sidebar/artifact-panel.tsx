@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { artifactIcons, commonIcons } from "../../icons/mod.ts";
 import {

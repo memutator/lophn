@@ -3,7 +3,7 @@ import { type ReactElement, useState } from "react";
 import { FileIcon } from "@lophn/ui/primitives";
 import { AttachmentChip, AttachmentTile } from "@lophn/ui/input";
 import { ImagePreview } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { Attachment } from "../attachments.ts";
 import styles from "./agent-composer.module.css";

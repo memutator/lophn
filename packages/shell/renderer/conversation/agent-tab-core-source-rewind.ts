@@ -1,7 +1,7 @@
 // rewind: 시점으로 고를 수 있는 메시지, 시점을 고르면 보이는 것(파일과 앱별 write), 적용, 그리고 되돌린 구간.
 // 확인은 대화 화면 안의 panel이라 확인 창이 없다. 앱 data는 session rewind가 저절로 되돌리지 않고 사람이 고른 앱만
 // 같은 시점으로 되돌아간다. 편집 undo와 되돌린 구간 redo는 없다.
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { AppToolCaller } from "../../../protocol/apps/calls/caller.ts";
 import { appRewindPlan } from "../../../protocol/apps/calls/rewind.ts";

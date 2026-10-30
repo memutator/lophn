@@ -37,6 +37,9 @@ import { AppErrorBoundary, ToolButton, useTool } from "@lophn/app-ui";
   `message`다. lophn의 앱 preload가 그것을 앱 log의 `view_error` 줄로 넘기므로
   앱이 따로 보고하지 않아도 된다. 화면에는 원문 오류 없이 "Couldn't show this
   screen."과 [Try again]만 보인다.
+- 두 component의 문구(실패 문장과 [Try again])는 lophn 화면과 같은 언어로
+  보인다. lophn이 앱 view 문서의 `<html data-lophn-locale>`에 그 언어를 적고,
+  값이 없으면(앱 view 밖) en이다. 앱 자기 화면의 문구는 앱이 그대로 쓴다.
 - type: `ToolSpec`, `ToolInput`, `AppBridge`, `ToolState`, `ToolResult`,
   `ToolButtonProps`, `UseTool`, `AppErrorBoundaryProps`
 
@@ -54,8 +57,8 @@ import { AppErrorBoundary, ToolButton, useTool } from "@lophn/app-ui";
 | `react`              | 19.3.0  |
 | `lucide-react`       | 1.51.0  |
 | `@lophn/declaration` | 1.0.0   |
-| `@lophn/ui`          | 1.0.0   |
-| `@lophn/wording`     | 1.0.0   |
+| `@lophn/ui`          | 1.1.0   |
+| `@lophn/i18n`        | 1.0.0   |
 
 ## 사용
 

@@ -2,7 +2,7 @@
 // 성공한 읽기는 기록하지 않는다. 호출 성공은 업무가 맞다는 뜻이 아니다.
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { Loadable } from "../loadable.tsx";
 import {

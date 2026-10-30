@@ -1,5 +1,5 @@
 import { CircleX, Clock } from "lucide-react";
-import { t } from "@lophn/wording";
+import { useLophnT } from "./locale.ts";
 import { Button, type ButtonVariant, Icon } from "@lophn/ui/primitives";
 import { componentMark, type ControlSize, iconPixels } from "@lophn/ui/shared";
 import {
@@ -38,6 +38,7 @@ export function ToolButton({
   disabled = false,
 }: ToolButtonProps) {
   const { state, run } = useTool(tool, app);
+  const t = useLophnT();
   const label = children ?? tool.title;
   const pending = state.status === "pending";
   const press = async () => {

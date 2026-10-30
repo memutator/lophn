@@ -12,7 +12,7 @@ import { IconButton, Kbd } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import { systemTimer, type Timer } from "@lophn/ui/shared";
 import { paletteIcons } from "../../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { OverlayApi } from "../../../ipc/overlay.ts";
 import { useWindowCommands } from "../../commands/react.tsx";

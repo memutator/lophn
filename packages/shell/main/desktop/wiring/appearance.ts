@@ -1,7 +1,8 @@
 // 사람이 고른 appearance를 모든 문서에 닿게 한다. desktop 창 본문이 값을 보내면 검사해서
 // nativeTheme.themeSource를 맞추고(overlay·보호 입력 창·앱 view의 prefers-color-scheme), token을 덮어쓰는 CSS를
 // lophn 문서(shell 화면, overlay, 보호 입력 창, 앱 view)의 webContents에 insertCSS한다. 값이 바뀌면 옛 CSS를
-// 지우고 새로 넣고, 문서를 새로 읽으면(dom-ready) 지금 CSS를 다시 넣는다.
+// 지우고 새로 넣고, 문서를 새로 읽으면(dom-ready) 지금 CSS를 다시 넣는다. 앱 view 문서에는 lophn 화면의 언어도
+// `<html data-lophn-locale>`로 적는다. `@lophn/app-ui`가 그 언어로 자기 문구를 고른다.
 import {
   app,
   nativeTheme,
@@ -9,6 +10,8 @@ import {
   webContents as allContents,
 } from "electron";
 
+import { LOPHN_LOCALE } from "../../../../design/i18n/format.ts";
+import { APP_SCHEME } from "../../app-frame/network-policy.ts";
 import { APPEARANCE_CHANNEL } from "../../../ipc/appearance.ts";
 import {
   appearanceCss,
@@ -21,6 +24,8 @@ import type { Registered, ShellContext } from "./context.ts";
 
 // devtools 같은 lophn 것이 아닌 문서에는 넣지 않는다.
 const LOPHN_DOCUMENT = /^lophn-(?:shell|app|artifact):\/\//;
+// `@lophn/app-ui`의 locale.ts가 읽는 속성. 값은 고정 상수라 script에 그대로 넣어도 된다.
+const STAMP_LOCALE = `document.documentElement.setAttribute("data-lophn-locale", ${JSON.stringify(LOPHN_LOCALE)})`;
 
 export function register(ctx: ShellContext): Registered {
   const { ipc, overlays } = ctx;
@@ -53,7 +58,12 @@ export function register(ctx: ShellContext): Registered {
 
   // 문서를 새로 읽을 때마다 지금 CSS를 넣는다. 창·view가 나중에 생겨도 같다.
   const onCreated = (_event: unknown, contents: WebContents) => {
-    contents.on("dom-ready", () => apply(contents, true));
+    contents.on("dom-ready", () => {
+      apply(contents, true);
+      if (contents.getURL().startsWith(`${APP_SCHEME}://`)) {
+        void contents.executeJavaScript(STAMP_LOCALE).catch(() => {});
+      }
+    });
   };
   app.on("web-contents-created", onCreated);
 

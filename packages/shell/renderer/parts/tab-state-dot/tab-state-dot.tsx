@@ -1,5 +1,5 @@
 // 탭의 상태 점. 탭 줄, 띄운 패널, 접힌 chip, 떼어 낸 창이 같은 점을 그린다.
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import styles from "./tab-state-dot.module.css";
 
 export type TabDot = "waiting" | "working" | "ended" | "finished";

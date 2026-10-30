@@ -9,7 +9,7 @@ import { Button, Icon } from "@lophn/ui/primitives";
 import { Popover, PopoverRow } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
 import { commonIcons, conversationIcons } from "../../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { useManageModels } from "./manage-context.ts";
 import styles from "./model-picker.module.css";

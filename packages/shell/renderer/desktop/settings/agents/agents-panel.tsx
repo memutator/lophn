@@ -1,7 +1,7 @@
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { Card } from "@lophn/ui/layout";
 import { Button } from "@lophn/ui/primitives";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";

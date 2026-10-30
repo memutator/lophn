@@ -1,7 +1,7 @@
 // Settings › Keyboard의 순수 규칙. 표(ipc/keybindings.ts)의 command마다 한 줄이고 줄의 이름과 설명은 wording이다.
 // 번호가 있는 command(n번째 탭, n번째 칸)는 번호마다 바인딩이 따로지만 한 줄로 묶는다. 그 줄은 modifier를
 // 바꾸고 번호마다 `<modifier>+Digit<n>`이 된다. 바꾸면 이 기기 OS의 것만 바꾸고 다른 OS의 값은 다시 쓴다.
-import { type MessageKey, t } from "@lophn/wording";
+import { type MessageKey, t } from "@lophn/i18n";
 
 import {
   type Binding,

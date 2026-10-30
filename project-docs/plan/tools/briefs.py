@@ -19,7 +19,7 @@ def plan_names():
 
 # 여러 task가 key만 더하는 file. 소유가 겹쳐도 같이 돌린다(부딪치면 lead가 rebase 때 두 쪽을 다 남긴다).
 def shared(path):
-    return path.startswith("packages/design/wording") or path.endswith(".placeholders.ts")
+    return path.startswith("packages/design/i18n/catalog")
 
 def other_plans(plan):
     # 이 계획 말고 열린 계획마다 (이름, 계획 폴더). lead worktree(branch plan/<이름>)에 있는 것이 그 계획의 바른 상태다.

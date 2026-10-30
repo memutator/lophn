@@ -22,7 +22,7 @@ import {
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { syntaxTree } from "@codemirror/language";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import {
   continueList,

@@ -4,7 +4,7 @@
 import { type ReactNode, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Checkbox, Field, Input } from "@lophn/ui/input";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";

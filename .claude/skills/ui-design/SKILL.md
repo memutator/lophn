@@ -1,6 +1,6 @@
 ---
 name: ui-design
-description: lophn 화면 wireframe(tools/wireframes gallery)을 새로 만들거나 고칠 때, 화면 모양을 바꾸는 사람의 요청을 받았을 때, packages/design component를 더하거나 바꿔 화면에 반영할 때 쓴다. 화면 문구만 다루면 wording skill을 쓴다.
+description: lophn 화면 wireframe(tools/wireframes gallery)을 새로 만들거나 고칠 때, 화면 모양을 바꾸는 사람의 요청을 받았을 때, packages/design component를 더하거나 바꿔 화면에 반영할 때 쓴다.
 ---
 
 # ui-design
@@ -37,7 +37,7 @@ wireframe gallery(`tools/wireframes`)는 화면 모양의 기준이고 UI 피드
 
 1. 필요한 component가 `packages/design/components/<분류>/mod.ts`에 있는지 본다. `mod.ts`의 `export { … } from` 문마다 윗줄 `//` 한 줄이 "언제 쓰나"라서 그 줄이 목록이다. 새 export를 더하면 그 줄도 단다. 없고 여러 화면이 쓸 것이면 **design에 먼저** 더한다(분류 안 component 폴더, 그 분류 `mod.ts` export, `tools/wireframes/pages/kit/<분류>/page.tsx`에 견본). 한 화면만 쓰는 조각은 renderer 그 화면 폴더에 둔다.
 2. 아이콘은 lucide를 직접 import하지 않는다. renderer는 `icons/*.ts` 묶음, design은 `Icon`을 쓴다. harness와 provider 이름 옆에는 renderer `parts/vendor-icon`의 `VendorIcon`, 파일과 폴더에는 design `FileIcon`이다.
-3. 화면 문구는 직접 쓰지 않고 wording key로 쓴다. → wording skill.
+3. 화면 문구는 직접 쓰지 않고 `packages/design/i18n/catalog/<영역>.ts`의 message key(`<screen>.<part>.<name>`, 값은 ICU 문장 하나)로 쓴다. `t("key", { name })`(`import { t } from "@lophn/i18n"`). template literal로 만드는 key가 있으니 key를 지울 때는 앞부분으로 grep한다.
 4. 알맞은 영역 file의 `pages`에 `{ id, title, description, render }`를 더한다. renderer를 import한 진짜 화면이면 Screens의 `pages/screens/<영역>.tsx`, 아직 renderer에 없는 실험이면 `drafts/index.tsx`다. 영역이 새로 필요하면 영역 file 하나를 만들고 `pages/index.ts`의 `GROUPS`에 더한다. 구현 여부는 묶음 위치가 말하고 badge는 없다. title은 영어, description은 한국어 한두 문장이다.
 5. id는 주소(`#/<id>`)라 한 번 정하면 바꾸지 않는다.
 6. 화면 component는 `pages/screens/<영역>/`에 둔다(가짜 data와 고정 도구는 `mock/`, 승인 전 실험은 `drafts/`). 인자 없이 한 상태를 그리게 하고, 상태는 fake source 설정과 drive로 건다.
@@ -52,7 +52,7 @@ npm run check
 
 - 보기: bundle은 module script라 `file://`로 열면 빈 화면이다. `PYTHONUNBUFFERED=1 timeout 900 python3 -m http.server 0 -d tools/wireframes`로 띄운다. port 0이면 빈 port를 골라 첫 줄에 찍고(출력이 pipe면 `PYTHONUNBUFFERED` 없이는 그 줄이 buffer에 남는다), 15분 뒤 저절로 끝나서 끄는 손잡이를 잃어도 남지 않는다. 그 port의 `http://localhost:<port>/dist/index.html`을 연다(dist를 root로 띄우면 다시 build할 때 폴더가 지워져 server가 빈다). 한 화면만 보려면 `index.html?frame=<page id>&theme=dark`. 위쪽에서 Light·Dark를 바꾼다. headless Chrome의 `--screenshot`으로 같은 주소를 찍어 볼 수 있다.
 - 실제 앱에서 보기: `npm run dev:mock` (core 없이 메모리 fake data, renderer를 먼저 build한다).
-- `npm run check`가 type check로 component API 어긋남을 잡는다. tools는 design, sdk, shell을 쓰는 package라서 그중 하나가 바뀌면 tools의 `tsc --noEmit`이 돈다. design component의 props를 바꾸고 wireframe 쪽을 안 맞추면 여기서 걸린다. 같이 도는 것: fmt, lint, deps, style(CSS 구조), wording, kit.
+- `npm run check`가 type check로 component API 어긋남을 잡는다. tools는 design, sdk, shell을 쓰는 package라서 그중 하나가 바뀌면 tools의 `tsc --noEmit`이 돈다. design component의 props를 바꾸고 wireframe 쪽을 안 맞추면 여기서 걸린다. 같이 도는 것: fmt, lint, deps, style(CSS 구조), kit.
 - step `kit`(`tools/check-kit.ts`)이 kit 동기화를 본다. (1) `tools/wireframes`의 CSS는 `drafts/` 안과 `gallery.module.css`, `pages/kit/kit.module.css`에만 있다. (2) 분류 `mod.ts`가 값으로 내보내는 PascalCase 이름(component)마다 `pages/kit/` 아래에 한 번은 나온다. (3) design의 `.tsx`는 분류 폴더(8개와 `_shared`) 안에만 있고, 값을 내보내는 `export { … } from` 문마다 윗줄에 `//` 한 줄 문서가 있다. design에 component를 더하면 그 분류 kit page에 견본을 같이 더한다.
 - renderer를 바꿨으면 `node packages/shell/renderer/build.ts`로 bundle이 서는지도 본다.
 

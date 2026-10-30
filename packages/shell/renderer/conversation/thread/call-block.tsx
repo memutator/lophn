@@ -5,7 +5,7 @@
 import { type ReactElement, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
-import { type MessageKey, t } from "@lophn/wording";
+import { type MessageKey, t } from "@lophn/i18n";
 
 import { conversationIcons } from "../../icons/mod.ts";
 import type {

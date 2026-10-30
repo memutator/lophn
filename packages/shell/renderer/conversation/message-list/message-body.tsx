@@ -5,7 +5,7 @@ import { memo } from "react";
 import { IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import { conversationIcons } from "../../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { VisualBlock } from "../../workspace/visuals/block-frame.tsx";
 import type { DeliveryAction } from "../delivery-state.ts";

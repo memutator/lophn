@@ -1,5 +1,5 @@
 // package 설치 사본.
-// packages/sdk/*와 지원 소스(@lophn/ui·@lophn/wording)를 패키지마다 자기 완결 byte로 묶고,
+// packages/sdk/*와 지원 소스(@lophn/ui·@lophn/i18n)를 패키지마다 자기 완결 byte로 묶고,
 // 설치 위치(`packageInstallPath`)의 파일 0444·디렉터리 0555로 풀어 놓는다.
 // catalog 등록은 하지 않는다(같은 name·version의 byte가 바뀌면 등록이 conflict라 개발 중 기동이 막힌다).
 // 사용자 package(@me)는 publish.ts가 낸다.

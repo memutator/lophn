@@ -1,7 +1,7 @@
 // 문서 안 찾기 규칙과 편집기 위 일치 칠하기. 정규식 없이 글자 그대로 찾고 대소문자 구별 하나만 고른다.
 import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
 import { StateEffect, StateField } from "@codemirror/state";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 export interface Match {
   readonly from: number;

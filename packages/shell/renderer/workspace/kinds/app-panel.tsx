@@ -1,6 +1,6 @@
 // app_panel 탭 kind. 앱이 선언한 panel 화면 하나를 탭에 연다.
 import { workspaceIcons } from "../../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { AppFrameViewState } from "../../../ipc/app-frame.ts";
 import { AppPanelPicker, AppPanelTab } from "../app-panel-tab.tsx";

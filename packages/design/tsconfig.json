@@ -5,6 +5,6 @@
     "jsx": "react-jsx"
   },
   "include": ["**/*.ts", "**/*.tsx"],
-  // wording은 자기 tsconfig로 따로 검사한다.
-  "exclude": ["wording"]
+  // i18n은 자기 tsconfig로 따로 검사한다.
+  "exclude": ["i18n"]
 }

@@ -18,7 +18,7 @@ export const rewindOutcomeSchema = z.enum([
   "blocked",
 ]);
 
-// 이유는 글이 아니라 고정 코드다. 화면 문장은 이 코드로 wording을 고른다.
+// 이유는 글이 아니라 고정 코드다. 화면 문장은 이 코드로 message key를 고른다.
 const REWIND_REASON_CODES = [
   "edited_outside",
   "chain_broken",

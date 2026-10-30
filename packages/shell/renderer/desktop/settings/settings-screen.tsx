@@ -2,7 +2,7 @@
 // 고른 항목(`pane`)의 본문 하나만 가운데 기둥에 그린다. 둘째 목차 열은 없다. secret 값은 이 화면이 받지
 // 않고 보호 창이 받는다.
 import { useMemo, useRef } from "react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { AppearancePanel } from "./appearance/appearance-panel.tsx";
 import type { AppearanceSource } from "./appearance/source.ts";

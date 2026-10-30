@@ -1,5 +1,5 @@
 import { List, ListItem } from "@lophn/ui/data";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { TerminalFolderChoice } from "../../ipc/terminal.ts";
 import { folderTitle } from "./model.ts";

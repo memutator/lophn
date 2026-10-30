@@ -11,7 +11,7 @@ import {
 import { IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import { conversationIcons } from "../../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { followAfterInput, followAfterScroll } from "./follow.ts";
 import styles from "./thread-scroll.module.css";

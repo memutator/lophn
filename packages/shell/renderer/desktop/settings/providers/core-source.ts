@@ -9,7 +9,7 @@
 // 열고 login-complete를 interval마다 부른다. 끝나면 core가 token을 저장하고 Connect까지 한다.
 // 끊기는 화면이 Dialog로 사람에게 물은 뒤 부른다: shell main에서 결정 handle(`provider_disconnect`)을
 // 받아 DisconnectProvider에 싣는다.
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type {
   DecisionHandleApi,

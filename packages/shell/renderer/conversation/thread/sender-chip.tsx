@@ -4,7 +4,7 @@
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { type MessageKey, t } from "@lophn/wording";
+import { type MessageKey, t } from "@lophn/i18n";
 
 import { commonIcons } from "../../icons/mod.ts";
 import type {

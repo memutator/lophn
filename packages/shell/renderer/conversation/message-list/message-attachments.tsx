@@ -4,7 +4,7 @@ import { type ReactElement, useEffect, useState } from "react";
 import { FileIcon } from "@lophn/ui/primitives";
 import { AttachmentChip } from "@lophn/ui/input";
 import { ImagePreview } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import styles from "./message-body.module.css";
 

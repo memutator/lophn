@@ -8,7 +8,7 @@ import { type TabItem, TabStrip } from "../parts/tab-strip/tab-strip.tsx";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { appSpaceIcons, conversationIcons } from "../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { AgentView, type AgentViewHost } from "../conversation/agent-view.tsx";

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { IconButton } from "@lophn/ui/primitives";
 import {
   windowCloseIcon,

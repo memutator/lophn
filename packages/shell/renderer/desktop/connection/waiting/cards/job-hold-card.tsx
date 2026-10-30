@@ -2,7 +2,7 @@
 // 앞 차례가 아직 돌면 [Start now]가 conflict로 막히고 card는 남는다.
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import type { CoreSource } from "../../connection.ts";
 import type { WaitingEntry } from "../../events/waiting-store.ts";
 import { decideJobHold } from "../decide.ts";

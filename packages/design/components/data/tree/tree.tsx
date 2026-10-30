@@ -23,7 +23,7 @@ export interface TreeProps {
   selectedIds?: ReadonlySet<string>;
   onSelectionChange?: (ids: ReadonlySet<string>) => void;
   onOpen?: (id: string) => void;
-  // 트리 전체 이름. 사람이 지은 이름이나 wording key 문구를 준다.
+  // 트리 전체 이름. 사람이 지은 이름이나 message key 문구를 준다.
   label?: string;
 }
 

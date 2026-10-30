@@ -5,7 +5,7 @@ import { type ReactElement, useState } from "react";
 import { Button, Icon } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { editorIcons } from "../../icons/mod.ts";
 import { turnChoicesOf } from "../../desktop/connection/waiting/decide.ts";
 import type {

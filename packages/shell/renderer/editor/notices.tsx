@@ -2,7 +2,7 @@
 // 충돌, 열거나 지우지 못한 것을 알린다. 색 다른 띠나 상자를 따로 두지 않고 design Toast를 쓴다.
 import type { ReactNode } from "react";
 import { Toast } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import styles from "./notices.module.css";
 

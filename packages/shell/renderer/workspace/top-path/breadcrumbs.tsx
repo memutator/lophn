@@ -1,4 +1,4 @@
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { Crumb } from "../model.ts";
 import styles from "./breadcrumbs.module.css";

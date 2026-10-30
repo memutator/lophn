@@ -1,7 +1,7 @@
 // project 창의 sidebar = activity bar + panel. 왼쪽 activity bar(늘 보임)에서 Explorer / Agents / Artifacts / Domains / Workflows
 // (통로가 있으면 Scheduled jobs도) 가운데 하나를 고르면 오른쪽 panel(머리: launcher 단추·project 이름)에 그 본문이 보인다. 접으면 bar만 남는다.
 
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import {
   type ReactNode,
   type PointerEvent as ReactPointerEvent,

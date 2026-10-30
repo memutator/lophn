@@ -216,7 +216,7 @@ test("E2E 앱 place의 lophn이 준비하고 preview로 확인한 template 앱�
         assert.ok((await countFiles(bundle)) < RELEASE_FILE_MAX_COUNT);
         assert.ok((await stat(`${bundle}/screens/items/main.js.map`)).isFile());
         assert.deepStrictEqual(
-          (await stat(`${c.run.home}/sdk/ui/1.0.0`)).mode & 0o222,
+          (await stat(`${c.run.home}/sdk/ui/1.1.0`)).mode & 0o222,
           0,
         );
         // ledger

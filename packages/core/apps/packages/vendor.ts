@@ -87,12 +87,12 @@ const VENDOR_RULES: Readonly<Record<string, VendorRule>> = {
   "@lophn/cap-store": CAP_STORE,
 };
 
-// catalog에 올리지 않는 지원 소스. 공용 UI package가 import하는 `@lophn/ui`·`@lophn/wording`이고
+// catalog에 올리지 않는 지원 소스. 공용 UI package가 import하는 `@lophn/ui`·`@lophn/i18n`이고
 // 이름·판은 source 폴더의 package.json에서 읽는다. skip은 사본에 넣지 않을 경로 구간이다.
 export const SUPPORT_SOURCES: readonly { source: string; skip: string[] }[] = [
-  // wording은 별도 package이고 style-check는 repo 검사 도구다.
-  { source: "design", skip: ["wording", "style-check"] },
-  { source: "design/wording", skip: [] },
+  // i18n은 별도 package이고 style-check는 repo 검사 도구다.
+  { source: "design", skip: ["i18n", "style-check"] },
+  { source: "design/i18n", skip: [] },
 ];
 
 // 사본에 test와 testdata는 들 이유가 없다. 폴더 경로는 끝에 `/`가 붙어 들어온다.

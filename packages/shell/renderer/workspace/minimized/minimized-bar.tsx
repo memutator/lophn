@@ -2,7 +2,7 @@ import { type MouseEvent, type ReactElement, useRef, useState } from "react";
 import { Menu, MenuIcon, Tooltip } from "@lophn/ui/overlay";
 import { IconButton } from "@lophn/ui/primitives";
 import { useObservedSize } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import {
   TAB_MIME,

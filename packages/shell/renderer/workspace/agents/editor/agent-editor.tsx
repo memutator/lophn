@@ -6,8 +6,8 @@ import { ErrorState, Skeleton } from "@lophn/ui/feedback";
 import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
 import { Dialog, Toast } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
-import type { MessageKey } from "@lophn/wording";
-import { t } from "@lophn/wording";
+import type { MessageKey } from "@lophn/i18n";
+import { t } from "@lophn/i18n";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 import type { AssignmentEntry } from "../../../../../protocol/approvals/assignment.ts";
 

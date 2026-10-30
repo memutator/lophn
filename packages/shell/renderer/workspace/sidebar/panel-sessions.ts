@@ -1,5 +1,5 @@
 // `useSessions()`의 session 상태를 sidebar의 Agent 모양과 Agent 탭의 상태 점이 읽는 값으로 옮긴다.
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { SessionEntry } from "../../desktop/connection/events/sessions-store.ts";
 import type { SidebarAgent } from "./sidebar-agent.ts";

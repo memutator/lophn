@@ -5,7 +5,7 @@
 import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
 import { IconButton } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { useState } from "react";
 import { commonIcons, workspaceIcons } from "../../icons/mod.ts";
 import { Avatar } from "../../parts/avatar/avatar.tsx";

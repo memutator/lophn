@@ -1,7 +1,7 @@
 // 터미널 탭이 쓰는 통로 묶음. entry가 창의 preload 통로로 만들고, 테스트는 가짜를 준다.
 import type { TerminalApi } from "../../ipc/terminal.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { centerAnchor, overlayConsumer } from "../overlay/consumer.ts";
 import { endingOf, phaseOfRuntime } from "./model.ts";

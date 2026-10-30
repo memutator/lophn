@@ -3,7 +3,7 @@
 import { Button, Icon } from "@lophn/ui/primitives";
 import { CodeBlock } from "@lophn/ui/reading";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { FLOW_STEP_BY } from "../../../protocol/workflows/values.ts";
 import {

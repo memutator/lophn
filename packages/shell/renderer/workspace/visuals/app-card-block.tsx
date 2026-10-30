@@ -4,7 +4,7 @@
 // main에 간다. 카드를 열어도 command 권한은 늘지 않는다(view에는 command 통로가 없다).
 import { useEffect, useState } from "react";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { AppFrameViewState } from "../../../ipc/app-frame.ts";
 import { type AppRead, useAppViews } from "../../app-frame/app-views.tsx";

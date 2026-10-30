@@ -1,6 +1,6 @@
 // terminal 탭 kind. 시작 폴더 참조만 남기고 PTY는 복원하지 않는다.
 
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import type { ReactNode } from "react";
 import type { TerminalResume } from "../../../ipc/terminal.ts";
 import { workspaceIcons } from "../../icons/mod.ts";

@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Field, Input, Select, Textarea } from "@lophn/ui/input";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
 import { commonIcons } from "../../../icons/mod.ts";

@@ -1,7 +1,7 @@
 // main이 묻는 전역 hook 설치를 이 창 위 overlay의 dialog로 보이고 답을 main에 돌려준다. 결과는 성공이면 toast,
 // 실패면 닫기만 있는 dialog다. 창마다 한 번 마운트한다. 사람이 닫지 않은 채 창이 reload되면 main이 거절로 센다.
 import { useEffect } from "react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { CodingApi, HookAsk, HookResult } from "../../../ipc/coding.ts";
 import type { OverlayApi } from "../../../ipc/overlay.ts";

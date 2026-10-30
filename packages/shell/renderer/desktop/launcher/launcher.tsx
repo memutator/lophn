@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { EmptyState, ErrorState, Skeleton } from "@lophn/ui/feedback";
 import { Tooltip } from "@lophn/ui/overlay";

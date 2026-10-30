@@ -2,7 +2,7 @@
 // 고른 곳의 윤곽과 번호 표지, 메모 칸은 앱 view 안 preload가 그리므로 여기 없다.
 import type { RefObject } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { AnnotateState } from "../../../ipc/annotation.ts";
 import { workspaceIcons } from "../../icons/mod.ts";

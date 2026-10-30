@@ -2,7 +2,7 @@
 // 열면 page 전체가 inert가 되어 Light·Dark 단추까지 막히므로 단추로 연다. 열린 면은 Stage 상자 안에 그린다.
 import { type ReactNode, useState } from "react";
 import { FileText, Minimize2, PanelTop, X } from "lucide-react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { Button, FileIcon, Icon, IconButton } from "@lophn/ui/primitives";
 import {
   Dialog,

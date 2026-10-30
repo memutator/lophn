@@ -1,6 +1,6 @@
 import * as Radix from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { IconButton } from "../../primitives/icon-button/icon-button.tsx";
 import { useReturnFocus } from "../return-focus.ts";
 import { componentMark } from "../../_shared/shared.ts";

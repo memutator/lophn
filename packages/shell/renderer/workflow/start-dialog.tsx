@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Field, Select, Textarea } from "@lophn/ui/input";
 import { Dialog } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { WorkflowEntryView } from "../workspace/source.ts";
 import styles from "./start-dialog.module.css";

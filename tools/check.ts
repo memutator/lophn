@@ -171,7 +171,7 @@ const TSC_PROJECTS: Record<string, string[]> = {
   protocol: ["packages/protocol"],
   core: ["packages/core"],
   "coding-agent": ["packages/coding-agent"],
-  design: ["packages/design", "packages/design/wording"],
+  design: ["packages/design", "packages/design/i18n"],
   sdk: ["packages/sdk", "packages/sdk/flow"],
   shell: ["packages/shell/renderer"],
   tools: ["tools", "tools/wireframes"],
@@ -257,14 +257,7 @@ async function buildSteps(
       name: "style",
       commands: [["node", "tools/check-style.ts"]],
     });
-    checks.push({
-      name: "wording",
-      commands: [["node", "tools/check-wording.ts"]],
-    });
-  } else {
-    skip("style", "design, sdk, shell이 안 돎");
-    skip("wording", "design, sdk, shell이 안 돎");
-  }
+  } else skip("style", "design, sdk, shell이 안 돎");
   if (has("design", "tools")) {
     checks.push({
       name: "kit",
@@ -273,17 +266,10 @@ async function buildSteps(
   } else skip("kit", "design, tools가 안 돎");
   if (has("design")) {
     checks.push({
-      name: "wording 생성",
-      commands: [["node", "packages/design/wording/generate.ts", "--check"]],
-    });
-    checks.push({
       name: "token 생성",
       commands: [["node", "packages/design/generate.ts", "--check"]],
     });
-  } else {
-    skip("wording 생성", "design이 안 돎");
-    skip("token 생성", "design이 안 돎");
-  }
+  } else skip("token 생성", "design이 안 돎");
 
   if (has("shell")) {
     // shell main과 preload는 EXCLUDED라 공용 fmt/lint에서 빠지므로 따로 돈다.

@@ -1,6 +1,6 @@
 // 화면이 고정해 보이는 agent(머리·composer의 얼굴, 자리 이름, 권한 요약)와 그 agent의 session 목록, session 관리
 // (열기, 이름, archive, 지우기, fork, compact)와 권한 보기. 모두 snapshot read와 command이고 polling은 없다.
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { assignmentGet } from "../../../protocol/approvals/assignment.ts";
 import { appGet } from "../../../protocol/apps/apps.ts";

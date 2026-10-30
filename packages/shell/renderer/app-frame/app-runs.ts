@@ -2,7 +2,7 @@
 // 이 앱 place에서 돈 agent run(그 agent가 앱 agent select에 있을 때). 다른 place의 run은 그 place 몫이다.
 // run event가 계약에 없어서, 목록을 열 때와 열려 있는 동안 session 상태(`useSessions()`)가 바뀔 때마다 다시 읽는다.
 import { useEffect, useMemo, useState } from "react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { useSessions } from "../desktop/connection/events/hooks.tsx";

@@ -1,6 +1,6 @@
 import type { FocusEvent, ReactNode } from "react";
 import { CircleX, X } from "lucide-react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { tokens } from "../../../tokens.ts";
 import { Button } from "../../primitives/button/button.tsx";
 import { IconButton } from "../../primitives/icon-button/icon-button.tsx";

@@ -1,4 +1,4 @@
-// shell이 core에 선언하는 화면 설정 열. 이름과 설명 wording은 settingWordingKey가 key에서 만든다.
+// shell이 core에 선언하는 화면 설정 열. 이름과 설명 문구는 settingWordingKey가 key에서 만든다.
 // 고르는 값의 목록은 packages/design의 appearance와 같아야 한다(core는 design을 import하지 못한다).
 // Custom 글꼴 이름의 글자 규칙은 CSS를 만드는 main이 검사한다. 여기는 길이만 본다.
 import { z } from "zod";

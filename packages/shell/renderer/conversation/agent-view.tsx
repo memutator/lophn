@@ -3,7 +3,7 @@
 // AgentTabSource로만 말하고 탭을 열고 닫는 일, 파일과 설정으로 가는 일은 host가 한다.
 
 import { IconButton } from "@lophn/ui/primitives";
-import { formatRelativeTime, t } from "@lophn/wording";
+import { formatRelativeTime, t } from "@lophn/i18n";
 import {
   type ReactNode,
   useCallback,

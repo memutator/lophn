@@ -3,7 +3,7 @@
 // 자리를 바꾸면 pane의 탭, floated 패널, 접힌 span이 그 자리 것으로 통째로 바뀐다.
 import { type ReactNode, useRef, useState } from "react";
 import { useObservedSize } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import {
   PaletteButton,

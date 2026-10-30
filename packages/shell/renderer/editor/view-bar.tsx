@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
 import { Menu, MenuIcon } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { editorIcons, workspaceIcons } from "../icons/mod.ts";
 import type { SaveState } from "./save-state.ts";

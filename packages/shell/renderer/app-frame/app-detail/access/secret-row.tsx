@@ -5,7 +5,7 @@ import { type ReactNode, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Field, Input } from "@lophn/ui/input";
 import { StatusMark } from "@lophn/ui/feedback";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { oauthStatus } from "../model.ts";
 import { Mono, Pill } from "../parts.tsx";

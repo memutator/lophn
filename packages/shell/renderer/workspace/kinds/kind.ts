@@ -3,7 +3,7 @@
 // 이 목록을 돌 뿐 kind 이름으로 가르지 않는다. kind를 더하는 일은 파일 하나와 registry.ts의 한 줄이다.
 
 import type { IconProps } from "@lophn/ui/primitives";
-import type { MessageKey } from "@lophn/wording";
+import type { MessageKey } from "@lophn/i18n";
 import type { ReactNode } from "react";
 import type { TabTransfer } from "../../../ipc/detached.ts";
 import type { TabDot } from "../../parts/tab-strip/tab-strip.tsx";
@@ -18,7 +18,7 @@ export interface ReadPosition {
 export interface TabKindDef {
   /** layout 탭의 kind에 쓰는 이름. registry 안 유일. */
   readonly kind: string;
-  /** 종류 이름의 wording key. 팔레트가 탭 행에 쓴다(탭 줄에는 종류 글자가 없다). */
+  /** 종류 이름의 message key. 팔레트가 탭 행에 쓴다(탭 줄에는 종류 글자가 없다). */
   readonly labelKey: MessageKey;
   /** 탭 줄의 기본 아이콘. 탭마다 다르면 `iconOf`가 덮는다. */
   readonly icon: IconProps["icon"];

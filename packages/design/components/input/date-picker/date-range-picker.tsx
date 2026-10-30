@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Calendar as CalendarIcon } from "lucide-react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { Icon } from "../../primitives/icon/icon.tsx";
 import { Popover } from "../../overlay/popover/popover.tsx";
 import { useField } from "../field/field-context.ts";

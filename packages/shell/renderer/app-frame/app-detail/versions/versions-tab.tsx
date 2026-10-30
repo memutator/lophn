@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { Loadable } from "../loadable.tsx";
 import { dateTime, releaseName, stepText } from "../model.ts";

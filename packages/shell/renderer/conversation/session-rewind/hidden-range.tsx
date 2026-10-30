@@ -2,7 +2,7 @@
 // 결과를 말하고, 펼치면 숨긴 줄을 읽기만 한다. 되돌린 것을 다시 하는 Redo는 없다.
 import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { ThreadHidden } from "../agent-tab-source.ts";
 import { itemLabel, reasonText } from "./text.ts";

@@ -17,7 +17,7 @@ type NativeButton = Omit<
 
 export interface IconButtonProps extends NativeButton {
   icon: LucideIcon;
-  // 아이콘만 보이므로 이름은 호출자가 wording key로 준다.
+  // 아이콘만 보이므로 이름은 호출자가 message key로 준다.
   label: string;
   variant?: Exclude<ButtonVariant, "primary">;
   size?: ControlSize;

@@ -3,7 +3,7 @@ import { Button, IconButton } from "@lophn/ui/primitives";
 import { Field, Input, Textarea } from "@lophn/ui/input";
 import { StatusMark } from "@lophn/ui/feedback";
 import { Dialog, Tooltip } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { commonIcons, retryIcon } from "../../../icons/mod.ts";
 
 import {

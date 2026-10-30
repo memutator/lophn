@@ -44,7 +44,7 @@ export interface AttachmentChipProps {
   onOpen?: () => void;
   // 주면 오른쪽에 [x]가 생긴다.
   onRemove?: () => void;
-  // [x]의 이름. wording key 문구를 준다.
+  // [x]의 이름. message key 문구를 준다.
   removeLabel?: string;
 }
 
@@ -86,7 +86,7 @@ export interface AttachmentTileProps {
   alt: string;
   // 주면 그림을 눌러 크게 본다.
   onOpen?: () => void;
-  // 그림 단추의 이름. wording key 문구를 준다.
+  // 그림 단추의 이름. message key 문구를 준다.
   openLabel?: string;
   onRemove?: () => void;
   removeLabel?: string;

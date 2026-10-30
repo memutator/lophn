@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Skeleton, StatusMark } from "@lophn/ui/feedback";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { retryIcon } from "../../../icons/mod.ts";
 import styles from "../settings.module.css";

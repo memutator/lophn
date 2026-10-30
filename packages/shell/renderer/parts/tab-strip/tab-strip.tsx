@@ -12,7 +12,7 @@ import {
   useState,
 } from "react";
 import { X } from "lucide-react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { Icon } from "@lophn/ui/primitives";
 import { componentMark, iconPixels } from "@lophn/ui/shared";
 import { Tooltip } from "@lophn/ui/overlay";

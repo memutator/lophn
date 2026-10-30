@@ -1,7 +1,7 @@
 // workflow 탭이 source에서 읽고 쓰는 곳. 정의는 열릴 때와 [Refresh]에서, instance 목록과 고른 instance는 처음과
 // `WorkflowInstanceChanged`가 올 때와 시작·멈춤이 끝난 뒤에 다시 읽는다. 읽는 동안 앞 값을 두고, 읽기 실패는 앞 값을 지우지 않고 알린다.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { useWorkflowChanges } from "../desktop/connection/events/hooks.tsx";
 import type {

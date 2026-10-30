@@ -1,7 +1,7 @@
 import { type ReactNode, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { CircleAlert, Rows3 } from "lucide-react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { Button } from "../../primitives/button/button.tsx";
 import { DataState, type DataStateProps } from "../data-table/data-state.tsx";
 import { Table, type TableColumn } from "../table/table.tsx";

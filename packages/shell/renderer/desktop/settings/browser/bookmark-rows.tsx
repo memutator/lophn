@@ -3,7 +3,7 @@
 import { type KeyboardEvent, useCallback, useEffect, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Field, Input } from "@lophn/ui/input";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { Bookmark } from "../../../../ipc/browser.ts";
 import { Favicon } from "../../../browser/favicon.tsx";

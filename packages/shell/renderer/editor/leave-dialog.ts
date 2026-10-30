@@ -1,7 +1,7 @@
 // 저장이 끝나지 않은 문서를 두고 탭·창을 닫을 때의 질문. shell overlay의
 // dialog로 연다. 되돌릴 수 없는 결정이 아니라 초안을 지킬지 묻는다.
 // 창 닫힘·Escape·overlay 실패는 결정이 아니라 계속 편집이다.
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { OverlayApi } from "../../ipc/overlay.ts";
 import { centerAnchor, overlayConsumer } from "../overlay/consumer.ts";

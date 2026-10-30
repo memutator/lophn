@@ -3,7 +3,7 @@ import { IconButton } from "@lophn/ui/primitives";
 import { Field, Input } from "@lophn/ui/input";
 import { Tooltip } from "@lophn/ui/overlay";
 import { editorIcons } from "../../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import styles from "./find-bar.module.css";
 

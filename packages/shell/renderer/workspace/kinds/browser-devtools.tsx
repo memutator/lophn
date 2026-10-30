@@ -3,7 +3,7 @@
 // floated 패널로 뜬 DevTools만 그리는 transient 탭 kind다(저장하지 않는다).
 import { useEffect, useRef } from "react";
 import { IconButton } from "@lophn/ui/primitives";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { useAppViews } from "../../app-frame/app-views.tsx";
 import { useBrowserApi } from "../../browser/browser-api.tsx";

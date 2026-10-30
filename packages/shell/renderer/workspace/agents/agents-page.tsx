@@ -4,7 +4,7 @@
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { ErrorState, Skeleton } from "@lophn/ui/feedback";
 import { Toast } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import { AgentsTab } from "./agents-tab.tsx";

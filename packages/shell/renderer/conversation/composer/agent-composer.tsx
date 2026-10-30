@@ -16,7 +16,7 @@ import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import { Switch } from "@lophn/ui/input";
 import { Popover, Tooltip } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import {
   commonIcons,

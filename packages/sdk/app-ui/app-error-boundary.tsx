@@ -1,6 +1,6 @@
 import { Component, type ReactNode } from "react";
 import { CircleX } from "lucide-react";
-import { t } from "@lophn/wording";
+import { useLophnT } from "./locale.ts";
 import { Button, Icon } from "@lophn/ui/primitives";
 import { componentMark, iconPixels } from "@lophn/ui/shared";
 import styles from "./state.module.css";
@@ -23,6 +23,25 @@ function described(error: unknown): { name: string; message: string } {
   return { name: "Error", message: String(error) };
 }
 
+function Failed({ onRetry }: { onRetry: () => void }) {
+  const t = useLophnT();
+  return (
+    <div
+      className={styles.failed}
+      data-state="error"
+      {...componentMark("AppErrorBoundary")}
+    >
+      <Icon
+        icon={CircleX}
+        pixels={iconPixels("large")}
+        className={styles.critical}
+      />
+      <p className={styles.message}>{t("common.error.show-failed")}</p>
+      <Button onClick={onRetry}>{t("common.button.retry")}</Button>
+    </div>
+  );
+}
+
 // 앱 화면 root의 오류 경계. 잡은 render 오류를 window의 event로 넘겨 플랫폼 오류 수집이
 // 받게 하고, 빈 화면 대신 한 문장과 [Try again]을 보인다. 원문 오류는 화면에 두지 않는다.
 export class AppErrorBoundary extends Component<AppErrorBoundaryProps, State> {
@@ -41,22 +60,6 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, State> {
 
   override render(): ReactNode {
     if (!this.state.failed) return this.props.children;
-    return (
-      <div
-        className={styles.failed}
-        data-state="error"
-        {...componentMark("AppErrorBoundary")}
-      >
-        <Icon
-          icon={CircleX}
-          pixels={iconPixels("large")}
-          className={styles.critical}
-        />
-        <p className={styles.message}>{t("common.error.show-failed")}</p>
-        <Button onClick={() => this.setState({ failed: false })}>
-          {t("common.button.retry")}
-        </Button>
-      </div>
-    );
+    return <Failed onRetry={() => this.setState({ failed: false })} />;
   }
 }

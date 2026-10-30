@@ -1,7 +1,7 @@
 import "@lophn/ui/tokens.css";
 import "@lophn/ui/base.css";
 import "../chrome.css";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import type { OverlayApi } from "../../ipc/overlay.ts";
 import { overlayRegistry } from "./registry.ts";
 import { surfaceMount } from "./surfaces/surface.tsx";

@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Field, Input, Select } from "@lophn/ui/input";
 import { Dialog } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { ProtectedKeyNote } from "../../../workspace/agents/editor/parts.tsx";
 import { waysOf } from "../model.ts";

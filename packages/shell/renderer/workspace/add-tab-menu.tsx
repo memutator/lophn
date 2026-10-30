@@ -11,7 +11,7 @@ import {
   paletteIcons,
   workspaceIcons,
 } from "../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import styles from "./add-tab-menu.module.css";
 

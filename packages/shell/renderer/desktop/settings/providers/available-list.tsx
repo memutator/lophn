@@ -3,7 +3,7 @@ import { Button } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { Dialog } from "@lophn/ui/overlay";
 import { commonIcons } from "../../../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { ProviderName } from "./provider-name.tsx";
 import type {

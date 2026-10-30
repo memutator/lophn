@@ -1,7 +1,7 @@
 // `spending` artifact가 그린 화면의 고정 그림. artifact view는 `lophn-artifact:` 문서라 lophn 화면이 아니고, gallery에서만
 // view 자리(artifact 탭의 page 영역) 안에 들어간다. agent가 쓴 HTML이 appearance token(색, dark mode)을 그대로 쓰는 모양이다.
 // 고른 막대의 윤곽, 번호, 메모는 실제로는 view 안 page layer가 그린다.
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { SPENDING_BARS } from "./data.ts";
 import marks from "../../drafts/app-space/orders-view.module.css";

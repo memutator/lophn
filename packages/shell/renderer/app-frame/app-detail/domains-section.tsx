@@ -3,7 +3,7 @@
 // 앱은 domain이 0개가 되지 못하므로 마지막 active domain 줄은 Archive가 꺼진다. core가 그래도 거절하면 그 이유를 목록 위에 보인다.
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { commonIcons } from "../../icons/mod.ts";
 import { InstructionsEditor } from "../../workspace/agents/editor/instructions-editor.tsx";

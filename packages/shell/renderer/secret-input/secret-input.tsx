@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { Button } from "@lophn/ui/primitives";
 import { Field, Input } from "@lophn/ui/input";
 

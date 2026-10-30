@@ -15,7 +15,7 @@ import { FileIcon, Icon, IconButton } from "@lophn/ui/primitives";
 import { Menu, MenuIcon, type MenuItem, Tooltip } from "@lophn/ui/overlay";
 import { iconPixels, systemClipboard } from "@lophn/ui/shared";
 import { editorIcons, workspaceIcons } from "../../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { PATH_DRAG_TYPE } from "../drag.ts";
 import { FileConfirm } from "../file-actions.tsx";

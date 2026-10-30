@@ -3,7 +3,7 @@
 // 쌓이면 겹친다). 놓친 toast는 대기 목록이 보인다. main의 알림은 focus를 가진 창에만 오고 누르면 main이 그
 // 탭을 고르게 한다.
 import { useEffect } from "react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import type { LophnNoticeApi } from "../../../../ipc/notice.ts";
 import type {
   OverlayApi,

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Field, Input } from "@lophn/ui/input";
 import { Dialog } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { AppsSource } from "../../apps/source.ts";
 import { usableTitle } from "./model.ts";

@@ -3,8 +3,8 @@
 
 import { Field, Switch, Textarea } from "@lophn/ui/input";
 import { Button } from "@lophn/ui/primitives";
-import type { MessageKey } from "@lophn/wording";
-import { t } from "@lophn/wording";
+import type { MessageKey } from "@lophn/i18n";
+import { t } from "@lophn/i18n";
 import { type ReactNode, useRef, useState } from "react";
 import {
   AGENT_CHARACTER_COLORS,

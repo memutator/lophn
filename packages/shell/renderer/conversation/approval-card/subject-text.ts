@@ -1,6 +1,6 @@
 // 승인 카드의 글. 제목, 결정 뒤 줄이 가리키는 대상, 효과를 subject에서 program이 만든다(요청한 agent가 쓴
 // 설명은 없다). 지금 묻는 것은 shell 명령이고, 앱 tool과 MCP tool은 사람이 묻기로 정할 때를 위해 그린다.
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { shortId } from "../../desktop/connection/waiting/model.ts";
 import type { ApprovalSubject } from "../agent-tab-source.ts";
 

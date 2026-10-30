@@ -1,6 +1,6 @@
 // settings 화면의 순수 규칙. 원시 enum·ID를 화면 말로 바꾸고, 모르는 값을
 // 지어내지 않는다. 화면 컴포넌트와 테스트가 같이 쓴다.
-import { type MessageKey, t } from "@lophn/wording";
+import { type MessageKey, t } from "@lophn/i18n";
 
 import type { LucideIcon } from "lucide-react";
 
@@ -23,14 +23,14 @@ export type SettingsPane =
 
 interface SettingsPaneEntry {
   readonly id: SettingsPane;
-  /** 항목 이름의 wording key. */
+  /** 항목 이름의 message key. */
   readonly label: MessageKey;
   readonly icon: LucideIcon;
 }
 
 interface SettingsGroup {
   readonly id: "general" | "agents" | "system";
-  /** 묶음 이름의 wording key. */
+  /** 묶음 이름의 message key. */
   readonly label: MessageKey;
   readonly panes: readonly SettingsPaneEntry[];
 }

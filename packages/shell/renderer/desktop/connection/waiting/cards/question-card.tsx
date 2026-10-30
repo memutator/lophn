@@ -2,7 +2,7 @@
 // 되는 경우는 선택지를 눌러 바로 답하고, 그 밖에는 session에서 답한다.
 import { useEffect, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import type { AskQuestion } from "../../../../../../protocol/lophn-agent/ask-tool.ts";
 import type { CoreSource } from "../../connection.ts";
 import type { WaitingEntry } from "../../events/waiting-store.ts";

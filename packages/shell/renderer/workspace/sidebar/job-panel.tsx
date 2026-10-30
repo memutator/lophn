@@ -5,7 +5,7 @@ import { useCallback, useState } from "react";
 import { ErrorState, StatusMark } from "@lophn/ui/feedback";
 import { Switch } from "@lophn/ui/input";
 import { Button } from "@lophn/ui/primitives";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { useJobChanges } from "../../desktop/connection/events/hooks.tsx";
 import {

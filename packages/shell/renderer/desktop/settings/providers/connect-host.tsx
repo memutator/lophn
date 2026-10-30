@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { ManageModelsApi } from "../../../conversation/model-picker/manage-context.ts";
 import type { AgentsSettingsSource } from "../agents/settings-source.ts";

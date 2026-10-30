@@ -1,7 +1,7 @@
 // 충돌에서 디스크 쪽과 내 쪽을 나란히 보인다. 다른 줄은 +/− 기호와 배경으로 구별한다.
 import { useMemo } from "react";
 import { DiffMark } from "@lophn/ui/reading";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { compareLines } from "./compare.ts";
 import styles from "./conflict-compare.module.css";

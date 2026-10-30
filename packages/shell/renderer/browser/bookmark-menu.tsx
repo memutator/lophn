@@ -2,7 +2,7 @@
 import type { ReactNode } from "react";
 import { IconButton } from "@lophn/ui/primitives";
 import { Menu, MenuIcon } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { browserIcons } from "../icons/mod.ts";
 import type { Bookmarks } from "./bookmarks.ts";

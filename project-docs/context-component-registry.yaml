@@ -62,7 +62,7 @@ components:
   - id: tool-check
     kind: tool
     roles: [all]
-    description: 바뀐 package만 골라 fmt, lint, deps, source, modules, type check, style, wording, kit, shell(fmt, lint, main, main test), test, wording·token 생성물 비교를 돈다. docs(문서 속 path)는 늘 돈다. 끝내기 전에 돌린다. 전체는 check:full.
+    description: 바뀐 package만 골라 fmt, lint, deps, source, modules, type check, style, kit, shell(fmt, lint, main, main test), test, token 생성물 비교를 돈다. docs(문서 속 path)는 늘 돈다. 끝내기 전에 돌린다. 전체는 check:full.
     path: tools/check.ts
     run: npm run check
     change_reasons:
@@ -629,15 +629,6 @@ components:
       boundaries: [shell, design, design-api]
       paths: [tools/wireframes/, tools/check-kit.ts]
 
-  - id: skill-wording
-    kind: skill
-    roles: [designer, worker]
-    description: 화면 문구와 wording key를 다루는 절차.
-    path: .claude/skills/wording/
-    change_reasons:
-      boundaries: [design]
-      paths: [tools/check-wording.ts]
-
   - id: tool-wireframes
     kind: tool
     roles: [designer]
@@ -648,11 +639,3 @@ components:
       boundaries: [design, shell]
       paths: [tools/check-kit.ts]
 
-  - id: tool-wording
-    kind: tool
-    roles: [designer, worker]
-    description: wording catalog에서 placeholders를 다시 만든다. 문구·key 검사(check-wording.ts)와 CSS 구조 검사(check-style.ts)는 check의 wording·style 단계다.
-    path: packages/design/wording/generate.ts
-    run: npm run wording
-    change_reasons:
-      boundaries: [design]

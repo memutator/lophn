@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { Field, Input, Select } from "@lophn/ui/input";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { PRODUCT_SHELL_RULES } from "../../../../../protocol/approvals/shell-rules.ts";
 import { launcherIcons } from "../../../icons/mod.ts";

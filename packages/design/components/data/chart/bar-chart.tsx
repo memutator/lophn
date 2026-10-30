@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { ChartColumn } from "lucide-react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { BarPlot } from "./bar-plot.tsx";
 import {
   ChartFrame,

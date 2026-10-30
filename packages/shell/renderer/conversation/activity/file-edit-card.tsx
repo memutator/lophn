@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Card } from "@lophn/ui/layout";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import styles from "./activity.module.css";
 

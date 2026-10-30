@@ -1,6 +1,6 @@
 // 작업대 밖(런처·Settings 창, 전역 팔레트)의 팔레트 행. 프로젝트·앱·파일·행동 순서이고 고르면
 // 지금 탐색 대상(프로젝트 창, 앱 공간, 런처, Settings, project 창에서 파일 열기)으로만 간다.
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { WindowPlatform } from "../top-bar/platform.ts";
 import type { Catalog } from "./catalog.ts";

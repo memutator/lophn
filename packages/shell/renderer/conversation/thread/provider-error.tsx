@@ -3,7 +3,7 @@
 import { type ReactElement, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
-import { type MessageKey, t } from "@lophn/wording";
+import { type MessageKey, t } from "@lophn/i18n";
 
 import { TURN_FAILED_REASONS } from "../../../../protocol/lophn-agent/turn-values.ts";
 import type { AgentTabSource } from "../agent-tab-source.ts";

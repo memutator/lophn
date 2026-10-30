@@ -18,7 +18,14 @@ type Violation = {
   rule: string;
   message: string;
 };
-const EXCLUDED = new Set(["node_modules", ".claude", ".dev-data", "dist"]);
+// build는 `.deb` 준비가 낸 source 사본이다(gitignore). 옛 판 사본이 지금 workspace와 다를 수 있다.
+const EXCLUDED = new Set([
+  "node_modules",
+  ".claude",
+  ".dev-data",
+  "dist",
+  "build",
+]);
 
 // package가 import해도 되는 다른 package. 자기 package 안은 늘 된다.
 export const PACKAGE_DEPENDENCIES: Record<string, string[]> = {

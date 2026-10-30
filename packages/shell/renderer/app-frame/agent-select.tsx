@@ -8,7 +8,7 @@ import { Button, Icon } from "@lophn/ui/primitives";
 import { Menu, type MenuItem, Tooltip } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
 import { conversationIcons, editorIcons } from "../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import styles from "./agent-select.module.css";
 

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Icon, IconButton, type IconProps } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { workspaceIcons } from "../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import styles from "./notice-card.module.css";
 

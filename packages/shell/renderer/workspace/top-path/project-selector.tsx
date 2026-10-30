@@ -1,4 +1,4 @@
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { commonIcons } from "../../icons/mod.ts";
 import { PathMenu } from "./desk-selector.tsx";

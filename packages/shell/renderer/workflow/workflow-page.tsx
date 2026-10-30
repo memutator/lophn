@@ -5,7 +5,7 @@ import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import { EmptyState, ErrorState, Skeleton } from "@lophn/ui/feedback";
 import { Toast, Tooltip } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import {
   browserIcons,

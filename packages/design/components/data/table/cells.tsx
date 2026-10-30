@@ -1,9 +1,4 @@
-import {
-  formatDate,
-  formatNumber,
-  formatRelativeTime,
-  t,
-} from "@lophn/wording";
+import { formatDate, formatNumber, formatRelativeTime, t } from "@lophn/i18n";
 import { Tooltip } from "../../overlay/tooltip/tooltip.tsx";
 import { CopyButton } from "../../primitives/copy-button/copy-button.tsx";
 import type { Clipboard } from "../../_shared/shared.ts";

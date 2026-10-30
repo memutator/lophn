@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { IconButton } from "@lophn/ui/primitives";
 import { Menu, MenuIcon } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { launcherIcons } from "../../icons/mod.ts";
 
 interface CardMenuItem {

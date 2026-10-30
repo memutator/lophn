@@ -4,7 +4,7 @@
 // 마지막에 선다.
 import type { ReactElement, ReactNode } from "react";
 import { StatusMark } from "@lophn/ui/feedback";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { EditCard } from "./activity/file-edit-card.tsx";
 import type { ViewDetail } from "./activity/model.ts";

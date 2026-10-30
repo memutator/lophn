@@ -4,7 +4,7 @@ import { useCallback, useId, useState } from "react";
 import { FieldContext, Input, Select, SwatchPicker } from "@lophn/ui/input";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { isFontName } from "@lophn/ui";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { NamedControl } from "../general/named-control.tsx";
 import { useReload } from "../use-reload.ts";

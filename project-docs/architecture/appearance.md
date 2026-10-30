@@ -61,6 +61,8 @@ html[data-theme="dark"] { dark 값 }
 
 앱은 `@lophn/ui/tokens.css`의 같은 변수를 쓰므로 main의 insertCSS가 앱 view에도 같은 변수를 덮는다. 앱 CSS가 token 변수만 쓰면 따라 바뀐다(앱 template의 `AGENTS.md`가 시킨다). hex 색이나 글꼴 이름을 직접 쓴 앱은 바뀌지 않는다. 검사하지 않는다.
 
+같은 dom-ready에서 main은 앱 view(`lophn-app://`) 문서의 `<html>`에 `data-lophn-locale`(lophn 화면의 언어, `packages/design/i18n`의 `LOPHN_LOCALE`)을 `executeJavaScript`로 적는다. CSP가 페이지 script를 막아도 main이 넣는 script는 돈다. 값은 상수라 페이지 입력이 섞이지 않는다. `@lophn/app-ui`가 이 속성을 보고 자기 문구의 언어를 고르고, 값이 바뀌면 다시 그린다.
+
 ## 하지 않는 것
 
 - 사용자가 임의의 token 값이나 CSS를 넣는 길. 고르는 것은 preset과 설치된 글꼴 이름뿐이다.

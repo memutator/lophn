@@ -5,8 +5,8 @@ import { Button, Icon } from "@lophn/ui/primitives";
 import { Switch } from "@lophn/ui/input";
 import { Menu } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
-import type { MessageKey } from "@lophn/wording";
+import { t } from "@lophn/i18n";
+import type { MessageKey } from "@lophn/i18n";
 
 import type { AssignmentEntry } from "../../../../../protocol/approvals/assignment.ts";
 import type { ToolEffect } from "../../../../../protocol/lophn-agent/tool-values.ts";

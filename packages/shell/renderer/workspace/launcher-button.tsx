@@ -1,7 +1,7 @@
 import { IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import { workspaceIcons } from "../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 interface LauncherButtonProps {
   onLauncher: () => void;

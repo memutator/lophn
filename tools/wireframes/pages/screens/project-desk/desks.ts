@@ -4,7 +4,7 @@ import type {
   TabItem,
   WorkspaceView,
 } from "../../../../../packages/shell/renderer/workspace/model.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import type { ProjectOption } from "../../../../../packages/shell/renderer/workspace/top-path/project-selector.tsx";
 import type { DeskOption } from "../../../../../packages/shell/renderer/workspace/top-path/desk-selector.tsx";
 

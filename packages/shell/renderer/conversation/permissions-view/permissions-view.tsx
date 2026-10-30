@@ -3,7 +3,7 @@
 // 줄이다. 고치기는 Agents 화면에서 한다.
 import type { ReactElement } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { workspaceIcons } from "../../icons/mod.ts";
 import type { PermissionsView as PermissionsData } from "../agent-tab-source.ts";
 import styles from "./permissions-view.module.css";

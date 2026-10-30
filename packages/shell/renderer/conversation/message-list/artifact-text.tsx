@@ -4,7 +4,7 @@ import { type ReactElement, type ReactNode, useEffect, useRef } from "react";
 import { Icon } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { artifactMentions } from "../../../../protocol/domains/artifact.ts";
 import {

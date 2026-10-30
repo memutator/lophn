@@ -43,7 +43,7 @@ task 하나에 file 하나다: `project-docs/plan/<계획>/tasks/<id>.md`. worke
 
 - 바꾼 file
 - 통과한 check
-- 등록할 것: lead가 고칠 목록 file(`protocol/*/mod.ts`, core 조립 목록, wording 생성, gallery `pages/index.ts`, `package.json`)
+- 등록할 것: lead가 고칠 목록 file(`protocol/*/mod.ts`, core 조립 목록, gallery `pages/index.ts`, `package.json`)
 - 안 쓰게 된 export(남이 쓰던 것은 지우지 않는다)
 - 정한 것: 문서에 답이 없어 worker가 정한 것
 - 넘길 줄: 남의 file을 최소로 맞춘 곳
@@ -58,7 +58,7 @@ task 하나에 file 하나다: `project-docs/plan/<계획>/tasks/<id>.md`. worke
 - 소유는 지금 코드를 열어 확인한 실제 path다. 다른 task의 소유와 겹치지 않는다. `{a,b}` 중괄호 묶음은 `status.py`가 풀어 읽는다.
 - 선행 줄은 첫 문장에 task id만 쓴다(`status.py`가 첫 마침표까지만 읽는다). 설명은 그 뒤에 쓴다.
 - 계약 task의 brief는 모양을 적는다. 옛 계약은 지우지 않고 새것을 옆에 더한다(옛것을 쓰는 곳이 남아 있다). 옛것은 구현 task와 cleanup이 지운다.
-- 화면 task의 brief는 wireframe 코드를 옮기게 한다. 보고 다시 그리지 않는다. wireframe file과 갈 renderer 위치를 짝지어 적고, 가짜 data를 대신할 source와 박아 둔 글을 바꿀 wording key 영역을 적는다.
+- 화면 task의 brief는 wireframe 코드를 옮기게 한다. 보고 다시 그리지 않는다. wireframe file과 갈 renderer 위치를 짝지어 적고, 가짜 data를 대신할 source와 박아 둔 글을 바꿀 i18n catalog 영역을 적는다.
 - 외부 data(models.dev 등)를 읽는 task는 정하기 전에 실제 data 한 건을 열어 없는 칸과 빈 값이 어떻게 오는지 본다. brief가 `limit.input`이 없으면 null로 정했다가 대부분 model을 고를 수 없게 된 일이 있다.
 - 위험 test는 `write-test` skill 기준이다. 화면, 문구, 내부 구현은 test하지 않는다.
 - 말: 개발자 영어 단어를 그대로 쓴다. 뜻을 옮긴 번역어(장부, 가림, 시험)를 새로 만들지 않는다.

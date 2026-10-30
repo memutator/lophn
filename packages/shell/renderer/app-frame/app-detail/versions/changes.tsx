@@ -2,7 +2,7 @@
 // 대기 목록 카드의 비교(desktop/connection/waiting/cards/activation-card.tsx)는 그 카드 안의 줄이라
 // 가져다 쓸 component가 아니어서 여기서 만든다.
 import { DiffMark } from "@lophn/ui/reading";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { lossText, releaseName } from "../model.ts";
 import { Mono, Note, Section } from "../parts.tsx";

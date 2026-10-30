@@ -2,7 +2,7 @@
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { Skeleton, StatusMark } from "@lophn/ui/feedback";
 import { Switch } from "@lophn/ui/input";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { commonIcons } from "../../../icons/mod.ts";
 import {

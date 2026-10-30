@@ -8,7 +8,7 @@ import { Button, Icon } from "@lophn/ui/primitives";
 import { Dialog, Tooltip } from "@lophn/ui/overlay";
 import { Field, Input, Switch } from "@lophn/ui/input";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { UserModelInfo } from "../../../../protocol/lophn-agent/models.ts";
 import { commonIcons, modelIcons } from "../../icons/mod.ts";

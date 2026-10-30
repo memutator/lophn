@@ -3,7 +3,7 @@
 // 폴더 없음은 fake artifact 통로 설정으로, annotate 켜짐은 mount 뒤 [Annotate]를 눌러 만든다.
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { FAKE_DOMAINS } from "../../../../../packages/shell/renderer/workspace/fake-source.ts";
 import { openProject } from "../../../../../packages/shell/renderer/desktop/router.ts";

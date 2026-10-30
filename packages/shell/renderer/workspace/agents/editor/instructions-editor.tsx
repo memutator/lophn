@@ -2,7 +2,7 @@
 // 파일 탭과 같은 markdown 편집기(live preview)가 된다. 저장은 이 파일만 통째로 쓴다. 다른 곳에서 파일이 바뀌었으면(conflict)
 // 디스크를 덮지 않고 고친 글을 둔 채 [Reload]를 보인다.
 import { Button } from "@lophn/ui/primitives";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { type ReactElement, useState } from "react";
 import { MarkdownEditor } from "../../../editor/markdown-editor.tsx";
 import type { ReadResult } from "../source.ts";

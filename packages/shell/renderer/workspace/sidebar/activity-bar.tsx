@@ -11,7 +11,7 @@ import {
   settingsEntryIcon,
   workspaceIcons,
 } from "../../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { SidebarTab } from "./project-sidebar.tsx";
 import styles from "./project-sidebar.module.css";

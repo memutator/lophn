@@ -1,7 +1,7 @@
 // AgentTabSource의 메모리 fake. wireframe의 Agent 탭 장면 전부를 `scene` 이름으로 골라 낸다(gallery와 dev-mock이 쓴다).
 // 쓰기는 기록을 바꾸고 `changed`로 알려 장면 안에서 눌러 볼 수 있다. 시각과 id는 고정이다.
 
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import { splitAttachmentText } from "../../../protocol/lophn-agent/message-attachments.ts";
 import type { ToolCallView } from "./activity/model.ts";

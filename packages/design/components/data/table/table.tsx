@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { useObservedSize } from "../../_shared/resize.ts";
 import {
   type Clipboard,
@@ -32,7 +32,7 @@ import styles from "./table.module.css";
 
 interface ColumnBase {
   id: string;
-  // 사람이 읽는 머리 이름. 호출자가 wording key나 데이터로 준다.
+  // 사람이 읽는 머리 이름. 호출자가 message key나 데이터로 준다.
   header: string;
   // 단위는 머리에 한 번만 보이고 칸에는 숫자만 둔다.
   unit?: string;

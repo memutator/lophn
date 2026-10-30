@@ -2,7 +2,7 @@
 // 색과 글꼴은 정본 token CSS를 그대로 불러 쓴다.
 import "@lophn/ui/base.css";
 import "@lophn/ui/tokens.css";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import {
   BarChart,
   DistributionChart,

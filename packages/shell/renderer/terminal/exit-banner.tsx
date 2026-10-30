@@ -3,7 +3,7 @@ import { StatusMark } from "@lophn/ui/feedback";
 import { Tooltip } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
 import { retryIcon, workspaceIcons } from "../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import {
   type Ending,

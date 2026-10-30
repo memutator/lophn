@@ -1,5 +1,5 @@
-// 팔레트 묶음 이름과 키 이름. 문구는 wording catalog에서, 키는 main과 같은 표에서 읽는다.
-import { t } from "@lophn/wording";
+// 팔레트 묶음 이름과 키 이름. 문구는 i18n catalog에서, 키는 main과 같은 표에서 읽는다.
+import { t } from "@lophn/i18n";
 
 import {
   type PaletteShortcut,

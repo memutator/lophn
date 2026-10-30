@@ -6,7 +6,7 @@ import { type MouseEventHandler, useId, useState } from "react";
 import { FieldContext, Input } from "@lophn/ui/input";
 import { IconButton } from "@lophn/ui/primitives";
 import { Menu, MenuIcon } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { BrowserViewState, LophnBrowserApi } from "../../ipc/browser.ts";
 import type { DevtoolsPlace } from "../workspace/kinds/browser-devtools.tsx";

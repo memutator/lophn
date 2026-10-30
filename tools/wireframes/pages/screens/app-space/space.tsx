@@ -2,7 +2,7 @@
 // (drive.ts), AppSpace에는 gallery 전용 prop을 더하지 않는다. 앱 view는 main의 native view라 gallery에는 없고, 앱 view 자리 안에
 // Orders 앱이 그린 고정 그림(orders-view.tsx)을 넣는다. 고른 곳의 윤곽과 번호 표지는 실제로는 앱 view 안 preload가 그린다.
 
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {

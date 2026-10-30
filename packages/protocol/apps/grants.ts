@@ -61,7 +61,7 @@ const grantsListInputSchema = z.strictObject({
 });
 
 // grant 결정 confirmation이 보여 주는 자료의 경고 key.
-// 문구 본문은 design wording catalog의 몫이다.
+// 문구 본문은 design i18n catalog의 몫이다.
 
 // 현재 release가 선언한 요구 하나와 같은 정규 scope의 active grant가 있는지.
 // outside_links는 파일 검사(부여 준비)가 채운다. read는 파일 I/O를 하지 않아 빈 목록이다.

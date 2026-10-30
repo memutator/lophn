@@ -1,6 +1,6 @@
 // 대기 항목 하나를 카드가 그릴 값으로 바꾸는 순수 함수. 문구는 turn request의 subject와 activation 동의에서
 // program이 만든다(요청한 agent가 쓴 설명 칸은 없다).
-import { formatRelativeTime, t } from "@lophn/wording";
+import { formatRelativeTime, t } from "@lophn/i18n";
 import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
 import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
 import type { JobHold } from "../../../../../protocol/jobs/jobs.ts";

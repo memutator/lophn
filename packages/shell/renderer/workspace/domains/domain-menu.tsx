@@ -2,7 +2,7 @@
 import type { ReactElement } from "react";
 import { IconButton } from "@lophn/ui/primitives";
 import { Menu, MenuIcon, type MenuItem, Tooltip } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { commonIcons, editorIcons, workspaceIcons } from "../../icons/mod.ts";
 

@@ -2,7 +2,7 @@
 // 접히면 항목 아이콘만 activity bar 꼴로 남는다.
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import {
   ActivityBar,

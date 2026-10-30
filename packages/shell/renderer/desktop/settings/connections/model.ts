@@ -1,7 +1,7 @@
 // Coding agents 화면의 순수 계산: 제품마다 감지 결과를 en 문구와 tone으로 바꾼다.
 // 존재만으로 version이 확인됐다고 하지 않는다. 확인 못한 것은 확인 못했다고 말한다.
 import type { StatusTone } from "@lophn/ui";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { HarnessHookView, HarnessSettingsView } from "./source.ts";
 

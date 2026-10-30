@@ -1,6 +1,6 @@
 // 대화 안 시각 블록 하나. 앱 카드만 그린다. 블록마다 따로 그려 한 블록이 틀려도 다른 블록이나 입력을 막지 않는다.
 import { Component, type ReactNode } from "react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { AppCardBlock } from "./app-card-block.tsx";
 import type { AppCardRef } from "./registry.ts";

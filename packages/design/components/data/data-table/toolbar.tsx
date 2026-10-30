@@ -5,7 +5,7 @@ import {
   ChevronRight,
   Columns3,
 } from "lucide-react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { Button } from "../../primitives/button/button.tsx";
 import { Checkbox } from "../../input/checkbox/checkbox.tsx";
 import { Field } from "../../input/field/field.tsx";

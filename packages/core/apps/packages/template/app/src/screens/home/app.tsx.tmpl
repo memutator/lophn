@@ -1,12 +1,11 @@
 import { AppShell } from "@lophn/ui/layout";
-import { t } from "../../wording/t.ts";
 
 // release 준비는 화면이 하나 이상 있어야 통과한다. 이 자리 표시 화면을 앱의 첫 화면으로 바꾸거나, 새 화면을
 // 더한 뒤 지우고 선언의 `screens`도 맞춘다.
 export function App() {
   return (
-    <AppShell title={t("common.title.app")}>
-      <p>{t("common.summary.app")}</p>
+    <AppShell title={"{{TITLE}}"}>
+      <p>A lophn app.</p>
     </AppShell>
   );
 }

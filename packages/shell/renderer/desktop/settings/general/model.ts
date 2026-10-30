@@ -1,6 +1,6 @@
 // General의 순수 규칙. 선언한 설정의 JSON Schema에서 입력 종류를 정하고, 이름·설명은 설정 key로
-// 정한 wording key에서 읽는다. 모르는 type은 바꿀 수 없는 값으로만 보인다.
-import { en, type MessageKey, t } from "@lophn/wording";
+// 정한 message key에서 읽는다. 모르는 type은 바꿀 수 없는 값으로만 보인다.
+import { en, type MessageKey, t } from "@lophn/i18n";
 
 import { slugText, valueText } from "../model.ts";
 import type { SettingEntry, SettingRejectReason } from "../source.ts";
@@ -72,7 +72,7 @@ function shownInGeneral(key: string): boolean {
   return !SHOWN_ELSEWHERE.some((prefix) => key.startsWith(prefix));
 }
 
-/** 설정 key로 정한 wording key. `shell.reading_width` → `settings.shell-reading_width.name`. */
+/** 설정 key로 정한 message key. `shell.reading_width` → `settings.shell-reading_width.name`. */
 function wordingKey(key: string, part: "name" | "help"): string {
   return `settings.${key.replaceAll(".", "-")}.${part}`;
 }

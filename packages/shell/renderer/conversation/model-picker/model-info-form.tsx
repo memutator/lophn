@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { Dialog, Tooltip } from "@lophn/ui/overlay";
 import { Field, Input, Select, Switch } from "@lophn/ui/input";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { UserModelInfo } from "../../../../protocol/lophn-agent/models.ts";
 import { EFFORT_VALUES } from "../../../../protocol/lophn-agent/option-axes.ts";

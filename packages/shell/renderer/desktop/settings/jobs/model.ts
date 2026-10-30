@@ -1,6 +1,6 @@
 // Scheduled jobs 화면의 순수 규칙. 주기·할 일·기록 줄을 화면 말로 바꾼다. project 창의 job panel도 쓴다.
 import type { StatusTone } from "@lophn/ui";
-import { formatRelativeTime, type MessageKey, t } from "@lophn/wording";
+import { formatRelativeTime, type MessageKey, t } from "@lophn/i18n";
 
 import { shortId } from "../../connection/waiting/model.ts";
 import { LOPHN_AGENT_NAME } from "../../../../../protocol/lophn-agent/agent-values.ts";

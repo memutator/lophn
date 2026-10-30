@@ -2,7 +2,7 @@
 // 세부가 있으면 오른쪽 끝에 펼침 토글이 있다. 토글 위치는 카드마다 같다.
 
 import { IconButton } from "@lophn/ui/primitives";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import {
   type AgentId,
   LOPHN_AGENT_ID,

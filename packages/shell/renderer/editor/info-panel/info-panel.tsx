@@ -2,7 +2,7 @@
 // Outline은 Info 안에 있다.
 import { Button } from "@lophn/ui/primitives";
 import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
-import { formatRelativeTime, t } from "@lophn/wording";
+import { formatRelativeTime, t } from "@lophn/i18n";
 
 import { formatSize, type OutlineSection } from "../model.ts";
 import styles from "./info-panel.module.css";

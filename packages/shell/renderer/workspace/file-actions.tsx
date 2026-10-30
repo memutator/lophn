@@ -2,7 +2,7 @@
 // 닫기만 남는다. 디스크와 열린 탭을 바꾸는 일은 부르는 쪽이 한다.
 import { Button } from "@lophn/ui/primitives";
 import { Dialog } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 interface FileConfirmProps {
   readonly title: string;

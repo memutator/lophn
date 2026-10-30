@@ -5,7 +5,7 @@
 import { type ReactElement, useEffect, useState } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { Checkbox } from "@lophn/ui/input";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { workspaceIcons } from "../../icons/mod.ts";
 import type {

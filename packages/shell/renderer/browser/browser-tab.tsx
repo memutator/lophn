@@ -12,7 +12,7 @@ import {
 } from "react";
 import { ErrorState } from "@lophn/ui/feedback";
 import { Toast } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type {
   BrowserEvent,

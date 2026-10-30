@@ -3,7 +3,7 @@
 import type { ReactElement } from "react";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { conversationIcons, workspaceIcons } from "../../icons/mod.ts";
 import type { QueuedView } from "../agent-tab-source.ts";

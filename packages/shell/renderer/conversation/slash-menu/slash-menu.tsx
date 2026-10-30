@@ -5,7 +5,7 @@
 import { type ComponentProps, Fragment, type ReactNode } from "react";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import {
   commonIcons,

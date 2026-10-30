@@ -1,7 +1,7 @@
 // 펼친 대기 목록. 종류를 나눠 한 목록에 보이고, 결정한 직후 남는 줄이 그 아래 붙는다.
 import { StatusMark } from "@lophn/ui/feedback";
 import { Button } from "@lophn/ui/primitives";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import type { NoticeTarget } from "../../../../ipc/notice.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
 import {

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Field, Input } from "@lophn/ui/input";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { Popover } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { Bookmark } from "../../ipc/browser.ts";
 import type { OpenMenu } from "./overlay-menu.ts";

@@ -1,6 +1,6 @@
 // 되돌리기 화면의 고정 글. 이유는 글이 아니라 고정 코드(protocol rewindReasonSchema)라 코드로 문장을 고른다.
 // rewind panel과 숨긴 구간 줄이 같은 문장을 쓴다. 모르는 코드는 문장을 지어내지 않고 null이다.
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { RewindResultView } from "../agent-tab-source.ts";
 

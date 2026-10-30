@@ -1,5 +1,5 @@
 // app-detail의 순수 계산. 안쪽 값(상태 enum·종류·ID)을 사람 말로 바꾸는 자리이다.
-import { formatDate, t } from "@lophn/wording";
+import { formatDate, t } from "@lophn/i18n";
 
 import type {
   ActivationStep,

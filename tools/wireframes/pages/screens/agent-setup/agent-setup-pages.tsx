@@ -1,5 +1,5 @@
 // agent 설정 묶음의 page들. 동작하는 ProjectApp(과 Settings) 위에 상태 하나를 고정해 놓는다.
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { OPENAI } from "../../../../../packages/shell/renderer/desktop/settings/providers/testdata/fake-providers.ts";
 import {

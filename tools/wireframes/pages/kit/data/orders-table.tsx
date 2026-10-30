@@ -1,5 +1,5 @@
 // 앱 화면 예: 주문 목록을 금액으로 정렬하고 25행씩 나누어 본다. 같은 props를 세션 시각 블록도 넘긴다.
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { DataTable, type TableColumn } from "@lophn/ui/data";
 
 export interface Order {

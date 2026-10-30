@@ -1,5 +1,5 @@
 // browser 탭 kind. url만 저장하고 title은 page가 알려 주는 대로 탭 이름에 쓴다.
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { BrowserViewState } from "../../../ipc/browser.ts";
 import { BrowserTab, KEEP_SIGNATURE } from "../../browser/browser-tab.tsx";

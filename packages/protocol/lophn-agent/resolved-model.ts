@@ -13,7 +13,7 @@ export const nonnegativeDecimalSchema = z.string().regex(/^\d+(?:\.\d+)?$/);
 
 export const effortValueSchema = z.enum(EFFORT_VALUES);
 export type EffortValue = z.infer<typeof effortValueSchema>;
-// 화면에 보이는 이름이다. 문구 자체는 shell/wording의 영어 message key가 감싼다.
+// 화면에 보이는 이름이다. 문구 자체는 design/i18n의 영어 message key가 감싼다.
 export const EFFORT_LABELS = {
   off: "Off",
   minimal: "Minimal",

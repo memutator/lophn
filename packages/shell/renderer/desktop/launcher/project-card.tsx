@@ -3,7 +3,7 @@ import { Button } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
 import { iconPixels } from "@lophn/ui/shared";
 import { commonIcons, launcherIcons } from "../../icons/mod.ts";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { CardMenu } from "./card-menu.tsx";
 import { missingFolder } from "./model.ts";

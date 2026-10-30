@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Calendar, Check } from "lucide-react";
-import { formatDate, type MessageKey, t } from "@lophn/wording";
+import { formatDate, type MessageKey, t } from "@lophn/i18n";
 import { Button } from "../../primitives/button/button.tsx";
 import { Icon } from "../../primitives/icon/icon.tsx";
 import { Field } from "../field/field.tsx";

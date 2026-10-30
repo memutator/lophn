@@ -8,7 +8,7 @@ import {
 import { Button } from "@lophn/ui/primitives";
 import { SearchFilter } from "@lophn/ui/input";
 import { ErrorState, Loading, Skeleton, StatusMark } from "@lophn/ui/feedback";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { retryIcon } from "../../../icons/mod.ts";
 import { useReload } from "../use-reload.ts";

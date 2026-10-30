@@ -13,7 +13,7 @@ import {
   type ContentsRegistry,
   type IpcEvent,
 } from "./ipc-guard.ts";
-import { word } from "./wording.ts";
+import { word } from "./i18n.ts";
 
 const folderInputSchema = z.strictObject({
   purpose: z.enum(["register", "relocate"]).optional(),

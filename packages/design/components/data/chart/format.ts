@@ -1,5 +1,5 @@
 // 축·tooltip·표 보기의 숫자와 날짜. Intl로만 만들고 locale과 시간대는 caller가 준다.
-import { formatDate, formatNumber, t } from "@lophn/wording";
+import { formatDate, formatNumber, t } from "@lophn/i18n";
 
 export interface ChartLocale {
   readonly locale: string;

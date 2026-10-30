@@ -2,7 +2,7 @@
 // artifact HTML은 <script>로 불러 전역 LophnKit만 쓴다(architecture/artifact.md).
 import { createRoot, type Root } from "react-dom/client";
 import { GraphDiagram, type GraphEdge, type GraphNode } from "@lophn/ui/data";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 interface GraphProps {
   nodes: GraphNode[];

@@ -1,5 +1,5 @@
 // Settings › Browser › Links의 줄 목록. 값은 core 선언 설정이고 main의 bridge가 요청마다 읽는다.
-import type { MessageKey } from "@lophn/wording";
+import type { MessageKey } from "@lophn/i18n";
 
 import type { LinkId, LinkWhere } from "./source.ts";
 

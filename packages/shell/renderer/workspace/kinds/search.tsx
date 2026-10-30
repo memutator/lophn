@@ -1,6 +1,6 @@
 // search 탭 kind. project 키워드 검색이다. 검색어와 폴더는 사람이 채운 조건일 뿐이라 복원하면
 // 검색을 다시 계산한다.
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { paletteIcons } from "../../icons/mod.ts";
 

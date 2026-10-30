@@ -1,7 +1,7 @@
 // 명시 종료. 창 닫기는 종료가 아니다. tray의 Quit과 second-instance `--quit`만
 // main과 그 아래 core를 멈춘다. 진행 중 터미널·저장이 있으면 먼저 사람에게 확인한다.
 // 일반 preload·renderer에 종료 통로를 두지 않는다.
-import { type PlainKey, word } from "./wording.ts";
+import { type MessageKey, word } from "./i18n.ts";
 
 /** 끄기 전에 볼 진행 중인 일. */
 interface QuitWork {
@@ -23,7 +23,7 @@ function quitPrompt(work: QuitWork): QuitPrompt | undefined {
   const terminals = work.runningTerminals() > 0;
   const saves = work.pendingSaves() > 0;
   if (!terminals && !saves) return undefined;
-  const detail: PlainKey =
+  const detail: MessageKey =
     terminals && saves
       ? "common.quit.terminals-and-saves"
       : terminals

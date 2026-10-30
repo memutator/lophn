@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Field, Input, Select } from "@lophn/ui/input";
 import { Tooltip } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import { rootChoices } from "../sidebar/explorer.tsx";
 import type { ProjectFolderView, WorkspaceSource } from "../source.ts";

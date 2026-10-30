@@ -1,5 +1,5 @@
 // Shell rules의 순수 규칙: 설정 값에서 한 층의 한 줄만 고친 새 값을 만든다. 고친 층 밖의 줄은 그대로 둔다.
-import type { MessageKey } from "@lophn/wording";
+import type { MessageKey } from "@lophn/i18n";
 
 import {
   SHELL_RULE_ACTIONS,

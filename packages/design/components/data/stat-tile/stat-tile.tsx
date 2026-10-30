@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
-import { formatNumber } from "@lophn/wording";
+import { formatNumber } from "@lophn/i18n";
 import { Icon } from "../../primitives/icon/icon.tsx";
 import { componentMark, iconPixels } from "../../_shared/shared.ts";
 import styles from "./stat-tile.module.css";

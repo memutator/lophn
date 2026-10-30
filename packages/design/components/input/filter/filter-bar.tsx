@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { RotateCcw } from "lucide-react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { Button } from "../../primitives/button/button.tsx";
 import { Field } from "../field/field.tsx";
 import { Input } from "../input/input.tsx";

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { ChartScatter } from "lucide-react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import {
   ChartFrame,
   type ChartLocaleProps,

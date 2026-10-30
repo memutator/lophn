@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import { Tooltip } from "@lophn/ui/overlay";
 
 import styles from "./activity.module.css";

@@ -1,6 +1,6 @@
 // 보관한 뒤의 되돌리기와 보관이 거절된 이유. 목록 위쪽 toast 하나로 보인다.
 import { Toast } from "@lophn/ui/overlay";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 
 import type { DomainNotice as Notice } from "./use-domains.ts";
 

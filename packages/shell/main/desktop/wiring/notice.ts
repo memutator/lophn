@@ -4,7 +4,6 @@
 // 창이 여럿이어도 한 번만 뜬다.
 import { BrowserWindow, Notification } from "electron";
 
-import { en } from "../../../../design/wording/en.ts";
 import { sessionSnapshotsList } from "../../../../protocol/events/mod.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { placeSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
@@ -35,7 +34,7 @@ import {
 } from "../../notice/rule.ts";
 import type { TerminalFocusTable } from "../../terminal/controller.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
-import { word } from "../wording.ts";
+import { word } from "../i18n.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
 const TITLES = {
@@ -78,14 +77,10 @@ export type Notice = {
   target: NoticeTarget;
 };
 
-// main은 ICU formatter를 묶지 않는다. 제목은 {agent}와 {place}뿐이라 그것만 채운다.
 function titleOf(kind: keyof typeof TITLES, agent: string, place?: string) {
-  const values: Record<string, string> = { agent, place: place ?? "" };
-  const key = place === undefined ? TITLES[kind].plain : TITLES[kind].placed;
-  return en[key].replace(
-    /\{(agent|place)\}/g,
-    (_, name: string) => values[name],
-  );
+  return place === undefined
+    ? word(TITLES[kind].plain, { agent })
+    : word(TITLES[kind].placed, { agent, place });
 }
 
 export type NoticeWiring = Registered & {

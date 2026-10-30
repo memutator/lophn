@@ -4,7 +4,7 @@ import { ChartLine } from "lucide-react";
 import { scaleLinear } from "d3-scale";
 // @ts-types="@types/d3-shape"
 import { line } from "d3-shape";
-import { t } from "@lophn/wording";
+import { t } from "@lophn/i18n";
 import {
   ChartFrame,
   type ChartLocaleProps,

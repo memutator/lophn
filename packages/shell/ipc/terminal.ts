@@ -45,6 +45,7 @@ export const terminalOpenSchema = z
   .object({
     project: ref,
     folder_ref: ref.optional(),
+    cwd: z.string().min(1).max(4096).optional(),
     resume: resume.optional(),
     command: terminalCommandSchema.optional(),
   })
@@ -136,6 +137,8 @@ export type TerminalResume = { harness: string; external_session: string };
 export type TerminalOpen = {
   project: string;
   folder_ref?: string;
+  /** 등록 폴더 안의 시작 폴더. main이 등록 폴더 안인지 다시 보고 그 폴더의 folder_ref를 정한다. */
+  cwd?: string;
   /** 있으면 shell이 뜬 뒤 main이 그 harness의 resume 명령을 친다. */
   resume?: TerminalResume;
   /** 있으면 shell이 뜬 뒤 main이 넣는다. 한 줄이면 실행하고, 여러 줄이면 붙여 넣기만 한다(Enter는 사람). */
@@ -185,7 +188,6 @@ type TerminalStateName = "starting" | "running" | "exited" | "unknown";
 
 export type TerminalFailure =
   | "no_folder"
-  | "choose_folder"
   | "not_directory"
   | "unreadable"
   | "spawn_failed"
@@ -271,14 +273,10 @@ export type TerminalOutput = {
   dropped_output: boolean;
 };
 
-export type TerminalFolderChoice = { folder_ref: string; path: string };
-
 type TerminalReject = {
   ok: false;
   reason: TerminalFailure;
   message: string;
-  /** choose_folder일 때 고를 수 있는 등록 폴더. */
-  folders?: TerminalFolderChoice[];
 };
 
 type TerminalAccept = { ok: true; runtime: TerminalRuntime };

@@ -108,7 +108,7 @@ export async function openProject(
     name: title,
     title,
     purpose: "",
-    folders: [{ path: folder, description: "", subfolders: [] }],
+    folders: [{ path: folder, description: "" }],
   });
   return { project };
 }

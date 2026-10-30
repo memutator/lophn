@@ -3,7 +3,6 @@ import {
   absolutePathSchema,
   type ProjectFolder,
   type ProjectRecord,
-  relativePathSchema,
 } from "../../../protocol/projects/mod.ts";
 
 // 저장된 project. 읽는 쪽 모양(`ProjectRecord`)에서 폴더의 found만 뺀다.
@@ -167,31 +166,8 @@ export function validateFolderRoots(
   return ok(undefined);
 }
 
-// 하위 폴더는 연결 폴더 기준 상대 경로다. `..`, 절대 경로, 같은 폴더 안 중복을 거절한다.
-// 연결 폴더 밖으로 나가는 symlink는 FolderResolver가 realpath로 거절한다.
-export function validateSubfolderPaths(
-  folders: readonly ProjectFolder[],
-): Result<void> {
-  for (const folder of folders) {
-    const seen = new Set<string>();
-    for (const subfolder of folder.subfolders) {
-      if (
-        !relativePathSchema.safeParse(subfolder.path).success ||
-        seen.has(subfolder.path)
-      ) {
-        return err({
-          code: "invalid_input",
-          message: "subfolder must be a unique path inside its folder",
-        });
-      }
-      seen.add(subfolder.path);
-    }
-  }
-  return ok(undefined);
-}
-
 // project.search의 folder를 훑을 시작 폴더로 바꾼다. 없으면 등록 폴더 전부, 있으면 등록 폴더나 그 아래의
-// 절대 경로(하위 폴더 포함)이다. 연결 폴더 밖이면 거절한다.
+// 절대 경로이다. 연결 폴더 밖이면 거절한다.
 export function searchScopeOf(
   folders: readonly Pick<ProjectFolder, "path">[],
   folder: string | undefined,

@@ -10,7 +10,12 @@ import type {
 } from "../../ipc/workspace.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import { jobList } from "../../../protocol/jobs/jobs.ts";
-import { readProjects } from "../desktop/launcher/projects/core-source.ts";
+import { projectApi } from "../../../protocol/projects/project-api.ts";
+import { commandCall } from "../command-call.ts";
+import {
+  readProjects,
+  windowFolderPicker,
+} from "../desktop/launcher/projects/core-source.ts";
 import { coreAgentsSource } from "./agents/core-source.ts";
 import { coreDomainActions } from "./domains/core-calls.ts";
 import { coreFileSearchSource } from "./search/core-source.ts";
@@ -41,10 +46,11 @@ interface ProjectGetValue {
   project: {
     id: string;
     title: string;
+    revision: string;
     folders?: {
       path: string;
+      description?: string;
       found?: boolean;
-      subfolders?: { path: string }[];
     }[];
   };
 }
@@ -275,16 +281,80 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
         folders: (value.folders ?? []).map((folder) => ({
           path: folder.path,
           found: folder.found !== false,
-          subfolders: (folder.subfolders ?? []).map((sub) => ({
-            path: sub.path,
-          })),
         })),
       },
     };
   };
 
+  // 연결 폴더 고치기. projects.update는 폴더 목록을 통째로 받고 읽은 revision을 비교한다.
+  // change가 null을 주면 바꿀 것이 없어 core를 부르지 않는다.
+  async function editFolders(
+    id: string,
+    change: (
+      folders: readonly { path: string; description: string }[],
+    ) => readonly { path: string; description: string }[] | null,
+  ): Promise<ReadResult<ProjectView | null>> {
+    const read = await core.call({
+      kind: "read",
+      resource: "projects",
+      method: "get",
+      body: { project: id },
+    });
+    if (!read.ok) {
+      return { ok: false, message: read.error?.code ?? "internal" };
+    }
+    const current = (read.value as ProjectGetValue).project;
+    const next = change(
+      (current.folders ?? []).map(({ path, description }) => ({
+        path,
+        description: description ?? "",
+      })),
+    );
+    if (next === null) return { ok: true, value: null };
+    const reply = await core.call(
+      commandCall(projectApi.edit, {
+        input: { project: id, folders: [...next] },
+        compare: { base_revision: current.revision },
+        key: `projects-folders-${crypto.randomUUID()}`,
+      }),
+    );
+    if (!reply.ok) {
+      return { ok: false, message: reply.error?.code ?? "internal" };
+    }
+    return project(id);
+  }
+
   return {
     project,
+
+    async addFolder(id) {
+      const picker = windowFolderPicker();
+      if (picker === undefined) return { ok: false, message: "unavailable" };
+      let picked;
+      try {
+        picked = await picker.pick({ purpose: "register" });
+      } catch {
+        return { ok: false, message: "unavailable" };
+      }
+      if (!picked.ok) return { ok: false, message: picked.code };
+      const path = picked.path;
+      if (path === null) return { ok: true, value: null };
+      return editFolders(id, (folders) =>
+        folders.some((folder) => folder.path === path)
+          ? null
+          : [...folders, { path, description: "" }],
+      );
+    },
+
+    async removeFolder(id, path) {
+      const result = await editFolders(id, (folders) =>
+        folders.filter((folder) => folder.path !== path),
+      );
+      if (!result.ok) return result;
+      return result.value === null
+        ? project(id)
+        : { ok: true, value: result.value };
+    },
 
     async projects() {
       const read = await readProjects(core, "active");

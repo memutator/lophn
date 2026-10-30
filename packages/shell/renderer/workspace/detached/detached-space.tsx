@@ -177,6 +177,7 @@ function DetachedTab({
   const host: TabHost = {
     projectId: project,
     projectTitle: projectView?.title,
+    explorerRoot: undefined,
     props: hostProps,
     appScreens: false,
     view,

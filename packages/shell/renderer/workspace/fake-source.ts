@@ -926,12 +926,8 @@ export const FAKE_WORKFLOW_INSTANCES: readonly WorkflowInstanceDetailView[] = [
 ];
 
 const FOLDERS: readonly ProjectFolderView[] = [
-  {
-    path: FAKE_PROJECT_FOLDER,
-    found: true,
-    subfolders: [{ path: "eval" }],
-  },
-  { path: FAKE_NOTES_FOLDER, found: true, subfolders: [] },
+  { path: FAKE_PROJECT_FOLDER, found: true },
+  { path: FAKE_NOTES_FOLDER, found: true },
 ];
 
 // source 하나가 자기 tree를 갖는다. 만들기·이름 바꾸기·지우기가 이 메모리 tree를 바꾼다.
@@ -1037,6 +1033,16 @@ export function fakeWorkspaceSource(
             ...item,
             found: !missing.includes(item.path),
           })),
+        },
+      }),
+    addFolder: () => Promise.resolve({ ok: true, value: null }),
+    removeFolder: (id, path) =>
+      Promise.resolve({
+        ok: true,
+        value: {
+          id,
+          title: "phroner",
+          folders: FOLDERS.filter((item) => item.path !== path),
         },
       }),
     projects: () =>

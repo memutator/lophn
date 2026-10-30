@@ -14,22 +14,15 @@ export function fileKindOf(path: string): FileKind {
   return "text";
 }
 
-/** project에 연결한 폴더. 하위 폴더도 따로 지정할 수 있다(`parent`는 그 하위 폴더가 속한 폴더). */
+/** project에 연결한 폴더. */
 interface FileRoot {
   readonly id: string;
   readonly label: string;
   readonly path: string;
-  readonly parent?: string;
 }
 
 const ROOTS: readonly FileRoot[] = [
   { id: "phroner", label: "phroner", path: "/home/mina/work/phroner" },
-  {
-    id: "phroner/eval",
-    label: "eval",
-    path: "/home/mina/work/phroner/eval",
-    parent: "phroner",
-  },
   { id: "notes", label: "notes", path: "/home/mina/notes/phroner" },
 ];
 

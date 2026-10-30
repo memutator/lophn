@@ -83,53 +83,6 @@
   gap: var(--space-3);
 }
 
-/* 하위 폴더: 등록 폴더 아래에 들여 써서 중첩으로 보인다. */
-.subfolders {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  margin-left: var(--space-5);
-  padding-left: var(--space-6);
-  border-left: var(--border-width) solid var(--color-border-base);
-}
-
-.subfolderList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  margin: var(--space-0);
-  padding: var(--space-0);
-  list-style: none;
-}
-
-.subfolder {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.subfolderRemoved {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  color: var(--color-text-muted);
-}
-
-.subHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.subTitle {
-  color: var(--color-text-secondary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  font-weight: var(--font-weight-medium);
-}
-
 .actions {
   display: flex;
   align-items: center;

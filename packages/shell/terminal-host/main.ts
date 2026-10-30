@@ -31,6 +31,8 @@ export type HostRequest =
       type: "open";
       project: string;
       folder_ref?: string;
+      /** main이 등록 폴더 안으로 확인한 시작 폴더. 없으면 folder_ref의 폴더다. */
+      cwd?: string;
       folders: readonly FolderRecord[];
       columns: number;
       rows: number;
@@ -115,7 +117,7 @@ function createHost(deps: HostDeps): Host {
   ): TerminalReply {
     const picked = pickFolder(request.folders, request.folder_ref);
     if (!picked.ok) return reject(picked.reason, picked.message);
-    const checked = deps.checkFolder(picked.path);
+    const checked = deps.checkFolder(request.cwd ?? picked.path);
     if (!checked.ok) {
       return reject(checked.reason, "registered folder cannot be used");
     }
@@ -428,7 +430,7 @@ function pickFolder(
   | { ok: true; folder_ref: string; path: string }
   | {
       ok: false;
-      reason: "no_folder" | "choose_folder" | "unreadable";
+      reason: "no_folder" | "unreadable";
       message: string;
     } {
   if (folders.length === 0) {
@@ -448,13 +450,6 @@ function pickFolder(
       };
     }
     return { ok: true, folder_ref: found.folder_ref, path: found.path };
-  }
-  if (folders.length > 1) {
-    return {
-      ok: false,
-      reason: "choose_folder",
-      message: "choose a registered folder before start",
-    };
   }
   const only = folders[0]!;
   return { ok: true, folder_ref: only.folder_ref, path: only.path };

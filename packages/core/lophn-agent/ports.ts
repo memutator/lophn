@@ -22,7 +22,6 @@ type ProjectInfo = {
     path: string;
     description: string;
     found: boolean;
-    subfolders: readonly { path: string; description: string }[];
   }[];
 };
 

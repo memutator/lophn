@@ -18,7 +18,6 @@ export type PlaceProject = {
   name: string;
   purpose: string;
   folders: readonly FolderRead[];
-  subfolders: readonly FolderRead[];
 };
 
 type PlaceApp = {
@@ -113,9 +112,6 @@ function placeLines(data: PlaceData): string[] {
     }
     if (data.workflowsFolder !== null) {
       lines.push(`  Workflows folder: ${data.workflowsFolder}`);
-    }
-    for (const folder of project.subfolders) {
-      lines.push(`    ${folderText(folder)}`);
     }
     return lines;
   }

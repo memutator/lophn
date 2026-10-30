@@ -89,11 +89,7 @@ type ProjectRecord = {
   id: string;
   name: string;
   purpose: string;
-  folders: readonly {
-    path: string;
-    description: string;
-    subfolders: readonly FolderRead[];
-  }[];
+  folders: readonly FolderRead[];
 };
 
 function cmp(a: string, b: string): number {
@@ -109,7 +105,6 @@ function placeProject(project: ProjectRecord): PlaceProject {
       path: f.path,
       description: f.description,
     })),
-    subfolders: project.folders.flatMap((f) => f.subfolders),
   };
 }
 

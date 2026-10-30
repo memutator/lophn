@@ -37,7 +37,6 @@ const editFields = {
   name: slugSchema.optional(),
   title: z.string().min(1).optional(),
   purpose: z.string().optional(),
-  // 하위 폴더도 folders 안에 담겨 통째로 바뀐다.
   folders: projectFoldersSchema.optional(),
 };
 const projectEditInputSchema = z

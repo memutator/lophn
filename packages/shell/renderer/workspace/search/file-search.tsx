@@ -65,13 +65,7 @@ function folderOptions(folders: readonly ProjectFolderView[], chosen: string) {
     { value: ALL, label: t("file-search.label.all-folders") },
     ...rootChoices(folders)
       .filter((root) => root.found)
-      .map((root) => ({
-        value: root.path,
-        label:
-          root.parent === undefined
-            ? root.name
-            : `${root.parent} / ${root.name}`,
-      })),
+      .map((root) => ({ value: root.path, label: root.name })),
   ];
   // 복원한 폴더가 이제 없어도 고른 값은 그대로 보인다.
   return chosen === ALL || options.some((item) => item.value === chosen)

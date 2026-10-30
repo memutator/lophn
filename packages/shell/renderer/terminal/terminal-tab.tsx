@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import type { TerminalRuntime } from "../../ipc/terminal.ts";
 import type { TerminalDeps } from "./deps.ts";
 import { ExitBanner } from "./exit-banner.tsx";
-import { FolderChoice } from "./folder-choice.tsx";
 import {
   folderTitle,
   type Phase,
@@ -129,18 +128,20 @@ export function TerminalTab({
       }
       if (!store.beginOpen(tabKey)) return;
       // 다시 열기·실행 명령은 처음 한 번만 보낸다. 다시 시작이 같은 명령을 또 치지 않게 비운다.
-      const { resume, command } = store.get(tabKey) ?? {};
+      const { resume, command, cwd } = store.get(tabKey) ?? {};
       store.update(tabKey, {
         requested: true,
         folderRef: folder,
         phase: { kind: "opening" },
         resume: undefined,
         command: undefined,
+        cwd: undefined,
       });
       try {
         const reply = await bridge.open({
           project,
           ...(folder === null ? {} : { folder_ref: folder }),
+          ...(cwd === undefined ? {} : { cwd }),
           ...(resume === undefined ? {} : { resume }),
           ...(command === undefined ? {} : { command }),
         });
@@ -319,12 +320,6 @@ export function TerminalTab({
       data-terminal-tab={tabKey}
       data-phase={phase.kind}
     >
-      {phase.kind === "choose" ? (
-        <FolderChoice
-          folders={phase.folders}
-          onChoose={(folder) => void open(folder)}
-        />
-      ) : null}
       <div
         ref={screenRef}
         className={styles.screen}
@@ -335,9 +330,7 @@ export function TerminalTab({
       >
         <div ref={hostRef} className={styles.screenHost} />
       </div>
-      {showScreen || phase.kind === "choose" || banner ? null : (
-        <div className={styles.fill} />
-      )}
+      {showScreen || banner ? null : <div className={styles.fill} />}
       {banner}
     </div>
   );

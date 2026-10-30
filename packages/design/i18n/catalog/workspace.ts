@@ -109,33 +109,17 @@ export const workspace = {
   "launcher.title.sandbox-failed": "lophn is blocked by your system",
   "launcher.title.start-failed": "lophn didn't start",
   "projects.button.add-folder": "Add folder",
-  "projects.button.add-subfolder": "Add subfolder",
   "projects.button.remove": "Remove",
   "projects.button.save": "Save changes",
   "projects.button.show-latest": "Show latest",
-  "projects.button.undo": "Undo",
-  "projects.empty.no-subfolders":
-    "No subfolders. Add one to describe a part of this folder.",
   "projects.error.changed": "This changed since you opened it.",
-  "projects.error.folders-unavailable": "Couldn't read this folder. Try again.",
   "projects.error.name-missing": "Enter a name.",
   "projects.error.project-change-failed":
     "Couldn't change this project. Nothing changed. Try again.",
   "projects.heading.folders": "Folders",
-  "projects.heading.subfolders": "Subfolders",
-  "projects.help.subfolder-edited": "Edited. Save changes to keep it.",
-  "projects.label.added": "Added",
   "projects.label.folder-description": "Folder description",
   "projects.label.name": "Name",
   "projects.label.not-found": "Not found",
   "projects.label.purpose": "Purpose",
-  "projects.label.subfolder-description": "Subfolder description",
-  "projects.notice.pick-subfolder":
-    "Pick a folder inside the registered folder and describe it. You can't go above it.",
-  "projects.notice.relocate-first":
-    "Choose the folder's new location before adding subfolders.",
   "projects.notice.saved": "Saved.",
-  "projects.notice.subfolder-removed":
-    "{path} removed from the project. The folder itself is untouched.",
-  "projects.title.add-subfolder": "Add subfolder",
 } as const;

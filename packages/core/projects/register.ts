@@ -55,7 +55,7 @@ export function createLedgerRegistration(
         exists: (path) => folders.exists(path),
       }),
     ],
-    // 하위 폴더 검사와 폴더 존재 확인.
+    // 폴더 존재 확인.
     ports: [{ key: folderResolverPort, create: () => folders }],
     memoryRoutes: [kindGet, kindList, kindCheck],
   };

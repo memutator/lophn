@@ -239,6 +239,8 @@ export function Workspace(props: WorkspaceProps) {
   // Agent 탭의 통로. 없으면 Agent 탭을 열지 않는다.
   const agentViewSource = props.agentViewSource;
   const [loaded, setLoaded] = useState<Loaded>(EMPTY_LOADED);
+  // Explorer가 보이는 연결 폴더. 화면 상태일 뿐이라 저장하지 않는다. 터미널도 이 폴더에서 열린다.
+  const [explorerRoot, setExplorerRoot] = useState<string | undefined>();
   const {
     domains,
     sidebarAgents,
@@ -789,6 +791,7 @@ export function Workspace(props: WorkspaceProps) {
   const host: TabHost = {
     projectId,
     projectTitle: loaded.project?.title,
+    explorerRoot,
     props,
     appScreens: appViews?.screens !== undefined,
     view,
@@ -1161,6 +1164,26 @@ export function Workspace(props: WorkspaceProps) {
     if (!result.ok) return result;
     for (const tab of open) removeTab(tab.key);
     return result;
+  };
+
+  // Explorer의 연결 폴더 더하기·빼기. 성공하면 바뀐 폴더 목록으로 sidebar를 다시 그린다.
+  // 사람이 선택기를 닫는 것(null)은 실패가 아니다. 빼는 폴더가 지금 루트면 첫 폴더로 돌아간다.
+  const addProjectFolder = async (): Promise<boolean> => {
+    const result = await source.addFolder(projectId);
+    if (!result.ok) return false;
+    if (result.value !== null) {
+      const view = result.value;
+      setLoaded((state) => ({ ...state, project: view }));
+    }
+    return true;
+  };
+  const removeProjectFolder = async (path: string): Promise<boolean> => {
+    const result = await source.removeFolder(projectId, path);
+    if (!result.ok) return false;
+    const view = result.value;
+    setLoaded((state) => ({ ...state, project: view }));
+    if (explorerRoot === path) setExplorerRoot(undefined);
+    return true;
   };
 
   // activity bar 아래쪽 바로 가기 단추. 통로가 없는 단추는 열 탭이 없어 아무것도 하지 않는다.
@@ -1594,6 +1617,16 @@ export function Workspace(props: WorkspaceProps) {
                   }
                   onMove={moveFile}
                   onTrash={trashFile}
+                  explorerRoot={explorerRoot ?? null}
+                  onExplorerRoot={setExplorerRoot}
+                  onAddFolder={addProjectFolder}
+                  onRemoveFolder={removeProjectFolder}
+                  {...(terminal === undefined
+                    ? {}
+                    : {
+                        onOpenTerminal: (cwd: string) =>
+                          openTerminalTab(host, { cwd }),
+                      })}
                   onRail={onRail}
                   onAgent={(agent) =>
                     openAgent(host, {

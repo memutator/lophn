@@ -43,6 +43,7 @@ import {
 } from "../desktop/ipc-guard.ts";
 import type { TerminalHooks } from "./agent/ingress.ts";
 import type { AgentTracker } from "./agent/tracker.ts";
+import { folderOfCwd } from "./cwd.ts";
 
 type FocusTable = {
   focused(
@@ -179,6 +180,15 @@ export function createTerminalIpc(deps: {
     open: (event, input) =>
       guarded<TerminalOpen>(event, terminalOpenSchema, input, async (value) => {
         const folders = await deps.folders.folders(value.project);
+        const start =
+          value.cwd === undefined ? null : folderOfCwd(folders, value.cwd);
+        if (start !== null && !start.ok) {
+          return {
+            ok: false,
+            reason: "unreadable",
+            message: "cwd is not inside a registered folder",
+          };
+        }
         const issued = deps.bridge?.issue() ?? null;
         const hooked = deps.hooks?.issue() ?? null;
         const shellInit = deps.shellInit?.() ?? null;
@@ -190,7 +200,8 @@ export function createTerminalIpc(deps: {
         const reply = await deps.host.request({
           type: "open",
           project: value.project,
-          folder_ref: value.folder_ref,
+          folder_ref: start?.folder_ref ?? value.folder_ref,
+          ...(start === null ? {} : { cwd: start.path }),
           folders,
           columns: 80,
           rows: 24,
@@ -219,16 +230,6 @@ export function createTerminalIpc(deps: {
               text: typed,
             });
           }
-        }
-        // 여러 등록 폴더면 시작하지 않고 고를 목록을 돌려준다.
-        if (!reply.ok && reply.reason === "choose_folder") {
-          return {
-            ...reply,
-            folders: folders.map((folder) => ({
-              folder_ref: folder.folder_ref,
-              path: folder.path,
-            })),
-          };
         }
         return reply;
       }),

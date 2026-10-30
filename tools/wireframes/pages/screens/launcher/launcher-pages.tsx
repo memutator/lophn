@@ -121,34 +121,5 @@ const OPEN_DETAIL: readonly Step[] = [
   () => press('[data-menu-item="details"]'),
 ];
 
-/** [Details] dialog. 이름, 목적, 폴더와 설명, 하위 폴더를 고친다. 사라진 폴더 줄에 [Choose new location]이 있다. */
+/** [Details] dialog. 이름, 목적, 폴더와 설명을 고친다. 사라진 폴더 줄에 [Choose new location]이 있다. */
 export const LauncherProjectDetail = () => <Page steps={OPEN_DETAIL} />;
-
-/** [Details]에서 하위 폴더를 더하는 dialog. 고르기는 등록 폴더 안으로만 열린다. */
-export const LauncherSubfolderAdd = () => (
-  <Page
-    steps={[
-      ...OPEN_DETAIL,
-      () => click("[data-add-subfolder]"),
-      () => click('[data-expand="src"]'),
-      () => click('[data-pick="src/tools"]'),
-      () =>
-        type("[data-subfolder-new-description]", "Small command-line helpers"),
-    ]}
-  />
-);
-
-/** [Details]에서 하위 폴더의 설명을 고쳤고 하나를 뺀 상태. 빼도 폴더 자체는 그대로이고 [Undo]가 있다. */
-export const LauncherSubfolderEdit = () => (
-  <Page
-    steps={[
-      ...OPEN_DETAIL,
-      () =>
-        type(
-          "[data-subfolder-description]",
-          "Experiment runs, results and score tables",
-        ),
-      () => click("[data-remove-subfolder]", undefined, -1),
-    ]}
-  />
-);

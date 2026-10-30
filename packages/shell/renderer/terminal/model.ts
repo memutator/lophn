@@ -2,7 +2,6 @@
 // 서로 다른 문구로 나눈다. 성공이나 exit code를 추측하지 않는다.
 import type {
   TerminalFailure,
-  TerminalFolderChoice,
   TerminalOutput,
   TerminalReply,
   TerminalRuntime,
@@ -22,11 +21,6 @@ export type Ending = "exited" | "start_failed" | "unknown" | "stop_unconfirmed";
 export type Phase =
   /** 사람이 열었고 main의 답을 기다린다. */
   | { readonly kind: "opening" }
-  /** 등록 폴더가 여럿이다. 고르기 전에는 시작하지 않는다. */
-  | {
-      readonly kind: "choose";
-      readonly folders: readonly TerminalFolderChoice[];
-    }
   | { readonly kind: "refused"; readonly reason: Refusal }
   | { readonly kind: "live"; readonly runtime: TerminalRuntime }
   | {
@@ -76,9 +70,6 @@ function refusalOf(reason: TerminalFailure): Refusal {
 /** open·restart 답을 화면 상태로 옮긴다. */
 export function phaseOfReply(reply: TerminalReply): Phase {
   if (reply.ok) return phaseOfRuntime(reply.runtime);
-  if (reply.reason === "choose_folder") {
-    return { kind: "choose", folders: reply.folders ?? [] };
-  }
   return { kind: "refused", reason: refusalOf(reply.reason) };
 }
 

@@ -294,11 +294,13 @@
   line-height: var(--type-caption-line);
 }
 
-/* menu 행은 높이가 한 줄로 정해져 있어서 이름과 경로를 한 줄에 둔다. */
+/* menu 행은 높이가 한 줄로 정해져 있어서 이름과 경로를 한 줄에 두고, 오른쪽 끝에 x를 둔다. */
 .rootLabel {
   display: flex;
-  align-items: baseline;
+  flex: 1;
+  align-items: center;
   gap: var(--space-4);
+  min-width: var(--space-0);
 }
 
 .rootName {
@@ -317,6 +319,27 @@
   line-height: var(--type-caption-line);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 행 오른쪽 끝의 x. 그 폴더를 project에서 뺀다. */
+.rootRemove {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  padding: var(--space-1);
+  border: var(--space-0);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.rootRemove:hover,
+.rootRemove:focus-visible {
+  background: var(--floating-hover);
+  color: var(--color-text-primary);
 }
 
 /* Explorer: 종류 아이콘이 붙은 파일 tree. 행 모양은 design Tree와 같다. */

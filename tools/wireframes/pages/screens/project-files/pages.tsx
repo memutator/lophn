@@ -57,7 +57,7 @@ export function AgentsRuns() {
   );
 }
 
-/** sidebar · Explorer. 루트를 고르는 menu를 연 상태다. 연결한 폴더 둘과 그 하위 폴더가 있고 tree에는 확장자·폴더별 아이콘이 붙는다. */
+/** sidebar · Explorer. 루트를 고르는 menu를 연 상태다. 연결한 폴더 둘이 있고 tree에는 확장자·폴더별 아이콘이 붙는다. */
 export function ExplorerRootMenu() {
   const tab = documentTab(EXP);
   return (
@@ -217,6 +217,11 @@ function explorer(act?: ExplorerAct, menuFor?: string) {
 /** 파일 tree의 오른쪽 클릭 menu. 위에서부터 New File, New Folder, Reveal in File Manager, Copy Path, Copy Relative Path, Rename, Delete이고 묶음 사이에 구분선이 있다. */
 export function FileActionsMenu() {
   return explorer(undefined, EXP_OTHER);
+}
+
+/** 폴더 행을 오른쪽 클릭한 menu. New Folder 아래에 Open in Terminal이 있고, 누르면 그 폴더에서 터미널이 열린다. 파일 행에는 없다. */
+export function FolderActionsMenu() {
+  return explorer(undefined, "eval/experiments");
 }
 
 /** Explorer 머리에 마우스를 올리거나 focus하면 New File, New Folder, Refresh, Collapse All 단추가 나타난다. */

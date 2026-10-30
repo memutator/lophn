@@ -11,7 +11,6 @@ import {
   commandCall,
   type CompareOf,
 } from "../../../command-call.ts";
-import type { FilesApi } from "../../../../ipc/files.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import type { ProjectDraft } from "../source.ts";
@@ -32,7 +31,6 @@ interface ProjectValue {
     path: string;
     description: string;
     found: boolean;
-    subfolders: { path: string; description: string }[];
   }[];
 }
 
@@ -58,10 +56,6 @@ function projectItemOf(value: ProjectValue): ProjectItem {
       path: folder.path,
       description: folder.description,
       found: folder.found,
-      subfolders: folder.subfolders.map((sub) => ({
-        path: sub.path,
-        description: sub.description,
-      })),
     })),
   };
 }
@@ -71,11 +65,6 @@ export function windowFolderPicker(): FolderPickerApi | undefined {
   const bridge = (globalThis as { lophnFolders?: FolderPickerApi })
     .lophnFolders;
   return bridge && typeof bridge.pick === "function" ? bridge : undefined;
-}
-
-function windowFiles(): FilesApi | undefined {
-  const bridge = (globalThis as { lophnFiles?: FilesApi }).lophnFiles;
-  return bridge && typeof bridge.list === "function" ? bridge : undefined;
 }
 
 function failed(reply: CoreReply): { ok: false; code: string } {
@@ -147,7 +136,6 @@ export async function createProject(
           folders: draft.folders.map((folder) => ({
             path: folder.path,
             description: folder.description,
-            subfolders: [],
           })),
         },
         compare: {},
@@ -185,7 +173,6 @@ async function write<R extends CommandRoute>(
 export function coreProjectsSource(
   core: CoreSource,
   picker: FolderPickerApi | undefined,
-  files: FilesApi | undefined = windowFiles(),
 ): ProjectsSource {
   async function pick(purpose: "register" | "relocate") {
     if (!picker) return { ok: false as const, code: "unavailable" };
@@ -238,19 +225,6 @@ export function coreProjectsSource(
     async pickFolder() {
       const chosen = await pick("register");
       return chosen.ok ? chosen : { ok: false };
-    },
-
-    async listFolders(path) {
-      if (!files) return { ok: false, code: "unavailable" };
-      const reply = await files.list({ path });
-      return reply.ok
-        ? {
-            ok: true,
-            value: reply.value.entries
-              .filter((entry) => entry.kind === "folder")
-              .map((entry) => entry.name),
-          }
-        : { ok: false, code: reply.code };
     },
 
     register: (draft) => createProject(core, draft),

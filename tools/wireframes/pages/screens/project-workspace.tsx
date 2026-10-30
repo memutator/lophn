@@ -19,6 +19,7 @@ import {
   FileConflict,
   FileConflictCompare,
   FileDeleteConfirm,
+  FolderActionsMenu,
   FileReloaded,
   FileSearchFolder,
   FileSearchOpened,
@@ -120,6 +121,10 @@ function SidebarWorkflowsEmpty() {
           onOpenFile={noop}
           onMove={(from, to) => source.rename(from, to)}
           onTrash={(path) => source.trash(path)}
+          explorerRoot={null}
+          onExplorerRoot={noop}
+          onAddFolder={() => Promise.resolve(true)}
+          onRemoveFolder={() => Promise.resolve(true)}
           onRail={noop}
           onAgent={noop}
           onSession={noop}
@@ -346,7 +351,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-explorer-root",
       title: "Sidebar · Explorer",
       description:
-        "sidebar 맨 위 밑줄 탭(Explorer, Agent)에서 Explorer를 고른 모양이다. 루트는 작은 대문자 이름 한 줄 머리이고, 그 menu를 연 상태로 연결한 폴더 둘과 하위 폴더가 이름과 경로로 보인다. tree에는 차분한 파일 종류 아이콘이 붙는다.",
+        "sidebar 맨 위 밑줄 탭(Explorer, Agent)에서 Explorer를 고른 모양이다. 루트는 작은 대문자 이름 한 줄 머리이고, 그 menu를 연 상태로 연결한 폴더 둘이 이름과 경로로 보인다. 각 행 오른쪽 끝의 x는 그 폴더를 project에서 빼고(디스크는 그대로), 맨 아래 Add folder는 폴더를 더한다. tree에는 차분한 파일 종류 아이콘이 붙는다.",
       render: () => <ExplorerRootMenu />,
     },
     {
@@ -467,6 +472,13 @@ export const projectWorkspaceArea: Area = {
       description:
         "파일 tree 행을 오른쪽 클릭한 메뉴다. VS Code 순서로 New File, New Folder, Reveal in File Manager, Copy Path, Copy Relative Path, Rename, Delete이고 묶음 사이에 구분선이 있다. 빈 자리를 오른쪽 클릭하면 루트 기준이라 Rename과 Delete가 빠진다.",
       render: () => <DocumentOrganize />,
+    },
+    {
+      id: "new-organize-folder",
+      title: "Project · folder actions",
+      description:
+        "폴더 행을 오른쪽 클릭한 메뉴다. Reveal in File Manager 아래에 Open in Terminal이 있고, 누르면 그 폴더에서 터미널이 열린다. 파일 행에는 이 항목이 없다. 빈 자리를 오른쪽 클릭하면 지금 보이는 루트에서 연다.",
+      render: () => <FolderActionsMenu />,
     },
     {
       id: "new-file-delete",

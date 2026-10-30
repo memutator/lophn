@@ -9,8 +9,6 @@ import {
   LauncherProjectDetail,
   LauncherProjects,
   LauncherRegister,
-  LauncherSubfolderAdd,
-  LauncherSubfolderEdit,
 } from "./launcher/launcher-pages.tsx";
 import { StartFailures } from "./launcher/start-failure-page.tsx";
 import { MockDesktop } from "../../mock/mock-desktop.tsx";
@@ -114,22 +112,8 @@ export const launcherArea: Area = {
       id: "new-launcher-project-detail",
       title: "Launcher · project detail",
       description:
-        "카드의 Details가 여는 dialog다. 이름 하나, 목적, 폴더와 폴더 설명, 등록 폴더 아래 들여 쓴 하위 폴더를 고치고 [Save changes]로 저장한다. 사라진 폴더 줄에 Not found와 [Choose new location]이 있다.",
+        "카드의 Details가 여는 dialog다. 이름 하나, 목적, 폴더와 폴더 설명을 고치고 [Save changes]로 저장한다. 사라진 폴더 줄에 Not found와 [Choose new location]이 있다.",
       render: () => <LauncherProjectDetail />,
-    },
-    {
-      id: "new-launcher-subfolder-add",
-      title: "Launcher · add subfolder",
-      description:
-        "등록 폴더 안의 하위 폴더를 더하는 dialog다. 폴더 고르기는 그 등록 폴더 안으로만 열리고, 이미 더한 폴더는 Added로 보인다. 고른 폴더에 설명을 달아 더한다.",
-      render: () => <LauncherSubfolderAdd />,
-    },
-    {
-      id: "new-launcher-subfolder-edit",
-      title: "Launcher · edit subfolders",
-      description:
-        "하위 폴더 설명을 고친 상태와 하위 폴더 하나를 뺀 상태다. 빼도 폴더 자체는 그대로이고 [Undo]가 있다.",
-      render: () => <LauncherSubfolderEdit />,
     },
     {
       id: "new-launcher-register",

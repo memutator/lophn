@@ -33,6 +33,7 @@ export function openTerminal(
   options: {
     folderRef?: string;
     resume?: TerminalResume;
+    cwd?: string;
     command?: string;
   } = {},
 ): void {
@@ -43,6 +44,7 @@ export function openTerminal(
   terminal.store.request(key, options.folderRef ?? null, {
     ...(options.resume === undefined ? {} : { resume: options.resume }),
     ...(options.command === undefined ? {} : { command: options.command }),
+    ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
   });
   const tab: TabItem = {
     key,

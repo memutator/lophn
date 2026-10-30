@@ -7,12 +7,11 @@ import type { AgentsSource } from "./agents/source.ts";
 import type { FileSearchSource } from "./search/source.ts";
 import type { RunRecordView } from "./sidebar/run-list.tsx";
 
-/** 연결 폴더. 하위 폴더 경로는 이 폴더 기준 상대 경로다. */
+/** 연결 폴더. */
 export interface ProjectFolderView {
   readonly path: string;
   /** 디스크에서 찾을 수 있는가. false면 sidebar가 "찾을 수 없음"을 보인다. */
   readonly found: boolean;
-  readonly subfolders: readonly { readonly path: string }[];
 }
 
 /** projects.get 결과에서 작업대가 쓰는 부분. */
@@ -277,6 +276,13 @@ export interface WorkspaceSource extends DomainActions {
   trash(path: string): Promise<FileOpResult>;
   /** OS 파일 관리자에서 보인다. */
   reveal(path: string): Promise<FileOpResult>;
+  /**
+   * 연결 폴더를 더한다. OS 선택기로 폴더를 고르고 project에 잇는다. 사람이 선택기를 닫으면 `null`이고 아무것도 바꾸지 않는다.
+   * 이미 있거나 겹치는 폴더는 core가 `invalid_input`으로 거절한다.
+   */
+  addFolder(project: string): Promise<ReadResult<ProjectView | null>>;
+  /** 연결 폴더 하나를 project에서 뺀다. 디스크의 폴더는 그대로 둔다. */
+  removeFolder(project: string, path: string): Promise<ReadResult<ProjectView>>;
   /**
    * Agents 탭과 sidebar의 Agents 묶음의 통로. 없으면 그 탭과 여는 길을 두지
    * 않는다. coreWorkspaceSource가 core 통로를 넣고 mock 모드는 fake를 넣는다.

@@ -122,6 +122,14 @@ interface ProjectSidebarProps {
   onMove: (from: string, to: string) => Promise<TabAwareResult>;
   /** Explorer의 휴지통 보내기. 열린 탭 정리까지 한다. */
   onTrash: (path: string) => Promise<TabAwareResult>;
+  /** Explorer가 보이는 연결 폴더(루트). 작업대가 들고 있어 터미널도 같은 폴더에서 열린다. */
+  explorerRoot: string | null;
+  onExplorerRoot: (path: string) => void;
+  /** 연결 폴더 더하기(OS 선택기)와 빼기. 사람이 선택기를 닫는 것도 true이고 실패는 false다. */
+  onAddFolder: () => Promise<boolean>;
+  onRemoveFolder: (path: string) => Promise<boolean>;
+  /** 폴더 오른쪽 클릭 menu의 Open in Terminal. 없으면 그 항목을 두지 않는다. */
+  onOpenTerminal?: (cwd: string) => void;
   onRail: (action: RailAction) => void;
   onAgent: (agent: SidebarAgent) => void;
   /** Agent 줄 hover의 +. 주지 않으면 `onAgent`와 같다. */
@@ -156,6 +164,11 @@ export function ProjectSidebar({
   onOpenFile,
   onMove,
   onTrash,
+  explorerRoot,
+  onExplorerRoot,
+  onAddFolder,
+  onRemoveFolder,
+  onOpenTerminal,
   onRail,
   onAgent,
   onNewSession,
@@ -240,6 +253,11 @@ export function ProjectSidebar({
                   onOpenFile={onOpenFile}
                   onMove={onMove}
                   onTrash={onTrash}
+                  rootPath={explorerRoot}
+                  onRoot={onExplorerRoot}
+                  onAddFolder={onAddFolder}
+                  onRemoveFolder={onRemoveFolder}
+                  onOpenTerminal={onOpenTerminal}
                 />
               )
             ) : null}

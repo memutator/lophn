@@ -195,7 +195,6 @@ type ProjectInfoOf = {
     path: string;
     description: string;
     found: boolean;
-    subfolders: readonly { path: string; description: string }[];
   }[];
 };
 

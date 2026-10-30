@@ -49,6 +49,10 @@ export function ProjectDomainsEmpty() {
         onOpenFile={noop}
         onMove={(from, to) => source.rename(from, to)}
         onTrash={(path) => source.trash(path)}
+        explorerRoot={null}
+        onExplorerRoot={noop}
+        onAddFolder={() => Promise.resolve(true)}
+        onRemoveFolder={() => Promise.resolve(true)}
         onRail={noop}
         onAgent={noop}
         onSession={noop}

@@ -32,7 +32,7 @@ export async function restoreProjects(
       name,
       title,
       purpose,
-      folders: [{ path: folder, description: "", subfolders: [] }],
+      folders: [{ path: folder, description: "" }],
     });
     ctx.world.projects[name] = id;
   }

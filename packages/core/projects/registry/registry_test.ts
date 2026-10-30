@@ -1,12 +1,5 @@
 import assert from "node:assert/strict";
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -60,68 +53,6 @@ function input(folders: unknown) {
   } as never;
 }
 
-test("하위 폴더는 연결한 폴더 밖을 거절한다", () => {
-  const { db, tx, commands } = setup();
-  const root = mkdtempSync(join(tmpdir(), "lophn-registry-"));
-  const outside = mkdtempSync(join(tmpdir(), "lophn-registry-"));
-  try {
-    mkdirSync(join(root, "docs"));
-    symlinkSync(outside, join(root, "escape"));
-    const register = (sub: string) =>
-      commands.register.handle(
-        tx,
-        user,
-        input([
-          {
-            path: root,
-            description: "",
-            subfolders: [{ path: sub, description: "" }],
-          },
-        ]),
-        {},
-      );
-
-    for (const sub of ["../x", "/etc", "escape", "missing"]) {
-      const result = register(sub);
-      assert.ok(!result.ok, sub);
-      assert.deepStrictEqual(result.error.code, "invalid_input", sub);
-    }
-    assert.deepStrictEqual(
-      db.prepare("SELECT id FROM projects").all().length,
-      0,
-    );
-
-    // 연결 폴더 안 하위 폴더는 받고, 나중에 밖으로 나가는 symlink로 고치는 것은 거절한다.
-    const registered = register("docs");
-    assert.ok(registered.ok);
-    assert.deepStrictEqual(
-      registered.value.folders[0]!.subfolders[0]!.path,
-      "docs",
-    );
-    const edited = commands.edit.handle(
-      tx,
-      user,
-      {
-        project: PROJECT,
-        folders: [
-          {
-            path: root,
-            description: "",
-            subfolders: [{ path: "escape", description: "" }],
-          },
-        ],
-      } as never,
-      { base_revision: registered.value.revision },
-    );
-    assert.ok(!edited.ok);
-    assert.deepStrictEqual(edited.error.code, "invalid_input");
-  } finally {
-    db.close();
-    rmSync(root, { recursive: true });
-    rmSync(outside, { recursive: true });
-  }
-});
-
 test("폴더 없이도 등록된다", () => {
   const { db, tx, commands } = setup();
   try {
@@ -141,7 +72,7 @@ test("보관해도 폴더의 파일은 그대로다", () => {
     const registered = commands.register.handle(
       tx,
       user,
-      input([{ path: root, description: "", subfolders: [] }]),
+      input([{ path: root, description: "" }]),
       {},
     );
     assert.ok(registered.ok);

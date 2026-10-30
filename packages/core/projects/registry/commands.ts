@@ -1,7 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   projectApi,
-  type ProjectFolder,
   type ProjectRecord,
 } from "../../../protocol/projects/mod.ts";
 import type {
@@ -17,7 +16,6 @@ import {
   type Project,
   type ProjectCandidate,
   validateFolderRoots,
-  validateSubfolderPaths,
 } from "./model.ts";
 import { folderResolverPort } from "./ports.ts";
 import { recordOf } from "./record.ts";
@@ -70,35 +68,6 @@ function resolverOf(tx: Tx): Result<FolderResolver> {
   return resolver === undefined ? unwired("folder resolver") : ok(resolver);
 }
 
-// 폴더 목록의 모양 검사. 하위 폴더 경로는 연결 폴더 기준 상대 경로다.
-function checkFolders(folders: readonly ProjectFolder[]): Result<void> {
-  const roots = validateFolderRoots(folders);
-  if (!roots.ok) return roots;
-  return validateSubfolderPaths(folders);
-}
-
-// 새로 지정한 하위 폴더만 디스크에서 확인한다. 연결 폴더 밖으로 나가는 symlink를 거절한다.
-// 이미 저장된 하위 폴더는 다시 확인하지 않는다(폴더가 옮겨진 project도 이름 같은 것은 고칠 수 있다).
-function checkNewSubfolders(
-  resolver: FolderResolver,
-  folders: readonly ProjectFolder[],
-  before: readonly ProjectFolder[],
-): Result<void> {
-  for (const folder of folders) {
-    const known = new Set(
-      before
-        .find((item) => item.path === folder.path)
-        ?.subfolders.map((sub) => sub.path),
-    );
-    for (const sub of folder.subfolders) {
-      if (known.has(sub.path)) continue;
-      const inside = resolver.resolveInside(folder.path, sub.path);
-      if (!inside.ok) return inside;
-    }
-  }
-  return ok(undefined);
-}
-
 export function createProjectCommands(): {
   register: CommandDefinition<typeof projectApi.register>;
   edit: CommandDefinition<typeof projectApi.edit>;
@@ -112,7 +81,7 @@ export function createProjectCommands(): {
       handle(tx, ctx, input) {
         const actor = requireUser(ctx);
         if (!actor.ok) return actor;
-        const shape = checkFolders(input.folders);
+        const shape = validateFolderRoots(input.folders);
         if (!shape.ok) return shape;
         const candidate: ProjectCandidate = { ...input, status: "active" };
         const access = authorizeProject(
@@ -133,12 +102,6 @@ export function createProjectCommands(): {
         if (named !== undefined) return conflict("project name already exists");
         const resolver = resolverOf(tx);
         if (!resolver.ok) return resolver;
-        const subfolders = checkNewSubfolders(
-          resolver.value,
-          input.folders,
-          [],
-        );
-        if (!subfolders.ok) return subfolders;
         const project: Project = { ...candidate, revision: "1" };
         insertProject(tx, project);
         return ok(recordOf(project, resolver.value));
@@ -155,7 +118,7 @@ export function createProjectCommands(): {
         const before = current.value;
         const folders = input.folders ?? before.folders;
         if (input.folders !== undefined) {
-          const shape = checkFolders(input.folders);
+          const shape = validateFolderRoots(input.folders);
           if (!shape.ok) return shape;
         }
         const { revision: _revision, ...metadata } = before;
@@ -183,12 +146,6 @@ export function createProjectCommands(): {
         if (!changed) return invalid("edit does not change project");
         const resolver = resolverOf(tx);
         if (!resolver.ok) return resolver;
-        const subfolders = checkNewSubfolders(
-          resolver.value,
-          folders,
-          before.folders,
-        );
-        if (!subfolders.ok) return subfolders;
         if (next.name !== before.name) {
           const named = tx.sql.get(
             "SELECT id FROM projects WHERE name = ? AND id <> ?",
@@ -226,7 +183,7 @@ export function createProjectCommands(): {
         if (input.new_path === input.folder_path) {
           return invalid("new path is the same as the folder");
         }
-        // 하위 폴더와 설명은 그대로 따라간다.
+        // 폴더 설명은 그대로 따라간다.
         const folders = before.folders.map((folder) =>
           folder === target ? { ...folder, path: input.new_path } : folder,
         );

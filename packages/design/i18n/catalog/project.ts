@@ -90,15 +90,18 @@ export const project = {
   "file-search.notice.unavailable": "Search isn't available right now.",
   "project-workspace.button.detached-dock": "Dock",
   "project-workspace.button.explorer-collapse-all": "Collapse All",
+  "project-workspace.button.explorer-add-folder": "Add folder",
   "project-workspace.button.explorer-copy-path": "Copy Path",
   "project-workspace.button.explorer-copy-relative-path": "Copy Relative Path",
   "project-workspace.button.explorer-delete": "Delete",
   "project-workspace.button.explorer-move": "Move",
   "project-workspace.button.explorer-new-file": "New File",
   "project-workspace.button.explorer-new-folder": "New Folder",
+  "project-workspace.button.explorer-open-terminal": "Open in Terminal",
   "project-workspace.button.explorer-refresh": "Refresh",
   "project-workspace.button.explorer-rename": "Rename",
   "project-workspace.button.explorer-reveal": "Reveal in File Manager",
+  "project-workspace.button.explorer-remove-folder": "Remove",
   "project-workspace.button.explorer-trash": "Move to Trash",
   "project-workspace.button.float-close": "Close",
   "project-workspace.button.float-detach": "Detach",
@@ -144,6 +147,8 @@ export const project = {
     "“{name}” isn't a valid file or folder name.",
   "project-workspace.error.explorer-name-required":
     "Enter a file or folder name.",
+  "project-workspace.error.explorer-remove-folder-failed":
+    "Couldn't remove “{name}” from this project. Nothing changed.",
   "project-workspace.error.explorer-trash-failed":
     "Couldn't move “{name}” to the Trash, so nothing was deleted.",
   "project-workspace.error.files-failed": "Couldn't read this folder.",
@@ -179,6 +184,7 @@ export const project = {
   "project-workspace.label.rail-shortcuts": "Shortcuts",
   "project-workspace.label.rail-terminal": "Terminal",
   "project-workspace.label.recent": "Recent",
+  "project-workspace.label.remove-folder": "Remove {name} from this project",
   "project-workspace.label.root-folder": "Root folder",
   "project-workspace.label.sidebar-tab-agent": "Agents",
   "project-workspace.label.sidebar-tab-artifact": "Artifacts",
@@ -193,9 +199,13 @@ export const project = {
     "Are you sure you want to delete “{name}” and its contents? You can restore it from the Trash.",
   "project-workspace.notice.explorer-move":
     "This moves “{name}” into “{folder}”.",
+  "project-workspace.notice.explorer-remove-folder":
+    "“{name}” is removed from this project. The folder and its files stay on your disk.",
   "project-workspace.sidebar.label": "Project",
   "project-workspace.title.explorer-delete": "Delete {name}?",
   "project-workspace.title.explorer-move": "Move {name}?",
+  "project-workspace.title.explorer-remove-folder":
+    "Remove {name} from this project?",
   "run-list.button.background": "Background",
   "run-list.empty.none": "Nothing has started in the background yet.",
   "run-list.heading.background": "Background",
@@ -215,8 +225,6 @@ export const project = {
   "terminal.error.unavailable": "Terminals aren't available right now.",
   "terminal.error.unreadable":
     "lophn can't open the project folder, so the terminal didn't start.",
-  "terminal.heading.choose-folder": "Choose where this terminal starts",
-  "terminal.label.folders": "Project folders",
   "terminal.label.output": "Terminal",
   "terminal.label.session-ended": "Session ended",
   "terminal.notice.next-handoff": "The next hand-off starts a new session.",

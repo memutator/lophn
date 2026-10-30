@@ -206,12 +206,8 @@ const PROJECT = {
   id: PROJECT_ID,
   title: "phroner",
   folders: [
-    {
-      path: FAKE_PROJECT_FOLDER,
-      found: true,
-      subfolders: [{ path: "eval" }],
-    },
-    { path: FAKE_NOTES_FOLDER, found: true, subfolders: [] },
+    { path: FAKE_PROJECT_FOLDER, found: true },
+    { path: FAKE_NOTES_FOLDER, found: true },
   ],
 };
 
@@ -633,6 +629,7 @@ export function PageSidebar(props: SidebarProps) {
   useSidebarScript(ref, props);
   // JobPanel과 WorkflowPanel이 event를 듣는다.
   const [client] = useState(() => createEventClient(createFakeSource()));
+  const [root, setRoot] = useState<string | null>(null);
   const jobs = useMemo(
     () => fakeJobs({ jobs: props.noJobs === true ? [] : JOBS }).source,
     [props.noJobs],
@@ -662,6 +659,11 @@ export function PageSidebar(props: SidebarProps) {
           }
           onMove={(from, to) => DEMO_SOURCE.rename(from, to)}
           onTrash={(path) => DEMO_SOURCE.trash(path)}
+          explorerRoot={root}
+          onExplorerRoot={setRoot}
+          onAddFolder={() => Promise.resolve(true)}
+          onRemoveFolder={() => Promise.resolve(true)}
+          onOpenTerminal={() => {}}
           onRail={props.onRail}
           onAgent={(agent) => props.onAgent(agent.assignment)}
           onSession={(session) => {

@@ -13,12 +13,8 @@ const OLD_NOTES = "prj_01h455vb4pex5v6nkc6gd5fd03";
 /** 사라진 폴더를 보이는 gallery page가 쓰는 폴더. */
 export const MISSING_FOLDER = "/home/mina/notes/phroner";
 
-export function folderItem(
-  path: string,
-  description: string,
-  subfolders: FolderItem["subfolders"] = [],
-): FolderItem {
-  return { path, description, found: true, subfolders };
+export function folderItem(path: string, description: string): FolderItem {
+  return { path, description, found: true };
 }
 
 const DEFAULT_PROJECTS: readonly ProjectItem[] = [
@@ -29,11 +25,7 @@ const DEFAULT_PROJECTS: readonly ProjectItem[] = [
     revision: "7",
     archived: false,
     folders: [
-      folderItem("/home/mina/work/phroner", "Harness code and eval runs", [
-        { path: "eval", description: "Experiment runs and results" },
-        { path: "src/harness", description: "The harness loop code" },
-        { path: "docs", description: "Design notes for the loop" },
-      ]),
+      folderItem("/home/mina/work/phroner", "Harness code and eval runs"),
       folderItem("/home/mina/notes/phroner", "Reading notes and papers"),
     ],
   },
@@ -54,12 +46,6 @@ const DEFAULT_PROJECTS: readonly ProjectItem[] = [
     folders: [folderItem("/home/mina/notes/course", "Course notes")],
   },
 ];
-
-/** 폴더 고르기가 읽는 폴더 이름. 경로 끝 이름 기준으로 한 단계씩 돌려준다. */
-const TREE: Readonly<Record<string, readonly string[]>> = {
-  "/home/mina/work/phroner": ["docs", "eval", "scripts", "src", "tests"],
-  "/home/mina/work/phroner/src": ["harness", "tools"],
-};
 
 export interface FakeProjectsOptions {
   projects?: readonly ProjectItem[];
@@ -155,10 +141,6 @@ export function fakeProjects(options: FakeProjectsOptions = {}) {
             : options.picked,
       });
     },
-    listFolders(path) {
-      calls.push(["folders", path]);
-      return Promise.resolve({ ok: true, value: TREE[path] ?? [] });
-    },
     register(draft) {
       calls.push(["register", draft]);
       const failed = failure();
@@ -169,11 +151,7 @@ export function fakeProjects(options: FakeProjectsOptions = {}) {
         purpose: draft.purpose,
         revision: "1",
         archived: false,
-        folders: draft.folders.map((folder) => ({
-          ...folder,
-          found: true,
-          subfolders: [],
-        })),
+        folders: draft.folders.map((folder) => ({ ...folder, found: true })),
       };
       rows = [...rows, project];
       return Promise.resolve({ ok: true, value: project });

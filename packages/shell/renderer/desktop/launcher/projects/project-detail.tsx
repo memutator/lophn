@@ -8,16 +8,13 @@ import { commonIcons, retryIcon } from "../../../icons/mod.ts";
 
 import {
   addFolder,
-  addSubfolder,
   changeFolder,
   changeOf,
-  changeSubfolder,
   type Draft,
   draftOf,
   removeFolder,
   usableName,
 } from "./model.ts";
-import { SubfolderPicker } from "./subfolder-picker.tsx";
 import type { ProjectItem, ProjectsSource } from "./source.ts";
 import styles from "./project-detail.module.css";
 
@@ -36,7 +33,7 @@ interface ProjectFormProps {
 
 type Problem = "name-missing" | "changed" | "failed" | "picker-failed";
 
-// 프로젝트 하나: 이름·목적·폴더·폴더 설명·하위 폴더를 고치고 저장한다.
+// 프로젝트 하나: 이름·목적·폴더·폴더 설명을 고치고 저장한다.
 // 고침은 [Save changes]를 누를 때까지 초안에만 있다.
 function ProjectForm({
   source,
@@ -49,7 +46,6 @@ function ProjectForm({
   const [draft, setDraft] = useState<Draft>(() => draftOf(project));
   const [problem, setProblem] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
-  const [adding, setAdding] = useState<string | null>(null);
 
   const change = changeOf(project, draft);
 
@@ -85,8 +81,6 @@ function ProjectForm({
     setProblem(null);
     if (!(await onRelocate(project, folder))) setProblem("failed");
   };
-
-  const addingFolder = draft.folders.find((folder) => folder.path === adding);
 
   return (
     <section
@@ -214,125 +208,6 @@ function ProjectForm({
                     }}
                   />
                 </Field>
-                <div className={styles.subfolders}>
-                  <div className={styles.subHead}>
-                    <span className={styles.subTitle}>
-                      {t("projects.heading.subfolders")}
-                    </span>
-                    <Button
-                      size="sm"
-                      icon={commonIcons.add}
-                      disabled={!folder.found}
-                      data-add-subfolder=""
-                      onClick={() => setAdding(folder.path)}
-                    >
-                      {t("projects.button.add-subfolder")}
-                    </Button>
-                  </div>
-                  {folder.subfolders.length === 0 ? (
-                    <p className={styles.muted}>
-                      {folder.found
-                        ? t("projects.empty.no-subfolders")
-                        : t("projects.notice.relocate-first")}
-                    </p>
-                  ) : (
-                    <ul className={styles.subfolderList}>
-                      {folder.subfolders.map((sub) => {
-                        const original = project.folders
-                          .find((item) => item.path === folder.path)
-                          ?.subfolders.find((item) => item.path === sub.path);
-                        return sub.removed ? (
-                          <li
-                            key={sub.path}
-                            className={styles.subfolderRemoved}
-                            data-subfolder-removed={sub.path}
-                          >
-                            <span>
-                              {t("projects.notice.subfolder-removed", {
-                                path: sub.path,
-                              })}
-                            </span>
-                            <Button
-                              size="sm"
-                              data-undo-subfolder=""
-                              onClick={() =>
-                                setDraft(
-                                  changeSubfolder(
-                                    draft,
-                                    folder.path,
-                                    sub.path,
-                                    (item) => ({
-                                      ...item,
-                                      removed: false,
-                                    }),
-                                  ),
-                                )
-                              }
-                            >
-                              {t("projects.button.undo")}
-                            </Button>
-                          </li>
-                        ) : (
-                          <li
-                            key={sub.path}
-                            className={styles.subfolder}
-                            data-subfolder={sub.path}
-                          >
-                            <div className={styles.folderHead}>
-                              <span className={styles.path}>{sub.path}</span>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                data-remove-subfolder=""
-                                onClick={() =>
-                                  setDraft(
-                                    changeSubfolder(
-                                      draft,
-                                      folder.path,
-                                      sub.path,
-                                      (item) => ({
-                                        ...item,
-                                        removed: true,
-                                      }),
-                                    ),
-                                  )
-                                }
-                              >
-                                {t("projects.button.remove")}
-                              </Button>
-                            </div>
-                            <Field
-                              label={t("projects.label.subfolder-description")}
-                              help={
-                                original !== undefined &&
-                                original.description !== sub.description
-                                  ? t("projects.help.subfolder-edited")
-                                  : undefined
-                              }
-                            >
-                              <Input
-                                size="sm"
-                                value={sub.description}
-                                data-subfolder-description=""
-                                onChange={(event) => {
-                                  const description = event.currentTarget.value;
-                                  setDraft(
-                                    changeSubfolder(
-                                      draft,
-                                      folder.path,
-                                      sub.path,
-                                      (item) => ({ ...item, description }),
-                                    ),
-                                  );
-                                }}
-                              />
-                            </Field>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </div>
               </li>
             ))}
           </ul>
@@ -363,21 +238,6 @@ function ProjectForm({
           </p>
         ) : null}
       </form>
-      <SubfolderPicker
-        open={adding !== null}
-        root={adding ?? ""}
-        added={
-          addingFolder?.subfolders
-            .filter((sub) => !sub.removed)
-            .map((sub) => sub.path) ?? []
-        }
-        source={source}
-        onClose={() => setAdding(null)}
-        onAdd={(subfolder) => {
-          if (adding !== null) setDraft(addSubfolder(draft, adding, subfolder));
-          setAdding(null);
-        }}
-      />
     </section>
   );
 }

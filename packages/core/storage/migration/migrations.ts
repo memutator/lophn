@@ -17,8 +17,8 @@ type MigrationDeps = {
   };
 };
 
-type AppliedMigration = {
-  version: number;
+type PlannedStep = {
+  step: SchemaStep;
   contentHash: string;
 };
 
@@ -47,7 +47,7 @@ begin
   select raise(abort, 'immutable');
 end;`;
 
-type Recorded = { version: number; contentHash: string };
+type Recorded = { version: number; stepId: string; contentHash: string };
 
 function readRecorded(sql: Sql): Recorded[] {
   const exists = sql.get(
@@ -57,11 +57,12 @@ function readRecorded(sql: Sql): Recorded[] {
   if (exists === undefined) return [];
   return sql
     .all(
-      "select version, content_hash from schema_migrations order by version",
+      "select version, step_id, content_hash from schema_migrations order by version",
       [],
     )
     .map((row) => ({
       version: Number(row["version"]),
+      stepId: String(row["step_id"]),
       contentHash: String(row["content_hash"]),
     }));
 }
@@ -89,27 +90,34 @@ function startFailure(
   });
 }
 
-// 지원보다 높은 schema·다른 hash·손상은 아무것도 쓰지 않고 거절한다.
-function checkHistory(
+// 적용 여부는 step id로 본다. 목록의 위치로 보면 앞쪽 module에 step 하나를 더할 때 뒤 step이 모두 어긋난다.
+// 지금 목록에 없는 id가 적용돼 있으면 더 새 판이 연 ledger다. 같은 id의 SQL이 다르면 적용한 내용과 설치본이 다르다.
+// 어느 쪽이든 아무것도 쓰지 않고 거절한다.
+function unappliedSteps(
   recorded: Recorded[],
-  steps: readonly AppliedMigration[],
-): Result<void> {
-  if (recorded.length > steps.length) {
-    return startFailure(
-      "newer_schema",
-      "설치된 schema보다 높은 판이라 정상 시작을 거절한다",
-    );
-  }
-  for (const [index, row] of recorded.entries()) {
-    const step = steps[index];
-    if (row.version !== step.version || row.contentHash !== step.contentHash) {
+  planned: readonly PlannedStep[],
+): Result<PlannedStep[]> {
+  const known = new Map(
+    planned.map((entry) => [entry.step.id, entry.contentHash]),
+  );
+  const applied = new Set<string>();
+  for (const row of recorded) {
+    const hash = known.get(row.stepId);
+    if (hash === undefined) {
+      return startFailure(
+        "newer_schema",
+        "설치된 schema보다 높은 판이라 정상 시작을 거절한다",
+      );
+    }
+    if (hash !== row.contentHash) {
       return startFailure(
         "history_mismatch",
         "적용된 schema 내용이 설치본과 달라 정상 시작을 거절한다",
       );
     }
+    applied.add(row.stepId);
   }
-  return ok(undefined);
+  return ok(planned.filter((entry) => !applied.has(entry.step.id)));
 }
 
 // 데이터베이스 파일이 아니면 검사 자체가 던진다. 둘 다 손상이다.
@@ -127,12 +135,17 @@ export async function applyMigrations(
   steps: readonly SchemaStep[],
   deps: MigrationDeps,
 ): Promise<Result<number>> {
-  const planned: AppliedMigration[] = [];
-  for (const [index, step] of steps.entries()) {
-    planned.push({
-      version: index + 1,
-      contentHash: await sha256Hex(step.sql),
-    });
+  const planned: PlannedStep[] = [];
+  const ids = new Set<string>();
+  for (const step of steps) {
+    if (ids.has(step.id)) {
+      return err({
+        code: "internal",
+        message: `schema step id가 겹친다: ${step.id}`,
+      });
+    }
+    ids.add(step.id);
+    planned.push({ step, contentHash: await sha256Hex(step.sql) });
   }
   const opened = openConnection(path);
   if (!opened.ok) {
@@ -147,11 +160,10 @@ export async function applyMigrations(
       );
     }
     const recorded = readRecorded(connection.sql);
-    const checked = checkHistory(recorded, planned);
-    if (!checked.ok) return checked;
-    const unapplied = steps.length - recorded.length;
+    const unapplied = unappliedSteps(recorded, planned);
+    if (!unapplied.ok) return unapplied;
     if (
-      unapplied > 0 &&
+      unapplied.value.length > 0 &&
       deps.recovery !== undefined &&
       // 새 설치(변환 전 schema 0)는 남길 변환 전 자료가 없어 복구본을 만들지 않는다.
       recorded.length > 0
@@ -167,14 +179,11 @@ export async function applyMigrations(
       // 복구본 만들기나 검사가 실패하면 원본을 변환하지 않고 시작을 거절한다.
       if (!recovery.ok) return recovery;
     }
-    const applied = steps.length - recorded.length;
-    for (let index = recorded.length; index < steps.length; index++) {
-      const stepped = applyStep(
-        connection,
-        steps[index],
-        planned[index],
-        deps.clock,
-      );
+    // version은 적용한 차례다. 목록 위치와 다를 수 있다.
+    let version = recorded.reduce((top, row) => Math.max(top, row.version), 0);
+    for (const entry of unapplied.value) {
+      version += 1;
+      const stepped = applyStep(connection, entry, version, deps.clock);
       if (!stepped.ok) return stepped;
     }
     // 완료 뒤 FK·무결성·불변 보호를 검사한다. 실패면 원본이 이미 rollback됐다.
@@ -182,7 +191,7 @@ export async function applyMigrations(
       guarded: guardedTables(steps),
     });
     if (!verified.ok) return verified;
-    return ok(applied);
+    return ok(unapplied.value.length);
   } finally {
     connection.close();
   }
@@ -224,14 +233,14 @@ function guardedTablesOf(step: string): string[] {
 // 변환과 이력은 한 transaction이다. 실패하면 그 단계 전체가 rollback된다.
 function applyStep(
   connection: LedgerConnection,
-  step: SchemaStep,
-  planned: AppliedMigration,
+  entry: PlannedStep,
+  version: number,
   clock: Clock,
 ): Result<void> {
   connection.exec("begin immediate");
   try {
     connection.exec(MIGRATIONS_TABLE);
-    connection.exec(step.sql);
+    connection.exec(entry.step.sql);
     // step이 commit이나 rollback을 하면 적용기의 transaction이 끝난다.
     if (!connection.inTransaction()) {
       return err({
@@ -241,7 +250,7 @@ function applyStep(
     }
     connection.sql.run(
       "insert into schema_migrations (version, step_id, content_hash, applied_at) values (?, ?, ?, ?)",
-      [planned.version, step.id, planned.contentHash, clock.now()],
+      [version, entry.step.id, entry.contentHash, clock.now()],
     );
     connection.exec("commit");
     return ok(undefined);

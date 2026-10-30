@@ -1,4 +1,5 @@
 export { applyMigrations, startFailureReason } from "./migrations.ts";
+export { applyDataSteps, type DataStep } from "./data-steps.ts";
 export {
   confirmStartup,
   createRecoveryCopy,

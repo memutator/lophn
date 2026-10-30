@@ -202,8 +202,9 @@ async function stageDebian(pkg: string, version: string): Promise<void> {
 async function main(): Promise<void> {
   const out = option("--out") ?? `${repo}/build/linux`;
   const pkg = `${out}/pkg`;
+  // 제품 판은 root package.json 하나다. Electron 앱에는 build 때 넣는다.
   const version: string = JSON.parse(
-    await readFile(`${shellMain}/package.json`, "utf8"),
+    await readFile(`${repo}/package.json`, "utf8"),
   ).version;
   await rm(out, { recursive: true }).catch(() => undefined);
   await mkdir(pkg, { recursive: true });
@@ -231,7 +232,7 @@ async function main(): Promise<void> {
     );
     await run(
       `${repo}/node_modules/.bin/electron-builder`,
-      ["--linux", "dir"],
+      ["--linux", "dir", `-c.extraMetadata.version=${version}`],
       { cwd: shellMain },
     );
   }

@@ -13,6 +13,7 @@ import {
   WORKSPACE_MEMORY_ROUTES,
 } from "../../server/mod.ts";
 import {
+  applyDataSteps,
   applyMigrations,
   checkRestart,
   ensureLedgerId,
@@ -179,6 +180,13 @@ async function open(
   });
   if (!migrated.ok) return migrated;
   ctx.provide("migrationsApplied", migrated.value);
+  // ledger 밖 파일은 ledger 뒤에 옮긴다. ledger가 거절한 판(더 새 판, 다른 내용)은 파일도 건드리지 않는다.
+  const files = await applyDataSteps(
+    root.path,
+    wirings.flatMap((wiring) => wiring.dataSteps ?? []),
+    !ledgerExisted,
+  );
+  if (!files.ok) return files;
   const ledgerId = await ensureLedgerId(root.path, ledgerExisted);
   if (!ledgerId.ok) return ledgerId;
   ctx.provide("ledgerId", ledgerId.value);

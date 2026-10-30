@@ -23,7 +23,8 @@ import { parseArgs, type ParsedArgs } from "./parser.ts";
 import { matchCommand } from "./registry.ts";
 import { ExitWith, type RunContext } from "./commands/types.ts";
 
-const VERSION = "0.10.2";
+// 제품 판은 root package.json 하나다. 설치본에서도 platform/package.json으로 같이 간다(tools/package-linux.ts).
+import productPackage from "../../../package.json" with { type: "json" };
 
 // 시험이 끼우는 환경이다. 없으면 process의 것이다.
 type CliOptions = {
@@ -182,7 +183,7 @@ export async function cliMain(
     return first === undefined && !parsed.help ? CLI_EXITS.invalid_input : 0;
   }
   if (first === "version") {
-    await output.result({ version: VERSION });
+    await output.result({ version: productPackage.version });
     return 0;
   }
   if (matched === undefined) {

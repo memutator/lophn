@@ -2,7 +2,7 @@
 // wiring은 이 file(과 module·protocol)만 가져간다.
 //
 // 구동 순서(core.ts의 open이 이 순서로 hook을 부른다. 같은 hook은 WIRINGS 순서대로다):
-//   environment → assemble → schemaSteps·schemaStepsAfterTeams → migration → restartOwners → operations
+//   environment → assemble → schemaSteps·schemaStepsAfterTeams → migration → dataSteps → restartOwners → operations
 //   → prepare → openRuntime → records → build → API → start → ready → afterReady
 // 종료 순서: closeIntake → server.stop → closeChildren → 감독 정지 → closeWork → runtime.close → stopped
 import type { Clock, RandomSource, Result } from "../../../../base/mod.ts";
@@ -36,7 +36,7 @@ import type {
   InvocationLedger,
 } from "../../../apps/ports.ts";
 import type { KnownSecretMatch, Writer } from "../../../storage/ledger/mod.ts";
-import type { RestartOwner } from "../../../storage/migration/mod.ts";
+import type { DataStep, RestartOwner } from "../../../storage/migration/mod.ts";
 import type {
   BlobPrepareCall,
   BlobPrepareRelay,
@@ -140,6 +140,8 @@ type Wiring = {
   // migration에 더한다. 팀 schema보다 앞(ledger, credential)과 뒤(settings, secret). 순서가 이력이다.
   schemaSteps?: readonly SchemaStep[];
   schemaStepsAfterTeams?: readonly SchemaStep[];
+  // ledger 밖 data root 파일의 모양을 바꾸는 step. 소유 concern이 낸다. id로 적용 여부를 본다.
+  dataSteps?: readonly DataStep[];
   // assemble(options.teams, env)의 환경에 합쳐 넘긴다.
   environment?(ctx: WiringContext): Record<string, unknown>;
   // 기동 때 중단 작업을 점검하는 소유 concern.

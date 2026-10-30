@@ -93,8 +93,7 @@ async function checkLayout(): Promise<void> {
     if (!(await isFile(file))) missing.push(file);
   }
   for (const dir of [
-    `${layout.platform}/node_modules/@lophn/core`,
-    `${layout.platform}/node_modules/@lophn/protocol`,
+    // @lophn member는 package-linux가 선언에서 정한다. 실제로 풀리는지는 checkAppEntrypoint와 core 시작이 본다.
     layout.skills,
     layout.sdk,
   ]) {
@@ -231,9 +230,28 @@ async function checkCoreOffline(): Promise<void> {
   }
 }
 
+// 앱 process 진입점의 module graph가 설치본 안에서 풀리는지 본다. supervisor가 앱을 띄울 때
+// 처음 import하는 module이고, 풀리지 않으면 모든 앱이 "exited before ready"로 끝난다.
+// import만 하고 `run`은 부르지 않는다. 대상은 `--root`로 정한 설치본이라 자식 process에서 경로로 불러온다.
+async function checkAppEntrypoint(): Promise<void> {
+  const entry = `${layout.platform}/packages/core/apps/runtime/entrypoint/main.ts`;
+  const script = `await import(${JSON.stringify(entry)});`;
+  const loaded = await run(
+    layout.desktopBinary,
+    ["--input-type=module", "-e", script],
+    { ELECTRON_RUN_AS_NODE: "1" },
+  );
+  record(
+    "R4 앱 진입점이 설치본의 의존만으로 풀린다",
+    loaded.code === 0 ? "pass" : "fail",
+    loaded.code === 0 ? "" : `exit ${loaded.code}`,
+  );
+}
+
 await checkLayout();
 await checkLaunchers();
 await checkCoreOffline();
+await checkAppEntrypoint();
 
 const failed = results.filter((item) => item.verdict === "fail").length;
 const unverified = results.filter(

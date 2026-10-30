@@ -2,5 +2,8 @@
   "name": "@lophn/cap-problem",
   "version": "1.0.0",
   "type": "module",
-  "exports": "./mod.ts"
+  "exports": "./mod.ts",
+  "dependencies": {
+    "@lophn/protocol": "0.0.0"
+  }
 }

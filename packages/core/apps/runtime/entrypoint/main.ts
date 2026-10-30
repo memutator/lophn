@@ -1,5 +1,5 @@
 // 앱 프로세스 진입점. exception observer를 앱 code load 전에 설치한다.
-// observer는 platform 설치의 SDK 사본에서 온다. 앱 code는 호출자가 넘긴 앱 module URL 하나뿐이다.
+// observer는 `@lophn/cap-problem`에서 정적으로 온다. 이름은 core의 package.json에 선언해 설치본이 같이 싣는다.
 
 import type { Buffer } from "node:buffer";
 import { writeSync } from "node:fs";
@@ -8,8 +8,21 @@ import { request as httpRequest } from "node:http";
 import { dirname } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { createIdSource, systemClock } from "@lophn/base";
+import { createExceptionObserver } from "@lophn/cap-problem";
+import {
+  createIdSource,
+  ERROR_CODES,
+  type ErrorCode,
+  type Result,
+  systemClock,
+} from "@lophn/base";
 import type { AppDeclaration } from "../../../../protocol/apps/declaration/mod.ts";
+import type {
+  ExceptionObservationInput,
+  ExceptionObserverTransport,
+  ReportAcceptance,
+  ReportTransportError,
+} from "../../../../protocol/problems/sdk-report.ts";
 import type { BrokerTransport } from "./broker-client.ts";
 import { startControlServer } from "./control-server.ts";
 import { installCrashExit } from "./crash.ts";
@@ -17,19 +30,7 @@ import { BROKER_PATHS, SOCKET_HOST } from "./limits.ts";
 import { parseAppStart } from "./start-input.ts";
 import { publishReady, startRuntime } from "./startup.ts";
 
-const OBSERVER = "@lophn/cap-problem";
 const CRASH_REPORT_WAIT_MS = 2_000;
-
-type ObserverFactory = {
-  createExceptionObserver: (deps: {
-    now: () => string;
-    newId: (prefix: string) => string;
-    sleep: (ms: number) => Promise<void>;
-    currentInvocation: () => null;
-  }) => ((transport: (input: unknown) => Promise<unknown>) => () => void) & {
-    settled?: () => Promise<void>;
-  };
-};
 
 type MainDeps = {
   readLine: () => Promise<string | null>;
@@ -42,7 +43,7 @@ type MainDeps = {
   broker: BrokerTransport;
   dataSchema: number;
   // 예외 관측은 이 transport 한 곳이다. crash exit는 같은 실패를 다시 보내지 않는다.
-  reportTransport: (input: unknown) => Promise<unknown>;
+  reportTransport: ExceptionObserverTransport;
   exit?: (code: number) => void;
   writeStderr?: (text: string) => void;
 };
@@ -59,8 +60,7 @@ async function main(deps: MainDeps): Promise<void> {
   const writeStderr =
     deps.writeStderr ?? ((text: string) => writeSync(2, text));
   const exit = deps.exit ?? ((code: number) => process.exit(code));
-  const observer = (await deps.importModule(OBSERVER)) as ObserverFactory;
-  const install = observer.createExceptionObserver({
+  const install = createExceptionObserver({
     now: () => clock.now(),
     newId: (prefix) => ids.newId(prefix),
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
@@ -198,8 +198,8 @@ async function reportException(
   socketPath: string,
   credential: string,
   child: { process_nonce: string; mode: string },
-  input: unknown,
-): Promise<unknown> {
+  input: Readonly<ExceptionObservationInput>,
+): Promise<Result<ReportAcceptance, ReportTransportError>> {
   const response = await postUnix(
     socketPath,
     BROKER_PATHS.problemsObserve,
@@ -211,14 +211,16 @@ async function reportException(
     },
   );
   // SDK의 deliver가 읽는 Result 꼴로 바꿔 넘긴다. 날 body를 넘기면 200 응답에서 ok를 못 읽어 던진다.
-  if (response.status === 200) return { ok: true, value: response.body };
+  if (response.status === 200) return { ok: true, value: { written: true } };
   const error = (
     response.body as { error?: { code?: unknown; message?: unknown } } | null
   )?.error;
   return {
     ok: false,
     error: {
-      code: typeof error?.code === "string" ? error.code : "unavailable",
+      code: ERROR_CODES.includes(error?.code as ErrorCode)
+        ? (error?.code as ErrorCode)
+        : "unavailable",
       message:
         typeof error?.message === "string"
           ? error.message

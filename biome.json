@@ -76,6 +76,7 @@
         "useOptionalChain": "off"
       },
       "correctness": {
+        "noUndeclaredDependencies": "error",
         "noUnsafeOptionalChaining": "off",
         "noVoidTypeReturn": "off"
       },

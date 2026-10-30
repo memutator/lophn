@@ -27,6 +27,7 @@
     "./supervision": "./supervision/mod.ts"
   },
   "dependencies": {
+    "@lophn/base": "0.0.0",
     "zod": "4.6.5"
   }
 }

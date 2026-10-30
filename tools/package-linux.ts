@@ -109,17 +109,42 @@ async function stagePlatform(pkg: string): Promise<void> {
 
 // core와 CLI는 Node로 뜨므로 platform/ 안에서 풀리는 npm production 의존이 있어야 한다.
 // npm workspace가 member를 상대 symlink로 잇고, 설치를 옮겨도 symlink가 설치 안을 가리킨다.
+// 설치본이 띄우는 package는 core와 coding-agent이고, member는 그 package.json들이 선언한 @lophn 의존을 따라 정한다.
+// 손으로 적은 목록은 선언과 어긋나 설치본에서 import가 풀리지 않았다.
+const PLATFORM_ROOTS = ["packages/core", "packages/coding-agent"];
+
+async function platformMembers(): Promise<string[]> {
+  const lock = JSON.parse(await readFile(`${repo}/package-lock.json`, "utf8"));
+  const packages: Record<
+    string,
+    { name?: string; dependencies?: Record<string, string> }
+  > = lock.packages;
+  const byName = new Map<string, string>();
+  for (const [path, entry] of Object.entries(packages)) {
+    if (path !== "" && !path.startsWith("node_modules/") && entry.name) {
+      byName.set(entry.name, path);
+    }
+  }
+  const members = new Set<string>();
+  const queue = [...PLATFORM_ROOTS];
+  while (queue.length > 0) {
+    const path = queue.shift()!;
+    if (members.has(path)) continue;
+    members.add(path);
+    for (const name of Object.keys(packages[path]?.dependencies ?? {})) {
+      const member = byName.get(name);
+      if (member) queue.push(member);
+    }
+  }
+  return [...members].sort();
+}
+
 async function stageNodeModules(platform: string): Promise<void> {
   const root = JSON.parse(await readFile(`${repo}/package.json`, "utf8"));
   // build 도구 의존은 설치본에서 쓰지 않는다. member 의존만 남긴다.
   delete root.dependencies;
   delete root.devDependencies;
-  root.workspaces = [
-    "packages/base",
-    "packages/protocol",
-    "packages/core",
-    "packages/coding-agent",
-  ];
+  root.workspaces = await platformMembers();
   await writeFile(
     `${platform}/package.json`,
     JSON.stringify(root, null, 2) + "\n",

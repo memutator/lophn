@@ -16,6 +16,8 @@ export type VendorRule = {
   rewrite: Readonly<Record<string, string>>;
   // 사본에 더할 파일(타입만 내보내는 얇은 mod 등).
   generated?: Readonly<Record<string, string>>;
+  // vendor/로 담아 사본이 더는 기대지 않는 package. 사본 package.json의 dependencies에서 뺀다.
+  vendored?: readonly string[];
 };
 
 // @lophn/declaration: 정본 검증기는 protocol/apps/declaration의 의존성 없는 파일들이다(read.ts·check.ts는 zod를 써서 뺀다).
@@ -79,6 +81,7 @@ const CAP_PROBLEM: VendorRule = {
     "vendor/base/mod.ts":
       'export type { LophnError } from "./errors.ts";\nexport type { Result } from "./result.ts";\n',
   },
+  vendored: ["@lophn/protocol"],
 };
 
 const VENDOR_RULES: Readonly<Record<string, VendorRule>> = {
@@ -155,6 +158,25 @@ function rewriteSpecifiers(
     : file;
 }
 
+function dropDependencies(
+  file: SourceFile,
+  names: readonly string[],
+): SourceFile {
+  if (names.length === 0) return file;
+  const manifest = JSON.parse(new TextDecoder().decode(file.bytes)) as {
+    dependencies?: Record<string, string>;
+  };
+  if (manifest.dependencies === undefined) return file;
+  for (const name of names) delete manifest.dependencies[name];
+  if (Object.keys(manifest.dependencies).length === 0) {
+    delete manifest.dependencies;
+  }
+  return {
+    path: file.path,
+    bytes: new TextEncoder().encode(`${JSON.stringify(manifest, null, 2)}\n`),
+  };
+}
+
 // 규칙이 있는 package의 사본에 밖의 소스를 vendor/로 더하고 specifier를 바꾼다. 정렬은 부른 쪽이 한다.
 export async function vendorFiles(
   name: string,
@@ -163,7 +185,11 @@ export async function vendorFiles(
 ): Promise<Result<SourceFile[]>> {
   const rule = VENDOR_RULES[name];
   if (rule === undefined) return ok([...files]);
-  const out = files.map((file) => rewriteSpecifiers(file, rule.rewrite));
+  const out = files.map((file) =>
+    file.path === "package.json"
+      ? dropDependencies(file, rule.vendored ?? [])
+      : rewriteSpecifiers(file, rule.rewrite),
+  );
   for (const [from, to] of Object.entries(rule.files)) {
     try {
       out.push({

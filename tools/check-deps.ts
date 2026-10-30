@@ -42,6 +42,8 @@ const TERMINAL_HOST = [
   "packages/shell/terminal-host",
   "packages/shell/main/terminal",
 ];
+// 앱 process 진입점만 sdk를 더 쓸 수 있다. 앱 code보다 먼저 cap-problem의 exception observer를 건다.
+const APP_ENTRYPOINT = "packages/core/apps/runtime/entrypoint";
 
 export async function walk(
   root: string,
@@ -366,6 +368,11 @@ async function checkRepo(root: string): Promise<Violation[]> {
           targetPackage === "coding-agent" &&
           own === "shell" &&
           TERMINAL_HOST.some((place) => inside(file, place))
+        ) &&
+        !(
+          own === "core" &&
+          specifier === "@lophn/cap-problem" &&
+          inside(file, APP_ENTRYPOINT)
         )
       ) {
         add(

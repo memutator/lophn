@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "type": "module",
   "dependencies": {
+    "@lophn/base": "0.0.0",
+    "@lophn/cap-problem": "1.0.0",
+    "@lophn/protocol": "0.0.0",
     "@types/node": "24.19.1",
     "@types/picomatch": "4.0.3",
     "@types/ws": "8.18.2",

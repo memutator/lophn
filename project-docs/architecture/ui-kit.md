@@ -70,7 +70,7 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 - lophn update → 실행 중인 앱: 앱은 판을 고정하고, release bundle에 굳힌 사본으로 돈다.
 - 사용자가 component를 고치려면 그 file을 앱 `src/`로 복사해 쓴다. 복사한 file은 앱 것이라 lophn의 UI update가 닿지 않는다. 별도 eject 도구는 없다.
 
-설치 사본과 앱 template은 core 기동(`main/daemon/wiring/sdk-install.ts`)이 repo의 `packages/`에서 깐다. 같은 byte면 그대로 두고 다르면 지우고 다시 쓴다. 사본 밖 protocol을 가리키는 sdk(declaration, cap-store, cap-problem)는 그 file을 사본 안 `vendor/`에 담고 specifier를 바꾼다. release bundle은 npm package의 `node_modules/<이름>` symlink를 따라 복사하지 않고 목록(`node_modules/.lophn-links.json`)으로 굳히며, bundle 사본을 봉인할 때 연결을 다시 만든다.
+설치 사본과 앱 template은 core 기동(`main/daemon/wiring/sdk-install.ts`)이 repo의 `packages/`에서 깐다. 같은 byte면 그대로 두고 다르면 지우고 다시 쓴다. 사본 밖 protocol을 가리키는 sdk(declaration, cap-store, cap-problem)는 그 file을 사본 안 `vendor/`에 담고 specifier를 바꾼다. vendor로 담은 package(`@lophn/protocol`)는 사본 `package.json`의 의존에서 뺀다. release bundle은 npm package의 `node_modules/<이름>` symlink를 따라 복사하지 않고 목록(`node_modules/.lophn-links.json`)으로 굳히며, bundle 사본을 봉인할 때 연결을 다시 만든다.
 
 내장 sdk는 package catalog에 등록하지 않는다. 모든 place 종류의 `package.read` 목록은 `builtin` 칸에 설치 사본의 `@lophn/*` 이름과 판을 싣고, `@lophn/` 이름을 주면 설치 사본의 판과 guide를 읽는다(route `packages.builtin`). `@lophn/ui`는 `guide.md`가 없어 분류 `mod.ts`의 export 이름과 "언제 쓰나" 줄을 분류별로 모으고, 줄마다 props를 붙여 guide로 준다(`apps/packages/builtin.ts`). props는 같은 export 문이 내보내는 type(`SelectProps` 등)의 정의를 component source에서 주석째 옮긴 것이고, `extends`가 가리키는 같은 file의 type(`NativeInput` 등)도 붙인다. 내보낸 type이 없는 component는 `export function`의 인자 type이다. 쓰는 예는 싣지 않는다. 앱을 고치는 agent는 설치 사본을 file tool로 읽지 못해 이 guide가 props를 아는 길이다.
 

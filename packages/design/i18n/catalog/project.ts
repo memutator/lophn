@@ -177,6 +177,8 @@ export const project = {
   "project-workspace.label.menu-terminal": "Terminal",
   "project-workspace.label.minimized": "Minimized panels",
   "project-workspace.label.path": "Path",
+  "project-workspace.label.place-app": "App",
+  "project-workspace.label.place-project": "Project",
   "project-workspace.label.place-selector": "Place",
   "project-workspace.label.rail-agent": "Agent",
   "project-workspace.label.rail-browser": "Browser",

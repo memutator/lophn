@@ -1,0 +1,54 @@
+/* 이니셜 표식. 배경색은 chart 계열 8색 가운데 id로 고르고, 글자는 표면색이다. */
+.mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-7);
+  height: var(--space-7);
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--chart-series-0);
+  color: var(--color-surface-base);
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  user-select: none;
+}
+
+.mark[data-kind="app"] {
+  border-radius: var(--radius-full);
+}
+
+.mark[data-image] {
+  background: transparent;
+}
+
+.mark[data-tone="1"] {
+  background: var(--chart-series-1);
+}
+.mark[data-tone="2"] {
+  background: var(--chart-series-2);
+}
+.mark[data-tone="3"] {
+  background: var(--chart-series-3);
+}
+.mark[data-tone="4"] {
+  background: var(--chart-series-4);
+}
+.mark[data-tone="5"] {
+  background: var(--chart-series-5);
+}
+.mark[data-tone="6"] {
+  background: var(--chart-series-6);
+}
+.mark[data-tone="7"] {
+  background: var(--chart-series-7);
+}
+
+.image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

@@ -19,15 +19,17 @@ export function usePlaceLists(source: CatalogSource | undefined): PlaceLists {
     if (source === undefined) return;
     void source.catalog().then((result) => {
       if (!result.ok) return;
-      setProjects(
-        result.value.projects.map((item) => ({
-          id: item.id,
-          label: item.title,
-        })),
-      );
-      setApps(
-        result.value.apps.map((item) => ({ id: item.id, label: item.title })),
-      );
+      const option = (item: {
+        id: string;
+        title: string;
+        icon?: string;
+      }): PlaceOption => ({
+        id: item.id,
+        label: item.title,
+        ...(item.icon === undefined ? {} : { icon: item.icon }),
+      });
+      setProjects(result.value.projects.map(option));
+      setApps(result.value.apps.map(option));
     });
   }, [source]);
   useEffect(read, [read]);

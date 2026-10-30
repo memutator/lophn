@@ -51,6 +51,7 @@ import {
   readPanelWidth,
   savePanelWidth,
 } from "./panel-width.ts";
+import { readAppLayout, saveAppLayout } from "./app-layout.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
 import { PlaceSwitcher } from "../workspace/top-path/place-selector.tsx";
 import {
@@ -197,14 +198,28 @@ export function AppSpace({
   // 창마다 하나인 덮개 목록. 좁은 창의 오른쪽 패널이 앱 view 자리를 덮는다.
   const covers = useMemo(createViewCovers, []);
   // 오른쪽 패널. 열린 탭(details, agent)과 고른 탭, 패널을 보이는지는 따로 쥔다. 단추로 패널을 닫아도 탭의 상태는 남는다.
+  // 앱마다 마지막 모양을 기억해 다른 place에 갔다 와도 이어진다. 새 session 요청(startLophn)은 저장값보다 먼저다.
+  const [saved] = useState(() => readAppLayout(app));
   const [pane, setPane] = useState<AgentPaneState | null>(
     startLophn
       ? { mode: "agent", assignment: LOPHN_AGENT_ID, session: null }
-      : null,
+      : (saved?.pane ?? null),
   );
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [panelTab, setPanelTab] = useState<PanelTab>("agent");
-  const [panelOpen, setPanelOpen] = useState(startLophn === true);
+  const [detailsOpen, setDetailsOpen] = useState(saved?.detailsOpen ?? false);
+  const [panelTab, setPanelTab] = useState<PanelTab>(
+    startLophn ? "agent" : (saved?.panelTab ?? "agent"),
+  );
+  const [panelOpen, setPanelOpen] = useState(
+    startLophn === true || (saved?.panelOpen ?? false),
+  );
+  useEffect(() => {
+    saveAppLayout(app, {
+      panelOpen,
+      panelTab,
+      detailsOpen,
+      pane: pane?.mode === "manage" ? null : pane,
+    });
+  }, [app, panelOpen, panelTab, detailsOpen, pane]);
   const agentList = useAppAgents(agents, app);
   const paneShown = pane !== null && agents !== undefined;
   const runRows = useAppRuns(

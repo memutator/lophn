@@ -1,7 +1,7 @@
-import { Button, Icon } from "@lophn/ui/primitives";
-import { iconPixels } from "@lophn/ui/shared";
+import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
-import { appSpaceIcons, commonIcons, launcherIcons } from "../../icons/mod.ts";
+import { commonIcons } from "../../icons/mod.ts";
+import { PlaceMark } from "../../parts/place-mark/place-mark.tsx";
 
 import styles from "./launcher.module.css";
 
@@ -36,15 +36,7 @@ export function ArchivedSection({ items, onRestore }: ArchivedSectionProps) {
             data-archived-id={item.id}
           >
             <span className={styles.archivedName}>
-              <Icon
-                icon={
-                  item.kind === "project"
-                    ? launcherIcons.project
-                    : appSpaceIcons.app
-                }
-                pixels={iconPixels("base")}
-                className={styles.cardIcon}
-              />
+              <PlaceMark kind={item.kind} id={item.id} name={item.name} />
               {item.name}
             </span>
             <Button

@@ -1,11 +1,10 @@
-import { Icon } from "@lophn/ui/primitives";
 import { Button } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
-import { iconPixels } from "@lophn/ui/shared";
 import { commonIcons, launcherIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
 import { CardMenu } from "./card-menu.tsx";
+import { PlaceMark } from "../../parts/place-mark/place-mark.tsx";
 import { missingFolder } from "./model.ts";
 import type { ProjectItem } from "./projects/source.ts";
 import styles from "./launcher.module.css";
@@ -37,11 +36,7 @@ export function ProjectCard({
           className={styles.cardOpen}
           onClick={() => onOpen(card.id)}
         >
-          <Icon
-            icon={launcherIcons.project}
-            pixels={iconPixels("base")}
-            className={styles.cardIcon}
-          />
+          <PlaceMark kind="project" id={card.id} name={card.title} />
           <span className={styles.cardTitle}>{card.title}</span>
         </button>
         <span className={styles.cardAside}>

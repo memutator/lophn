@@ -1,13 +1,13 @@
 import type { ReactNode } from "react";
 import { t } from "@lophn/i18n";
-import { Icon, IconButton } from "@lophn/ui/primitives";
+import { IconButton } from "@lophn/ui/primitives";
 import { EmptyState, ErrorState, Skeleton } from "@lophn/ui/feedback";
 import { Tooltip } from "@lophn/ui/overlay";
-import { iconPixels } from "@lophn/ui/shared";
 import { appSpaceIcons, commonIcons, launcherIcons } from "../../icons/mod.ts";
 
 import type { AppRow } from "../../apps/source.ts";
 import { CardMenu } from "./card-menu.tsx";
+import { PlaceMark } from "../../parts/place-mark/place-mark.tsx";
 import type { Loaded } from "./model.ts";
 import styles from "./launcher.module.css";
 
@@ -71,11 +71,7 @@ export function AppsSection({
                   className={styles.cardOpen}
                   onClick={() => onApp(row.id)}
                 >
-                  <Icon
-                    icon={appSpaceIcons.app}
-                    pixels={iconPixels("base")}
-                    className={styles.cardIcon}
-                  />
+                  <PlaceMark kind="app" id={row.id} name={row.name} />
                   <span className={styles.cardTitle}>{row.name}</span>
                 </button>
                 <span className={styles.cardAside}>

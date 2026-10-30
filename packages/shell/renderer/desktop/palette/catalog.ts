@@ -4,6 +4,8 @@ import type { SourceResult } from "../../source-result.ts";
 interface Named {
   readonly id: string;
   readonly title: string;
+  /** 이미지 src(favicon 등). 없으면 switcher가 첫 글자와 색으로 대신한다. */
+  readonly icon?: string;
 }
 
 /** 팔레트에서 고르는 project와 앱. */

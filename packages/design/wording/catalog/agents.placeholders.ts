@@ -25,9 +25,11 @@ export type AgentsPlaceholders = {
   };
   "agents.notice.providers-disconnect-failed": Record<never, never>;
   "agents.error.settings-model-save-failed": Record<never, never>;
-  "agents.error.settings-instructions-failed": Record<never, never>;
+  "agents.error.instructions-conflict": Record<never, never>;
+  "agents.error.instructions-save-failed": Record<never, never>;
   "agents.notice.settings-agents-lead": Record<never, never>;
   "agents.notice.settings-default-model-help": Record<never, never>;
+  "agents.notice.settings-instructions-help": Record<never, never>;
   "agents.notice.settings-lophn-purpose": Record<never, never>;
   "agents.notice.settings-tools-elsewhere": Record<never, never>;
   "agents.notice.settings-tools-lead": Record<never, never>;
@@ -151,7 +153,6 @@ export type AgentsPlaceholders = {
   "project-workspace.button.add-skill": Record<never, never>;
   "project-workspace.button.agent-editor-delete": Record<never, never>;
   "project-workspace.button.agent-editor-delete-confirm": Record<never, never>;
-  "project-workspace.button.agent-editor-edit-project": Record<never, never>;
   "project-workspace.button.agent-editor-save": Record<never, never>;
   "project-workspace.button.agent-editor-upload-image": Record<never, never>;
   "project-workspace.button.edit-instructions": Record<never, never>;

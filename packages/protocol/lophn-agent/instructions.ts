@@ -17,34 +17,6 @@ const instructionReadFileSchema = z.object({
 
 export type InstructionReadFile = z.infer<typeof instructionReadFileSchema>;
 
-// 사람이 Settings › Agents에서 모든 project의 LOPHN.md 앞부분을 보는 읽기다. machine의 GetInstructions와
-// 따로 두어 사람 자격으로 읽는다. 입력이 없다: 전역 층 하나뿐이라 run·층·경로를 받지 않는다. 파일이 없으면
-// `preview`가 null이고 빈 파일은 본문이 빈 미리보기다. 읽는 파일은 같은 core 길이라 로컬 경로는 어느 칸에도 없다.
-// 상한은 요구가 정하지 않아 추천값을 둔다: 화면 한 칸에 보이는 앞부분이라 4 KiB다(32 KiB 파일 상한의 1/8).
-// 본문은 사람이 쓴 파일 그대로의 앞부분이다. 상한이 글자 가운데에 걸리면 그 글자 앞에서 끊고 `truncated`가 true다.
-export const INSTRUCTION_PREVIEW_MAX_BYTES = 4096;
-
-const instructionPreviewSchema = z.object({
-  text: z.string().max(INSTRUCTION_PREVIEW_MAX_BYTES),
-  size_bytes: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  truncated: z.boolean(),
-});
-export type InstructionPreview = z.infer<typeof instructionPreviewSchema>;
-
-export const instructionPreview = defineRead({
-  resource: "instructions",
-  method: "preview",
-  name: "PreviewGlobalInstructions",
-  input: z.strictObject({}),
-  output: withReadCommon(
-    z.object({
-      preview: instructionPreviewSchema.nullable(),
-    }),
-  ),
-  actors: ["user"],
-  errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
-});
-
 // 지침은 4층이 이어 붙는다: 전역, project(LOPHN.md), domain(DOMAIN.md), agent. place 종류 지침은 prompt의
 // 고정 본문이라 층이 아니고 app 층은 없다. 이어 붙이는 순서가 이 배열 순서다.
 export const PROMPT_INSTRUCTION_LAYERS = [
@@ -82,7 +54,4 @@ export const instructionsGet = defineRead({
   ],
 });
 
-export const INSTRUCTION_ROUTES = [
-  instructionsGet,
-  instructionPreview,
-] as const;
+export const INSTRUCTION_ROUTES = [instructionsGet] as const;

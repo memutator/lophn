@@ -43,8 +43,8 @@ import type { JobsSource } from "../desktop/settings/jobs/source.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
 import { TopBar } from "../desktop/top-bar/top-bar.tsx";
 import type { EditorDeps } from "../editor/document-view.tsx";
-import { windowInstructionsSource } from "../editor/instructions-entry.tsx";
 import { workspaceIcons } from "../icons/mod.ts";
+import { windowInstructions } from "./agents/core-extensions.ts";
 import {
   TAB_MIME,
   type TabItem as StripTab,
@@ -171,8 +171,6 @@ export interface WorkspaceProps {
   onSettings: (pane?: SettingsPane) => void;
   /** sidebar Scheduled jobs 탭의 통로. 없으면 그 항목을 두지 않는다. */
   jobs?: JobsSource;
-  /** project의 LOPHN.md 편집을 연다(Agents 탭의 Instructions [Edit]). 없으면 그 단추는 아무것도 하지 않는다. */
-  onProjectInstructions?: () => void;
   /** 파일 탭의 읽기·편집 통로. 없으면 파일 탭은 자리표시다. */
   editor?: EditorDeps;
   /** 터미널 탭 통로. 없으면 터미널 열기 항목을 두지 않는다. */
@@ -234,7 +232,6 @@ export function Workspace(props: WorkspaceProps) {
     bodyWidth,
     onLauncher,
     onSettings,
-    onProjectInstructions,
     terminal,
   } = props;
   const browserApi = useBrowserApi();
@@ -259,7 +256,6 @@ export function Workspace(props: WorkspaceProps) {
     terminalStore: terminal?.store,
     host: () => host,
     onSettings,
-    onProjectInstructions,
   });
   // sidebar session 줄의 제목과 시각. session store는 싣지 않아 agent마다 대화 source의 session 목록에서 읽는다.
   const [knownSessions, setKnownSessions] = useState<KnownSessions>(new Map());
@@ -757,7 +753,7 @@ export function Workspace(props: WorkspaceProps) {
 
   // domain의 DOMAIN.md를 파일 탭으로 연다. 경로는 main이 알려 주고 없는 파일은 첫 저장이 만든다.
   const openDomainDoc = async (domain: string) => {
-    const reply = await windowInstructionsSource()?.open({
+    const reply = await windowInstructions()?.open({
       target: { layer: "domain", place: domain },
     });
     if (reply?.ok) openFile(host, reply.value.path);

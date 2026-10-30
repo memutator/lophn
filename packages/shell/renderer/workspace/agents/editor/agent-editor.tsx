@@ -45,6 +45,8 @@ export type AgentEditorSource = Pick<
   | "removeModelInfo"
   | "grants"
   | "setGrants"
+  | "readInstructions"
+  | "writeInstructions"
 >;
 
 interface AgentEditorProps {
@@ -59,8 +61,8 @@ interface AgentEditorProps {
   readonly onDone: () => void;
   /** 목록이나 정의가 바뀌었다. */
   readonly onChanged: () => void;
-  /** project의 LOPHN.md를 연다. */
-  readonly onEditProjectInstructions: () => void;
+  /** 폭과 여백을 이미 둔 기둥(Settings) 안에 놓인다. 없으면 탭 본문처럼 스스로 기둥을 둔다. */
+  readonly inColumn?: boolean;
 }
 
 type Section = "definition" | "grants";
@@ -363,7 +365,10 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   };
 
   return (
-    <div className={styles.page} data-agent-editor="ready">
+    <div
+      className={`${styles.page} ${props.inColumn ? styles.inColumn : ""}`}
+      data-agent-editor="ready"
+    >
       {notice === null ? null : (
         <div className={styles.toastSlot}>
           <Toast
@@ -404,7 +409,11 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             }
             onChange={edit}
             onUpload={upload}
-            onEditProjectInstructions={props.onEditProjectInstructions}
+            projectInstructions={{
+              read: () => source.readInstructions(project ?? ""),
+              write: (text, hash) =>
+                source.writeInstructions(project ?? "", text, hash),
+            }}
           />
           <div className={styles.formActions}>
             <Button onClick={props.onDone}>{t("common.button.cancel")}</Button>

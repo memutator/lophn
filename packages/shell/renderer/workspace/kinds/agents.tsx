@@ -67,7 +67,6 @@ export const agentsKind: TabKindDef = {
               fields: assignment === null ? undefined : { agent: assignment },
             }))
           }
-          onEditInstructions={agents.editInstructions}
           onAddExtension={agents.openExtensions}
           onChanged={agents.changed}
         />

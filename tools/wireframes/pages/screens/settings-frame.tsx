@@ -136,7 +136,6 @@ export function SettingsFrame({
           onApp={noop}
           settings={settings}
           settingsPanels={panels}
-          onInstructions={noop}
           onProject={noop}
           onOpenSession={noop}
         />

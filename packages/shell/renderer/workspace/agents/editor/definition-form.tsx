@@ -14,6 +14,7 @@ import { Avatar } from "../../../parts/avatar/avatar.tsx";
 import type { DomainView } from "../../source.ts";
 import type { AgentDetail, AgentDraft, ModelsView } from "../source.ts";
 import type { McpRow, SkillRow } from "../views.ts";
+import type { InstructionsPort } from "./instructions-editor.tsx";
 import { ModelField, type ModelFieldSource } from "./model-field.tsx";
 import {
   InstructionsBlock,
@@ -128,7 +129,8 @@ interface DefinitionFormProps {
   readonly imageSrc: (image: string) => string;
   readonly onChange: (definition: AgentDraft) => void;
   readonly onUpload: (file: File) => void;
-  readonly onEditProjectInstructions: () => void;
+  /** project 지침(LOPHN.md)을 그 자리에서 고치는 길. */
+  readonly projectInstructions: InstructionsPort;
 }
 
 export function DefinitionForm(props: DefinitionFormProps) {
@@ -265,6 +267,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
       <InstructionsBlock
         project={detail.instructions}
         head={instructionsHead(detail, props.placeName)}
+        port={props.projectInstructions}
         note={
           detail.place.kind === "app"
             ? t("agents.notice.app-no-project")
@@ -278,7 +281,6 @@ export function DefinitionForm(props: DefinitionFormProps) {
         }
         issues={<Issues issues={issuesOf("instructions")} />}
         onChange={(body) => onChange({ ...definition, body })}
-        onEditProject={props.onEditProjectInstructions}
       />
 
       <div className={styles.group} data-field="model">

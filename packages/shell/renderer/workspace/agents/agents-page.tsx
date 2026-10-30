@@ -20,8 +20,6 @@ interface AgentsPageProps {
   agent: string | null;
   /** 열어 둔 agent를 바꾼다(탭 필드). null이면 목록으로 돌아간다. */
   onAgent: (assignment: string | null) => void;
-  /** project의 LOPHN.md를 연다. 통로가 없으면 단추는 아무것도 하지 않는다. */
-  onEditInstructions: () => void;
   /** Skills·MCP servers의 [Add …]. 등록 form은 Settings가 갖고 있다. */
   onAddExtension: () => void;
   /** 목록이나 정의가 바뀌었다. sidebar의 Agents 묶음이 다시 읽는다. */
@@ -81,7 +79,6 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
         agent={agent}
         onDone={leave}
         onChanged={props.onChanged}
-        onEditProjectInstructions={props.onEditInstructions}
       />
     );
   }
@@ -137,7 +134,10 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
         }
         onOpenAgent={(assignment) => props.onAgent(assignment)}
         onNewAgent={() => setCreating(true)}
-        onEditInstructions={props.onEditInstructions}
+        instructions={{
+          read: () => source.readInstructions(project),
+          write: (text, hash) => source.writeInstructions(project, text, hash),
+        }}
         onProjectModel={(choice: ModelChoice | null) =>
           change(() => source.setProjectModel(project, choice))
         }

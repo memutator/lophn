@@ -53,8 +53,6 @@ interface SettingsScreenProps {
   providers?: ProviderSettingsSource;
   /** Agents 항목. 없으면 준비 전 안내다. */
   agents?: AgentsSettingsSource;
-  /** 모든 project의 LOPHN.md 편집기(전역 지침)를 연다. Agents의 [Edit]이 쓴다. */
-  onInstructions?: () => void;
   /** Coding agents 항목. 없으면 준비 전 안내다. */
   coding?: CodingConnectionsSource;
   /** Diagnostics 항목. 없으면 준비 전 안내다. */
@@ -84,7 +82,6 @@ export function SettingsScreen({
   source,
   providers,
   agents,
-  onInstructions,
   coding,
   diagnostics,
   shellRules,
@@ -96,9 +93,7 @@ export function SettingsScreen({
   onProject,
 }: SettingsScreenProps) {
   // Agents의 [Add server]는 server form을 가진 Tools and skills 항목으로 옮긴다(form을 두 벌 두지 않는다).
-  // Agents의 [Edit]은 전역 지침 편집기를 여는 shell 통로로 간다. 통로가 바뀌어도 Agents를 다시 읽지 않는다.
-  const instructions = useRef(onInstructions);
-  instructions.current = onInstructions;
+  // 통로가 바뀌어도 Agents를 다시 읽지 않는다.
   const toPane = useRef(onPane);
   toPane.current = onPane;
   const agentsSource = useMemo<AgentsSettingsSource | undefined>(
@@ -109,14 +104,6 @@ export function SettingsScreen({
             ...agents,
             addServer: () => {
               toPane.current("tools");
-              return Promise.resolve({ ok: true, value: null });
-            },
-            openInstructions: () => {
-              const open = instructions.current;
-              if (open === undefined) {
-                return Promise.resolve({ ok: false, code: "unavailable" });
-              }
-              open();
               return Promise.resolve({ ok: true, value: null });
             },
           },

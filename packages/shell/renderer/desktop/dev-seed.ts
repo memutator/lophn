@@ -74,23 +74,10 @@ const SEED_DOCUMENTS: Record<string, { info: SeedInfo; text: string }> = {
   },
 };
 
-/** mock 모드의 [Instructions] 편집기가 여는 문서. 문서 목록에는 오르지 않는다. */
-export const SEED_INSTRUCTIONS_DOCUMENT = "doc_instructions";
-
-const INSTRUCTIONS_SEED = {
-  info: {
-    id: SEED_INSTRUCTIONS_DOCUMENT,
-    title: "Instructions",
-    fileName: "AGENTS.md",
-    path: "AGENTS.md",
-  },
-  text: "# Instructions\n\nKeep answers short and name the document you changed.",
-};
-
 // 시드 파일 통로. 작업대 목록이 아직 문서 id로 열고 경로로도 열 수 있게 둘 다 같은 글로 채운다.
 function seededEditor(): EditorDeps {
   const texts: Record<string, string> = {};
-  for (const seeded of [...Object.values(SEED_DOCUMENTS), INSTRUCTIONS_SEED]) {
+  for (const seeded of Object.values(SEED_DOCUMENTS)) {
     texts[seeded.info.id] = seeded.text;
     if (seeded.info.path !== null) texts[seeded.info.path] = seeded.text;
   }

@@ -30,7 +30,6 @@ export type ProjectPlaceholders = {
   "document.button.find-previous": Record<never, never>;
   "document.button.hide-comparison": Record<never, never>;
   "document.button.info": Record<never, never>;
-  "document.button.instructions": Record<never, never>;
   "document.button.keep-editing": Record<never, never>;
   "document.button.keep-mine": Record<never, never>;
   "document.button.menu": Record<never, never>;
@@ -75,7 +74,6 @@ export type ProjectPlaceholders = {
   "document.label.properties": Record<never, never>;
   "document.label.replace-with": Record<never, never>;
   "document.label.saved": Record<never, never>;
-  "document.label.these-instructions": Record<never, never>;
   "document.label.this-document": Record<never, never>;
   "document.label.view-only": Record<never, never>;
   "document.notice.conflict": Record<never, never>;

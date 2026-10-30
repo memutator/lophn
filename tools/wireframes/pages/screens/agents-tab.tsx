@@ -48,7 +48,6 @@ export function AgentsBody({ open }: { open: Open }) {
       onAgent={(key) => {
         if (key !== null) open(agentTab(key));
       }}
-      onEditInstructions={noop}
       onAddExtension={noop}
       onChanged={noop}
     />
@@ -83,7 +82,6 @@ export function AgentSettingsEditor({
         agent={id === "new" ? null : id}
         onDone={onDone}
         onChanged={noop}
-        onEditProjectInstructions={noop}
       />
     </div>
   );

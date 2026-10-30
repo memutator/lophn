@@ -76,8 +76,6 @@ interface SidePanelProps {
   /** 없으면 Agent 화면을 열 수 없다("준비 안 됨"). */
   agentViewSource?: AgentTabSourceFactory;
   onState: (state: AgentPaneState) => void;
-  /** app 층 LOPHN.md를 연다. */
-  onInstructions?: () => void;
   /** Settings로 간다(기본 model·확장 등록·연결). */
   onSettings?: (pane?: SettingsPane) => void;
   /** 목록이나 정의가 바뀌었다. select가 다시 읽는다. */
@@ -241,7 +239,6 @@ function ManageBody(props: SidePanelProps & { agent: string | null }) {
         source={props.source}
         agent={props.agent}
         onAgent={(agent) => props.onState({ mode: "manage", agent })}
-        onEditInstructions={() => props.onInstructions?.()}
         onAddExtension={() => props.onSettings?.("tools")}
         onChanged={props.onChanged}
       />

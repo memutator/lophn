@@ -114,6 +114,14 @@ export const SettingsAgentsPage = () => (
   />
 );
 
+/** Settings › Agents에서 모든 project의 지침 [Edit]을 눌러 그 자리에서 markdown 편집기로 고치는 중. */
+export const SettingsAgentsInstructionsPage = () => (
+  <SettingsFrame
+    pane="agents"
+    steps={[() => click("[data-action=edit-instructions]")]}
+  />
+);
+
 /** Settings › Agents › lophn. [Open lophn settings]를 눌러 연 둘째 화면이다. */
 export const SettingsLophnPage = () => (
   <Driven

@@ -45,8 +45,6 @@ interface SettingsSpaceProps {
   onApp?: (app: string) => void;
   /** General과 Tools and skills가 읽고 쓰는 통로. 없으면 준비 전 안내다. */
   settings?: SettingsSource;
-  /** 전역 [Instructions] 편집기로 간다. Agents 항목의 단추가 쓴다. */
-  onInstructions?: () => void;
   /** 항목마다의 통로. 없는 항목은 준비 전 안내다. */
   settingsPanels?: SettingsPanels;
   /** 대기 목록 질문 카드의 [Open session]. */
@@ -66,7 +64,6 @@ export function SettingsSpace({
   onOpenFile,
   onApp,
   settings,
-  onInstructions,
   settingsPanels,
   onOpenSession,
 }: SettingsSpaceProps) {
@@ -192,7 +189,6 @@ export function SettingsSpace({
               pane={settingsPane}
               onPane={setSettingsPane}
               source={settings}
-              onInstructions={onInstructions}
               onOpenSession={onOpenSession}
               onProject={onProject}
             />

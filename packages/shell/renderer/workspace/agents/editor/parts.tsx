@@ -24,6 +24,10 @@ import type {
   SkillRow,
 } from "../views.ts";
 import styles from "./agent-editor.module.css";
+import {
+  InstructionsEditor,
+  type InstructionsPort,
+} from "./instructions-editor.tsx";
 
 const LAYER_LABEL: Record<SkillLayer | McpLayer, MessageKey> = {
   builtin: "agents.label.layer-builtin",
@@ -348,33 +352,34 @@ export function ProfileField({
   );
 }
 
-/** project 지침이 보이는 줄 수. */
+/** project 지침이 보기에서 보이는 줄 수. */
 const PROJECT_LINES = 4;
 
 interface InstructionsBlockProps {
-  /** project 지침. null이면 이 agent는 project 지침을 받지 않는다(lophn). */
+  /** project 지침. null이면 이 agent는 project 지침을 받지 않는다(lophn, 앱 자리). */
   readonly project: ProjectInstructionsView | null;
   /** project 지침 머리 글. */
   readonly head: string;
+  /** project 지침을 그 자리에서 고치는 길. */
+  readonly port: InstructionsPort;
   /** project 지침을 받지 않는 이유 같은 안내. */
   readonly note?: string;
   readonly value: string;
   readonly help: string;
   readonly issues?: ReactNode;
   readonly onChange: (value: string) => void;
-  readonly onEditProject: () => void;
 }
 
-/** 지침 블록: project 지침(읽기)과 이 agent의 지침(고침)을 같이 보인다. */
+/** 지침 블록: project 지침과 이 agent의 지침을 같이 보이고 둘 다 이 자리에서 고친다. */
 export function InstructionsBlock({
   project,
   head,
+  port,
   note,
   value,
   help,
   issues,
   onChange,
-  onEditProject,
 }: InstructionsBlockProps) {
   return (
     <fieldset className={styles.group} data-field="instructions">
@@ -382,22 +387,14 @@ export function InstructionsBlock({
         {t("project-workspace.label.agent-editor-instructions")}
       </legend>
       {project === null ? null : (
-        <div className={styles.projectInstr} data-project-instructions="">
-          <div className={styles.projectInstrHead}>
-            <span>{head}</span>
-            <Button size="sm" onClick={onEditProject}>
-              {t("project-workspace.button.agent-editor-edit-project")}
-            </Button>
-          </div>
-          {project.text.trim() === "" ? (
-            <p className={styles.projectInstrEmpty}>
-              {t("project-workspace.empty.agent-editor-no-project")}
-            </p>
-          ) : (
-            <pre className={styles.projectInstrBody}>
-              {project.text.split("\n").slice(0, PROJECT_LINES).join("\n")}
-            </pre>
-          )}
+        <div data-project-instructions="">
+          <InstructionsEditor
+            head={head}
+            file={project}
+            lines={PROJECT_LINES}
+            empty={t("project-workspace.empty.agent-editor-no-project")}
+            port={port}
+          />
         </div>
       )}
       {note === undefined ? null : <p className={styles.note}>{note}</p>}

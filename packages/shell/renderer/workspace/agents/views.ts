@@ -16,12 +16,17 @@ export type ModelLabel = (choice: ModelChoice) => string;
  */
 export type ImageSrc = (assignment: string, image: string) => string;
 
+/** 지침 파일 하나의 글과 그 hash. 파일이 아직 없으면 text가 빈 글이고 hash가 null이다(첫 저장이 만든다). */
+export interface InstructionsFile {
+  readonly text: string;
+  readonly hash: string | null;
+}
+
 /**
  * project 지침 `LOPHN.md`. 파일이 없거나 비면 text가 빈 글이다. project는 그 지침이 속한 project의 이름이고,
  * 알 수 없으면 null이다(앱 자리 agent의 project 폴더를 모를 때).
  */
-export interface ProjectInstructionsView {
-  readonly text: string;
+export interface ProjectInstructionsView extends InstructionsFile {
   readonly project: string | null;
 }
 

@@ -2,11 +2,17 @@
 // Manage가 여는 앱 자리의 agent 관리 화면). 창이 넓으면 앱 화면 옆 열이고 좁으면 앱 화면을
 // 덮는다. 덮는 동안에도 앱 view는 숨지 않고 패널이 덮지 않는 영역으로 준다. 탭 몸은 모두 mount해 두고 고르지 않은 것만
 // 숨겨, 탭을 바꿔도 안의 상태(app-detail 탭, 대화 입력)를 잃지 않는다.
-import { type ReactElement, type ReactNode, useMemo, useRef } from "react";
+import type {
+  PointerEvent as ReactPointerEvent,
+  ReactElement,
+  ReactNode,
+} from "react";
+import { useMemo, useRef } from "react";
 import { Avatar } from "../parts/avatar/avatar.tsx";
 import { type TabItem, TabStrip } from "../parts/tab-strip/tab-strip.tsx";
-import { Icon } from "@lophn/ui/primitives";
+import { Icon, IconButton } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
+import { Tooltip } from "@lophn/ui/overlay";
 import { appSpaceIcons, conversationIcons } from "../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
@@ -21,23 +27,21 @@ import type { AppSpaceAgent } from "./agent-select.tsx";
 import { useViewCover } from "./embedded-view.tsx";
 import type { SettingsPane } from "../desktop/settings/model.ts";
 import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
+import { PANEL_BODY_MIN } from "./panel-width.ts";
 import styles from "./side-panel.module.css";
 
-/** 탭이 무엇이든 폭은 하나다. 탭을 바꿔도 앱 view 자리가 흔들리지 않는다. */
-const SIDE_PANEL_WIDTH = 640;
-/** 패널을 열고도 앱 화면이 이만큼은 남아야 옆 열이다. 아니면 덮는다. */
-const SIDE_PANEL_BODY_MIN = 480;
-
-type SidePanelPlacement = "hidden" | "docked" | "overlay";
+/** 패널이 보이는 자리. 폭은 패널이 고른 값(panel-width.ts)이고, 전체 모드면 앱 화면 위를 다 덮는다. */
+type SidePanelPlacement = "hidden" | "docked" | "overlay" | "full";
 
 export function sidePanelPlacement(
   open: boolean,
   contentWidth: number,
+  width: number,
+  full: boolean,
 ): SidePanelPlacement {
   if (!open) return "hidden";
-  return contentWidth - SIDE_PANEL_WIDTH >= SIDE_PANEL_BODY_MIN
-    ? "docked"
-    : "overlay";
+  if (full) return "full";
+  return contentWidth - width >= PANEL_BODY_MIN ? "docked" : "overlay";
 }
 
 /** agent 탭이 보이는 것. agent는 열린 agent와 그 session(null은 새 session), manage는 editor로 열어 둔 agent, runs는 이 앱의 Background 목록이다. */
@@ -61,6 +65,14 @@ interface SidePanelProps {
   /** 탭을 닫았다. */
   onCloseTab: (tab: PanelTab) => void;
   placement: SidePanelPlacement;
+  /** 옆 열일 때의 폭(CSS px). 전체·overlay일 때는 쓰지 않는다. */
+  width: number;
+  /** 전체 모드. 앱 화면을 가리고 패널이 자리를 다 쓴다. */
+  full: boolean;
+  /** 전체 모드를 켜고 끈다. */
+  onFull: (full: boolean) => void;
+  /** 왼쪽 경계를 끌었다. 시작은 아래 `resizeStart`가 알린다. */
+  onResizeStart: (event: ReactPointerEvent<HTMLElement>) => void;
   /** App details 탭의 내용. */
   details: ReactNode;
   /** agent 탭이 보이는 것. details만 열려 있으면 없다. */
@@ -84,7 +96,11 @@ interface SidePanelProps {
 
 export function SidePanel(props: SidePanelProps): ReactElement | null {
   const ref = useRef<HTMLElement>(null);
-  useViewCover(ref, props.placement === "overlay");
+  // 전체 모드도 앱 view 자리를 다 덮으므로 native view를 그 아래로 숨긴다.
+  useViewCover(
+    ref,
+    props.placement === "overlay" || props.placement === "full",
+  );
   const { state, tab } = props;
   if (props.tabs.length === 0) return null;
   const agentBody =
@@ -104,16 +120,30 @@ export function SidePanel(props: SidePanelProps): ReactElement | null {
       />
     );
   const shown = (name: PanelTab) => (tab === name ? "" : styles.hidden);
+  const full = props.placement === "full";
+  const docked = props.placement === "docked";
   return (
     <aside
       ref={ref}
       className={`${styles.pane} ${
         props.placement === "overlay" ? styles.overlay : ""
-      } ${props.placement === "hidden" ? styles.hidden : ""}`}
+      } ${full ? styles.full : ""} ${
+        props.placement === "hidden" ? styles.hidden : ""
+      }`}
       data-side-panel={props.placement}
       data-side-panel-tab={tab}
-      style={{ width: `${SIDE_PANEL_WIDTH}px` }}
+      style={docked ? { width: `${props.width}px` } : undefined}
     >
+      {docked ? (
+        <div
+          className={styles.resizer}
+          data-side-panel-resizer=""
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={t("app-space.label.resize-panel")}
+          onPointerDown={props.onResizeStart}
+        />
+      ) : null}
       <Head {...props} />
       {props.tabs.includes("details") ? (
         <div className={`${styles.details} ${shown("details")}`}>
@@ -164,12 +194,29 @@ function Head(props: SidePanelProps): ReactElement {
           },
   };
   const tabs = props.tabs.flatMap((name) => items[name] ?? []);
+  const label = props.full
+    ? t("app-space.button.exit-full-mode")
+    : t("app-space.button.full-mode");
   return (
     <TabStrip
       tabs={tabs}
       selected={props.tab}
       onSelect={(key) => props.onTab(key as PanelTab)}
       onClose={(key) => props.onCloseTab(key as PanelTab)}
+      end={
+        <Tooltip content={label}>
+          <IconButton
+            icon={
+              props.full ? appSpaceIcons.panelRestore : appSpaceIcons.panelFull
+            }
+            label={label}
+            size="sm"
+            aria-pressed={props.full}
+            data-side-panel-full={props.full ? "" : undefined}
+            onClick={() => props.onFull(!props.full)}
+          />
+        </Tooltip>
+      }
     />
   );
 }

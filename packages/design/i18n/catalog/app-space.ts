@@ -219,6 +219,8 @@ export const appSpace = {
   "app-space.button.annotate-done": "Done",
   "app-space.button.app-details": "App details",
   "app-space.button.clear-annotations": "Clear all",
+  "app-space.button.exit-full-mode": "Exit full mode",
+  "app-space.button.full-mode": "Full mode",
   "app-space.button.manage-agents": "Manage",
   "app-space.button.send-annotations": "Send to agent",
   "app-space.button.send-annotations-to": "Send to {agent}",
@@ -239,6 +241,7 @@ export const appSpace = {
   "app-space.label.agent-select": "Agent",
   "app-space.label.annotations": "Annotations",
   "app-space.label.remove-annotation": "Remove annotation {number}",
+  "app-space.label.resize-panel": "Resize panel",
   "app-space.label.sending-annotations": "Sending…",
   "app-space.label.this-app": "this app",
   "app-space.text.annotate-on":

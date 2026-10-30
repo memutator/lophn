@@ -19,6 +19,8 @@ import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import { type AppStatus, appStatus } from "../apps/model.ts";
 import type { AppRow, AppsSource, RunState } from "../apps/source.ts";
 import type { ReadResult } from "../workspace/source.ts";
+import { startPointerDrag } from "../workspace/drag.ts";
+import { applyDrag } from "../workspace/model.ts";
 import type { RunRecordView } from "../workspace/sidebar/run-list.tsx";
 import { sessionAgentKey } from "../workspace/sidebar/panel-sessions.ts";
 import type { AgentsSource } from "../workspace/agents/source.ts";
@@ -44,6 +46,11 @@ import {
 } from "./embedded-view.tsx";
 import { useToastHandler } from "./toast-handler.ts";
 import type { CatalogSource } from "../desktop/palette/catalog.ts";
+import {
+  clampPanelWidth,
+  readPanelWidth,
+  savePanelWidth,
+} from "./panel-width.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
 import { PlaceSwitcher } from "../workspace/top-path/place-selector.tsx";
 import {
@@ -212,9 +219,15 @@ export function AppSpace({
     ...(paneShown ? ["agent" as const] : []),
   ];
   const shownTab = tabs.includes(panelTab) ? panelTab : (tabs[0] ?? null);
+  const [panelWidth, setPanelWidth] = useState(readPanelWidth);
+  const [panelFull, setPanelFull] = useState(false);
+  const contentWidth = contentSize?.width ?? width;
+  const shownWidth = clampPanelWidth(panelWidth, contentWidth);
   const placement = sidePanelPlacement(
     panelOpen && shownTab !== null,
-    contentSize?.width ?? width,
+    contentWidth,
+    shownWidth,
+    panelFull,
   );
   const panelVisible = placement !== "hidden";
 
@@ -544,6 +557,26 @@ export function AppSpace({
             onTab={setPanelTab}
             onCloseTab={closeTab}
             placement={placement}
+            width={shownWidth}
+            full={panelFull}
+            onFull={setPanelFull}
+            onResizeStart={(event) => {
+              const start = panelWidth;
+              const startShown = shownWidth;
+              let last = start;
+              startPointerDrag(event, {
+                // 왼쪽 경계라 왼쪽으로 끌면(dx < 0) 넓어진다.
+                move: (dx) => {
+                  last = clampPanelWidth(startShown - dx, contentWidth);
+                  setPanelWidth(last);
+                },
+                finish: (outcome) => {
+                  const applied = applyDrag(start, last, outcome);
+                  setPanelWidth(applied);
+                  if (outcome.type === "drag-end") savePanelWidth(applied);
+                },
+              });
+            }}
             details={
               detail && row ? (
                 <AppDetail

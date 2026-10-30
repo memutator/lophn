@@ -132,7 +132,7 @@ export const workspaceSettings = {
   "settings.error.key-numbered-needs-modifier":
     "Hold {modifiers}. The numbers are added for you.",
   "settings.error.key-reserved":
-    "This key opens search or the launcher, so it can't be used here.",
+    "lophn already uses this key for search, the launcher, or copy and paste in the terminal.",
   "settings.error.key-taken": "{key} is already used for {name}.",
   "settings.error.key-unsupported": "That key can't be used for a shortcut.",
   "settings.error.value-invalid":

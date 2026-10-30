@@ -316,10 +316,20 @@ export function matchKey(
   return null;
 }
 
-/** 이 표에 없는데 main이 먼저 가져가는 창 키. ipc/shortcuts.ts의 창 팔레트·런처와 전역 팔레트 키다. */
+/**
+ * 이 표에 없는데 다른 곳이 먼저 쓰는 키. ipc/shortcuts.ts의 창 팔레트·런처와 전역 팔레트 키, 그리고
+ * Linux·Windows 터미널의 복사·붙여 넣기(renderer/terminal/xterm-view.ts)다. 표 키는 document capture에서
+ * 터미널보다 먼저 받으므로 여기 묶으면 터미널 복사가 죽는다.
+ */
 const RESERVED: Readonly<Record<KeyPlatform, readonly string[]>> = {
   mac: ["Cmd+KeyK", "Cmd+Shift+KeyL", "Cmd+Shift+KeyK"],
-  other: ["Ctrl+KeyK", "Ctrl+Shift+KeyL", "Ctrl+Shift+KeyK"],
+  other: [
+    "Ctrl+KeyK",
+    "Ctrl+Shift+KeyL",
+    "Ctrl+Shift+KeyK",
+    "Ctrl+Shift+KeyC",
+    "Ctrl+Shift+KeyV",
+  ],
 };
 
 export type ChordCheck =

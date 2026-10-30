@@ -48,7 +48,7 @@ desktop 창의 단축키가 어디서 받혀 어느 기능의 command로 가는�
 - **main이 먼저 받는 키는 표의 `main`이 정한다.** 앱 view·browser page에 focus가 있으면 renderer keydown이 못 받고, macOS menu key equivalent는 page keydown보다 앞선다. 이 키는 main이 삼켜 같은 command id로 보낸다.
 - **사람이 바꾼 키는 검사를 지난 것만 덮는다.** `parseKeyOverrides`가 표에 있는 id와 읽을 수 있는 chord(최대 4개)만 남긴다. 저장 파일이 틀리거나 IPC 값이 틀려도 그 줄만 표의 키가 되고 나머지 키는 산다. main도 같은 함수로 다시 검사한다.
 - **빈 chord 목록은 키를 뺀 것이다.** 표와 같은 값은 저장에서 빠진다. OS마다 따로 저장하고 Keyboard 화면은 지금 OS의 것만 바꾼다.
-- **새 키는 받기 전에 막는다**(`checkChord`). modifier 없는 키(F1~F12 빼고)는 입력칸 글자를 삼키고, 팔레트·런처·전역 팔레트 키는 main이 먼저 가져가며, 다른 바인딩과 같은 키는 한쪽이 듣지 않는다. 겹침은 modifier 순서와 상관없이 본다.
+- **새 키는 받기 전에 막는다**(`checkChord`). modifier 없는 키(F1~F12 빼고)는 입력칸 글자를 삼키고, 팔레트·런처·전역 팔레트 키는 main이 먼저 가져가며, Linux·Windows 터미널의 Ctrl+Shift+C/V는 터미널이 복사·붙여 넣기로 쓰고(표 키는 document capture에서 터미널보다 먼저 받는다), 다른 바인딩과 같은 키는 한쪽이 듣지 않는다. 겹침은 modifier 순서와 상관없이 본다.
 - **새 키를 받는 칸(`[data-key-capture]`) 안의 키는 command로 보내지 않는다.** service가 그 target을 보지 않는다. 그래서 지금 듣는 키를 눌러도 command가 돌지 않고 칸이 받는다.
 - **기능이 `register`로 묶은 바인딩은 늘 기본 바인딩보다 먼저 본다.** 사람이 키를 바꿔 기본 바인딩을 갈아 끼워도 그 순서는 같다.
 

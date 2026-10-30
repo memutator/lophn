@@ -159,6 +159,7 @@ test("사람이 바꾼 키는 검사를 지난 것만 덮고 main이 받는 키�
   );
   for (const [chord, reason] of [
     ["Ctrl+KeyK", "reserved"],
+    ["Ctrl+Shift+KeyC", "reserved"],
     ["KeyJ", "needs_modifier"],
     ["Shift+KeyJ", "needs_modifier"],
     ["Ctrl+Bogus", "unsupported"],

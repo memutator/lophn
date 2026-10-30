@@ -77,9 +77,11 @@ export function useSlashMenu(input: SlashMenuInput): SlashMenuControl {
     setUnknown(null);
   }, [text]);
 
+  // 새 글자의 목록을 읽는 동안에도 앞 목록을 그대로 보인다. 읽은 목록이 올 때까지 닫으면 글자마다 menu가
+  // 사라졌다 다시 떠서 밑의 대화가 비친다.
   const open =
     unknown !== null ||
-    (query !== null && listed?.query === query && dismissed !== text);
+    (query !== null && listed !== null && dismissed !== text);
   const state: SlashMenuState | null =
     unknown ??
     (open && listed !== null ? { kind: "list", groups: listed.groups } : null);

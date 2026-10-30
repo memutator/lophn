@@ -88,6 +88,17 @@ export const appsOAuthCancel = defineMemory({
   errors: ["invalid_input", "forbidden", "unavailable"],
 });
 
+// 보관한 token 셋(access·refresh·meta)을 지우고 진행 중인 시도·실패 기억을 버린다. client id와 client secret은 남는다.
+export const appsOAuthSignOut = defineMemory({
+  resource: "apps",
+  method: "oauth_sign_out",
+  name: "apps.oauth_sign_out",
+  input: z.strictObject(target),
+  output: z.strictObject({ signed_out: z.literal(true) }),
+  actors: ["user"],
+  errors: ["invalid_input", "unavailable"],
+});
+
 // 현재 release 선언에서 oauth 블록이 있는 secret.use마다 한 줄이다. token·client secret 값은 없다.
 export const appsOAuthState = defineMemory({
   resource: "apps",

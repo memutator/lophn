@@ -693,6 +693,9 @@ export function coreAppDetailSource(
     setSecretValue: (name, subject) =>
       enterSecret(openSecret, { name, purpose: "app", subject }),
 
+    removeSecretValue: (name) =>
+      stored(call(core, "memory", "secrets", "delete", { name })),
+
     setOAuthClientId: (app, name, clientId) =>
       stored(
         call(core, "memory", "apps", "oauth_client_set", {
@@ -734,6 +737,9 @@ export function coreAppDetailSource(
 
     cancelSignIn: (app, name) =>
       stored(call(core, "memory", "apps", "oauth_cancel", { app, name })),
+
+    signOut: (app, name) =>
+      stored(call(core, "memory", "apps", "oauth_sign_out", { app, name })),
 
     async activity(app) {
       const [invocations, releases, active] = await Promise.all([

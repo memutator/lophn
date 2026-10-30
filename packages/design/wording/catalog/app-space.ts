@@ -5,6 +5,7 @@ export const appSpace = {
   "app-detail.button.change-client-secret": "Change client secret",
   "app-detail.button.change-value": "Change value",
   "app-detail.button.go-back": "Go back to {release}",
+  "app-detail.button.remove-value": "Remove value",
   "app-detail.button.revoke": "Revoke",
   "app-detail.button.rewind-app": "Rewind {name}",
   "app-detail.button.rewind-from-here": "Rewind from here",
@@ -13,8 +14,10 @@ export const appSpace = {
   "app-detail.button.set-value": "Set value",
   "app-detail.button.sign-in": "Sign in",
   "app-detail.button.sign-in-again": "Sign in again",
+  "app-detail.button.sign-out": "Sign out",
   "app-detail.error.go-back-failed":
     "Couldn't go back to {release}. Nothing changed.",
+  "app-detail.error.remove-failed": "Couldn't remove that. Try again.",
   "app-detail.error.revoke-failed": "Couldn't revoke that access. Try again.",
   "app-detail.error.rewind-failed":
     "Couldn't start the rewind. Nothing changed.",

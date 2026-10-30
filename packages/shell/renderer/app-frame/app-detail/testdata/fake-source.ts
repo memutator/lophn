@@ -566,6 +566,10 @@ export function fakeDetail(options: FakeOptions = {}) {
       calls.push(["setSecretValue", name, subject]);
       return acted("setSecretValue", "stored" as const);
     },
+    removeSecretValue: (name) => {
+      calls.push(["removeSecretValue", name]);
+      return acted("removeSecretValue", true as const);
+    },
     setOAuthClientId: (app, name, clientId) => {
       calls.push(["setOAuthClientId", app, name, clientId]);
       return acted("setOAuthClientId", true as const);
@@ -581,6 +585,10 @@ export function fakeDetail(options: FakeOptions = {}) {
     cancelSignIn: (app, name) => {
       calls.push(["cancelSignIn", app, name]);
       return acted("cancelSignIn", true as const);
+    },
+    signOut: (app, name) => {
+      calls.push(["signOut", app, name]);
+      return acted("signOut", true as const);
     },
     activity: () =>
       reply("activity", {

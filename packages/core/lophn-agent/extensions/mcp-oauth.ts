@@ -59,6 +59,8 @@ type McpOAuth = {
   complete(server: McpOAuthServer): Promise<Result<void>>;
   // 기다리는 로그인을 그만둔다. 보관한 token은 건드리지 않는다. 그만둔 것이 없으면 false다.
   cancel(server: Pick<McpOAuthServer, "key">): Promise<boolean>;
+  // 보관한 token 셋과 진행 중인 시도·실패 기억을 버린다. client는 vault 밖이라 남는다.
+  signOut(server: Pick<McpOAuthServer, "key">): Promise<Result<void>>;
   report(server: McpOAuthServer): Promise<McpAuthReport>;
   // 연결이 접근 token을 붙이기 전에 쓸 수 있게 한다(만료가 가까우면 갱신). 로그인이 필요하면 forbidden(재인증
   // 필요), 발급자에 닿지 못하면 unavailable(연결 실패)로 구별한다.
@@ -262,6 +264,17 @@ export function createMcpOAuth(options: {
     async cancel(server) {
       const session = sessions.get(mcpAuthKeyId(server.key));
       return session === undefined ? false : await session.cancel();
+    },
+
+    async signOut(server) {
+      const id = mcpAuthKeyId(server.key);
+      const session = sessions.get(id);
+      if (session !== undefined) {
+        await session.cancel();
+        sessions.delete(id);
+      }
+      failures.delete(id);
+      return await vault.remove(server.key);
     },
 
     async report(server) {

@@ -113,7 +113,7 @@ export const appSpaceArea: Area = {
       id: "new-app-access-secrets",
       title: "App space · Access (secrets)",
       description:
-        "Access 탭의 Outside resources 목록에 있는 plain secret 줄 둘이다. 이름 아래에 Not set/Set이 있고 줄 오른쪽 끝에 [Set value]/[Change value]와 [Revoke]가 있다. 값은 보호된 입력 창이 받으므로 여기 그리지 않고, 값과 token은 어디에도 보이지 않는다.",
+        "Access 탭의 Outside resources 목록에 있는 plain secret 줄 둘이다. 이름 아래에 Not set/Set이 있고 줄 오른쪽 끝에 [Set value]/[Change value], 값이 있는 줄의 [Remove value], [Revoke]가 있다. 값은 보호된 입력 창이 받으므로 여기 그리지 않고, 값과 token은 어디에도 보이지 않는다.",
       render: () => <AccessSecrets />,
     },
     {
@@ -141,14 +141,14 @@ export const appSpaceArea: Area = {
       id: "new-app-access-oauth-signed-in",
       title: "App space · Access (OAuth signed in)",
       description:
-        "sign-in이 끝난 상태(signed_in)다. Signed in 표시와 [Sign in again]이 있다. token은 보이지 않는다.",
+        "sign-in이 끝난 상태(signed_in)다. Signed in 표시와 [Sign out], [Sign in again]이 있다. [Sign out]은 보관한 token 셋을 지우고 client id·client secret은 남긴다. token은 보이지 않는다.",
       render: () => <AccessOAuthSignedIn />,
     },
     {
       id: "new-app-access-oauth-failed",
       title: "App space · Access (OAuth failed)",
       description:
-        "실패 이유 여섯(callback_timeout, state_mismatch, exchange_failed, refresh_rejected, expired, store_failed)을 줄 하나씩 위아래로 쌓았다. 같은 앱에 OAuth secret이 여럿일 때 줄이 어떻게 쌓이는지도 보인다. 이유 글이 상태 자리에 있고 [Sign in again]이 있다.",
+        "실패 이유 여섯(callback_timeout, state_mismatch, exchange_failed, refresh_rejected, expired, store_failed)을 줄 하나씩 위아래로 쌓았다. 같은 앱에 OAuth secret이 여럿일 때 줄이 어떻게 쌓이는지도 보인다. 이유 글이 상태 자리에 있고, 남은 token을 지우는 [Sign out]과 [Sign in again]이 있다.",
       render: () => <AccessOAuthFailed />,
     },
     {

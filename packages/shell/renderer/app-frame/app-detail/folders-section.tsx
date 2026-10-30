@@ -1,0 +1,81 @@
+// App details의 Folders 절. 앱 source 밖에 이은 폴더 목록이다. 이 앱 place의 agent가 이 폴더들을 file tool로
+// 읽고 쓴다. 줄 끝 단추가 폴더를 앱에서 빼고(디스크는 그대로), Add folder가 OS 선택기로 폴더를 더한다.
+import { useEffect, useState } from "react";
+import { Button } from "@lophn/ui/primitives";
+import { t } from "@lophn/i18n";
+
+import { commonIcons } from "../../icons/mod.ts";
+import type { AppDetailSource } from "./source.ts";
+import styles from "./domains-section.module.css";
+
+export function FoldersSection({
+  app,
+  source,
+}: {
+  app: string;
+  source: AppDetailSource;
+}) {
+  const [folders, setFolders] = useState<readonly string[] | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    void source.folders(app).then((read) => {
+      if (!live) return;
+      setFailed(!read.ok);
+      if (read.ok) setFolders(read.value);
+    });
+    return () => {
+      live = false;
+    };
+  }, [app, source]);
+
+  const add = async () => {
+    const result = await source.addFolder(app);
+    setFailed(!result.ok);
+    if (result.ok && result.value !== null) setFolders(result.value);
+  };
+
+  const remove = async (path: string) => {
+    const result = await source.removeFolder(app, path);
+    setFailed(!result.ok);
+    if (result.ok) setFolders(result.value);
+  };
+
+  return (
+    <section
+      className={styles.section}
+      aria-label={t("app-detail.heading.folders")}
+      data-app-folders=""
+    >
+      <div className={styles.head}>
+        <h4 className={styles.label}>{t("app-detail.heading.folders")}</h4>
+        <Button size="sm" icon={commonIcons.add} onClick={() => void add()}>
+          {t("app-detail.button.add-folder")}
+        </Button>
+      </div>
+      {failed ? (
+        <p className={styles.failed}>{t("app-detail.error.folders-failed")}</p>
+      ) : null}
+      {folders !== null && folders.length === 0 ? (
+        <p className={styles.counts}>{t("app-detail.note.no-folders")}</p>
+      ) : null}
+      <div>
+        {(folders ?? []).map((path) => (
+          <div key={path} className={styles.item} data-app-folder={path}>
+            <div className={styles.row}>
+              <span className={styles.text}>
+                <span className={styles.name}>{path}</span>
+              </span>
+              <span className={styles.action}>
+                <Button size="sm" onClick={() => void remove(path)}>
+                  {t("app-detail.button.remove-folder")}
+                </Button>
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}

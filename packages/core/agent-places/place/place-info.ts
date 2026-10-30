@@ -26,6 +26,8 @@ type PlaceApp = {
   purpose: string;
   // source 폴더. 아직 잇지 않았으면 null.
   source: string | null;
+  // source 밖에 사람이 더 이은 폴더
+  folders: readonly FolderRead[];
 };
 
 // 이 session이 맡은 domain 하나다. folder는 폴더를 만들지 못했으면 null이다.
@@ -92,6 +94,9 @@ function appLines(
 ): string[] {
   const lines: string[] = [];
   if (app.source !== null) lines.push(`${indent}Source folder: ${app.source}`);
+  if (app.folders.length > 0) {
+    lines.push(`${indent}Folders: ${app.folders.map(folderText).join(", ")}`);
+  }
   lines.push(`${indent}Declaration: ${app.declaration}`);
   if (release !== null) {
     const tools =

@@ -13,6 +13,10 @@ import {
   slugSchema,
   versionIdSchema,
 } from "../projects/values.ts";
+import {
+  projectFolderOutputSchema,
+  projectFoldersSchema,
+} from "../projects/project-folders.ts";
 
 export const releaseIdSchema = idSchema("rel");
 
@@ -51,6 +55,8 @@ const appFields = {
   description: appDescriptionSchema,
   planning_version: versionIdSchema.nullable(),
   source_path: absolutePathSchema.nullable(),
+  // source 밖에 사람이 더 이은 폴더. project 연결 폴더와 같은 모양이고 app place의 file 범위에 들어간다.
+  folders: z.array(projectFolderOutputSchema),
   active_release: releaseIdSchema.nullable(),
   // App의 마지막 변경 seq이며 read snapshot 전체의 as_of_seq와 다르다.
   revision: revisionSchema,
@@ -139,6 +145,21 @@ export const appRename = defineCommand({
   actors: ["user"],
   errors: ["conflict", "invalid_input", "not_found"],
 });
+// 더한 폴더 목록을 통째로 바꾼다. 사람만 한다.
+const appEditFoldersInputSchema = z.strictObject({
+  app: appIdSchema,
+  folders: projectFoldersSchema,
+});
+export const appEditFolders = defineCommand({
+  resource: "apps",
+  method: "edit_folders",
+  name: "app.edit_folders",
+  input: appEditFoldersInputSchema,
+  output: appSchema,
+  compare: appCompareSchema,
+  actors: ["user"],
+  errors: ["conflict", "invalid_input", "not_found"],
+});
 
 const appListInputSchema = z.strictObject({
   status: archiveStateSchema.optional(),
@@ -198,4 +219,8 @@ export const appUnarchived = defineEvent("AppUnarchived", {
 export const appRenamed = defineEvent("AppRenamed", {
   subject: appIdSchema,
   payload: z.object({ name: appNameSchema }),
+});
+export const appFoldersEdited = defineEvent("AppFoldersEdited", {
+  subject: appIdSchema,
+  payload: z.object({ folders: projectFoldersSchema }),
 });

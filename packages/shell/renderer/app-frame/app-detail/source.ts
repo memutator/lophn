@@ -270,6 +270,16 @@ export interface AppDetailSource extends DomainActions {
     hash: string | null,
   ): Promise<SourceResult<InstructionsFile>>;
 
+  /** 앱 source 밖에 이은 폴더(agent의 file 범위에 들어간다). */
+  folders(app: string): Promise<SourceResult<readonly string[]>>;
+  /** OS 선택기로 폴더를 하나 더한다. 사람이 선택기를 닫으면 value가 null이다. */
+  addFolder(app: string): Promise<SourceResult<readonly string[] | null>>;
+  /** 이은 폴더 하나를 뺀다. 디스크의 폴더는 그대로다. */
+  removeFolder(
+    app: string,
+    path: string,
+  ): Promise<SourceResult<readonly string[]>>;
+
   versions(app: string): Promise<SourceResult<VersionView>>;
   /** 이 release를 지금 활성 release와 견준 늘어난 선언과 손실 단계. */
   changes(release: string): Promise<SourceResult<ReleaseChanges>>;

@@ -10,6 +10,7 @@ test("project·app session의 rewind 쓰기 폴더는 자기 그릇의 폴더와
     create table sessions (id text, agent text, place_kind text, place_id text);
     create table apps (id text, project text, source_path text, status text);
     create table project_folders (project text, path text, position integer);
+    create table app_folders (app text, path text, position integer);
     create table domains (id text, name text, owner_kind text, owner_id text, status text);
     insert into sessions values ('ses_pm', 'lophn', 'project', 'prj_a');
     insert into sessions values ('ses_ae', 'agt_1', 'app', 'app_a');
@@ -18,6 +19,8 @@ test("project·app session의 rewind 쓰기 폴더는 자기 그릇의 폴더와
     insert into apps values ('app_b', 'prj_b', '/src/b', 'active');
     insert into project_folders values ('prj_a', '/work/a', 0);
     insert into project_folders values ('prj_b', '/work/b', 0);
+    insert into app_folders values ('app_a', '/shared/a', 0);
+    insert into app_folders values ('app_b', '/shared/b', 0);
     insert into domains values ('dom_pa', 'pa', 'project', 'prj_a', 'active');
     insert into domains values ('dom_pb', 'pb', 'project', 'prj_b', 'active');
     insert into domains values ('dom_aa', 'aa', 'app', 'app_a', 'active');
@@ -36,6 +39,7 @@ test("project·app session의 rewind 쓰기 폴더는 자기 그릇의 폴더와
   ]);
   assert.deepStrictEqual(placeFoldersOf({ sql }, "/data", "ses_ae"), [
     "/src/a",
+    "/shared/a",
     "/data/domains/dom_aa",
   ]);
   assert.deepStrictEqual(placeFoldersOf({ sql }, "/data", "ses_home"), []);

@@ -7,6 +7,7 @@ import { t } from "@lophn/i18n";
 import { AccessTab } from "./access/access-tab.tsx";
 import { ActivityTab } from "./activity/activity-tab.tsx";
 import { DomainsSection } from "./domains-section.tsx";
+import { FoldersSection } from "./folders-section.tsx";
 import type { AppDetailSource } from "./source.ts";
 import { VersionsTab } from "./versions/versions-tab.tsx";
 import styles from "./app-detail.module.css";
@@ -38,6 +39,7 @@ export function AppDetail({
         </h3>
       </div>
       <DomainsSection app={app} source={source} />
+      <FoldersSection app={app} source={source} />
       <Tabs defaultValue="version">
         <TabList>
           <Tab value="version" size="sm">

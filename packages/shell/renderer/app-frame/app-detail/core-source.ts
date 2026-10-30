@@ -12,7 +12,11 @@ import {
   type ReleaseRecord,
   type Rewind,
   type RewindPlan,
+  type App,
+  appEditFolders,
 } from "../../../../protocol/apps/mod.ts";
+import { windowFolderPicker } from "../../desktop/launcher/projects/core-source.ts";
+import type { FolderPickerApi } from "../../../ipc/folder-picker.ts";
 import type { SecretFileStatus } from "../../../../protocol/secrets/secret-file.ts";
 import type { OpenExternalApi } from "../../../ipc/open-external.ts";
 import type { SecretInputOpenApi } from "../../../ipc/secret-input.ts";
@@ -468,6 +472,8 @@ interface AppDetailDeps {
   instructions: InstructionsApi | undefined;
   /** DOMAIN.md를 읽고 쓰는 main file 통로. 없으면 읽지도 쓰지도 못한다. */
   files: Pick<FilesApi, "read" | "write"> | undefined;
+  /** OS 폴더 선택기. 없으면 폴더를 더하지 못한다. */
+  picker: FolderPickerApi | undefined;
 }
 
 const stored = async <T>(
@@ -487,6 +493,33 @@ export function coreAppDetailSource(
   const instructions =
     "instructions" in deps ? deps.instructions : windowInstructions();
   const files = "files" in deps ? deps.files : windowFiles();
+  const picker = "picker" in deps ? deps.picker : windowFolderPicker();
+  // 폴더 목록은 app.edit_folders가 통째로 받고 읽은 revision을 비교한다. change가 null이면 core를 부르지 않는다.
+  async function editFolders(
+    app: string,
+    change: (
+      folders: readonly { path: string; description: string }[],
+    ) => readonly { path: string; description: string }[] | null,
+  ): Promise<SourceResult<readonly string[] | null>> {
+    const found = await read<{ app: App }>(core, "apps", "get", { app });
+    if (!found.ok) return found;
+    const next = change(found.value.app.folders);
+    if (next === null) return { ok: true, value: null };
+    const edited = await call<App>(
+      core,
+      "command",
+      appEditFolders.resource,
+      appEditFolders.method,
+      commandBody(appEditFolders, {
+        input: { app, folders: [...next] },
+        compare: { base_revision: found.value.app.revision },
+        key: crypto.randomUUID(),
+      }),
+    );
+    return edited.ok
+      ? { ok: true, value: edited.value.folders.map((f) => f.path) }
+      : edited;
+  }
   return {
     ...coreDomainActions(core),
 
@@ -541,6 +574,39 @@ export function coreAppDetailSource(
         };
       });
       return { ok: true, value: rows };
+    },
+
+    async folders(app) {
+      const found = await read<{ app: App }>(core, "apps", "get", { app });
+      return found.ok
+        ? { ok: true, value: found.value.app.folders.map((f) => f.path) }
+        : found;
+    },
+
+    async addFolder(app) {
+      if (picker === undefined) return { ok: false, code: "unavailable" };
+      let picked;
+      try {
+        picked = await picker.pick({ purpose: "register" });
+      } catch {
+        return { ok: false, code: "unavailable" };
+      }
+      if (!picked.ok) return { ok: false, code: picked.code };
+      const path = picked.path;
+      if (path === null) return { ok: true, value: null };
+      return editFolders(app, (folders) =>
+        folders.some((folder) => folder.path === path)
+          ? null
+          : [...folders, { path, description: "" }],
+      );
+    },
+
+    async removeFolder(app, path) {
+      const result = await editFolders(app, (folders) =>
+        folders.filter((folder) => folder.path !== path),
+      );
+      // 빼는 change는 null을 돌려주지 않으므로 value는 늘 목록이다.
+      return result.ok ? { ok: true, value: result.value ?? [] } : result;
     },
 
     async versions(app) {

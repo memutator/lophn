@@ -4,7 +4,11 @@
 import { mkdir } from "node:fs/promises";
 import { ok } from "../../../../base/mod.ts";
 import type { DomainOwner } from "../../../../protocol/domains/mod.ts";
-import { appSourcePath, appStatusOf } from "../../../apps/lookups.ts";
+import {
+  appFolderPaths,
+  appSourcePath,
+  appStatusOf,
+} from "../../../apps/lookups.ts";
 import { activeDomainIds, domainOwnerOf } from "../../../domains/lookups.ts";
 import {
   createKindsDispatcher,
@@ -27,8 +31,8 @@ type Connection = Extract<
   { ok: true }
 >["value"];
 
-// domain 그릇의 폴더들이다. project는 활성 project의 등록 폴더들, 앱은 source가 연결된 활성 앱의 source 폴더 하나다.
-// 그 밖(없는 domain, 보관된 그릇, source 없는 앱)은 null이다.
+// domain 그릇의 폴더들이다. project는 활성 project의 등록 폴더들, 앱은 source가 연결된 활성 앱의 source 폴더와
+// 더한 폴더들이다. 그 밖(없는 domain, 보관된 그릇, source 없는 앱)은 null이다.
 function rootsOfDomain(
   sql: Connection["sql"],
   domain: string,
@@ -38,7 +42,7 @@ function rootsOfDomain(
   if (owner.kind === "project") return projectRootsOf(sql, owner.id);
   if (appStatusOf(sql, owner.id) !== "active") return null;
   const source = appSourcePath(sql, owner.id);
-  return source === null ? null : [source];
+  return source === null ? null : [source, ...appFolderPaths(sql, owner.id)];
 }
 
 export const kindsWiring: WiringFactory = () => {

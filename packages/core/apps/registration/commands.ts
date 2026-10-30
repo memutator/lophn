@@ -3,6 +3,8 @@ import {
   type App,
   appArchive,
   appArchived,
+  appEditFolders,
+  appFoldersEdited,
   appConnectSource,
   appCreate,
   appCreated,
@@ -20,8 +22,9 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import { domainProvisioningPort } from "../../../protocol/domains/mod.ts";
+import { isSameOrInside } from "../permissions/model.ts";
 import { type AppAccessTarget, authorizeApp, denied } from "./model.ts";
-import { insertApp, loadApp, replaceApp } from "./store.ts";
+import { insertApp, loadApp, replaceApp, replaceFolders } from "./store.ts";
 
 function forbidden(message: string): Result<never> {
   return err({ code: "forbidden", message });
@@ -72,12 +75,24 @@ function requireWholeScope(ctx: RequestContext): Result<void> {
 function requireUser(ctx: RequestContext): Result<void> {
   return parseActor(ctx.actor)?.kind === "user"
     ? ok(undefined)
-    : forbidden("app archive is user only");
+    : forbidden("this app change is user only");
 }
 
 function appView(app: App): Result<App> {
   const parsed = appSchema.safeParse(app);
   return parsed.success ? ok(parsed.data) : invalid("invalid app state");
+}
+
+// 더한 폴더끼리, 그리고 source와 겹치면 거절한다. 겹치면 같은 파일이 두 root로 잡혀 rewind 기록이 갈린다.
+function overlapping(paths: readonly (string | null)[]): boolean {
+  const roots = paths.filter((path): path is string => path !== null);
+  return roots.some((left, at) =>
+    roots
+      .slice(at + 1)
+      .some(
+        (right) => isSameOrInside(left, right) || isSameOrInside(right, left),
+      ),
+  );
 }
 
 function accessTarget(before: App | null, after: App): AppAccessTarget {
@@ -90,6 +105,7 @@ export function createAppCommands(): {
   archive: CommandDefinition<typeof appArchive>;
   unarchive: CommandDefinition<typeof appUnarchive>;
   rename: CommandDefinition<typeof appRename>;
+  editFolders: CommandDefinition<typeof appEditFolders>;
 } {
   return {
     create: {
@@ -113,6 +129,7 @@ export function createAppCommands(): {
           description: input.description,
           planning_version: input.planning_version ?? null,
           source_path: null,
+          folders: [],
           active_release: null,
           revision: "1",
           run_enabled: false,
@@ -243,6 +260,44 @@ export function createAppCommands(): {
         const next: App = { ...changed, revision: seq };
         const stored = replaceApp(tx, next);
         if (!stored.ok) return stored;
+        return appView(next);
+      },
+    },
+    editFolders: {
+      route: appEditFolders,
+      handle(tx, ctx, input, compare) {
+        const actor = requireUser(ctx);
+        if (!actor.ok) return actor;
+        const current = loadApp(tx.sql, input.app);
+        if (!current.ok) return current;
+        if (current.value === null) return notFound();
+        if (
+          overlapping([
+            current.value.source_path,
+            ...input.folders.map((folder) => folder.path),
+          ])
+        ) {
+          return invalid("folders cannot repeat or overlap the app source");
+        }
+        const changed: App = { ...current.value, folders: input.folders };
+        const access = authorizeApp(
+          tx.port,
+          ctx,
+          appEditFolders.name,
+          accessTarget(current.value, changed),
+        );
+        if (denied(access)) return notFound();
+        if (!access.ok) return access;
+        if (current.value.revision !== compare.base_revision) {
+          return conflict("app revision changed");
+        }
+        const seq = tx.emit(appFoldersEdited, changed.id, {
+          folders: input.folders,
+        });
+        const next: App = { ...changed, revision: seq };
+        const stored = replaceApp(tx, next);
+        if (!stored.ok) return stored;
+        replaceFolders(tx, next);
         return appView(next);
       },
     },

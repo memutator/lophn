@@ -15,6 +15,7 @@ import type { Result } from "../../../../../base/mod.ts";
 import {
   appArchive,
   appConnectSource,
+  appEditFolders,
   appCreate,
   appUnarchive,
 } from "../../../../../protocol/apps/apps.ts";
@@ -88,6 +89,7 @@ const WATCH_COMMANDS: Set<string> = new Set([
   projectApi.unarchive.name,
   appCreate.name,
   appConnectSource.name,
+  appEditFolders.name,
   appArchive.name,
   appUnarchive.name,
   domainCreate.name,

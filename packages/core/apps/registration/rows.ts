@@ -11,7 +11,11 @@ function flag(value: unknown): Result<boolean> {
   return invalidStored();
 }
 
-export function appFromRow(row: Record<string, unknown>): Result<App> {
+// folderRows는 app_folders 행을 position 순으로 준다.
+export function appFromRow(
+  row: Record<string, unknown>,
+  folderRows: readonly Record<string, unknown>[],
+): Result<App> {
   const enabled = flag(row.run_enabled);
   if (!enabled.ok) return enabled;
   const app = appSchema.safeParse({
@@ -21,6 +25,10 @@ export function appFromRow(row: Record<string, unknown>): Result<App> {
     description: row.description,
     planning_version: row.planning_version,
     source_path: row.source_path,
+    folders: folderRows.map((folder) => ({
+      path: folder.path,
+      description: folder.description,
+    })),
     active_release: row.active_release,
     revision: row.revision,
     run_enabled: enabled.value,

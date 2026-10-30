@@ -10,6 +10,7 @@ const base: PlaceFacts = {
   place: null,
   projectFolders: ["/p1", "/p2"],
   appSource: "/app",
+  appFolders: ["/shared"],
   domains: [domain("dom_a"), domain("dom_b")],
   dataFolder: "/data/projects/prj_a",
   allProjectFolders: ["/p1", "/p2", "/q"],
@@ -37,11 +38,14 @@ test("place 종류마다 쓰기 폴더는 그 그릇의 폴더와 받은 domain 
     place: app,
     domains: [domain("dom_a")],
   });
+  // 앱 source 다음에 사람이 더 이은 폴더가 오고, 상대 경로 기준은 source다
   assert.deepStrictEqual(appPlace, {
-    read: ["/app", "/data/domains/dom_a"],
-    write: ["/app", "/data/domains/dom_a"],
+    read: ["/app", "/shared", "/data/domains/dom_a"],
+    write: ["/app", "/shared", "/data/domains/dom_a"],
     base: "/app",
   });
+  // project place는 앱에 더한 폴더를 받지 않는다
+  assert.ok(!projectPlace.write.includes("/shared"));
   // 폴더 없는 project는 domain 폴더와 workflows/만 열고 상대 경로 기준은 data 폴더다
   assert.deepStrictEqual(
     placeScope({

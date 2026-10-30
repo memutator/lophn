@@ -40,4 +40,18 @@ export const appsSchemaSteps: readonly SchemaStep[] = [
     BEGIN SELECT RAISE(ABORT, 'app identity already exists'); END;
   `,
   },
+  // source 밖에 사람이 이은 폴더. project_folders와 같은 모양이다. position은 0부터 연속이다.
+  {
+    id: "apps.registration.folders",
+    sql: `
+    CREATE TABLE app_folders (
+      app TEXT NOT NULL REFERENCES apps(id),
+      position INTEGER NOT NULL CHECK (position >= 0),
+      path TEXT NOT NULL,
+      description TEXT NOT NULL,
+      PRIMARY KEY (app, position),
+      UNIQUE (app, path)
+    ) STRICT;
+  `,
+  },
 ];

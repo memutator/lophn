@@ -1,10 +1,12 @@
 export const appSpace = {
+  "app-detail.button.add-folder": "Add folder",
   "app-detail.button.back-to-activity": "Back to Activity",
   "app-detail.button.cancel": "Cancel",
   "app-detail.button.change-client-id": "Change",
   "app-detail.button.change-client-secret": "Change client secret",
   "app-detail.button.change-value": "Change value",
   "app-detail.button.go-back": "Go back to {release}",
+  "app-detail.button.remove-folder": "Remove",
   "app-detail.button.remove-value": "Remove value",
   "app-detail.button.revoke": "Revoke",
   "app-detail.button.rewind-app": "Rewind {name}",
@@ -15,6 +17,7 @@ export const appSpace = {
   "app-detail.button.sign-in": "Sign in",
   "app-detail.button.sign-in-again": "Sign in again",
   "app-detail.button.sign-out": "Sign out",
+  "app-detail.error.folders-failed": "Couldn't change the folders. Try again.",
   "app-detail.error.go-back-failed":
     "Couldn't go back to {release}. Nothing changed.",
   "app-detail.error.remove-failed": "Couldn't remove that. Try again.",
@@ -29,6 +32,7 @@ export const appSpace = {
   "app-detail.heading.changes": "What changes, {from} to {to}",
   "app-detail.heading.changes-first": "What {to} declares",
   "app-detail.heading.earlier-releases": "Earlier releases",
+  "app-detail.heading.folders": "Folders",
   "app-detail.heading.last-activation": "Last activation",
   "app-detail.heading.other-apps": "Other apps",
   "app-detail.heading.outside-resources": "Outside resources",
@@ -176,6 +180,8 @@ export const appSpace = {
     "A fingerprint. The input itself is not kept.",
   "app-detail.note.may-call": "This app may call it.",
   "app-detail.note.no-activity": "No activity yet.",
+  "app-detail.note.no-folders":
+    "Agents here use only the app source. Add a folder to let them read and edit it too.",
   "app-detail.note.no-other-apps": "This app can't call other apps.",
   "app-detail.note.no-resources": "This app has no outside resources.",
   "app-detail.note.oauth-failed-callback-timeout":

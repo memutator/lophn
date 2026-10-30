@@ -8,7 +8,7 @@ import {
   placeScope,
 } from "../../agent-places/place/place-folders.ts";
 import { placeDataFolder } from "../../agent-places/place/data-folder.ts";
-import { appSourcePath } from "../../apps/lookups.ts";
+import { appFolderPaths, appSourcePath } from "../../apps/lookups.ts";
 import { domainsOfOwner } from "../../domains/lookups.ts";
 import { projectFolderPaths } from "../../projects/lookups.ts";
 
@@ -36,6 +36,7 @@ export function placeFoldersOf(
     projectFolders:
       place?.kind === "project" ? projectFolderPaths(sql, place.id) : [],
     appSource: place?.kind === "app" ? appSourcePath(sql, place.id) : null,
+    appFolders: place?.kind === "app" ? appFolderPaths(sql, place.id) : [],
     domains:
       place === null
         ? []

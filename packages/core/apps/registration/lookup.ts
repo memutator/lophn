@@ -14,7 +14,8 @@ export function lookupAppRegistration(
     [app],
   );
   if (row === undefined) return ok(null);
-  const parsed = appFromRow(row as SqlRow);
+  // 등록 조회는 존재·status·slug만 쓰므로 폴더 행을 읽지 않는다.
+  const parsed = appFromRow(row as SqlRow, []);
   if (!parsed.ok) return parsed;
   return ok({
     id: parsed.value.id,

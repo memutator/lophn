@@ -9,10 +9,13 @@ function invalidStored(): Result<never> {
   return err({ code: "internal", message: "invalid stored app" });
 }
 
+const FOLDER_ROWS =
+  "SELECT path, description FROM app_folders WHERE app = ? ORDER BY position";
+
 export function loadApp(sql: Query, id: string): Result<App | null> {
   const row = sql.get("SELECT * FROM apps WHERE id = ?", [id]);
   if (row === undefined) return ok(null);
-  const app = appFromRow(row as SqlRow);
+  const app = appFromRow(row as SqlRow, sql.all(FOLDER_ROWS, [id]));
   if (!app.ok) return app;
   if (app.value.id !== id) return invalidStored();
   return app;
@@ -28,7 +31,7 @@ export function loadApps(
       : sql.all("SELECT * FROM apps WHERE status = ? ORDER BY id", [status]);
   const apps: App[] = [];
   for (const row of rows) {
-    const app = appFromRow(row);
+    const app = appFromRow(row, sql.all(FOLDER_ROWS, [String(row.id)]));
     if (!app.ok) return app;
     apps.push(app.value);
   }
@@ -56,6 +59,7 @@ export function insertApp(tx: Pick<Tx, "sql">, app: App): void {
   );
 }
 
+// 폴더 행은 replaceApp이 건드리지 않는다. 폴더를 바꾸는 command만 replaceFolders를 부른다.
 export function replaceApp(tx: Pick<Tx, "sql">, app: App): Result<void> {
   const changed = tx.sql.run(
     `UPDATE apps
@@ -75,4 +79,14 @@ export function replaceApp(tx: Pick<Tx, "sql">, app: App): Result<void> {
     ],
   );
   return Number(changed.changes) === 1 ? ok(undefined) : invalidStored();
+}
+
+export function replaceFolders(tx: Pick<Tx, "sql">, app: App): void {
+  tx.sql.run("DELETE FROM app_folders WHERE app = ?", [app.id]);
+  app.folders.forEach((folder, position) => {
+    tx.sql.run(
+      "INSERT INTO app_folders (app, position, path, description) VALUES (?, ?, ?, ?)",
+      [app.id, position, folder.path, folder.description],
+    );
+  });
 }

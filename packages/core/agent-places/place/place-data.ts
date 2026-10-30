@@ -155,6 +155,7 @@ async function readPlaceData(
   let release: PlaceData["release"] = null;
   let projectFolders: string[] = [];
   let appSource: string | null = null;
+  let appFolders: string[] = [];
 
   if (place?.kind === "project") {
     const read = await projectOf(place.id);
@@ -166,11 +167,16 @@ async function readPlaceData(
     if (!read.ok) return read;
     const found = read.value;
     appSource = found.source_path;
+    appFolders = found.folders.map((f) => f.path);
     app = {
       id: found.id,
       name: found.name,
       purpose: found.description,
       source: appSource,
+      folders: found.folders.map((f) => ({
+        path: f.path,
+        description: f.description,
+      })),
       declaration: appSource === null ? "lophn.ts" : `${appSource}/lophn.ts`,
     };
     if (found.active_release !== null) {
@@ -395,6 +401,7 @@ async function readPlaceData(
     place,
     projectFolders,
     appSource,
+    appFolders,
     domains: scopeDomains,
     dataFolder: place === null ? null : files.dataFolder(place),
     allProjectFolders,

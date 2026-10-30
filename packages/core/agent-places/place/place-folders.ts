@@ -4,6 +4,8 @@ export type PlaceFacts = {
   projectFolders: readonly string[];
   // place가 app일 때 그 앱의 source 폴더. 아직 잇지 않았으면 null
   appSource: string | null;
+  // place가 app일 때 사람이 source 밖에 더 이은 폴더(position 순)
+  appFolders: readonly string[];
   // 이 session이 맡은 domain의 폴더. turn은 받은 domain만, rewind는 그릇의 domain 전부를 넘긴다.
   domains: readonly { id: string; folder: string }[];
   // place의 data 폴더. 폴더가 없는 place의 상대 경로 기준이다
@@ -24,13 +26,14 @@ export function placeScope(facts: PlaceFacts): FolderScope {
   if (place === null) {
     return { read: [...facts.allProjectFolders], write: [] };
   }
-  // 사람의 폴더(project 폴더, 앱 source)가 domain 폴더보다 앞에 남는다. 상대 path의 기준이 첫 폴더라서다.
+  // 사람의 폴더(project 폴더, 앱 source와 더한 폴더)가 domain 폴더보다 앞에 남는다. 상대 path의 기준이 첫 폴더라서다.
   const own =
     place.kind === "project"
       ? [...facts.projectFolders]
-      : facts.appSource === null
-        ? []
-        : [facts.appSource];
+      : [
+          ...(facts.appSource === null ? [] : [facts.appSource]),
+          ...facts.appFolders,
+        ];
   const withBase = (folders: string[]): FolderScope => {
     const base = own[0] ?? facts.dataFolder ?? undefined;
     return {

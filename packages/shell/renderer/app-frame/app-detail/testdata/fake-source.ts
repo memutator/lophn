@@ -375,6 +375,8 @@ export function fakeDetail(options: FakeOptions = {}) {
       },
     ]),
   );
+  // source 밖에 이은 폴더. Add는 늘 같은 경로 하나를 더한다.
+  let folders: readonly string[] = ["/home/me/notes/orders"];
 
   const reply = <T>(name: string, value: T): Promise<SourceResult<T>> => {
     calls.push([name]);
@@ -561,6 +563,17 @@ export function fakeDetail(options: FakeOptions = {}) {
       };
       domainDocs.set(domain, next);
       return Promise.resolve({ ok: true, value: next });
+    },
+    folders: () => reply("folders", folders),
+    addFolder: () => {
+      const path = "/home/me/shared/carriers";
+      if (folders.includes(path)) return reply("addFolder", null);
+      folders = [...folders, path];
+      return reply("addFolder", folders);
+    },
+    removeFolder: (_app, path) => {
+      folders = folders.filter((folder) => folder !== path);
+      return reply("removeFolder", folders);
     },
     versions: () => reply("versions", versionsView()),
     changes: (id) => {

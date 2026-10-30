@@ -31,6 +31,7 @@ const app = {
   description: "keeps the books",
   planning_version: null,
   source_path: "/src/ledger",
+  folders: [],
   active_release: null,
   revision: "1",
   run_enabled: false,

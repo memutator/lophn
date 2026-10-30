@@ -24,6 +24,13 @@ export function appSourcePath(sql: ReadSql, id: string): string | null {
     : String(row["source_path"]);
 }
 
+// 앱에 source 밖으로 더 이은 폴더 경로(position 순).
+export function appFolderPaths(sql: ReadSql, id: string): string[] {
+  return sql
+    .all("select path from app_folders where app = ? order by position", [id])
+    .map((row) => String(row["path"]));
+}
+
 // active 앱 전체의 source 폴더(source가 없는 앱은 뺀다).
 export function activeAppSourcePaths(sql: ReadSql): string[] {
   return sql

@@ -85,7 +85,8 @@ export type HarnessAdapter = {
   commands: readonly string[];
   process: HarnessProcessRule;
   version_probe: { argv: readonly string[] } | null;
-  // 사람이 치면 도는 turn을 끊는 키다. 단독 키 입력을 보고 상태를 unknown으로 내린다.
+  // 도는 turn을 끊는 키다. 단독 키 입력을 보고 상태를 unknown으로 내린다. 중단을 hook으로 알리는 harness는 비운다.
+  // 이 키는 입력 지우기나 팝업 닫기에도 쓰여, turn이 도는데 상태만 unknown으로 내려가고 다음 turn까지 못 돌아온다.
   interrupt_keys: readonly ("escape" | "ctrl-c")[];
   // 사용자 home 기준 상대 위치(전역)다. lophn이 전에 skill 사본을 놓던 곳. 지운 skill의 옛 사본을 지울 때 쓴다.
   skill_dir: string | null;
@@ -187,7 +188,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     process: {},
     version_probe: { argv: ["opencode", "--version"] },
     // 확인함: opencode.ai/docs/skills (~/.config/opencode/skills).
-    interrupt_keys: ["escape", "ctrl-c"],
+    interrupt_keys: [],
     skill_dir: ".config/opencode/skills",
     // 확인함: opencode.ai/docs/plugins (`~/.config/opencode/plugins/` 전역 plugin, 시작 때 읽힘). 파일 이름 규칙은
     // 문서에 없다(이 컴퓨터의 전역 plugins 폴더에서 다른 도구의 `*.js`가 같은 위치로 쓰이는 것을 봤다).
@@ -213,7 +214,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     process: {},
     version_probe: null,
     // pi 문서가 지원한다고 적은 전역 위치다(pi.dev/docs/latest/skills). `~/.pi/agent/skills`는 확인 못함.
-    interrupt_keys: ["escape", "ctrl-c"],
+    interrupt_keys: [],
     skill_dir: ".agents/skills",
     // 확인함: pi.dev/docs/latest/extensions (~/.pi/agent/extensions/*.ts).
     hook: {
@@ -271,7 +272,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     commands: ["omp"],
     process: {},
     version_probe: null,
-    interrupt_keys: ["escape", "ctrl-c"],
+    interrupt_keys: [],
     skill_dir: null,
     hook: {
       format: "plugin_file",
@@ -450,8 +451,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     commands: ["grok"],
     process: {},
     version_probe: null,
-    // Esc는 grok의 turn을 끊지 않는다. Ctrl-C가 끊는다.
-    interrupt_keys: ["ctrl-c"],
+    interrupt_keys: [],
     skill_dir: null,
     hook: { ...CLAUDE_HOOK, path: ".grok/hooks/lophn.json" },
     events: {
@@ -476,7 +476,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     commands: ["droid"],
     process: {},
     version_probe: null,
-    interrupt_keys: ["escape", "ctrl-c"],
+    interrupt_keys: [],
     skill_dir: null,
     hook: {
       format: "json",
@@ -506,7 +506,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     commands: ["amp"],
     process: {},
     version_probe: null,
-    interrupt_keys: ["escape", "ctrl-c"],
+    interrupt_keys: [],
     skill_dir: null,
     hook: {
       format: "plugin_file",
@@ -692,7 +692,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     commands: ["mimo"],
     process: {},
     version_probe: null,
-    interrupt_keys: ["escape", "ctrl-c"],
+    interrupt_keys: [],
     skill_dir: null,
     hook: {
       format: "plugin_file",
@@ -712,7 +712,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     commands: ["cline"],
     process: {},
     version_probe: null,
-    interrupt_keys: ["escape", "ctrl-c"],
+    interrupt_keys: [],
     skill_dir: null,
     hook: { format: "script_dir", path: ".cline/hooks" },
     events: {
@@ -776,7 +776,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     commands: ["kilo", "kilocode"],
     process: {},
     version_probe: null,
-    interrupt_keys: ["escape", "ctrl-c"],
+    interrupt_keys: [],
     skill_dir: null,
     hook: {
       format: "plugin_file",

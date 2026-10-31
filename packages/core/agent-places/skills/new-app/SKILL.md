@@ -1,6 +1,6 @@
 ---
 name: new-app
-description: Start a new app with the person: find out what it should do, check what already exists, then register it and hand it to lophn at the new app.
+description: Start a new app with the person.
 ---
 
 # Start a new app

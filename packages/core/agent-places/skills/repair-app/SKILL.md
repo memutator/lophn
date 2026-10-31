@@ -1,6 +1,6 @@
 ---
 name: repair-app
-description: Find out what went wrong in one of the person's apps from its status, log and failed calls, tell the person what you found, and hand the fix to lophn at that app.
+description: Find out what went wrong in one of the person's apps.
 ---
 
 # Repair an app

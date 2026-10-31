@@ -1,6 +1,6 @@
 ---
 name: write-workflow
-description: Write a workflow: a folder in the project's Workflows folder with a declaration (workflow.yaml), a readable description (workflow.md) and optional artifacts that draw its steps as nodes. What lophn reads, what each participant receives, and how to draw nodes with the kit.
+description: Write a workflow: how people and agents pass a job from step to step. Read this skill and write it as it says.
 ---
 
 # Workflow

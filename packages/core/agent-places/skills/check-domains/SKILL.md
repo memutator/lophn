@@ -1,6 +1,6 @@
 ---
 name: check-domains
-description: Check every domain of the project against its kinds and say, for each violation, whether the kinds file or the document is wrong.
+description: Check every domain of the project against its kinds.
 ---
 
 # Check domains

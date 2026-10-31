@@ -43,14 +43,11 @@ export const SKILLS_GROUP: SlashGroupView = {
   title: "Skills",
   entries: [
     skill("eval-metrics", "Compute pass rate and regressions"),
-    skill(
-      "new-app",
-      "Start a new app with the person: find out what it should do, check what already exists, then register it and hand it to lophn at the new app.",
-    ),
+    skill("new-app", "Start a new app with the person."),
     skill("release-notes", "Draft release notes from merged changes"),
     skill(
       "repair-app",
-      "Find out what went wrong in one of the person's apps from its status, log and failed calls, tell the person what you found, and hand the fix to lophn at that app.",
+      "Find out what went wrong in one of the person's apps.",
     ),
     skill("weekly-report", "Write the weekly eval report"),
   ],

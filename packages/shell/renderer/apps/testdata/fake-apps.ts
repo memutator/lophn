@@ -7,11 +7,13 @@ export function appRow(
   name: string,
   options: Partial<Omit<AppRow, "id" | "name">> = {},
 ): AppRow {
+  const number = Number(options.release);
   return {
     id,
     name,
     archived: false,
     release: null,
+    releaseNumber: Number.isInteger(number) && number > 0 ? number : null,
     revision: "7",
     ...options,
   };

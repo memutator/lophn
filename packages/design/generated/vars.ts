@@ -267,7 +267,7 @@ export const vars = {
     },
     list: "var(--page-list)",
     form: "var(--page-form)",
-    launcher: "var(--page-launcher)",
+    settings: "var(--page-settings)",
     overview: "var(--page-overview)",
   },
   editor: {

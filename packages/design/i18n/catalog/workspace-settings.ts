@@ -160,7 +160,7 @@ export const workspaceSettings = {
   "settings.intro.general":
     "Settings that lophn declares. Only values you change are saved; every other value follows its default.",
   "settings.intro.keyboard":
-    "Shortcuts for tabs, panes, and the sidebar in a project. Changes apply on this computer's system only, as soon as you press the new key.",
+    "Shortcuts for tabs, the split, and the sidebar. Changes apply on this computer's system only, as soon as you press the new key.",
   "settings.intro.shell-rules":
     "Before lophn runs a command for an agent, it checks these rules. Deny blocks the command, Ask waits for your answer, and Allow lets it run. The last matching rule wins, and project rules come after Workspace rules. A command that matches no rule runs. In a pattern, * matches any text.",
   "settings.label.accent": "Accent",
@@ -224,9 +224,8 @@ export const workspaceSettings = {
   "settings.label.key-none": "No shortcut",
   "settings.label.key-numbered": "{modifier}+number",
   "settings.label.key-numbered-mixed": "Changed for some numbers",
-  "settings.label.key-pane-focus": "Focus a pane",
-  "settings.label.key-pane-split": "Split the pane to the right",
-  "settings.label.key-pane-split-down": "Split the pane downward",
+  "settings.label.key-pane-focus": "Focus a side of the split",
+  "settings.label.key-pane-split": "Split with the next tab or unsplit",
   "settings.label.key-search": "Search shortcuts",
   "settings.label.key-search-by-key": "Press a shortcut",
   "settings.label.key-search-open": "Search in files",
@@ -238,8 +237,6 @@ export const workspaceSettings = {
   "settings.label.key-tab-nth": "Go to a tab by number",
   "settings.label.key-tab-prev": "Previous tab",
   "settings.label.key-tab-reopen": "Reopen the closed tab",
-  "settings.label.key-tab-to-next-pane": "Move the tab to the next pane",
-  "settings.label.key-tab-to-prev-pane": "Move the tab to the previous pane",
   "settings.label.key-terminal-focus": "Open or focus the terminal",
   "settings.label.shell-action-allow": "Allow",
   "settings.label.shell-action-ask": "Ask",
@@ -296,11 +293,9 @@ export const workspaceSettings = {
   "settings.note.key-files-quick-open":
     "Opens search and commands, where you can type a file name.",
   "settings.note.key-pane-focus":
-    "Moves to a pane by number. Panes are numbered left to right, then top to bottom.",
+    "Moves to the left (1) or right (2) tab of the split.",
   "settings.note.key-pane-split":
-    "Moves the current tab to a new pane on the right.",
-  "settings.note.key-pane-split-down":
-    "Moves the current tab to a new pane below.",
+    "Joins the current tab with the next tab into a split, or unsplits.",
   "settings.note.key-search-by-key":
     "Press keys to find what uses them. Backspace clears.",
   "settings.note.key-search-open":
@@ -309,19 +304,15 @@ export const workspaceSettings = {
     "Folds the sidebar to its icons, or opens it again.",
   "settings.note.key-tab-close": "Closes the tab you're looking at.",
   "settings.note.key-tab-move-left":
-    "Moves the current tab one place to the left in its pane.",
+    "Moves the current tab one place to the left in the tab strip.",
   "settings.note.key-tab-move-right":
-    "Moves the current tab one place to the right in its pane.",
-  "settings.note.key-tab-next": "Goes to the next tab in the pane.",
+    "Moves the current tab one place to the right in the tab strip.",
+  "settings.note.key-tab-next": "Goes to the next tab in the tab strip.",
   "settings.note.key-tab-nth":
-    "Goes to tab 1 to 9 in the pane by its place. 0 goes to the last tab.",
-  "settings.note.key-tab-prev": "Goes to the previous tab in the pane.",
+    "Goes to tab 1 to 9 in the tab strip by its place. 0 goes to the last tab.",
+  "settings.note.key-tab-prev": "Goes to the previous tab in the tab strip.",
   "settings.note.key-tab-reopen":
     "Opens the tab you closed most recently, where it was.",
-  "settings.note.key-tab-to-next-pane":
-    "Moves the current tab to the pane on the right.",
-  "settings.note.key-tab-to-prev-pane":
-    "Moves the current tab to the pane on the left.",
   "settings.note.key-terminal-focus":
     "Goes to a terminal tab in this project, or opens one if there is none.",
   "settings.note.not-set":

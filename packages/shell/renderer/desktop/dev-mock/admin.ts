@@ -56,9 +56,11 @@ export function mockApps(): AppsSource {
     rows: [
       appRow(APP_BUDGET, "Grocery budget", {
         release: "rel_01h455vb4pex5v6nkc6gd5fd01",
+        releaseNumber: 3,
       }),
       appRow(APP_PLANNER, "Meal planner", {
         release: "rel_01h455vb4pex5v6nkc6gd5fd03",
+        releaseNumber: 1,
       }),
       appRow(APP_EXPENSES, "Expense log", { archived: true }),
     ],

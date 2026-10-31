@@ -4,7 +4,7 @@ import { Field, Input, Textarea } from "@lophn/ui/input";
 import { StatusMark } from "@lophn/ui/feedback";
 import { Tooltip } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
-import { actionIcons, launcherIcons } from "../../../icons/mod.ts";
+import { actionIcons, homeIcons } from "../../../icons/mod.ts";
 
 import {
   addFolder,
@@ -132,7 +132,7 @@ export function ProjectForm({
         </Field>
         <Field
           label={t("projects.label.purpose")}
-          help={t("launcher.field.purpose-help")}
+          help={t("home.field.purpose-help")}
         >
           <Textarea
             data-project-purpose=""
@@ -181,11 +181,11 @@ export function ProjectForm({
                         />
                         <Button
                           size="sm"
-                          icon={launcherIcons.chooseFolder}
+                          icon={homeIcons.chooseFolder}
                           data-relocate=""
                           onClick={() => void relocate(folder.path)}
                         >
-                          {t("launcher.button.choose-location")}
+                          {t("home.button.choose-location")}
                         </Button>
                       </>
                     )}
@@ -243,7 +243,7 @@ export function ProjectForm({
         ) : null}
         {problem === "picker-failed" ? (
           <p className={styles.error} role="alert">
-            {t("launcher.error.picker-failed")}
+            {t("home.error.picker-failed")}
           </p>
         ) : null}
       </form>

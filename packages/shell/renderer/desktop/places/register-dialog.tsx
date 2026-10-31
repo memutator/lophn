@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { Field, Input, Textarea } from "@lophn/ui/input";
 import { Dialog, Tooltip } from "@lophn/ui/overlay";
-import { actionIcons, launcherIcons } from "../../icons/mod.ts";
+import { actionIcons, homeIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
 import { newId } from "../../prefixed-id.ts";
@@ -86,11 +86,9 @@ export function RegisterDialog({
   };
 
   const nameError =
-    touched && !usableTitle(title)
-      ? t("launcher.error.name-required")
-      : undefined;
-  const addLabel = t("launcher.button.add-folder");
-  const removeLabel = t("launcher.button.remove-folder");
+    touched && !usableTitle(title) ? t("home.error.name-required") : undefined;
+  const addLabel = t("home.button.add-folder");
+  const removeLabel = t("home.button.remove-folder");
 
   return (
     <Dialog
@@ -98,7 +96,7 @@ export function RegisterDialog({
       onOpenChange={(next) => {
         if (!next) close();
       }}
-      title={t("launcher.title.register")}
+      title={t("home.title.register")}
       actions={
         <>
           <Button variant="secondary" onClick={close} disabled={busy}>
@@ -111,14 +109,14 @@ export function RegisterDialog({
             disabled={busy}
             data-register=""
           >
-            {t("launcher.button.register")}
+            {t("home.button.register")}
           </Button>
         </>
       }
     >
       <div className={styles.form} data-register-form="">
-        <p className={styles.note}>{t("launcher.dialog.register-note")}</p>
-        <Field label={t("launcher.label.name")} error={nameError}>
+        <p className={styles.note}>{t("home.dialog.register-note")}</p>
+        <Field label={t("home.label.name")} error={nameError}>
           <Input
             value={title}
             autoFocus
@@ -127,8 +125,8 @@ export function RegisterDialog({
           />
         </Field>
         <Field
-          label={t("launcher.label.purpose")}
-          help={t("launcher.field.purpose-help")}
+          label={t("home.label.purpose")}
+          help={t("home.field.purpose-help")}
         >
           <Textarea
             value={purpose}
@@ -140,11 +138,11 @@ export function RegisterDialog({
         <section className={styles.folders} data-folders="">
           <div className={styles.foldersHead}>
             <span className={styles.foldersLabel}>
-              {t("launcher.label.folders")}
+              {t("home.label.folders")}
             </span>
             <Tooltip content={addLabel}>
               <IconButton
-                icon={launcherIcons.addFolder}
+                icon={homeIcons.addFolder}
                 label={addLabel}
                 size="sm"
                 data-add-folder=""
@@ -154,7 +152,7 @@ export function RegisterDialog({
           </div>
           {folders.length === 0 ? (
             <p className={styles.empty} data-folders-empty="">
-              {t("launcher.empty.no-folders")}
+              {t("home.empty.no-folders")}
             </p>
           ) : (
             <ul className={styles.folderList}>
@@ -168,7 +166,7 @@ export function RegisterDialog({
                     <span className={styles.path}>{folder.path}</span>
                     <Tooltip content={removeLabel}>
                       <IconButton
-                        icon={launcherIcons.remove}
+                        icon={homeIcons.remove}
                         label={removeLabel}
                         size="sm"
                         data-remove-folder=""
@@ -178,7 +176,7 @@ export function RegisterDialog({
                       />
                     </Tooltip>
                   </div>
-                  <Field label={t("launcher.label.folder-description")}>
+                  <Field label={t("home.label.folder-description")}>
                     <Input
                       size="sm"
                       value={folder.description}
@@ -199,13 +197,13 @@ export function RegisterDialog({
           )}
           {pickFailed ? (
             <p className={styles.error} role="alert" data-pick-failed="">
-              {t("launcher.error.picker-failed")}
+              {t("home.error.picker-failed")}
             </p>
           ) : null}
         </section>
         {failure !== null ? (
           <p className={styles.error} role="alert" data-register-failed="">
-            {t("launcher.error.register-failed", { name: failure })}
+            {t("home.error.register-failed", { name: failure })}
           </p>
         ) : null}
       </div>

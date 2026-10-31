@@ -29,7 +29,7 @@ export function HomeGate({
     <div className={styles.window} data-space="home" data-gated="">
       <TopBar
         platform={platform}
-        leading={<Wordmark>{t("launcher.label.wordmark")}</Wordmark>}
+        leading={<Wordmark>{t("home.label.wordmark")}</Wordmark>}
       />
       <main className={styles.body}>
         {failure !== null ? (

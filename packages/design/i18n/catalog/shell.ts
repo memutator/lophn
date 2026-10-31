@@ -33,7 +33,8 @@ export const shell = {
   "shell.heading.places": "Places",
   "shell.heading.workflows": "Workflows",
   "shell.label.app-no-release": "No release yet",
-  "shell.label.app-release": "Release {release}",
+  "shell.label.app-release": "Release {number}",
+  "shell.label.app-released": "Released",
   "shell.label.empty-desk":
     "No tabs in this desk yet. Open a session from the sidebar or start a new one.",
   "shell.label.minimized": "Minimized tabs",

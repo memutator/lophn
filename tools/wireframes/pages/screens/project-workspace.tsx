@@ -201,7 +201,7 @@ export const projectWorkspaceArea: Area = {
       id: "project-settings",
       title: "Project workspace · project settings tab",
       description:
-        "프로젝트 설정 탭. General은 런처 상세 dialog와 같은 form(이름·목적·폴더)이다.",
+        "프로젝트 설정 탭. General은 Home의 project 상세 dialog와 같은 form(이름·목적·폴더)이다.",
       render: () => (
         <MockDesktop
           route={openProject(PROJECT_GROCERY)}
@@ -357,9 +357,9 @@ export const projectWorkspaceArea: Area = {
     },
     {
       id: "new-explorer-root",
-      title: "Sidebar · Explorer",
+      title: "Sidebar · Files",
       description:
-        "sidebar 맨 위 밑줄 탭(Explorer, Agent)에서 Explorer를 고른 모양이다. 루트는 작은 대문자 이름 한 줄 머리이고, 그 menu를 연 상태로 연결한 폴더 둘이 이름과 경로로 보인다. 각 행 오른쪽 끝의 x는 그 폴더를 project에서 빼고(디스크는 그대로), 맨 아래 Add folder는 폴더를 더한다. tree에는 차분한 파일 종류 아이콘이 붙는다.",
+        "오른쪽 sidebar의 Files panel이다. 루트는 작은 대문자 이름 한 줄 머리이고, 그 menu를 연 상태로 연결한 폴더 둘이 이름과 경로로 보인다. 각 행 오른쪽 끝의 x는 그 폴더를 project에서 빼고(디스크는 그대로), 맨 아래 Add folder는 폴더를 더한다. tree에는 차분한 파일 종류 아이콘이 붙는다.",
       render: () => <ExplorerRootMenu />,
     },
     {
@@ -373,7 +373,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-sidebar-workflows",
       title: "Sidebar · Workflows",
       description:
-        "activity bar의 Workflows 항목을 고른 모양이다. workflow마다 아이콘, 이름, 아래 줄이 있고, 도는 instance가 있으면 아래 줄에 도는 수와 오른쪽 끝 점이 보인다. 선언이 틀린 workflow는 경고 아이콘과 빨간 글자이고 flow는 여기서 시작하지 못한다는 글이 보인다. 줄을 누르면 그 workflow의 탭이 열린다.",
+        "오른쪽 sidebar의 Workflows panel이다. workflow마다 아이콘, 이름, 아래 줄이 있고, 도는 instance가 있으면 아래 줄에 도는 수와 오른쪽 끝 점이 보인다. 선언이 틀린 workflow는 경고 아이콘과 빨간 글자이고 flow는 여기서 시작하지 못한다는 글이 보인다. 줄을 누르면 그 workflow의 탭이 열린다.",
       render: () => <SidebarWorkflows />,
     },
     {
@@ -387,7 +387,7 @@ export const projectWorkspaceArea: Area = {
       id: "project-window-jobs",
       title: "Sidebar · Scheduled jobs",
       description:
-        "activity bar의 Workflows 아래 Scheduled jobs 항목(Settings와 같은 달력 아이콘)을 고른 모양이다. 그 project에 걸린 job만 줄로 보이고(다른 project의 job은 보이지 않는다), 줄은 제목, 오른쪽 끝 고정 열의 switch, 아래 줄(주기 글과 상태 하나, 실패는 표시)이다. 줄과 맨 아래 단추를 누르면 Settings의 Scheduled jobs로 간다.",
+        "오른쪽 sidebar의 Jobs panel이다. 그 project에 걸린 job만 줄로 보이고(다른 project의 job은 보이지 않는다), 줄은 제목, 오른쪽 끝 고정 열의 switch, 아래 줄(주기 글과 상태 하나, 실패는 표시)이다. 줄과 맨 아래 단추를 누르면 Settings의 Scheduled jobs로 간다.",
       render: () => <SidebarJobs />,
     },
     {
@@ -415,7 +415,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-editor-tab-menu",
       title: "Project · tab menu",
       description:
-        "탭을 오른쪽 클릭한 menu다. Close, Close Others, Close to the Right, Close Saved, Close All, Float, Detach, Copy Path, Copy Relative Path, Reveal in Explorer 순이고 preview 탭이면 Keep Open이 더 있다. Float는 탭을 칸에서 떼어 위에 띄우고, Detach는 탭을 OS 창으로 뗀다.",
+        "탭을 오른쪽 클릭한 menu다. Close, Close Others, Close to the Right, Close Saved, Close All, Float, Detach, Copy Path, Copy Relative Path, Reveal in Explorer 순이고 preview 탭이면 Keep Open이 더 있다. Float는 탭을 줄에서 떼어 card 위에 띄우고, Detach는 탭을 OS 창으로 뗀다.",
       render: () => <EditorTabMenu />,
     },
     {
@@ -427,35 +427,35 @@ export const projectWorkspaceArea: Area = {
     },
     {
       id: "new-explorer-head",
-      title: "Explorer · header buttons",
+      title: "Files · header buttons",
       description:
-        "Explorer 머리 줄에 마우스를 올리거나 focus하면 New File, New Folder, Refresh, Collapse All 아이콘 단추가 오른쪽에 나타난다. 들여쓰기 안내선은 tree에 마우스를 올렸을 때 보인다.",
+        "Files 머리 줄에 마우스를 올리거나 focus하면 New File, New Folder, Refresh, Collapse All 아이콘 단추가 오른쪽에 나타난다. 들여쓰기 안내선은 tree에 마우스를 올렸을 때 보인다.",
       render: () => <ExplorerHead />,
     },
     {
       id: "new-explorer-new-file",
-      title: "Explorer · new file",
+      title: "Files · new file",
       description:
         "폴더를 고르고 New File을 누르면 그 폴더 안에 이름 입력 줄이 생긴다. Enter로 만들고 고정 tab으로 열며, Esc나 focus를 잃으면 취소한다. a/b/c.md처럼 쓰면 중간 폴더도 만든다.",
       render: () => <ExplorerNewFile />,
     },
     {
       id: "new-explorer-name-exists",
-      title: "Explorer · name already exists",
+      title: "Files · name already exists",
       description:
         "이미 있는 이름이나 쓸 수 없는 이름을 쓰면 입력 아래에 오류가 보이고 Enter로 만들어지지 않는다.",
       render: () => <ExplorerNewExists />,
     },
     {
       id: "new-explorer-rename",
-      title: "Explorer · rename in place",
+      title: "Files · rename in place",
       description:
         "F2나 오른쪽 클릭 menu의 Rename은 dialog 없이 그 줄이 입력으로 바뀐다. 파일은 처음에 확장자 앞까지만 골라진다. 열려 있는 탭의 경로도 따라 바뀐다.",
       render: () => <ExplorerRename />,
     },
     {
       id: "new-explorer-move",
-      title: "Explorer · drag to move",
+      title: "Files · drag to move",
       description:
         "파일이나 폴더를 다른 폴더로 끌어 놓으면 옮기기 전에 한 번 묻는다. 같은 이름이 있는 폴더나 자기 안으로는 옮길 수 없다.",
       render: () => <ExplorerMove />,
@@ -562,7 +562,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-file-search",
       title: "Search · find in files",
       description:
-        "activity bar 아래쪽 Search가 여는 project 키워드 검색이다. 검색어, 폴더 고르기, 경로 순과 줄 순의 결과, 일치한 부분이 칠해진 snippet이 있다. 취소, 건너뛴 파일 안내, 더 보기는 없다.",
+        "Ctrl/Cmd+Shift+F나 왼쪽 sidebar의 검색이 여는 project 키워드 검색이다. 검색어, 폴더 고르기, 경로 순과 줄 순의 결과, 일치한 부분이 칠해진 snippet이 있다. 취소, 건너뛴 파일 안내, 더 보기는 없다.",
       render: () => <FileSearchResults />,
     },
     {
@@ -582,14 +582,14 @@ export const projectWorkspaceArea: Area = {
       id: "browser-bridge-pane",
       title: "Browser · opened by a terminal link",
       description:
-        "terminal에서 `vite`가 낸 주소를 Ctrl/Cmd-click하거나 `$BROWSER`가 불러서 반대쪽 칸에 browser 탭이 열린 모양이다. 왼쪽 칸의 terminal 탭은 그대로 선택되어 있다.",
+        "terminal에서 `vite`가 낸 주소를 Ctrl/Cmd-click하거나 `$BROWSER`가 불러서 terminal 탭 옆에 browser 탭이 split으로 붙어 열린 모양이다. terminal 쪽 반쪽은 그대로 남아 있다.",
       render: () => <BrowserBridgePane />,
     },
     {
       id: "browser-bridge-one-pane",
       title: "Browser · opened by a terminal link (one pane)",
       description:
-        "칸이 하나면 terminal 바로 뒤에 browser 탭을 열고 그 탭을 고른다.",
+        "split이 아니면 terminal 바로 뒤에 browser 탭을 열고 그 탭을 고른다.",
       render: () => <BrowserBridgeOnePane />,
     },
   ],

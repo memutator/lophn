@@ -1,105 +1,98 @@
 export const workspace = {
   "common.button.palette-dock-panel": "Dock panel",
   "common.button.palette-float-tab": "Float tab",
-  "common.button.palette-launcher": "Go to Home",
+  "common.button.palette-home": "Go to Home",
   "common.button.palette-minimize-panel": "Minimize panel",
   "common.button.palette-open": "Search and commands",
   "common.button.palette-project-settings": "Project settings",
   "common.button.palette-settings": "Open Settings",
   "common.button.palette-terminal": "Open terminal",
-  "common.button.settings": "Settings",
   "common.heading.apps": "Apps",
   "common.heading.palette-actions": "Actions",
   "common.heading.palette-files": "Files",
   "common.heading.palette-tabs": "Open tabs",
   "common.heading.projects": "Projects",
-  "common.label.app-archived": "Archived",
-  "common.label.app-preparing": "Getting ready",
-  "common.label.app-running": "Running",
-  "common.label.app-stopped": "Stopped",
-  "common.label.app-unavailable": "Not responding",
-  "common.label.app-unknown": "Status unknown",
   "common.label.window-close": "Close window",
   "common.label.window-maximize": "Maximize window",
   "common.label.window-minimize": "Minimize window",
   "common.label.window-restore": "Restore window",
   "common.title.palette-desktop": "Search projects and apps",
   "common.title.palette-workspace": "Search this project",
-  "launcher.button.add-folder": "Add folder",
-  "launcher.button.archive": "Archive",
-  "launcher.button.choose-location": "Choose new location",
-  "launcher.button.create-app": "Create",
-  "launcher.button.details": "Details",
-  "launcher.button.hide-details": "Hide details",
-  "launcher.button.more": "More actions for {name}",
-  "launcher.button.new-app": "New app",
-  "launcher.button.register": "Register",
-  "launcher.button.register-project": "Register project",
-  "launcher.button.remove-folder": "Remove folder",
-  "launcher.button.show-details": "Show details",
-  "launcher.button.unarchive": "Unarchive",
-  "launcher.dialog.new-app-note":
+  "home.button.add-folder": "Add folder",
+  "home.button.archive": "Archive",
+  "home.button.choose-location": "Choose new location",
+  "home.button.create-app": "Create",
+  "home.button.details": "Details",
+  "home.button.hide-details": "Hide details",
+  "home.button.more": "More actions for {name}",
+  "home.button.new-app": "New app",
+  "home.button.register": "Register",
+  "home.button.register-project": "Register project",
+  "home.button.remove-folder": "Remove folder",
+  "home.button.show-details": "Show details",
+  "home.button.unarchive": "Unarchive",
+  "home.dialog.new-app-note":
     "An app starts with a name and a one-line purpose. lophn builds it from there.",
-  "launcher.dialog.register-note":
+  "home.dialog.register-note":
     "A project is a name, a purpose and the folders it works in, if any.",
-  "launcher.empty.no-apps": "No apps yet.",
-  "launcher.empty.no-folders":
+  "home.empty.no-apps": "No apps yet.",
+  "home.empty.no-folders":
     "No folder yet. A project can also hold just its apps' data.",
-  "launcher.empty.no-projects": "No projects yet.",
-  "launcher.error.app-create-failed":
+  "home.empty.no-projects": "No projects yet.",
+  "home.error.app-create-failed":
     "{name} wasn't created, so nothing was saved. Try again.",
-  "launcher.error.app-name-taken":
+  "home.error.app-name-taken":
     "{name} is already taken. Choose a different name.",
-  "launcher.error.name-required": "Enter a name.",
-  "launcher.error.picker-failed": "The folder picker didn't open. Try again.",
-  "launcher.error.purpose-required": "Enter a purpose.",
-  "launcher.error.register-failed":
+  "home.error.name-required": "Enter a name.",
+  "home.error.picker-failed": "The folder picker didn't open. Try again.",
+  "home.error.purpose-required": "Enter a purpose.",
+  "home.error.register-failed":
     "{name} wasn't registered, so nothing was saved. Try again.",
-  "launcher.failure.check-damaged-original":
+  "home.failure.check-damaged-original":
     "The data file failed its integrity check.",
-  "launcher.failure.check-history-mismatch":
+  "home.failure.check-history-mismatch":
     "A saved step differs from the one this version expects.",
-  "launcher.failure.check-newer-schema":
+  "home.failure.check-newer-schema":
     "The data was written with a newer schema than this version reads.",
-  "launcher.failure.damaged-original":
+  "home.failure.damaged-original":
     "lophn did not start. The data file is damaged. lophn did not repair or replace it, so the original is still there.",
-  "launcher.failure.history-mismatch":
+  "home.failure.history-mismatch":
     "lophn did not start. The history in your data differs from what this version expects, and lophn did not change it.",
-  "launcher.failure.newer-schema":
+  "home.failure.newer-schema":
     "lophn did not start. It left your data exactly as it was, and this version can't read it.",
-  "launcher.failure.sandbox-failed":
+  "home.failure.sandbox-failed":
     "Your system's security settings stopped lophn from starting. Check that lophn is allowed to open, then try again.",
-  "launcher.failure.start-failed":
+  "home.failure.start-failed":
     "lophn couldn't start in the background. Your projects and apps can't open until it does.",
-  "launcher.failure.update-damaged-original":
+  "home.failure.update-damaged-original":
     "Update lophn and try again. If it still fails, keep the folder as it is.",
-  "launcher.failure.update-history-mismatch":
+  "home.failure.update-history-mismatch":
     "Update lophn, or start the version that wrote this data. Then try again.",
-  "launcher.failure.update-newer-schema":
+  "home.failure.update-newer-schema":
     "Update lophn to the newer version, then start it again.",
-  "launcher.field.app-purpose-help":
+  "home.field.app-purpose-help":
     "One line about what the app is for. Agents working on it read this.",
-  "launcher.field.purpose-help": "What the project is for. Agents read this.",
-  "launcher.heading.apps": "Apps",
-  "launcher.heading.archived": "Archived",
-  "launcher.heading.projects": "Projects",
-  "launcher.label.apps": "your apps",
-  "launcher.label.folder-count":
+  "home.field.purpose-help": "What the project is for. Agents read this.",
+  "home.heading.apps": "Apps",
+  "home.heading.archived": "Archived",
+  "home.heading.projects": "Projects",
+  "home.label.apps": "your apps",
+  "home.label.folder-count":
     "{count, plural, one {# folder} other {# folders}}",
-  "launcher.label.folder-description": "What's in this folder",
-  "launcher.label.folder-missing": "Folder not found",
-  "launcher.label.folders": "Folders",
-  "launcher.label.name": "Name",
-  "launcher.label.projects": "your projects",
-  "launcher.label.purpose": "Purpose",
-  "launcher.label.wordmark": "lophn",
-  "launcher.title.damaged-original": "Your data can't be read",
-  "launcher.title.history-mismatch": "The saved history does not match",
-  "launcher.title.new-app": "New app",
-  "launcher.title.newer-schema": "This data is from a newer lophn",
-  "launcher.title.register": "Register project",
-  "launcher.title.sandbox-failed": "lophn is blocked by your system",
-  "launcher.title.start-failed": "lophn didn't start",
+  "home.label.folder-description": "What's in this folder",
+  "home.label.folder-missing": "Folder not found",
+  "home.label.folders": "Folders",
+  "home.label.name": "Name",
+  "home.label.projects": "your projects",
+  "home.label.purpose": "Purpose",
+  "home.label.wordmark": "lophn",
+  "home.title.damaged-original": "Your data can't be read",
+  "home.title.history-mismatch": "The saved history does not match",
+  "home.title.new-app": "New app",
+  "home.title.newer-schema": "This data is from a newer lophn",
+  "home.title.register": "Register project",
+  "home.title.sandbox-failed": "lophn is blocked by your system",
+  "home.title.start-failed": "lophn didn't start",
   "projects.button.add-folder": "Add folder",
   "projects.button.remove": "Remove",
   "projects.button.save": "Save changes",

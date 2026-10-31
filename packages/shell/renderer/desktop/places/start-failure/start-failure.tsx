@@ -38,7 +38,7 @@ export function StartFailureScreen({
         data-action="retry"
         onClick={onRetry}
       >
-        {t("launcher.button.retry")}
+        {t("home.button.retry")}
       </Button>
       {failure.details === undefined ? null : (
         <>
@@ -50,11 +50,7 @@ export function StartFailureScreen({
             data-details-toggle=""
             onClick={() => setOpen(!open)}
           >
-            {t(
-              open
-                ? "launcher.button.hide-details"
-                : "launcher.button.show-details",
-            )}
+            {t(open ? "home.button.hide-details" : "home.button.show-details")}
           </Button>
           {open ? (
             <p className={styles.details} id={detailsId} data-details="">

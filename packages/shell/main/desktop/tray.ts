@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { AutostartState } from "./autostart.ts";
 import { word } from "./i18n.ts";
 
-type TrayItemId = "launcher" | "autostart" | "quit";
+type TrayItemId = "home" | "autostart" | "quit";
 
 /** 안내만 하는 OS 기능 실패. 그 기능 하나만 말하고 누를 수 없다. */
 type TrayNotice = "global-search-unavailable";
@@ -42,8 +42,8 @@ function trayMenu(
   return [
     {
       type: "normal",
-      id: "launcher",
-      label: word("common.label.tray-launcher"),
+      id: "home",
+      label: word("common.label.tray-home"),
     },
     { type: "separator" },
     {
@@ -78,7 +78,7 @@ interface TrayActions {
   /** 가장 최근 창을 앞으로, 창이 없으면 새 기본 창. */
   openWindow(): void;
   /** 새 기본 창. 새 기본 창은 언제나 Home에서 시작한다. */
-  openLauncher(): void;
+  openHome(): void;
   readAutostart(): AutostartState;
   writeAutostart(enabled: boolean): AutostartState;
   /** 명시 종료. 진행 중인 일 확인은 quit flow가 한다. */
@@ -120,8 +120,8 @@ export function installTray(options: TrayOptions): InstalledTray | undefined {
   const render = () => handle.setMenu(trayMenu(autostart, notices), select);
   function select(id: TrayItemId): void {
     switch (id) {
-      case "launcher":
-        actions.openLauncher();
+      case "home":
+        actions.openHome();
         return;
       case "autostart":
         // 결과는 OS에서 다시 읽은 상태다. 실패하면 꺼진 채로 보인다.

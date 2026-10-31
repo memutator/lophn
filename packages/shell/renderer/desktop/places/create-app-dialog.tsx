@@ -55,8 +55,8 @@ export function CreateAppDialog({
     if (!result.ok) {
       setFailure(
         result.code === "conflict"
-          ? t("launcher.error.app-name-taken", { name: name.trim() })
-          : t("launcher.error.app-create-failed", { name: name.trim() }),
+          ? t("home.error.app-name-taken", { name: name.trim() })
+          : t("home.error.app-create-failed", { name: name.trim() }),
       );
       return;
     }
@@ -70,7 +70,7 @@ export function CreateAppDialog({
       onOpenChange={(next) => {
         if (!next) close();
       }}
-      title={t("launcher.title.new-app")}
+      title={t("home.title.new-app")}
       actions={
         <>
           <Button variant="secondary" onClick={close} disabled={busy}>
@@ -83,18 +83,18 @@ export function CreateAppDialog({
             disabled={busy}
             data-create-app=""
           >
-            {t("launcher.button.create-app")}
+            {t("home.button.create-app")}
           </Button>
         </>
       }
     >
       <div className={styles.form} data-new-app-form="">
-        <p className={styles.note}>{t("launcher.dialog.new-app-note")}</p>
+        <p className={styles.note}>{t("home.dialog.new-app-note")}</p>
         <Field
-          label={t("launcher.label.name")}
+          label={t("home.label.name")}
           error={
             touched && !usableTitle(name)
-              ? t("launcher.error.name-required")
+              ? t("home.error.name-required")
               : undefined
           }
         >
@@ -106,11 +106,11 @@ export function CreateAppDialog({
           />
         </Field>
         <Field
-          label={t("launcher.label.purpose")}
-          help={t("launcher.field.app-purpose-help")}
+          label={t("home.label.purpose")}
+          help={t("home.field.app-purpose-help")}
           error={
             touched && !usableTitle(purpose)
-              ? t("launcher.error.purpose-required")
+              ? t("home.error.purpose-required")
               : undefined
           }
         >

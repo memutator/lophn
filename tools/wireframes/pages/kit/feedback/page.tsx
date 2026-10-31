@@ -10,7 +10,7 @@ import {
   StaleNote,
   StatusMark,
 } from "@lophn/ui/feedback";
-import { launcherEmptyIcon } from "../../../../../packages/shell/renderer/icons/mod.ts";
+import { homeEmptyIcon } from "../../../../../packages/shell/renderer/icons/mod.ts";
 
 import { AppRoot, OrdersStatus } from "./orders-status.tsx";
 import { FROZEN_TIMER, kit, Page, Row, Section } from "../kit.tsx";
@@ -55,7 +55,7 @@ export function KitFeedback() {
         <Section title="EmptyState" note="다음 행동은 언제나 하나다.">
           <div className={kit.panel}>
             <EmptyState
-              icon={launcherEmptyIcon}
+              icon={homeEmptyIcon}
               message="No projects yet."
               action={{ label: "Register project", onSelect: NOOP }}
             />

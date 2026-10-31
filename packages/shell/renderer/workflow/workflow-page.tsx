@@ -11,7 +11,7 @@ import {
   actionIcons,
   commonIcons,
   editorIcons,
-  launcherIcons,
+  homeIcons,
   workspaceIcons,
 } from "../icons/mod.ts";
 import type {
@@ -103,9 +103,7 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
               data-tone={entry.invalid ? "critical" : "neutral"}
             >
               <Icon
-                icon={
-                  entry.invalid ? editorIcons.problem : launcherIcons.details
-                }
+                icon={entry.invalid ? editorIcons.problem : homeIcons.details}
                 pixels={iconPixels("base")}
               />
             </span>

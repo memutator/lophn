@@ -1,5 +1,5 @@
 // Home. 화면은 renderer의 Desktop이 그리는 Home place(project 창과 같은 shell)이고 여기서는 dev mock 통로에 이어 준다.
-// 오른쪽 sidebar는 Places(옛 launcher의 project·앱 목록, 등록, 새 앱)와 Jobs다.
+// 오른쪽 sidebar는 Places(project·앱 목록, 등록, 새 앱, 보관한 것)와 Jobs다.
 import { useCallback } from "react";
 
 import {
@@ -43,7 +43,7 @@ export const HomeEmpty = () => <MockDesktop />;
 /** project도 앱도 없는 Home. Places panel의 두 구역이 비었음 안내를 보인다. */
 export const HomeNoPlaces = () => <MockDesktop emptyHome />;
 
-/** Home lophn session을 탭으로 연 상태. 옛 launcher의 lophn 패널이 하던 일이다. */
+/** Home lophn session을 탭으로 연 상태. Home place의 session은 다른 place와 같이 tab이다. */
 export const HomeSession = () => <MockDesktop homeTabs={[SESSION_TAB]} />;
 
 /** 오른쪽 Jobs panel. project와 상관없이 모든 job이 보인다. */

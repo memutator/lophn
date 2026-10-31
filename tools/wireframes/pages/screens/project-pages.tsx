@@ -24,7 +24,7 @@ const left = (selected: TabSpec, ...others: TabSpec[]): PaneInit => ({
   selected: selected.key,
 });
 
-/** 탭 kind. 문서(md)·text 파일·키워드 검색·Terminal 탭과 오른쪽 칸의 Agent 탭. */
+/** 탭 kind. 문서(md)·text 파일·키워드 검색·Terminal 탭과 Agent 탭. */
 export function TabKinds() {
   return (
     <ProjectApp
@@ -77,7 +77,7 @@ export function DocumentTabPage() {
   );
 }
 
-/** 문서 탭에서 info를 열었다. 그 칸 오른쪽에 붙고 Info(경로·크기·바뀐 시각)와 Outline이 보인다. */
+/** 문서 탭에서 info를 열었다. 탭 오른쪽에 붙고 Info(경로·크기·바뀐 시각)와 Outline이 보인다. */
 export function DocumentTabInfo() {
   return (
     <ProjectApp

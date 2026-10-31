@@ -3,7 +3,7 @@ export { appSpaceIcons } from "./app-space.ts";
 export {
   connectionFailedIcon,
   connectionStaleIcon,
-  launcherEmptyIcon,
+  homeEmptyIcon,
   notificationsIcon,
   settingsEntryIcon,
   windowCloseIcon,
@@ -15,7 +15,7 @@ export { artifactIcons } from "./artifact.ts";
 export { browserIcons } from "./browser.ts";
 export { conversationIcons } from "./conversation.ts";
 export { editorIcons } from "./editor.ts";
-export { launcherIcons } from "./launcher.ts";
+export { homeIcons } from "./home.ts";
 export { modelIcons } from "./model.ts";
 export { actionIcons } from "./action.ts";
 export { commonIcons } from "./common.ts";

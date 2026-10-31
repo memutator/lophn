@@ -7,13 +7,13 @@ export const artifactArea: Area = {
   id: "artifact",
   title: "Artifact",
   summary:
-    "agent가 쓴 HTML을 pane의 탭으로 보는 artifact 탭, annotate, 폴더가 없을 때, 대화 글의 artifact link, project sidebar의 Artifacts 탭.",
+    "agent가 쓴 HTML을 탭으로 보는 artifact 탭, annotate, 폴더가 없을 때, 대화 글의 artifact link, project sidebar의 Artifacts 탭.",
   pages: [
     {
       id: "artifact-tab",
       title: "Artifact · tab",
       description:
-        "pane 안의 artifact 탭이다. 탭 줄에 종류 아이콘과 page 제목, toolbar에 제목과 폴더 이름, 오른쪽 끝 열에 [Edit source]와 [Annotate]가 있고, 아래 page 영역은 `spending` artifact가 그린 막대 그래프다(page는 native view라 고정 그림이다).",
+        "artifact 탭이다. 탭 줄에 종류 아이콘과 page 제목, toolbar에 제목과 폴더 이름, 오른쪽 끝 열에 [Edit source]와 [Annotate]가 있고, 아래 page 영역은 `spending` artifact가 그린 막대 그래프다(page는 native view라 고정 그림이다).",
       render: () => <ArtifactScene tab="named" />,
     },
     {

@@ -199,7 +199,7 @@ export const tokens = {
     dashboard: { max: "1440px", columns: 12 },
     list: "360px",
     form: "640px",
-    launcher: "1040px",
+    settings: "1040px",
     overview: "800px",
   },
   // 문서 편집기·읽기의 인용 막대·체크박스·찾기 줄·형식 문제 여백과 목록·sticky 머리·

@@ -33,17 +33,39 @@ async function call<T>(
   return { ok: true, value: reply.value as T };
 }
 
-function rowOf(value: AppValue): AppRow {
+function rowOf(value: AppValue, releaseNumber: number | null = null): AppRow {
   return {
     id: value.id,
     name: value.name,
     archived: value.status === "archived",
     release: value.active_release,
+    releaseNumber,
     revision: value.revision,
   };
 }
 
 export function coreAppsSource(core: CoreSource): AppsSource {
+  // release 번호는 바뀌지 않아 id마다 한 번만 읽는다. 못 읽으면 null이고 다음에 다시 읽는다.
+  const numbers = new Map<string, number>();
+  const numberOf = async (release: string | null): Promise<number | null> => {
+    if (release === null) return null;
+    const known = numbers.get(release);
+    if (known !== undefined) return known;
+    const reply = await core.call({
+      kind: "read",
+      resource: "releases",
+      method: "get_record",
+      body: { release },
+    });
+    const number = reply.ok
+      ? (reply.value as { release: { number: number } | null }).release?.number
+      : undefined;
+    if (number === undefined) return null;
+    numbers.set(release, number);
+    return number;
+  };
+  const withNumber = async (value: AppValue) =>
+    rowOf(value, await numberOf(value.active_release));
   return {
     watch: (listener) => core.subscribe(listener),
 
@@ -56,7 +78,7 @@ export function coreAppsSource(core: CoreSource): AppsSource {
           next_cursor: string | null;
         }> = await call(core, "read", "list", cursor ? { cursor } : {});
         if (!result.ok) return result;
-        rows.push(...result.value.apps.map(rowOf));
+        rows.push(...(await Promise.all(result.value.apps.map(withNumber))));
         if (result.value.next_cursor === null) break;
         cursor = result.value.next_cursor;
       }
@@ -70,7 +92,7 @@ export function coreAppsSource(core: CoreSource): AppsSource {
       if (!result.ok) {
         return result.code === "not_found" ? { ok: true, value: null } : result;
       }
-      return { ok: true, value: rowOf(result.value.app) };
+      return { ok: true, value: await withNumber(result.value.app) };
     },
 
     async runtime(app) {
@@ -102,7 +124,9 @@ export function coreAppsSource(core: CoreSource): AppsSource {
           key: `apps-create-${crypto.randomUUID()}`,
         }),
       );
-      return result.ok ? { ok: true, value: rowOf(result.value) } : result;
+      return result.ok
+        ? { ok: true, value: await withNumber(result.value) }
+        : result;
     },
 
     async setArchived(app, archived) {
@@ -118,7 +142,9 @@ export function coreAppsSource(core: CoreSource): AppsSource {
           key: `apps-${route.method}-${crypto.randomUUID()}`,
         }),
       );
-      return result.ok ? { ok: true, value: rowOf(result.value) } : result;
+      return result.ok
+        ? { ok: true, value: await withNumber(result.value) }
+        : result;
     },
 
     // 앱 공간 본문에 여는 화면은 선언 read(`/apps/tools`)가 준다. 그 release의

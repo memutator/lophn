@@ -21,7 +21,7 @@ import {
 import type { PaletteScope } from "./session.ts";
 
 type WorkspaceAction =
-  | "launcher"
+  | "home"
   | "settings"
   | "project-settings"
   | "terminal"
@@ -100,10 +100,10 @@ function actions(input: WorkspaceScopeInput): PaletteEntry<WorkspaceTarget>[] {
   });
   return [
     action(
-      "launcher",
-      t("common.button.palette-launcher"),
-      "launcher",
-      windowShortcutLabel("launcher", input.platform),
+      "home",
+      t("common.button.palette-home"),
+      "home",
+      windowShortcutLabel("home", input.platform),
     ),
     ...(input.terminal
       ? [

@@ -22,7 +22,7 @@ export const connectionFailedIcon: LucideIcon = CircleX;
 /** 최신으로 확인하지 못한 연결. */
 export const connectionStaleIcon: LucideIcon = CloudOff;
 /** 열 것이 없는 런처. */
-export const launcherEmptyIcon: LucideIcon = FolderPlus;
+export const homeEmptyIcon: LucideIcon = FolderPlus;
 /** 상단 바 창 단추. */
 export const windowMinimizeIcon: LucideIcon = Minus;
 export const windowMaximizeIcon: LucideIcon = Square;

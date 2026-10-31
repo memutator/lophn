@@ -18,6 +18,7 @@ const TURN_OUTCOME_REASONS = {
     "context_limit",
     "model_attempt_limit",
     "stall_limit",
+    // 지운 일한 시간 한도로 끝난 지난 turn의 이유다. events는 고치지 않는 기록이라 남긴다. 새 turn은 내지 않는다.
     "active_limit",
     "repeated_tool_failure",
     "effect_unknown",
@@ -68,22 +69,21 @@ export type TurnOutcome = z.infer<typeof turnOutcomeSchema>;
 
 // 입력은 메모리 입력함에 있다가 turn이 시작되면서 행이 생긴다. 권한·질문 대기는 turn이 running인 채
 // session snapshot이 가진다.
-// turn의 한도다. 시작할 때 정해 기준에 고정한다.
+// turn의 한도다. 시작할 때 정해 기준에 고정한다. model_attempts가 null이면 model 호출 수 상한이 없다.
 const turnLimitsFields = {
-  model_attempts: positiveSafeIntegerSchema,
+  model_attempts: positiveSafeIntegerSchema.nullable(),
   stall_ms: positiveSafeIntegerSchema,
-  active_ms: positiveSafeIntegerSchema,
 };
 
 export const turnLimitsSchema = z.strictObject(turnLimitsFields);
 const turnLimitsOutputSchema = z.object(turnLimitsFields);
 export type TurnLimits = z.infer<typeof turnLimitsSchema>;
 
-// 앱 하나를 짓는 turn에 model call이 약 85번 든다. 오래 도는 turn은 active_ms와 stall_ms가 멈춘다.
+// 진행 없이 도는 turn은 stall_ms가 멈춘다. 일한 시간·호출 수 상한은 기본으로 두지 않는다. 30분 상한이 진행
+// 중인 긴 일을 끊었다(omp·Hermes·opencode도 기본 상한이 없다). 호출 수 상한은 eval처럼 돈을 막을 때 고른다.
 export const DEFAULT_TURN_LIMITS = {
-  model_attempts: 150,
+  model_attempts: null,
   stall_ms: 300_000,
-  active_ms: 1_800_000,
 } as const;
 
 // 쓴 시간이다. checkpoint가 주기로 남긴다.

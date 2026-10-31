@@ -119,7 +119,7 @@ artifact
 - 탭 머리는 이름, kind, 도는 instance 수, [Start], static artifact가 있으면 [Open artifact]다. 틀린 선언과 `flow.ts`가 없는 flow는 이유 한 줄을 보이고 시작하지 못한다. flow의 [Start] dialog는 입력 글만 받는다(첫 step을 고르지 않는다). instance 목록은 새것이 앞이고 job이 시작한 instance 줄은 시작한 쪽으로 job 제목을 보인다(지운 job이면 제목 없이 "Scheduled job"). 고른 instance의 머리도 같다. 제목은 읽는 곳이 `job.list`로 붙인다(`packages/shell/renderer/workspace/core-source.ts`). 고른 instance는 step마다 상태, 마지막 report 글, 그 step의 줄을 보이고, step 없는 줄(`ended`, `stopped`, `program_exited`, step 없는 `edit`과 `lophn_restarted`)은 머리에 둔다. `program_exited`는 끝 code(신호면 "stopped before it finished")와 stderr 끝 줄을 code block으로 보인다. flow의 report는 "Program"이 낸 것으로 보이고 flow step에는 담당 글이 없다. `not_handed`와 `lophn_restarted`는 그 step 줄 안에 이유 한 줄이다. 사람 차례면 받은 agent와 [Open conversation](가장 나중 `handed` 줄의 `receiver` session)을, running이면 [Stop]을, instance artifact가 있으면 [Open instance artifact]를 둔다. graph는 그리지 않는다.
 - 사람 화면이 부르는 memory route는 `ListWorkflows`, `StartWorkflow`, `StopWorkflow`뿐이다(`packages/shell/main/desktop/core/allowlist.ts`). report와 고치기는 agent가 한다. 사람이 순서를 바꾸고 싶으면 그 agent에게 말한다.
 - 정의는 탭이 열릴 때와 [Refresh]에서 읽는다. instance 목록과 고른 instance는 처음, `WorkflowInstanceChanged`가 올 때, 시작·멈춤 뒤에 다시 읽는다. 끊긴 사이 놓친 것은 다시 열거나 [Refresh]로 맞춘다.
-- project sidebar의 activity bar에 Workflows 항목이 있다. panel은 project의 workflow 목록(이름, 도는 instance 수, 틀린 선언 표시)이고 줄을 누르면 그 workflow의 탭을 연다. panel은 열려 있는 동안 열릴 때와 `WorkflowInstanceChanged` 때 읽는다.
+- project 창 오른쪽 sidebar의 panel icon tab에 Workflows 항목이 있다. panel은 project의 workflow 목록(이름, 도는 instance 수, 틀린 선언 표시)이고 줄을 누르면 그 workflow의 탭을 연다. panel은 열려 있는 동안 열릴 때와 `WorkflowInstanceChanged` 때 읽는다.
 
 ## 왜 이 모양인가
 

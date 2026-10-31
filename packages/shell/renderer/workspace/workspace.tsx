@@ -1101,12 +1101,11 @@ export function Workspace(props: WorkspaceProps) {
     update((item) => selectTab(item, key));
     focusTabBody(key);
   };
-  // tab 줄의 한 칸으로 고른다. split이면 한 쪽에 focus를 준다.
-  const floatRectNow = () =>
-    stageSize === undefined ? undefined : newFloatRect(stageSize);
+  // tabs의 탭을 stage 가운데 60% 크기의 패널로 띄운다. stage를 못 쟀으면 아무것도 하지 않는다.
   const floatByKey = (key: string) => {
-    const rect = floatRectNow();
-    if (rect !== undefined) update((item) => floatTab(item, key, rect));
+    if (stageSize === undefined) return;
+    const rect = newFloatRect(stageSize);
+    update((item) => floatTab(item, key, rect));
   };
   usePaletteScope(() =>
     workspaceScope({
@@ -1364,18 +1363,7 @@ export function Workspace(props: WorkspaceProps) {
       ...(dot === null ? {} : { status: dotLabel(dot) }),
       copyPath: pathOfTab(tab) !== null,
       body: (
-        <div
-          key={tab.key}
-          className={styles.tabBody}
-          data-tab-body={tab.key}
-          onPointerDown={() => {
-            if (inSplit && focusSide !== (index === 0 ? "a" : "b")) {
-              update((item) =>
-                selectTab(item, split.a, index === 0 ? "a" : "b"),
-              );
-            }
-          }}
-        >
+        <div key={tab.key} className={styles.tabBody} data-tab-body={tab.key}>
           {bodyOf(tab, !inSplit || focusSide === (index === 0 ? "a" : "b"))}
         </div>
       ),

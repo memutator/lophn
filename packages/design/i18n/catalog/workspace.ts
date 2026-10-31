@@ -19,8 +19,6 @@ export const workspace = {
   "common.label.app-stopped": "Stopped",
   "common.label.app-unavailable": "Not responding",
   "common.label.app-unknown": "Status unknown",
-  "common.label.palette-pane": "Pane {number}",
-  "common.label.palette-tab-detail": "{kind} · {pane}",
   "common.label.window-close": "Close window",
   "common.label.window-maximize": "Maximize window",
   "common.label.window-minimize": "Minimize window",

@@ -10,6 +10,7 @@ import {
 } from "react";
 import { IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
+import { VisuallyHidden } from "@lophn/ui/shared";
 import { conversationIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
@@ -22,6 +23,8 @@ interface ThreadScrollProps {
   /** 열 때 돌아갈 읽던 위치. null이면 맨 아래다. */
   initialScroll: number | null;
   onScroll: (position: number | null) => void;
+  /** 새 답이 시작했거나 왔다는 한 줄. log는 읽지 않고 이 줄만 화면 낭독기가 읽는다. */
+  announcement: { readonly text: string; readonly id: number } | null;
   children: ReactNode;
 }
 
@@ -29,6 +32,7 @@ export function ThreadScroll({
   count,
   initialScroll,
   onScroll,
+  announcement,
   children,
 }: ThreadScrollProps): ReactNode {
   const listRef = useRef<HTMLDivElement>(null);
@@ -133,6 +137,12 @@ export function ThreadScroll({
 
   return (
     <div className={styles.frame}>
+      {/* 같은 글이 두 번 와도 다시 읽도록 id가 바뀔 때 자식 node를 바꾼다. */}
+      <VisuallyHidden>
+        {announcement === null ? null : (
+          <span key={announcement.id}>{announcement.text}</span>
+        )}
+      </VisuallyHidden>
       <div
         className={styles.list}
         ref={listRef}

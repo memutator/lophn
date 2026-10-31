@@ -15,8 +15,11 @@ import { cancelCallOf, readCallState } from "./agent-tab-core-source-calls.ts";
 import {
   answerQuestions,
   decidePermission,
+  editQueuedMessage,
+  moveQueuedMessage,
   readCommands,
   removeQueuedMessage,
+  repeatTurn,
   retryTurn,
   runCommand,
   sendQueuedNow,
@@ -24,6 +27,7 @@ import {
   stopTurnOf,
 } from "./agent-tab-core-source-commands.ts";
 import { createImageSource } from "./agent-tab-core-source-images.ts";
+import { searchMessages } from "./agent-tab-core-source-search.ts";
 import { createModelPart } from "./agent-tab-core-source-model.ts";
 import { readStatus } from "./agent-tab-core-source-status.ts";
 import {
@@ -84,6 +88,7 @@ function createSource(
   return {
     agent: () => readFace(env, faceCache),
     sessions: () => readSessions(env, activeTimes),
+    searchMessages: (query) => searchMessages(env, query),
     thread: (session) => readThread(env, memo, session),
     body: (message) => readBody(env, memo, message),
     envelope: (message) => readEnvelope(env, memo, message),
@@ -110,8 +115,17 @@ function createSource(
     imageUrl: (session, id) => images.imageUrl(session, id),
     sendQueuedNow: (queued) => sendQueuedNow(env, queued),
     removeQueued: (queued) => removeQueuedMessage(env, queued),
+    editQueued: async (queued, text) => {
+      const result = await editQueuedMessage(env, queued, text);
+      // 같은 id의 본문은 원래 바뀌지 않지만 큐에서 고치면 바뀐다. 기억한 본문을 버린다.
+      if (result.ok) memo.bodies.delete(queued);
+      return result;
+    },
+    moveQueued: (queued, direction) =>
+      moveQueuedMessage(env, queued, direction),
     stop: (turn, key) => stopTurnOf(env, turn, key),
     retryTurn: (turn) => retryTurn(env, retryIds, turn),
+    repeatTurn: (turn) => repeatTurn(env, turn),
     answerQuestions: (input) => answerQuestions(env, input),
     decidePermission: (session, request, choice, reason) =>
       decidePermission(env, session, request, choice, reason),

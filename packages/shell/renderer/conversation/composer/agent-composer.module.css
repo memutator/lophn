@@ -6,7 +6,9 @@
   flex-direction: column;
   gap: var(--space-2);
   width: 100%;
-  padding: var(--space-0) var(--space-0) var(--space-5);
+  /* 아래 여백은 대화 화면의 아래 기둥이 맡는다. 아래 줄의 axis 단추가 좁은 폭에서 접히는 기준도 이 폭이다. */
+  padding: var(--space-0);
+  container-type: inline-size;
 }
 
 .note {
@@ -98,6 +100,30 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: var(--space-0);
+}
+
+/* 좁은 pane에서도 아래 줄이 넘치지 않게 오른쪽 단추 묶음이 두 줄로 접힌다. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+  max-width: 100%;
+}
+
+/* 글자가 긴 model 이름과 축 단추는 줄어들며 말줄임한다. */
+.actions > [data-model-button] {
+  min-width: var(--space-0);
+}
+
+.actions > [data-model-button] > span {
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .spacer {
@@ -116,10 +142,6 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-}
-
-.skip {
-  margin-left: auto;
 }
 
 .place {

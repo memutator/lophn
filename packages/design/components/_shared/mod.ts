@@ -9,6 +9,11 @@ export { type Clock, systemClock } from "./shared.ts";
 export { systemTimer, type Timer } from "./shared.ts";
 // 누가 쓰나: CopyButton·CodeBlock. OS clipboard를 인자로 받고 test가 바꿔 끼운다.
 export { type Clipboard, systemClipboard } from "./shared.ts";
+// 누가 쓰나: 대화 log처럼 통째로 읽으면 안 되는 영역. 새 소식 한 줄만 화면 낭독기에 알린다.
+export {
+  VisuallyHidden,
+  type VisuallyHiddenProps,
+} from "./visually-hidden.tsx";
 // 누가 쓰나: 칸 폭을 보는 frame과 Table. viewport가 아닌 자기 칸의 크기를 관찰한다.
 export {
   domResizeSource,

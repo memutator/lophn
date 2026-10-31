@@ -81,6 +81,22 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 오래 걸리는 turn의 이유 한 줄. 30초는 조용히, 90초는 경고 색으로 말한다. */
+.hint {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.hint[data-long] {
+  color: var(--status-warning-text);
+}
+
+/* 사람의 답을 기다리는 줄. 일하는 중이 아니라서 흐르는 효과 없이 같은 크기로 둔다. */
+.working[data-waiting] {
+  color: var(--color-text-secondary);
+}
+
 .agentTurn {
   display: flex;
   flex-direction: column;

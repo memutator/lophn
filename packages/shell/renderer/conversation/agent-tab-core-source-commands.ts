@@ -13,6 +13,8 @@ import {
 } from "../../../protocol/lophn-agent/commands.ts";
 import { askAnswer } from "../../../protocol/lophn-agent/ask-tool.ts";
 import {
+  editQueued,
+  moveQueued,
   removeQueued,
   sendMessage,
   steerQueuedNow,
@@ -170,6 +172,43 @@ export async function removeQueuedMessage(
   );
 }
 
+/** 다음 turn 줄의 글을 고친다. 이미 turn이 가져갔으면 conflict다. */
+export async function editQueuedMessage(
+  env: Env,
+  queued: string,
+  text: string,
+): Promise<SourceResult<void>> {
+  const session = await sessionOfMessage(env, queued);
+  if (!session.ok) return session;
+  return dropValue(
+    await env.read(editQueued, {
+      session: session.value,
+      message: queued,
+      content: {
+        schema_version: 1,
+        parts: [{ kind: "text", text }],
+      },
+    }),
+  );
+}
+
+/** 다음 turn 줄의 순서를 이웃과 바꾼다. 끝이면 그대로 둔다. */
+export async function moveQueuedMessage(
+  env: Env,
+  queued: string,
+  direction: "up" | "down",
+): Promise<SourceResult<void>> {
+  const session = await sessionOfMessage(env, queued);
+  if (!session.ok) return session;
+  return dropValue(
+    await env.read(moveQueued, {
+      session: session.value,
+      message: queued,
+      direction,
+    }),
+  );
+}
+
 export async function stopTurnOf(
   env: Env,
   turn: string,
@@ -221,6 +260,41 @@ export async function retryTurn(
       },
       compare: {},
       key: `retry-turn-${turn}`,
+    }),
+  );
+}
+
+/**
+ * 끝난 turn의 입력을 새 메시지로 다시 보낸다. 누를 때마다 새 id와 key라 새 turn이 된다. [Retry]가 실패한 turn에
+ * 쓰는 retryTurn은 결과를 몰라도 한 번만 보내야 해서 turn마다 고정 id·key를 쓴다.
+ */
+export async function repeatTurn(
+  env: Env,
+  turn: string,
+): Promise<SourceResult<void>> {
+  const read = await env.read(turnRead, { turn });
+  if (!read.ok) return read;
+  const body = await env.read(messageBody, {
+    message: read.value.turn.input_message,
+  });
+  if (!body.ok) return body;
+  const parts: UserPart[] = [];
+  for (const part of body.value.content.parts) {
+    if (part.kind === "text") parts.push({ kind: "text", text: part.text });
+  }
+  if (parts.length === 0) return { ok: false, code: "invalid_input" };
+  const id = newId("msg", env.now());
+  return dropValue(
+    await env.command(sendMessage, {
+      input: {
+        id,
+        session: body.value.session,
+        content: { schema_version: 1, parts },
+        delivery: "next_turn",
+        refs: [],
+      },
+      compare: {},
+      key: `repeat-turn-${id}`,
     }),
   );
 }

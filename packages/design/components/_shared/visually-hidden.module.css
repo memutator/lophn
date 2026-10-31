@@ -1,0 +1,9 @@
+/* 화면에는 자리를 차지하지 않고 화면 낭독기에만 읽히는 글. */
+.hidden {
+  position: absolute;
+  width: var(--border-width);
+  height: var(--border-width);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

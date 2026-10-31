@@ -132,9 +132,12 @@ import {
   conversationSchemaSteps,
   createConversationCommands,
   createConversationReads,
+  editQueuedCommand,
   type MessageBodyEnvironment,
   messageBodyFields,
   messageBodyRead,
+  messageSearchRead,
+  moveQueuedCommand,
   removeQueuedCommand,
   sessionStatusReadDefinition,
   sessionSummaryRead,
@@ -598,6 +601,8 @@ export function createLedgerRegistration(
   return {
     apiReads: [
       messageBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
+      // session popover의 메시지 글 찾기. 같은 blob 읽기 통로를 쓴다.
+      messageSearchRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       // Compact가 session에 이은 요약의 본문도 같은 읽기 통로로 읽는다.
       sessionSummaryRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       // 저장된 turn basis·model 응답·tool 결과를 다시 읽는 같은 길이다(machine만).
@@ -791,6 +796,8 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       conversationCommands.send,
       conversationCommands.record,
       removeQueuedCommand({ eraseBlobRefs }),
+      editQueuedCommand({ eraseBlobRefs }),
+      moveQueuedCommand(),
       toolCommands.request,
       toolCommands.decide,
       toolCommands.start,

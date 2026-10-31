@@ -7,21 +7,30 @@ import {
   AgentCallReplies,
   AgentCommands,
   AgentCommandsFiltered,
+  AgentContextFull,
+  AgentContextWarning,
   AgentConversation,
+  AgentEditDiff,
+  AgentDetail,
+  AgentFind,
   AgentModelPicker,
+  AgentModelShortcut,
   AgentPermissions,
-  AgentStatus,
   AgentQuestion,
   AgentQuestionAnswered,
   AgentQuestionEnded,
+  AgentQueuedEdit,
   AgentQueuedMessage,
   AgentRequestError,
   AgentRewind,
   AgentSenderChips,
   AgentSessionArchived,
+  AgentSessionSearch,
   AgentSessions,
   AgentSessionsEdit,
   AgentSkip,
+  AgentStatus,
+  AgentStatusFromFooter,
   ManageModels,
   ManageModelsConnect,
   ManageModelsCustom,
@@ -46,15 +55,22 @@ export const agentArea: Area = {
       id: "new-agent-conversation",
       title: "Agent · tab",
       description:
-        "일하는 중인 Agent 탭이다. 도는 turn에 steer로 들어간 메시지에 steer 표시가 붙고, 시각 블록은 앱 카드뿐이다. 일하는 중 composer에는 Stop과 Send만 있고, 입력칸 아래에 권한 요약 한 줄이 있다.",
+        "일하는 중인 Agent 탭이다. 도는 turn에 steer로 들어간 메시지에 steer 표시가 붙고, 시각 블록은 앱 카드뿐이다. composer 아래 줄에는 model 단추, 이 model의 option 축(Effort·Speed), 권한 하나(Ask when needed), Stop, Send가 있고, 입력칸 밖 아래 줄에는 자리와 앱 할당 요약이 있다. 맨 아래 24px 푸터가 창 사용률(8% of 1.05M), token, 금액을 늘 보이고 누르면 /status가 열린다.",
       render: () => <AgentConversation />,
     },
     {
       id: "new-agent-queued-message",
       title: "Agent · queued message",
       description:
-        "일하는 중에 보낸 메시지가 composer 위 Next turn 줄로 쌓인 모습이다. 줄 오른쪽 끝의 [Send now]를 누르면 도는 turn에 steer로 들어가고 steer 표시가 붙는다. 보내기 방식을 고르는 menu는 없다.",
+        "일하는 중에 보낸 메시지가 composer 위 Next turn 줄로 쌓인 모습이다. 줄을 누르면 그 자리에서 글을 고치고(Enter 저장, Esc 취소), 줄 오른쪽 끝의 ↑·↓로 순서를 바꾼다. [Send now]를 누르면 도는 turn에 steer로 들어가고 steer 표시가 붙는다. 보내기 방식을 고르는 menu는 없다.",
       render: () => <AgentQueuedMessage />,
+    },
+    {
+      id: "new-agent-queued-message-edit",
+      title: "Agent · queued message edit",
+      description:
+        "큐의 줄을 눌러 그 자리에서 글을 고치는 모습이다. Enter로 저장하고 Esc로 취소하며, 조합 중인 글자는 저장하지 않는다. 고치는 동안에는 [Save]와 [Cancel]이 오른쪽 끝에 있다.",
+      render: () => <AgentQueuedEdit />,
     },
     {
       id: "new-agent-sender-chips",
@@ -102,7 +118,7 @@ export const agentArea: Area = {
       id: "new-agent-approval",
       title: "Agent · approval card",
       description:
-        "shell 명령의 허락 카드다. 명령이 그대로 보이고 Allow once, Always allow, Deny로 바로 결정한다. Always allow는 그 명령 앞부분의 allow 규칙을 더하고, 더할 규칙이 카드에 보인다.",
+        "shell 명령의 허락 카드다. 명령이 그대로 보이고 Allow once, Always allow, Deny로 바로 결정한다. 카드 안에 초점이 있으면 Enter=Allow once, ⌘/Ctrl+Shift+Enter=Always allow, Esc=Deny 이유 열기다. Always allow는 그 명령 앞부분의 allow 규칙을 더하고, 더할 규칙이 카드에 보인다.",
       render: () => <AgentApproval />,
     },
     {
@@ -122,7 +138,7 @@ export const agentArea: Area = {
       id: "new-agent-skip",
       title: "Agent · skip permissions",
       description:
-        "입력칸 밖 아래 줄 오른쪽 끝의 스위치로 이 session의 skip을 켜고 끈다. 켜면 shell 명령을 묻지 않지만 deny 규칙은 막는다. 바꾼 값은 다음 turn부터다. 아직 만들지 않은 새 session과 archive한 session에는 스위치가 없다.",
+        "composer 아래 줄의 권한 단추가 Skip permissions로 바뀌고 경고색이다. 누르면 Ask when needed와 Skip permissions 중 하나를 고른다. 켜면 shell 명령을 묻지 않지만 deny 규칙은 막는다. 바꾼 값은 다음 turn부터다. 아직 만들지 않은 새 session과 archive한 session에는 권한 단추가 없다.",
       render: () => <AgentSkip />,
     },
     {
@@ -150,8 +166,29 @@ export const agentArea: Area = {
       id: "new-agent-status",
       title: "Agent · status",
       description:
-        "/status 보기다. session id, model과 effort, provider 연결 상태와 계정, 마지막 요청이 창을 얼마나 썼는지, 이 session의 turn·token·금액이 이름·값 두 열로 보인다. 구독 연결은 금액 대신 plan에 포함됐다고 보인다.",
+        "/status 보기다. session id, model과 effort, provider 연결 상태와 계정, 마지막 요청이 창을 얼마나 썼는지, 이 session의 turn·token·금액이 이름·값 두 열로 보인다. 구독 연결은 금액 대신 plan에 포함됐다고 보인다. 창을 80% 넘게 쓰면 막대가 경고색, 90%부터 위험색이다. composer 아래 푸터를 눌러도 이 보기가 열린다.",
       render: () => <AgentStatus />,
+    },
+    {
+      id: "new-agent-status-full",
+      title: "Agent · status from footer",
+      description:
+        "composer 아래 24px 푸터를 누르면 같은 /status 보기가 열린다. 창을 94% 쓴 session이라 푸터와 panel 막대가 위험색이고, 푸터에서는 금액이 짧게 보인다.",
+      render: () => <AgentStatusFromFooter />,
+    },
+    {
+      id: "new-agent-context-warning",
+      title: "Agent · context warning",
+      description:
+        "마지막 요청이 창을 86% 쓴 session이다. composer 아래 푸터의 %와 막대가 경고색이고, 같은 색이 /status 막대에도 쓰인다.",
+      render: () => <AgentContextWarning />,
+    },
+    {
+      id: "new-agent-context-full",
+      title: "Agent · context full",
+      description:
+        "마지막 요청이 창을 94% 쓴 session이다. 푸터의 %와 막대가 위험색이고, 금액은 아는 값(About 0.42 USD)으로 짧게 보인다.",
+      render: () => <AgentContextFull />,
     },
     {
       id: "new-agent-model-picker",
@@ -159,6 +196,13 @@ export const agentArea: Area = {
       description:
         "composer의 model을 누르면 위에서부터 지금 model이 온 층 한 줄(이 대화에서 골랐다), 검색칸, 켜 둔 model이 provider 아이콘과 함께 provider별로 나온다. 꺼 둔 model(Haiku, GPT-6.1 Mini)은 없다. 고른 model의 option 축이 있고 맨 아래 Manage models 한 줄이 창을 연다. picker는 고르기만 한다.",
       render: () => <AgentModelPicker />,
+    },
+    {
+      id: "new-agent-model-shortcut",
+      title: "Agent · model shortcut",
+      description:
+        "composer 안에 focus가 있을 때 Ctrl(또는 Cmd)+Shift+M을 누르면 model picker가 열린다. model을 고르는 일은 단추를 누른 것과 같다.",
+      render: () => <AgentModelShortcut />,
     },
     {
       id: "new-model-picker-inherited",
@@ -259,6 +303,13 @@ export const agentArea: Area = {
       render: () => <AgentRequestError />,
     },
     {
+      id: "new-agent-edit-diff",
+      title: "Agent · edit diff",
+      description:
+        "파일을 바꾼 편집 카드를 펼친 모습이다. 카드 오른쪽 끝의 단추로 바뀐 줄을 unified diff로 열고, 길면 [Show all]로 나머지를 편다. [Open]은 그 파일의 탭을 연다.",
+      render: () => <AgentEditDiff />,
+    },
+    {
       id: "new-agent-rewind",
       title: "Agent · rewind",
       description:
@@ -285,6 +336,27 @@ export const agentArea: Area = {
       description:
         "archive한 session을 열면 기록만 보이고 입력칸이 없다. 머리에 Archived 표시와 안내 줄이 있다.",
       render: () => <AgentSessionArchived />,
+    },
+    {
+      id: "new-agent-detail",
+      title: "Agent · steps detail",
+      description:
+        "머리의 단계 상세 menu에서 Everything을 고른 모습이다. 모든 tool 묶음이 펼쳐지고, 묶음을 눌러 접었다 펼 수 있다. Messages는 tool 줄과 reasoning을 숨기고 Compact는 접힌 채로 그린다.",
+      render: () => <AgentDetail />,
+    },
+    {
+      id: "new-agent-find",
+      title: "Agent · find in conversation",
+      description:
+        "대화 화면에 focus가 있을 때 Ctrl/Cmd+F로 연 찾기 줄이다. 대화의 보이는 글에서 찾고 n/m과 이전·다음 단추를 보인다. Esc로 닫는다.",
+      render: () => <AgentFind />,
+    },
+    {
+      id: "new-agent-session-search",
+      title: "Agent · session message search",
+      description:
+        "session switcher의 검색이 제목뿐 아니라 메시지 글에서도 찾은 모습이다. 결과는 session 묶음마다 한 줄 snippet으로 보이고, 누르면 그 session을 열고 찾기 줄에 그 query를 넣는다.",
+      render: () => <AgentSessionSearch />,
     },
   ],
 };

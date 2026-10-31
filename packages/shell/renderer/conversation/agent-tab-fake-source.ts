@@ -26,12 +26,13 @@ import type {
   Envelope,
   ModelView,
   PermissionsView,
-  StatusView,
   QuestionAnswer,
   QueuedView,
   RewindPreviewView,
   SessionEntry,
+  SessionSearchMatch,
   SourceResult,
+  StatusView,
   ThreadEntry,
   ThreadMessage,
   ThreadView,
@@ -118,6 +119,21 @@ const CLEANUP_LEAD =
 const CLEANUP_COMMAND = "rm -r docs/reports/2026-w40";
 
 const turn1 = turnId(1);
+
+// report 장면의 agent 답. 수식·diagram·목록을 한 글에 담아 markdown 그리기를 다 보인다.
+const REPORT_ANSWER = [
+  "I wrote the report from the three findings. The regression share fell to $0.4\\%$ this week:",
+  "",
+  "$$",
+  "\\text{regressions} = \\frac{11}{24}",
+  "$$",
+  "",
+  "```mermaid",
+  "flowchart LR",
+  "  edit[plan edit] --> lookup[recipe lookup]",
+  "  lookup --> gap[query-recipe-gap]",
+  "```",
+].join("\n");
 
 // working 장면에서 쓰는 중인 글. 짧은 문단, 목록 하나, 닫히지 않은 ts code fence로 끝난다.
 const LIVE_TEXT = [
@@ -304,7 +320,16 @@ function shellBody(stdout: string): ToolCallBodyView {
   });
 }
 
+// 편집 카드의 [Show diff]가 읽는 file.edit 입력. 앞뒤 글에서 unified diff를 만든다.
+const REPORT_EDIT_INPUT = inputBody({
+  path: "docs/reports/2026-w41.md",
+  old_string: "## Regressions\n\n- F-011 query-recipe-gap\n- F-012 sched-edit",
+  new_string:
+    "## Regressions\n\n- F-011 query-recipe-gap — fixed in 0.10.3\n- F-012 sched-edit — still open\n- F-014 tool-retry-loop",
+});
+
 const REPORT_TOOL_BODIES: SceneData["toolBodies"] = {
+  ["edit-1"]: { input: REPORT_EDIT_INPUT },
   [toolId(1)]: {
     input: inputBody({ path: "docs/reports/2026-w39.md" }),
     output: resultBody("read docs/reports/2026-w39.md lines 1-28", {
@@ -358,6 +383,7 @@ const REPORT_TOOL_BODIES: SceneData["toolBodies"] = {
 };
 
 const WORKING_TOOL_BODIES: SceneData["toolBodies"] = {
+  ["edit-1"]: { input: REPORT_EDIT_INPUT },
   [toolId(6)]: {
     input: inputBody({
       command: "npm run eval -- --week 41",
@@ -382,8 +408,8 @@ const reportEdit = (minutes: number): ThreadEntry => ({
     id: "edit-1",
     document: fakeId("doc", 1),
     path: "docs/reports/2026-w41.md",
-    added: 24,
-    removed: 3,
+    added: 3,
+    removed: 2,
   },
 });
 
@@ -541,7 +567,7 @@ function sceneData(scene: AgentTabScene): SceneData {
             { kind: "reasoning", text: REASONING, durationMs: 12_000 },
             {
               kind: "text",
-              text: "I wrote the report from the three findings.",
+              text: REPORT_ANSWER,
             },
           ],
         },
@@ -603,6 +629,11 @@ function sceneData(scene: AgentTabScene): SceneData {
                 id: messageId(5),
                 at: at(42),
                 text: "Also add the exp-008 numbers to the report.",
+              },
+              {
+                id: messageId(6),
+                at: at(43),
+                text: "Then check the latency table against the raw runs.",
               },
             ],
         bodies,
@@ -1092,10 +1123,33 @@ function fail<T>(code: string): Promise<SourceResult<T>> {
 
 const DONE = ok<void>(undefined);
 
+const SEARCH_SNIPPET_BEFORE = 40;
+const SEARCH_SNIPPET_AFTER = 80;
+const SEARCH_MATCH_MAX = 20;
+
+/** 처음 맞은 곳 앞뒤를 한 줄로 줄인다. core의 SearchSessionMessages와 같은 모양이다. */
+function searchSnippet(text: string, needle: string): string | null {
+  const flat = text.replace(/\s+/g, " ").trim();
+  const at = flat.toLowerCase().indexOf(needle);
+  if (at === -1) return null;
+  const start = Math.max(0, at - SEARCH_SNIPPET_BEFORE);
+  const end = Math.min(flat.length, at + needle.length + SEARCH_SNIPPET_AFTER);
+  return `${start > 0 ? "…" : ""}${flat.slice(start, end)}${end < flat.length ? "…" : ""}`;
+}
+
+/** 숨긴 구간 안의 메시지도 기록이므로 같이 본다. */
+function allEntries(entries: readonly ThreadEntry[]): readonly ThreadEntry[] {
+  return entries.flatMap((entry) =>
+    entry.kind === "hidden" ? allEntries(entry.entries) : [entry],
+  );
+}
+
 export function createFakeAgentTabSource(
   options: {
     scene?: AgentTabScene;
     picker?: FakePicker;
+    /** status panel과 푸터가 읽는 값. 준 칸만 기본값을 덮는다(예: 창 사용률이 높은 상태). */
+    status?: Partial<StatusView>;
     /** 보낸 말과 시작한 turn의 시각. 없으면 장면의 고정 시각이다(gallery). */
     now?: () => number;
   } = {},
@@ -1195,12 +1249,49 @@ export function createFakeAgentTabSource(
     [...threads].find(([, view]) =>
       view.queued.some((item) => item.id === queued),
     )?.[0];
+  // 실패했거나 끝난 turn을 다시 도는 모습으로 되돌린다. fake는 turn의 입력 글을 보관하지 않아 그것을 새로 보내지
+  // 않고, 화면에서 [Retry]를 눌렀을 때 turn이 다시 서는 모습만 보인다.
+  const restartTurn = (turn: string): Promise<SourceResult<void>> => {
+    const session = sessionOfTurn(turn);
+    if (session === undefined) return fail("not_found");
+    return change(session, (view) => ({
+      ...view,
+      turn: { ...view.turn!, phase: "working" },
+      live: null,
+      entries: view.entries.filter((entry) => entry.kind !== "provider-error"),
+    }));
+  };
   const scenarioOf = (session: string | null) =>
     models.get(session ?? "new") ?? SCENARIOS[picker.current ?? ""] ?? SONNET;
 
   const source: AgentTabSource = {
     agent: () => ok(data.agent),
     sessions: () => ok([...sessions]),
+    searchMessages(query) {
+      const needle = query.trim().toLowerCase();
+      if (needle === "") return ok([]);
+      const matches: SessionSearchMatch[] = [];
+      for (const entry of sessions) {
+        const view = threads.get(entry.id);
+        if (view === undefined) continue;
+        for (const item of allEntries(view.entries)) {
+          if (item.kind !== "message" || item.actor === "received") continue;
+          const text = (bodies.get(item.id) ?? [])
+            .flatMap((part) => (part.kind === "text" ? [part.text] : []))
+            .join("\n");
+          const snippet = searchSnippet(text, needle);
+          if (snippet === null) continue;
+          matches.push({
+            session: entry.id,
+            message: item.id,
+            at: item.at,
+            snippet,
+          });
+        }
+      }
+      matches.sort((a, b) => b.at.localeCompare(a.at));
+      return ok(matches.slice(0, SEARCH_MATCH_MAX));
+    },
     thread(session) {
       return sessions.some((item) => item.id === session)
         ? ok(thread(session))
@@ -1254,7 +1345,8 @@ export function createFakeAgentTabSource(
     commands: (session, query) => ok(filterGroups(query, session !== null)),
     runCommand: () => DONE,
     permissions: () => ok(PERMISSIONS_VIEW),
-    status: (session) => ok(statusView(session)),
+    status: (session) =>
+      ok({ ...statusView(session), ...options.status, session }),
 
     uploadImage(_session, image) {
       const id = nextId("att");
@@ -1330,6 +1422,33 @@ export function createFakeAgentTabSource(
         queued: view.queued.filter((one) => one.id !== queued),
       }));
     },
+    editQueued(queued, text) {
+      const session = sessionOfQueued(queued);
+      if (session === undefined) return fail("not_found");
+      bodies.set(queued, [{ kind: "text", text }]);
+      return change(session, (view) => ({
+        ...view,
+        queued: view.queued.map((one) =>
+          one.id === queued ? { ...one, text } : one,
+        ),
+      }));
+    },
+    moveQueued(queued, direction) {
+      const session = sessionOfQueued(queued);
+      if (session === undefined) return fail("not_found");
+      return change(session, (view) => {
+        const index = view.queued.findIndex((one) => one.id === queued);
+        const target = index + (direction === "up" ? -1 : 1);
+        if (index < 0 || target < 0 || target >= view.queued.length)
+          return view;
+        const queuedItems = [...view.queued];
+        [queuedItems[index], queuedItems[target]] = [
+          queuedItems[target],
+          queuedItems[index],
+        ];
+        return { ...view, queued: queuedItems };
+      });
+    },
     stop(turn) {
       const session = sessionOfTurn(turn);
       if (session === undefined) return fail("not_found");
@@ -1352,18 +1471,8 @@ export function createFakeAgentTabSource(
         ],
       }));
     },
-    retryTurn(turn) {
-      const session = sessionOfTurn(turn);
-      if (session === undefined) return fail("not_found");
-      return change(session, (view) => ({
-        ...view,
-        turn: { ...view.turn!, phase: "working" },
-        live: null,
-        entries: view.entries.filter(
-          (entry) => entry.kind !== "provider-error",
-        ),
-      }));
-    },
+    retryTurn: restartTurn,
+    repeatTurn: restartTurn,
     answerQuestions({ session, toolCall, answers }) {
       const asked = thread(session).pending.questions;
       if (asked?.toolCall !== toolCall) return fail("conflict");

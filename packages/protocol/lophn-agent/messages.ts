@@ -221,11 +221,52 @@ export const messageBody = defineRead({
   actors: ["user", "agent", "machine"],
   errors: commandErrors.filter((code) => code !== "conflict"),
 });
+
+// 아직 turn이 가져가지 않은 사람 메시지의 본문을 바꾼다. 본문 값은 보낸 때와 같은 길로
+// redaction과 blob 준비를 거쳐 command가 같은 transaction에서 새 영구 참조를 등록한다.
+export const editQueuedMessage = defineCommand({
+  resource: "messages",
+  method: "edit_queued",
+  name: "EditQueuedMessage",
+  input: z.strictObject({
+    session: idSchema("ses"),
+    message: idSchema("msg"),
+    content: userMessageContentInputSchema,
+  }),
+  output: z.strictObject({
+    message: idSchema("msg"),
+    // redaction을 거친 본문 글. 부르는 쪽(wiring)이 입력함의 글도 같은 값으로 바꾼다.
+    text: z.string(),
+  }),
+  compare: z.strictObject({}),
+  actors: ["machine"],
+  errors: commandErrors,
+});
+
+// 아직 turn이 가져가지 않은 사람 메시지를 큐에서 위아래로 옮긴다. 표의 순서(created_seq)를
+// 이웃과 맞바꿔 켤 때 입력함에 다시 넣는 순서까지 같은 순서가 된다.
+export const moveQueuedMessage = defineCommand({
+  resource: "messages",
+  method: "move_queued",
+  name: "MoveQueuedMessage",
+  input: z.strictObject({
+    session: idSchema("ses"),
+    message: idSchema("msg"),
+    direction: z.enum(["up", "down"]),
+  }),
+  output: z.strictObject({ message: idSchema("msg") }),
+  compare: z.strictObject({}),
+  actors: ["machine"],
+  errors: commandErrors,
+});
+
 export const MESSAGE_ROUTES = [
   receiveMessage,
   recordMessage,
   messagesList,
   messageBody,
+  editQueuedMessage,
+  moveQueuedMessage,
 ] as const;
 
 // owner는 링크 존재·같은 session/assignment/turn·최초 반영 transaction·blob

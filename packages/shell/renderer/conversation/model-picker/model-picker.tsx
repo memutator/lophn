@@ -3,13 +3,14 @@
 // 고른 model의 option 축, 맨 아래 Manage models 한 줄이다. 화면 코드에는 model 이름도
 // option 값도 없다. 정렬·거르기·option 축·기본 값 맞춤은 model catalog가 계산해 props로 주고, 이 component는 받은
 // 순서대로 그린다. 보일 model을 켜고 끄는 일과 provider 연결은 Manage models 창이 한다. model을 바꾸면 값은 조용히 맞고 알림은 없다.
-import type { ReactElement, ReactNode } from "react";
-import { VendorIcon, vendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
-import { Button, Icon } from "@lophn/ui/primitives";
-import { Popover, PopoverRow } from "@lophn/ui/overlay";
-import { iconPixels } from "@lophn/ui/shared";
-import { commonIcons, conversationIcons } from "../../icons/mod.ts";
+
 import { t } from "@lophn/i18n";
+import { Popover, PopoverRow } from "@lophn/ui/overlay";
+import { Button, Icon } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
+import type { ReactElement, ReactNode } from "react";
+import { commonIcons, conversationIcons } from "../../icons/mod.ts";
+import { VendorIcon, vendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
 
 import { useManageModels } from "./manage-context.ts";
 import styles from "./model-picker.module.css";
@@ -118,17 +119,6 @@ function LayerLine({ layer }: { layer: ModelPickerProps["layer"] }) {
       {t("conversation.label.model-layer", { layer })}
     </p>
   );
-}
-
-// 단추 글은 model 이름 뒤에 값이 있는 축의 표시 이름을 catalog가 준 순서대로 이어 붙인 것이다.
-function buttonText(props: ModelPickerProps): string {
-  const values = props.axes.flatMap((axis) => {
-    const chosen = axis.values.find(
-      (item) => item.value === props.optionValues[axis.id],
-    );
-    return chosen ? [chosen.label] : [];
-  });
-  return [props.currentLabel, ...values].join(" · ");
 }
 
 function providerNameOf(props: ModelPickerProps): string | undefined {
@@ -276,7 +266,7 @@ function PickerPopover({
   );
 }
 
-/** composer의 작은 단추 trigger. */
+/** composer의 작은 단추 trigger. model 이름 하나만 보이고, option 값은 옆의 축 단추가 보인다. */
 export function ModelPicker(props: ModelPickerProps): ReactNode {
   return (
     <PickerPopover
@@ -289,7 +279,7 @@ export function ModelPicker(props: ModelPickerProps): ReactNode {
           trailingIcon={conversationIcons.expand}
           data-model-button=""
         >
-          {buttonText(props)}
+          {props.currentLabel}
         </Button>
       }
     />

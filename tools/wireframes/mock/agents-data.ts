@@ -1,5 +1,6 @@
 import type { CharacterProfile } from "../../../packages/protocol/lophn-agent/agent-values.ts";
 import type { FakePicker } from "../../../packages/shell/renderer/conversation/agent-tab-fake-source.ts";
+import type { StatusView } from "../../../packages/shell/renderer/conversation/agent-tab-source.ts";
 import type { TabSpec } from "../pages/screens/project-window.tsx";
 // agent 화면의 고정 데이터와, 데이터에서 탭을 만드는 작은 함수들. phroner 예시 project의 lophn과 사람이 만든
 // agent 셋, agent별 session이다. model과 option은 models-data.ts(catalog)에서만 온다.
@@ -24,6 +25,8 @@ export interface ChatInit {
   readonly modelDemo?: ModelDemo;
   /** model picker가 보이는 provider와 model의 상태. */
   readonly picker?: FakePicker;
+  /** `/status` panel과 composer 아래 푸터가 읽는 값. 창 사용률이 높은 상태를 고정할 때 쓴다. */
+  readonly status?: Partial<StatusView>;
   /** modelDemo가 manage일 때 창이 열린 뒤 이어서 누를 것. */
   readonly afterManage?: readonly Step[];
   /** agent header의 session switcher를 연 채 시작한다. */

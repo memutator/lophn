@@ -27,6 +27,10 @@ export type Inbox = {
   steerNow(session: Session, message: string): boolean;
   // 입력함에서 메시지 하나를 뺀다. 이미 가져갔으면 false다.
   remove(session: Session, message: string): boolean;
+  // 아직 가져가지 않은 사람 메시지의 글이나 순서를 바꾼다. 없으면 false다. 사람 메시지끼리만
+  // 순서를 맞바꾸므로 사람 메시지가 먼저라는 규칙은 그대로다.
+  edit(session: Session, message: string, body: string): boolean;
+  move(session: Session, message: string, direction: "up" | "down"): boolean;
   // 입력이 기다리는 session을 먼저 시작할 순서대로 준다.
   waiting(): readonly Session[];
   // archive나 지움에서 입력과 steering을 비운다.
@@ -106,6 +110,46 @@ export function createInbox(): Inbox {
       if (rest.length === entries.length) return false;
       if (rest.length === 0) queued.delete(session);
       else queued.set(session, rest);
+      return true;
+    },
+    edit(session, message, body) {
+      const entries = queued.get(session) ?? [];
+      const found = entries.find((entry) => entry.input.message === message);
+      if (found === undefined || found.input.kind !== "message") return false;
+      queued.set(
+        session,
+        entries.map((entry) =>
+          entry === found
+            ? { ...entry, input: { ...entry.input, body } }
+            : entry,
+        ),
+      );
+      return true;
+    },
+    move(session, message, direction) {
+      const entries = queued.get(session) ?? [];
+      const humans = entries
+        .filter((entry) => entry.input.kind === "message")
+        .sort((a, b) => a.order - b.order);
+      const index = humans.findIndex(
+        (entry) => entry.input.message === message,
+      );
+      if (index < 0) return false;
+      const target = index + (direction === "up" ? -1 : 1);
+      if (target < 0 || target >= humans.length) return true;
+      const a = humans[index];
+      const b = humans[target];
+      const [aOrder, bOrder] = [a.order, b.order];
+      queued.set(
+        session,
+        entries.map((entry) =>
+          entry === a
+            ? { ...entry, order: bOrder }
+            : entry === b
+              ? { ...entry, order: aOrder }
+              : entry,
+        ),
+      );
       return true;
     },
     pendingSteering(session) {

@@ -99,4 +99,6 @@
     2);
   margin-inline: auto;
   padding-inline: var(--layout-pane-padding-wide);
+  /* composer의 아래 여백을 여기로 옮겼다. 푸터가 없어도 화면 아래 여백이 같다. */
+  padding-bottom: var(--space-5);
 }

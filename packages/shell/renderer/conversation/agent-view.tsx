@@ -2,9 +2,10 @@
 // "다음 turn" 줄, composer를 부품 그대로 묶는다. rewind·권한은 대화 위에 하나만 여는 panel 층이다. core와는
 // AgentTabSource로만 말하고 탭을 열고 닫는 일, 파일과 설정으로 가는 일은 host가 한다.
 
-import { IconButton } from "@lophn/ui/primitives";
 import { formatRelativeTime, t } from "@lophn/i18n";
+import { IconButton } from "@lophn/ui/primitives";
 import {
+  type KeyboardEvent,
   type ReactNode,
   useCallback,
   useEffect,
@@ -50,15 +51,18 @@ import {
   startSend,
 } from "./delivery-state.ts";
 import type { DraftStore } from "./drafts.ts";
+import { ConversationFindBar } from "./find/conversation-find.tsx";
+import { useConversationFind } from "./find/use-conversation-find.ts";
 import { AgentHeader } from "./header/agent-header.tsx";
+import { RunCodeProvider } from "./message-list/run-code.ts";
 import { PermissionsView } from "./permissions-view/permissions-view.tsx";
-import { StatusView } from "./status-view/status-view.tsx";
 import { QuestionCard } from "./question-card/question-card.tsx";
 import { QueuedMessages } from "./queued/queued-messages.tsx";
 import { RewindPanel } from "./session-rewind/rewind-panel.tsx";
 import type { SlashEntryView } from "./slash-menu/types.ts";
+import { StatusFooter } from "./status-view/status-footer.tsx";
+import { StatusView } from "./status-view/status-view.tsx";
 import { windowPathOf, windowReadImage } from "./window-paths.ts";
-import { RunCodeProvider } from "./message-list/run-code.ts";
 
 /** Agent 화면이 자기 밖에 맡기는 일: 탭·파일·설정으로 가는 길. */
 export interface AgentViewHost {
@@ -133,16 +137,44 @@ type ViewData = Pick<
   | "reload"
 >;
 
+/** session 검색 결과를 눌러 다른 session으로 넘어갈 때 같이 넘기는 것. */
+interface ViewSeed {
+  /** 찾기 줄을 이 글로 열어야 하면 그 글. */
+  readonly findSeed: string | null;
+  /** 열었으니 지운다. session을 다시 열 때 또 열지 않게 한다. */
+  readonly onFindSeedUsed: () => void;
+  /** session 검색 결과의 메시지 줄. 그 session을 열고 찾기 줄을 연다. */
+  readonly openMatch: (session: string, query: string) => void;
+}
+
 export function AgentView(props: AgentViewProps) {
+  const [seed, setSeed] = useState<{ session: string; query: string } | null>(
+    null,
+  );
+  const openMatch = (session: string, query: string) => {
+    setSeed({ session, query });
+    if (session !== props.session) props.onSessionChange(session);
+  };
+  const shared: ViewSeed = {
+    findSeed:
+      seed !== null && seed.session === props.session ? seed.query : null,
+    onFindSeedUsed: () => setSeed(null),
+    openMatch,
+  };
   // 열린 session과 새 session은 읽는 것이 다르다. session이 바뀌면 화면 상태도 새로 시작한다.
   return props.session === null ? (
-    <NewSession key="new" {...props} />
+    <NewSession key="new" {...props} {...shared} />
   ) : (
-    <OpenSession key={props.session} {...props} session={props.session} />
+    <OpenSession
+      key={props.session}
+      {...props}
+      {...shared}
+      session={props.session}
+    />
   );
 }
 
-function NewSession(props: AgentViewProps) {
+function NewSession(props: AgentViewProps & ViewSeed) {
   const list = useAgentTabList(props.source);
   const data: ViewData = {
     ...list,
@@ -155,12 +187,12 @@ function NewSession(props: AgentViewProps) {
   return <Screen {...props} data={data} />;
 }
 
-function OpenSession(props: AgentViewProps & { session: string }) {
+function OpenSession(props: AgentViewProps & ViewSeed & { session: string }) {
   const data = useAgentTabData(props.source, props.session, props.now);
   return <Screen {...props} data={data} />;
 }
 
-function Screen(props: AgentViewProps & { data: ViewData }) {
+function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   const { source, drafts, session, host, data } = props;
   // 보던 session이 사라진 읽기와 지운 쓰기가 같은 말을 두 번 하지 않게 한다.
   const current = useRef(session);
@@ -176,6 +208,17 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
   const [permissions, setPermissions] = useState<PermissionsData | null>(null);
   const [status, setStatus] = useState<StatusData | null>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
+  const stage = useRef<HTMLDivElement>(null);
+  const find = useConversationFind(stage, props.findSeed, props.onFindSeedUsed);
+
+  // Ctrl/Cmd+F는 이 화면이 focus를 가질 때만 받는다. 편집기·browser 탭의 같은 키와 겹치지 않게 표에 넣지 않는다.
+  const findKeys = (event: KeyboardEvent<HTMLElement>) => {
+    if (!(event.metaKey || event.ctrlKey)) return;
+    if (event.altKey || event.shiftKey || event.code !== "KeyF") return;
+    event.preventDefault();
+    event.stopPropagation();
+    find.show();
+  };
 
   const { agent, thread, refresh } = data;
   const entry = data.sessions.find((item) => item.id === session) ?? null;
@@ -196,6 +239,22 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
       session === null ? Promise.resolve(null) : source.imageUrl(session, id),
     [source, session],
   );
+
+  // composer 아래 푸터가 늘 지금 값을 보이게, panel을 열 때만이 아니라 session이 바뀌거나 turn이 끝날 때 다시 읽는다.
+  const turnPhase = turn === null ? null : `${turn.id}:${turn.phase}`;
+  useEffect(() => {
+    if (session === null) {
+      setStatus(null);
+      return;
+    }
+    let live = true;
+    void source.status(session).then((read) => {
+      if (live && read.ok) setStatus(read.value);
+    });
+    return () => {
+      live = false;
+    };
+  }, [source, session, turnPhase]);
 
   // 보던 session이 없어졌으면 새 session으로 간다.
   useEffect(() => {
@@ -368,6 +427,11 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
     }
   };
 
+  // 끝난 turn의 입력을 새 메시지로 다시 보낸다. 같은 turn을 여러 번 다시 할 수 있다.
+  const retry = (turn: string) => {
+    void perform(() => source.repeatTurn(turn));
+  };
+
   const startNew = () => {
     setLayer(null);
     onSessionChange(null);
@@ -491,11 +555,20 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           skip: false,
         });
   const empty = messages.length === 0 && draft.outgoing === null;
-  // 보낸 말을 받기 전부터 turn이 끝날 때까지 일하는 중이다. 질문·승인을 기다리는 동안은 카드가 대신 말한다.
+  // 보낸 말을 받기 전부터 turn이 끝날 때까지 일하는 중이다. 사람이 답할 것(허락·질문)을 기다리는 동안은
+  // 카드가 답을 받지만, 대화 끝 줄은 그 사실을 말해야 멈춘 것처럼 보이지 않는다.
   const sending =
     draft.outgoing?.phase === "sending" || draft.outgoing?.phase === "accepted";
+  const waiting: "approval" | "answer" | undefined =
+    active?.phase === "waiting"
+      ? thread?.pending.approval !== null
+        ? "approval"
+        : "answer"
+      : undefined;
   const working =
-    active?.phase === "working" || (active === null && sending)
+    active?.phase === "working" ||
+    (active === null && sending) ||
+    waiting !== undefined
       ? {
           clock:
             active === null
@@ -508,6 +581,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
                 : active.startedAt === null
                   ? null
                   : { activeMs: 0, at: Date.parse(active.startedAt) },
+          ...(waiting === undefined ? {} : { waiting }),
         }
       : null;
   const hint =
@@ -520,17 +594,24 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
     call.then((result) => result.ok);
 
   return (
-    <section className={styles.view} data-agent-view="">
+    <section
+      className={styles.view}
+      data-agent-view=""
+      onKeyDownCapture={findKeys}
+    >
       <AgentHeader
         agent={agent}
         session={shown}
         sessions={data.sessions}
         now={new Date(now())}
         source={source}
+        detail={draft.detail}
+        onDetailChange={(next) => drafts.save(key, { detail: next })}
         host={{
           switchSession: onSessionChange,
           newSession: startNew,
           openForked: host.openForked,
+          openMatch: props.openMatch,
         }}
         onChanged={() => void refresh()}
         trailing={props.trailing}
@@ -552,13 +633,24 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           {t(PROBLEM_TEXT[problem])}
         </p>
       )}
-      <div className={styles.stage}>
+      <div className={styles.stage} ref={stage}>
+        {find.open ? (
+          <ConversationFindBar
+            query={find.query}
+            onQuery={find.setQuery}
+            current={find.current}
+            total={find.total}
+            onNext={() => find.step(1)}
+            onPrevious={() => find.step(-1)}
+            onClose={find.close}
+          />
+        ) : null}
         <RunCodeProvider value={host.runCommand ?? null}>
           <AgentThread
             key={key}
             agent={agent}
             entries={thread?.entries ?? []}
-            detail="compact"
+            detail={draft.detail}
             live={thread?.live ?? null}
             outgoing={draft.outgoing}
             working={working}
@@ -580,6 +672,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
             onFork={(message) => void fork(message)}
             onCheck={() => void check()}
             onResend={() => void sendAgain()}
+            onRetry={retry}
             onOpenFile={host.openFile}
             onOpenRef={(ref: EvidenceRef) => {
               if (ref.kind === "file") host.openFile?.(ref.target);
@@ -620,6 +713,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
             key={approval.id}
             agent={agent.name}
             request={approval}
+            focusOnMount={draft.text === "" && draft.attachments.length === 0}
             onDecide={(choice, reason) =>
               accepted(
                 source.decidePermission(session, approval.id, choice, reason),
@@ -650,6 +744,20 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           disabled={offline}
           onSendNow={(id) => void perform(() => source.sendQueuedNow(id))}
           onRemove={(id) => void perform(() => source.removeQueued(id))}
+          onEdit={(id, text) =>
+            void perform(async () => {
+              const result = await source.editQueued(id, text);
+              if (result.ok) await data.reload();
+              return result;
+            })
+          }
+          onMove={(id, direction) =>
+            void perform(async () => {
+              const result = await source.moveQueued(id, direction);
+              if (result.ok) await data.reload();
+              return result;
+            })
+          }
         />
         <AgentComposer
           key={key}
@@ -687,6 +795,9 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           onCommand={runSlash}
           onProblem={fail}
         />
+        {status === null ? null : (
+          <StatusFooter status={status} onOpen={() => void showStatus()} />
+        )}
       </div>
     </section>
   );

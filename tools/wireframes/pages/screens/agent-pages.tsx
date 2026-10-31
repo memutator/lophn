@@ -1,30 +1,5 @@
 // Part 2: agent 부르기·대화·관리 화면. 모두 동작하는 ProjectApp(과 Workspace) 위에 고정 상태로 놓는다.
 import {
-  type ChatInit,
-  SESSIONS,
-  sessionTab,
-  weeklyTab,
-  workingTab,
-} from "../../mock/agents-data.ts";
-import {
-  ApprovalDenyScene,
-  ApprovalScene,
-  ApprovalStatesScene,
-  CallOpenScene,
-  CallRepliesScene,
-  ConversationScene,
-  PermissionsScene,
-  StatusScene,
-  QuestionAnsweredScene,
-  QuestionEndedScene,
-  QuestionScene,
-  QueuedMessageScene,
-  RequestErrorScene,
-  RewindScene,
-  SenderChipsScene,
-  SkipScene,
-} from "./agent-tab/scenes.tsx";
-import {
   ANTHROPIC,
   CUSTOM_INFO_MODEL,
   CUSTOM_PROVIDER,
@@ -32,9 +7,43 @@ import {
   OPENAI,
   XAI,
 } from "../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
+import {
+  type ChatInit,
+  SESSIONS,
+  sessionTab,
+  weeklyTab,
+  workingTab,
+} from "../../mock/agents-data.ts";
 import { click, press, type Step, type } from "../../mock/drive.ts";
-import { ProjectApp, type ProjectAppProps } from "./project-app.tsx";
 import { documentTab } from "../../mock/phroner-data.ts";
+import {
+  ApprovalDenyScene,
+  ApprovalScene,
+  ApprovalStatesScene,
+  CallOpenScene,
+  CallRepliesScene,
+  ContextFullScene,
+  ContextWarningScene,
+  ConversationScene,
+  DetailScene,
+  EditDiffScene,
+  FindScene,
+  ModelShortcutScene,
+  PermissionsScene,
+  QuestionAnsweredScene,
+  QuestionEndedScene,
+  QuestionScene,
+  QueuedEditScene,
+  QueuedMessageScene,
+  RequestErrorScene,
+  RewindScene,
+  SenderChipsScene,
+  SessionSearchScene,
+  SkipScene,
+  StatusFromFooterScene,
+  StatusScene,
+} from "./agent-tab/scenes.tsx";
+import { ProjectApp, type ProjectAppProps } from "./project-app.tsx";
 import type { TabSpec } from "./project-window.tsx";
 
 const DOC = documentTab("eval/experiments/exp-008-query-tools.md");
@@ -60,6 +69,8 @@ const weekly = (chat: ChatInit, extra: Partial<ProjectAppProps> = {}) =>
 export const AgentConversation = ConversationScene;
 /** 일하는 중에 보낸 메시지가 쌓인 "다음 turn" 줄과 [Send now]. */
 export const AgentQueuedMessage = QueuedMessageScene;
+/** 큐의 줄을 눌러 글을 고치는 상태. */
+export const AgentQueuedEdit = QueuedEditScene;
 /** model picker를 펼친 상태. 켠 model의 provider 묶음, 고른 model의 option 축, 맨 아래 Manage models 줄, 머리의 층 한 줄("이 대화"). 켜지 않은 model은 목록에 없다. */
 export const AgentModelPicker = () =>
   weekly({
@@ -192,6 +203,10 @@ export const AgentCommandsFiltered = () =>
 export const AgentPermissions = PermissionsScene;
 /** `/status`의 보기. */
 export const AgentStatus = StatusScene;
+/** composer 아래 푸터를 눌러 연 `/status`. */
+export const AgentStatusFromFooter = StatusFromFooterScene;
+/** composer에서 Ctrl/Cmd+Shift+M으로 연 model picker. */
+export const AgentModelShortcut = ModelShortcutScene;
 /** 질문 카드. */
 export const AgentQuestion = QuestionScene;
 /** 질문에 답한 뒤. */
@@ -206,5 +221,17 @@ export const AgentApprovalDeny = ApprovalDenyScene;
 export const AgentApprovalStates = ApprovalStatesScene;
 /** rewind panel. */
 export const AgentRewind = RewindScene;
+/** 편집 카드를 펼친 모습. 바뀐 줄은 unified diff로 보인다. */
+export const AgentEditDiff = EditDiffScene;
 /** skip을 켠 session. */
 export const AgentSkip = SkipScene;
+/** 창을 86% 쓴 session. 푸터와 status 막대가 warning 색. */
+export const AgentContextWarning = ContextWarningScene;
+/** 창을 94% 쓴 session. 푸터와 status 막대가 error 색. */
+export const AgentContextFull = ContextFullScene;
+/** header의 단계 상세 menu에서 Everything을 고른 모습. */
+export const AgentDetail = DetailScene;
+/** Ctrl+F로 연 대화 안 찾기 줄. */
+export const AgentFind = FindScene;
+/** session 검색의 메시지 글 결과. */
+export const AgentSessionSearch = SessionSearchScene;

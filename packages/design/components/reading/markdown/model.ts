@@ -6,6 +6,8 @@ export type Inline =
   // href가 없으면 허용하지 않은 주소라 글로만 보인다.
   | { kind: "link"; href?: string; children: Inline[] }
   | { kind: "image"; src?: string; alt: string }
+  // tex는 delimiters를 뺀 원문이고, 그리는 쪽이 KaTeX에 넘긴다. display는 $$…$$·\[…\]다.
+  | { kind: "math"; tex: string; display: boolean }
   | { kind: "break" };
 
 export type Align = "left" | "center" | "right" | undefined;
@@ -13,6 +15,8 @@ export type Align = "left" | "center" | "right" | undefined;
 export type Block =
   | { kind: "heading"; level: number; id: string; children: Inline[] }
   | { kind: "paragraph"; children: Inline[] }
+  // 문단이 display 수식 하나뿐일 때. 글 사이에 낀 수식은 Inline "math"다.
+  | { kind: "math"; tex: string; display: boolean }
   // language는 fence info의 첫 낱말(언어 이름)이다.
   | { kind: "code"; language?: string; text: string }
   | { kind: "quote"; children: Block[] }
@@ -56,6 +60,8 @@ export function plainText(inlines: readonly Inline[]): string {
         case "text":
         case "code":
           return inline.text;
+        case "math":
+          return inline.tex;
         case "image":
           return inline.alt;
         case "break":

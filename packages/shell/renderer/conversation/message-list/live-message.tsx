@@ -6,7 +6,12 @@ import type { ArtifactsSlice } from "../../workspace/kinds/host.ts";
 import { Said } from "./agent-turn.tsx";
 import { ChatMarkdown } from "./chat-markdown.tsx";
 import { Reasoning } from "./reasoning.tsx";
-import { closeOpenFence, type LiveText } from "../live-text.ts";
+import {
+  closeOpenFence,
+  type LiveText,
+  openFenceContent,
+} from "../live-text.ts";
+import styles from "./live-message.module.css";
 
 /** 긴 글을 delta마다 markdown으로 다시 parse하지 않는다. */
 export const LIVE_RENDER_MS = 100;
@@ -32,10 +37,13 @@ export const LiveMessage = memo(function LiveMessage({
           />
         ) : null}
         {live.text === "" ? null : (
-          <ChatMarkdown
-            text={closeOpenFence(live.text)}
-            artifacts={artifacts}
-          />
+          <div className={styles.streaming}>
+            <ChatMarkdown
+              text={closeOpenFence(live.text)}
+              openFence={openFenceContent(live.text)}
+              artifacts={artifacts}
+            />
+          </div>
         )}
       </div>
     </Said>

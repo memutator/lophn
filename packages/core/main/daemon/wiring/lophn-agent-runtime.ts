@@ -1,11 +1,15 @@
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
+  editQueued,
+  moveQueued,
   removeQueued,
   steerQueuedNow,
 } from "../../../../protocol/lophn-agent/inputs.ts";
 import {
+  editQueuedMessage,
   interruptTurns,
+  moveQueuedMessage,
   OAUTH_REFRESH_LEAD_MS,
   PLACE_KINDS,
   type ProviderRecord,
@@ -45,7 +49,14 @@ const SESSION_INPUTS_PRINCIPAL = "machine:session-inputs";
 const SESSION_INPUTS_CONTEXT: AuthenticatedContext = {
   principal: SESSION_INPUTS_PRINCIPAL,
   actor: "machine",
-  scope: { operations: [messageRemoveQueued.name], targets: {} },
+  scope: {
+    operations: [
+      messageRemoveQueued.name,
+      editQueuedMessage.name,
+      moveQueuedMessage.name,
+    ],
+    targets: {},
+  },
   conditions: {},
   credential_ref: SESSION_INPUTS_PRINCIPAL,
 };
@@ -140,12 +151,48 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
         inbox.remove(input.session as Id<"ses">, input.message);
         return ok({ message: input.message });
       };
+      // 저장된 본문을 먼저 바꾼다. 이미 turn이 가져간 메시지는 거기서 conflict로 막힌다.
+      const edit: MemoryHandler = async (who, body) => {
+        const user = humanOnly(who);
+        if (!user.ok) return user;
+        const input = editQueued.input.parse(body);
+        const done = await ctx.writer.command(SESSION_INPUTS_CONTEXT, {
+          command: editQueuedMessage.name,
+          input,
+          idempotency_key: crypto.randomUUID(),
+          compare: {},
+          prepared: [],
+        });
+        if (!done.ok) return done;
+        // command가 redaction을 거친 글을 돌려준다. 입력함도 그 글로 바꾼다.
+        const { text } = done.value.result as { text: string };
+        inbox.edit(input.session as Id<"ses">, input.message, text);
+        return ok({ message: input.message });
+      };
+      // 표의 순서를 먼저 바꾼다. 켤 때 입력함에 다시 넣는 순서도 같은 표를 따른다.
+      const move: MemoryHandler = async (who, body) => {
+        const user = humanOnly(who);
+        if (!user.ok) return user;
+        const input = moveQueued.input.parse(body);
+        const done = await ctx.writer.command(SESSION_INPUTS_CONTEXT, {
+          command: moveQueuedMessage.name,
+          input,
+          idempotency_key: crypto.randomUUID(),
+          compare: {},
+          prepared: [],
+        });
+        if (!done.ok) return done;
+        inbox.move(input.session as Id<"ses">, input.message, input.direction);
+        return ok({ message: input.message });
+      };
       const key = (route: { resource: string; method: string }) =>
         `${route.resource}/${route.method}`;
       return ok({
         memory: [
           [key(steerQueuedNow), steerNow],
           [key(removeQueued), remove],
+          [key(editQueued), edit],
+          [key(moveQueued), move],
         ],
       });
     },

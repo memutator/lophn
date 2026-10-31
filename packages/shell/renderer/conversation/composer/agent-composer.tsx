@@ -1,9 +1,14 @@
-// Agent 탭의 composer. 입력칸 안 아래 줄에 [+]·[model · option ▾]·[Stop]·[↑], 입력칸 밖 아래 줄에 project(또는 앱)
-// 표시와 권한 요약 ▾(열린 session이면 줄 오른쪽 끝에 Skip permissions 스위치), 입력칸 안 글 위에 뗄 수 있는 첨부 줄이
-// 있다. 첨부는 [+]로 고르거나 OS 파일·Explorer 파일을 끌어 놓거나 붙여 넣는다. 입력칸은 글을 따라 정한 높이까지
-// 자란다. agent를 고르는 칸은 없다(session 안에서
-// agent를 바꾸지 않는다). 보내기 방식을 고르는 menu도 없다. 일하는 중 보낸 메시지는 다음 turn을 기다리고, 도는
-// turn에 올리는 일은 `QueuedMessages`의 [Send now]가 한다. `/`로 시작하는 글은 명령 창이 맡는다.
+// Agent 탭의 composer. 입력칸 안 아래 줄에 [+], model 단추와 그 model의 option 축(effort·speed) 단추, 권한 하나(묻기/skip),
+// [Stop], [↑]가 있고, 입력칸 밖 아래 줄에는 project(또는 앱) 표시와 권한 요약 ▾(앱 할당)이 있다. 입력칸 안 글 위에 뗄 수
+// 있는 첨부 줄이 있다. 첨부는 [+]로 고르거나 OS 파일·Explorer 파일을 끌어 놓거나 붙여 넣는다. 입력칸은 글을 따라 정한
+// 높이까지 자란다. agent를 고르는 칸은 없다(session 안에서 agent를 바꾸지 않는다). 보내기 방식을 고르는 menu도 없다.
+// 일하는 중 보낸 메시지는 다음 turn을 기다리고, 도는 turn에 올리는 일은 `QueuedMessages`의 [Send now]가 한다. `/`로
+// 시작하는 글은 명령 창이 맡는다.
+
+import { t } from "@lophn/i18n";
+import { Popover, Tooltip } from "@lophn/ui/overlay";
+import { Button, Icon, IconButton } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
 import {
   type DragEvent,
   type KeyboardEvent,
@@ -12,35 +17,31 @@ import {
   useRef,
   useState,
 } from "react";
-import { Button, Icon, IconButton } from "@lophn/ui/primitives";
-import { Switch } from "@lophn/ui/input";
-import { Popover, Tooltip } from "@lophn/ui/overlay";
-import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/i18n";
 
 import {
   commonIcons,
   conversationIcons,
   workspaceIcons,
 } from "../../icons/mod.ts";
+import { PATH_DRAG_TYPE } from "../../workspace/drag.ts";
 import type {
   AgentTabSource,
   PermissionsView as PermissionsData,
 } from "../agent-tab-source.ts";
-import type { Draft } from "../drafts.ts";
 import {
   type Attachment,
   attachmentsOf,
   withAttachments,
 } from "../attachments.ts";
-import { PATH_DRAG_TYPE } from "../../workspace/drag.ts";
-import { AttachmentChips } from "./attachment-chips.tsx";
+import type { Draft } from "../drafts.ts";
 import { ModelPicker } from "../model-picker/model-picker.tsx";
 import { PermissionsView } from "../permissions-view/permissions-view.tsx";
 import type { SlashEntryView } from "../slash-menu/types.ts";
 import { useModelPicker } from "../use-model-picker.ts";
 import { useSlashMenu } from "../use-slash-menu.tsx";
 import styles from "./agent-composer.module.css";
+import { AttachmentChips } from "./attachment-chips.tsx";
+import { ModelAxisMenus, PermissionMenu } from "./session-controls.tsx";
 
 const IMAGE_PATH = /\.(png|jpe?g|gif|webp)$/i;
 
@@ -78,7 +79,7 @@ interface AgentComposerProps {
   permissionSummary: string;
   /** 권한 요약을 열 때 보이는 보기. 읽기 전에는 null이다. */
   permissions: PermissionsData | null;
-  /** 이 session의 skip(묻지 않고 실행). 주면 아래 줄 오른쪽 끝에 스위치를 그린다. 아직 없는 session과 archive한 session에는 주지 않는다. */
+  /** 이 session의 skip(묻지 않고 실행). 주면 입력칸 아래 줄에 권한 단추로 그린다. 아직 없는 session과 archive한 session에는 주지 않는다. */
   skip?: { readonly on: boolean; readonly onChange: (on: boolean) => void };
   onDraft: (
     patch: Partial<Pick<Draft, "text" | "selection" | "attachments">>,
@@ -233,6 +234,13 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
   const keyDown = (event: KeyboardEvent<HTMLElement>) => {
     slash.onKeyDown(event);
     if (event.defaultPrevented) return;
+    // Esc는 도는 turn을 멈춘다. slash menu가 열려 있으면 그 Esc가 메뉴를 닫으므로 위에서 먼저 걸러진다.
+    if (event.key === "Escape") {
+      if (!working) return;
+      event.preventDefault();
+      props.onStop();
+      return;
+    }
     if (
       event.key !== "Enter" ||
       event.shiftKey ||
@@ -245,8 +253,21 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     send();
   };
 
+  // ChatGPT의 Ctrl/Cmd+Shift+M과 같은 자리. composer 안에 focus가 있을 때 model picker를 열고 닫는다.
+  const modelShortcut = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key.toLowerCase() !== "m" || !event.shiftKey) return;
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+    event.preventDefault();
+    picker.props.onOpenChange(!picker.props.open);
+  };
+
   return (
-    <div className={styles.composer} data-agent-composer="" onKeyDown={keyDown}>
+    <div
+      className={styles.composer}
+      data-agent-composer=""
+      onKeyDown={keyDown}
+      onKeyDownCapture={modelShortcut}
+    >
       {offline ? (
         <p className={styles.note}>{t("conversation.notice.offline")}</p>
       ) : null}
@@ -342,28 +363,41 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
               }}
             />
             <span className={styles.spacer} />
-            <ModelPicker {...picker.props} />
-            {working ? (
-              <Button
-                size="sm"
+            <div className={styles.actions} data-composer-actions="">
+              <ModelPicker {...picker.props} />
+              <ModelAxisMenus
+                axes={picker.props.axes}
+                values={picker.props.optionValues}
+                onChange={picker.props.onOptionChange}
+              />
+              {props.skip === undefined ? null : (
+                <PermissionMenu
+                  on={props.skip.on}
+                  onChange={props.skip.onChange}
+                />
+              )}
+              {working ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={conversationIcons.stop}
+                  data-stop=""
+                  disabled={offline}
+                  onClick={props.onStop}
+                >
+                  {t("conversation.button.stop")}
+                </Button>
+              ) : null}
+              <IconButton
+                icon={conversationIcons.send}
+                label={t("conversation.button.send")}
                 variant="secondary"
-                icon={conversationIcons.stop}
-                data-stop=""
-                disabled={offline}
-                onClick={props.onStop}
-              >
-                {t("conversation.button.stop")}
-              </Button>
-            ) : null}
-            <IconButton
-              icon={conversationIcons.send}
-              label={t("conversation.button.send")}
-              variant="secondary"
-              size="sm"
-              data-send=""
-              disabled={!canSend}
-              onClick={send}
-            />
+                size="sm"
+                data-send=""
+                disabled={!canSend}
+                onClick={send}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -407,16 +441,6 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
             />
           )}
         </Popover>
-        {props.skip === undefined ? null : (
-          <span className={styles.skip} data-composer-skip="">
-            <Switch
-              label={t("conversation.label.skip-permissions")}
-              size="sm"
-              checked={props.skip.on}
-              onCheckedChange={props.skip.onChange}
-            />
-          </span>
-        )}
       </div>
     </div>
   );

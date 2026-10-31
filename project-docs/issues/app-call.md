@@ -31,3 +31,17 @@ modules: [packages/core/lophn-agent, packages/core/apps]
 고치려면:
 - 작음(추천): 실패 이유를 `app-oauth.<이름>.meta` 자리에 남긴다. 지울 때 meta를 `{ failed: reason }`으로 바꿔 쓰고 `report`가 읽는다. MCP는 지금처럼 메모리에 둔다.
 - 두지 않음: 이유 글만 잃고 다시 sign-in하면 풀리니 kept로 닫는다.
+
+## 앱 e2e 여섯이 test 앱에 patch를 얹지 못하고 시작에서 실패한다
+
+```yaml
+kind: bug
+modules: [tests]
+```
+
+지금: `npm run e2e`에서 앱을 띄우는 test 여섯(`app-activation_test`, `app-call_test`, `app-data-rewind_test`, `app-restart_test`의 셋)이 `createAppSource`(`tests/support/app/source.ts`)의 patch 단계에서 `…/source/lophn.ts에 patch 자리가 없다`로 끝난다. `patch-call.ts`, `patch-migration.ts`, `patch-restart.ts`, `patch-crash.ts`가 모두 `replaceOnce`로 `lophn.ts`의 같은 자리(`name: "add_item"` 묶음 앞)를 찾는다. 견본 `tests/support/app/sample/lophn.ts.tmpl`에는 그 글이 있으므로, core가 깐 template 위에 견본이 얹히는 순서나 결과가 patch가 기대하는 모양과 다른 것으로 보인다. 원인은 확인하지 못했다. main(`1716652a9`)에서도 같은 여섯이 같은 오류로 실패한다.
+
+영향: 앱 tool 호출, release activation, 앱 data rewind, 앱 재시작의 e2e가 아무것도 검사하지 못한다. 이 길이 깨져도 land가 잡지 못한다.
+
+고치려면:
+- 작음(추천): 한 test의 data root(`/tmp/lophn-e2e-*/home/apps/<app>/source/lophn.ts`)를 열어 patch 직전 모양을 보고, 견본 overlay와 patch 자리를 다시 맞춘다.

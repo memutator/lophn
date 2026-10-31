@@ -8,12 +8,13 @@ import {
   type ReactNode,
   useState,
 } from "react";
-import { IconButton } from "@lophn/ui/primitives";
-import { Menu } from "@lophn/ui/overlay";
-import { editorIcons } from "../../icons/mod.ts";
+import { Button, IconButton } from "@lophn/ui/primitives";
+import { Menu, MenuIcon } from "@lophn/ui/overlay";
+import { conversationIcons, editorIcons } from "../../icons/mod.ts";
 import { type MessageKey, t } from "@lophn/i18n";
 
 import { ViewBar } from "../../editor/view-bar.tsx";
+import type { ViewDetail } from "../activity/model.ts";
 import type {
   AgentTabSource,
   SessionEntry,
@@ -35,6 +36,8 @@ interface AgentHeaderHost {
   newSession: () => void;
   /** Fork가 만든 session을 같은 agent의 새 탭에 연다. */
   openForked: (session: string) => void;
+  /** session 검색 결과의 메시지 줄을 눌렀다. 그 session을 열고 찾기 줄을 그 query로 연다. */
+  openMatch: (session: string, query: string) => void;
 }
 
 interface AgentHeaderProps {
@@ -46,8 +49,16 @@ interface AgentHeaderProps {
   now: Date;
   source: Pick<
     AgentTabSource,
-    "renameSession" | "archiveSession" | "deleteSession" | "forkSession"
+    | "renameSession"
+    | "archiveSession"
+    | "deleteSession"
+    | "forkSession"
+    | "searchMessages"
   >;
+  /** 단계 줄을 어디까지 보이는지. */
+  detail: ViewDetail;
+  /** 그 값을 바꾼다. session마다 기억한다. */
+  onDetailChange: (detail: ViewDetail) => void;
   host: AgentHeaderHost;
   /** session 목록이나 제목이 바뀌었다. 목록을 다시 읽는다. */
   onChanged: () => void;
@@ -65,6 +76,19 @@ const MORE_ITEMS: readonly { id: MoreAction; label: MessageKey }[] = [
 
 // archive한 session은 대화를 더 이을 수 없다. 이력을 복사하는 Fork만 남는다.
 const ARCHIVED_ITEMS = MORE_ITEMS.filter(({ id }) => id === "fork");
+
+// 단계 줄의 상세. Messages는 tool 줄을 숨기고, Compact는 묶음을 접고, Everything은 펼친다. 메시지와 카드는 그대로다.
+const DETAIL_ITEMS: readonly { id: ViewDetail; label: MessageKey }[] = [
+  { id: "messages", label: "conversation.label.view-messages" },
+  { id: "compact", label: "conversation.label.view-compact" },
+  { id: "everything", label: "conversation.label.view-everything" },
+];
+
+const DETAIL_LABEL: Readonly<Record<ViewDetail, MessageKey>> = {
+  messages: "conversation.label.view-messages",
+  compact: "conversation.label.view-compact",
+  everything: "conversation.label.view-everything",
+};
 
 export function AgentHeader(props: AgentHeaderProps): ReactElement {
   const { agent, session, source, host } = props;
@@ -109,6 +133,11 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
     }
   };
 
+  const chooseDetail = (id: string) => {
+    const found = DETAIL_ITEMS.find((item) => item.id === id);
+    if (found !== undefined) props.onDetailChange(found.id);
+  };
+
   const archived = session?.archived === true;
   const items = archived ? ARCHIVED_ITEMS : MORE_ITEMS;
 
@@ -139,6 +168,8 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
       onRename={rename}
       onArchive={(id) => void settle(source.archiveSession(id))}
       onDelete={(id) => void settle(source.deleteSession(id))}
+      searchMessages={source.searchMessages}
+      onOpenMatch={host.openMatch}
     />
   );
 
@@ -155,6 +186,35 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
             {t("conversation.label.archived")}
           </span>
         ) : null}
+        {session === null ? null : (
+          <Menu
+            items={DETAIL_ITEMS.map((item) => ({
+              id: item.id,
+              label: t(item.label),
+              leading:
+                props.detail === item.id ? (
+                  <MenuIcon icon={conversationIcons.current} />
+                ) : (
+                  <MenuIcon />
+                ),
+            }))}
+            onSelect={chooseDetail}
+            placement="beside"
+            trigger={
+              <Button
+                size="sm"
+                variant="ghost"
+                trailingIcon={conversationIcons.expand}
+                aria-label={t("conversation.label.steps-value", {
+                  detail: t(DETAIL_LABEL[props.detail]),
+                })}
+                data-steps-detail=""
+              >
+                {t(DETAIL_LABEL[props.detail])}
+              </Button>
+            }
+          />
+        )}
         {session === null ? null : (
           <Menu
             items={items.map((item) => ({

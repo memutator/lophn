@@ -1,4 +1,6 @@
 export const conversation = {
+  "conversation.announce.replied": "{agent} replied",
+  "conversation.announce.response-started": "Response started",
   "conversation.body.delete-session":
     'Delete "{title}"? Anything other agents handed to this session and still waiting for an answer will fail. This can\'t be undone.',
   "conversation.body.skill-command-request":
@@ -16,13 +18,20 @@ export const conversation = {
   "conversation.button.check-delivery": "Check whether it arrived",
   "conversation.button.delete": "Delete",
   "conversation.button.edit-open": "Open",
+  "conversation.button.edit-diff-hide": "Hide diff",
+  "conversation.button.edit-diff-show": "Show diff",
   "conversation.button.edit-model": "Edit",
+  "conversation.button.find-close": "Close find",
+  "conversation.button.find-next": "Next match",
+  "conversation.button.find-previous": "Previous match",
   "conversation.button.fork": "Fork",
   "conversation.button.fork-here": "Fork from here",
   "conversation.button.hidden-hide": "Hide",
   "conversation.button.hidden-show": "Show",
   "conversation.button.jump-latest": "Jump to newest messages",
   "conversation.button.manage-models": "Manage models",
+  "conversation.button.mermaid-show-diagram": "View diagram",
+  "conversation.button.mermaid-show-source": "View source",
   "conversation.button.model-reset": "Reset",
   "conversation.button.permissions-edit": "Edit in Agents",
   "conversation.button.off-models":
@@ -30,6 +39,8 @@ export const conversation = {
   "conversation.button.preview-image": "Preview {name}",
   "conversation.button.question-next": "Next",
   "conversation.button.question-submit": "Submit",
+  "conversation.button.queued-move-down": "Move down",
+  "conversation.button.queued-move-up": "Move up",
   "conversation.button.queued-remove": "Remove from the queue",
   "conversation.button.remove-attachment": "Remove {name}",
   "conversation.button.remove-model": "Remove model",
@@ -112,6 +123,10 @@ export const conversation = {
   "conversation.label.approval-effect-external": "Reaches outside lophn",
   "conversation.label.approval-effect-read": "Reads data",
   "conversation.label.approval-effect-write": "Changes data",
+  "conversation.label.approval-key-always": "⌘/Ctrl+Shift+Enter",
+  "conversation.label.approval-key-back": "Esc",
+  "conversation.label.approval-key-deny": "Esc",
+  "conversation.label.approval-key-once": "Enter",
   "conversation.label.approval-reason": "Reason for denying",
   "conversation.label.approval-reason-given": "Reason: {reason}",
   "conversation.label.approval-reason-placeholder":
@@ -139,6 +154,8 @@ export const conversation = {
   "conversation.label.evidence-file": "File",
   "conversation.label.evidence-session": "Session",
   "conversation.label.group-earlier": "Earlier",
+  "conversation.label.model-axis": "{axis}: {value}",
+  "conversation.label.model-axis-default": "Default",
   "conversation.label.model-changed": "Changed",
   "conversation.label.media-audio": "Audio",
   "conversation.label.media-image": "Image",
@@ -170,6 +187,8 @@ export const conversation = {
   "conversation.label.model-unknown": "Model",
   "conversation.label.more-actions": "More",
   "conversation.label.next-turn": "Next turn",
+  "conversation.label.permission-ask": "Ask when needed",
+  "conversation.label.permission-mode": "Permission mode",
   "conversation.label.permission-summary":
     "{count, plural, =0 {No apps assigned} one {# app assigned} other {# apps assigned}}",
   "conversation.label.permissions-may": "What {agent} may use",
@@ -189,6 +208,7 @@ export const conversation = {
   "conversation.label.questions-answered":
     "Answered {count, plural, one {# question} other {# questions}}",
   "conversation.label.questions-ended-by-message": "Ended by your message",
+  "conversation.label.queued-edit-message": "Edit message: {text}",
   "conversation.label.queued-messages": "Waiting for the next turn",
   "conversation.label.read-session": "Read {title}",
   "conversation.label.rename-session": "Rename {title}",
@@ -224,6 +244,9 @@ export const conversation = {
   "conversation.label.rewind-summary-messages": "Conversation only",
   "conversation.label.rewind-summary-messages-apps": "Conversation and {apps}",
   "conversation.label.rewind-write-unknown": "Result unknown",
+  "conversation.label.find": "Find in conversation",
+  "conversation.label.find-count": "{current, number}/{total, number}",
+  "conversation.label.find-none": "No matches",
   "conversation.label.search-models": "Search models",
   "conversation.label.search-sessions": "Search {agent} sessions",
   "conversation.label.sender-agent-other": "Another agent",
@@ -234,6 +257,7 @@ export const conversation = {
   "conversation.label.sender-program-unknown": "lophn",
   "conversation.label.sender-sent-by": "Sent by {sender}",
   "conversation.label.sender-sent-from": "Sent from",
+  "conversation.label.session-archived-title": "{title} · Archived",
   "conversation.label.session-list": "{agent} sessions",
   "conversation.label.session-untitled": "New session",
   "conversation.label.since-now": "now",
@@ -250,6 +274,8 @@ export const conversation = {
   "conversation.label.status-cost-reported": "{amount} {currency}",
   "conversation.label.status-cost-subscription": "Included in your plan",
   "conversation.label.status-cost-unknown": "Unknown",
+  "conversation.label.status-footer-context": "{percent, number}% of {limit}",
+  "conversation.label.status-footer-tokens": "{input} in · {output} out",
   "conversation.label.status-model": "Model",
   "conversation.label.status-provider": "Provider",
   "conversation.label.status-provider-available": "{provider} · connected",
@@ -268,13 +294,22 @@ export const conversation = {
   "conversation.label.status-turns-value":
     "{turns, plural, one {# turn} other {# turns}} · {calls, plural, one {# model request} other {# model requests}}",
   "conversation.label.status-of": "Status of this session",
+  "conversation.label.status-slow":
+    "Taking longer than usual · a large turn or a busy machine takes time",
+  "conversation.label.status-still-working":
+    "Slow response · the provider or network may be struggling",
   "conversation.label.status-stopped": "Stopped",
+  "conversation.label.status-waiting-answer": "Waiting for your answer",
+  "conversation.label.status-waiting-approval": "Waiting for your approval",
   "conversation.label.status-working": "Working",
   "conversation.label.steer": "Steer · went into the running turn",
+  "conversation.label.steps-value": "Show steps: {detail}",
   "conversation.label.stopped-after": "Stopped after {duration}",
   "conversation.label.thinking": "Thinking",
   "conversation.label.thought": "Thought",
   "conversation.label.thought-for": "Thought for {duration}",
+  "conversation.label.thought-for-words":
+    "Thought for {duration} · {words, plural, one {# word} other {# words}}",
   "conversation.label.tool-call-cancelled": "Cancelled",
   "conversation.label.tool-call-denied": "Denied",
   "conversation.label.tool-call-failed": "Failed",
@@ -313,6 +348,9 @@ export const conversation = {
     "Add models this provider doesn't list, and tell lophn what they can do.",
   "conversation.notice.decide-failed":
     "Couldn't send your decision. Try again.",
+  "conversation.notice.edit-diff-missing": "This diff is no longer available.",
+  "conversation.notice.mermaid-failed":
+    "Couldn't draw this diagram. The source is below.",
   "conversation.notice.message-loading": "Loading this message.",
   "conversation.notice.model-limits": "Blank limits use the defaults shown.",
   "conversation.notice.model-media":

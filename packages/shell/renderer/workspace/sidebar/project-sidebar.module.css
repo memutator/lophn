@@ -1,60 +1,3 @@
-/* Settings sidebar: 왼쪽 activity bar와 오른쪽 panel을 가로로 둔다. project 창 sidebar의 본문 줄 모양도 여기서 나눠 쓴다. */
-.sidebar {
-  position: relative;
-  box-sizing: border-box;
-  display: flex;
-  flex: none;
-  height: 100%;
-  min-width: var(--space-0);
-  min-height: var(--space-0);
-  font-family: var(--font-sans);
-}
-
-/* 바탕보다 한 단 낮은 면, 오른쪽 경계. */
-.panel {
-  box-sizing: border-box;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: var(--space-0);
-  min-height: var(--space-0);
-  border-right: var(--border-width) solid var(--color-border-base);
-  background: var(--color-surface-subtle);
-}
-
-/* 오른쪽 margin은 `.resizer`가 panel 안으로 들어오는 자리다. 없으면 scrollbar 오른쪽이 resizer 밑에 깔려
-   그 위의 wheel과 thumb 끌기가 sidebar 폭 끌기로 먹힌다. */
-.body {
-  flex: 1;
-  min-height: var(--space-0);
-  margin-right: var(--space-2);
-  overflow-y: auto;
-  padding: var(--space-2) var(--space-4) var(--space-6);
-}
-
-/* ShellFrame의 sidebar 칸 안에서 본문이 남는 높이를 채우고 넘치면 scroll한다. */
-.shellBody {
-  flex: 1;
-  min-height: var(--space-0);
-  overflow-y: auto;
-}
-
-.section + .section {
-  margin-top: var(--space-6);
-}
-
-.sectionLabel {
-  display: flex;
-  align-items: center;
-  height: var(--control-sm-height);
-  margin: var(--space-0);
-  padding: var(--space-0) var(--space-4);
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-  font-weight: var(--font-weight-medium);
-}
-
 .list {
   display: flex;
   flex-direction: column;
@@ -116,58 +59,8 @@
   white-space: nowrap;
 }
 
-/* 오른쪽 클릭한 자리에 menu를 붙잡아 두는 빈 anchor. */
-.menuAnchor {
-  position: fixed;
-  width: var(--space-0);
-  height: var(--space-0);
-  pointer-events: none;
-}
-
-/* Agent: agent 줄, Current·Recent 줄, Background */
-.agentsHead {
-  justify-content: space-between;
-}
-
-.manage {
-  padding: var(--space-0) var(--space-2);
-  border: var(--space-0);
-  border-radius: var(--radius-xs);
-  background: transparent;
-  color: var(--color-link);
-  font: inherit;
-  cursor: pointer;
-}
-
-.manage:hover {
-  text-decoration: underline;
-}
-
-.manage:focus-visible {
-  outline: var(--border-focus-width) solid var(--color-focus);
-  outline-offset: calc(var(--border-focus-offset) * -1);
-}
-
 .agentGroup {
   list-style: none;
-}
-
-.agentRow {
-  position: relative;
-}
-
-/* 새 session +. agent 줄에 올리거나 focus가 들어오면 보인다. */
-.plus {
-  position: absolute;
-  top: 50%;
-  right: var(--space-2);
-  opacity: 0;
-  transform: translateY(-50%);
-}
-
-.agentRow:hover .plus,
-.agentRow:focus-within .plus {
-  opacity: 1;
 }
 
 /* Background: run 아래에 그 run이 연 session을 들여 쓴다. */
@@ -185,16 +78,6 @@
   min-height: var(--control-md-height);
   padding-top: var(--space-2);
   padding-bottom: var(--space-2);
-}
-
-/* Current·Recent 줄의 아이콘 자리. avatar sm과 같은 폭이라 아이콘 종류가 달라도 제목이 같은 선에 선다. */
-.rowIcon {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-7);
-  height: var(--space-7);
 }
 
 .sessionText {

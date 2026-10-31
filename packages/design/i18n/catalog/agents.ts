@@ -180,7 +180,6 @@ export const agents = {
   "project-workspace.heading.agent-editor-model": "Model",
   "project-workspace.heading.agent-editor-profile": "Profile",
   "project-workspace.heading.agent-editor-skills": "Skills",
-  "project-workspace.heading.agents-in-project": "Agents in {project}",
   "project-workspace.heading.agents-new-agent": "New agent",
   "project-workspace.heading.instructions": "Instructions",
   "project-workspace.heading.mcp-servers": "MCP servers",

@@ -247,7 +247,3 @@ export function withoutPlatform(
   const { [platform]: _drop, ...rest } = stored;
   return rest;
 }
-
-export function bindingName(binding: Binding): string {
-  return commandName(binding.command);
-}

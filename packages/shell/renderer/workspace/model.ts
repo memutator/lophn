@@ -56,7 +56,7 @@ export interface FloatArea {
   readonly height: number;
 }
 
-export const FLOAT_MIN: FloatArea = { width: 320, height: 200 };
+const FLOAT_MIN: FloatArea = { width: 320, height: 200 };
 export type FloatEdge = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
 /** area 안으로 당긴다. 크기는 FLOAT_MIN 이상(area가 더 작으면 area), 위치는 area 안. */
@@ -115,19 +115,7 @@ export function resizedRect(
   );
 }
 
-/** 상단 경로의 한 조각(Settings의 breadcrumb이 쓴다). */
-export interface Crumb {
-  readonly label: string;
-}
-
 /** drag 결과. overlay pointer DTO(ipc/overlay)의 drag-end·drag-cancel에 대응한다. */
 export type DragOutcome =
   | { type: "drag-end"; x: number; y: number }
   | { type: "drag-cancel" };
-
-/**
- * drag 연결. drag-end의 마지막 DTO만 적용하고 drag-cancel은 버린다.
- */
-export function applyDrag<T>(start: T, last: T, outcome: DragOutcome): T {
-  return outcome.type === "drag-end" ? last : start;
-}

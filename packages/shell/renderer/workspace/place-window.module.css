@@ -54,10 +54,6 @@
   padding-bottom: var(--space-2);
 }
 
-.grow {
-  flex: 1;
-}
-
 /* card 본문. kind가 그리는 탭은 card에 여백 없이 붙고 스스로 채운다. */
 .tabBody {
   position: relative;

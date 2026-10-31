@@ -250,26 +250,6 @@
   font-weight: var(--font-weight-medium);
 }
 
-.options {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  max-width: var(--page-form);
-}
-
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-/* 한 자리 안의 큰 묶음(연결 카드·skill·도구·model·지침·설정)은 더 넓게 띄운다. */
-.groups {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-}
-
 .heading {
   margin: var(--space-0);
   color: var(--color-text-primary);
@@ -278,15 +258,6 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.subheading {
-  margin: var(--space-0);
-  color: var(--color-text-primary);
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-line);
-  font-weight: var(--font-weight-medium);
-}
-
-.text,
 .empty,
 .notice {
   margin: var(--space-0);
@@ -295,80 +266,8 @@
   line-height: var(--type-small-line);
 }
 
-.muted {
-  margin: var(--space-0);
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-}
-
 .notice {
   color: var(--color-text-primary);
-}
-
-.cardHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
-}
-
-.ways {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin: var(--space-0) var(--space-0) var(--space-4);
-  padding: var(--space-0);
-  list-style: none;
-}
-
-.way {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.wayText {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: var(--space-0);
-}
-
-.accounts {
-  display: flex;
-  flex-direction: column;
-  margin: var(--space-0);
-  padding: var(--space-0);
-  list-style: none;
-}
-
-.account {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-0);
-  border-top: var(--border-width) solid var(--color-border-base);
-}
-
-.accountHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.accountName {
-  min-width: var(--space-0);
-  overflow: hidden;
-  color: var(--color-text-primary);
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-line);
-  font-weight: var(--font-weight-medium);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .actions {
@@ -376,123 +275,6 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--space-2);
-}
-
-.inline {
-  display: flex;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-}
-
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  max-width: var(--page-form);
-}
-
-.results {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: var(--space-0);
-  padding: var(--space-0);
-  list-style: none;
-}
-
-.row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-6);
-  padding: var(--space-5) var(--space-6);
-  border-bottom: var(--border-width) solid var(--color-border-base);
-}
-
-.rowText {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: var(--space-0);
-}
-
-/* 한 section의 행 묶음은 카드 하나다. 행은 왼쪽 이름·설명, 오른쪽 조작이다. */
-.rows {
-  display: flex;
-  flex-direction: column;
-  margin: var(--space-0);
-  padding: var(--space-0);
-  list-style: none;
-  overflow: hidden;
-  border: var(--border-width) solid var(--color-border-base);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-base);
-}
-
-.rows > .row:last-child {
-  border-bottom: none;
-}
-
-/* 한 항목(model 용도 같은)의 제목·설명·조작을 담는 카드. */
-.block {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-5) var(--space-6);
-  border: var(--border-width) solid var(--color-border-base);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-base);
-}
-
-.value {
-  color: var(--color-text-primary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  font-weight: var(--font-weight-medium);
-  text-align: right;
-}
-
-.details {
-  margin: var(--space-2) var(--space-0) var(--space-0);
-  padding: var(--space-0);
-}
-
-.details summary {
-  color: var(--color-text-secondary);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-  cursor: pointer;
-}
-
-.details dl {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: var(--space-1) var(--space-4);
-  margin: var(--space-2) var(--space-0) var(--space-0);
-}
-
-.details dt {
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-}
-
-.details dd {
-  margin: var(--space-0);
-  color: var(--color-text-secondary);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-}
-
-.tag {
-  padding: var(--space-0) var(--space-2);
-  border: var(--border-width) solid var(--color-border-base);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
 }
 
 /* Keyboard 줄의 키 칸. 누르면 새 키를 받는 칸으로 바뀌고, 바꾼 줄은 [Reset to default]가 옆에 선다. */

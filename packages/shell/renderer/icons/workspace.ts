@@ -1,13 +1,11 @@
 import {
   AppWindow,
   ArrowRightToLine,
-  Bell,
   ChevronsDownUp,
   ClipboardCopy,
   Columns2,
   Copy,
   Dock,
-  ExternalLink,
   FileCheck,
   FilePlus,
   FileText,
@@ -18,36 +16,26 @@ import {
   FolderSearch,
   ListX,
   type LucideIcon,
-  Maximize2,
-  Minus,
-  PanelLeft,
   PanelRight,
-  PictureInPicture2,
   Pin,
   RefreshCw,
-  Rows2,
   SquareTerminal,
   Trash2,
-  Upload,
   X,
 } from "lucide-react";
 
 // 프로젝트 작업대 틀이 쓰는 아이콘. 화면이 lucide를 직접 들이지 않도록 이 묶음이 고른다.
 export const workspaceIcons = {
-  sidebar: PanelLeft,
   folder: Folder,
   document: FileText,
   close: X,
   splitPane: Columns2,
-  splitDown: Rows2,
   infoPanel: PanelRight,
   documentEditor: FileText,
   terminal: SquareTerminal,
   appPanel: AppWindow,
-  notices: Bell,
   // agent editor의 [Delete]와 [Upload image].
   trash: Trash2,
-  upload: Upload,
   // 탭 우클릭 menu.
   closeOthers: ListX,
   closeRight: ArrowRightToLine,
@@ -65,11 +53,7 @@ export const workspaceIcons = {
   revealInFiles: FolderOpen,
   copy: Copy,
   // floated 패널 위 bar의 [Minimize]와 [Dock].
-  minimize: Minus,
   dock: Dock,
   // 탭 menu의 [Float]와 [Detach], floated 패널 bar의 [Detach].
-  float: PictureInPicture2,
-  detach: ExternalLink,
   // 접힌 항목을 접기 전 자리로 되돌린다.
-  restore: Maximize2,
 } as const satisfies Record<string, LucideIcon>;

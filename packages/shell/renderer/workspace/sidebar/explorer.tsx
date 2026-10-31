@@ -1,4 +1,4 @@
-// project sidebar의 Explorer 쪽: 루트 머리(연결 폴더 고르기·더하기·빼기, 새 파일·새 폴더·Refresh·Collapse All 단추)와
+// project sidebar의 Explorer 쪽: 루트 머리(연결 폴더 고르기·더하기·빼기), panel 머리 줄의 단추(새 파일·새 폴더·⋯ 의 Refresh·Collapse All)와
 // 종류 아이콘이 붙은 파일 tree. VS Code Explorer처럼 새 파일·폴더와 이름 바꾸기는 tree 안 입력으로 하고, 지우기는
 // OS 휴지통으로 보내며, 끌어 옮기기와 오른쪽 클릭 menu, 키보드 이동, 열린 탭 자동 드러내기가 있다.
 // 디스크를 바꾸는 일은 source가 하고, 열린 탭을 정리해야 하는 이름 바꾸기·옮기기·지우기는 부르는 쪽(onMove, onTrash)이 한다.
@@ -14,7 +14,14 @@ import { ChevronDown } from "lucide-react";
 import { FileIcon, Icon, IconButton } from "@lophn/ui/primitives";
 import { Menu, MenuIcon, type MenuItem, Tooltip } from "@lophn/ui/overlay";
 import { iconPixels, systemClipboard } from "@lophn/ui/shared";
-import { commonIcons, editorIcons, workspaceIcons } from "../../icons/mod.ts";
+import {
+  commonIcons,
+  editorIcons,
+  shellIcons,
+  workspaceIcons,
+} from "../../icons/mod.ts";
+import { PanelEmpty } from "../../shell/panel-rows.tsx";
+import { PanelActions } from "../../shell/right-sidebar.tsx";
 import { t } from "@lophn/i18n";
 
 import { PATH_DRAG_TYPE } from "../drag.ts";
@@ -32,7 +39,7 @@ import {
   parentOf,
   useFileTree,
 } from "./use-file-tree.ts";
-import styles from "./project-sidebar.module.css";
+import styles from "./explorer.module.css";
 
 /** 열린 탭을 정리하는 쪽의 답. 사람이 저장 안 된 탭을 닫지 않기로 하면 cancelled다. */
 export type TabAwareResult =
@@ -159,7 +166,7 @@ function RootPicker({
   );
 }
 
-/** 머리에 마우스를 올리거나 focus가 들어오면 보이는 단추 넷. */
+/** panel 머리 줄의 단추: 새 파일·새 폴더, 그리고 ⋯ menu의 Refresh·Collapse All. */
 function HeadActions({
   disabled,
   onNewFile,
@@ -173,7 +180,7 @@ function HeadActions({
   onRefresh: () => void;
   onCollapseAll: () => void;
 }) {
-  const actions = [
+  const buttons = [
     {
       key: "new-file",
       icon: workspaceIcons.newFile,
@@ -186,38 +193,60 @@ function HeadActions({
       label: t("project-workspace.button.explorer-new-folder"),
       run: onNewFolder,
     },
+  ] as const;
+  const more = [
     {
-      key: "refresh",
+      id: "refresh",
       icon: workspaceIcons.refresh,
       label: t("project-workspace.button.explorer-refresh"),
       run: onRefresh,
     },
     {
-      key: "collapse-all",
+      id: "collapse-all",
       icon: workspaceIcons.collapseAll,
       label: t("project-workspace.button.explorer-collapse-all"),
       run: onCollapseAll,
     },
   ] as const;
   return (
-    <div
-      className={styles.headActions}
-      role="toolbar"
-      aria-label={t("project-workspace.label.explorer-actions")}
-    >
-      {actions.map((action) => (
-        <Tooltip key={action.key} content={action.label}>
-          <IconButton
-            size="sm"
-            icon={action.icon}
-            label={action.label}
-            disabled={disabled}
-            data-explorer-action={action.key}
-            onClick={action.run}
-          />
-        </Tooltip>
-      ))}
-    </div>
+    <PanelActions>
+      <div
+        role="toolbar"
+        aria-label={t("project-workspace.label.explorer-actions")}
+        style={{ display: "flex" }}
+      >
+        {buttons.map((action) => (
+          <Tooltip key={action.key} content={action.label}>
+            <IconButton
+              size="sm"
+              icon={action.icon}
+              label={action.label}
+              disabled={disabled}
+              data-explorer-action={action.key}
+              onClick={action.run}
+            />
+          </Tooltip>
+        ))}
+        <Menu
+          trigger={
+            <IconButton
+              size="sm"
+              icon={shellIcons.more}
+              label={t("project-workspace.label.explorer-actions")}
+              disabled={disabled}
+              data-explorer-action="more"
+            />
+          }
+          items={more.map((item) => ({
+            id: item.id,
+            label: item.label,
+            data: { "data-explorer-action": item.id },
+            leading: <MenuIcon icon={item.icon} />,
+          }))}
+          onSelect={(id) => more.find((item) => item.id === id)?.run()}
+        />
+      </div>
+    </PanelActions>
   );
 }
 
@@ -802,6 +831,13 @@ export function Explorer({
 
   return (
     <section className={styles.section} data-explorer="">
+      <HeadActions
+        disabled={!root.found}
+        onNewFile={() => startCreate("file", selectedRow)}
+        onNewFolder={() => startCreate("folder", selectedRow)}
+        onRefresh={tree.refresh}
+        onCollapseAll={tree.collapseAll}
+      />
       <div className={styles.explorerHead}>
         <RootPicker
           roots={roots}
@@ -811,13 +847,6 @@ export function Explorer({
           onRemove={(path) =>
             setDialog({ kind: "remove-folder", path, failed: false })
           }
-        />
-        <HeadActions
-          disabled={!root.found}
-          onNewFile={() => startCreate("file", selectedRow)}
-          onNewFolder={() => startCreate("folder", selectedRow)}
-          onRefresh={tree.refresh}
-          onCollapseAll={tree.collapseAll}
         />
       </div>
       <div
@@ -848,14 +877,14 @@ export function Explorer({
         {items}
       </div>
       {tree.failed ? (
-        <p className={styles.empty} role="alert">
+        <PanelEmpty role="alert">
           {t("project-workspace.error.files-failed")}
-        </p>
+        </PanelEmpty>
       ) : null}
       {folderFailed ? (
-        <p className={styles.empty} role="alert">
+        <PanelEmpty role="alert">
           {t("project-workspace.error.explorer-action-failed")}
-        </p>
+        </PanelEmpty>
       ) : null}
       {menu === null ? null : (
         <Menu

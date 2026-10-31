@@ -1,11 +1,19 @@
-// project sidebar의 Domains 탭. 위쪽 [New domain], 줄마다 이름과 한 줄 목적, 줄 끝 menu(Open DOMAIN.md, Archive).
+// project sidebar의 Domains 탭. 머리 줄의 [New domain], 줄마다 이름과 한 줄 목적, 줄 끝 menu(Open DOMAIN.md, Archive).
 // 목록은 이 탭이 읽고, 만들기·보관 뒤에 다시 읽는다. 마지막 domain 규칙은 앱에만 있어 project는 0개가 될 수 있다.
 import { useState } from "react";
-import { Button } from "@lophn/ui/primitives";
+import { IconButton } from "@lophn/ui/primitives";
 import { ErrorState } from "@lophn/ui/feedback";
+import { Tooltip } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 
-import { commonIcons } from "../../icons/mod.ts";
+import { commonIcons, shellIcons } from "../../icons/mod.ts";
+import {
+  PanelEmpty,
+  PanelRow,
+  PanelRows,
+  TileIcon,
+} from "../../shell/panel-rows.tsx";
+import { PanelActions } from "../../shell/right-sidebar.tsx";
 import { DomainMenu } from "../domains/domain-menu.tsx";
 import { DomainNotice } from "../domains/domain-notice.tsx";
 import { CreateDomainDialog } from "../domains/create-domain-dialog.tsx";
@@ -29,16 +37,16 @@ export function DomainPanel({
   const { loaded, notice } = domains;
   return (
     <>
-      <div className={styles.head}>
-        <h2 className={styles.headLabel}>{t("domain.heading.list")}</h2>
-        <Button
-          size="sm"
-          icon={commonIcons.add}
-          onClick={() => setCreating(true)}
-        >
-          {t("domain.button.new")}
-        </Button>
-      </div>
+      <PanelActions>
+        <Tooltip content={t("domain.button.new")}>
+          <IconButton
+            size="sm"
+            icon={commonIcons.add}
+            label={t("domain.button.new")}
+            onClick={() => setCreating(true)}
+          />
+        </Tooltip>
+      </PanelActions>
       {notice === null ? null : (
         <div className={styles.notice}>
           <DomainNotice
@@ -52,33 +60,29 @@ export function DomainPanel({
         <ErrorState target={t("domain.label.pick")} onRetry={domains.reload} />
       ) : null}
       {loaded.state === "ready" && loaded.domains.length === 0 ? (
-        <p className={styles.empty}>{t("domain.empty.project")}</p>
+        <PanelEmpty>{t("domain.empty.project")}</PanelEmpty>
       ) : null}
       {loaded.state === "ready" && loaded.domains.length > 0 ? (
-        <ul className={styles.rows} aria-label={t("domain.heading.list")}>
+        <PanelRows label={t("domain.heading.list")}>
           {loaded.domains.map((domain) => (
-            <li
+            <PanelRow
               key={domain.id}
-              className={styles.row}
               data-domain={domain.name}
-            >
-              <span className={styles.text}>
-                <span className={styles.rowHead}>
-                  <span className={styles.title}>{domain.title}</span>
-                  <span className={styles.name}>{domain.name}</span>
-                </span>
-                <span className={styles.line}>{domain.purpose}</span>
-              </span>
-              <span className={styles.action}>
+              leading={<TileIcon icon={shellIcons.domain} />}
+              title={domain.title}
+              tag={domain.name}
+              meta={domain.purpose}
+              hoverTrailing
+              trailing={
                 <DomainMenu
                   title={domain.title}
                   onOpenDoc={() => onOpenDoc(domain.id)}
                   onArchive={() => void domains.archive(domain)}
                 />
-              </span>
-            </li>
+              }
+            />
           ))}
-        </ul>
+        </PanelRows>
       ) : null}
       {creating ? (
         <CreateDomainDialog

@@ -1,9 +1,11 @@
 // project 창 sidebar의 본문. 오른쪽은 title bar의 panel icon tab이 고른 panel 하나(Files / Domain / Artifacts /
-// Workflows / Jobs)이고, 왼쪽은 Agent 쪽(agent, 열린 session, run, 최근)이다. 틀(폭, 접힘)은 ShellFrame이 정한다.
+// Workflows / Jobs)를 `RightSidebar` 틀에 담고, 왼쪽은 Agent 쪽(agent, 열린 session, run, 최근)이다. 틀(폭, 접힘)은 ShellFrame이 정한다.
 
 import { t } from "@lophn/i18n";
 import { type ReactNode, useEffect, useState } from "react";
 import type { PanelTab } from "../../shell/panel-tabs.tsx";
+import { PanelEmpty } from "../../shell/panel-rows.tsx";
+import { RightSidebar } from "../../shell/right-sidebar.tsx";
 import type { JobsSource } from "../../desktop/settings/jobs/source.ts";
 import { shellIcons } from "../../icons/mod.ts";
 import type { ProjectView, WorkspaceSource } from "../source.ts";
@@ -138,13 +140,12 @@ export function ProjectPanel({
     if (focusExplorer !== 0) setFocusAsked(hasFolders);
   }, [focusExplorer]);
   const folders = project?.folders ?? [];
+  const title = panelTabs(true).find((item) => item.key === tab)?.label ?? "";
   return (
-    <div className={styles.shellBody} data-sidebar-tab={tab}>
+    <RightSidebar title={title} panel={tab}>
       {tab === "explorer" ? (
         folders.length === 0 ? (
-          <p className={styles.empty}>
-            {t("project-workspace.empty.no-folders")}
-          </p>
+          <PanelEmpty>{t("project-workspace.empty.no-folders")}</PanelEmpty>
         ) : (
           <Explorer
             // 프로젝트가 바뀌면 고른 루트와 펼침을 새로 시작한다.
@@ -192,7 +193,7 @@ export function ProjectPanel({
           onOpenSettings={onOpenJobs ?? (() => {})}
         />
       ) : null}
-    </div>
+    </RightSidebar>
   );
 }
 

@@ -1,0 +1,202 @@
+.section + .section {
+  margin-block-start: var(--space-4);
+}
+
+/* 구역 머리: 이름과 개수 왼쪽, 단추 오른쪽 끝. */
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--control-sm-height);
+  padding-inline-start: var(--space-3);
+}
+
+.sectionLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  border: var(--space-0);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+button.sectionLabel {
+  cursor: pointer;
+}
+
+button.sectionLabel:hover {
+  color: var(--color-text-primary);
+}
+
+button.sectionLabel:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
+}
+
+.sectionTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.count {
+  font-variant-numeric: tabular-nums;
+}
+
+.sectionActions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+}
+
+.row:hover {
+  background: var(--color-surface-muted);
+}
+
+.row[data-active] {
+  background: var(--color-selection);
+}
+
+.main {
+  box-sizing: border-box;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: var(--space-0);
+  margin: var(--space-0);
+  padding: var(--space-3);
+  border: var(--space-0);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: left;
+}
+
+button.main {
+  cursor: pointer;
+}
+
+button.main:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--border-focus-offset) * -1);
+}
+
+.tile {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-9);
+  height: var(--space-9);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-base);
+  border-radius: var(--radius-md);
+}
+
+.tile[data-tone="critical"] {
+  color: var(--status-critical-text);
+}
+
+.text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: var(--space-0);
+}
+
+.titleLine {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: var(--space-0);
+}
+
+.title {
+  overflow: hidden;
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag {
+  flex: none;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.meta {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta[data-wrap] {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+}
+
+.meta[data-tone="critical"] {
+  color: var(--status-critical-text);
+}
+
+.meta[data-tone="warning"] {
+  color: var(--status-warning-text);
+}
+
+/* 줄 오른쪽 끝 고정 칸. */
+.trailing {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  padding-inline-end: var(--space-3);
+}
+
+.trailing[data-hover] {
+  opacity: 0;
+  transition: opacity var(--motion-duration-short) var(--motion-ease);
+}
+
+.row:hover .trailing[data-hover],
+.row:focus-within .trailing[data-hover],
+.trailing[data-hover]:has([data-state="open"]) {
+  opacity: 1;
+}
+
+.empty {
+  margin: var(--space-0);
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}

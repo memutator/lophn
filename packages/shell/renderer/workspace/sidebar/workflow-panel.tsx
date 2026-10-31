@@ -3,14 +3,18 @@
 import { useEffect, useState } from "react";
 import { ErrorState } from "@lophn/ui/feedback";
 import { Tooltip } from "@lophn/ui/overlay";
-import { Icon } from "@lophn/ui/primitives";
-import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 
 import { useWorkflowChanges } from "../../desktop/connection/events/hooks.tsx";
 import { commonIcons, editorIcons } from "../../icons/mod.ts";
+import {
+  PanelEmpty,
+  PanelRow,
+  PanelRows,
+  TileIcon,
+} from "../../shell/panel-rows.tsx";
 import type { WorkflowEntryView, WorkspaceSource } from "../source.ts";
-import styles from "./project-sidebar.module.css";
+import styles from "./workflow-panel.module.css";
 
 type Loaded =
   | { state: "loading" }
@@ -80,59 +84,44 @@ export function WorkflowPanel({
   }
   if (loaded.state === "loading") return null;
   if (loaded.entries.length === 0) {
-    return <p className={styles.empty}>{t("workflow.empty.sidebar")}</p>;
+    return <PanelEmpty>{t("workflow.empty.sidebar")}</PanelEmpty>;
   }
   return (
-    <ul
-      className={styles.list}
-      role="list"
-      aria-label={t("workflow.heading.list")}
-    >
+    <PanelRows label={t("workflow.heading.list")}>
       {loaded.entries.map((entry) => {
         const count = running[entry.name] ?? 0;
         const row = (
-          <button
-            type="button"
-            className={`${styles.item} ${styles.sessionItem}`}
+          <PanelRow
+            key={entry.name}
             data-workflow={entry.name}
-            data-active={entry.name === active || undefined}
-            onClick={() => onOpen(entry.name)}
-          >
-            <span
-              className={styles.runIcon}
-              data-tone={entry.invalid ? "critical" : undefined}
-            >
-              <Icon
+            leading={
+              <TileIcon
                 icon={
                   entry.invalid ? editorIcons.problem : commonIcons.workflow
                 }
-                pixels={iconPixels("base")}
+                tone={entry.invalid ? "critical" : undefined}
               />
-            </span>
-            <span className={styles.sessionText}>
-              <span className={styles.label}>{entry.name}</span>
-              <span
-                className={styles.sessionMeta}
-                data-tone={entry.invalid ? "critical" : undefined}
-              >
-                {metaOf(entry, count)}
-              </span>
-            </span>
-            {count > 0 ? (
-              <span className={styles.workflowDot} aria-hidden="true" />
-            ) : null}
-          </button>
+            }
+            title={entry.name}
+            meta={metaOf(entry, count)}
+            metaTone={entry.invalid ? "critical" : undefined}
+            active={entry.name === active}
+            trailing={
+              count > 0 ? (
+                <span className={styles.dot} aria-hidden="true" />
+              ) : undefined
+            }
+            onClick={() => onOpen(entry.name)}
+          />
         );
-        return (
-          <li key={entry.name} className={styles.li}>
-            {entry.problem === null ? (
-              row
-            ) : (
-              <Tooltip content={entry.problem.message}>{row}</Tooltip>
-            )}
-          </li>
+        return entry.problem === null ? (
+          row
+        ) : (
+          <Tooltip key={entry.name} content={entry.problem.message}>
+            <div>{row}</div>
+          </Tooltip>
         );
       })}
-    </ul>
+    </PanelRows>
   );
 }

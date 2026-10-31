@@ -30,7 +30,10 @@ export const shell = {
   "shell.button.toggle-left": "Toggle left sidebar",
   "shell.button.toggle-right": "Toggle right sidebar",
   "shell.heading.desks": "Desks",
+  "shell.heading.places": "Places",
   "shell.heading.workflows": "Workflows",
+  "shell.label.app-no-release": "No release yet",
+  "shell.label.app-release": "Release {release}",
   "shell.label.empty-desk":
     "No tabs in this desk yet. Open a session from the sidebar or start a new one.",
   "shell.label.minimized": "Minimized tabs",

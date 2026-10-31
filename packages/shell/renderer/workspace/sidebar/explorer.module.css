@@ -1,0 +1,261 @@
+/* Explorer: 루트 머리 줄과 tree가 본문 높이를 채운다. 빈 자리를 눌러도 루트 기준 동작이 닿게 한다. */
+.section {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: var(--space-0);
+}
+
+.explorerHead {
+  display: flex;
+  flex: none;
+  align-items: center;
+  margin-bottom: var(--space-1);
+}
+
+/* 루트 머리: 연결 폴더 이름과 ▾ 하나. 경로는 menu 안에서만 보인다. */
+.rootHead {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+  height: var(--control-sm-height);
+  padding: var(--space-0) var(--space-3);
+  border: var(--space-0);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--type-small-size);
+  text-align: left;
+  cursor: pointer;
+}
+
+.rootHead:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+}
+
+.rootHead:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--border-focus-offset) * -1);
+}
+
+.rootTitle {
+  overflow: hidden;
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 디스크에서 사라진 연결 폴더 표시. */
+.rootMissing {
+  flex: none;
+  color: var(--status-warning-text);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+/* menu 행은 높이가 한 줄로 정해져 있어서 이름과 경로를 한 줄에 두고, 오른쪽 끝에 x를 둔다. */
+.rootLabel {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: var(--space-0);
+}
+
+.rootName {
+  overflow: hidden;
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rootPath {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 행 오른쪽 끝의 x. 그 폴더를 project에서 뺀다. */
+.rootRemove {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  padding: var(--space-1);
+  border: var(--space-0);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.rootRemove:hover,
+.rootRemove:focus-visible {
+  background: var(--floating-hover);
+  color: var(--color-text-primary);
+}
+
+/* 종류 아이콘이 붙은 파일 tree. 행은 둥글고 hover·고른 줄이 `--radius-md`다. */
+.tree {
+  flex: 1;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.treeRow {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  column-gap: var(--space-0);
+  height: var(--tree-row);
+  padding: var(--space-0) var(--space-3) var(--space-0) var(--space-2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  outline: none;
+}
+
+.treeRow:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+}
+
+/* 오른쪽 클릭 menu가 열린 행과 키보드로 고른 행은 배경으로, 지금 연 파일은 굵은 글자와 왼쪽 표시로 보인다. */
+.treeRow[data-selected] {
+  background: var(--color-selection);
+  color: var(--color-text-primary);
+}
+
+.treeRow[data-current] {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+/* 끌어 놓을 폴더. 루트면 tree 전체를 안쪽 테두리로 보인다. */
+.treeRow[data-drop],
+.tree[data-drop-root] {
+  background: var(--color-selection);
+}
+
+.tree[data-drop-root] {
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 var(--border-width) var(--color-focus);
+}
+
+/* 들여쓰기 안내선: tree에 마우스를 올렸을 때만 보인다. */
+.guide {
+  position: absolute;
+  top: var(--space-0);
+  bottom: var(--space-0);
+  width: var(--border-width);
+  background: var(--color-border-base);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-duration-short) var(--motion-ease);
+}
+
+.tree:hover .guide {
+  opacity: 1;
+}
+
+/* tree 안 이름 입력. 오류는 입력 줄 바로 아래에 뜨고 아래 줄을 가린다. */
+.treeRow[data-editing] {
+  cursor: default;
+}
+
+.treeRow[data-editing]:hover {
+  background: transparent;
+}
+
+.nameInput {
+  box-sizing: border-box;
+  flex: 1;
+  min-width: var(--space-0);
+  height: calc(var(--tree-row) - var(--space-2));
+  margin: var(--space-0);
+  padding: var(--space-0) var(--space-2);
+  border: var(--border-width) solid var(--color-focus);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font: inherit;
+  outline: none;
+}
+
+.nameInput[data-invalid] {
+  border-color: var(--status-critical-marker);
+}
+
+.nameError {
+  position: absolute;
+  top: 100%;
+  right: var(--space-2);
+  left: var(--space-2);
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--status-critical-marker);
+  border-radius: var(--radius-xs);
+  background: var(--floating-surface);
+  color: var(--status-critical-text);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  white-space: normal;
+  z-index: var(--z-popover);
+}
+
+.treeMarker {
+  position: absolute;
+  top: var(--space-2);
+  bottom: var(--space-2);
+  left: var(--space-0);
+  width: var(--tree-marker);
+  border-radius: var(--radius-full);
+  background: var(--color-ink-background);
+}
+
+.treeRow:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--border-focus-width) * -1);
+}
+
+.twisty {
+  display: inline-flex;
+  flex: none;
+  justify-content: center;
+  width: var(--icon-size-small);
+  margin-right: var(--space-2);
+  color: var(--color-text-muted);
+}
+
+.treeIcon {
+  display: inline-flex;
+  flex: none;
+  margin-right: var(--space-3);
+}
+
+.treeLabel {
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 오른쪽 클릭한 자리에 menu를 붙잡아 두는 빈 anchor. */
+.menuAnchor {
+  position: fixed;
+  width: var(--space-0);
+  height: var(--space-0);
+  pointer-events: none;
+}

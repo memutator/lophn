@@ -35,7 +35,7 @@ place 창(Home, project, 앱)이 가진 탭이 어디에 있는가를 정하는 
    title bar 왼쪽: DeskSwitcher(desk 목록 + 아직 desk가 없는 workflow, New desk) · 검색(팔레트)
    title bar 가운데: TabStrip (한 칸 = tab 하나 또는 split 하나. 오른쪽 끝에 floats의 아이콘 칸: 눌린 것이 펴진 float)
    title bar 오른쪽: PanelTabs (Files·Domain·Artifacts·Workflows·Jobs. 고른 panel이 오른쪽 sidebar에 보인다) · 창 단추
-   stage ─┬─ ContentCard    (머리 줄: ← →, 경로(project 이름 / 파일은 project 폴더 기준 조각), 상태 글(탭의 상태 점), ⋯ tab menu. 고른 tab, split이면 둘을 mount한다.
+   stage ─┬─ ContentCard    (머리 줄: ← →, 경로(project 이름 / 파일은 project 폴더 기준 조각), 상태 글(탭의 상태 점), ⋯ tab menu. 탭 본문이 `useCardHead`(`shell/card-head.tsx`)로 머리 줄을 덮어쓸 수 있다: nav(← → ⟳), 경로 자리의 center, ⋯ 앞 actions, ⋯ menu 맨 위 묶음. 지금은 browser 탭만 쓴다(`browser-tab.md`). card 밖(floated 패널, detached 창)은 올릴 곳이 없어 본문이 자기 줄을 그린다. 고른 tab, split이면 둘을 mount한다.
           │                  keep kind(앱 panel·browser·artifact)는 `keep`, 나머지는 `render`)
           └─ floats 슬롯    (첫 자식이 창의 `<webview>` 그릇(browser·앱·artifact 화면), 그 뒤 FloatLayer. stacking context 없음. 패널마다 FloatPanel, z-index = --z-sticky + 층 번호 × 2)
    왼쪽 sidebar: ProjectLeftSidebar(workspace/sidebar) → LeftSidebar(shell/left-sidebar.tsx. New session·Inbox(WaitingLayer overlay)·Jobs(JobsLayer overlay. 둘 다 줄 오른쪽 옆에 열리고 머리의 [Open in tab]이 inbox·jobs 탭을 연다), Places마다 열린 session과 접힌 Recent, Settings). 오른쪽 sidebar: ProjectPanel(workspace/sidebar/project-sidebar.tsx, 틀은 shell/right-sidebar.tsx의 머리 줄과 본문)

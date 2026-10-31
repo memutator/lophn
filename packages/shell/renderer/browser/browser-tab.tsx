@@ -1,6 +1,6 @@
-// browser 탭 본문. toolbar 아래 page region 자리에 page를 그린다. 보통 탭은 <webview>이고(app-frame/webview-host.tsx,
+// browser 탭 본문. 머리(주소 칸·단추, browser-chrome.tsx)는 card 머리 줄에 올라가고 여기는 page region 자리에 page를 그린다. 보통 탭은 <webview>이고(app-frame/webview-host.tsx,
 // DOM 안에 그려져 menu·패널이 위에 겹친다), 크기를 준 popup만 opener를 지키려고 main이 native view를
-// 붙인다(adopt). native view는 DOM 위에 그려지므로 알림은 toolbar와 region 사이 줄에 둔다. 주소가 빈
+// 붙인다(adopt). native view는 DOM 위에 그려지므로 알림은 region 위 줄에 둔다. 주소가 빈
 // 탭은 page 대신 bookmark 목록을 그린다. DevTools는 page 옆(오른쪽·아래)에 붙거나, floated 패널이나 따로 뜬
 // 창으로 간다. 그 값은 탭 fields가 들고(Float·Dock으로 다시 mount되어도 남는다), 값이 바뀌면 이 탭이 main에
 // 열기·닫기·창 옮기기를 시킨다.
@@ -31,7 +31,7 @@ import type {
 import { DevtoolsPane } from "./devtools-pane.tsx";
 import { useBrowserApi } from "./browser-api.tsx";
 import { useBookmarks } from "./bookmarks.ts";
-import { BrowserToolbar } from "./browser-toolbar.tsx";
+import { BrowserChrome } from "./browser-chrome.tsx";
 import { BlankTabPage } from "./blank-tab-page.tsx";
 import {
   useWebviewHost,
@@ -458,7 +458,7 @@ function OpenTab(
 
   return (
     <div className={styles.tab}>
-      <BrowserToolbar
+      <BrowserChrome
         browser={browser}
         viewSession={viewSession}
         state={state}

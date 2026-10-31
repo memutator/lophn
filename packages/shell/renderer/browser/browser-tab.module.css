@@ -29,6 +29,11 @@
   min-width: var(--space-0);
 }
 
+/* 별·bookmark·Open in browser. 머리 줄과 toolbar 줄의 gap을 그대로 받도록 자기 상자를 만들지 않는다. */
+.actions {
+  display: contents;
+}
+
 /* native view가 DOM 위에 그려지므로 알림은 region 위의 실제 한 줄이다. */
 .notice {
   display: flex;

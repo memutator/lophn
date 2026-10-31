@@ -629,6 +629,7 @@ export function PageLeftSidebar(props: SidebarProps) {
   const quick = {
     ...(props.place === "home" ? {} : { onTerminal: () => pick("terminal") }),
     onBrowser: () => pick("browser"),
+    onSearch: () => pick("search"),
     appItems: app.items,
     onApp: app.select,
   };

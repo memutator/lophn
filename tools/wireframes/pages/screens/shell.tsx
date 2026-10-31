@@ -147,7 +147,7 @@ export const shellArea: Area = {
       id: "shell-left-sidebar-project",
       title: "Shell · Left sidebar · Project quick launch",
       description:
-        "맨 아래 줄은 왼쪽부터 Terminal, Browser, App ▾ 빠른 실행이고 맨 오른쪽 끝에 Settings가 있다. + menu와 같은 데이터라 project에서는 App ▾에 App panel이 있고, 눌러 연 모양이다.",
+        "맨 아래 줄은 왼쪽부터 Terminal, Browser, App ▾, Search 빠른 실행이고 맨 오른쪽 끝에 Settings가 있다. Search는 project에서는 Search 탭, Home에서는 팔레트를 연다. + menu와 같은 데이터라 project에서는 App ▾에 App panel이 있고, 눌러 연 모양이다.",
       render: () => (
         <SidebarScene place="project" steps={sidebarSteps.appMenu} />
       ),
@@ -156,7 +156,7 @@ export const shellArea: Area = {
       id: "shell-left-sidebar-home",
       title: "Shell · Left sidebar · Home quick launch",
       description:
-        "Home에는 터미널이 없어서 Terminal 단추가 없고 Browser와 App ▾만 있다.",
+        "Home에는 터미널이 없어서 Terminal 단추가 없고 Browser, App ▾, Search만 있다.",
       render: () => <SidebarScene place="home" />,
     },
     {

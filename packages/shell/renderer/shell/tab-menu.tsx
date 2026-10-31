@@ -72,7 +72,18 @@ function splitItems(state: TabMenuState): MenuItem[] {
   return [{ ...items[0]!, separatorBefore: true }, ...items.slice(1)];
 }
 
-export function tabMenuItems(state: TabMenuState): MenuItem[] {
+/** `extra`는 탭 본문이 올린 맨 위 묶음(card-head.tsx)이고 기본 항목과 구분선으로 나뉜다. */
+export function tabMenuItems(
+  state: TabMenuState,
+  extra: readonly MenuItem[] = [],
+): MenuItem[] {
+  const items = baseItems(state);
+  return extra.length === 0
+    ? items
+    : [...extra, { ...items[0]!, separatorBefore: true }, ...items.slice(1)];
+}
+
+function baseItems(state: TabMenuState): MenuItem[] {
   return [
     ...(state.renamable
       ? [

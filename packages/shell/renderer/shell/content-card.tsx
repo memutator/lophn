@@ -4,6 +4,8 @@ import {
   Fragment,
   type PointerEvent,
   type ReactNode,
+  useCallback,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -13,6 +15,11 @@ import { Menu } from "@lophn/ui/overlay";
 
 import { shellIcons } from "../icons/mod.ts";
 import { PATH_DRAG_TYPE } from "../workspace/drag.ts";
+import {
+  CardHeadContext,
+  type CardHeadSetter,
+  type CardHeadSpec,
+} from "./card-head.tsx";
 import styles from "./content-card.module.css";
 import { clampSplitRatio, type SplitDir } from "./desk-model.ts";
 import {
@@ -104,9 +111,29 @@ export function ContentCard({
         : (event.clientY - box.top) / box.height,
     );
   };
+  // 본문이 올린 머리 줄(card-head.tsx). 칸 key별이고 본문이 사라지면 비워진다.
+  const [heads, setHeads] = useState<Readonly<Record<string, CardHeadSpec>>>(
+    {},
+  );
+  const setHead = useCallback((key: string, spec: CardHeadSpec | null) => {
+    setHeads((now) => {
+      if (spec === null) {
+        if (!(key in now)) return now;
+        const { [key]: _gone, ...rest } = now;
+        return rest;
+      }
+      return { ...now, [key]: spec };
+    });
+  }, []);
+  const body = (pane: CardPane) => (
+    <HeadScope paneKey={pane.key} onHead={setHead}>
+      {pane.body}
+    </HeadScope>
+  );
   const head = (pane: CardPane, side: Side) => (
     <CardHead
       pane={pane}
+      spec={heads[pane.key]}
       canBack={canBack}
       canForward={canForward}
       onBack={onBack}
@@ -186,7 +213,7 @@ export function ContentCard({
                   onPointerDown={() => onFocus(side)}
                 >
                   {head(pane, side)}
-                  <div className={styles.body}>{pane.body}</div>
+                  <div className={styles.body}>{body(pane)}</div>
                 </section>
               </Fragment>
             );
@@ -195,15 +222,34 @@ export function ContentCard({
       ) : (
         <>
           {head(panes[0]!, "a")}
-          <div className={styles.body}>{panes[0]!.body}</div>
+          <div className={styles.body}>{body(panes[0]!)}</div>
         </>
       )}
     </div>
   );
 }
 
+function HeadScope({
+  paneKey,
+  onHead,
+  children,
+}: {
+  paneKey: string;
+  onHead: (key: string, spec: CardHeadSpec | null) => void;
+  children: ReactNode;
+}) {
+  const set = useMemo<CardHeadSetter>(
+    () => (spec) => onHead(paneKey, spec),
+    [paneKey, onHead],
+  );
+  return (
+    <CardHeadContext.Provider value={set}>{children}</CardHeadContext.Provider>
+  );
+}
+
 function CardHead({
   pane,
+  spec,
   canBack,
   canForward,
   onBack,
@@ -211,47 +257,70 @@ function CardHead({
   onAction,
 }: {
   pane: CardPane;
+  spec: CardHeadSpec | undefined;
   canBack: boolean;
   canForward: boolean;
   onBack: () => void;
   onForward: () => void;
   onAction: (action: TabAction) => void;
 }) {
+  const nav = spec?.nav ?? { canBack, canForward, onBack, onForward };
+  const extra = spec?.menu;
   return (
     <div className={styles.head}>
       <IconButton
         icon={shellIcons.back}
         label={t("shell.button.back")}
         size="sm"
-        disabled={!canBack}
-        onClick={onBack}
+        disabled={!nav.canBack}
+        onClick={nav.onBack}
       />
       <IconButton
         icon={shellIcons.forward}
         label={t("shell.button.forward")}
         size="sm"
-        disabled={!canForward}
-        onClick={onForward}
+        disabled={!nav.canForward}
+        onClick={nav.onForward}
       />
-      <span className={styles.crumbs}>
-        {pane.crumbs.map((crumb, index) => (
-          <span key={index} className={styles.crumb}>
-            {index > 0 ? <span className={styles.sep}>/</span> : null}
-            {crumb}
-          </span>
-        ))}
-      </span>
-      {pane.status === undefined ? null : (
-        <span className={styles.status}>
-          <span className={styles.ready} aria-hidden />
-          {pane.status}
-        </span>
+      {nav.onReload === undefined ? null : (
+        <IconButton
+          icon={shellIcons.reload}
+          label={t("shell.button.reload")}
+          size="sm"
+          disabled={nav.reloadDisabled}
+          onClick={nav.onReload}
+        />
       )}
-      <span className={styles.grow} />
+      {spec?.center === undefined ? (
+        <>
+          <span className={styles.crumbs}>
+            {pane.crumbs.map((crumb, index) => (
+              <span key={index} className={styles.crumb}>
+                {index > 0 ? <span className={styles.sep}>/</span> : null}
+                {crumb}
+              </span>
+            ))}
+          </span>
+          {pane.status === undefined ? null : (
+            <span className={styles.status}>
+              <span className={styles.ready} aria-hidden />
+              {pane.status}
+            </span>
+          )}
+          <span className={styles.grow} />
+        </>
+      ) : (
+        <span className={styles.center}>{spec.center}</span>
+      )}
+      {spec?.actions}
       <Menu
         placement="corner-end"
-        onSelect={(id) => onAction(id as TabAction)}
-        items={tabMenuItems(pane.menu ?? DEFAULT_MENU)}
+        onOpenChange={extra?.onOpenChange}
+        onSelect={(id) => {
+          if (extra?.items.some((item) => item.id === id)) extra.onSelect(id);
+          else onAction(id as TabAction);
+        }}
+        items={tabMenuItems(pane.menu ?? DEFAULT_MENU, extra?.items)}
         trigger={
           <IconButton
             icon={shellIcons.more}

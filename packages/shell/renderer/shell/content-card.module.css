@@ -21,6 +21,18 @@
   padding-inline: var(--space-3);
 }
 
+.center {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: var(--space-0);
+  margin-inline: var(--space-2);
+}
+
+.center > * {
+  flex: 1 1 auto;
+  min-width: var(--space-0);
+}
+
 .crumbs {
   display: inline-flex;
   min-width: var(--space-0);

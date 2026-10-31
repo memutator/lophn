@@ -7,6 +7,7 @@ export const leftSidebar = {
   "left-sidebar.button.new-session-with": "New session with…",
   "left-sidebar.button.quick-app": "Open app…",
   "left-sidebar.button.quick-browser": "New browser",
+  "left-sidebar.button.quick-search": "Search",
   "left-sidebar.button.quick-terminal": "New terminal",
   "left-sidebar.button.register-project": "Register project",
   "left-sidebar.button.remove-recent": "Remove from Recent",

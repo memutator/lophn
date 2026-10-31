@@ -248,7 +248,7 @@ export const projectWorkspaceArea: Area = {
       id: "browser-tab",
       title: "Browser · tab",
       description:
-        "https page를 연 browser 탭이다. toolbar는 뒤로, 앞으로, 새로 고침, 주소 칸(끝에 별), Bookmarks, Open in browser, 더 보기이고 탭 이름은 page title, 아이콘은 site favicon이다. page는 `<webview>`라 gallery에서는 빈 자리로 그린다.",
+        "https page를 연 browser 탭이다. 머리 줄 하나가 card 머리를 겸한다: 뒤로, 앞으로, 새로 고침, 주소 칸(경로 자리), 별, Bookmarks, Open in browser, ⋯이고 탭 이름은 page title, 아이콘은 site favicon이다. page는 `<webview>`라 gallery에서는 빈 자리로 그린다.",
       render: () => <BrowserTabPage />,
     },
     {
@@ -262,7 +262,7 @@ export const projectWorkspaceArea: Area = {
       id: "browser-popup-blocked",
       title: "Browser · popup blocked",
       description:
-        "page가 사용자 입력 없이 새 창을 열려다 거절되었다는 한 줄 안내다. toolbar 아래 toast로 뜬다.",
+        "page가 사용자 입력 없이 새 창을 열려다 거절되었다는 한 줄 안내다. 머리 줄 아래 toast로 뜬다.",
       render: () => <BrowserPopupBlocked />,
     },
     {
@@ -283,14 +283,14 @@ export const projectWorkspaceArea: Area = {
       id: "browser-overflow-menu",
       title: "Browser · more menu",
       description:
-        "toolbar 끝의 더 보기 menu다. DevTools가 닫혀 있으면 Inspect 하나다. 앱에서는 page 위 overlay로 뜨고 gallery는 같은 menu를 DOM으로 그린다.",
+        "머리 줄 끝의 ⋯ tab menu다. 맨 위 묶음이 DevTools라서 닫혀 있으면 Inspector 하나이고, 구분선 아래가 기본 tab 항목이다.",
       render: () => <BrowserOverflowMenu />,
     },
     {
       id: "browser-devtools-right",
       title: "Browser · DevTools on the right",
       description:
-        "Inspect로 연 DevTools가 page 오른쪽에 붙었다. 가운데 경계를 끌어 크기를 바꾼다. DevTools는 native view라 gallery에서는 빈 자리다.",
+        "Inspector로 연 DevTools가 page 오른쪽에 붙었다. 가운데 경계를 끌어 크기를 바꾼다. DevTools는 native view라 gallery에서는 빈 자리다.",
       render: () => <BrowserDevtoolsRight />,
     },
     {
@@ -338,7 +338,7 @@ export const projectWorkspaceArea: Area = {
       id: "browser-bookmark-menu",
       title: "Browser · bookmarks menu",
       description:
-        "toolbar의 Bookmarks 단추 menu다. 더한 순서대로 favicon과 title이고, favicon이 없는 bookmark는 Globe다. 고르면 지금 탭에서 연다.",
+        "머리 줄의 Bookmarks 단추 menu다. 더한 순서대로 favicon과 title이고, favicon이 없는 bookmark는 Globe다. 고르면 지금 탭에서 연다.",
       render: () => <BrowserBookmarkMenu />,
     },
     {

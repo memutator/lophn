@@ -12,6 +12,7 @@ export const shell = {
   "shell.button.minimized-more": "{count} more minimized tabs",
   "shell.button.new-desk": "New desk",
   "shell.button.new-tab": "New tab",
+  "shell.button.reload": "Reload",
   "shell.button.strip-close": "Close {title}",
   "shell.button.tab-close": "Close",
   "shell.button.tab-close-all": "Close all",

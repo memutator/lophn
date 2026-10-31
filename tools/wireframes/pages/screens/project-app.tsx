@@ -41,7 +41,7 @@ import {
   stripTabsOf,
   type TabSpec,
 } from "./project-window.tsx";
-import workspace from "../../../../packages/shell/renderer/workspace/workspace.module.css";
+import workspace from "../../../../packages/shell/renderer/workspace/place-window.module.css";
 import { PaddedTab } from "../../../../packages/shell/renderer/workspace/padded-tab.tsx";
 
 export interface PaneInit {

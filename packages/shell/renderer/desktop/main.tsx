@@ -20,7 +20,7 @@ import {
   openSettings,
   type Route,
 } from "./router.ts";
-import { Workspace } from "../workspace/workspace.tsx";
+import { Workspace } from "../workspace/place-window.tsx";
 import { DetachedSpace } from "../workspace/detached/detached-space.tsx";
 import type { LophnDetachedApi } from "../../ipc/detached.ts";
 import type { WorkspaceSource } from "../workspace/source.ts";

@@ -30,7 +30,7 @@ import { tabKindOf } from "../kinds/registry.ts";
 import type { TabHost } from "../kinds/host.ts";
 import type { TabItem } from "../model.ts";
 import { deskTabs, emptyDesk, type Desk } from "../../shell/desk-model.ts";
-import type { WorkspaceProps } from "../workspace.tsx";
+import type { WorkspaceProps } from "../place-window.tsx";
 import styles from "./detached-space.module.css";
 
 interface DetachedSpaceProps {

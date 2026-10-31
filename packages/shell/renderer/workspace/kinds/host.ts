@@ -5,7 +5,7 @@ import type { TabItem } from "../model.ts";
 import type { Desk } from "../../shell/desk-model.ts";
 import type { ProjectsSource } from "../../desktop/places/projects/source.ts";
 import type { ViewKeeps } from "../../app-frame/view-keeps.ts";
-import type { WorkspaceProps } from "../workspace.tsx";
+import type { WorkspaceProps } from "../place-window.tsx";
 import type { AgentsSource } from "../agents/source.ts";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
 import type { DraftStore } from "../../conversation/drafts.ts";

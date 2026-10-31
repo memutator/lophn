@@ -129,7 +129,7 @@ import { ArtifactPanel } from "./sidebar/artifact-panel.tsx";
 import type { TabAwareResult } from "./sidebar/explorer.tsx";
 import { agentRow } from "./sidebar/panel-sessions.ts";
 import { sessionKey } from "../shell/left-sidebar-model.ts";
-import { ProjectLeftSidebar } from "./sidebar/project-left-sidebar.tsx";
+import { ProjectLeftSidebar } from "./sidebar/place-left-sidebar.tsx";
 import {
   ProjectPanel,
   panelTabs,
@@ -145,7 +145,7 @@ import type {
 } from "./source.ts";
 import { useCommands, useWindowCommands } from "../commands/react.tsx";
 import { useTabHostSlices } from "./use-tab-host-slices.ts";
-import styles from "./workspace.module.css";
+import styles from "./place-window.module.css";
 
 export interface WorkspaceProps {
   projectId: string;

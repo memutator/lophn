@@ -127,12 +127,20 @@ export async function createSkillSnapshot(
         );
       }
       if (path === undefined) return Promise.resolve(ok(one.body));
-      const file = one.files.get(path);
+      // SKILL.md는 본문 그 자체다. model이 실제로 보낸 `./SKILL.md`, `.`, `/`도 같은 것을 가리켰다.
+      const bundled = path.replace(/^(?:\.\/|\/)+/, "");
+      if (bundled === "" || bundled === "." || bundled === SKILL_MANIFEST) {
+        return Promise.resolve(ok(one.body));
+      }
+      const file = one.files.get(bundled);
       return Promise.resolve(
         file === undefined
           ? err({
               code: "not_found",
-              message: `skill ${name} has no file ${path}`,
+              message:
+                one.files.size === 0
+                  ? `skill ${name} has no file ${path} (no bundled files)`
+                  : `skill ${name} has no file ${path} (files: ${[...one.files.keys()].sort().join(", ")})`,
             })
           : ok(file),
       );
@@ -162,6 +170,8 @@ function readFixed(port: SkillFiles, entry: SkillEntry): Fixed | null {
     const body = bodyOf(manifest.text);
     if (body === null) return null;
     const files = new Map<string, string>();
+    // SKILL.md는 담지 않는다. 본문은 `body`이고, reader가 그 이름을 본문으로 돌려준다. `files`는 본문 옆에 딸린
+    // file만이라 실패 문장의 목록이 곧 model이 고를 수 있는 이름이다.
     for (const name of port.list(entry.bundle_path) ?? []) {
       if (
         name.startsWith(".") ||

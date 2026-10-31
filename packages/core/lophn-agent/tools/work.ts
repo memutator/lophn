@@ -42,6 +42,12 @@ const FAILURE_SUMMARIES: Readonly<Record<string, string>> = {
   internal: "tool call failed",
 };
 
+// 실패한 대상이 model이 보낸 입력뿐인 tool이다. skill.read의 이름은 prompt의 skill 목록에 이미 실려 있어
+// 문장에서 가릴 것이 없고, 가리면 원인을 못 가려 같은 입력으로 되풀이한다. 여기 없는 tool은 공통 문장만 쓴다.
+const INPUT_SCOPED_FAILURES: Readonly<Record<string, true>> = {
+  "skill.read": true,
+};
+
 const FAILURE_CODES: ReadonlyMap<ErrorCode, string> = new Map([
   ["invalid_input", "invalid_input"],
   ["unauthorized", "unauthorized"],
@@ -139,9 +145,10 @@ export async function executeToolCall(
   if (!produced.ok) {
     const code = FAILURE_CODES.get(produced.error.code) ?? "internal";
     // handler 문장은 대상 이름·존재를 담을 수 있어 공통 코드 문장만 돌려준다. 입력이 틀렸다는 문장은 그대로 싣는다.
+    // 입력 밖 대상을 다루지 않는 tool(input-scoped)도 그대로 싣는다: 가릴 것이 없고, 가리면 같은 입력으로 되풀이한다.
     const summary =
-      code === "invalid_input"
-        ? `${FAILURE_SUMMARIES.invalid_input}: ${produced.error.message}`
+      code === "invalid_input" || INPUT_SCOPED_FAILURES[name] === true
+        ? `${FAILURE_SUMMARIES[code] ?? "tool call failed"}: ${produced.error.message}`
         : (FAILURE_SUMMARIES[code] ?? "tool call failed");
     return {
       ...stopped(name, "failure", code, summary, effect),

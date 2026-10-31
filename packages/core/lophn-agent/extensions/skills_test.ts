@@ -378,3 +378,45 @@ test("내장 skill은 선언한 place 종류의 prompt와 `/` 메뉴에만 뜬�
     assert.deepStrictEqual(kindsYaml(menu), [expected], `menu of ${kind}`);
   }
 });
+
+// model은 본문을 읽으려고 `path`를 채워 보낸다. `SKILL.md`가 실제 file인데 실패하면 읽을 길이 없어 같은 값을 되풀이한다.
+// 실패 문장에 그 skill의 딸린 file 이름이 없으면 model은 없는 이름을 다시 추측한다.
+test("skill.read는 path가 없거나 SKILL.md면 본문을 주고, 모르는 path의 실패에 딸린 file 이름을 싣는다", async () => {
+  const port = treeOf({
+    "/g/one/SKILL.md": skillFile("one", "BODY_ONE"),
+    "/g/one/notes.md": "NOTES",
+    "/g/one/skipped.txt": "TXT",
+    "/g/two/SKILL.md": skillFile("two", "BODY_TWO"),
+  });
+  const snapshot = await createSkillSnapshot(
+    {
+      port,
+      builtin_root: null,
+      personal_store: null,
+      global: () => Promise.resolve({ roots: ["/g"], off: [] }),
+      place: () => Promise.resolve({ domain_stores: [], off: [] }),
+    },
+    { id: SESSION, kind: "project", place: PLACE, skills: [] },
+  );
+  const read = (name: string, path?: string) =>
+    snapshot.reader.read(SESSION, name, path);
+  const outcome = async (name: string, path?: string) => {
+    const result = await read(name, path);
+    return result.ok
+      ? result.value.trim()
+      : `${result.error.code}: ${result.error.message}`;
+  };
+
+  assert.deepStrictEqual(await outcome("one"), "BODY_ONE");
+  assert.deepStrictEqual(await outcome("one", "SKILL.md"), "BODY_ONE");
+  assert.deepStrictEqual(await outcome("one", "./SKILL.md"), "BODY_ONE");
+  assert.deepStrictEqual(await outcome("one", "notes.md"), "NOTES");
+  assert.deepStrictEqual(
+    await outcome("one", "design-app.md"),
+    "not_found: skill one has no file design-app.md (files: notes.md)",
+  );
+  assert.deepStrictEqual(
+    await outcome("two", "design-app.md"),
+    "not_found: skill two has no file design-app.md (no bundled files)",
+  );
+});

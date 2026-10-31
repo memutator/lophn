@@ -94,6 +94,16 @@ project 창이 가진 탭이 어디에 있는가를 정하는 메커니즘이다
 - **경계 drag는 양쪽 하위 배치의 최소 크기 안에서 비율을 바꾼다.** 놓을 때만 저장하고 두 번 누르면 50:50이다. 나눔은 root부터 `a`/`b`를 이은 경로로 가리킨다(`setRatio`).
 - **칸 번호(`pane.focus` 1~6, palette의 Pane N)는 잎 순서(왼쪽·위에서 오른쪽·아래로)다.**
 
+## place layout (판 8)
+
+새 shell(`project-docs/plan/ui-overhaul/`)이 쓸 저장과 model이다. 옛 project layout 위의 코드는 shell이 옮겨 가기 전까지 그대로 돈다.
+
+- **파일은 place마다 하나다.** `<data>/shell/places/<place>.json`이고 place는 `home`, project id, app id다(`main/workspace/place-layout*.ts`). 파일 이름이 되는 key는 `[A-Za-z0-9_-]{1,64}`만 받아 폴더 밖으로 나갈 수 없다(`invalid_input`). 원자 교체와 mode는 `layouts/`와 같다(`atomic-file.ts`).
+- **모양은 `{ schema_version: 8, active_desk, desks: { <key> → { label, workflow?, tabs, selected_tab, split: {a, b, focus} | null, floats: [{tab, rect, minimized}], detached: [{tab, bounds}] } } }`다.** 칸 tree는 없다. desk는 1~200개이고 `_default`(Main)가 늘 있다. 한 desk 안에서 tab key는 tabs·floats·detached를 통틀어 한 번만 나오고, `selected_tab`과 split의 a·b는 tabs 안에 있으며 b는 a 바로 뒤다. schema가 이를 거절한다. renderer의 순수 model은 `renderer/shell/desk-model.ts`가 같은 불변 조건을 지키고, 저장된 값과의 변환은 `renderer/shell/layout-source.ts`가 kind registry로 한다.
+- **읽는 순서.** place 파일이 있으면 판 8만 읽는다(다른 판은 `unsupported_schema`이고 파일은 그대로다). 없고 place가 project면 `layouts/<prj_id>.json`을 `parseLayoutFile`(판 5·6 → 7)로 읽어 판 8로 올린다(`upgradeFromV7`). 둘 다 없으면 `absent`이고 renderer가 Main 하나인 기본 layout을 쓴다. 옛 파일은 읽기만 하고 고치지 않으며, 다음 저장이 place 파일을 만들어 그 뒤로는 옛 파일을 보지 않는다.
+- **판 7 → 8.** desk마다 칸의 tab을 칸 순서(왼쪽·위에서부터)로 한 줄에 합치고, 같은 key는 처음 것만 남긴다(float·detached 포함). `selected_tab`은 focus 칸의 선택(없으면 첫 tab), split은 없다. float은 `tab`·`rect`·`minimized`만 남고 `origin_pane`·`docked_at`은 버린다. `rail_apps`는 버린다. `_default`는 label `Main`이고 다른 desk는 workflow desk라 key(workflow 이름)가 label이자 `workflow`다. tabs 상한은 옛 칸 6개 × 200을 잃지 않도록 1200이다(`place-layout_test.ts`).
+- **IPC.** `shell:place-layout-read`(`{ place }`)와 `shell:place-layout-save`(`{ place, layout: { active_desk, desks } }`)다. desktop 창 본문만 부르고, 저장할 때 main이 살아 있는 detached 창의 bounds로 덮는 것은 옛 저장과 같다. preload는 `lophnLayout.readPlace/savePlace`다.
+
 ## 왜 이 모양인가
 
 - **layout 파일은 project id마다 하나다.** 하나를 앱 전체가 쓰면 다른 project를 열어 저장할 때 앞 project의 layout을 덮어써 workflow desk를 모두 잃는다. 이름은 `project.update`로 바뀌므로 id다(`layout-store_test.ts`).

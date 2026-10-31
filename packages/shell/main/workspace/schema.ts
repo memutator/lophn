@@ -20,7 +20,7 @@ export const DEFAULT_DESK = "_default";
 // 탭 값은 등록된 kind의 schema가 정한다(kinds/registry.ts). tagged union이고 preview(mode)는 복원 파일에서
 // 제외된다. 등록되지 않은 kind는 이 schema가 거절하고, 파일을 읽는
 // parseLayoutFile이 먼저 그런 탭을 건너뛴다.
-const layoutTabSchema: z.ZodType<LayoutTab> = z
+export const layoutTabSchema: z.ZodType<LayoutTab> = z
   .unknown()
   .transform((value, ctx) => {
     const kind = tabKindOf((value as { kind?: unknown } | null)?.kind);
@@ -52,7 +52,7 @@ const layoutPaneSchema = z
   );
 
 // 정수 rectangle. floated 탭의 rect와 detached 창 bounds가 같이 쓴다. 과도한 크기는 받지 않는다.
-const windowBounds = z.strictObject({
+export const windowBounds = z.strictObject({
   x: z.number().int().min(-32768).max(32768),
   y: z.number().int().min(-32768).max(32768),
   width: z.number().int().min(1).max(32768),

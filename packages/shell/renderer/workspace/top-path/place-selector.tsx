@@ -8,6 +8,7 @@ import { Menu, type MenuItem } from "@lophn/ui/overlay";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 
+import { AppPlaceMark } from "../../app-frame/app-icon.tsx";
 import { commonIcons, conversationIcons } from "../../icons/mod.ts";
 import { PlaceMark } from "../../parts/place-mark/place-mark.tsx";
 import styles from "./desk-selector.module.css";
@@ -77,14 +78,17 @@ export function PlaceSwitcher({
         id: `place-${items.length}`,
         textValue: item.label,
         data: { "data-place-option": `${kind}:${item.id}` },
-        leading: (
-          <PlaceMark
-            kind={kind}
-            id={item.id}
-            name={item.label}
-            {...(item.icon === undefined ? {} : { icon: item.icon })}
-          />
-        ),
+        leading:
+          kind === "app" ? (
+            <AppPlaceMark id={item.id} name={item.label} icon={item.icon} />
+          ) : (
+            <PlaceMark
+              kind={kind}
+              id={item.id}
+              name={item.label}
+              {...(item.icon === undefined ? {} : { icon: item.icon })}
+            />
+          ),
         label: (
           <span className={styles.item}>
             <span className={styles.name}>{item.label}</span>

@@ -172,6 +172,23 @@
   padding-top: var(--space-0);
 }
 
+/* 고정한 앱 패널 묶음. 위의 바로 가기와 선으로 가른다. */
+.railApps {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: var(--border-width) solid var(--color-border-base);
+}
+
+.railMenuAnchor {
+  position: fixed;
+  width: var(--space-0);
+  height: var(--space-0);
+  pointer-events: none;
+}
+
 .activitySpacer {
   flex: 1;
 }

@@ -36,6 +36,7 @@ function layout(
     project,
     active_desk: DEFAULT_DESK,
     desks,
+    rail_apps: [],
   };
 }
 

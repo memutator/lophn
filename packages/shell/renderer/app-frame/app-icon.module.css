@@ -1,0 +1,5 @@
+/* 탭 줄 아이콘 자리와 같은 크기로, 줄어들지 않는다. */
+.tab {
+  flex: none;
+  object-fit: contain;
+}

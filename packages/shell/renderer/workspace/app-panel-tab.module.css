@@ -1,4 +1,4 @@
-/* 앱 패널 탭. 위 한 줄 shell 크롬 아래를 앱 view 자리가 채운다. */
+/* 앱 패널 탭. 앱 view 자리가 탭 본문을 채우고, 화면이 멈췄을 때만 위에 shell 크롬 한 줄이 선다. */
 .panel {
   display: flex;
   flex: 1 1 auto;

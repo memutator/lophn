@@ -268,6 +268,16 @@ export function screenPath(value: unknown): string | undefined {
   return;
 }
 
+// screen path와 같은 규칙에 이미지 확장자만 더한다. 파일이 bundle에 있는지는 release 준비가 본다.
+export function iconPath(value: unknown): string | undefined {
+  const bad = screenPath(value);
+  if (bad) return bad.replace("screen path", "icon path");
+  if (!/\.(svg|png|webp)$/.test(value as string)) {
+    return "icon path must end with .svg, .png or .webp";
+  }
+  return;
+}
+
 function numericId(value: string): boolean {
   return value === "0" || !/^0\d/.test(value);
 }

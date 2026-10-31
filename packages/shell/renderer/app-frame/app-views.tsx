@@ -44,6 +44,8 @@ export interface AppViewsDeps {
    * 않는다.
    */
   screens?(): Promise<ScreensRead>;
+  /** 앱이 선언한 icon 이미지의 data URL(apps/icon). 없거나 읽지 못하면 undefined다. */
+  icon?(app: string): Promise<string | undefined>;
 }
 
 const AppViewsContext = createContext<AppViewsDeps | null>(null);

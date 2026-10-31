@@ -61,7 +61,7 @@ import { startPointerDrag } from "./drag.ts";
 import { Floats } from "./floats/floats.tsx";
 import { distinctAgentTab, openAgent } from "./kinds/agent.tsx";
 import { openAgents } from "./kinds/agents.tsx";
-import { openAppPanel } from "./kinds/app-panel.tsx";
+import { openAppPanel, openPinnedAppPanel } from "./kinds/app-panel.tsx";
 import { openArtifact } from "./kinds/artifact.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
 import { openFile } from "./kinds/document-editor.tsx";
@@ -74,7 +74,11 @@ import {
 } from "./kinds/terminal.tsx";
 import { openWorkflow, workflowTab } from "./kinds/workflow.tsx";
 import { LauncherButton } from "./launcher-button.tsx";
-import { desksFromStored, toStoredLayout } from "./layout-map.ts";
+import {
+  desksFromStored,
+  railAppsFromStored,
+  toStoredLayout,
+} from "./layout-map.ts";
 import { MinimizedBar } from "./minimized/minimized-bar.tsx";
 import {
   activeView,
@@ -88,6 +92,8 @@ import {
   closeTab,
   closeTargets,
   DEFAULT_DESK,
+  RAIL_APPS_MAX,
+  type RailApp,
   deskOfTab,
   desksFromView,
   detachTab,
@@ -325,6 +331,10 @@ export function Workspace(props: WorkspaceProps) {
   // 자리(desk)마다 view 하나. 화면이 그리고 고치는 것은 보이는 자리의 view뿐이다.
   const [desks, setDesks] = useState(() => desksFromView(emptyView()));
   const view = activeView(desks);
+  // activity bar에 고정한 앱 패널. project마다 layout 파일에 저장한다.
+  const [railApps, setRailApps] = useState<readonly RailApp[]>([]);
+  const latestRail = useRef(railApps);
+  latestRail.current = railApps;
   const [sidebar, setSidebar] = useState<SidebarState>({
     chosenWidth: SIDEBAR_WIDTH,
     collapsedByUser: false,
@@ -355,6 +365,10 @@ export function Workspace(props: WorkspaceProps) {
         files: files.ok ? files.value : [],
         failed: !project.ok,
       });
+      const restoredRail =
+        layout.ok && layout.available ? railAppsFromStored(layout.layout) : [];
+      latestRail.current = restoredRail;
+      setRailApps(restoredRail);
       if (layout.ok && layout.available) {
         const restoredDesks = desksFromStored(layout.layout);
         if (restoredDesks) {
@@ -427,11 +441,45 @@ export function Workspace(props: WorkspaceProps) {
       toStoredLayout({
         project: projectId,
         desks: mapDeskTabs(next, withPosition),
+        railApps: latestRail.current,
       }),
     );
   };
   const persistRef = useRef(persist);
   persistRef.current = persist;
+
+  const changeRail = (next: readonly RailApp[]) => {
+    latestRail.current = next;
+    setRailApps(next);
+    persist(latestDesks.current);
+  };
+  const sameRail = (a: RailApp, b: RailApp) =>
+    a.app === b.app && a.surface === b.surface;
+  const pinRail = (item: RailApp) => {
+    const current = latestRail.current;
+    if (current.length >= RAIL_APPS_MAX) return;
+    if (current.some((entry) => sameRail(entry, item))) return;
+    changeRail([...current, item]);
+  };
+  const unpinRail = (item: RailApp) =>
+    changeRail(latestRail.current.filter((entry) => !sameRail(entry, item)));
+  // 탭 menu의 항목. 고정할 수 없는 탭이면 null이라 항목이 없다.
+  const railPinned = (tab: TabItem): boolean | null => {
+    const pin = tabKindOf(tab.kind)?.railApp?.(tab);
+    return pin === undefined || pin === null
+      ? null
+      : railApps.some((entry) => sameRail(entry, pin));
+  };
+  const toggleRail = (key: string) => {
+    const tab = allDeskTabs(latestDesks.current).find(
+      (item) => item.key === key,
+    );
+    const pin = tab === undefined ? null : tabKindOf(tab.kind)?.railApp?.(tab);
+    if (pin === undefined || pin === null) return;
+    if (latestRail.current.some((entry) => sameRail(entry, pin))) {
+      unpinRail(pin);
+    } else pinRail(pin);
+  };
 
   // 잦은 바뀜(scroll, 입력)은 저장만 늦춰 한 번에 쓴다.
   const persistLater = () => {
@@ -1654,6 +1702,16 @@ export function Workspace(props: WorkspaceProps) {
                         openTerminalTab(host, { cwd }),
                     })}
                 onRail={onRail}
+                railApps={
+                  host.appScreens
+                    ? {
+                        items: railApps,
+                        onOpen: (pin) => openPinnedAppPanel(host, pin),
+                        onPin: pinRail,
+                        onUnpin: unpinRail,
+                      }
+                    : undefined
+                }
                 onAgent={(agent) =>
                   openAgent(host, {
                     agent: agent.assignment,
@@ -1735,6 +1793,9 @@ export function Workspace(props: WorkspaceProps) {
                 </div>
               )}
               <Panes
+                {...(host.appScreens
+                  ? { railPinned, onToggleRail: toggleRail }
+                  : {})}
                 view={view}
                 focusedPane={inFloats ? null : view.focusedPane}
                 onDropTab={(pane, key, zone) => {

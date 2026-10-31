@@ -52,6 +52,7 @@ const saveInput = z.strictObject({
       const count = Object.keys(desks).length;
       return count >= 1 && count <= 200;
     }),
+  rail_apps: z.array(z.unknown()).max(20),
 });
 
 interface LayoutIpcMain {
@@ -136,6 +137,7 @@ export function registerLayoutIpc(
         project: parsed.value.project,
         active_desk: parsed.value.active_desk,
         desks,
+        rail_apps: parsed.value.rail_apps,
       });
       if (!valid.ok) {
         return { ok: false, code: "invalid_input", message: "" };

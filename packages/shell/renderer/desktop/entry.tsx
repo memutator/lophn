@@ -29,6 +29,7 @@ import {
   coreAppRead,
   coreAppScreens,
 } from "../app-frame/app-views.tsx";
+import { coreAppIcon } from "../app-frame/app-icon.tsx";
 import type { IntentApi, ShortcutApi } from "../../ipc/shortcuts.ts";
 import type { PaletteDeps } from "./palette/host.tsx";
 import { fileSearch } from "./palette/search.ts";
@@ -207,7 +208,12 @@ const hookPrompt = (globalThis as { lophnCoding?: HookPromptApi }).lophnCoding;
 const appViews: AppViewsDeps | null =
   mock?.appViews ??
   (views
-    ? { views, app: coreAppRead(core), screens: coreAppScreens(core) }
+    ? {
+        views,
+        app: coreAppRead(core),
+        screens: coreAppScreens(core),
+        icon: coreAppIcon(core),
+      }
     : null);
 
 // 파일 읽기와 chat의 code block이 같은 Worker를 쓴다. Worker는 첫 highlight 때 뜬다.

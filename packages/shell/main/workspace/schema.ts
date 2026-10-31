@@ -1,14 +1,15 @@
 // WorkspaceLayout 값. 파일 계약이다. 판 2부터 떠 있는 탭(floats)이, 판 3부터 detached 탭(OS 창)이, 판 4부터 자리(desk)가 있다.
 // 판 5에서 쓰지 않던 desktop 창 bounds(`window_bounds`)를 뺐다. 창 자리는 `window-state.ts`가 앱에 하나 둔다.
 // 판 6에서 좌우 두 칸의 `split_ratio`를 칸 배치 tree(`layout`)로 바꿨다. 칸은 최대 6개이고 위아래로도 나뉜다.
+// 판 7에서 activity bar에 고정한 앱 패널 목록(`rail_apps`)이 project마다 생겼다.
 // renderer가 보내는 wire 모양은 ipc/workspace.ts가 정한다. 여기는 파일에 남는
 // schema 원본과 검증·기본값의 순수 동작만 둔다.
 import { z } from "zod";
 
 import { type LayoutTab, tabKindOf } from "./kinds/registry.ts";
-import { tabKey } from "./kinds/values.ts";
+import { appId, tabKey } from "./kinds/values.ts";
 
-export const LAYOUT_SCHEMA_VERSION = 6;
+export const LAYOUT_SCHEMA_VERSION = 7;
 
 // 칸 최대 수. renderer layout-tree.ts의 MAX_PANES와 짝이다.
 export const MAX_PANES = 6;
@@ -138,6 +139,15 @@ export const deskKey = z
     message: "desk key has a control character",
   });
 
+// activity bar에 고정한 앱 패널 하나. app_panel 탭의 app·surface와 같은 값이고 title은 앱 이름(tooltip 대체)이다.
+const railAppSchema = z.strictObject({
+  app: appId,
+  surface: z.string().min(1).max(128),
+  title: z.string().min(1).max(200).optional(),
+});
+
+export type RailApp = z.infer<typeof railAppSchema>;
+
 // WorkspaceLayout. 승인·credential·앱 업무 상태·preview·transient 탭은 schema에 없다.
 export const workspaceLayoutSchema = z
   .strictObject({
@@ -145,6 +155,7 @@ export const workspaceLayoutSchema = z
     project: z.string().regex(/^prj_[0-7][0-9a-hjkmnp-tv-z]{25}$/),
     active_desk: deskKey,
     desks: z.record(deskKey, deskSchema),
+    rail_apps: z.array(railAppSchema).max(20),
   })
   .refine(
     (layout) => {
@@ -158,7 +169,13 @@ export const workspaceLayoutSchema = z
   })
   .refine((layout) => Object.hasOwn(layout.desks, layout.active_desk), {
     message: "active_desk is not in desks",
-  });
+  })
+  .refine(
+    (layout) =>
+      new Set(layout.rail_apps.map((item) => `${item.app}:${item.surface}`))
+        .size === layout.rail_apps.length,
+    { message: "rail_apps has a duplicate" },
+  );
 
 export type WorkspaceLayout = z.infer<typeof workspaceLayoutSchema>;
 

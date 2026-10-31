@@ -61,3 +61,16 @@ test("잎 수가 칸 수와 다른 판 6 파일은 손상으로 거절한다", (
   file.layout.schema_version = 6;
   assert.deepEqual(parseLayoutFile(file), { ok: false, reason: "corrupt" });
 });
+
+test("판 6 파일(rail_apps 없음)을 읽어도 탭이 그대로 이어지고 rail_apps는 빈 목록이다", () => {
+  const file = v5([["/a.md"]], 0.5);
+  const desk = file.layout.desks._default as Record<string, unknown>;
+  delete desk.split_ratio;
+  desk.layout = "leaf";
+  file.schema_version = 6;
+  file.layout.schema_version = 6;
+  const read = parseLayoutFile(file);
+  assert.ok(read.ok);
+  assert.deepEqual(read.layout.rail_apps, []);
+  assert.equal(read.layout.desks._default!.panes[0]!.tabs[0]!.key, "/a.md");
+});

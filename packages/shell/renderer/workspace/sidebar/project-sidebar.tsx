@@ -27,6 +27,7 @@ import { Explorer, type TabAwareResult } from "./explorer.tsx";
 import { useHiddenRecent } from "./hidden-recent.ts";
 import { JobPanel } from "./job-panel.tsx";
 import styles from "./project-sidebar.module.css";
+import type { RailAppsProps } from "./rail-apps.tsx";
 import type { SidebarAgent } from "./sidebar-agent.ts";
 import {
   type PanelItem,
@@ -131,6 +132,8 @@ interface ProjectSidebarProps {
   /** 폴더 오른쪽 클릭 menu의 Open in Terminal. 없으면 그 항목을 두지 않는다. */
   onOpenTerminal?: (cwd: string) => void;
   onRail: (action: RailAction) => void;
+  /** 고정한 앱 패널. 없으면 묶음을 그리지 않는다. */
+  railApps?: RailAppsProps;
   onAgent: (agent: SidebarAgent) => void;
   /** Agent 줄 hover의 +. 주지 않으면 `onAgent`와 같다. */
   onNewSession?: (agent: SidebarAgent) => void;
@@ -170,6 +173,7 @@ export function ProjectSidebar({
   onRemoveFolder,
   onOpenTerminal,
   onRail,
+  railApps,
   onAgent,
   onNewSession,
   onSession,
@@ -230,6 +234,7 @@ export function ProjectSidebar({
         open={!collapsed}
         onSelect={select}
         onRail={onRail}
+        railApps={railApps}
         onSettings={onSettings}
       />
       {collapsed ? null : (

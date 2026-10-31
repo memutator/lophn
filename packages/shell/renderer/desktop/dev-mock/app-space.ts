@@ -44,6 +44,10 @@ export function mockViews(): LophnShellViewsApi {
   };
 }
 
+const MOCK_APP_ICON = `data:image/svg+xml;base64,${btoa(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" rx="4" fill="#e0742f"/><circle cx="8" cy="8" r="3.5" fill="#fff"/></svg>',
+)}`;
+
 /** 프로젝트 탭의 앱 패널 고르기와 view 크롬이 읽는 앱 사실. */
 export function mockAppViews(views: LophnShellViewsApi): AppViewsDeps {
   const apps = {
@@ -67,6 +71,9 @@ export function mockAppViews(views: LophnShellViewsApi): AppViewsDeps {
             },
       );
     },
+    // 한 앱만 icon을 선언한 것으로 둔다. 나머지는 기본 모양이다.
+    icon: (app) =>
+      Promise.resolve(app === APP_PLANNER ? MOCK_APP_ICON : undefined),
     screens: () =>
       Promise.resolve({
         ok: true as const,

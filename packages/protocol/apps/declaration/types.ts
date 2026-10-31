@@ -128,6 +128,8 @@ export type SDKDependency = {
 export type AppDeclaration = {
   name: string;
   description: string;
+  // bundle 안 이미지 파일의 경로(`/assets/icon.svg`). svg·png·webp. lophn이 앱을 보이는 자리에 쓴다.
+  icon?: string;
   screens: ScreenDeclaration[];
   tools: ToolDeclaration[];
   permissions: PermissionRequirement[];
@@ -141,12 +143,18 @@ export type DeclarationOptions = { app?: string; domains?: readonly string[] };
 export const DECLARATION_KEYS = [
   "app_connections",
   "description",
+  "icon",
   "name",
   "permissions",
   "screens",
   "sdk_dependencies",
   "tools",
 ] as const;
+
+// icon만 칸이 없어도 된다.
+export const DECLARATION_REQUIRED_KEYS = DECLARATION_KEYS.filter(
+  (key) => key !== "icon",
+);
 
 export const INPUT_KEYS = [
   "additionalProperties",

@@ -127,3 +127,26 @@ test("tool 선언은 이름 규칙, object root, public, 알 수 없는 칸을 �
     false,
   );
 });
+
+// icon은 선택 칸이다. 없는 선언의 정규형은 그대로이고, 이미지 경로가 아니면 거절한다.
+test("icon 선언은 bundle 안 svg·png·webp 경로만 받고 없으면 칸을 두지 않는다", () => {
+  for (const icon of [
+    "icon.svg",
+    "/a/../icon.svg",
+    "//host/icon.svg",
+    "https://example.test/icon.svg",
+    "/icon.gif",
+    "/icon",
+    5,
+  ]) {
+    const result = validateDeclaration({ ...declarationWith([]), icon });
+    assert.ok(!result.ok, String(icon));
+  }
+  const withIcon = validateDeclaration({
+    ...declarationWith([]),
+    icon: "/assets/icon.webp",
+  });
+  assert.ok(withIcon.ok && withIcon.value.icon === "/assets/icon.webp");
+  const without = validateDeclaration(declarationWith([]));
+  assert.ok(without.ok && !("icon" in without.value));
+});

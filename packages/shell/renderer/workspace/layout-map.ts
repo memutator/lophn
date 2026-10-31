@@ -5,6 +5,8 @@ import {
   type FloatItem,
   normalizePane,
   type PaneState,
+  RAIL_APPS_MAX,
+  type RailApp,
   storableDesks,
   type TabItem,
   type WorkspaceDesks,
@@ -222,6 +224,25 @@ export function desksFromStored(layout: unknown): WorkspaceDesks | null {
   return { active, desks };
 }
 
+/** 저장된 layout의 activity bar 고정 앱. 모양이 틀린 항목은 빠진다(검증은 main이 이미 했다). */
+export function railAppsFromStored(layout: unknown): RailApp[] {
+  const list = (layout as { rail_apps?: unknown } | null)?.rail_apps;
+  if (!Array.isArray(list)) return [];
+  return list.flatMap((item: unknown) => {
+    const value = item as Partial<Record<string, unknown>> | null;
+    if (typeof value?.app !== "string" || typeof value.surface !== "string") {
+      return [];
+    }
+    return [
+      {
+        app: value.app,
+        surface: value.surface,
+        ...(typeof value.title === "string" ? { title: value.title } : {}),
+      },
+    ];
+  });
+}
+
 interface StoredDesk {
   panes: { tabs: Record<string, unknown>[]; selected_tab: string | null }[];
   layout: LayoutNode;
@@ -296,10 +317,12 @@ function storedDesk(view: WorkspaceView): StoredDesk {
 export function toStoredLayout(input: {
   project: string;
   desks: WorkspaceDesks;
+  railApps: readonly RailApp[];
 }): {
   project: string;
   active_desk: string;
   desks: Record<string, StoredDesk>;
+  rail_apps: RailApp[];
 } {
   const desks = storableDesks(input.desks);
   return {
@@ -308,5 +331,13 @@ export function toStoredLayout(input: {
     desks: Object.fromEntries(
       Object.entries(desks.desks).map(([key, view]) => [key, storedDesk(view)]),
     ),
+    // 빈 title은 schema가 거절해 저장이 통째로 실패하므로 뺀다.
+    rail_apps: input.railApps.slice(0, RAIL_APPS_MAX).map((item) => ({
+      app: item.app,
+      surface: item.surface,
+      ...(item.title === undefined || item.title.length === 0
+        ? {}
+        : { title: item.title.slice(0, 200) }),
+    })),
   };
 }

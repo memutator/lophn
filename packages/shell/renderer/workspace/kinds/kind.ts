@@ -7,7 +7,7 @@ import type { MessageKey } from "@lophn/i18n";
 import type { ReactNode } from "react";
 import type { TabTransfer } from "../../../ipc/detached.ts";
 import type { TabDot } from "../../parts/tab-strip/tab-strip.tsx";
-import type { TabItem } from "../model.ts";
+import type { RailApp, TabItem } from "../model.ts";
 import type { TabHost } from "./host.ts";
 
 export interface ReadPosition {
@@ -70,6 +70,8 @@ export interface TabKindDef {
     tab: TabItem,
     shared: { readonly position: ReadPosition | undefined },
   ): Record<string, unknown> | null;
+  /** activity bar에 고정할 수 있는 탭이면 그 값(앱 패널). 탭 menu에 Pin to activity bar가 생긴다. null이면 고정할 수 없다. */
+  railApp?(tab: TabItem): RailApp | null;
   /** 이 탭이 focus일 때 agent가 읽을 앱 view를 가졌는지. */
   hasAppView?(tab: TabItem): boolean;
   /** 고른 탭의 본문. null이면 칸이 종류 자리표시를 그린다. */

@@ -11,7 +11,6 @@ import {
 } from "./schema.ts";
 import { tabKindOf } from "./kinds/registry.ts";
 
-export { MAX_PANES } from "./schema.ts";
 export type {
   LayoutFile,
   LayoutNode,
@@ -20,6 +19,7 @@ export type {
   WorkspaceDesk,
   WorkspaceLayout,
 } from "./schema.ts";
+export { MAX_PANES } from "./schema.ts";
 
 export const SCHEMA_VERSION = LAYOUT_SCHEMA_VERSION;
 
@@ -29,8 +29,8 @@ export type LayoutResult =
 
 /**
  * 파일에서 읽은 값을 검증한다. 미지원 schema와 손상은 안전한 오류로 빈 layout을
- * 가리킨다. 원본 파일은 바꾸지 않는다. 판 5(좌우 두 칸, `split_ratio`)는 판 6으로 올려 읽는다. 쓰던 탭
- * 배치를 잃지 않으려는 것이고, 다음 저장에서 판 6 파일이 된다.
+ * 가리킨다. 원본 파일은 바꾸지 않는다. 판 5(좌우 두 칸, `split_ratio`)와 판 6(`rail_apps` 없음)은 현재 판으로
+ * 올려 읽는다. 쓰던 탭 배치를 잃지 않으려는 것이고, 다음 저장에서 현재 판 파일이 된다.
  */
 export function parseLayoutFile(value: unknown): LayoutResult {
   if (
@@ -40,7 +40,8 @@ export function parseLayoutFile(value: unknown): LayoutResult {
     typeof (value as { schema_version: unknown }).schema_version === "number"
   ) {
     const version = (value as { schema_version: number }).schema_version;
-    if (version === 5) value = upgradeFromV5(value);
+    if (version === 5) value = upgradeFromV6(upgradeFromV5(value));
+    else if (version === 6) value = upgradeFromV6(value);
     else if (version !== SCHEMA_VERSION) {
       return { ok: false, reason: "unsupported_schema" };
     }
@@ -48,6 +49,21 @@ export function parseLayoutFile(value: unknown): LayoutResult {
   const parsed = layoutFileSchema.safeParse(skipUnregisteredTabs(value));
   if (!parsed.success) return { ok: false, reason: "corrupt" };
   return { ok: true, layout: parsed.data.layout };
+}
+
+// 판 6 파일에는 `rail_apps`가 없다. 맞지 않으면 그대로 돌려줘 schema 검증이 손상으로 판단한다.
+function upgradeFromV6(file: unknown): unknown {
+  const parsed = z.looseObject({ layout: z.looseObject({}) }).safeParse(file);
+  if (!parsed.success) return file;
+  return {
+    ...parsed.data,
+    schema_version: SCHEMA_VERSION,
+    layout: {
+      ...parsed.data.layout,
+      schema_version: SCHEMA_VERSION,
+      rail_apps: [],
+    },
+  };
 }
 
 // 판 5 파일의 모양. 칸은 하나거나 좌우 둘이었고, 둘이면 `split_ratio`가 왼쪽 몫이다.
@@ -81,8 +97,8 @@ function upgradeFromV5(file: unknown): unknown {
   );
   return {
     ...parsed.data,
-    schema_version: SCHEMA_VERSION,
-    layout: { ...layout, schema_version: SCHEMA_VERSION, desks },
+    schema_version: 6,
+    layout: { ...layout, schema_version: 6, desks },
   };
 }
 

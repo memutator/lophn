@@ -7,6 +7,7 @@ import {
   type AppDeclaration,
   asJson,
   DECLARATION_KEYS,
+  DECLARATION_REQUIRED_KEYS,
   type DeclarationOptions,
   exactKeys,
   invalid,
@@ -22,7 +23,7 @@ import {
 import { normalizeJson, sortBy, unique } from "./json.ts";
 import { validateScreensAndTools } from "./tools.ts";
 import { validateUses } from "./uses.ts";
-import { permissionScope, scopeKey } from "./scope.ts";
+import { iconPath, permissionScope, scopeKey } from "./scope.ts";
 
 export function validateDeclaration(
   value: unknown,
@@ -51,11 +52,18 @@ export function validateDeclaration(
   ) {
     return invalid("domains must be domain names");
   }
-  const unexpected = exactKeys(value, DECLARATION_KEYS, DECLARATION_KEYS);
+  const unexpected = exactKeys(
+    value,
+    DECLARATION_KEYS,
+    DECLARATION_REQUIRED_KEYS,
+  );
   if (unexpected) return invalid(`declaration ${unexpected}`);
   if (!nonBlank(value.name)) return invalid("declaration name is blank");
   if (!singleLine(value.description)) {
     return invalid("declaration description must be one line");
+  }
+  if (Object.hasOwn(value, "icon") && iconPath(value.icon)) {
+    return invalid(iconPath(value.icon)!);
   }
   const permissionItems = value.permissions;
   const connectionItems = value.app_connections;
@@ -131,6 +139,8 @@ export function validateDeclaration(
   const declaration: AppDeclaration = {
     name: value.name,
     description: value.description,
+    // 없으면 칸을 두지 않는다. 옛 선언의 hash가 그대로이다.
+    ...(typeof value.icon === "string" ? { icon: value.icon } : {}),
     screens: sortBy(screens, (screen) => screen.key),
     tools: sortBy(tools, (tool) => tool.name),
     permissions: [...permissions].sort((left, right) =>

@@ -22,15 +22,61 @@ import { ViewChrome } from "../app-frame/view-chrome.tsx";
 import styles from "./app-panel-tab.module.css";
 
 /** 탭에 고른 앱 화면. 제목은 사람이 지은 앱 이름이다. */
-interface PanelChoice {
+export interface PanelChoice {
   readonly app: string;
   readonly screen: string;
   readonly title: string;
 }
 
 /** 패널을 선언한 화면만 고를 수 있다. 하나도 없으면 앱 공간으로 열기를 안내한다. */
-function panelScreens(app: AppScreens): AppScreens["screens"] {
+export function panelScreens(app: AppScreens): AppScreens["screens"] {
   return app.screens.filter((screen) => screen.sizes.includes("panel"));
+}
+
+/**
+ * 앱 화면 목록 읽기. 앱 패널 picker와 activity bar가 같이 쓴다. `enabled`가 false면 읽지 않는다.
+ * null은 읽는 중이다.
+ */
+export function useScreensRead(enabled = true): {
+  read: ScreensRead | null;
+  retry: () => void;
+} {
+  const deps = useAppViews();
+  const [read, setRead] = useState<ScreensRead | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    let live = true;
+    setRead(null);
+    if (deps?.screens === undefined) {
+      setRead({ ok: false });
+      return;
+    }
+    void deps.screens().then((value) => {
+      if (live) setRead(value);
+    });
+    return () => {
+      live = false;
+    };
+  }, [deps, attempt, enabled]);
+  return { read, retry: () => setAttempt((count) => count + 1) };
+}
+
+/** 고를 수 있는 (앱, panel 화면) 목록. label은 "앱 · 화면"이다. picker와 activity bar의 + menu가 같이 쓴다. */
+export function panelChoices(
+  apps: readonly AppScreens[],
+): readonly (PanelChoice & { readonly label: string })[] {
+  return apps.flatMap((app) =>
+    panelScreens(app).map((screen) => ({
+      app: app.app,
+      screen: screen.key,
+      title: app.name,
+      label: t("app-panel.label.screen", {
+        app: app.name,
+        screen: screen.label,
+      }),
+    })),
+  );
 }
 
 interface AppPanelPickerProps {
@@ -46,30 +92,14 @@ export function AppPanelPicker({
   onOpenAppSpace,
   onClose,
 }: AppPanelPickerProps) {
-  const deps = useAppViews();
-  const [read, setRead] = useState<ScreensRead | null>(null);
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    let live = true;
-    setRead(null);
-    if (deps?.screens === undefined) {
-      setRead({ ok: false });
-      return;
-    }
-    void deps.screens().then((value) => {
-      if (live) setRead(value);
-    });
-    return () => {
-      live = false;
-    };
-  }, [deps, attempt]);
+  const { read, retry } = useScreensRead();
 
   let body;
   if (read !== null && !read.ok) {
     body = (
       <ErrorState
         target={t("project-workspace.label.choose-app")}
-        onRetry={() => setAttempt((count) => count + 1)}
+        onRetry={retry}
       />
     );
   } else if (read !== null && read.value.length === 0) {
@@ -108,18 +138,15 @@ export function AppPanelPicker({
                 </li>,
               ];
             }
-            return screens.map((screen) => (
+            return panelChoices([app]).map((choice) => (
               <ListItem
-                key={`${app.app}:${screen.key}`}
-                title={t("app-panel.label.screen", {
-                  app: app.name,
-                  screen: screen.label,
-                })}
+                key={`${choice.app}:${choice.screen}`}
+                title={choice.label}
                 onSelect={() =>
                   onChoose({
-                    app: app.app,
-                    screen: screen.key,
-                    title: app.name,
+                    app: choice.app,
+                    screen: choice.screen,
+                    title: choice.title,
                   })
                 }
               />
@@ -209,18 +236,26 @@ export function AppPanelTab({
   }
   const release = facts.value.release;
   if (release === null) return notice(t("app-panel.notice.no-version"), false);
+  // 탭 이름이 이미 앱 이름이라 평소에는 크롬 줄을 두지 않는다. 탭 줄과 앱 화면 사이에 다른 바탕의 줄이
+  // 끼면 탭과 본문이 한 면으로 이어지지 않는다. 화면이 멈추거나 앱이 멈췄을 때만 상태와 [Open again]을 띄운다.
+  const troubled =
+    (state?.viewHealth !== undefined && state.viewHealth !== "ok") ||
+    state?.connectionState === "stopped" ||
+    state?.connectionState === "unavailable";
   return (
     <div className={styles.panel} data-app-panel={app} data-screen={screen}>
-      <ViewChrome
-        name={facts.value.name}
-        mode="live"
-        connection={state?.connectionState ?? null}
-        viewSession={state?.view_session ?? null}
-        health={state?.viewHealth}
-        onReopen={(view_session) =>
-          void deps.views.reopenView({ view_session }).catch(() => {})
-        }
-      />
+      {troubled ? (
+        <ViewChrome
+          name={facts.value.name}
+          mode="live"
+          connection={state?.connectionState ?? null}
+          viewSession={state?.view_session ?? null}
+          health={state?.viewHealth}
+          onReopen={(view_session) =>
+            void deps.views.reopenView({ view_session }).catch(() => {})
+          }
+        />
+      ) : null}
       <div className={styles.view}>
         <EmbeddedView
           views={deps.views}

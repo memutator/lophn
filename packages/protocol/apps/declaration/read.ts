@@ -85,6 +85,25 @@ export const appTools = defineRead({
   ],
 });
 
+// `app.icon`. active release 선언의 icon 파일 하나다. data는 base64다.
+// 선언이 없거나 파일이 없거나 크거나 bundle 밖을 가리키면 icon이 null이다(오류가 아니다. 앱은 기본 모양으로 보인다).
+export const appIcon = defineRead({
+  resource: "apps",
+  method: "icon",
+  name: "app.icon",
+  input: appInputSchema,
+  output: z.object({
+    icon: z
+      .strictObject({
+        content_type: z.enum(["image/svg+xml", "image/png", "image/webp"]),
+        data: z.string().min(1),
+      })
+      .nullable(),
+  }),
+  actors: ["user"],
+  errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
+});
+
 // `app.tool_index`. 모든 앱의 이름·설명과 tool 목록이다. 앱 범위 판정을 하지 않는 대신
 // 돌려주는 칸이 이것뿐이라 source 경로, 앱 log, 호출 기록은 새지 않는다. 호출 모양(inputSchema, outputSchema)은
 // 입력에 app이 있을 때만 싣는다(전체 목록에서는 칸이 없다). 목록이 앱 수에 비례해 커지는 것을 줄이기 위해서다.
@@ -123,3 +142,4 @@ export const appToolIndex = defineRead({
     "unavailable",
   ],
 });
+export type AppIcon = NonNullable<z.infer<typeof appIcon.output>["icon"]>;

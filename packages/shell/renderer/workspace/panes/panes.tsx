@@ -57,6 +57,10 @@ interface PanesProps {
   onDetach?: (pane: number, key: string) => void;
   /** Detach할 수 있는 탭인지. 없으면 모두 할 수 있다. */
   canDetach?: (tab: TabItem) => boolean;
+  /** activity bar에 고정할 수 있는 탭이면 지금 고정돼 있는지, 아니면 null. null이면 항목을 두지 않는다. */
+  railPinned?: (tab: TabItem) => boolean | null;
+  /** 탭 menu의 Pin to activity bar·Unpin from activity bar. */
+  onToggleRail?: (key: string) => void;
   /** 탭이 파일이면 그 경로. 아니면 null이다. 경로 복사·Explorer에서 보기가 이 탭에만 생긴다. */
   pathOf: (tab: TabItem) => string | null;
   onCopyPath: (path: string, relative: boolean) => void;
@@ -102,6 +106,8 @@ export function Panes({
   onRename,
   onDetach,
   canDetach,
+  railPinned,
+  onToggleRail,
   pathOf,
   onCopyPath,
   onReveal,
@@ -227,6 +233,8 @@ export function Panes({
             onRename={onRename}
             onDetach={onDetach && ((key) => onDetach(index, key))}
             canDetach={canDetach}
+            railPinned={railPinned}
+            onToggleRail={onToggleRail}
             onCopyPath={onCopyPath}
             onReveal={onReveal}
             onReorder={(key, before) => onMove(key, index, before)}
@@ -304,6 +312,8 @@ interface PaneViewProps {
   onRename: (key: string, name: string | null) => void;
   onDetach?: (key: string) => void;
   canDetach?: (tab: TabItem) => boolean;
+  railPinned?: (tab: TabItem) => boolean | null;
+  onToggleRail?: (key: string) => void;
   onCopyPath: (path: string, relative: boolean) => void;
   onReveal: (path: string) => void;
   onReorder: (key: string, before: string | null) => void;
@@ -348,6 +358,8 @@ function PaneView({
   onRename,
   onDetach,
   canDetach,
+  railPinned,
+  onToggleRail,
   onCopyPath,
   onReveal,
   onReorder,
@@ -368,6 +380,10 @@ function PaneView({
   const menuTab =
     menu === null ? undefined : pane.tabs.find((tab) => tab.key === menu.key);
   const menuPath = menuTab === undefined ? null : pathOf(menuTab);
+  const menuRailPinned =
+    menuTab === undefined || onToggleRail === undefined
+      ? null
+      : (railPinned?.(menuTab) ?? null);
   const menuItems =
     menuTab === undefined
       ? []
@@ -441,6 +457,18 @@ function PaneView({
                 },
               ]
             : []),
+          ...(menuRailPinned === null
+            ? []
+            : [
+                {
+                  id: "toggle-rail",
+                  label: menuRailPinned
+                    ? t("project-workspace.button.rail-app-unpin")
+                    : t("project-workspace.button.tab-pin-to-rail"),
+                  leading: <MenuIcon icon={workspaceIcons.appPanel} />,
+                  separatorBefore: true,
+                },
+              ]),
           ...(menuPath === null
             ? []
             : [
@@ -486,6 +514,7 @@ function PaneView({
     else if (id === "split-down") onSplit(menuTab.key, "bottom");
     else if (id === "rename") setRenaming(menuTab.key);
     else if (id === "detach") onDetach?.(menuTab.key);
+    else if (id === "toggle-rail") onToggleRail?.(menuTab.key);
     else if (id === "keep-open") onPin(menuTab.key);
     else if (menuPath !== null) {
       if (id === "copy-path") onCopyPath(menuPath, false);

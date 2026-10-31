@@ -23,7 +23,12 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
 ## 선언의 칸
 
 `name`, `description`, `screens`, `tools`, `permissions`, `app_connections`,
-`sdk_dependencies`만 있다. 알 수 없는 칸은 거절한다.
+`sdk_dependencies`와 선택 칸 `icon`만 있다. 알 수 없는 칸은 거절한다.
+
+- `icon` — 앱 icon 이미지의 bundle 안 경로다(`"/assets/icon.svg"`). `.svg`, `.png`,
+  `.webp`만 받고 64 KiB 이하여야 한다. 파일은 source에 commit해 두면 release에
+  담기고, 선언했는데 파일이 없으면 release 준비가 거절한다. lophn이 탭과 앱 목록에서
+  앱을 보일 때 쓴다. 없으면 기본 모양이다.
 
 - `tools` — 다른 앱과 화면이 부르는 tool 목록이다. 항목은
   `{name, title, description, inputSchema, outputSchema?, effect, public, domain}`다.

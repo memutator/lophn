@@ -14,6 +14,7 @@ import {
 import { t } from "@lophn/i18n";
 
 import type { SidebarTab } from "./project-sidebar.tsx";
+import { RailApps, type RailAppsProps } from "./rail-apps.tsx";
 import styles from "./project-sidebar.module.css";
 
 export interface ActivityEntry<K extends string = SidebarTab> {
@@ -38,6 +39,7 @@ export function ActivityBar<K extends string>({
   open,
   onSelect,
   onRail,
+  railApps,
   onSettings,
 }: {
   entries: readonly ActivityEntry<K>[];
@@ -48,6 +50,8 @@ export function ActivityBar<K extends string>({
   onSelect: (key: K) => void;
   /** 아래쪽 바로 가기. 없으면(Settings 공간) 아래쪽 묶음이 없다. */
   onRail?: (action: RailAction) => void;
+  /** 고정한 앱 패널 묶음. 없으면(앱 화면을 읽을 수 없는 창) 묶음과 + 단추가 없다. */
+  railApps?: RailAppsProps;
   onSettings?: () => void;
 }) {
   const labels: Readonly<Record<RailAction, string>> = {
@@ -103,6 +107,7 @@ export function ActivityBar<K extends string>({
               </button>
             </Tooltip>
           ))}
+          {railApps === undefined ? null : <RailApps {...railApps} />}
           <Tooltip content={t("common.button.settings")}>
             <button
               type="button"

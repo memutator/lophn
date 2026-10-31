@@ -918,6 +918,16 @@ export const DEFAULT_DESK = "_default";
 const DESK_FLOATS_MAX = 20;
 const DESK_DETACHED_MAX = 20;
 
+/** activity bar에 고정한 앱 패널. project마다 layout 파일에 저장된다. title은 앱 이름(tooltip 대체)이다. */
+export interface RailApp {
+  readonly app: string;
+  readonly surface: string;
+  readonly title?: string;
+}
+
+/** main/workspace/schema.ts의 `rail_apps` 상한과 같다. */
+export const RAIL_APPS_MAX = 20;
+
 export interface WorkspaceDesks {
   /** 지금 보이는 자리의 key. `desks`에 늘 있다. */
   readonly active: string;

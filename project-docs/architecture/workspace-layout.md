@@ -14,10 +14,16 @@ project 창이 가진 탭이 어디에 있는가를 정하는 메커니즘이다
              splitTab, dropTabOnPane, detachTab, openDetachedTab, attachDetached, closeDetached
    desk 층: switchDesk, openAcrossDesks, deskOfTab, allDeskTabs, mapDeskTabs, vanishedDesks, mergeDeskIntoDefault
         │
-        │ 바뀔 때마다 storableDesks(transient 탭 빼기) ─▶ toStoredLayout ─▶ layout:save { project, active_desk, desks }
+        │ 바뀔 때마다 storableDesks(transient 탭 빼기) ─▶ toStoredLayout ─▶ layout:save { project, active_desk, desks, rail_apps }
         ▼                                                   (main이 모든 desk의 detached bounds를 살아 있는 창 값으로 덮는다)
- main/workspace/schema.ts ── <data>/shell/layouts/<prj_id>.json (LAYOUT_SCHEMA_VERSION 6, desk 1~200개, desk마다 floats·detached 각 최대 20)
-                             판 5는 읽을 때 판 6으로 올린다(`upgradeFromV5`). 그 밖의 다른 판은 unsupported_schema, 새로 만든다. 옛 <data>/shell/layout.json은 읽지 않는다
+ main/workspace/schema.ts ── <data>/shell/layouts/<prj_id>.json (LAYOUT_SCHEMA_VERSION 7, desk 1~200개, desk마다 floats·detached 각 최대 20, project마다 rail_apps 최대 20)
+                             판 5·6은 읽을 때 판 7로 올린다(`upgradeFromV5`, `upgradeFromV6`). 그 밖의 다른 판은 unsupported_schema, 새로 만든다. 옛 <data>/shell/layout.json은 읽지 않는다
+ activity bar의 고정 앱 패널 (rail_apps: [{ app, surface, title? }], app+surface 중복 없음)
+   renderer workspace.tsx의 railApps state ─▶ 바뀔 때 persist ─▶ layout 파일의 rail_apps. desk와 달리 project 전체의 값이라 desk를 바꿔도 같다
+   sidebar/rail-apps.tsx (ActivityBar 아래쪽 묶음, 바로 가기와 Settings 사이. host.appScreens가 false면 묶음·+·tab menu 항목이 없다)
+     단추 ─▶ openPinnedAppPanel: 이 창 모든 desk·floated·minimized·detached 탭 중 같은 app+screen 탭이 있으면 openTab이 그 탭으로 가고, 없으면 app·screen·title을 채운 새 탭을 focus pane에 연다
+     오른쪽 클릭 ─▶ 고정 해제. + ─▶ panelChoices(앱 패널 picker와 같은 목록)에서 골라 고정만 한다
+     탭 menu(Panes) ─▶ kind.railApp(tab)이 값을 주는 탭(앱을 고른 app_panel)에 Pin to / Unpin from activity bar
  main/workspace/window-state.ts ── <data>/shell/window.json { bounds, maximized } 앱에 하나. desktop 창의 마지막 자리
 
  Detach (project 창 workspace.tsx)                         detached 창 (#detached=<key>, renderer/workspace/detached/)
@@ -71,6 +77,8 @@ project 창이 가진 탭이 어디에 있는가를 정하는 메커니즘이다
 - **native view는 overlay뿐이고, 그 위아래는 `viewOrder`가 정한다.** browser의 크기 준 popup·DevTools는 `main/browser/view-order.ts`가 pane 화면 < floated 화면 순으로 쌓고, overlay native view는 `app-frame/view-order.ts`의 `viewOrder`가 늘 그 위에 둔다. native view는 shell DOM 위에 그려지지만 앱·artifact 화면은 DOM(`<webview>`)이라 그 문제가 없다.
 - **DOM 패널은 `<webview>` 위에 z-index로 그린다.** floated 패널은 `<webview>` 그릇의 층보다 높고(--z-sticky + 2L), 앱 place의 오른쪽 패널은 `--z-sheet`로 화면을 덮는다. 화면을 줄이던 cover 장치는 없다.
 - **앱 panel·artifact 탭의 `<webview>`는 탭이 사는 동안 산다.** Float, Dock, 접기, desk 바꾸기로 `EmbeddedView`가 다시 mount되어도 그릇이 element를 들고 있어 page를 다시 load하지 않는다. `ViewKeeps`(창마다 하나, renderer)는 view_session과 마지막 state를 이어 탭이 다시 mount될 때 같은 view를 쓴다. 탭 key가 모든 desk에서 사라지거나 detached가 되면 그릇이 element를 지운다(`Workspace`). 앱 place 본문과 앱 card는 그 화면이 unmount될 때 닫는다. 열기 입력이 바뀌면 옛 view를 닫고 새로 연다.
+- **앱 panel 탭에는 평소 shell 크롬 줄이 없다(사람).** 탭 이름이 이미 앱 이름이고, 탭 줄과 앱 화면 사이에 다른 바탕의 줄이 끼면 탭과 본문이 한 면으로 이어지지 않는다. 화면이 멈추거나 crash했을 때, 앱이 멈췄을 때(`stopped`·`unavailable`)만 `ViewChrome`이 상태와 [Open again]을 띄운다(`app-panel-tab.tsx`). 앱 template의 `src/surface.css`는 앱 바탕을 탭 본문과 같은 `--color-surface-base`로 둔다. 강제하지 않는다.
+- **앱 icon은 선언의 선택 칸이고 layout에 싣지 않는다.** 앱 선언의 `icon`(bundle 안 `/…/x.svg|png|webp` 경로, 64 KiB 이하)은 release 준비가 source commit에 그 파일이 있는지 보고, core의 `apps.icon` read(`{app}` → `{icon: {content_type, data(base64)} | null}`)가 active release의 bundle 사본에서 읽는다. bundle 밖을 가리키는 경로·symlink, 큰 파일, 선언 없음은 모두 `null`이고 오류가 아니다. renderer는 `app-frame/app-icon.tsx`의 `useAppIcon(app)`로 data URL을 받아 앱 패널 탭 아이콘(`iconOf`), activity bar의 고정 앱 단추, 런처 앱 카드와 place switcher의 `PlaceMark`에 쓴다. 탭의 `toStored`에는 들어가지 않고 그릴 때마다 읽는다(10초 cache).
 - **앱 전용 창은 shell 문서 하나다.** main이 `sizes`에 `full`을 적은 첫 screen을 골라 `openDesktopWindow`로 `#app-window=<app>/<release>/<screen>`(각 부분 `encodeURIComponent`) hash의 desktop 창을 연다. 앱 하나에 창 하나이고 다시 요청하면 그 창을 앞으로 가져온다. renderer의 `app-window` route(`renderer/app-frame/app-window.tsx`)가 앱 이름과 창 단추가 있는 위쪽 bar와 그 화면 하나를 창 본문 전체의 `<webview>`로 그린다(`mode: live`). `webviewTag`·shell preload는 다른 shell 창과 같고, 전역 palette·tray의 "가장 최근 창"에서 detached 창과 같이 빠진다(`ctx.appWindows`).
 - **여는 길은 탭 menu의 Float·Detach, 패널 bar의 Minimize·Dock·Detach·Close, 상단 bar span(누르기, hover × 닫기, right-click의 Restore·Dock·Close, 탭 줄·칸 본문으로 끌기), 탭을 끌어 칸 본문(왼쪽·오른쪽·위·아래·가운데)에 놓아 화면을 나누거나 옮기기(`dropTabOnPane`), 탭 menu의 Split Right·Split Down과 칸 탭 줄 끝의 단추, 단축키 `pane.split`·`pane.split-down`(`splitTab`), 탭을 끌어 상단 titlebar에 놓아 최소화하기, 명령 palette(Float tab, Dock panel, Minimize panel), detached 창 bar의 [Dock]이다.** 기본 단축키는 없고 Detach는 palette 명령도 없다. palette의 Dock·Minimize 대상은 맨 위의 접히지 않은 패널이다. minimized 패널은 먼저 펴야 Detach할 수 있다.
 
@@ -103,6 +111,7 @@ project 창이 가진 탭이 어디에 있는가를 정하는 메커니즘이다
 - **detached 창 안의 popup은 또 하나의 detached 창이다.** 가장 단순하게 `window.opener`를 지킨다. 대안인 project 창 floats 층으로 옮기기는 opener 소유 이동이 더 필요하다. `open`의 bounds에 opener 창 가운데 features의 크기를 넣고, 화면 작업 영역 안으로 당긴다. detached 창만 최소 크기가 320×240이다(다른 창과 bounds가 없는 detached 창은 960×600).
 - **칸 배치는 칸 목록이 아니라 tree다(사람).** 좌우로만 나누는 값(`split_ratio`)으로는 위아래 나눔을 담지 못하고, VS Code처럼 칸 안을 다시 나누려면 중첩이 필요하다. 칸마다 사각형을 저장하는 안은 경계 하나를 옮길 때 이웃 칸을 모두 다시 계산해야 해서 버렸다. 칸은 최대 6개다.
 - **판 5 파일은 읽을 때 올린다.** 좌우 두 칸이던 `split_ratio`는 `row` 나눔 하나가 된다(`layout.ts`의 `upgradeFromV5`). 쓰던 탭 배치를 새로 만들지 않으려는 것이고 다음 저장에서 판 6 파일이 된다(AGENTS.md "호환성").
+- **고정 앱 패널(`rail_apps`)은 desk가 아니라 project 단위로 layout 파일에 둔다(agent).** 쓰임이 "이 project에서 자주 여는 앱"이라 desk마다 다르면 오히려 헷갈리고, 별도 파일을 두면 저장 길이 둘이 된다. 판 6 파일은 `upgradeFromV6`이 `rail_apps: []`를 붙여 읽는다. 단추가 열 탭은 key가 아니라 app+screen으로 찾는다(탭 key는 열 때마다 새로 만들어 저장된 탭과 이어지지 않는다).
 - **앱 화면도 `<webview>`로 옮겼다(사람, 2026-10-31).** native view는 shell HTML 위에 그려져 menu·popover·floated 패널·toast가 앱 page 밑에 깔렸고, 피하려고 층·cover·bounds relay가 쌓였다. browser 탭이 같은 이유로 이미 `<webview>`를 쓰고 그 뒤로 겹침 문제가 없다. iframe은 preload의 isolated world, 앱별 partition, sender 신원을 잃고, remote UI는 앱이 자기 DOM·CSS component를 못 쓰게 해서 버렸다. Electron은 `<webview>`를 권하지 않지만 browser 탭이 이미 그 위험을 지고 있어 새 위험이 아니다.
 - **artifact 탭도 같이 옮겼다(agent).** 같은 겹침 문제를 갖고 있었다. 남겨 두면 앱 쪽 장치를 지우지 못한다.
 - **붙이기 ticket은 `src` 하나이고 한 번만 쓴다(agent).** registry의 `acceptGuest(window, src)`가 그 창의 view이고 그 src를 아직 안 쓴 때만 받는다. renderer가 적은 partition·preload·webPreferences는 버리고 main이 정한 값만 쓴다. renderer가 붙이기 값을 위조해도 다른 session이나 preload로 갈 수 없다.

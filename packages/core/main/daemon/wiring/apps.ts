@@ -89,10 +89,12 @@ import {
   createRewindReads,
 } from "../../../apps/rewind/mod.ts";
 import {
+  appIconRead,
   appStatesOf,
   appToolLookupOf,
   bundleLocatorOf,
   callToolHandler,
+  iconPathOf,
   mainRead,
   rewindHandler,
   screenFileStream,
@@ -443,6 +445,13 @@ export const appsWiring: WiringFactory = () => {
           appsControl.overlayReads(reads);
           reads.set("apps/rewind_plan", mainRead(rewindReads.plan, link.sql));
           reads.set("apps/rewinds", mainRead(rewindReads.list, link.sql));
+          reads.set(
+            "apps/icon",
+            appIconRead({
+              ...createScreenFileDeps(locator),
+              iconPath: iconPathOf(link.sql),
+            }),
+          );
           // 안내 원문만 읽는 좁은 route다. apps 등록이 route를 선언하고(handler 없음) blob 바이트 통로를 가진 이
           // 조립이 handler를 붙인다. coding credential에 일반 blobs/read를 열지 않는다.
           reads.set(

@@ -34,7 +34,13 @@ import { loadActiveDeclaration, loadRelease } from "./releases/store.ts";
 import { type AppStates } from "./calls/mod.ts";
 import { bundleCopyPath } from "./releases/mod.ts";
 import { createAppRewindCommand } from "./rewind/mod.ts";
-import { type ScreenFileDeps, serveScreenFile } from "./screens/mod.ts";
+import {
+  type AppIconDeps,
+  readAppIcon,
+  type ScreenFileDeps,
+  serveScreenFile,
+} from "./screens/mod.ts";
+import { appIcon } from "../../protocol/apps/declaration/read.ts";
 import type {
   AppRewind,
   AppToolCallPath,
@@ -115,6 +121,29 @@ export function screenFileStream(deps: ScreenFileDeps): FileStreamHandler {
         },
       }),
     });
+  };
+}
+
+// `app.icon`. 파일을 읽으므로 reader Worker가 아니라 메인 스레드 read다.
+export function appIconRead(deps: AppIconDeps): ReadHandler {
+  return async (_ctx, input) => {
+    const parsed = appIcon.input.safeParse(input);
+    if (!parsed.success) {
+      return err({ code: "invalid_input", message: "invalid app icon input" });
+    }
+    const icon = await readAppIcon(deps, parsed.data.app);
+    return icon.ok ? ok({ icon: icon.value }) : icon;
+  };
+}
+
+// 활성 release 선언의 icon 경로. 선언에 없거나 active release가 없으면 null이다.
+export function iconPathOf(
+  sql: Pick<Sql, "get" | "all">,
+): AppIconDeps["iconPath"] {
+  return (app) => {
+    const stored = loadActiveDeclaration(sql, app);
+    if (!stored.ok) return stored;
+    return ok(stored.value?.declaration.icon ?? null);
   };
 }
 

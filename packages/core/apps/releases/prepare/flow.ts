@@ -22,6 +22,9 @@ import {
 } from "./git-extract.ts";
 import { type LimitFailure, usageCounter } from "./limits.ts";
 
+// `app.icon`이 읽는 상한과 같다.
+const ICON_MAX_BYTES = 64 * 1024;
+
 export type PrepareFailure = {
   code: "invalid_input" | "unavailable";
   reason: string;
@@ -184,6 +187,23 @@ export async function prepareRelease(
     ...entryFiles,
     { path: "declaration.json", bytes: declarationBytes },
   ];
+  // 선언한 icon이 bundle에 없거나 `app.icon`의 상한보다 크면 보이지 않으므로 준비에서 알린다.
+  const icon = (
+    JSON.parse(declaration.value.canonicalJson) as { icon?: string }
+  ).icon;
+  if (icon !== undefined) {
+    const found = files.find((file) => `/${file.path}` === icon);
+    if (found === undefined) {
+      return fail(
+        `The declared icon ${icon} is not in the committed source. Commit the image at that path.`,
+      );
+    }
+    if (found.bytes.byteLength > ICON_MAX_BYTES) {
+      return fail(
+        `The declared icon ${icon} is larger than ${ICON_MAX_BYTES / 1024} KiB.`,
+      );
+    }
+  }
   let bundleBytes = 0;
   const hashed: { path: string; hash: string }[] = [];
   for (const file of files) {

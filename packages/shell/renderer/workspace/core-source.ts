@@ -11,7 +11,7 @@ import { commandCall } from "../command-call.ts";
 import {
   readProjects,
   windowFolderPicker,
-} from "../desktop/launcher/projects/core-source.ts";
+} from "../desktop/places/projects/core-source.ts";
 import { createLayoutSource } from "../shell/layout-source.ts";
 import { coreAgentsSource } from "./agents/core-source.ts";
 import { coreDomainActions } from "./domains/core-calls.ts";

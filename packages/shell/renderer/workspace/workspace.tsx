@@ -32,7 +32,7 @@ import {
   usePaletteEnv,
   usePaletteScope,
 } from "../desktop/palette/host.tsx";
-import type { ProjectsSource } from "../desktop/launcher/projects/source.ts";
+import type { ProjectsSource } from "../desktop/places/projects/source.ts";
 import {
   focusTab,
   topFloat,

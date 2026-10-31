@@ -6,8 +6,8 @@ import {
   TopBar,
   Wordmark,
 } from "../../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
-import { schemaFailure } from "../../../../../packages/shell/renderer/desktop/launcher/start-failure/model.ts";
-import { StartFailureScreen } from "../../../../../packages/shell/renderer/desktop/launcher/start-failure/start-failure.tsx";
+import { schemaFailure } from "../../../../../packages/shell/renderer/desktop/places/start-failure/model.ts";
+import { StartFailureScreen } from "../../../../../packages/shell/renderer/desktop/places/start-failure/start-failure.tsx";
 import launcher from "../../../../../packages/shell/renderer/desktop/launcher/launcher.module.css";
 
 const FAILURES: CSSProperties = {

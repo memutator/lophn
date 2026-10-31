@@ -16,7 +16,7 @@ import { createFakeAgentsSource } from "../../workspace/agents/fake-source.ts";
 import type { WorkspaceSource } from "../../workspace/source.ts";
 import type { CoreSource } from "../connection/connection.ts";
 import { seedWorkbench } from "../dev-seed.ts";
-import type { ProjectsSource } from "../launcher/projects/source.ts";
+import type { ProjectsSource } from "../places/projects/source.ts";
 import type { CatalogSource } from "../palette/catalog.ts";
 import { catalogSource } from "../palette/core-catalog.ts";
 import type { SettingsPanels } from "../settings/settings-screen.tsx";
@@ -25,7 +25,7 @@ import type { SettingsSource } from "../settings/source.ts";
 import { mockApps, mockSettings, mockSettingsPanels } from "./admin.ts";
 import { mockAgentTabSource } from "./agent.ts";
 import { mockAppDetail, mockAppViews, mockViews } from "./app-space.ts";
-import { mockProjects } from "./launcher.ts";
+import { mockProjects } from "./projects.ts";
 import { mockProjectIcons } from "./project-icons.ts";
 import { mockCore, mockEvents } from "./requests.ts";
 

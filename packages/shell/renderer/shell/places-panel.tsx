@@ -10,14 +10,14 @@ import { Menu, MenuIcon, Tooltip } from "@lophn/ui/overlay";
 import { AppPlaceMark } from "../app-frame/app-icon.tsx";
 import { sortApps } from "../apps/model.ts";
 import type { AppRow, AppsSource } from "../apps/source.ts";
-import { CreateAppDialog } from "../desktop/launcher/create-app-dialog.tsx";
-import { missingFolder, type Loaded } from "../desktop/launcher/model.ts";
-import { ProjectDetailDialog } from "../desktop/launcher/projects/project-detail.tsx";
+import { CreateAppDialog } from "../desktop/places/create-app-dialog.tsx";
+import { missingFolder, type Loaded } from "../desktop/places/model.ts";
+import { ProjectDetailDialog } from "../desktop/places/projects/project-detail.tsx";
 import type {
   ProjectItem,
   ProjectsSource,
-} from "../desktop/launcher/projects/source.ts";
-import { RegisterDialog } from "../desktop/launcher/register-dialog.tsx";
+} from "../desktop/places/projects/source.ts";
+import { RegisterDialog } from "../desktop/places/register-dialog.tsx";
 import { commonIcons, launcherIcons } from "../icons/mod.ts";
 import { PlaceMark } from "../parts/place-mark/place-mark.tsx";
 import { ProjectPlaceMark } from "../parts/project-icon/project-icon.tsx";

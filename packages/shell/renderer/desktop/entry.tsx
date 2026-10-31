@@ -48,7 +48,7 @@ import { coreAppsSource } from "../apps/core-source.ts";
 import {
   coreProjectsSource,
   windowFolderPicker,
-} from "./launcher/projects/core-source.ts";
+} from "./places/projects/core-source.ts";
 import { coreSettingsSource } from "./settings/core-source.ts";
 import { coreAppearanceSource } from "./settings/appearance/core-source.ts";
 import { coreKeyboardSource } from "./settings/keyboard/core-source.ts";

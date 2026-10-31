@@ -29,7 +29,7 @@ import type { TerminalDeps } from "../terminal/deps.ts";
 import { SettingsSpace } from "./settings/settings-space.tsx";
 import type { CatalogSource } from "./palette/catalog.ts";
 import { type PaletteDeps, PaletteProvider } from "./palette/host.tsx";
-import type { ProjectsSource } from "./launcher/projects/source.ts";
+import type { ProjectsSource } from "./places/projects/source.ts";
 import type { IntentApi } from "../../ipc/shortcuts.ts";
 import { DesktopIntents } from "./intents.tsx";
 import type { DesktopTarget } from "./palette/desktop-scope.ts";

@@ -10,9 +10,9 @@ import {
   useSessions,
   useWorkflowChanges,
 } from "../../desktop/connection/events/hooks.tsx";
-import { CreateAppDialog } from "../../desktop/launcher/create-app-dialog.tsx";
-import type { ProjectsSource } from "../../desktop/launcher/projects/source.ts";
-import { RegisterDialog } from "../../desktop/launcher/register-dialog.tsx";
+import { CreateAppDialog } from "../../desktop/places/create-app-dialog.tsx";
+import type { ProjectsSource } from "../../desktop/places/projects/source.ts";
+import { RegisterDialog } from "../../desktop/places/register-dialog.tsx";
 import { harnessVendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
 import type { PlaceRef } from "../../shell/desk-model.ts";
 import { LeftSidebar } from "../../shell/left-sidebar.tsx";

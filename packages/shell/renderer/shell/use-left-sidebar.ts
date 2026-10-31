@@ -9,7 +9,7 @@ import type { SessionEntry } from "../desktop/connection/events/sessions-store.t
 import type {
   ProjectItem,
   ProjectsSource,
-} from "../desktop/launcher/projects/source.ts";
+} from "../desktop/places/projects/source.ts";
 import type { KnownSessions } from "./left-sidebar-places.ts";
 
 /** 보관하지 않은 project와 앱. 순서는 런처와 같다. 등록·생성 뒤에는 reload로 다시 읽는다. */

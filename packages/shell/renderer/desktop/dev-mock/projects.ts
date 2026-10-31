@@ -2,11 +2,11 @@
 import type {
   ProjectItem,
   ProjectsSource,
-} from "../launcher/projects/source.ts";
+} from "../places/projects/source.ts";
 import {
   fakeProjects,
   folderItem,
-} from "../launcher/projects/testdata/fake-projects.ts";
+} from "../places/projects/testdata/fake-projects.ts";
 import { PROJECT_GROCERY, PROJECT_OFFICE, PROJECT_TAX } from "./ids.ts";
 
 const PROJECTS: readonly ProjectItem[] = [

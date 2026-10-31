@@ -15,7 +15,7 @@ import { Launcher } from "../../../../../packages/shell/renderer/desktop/launche
 import {
   fakeProjects,
   MISSING_FOLDER,
-} from "../../../../../packages/shell/renderer/desktop/launcher/projects/testdata/fake-projects.ts";
+} from "../../../../../packages/shell/renderer/desktop/places/projects/testdata/fake-projects.ts";
 import { createFakeAgentsSource } from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 import {
   click,
@@ -25,7 +25,7 @@ import {
   type,
   useDrive,
 } from "../../../mock/drive.ts";
-import { registerSteps } from "../../../mock/launcher/register-panel.tsx";
+import { registerSteps } from "../../../mock/places/register-panel.tsx";
 
 const noop = () => {};
 

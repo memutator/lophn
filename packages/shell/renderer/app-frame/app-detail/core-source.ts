@@ -20,7 +20,7 @@ import {
   iconInputOf,
   iconViewOf,
 } from "../../parts/icon-upload/icon-reader.ts";
-import { windowFolderPicker } from "../../desktop/launcher/projects/core-source.ts";
+import { windowFolderPicker } from "../../desktop/places/projects/core-source.ts";
 import type { FolderPickerApi } from "../../../ipc/folder-picker.ts";
 import type { SecretFileStatus } from "../../../../protocol/secrets/secret-file.ts";
 import type { OpenExternalApi } from "../../../ipc/open-external.ts";

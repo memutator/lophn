@@ -5,7 +5,7 @@ import { galleryApps } from "../../../../../packages/shell/renderer/apps/testdat
 import {
   fakeProjects,
   MISSING_FOLDER,
-} from "../../../../../packages/shell/renderer/desktop/launcher/projects/testdata/fake-projects.ts";
+} from "../../../../../packages/shell/renderer/desktop/places/projects/testdata/fake-projects.ts";
 import { shellIcons } from "../../../../../packages/shell/renderer/icons/mod.ts";
 import { PanelTabs } from "../../../../../packages/shell/renderer/shell/panel-tabs.tsx";
 import { PlacesPanel } from "../../../../../packages/shell/renderer/shell/places-panel.tsx";

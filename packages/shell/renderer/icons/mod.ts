@@ -21,4 +21,5 @@ export { actionIcons } from "./action.ts";
 export { commonIcons } from "./common.ts";
 export { paletteIcons } from "./palette.ts";
 export { settingsIcons } from "./settings.ts";
+export { shellIcons } from "./shell.ts";
 export { workspaceIcons } from "./workspace.ts";

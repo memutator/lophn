@@ -1,0 +1,242 @@
+/* 고른 tab은 card와 같은 색이고 아래 두 모서리가 바깥으로 휘어 card 위 변에 이어진다(Chrome).
+   치수(tab 높이 space-9, 곡선 radius-md)는 shell-frame.module.css와 맞물린다. 첫 tab의 왼쪽 띄움은 frame이 준다. */
+
+.strip {
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  min-width: var(--space-0);
+}
+
+/* tab은 먼저 좁아지고 최소 폭에서 가로 scroll이 된다. 양 끝 곡선이 잘리지 않게 곡선 폭만큼 띄운다. */
+.list {
+  display: flex;
+  flex: 0 1 auto;
+  gap: var(--space-1);
+  align-items: flex-end;
+  min-width: var(--space-0);
+  height: var(--space-9);
+  padding-inline: var(--radius-md);
+  overflow: hidden;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.list::-webkit-scrollbar {
+  display: none;
+}
+
+.drag {
+  flex: 1;
+  align-self: stretch;
+}
+
+.newTab {
+  display: inline-flex;
+  flex: none;
+  align-self: center;
+  padding-block-start: var(--space-2);
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  flex: 0 1 calc(var(--space-12) * 3 + var(--space-9));
+  gap: var(--space-3);
+  align-items: center;
+  min-width: var(--space-11);
+  height: var(--space-9);
+  padding-inline: var(--space-4) var(--space-2);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-md) var(--radius-md) var(--space-0) var(--space-0);
+  cursor: default;
+  user-select: none;
+}
+
+/* 고르지 않은 tab은 hover 때 안쪽에 둥근 바탕만 보인다. */
+.tab:not([data-active])::before {
+  position: absolute;
+  inset: var(--space-1) var(--space-0) var(--space-2);
+  content: "";
+  border-radius: var(--radius-md);
+}
+
+.tab:not([data-active]):hover::before {
+  background: var(--color-surface-muted);
+}
+
+.tab > :not(.flareStart, .flareEnd) {
+  position: relative;
+}
+
+.tab[data-active] {
+  color: var(--color-text-primary);
+  background: var(--color-surface-base);
+}
+
+/* 끌어 놓을 자리. */
+.tab[data-drop]::after {
+  position: absolute;
+  inset-block: var(--space-1);
+  width: var(--space-1);
+  content: "";
+  background: var(--color-focus);
+  border-radius: var(--radius-full);
+}
+
+.tab[data-drop="before"]::after {
+  inset-inline-start: calc(-1 * var(--space-1));
+}
+
+.tab[data-drop="after"]::after {
+  inset-inline-end: calc(-1 * var(--space-1));
+}
+
+.icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+.title {
+  flex: 1;
+  min-width: var(--space-0);
+  overflow: hidden;
+  font-size: var(--type-small-size);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.close {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-7);
+  height: var(--space-7);
+  padding: var(--space-0);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  visibility: hidden;
+}
+
+.tab[data-active] .close,
+.tab:hover .close {
+  visibility: visible;
+}
+
+.close:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-muted);
+}
+
+/* 고른 tab 아래 두 모서리의 바깥 곡선. 원 밖만 card 색으로 칠해 오목한 모서리를 만든다. */
+.flareStart,
+.flareEnd {
+  position: absolute;
+  bottom: var(--space-0);
+  width: var(--radius-md);
+  height: var(--radius-md);
+  pointer-events: none;
+}
+
+.flareStart {
+  right: 100%;
+}
+
+.flareEnd {
+  left: 100%;
+}
+
+.tab[data-active] .flareStart {
+  background: radial-gradient(
+    circle at 0 0,
+    transparent var(--radius-md),
+    var(--color-surface-base) calc(var(--radius-md) + var(--border-width))
+  );
+}
+
+.tab[data-active] .flareEnd {
+  background: radial-gradient(
+    circle at 100% 0,
+    transparent var(--radius-md),
+    var(--color-surface-base) calc(var(--radius-md) + var(--border-width))
+  );
+}
+
+/* tab 안 반쪽. split tab은 둘이 한 칸에 붙고 사이에 선이 있다. */
+.half {
+  display: flex;
+  flex: 1;
+  gap: var(--space-3);
+  align-items: center;
+  min-width: var(--space-0);
+}
+
+.tab[data-split] {
+  flex: 0 0.4 calc(var(--space-12) * 5 + var(--space-9));
+  min-width: calc(var(--space-12) * 3);
+}
+
+.tab[data-split]:not([data-active])::before {
+  background: var(--color-surface-muted);
+}
+
+.tab[data-split] .half + .half {
+  padding-inline-start: var(--space-4);
+  border-inline-start: var(--border-width) solid var(--color-border-base);
+}
+
+.tab[data-active][data-split] .half:not([data-focused]) {
+  color: var(--color-text-muted);
+}
+
+/* 접힌 float. tab 줄 오른쪽 끝에 아이콘만 보이는 좁은 칸이다(Chrome pinned tab). */
+.minimized {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  align-self: center;
+  margin-block-start: var(--space-2);
+  margin-inline-end: var(--space-2);
+  padding-inline-start: var(--space-3);
+  border-inline-start: var(--border-width) solid var(--color-border-base);
+}
+
+.chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--control-sm-height);
+  height: var(--control-sm-height);
+  padding: var(--space-0);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--type-caption-size);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+}
+
+.chip:hover {
+  background: var(--color-surface-muted);
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--color-surface-base);
+}
+
+.chip[aria-pressed="true"]::after {
+  position: absolute;
+  bottom: var(--space-0);
+  left: 50%;
+  width: var(--space-4);
+  height: var(--space-1);
+  content: "";
+  background: var(--color-ink-background);
+  border-radius: var(--radius-full);
+  transform: translateX(-50%);
+}

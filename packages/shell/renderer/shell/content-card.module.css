@@ -1,0 +1,115 @@
+.card {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: var(--space-0);
+  overflow: hidden;
+  background: var(--color-surface-base);
+  border-radius: var(--radius-lg);
+}
+
+.grow {
+  flex: 1;
+}
+
+.head {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  align-items: center;
+  height: var(--space-10);
+  padding-inline: var(--space-3);
+}
+
+.crumbs {
+  display: inline-flex;
+  min-width: var(--space-0);
+  margin-inline-start: var(--space-3);
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  white-space: nowrap;
+}
+
+.crumb:last-child {
+  color: var(--color-text-primary);
+}
+
+.sep {
+  padding-inline: var(--space-3);
+  color: var(--color-text-disabled);
+}
+
+.status {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin-inline-start: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+}
+
+.ready {
+  flex: none;
+  width: var(--space-3);
+  height: var(--space-3);
+  background: var(--color-ink-background);
+  border-radius: var(--radius-full);
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: var(--space-0);
+  overflow: auto;
+}
+
+/* split. card를 좌우로 나누고 각 반쪽이 자기 머리 줄을 가진다. */
+.split {
+  display: flex;
+  flex: 1;
+  min-height: var(--space-0);
+}
+
+.half {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: var(--space-0);
+}
+
+.half + .half {
+  border-inline-start: var(--border-width) solid var(--color-border-base);
+}
+
+.half:not([data-focused]) .crumb:last-child {
+  color: var(--color-text-muted);
+}
+
+.empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.emptyTitle {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.emptyText {
+  margin: var(--space-0);
+  font-size: var(--type-small-size);
+}
+
+.emptyActions {
+  display: inline-flex;
+  gap: var(--space-3);
+  margin-block-start: var(--space-3);
+}

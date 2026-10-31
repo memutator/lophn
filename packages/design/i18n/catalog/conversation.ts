@@ -294,6 +294,8 @@ export const conversation = {
   "conversation.label.status-still-working":
     "Slow response · the provider or network may be struggling",
   "conversation.label.status-stopped": "Stopped",
+  "conversation.label.status-thinking": "Thinking",
+  "conversation.label.status-activity": "· {activity}",
   "conversation.label.status-waiting-answer": "Waiting for your answer",
   "conversation.label.status-waiting-approval": "Waiting for your approval",
   "conversation.label.status-working": "Working",

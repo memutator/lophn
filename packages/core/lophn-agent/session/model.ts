@@ -436,10 +436,18 @@ export function takeSteering(
     return err({ code: "not_found", message: "model call not found" });
   }
   for (const message of input.messages) {
+    const row = tx.sql.get("select delivery, turn from messages where id = ?", [
+      message,
+    ]);
+    if (row === undefined || row["turn"] !== null) continue;
     tx.sql.run("update messages set turn = ? where id = ? and turn is null", [
       call["turn"],
       message,
     ]);
+    // 다음 turn으로 접수했다가 [Send now]로 올린 메시지는 turn을 여는 입력이 아니므로 rewind 시점이 아니다.
+    if (row["delivery"] === "next_turn") {
+      tx.sql.run("delete from checkpoints where message = ?", [message]);
+    }
   }
   return ok(undefined);
 }

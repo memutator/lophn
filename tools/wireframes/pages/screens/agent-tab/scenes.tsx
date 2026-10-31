@@ -118,3 +118,5 @@ export const DetailScene = () => <Scene sub="steps-detail" />;
 export const FindScene = () => <Scene sub="find" />;
 /** session 검색이 제목뿐 아니라 메시지 글에서도 찾은 모습. session 묶음마다 한 줄 snippet이 보인다. */
 export const SessionSearchScene = () => <Scene sub="session-search" />;
+/** Messages 보기: tool 줄과 reasoning을 숨기는 대신 일하는 중 줄이 지금 하는 일을 말한다. */
+export const WorkingMessagesScene = () => <Scene sub="working-messages" />;

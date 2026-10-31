@@ -12,6 +12,7 @@ import {
   AgentConversation,
   AgentEditDiff,
   AgentDetail,
+  AgentWorkingMessages,
   AgentFind,
   AgentModelPicker,
   AgentModelShortcut,
@@ -351,6 +352,13 @@ export const agentArea: Area = {
       description:
         "머리의 단계 상세 menu에서 Everything을 고른 모습이다. 모든 tool 묶음이 펼쳐지고, 묶음을 눌러 접었다 펼 수 있다. Messages는 tool 줄과 reasoning을 숨기고 Compact는 접힌 채로 그린다.",
       render: () => <AgentDetail />,
+    },
+    {
+      id: "new-agent-working-messages",
+      title: "Agent · working row in Messages view",
+      description:
+        "Messages 보기는 tool 줄과 reasoning을 숨긴다. 일하는 중 줄이 지금 하는 일(도는 tool의 제목, reasoning 중이면 Thinking)을 붙여 오래 걸리는 turn이 멈춘 것처럼 보이지 않게 한다.",
+      render: () => <AgentWorkingMessages />,
     },
     {
       id: "new-agent-find",

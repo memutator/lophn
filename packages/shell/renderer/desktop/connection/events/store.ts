@@ -45,10 +45,11 @@ export function syncOnReady<R>(options: SyncOptions<R>) {
 
   async function sync() {
     const mine = ++generation;
+    // 앞선 읽기가 아직 돌고 있으면 그 사이 모은 event는 버리지 않는다. 새 snapshot은 그 event를 담는다는 보장이 없다.
+    if (!syncing) buffered = [];
     syncing = true;
-    buffered = [];
     options.onStatus?.("syncing");
-    const snapshot = await options.read();
+    const snapshot = await options.read().catch(() => null);
     if (mine !== generation) return;
     if (snapshot !== null) options.replace(snapshot);
     syncing = false;

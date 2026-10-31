@@ -106,6 +106,13 @@ const DEMOS: Readonly<
       () => click("[role=menuitem]", "Everything"),
     ],
   },
+  "working-messages": {
+    scene: "working",
+    steps: [
+      () => press("[data-steps-detail]"),
+      () => click("[role=menuitem]", "Messages"),
+    ],
+  },
   find: {
     scene: "report",
     steps: [

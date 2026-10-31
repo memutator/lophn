@@ -15,6 +15,8 @@ export interface SessionEventsState {
   /** `from`번째부터 이 state의 `count` 전까지. log는 탭이 열린 동안 남는다. */
   readonly since: (from: number) => readonly AgentEvent[];
   readonly status: "loading" | "live" | "reconnecting";
+  /** ready 뒤 snapshot을 맞춘 횟수. 끊김 없이 다시 걸린 ready도 센다. */
+  readonly synced: number;
   /** 마지막으로 읽은 session snapshot. 아직 못 읽었으면 null. */
   readonly snapshot: SessionSnapshot | null;
 }
@@ -23,6 +25,7 @@ export const NO_SESSION_EVENTS: SessionEventsState = {
   count: 0,
   since: () => [],
   status: "loading",
+  synced: 0,
   snapshot: null,
 };
 
@@ -69,8 +72,12 @@ export function createSessionEventsStore(
           update(session, { count, since: (from) => log.slice(from, count) });
         },
         onStatus: (status) => {
-          if (status === "synced") update(session, { status: "live" });
-          else if (status === "disconnected") {
+          if (status === "synced") {
+            update(session, {
+              status: "live",
+              synced: (state.get().get(session)?.synced ?? 0) + 1,
+            });
+          } else if (status === "disconnected") {
             update(session, { status: "reconnecting" });
           }
         },

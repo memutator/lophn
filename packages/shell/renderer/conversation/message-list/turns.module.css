@@ -81,6 +81,15 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 지금 하는 일 한 줄. 긴 제목은 줄여 일하는 중 줄이 한 줄로 남는다. */
+.activity {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 오래 걸리는 turn의 이유 한 줄. 30초는 조용히, 90초는 경고 색으로 말한다. */
 .hint {
   color: var(--color-text-muted);

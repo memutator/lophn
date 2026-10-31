@@ -25,10 +25,17 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
 `name`, `description`, `screens`, `tools`, `permissions`, `app_connections`,
 `sdk_dependencies`와 선택 칸 `icon`만 있다. 알 수 없는 칸은 거절한다.
 
+- `screens` — 화면 목록이다. 항목은 `{key, label, path, sizes}`다. `sizes`는
+  화면을 열 수 있는 자리다. `full`은 앱 창, `panel`은 project 창의 탭(사람이
+  "앱 · 화면 label"을 골라 열고 activity bar에 고정한다), `card`는 agent 대화 안의
+  카드다. 한 가지 일만 하는 화면을 `panel`로 따로 두면 사람이 앱 전체를 열지 않고
+  그 일만 옆에 띄운다. 넓어야만 쓸 수 있는 화면에는 `panel`을 빼 둔다.
+
 - `icon` — 앱 icon 이미지의 bundle 안 경로다(`"/assets/icon.svg"`). `.svg`, `.png`,
   `.webp`만 받고 64 KiB 이하여야 한다. 파일은 source에 commit해 두면 release에
   담기고, 선언했는데 파일이 없으면 release 준비가 거절한다. lophn이 탭과 앱 목록에서
-  앱을 보일 때 쓴다. 없으면 기본 모양이다.
+  앱을 보일 때 쓴다. 없으면 기본 모양이다. 사람이 App details에서 올린 icon이 있으면
+  그것이 먼저다.
 
 - `tools` — 다른 앱과 화면이 부르는 tool 목록이다. 항목은
   `{name, title, description, inputSchema, outputSchema?, effect, public, domain}`다.

@@ -34,6 +34,7 @@ import {
   usePaletteEnv,
   usePaletteScope,
 } from "../desktop/palette/host.tsx";
+import type { ProjectsSource } from "../desktop/launcher/projects/source.ts";
 import type { CatalogSource } from "../desktop/palette/catalog.ts";
 import {
   focusTab,
@@ -62,6 +63,7 @@ import { Floats } from "./floats/floats.tsx";
 import { distinctAgentTab, openAgent } from "./kinds/agent.tsx";
 import { openAgents } from "./kinds/agents.tsx";
 import { openAppPanel, openPinnedAppPanel } from "./kinds/app-panel.tsx";
+import { openProjectSettings } from "./kinds/project-settings.tsx";
 import { openArtifact } from "./kinds/artifact.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
 import { openFile } from "./kinds/document-editor.tsx";
@@ -194,6 +196,8 @@ export interface WorkspaceProps {
   detached?: LophnDetachedApi;
   /** 앱 공간으로 연다. 없으면 패널을 못 여는 앱에는 안내 글만 둔다. */
   onOpenApp?: (app: string) => void;
+  /** project 등록(이름·폴더)을 고치는 통로. 런처가 쓰는 것과 같다. 없으면 settings 탭의 General을 쓸 수 없다. */
+  projects?: ProjectsSource;
   /**
    * Agent 탭이 agent 하나의 통로를 얻는 함수(agentViewSource). 없으면
    * Agent 탭을 열지 않고 저장된 Agent 탭은 준비되지 않았다는 안내만 보인다. WorkspaceSource에 두지 않는 까닭: source.ts는 core 통로를 부르는 순수 `.ts`
@@ -399,6 +403,13 @@ export function Workspace(props: WorkspaceProps) {
       live = false;
     };
   }, [projectId, source]);
+
+  // 이름이나 폴더를 settings 탭에서 저장하면 상단 경로와 sidebar가 새 값을 보이게 다시 읽는다.
+  const reloadProject = () => {
+    void source.project(projectId).then((read) => {
+      if (read.ok) setLoaded((now) => ({ ...now, project: read.value }));
+    });
+  };
 
   const sidebarShown = sidebarView(measuredWindow, sidebar, userChoseWidth);
   // 목록을 못 읽었거나 읽는 중이면 기본 자리와 layout에 이미 있는 workflow 자리만 보인다.
@@ -859,6 +870,12 @@ export function Workspace(props: WorkspaceProps) {
     document: { noteReadPosition: notePosition },
     agents,
     agentView,
+    projectSettings: {
+      projects: props.projects,
+      railApps,
+      setRailApps: changeRail,
+      projectChanged: reloadProject,
+    },
   };
 
   // 이 창이 보이는 동안 toast 행동을 받는다. 처리기는 열 때의 최신 작업대를 본다.
@@ -1298,7 +1315,9 @@ export function Workspace(props: WorkspaceProps) {
         else if (target.kind === "bookmark") openBrowserTab(host, target.url);
         else if (target.action === "launcher") onLauncher();
         else if (target.action === "settings") onSettings();
-        else if (target.action === "terminal") openTerminalTab(host);
+        else if (target.action === "project-settings") {
+          openProjectSettings(host);
+        } else if (target.action === "terminal") openTerminalTab(host);
         else if (target.action === "float") {
           const tab = focusTab(latest.current);
           if (tab !== undefined && mainSize !== undefined) {
@@ -1589,6 +1608,7 @@ export function Workspace(props: WorkspaceProps) {
                     projects={placeLists.projects}
                     apps={placeLists.apps}
                     recent={recentPlaces}
+                    onProjectSettings={() => openProjectSettings(host)}
                     onOpenChange={readListsOnOpen}
                     onSelect={(place) => {
                       if (place.kind !== "project" || place.id !== projectId) {

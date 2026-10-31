@@ -42,8 +42,8 @@ kit does the job, and style it with the token variables.
 ## Screens without clutter
 
 - Start from how well-known apps of the same kind lay out the same screen.
-- lophn already shows the app's name and state above your screen. Do not repeat
-  them.
+- lophn already shows the app's name: in the app bar of the app window, and as
+  the tab title when a screen is opened as a panel. Do not repeat it.
 - One header row per screen. What changes the whole view, such as the period,
   the view mode or the main action, goes in that row. Do not stack bars.
 - Show what the journeys need. No heading that restates another, no text that
@@ -52,3 +52,33 @@ kit does the job, and style it with the token variables.
 - Spacing, type size and color come from the token variables. Do not invent
   values.
 - A panel or a card shows less, not the same screen squeezed.
+
+## Where screens open
+
+Each screen declares `sizes`. They decide where people can open it:
+
+- `full`: the app window, with the app's own navigation.
+- `panel`: a tab in a project window, next to the person's work. People pick
+  "App · Screen" from a list (the screen's `label` is the second half), and can
+  pin it to the project's activity bar to open it with one click, docked in a
+  pane or floating.
+- `card`: inside an agent conversation, when an agent shows the screen.
+
+Panels are where an app is used most often, so design them on purpose:
+
+- When one task is worth keeping beside the work (look up one session, add one
+  entry, watch one number), make it its own screen with `sizes: ["panel"]` or
+  `["panel", "full"]` instead of asking people to open the whole app. Give it a
+  task-like `label` such as "Session lookup"; that label is what people pick
+  and pin.
+- Leave `panel` out of screens that only work wide, such as a dashboard with
+  many columns. People then see that it opens only in the app window.
+- A panel tab can be narrow or as wide as a pane. Lay out by
+  `useContainerSpace()` from `@lophn/ui/layout` (`card` under 320px, `panel`
+  under 640px, `full` above), not by the window size.
+- A panel reloads when it is moved to another window. Keep its last input
+  (the picked item, the typed id, the filter) in `localStorage` so it comes
+  back as it was.
+- An app may declare `icon` (an image in the source, see the `@lophn/declaration`
+  guide). lophn shows it on tabs, the activity bar and app lists. A person can
+  also upload one in App details; theirs wins.

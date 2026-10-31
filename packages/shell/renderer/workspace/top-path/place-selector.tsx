@@ -4,13 +4,13 @@
 // 고르면 그 place를 이 창에서 연다(공간 이동은 부르는 쪽 몫).
 
 import { t } from "@lophn/i18n";
-import { Menu, type MenuItem } from "@lophn/ui/overlay";
+import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 
 import { AppPlaceMark } from "../../app-frame/app-icon.tsx";
 import { commonIcons, conversationIcons } from "../../icons/mod.ts";
-import { PlaceMark } from "../../parts/place-mark/place-mark.tsx";
+import { ProjectPlaceMark } from "../../parts/project-icon/project-icon.tsx";
 import styles from "./desk-selector.module.css";
 import type { PlaceRef } from "./recent-places.ts";
 
@@ -37,11 +37,14 @@ export interface PlaceSwitcherProps {
   /** 최근에 연 place, 최근 것부터. 묶음 안의 순서를 정한다. 여기 없는 place는 뒤에 목록 순서로 온다. */
   readonly recent?: readonly PlaceRef[];
   readonly onSelect: (place: PlaceRef) => void;
+  /** 주면 목록 끝에 현재 project의 Project settings 항목이 붙는다(project 창만 준다). */
+  readonly onProjectSettings?: () => void;
   /** menu가 열리고 닫힐 때. 열 때 목록을 다시 읽는 데 쓴다. */
   readonly onOpenChange?: (open: boolean) => void;
 }
 
 const pixels = iconPixels("small");
+const PROJECT_SETTINGS_ID = "project-settings";
 
 export function PlaceSwitcher({
   active,
@@ -50,6 +53,7 @@ export function PlaceSwitcher({
   apps,
   recent = [],
   onSelect,
+  onProjectSettings,
   onOpenChange,
 }: PlaceSwitcherProps) {
   const known: Readonly<Record<PlaceKind, readonly PlaceOption[]>> = {
@@ -69,6 +73,14 @@ export function PlaceSwitcher({
   };
   // menu 항목 id는 줄마다 달라야 한다.
   const items: MenuItem[] = [];
+  // project 창의 현재 project 설정은 목록 맨 위다. 아래 project 목록과 선으로 가른다.
+  if (onProjectSettings !== undefined) {
+    items.push({
+      id: PROJECT_SETTINGS_ID,
+      label: t("project-workspace.button.project-settings"),
+      leading: <MenuIcon icon={commonIcons.settings} />,
+    });
+  }
   for (const kind of ["project", "app"] as const) {
     const group = [...known[kind]].sort(
       (a, b) => rank(kind, a.id) - rank(kind, b.id),
@@ -82,8 +94,7 @@ export function PlaceSwitcher({
           kind === "app" ? (
             <AppPlaceMark id={item.id} name={item.label} icon={item.icon} />
           ) : (
-            <PlaceMark
-              kind={kind}
+            <ProjectPlaceMark
               id={item.id}
               name={item.label}
               {...(item.icon === undefined ? {} : { icon: item.icon })}
@@ -125,6 +136,10 @@ export function PlaceSwitcher({
       }
       items={items}
       onSelect={(id) => {
+        if (id === PROJECT_SETTINGS_ID) {
+          onProjectSettings?.();
+          return;
+        }
         const picked = items.find((item) => item.id === id)?.data?.[
           "data-place-option"
         ];

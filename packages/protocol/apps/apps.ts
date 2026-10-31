@@ -4,6 +4,7 @@ import { archiveStateSchema } from "../base/values.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { defineEvent } from "../base/event.ts";
 import { definePort } from "../base/ports.ts";
+import { iconSetOutputSchema, iconSetSchema } from "../base/icon.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import {
@@ -159,6 +160,16 @@ export const appEditFolders = defineCommand({
   compare: appCompareSchema,
   actors: ["user"],
   errors: ["conflict", "invalid_input", "not_found"],
+});
+// 사람이 올린 icon을 정하거나(icon) 지운다(null). 앱 선언의 icon보다 앞선다. revision을 올리지 않는다.
+export const appSetIcon = defineCommand({
+  resource: "apps",
+  method: "set_icon",
+  name: "app.set_icon",
+  input: z.strictObject({ app: appIdSchema, icon: iconSetSchema }),
+  output: iconSetOutputSchema,
+  actors: ["user"],
+  errors: ["invalid_input", "not_found"],
 });
 
 const appListInputSchema = z.strictObject({

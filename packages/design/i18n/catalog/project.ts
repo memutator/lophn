@@ -88,7 +88,25 @@ export const project = {
   "file-search.notice.type-text":
     "Type text to search the files in this project.",
   "file-search.notice.unavailable": "Search isn't available right now.",
+  "project-settings.button.add-app-panel": "Add app panel",
+  "project-settings.button.move-down": "Move down",
+  "project-settings.button.move-up": "Move up",
+  "project-settings.button.remove-app-panel": "Remove from activity bar",
+  "project-settings.heading.app-panels": "App panels",
+  "project-settings.heading.general": "General",
+  "project-settings.label.open-dock": "Dock",
+  "project-settings.label.open-float": "Float",
+  "project-settings.label.open-mode": "Open mode",
+  "project-settings.label.project-target": "project details",
+  "project-settings.notice.app-panels-empty": "No app panels pinned yet.",
+  "project-settings.notice.app-panels-lead":
+    "Pinned to this project's activity bar. Open mode decides where a panel opens when it isn't open yet.",
+  "project-settings.notice.app-panels-unavailable":
+    "App panels can't be managed in this window.",
+  "project-settings.notice.general-unavailable":
+    "Project details can't be edited in this window.",
   "project-workspace.button.detached-dock": "Dock",
+  "project-workspace.button.project-settings": "Project settings",
   "project-workspace.button.explorer-collapse-all": "Collapse All",
   "project-workspace.button.explorer-add-folder": "Add folder",
   "project-workspace.button.explorer-copy-path": "Copy Path",
@@ -172,6 +190,7 @@ export const project = {
   "project-workspace.label.kind-agents": "Agents",
   "project-workspace.label.kind-app-panel": "App panel",
   "project-workspace.label.kind-document-editor": "Document editor",
+  "project-workspace.label.kind-project-settings": "Project settings",
   "project-workspace.label.kind-terminal": "Terminal",
   "project-workspace.label.menu-agent": "Agent",
   "project-workspace.label.menu-app-panel": "App panel",

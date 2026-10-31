@@ -30,6 +30,10 @@ import {
   coreAppScreens,
 } from "../app-frame/app-views.tsx";
 import { coreAppIcon } from "../app-frame/app-icon.tsx";
+import {
+  coreProjectIcons,
+  ProjectIconsProvider,
+} from "../parts/project-icon/project-icon.tsx";
 import type { IntentApi, ShortcutApi } from "../../ipc/shortcuts.ts";
 import type { PaletteDeps } from "./palette/host.tsx";
 import { fileSearch } from "./palette/search.ts";
@@ -216,48 +220,53 @@ const appViews: AppViewsDeps | null =
       }
     : null);
 
+// project 표식의 icon 읽기와 project 설정의 올리기. 앱 icon과 달리 project는 선언이 없고 올린 것만 있다.
+const projectIcons = mock?.projectIcons ?? coreProjectIcons(core);
+
 // 파일 읽기와 chat의 code block이 같은 Worker를 쓴다. Worker는 첫 highlight 때 뜬다.
 const highlighter = createWorkerHighlighter();
 
 mount(
   <div className={styles.root}>
     <HighlighterProvider value={highlighter}>
-      <AppViewsProvider value={appViews}>
-        <BrowserApiProvider value={browser}>
-          <ArtifactApiProvider value={artifact}>
-            <AnnotateApiProvider value={annotate}>
-              <BrowserOverlayProvider value={bridges.lophnShell ?? null}>
-                <ConversationProvider deps={conversation}>
-                  <EventsProvider client={events}>
-                    <Desktop
-                      source={core}
-                      initial={start}
-                      workspace={workspace}
-                      editor={bench ? bench.editor : editor}
-                      windowWidth={seed ? 1440 : undefined}
-                      terminal={terminal}
-                      catalog={catalog}
-                      palette={palette}
-                      projects={projects}
-                      intents={bridges.lophnIntents}
-                      apps={apps}
-                      settings={settings}
-                      settingsPanels={settingsPanels}
-                      appDetail={appDetail}
-                      views={views}
-                      annotate={annotate}
-                      overlay={bridges.lophnShell}
-                      hookPrompt={hookPrompt}
-                      agentViewSource={agentViewSource}
-                      detached={bridges.lophnDetached}
-                    />
-                  </EventsProvider>
-                </ConversationProvider>
-              </BrowserOverlayProvider>
-            </AnnotateApiProvider>
-          </ArtifactApiProvider>
-        </BrowserApiProvider>
-      </AppViewsProvider>
+      <ProjectIconsProvider value={projectIcons}>
+        <AppViewsProvider value={appViews}>
+          <BrowserApiProvider value={browser}>
+            <ArtifactApiProvider value={artifact}>
+              <AnnotateApiProvider value={annotate}>
+                <BrowserOverlayProvider value={bridges.lophnShell ?? null}>
+                  <ConversationProvider deps={conversation}>
+                    <EventsProvider client={events}>
+                      <Desktop
+                        source={core}
+                        initial={start}
+                        workspace={workspace}
+                        editor={bench ? bench.editor : editor}
+                        windowWidth={seed ? 1440 : undefined}
+                        terminal={terminal}
+                        catalog={catalog}
+                        palette={palette}
+                        projects={projects}
+                        intents={bridges.lophnIntents}
+                        apps={apps}
+                        settings={settings}
+                        settingsPanels={settingsPanels}
+                        appDetail={appDetail}
+                        views={views}
+                        annotate={annotate}
+                        overlay={bridges.lophnShell}
+                        hookPrompt={hookPrompt}
+                        agentViewSource={agentViewSource}
+                        detached={bridges.lophnDetached}
+                      />
+                    </EventsProvider>
+                  </ConversationProvider>
+                </BrowserOverlayProvider>
+              </AnnotateApiProvider>
+            </ArtifactApiProvider>
+          </BrowserApiProvider>
+        </AppViewsProvider>
+      </ProjectIconsProvider>
     </HighlighterProvider>
   </div>,
 );

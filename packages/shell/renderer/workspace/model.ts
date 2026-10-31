@@ -923,6 +923,8 @@ export interface RailApp {
   readonly app: string;
   readonly surface: string;
   readonly title?: string;
+  /** 같은 앱·화면 탭이 없을 때 새로 여는 자리. 없으면 dock이다. */
+  readonly open?: "dock" | "float";
 }
 
 /** main/workspace/schema.ts의 `rail_apps` 상한과 같다. */

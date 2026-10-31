@@ -4,9 +4,12 @@ import { t } from "@lophn/i18n";
 
 import { AppTabIcon } from "../../app-frame/app-icon.tsx";
 import { AppPanelPicker, AppPanelTab } from "../app-panel-tab.tsx";
-import type { RailApp } from "../model.ts";
+import type { RailApp, TabItem } from "../model.ts";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
+
+// 앱 패널이 떠서 열릴 때의 크기. 앱이 panel 크기로 그리는 화면이라 세로로 긴 쪽이다.
+const PANEL_FLOAT_SIZE = { width: 480, height: 640 };
 
 const TAB_KEY = /^[A-Za-z0-9._:-]+$/;
 const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
@@ -26,7 +29,7 @@ export function openAppPanel(host: TabHost): void {
 
 /**
  * activity bar에 고정한 앱 패널 열기. 같은 앱·화면 탭이 이 창 어디에 있든(자리, 접힘, 떠 있음, 떼어 낸 창) 그 탭으로 가고,
- * 없으면 고르는 단계 없이 focus 칸에 새로 연다.
+ * 없으면 고르는 단계 없이 새로 연다. `pin.open`이 float이면 떠 있는 패널로, 아니면 focus 칸에 연다.
  */
 export function openPinnedAppPanel(host: TabHost, pin: RailApp): void {
   const existing = host
@@ -37,15 +40,19 @@ export function openPinnedAppPanel(host: TabHost, pin: RailApp): void {
         tab.app === pin.app &&
         tab.screen === pin.surface,
     );
-  host.openTab(
-    existing ?? {
-      key: newKey(),
-      kind: "app_panel",
-      title: pin.title ?? t("project-workspace.label.kind-app-panel"),
-      app: pin.app,
-      screen: pin.surface,
-    },
-  );
+  if (existing !== undefined) {
+    host.openTab(existing);
+    return;
+  }
+  const tab: TabItem = {
+    key: newKey(),
+    kind: "app_panel",
+    title: pin.title ?? t("project-workspace.label.kind-app-panel"),
+    app: pin.app,
+    screen: pin.surface,
+  };
+  if (pin.open === "float") host.openFloat(tab, PANEL_FLOAT_SIZE);
+  else host.openTab(tab);
 }
 
 export const appPanelKind: TabKindDef = {

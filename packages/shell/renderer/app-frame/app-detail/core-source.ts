@@ -14,7 +14,12 @@ import {
   type RewindPlan,
   type App,
   appEditFolders,
+  appSetIcon,
 } from "../../../../protocol/apps/mod.ts";
+import {
+  iconInputOf,
+  iconViewOf,
+} from "../../parts/icon-upload/icon-reader.ts";
 import { windowFolderPicker } from "../../desktop/launcher/projects/core-source.ts";
 import type { FolderPickerApi } from "../../../ipc/folder-picker.ts";
 import type { SecretFileStatus } from "../../../../protocol/secrets/secret-file.ts";
@@ -522,6 +527,24 @@ export function coreAppDetailSource(
   }
   return {
     ...coreDomainActions(core),
+
+    async icon(app) {
+      const reply = await read<Parameters<typeof iconViewOf>[0]>(
+        core,
+        "apps",
+        "icon",
+        { app },
+      );
+      return reply.ok ? { ok: true, value: iconViewOf(reply.value) } : reply;
+    },
+
+    async setIcon(app, icon) {
+      const done = await command(core, appSetIcon, {
+        app,
+        icon: iconInputOf(icon) as never,
+      });
+      return done.ok ? { ok: true, value: true } : done;
+    },
 
     async readDomainDoc(domain) {
       const read = await readInstructions(instructions, files, {

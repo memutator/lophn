@@ -10,6 +10,7 @@ import {
   appCreated,
   appRename,
   appRenamed,
+  appSetIcon,
   appSchema,
   appSourceConnected,
   appUnarchive,
@@ -20,11 +21,17 @@ import type {
   RequestContext,
   Tx,
 } from "../../../protocol/server/mod.ts";
-import { parseActor } from "../../../protocol/base/mod.ts";
+import { checkIconUpload, parseActor } from "../../../protocol/base/mod.ts";
 import { domainProvisioningPort } from "../../../protocol/domains/mod.ts";
 import { isSameOrInside } from "../permissions/model.ts";
 import { type AppAccessTarget, authorizeApp, denied } from "./model.ts";
-import { insertApp, loadApp, replaceApp, replaceFolders } from "./store.ts";
+import {
+  insertApp,
+  loadApp,
+  replaceApp,
+  replaceFolders,
+  storeAppIcon,
+} from "./store.ts";
 
 function forbidden(message: string): Result<never> {
   return err({ code: "forbidden", message });
@@ -106,6 +113,7 @@ export function createAppCommands(): {
   unarchive: CommandDefinition<typeof appUnarchive>;
   rename: CommandDefinition<typeof appRename>;
   editFolders: CommandDefinition<typeof appEditFolders>;
+  setIcon: CommandDefinition<typeof appSetIcon>;
 } {
   return {
     create: {
@@ -299,6 +307,30 @@ export function createAppCommands(): {
         if (!stored.ok) return stored;
         replaceFolders(tx, next);
         return appView(next);
+      },
+    },
+    // 모양일 뿐이라 revision 비교도 event도 없다. 올린 icon 하나를 덮어쓰거나 지운다.
+    setIcon: {
+      route: appSetIcon,
+      handle(tx, ctx, input) {
+        const actor = requireUser(ctx);
+        if (!actor.ok) return actor;
+        const icon =
+          input.icon === null ? ok(null) : checkIconUpload(input.icon);
+        if (!icon.ok) return icon;
+        const current = loadApp(tx.sql, input.app);
+        if (!current.ok) return current;
+        if (current.value === null) return notFound();
+        const access = authorizeApp(
+          tx.port,
+          ctx,
+          appSetIcon.name,
+          accessTarget(current.value, current.value),
+        );
+        if (denied(access)) return notFound();
+        if (!access.ok) return access;
+        storeAppIcon(tx, input.app, icon.value);
+        return ok({ uploaded: icon.value !== null });
       },
     },
   };

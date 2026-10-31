@@ -76,6 +76,7 @@ import type {
 } from "../../../apps/ports.ts";
 import {
   loadApp,
+  loadAppIcon,
   SOURCE_FOLDER_CONTEXT,
   withSourceFolder,
 } from "../../../apps/registration/mod.ts";
@@ -450,6 +451,7 @@ export const appsWiring: WiringFactory = () => {
             appIconRead({
               ...createScreenFileDeps(locator),
               iconPath: iconPathOf(link.sql),
+              uploaded: (app) => ok(loadAppIcon(link.sql, app)),
             }),
           );
           // 안내 원문만 읽는 좁은 route다. apps 등록이 route를 선언하고(handler 없음) blob 바이트 통로를 가진 이

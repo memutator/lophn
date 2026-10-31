@@ -1,0 +1,43 @@
+/* 줄: 표식, 안내 글, 오른쪽 끝 고정 열(단추). */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: var(--space-0);
+  font-family: var(--font-sans);
+}
+
+.preview {
+  display: inline-flex;
+  flex: none;
+}
+
+.note {
+  flex: 1 1 auto;
+  min-width: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+/* 오른쪽 끝 고정 열. 주 단추가 맨 오른쪽이다. */
+.action {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+}
+
+/* 단추가 대신 눌러 여는 파일 선택. 화면에는 보이지 않는다. */
+.file {
+  display: none;
+}
+
+/* 줄이 어느 패널에 놓여도 창 위쪽 가운데에 뜬다. */
+.toast {
+  position: fixed;
+  top: var(--space-5);
+  left: 50%;
+  max-width: calc(100% - var(--space-6) - var(--space-6));
+  transform: translateX(-50%);
+  z-index: var(--z-toast);
+}

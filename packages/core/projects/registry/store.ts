@@ -1,4 +1,5 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
+import type { IconImage } from "../../../protocol/base/icon.ts";
 import type { ProjectFolder } from "../../../protocol/projects/mod.ts";
 import type { Sql, Tx } from "../../../protocol/server/mod.ts";
 import type { Project } from "./model.ts";
@@ -96,4 +97,28 @@ export function replaceChildren(
       [project, position, folder.path, folder.description],
     );
   });
+}
+
+export function loadProjectIcon(sql: Query, project: string): IconImage | null {
+  const row = sql.get(
+    "SELECT content_type, data FROM project_icons WHERE project = ?",
+    [project],
+  );
+  return row === undefined
+    ? null
+    : ({ content_type: row.content_type, data: row.data } as IconImage);
+}
+
+// icon이 null이면 올린 것을 지운다.
+export function storeProjectIcon(
+  tx: Pick<Tx, "sql">,
+  project: string,
+  icon: IconImage | null,
+): void {
+  tx.sql.run("DELETE FROM project_icons WHERE project = ?", [project]);
+  if (icon === null) return;
+  tx.sql.run(
+    "INSERT INTO project_icons (project, content_type, data) VALUES (?, ?, ?)",
+    [project, icon.content_type, icon.data],
+  );
 }

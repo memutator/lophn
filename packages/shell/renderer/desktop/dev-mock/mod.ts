@@ -20,11 +20,13 @@ import type { ProjectsSource } from "../launcher/projects/source.ts";
 import type { CatalogSource } from "../palette/catalog.ts";
 import { catalogSource } from "../palette/core-catalog.ts";
 import type { SettingsPanels } from "../settings/settings-screen.tsx";
+import type { ProjectIconsDeps } from "../../parts/project-icon/project-icon.tsx";
 import type { SettingsSource } from "../settings/source.ts";
 import { mockApps, mockSettings, mockSettingsPanels } from "./admin.ts";
 import { mockAgentTabSource } from "./agent.ts";
 import { mockAppDetail, mockAppViews, mockViews } from "./app-space.ts";
 import { mockProjects } from "./launcher.ts";
+import { mockProjectIcons } from "./project-icons.ts";
 import { mockCore, mockEvents } from "./requests.ts";
 
 export interface DevMock {
@@ -43,6 +45,8 @@ export interface DevMock {
   readonly views: LophnShellViewsApi;
   readonly annotate: LophnShellAnnotateApi;
   readonly appViews: AppViewsDeps;
+  /** project icon 읽기·올리기. 메모리에만 쥔다. */
+  readonly projectIcons: ProjectIconsDeps;
   readonly browser: LophnBrowserApi;
   /** Agent 탭·앱 공간의 Agent 칸이 agent마다 얻는 source. */
   readonly agentViewSource: AgentTabSourceFactory;
@@ -107,6 +111,7 @@ export function devMock(
     views,
     annotate: fakeAnnotate(),
     appViews: mockAppViews(views),
+    projectIcons: mockProjectIcons(),
     browser: fakeBrowserApi().api,
     agentViewSource: mockAgentTabSource(agents),
     events: mockEvents(),

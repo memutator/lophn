@@ -40,7 +40,7 @@ import {
   type ScreenFileDeps,
   serveScreenFile,
 } from "./screens/mod.ts";
-import { appIcon } from "../../protocol/apps/declaration/read.ts";
+import { type AppIcon, appIcon } from "../../protocol/apps/declaration/read.ts";
 import type {
   AppRewind,
   AppToolCallPath,
@@ -124,15 +124,22 @@ export function screenFileStream(deps: ScreenFileDeps): FileStreamHandler {
   };
 }
 
-// `app.icon`. 파일을 읽으므로 reader Worker가 아니라 메인 스레드 read다.
-export function appIconRead(deps: AppIconDeps): ReadHandler {
+// `app.icon`. 파일을 읽으므로 reader Worker가 아니라 메인 스레드 read다. 사람이 올린 icon이 선언한 icon보다 앞선다.
+export function appIconRead(
+  deps: AppIconDeps & { uploaded(app: string): Result<AppIcon | null> },
+): ReadHandler {
   return async (_ctx, input) => {
     const parsed = appIcon.input.safeParse(input);
     if (!parsed.success) {
       return err({ code: "invalid_input", message: "invalid app icon input" });
     }
+    const uploaded = deps.uploaded(parsed.data.app);
+    if (!uploaded.ok) return uploaded;
+    if (uploaded.value !== null) {
+      return ok({ icon: uploaded.value, uploaded: true });
+    }
     const icon = await readAppIcon(deps, parsed.data.app);
-    return icon.ok ? ok({ icon: icon.value }) : icon;
+    return icon.ok ? ok({ icon: icon.value, uploaded: false }) : icon;
   };
 }
 

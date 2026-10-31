@@ -54,4 +54,17 @@ export const appsSchemaSteps: readonly SchemaStep[] = [
     ) STRICT;
   `,
   },
+  // 사람이 올린 icon. 64 KiB 이하 base64 글이라 blob 저장소를 거치지 않고 그 자리에서 읽는다. 앱당 하나다.
+  {
+    id: "apps.registration.icons",
+    sql: `
+    CREATE TABLE app_icons (
+      app TEXT PRIMARY KEY NOT NULL REFERENCES apps(id),
+      content_type TEXT NOT NULL CHECK (
+        content_type IN ('image/svg+xml', 'image/png', 'image/webp')
+      ),
+      data TEXT NOT NULL CHECK (length(data) > 0)
+    ) STRICT;
+  `,
+  },
 ];

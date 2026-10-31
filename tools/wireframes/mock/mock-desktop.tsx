@@ -51,6 +51,7 @@ interface TabSpec {
     | "document_editor"
     | "terminal"
     | "app_panel"
+    | "project_settings"
     | "browser"
     | "artifact";
   readonly title: string;
@@ -106,6 +107,13 @@ interface MockDesktopProps {
   readonly annotate?: LophnShellAnnotateApi;
   /** 주면 이 탭 하나를 그리는 detached 창으로 시작한다(route는 무시한다). */
   readonly detachedTab?: TabSpec;
+  /** activity bar에 고정한 앱 패널. 저장된 layout의 rail_apps와 같은 모양이다. */
+  readonly railApps?: readonly {
+    readonly app: string;
+    readonly surface: string;
+    readonly title?: string;
+    readonly open?: "dock" | "float";
+  }[];
 }
 
 // detached 통로의 가짜. preload가 없는 browser에는 없어서, 탭 menu의 Detach와 [Detach] 단추를 그리고 detached 창이 탭을 받게 한다.
@@ -156,6 +164,7 @@ function storedTab(tab: TabSpec) {
       surface: tab.screen,
     };
   }
+  if (tab.kind === "project_settings") return { kind: tab.kind, key: tab.key };
   return tab.kind === "terminal"
     ? {
         kind: tab.kind,
@@ -166,9 +175,14 @@ function storedTab(tab: TabSpec) {
     : { kind: tab.kind, key: tab.key, path: tab.key };
 }
 
-function layoutOf(panes: readonly PaneSpec[], floats: readonly FloatSpec[]) {
+function layoutOf(
+  panes: readonly PaneSpec[],
+  floats: readonly FloatSpec[],
+  railApps: NonNullable<MockDesktopProps["railApps"]>,
+) {
   return {
     active_desk: DEFAULT_DESK,
+    rail_apps: railApps,
     desks: {
       [DEFAULT_DESK]: {
         panes: panes.map((pane) => ({
@@ -223,7 +237,7 @@ export function MockDesktop(props: MockDesktopProps) {
               Promise.resolve({
                 ok: true as const,
                 available: true as const,
-                layout: layoutOf(panes, floats ?? []),
+                layout: layoutOf(panes, floats ?? [], props.railApps ?? []),
               }),
           };
     const terminalBridge = fakeTerminal(PROJECT_GROCERY);
@@ -274,7 +288,7 @@ export function MockDesktop(props: MockDesktopProps) {
       events: createEventClient(mock.events),
       settingsPanels: mock.settingsPanels,
     };
-  }, [panes, floats, openTerminal, emptyLauncher, detachedTab]);
+  }, [panes, floats, openTerminal, emptyLauncher, detachedTab, props.railApps]);
   const { mock } = wiring;
   const annotate = props.annotate ?? mock.annotate;
   return (

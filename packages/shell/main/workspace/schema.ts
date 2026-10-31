@@ -140,10 +140,12 @@ export const deskKey = z
   });
 
 // activity bar에 고정한 앱 패널 하나. app_panel 탭의 app·surface와 같은 값이고 title은 앱 이름(tooltip 대체)이다.
+// open은 새로 열 때의 자리다. 없으면 dock이라 open이 없던 판 7 파일도 그대로 읽힌다.
 const railAppSchema = z.strictObject({
   app: appId,
   surface: z.string().min(1).max(128),
   title: z.string().min(1).max(200).optional(),
+  open: z.enum(["dock", "float"]).optional(),
 });
 
 export type RailApp = z.infer<typeof railAppSchema>;

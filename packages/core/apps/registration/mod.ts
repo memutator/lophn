@@ -8,5 +8,5 @@ export { createAppCommands } from "./commands.ts";
 export { createAppsReads } from "./reads.ts";
 export { appsSchemaSteps } from "./schema.ts";
 export { lookupAppRegistration } from "./lookup.ts";
-export { loadApp, loadApps, replaceApp } from "./store.ts";
+export { loadApp, loadAppIcon, loadApps, replaceApp } from "./store.ts";
 export { SOURCE_FOLDER_CONTEXT, withSourceFolder } from "./source-folder.ts";

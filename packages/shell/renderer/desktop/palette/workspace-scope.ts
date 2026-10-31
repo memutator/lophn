@@ -22,6 +22,7 @@ import type { PaletteScope } from "./session.ts";
 type WorkspaceAction =
   | "launcher"
   | "settings"
+  | "project-settings"
   | "terminal"
   | "float"
   | "dock"
@@ -125,6 +126,11 @@ function actions(input: WorkspaceScopeInput): PaletteEntry<WorkspaceTarget>[] {
         ]
       : []),
     action("settings", t("common.button.palette-settings"), "screen"),
+    action(
+      "project-settings",
+      t("common.button.palette-project-settings"),
+      "screen",
+    ),
     ...(focusTab(input.view)
       ? [action("float", t("common.button.palette-float-tab"), "tab")]
       : []),

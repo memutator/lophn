@@ -3,6 +3,7 @@
 // 자원은 여기 오지 않는다. 창마다 하나를 provider로 둔다.
 import { createContext, useContext } from "react";
 
+import type { IconReader } from "../parts/icon-upload/icon-reader.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 
@@ -44,8 +45,8 @@ export interface AppViewsDeps {
    * 않는다.
    */
   screens?(): Promise<ScreensRead>;
-  /** 앱이 선언한 icon 이미지의 data URL(apps/icon). 없거나 읽지 못하면 undefined다. */
-  icon?(app: string): Promise<string | undefined>;
+  /** 앱 icon 이미지의 data URL(apps/icon). 사람이 올린 것이 선언한 것보다 앞선다. 없거나 읽지 못하면 undefined다. */
+  icon?: IconReader;
 }
 
 const AppViewsContext = createContext<AppViewsDeps | null>(null);

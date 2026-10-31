@@ -8,7 +8,11 @@ import type {
   RequestContext,
   Tx,
 } from "../../../protocol/server/mod.ts";
-import { parseActor, type PortKey } from "../../../protocol/base/mod.ts";
+import {
+  checkIconUpload,
+  parseActor,
+  type PortKey,
+} from "../../../protocol/base/mod.ts";
 import type { FolderResolver } from "../ports.ts";
 import { authorizeProject } from "./authorization.ts";
 import {
@@ -24,6 +28,7 @@ import {
   loadProject,
   replaceChildren,
   replaceMetadata,
+  storeProjectIcon,
 } from "./store.ts";
 
 function forbidden(): Result<never> {
@@ -74,6 +79,7 @@ export function createProjectCommands(): {
   relinkFolder: CommandDefinition<typeof projectApi.relinkFolder>;
   archive: CommandDefinition<typeof projectApi.archive>;
   unarchive: CommandDefinition<typeof projectApi.unarchive>;
+  setIcon: CommandDefinition<typeof projectApi.setIcon>;
 } {
   return {
     register: {
@@ -216,6 +222,29 @@ export function createProjectCommands(): {
         if (!stored.ok) return stored;
         replaceChildren(tx, project.id, project.folders);
         return ok(recordOf(project, resolver.value));
+      },
+    },
+    // 모양일 뿐이라 revision 비교도 event도 없다. 올린 icon 하나를 덮어쓰거나 지운다.
+    setIcon: {
+      route: projectApi.setIcon,
+      handle(tx, ctx, input) {
+        const actor = requireUser(ctx);
+        if (!actor.ok) return actor;
+        const icon =
+          input.icon === null ? ok(null) : checkIconUpload(input.icon);
+        if (!icon.ok) return icon;
+        const current = loadProject(tx.sql, input.project);
+        if (!current.ok) return current;
+        if (current.value === null) return notFound();
+        const { revision: _revision, ...metadata } = current.value;
+        const access = authorizeProject(tx.port, ctx, projectApi.setIcon.name, {
+          kind: "command",
+          before: current.value,
+          after: metadata,
+        });
+        if (!access.ok) return access;
+        storeProjectIcon(tx, input.project, icon.value);
+        return ok({ uploaded: icon.value !== null });
       },
     },
     archive: {

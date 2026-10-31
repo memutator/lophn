@@ -105,6 +105,13 @@ export const common = {
   "common.title.register-coding-agent": "Set up lophn for {harness}?",
   "document.button.check-again": "Check again",
   "document.label.saving": "Saving…",
+  "icon-upload.button.remove": "Remove",
+  "icon-upload.button.upload": "Upload image",
+  "icon-upload.error.invalid-file":
+    "Choose an SVG, PNG or WebP image up to 64 KB.",
+  "icon-upload.error.remove-failed": "Couldn't remove the icon. Try again.",
+  "icon-upload.error.upload-failed": "Couldn't set the icon. Try again.",
+  "icon-upload.note.limits": "SVG, PNG or WebP, up to 64 KB.",
   "launcher.button.reconnect": "Reconnect",
   "launcher.button.retry": "Try again",
   "project-workspace.button.collapse-sidebar": "Collapse sidebar",

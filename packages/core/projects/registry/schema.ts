@@ -56,4 +56,17 @@ export const projectsSchemaSteps: readonly SchemaStep[] = [
     id: "projects.registry.drop-subfolders",
     sql: `DROP TABLE project_subfolders;`,
   },
+  // 사람이 올린 icon. 64 KiB 이하 base64 글이라 blob 저장소를 거치지 않고 그 자리에서 읽는다. project당 하나다.
+  {
+    id: "projects.registry.icons",
+    sql: `
+    CREATE TABLE project_icons (
+      project TEXT PRIMARY KEY NOT NULL REFERENCES projects(id),
+      content_type TEXT NOT NULL CHECK (
+        content_type IN ('image/svg+xml', 'image/png', 'image/webp')
+      ),
+      data TEXT NOT NULL CHECK (length(data) > 0)
+    ) STRICT;
+  `,
+  },
 ];

@@ -1,0 +1,24 @@
+/* stage 전체를 덮는 층. 빈 곳은 아래 card가 받도록 pointer를 통과시킨다. */
+.layer {
+  position: absolute;
+  inset: var(--space-0);
+  pointer-events: none;
+}
+
+/* 패널마다 하나. z-index는 층 번호로 inline에서 준다. */
+.slot {
+  position: absolute;
+  inset: var(--space-0);
+  pointer-events: none;
+}
+
+.slot > [data-float-panel] {
+  pointer-events: auto;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: auto;
+}

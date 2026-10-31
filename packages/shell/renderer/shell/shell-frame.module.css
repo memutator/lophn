@@ -1,0 +1,141 @@
+/* 창 틀. title bar와 양쪽 sidebar는 같은 바탕(shell)이고 가운데만 둥근 card로 뜬다.
+   치수 token 조합이 tab 줄(tab-strip.module.css)·card(content-card.module.css)와 맞물린다: title bar 높이 space-10,
+   tab 높이 space-9, tab 곡선 radius-md, card 모서리 radius-lg. 한쪽을 바꾸면 다른 쪽도 바꾼다. */
+
+.shell {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  background: var(--color-surface-shell);
+}
+
+.shell *,
+.shell *::before,
+.shell *::after {
+  box-sizing: border-box;
+}
+
+.grow {
+  flex: 1;
+}
+
+/* title bar는 창 끌기 영역이고 -webkit-app-region은 자식에게 이어진다. 눌러야 하는 것은 모두 no-drag로 뺀다. */
+.titlebar {
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  height: var(--space-10);
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.titlebar :is(button, input, [role="tab"], [data-no-drag]) {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.titleLeft,
+.titleRight {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  align-items: center;
+  padding-inline: var(--space-4);
+}
+
+/* tab 줄 자리. 첫 tab의 곡선이 card의 둥근 모서리에 걸리지 않게 card 반지름만큼 띄운다. */
+.tabs {
+  display: flex;
+  flex: 1;
+  min-width: var(--space-0);
+  padding-inline-start: var(--radius-lg);
+}
+
+.shell[data-left="closed"] .tabs {
+  padding-inline-start: calc(var(--space-2) + var(--radius-lg));
+}
+
+/* macOS 신호등 자리. */
+.shell[data-platform="mac"] .titleLeft {
+  padding-inline-start: calc(var(--space-12) + var(--space-6));
+}
+
+.shell[data-left="open"] .titleLeft {
+  width: calc(var(--space-12) * 4 + var(--space-6));
+}
+
+.shell[data-platform="mac"][data-left="open"] .titleLeft {
+  width: calc(calc(var(--space-12) * 4 + var(--space-6)) + var(--space-12));
+}
+
+.shell[data-right="open"] .titleRight {
+  width: calc(var(--space-12) * 4 + var(--space-9));
+}
+
+.shell[data-right="closed"] .titleRight {
+  padding-inline-start: var(--space-2);
+}
+
+.brand {
+  display: inline-flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin-inline-start: var(--space-2);
+  font-weight: var(--font-weight-semibold);
+}
+
+.windowControls {
+  display: inline-flex;
+  gap: var(--space-1);
+  margin-inline-start: var(--space-3);
+  padding-inline-start: var(--space-3);
+  border-inline-start: var(--border-width) solid var(--color-border-base);
+}
+
+/* 몸통: 왼쪽 sidebar, 가운데 stage, 오른쪽 sidebar. */
+.body {
+  display: flex;
+  flex: 1;
+  min-height: var(--space-0);
+}
+
+.left,
+.right {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-height: var(--space-0);
+}
+
+.left {
+  width: calc(var(--space-12) * 4 + var(--space-6));
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+
+.right {
+  width: calc(var(--space-12) * 4 + var(--space-9));
+  padding: var(--space-2) var(--space-4) var(--space-4);
+}
+
+/* float 층의 기준이다. 접힌 쪽은 card가 shell 가장자리에 붙지 않게 띄운다. */
+.stage {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: var(--space-0);
+  padding-block-end: var(--space-2);
+}
+
+.shell[data-left="closed"] .stage {
+  padding-inline-start: var(--space-2);
+}
+
+.shell[data-right="closed"] .stage {
+  padding-inline-end: var(--space-2);
+}

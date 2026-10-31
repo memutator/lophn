@@ -29,6 +29,7 @@ import { projectDeskArea } from "./screens/project-desk.tsx";
 import { projectWorkspaceArea } from "./screens/project-workspace.tsx";
 import { questionsArea } from "./screens/questions.tsx";
 import { settingsArea } from "./screens/settings.tsx";
+import { shellArea } from "./screens/shell.tsx";
 import { workflowArea } from "./screens/workflow.tsx";
 import type { Area, Group, Page } from "./types.ts";
 
@@ -59,6 +60,7 @@ const ALL_GROUPS: readonly Group[] = [
       "제품 영역별 화면. renderer의 component를 import해 mock 데이터로 그린 진짜 화면이다.",
     inline: false,
     areas: [
+      shellArea,
       launcherArea,
       projectWorkspaceArea,
       projectDeskArea,

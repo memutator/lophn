@@ -419,7 +419,6 @@ export function ProjectApp({
           onToggleLeft={() => {}}
           right
           onToggleRight={() => {}}
-          onSearch={() => setPalette(true)}
           deskSwitcher={
             <DeskSwitcher
               desks={[{ key: "_default", label: "Main" }]}

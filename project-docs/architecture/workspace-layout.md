@@ -29,7 +29,7 @@ place 창(Home, project, 앱)이 가진 탭이 어디에 있는가를 정하는 
    docked event ─▶ kind.receive ─▶ reattachTab ◀──────── main ◀┘
    changed·open-tab·closed·opened event ◀──────────────── main ◀── patchTab·openTab·removeTab·popup
 
- place-window.tsx ── ShellFrame (renderer/shell/shell-frame.tsx. slot만 받고 폭·접힘·창 끌기 영역·OS별 자리를 안다)
+ place-window.tsx ── ShellFrame (renderer/shell/shell-frame.tsx. slot만 받고 폭(양쪽 sidebar는 끌어서 바꾸고 폭은 localStorage에 쪽마다 기억)·접힘·창 끌기 영역·OS별 자리를 안다)
    title bar 왼쪽: DeskSwitcher(desk 목록 + 아직 desk가 없는 workflow, New desk) · 검색(팔레트)
    title bar 가운데: TabStrip (한 칸 = tab 하나 또는 split 하나. 오른쪽 끝에 floats의 아이콘 칸: 눌린 것이 펴진 float)
    title bar 오른쪽: PanelTabs (Files·Domain·Artifacts·Workflows·Jobs. 고른 panel이 오른쪽 sidebar에 보인다) · 창 단추

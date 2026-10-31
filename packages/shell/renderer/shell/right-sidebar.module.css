@@ -15,7 +15,13 @@
   padding-inline-start: var(--space-3);
 }
 
+/* Files의 루트 선택 단추는 자기 안쪽 여백이 있어 머리 줄 왼쪽 여백만큼 당긴다. */
+.title > button {
+  margin-inline-start: calc(var(--space-3) * -1);
+}
+
 .title {
+  display: flex;
   flex: 1;
   min-width: var(--space-0);
   margin: var(--space-0);

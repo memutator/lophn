@@ -49,6 +49,10 @@
   padding-inline: var(--space-4);
 }
 
+.titleLeft {
+  min-width: var(--space-0);
+}
+
 /* tab 줄 자리. 첫 tab의 곡선이 card의 둥근 모서리에 걸리지 않게 card 반지름만큼 띄운다. */
 .tabs {
   display: flex;
@@ -66,16 +70,20 @@
   padding-inline-start: calc(var(--space-12) + var(--space-6));
 }
 
+/* sidebar 폭의 기본값. 끌어서 바꾼 폭은 ShellFrame이 같은 칸의 인라인 width로 덮는다. title bar 구역은 sidebar와 같은 폭이다. */
 .shell[data-left="open"] .titleLeft {
   width: calc(var(--space-12) * 4 + var(--space-6));
 }
 
 .shell[data-platform="mac"][data-left="open"] .titleLeft {
-  width: calc(calc(var(--space-12) * 4 + var(--space-6)) + var(--space-12));
+  width: calc(var(--space-12) * 5 + var(--space-6));
 }
 
+/* 최소 폭: panel icon tab 다섯(각 20px)과 오른쪽 sidebar 단추, 창 단추 셋이 들어간다. token 최소폭(200px)보다 크므로
+   tab이 많은 place는 이 값 아래로 좁아지지 않는다(.right도 같은 값). */
 .shell[data-right="open"] .titleRight {
   width: calc(var(--space-12) * 4 + var(--space-9));
+  min-width: calc(var(--space-12) * 4 + var(--space-6));
 }
 
 .shell[data-right="closed"] .titleRight {
@@ -84,14 +92,19 @@
 
 .brand {
   display: inline-flex;
+  min-width: var(--space-0);
+  overflow: hidden;
+  white-space: nowrap;
   gap: var(--space-3);
   align-items: center;
   margin-inline-start: var(--space-2);
   font-weight: var(--font-weight-semibold);
 }
 
+/* 창 단추는 어떤 폭에서도 줄어들지 않는다. */
 .windowControls {
   display: inline-flex;
+  flex: none;
   gap: var(--space-1);
   margin-inline-start: var(--space-3);
   padding-inline-start: var(--space-3);
@@ -113,6 +126,11 @@
   min-height: var(--space-0);
 }
 
+.left,
+.right {
+  position: relative;
+}
+
 .left {
   width: calc(var(--space-12) * 4 + var(--space-6));
   padding: var(--space-3) var(--space-4) var(--space-4);
@@ -120,6 +138,7 @@
 
 .right {
   width: calc(var(--space-12) * 4 + var(--space-9));
+  min-width: calc(var(--space-12) * 4 + var(--space-6));
   padding: var(--space-2) var(--space-4) var(--space-4);
 }
 
@@ -138,4 +157,43 @@
 
 .shell[data-right="closed"] .stage {
   padding-inline-end: var(--space-2);
+}
+
+/* 폭 끌기 손잡이. sidebar 안쪽 가장자리(card 쪽 여백 안)에 놓아 card나 webview와 겹치지 않는다. */
+.resizer {
+  position: absolute;
+  top: var(--space-0);
+  bottom: var(--space-0);
+  width: var(--space-4);
+  cursor: col-resize;
+  touch-action: none;
+  z-index: var(--z-sticky);
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.resizer[data-side="left"] {
+  right: var(--space-0);
+}
+
+.resizer[data-side="right"] {
+  left: var(--space-0);
+}
+
+.resizer::after {
+  content: "";
+  position: absolute;
+  top: var(--space-0);
+  bottom: var(--space-0);
+  left: 50%;
+  width: var(--border-focus-width);
+  transform: translateX(-50%);
+  background: var(--color-focus);
+  opacity: 0;
+  transition: opacity var(--motion-duration-short) var(--motion-ease);
+}
+
+.resizer:hover::after,
+.resizer[data-dragging]::after {
+  opacity: 1;
 }

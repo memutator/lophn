@@ -6,13 +6,6 @@
   min-height: var(--space-0);
 }
 
-.explorerHead {
-  display: flex;
-  flex: none;
-  align-items: center;
-  margin-bottom: var(--space-1);
-}
-
 /* 루트 머리: 연결 폴더 이름과 ▾ 하나. 경로는 menu 안에서만 보인다. */
 .rootHead {
   box-sizing: border-box;

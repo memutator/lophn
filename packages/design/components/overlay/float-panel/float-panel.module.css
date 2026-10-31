@@ -6,8 +6,6 @@
   flex-direction: column;
   isolation: isolate;
   border: var(--border-width) solid var(--color-border-base);
-  /* 위 가장자리는 bar의 강조선이 맡는다. 테두리가 있으면 그 위에 회색 선이 한 줄 더 보인다. */
-  border-top: none;
   border-radius: var(--radius-lg);
   background: var(--floating-surface);
   color: var(--color-text-primary);
@@ -48,19 +46,9 @@
   user-select: none;
 }
 
-/* 위쪽 강조선. 고른 탭과 같은 선이고, 맨 위 패널은 focus 칸의 고른 탭처럼 focus 색이다. */
-.bar::before {
-  content: "";
-  position: absolute;
-  top: var(--space-0);
-  right: var(--space-0);
-  left: var(--space-0);
-  height: var(--tab-indicator);
-  background: var(--color-border-strong);
-}
-
-.panel[data-active] .bar::before {
-  background: var(--color-ink-background);
+/* 맨 위 패널은 그림자만 조금 더 깊다. */
+.panel[data-active]:not([data-full]) {
+  box-shadow: var(--shadow-dialog);
 }
 
 .icon {

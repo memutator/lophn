@@ -305,7 +305,7 @@ export function KitOverlay() {
       </Section>
       <Section
         title="FloatPanel"
-        note="부모 안에서 옮기고 크기를 바꾸는 패널 껍데기. 끌기 논리는 없어서 여기서는 손으로 끌리지 않는다. 위쪽이 active(위 bar 강조선이 focus 색), 아래쪽이 inactive. 가장자리 여덟 군데에 resize 손잡이가 겹쳐 있다."
+        note="부모 안에서 옮기고 크기를 바꾸는 패널 껍데기. 끌기 논리는 없어서 여기서는 손으로 끌리지 않는다. 위쪽이 active(그림자가 조금 더 깊다), 아래쪽이 inactive. 가장자리 여덟 군데에 resize 손잡이가 겹쳐 있다."
       >
         <Stage height={360}>
           {() => (

@@ -1,5 +1,5 @@
 // 왼쪽 sidebar. 위에 New session·Inbox·Jobs, 아래에 place(Home, project, app)마다 열린 session과 접힌 Recent 줄 하나,
-// 맨 아래에 Settings다. 값과 callback만 받아서 project 창 말고 Home과 app place도 같은 것을 쓴다.
+// 맨 아래에 빠른 실행(Terminal · Browser · App ▾)과 Settings다. 값과 callback만 받아서 project 창 말고 Home과 app place도 같은 것을 쓴다.
 import { t } from "@lophn/i18n";
 import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
 import { Icon, IconButton } from "@lophn/ui/primitives";
@@ -10,10 +10,12 @@ import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import { JobsLayer } from "../desktop/jobs/jobs-layer.tsx";
 import type { JobsSource } from "../desktop/jobs/source.ts";
 import {
+  browserIcons,
   notificationsIcon,
   settingsEntryIcon,
   shellIcons,
   sidebarIcons,
+  workspaceIcons,
 } from "../icons/mod.ts";
 import { Avatar } from "../parts/avatar/avatar.tsx";
 import { TabStateDot } from "../parts/tab-state-dot/tab-state-dot.tsx";
@@ -27,6 +29,15 @@ import {
   sessionKey,
 } from "./left-sidebar-model.ts";
 import styles from "./left-sidebar.module.css";
+
+/** 맨 아래 줄의 빠른 실행. 핸들러·항목이 없는 단추는 그리지 않는다. */
+export interface QuickLaunch {
+  onTerminal?: () => void;
+  onBrowser?: () => void;
+  /** App ▾의 항목(이 place의 앱 화면·앱 panel). 비면 단추가 없다. */
+  appItems?: readonly MenuItem[];
+  onApp?: (id: string) => void;
+}
 
 export interface LeftSidebarProps {
   places: readonly SidebarPlace[];
@@ -54,6 +65,7 @@ export interface LeftSidebarProps {
   /** Places의 + menu 항목. 둘 다 없으면 +가 없다. */
   onRegisterProject?: () => void;
   onCreateApp?: () => void;
+  quick?: QuickLaunch;
   onSettings: () => void;
 }
 
@@ -259,6 +271,7 @@ export function LeftSidebar({
   onRemoveRecent,
   onRegisterProject,
   onCreateApp,
+  quick,
   onSettings,
 }: LeftSidebarProps) {
   // 펼친 Recent는 place마다 기억한다. 저장하지 않는다.
@@ -443,6 +456,39 @@ export function LeftSidebar({
       </div>
 
       <div className={styles.foot}>
+        {quick?.onTerminal === undefined ? null : (
+          <IconButton
+            icon={workspaceIcons.terminal}
+            label={t("left-sidebar.button.quick-terminal")}
+            size="sm"
+            data-quick="terminal"
+            onClick={quick.onTerminal}
+          />
+        )}
+        {quick?.onBrowser === undefined ? null : (
+          <IconButton
+            icon={browserIcons.globe}
+            label={t("left-sidebar.button.quick-browser")}
+            size="sm"
+            data-quick="browser"
+            onClick={quick.onBrowser}
+          />
+        )}
+        {quick?.appItems === undefined || quick.appItems.length === 0 ? null : (
+          <Menu
+            items={[...quick.appItems]}
+            onSelect={(id) => quick.onApp?.(id)}
+            trigger={
+              <IconButton
+                icon={workspaceIcons.appPanel}
+                label={t("left-sidebar.button.quick-app")}
+                size="sm"
+                data-quick="app"
+              />
+            }
+          />
+        )}
+        <span className={styles.grow} />
         <IconButton
           icon={settingsEntryIcon}
           label={t("left-sidebar.button.settings")}

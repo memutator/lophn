@@ -116,7 +116,7 @@ import {
   openBridgeUrl,
   useBridgeOpenRequests,
 } from "../terminal/use-bridge-open-requests.ts";
-import { NewTabMenu } from "./add-tab-menu.tsx";
+import { appTabEntries, NewTabMenu } from "./add-tab-menu.tsx";
 import { agentOf, sessionOf } from "./agent/tab-fields.ts";
 import { focusTabBody } from "./focus-tab.ts";
 import { distinctAgentTab, openAgent } from "./kinds/agent.tsx";
@@ -1699,6 +1699,12 @@ export function PlaceWindow(props: PlaceWindowProps) {
     </div>
   );
 
+  // + menu의 앱 항목과 같은 데이터·핸들러다.
+  const quickApp = appTabEntries({
+    ...(isApp ? { onAppScreen: () => openAppScreen(host) } : {}),
+    ...(host.appScreens ? { onAppPanel: () => openAppPanel(host) } : {}),
+  });
+
   return (
     <ViewKeepsProvider value={keeps}>
       <WebviewHostProvider value={webviews}>
@@ -1881,6 +1887,16 @@ export function PlaceWindow(props: PlaceWindowProps) {
                   ref.kind === "home" ? onHome() : props.onPlace?.(ref)
                 }
                 onNewApp={(app) => props.onNewApp?.(app)}
+                quick={{
+                  ...(terminal === undefined
+                    ? {}
+                    : { onTerminal: () => openTerminalTab(host) }),
+                  ...(browserApi === null
+                    ? {}
+                    : { onBrowser: () => openBrowserTab(host) }),
+                  appItems: quickApp.items,
+                  onApp: quickApp.select,
+                }}
                 jobs={props.jobs}
                 onInbox={() => openInbox(host)}
                 onJobs={() => openJobs(host)}

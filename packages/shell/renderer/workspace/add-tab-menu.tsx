@@ -40,6 +40,34 @@ const lead = (icon: Parameters<typeof MenuIcon>[0]["icon"]): ReactNode => (
   <MenuIcon icon={icon} />
 );
 
+/** + menu와 왼쪽 sidebar의 App ▾가 같이 쓰는 앱 항목. 핸들러가 없는 항목은 없고, 둘 다 없으면 items가 비어 있다. */
+export function appTabEntries(
+  props: Pick<NewTabMenuProps, "onAppScreen" | "onAppPanel">,
+): { items: MenuItem[]; select: (id: string) => void } {
+  const items: MenuItem[] = [];
+  if (props.onAppScreen) {
+    items.push({
+      id: "app-screen",
+      label: t("app-space.label.menu-app-screen"),
+      leading: lead(workspaceIcons.appPanel),
+    });
+  }
+  if (props.onAppPanel) {
+    items.push({
+      id: "app-panel",
+      label: t("project-workspace.label.menu-app-panel"),
+      leading: lead(workspaceIcons.appPanel),
+    });
+  }
+  return {
+    items,
+    select: (id) => {
+      if (id === "app-screen") props.onAppScreen?.();
+      else if (id === "app-panel") props.onAppPanel?.();
+    },
+  };
+}
+
 export function NewTabMenu(props: NewTabMenuProps) {
   const [open, setOpen] = useState(false);
   const [level, setLevel] = useState<Level>("root");
@@ -92,20 +120,8 @@ export function NewTabMenu(props: NewTabMenuProps) {
       leading: lead(paletteIcons.search),
     });
   }
-  if (props.onAppScreen) {
-    root.push({
-      id: "app-screen",
-      label: t("app-space.label.menu-app-screen"),
-      leading: lead(workspaceIcons.appPanel),
-    });
-  }
-  if (props.onAppPanel) {
-    root.push({
-      id: "app-panel",
-      label: t("project-workspace.label.menu-app-panel"),
-      leading: lead(workspaceIcons.appPanel),
-    });
-  }
+  const app = appTabEntries(props);
+  root.push(...app.items);
 
   const items: MenuItem[] =
     level === "agent"
@@ -131,9 +147,8 @@ export function NewTabMenu(props: NewTabMenuProps) {
     else if (id === "terminal") props.onTerminal?.();
     else if (id === "browser") props.onBrowser?.();
     else if (id === "search") props.onSearch?.();
-    else if (id === "app-screen") props.onAppScreen?.();
-    else if (id === "app-panel") props.onAppPanel?.();
     else if (id.startsWith("agent:")) props.onAgent?.(id.slice(6));
+    else app.select(id);
   };
 
   return (

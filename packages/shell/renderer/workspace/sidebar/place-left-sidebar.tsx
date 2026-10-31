@@ -17,7 +17,7 @@ import { RegisterDialog } from "../../desktop/places/register-dialog.tsx";
 import { harnessVendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
 import { placeKey, type PlaceRef } from "../../shell/desk-model.ts";
 import type { WindowPlace } from "../place-window.tsx";
-import { LeftSidebar } from "../../shell/left-sidebar.tsx";
+import { LeftSidebar, type QuickLaunch } from "../../shell/left-sidebar.tsx";
 import {
   type SidebarPlace,
   type SidebarSession,
@@ -96,6 +96,8 @@ export interface PlaceLeftSidebarProps {
   jobs?: JobsSource;
   onInbox: () => void;
   onJobs: () => void;
+  /** 맨 아래 줄의 Terminal · Browser · App ▾. + menu와 같은 핸들러라 이 place에 없는 것은 비어 있다. */
+  quick?: QuickLaunch;
   onSettings: () => void;
 }
 
@@ -196,6 +198,7 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
         {...(apps === undefined
           ? {}
           : { onCreateApp: () => setCreating(true) })}
+        {...(props.quick === undefined ? {} : { quick: props.quick })}
         onSettings={props.onSettings}
       />
       {projects === undefined ? null : (

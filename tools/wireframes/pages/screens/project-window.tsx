@@ -29,7 +29,10 @@ import { Avatar } from "../../../../packages/shell/renderer/parts/avatar/avatar.
 import type { TabDot } from "../../../../packages/shell/renderer/parts/tab-state-dot/tab-state-dot.tsx";
 import type { StripTab } from "../../../../packages/shell/renderer/shell/tab-strip.tsx";
 
-import { NewTabMenu } from "../../../../packages/shell/renderer/workspace/add-tab-menu.tsx";
+import {
+  appTabEntries,
+  NewTabMenu,
+} from "../../../../packages/shell/renderer/workspace/add-tab-menu.tsx";
 import {
   FAKE_NOTES_FOLDER,
   FAKE_PROJECT_FOLDER,
@@ -177,6 +180,10 @@ interface SidebarProps extends SidebarSpec {
   readonly onSession?: (row: SessionRow) => void;
   /** 왼쪽 sidebar에서 강조할 줄(`sessionKey`). */
   readonly selected?: string;
+  /** 이 창이 보이는 place. 없으면 project(phroner)다. Home은 터미널이 없고 앱 place는 앱 화면 항목이 있다. */
+  readonly place?: "project" | "home" | "app";
+  /** 맨 아래 줄의 빠른 실행을 누르면 + menu와 같은 pick을 알린다. */
+  readonly onQuick?: (pick: NewTabPick) => void;
 }
 
 // ---- sidebar에 넘기는 고정 data ----
@@ -614,13 +621,31 @@ export function PageLeftSidebar(props: SidebarProps) {
   // Inbox(WaitingLayer)가 event를 듣는다.
   const [client] = useState(() => createEventClient(createFakeSource()));
   const jobs = useMemo(() => fakeJobs({ jobs: JOBS }).source, []);
+  const pick = props.onQuick ?? (() => {});
+  const app = appTabEntries({
+    ...(props.place === "app" ? { onAppScreen: () => pick("app-screen") } : {}),
+    onAppPanel: () => pick("app-panel"),
+  });
+  const quick = {
+    ...(props.place === "home" ? {} : { onTerminal: () => pick("terminal") }),
+    onBrowser: () => pick("browser"),
+    appItems: app.items,
+    onApp: app.select,
+  };
   return (
     <EventsProvider client={client}>
       <div ref={ref} style={{ display: "contents" }}>
         <LeftSidebar
           places={SIDEBAR_PLACES}
-          current={{ kind: "project", id: PROJECT_ID }}
+          current={
+            props.place === "home"
+              ? { kind: "home" }
+              : props.place === "app"
+                ? { kind: "app", id: "app_orders" }
+                : { kind: "project", id: PROJECT_ID }
+          }
           selected={props.selected}
+          quick={quick}
           agents={AGENTS.map((agent) => ({
             id: agent.assignment,
             name: agent.name,
@@ -699,6 +724,7 @@ type NewTabPick =
   | `agent:${string}`
   | "search"
   | "browser"
+  | "app-screen"
   | "app-panel";
 
 /**

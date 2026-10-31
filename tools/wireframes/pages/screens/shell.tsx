@@ -1,6 +1,7 @@
 import type { Area } from "../types.ts";
 import { PlacesScene, placesSteps } from "./shell/places-scene.tsx";
 import { ShellScene } from "./shell/shell-scene.tsx";
+import { SidebarScene, sidebarSteps } from "./shell/sidebar-scene.tsx";
 
 export const shellArea: Area = {
   id: "shell",
@@ -141,6 +142,29 @@ export const shellArea: Area = {
       description:
         "왼쪽 sidebar. New session(▾로 lophn agent와 coding agent), Inbox, Jobs, Places 아래 Home·project·앱과 place마다 열린 session. phroner의 Recent를 펼쳐 끝난 session과 저장한 터미널 session을 상대 시각으로 보인다.",
       render: () => <ShellScene variant="project" recentOpen />,
+    },
+    {
+      id: "shell-left-sidebar-project",
+      title: "Shell · Left sidebar · Project quick launch",
+      description:
+        "맨 아래 줄은 왼쪽부터 Terminal, Browser, App ▾ 빠른 실행이고 맨 오른쪽 끝에 Settings가 있다. + menu와 같은 데이터라 project에서는 App ▾에 App panel이 있고, 눌러 연 모양이다.",
+      render: () => (
+        <SidebarScene place="project" steps={sidebarSteps.appMenu} />
+      ),
+    },
+    {
+      id: "shell-left-sidebar-home",
+      title: "Shell · Left sidebar · Home quick launch",
+      description:
+        "Home에는 터미널이 없어서 Terminal 단추가 없고 Browser와 App ▾만 있다.",
+      render: () => <SidebarScene place="home" />,
+    },
+    {
+      id: "shell-left-sidebar-app",
+      title: "Shell · Left sidebar · App quick launch",
+      description:
+        "앱 place의 App ▾는 닫은 앱 화면 탭을 다시 여는 App screen과 App panel을 함께 가진다. 눌러 연 모양이다.",
+      render: () => <SidebarScene place="app" steps={sidebarSteps.appMenu} />,
     },
     {
       id: "shell-collapsed",

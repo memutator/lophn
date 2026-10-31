@@ -7,7 +7,20 @@ import type { MemoryHandler } from "../../server/mod.ts";
 
 const GUIDE_MAX_BYTES = 256 * 1024;
 
+// guide 한 벌의 예산. tool 결과 한 창(`TEXT_MAX_BYTES`, 24 KiB)보다 작게 잡아서 색인과 예산 안의 props가
+// package.read 한 번에 다 온다.
+const GUIDE_BUDGET_BYTES = 20 * 1024;
+
+const encoder = new TextEncoder();
+
 type Guide = { text: string; truncated: boolean };
+
+// 분류 하나의 색인. lines는 예산과 상관없이 늘 들어가는 줄(`## 분류`, 설명, import 줄, `- 이름: 언제 쓰나`)이고,
+// blocks는 export 문이 내보내는 props 정의로 그 줄 뒤에 붙는다.
+type CategoryIndex = {
+  lines: string[];
+  blocks: { after: number; code: string }[];
+};
 
 function versionOrder(a: string, b: string): number {
   const left = a.split(/[.+-]/).map(Number);
@@ -132,11 +145,14 @@ function signatureOf(lines: readonly string[], name: string): string | null {
 // components/<분류>/mod.ts에서 분류의 index를 뽑는다. export 문 바로 위 `//` 주석이 "언제 쓰나" 한 줄이라 따로 쓰면
 // 낡는다. 같은 문이 내보내는 type(Props 등)은 component source의 정의를 주석째 옮겨 props를 보인다. 내보낸 type이 없으면
 // component signature의 인자 type이다. 주석 없는 export는 뺀다.
+//
+// props 정의는 `blocks`로 따로 돌려준다. 예산이 모자라면 그 분류의 이름·"언제 쓰나" 줄은 그대로 두고 여기서만 빼기
+// 위해서다.
 async function indexOfCategory(
   folder: string,
   category: string,
   mod: string,
-): Promise<string> {
+): Promise<CategoryIndex> {
   // 첫 줄은 분류 설명이라 다음 export의 주석에 섞지 않는다.
   const [summary, ...body] = mod.split("\n");
   const lines = [
@@ -146,6 +162,7 @@ async function indexOfCategory(
     `import from \`@lophn/ui/${category}\``,
     "",
   ];
+  const blocks: CategoryIndex["blocks"] = [];
   let comment: string[] = [];
   let statement: string | null = null;
   for (const line of body) {
@@ -189,29 +206,80 @@ async function indexOfCategory(
                 .filter((name) => /^[A-Z][a-z]/.test(name))
                 .flatMap((name) => signatureOf(source.split("\n"), name) ?? []);
       if (found.length > 0) {
-        lines.push("", "```ts", found.join("\n\n"), "```", "");
+        blocks.push({
+          after: lines.length,
+          code: ["```ts", found.join("\n\n"), "```"].join("\n"),
+        });
       }
     }
     statement = null;
     comment = [];
   }
-  return lines.join("\n");
+  return { lines, blocks };
+}
+
+// 예산을 넘어 props 정의를 뺀 분류에 남기는 한 줄이다. 이름 줄은 그대로 있으므로 읽을 곳만 알리면 된다.
+// 설치는 data root의 사본이라 agent가 file tool로 읽지 못하고, 앱 폴더의 사본(`syncAppSdk`)만 읽을 수 있다.
+const PROPS_LEFT_OUT =
+  "- props 정의는 예산 밖이라 뺐다; 앱 사본 `.lophn/sdk/ui/<판>/components/<분류>/**`의 props type을 읽는다";
+
+// 이름·"언제 쓰나" 줄만 있는 index에 props 정의를 예산 안에서만 붙인다. 분류마다 한 번에 하나씩 돌아가며
+// 붙이므로 예산이 모자라도 앞 알파벳 분류가 먼저 사라지지 않는다. 끝내 못 붙인 분류에는 뺐다는 줄을 남긴다.
+// 같은 입력이면 같은 글이 나온다: 분류·block 순서는 index 순서 그대로고 무작위가 없다. 예산은 만든 글의
+// byte로 재므로 줄·빈 줄 계산이 어긋나도 넘지 않는다.
+function assembleGuide(indexes: readonly CategoryIndex[]): string {
+  const slots = indexes.map((index) => ({
+    lines: [...index.lines],
+    blocks: [] as { after: number; code: string }[],
+    pending: [...index.blocks],
+  }));
+  const text = () =>
+    slots
+      .map((slot) => {
+        const out: string[] = [];
+        for (let at = 0; at <= slot.lines.length; at += 1) {
+          for (const block of slot.blocks) {
+            if (block.after === at) out.push("", block.code, "");
+          }
+          if (at < slot.lines.length) out.push(slot.lines[at]!);
+        }
+        if (slot.pending.length > 0) out.push(PROPS_LEFT_OUT);
+        return out.join("\n");
+      })
+      .join("\n\n");
+  let added = true;
+  while (added) {
+    added = false;
+    for (const slot of slots) {
+      const next = slot.pending[0];
+      if (next === undefined) continue;
+      slot.pending.shift();
+      slot.blocks.push(next);
+      if (encoder.encode(text()).byteLength <= GUIDE_BUDGET_BYTES) {
+        added = true;
+        continue;
+      }
+      slot.blocks.pop();
+      slot.pending.unshift(next);
+    }
+  }
+  return text();
 }
 
 // guide.md가 있으면 그것이다. 없고 components/<분류>/mod.ts가 있으면(@lophn/ui) 분류마다 export 이름, "언제 쓰나"
-// 한 줄, props 정의의 index를 잇는다. 둘 다 없으면 null이다.
+// 한 줄, 예산 안의 props 정의를 잇는다. 둘 다 없으면 null이다.
 async function guideOf(folder: string): Promise<string | null> {
   const written = await readTextOrNull(`${folder}/guide.md`);
   if (written !== null) return written;
-  const sections: string[] = [];
+  const indexes: CategoryIndex[] = [];
   for (const category of (await readDirNames(`${folder}/components`)).sort()) {
     if (category.startsWith("_")) continue;
     const mod = await readTextOrNull(`${folder}/components/${category}/mod.ts`);
     if (mod !== null) {
-      sections.push(await indexOfCategory(folder, category, mod));
+      indexes.push(await indexOfCategory(folder, category, mod));
     }
   }
-  return sections.length === 0 ? null : sections.join("\n\n");
+  return indexes.length === 0 ? null : assembleGuide(indexes);
 }
 
 function limited(text: string): Guide {

@@ -4,7 +4,8 @@ export { defineTool } from "./define.ts";
 export type { ToolDefinition } from "./registry.ts";
 export type { ToolContext } from "./tool-context.ts";
 export { commandOf, type CoreCall, readOf } from "../run-loop/core-call.ts";
-export { limitText, TEXT_MAX_BYTES } from "./result.ts";
+export { continuation } from "./bundles/paging.ts";
+export { jsonBytes, limitText, TEXT_MAX_BYTES } from "./result.ts";
 export {
   countSummary,
   fitted,

@@ -111,7 +111,8 @@ type FitJson = {
   omittedCount: number;
 };
 
-function jsonBytes(value: unknown): number {
+// tool 결과 content의 JSON byte 수다. 상한은 이 값으로 잰다.
+export function jsonBytes(value: unknown): number {
   return new TextEncoder().encode(JSON.stringify(value)).byteLength;
 }
 

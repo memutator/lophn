@@ -19,6 +19,7 @@ import { QUEUED_INPUT_ROUTES, sendMessage } from "./inputs.ts";
 import { ASK_ROUTES } from "./ask-tool.ts";
 import { MESSAGE_IMAGE_ROUTES } from "./message-images.ts";
 import { RECEIVED_MESSAGE_ROUTES } from "./received-messages.ts";
+import { messageSearch } from "./message-search.ts";
 import { AGENT_ROUTES } from "./agent-definitions.ts";
 import { connectProvider } from "./providers.ts";
 import {
@@ -58,6 +59,7 @@ export const ROUTES = [
   ...ASK_ROUTES,
   ...MESSAGE_IMAGE_ROUTES,
   ...RECEIVED_MESSAGE_ROUTES,
+  messageSearch,
   ...AGENT_ROUTES,
   connectProvider,
   // MCP OAuth의 시작·완료·상태·취소 입구다. ledger queue를 거치지 않는

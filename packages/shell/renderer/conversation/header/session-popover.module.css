@@ -74,6 +74,39 @@
   font-weight: var(--font-weight-semibold);
 }
 
+/* 메시지 글 검색 결과 한 줄. 제목 줄 아래에 겹들여 한 줄 snippet만 보인다. */
+.matchRow {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: var(--menu-row);
+  padding: var(--space-0) var(--space-4);
+  border: var(--space-0);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+}
+
+.matchRow:hover,
+.matchRow:focus-visible {
+  background: var(--floating-hover);
+}
+
+.matchSnippet {
+  flex: 1;
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .check {
   flex: none;
   width: var(--space-6);

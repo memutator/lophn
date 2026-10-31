@@ -19,6 +19,7 @@ import type { SessionRow } from "../../mock/agents-data.ts";
 import {
   click,
   find,
+  press,
   runSteps,
   type Step,
   type,
@@ -96,6 +97,40 @@ const DEMOS: Readonly<
         );
         await wait(50);
       },
+    ],
+  },
+  "steps-detail": {
+    scene: "report",
+    steps: [
+      () => press("[data-steps-detail]"),
+      () => click("[role=menuitem]", "Everything"),
+    ],
+  },
+  find: {
+    scene: "report",
+    steps: [
+      async () => {
+        const input = await find(COMPOSER);
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "f",
+            code: "KeyF",
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        await wait(30);
+      },
+      () => type("[data-find-input]", "report"),
+    ],
+  },
+  "session-search": {
+    scene: "working",
+    steps: [
+      () => click("[data-agent-header] button[aria-label]"),
+      () => type("[data-session-popover] input", "recipe"),
+      () => wait(400),
     ],
   },
 };

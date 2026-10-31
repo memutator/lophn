@@ -25,6 +25,7 @@ import {
   stopTurnOf,
 } from "./agent-tab-core-source-commands.ts";
 import { createImageSource } from "./agent-tab-core-source-images.ts";
+import { searchMessages } from "./agent-tab-core-source-search.ts";
 import { createModelPart } from "./agent-tab-core-source-model.ts";
 import { readStatus } from "./agent-tab-core-source-status.ts";
 import {
@@ -85,6 +86,7 @@ function createSource(
   return {
     agent: () => readFace(env, faceCache),
     sessions: () => readSessions(env, activeTimes),
+    searchMessages: (query) => searchMessages(env, query),
     thread: (session) => readThread(env, memo, session),
     body: (message) => readBody(env, memo, message),
     envelope: (message) => readEnvelope(env, memo, message),

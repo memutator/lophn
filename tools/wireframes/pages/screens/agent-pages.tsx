@@ -25,7 +25,9 @@ import {
   ContextFullScene,
   ContextWarningScene,
   ConversationScene,
+  DetailScene,
   EditDiffScene,
+  FindScene,
   ModelShortcutScene,
   PermissionsScene,
   QuestionAnsweredScene,
@@ -35,6 +37,7 @@ import {
   RequestErrorScene,
   RewindScene,
   SenderChipsScene,
+  SessionSearchScene,
   SkipScene,
   StatusFromFooterScene,
   StatusScene,
@@ -223,3 +226,9 @@ export const AgentSkip = SkipScene;
 export const AgentContextWarning = ContextWarningScene;
 /** 창을 94% 쓴 session. 푸터와 status 막대가 error 색. */
 export const AgentContextFull = ContextFullScene;
+/** header의 단계 상세 menu에서 Everything을 고른 모습. */
+export const AgentDetail = DetailScene;
+/** Ctrl+F로 연 대화 안 찾기 줄. */
+export const AgentFind = FindScene;
+/** session 검색의 메시지 글 결과. */
+export const AgentSessionSearch = SessionSearchScene;

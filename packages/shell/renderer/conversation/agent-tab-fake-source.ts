@@ -30,6 +30,7 @@ import type {
   QueuedView,
   RewindPreviewView,
   SessionEntry,
+  SessionSearchMatch,
   SourceResult,
   StatusView,
   ThreadEntry,
@@ -1117,6 +1118,27 @@ function fail<T>(code: string): Promise<SourceResult<T>> {
 
 const DONE = ok<void>(undefined);
 
+const SEARCH_SNIPPET_BEFORE = 40;
+const SEARCH_SNIPPET_AFTER = 80;
+const SEARCH_MATCH_MAX = 20;
+
+/** 처음 맞은 곳 앞뒤를 한 줄로 줄인다. core의 SearchSessionMessages와 같은 모양이다. */
+function searchSnippet(text: string, needle: string): string | null {
+  const flat = text.replace(/\s+/g, " ").trim();
+  const at = flat.toLowerCase().indexOf(needle);
+  if (at === -1) return null;
+  const start = Math.max(0, at - SEARCH_SNIPPET_BEFORE);
+  const end = Math.min(flat.length, at + needle.length + SEARCH_SNIPPET_AFTER);
+  return `${start > 0 ? "…" : ""}${flat.slice(start, end)}${end < flat.length ? "…" : ""}`;
+}
+
+/** 숨긴 구간 안의 메시지도 기록이므로 같이 본다. */
+function allEntries(entries: readonly ThreadEntry[]): readonly ThreadEntry[] {
+  return entries.flatMap((entry) =>
+    entry.kind === "hidden" ? allEntries(entry.entries) : [entry],
+  );
+}
+
 export function createFakeAgentTabSource(
   options: {
     scene?: AgentTabScene;
@@ -1240,6 +1262,31 @@ export function createFakeAgentTabSource(
   const source: AgentTabSource = {
     agent: () => ok(data.agent),
     sessions: () => ok([...sessions]),
+    searchMessages(query) {
+      const needle = query.trim().toLowerCase();
+      if (needle === "") return ok([]);
+      const matches: SessionSearchMatch[] = [];
+      for (const entry of sessions) {
+        const view = threads.get(entry.id);
+        if (view === undefined) continue;
+        for (const item of allEntries(view.entries)) {
+          if (item.kind !== "message" || item.actor === "received") continue;
+          const text = (bodies.get(item.id) ?? [])
+            .flatMap((part) => (part.kind === "text" ? [part.text] : []))
+            .join("\n");
+          const snippet = searchSnippet(text, needle);
+          if (snippet === null) continue;
+          matches.push({
+            session: entry.id,
+            message: item.id,
+            at: item.at,
+            snippet,
+          });
+        }
+      }
+      matches.sort((a, b) => b.at.localeCompare(a.at));
+      return ok(matches.slice(0, SEARCH_MATCH_MAX));
+    },
     thread(session) {
       return sessions.some((item) => item.id === session)
         ? ok(thread(session))

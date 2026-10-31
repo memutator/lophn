@@ -87,3 +87,9 @@ export const StatusFromFooterScene = () => <Scene sub="status-footer" />;
 export const ModelShortcutScene = () => <Scene sub="model-shortcut" />;
 /** 편집 카드를 펼친 모습: 바뀐 줄을 unified diff로 보이고 길면 [Show all]로 펼친다. */
 export const EditDiffScene = () => <Scene sub="edit-diff" />;
+/** header의 단계 상세 menu에서 Everything을 고른 모습. 모든 tool 묶음이 펼쳐진다. */
+export const DetailScene = () => <Scene sub="steps-detail" />;
+/** Ctrl+F로 연 대화 안 찾기 줄. 일치 수와 이전·다음·닫기 단추가 있다. */
+export const FindScene = () => <Scene sub="find" />;
+/** session 검색이 제목뿐 아니라 메시지 글에서도 찾은 모습. session 묶음마다 한 줄 snippet이 보인다. */
+export const SessionSearchScene = () => <Scene sub="session-search" />;

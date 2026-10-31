@@ -72,6 +72,7 @@ import {
   focusedKey,
   mapLayoutTabs,
   minimizeFloat,
+  MAIN_DESK,
   moveTab,
   newFloatRect,
   openDetachedTab,
@@ -83,11 +84,15 @@ import {
   placeKey,
   reattachTab,
   removeDesk,
+  renameDesk,
   restoreFloat,
   selectTab,
   setActiveDesk,
   setFloatRect,
+  setSplitDir,
+  setSplitRatio,
   splitWith,
+  type SplitDir,
   stepTab,
   type PlaceRef,
   type TabItem,
@@ -577,14 +582,10 @@ export function PlaceWindow(props: PlaceWindowProps) {
   const switchDesk = (key: string) =>
     commit(setActiveDesk(latestLayout.current, key));
 
-  // 사라진 workflow의 desk를 Main으로 합친다. 합치며 tab이 된 detached 탭의 창은 닫는다.
-  const mergeVanished = (liveNames: readonly string[]) => {
-    const current = latestLayout.current;
-    const gone = Object.values(current.desks).filter(
-      (item) =>
-        item.workflow !== undefined && !liveNames.includes(item.workflow),
-    );
+  // desk들을 지우고 탭을 Main으로 합친다. 합치며 tab이 된 detached 탭의 창은 닫는다.
+  const dropDesks = (gone: readonly Desk[]) => {
     if (gone.length === 0) return;
+    const current = latestLayout.current;
     const next = gone.reduce((all, item) => removeDesk(all, item.key), current);
     const detachedKeys = (from: PlaceLayout) =>
       new Set(
@@ -598,6 +599,14 @@ export function PlaceWindow(props: PlaceWindowProps) {
     }
     commit(next, true, true);
   };
+  // 사라진 workflow의 desk를 Main으로 합친다.
+  const mergeVanished = (liveNames: readonly string[]) =>
+    dropDesks(
+      Object.values(latestLayout.current.desks).filter(
+        (item) =>
+          item.workflow !== undefined && !liveNames.includes(item.workflow),
+      ),
+    );
 
   // desk 단추의 workflow 목록을 읽는다. project를 연 직후와 desk 단추를 열 때 부른다. 사라진 desk는 읽기에
   // 성공한 목록으로만 합친다(실패나 읽는 중에 합치면 desk의 탭이 모두 Main으로 옮겨진다).
@@ -1364,13 +1373,13 @@ export function PlaceWindow(props: PlaceWindowProps) {
   const shown = (inSplit ? [split.a, split.b] : [desk.selected]).flatMap(
     (key) => deskTab(key) ?? [],
   );
-  const splitWithNext = (key?: string) => {
+  const splitWithNext = (key?: string, dir: SplitDir = "row") => {
     const current = latestDesk();
     const from = key ?? current.selected;
     const at = current.tabs.findIndex((tab) => tab.key === from);
     const next = current.tabs[at + 1] ?? current.tabs[at - 1];
     if (from === null || at < 0 || next === undefined) return;
-    update((item) => splitWith(item, from, next.key));
+    update((item) => splitWith(item, from, next.key, dir));
   };
 
   // tab 메뉴(오른쪽 클릭과 card ⋯)가 보이는 항목.
@@ -1389,7 +1398,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
       file: pathOfTab(tab) !== null,
       canDetach:
         props.detached !== undefined && tabKindOf(tab.kind)?.noDetach !== true,
-      inSplit: member,
+      split: member ? split.dir : null,
       canSplit: tabs.length > 1,
       hasOthers: tabs.length > (member ? 2 : 1),
       hasRight: lastAt < tabs.length - 1,
@@ -1436,9 +1445,15 @@ export function PlaceWindow(props: PlaceWindowProps) {
       case "float":
         floatByKey(key);
         return;
-      case "split":
-        splitWithNext(key);
+      case "split-right":
+      case "split-down": {
+        const dir = action === "split-right" ? "row" : "column";
+        // 이 tab이 이미 split 구성원이면 방향만 바꾼다.
+        if (split !== null && (split.a === key || split.b === key)) {
+          update((item) => setSplitDir(item, dir));
+        } else splitWithNext(key, dir);
         return;
+      }
       case "unsplit":
         update(unsplit);
         return;
@@ -1503,7 +1518,9 @@ export function PlaceWindow(props: PlaceWindowProps) {
       {
         key: tab.key,
         a: stripTab(tab),
-        ...(partner === undefined ? {} : { b: stripTab(partner) }),
+        ...(partner === undefined
+          ? {}
+          : { b: stripTab(partner), dir: split!.dir }),
       },
     ];
   });
@@ -1585,6 +1602,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
       key: item.key,
       label: item.label,
       workflow: item.workflow !== undefined,
+      manageable: item.key !== MAIN_DESK && item.workflow === undefined,
     })),
     // 목록에 있지만 아직 desk가 없는 workflow. 고르면 desk를 만들고 그 workflow 탭을 연다.
     ...(workflowList?.ok === true
@@ -1637,6 +1655,9 @@ export function PlaceWindow(props: PlaceWindowProps) {
       <ContentCard
         panes={panes}
         focus={focusSide}
+        splitDir={split?.dir}
+        splitRatio={split?.ratio}
+        onSplitRatio={(ratio) => update((item) => setSplitRatio(item, ratio))}
         deskLabel={desk.label}
         canBack={backAt >= 0}
         canForward={forwardAt >= 0}
@@ -1696,6 +1717,14 @@ export function PlaceWindow(props: PlaceWindowProps) {
                   current={layout.active}
                   onSelect={selectDesk}
                   onNewDesk={newDesk}
+                  onRename={(key, label) =>
+                    commit(renameDesk(latestLayout.current, key, label))
+                  }
+                  onDelete={(key) => {
+                    const gone = latestLayout.current.desks[key];
+                    if (gone?.workflow === undefined)
+                      dropDesks(gone ? [gone] : []);
+                  }}
                 />
               )
             }

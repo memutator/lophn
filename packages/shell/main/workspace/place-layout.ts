@@ -31,7 +31,14 @@ const placeDeskSchema = z
     tabs: z.array(layoutTabSchema).max(TABS_MAX),
     selected_tab: tabKey.nullable(),
     split: z
-      .strictObject({ a: tabKey, b: tabKey, focus: z.enum(["a", "b"]) })
+      .strictObject({
+        a: tabKey,
+        b: tabKey,
+        focus: z.enum(["a", "b"]),
+        // 판 8 초기 개발 파일에는 없다. 없으면 좌우 반반이다.
+        dir: z.enum(["row", "column"]).default("row"),
+        ratio: z.number().min(0.15).max(0.85).default(0.5),
+      })
       .nullable(),
     floats: z
       .array(

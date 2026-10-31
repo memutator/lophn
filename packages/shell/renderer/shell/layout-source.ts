@@ -11,6 +11,7 @@ import {
   type DetachedItem,
   type FloatRect,
   type FloatTab,
+  clampSplitRatio,
   MAIN_DESK,
   type PlaceLayout,
   type PlaceRef,
@@ -206,7 +207,15 @@ function deskFromStored(key: string, value: unknown): Desk | null {
       typeof split.a === "string" &&
       typeof split.b === "string" &&
       (split.focus === "a" || split.focus === "b")
-        ? { a: split.a, b: split.b, focus: split.focus }
+        ? {
+            a: split.a,
+            b: split.b,
+            focus: split.focus,
+            dir: split.dir === "column" ? "column" : "row",
+            ratio: clampSplitRatio(
+              typeof split.ratio === "number" ? split.ratio : 0.5,
+            ),
+          }
         : null,
     floats: compact(
       list("floats").map((item): FloatTab | null => {

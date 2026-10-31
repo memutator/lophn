@@ -23,6 +23,7 @@ import {
   PictureInPicture2,
   Plus,
   RectangleHorizontal,
+  Rows2,
   Search,
   SquareTerminal,
   Workflow,
@@ -48,6 +49,7 @@ export const shellIcons = {
   // tab 메뉴.
   float: PictureInPicture2,
   split: Columns2,
+  splitDown: Rows2,
   unsplit: RectangleHorizontal,
   detach: ExternalLink,
   copy: Copy,

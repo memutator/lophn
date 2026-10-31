@@ -19,8 +19,15 @@ export const shellArea: Area = {
       id: "shell-split",
       title: "Shell · Split",
       description:
-        "두 tab을 한 칸으로 붙인 split tab. tab 줄에서는 한 칸에 반쪽 둘이고 card는 좌우로 나뉘어 반쪽마다 머리 줄을 가진다. 누른 쪽이 강조된다.",
+        "두 tab을 한 칸으로 붙인 split tab(좌우, Split right). tab 줄에서는 한 칸에 반쪽 둘과 사이의 방향 아이콘이고 card는 좌우로 나뉘어 반쪽마다 머리 줄을 가진다. 누른 쪽이 강조되고 가운데 선을 끌어 몫을 바꾼다.",
       render: () => <ShellScene variant="split" />,
+    },
+    {
+      id: "shell-split-down",
+      title: "Shell · Split down",
+      description:
+        "위아래로 나눈 split. tab 줄의 반쪽 사이 아이콘이 가로 나눔(Rows)이고 card는 위아래로 쌓여 반쪽마다 머리 줄을 가진다. 두 반쪽 사이의 선을 끌어 몫을 바꾼다.",
+      render: () => <ShellScene variant="split-down" />,
     },
     {
       id: "shell-floats",
@@ -53,15 +60,31 @@ export const shellArea: Area = {
       id: "shell-desk-menu",
       title: "Shell · Desk menu",
       description:
-        "desk 단추를 연 상태. 사람이 만든 desk와 workflow desk를 고르고 New desk로 빈 desk를 만든다.",
+        "desk 단추를 연 상태. 사람이 만든 desk와 workflow desk를 고르고 New desk로 빈 desk를 만든다. 사람이 만든 desk(Main 제외) 줄 오른쪽 끝에 이름 바꾸기(연필)와 지우기(x) 단추가 있다. 지우면 탭은 Main으로 간다.",
       render: () => <ShellScene variant="project" open="[data-desk-button]" />,
     },
     {
       id: "shell-tab-menu",
       title: "Shell · Tab menu",
       description:
-        "card 머리 줄 ⋯의 tab 메뉴. Float, Split with next tab(split이면 Unsplit), Move to new window, Close tab.",
+        "card 머리 줄 ⋯의 tab 메뉴. Float, Split right·Split down(split이면 다른 방향과 Unsplit), Move to new window, Close tab.",
       render: () => <ShellScene variant="project" open="[data-tab-menu]" />,
+    },
+    {
+      id: "shell-tab-menu-edge",
+      title: "Shell · Tab menu at the edge",
+      description:
+        "오른쪽 sidebar를 접어 card 머리의 ⋯가 창 오른쪽 끝에 닿은 상태. 메뉴는 단추의 오른쪽 끝에 맞춰 왼쪽으로 펴져 창 밖으로 나가지 않는다.",
+      render: () => (
+        <ShellScene variant="project" right={false} open="[data-tab-menu]" />
+      ),
+    },
+    {
+      id: "shell-tab-menu-split",
+      title: "Shell · Tab menu in a split",
+      description:
+        "좌우 split의 반쪽 머리 ⋯. 방향을 바꾸는 Split down과 Unsplit이 나온다.",
+      render: () => <ShellScene variant="split" open="[data-tab-menu]" />,
     },
     {
       id: "shell-tab-context-menu",

@@ -1,6 +1,8 @@
 export const shell = {
   "shell.button.back": "Back",
   "shell.button.desk": "Desk: {name}",
+  "shell.button.desk-delete": "Delete desk {name}",
+  "shell.button.desk-rename": "Rename desk {name}",
   "shell.button.empty-new-session": "New session",
   "shell.button.empty-open-file": "Open file",
   "shell.button.float-close": "Close",
@@ -25,7 +27,8 @@ export const shell = {
   "shell.button.tab-menu": "Tab menu",
   "shell.button.tab-rename": "Rename",
   "shell.button.tab-reveal": "Reveal in Explorer",
-  "shell.button.tab-split": "Split with next tab",
+  "shell.button.tab-split-down": "Split down",
+  "shell.button.tab-split-right": "Split right",
   "shell.button.tab-unsplit": "Unsplit",
   "shell.button.toggle-left": "Toggle left sidebar",
   "shell.button.toggle-right": "Toggle right sidebar",
@@ -35,8 +38,10 @@ export const shell = {
   "shell.label.app-no-release": "No release yet",
   "shell.label.app-release": "Release {number}",
   "shell.label.app-released": "Released",
+  "shell.label.desk-name": "Desk name",
   "shell.label.empty-desk":
     "No tabs in this desk yet. Open a session from the sidebar or start a new one.",
   "shell.label.minimized": "Minimized tabs",
   "shell.label.new-desk-name": "Desk {number}",
+  "shell.label.split-resize": "Resize split",
 } as const;

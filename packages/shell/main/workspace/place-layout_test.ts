@@ -134,7 +134,13 @@ test("판 8 파일은 쓴 대로 읽히고, place 파일이 있으면 옛 layout
           label: "Main",
           tabs: [tab("/a.md"), tab("/b.md")],
           selected_tab: "/b.md",
-          split: { a: "/a.md", b: "/b.md", focus: "b" },
+          split: {
+            a: "/a.md",
+            b: "/b.md",
+            focus: "b",
+            dir: "column",
+            ratio: 0.3,
+          },
           floats: [{ tab: tab("/f.md"), rect: BOUNDS, minimized: false }],
           detached: [],
         },
@@ -161,6 +167,47 @@ test("판 8 파일은 쓴 대로 읽히고, place 파일이 있으면 옛 layout
   });
 });
 
+test("dir과 ratio가 없는 판 8 파일은 좌우 반반으로 읽고, 범위 밖 ratio는 저장하지 않는다", async () => {
+  await withRoot(async (root) => {
+    const store = createPlaceLayoutStore(root);
+    const file = (split: object) => ({
+      active_desk: "_default",
+      desks: {
+        _default: {
+          label: "Main",
+          tabs: [tab("/a.md"), tab("/b.md")],
+          selected_tab: "/a.md",
+          split,
+          floats: [],
+          detached: [],
+        },
+      },
+    });
+    await mkdir(join(root, "shell", "places"), { recursive: true });
+    await writeFile(
+      join(root, "shell", "places", "home.json"),
+      JSON.stringify({
+        schema_version: 8,
+        ...file({ a: "/a.md", b: "/b.md", focus: "a" }),
+      }),
+    );
+    const read = await store.read("home");
+    assert.ok(read.ok && read.value?.ok);
+    assert.deepEqual(read.value.layout.desks._default!.split, {
+      a: "/a.md",
+      b: "/b.md",
+      focus: "a",
+      dir: "row",
+      ratio: 0.5,
+    });
+    const wild = await store.write(
+      "home",
+      file({ a: "/a.md", b: "/b.md", focus: "a", dir: "row", ratio: 0.99 }),
+    );
+    assert.ok(!wild.ok && wild.error.code === "invalid_input");
+  });
+});
+
 test("tab을 둘로 만들거나 붙지 않은 split을 담은 layout은 저장하지 않는다", async () => {
   await withRoot(async (root) => {
     const store = createPlaceLayoutStore(root);
@@ -184,7 +231,9 @@ test("tab을 둘로 만들거나 붙지 않은 split을 담은 layout은 저장�
     );
     const apart = await store.write(
       "home",
-      desk({ split: { a: "/a.md", b: "/c.md", focus: "a" } }),
+      desk({
+        split: { a: "/a.md", b: "/c.md", focus: "a", dir: "row", ratio: 0.5 },
+      }),
     );
     for (const result of [twice, apart]) {
       assert.ok(!result.ok && result.error.code === "invalid_input");
@@ -271,7 +320,13 @@ test("앱 place layout의 앱 화면 탭과 app work_place agent 탭은 저장�
           label: "Main",
           tabs: [screen, agent],
           selected_tab: screen.key,
-          split: { a: screen.key, b: agent.key, focus: "a" },
+          split: {
+            a: screen.key,
+            b: agent.key,
+            focus: "a",
+            dir: "row",
+            ratio: 0.5,
+          },
           floats: [],
           detached: [],
         },

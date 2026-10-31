@@ -189,9 +189,11 @@
   background: var(--color-surface-muted);
 }
 
-.tab[data-split] .half + .half {
-  padding-inline-start: var(--space-4);
-  border-inline-start: var(--border-width) solid var(--color-border-base);
+/* 두 반쪽 사이의 방향 표시. 좌우(row)는 세로 칸, 위아래(column)는 가로 칸 아이콘이다. */
+.splitMark {
+  display: inline-flex;
+  flex: none;
+  color: var(--color-text-disabled);
 }
 
 .tab[data-active][data-split] .half:not([data-focused]) {

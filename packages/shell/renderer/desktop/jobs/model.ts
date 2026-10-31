@@ -2,12 +2,12 @@
 import type { StatusTone } from "@lophn/ui";
 import { formatRelativeTime, type MessageKey, t } from "@lophn/i18n";
 
-import { shortId } from "../../connection/waiting/model.ts";
-import { LOPHN_AGENT_NAME } from "../../../../../protocol/lophn-agent/agent-values.ts";
+import { shortId } from "../connection/waiting/model.ts";
+import { LOPHN_AGENT_NAME } from "../../../../protocol/lophn-agent/agent-values.ts";
 import {
   type AgentId,
   LOPHN_AGENT_ID,
-} from "../../../../../protocol/lophn-agent/places.ts";
+} from "../../../../protocol/lophn-agent/places.ts";
 import type {
   JobActionView,
   JobNames,

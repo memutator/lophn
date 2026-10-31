@@ -52,7 +52,7 @@ import {
 import { coreSettingsSource } from "./settings/core-source.ts";
 import { coreAppearanceSource } from "./settings/appearance/core-source.ts";
 import { coreKeyboardSource } from "./settings/keyboard/core-source.ts";
-import { coreJobsSource } from "./settings/jobs/core-source.ts";
+import { coreJobsSource } from "./jobs/core-source.ts";
 import { coreShellRulesSource } from "./settings/shell-rules/core-source.ts";
 import { windowBrowserSettings } from "./settings/browser/window-source.ts";
 import { coreProviderSettingsSource } from "./settings/providers/core-source.ts";
@@ -99,13 +99,14 @@ const catalog = mock?.catalog ?? catalogSource(projects, apps);
 const appDetail = mock?.appDetail ?? coreAppDetailSource(core);
 // settings 화면의 일반 설정·확장. credential은 보호 창이 받는다.
 const settings = mock?.settings ?? coreSettingsSource(core);
+// place 창의 Jobs overlay와 Jobs 탭, sidebar Jobs panel.
+const jobs = mock?.jobs ?? coreJobsSource(core);
 // settings 항목마다의 통로. key·로그인 응답은 보호 창이 받고, coding agent 감지는 main이 따로 검증하는 통로(`lophnCoding`)다.
 const settingsPanels = mock?.settingsPanels ?? {
   providers: coreProviderSettingsSource(core),
   agents: coreAgentsSettingsSource(core),
   diagnostics: coreDiagnosticsSource(core),
   shellRules: coreShellRulesSource(core),
-  jobs: coreJobsSource(core),
   appearance: coreAppearanceSource(core),
   keyboard: coreKeyboardSource(core),
   coding: coreCodingConnectionsSource({ core, coding: windowCodingApi() }),
@@ -251,6 +252,7 @@ mount(
                         apps={apps}
                         settings={settings}
                         settingsPanels={settingsPanels}
+                        jobs={jobs}
                         appDetail={appDetail}
                         views={views}
                         overlay={bridges.lophnShell}

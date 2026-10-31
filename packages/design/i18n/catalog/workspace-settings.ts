@@ -3,7 +3,9 @@ export const workspaceSettings = {
   "jobs.button.hide-history": "Hide history",
   "jobs.button.open-all": "Open all jobs",
   "jobs.button.open-project": "Open project",
+  "jobs.button.open-tab": "Open in tab",
   "jobs.button.show-history": "Show history",
+  "jobs.empty.all": "No scheduled jobs yet.",
   "jobs.empty.list":
     "No scheduled jobs yet. Ask an agent to set one up, for example by saying “Every morning at 9, summarize what changed”.",
   "jobs.empty.sidebar": "No scheduled jobs for this project.",
@@ -257,7 +259,6 @@ export const workspaceSettings = {
   "settings.label.tab-diagnostics": "Diagnostics",
   "settings.label.tab-extensions": "Tools and skills",
   "settings.label.tab-general": "General",
-  "settings.label.tab-jobs": "Scheduled jobs",
   "settings.label.tab-keyboard": "Keyboard",
   "settings.label.tab-providers": "Providers",
   "settings.label.tab-shell-rules": "Shell rules",

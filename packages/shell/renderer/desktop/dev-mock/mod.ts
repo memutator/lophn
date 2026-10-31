@@ -22,7 +22,13 @@ import { catalogSource } from "../palette/core-catalog.ts";
 import type { SettingsPanels } from "../settings/settings-screen.tsx";
 import type { ProjectIconsDeps } from "../../parts/project-icon/project-icon.tsx";
 import type { SettingsSource } from "../settings/source.ts";
-import { mockApps, mockSettings, mockSettingsPanels } from "./admin.ts";
+import {
+  mockApps,
+  mockJobs,
+  mockSettings,
+  mockSettingsPanels,
+} from "./admin.ts";
+import type { JobsSource } from "../jobs/source.ts";
 import { mockAgentTabSource } from "./agent.ts";
 import { mockAppDetail, mockAppViews, mockViews } from "./app-space.ts";
 import { mockProjects } from "./projects.ts";
@@ -41,6 +47,7 @@ export interface DevMock {
   readonly apps: AppsSource;
   readonly settings: SettingsSource;
   readonly settingsPanels: SettingsPanels;
+  readonly jobs: JobsSource;
   readonly appDetail: AppDetailSource;
   readonly views: LophnShellViewsApi;
   readonly annotate: LophnShellAnnotateApi;
@@ -107,6 +114,7 @@ export function devMock(
     apps,
     settings: mockSettings(),
     settingsPanels: mockSettingsPanels(),
+    jobs: mockJobs(),
     appDetail: mockAppDetail(),
     views,
     annotate: fakeAnnotate(),

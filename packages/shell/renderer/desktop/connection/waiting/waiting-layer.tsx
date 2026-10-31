@@ -5,6 +5,10 @@ import { t } from "@lophn/i18n";
 import { IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import { notificationsIcon } from "../../../icons/mod.ts";
+import {
+  OverlayLayer,
+  type OverlayAlign,
+} from "../../../shell/overlay-layer.tsx";
 import type { LophnNoticeApi } from "../../../../ipc/notice.ts";
 import { useWaiting } from "../events/hooks.tsx";
 import { createValueStore } from "../events/store.ts";
@@ -28,8 +32,10 @@ export function useWaitingPanel(): {
 export interface WaitingLayerProps {
   /** 질문 카드의 [Open session]. */
   readonly onOpenSession: (session: string) => void;
-  /** panel이 펼쳐지는 쪽. 기본은 단추 오른쪽 끝에 맞춰 왼쪽으로 펼친다(오른쪽 구역). start는 왼쪽 끝에 맞춰 오른쪽으로 편다. */
-  readonly align?: "start" | "end";
+  /** panel이 펼쳐지는 쪽. 기본은 단추 오른쪽 끝에 맞춰 왼쪽으로 펼친다(오른쪽 구역). start는 왼쪽 끝에 맞춰 오른쪽으로, side는 줄의 오른쪽 옆으로 편다. */
+  readonly align?: OverlayAlign;
+  /** panel 머리의 [Open in tab]. 주지 않으면 단추가 없다. 누르면 panel이 닫힌다. */
+  readonly onOpenTab?: () => void;
   /** 단추 대신 그릴 여는 요소(왼쪽 sidebar의 Inbox 줄). 배지도 이 쪽이 그린다. */
   readonly renderTrigger?: (state: {
     readonly count: number;
@@ -47,6 +53,7 @@ export interface WaitingLayerProps {
 export function WaitingLayer({
   onOpenSession,
   align = "end",
+  onOpenTab,
   renderTrigger,
   initial,
 }: WaitingLayerProps) {
@@ -67,74 +74,67 @@ export function WaitingLayer({
     if (wasOpen.current && !open) clear();
     wasOpen.current = open;
   }, [open, clear]);
-  // 열린 panel은 단추와 panel 밖을 누르거나 Esc를 누르면 닫힌다.
-  const layer = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const outside = (event: PointerEvent) => {
-      if (!layer.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("pointerdown", outside);
-    document.addEventListener("keydown", escape);
-    return () => {
-      document.removeEventListener("pointerdown", outside);
-      document.removeEventListener("keydown", escape);
-    };
-  }, [open, setOpen]);
   const label = t("waiting.label.trigger", { count });
 
-  return (
-    <div className={styles.layer} ref={layer} data-align={align}>
-      {renderTrigger ? (
-        renderTrigger({ count, open, toggle: () => setOpen(!open) })
-      ) : (
-        <>
-          <Tooltip content={label}>
-            <IconButton
-              icon={notificationsIcon}
-              label={label}
-              aria-expanded={open}
-              data-waiting-trigger=""
-              onClick={() => setOpen(!open)}
-            />
-          </Tooltip>
-          {count > 0 ? (
-            <span className={styles.badge} aria-hidden>
-              {count}
-            </span>
-          ) : null}
-        </>
-      )}
-      {open ? (
-        <div className={styles.floating}>
-          <WaitingPanel
-            entries={entries}
-            settled={settled}
-            finished={finished}
-            initial={initial}
-            onOpenSession={(session) => {
-              setOpen(false);
-              onOpenSession(session);
-            }}
-            onShowFinished={(target) => {
-              setOpen(false);
-              // main이 그 탭이 있는 창을 앞으로 가져오고 탭을 고른다(toast를 누를 때와 같다).
-              (
-                globalThis as { lophnNotice?: LophnNoticeApi }
-              ).lophnNotice?.open(target);
-            }}
-            onDismissFinished={(target) => {
-              // main이 못 본 표시를 끄면 Finished 줄과 배지 수가 저절로 빠진다.
-              void (
-                globalThis as { lophnNotice?: LophnNoticeApi }
-              ).lophnNotice?.dismiss(target);
-            }}
-          />
-        </div>
+  const trigger = renderTrigger ? (
+    renderTrigger({ count, open, toggle: () => setOpen(!open) })
+  ) : (
+    <>
+      <Tooltip content={label}>
+        <IconButton
+          icon={notificationsIcon}
+          label={label}
+          aria-expanded={open}
+          data-waiting-trigger=""
+          onClick={() => setOpen(!open)}
+        />
+      </Tooltip>
+      {count > 0 ? (
+        <span className={styles.badge} aria-hidden>
+          {count}
+        </span>
       ) : null}
-    </div>
+    </>
+  );
+
+  return (
+    <OverlayLayer
+      open={open}
+      onOpenChange={setOpen}
+      align={align}
+      trigger={trigger}
+    >
+      <WaitingPanel
+        entries={entries}
+        settled={settled}
+        finished={finished}
+        initial={initial}
+        onOpenTab={
+          onOpenTab === undefined
+            ? undefined
+            : () => {
+                setOpen(false);
+                onOpenTab();
+              }
+        }
+        onOpenSession={(session) => {
+          setOpen(false);
+          onOpenSession(session);
+        }}
+        onShowFinished={(target) => {
+          setOpen(false);
+          // main이 그 탭이 있는 창을 앞으로 가져오고 탭을 고른다(toast를 누를 때와 같다).
+          (globalThis as { lophnNotice?: LophnNoticeApi }).lophnNotice?.open(
+            target,
+          );
+        }}
+        onDismissFinished={(target) => {
+          // main이 못 본 표시를 끄면 Finished 줄과 배지 수가 저절로 빠진다.
+          void (
+            globalThis as { lophnNotice?: LophnNoticeApi }
+          ).lophnNotice?.dismiss(target);
+        }}
+      />
+    </OverlayLayer>
   );
 }

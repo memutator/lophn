@@ -13,10 +13,6 @@ import type { AppearanceValues } from "../../../../packages/shell/renderer/deskt
 import { fakeAgents } from "../../../../packages/shell/renderer/desktop/settings/agents/testdata/fake-agents.ts";
 import { fakeProviders } from "../../../../packages/shell/renderer/desktop/settings/providers/testdata/fake-providers.ts";
 import { fakeSettings } from "../../../../packages/shell/renderer/desktop/settings/testdata/fake-settings.ts";
-import {
-  fakeJobs,
-  type FakeJobsOptions,
-} from "../../../../packages/shell/renderer/desktop/settings/jobs/testdata/fake-source.ts";
 import { fakeBrowserSettings } from "../../../../packages/shell/renderer/desktop/settings/browser/testdata/fake-source.ts";
 import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
 import type { LinkValues } from "../../../../packages/shell/renderer/desktop/settings/browser/source.ts";
@@ -44,8 +40,6 @@ interface SettingsFrameProps {
     /** Links 줄의 처음 값. 안 쓴 줄은 Browser tab이다. */
     readonly links?: Partial<LinkValues>;
   };
-  /** Scheduled jobs 항목의 job. 안 쓰면 dev mock의 대표 job이다. */
-  readonly jobs?: Partial<FakeJobsOptions>;
   /** Keyboard 항목의 저장된 키. 안 쓰면 바꾼 키가 없다. */
   readonly keyboard?: StoredKeybindings;
   /** custom provider를 붙일 수 있게 한다. found는 연결 뒤 목록을 찾고, empty는 /models가 없어 목록이 비어 있다. */
@@ -63,7 +57,6 @@ export function SettingsFrame({
   providers,
   noDefaultModel = false,
   browser,
-  jobs,
   customList,
   keyboard,
   steps = [],
@@ -91,7 +84,6 @@ export function SettingsFrame({
       ...(browser === undefined
         ? {}
         : { browser: fakeBrowserSettings(browser).source }),
-      ...(jobs === undefined ? {} : { jobs: fakeJobs(jobs).source }),
       ...(keyboard === undefined
         ? {}
         : { keyboard: fakeKeyboard({ value: keyboard }).source }),
@@ -118,7 +110,6 @@ export function SettingsFrame({
       providers,
       noDefaultModel,
       browser,
-      jobs,
       customList,
       keyboard,
     ],

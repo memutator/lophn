@@ -11,6 +11,8 @@ import { artifactKind } from "./artifact.tsx";
 import { browserKind } from "./browser.tsx";
 import { browserDevtoolsKind } from "./browser-devtools.tsx";
 import { documentEditorKind } from "./document-editor.tsx";
+import { inboxKind } from "./inbox.tsx";
+import { jobsKind } from "./jobs.tsx";
 import type { TabKindDef } from "./kind.ts";
 import { projectSettingsKind } from "./project-settings.tsx";
 import { searchKind } from "./search.tsx";
@@ -30,6 +32,8 @@ const BUILT_IN_TAB_KINDS = [
   artifactKind,
   workflowKind,
   projectSettingsKind,
+  jobsKind,
+  inboxKind,
 ] as const;
 
 const kinds = new Map<string, TabKindDef>();

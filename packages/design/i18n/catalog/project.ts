@@ -140,6 +140,8 @@ export const project = {
   "project-workspace.label.kind-agents": "Agents",
   "project-workspace.label.kind-app-panel": "App panel",
   "project-workspace.label.kind-document-editor": "Document editor",
+  "project-workspace.label.kind-inbox": "Inbox",
+  "project-workspace.label.kind-jobs": "Jobs",
   "project-workspace.label.kind-project-settings": "Project settings",
   "project-workspace.label.kind-terminal": "Terminal",
   "project-workspace.label.menu-agent": "Agent",

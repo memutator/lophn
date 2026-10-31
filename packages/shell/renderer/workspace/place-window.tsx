@@ -43,7 +43,7 @@ import {
   topFloat,
   workspaceScope,
 } from "../desktop/palette/workspace-scope.ts";
-import type { JobsSource } from "../desktop/settings/jobs/source.ts";
+import type { JobsSource } from "../desktop/jobs/source.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import { dotLabel } from "../parts/tab-state-dot/tab-state-dot.tsx";
@@ -121,6 +121,8 @@ import {
   appScreenTab,
   openAppScreen,
 } from "./kinds/app-screen.tsx";
+import { openInbox } from "./kinds/inbox.tsx";
+import { openJobs } from "./kinds/jobs.tsx";
 import { openProjectSettings } from "./kinds/project-settings.tsx";
 import { openArtifact } from "./kinds/artifact.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
@@ -183,7 +185,7 @@ export interface PlaceWindowProps {
   notice?: ReactNode;
   /** Settings로 간다. 항목을 주면 그 항목부터 연다. */
   onSettings: (pane?: SettingsPane) => void;
-  /** sidebar Scheduled jobs 탭의 통로. 없으면 그 항목을 두지 않는다. */
+  /** sidebar Scheduled jobs 탭, Jobs overlay, Jobs 탭의 통로. 없으면 sidebar 항목을 두지 않고 Jobs overlay는 줄이 바로 탭을 연다. */
   jobs?: JobsSource;
   /** 파일 탭의 읽기·편집 통로. 없으면 파일 탭은 자리표시다. */
   editor?: EditorDeps;
@@ -1851,7 +1853,9 @@ export function PlaceWindow(props: PlaceWindowProps) {
                   ref.kind === "home" ? onHome() : props.onPlace?.(ref)
                 }
                 onNewApp={(app) => props.onNewApp?.(app)}
-                onJobs={() => onSettings("jobs")}
+                jobs={props.jobs}
+                onInbox={() => openInbox(host)}
+                onJobs={() => openJobs(host)}
                 onSettings={() => onSettings()}
               />
             }
@@ -1901,7 +1905,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
                   }
                   onApp={(app) => props.onOpenApp?.(app)}
                   onNewApp={(app) => props.onNewApp?.(app)}
-                  onOpenJobs={() => onSettings("jobs")}
+                  onOpenJobs={() => openJobs(host)}
                 />
               ) : (
                 <ProjectPanel
@@ -1917,7 +1921,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
                     />
                   }
                   jobs={props.jobs}
-                  onOpenJobs={() => onSettings("jobs")}
+                  onOpenJobs={() => openJobs(host)}
                   current={
                     currentTab?.kind === "document_editor"
                       ? currentTab.key

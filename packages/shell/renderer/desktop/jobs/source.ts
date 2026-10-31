@@ -1,8 +1,8 @@
 // Scheduled jobs가 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은 core-source.ts만 안다.
 // 화면이 쓰는 칸만 담는다. project 창의 job panel도 이 통로와 model.ts를 그대로 쓴다.
-import type { JobRunState } from "../../../../../protocol/jobs/values.ts";
-import type { AgentId } from "../../../../../protocol/lophn-agent/places.ts";
-import type { SourceResult } from "../../../source-result.ts";
+import type { JobRunState } from "../../../../protocol/jobs/values.ts";
+import type { AgentId } from "../../../../protocol/lophn-agent/places.ts";
+import type { SourceResult } from "../../source-result.ts";
 
 export type { JobRunState, SourceResult };
 

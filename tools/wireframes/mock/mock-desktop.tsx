@@ -10,6 +10,7 @@ import {
 } from "../../../packages/shell/renderer/desktop/dev-mock/mod.ts";
 import { PROJECT_GROCERY } from "../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
 import type { AppDetailSource } from "../../../packages/shell/renderer/app-frame/app-detail/source.ts";
+import type { JobsSource } from "../../../packages/shell/renderer/desktop/jobs/source.ts";
 import type { WorkspaceSource } from "../../../packages/shell/renderer/workspace/source.ts";
 import type { CoreSource } from "../../../packages/shell/renderer/desktop/connection/connection.ts";
 import {
@@ -55,6 +56,8 @@ interface TabSpec {
     | "terminal"
     | "app_panel"
     | "project_settings"
+    | "jobs"
+    | "inbox"
     | "browser"
     | "artifact"
     | "app_screen"
@@ -105,6 +108,8 @@ interface MockDesktopProps {
   readonly emptyHome?: boolean;
   /** 주면 이 탭들을 Home place의 layout으로 쓴다(route는 Home). */
   readonly homeTabs?: readonly TabSpec[];
+  /** place 창의 Jobs overlay·Jobs 탭·Jobs panel 통로. page가 fake(`fakeJobs`)로 job을 정한다. 없으면 dev mock 것이다. */
+  readonly jobs?: JobsSource;
   /** 앱 place의 App·Domain panel 통로. page가 fake(`fakeDetail`)로 정한다. 없으면 dev mock 것이다. */
   readonly appDetail?: AppDetailSource;
   /** 앱 place의 Logs가 읽는 run 기록. 없으면 dev mock 것이다. */
@@ -184,7 +189,13 @@ function storedTab(tab: TabSpec) {
       surface: tab.screen,
     };
   }
-  if (tab.kind === "project_settings") return { kind: tab.kind, key: tab.key };
+  if (
+    tab.kind === "project_settings" ||
+    tab.kind === "jobs" ||
+    tab.kind === "inbox"
+  ) {
+    return { kind: tab.kind, key: tab.key };
+  }
   return tab.kind === "terminal"
     ? {
         kind: tab.kind,
@@ -354,6 +365,7 @@ export function MockDesktop(props: MockDesktopProps) {
                   apps={wiring.apps}
                   settings={mock.settings}
                   settingsPanels={wiring.settingsPanels}
+                  jobs={props.jobs ?? mock.jobs}
                   appDetail={props.appDetail ?? mock.appDetail}
                   views={mock.views}
                   agentViewSource={mock.agentViewSource}

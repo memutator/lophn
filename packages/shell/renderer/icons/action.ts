@@ -8,6 +8,7 @@ import {
   History,
   type LucideIcon,
   Pencil,
+  PanelTopOpen,
   Play,
   Plug,
   Plus,
@@ -43,6 +44,8 @@ export const actionIcons = {
   // 고친 값을 기본값으로 되돌린다.
   reset: Undo2,
   open: ArrowUpRight,
+  // overlay(Inbox, Jobs)를 탭으로 연다.
+  openInTab: PanelTopOpen,
   // 목록의 순서를 한 칸 옮긴다.
   moveUp: ArrowUp,
   moveDown: ArrowDown,

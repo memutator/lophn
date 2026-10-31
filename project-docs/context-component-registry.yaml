@@ -265,7 +265,7 @@ components:
     path: project-docs/architecture/job.md
     change_reasons:
       boundaries: [jobs]
-      paths: [packages/core/main/daemon/wiring/jobs.ts, packages/core/main/daemon/wiring/jobs-registration.ts, packages/shell/renderer/desktop/settings/jobs/, packages/shell/renderer/workspace/sidebar/job-panel.tsx, packages/shell/renderer/desktop/connection/waiting/cards/job-hold-card.tsx]
+      paths: [packages/core/main/daemon/wiring/jobs.ts, packages/core/main/daemon/wiring/jobs-registration.ts, packages/shell/renderer/desktop/jobs/, packages/shell/renderer/workspace/sidebar/job-panel.tsx, packages/shell/renderer/desktop/connection/waiting/cards/job-hold-card.tsx]
 
   - id: architecture-agent-definition
     kind: doc

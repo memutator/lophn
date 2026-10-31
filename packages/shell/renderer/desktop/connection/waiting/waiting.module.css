@@ -1,30 +1,5 @@
 /* 대기 목록: 창 위 알림 단추, 펼친 panel, 요청 카드. 같은 token만 쓴다. */
 
-/* 창 위쪽 바 안에 놓는 층. 단추는 바 안에 있고 panel은 단추 바로 아래(바 아래)에서 열린다. layout을 차지하지 않는다. */
-.layer {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-/* panel은 위쪽 바(끌기 영역) 안에서 바 아래로 내려온다. 끌기에서 빼지 않으면 panel 위의 wheel과 끌기가 창
-   끌기로 먹혀 스크롤되지 않는다. */
-.floating {
-  position: absolute;
-  top: calc(100% + var(--space-3));
-  right: 0;
-  display: flex;
-  z-index: var(--z-popover);
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
-}
-
-/* 왼쪽 sidebar 안의 단추는 panel을 오른쪽으로 펼친다. */
-.layer[data-align="start"] .floating {
-  right: auto;
-  left: 0;
-}
-
 /* 알림 단추 오른쪽 위의 개수. 단추를 가리지 않게 클릭은 통과시킨다. */
 .badge {
   position: absolute;
@@ -66,8 +41,8 @@
 .panelHead {
   display: flex;
   flex: none;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
   padding: var(--space-5) var(--space-6) var(--space-4);
   border-bottom: var(--border-width) solid var(--color-border-subtle);
 }
@@ -80,9 +55,21 @@
 }
 
 .panelSub {
+  flex: 1;
   color: var(--color-text-muted);
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line);
+}
+
+/* 탭 본문의 Inbox. 떠 있는 panel의 바탕·폭·그림자를 벗고 최대 폭 기둥으로 선다. */
+.panel[data-page] {
+  width: 100%;
+  max-width: var(--page-overview);
+  max-height: none;
+  margin: var(--space-0) auto;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
 }
 
 .panelBody {

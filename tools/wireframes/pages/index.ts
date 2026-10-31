@@ -25,6 +25,7 @@ import { appSpaceArea } from "./screens/app-space.tsx";
 import { artifactArea } from "./screens/artifact.tsx";
 import { domainArea } from "./screens/domain.tsx";
 import { homeArea } from "./screens/home.tsx";
+import { overlaysArea } from "./screens/overlays.tsx";
 import { projectWorkspaceArea } from "./screens/project-workspace.tsx";
 import { questionsArea } from "./screens/questions.tsx";
 import { settingsArea } from "./screens/settings.tsx";
@@ -60,6 +61,7 @@ const ALL_GROUPS: readonly Group[] = [
     inline: false,
     areas: [
       shellArea,
+      overlaysArea,
       homeArea,
       projectWorkspaceArea,
       agentArea,

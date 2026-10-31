@@ -1,12 +1,12 @@
 # job
 
-job은 정해진 때 저절로 도는 일 하나다. 주기(`every`, 선택 `at`)와 할 일 하나(agent 호출 run, 앱 tool 호출 run, workflow instance 시작)와 놓친 차례 정책(`run`, `hold`)을 갖고, scheduler가 차례마다 job run 한 줄을 남기며 그 일을 시작한다. agent가 만들고 사람이 등록을 한 번 승인해야 돈다. 사람은 화면에서 보고 고치고 끄고 지운다. 이 문서는 job이 무엇이고 누가 만들고 승인하고 고치는지, scheduler가 언제 깨어 무엇을 하는지, 놓친 차례와 겹침과 hold와 서머타임을 어떻게 다루는지, 할 일마다 어떻게 시작하고 끝을 아는지, 권한과 화면을 정한다. 이 경계가 흐려지면 꺼진 사이 놓친 차례가 몇 번이든 같은 바깥 효과가 여러 번 나거나, 앞 차례가 도는데 같은 job이 또 돌거나, 사람이 승인하지 않은 일이 사람 없이 되풀이되거나, 승인한 뒤 할 일이 바뀌거나, 켤 때 끊긴 차례가 영영 running으로 남는다. 여러 곳에 걸쳐 있다. 계약은 `packages/protocol/jobs`, 규칙은 `packages/core/jobs`(jobs), 끼우는 곳은 `packages/core/main/daemon/wiring/jobs.ts`와 `jobs-registration.ts`, agent tool은 `packages/core/jobs/agent-tools.ts`, 화면은 `packages/shell/renderer/desktop/settings/jobs/`다.
+job은 정해진 때 저절로 도는 일 하나다. 주기(`every`, 선택 `at`)와 할 일 하나(agent 호출 run, 앱 tool 호출 run, workflow instance 시작)와 놓친 차례 정책(`run`, `hold`)을 갖고, scheduler가 차례마다 job run 한 줄을 남기며 그 일을 시작한다. agent가 만들고 사람이 등록을 한 번 승인해야 돈다. 사람은 화면에서 보고 고치고 끄고 지운다. 이 문서는 job이 무엇이고 누가 만들고 승인하고 고치는지, scheduler가 언제 깨어 무엇을 하는지, 놓친 차례와 겹침과 hold와 서머타임을 어떻게 다루는지, 할 일마다 어떻게 시작하고 끝을 아는지, 권한과 화면을 정한다. 이 경계가 흐려지면 꺼진 사이 놓친 차례가 몇 번이든 같은 바깥 효과가 여러 번 나거나, 앞 차례가 도는데 같은 job이 또 돌거나, 사람이 승인하지 않은 일이 사람 없이 되풀이되거나, 승인한 뒤 할 일이 바뀌거나, 켤 때 끊긴 차례가 영영 running으로 남는다. 여러 곳에 걸쳐 있다. 계약은 `packages/protocol/jobs`, 규칙은 `packages/core/jobs`(jobs), 끼우는 곳은 `packages/core/main/daemon/wiring/jobs.ts`와 `jobs-registration.ts`, agent tool은 `packages/core/jobs/agent-tools.ts`, 화면은 `packages/shell/renderer/desktop/jobs/`다.
 
 ## 흐름
 
 ```
  agent: tool job.create | update | delete | list         (어느 place 종류의 session이든)
- 사람: Settings › System › Scheduled jobs 화면            job.update | delete | list | job_run.list
+ 사람: Jobs 탭(어느 place에서든) · Jobs overlay        job.update | delete | list | job_run.list
  사람: 대기 목록의 승인 card                              job.pending | job.approve
  사람: 대기 목록의 hold card                              job.holds | job.decide_hold
    │  이름 풀기(agent·앱·project)와 시간대는 port (jobs.targets, jobs.zone)
@@ -129,8 +129,8 @@ job run
 - agent_run이 연 turn은 unattended다. 묻지 않고 deny만 막힌다. 받은 agent는 자기 할당으로 일한다. 사람은 모든 job을 등록 때 보고 승인하며 화면에서 보고 끌 수 있다.
 
 화면
-- Settings › System › Scheduled jobs는 모든 job을 한곳에 모은다(job은 project를 건너고 home에서 만든 job은 place가 없다). 줄마다 제목, 주기, 다음 차례, 마지막 결과, 만든 agent와 그 place 이름을 보이고(agent 이름은 `agents/list`를 한 번 읽어 붙인다) 켜고 끄기, 제목·주기·놓친 차례 정책 고치기, 지우기, 기록(`job_run.list`)을 한다. 할 일(`action`)을 고치거나 job을 만드는 단추는 없다. 기록 줄에서 session이나 project로 가는 길은 이미 있는 길(`onOpenSession`, [Open project])뿐이다.
-- project 창 오른쪽 sidebar의 Jobs panel은 그 project와 걸린 job과 그 규칙을 보인다. 걸린 job은 그 project place의 session이 만든 것, 그 project의 agent를 부르는 것, 그 project의 workflow를 시작하는 것이다(`creator`와 `action`으로 가르고 계약은 바꾸지 않는다). 줄은 제목, Switch, 주기, 다음 차례나 대기 상태이고 줄과 "Open all jobs"는 Settings의 같은 화면을 연다(`packages/shell/renderer/workspace/sidebar/job-panel.tsx`, 거르기는 `desktop/settings/jobs/model.ts`의 `jobsOfProject`).
+- Jobs 탭(`workspace/kinds/jobs.tsx`, 본문 `desktop/jobs/jobs-page.tsx`)은 모든 job을 한곳에 모은다. desk마다 하나이고 Home·project·앱 어디서든 같은 탭이다. 왼쪽 sidebar의 Jobs 줄은 줄 오른쪽 옆에 Jobs overlay(`desktop/jobs/jobs-layer.tsx`, 줄은 오른쪽 sidebar와 같은 `JobRows`)를 열고 머리의 [Open in tab]이 이 탭을 연다. Settings에는 job 항목이 없다. 이 탭은(job은 project를 건너고 home에서 만든 job은 place가 없다). 줄마다 제목, 주기, 다음 차례, 마지막 결과, 만든 agent와 그 place 이름을 보이고(agent 이름은 `agents/list`를 한 번 읽어 붙인다) 켜고 끄기, 제목·주기·놓친 차례 정책 고치기, 지우기, 기록(`job_run.list`)을 한다. 할 일(`action`)을 고치거나 job을 만드는 단추는 없다. 기록 줄에서 session이나 project로 가는 길은 이미 있는 길(`onOpenSession`, [Open project])뿐이다.
+- project 창 오른쪽 sidebar의 Jobs panel은 그 project와 걸린 job과 그 규칙을 보인다. 걸린 job은 그 project place의 session이 만든 것, 그 project의 agent를 부르는 것, 그 project의 workflow를 시작하는 것이다(`creator`와 `action`으로 가르고 계약은 바꾸지 않는다). 줄은 제목, Switch, 주기, 다음 차례나 대기 상태이고 줄과 "Open all jobs"는 Jobs 탭을 연다(`packages/shell/renderer/workspace/sidebar/job-panel.tsx`, 거르기는 `desktop/jobs/model.ts`의 `jobsOfProject`).
 - 대기 목록의 job card(승인 card와 hold card)는 셋째 read source다(앞 둘은 session snapshot과 activation 동의). `job.pending`과 `job.holds`를 같이 읽어 통째로 맞추고(둘 다 읽혀야 맞춘다) `JobChanged`를 받을 때 다시 읽는다(`packages/shell/renderer/desktop/connection/events/waiting-store.ts`, `waiting/cards/job-approval-card.tsx`, `job-hold-card.tsx`). 승인 card는 제목, 할 일, 주기, 만든 agent와 place를 보이고 [Approve]와 [Reject]는 `job.approve`다. [Start now]와 [Skip]은 `job.decide_hold`다. 결정한 card는 다시 읽을 때 빠지고 toast는 없다.
 - Scheduled jobs 화면과 project panel은 승인 대기 job의 다음 차례 자리에 "Waiting for your approval"을 보인다. 승인은 대기 목록에서만 한다.
 - run 줄과 instance 줄은 job 제목을 보인다. run 줄은 이름 자리에 제목을 두고 agent 이름이나 tool 이름은 둘째 줄이다. instance 줄은 시작한 쪽이 job이면 제목을 보인다. 제목은 읽는 곳이 `job.list`를 읽어 job id로 붙인다(`packages/shell/renderer/workspace/core-source.ts`). 지운 job의 옛 줄은 제목 없이 원래 이름으로 보인다. 제목은 꾸밈이라 읽기에 실패해도 run과 instance 읽기는 그대로 간다.

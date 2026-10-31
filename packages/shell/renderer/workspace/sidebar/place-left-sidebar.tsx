@@ -10,6 +10,7 @@ import {
   useSessions,
   useWorkflowChanges,
 } from "../../desktop/connection/events/hooks.tsx";
+import type { JobsSource } from "../../desktop/jobs/source.ts";
 import { CreateAppDialog } from "../../desktop/places/create-app-dialog.tsx";
 import type { ProjectsSource } from "../../desktop/places/projects/source.ts";
 import { RegisterDialog } from "../../desktop/places/register-dialog.tsx";
@@ -91,6 +92,9 @@ export interface PlaceLeftSidebarProps {
   onOpenSession: (session: string) => void;
   onPlace: (ref: PlaceRef) => void;
   onNewApp: (app: string) => void;
+  /** Jobs overlay의 통로. 없으면 Jobs 줄이 바로 탭을 연다. */
+  jobs?: JobsSource;
+  onInbox: () => void;
   onJobs: () => void;
   onSettings: () => void;
 }
@@ -180,6 +184,8 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
           if (agent !== undefined) props.onNewLophn(agent);
         }}
         onOpenSession={props.onOpenSession}
+        {...(props.jobs === undefined ? {} : { jobs: props.jobs })}
+        onInbox={props.onInbox}
         onJobs={props.onJobs}
         onPlace={props.onPlace}
         onSession={open}

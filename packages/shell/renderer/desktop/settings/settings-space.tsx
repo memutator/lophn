@@ -200,8 +200,6 @@ export function SettingsSpace({
                 pane={settingsPane}
                 onPane={setSettingsPane}
                 source={settings}
-                onOpenSession={onOpenSession}
-                onProject={onProject}
               />
             ) : (
               <p className={styles.notReady} data-not-ready="settings">

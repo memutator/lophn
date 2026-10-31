@@ -16,8 +16,6 @@ import { DiagnosticsPanel } from "./diagnostics/diagnostics-panel.tsx";
 import type { DiagnosticsSource } from "./diagnostics/source.ts";
 import { ExtensionsPanel } from "./extensions/extensions-panel.tsx";
 import { GeneralPanel } from "./general/general-panel.tsx";
-import { JobsPanel } from "./jobs/jobs-panel.tsx";
-import type { JobsSource } from "./jobs/source.ts";
 import { KeyboardPanel } from "./keyboard/keyboard-panel.tsx";
 import type { KeyboardSource } from "./keyboard/source.ts";
 import type { SettingsPane } from "./model.ts";
@@ -39,7 +37,6 @@ export type SettingsPanels = Pick<
   | "appearance"
   | "browser"
   | "keyboard"
-  | "jobs"
 >;
 
 interface SettingsScreenProps {
@@ -65,12 +62,6 @@ interface SettingsScreenProps {
   browser?: BrowserSettingsSource;
   /** Keyboard 항목. 없으면 준비 전 안내다. */
   keyboard?: KeyboardSource;
-  /** Scheduled jobs 항목. 없으면 준비 전 안내다. */
-  jobs?: JobsSource;
-  /** 기록 줄의 [Open session]. */
-  onOpenSession: (session: string) => void;
-  /** 기록 줄의 [Open project]. */
-  onProject?: (project: string) => void;
 }
 
 // 표를 보이는 항목은 기둥을 더 넓게 쓴다.
@@ -88,9 +79,6 @@ export function SettingsScreen({
   appearance,
   browser,
   keyboard,
-  jobs,
-  onOpenSession,
-  onProject,
 }: SettingsScreenProps) {
   // Agents의 [Add server]는 server form을 가진 Tools and skills 항목으로 옮긴다(form을 두 벌 두지 않는다).
   // 통로가 바뀌어도 Agents를 다시 읽지 않는다.
@@ -169,16 +157,6 @@ export function SettingsScreen({
         return coding && <CodingConnectionsPanel source={coding} />;
       case "shell-rules":
         return shellRules && <ShellRulesPanel source={shellRules} />;
-      case "jobs":
-        return (
-          jobs && (
-            <JobsPanel
-              source={jobs}
-              onOpenSession={onOpenSession}
-              onOpenProject={(project) => onProject?.(project)}
-            />
-          )
-        );
       case "diagnostics":
         return diagnostics && <DiagnosticsPanel source={diagnostics} />;
     }

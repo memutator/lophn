@@ -70,9 +70,12 @@
   min-width: var(--space-0);
 }
 
+/* 높이는 CSS가 글을 따라 정한다. JS로 scrollHeight를 재면 숨은 탭(float 최소화 등)에서 0px로 굳어 입력칸이 사라진다. */
 .input {
   box-sizing: border-box;
   width: 100%;
+  field-sizing: content;
+  min-height: calc(var(--type-body-line) * 2);
   max-height: calc(var(--type-body-line) * 14);
   overflow-y: auto;
   padding: var(--space-0);

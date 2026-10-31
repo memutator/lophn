@@ -1,4 +1,4 @@
-// 상단 바 왼쪽의 place switcher. trigger는 두 줄이다: 윗줄에 종류(Project 또는 App), 아랫줄에 지금 place 이름.
+// 상단 바 왼쪽의 place switcher. trigger는 지금 place 이름과 chevron 한 줄이다.
 // 누르면 Projects와 Apps 두 묶음이 열리고, 묶음 안은 최근에 연 순서다(같은 place가 두 번 나오지 않는다).
 // 목록 줄 앞에는 place 표식(PlaceMark)이 붙는다. 상단 바 trigger에는 표식이 없다.
 // 고르면 그 place를 이 창에서 연다(공간 이동은 부르는 쪽 몫).
@@ -115,14 +115,7 @@ export function PlaceSwitcher({
           data-path-selector="place"
           data-place-kind={active.kind}
         >
-          <span className={styles.placeText}>
-            <span className={styles.kind}>
-              {active.kind === "project"
-                ? t("project-workspace.label.place-project")
-                : t("project-workspace.label.place-app")}
-            </span>
-            <span className={styles.name}>{name}</span>
-          </span>
+          <span className={styles.name}>{name}</span>
           <Icon icon={commonIcons.collapse} pixels={pixels} />
         </button>
       }

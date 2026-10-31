@@ -46,27 +46,6 @@
   text-overflow: ellipsis;
 }
 
-/* place trigger: 윗줄에 종류, 아랫줄에 이름. 상단 바(36px) 안에 두 줄이 들어가도록 줄 높이를 줄인다. */
-.place {
-  height: auto;
-  padding-top: var(--space-1);
-  padding-bottom: var(--space-1);
-  text-align: left;
-}
-
-.placeText {
-  display: flex;
-  flex-direction: column;
-  min-width: var(--space-0);
-}
-
-.kind {
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-  font-weight: var(--font-weight-regular);
-}
-
 /* menu 항목 안: 이름이 남는 폭을 쓰고 표시는 오른쪽 끝 고정 열에 둔다. */
 .item {
   display: flex;
@@ -78,6 +57,20 @@
 
 .item > .name {
   flex: 1;
+}
+
+/* place switcher: 목록 줄이 일반 menu 줄(32px)보다 높다. menu 폭은 trigger 폭을 따르므로 trigger 폭이 menu의 최소 폭이다. */
+:global([data-place-option]) {
+  height: var(--space-10);
+}
+
+.place {
+  min-width: calc(var(--space-12) * 3);
+}
+
+.place > .name {
+  flex: 1;
+  text-align: left;
 }
 
 .invalid {

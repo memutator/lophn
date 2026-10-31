@@ -85,7 +85,7 @@ project 창이 가진 탭이 어디에 있는가를 정하는 메커니즘이다
 - **desk key는 그 project 안의 workflow 이름이고 기본 desk는 `_default`다.** project 이름을 넣지 않아 project 이름을 바꿔도 desk가 남는다. `_`로 시작하는 값은 slug가 아니라 workflow 이름과 겹치지 않는다. renderer `model.ts`와 main `schema.ts`가 같은 값을 따로 적는다. workflow 폴더 이름을 바꾸면 옛 desk는 Main으로 합쳐진다(바뀌지 않는 workflow id가 없다).
 - **desk를 건너 탭 key가 겹치는지는 schema가 거절하지 않는다.** 거절하면 읽기가 손상이 되어 layout 전체를 잃는다. 겹침은 model과 그 위험 test가 막는다.
 - **desk를 바꿀 때 detached 창은 "보일 key 목록" 한 번으로 맞춘다.** 창마다 부르면 중간에 일부만 바뀐 채 남을 수 있다. 창이 없는 key를 main이 열지 않는 까닭은 열기에 필요한 탭 값과 bounds를 renderer가 갖고 있고, 이미 있는 창에 `open`을 부르면 앞으로 가져와 focus를 뺏어서다. 보이기는 focus 없이(`showInactive`) 한다.
-- **selector는 상단 bar 왼쪽 경로다(사람).** 가운데에 두면 minimized span 단추가 쓸 자리가 줄어든다. 파일 경로 breadcrumb은 project 창에서 뺐다. project 조각도 menu라 active project를 이 창에서 연다. place switcher(`top-path/place-selector.tsx`)의 trigger는 윗줄에 종류(Project/App), 아랫줄에 이름이고, 열면 Projects와 Apps 두 묶음이 각각 최근에 연 순서로 선다(Recent 묶음 없음, 검색 없음). 목록 줄에만 place 표식(`parts/place-mark`)이 붙는다. 이미지가 없으면 첫 글자와 id로 고른 색이다.
+- **selector는 상단 bar 왼쪽 경로다(사람).** 가운데에 두면 minimized span 단추가 쓸 자리가 줄어든다. 파일 경로 breadcrumb은 project 창에서 뺐다. project 조각도 menu라 active project를 이 창에서 연다. place switcher(`top-path/place-selector.tsx`)의 trigger는 이름과 chevron 한 줄이고, 열면 Projects와 Apps 두 묶음이 각각 최근에 연 순서로 선다(Recent 묶음 없음, 검색 없음). 목록 줄에만 place 표식(`parts/place-mark`)이 붙고, 이미지가 없으면 첫 글자와 id로 고른 색이다. 앱 place에서는 이 menu가 열린 동안 native 앱 view를 숨긴다(DOM menu가 native view 밑에 깔리기 때문).
 - **`originPane`은 번호다.** pane은 최대 여섯이다(`MAX_PANES`, schema와 renderer가 같은 값을 따로 적는다). pane이 사라져 번호가 어긋나면 focus pane으로 보낸다.
 - **floats 개수(20)는 schema만 막는다.** 사람이 20개를 띄울 일이 없다.
 - **새 패널은 `.content` 가운데 60% 크기로 겹쳐 뜬다.** 비껴 놓기(cascade)는 하지 않는다.

@@ -197,6 +197,8 @@ export function AppSpace({
 
   // 창마다 하나인 덮개 목록. 좁은 창의 오른쪽 패널이 앱 view 자리를 덮는다.
   const covers = useMemo(createViewCovers, []);
+  // place switcher의 DOM menu는 native 앱 view 밑에 깔린다. 열려 있는 동안만 앱 view를 숨긴다(browser 탭의 menuOpen과 같다).
+  const [placeOpen, setPlaceOpen] = useState(false);
   // 오른쪽 패널. 열린 탭(details, agent)과 고른 탭, 패널을 보이는지는 따로 쥔다. 단추로 패널을 닫아도 탭의 상태는 남는다.
   // 앱마다 마지막 모양을 기억해 다른 place에 갔다 와도 이어진다. 새 session 요청(startLophn)은 저장값보다 먼저다.
   const [saved] = useState(() => readAppLayout(app));
@@ -438,6 +440,7 @@ export function AppSpace({
         screen={entry.screen}
         size="full"
         label={row.name}
+        shown={!placeOpen}
         onState={onViewState}
       />
     );
@@ -477,6 +480,7 @@ export function AppSpace({
                 apps={placeLists.apps}
                 recent={recentPlaces}
                 onOpenChange={(open) => {
+                  setPlaceOpen(open);
                   if (!open) return;
                   placeLists.read();
                   setRecentPlaces(readRecentPlaces());

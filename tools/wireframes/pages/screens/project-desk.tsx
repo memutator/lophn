@@ -20,7 +20,7 @@ export const projectDeskArea: Area = {
   id: "project-desk",
   title: "Project desk",
   summary:
-    "project 창 위쪽 바 왼쪽의 place switcher(윗줄에 종류, 아랫줄에 이름)와 `/ desk ▾`. place를 고르면 그 place를 이 창에서 연다. 자리(desk)를 바꾸면 탭, floated 패널, 접힌 span이 그 자리 것으로 바뀐다.",
+    "project 창 위쪽 바 왼쪽의 place switcher(이름과 chevron)와 `/ desk ▾`. place를 고르면 그 place를 이 창에서 연다. 자리(desk)를 바꾸면 탭, floated 패널, 접힌 span이 그 자리 것으로 바뀐다.",
   pages: [
     {
       id: "project-desk-default",

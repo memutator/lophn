@@ -9,7 +9,7 @@ wireframe gallery(`tools/wireframes`)는 화면 모양의 기준이고 UI 피드
 
 ## 먼저 알아둘 것 (지금 코드)
 
-- gallery는 묶음 셋이다. **Kit**은 design(`@lophn/ui`)의 component를 분류마다 page 하나에 상태별로 그리고, 사람이 여기서 component를 승인한다. **Screens**는 renderer를 import한 제품 화면을 영역별로, **Drafts**는 아직 renderer에 없는 실험을 그린다. 범용 kit, lophn 전용 부품, app bridge UI를 어디에 두는지와 사용자 앱에 닿는 길은 `project-docs/architecture/ui-kit.md`다.
+- gallery는 묶음 셋이다. **Kit**은 design(`@lophn/ui`)의 component를 분류마다 page 하나에 상태별로 그리고, 사람이 여기서 component를 승인한다. **Screens**는 renderer를 import한 제품 화면을 영역별로, **Drafts**는 아직 renderer에 없는 실험을 그린다(지금은 page가 없어 gallery에 뜨지 않는다. shell 초안은 실제 shell을 그리는 Screens › Shell로 옮겼다). 범용 kit, lophn 전용 부품, app bridge UI를 어디에 두는지와 사용자 앱에 닿는 길은 `project-docs/architecture/ui-kit.md`다.
 - gallery는 그림을 따로 그리지 않는다. renderer(`packages/shell/renderer`)의 실제 component를 fake source와 고정 data로 그린다. 그래서 **화면 모양을 고친다 = renderer나 design component를 고친다.** `tools/wireframes`에는 모양을 덮어쓰는 CSS나 gallery 전용 prop을 두지 않는다. CSS 파일은 `drafts/`(승인 전 실험) 안과 gallery 자신의 틀(`gallery.module.css`, `pages/kit/kit.module.css`)에만 둔다. 무대 배치처럼 몇 줄이면 token 변수를 쓴 inline style로 쓴다.
 - 상태 하나를 고정하는 법: fake source의 설정으로 바탕을 정하고, mount 뒤 단추를 눌러 사람이 한 것처럼 만든다(`mock/drive.ts`의 `useDrive`와 `find`·`click`·`press`·`type`).
 

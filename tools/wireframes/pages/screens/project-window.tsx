@@ -154,7 +154,7 @@ export interface SidebarSpec {
   readonly mode?: SidebarTab | "agent";
   /** 루트를 고르는 menu를 연 채 시작한다. */
   readonly rootMenu?: boolean;
-  /** Scheduled jobs 탭에 이 project에 걸린 job이 하나도 없다. */
+  /** Jobs panel에 이 project에 걸린 job이 하나도 없다. */
   readonly noJobs?: boolean;
   /** Explorer에서 사람이 한 조작을 하고 멈춘 모양. */
   readonly act?: ExplorerAct;

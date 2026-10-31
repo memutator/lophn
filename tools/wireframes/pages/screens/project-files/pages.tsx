@@ -92,7 +92,7 @@ export function MediaFiles() {
   );
 }
 
-/** project 밖 파일. 탭 key가 경로라서 어느 경로든 열고 view bar에 절대 경로와 Outside project가 보인다. */
+/** project 밖 파일. 탭 key가 경로라서 어느 경로든 열고 card 머리 줄에 절대 경로와 Outside project가 보인다. */
 export function OutsideFile() {
   const tab = documentTab(OUTSIDE);
   return solo(tab, {

@@ -41,7 +41,7 @@ export function TextEditor({
   );
 }
 
-/** 이미지 viewer. 보기만 한다. 크기 같은 정보는 view bar 한 줄에 있다. 그림은 chest 배치도 stand-in이다. */
+/** 이미지 viewer. 보기만 한다. 크기 같은 정보는 card 머리 줄(card 밖에서는 view bar)에 있다. 그림은 chest 배치도 stand-in이다. */
 export function ImageViewer({ path }: { path: string }) {
   return (
     <EditorImageViewer

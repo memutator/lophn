@@ -1,4 +1,4 @@
-// Scheduled jobs 탭. project sidebar는 이 project에 걸린 job만, Home은 모든 job을 줄로 보인다. 줄과 머리 줄의 단추는
+// Jobs panel. project sidebar는 이 project에 걸린 job만, Home은 모든 job을 줄로 보인다. 줄과 머리 줄의 단추는
 // Jobs 탭을 연다(그 job을 펼치지는 않는다). 줄은 overlay와 같은 `JobRows`다.
 import { IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";

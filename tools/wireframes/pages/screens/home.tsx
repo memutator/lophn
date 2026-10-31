@@ -82,7 +82,7 @@ export const homeArea: Area = {
       id: "home-new-app",
       title: "Home · new app",
       description:
-        "Places panel의 New app 단추가 여는 dialog. 이름과 한 줄 목적을 받고, 만들면 그 앱 place가 앱 화면과 lophn 새 session을 붙인 split으로 열린다.",
+        "Places panel의 New app 단추가 여는 dialog. 이름과 한 줄 목적을 받고, 만들면 그 앱 place가 앱 화면과 lophn 새 session을 붙인 group(좌우)으로 열린다.",
       render: () => <HomeNewApp />,
     },
     {

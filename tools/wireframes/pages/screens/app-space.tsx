@@ -43,7 +43,7 @@ export const appSpaceArea: Area = {
       id: "new-app-split",
       title: "App place · app + session",
       description:
-        "앱 화면과 그 앱 place의 lophn session을 split tab 하나로 붙여 나란히 본다. 새 앱을 만들면 이 모양으로 열린다. 오른쪽 sidebar는 접었다.",
+        "앱 화면과 그 앱 place의 lophn session을 group(좌우) 하나로 붙여 나란히 본다. 새 앱을 만들면 이 모양으로 열린다. 오른쪽 sidebar는 접었다.",
       render: () => <AppPlaceSplit />,
     },
     {

@@ -2,6 +2,8 @@
 import { Toast } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 
+import { actionIcons } from "../../icons/mod.ts";
+
 import type { DomainNotice as Notice } from "./use-domains.ts";
 
 export function DomainNotice({
@@ -16,7 +18,9 @@ export function DomainNotice({
   return notice.kind === "archived" ? (
     <Toast
       title={t("domain.notice.archived", { title: notice.domain.title })}
-      actions={[{ id: "undo", label: t("domain.button.undo") }]}
+      actions={[
+        { id: "undo", icon: actionIcons.reset, label: t("domain.button.undo") },
+      ]}
       onAction={onUndo}
       onClose={onClose}
     />

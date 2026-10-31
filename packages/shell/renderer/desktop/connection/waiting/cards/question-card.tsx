@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
+import { actionIcons } from "../../../../icons/mod.ts";
 import type { AskQuestion } from "../../../../../../protocol/lophn-agent/ask-tool.ts";
 import type { CoreSource } from "../../connection.ts";
 import type { WaitingEntry } from "../../events/waiting-store.ts";
@@ -75,6 +76,7 @@ export function QuestionCard({
         <Button
           size="sm"
           variant="ghost"
+          trailingIcon={actionIcons.open}
           disabled={entry.session === null}
           onClick={() => {
             if (entry.session !== null) onOpenSession(entry.session);

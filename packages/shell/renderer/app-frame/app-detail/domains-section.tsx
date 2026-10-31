@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 
-import { commonIcons } from "../../icons/mod.ts";
+import { actionIcons } from "../../icons/mod.ts";
 import { InstructionsEditor } from "../../workspace/agents/editor/instructions-editor.tsx";
 import type { InstructionsFile } from "../../workspace/agents/views.ts";
 import { DomainMenu } from "../../workspace/domains/domain-menu.tsx";
@@ -52,7 +52,7 @@ export function DomainsSection({
         <h4 className={styles.label}>{t("domain.heading.list")}</h4>
         <Button
           size="sm"
-          icon={commonIcons.add}
+          icon={actionIcons.add}
           onClick={() => setCreating(true)}
         >
           {t("domain.button.new")}

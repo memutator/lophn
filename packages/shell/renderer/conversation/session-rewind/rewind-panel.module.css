@@ -114,7 +114,7 @@
 }
 
 .app[data-on] {
-  border-color: var(--color-focus);
+  border-color: var(--color-ink-background);
 }
 
 .sub {

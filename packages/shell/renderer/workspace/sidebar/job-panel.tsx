@@ -21,6 +21,7 @@ import type {
 import { useReload } from "../../desktop/settings/use-reload.ts";
 import sidebar from "./project-sidebar.module.css";
 import styles from "./job-panel.module.css";
+import { actionIcons } from "../../icons/mod.ts";
 
 type Loaded =
   | { readonly state: "loading" }
@@ -135,7 +136,12 @@ export function JobPanel({
         </ul>
       )}
       <div className={styles.footer}>
-        <Button size="sm" variant="ghost" onClick={onOpenSettings}>
+        <Button
+          size="sm"
+          variant="ghost"
+          trailingIcon={actionIcons.open}
+          onClick={onOpenSettings}
+        >
           {t("jobs.button.open-all")}
         </Button>
       </div>

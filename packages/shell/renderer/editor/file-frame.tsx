@@ -16,6 +16,7 @@ import { NoticeToast } from "./notices.tsx";
 import type { SaveState } from "./save-state.ts";
 import { FileActions, FileMeta, ViewBar } from "./view-bar.tsx";
 import styles from "./file-frame.module.css";
+import { actionIcons } from "../icons/mod.ts";
 
 interface FileFrameProps {
   path: string;
@@ -112,7 +113,11 @@ export function FileFrame({
             <Button onClick={() => setConfirming(false)}>
               {t("common.button.cancel")}
             </Button>
-            <Button variant="primary" onClick={() => void remove()}>
+            <Button
+              variant="danger"
+              icon={actionIcons.delete}
+              onClick={() => void remove()}
+            >
               {t("document.button.delete")}
             </Button>
           </>

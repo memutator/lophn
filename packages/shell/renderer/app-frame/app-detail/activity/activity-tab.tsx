@@ -23,6 +23,7 @@ import type {
 import { useRead } from "../use-read.ts";
 import styles from "../app-detail.module.css";
 import { RewindPanel } from "./rewind-panel.tsx";
+import { actionIcons } from "../../../icons/mod.ts";
 
 interface ActivityTabProps {
   app: string;
@@ -314,6 +315,7 @@ function ActivityRows({
                     <Button
                       size="sm"
                       variant="ghost"
+                      icon={actionIcons.rewind}
                       data-rewind-start={row.id}
                       onClick={() => onRewind(row.id)}
                     >

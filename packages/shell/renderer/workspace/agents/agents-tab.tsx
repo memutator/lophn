@@ -7,7 +7,7 @@ import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 import type { ReactElement, ReactNode } from "react";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
-import { commonIcons } from "../../icons/mod.ts";
+import { actionIcons } from "../../icons/mod.ts";
 import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import styles from "./agents-tab.module.css";
 import {
@@ -102,6 +102,7 @@ function AgentCardView({
               aria-label={t("project-workspace.label.open-agent-named", {
                 name: row.name,
               })}
+              trailingIcon={actionIcons.open}
               onClick={onOpen}
             >
               {t("project-workspace.button.open-agent")}
@@ -149,7 +150,7 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
         action={
           <Button
             variant="primary"
-            icon={commonIcons.add}
+            icon={actionIcons.add}
             onClick={props.onNewAgent}
           >
             {t("project-workspace.button.new-agent")}
@@ -220,7 +221,7 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
         name="skills"
         heading={t("project-workspace.heading.skills")}
         action={
-          <Button size="sm" icon={commonIcons.add} onClick={props.onAddSkill}>
+          <Button size="sm" icon={actionIcons.add} onClick={props.onAddSkill}>
             {t("project-workspace.button.add-skill")}
           </Button>
         }
@@ -239,7 +240,7 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
         name="mcp"
         heading={t("project-workspace.heading.mcp-servers")}
         action={
-          <Button size="sm" icon={commonIcons.add} onClick={props.onAddServer}>
+          <Button size="sm" icon={actionIcons.add} onClick={props.onAddServer}>
             {t("project-workspace.button.add-server")}
           </Button>
         }

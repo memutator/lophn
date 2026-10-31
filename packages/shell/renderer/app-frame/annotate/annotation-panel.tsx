@@ -4,7 +4,7 @@ import { Button, IconButton } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 
 import type { AnnotateState } from "../../../ipc/annotation.ts";
-import { workspaceIcons } from "../../icons/mod.ts";
+import { actionIcons, workspaceIcons } from "../../icons/mod.ts";
 import type { SendFailure } from "./use-annotate.ts";
 import styles from "./annotation-panel.module.css";
 
@@ -43,7 +43,8 @@ export function AnnotationPanel({
         </span>
         <Button
           size="sm"
-          variant="ghost"
+          variant="danger"
+          icon={actionIcons.delete}
           disabled={sending}
           data-annotations-clear=""
           onClick={onClear}
@@ -82,6 +83,7 @@ export function AnnotationPanel({
       <div className={styles.actions}>
         <Button
           variant="primary"
+          icon={actionIcons.send}
           disabled={items.length === 0 || sending}
           data-annotations-send=""
           onClick={onSend}

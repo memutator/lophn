@@ -3,6 +3,7 @@ import { Button } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { Dialog } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
+import { actionIcons } from "../../../icons/mod.ts";
 
 import {
   type ManageModelsApi,
@@ -167,6 +168,7 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
             </Button>
             <Button
               variant="danger"
+              icon={actionIcons.disconnect}
               data-action="confirm-disconnect"
               onClick={() => leaving !== null && void disconnect(leaving)}
             >
@@ -205,7 +207,12 @@ function ConnectedItem({
           {loginMethod(row)}
         </span>
       </span>
-      <Button size="sm" data-action="disconnect" onClick={onDisconnect}>
+      <Button
+        size="sm"
+        icon={actionIcons.disconnect}
+        data-action="disconnect"
+        onClick={onDisconnect}
+      >
         {t("settings.button.disconnect")}
       </Button>
       {status === null ? null : (
@@ -231,6 +238,8 @@ function ConnectedItem({
           {manage === null ? null : (
             <Button
               size="sm"
+              icon={listed.count > 0 ? undefined : actionIcons.add}
+              trailingIcon={listed.count > 0 ? actionIcons.open : undefined}
               data-action={listed.count > 0 ? "manage-models" : "add-model"}
               onClick={() =>
                 manage.open(

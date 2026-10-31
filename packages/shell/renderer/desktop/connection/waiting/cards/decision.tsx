@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Field, Textarea } from "@lophn/ui/input";
 import { t } from "@lophn/i18n";
+import { actionIcons } from "../../../../icons/mod.ts";
 import type { WaitingChoice } from "../decide.ts";
 import styles from "../waiting.module.css";
 
@@ -85,7 +86,7 @@ export function Decision({
           </Button>
           <Button
             size="sm"
-            variant="danger"
+            icon={actionIcons.deny}
             disabled={busy}
             onClick={() => send("reject", text)}
           >
@@ -104,6 +105,7 @@ export function Decision({
         {canReject ? (
           <Button
             size="sm"
+            icon={actionIcons.deny}
             disabled={busy}
             onClick={() =>
               requester === null ? send("reject") : setOpen(true)
@@ -116,6 +118,7 @@ export function Decision({
           <Button
             key={choice}
             size="sm"
+            icon={actionIcons.approve}
             variant={choice === primary ? "primary" : "secondary"}
             disabled={busy}
             onClick={() => send(choice)}

@@ -9,7 +9,11 @@ import { Popover, PopoverRow } from "@lophn/ui/overlay";
 import { Button, Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import type { ReactElement, ReactNode } from "react";
-import { commonIcons, conversationIcons } from "../../icons/mod.ts";
+import {
+  actionIcons,
+  commonIcons,
+  conversationIcons,
+} from "../../icons/mod.ts";
 import { VendorIcon, vendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
 
 import { useManageModels } from "./manage-context.ts";
@@ -360,7 +364,12 @@ export function ModelPickerField({
           {reset.note === undefined ? null : (
             <span className={styles.changedNote}>{reset.note}</span>
           )}
-          <Button size="sm" variant="ghost" onClick={reset.onReset}>
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={actionIcons.reset}
+            onClick={reset.onReset}
+          >
             {t("conversation.button.model-reset")}
           </Button>
         </p>

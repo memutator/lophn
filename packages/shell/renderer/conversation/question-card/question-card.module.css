@@ -122,7 +122,7 @@
 }
 
 .choice[aria-checked="true"] {
-  border-color: var(--color-focus);
+  border-color: var(--color-ink-background);
   background: var(--color-selection);
 }
 
@@ -156,17 +156,18 @@
 }
 
 .radioDot[data-on] {
-  border-color: var(--color-focus);
+  border-color: var(--color-ink-background);
   background: radial-gradient(
     circle,
-    var(--color-focus) 0 var(--space-2),
+    var(--color-ink-background) 0 var(--space-2),
     var(--color-surface-base) var(--space-3)
   );
 }
 
 .checkBox[data-on] {
-  border-color: var(--color-focus);
-  background: var(--color-focus);
+  border-color: var(--color-ink-background);
+  background: var(--color-ink-background);
+  color: var(--color-ink-text);
 }
 
 .choiceText {
@@ -198,6 +199,11 @@
   background: var(--color-surface-base);
   color: var(--color-text-primary);
   font: inherit;
+}
+
+.otherInput:focus {
+  border-color: var(--color-focus);
+  outline: none;
 }
 
 .summary {

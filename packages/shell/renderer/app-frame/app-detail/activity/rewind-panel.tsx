@@ -17,6 +17,7 @@ import type {
 } from "../source.ts";
 import { useRead } from "../use-read.ts";
 import styles from "../app-detail.module.css";
+import { actionIcons } from "../../../icons/mod.ts";
 
 type RewindStage = "confirm" | "running" | "done" | "conflict";
 
@@ -252,16 +253,17 @@ function PanelBody({
       <div className={styles.actions}>
         {stage === "confirm" ? (
           <>
+            <Button variant="ghost" onClick={onBack}>
+              {t("app-detail.button.cancel")}
+            </Button>
             <Button
               variant="danger"
+              icon={actionIcons.rewind}
               disabled={view.blocked !== null}
               data-rewind-confirm=""
               onClick={onStart}
             >
               {t("app-detail.button.rewind-app", { name })}
-            </Button>
-            <Button variant="ghost" onClick={onBack}>
-              {t("app-detail.button.cancel")}
             </Button>
           </>
         ) : stage === "running" ? null : (

@@ -66,8 +66,8 @@
           "dark": "#d9d8d2"
         },
         "soft": {
-          "light": "#dde9f8",
-          "dark": "#223c5c"
+          "light": "#dcdbd4",
+          "dark": "#3a3a36"
         }
       },
       "link": {
@@ -75,12 +75,26 @@
         "dark": "#6da7ec"
       },
       "focus": {
-        "light": "#2a78d6",
-        "dark": "#3987e5"
+        "light": "#6b6a65",
+        "dark": "#96958d"
       },
       "selection": {
-        "light": "#e7f0fb",
-        "dark": "#16263b"
+        "light": "#ebeae6",
+        "dark": "#2a2a28"
+      },
+      "danger": {
+        "background": {
+          "light": "#c42f2f",
+          "dark": "#c42f2f"
+        },
+        "text": {
+          "light": "#ffffff",
+          "dark": "#ffffff"
+        },
+        "hover": {
+          "light": "#a82626",
+          "dark": "#a82626"
+        }
       }
     },
     "status": {

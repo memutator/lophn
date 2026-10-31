@@ -7,7 +7,7 @@ import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
 
 import { PRODUCT_SHELL_RULES } from "../../../../../protocol/approvals/shell-rules.ts";
-import { launcherIcons } from "../../../icons/mod.ts";
+import { actionIcons } from "../../../icons/mod.ts";
 import { NamedControl } from "../general/named-control.tsx";
 import { useReload } from "../use-reload.ts";
 import styles from "../settings.module.css";
@@ -239,7 +239,7 @@ function RuleSection({
                         )}
                       </div>
                       <IconButton
-                        icon={launcherIcons.remove}
+                        icon={actionIcons.remove}
                         label={t("settings.button.remove-entry", {
                           item: rule.pattern,
                         })}
@@ -300,7 +300,7 @@ function AddRow({
         <div className={styles.endSlot}>
           <Button
             size="sm"
-            icon={launcherIcons.addRule}
+            icon={actionIcons.add}
             disabled={text === ""}
             onClick={() => void add()}
           >

@@ -4,9 +4,9 @@ import { Button, Icon } from "@lophn/ui/primitives";
 import { Skeleton } from "@lophn/ui/feedback";
 import { iconPixels } from "@lophn/ui/shared";
 import {
+  actionIcons,
   connectionFailedIcon,
   connectionStaleIcon,
-  retryIcon,
 } from "../../icons/mod.ts";
 
 import type { ConnectionState, CoreSource } from "./connection.ts";
@@ -52,7 +52,11 @@ export function ConnectionGate({ connection, onRetry }: ConnectionGateProps) {
           <div className={styles.body}>
             <p className={styles.title}>{t("launcher.connection.failed")}</p>
             <div>
-              <Button variant="primary" icon={retryIcon} onClick={onRetry}>
+              <Button
+                variant="primary"
+                icon={actionIcons.retry}
+                onClick={onRetry}
+              >
                 {t("launcher.button.retry")}
               </Button>
             </div>
@@ -119,7 +123,7 @@ export function ConnectionNotice({
           </span>
         )}
       </span>
-      <Button icon={retryIcon} onClick={onRetry}>
+      <Button icon={actionIcons.retry} onClick={onRetry}>
         {t("launcher.button.reconnect")}
       </Button>
     </div>

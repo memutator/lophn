@@ -10,7 +10,7 @@ import { SearchFilter } from "@lophn/ui/input";
 import { ErrorState, Loading, Skeleton, StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
 
-import { retryIcon } from "../../../icons/mod.ts";
+import { actionIcons } from "../../../icons/mod.ts";
 import { useReload } from "../use-reload.ts";
 import styles from "../settings.module.css";
 import {
@@ -137,7 +137,7 @@ export function CodingConnectionsPanel({
           {t("settings.note.coding-detect-note")}
         </span>
         <Button
-          icon={retryIcon}
+          icon={actionIcons.refresh}
           disabled={detecting}
           data-action="detect"
           onClick={() => void detectAgain()}
@@ -279,6 +279,7 @@ function HookCell({
       <StatusMark tone={hookTone(hook)} label={text} />
       {hook.status === "missing" ? (
         <Button
+          icon={actionIcons.add}
           disabled={changing}
           data-action="install-hooks"
           onClick={() => onChange("install")}
@@ -289,6 +290,7 @@ function HookCell({
       {hook.status === "installed" ? (
         <Button
           variant="ghost"
+          icon={actionIcons.remove}
           disabled={changing}
           data-action="uninstall-hooks"
           onClick={() => onChange("uninstall")}

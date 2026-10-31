@@ -37,7 +37,7 @@
   bottom: var(--space-0);
   left: var(--space-0);
   width: var(--tree-marker);
-  background: var(--color-text-primary);
+  background: var(--color-ink-background);
 }
 
 /* 키보드 focus는 행 안쪽 2px. 이웃 행에 겹치지 않는다. */

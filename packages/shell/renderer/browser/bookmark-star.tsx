@@ -10,7 +10,7 @@ import { t } from "@lophn/i18n";
 
 import type { Bookmark } from "../../ipc/browser.ts";
 import type { OpenMenu } from "./overlay-menu.ts";
-import { browserIcons } from "../icons/mod.ts";
+import { actionIcons, browserIcons } from "../icons/mod.ts";
 import { bookmarkReasonText, type Bookmarks, hostOf } from "./bookmarks.ts";
 import styles from "./bookmark.module.css";
 
@@ -170,7 +170,10 @@ function StarPopover({
         />
       </Field>
       <div className={styles.actions}>
+        <Button onClick={onClose}>{t("common.button.close")}</Button>
         <Button
+          variant="danger"
+          icon={actionIcons.remove}
           onClick={() => {
             // 지우는 중이라 고친 title은 보내지 않는다.
             sent.current = latest.current.draft;
@@ -182,7 +185,6 @@ function StarPopover({
         >
           {t("settings.button.bookmark-remove")}
         </Button>
-        <Button onClick={onClose}>{t("common.button.close")}</Button>
       </div>
     </div>
   );

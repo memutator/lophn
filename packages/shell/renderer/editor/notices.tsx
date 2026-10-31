@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import { Toast } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 
+import { actionIcons, editorIcons } from "../icons/mod.ts";
+
 import styles from "./notices.module.css";
 
 /** 탭 본문 위쪽 가운데에 toast를 놓는 자리. */
@@ -55,13 +57,19 @@ export function ConflictToast({
         actions={[
           {
             id: "compare",
+            icon: editorIcons.compare,
             label: comparing
               ? t("document.button.hide-comparison")
               : t("document.button.compare"),
           },
-          { id: "disk", label: t("document.button.use-disk") },
+          {
+            id: "disk",
+            icon: actionIcons.download,
+            label: t("document.button.use-disk"),
+          },
           {
             id: "mine",
+            icon: actionIcons.save,
             label: t("document.button.keep-mine"),
             variant: "primary",
           },

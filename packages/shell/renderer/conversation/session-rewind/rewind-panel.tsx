@@ -7,7 +7,7 @@ import { Button, IconButton } from "@lophn/ui/primitives";
 import { Checkbox } from "@lophn/ui/input";
 import { t } from "@lophn/i18n";
 
-import { workspaceIcons } from "../../icons/mod.ts";
+import { actionIcons, workspaceIcons } from "../../icons/mod.ts";
 import type {
   AgentTabSource,
   RewindApp,
@@ -313,7 +313,8 @@ export function RewindPanel(props: RewindPanelProps): ReactElement {
         </Button>
         <Button
           size="sm"
-          variant="primary"
+          variant="danger"
+          icon={actionIcons.rewind}
           disabled={ready === null || busy}
           onClick={() => void go()}
         >

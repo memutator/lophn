@@ -2,7 +2,7 @@ import { Icon, IconButton } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
 import { Tooltip } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
-import { retryIcon, workspaceIcons } from "../icons/mod.ts";
+import { actionIcons, workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
 import {
@@ -53,7 +53,7 @@ export function ExitBanner({
   const restart = onRestart ? (
     <Tooltip content={restartLabel}>
       <IconButton
-        icon={retryIcon}
+        icon={actionIcons.retry}
         label={restartLabel}
         size={variant === "bar" ? "sm" : "md"}
         variant={variant === "bar" ? "ghost" : "secondary"}

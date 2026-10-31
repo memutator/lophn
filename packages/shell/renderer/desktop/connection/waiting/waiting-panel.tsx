@@ -4,6 +4,7 @@ import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 import type { NoticeTarget } from "../../../../ipc/notice.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
+import { actionIcons } from "../../../icons/mod.ts";
 import {
   harnessVendorOf,
   VendorIcon,
@@ -124,7 +125,7 @@ function FinishedList({
                 <p className={styles.title}>{row.label}</p>
                 <span className={styles.meta}>{row.title}</span>
               </div>
-              <Button size="sm" variant="primary">
+              <Button size="sm" trailingIcon={actionIcons.open}>
                 {t("waiting.button.show-finished")}
               </Button>
             </div>

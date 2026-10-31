@@ -60,7 +60,7 @@
 }
 
 .panel[data-active] .bar::before {
-  background: var(--color-focus);
+  background: var(--color-ink-background);
 }
 
 .icon {

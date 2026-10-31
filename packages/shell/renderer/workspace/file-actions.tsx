@@ -3,6 +3,7 @@
 import { Button } from "@lophn/ui/primitives";
 import { Dialog } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
+import { actionIcons } from "../icons/mod.ts";
 
 interface FileConfirmProps {
   readonly title: string;
@@ -38,6 +39,7 @@ export function FileConfirm({
           {confirm === null ? null : (
             <Button
               variant={confirm.danger ? "danger" : "primary"}
+              icon={confirm.danger ? actionIcons.delete : actionIcons.confirm}
               onClick={onConfirm}
             >
               {confirm.label}

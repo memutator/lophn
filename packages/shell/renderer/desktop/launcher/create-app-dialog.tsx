@@ -3,6 +3,7 @@ import { Button } from "@lophn/ui/primitives";
 import { Field, Input } from "@lophn/ui/input";
 import { Dialog } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
+import { actionIcons } from "../../icons/mod.ts";
 
 import type { AppsSource } from "../../apps/source.ts";
 import { usableTitle } from "./model.ts";
@@ -77,6 +78,7 @@ export function CreateAppDialog({
           </Button>
           <Button
             variant="primary"
+            icon={actionIcons.create}
             onClick={() => void submit()}
             disabled={busy}
             data-create-app=""

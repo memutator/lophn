@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Dialog, Toast } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
+import { actionIcons } from "../../../icons/mod.ts";
 
 import styles from "../settings.module.css";
 import { BookmarkRows } from "./bookmark-rows.tsx";
@@ -62,6 +63,7 @@ export function BrowserPanel({ source }: BrowserPanelProps) {
             <div className={styles.lineControl}>
               <Button
                 variant="secondary"
+                icon={actionIcons.delete}
                 data-browser-clear=""
                 onClick={() => setConfirming(true)}
               >
@@ -81,7 +83,8 @@ export function BrowserPanel({ source }: BrowserPanelProps) {
               {t("settings.button.cancel")}
             </Button>
             <Button
-              variant="primary"
+              variant="danger"
+              icon={actionIcons.delete}
               data-browser-clear-confirm=""
               onClick={() => void clear()}
             >

@@ -12,7 +12,7 @@ import { Button, Icon, Kbd } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
-import { editorIcons } from "../../icons/mod.ts";
+import { actionIcons, editorIcons } from "../../icons/mod.ts";
 import { turnChoicesOf } from "../../desktop/connection/waiting/decide.ts";
 import type {
   ApprovalCardRequest,
@@ -204,7 +204,8 @@ export function ApprovalCard({
             </Button>
             <Button
               size="sm"
-              variant="danger"
+              variant="secondary"
+              icon={actionIcons.deny}
               disabled={busy}
               onClick={() => void decide("reject", reason.trim() || undefined)}
             >
@@ -213,12 +214,16 @@ export function ApprovalCard({
           </>
         ) : (
           <>
-            {choices.map((choice) => (
+            {/* 주 단추(Allow once)가 맨 오른쪽에 오도록 거꾸로 그린다. */}
+            {[...choices].reverse().map((choice) => (
               <Button
                 key={choice}
                 ref={choice === "once" ? allowOnce : undefined}
                 size="sm"
                 variant={choice === "once" ? "primary" : "secondary"}
+                icon={
+                  choice === "reject" ? actionIcons.deny : actionIcons.approve
+                }
                 disabled={busy}
                 aria-keyshortcuts={
                   choice === "once"

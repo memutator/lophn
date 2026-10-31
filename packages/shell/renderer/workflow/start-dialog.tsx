@@ -8,6 +8,7 @@ import { t } from "@lophn/i18n";
 
 import type { WorkflowEntryView } from "../workspace/source.ts";
 import styles from "./start-dialog.module.css";
+import { actionIcons } from "../icons/mod.ts";
 
 export function StartDialog({
   entry,
@@ -38,6 +39,7 @@ export function StartDialog({
           </Button>
           <Button
             variant="primary"
+            icon={actionIcons.run}
             disabled={text.trim() === "" || starting}
             onClick={() => {
               setStarting(true);

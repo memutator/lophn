@@ -181,7 +181,7 @@
 }
 
 .editor .focused.active::before {
-  background: var(--color-focus);
+  background: var(--color-ink-background);
 }
 
 /* 기울인 글자가 overflow 경계에서 잘리지 않게 오른쪽을 비운다. */
@@ -306,7 +306,7 @@
   bottom: var(--space-0);
   left: var(--space-2);
   height: calc(var(--tab-indicator) * 3 / 2);
-  background: var(--color-text-primary);
+  background: var(--color-ink-background);
 }
 
 .compact .active .icon {

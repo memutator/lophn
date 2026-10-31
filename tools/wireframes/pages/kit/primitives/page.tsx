@@ -48,6 +48,19 @@ export function KitPrimitives() {
             </Button>
           </Row>
         ))}
+        <Row label="pressed">
+          <Button variant="ghost" aria-pressed={false}>
+            Low
+          </Button>
+          <Button variant="ghost" aria-pressed>
+            Medium
+          </Button>
+          <IconButton
+            icon={workspaceIcons.splitPane}
+            label="Split pane"
+            aria-pressed
+          />
+        </Row>
       </Section>
       <Section
         title="IconButton"

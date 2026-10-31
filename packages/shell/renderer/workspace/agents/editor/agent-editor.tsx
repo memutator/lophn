@@ -13,7 +13,7 @@ import type { AssignmentEntry } from "../../../../../protocol/approvals/assignme
 
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import { LOPHN_AGENT_ID } from "../../../../../protocol/lophn-agent/places.ts";
-import { workspaceIcons } from "../../../icons/mod.ts";
+import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
 import type { DomainView } from "../../source.ts";
 import type {
@@ -109,11 +109,7 @@ function DeleteAgent({
   const [asking, setAsking] = useState(false);
   return (
     <div className={styles.danger}>
-      <Button
-        variant="danger"
-        icon={workspaceIcons.trash}
-        onClick={() => setAsking(true)}
-      >
+      <Button icon={actionIcons.delete} onClick={() => setAsking(true)}>
         {t("project-workspace.button.agent-editor-delete")}
       </Button>
       <Dialog
@@ -129,6 +125,7 @@ function DeleteAgent({
             </Button>
             <Button
               variant="danger"
+              icon={actionIcons.delete}
               onClick={() => {
                 setAsking(false);
                 onDelete();
@@ -491,7 +488,11 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
           />
           <div className={styles.formActions}>
             <Button onClick={props.onDone}>{t("common.button.cancel")}</Button>
-            <Button variant="primary" onClick={save}>
+            <Button
+              variant="primary"
+              icon={fresh ? actionIcons.create : actionIcons.save}
+              onClick={save}
+            >
               {fresh
                 ? t("agents.button.create-agent")
                 : t("project-workspace.button.agent-editor-save")}

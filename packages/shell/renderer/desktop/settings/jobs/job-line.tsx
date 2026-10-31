@@ -4,7 +4,7 @@ import { Skeleton, StatusMark } from "@lophn/ui/feedback";
 import { Switch } from "@lophn/ui/input";
 import { t } from "@lophn/i18n";
 
-import { commonIcons } from "../../../icons/mod.ts";
+import { actionIcons, commonIcons } from "../../../icons/mod.ts";
 import {
   actionText,
   creatorText,
@@ -94,10 +94,20 @@ export function JobLine({
               onCheckedChange={onEnabled}
             />
           </div>
-          <Button size="sm" data-job-edit="" onClick={onEdit}>
+          <Button
+            size="sm"
+            icon={actionIcons.edit}
+            data-job-edit=""
+            onClick={onEdit}
+          >
             {t("settings.button.edit")}
           </Button>
-          <Button size="sm" data-job-delete="" onClick={onDelete}>
+          <Button
+            size="sm"
+            icon={actionIcons.delete}
+            data-job-delete=""
+            onClick={onDelete}
+          >
             {t("jobs.button.delete")}
           </Button>
           <IconButton
@@ -140,6 +150,7 @@ export function JobLine({
                   <Button
                     size="sm"
                     variant="ghost"
+                    trailingIcon={actionIcons.open}
                     onClick={() => onOpenSession(row.session!)}
                   >
                     {t("waiting.button.open-session")}
@@ -149,6 +160,7 @@ export function JobLine({
                   <Button
                     size="sm"
                     variant="ghost"
+                    trailingIcon={actionIcons.open}
                     onClick={() => onOpenProject(project)}
                   >
                     {t("jobs.button.open-project")}

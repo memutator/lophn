@@ -4,7 +4,7 @@
 import type { ReactElement } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
-import { workspaceIcons } from "../../icons/mod.ts";
+import { actionIcons, workspaceIcons } from "../../icons/mod.ts";
 import type { PermissionsView as PermissionsData } from "../agent-tab-source.ts";
 import styles from "./permissions-view.module.css";
 
@@ -78,7 +78,7 @@ export function PermissionsView({
         <p className={styles.note}>
           {t("conversation.notice.permissions-edited-in-agents")}
         </p>
-        <Button size="sm" onClick={onEdit}>
+        <Button size="sm" icon={actionIcons.edit} onClick={onEdit}>
           {t("conversation.button.permissions-edit")}
         </Button>
       </footer>

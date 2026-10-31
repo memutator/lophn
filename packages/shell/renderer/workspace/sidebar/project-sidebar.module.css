@@ -216,7 +216,7 @@
   bottom: var(--space-0);
   right: var(--space-0);
   width: var(--tab-indicator);
-  background: var(--color-focus);
+  background: var(--color-ink-background);
 }
 
 /* Explorer: 머리 줄과 tree가 본문 높이를 채운다. 빈 자리를 눌러도 루트 기준 동작이 닿게 한다. */
@@ -453,7 +453,7 @@
   bottom: var(--space-0);
   left: var(--space-0);
   width: var(--tree-marker);
-  background: var(--color-text-primary);
+  background: var(--color-ink-background);
 }
 
 .treeRow:focus-visible {
@@ -576,7 +576,7 @@
 }
 
 .sessionDot[data-state="working"] {
-  background: var(--color-focus);
+  background: var(--color-ink-background);
 }
 
 .sessionText {

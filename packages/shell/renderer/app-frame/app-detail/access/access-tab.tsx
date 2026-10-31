@@ -14,6 +14,7 @@ import type { AccessView, AppDetailSource, SourceResult } from "../source.ts";
 import { useRead } from "../use-read.ts";
 import { type SecretActions, SecretRow } from "./secret-row.tsx";
 import styles from "../app-detail.module.css";
+import { actionIcons } from "../../../icons/mod.ts";
 
 interface AccessTabProps {
   app: string;
@@ -170,7 +171,13 @@ function RevokeEnd({
 }) {
   if (stage === null) {
     return (
-      <Button size="sm" data-revoke-button="" onClick={onRevoke}>
+      <Button
+        size="sm"
+        variant="danger"
+        icon={actionIcons.disconnect}
+        data-revoke-button=""
+        onClick={onRevoke}
+      >
         {t("app-detail.button.revoke")}
       </Button>
     );

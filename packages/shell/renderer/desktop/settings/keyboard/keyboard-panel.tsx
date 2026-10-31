@@ -17,7 +17,7 @@ import {
 } from "../../../../ipc/keybindings.ts";
 import { KEY_CAPTURE_ATTRIBUTE } from "../../../commands/window.ts";
 import { useWindowCommands } from "../../../commands/react.tsx";
-import { settingsIcons } from "../../../icons/mod.ts";
+import { actionIcons, settingsIcons } from "../../../icons/mod.ts";
 import { useReload } from "../use-reload.ts";
 import styles from "../settings.module.css";
 import {
@@ -349,6 +349,7 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
                           {row.changed ? (
                             <Button
                               size="sm"
+                              icon={actionIcons.reset}
                               data-key-reset={id}
                               aria-label={t("settings.button.key-reset", {
                                 name: row.name,
@@ -373,6 +374,7 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
             {anyChanged ? (
               <div className={`${styles.endSlot} ${styles.groupBlock}`}>
                 <Button
+                  icon={actionIcons.reset}
                   data-keys-reset-all=""
                   onClick={() =>
                     void save(stored, withoutPlatform(stored, platform))

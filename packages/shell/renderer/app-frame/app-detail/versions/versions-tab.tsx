@@ -12,6 +12,7 @@ import type { AppDetailSource, ReleaseCard, VersionView } from "../source.ts";
 import { useRead } from "../use-read.ts";
 import styles from "../app-detail.module.css";
 import { Changes, hasChanges } from "./changes.tsx";
+import { actionIcons } from "../../../icons/mod.ts";
 
 interface VersionsTabProps {
   app: string;
@@ -346,6 +347,7 @@ function Earlier({
               </div>
               <Button
                 size="sm"
+                icon={actionIcons.rewind}
                 disabled={reason !== null}
                 data-go-back={release.number}
                 onClick={() => onGoBack(release)}

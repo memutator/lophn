@@ -3,6 +3,7 @@ import { t } from "@lophn/i18n";
 import { Button } from "@lophn/ui/primitives";
 import { Field, Input } from "@lophn/ui/input";
 
+import { actionIcons } from "../icons/mod.ts";
 import type {
   SecretInputPurpose,
   SecretInputSubmitReply,
@@ -92,6 +93,7 @@ export function SecretInput({
           </Button>
           <Button
             variant="primary"
+            icon={actionIcons.save}
             disabled={busy || value === ""}
             onClick={() => void save()}
           >

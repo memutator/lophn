@@ -9,7 +9,7 @@ import { t } from "@lophn/i18n";
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
 import { LOPHN_AGENT_ID } from "../../../../../protocol/lophn-agent/places.ts";
-import { commonIcons } from "../../../icons/mod.ts";
+import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
 import type { DomainView } from "../../source.ts";
 import type { AgentDetail, AgentDraft, ModelsView } from "../source.ts";
@@ -448,7 +448,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
           <div className={styles.rightEnd}>
             <Button
               size="sm"
-              icon={commonIcons.add}
+              icon={actionIcons.add}
               onClick={() => setAddServer(true)}
             >
               {t("settings.button.add-server")}

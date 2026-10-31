@@ -45,9 +45,9 @@ const accent = {
     { light: "#1a1a18", dark: "#f3f3f0" },
     { light: "#ffffff", dark: "#161615" },
     { light: "#32322f", dark: "#d9d8d2" },
-    { light: "#2a78d6", dark: "#3987e5" },
-    { light: "#e7f0fb", dark: "#16263b" },
-    { light: "#dde9f8", dark: "#223c5c" },
+    { light: "#6b6a65", dark: "#96958d" },
+    { light: "#ebeae6", dark: "#2a2a28" },
+    { light: "#dcdbd4", dark: "#3a3a36" },
   ),
   blue: ink(
     { light: "#1d5bbf", dark: "#7db0f2" },

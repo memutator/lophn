@@ -132,6 +132,11 @@
   min-width: var(--space-0);
 }
 
+/* select·input은 칸을 채우고, 폭이 글자만 한 단추는 칸 오른쪽 끝에 선다. */
+.lineControl > button {
+  align-self: flex-end;
+}
+
 .endSlot {
   display: flex;
   justify-content: flex-end;
@@ -252,58 +257,6 @@
   max-width: var(--page-form);
 }
 
-/* 기본 제품 고르기: 제품마다 vendor 아이콘이 붙은 줄. */
-.productPicker {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: var(--space-0);
-  padding: var(--space-0);
-  border: none;
-}
-
-.productPicker legend {
-  margin-bottom: var(--space-3);
-  padding: var(--space-0);
-  color: var(--color-text-secondary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  font-weight: var(--font-weight-medium);
-}
-
-.productPicker [role="radiogroup"] {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.productOption {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  box-sizing: border-box;
-  width: 100%;
-  min-height: var(--control-lg-height);
-  padding: var(--space-0) var(--space-5);
-  border: var(--border-width) solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: none;
-  color: var(--color-text-primary);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.productOption[aria-checked="true"] {
-  border-color: var(--color-focus);
-  background: var(--color-selection);
-}
-
-.productOption:focus-visible {
-  outline: var(--border-focus-width) solid var(--color-focus);
-  outline-offset: var(--border-focus-offset);
-}
-
 .section {
   display: flex;
   flex-direction: column;
@@ -421,6 +374,7 @@
 .actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-2);
 }
 

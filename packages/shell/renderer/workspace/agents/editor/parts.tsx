@@ -13,7 +13,7 @@ import {
   DEFAULT_AGENT_CHARACTER,
   type Profile,
 } from "../../../../../protocol/lophn-agent/agent-values.ts";
-import { workspaceIcons } from "../../../icons/mod.ts";
+import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
 import type {
   McpLayer,
@@ -210,6 +210,7 @@ export function McpList({
                 ) : canSignIn ? (
                   <Button
                     size="sm"
+                    icon={actionIcons.connect}
                     data-action="sign-in"
                     onClick={() => onSignIn(item)}
                   >
@@ -291,6 +292,7 @@ export function ProfileField({
           <div className={styles.profileButtons}>
             <Button
               size="sm"
+              icon={actionIcons.edit}
               aria-expanded={grid}
               onClick={() => setGrid(!grid)}
             >
@@ -311,7 +313,7 @@ export function ProfileField({
             />
             <Button
               size="sm"
-              icon={workspaceIcons.upload}
+              icon={actionIcons.upload}
               disabled={!canUpload}
               onClick={() => file.current?.click()}
             >
@@ -321,6 +323,7 @@ export function ProfileField({
               <Button
                 size="sm"
                 variant="ghost"
+                icon={actionIcons.remove}
                 onClick={() => onChange(DEFAULT_AGENT_CHARACTER)}
               >
                 {t("agents.button.remove-image")}

@@ -14,6 +14,7 @@ export const conversation = {
   "conversation.button.attach": "Add files or photos",
   "conversation.button.call-cancel": "Cancel",
   "conversation.button.call-open": "Open conversation",
+  "conversation.button.consent-review": "Review",
   "conversation.button.connect-provider": "Connect provider",
   "conversation.button.check-delivery": "Check whether it arrived",
   "conversation.button.delete": "Delete",
@@ -443,6 +444,9 @@ export const conversation = {
   "conversation.title.add-model": "Add model",
   "conversation.title.approval-command": "{agent} wants to run a command",
   "conversation.title.approval-run": "{agent} wants to run {tool}",
+  "conversation.title.consent-handled": "Release approval request handled",
+  "conversation.title.consent-waiting":
+    "Waiting for your approval to release {release}",
   "conversation.title.call-asked": "Asked {to}",
   "conversation.title.call-handoff": "Handoff to {to}",
   "conversation.title.call-working-with": "Working with {to}",

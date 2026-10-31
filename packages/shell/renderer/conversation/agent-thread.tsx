@@ -44,6 +44,7 @@ import { ThreadScroll } from "./message-list/thread-scroll.tsx";
 import { QuestionSummary } from "./question-card/question-card.tsx";
 import { HiddenRange } from "./session-rewind/hidden-range.tsx";
 import { CallBlock } from "./thread/call-block.tsx";
+import { ReleaseConsent } from "./thread/release-consent.tsx";
 import { ProviderError } from "./thread/provider-error.tsx";
 import { ReceivedMessage } from "./thread/received-message.tsx";
 import type { ArtifactsSlice } from "../workspace/kinds/host.ts";
@@ -316,6 +317,9 @@ function itemsOf(
             onOpenSession={props.onOpenSession}
           />,
         );
+        break;
+      case "release-consent":
+        add(entry, <ReleaseConsent key={entry.id} release={entry.release} />);
         break;
       case "questions":
         add(

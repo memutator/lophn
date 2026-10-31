@@ -13,6 +13,8 @@ import {
 } from "../../../protocol/lophn-agent/commands.ts";
 import { askAnswer } from "../../../protocol/lophn-agent/ask-tool.ts";
 import {
+  editQueued,
+  moveQueued,
   removeQueued,
   sendMessage,
   steerQueuedNow,
@@ -167,6 +169,43 @@ export async function removeQueuedMessage(
   if (!session.ok) return session;
   return dropValue(
     await env.read(removeQueued, { session: session.value, message: queued }),
+  );
+}
+
+/** 다음 turn 줄의 글을 고친다. 이미 turn이 가져갔으면 conflict다. */
+export async function editQueuedMessage(
+  env: Env,
+  queued: string,
+  text: string,
+): Promise<SourceResult<void>> {
+  const session = await sessionOfMessage(env, queued);
+  if (!session.ok) return session;
+  return dropValue(
+    await env.read(editQueued, {
+      session: session.value,
+      message: queued,
+      content: {
+        schema_version: 1,
+        parts: [{ kind: "text", text }],
+      },
+    }),
+  );
+}
+
+/** 다음 turn 줄의 순서를 이웃과 바꾼다. 끝이면 그대로 둔다. */
+export async function moveQueuedMessage(
+  env: Env,
+  queued: string,
+  direction: "up" | "down",
+): Promise<SourceResult<void>> {
+  const session = await sessionOfMessage(env, queued);
+  if (!session.ok) return session;
+  return dropValue(
+    await env.read(moveQueued, {
+      session: session.value,
+      message: queued,
+      direction,
+    }),
   );
 }
 

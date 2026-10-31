@@ -111,4 +111,39 @@ export const removeQueued = defineMemory({
   errors: queuedErrors,
 });
 
-export const QUEUED_INPUT_ROUTES = [steerQueuedNow, removeQueued] as const;
+// 아직 turn이 가져가지 않은 사람 메시지의 글을 바꾼다. 저장된 본문과 입력함의 글을 같이 바꾼다.
+export const editQueued = defineMemory({
+  resource: "session_inputs",
+  method: "edit",
+  name: "EditQueued",
+  input: z.strictObject({
+    session: idSchema("ses"),
+    message: idSchema("msg"),
+    content: userMessageContentInputSchema,
+  }),
+  output: z.strictObject({ message: idSchema("msg") }),
+  actors: ["user"],
+  errors: queuedErrors,
+});
+
+// 아직 turn이 가져가지 않은 사람 메시지를 입력함 안에서 이웃과 맞바꾼다.
+export const moveQueued = defineMemory({
+  resource: "session_inputs",
+  method: "move",
+  name: "MoveQueued",
+  input: z.strictObject({
+    session: idSchema("ses"),
+    message: idSchema("msg"),
+    direction: z.enum(["up", "down"]),
+  }),
+  output: z.strictObject({ message: idSchema("msg") }),
+  actors: ["user"],
+  errors: queuedErrors,
+});
+
+export const QUEUED_INPUT_ROUTES = [
+  steerQueuedNow,
+  removeQueued,
+  editQueued,
+  moveQueued,
+] as const;

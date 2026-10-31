@@ -19,6 +19,7 @@ import {
   AgentQuestion,
   AgentQuestionAnswered,
   AgentQuestionEnded,
+  AgentQueuedEdit,
   AgentQueuedMessage,
   AgentRequestError,
   AgentRewind,
@@ -61,8 +62,15 @@ export const agentArea: Area = {
       id: "new-agent-queued-message",
       title: "Agent · queued message",
       description:
-        "일하는 중에 보낸 메시지가 composer 위 Next turn 줄로 쌓인 모습이다. 줄 오른쪽 끝의 [Send now]를 누르면 도는 turn에 steer로 들어가고 steer 표시가 붙는다. 보내기 방식을 고르는 menu는 없다.",
+        "일하는 중에 보낸 메시지가 composer 위 Next turn 줄로 쌓인 모습이다. 줄을 누르면 그 자리에서 글을 고치고(Enter 저장, Esc 취소), 줄 오른쪽 끝의 ↑·↓로 순서를 바꾼다. [Send now]를 누르면 도는 turn에 steer로 들어가고 steer 표시가 붙는다. 보내기 방식을 고르는 menu는 없다.",
       render: () => <AgentQueuedMessage />,
+    },
+    {
+      id: "new-agent-queued-message-edit",
+      title: "Agent · queued message edit",
+      description:
+        "큐의 줄을 눌러 그 자리에서 글을 고치는 모습이다. Enter로 저장하고 Esc로 취소하며, 조합 중인 글자는 저장하지 않는다. 고치는 동안에는 [Save]와 [Cancel]이 오른쪽 끝에 있다.",
+      render: () => <AgentQueuedEdit />,
     },
     {
       id: "new-agent-sender-chips",
@@ -110,7 +118,7 @@ export const agentArea: Area = {
       id: "new-agent-approval",
       title: "Agent · approval card",
       description:
-        "shell 명령의 허락 카드다. 명령이 그대로 보이고 Allow once, Always allow, Deny로 바로 결정한다. Always allow는 그 명령 앞부분의 allow 규칙을 더하고, 더할 규칙이 카드에 보인다.",
+        "shell 명령의 허락 카드다. 명령이 그대로 보이고 Allow once, Always allow, Deny로 바로 결정한다. 카드 안에 초점이 있으면 Enter=Allow once, ⌘/Ctrl+Shift+Enter=Always allow, Esc=Deny 이유 열기다. Always allow는 그 명령 앞부분의 allow 규칙을 더하고, 더할 규칙이 카드에 보인다.",
       render: () => <AgentApproval />,
     },
     {

@@ -39,6 +39,8 @@ export const conversation = {
   "conversation.button.preview-image": "Preview {name}",
   "conversation.button.question-next": "Next",
   "conversation.button.question-submit": "Submit",
+  "conversation.button.queued-move-down": "Move down",
+  "conversation.button.queued-move-up": "Move up",
   "conversation.button.queued-remove": "Remove from the queue",
   "conversation.button.remove-attachment": "Remove {name}",
   "conversation.button.remove-model": "Remove model",
@@ -121,6 +123,10 @@ export const conversation = {
   "conversation.label.approval-effect-external": "Reaches outside lophn",
   "conversation.label.approval-effect-read": "Reads data",
   "conversation.label.approval-effect-write": "Changes data",
+  "conversation.label.approval-key-always": "⌘/Ctrl+Shift+Enter",
+  "conversation.label.approval-key-back": "Esc",
+  "conversation.label.approval-key-deny": "Esc",
+  "conversation.label.approval-key-once": "Enter",
   "conversation.label.approval-reason": "Reason for denying",
   "conversation.label.approval-reason-given": "Reason: {reason}",
   "conversation.label.approval-reason-placeholder":
@@ -202,6 +208,7 @@ export const conversation = {
   "conversation.label.questions-answered":
     "Answered {count, plural, one {# question} other {# questions}}",
   "conversation.label.questions-ended-by-message": "Ended by your message",
+  "conversation.label.queued-edit-message": "Edit message: {text}",
   "conversation.label.queued-messages": "Waiting for the next turn",
   "conversation.label.read-session": "Read {title}",
   "conversation.label.rename-session": "Rename {title}",

@@ -55,6 +55,28 @@ test("사람 메시지가 call보다 먼저 나오고 steer는 도는 turn이 �
   );
 });
 
+test("큐의 글을 고치면 다음 turn이 고친 글을 가져가고, 순서를 바꾸면 그 순서로 가져간다", () => {
+  const inbox = createInbox();
+  inbox.setRunning(SESSION, true);
+  inbox.put(SESSION, {
+    ...input("message", "old"),
+    message: "msg_q1",
+  } as RoutedInput);
+  inbox.put(SESSION, {
+    ...input("message", "q2"),
+    message: "msg_q2",
+  } as RoutedInput);
+
+  assert.deepStrictEqual(inbox.edit(SESSION, "msg_q1", "edited"), true);
+  assert.deepStrictEqual(inbox.move(SESSION, "msg_q2", "up"), true);
+  assert.deepStrictEqual(
+    [inbox.take(SESSION)?.body, inbox.take(SESSION)?.body],
+    ["q2", "edited"],
+  );
+  // 이미 가져간 메시지는 고칠 수 없다.
+  assert.deepStrictEqual(inbox.edit(SESSION, "msg_q1", "again"), false);
+});
+
 test("지금 올리기와 빼기는 아직 가져가지 않은 사람 메시지에만 먹는다", () => {
   const inbox = createInbox();
   const queued = {

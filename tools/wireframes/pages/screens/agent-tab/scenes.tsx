@@ -2,6 +2,7 @@
 // source)으로 그린다. 한 화면은 한 상태다: 보내기, 보낸 쪽 chip, call 블록, 질문 카드, 허락 카드, rewind, 권한.
 
 import type { ChatInit } from "../../../mock/agents-data.ts";
+import { click, find, useDrive } from "../../../mock/drive.ts";
 import { documentTab } from "../../../mock/phroner-data.ts";
 import { ProjectApp } from "../project-app.tsx";
 import type { TabSpec } from "../project-window.tsx";
@@ -30,6 +31,14 @@ function Scene({ sub, chat }: { sub: string; chat?: ChatInit }) {
 export const ConversationScene = () => <Scene sub="working" />;
 /** 일하는 중에 보낸 메시지가 composer 위에 "다음 turn" 줄로 쌓인다. 줄 오른쪽 끝의 [Send now]를 누르면 도는 turn에 steer로 들어간다. */
 export const QueuedMessageScene = () => <Scene sub="queued" />;
+/** 줄의 글을 눌러 그 자리에서 고치는 상태. Enter 저장, Esc 취소다. */
+export function QueuedEditScene() {
+  useDrive(async () => {
+    await click("button", /Edit message: Also add/);
+    await find("textarea", /Edit message:/);
+  });
+  return <Scene sub="queued" />;
+}
 /** model을 바꾼 뒤 provider가 요청을 거절한 모습. 어떤 오류인지와 [Retry]가 대화 안에 남는다. */
 export const RequestErrorScene = () => <Scene sub="request-error" />;
 /** 받은 메시지의 보낸 쪽 chip 셋(program의 reaction, 다른 agent, coding agent). 마지막 chip은 눌러서 panel을 열었다. */

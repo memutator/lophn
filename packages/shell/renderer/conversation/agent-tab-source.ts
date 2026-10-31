@@ -620,6 +620,13 @@ export interface AgentTabSource {
   /** 다음 turn 줄을 도는 turn에 steer로 올린다. */
   sendQueuedNow(queued: string): Promise<SourceResult<void>>;
   removeQueued(queued: string): Promise<SourceResult<void>>;
+  /** 다음 turn 줄의 글을 고친다. turn이 이미 가져갔으면 conflict다. */
+  editQueued(queued: string, text: string): Promise<SourceResult<void>>;
+  /** 다음 turn 줄의 순서를 이웃과 바꾼다. 끝이면 그대로 둔다. */
+  moveQueued(
+    queued: string,
+    direction: "up" | "down",
+  ): Promise<SourceResult<void>>;
   stop(turn: string, key: string): Promise<SourceResult<void>>;
   /** 실패한 turn의 입력을 같은 session에 다시 보낸다. */
   retryTurn(turn: string): Promise<SourceResult<void>>;

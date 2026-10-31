@@ -713,6 +713,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             key={approval.id}
             agent={agent.name}
             request={approval}
+            focusOnMount={draft.text === "" && draft.attachments.length === 0}
             onDecide={(choice, reason) =>
               accepted(
                 source.decidePermission(session, approval.id, choice, reason),
@@ -743,6 +744,20 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
           disabled={offline}
           onSendNow={(id) => void perform(() => source.sendQueuedNow(id))}
           onRemove={(id) => void perform(() => source.removeQueued(id))}
+          onEdit={(id, text) =>
+            void perform(async () => {
+              const result = await source.editQueued(id, text);
+              if (result.ok) await data.reload();
+              return result;
+            })
+          }
+          onMove={(id, direction) =>
+            void perform(async () => {
+              const result = await source.moveQueued(id, direction);
+              if (result.ok) await data.reload();
+              return result;
+            })
+          }
         />
         <AgentComposer
           key={key}

@@ -67,13 +67,40 @@ export function QuestionCard({
     setFailed(!done);
   }
 
-  // 번호 키는 글을 쓰는 중이 아닐 때만 선택지를 누른다.
+  // 번호 키는 글을 쓰는 중이 아닐 때만 선택지를 누른다. Enter는 고를 수 있으면 다음 질문이나
+  // 보내기로 간다(버튼과 선택지 위의 Enter는 그 요소가 스스로 받는다).
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.nativeEvent.isComposing) return;
+    const target = event.target as HTMLElement;
+    if (event.key === "Enter") {
+      if (
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        event.shiftKey ||
+        busy ||
+        target.closest("button, [role=radio], [role=checkbox]")
+      ) {
+        return;
+      }
+      if (last) {
+        if (answers === null) return;
+        event.preventDefault();
+        event.stopPropagation();
+        void submit();
+      } else {
+        if (answerOf(question, pick) === null) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setIndex(index + 1);
+      }
+      return;
+    }
     if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
       return;
     }
     if (!/^[1-9]$/.test(event.key)) return;
-    if ((event.target as HTMLElement).closest("input, textarea")) return;
+    if (target.closest("input, textarea")) return;
     const number = Number(event.key);
     if (number <= question.options.length) {
       toggle(question.options[number - 1].label);

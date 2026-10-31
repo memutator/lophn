@@ -7,14 +7,14 @@ import type { AgentsSource } from "./source.ts";
 
 export function useSidebarAgents(
   source: AgentsSource | undefined,
-  project: string,
+  project: string | null,
 ): { readonly agents: readonly SidebarAgent[]; readonly reload: () => void } {
   const [agents, setAgents] = useState<readonly SidebarAgent[]>([]);
   const [reloads, setReloads] = useState(0);
   useEffect(() => {
     if (source === undefined) return;
     let live = true;
-    void source.list(project).then((result) => {
+    void source.list(project ?? "home").then((result) => {
       if (!live || !result.ok) return;
       setAgents(
         result.value.flatMap((row) => {

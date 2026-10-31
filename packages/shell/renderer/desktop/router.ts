@@ -1,8 +1,8 @@
 import type { SettingsPane } from "./settings/model.ts";
 
-// 창 안의 자리. 새 기본 창은 언제나 런처에서 시작한다.
+// 창 안의 자리. 새 기본 창은 언제나 Home에서 시작한다.
 type Space =
-  | "launcher"
+  | "home"
   | "settings"
   | "project"
   | "app"
@@ -22,7 +22,7 @@ export interface Route {
   readonly screen?: string;
   /** settings 공간에서 처음 보일 항목. 없으면 General이다. */
   readonly settingsPane?: SettingsPane;
-  /** project·app 공간에서 열어 시작할 session. launcher 공간에서는 lophn 패널이 열 session이다. */
+  /** home·project·app 공간에서 열어 시작할 session. */
   readonly session?: string;
   /** app 공간에서 그 앱 place의 lophn을 새 session으로 열어 시작한다. */
   readonly newSession?: true;
@@ -32,11 +32,11 @@ export interface Route {
   readonly open?: { readonly path: string; readonly line?: number };
 }
 
-export const LAUNCHER: Route = { space: "launcher" };
+export const HOME: Route = { space: "home" };
 
-/** 런처로 이동한다. session을 주면 lophn 패널을 그 session으로 연다. */
-export function openLauncher(session: string): Route {
-  return { space: "launcher", session };
+/** Home으로 이동한다. session을 주면 그 Home session을 agent 탭으로 연다. */
+export function openHome(session?: string): Route {
+  return session === undefined ? HOME : { space: "home", session };
 }
 
 /** Settings로 이동한다. 항목을 주면 그 항목부터 연다. */

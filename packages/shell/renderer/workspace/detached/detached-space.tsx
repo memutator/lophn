@@ -30,7 +30,7 @@ import { tabKindOf } from "../kinds/registry.ts";
 import type { TabHost } from "../kinds/host.ts";
 import type { TabItem } from "../model.ts";
 import { deskTabs, emptyDesk, type Desk } from "../../shell/desk-model.ts";
-import type { WorkspaceProps } from "../place-window.tsx";
+import type { PlaceWindowProps } from "../place-window.tsx";
 import styles from "./detached-space.module.css";
 
 interface DetachedSpaceProps {
@@ -160,11 +160,11 @@ function DetachedTab({
     [tab],
   );
 
-  const hostProps: WorkspaceProps = {
-    projectId: project,
+  const hostProps: PlaceWindowProps = {
+    place: { kind: "project", id: project },
     source: workspace,
     windowWidth: globalThis.innerWidth,
-    onLauncher: noop,
+    onHome: noop,
     onSettings: noop,
     editor,
     terminal,
@@ -172,6 +172,7 @@ function DetachedTab({
   };
 
   const host: TabHost = {
+    place: { kind: "project", id: project },
     projectId: project,
     projectTitle: projectView?.title,
     explorerRoot: undefined,

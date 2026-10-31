@@ -1,5 +1,5 @@
-// project 창의 왼쪽 sidebar. 화면(LeftSidebar)에 이 창이 아는 값을 모아 준다: 모든 place의 session, 이 project의 열린 탭 제목,
-// 터미널 coding agent session, 사람 차례인 workflow desk. 등록·생성 dialog도 여기서 연다.
+// place(Home, project) 창의 왼쪽 sidebar. 화면(LeftSidebar)에 이 창이 아는 값을 모아 준다: 모든 place의 session, 이 place의 열린 탭 제목,
+// 터미널 coding agent session, 사람 차례인 workflow desk(project만). 등록·생성 dialog도 여기서 연다.
 import { useEffect, useMemo, useState } from "react";
 
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
@@ -14,7 +14,8 @@ import { CreateAppDialog } from "../../desktop/places/create-app-dialog.tsx";
 import type { ProjectsSource } from "../../desktop/places/projects/source.ts";
 import { RegisterDialog } from "../../desktop/places/register-dialog.tsx";
 import { harnessVendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
-import type { PlaceRef } from "../../shell/desk-model.ts";
+import { placeKey, type PlaceRef } from "../../shell/desk-model.ts";
+import type { WindowPlace } from "../place-window.tsx";
 import { LeftSidebar } from "../../shell/left-sidebar.tsx";
 import {
   type SidebarPlace,
@@ -33,14 +34,15 @@ import type { PanelTerminal } from "./panel-types.ts";
 /** New session ▾에 올리는 coding agent. 터미널 탭에서 그 command를 연다. */
 const CODING_AGENTS: readonly HarnessId[] = ["claude", "codex", "opencode"];
 
-/** 이 project에서 사람 차례를 기다리는 workflow 이름. instance가 바뀔 때마다 다시 읽는다. */
+/** 이 project에서 사람 차례를 기다리는 workflow 이름(Home은 없다). instance가 바뀔 때마다 다시 읽는다. */
 function useHumanTurnWorkflows(
   source: WorkspaceSource,
-  project: string,
+  project: string | null,
 ): readonly string[] {
   const [names, setNames] = useState<readonly string[]>([]);
   const [reads, setReads] = useState(0);
   useEffect(() => {
+    if (project === null) return;
     let live = true;
     void source
       .workflowInstances({ project, state: "running" })
@@ -64,8 +66,8 @@ function useHumanTurnWorkflows(
   return names;
 }
 
-export interface ProjectLeftSidebarProps {
-  projectId: string;
+export interface PlaceLeftSidebarProps {
+  place: WindowPlace;
   source: WorkspaceSource;
   projects?: ProjectsSource;
   apps?: AppsSource;
@@ -93,15 +95,15 @@ export interface ProjectLeftSidebarProps {
   onSettings: () => void;
 }
 
-export function ProjectLeftSidebar(props: ProjectLeftSidebarProps) {
-  const { projectId, projects, apps } = props;
+export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
+  const { place: current, projects, apps } = props;
+  const projectId = current.kind === "project" ? current.id : null;
   const list = useSidebarPlaceList(projects, apps);
   const { sessions } = useSessions();
   const known = useKnownSessions(props.agentViewSource, sessions);
   const workflows = useHumanTurnWorkflows(props.source, projectId);
   // 지운 줄은 session id와 터미널 key로 기억하고 둘 다 겹치지 않아 한 곳에 둔다.
   const recentHidden = useHiddenRecent(null);
-  const current: PlaceRef = { kind: "project", id: projectId };
   const places = useMemo(
     () =>
       sidebarPlaces({
@@ -118,7 +120,7 @@ export function ProjectLeftSidebar(props: ProjectLeftSidebarProps) {
         hidden: recentHidden.hidden,
       }),
     [
-      projectId,
+      placeKey(current),
       list.projects,
       list.apps,
       sessions,
@@ -134,7 +136,7 @@ export function ProjectLeftSidebar(props: ProjectLeftSidebarProps) {
   const [creating, setCreating] = useState(false);
 
   const open = (place: SidebarPlace, item: SidebarSession) => {
-    const here = place.ref.kind === "project" && place.ref.id === projectId;
+    const here = placeKey(place.ref) === placeKey(current);
     if (item.kind === "workflow") props.onWorkflow(item.ref);
     else if (item.kind === "terminal") {
       const terminal = props.terminals.find((row) => row.key === item.ref);

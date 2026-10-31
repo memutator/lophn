@@ -8,7 +8,7 @@ import {
 } from "../../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
 import { schemaFailure } from "../../../../../packages/shell/renderer/desktop/places/start-failure/model.ts";
 import { StartFailureScreen } from "../../../../../packages/shell/renderer/desktop/places/start-failure/start-failure.tsx";
-import launcher from "../../../../../packages/shell/renderer/desktop/launcher/launcher.module.css";
+import gate from "../../../../../packages/shell/renderer/desktop/places/home-gate.module.css";
 
 const FAILURES: CSSProperties = {
   display: "grid",
@@ -55,7 +55,7 @@ const CASES = [
 
 export function StartFailures() {
   return (
-    <div className={launcher.window} data-space="launcher" data-gated="">
+    <div className={gate.window} data-space="home" data-gated="">
       <TopBar platform="linux" leading={<Wordmark>lophn</Wordmark>} />
       <main style={FAILURES}>
         {CASES.map((one) => (

@@ -1,7 +1,11 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import type { CoreSource } from "./connection/connection.ts";
-import { useConnection } from "./connection/connection.tsx";
+import {
+  ConnectionNotice,
+  retryConnection,
+  useConnection,
+} from "./connection/connection.tsx";
 import { useSessions } from "./connection/events/hooks.tsx";
 import {
   type HookPromptApi,
@@ -10,17 +14,17 @@ import {
 import { ToastHost } from "./connection/toasts/toast-host.tsx";
 import { registerToastActionHandler } from "./connection/toasts/toast-actions.ts";
 import { useWaitingPanel } from "./connection/waiting/waiting-layer.tsx";
-import { Launcher } from "./launcher/launcher.tsx";
+import { HomeGate } from "./places/home-gate.tsx";
 import {
-  LAUNCHER,
+  HOME,
   openApp,
-  openLauncher,
+  openHome,
   openNewApp,
   openProject,
   openSettings,
   type Route,
 } from "./router.ts";
-import { Workspace } from "../workspace/place-window.tsx";
+import { PlaceWindow } from "../workspace/place-window.tsx";
 import { DetachedSpace } from "../workspace/detached/detached-space.tsx";
 import type { LophnDetachedApi } from "../../ipc/detached.ts";
 import type { WorkspaceSource } from "../workspace/source.ts";
@@ -60,10 +64,10 @@ const keybindingsBridge = globalThis as { lophnKeybindings?: KeybindingsApi };
 
 interface DesktopProps {
   source: CoreSource;
-  /** 창이 처음 여는 화면. 기본 창은 런처다. */
+  /** 창이 처음 여는 화면. 기본 창은 Home이다. */
   initial?: Route;
   formatTime?: (confirmedAt: number) => string;
-  /** 프로젝트 작업대 통로. project 공간에서만 쓴다. */
+  /** place 창(Home, project) 통로. */
   workspace?: WorkspaceSource;
   /** 창 폭. 테스트가 고정한다. */
   windowWidth?: number;
@@ -71,15 +75,15 @@ interface DesktopProps {
   editor?: EditorDeps;
   /** 터미널 탭 통로. 창 preload가 열어 둔 통로로 entry가 만든다. */
   terminal?: TerminalDeps;
-  /** 팔레트의 project·앱 행 통로. 없으면 Settings 대신 런처를 보인다. */
+  /** 팔레트의 project·앱 행 통로. 없으면 Settings 대신 Home을 보인다. */
   catalog?: CatalogSource;
   /** 창 안 팔레트와 shortcut 통로. 없으면 팔레트를 열지 않는다. */
   palette?: PaletteDeps;
   /** main이 시키는 것(전역 팔레트). 없으면 받지 않는다. */
   intents?: IntentApi;
-  /** 런처의 프로젝트 카드·등록·보관·detail 통로. 없으면 카드는 비었음 상태다. */
+  /** Home Places panel의 project 목록·등록·보관·detail 통로. 없으면 Projects 구역이 없다. */
   projects?: ProjectsSource;
-  /** 런처의 앱 카드·보관과 앱 공간의 통로. 없으면 앱 공간을 열지 않는다. */
+  /** Home Places panel의 앱 목록·보관과 앱 공간의 통로. 없으면 앱 공간을 열지 않는다. */
   apps?: AppsSource;
   /** settings 공간 통로. 없으면 settings는 준비 전 안내다. */
   settings?: SettingsSource;
@@ -101,7 +105,7 @@ interface DesktopProps {
   detached?: LophnDetachedApi;
 }
 
-// Settings의 [Back]이 돌아갈 자리. Home(launcher)이면 null이다.
+// Settings의 [Back]이 돌아갈 자리. Home이면 null이다.
 function backTarget(
   route: Route | null,
 ): { kind: "project" | "app"; id: string } | null {
@@ -150,10 +154,12 @@ function DefaultToastHandler({
   return null;
 }
 
+const HOME_PLACE = { kind: "home" } as const;
+
 // 새 기본 창의 첫 화면. 공간 이동은 이 상태가 기억한다.
 export function Desktop({
   source,
-  initial = LAUNCHER,
+  initial = HOME,
   formatTime,
   workspace,
   windowWidth = 1280,
@@ -192,17 +198,9 @@ export function Desktop({
     return () => listening.dispose();
   }, [commands]);
   const [route, setRoute] = useState<Route>(initial);
-  // 런처의 lophn 패널이 열 session. route가 바뀔 때마다 새 객체라 같은 session도 다시 연다.
-  const lophnRequest = useMemo(
-    () =>
-      route.space === "launcher" && route.session !== undefined
-        ? { session: route.session }
-        : undefined,
-    [route],
-  );
   // 같은 화면이어도 다시 열게 하는 횟수. Settings는 열 때 처음 상태로 선다.
   const [visits, setVisits] = useState(0);
-  // place에 닿을 때마다 최근 목록을 고친다. 어느 길로 왔든(switcher, 런처 카드, palette, toast의 session)
+  // place에 닿을 때마다 최근 목록을 고친다. 어느 길로 왔든(switcher, Places panel, palette, toast의 session)
   // 한 곳에서 남기려고 route를 본다.
   useEffect(() => {
     if (route.space === "project" && route.project !== undefined) {
@@ -211,8 +209,8 @@ export function Desktop({
       rememberPlace({ kind: "app", id: route.app });
     }
   }, [route]);
-  const launcher = () => setRoute(LAUNCHER);
-  // Settings를 열기 전 자리. Settings의 [Back]이 돌아가는 곳이고, 없으면(처음부터 Settings) 런처로 간다.
+  const home = () => setRoute(HOME);
+  // Settings를 열기 전 자리. Settings의 [Back]이 돌아가는 곳이고, 없으면(처음부터 Settings) Home으로 간다.
   const beforeSettings = useRef<Route | null>(null);
   // Settings로 간다. 이미 Settings여도 고른 항목부터 다시 연다.
   const settingsSpace = (pane?: SettingsPane) => {
@@ -223,7 +221,9 @@ export function Desktop({
           ? openProject(route.project, { session: route.session })
           : route.space === "app" && route.app
             ? openApp(route.app, route.session)
-            : route;
+            : route.space === "home"
+              ? HOME
+              : route;
     }
     setVisits((value) => value + 1);
     setRoute(openSettings(pane));
@@ -236,7 +236,7 @@ export function Desktop({
   const appSpace = (app: string) => setRoute(openApp(app));
   // 전역 팔레트에서 고른 대상. Workspace 팔레트와 같은 목적지로만 간다.
   const go = (target: DesktopTarget) => {
-    if (target.kind === "launcher") launcher();
+    if (target.kind === "launcher") home();
     else if (target.kind === "project") setRoute(openProject(target.id));
     else if (target.kind === "settings") settingsSpace();
     else if (target.kind === "app") appSpace(target.id);
@@ -244,7 +244,7 @@ export function Desktop({
   };
 
   // session을 그 session의 place에서 연다. project의 session은 그 project 창, 앱의 session은 그 앱 공간,
-  // home(place 없음)이거나 모르는 session은 런처의 lophn 패널이다. project 창은 그 project place의 session만 보인다.
+  // home(place 없음)이거나 모르는 session은 Home이다. place 창은 그 place의 session만 보인다.
   const { sessions } = useSessions();
   const known = useRef(sessions);
   known.current = sessions;
@@ -255,7 +255,7 @@ export function Desktop({
     if (place?.kind === "project") {
       setRoute(openProject(place.id, { session }));
     } else if (place?.kind === "app") setRoute(openApp(place.id, session));
-    else setRoute(openLauncher(session));
+    else setRoute(openHome(session));
   };
   // 다른 project나 공간에 있을 때 터미널 알림을 누르면 그 터미널의 project로 가서 연다. 같은 project면 store가 탭을 고른다.
   const terminalBridge = terminal?.bridge;
@@ -312,19 +312,19 @@ export function Desktop({
     };
   }, [overlay]);
 
-  // 작업대는 core 기록을 읽어 연다. 준비 전·실패에는 런처의 연결 화면을 보이고, 준비되면 그때
+  // 작업대는 core 기록을 읽어 연다. 준비 전·실패에는 연결 화면(HomeGate)을 보이고, 준비되면 그때
   // 작업대를 열어 읽는다.
   const connection = useConnection(source);
   const live = connection.state === "ready" || connection.state === "stale";
   let space: ReactNode;
   if (route.space === "project" && route.project && workspace && live) {
     space = (
-      <Workspace
+      <PlaceWindow
         key={route.project}
-        projectId={route.project}
+        place={{ kind: "project", id: route.project }}
         source={workspace}
         windowWidth={windowWidth}
-        onLauncher={launcher}
+        onHome={home}
         onSettings={settingsSpace}
         jobs={settingsPanels?.jobs}
         onOpenApp={apps ? appSpace : undefined}
@@ -341,8 +341,38 @@ export function Desktop({
         open={route.open}
       />
     );
+  } else if (route.space === "home" && workspace && live) {
+    // Home은 project가 없어 터미널과 detached 창이 없다.
+    space = (
+      <PlaceWindow
+        key="home"
+        place={HOME_PLACE}
+        source={workspace}
+        windowWidth={windowWidth}
+        onHome={home}
+        notice={
+          connection.state === "stale" ? (
+            <ConnectionNotice
+              connection={connection}
+              onRetry={() => retryConnection(source)}
+              formatTime={formatTime}
+            />
+          ) : undefined
+        }
+        onSettings={settingsSpace}
+        jobs={settingsPanels?.jobs}
+        onOpenApp={apps ? appSpace : undefined}
+        apps={apps}
+        onPlace={openPlace}
+        onNewApp={(app) => setRoute(openNewApp(app))}
+        projects={projects}
+        editor={editor}
+        agentViewSource={agentViewSource}
+        session={route.session}
+      />
+    );
   } else if (route.space === "detached") {
-    // 창이 detached 탭 하나만 그리므로 core가 준비되기 전에 런처로 떨어지지 않는다.
+    // 창이 detached 탭 하나만 그리므로 core가 준비되기 전에 연결 화면으로 떨어지지 않는다.
     space =
       detached && workspace && live ? (
         <DetachedSpace
@@ -370,7 +400,7 @@ export function Desktop({
         agentViewSource={agentViewSource}
         onSettings={settingsSpace}
         windowWidth={windowWidth}
-        onLauncher={launcher}
+        onLauncher={home}
         annotate={annotate}
         overlay={overlay}
         session={route.session}
@@ -401,8 +431,8 @@ export function Desktop({
         key={visits}
         source={catalog}
         settingsPane={route.settingsPane}
-        onLauncher={launcher}
-        onBack={() => setRoute(beforeSettings.current ?? LAUNCHER)}
+        onLauncher={home}
+        onBack={() => setRoute(beforeSettings.current ?? HOME)}
         backTo={backTarget(beforeSettings.current)}
         onProject={(project) => setRoute(openProject(project))}
         onOpenFile={(project, file) =>
@@ -415,26 +445,12 @@ export function Desktop({
       />
     );
   } else {
-    space = (
-      <Launcher
-        source={source}
-        formatTime={formatTime}
-        onSettings={settingsSpace}
-        projects={projects}
-        onProject={(project) => setRoute(openProject(project))}
-        apps={apps}
-        onApp={appSpace}
-        onNewApp={(app) => setRoute(openNewApp(app))}
-        onOpenSession={openSession}
-        agentViewSource={agentViewSource}
-        lophnRequest={lophnRequest}
-      />
-    );
+    space = <HomeGate source={source} />;
   }
-  // 창 shortcut의 런처 복귀와 팔레트는 어느 공간에서든 이 한 곳에서 받는다.
+  // 창 shortcut의 Home 복귀와 팔레트는 어느 공간에서든 이 한 곳에서 받는다.
   const tree = (
     <CommandsProvider value={commands}>
-      <PaletteProvider deps={palette} onLauncher={launcher}>
+      <PaletteProvider deps={palette} onLauncher={home}>
         <DefaultToastHandler
           openSession={openSession}
           goApp={(app) => setRoute(openApp(app))}

@@ -40,7 +40,8 @@ export function openTerminal(
   } = {},
 ): void {
   const terminal = host.props.terminal;
-  if (!terminal) return;
+  // Home에는 터미널이 없다.
+  if (!terminal || host.projectId === null) return;
   const key = `terminal-${Date.now().toString(36)}-${++terminalCount}`;
   const title = host.projectTitle ?? t("project-workspace.label.kind-terminal");
   terminal.store.request(key, options.folderRef ?? null, {
@@ -142,7 +143,11 @@ export const terminalKind: TabKindDef = {
     });
     // 저장한 session에도 사람의 이름을 써 고정한다. 지우면(null) 고정을 풀어 harness 이름이 다시 들어온다.
     const agent = terminal?.store.agentOf(tab.key);
-    if (terminal?.bridge && agent?.session !== undefined) {
+    if (
+      terminal?.bridge &&
+      agent?.session !== undefined &&
+      host.projectId !== null
+    ) {
       void terminal.bridge.renameAgentSession({
         project: host.projectId,
         harness: agent.harness,
@@ -204,12 +209,13 @@ export const terminalKind: TabKindDef = {
   },
   render(tab, active, host) {
     const terminal = host.props.terminal;
-    if (!terminal) return null;
+    const project = host.projectId;
+    if (!terminal || project === null) return null;
     return (
       <TerminalTab
         key={tab.key}
         tabKey={tab.key}
-        project={host.projectId}
+        project={project}
         folderRef={tab.folder ?? null}
         active={active}
         deps={terminal}

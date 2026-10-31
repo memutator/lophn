@@ -12,7 +12,7 @@ export function agentOf(tab: TabItem): string | null {
     : null;
 }
 
-/** 탭을 연 자리(project). 탭을 연 뒤 바꾸지 않는다. */
+/** 탭을 연 자리(project id, Home이면 "home"). 탭을 연 뒤 바꾸지 않는다. */
 export function placeOf(tab: TabItem): string | null {
   const place = tab.fields?.place;
   return typeof place === "string" && place.length > 0 && place.length <= 128

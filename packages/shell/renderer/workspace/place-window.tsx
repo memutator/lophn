@@ -75,6 +75,7 @@ import {
   type PlaceLayout,
   defaultPlaceLayout,
   pinTab,
+  placeKey,
   reattachTab,
   removeDesk,
   restoreFloat,
@@ -129,7 +130,8 @@ import { ArtifactPanel } from "./sidebar/artifact-panel.tsx";
 import type { TabAwareResult } from "./sidebar/explorer.tsx";
 import { agentRow } from "./sidebar/panel-sessions.ts";
 import { sessionKey } from "../shell/left-sidebar-model.ts";
-import { ProjectLeftSidebar } from "./sidebar/place-left-sidebar.tsx";
+import { PlaceLeftSidebar } from "./sidebar/place-left-sidebar.tsx";
+import { HomePanel, homePanelTabs } from "./sidebar/home-panel.tsx";
 import {
   ProjectPanel,
   panelTabs,
@@ -147,13 +149,22 @@ import { useCommands, useWindowCommands } from "../commands/react.tsx";
 import { useTabHostSlices } from "./use-tab-host-slices.ts";
 import styles from "./place-window.module.css";
 
-export interface WorkspaceProps {
-  projectId: string;
+/** 이 창이 보일 수 있는 place. 앱 place는 앱 공간이 그린다. */
+export type WindowPlace = Extract<PlaceRef, { kind: "home" | "project" }>;
+
+export interface PlaceWindowProps {
+  /**
+   * Home이면 project 폴더가 필요한 것(Explorer, 터미널, domain, workflow, project settings)이 없고 Places·Jobs panel이 오른쪽에 선다.
+   * 창은 place마다 새로 mount된다(부르는 쪽이 key로 가른다).
+   */
+  place: WindowPlace;
   source: WorkspaceSource;
   /** 창 폭. 테스트가 고정하고 화면은 관측값을 넘긴다. */
   windowWidth: number;
-  /** 런처로 돌아간다. */
-  onLauncher: () => void;
+  /** Home으로 간다. */
+  onHome: () => void;
+  /** card 위에 얹는 안내(core 연결이 끊긴 알림). */
+  notice?: ReactNode;
   /** Settings로 간다. 항목을 주면 그 항목부터 연다. */
   onSettings: (pane?: SettingsPane) => void;
   /** sidebar Scheduled jobs 탭의 통로. 없으면 그 항목을 두지 않는다. */
@@ -168,11 +179,11 @@ export interface WorkspaceProps {
   onOpenApp?: (app: string) => void;
   /** 왼쪽 sidebar의 앱 목록과 Create app의 통로. 없으면 앱 줄과 Create app이 없다. */
   apps?: AppsSource;
-  /** 왼쪽 sidebar에서 project나 앱 place로 간다(Home은 onLauncher). */
+  /** 왼쪽 sidebar에서 project나 앱 place로 간다(Home은 onHome). */
   onPlace?: (place: Exclude<PlaceRef, { kind: "home" }>) => void;
   /** Create app으로 만든 앱의 앱 공간으로 간다. */
   onNewApp?: (app: string) => void;
-  /** project 등록(이름·폴더)을 고치는 통로. 런처가 쓰는 것과 같다. 없으면 settings 탭의 General을 쓸 수 없다. */
+  /** project 등록(이름·폴더)을 고치는 통로. Home의 Places panel이 쓰는 것과 같다. 없으면 settings 탭의 General을 쓸 수 없다. */
   projects?: ProjectsSource;
   /**
    * Agent 탭이 agent 하나의 통로를 얻는 함수(agentViewSource). 없으면
@@ -235,10 +246,13 @@ interface Stop {
 const sameStop = (a: Stop, b: Stop) =>
   a.desk === b.desk && a.key === b.key && a.focus === b.focus;
 
-// 프로젝트 작업대. 새 shell 틀(title bar의 desk 단추·tab 줄, 가운데 card, float 층, 양쪽 sidebar)에 desk 하나를 그린다.
-export function Workspace(props: WorkspaceProps) {
-  const { projectId, source, windowWidth, onLauncher, onSettings, terminal } =
-    props;
+// place(Home 또는 project) 창. 새 shell 틀(title bar의 desk 단추·tab 줄, 가운데 card, float 층, 양쪽 sidebar)에 desk 하나를 그린다.
+// Home은 project가 없어(projectId null) 폴더가 필요한 부분을 건너뛴다.
+export function PlaceWindow(props: PlaceWindowProps) {
+  const { place, source, windowWidth, onHome, onSettings, terminal } = props;
+  const projectId = place.kind === "project" ? place.id : null;
+  const isHome = projectId === null;
+  const placeId = placeKey(place);
   const browserApi = useBrowserApi();
   const bookmarkList = useBookmarks();
   // Agent 탭의 통로. 없으면 Agent 탭을 열지 않는다.
@@ -264,19 +278,18 @@ export function Workspace(props: WorkspaceProps) {
     onSettings,
   });
   const sessionIds = sessionStates.map((entry) => entry.session).join();
-  // 배치를 다 읽은 project. 시작 route는 이 project의 배치가 선 뒤에 연다.
-  const [readyProject, setReadyProject] = useState<string | null>(null);
+  // 배치를 다 읽은 place. 시작 route는 이 place의 배치가 선 뒤에 연다.
+  const [readyPlace, setReadyPlace] = useState<string | null>(null);
   // desk 단추의 workflow 목록. null은 아직 안 읽었거나 읽는 중이다. 실패와 읽는 중에는 합치지 않는다.
   const [workflowList, setWorkflowList] = useState<ReadResult<
     readonly WorkflowEntryView[]
   > | null>(null);
-  const place = { kind: "project", id: projectId } as const;
   // desk마다 tab 줄·split·float·detached가 하나씩 있다. 화면이 그리고 고치는 것은 보이는 desk뿐이다.
   const [layout, setLayout] = useState<PlaceLayout>(defaultPlaceLayout);
   const desk = activeDesk(layout);
   const [leftOpen, setLeftOpen] = useState(windowWidth >= LEFT_OPEN_MIN);
   const [rightOpen, setRightOpen] = useState(windowWidth >= RIGHT_OPEN_MIN);
-  const [panel, setPanel] = useState<SidebarTab>("explorer");
+  const [panel, setPanel] = useState<string>(isHome ? "places" : "explorer");
   // 떠 있는 안내(읽기 실패)를 닫은 상태.
   const [noticesHidden, setNoticesHidden] = useState(false);
   const hideNotices = () => setNoticesHidden(true);
@@ -289,17 +302,19 @@ export function Workspace(props: WorkspaceProps) {
     let live = true;
     const load = async () => {
       const [project, read, files] = await Promise.all([
-        source.project(projectId),
+        projectId === null ? null : source.project(projectId),
         source.layout.readPlaceLayout(place),
-        source.files(projectId),
+        projectId === null ? null : source.files(projectId),
       ]);
       if (!live) return;
-      setLoaded({
-        project: project.ok ? project.value : null,
-        // 파일 목록은 팔레트만 쓴다. 읽지 못해도 작업대는 그대로 연다.
-        files: files.ok ? files.value : [],
-        failed: !project.ok,
-      });
+      if (project !== null && files !== null) {
+        setLoaded({
+          project: project.ok ? project.value : null,
+          // 파일 목록은 팔레트만 쓴다. 읽지 못해도 작업대는 그대로 연다.
+          files: files.ok ? files.value : [],
+          failed: !project.ok,
+        });
+      }
       const restored =
         read.ok && read.layout !== null ? read.layout : defaultPlaceLayout();
       latestLayout.current = restored;
@@ -310,23 +325,24 @@ export function Workspace(props: WorkspaceProps) {
       for (const item of activeDesk(restored).detached) {
         void props.detached
           ?.open({
-            project: projectId,
+            project: placeId,
             tab: item.tab,
             transfer: null,
             bounds: item.bounds,
           })
           .catch(() => {});
       }
-      setReadyProject(projectId);
+      setReadyPlace(placeId);
     };
     void load();
     return () => {
       live = false;
     };
-  }, [projectId, source]);
+  }, [placeId, source]);
 
   // 이름이나 폴더를 settings 탭에서 저장하면 crumb과 sidebar가 새 값을 보이게 다시 읽는다.
   const reloadProject = () => {
+    if (projectId === null) return;
     void source.project(projectId).then((read) => {
       if (read.ok) setLoaded((now) => ({ ...now, project: read.value }));
     });
@@ -430,11 +446,11 @@ export function Workspace(props: WorkspaceProps) {
         .filter((tab) => tab.kind === "terminal")
         .map((tab) => tab.key),
     );
-    props.terminal?.displays.retain(projectId, terminals);
-  }, [layout, keeps, webviews, props.terminal, projectId]);
+    props.terminal?.displays.retain(placeId, terminals);
+  }, [layout, keeps, webviews, props.terminal, placeId]);
   useEffect(
-    () => () => props.terminal?.displays.retain(projectId, new Set()),
-    [props.terminal, projectId],
+    () => () => props.terminal?.displays.retain(placeId, new Set()),
+    [props.terminal, placeId],
   );
   // 떠나면 남은 것을 모두 닫는다. 자식의 cleanup이 부모 뒤에 보관하므로 한 틱 미룬다.
   useEffect(
@@ -460,7 +476,7 @@ export function Workspace(props: WorkspaceProps) {
           // 거절은 무시한다. 복원과 같다.
           void api
             .open({
-              project: projectId,
+              project: placeId,
               tab: slimDetachedTab(item.tab),
               transfer: null,
               bounds: item.bounds,
@@ -541,6 +557,7 @@ export function Workspace(props: WorkspaceProps) {
   shownProject.current = projectId;
   const readWorkflows = () => {
     const mine = projectId;
+    if (mine === null) return;
     void source.workflows(mine).then((result) => {
       if (shownProject.current !== mine) return;
       setWorkflowList(result);
@@ -549,8 +566,8 @@ export function Workspace(props: WorkspaceProps) {
   };
   useEffect(() => {
     setWorkflowList(null);
-    if (readyProject === projectId) readWorkflows();
-  }, [projectId, source, readyProject]);
+    if (readyPlace === placeId) readWorkflows();
+  }, [placeId, source, readyPlace]);
 
   // 파일을 고치면(저장 상태가 바뀌면) 그 preview 탭을 고정한다. 저장 안 된 탭이 preview로 사라지지 않게
   // 하는 첫 번째 장치이고, 두 번째는 openTab이 저장 안 된 preview 탭을 바꿔 쓰지 않는 것이다.
@@ -692,6 +709,7 @@ export function Workspace(props: WorkspaceProps) {
   // kind 선언이 배치와 통로를 건드리는 유일한 길이다. 본문·열기·닫기 확인은 모두 kind의 선언에서 오고
   // 여기서는 kind 이름으로 가르지 않는다.
   const host: TabHost = {
+    place,
     projectId,
     projectTitle: loaded.project?.title,
     explorerRoot,
@@ -727,7 +745,6 @@ export function Workspace(props: WorkspaceProps) {
     agents: () => agentsRef.current,
   };
   useToastHandler({
-    project: projectId,
     openSession: openSessionTab,
   });
 
@@ -739,7 +756,7 @@ export function Workspace(props: WorkspaceProps) {
     terminal?: string;
   }>({});
   useEffect(() => {
-    if (readyProject !== projectId) return;
+    if (readyPlace !== placeId) return;
     const { session, startLophn, open } = props;
     if (open !== undefined && started.current.open !== open) {
       started.current.open = open;
@@ -765,8 +782,8 @@ export function Workspace(props: WorkspaceProps) {
       started.current.lophn = startLophn;
     }
   }, [
-    readyProject,
-    projectId,
+    readyPlace,
+    placeId,
     props.session,
     props.startLophn,
     props.revealTerminal,
@@ -825,7 +842,7 @@ export function Workspace(props: WorkspaceProps) {
     let bounds;
     try {
       ({ bounds } = await api.open({
-        project: projectId,
+        project: placeId,
         tab: slimDetachedTab(withPosition(tab)),
         transfer,
         bounds: null,
@@ -897,7 +914,7 @@ export function Workspace(props: WorkspaceProps) {
     () => () => {
       void props.detached?.close({ key: null }).catch(() => {});
     },
-    [projectId, props.detached],
+    [placeId, props.detached],
   );
 
   // 탭 본문. 고르지 않아도 남겨 둘 kind(앱 패널, browser, artifact)는 keep이 그리고 shown으로 보임을 정한다.
@@ -1050,6 +1067,7 @@ export function Workspace(props: WorkspaceProps) {
   // Explorer의 연결 폴더 더하기·빼기. 성공하면 바뀐 폴더 목록으로 sidebar를 다시 그린다.
   // 사람이 선택기를 닫는 것(null)은 실패가 아니다. 빼는 폴더가 지금 루트면 첫 폴더로 돌아간다.
   const addProjectFolder = async (): Promise<boolean> => {
+    if (projectId === null) return false;
     const result = await source.addFolder(projectId);
     if (!result.ok) return false;
     if (result.value !== null) {
@@ -1059,6 +1077,7 @@ export function Workspace(props: WorkspaceProps) {
     return true;
   };
   const removeProjectFolder = async (path: string): Promise<boolean> => {
+    if (projectId === null) return false;
     const result = await source.removeFolder(projectId, path);
     if (!result.ok) return false;
     const view = result.value;
@@ -1090,14 +1109,17 @@ export function Workspace(props: WorkspaceProps) {
       terminal: terminal !== undefined,
       platform: palette.platform,
       keys: windowCommands?.overrides() ?? {},
-      search: palette.search
-        ? (query) => palette.search!(query, { kind: "project", id: projectId })
-        : undefined,
+      home: isHome,
+      search:
+        palette.search && projectId !== null
+          ? (query) =>
+              palette.search!(query, { kind: "project", id: projectId })
+          : undefined,
       go: (target) => {
         if (target.kind === "tab") selectKey(target.key);
         else if (target.kind === "document") openDocumentRow(target.document);
         else if (target.kind === "bookmark") openBrowserTab(host, target.url);
-        else if (target.action === "launcher") onLauncher();
+        else if (target.action === "launcher") onHome();
         else if (target.action === "settings") onSettings();
         else if (target.action === "project-settings") {
           openProjectSettings(host);
@@ -1192,12 +1214,13 @@ export function Workspace(props: WorkspaceProps) {
         setLeftOpen((open) => !open);
         return;
       case "explorer.focus":
+        if (isHome) return;
         setPanel("explorer");
         setRightOpen(true);
         setExplorerFocus((count) => count + 1);
         return;
       case "search.open":
-        if (source.searchSource !== undefined) {
+        if (source.searchSource !== undefined && !isHome) {
           openSearchShortcut(hostRef.current);
         }
         return;
@@ -1381,7 +1404,7 @@ export function Workspace(props: WorkspaceProps) {
   // 탭이 파일이면 project 폴더 기준 경로 조각, 아니면 탭 이름이 crumb이다.
   const crumbsOf = (tab: TabItem): string[] => {
     const path = pathOfTab(tab);
-    const base = loaded.project?.title ?? projectId;
+    const base = loaded.project?.title ?? projectId ?? t("left-sidebar.label.home");
     return path === null
       ? [base, tab.title]
       : [
@@ -1449,14 +1472,14 @@ export function Workspace(props: WorkspaceProps) {
     readonly at: number;
   }>({ stops: [], at: -1 });
   useEffect(() => {
-    if (readyProject !== projectId) return;
+    if (readyPlace !== placeId) return;
     setTrail((now) => {
       const current = now.stops[now.at];
       if (current !== undefined && sameStop(current, here)) return now;
       const stops = [...now.stops.slice(0, now.at + 1), here].slice(-TRAIL_MAX);
       return { stops, at: stops.length - 1 };
     });
-  }, [readyProject, projectId, here.desk, here.key, here.focus]);
+  }, [readyPlace, placeId, here.desk, here.key, here.focus]);
   // 지운 탭·desk의 자리는 건너뛴다.
   const reachable = (stop: Stop) => {
     const target = layout.desks[stop.desk];
@@ -1562,6 +1585,9 @@ export function Workspace(props: WorkspaceProps) {
           }
         }}
       />
+      {props.notice === undefined ? null : (
+        <div className={styles.banner}>{props.notice}</div>
+      )}
       {noticesHidden || !loaded.failed ? null : (
         <div className={styles.notices} data-notices="">
           <NoticeCard
@@ -1578,7 +1604,10 @@ export function Workspace(props: WorkspaceProps) {
   return (
     <ViewKeepsProvider value={keeps}>
       <WebviewHostProvider value={webviews}>
-        <div className={styles.workspace} data-space="project">
+        <div
+          className={styles.workspace}
+          data-space={isHome ? "home" : "project"}
+        >
           <ShellFrame
             left={leftOpen}
             onToggleLeft={() => setLeftOpen(!leftOpen)}
@@ -1586,12 +1615,14 @@ export function Workspace(props: WorkspaceProps) {
             onToggleRight={() => setRightOpen(!rightOpen)}
             onSearch={openQuickFiles}
             deskSwitcher={
-              <DeskSwitcher
-                desks={deskOptions}
-                current={layout.active}
-                onSelect={selectDesk}
-                onNewDesk={newDesk}
-              />
+              isHome ? undefined : (
+                <DeskSwitcher
+                  desks={deskOptions}
+                  current={layout.active}
+                  onSelect={selectDesk}
+                  onNewDesk={newDesk}
+                />
+              )
             }
             tabs={
               <TabStrip
@@ -1663,7 +1694,7 @@ export function Workspace(props: WorkspaceProps) {
                             }
                           },
                         })}
-                    {...(source.searchSource === undefined
+                    {...(source.searchSource === undefined || isHome
                       ? {}
                       : { onSearch: () => openSearchShortcut(host) })}
                     {...(host.appScreens
@@ -1675,14 +1706,14 @@ export function Workspace(props: WorkspaceProps) {
             }
             panelTabs={
               <PanelTabs
-                tabs={panelTabs(withJobs)}
+                tabs={isHome ? homePanelTabs(withJobs) : panelTabs(withJobs)}
                 selected={panel}
-                onSelect={(key) => setPanel(key as SidebarTab)}
+                onSelect={setPanel}
               />
             }
             leftSidebar={
-              <ProjectLeftSidebar
-                projectId={projectId}
+              <PlaceLeftSidebar
+                place={place}
                 source={source}
                 projects={props.projects}
                 apps={props.apps}
@@ -1733,7 +1764,7 @@ export function Workspace(props: WorkspaceProps) {
                   runToastAction({ kind: "session", session })
                 }
                 onPlace={(ref) =>
-                  ref.kind === "home" ? onLauncher() : props.onPlace?.(ref)
+                  ref.kind === "home" ? onHome() : props.onPlace?.(ref)
                 }
                 onNewApp={(app) => props.onNewApp?.(app)}
                 onJobs={() => onSettings("jobs")}
@@ -1741,8 +1772,22 @@ export function Workspace(props: WorkspaceProps) {
               />
             }
             rightSidebar={
+              projectId === null ? (
+                <HomePanel
+                  tab={panel}
+                  projects={props.projects}
+                  apps={props.apps}
+                  jobs={props.jobs}
+                  onProject={(project) =>
+                    props.onPlace?.({ kind: "project", id: project })
+                  }
+                  onApp={(app) => props.onOpenApp?.(app)}
+                  onNewApp={(app) => props.onNewApp?.(app)}
+                  onOpenJobs={() => onSettings("jobs")}
+                />
+              ) : (
               <ProjectPanel
-                tab={panel}
+                tab={panel as SidebarTab}
                 project={loaded.project}
                 source={source}
                 artifactPanel={
@@ -1777,6 +1822,7 @@ export function Workspace(props: WorkspaceProps) {
                 onOpenWorkflow={(workflow) => openWorkflow(host, workflow)}
                 activeWorkflow={desk.workflow}
               />
+              )
             }
             floats={
               <>

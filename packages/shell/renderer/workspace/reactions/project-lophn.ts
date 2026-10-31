@@ -8,7 +8,8 @@ import type { SidebarAgent } from "../sidebar/sidebar-agent.ts";
 
 /** 열 때의 최신 값. 값이 아니라 읽는 함수로 받아 그때 작업대를 본다. */
 interface ProjectLophnEnv {
-  readonly project: string;
+  /** Home이면 null. */
+  readonly project: string | null;
   readonly host: () => TabHost;
   readonly sessions: () => readonly SessionEntry[];
   readonly agents: () => readonly SidebarAgent[];

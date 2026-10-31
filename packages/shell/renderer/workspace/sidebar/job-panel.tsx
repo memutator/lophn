@@ -1,4 +1,4 @@
-// project sidebar의 Scheduled jobs 탭. 이 project에 걸린 job만 줄로 보인다. 줄은 제목, 오른쪽 끝 고정 열의 switch,
+// Scheduled jobs 탭. project sidebar는 이 project에 걸린 job만, Home은 모든 job을 줄로 보인다. 줄은 제목, 오른쪽 끝 고정 열의 switch,
 // 아래 줄(주기 글과 상태 하나)이다. 줄과 머리 줄의 단추는 Settings › Scheduled jobs를 연다(그 job을 펼치지는 않는다).
 // 목록은 이 탭이 열릴 때와 job이 바뀔 때마다 `JobsSource`에서 다시 읽는다.
 import { useCallback, useState } from "react";
@@ -46,7 +46,8 @@ export function JobPanel({
   source,
   onOpenSettings,
 }: {
-  project: string;
+  /** null이면 모든 job(Home). */
+  project: string | null;
   source: JobsSource;
   /** Settings › System › Scheduled jobs를 연다. */
   onOpenSettings: () => void;
@@ -57,7 +58,10 @@ export function JobPanel({
     void source.list().then((read) => {
       setLoaded(
         read.ok
-          ? { state: "ready", jobs: jobsOfProject(read.value.jobs, project) }
+          ? { state: "ready", jobs:
+            project === null
+              ? read.value.jobs
+              : jobsOfProject(read.value.jobs, project) }
           : { state: "failed" },
       );
     });

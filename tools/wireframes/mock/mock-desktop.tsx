@@ -11,7 +11,7 @@ import {
 import { PROJECT_GROCERY } from "../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
 import type { CoreSource } from "../../../packages/shell/renderer/desktop/connection/connection.ts";
 import {
-  LAUNCHER,
+  HOME,
   openDetached,
   openSettings,
   type Route,
@@ -54,7 +54,8 @@ interface TabSpec {
     | "app_panel"
     | "project_settings"
     | "browser"
-    | "artifact";
+    | "artifact"
+    | "agent";
   readonly title: string;
   readonly folder?: string;
   /** app_panel 탭이 여는 앱과 그 화면 key. */
@@ -66,6 +67,8 @@ interface TabSpec {
   readonly domain?: string;
   readonly name?: string;
   readonly path?: string;
+  /** agent 탭이 보는 agent(기본 lophn). Home place의 탭이다. */
+  readonly agent?: string;
 }
 
 export interface PaneSpec {
@@ -93,8 +96,10 @@ interface MockDesktopProps {
   readonly floats?: readonly FloatSpec[];
   /** 이 키의 터미널 탭을 열린 채로 시작한다. */
   readonly openTerminal?: string;
-  /** 프로젝트가 하나도 없는 런처로 그린다. */
-  readonly emptyLauncher?: boolean;
+  /** project와 앱이 하나도 없는 Home으로 그린다. */
+  readonly emptyHome?: boolean;
+  /** 주면 이 탭들을 Home place의 layout으로 쓴다(route는 Home). */
+  readonly homeTabs?: readonly TabSpec[];
   /** 이 core 연결 상태를 고정한다(시작 실패 화면). */
   readonly core?: CoreSource;
   /** Settings에서 처음 보일 항목. 주면 route 대신 Settings를 연다. */
@@ -131,6 +136,14 @@ function fakeDetached(taken?: DetachedTaken): LophnDetachedApi {
 
 // 저장된 layout의 탭 모양으로 바꾼다. 문서 탭은 key가 곧 path이고, 터미널 탭은 연 폴더를 갖는다.
 function storedTab(tab: TabSpec) {
+  if (tab.kind === "agent") {
+    return {
+      kind: tab.kind,
+      key: tab.key,
+      agent: tab.agent ?? "lophn",
+      work_place: { kind: "home" },
+    };
+  }
   if (tab.kind === "browser") {
     return { kind: tab.kind, key: tab.key, url: tab.url ?? "" };
   }
@@ -216,19 +229,26 @@ const SETTINGS_PANE = {
 export type SettingsTab = keyof typeof SETTINGS_PANE;
 
 export function MockDesktop(props: MockDesktopProps) {
-  const { panes, floats, openTerminal, core, settingsTab, emptyLauncher } =
-    props;
+  const { panes, floats, openTerminal, core, settingsTab, emptyHome } = props;
+  const { homeTabs } = props;
   const { detachedTab } = props;
   const route =
     detachedTab !== undefined
       ? openDetached(detachedTab.key)
       : settingsTab === undefined
-        ? (props.route ?? LAUNCHER)
+        ? (props.route ?? HOME)
         : openSettings(SETTINGS_PANE[settingsTab]);
   const wiring = useMemo(() => {
     const mock = devMock("?mock") as DevMock;
+    const homeLayout =
+      homeTabs === undefined
+        ? undefined
+        : layoutOf(
+            [{ tabs: homeTabs, selected: homeTabs[0]?.key ?? "" }],
+            [],
+          );
     const workspace =
-      panes === undefined
+      panes === undefined && homeLayout === undefined
         ? mock.workspace
         : {
             ...mock.workspace,
@@ -237,7 +257,7 @@ export function MockDesktop(props: MockDesktopProps) {
                 Promise.resolve({
                   ok: true as const,
                   available: true as const,
-                  layout: layoutOf(panes, floats ?? []),
+                  layout: homeLayout ?? layoutOf(panes!, floats ?? []),
                 }),
               savePlace: () => Promise.resolve({ ok: true as const }),
             })),
@@ -271,14 +291,14 @@ export function MockDesktop(props: MockDesktopProps) {
       mock,
       detached,
       projects:
-        emptyLauncher === true
+        emptyHome === true
           ? {
               ...mock.projects,
               list: () => Promise.resolve({ ok: true as const, value: [] }),
             }
           : mock.projects,
       apps:
-        emptyLauncher === true
+        emptyHome === true
           ? {
               ...mock.apps,
               list: () => Promise.resolve({ ok: true as const, value: [] }),
@@ -290,7 +310,7 @@ export function MockDesktop(props: MockDesktopProps) {
       events: createEventClient(mock.events),
       settingsPanels: mock.settingsPanels,
     };
-  }, [panes, floats, openTerminal, emptyLauncher, detachedTab]);
+  }, [panes, floats, openTerminal, emptyHome, homeTabs, detachedTab]);
   const { mock } = wiring;
   const annotate = props.annotate ?? mock.annotate;
   return (
@@ -315,6 +335,7 @@ export function MockDesktop(props: MockDesktopProps) {
                   appDetail={mock.appDetail}
                   views={mock.views}
                   annotate={annotate}
+                  agentViewSource={mock.agentViewSource}
                 />
               </EventsProvider>
             </ConversationProvider>

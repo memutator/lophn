@@ -31,7 +31,8 @@ import type { DomainView, WorkspaceSource } from "./source.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
 
 interface TabHostSlicesInput {
-  project: string;
+  /** place가 Home이면 null. */
+  project: string | null;
   source: WorkspaceSource;
   agentViewSource?: AgentTabSourceFactory;
   /** 이 창이 만든 TabHost. slice는 이벤트 때만 불러 최신 host를 본다. */
@@ -44,7 +45,7 @@ interface TabHostSlicesInput {
   floats?: boolean;
 }
 
-// project 창(Workspace)과 detached 창(DetachedTab)이 같이 쓰는 TabHost slice와 view 보관소.
+// place 창(PlaceWindow)과 detached 창(DetachedTab)이 같이 쓰는 TabHost slice와 view 보관소.
 // 창마다 다른 것(openTab·openFloat·patchTab·removeTab·view)은 호출하는 쪽이 host에 직접 넣는다.
 export function useTabHostSlices(input: TabHostSlicesInput) {
   const { project, source, agentViewSource, onSettings } = input;
@@ -66,6 +67,7 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
   // 창이 mount될 때 한 번 읽는다. 대화 글의 artifact link와 sidebar의 Artifacts 묶음이 쓴다.
   const [domains, setDomains] = useState<readonly DomainView[]>([]);
   useEffect(() => {
+    if (project === null) return;
     let live = true;
     void source.domains(project).then((read) => {
       if (live && read.ok) setDomains(read.value);

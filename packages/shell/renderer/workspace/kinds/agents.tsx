@@ -53,12 +53,13 @@ export const agentsKind: TabKindDef = {
   // 열어 둔 agent는 현재 보기에 싣지 않는다. 어느 카드를 보는지는 agent가 알 일이 아니다.
   render(tab, _active, host) {
     const agents = host.agents;
-    if (agents === null) return null;
+    const project = host.projectId;
+    if (agents === null || project === null) return null;
     return (
       <PaddedTab bare>
         <AgentsPage
           key={tab.key}
-          project={host.projectId}
+          project={project}
           projectName={host.projectTitle ?? ""}
           source={agents.source}
           agent={agentOf(tab)}

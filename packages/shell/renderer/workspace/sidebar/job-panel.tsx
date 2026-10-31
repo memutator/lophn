@@ -1,10 +1,11 @@
 // project sidebar의 Scheduled jobs 탭. 이 project에 걸린 job만 줄로 보인다. 줄은 제목, 오른쪽 끝 고정 열의 switch,
-// 아래 줄(주기 글과 상태 하나)이다. 줄과 맨 아래 단추는 Settings › Scheduled jobs를 연다(그 job을 펼치지는 않는다).
+// 아래 줄(주기 글과 상태 하나)이다. 줄과 머리 줄의 단추는 Settings › Scheduled jobs를 연다(그 job을 펼치지는 않는다).
 // 목록은 이 탭이 열릴 때와 job이 바뀔 때마다 `JobsSource`에서 다시 읽는다.
 import { useCallback, useState } from "react";
 import { ErrorState, StatusMark } from "@lophn/ui/feedback";
 import { Switch } from "@lophn/ui/input";
-import { Button } from "@lophn/ui/primitives";
+import { IconButton } from "@lophn/ui/primitives";
+import { Tooltip } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 
 import { useJobChanges } from "../../desktop/connection/events/hooks.tsx";
@@ -19,9 +20,15 @@ import type {
   JobView,
 } from "../../desktop/settings/jobs/source.ts";
 import { useReload } from "../../desktop/settings/use-reload.ts";
-import sidebar from "./project-sidebar.module.css";
+import {
+  PanelEmpty,
+  PanelRow,
+  PanelRows,
+  TileIcon,
+} from "../../shell/panel-rows.tsx";
+import { PanelActions } from "../../shell/right-sidebar.tsx";
 import styles from "./job-panel.module.css";
-import { actionIcons } from "../../icons/mod.ts";
+import { actionIcons, shellIcons } from "../../icons/mod.ts";
 
 type Loaded =
   | { readonly state: "loading" }
@@ -81,6 +88,16 @@ export function JobPanel({
   if (loaded.state === "loading") return null;
   return (
     <>
+      <PanelActions>
+        <Tooltip content={t("jobs.button.open-all")}>
+          <IconButton
+            size="sm"
+            icon={actionIcons.open}
+            label={t("jobs.button.open-all")}
+            onClick={onOpenSettings}
+          />
+        </Tooltip>
+      </PanelActions>
       {notice === null ? null : (
         <p className={styles.notice} role="alert">
           {notice}
@@ -88,36 +105,33 @@ export function JobPanel({
       )}
       {loaded.jobs.length === 0 ? (
         <div data-jobs-empty="">
-          <p className={sidebar.empty}>{t("jobs.empty.sidebar")}</p>
-          <p className={sidebar.empty}>{t("jobs.empty.sidebar-ask")}</p>
+          <PanelEmpty>{t("jobs.empty.sidebar")}</PanelEmpty>
+          <PanelEmpty>{t("jobs.empty.sidebar-ask")}</PanelEmpty>
         </div>
       ) : (
-        <ul
-          className={sidebar.list}
-          role="list"
-          aria-label={t("jobs.label.sidebar-tab")}
-        >
+        <PanelRows label={t("jobs.label.sidebar-tab")}>
           {loaded.jobs.map((job) => (
-            <li key={job.id} className={styles.row} data-job={job.id}>
-              <button
-                type="button"
-                className={styles.main}
-                onClick={onOpenSettings}
-              >
-                <span className={styles.title}>{job.title}</span>
-                <span className={styles.meta}>
-                  <span>
-                    {scheduleText(job.every, job.at)} · {stateText(job)}
-                  </span>
+            <PanelRow
+              key={job.id}
+              data-job={job.id}
+              leading={<TileIcon icon={shellIcons.jobs} />}
+              title={job.title}
+              wrapMeta
+              meta={
+                <>
+                  {scheduleText(job.every, job.at)} · {stateText(job)}
                   {job.last_run?.state === "failed" ? (
-                    <StatusMark
-                      tone={STATE.failed.tone}
-                      label={t(STATE.failed.label)}
-                    />
+                    <>
+                      {" "}
+                      <StatusMark
+                        tone={STATE.failed.tone}
+                        label={t(STATE.failed.label)}
+                      />
+                    </>
                   ) : null}
-                </span>
-              </button>
-              <div className={styles.switchSlot}>
+                </>
+              }
+              trailing={
                 <Switch
                   size="sm"
                   label={
@@ -130,21 +144,12 @@ export function JobPanel({
                     void setEnabled(job.id, enabled)
                   }
                 />
-              </div>
-            </li>
+              }
+              onClick={onOpenSettings}
+            />
           ))}
-        </ul>
+        </PanelRows>
       )}
-      <div className={styles.footer}>
-        <Button
-          size="sm"
-          variant="ghost"
-          trailingIcon={actionIcons.open}
-          onClick={onOpenSettings}
-        >
-          {t("jobs.button.open-all")}
-        </Button>
-      </div>
     </>
   );
 }

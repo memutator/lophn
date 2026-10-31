@@ -36,7 +36,7 @@ project 창이 가진 탭이 어디에 있는가를 정하는 메커니즘이다
    stage ─┬─ ContentCard    (머리 줄: ← →, 경로(project 이름 / 파일은 project 폴더 기준 조각), 상태 글(탭의 상태 점), ⋯ tab menu. 고른 tab, split이면 둘을 mount한다.
           │                  keep kind(앱 panel·browser·artifact)는 `keep`, 나머지는 `render`)
           └─ floats 슬롯    (첫 자식이 창의 `<webview>` 그릇(browser·앱·artifact 화면), 그 뒤 FloatLayer. stacking context 없음. 패널마다 FloatPanel, z-index = --z-sticky + 층 번호 × 2)
-   왼쪽 sidebar(임시): 런처·알림(WaitingLayer)·Settings 단추 줄 + AgentSidebar. 오른쪽 sidebar: ProjectPanel(workspace/sidebar/project-sidebar.tsx)
+   왼쪽 sidebar(임시): 런처·알림(WaitingLayer)·Settings 단추 줄 + AgentSidebar. 오른쪽 sidebar: ProjectPanel(workspace/sidebar/project-sidebar.tsx, 틀은 shell/right-sidebar.tsx의 머리 줄과 본문)
 
  desk 바꾸기 (workspace.tsx commit)
    setActiveDesk ─▶ 저장 ─▶ lophnDetached.showOnly({ keys: 가는 desk의 detached }) ─▶ main: 그 project 창의 나머지 detached 창을 hide

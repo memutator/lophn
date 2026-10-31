@@ -106,10 +106,10 @@ export function galleryApps() {
   const [grocery, planner, reading, report, habit] = GALLERY_IDS;
   return fakeApps({
     rows: [
-      appRow(grocery, "Grocery budget"),
-      appRow(planner, "Quarter planner"),
+      appRow(grocery, "Grocery budget", { release: "7" }),
+      appRow(planner, "Quarter planner", { release: "4" }),
       appRow(reading, "Reading list"),
-      appRow(report, "Weekly report"),
+      appRow(report, "Weekly report", { release: "12" }),
       appRow(habit, "Habit tracker", { archived: true }),
     ],
     runs: {

@@ -1,6 +1,12 @@
 // shell 틀 gallery page의 sidebar 자리 그림. 진짜 sidebar는 왼쪽·오른쪽 화면 task가 따로 그린다.
 import { Icon } from "@lophn/ui/primitives";
 import { shellIcons } from "../../../packages/shell/renderer/icons/mod.ts";
+import {
+  PanelRow,
+  PanelRows,
+  TileIcon,
+} from "../../../packages/shell/renderer/shell/panel-rows.tsx";
+import { RightSidebar } from "../../../packages/shell/renderer/shell/right-sidebar.tsx";
 
 const row = {
   display: "flex",
@@ -45,24 +51,26 @@ export function MockLeftSidebar() {
   );
 }
 
+const MOCK_ROWS = [
+  { title: "body", meta: "9 files" },
+  { title: "gaze", meta: "4 files" },
+  { title: "README.md", meta: "2 days ago" },
+  { title: "package.json", meta: "last week" },
+] as const;
+
 export function MockRightSidebar({ title }: { title: string }) {
   return (
-    <>
-      <div
-        style={{
-          ...row,
-          paddingInlineStart: "var(--space-3)",
-          color: "var(--color-text-primary)",
-          fontWeight: "var(--font-weight-semibold)",
-        }}
-      >
-        {title}
-      </div>
-      {["body/", "gaze/", "README.md", "package.json"].map((name) => (
-        <div key={name} style={row}>
-          {name}
-        </div>
-      ))}
-    </>
+    <RightSidebar title={title}>
+      <PanelRows label={title}>
+        {MOCK_ROWS.map((item) => (
+          <PanelRow
+            key={item.title}
+            leading={<TileIcon icon={shellIcons.folder} />}
+            title={item.title}
+            meta={item.meta}
+          />
+        ))}
+      </PanelRows>
+    </RightSidebar>
   );
 }

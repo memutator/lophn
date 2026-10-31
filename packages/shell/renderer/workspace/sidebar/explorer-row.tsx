@@ -13,7 +13,7 @@ import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 
 import type { FileRow } from "./use-file-tree.ts";
-import styles from "./project-sidebar.module.css";
+import styles from "./explorer.module.css";
 
 /** 위쪽 폴더마다 세로선 하나. tree에 마우스를 올렸을 때만 보인다. */
 function Guides({ depth }: { depth: number }) {

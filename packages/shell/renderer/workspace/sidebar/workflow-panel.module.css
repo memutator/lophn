@@ -1,0 +1,8 @@
+/* 도는 instance가 있다는 점. 숫자 글이 이름이라 점만으로 뜻을 싣지 않는다. */
+.dot {
+  display: block;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--status-good-marker);
+}

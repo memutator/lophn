@@ -1,4 +1,5 @@
 import type { Area } from "../types.ts";
+import { PlacesScene, placesSteps } from "./shell/places-scene.tsx";
 import { ShellScene } from "./shell/shell-scene.tsx";
 
 export const shellArea: Area = {
@@ -27,6 +28,26 @@ export const shellArea: Area = {
       description:
         "접힌 칸 둘을 펴서 card 위에 띄운 상태. 편 칸은 tab 줄 오른쪽 끝에서 눌린 모양이다. float의 단추로 접고, tab으로 dock하고, 닫는다.",
       render: () => <ShellScene variant="floats" />,
+    },
+    {
+      id: "shell-places-panel",
+      title: "Shell · Places panel",
+      description:
+        "Home의 오른쪽 sidebar Places panel. Projects와 Apps 줄(이름, 경로나 release), 줄 오른쪽 끝 ⋯ 메뉴(Details, 새 위치 고르기, Archive), 각 구역 머리의 Register project와 New app 단추, 접힌 Archived 구역.",
+      render: () => <PlacesScene />,
+    },
+    {
+      id: "shell-places-menu",
+      title: "Shell · Places row menu",
+      description: "Places panel의 project 줄 ⋯ 메뉴를 연 상태.",
+      render: () => <PlacesScene steps={placesSteps.menu} />,
+    },
+    {
+      id: "shell-places-archived",
+      title: "Shell · Places archived",
+      description:
+        "Places panel의 Archived 구역을 펼친 상태. 보관한 project와 앱이 한 줄씩이고 줄 오른쪽 끝 단추로 되살린다.",
+      render: () => <PlacesScene steps={placesSteps.archived} />,
     },
     {
       id: "shell-desk-menu",

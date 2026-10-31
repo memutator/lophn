@@ -85,13 +85,15 @@ const accent = {
 
 interface Palette {
   readonly surface: readonly [Themed, Themed, Themed, Themed];
+  /** 창 바탕. 각 preset의 subtle light와 floor dark를 다시 쓴다. */
+  readonly shell: Themed;
   readonly border: readonly [Themed, Themed, Themed];
   readonly text: readonly [Themed, Themed, Themed, Themed];
   /** 탭 줄 바탕과 hover, 떠 있는 표면과 hover. 모두 surface와 한 단계씩 맞춘다. */
   readonly derived: readonly [Themed, Themed, Themed, Themed];
 }
 
-const palette = ({ surface, border, text, derived }: Palette) =>
+const palette = ({ surface, shell, border, text, derived }: Palette) =>
   ({
     color: {
       surface: {
@@ -99,6 +101,7 @@ const palette = ({ surface, border, text, derived }: Palette) =>
         base: surface[1],
         subtle: surface[2],
         muted: surface[3],
+        shell,
       },
       border: { subtle: border[0], base: border[1], strong: border[2] },
       text: {
@@ -123,6 +126,7 @@ const backgrounds = {
       pair("#f3f2ef", "#1d1d1b"),
       pair("#ebeae6", "#252523"),
     ],
+    shell: pair("#f3f2ef", "#0d0d0d"),
     border: [
       pair("#e8e7e2", "#232321"),
       pair("#e1e0d9", "#2c2c2a"),
@@ -148,6 +152,7 @@ const backgrounds = {
       pair("#f2f2f2", "#1d1d1d"),
       pair("#eaeaea", "#252525"),
     ],
+    shell: pair("#f2f2f2", "#0d0d0d"),
     border: [
       pair("#e6e6e6", "#232323"),
       pair("#dedede", "#2c2c2c"),
@@ -173,6 +178,7 @@ const backgrounds = {
       pair("#eff2f6", "#1a1f26"),
       pair("#e6eaf0", "#232932"),
     ],
+    shell: pair("#eff2f6", "#0b0e12"),
     border: [
       pair("#e3e8ee", "#1f252d"),
       pair("#dbe1e9", "#2a313b"),

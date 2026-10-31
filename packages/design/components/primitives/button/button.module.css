@@ -9,7 +9,7 @@
   max-width: 100%;
   margin: var(--space-0);
   border: var(--border-width) solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-primary);
   font-family: var(--font-sans);

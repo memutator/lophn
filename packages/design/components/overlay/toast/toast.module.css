@@ -44,7 +44,7 @@
   max-width: 100%;
   padding: var(--space-5) var(--space-6);
   border: var(--border-width) solid var(--color-border-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--floating-surface);
   color: var(--color-text-primary);
   /* 배경 위에서 가장 잘 떨어지는 그림자(dialog)와 굵은 테두리로 dark에서도 윤곽이 보이게 한다. */

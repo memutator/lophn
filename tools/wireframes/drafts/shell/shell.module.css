@@ -19,18 +19,7 @@
   font-family: var(--font-sans);
   font-size: var(--type-body-size);
   line-height: var(--type-body-line);
-  background: var(--color-surface-subtle);
-}
-
-/* dark에서는 subtle이 card(base)보다 밝아서 바탕을 floor로 내린다. */
-:global([data-theme="dark"]) .shell {
-  background: var(--color-surface-floor);
-}
-
-@media (prefers-color-scheme: dark) {
-  :global(:root:not([data-theme="light"])) .shell {
-    background: var(--color-surface-floor);
-  }
+  background: var(--color-surface-shell);
 }
 
 .shell *,

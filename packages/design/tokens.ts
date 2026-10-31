@@ -10,6 +10,8 @@ export const tokens = {
       base: { light: "#ffffff", dark: "#161615" },
       subtle: { light: "#f3f2ef", dark: "#1d1d1b" },
       muted: { light: "#ebeae6", dark: "#252523" },
+      // 창 바탕. sidebar와 title bar 뒤에 깔리고 가운데 content card는 base다.
+      shell: { light: "#f3f2ef", dark: "#0d0d0d" },
     },
     border: {
       subtle: { light: "#e8e7e2", dark: "#232321" },
@@ -123,7 +125,14 @@ export const tokens = {
     "48px",
     "64px",
   ],
-  radius: { xs: "4px", sm: "6px", md: "8px", lg: "12px", full: "9999px" },
+  radius: {
+    xs: "6px",
+    sm: "8px",
+    md: "10px",
+    lg: "14px",
+    xl: "20px",
+    full: "9999px",
+  },
   border: { width: "1px", focus: { width: "2px", offset: "2px" } },
   shadow: {
     popover: {

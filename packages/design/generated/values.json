@@ -18,6 +18,10 @@
         "muted": {
           "light": "#ebeae6",
           "dark": "#252523"
+        },
+        "shell": {
+          "light": "#f3f2ef",
+          "dark": "#0d0d0d"
         }
       },
       "border": {
@@ -289,10 +293,11 @@
       "64px"
     ],
     "radius": {
-      "xs": "4px",
-      "sm": "6px",
-      "md": "8px",
-      "lg": "12px",
+      "xs": "6px",
+      "sm": "8px",
+      "md": "10px",
+      "lg": "14px",
+      "xl": "20px",
       "full": "9999px"
     },
     "border": {

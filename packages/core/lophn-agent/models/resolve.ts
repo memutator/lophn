@@ -10,7 +10,11 @@ import {
   userModelInfoRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { resolveSelection, translateOptions } from "./mod.ts";
-import { userEntryOf } from "./user-entry.ts";
+import {
+  UNLISTED_LIMITS,
+  userEntryOf,
+  withDefaultLimits,
+} from "./user-entry.ts";
 import {
   type AuthKind,
   type AuthTransport,
@@ -68,28 +72,6 @@ function anthropicMaxTokens(
   const budget =
     typeof thinking?.budget_tokens === "number" ? thinking.budget_tokens : 0;
   return Math.min(outputLimit, OUTPUT_CAP + budget);
-}
-
-// catalog에 없는 model, 그리고 사람이 안 적은 칸에 쓰는 기본 한계다. agent의 기본 prompt와 tool 정의만 수십 KB라
-// 이보다 작으면 turn이 시작하지 못한다. output은 모르는 server에 큰 max_tokens를 보내 거절당하지 않게 작게 둔다.
-const UNLISTED_LIMITS = {
-  context_limit: 131072,
-  input_limit: 131072,
-  output_limit: 4096,
-  supports_tools: true,
-};
-
-// 사람이 적은 항목의 안 적은 한도(null)를 칸마다 기본값으로 채운다. input은 정해진 context를 따른다.
-function withDefaultLimits(entry: CatalogEntry): CatalogEntry {
-  if (entry.source !== "user") return entry;
-  const context = entry.context_limit ?? UNLISTED_LIMITS.context_limit;
-  return {
-    ...entry,
-    context_limit: context,
-    input_limit: entry.input_limit ?? context,
-    output_limit: entry.output_limit ?? UNLISTED_LIMITS.output_limit,
-    supports_tools: entry.supports_tools ?? UNLISTED_LIMITS.supports_tools,
-  };
 }
 
 // option 축을 모르는 model의 자리표시 항목이다(wire 변환이 항목을 읽는다).

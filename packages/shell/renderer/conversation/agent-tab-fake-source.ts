@@ -954,6 +954,7 @@ const statusView = (session: string): StatusView => ({
   inputTokens: 412_890,
   outputTokens: 11_531,
   cacheReadTokens: 301_440,
+  cacheWriteTokens: 0,
   costs: [{ kind: "subscription", currency: null, amount: null }],
 });
 

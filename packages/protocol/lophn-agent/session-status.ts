@@ -18,8 +18,9 @@ const nonblank = z.string().refine((value) => value.trim().length > 0, {
 const decimal = z.string().regex(/^(0|[1-9][0-9]{0,17})(\.[0-9]{1,6})?$/);
 const currency = z.string().regex(/^[A-Z]{3}$/);
 
-// 마지막으로 끝난 판단 call이 provider에 보낸 prompt 크기와 그 call이 쓴 창의 한도다. 그 call의
-// usage를 모르면 없다.
+// 창 점유. 마지막으로 끝난 판단 call의 실제 prompt token에 그 call 뒤에 쌓인 답·tool 결과·메시지의 추정을
+// 더한 값과, 지금 session이 쓸 model의 창 한도다. 그 call의 usage를 모르거나 그 뒤에 Compact·rewind가 이전
+// 대화를 바꿨으면 다음 call까지 없다.
 const contextSchema = z.object({
   tokens: count,
   limit: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),

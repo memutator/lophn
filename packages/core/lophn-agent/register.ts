@@ -307,7 +307,11 @@ const conversationCommands = createConversationCommands({
   },
 });
 const conversationReads = createConversationReads();
-const sessionStatusRead = sessionStatusReadDefinition();
+// 창 한도는 저장 검사와 같은 catalog 바탕에서 읽는다.
+const sessionStatusRead = sessionStatusReadDefinition({
+  catalog: (sql) =>
+    catalogBase({ readDerived, snapshot: bundledSnapshot }, sql).catalog,
+});
 
 // session 되돌리기. file tool의 쓰기 기록(RecordRewindFile), Rewind, 설치 정정
 // (AmendRevertInstall), 앱 rewind 요청 결과(RecordRewindApps)를 올린다. checkpoint는 메시지를 접수하는 Tx가,

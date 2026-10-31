@@ -1,5 +1,7 @@
 export {
+  BYTES_PER_TOKEN,
   estimateTokens,
+  IMAGE_TOKENS,
   inputBudget,
   measureSize,
   measureWire,

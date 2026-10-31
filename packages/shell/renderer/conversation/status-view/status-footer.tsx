@@ -29,7 +29,9 @@ export function StatusFooter({
       ? null
       : {
           input: compactTokens(
-            status.inputTokens + (status.cacheReadTokens ?? 0),
+            status.inputTokens +
+              (status.cacheReadTokens ?? 0) +
+              (status.cacheWriteTokens ?? 0),
           ),
           output: compactTokens(status.outputTokens),
         };

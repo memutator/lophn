@@ -279,6 +279,18 @@ export const activationFail = defineCommand({
   errors: ["conflict", "invalid_input"],
 });
 
+// release.activate가 기다리지 않은 activation(동의 뒤, 기다림 상한 뒤, 재시작 뒤 이어받음)이 끝나면 driver가
+// 부른다. 결과를 release를 만든 agent session에 notice로 넣는다. 그 session이 없거나 닫혔으면 delivered가 false다.
+export const activationReport = defineCommand({
+  resource: "activations",
+  method: "report",
+  name: "activation.report",
+  input: z.strictObject({ release: releaseIdSchema }),
+  output: z.object({ delivered: z.boolean() }),
+  actors: machine,
+  errors: ["conflict", "unavailable"],
+});
+
 // 사람만 한다. 지금 data schema와 같은 superseded release만 받고 아니면 invalid_input. migration이 없다.
 export const activationActivatePrevious = defineCommand({
   resource: "activations",
@@ -355,6 +367,7 @@ export const ACTIVATION_ROUTES = [
   activationRecordDataRestore,
   activationComplete,
   activationFail,
+  activationReport,
   activationActivatePrevious,
   activationsQueue,
   activationsCompare,

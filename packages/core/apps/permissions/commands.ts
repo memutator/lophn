@@ -8,7 +8,6 @@ import {
   declaredScopes,
   resourceLabel,
 } from "./facts.ts";
-import { isSameOrInside } from "./model.ts";
 import {
   insertGrant,
   lastProcessFact,
@@ -24,32 +23,6 @@ type AppGrantScope = AppGrant["scope"];
 
 function conflict(message: string): Result<never> {
   return err({ code: "conflict", message });
-}
-
-function forbidden(message: string): Result<never> {
-  return err({ code: "forbidden", message });
-}
-
-// source를 감싸거나 source 안인 경로는 grant로 허락하지 않는다. 원장이 아는 앱 source만
-// 본다. 여기서는 선언된 경로를 lexical로 견준다.
-function outsideSources(
-  tx: Pick<Tx, "sql">,
-  scope: AppGrantScope,
-): Result<void> {
-  if (scope.kind !== "fs.read" && scope.kind !== "fs.write") {
-    return ok(undefined);
-  }
-  const rows = tx.sql.all(
-    "SELECT source_path FROM apps WHERE source_path IS NOT NULL",
-    [],
-  );
-  for (const row of rows) {
-    const root = String(row.source_path);
-    if (isSameOrInside(scope.path, root) || isSameOrInside(root, scope.path)) {
-      return forbidden("path covers an app source");
-    }
-  }
-  return ok(undefined);
 }
 
 // 늘어난 선언을 사람이 허락했는지다. 이 함수는 Gate나 request를 모르고 값만 받는다.
@@ -82,8 +55,6 @@ export function syncAppGrants(
     return ok(undefined);
   }
   function create(scope: AppGrantScope): Result<void> {
-    const outside = outsideSources(tx, scope);
-    if (!outside.ok) return outside;
     const grant: AppGrant = {
       id: tx.newId("grt"),
       app,

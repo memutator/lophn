@@ -31,6 +31,7 @@ import {
   activationRecordBackup,
   activationRecordDataChange,
   activationRecordDataRestore,
+  activationReport,
   activationStart,
   appBundleCopy,
   appDataFolder,
@@ -527,6 +528,10 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     newInvocation: () => deps.ids.newId("inv"),
   };
 
+  // `release.activate`가 지금 결과를 기다리는 release. 기다리는 쪽이 없는 끝(동의 뒤, 기다림 상한 뒤,
+  // 재시작 뒤 이어받음)만 release를 만든 session에 따로 알린다.
+  const awaited = new Set<string>();
+
   // ---- 앱 하나의 한 차례 ----
 
   // 시작한 release 하나를 끝까지 진행한다. 진행 중으로 남은 시도(끊긴 것)면 이어받는다.
@@ -571,6 +576,16 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     if (outcome.status !== "unavailable") {
       // 시도가 끝났다. 이전 release가 없어 다시 띄울 것이 없어도 붙들기는 푼다.
       await deps.client.activationResume(release.app).catch(() => undefined);
+    }
+    if (
+      (outcome.status === "active" || outcome.status === "failed") &&
+      !awaited.has(release.id)
+    ) {
+      await sendValue(
+        activationReport.name,
+        { release: release.id },
+        "activation-report",
+      );
     }
   }
 
@@ -626,24 +641,29 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
         message: "an activation is already running for the app",
       });
     }
-    const judged = await handlers.activate(release);
-    if (!judged.ok) return judged;
-    if (judged.value === "waiting_consent") {
-      return ok({ status: "waiting_consent", release: id });
-    }
-    const job = queue.running(release.app);
-    if (job !== undefined) {
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      try {
-        await Promise.race([
-          job,
-          new Promise<void>((resolve) => {
-            timer = setTimeout(resolve, ACTIVATE_WAIT_MS);
-          }),
-        ]);
-      } finally {
-        clearTimeout(timer);
+    awaited.add(id);
+    try {
+      const judged = await handlers.activate(release);
+      if (!judged.ok) return judged;
+      if (judged.value === "waiting_consent") {
+        return ok({ status: "waiting_consent", release: id });
       }
+      const job = queue.running(release.app);
+      if (job !== undefined) {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          await Promise.race([
+            job,
+            new Promise<void>((resolve) => {
+              timer = setTimeout(resolve, ACTIVATE_WAIT_MS);
+            }),
+          ]);
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+    } finally {
+      awaited.delete(id);
     }
     const after = currentRelease(id);
     if (!after.ok) return after;

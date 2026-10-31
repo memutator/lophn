@@ -179,6 +179,7 @@ export function createLedgerRegistration(
       releaseCommands.startActivation,
       releaseCommands.completeActivation,
       releaseCommands.failActivation,
+      releaseCommands.reportActivation,
       releaseCommands.activatePrevious,
       releaseCommands.askConsent,
       releaseCommands.consent,

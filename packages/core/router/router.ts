@@ -157,7 +157,7 @@ export function createRouter(deps: RouterDeps): Router {
       reply: input.kind === "call" ? input.reply : null,
       outcome: null,
       event: input.event ?? null,
-      notice: null,
+      notice: input.notice ?? null,
       step: input.step ?? null,
       unattended: input.unattended === true,
     };

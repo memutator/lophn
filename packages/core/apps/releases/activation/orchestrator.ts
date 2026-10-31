@@ -156,9 +156,10 @@ async function advance(
   if (completed.ok) return await openAfterCommit(ports, attempt);
   // 거절(근거가 맞지 않음)이든 응답 유실이든 ledger가 말하는 대로 이어받는다. 채택됐으면 복원하지 않고
   // 새 release를 다시 준비하며, 아직 진행 중이면 복원해서 닫는다.
+  // 거절 이유를 실패 기록에 남긴다. 버리면 사람도 agent도 무엇을 고칠지 모른다.
   return await continueRecovery(ports, attempt.release, {
     code: "commit_rejected",
-    summary: "the new release was not adopted",
+    summary: `the new release was not adopted: ${completed.error.message}`,
   });
 }
 

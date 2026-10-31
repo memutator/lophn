@@ -30,6 +30,7 @@ const NOTICE_KINDS = [
   "kinds_changed",
   "agents_changed",
   "call_cancelled",
+  "activation_finished",
 ] as const;
 export type NoticeKind = (typeof NOTICE_KINDS)[number];
 

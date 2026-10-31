@@ -12,6 +12,7 @@ import {
   activationConsent,
   type ActivationDataResult,
   activationFail,
+  activationReport,
   activationStart,
   appSchema,
   type ReadyAttestation,
@@ -28,6 +29,7 @@ import type {
   Tx,
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
+import { routerFor } from "../../router/mod.ts";
 
 import {
   appAccessDenied,
@@ -117,6 +119,22 @@ function nextRevision(tx: Pick<Tx, "sql">, current: string): string {
   return String(head > now ? head : now + 1n);
 }
 
+function activationReportText(release: ReleaseRecord, appName: string): string {
+  const head = `Release ${release.number} (${release.id}) of the app ${appName}`;
+  if (release.status === "active") {
+    return `${head} is now active. Tell the person.`;
+  }
+  const failure = release.failure;
+  const lines = [
+    `${head} failed to activate: ${failure?.code ?? "unknown"}: ${failure?.summary ?? ""}`,
+  ];
+  if (failure?.restored === true) {
+    lines.push("The previous release is running again.");
+  }
+  lines.push("Tell the person what failed and how you would fix it.");
+  return lines.join("\n");
+}
+
 // 한 앱에 activation이 진행 중이면 그 release다.
 function activatingOf(tx: Pick<Tx, "sql">, app: string): string | null {
   const row = tx.sql.get(
@@ -131,6 +149,7 @@ export function createReleaseCommands(): {
   startActivation: CommandDefinition<typeof activationStart>;
   completeActivation: CommandDefinition<typeof activationComplete>;
   failActivation: CommandDefinition<typeof activationFail>;
+  reportActivation: CommandDefinition<typeof activationReport>;
   activatePrevious: CommandDefinition<typeof activationActivatePrevious>;
   askConsent: CommandDefinition<typeof activationAskConsent>;
   consent: CommandDefinition<typeof activationConsent>;
@@ -334,6 +353,45 @@ export function createReleaseCommands(): {
           release.id,
         ]);
         return ok({ status: "failed" as const });
+      },
+    },
+    // 끝난 activation의 결과를 release를 만든 agent session에 notice로 넣는다. 동의 뒤의 시작은 그 session의
+    // turn이 이미 끝난 뒤라, 알리지 않으면 agent는 실패도 그 이유도 모른 채 사람에게 아무 말도 못 한다.
+    reportActivation: {
+      route: activationReport,
+      handle(tx, ctx, input) {
+        const actor = requireMachine(ctx, activationReport.name);
+        if (!actor.ok) return actor;
+        const found = releaseAndApp(
+          tx,
+          ctx,
+          activationReport.name,
+          input.release,
+          () => conflict("no such release"),
+        );
+        if (!found.ok) return found;
+        const { release, app } = found.value;
+        if (release.status !== "active" && release.status !== "failed") {
+          return conflict("the activation has not finished");
+        }
+        const creator = parseActor(release.created_by);
+        if (creator?.kind !== "agent") return ok({ delivered: false });
+        const router = routerFor(tx);
+        if (!router.ok) return router;
+        const routed = router.value.route(tx, {
+          from: { kind: "program" },
+          to: { session: creator.id },
+          reply: "none",
+          body: activationReportText(release, app.name),
+          refs: [],
+          reply_to: null,
+          dedup: null,
+          kind: "notice",
+          delivery: "next_turn",
+          notice: "activation_finished",
+        });
+        if (!routed.ok) return routed;
+        return ok({ delivered: routed.value.state !== "failed" });
       },
     },
     // 이전 release로 돌아가기. 사람만 한다. 지금 활성 release와 data schema가 같은 superseded release만 받는다.

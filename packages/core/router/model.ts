@@ -9,6 +9,7 @@ import type {
 } from "../../protocol/lophn-agent/calls.ts";
 import type { InputDelivery } from "../../protocol/lophn-agent/inputs.ts";
 import type { AgentAddress } from "../../protocol/lophn-agent/places.ts";
+import type { NoticeKind } from "../../protocol/lophn-agent/input-tags.ts";
 import type { RoutedInput } from "./ports.ts";
 
 // 순수 함수만 둔다. 받는 곳 해석 순서, 실패 이유를 오류로 바꾸는 규칙, 실패 알림 글.
@@ -35,6 +36,8 @@ export type RouteInput = {
   event?: string | null;
   // step이면 그 workflow instance와 step 이름.
   step?: { instance: Id<"wfi">; step: string } | null;
+  // notice면 그 종류.
+  notice?: NoticeKind | null;
   // agent의 SendCall·ReplyCall과 run이 넣은 사람 메시지(`SendMessage`의 `unattended: true`)가 싣는다. 없으면 false.
   unattended?: boolean;
 };

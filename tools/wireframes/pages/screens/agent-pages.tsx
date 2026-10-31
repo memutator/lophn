@@ -18,6 +18,7 @@ import {
   QuestionAnsweredScene,
   QuestionEndedScene,
   QuestionScene,
+  QueuedEditScene,
   QueuedMessageScene,
   RequestErrorScene,
   RewindScene,
@@ -60,6 +61,8 @@ const weekly = (chat: ChatInit, extra: Partial<ProjectAppProps> = {}) =>
 export const AgentConversation = ConversationScene;
 /** 일하는 중에 보낸 메시지가 쌓인 "다음 turn" 줄과 [Send now]. */
 export const AgentQueuedMessage = QueuedMessageScene;
+/** 큐의 줄을 눌러 글을 고치는 상태. */
+export const AgentQueuedEdit = QueuedEditScene;
 /** model picker를 펼친 상태. 켠 model의 provider 묶음, 고른 model의 option 축, 맨 아래 Manage models 줄, 머리의 층 한 줄("이 대화"). 켜지 않은 model은 목록에 없다. */
 export const AgentModelPicker = () =>
   weekly({

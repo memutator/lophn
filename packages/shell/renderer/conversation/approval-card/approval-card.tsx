@@ -1,8 +1,14 @@
 // composer 위 승인 카드와 결정 뒤 대화에 남는 접힌 줄. 확인 창 없이 카드에서 바로 결정한다.
 // 선택지는 Allow once, Always allow(더할 규칙이 있을 때만), Deny다. [Deny]는 이유 칸을 열고 비워도 된다.
 // 카드를 닫거나 가만히 두는 것은 결정이 아니다.
-import { type ReactElement, useState } from "react";
-import { Button, Icon } from "@lophn/ui/primitives";
+import {
+  type KeyboardEvent,
+  type ReactElement,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { Button, Icon, Kbd } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
@@ -26,6 +32,8 @@ interface ApprovalCardProps {
   /** 거절 이유 칸을 연 채 시작한다. */
   denying?: boolean;
   reason?: string;
+  /** 카드가 나올 때 [Allow once]로 초점을 옮긴다. composer에 글이 있으면 사람의 입력을 빼앗지 않는다. */
+  focusOnMount: boolean;
 }
 
 export function ApprovalCard({
@@ -34,6 +42,7 @@ export function ApprovalCard({
   onDecide,
   denying = false,
   reason: initialReason = "",
+  focusOnMount,
 }: ApprovalCardProps): ReactElement {
   const { subject } = request;
   const effect = effectOf(subject);
@@ -41,6 +50,10 @@ export function ApprovalCard({
   const [reason, setReason] = useState(initialReason);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const allowOnce = useRef<HTMLButtonElement>(null);
+  const reasonInput = useRef<HTMLInputElement>(null);
+  const wasDeny = useRef(denying);
+  const focusedOnMount = useRef(false);
 
   async function decide(choice: Choice, why?: string) {
     setBusy(true);
@@ -51,13 +64,73 @@ export function ApprovalCard({
   }
 
   const choices = turnChoicesOf(request);
-  const deny = () => decide("reject", reason.trim() || undefined);
+  const canAlways = choices.includes("always");
+  const keyHint = {
+    once: t("conversation.label.approval-key-once"),
+    always: t("conversation.label.approval-key-always"),
+    reject: t("conversation.label.approval-key-deny"),
+  } as const;
+
+  // 카드가 처음 나올 때 한 번만 초점을 옮긴다. 사람이 composer에 쓰던 글은 건드리지 않는다.
+  useEffect(() => {
+    if (focusedOnMount.current) return;
+    focusedOnMount.current = true;
+    if (focusOnMount && !denying) allowOnce.current?.focus();
+  }, [focusOnMount, denying]);
+
+  // 거절 칸이 열리면 이유 칸으로, 닫히면 허락 단추로 초점을 옮긴다.
+  useEffect(() => {
+    if (denyOpen) reasonInput.current?.focus();
+    else if (wasDeny.current) allowOnce.current?.focus();
+    wasDeny.current = denyOpen;
+  }, [denyOpen]);
+
+  // 이 카드 안에 초점이 있을 때만 듣는다. 버튼 위의 Enter는 버튼이 스스로 받는다.
+  const keyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.nativeEvent.isComposing || event.repeat) return;
+    if (event.key === "Escape") {
+      if (busy) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setDenyOpen(!denyOpen);
+      return;
+    }
+    if (busy) return;
+    if (
+      event.key === "Enter" &&
+      (event.metaKey || event.ctrlKey) &&
+      event.shiftKey &&
+      !event.altKey
+    ) {
+      if (!denyOpen && canAlways) {
+        event.preventDefault();
+        event.stopPropagation();
+        void decide("always");
+      }
+      return;
+    }
+    if (
+      event.key !== "Enter" ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.altKey ||
+      event.shiftKey
+    ) {
+      return;
+    }
+    if ((event.target as HTMLElement).closest("button")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (denyOpen) void decide("reject", reason.trim() || undefined);
+    else void decide("once");
+  };
 
   return (
     <section
       className={styles.card}
       aria-label={t("conversation.label.approval")}
       data-approval-id={request.id}
+      onKeyDown={keyDown}
     >
       <div className={styles.approval}>
         <p className={styles.title}>
@@ -97,13 +170,13 @@ export function ApprovalCard({
       {denyOpen ? (
         <div className={styles.reasonRow}>
           <input
+            ref={reasonInput}
             className={styles.reasonInput}
             aria-label={t("conversation.label.approval-reason")}
             placeholder={t("conversation.label.approval-reason-placeholder", {
               agent,
             })}
             maxLength={500}
-            autoFocus={initialReason === ""}
             value={reason}
             onChange={(event) => setReason(event.currentTarget.value)}
           />
@@ -121,11 +194,20 @@ export function ApprovalCard({
               size="sm"
               variant="ghost"
               disabled={busy}
+              aria-keyshortcuts="Escape"
               onClick={() => setDenyOpen(false)}
             >
-              {t("common.button.back")}
+              <span className={styles.labelWithKey}>
+                {t("common.button.back")}
+                <Kbd keys={[t("conversation.label.approval-key-back")]} />
+              </span>
             </Button>
-            <Button size="sm" variant="danger" disabled={busy} onClick={deny}>
+            <Button
+              size="sm"
+              variant="danger"
+              disabled={busy}
+              onClick={() => void decide("reject", reason.trim() || undefined)}
+            >
               {t("conversation.button.approval-deny")}
             </Button>
           </>
@@ -134,18 +216,29 @@ export function ApprovalCard({
             {choices.map((choice) => (
               <Button
                 key={choice}
+                ref={choice === "once" ? allowOnce : undefined}
                 size="sm"
                 variant={choice === "once" ? "primary" : "secondary"}
                 disabled={busy}
+                aria-keyshortcuts={
+                  choice === "once"
+                    ? "Enter"
+                    : choice === "always"
+                      ? "Control+Shift+Enter Meta+Shift+Enter"
+                      : "Escape"
+                }
                 onClick={() =>
                   choice === "reject" ? setDenyOpen(true) : decide(choice)
                 }
               >
-                {choice === "once"
-                  ? t("conversation.button.approval-allow-once")
-                  : choice === "always"
-                    ? t("conversation.button.approval-allow-always")
-                    : t("conversation.button.approval-deny")}
+                <span className={styles.labelWithKey}>
+                  {choice === "once"
+                    ? t("conversation.button.approval-allow-once")
+                    : choice === "always"
+                      ? t("conversation.button.approval-allow-always")
+                      : t("conversation.button.approval-deny")}
+                  <Kbd keys={[keyHint[choice]]} />
+                </span>
               </Button>
             ))}
           </>

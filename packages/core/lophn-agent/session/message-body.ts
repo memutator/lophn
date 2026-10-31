@@ -11,6 +11,7 @@ import {
 } from "../../../base/mod.ts";
 import {
   agentMessageContentInputSchema,
+  editQueuedMessage,
   machineMessageContentInputSchema,
   MESSAGE_CONTENT_MAX_BYTES,
   MESSAGE_CONTENT_PURPOSE,
@@ -143,21 +144,26 @@ export function createMessageBodyPreparer(deps: {
     if (
       envelope.command !== sendMessage.name &&
       envelope.command !== receiveMessage.name &&
-      envelope.command !== recordMessage.name
+      envelope.command !== recordMessage.name &&
+      envelope.command !== editQueuedMessage.name
     )
       return ok(envelope);
     const kind = parseActor(ctx.actor)?.kind;
+    // 큐에 있는 사람 메시지 고치기도 사람 메시지와 같은 글 모양·상한을 쓴다. 저장 경로는
+    // machine이지만 값은 사람이 쓴 글이다.
+    const editingQueued = envelope.command === editQueuedMessage.name;
     const record = envelope.input as { content?: unknown };
     // 사람은 글만, machine은 글과 reasoning, agent는 글과 카드다(MessageContent).
-    const schema =
-      kind === "agent"
+    const schema = editingQueued
+      ? userMessageContentInputSchema
+      : kind === "agent"
         ? agentMessageContentInputSchema
         : kind === "machine"
           ? machineMessageContentInputSchema
           : userMessageContentInputSchema;
     // 답 글에 reasoning이 붙으면 64KiB를 넘기 쉽다. agent와 같은 상한을 쓴다.
     const max =
-      kind === "agent" || kind === "machine"
+      !editingQueued && (kind === "agent" || kind === "machine")
         ? MESSAGE_CONTENT_MAX_BYTES
         : MESSAGE_TEXT_CONTENT_MAX_BYTES;
     const redacted = redactValue(

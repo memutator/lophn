@@ -34,7 +34,8 @@ export const messageBodyFields: readonly BlobFieldDefinition[] = [
 // sessions·messages 표와 row 변환. 순수 함수와 읽기 조회만 있다. 상태 전이 규칙은 commands.ts, 읽기는
 // reads.ts가 맡는다. 본문은 열에 없고 hash만 남는다. session의 agent와 place와 출처는 바뀌지
 // 않고, archive한 session은 다시 열리지 않는다. 두 표의 순번(created_seq, state_seq)은 ledger event
-// 없이 표 안에서 이어 센다. 확정 메시지의 본문과 봉투는 덮어쓰지 않는다. session과 메시지는
+// 없이 표 안에서 이어 센다. 가져간 메시지의 본문·봉투·순서는 덮어쓰지 않고, 아직 turn이
+// 가져가지 않은 사람 메시지의 본문과 순서만 큐에서 고친다. session과 메시지는
 // DeleteSession만 지운다.
 export const conversationSchemaSteps: readonly SchemaStep[] = [
   {
@@ -127,6 +128,31 @@ create table session_compact_requests (
 ) strict;
 create unique index session_compact_requests_open
   on session_compact_requests (session) where state = 'requested';`,
+  },
+  {
+    // 아직 turn이 가져가지 않은 사람 메시지는 큐에서 글을 고치거나 순서를 바꿀 수 있다.
+    // 확정(가져간) 메시지의 본문·봉투·순서는 그대로 고정이다.
+    id: "lophn-agent.messages.queued-edit",
+    sql: `
+drop trigger messages_content_immutable;
+create trigger messages_content_immutable
+before update of id, session, from_kind, from_ref, call, reply_to, refs,
+  reply, event, fail_reason, delivery, unattended, step_instance, step_name, created_at on messages
+begin
+  select raise(abort, 'a confirmed message is never overwritten');
+end;
+create trigger messages_body_fixed
+before update of body on messages
+when old.turn is not null or old.from_kind != 'human' or old.delivery != 'next_turn'
+begin
+  select raise(abort, 'a consumed message body is fixed');
+end;
+create trigger messages_created_seq_fixed
+before update of created_seq on messages
+when old.turn is not null or old.from_kind != 'human' or old.delivery != 'next_turn'
+begin
+  select raise(abort, 'the order of a consumed message is fixed');
+end;`,
   },
 ];
 

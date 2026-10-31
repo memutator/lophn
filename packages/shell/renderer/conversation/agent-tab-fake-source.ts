@@ -604,6 +604,11 @@ function sceneData(scene: AgentTabScene): SceneData {
                 at: at(42),
                 text: "Also add the exp-008 numbers to the report.",
               },
+              {
+                id: messageId(6),
+                at: at(43),
+                text: "Then check the latency table against the raw runs.",
+              },
             ],
         bodies,
         toolBodies: WORKING_TOOL_BODIES,
@@ -1329,6 +1334,33 @@ export function createFakeAgentTabSource(
         ...view,
         queued: view.queued.filter((one) => one.id !== queued),
       }));
+    },
+    editQueued(queued, text) {
+      const session = sessionOfQueued(queued);
+      if (session === undefined) return fail("not_found");
+      bodies.set(queued, [{ kind: "text", text }]);
+      return change(session, (view) => ({
+        ...view,
+        queued: view.queued.map((one) =>
+          one.id === queued ? { ...one, text } : one,
+        ),
+      }));
+    },
+    moveQueued(queued, direction) {
+      const session = sessionOfQueued(queued);
+      if (session === undefined) return fail("not_found");
+      return change(session, (view) => {
+        const index = view.queued.findIndex((one) => one.id === queued);
+        const target = index + (direction === "up" ? -1 : 1);
+        if (index < 0 || target < 0 || target >= view.queued.length)
+          return view;
+        const queuedItems = [...view.queued];
+        [queuedItems[index], queuedItems[target]] = [
+          queuedItems[target],
+          queuedItems[index],
+        ];
+        return { ...view, queued: queuedItems };
+      });
     },
     stop(turn) {
       const session = sessionOfTurn(turn);

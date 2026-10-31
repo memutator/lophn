@@ -83,8 +83,8 @@ function metaOf(entry: WaitingEntry): string {
     entry.session === null
       ? ""
       : t("waiting.label.session", { id: shortId(entry.session) });
-  // activation 동의는 앱이 대상이고 요청한 agent도 session도 없다.
-  if (entry.kind === "activation") return place;
+  // activation 동의는 앱이 대상이고 요청한 agent도 session도 없다. 앱은 id 대신 이름이다.
+  if (entry.kind === "activation") return entry.request.app_name;
   return [who, session, place].filter((part) => part !== "").join(" · ");
 }
 

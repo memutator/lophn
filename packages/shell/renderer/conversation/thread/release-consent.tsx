@@ -5,33 +5,32 @@ import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 
 import { useWaiting } from "../../desktop/connection/events/hooks.tsx";
-import { shortId } from "../../desktop/connection/waiting/model.ts";
 import { useWaitingPanel } from "../../desktop/connection/waiting/waiting-layer.tsx";
 import styles from "./thread.module.css";
 
 export function ReleaseConsent({ release }: { release: string }): ReactElement {
   const { entries } = useWaiting();
   const { setOpen } = useWaitingPanel();
-  const waiting = entries.some(
+  const waiting = entries.find(
     (entry) => entry.kind === "activation" && entry.id === release,
   );
   return (
     <div
       className={styles.call}
       data-release-consent={release}
-      data-state={waiting ? "waiting" : "handled"}
+      data-state={waiting !== undefined ? "waiting" : "handled"}
     >
       <div className={styles.callHead}>
         <span className={styles.callTitle}>
           <span className={styles.callTo}>
-            {waiting
+            {waiting?.kind === "activation"
               ? t("conversation.title.consent-waiting", {
-                  release: shortId(release),
+                  app: waiting.request.app_name,
                 })
               : t("conversation.title.consent-handled")}
           </span>
         </span>
-        {waiting ? (
+        {waiting !== undefined ? (
           <Button size="sm" onClick={() => setOpen(true)}>
             {t("conversation.button.consent-review")}
           </Button>

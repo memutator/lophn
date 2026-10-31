@@ -58,6 +58,8 @@ const settingsChanged = defineTransientEvent("SettingsChanged", {
 const appRestartHalted = defineTransientEvent("AppRestartHalted", {
   subject: idSchema("app"),
   payload: z.strictObject({
+    // toast가 id 대신 보일 앱 이름.
+    app_name: z.string().min(1),
     release: idSchema("rel"),
     crashes: z.number().int().min(1),
   }),
@@ -68,7 +70,11 @@ const activationConsentRequested = defineTransientEvent(
   "ActivationConsentRequested",
   {
     subject: idSchema("rel"),
-    payload: z.strictObject({ app: idSchema("app"), release: idSchema("rel") }),
+    payload: z.strictObject({
+      app: idSchema("app"),
+      app_name: z.string().min(1),
+      release: idSchema("rel"),
+    }),
   },
 );
 

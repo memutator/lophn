@@ -1,7 +1,6 @@
 // 반응(Reaction)의 문구 key를 화면 글로 바꾼다. 문구는 message key로만 만든다.
 import { t } from "@lophn/i18n";
 import type { Reaction } from "../events/reactions.ts";
-import { shortId } from "../waiting/model.ts";
 
 interface ToastText {
   readonly title: string;
@@ -20,18 +19,14 @@ export function toastText(reaction: Reaction): ToastText {
   switch (reaction.titleKey) {
     case "waiting.toast-activation.title":
       return text(
-        t("waiting.toast-activation.title", {
-          app: t("waiting.label.place-app", { id: shortId(p.app) }),
-        }),
+        t("waiting.toast-activation.title", { app: p.app }),
         t("waiting.toast-activation.body"),
         t("waiting.toast-activation.button"),
       );
     case "waiting.toast-restart-halted.title":
       return text(
         t("waiting.toast-restart-halted.title"),
-        t("waiting.toast-restart-halted.body", {
-          app: t("waiting.label.place-app", { id: shortId(p.app) }),
-        }),
+        t("waiting.toast-restart-halted.body", { app: p.app }),
         t("waiting.toast-restart-halted.button"),
       );
     case "waiting.toast-kind-violation.title":

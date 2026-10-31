@@ -15,6 +15,7 @@ export function pushConsentEvent(
     | {
         type: "ActivationConsentRequested";
         app: string;
+        app_name: string;
         release: string;
       }
     | {
@@ -39,15 +40,18 @@ type Query = Pick<Sql, "get" | "all">;
 export function waitingConsents(sql: Query, app?: string): ActivationConsent[] {
   return sql
     .all(
-      `SELECT release, app, comparison, requested_at FROM activation_consents
-      WHERE allowed_at IS NULL AND (? IS NULL OR app = ?)
-      ORDER BY requested_at, release`,
+      `SELECT c.release AS release, c.app AS app, a.name AS app_name,
+        c.comparison AS comparison, c.requested_at AS requested_at
+      FROM activation_consents c JOIN apps a ON a.id = c.app
+      WHERE c.allowed_at IS NULL AND (? IS NULL OR c.app = ?)
+      ORDER BY c.requested_at, c.release`,
       [app ?? null, app ?? null],
     )
     .map(
       (row) =>
         ({
           app: String(row.app),
+          app_name: String(row.app_name),
           release: String(row.release),
           comparison: JSON.parse(String(row.comparison)),
           requested_at: String(row.requested_at),

@@ -272,6 +272,12 @@ interface ThreadCall extends EntryBase {
   readonly call: CallView;
 }
 
+/** `release.activate`가 사람의 동의를 기다린다고 답한 호출. 동의 대기는 대기 목록의 같은 release 줄이다. */
+interface ThreadReleaseConsent extends EntryBase {
+  readonly kind: "release-consent";
+  readonly release: string;
+}
+
 /** 답을 기다리는 묶음은 `pending.questions`이고, 이 줄은 풀린 묶음의 접힌 요약이다. */
 interface ThreadQuestions extends EntryBase {
   readonly kind: "questions";
@@ -358,6 +364,7 @@ export type ThreadEntry =
   | ThreadTools
   | ThreadEdit
   | ThreadCall
+  | ThreadReleaseConsent
   | ThreadQuestions
   | ThreadApprovalResult
   | ThreadTurnEnd

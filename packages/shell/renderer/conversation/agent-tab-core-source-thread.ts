@@ -458,6 +458,18 @@ async function toolEntries(
       );
       own =
         view === null ? null : { kind: "call", id: view.call, at, call: view };
+    } else if (call.tool === "release.activate") {
+      // 동의 대기만 카드로 올린다. 나머지(active·failed·실패한 호출)는 일반 tool 줄로 충분하다.
+      const output = ok
+        ? asRecord(await viewOf(env, memo, "tool_call_output", call.id))
+        : null;
+      const result = asRecord(output?.["content"]) ?? output;
+      const release = result?.["release"];
+      if (
+        result?.["status"] === "waiting_consent" &&
+        typeof release === "string"
+      )
+        own = { kind: "release-consent", id: call.id, at, release };
     } else if (call.tool === "file.write" || call.tool === "file.edit") {
       if (!ok) continue;
       own = await editEntry(env, memo, call, at);

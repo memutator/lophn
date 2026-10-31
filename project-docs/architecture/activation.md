@@ -41,6 +41,7 @@
 - 사람이 동의한 비교와 시작할 때의 비교가 다르면 다시 판정해 다시 묻는다. 기다리는 사이 앱 grant가 바뀔 수 있다.
 - 새 release가 다른 domain이 쓰는 공개 tool을 지워도 activation은 막지 않는다. `release.prepare`가 결과의 `removed_public_tools`에 그 tool과 쓰는 domain 이름을 싣고, 그 앱 place의 session이 정한다. 규칙은 `architecture/domain.md`다.
 - 동의는 activation의 상태다. approvals를 거치지 않는다. 묻기는 driver가 machine 자격으로 `activation.ask_consent`를 불러 `activation_consents` 표에 줄을 쓰고, 사람이 `activation.consent`(사람 자격만, compare `{requested_at}`)로 동의하거나 거절한다. 대기 목록은 `activations.consents`를 읽고 남지 않는 event `ActivationConsentRequested`·`ActivationConsentClosed`로 고친다.
+  - `release.activate`가 `waiting_consent`를 돌려주면 대화에 그 결과로 만든 카드가 선다. 카드는 대기 목록에 그 release 줄이 있는 동안 기다림으로 보이고 [Review]가 대기 panel을 연다.
   - 동의 대기는 표에 남아 재시작을 넘는다. 메모리에 두면 재시작 때 사라지는데, `release.activate`를 부른 turn은 이미 `waiting_consent`를 받고 끝나 다시 묻는 쪽이 없다.
   - 허락도 표에 남긴다(`allowed_at`). 허락만 메모리로 넘기면 commit 뒤 시작 전에 꺼질 때 허락을 잃는다. 허락한 줄은 driver의 sweep이 시작한다.
   - 같은 release는 한 줄이다. 같은 release를 다시 `release.activate`해도 같은 비교면 줄과 카드가 늘지 않는다. 비교가 달라졌으면 줄을 덮어 다시 기다린다(`requested_at`이 바뀌어 옛 카드의 동의는 `conflict`다).

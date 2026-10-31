@@ -1,4 +1,4 @@
-// Settings › Scheduled jobs 본문. 모든 place의 job을 한곳에 모아 보이고, 켜고 끄기, 제목·주기·놓친 차례 정책
+// Jobs 탭 본문. 모든 place의 job을 한곳에 모아 보이고, 켜고 끄기, 제목·주기·놓친 차례 정책
 // 고치기, 지우기, 줄마다 기록 펴기를 한다. job을 만드는 단추는 없다(agent가 만든다).
 // 쓰기는 바로 보내고, 성공해도 실패해도 목록을 다시 읽는다. 저장하지 못하면 탭 위쪽 toast로 알린다.
 import { useCallback, useRef, useState } from "react";
@@ -6,16 +6,16 @@ import { Button } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { Dialog, Toast } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
-import { actionIcons } from "../../../icons/mod.ts";
+import { actionIcons } from "../../icons/mod.ts";
 
-import { useJobChanges } from "../../connection/events/hooks.tsx";
-import { useReload } from "../use-reload.ts";
-import settings from "../settings.module.css";
+import { useJobChanges } from "../connection/events/hooks.tsx";
+import { useReload } from "../settings/use-reload.ts";
 import { EditDialog } from "./edit-dialog.tsx";
 import { type History, JobLine } from "./job-line.tsx";
+import styles from "./jobs.module.css";
 import type { JobNames, JobsSource, JobView, SourceResult } from "./source.ts";
 
-interface JobsPanelProps {
+interface JobsPageProps {
   source: JobsSource;
   onOpenSession: (session: string) => void;
   onOpenProject: (project: string) => void;
@@ -30,11 +30,11 @@ type Loaded =
       readonly names: JobNames;
     };
 
-export function JobsPanel({
+export function JobsPage({
   source,
   onOpenSession,
   onOpenProject,
-}: JobsPanelProps) {
+}: JobsPageProps) {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   const [histories, setHistories] = useState<Readonly<Record<string, History>>>(
     {},
@@ -101,21 +101,18 @@ export function JobsPanel({
   const jobs = loaded.state === "ready" ? loaded.jobs : [];
   const names = loaded.state === "ready" ? loaded.names : null;
   return (
-    <div data-jobs="">
-      <h1 className={settings.paneTitle}>{t("settings.label.tab-jobs")}</h1>
-      <p className={settings.lead}>{t("jobs.note.intro")}</p>
+    <div className={styles.page} data-jobs="">
+      <h1 className={styles.pageTitle}>{t("jobs.label.sidebar-tab")}</h1>
+      <p className={styles.lead}>{t("jobs.note.intro")}</p>
       {notice === null ? null : (
-        <div className={settings.toastSlot} data-jobs-notice="">
+        <div className={styles.toastSlot} data-jobs-notice="">
           <Toast title={notice} tone="error" onClose={() => setNotice(null)} />
         </div>
       )}
       <Loading loading={names === null} placeholder={<Skeleton lines={4} />}>
-        <ul className={settings.lines}>
+        <ul className={styles.list}>
           {jobs.length === 0 ? (
-            <li
-              className={`${settings.line} ${settings.lineHelp}`}
-              data-jobs-empty=""
-            >
+            <li className={styles.emptyLine} data-jobs-empty="">
               {t("jobs.empty.list")}
             </li>
           ) : (

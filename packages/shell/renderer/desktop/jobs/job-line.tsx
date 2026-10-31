@@ -4,7 +4,7 @@ import { Skeleton, StatusMark } from "@lophn/ui/feedback";
 import { Switch } from "@lophn/ui/input";
 import { t } from "@lophn/i18n";
 
-import { actionIcons, commonIcons } from "../../../icons/mod.ts";
+import { actionIcons, commonIcons } from "../../icons/mod.ts";
 import {
   actionText,
   creatorText,

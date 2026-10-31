@@ -30,11 +30,6 @@ import {
   SettingsGeneral,
   SettingsKeyboard,
   SettingsKeyboardChanged,
-  SettingsJobsDelete,
-  SettingsJobsEdit,
-  SettingsJobsEmpty,
-  SettingsJobsHistory,
-  SettingsJobsList,
   SettingsRequiredEmpty,
   SettingsShellRules,
   SettingsShellRulesAdd,
@@ -49,7 +44,7 @@ export const settingsArea: Area = {
   id: "settings",
   title: "Settings",
   summary:
-    "Settings의 General, Appearance, Browser, Providers, Agents, Tools, Coding agents, Shell rules, Scheduled jobs, Diagnostics.",
+    "Settings의 General, Appearance, Browser, Providers, Agents, Tools, Coding agents, Shell rules, Diagnostics.",
   pages: [
     {
       id: "settings-coding",
@@ -210,41 +205,6 @@ export const settingsArea: Area = {
       description:
         "Workspace 절의 더하기 줄에 pattern `npm publish *`를 치고 action을 Ask로 고른 상태다. pattern이 비면 [Add rule]이 꺼진다. 새 규칙은 절의 끝에 붙어 그 절에서 가장 나중에 맞는다.",
       render: () => <SettingsShellRulesAdd />,
-    },
-    {
-      id: "settings-jobs-empty",
-      title: "Settings · Scheduled jobs · empty",
-      description:
-        "System 묶음의 Scheduled jobs 항목에서 job이 하나도 없을 때의 본문이다. 사람은 job을 만들지 못하고 agent에게 만들어 달라고 말하라고 안내한다.",
-      render: () => <SettingsJobsEmpty />,
-    },
-    {
-      id: "settings-jobs-list",
-      title: "Settings · Scheduled jobs · list",
-      description:
-        "모든 place의 job을 한곳에 모은 목록이다(job 다섯, 하나는 꺼짐). 줄에는 제목, 주기 글, 다음 차례, 할 일 요약, 만든 agent, 놓친 차례 정책, 마지막 결과가 있고 오른쪽 끝 고정 열에 켜고 끄는 switch, Edit, Delete, 기록 토글이 있다.",
-      render: () => <SettingsJobsList />,
-    },
-    {
-      id: "settings-jobs-history",
-      title: "Settings · Scheduled jobs · history",
-      description:
-        "세 job의 기록을 폈다. 상태 여덟과 건너뜀 이유 셋(내가 건너뜀, 앞 차례가 아직 돎, 제때 온 차례로 바뀜), 놓친 차례를 접은 줄, session과 project를 여는 단추가 보인다. 시작하지 못한 실패는 이유 글이 붙는다.",
-      render: () => <SettingsJobsHistory />,
-    },
-    {
-      id: "settings-jobs-edit",
-      title: "Settings · Scheduled jobs · edit",
-      description:
-        "Edit dialog다. 제목, 주기(숫자와 단위, 하루 단위일 때만 At), 놓친 차례 정책만 고친다. 할 일은 고치지 않고 만든 agent에게 말하라고 안내한다.",
-      render: () => <SettingsJobsEdit />,
-    },
-    {
-      id: "settings-jobs-delete",
-      title: "Settings · Scheduled jobs · delete",
-      description:
-        "Delete 확인 dialog다. job과 그 기록을 지우고, 돌고 있는 것은 끝까지 돈다고 말한다.",
-      render: () => <SettingsJobsDelete />,
     },
     {
       id: "settings-browser",

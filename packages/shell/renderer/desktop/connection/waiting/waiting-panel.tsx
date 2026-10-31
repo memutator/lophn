@@ -1,6 +1,7 @@
 // 펼친 대기 목록. 종류를 나눠 한 목록에 보이고, 결정한 직후 남는 줄이 그 아래 붙는다.
 import { StatusMark } from "@lophn/ui/feedback";
 import { Button, IconButton } from "@lophn/ui/primitives";
+import { Tooltip } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 import type { NoticeTarget } from "../../../../ipc/notice.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
@@ -162,6 +163,8 @@ export function WaitingPanel({
   settled,
   finished,
   initial,
+  page = false,
+  onOpenTab,
   onOpenSession,
   onShowFinished,
   onDismissFinished,
@@ -170,6 +173,10 @@ export function WaitingPanel({
   settled: Settled;
   finished: readonly FinishedRow[];
   initial?: PanelInitial;
+  /** true면 탭 본문으로 그린다(떠 있는 panel의 폭·그림자·높이 제한이 없다). */
+  page?: boolean;
+  /** 머리의 [Open in tab]. 탭 안에서는 주지 않는다. */
+  onOpenTab?: () => void;
   onOpenSession: (session: string) => void;
   onShowFinished: (target: NoticeTarget) => void;
   onDismissFinished: (target: NoticeTarget) => void;
@@ -229,12 +236,27 @@ export function WaitingPanel({
   }
 
   return (
-    <section className={styles.panel} aria-label={t("waiting.label.panel")}>
+    <section
+      className={styles.panel}
+      data-page={page || undefined}
+      aria-label={t("waiting.label.panel")}
+    >
       <header className={styles.panelHead}>
         <h2 className={styles.panelTitle}>{t("waiting.label.panel")}</h2>
         <span className={styles.panelSub}>
           {t("waiting.label.panel-scope")}
         </span>
+        {onOpenTab === undefined ? null : (
+          <Tooltip content={t("waiting.button.open-tab")}>
+            <IconButton
+              size="sm"
+              icon={actionIcons.openInTab}
+              label={t("waiting.button.open-tab")}
+              data-open-tab=""
+              onClick={onOpenTab}
+            />
+          </Tooltip>
+        )}
       </header>
       <div className={styles.panelBody}>
         {entries.length === 0 &&

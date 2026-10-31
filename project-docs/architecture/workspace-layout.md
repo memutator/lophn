@@ -19,6 +19,8 @@ place 창(Home, project, 앱)이 가진 탭이 어디에 있는가를 정하는 
                              없고 place가 project면 옛 <data>/shell/layouts/<prj_id>.json(판 5~7)을 읽어 올린다(아래 place layout). 그 밖의 다른 판은 unsupported_schema
  project settings 탭(kind project_settings, key "project-settings", project 창에 하나, noDetach) ─▶ General은 Places panel의 상세 dialog와 같은 ProjectForm이고 ProjectsSource를 PlaceWindow의 `projects` prop으로 받는다. 저장하면 host.projectSettings.projectChanged
      진입: 팔레트 행동 "Project settings". layout 파일에는 탭 kind와 key만 남는다
+ jobs·inbox 탭(kind jobs·inbox, key "jobs"·"inbox", 어느 place에서든 desk마다 하나, noDetach) ─▶ jobs는 모든 job의 목록·고치기·지우기·기록(desktop/jobs/jobs-page.tsx), inbox는 대기 목록 카드(desktop/connection/waiting/waiting-page.tsx). PlaceWindow의 `jobs` prop(JobsSource)을 host.props로 읽는다
+     진입: 왼쪽 sidebar의 Inbox·Jobs overlay 머리의 [Open in tab], Jobs 줄(통로가 없을 때), 오른쪽 sidebar Jobs panel의 줄과 [Open all jobs]. layout 파일에는 탭 kind와 key만 남는다. Settings에는 jobs 항목이 없다
  main/workspace/window-state.ts ── <data>/shell/window.json { bounds, maximized } 앱에 하나. desktop 창의 마지막 자리
 
  Detach (project 창 place-window.tsx)                         detached 창 (#detached=<key>, renderer/workspace/detached/)
@@ -36,7 +38,7 @@ place 창(Home, project, 앱)이 가진 탭이 어디에 있는가를 정하는 
    stage ─┬─ ContentCard    (머리 줄: ← →, 경로(project 이름 / 파일은 project 폴더 기준 조각), 상태 글(탭의 상태 점), ⋯ tab menu. 고른 tab, split이면 둘을 mount한다.
           │                  keep kind(앱 panel·browser·artifact)는 `keep`, 나머지는 `render`)
           └─ floats 슬롯    (첫 자식이 창의 `<webview>` 그릇(browser·앱·artifact 화면), 그 뒤 FloatLayer. stacking context 없음. 패널마다 FloatPanel, z-index = --z-sticky + 층 번호 × 2)
-   왼쪽 sidebar: ProjectLeftSidebar(workspace/sidebar) → LeftSidebar(shell/left-sidebar.tsx. New session·Inbox(WaitingLayer)·Jobs, Places마다 열린 session과 접힌 Recent, Settings). 오른쪽 sidebar: ProjectPanel(workspace/sidebar/project-sidebar.tsx, 틀은 shell/right-sidebar.tsx의 머리 줄과 본문)
+   왼쪽 sidebar: ProjectLeftSidebar(workspace/sidebar) → LeftSidebar(shell/left-sidebar.tsx. New session·Inbox(WaitingLayer overlay)·Jobs(JobsLayer overlay. 둘 다 줄 오른쪽 옆에 열리고 머리의 [Open in tab]이 inbox·jobs 탭을 연다), Places마다 열린 session과 접힌 Recent, Settings). 오른쪽 sidebar: ProjectPanel(workspace/sidebar/project-sidebar.tsx, 틀은 shell/right-sidebar.tsx의 머리 줄과 본문)
    왼쪽 sidebar의 session 규칙(shell/left-sidebar-places.ts): current = 이 창에 tab이 열렸거나(이 창의 place만 안다) 끝나지 않고 상태 점이 있는 session, 이 project의 live 터미널 coding agent, 사람 차례인 workflow.
    recent = 나머지. 7일 안, 사람이 지운 줄(hidden-recent)은 그 뒤 움직이기 전까지 뺀다. session을 누르면 이 project의 것은 openAgent(desk 규칙), 다른 place의 것은 toast 행동(session)으로 그 place로 간다.
 

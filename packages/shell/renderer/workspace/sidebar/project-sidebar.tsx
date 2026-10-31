@@ -6,7 +6,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import type { PanelTab } from "../../shell/panel-tabs.tsx";
 import { PanelEmpty } from "../../shell/panel-rows.tsx";
 import { RightSidebar } from "../../shell/right-sidebar.tsx";
-import type { JobsSource } from "../../desktop/settings/jobs/source.ts";
+import type { JobsSource } from "../../desktop/jobs/source.ts";
 import { shellIcons } from "../../icons/mod.ts";
 import type { ProjectView, WorkspaceSource } from "../source.ts";
 import { DomainPanel } from "./domain-panel.tsx";
@@ -77,7 +77,7 @@ interface ProjectPanelProps {
   activeWorkflow?: string;
   /** Scheduled jobs 탭의 통로. 주지 않으면 그 항목을 두지 않는다. */
   jobs?: JobsSource;
-  /** Scheduled jobs 탭의 줄과 [Open all jobs]. Settings › Scheduled jobs를 연다. */
+  /** Scheduled jobs 탭의 줄과 [Open all jobs]. Jobs 탭을 연다. */
   onOpenJobs?: () => void;
   /** 편집기에서 열려 있는 파일의 절대 경로. */
   current?: string | null;
@@ -184,7 +184,7 @@ export function ProjectPanel({
           key={project.id}
           project={project.id}
           source={jobs}
-          onOpenSettings={onOpenJobs ?? (() => {})}
+          onOpenJobs={onOpenJobs ?? (() => {})}
         />
       ) : null}
     </RightSidebar>

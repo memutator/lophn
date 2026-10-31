@@ -2,11 +2,6 @@
 
 import { SettingsFrame } from "./settings-frame.tsx";
 import { click, find, press, type } from "../../mock/drive.ts";
-import {
-  JOB_DIGEST,
-  JOB_ORDERS,
-  JOB_REVIEW,
-} from "../../../../packages/shell/renderer/desktop/settings/jobs/testdata/fake-source.ts";
 import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
 
 /** Settings 머리의 [Back]. 누르면 Settings를 열기 전 화면으로 돌아간다. */
@@ -159,39 +154,4 @@ export const SettingsBrowserBookmarks = () => (
 /** Settings › Browser: bookmarks.json이 깨져 목록 자리에 오류 문장만 있다. 고치는 길은 열지 않는다. */
 export const SettingsBrowserBookmarksCorrupt = () => (
   <SettingsFrame pane="browser" browser={{ corrupt: true }} />
-);
-
-/** Settings › Scheduled jobs: job이 하나도 없다. */
-export const SettingsJobsEmpty = () => (
-  <SettingsFrame pane="jobs" jobs={{ jobs: [] }} />
-);
-
-/** Settings › Scheduled jobs: 모든 place의 job 다섯(하나는 꺼짐). */
-export const SettingsJobsList = () => <SettingsFrame pane="jobs" />;
-
-const expand = (job: string) => () =>
-  click(`[data-job="${job}"] [data-job-toggle]`);
-
-/** Settings › Scheduled jobs: 세 job의 기록을 폈다. */
-export const SettingsJobsHistory = () => (
-  <SettingsFrame
-    pane="jobs"
-    steps={[expand(JOB_REVIEW), expand(JOB_DIGEST), expand(JOB_ORDERS)]}
-  />
-);
-
-/** Settings › Scheduled jobs: [Edit] dialog. */
-export const SettingsJobsEdit = () => (
-  <SettingsFrame
-    pane="jobs"
-    steps={[() => click(`[data-job="${JOB_DIGEST}"] [data-job-edit]`)]}
-  />
-);
-
-/** Settings › Scheduled jobs: [Delete] 확인 dialog. */
-export const SettingsJobsDelete = () => (
-  <SettingsFrame
-    pane="jobs"
-    steps={[() => click(`[data-job="${JOB_ORDERS}"] [data-job-delete]`)]}
-  />
 );

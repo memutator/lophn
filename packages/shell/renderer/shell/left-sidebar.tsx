@@ -7,6 +7,8 @@ import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
 
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
+import { JobsLayer } from "../desktop/jobs/jobs-layer.tsx";
+import type { JobsSource } from "../desktop/jobs/source.ts";
 import {
   notificationsIcon,
   settingsEntryIcon,
@@ -40,6 +42,10 @@ export interface LeftSidebarProps {
   onNewSessionWith: (kind: "lophn" | "coding", id: string) => void;
   /** Inbox 질문 카드의 [Open session]. */
   onOpenSession: (session: string) => void;
+  /** Jobs overlay의 통로. 없으면 Jobs 줄이 바로 Jobs 탭을 연다. */
+  jobs?: JobsSource;
+  /** Inbox·Jobs overlay의 [Open in tab]과 Jobs 줄(통로가 없을 때): 그 탭을 연다. */
+  onInbox: () => void;
   onJobs: () => void;
   onPlace: (ref: PlaceRef) => void;
   onSession: (place: SidebarPlace, session: SidebarSession) => void;
@@ -100,6 +106,7 @@ function NavRow({
   label: string;
   count?: number;
   onClick?: () => void;
+  "aria-expanded"?: boolean;
   "data-nav": string;
 }) {
   return (
@@ -244,6 +251,8 @@ export function LeftSidebar({
   onNewSession,
   onNewSessionWith,
   onOpenSession,
+  jobs,
+  onInbox,
   onJobs,
   onPlace,
   onSession,
@@ -303,8 +312,9 @@ export function LeftSidebar({
           onNewSessionWith={onNewSessionWith}
         />
         <WaitingLayer
-          align="start"
+          align="side"
           onOpenSession={onOpenSession}
+          onOpenTab={onInbox}
           renderTrigger={({ count, open, toggle: toggleInbox }) => (
             <button
               type="button"
@@ -324,12 +334,28 @@ export function LeftSidebar({
             </button>
           )}
         />
-        <NavRow
-          icon={shellIcons.jobs}
-          label={t("left-sidebar.button.jobs")}
-          onClick={onJobs}
-          data-nav="jobs"
-        />
+        {jobs === undefined ? (
+          <NavRow
+            icon={shellIcons.jobs}
+            label={t("left-sidebar.button.jobs")}
+            onClick={onJobs}
+            data-nav="jobs"
+          />
+        ) : (
+          <JobsLayer
+            source={jobs}
+            onOpenTab={onJobs}
+            renderTrigger={({ open, toggle: toggleJobs }) => (
+              <NavRow
+                icon={shellIcons.jobs}
+                label={t("left-sidebar.button.jobs")}
+                onClick={toggleJobs}
+                aria-expanded={open}
+                data-nav="jobs"
+              />
+            )}
+          />
+        )}
       </div>
 
       <div className={styles.sectionHead}>

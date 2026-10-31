@@ -3,7 +3,7 @@
 import { t } from "@lophn/i18n";
 
 import type { AppsSource } from "../../apps/source.ts";
-import type { JobsSource } from "../../desktop/settings/jobs/source.ts";
+import type { JobsSource } from "../../desktop/jobs/source.ts";
 import type { ProjectsSource } from "../../desktop/places/projects/source.ts";
 import { shellIcons } from "../../icons/mod.ts";
 import type { PanelTab } from "../../shell/panel-tabs.tsx";
@@ -35,7 +35,7 @@ interface HomePanelProps {
   onProject: (project: string) => void;
   onApp: (app: string) => void;
   onNewApp: (app: string) => void;
-  /** Settings › Scheduled jobs를 연다. */
+  /** Jobs 탭을 연다. */
   onOpenJobs: () => void;
 }
 
@@ -46,7 +46,7 @@ export function HomePanel(props: HomePanelProps) {
         <JobPanel
           project={null}
           source={props.jobs}
-          onOpenSettings={props.onOpenJobs}
+          onOpenJobs={props.onOpenJobs}
         />
       </RightSidebar>
     );

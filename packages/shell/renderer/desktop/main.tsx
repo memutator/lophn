@@ -41,6 +41,7 @@ import { AppWindow } from "../app-frame/app-window.tsx";
 import type { AppsSource } from "../apps/source.ts";
 import type { SettingsPane } from "./settings/model.ts";
 import type { SettingsSource } from "./settings/source.ts";
+import type { JobsSource } from "./jobs/source.ts";
 import type { SettingsPanels } from "./settings/settings-screen.tsx";
 import { ConnectProviderHost } from "./settings/providers/connect-host.tsx";
 import { applyAppearance } from "./settings/appearance/model.ts";
@@ -84,6 +85,8 @@ interface DesktopProps {
   settings?: SettingsSource;
   /** settings 항목마다의 통로. 없는 항목은 준비 전 안내다. */
   settingsPanels?: SettingsPanels;
+  /** place 창의 Jobs overlay, Jobs 탭, 오른쪽 sidebar Jobs panel 통로. 없으면 sidebar 항목이 없고 Jobs 줄이 바로 탭을 연다. */
+  jobs?: JobsSource;
   /** 앱 place 오른쪽 sidebar의 App·Domain panel 통로. 없으면 준비 전 안내다. */
   appDetail?: AppDetailSource;
   /** shell preload의 앱 view 통로. 앱 전용 창이 쓴다(place 창의 앱 화면은 AppViewsProvider로 받는다). */
@@ -165,6 +168,7 @@ export function Desktop({
   apps,
   settings,
   settingsPanels,
+  jobs,
   appDetail,
   views,
   agentViewSource,
@@ -309,7 +313,7 @@ export function Desktop({
         windowWidth={windowWidth}
         onHome={home}
         onSettings={settingsSpace}
-        jobs={settingsPanels?.jobs}
+        jobs={jobs}
         onOpenApp={apps ? appSpace : undefined}
         apps={apps}
         onPlace={openPlace}
@@ -343,7 +347,7 @@ export function Desktop({
           ) : undefined
         }
         onSettings={settingsSpace}
-        jobs={settingsPanels?.jobs}
+        jobs={jobs}
         onOpenApp={apps ? appSpace : undefined}
         apps={apps}
         onPlace={openPlace}
@@ -375,7 +379,7 @@ export function Desktop({
         windowWidth={windowWidth}
         onHome={home}
         onSettings={settingsSpace}
-        jobs={settingsPanels?.jobs}
+        jobs={jobs}
         onOpenApp={appSpace}
         apps={apps}
         appDetail={appDetail}

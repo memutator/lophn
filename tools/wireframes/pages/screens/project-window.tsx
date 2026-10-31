@@ -16,8 +16,8 @@ import {
 import { createEventClient } from "../../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { createFakeSource } from "../../../../packages/shell/renderer/desktop/connection/events/fake-source.ts";
 import { EventsProvider } from "../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
-import type { JobView } from "../../../../packages/shell/renderer/desktop/settings/jobs/source.ts";
-import { fakeJobs } from "../../../../packages/shell/renderer/desktop/settings/jobs/testdata/fake-source.ts";
+import type { JobView } from "../../../../packages/shell/renderer/desktop/jobs/source.ts";
+import { fakeJobs } from "../../../../packages/shell/renderer/desktop/jobs/testdata/fake-source.ts";
 import {
   commonIcons,
   conversationIcons,
@@ -613,6 +613,7 @@ export function PageLeftSidebar(props: SidebarProps) {
   useSidebarScript(ref, { ...props, mode: "workflow" });
   // Inbox(WaitingLayer)가 event를 듣는다.
   const [client] = useState(() => createEventClient(createFakeSource()));
+  const jobs = useMemo(() => fakeJobs({ jobs: JOBS }).source, []);
   return (
     <EventsProvider client={client}>
       <div ref={ref} style={{ display: "contents" }}>
@@ -633,6 +634,8 @@ export function PageLeftSidebar(props: SidebarProps) {
           onNewSession={() => props.onAgent("lophn")}
           onNewSessionWith={(kind, id) => kind === "lophn" && props.onAgent(id)}
           onOpenSession={() => {}}
+          jobs={jobs}
+          onInbox={() => {}}
           onJobs={() => {}}
           onPlace={() => {}}
           onSession={(_place, item) => {

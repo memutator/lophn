@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
-import { scheduleText } from "../../../settings/jobs/model.ts";
+import { scheduleText } from "../../../jobs/model.ts";
 import type { CoreSource } from "../../connection.ts";
 import type { WaitingEntry } from "../../events/waiting-store.ts";
 import { decideJobApproval } from "../decide.ts";

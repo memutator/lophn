@@ -1,0 +1,34 @@
+/* 단추나 줄에 붙는 overlay 층. layout을 차지하지 않고 panel만 떠 있다. */
+.layer {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* panel은 위쪽 바(끌기 영역) 안에서도 내려올 수 있다. 끌기에서 빼지 않으면 panel 위의 wheel과 끌기가 창
+   끌기로 먹혀 스크롤되지 않는다. */
+.floating {
+  position: absolute;
+  top: calc(100% + var(--space-3));
+  right: 0;
+  display: flex;
+  z-index: var(--z-popover);
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.layer[data-align="start"] .floating {
+  right: auto;
+  left: 0;
+}
+
+/* 줄의 오른쪽 옆. 줄 위쪽 끝에 맞춘다. */
+.layer[data-align="side"] {
+  align-items: stretch;
+}
+
+.layer[data-align="side"] .floating {
+  top: var(--space-0);
+  right: auto;
+  left: calc(100% + var(--space-4));
+}

@@ -16,10 +16,11 @@ import {
   fakeShellRules,
   SAMPLE_SHELL_RULES,
 } from "../settings/shell-rules/testdata/fake-source.ts";
-import { fakeJobs } from "../settings/jobs/testdata/fake-source.ts";
 import { fakeConnections } from "../settings/connections/testdata/fake-source.ts";
 import { appRow, fakeApps } from "../../apps/testdata/fake-apps.ts";
 import type { SettingsSource } from "../settings/source.ts";
+import { fakeJobs } from "../jobs/testdata/fake-source.ts";
+import type { JobsSource } from "../jobs/source.ts";
 import type { SettingsPanels } from "../settings/settings-screen.tsx";
 import type { AppsSource } from "../../apps/source.ts";
 import { APP_BUDGET, APP_EXPENSES, APP_PLANNER } from "./ids.ts";
@@ -47,7 +48,6 @@ export function mockSettingsPanels(): SettingsPanels {
     coding: fakeConnections().source,
     browser: fakeBrowserSettings().source,
     keyboard: fakeKeyboard().source,
-    jobs: fakeJobs().source,
   };
 }
 
@@ -67,4 +67,8 @@ export function mockApps(): AppsSource {
     runs: { [APP_BUDGET]: "running", [APP_PLANNER]: "stopped" },
     screen: "home",
   }).source;
+}
+
+export function mockJobs(): JobsSource {
+  return fakeJobs().source;
 }

@@ -9,6 +9,8 @@ import { appScreenKind } from "./app-screen.ts";
 import { artifactKind } from "./artifact.ts";
 import { browserKind } from "./browser.ts";
 import { documentEditorKind } from "./document-editor.ts";
+import { inboxKind } from "./inbox.ts";
+import { jobsKind } from "./jobs.ts";
 import { registerTabKind } from "./kind.ts";
 import { projectSettingsKind } from "./project-settings.ts";
 import { searchKind } from "./search.ts";
@@ -27,6 +29,8 @@ const BUILT_IN_TAB_KINDS = [
   artifactKind,
   workflowKind,
   projectSettingsKind,
+  jobsKind,
+  inboxKind,
 ] as const;
 
 for (const kind of BUILT_IN_TAB_KINDS) registerTabKind(kind);

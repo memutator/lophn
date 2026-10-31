@@ -119,7 +119,7 @@ J1~J6은 정해진 때 도는 일(job)을 만들고 job이 agent를 부를 때�
 - H6. 사람은 project 창과 app space에서 그 그릇의 domain을 보고 만들고 보관하며, `DOMAIN.md`를 editor로 고친다. 경계를 자르는 결정(domain 나누기, 합치기)은 사람이 한다.
 - H7. 사람은 workflow instance를 시작하고 멈춘다(화면, CLI). 정해진 때 시작하게 하려면 job을 agent에게 청한다(J1). 시작이 그 사슬을 agent에게 맡기는 것이다. 멈춘 instance에는 더 넘기지 않는다.
 - H8. 사람 step이 오면, 사람은 `with` 참가자 agent의 session에서 그 agent와 논의하고 결과는 그 agent가 report한다. 사람은 승인 단추가 아니라 참가자다. 순서를 바꾸고 싶으면 그 agent에게 말한다.
-- H9. 사람은 Settings › System › Scheduled jobs(모든 job)와 project 창의 Scheduled jobs panel(그 project와 걸린 job)에서 job을 보고 켜고 끄고 고치고 지운다. 놓친 차례를 `hold`로 둔 job은 대기 목록의 card에서 [Start now]나 [Skip]을 고른다. lophn이 꺼진 사이 놓친 차례와, 켜진 채라도 컴퓨터가 잠들어 차례 시각보다 10분 넘게 늦은 차례가 놓친 차례다.
+- H9. 사람은 Jobs 탭과 왼쪽 sidebar의 Jobs overlay(모든 job)와 project 창의 Scheduled jobs panel(그 project와 걸린 job)에서 job을 보고 켜고 끄고 고치고 지운다. 놓친 차례를 `hold`로 둔 job은 대기 목록의 card에서 [Start now]나 [Skip]을 고른다. lophn이 꺼진 사이 놓친 차례와, 켜진 채라도 컴퓨터가 잠들어 차례 시각보다 10분 넘게 늦은 차례가 놓친 차례다.
 - H10. 앱이 선언한 secret은 사람이 앱 Access 탭에서 넣는다. OAuth secret이면 사람이 그 서비스에 만든 client의 id와 secret을 넣고 [Sign in]한다. agent는 값을 대화로 묻지 않고 무엇을 넣을지 알린다. sign-in이 끊기면 앱이 다시 sign-in하라고 알린다.
 - H11. 사람은 Agents 탭(전역 목록 하나)에서 agent를 만들고 고치고 지운다. lophn은 이름과 profile이 잠기고 지우기가 없다.
 

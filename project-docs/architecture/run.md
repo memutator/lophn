@@ -104,9 +104,9 @@ CLI와 자격(`architecture/coding-agent.md`)
 
 화면
 - run이 연 session은 sidebar에 그대로 두지 않고 그 run 아래로 묶어 보인다. 쌓일 session을 그대로 두면 job이 하루에 session을 수십 개 만든다. 묶는 것은 `session_opened`가 true인 run의 session뿐이다. `--session`으로 이어 쓴 session은 원래 자리에 둔다.
-  - project place의 session은 project sidebar의 Background 칸에서, 앱 place의 session은 그 앱 공간의 agent 목록(Background)에서 묶는다. home의 session은 Home 창의 agent 탭의 것이다. tool run은 session이 없어 run 목록에만 보인다.
+  - project place의 session은 project sidebar의 Background 칸에서, 앱 place의 session은 그 앱 place의 Logs panel에서 묶는다. home의 session은 Home 창의 agent 탭의 것이다. tool run은 session이 없어 run 목록에만 보인다.
   - Agent 탭의 session 목록(session popover)은 모든 session을 찾는 곳이라 run이 연 session도 그대로 보인다.
-- project 창은 처음과 session 상태가 바뀔 때마다 `ListRuns`를 `place: { project }`로 읽는다. home의 run은 Home 창의 agent 탭의 것이다. 앱 공간은 Background 목록이 열려 있는 동안 `place: { app }`으로 읽는다. 읽는 곳은 workspace source의 `runs` 하나다(`packages/shell/renderer/workspace/core-source.ts`).
+- project 창은 처음과 session 상태가 바뀔 때마다 `ListRuns`를 `place: { project }`로 읽는다. home의 run은 Home 창의 agent 탭의 것이다. 앱 place는 Logs panel이 열려 있는 동안 `place: { app }`으로 읽는다. 읽는 곳은 workspace source의 `runs` 하나다(`packages/shell/renderer/workspace/core-source.ts`).
 - job이 연 run 줄(그 job이 아직 있을 때)은 이름 자리에 job 제목을 보이고 agent 이름이나 tool 이름은 둘째 줄이다. 제목은 읽는 곳이 `job.list`로 붙인다(`packages/shell/renderer/workspace/core-source.ts`). 지운 job의 run 줄은 일반 run과 같다.
 - run 줄은 이름 아래에 시작한 시각을 둔다. run 아래에 session 줄이 있으면 running 점은 그 session 줄에만 보인다.
 

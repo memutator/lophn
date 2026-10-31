@@ -1,11 +1,14 @@
-// App details의 Domains 절. 이름 아래에 놓이고 줄마다 domain과 tool 수, 줄 끝 menu(Open DOMAIN.md, Archive)가 있다.
+// 앱 place Domain panel의 본문. 머리 줄의 [New domain], 줄마다 domain과 tool 수, 줄 끝 menu(Open DOMAIN.md, Archive)가 있다.
 // Open DOMAIN.md는 그 줄 바로 아래를 파일 탭과 같은 markdown 편집기로 바꾼다. 다른 화면으로 옮겨 가지 않는다.
 // 앱은 domain이 0개가 되지 못하므로 마지막 active domain 줄은 Archive가 꺼진다. core가 그래도 거절하면 그 이유를 목록 위에 보인다.
 import { useState } from "react";
-import { Button } from "@lophn/ui/primitives";
+import { IconButton } from "@lophn/ui/primitives";
+import { Tooltip } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 
-import { actionIcons } from "../../icons/mod.ts";
+import { actionIcons, shellIcons } from "../../icons/mod.ts";
+import { PanelRow, PanelRows, TileIcon } from "../../shell/panel-rows.tsx";
+import { PanelActions } from "../../shell/right-sidebar.tsx";
 import { InstructionsEditor } from "../../workspace/agents/editor/instructions-editor.tsx";
 import type { InstructionsFile } from "../../workspace/agents/views.ts";
 import { DomainMenu } from "../../workspace/domains/domain-menu.tsx";
@@ -47,17 +50,17 @@ export function DomainsSection({
   };
 
   return (
-    <section className={styles.section} aria-label={t("domain.heading.list")}>
-      <div className={styles.head}>
-        <h4 className={styles.label}>{t("domain.heading.list")}</h4>
-        <Button
-          size="sm"
-          icon={actionIcons.add}
-          onClick={() => setCreating(true)}
-        >
-          {t("domain.button.new")}
-        </Button>
-      </div>
+    <div data-app-domains="">
+      <PanelActions>
+        <Tooltip content={t("domain.button.new")}>
+          <IconButton
+            size="sm"
+            icon={actionIcons.add}
+            label={t("domain.button.new")}
+            onClick={() => setCreating(true)}
+          />
+        </Tooltip>
+      </PanelActions>
       {notice === null ? null : (
         <DomainNotice
           notice={notice}
@@ -68,33 +71,28 @@ export function DomainsSection({
       {loaded.state === "failed" ? (
         <p className={styles.failed}>{t("domain.error.load-failed")}</p>
       ) : null}
-      <div>
+      <PanelRows label={t("domain.heading.list")}>
         {rows.map((domain) => (
-          <div
-            key={domain.id}
-            className={styles.item}
-            data-domain={domain.name}
-          >
-            <div className={styles.row}>
-              <span className={styles.text}>
-                <span className={styles.title}>{domain.title}</span>
-                <span className={styles.name}>{domain.name}</span>
-              </span>
-              <span className={styles.counts}>
-                {t("domain.label.tool-counts", {
-                  tools: domain.tools,
-                  shared: domain.shared,
-                })}
-              </span>
-              <span className={styles.action}>
+          <div key={domain.id}>
+            <PanelRow
+              data-domain={domain.name}
+              leading={<TileIcon icon={shellIcons.domain} />}
+              title={domain.title}
+              tag={domain.name}
+              meta={t("domain.label.tool-counts", {
+                tools: domain.tools,
+                shared: domain.shared,
+              })}
+              hoverTrailing
+              trailing={
                 <DomainMenu
                   title={domain.title}
                   archiveBlocked={rows.length <= 1}
                   onOpenDoc={() => void openDoc(domain.id)}
                   onArchive={() => void domains.archive(domain)}
                 />
-              </span>
-            </div>
+              }
+            />
             {doc?.domain !== domain.id ? null : doc.failed ? (
               <p className={styles.failed}>{t("domain.error.doc-failed")}</p>
             ) : doc.file === null ? null : (
@@ -125,13 +123,13 @@ export function DomainsSection({
             )}
           </div>
         ))}
-      </div>
+      </PanelRows>
       {creating ? (
         <CreateDomainDialog
           onCreate={domains.create}
           onClose={() => setCreating(false)}
         />
       ) : null}
-    </section>
+    </div>
   );
 }

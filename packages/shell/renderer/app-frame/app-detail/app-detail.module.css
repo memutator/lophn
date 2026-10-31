@@ -112,7 +112,7 @@
 
 .rowText {
   display: flex;
-  flex: 1;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-1);
   min-width: var(--space-0);
@@ -170,6 +170,10 @@
   border-radius: var(--radius-md);
 }
 
+.list[data-rewind-list] {
+  overflow-x: auto;
+}
+
 .list > li + li {
   border-top: var(--border-width) solid var(--color-border-subtle);
 }
@@ -177,6 +181,7 @@
 /* 행 오른쪽 끝에 단추나 상태가 놓이는 목록 줄 */
 .item {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
@@ -287,11 +292,13 @@
   flex-direction: column;
   border: var(--border-width) solid var(--color-border-base);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  overflow-x: auto;
 }
 
+/* 오른쪽 sidebar는 좁아서 표가 이 폭 아래로 줄지 않고 옆으로 scroll한다. */
 .tableHead,
 .tableRow {
+  min-width: calc(var(--space-12) * 11);
   display: grid;
   grid-template-columns:
     var(--space-11) minmax(var(--space-0), 1.5fr) minmax(var(--space-0), 1.4fr)
@@ -376,6 +383,7 @@
 
 /* rewind panel */
 .rewindRow {
+  min-width: calc(var(--space-12) * 7);
   display: grid;
   grid-template-columns: calc(var(--space-11) + var(--space-4))
     calc(var(--space-12) + var(--space-5)) minmax(var(--space-0), 1fr) auto;

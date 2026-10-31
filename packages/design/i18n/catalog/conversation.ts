@@ -446,7 +446,7 @@ export const conversation = {
   "conversation.title.approval-run": "{agent} wants to run {tool}",
   "conversation.title.consent-handled": "Release approval request handled",
   "conversation.title.consent-waiting":
-    "Waiting for your approval to release {release}",
+    "Waiting for your approval to release {app}",
   "conversation.title.call-asked": "Asked {to}",
   "conversation.title.call-handoff": "Handoff to {to}",
   "conversation.title.call-working-with": "Working with {to}",

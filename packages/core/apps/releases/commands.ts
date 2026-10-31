@@ -451,7 +451,7 @@ export function createReleaseCommands(): {
           unreachableTarget,
         );
         if (!found.ok) return found;
-        const { release } = found.value;
+        const { release, app } = found.value;
         if (release.status !== "prepared") {
           return conflict("only a prepared release waits for consent");
         }
@@ -476,6 +476,7 @@ export function createReleaseCommands(): {
         pushConsentEvent(tx, {
           type: "ActivationConsentRequested",
           app: release.app,
+          app_name: app.name,
           release: release.id,
         });
         return ok({ created: true });

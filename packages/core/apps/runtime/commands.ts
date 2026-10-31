@@ -262,7 +262,11 @@ export function createRuntimeCommands(): {
               type: "AppRestartHalted",
               subject: input.app,
               at: tx.now(),
-              payload: { release: input.release, crashes: CRASH_LIMIT + 1 },
+              payload: {
+                app_name: current.value.name,
+                release: input.release,
+                crashes: CRASH_LIMIT + 1,
+              },
             });
           }
         }

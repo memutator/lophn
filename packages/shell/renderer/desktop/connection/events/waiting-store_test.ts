@@ -32,6 +32,7 @@ function permission(n: number): TurnRequest {
 function consent(): ActivationConsent {
   return {
     app: APP,
+    app_name: "Orders",
     release: REL,
     comparison: {
       previous_release: null,
@@ -71,7 +72,7 @@ const consentRequested = () =>
     type: "ActivationConsentRequested",
     subject: REL,
     at: AT,
-    payload: { app: APP, release: REL },
+    payload: { app: APP, app_name: "Orders", release: REL },
   });
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));

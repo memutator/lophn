@@ -53,9 +53,7 @@ export function reactionsOf(
       return toast(
         "activation",
         event.payload.release,
-        {
-          app: event.payload.app,
-        },
+        { app: event.payload.app_name },
         { kind: "waiting" },
       );
     case "AppRestartHalted":
@@ -63,7 +61,10 @@ export function reactionsOf(
       return toast(
         "restart-halted",
         `${event.subject}:${event.at}`,
-        { app: event.subject, crashes: String(event.payload.crashes) },
+        {
+          app: event.payload.app_name,
+          crashes: String(event.payload.crashes),
+        },
         { kind: "session", session: null, app: event.subject },
       );
     case "KindViolationFound":

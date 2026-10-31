@@ -99,6 +99,7 @@ const RELEASE_7 = id("rel", 7);
 
 export const ACTIVATION = (): ActivationConsent => ({
   app: ORDERS,
+  app_name: "Orders",
   release: RELEASE_7,
   comparison: {
     previous_release: RELEASE_6,
@@ -126,6 +127,7 @@ export const ACTIVATION = (): ActivationConsent => ({
 
 export const FIRST_ACTIVATION = (): ActivationConsent => ({
   app: BUDGET,
+  app_name: "Budget",
   release: id("rel", 1),
   comparison: {
     previous_release: null,

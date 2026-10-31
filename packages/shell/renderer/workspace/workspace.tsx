@@ -1654,12 +1654,13 @@ export function Workspace(props: WorkspaceProps) {
               <div className={styles.left}>
                 <div className={styles.leftHead}>
                   <LauncherButton onLauncher={onLauncher} />
-                  <span className={styles.grow} />
                   <WaitingLayer
+                    align="start"
                     onOpenSession={(session) =>
                       runToastAction({ kind: "session", session })
                     }
                   />
+                  <span className={styles.grow} />
                   <Tooltip content={t("common.button.settings")}>
                     <IconButton
                       icon={settingsEntryIcon}

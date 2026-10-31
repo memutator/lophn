@@ -19,6 +19,12 @@
   app-region: no-drag;
 }
 
+/* 왼쪽 sidebar 안의 단추는 panel을 오른쪽으로 펼친다. */
+.layer[data-align="start"] .floating {
+  right: auto;
+  left: 0;
+}
+
 /* 알림 단추 오른쪽 위의 개수. 단추를 가리지 않게 클릭은 통과시킨다. */
 .badge {
   position: absolute;

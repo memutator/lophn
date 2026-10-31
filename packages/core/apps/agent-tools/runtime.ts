@@ -30,7 +30,13 @@ export const RUNTIME_TOOLS: readonly ToolDefinition[] = [
       const read = await readOf(ctx.core, appRuntime, input);
       if (!read.ok) return read;
       const { body } = readBody(read.value);
-      return ok(fitted(`app ${input.app} is ${body.state}`, body));
+      const reason =
+        body.state.reason === undefined
+          ? ""
+          : ` (${body.state.reason.code}: ${body.state.reason.summary})`;
+      return ok(
+        fitted(`app ${input.app} is ${body.state.state}${reason}`, body),
+      );
     },
   }),
   defineTool({

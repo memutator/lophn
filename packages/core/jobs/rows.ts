@@ -43,6 +43,7 @@ export function jobFromRow(
     action: JSON.parse(String(row.action)),
     missed_policy: row.missed_policy,
     enabled: Number(row.enabled) === 1,
+    approved_at: row.approved_at,
     next_due_at: row.next_due_at,
     last_run:
       lastRun === null

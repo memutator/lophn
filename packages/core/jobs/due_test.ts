@@ -7,7 +7,7 @@ import { createSql } from "../storage/ledger/sqlite.ts";
 import { createDueCommands } from "./due.ts";
 import { jobZonePort } from "./ports.ts";
 import { jobsSchemaSteps } from "./schema.ts";
-import { insertJob, insertJobRun, loadJobRuns } from "./store.ts";
+import { approveJob, insertJob, insertJobRun, loadJobRuns } from "./store.ts";
 
 const T = (hour: number, minute = 0) =>
   `2026-10-22T${String(hour).padStart(2, "0")}:${String(minute).padStart(
@@ -29,7 +29,7 @@ const WORKFLOW: JobAction = {
 // 시각은 변수 하나다. 실제로 기다리지 않는다.
 function setup() {
   const db = new DatabaseSync(":memory:");
-  db.exec(jobsSchemaSteps[0]!.sql);
+  for (const step of jobsSchemaSteps) db.exec(step.sql);
   const sql = createSql(db, () => true);
   let now = T(0);
   let seq = 0;
@@ -44,7 +44,13 @@ function setup() {
     port: (key: unknown) => ports.get(key) ?? { push: () => {} },
   } as unknown as Tx;
   const commands = createDueCommands();
-  const job = (action: JobAction, policy: MissedPolicy, next: string) => {
+  // approved가 false면 사람의 승인을 기다리는 job이다.
+  const job = (
+    action: JobAction,
+    policy: MissedPolicy,
+    next: string,
+    approved = true,
+  ) => {
     const id = tx.newId("job");
     insertJob(sql, {
       id,
@@ -55,9 +61,9 @@ function setup() {
       action,
       missed_policy: policy,
       enabled: true,
-      next_due_at: next,
       created_at: T(0),
     });
+    if (approved) approveJob(sql, id, { approved_at: T(0), next_due_at: next });
     return id;
   };
   const runRow = (jobId: string, state: "running" | "held", dueAt: string) => {
@@ -99,6 +105,37 @@ function setup() {
     setNow: (at: string) => (now = at),
   };
 }
+
+// 사람이 승인하지 않은 job이 돌면 agent가 혼자 정한 일이 사람 없이 바깥 효과를 낸다.
+test("a job waiting for approval never runs: no turn on claim, and its held run cannot start", () => {
+  const t = setup();
+  try {
+    const pending = t.job(TOOL, "hold", T(1), false);
+    // next_due_at이 남아 있어도(옛 data) 승인 전이면 돌지 않는다.
+    t.db
+      .prepare("UPDATE jobs SET next_due_at = ? WHERE id = ?")
+      .run(T(1), pending);
+    const held = t.runRow(pending, "held", T(1));
+    t.setNow(T(5));
+    for (const startup of [true, false]) {
+      assert.deepStrictEqual(t.claim(startup).start, []);
+    }
+    assert.deepStrictEqual(
+      t.runs(pending).map((run) => run.state),
+      ["held"],
+    );
+    const decided = t.commands.decideHold.handle(
+      t.tx,
+      USER,
+      { job_run: held as never, choice: "run_now" },
+      {} as never,
+    );
+    assert.deepStrictEqual(decided.ok ? "ok" : decided.error.code, "conflict");
+    assert.deepStrictEqual(t.claim(false).start, []);
+  } finally {
+    t.db.close();
+  }
+});
 
 // 놓친 차례를 줄마다 돌리면 lophn을 켤 때마다 job이 여러 번 돈다.
 test("missed turns fold into one job run and the job runs once", () => {

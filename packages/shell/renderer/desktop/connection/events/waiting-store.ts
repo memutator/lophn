@@ -1,8 +1,8 @@
-// 대기 목록. 사람이 답할 것(turn request, activation 동의, 질문, job의 놓친 차례)을 session을 가리지 않고 한 목록에 든다.
+// 대기 목록. 사람이 답할 것(turn request, activation 동의, 질문, job 등록 승인, job의 놓친 차례)을 session을 가리지 않고 한 목록에 든다.
 // 항목은 원래 request 값을 그대로 들고, 같은 id는 한 번만 든다.
 import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
 import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
-import type { JobHold } from "../../../../../protocol/jobs/jobs.ts";
+import type { JobHold, JobRecord } from "../../../../../protocol/jobs/jobs.ts";
 import type {
   BusEvent,
   EventCondition,
@@ -18,6 +18,7 @@ import type { EventClient } from "./client.ts";
 import {
   readActivationConsents,
   readJobHolds,
+  readJobPending,
   readSessionSnapshots,
 } from "./snapshots.ts";
 import { createValueStore, syncOnReady } from "./store.ts";
@@ -52,7 +53,12 @@ export type WaitingEntry =
       readonly request: ActivationConsent;
     })
   // 놓친 차례를 사람이 정한다. id는 job run이다. session도 request도 없는 job 표의 줄이다.
-  | (Common & { readonly kind: "job_hold"; readonly hold: JobHold });
+  | (Common & { readonly kind: "job_hold"; readonly hold: JobHold })
+  // agent가 만든 job의 등록 승인. id는 job이다.
+  | (Common & { readonly kind: "job_approval"; readonly job: JobRecord });
+
+type JobReads = { holds: JobHold[]; pending: JobRecord[] };
+const JOB_KINDS: readonly WaitingEntry["kind"][] = ["job_hold", "job_approval"];
 
 /** 사람이 보지 않는 사이 turn이 끝난 터미널 탭의 coding agent. */
 export interface FinishedTerminal {
@@ -185,6 +191,18 @@ export function createWaitingStore(
     };
   }
 
+  function jobApproval(job: JobRecord): WaitingEntry {
+    return {
+      id: job.id,
+      kind: "job_approval",
+      session: null,
+      agent: job.creator.agent,
+      place: job.creator.place,
+      receivedAt: job.created_at,
+      job,
+    };
+  }
+
   function question(
     session: string,
     request: QuestionRequest,
@@ -230,8 +248,8 @@ export function createWaitingStore(
         entries.delete(event.payload.release);
         break;
       case "JobChanged":
-        // 어느 줄이 바뀌었는지 event에 없다. hold를 다시 읽어 맞추고, 그 읽기가 publish한다.
-        void refreshHolds();
+        // 어느 줄이 바뀌었는지 event에 없다. hold와 승인 대기를 다시 읽어 맞추고, 그 읽기가 publish한다.
+        void refreshJobs();
         return;
       default:
         return;
@@ -257,16 +275,29 @@ export function createWaitingStore(
     return next;
   }
 
+  // hold와 승인 대기는 둘 다 읽혀야 맞춘다.
+  async function readJobs(): Promise<JobReads | null> {
+    const [holds, pending] = await Promise.all([
+      readJobHolds(client.core),
+      readJobPending(client.core),
+    ]);
+    return holds === null || pending === null ? null : { holds, pending };
+  }
+
+  function jobEntries(jobs: JobReads): WaitingEntry[] {
+    return [...jobs.pending.map(jobApproval), ...jobs.holds.map(jobHold)];
+  }
+
   async function readAll() {
-    const [snapshots, consents, holds] = await Promise.all([
+    const [snapshots, consents, jobs] = await Promise.all([
       readSessionSnapshots(client.core),
       readActivationConsents(client.core),
-      readJobHolds(client.core),
+      readJobs(),
     ]);
     // snapshot과 동의는 둘 다 읽혀야 통째로 맞춘다. 하나만 읽고 맞추면 읽지 못한 쪽 항목이 지워진다.
-    // hold는 따로 본다. 못 읽으면(null) 지금의 job_hold 항목을 둔 채 나머지만 맞춘다.
+    // job은 따로 본다. 못 읽으면(null) 지금의 job 항목을 둔 채 나머지만 맞춘다.
     if (snapshots === null || consents === null) return null;
-    return { snapshots, consents, holds };
+    return { snapshots, consents, jobs };
   }
 
   async function refreshConsents() {
@@ -280,29 +311,30 @@ export function createWaitingStore(
     publish();
   }
 
-  async function refreshHolds() {
-    const holds = await readJobHolds(client.core);
-    if (holds === null) return;
-    const open = new Set(holds.map((one) => one.job_run.id));
+  async function refreshJobs() {
+    const jobs = await readJobs();
+    if (jobs === null) return;
+    const next = jobEntries(jobs);
+    const open = new Set(next.map((one) => one.id));
     for (const [id, entry] of entries) {
-      if (entry.kind === "job_hold" && !open.has(id)) entries.delete(id);
+      if (JOB_KINDS.includes(entry.kind) && !open.has(id)) entries.delete(id);
     }
-    for (const one of holds) put(jobHold(one));
+    for (const one of next) put(one);
     publish();
   }
 
   function replace(read: {
     snapshots: SessionSnapshot[];
     consents: ActivationConsent[];
-    holds: JobHold[] | null;
+    jobs: JobReads | null;
   }) {
-    // hold를 못 읽었으면 지금의 hold 항목도 그대로 둔다.
+    // job을 못 읽었으면 지금의 job 항목도 그대로 둔다.
     const kept = [...entries.values()].filter(
-      (entry) => read.holds === null && entry.kind === "job_hold",
+      (entry) => read.jobs === null && JOB_KINDS.includes(entry.kind),
     );
     const next = replaceTurnRequests(read.snapshots);
     for (const one of read.consents) next.push(consent(one));
-    for (const one of read.holds ?? []) next.push(jobHold(one));
+    if (read.jobs !== null) next.push(...jobEntries(read.jobs));
     next.sort((a, b) => (a.receivedAt < b.receivedAt ? -1 : 1));
     entries = new Map();
     for (const entry of next) put(entry);

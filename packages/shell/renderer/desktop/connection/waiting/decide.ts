@@ -6,7 +6,10 @@ import {
   turnRequestDecide,
 } from "../../../../../protocol/approvals/turn-request.ts";
 import { activationConsent } from "../../../../../protocol/apps/activation/consent.ts";
-import { jobDecideHold } from "../../../../../protocol/jobs/jobs.ts";
+import {
+  jobApprove,
+  jobDecideHold,
+} from "../../../../../protocol/jobs/jobs.ts";
 import {
   type AskAnswer,
   askAnswer,
@@ -147,6 +150,30 @@ export async function decideJobHold(
   if (!reply) return UNAVAILABLE;
   if (!reply.ok) return { ok: false, code: reply.error?.code ?? "unavailable" };
   return jobDecideHold.output.safeParse(reply.value).success
+    ? { ok: true }
+    : UNAVAILABLE;
+}
+
+/** job 등록을 승인하거나 거절한다(거절은 job을 지운다). 항목은 JobChanged 뒤 다시 읽을 때 빠진다. */
+export async function decideJobApproval(
+  core: CoreSource,
+  entry: WaitingEntry & { kind: "job_approval" },
+  choice: "approve" | "reject",
+): Promise<
+  { readonly ok: true } | { readonly ok: false; readonly code: string }
+> {
+  const reply = await core
+    .call(
+      commandCall(jobApprove, {
+        input: { job: entry.id, choice },
+        compare: {},
+        key: `job-approve-${entry.id}-${choice}-${crypto.randomUUID()}`,
+      }),
+    )
+    .catch(() => null);
+  if (!reply) return UNAVAILABLE;
+  if (!reply.ok) return { ok: false, code: reply.error?.code ?? "unavailable" };
+  return jobApprove.output.safeParse(reply.value).success
     ? { ok: true }
     : UNAVAILABLE;
 }

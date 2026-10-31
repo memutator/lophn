@@ -29,7 +29,7 @@ const agents: Record<string, AgentAtPlace> = {
 test("agent는 같은 agent가 같은 place에서 만든 job만 고치고 지운다. 다른 place의 같은 agent와 다른 agent에게는 없는 job이고, 사람은 모두 고치고 지운다", () => {
   const db = new DatabaseSync(":memory:");
   try {
-    db.exec(jobsSchemaSteps[0]!.sql);
+    for (const step of jobsSchemaSteps) db.exec(step.sql);
     const sql = createSql(db, () => true);
     const ports = new Map<unknown, unknown>([
       [

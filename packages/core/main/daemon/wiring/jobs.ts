@@ -127,7 +127,6 @@ export const jobsWiring: WiringFactory = () => {
           const origin: RunOrigin = {
             job: job.id as Id<"job">,
             job_run: jobRun.id as Id<"jbr">,
-            creator: job.creator,
           };
           const input =
             action.input === undefined ? {} : { input: action.input };

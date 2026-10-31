@@ -14,9 +14,12 @@ import {
   sessionSnapshotsList,
 } from "../../../../../protocol/events/mod.ts";
 import {
+  jobApprove,
   jobDecideHold,
   type JobHold,
   jobHolds,
+  jobPending,
+  type JobRecord,
 } from "../../../../../protocol/jobs/jobs.ts";
 import {
   askAnswer,
@@ -160,6 +163,7 @@ function jobHold(
       ...job,
       missed_policy: "hold",
       enabled: true,
+      approved_at: hoursAgo(24 * 30),
       next_due_at: hoursAgo(-6),
       last_run: {
         job_run: jid("jbr", n),
@@ -229,6 +233,25 @@ export const JOB_HOLD_WORKFLOW = () =>
     },
   });
 
+/** 앱 place에서 lophn이 만든, 승인을 기다리는 앱 tool 호출. */
+export const JOB_APPROVAL_TOOL = (): { approval: JobRecord } => ({
+  approval: {
+    id: jid("job", 21),
+    title: "Sync usage",
+    creator: { agent: "lophn", place: { kind: "app", id: ORDERS } },
+    every: "15m",
+    at: null,
+    action: { kind: "tool_run", app: ORDERS, tool: "usage.sync" },
+    missed_policy: "run",
+    enabled: true,
+    approved_at: null,
+    next_due_at: null,
+    last_run: null,
+    created_at: ago(3),
+    updated_at: ago(3),
+  },
+});
+
 /** 앞 차례가 아직 돌아 [Start now]가 conflict로 막히는 workflow 시작. */
 export const JOB_HOLD_BLOCKED = () => ({
   ...JOB_HOLD_WORKFLOW(),
@@ -257,6 +280,7 @@ type Item =
   | ActivationConsent
   | JobHold
   | ReturnType<typeof JOB_HOLD_BLOCKED>
+  | ReturnType<typeof JOB_APPROVAL_TOOL>
   | "question";
 
 /** 모든 종류가 섞인 한 목록. */
@@ -264,6 +288,7 @@ export const allItems = (): readonly Item[] => [
   SHELL_COMMAND(),
   "question",
   ACTIVATION(),
+  JOB_APPROVAL_TOOL(),
   JOB_HOLD_AGENT(),
 ];
 
@@ -315,6 +340,7 @@ export function createFakeWaiting(
   const used: FakeSession[] = [];
   let consents: ActivationConsent[] = [];
   let holds: JobHold[] = [];
+  let pending: JobRecord[] = [];
   const blocked = new Set<string>();
   let questionSession: FakeSession | null = null;
 
@@ -355,6 +381,8 @@ export function createFakeWaiting(
         ...snapshot,
         turn_requests: [...snapshot.turn_requests, item.request],
       });
+    } else if ("approval" in item) {
+      pending.push(item.approval);
     } else if ("job_run" in item) {
       holds.push(item);
       if ("blocked" in item) blocked.add(item.job_run.id);
@@ -452,6 +480,25 @@ export function createFakeWaiting(
       }
       if (key === `read:${jobHolds.resource}/${jobHolds.method}`) {
         return ok({ ...COMMON, holds });
+      }
+      if (key === `read:${jobPending.resource}/${jobPending.method}`) {
+        return ok({ ...COMMON, jobs: pending });
+      }
+      if (key === `command:${jobApprove.resource}/${jobApprove.method}`) {
+        const decided = body.input as { job: string; choice: string };
+        const job = pending.find((one) => one.id === decided.job);
+        if (!job) return fail("not_found");
+        pending = pending.filter((one) => one !== job);
+        emitEvent(base, {
+          type: "JobChanged",
+          subject: job.id,
+          at: at(),
+          payload: { job_run: null },
+        });
+        return ok({
+          job:
+            decided.choice === "reject" ? null : { ...job, approved_at: at() },
+        });
       }
       if (key === `command:${jobDecideHold.resource}/${jobDecideHold.method}`) {
         const decided = body.input as { job_run: string; choice: string };

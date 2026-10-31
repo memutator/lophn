@@ -18,6 +18,7 @@ import {
 
 // last_run은 저장하지 않고 읽을 때 그 job의 가장 새 job run으로 채운다.
 // creator는 job을 만든 session의 (agent, place)다.
+// approved_at이 null이면 사람의 등록 승인을 기다린다. 승인 전에는 돌지 않는다(next_due_at도 null).
 export const jobRecordSchema = z.object({
   id: jobIdSchema,
   title: jobTitleSchema,
@@ -27,7 +28,8 @@ export const jobRecordSchema = z.object({
   action: jobActionSchema,
   missed_policy: missedPolicySchema,
   enabled: z.boolean(),
-  next_due_at: atSchema.nullable(), // 꺼져 있으면 null
+  approved_at: atSchema.nullable(),
+  next_due_at: atSchema.nullable(), // 꺼져 있거나 승인 전이면 null
   last_run: z
     .object({
       job_run: jobRunIdSchema,
@@ -76,7 +78,7 @@ const jobRunRef = { job_run: jobRunIdSchema };
 
 // revision과 compare를 두지 않는다. 동시에 고치는 쪽이 사람 화면과 agent 정도라 마지막 쓰기가 이긴다.
 // 칸 사이 검사(at은 every가 d 단위일 때만)와 이름 풀기는 core가 본다.
-// 사람은 job을 만들지 못한다.
+// 사람은 job을 만들지 못한다. 만든 job은 사람이 승인(job.approve)해야 돈다.
 export const jobCreate = defineCommand({
   resource: "jobs",
   method: "create",
@@ -110,7 +112,6 @@ export const jobUpdate = defineCommand({
     title: jobTitleSchema.optional(),
     every: jobEverySchema.optional(),
     at: jobAtSchema.nullable().optional(),
-    action: jobActionInputSchema.optional(),
     missed_policy: missedPolicySchema.optional(),
     enabled: z.boolean().optional(),
   }),
@@ -124,6 +125,20 @@ export const jobUpdate = defineCommand({
     "unauthorized",
     "conflict",
   ],
+});
+
+// 할 일(action)은 고치지 못한다. 사람이 승인한 할 일이 그대로 돌게 하려는 것이다. 다른 일은 새 job으로 만든다.
+
+// 사람이 job 등록을 한 번 승인한다. reject는 job을 지운다(output job은 null).
+export const jobApprove = defineCommand({
+  resource: "jobs",
+  method: "approve",
+  name: "job.approve",
+  input: z.strictObject({ ...jobRef, choice: z.enum(["approve", "reject"]) }),
+  output: z.object({ job: jobRecordSchema.nullable() }),
+  compare: z.strictObject({}),
+  actors: ["user"],
+  errors: ["invalid_input", "not_found", "unauthorized", "conflict"],
 });
 
 export const jobDelete = defineCommand({
@@ -173,6 +188,17 @@ export const jobHolds = defineRead({
   name: "job.holds",
   input: z.strictObject({}),
   output: withReadCommon(z.object({ holds: z.array(jobTurnSchema) })),
+  actors: ["user"],
+  errors: [...readErrors],
+});
+
+// 승인을 기다리는 job. 오래된 것이 앞이고 쪽을 나누지 않는다.
+export const jobPending = defineRead({
+  resource: "jobs",
+  method: "pending",
+  name: "job.pending",
+  input: z.strictObject({}),
+  output: withReadCommon(z.object({ jobs: z.array(jobRecordSchema) })),
   actors: ["user"],
   errors: [...readErrors],
 });
@@ -262,9 +288,11 @@ export const jobRunEnded = defineCommand({
 export const JOB_ROUTES = [
   jobCreate,
   jobUpdate,
+  jobApprove,
   jobDelete,
   jobList,
   jobRunList,
+  jobPending,
   jobHolds,
   jobDecideHold,
   jobClaimDue,

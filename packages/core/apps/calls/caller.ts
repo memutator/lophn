@@ -13,8 +13,6 @@ export type CallAuth = {
   program?: {
     job: Id<"job">;
     job_run: Id<"jbr">;
-    agent: AgentId;
-    place: Place | null;
   };
   // actor가 flow일 때만 있다. program과 같이 route는 만들지 못하고 core 안 run 연산만 만든다.
   flow?: {
@@ -37,13 +35,7 @@ export type VerifiedCaller =
       toolCall: Id<"tcl">;
     }
   | { kind: "app"; app: Id<"app">; parent: Flight }
-  | {
-      kind: "program";
-      job: Id<"job">;
-      job_run: Id<"jbr">;
-      agent: AgentId;
-      place: Place | null;
-    }
+  | { kind: "program"; job: Id<"job">; job_run: Id<"jbr"> }
   | {
       kind: "flow";
       instance: Id<"wfi">;
@@ -138,8 +130,6 @@ export function verifyCaller(
       kind: "program",
       job: program.job,
       job_run: program.job_run,
-      agent: program.agent,
-      place: program.place,
     });
   }
 

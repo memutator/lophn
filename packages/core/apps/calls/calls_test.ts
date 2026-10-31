@@ -231,7 +231,7 @@ function flowAuth(instance = WFI): CallAuth {
 function programAuth(): CallAuth {
   return {
     actor: "program",
-    program: { job: JOB, job_run: RUN, agent: "lophn", place: null },
+    program: { job: JOB, job_run: RUN },
   };
 }
 
@@ -728,7 +728,7 @@ test("agent는 할당하지 않은 앱의 tool과 할당에서 뺀 tool을 부�
   }
 });
 
-test("job과 workflow instance가 부르는 앱 tool은 만든 agent(job의 creator, flow instance의 creator)의 할당이나 domain 밖이면 실행되지 않는다", async () => {
+test("workflow instance가 부르는 앱 tool은 flow instance의 creator의 할당이나 domain 밖이면 실행되지 않는다", async () => {
   const assigned = newApp();
   const other = newApp();
   const rows: {
@@ -791,7 +791,6 @@ test("job과 workflow instance가 부르는 앱 tool은 만든 agent(job의 crea
     },
   ];
   const kinds: [string, AppToolCaller, () => CallAuth][] = [
-    ["program", programCaller(JOB, RUN), programAuth],
     ["flow", flowCaller(WFI), flowAuth],
   ];
   for (const [kind, caller, auth] of kinds) {

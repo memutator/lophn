@@ -62,6 +62,7 @@ export function loadJobs(
   return ok(jobs);
 }
 
+// 새 job은 승인 대기다(approved_at, next_due_at이 NULL).
 export function insertJob(
   sql: Write,
   job: {
@@ -73,7 +74,6 @@ export function insertJob(
     action: JobAction;
     missed_policy: MissedPolicy;
     enabled: boolean;
-    next_due_at: string | null;
     created_at: string;
   },
 ): void {
@@ -81,8 +81,8 @@ export function insertJob(
   sql.run(
     `INSERT INTO jobs
       (id, title, creator_agent, creator_place, every, at, action, missed_policy,
-       enabled, next_due_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       enabled, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       job.id,
       job.title,
@@ -93,7 +93,6 @@ export function insertJob(
       JSON.stringify(job.action),
       job.missed_policy,
       job.enabled ? 1 : 0,
-      job.next_due_at,
       job.created_at,
       job.created_at,
     ],
@@ -107,7 +106,6 @@ export function replaceJob(
     title: string;
     every: string;
     at: string | null;
-    action: JobAction;
     missed_policy: MissedPolicy;
     enabled: boolean;
     next_due_at: string | null;
@@ -115,13 +113,12 @@ export function replaceJob(
   },
 ): void {
   sql.run(
-    `UPDATE jobs SET title = ?, every = ?, at = ?, action = ?, missed_policy = ?,
+    `UPDATE jobs SET title = ?, every = ?, at = ?, missed_policy = ?,
        enabled = ?, next_due_at = ?, updated_at = ? WHERE id = ?`,
     [
       fields.title,
       fields.every,
       fields.at,
-      JSON.stringify(fields.action),
       fields.missed_policy,
       fields.enabled ? 1 : 0,
       fields.next_due_at,
@@ -129,6 +126,31 @@ export function replaceJob(
       id,
     ],
   );
+}
+
+export function approveJob(
+  sql: Write,
+  id: string,
+  fields: { approved_at: string; next_due_at: string | null },
+): void {
+  sql.run(
+    "UPDATE jobs SET approved_at = ?, next_due_at = ?, updated_at = ? WHERE id = ?",
+    [fields.approved_at, fields.next_due_at, fields.approved_at, id],
+  );
+}
+
+// 승인을 기다리는 job. id 순이 곧 만든 순이다.
+export function loadPendingJobs(sql: Query): Result<JobRecord[]> {
+  const jobs: JobRecord[] = [];
+  for (const row of sql.all(
+    "SELECT * FROM jobs WHERE approved_at IS NULL ORDER BY id",
+    [],
+  )) {
+    const job = withLastRun(sql, row);
+    if (!job.ok) return job;
+    jobs.push(job.value);
+  }
+  return ok(jobs);
 }
 
 // 차례를 가져가는 claim이 쓴다. 사람이 고친 것이 아니라 updated_at은 건드리지 않는다.

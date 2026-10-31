@@ -13,6 +13,7 @@ import {
   FIRST_ACTIVATION,
   JOB_HOLD_AGENT,
   JOB_HOLD_BLOCKED,
+  JOB_APPROVAL_TOOL,
   JOB_HOLD_TOOL,
   JOB_HOLD_WORKFLOW,
   SETTLED,
@@ -212,6 +213,14 @@ export const WaitingSettled = () => (
 export const WaitingJobHolds = () => (
   <Over
     items={[SHELL_COMMAND(), ACTIVATION(), JOB_HOLD_AGENT()]}
+    initial={{ open: true }}
+  />
+);
+
+/** job 등록 승인: agent가 만든 job은 사람이 한 번 승인해야 돈다. 주기와 할 일이 보이고 단추는 [Reject](job을 지움), [Approve]이다. */
+export const WaitingJobApproval = () => (
+  <Over
+    items={[JOB_APPROVAL_TOOL(), JOB_HOLD_AGENT()]}
     initial={{ open: true }}
   />
 );

@@ -51,6 +51,7 @@ export const workspaceSettings = {
   "jobs.label.target": "your scheduled jobs",
   "jobs.label.title": "Title",
   "jobs.label.turned-off": "Turned off",
+  "jobs.label.waiting-approval": "Waiting for your approval",
   "jobs.label.unit": "Unit",
   "jobs.label.unit-days": "Days",
   "jobs.label.unit-hours": "Hours",

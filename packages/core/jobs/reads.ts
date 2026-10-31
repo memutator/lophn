@@ -3,6 +3,7 @@ import { type Id, parseActor } from "../../protocol/base/mod.ts";
 import {
   jobHolds,
   jobList,
+  jobPending,
   jobRunList,
   jobRunOpen,
   type JobRunRecord,
@@ -18,6 +19,7 @@ import {
   loadJobRuns,
   loadJobs,
   loadOpenRuns,
+  loadPendingJobs,
 } from "./store.ts";
 
 const PAGE = 50;
@@ -42,6 +44,7 @@ function turnsOf(
 export function createJobReads(): {
   list: ReadDefinition<typeof jobList>;
   runList: ReadDefinition<typeof jobRunList>;
+  pending: ReadDefinition<typeof jobPending>;
   holds: ReadDefinition<typeof jobHolds>;
   open: ReadDefinition<typeof jobRunOpen>;
 } {
@@ -97,6 +100,19 @@ export function createJobReads(): {
           next_cursor:
             loaded.value.length > PAGE ? page[page.length - 1]!.id : null,
         });
+      },
+    },
+    pending: {
+      route: jobPending,
+      handle(snapshot) {
+        const loaded = loadPendingJobs(snapshot.sql);
+        return loaded.ok
+          ? ok({
+              jobs: loaded.value,
+              as_of_seq: snapshot.as_of_seq,
+              next_cursor: null,
+            })
+          : loaded;
       },
     },
     // job마다 하나라 쪽을 나누지 않는다.

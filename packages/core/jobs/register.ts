@@ -22,20 +22,21 @@ export function createLedgerRegistration(
     commands: [
       commands.create,
       commands.update,
+      commands.approve,
       commands.remove,
       due.claimDue,
       due.started,
       due.ended,
       due.decideHold,
     ],
-    reads: [reads.list, reads.runList, reads.holds, reads.open],
+    reads: [reads.list, reads.runList, reads.pending, reads.holds, reads.open],
   };
 }
 
 export function createReaderRegistration(): ReaderRegistration {
   const reads = createJobReads();
   return {
-    reads: [reads.list, reads.runList, reads.holds, reads.open],
+    reads: [reads.list, reads.runList, reads.pending, reads.holds, reads.open],
     ports: new Map<unknown, unknown>(),
   };
 }

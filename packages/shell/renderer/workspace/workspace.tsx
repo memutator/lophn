@@ -55,8 +55,10 @@ import {
   addDesk,
   allTabs,
   closeDetached,
+  type CloseScope,
   closeFloat,
   closeTab,
+  closeTargets,
   type Desk,
   deskTabs,
   detachTab,
@@ -92,6 +94,7 @@ import { DeskSwitcher } from "../shell/desk-switcher.tsx";
 import { FloatLayer } from "../shell/float-layer.tsx";
 import { PanelTabs } from "../shell/panel-tabs.tsx";
 import { ShellFrame } from "../shell/shell-frame.tsx";
+import { TabContextMenu, type TabMenuState } from "../shell/tab-menu.tsx";
 import {
   type Side,
   type StripEntry,
@@ -978,6 +981,9 @@ export function Workspace(props: WorkspaceProps) {
     title: tab.title,
     icon: iconOfTab(tab),
     dot: tabKindOf(tab.kind)?.dotOf?.(tab, host) ?? null,
+    preview: tab.preview === true,
+    unsaved: isUnsaved(tab.key),
+    renamable: tabKindOf(tab.kind)?.rename !== undefined,
   });
 
   // 사람이 닫은 탭. 창 전체에서 최근 몇 개를 기억해 Ctrl/Cmd+Shift+T가 되살린다. 이름 바꾸기·
@@ -1026,6 +1032,30 @@ export function Workspace(props: WorkspaceProps) {
     void globalThis.navigator?.clipboard?.writeText(
       relative ? relativePath(path) : path,
     );
+  };
+
+  // 탭 menu의 Close others·Close to the right·Close saved·Close all. 탭마다 닫기 확인(beforeClose)을 차례로
+  // 거치고, 사람이 계속 편집을 고르면 거기서 멈춘다(남은 탭도 닫지 않는다).
+  const closeMany = async (scope: CloseScope, key: string) => {
+    for (const target of closeTargets(latestDesk(), scope, key, isUnsaved)) {
+      const tab = latestDesk().tabs.find((item) => item.key === target);
+      if (tab === undefined) continue;
+      const confirm = tabKindOf(tab.kind)?.beforeClose?.(tab, host);
+      if (confirm && !(await confirm)) return;
+      rememberClosed(tab);
+      removeTab(target);
+    }
+  };
+
+  // Reveal in Explorer. 오른쪽 sidebar를 열고 Files에서 그 파일을 알린다.
+  const [reveal, setReveal] = useState<{
+    readonly path: string;
+    readonly nonce: number;
+  } | null>(null);
+  const revealInExplorer = (path: string) => {
+    setPanel("explorer");
+    setRightOpen(true);
+    setReveal({ path, nonce: Date.now() });
   };
 
   // Ctrl/Cmd+Shift+E. 숫자가 바뀔 때마다 오른쪽 sidebar가 Files를 고르고 고른 줄에 focus를 준다.
@@ -1332,14 +1362,95 @@ export function Workspace(props: WorkspaceProps) {
   const shown = (inSplit ? [split.a, split.b] : [desk.selected]).flatMap(
     (key) => deskTab(key) ?? [],
   );
-  const selectedAt = desk.tabs.findIndex((tab) => tab.key === entryKey(desk));
-  const nextTab = desk.tabs[selectedAt + 1] ?? desk.tabs[selectedAt - 1];
-  const splitWithNext = () => {
+  const splitWithNext = (key?: string) => {
     const current = latestDesk();
-    const at = current.tabs.findIndex((tab) => tab.key === current.selected);
+    const from = key ?? current.selected;
+    const at = current.tabs.findIndex((tab) => tab.key === from);
     const next = current.tabs[at + 1] ?? current.tabs[at - 1];
-    if (current.selected === null || next === undefined) return;
-    update((item) => splitWith(item, item.selected!, next.key));
+    if (from === null || at < 0 || next === undefined) return;
+    update((item) => splitWith(item, from, next.key));
+  };
+
+  // tab 메뉴(오른쪽 클릭과 card ⋯)가 보이는 항목.
+  const menuStateOf = (tab: TabItem): TabMenuState => {
+    const tabs = desk.tabs;
+    const member =
+      split !== null && (split.a === tab.key || split.b === tab.key);
+    const lastAt = Math.max(
+      ...(member ? [split.a, split.b] : [tab.key]).map((key) =>
+        tabs.findIndex((item) => item.key === key),
+      ),
+    );
+    return {
+      renamable: tabKindOf(tab.kind)?.rename !== undefined,
+      preview: tab.preview === true,
+      file: pathOfTab(tab) !== null,
+      canDetach:
+        props.detached !== undefined && tabKindOf(tab.kind)?.noDetach !== true,
+      inSplit: member,
+      canSplit: tabs.length > 1,
+      hasOthers: tabs.length > (member ? 2 : 1),
+      hasRight: lastAt < tabs.length - 1,
+    };
+  };
+
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [tabMenu, setTabMenu] = useState<{
+    readonly key: string;
+    readonly x: number;
+    readonly y: number;
+  } | null>(null);
+  const menuTab =
+    tabMenu === null
+      ? undefined
+      : desk.tabs.find((item) => item.key === tabMenu.key);
+
+  const runTabAction = (action: TabAction, key: string) => {
+    const tab = desk.tabs.find((item) => item.key === key);
+    if (tab === undefined) return;
+    const path = pathOfTab(tab);
+    switch (action) {
+      case "rename":
+        setRenaming(key);
+        return;
+      case "close":
+        close(key);
+        return;
+      case "close-others":
+        void closeMany("others", key);
+        return;
+      case "close-right":
+        void closeMany("right", key);
+        return;
+      case "close-saved":
+        void closeMany("saved", key);
+        return;
+      case "close-all":
+        void closeMany("all", key);
+        return;
+      case "keep-open":
+        update((item) => pinTab(item, key));
+        return;
+      case "float":
+        floatByKey(key);
+        return;
+      case "split":
+        splitWithNext(key);
+        return;
+      case "unsplit":
+        update(unsplit);
+        return;
+      case "detach":
+        void detach(key);
+        return;
+      case "copy-path":
+      case "copy-relative-path":
+        if (path !== null) copyPath(path, action === "copy-relative-path");
+        return;
+      case "reveal":
+        if (path !== null) revealInExplorer(path);
+        return;
+    }
   };
 
   // 탭이 파일이면 project 폴더 기준 경로 조각, 아니면 탭 이름이 crumb이다.
@@ -1361,7 +1472,7 @@ export function Workspace(props: WorkspaceProps) {
       key: tab.key,
       crumbs: crumbsOf(tab),
       ...(dot === null ? {} : { status: dotLabel(dot) }),
-      copyPath: pathOfTab(tab) !== null,
+      menu: menuStateOf(tab),
       body: (
         <div key={tab.key} className={styles.tabBody} data-tab-body={tab.key}>
           {bodyOf(tab, !inSplit || focusSide === (index === 0 ? "a" : "b"))}
@@ -1372,15 +1483,7 @@ export function Workspace(props: WorkspaceProps) {
 
   const onCardAction = (action: TabAction, side: Side) => {
     const tab = shown[side === "b" ? 1 : 0];
-    if (tab === undefined) return;
-    if (action === "float") floatByKey(tab.key);
-    else if (action === "split") splitWithNext();
-    else if (action === "unsplit") update(unsplit);
-    else if (action === "detach") void detach(tab.key);
-    else if (action === "copy-path") {
-      const path = pathOfTab(tab);
-      if (path !== null) copyPath(path, false);
-    } else close(tab.key);
+    if (tab !== undefined) runTabAction(action, tab.key);
   };
 
   // tab 줄의 한 칸. split은 칸 하나에 a, b 둘이 붙는다.
@@ -1516,11 +1619,15 @@ export function Workspace(props: WorkspaceProps) {
         canForward={forwardAt >= 0}
         onBack={() => walk(backAt)}
         onForward={() => walk(forwardAt)}
-        canSplit={!inSplit && nextTab !== undefined}
         onFocus={(side) => {
           if (split !== null) update((item) => selectTab(item, split.a, side));
         }}
         onAction={onCardAction}
+        onDropPath={(path) =>
+          openFile(host, path, {
+            ...(desk.selected === null ? {} : { from: desk.selected }),
+          })
+        }
         onEmptyAction={(action) => {
           if (action === "new-session") openLophn();
           else if (pickFile !== undefined) {
@@ -1580,6 +1687,16 @@ export function Workspace(props: WorkspaceProps) {
                   )
                 }
                 onClose={close}
+                onMenu={(key, at) => setTabMenu({ key, ...at })}
+                onPin={(key) => update((item) => pinTab(item, key))}
+                renaming={renaming}
+                onRenaming={setRenaming}
+                onRename={(key, name) => {
+                  const tab = desk.tabs.find((item) => item.key === key);
+                  if (tab !== undefined) {
+                    tabKindOf(tab.kind)?.rename?.(tab, name, host);
+                  }
+                }}
                 onReorder={reorder}
                 onToggleFloat={(key) =>
                   update((item) =>
@@ -1726,6 +1843,7 @@ export function Workspace(props: WorkspaceProps) {
                   currentTab?.kind === "document_editor" ? currentTab.key : null
                 }
                 focusExplorer={explorerFocus}
+                reveal={reveal}
                 onOpenFile={(path, keep) =>
                   openFile(host, path, { preview: keep !== true })
                 }
@@ -1778,6 +1896,14 @@ export function Workspace(props: WorkspaceProps) {
           >
             {mainSection}
           </ShellFrame>
+          {tabMenu === null || menuTab === undefined ? null : (
+            <TabContextMenu
+              at={tabMenu}
+              state={menuStateOf(menuTab)}
+              onSelect={(action) => runTabAction(action, menuTab.key)}
+              onClose={() => setTabMenu(null)}
+            />
+          )}
         </div>
       </WebviewHostProvider>
     </ViewKeepsProvider>

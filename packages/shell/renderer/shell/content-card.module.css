@@ -113,3 +113,9 @@
   gap: var(--space-3);
   margin-block-start: var(--space-3);
 }
+
+/* Explorer의 파일을 끌어 올렸다. */
+.card[data-drop] {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(-1 * var(--border-focus-width));
+}

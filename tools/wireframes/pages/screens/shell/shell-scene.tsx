@@ -8,6 +8,10 @@ import {
 } from "../../../../../packages/shell/renderer/shell/content-card.tsx";
 import { DeskSwitcher } from "../../../../../packages/shell/renderer/shell/desk-switcher.tsx";
 import { FloatLayer } from "../../../../../packages/shell/renderer/shell/float-layer.tsx";
+import {
+  TabContextMenu,
+  type TabMenuState,
+} from "../../../../../packages/shell/renderer/shell/tab-menu.tsx";
 import { PanelTabs } from "../../../../../packages/shell/renderer/shell/panel-tabs.tsx";
 import { ShellFrame } from "../../../../../packages/shell/renderer/shell/shell-frame.tsx";
 import {
@@ -30,7 +34,7 @@ import {
   MockLeftSidebar,
   MockRightSidebar,
 } from "../../../mock/shell-sidebars.tsx";
-import { press, useDrive } from "../../../mock/drive.ts";
+import { contextMenu, press, useDrive } from "../../../mock/drive.ts";
 
 const PANELS = [
   { key: "files", label: "Files", icon: shellIcons.folder },
@@ -54,12 +58,15 @@ export function ShellScene({
   left = true,
   right = true,
   open,
+  context,
 }: {
   variant: Variant;
   left?: boolean;
   right?: boolean;
   /** mount 뒤 눌러서 열어 둘 요소의 selector. */
   open?: string;
+  /** mount 뒤 오른쪽 클릭할 tab의 이름 조각. 그 tab의 menu가 열린다. */
+  context?: string;
 }) {
   const [desks, setDesks] = useState(() => mockDesks(variant));
   const [deskKey, setDeskKey] = useState("_default");
@@ -67,8 +74,14 @@ export function ShellScene({
   const [rightOpen, setRight] = useState(right);
   const [panel, setPanel] = useState("files");
   const [rects, setRects] = useState<Readonly<Record<string, FloatRect>>>({});
+  const [menu, setMenu] = useState<{
+    key: string;
+    x: number;
+    y: number;
+  } | null>(null);
   useDrive(async () => {
     if (open !== undefined) await press(open);
+    if (context !== undefined) await contextMenu('[role="tab"]', context);
   });
 
   const desk = desks.find((d) => d.key === deskKey) ?? desks[0]!;
@@ -166,7 +179,25 @@ export function ShellScene({
       };
     });
 
-  const panes = entry === undefined ? [] : tabsOf(entry).map(cardPane);
+  const menuState = (tab: MockTab): TabMenuState => {
+    const at = desk.entries.findIndex((e) => tabsOf(e).includes(tab));
+    const member = desk.entries[at]?.b !== undefined;
+    return {
+      renamable: tab.kind !== "file",
+      preview: tab.preview === true,
+      file: tab.kind === "file",
+      canDetach: tab.kind !== "terminal",
+      inSplit: member,
+      canSplit: desk.entries.length > 1,
+      hasOthers: desk.entries.length > 1,
+      hasRight: at < desk.entries.length - 1,
+    };
+  };
+  const menuTab = menu === null ? undefined : tabByKey(menu.key);
+  const panes =
+    entry === undefined
+      ? []
+      : tabsOf(entry).map((tab) => cardPane(tab, menuState(tab)));
   const chosen = PANELS.find((p) => p.key === panel) ?? PANELS[0]!;
 
   return (
@@ -198,6 +229,15 @@ export function ShellScene({
             patch(() => ({ selected: key, focus: side }))
           }
           onClose={close}
+          onMenu={(key, at) => setMenu({ key, ...at })}
+          onPin={(key) =>
+            patch((d) => ({
+              entries: d.entries.map((e) => ({
+                ...e,
+                a: e.a.key === key ? { ...e.a, preview: false } : e.a,
+              })),
+            }))
+          }
           onNewTab={() => {}}
           onReorder={reorder}
           onToggleFloat={toggleFloat}
@@ -244,11 +284,20 @@ export function ShellScene({
         canForward={false}
         onBack={() => {}}
         onForward={() => {}}
-        canSplit={next !== undefined}
         onFocus={(side) => patch(() => ({ focus: side }))}
         onAction={action}
         onEmptyAction={() => {}}
       />
+      {menu === null || menuTab === undefined ? null : (
+        <TabContextMenu
+          at={menu}
+          state={menuState(menuTab)}
+          onSelect={(what) => {
+            if (what === "close") close(menuTab.key);
+          }}
+          onClose={() => setMenu(null)}
+        />
+      )}
     </ShellFrame>
   );
 }

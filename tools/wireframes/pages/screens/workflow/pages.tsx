@@ -88,7 +88,6 @@ function WorkflowWindow({
           canForward={false}
           onBack={noop}
           onForward={noop}
-          canSplit={false}
           onFocus={noop}
           onAction={noop}
           onEmptyAction={noop}

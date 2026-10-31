@@ -65,6 +65,25 @@ export async function press(
   await wait(30);
 }
 
+/** 요소 가운데에서 오른쪽 클릭(contextmenu)을 낸다. */
+export async function contextMenu(
+  selector: string,
+  text?: string | RegExp,
+): Promise<void> {
+  const element = await find(selector, text);
+  const box = element.getBoundingClientRect();
+  element.dispatchEvent(
+    new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      button: 2,
+      clientX: box.left + box.width / 2,
+      clientY: box.top + box.height / 2,
+    }),
+  );
+  await wait(30);
+}
+
 /** 글칸에 글을 쓴다. React가 보는 input event로 넣는다. */
 export async function type(
   selector: string,

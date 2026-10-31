@@ -231,6 +231,39 @@ export function closeTab(desk: Desk, key: string): Desk {
   return dropTab(desk, key);
 }
 
+export type CloseScope = "others" | "right" | "saved" | "all";
+
+/**
+ * tab 메뉴의 Close others·Close to the right·Close saved·Close all이 닫으려는 tabs의 key. split의 두 tab은 한 칸이라
+ * key가 어느 쪽이든 짝도 기준 칸에 든다(others는 둘 다 남기고 right는 칸 오른쪽만 닫는다). floats와 detached는 건드리지 않는다.
+ * 닫기 확인(beforeClose)은 거르지 않는다. 호출자가 탭마다 거친다.
+ */
+export function closeTargets(
+  desk: Desk,
+  scope: CloseScope,
+  key: string,
+  isUnsaved: (key: string) => boolean,
+): string[] {
+  const keys = desk.tabs.map((tab) => tab.key);
+  const split = desk.split;
+  const own =
+    split !== null && (key === split.a || key === split.b)
+      ? [split.a, split.b]
+      : [key];
+  switch (scope) {
+    case "others":
+      return keys.filter((item) => !own.includes(item));
+    case "right": {
+      const last = Math.max(...own.map((item) => keys.indexOf(item)));
+      return keys.slice(last + 1);
+    }
+    case "saved":
+      return keys.filter((item) => !isUnsaved(item));
+    case "all":
+      return keys;
+  }
+}
+
 /** tabs의 tab을 고른다. split 구성원이면 focus는 `focus`, 없으면 그 구성원 쪽이다. */
 export function selectTab(desk: Desk, key: string, focus?: "a" | "b"): Desk {
   if (!desk.tabs.some((tab) => tab.key === key)) return desk;

@@ -1,0 +1,7 @@
+/* 오른쪽 클릭한 자리에 menu를 띄우는 보이지 않는 anchor. */
+.anchor {
+  position: fixed;
+  width: var(--space-0);
+  height: var(--space-0);
+  pointer-events: none;
+}

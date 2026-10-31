@@ -5,7 +5,7 @@ import type { SessionEntry } from "../../desktop/connection/events/sessions-stor
 import type { SidebarAgent } from "./sidebar-agent.ts";
 import type { PanelRun, PanelSession } from "./use-agent-panel.ts";
 import type { RunRecordView } from "./run-list.tsx";
-import type { TabDot } from "../../parts/tab-strip/tab-strip.tsx";
+import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 
 // renderer session store의 agent를 읽는 한 곳. store는 agent id를 싣는다.
 export function sessionAgentKey(entry: SessionEntry): string | null {

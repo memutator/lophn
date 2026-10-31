@@ -21,6 +21,7 @@ import {
   type TabDot,
   TabStateDot,
 } from "../tab-state-dot/tab-state-dot.tsx";
+import { TAB_MIME } from "../../shell/tab-strip.tsx";
 import styles from "./tab-strip.module.css";
 
 export type { TabDot };
@@ -39,9 +40,6 @@ export interface TabItem {
   /** 이름을 바꿀 수 있는 탭. double-click하면 이름 자리가 입력이 된다. */
   readonly renamable?: boolean;
 }
-
-/** 탭을 끌 때 dataTransfer에 싣는 type. 값은 탭 key다. */
-export const TAB_MIME = "application/x-lophn-tab";
 
 type DropMark = { readonly key: string; readonly side: "before" | "after" };
 

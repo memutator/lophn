@@ -10,6 +10,7 @@ import {
   VendorIcon,
 } from "../../../packages/shell/renderer/parts/vendor-icon/vendor-icon.tsx";
 import type { CardPane } from "../../../packages/shell/renderer/shell/content-card.tsx";
+import type { TabMenuState } from "../../../packages/shell/renderer/shell/tab-menu.tsx";
 import type { StripTab } from "../../../packages/shell/renderer/shell/tab-strip.tsx";
 
 type Agent =
@@ -24,6 +25,10 @@ export interface MockTab {
   agent?: Agent;
   dot?: TabDot;
   status?: string;
+  /** preview tab. 이름이 italic이다. */
+  preview?: boolean;
+  /** 저장 안 된 변경. */
+  unsaved?: boolean;
 }
 
 export interface MockEntry {
@@ -113,7 +118,13 @@ const desk = (
   ...more,
 });
 
-export type Variant = "project" | "split" | "floats" | "empty" | "overflow";
+export type Variant =
+  | "project"
+  | "split"
+  | "floats"
+  | "empty"
+  | "overflow"
+  | "marks";
 
 /** variant마다 Main desk의 상태가 다르다. Review와 workflow desk는 같다. */
 export function mockDesks(variant: Variant): MockDesk[] {
@@ -172,6 +183,24 @@ export function mockDesks(variant: Variant): MockDesk[] {
         ...others,
       ];
     }
+    case "marks":
+      return [
+        {
+          ...desk(
+            "_default",
+            "Main",
+            [
+              P1,
+              C1,
+              { ...README, preview: true },
+              { ...PLAN, unsaved: true },
+              TERM,
+            ],
+            { selected: "plan", minimized: [P2, DEV, POSE] },
+          ),
+        },
+        ...others,
+      ];
     case "empty":
       return [
         { ...main, entries: [], selected: null, minimized: [] },
@@ -203,6 +232,9 @@ export const stripTab = (tab: MockTab): StripTab => ({
   title: tab.title,
   icon: tabIcon(tab),
   dot: tab.dot,
+  preview: tab.preview,
+  unsaved: tab.unsaved,
+  renamable: tab.kind !== "file",
 });
 
 const fill = {
@@ -268,12 +300,12 @@ function Body({ tab }: { tab: MockTab }): ReactNode {
   );
 }
 
-export function cardPane(tab: MockTab): CardPane {
+export function cardPane(tab: MockTab, menu?: TabMenuState): CardPane {
   return {
     key: tab.key,
     crumbs: tab.crumbs,
     status: tab.status,
-    copyPath: tab.kind === "file",
+    ...(menu === undefined ? {} : { menu }),
     body: <Body tab={tab} />,
   };
 }

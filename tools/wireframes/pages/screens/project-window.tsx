@@ -26,7 +26,7 @@ import {
 } from "../../../../packages/shell/renderer/icons/mod.ts";
 import type { AvatarProfile } from "../../../../packages/shell/renderer/parts/avatar/avatar.tsx";
 import { Avatar } from "../../../../packages/shell/renderer/parts/avatar/avatar.tsx";
-import type { TabDot } from "../../../../packages/shell/renderer/parts/tab-strip/tab-strip.tsx";
+import type { TabDot } from "../../../../packages/shell/renderer/parts/tab-state-dot/tab-state-dot.tsx";
 import type { StripTab } from "../../../../packages/shell/renderer/shell/tab-strip.tsx";
 
 import { NewTabMenu } from "../../../../packages/shell/renderer/workspace/add-tab-menu.tsx";

@@ -1,21 +1,32 @@
 // 가운데 둥근 card. 머리 줄(← →, 경로, 상태, ⋯ tab 메뉴)과 본문이고, split이면 반쪽마다 자기 머리 줄을 가진다.
 // tab이 하나도 없으면 빈 desk 안내를 보인다. 본문은 호출자가 그려 넣는다.
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { t } from "@lophn/i18n";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
-import { Menu, MenuIcon } from "@lophn/ui/overlay";
+import { Menu } from "@lophn/ui/overlay";
 
 import { shellIcons } from "../icons/mod.ts";
+import { PATH_DRAG_TYPE } from "../workspace/drag.ts";
 import styles from "./content-card.module.css";
+import {
+  type TabAction,
+  type TabMenuState,
+  tabMenuItems,
+} from "./tab-menu.tsx";
 import type { Side } from "./tab-strip.tsx";
 
-export type TabAction =
-  | "float"
-  | "split"
-  | "unsplit"
-  | "detach"
-  | "copy-path"
-  | "close";
+export type { TabAction };
+
+const DEFAULT_MENU: TabMenuState = {
+  renamable: false,
+  preview: false,
+  file: false,
+  canDetach: true,
+  inSplit: false,
+  canSplit: true,
+  hasOthers: true,
+  hasRight: true,
+};
 
 export interface CardPane {
   /** tab key. */
@@ -24,8 +35,8 @@ export interface CardPane {
   readonly crumbs: readonly string[];
   /** 경로 뒤 상태 글(예: "Ready"). 있으면 점이 붙는다. */
   readonly status?: string;
-  /** 파일 tab이면 Copy path가 메뉴에 든다. */
-  readonly copyPath?: boolean;
+  /** ⋯ 메뉴가 이 tab에 보이는 항목. 주지 않으면 기본 항목이다. */
+  readonly menu?: TabMenuState;
   readonly body: ReactNode;
 }
 
@@ -40,13 +51,13 @@ export interface ContentCardProps {
   canForward: boolean;
   onBack: () => void;
   onForward: () => void;
-  /** split이 아닐 때 Split with next tab을 쓸 수 있는지(다음 tab이 있고 split이 아니다). */
-  canSplit: boolean;
   /** split에서 반쪽을 눌렀다. */
   onFocus: (side: Side) => void;
   onAction: (action: TabAction, side: Side) => void;
   /** 빈 desk의 단추. */
   onEmptyAction: (action: "new-session" | "open-file") => void;
+  /** Explorer의 파일을 card 위에 놓았다. 주지 않으면 받지 않는다. */
+  onDropPath?: (path: string) => void;
 }
 
 export function ContentCard({
@@ -57,17 +68,16 @@ export function ContentCard({
   canForward,
   onBack,
   onForward,
-  canSplit,
   onFocus,
   onAction,
   onEmptyAction,
+  onDropPath,
 }: ContentCardProps) {
   const split = panes.length === 2;
+  const [dropping, setDropping] = useState(false);
   const head = (pane: CardPane, side: Side) => (
     <CardHead
       pane={pane}
-      split={split}
-      canSplit={canSplit}
       canBack={canBack}
       canForward={canForward}
       onBack={onBack}
@@ -76,7 +86,30 @@ export function ContentCard({
     />
   );
   return (
-    <div className={styles.card}>
+    <div
+      className={styles.card}
+      data-drop={dropping || undefined}
+      onDragOver={(event) => {
+        if (!onDropPath || !event.dataTransfer.types.includes(PATH_DRAG_TYPE)) {
+          return;
+        }
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        setDropping(true);
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+          setDropping(false);
+        }
+      }}
+      onDrop={(event) => {
+        setDropping(false);
+        const path = event.dataTransfer.getData(PATH_DRAG_TYPE);
+        if (!onDropPath || path === "") return;
+        event.preventDefault();
+        onDropPath(path);
+      }}
+    >
       {panes.length === 0 ? (
         <EmptyDesk label={deskLabel} onAction={onEmptyAction} />
       ) : split ? (
@@ -108,8 +141,6 @@ export function ContentCard({
 
 function CardHead({
   pane,
-  split,
-  canSplit,
   canBack,
   canForward,
   onBack,
@@ -117,8 +148,6 @@ function CardHead({
   onAction,
 }: {
   pane: CardPane;
-  split: boolean;
-  canSplit: boolean;
   canBack: boolean;
   canForward: boolean;
   onBack: () => void;
@@ -159,45 +188,7 @@ function CardHead({
       <Menu
         placement="corner"
         onSelect={(id) => onAction(id as TabAction)}
-        items={[
-          {
-            id: "float",
-            label: t("shell.button.tab-float"),
-            leading: <MenuIcon icon={shellIcons.float} />,
-          },
-          split
-            ? {
-                id: "unsplit",
-                label: t("shell.button.tab-unsplit"),
-                leading: <MenuIcon icon={shellIcons.unsplit} />,
-              }
-            : {
-                id: "split",
-                label: t("shell.button.tab-split"),
-                disabled: !canSplit,
-                leading: <MenuIcon icon={shellIcons.split} />,
-              },
-          {
-            id: "detach",
-            label: t("shell.button.tab-detach"),
-            leading: <MenuIcon icon={shellIcons.detach} />,
-          },
-          ...(pane.copyPath
-            ? [
-                {
-                  id: "copy-path",
-                  label: t("shell.button.tab-copy-path"),
-                  leading: <MenuIcon icon={shellIcons.copy} />,
-                },
-              ]
-            : []),
-          {
-            id: "close",
-            label: t("shell.button.tab-remove"),
-            separatorBefore: true,
-            leading: <MenuIcon icon={shellIcons.close} />,
-          },
-        ]}
+        items={tabMenuItems(pane.menu ?? DEFAULT_MENU)}
         trigger={
           <IconButton
             icon={shellIcons.more}

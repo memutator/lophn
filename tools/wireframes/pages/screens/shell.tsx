@@ -43,6 +43,20 @@ export const shellArea: Area = {
       render: () => <ShellScene variant="project" open="[data-tab-menu]" />,
     },
     {
+      id: "shell-tab-context-menu",
+      title: "Shell · Tab context menu",
+      description:
+        "tab을 오른쪽 클릭한 menu. Rename(이름을 바꿀 수 있는 kind), Close 넷, Split/Unsplit, Float, Move to new window(noDetach면 없음), 파일 tab의 Copy path·Reveal, preview tab의 Keep open. 줄에는 preview tab의 italic 이름과 저장 안 된 tab의 ●가 있다.",
+      render: () => <ShellScene variant="marks" context="README.md" />,
+    },
+    {
+      id: "shell-tab-marks",
+      title: "Shell · Tab marks",
+      description:
+        "preview tab(README.md)은 이름이 italic이고, 저장 안 된 tab(072-architecture.md)은 닫기 자리에 ●가 있다(hover하면 ×).",
+      render: () => <ShellScene variant="marks" />,
+    },
+    {
       id: "shell-empty",
       title: "Shell · Empty desk",
       description:

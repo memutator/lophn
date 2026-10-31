@@ -47,13 +47,17 @@ const FAKE_EVENTS = [
     type: "ActivationConsentRequested",
     subject: ACTIVATION().release,
     at: AT,
-    payload: { app: ACTIVATION().app, release: ACTIVATION().release },
+    payload: {
+      app: ACTIVATION().app,
+      app_name: ACTIVATION().app_name,
+      release: ACTIVATION().release,
+    },
   },
   {
     type: "AppRestartHalted",
     subject: sid("app", 1),
     at: AT,
-    payload: { release: sid("rel", 7), crashes: 3 },
+    payload: { release: sid("rel", 7), app_name: "Orders", crashes: 3 },
   },
   {
     type: "KindViolationFound",

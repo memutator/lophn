@@ -52,6 +52,8 @@ export type SessionNotices = {
   event(event: SessionEvent): Promise<void>;
   /** 보이게 된 탭이나 focus를 받은 창이 있을 수 있다. 보고 있는 session의 못 본 것을 지운다. */
   recheck(): void;
+  /** 사람이 알림 panel에서 지웠다. 탭을 보지 않아도 못 본 것을 지운다. */
+  dismiss(session: string): void;
   unseen(): UnseenSession[];
 };
 
@@ -108,6 +110,7 @@ export function createSessionNotices(deps: SessionNoticesDeps): SessionNotices {
         if (deps.looking(session)) forget(session);
       }
     },
+    dismiss: forget,
     unseen: () => [...unseen.values()],
   };
 }

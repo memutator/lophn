@@ -11,6 +11,7 @@ import { LOPHN_AGENT_ID } from "../../../../protocol/lophn-agent/places.ts";
 import { askRead } from "../../../../protocol/lophn-agent/ask-tool.ts";
 import { messageBody } from "../../../../protocol/lophn-agent/messages.ts";
 import {
+  NOTICE_DISMISS_CHANNEL,
   NOTICE_OPEN_CHANNEL,
   NOTICE_REVEAL_CHANNEL,
   NOTICE_TOAST_CHANNEL,
@@ -95,6 +96,8 @@ export function createNoticeWiring(
   focus: TerminalFocusTable,
   // 그 터미널이 속한 project. 터미널을 모르면 undefined다.
   projectOf: (terminalRef: string) => string | undefined,
+  // 터미널 coding agent의 못 본 표시를 끈다. tracker는 이 wiring 뒤에 생겨 함수로 받는다.
+  dismissTerminal: (terminalRef: string) => void,
 ): NoticeWiring {
   const visibility = new SessionVisibility();
   let serial = 0;
@@ -341,6 +344,16 @@ export function createNoticeWiring(
     // 이미 보이는 탭을 고르면 visible이 다시 오지 않고, 이미 focus를 가진 창이면 focus event도 없다.
     sessions.recheck();
   });
+  ctx.ipc.handle(NOTICE_DISMISS_CHANNEL, (event: IpcEvent, input: unknown) => {
+    if (!checkCaller(registry, event).ok) return;
+    const parsed = checkInput(noticeTargetSchema, input);
+    if (!parsed.ok) return;
+    if (parsed.value.kind === "terminal") {
+      dismissTerminal(parsed.value.terminal_ref);
+    } else {
+      sessions.dismiss(parsed.value.session);
+    }
+  });
   ctx.ipc.handle(NOTICE_UNSEEN_GET_CHANNEL, (event: IpcEvent) =>
     checkCaller(registry, event).ok ? sessions.unseen() : [],
   );
@@ -351,6 +364,7 @@ export function createNoticeWiring(
     stop() {
       ctx.ipc.removeHandler(NOTICE_VISIBLE_CHANNEL);
       ctx.ipc.removeHandler(NOTICE_OPEN_CHANNEL);
+      ctx.ipc.removeHandler(NOTICE_DISMISS_CHANNEL);
       ctx.ipc.removeHandler(NOTICE_UNSEEN_GET_CHANNEL);
     },
   };

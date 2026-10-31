@@ -187,6 +187,8 @@ export function register(ctx: ShellContext): Coding {
     terminalFocus,
     (ref) =>
       terminals.runtimes().find((item) => item.terminal_ref === ref)?.project,
+    // 탭을 본 것과 같다: 못 본 표시만 끄고 상태는 그대로다.
+    (ref) => agent.tracker.tabFocused(ref),
   );
   const agent = createAgentWiring({
     ctx,

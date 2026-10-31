@@ -28,6 +28,7 @@ export const data = {
   "waiting.button.answer-in-terminal": "Answer in terminal",
   "waiting.button.cancel": "Cancel",
   "waiting.button.deny": "Deny",
+  "waiting.button.dismiss-finished": "Dismiss",
   "waiting.button.open-session": "Open session",
   "waiting.button.show-finished": "Show",
   "waiting.button.skip": "Skip",

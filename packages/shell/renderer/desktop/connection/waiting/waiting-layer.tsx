@@ -107,6 +107,12 @@ export function WaitingLayer({ onOpenSession, initial }: WaitingLayerProps) {
                 globalThis as { lophnNotice?: LophnNoticeApi }
               ).lophnNotice?.open(target);
             }}
+            onDismissFinished={(target) => {
+              // main이 못 본 표시를 끄면 Finished 줄과 배지 수가 저절로 빠진다.
+              void (
+                globalThis as { lophnNotice?: LophnNoticeApi }
+              ).lophnNotice?.dismiss(target);
+            }}
           />
         </div>
       ) : null}

@@ -56,6 +56,8 @@ export interface LophnNoticeApi {
   visible(input: NoticeVisible): Promise<void>;
   /** toast를 눌렀다. 그 탭이 있는 창을 앞으로 가져오고 탭을 고르는 것은 main이 한다. */
   open(target: NoticeTarget): Promise<void>;
+  /** 알림 panel의 Finished 줄을 열지 않고 지운다. 그 탭을 본 것과 같게 못 본 표시만 끈다. */
+  dismiss(target: NoticeTarget): Promise<void>;
   /** 지금 못 본 turn 끝이 있는 session. */
   unseen(): Promise<UnseenSession[]>;
   /** 못 본 session 목록이 바뀔 때마다 통째로 온다. 구독 해지를 돌려준다. */
@@ -67,6 +69,7 @@ export interface LophnNoticeApi {
 
 export const NOTICE_VISIBLE_CHANNEL = "shell:notice-visible";
 export const NOTICE_OPEN_CHANNEL = "shell:notice-open";
+export const NOTICE_DISMISS_CHANNEL = "shell:notice-dismiss";
 export const NOTICE_UNSEEN_GET_CHANNEL = "shell:notice-unseen-get";
 export const NOTICE_UNSEEN_CHANNEL = "shell:notice-unseen";
 export const NOTICE_TOAST_CHANNEL = "shell:notice-toast";

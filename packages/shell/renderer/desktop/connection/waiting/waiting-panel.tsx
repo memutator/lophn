@@ -1,6 +1,6 @@
 // 펼친 대기 목록. 종류를 나눠 한 목록에 보이고, 결정한 직후 남는 줄이 그 아래 붙는다.
 import { StatusMark } from "@lophn/ui/feedback";
-import { Button } from "@lophn/ui/primitives";
+import { Button, IconButton } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 import type { NoticeTarget } from "../../../../ipc/notice.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
@@ -84,13 +84,15 @@ function SettledList({ rows }: { rows: readonly SettledRow[] }) {
   );
 }
 
-/** turn이 끝난 탭 한 줄. 줄 어디를 눌러도 그 탭이 열린다. */
+/** turn이 끝난 탭 한 줄. 줄 어디를 눌러도 그 탭이 열린다. [x]는 열지 않고 줄만 지운다. */
 function FinishedList({
   rows,
   onShow,
+  onDismiss,
 }: {
   rows: readonly FinishedRow[];
   onShow: (target: NoticeTarget) => void;
+  onDismiss: (target: NoticeTarget) => void;
 }) {
   return (
     <section
@@ -128,6 +130,17 @@ function FinishedList({
               <Button size="sm" trailingIcon={actionIcons.open}>
                 {t("waiting.button.show-finished")}
               </Button>
+              <IconButton
+                size="sm"
+                icon={actionIcons.remove}
+                label={t("waiting.button.dismiss-finished")}
+                data-dismiss-finished=""
+                onClick={(event) => {
+                  // 줄을 누른 것(열기)으로 올라가지 않게 한다.
+                  event.stopPropagation();
+                  onDismiss(row.target);
+                }}
+              />
             </div>
           </div>
         );
@@ -150,6 +163,7 @@ export function WaitingPanel({
   initial,
   onOpenSession,
   onShowFinished,
+  onDismissFinished,
 }: {
   entries: readonly WaitingEntry[];
   settled: Settled;
@@ -157,6 +171,7 @@ export function WaitingPanel({
   initial?: PanelInitial;
   onOpenSession: (session: string) => void;
   onShowFinished: (target: NoticeTarget) => void;
+  onDismissFinished: (target: NoticeTarget) => void;
 }) {
   const core = useEventClient().core;
 
@@ -239,7 +254,11 @@ export function WaitingPanel({
           );
         })}
         {finished.length > 0 ? (
-          <FinishedList rows={finished} onShow={onShowFinished} />
+          <FinishedList
+            rows={finished}
+            onShow={onShowFinished}
+            onDismiss={onDismissFinished}
+          />
         ) : null}
         {settled.rows.length > 0 ? <SettledList rows={settled.rows} /> : null}
       </div>

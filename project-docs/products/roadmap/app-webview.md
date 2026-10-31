@@ -1,6 +1,6 @@
 # app webview: 앱 화면을 native view에서 `<webview>`로 옮긴다
 
-상태: 구현했다(2026-10-31, `project-docs/products/change-log/0.10.3.md`의 "앱 화면과 artifact 화면을 `<webview>` guest로 옮긴다"). 앱 화면(app panel 탭, 앱 place 본문, 앱 card, 앱 전용 창)과 artifact 탭이 browser 탭과 같은 창의 `<webview>` 그릇에 산다. 흐름과 지키는 것은 `project-docs/architecture/workspace-layout.md`(그릇·z-index·desk 규칙·Detach), `browser-tab.md`(붙이기 규칙), `annotation.md`, `appearance.md`, `keybindings.md`, `artifact.md`다. 아래 "무엇을 만드나"·"열기 전에 확인할 것"·"단계"는 착수 전 계획 기록이다. 남은 것은 "하지 않는 것"과 앱 template `AGENTS.md`에 화면 상태 지침을 더하는 것뿐이다.
+상태: 구현했다(2026-10-31, `project-docs/products/change-log/0.11.0.md`의 "앱 화면과 artifact 화면을 `<webview>` guest로 옮기고, desk를 오가도 page를 지킨다"). 앱 화면(app panel 탭, 앱 place 본문, 앱 card, 앱 전용 창)과 artifact 탭이 browser 탭과 같은 창의 `<webview>` 그릇에 산다. 흐름과 지키는 것은 `project-docs/architecture/workspace-layout.md`(그릇·z-index·desk 규칙·Detach), `browser-tab.md`(붙이기 규칙), `annotation.md`, `appearance.md`, `keybindings.md`, `artifact.md`다. 아래 "무엇을 만드나"·"열기 전에 확인할 것"·"단계"는 착수 전 계획 기록이다. 남은 것은 "하지 않는 것"뿐이다.
 배경 문서: `project-docs/architecture/browser-tab.md`(`<webview>` 그릇과 붙이기 규칙), `project-docs/architecture/workspace-layout.md`(그릇·z-index·Detach), `project-docs/architecture/annotation.md`(앱 view 신원), `project-docs/architecture/appearance.md`, `project-docs/architecture/keybindings.md`, AGENTS.md "속도"·"호환성".
 
 ## 왜

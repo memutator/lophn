@@ -418,12 +418,13 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
           }}
           placement="beside"
           trigger={
-            <Button size="sm" variant="ghost" data-composer-permissions="">
+            <Button
+              size="sm"
+              variant="ghost"
+              trailingIcon={conversationIcons.expand}
+              data-composer-permissions=""
+            >
               {props.permissionSummary}
-              <Icon
-                icon={conversationIcons.expand}
-                pixels={iconPixels("base")}
-              />
             </Button>
           }
         >

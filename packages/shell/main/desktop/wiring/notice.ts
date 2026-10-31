@@ -336,7 +336,10 @@ export function createNoticeWiring(
   ctx.ipc.handle(NOTICE_OPEN_CHANNEL, (event: IpcEvent, input: unknown) => {
     if (!checkCaller(registry, event).ok) return;
     const parsed = checkInput(noticeTargetSchema, input);
-    if (parsed.ok) reveal(parsed.value);
+    if (!parsed.ok) return;
+    reveal(parsed.value);
+    // 이미 보이는 탭을 고르면 visible이 다시 오지 않고, 이미 focus를 가진 창이면 focus event도 없다.
+    sessions.recheck();
   });
   ctx.ipc.handle(NOTICE_UNSEEN_GET_CHANNEL, (event: IpcEvent) =>
     checkCaller(registry, event).ok ? sessions.unseen() : [],

@@ -123,13 +123,17 @@ function turnEndKind(payload: unknown): "finished" | "failed" | null {
       : null;
 }
 
-/** 창마다 보이는 Agent session 탭 표. 탭 화면이 보이고 사라질 때 알린다. */
+/**
+ * 창마다 보이는 Agent session 표. 대화 화면이 보이고 사라질 때 알린다. 같은 창에 같은 session이 두 곳(탭과
+ * float 같은) 보일 수 있어 수를 센다. 하나가 사라져도 남은 곳은 계속 보인다.
+ */
 export class SessionVisibility {
-  readonly #by = new Map<number, Set<string>>();
+  readonly #by = new Map<number, Map<string, number>>();
 
   set(contentsId: number, session: string, visible: boolean): void {
-    const sessions = this.#by.get(contentsId) ?? new Set<string>();
-    if (visible) sessions.add(session);
+    const sessions = this.#by.get(contentsId) ?? new Map<string, number>();
+    const count = (sessions.get(session) ?? 0) + (visible ? 1 : -1);
+    if (count > 0) sessions.set(session, count);
     else sessions.delete(session);
     if (sessions.size === 0) this.#by.delete(contentsId);
     else this.#by.set(contentsId, sessions);
@@ -144,7 +148,7 @@ export class SessionVisibility {
     return this.#by.get(contentsId)?.has(session) ?? false;
   }
 
-  /** 그 session 탭이 보이는 창의 webContents id. 어디에도 안 보이면 undefined다. */
+  /** 그 session이 보이는 창의 webContents id. 어디에도 안 보이면 undefined다. */
   owner(session: string): number | undefined {
     for (const [contentsId, sessions] of this.#by) {
       if (sessions.has(session)) return contentsId;

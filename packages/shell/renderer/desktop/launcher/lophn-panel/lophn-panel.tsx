@@ -18,6 +18,7 @@ import {
   type AgentViewHost,
 } from "../../../conversation/agent-view.tsx";
 import { DraftStore } from "../../../conversation/drafts.ts";
+import { useReportVisible } from "../../../conversation/report-visible.ts";
 import { useConversation } from "../../../conversation/window-deps.tsx";
 import { startPointerDrag } from "../../../workspace/drag.ts";
 import {
@@ -75,6 +76,8 @@ export function LophnPanel({
   // 이동·resize 중 미리보기. 놓을 때만 saved에 올린다.
   const [preview, setPreview] = useState<FloatRect | null>(null);
   const [full, setFull] = useState(false);
+  // 패널은 열린 동안만 마운트된다.
+  useReportVisible(session);
 
   useLayoutEffect(() => {
     const element = hostRef.current;

@@ -2,11 +2,9 @@
 // 탭 안에서 agent를 바꾸지 않는다. layout에는 agent·자리·session 참조만 저장하고 다시 열 때 그대로 복원한다.
 // 여는 길(sidebar 줄·activity bar 아래쪽 바로 가기·새 탭 menu·Ask)은 모두 openAgent 하나를 부른다.
 
-import { useEffect } from "react";
-
-import type { LophnNoticeApi } from "../../../ipc/notice.ts";
 import type { AgentViewHost } from "../../conversation/agent-view.tsx";
 import type { Draft } from "../../conversation/drafts.ts";
+import { useReportVisible } from "../../conversation/report-visible.ts";
 import { runToastAction } from "../../desktop/connection/toasts/toast-actions.ts";
 import { conversationIcons } from "../../icons/mod.ts";
 import { Avatar } from "../../parts/avatar/avatar.tsx";
@@ -136,17 +134,9 @@ function viewHost(
   };
 }
 
-/**
- * 이 session의 탭이 보이는 동안 main에 알린다. 알림과 finished 점이 "사람이 보고 있다"를 이것으로 판단한다.
- * 그려지는 탭은 각 칸에서 고른 탭뿐이라 마운트가 곧 보임이다.
- */
+// 그려지는 탭은 각 칸에서 고른 탭뿐이라 마운트가 곧 보임이다.
 function ReportVisible({ session }: { session: string | null }) {
-  useEffect(() => {
-    const notice = (globalThis as { lophnNotice?: LophnNoticeApi }).lophnNotice;
-    if (notice === undefined || session === null) return;
-    void notice.visible({ session, visible: true });
-    return () => void notice.visible({ session, visible: false });
-  }, [session]);
+  useReportVisible(session);
   return null;
 }
 

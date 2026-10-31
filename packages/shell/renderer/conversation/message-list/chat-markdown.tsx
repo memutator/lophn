@@ -6,6 +6,7 @@ import { Markdown } from "@lophn/ui/reading";
 import { t } from "@lophn/i18n";
 
 import { workspaceIcons } from "../../icons/mod.ts";
+import { MermaidBlock } from "./mermaid-block.tsx";
 import { runnable, useRunCode } from "./run-code.ts";
 
 import { artifactMentions } from "../../../../protocol/domains/artifact.ts";
@@ -22,12 +23,18 @@ export interface ChatMarkdownProps {
   readonly text: string;
   /** 이 project의 domain artifact 목록. 있으면 글과 inline code 속 path를 link로 그리고 모르는 path를 보면 목록을 다시 읽는다. 없으면 path는 글 그대로다. */
   readonly artifacts?: ArtifactsSlice | undefined;
+  /**
+   * 아직 자라는 중인 code fence의 내용(openFenceContent). 이 글과 같은 code block은 아직 닫히지
+   * 않았으므로 mermaid diagram을 그리지 않고 code로 둔다.
+   */
+  readonly openFence?: string | null | undefined;
 }
 
 /** markdown 글 전체(원문)에서 모르는 artifact path를 찾아 목록을 다시 읽는다. code 안 path도 본다. */
 export function ChatMarkdown({
   text,
   artifacts,
+  openFence,
 }: ChatMarkdownProps): ReactElement {
   useArtifactReload(text, artifacts);
   const open = windowLinkOpener();
@@ -59,6 +66,11 @@ export function ChatMarkdown({
       images="link"
       onOpenLink={open === undefined ? undefined : (href) => void open(href)}
       renderText={renderText}
+      renderCode={(code, language) =>
+        language?.toLowerCase() === "mermaid" && code !== openFence ? (
+          <MermaidBlock code={code} />
+        ) : undefined
+      }
       codeAction={
         run === null
           ? undefined

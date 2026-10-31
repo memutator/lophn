@@ -16,6 +16,8 @@ export const conversation = {
   "conversation.button.check-delivery": "Check whether it arrived",
   "conversation.button.delete": "Delete",
   "conversation.button.edit-open": "Open",
+  "conversation.button.edit-diff-hide": "Hide diff",
+  "conversation.button.edit-diff-show": "Show diff",
   "conversation.button.edit-model": "Edit",
   "conversation.button.fork": "Fork",
   "conversation.button.fork-here": "Fork from here",
@@ -23,6 +25,8 @@ export const conversation = {
   "conversation.button.hidden-show": "Show",
   "conversation.button.jump-latest": "Jump to newest messages",
   "conversation.button.manage-models": "Manage models",
+  "conversation.button.mermaid-show-diagram": "View diagram",
+  "conversation.button.mermaid-show-source": "View source",
   "conversation.button.model-reset": "Reset",
   "conversation.button.permissions-edit": "Edit in Agents",
   "conversation.button.off-models":
@@ -313,6 +317,9 @@ export const conversation = {
     "Add models this provider doesn't list, and tell lophn what they can do.",
   "conversation.notice.decide-failed":
     "Couldn't send your decision. Try again.",
+  "conversation.notice.edit-diff-missing": "This diff is no longer available.",
+  "conversation.notice.mermaid-failed":
+    "Couldn't draw this diagram. The source is below.",
   "conversation.notice.message-loading": "Loading this message.",
   "conversation.notice.model-limits": "Blank limits use the defaults shown.",
   "conversation.notice.model-media":

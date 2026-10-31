@@ -13,6 +13,7 @@ import {
   CallOpenScene,
   CallRepliesScene,
   ConversationScene,
+  EditDiffScene,
   PermissionsScene,
   StatusScene,
   QuestionAnsweredScene,
@@ -206,5 +207,7 @@ export const AgentApprovalDeny = ApprovalDenyScene;
 export const AgentApprovalStates = ApprovalStatesScene;
 /** rewind panel. */
 export const AgentRewind = RewindScene;
+/** 편집 카드를 펼친 모습. 바뀐 줄은 unified diff로 보인다. */
+export const AgentEditDiff = EditDiffScene;
 /** skip을 켠 session. */
 export const AgentSkip = SkipScene;

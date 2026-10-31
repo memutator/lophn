@@ -61,3 +61,5 @@ export const PermissionsScene = () => (
 export const StatusScene = () => (
   <Scene sub="working" chat={{ view: "status" }} />
 );
+/** 편집 카드를 펼친 모습: 바뀐 줄을 unified diff로 보이고 길면 [Show all]로 펼친다. */
+export const EditDiffScene = () => <Scene sub="edit-diff" />;

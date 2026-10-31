@@ -1,5 +1,5 @@
 // 화면은 <name>/<name>.js(esm)로, artifact kit은 <script>로 불러서 artifact-kit/entry.js(iife)로 나간다.
-// highlight worker만 grammar chunk를 따로 내려고 splitting한다.
+// 화면과 highlight worker는 dynamic import(mermaid, 문법 grammar)를 chunk로 내려고 splitting한다.
 // bare specifier와 package export는 node_modules의 package.json이 푼다.
 import * as esbuild from "esbuild";
 import { copyFile, mkdir, readFile, rm } from "node:fs/promises";
@@ -15,7 +15,7 @@ function assetPlugin(): esbuild.Plugin {
   return {
     name: "renderer-assets",
     setup(build) {
-      build.onLoad({ filter: /\.(css|woff2|svg)$/ }, async (args) => {
+      build.onLoad({ filter: /\.(css|woff2?|ttf|eot|svg)$/ }, async (args) => {
         if (args.namespace !== "file") return undefined;
         const loader: esbuild.Loader = args.path.endsWith(".svg")
           ? "text"
@@ -40,12 +40,15 @@ const entries: readonly {
   dir: string;
   format: esbuild.Format;
   splitting?: boolean;
+  chunkNames?: string;
 }[] = [
   ...screens.map((name) => ({
     in: join(name, "entry.tsx"),
     out: name,
     dir: name,
     format: "esm" as const,
+    splitting: true,
+    chunkNames: "chunks/[name]-[hash]",
   })),
   {
     in: join("artifact-kit", "entry.tsx"),
@@ -68,6 +71,11 @@ async function build(outdir = join(here, "dist")): Promise<void> {
     recursive: true,
     force: true,
   });
+  // 화면 chunk도 hash 이름이라 다시 묶으면 옛 chunk가 쌓인다.
+  await rm(join(outdir, "desktop", "chunks"), {
+    recursive: true,
+    force: true,
+  });
   for (const entry of entries) {
     await esbuild.build({
       absWorkingDir: here,
@@ -76,7 +84,7 @@ async function build(outdir = join(here, "dist")): Promise<void> {
       bundle: true,
       format: entry.format,
       splitting: entry.splitting ?? false,
-      chunkNames: "highlight/[name]-[hash]",
+      chunkNames: entry.chunkNames ?? "highlight/[name]-[hash]",
       jsx: "automatic",
       assetNames: "[name]",
       // 묶은 npm 패키지(xterm.css 등)의 license 주석은 bundle 옆 .LEGAL.txt로 둔다.

@@ -2,7 +2,9 @@
 import {
   CodeBlock,
   type CodeLine,
+  type DiffLine,
   DiffMark,
+  DiffView,
   type Highlighter,
   HighlighterProvider,
   Markdown,
@@ -68,6 +70,12 @@ const SOURCE = [
   "",
   "Text with **bold**, *italic*, `inline code` and a [link](https://example.com).",
   "",
+  "Inline math $E = mc^2$ stays in the line. Prices like $5 and $10 stay text.",
+  "",
+  "$$",
+  "\\int_0^1 x^2 \\, dx = \\frac{1}{3}",
+  "$$",
+  "",
   "- first item",
   "- second item",
   "- [x] checked item",
@@ -92,6 +100,33 @@ const OUTLINE = [
   { id: "summary", title: "Summary", level: 2 },
   { id: "late", title: "Late shipments", level: 2 },
   { id: "check", title: "How to check one", level: 3 },
+];
+
+// 편집 카드의 diff 견본. 줄 번호가 있으면 두 칸, 없으면 기호 칸만 그린다.
+const DIFF_LINES: readonly DiffLine[] = [
+  { kind: "same", oldNumber: 12, newNumber: 12, text: "## Regressions" },
+  { kind: "same", oldNumber: 13, newNumber: 13, text: "" },
+  {
+    kind: "delete",
+    oldNumber: 14,
+    text: "- F-011 query-recipe-gap",
+  },
+  {
+    kind: "add",
+    newNumber: 14,
+    text: "- F-011 query-recipe-gap — fixed in 0.10.3",
+  },
+  {
+    kind: "add",
+    newNumber: 15,
+    text: "- F-014 tool-retry-loop",
+  },
+  { kind: "same", oldNumber: 15, newNumber: 16, text: "" },
+  { kind: "same", oldNumber: 16, newNumber: 17, text: "## Improvements" },
+  { kind: "add", newNumber: 18, text: "- exp-008 numbers are in" },
+  { kind: "same", oldNumber: 17, newNumber: 19, text: "" },
+  { kind: "same", oldNumber: 18, newNumber: 20, text: "## Next week" },
+  { kind: "same", oldNumber: 19, newNumber: 21, text: "- Run the weekly eval" },
 ];
 
 export function KitReading() {
@@ -170,6 +205,25 @@ export function KitReading() {
           <DiffMark kind="add" />
           <DiffMark kind="delete" />
         </div>
+      </Section>
+      <Section
+        title="DiffView"
+        note="줄 단위 unified diff. 정한 줄 수를 넘으면 접고 [Show all]을 둔다."
+      >
+        <Row label="numbered">
+          <DiffView lines={DIFF_LINES} maxLines={0} />
+        </Row>
+        <Row label="no line numbers">
+          <DiffView
+            lines={DIFF_LINES.filter((line) => line.kind !== "same").map(
+              ({ kind, text }) => ({ kind, text }),
+            )}
+            maxLines={0}
+          />
+        </Row>
+        <Row label="folded">
+          <DiffView lines={DIFF_LINES} maxLines={4} />
+        </Row>
       </Section>
       <Section
         title="weekly-report"

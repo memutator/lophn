@@ -143,3 +143,22 @@
   content: "";
 }
 
+
+/* 편집 카드 아래 diff. 카드 여백은 Card가 정하고 여기서는 위에 한 줄만 띄운다. */
+.editDiff {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: var(--border-width) solid var(--color-border-subtle);
+}
+
+.editNote {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+/* 펼친 상태의 단추 아이콘은 위를 향한다. */
+.editActions [data-edit-diff-toggle][aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}

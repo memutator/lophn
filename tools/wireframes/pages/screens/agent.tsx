@@ -8,6 +8,7 @@ import {
   AgentCommands,
   AgentCommandsFiltered,
   AgentConversation,
+  AgentEditDiff,
   AgentModelPicker,
   AgentPermissions,
   AgentStatus,
@@ -257,6 +258,13 @@ export const agentArea: Area = {
       description:
         "model을 바꾼 뒤 provider가 요청을 거절한 모습이다. 어떤 오류인지와 [Retry]가 대화 안 오류 메시지로 남는다. model을 바꿀 때 조정 안내는 없고 새 model의 기본 variant로 맞춘다.",
       render: () => <AgentRequestError />,
+    },
+    {
+      id: "new-agent-edit-diff",
+      title: "Agent · edit diff",
+      description:
+        "파일을 바꾼 편집 카드를 펼친 모습이다. 카드 오른쪽 끝의 단추로 바뀐 줄을 unified diff로 열고, 길면 [Show all]로 나머지를 편다. [Open]은 그 파일의 탭을 연다.",
+      render: () => <AgentEditDiff />,
     },
     {
       id: "new-agent-rewind",

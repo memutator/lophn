@@ -19,6 +19,7 @@ export const common = {
   "common.button.reset-filters": "Reset filters",
   "common.button.retry": "Try again",
   "common.button.select-all": "Select all",
+  "common.button.show-all": "Show all",
   "common.button.show-chart": "Show chart",
   "common.button.show-table": "Show table",
   "common.button.sort-ascending": "Sort ascending",

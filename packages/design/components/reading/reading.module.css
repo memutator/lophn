@@ -328,3 +328,27 @@
 .chat > :last-child {
   margin-bottom: var(--space-0);
 }
+
+/* 수식. 긴 display 수식은 줄을 넘기지 않고 수식 자리 안에서 가로로 스크롤한다. */
+.mathInline {
+  white-space: nowrap;
+}
+
+.mathDisplay {
+  margin: var(--space-2) var(--space-0) var(--space-6);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.chat .mathDisplay {
+  margin-bottom: var(--space-5);
+}
+
+/* unified diff 한 덩어리. 접힌 상태의 [Show all]은 표 아래 왼쪽에 붙는다. */
+.diffView {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+}

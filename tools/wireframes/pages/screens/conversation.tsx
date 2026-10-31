@@ -43,6 +43,10 @@ const COMPOSER = "[data-composer-input]";
 const DEMOS: Readonly<
   Record<string, { scene: AgentTabScene; steps: readonly Step[] }>
 > = {
+  "edit-diff": {
+    scene: "report",
+    steps: [() => click("[data-edit-diff-toggle]")],
+  },
   "sender-chips": {
     scene: "sender-chips",
     steps: [() => click("[data-actor=received] button", undefined, 2)],

@@ -241,6 +241,8 @@ function itemsOf(
               path={entry.edit.path}
               added={entry.edit.added}
               removed={entry.edit.removed}
+              call={entry.edit.id}
+              readInput={props.source.toolCallBody}
               onOpen={() => props.onOpenFile?.(entry.edit.path)}
             />,
           );

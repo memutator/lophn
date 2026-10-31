@@ -3,6 +3,7 @@ import {
   ArrowUp,
   Check,
   ChevronDown,
+  Code,
   Copy,
   ListPlus,
   type LucideIcon,
@@ -17,6 +18,7 @@ import {
   SearchCheck,
   Square,
   SquareArrowOutUpRight,
+  Workflow,
   X,
 } from "lucide-react";
 
@@ -42,4 +44,7 @@ export const conversationIcons = {
   removeAttachment: X,
   // 맡긴 일을 받은 session으로 옮겨 간다.
   openSession: SquareArrowOutUpRight,
+  // mermaid diagram과 그 원문을 바꿔 보는 단추.
+  diagram: Workflow,
+  code: Code,
 } as const satisfies Record<string, LucideIcon>;

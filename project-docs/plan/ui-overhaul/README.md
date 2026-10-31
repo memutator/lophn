@@ -27,16 +27,19 @@
 
 ## 단계
 
-| wave | task | 하는 일 | 선행 |
+| wave | task | 하는 일 | 상태 |
 |---|---|---|---|
-| 1 | `uo-design` | token(radius, `surface.shell`), preset, design component 모양(FloatPanel·Menu·Popover·Dialog·Sheet·입력칸·SegmentedControl), kit page, draft CSS가 새 token을 쓰게, `architecture/appearance.md` | 없음 |
-| 1 | `uo-model` | renderer의 새 desk model(순수 함수, test)과 main의 place layout 저장(v8, 옛 v5~v7 올리기, IPC `shell:place-layout-read/save`) | 없음 |
-| 2 | `uo-shell` | 새 shell 틀(title bar, tab 줄, desk 단추, 접힌 float, card, split, 이동 기록, tab 메뉴)과 router를 place 하나로. project place를 새 model로 그린다 | `uo-design`, `uo-model` |
-| 3 | `uo-left` | 왼쪽 sidebar(place·session·Recent·New session·Add place) | `uo-shell` |
-| 3 | `uo-right` | 오른쪽 sidebar chrome과 panel 옮기기, Home Places panel | `uo-shell` |
-| 3 | `uo-settings` | Settings를 shell 안으로 | `uo-shell` |
-| 4 | `uo-app` | app place를 shell 안으로(앱 화면 tab, App panel, webview radius), 떼어 낸 창 주인 규칙 | `uo-left`, `uo-right` |
-| 5 | `uo-cleanup` | 옛 launcher, activity bar, panes, top-path, minimized bar, app side panel, 옛 layout IPC 지우기(v5~v7 올리기는 남긴다). gallery Screens를 새 shell로, Drafts 지우기. `architecture/workspace-layout.md` 고치기 | 모두 |
+| 1 | `uo-design` | token(radius, `surface.shell`), preset, design component 모양, kit, `architecture/appearance.md` | 합침 |
+| 1 | `uo-model` | 새 desk model(순수 함수, test), place layout 저장(v8, 옛 v5~v7 올리기, IPC `shell:place-layout-read/save`) | 합침 |
+| 2 | `uo-shell-frame` | shell 화면 부품(frame, title bar tab 줄, desk 단추, panel tab, card, float layer, 창 단추), gallery `shell-*` | 합침 |
+| 2 | `uo-shell-project` | project 창을 새 shell과 desk model로(옛 panes·floats·minimized·desk selector 지움). 양쪽 sidebar는 임시 | 합침 |
+| 3 | `uo-left` | 왼쪽 sidebar(place·session·Recent·New session·Add place) | 진행 |
+| 3 | `uo-right` | 오른쪽 sidebar chrome, panel 모양, Home Places panel | 진행 |
+| 3 | `uo-settings` | Settings를 shell 안으로 | 진행 |
+| 3 | `uo-tabs` | 잃은 tab 기능(우클릭 메뉴, 이름 바꾸기, Close others, 저장 안 됨 점, preview, 파일 끌어 놓기), 옛 tab strip 지움 | 진행 |
+| 4 | `uo-home` | Home place를 shell로(launcher 대신, Places panel, Home layout `home`) | |
+| 4 | `uo-app` | app place를 shell로(앱 화면 tab, App panel, webview radius), 떼어 낸 창 주인 규칙 | |
+| 5 | `uo-cleanup` | 옛 launcher, app side panel, 옛 layout IPC(v5~v7 올리기는 남긴다), 안 쓰는 keybinding, gallery Drafts 지우기, 문서 | |
 
 ## 끝남
 

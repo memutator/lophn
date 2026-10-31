@@ -74,7 +74,7 @@ function tokenSegments(
   return segments;
 }
 
-// `inputTokens`는 cache에서 읽은 것을 뺀 입력이라 세 칸을 더해도 겹치지 않는다.
+// `inputTokens`는 cache 읽기·쓰기를 뺀 입력이다. cache에 쓴 입력은 입력 칸에 더해 세 칸이 겹치지 않고 전체 입력을 덮는다.
 function TokenBreakdown({
   segments,
 }: {
@@ -181,7 +181,7 @@ export function StatusView({ status, onClose }: StatusViewProps): ReactElement {
           <Row name={t("conversation.label.status-tokens")}>
             <TokenBreakdown
               segments={tokenSegments(
-                status.inputTokens,
+                status.inputTokens + (status.cacheWriteTokens ?? 0),
                 status.cacheReadTokens,
                 status.outputTokens,
               )}

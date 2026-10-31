@@ -38,6 +38,7 @@ export async function readStatus(
       inputTokens: value.tokens.input,
       outputTokens: value.tokens.output,
       cacheReadTokens: value.tokens.cache_read,
+      cacheWriteTokens: value.tokens.cache_write,
       costs: value.costs.map((cost) => ({
         kind: cost.kind,
         currency: cost.currency,

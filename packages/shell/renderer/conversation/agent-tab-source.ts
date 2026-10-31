@@ -469,7 +469,7 @@ export interface StatusView {
     /** usage_wait가 풀리는 시각. */
     readonly until: string | null;
   } | null;
-  /** 마지막 판단 call이 보낸 prompt 크기와 그 model의 창 한도. */
+  /** 지금 창에 든 token 추정과 지금 model의 창 한도. 모르면 null이다. */
   readonly context: { readonly tokens: number; readonly limit: number } | null;
   readonly calls: number;
   readonly turns: number;
@@ -477,6 +477,8 @@ export interface StatusView {
   readonly outputTokens: number | null;
   /** cache에서 읽은 입력 token. */
   readonly cacheReadTokens: number | null;
+  /** cache에 쓴 입력 token. */
+  readonly cacheWriteTokens: number | null;
   /** 금액. kind·통화가 다르면 따로 센다. 하나라도 모르면 그 묶음의 amount는 null이다. */
   readonly costs: readonly {
     readonly kind:

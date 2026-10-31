@@ -6,7 +6,7 @@ workspace pane에서 인터넷 page를 여는 탭 kind `browser`의 메커니즘
 
 ```
  renderer (project 창)
-   browser 탭 (kinds/browser.tsx, keep) ─ BrowserTab ─ toolbar(뒤로·앞으로·새로 고침·주소 칸·별·bookmark menu·Open in browser·⋮)
+   browser 탭 (kinds/browser.tsx, keep) ─ BrowserTab ─ BrowserChrome(browser-chrome.tsx)가 card 머리 줄에 올린다: 뒤로·앞으로·새로 고침(card nav 덮어쓰기), 주소 칸(경로 자리), 별·bookmark menu·Open in browser(⋯ 앞), DevTools 묶음(⋯ menu 맨 위). floated 탭·detached 창은 card가 없어 본문 위 줄로 그린다(⋮ menu)
      │  page 자리 ─ useWebviewSlot ─▶ webview host (창마다 하나. project 창은 floats 층, detached 창·앱 전용 창은 본문의 층, 앱 place는 .content)
      │                                 <webview partition=persist:lophn-browser> 탭 key당 하나, 옮기지 않고 left/top/size/z-index/visibility만 바꾼다(앱·artifact 화면도 같은 그릇)
      │  DevTools 자리 ─ useViewBounds ─▶ shell:view-bounds (native)
@@ -34,7 +34,7 @@ workspace pane에서 인터넷 page를 여는 탭 kind `browser`의 메커니즘
    크기 없는 것(target=_blank) ─▶ deny ─▶ open-tab event ─▶ renderer가 연 탭 바로 뒤에 <webview> 탭
    page의 window.close() ─▶ webContents "close" ─▶ close event ─▶ renderer가 탭을 지운다
 
- DevTools: ⋮ Inspect ─▶ devtools.open ─▶ 새 WebContentsView에 setDevToolsWebContents + openDevTools ─▶ "devtools-<page id>"
+ DevTools: ⋯ menu의 Inspector ─▶ devtools.open ─▶ 새 WebContentsView에 setDevToolsWebContents + openDevTools ─▶ "devtools-<page id>"
    자리: 탭 안 오른쪽·아래(경계 막대로 크기) / floated 패널(browser_devtools kind, transient. detached 창의 자리 menu에는 없다) / 따로 뜬 OS 창(devtools.window)
    자리를 바꿀 때 다시 열지 않고 view를 옮긴다
 
@@ -66,7 +66,7 @@ workspace pane에서 인터넷 page를 여는 탭 kind `browser`의 메커니즘
 - **popup view는 renderer가 탭을 만들어 adopt하기 전까지 state를 밀지 않는다.** adopt는 소유 창(opener의 창)에서 한 번만 된다. 다른 창은 `invalid_input`, 두 번째는 `forbidden`이다. adopt되지 않은 view는 그 창이 닫힐 때 같이 지운다. popup은 opener 탭을 닫아도 남는다.
 - **`<webview>`는 다른 부모로 옮기지 않는다.** 옮기면 guest가 다시 만들어져 page가 다시 load되고 opener가 끊긴다. 창마다 하나인 webview host(`renderer/app-frame/webview-host.tsx`, project 창은 floats 층의 첫 자식)에 탭 key당 한 번 만들고, 탭 자리(pane 칸, floated 패널 몸통)는 사각형만 알린다. pane 탭의 `<webview>`는 z-index 1(pane의 경계 잡는 띠 아래, 패널 모두 아래), floated 탭은 자기 패널 위·다음 패널 아래다(`workspace-layout.md`). 탭이 **모든 desk**의 layout에서 사라지거나 Detach될 때 지운다. 다른 desk로 바꾸는 것만으로는 지우지 않으므로 desk를 떠났다 돌아와도 page를 다시 load하지 않는다.
 - **guest의 `view_session`은 `wv-<guest contents id>`다.** main과 renderer가 IPC 없이 같은 이름을 안다(renderer는 `getWebContentsId()`). navigate·command·adopt·DevTools 요청은 caller 창이 그 항목의 창일 때만 받는다.
-- **page에는 preload도 IPC도 없다.** 뒤로·앞으로·새로 고침·주소 이동·DevTools는 shell toolbar가 main IPC로 시킨다. 주소 칸 글은 main이 `normalizeAddress`·`decideNavigation`을 거쳐 `loadURL`한다.
+- **page에는 preload도 IPC도 없다.** 뒤로·앞으로·새로 고침·주소 이동·DevTools는 shell의 머리 줄(주소 칸과 단추)이 main IPC로 시킨다. 주소 칸 글은 main이 `normalizeAddress`·`decideNavigation`을 거쳐 `loadURL`한다.
 - **native view(popup, DevTools)는 앱 view registry에 넣지 않는다.** browser registry의 자기 항목이고, 위치는 `browser/native-bounds.ts`가 `browser/native-view.ts`의 `createPlacement`로 정하며 층은 창마다 하나인 `browser/view-order.ts`다. 앱·artifact view는 `<webview>`라 이 표에 없다.
 - **모든 browser 탭과 project가 persistent partition 하나(`persist:lophn-browser`)를 같이 쓴다.** 앱 저장소 partition과 나뉘어 page가 앱 화면의 cookie·storage를 보지 못한다. session 설치는 `userData`를 data root로 잡은 뒤 첫 view, 첫 `<webview>` attach, 첫 지우기 때 한 번 한다.
 - **permission은 clipboard write(`clipboard-sanitized-write`)를 main frame의 http/https가 요청할 때만 허락한다.** 그 밖(clipboard read, media, 위치, 알림, device)은 모두 거절한다. 표는 `permission_test.ts`가 지킨다.
@@ -96,7 +96,7 @@ workspace pane에서 인터넷 page를 여는 탭 kind `browser`의 메커니즘
 - **localhost와 사설 IP를 막지 않는다.** 가장 많이 쓸 곳이 사람의 dev server다. core API는 token으로 막혀 있다.
 - **subresource 요청 guard(`webRequest.onBeforeRequest`)는 두지 않는다.** 이 partition에는 `lophn-shell`·`lophn-app` protocol handler가 없어 그 요청은 어차피 실패한다.
 - **tab 수 cap을 두지 않는다.** pane 탭 상한 200개가 이미 있다.
-- **toolbar menu(overflow, bookmark)는 overlay view로 띄운다.** native popup 탭과 DevTools 위에서도 보여야 해서 한 길로 둔다. menu·popover의 overlay view는 창 본문 전체를 덮고(`ipc/overlay.ts`의 `fullBody`) 부르는 쪽은 trigger 사각형을 보낸다. 별 popover는 `<webview>` 탭에서는 DOM popover(이름 칸과 [Remove])이고, native popup 탭에서는 overlay(이름과 [Remove])다.
+- **머리 줄의 bookmark menu와 card 밖 줄의 ⋮ menu는 overlay view로 띄운다.** card의 ⋯ menu는 DOM이라 열려 있는 동안 탭이 native view(DevTools 자리, popup)를 숨긴다(`menu.onOpenChange`). native popup 탭과 DevTools 위에서도 보여야 해서 한 길로 둔다. menu·popover의 overlay view는 창 본문 전체를 덮고(`ipc/overlay.ts`의 `fullBody`) 부르는 쪽은 trigger 사각형을 보낸다. 별 popover는 `<webview>` 탭에서는 DOM popover(이름 칸과 [Remove])이고, native popup 탭에서는 overlay(이름과 [Remove])다.
 - **DevTools 경계 막대는 DOM drag다.** 끄는 동안 투명한 막을 page 위에 덮고 DevTools native view를 숨긴다. native view는 pointer를 삼킨다. overlay drag 표면으로 한 시도는 press가 shell에서 시작해 움직임을 받지 못했다.
 - **page에 focus가 있을 때 Ctrl/Cmd+D는 main이 `bookmark-key` event로 보낸다.** 작업대 단축키 표에 넣지 않는다. terminal의 Ctrl+D(EOF)와 부딪힌다.
 - **다른 OS 창으로 탭을 옮기면 `<webview>` 탭(browser·앱·artifact)은 다시 load되고 그 탭의 DevTools는 닫힌다.** `<webview>`는 그것을 띄운 page에 묶인다. 다시 load 없이 옮길 수 있는 것은 native 항목(popup, DevTools)뿐이고, 그 소유 창은 `registry.ts` 항목의 `window`다. Detach·Dock이 `moveViews`로 이 `window`를 바꾸므로 popup의 adopt·요청 검사는 옮긴 뒤의 창을 기준으로 한다(`workspace-layout.md`). 앱·artifact 탭은 보내는 창이 element를 지우고 받는 창이 새 view를 연다.

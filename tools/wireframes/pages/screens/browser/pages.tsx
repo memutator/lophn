@@ -120,7 +120,7 @@ async function showPage(
   urls: readonly string[],
   title: string,
 ): Promise<void> {
-  await find("[data-browser-toolbar]");
+  await find("[data-browser-address]");
   await wait(60);
   for (const url of urls) {
     await fake.api.navigate({ view_session: session(key), input: url });
@@ -151,7 +151,7 @@ function DenoTab({ fake, then }: { fake: Fake; then?: () => Promise<void> }) {
   );
 }
 
-/** https page를 연 browser 탭. toolbar와 page 자리, 탭 이름은 page title, 아이콘은 favicon이다. */
+/** https page를 연 browser 탭. 머리 줄 하나(card 머리 겸 주소 칸)와 page 자리, 탭 이름은 page title, 아이콘은 favicon이다. */
 export function BrowserTabPage() {
   return <DenoTab fake={useFake()} />;
 }
@@ -237,16 +237,16 @@ export function BrowserPopupNewTab() {
   );
 }
 
-const openMore = () => press('[aria-label="More"]');
+const openMore = () => press("[data-tab-menu]");
 
-/** toolbar의 더 보기 menu. DevTools가 닫혀 있으면 Inspect 하나다. */
+/** card 머리의 ⋯ menu. 맨 위 묶음이 DevTools이고 닫혀 있으면 Inspector 하나다. */
 export function BrowserOverflowMenu() {
   return <DenoTab fake={useFake()} then={openMore} />;
 }
 
 const openDevtools = async () => {
   await openMore();
-  await click('[role="menuitem"]', "Inspect");
+  await click('[role="menuitem"]', "Inspector");
   await wait(60);
 };
 
@@ -257,7 +257,7 @@ const placeDevtools = (label: string) => async () => {
   await wait(60);
 };
 
-/** Inspect로 연 DevTools가 page 오른쪽에 붙었다. 가운데 경계를 끌어 크기를 바꾼다. */
+/** Inspector로 연 DevTools가 page 오른쪽에 붙었다. 가운데 경계를 끌어 크기를 바꾼다. */
 export function BrowserDevtoolsRight() {
   return <DenoTab fake={useFake()} then={openDevtools} />;
 }
@@ -279,7 +279,7 @@ export function BrowserDevtoolsFloat() {
   );
 }
 
-/** DevTools가 열려 있을 때의 더 보기 menu. 자리 고르기와 닫기이고 지금 자리는 잠겨 있다. */
+/** DevTools가 열려 있을 때의 ⋯ menu의 맨 위 묶음. 자리 고르기와 닫기이고 지금 자리는 잠겨 있다. */
 export function BrowserDevtoolsMenu() {
   return (
     <DenoTab
@@ -324,7 +324,7 @@ export function BrowserStarFilled() {
   );
 }
 
-/** toolbar의 bookmark 단추 menu. 더한 순서대로 title이고 favicon이 없는 것은 Globe다. */
+/** 머리 줄의 bookmark 단추 menu. 더한 순서대로 title이고 favicon이 없는 것은 Globe다. */
 export function BrowserBookmarkMenu() {
   return (
     <DenoTab

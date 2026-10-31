@@ -10,7 +10,7 @@ export const browser = {
   "browser.button.devtools-right": "Dock DevTools to right",
   "browser.button.devtools-window": "Open DevTools in separate window",
   "browser.button.forward": "Forward",
-  "browser.button.inspect": "Inspect",
+  "browser.button.inspect": "Inspector",
   "browser.button.more": "More",
   "browser.button.open-external": "Open in browser",
   "browser.button.reload": "Reload",

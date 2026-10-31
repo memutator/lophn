@@ -57,7 +57,7 @@ desktop 창의 단축키가 어디서 받혀 어느 기능의 command로 가는�
 - context key(focus·UI 상태 식). 지금은 command마다 `when` 함수 하나다. 식이 필요해지면 `when`을 바꾸고 service의 순서 규칙은 그대로 둔다.
 - 사용자 키는 작업대 단축키 표의 줄만 바꾼다. 팔레트·런처·전역 팔레트 키(ipc/shortcuts.ts)는 바꾸지 않는다. chord는 한 키 조합이고 VS Code의 `Ctrl+K Ctrl+S` 같은 두 단계 chord는 없다.
 - 바인딩 소유자(extension)별 일괄 해제. `Disposable`을 모아 푸는 것으로 된다.
-- component 안에서만 뜻이 있는 키(목록 화살표, 입력칸 Enter·Esc, browser toolbar의 Ctrl/Cmd+D)는 그 component가 받는다. browser page focus의 Ctrl/Cmd+D는 main이 `bookmark-key`로 보낸다(browser-tab.md).
+- component 안에서만 뜻이 있는 키(목록 화살표, 입력칸 Enter·Esc, browser 머리 줄의 Ctrl/Cmd+D)는 그 component가 받는다. browser page focus의 Ctrl/Cmd+D는 main이 `bookmark-key`로 보낸다(browser-tab.md).
 
 ## 왜 이 모양인가
 

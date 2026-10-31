@@ -1,5 +1,5 @@
 // 왼쪽 sidebar. 위에 New session·Inbox·Jobs, 아래에 place(Home, project, app)마다 열린 session과 접힌 Recent 줄 하나,
-// 맨 아래에 빠른 실행(Terminal · Browser · App ▾)과 Settings다. 값과 callback만 받아서 project 창 말고 Home과 app place도 같은 것을 쓴다.
+// 맨 아래에 빠른 실행(Terminal · Browser · App ▾ · Search)과 Settings다. 값과 callback만 받아서 project 창 말고 Home과 app place도 같은 것을 쓴다.
 import { t } from "@lophn/i18n";
 import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
 import { Icon, IconButton } from "@lophn/ui/primitives";
@@ -34,6 +34,8 @@ import styles from "./left-sidebar.module.css";
 export interface QuickLaunch {
   onTerminal?: () => void;
   onBrowser?: () => void;
+  /** Search 탭(project) 또는 팔레트(Home 등 검색 탭이 없는 place). */
+  onSearch?: () => void;
   /** App ▾의 항목(이 place의 앱 화면·앱 panel). 비면 단추가 없다. */
   appItems?: readonly MenuItem[];
   onApp?: (id: string) => void;
@@ -486,6 +488,15 @@ export function LeftSidebar({
                 data-quick="app"
               />
             }
+          />
+        )}
+        {quick?.onSearch === undefined ? null : (
+          <IconButton
+            icon={shellIcons.search}
+            label={t("left-sidebar.button.quick-search")}
+            size="sm"
+            data-quick="search"
+            onClick={quick.onSearch}
           />
         )}
         <span className={styles.grow} />

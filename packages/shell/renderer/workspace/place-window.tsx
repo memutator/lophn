@@ -1896,6 +1896,11 @@ export function PlaceWindow(props: PlaceWindowProps) {
                     : { onBrowser: () => openBrowserTab(host) }),
                   appItems: quickApp.items,
                   onApp: quickApp.select,
+                  // project의 Search 탭. 검색 통로가 없는 place(Home 등)는 팔레트를 연다.
+                  onSearch:
+                    source.searchSource === undefined || projectId === null
+                      ? openQuickFiles
+                      : () => openSearchShortcut(host),
                 }}
                 jobs={props.jobs}
                 onInbox={() => openInbox(host)}

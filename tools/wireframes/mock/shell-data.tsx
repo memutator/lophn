@@ -184,6 +184,7 @@ export type Variant =
   | "group-columns"
   | "group-grid"
   | "group-menu"
+  | "desk-close"
   | "floats"
   | "empty"
   | "overflow"
@@ -404,6 +405,29 @@ export function mockDesks(variant: Variant): MockDesk[] {
         ),
         ...others,
       ];
+    case "desk-close": {
+      // 지우려는 Review desk: 저장이 남은 파일 둘, 터미널, 떠 있는 패널.
+      const notes = {
+        ...file("r-notes", "release-notes.md", "phroner"),
+        unsaved: true,
+      };
+      const spec = {
+        ...file("r-spec", "spec.ts", "phroner", "src"),
+        unsaved: true,
+      };
+      return [
+        main,
+        desk(
+          "review",
+          "Review",
+          [R1, notes, spec, terminal("r-term", "npm test")],
+          {
+            floats: [[file("r-todo", "todo.md", "phroner"), false]],
+          },
+        ),
+        ...others.slice(1),
+      ];
+    }
     case "empty":
       return [{ ...main, model: emptyDesk("_default", "Main") }, ...others];
     default:

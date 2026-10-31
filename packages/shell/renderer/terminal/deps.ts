@@ -103,12 +103,13 @@ export function windowTerminalDeps(
 }
 
 /**
- * 탭 닫기. 살아 있는 터미널은 사람이 확인해야 닫고, 취소하면 runtime과 출력을
+ * 탭 닫기. 살아 있는 터미널은 사람이 확인해야 닫고(이미 확인했으면 `confirmed`), 취소하면 runtime과 출력을
  * 유지한다. 종료 확인에 실패하면 탭을 남겨 결과 불명을 보인다. true면 탭을 뺀다.
  */
 export async function closeTerminalTab(
   deps: TerminalDeps,
   key: string,
+  confirmed = false,
 ): Promise<boolean> {
   const entry = deps.store.get(key);
   const bridge = deps.bridge;
@@ -132,7 +133,7 @@ export async function closeTerminalTab(
     deps.store.delete(key);
     return true;
   }
-  if (!(await deps.confirmClose())) return false;
+  if (!confirmed && !(await deps.confirmClose())) return false;
   const reply = await bridge.close(ref);
   if (reply.ok && reply.value.ok) {
     const runtime = reply.value.runtime;

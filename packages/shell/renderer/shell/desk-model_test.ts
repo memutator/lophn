@@ -21,6 +21,7 @@ import {
   groupOf,
   leavesOf,
   MAIN_DESK,
+  mergeDeskIntoMain,
   minimizeFloat,
   moveTab,
   openTab,
@@ -230,24 +231,60 @@ test("group 구성원을 닫으면 짝이 선택되고 1개가 되면 group이 �
   assertValid(desk, ["a", "d"]);
 });
 
-test("desk를 지우면 tab이 Main으로 옮겨지고 Main은 지워지지 않는다", () => {
+test("끝낸 desk는 tab을 닫은 뒤 desk만 지우고 Main과 다른 desk는 건드리지 않는다", () => {
   let layout: PlaceLayout = defaultPlaceLayout();
   layout = updateDesk(layout, MAIN_DESK, (d) => openTab(d, tab("m1")));
+  layout = addDesk(layout, "mine", "mine", undefined);
+  layout = updateDesk(layout, "mine", (d) => {
+    let next = d;
+    for (const key of ["x", "y", "z"]) next = openTab(next, tab(key));
+    next = floatTab(next, "y", RECT);
+    return detachTab(next, "z", BOUNDS);
+  });
+  layout = { ...layout, active: "mine" };
+  // 호출자가 먼저 닫는다.
+  layout = updateDesk(layout, "mine", (d) =>
+    closeDetached(closeFloat(closeTab(d, "x"), "y"), "z"),
+  );
+  const removed = removeDesk(layout, "mine");
+  assert.deepEqual(Object.keys(removed.desks), [MAIN_DESK]);
+  assert.equal(removed.active, MAIN_DESK);
+  assertValid(removed.desks[MAIN_DESK]!, ["m1"]);
+  assert.equal(removeDesk(removed, MAIN_DESK), removed);
+});
+
+test("workflow desk가 사라지면 tab과 group이 Main으로 합쳐지고 겹치는 key는 옮기지 않는다", () => {
+  let layout: PlaceLayout = defaultPlaceLayout();
+  layout = updateDesk(layout, MAIN_DESK, (d) => {
+    let next = openTab(openTab(d, tab("m1")), tab("m2"));
+    next = openTab(next, tab("a"));
+    return splitTab(next, "m1", "m2", "right");
+  });
   layout = addDesk(layout, "wf", "wf", "wf");
   layout = updateDesk(layout, "wf", (d) => {
     let next = d;
-    for (const key of ["m1", "x", "y", "z", "w"])
+    for (const key of ["x", "y", "z", "w", "u", "v", "m1"])
       next = openTab(next, tab(key));
     next = splitTab(next, "x", "w", "right");
+    // m1은 Main에도 있어 옮기지 않는다. 그 leaf가 빠진 group은 1개가 되어 풀린다.
+    next = splitTab(next, "u", "m1", "right");
     next = floatTab(next, "y", RECT);
     return detachTab(next, "z", BOUNDS);
   });
   layout = { ...layout, active: "wf" };
-  const removed = removeDesk(layout, "wf");
-  assert.deepEqual(Object.keys(removed.desks), [MAIN_DESK]);
-  assert.equal(removed.active, MAIN_DESK);
-  assertValid(removed.desks[MAIN_DESK]!, ["m1", "x", "y", "z", "w"]);
-  assert.equal(removeDesk(removed, MAIN_DESK), removed);
+  const merged = mergeDeskIntoMain(layout, "wf");
+  assert.deepEqual(Object.keys(merged.desks), [MAIN_DESK]);
+  assert.equal(merged.active, MAIN_DESK);
+  const main = merged.desks[MAIN_DESK]!;
+  assertValid(main, ["m1", "m2", "a", "x", "y", "z", "w", "u", "v"]);
+  assert.deepEqual(
+    main.groups.map((group) => leavesOf(group.layout)),
+    [
+      ["m1", "m2"],
+      ["x", "w"],
+    ],
+  );
+  assert.equal(mergeDeskIntoMain(merged, MAIN_DESK), merged);
 });
 
 test("열려 있는 tab은 그 desk로 찾아간다", () => {

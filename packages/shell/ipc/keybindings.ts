@@ -22,6 +22,10 @@ export type Command =
   | "tab.move-left"
   | "tab.move-right"
   | "pane.focus"
+  | "pane.focus-left"
+  | "pane.focus-right"
+  | "pane.focus-up"
+  | "pane.focus-down"
   | "pane.split"
   | "sidebar.toggle"
   | "explorer.focus"
@@ -90,6 +94,27 @@ const FIXED: readonly Binding[] = [
     main: BOTH,
   },
   { command: "pane.split", other: ["Ctrl+Backslash"], mac: ["Cmd+Backslash"] },
+  // 고른 group 안에서 방향으로 옮긴다. 편집기·터미널 안에서도 받는다(Ctrl+Alt+화살표는 shell의 Ctrl+글자가 아니다).
+  {
+    command: "pane.focus-left",
+    other: ["Ctrl+Alt+ArrowLeft"],
+    mac: ["Cmd+Alt+ArrowLeft"],
+  },
+  {
+    command: "pane.focus-right",
+    other: ["Ctrl+Alt+ArrowRight"],
+    mac: ["Cmd+Alt+ArrowRight"],
+  },
+  {
+    command: "pane.focus-up",
+    other: ["Ctrl+Alt+ArrowUp"],
+    mac: ["Cmd+Alt+ArrowUp"],
+  },
+  {
+    command: "pane.focus-down",
+    other: ["Ctrl+Alt+ArrowDown"],
+    mac: ["Cmd+Alt+ArrowDown"],
+  },
   { command: "sidebar.toggle", other: ["Ctrl+KeyB"], mac: ["Cmd+KeyB"] },
   {
     command: "explorer.focus",

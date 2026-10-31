@@ -258,8 +258,10 @@ export const terminalKind: TabKindDef = {
     );
   },
   // 살아 있는 터미널은 사람이 확인해야 닫는다. 취소하면 탭과 shell을 유지한다.
-  beforeClose(tab, host) {
+  beforeClose(tab, host, options) {
     const terminal = host.props.terminal;
-    return terminal ? closeTerminalTab(terminal, tab.key) : null;
+    return terminal
+      ? closeTerminalTab(terminal, tab.key, options?.confirmed === true)
+      : null;
   },
 };

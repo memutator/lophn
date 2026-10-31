@@ -197,10 +197,6 @@
   min-width: var(--space-0);
 }
 
-.tab[data-split][data-active] {
-  min-width: calc(var(--space-12) * 5 + var(--space-9));
-}
-
 /* 고르지 않은 split은 두 아이콘과 방향 표시만 보이는 좁은 칸이다. 이름은 tooltip에 있다. */
 .tab[data-split]:not([data-active]) {
   flex: none;
@@ -228,8 +224,14 @@
   color: var(--color-text-disabled);
 }
 
+/* 고른 group은 focus 반쪽만 이름을 보이고 나머지는 아이콘만 보인다(이름은 tooltip). */
 .tab[data-active][data-split] .half:not([data-focused]) {
+  flex: none;
   color: var(--color-text-muted);
+}
+
+.tab[data-active][data-split] .half:not([data-focused]) .title {
+  display: none;
 }
 
 /* 접힌 float. tab 줄 오른쪽 끝에 아이콘만 보이는 좁은 칸이다(Chrome pinned tab). */

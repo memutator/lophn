@@ -54,6 +54,22 @@ const WORDING: Readonly<Record<Command, Wording>> = {
     name: "settings.label.key-pane-focus",
     help: "settings.note.key-pane-focus",
   },
+  "pane.focus-left": {
+    name: "settings.label.key-pane-focus-left",
+    help: "settings.note.key-pane-focus-direction",
+  },
+  "pane.focus-right": {
+    name: "settings.label.key-pane-focus-right",
+    help: "settings.note.key-pane-focus-direction",
+  },
+  "pane.focus-up": {
+    name: "settings.label.key-pane-focus-up",
+    help: "settings.note.key-pane-focus-direction",
+  },
+  "pane.focus-down": {
+    name: "settings.label.key-pane-focus-down",
+    help: "settings.note.key-pane-focus-direction",
+  },
   "pane.split": {
     name: "settings.label.key-pane-split",
     help: "settings.note.key-pane-split",

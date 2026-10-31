@@ -1,17 +1,23 @@
 // shell 틀을 fake desk 상태로 그린다. 진짜 연결은 project 화면 task가 하고, 여기는 틀이 callback에 맞게 움직이는지 보이려고
 // 선택·닫기·float·group만 가볍게 받는다. desk는 실제 desk model이고 동작은 그 순수 함수를 부른다.
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { matchKey } from "../../../../../packages/shell/ipc/keybindings.ts";
 import { shellIcons } from "../../../../../packages/shell/renderer/icons/mod.ts";
 import {
   ContentCard,
   type TabAction,
 } from "../../../../../packages/shell/renderer/shell/content-card.tsx";
+import {
+  DeskCloseDialog,
+  type DeskCloseSummary,
+} from "../../../../../packages/shell/renderer/shell/desk-close-dialog.tsx";
 import { DeskSwitcher } from "../../../../../packages/shell/renderer/shell/desk-switcher.tsx";
 import { FloatLayer } from "../../../../../packages/shell/renderer/shell/float-layer.tsx";
 import {
   TabContextMenu,
   type TabMenuState,
 } from "../../../../../packages/shell/renderer/shell/tab-menu.tsx";
+import { neighborLeaf } from "../../../../../packages/shell/renderer/shell/group-geometry.ts";
 import { PanelTabs } from "../../../../../packages/shell/renderer/shell/panel-tabs.tsx";
 import { ShellFrame } from "../../../../../packages/shell/renderer/shell/shell-frame.tsx";
 import { TabDragProvider } from "../../../../../packages/shell/renderer/shell/tab-drag.tsx";
@@ -22,6 +28,7 @@ import {
   closeTab,
   type Desk,
   deskEntries,
+  deskTabs,
   dirsOf,
   dockFloat,
   floatTab,
@@ -55,11 +62,13 @@ import {
 import { MockRightSidebar } from "../../../mock/shell-sidebars.tsx";
 import { PageLeftSidebar } from "../project-window.tsx";
 import {
+  click,
   contextMenu,
   dragPointer,
   press,
   type Spot,
   useDrive,
+  wait,
 } from "../../../mock/drive.ts";
 
 const PANELS = [
@@ -77,6 +86,8 @@ export function ShellScene({
   open,
   context,
   drag,
+  closeDesk,
+  keys,
   recentOpen = false,
 }: {
   variant: Variant;
@@ -90,12 +101,17 @@ export function ShellScene({
   context?: string;
   /** mount 뒤 pointer로 끌 것. release가 false면 끄는 도중에 멈춘다. */
   drag?: { from: Spot; to: Spot; release?: boolean };
+  /** mount 뒤 desk 단추를 열고 이 이름의 desk를 지우는 x를 누른다. */
+  closeDesk?: string;
+  /** mount 뒤 차례로 누를 단축키(예: "Ctrl+Alt+ArrowRight"). */
+  keys?: readonly string[];
 }) {
   const [desks, setDesks] = useState(() => mockDesks(variant));
   const [deskKey, setDeskKey] = useState("_default");
   const [leftOpen, setLeft] = useState(left);
   const [rightOpen, setRight] = useState(right);
   const [panel, setPanel] = useState("files");
+  const [closing, setClosing] = useState<string | null>(null);
   const [menu, setMenu] = useState<{
     key: string;
     x: number;
@@ -103,6 +119,24 @@ export function ShellScene({
   } | null>(null);
   useDrive(async () => {
     if (open !== undefined) await press(open);
+    if (closeDesk !== undefined) {
+      await press("[data-desk-button]");
+      await click(`[aria-label="Delete desk ${closeDesk}"]`);
+    }
+    // 단축키 listener가 effect로 서 있어야 한다.
+    if (keys !== undefined) await wait(100);
+    for (const chord of keys ?? []) {
+      const parts = chord.split("+");
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          code: parts.at(-1),
+          ctrlKey: parts.includes("Ctrl"),
+          altKey: parts.includes("Alt"),
+          bubbles: true,
+        }),
+      );
+      await wait(60);
+    }
     if (context !== undefined) await contextMenu('[role="tab"]', context);
     if (drag !== undefined) {
       await dragPointer(drag.from, drag.to, drag.release ?? true);
@@ -117,6 +151,51 @@ export function ShellScene({
         d.key === mock.key ? { ...d, model: change(d.model) } : d,
       ),
     );
+
+  // 실제 앱의 pane.focus-* command와 같은 표(ipc/keybindings.ts)와 같은 함수(neighborLeaf)를 쓴다.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const hit = matchKey(
+        {
+          key: event.key,
+          code: event.code,
+          ctrl: event.ctrlKey,
+          meta: event.metaKey,
+          alt: event.altKey,
+          shift: event.shiftKey,
+        },
+        "other",
+      );
+      if (!hit?.command.startsWith("pane.focus-")) return;
+      const own = groupOf(desk, desk.selected);
+      if (own === null || desk.selected === null) return;
+      const to = neighborLeaf(
+        own.layout,
+        desk.selected,
+        hit.command.slice("pane.focus-".length) as "left",
+      );
+      if (to !== null) patch((d) => selectTab(d, to));
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  });
+
+  const closeSummary = (target: Desk): DeskCloseSummary => {
+    const tabs = deskTabs(target);
+    return {
+      tabs: tabs.length,
+      terminals: tabs.filter((tab) => mockOf(tab).kind === "terminal").length,
+      floats: target.floats.length,
+      detached: target.detached.length,
+      unsaved: tabs
+        .filter((tab) => mockOf(tab).unsaved)
+        .map((tab) => ({
+          title: mockOf(tab).title,
+          path: `~/projects/${mockOf(tab).crumbs.join("/")}`,
+        })),
+    };
+  };
+  const closingDesk = desks.find((d) => d.key === closing);
 
   const close = (key: string) =>
     patch((d) => closeFloat(closeTab(d, key), key));
@@ -209,26 +288,7 @@ export function ShellScene({
                 all.map((d) => (d.key === key ? { ...d, label } : d)),
               )
             }
-            onDelete={(key) => {
-              const gone = desks.find((d) => d.key === key);
-              if (gone === undefined) return;
-              setDesks((all) =>
-                all
-                  .filter((d) => d.key !== key)
-                  .map((d) =>
-                    d.key === "_default"
-                      ? {
-                          ...d,
-                          model: gone.model.tabs.reduce(
-                            (now, tab) => openTab(now, tab, { select: false }),
-                            d.model,
-                          ),
-                        }
-                      : d,
-                  ),
-              );
-              if (deskKey === key) setDeskKey("_default");
-            }}
+            onDelete={setClosing}
           />
         }
         tabs={
@@ -322,6 +382,18 @@ export function ShellScene({
           onAction={action}
           onEmptyAction={() => {}}
         />
+        {closingDesk === undefined ? null : (
+          <DeskCloseDialog
+            label={closingDesk.label}
+            summary={closeSummary(closingDesk.model)}
+            onCancel={() => setClosing(null)}
+            onConfirm={() => {
+              setDesks((all) => all.filter((d) => d.key !== closingDesk.key));
+              if (deskKey === closingDesk.key) setDeskKey("_default");
+              setClosing(null);
+            }}
+          />
+        )}
         {menu === null || menuTab === undefined ? null : (
           <TabContextMenu
             at={menu}

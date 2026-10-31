@@ -187,8 +187,27 @@ export const shellArea: Area = {
       id: "shell-desk-menu",
       title: "Shell · Desk menu",
       description:
-        "desk 단추를 연 상태. 사람이 만든 desk와 workflow desk를 고르고 New desk로 빈 desk를 만든다. 사람이 만든 desk(Main 제외) 줄 오른쪽 끝에 이름 바꾸기(연필)와 지우기(x) 단추가 있다. 지우면 탭은 Main으로 간다.",
+        "desk 단추를 연 상태. 사람이 만든 desk와 workflow desk를 고르고 New desk로 빈 desk를 만든다. 사람이 만든 desk(Main 제외) 줄 오른쪽 끝에 이름 바꾸기(연필)와 지우기(x) 단추가 있다. 지우면 확인 dialog가 뜬다(Shell · Close desk).",
       render: () => <ShellScene variant="project" open="[data-desk-button]" />,
+    },
+    {
+      id: "shell-desk-close",
+      title: "Shell · Close desk",
+      description:
+        "desk 단추의 x를 눌렀을 때. desk를 지우는 것은 그 일을 끝내는 것이라 tab·float·창을 모두 닫고 터미널을 멈춘다. 몇 개가 닫히는지와 저장이 남은 파일(이름과 경로)을 보이고, 취소 또는 Close desk(danger)를 고른다. 닫으면 Main으로 돌아간다.",
+      render: () => <ShellScene variant="desk-close" closeDesk="Review" />,
+    },
+    {
+      id: "shell-pane-focus",
+      title: "Shell · Pane focus by arrow",
+      description:
+        "2 x 2 group에서 Ctrl+Alt+→, Ctrl+Alt+↓를 누른 뒤(맨 왼쪽 위 칸에서 오른쪽 위, 오른쪽 아래 칸으로). 칸이 맞닿은 방향으로 focus가 옮겨 가고 tab 줄은 focus 칸의 이름만 보인다.",
+      render: () => (
+        <ShellScene
+          variant="group-grid"
+          keys={["Ctrl+Alt+ArrowRight", "Ctrl+Alt+ArrowDown"]}
+        />
+      ),
     },
     {
       id: "shell-tab-menu",

@@ -2,7 +2,7 @@
 
 터미널의 agent는 사람이 연 터미널 탭 하나 안에서 지금 어떤 coding agent(harness)가 도는지, 그것이 무슨 상태인지 아는 층이다. 탭 icon, 탭 점, OS 알림이 이것만 본다. lophn session이 아니다. core는 사람이 연 터미널을 모르고 그 agent에 메시지를 넣지 않는다. lophn이 coding agent를 띄워 일을 맡기는 길은 없다.
 
-여러 곳에 걸쳐 있다. terminal-host(`packages/shell/terminal-host/foreground.ts`)가 foreground process를 읽고, CLI(`packages/coding-agent/cli/commands/hook.ts`)가 hook을 보내고, shell main(`packages/shell/main/terminal/agent/`, `packages/shell/main/notice/`, `packages/shell/main/desktop/wiring/agent.ts`, `packages/shell/main/desktop/wiring/notice.ts`)이 받아 상태를 정하고 알리며, renderer(`packages/shell/renderer/workspace/kinds/terminal.tsx`, `packages/shell/renderer/parts/tab-strip/`)가 그린다.
+여러 곳에 걸쳐 있다. terminal-host(`packages/shell/terminal-host/foreground.ts`)가 foreground process를 읽고, CLI(`packages/coding-agent/cli/commands/hook.ts`)가 hook을 보내고, shell main(`packages/shell/main/terminal/agent/`, `packages/shell/main/notice/`, `packages/shell/main/desktop/wiring/agent.ts`, `packages/shell/main/desktop/wiring/notice.ts`)이 받아 상태를 정하고 알리며, renderer(`packages/shell/renderer/workspace/kinds/terminal.tsx`, `packages/shell/renderer/shell/tab-strip.tsx`)가 그린다.
 
 ## 흐름
 

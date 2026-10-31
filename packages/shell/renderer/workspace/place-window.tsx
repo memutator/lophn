@@ -11,6 +11,11 @@ import {
   useSyncExternalStore,
 } from "react";
 import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/places.ts";
+import type { AppFrameViewState } from "../../ipc/app-frame.ts";
+import { useAppRuns } from "../app-frame/app-runs.ts";
+import { useAnnotate } from "../app-frame/annotate/use-annotate.ts";
+import { useAnnotateApi } from "../artifact/artifact-api.tsx";
+import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
 import {
   type DetachedEvent,
   type LophnDetachedApi,
@@ -111,6 +116,11 @@ import { agentOf, sessionOf } from "./agent/tab-fields.ts";
 import { focusTabBody } from "./focus-tab.ts";
 import { distinctAgentTab, openAgent } from "./kinds/agent.tsx";
 import { openAppPanel } from "./kinds/app-panel.tsx";
+import {
+  appScreenKey,
+  appScreenTab,
+  openAppScreen,
+} from "./kinds/app-screen.tsx";
 import { openProjectSettings } from "./kinds/project-settings.tsx";
 import { openArtifact } from "./kinds/artifact.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
@@ -131,6 +141,11 @@ import type { TabAwareResult } from "./sidebar/explorer.tsx";
 import { agentRow } from "./sidebar/panel-sessions.ts";
 import { sessionKey } from "../shell/left-sidebar-model.ts";
 import { PlaceLeftSidebar } from "./sidebar/place-left-sidebar.tsx";
+import {
+  AppPlacePanel,
+  appPanelTabs,
+  type AppPlaceTab,
+} from "./sidebar/app-panel.tsx";
 import { HomePanel, homePanelTabs } from "./sidebar/home-panel.tsx";
 import {
   ProjectPanel,
@@ -149,12 +164,13 @@ import { useCommands, useWindowCommands } from "../commands/react.tsx";
 import { useTabHostSlices } from "./use-tab-host-slices.ts";
 import styles from "./place-window.module.css";
 
-/** 이 창이 보일 수 있는 place. 앱 place는 앱 공간이 그린다. */
-export type WindowPlace = Extract<PlaceRef, { kind: "home" | "project" }>;
+/** 이 창이 보일 수 있는 place: Home, project, 앱. */
+export type WindowPlace = PlaceRef;
 
 export interface PlaceWindowProps {
   /**
    * Home이면 project 폴더가 필요한 것(Explorer, 터미널, domain, workflow, project settings)이 없고 Places·Jobs panel이 오른쪽에 선다.
+   * 앱이면 폴더 대신 앱 화면 탭이 있고 오른쪽에 App·Domain·Logs panel이 선다.
    * 창은 place마다 새로 mount된다(부르는 쪽이 key로 가른다).
    */
   place: WindowPlace;
@@ -194,7 +210,9 @@ export interface PlaceWindowProps {
   agentViewSource?: AgentTabSourceFactory;
   /** 처음 열 때 한 번 열 session(다른 project의 session toast). */
   session?: string;
-  /** 처음 열 때 한 번 이 project place의 lophn을 연다. */
+  /** 앱 place의 오른쪽 App·Domain panel이 읽고 쓰는 통로. 없으면 그 panel은 준비 전 안내다. */
+  appDetail?: AppDetailSource;
+  /** 처음 열 때 한 번 이 place의 lophn을 연다. 앱 place는 앱 화면과 붙인 split으로 연다. */
   startLophn?: true;
   /** 처음 열 때 한 번 고를 터미널의 terminal_ref(다른 project의 터미널 알림). */
   revealTerminal?: string;
@@ -246,12 +264,14 @@ interface Stop {
 const sameStop = (a: Stop, b: Stop) =>
   a.desk === b.desk && a.key === b.key && a.focus === b.focus;
 
-// place(Home 또는 project) 창. 새 shell 틀(title bar의 desk 단추·tab 줄, 가운데 card, float 층, 양쪽 sidebar)에 desk 하나를 그린다.
-// Home은 project가 없어(projectId null) 폴더가 필요한 부분을 건너뛴다.
+// place(Home, project, 앱) 창. 새 shell 틀(title bar의 desk 단추·tab 줄, 가운데 card, float 층, 양쪽 sidebar)에 desk 하나를 그린다.
+// Home과 앱은 project가 없어(projectId null) 폴더가 필요한 부분을 건너뛴다.
 export function PlaceWindow(props: PlaceWindowProps) {
   const { place, source, windowWidth, onHome, onSettings, terminal } = props;
   const projectId = place.kind === "project" ? place.id : null;
-  const isHome = projectId === null;
+  const appId = place.kind === "app" ? place.id : null;
+  const isHome = place.kind === "home";
+  const isApp = appId !== null;
   const placeId = placeKey(place);
   const browserApi = useBrowserApi();
   const bookmarkList = useBookmarks();
@@ -260,6 +280,8 @@ export function PlaceWindow(props: PlaceWindowProps) {
   const [loaded, setLoaded] = useState<Loaded>(EMPTY_LOADED);
   // Explorer가 보이는 연결 폴더. 화면 상태일 뿐이라 저장하지 않는다. 터미널도 이 폴더에서 열린다.
   const [explorerRoot, setExplorerRoot] = useState<string | undefined>();
+  // 앱 place에서 지금 열려 있는 앱 화면 view. App panel의 Annotate가 이 view를 가리킨다.
+  const [screenView, setScreenView] = useState<AppFrameViewState | null>(null);
   const {
     domains,
     sidebarAgents,
@@ -270,7 +292,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
     keeps,
     webviews,
   } = useTabHostSlices({
-    project: projectId,
+    place,
     source,
     agentViewSource,
     terminalStore: terminal?.store,
@@ -289,7 +311,9 @@ export function PlaceWindow(props: PlaceWindowProps) {
   const desk = activeDesk(layout);
   const [leftOpen, setLeftOpen] = useState(windowWidth >= LEFT_OPEN_MIN);
   const [rightOpen, setRightOpen] = useState(windowWidth >= RIGHT_OPEN_MIN);
-  const [panel, setPanel] = useState<string>(isHome ? "places" : "explorer");
+  const [panel, setPanel] = useState<string>(
+    isHome ? "places" : isApp ? "app" : "explorer",
+  );
   // 떠 있는 안내(읽기 실패)를 닫은 상태.
   const [noticesHidden, setNoticesHidden] = useState(false);
   const hideNotices = () => setNoticesHidden(true);
@@ -297,6 +321,28 @@ export function PlaceWindow(props: PlaceWindowProps) {
   // float 층의 기준인 stage(card를 감싸는 칸)의 크기.
   const stageRef = useRef<HTMLDivElement>(null);
   const stageSize = useObservedSize(stageRef);
+
+  // 앱 place의 이름. 앱 화면 탭 제목과 crumb이 쓴다.
+  const [appName, setAppName] = useState<string | undefined>();
+  useEffect(() => {
+    if (appId === null || props.apps === undefined) return;
+    let live = true;
+    void props.apps.get(appId).then((read) => {
+      if (live && read.ok && read.value !== null) setAppName(read.value.name);
+    });
+    return () => {
+      live = false;
+    };
+  }, [appId, props.apps]);
+  // 앱 place를 처음 열면(저장된 layout이 없으면) Main desk에 앱 화면 탭이 고른 채 있다.
+  const freshLayout = (): PlaceLayout => {
+    const base = defaultPlaceLayout();
+    return appId === null
+      ? base
+      : updateDesk(base, base.active, (item) =>
+          openTabInDesk(item, appScreenTab(appId, "")),
+        );
+  };
 
   useEffect(() => {
     let live = true;
@@ -316,7 +362,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
         });
       }
       const restored =
-        read.ok && read.layout !== null ? read.layout : defaultPlaceLayout();
+        read.ok && read.layout !== null ? read.layout : freshLayout();
       latestLayout.current = restored;
       setLayout(restored);
       // 보이는 desk의 detached 창만 연다. 다른 desk의 것은 그 desk로 갈 때 syncDetached가 연다.
@@ -514,7 +560,9 @@ export function PlaceWindow(props: PlaceWindowProps) {
       tab.kind === "agent" && tab.title === ""
         ? sidebarAgents.agents.find((row) => row.assignment === agentOf(tab))
             ?.name
-        : undefined;
+        : tab.kind === "app_screen" && tab.title === ""
+          ? appName
+          : undefined;
     if (!allTabs(layout).some((tab) => nameOf(tab) !== undefined)) return;
     commit(
       mapLayoutTabs(latestLayout.current, (tab) => {
@@ -523,7 +571,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
       }),
       false,
     );
-  }, [layout, sidebarAgents.agents]);
+  }, [layout, sidebarAgents.agents, appName]);
 
   // desk를 바꾼다. 저장과 detached 창 맞추기는 commit이 한다.
   const switchDesk = (key: string) =>
@@ -684,7 +732,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
     if (reply?.ok) openFile(host, reply.value.path);
   };
 
-  // 이 project place의 lophn Agent 탭을 연다. agent 목록을 아직 읽지 못했으면 열지 않고 false다.
+  // 이 place의 lophn Agent 탭을 연다. agent 목록을 아직 읽지 못했으면 열지 않고 false다.
   const openLophn = (): boolean => {
     const row = sidebarAgents.agents.find(
       (item) => item.assignment === LOPHN_AGENT_ID,
@@ -700,7 +748,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
     const row =
       entry === undefined
         ? undefined
-        : agentRow(entry, sidebarAgents.agents, projectId);
+        : agentRow(entry, sidebarAgents.agents, place);
     if (row === undefined || agentViewSource === undefined) return false;
     openAgent(host, { agent: row.assignment, name: row.name, session });
     return true;
@@ -712,6 +760,8 @@ export function PlaceWindow(props: PlaceWindowProps) {
     place,
     projectId,
     projectTitle: loaded.project?.title,
+    appName,
+    appScreen: isApp ? { reportView: setScreenView } : null,
     explorerRoot,
     props,
     appScreens: appViews?.screens !== undefined,
@@ -739,7 +789,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
   const agentsRef = useRef(sidebarAgents.agents);
   agentsRef.current = sidebarAgents.agents;
   const reactionEnv = {
-    project: projectId,
+    place,
     host: () => hostRef.current,
     sessions: () => sessionsRef.current,
     agents: () => agentsRef.current,
@@ -780,6 +830,15 @@ export function PlaceWindow(props: PlaceWindowProps) {
       openProjectLophn(reactionEnv)
     ) {
       started.current.lophn = startLophn;
+      // 방금 만든 앱은 앱 화면과 lophn session을 붙여 나란히 본다.
+      if (appId !== null) {
+        update((item) =>
+          item.selected !== null &&
+          item.tabs.some((tab) => tab.key === appScreenKey(appId))
+            ? splitWith(item, appScreenKey(appId), item.selected)
+            : item,
+        );
+      }
     }
   }, [
     readyPlace,
@@ -1109,7 +1168,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
       terminal: terminal !== undefined,
       platform: palette.platform,
       keys: windowCommands?.overrides() ?? {},
-      home: isHome,
+      home: projectId === null,
       search:
         palette.search && projectId !== null
           ? (query) =>
@@ -1214,13 +1273,13 @@ export function PlaceWindow(props: PlaceWindowProps) {
         setLeftOpen((open) => !open);
         return;
       case "explorer.focus":
-        if (isHome) return;
+        if (projectId === null) return;
         setPanel("explorer");
         setRightOpen(true);
         setExplorerFocus((count) => count + 1);
         return;
       case "search.open":
-        if (source.searchSource !== undefined && !isHome) {
+        if (source.searchSource !== undefined && projectId !== null) {
           openSearchShortcut(hostRef.current);
         }
         return;
@@ -1405,15 +1464,20 @@ export function PlaceWindow(props: PlaceWindowProps) {
   const crumbsOf = (tab: TabItem): string[] => {
     const path = pathOfTab(tab);
     const base =
-      loaded.project?.title ?? projectId ?? t("left-sidebar.label.home");
-    return path === null
-      ? [base, tab.title]
-      : [
-          base,
-          ...relativePath(path)
-            .split("/")
-            .filter((part) => part !== ""),
-        ];
+      loaded.project?.title ??
+      appName ??
+      projectId ??
+      t("left-sidebar.label.home");
+    return tab.kind === "app_screen"
+      ? [base]
+      : path === null
+        ? [base, tab.title]
+        : [
+            base,
+            ...relativePath(path)
+              .split("/")
+              .filter((part) => part !== ""),
+          ];
   };
   const panes: CardPane[] = shown.map((tab, index) => {
     const dot = tabKindOf(tab.kind)?.dotOf?.(tab, host) ?? null;
@@ -1557,6 +1621,21 @@ export function PlaceWindow(props: PlaceWindowProps) {
     );
   };
 
+  // 앱 place의 오른쪽 panel. Annotate는 앱 화면 view를 가리키고, Logs는 이 앱의 run 기록이다.
+  const annotateApi = useAnnotateApi();
+  const annotating = useAnnotate(annotateApi, screenView?.view_session ?? null);
+  const readRuns = useCallback(
+    () => source.runs({ place: { app: appId ?? "" } }),
+    [source, appId],
+  );
+  const runRows = useAppRuns(
+    isApp ? readRuns : undefined,
+    appId ?? "",
+    sidebarAgents.agents,
+    agentViewSource,
+    isApp && rightOpen && panel === "logs",
+  );
+
   const withJobs = props.jobs !== undefined;
   const mainSection = (
     <div className={styles.stage} ref={stageRef}>
@@ -1607,7 +1686,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
       <WebviewHostProvider value={webviews}>
         <div
           className={styles.workspace}
-          data-space={isHome ? "home" : "project"}
+          data-space={isHome ? "home" : isApp ? "app" : "project"}
         >
           <ShellFrame
             left={leftOpen}
@@ -1616,7 +1695,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
             onToggleRight={() => setRightOpen(!rightOpen)}
             onSearch={openQuickFiles}
             deskSwitcher={
-              isHome ? undefined : (
+              projectId === null ? undefined : (
                 <DeskSwitcher
                   desks={deskOptions}
                   current={layout.active}
@@ -1695,9 +1774,12 @@ export function PlaceWindow(props: PlaceWindowProps) {
                             }
                           },
                         })}
-                    {...(source.searchSource === undefined || isHome
+                    {...(source.searchSource === undefined || projectId === null
                       ? {}
                       : { onSearch: () => openSearchShortcut(host) })}
+                    {...(isApp
+                      ? { onAppScreen: () => openAppScreen(host) }
+                      : {})}
                     {...(host.appScreens
                       ? { onAppPanel: () => openAppPanel(host) }
                       : {})}
@@ -1707,7 +1789,13 @@ export function PlaceWindow(props: PlaceWindowProps) {
             }
             panelTabs={
               <PanelTabs
-                tabs={isHome ? homePanelTabs(withJobs) : panelTabs(withJobs)}
+                tabs={
+                  isHome
+                    ? homePanelTabs(withJobs)
+                    : isApp
+                      ? appPanelTabs()
+                      : panelTabs(withJobs)
+                }
                 selected={panel}
                 onSelect={setPanel}
               />
@@ -1773,7 +1861,41 @@ export function PlaceWindow(props: PlaceWindowProps) {
               />
             }
             rightSidebar={
-              projectId === null ? (
+              isApp ? (
+                <AppPlacePanel
+                  tab={panel as AppPlaceTab}
+                  app={appId}
+                  name={appName ?? ""}
+                  detail={props.appDetail}
+                  runs={runRows}
+                  {...(annotateApi === undefined || screenView === null
+                    ? {}
+                    : {
+                        annotate: {
+                          on: annotating.state?.on ?? false,
+                          onToggle: () =>
+                            annotating.setMode(
+                              !(annotating.state?.on ?? false),
+                            ),
+                        },
+                      })}
+                  onOpenSession={(session) =>
+                    runToastAction({ kind: "session", session })
+                  }
+                  onRunSession={(session) => {
+                    const row = sidebarAgents.agents.find(
+                      (item) => item.assignment === session.agent,
+                    );
+                    if (row !== undefined) {
+                      openAgent(host, {
+                        agent: row.assignment,
+                        name: row.name,
+                        session: session.id,
+                      });
+                    }
+                  }}
+                />
+              ) : projectId === null ? (
                 <HomePanel
                   tab={panel}
                   projects={props.projects}

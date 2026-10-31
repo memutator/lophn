@@ -14,7 +14,9 @@ import {
   placeOf,
   SESSION_ID,
   sessionOf,
+  sourcePlaceOf,
   TAB_KEY,
+  workPlaceOf,
 } from "../agent/tab-fields.ts";
 import type { Desk } from "../../shell/desk-model.ts";
 import { placeKey, whereInDesk } from "../../shell/desk-model.ts";
@@ -170,10 +172,7 @@ export const agentKind: TabKindDef = {
     }
     const source = host.agentView?.factory({
       assignment: agent,
-      place:
-        place === HOME
-          ? { kind: "global", id: "" }
-          : { kind: "project", id: place },
+      place: sourcePlaceOf(place),
     });
     if (source === undefined) return;
     void source.renameSession(session, trimmed).then((result) => {
@@ -190,7 +189,7 @@ export const agentKind: TabKindDef = {
     const home = where.kind === "home";
     if (
       !home &&
-      (where.kind !== "project" ||
+      ((where.kind !== "project" && where.kind !== "app") ||
         typeof where.id !== "string" ||
         where.id.length === 0 ||
         where.id.length > 128)
@@ -225,8 +224,7 @@ export const agentKind: TabKindDef = {
       kind: "agent",
       key: tab.key,
       agent,
-      work_place:
-        place === HOME ? { kind: "home" } : { kind: "project", id: place },
+      work_place: workPlaceOf(place),
       ...(session === null ? {} : { session }),
     };
   },

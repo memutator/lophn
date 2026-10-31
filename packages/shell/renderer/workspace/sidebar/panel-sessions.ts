@@ -1,5 +1,6 @@
-// `useSessions()`의 session 상태를 project place의 agent 줄과 상태 점이 읽는 값으로 옮긴다.
+// `useSessions()`의 session 상태를 place의 agent 줄과 상태 점이 읽는 값으로 옮긴다.
 import type { SessionEntry } from "../../desktop/connection/events/sessions-store.ts";
+import type { PlaceRef } from "../../shell/desk-model.ts";
 import type { SidebarAgent } from "./sidebar-agent.ts";
 import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 
@@ -8,28 +9,25 @@ export function sessionAgentKey(entry: SessionEntry): string | null {
   return entry.agent;
 }
 
-// project가 null이면 Home(place 없음)이다.
-function sessionAtProject(
-  entry: SessionEntry,
-  project: string | null,
-): boolean {
-  return project === null
+// Home은 place가 없는 session이다.
+function sessionAtPlace(entry: SessionEntry, place: PlaceRef): boolean {
+  return place.kind === "home"
     ? entry.place === null
-    : entry.place?.kind === "project" && entry.place.id === project;
+    : entry.place?.kind === place.kind && entry.place.id === place.id;
 }
 
 /**
- * 이 project place의 열린 lophn session 가운데 가장 최근 것.
+ * 이 place의 열린 lophn session 가운데 가장 최근 것.
  */
 export function openedPlaceLophnSession(
   entries: readonly SessionEntry[],
-  project: string | null,
+  place: PlaceRef,
 ): string | null {
   const found = entries.filter(
     (entry) =>
       entry.ended === null &&
       sessionAgentKey(entry) === "lophn" &&
-      sessionAtProject(entry, project),
+      sessionAtPlace(entry, place),
   );
   return found.length === 0 ? null : found[found.length - 1].session;
 }
@@ -38,10 +36,10 @@ export function openedPlaceLophnSession(
 export function agentRow(
   entry: SessionEntry,
   agents: readonly SidebarAgent[],
-  project: string | null,
+  place: PlaceRef,
 ): SidebarAgent | undefined {
   const key = sessionAgentKey(entry);
-  if (key === null || !sessionAtProject(entry, project)) return undefined;
+  if (key === null || !sessionAtPlace(entry, place)) return undefined;
   return agents.find((row) => row.assignment === key);
 }
 

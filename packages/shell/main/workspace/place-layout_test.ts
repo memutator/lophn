@@ -252,3 +252,35 @@ test("Home layout의 agent 탭(work_place home)은 저장이 거절되지 않고
     });
   });
 });
+
+test("앱 place layout의 앱 화면 탭과 app work_place agent 탭은 저장이 거절되지 않고 그대로 읽힌다", async () => {
+  await withRoot(async (root) => {
+    const store = createPlaceLayoutStore(root);
+    const app = "app_00000000000000000000000000";
+    const screen = { kind: "app_screen", key: `app-screen:${app}`, app };
+    const agent = {
+      kind: "agent",
+      key: "agent:lophn:1",
+      agent: "lophn",
+      work_place: { kind: "app", id: app },
+    };
+    const layout = {
+      active_desk: "_default",
+      desks: {
+        _default: {
+          label: "Main",
+          tabs: [screen, agent],
+          selected_tab: screen.key,
+          split: { a: screen.key, b: agent.key, focus: "a" },
+          floats: [],
+          detached: [],
+        },
+      },
+    };
+    assert.deepEqual(await store.write(app, layout), { ok: true, value: null });
+    assert.deepEqual(await store.read(app), {
+      ok: true,
+      value: { ok: true, layout: { schema_version: 8, ...layout } },
+    });
+  });
+});

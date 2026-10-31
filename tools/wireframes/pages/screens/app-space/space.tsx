@@ -1,6 +1,7 @@
-// 앱 공간 gallery 화면. 진짜 AppSpace(renderer app-frame)를 fake source로 그린다. 상태는 fake source의 설정과 mount 뒤 단추 누르기로 정하고
-// (drive.ts), AppSpace에는 gallery 전용 prop을 더하지 않는다. 앱 view는 main의 native view라 gallery에는 없고, 앱 view 자리 안에
-// Orders 앱이 그린 고정 그림(orders-view.tsx)을 넣는다. 고른 곳의 윤곽과 번호 표지는 실제로는 앱 view 안 preload가 그린다.
+// 앱 place gallery 화면. 진짜 Desktop(MockDesktop)의 앱 place를 그린다: 앱 화면 탭, 그 앱 place의 lophn session 탭, 오른쪽 App·Domain·Logs panel.
+// 상태는 layout(tab 배치)과 fake source의 설정, mount 뒤 단추 누르기(drive.ts)로 정하고 화면에는 gallery 전용 prop을 더하지 않는다.
+// 앱 화면은 <webview>라 gallery에서 돌 수 없으므로 앱 화면 탭의 webview 자리(빈 div) 안에 Orders 앱이 그린 고정 그림(orders-view.tsx)을 넣는다.
+// 고른 곳의 윤곽과 번호 표지는 실제로는 앱 view 안 preload가 그린다.
 
 import { t } from "@lophn/i18n";
 import { useEffect, useMemo, useState } from "react";
@@ -10,7 +11,6 @@ import {
   sessionSnapshotsList,
 } from "../../../../../packages/protocol/events/mod.ts";
 import type { AnnotateState } from "../../../../../packages/shell/ipc/annotation.ts";
-import type { LophnShellViewsApi } from "../../../../../packages/shell/ipc/app-frame.ts";
 import {
   fakeDetail,
   GRANT_HOST,
@@ -18,36 +18,22 @@ import {
   GRANT_SECRET,
   type SecretsFake,
 } from "../../../../../packages/shell/renderer/app-frame/app-detail/testdata/fake-source.ts";
-import { AppSpace as RealAppSpace } from "../../../../../packages/shell/renderer/app-frame/app-space.tsx";
 import { fakeAnnotate } from "../../../../../packages/shell/renderer/app-frame/testdata/fake-annotate.ts";
-import {
-  appRow,
-  fakeApps,
-} from "../../../../../packages/shell/renderer/apps/testdata/fake-apps.ts";
 import type { CoreSource } from "../../../../../packages/shell/renderer/desktop/connection/connection.ts";
-import { createEventClient } from "../../../../../packages/shell/renderer/desktop/connection/events/client.ts";
-import { EventsProvider } from "../../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
-import { createFakeWaiting } from "../../../../../packages/shell/renderer/desktop/connection/waiting/fake-source.ts";
-import { mockAgentTabSource } from "../../../../../packages/shell/renderer/desktop/dev-mock/agent.ts";
-import { mockViews } from "../../../../../packages/shell/renderer/desktop/dev-mock/app-space.ts";
-import {
-  BUDGET_REVIEWER_ID,
-  createFakeAgentsSource,
-} from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
-// 터미널 탭이 쓰는 xterm 기본 배치.
-import "@xterm/xterm/css/xterm.css";
-
-import { APP_NAME, fixedRuns } from "../../../mock/app-space/data.ts";
+import { APP_BUDGET } from "../../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
+import { openApp } from "../../../../../packages/shell/renderer/desktop/router.ts";
+import { fixedRuns } from "../../../mock/app-space/data.ts";
 import {
   OrdersView,
   type ViewMarks,
 } from "../../../mock/app-space/orders-view.tsx";
 import { click, press, useDrive } from "../../../mock/drive.ts";
+import { MockDesktop } from "../../../mock/mock-desktop.tsx";
 
 type OpsTab = "version" | "access" | "activity";
 type ActivationState = "applied" | "applying" | "failed";
 type RewindStage = "confirm" | "running" | "done" | "conflict";
-type PaneView = "agent" | "details";
+type Panel = "app" | "domain" | "logs";
 
 interface Annotation {
   readonly n: number;
@@ -56,9 +42,13 @@ interface Annotation {
   readonly memo: string;
 }
 
-interface AppSpaceProps {
-  /** 처음에 열린 운영 패널 탭. 없으면 패널이 닫혀 있다. */
-  readonly panel?: OpsTab;
+interface AppPlaceProps {
+  /** tab 배치. screen은 앱 화면 탭 하나, split은 앱 화면과 lophn session을 붙인 것, session은 둘이 따로 서고 session을 골랐다. */
+  readonly layout?: "screen" | "split" | "session";
+  /** 오른쪽 sidebar의 panel. 기본은 App이다. */
+  readonly panel?: Panel;
+  /** App panel 안에서 처음 열린 탭. 없으면 Version이다. */
+  readonly ops?: OpsTab;
   readonly version?: ActivationState;
   /** Access 탭에서 이미 거두기를 요청한 항목. */
   readonly revoking?: readonly string[];
@@ -68,41 +58,49 @@ interface AppSpaceProps {
     readonly open?: string | null;
     readonly rewind?: RewindStage | null;
   };
-  /** agent select를 펼친 채 시작한다. */
-  readonly agentMenu?: boolean;
-  /** 오른쪽 패널의 Agent 탭에 Background 목록을 연 채 시작한다. empty면 기록이 없는 목록이다. */
+  /** Logs에 run 기록을 둔다. empty면 기록이 없다. */
   readonly runs?: "list" | "empty";
   /** annotate mode를 켠 채 시작한다. */
   readonly annotate?: {
     readonly marks: ViewMarks;
     readonly items: readonly Annotation[];
-    /** 모은 annotation 목록을 보인다. */
-    readonly list?: boolean;
   };
-  /** 오른쪽 패널에 agent 탭을 열어 둔다. 보이는 탭(details는 panel과 함께 쓴다)과 agent. */
-  readonly pane?: { readonly view?: PaneView; readonly agent?: string };
+  /** 오른쪽 sidebar를 접은 채 시작한다. */
+  readonly rightClosed?: boolean;
 }
 
-const APP = "app_01h455vb4pex5v6nkc6gd5fd01";
-const RELEASE = "rel_01h455vb4pex5v6nkc6gd5fd07";
+const APP = APP_BUDGET;
 const GRANTS: Record<string, string> = {
   host: GRANT_HOST,
   secret: GRANT_SECRET,
   reserve: GRANT_RESERVE,
-};
-const AGENT_KEY: Record<string, string> = {
-  lophn: "lophn",
-  "Budget reviewer": BUDGET_REVIEWER_ID,
 };
 const TAB_LABEL = {
   version: "app-detail.label.tab-version",
   access: "app-detail.label.tab-access",
   activity: "app-detail.label.tab-activity",
 } as const satisfies Record<OpsTab, string>;
+const PANEL_LABEL = {
+  app: "app-space.heading.panel-app",
+  domain: "domain.label.sidebar-tab",
+  logs: "app-space.heading.panel-logs",
+} as const satisfies Record<Panel, string>;
 const CALL_ID: Record<string, string> = { "i-20": "inv_38" };
 const REWIND_FROM = "inv_32";
 
-const noop = () => {};
+const SCREEN = {
+  key: `app-screen:${APP}`,
+  kind: "app_screen",
+  title: "Grocery budget",
+  app: APP,
+} as const;
+const SESSION = {
+  key: "agent:lophn:1",
+  kind: "agent",
+  title: "Fix the monthly total",
+  agent: "lophn",
+  workPlace: { kind: "app", id: APP },
+} as const;
 
 // run이 연 session은 열린 채 남는다. 일하는 중인 run의 session만 running이고 나머지는 쉬는 중이라, session store가 이 snapshot으로
 // 각 session의 상태를 안다(run 줄 아래 session의 점).
@@ -146,69 +144,9 @@ function withRunSessions(source: CoreSource): CoreSource {
   };
 }
 
-function build(props: AppSpaceProps, onRegion: (region: HTMLElement) => void) {
-  const base = mockViews();
-  const agents = createFakeAgentsSource();
-  // native view는 DOM 위에 덮이므로 gallery에서는 가짜 상자 대신 앱 view 자리(EmbeddedView의 region) 안에 Orders 화면을 그린다.
-  // 그래야 위에 얹는 알림이 보인다.
-  const views: LophnShellViewsApi = {
-    ...base,
-    async openApp(input) {
-      const state = await base.openApp(input);
-      document
-        .querySelectorAll("[data-mock-app-view]")
-        .forEach((box) => box.remove());
-      const region = document.querySelector<HTMLElement>(
-        '[data-space="app"] [data-phase]',
-      );
-      if (region !== null) onRegion(region);
-      return state;
-    },
-  };
-  return {
-    views,
-    source: fakeApps({
-      rows: [appRow(APP, APP_NAME, { release: RELEASE })],
-      runs: { [APP]: "running" },
-      screen: "home",
-    }).source,
-    detail: fakeDetail({
-      ...(props.version === undefined ? {} : { activation: props.version }),
-      ...(props.secrets === undefined ? {} : { secrets: props.secrets }),
-      ...(props.revoking === undefined
-        ? {}
-        : {
-            revoking: props.revoking.map((id) => GRANTS[id] ?? id),
-          }),
-      rewind:
-        props.activity?.rewind === "running"
-          ? "pending"
-          : props.activity?.rewind === "conflict"
-            ? "conflict"
-            : "applied",
-    }).source,
-    agents,
-    agentViewSource: mockAgentTabSource(agents),
-    runs: () =>
-      Promise.resolve({
-        ok: true as const,
-        value: props.runs === "empty" ? [] : fixedRuns(APP),
-      }),
-    annotate: fakeAnnotate({
-      items: (props.annotate?.items ?? []).map((item) => ({
-        n: item.n,
-        kind: "element" as const,
-        label: item.target,
-        note: item.memo,
-      })),
-    }),
-    events: createEventClient(withRunSessions(createFakeWaiting())),
-  };
-}
-
 // 모은 목록에서 지운 번호의 표지는 앱 화면에서도 사라진다.
 function shownMarks(
-  props: AppSpaceProps,
+  props: AppPlaceProps,
   state: AnnotateState | null,
 ): ViewMarks {
   const marks = props.annotate?.marks ?? {};
@@ -232,22 +170,84 @@ function shownMarks(
   };
 }
 
-export function AppSpace(props: AppSpaceProps = {}) {
+// <webview>가 없는 gallery에서 webview 그릇은 앱 화면을 빈 div로 그리고 view 자리 위를 덮는다. 그 div를 찾는다.
+function useScreenRegion(): HTMLElement | null {
   const [region, setRegion] = useState<HTMLElement | null>(null);
-  const [annotating, setAnnotating] = useState<AnnotateState | null>(null);
-  const fakes = useMemo(() => build(props, setRegion), []);
+  useEffect(() => {
+    const look = () =>
+      setRegion(
+        document.querySelector<HTMLElement>(
+          '[data-webview-kind="app"][data-webview-key^="app-screen:"]',
+        ),
+      );
+    look();
+    const watch = new MutationObserver(look);
+    watch.observe(document.body, { childList: true, subtree: true });
+    return () => watch.disconnect();
+  }, []);
+  return region;
+}
 
+export function AppSpace(props: AppPlaceProps = {}) {
+  const region = useScreenRegion();
+  const [annotating, setAnnotating] = useState<AnnotateState | null>(null);
+  const fakes = useMemo(
+    () => ({
+      annotate: fakeAnnotate({
+        items: (props.annotate?.items ?? []).map((item) => ({
+          n: item.n,
+          kind: "element" as const,
+          label: item.target,
+          note: item.memo,
+        })),
+      }),
+      detail: fakeDetail({
+        ...(props.version === undefined ? {} : { activation: props.version }),
+        ...(props.secrets === undefined ? {} : { secrets: props.secrets }),
+        ...(props.revoking === undefined
+          ? {}
+          : { revoking: props.revoking.map((id) => GRANTS[id] ?? id) }),
+        rewind:
+          props.activity?.rewind === "running"
+            ? "pending"
+            : props.activity?.rewind === "conflict"
+              ? "conflict"
+              : "applied",
+      }).source,
+      runs: () =>
+        Promise.resolve({
+          ok: true as const,
+          value: props.runs === "empty" ? [] : fixedRuns(APP),
+        }),
+    }),
+    [],
+  );
   useEffect(() => fakes.annotate.subscribeState(setAnnotating), [fakes]);
 
+  const layout = props.layout ?? "screen";
+  const panes = useMemo(
+    () =>
+      layout === "screen"
+        ? [{ tabs: [SCREEN], selected: SCREEN.key }]
+        : layout === "split"
+          ? [
+              { tabs: [SCREEN], selected: SCREEN.key },
+              { tabs: [SESSION], selected: SESSION.key },
+            ]
+          : [{ tabs: [SCREEN, SESSION], selected: SESSION.key }],
+    [layout],
+  );
+
   useDrive(async () => {
-    const { panel, activity, pane } = props;
-    if (pane !== undefined) {
-      await press("[data-agent-select]");
-      await click(`[data-agent="${AGENT_KEY[pane.agent ?? "lophn"]}"]`);
+    const { ops, activity } = props;
+    if (props.panel !== undefined && props.panel !== "app") {
+      await click(
+        '[role="tab"]',
+        new RegExp(`^${t(PANEL_LABEL[props.panel])}$`),
+      );
     }
-    if (panel !== undefined) {
-      await click('[data-app-bar="app-details"]');
-      await press('[role="tab"]', t(TAB_LABEL[panel]));
+    if (ops !== undefined) {
+      await press('[data-sidebar-tab="app"] [role="tab"]', t(TAB_LABEL[ops]));
       if (activity?.open) {
         const call = CALL_ID[activity.open] ?? activity.open;
         await click(`[data-invocation="${call}"] button`);
@@ -257,30 +257,23 @@ export function AppSpace(props: AppSpaceProps = {}) {
         if (activity.rewind !== "confirm") await click("[data-rewind-confirm]");
       }
     }
-    if (props.agentMenu === true) await press("[data-agent-select]");
-    if (props.runs !== undefined) {
-      await press("[data-agent-select]");
-      await click("[data-agent-runs]");
-    }
     if (props.annotate !== undefined) {
       await click('[data-app-bar="annotate"]');
     }
-    if (pane?.view === "details") await click('[data-tab-key="details"]');
+    if (props.rightClosed === true) {
+      await click("button", new RegExp(`^${t("shell.button.toggle-right")}$`));
+    }
   });
 
   return (
-    <EventsProvider client={fakes.events}>
-      <RealAppSpace
-        app={APP}
-        source={fakes.source}
-        views={fakes.views}
-        detail={fakes.detail}
-        agents={fakes.agents}
-        agentViewSource={fakes.agentViewSource}
-        runs={fakes.runs}
+    <>
+      <MockDesktop
+        route={openApp(APP)}
+        panes={panes}
+        appDetail={fakes.detail}
         annotate={fakes.annotate}
-        windowWidth={1280}
-        onLauncher={noop}
+        runs={fakes.runs}
+        events={withRunSessions}
       />
       {region === null
         ? null
@@ -288,6 +281,6 @@ export function AppSpace(props: AppSpaceProps = {}) {
             <OrdersView marks={shownMarks(props, annotating)} />,
             region,
           )}
-    </EventsProvider>
+    </>
   );
 }

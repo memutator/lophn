@@ -140,7 +140,7 @@ function DetachedTab({
   // 앱 화면을 여는 길(Settings 등)은 이 창에 없다.
   const noop = () => {};
   const { agentView, agents, keeps, webviews } = useTabHostSlices({
-    project,
+    place: { kind: "project", id: project },
     source: workspace,
     agentViewSource,
     terminalStore: terminal?.store,
@@ -176,6 +176,8 @@ function DetachedTab({
     projectId: project,
     projectTitle: projectView?.title,
     explorerRoot: undefined,
+    appName: undefined,
+    appScreen: null,
     props: hostProps,
     appScreens: false,
     desk,

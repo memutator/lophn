@@ -401,7 +401,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-project-tabs",
       title: "Project · tab kinds",
       description:
-        "한 칸에 md 문서, JSON 파일, project 키워드 검색, Terminal 탭이 같이 열려 있고 오른쪽 칸에 lophn Agent 탭이 있다. 탭 줄은 앱 공간 pane과 같은 component이고, 탭마다 아이콘과 이름만 있다. 파일은 파일 종류 아이콘, agent는 profile 아이콘이다.",
+        "한 칸에 md 문서, JSON 파일, project 키워드 검색, Terminal 탭이 같이 열려 있고 오른쪽 칸에 lophn Agent 탭이 있다. 탭마다 아이콘과 이름만 있다. 파일은 파일 종류 아이콘, agent는 profile 아이콘이다.",
       render: () => <TabKinds />,
     },
     {

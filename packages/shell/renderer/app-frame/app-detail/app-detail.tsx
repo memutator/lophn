@@ -1,12 +1,11 @@
 // app-detail: 한 앱의 Version·Access·Activity를 보고 이전 release로 돌아가기,
-// 바깥 자원 거두기, 앱 data rewind를 한다. 오른쪽 패널(`side-panel.tsx`)의 App details 탭 본문이다. 사람은
+// 바깥 자원 거두기, 앱 data rewind를 한다. 앱 place 오른쪽 sidebar의 App panel 본문이다. Domains는 Domain panel이 따로 그린다. 사람은
 // release를 고르거나 쓰기 시작하지 않는다. 결정은 확인 창 없이 이 탭에서 바로 한다.
 import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
 import { t } from "@lophn/i18n";
 
 import { AccessTab } from "./access/access-tab.tsx";
 import { ActivityTab } from "./activity/activity-tab.tsx";
-import { DomainsSection } from "./domains-section.tsx";
 import { FoldersSection } from "./folders-section.tsx";
 import { IconSection } from "./icon-section.tsx";
 import type { AppDetailSource } from "./source.ts";
@@ -40,7 +39,6 @@ export function AppDetail({
         </h3>
       </div>
       <IconSection app={app} name={name} source={source} />
-      <DomainsSection app={app} source={source} />
       <FoldersSection app={app} source={source} />
       <Tabs defaultValue="version">
         <TabList>

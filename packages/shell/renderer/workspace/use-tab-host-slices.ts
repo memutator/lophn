@@ -29,10 +29,11 @@ import {
 } from "./sidebar/panel-sessions.ts";
 import type { DomainView, WorkspaceSource } from "./source.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
+import type { PlaceRef } from "../shell/desk-model.ts";
 
 interface TabHostSlicesInput {
-  /** place가 Home이면 null. */
-  project: string | null;
+  /** 이 창의 place. */
+  place: PlaceRef;
   source: WorkspaceSource;
   agentViewSource?: AgentTabSourceFactory;
   /** 이 창이 만든 TabHost. slice는 이벤트 때만 불러 최신 host를 본다. */
@@ -48,7 +49,8 @@ interface TabHostSlicesInput {
 // place 창(PlaceWindow)과 detached 창(DetachedTab)이 같이 쓰는 TabHost slice와 view 보관소.
 // 창마다 다른 것(openTab·openFloat·patchTab·removeTab·view)은 호출하는 쪽이 host에 직접 넣는다.
 export function useTabHostSlices(input: TabHostSlicesInput) {
-  const { project, source, agentViewSource, onSettings } = input;
+  const { place, source, agentViewSource, onSettings } = input;
+  const project = place.kind === "project" ? place.id : null;
   const agentsSource = source.agentsSource;
   // 값은 쓰지 않고 agent가 바뀔 때 이 hook을 쓴 창이 다시 그려지게만 한다.
   const terminalStore = input.terminalStore;
@@ -59,7 +61,10 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
     ),
     () => terminalStore?.version() ?? 0,
   );
-  const sidebarAgents = useSidebarAgents(agentsSource, project);
+  const sidebarAgents = useSidebarAgents(
+    agentsSource,
+    place.kind === "home" ? null : place.id,
+  );
   const { sessions: sessionStates } = useSessions();
   const conversation = useConversation();
   // 창에 대화 메모리가 없을 때(통로 없는 화면 시험) Agent 탭이 쓰는 입력 메모리.
@@ -105,7 +110,7 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
     const entry = sessionStates.find((item) => item.session === session);
     return entry === undefined
       ? undefined
-      : agentRow(entry, sidebarAgents.agents, project);
+      : agentRow(entry, sidebarAgents.agents, place);
   };
 
   const agentView: AgentViewSlice | null =
@@ -141,7 +146,7 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
             });
           },
           placeLophnSession: () =>
-            openedPlaceLophnSession(sessionStates, project),
+            openedPlaceLophnSession(sessionStates, place),
           nameOf: (session) => rowOfSession(session)?.name,
           artifacts: {
             items: artifactList.items,

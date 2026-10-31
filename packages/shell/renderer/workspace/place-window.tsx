@@ -88,6 +88,7 @@ import {
   pinTab,
   placeKey,
   reattachTab,
+  mergeDeskIntoMain,
   removeDesk,
   renameDesk,
   restoreFloat,
@@ -106,8 +107,13 @@ import {
   updateDesk,
   whereInDesk,
 } from "../shell/desk-model.ts";
+import {
+  DeskCloseDialog,
+  type DeskCloseSummary,
+} from "../shell/desk-close-dialog.tsx";
 import { DeskSwitcher } from "../shell/desk-switcher.tsx";
 import { FloatLayer } from "../shell/float-layer.tsx";
+import { neighborLeaf, type PaneDirection } from "../shell/group-geometry.ts";
 import { PanelTabs } from "../shell/panel-tabs.tsx";
 import { ShellFrame } from "../shell/shell-frame.tsx";
 import { TabContextMenu, type TabMenuState } from "../shell/tab-menu.tsx";
@@ -591,11 +597,14 @@ export function PlaceWindow(props: PlaceWindowProps) {
   const switchDesk = (key: string) =>
     commit(setActiveDesk(latestLayout.current, key));
 
-  // desk들을 지우고 탭을 Main으로 합친다. 합치며 tab이 된 detached 탭의 창은 닫는다.
-  const dropDesks = (gone: readonly Desk[]) => {
+  // 사라진 workflow의 desk들을 Main으로 합친다(사람이 끝낸 것이 아니라 일이 끝난 것). 합치며 tab이 된 detached 탭의 창은 닫는다.
+  const mergeDesks = (gone: readonly Desk[]) => {
     if (gone.length === 0) return;
     const current = latestLayout.current;
-    const next = gone.reduce((all, item) => removeDesk(all, item.key), current);
+    const next = gone.reduce(
+      (all, item) => mergeDeskIntoMain(all, item.key),
+      current,
+    );
     const detachedKeys = (from: PlaceLayout) =>
       new Set(
         Object.values(from.desks).flatMap((item) =>
@@ -610,7 +619,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
   };
   // 사라진 workflow의 desk를 Main으로 합친다.
   const mergeVanished = (liveNames: readonly string[]) =>
-    dropDesks(
+    mergeDesks(
       Object.values(latestLayout.current.desks).filter(
         (item) =>
           item.workflow !== undefined && !liveNames.includes(item.workflow),
@@ -1056,6 +1065,38 @@ export function PlaceWindow(props: PlaceWindowProps) {
     });
   };
 
+  // desk의 x. 사람이 desk를 끝내는 것이라 확인 dialog를 거친다.
+  const [closingDesk, setClosingDesk] = useState<string | null>(null);
+  const closeSummary = (target: Desk): DeskCloseSummary => {
+    const tabs = deskTabs(target);
+    return {
+      tabs: tabs.length,
+      terminals: tabs.filter((tab) => tab.kind === "terminal").length,
+      floats: target.floats.length,
+      detached: target.detached.length,
+      unsaved: tabs
+        .filter((tab) => isUnsaved(tab.key))
+        .map((tab) => ({
+          title: tab.title,
+          path: tabKindOf(tab.kind)?.pathOf?.(tab) ?? tab.key,
+        })),
+    };
+  };
+  // 그 desk의 tab·float·창을 보통 닫기 길(kind의 beforeClose)로 하나씩 닫고 desk를 지운다. 이미 확인했으므로 터미널은
+  // 되묻지 않고, 저장이 안 되는 파일처럼 잃을 것이 남는 질문만 묻는다. 하나라도 거절하면 거기서 멈추고 desk는 남는다.
+  const finishDesk = async (key: string) => {
+    const target = latestLayout.current.desks[key];
+    if (target === undefined || target.workflow !== undefined) return;
+    for (const tab of deskTabs(target)) {
+      const confirm = tabKindOf(tab.kind)?.beforeClose?.(tab, host, {
+        confirmed: true,
+      });
+      if (confirm && !(await confirm)) return;
+      removeTab(tab.key);
+    }
+    commit(removeDesk(latestLayout.current, key), true, true);
+  };
+
   // 탭이 파일이면 그 절대 경로. Copy Path·Reveal in Explorer가 이 탭에만 생긴다.
   const pathOfTab = (tab: TabItem): string | null =>
     tabKindOf(tab.kind)?.pathOf?.(tab) ?? null;
@@ -1270,6 +1311,22 @@ export function PlaceWindow(props: PlaceWindowProps) {
           group === null ? undefined : leavesOf(group.layout)[(arg ?? 1) - 1];
         if (key === undefined) return;
         update((item) => focusLeaf(item, (arg ?? 1) - 1));
+        focusTabBody(key);
+        return;
+      }
+      case "pane.focus-left":
+      case "pane.focus-right":
+      case "pane.focus-up":
+      case "pane.focus-down": {
+        const group = groupOf(current, current.selected);
+        if (group === null || current.selected === null) return;
+        const key = neighborLeaf(
+          group.layout,
+          current.selected,
+          command.slice("pane.focus-".length) as PaneDirection,
+        );
+        if (key === null) return;
+        update((item) => selectTab(item, key));
         focusTabBody(key);
         return;
       }
@@ -1707,8 +1764,9 @@ export function PlaceWindow(props: PlaceWindowProps) {
                     }
                     onDelete={(key) => {
                       const gone = latestLayout.current.desks[key];
-                      if (gone?.workflow === undefined)
-                        dropDesks(gone ? [gone] : []);
+                      if (gone !== undefined && gone.workflow === undefined) {
+                        setClosingDesk(key);
+                      }
                     }}
                   />
                 )
@@ -2004,6 +2062,18 @@ export function PlaceWindow(props: PlaceWindowProps) {
               {mainSection}
             </ShellFrame>
           </TabDragProvider>
+          {closingDesk === null ||
+          latestLayout.current.desks[closingDesk] === undefined ? null : (
+            <DeskCloseDialog
+              label={latestLayout.current.desks[closingDesk]!.label}
+              summary={closeSummary(latestLayout.current.desks[closingDesk]!)}
+              onCancel={() => setClosingDesk(null)}
+              onConfirm={() => {
+                setClosingDesk(null);
+                void finishDesk(closingDesk);
+              }}
+            />
+          )}
           {tabMenu === null || menuTab === undefined ? null : (
             <TabContextMenu
               at={tabMenu}

@@ -1007,17 +1007,54 @@ export function setActiveDesk(layout: PlaceLayout, key: string): PlaceLayout {
 }
 
 /**
- * desk를 지운다. Main은 지우지 못한다. 지운 desk의 tab·float·detached는 Main으로 옮긴다: tabs는 끝에 붙고,
- * float·detached는 상한이 남아 있을 때만 그대로 가며 아니면 tab으로 간다. Main에 이미 같은 key가 있으면 옮기지 않는다.
+ * desk 자체만 지운다. 사람이 desk를 끝낼 때 호출자가 tab·float·detached를 먼저 닫은 뒤 부른다(남은 것은 사라진다).
+ * Main은 지우지 못한다. 보던 desk면 Main으로 간다.
  */
 export function removeDesk(layout: PlaceLayout, key: string): PlaceLayout {
+  if (key === MAIN_DESK || layout.desks[key] === undefined) return layout;
+  const rest = Object.fromEntries(
+    Object.entries(layout.desks).filter(([name]) => name !== key),
+  );
+  return {
+    active: layout.active === key ? MAIN_DESK : layout.active,
+    desks: rest,
+  };
+}
+
+/**
+ * workflow가 끝나 사라진 desk를 Main에 합친다. tabs는 끝에 붙고(group은 그대로 따라온다), float·detached는 상한이
+ * 남아 있을 때만 그대로 가며 아니면 tab으로 간다. Main에 이미 같은 key가 있는 tab은 옮기지 않고, 그 key를 가진
+ * group의 leaf는 빠지며 1개가 되면 group은 풀린다. 사람이 끝낸 desk에는 쓰지 않는다(removeDesk).
+ */
+export function mergeDeskIntoMain(
+  layout: PlaceLayout,
+  key: string,
+): PlaceLayout {
   const gone = layout.desks[key];
   if (key === MAIN_DESK || gone === undefined) return layout;
   let main = layout.desks[MAIN_DESK]!;
   const fresh = (tab: TabItem) => whereInDesk(main, tab.key) === null;
-  for (const tab of gone.tabs) {
-    if (fresh(tab)) main = { ...main, tabs: [...main.tabs, tab] };
+  const freshKeys = new Set(
+    gone.tabs.filter((tab) => fresh(tab)).map((tab) => tab.key),
+  );
+  const carried: Group[] = [];
+  for (const group of gone.groups) {
+    let node: GroupNode | null = group.layout;
+    for (const leaf of leavesOf(group.layout)) {
+      if (!freshKeys.has(leaf) && node !== null) node = removeLeaf(node, leaf);
+    }
+    if (node === null || leavesOf(node).length < GROUP_MIN) continue;
+    const leaves = leavesOf(node);
+    carried.push({
+      layout: node,
+      focus: leaves.includes(group.focus) ? group.focus : leaves[0]!,
+    });
   }
+  main = {
+    ...main,
+    tabs: [...main.tabs, ...gone.tabs.filter((tab) => freshKeys.has(tab.key))],
+    groups: [...main.groups, ...carried],
+  };
   for (const item of gone.floats) {
     if (!fresh(item.tab)) continue;
     main =
@@ -1040,7 +1077,7 @@ export function removeDesk(layout: PlaceLayout, key: string): PlaceLayout {
   );
   return {
     active: layout.active === key ? MAIN_DESK : layout.active,
-    desks: { ...rest, [MAIN_DESK]: main },
+    desks: { ...rest, [MAIN_DESK]: settle(main) },
   };
 }
 

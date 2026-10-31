@@ -1,6 +1,7 @@
 export const shell = {
   "shell.button.back": "Back",
   "shell.button.desk": "Desk: {name}",
+  "shell.button.desk-close": "Close desk",
   "shell.button.desk-delete": "Delete desk {name}",
   "shell.button.desk-rename": "Rename desk {name}",
   "shell.button.empty-new-session": "New session",
@@ -34,6 +35,17 @@ export const shell = {
   "shell.button.tab-unsplit-all": "Unsplit all",
   "shell.button.toggle-left": "Toggle left sidebar",
   "shell.button.toggle-right": "Toggle right sidebar",
+  "shell.dialog.desk-close-detached":
+    "{count, plural, one {# separate window is} other {# separate windows are}} closed too.",
+  "shell.dialog.desk-close-floats":
+    "{count, plural, one {# floating panel is} other {# floating panels are}} closed too.",
+  "shell.dialog.desk-close-tabs":
+    "This closes {count, plural, one {# tab} other {# tabs}}.",
+  "shell.dialog.desk-close-terminals":
+    "{count, plural, one {# terminal or coding agent} other {# terminals and coding agents}} will be stopped.",
+  "shell.dialog.desk-close-title": "Close desk ‘{name}’?",
+  "shell.dialog.desk-close-unsaved":
+    "{count, plural, one {# file has} other {# files have}} unsaved changes. They are saved first, and if saving fails you are asked before anything is lost.",
   "shell.heading.desks": "Desks",
   "shell.heading.places": "Places",
   "shell.heading.workflows": "Workflows",

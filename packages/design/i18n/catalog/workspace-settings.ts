@@ -227,6 +227,10 @@ export const workspaceSettings = {
   "settings.label.key-numbered": "{modifier}+number",
   "settings.label.key-numbered-mixed": "Changed for some numbers",
   "settings.label.key-pane-focus": "Focus a pane of the split",
+  "settings.label.key-pane-focus-down": "Focus the pane below",
+  "settings.label.key-pane-focus-left": "Focus the pane on the left",
+  "settings.label.key-pane-focus-right": "Focus the pane on the right",
+  "settings.label.key-pane-focus-up": "Focus the pane above",
   "settings.label.key-pane-split": "Split right with the next tab",
   "settings.label.key-search": "Search shortcuts",
   "settings.label.key-search-by-key": "Press a shortcut",
@@ -295,6 +299,8 @@ export const workspaceSettings = {
     "Opens search and commands, where you can type a file name.",
   "settings.note.key-pane-focus":
     "Moves to the first to fourth pane of the split, in left-to-right, top-to-bottom order.",
+  "settings.note.key-pane-focus-direction":
+    "Moves to the neighbouring pane of the split in that direction. It stops at the edge. It works inside the editor and terminal too.",
   "settings.note.key-pane-split":
     "Joins the current tab with the next tab into a split on its right.",
   "settings.note.key-search-by-key":

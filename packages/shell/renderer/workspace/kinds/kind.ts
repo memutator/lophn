@@ -76,6 +76,13 @@ export interface TabKindDef {
   render?(tab: TabItem, active: boolean, host: TabHost): ReactNode | null;
   /** 고르지 않아도 칸에 남겨 둘 본문. null이 아니면 고른 탭만 보인다. */
   keep?(tab: TabItem, shown: boolean, host: TabHost): ReactNode | null;
-  /** 닫기 전 확인. null이면 바로 닫고, 약속이면 true일 때만 닫는다. */
-  beforeClose?(tab: TabItem, host: TabHost): Promise<boolean> | null;
+  /**
+   * 닫기 전 확인. null이면 바로 닫고, 약속이면 true일 때만 닫는다. `confirmed`는 사람이 이미 닫기를 확인한 길(desk 끝내기)이라
+   * 같은 질문을 되묻지 않는다. 저장 실패처럼 잃을 것이 남는 질문은 그래도 묻는다.
+   */
+  beforeClose?(
+    tab: TabItem,
+    host: TabHost,
+    options?: { readonly confirmed?: boolean },
+  ): Promise<boolean> | null;
 }

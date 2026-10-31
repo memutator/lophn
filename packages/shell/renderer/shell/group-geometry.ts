@@ -87,3 +87,91 @@ export function dragRatio(
   const start = row ? box.x : box.y;
   return ((row ? point.x : point.y) - start - gap / 2) / room;
 }
+
+export type PaneDirection = "left" | "right" | "up" | "down";
+
+interface UnitRect {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+
+// 나누는 선의 두께를 뺀 단위 정사각형 위의 leaf 자리. 방향 찾기에는 몫만 있으면 된다.
+function unitRects(root: GroupNode): Map<string, UnitRect> {
+  const rects = new Map<string, UnitRect>();
+  const walk = (node: GroupNode, box: UnitRect) => {
+    if ("tab" in node) {
+      rects.set(node.tab, box);
+      return;
+    }
+    if (node.dir === "row") {
+      const w = box.w * node.ratio;
+      walk(node.a, { ...box, w });
+      walk(node.b, { ...box, x: box.x + w, w: box.w - w });
+    } else {
+      const h = box.h * node.ratio;
+      walk(node.a, { ...box, h });
+      walk(node.b, { ...box, y: box.y + h, h: box.h - h });
+    }
+  };
+  walk(root, { x: 0, y: 0, w: 1, h: 1 });
+  return rects;
+}
+
+/**
+ * key의 leaf에서 dir 쪽으로 가장 가까운 leaf. 변이 겹치는 것을 먼저 보고(맞닿은 칸), 그중 가까운 순, 겹침이 큰 순,
+ * 중심이 가까운 순이다. 겹치는 칸이 없으면(대각선) 그쪽에 있는 것 중 중심이 가까운 것이고, 그쪽에 아무것도
+ * 없으면 null이다(반대쪽으로 돌아 나오지 않는다).
+ */
+export function neighborLeaf(
+  root: GroupNode,
+  key: string,
+  dir: PaneDirection,
+): string | null {
+  const rects = unitRects(root);
+  const from = rects.get(key);
+  if (from === undefined) return null;
+  const horizontal = dir === "left" || dir === "right";
+  const forward = dir === "right" || dir === "down";
+  // 진행 축의 [시작, 끝)과 가로지르는 축의 [시작, 끝).
+  const along = (r: UnitRect) =>
+    horizontal ? [r.x, r.x + r.w] : [r.y, r.y + r.h];
+  const across = (r: UnitRect) =>
+    horizontal ? [r.y, r.y + r.h] : [r.x, r.x + r.w];
+  const [fromStart, fromEnd] = along(from) as [number, number];
+  const [fromA, fromB] = across(from) as [number, number];
+  const scored: {
+    key: string;
+    overlap: number;
+    distance: number;
+    away: number;
+  }[] = [];
+  for (const [other, rect] of rects) {
+    if (other === key) continue;
+    const [start, end] = along(rect) as [number, number];
+    const distance = forward ? start - fromEnd : fromStart - end;
+    if (distance < -1e-9) continue;
+    const [a, b] = across(rect) as [number, number];
+    scored.push({
+      key: other,
+      overlap: Math.min(fromB, b) - Math.max(fromA, a),
+      distance,
+      away: Math.abs((a + b) / 2 - (fromA + fromB) / 2),
+    });
+  }
+  const touching = scored.filter((item) => item.overlap > 1e-9);
+  const pool = touching.length > 0 ? touching : scored;
+  pool.sort((p, q) =>
+    touching.length > 0
+      ? Math.abs(p.distance - q.distance) > 1e-9
+        ? p.distance - q.distance
+        : Math.abs(p.overlap - q.overlap) > 1e-9
+          ? q.overlap - p.overlap
+          : p.away - q.away
+      : Math.abs(p.distance - q.distance) > 1e-9
+        ? p.distance - q.distance
+        : p.away - q.away,
+  );
+  return pool[0]?.key ?? null;
+}

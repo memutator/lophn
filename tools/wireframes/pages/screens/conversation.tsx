@@ -18,10 +18,13 @@ import { DraftStore } from "../../../../packages/shell/renderer/conversation/dra
 import type { SessionRow } from "../../mock/agents-data.ts";
 import {
   click,
+  find,
+  press,
   runSteps,
   type Step,
   type,
   useDrive,
+  wait,
 } from "../../mock/drive.ts";
 import { documentTab } from "../../mock/phroner-data.ts";
 import type { TabSpec } from "./project-window.tsx";
@@ -58,6 +61,40 @@ const DEMOS: Readonly<
   rewind: {
     scene: "rewind",
     steps: [() => click("button", /^Rewind to here$/)],
+  },
+  "steps-detail": {
+    scene: "report",
+    steps: [
+      () => press("[data-steps-detail]"),
+      () => click("[role=menuitem]", "Everything"),
+    ],
+  },
+  find: {
+    scene: "report",
+    steps: [
+      async () => {
+        const input = await find(COMPOSER);
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "f",
+            code: "KeyF",
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        await wait(30);
+      },
+      () => type("[data-find-input]", "report"),
+    ],
+  },
+  "session-search": {
+    scene: "working",
+    steps: [
+      () => click("[data-agent-header] button[aria-label]"),
+      () => type("[data-session-popover] input", "recipe"),
+      () => wait(400),
+    ],
   },
 };
 

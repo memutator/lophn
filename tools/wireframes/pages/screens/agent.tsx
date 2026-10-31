@@ -8,6 +8,8 @@ import {
   AgentCommands,
   AgentCommandsFiltered,
   AgentConversation,
+  AgentDetail,
+  AgentFind,
   AgentModelPicker,
   AgentPermissions,
   AgentStatus,
@@ -19,6 +21,7 @@ import {
   AgentRewind,
   AgentSenderChips,
   AgentSessionArchived,
+  AgentSessionSearch,
   AgentSessions,
   AgentSessionsEdit,
   AgentSkip,
@@ -285,6 +288,27 @@ export const agentArea: Area = {
       description:
         "archive한 session을 열면 기록만 보이고 입력칸이 없다. 머리에 Archived 표시와 안내 줄이 있다.",
       render: () => <AgentSessionArchived />,
+    },
+    {
+      id: "new-agent-detail",
+      title: "Agent · steps detail",
+      description:
+        "머리의 단계 상세 menu에서 Everything을 고른 모습이다. 모든 tool 묶음이 펼쳐지고, 묶음을 눌러 접었다 펼 수 있다. Messages는 tool 줄과 reasoning을 숨기고 Compact는 접힌 채로 그린다.",
+      render: () => <AgentDetail />,
+    },
+    {
+      id: "new-agent-find",
+      title: "Agent · find in conversation",
+      description:
+        "대화 화면에 focus가 있을 때 Ctrl/Cmd+F로 연 찾기 줄이다. 대화의 보이는 글에서 찾고 n/m과 이전·다음 단추를 보인다. Esc로 닫는다.",
+      render: () => <AgentFind />,
+    },
+    {
+      id: "new-agent-session-search",
+      title: "Agent · session message search",
+      description:
+        "session switcher의 검색이 제목뿐 아니라 메시지 글에서도 찾은 모습이다. 결과는 session 묶음마다 한 줄 snippet으로 보이고, 누르면 그 session을 열고 찾기 줄에 그 query를 넣는다.",
+      render: () => <AgentSessionSearch />,
     },
   ],
 };

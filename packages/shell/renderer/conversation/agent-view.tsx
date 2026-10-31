@@ -5,6 +5,7 @@
 import { IconButton } from "@lophn/ui/primitives";
 import { formatRelativeTime, t } from "@lophn/i18n";
 import {
+  type KeyboardEvent,
   type ReactNode,
   useCallback,
   useEffect,
@@ -50,6 +51,8 @@ import {
   startSend,
 } from "./delivery-state.ts";
 import type { DraftStore } from "./drafts.ts";
+import { ConversationFindBar } from "./find/conversation-find.tsx";
+import { useConversationFind } from "./find/use-conversation-find.ts";
 import { AgentHeader } from "./header/agent-header.tsx";
 import { PermissionsView } from "./permissions-view/permissions-view.tsx";
 import { StatusView } from "./status-view/status-view.tsx";
@@ -133,16 +136,44 @@ type ViewData = Pick<
   | "reload"
 >;
 
+/** session 검색 결과를 눌러 다른 session으로 넘어갈 때 같이 넘기는 것. */
+interface ViewSeed {
+  /** 찾기 줄을 이 글로 열어야 하면 그 글. */
+  readonly findSeed: string | null;
+  /** 열었으니 지운다. session을 다시 열 때 또 열지 않게 한다. */
+  readonly onFindSeedUsed: () => void;
+  /** session 검색 결과의 메시지 줄. 그 session을 열고 찾기 줄을 연다. */
+  readonly openMatch: (session: string, query: string) => void;
+}
+
 export function AgentView(props: AgentViewProps) {
+  const [seed, setSeed] = useState<{ session: string; query: string } | null>(
+    null,
+  );
+  const openMatch = (session: string, query: string) => {
+    setSeed({ session, query });
+    if (session !== props.session) props.onSessionChange(session);
+  };
+  const shared: ViewSeed = {
+    findSeed:
+      seed !== null && seed.session === props.session ? seed.query : null,
+    onFindSeedUsed: () => setSeed(null),
+    openMatch,
+  };
   // 열린 session과 새 session은 읽는 것이 다르다. session이 바뀌면 화면 상태도 새로 시작한다.
   return props.session === null ? (
-    <NewSession key="new" {...props} />
+    <NewSession key="new" {...props} {...shared} />
   ) : (
-    <OpenSession key={props.session} {...props} session={props.session} />
+    <OpenSession
+      key={props.session}
+      {...props}
+      {...shared}
+      session={props.session}
+    />
   );
 }
 
-function NewSession(props: AgentViewProps) {
+function NewSession(props: AgentViewProps & ViewSeed) {
   const list = useAgentTabList(props.source);
   const data: ViewData = {
     ...list,
@@ -155,12 +186,12 @@ function NewSession(props: AgentViewProps) {
   return <Screen {...props} data={data} />;
 }
 
-function OpenSession(props: AgentViewProps & { session: string }) {
+function OpenSession(props: AgentViewProps & ViewSeed & { session: string }) {
   const data = useAgentTabData(props.source, props.session, props.now);
   return <Screen {...props} data={data} />;
 }
 
-function Screen(props: AgentViewProps & { data: ViewData }) {
+function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   const { source, drafts, session, host, data } = props;
   // 보던 session이 사라진 읽기와 지운 쓰기가 같은 말을 두 번 하지 않게 한다.
   const current = useRef(session);
@@ -176,6 +207,17 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
   const [permissions, setPermissions] = useState<PermissionsData | null>(null);
   const [status, setStatus] = useState<StatusData | null>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
+  const stage = useRef<HTMLDivElement>(null);
+  const find = useConversationFind(stage, props.findSeed, props.onFindSeedUsed);
+
+  // Ctrl/Cmd+F는 이 화면이 focus를 가질 때만 받는다. 편집기·browser 탭의 같은 키와 겹치지 않게 표에 넣지 않는다.
+  const findKeys = (event: KeyboardEvent<HTMLElement>) => {
+    if (!(event.metaKey || event.ctrlKey)) return;
+    if (event.altKey || event.shiftKey || event.code !== "KeyF") return;
+    event.preventDefault();
+    event.stopPropagation();
+    find.show();
+  };
 
   const { agent, thread, refresh } = data;
   const entry = data.sessions.find((item) => item.id === session) ?? null;
@@ -520,17 +562,24 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
     call.then((result) => result.ok);
 
   return (
-    <section className={styles.view} data-agent-view="">
+    <section
+      className={styles.view}
+      data-agent-view=""
+      onKeyDownCapture={findKeys}
+    >
       <AgentHeader
         agent={agent}
         session={shown}
         sessions={data.sessions}
         now={new Date(now())}
         source={source}
+        detail={draft.detail}
+        onDetailChange={(next) => drafts.save(key, { detail: next })}
         host={{
           switchSession: onSessionChange,
           newSession: startNew,
           openForked: host.openForked,
+          openMatch: props.openMatch,
         }}
         onChanged={() => void refresh()}
         trailing={props.trailing}
@@ -552,13 +601,24 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           {t(PROBLEM_TEXT[problem])}
         </p>
       )}
-      <div className={styles.stage}>
+      <div className={styles.stage} ref={stage}>
+        {find.open ? (
+          <ConversationFindBar
+            query={find.query}
+            onQuery={find.setQuery}
+            current={find.current}
+            total={find.total}
+            onNext={() => find.step(1)}
+            onPrevious={() => find.step(-1)}
+            onClose={find.close}
+          />
+        ) : null}
         <RunCodeProvider value={host.runCommand ?? null}>
           <AgentThread
             key={key}
             agent={agent}
             entries={thread?.entries ?? []}
-            detail="compact"
+            detail={draft.detail}
             live={thread?.live ?? null}
             outgoing={draft.outgoing}
             working={working}

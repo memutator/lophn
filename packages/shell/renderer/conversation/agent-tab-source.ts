@@ -68,6 +68,16 @@ export interface SessionEntry {
   readonly skip: boolean;
 }
 
+/** session popover의 메시지 글 찾기가 찾은 한 줄. 묶음은 화면이 session으로 만들고 snippet만 보인다. */
+export interface SessionSearchMatch {
+  readonly session: string;
+  readonly message: string;
+  /** 메시지가 접수된 시각(ISO). 묶음 안 순서를 이 값으로 정한다. */
+  readonly at: string;
+  /** 처음 맞은 곳 앞뒤를 한 줄로 줄인 글. 앞뒤가 잘리면 `…`가 붙는다. */
+  readonly snippet: string;
+}
+
 /** 본문의 한 part. */
 export type BodyPart =
   | { readonly kind: "text"; readonly text: string }
@@ -535,6 +545,13 @@ export interface AgentTabSource {
   agent(): Promise<SourceResult<AgentFace>>;
   /** 그 agent의 session 전부. archive한 것도 들어 있다. */
   sessions(): Promise<SourceResult<readonly SessionEntry[]>>;
+  /**
+   * 그 agent의 session 메시지 글(사람이 쓴 말과 agent의 답)에서 찾는다. 최근 것부터 보고 상한이 있다.
+   * 제목만 거르는 화면 검색과 달리 본문을 본다.
+   */
+  searchMessages(
+    query: string,
+  ): Promise<SourceResult<readonly SessionSearchMatch[]>>;
   /** snapshot이다. 처음과 다시 붙을 때 읽고, 그 사이는 agent event가 줄을 이어 붙인다. 없는 session은 not_found다. */
   thread(session: string): Promise<SourceResult<ThreadView>>;
   /** 확정 메시지 하나의 본문. 범위 밖이나 없는 메시지는 not_found다. */

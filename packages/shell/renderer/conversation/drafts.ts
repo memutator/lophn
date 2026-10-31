@@ -4,6 +4,7 @@
 // 둔다. 확정 메시지의 본문은 바뀌지 않아 한 번 읽으면 다시 읽지 않는다. 디스크에는 쓰지
 // 않는다.
 import type { Outgoing } from "./delivery-state.ts";
+import type { ViewDetail } from "./activity/model.ts";
 import type { BodyPart } from "./agent-tab-source.ts";
 import type { Attachment } from "./attachments.ts";
 
@@ -17,6 +18,8 @@ export interface Draft {
   readonly outgoing: Outgoing | null;
   /** 읽던 위치. null이면 맨 아래를 따라간다. */
   readonly scroll: number | null;
+  /** 단계 줄을 어디까지 보이는지(Messages·Compact·Everything). session마다 기억한다. */
+  readonly detail: ViewDetail;
 }
 
 const EMPTY_DRAFT: Draft = {
@@ -25,6 +28,7 @@ const EMPTY_DRAFT: Draft = {
   attachments: [],
   outgoing: null,
   scroll: null,
+  detail: "compact",
 };
 
 /** 확정 메시지 본문을 읽은 결과. failed의 code는 core가 답한 오류다. */

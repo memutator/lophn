@@ -1,0 +1,70 @@
+/* 대화 줄 위 오른쪽의 찾기 줄. 대화 기둥과 같은 폭 안에서 오른쪽 끝에 붙는다. */
+.row {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  width: 100%;
+  max-width: var(--page-reading-wide);
+  margin-inline: auto;
+  padding: var(--space-3) var(--space-6) var(--space-0);
+}
+
+.bar {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: var(--chip-width);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+  box-shadow: var(--shadow-popover);
+  font-family: var(--font-sans);
+}
+
+.input {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: var(--space-0);
+}
+
+/* Field의 보이는 라벨은 이름으로만 남긴다. 360px 줄 안에서는 입력과 단추가 먼저다. */
+.input > div {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-0);
+  min-width: var(--space-0);
+}
+
+.input label {
+  position: absolute;
+  width: var(--border-width);
+  height: var(--border-width);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.count {
+  flex: none;
+  min-width: var(--space-10);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-variant-numeric: var(--font-numeric);
+  text-align: right;
+}
+
+/* 브라우저가 칠하는 찾기 강조. React DOM은 건드리지 않는다. */
+::highlight(conversation-find) {
+  background-color: var(--color-selection);
+  color: var(--color-text-primary);
+}
+
+::highlight(conversation-find-current) {
+  background-color: var(--color-ink-soft);
+  color: var(--color-text-primary);
+}

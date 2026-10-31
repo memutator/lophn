@@ -13,7 +13,10 @@ import {
   CallOpenScene,
   CallRepliesScene,
   ConversationScene,
+  DetailScene,
+  FindScene,
   PermissionsScene,
+  SessionSearchScene,
   StatusScene,
   QuestionAnsweredScene,
   QuestionEndedScene,
@@ -208,3 +211,9 @@ export const AgentApprovalStates = ApprovalStatesScene;
 export const AgentRewind = RewindScene;
 /** skip을 켠 session. */
 export const AgentSkip = SkipScene;
+/** header의 단계 상세 menu에서 Everything을 고른 모습. */
+export const AgentDetail = DetailScene;
+/** Ctrl+F로 연 대화 안 찾기 줄. */
+export const AgentFind = FindScene;
+/** session 검색의 메시지 글 결과. */
+export const AgentSessionSearch = SessionSearchScene;

@@ -25,7 +25,9 @@ import { type MessageKey, t } from "@lophn/i18n";
 import type {
   AgentProfile,
   SessionEntry,
+  SessionSearchMatch,
   SessionStatus,
+  SourceResult,
 } from "../agent-tab-source.ts";
 import styles from "./session-popover.module.css";
 
@@ -87,6 +89,12 @@ export interface SessionSwitcherProps {
   onArchive: (session: string) => void;
   /** 줄 안 확인의 Delete를 누른 뒤에만 부른다. */
   onDelete: (session: string) => void;
+  /** 그 agent의 메시지 글(사람이 쓴 말과 agent의 답)에서 찾는다. */
+  searchMessages: (
+    query: string,
+  ) => Promise<SourceResult<readonly SessionSearchMatch[]>>;
+  /** 메시지 검색 결과의 줄을 눌렀다. 그 session을 열고 찾기 줄을 그 query로 연다. */
+  onOpenMatch: (session: string, query: string) => void;
 }
 
 function StatusDot({ status }: { status: SessionStatus }): ReactElement {
@@ -194,6 +202,27 @@ function Switcher(
   const [draft, setDraft] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [matches, setMatches] = useState<readonly SessionSearchMatch[]>([]);
+  const searchRequest = useRef(0);
+
+  // 제목은 바로 거르고, 메시지 글은 core가 최근 것부터 blob을 읽으므로 조금 기다렸다 한 번 찾는다.
+  useEffect(() => {
+    const needle = query.trim();
+    if (needle.length < 2) {
+      setMatches([]);
+      return;
+    }
+    const request = searchRequest.current + 1;
+    searchRequest.current = request;
+    const timer = setTimeout(() => {
+      void props.searchMessages(needle).then((result) => {
+        if (searchRequest.current === request) {
+          setMatches(result.ok ? result.value : []);
+        }
+      });
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [query, props.searchMessages]);
 
   useEffect(() => {
     dismiss.current = () => {
@@ -215,6 +244,30 @@ function Switcher(
     (entry) => !entry.archived && titleOf(entry).toLowerCase().includes(needle),
   );
   const archived = byRecent.filter((entry) => entry.archived);
+
+  // session별로 묶는다. 결과는 최근 것부터 오므로 처음 나온 순서가 최신 session 순서다.
+  const bySession = new Map<string, SessionSearchMatch[]>();
+  for (const match of matches) {
+    const list = bySession.get(match.session);
+    if (list === undefined) bySession.set(match.session, [match]);
+    else list.push(match);
+  }
+  const matchGroups = [...bySession].map(([session, found]) => {
+    const entry = byRecent.find((item) => item.id === session);
+    const title =
+      entry === undefined
+        ? t("conversation.label.session-untitled")
+        : titleOf(entry);
+    return {
+      session,
+      title:
+        entry?.archived === true
+          ? t("conversation.label.session-archived-title", { title })
+          : title,
+      matches: found,
+    };
+  });
+  const nothing = live.length === 0 && matchGroups.length === 0;
 
   const startRename = (entry: SessionEntry) => {
     setDeleting(null);
@@ -378,25 +431,53 @@ function Switcher(
           agent: agent.name,
         })}
       >
-        {live.length === 0 ? (
+        {nothing ? (
           <p className={styles.noMatch} data-no-match>
             {t("conversation.notice.session-no-match")}
           </p>
         ) : (
-          GROUPS.map(({ group, head }) => {
-            const inGroup = live.filter(
-              (entry) => groupOf(entry.activeAt, now) === group,
-            );
-            if (inGroup.length === 0) return null;
-            return (
-              <div key={group} role="group" aria-label={t(head)}>
+          <>
+            {GROUPS.map(({ group, head }) => {
+              const inGroup = live.filter(
+                (entry) => groupOf(entry.activeAt, now) === group,
+              );
+              if (inGroup.length === 0) return null;
+              return (
+                <div key={group} role="group" aria-label={t(head)}>
+                  <p className={styles.groupHead} data-session-group>
+                    {t(head)}
+                  </p>
+                  {inGroup.map(row)}
+                </div>
+              );
+            })}
+            {matchGroups.map((group) => (
+              <div
+                key={`match-${group.session}`}
+                role="group"
+                aria-label={group.title}
+              >
                 <p className={styles.groupHead} data-session-group>
-                  {t(head)}
+                  {group.title}
                 </p>
-                {inGroup.map(row)}
+                {group.matches.map((match) => (
+                  <button
+                    key={match.message}
+                    type="button"
+                    role="option"
+                    aria-selected={false}
+                    className={styles.matchRow}
+                    data-session-match={match.message}
+                    onClick={() =>
+                      props.onOpenMatch(group.session, query.trim())
+                    }
+                  >
+                    <span className={styles.matchSnippet}>{match.snippet}</span>
+                  </button>
+                ))}
               </div>
-            );
-          })
+            ))}
+          </>
         )}
       </div>
       <div className={styles.foot}>

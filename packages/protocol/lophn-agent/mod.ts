@@ -38,5 +38,6 @@ export * from "./message-attachments.ts";
 export * from "./input-tags.ts";
 export * from "./kind-text.ts";
 export * from "./received-messages.ts";
+export * from "./message-search.ts";
 export * from "./agent-definitions.ts";
 export { ROUTES } from "./registry.ts";

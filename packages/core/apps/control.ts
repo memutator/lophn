@@ -20,6 +20,7 @@ import {
   activationComplete,
   activationFail,
   activationRecordBackup,
+  activationReport,
   activationRecordDataChange,
   activationRecordDataRestore,
   activationStart,
@@ -126,6 +127,8 @@ export const APPS_CONTROL_CONTEXT: RequestContext = {
       activationRecordDataRestore.name,
       activationComplete.name,
       activationFail.name,
+      // release.activate가 기다리지 않은 activation의 결과를 release를 만든 session에 알린다.
+      activationReport.name,
       appRecordUnavailable.name,
       // release.prepare가 검사를 마친 봉인 사본으로 release를 확정한다.
       releaseRecord.name,
@@ -194,6 +197,7 @@ export function appsOperationPolicies(): OperationPolicy[] {
       activationRecordDataRestore,
       activationComplete,
       activationFail,
+      activationReport,
       activationStart,
       activationAskConsent,
       releasesGetRecord,

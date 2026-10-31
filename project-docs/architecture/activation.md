@@ -35,7 +35,7 @@
 계기와 묻는 조건
 - 계기는 앱 place session의 `release.activate`이고 release 준비만으로는 시작하지 않는다. 앱의 주인이 준비한 release를 preview에서 확인한 뒤 올리게 하려는 것이다.
 - `release.activate`는 시작한 시도의 끝을 120초까지 기다린다(`ACTIVATE_WAIT_MS`, `packages/core/apps/releases/activation/assembly.ts`). 넘으면 `running`을 돌려주고 시도는 core 안에서 이어 가며, session은 `app.status`와 `release.get`으로 본다. 120초는 `shell.run`의 기본 timeout과 앱 tool 호출 상한과 같아 tool 하나가 turn을 이보다 오래 붙들지 않는다.
-- 동의를 기다리면 `release.activate`는 기다리지 않고 `waiting_consent`를 돌려준다. 동의 뒤의 시작은 driver sweep이 하고 그 결과는 사람이 화면에서 본다. program이 session을 다시 부르지 않는다.
+- 동의를 기다리면 `release.activate`는 기다리지 않고 `waiting_consent`를 돌려준다. 동의 뒤의 시작은 driver sweep이 한다. 결과는 아래 실패와 복구의 `activation.report`로 release를 만든 session에 notice로 간다.
 - 묻는지는 program이 선언 사실로 결정적으로 판정한다. 늘어난 바깥 자원, 늘어난 다른 앱 tool 쓰기, migration이 선언한 loss, 이전 활성 release가 없는 첫 activation이다. 아무것도 늘지 않으면 묻지 않는다. secret의 OAuth 칸(끝점, scope, 추가 parameter)이 바뀐 것도 늘어난 바깥 자원이다. 선언 사실 비교가 정규화한 scope 전체를 맞추므로 순서만 바뀐 것은 묻지 않는다. 동의 화면은 authorize host, refresh token이 갈 token host, scope를 보인다. 앱 자신의 tool이 더해지는 것은 묻지 않는다. 그 앱을 할당받은 agent는 새 tool도 묻지 않고 쓴다(할당이 허락이다, `architecture/approval.md`).
 - data 손실은 migration 파일 머리의 `-- loss:` 줄이 유일한 출처다. 줄이 틀리면 release 준비가 거절된다. 선언을 믿으니 사본에서 돌려 재지 않는다.
 - 사람이 동의한 비교와 시작할 때의 비교가 다르면 다시 판정해 다시 묻는다. 기다리는 사이 앱 grant가 바뀔 수 있다.
@@ -64,7 +64,8 @@
 - 복구본 복원이나 확인이 실패하면 이전 code도 띄우지 않고 앱을 사용 불가로 둔다. data와 code의 schema가 맞지 않는 앱을 띄우면 더 망가진다.
 - 끊긴 시도(core 재시작, 응답 유실)는 ledger가 말하는 대로 잇는다. 채택됐으면 그 release를 다시 띄우고, 진행 중이면 알려진 복구본으로만 복원한다. 모르는 migration script를 다시 적용하지 않는다.
 - 앱 진입점의 handler 확인(`/probe`)이 거절하면 그 이유가 고칠 tool을 가리킨다. 진입점(`packages/core/apps/runtime/entrypoint/control.ts`)이 선언과 등록된 handler를 비교해 409 본문 message에 빠진 tool(`declared without a handler: …`)과 더해진 tool(`handler not declared: …`)을 각 5개와 `and N more`로 싣고, supervisor의 `probeChild`(`packages/core/main/app-supervisor/assembly.ts`)가 그 message를 500자까지 reason에 붙인다. release 준비의 `handlers` 실패 reason이 이 글이다. probe가 통과한 뒤 preview launcher가 하는 비교와 같은 꼴이다.
-- 실패 기록(release의 `failure`: code, summary, 복원했는지)은 fail 한 tx에 남는다. `release.activate`는 끝난 시도의 이 기록을 읽어 돌려준다. 실패를 알리려고 program이 agent를 부르지 않는다.
+- 실패 기록(release의 `failure`: code, summary, 복원했는지)은 fail 한 tx에 남는다. `release.activate`는 끝난 시도의 이 기록을 읽어 돌려준다. complete가 거절되면(`commit_rejected`) 그 거절 message를 summary에 붙인다. 버리면 무엇을 고칠지 아무도 모른다.
+- `release.activate`가 기다리지 않은 시도(동의 뒤, 2분 기다림 상한 뒤, 재시작 뒤 이어받음)가 active나 failed로 끝나면 driver가 `activation.report`(machine)를 부른다. 이 command는 release를 만든 agent session(`created_by`)에 `activation_finished` notice로 결과(실패면 code, summary, 이전 release가 다시 도는지)를 넣는다. 그 session이 닫혔으면 넣지 않는다. 동의 뒤의 시작은 부른 turn이 이미 끝난 뒤라, 알리지 않으면 agent는 실패를 모르고 사람은 화면 어디에서도 이유를 듣지 못한다.
 - 더 새 release의 activation이 시작되면 그 앱의 동의 줄을 모두 닫는다(기다리던 것은 cancelled). 낡은 동의가 새 release에 쓰이면 안 된다. 시작과 같은 tx다.
 
 ## 왜 이 모양인가

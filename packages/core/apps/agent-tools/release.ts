@@ -110,7 +110,7 @@ export const RELEASE_TOOLS: readonly ToolDefinition[] = [
     input: z.strictObject({ release: idSchema("rel") }),
     routes: [releaseActivate],
     description:
-      "Activate a prepared release of your app and wait for the result: active, or failed with the reason. A first activation, new permissions or a data loss migration need the person's consent: then it returns waiting_consent at once and the person sees the result. If the activation takes longer than two minutes it returns running; check app.status.",
+      "Activate a prepared release of your app and wait for the result: active, or failed with the reason. A first activation, new permissions or a data loss migration need the person's consent: then it returns waiting_consent at once, and the result comes to this session later as a notice. If the activation takes longer than two minutes it returns running, and the result also comes as a notice.",
     effect: "write",
     handler: async (input, ctx) => {
       const { release } = input;

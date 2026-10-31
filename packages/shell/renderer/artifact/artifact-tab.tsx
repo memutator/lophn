@@ -1,6 +1,7 @@
-// artifact 탭 본문. toolbar 아래 page 자리에 봉한 `lophn-artifact:` page를 창의 <webview> 그릇으로 그린다.
+// artifact 탭 본문. page 자리에 봉한 `lophn-artifact:` page를 창의 <webview> 그릇으로 그린다.
 // DOM 안에 그려지므로 알림과 annotation 목록은 z-index로 page 위에 겹친다. 폴더가 없으면 view 없이 안내와
-// [Retry]만 그린다. 탭이 Float·Dock으로 다시 mount되면 keeps에서 view를 이어 쓰고, 닫는 일은 보관소의
+// [Retry]만 그린다. [Edit source]·[Annotate]는 card 머리 줄에 올리고, card 밖(floated 탭, detached 창)이면 본문 위
+// toolbar 한 줄로 그린다. 탭이 Float·Dock으로 다시 mount되면 keeps에서 view를 이어 쓰고, 닫는 일은 보관소의
 // 주인(Workspace)이 한다.
 import { useEffect, useRef, useState } from "react";
 import { EmptyState, ErrorState } from "@lophn/ui/feedback";
@@ -25,6 +26,7 @@ import {
 } from "../app-frame/webview-host.tsx";
 import type { ViewKeeps } from "../app-frame/view-keeps.ts";
 import { useBrowserOverlay } from "../browser/browser-api.tsx";
+import { useCardHead } from "../shell/card-head.tsx";
 import { fileNameOf } from "../editor/model.ts";
 import { artifactIcons, editorIcons } from "../icons/mod.ts";
 import { useAnnotateApi, useArtifactApi } from "./artifact-api.tsx";
@@ -246,42 +248,70 @@ function OpenTab(
     }
   };
 
+  // 머리에 올린 단추의 callback은 deps에 없는 최신 값을 읽는다.
+  const latest = useRef({ props, state, annotating, annotateOn });
+  latest.current = { props, state, annotating, annotateOn };
+  const rootNote =
+    folder === null ? null : (
+      <span className={styles.rootNote}>
+        {t("artifact.note.file-root", { folder })}
+      </span>
+    );
+  const buttons = (
+    <span className={styles.actions} data-artifact-toolbar="">
+      <Button
+        size="sm"
+        variant="ghost"
+        icon={artifactIcons.editSource}
+        disabled={!ready}
+        onClick={() => {
+          const { props: current, state: now } = latest.current;
+          if (now !== null) current.onEditSource(now.file);
+        }}
+      >
+        {t("artifact.button.edit-source")}
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        icon={editorIcons.edit}
+        aria-pressed={annotateOn}
+        disabled={!ready}
+        onClick={() =>
+          latest.current.annotating.setMode(!latest.current.annotateOn)
+        }
+      >
+        {t("artifact.button.annotate")}
+      </Button>
+    </span>
+  );
+  // card 안이면 단추와 폴더 안내를 card 머리 줄에 올린다. 제목은 경로가 이미 보인다.
+  const inCard = useCardHead(
+    {
+      actions: (
+        <>
+          {rootNote}
+          {buttons}
+        </>
+      ),
+    },
+    [ready, annotateOn, folder],
+  );
+
   return (
     <div className={styles.tab}>
-      <div className={styles.toolbar} data-artifact-toolbar="">
-        <span className={styles.heading}>
-          <span className={styles.headTitle}>
-            <span className={styles.title}>{title}</span>
-            <span className={styles.name}>{name}</span>
-          </span>
-          {folder === null ? null : (
-            <span className={styles.rootNote}>
-              {t("artifact.note.file-root", { folder })}
+      {inCard ? null : (
+        <div className={styles.toolbar}>
+          <span className={styles.heading}>
+            <span className={styles.headTitle}>
+              <span className={styles.title}>{title}</span>
+              <span className={styles.name}>{name}</span>
             </span>
-          )}
-        </span>
-        <span className={styles.actions}>
-          <Button
-            size="sm"
-            variant="ghost"
-            icon={artifactIcons.editSource}
-            disabled={!ready}
-            onClick={() => state !== null && props.onEditSource(state.file)}
-          >
-            {t("artifact.button.edit-source")}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            icon={editorIcons.edit}
-            aria-pressed={annotateOn}
-            disabled={!ready}
-            onClick={() => annotating.setMode(!annotateOn)}
-          >
-            {t("artifact.button.annotate")}
-          </Button>
-        </span>
-      </div>
+            {rootNote}
+          </span>
+          {buttons}
+        </div>
+      )}
       <div ref={region} className={styles.region} data-artifact-page="">
         {missing ? (
           <EmptyState

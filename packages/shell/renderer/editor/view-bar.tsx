@@ -1,9 +1,10 @@
-// 탭 안 맨 위의 view bar 한 줄. 왼쪽에는 짧은 정보(project 밖 표시, 파일 정보, 열린 줄)만 두고
-// 경로는 위쪽 breadcrumb에 있다. 오른쪽에는 저장 상태, Info, … menu가 있다.
+// 파일 탭의 머리 조각. card 안이면 FileFrame이 이 조각들을 card 머리 줄(shell/card-head.tsx)에 올리고
+// (파일 정보·저장 상태·Info는 ⋯ 앞, Delete는 ⋯ 메뉴 맨 위), card 밖(floated 패널, detached 창)이면 ViewBar
+// 한 줄에 그린다. 경로는 card의 breadcrumb에 있다.
 import type { ReactNode } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
-import { Menu, MenuIcon } from "@lophn/ui/overlay";
+import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 
 import { editorIcons, workspaceIcons } from "../icons/mod.ts";
@@ -87,17 +88,15 @@ interface FileActionsProps {
   state: SaveState | null;
   infoOpen: boolean;
   onInfo: () => void;
-  onDelete: () => void;
   onConflict?: () => void;
   onRetry?: () => void;
 }
 
-/** view bar 오른쪽의 조작. */
+/** 저장 상태와 Info 단추. card 머리에서는 ⋯ 앞에 놓인다. */
 export function FileActions({
   state,
   infoOpen,
   onInfo,
-  onDelete,
   onConflict,
   onRetry,
 }: FileActionsProps) {
@@ -117,26 +116,37 @@ export function FileActions({
         data-document-info=""
         onClick={onInfo}
       />
-      <Menu
-        trigger={
-          <IconButton
-            icon={editorIcons.menu}
-            label={t("document.button.menu")}
-            size="sm"
-            data-document-menu=""
-          />
-        }
-        items={[
-          {
-            id: "delete",
-            label: t("document.button.delete"),
-            leading: <MenuIcon icon={workspaceIcons.trash} />,
-          },
-        ]}
-        onSelect={(id) => {
-          if (id === "delete") onDelete();
-        }}
-      />
     </>
+  );
+}
+
+/** card 머리 ⋯ 메뉴 맨 위에 올리는 항목. id는 탭 기본 항목과 겹치지 않게 접두어를 단다. */
+export function fileMenuItems(): readonly MenuItem[] {
+  return [
+    {
+      id: "file:delete",
+      label: t("document.button.delete"),
+      leading: <MenuIcon icon={workspaceIcons.trash} />,
+    },
+  ];
+}
+
+/** card 밖 view bar의 … menu. */
+export function FileMenu({ onDelete }: { onDelete: () => void }) {
+  return (
+    <Menu
+      trigger={
+        <IconButton
+          icon={editorIcons.menu}
+          label={t("document.button.menu")}
+          size="sm"
+          data-document-menu=""
+        />
+      }
+      items={fileMenuItems()}
+      onSelect={(id) => {
+        if (id === "file:delete") onDelete();
+      }}
+    />
   );
 }

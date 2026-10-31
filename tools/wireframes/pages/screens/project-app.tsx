@@ -406,7 +406,6 @@ export function ProjectApp({
               newTab={<PageNewTabMenu onPick={pick} startOpen={newTabOpen} />}
               onSelect={(key) => setDesk((current) => selectTab(current, key))}
               onClose={close}
-              onReorder={() => {}}
               onToggleFloat={() => {}}
             />
           }

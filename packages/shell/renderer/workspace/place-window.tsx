@@ -57,6 +57,7 @@ import {
   activeDesk,
   addDesk,
   allTabs,
+  applyTabDrop,
   closeDetached,
   type CloseScope,
   closeFloat,
@@ -89,7 +90,6 @@ import {
   reattachTab,
   removeDesk,
   renameDesk,
-  reorderTab,
   restoreFloat,
   selectTab,
   setActiveDesk,
@@ -98,6 +98,7 @@ import {
   splitPartner,
   splitTab,
   stepTab,
+  tabDropState,
   type PlaceRef,
   type TabItem,
   ungroup,
@@ -110,6 +111,7 @@ import { FloatLayer } from "../shell/float-layer.tsx";
 import { PanelTabs } from "../shell/panel-tabs.tsx";
 import { ShellFrame } from "../shell/shell-frame.tsx";
 import { TabContextMenu, type TabMenuState } from "../shell/tab-menu.tsx";
+import { TabDragProvider } from "../shell/tab-drag.tsx";
 import {
   type StripEntry,
   type StripTab,
@@ -1505,8 +1507,6 @@ export function PlaceWindow(props: PlaceWindowProps) {
       ? {}
       : { dirs: dirsOf(entry.group.layout), focus: entry.group.focus }),
   }));
-  const reorder = (key: string, before: string | null) =>
-    update((item) => reorderTab(item, key, before));
 
   // 이동 기록. ← →가 오가는 창 하나의 지나온 자리이고 저장하지 않는다.
   const here: Stop = {
@@ -1682,316 +1682,328 @@ export function PlaceWindow(props: PlaceWindowProps) {
           className={styles.workspace}
           data-space={isHome ? "home" : isApp ? "app" : "project"}
         >
-          <ShellFrame
-            left={leftOpen}
-            onToggleLeft={() => setLeftOpen(!leftOpen)}
-            right={rightOpen}
-            onToggleRight={() => setRightOpen(!rightOpen)}
-            deskSwitcher={
-              projectId === null ? undefined : (
-                <DeskSwitcher
-                  desks={deskOptions}
-                  current={layout.active}
-                  onSelect={selectDesk}
-                  onNewDesk={newDesk}
-                  onRename={(key, label) =>
-                    commit(renameDesk(latestLayout.current, key, label))
-                  }
-                  onDelete={(key) => {
-                    const gone = latestLayout.current.desks[key];
-                    if (gone?.workflow === undefined)
-                      dropDesks(gone ? [gone] : []);
-                  }}
-                />
-              )
-            }
-            tabs={
-              <TabStrip
-                entries={entries}
-                selected={entryKey(desk)}
-                minimized={desk.floats.map((item) => stripTab(item.tab))}
-                floating={desk.floats
-                  .filter((item) => !item.minimized)
-                  .map((item) => item.tab.key)}
-                onSelect={(key) => update((item) => selectTab(item, key))}
-                onClose={close}
-                onMenu={(key, at) => setTabMenu({ key, ...at })}
-                onPin={(key) => update((item) => pinTab(item, key))}
-                renaming={renaming}
-                onRenaming={setRenaming}
-                onRename={(key, name) => {
-                  const tab = desk.tabs.find((item) => item.key === key);
-                  if (tab !== undefined) {
-                    tabKindOf(tab.kind)?.rename?.(tab, name, host);
-                  }
-                }}
-                onReorder={reorder}
-                onToggleFloat={(key) =>
-                  update((item) =>
-                    item.floats.some((f) => f.tab.key === key && !f.minimized)
-                      ? minimizeFloat(item, key)
-                      : restoreFloat(item, key),
-                  )
-                }
-                newTab={
-                  <NewTabMenu
-                    {...(pickFile === undefined
-                      ? {}
-                      : {
-                          onDocument: () =>
-                            void pickFile().then((path) => {
-                              if (path !== null) openFile(host, path);
-                            }),
-                        })}
-                    {...(terminal === undefined
-                      ? {}
-                      : { onTerminal: () => openTerminalTab(host) })}
-                    {...(browserApi === null
-                      ? {}
-                      : { onBrowser: () => openBrowserTab(host) })}
-                    {...(agentView === null
-                      ? {}
-                      : {
-                          agents: sidebarAgents.agents.map((agent) => ({
-                            id: agent.assignment,
-                            name: agent.name,
-                            profile: agent.profile,
-                          })),
-                          onAgent: (id: string) => {
-                            const row = sidebarAgents.agents.find(
-                              (agent) => agent.assignment === id,
-                            );
-                            if (row !== undefined) {
-                              openAgent(host, { agent: id, name: row.name });
-                            }
-                          },
-                        })}
-                    {...(source.searchSource === undefined || projectId === null
-                      ? {}
-                      : { onSearch: () => openSearchShortcut(host) })}
-                    {...(isApp
-                      ? { onAppScreen: () => openAppScreen(host) }
-                      : {})}
-                    {...(host.appScreens
-                      ? { onAppPanel: () => openAppPanel(host) }
-                      : {})}
+          <TabDragProvider
+            describe={(key) => {
+              const found = desk.tabs.find((item) => item.key === key);
+              return found === undefined ? undefined : stripTab(found);
+            }}
+            state={(item, hit) => tabDropState(desk, item, hit)}
+            onDrop={(item, hit) => update((d) => applyTabDrop(d, item, hit))}
+          >
+            <ShellFrame
+              left={leftOpen}
+              onToggleLeft={() => setLeftOpen(!leftOpen)}
+              right={rightOpen}
+              onToggleRight={() => setRightOpen(!rightOpen)}
+              deskSwitcher={
+                projectId === null ? undefined : (
+                  <DeskSwitcher
+                    desks={deskOptions}
+                    current={layout.active}
+                    onSelect={selectDesk}
+                    onNewDesk={newDesk}
+                    onRename={(key, label) =>
+                      commit(renameDesk(latestLayout.current, key, label))
+                    }
+                    onDelete={(key) => {
+                      const gone = latestLayout.current.desks[key];
+                      if (gone?.workflow === undefined)
+                        dropDesks(gone ? [gone] : []);
+                    }}
                   />
-                }
-              />
-            }
-            panelTabs={
-              <PanelTabs
-                tabs={
-                  isHome
-                    ? homePanelTabs(withJobs)
-                    : isApp
-                      ? appPanelTabs()
-                      : panelTabs(withJobs)
-                }
-                selected={panel}
-                onSelect={setPanel}
-              />
-            }
-            leftSidebar={
-              <PlaceLeftSidebar
-                place={place}
-                source={source}
-                projects={props.projects}
-                apps={props.apps}
-                agentViewSource={agentViewSource}
-                agents={sidebarAgents.agents}
-                openTitles={agentTabTitles}
-                terminals={panelTerminals}
-                selected={selectedSessionKey}
-                canTerminal={terminal !== undefined}
-                onNewSession={() => void openLophn()}
-                onNewLophn={(agent) =>
-                  openAgent(host, { agent: agent.assignment, name: agent.name })
-                }
-                onNewCoding={(command) =>
-                  openTerminalTab(host, { command, docked: true })
-                }
-                onOpenHere={(session, agent) => {
-                  const row = sidebarAgents.agents.find(
-                    (item) => item.assignment === agent,
-                  );
-                  if (row !== undefined) {
-                    openAgent(host, {
-                      agent: row.assignment,
-                      name: row.name,
-                      session,
-                    });
+                )
+              }
+              tabs={
+                <TabStrip
+                  entries={entries}
+                  selected={entryKey(desk)}
+                  minimized={desk.floats.map((item) => stripTab(item.tab))}
+                  floating={desk.floats
+                    .filter((item) => !item.minimized)
+                    .map((item) => item.tab.key)}
+                  onSelect={(key) => update((item) => selectTab(item, key))}
+                  onClose={close}
+                  onMenu={(key, at) => setTabMenu({ key, ...at })}
+                  onPin={(key) => update((item) => pinTab(item, key))}
+                  renaming={renaming}
+                  onRenaming={setRenaming}
+                  onRename={(key, name) => {
+                    const tab = desk.tabs.find((item) => item.key === key);
+                    if (tab !== undefined) {
+                      tabKindOf(tab.kind)?.rename?.(tab, name, host);
+                    }
+                  }}
+                  onToggleFloat={(key) =>
+                    update((item) =>
+                      item.floats.some((f) => f.tab.key === key && !f.minimized)
+                        ? minimizeFloat(item, key)
+                        : restoreFloat(item, key),
+                    )
                   }
-                }}
-                onTerminal={(item) => {
-                  if (item.live !== null) {
-                    terminal?.store.select(item.live.tabKey);
-                  } else if (item.saved !== null) {
-                    openTerminalTab(host, {
-                      folderRef: item.saved.folderRef,
-                      ...(item.saved.resumable
-                        ? {
-                            resume: {
-                              harness: item.harness,
-                              external_session: item.saved.externalSession,
+                  newTab={
+                    <NewTabMenu
+                      {...(pickFile === undefined
+                        ? {}
+                        : {
+                            onDocument: () =>
+                              void pickFile().then((path) => {
+                                if (path !== null) openFile(host, path);
+                              }),
+                          })}
+                      {...(terminal === undefined
+                        ? {}
+                        : { onTerminal: () => openTerminalTab(host) })}
+                      {...(browserApi === null
+                        ? {}
+                        : { onBrowser: () => openBrowserTab(host) })}
+                      {...(agentView === null
+                        ? {}
+                        : {
+                            agents: sidebarAgents.agents.map((agent) => ({
+                              id: agent.assignment,
+                              name: agent.name,
+                              profile: agent.profile,
+                            })),
+                            onAgent: (id: string) => {
+                              const row = sidebarAgents.agents.find(
+                                (agent) => agent.assignment === id,
+                              );
+                              if (row !== undefined) {
+                                openAgent(host, { agent: id, name: row.name });
+                              }
                             },
-                          }
-                        : {}),
-                    });
+                          })}
+                      {...(source.searchSource === undefined ||
+                      projectId === null
+                        ? {}
+                        : { onSearch: () => openSearchShortcut(host) })}
+                      {...(isApp
+                        ? { onAppScreen: () => openAppScreen(host) }
+                        : {})}
+                      {...(host.appScreens
+                        ? { onAppPanel: () => openAppPanel(host) }
+                        : {})}
+                    />
                   }
-                }}
-                onWorkflow={selectDesk}
-                onOpenSession={(session) =>
-                  runToastAction({ kind: "session", session })
-                }
-                onPlace={(ref) =>
-                  ref.kind === "home" ? onHome() : props.onPlace?.(ref)
-                }
-                onNewApp={(app) => props.onNewApp?.(app)}
-                quick={{
-                  ...(terminal === undefined
-                    ? {}
-                    : { onTerminal: () => openTerminalTab(host) }),
-                  ...(browserApi === null
-                    ? {}
-                    : { onBrowser: () => openBrowserTab(host) }),
-                  appItems: quickApp.items,
-                  onApp: quickApp.select,
-                  // project의 Search 탭. 검색 통로가 없는 place(Home 등)는 팔레트를 연다.
-                  onSearch:
-                    source.searchSource === undefined || projectId === null
-                      ? openQuickFiles
-                      : () => openSearchShortcut(host),
-                }}
-                jobs={props.jobs}
-                onInbox={() => openInbox(host)}
-                onJobs={() => openJobs(host)}
-                onSettings={() => onSettings()}
-              />
-            }
-            rightSidebar={
-              isApp ? (
-                <AppPlacePanel
-                  tab={panel as AppPlaceTab}
-                  app={appId}
-                  name={appName ?? ""}
-                  detail={props.appDetail}
-                  runs={runRows}
-                  {...(annotateApi === undefined || screenView === null
-                    ? {}
-                    : {
-                        annotate: {
-                          on: annotating.state?.on ?? false,
-                          onToggle: () =>
-                            annotating.setMode(
-                              !(annotating.state?.on ?? false),
-                            ),
-                        },
-                      })}
-                  onOpenSession={(session) =>
-                    runToastAction({ kind: "session", session })
+                />
+              }
+              panelTabs={
+                <PanelTabs
+                  tabs={
+                    isHome
+                      ? homePanelTabs(withJobs)
+                      : isApp
+                        ? appPanelTabs()
+                        : panelTabs(withJobs)
                   }
-                  onRunSession={(session) => {
+                  selected={panel}
+                  onSelect={setPanel}
+                />
+              }
+              leftSidebar={
+                <PlaceLeftSidebar
+                  place={place}
+                  source={source}
+                  projects={props.projects}
+                  apps={props.apps}
+                  agentViewSource={agentViewSource}
+                  agents={sidebarAgents.agents}
+                  openTitles={agentTabTitles}
+                  terminals={panelTerminals}
+                  selected={selectedSessionKey}
+                  canTerminal={terminal !== undefined}
+                  onNewSession={() => void openLophn()}
+                  onNewLophn={(agent) =>
+                    openAgent(host, {
+                      agent: agent.assignment,
+                      name: agent.name,
+                    })
+                  }
+                  onNewCoding={(command) =>
+                    openTerminalTab(host, { command, docked: true })
+                  }
+                  onOpenHere={(session, agent) => {
                     const row = sidebarAgents.agents.find(
-                      (item) => item.assignment === session.agent,
+                      (item) => item.assignment === agent,
                     );
                     if (row !== undefined) {
                       openAgent(host, {
                         agent: row.assignment,
                         name: row.name,
-                        session: session.id,
+                        session,
                       });
                     }
                   }}
-                />
-              ) : projectId === null ? (
-                <HomePanel
-                  tab={panel}
-                  projects={props.projects}
-                  apps={props.apps}
-                  jobs={props.jobs}
-                  onProject={(project) =>
-                    props.onPlace?.({ kind: "project", id: project })
-                  }
-                  onApp={(app) => props.onOpenApp?.(app)}
-                  onNewApp={(app) => props.onNewApp?.(app)}
-                  onOpenJobs={() => openJobs(host)}
-                />
-              ) : (
-                <ProjectPanel
-                  tab={panel as SidebarTab}
-                  project={loaded.project}
-                  source={source}
-                  artifactPanel={
-                    <ArtifactPanel
-                      domains={domains}
-                      onOpen={(domain, name) =>
-                        openArtifact(host, domain, name)
-                      }
-                    />
-                  }
-                  jobs={props.jobs}
-                  onOpenJobs={() => openJobs(host)}
-                  current={
-                    currentTab?.kind === "document_editor"
-                      ? currentTab.key
-                      : null
-                  }
-                  focusExplorer={explorerFocus}
-                  reveal={reveal}
-                  onOpenFile={(path, keep) =>
-                    openFile(host, path, { preview: keep !== true })
-                  }
-                  onMove={moveFile}
-                  onTrash={trashFile}
-                  explorerRoot={explorerRoot ?? null}
-                  onExplorerRoot={setExplorerRoot}
-                  onAddFolder={addProjectFolder}
-                  onRemoveFolder={removeProjectFolder}
-                  {...(terminal === undefined
-                    ? {}
-                    : {
-                        onOpenTerminal: (cwd: string) =>
-                          openTerminalTab(host, { cwd }),
-                      })}
-                  onOpenDomainDoc={(domain) => void openDomainDoc(domain)}
-                  onOpenWorkflow={(workflow) => openWorkflow(host, workflow)}
-                  activeWorkflow={desk.workflow}
-                />
-              )
-            }
-            floats={
-              <>
-                <WebviewLayer host={webviews} />
-                <FloatLayer
-                  floats={desk.floats
-                    .filter((item) => !item.minimized)
-                    .map((item) => ({
-                      key: item.tab.key,
-                      title: item.tab.title,
-                      icon: iconOfTab(item.tab),
-                      dot: tabKindOf(item.tab.kind)?.dotOf?.(item.tab, host),
-                      rect: item.rect,
-                      body: bodyOf(item.tab, true),
-                    }))}
-                  onRaise={(key) => update((item) => restoreFloat(item, key))}
-                  onRect={(key, rect) =>
-                    update((item) => setFloatRect(item, key, rect))
-                  }
-                  onMinimize={(key) =>
-                    update((item) => minimizeFloat(item, key))
-                  }
-                  onDock={(key) => {
-                    update((item) => dockFloat(item, key));
-                    focusTabBody(key);
+                  onTerminal={(item) => {
+                    if (item.live !== null) {
+                      terminal?.store.select(item.live.tabKey);
+                    } else if (item.saved !== null) {
+                      openTerminalTab(host, {
+                        folderRef: item.saved.folderRef,
+                        ...(item.saved.resumable
+                          ? {
+                              resume: {
+                                harness: item.harness,
+                                external_session: item.saved.externalSession,
+                              },
+                            }
+                          : {}),
+                      });
+                    }
                   }}
-                  onClose={close}
+                  onWorkflow={selectDesk}
+                  onOpenSession={(session) =>
+                    runToastAction({ kind: "session", session })
+                  }
+                  onPlace={(ref) =>
+                    ref.kind === "home" ? onHome() : props.onPlace?.(ref)
+                  }
+                  onNewApp={(app) => props.onNewApp?.(app)}
+                  quick={{
+                    ...(terminal === undefined
+                      ? {}
+                      : { onTerminal: () => openTerminalTab(host) }),
+                    ...(browserApi === null
+                      ? {}
+                      : { onBrowser: () => openBrowserTab(host) }),
+                    appItems: quickApp.items,
+                    onApp: quickApp.select,
+                    // project의 Search 탭. 검색 통로가 없는 place(Home 등)는 팔레트를 연다.
+                    onSearch:
+                      source.searchSource === undefined || projectId === null
+                        ? openQuickFiles
+                        : () => openSearchShortcut(host),
+                  }}
+                  jobs={props.jobs}
+                  onInbox={() => openInbox(host)}
+                  onJobs={() => openJobs(host)}
+                  onSettings={() => onSettings()}
                 />
-              </>
-            }
-          >
-            {mainSection}
-          </ShellFrame>
+              }
+              rightSidebar={
+                isApp ? (
+                  <AppPlacePanel
+                    tab={panel as AppPlaceTab}
+                    app={appId}
+                    name={appName ?? ""}
+                    detail={props.appDetail}
+                    runs={runRows}
+                    {...(annotateApi === undefined || screenView === null
+                      ? {}
+                      : {
+                          annotate: {
+                            on: annotating.state?.on ?? false,
+                            onToggle: () =>
+                              annotating.setMode(
+                                !(annotating.state?.on ?? false),
+                              ),
+                          },
+                        })}
+                    onOpenSession={(session) =>
+                      runToastAction({ kind: "session", session })
+                    }
+                    onRunSession={(session) => {
+                      const row = sidebarAgents.agents.find(
+                        (item) => item.assignment === session.agent,
+                      );
+                      if (row !== undefined) {
+                        openAgent(host, {
+                          agent: row.assignment,
+                          name: row.name,
+                          session: session.id,
+                        });
+                      }
+                    }}
+                  />
+                ) : projectId === null ? (
+                  <HomePanel
+                    tab={panel}
+                    projects={props.projects}
+                    apps={props.apps}
+                    jobs={props.jobs}
+                    onProject={(project) =>
+                      props.onPlace?.({ kind: "project", id: project })
+                    }
+                    onApp={(app) => props.onOpenApp?.(app)}
+                    onNewApp={(app) => props.onNewApp?.(app)}
+                    onOpenJobs={() => openJobs(host)}
+                  />
+                ) : (
+                  <ProjectPanel
+                    tab={panel as SidebarTab}
+                    project={loaded.project}
+                    source={source}
+                    artifactPanel={
+                      <ArtifactPanel
+                        domains={domains}
+                        onOpen={(domain, name) =>
+                          openArtifact(host, domain, name)
+                        }
+                      />
+                    }
+                    jobs={props.jobs}
+                    onOpenJobs={() => openJobs(host)}
+                    current={
+                      currentTab?.kind === "document_editor"
+                        ? currentTab.key
+                        : null
+                    }
+                    focusExplorer={explorerFocus}
+                    reveal={reveal}
+                    onOpenFile={(path, keep) =>
+                      openFile(host, path, { preview: keep !== true })
+                    }
+                    onMove={moveFile}
+                    onTrash={trashFile}
+                    explorerRoot={explorerRoot ?? null}
+                    onExplorerRoot={setExplorerRoot}
+                    onAddFolder={addProjectFolder}
+                    onRemoveFolder={removeProjectFolder}
+                    {...(terminal === undefined
+                      ? {}
+                      : {
+                          onOpenTerminal: (cwd: string) =>
+                            openTerminalTab(host, { cwd }),
+                        })}
+                    onOpenDomainDoc={(domain) => void openDomainDoc(domain)}
+                    onOpenWorkflow={(workflow) => openWorkflow(host, workflow)}
+                    activeWorkflow={desk.workflow}
+                  />
+                )
+              }
+              floats={
+                <>
+                  <WebviewLayer host={webviews} />
+                  <FloatLayer
+                    floats={desk.floats
+                      .filter((item) => !item.minimized)
+                      .map((item) => ({
+                        key: item.tab.key,
+                        title: item.tab.title,
+                        icon: iconOfTab(item.tab),
+                        dot: tabKindOf(item.tab.kind)?.dotOf?.(item.tab, host),
+                        rect: item.rect,
+                        body: bodyOf(item.tab, true),
+                      }))}
+                    onRaise={(key) => update((item) => restoreFloat(item, key))}
+                    onRect={(key, rect) =>
+                      update((item) => setFloatRect(item, key, rect))
+                    }
+                    onMinimize={(key) =>
+                      update((item) => minimizeFloat(item, key))
+                    }
+                    onDock={(key) => {
+                      update((item) => dockFloat(item, key));
+                      focusTabBody(key);
+                    }}
+                    onClose={close}
+                  />
+                </>
+              }
+            >
+              {mainSection}
+            </ShellFrame>
+          </TabDragProvider>
           {tabMenu === null || menuTab === undefined ? null : (
             <TabContextMenu
               at={tabMenu}

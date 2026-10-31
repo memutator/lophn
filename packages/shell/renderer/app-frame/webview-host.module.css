@@ -16,3 +16,8 @@
   pointer-events: auto;
   background: var(--color-surface-base);
 }
+
+/* tab을 끄는 동안은 화면이 pointer를 받지 않는다. 받으면 칸 위의 놓을 자리가 guest로 새어 안 보인다(tab-drag.tsx). */
+:global(:root[data-tab-dragging]) .page {
+  pointer-events: none;
+}

@@ -103,6 +103,17 @@
   inset-inline-end: calc(-1 * var(--space-1));
 }
 
+/* 끄는 동안 칸들이 비켜서 자리를 연다. 놓으면 attribute가 같이 사라져 순서가 바뀐 칸이 미끄러지지 않는다. */
+.list[data-sorting] .tab {
+  transition: transform var(--motion-duration-short) var(--motion-ease);
+}
+
+/* 끌고 있는 칸. 놓일 자리로 가서 옅은 자리 표시가 된다. */
+.tab[data-dragging] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
 .icon {
   display: inline-flex;
   flex: none;

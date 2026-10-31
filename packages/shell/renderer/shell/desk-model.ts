@@ -688,6 +688,78 @@ export function ungroupTab(desk: Desk, key: string, toIndex?: number): Desk {
   });
 }
 
+/** 끌고 있는 tab. whole은 tab 줄의 group 칸을 통째로 끈다(group이 아닌 칸이나 칸의 leaf 하나를 끄는 것과 다르다). */
+export interface TabDragItem {
+  readonly key: string;
+  readonly whole: boolean;
+}
+
+export type PaneZone = DropSide | "center";
+
+/** 놓을 자리: tab 줄(before 칸 앞, null이면 끝)이나 칸(target tab)의 한 구역. */
+export type TabDropHit =
+  | { readonly kind: "strip"; readonly before: string | null }
+  | { readonly kind: "pane"; readonly target: string; readonly zone: PaneZone };
+
+/** ok면 놓을 수 있고, full은 group이 가득 차서 못 놓고, none은 의미가 없다(자기 자신, group 통째로 칸에 놓기). */
+export type TabDropState = "ok" | "full" | "none";
+
+export function tabDropState(
+  desk: Desk,
+  item: TabDragItem,
+  hit: TabDropHit,
+): TabDropState {
+  if (!desk.tabs.some((tab) => tab.key === item.key)) return "none";
+  if (hit.kind === "strip") return "ok";
+  if (item.whole || hit.target === item.key) return "none";
+  if (!desk.tabs.some((tab) => tab.key === hit.target)) return "none";
+  if (hit.zone === "center") return "ok";
+  const target = groupOf(desk, hit.target);
+  if (
+    target !== null &&
+    target !== groupOf(desk, item.key) &&
+    leavesOf(target.layout).length >= GROUP_MAX
+  ) {
+    return "full";
+  }
+  return "ok";
+}
+
+/**
+ * 끌어 놓기를 desk에 적용한다. tab 줄에 놓으면 순서 바꾸기이고 group의 leaf 하나는 group에서 나온다. 칸의 가장자리는
+ * splitTab, 가운데는 swapTabs다(group 밖 tab이 보이는 칸과 자리를 바꾸면 그 tab이 보인다). 못 놓으면 desk 그대로다.
+ */
+export function applyTabDrop(
+  desk: Desk,
+  item: TabDragItem,
+  hit: TabDropHit,
+): Desk {
+  if (tabDropState(desk, item, hit) !== "ok") return desk;
+  if (hit.kind === "strip") {
+    if (item.whole || groupOf(desk, item.key) === null) {
+      return reorderTab(desk, item.key, hit.before);
+    }
+    const rest = desk.tabs.filter((tab) => tab.key !== item.key);
+    // 자기 group 칸 앞에 놓으면 남은 group의 앞이다(칸의 key가 끌고 있는 leaf일 수 있다).
+    const own = leavesOf(groupOf(desk, item.key)!.layout);
+    const before = own.includes(hit.before ?? "")
+      ? own.find((key) => key !== item.key)!
+      : hit.before;
+    const at =
+      before === null
+        ? rest.length
+        : rest.findIndex((tab) => tab.key === before);
+    return at < 0 ? desk : ungroupTab(desk, item.key, at);
+  }
+  if (hit.zone !== "center") {
+    return splitTab(desk, hit.target, item.key, hit.zone);
+  }
+  const swapped = swapTabs(desk, item.key, hit.target);
+  return groupOf(desk, item.key) === null
+    ? selectTab(swapped, item.key)
+    : swapped;
+}
+
 /** key가 든 group을 푼다. tab은 그 자리에 plain tab으로 남는다. */
 export function ungroup(desk: Desk, key: string): Desk {
   const group = groupOf(desk, key);

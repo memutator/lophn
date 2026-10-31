@@ -2,12 +2,10 @@
 // 붙은 tab 하나다. 오른쪽 끝에는 접힌 float이 아이콘 칸으로 모인다. 데이터와 callback만 받고 model은 모른다.
 import {
   Fragment,
-  type DragEvent,
   type ReactNode,
   useEffect,
   useLayoutEffect,
   useRef,
-  useState,
 } from "react";
 import { t } from "@lophn/i18n";
 import { Icon, IconButton } from "@lophn/ui/primitives";
@@ -20,10 +18,8 @@ import {
   TabStateDot,
 } from "../parts/tab-state-dot/tab-state-dot.tsx";
 import type { SplitDir } from "./desk-model.ts";
+import { type ActiveDrag, useTabDrag } from "./tab-drag.tsx";
 import styles from "./tab-strip.module.css";
-
-/** tab을 끌 때 dataTransfer에 싣는 type. 값은 칸 key다. */
-export const TAB_MIME = "application/x-lophn-tab";
 
 export interface StripTab {
   readonly key: string;
@@ -73,16 +69,12 @@ export interface TabStripProps {
   /** 새 tab 단추 자리. 주지 않으면 onNewTab을 부르는 + 단추다. */
   newTab?: ReactNode;
   onNewTab?: () => void;
-  /** 칸을 끌어 놓았다. before 칸 앞에 넣고 null이면 끝이다. */
-  onReorder: (key: string, before: string | null) => void;
   /** 접힌 float을 펴거나 접는다. */
   onToggleFloat: (key: string) => void;
 }
 
 // 접힌 칸이 이만큼을 넘으면 나머지는 +N 메뉴로 들어간다. tab이 쓸 폭을 지킨다.
 const MINIMIZED_SHOWN = 4;
-
-type Drop = { key: string; side: "before" | "after" } | "end";
 
 export function TabStrip({
   entries,
@@ -98,11 +90,10 @@ export function TabStrip({
   onRename,
   newTab,
   onNewTab,
-  onReorder,
   onToggleFloat,
 }: TabStripProps) {
   const list = useRef<HTMLDivElement>(null);
-  const [drop, setDrop] = useState<Drop | null>(null);
+  const { active: drag, start } = useTabDrag();
 
   // 고른 칸이 줄 밖이면 줄 안에서만 scroll해 보이게 한다.
   useLayoutEffect(() => {
@@ -127,70 +118,33 @@ export function TabStrip({
     element.scrollLeft += event.deltaY;
   };
 
-  const dragOver = (event: DragEvent<HTMLDivElement>) => {
-    if (!event.dataTransfer.types.includes(TAB_MIME)) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    const over = (event.target as HTMLElement).closest<HTMLElement>(
-      "[data-entry-key]",
-    );
-    if (!over) {
-      setDrop("end");
-      return;
-    }
-    const box = over.getBoundingClientRect();
-    const side = event.clientX < box.left + box.width / 2 ? "before" : "after";
-    const key = over.dataset.entryKey!;
-    setDrop((now) =>
-      typeof now === "object" && now?.key === key && now.side === side
-        ? now
-        : { key, side },
-    );
-  };
-
-  const dropped = (event: DragEvent<HTMLDivElement>) => {
-    const key = event.dataTransfer.getData(TAB_MIME);
-    const mark = drop;
-    setDrop(null);
-    delete document.documentElement.dataset.tabDragging;
-    if (key === "") return;
-    event.preventDefault();
-    if (mark === null || mark === "end") {
-      onReorder(key, null);
-      return;
-    }
-    const at = entries.findIndex((entry) => entry.key === mark.key);
-    onReorder(
-      key,
-      mark.side === "before" ? mark.key : (entries[at + 1]?.key ?? null),
-    );
-  };
-
+  const slide = drag === null ? null : slideOf(drag);
+  // 끌어 온 leaf처럼 줄에 칸이 없는 것은 놓일 자리에 작은 표시만 한다.
   const markOf = (index: number) => {
-    if (drop === null) return undefined;
-    if (drop === "end") {
-      return index === entries.length - 1 ? "after" : undefined;
+    if (
+      drag === null ||
+      drag.origin === "strip" ||
+      drag.hit?.kind !== "strip"
+    ) {
+      return undefined;
     }
-    return drop.key === entries[index]!.key ? drop.side : undefined;
+    const { before } = drag.hit;
+    if (before === null)
+      return index === entries.length - 1 ? "after" : undefined;
+    return entries[index]!.key === before ? "before" : undefined;
   };
 
   const shown = minimized.slice(0, MINIMIZED_SHOWN);
   const hidden = minimized.slice(MINIMIZED_SHOWN);
 
   return (
-    <div className={styles.strip}>
+    <div className={styles.strip} data-tab-strip="">
       <div
         ref={list}
         className={styles.list}
         role="tablist"
+        data-sorting={drag?.origin === "strip" ? "" : undefined}
         onWheel={onWheel}
-        onDragOver={dragOver}
-        onDragLeave={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget as Node)) {
-            setDrop(null);
-          }
-        }}
-        onDrop={dropped}
       >
         {entries.map((entry, index) => {
           const active = entry.key === selected;
@@ -208,7 +162,22 @@ export function TabStrip({
               data-active={active || undefined}
               data-split={grouped ? "" : undefined}
               data-drop={markOf(index)}
-              draggable={renaming === null}
+              data-dragging={
+                (drag?.origin === "strip" && drag.item.key === entry.key) ||
+                undefined
+              }
+              style={
+                slide?.get(entry.key)
+                  ? { transform: `translateX(${slide.get(entry.key)}px)` }
+                  : undefined
+              }
+              onPointerDown={(event) => {
+                if (renaming !== null) return;
+                if ((event.target as HTMLElement).closest("button, input")) {
+                  return;
+                }
+                start(event, { key: entry.key, whole: grouped }, "strip");
+              }}
               onClick={() => onSelect(focused.key)}
               onContextMenu={(event) => {
                 if (!onMenu || renaming !== null) return;
@@ -224,15 +193,6 @@ export function TabStrip({
               // 가운데 단추의 자동 scroll을 막는다.
               onMouseDown={(event) => {
                 if (event.button === 1) event.preventDefault();
-              }}
-              onDragStart={(event) => {
-                event.dataTransfer.setData(TAB_MIME, entry.key);
-                event.dataTransfer.effectAllowed = "move";
-                document.documentElement.dataset.tabDragging = "";
-              }}
-              onDragEnd={() => {
-                setDrop(null);
-                delete document.documentElement.dataset.tabDragging;
               }}
             >
               <span className={styles.flareStart} aria-hidden />
@@ -435,7 +395,6 @@ function RenameInput({
       className={styles.rename}
       aria-label={t("project-workspace.label.tab-rename")}
       defaultValue={title}
-      draggable={false}
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}
       onBlur={(event) => finish(event.currentTarget.value.trim() || null)}
@@ -448,4 +407,40 @@ function RenameInput({
       }}
     />
   );
+}
+
+/**
+ * 끄는 동안 칸마다 옮길 거리(px). 끈 칸은 놓일 자리로 가고(자리 표시), 그 사이 칸들은 한 칸 폭만큼 비켜서 자리를 비운다.
+ * 칸 위(card)로 나가면 모두 제자리다. 줄에서 온 끌기만 쓴다.
+ */
+function slideOf(drag: ActiveDrag): ReadonlyMap<string, number> | null {
+  if (drag.origin !== "strip" || drag.hit?.kind !== "strip") return null;
+  const from = drag.strip.findIndex((entry) => entry.key === drag.item.key);
+  if (from < 0) return null;
+  const source = drag.strip[from]!;
+  const others = drag.strip.filter((entry) => entry.key !== source.key);
+  const before = drag.hit.before;
+  const to =
+    before === null
+      ? others.length
+      : others.findIndex((entry) => entry.key === before);
+  if (to < 0) return null;
+  // 칸 사이 간격. 칸이 하나뿐이면 옮길 일이 없다.
+  const gap =
+    drag.strip.length > 1
+      ? drag.strip[1]!.left - drag.strip[0]!.left - drag.strip[0]!.width
+      : 0;
+  const moves = new Map<string, number>();
+  let travel = 0;
+  others.forEach((entry, at) => {
+    if (at >= from && at < to) {
+      moves.set(entry.key, -(source.width + gap));
+      travel += entry.width + gap;
+    } else if (at >= to && at < from) {
+      moves.set(entry.key, source.width + gap);
+      travel -= entry.width + gap;
+    }
+  });
+  moves.set(source.key, travel);
+  return moves;
 }

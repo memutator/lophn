@@ -70,6 +70,93 @@ export const shellArea: Area = {
       ),
     },
     {
+      id: "shell-drag",
+      title: "Shell · Drag and drop (live)",
+      description:
+        "직접 끌어 보는 장면. tab 줄의 칸이나 group 칸의 머리 줄을 끌면 알약이 커서를 따라간다. 줄 위에서는 tab이 비켜 자리를 열고(놓으면 순서), 칸 위에서는 가장자리 구역이 미리보기로 켜진다(놓으면 그 쪽에 붙는다). 가운데는 자리 바꾸기, 가득 찬 group은 놓을 수 없다. Esc로 취소한다.",
+      render: () => <ShellScene variant="group-top2" />,
+    },
+    {
+      id: "shell-drag-strip",
+      title: "Shell · Drag · Reorder in the strip",
+      description:
+        "README.md를 끌어 Fix gaze interpolation 앞으로 옮기는 도중. 커서를 따라가는 알약, 놓일 자리로 간 옅은 자리 표시, 비켜 서서 자리를 연 이웃 tab.",
+      render: () => (
+        <ShellScene
+          variant="project"
+          drag={{
+            from: { selector: '[data-entry-key="readme"]', fx: 0.4 },
+            to: { selector: '[data-entry-key="c1"]', fx: 0.2 },
+            release: false,
+          }}
+        />
+      ),
+    },
+    {
+      id: "shell-drag-edge",
+      title: "Shell · Drag · Drop to a pane edge",
+      description:
+        "tab을 card의 오른쪽 가장자리로 끈 도중. 놓으면 그 쪽 절반에 붙어 group(좌우)이 되는 자리를 --color-focus 반투명 사각형으로 미리 보인다.",
+      render: () => (
+        <ShellScene
+          variant="project"
+          drag={{
+            from: { selector: '[data-entry-key="readme"]', fx: 0.4 },
+            to: { selector: '[data-pane="p1"]', fx: 0.92, fy: 0.5 },
+            release: false,
+          }}
+        />
+      ),
+    },
+    {
+      id: "shell-drag-swap",
+      title: "Shell · Drag · Drop on a pane center",
+      description:
+        "group 칸 위 가운데로 끈 도중. 칸 전체가 미리보기가 되고, 놓으면 그 칸과 자리를 바꾼다(끈 tab이 그 칸에 보인다).",
+      render: () => (
+        <ShellScene
+          variant="group-top2"
+          drag={{
+            from: { selector: '[data-entry-key="plan"]', fx: 0.4 },
+            to: { selector: '[data-pane="c1"]', fx: 0.5, fy: 0.5 },
+            release: false,
+          }}
+        />
+      ),
+    },
+    {
+      id: "shell-drag-full",
+      title: "Shell · Drag · Full group",
+      description:
+        "네 칸이 가득 찬 group의 가장자리로 밖의 tab을 끈 도중. 점선 사각형과 안내로 놓을 수 없음을 보이고 놓아도 아무 일도 없다.",
+      render: () => (
+        <ShellScene
+          variant="group-grid"
+          drag={{
+            from: { selector: '[data-entry-key="term"]', fx: 0.4 },
+            to: { selector: '[data-pane="p1"]', fx: 0.92, fy: 0.5 },
+            release: false,
+          }}
+        />
+      ),
+    },
+    {
+      id: "shell-drag-leaf",
+      title: "Shell · Drag · Pane header to the strip",
+      description:
+        "group 칸의 머리 줄을 끌어 tab 줄로 가져간 도중. 놓으면 그 칸이 group에서 나와 가리킨 자리의 plain tab이 된다.",
+      render: () => (
+        <ShellScene
+          variant="group-right2"
+          drag={{
+            from: { selector: '[data-pane="c1"] [data-draggable]', fx: 0.5 },
+            to: { selector: '[data-entry-key="term"]', fx: 0.3 },
+            release: false,
+          }}
+        />
+      ),
+    },
+    {
       id: "shell-floats",
       title: "Shell · Floats",
       description:

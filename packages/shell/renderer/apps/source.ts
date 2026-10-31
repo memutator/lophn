@@ -12,6 +12,8 @@ export interface AppRow {
   readonly archived: boolean;
   /** 지금 쓰는 version. 아직 없으면 null이다. */
   readonly release: string | null;
+  /** 그 version의 번호(`r7`의 7). 번호를 읽지 못했거나 version이 없으면 null이다. */
+  readonly releaseNumber: number | null;
   /** 보관·꺼내기의 비교 기준. */
   readonly revision: string;
 }

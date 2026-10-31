@@ -9,7 +9,9 @@
 }
 
 /* tab은 먼저 좁아지고 최소 폭에서 가로 scroll이 된다. 양 끝 곡선이 잘리지 않게 곡선 폭만큼 띄운다. */
+/* position이 있어야 tab.offsetLeft가 이 줄 기준이다. 없으면 frame 기준이라 scroll 보정이 첫 tab을 왼쪽으로 밀어 잘라 낸다. */
 .list {
+  position: relative;
   display: flex;
   flex: 0 1 auto;
   gap: var(--space-1);
@@ -41,7 +43,10 @@
 .tab {
   position: relative;
   display: flex;
-  flex: 0 1 calc(var(--space-12) * 3 + var(--space-9));
+  /* width도 같이 줘야 tab 줄(list)이 content 폭이 아니라 이 폭을 기준으로 잡힌다. flex-basis만으로는 줄이 title
+     글자 폭에 맞춰져 tab이 줄 안에서 잘린다. */
+  flex: 0 1 auto;
+  width: calc(var(--space-12) * 3 + var(--space-9));
   gap: var(--space-3);
   align-items: center;
   min-width: var(--space-11);
@@ -176,7 +181,7 @@
 }
 
 .tab[data-split] {
-  flex: 0 0.4 calc(var(--space-12) * 5 + var(--space-9));
+  width: calc(var(--space-12) * 5 + var(--space-9));
   min-width: calc(var(--space-12) * 3);
 }
 

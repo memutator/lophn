@@ -29,7 +29,7 @@ const TERM_3 = {
   kind: "terminal",
   title: "Add receipts page",
 } as const;
-// 칸에서 고른 탭의 경로가 상단 bar 왼쪽을 길게 차지해야 접힌 칸이 셋만 남는다.
+// 고른 탭의 경로가 상단 bar 왼쪽을 길게 차지해야 접힌 칸이 셋만 남는다.
 const LONG_NOTES = {
   key: "/home/mina/Documents/grocery/weekly-grocery-budget-notes.md",
   kind: "document_editor",

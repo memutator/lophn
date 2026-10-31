@@ -262,7 +262,9 @@ export function PlacesPanel({
       meta={
         row.release === null
           ? t("shell.label.app-no-release")
-          : t("shell.label.app-release", { release: row.release })
+          : row.releaseNumber === null
+            ? t("shell.label.app-released")
+            : t("shell.label.app-release", { number: row.releaseNumber })
       }
       hoverTrailing
       trailing={

@@ -123,8 +123,9 @@ function stepsOf(tab: TabSpec): readonly Step[] {
   return steps;
 }
 
-// 장면의 시각은 모두 이 날의 아침이다.
-const NOW = Date.parse("2026-10-06T09:05:00Z");
+// 장면의 시각은 모두 이 날의 아침이다. 지금은 마지막 줄(at(43))보다 뒤여야 일하는 중 줄의 경과가 음수로 끝나지
+// 않는다.
+const NOW = Date.parse("2026-10-06T09:45:00Z");
 const now = () => NOW;
 
 /** Agent 탭. */

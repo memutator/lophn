@@ -368,6 +368,11 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
     }
   };
 
+  // 끝난 turn의 입력을 새 메시지로 다시 보낸다. 같은 turn을 여러 번 다시 할 수 있다.
+  const retry = (turn: string) => {
+    void perform(() => source.repeatTurn(turn));
+  };
+
   const startNew = () => {
     setLayer(null);
     onSessionChange(null);
@@ -491,11 +496,20 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           skip: false,
         });
   const empty = messages.length === 0 && draft.outgoing === null;
-  // 보낸 말을 받기 전부터 turn이 끝날 때까지 일하는 중이다. 질문·승인을 기다리는 동안은 카드가 대신 말한다.
+  // 보낸 말을 받기 전부터 turn이 끝날 때까지 일하는 중이다. 사람이 답할 것(허락·질문)을 기다리는 동안은
+  // 카드가 답을 받지만, 대화 끝 줄은 그 사실을 말해야 멈춘 것처럼 보이지 않는다.
   const sending =
     draft.outgoing?.phase === "sending" || draft.outgoing?.phase === "accepted";
+  const waiting: "approval" | "answer" | undefined =
+    active?.phase === "waiting"
+      ? thread?.pending.approval !== null
+        ? "approval"
+        : "answer"
+      : undefined;
   const working =
-    active?.phase === "working" || (active === null && sending)
+    active?.phase === "working" ||
+    (active === null && sending) ||
+    waiting !== undefined
       ? {
           clock:
             active === null
@@ -508,6 +522,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
                 : active.startedAt === null
                   ? null
                   : { activeMs: 0, at: Date.parse(active.startedAt) },
+          ...(waiting === undefined ? {} : { waiting }),
         }
       : null;
   const hint =
@@ -580,6 +595,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
             onFork={(message) => void fork(message)}
             onCheck={() => void check()}
             onResend={() => void sendAgain()}
+            onRetry={retry}
             onOpenFile={host.openFile}
             onOpenRef={(ref: EvidenceRef) => {
               if (ref.kind === "file") host.openFile?.(ref.target);

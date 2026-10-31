@@ -225,6 +225,41 @@ export async function retryTurn(
   );
 }
 
+/**
+ * 끝난 turn의 입력을 새 메시지로 다시 보낸다. 누를 때마다 새 id와 key라 새 turn이 된다. [Retry]가 실패한 turn에
+ * 쓰는 retryTurn은 결과를 몰라도 한 번만 보내야 해서 turn마다 고정 id·key를 쓴다.
+ */
+export async function repeatTurn(
+  env: Env,
+  turn: string,
+): Promise<SourceResult<void>> {
+  const read = await env.read(turnRead, { turn });
+  if (!read.ok) return read;
+  const body = await env.read(messageBody, {
+    message: read.value.turn.input_message,
+  });
+  if (!body.ok) return body;
+  const parts: UserPart[] = [];
+  for (const part of body.value.content.parts) {
+    if (part.kind === "text") parts.push({ kind: "text", text: part.text });
+  }
+  if (parts.length === 0) return { ok: false, code: "invalid_input" };
+  const id = newId("msg", env.now());
+  return dropValue(
+    await env.command(sendMessage, {
+      input: {
+        id,
+        session: body.value.session,
+        content: { schema_version: 1, parts },
+        delivery: "next_turn",
+        refs: [],
+      },
+      compare: {},
+      key: `repeat-turn-${id}`,
+    }),
+  );
+}
+
 // ---------------------------------------------------------------- 사람이 답할 것
 
 export async function answerQuestions(

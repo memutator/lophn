@@ -29,6 +29,10 @@ import { ApprovalResult } from "./approval-card/approval-card.tsx";
 import { deliveryAction, type Outgoing } from "./delivery-state.ts";
 import type { DraftStore } from "./drafts.ts";
 import {
+  agentReplyIds,
+  useThreadAnnouncement,
+} from "./message-list/announce.ts";
+import {
   AgentTurn,
   Said,
   UserMessage,
@@ -55,7 +59,11 @@ interface AgentThreadProps {
   /** 아직 확정되지 않은 보낸 말. 같은 id의 확정 메시지가 오면 그것으로 바뀐다. */
   outgoing: Outgoing | null;
   /** agent가 일하는 중이다. `clock`은 core가 센 active와 그 기준 시각(ms)이고 모르면 null이다. */
-  working: { readonly clock: { activeMs: number; at: number } | null } | null;
+  working: {
+    readonly clock: { activeMs: number; at: number } | null;
+    /** 사람의 답을 기다리는 중이면 그 종류다. 일하는 중 줄이 Working 대신 이것을 말한다. */
+    readonly waiting?: "approval" | "answer";
+  } | null;
   now: () => number;
   /** 내 말에 첨부한 이미지의 그림 주소. */
   imageUrl: (id: string) => Promise<string | null>;
@@ -74,6 +82,8 @@ interface AgentThreadProps {
   onFork: (message: string) => void;
   onCheck: () => void;
   onResend: () => void;
+  /** 끝난 turn의 입력을 새 메시지로 다시 보낸다. */
+  onRetry: (turn: string) => void;
   /** 편집 카드의 [Open]. 없으면 단추가 아무것도 하지 않는다. */
   onOpenFile: ((path: string) => void) | undefined;
   /** 받은 메시지 panel의 근거 링크. */
@@ -87,6 +97,11 @@ interface AgentThreadProps {
 export function AgentThread(props: AgentThreadProps): ReactElement {
   const { entries, outgoing } = props;
   const live = useThrottledLive(props.live, props.now);
+  const announcement = useThreadAnnouncement({
+    agent: props.agent.name,
+    live: live !== null,
+    replies: agentReplyIds(entries),
+  });
   const shown = shownEntries(entries, props.detail, (id) =>
     props.drafts.body(id),
   );
@@ -115,7 +130,15 @@ export function AgentThread(props: AgentThreadProps): ReactElement {
   }
   if (props.working !== null) {
     nodes.push(
-      <WorkingRow key="working" clock={props.working.clock} now={props.now} />,
+      <WorkingRow
+        key="working"
+        clock={props.working.clock}
+        now={props.now}
+        {...(props.working.waiting === undefined
+          ? {}
+          : { waiting: props.working.waiting })}
+        streaming={live !== null && live.text !== ""}
+      />,
     );
   }
   return (
@@ -123,6 +146,7 @@ export function AgentThread(props: AgentThreadProps): ReactElement {
       count={nodes.length}
       initialScroll={props.initialScroll}
       onScroll={props.onScroll}
+      announcement={announcement}
     >
       {nodes.length === 0 ? (
         <p className={styles.empty} data-empty-thread="">
@@ -143,6 +167,38 @@ function hasEntry(entries: readonly ThreadEntry[], id: string): boolean {
   );
 }
 
+interface Group {
+  readonly id: string;
+  readonly at: string;
+  readonly time: string;
+  readonly items: ReactNode[];
+  readonly said: ThreadMessage[];
+}
+
+/**
+ * 그 turn-end가 들어가는 덩어리의 첫 entry id. 거꾸로 내 말이나 받은 메시지, 숨긴 구간을 만날 때까지 간다.
+ * `itemsOf`가 덩어리를 끊는 자리와 같다.
+ */
+function groupStartOf(
+  list: readonly ThreadEntry[],
+  endId: string,
+): string | null {
+  const index = list.findLastIndex((entry) => entry.id === endId);
+  if (index < 0) return null;
+  let start = index;
+  while (start > 0) {
+    const previous = list[start - 1]!;
+    if (
+      previous.kind === "hidden" ||
+      (previous.kind === "message" && previous.actor !== "agent")
+    ) {
+      break;
+    }
+    start -= 1;
+  }
+  return list[start]!.id;
+}
+
 /**
  * 줄을 화면 항목으로 바꾼다. agent 쪽 항목은 사이에 내 말이나 받은 메시지가 없는 동안 한 덩어리에 쌓이고,
  * 덩어리 위의 시각은 첫 항목의 것이다. `nested`는 숨긴 구간 안이라 읽기만 한다.
@@ -155,42 +211,59 @@ function itemsOf(
   live: LiveText | null,
 ): ReactElement[] {
   const out: ReactElement[] = [];
-  let group: {
-    id: string;
-    time: string;
-    items: ReactNode[];
-    said: ThreadMessage[];
-  } | null = null;
+  // 마지막으로 끝난 turn의 덩어리. 그 덩어리에만 [Retry]를 둔다. 숨긴 구간 안에서는 다시 하지 않는다.
+  const lastEnded = nested
+    ? null
+    : ([...list].reverse().find((entry) => entry.kind === "turn-end") ?? null);
+  const retryGroup =
+    nested || lastEnded === null ? null : groupStartOf(list, lastEnded.id);
+  // 묶음은 닫혀 있을 때 group이 null이다. closure가 열고 닫으므로 상자에 담아 읽는다(TS는 closure의 대입을
+  // 흐름 분석에 넣지 않는다).
+  const open: { group: Group | null } = { group: null };
   const flush = () => {
+    const group = open.group;
     if (group === null) return;
     const said = group.said;
+    const actions = !nested && !props.readOnly && said.length > 0;
+    const retry =
+      retryGroup === null || retryGroup !== group.id ? null : lastEnded!.turn;
     out.push(
       <AgentTurn
         key={`turn-${group.id}`}
         agent={props.agent}
         time={group.time}
-        {...(nested || said.length === 0
+        actionTime={
+          nested ? undefined : messageTime(group.at, new Date(props.now()))
+        }
+        {...(actions
+          ? {
+              copyText: () => copyTextOf(said, props),
+              onFork: () => props.onFork(said[said.length - 1]!.id),
+            }
+          : {})}
+        {...(retry === null || props.readOnly
           ? {}
-          : { copyText: () => copyTextOf(said, props) })}
+          : { onRetry: () => props.onRetry(retry) })}
       >
         {group.items}
       </AgentTurn>,
     );
-    group = null;
+    open.group = null;
   };
   const add = (
     entry: { readonly id: string; readonly at: string },
     node: ReactNode,
     said: ThreadMessage | null = null,
   ) => {
-    group ??= {
+    open.group ??= {
       id: entry.id,
+      at: entry.at,
       time: clockTime(entry.at),
       items: [],
       said: [],
     };
-    group.items.push(node);
-    if (said !== null) group.said.push(said);
+    open.group.items.push(node);
+    if (said !== null) open.group.said.push(said);
   };
 
   for (const entry of list) {
@@ -288,7 +361,7 @@ function itemsOf(
             />
           );
         // agent가 아무 말도 하기 전에 끝난 turn은 이름 없이 끝 줄만 남는다.
-        if (group === null) out.push(node);
+        if (open.group === null) out.push(node);
         else add(entry, node);
         break;
       }

@@ -233,6 +233,13 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
   const keyDown = (event: KeyboardEvent<HTMLElement>) => {
     slash.onKeyDown(event);
     if (event.defaultPrevented) return;
+    // Esc는 도는 turn을 멈춘다. slash menu가 열려 있으면 그 Esc가 메뉴를 닫으므로 위에서 먼저 걸러진다.
+    if (event.key === "Escape") {
+      if (!working) return;
+      event.preventDefault();
+      props.onStop();
+      return;
+    }
     if (
       event.key !== "Enter" ||
       event.shiftKey ||

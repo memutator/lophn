@@ -71,3 +71,12 @@
   border-radius: var(--radius-full);
   background: var(--color-text-secondary);
 }
+
+/* 창을 80% 넘게 쓰면 경고, 90%부터 위험. 푸터와 같은 자리다. */
+.fill[data-level="warning"] {
+  background: var(--status-warning-marker);
+}
+
+.fill[data-level="critical"] {
+  background: var(--status-critical-marker);
+}

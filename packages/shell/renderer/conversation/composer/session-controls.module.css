@@ -1,0 +1,57 @@
+/* composer 아래 줄의 실행 설정. option 축 단추 묶음과 권한 하나. 좁은 composer에서는 축을 감춘다. */
+.axes {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+}
+
+.axes > button {
+  min-width: var(--space-0);
+}
+
+.axes > button > span {
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* omp와 같은 560px 규칙. 감춘 축은 model 메뉴 안에 그대로 있다. */
+@container (max-width: 560px) {
+  .axes {
+    display: none;
+  }
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+}
+
+.check {
+  display: inline-flex;
+  flex: none;
+  width: var(--control-sm-icon);
+}
+
+/* skip은 묻지 않고 실행하는 위험한 값이라 켜져 있으면 경고색으로 알린다. */
+.permission {
+  display: inline-flex;
+  min-width: var(--space-0);
+}
+
+.permission button {
+  min-width: var(--space-0);
+}
+
+.permission button > span {
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.permission[data-on] button {
+  color: var(--status-warning-text);
+}

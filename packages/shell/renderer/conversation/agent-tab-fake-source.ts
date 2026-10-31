@@ -26,12 +26,12 @@ import type {
   Envelope,
   ModelView,
   PermissionsView,
-  StatusView,
   QuestionAnswer,
   QueuedView,
   RewindPreviewView,
   SessionEntry,
   SourceResult,
+  StatusView,
   ThreadEntry,
   ThreadMessage,
   ThreadView,
@@ -1096,6 +1096,8 @@ export function createFakeAgentTabSource(
   options: {
     scene?: AgentTabScene;
     picker?: FakePicker;
+    /** status panel과 푸터가 읽는 값. 준 칸만 기본값을 덮는다(예: 창 사용률이 높은 상태). */
+    status?: Partial<StatusView>;
     /** 보낸 말과 시작한 turn의 시각. 없으면 장면의 고정 시각이다(gallery). */
     now?: () => number;
   } = {},
@@ -1254,7 +1256,8 @@ export function createFakeAgentTabSource(
     commands: (session, query) => ok(filterGroups(query, session !== null)),
     runCommand: () => DONE,
     permissions: () => ok(PERMISSIONS_VIEW),
-    status: (session) => ok(statusView(session)),
+    status: (session) =>
+      ok({ ...statusView(session), ...options.status, session }),
 
     uploadImage(_session, image) {
       const id = nextId("att");

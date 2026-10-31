@@ -1,0 +1,76 @@
+/* composer 아래 한 줄. 높이 24px에 창 사용률 막대·글, token, 금액을 왼쪽부터 늘어놓는다. 누르면 `/status` panel. */
+.footer {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--space-8);
+  margin: var(--space-0);
+  padding: var(--space-0) var(--space-4);
+  border: var(--space-0);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  text-align: start;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.footer:hover,
+.footer:focus-visible {
+  background: var(--color-surface-subtle);
+}
+
+.context {
+  flex: none;
+  white-space: nowrap;
+}
+
+.footer[data-level="warning"] .context {
+  color: var(--status-warning-text);
+}
+
+.footer[data-level="critical"] .context {
+  color: var(--status-critical-text);
+}
+
+.detail {
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail::before {
+  content: "·";
+  margin-inline-end: var(--space-3);
+}
+
+/* 창을 쓴 만큼 채운다. 색은 panel 막대와 같은 token을 쓴다. */
+.bar {
+  flex: none;
+  width: var(--space-11);
+  height: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-muted);
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-text-secondary);
+}
+
+.footer[data-level="warning"] .fill {
+  background: var(--status-warning-marker);
+}
+
+.footer[data-level="critical"] .fill {
+  background: var(--status-critical-marker);
+}

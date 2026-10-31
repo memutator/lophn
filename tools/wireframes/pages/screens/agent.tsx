@@ -7,10 +7,12 @@ import {
   AgentCallReplies,
   AgentCommands,
   AgentCommandsFiltered,
+  AgentContextFull,
+  AgentContextWarning,
   AgentConversation,
   AgentModelPicker,
+  AgentModelShortcut,
   AgentPermissions,
-  AgentStatus,
   AgentQuestion,
   AgentQuestionAnswered,
   AgentQuestionEnded,
@@ -22,6 +24,8 @@ import {
   AgentSessions,
   AgentSessionsEdit,
   AgentSkip,
+  AgentStatus,
+  AgentStatusFromFooter,
   ManageModels,
   ManageModelsConnect,
   ManageModelsCustom,
@@ -46,7 +50,7 @@ export const agentArea: Area = {
       id: "new-agent-conversation",
       title: "Agent · tab",
       description:
-        "일하는 중인 Agent 탭이다. 도는 turn에 steer로 들어간 메시지에 steer 표시가 붙고, 시각 블록은 앱 카드뿐이다. 일하는 중 composer에는 Stop과 Send만 있고, 입력칸 아래에 권한 요약 한 줄이 있다.",
+        "일하는 중인 Agent 탭이다. 도는 turn에 steer로 들어간 메시지에 steer 표시가 붙고, 시각 블록은 앱 카드뿐이다. composer 아래 줄에는 model 단추, 이 model의 option 축(Effort·Speed), 권한 하나(Ask when needed), Stop, Send가 있고, 입력칸 밖 아래 줄에는 자리와 앱 할당 요약이 있다. 맨 아래 24px 푸터가 창 사용률(8% of 1.05M), token, 금액을 늘 보이고 누르면 /status가 열린다.",
       render: () => <AgentConversation />,
     },
     {
@@ -122,7 +126,7 @@ export const agentArea: Area = {
       id: "new-agent-skip",
       title: "Agent · skip permissions",
       description:
-        "입력칸 밖 아래 줄 오른쪽 끝의 스위치로 이 session의 skip을 켜고 끈다. 켜면 shell 명령을 묻지 않지만 deny 규칙은 막는다. 바꾼 값은 다음 turn부터다. 아직 만들지 않은 새 session과 archive한 session에는 스위치가 없다.",
+        "composer 아래 줄의 권한 단추가 Skip permissions로 바뀌고 경고색이다. 누르면 Ask when needed와 Skip permissions 중 하나를 고른다. 켜면 shell 명령을 묻지 않지만 deny 규칙은 막는다. 바꾼 값은 다음 turn부터다. 아직 만들지 않은 새 session과 archive한 session에는 권한 단추가 없다.",
       render: () => <AgentSkip />,
     },
     {
@@ -150,8 +154,29 @@ export const agentArea: Area = {
       id: "new-agent-status",
       title: "Agent · status",
       description:
-        "/status 보기다. session id, model과 effort, provider 연결 상태와 계정, 마지막 요청이 창을 얼마나 썼는지, 이 session의 turn·token·금액이 이름·값 두 열로 보인다. 구독 연결은 금액 대신 plan에 포함됐다고 보인다.",
+        "/status 보기다. session id, model과 effort, provider 연결 상태와 계정, 마지막 요청이 창을 얼마나 썼는지, 이 session의 turn·token·금액이 이름·값 두 열로 보인다. 구독 연결은 금액 대신 plan에 포함됐다고 보인다. 창을 80% 넘게 쓰면 막대가 경고색, 90%부터 위험색이다. composer 아래 푸터를 눌러도 이 보기가 열린다.",
       render: () => <AgentStatus />,
+    },
+    {
+      id: "new-agent-status-full",
+      title: "Agent · status from footer",
+      description:
+        "composer 아래 24px 푸터를 누르면 같은 /status 보기가 열린다. 창을 94% 쓴 session이라 푸터와 panel 막대가 위험색이고, 푸터에서는 금액이 짧게 보인다.",
+      render: () => <AgentStatusFromFooter />,
+    },
+    {
+      id: "new-agent-context-warning",
+      title: "Agent · context warning",
+      description:
+        "마지막 요청이 창을 86% 쓴 session이다. composer 아래 푸터의 %와 막대가 경고색이고, 같은 색이 /status 막대에도 쓰인다.",
+      render: () => <AgentContextWarning />,
+    },
+    {
+      id: "new-agent-context-full",
+      title: "Agent · context full",
+      description:
+        "마지막 요청이 창을 94% 쓴 session이다. 푸터의 %와 막대가 위험색이고, 금액은 아는 값(About 0.42 USD)으로 짧게 보인다.",
+      render: () => <AgentContextFull />,
     },
     {
       id: "new-agent-model-picker",
@@ -159,6 +184,13 @@ export const agentArea: Area = {
       description:
         "composer의 model을 누르면 위에서부터 지금 model이 온 층 한 줄(이 대화에서 골랐다), 검색칸, 켜 둔 model이 provider 아이콘과 함께 provider별로 나온다. 꺼 둔 model(Haiku, GPT-6.1 Mini)은 없다. 고른 model의 option 축이 있고 맨 아래 Manage models 한 줄이 창을 연다. picker는 고르기만 한다.",
       render: () => <AgentModelPicker />,
+    },
+    {
+      id: "new-agent-model-shortcut",
+      title: "Agent · model shortcut",
+      description:
+        "composer 안에 focus가 있을 때 Ctrl(또는 Cmd)+Shift+M을 누르면 model picker가 열린다. model을 고르는 일은 단추를 누른 것과 같다.",
+      render: () => <AgentModelShortcut />,
     },
     {
       id: "new-model-picker-inherited",

@@ -1,10 +1,12 @@
 // `/status`가 대화 화면 안 panel로 여는 session 요약. Codex `/status`처럼 session id와 model, 계정, 창을
 // 얼마나 썼는지, 이 session이 쓴 token과 금액을 이름·값 두 열로 보인다. core가 모르는 값(구독 남은 한도)은 줄을 두지 않는다.
-import type { ReactElement } from "react";
-import { IconButton } from "@lophn/ui/primitives";
+
 import { formatDate, t } from "@lophn/i18n";
+import { IconButton } from "@lophn/ui/primitives";
+import type { ReactElement } from "react";
 import { workspaceIcons } from "../../icons/mod.ts";
 import type { StatusView as StatusData } from "../agent-tab-source.ts";
+import { contextLevel, contextPercent, costText } from "./status-summary.ts";
 import styles from "./status-view.module.css";
 
 interface StatusViewProps {
@@ -39,23 +41,10 @@ function providerText(provider: NonNullable<StatusData["provider"]>): string {
   }
 }
 
-function costText(cost: StatusData["costs"][number]): string {
-  if (cost.kind === "subscription" || cost.kind === "free") {
-    return t("conversation.label.status-cost-subscription");
-  }
-  if (cost.amount === null || cost.currency === null) {
-    return t("conversation.label.status-cost-unknown");
-  }
-  const money = { amount: cost.amount, currency: cost.currency };
-  return cost.kind === "estimated"
-    ? t("conversation.label.status-cost-estimated", money)
-    : t("conversation.label.status-cost-reported", money);
-}
-
 export function StatusView({ status, onClose }: StatusViewProps): ReactElement {
   const { context } = status;
-  const percent =
-    context === null ? 0 : Math.round((context.tokens / context.limit) * 100);
+  const percent = context === null ? 0 : contextPercent(context);
+  const level = contextLevel(percent);
   return (
     <section
       className={styles.panel}
@@ -105,6 +94,7 @@ export function StatusView({ status, onClose }: StatusViewProps): ReactElement {
               <div className={styles.bar} aria-hidden="true">
                 <div
                   className={styles.fill}
+                  data-level={level}
                   style={{ width: `${Math.min(100, percent)}%` }}
                 />
               </div>

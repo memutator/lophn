@@ -2,8 +2,8 @@
 // "다음 turn" 줄, composer를 부품 그대로 묶는다. rewind·권한은 대화 위에 하나만 여는 panel 층이다. core와는
 // AgentTabSource로만 말하고 탭을 열고 닫는 일, 파일과 설정으로 가는 일은 host가 한다.
 
-import { IconButton } from "@lophn/ui/primitives";
 import { formatRelativeTime, t } from "@lophn/i18n";
+import { IconButton } from "@lophn/ui/primitives";
 import {
   type ReactNode,
   useCallback,
@@ -51,14 +51,15 @@ import {
 } from "./delivery-state.ts";
 import type { DraftStore } from "./drafts.ts";
 import { AgentHeader } from "./header/agent-header.tsx";
+import { RunCodeProvider } from "./message-list/run-code.ts";
 import { PermissionsView } from "./permissions-view/permissions-view.tsx";
-import { StatusView } from "./status-view/status-view.tsx";
 import { QuestionCard } from "./question-card/question-card.tsx";
 import { QueuedMessages } from "./queued/queued-messages.tsx";
 import { RewindPanel } from "./session-rewind/rewind-panel.tsx";
 import type { SlashEntryView } from "./slash-menu/types.ts";
+import { StatusFooter } from "./status-view/status-footer.tsx";
+import { StatusView } from "./status-view/status-view.tsx";
 import { windowPathOf, windowReadImage } from "./window-paths.ts";
-import { RunCodeProvider } from "./message-list/run-code.ts";
 
 /** Agent 화면이 자기 밖에 맡기는 일: 탭·파일·설정으로 가는 길. */
 export interface AgentViewHost {
@@ -196,6 +197,22 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
       session === null ? Promise.resolve(null) : source.imageUrl(session, id),
     [source, session],
   );
+
+  // composer 아래 푸터가 늘 지금 값을 보이게, panel을 열 때만이 아니라 session이 바뀌거나 turn이 끝날 때 다시 읽는다.
+  const turnPhase = turn === null ? null : `${turn.id}:${turn.phase}`;
+  useEffect(() => {
+    if (session === null) {
+      setStatus(null);
+      return;
+    }
+    let live = true;
+    void source.status(session).then((read) => {
+      if (live && read.ok) setStatus(read.value);
+    });
+    return () => {
+      live = false;
+    };
+  }, [source, session, turnPhase]);
 
   // 보던 session이 없어졌으면 새 session으로 간다.
   useEffect(() => {
@@ -687,6 +704,9 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           onCommand={runSlash}
           onProblem={fail}
         />
+        {status === null ? null : (
+          <StatusFooter status={status} onOpen={() => void showStatus()} />
+        )}
       </div>
     </section>
   );

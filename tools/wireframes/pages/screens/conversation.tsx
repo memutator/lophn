@@ -2,10 +2,6 @@
 // `sub`는 장면 이름이거나(`working`, `question`, …), Weekly report의 진행(`weekly`와 `chat.stage`), 새 session(`new`),
 // 이전 session(`conv:<id>`)이다. 한 탭은 agent 하나에 고정이고 같은 agent의 다른 session은 header에서 바꾼다.
 import { useMemo, useState } from "react";
-
-import { EventsProvider } from "../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
-import { createEventClient } from "../../../../packages/shell/renderer/desktop/connection/events/client.ts";
-import { createFakeSource } from "../../../../packages/shell/renderer/desktop/connection/events/fake-source.ts";
 import {
   AGENT_TAB_SCENES,
   type AgentTabScene,
@@ -13,15 +9,21 @@ import {
   SESSION_ARCHIVED,
   SESSION_MAIN,
 } from "../../../../packages/shell/renderer/conversation/agent-tab-fake-source.ts";
+import type { StatusView } from "../../../../packages/shell/renderer/conversation/agent-tab-source.ts";
 import { AgentView } from "../../../../packages/shell/renderer/conversation/agent-view.tsx";
 import { DraftStore } from "../../../../packages/shell/renderer/conversation/drafts.ts";
+import { createEventClient } from "../../../../packages/shell/renderer/desktop/connection/events/client.ts";
+import { createFakeSource } from "../../../../packages/shell/renderer/desktop/connection/events/fake-source.ts";
+import { EventsProvider } from "../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import type { SessionRow } from "../../mock/agents-data.ts";
 import {
   click,
+  find,
   runSteps,
   type Step,
   type,
   useDrive,
+  wait,
 } from "../../mock/drive.ts";
 import { documentTab } from "../../mock/phroner-data.ts";
 import type { TabSpec } from "./project-window.tsx";
@@ -41,7 +43,14 @@ interface SessionHandlers {
 /** 장면 이름은 아니지만 장면 하나에 손을 더해 열린 모양으로 고정하는 `sub`. */
 const COMPOSER = "[data-composer-input]";
 const DEMOS: Readonly<
-  Record<string, { scene: AgentTabScene; steps: readonly Step[] }>
+  Record<
+    string,
+    {
+      scene: AgentTabScene;
+      steps: readonly Step[];
+      status?: Partial<StatusView>;
+    }
+  >
 > = {
   "sender-chips": {
     scene: "sender-chips",
@@ -58,6 +67,32 @@ const DEMOS: Readonly<
   rewind: {
     scene: "rewind",
     steps: [() => click("button", /^Rewind to here$/)],
+  },
+  "status-footer": {
+    scene: "report",
+    status: {
+      context: { tokens: 188_000, limit: 200_000 },
+      costs: [{ kind: "estimated", currency: "USD", amount: "0.42" }],
+    },
+    steps: [() => click("[data-status-footer]")],
+  },
+  "model-shortcut": {
+    scene: "report",
+    steps: [
+      async () => {
+        const input = await find("[data-composer-input]");
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "M",
+            ctrlKey: true,
+            shiftKey: true,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        await wait(50);
+      },
+    ],
   },
 };
 
@@ -141,7 +176,12 @@ export function Conversation({
 }) {
   const { scene, archived } = sceneOf(tab);
   const source = useMemo(
-    () => createFakeAgentTabSource({ scene, picker: tab.chat?.picker }),
+    () =>
+      createFakeAgentTabSource({
+        scene,
+        picker: tab.chat?.picker,
+        status: tab.chat?.status ?? DEMOS[tab.sub ?? ""]?.status,
+      }),
     [scene, tab.key],
   );
   const [drafts] = useState(() => new DraftStore());

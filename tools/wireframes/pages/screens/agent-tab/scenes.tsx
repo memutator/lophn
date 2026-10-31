@@ -1,8 +1,9 @@
 // Agent 탭의 새 설계 화면들. 모두 동작하는 ProjectApp 위에 고정 상태로 놓고, 탭 본문은 renderer의 AgentView가 장면(fake
 // source)으로 그린다. 한 화면은 한 상태다: 보내기, 보낸 쪽 chip, call 블록, 질문 카드, 허락 카드, rewind, 권한.
-import { ProjectApp } from "../project-app.tsx";
+
 import type { ChatInit } from "../../../mock/agents-data.ts";
 import { documentTab } from "../../../mock/phroner-data.ts";
+import { ProjectApp } from "../project-app.tsx";
 import type { TabSpec } from "../project-window.tsx";
 
 const DOC = documentTab("eval/experiments/exp-008-query-tools.md");
@@ -49,8 +50,27 @@ export const ApprovalScene = () => <Scene sub="approval" />;
 export const ApprovalDenyScene = () => <Scene sub="approval-deny" />;
 /** 결정 뒤 대화에 남는 줄 넷: 한 번 허락, 항상 허락, 거절, 일이 끝나 취소된 것을 구별한다. */
 export const ApprovalStatesScene = () => <Scene sub="approval-states" />;
-/** skip을 켠 session. composer 아래 줄 오른쪽 끝의 Skip permissions 스위치가 켜져 있다. */
+/** skip을 켠 session. composer 아래 줄의 권한 단추가 Skip permissions로 바뀌고 경고색이다. */
 export const SkipScene = () => <Scene sub="skip" />;
+/** 창을 86% 쓴 session. composer 아래 푸터와 /status 막대가 warning 색이고 푸터의 %가 경고색이다. */
+export const ContextWarningScene = () => (
+  <Scene
+    sub="working"
+    chat={{ status: { context: { tokens: 172_000, limit: 200_000 } } }}
+  />
+);
+/** 창을 94% 쓴 session. 푸터와 /status 막대가 error 색이다. */
+export const ContextFullScene = () => (
+  <Scene
+    sub="working"
+    chat={{
+      status: {
+        context: { tokens: 188_000, limit: 200_000 },
+        costs: [{ kind: "estimated", currency: "USD", amount: "0.42" }],
+      },
+    }}
+  />
+);
 /** rewind: 내 메시지에서 그 시점으로 되돌리는 panel이 대화 화면 안에 열린다. 앱은 앱마다 고른다. */
 export const RewindScene = () => <Scene sub="rewind" />;
 /** `/permissions`: 그 agent에 할당한 앱과 앱마다 뺀 tool, MCP server는 설정한 곳을 가리키는 한 줄. */
@@ -61,3 +81,7 @@ export const PermissionsScene = () => (
 export const StatusScene = () => (
   <Scene sub="working" chat={{ view: "status" }} />
 );
+/** composer 아래 푸터를 눌러 `/status` panel을 연 모습. 창을 94% 써서 푸터와 막대가 위험색이다. */
+export const StatusFromFooterScene = () => <Scene sub="status-footer" />;
+/** composer 안에서 Ctrl/Cmd+Shift+M을 눌러 model picker를 연 모습. */
+export const ModelShortcutScene = () => <Scene sub="model-shortcut" />;

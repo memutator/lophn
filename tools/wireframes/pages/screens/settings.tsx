@@ -76,14 +76,14 @@ export const settingsArea: Area = {
       id: "new-settings-back",
       title: "Settings · Back",
       description:
-        "Settings 머리 왼쪽의 [Back]이다. 누르면 Settings를 열기 전 화면(같은 project, 앱, session)으로 돌아가고, 앞 화면이 없으면 launcher로 간다.",
+        "왼쪽 sidebar 맨 위 [Back to <이전 자리>]이다. Settings tab을 닫아도 같다. 누르면 Settings를 열기 전 화면(같은 project, 앱, session)으로 돌아가고, 앞 화면이 없으면 launcher로 간다.",
       render: () => <SettingsBack />,
     },
     {
       id: "new-settings-general",
       title: "Settings · General",
       description:
-        "Settings sidebar는 project 창 sidebar의 panel 꼴이다. 묶음(General, Agents, System)마다 제목과 항목 줄을 아이콘과 함께 모두 놓는다. 위쪽 바의 단추로 접으면 항목 아이콘만 activity bar 꼴로 남는다. General은 선언한 항목을 타입대로 보이고, 값을 바꾸는 칸은 줄 오른쪽 끝 고정 열에 있다. 사람이 정한 값과 기본값을 나눠 보이고, 범위를 넘은 값은 거절 이유가 보인다.",
+        "같은 shell 안이다. 왼쪽 sidebar가 Settings 항목 목록이 되고(맨 위 [Back to <이전 자리>]), tab 줄에는 Settings tab 하나, 오른쪽 sidebar는 없다. 묶음(General, Agents, System)마다 제목과 항목 줄을 아이콘과 함께 모두 놓는다. General은 선언한 항목을 타입대로 보이고, 값을 바꾸는 칸은 줄 오른쪽 끝 고정 열에 있다. 사람이 정한 값과 기본값을 나눠 보이고, 범위를 넘은 값은 거절 이유가 보인다.",
       render: () => <SettingsGeneral />,
     },
     {
@@ -117,7 +117,7 @@ export const settingsArea: Area = {
       id: "new-settings-providers",
       title: "Settings · Providers",
       description:
-        "provider마다 연결 하나다. 연결된 것은 끊고 나머지는 [+ Connect]로 연결한다. 위 안내 문구가 model은 model picker와 Settings › Agents에서 고른다고 알려 준다. 어느 model을 picker에 보일지는 여기가 아니라 Manage models 창에서 정한다. 머리 왼쪽에 [Back]이 있다.",
+        "provider마다 연결 하나다. 연결된 것은 끊고 나머지는 [+ Connect]로 연결한다. 위 안내 문구가 model은 model picker와 Settings › Agents에서 고른다고 알려 준다. 어느 model을 picker에 보일지는 여기가 아니라 Manage models 창에서 정한다. 왼쪽 sidebar 맨 위에 [Back]이 있다.",
       render: () => <SettingsProvidersPage />,
     },
     {

@@ -1,43 +1,127 @@
-/* 상단 바가 창 폭 전체를 쓰고 sidebar와 본문은 그 아래에 나란히 선다. */
+/* shell 틀(ShellFrame)이 title bar와 몸통을 그린다. 여기는 왼쪽 항목 목록과 card만 안다. */
 .space {
   position: fixed;
   inset: var(--space-0);
+  min-width: var(--space-0);
+  overflow: hidden;
+}
+
+.nav {
   display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: var(--space-0);
+}
+
+.navHead {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.navList {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: var(--space-0);
+  overflow: auto;
+}
+
+.navGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-sm-height);
+  margin: var(--space-6) var(--space-0) var(--space-0);
+  padding-inline: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.navRow {
+  display: flex;
+  flex: 1;
+  gap: var(--space-4);
+  align-items: center;
+  width: 100%;
+  min-height: var(--control-sm-height);
+  padding: var(--space-1) var(--space-3);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--type-small-size);
+  text-align: start;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+}
+
+.navRow:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-muted);
+}
+
+.navRow[aria-current="true"] {
+  color: var(--color-text-primary);
+  background: var(--color-selection);
+}
+
+.rowLabel {
+  flex: 1;
+  min-width: var(--space-0);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.card {
+  display: flex;
+  flex: 1;
   flex-direction: column;
   min-width: var(--space-0);
   overflow: hidden;
   background: var(--color-surface-base);
+  border-radius: var(--radius-lg);
 }
 
-.main {
+.cardHead {
   display: flex;
-  flex: 1;
-  min-width: var(--space-0);
-  min-height: var(--space-0);
-}
-
-.topBar {
   flex: none;
+  align-items: center;
+  height: var(--space-10);
+  padding-inline: var(--space-3);
 }
 
-.leading {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
+.crumbs {
+  display: inline-flex;
   min-width: var(--space-0);
+  margin-inline-start: var(--space-3);
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  white-space: nowrap;
 }
 
-.trailing {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+.crumb:last-child {
+  color: var(--color-text-primary);
 }
 
-.content {
-  position: relative;
+.sep {
+  padding-inline: var(--space-3);
+  color: var(--color-text-disabled);
+}
+
+.cardBody {
   display: flex;
   flex: 1;
-  min-width: var(--space-0);
+  flex-direction: column;
   min-height: var(--space-0);
 }
 

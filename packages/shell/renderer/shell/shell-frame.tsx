@@ -20,7 +20,8 @@ export interface ShellFrameProps {
   onToggleLeft: () => void;
   /** 오른쪽 sidebar가 펼쳐져 있다. 접히면 panelTabs와 slot을 그리지 않는다. */
   right: boolean;
-  onToggleRight: () => void;
+  /** 없으면 오른쪽 sidebar 단추를 그리지 않는다(오른쪽 sidebar가 없는 Settings). */
+  onToggleRight?: () => void;
   /** 검색 단추. 왼쪽 sidebar가 펼쳐져 있을 때만 보인다. */
   onSearch?: () => void;
   /** 비울 OS 창 조작 자리. 기본은 지금 renderer의 OS다. */
@@ -100,12 +101,14 @@ export function ShellFrame({
         <div className={styles.titleRight}>
           {right ? panelTabs : null}
           <span className={styles.grow} />
-          <IconButton
-            icon={shellIcons.rightPanel}
-            label={t("shell.button.toggle-right")}
-            size="sm"
-            onClick={onToggleRight}
-          />
+          {onToggleRight ? (
+            <IconButton
+              icon={shellIcons.rightPanel}
+              label={t("shell.button.toggle-right")}
+              size="sm"
+              onClick={onToggleRight}
+            />
+          ) : null}
           {platform === "mac" || !windowApi ? null : (
             <span className={styles.windowControls}>
               <WindowButtons api={windowApi} />

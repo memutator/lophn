@@ -97,6 +97,8 @@ export const workspaceSettings = {
   "settings.appearance.theme-help":
     "Light, dark, or follow the system setting.",
   "settings.button.add-entry": "Add",
+  "settings.button.back-to": "Back to {place}",
+  "settings.button.back-to-home": "Back to Home",
   "settings.button.add-rule": "Add rule",
   "settings.button.choose-in-agents": "Choose in Agents",
   "settings.button.connect-with": "Connect {name}",

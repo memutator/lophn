@@ -2,6 +2,7 @@
 import { BrowserWindow, type WebContents } from "electron";
 
 import { createLayoutStore } from "../../workspace/layout-store.ts";
+import { createPlaceLayoutStore } from "../../workspace/place-layout-store.ts";
 import { registerLayoutIpc, removeLayoutIpc } from "../core/layout-ipc.ts";
 import type { Registered, ShellContext } from "./context.ts";
 import type { Detached } from "./detached.ts";
@@ -16,6 +17,7 @@ export function register(ctx: ShellContext, detached: Detached): Registered {
   registerLayoutIpc(ipc, {
     registry: overlays.overlayRegistry(),
     store: createLayoutStore(dataRoot),
+    placeStore: createPlaceLayoutStore(dataRoot),
     detachedBounds: (event) => {
       const parent = windowOf(event);
       return parent ? detached.boundsOf(ctx.windowRef(parent)) : new Map();

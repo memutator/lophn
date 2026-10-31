@@ -53,7 +53,7 @@ export function openTerminal(
     fields: { auto: title },
   };
   const at = openAt(
-    host.view,
+    host.desk,
     undefined,
     options.command === undefined ? "show" : "run",
   );

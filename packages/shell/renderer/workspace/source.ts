@@ -1,10 +1,11 @@
-// 작업대가 읽는 통로. documents의 projects get·문서 목록 read 결과와
+// 작업대가 읽는 통로. projects get·문서 목록 read 결과와
 // layout 저장·복원만 담는다.
 // core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
 import type { AgentId } from "../../../protocol/lophn-agent/places.ts";
 import type { FileFailure } from "../../ipc/files.ts";
 import type { AgentsSource } from "./agents/source.ts";
 import type { FileSearchSource } from "./search/source.ts";
+import type { LayoutSource } from "../shell/layout-source.ts";
 import type { RunRecordView } from "./sidebar/run-list.tsx";
 
 /** 연결 폴더. */
@@ -256,12 +257,6 @@ export type ReadResult<T> =
   | { ok: true; value: T }
   | { ok: false; message: string };
 
-/** 저장된 layout 읽기. ipc/workspace의 LayoutReadResult와 같은 모양이다. */
-export type LayoutRead =
-  | { ok: true; available: true; layout: unknown }
-  | { ok: true; available: false; reason: string }
-  | { ok: false; message: string };
-
 export interface WorkspaceSource extends DomainActions {
   project(id: string): Promise<ReadResult<ProjectView>>;
   /** active project 목록. 상단 바의 project selector가 읽는다. */
@@ -315,6 +310,6 @@ export interface WorkspaceSource extends DomainActions {
   stopWorkflow(instance: string): Promise<ReadResult<null>>;
   /** 팔레트 파일 묶음. 문서로 잡힌 파일만 탭으로 열 수 있다. */
   files(project: string): Promise<ReadResult<readonly FileRow[]>>;
-  readLayout(project: string): Promise<LayoutRead>;
-  saveLayout(layout: unknown): Promise<{ ok: boolean }>;
+  /** place(project)의 desk layout 읽기와 저장. */
+  readonly layout: LayoutSource;
 }

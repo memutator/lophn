@@ -8,18 +8,12 @@ import type {
   ProjectItem,
   ProjectsSource,
 } from "../../desktop/launcher/projects/source.ts";
-import type { RailApp } from "../model.ts";
-import { AppPanelsSection } from "./app-panels-section.tsx";
 import styles from "./project-settings-page.module.css";
 
 export interface ProjectSettingsPageProps {
   readonly projectId: string;
   /** 없으면 General은 안내 글만 둔다. */
   readonly projects: ProjectsSource | undefined;
-  /** 앱 화면 목록을 읽을 수 없는 창이면 App panels를 안내 글로 대신한다. */
-  readonly appScreens: boolean;
-  readonly railApps: readonly RailApp[];
-  readonly onRailApps: (next: readonly RailApp[]) => void;
   /** 이름·폴더를 저장했다. */
   readonly onProjectChanged: () => void;
   /** General 맨 위의 project 아이콘 필드 자리. 아이콘 필드는 다른 작업이 채운다. */
@@ -127,20 +121,6 @@ export function ProjectSettingsPage(props: ProjectSettingsPageProps) {
           />
         )}
       </section>
-      {props.appScreens ? (
-        <AppPanelsSection items={props.railApps} onChange={props.onRailApps} />
-      ) : (
-        <section className={styles.section} data-section="app-panels">
-          <div className={styles.sectionHead}>
-            <h2 className={styles.sectionTitle}>
-              {t("project-settings.heading.app-panels")}
-            </h2>
-          </div>
-          <p className={styles.note}>
-            {t("project-settings.notice.app-panels-unavailable")}
-          </p>
-        </section>
-      )}
     </div>
   );
 }

@@ -137,3 +137,23 @@ test("열려 있는 tab은 그 desk로 찾아간다", () => {
     MAIN_DESK,
   );
 });
+
+test("preview tab은 자리를 바꿔 쓰고 저장 안 된 것은 남기며 split을 깨지 않는다", () => {
+  const preview = (key: string): TabItem => ({ ...tab(key), preview: true });
+  let desk = emptyDesk("d", "D");
+  for (const key of ["a", "b"]) desk = openTab(desk, tab(key));
+  desk = openTab(desk, preview("p1"));
+  desk = splitWith(desk, "p1", "b");
+  desk = openTab(desk, preview("p2"));
+  assertValid(desk, ["a", "p2", "b"]);
+  assert.deepEqual([desk.split?.a, desk.split?.b], ["p2", "b"]);
+
+  desk = openTab(desk, preview("p3"), { unsaved: (key) => key === "p2" });
+  assertValid(desk, ["a", "p2", "b", "p3"]);
+  assert.equal(desk.tabs.find((item) => item.key === "p2")?.preview, false);
+
+  // split의 a 뒤에 넣어도 짝 사이로 들어가지 않는다.
+  desk = openTab(desk, tab("n"), { after: "p2", select: false });
+  assertValid(desk, ["a", "p2", "b", "p3", "n"]);
+  assert.equal(desk.selected, "p3");
+});

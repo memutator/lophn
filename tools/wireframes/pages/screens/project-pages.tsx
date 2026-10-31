@@ -67,16 +67,6 @@ export function NewTabMenu() {
   );
 }
 
-/** 접힌 sidebar = activity bar만 남는다. 아래쪽 바로 가기 Terminal·Agent·Search 가운데 Search의 tooltip이 보인다. */
-export function SidebarCollapsed() {
-  return (
-    <ProjectApp
-      sidebar={{ collapsed: true, railTooltip: "search" }}
-      panes={[left(DOC), chat]}
-    />
-  );
-}
-
 /** 문서 탭. 본문이 탭 바로 아래부터 시작하고, 조작은 탭 안 view bar에 있다(왼쪽 경로, 오른쪽 저장 상태·Edit·Info·…). 판 번호와 형식 문제 표시는 없다. */
 export function DocumentTabPage() {
   return (

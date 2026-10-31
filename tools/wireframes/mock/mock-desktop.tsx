@@ -16,7 +16,8 @@ import {
   openSettings,
   type Route,
 } from "../../../packages/shell/renderer/desktop/router.ts";
-import { DEFAULT_DESK } from "../../../packages/shell/renderer/workspace/model.ts";
+import { MAIN_DESK } from "../../../packages/shell/renderer/shell/desk-model.ts";
+import { createLayoutSource } from "../../../packages/shell/renderer/shell/layout-source.ts";
 import type { SettingsPane } from "../../../packages/shell/renderer/desktop/settings/model.ts";
 import { createEventClient } from "../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { EventsProvider } from "../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
@@ -44,7 +45,7 @@ import "@xterm/xterm/css/xterm.css";
 
 export { PROJECT_GROCERY };
 
-/** 작업대 탭 배치. 저장된 layout과 같은 모양이다(workspace/layout-map.ts). */
+/** 작업대 탭 배치. 저장된 layout의 탭과 같은 모양이다(shell/layout-source.ts). */
 interface TabSpec {
   readonly key: string;
   readonly kind:
@@ -82,7 +83,6 @@ export interface FloatSpec {
     readonly height: number;
   };
   readonly minimized?: boolean;
-  readonly originPane?: number;
 }
 
 interface MockDesktopProps {
@@ -107,13 +107,6 @@ interface MockDesktopProps {
   readonly annotate?: LophnShellAnnotateApi;
   /** 주면 이 탭 하나를 그리는 detached 창으로 시작한다(route는 무시한다). */
   readonly detachedTab?: TabSpec;
-  /** activity bar에 고정한 앱 패널. 저장된 layout의 rail_apps와 같은 모양이다. */
-  readonly railApps?: readonly {
-    readonly app: string;
-    readonly surface: string;
-    readonly title?: string;
-    readonly open?: "dock" | "float";
-  }[];
 }
 
 // detached 통로의 가짜. preload가 없는 browser에는 없어서, 탭 menu의 Detach와 [Detach] 단추를 그리고 detached 창이 탭을 받게 한다.
@@ -175,30 +168,36 @@ function storedTab(tab: TabSpec) {
     : { kind: tab.kind, key: tab.key, path: tab.key };
 }
 
-function layoutOf(
-  panes: readonly PaneSpec[],
-  floats: readonly FloatSpec[],
-  railApps: NonNullable<MockDesktopProps["railApps"]>,
-) {
+// 칸이 둘이면 둘째 칸의 고른 탭을 첫 칸의 고른 탭 바로 뒤에 붙여 split 하나로 만든다.
+function layoutOf(panes: readonly PaneSpec[], floats: readonly FloatSpec[]) {
+  const first = panes[0];
+  const second = panes[1];
+  const all = panes.flatMap((pane) => pane.tabs);
+  const partner =
+    second === undefined
+      ? undefined
+      : all.find((tab) => tab.key === second.selected);
+  const rest = all.filter((tab) => tab !== partner);
+  const at = rest.findIndex((tab) => tab.key === first?.selected) + 1;
+  const tabs =
+    partner === undefined
+      ? all
+      : [...rest.slice(0, at), partner, ...rest.slice(at)];
   return {
-    active_desk: DEFAULT_DESK,
-    rail_apps: railApps,
+    active_desk: MAIN_DESK,
     desks: {
-      [DEFAULT_DESK]: {
-        panes: panes.map((pane) => ({
-          tabs: pane.tabs.map(storedTab),
-          selected_tab: pane.selected,
-        })),
-        layout:
-          panes.length === 2
-            ? { dir: "row", ratio: 0.5, a: "leaf", b: "leaf" }
-            : "leaf",
-        focused_pane: 0,
+      [MAIN_DESK]: {
+        label: "Main",
+        tabs: tabs.map(storedTab),
+        selected_tab: first?.selected ?? null,
+        split:
+          partner === undefined || first === undefined
+            ? null
+            : { a: first.selected, b: partner.key, focus: "a" },
         floats: floats.map((float) => ({
           tab: storedTab(float.tab),
           rect: float.rect,
           minimized: float.minimized ?? false,
-          origin_pane: float.originPane ?? 0,
         })),
         detached: [],
       },
@@ -233,12 +232,15 @@ export function MockDesktop(props: MockDesktopProps) {
         ? mock.workspace
         : {
             ...mock.workspace,
-            readLayout: () =>
-              Promise.resolve({
-                ok: true as const,
-                available: true as const,
-                layout: layoutOf(panes, floats ?? [], props.railApps ?? []),
-              }),
+            layout: createLayoutSource(() => ({
+              readPlace: () =>
+                Promise.resolve({
+                  ok: true as const,
+                  available: true as const,
+                  layout: layoutOf(panes, floats ?? []),
+                }),
+              savePlace: () => Promise.resolve({ ok: true as const }),
+            })),
           };
     const terminalBridge = fakeTerminal(PROJECT_GROCERY);
     const terminalStore = new TerminalStore(null, null);
@@ -288,7 +290,7 @@ export function MockDesktop(props: MockDesktopProps) {
       events: createEventClient(mock.events),
       settingsPanels: mock.settingsPanels,
     };
-  }, [panes, floats, openTerminal, emptyLauncher, detachedTab, props.railApps]);
+  }, [panes, floats, openTerminal, emptyLauncher, detachedTab]);
   const { mock } = wiring;
   const annotate = props.annotate ?? mock.annotate;
   return (

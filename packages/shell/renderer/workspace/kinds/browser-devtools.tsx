@@ -10,7 +10,7 @@ import { useBrowserApi } from "../../browser/browser-api.tsx";
 import { DevtoolsPane } from "../../browser/devtools-pane.tsx";
 import styles from "../../browser/browser-tab.module.css";
 import { browserIcons } from "../../icons/mod.ts";
-import { findTab, type TabItem } from "../model.ts";
+import type { TabItem } from "../model.ts";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 
@@ -81,7 +81,9 @@ function targetOf(tab: TabItem): string {
 }
 
 function devtoolsOf(host: TabHost, target: string): DevtoolsState | null {
-  return readDevtools(findTab(host.view, target)?.fields?.devtools);
+  return readDevtools(
+    host.windowTabs().find((item) => item.key === target)?.fields?.devtools,
+  );
 }
 
 function DevtoolsFloat(props: { tab: TabItem; shown: boolean; host: TabHost }) {

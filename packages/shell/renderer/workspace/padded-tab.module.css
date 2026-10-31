@@ -1,0 +1,14 @@
+/* 칸을 스스로 채우지 않는 탭(PaddedTab). card 본문과 같은 여백을 두고 그 안에서 scroll한다. */
+.padded {
+  box-sizing: border-box;
+  height: 100%;
+  overflow: auto;
+  padding: var(--space-8) var(--layout-pane-padding-wide);
+}
+
+/* 여백을 스스로 두는 탭(PaddedTab bare). card 안에서 scroll만 한다. */
+.scroll {
+  box-sizing: border-box;
+  height: 100%;
+  overflow: auto;
+}

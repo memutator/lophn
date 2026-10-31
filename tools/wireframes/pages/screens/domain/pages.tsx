@@ -1,8 +1,8 @@
-// domain 화면 gallery. project 창은 진짜 Desktop(MockDesktop)의 sidebar Domains 탭이고, 앱 공간은 진짜 AppSpace의 App details다.
+// domain 화면 gallery. project 창은 진짜 Desktop(MockDesktop)의 오른쪽 sidebar의 Domains panel이고, 앱 공간은 진짜 AppSpace의 App details다.
 // 상태는 fake source의 바탕과 mount 뒤 사람이 하는 것 같은 단추 누르기(drive)로 만든다. 화면에 gallery 전용 prop은 없다.
 import { useMemo } from "react";
 
-import { ProjectSidebar } from "../../../../../packages/shell/renderer/workspace/sidebar/project-sidebar.tsx";
+import { ProjectPanel } from "../../../../../packages/shell/renderer/workspace/sidebar/project-sidebar.tsx";
 import { fakeWorkspaceSource } from "../../../../../packages/shell/renderer/workspace/fake-source.ts";
 import { openProject } from "../../../../../packages/shell/renderer/desktop/router.ts";
 import { MockDesktop, PROJECT_GROCERY } from "../../../mock/mock-desktop.tsx";
@@ -11,8 +11,8 @@ import { AppSpace } from "../app-space/space.tsx";
 
 const noop = () => {};
 
-// activity bar의 Domains 항목을 눌러 panel을 연다.
-const openDomainsTab = () => click('[data-sidebar] [data-activity="domain"]');
+// 오른쪽 panel icon tab의 Domains 항목을 눌러 panel을 연다.
+const openDomainsTab = () => click('[role="tab"][aria-label="Domains"]');
 
 const openRowMenu = (title: string) =>
   press("button", new RegExp(`^Actions for ${title}$`));
@@ -37,30 +37,20 @@ export function ProjectDomainsEmpty() {
         background: "var(--color-surface-base)",
       }}
     >
-      <ProjectSidebar
-        mode="open"
-        width={240}
-        project={{ id: "prj_empty", title: "phroner", folders: [] }}
-        source={source}
-        agents={[]}
-        sessions={[]}
-        terminals={[]}
-        initialTab="domain"
-        onOpenFile={noop}
-        onMove={(from, to) => source.rename(from, to)}
-        onTrash={(path) => source.trash(path)}
-        explorerRoot={null}
-        onExplorerRoot={noop}
-        onAddFolder={() => Promise.resolve(true)}
-        onRemoveFolder={() => Promise.resolve(true)}
-        onRail={noop}
-        onAgent={noop}
-        onSession={noop}
-        onTerminal={noop}
-        onManage={noop}
-        onToggle={noop}
-        onSettings={noop}
-      />
+      <div style={{ width: 320, padding: "var(--space-4)" }}>
+        <ProjectPanel
+          tab="domain"
+          project={{ id: "prj_empty", title: "phroner", folders: [] }}
+          source={source}
+          onOpenFile={noop}
+          onMove={(from: string, to: string) => source.rename(from, to)}
+          onTrash={(path: string) => source.trash(path)}
+          explorerRoot={null}
+          onExplorerRoot={noop}
+          onAddFolder={() => Promise.resolve(true)}
+          onRemoveFolder={() => Promise.resolve(true)}
+        />
+      </div>
     </div>
   );
 }

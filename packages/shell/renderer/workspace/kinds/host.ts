@@ -1,7 +1,8 @@
 // kind 선언이 작업대에서 받는 것이다. Workspace가 만들어 넘기고, kind는 이 모양으로만 배치와
 // 통로를 건드린다.
 
-import type { RailApp, TabItem, WorkspaceView } from "../model.ts";
+import type { TabItem } from "../model.ts";
+import type { Desk } from "../../shell/desk-model.ts";
 import type { ProjectsSource } from "../../desktop/launcher/projects/source.ts";
 import type { ViewKeeps } from "../../app-frame/view-keeps.ts";
 import type { WorkspaceProps } from "../workspace.tsx";
@@ -60,9 +61,6 @@ export interface AgentViewSlice {
 export interface ProjectSettingsSlice {
   /** project 등록(이름·폴더)을 읽고 쓰는 통로. 없으면 General 구역은 쓸 수 없다. */
   readonly projects: ProjectsSource | undefined;
-  /** activity bar에 고정한 앱 패널. project 전체의 값이다. */
-  readonly railApps: readonly RailApp[];
-  setRailApps(next: readonly RailApp[]): void;
   /** 등록을 저장했다. 작업대가 project 이름과 폴더를 다시 읽는다. */
   projectChanged(): void;
 }
@@ -84,25 +82,26 @@ export interface TabHost {
   readonly props: WorkspaceProps;
   /** 앱 화면 목록을 읽을 수 있는지. 없으면 앱 패널을 열지 않는다. */
   readonly appScreens: boolean;
-  readonly view: WorkspaceView;
+  /** 보이는 desk. */
+  readonly desk: Desk;
   /** 이 창 전체의 탭. 자리가 여럿인 창은 모든 자리의 탭이라 key를 만들거나 열린 탭을 찾을 때 쓴다. */
   windowTabs(): readonly TabItem[];
   /** 탭 view의 보관소. Float·Dock으로 다시 mount되어도 browser view를 이어 쓰는 데 쓴다. */
   readonly viewKeeps: ViewKeeps;
   /**
-   * focus 칸 끝에 붙이고 고른다. 같은 key가 그 칸에 있으면 고르기만 한다. `preview` 탭은 그 칸의
-   * preview 자리를 바꿔 쓴다(저장 안 된 변경이 있는 탭은 남긴다). `select: false`면 붙이기만 하고
-   * 보고 있는 탭을 바꾸지 않는다(core 요청으로 열리는 coding 터미널 탭). `after`는 그 key의
-   * 탭이 있는 칸에서 그 탭 바로 뒤에 넣는다(그 탭이 없으면 없는 것과 같다). 그 탭이 다른 desk에
-   * 있으면 그 desk로 건너가 연다.
+   * 탭을 연다. 이미 어느 desk의 tabs에 있으면 새로 붙이지 않고 그 desk로 건너가 고른다. 없으면 보이는 desk
+   * 끝에 붙이고 고른다. `preview` 탭은 그 desk의 preview 자리를 바꿔 쓴다(저장 안 된 변경이 있는 탭은
+   * 남긴다). `select: false`면 붙이기만 하고 보고 있는 탭을 바꾸지 않는다(core 요청으로 열리는 coding 터미널 탭).
+   * `after`는 그 key의 탭 바로 뒤에 넣는다(그 탭이 없으면 없는 것과 같다). 그 탭이 다른 desk에 있으면 그 desk로
+   * 건너가 연다.
    */
   openTab(
     tab: TabItem,
     options?: { readonly select?: boolean; readonly after?: string },
   ): void;
   /**
-   * 탭을 곧바로 floated로 연다(popup). size를 주면 그 크기로 `.content` 가운데에 열고 없으면 지금
-   * 크기의 60%다. `.content`를 아직 못 쟀으면 칸에 붙여 연다. 열고 나면 floats 층에 focus가 간다.
+   * 탭을 곧바로 floated로 연다(popup). size를 주면 그 크기로 stage 가운데에 열고 없으면 지금
+   * 크기의 60%다. stage를 아직 못 쟀으면 tabs에 붙여 연다.
    */
   openFloat(
     tab: TabItem,

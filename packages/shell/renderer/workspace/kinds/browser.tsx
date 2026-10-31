@@ -102,13 +102,15 @@ export const browserKind: TabKindDef = {
   keep(tab, shown, host) {
     const url = tab.fields?.url;
     const adopt = tab.fields?.adopt;
-    // floated 탭의 층(floats index + 1). detached 창의 탭은 1(그 창의 유일한 view라 pane 탭으로 오인돼
-    // dock되지 않게 한다). pane 탭은 0이다.
+    // floated 탭의 층(FloatLayer에 가는 펴진 float의 index + 1). detached 창의 탭은 1(그 창의 유일한 view라
+    // card의 탭으로 오인돼 dock되지 않게 한다). card의 탭은 0이다.
     const floated =
-      host.view.floats.findIndex((item) => item.tab.key === tab.key) + 1;
+      host.desk.floats
+        .filter((item) => !item.minimized)
+        .findIndex((item) => item.tab.key === tab.key) + 1;
     const layer =
       floated > 0 ||
-      !host.view.detached.some((item) => item.tab.key === tab.key)
+      !host.desk.detached.some((item) => item.tab.key === tab.key)
         ? floated
         : 1;
     return (

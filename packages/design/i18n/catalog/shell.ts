@@ -26,4 +26,5 @@ export const shell = {
   "shell.label.empty-desk":
     "No tabs in this desk yet. Open a session from the sidebar or start a new one.",
   "shell.label.minimized": "Minimized tabs",
+  "shell.label.new-desk-name": "Desk {number}",
 } as const;

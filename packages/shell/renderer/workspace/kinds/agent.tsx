@@ -16,7 +16,9 @@ import {
   sessionOf,
   TAB_KEY,
 } from "../agent/tab-fields.ts";
-import { isDetached, type TabItem, type WorkspaceView } from "../model.ts";
+import type { Desk } from "../../shell/desk-model.ts";
+import { whereInDesk } from "../../shell/desk-model.ts";
+import type { TabItem } from "../model.ts";
 import { openAgents } from "./agents.tsx";
 import type { AgentViewSlice, TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
@@ -60,7 +62,7 @@ function freshKey(tabs: readonly TabItem[], agent: string): string {
  * `tabs`는 이 창 전체(모든 자리)의 탭이다.
  */
 export function distinctAgentTab(
-  view: WorkspaceView,
+  desk: Desk,
   tab: TabItem,
   tabs: readonly TabItem[],
 ): TabItem {
@@ -70,7 +72,7 @@ export function distinctAgentTab(
     return tab;
   }
   // 보낸 창 자신의 탭이다.
-  if (isDetached(view, tab.key)) return tab;
+  if (whereInDesk(desk, tab.key) === "detached") return tab;
   const session = sessionOf(tab);
   if (
     existing.kind === "agent" &&

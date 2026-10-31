@@ -36,7 +36,9 @@ project 창이 가진 탭이 어디에 있는가를 정하는 메커니즘이다
    stage ─┬─ ContentCard    (머리 줄: ← →, 경로(project 이름 / 파일은 project 폴더 기준 조각), 상태 글(탭의 상태 점), ⋯ tab menu. 고른 tab, split이면 둘을 mount한다.
           │                  keep kind(앱 panel·browser·artifact)는 `keep`, 나머지는 `render`)
           └─ floats 슬롯    (첫 자식이 창의 `<webview>` 그릇(browser·앱·artifact 화면), 그 뒤 FloatLayer. stacking context 없음. 패널마다 FloatPanel, z-index = --z-sticky + 층 번호 × 2)
-   왼쪽 sidebar(임시): 런처·알림(WaitingLayer)·Settings 단추 줄 + AgentSidebar. 오른쪽 sidebar: ProjectPanel(workspace/sidebar/project-sidebar.tsx, 틀은 shell/right-sidebar.tsx의 머리 줄과 본문)
+   왼쪽 sidebar: ProjectLeftSidebar(workspace/sidebar) → LeftSidebar(shell/left-sidebar.tsx. New session·Inbox(WaitingLayer)·Jobs, Places마다 열린 session과 접힌 Recent, Settings). 오른쪽 sidebar: ProjectPanel(workspace/sidebar/project-sidebar.tsx, 틀은 shell/right-sidebar.tsx의 머리 줄과 본문)
+   왼쪽 sidebar의 session 규칙(shell/left-sidebar-places.ts): current = 이 창에 tab이 열렸거나(이 창의 place만 안다) 끝나지 않고 상태 점이 있는 session, 이 project의 live 터미널 coding agent, 사람 차례인 workflow.
+   recent = 나머지. 7일 안, 사람이 지운 줄(hidden-recent)은 그 뒤 움직이기 전까지 뺀다. session을 누르면 이 project의 것은 openAgent(desk 규칙), 다른 place의 것은 toast 행동(session)으로 그 place로 간다.
 
  desk 바꾸기 (workspace.tsx commit)
    setActiveDesk ─▶ 저장 ─▶ lophnDetached.showOnly({ keys: 가는 desk의 detached }) ─▶ main: 그 project 창의 나머지 detached 창을 hide

@@ -1,5 +1,4 @@
-import { Tooltip } from "@lophn/ui/overlay";
-import { Icon, IconButton } from "@lophn/ui/primitives";
+import { Icon } from "@lophn/ui/primitives";
 import { iconPixels, useObservedSize } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 import {
@@ -26,8 +25,8 @@ import {
   WebviewLayer,
 } from "../app-frame/webview-host.tsx";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
+import type { AppsSource } from "../apps/source.ts";
 import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
-import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import {
   useOpenPalette,
   usePaletteEnv,
@@ -42,7 +41,6 @@ import {
 import type { JobsSource } from "../desktop/settings/jobs/source.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
-import { settingsEntryIcon } from "../icons/mod.ts";
 import { dotLabel } from "../parts/tab-state-dot/tab-state-dot.tsx";
 import { windowInstructions } from "./agents/core-extensions.ts";
 import {
@@ -85,6 +83,7 @@ import {
   setFloatRect,
   splitWith,
   stepTab,
+  type PlaceRef,
   type TabItem,
   unsplit,
   updateDesk,
@@ -110,7 +109,6 @@ import { NewTabMenu } from "./add-tab-menu.tsx";
 import { agentOf, sessionOf } from "./agent/tab-fields.ts";
 import { focusTabBody } from "./focus-tab.ts";
 import { distinctAgentTab, openAgent } from "./kinds/agent.tsx";
-import { openAgents } from "./kinds/agents.tsx";
 import { openAppPanel } from "./kinds/app-panel.tsx";
 import { openProjectSettings } from "./kinds/project-settings.tsx";
 import { openArtifact } from "./kinds/artifact.tsx";
@@ -124,25 +122,19 @@ import {
   terminalTabTitle,
 } from "./kinds/terminal.tsx";
 import { openWorkflow } from "./kinds/workflow.tsx";
-import { LauncherButton } from "./launcher-button.tsx";
 import { NoticeCard } from "./notice-card.tsx";
 import { openProjectLophn } from "./reactions/project-lophn.ts";
 import { useToastHandler } from "./reactions/toast-handler.ts";
 import { ArtifactPanel } from "./sidebar/artifact-panel.tsx";
 import type { TabAwareResult } from "./sidebar/explorer.tsx";
+import { agentRow } from "./sidebar/panel-sessions.ts";
+import { sessionKey } from "../shell/left-sidebar-model.ts";
+import { ProjectLeftSidebar } from "./sidebar/project-left-sidebar.tsx";
 import {
-  type KnownSessions,
-  panelRuns,
-  panelSessions,
-  runOpenedSessions,
-} from "./sidebar/panel-sessions.ts";
-import {
-  AgentSidebar,
   ProjectPanel,
   panelTabs,
   type SidebarTab,
 } from "./sidebar/project-sidebar.tsx";
-import type { RunRecordView } from "./sidebar/run-list.tsx";
 import { usePanelTerminals } from "./sidebar/use-panel-terminals.ts";
 import type {
   FileRow,
@@ -174,6 +166,12 @@ export interface WorkspaceProps {
   detached?: LophnDetachedApi;
   /** 앱 공간으로 연다. 없으면 패널을 못 여는 앱에는 안내 글만 둔다. */
   onOpenApp?: (app: string) => void;
+  /** 왼쪽 sidebar의 앱 목록과 Create app의 통로. 없으면 앱 줄과 Create app이 없다. */
+  apps?: AppsSource;
+  /** 왼쪽 sidebar에서 project나 앱 place로 간다(Home은 onLauncher). */
+  onPlace?: (place: Exclude<PlaceRef, { kind: "home" }>) => void;
+  /** Create app으로 만든 앱의 앱 공간으로 간다. */
+  onNewApp?: (app: string) => void;
   /** project 등록(이름·폴더)을 고치는 통로. 런처가 쓰는 것과 같다. 없으면 settings 탭의 General을 쓸 수 없다. */
   projects?: ProjectsSource;
   /**
@@ -265,57 +263,7 @@ export function Workspace(props: WorkspaceProps) {
     host: () => host,
     onSettings,
   });
-  // sidebar session 줄의 제목과 시각. session store는 싣지 않아 agent마다 대화 source의 session 목록에서 읽는다.
-  const [knownSessions, setKnownSessions] = useState<KnownSessions>(new Map());
   const sessionIds = sessionStates.map((entry) => entry.session).join();
-  useEffect(() => {
-    if (agentViewSource === undefined) return;
-    let live = true;
-    void Promise.all(
-      sidebarAgents.agents.map(async (row) => {
-        const read = await agentViewSource({
-          assignment: row.assignment,
-          place: { kind: "project", id: projectId },
-        }).sessions();
-        return read.ok ? read.value : [];
-      }),
-    ).then((lists) => {
-      if (!live) return;
-      setKnownSessions(
-        new Map(
-          lists.flat().map((entry) => [
-            entry.id,
-            {
-              title: entry.title,
-              at: Date.parse(entry.activeAt) || 0,
-            },
-          ]),
-        ),
-      );
-    });
-    return () => {
-      live = false;
-    };
-  }, [agentViewSource, sidebarAgents.agents, projectId, sessionIds]);
-  // sidebar의 Background 묶음. run event가 계약에 없어서 처음과 session 상태가 바뀔 때마다 다시 읽는다.
-  // 이 project place에서 돈 run이다. home의 run은 런처 lophn 패널의 것이다.
-  const [runRecords, setRunRecords] = useState<readonly RunRecordView[]>([]);
-  useEffect(() => {
-    let live = true;
-    void source.runs({ place: { project: projectId } }).then((inProject) => {
-      if (!live) return;
-      // 실패하면 앞 값을 둔다.
-      if (!inProject.ok) return;
-      setRunRecords(
-        [...inProject.value].sort(
-          (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at),
-        ),
-      );
-    });
-    return () => {
-      live = false;
-    };
-  }, [source, projectId, sessionStates]);
   // 배치를 다 읽은 project. 시작 route는 이 project의 배치가 선 뒤에 연다.
   const [readyProject, setReadyProject] = useState<string | null>(null);
   // desk 단추의 workflow 목록. null은 아직 안 읽었거나 읽는 중이다. 실패와 읽는 중에는 합치지 않는다.
@@ -731,14 +679,11 @@ export function Workspace(props: WorkspaceProps) {
 
   // session 하나를 그 agent의 탭으로 연다. session이나 agent 목록을 아직 모르면 열지 않고 false다.
   const openSessionTab = (session: string): boolean => {
-    const entry = panelSessions(
-      sessionStates,
-      sidebarAgents.agents,
-      projectId,
-    ).find((item) => item.id === session);
-    const row = sidebarAgents.agents.find(
-      (item) => item.assignment === entry?.agent,
-    );
+    const entry = sessionStates.find((item) => item.session === session);
+    const row =
+      entry === undefined
+        ? undefined
+        : agentRow(entry, sidebarAgents.agents, projectId);
     if (row === undefined || agentViewSource === undefined) return false;
     openAgent(host, { agent: row.assignment, name: row.name, session });
     return true;
@@ -1291,26 +1236,15 @@ export function Workspace(props: WorkspaceProps) {
       return session === null ? [] : [[session, tab.title] as const];
     }),
   );
-  // 탭을 닫으면 그 session의 제목은 knownSessions로만 남는다. 이름을 바꾼 탭의 마지막 제목을 Recent에도 남긴다.
-  const agentTabTitleKey = [...agentTabTitles]
-    .map(([session, title]) => `${session}\0${title}`)
-    .join("\n");
-  const latestAgentTabTitles = useRef(agentTabTitles);
-  latestAgentTabTitles.current = agentTabTitles;
-  useEffect(() => {
-    const titles = latestAgentTabTitles.current;
-    setKnownSessions((prev) => {
-      let next: Map<string, { title: string | null; at: number }> | null = null;
-      for (const [session, title] of titles) {
-        if (title === "") continue;
-        const old = prev.get(session);
-        if (old?.title === title) continue;
-        next ??= new Map(prev);
-        next.set(session, { title, at: old?.at ?? 0 });
-      }
-      return next ?? prev;
-    });
-  }, [agentTabTitleKey]);
+  // 왼쪽 sidebar가 강조할 줄: 고른 tab의 session이나 터미널.
+  const selectedSessionKey =
+    currentTab === null || currentTab === undefined
+      ? undefined
+      : currentTab.kind === "agent"
+        ? sessionKey({ kind: "session", ref: sessionOf(currentTab) ?? "" })
+        : currentTab.kind === "terminal"
+          ? sessionKey({ kind: "terminal", ref: currentTab.key })
+          : undefined;
   const terminalTabs = windowTabs.flatMap((tab) =>
     tab.kind === "terminal"
       ? [
@@ -1322,15 +1256,6 @@ export function Workspace(props: WorkspaceProps) {
         ]
       : [],
   );
-  // run이 연 session은 sidebar의 session 목록에서 빼 그 run 아래에 둔다.
-  const allSessions = panelSessions(
-    sessionStates,
-    sidebarAgents.agents,
-    projectId,
-    knownSessions,
-    agentTabTitles,
-  );
-  const runOpened = runOpenedSessions(runRecords);
   const panelTerminals = usePanelTerminals(terminal, projectId, terminalTabs);
 
   // 숨은 탭은 TerminalTab 화면이 없어 hook이 알린 session 이름을 못 받는다. store가 바뀔 때 여기서 이름을 맞춘다.
@@ -1756,75 +1681,64 @@ export function Workspace(props: WorkspaceProps) {
               />
             }
             leftSidebar={
-              <div className={styles.left}>
-                <div className={styles.leftHead}>
-                  <LauncherButton onLauncher={onLauncher} />
-                  <WaitingLayer
-                    align="start"
-                    onOpenSession={(session) =>
-                      runToastAction({ kind: "session", session })
-                    }
-                  />
-                  <span className={styles.grow} />
-                  <Tooltip content={t("common.button.settings")}>
-                    <IconButton
-                      icon={settingsEntryIcon}
-                      label={t("common.button.settings")}
-                      onClick={() => onSettings()}
-                    />
-                  </Tooltip>
-                </div>
-                <AgentSidebar
-                  projectId={projectId}
-                  agents={sidebarAgents.agents}
-                  sessions={allSessions.filter(
-                    (item) => !runOpened.has(item.id),
-                  )}
-                  terminals={panelTerminals}
-                  runs={panelRuns(
-                    runRecords,
-                    sidebarAgents.agents,
-                    projectId,
-                    allSessions,
-                  )}
-                  onAgent={(agent) =>
+              <ProjectLeftSidebar
+                projectId={projectId}
+                source={source}
+                projects={props.projects}
+                apps={props.apps}
+                agentViewSource={agentViewSource}
+                agents={sidebarAgents.agents}
+                openTitles={agentTabTitles}
+                terminals={panelTerminals}
+                selected={selectedSessionKey}
+                canTerminal={terminal !== undefined}
+                onNewSession={() => void openLophn()}
+                onNewLophn={(agent) =>
+                  openAgent(host, { agent: agent.assignment, name: agent.name })
+                }
+                onNewCoding={(command) =>
+                  openTerminalTab(host, { command, docked: true })
+                }
+                onOpenHere={(session, agent) => {
+                  const row = sidebarAgents.agents.find(
+                    (item) => item.assignment === agent,
+                  );
+                  if (row !== undefined) {
                     openAgent(host, {
-                      agent: agent.assignment,
-                      name: agent.name,
-                    })
+                      agent: row.assignment,
+                      name: row.name,
+                      session,
+                    });
                   }
-                  onSession={(session) => {
-                    const row = sidebarAgents.agents.find(
-                      (agent) => agent.assignment === session.agent,
-                    );
-                    if (row !== undefined) {
-                      openAgent(host, {
-                        agent: row.assignment,
-                        name: row.name,
-                        session: session.id,
-                      });
-                    }
-                  }}
-                  onTerminal={(item) => {
-                    if (item.live !== null) {
-                      terminal?.store.select(item.live.tabKey);
-                    } else if (item.saved !== null) {
-                      openTerminalTab(host, {
-                        folderRef: item.saved.folderRef,
-                        ...(item.saved.resumable
-                          ? {
-                              resume: {
-                                harness: item.harness,
-                                external_session: item.saved.externalSession,
-                              },
-                            }
-                          : {}),
-                      });
-                    }
-                  }}
-                  onManage={() => openAgents(host)}
-                />
-              </div>
+                }}
+                onTerminal={(item) => {
+                  if (item.live !== null) {
+                    terminal?.store.select(item.live.tabKey);
+                  } else if (item.saved !== null) {
+                    openTerminalTab(host, {
+                      folderRef: item.saved.folderRef,
+                      ...(item.saved.resumable
+                        ? {
+                            resume: {
+                              harness: item.harness,
+                              external_session: item.saved.externalSession,
+                            },
+                          }
+                        : {}),
+                    });
+                  }
+                }}
+                onWorkflow={selectDesk}
+                onOpenSession={(session) =>
+                  runToastAction({ kind: "session", session })
+                }
+                onPlace={(ref) =>
+                  ref.kind === "home" ? onLauncher() : props.onPlace?.(ref)
+                }
+                onNewApp={(app) => props.onNewApp?.(app)}
+                onJobs={() => onSettings("jobs")}
+                onSettings={() => onSettings()}
+              />
             }
             rightSidebar={
               <ProjectPanel

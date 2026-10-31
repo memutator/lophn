@@ -8,7 +8,7 @@ import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts"
 import { useSessions } from "../desktop/connection/events/hooks.tsx";
 import type { ReadResult } from "../workspace/source.ts";
 import { sessionDot } from "../workspace/sidebar/panel-sessions.ts";
-import type { PanelSession } from "../workspace/sidebar/use-agent-panel.ts";
+import type { PanelSession } from "../workspace/sidebar/panel-types.ts";
 import type { RunRecordView, RunRow } from "../workspace/sidebar/run-list.tsx";
 import type { AppSpaceAgent } from "./agent-select.tsx";
 

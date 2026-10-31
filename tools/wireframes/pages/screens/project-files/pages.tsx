@@ -35,23 +35,12 @@ function solo(tab: TabSpec, extra: Partial<ProjectAppProps> = {}) {
   );
 }
 
-/** sidebar · Agent. Agents(lophn agent만), Current(열린 lophn session과 터미널 coding agent session), Recent(끝난 lophn session과 저장한 터미널 session) 순이다. 묶음 머리의 Manage는 Agents 탭을 연다. */
-export function AgentsGroup() {
+/** 왼쪽 sidebar. place마다 열린 session이 있고 Recent는 접힌 줄 하나다. */
+export function LeftSidebarPage() {
   const tab = documentTab(EXP);
   return (
     <ProjectApp
-      sidebar={{ mode: "agent", hoverAgent: "eval-analyst" }}
-      panes={[{ tabs: [tab], selected: tab.key }]}
-    />
-  );
-}
-
-/** sidebar · Agent의 Background 묶음. run 줄 아래에 그 run이 연 session이 들여 쓰여 있다. `--session`으로 이어 쓴 run은 아래가 비어 있다. job이 연 run 둘은 이름 자리에 job 제목이 오고 둘째 줄에 agent 이름이 온다. */
-export function AgentsRuns() {
-  const tab = documentTab(EXP);
-  return (
-    <ProjectApp
-      sidebar={{ mode: "agent", runs: true, scrollToAgents: true }}
+      sidebar={{ mode: "agent" }}
       panes={[{ tabs: [tab], selected: tab.key }]}
     />
   );

@@ -30,10 +30,8 @@ import {
   tabIcon,
   type Variant,
 } from "../../../mock/shell-data.tsx";
-import {
-  MockLeftSidebar,
-  MockRightSidebar,
-} from "../../../mock/shell-sidebars.tsx";
+import { MockRightSidebar } from "../../../mock/shell-sidebars.tsx";
+import { PageLeftSidebar } from "../project-window.tsx";
 import { contextMenu, press, useDrive } from "../../../mock/drive.ts";
 
 const PANELS = [
@@ -59,8 +57,11 @@ export function ShellScene({
   right = true,
   open,
   context,
+  recentOpen = false,
 }: {
   variant: Variant;
+  /** 왼쪽 sidebar에서 project의 Recent를 펼친 채 시작한다. */
+  recentOpen?: boolean;
   left?: boolean;
   right?: boolean;
   /** mount 뒤 눌러서 열어 둘 요소의 selector. */
@@ -246,7 +247,14 @@ export function ShellScene({
       panelTabs={
         <PanelTabs tabs={PANELS} selected={panel} onSelect={setPanel} />
       }
-      leftSidebar={<MockLeftSidebar />}
+      leftSidebar={
+        <PageLeftSidebar
+          onOpenFile={() => {}}
+          onAgent={() => {}}
+          recentOpen={recentOpen}
+          selected="session:weekly"
+        />
+      }
       rightSidebar={<MockRightSidebar title={chosen.label} />}
       floats={
         <FloatLayer

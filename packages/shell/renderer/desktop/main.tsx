@@ -328,6 +328,9 @@ export function Desktop({
         onSettings={settingsSpace}
         jobs={settingsPanels?.jobs}
         onOpenApp={apps ? appSpace : undefined}
+        apps={apps}
+        onPlace={openPlace}
+        onNewApp={(app) => setRoute(openNewApp(app))}
         projects={projects}
         editor={editor}
         terminal={terminal}

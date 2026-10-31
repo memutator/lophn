@@ -22,10 +22,10 @@ import { click, find, press, type Step, type } from "../../../mock/drive.ts";
 const SIDEBAR = { foldersClosed: true } as const;
 
 // 탭 하나만 열린 project 창.
-function alone(tab: TabSpec, scrollToAgents = false) {
+function alone(tab: TabSpec) {
   return (
     <ProjectApp
-      sidebar={scrollToAgents ? { ...SIDEBAR, scrollToAgents } : SIDEBAR}
+      sidebar={SIDEBAR}
       panes={[{ tabs: [tab], selected: tab.key }]}
     />
   );
@@ -55,8 +55,8 @@ function editor(
 const GRANTS_TAB: Step = () =>
   press("[role=tab]", t("agents.label.tab-grants"));
 
-/** project의 Agents 탭. sidebar Agents 묶음 머리의 Manage가 연다. */
-export const ProjectAgentsPage = () => alone(AGENTS_TAB_SPEC, true);
+/** project의 Agents 탭. Settings에서 연다. */
+export const ProjectAgentsPage = () => alone(AGENTS_TAB_SPEC);
 
 /** 사람이 만든 agent의 설정. */
 export const AgentEditorPage = () => editor(EVAL_ANALYST_ID);

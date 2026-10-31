@@ -1,6 +1,6 @@
-// 새 설계 page들이 같이 쓰는 project 화면 조각. 왼쪽 sidebar(`AgentSidebar`)·오른쪽 panel(`ProjectPanel`)·탭 줄(shell
+// 새 설계 page들이 같이 쓰는 project 화면 조각. 왼쪽 sidebar(`LeftSidebar`)·오른쪽 panel(`ProjectPanel`)·탭 줄(shell
 // `TabStrip`)·새 탭 menu(`NewTabMenu`)는 실제 renderer component다. 여기는 고정 data를 그 component의 props로 옮기는 일
-// (`PageAgentSidebar`, `PageProjectPanel`, `PageNewTabMenu`, `stripTabsOf`)과, page마다 sidebar를 한 상태로 세워 두는 일
+// (`PageLeftSidebar`, `PageProjectPanel`, `PageNewTabMenu`, `stripTabsOf`)과, page마다 sidebar를 한 상태로 세워 두는 일
 // (`useSidebarScript`)만 한다. 앱 코드는 고치지 않는다.
 
 import { FileIcon, Icon, type IconProps } from "@lophn/ui/primitives";
@@ -36,23 +36,20 @@ import {
   fakeWorkspaceSource,
 } from "../../../../packages/shell/renderer/workspace/fake-source.ts";
 import {
-  AgentSidebar,
   ProjectPanel,
   type SidebarTab,
 } from "../../../../packages/shell/renderer/workspace/sidebar/project-sidebar.tsx";
 import type { SidebarAgent } from "../../../../packages/shell/renderer/workspace/sidebar/sidebar-agent.ts";
+import { LeftSidebar } from "../../../../packages/shell/renderer/shell/left-sidebar.tsx";
 import type {
-  PanelRun,
-  PanelSession,
-  PanelTerminal,
-} from "../../../../packages/shell/renderer/workspace/sidebar/use-agent-panel.ts";
+  SidebarPlace,
+  SidebarSession,
+} from "../../../../packages/shell/renderer/shell/left-sidebar-model.ts";
 import {
   AGENT_ROWS,
   type AgentProfile,
   type ChatInit,
   profileOf,
-  RUN_SESSIONS,
-  RUNS,
   SESSIONS,
   type SessionRow,
 } from "../../mock/agents-data.ts";
@@ -146,14 +143,10 @@ export interface SidebarSpec {
   readonly current?: string;
   /** 오른쪽 클릭 menu가 열린 행. 실제 menu가 그 행에서 열린다. */
   readonly menuFor?: string;
-  /** 이 agent 줄에 hover한 것처럼 "+"를 보인다. */
-  readonly hoverAgent?: string;
   /** 파일 tree를 모두 접어 그린다(Agents 묶음이 한 화면에 들어오게). */
   readonly foldersClosed?: boolean;
-  /** sidebar 본문을 맨 아래로 scroll한다(Agent 모양에서 Recent가 보이게). */
-  readonly scrollToAgents?: boolean;
-  /** Agent 모양에 Background(run) 묶음을 둔다. 끄면 run도 run이 연 session도 넘기지 않는다. */
-  readonly runs?: boolean;
+  /** 왼쪽 sidebar에서 이 project의 Recent를 펼친 채 시작한다. */
+  readonly recentOpen?: boolean;
   /** 오른쪽 panel이 처음에 보이는 모양. 없거나 agent면 Files다(Agent 쪽은 늘 왼쪽 sidebar에 있다). */
   readonly mode?: SidebarTab | "agent";
   /** 루트를 고르는 menu를 연 채 시작한다. */
@@ -180,14 +173,16 @@ export type ExplorerAct =
 interface SidebarProps extends SidebarSpec {
   readonly onOpenFile: (id: string) => void;
   readonly onAgent: (agent: string) => void;
-  readonly onManage: () => void;
   /** session을 누르면 그 session 탭을 연다. */
   readonly onSession?: (row: SessionRow) => void;
+  /** 왼쪽 sidebar에서 강조할 줄(`sessionKey`). */
+  readonly selected?: string;
 }
 
 // ---- sidebar에 넘기는 고정 data ----
 
 const PROJECT_ID = "prj_phroner";
+const GROCERY_ID = "prj_grocery";
 const PROJECT = {
   id: PROJECT_ID,
   title: "phroner",
@@ -235,121 +230,140 @@ function whenMs(when: string): number {
 const agentIdOf = (name: string) =>
   AGENT_ROWS.find((row) => row.name === name)?.id;
 
-const PANEL_SESSIONS: readonly PanelSession[] = SESSIONS.flatMap((row) => {
-  const agent = agentIdOf(row.agent);
-  if (agent === undefined || row.group === "archived") return [];
-  return [
-    {
-      id: row.id,
-      title: row.title,
-      agent,
-      dot: row.state === "idle" ? null : row.state,
-      open: OPEN.has(row.id),
-      at: whenMs(row.when),
-    },
-  ];
-});
+const lophnLine = (
+  row: SessionRow,
+  dot: SidebarSession["dot"] = row.state === "idle" ? null : row.state,
+): SidebarSession[] => {
+  const agent = AGENTS.find((item) => item.assignment === agentIdOf(row.agent));
+  return agent === undefined || row.group === "archived"
+    ? []
+    : [
+        {
+          kind: "session",
+          ref: row.id,
+          title: row.title,
+          agent: { kind: "lophn", profile: agent.profile },
+          dot,
+          at: whenMs(row.when),
+        },
+      ];
+};
 
-// 터미널 coding agent session. live는 이 창의 탭에서 도는 것(Current), saved는 main이 저장만 해 둔 것(Recent)이다.
-const terminalOf = (
-  key: string,
-  harness: string,
-  label: string,
+const codingLine = (
+  ref: string,
+  harness: "claude" | "openai" | "opencode" | "grok",
   title: string,
   when: string,
-  dot: PanelTerminal["dot"],
-  live: boolean,
-): PanelTerminal => ({
-  key,
-  harness,
-  label,
+  dot: SidebarSession["dot"],
+): SidebarSession => ({
+  kind: "terminal",
+  ref,
   title,
+  agent: { kind: "coding", vendor: harness },
   dot,
   at: whenMs(when),
-  live: live ? { tabKey: key } : null,
-  saved: live
-    ? null
-    : { folderRef: "fld_gallery", externalSession: key, resumable: true },
 });
 
-const PANEL_TERMINALS: readonly PanelTerminal[] = [
-  terminalOf(
-    "terminal-claude",
-    "claude",
-    "Claude Code",
-    "Fix flaky retry in the scenario runner",
-    "1 min ago",
-    "working",
-    true,
-  ),
-  terminalOf(
-    "terminal-codex",
-    "codex",
-    "Codex",
-    "Split the eval board loader",
-    "8 min ago",
-    "finished",
-    true,
-  ),
-  terminalOf(
-    "ses_opencode",
-    "opencode",
-    "OpenCode",
-    "Add a dry-run flag to the export script",
-    "30 min ago",
-    null,
-    false,
-  ),
-  terminalOf(
-    "ses_grok",
-    "grok",
-    "Grok",
-    "Why does the rubric loader skip yaml files",
-    "45 min ago",
-    null,
-    false,
-  ),
+const byId = (id: string) => SESSIONS.find((item) => item.id === id)!;
+
+/** 왼쪽 sidebar의 place들. phroner가 이 창이 보이는 project이고 Home·다른 project·앱은 그 session만 있다. */
+const SIDEBAR_PLACES: readonly SidebarPlace[] = [
+  {
+    ref: { kind: "home" },
+    name: "Home",
+    current: [
+      ...lophnLine({
+        ...byId("release-check"),
+        id: "home-plan",
+        title: "Plan the week",
+        state: "working",
+      }),
+    ],
+    recent: [
+      ...lophnLine({
+        ...byId("c049"),
+        id: "home-notes",
+        title: "Sort inbox notes",
+        when: "yesterday",
+      }),
+    ],
+  },
+  {
+    ref: { kind: "project", id: PROJECT_ID },
+    name: "phroner",
+    current: [
+      {
+        kind: "workflow",
+        ref: "weekly-review",
+        title: "weekly-review",
+        agent: { kind: "workflow" },
+        dot: "waiting",
+        at: 0,
+      },
+      ...lophnLine(byId("weekly")),
+      ...lophnLine(byId("harness")),
+      codingLine(
+        "terminal-claude",
+        "claude",
+        "Fix flaky retry in the scenario runner",
+        "1 min ago",
+        "working",
+      ),
+      codingLine(
+        "terminal-codex",
+        "openai",
+        "Split the eval board loader",
+        "8 min ago",
+        "finished",
+      ),
+    ],
+    recent: [
+      ...lophnLine(byId("release-check")),
+      ...lophnLine(byId("c049")),
+      ...lophnLine(byId("eval-questions")),
+      codingLine(
+        "ses_opencode",
+        "opencode",
+        "Add a dry-run flag to the export script",
+        "30 min ago",
+        null,
+      ),
+      codingLine(
+        "ses_grok",
+        "grok",
+        "Why does the rubric loader skip yaml files",
+        "45 min ago",
+        null,
+      ),
+    ],
+  },
+  {
+    ref: { kind: "project", id: GROCERY_ID },
+    name: "Grocery",
+    current: [],
+    recent: [
+      ...lophnLine({
+        ...byId("c049"),
+        id: "grocery-prices",
+        title: "Compare this week's prices",
+        when: "5 h ago",
+      }),
+    ],
+  },
+  {
+    ref: { kind: "app", id: "app_orders" },
+    name: "Orders",
+    current: [
+      ...lophnLine({
+        ...byId("harness"),
+        id: "orders-export",
+        title: "Add a CSV export",
+        state: "waiting",
+      }),
+    ],
+    recent: [],
+  },
 ];
-
-const panelSessionOf = (
-  row: SessionRow,
-  open: boolean,
-): PanelSession | null => {
-  const agent = agentIdOf(row.agent);
-  return agent === undefined
-    ? null
-    : {
-        id: row.id,
-        title: row.title,
-        agent,
-        dot: row.state === "idle" ? null : row.state,
-        open,
-        at: whenMs(row.when),
-      };
-};
-
-// job이 연 run의 제목. `mock/agents-data.ts`의 RUNS id로 건다.
-const RUN_JOB_TITLES: Readonly<Record<string, string>> = {
-  "run-1": "Morning digest",
-  "run-5": "Weekly review",
-};
-
-// run이 연 session은 열린 채 run 아래에 묶이고 `sessions`에는 넣지 않는다.
-const PANEL_RUNS: readonly PanelRun[] = RUNS.flatMap((run) => {
-  const agent = agentIdOf(run.agent);
-  if (agent === undefined) return [];
-  const row = RUN_SESSIONS.find((item) => item.id === run.session);
-  return [
-    {
-      id: run.id,
-      agent,
-      title: RUN_JOB_TITLES[run.id] ?? null,
-      state: run.state,
-      at: whenMs(run.when),
-      session: row === undefined ? null : panelSessionOf(row, true),
-    },
-  ];
-});
 
 const DEMO_SOURCE = fakeWorkspaceSource();
 
@@ -477,15 +491,8 @@ function useSidebarScript(
           );
         }
       }
-      if (spec.hoverAgent !== undefined) {
-        const row = await waitFor(`[data-agent="${spec.hoverAgent}"]`);
-        const plus =
-          row?.parentElement?.querySelector<HTMLElement>("span:last-child");
-        if (plus) plus.style.opacity = "1";
-      }
-      if (spec.scrollToAgents === true) {
-        const body = await waitFor('[data-sidebar-tab="agent"]');
-        if (body) body.scrollTop = body.scrollHeight;
+      if (spec.recentOpen === true) {
+        (await waitFor(`[data-recent-toggle="${PROJECT_ID}"]`))?.click();
       }
     })();
     return () => {
@@ -499,7 +506,6 @@ const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 const at = (offset: number) => new Date(Date.now() + offset).toISOString();
-const GROCERY_ID = "prj_grocery";
 
 const job = (
   n: number,
@@ -601,30 +607,42 @@ const JOBS: readonly JobView[] = [
   }),
 ];
 
-/** 왼쪽 sidebar. 실제 `AgentSidebar`에 lophn과 사람이 만든 agent 셋과 그 session의 고정 data를 넘긴다. */
-export function PageAgentSidebar(props: SidebarProps) {
+/** 왼쪽 sidebar. 실제 `LeftSidebar`에 place 넷(Home, phroner, Grocery, Orders)과 그 session의 고정 data를 넘긴다. */
+export function PageLeftSidebar(props: SidebarProps) {
   const ref = useRef<HTMLDivElement>(null);
   useSidebarScript(ref, { ...props, mode: "workflow" });
-  // WorkflowPanel과 JobPanel처럼 AgentPanel도 event를 듣는 부품이 있다.
+  // Inbox(WaitingLayer)가 event를 듣는다.
   const [client] = useState(() => createEventClient(createFakeSource()));
   return (
     <EventsProvider client={client}>
       <div ref={ref} style={{ display: "contents" }}>
-        <AgentSidebar
-          projectId={PROJECT_ID}
-          agents={AGENTS}
-          sessions={PANEL_SESSIONS}
-          terminals={PANEL_TERMINALS}
-          {...(props.runs === true ? { runs: PANEL_RUNS } : {})}
-          onAgent={(agent) => props.onAgent(agent.assignment)}
-          onSession={(session) => {
-            const row = [...SESSIONS, ...RUN_SESSIONS].find(
-              (item) => item.id === session.id,
-            );
-            if (row) props.onSession?.(row);
+        <LeftSidebar
+          places={SIDEBAR_PLACES}
+          current={{ kind: "project", id: PROJECT_ID }}
+          selected={props.selected}
+          agents={AGENTS.map((agent) => ({
+            id: agent.assignment,
+            name: agent.name,
+            profile: agent.profile,
+          }))}
+          coding={[
+            { id: "claude", name: "Claude Code", vendor: "claude" },
+            { id: "codex", name: "Codex", vendor: "openai" },
+            { id: "opencode", name: "OpenCode", vendor: "opencode" },
+          ]}
+          onNewSession={() => props.onAgent("lophn")}
+          onNewSessionWith={(kind, id) => kind === "lophn" && props.onAgent(id)}
+          onOpenSession={() => {}}
+          onJobs={() => {}}
+          onPlace={() => {}}
+          onSession={(_place, item) => {
+            const found = SESSIONS.find((entry) => entry.id === item.ref);
+            if (found) props.onSession?.(found);
           }}
-          onTerminal={() => {}}
-          onManage={props.onManage}
+          onRemoveRecent={() => {}}
+          onRegisterProject={() => {}}
+          onCreateApp={() => {}}
+          onSettings={() => {}}
         />
       </div>
     </EventsProvider>

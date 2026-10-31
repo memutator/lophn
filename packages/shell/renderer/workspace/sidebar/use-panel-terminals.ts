@@ -14,7 +14,7 @@ import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts"
 import type { TerminalAgentSession } from "../../../ipc/terminal.ts";
 import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import type { TerminalDeps } from "../../terminal/deps.ts";
-import type { PanelTerminal } from "./use-agent-panel.ts";
+import type { PanelTerminal } from "./panel-types.ts";
 
 /** 이 창의 터미널 탭 하나가 탭 줄에 보이는 이름과 점. */
 export interface TerminalTabView {

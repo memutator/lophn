@@ -92,6 +92,13 @@ export const shellArea: Area = {
       render: () => <ShellScene variant="overflow" />,
     },
     {
+      id: "shell-left-sidebar",
+      title: "Shell · Left sidebar",
+      description:
+        "왼쪽 sidebar. New session(▾로 lophn agent와 coding agent), Inbox, Jobs, Places 아래 Home·project·앱과 place마다 열린 session. phroner의 Recent를 펼쳐 끝난 session과 저장한 터미널 session을 상대 시각으로 보인다.",
+      render: () => <ShellScene variant="project" recentOpen />,
+    },
+    {
       id: "shell-collapsed",
       title: "Shell · Sidebars collapsed",
       description:

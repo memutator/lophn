@@ -1,0 +1,205 @@
+/* 왼쪽 sidebar. 틀(폭, 바깥 여백)은 ShellFrame이 정하고 여기는 안쪽 줄만 그린다. */
+
+.sidebar {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: var(--space-0);
+  font-family: var(--font-sans);
+}
+
+.grow {
+  flex: 1;
+}
+
+.navGroup {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.navRow,
+.placeRow,
+.sessionRow {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  width: 100%;
+  min-height: var(--control-sm-height);
+  padding: var(--space-1) var(--space-3);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--type-small-size);
+  text-align: start;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+}
+
+.navRow:hover,
+.placeRow:hover,
+.sessionRow:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-muted);
+}
+
+.newSession {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.newSession .navRow {
+  flex: 1;
+}
+
+.newSessionMore {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-sm-height);
+  height: var(--control-sm-height);
+  padding: var(--space-0);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+}
+
+.newSessionMore:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-muted);
+}
+
+.sectionHead {
+  display: flex;
+  flex: none;
+  align-items: center;
+  min-height: var(--control-sm-height);
+  margin-block-start: var(--space-6);
+  padding-inline: var(--space-3) var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.placeList {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: var(--space-0);
+  overflow: auto;
+}
+
+.placeGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0);
+  padding-block-end: var(--space-3);
+}
+
+.placeRow {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.sessionRow {
+  gap: var(--space-3);
+  padding-inline-start: calc(var(--space-3) + var(--space-6));
+}
+
+.sessionRow[data-recent] {
+  color: var(--color-text-muted);
+}
+
+.sessionRow[aria-current="true"] {
+  color: var(--color-text-primary);
+  background: var(--color-selection);
+}
+
+.recentToggle {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  width: 100%;
+  min-height: var(--control-sm-height);
+  padding: var(--space-0) var(--space-3) var(--space-0)
+    calc(var(--space-3) + var(--space-6));
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--type-caption-size);
+  text-align: start;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+}
+
+.recentToggle:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-muted);
+}
+
+.recentToggle .rowMeta {
+  margin-inline-start: auto;
+}
+
+.rowIcon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-7);
+  color: var(--color-text-secondary);
+}
+
+.rowLabel {
+  flex: 1;
+  min-width: var(--space-0);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rowMeta {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  font-family: var(--font-numeric);
+}
+
+.rowDot {
+  display: inline-flex;
+  flex: none;
+  justify-content: center;
+  width: var(--space-4);
+}
+
+.badge {
+  min-width: var(--space-7);
+  padding-inline: var(--space-2);
+  color: var(--color-ink-text);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  text-align: center;
+  background: var(--color-ink-background);
+  border-radius: var(--radius-full);
+}
+
+.foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--space-4) var(--space-3) var(--space-0);
+}
+
+/* 오른쪽 클릭한 자리에 menu를 붙잡아 두는 빈 anchor. */
+.menuAnchor {
+  position: fixed;
+  width: var(--space-0);
+  height: var(--space-0);
+  pointer-events: none;
+}

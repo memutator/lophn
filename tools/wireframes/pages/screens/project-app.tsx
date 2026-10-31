@@ -1,6 +1,6 @@
 // 동작하는 project 화면. 새 shell 틀(title bar의 tab 줄, 가운데 card, 양쪽 sidebar) 안에서 sidebar·+ 메뉴·검색·상단 검색·toast·
 // 대화·문서의 링크가 탭을 열면 탭 줄에 그 탭이 생기고 선택된다(이미 열린 탭이면 그 탭을 고른다). 실제 ShellFrame·TabStrip·
-// ContentCard·Palette·Menu와 실제 sidebar(`AgentSidebar`, `ProjectPanel`)·`NewTabMenu`를 쓴다(고정 data는 project-window.tsx가
+// ContentCard·Palette·Menu와 실제 sidebar(`LeftSidebar`, `ProjectPanel`)·`NewTabMenu`를 쓴다(고정 data는 project-window.tsx가
 // 넘긴다). 칸이 둘인 page(`panes` 둘)는 두 탭을 한 칸으로 붙인 split tab 하나로 그린다.
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
@@ -34,7 +34,7 @@ import { documentTab } from "../../mock/phroner-data.ts";
 import { FileSearch } from "./project-files/file-search.tsx";
 import { fileKey, isOutside } from "../../mock/project-files/file-data.ts";
 import {
-  PageAgentSidebar,
+  PageLeftSidebar,
   PageNewTabMenu,
   PageProjectPanel,
   type SidebarSpec,
@@ -463,11 +463,10 @@ export function ProjectApp({
               {titleExtra === undefined ? null : (
                 <div className={workspace.leftHead}>{titleExtra}</div>
               )}
-              <PageAgentSidebar
+              <PageLeftSidebar
                 {...sidebar}
                 onOpenFile={(id) => open(documentTab(id))}
                 onAgent={(id) => open(newConversationTab(id))}
-                onManage={() => open(AGENTS_TAB)}
                 onSession={(row) => open(sessionTab(row))}
               />
             </div>
@@ -478,7 +477,6 @@ export function ProjectApp({
               tab={panel}
               onOpenFile={(id) => open(documentTab(id))}
               onAgent={(id) => open(newConversationTab(id))}
-              onManage={() => open(AGENTS_TAB)}
             />
           }
         >

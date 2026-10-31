@@ -11,7 +11,7 @@ import type {
   AgentId,
   Place,
 } from "../../../../protocol/lophn-agent/places.ts";
-import type { PanelSession } from "./use-agent-panel.ts";
+import type { PanelSession } from "./panel-types.ts";
 import styles from "./project-sidebar.module.css";
 
 export type RunStateView = "running" | "done" | "failed" | "cancelled";

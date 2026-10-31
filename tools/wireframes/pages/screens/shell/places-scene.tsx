@@ -17,8 +17,7 @@ import {
   type Step,
   useDrive,
 } from "../../../mock/drive.ts";
-import { MockLeftSidebar } from "../../../mock/shell-sidebars.tsx";
-import { PageProjectPanel } from "../project-window.tsx";
+import { PageLeftSidebar, PageProjectPanel } from "../project-window.tsx";
 
 const PANELS = [
   { key: "places", label: "Places", icon: shellIcons.app },
@@ -51,7 +50,7 @@ export function PlacesScene({ steps = [] }: { steps?: readonly Step[] }) {
       panelTabs={
         <PanelTabs tabs={PANELS} selected={panel} onSelect={setPanel} />
       }
-      leftSidebar={<MockLeftSidebar />}
+      leftSidebar={<PageLeftSidebar onOpenFile={noop} onAgent={noop} />}
       rightSidebar={
         panel === "places" ? (
           <PlacesPanel
@@ -62,12 +61,7 @@ export function PlacesScene({ steps = [] }: { steps?: readonly Step[] }) {
             onNewApp={noop}
           />
         ) : (
-          <PageProjectPanel
-            tab="jobs"
-            onOpenFile={noop}
-            onAgent={noop}
-            onManage={noop}
-          />
+          <PageProjectPanel tab="jobs" onOpenFile={noop} onAgent={noop} />
         )
       }
     >

@@ -35,6 +35,8 @@ export function openTerminal(
     resume?: TerminalResume;
     cwd?: string;
     command?: string;
+    /** command를 float가 아니라 tab으로 연다(New session의 coding agent). */
+    docked?: boolean;
   } = {},
 ): void {
   const terminal = host.props.terminal;
@@ -55,7 +57,7 @@ export function openTerminal(
   const at = openAt(
     host.desk,
     undefined,
-    options.command === undefined ? "show" : "run",
+    options.command === undefined || options.docked === true ? "show" : "run",
   );
   if (at.kind === "float") host.openFloat(tab);
   else host.openTab(tab);

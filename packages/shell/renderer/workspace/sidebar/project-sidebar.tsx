@@ -1,5 +1,5 @@
-// project 창 sidebar의 본문. 오른쪽은 title bar의 panel icon tab이 고른 panel 하나(Files / Domain / Artifacts /
-// Workflows / Jobs)를 `RightSidebar` 틀에 담고, 왼쪽은 Agent 쪽(agent, 열린 session, run, 최근)이다. 틀(폭, 접힘)은 ShellFrame이 정한다.
+// project 창 오른쪽 sidebar의 본문. title bar의 panel icon tab이 고른 panel 하나(Files / Domain / Artifacts /
+// Workflows / Jobs)를 `RightSidebar` 틀에 담는다. 틀(폭, 접힘)은 ShellFrame이 정한다. 왼쪽은 shell/left-sidebar다.
 
 import { t } from "@lophn/i18n";
 import { type ReactNode, useEffect, useState } from "react";
@@ -9,20 +9,10 @@ import { RightSidebar } from "../../shell/right-sidebar.tsx";
 import type { JobsSource } from "../../desktop/settings/jobs/source.ts";
 import { shellIcons } from "../../icons/mod.ts";
 import type { ProjectView, WorkspaceSource } from "../source.ts";
-import { AgentPanel } from "./agent-panel.tsx";
 import { DomainPanel } from "./domain-panel.tsx";
 import { Explorer, type TabAwareResult } from "./explorer.tsx";
-import { useHiddenRecent } from "./hidden-recent.ts";
 import { JobPanel } from "./job-panel.tsx";
 import styles from "./project-sidebar.module.css";
-import type { SidebarAgent } from "./sidebar-agent.ts";
-import {
-  type PanelItem,
-  type PanelRun,
-  type PanelSession,
-  type PanelTerminal,
-  useAgentPanel,
-} from "./use-agent-panel.ts";
 import { WorkflowPanel } from "./workflow-panel.tsx";
 
 export type SidebarTab =
@@ -194,57 +184,5 @@ export function ProjectPanel({
         />
       ) : null}
     </RightSidebar>
-  );
-}
-
-interface AgentSidebarProps {
-  projectId: string;
-  /** Agent 모양의 agent 줄(`useSidebarAgents`)과 session 줄(`useSessions()`에서 옮긴 값), 터미널 coding agent session. */
-  agents: readonly SidebarAgent[];
-  sessions: readonly PanelSession[];
-  terminals: readonly PanelTerminal[];
-  /** Background(run) 묶음의 줄. 비면 묶음이 없다. */
-  runs?: readonly PanelRun[];
-  onAgent: (agent: SidebarAgent) => void;
-  onSession: (session: PanelSession) => void;
-  onTerminal: (terminal: PanelTerminal) => void;
-  onManage: () => void;
-}
-
-export function AgentSidebar({
-  projectId,
-  agents,
-  sessions,
-  terminals,
-  runs,
-  onAgent,
-  onSession,
-  onTerminal,
-  onManage,
-}: AgentSidebarProps) {
-  const recentHidden = useHiddenRecent(projectId);
-  const panel = useAgentPanel(
-    agents,
-    sessions,
-    terminals,
-    runs,
-    recentHidden.hidden,
-  );
-  const removeRecent = (item: PanelItem) =>
-    recentHidden.hide(
-      item.kind === "session" ? item.session.id : item.terminal.key,
-      item.at,
-    );
-  return (
-    <div className={styles.shellBody} data-sidebar-tab="agent">
-      <AgentPanel
-        view={panel}
-        onAgent={onAgent}
-        onSession={onSession}
-        onTerminal={onTerminal}
-        onRemove={removeRecent}
-        onManage={onManage}
-      />
-    </div>
   );
 }

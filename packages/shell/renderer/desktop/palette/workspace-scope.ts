@@ -55,6 +55,8 @@ interface WorkspaceScopeInput {
   readonly platform: WindowPlatform;
   /** 사람이 바꾼 키. hint가 바뀐 키를 보인다. */
   readonly keys: KeyOverrides;
+  /** Home이면 project 설정 행이 없다. */
+  readonly home?: boolean;
   /** 이 프로젝트의 키워드 검색. */
   readonly search?: (query: string) => Promise<readonly FileFound[]>;
   readonly go: (target: WorkspaceTarget) => void;
@@ -119,11 +121,15 @@ function actions(input: WorkspaceScopeInput): PaletteEntry<WorkspaceTarget>[] {
         ]
       : []),
     action("settings", t("common.button.palette-settings"), "screen"),
-    action(
-      "project-settings",
-      t("common.button.palette-project-settings"),
-      "screen",
-    ),
+    ...(input.home === true
+      ? []
+      : [
+          action(
+            "project-settings",
+            t("common.button.palette-project-settings"),
+            "screen",
+          ),
+        ]),
     ...(focusTab(input.desk)
       ? [action("float", t("common.button.palette-float-tab"), "tab")]
       : []),

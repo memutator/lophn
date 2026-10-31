@@ -63,8 +63,8 @@ function activeElement(): HTMLElement {
 }
 
 /**
- * Desktop이 창마다 하나 둔다. 팔레트 키는 지금 공간의 scope를 열고, 런처 복귀 키는
- * onLauncher를 부른다. scope가 없는 곳(런처)에서 팔레트 키는 아무것도 열지 않는다.
+ * Desktop이 창마다 하나 둔다. 팔레트 키는 지금 공간의 scope를 열고, Home 복귀 키는
+ * onLauncher를 부른다. scope가 없는 곳(연결 화면)에서 팔레트 키는 아무것도 열지 않는다.
  */
 export function PaletteProvider({
   deps,

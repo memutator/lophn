@@ -24,7 +24,7 @@ import { createLink } from "../../../workspace/agents/core-link.ts";
 import type { InstructionsApi } from "../../../../ipc/instructions.ts";
 import type { FilesApi } from "../../../../ipc/files.ts";
 import type { CoreSource } from "../../connection/connection.ts";
-import { windowFolderPicker } from "../../launcher/projects/core-source.ts";
+import { windowFolderPicker } from "../../places/projects/core-source.ts";
 import type { OpenExternalApi } from "../../../../ipc/open-external.ts";
 import type { SecretInputOpenApi } from "../../../../ipc/secret-input.ts";
 import {

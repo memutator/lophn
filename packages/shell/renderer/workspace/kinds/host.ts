@@ -2,10 +2,10 @@
 // 통로를 건드린다.
 
 import type { TabItem } from "../model.ts";
-import type { Desk } from "../../shell/desk-model.ts";
-import type { ProjectsSource } from "../../desktop/launcher/projects/source.ts";
+import type { Desk, PlaceRef } from "../../shell/desk-model.ts";
+import type { ProjectsSource } from "../../desktop/places/projects/source.ts";
 import type { ViewKeeps } from "../../app-frame/view-keeps.ts";
-import type { WorkspaceProps } from "../workspace.tsx";
+import type { PlaceWindowProps } from "../place-window.tsx";
 import type { AgentsSource } from "../agents/source.ts";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
 import type { DraftStore } from "../../conversation/drafts.ts";
@@ -74,12 +74,15 @@ export interface ArtifactsSlice {
 }
 
 export interface TabHost {
-  readonly projectId: string;
+  /** 이 창이 보이는 place. Home이면 project 폴더가 필요한 kind는 열리지 않는다. */
+  readonly place: PlaceRef;
+  /** place가 project일 때 그 id. Home이면 null이다. */
+  readonly projectId: string | null;
   readonly projectTitle: string | undefined;
   /** Explorer가 보이는 연결 폴더. 터미널을 열 때 시작 폴더다. 고른 적이 없으면 undefined(첫 폴더). */
   readonly explorerRoot: string | undefined;
   /** 통로(editor·terminal 등)와 열기 콜백. */
-  readonly props: WorkspaceProps;
+  readonly props: PlaceWindowProps;
   /** 앱 화면 목록을 읽을 수 있는지. 없으면 앱 패널을 열지 않는다. */
   readonly appScreens: boolean;
   /** 보이는 desk. */

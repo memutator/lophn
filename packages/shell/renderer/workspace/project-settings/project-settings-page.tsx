@@ -3,11 +3,11 @@ import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { t } from "@lophn/i18n";
 import { ErrorState, Skeleton } from "@lophn/ui/feedback";
 
-import { ProjectForm } from "../../desktop/launcher/projects/project-form.tsx";
+import { ProjectForm } from "../../desktop/places/projects/project-form.tsx";
 import type {
   ProjectItem,
   ProjectsSource,
-} from "../../desktop/launcher/projects/source.ts";
+} from "../../desktop/places/projects/source.ts";
 import styles from "./project-settings-page.module.css";
 
 export interface ProjectSettingsPageProps {

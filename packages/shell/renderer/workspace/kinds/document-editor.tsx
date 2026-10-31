@@ -31,7 +31,12 @@ export function openFile(
     readonly from?: string;
   } = {},
 ): void {
-  if (fileKindOf(path) === "html" && options.source !== true) {
+  // artifact 탭은 project의 파일로 열리므로 Home에서는 html도 문서로 연다.
+  if (
+    fileKindOf(path) === "html" &&
+    options.source !== true &&
+    host.projectId !== null
+  ) {
     openArtifactFile(host, path, options.from);
     return;
   }
@@ -62,10 +67,12 @@ function lineOf(tab: TabItem): number | undefined {
 // project에 연결한 폴더 목록. 밖의 파일인지 알려고 한 번 읽는다.
 function useProjectFolders(
   source: WorkspaceSource,
-  project: string,
+  project: string | null,
 ): readonly string[] | null {
   const [folders, setFolders] = useState<readonly string[] | null>(null);
   useEffect(() => {
+    // Home에는 연결 폴더가 없어 밖의 파일이라는 구분이 없다.
+    if (project === null) return;
     let live = true;
     void source.project(project).then((read) => {
       if (live) {

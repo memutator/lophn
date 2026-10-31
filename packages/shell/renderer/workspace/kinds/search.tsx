@@ -71,12 +71,13 @@ export const searchKind: TabKindDef = {
   },
   render(tab, _active, host) {
     const search = host.props.source.searchSource;
-    if (search === undefined) return null;
+    const project = host.projectId;
+    if (search === undefined || project === null) return null;
     const { query, folder } = keywordOf(tab);
     return (
       <FileSearch
         key={tab.key}
-        project={host.projectId}
+        project={project}
         workspace={host.props.source}
         search={search}
         initialQuery={query}

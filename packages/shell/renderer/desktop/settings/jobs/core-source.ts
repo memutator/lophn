@@ -9,7 +9,7 @@ import {
 import { agentList } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import { coreAppsSource } from "../../../apps/core-source.ts";
 import type { CoreSource } from "../../connection/connection.ts";
-import { readProjects } from "../../launcher/projects/core-source.ts";
+import { readProjects } from "../../places/projects/core-source.ts";
 import { call, command } from "../core-call.ts";
 import type {
   JobNames,

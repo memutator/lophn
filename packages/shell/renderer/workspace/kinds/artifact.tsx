@@ -32,12 +32,14 @@ export function openArtifactFile(
   path: string,
   from?: string,
 ): void {
+  const project = host.projectId;
+  if (project === null) return;
   host.openTab(
     {
       key: `artifact-file:${path}`,
       kind: "artifact",
       title: fileNameOf(path),
-      fields: { project: host.projectId, path },
+      fields: { project, path },
     },
     showAfter(host.desk, from),
   );

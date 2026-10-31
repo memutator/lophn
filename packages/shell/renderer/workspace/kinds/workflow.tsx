@@ -63,12 +63,14 @@ export const workflowKind: TabKindDef = {
   render(tab, _active, host) {
     const workflow = tab.fields?.workflow;
     if (typeof workflow !== "string") return null;
+    const project = host.projectId;
+    if (project === null) return null;
     const instance = tab.fields?.instance;
     return (
       <PaddedTab bare>
         <WorkflowPage
           key={tab.key}
-          project={host.projectId}
+          project={project}
           workflow={workflow}
           instance={typeof instance === "string" ? instance : null}
           source={host.props.source}
@@ -80,7 +82,7 @@ export const workflowKind: TabKindDef = {
           }
           onOpenArtifact={(view, picked) =>
             openWorkflowArtifact(host, {
-              project: host.projectId,
+              project,
               workflow,
               view,
               instance: picked,

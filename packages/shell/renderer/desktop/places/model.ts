@@ -1,4 +1,4 @@
-// 런처 카드와 등록 창의 순수 규칙.
+// Places panel 줄과 등록 창의 순수 규칙.
 import type { ProjectItem } from "./projects/source.ts";
 import type { FolderDraft } from "./source.ts";
 

@@ -1,0 +1,14 @@
+/* core가 준비되기 전이나 시작에 실패했을 때 Home 자리에 서는 화면. shell 틀 없이 바닥 한 장이다. */
+.window {
+  position: absolute;
+  inset: var(--space-0);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface-base);
+}
+
+.body {
+  flex: 1;
+  min-height: var(--space-0);
+  overflow-y: auto;
+}

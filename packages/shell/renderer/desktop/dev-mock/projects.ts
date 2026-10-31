@@ -1,12 +1,9 @@
-// mock 모드의 런처 프로젝트 카드. 등록과 보관은 메모리 목록에만 더한다.
-import type {
-  ProjectItem,
-  ProjectsSource,
-} from "../launcher/projects/source.ts";
+// mock 모드의 Places panel project 목록. 등록과 보관은 메모리 목록에만 더한다.
+import type { ProjectItem, ProjectsSource } from "../places/projects/source.ts";
 import {
   fakeProjects,
   folderItem,
-} from "../launcher/projects/testdata/fake-projects.ts";
+} from "../places/projects/testdata/fake-projects.ts";
 import { PROJECT_GROCERY, PROJECT_OFFICE, PROJECT_TAX } from "./ids.ts";
 
 const PROJECTS: readonly ProjectItem[] = [
@@ -36,11 +33,11 @@ const PROJECTS: readonly ProjectItem[] = [
   },
 ];
 
-/** 런처 카드와 앱 공간의 project 고르기가 읽는 통로. 메모리에서 고친다. */
+/** Places panel과 앱 공간의 project 고르기가 읽는 통로. 메모리에서 고친다. */
 export function mockProjects(): ProjectsSource {
   return fakeProjects({
     projects: PROJECTS,
-    // 런처 카드의 폴더 다시 잡기를 보이려고 한 폴더는 없는 것으로 읽는다.
+    // Places panel의 폴더 다시 잡기를 보이려고 한 폴더는 없는 것으로 읽는다.
     missingFolder: "/home/mina/Documents/office",
     picked: "/home/mina/Documents/new-project",
   }).source;

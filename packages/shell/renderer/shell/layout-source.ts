@@ -83,7 +83,7 @@ export function createLayoutSource(
   };
 }
 
-/** 메모리에 두는 가짜 통로. dev mock과 gallery가 쓴다. 저장한 값을 JSON으로 거쳐 그대로 돌려준다. initial은 저장하기 전 모든 place가 읽는 처음 layout이다. */
+/** 메모리에 두는 가짜 통로. dev mock과 gallery가 쓴다. 저장한 값을 JSON으로 거쳐 그대로 돌려준다. initial은 저장하기 전 project·앱 place가 읽는 처음 layout이다(Home은 빈 채로 시작한다). */
 export function fakePlaceLayoutBridge(
   initial?: PlaceLayout,
 ): PlaceLayoutBridge {
@@ -92,7 +92,7 @@ export function fakePlaceLayoutBridge(
     initial === undefined ? undefined : JSON.stringify(layoutToStored(initial));
   return {
     readPlace: ({ place }) => {
-      const json = saved.get(place) ?? first;
+      const json = saved.get(place) ?? (place === "home" ? undefined : first);
       return Promise.resolve(
         json === undefined
           ? { ok: true, available: false, reason: "absent" }

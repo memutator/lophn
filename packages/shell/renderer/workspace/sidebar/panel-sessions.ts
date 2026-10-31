@@ -8,8 +8,14 @@ export function sessionAgentKey(entry: SessionEntry): string | null {
   return entry.agent;
 }
 
-function sessionAtProject(entry: SessionEntry, project: string): boolean {
-  return entry.place?.kind === "project" && entry.place.id === project;
+// project가 null이면 Home(place 없음)이다.
+function sessionAtProject(
+  entry: SessionEntry,
+  project: string | null,
+): boolean {
+  return project === null
+    ? entry.place === null
+    : entry.place?.kind === "project" && entry.place.id === project;
 }
 
 /**
@@ -17,7 +23,7 @@ function sessionAtProject(entry: SessionEntry, project: string): boolean {
  */
 export function openedPlaceLophnSession(
   entries: readonly SessionEntry[],
-  project: string,
+  project: string | null,
 ): string | null {
   const found = entries.filter(
     (entry) =>
@@ -32,7 +38,7 @@ export function openedPlaceLophnSession(
 export function agentRow(
   entry: SessionEntry,
   agents: readonly SidebarAgent[],
-  project: string,
+  project: string | null,
 ): SidebarAgent | undefined {
   const key = sessionAgentKey(entry);
   if (key === null || !sessionAtProject(entry, project)) return undefined;

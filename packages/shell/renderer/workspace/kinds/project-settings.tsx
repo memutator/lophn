@@ -37,17 +37,18 @@ export const projectSettingsKind: TabKindDef = {
       : null,
   render(_tab, _active, host) {
     const slice = host.projectSettings;
-    if (slice === null) return null;
+    const project = host.projectId;
+    if (slice === null || project === null) return null;
     return (
       <PaddedTab bare>
         <ProjectSettingsPage
-          projectId={host.projectId}
+          projectId={project}
           projects={slice.projects}
           onProjectChanged={slice.projectChanged}
           iconField={
             <ProjectIconField
-              project={host.projectId}
-              name={host.projectTitle ?? host.projectId}
+              project={project}
+              name={host.projectTitle ?? project}
             />
           }
         />

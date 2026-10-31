@@ -219,3 +219,36 @@ test("폴더 밖으로 나가는 place key는 읽기와 쓰기 모두 거절한�
     }
   });
 });
+
+test("Home layout의 agent 탭(work_place home)은 저장이 거절되지 않고 그대로 읽힌다", async () => {
+  await withRoot(async (root) => {
+    const store = createPlaceLayoutStore(root);
+    const agent = {
+      kind: "agent",
+      key: "agent:lophn:1",
+      agent: "lophn",
+      work_place: { kind: "home" },
+    };
+    const layout = {
+      active_desk: "_default",
+      desks: {
+        _default: {
+          label: "Main",
+          tabs: [agent],
+          selected_tab: agent.key,
+          split: null,
+          floats: [],
+          detached: [],
+        },
+      },
+    };
+    assert.deepEqual(await store.write("home", layout), {
+      ok: true,
+      value: null,
+    });
+    assert.deepEqual(await store.read("home"), {
+      ok: true,
+      value: { ok: true, layout: { schema_version: 8, ...layout } },
+    });
+  });
+});

@@ -16,6 +16,15 @@
   min-height: var(--space-0);
 }
 
+/* card 위쪽에 얹는 안내: core 연결이 끊겼다. */
+.banner {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-6);
+  left: var(--space-6);
+  z-index: var(--z-toast);
+}
+
 /* 떠 있는 안내 층: 읽기 실패. 본문 높이를 쓰지 않고 왼쪽 아래에 뜬다. */
 .notices {
   position: absolute;

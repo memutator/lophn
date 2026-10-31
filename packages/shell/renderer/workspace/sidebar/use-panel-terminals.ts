@@ -33,7 +33,8 @@ function harnessLabel(harness: string): string {
 
 export function usePanelTerminals(
   deps: TerminalDeps | undefined,
-  project: string,
+  /** Home이면 null이고 저장한 session이 없다. */
+  project: string | null,
   tabs: readonly TerminalTabView[],
 ): readonly PanelTerminal[] {
   const store = deps?.store;
@@ -45,7 +46,7 @@ export function usePanelTerminals(
   const [saved, setSaved] = useState<readonly TerminalAgentSession[]>(NO_SAVED);
   useEffect(() => {
     setSaved(NO_SAVED);
-    if (bridge === null) return;
+    if (bridge === null || project === null) return;
     let live = true;
     void bridge.agentSessions({ project }).then((reply) => {
       if (live && reply.ok) setSaved(reply.value);

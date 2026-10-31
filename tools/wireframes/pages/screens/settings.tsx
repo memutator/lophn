@@ -76,7 +76,7 @@ export const settingsArea: Area = {
       id: "new-settings-back",
       title: "Settings · Back",
       description:
-        "왼쪽 sidebar 맨 위 [Back to <이전 자리>]이다. Settings tab을 닫아도 같다. 누르면 Settings를 열기 전 화면(같은 project, 앱, session)으로 돌아가고, 앞 화면이 없으면 launcher로 간다.",
+        "왼쪽 sidebar 맨 위 [Back to <이전 자리>]이다. Settings tab을 닫아도 같다. 누르면 Settings를 열기 전 화면(같은 project, 앱, session)으로 돌아가고, 앞 화면이 없으면 Home으로 간다.",
       render: () => <SettingsBack />,
     },
     {

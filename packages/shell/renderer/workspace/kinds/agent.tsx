@@ -17,11 +17,14 @@ import {
   TAB_KEY,
 } from "../agent/tab-fields.ts";
 import type { Desk } from "../../shell/desk-model.ts";
-import { whereInDesk } from "../../shell/desk-model.ts";
+import { placeKey, whereInDesk } from "../../shell/desk-model.ts";
 import type { TabItem } from "../model.ts";
 import { openAgents } from "./agents.tsx";
 import type { AgentViewSlice, TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
+
+// 탭 fields.place와 layout의 Home 표식. project id와 겹치지 않는다.
+const HOME = placeKey({ kind: "home" });
 
 interface OpenAgentInput {
   /** sidebar의 agent 줄이 주는 agent id. */
@@ -102,7 +105,7 @@ export function openAgent(host: TabHost, input: OpenAgentInput): void {
     title: input.name,
     fields: {
       agent: input.agent,
-      place: host.projectId,
+      place: placeKey(host.place),
       ...(session === null ? {} : { session }),
     },
   });
@@ -167,7 +170,10 @@ export const agentKind: TabKindDef = {
     }
     const source = host.agentView?.factory({
       assignment: agent,
-      place: { kind: "project", id: place },
+      place:
+        place === HOME
+          ? { kind: "global", id: "" }
+          : { kind: "project", id: place },
     });
     if (source === undefined) return;
     void source.renameSession(session, trimmed).then((result) => {
@@ -180,13 +186,14 @@ export const agentKind: TabKindDef = {
       return null;
     }
     const where = place as { kind?: unknown; id?: unknown } | null;
+    if (typeof where !== "object" || where === null) return null;
+    const home = where.kind === "home";
     if (
-      typeof where !== "object" ||
-      where === null ||
-      where.kind !== "project" ||
-      typeof where.id !== "string" ||
-      where.id.length === 0 ||
-      where.id.length > 128
+      !home &&
+      (where.kind !== "project" ||
+        typeof where.id !== "string" ||
+        where.id.length === 0 ||
+        where.id.length > 128)
     )
       return null;
     if (
@@ -202,7 +209,7 @@ export const agentKind: TabKindDef = {
       title: "",
       fields: {
         agent,
-        place: where.id,
+        place: home ? HOME : (where.id as string),
         ...(typeof session === "string" ? { session } : {}),
       },
     };
@@ -218,7 +225,8 @@ export const agentKind: TabKindDef = {
       kind: "agent",
       key: tab.key,
       agent,
-      work_place: { kind: "project", id: place },
+      work_place:
+        place === HOME ? { kind: "home" } : { kind: "project", id: place },
       ...(session === null ? {} : { session }),
     };
   },
@@ -258,15 +266,15 @@ export const agentKind: TabKindDef = {
     if (agent === null || place === null) return null;
     const slice = host.agentView;
     if (slice === null) return <AgentNotReady />;
-    // 다른 project의 자리로 저장된 탭은 이 project의 agent로 바꾸어 읽지 않는다.
-    if (place !== host.projectId) return null;
+    // 다른 place로 저장된 탭은 이 place의 agent로 바꾸어 읽지 않는다.
+    if (place !== placeKey(host.place)) return null;
     return (
       <>
         <ReportVisible session={sessionOf(tab)} />
         <AgentTab
           key={tab.key}
           agent={agent}
-          place={place}
+          place={place === HOME ? null : place}
           slice={slice}
           session={sessionOf(tab)}
           onSession={(session) =>

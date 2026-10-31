@@ -1,6 +1,10 @@
 // app-detail이 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은 core-source.ts만
 // 안다. 모양은 protocol의 activation(release 기록·선언 비교)·app grant·app invocation·rewind에서
 // 이 화면이 쓰는 field만 옮긴 것이다.
+import type {
+  IconFile,
+  IconView,
+} from "../../parts/icon-upload/icon-reader.ts";
 import type { SourceResult } from "../../source-result.ts";
 import type { DomainActions, DomainView } from "../../workspace/source.ts";
 import type { InstructionsFile } from "../../workspace/agents/views.ts";
@@ -269,6 +273,11 @@ export interface AppDetailSource extends DomainActions {
     text: string,
     hash: string | null,
   ): Promise<SourceResult<InstructionsFile>>;
+
+  /** 앱 icon. 사람이 올린 것이 선언한 것보다 앞선다. 읽을 때마다 core에서 새로 읽는다. */
+  icon(app: string): Promise<SourceResult<IconView>>;
+  /** 올린 icon을 정한다. null이면 올린 것을 지워 선언한 icon(없으면 첫 글자 표식)으로 돌아간다. */
+  setIcon(app: string, icon: IconFile | null): Promise<SourceResult<true>>;
 
   /** 앱 source 밖에 이은 폴더(agent의 file 범위에 들어간다). */
   folders(app: string): Promise<SourceResult<readonly string[]>>;

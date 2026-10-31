@@ -217,6 +217,7 @@ function DetachedTab({
     document: { noteReadPosition: noop },
     agents,
     agentView,
+    projectSettings: null,
   };
   const hostRef = useRef(host);
   hostRef.current = host;

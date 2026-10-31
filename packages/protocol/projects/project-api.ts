@@ -1,5 +1,10 @@
 // project 등록·수정·보관·조회 계약. 옛 `project-routes.ts`와 route 이름이 같아서 `projectApi` 객체에 담는다.
 import { z } from "zod";
+import {
+  iconReadOutputSchema,
+  iconSetOutputSchema,
+  iconSetSchema,
+} from "../base/icon.ts";
 import { archiveStateSchema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
@@ -131,6 +136,26 @@ export const projectApi = {
     actors: ["user"],
     errors: ["not_found", "conflict", "forbidden"],
   }),
+  // 사람이 올린 icon을 정하거나(icon) 지운다(null). revision을 올리지 않는다.
+  setIcon: defineCommand({
+    resource: "projects",
+    method: "set_icon",
+    name: "project.set_icon",
+    input: z.strictObject({ project: projectIdSchema, icon: iconSetSchema }),
+    output: iconSetOutputSchema,
+    actors: ["user"],
+    errors: ["invalid_input", "not_found"],
+  }),
+  // 올린 icon이 없으면 icon이 null이다(오류가 아니다. project는 첫 글자 표식으로 보인다).
+  icon: defineRead({
+    resource: "projects",
+    method: "icon",
+    name: "project.icon",
+    input: projectRefInputSchema,
+    output: iconReadOutputSchema,
+    actors: ["user"],
+    errors: ["invalid_input", "unauthorized", "forbidden", "not_found"],
+  }),
   list: defineRead({
     resource: "projects",
     method: "list",
@@ -189,6 +214,8 @@ export const PROJECT_API_ROUTES = [
   projectApi.relinkFolder,
   projectApi.archive,
   projectApi.unarchive,
+  projectApi.setIcon,
+  projectApi.icon,
   projectApi.list,
   projectApi.get,
   projectApi.resolve,

@@ -10,7 +10,11 @@ import { commonIcons, workspaceIcons } from "../../icons/mod.ts";
 import { useAppIcon } from "../../app-frame/app-icon.tsx";
 import type { AppScreens } from "../../app-frame/app-views.tsx";
 
-import { panelChoices, useScreensRead } from "../app-panel-tab.tsx";
+import {
+  panelChoices,
+  railAppLabel,
+  useScreensRead,
+} from "../app-panel-tab.tsx";
 import type { RailApp } from "../model.ts";
 import styles from "./project-sidebar.module.css";
 
@@ -70,18 +74,7 @@ export function RailApps({ items, onOpen, onPin, onUnpin }: RailAppsProps) {
   const apps = known.current;
   const [menu, setMenu] = useState<OpenMenu | null>(null);
 
-  // 앱 이름과 화면 이름을 읽었으면 "앱 · 화면", 아니면 저장해 둔 앱 이름이다.
-  const labelOf = (item: RailApp): string => {
-    const app = apps.find((entry) => entry.app === item.app);
-    const screen = app?.screens.find((entry) => entry.key === item.surface);
-    if (app !== undefined && screen !== undefined) {
-      return t("app-panel.label.screen", {
-        app: app.name,
-        screen: screen.label,
-      });
-    }
-    return item.title ?? t("project-workspace.label.kind-app-panel");
-  };
+  const labelOf = (item: RailApp): string => railAppLabel(apps, item);
 
   const choices = panelChoices(apps);
   const addItems = choices

@@ -11,6 +11,7 @@ import { browserKind } from "./browser.tsx";
 import { browserDevtoolsKind } from "./browser-devtools.tsx";
 import { documentEditorKind } from "./document-editor.tsx";
 import type { TabKindDef } from "./kind.ts";
+import { projectSettingsKind } from "./project-settings.tsx";
 import { searchKind } from "./search.tsx";
 import { terminalKind } from "./terminal.tsx";
 import { workflowKind } from "./workflow.tsx";
@@ -26,6 +27,7 @@ const BUILT_IN_TAB_KINDS = [
   browserDevtoolsKind,
   artifactKind,
   workflowKind,
+  projectSettingsKind,
 ] as const;
 
 const kinds = new Map<string, TabKindDef>();

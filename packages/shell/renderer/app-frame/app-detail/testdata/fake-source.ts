@@ -377,6 +377,8 @@ export function fakeDetail(options: FakeOptions = {}) {
   );
   // source 밖에 이은 폴더. Add는 늘 같은 경로 하나를 더한다.
   let folders: readonly string[] = ["/home/me/notes/orders"];
+  // 올린 icon의 data URL. 없으면 앱이 선언한 icon이 없는 기본 표식이다.
+  let uploadedIcon: string | null = null;
 
   const reply = <T>(name: string, value: T): Promise<SourceResult<T>> => {
     calls.push([name]);
@@ -563,6 +565,19 @@ export function fakeDetail(options: FakeOptions = {}) {
       };
       domainDocs.set(domain, next);
       return Promise.resolve({ ok: true, value: next });
+    },
+    icon: () =>
+      reply("icon", { src: uploadedIcon, uploaded: uploadedIcon !== null }),
+    setIcon: (_app, icon) => {
+      calls.push(["setIcon", icon?.type ?? null]);
+      if (failing.has("setIcon")) {
+        return Promise.resolve({ ok: false, code: "invalid_input" });
+      }
+      uploadedIcon =
+        icon === null
+          ? null
+          : `data:${icon.type};base64,${btoa(String.fromCharCode(...icon.bytes))}`;
+      return Promise.resolve({ ok: true, value: true });
     },
     folders: () => reply("folders", folders),
     addFolder: () => {

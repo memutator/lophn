@@ -238,6 +238,9 @@ export function railAppsFromStored(layout: unknown): RailApp[] {
         app: value.app,
         surface: value.surface,
         ...(typeof value.title === "string" ? { title: value.title } : {}),
+        ...(value.open === "dock" || value.open === "float"
+          ? { open: value.open }
+          : {}),
       },
     ];
   });
@@ -338,6 +341,8 @@ export function toStoredLayout(input: {
       ...(item.title === undefined || item.title.length === 0
         ? {}
         : { title: item.title.slice(0, 200) }),
+      // dock이 기본이라 float만 적는다.
+      ...(item.open === "float" ? { open: item.open } : {}),
     })),
   };
 }

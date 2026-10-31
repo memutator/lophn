@@ -317,6 +317,7 @@ export function Desktop({
         onSettings={settingsSpace}
         jobs={settingsPanels?.jobs}
         onOpenApp={apps ? appSpace : undefined}
+        projects={projects}
         editor={editor}
         terminal={terminal}
         detached={detached}

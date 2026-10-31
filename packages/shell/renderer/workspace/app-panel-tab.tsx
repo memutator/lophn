@@ -79,6 +79,19 @@ export function panelChoices(
   );
 }
 
+/** 고정한 앱 패널의 이름. 앱 이름과 화면 이름을 읽었으면 "앱 · 화면", 아니면 저장해 둔 앱 이름이다. */
+export function railAppLabel(
+  apps: readonly AppScreens[],
+  item: { readonly app: string; readonly surface: string; title?: string },
+): string {
+  const app = apps.find((entry) => entry.app === item.app);
+  const screen = app?.screens.find((entry) => entry.key === item.surface);
+  if (app !== undefined && screen !== undefined) {
+    return t("app-panel.label.screen", { app: app.name, screen: screen.label });
+  }
+  return item.title ?? t("project-workspace.label.kind-app-panel");
+}
+
 interface AppPanelPickerProps {
   onChoose: (choice: PanelChoice) => void;
   /** 앱 공간 열기. 없으면 안내 글만 둔다. */

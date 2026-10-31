@@ -74,3 +74,30 @@ test("판 6 파일(rail_apps 없음)을 읽어도 탭이 그대로 이어지고 
   assert.deepEqual(read.layout.rail_apps, []);
   assert.equal(read.layout.desks._default!.panes[0]!.tabs[0]!.key, "/a.md");
 });
+
+test("open 없는 rail_apps가 든 판 7 파일과 project_settings 탭을 그대로 읽는다", () => {
+  const file = v5([["/a.md"]], 0.5);
+  const desk = file.layout.desks._default as Record<string, unknown>;
+  delete desk.split_ratio;
+  desk.layout = "leaf";
+  (desk.panes as { tabs: unknown[] }[])[0]!.tabs.push({
+    kind: "project_settings",
+    key: "project-settings",
+  });
+  const app = "app_00000000000000000000000000";
+  file.schema_version = 7;
+  Object.assign(file.layout, {
+    schema_version: 7,
+    rail_apps: [
+      { app, surface: "home" },
+      { app, surface: "board", open: "float" },
+    ],
+  });
+  const read = parseLayoutFile(file);
+  assert.ok(read.ok);
+  assert.deepEqual(
+    read.layout.rail_apps.map((item) => item.open),
+    [undefined, "float"],
+  );
+  assert.equal(read.layout.desks._default!.panes[0]!.tabs.length, 2);
+});

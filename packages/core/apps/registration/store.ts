@@ -1,4 +1,5 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
+import type { IconImage } from "../../../protocol/base/icon.ts";
 import type { App } from "../../../protocol/apps/mod.ts";
 import type { Sql, SqlRow, Tx } from "../../../protocol/server/mod.ts";
 import { appFromRow } from "./rows.ts";
@@ -89,4 +90,28 @@ export function replaceFolders(tx: Pick<Tx, "sql">, app: App): void {
       [app.id, position, folder.path, folder.description],
     );
   });
+}
+
+export function loadAppIcon(sql: Query, app: string): IconImage | null {
+  const row = sql.get(
+    "SELECT content_type, data FROM app_icons WHERE app = ?",
+    [app],
+  );
+  return row === undefined
+    ? null
+    : ({ content_type: row.content_type, data: row.data } as IconImage);
+}
+
+// icon이 null이면 올린 것을 지운다.
+export function storeAppIcon(
+  tx: Pick<Tx, "sql">,
+  app: string,
+  icon: IconImage | null,
+): void {
+  tx.sql.run("DELETE FROM app_icons WHERE app = ?", [app]);
+  if (icon === null) return;
+  tx.sql.run(
+    "INSERT INTO app_icons (app, content_type, data) VALUES (?, ?, ?)",
+    [app, icon.content_type, icon.data],
+  );
 }

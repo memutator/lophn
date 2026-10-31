@@ -69,6 +69,10 @@ import {
   NewTabMenuBrowser,
 } from "./browser/pages.tsx";
 import { ProjectApp } from "./project-app.tsx";
+import {
+  APP_BUDGET,
+  APP_PLANNER,
+} from "../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
 import { documentTab } from "../../mock/phroner-data.ts";
 import {
   MockDesktop,
@@ -163,6 +167,14 @@ const PLAN = {
 const DOCUMENT_PANES: readonly PaneSpec[] = [
   { tabs: [NOTES, PLAN], selected: NOTES.key },
 ];
+const SETTINGS_TAB = {
+  key: "project-settings",
+  kind: "project_settings",
+  title: "Project settings",
+} as const;
+const SETTINGS_PANES: readonly PaneSpec[] = [
+  { tabs: [NOTES, SETTINGS_TAB], selected: SETTINGS_TAB.key },
+];
 const TERMINAL_PANES: readonly PaneSpec[] = [
   { tabs: [NOTES, PLAN], selected: NOTES.key },
   {
@@ -198,6 +210,27 @@ export const projectWorkspaceArea: Area = {
           route={openProject(PROJECT_GROCERY)}
           panes={TERMINAL_PANES}
           openTerminal="term_1"
+        />
+      ),
+    },
+    {
+      id: "project-settings",
+      title: "Project workspace · project settings tab",
+      description:
+        "프로젝트 설정 탭. General은 런처 상세 dialog와 같은 form(이름·목적·폴더)이고, App panels는 activity bar에 고정한 앱 패널의 순서·열기 자리(Dock·Float)·제거를 고친다.",
+      render: () => (
+        <MockDesktop
+          route={openProject(PROJECT_GROCERY)}
+          panes={SETTINGS_PANES}
+          railApps={[
+            { app: APP_PLANNER, surface: "home", title: "Meal planner" },
+            {
+              app: APP_BUDGET,
+              surface: "home",
+              title: "Grocery budget",
+              open: "float",
+            },
+          ]}
         />
       ),
     },

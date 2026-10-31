@@ -4,6 +4,7 @@ export * from "./envelope.ts";
 export * from "./errors.ts";
 export * from "./event.ts";
 export * from "./frame.ts";
+export * from "./icon.ts";
 export * from "./ids.ts";
 export * from "./json-values.ts";
 export * from "./limits.ts";

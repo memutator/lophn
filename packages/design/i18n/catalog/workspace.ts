@@ -4,6 +4,7 @@ export const workspace = {
   "common.button.palette-launcher": "Back to launcher",
   "common.button.palette-minimize-panel": "Minimize panel",
   "common.button.palette-open": "Search and commands",
+  "common.button.palette-project-settings": "Project settings",
   "common.button.palette-settings": "Open Settings",
   "common.button.palette-terminal": "Open terminal",
   "common.button.settings": "Settings",

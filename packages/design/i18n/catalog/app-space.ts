@@ -33,6 +33,7 @@ export const appSpace = {
   "app-detail.heading.changes-first": "What {to} declares",
   "app-detail.heading.earlier-releases": "Earlier releases",
   "app-detail.heading.folders": "Folders",
+  "app-detail.heading.icon": "Icon",
   "app-detail.heading.last-activation": "Last activation",
   "app-detail.heading.other-apps": "Other apps",
   "app-detail.heading.outside-resources": "Outside resources",

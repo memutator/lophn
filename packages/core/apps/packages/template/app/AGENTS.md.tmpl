@@ -35,6 +35,10 @@ Package를 쓴다.
   값을 직접 쓰지 않는다.
 - 화면 바탕은 `src/surface.css`가 lophn 탭 본문과 같은 `--color-surface-base`로
   둔다. 새 화면의 `main.tsx`도 이 파일을 import한다. 앱이 다른 바탕을 원하면 고친다.
+- 화면의 `sizes`가 여는 자리다: `full`은 앱 창, `panel`은 project 창의 탭(사람이
+  activity bar에 고정해 쓴다), `card`는 agent 대화 안이다. 옆에 두고 쓸 한 가지 일은
+  `panel` 화면으로 따로 만들고, 배치는 창이 아니라 `useContainerSpace()`로 정한다.
+  자세한 기준은 `design-app` skill이다.
 - 화면은 다른 창으로 옮겨지거나 다시 열리면 처음부터 다시 load된다. 사람이 잃으면
   곤란한 화면 상태(고른 항목, 쓰던 글, 필터)는 `localStorage`에 둔다. 앱 저장소는
   앱마다 따로이고 다시 load해도 남는다.

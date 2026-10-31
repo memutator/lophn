@@ -12,7 +12,12 @@ import { authorizeProject, denied } from "./authorization.ts";
 import { nextProjectCursor, pageOffset, projectPageBasis } from "./cursor.ts";
 import { deepestRegisteredRoot, type Project } from "./model.ts";
 import { recordOf } from "./record.ts";
-import { loadProject, loadProjectByName, loadProjects } from "./store.ts";
+import {
+  loadProject,
+  loadProjectByName,
+  loadProjectIcon,
+  loadProjects,
+} from "./store.ts";
 
 const PAGE = 50;
 
@@ -75,6 +80,7 @@ export function createProjectReads(deps: ProjectReadDeps): {
   list: ReadDefinition<typeof projectApi.list>;
   get: ReadDefinition<typeof projectApi.get>;
   resolve: ReadDefinition<typeof projectApi.resolve>;
+  icon: ReadDefinition<typeof projectApi.icon>;
 } {
   return {
     list: {
@@ -179,6 +185,30 @@ export function createProjectReads(deps: ProjectReadDeps): {
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });
+      },
+    },
+    icon: {
+      route: projectApi.icon,
+      handle(snapshot, ctx, input) {
+        if (!isUser(ctx)) {
+          return err({
+            code: "forbidden",
+            message: "project icon is user only",
+          });
+        }
+        const project = loadProject(snapshot.sql, input.project);
+        if (!project.ok) return project;
+        if (project.value === null) return notFound();
+        const access = allowed(
+          snapshot,
+          ctx,
+          projectApi.icon.name,
+          project.value,
+        );
+        if (!access.ok) return access;
+        if (access.value === null) return notFound();
+        const icon = loadProjectIcon(snapshot.sql, input.project);
+        return ok({ icon, uploaded: icon !== null });
       },
     },
   };

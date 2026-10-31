@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { defineRead } from "../../base/route.ts";
+import { iconReadOutputSchema, type IconImage } from "../../base/icon.ts";
 import { jsonValueSchema } from "../../base/json-values.ts";
 import { sha256Schema } from "../../base/values.ts";
 import { withReadCommon } from "../../base/envelope.ts";
@@ -85,21 +86,14 @@ export const appTools = defineRead({
   ],
 });
 
-// `app.icon`. active release 선언의 icon 파일 하나다. data는 base64다.
-// 선언이 없거나 파일이 없거나 크거나 bundle 밖을 가리키면 icon이 null이다(오류가 아니다. 앱은 기본 모양으로 보인다).
+// `app.icon`. 사람이 올린 icon이 있으면 그것, 없으면 active release 선언의 icon 파일 하나다. data는 base64다.
+// 올린 icon도 선언도 없거나 파일이 없거나 크거나 bundle 밖을 가리키면 icon이 null이다(오류가 아니다. 앱은 기본 모양으로 보인다).
 export const appIcon = defineRead({
   resource: "apps",
   method: "icon",
   name: "app.icon",
   input: appInputSchema,
-  output: z.object({
-    icon: z
-      .strictObject({
-        content_type: z.enum(["image/svg+xml", "image/png", "image/webp"]),
-        data: z.string().min(1),
-      })
-      .nullable(),
-  }),
+  output: iconReadOutputSchema,
   actors: ["user"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });
@@ -142,4 +136,4 @@ export const appToolIndex = defineRead({
     "unavailable",
   ],
 });
-export type AppIcon = NonNullable<z.infer<typeof appIcon.output>["icon"]>;
+export type AppIcon = IconImage;

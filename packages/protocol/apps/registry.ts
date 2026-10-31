@@ -6,6 +6,7 @@ import {
   appGet,
   appList,
   appRename,
+  appSetIcon,
   appUnarchive,
 } from "./apps.ts";
 import {
@@ -61,6 +62,7 @@ export const ROUTES = [
   appUnarchive,
   appRename,
   appEditFolders,
+  appSetIcon,
   appEnableExecution,
   appDisableExecution,
   appRecordStarted,

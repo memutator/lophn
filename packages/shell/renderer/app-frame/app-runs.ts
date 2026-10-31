@@ -1,4 +1,4 @@
-// 앱 공간의 Background 목록 줄. run 기록(`AppSpace.runs`)에서 이 앱의 것만 남겨 줄로 옮긴다: 이 앱의 tool run과
+// 앱 place의 Logs 목록 줄. run 기록(`AppSpace.runs`)에서 이 앱의 것만 남겨 줄로 옮긴다: 이 앱의 tool run과
 // 이 앱 place에서 돈 agent run(그 agent가 앱 agent select에 있을 때). 다른 place의 run은 그 place 몫이다.
 // run event가 계약에 없어서, 목록을 열 때와 열려 있는 동안 session 상태(`useSessions()`)가 바뀔 때마다 다시 읽는다.
 import { useEffect, useMemo, useState } from "react";
@@ -10,7 +10,14 @@ import type { ReadResult } from "../workspace/source.ts";
 import { sessionDot } from "../workspace/sidebar/panel-sessions.ts";
 import type { PanelSession } from "../workspace/sidebar/panel-types.ts";
 import type { RunRecordView, RunRow } from "../workspace/sidebar/run-list.tsx";
-import type { AppSpaceAgent } from "./agent-select.tsx";
+import type { AvatarProfile } from "../parts/avatar/avatar.tsx";
+
+/** run 줄에 이름과 avatar를 대는 agent. */
+interface AppSpaceAgent {
+  readonly assignment: string;
+  readonly name: string;
+  readonly profile: AvatarProfile;
+}
 
 interface Loaded {
   readonly records: readonly RunRecordView[];

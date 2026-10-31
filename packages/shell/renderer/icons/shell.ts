@@ -11,6 +11,7 @@ import {
   Copy,
   Ellipsis,
   ExternalLink,
+  ScrollText,
   FileStack,
   Folder,
   LayoutDashboard,
@@ -59,4 +60,5 @@ export const shellIcons = {
   domain: Blocks,
   artifact: FileStack,
   jobs: Clock,
+  logs: ScrollText,
 } as const satisfies Record<string, LucideIcon>;

@@ -1,4 +1,4 @@
-// domain 화면 gallery. project 창은 진짜 Desktop(MockDesktop)의 오른쪽 sidebar의 Domains panel이고, 앱 공간은 진짜 AppSpace의 App details다.
+// domain 화면 gallery. project 창은 진짜 Desktop(MockDesktop)의 오른쪽 sidebar의 Domains panel이고, 앱 place는 진짜 Desktop의 앱 place에서 오른쪽 sidebar의 Domain panel이다.
 // 상태는 fake source의 바탕과 mount 뒤 사람이 하는 것 같은 단추 누르기(drive)로 만든다. 화면에 gallery 전용 prop은 없다.
 import { useMemo } from "react";
 
@@ -87,7 +87,7 @@ async function archiveFromMenu(title: string) {
   await wait(100);
 }
 
-/** 앱 상세의 Domains 절. last면 둘을 보관해 마지막 하나만 남기고 그 줄의 Archive에 hover한다. */
+/** 앱 place Domain panel. last면 둘을 보관해 마지막 하나만 남기고 그 줄의 Archive에 hover한다. */
 export function AppDomains({ last = false }: { last?: boolean }) {
   useDrive(async () => {
     if (last) {
@@ -101,14 +101,14 @@ export function AppDomains({ last = false }: { last?: boolean }) {
       new PointerEvent("pointerover", { bubbles: true, pointerType: "mouse" }),
     );
   });
-  return <AppSpace panel="version" />;
+  return <AppSpace panel="domain" />;
 }
 
-/** 앱 상세 Domains 줄 menu의 Open DOMAIN.md. 그 줄 아래가 markdown 편집기가 된다. */
+/** 앱 place Domain panel 줄 menu의 Open DOMAIN.md. 그 줄 아래가 markdown 편집기가 된다. */
 export function AppDomainDoc() {
   useDrive(async () => {
     await openRowMenu("Orders");
     await click('[role="menuitem"]', "Open DOMAIN.md");
   });
-  return <AppSpace panel="version" />;
+  return <AppSpace panel="domain" />;
 }

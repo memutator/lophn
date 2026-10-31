@@ -12,6 +12,7 @@ import type { DraftStore } from "../../conversation/drafts.ts";
 import type { ReadPosition } from "./kind.ts";
 import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import type { ArtifactListItem } from "../../../ipc/artifact.ts";
+import type { AppFrameViewState } from "../../../ipc/app-frame.ts";
 import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 
 /** 파일 탭이 작업대와 나누는 상태. */
@@ -73,6 +74,12 @@ export interface ArtifactsSlice {
   reload(): void;
 }
 
+/** 앱 place의 앱 화면 탭이 작업대와 나누는 것. 앱 place가 아니면 host.appScreen은 null이다. */
+export interface AppScreenSlice {
+  /** 앱 화면의 view가 열리거나(state) 닫혔다(null). App panel의 Annotate가 그 view를 가리킨다. */
+  reportView(state: AppFrameViewState | null): void;
+}
+
 export interface TabHost {
   /** 이 창이 보이는 place. Home이면 project 폴더가 필요한 kind는 열리지 않는다. */
   readonly place: PlaceRef;
@@ -83,6 +90,10 @@ export interface TabHost {
   readonly explorerRoot: string | undefined;
   /** 통로(editor·terminal 등)와 열기 콜백. */
   readonly props: PlaceWindowProps;
+  /** 앱 place의 이름. 읽기 전에는 undefined. 앱 화면 탭의 제목이다. */
+  readonly appName: string | undefined;
+  /** 앱 화면 탭의 통로. */
+  readonly appScreen: AppScreenSlice | null;
   /** 앱 화면 목록을 읽을 수 있는지. 없으면 앱 패널을 열지 않는다. */
   readonly appScreens: boolean;
   /** 보이는 desk. */

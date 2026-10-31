@@ -9,6 +9,8 @@ import {
   devMock,
 } from "../../../packages/shell/renderer/desktop/dev-mock/mod.ts";
 import { PROJECT_GROCERY } from "../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
+import type { AppDetailSource } from "../../../packages/shell/renderer/app-frame/app-detail/source.ts";
+import type { WorkspaceSource } from "../../../packages/shell/renderer/workspace/source.ts";
 import type { CoreSource } from "../../../packages/shell/renderer/desktop/connection/connection.ts";
 import {
   HOME,
@@ -55,6 +57,7 @@ interface TabSpec {
     | "project_settings"
     | "browser"
     | "artifact"
+    | "app_screen"
     | "agent";
   readonly title: string;
   readonly folder?: string;
@@ -67,8 +70,10 @@ interface TabSpec {
   readonly domain?: string;
   readonly name?: string;
   readonly path?: string;
-  /** agent 탭이 보는 agent(기본 lophn). Home place의 탭이다. */
+  /** agent 탭이 보는 agent(기본 lophn). */
   readonly agent?: string;
+  /** agent 탭의 place. 없으면 Home이다. */
+  readonly workPlace?: { readonly kind: "app"; readonly id: string };
 }
 
 export interface PaneSpec {
@@ -100,6 +105,12 @@ interface MockDesktopProps {
   readonly emptyHome?: boolean;
   /** 주면 이 탭들을 Home place의 layout으로 쓴다(route는 Home). */
   readonly homeTabs?: readonly TabSpec[];
+  /** 앱 place의 App·Domain panel 통로. page가 fake(`fakeDetail`)로 정한다. 없으면 dev mock 것이다. */
+  readonly appDetail?: AppDetailSource;
+  /** 앱 place의 Logs가 읽는 run 기록. 없으면 dev mock 것이다. */
+  readonly runs?: WorkspaceSource["runs"];
+  /** 이 연결로 event를 읽는다(Logs의 run session 상태). */
+  readonly events?: (events: CoreSource) => CoreSource;
   /** 이 core 연결 상태를 고정한다(시작 실패 화면). */
   readonly core?: CoreSource;
   /** Settings에서 처음 보일 항목. 주면 route 대신 Settings를 연다. */
@@ -141,8 +152,11 @@ function storedTab(tab: TabSpec) {
       kind: tab.kind,
       key: tab.key,
       agent: tab.agent ?? "lophn",
-      work_place: { kind: "home" },
+      work_place: tab.workPlace ?? { kind: "home" },
     };
+  }
+  if (tab.kind === "app_screen") {
+    return { kind: tab.kind, key: tab.key, app: tab.app };
   }
   if (tab.kind === "browser") {
     return { kind: tab.kind, key: tab.key, url: tab.url ?? "" };
@@ -244,11 +258,12 @@ export function MockDesktop(props: MockDesktopProps) {
       homeTabs === undefined
         ? undefined
         : layoutOf([{ tabs: homeTabs, selected: homeTabs[0]?.key ?? "" }], []);
-    const workspace =
-      panes === undefined && homeLayout === undefined
-        ? mock.workspace
+    const workspace: WorkspaceSource = {
+      ...mock.workspace,
+      ...(props.runs === undefined ? {} : { runs: props.runs }),
+      ...(panes === undefined && homeLayout === undefined
+        ? {}
         : {
-            ...mock.workspace,
             layout: createLayoutSource(() => ({
               readPlace: () =>
                 Promise.resolve({
@@ -258,7 +273,8 @@ export function MockDesktop(props: MockDesktopProps) {
                 }),
               savePlace: () => Promise.resolve({ ok: true as const }),
             })),
-          };
+          }),
+    };
     const terminalBridge = fakeTerminal(PROJECT_GROCERY);
     const terminalStore = new TerminalStore(null, null);
     const terminal = {
@@ -304,10 +320,19 @@ export function MockDesktop(props: MockDesktopProps) {
       workspace,
       terminal,
       conversation: { drafts: new DraftStore() },
-      events: createEventClient(mock.events),
+      events: createEventClient(props.events?.(mock.events) ?? mock.events),
       settingsPanels: mock.settingsPanels,
     };
-  }, [panes, floats, openTerminal, emptyHome, homeTabs, detachedTab]);
+  }, [
+    panes,
+    floats,
+    openTerminal,
+    emptyHome,
+    homeTabs,
+    detachedTab,
+    props.runs,
+    props.events,
+  ]);
   const { mock } = wiring;
   const annotate = props.annotate ?? mock.annotate;
   return (
@@ -329,9 +354,8 @@ export function MockDesktop(props: MockDesktopProps) {
                   apps={wiring.apps}
                   settings={mock.settings}
                   settingsPanels={wiring.settingsPanels}
-                  appDetail={mock.appDetail}
+                  appDetail={props.appDetail ?? mock.appDetail}
                   views={mock.views}
-                  annotate={annotate}
                   agentViewSource={mock.agentViewSource}
                 />
               </EventsProvider>

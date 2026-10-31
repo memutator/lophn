@@ -37,7 +37,6 @@ import type { ProjectsSource } from "./places/projects/source.ts";
 import type { IntentApi } from "../../ipc/shortcuts.ts";
 import { DesktopIntents } from "./intents.tsx";
 import type { DesktopTarget } from "./palette/desktop-scope.ts";
-import { AppSpace } from "../app-frame/app-space.tsx";
 import { AppWindow } from "../app-frame/app-window.tsx";
 import type { AppsSource } from "../apps/source.ts";
 import type { SettingsPane } from "./settings/model.ts";
@@ -47,7 +46,6 @@ import { ConnectProviderHost } from "./settings/providers/connect-host.tsx";
 import { applyAppearance } from "./settings/appearance/model.ts";
 import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
-import type { LophnShellAnnotateApi } from "../../ipc/annotation.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
 import type { KeybindingsApi } from "../../ipc/keybindings.ts";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
@@ -89,12 +87,10 @@ interface DesktopProps {
   settings?: SettingsSource;
   /** settings 항목마다의 통로. 없는 항목은 준비 전 안내다. */
   settingsPanels?: SettingsPanels;
-  /** 앱 공간 운영 패널의 app-detail 통로. 없으면 app-detail 탭을 두지 않는다. */
+  /** 앱 place 오른쪽 sidebar의 App·Domain panel 통로. 없으면 준비 전 안내다. */
   appDetail?: AppDetailSource;
-  /** shell preload의 앱 view 통로. 앱 공간 본문이 쓴다. */
+  /** shell preload의 앱 view 통로. 앱 전용 창이 쓴다(place 창의 앱 화면은 AppViewsProvider로 받는다). */
   views?: LophnShellViewsApi;
-  /** shell preload의 Annotate 통로. 없으면 Annotate 단추를 두지 않는다. */
-  annotate?: LophnShellAnnotateApi;
   /** Agent 화면이 agent 하나의 통로를 얻는 함수. 앱 공간의 agent 칸이 쓴다. 없으면 칸은 준비 안 됨이다. */
   agentViewSource?: AgentTabSourceFactory;
   /** 창 위 overlay. toast를 띄운다. 없으면 toast를 띄우지 않는다. */
@@ -174,7 +170,6 @@ export function Desktop({
   settingsPanels,
   appDetail,
   views,
-  annotate,
   agentViewSource,
   overlay,
   hookPrompt,
@@ -383,31 +378,26 @@ export function Desktop({
           agentViewSource={agentViewSource}
         />
       ) : null;
-  } else if (route.space === "app" && route.app && apps && live) {
+  } else if (route.space === "app" && route.app && workspace && apps && live) {
     space = (
-      <AppSpace
+      <PlaceWindow
         key={route.app}
-        app={route.app}
-        source={apps}
-        views={views}
-        detail={appDetail}
-        agents={workspace?.agentsSource}
-        runs={
-          workspace === undefined
-            ? undefined
-            : () => workspace.runs({ place: { app: route.app! } })
-        }
-        agentViewSource={agentViewSource}
-        onSettings={settingsSpace}
+        place={{ kind: "app", id: route.app }}
+        source={workspace}
         windowWidth={windowWidth}
-        onLauncher={home}
-        annotate={annotate}
-        overlay={overlay}
+        onHome={home}
+        onSettings={settingsSpace}
+        jobs={settingsPanels?.jobs}
+        onOpenApp={appSpace}
+        apps={apps}
+        appDetail={appDetail}
+        onPlace={openPlace}
+        onNewApp={(app) => setRoute(openNewApp(app))}
+        projects={projects}
+        editor={editor}
+        agentViewSource={agentViewSource}
         session={route.session}
         startLophn={route.newSession}
-        onOpenSession={openSession}
-        places={catalog}
-        onOpenPlace={openPlace}
       />
     );
   } else if (

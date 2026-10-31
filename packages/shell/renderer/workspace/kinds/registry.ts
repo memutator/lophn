@@ -6,6 +6,7 @@ import { t } from "@lophn/i18n";
 import { agentKind } from "./agent.tsx";
 import { agentsKind } from "./agents.tsx";
 import { appPanelKind } from "./app-panel.tsx";
+import { appScreenKind } from "./app-screen.tsx";
 import { artifactKind } from "./artifact.tsx";
 import { browserKind } from "./browser.tsx";
 import { browserDevtoolsKind } from "./browser-devtools.tsx";
@@ -19,6 +20,7 @@ import { workflowKind } from "./workflow.tsx";
 const BUILT_IN_TAB_KINDS = [
   documentEditorKind,
   appPanelKind,
+  appScreenKind,
   terminalKind,
   searchKind,
   agentsKind,

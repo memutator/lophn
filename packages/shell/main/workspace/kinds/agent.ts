@@ -10,11 +10,15 @@ const layout = z.strictObject({
   key: tabKey,
   // place에 놓인 agent의 id.
   agent: z.string().min(1).max(128),
-  // 이 layout의 place다: project 또는 Home. 앱 공간의 Agent 칸은 이 layout을 쓰지 않는다.
+  // 이 layout의 place다: project, 앱, Home.
   work_place: z.union([
     z.strictObject({
       kind: z.literal("project"),
       id: z.string().refine((value) => idOf("prj", value) !== null),
+    }),
+    z.strictObject({
+      kind: z.literal("app"),
+      id: z.string().refine((value) => idOf("app", value) !== null),
     }),
     z.strictObject({ kind: z.literal("home") }),
   ]),

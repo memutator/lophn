@@ -1,81 +1,97 @@
-// 앱 공간 page들. 각 component는 인자 없이 한 상태를 고정해 그린다.
+// 앱 place page들. 각 component는 인자 없이 한 상태를 고정해 그린다.
 import { AppSpace } from "./space.tsx";
 
-export function AppSpaceFrame() {
-  return <AppSpace agentMenu />;
+/** 앱 place를 처음 연 모양: 앱 화면 탭 하나, 오른쪽 App panel. */
+export function AppPlaceScreen() {
+  return <AppSpace />;
 }
 
-/** Background 목록. agent run은 아래에 그 run이 연 session이 있고 tool run은 session 줄이 없다. job이 연 run(agent run 하나와 tool run 하나)은 이름 자리에 job 제목이 오고 둘째 줄에 agent 또는 tool 이름이 온다. 다른 앱과 lophn의 run은 없다. */
+/** 앱 화면과 그 앱 place의 lophn session을 붙인 split. 오른쪽 sidebar는 접었다. */
+export function AppPlaceSplit() {
+  return <AppSpace layout="split" rightClosed />;
+}
+
+/** 앱 화면 탭과 session 탭이 따로 선 모양. session 탭을 골랐다. */
+export function AppPlaceSession() {
+  return <AppSpace layout="session" />;
+}
+
+/** Logs. agent run은 아래에 그 run이 연 session이 있고 tool run은 session 줄이 없다. job이 연 run(agent run 하나와 tool run 하나)은 이름 자리에 job 제목이 오고 둘째 줄에 agent 또는 tool 이름이 온다. 다른 앱과 lophn의 run은 없다. */
 export function RunsList() {
-  return <AppSpace runs="list" />;
+  return <AppSpace panel="logs" runs="list" />;
 }
 
 export function RunsEmpty() {
-  return <AppSpace runs="empty" />;
+  return <AppSpace panel="logs" runs="empty" />;
+}
+
+/** Domain panel. 앱이 쓰는 domain 목록이다. */
+export function DomainPanel() {
+  return <AppSpace panel="domain" />;
 }
 
 export function VersionApplied() {
-  return <AppSpace panel="version" />;
+  return <AppSpace ops="version" />;
 }
 
 export function VersionApplying() {
-  return <AppSpace panel="version" version="applying" />;
+  return <AppSpace ops="version" version="applying" />;
 }
 
 export function VersionFailed() {
-  return <AppSpace panel="version" version="failed" />;
+  return <AppSpace ops="version" version="failed" />;
 }
 
 export function AccessGrants() {
-  return <AppSpace panel="access" />;
+  return <AppSpace ops="access" />;
 }
 
 export function AccessRevoking() {
-  return <AppSpace panel="access" revoking={["secret", "reserve"]} />;
+  return <AppSpace ops="access" revoking={["secret", "reserve"]} />;
 }
 
 export function AccessSecrets() {
-  return <AppSpace panel="access" secrets="plain" />;
+  return <AppSpace ops="access" secrets="plain" />;
 }
 
 export function AccessOAuthSetup() {
-  return <AppSpace panel="access" secrets="oauth-setup" />;
+  return <AppSpace ops="access" secrets="oauth-setup" />;
 }
 
 export function AccessOAuthReady() {
-  return <AppSpace panel="access" secrets="oauth-ready" />;
+  return <AppSpace ops="access" secrets="oauth-ready" />;
 }
 
 export function AccessOAuthWaiting() {
-  return <AppSpace panel="access" secrets="oauth-waiting" />;
+  return <AppSpace ops="access" secrets="oauth-waiting" />;
 }
 
 export function AccessOAuthSignedIn() {
-  return <AppSpace panel="access" secrets="oauth-signed-in" />;
+  return <AppSpace ops="access" secrets="oauth-signed-in" />;
 }
 
 export function AccessOAuthFailed() {
-  return <AppSpace panel="access" secrets="oauth-failed" />;
+  return <AppSpace ops="access" secrets="oauth-failed" />;
 }
 
 export function ActivityLog() {
-  return <AppSpace panel="activity" activity={{ open: "i-20" }} />;
+  return <AppSpace ops="activity" activity={{ open: "i-20" }} />;
 }
 
 export function RewindConfirm() {
-  return <AppSpace panel="activity" activity={{ rewind: "confirm" }} />;
+  return <AppSpace ops="activity" activity={{ rewind: "confirm" }} />;
 }
 
 export function RewindRunning() {
-  return <AppSpace panel="activity" activity={{ rewind: "running" }} />;
+  return <AppSpace ops="activity" activity={{ rewind: "running" }} />;
 }
 
 export function RewindDone() {
-  return <AppSpace panel="activity" activity={{ rewind: "done" }} />;
+  return <AppSpace ops="activity" activity={{ rewind: "done" }} />;
 }
 
 export function RewindConflict() {
-  return <AppSpace panel="activity" activity={{ rewind: "conflict" }} />;
+  return <AppSpace ops="activity" activity={{ rewind: "conflict" }} />;
 }
 
 export function AnnotatePicking() {
@@ -99,7 +115,6 @@ export function AnnotateList() {
   return (
     <AppSpace
       annotate={{
-        list: true,
         marks: {
           picked: {
             ship: { n: 1 },
@@ -127,18 +142,4 @@ export function AnnotateList() {
       }}
     />
   );
-}
-
-// ---- 오른쪽 패널: App details, agent 탭 ----
-
-/** 두 탭이 한 줄에 선 패널. App details를 보고 있다. */
-export function SidePanelTabs() {
-  return (
-    <AppSpace panel="version" pane={{ view: "details", agent: "lophn" }} />
-  );
-}
-
-/** 앱 화면 옆에 붙은 agent 탭. title bar의 Agent select로 연다. */
-export function AgentPaneOpen() {
-  return <AppSpace pane={{ agent: "lophn" }} />;
 }

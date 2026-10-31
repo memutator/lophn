@@ -9,12 +9,13 @@ import {
   type AgentViewHost,
 } from "../../conversation/agent-view.tsx";
 import type { AgentViewSlice } from "../kinds/host.ts";
+import { sourcePlaceOf } from "./tab-fields.ts";
 import styles from "./agent-tab.module.css";
 
 interface AgentTabProps {
   /** agent id. lophn이거나 `agt_…`다. */
   agent: string;
-  /** 탭을 연 project. 그 탭 session의 place다. */
+  /** 탭을 연 project나 앱. 그 탭 session의 place다. Home이면 null. */
   place: string | null;
   slice: AgentViewSlice;
   session: string | null;
@@ -32,10 +33,7 @@ export function AgentTab(props: AgentTabProps) {
     () =>
       slice.factory({
         assignment: agent,
-        place:
-          place === null
-            ? { kind: "global", id: "" }
-            : { kind: "project", id: place },
+        place: sourcePlaceOf(place),
       }),
     [slice.factory, agent, place],
   );

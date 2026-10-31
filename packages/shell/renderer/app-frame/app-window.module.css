@@ -9,6 +9,11 @@
   background: var(--color-surface-base);
 }
 
+/* 창 전체를 쓰므로 앱 화면 모서리는 각지다(webview-host.module.css). */
+.window [data-webview-key] {
+  border-radius: var(--space-0);
+}
+
 .body {
   position: relative;
   display: flex;

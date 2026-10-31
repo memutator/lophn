@@ -30,6 +30,8 @@ interface NewTabMenuProps {
   onAgent?: (agent: string) => void;
   onSearch?: () => void;
   onAppPanel?: () => void;
+  /** 앱 place에서만 있다. 닫은 앱 화면 탭을 다시 연다. */
+  onAppScreen?: () => void;
 }
 
 type Level = "root" | "agent";
@@ -90,6 +92,13 @@ export function NewTabMenu(props: NewTabMenuProps) {
       leading: lead(paletteIcons.search),
     });
   }
+  if (props.onAppScreen) {
+    root.push({
+      id: "app-screen",
+      label: t("app-space.label.menu-app-screen"),
+      leading: lead(workspaceIcons.appPanel),
+    });
+  }
   if (props.onAppPanel) {
     root.push({
       id: "app-panel",
@@ -122,6 +131,7 @@ export function NewTabMenu(props: NewTabMenuProps) {
     else if (id === "terminal") props.onTerminal?.();
     else if (id === "browser") props.onBrowser?.();
     else if (id === "search") props.onSearch?.();
+    else if (id === "app-screen") props.onAppScreen?.();
     else if (id === "app-panel") props.onAppPanel?.();
     else if (id.startsWith("agent:")) props.onAgent?.(id.slice(6));
   };

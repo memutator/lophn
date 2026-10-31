@@ -253,7 +253,6 @@ mount(
                         settingsPanels={settingsPanels}
                         appDetail={appDetail}
                         views={views}
-                        annotate={annotate}
                         overlay={bridges.lophnShell}
                         hookPrompt={hookPrompt}
                         agentViewSource={agentViewSource}

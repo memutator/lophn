@@ -5,9 +5,13 @@
   pointer-events: none;
 }
 
+/* <webview>는 slot의 부모로 잘리지 않아 card의 둥근 모서리를 직접 그린다. 화면은 card·float 패널의 머리 줄 아래에 있어 아래 두 모서리만 둥글다.
+   창 전체를 쓰는 앱 전용 창은 app-window.module.css가 각지게 덮는다. */
 .page {
   position: absolute;
   display: flex;
+  overflow: hidden;
+  border-radius: var(--space-0) var(--space-0) var(--radius-lg) var(--radius-lg);
   border: none;
   pointer-events: auto;
   background: var(--color-surface-base);

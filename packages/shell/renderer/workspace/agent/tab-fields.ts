@@ -12,7 +12,7 @@ export function agentOf(tab: TabItem): string | null {
     : null;
 }
 
-/** 탭을 연 자리(project id, Home이면 "home"). 탭을 연 뒤 바꾸지 않는다. */
+/** 탭을 연 자리(project id, app id, Home이면 "home"). 탭을 연 뒤 바꾸지 않는다. */
 export function placeOf(tab: TabItem): string | null {
   const place = tab.fields?.place;
   return typeof place === "string" && place.length > 0 && place.length <= 128
@@ -26,4 +26,24 @@ export function sessionOf(tab: TabItem): string | null {
   return typeof session === "string" && SESSION_ID.test(session)
     ? session
     : null;
+}
+
+const APP_PLACE = /^app_/;
+
+/** 탭을 연 자리 key를 agent source의 place로 옮긴다. app id는 `app_`로 시작해 project id와 갈린다. */
+export function sourcePlaceOf(
+  place: string | null,
+):
+  | { readonly kind: "global"; readonly id: "" }
+  | { readonly kind: "project" | "app"; readonly id: string } {
+  if (place === null || place === "home") return { kind: "global", id: "" };
+  return { kind: APP_PLACE.test(place) ? "app" : "project", id: place };
+}
+
+/** layout 파일의 work_place. */
+export function workPlaceOf(
+  place: string,
+): { kind: "home" } | { kind: "project" | "app"; id: string } {
+  if (place === "home") return { kind: "home" };
+  return { kind: APP_PLACE.test(place) ? "app" : "project", id: place };
 }

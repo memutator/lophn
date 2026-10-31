@@ -9,7 +9,7 @@ import { SHELL_ROUTES } from "./routes.ts";
 // - 앱 OAuth 로그인의 client id 넣기·시작·취소·sign out·상태 읽기(앱 공간 Access 탭 secret 줄). client secret 값은 보호 입력 창이 받는다.
 // - Grants의 MCP tool 목록 읽기(`agent-mcp-tools/list`). 같은 resource의 `take`·`done`은 runtime만 부른다.
 // - 대기 목록의 turn request 결정(`turn_requests/decide`)과 질문 읽기·답(`ask/read`·`ask/answer`)
-// - 대화 입력함의 지금 보내기·빼기(`session_inputs/steer_now`·`remove`)
+// - 대화 입력함의 지금 보내기·빼기·고치기·순서 바꾸기(`session_inputs/steer_now`·`remove`·`edit`·`move`)
 // - workflow 목록 읽기와 시작·멈춤(Workflows 탭과 sidebar). 보고(`report`)와 고치기(`edit`)는 agent가 부르므로 renderer는 부르지 않는다.
 // 다른 memory route는 main의 고정 통로만 부른다.
 const RENDERER_MEMORY_ROUTES: readonly string[] = [
@@ -33,6 +33,8 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:ask/answer",
   "memory:session_inputs/steer_now",
   "memory:session_inputs/remove",
+  "memory:session_inputs/edit",
+  "memory:session_inputs/move",
   "memory:workflows/list",
   "memory:workflows/start",
   "memory:workflows/stop",

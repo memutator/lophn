@@ -68,6 +68,18 @@ const messageReceived = defineAgentEvent(
   }),
 );
 
+// 다음 turn 줄의 사람 메시지를 [Send now]로 도는 turn의 steer로 올렸다. 다음 model 요청에 실린다.
+const messageSteered = defineAgentEvent(
+  "MessageSteered",
+  z.strictObject({ message: idSchema("msg") }),
+);
+
+// 다음 turn 줄의 사람 메시지를 뺐다. 기록에서도 지워졌다.
+const messageRemoved = defineAgentEvent(
+  "MessageRemoved",
+  z.strictObject({ message: idSchema("msg") }),
+);
+
 const turnStarted = defineAgentEvent(
   "TurnStarted",
   z.strictObject({ turn, input_message: idSchema("msg") }),
@@ -182,6 +194,8 @@ const sessionEnded = defineAgentEvent(
 export const agentEventSchema = z.discriminatedUnion("type", [
   agentEventEnvelopeSchema(sessionStarted),
   agentEventEnvelopeSchema(messageReceived),
+  agentEventEnvelopeSchema(messageSteered),
+  agentEventEnvelopeSchema(messageRemoved),
   agentEventEnvelopeSchema(turnStarted),
   agentEventEnvelopeSchema(turnEnded),
   agentEventEnvelopeSchema(turnResumed),

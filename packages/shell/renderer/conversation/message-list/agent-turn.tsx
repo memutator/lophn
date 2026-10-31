@@ -33,6 +33,7 @@ export function WorkingRow({
   now,
   waiting,
   streaming = false,
+  activity,
 }: {
   clock: { activeMs: number; at: number } | null;
   now: () => number;
@@ -40,6 +41,11 @@ export function WorkingRow({
   waiting?: "approval" | "answer";
   /** 쓰는 중인 글이 보이고 있다. */
   streaming?: boolean;
+  /**
+   * 지금 하는 일 한 줄(도는 tool의 제목, 또는 reasoning 중이면 "Thinking"). Messages 보기는 tool 줄과 reasoning을 숨겨
+   * 오래 걸리는 turn이 멈춘 것처럼 보이므로 이 줄이 진행을 말한다. 모든 보기에서 같은 한 줄을 보인다.
+   */
+  activity?: string | undefined;
 }): ReactElement | null {
   const shown = useDelayedLoading(true);
   const [start] = useState(now);
@@ -81,6 +87,11 @@ export function WorkingRow({
           {duration(elapsed)}
         </span>
       ) : null}
+      {activity === undefined ? null : (
+        <span className={styles.activity} data-activity="">
+          {t("conversation.label.status-activity", { activity })}
+        </span>
+      )}
       {hint === null ? null : (
         <span
           className={styles.hint}

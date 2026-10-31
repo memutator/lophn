@@ -26,6 +26,7 @@ import {
   ContextWarningScene,
   ConversationScene,
   DetailScene,
+  WorkingMessagesScene,
   EditDiffScene,
   FindScene,
   ModelShortcutScene,
@@ -231,6 +232,8 @@ export const AgentContextWarning = ContextWarningScene;
 export const AgentContextFull = ContextFullScene;
 /** header의 단계 상세 menu에서 Everything을 고른 모습. */
 export const AgentDetail = DetailScene;
+/** Messages 보기의 일하는 중 줄. 도는 tool의 제목이 붙는다. */
+export const AgentWorkingMessages = WorkingMessagesScene;
 /** Ctrl+F로 연 대화 안 찾기 줄. */
 export const AgentFind = FindScene;
 /** session 검색의 메시지 글 결과. */

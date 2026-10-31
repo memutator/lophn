@@ -95,6 +95,7 @@ function senderOf(
 /**
  * event 하나를 줄에 접는다. 같은 event를 두 번 접어도 같은 결과다(id로 한 번만 든다).
  * - MessageReceived: 사람이 도는 중에 다음 turn으로 보낸 것은 `queued`에, 나머지는 줄에 든다.
+ * - MessageSteered·MessageRemoved: 다음 turn 줄의 메시지가 [Send now]로 대화의 steer 줄이 되거나 [x]로 빠진다.
  * - TurnStarted: 그 입력 메시지를 줄로 올리고 turn을 연다. 다른 turn의 live 글은 버린다.
  * - TurnResumed: 마지막 사람 기다림이 닫혀 다시 도는 순간이다. 그 turn의 elapsed를 event의 active와 at으로 맞춘다.
  * - TurnEnded: 응답 글(`messages`)과 꼬리를 붙이고 그 turn의 live 글을 버린다. 실패하고 오류가 있으면 꼬리
@@ -140,6 +141,36 @@ function foldEvent(
       };
       return { ...view, entries: [...view.entries, entry] };
     }
+    case "MessageSteered": {
+      const queued = view.queued.find(
+        (item) => item.id === event.payload.message,
+      );
+      if (queued === undefined) return view;
+      return {
+        ...view,
+        queued: view.queued.filter((item) => item.id !== queued.id),
+        entries: [
+          ...view.entries,
+          {
+            kind: "message",
+            id: queued.id,
+            at: queued.at,
+            actor: "user",
+            sender: null,
+            call: null,
+            replyTo: null,
+            delivery: "steer",
+            turn: running(view.turn) ? view.turn!.id : null,
+            text: queued.text,
+          },
+        ],
+      };
+    }
+    case "MessageRemoved":
+      return {
+        ...view,
+        queued: view.queued.filter((item) => item.id !== event.payload.message),
+      };
     case "TurnStarted": {
       const { turn, input_message } = event.payload;
       const queued = view.queued.find((item) => item.id === input_message);
@@ -222,6 +253,12 @@ function foldEvent(
             text:
               live !== null && live.modelCall === modelCall && live.text !== ""
                 ? live.text
+                : null,
+            liveReasoning:
+              live !== null &&
+              live.modelCall === modelCall &&
+              live.reasoning !== ""
+                ? live.reasoning
                 : null,
           },
         ],
@@ -605,6 +642,16 @@ export function useAgentTabData(
     }
     previous.current = stream.status;
   }, [stream.status, readThread]);
+
+  // 조건이 다시 걸려(다른 구독자가 생기거나 사라져도 걸린다) ready가 또 오면 그 사이 놓친 event가 있을 수 있다.
+  // 끊김으로 나타나지 않으니 맞춘 횟수가 늘 때마다 현재 기록으로 다시 맞춘다. 처음 맞춤은 위의 첫 읽기가 맡는다.
+  const syncedBefore = useRef(stream.synced);
+  useEffect(() => {
+    if (stream.synced > syncedBefore.current && syncedBefore.current > 0) {
+      void readThread();
+    }
+    syncedBefore.current = stream.synced;
+  }, [stream.synced, readThread]);
 
   // event가 싣지 못한 줄(편집 카드, call 블록, 답)은 turn이 끝났을 때 한 번 읽어 채운다.
   const seen = useRef(0);

@@ -138,6 +138,7 @@ export function AgentThread(props: AgentThreadProps): ReactElement {
           ? {}
           : { waiting: props.working.waiting })}
         streaming={live !== null && live.text !== ""}
+        activity={activityOf(entries, live)}
       />,
     );
   }
@@ -159,6 +160,21 @@ export function AgentThread(props: AgentThreadProps): ReactElement {
   );
 }
 
+/** 일하는 중 줄에 붙일 지금 하는 일. 글이 흐르면 그 글이 진행 표시라 붙이지 않는다. */
+function activityOf(
+  entries: readonly ThreadEntry[],
+  live: LiveText | null,
+): string | undefined {
+  if (live !== null) {
+    return live.text === "" && live.reasoning !== ""
+      ? t("conversation.label.status-thinking")
+      : undefined;
+  }
+  const last = entries.at(-1);
+  if (last?.kind !== "tools") return undefined;
+  return last.calls.findLast((call) => call.state === "running")?.title;
+}
+
 function hasEntry(entries: readonly ThreadEntry[], id: string): boolean {
   return entries.some(
     (entry) =>
@@ -169,6 +185,11 @@ function hasEntry(entries: readonly ThreadEntry[], id: string): boolean {
 
 interface Group {
   readonly id: string;
+  /**
+   * React key. 묶음을 연 줄의 id는 쓰는 중인 글이 저장되거나 snapshot이 줄을 더하면 바뀌어 묶음 전체가 다시 mount된다
+   * (깜빡임). 바로 앞 구분 줄(내 말, 받은 메시지, 숨긴 구간)의 id는 그때도 그대로다.
+   */
+  readonly key: string;
   readonly at: string;
   readonly time: string;
   readonly items: ReactNode[];
@@ -220,6 +241,7 @@ function itemsOf(
   // 묶음은 닫혀 있을 때 group이 null이다. closure가 열고 닫으므로 상자에 담아 읽는다(TS는 closure의 대입을
   // 흐름 분석에 넣지 않는다).
   const open: { group: Group | null } = { group: null };
+  let after = "start";
   const flush = () => {
     const group = open.group;
     if (group === null) return;
@@ -229,7 +251,7 @@ function itemsOf(
       retryGroup === null || retryGroup !== group.id ? null : lastEnded!.turn;
     out.push(
       <AgentTurn
-        key={`turn-${group.id}`}
+        key={`turn-${group.key}`}
         agent={props.agent}
         time={group.time}
         actionTime={
@@ -257,6 +279,7 @@ function itemsOf(
   ) => {
     open.group ??= {
       id: entry.id,
+      key: after,
       at: entry.at,
       time: clockTime(entry.at),
       items: [],
@@ -277,6 +300,7 @@ function itemsOf(
                 message={entry.id}
                 body={props.drafts.body(entry.id)}
                 fallback={entry.text ?? undefined}
+                fallbackReasoning={entry.liveReasoning ?? undefined}
                 artifacts={props.artifacts}
                 reasoning={props.detail !== "messages"}
               />
@@ -290,6 +314,7 @@ function itemsOf(
               ? userMessage(entry, props, nested)
               : receivedMessage(entry, props, all),
           );
+          after = entry.id;
         }
         break;
       case "tools":
@@ -402,6 +427,7 @@ function itemsOf(
             </div>
           </HiddenRange>,
         );
+        after = entry.id;
         break;
     }
   }

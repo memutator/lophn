@@ -38,6 +38,9 @@ const sessionSnapshotSchema = z.object({
     })
     .nullable()
     .optional(),
+  // lophn session만 싣는다. [Send now]로 올렸지만 아직 model 요청에 싣지 않은 steer의 message. 기록에는 아직 turn이
+  // 비어 있어서 화면이 다음 turn 줄과 가르는 근거다.
+  steering: z.array(idSchema("msg")).optional(),
   turn_requests: z.array(turnRequestSchema),
   questions: z.array(
     z.object({

@@ -32,6 +32,8 @@ interface MessageBodyProps {
   plain?: boolean;
   /** reasoning part를 그린다. 없으면 false다. 사람 말과 받은 메시지는 넘기지 않는다. */
   reasoning?: boolean;
+  /** 본문을 읽기 전 reasoning 자리. 글이 없는 응답이 저장되는 순간 live 줄이 사라져 빈 틈이 생기지 않게 한다. */
+  fallbackReasoning?: string | undefined;
 }
 
 /**
@@ -45,6 +47,7 @@ export const MessageBody = memo(function MessageBody({
   artifacts,
   plain,
   reasoning,
+  fallbackReasoning,
 }: MessageBodyProps): ReactElement {
   if (body?.state === "ready") {
     // 앱 카드는 본문 순서 그대로 글 사이 자리에 그린다.
@@ -96,6 +99,22 @@ export const MessageBody = memo(function MessageBody({
       <ArtifactText text={fallback} artifacts={artifacts} />
     ) : (
       <ChatMarkdown text={fallback} artifacts={artifacts} />
+    );
+  }
+  if (
+    body?.state !== "failed" &&
+    reasoning === true &&
+    fallbackReasoning !== undefined
+  ) {
+    return (
+      <div className={styles.body} data-body="loading">
+        <Reasoning
+          text={fallbackReasoning}
+          durationMs={null}
+          thinking={false}
+          artifacts={artifacts}
+        />
+      </div>
     );
   }
   if (body?.state === "failed") {

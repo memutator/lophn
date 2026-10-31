@@ -742,8 +742,21 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         <QueuedMessages
           items={thread?.queued ?? []}
           disabled={offline}
-          onSendNow={(id) => void perform(() => source.sendQueuedNow(id))}
-          onRemove={(id) => void perform(() => source.removeQueued(id))}
+          onSendNow={(id) =>
+            void perform(async () => {
+              const result = await source.sendQueuedNow(id);
+              // 옮기는 event를 놓쳐도 줄이 남지 않게 기록을 다시 읽는다.
+              if (result.ok) await data.reload();
+              return result;
+            })
+          }
+          onRemove={(id) =>
+            void perform(async () => {
+              const result = await source.removeQueued(id);
+              if (result.ok) await data.reload();
+              return result;
+            })
+          }
           onEdit={(id, text) =>
             void perform(async () => {
               const result = await source.editQueued(id, text);

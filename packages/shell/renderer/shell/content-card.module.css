@@ -147,8 +147,20 @@
   height: var(--border-focus-width);
 }
 
-.pane[data-dim] .crumb:last-child {
-  color: var(--color-text-muted);
+/* group 안에서는 focus 칸의 머리 줄만 또렷하다. 나머지 칸은 머리 줄 전체(경로, 아이콘, 단추, center)를 흐리게
+   한다. 본문은 흐리지 않는다: webview는 card 위 다른 층이라 덮을 수 없고, 칸마다 효과가 달라진다. */
+.pane[data-dim] .head > * {
+  opacity: 0.4;
+  transition: opacity var(--motion-duration-short) var(--motion-ease);
+}
+
+/* 흐린 칸에서도 단추를 찾을 수 있게 hover하면 조금 살린다. */
+.pane[data-dim] .head:hover > * {
+  opacity: 0.75;
+}
+
+.pane[data-focused] .crumb:last-child {
+  font-weight: var(--font-weight-semibold);
 }
 
 .empty {

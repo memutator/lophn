@@ -188,6 +188,7 @@ export function ContentCard({
                 style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
                 data-pane={pane.key}
                 data-dim={(grouped && focus !== pane.key) || undefined}
+                data-focused={(grouped && focus === pane.key) || undefined}
                 onPointerDown={() => {
                   if (grouped) onFocus(pane.key);
                 }}

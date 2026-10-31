@@ -1,5 +1,9 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { PlaceKind, TurnMode } from "../../../protocol/lophn-agent/mod.ts";
+import type {
+  PlaceKind,
+  TurnLimits,
+  TurnMode,
+} from "../../../protocol/lophn-agent/mod.ts";
 import type {
   CredentialConditions,
   CredentialScope,
@@ -139,7 +143,7 @@ export type BeginTurnInput = {
   // 고정한 resolved agent 전체 값의 blob과 크기. 있으면 StartTurn이 영구 참조를 등록한다.
   resolved?: string;
   resolvedSize?: number;
-  limits: { model_attempts: number; stall_ms: number; active_ms: number };
+  limits: TurnLimits;
   mode: TurnMode;
 };
 

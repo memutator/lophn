@@ -20,30 +20,30 @@ import { z } from "zod";
 export type TurnLimits = z.infer<typeof turnLimitsSchema>;
 
 // turn 한도. 한도 값은 공통 설정이고 시작 때 turn에 고정된다(turns_started_immutable). 이 파일은
-// 시간·횟수를 세는 순수 계산이다. 시계는 주입한 단조 ms다. model·tool·ledger를 직접 부르지 않는다.
+// 시간·횟수를 세는 순수 계산이다. 일한 시간(active)은 "Worked for"에 쓰려고 셀 뿐 한도가 아니다.
+// 시계는 주입한 단조 ms다. model·tool·ledger를 직접 부르지 않는다.
 
 // 공통 설정 key.
 export const TURN_LIMIT_SETTING_KEYS = {
   model_attempts: "lophn-agent.run.model_attempts",
   stall_ms: "lophn-agent.run.stall_ms",
-  active_ms: "lophn-agent.run.active_ms",
 } as const;
 
-type TurnLimitKey = keyof typeof TURN_LIMIT_SETTING_KEYS;
+const limitValue = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 
-// turn 한도 선언. 공통 설정 하나씩이고 양의 정수만 받는다. 0·무제한은 없다. 사람이 바꾸고 다음 turn부터
-// 적용하며 turn은 시작할 때 값을 고정한다.
-function limitSetting(name: TurnLimitKey) {
-  return declareSetting({
-    key: TURN_LIMIT_SETTING_KEYS[name],
-    type: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-    default: DEFAULT_TURN_LIMITS[name],
-  });
-}
+// turn 한도 선언. 공통 설정 하나씩이다. 사람이 바꾸고 다음 turn부터 적용하며 turn은 시작할 때 값을 고정한다.
+// 호출 수는 null이 상한 없음(기본)이다. 무진행 시간은 양의 정수만 받는다.
 export const turnLimitSettings = {
-  model_attempts: limitSetting("model_attempts"),
-  stall_ms: limitSetting("stall_ms"),
-  active_ms: limitSetting("active_ms"),
+  model_attempts: declareSetting({
+    key: TURN_LIMIT_SETTING_KEYS.model_attempts,
+    type: limitValue.nullable(),
+    default: DEFAULT_TURN_LIMITS.model_attempts,
+  }),
+  stall_ms: declareSetting({
+    key: TURN_LIMIT_SETTING_KEYS.stall_ms,
+    type: limitValue,
+    default: DEFAULT_TURN_LIMITS.stall_ms,
+  }),
 } as const;
 
 // 다음 turn을 시작할 한도. 고른 값이 없으면 선언의 기본값이다. 파일의 값은 읽을 때 이미 type을 통과했다.
@@ -51,21 +51,18 @@ export function turnLimitsOf(reader: SettingsReader): Result<TurnLimits> {
   const parsed = turnLimitsSchema.safeParse({
     model_attempts: reader.get(turnLimitSettings.model_attempts),
     stall_ms: reader.get(turnLimitSettings.stall_ms),
-    active_ms: reader.get(turnLimitSettings.active_ms),
   });
   if (!parsed.success) {
     return err({
       code: "invalid_input",
-      message: "turn limits are positive integers only",
+      message:
+        "turn limits are positive integers, or null for no attempt limit",
     });
   }
   return ok(parsed.data);
 }
 
-export type LimitReason =
-  | "model_attempt_limit"
-  | "stall_limit"
-  | "active_limit";
+export type LimitReason = "model_attempt_limit" | "stall_limit";
 
 type ModelPurpose = "judgment" | "organizing" | "finalizing";
 
@@ -128,13 +125,12 @@ export class TurnLimiter {
   check(): LimitReason | null {
     this.#measure();
     if (this.#tripped !== null) return this.#tripped;
-    if (this.#attempts >= this.#limits.model_attempts) {
+    const attempts = this.#limits.model_attempts;
+    if (attempts !== null && this.#attempts >= attempts) {
       // 횟수는 다음 시도를 막는 한도다. 시도 수가 상한과 같아지면 이미 도달이다.
       this.#tripped = "model_attempt_limit";
     } else if (this.#stall >= this.#limits.stall_ms) {
       this.#tripped = "stall_limit";
-    } else if (this.#active >= this.#limits.active_ms) {
-      this.#tripped = "active_limit";
     }
     return this.#tripped;
   }
@@ -174,18 +170,12 @@ export class TurnLimiter {
     if (this.#mark === null) this.#mark = this.#nowMs();
   }
 
-  // 가장 가까운 시간 한도까지 남은 ms. 진행 중인 호출을 중단할 timer에 쓴다.
+  // 무진행 한도까지 남은 ms. 진행 중인 호출을 중단할 timer에 쓴다.
   // 사람 기다림 중이거나 이미 닿았으면 null·0이다.
   nextDeadlineMs(): number | null {
     if (this.#mark === null) return null;
     this.#measure();
-    return Math.max(
-      0,
-      Math.min(
-        this.#limits.stall_ms - this.#stall,
-        this.#limits.active_ms - this.#active,
-      ),
-    );
+    return Math.max(0, this.#limits.stall_ms - this.#stall);
   }
 
   // CheckpointTurn 입력. 단조 누적값이다.

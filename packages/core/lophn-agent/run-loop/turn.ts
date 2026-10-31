@@ -442,7 +442,7 @@ async function callModel(
     >(limiter, "judgment", async () => {
       const call = linked(state.control.signal);
       state.modelCalls.add(call);
-      // 진행 없는 시간·전체 시간 한도에 닿으면 이 호출을 중단한다.
+      // 진행 없는 시간 한도에 닿으면 이 호출을 중단한다.
       const deadline = limiter.nextDeadlineMs();
       if (deadline !== null) {
         void (deps.deadline ?? abortableWait)(deadline, call.signal).then(

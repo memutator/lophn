@@ -71,4 +71,25 @@ begin
   select raise(abort, 'only finished turns of a deleted session are removed');
 end;`,
   },
+  {
+    // 일한 시간 한도를 지웠다. 시작한 turn의 limits에서 active_ms를 뺀다. limits는 시작 뒤 고정이고
+    // 끝난 turn은 다시 바뀌지 않으므로 두 trigger를 잠시 내렸다 같은 모양으로 다시 둔다.
+    id: "lophn-agent.turns.drop-active-limit",
+    sql: `
+drop trigger turns_started_immutable;
+drop trigger turns_finished_terminal;
+update turns set limits = json_remove(limits, '$.active_ms')
+  where json_type(limits, '$.active_ms') is not null;
+create trigger turns_started_immutable
+before update of basis, started_at, limits, mode on turns
+begin
+  select raise(abort, 'turn basis, start, limits and mode are fixed once started');
+end;
+create trigger turns_finished_terminal
+before update on turns
+when old.state = 'finished'
+begin
+  select raise(abort, 'a finished turn is never reopened');
+end;`,
+  },
 ];

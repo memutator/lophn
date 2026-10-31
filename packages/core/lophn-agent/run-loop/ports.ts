@@ -193,7 +193,6 @@ export type LoopFailureReason =
   | "context_limit"
   | "model_attempt_limit"
   | "stall_limit"
-  | "active_limit"
   | "effect_unknown"
   | "configuration_unavailable"
   | "target_unavailable";

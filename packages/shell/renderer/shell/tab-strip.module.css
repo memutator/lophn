@@ -8,7 +8,7 @@
   min-width: var(--space-0);
 }
 
-/* tab은 먼저 좁아지고 최소 폭에서 가로 scroll이 된다. 양 끝 곡선이 잘리지 않게 곡선 폭만큼 띄운다. */
+/* 고르지 않은 tab이 먼저 좁아지고 최소 폭에서 가로 scroll이 된다. 고른 tab은 좁아지지 않는다(아래 .tab[data-active]). 양 끝 곡선이 잘리지 않게 곡선 폭만큼 띄운다. */
 /* position이 있어야 tab.offsetLeft가 이 줄 기준이다. 없으면 frame 기준이라 scroll 보정이 첫 tab을 왼쪽으로 밀어 잘라 낸다. */
 .list {
   position: relative;
@@ -74,7 +74,13 @@
   position: relative;
 }
 
+/* 고른 tab은 이름이 길어도 줄이지 않고 다 보인다. 말도 안 되게 긴 이름만 줄 폭의 80%에서 ...로 자른다.
+   % 기준은 줄(list)의 폭이다. */
 .tab[data-active] {
+  flex-shrink: 0;
+  width: max-content;
+  min-width: calc(var(--space-12) * 3 + var(--space-9));
+  max-width: 80%;
   color: var(--color-text-primary);
   background: var(--color-surface-base);
 }
@@ -174,15 +180,30 @@
 /* tab 안 반쪽. split tab은 둘이 한 칸에 붙고 사이에 선이 있다. */
 .half {
   display: flex;
-  flex: 1;
+  flex: 1 1 auto;
   gap: var(--space-3);
   align-items: center;
   min-width: var(--space-0);
 }
 
-.tab[data-split] {
-  width: calc(var(--space-12) * 5 + var(--space-9));
-  min-width: calc(var(--space-12) * 3);
+.tab[data-split][data-active] {
+  min-width: calc(var(--space-12) * 5 + var(--space-9));
+}
+
+/* 고르지 않은 split은 두 아이콘과 방향 표시만 보이는 좁은 칸이다. 이름은 tooltip에 있다. */
+.tab[data-split]:not([data-active]) {
+  flex: none;
+  width: auto;
+  min-width: var(--space-0);
+  gap: var(--space-2);
+}
+
+.tab[data-split]:not([data-active]) .half {
+  flex: none;
+}
+
+.tab[data-split]:not([data-active]) .title {
+  display: none;
 }
 
 .tab[data-split]:not([data-active])::before {

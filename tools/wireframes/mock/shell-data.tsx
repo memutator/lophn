@@ -128,6 +128,9 @@ export type Variant =
   | "floats"
   | "empty"
   | "overflow"
+  | "overflow-end"
+  | "long-title"
+  | "split-compact"
   | "marks";
 
 /** variant마다 Main desk의 상태가 다르다. Review와 workflow desk는 같다. */
@@ -199,6 +202,70 @@ export function mockDesks(variant: Variant): MockDesk[] {
         ...others,
       ];
     }
+    case "overflow-end": {
+      // 많은 tab 끝의 긴 이름을 골라 scroll로 보이는지 본다.
+      const names = [
+        "notes",
+        "design",
+        "api",
+        "schema",
+        "roadmap",
+        "changelog",
+      ];
+      const many = names.map((name) => file(name, `${name}.md`, "phroner"));
+      const last = file(
+        "last",
+        "2026-11-01-quarterly-planning-notes-final.md",
+        "phroner",
+      );
+      return [
+        {
+          ...desk("_default", "Main", [P1, C1, ...many, README, PLAN, last], {
+            selected: "last",
+            minimized: [P2, DEV],
+          }),
+        },
+        ...others,
+      ];
+    }
+    case "long-title": {
+      const long = file(
+        "long",
+        "architecture-decision-record-0072-tab-strip.md",
+        "phroner",
+      );
+      return [
+        {
+          ...desk(
+            "_default",
+            "Main",
+            [
+              file("doc1", "docs.md", "phroner"),
+              file("doc2", "domain.md", "phroner"),
+              long,
+              file("doc3", "design.md", "phroner"),
+              TERM,
+            ],
+            { selected: "long", minimized: [P2] },
+          ),
+        },
+        ...others,
+      ];
+    }
+    case "split-compact":
+      return [
+        {
+          ...main,
+          entries: [
+            single(file("doc1", "docs.md", "phroner")),
+            single(README),
+            { key: "p1", a: P1, b: C1 },
+            { key: "plan", a: PLAN, b: TERM, dir: "column" },
+          ],
+          selected: "readme",
+        },
+        ...others,
+      ];
     case "marks":
       return [
         {

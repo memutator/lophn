@@ -112,11 +112,14 @@ export function TabStrip({
     const element = list.current;
     const tab = element?.querySelector<HTMLElement>('[aria-selected="true"]');
     if (!element || !tab) return;
-    const right = tab.offsetLeft + tab.offsetWidth;
+    // 양 끝 곡선(padding)까지 보이게 하고, 줄보다 넓은 tab은 왼쪽 끝을 우선한다.
+    const pad = parseFloat(getComputedStyle(element).paddingLeft) || 0;
+    const right = tab.offsetLeft + tab.offsetWidth + pad;
     if (right > element.scrollLeft + element.clientWidth) {
       element.scrollLeft = right - element.clientWidth;
-    } else if (tab.offsetLeft < element.scrollLeft) {
-      element.scrollLeft = tab.offsetLeft;
+    }
+    if (tab.offsetLeft - pad < element.scrollLeft) {
+      element.scrollLeft = tab.offsetLeft - pad;
     }
   }, [selected, entries]);
 
@@ -248,12 +251,17 @@ export function TabStrip({
                 const editing = tab.key === renaming;
                 // ●는 닫기 단추 자리에 있다. 그 단추가 닫지 않는 반쪽만 이름 뒤에 따로 그린다.
                 const markHere = tab.unsaved === true && tab !== closing;
-                const tip = tab.dot
+                const one = tab.dot
                   ? t("project-workspace.label.tab-tooltip", {
                       title: tab.title,
                       state: dotLabel(tab.dot),
                     })
                   : tab.title;
+                // 이름이 안 보이는 접힌 split은 어느 쪽에 올려도 두 이름을 다 보인다.
+                const tip =
+                  entry.b !== undefined && !active
+                    ? `${entry.a.title} | ${entry.b.title}`
+                    : one;
                 return (
                   <Fragment key={side}>
                     {side === "b" ? (

@@ -115,6 +115,27 @@ export const shellArea: Area = {
       render: () => <ShellScene variant="overflow" />,
     },
     {
+      id: "shell-overflow-end",
+      title: "Shell · Many tabs, long selected",
+      description:
+        "tab이 많아 줄이 scroll될 때 오른쪽 끝의 긴 이름 tab을 고른 상태. 고른 tab은 scroll로 줄 안에 들어와 이름이 다 보이고 다른 tab은 좁다.",
+      render: () => <ShellScene variant="overflow-end" />,
+    },
+    {
+      id: "shell-tab-long",
+      title: "Shell · Long selected tab",
+      description:
+        "좁은 파일 tab들 사이에서 긴 이름의 tab을 고른 상태. 고른 tab은 줄지 않고 이름이 다 보이고, 고르지 않은 tab이 먼저 좁아진다(줄 폭의 80%를 넘는 이름만 ...로 잘린다).",
+      render: () => <ShellScene variant="long-title" />,
+    },
+    {
+      id: "shell-split-compact",
+      title: "Shell · Split tabs compact",
+      description:
+        "고르지 않은 split tab은 두 아이콘과 방향 표시만 보이는 좁은 칸이고 이름은 tooltip(두 이름)에 있다. 두 번째 split(위아래)도 같다. 고르면 두 이름이 다 보이게 펴진다.",
+      render: () => <ShellScene variant="split-compact" />,
+    },
+    {
       id: "shell-left-sidebar",
       title: "Shell · Left sidebar",
       description:

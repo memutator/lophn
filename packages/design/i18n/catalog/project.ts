@@ -137,7 +137,6 @@ export const project = {
   "project-workspace.error.load-failed": "Couldn't load this project.",
   "project-workspace.heading.agents": "Agents",
   "project-workspace.heading.current": "Current",
-  "project-workspace.label.activity-bar": "Activity bar",
   "project-workspace.label.agent-waiting": "Waiting for you",
   "project-workspace.label.choose-app": "Choose an app",
   "project-workspace.label.explorer-actions": "Explorer actions",

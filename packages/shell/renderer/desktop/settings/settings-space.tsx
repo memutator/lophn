@@ -1,29 +1,25 @@
-import { useEffect, useRef, useState } from "react";
-import { Button, IconButton } from "@lophn/ui/primitives";
-import { Tooltip } from "@lophn/ui/overlay";
-import { useObservedSize } from "@lophn/ui/shared";
+import { useEffect, useState } from "react";
+import { Icon } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 
-import { TopBar } from "../top-bar/top-bar.tsx";
-import { LauncherButton } from "../../workspace/launcher-button.tsx";
-import { Breadcrumbs } from "../../workspace/top-path/breadcrumbs.tsx";
-import {
-  SIDEBAR_WIDTH,
-  type SidebarState,
-  sidebarView,
-} from "../../workspace/model.ts";
-import { commonIcons, workspaceIcons } from "../../icons/mod.ts";
+import { settingsEntryIcon, shellIcons } from "../../icons/mod.ts";
+import { ShellFrame } from "../../shell/shell-frame.tsx";
+import { TabStrip } from "../../shell/tab-strip.tsx";
 import { WaitingLayer } from "../connection/waiting/waiting-layer.tsx";
-import { SettingsSidebar } from "./sidebar/sidebar.tsx";
 import {
-  PaletteButton,
   usePaletteEnv,
+  useOpenPalette,
   usePaletteScope,
 } from "../palette/host.tsx";
 import type { Catalog, CatalogSource } from "../palette/catalog.ts";
 import { desktopScope, type FileOpen } from "../palette/desktop-scope.ts";
 import { type SettingsPanels, SettingsScreen } from "./settings-screen.tsx";
-import { DEFAULT_PANE, paneLabel, type SettingsPane } from "./model.ts";
+import {
+  DEFAULT_PANE,
+  paneLabel,
+  SETTINGS_GROUPS,
+  type SettingsPane,
+} from "./model.ts";
 import type { SettingsSource } from "./source.ts";
 import styles from "./settings-space.module.css";
 
@@ -32,11 +28,11 @@ interface SettingsSpaceProps {
   source: CatalogSource;
   /** 처음 보일 항목. 없으면 General이다. */
   settingsPane?: SettingsPane;
-  /** 창 폭. 테스트가 고정하고 화면은 관측값을 쓴다. */
-  windowWidth: number;
   onLauncher: () => void;
-  /** Settings를 열기 전 화면으로 돌아간다. 머리의 [Back]이 쓴다. */
+  /** Settings를 열기 전 화면으로 돌아간다. 왼쪽 위 [Back]과 tab 닫기가 쓴다. */
   onBack: () => void;
+  /** 돌아갈 자리. 이름을 [Back] 줄에 보인다. Home이면 null이다. */
+  backTo: { kind: "project" | "app"; id: string } | null;
   /** 프로젝트 작업대로 간다. 창 팔레트의 프로젝트 행이 쓴다. */
   onProject?: (project: string) => void;
   /** 그 project 창에서 그 파일을 연다. 창 팔레트의 파일 행이 쓴다. */
@@ -57,9 +53,9 @@ const EMPTY_CATALOG: Catalog = { projects: [], apps: [] };
 export function SettingsSpace({
   source,
   settingsPane: initialPane,
-  windowWidth,
   onLauncher,
   onBack,
+  backTo,
   onProject,
   onOpenFile,
   onApp,
@@ -70,36 +66,14 @@ export function SettingsSpace({
   const [settingsPane, setSettingsPane] = useState<SettingsPane>(
     initialPane ?? DEFAULT_PANE,
   );
-  const [sidebar, setSidebar] = useState<SidebarState>({
-    chosenWidth: SIDEBAR_WIDTH,
-    collapsedByUser: false,
-  });
-  // 좁은 창에서 기본으로 접힌 것을 사람이 펼쳤으면 그 선택을 덮지 않는다(project 창과 같다).
-  const [userExpanded, setUserExpanded] = useState(false);
-  const frameRef = useRef<HTMLDivElement>(null);
-  const frameSize = useObservedSize(frameRef);
-  const shown = sidebarView(
-    frameSize?.width ?? windowWidth,
-    sidebar,
-    userExpanded,
-  );
-  const toggleSidebar = () => {
-    if (shown.mode === "collapsed") {
-      setSidebar((state) => ({ ...state, collapsedByUser: false }));
-      setUserExpanded(true);
-    } else setSidebar((state) => ({ ...state, collapsedByUser: true }));
-  };
-  const toggleLabel =
-    shown.mode === "collapsed"
-      ? t("project-workspace.button.expand-sidebar")
-      : t("project-workspace.button.collapse-sidebar");
+  const [left, setLeft] = useState(true);
+  const openPalette = useOpenPalette();
 
   const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
 
-  // 창 팔레트의 프로젝트·앱 행. 팔레트가 있는 창만 읽고, 읽지 못하면 그 묶음만 빈다.
+  // project·앱 이름([Back] 줄)과 창 팔레트의 행. 읽지 못하면 그 묶음만 빈다.
   const palette = usePaletteEnv();
   useEffect(() => {
-    if (!palette.available) return;
     let live = true;
     void source.catalog().then((loaded) => {
       if (live && loaded.ok) setCatalog(loaded.value);
@@ -107,7 +81,7 @@ export function SettingsSpace({
     return () => {
       live = false;
     };
-  }, [source, palette.available]);
+  }, [source]);
 
   // 창 팔레트 행. 고르면 지금 탐색 대상으로만 간다. Settings는 이미 여기라 아무 일도 없다.
   usePaletteScope(() =>
@@ -127,78 +101,116 @@ export function SettingsSpace({
     }),
   );
 
+  const backName =
+    backTo === null
+      ? undefined
+      : (backTo.kind === "project" ? catalog.projects : catalog.apps).find(
+          (item) => item.id === backTo.id,
+        )?.title;
+  const backLabel =
+    backTo === null
+      ? t("settings.button.back-to-home")
+      : backName === undefined
+        ? t("common.button.back")
+        : t("settings.button.back-to", { place: backName });
+  const waiting = <WaitingLayer align="start" onOpenSession={onOpenSession} />;
+  const title = t("settings.title.screen");
+
   return (
-    <div
-      className={styles.space}
-      data-space="settings"
-      data-settings-pane={settingsPane}
-      ref={frameRef}
-    >
-      <div className={styles.topBar}>
-        <TopBar
-          rail={<LauncherButton onLauncher={onLauncher} />}
-          leading={
-            <span className={styles.leading}>
-              {shown.mode === "hidden" ? null : (
-                <Tooltip content={toggleLabel}>
-                  <IconButton
-                    icon={workspaceIcons.sidebar}
-                    label={toggleLabel}
-                    data-sidebar-toggle=""
-                    aria-expanded={shown.mode === "open"}
-                    onClick={toggleSidebar}
-                  />
-                </Tooltip>
-              )}
-              <Button
-                size="sm"
-                variant="ghost"
-                icon={commonIcons.back}
+    <div className={styles.space} data-space="settings">
+      <ShellFrame
+        left={left}
+        onToggleLeft={() => setLeft(!left)}
+        right={false}
+        onSearch={openPalette}
+        tabs={
+          <TabStrip
+            entries={[
+              {
+                key: "settings",
+                a: {
+                  key: "settings",
+                  title,
+                  icon: <Icon icon={settingsEntryIcon} pixels={14} />,
+                },
+              },
+            ]}
+            selected="settings"
+            focus="a"
+            minimized={[]}
+            floating={[]}
+            onSelect={() => {}}
+            onClose={onBack}
+            newTab={<></>}
+            onReorder={() => {}}
+            onToggleFloat={() => {}}
+          />
+        }
+        leftSidebar={
+          <nav className={styles.nav} aria-label={title}>
+            <div className={styles.navHead}>
+              <button
+                type="button"
+                className={styles.navRow}
                 data-settings-back=""
                 onClick={onBack}
               >
-                {t("common.button.back")}
-              </Button>
-              <Breadcrumbs
-                crumbs={[
-                  { label: t("settings.title.screen") },
-                  { label: paneLabel(settingsPane) },
-                ]}
+                <Icon icon={shellIcons.back} pixels={16} />
+                <span className={styles.rowLabel}>{backLabel}</span>
+              </button>
+              {waiting}
+            </div>
+            <div className={styles.navList}>
+              {SETTINGS_GROUPS.map((group) => (
+                <div key={group.id} className={styles.navGroup}>
+                  <div className={styles.sectionHead}>{t(group.label)}</div>
+                  {group.panes.map((entry) => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      className={styles.navRow}
+                      data-settings-pane={entry.id}
+                      aria-current={entry.id === settingsPane || undefined}
+                      onClick={() => setSettingsPane(entry.id)}
+                    >
+                      <Icon icon={entry.icon} pixels={16} />
+                      <span className={styles.rowLabel}>{t(entry.label)}</span>
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </nav>
+        }
+      >
+        <div className={styles.card}>
+          <div className={styles.cardHead}>
+            <span className={styles.crumbs}>
+              <span className={styles.crumb}>{title}</span>
+              <span className={styles.crumb}>
+                <span className={styles.sep}>/</span>
+                {paneLabel(settingsPane)}
+              </span>
+            </span>
+          </div>
+          <div className={styles.cardBody}>
+            {settings ? (
+              <SettingsScreen
+                {...settingsPanels}
+                pane={settingsPane}
+                onPane={setSettingsPane}
+                source={settings}
+                onOpenSession={onOpenSession}
+                onProject={onProject}
               />
-            </span>
-          }
-          trailing={
-            <span className={styles.trailing}>
-              <WaitingLayer onOpenSession={onOpenSession} />
-              <PaletteButton />
-            </span>
-          }
-        />
-      </div>
-      <div className={styles.main}>
-        <SettingsSidebar
-          mode={shown.mode}
-          width={shown.width}
-          pane={settingsPane}
-          onPane={setSettingsPane}
-        />
-        <div className={styles.content}>
-          {settings ? (
-            <SettingsScreen
-              {...settingsPanels}
-              pane={settingsPane}
-              onPane={setSettingsPane}
-              source={settings}
-              onOpenSession={onOpenSession}
-              onProject={onProject}
-            />
-          ) : (
-            <p className={styles.notReady} data-not-ready="settings">
-              {t("common.empty.not-ready")}
-            </p>
-          )}
+            ) : (
+              <p className={styles.notReady} data-not-ready="settings">
+                {t("common.empty.not-ready")}
+              </p>
+            )}
+          </div>
         </div>
-      </div>
+      </ShellFrame>
     </div>
   );
 }

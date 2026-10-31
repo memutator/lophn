@@ -101,6 +101,19 @@ interface DesktopProps {
   detached?: LophnDetachedApi;
 }
 
+// Settings의 [Back]이 돌아갈 자리. Home(launcher)이면 null이다.
+function backTarget(
+  route: Route | null,
+): { kind: "project" | "app"; id: string } | null {
+  if (route?.space === "project" && route.project) {
+    return { kind: "project", id: route.project };
+  }
+  if (route?.space === "app" && route.app) {
+    return { kind: "app", id: route.app };
+  }
+  return null;
+}
+
 // toast 행동의 기본 처리. 지금 보이는 화면이 처리하지 못한 행동(그 화면이 false를 돌렸다)을 다른 화면으로 가서
 // 연다. 화면의 처리기보다 먼저 등록돼야(목록에서 뒤에 서야) 화면이 먼저 처리하니, 화면보다 앞에 그린다.
 function DefaultToastHandler({
@@ -385,9 +398,9 @@ export function Desktop({
         key={visits}
         source={catalog}
         settingsPane={route.settingsPane}
-        windowWidth={windowWidth}
         onLauncher={launcher}
         onBack={() => setRoute(beforeSettings.current ?? LAUNCHER)}
+        backTo={backTarget(beforeSettings.current)}
         onProject={(project) => setRoute(openProject(project))}
         onOpenFile={(project, file) =>
           setRoute(openProject(project, { open: file }))

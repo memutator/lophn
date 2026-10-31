@@ -130,9 +130,9 @@ export function SettingsFrame({
         <SettingsSpace
           source={mock.catalog}
           settingsPane={pane}
-          windowWidth={1280}
           onLauncher={noop}
           onBack={noop}
+          backTo={null}
           onApp={noop}
           settings={settings}
           settingsPanels={panels}

@@ -114,8 +114,6 @@ export const common = {
   "icon-upload.note.limits": "SVG, PNG or WebP, up to 64 KB.",
   "launcher.button.reconnect": "Reconnect",
   "launcher.button.retry": "Try again",
-  "project-workspace.button.collapse-sidebar": "Collapse sidebar",
-  "project-workspace.button.expand-sidebar": "Expand sidebar",
   "settings.button.cancel": "Cancel",
   "settings.button.connect": "Connect",
   "settings.label.auth-api-key": "API key",

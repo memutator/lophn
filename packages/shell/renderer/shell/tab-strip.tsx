@@ -1,5 +1,5 @@
-// title bar에 올라가는 tab 줄. 고른 tab은 아래 card와 곡선으로 이어지고(Chrome), split은 두 tab이 한 칸으로 붙은
-// tab 하나다. 오른쪽 끝에는 접힌 float이 아이콘 칸으로 모인다. 데이터와 callback만 받고 model은 모른다.
+// title bar에 올라가는 tab 줄. 고른 tab은 아래 card와 곡선으로 이어지고(Chrome), group은 tab 2~4개가 한 칸으로
+// 붙은 tab 하나다. 오른쪽 끝에는 접힌 float이 아이콘 칸으로 모인다. 데이터와 callback만 받고 model은 모른다.
 import {
   Fragment,
   type DragEvent,
@@ -22,8 +22,6 @@ import {
 import type { SplitDir } from "./desk-model.ts";
 import styles from "./tab-strip.module.css";
 
-export type Side = "a" | "b";
-
 /** tab을 끌 때 dataTransfer에 싣는 type. 값은 칸 key다. */
 export const TAB_MIME = "application/x-lophn-tab";
 
@@ -40,29 +38,29 @@ export interface StripTab {
   readonly renamable?: boolean;
 }
 
-/** 줄의 한 칸. b가 있으면 split이고 a·b 두 tab이 한 칸에 붙는다. key는 a의 key다. */
+/** 줄의 한 칸. tab이 둘 이상이면 group이고 한 칸에 붙는다. key는 첫 tab의 key다. */
 export interface StripEntry {
   readonly key: string;
-  readonly a: StripTab;
-  readonly b?: StripTab;
-  /** split의 방향. 두 반쪽 사이의 작은 표시가 된다. 주지 않으면 row다. */
-  readonly dir?: SplitDir;
+  readonly tabs: readonly StripTab[];
+  /** 이웃한 두 tab 사이의 나눔 방향(tabs.length - 1개). 반쪽 사이의 작은 표시가 된다. 주지 않으면 row다. */
+  readonly dirs?: readonly SplitDir[];
+  /** group에서 강조할 tab의 key. */
+  readonly focus?: string;
 }
 
 export interface TabStripProps {
   entries: readonly StripEntry[];
   /** 고른 칸의 key. */
   selected: string | null;
-  /** 고른 칸이 split일 때 강조할 쪽. */
-  focus: Side;
   /** 접힌 float. 줄 오른쪽 끝에 아이콘 칸으로 보인다. */
   minimized: readonly StripTab[];
   /** minimized 중 지금 펴져 있는 것의 key. 눌린 모양이다. */
   floating: readonly string[];
-  onSelect: (key: string, side: Side) => void;
-  /** 닫을 tab의 key(split의 반쪽이면 그 반쪽). 닫기 단추는 split에서 focus 쪽을 닫는다. */
+  /** 누른 tab의 key. 칸의 빈 곳을 누르면 group이면 focus tab이다. */
+  onSelect: (tabKey: string) => void;
+  /** 닫을 tab의 key(group의 한 tab이면 그 tab). 닫기 단추는 group에서 focus tab을 닫는다. */
   onClose: (tabKey: string) => void;
-  /** tab 오른쪽 클릭. tab key(split이면 누른 반쪽)와 화면 좌표. */
+  /** tab 오른쪽 클릭. tab key(group이면 누른 반쪽)와 화면 좌표. */
   onMenu?: (tabKey: string, at: { x: number; y: number }) => void;
   /** preview tab을 double-click하면 고정한다. */
   onPin?: (tabKey: string) => void;
@@ -89,7 +87,6 @@ type Drop = { key: string; side: "before" | "after" } | "end";
 export function TabStrip({
   entries,
   selected,
-  focus,
   minimized,
   floating,
   onSelect,
@@ -197,15 +194,10 @@ export function TabStrip({
       >
         {entries.map((entry, index) => {
           const active = entry.key === selected;
-          const halves: readonly [Side, StripTab][] =
-            entry.b === undefined
-              ? [["a", entry.a]]
-              : [
-                  ["a", entry.a],
-                  ["b", entry.b],
-                ];
-          const closing =
-            active && focus === "b" && entry.b ? entry.b : entry.a;
+          const grouped = entry.tabs.length > 1;
+          const focused =
+            entry.tabs.find((tab) => tab.key === entry.focus) ?? entry.tabs[0]!;
+          const closing = active ? focused : entry.tabs[0]!;
           return (
             <div
               key={entry.key}
@@ -214,20 +206,17 @@ export function TabStrip({
               aria-selected={active}
               data-entry-key={entry.key}
               data-active={active || undefined}
-              data-split={entry.b === undefined ? undefined : ""}
-              data-dir={
-                entry.b === undefined ? undefined : (entry.dir ?? "row")
-              }
+              data-split={grouped ? "" : undefined}
               data-drop={markOf(index)}
               draggable={renaming === null}
-              onClick={() => onSelect(entry.key, "a")}
+              onClick={() => onSelect(focused.key)}
               onContextMenu={(event) => {
                 if (!onMenu || renaming !== null) return;
                 event.preventDefault();
                 const half = (event.target as HTMLElement).closest<HTMLElement>(
                   "[data-tab-key]",
                 );
-                onMenu(half?.dataset.tabKey ?? entry.a.key, {
+                onMenu(half?.dataset.tabKey ?? entry.tabs[0]!.key, {
                   x: event.clientX,
                   y: event.clientY,
                 });
@@ -247,7 +236,7 @@ export function TabStrip({
               }}
             >
               <span className={styles.flareStart} aria-hidden />
-              {halves.map(([side, tab]) => {
+              {entry.tabs.map((tab, at) => {
                 const editing = tab.key === renaming;
                 // ●는 닫기 단추 자리에 있다. 그 단추가 닫지 않는 반쪽만 이름 뒤에 따로 그린다.
                 const markHere = tab.unsaved === true && tab !== closing;
@@ -257,18 +246,18 @@ export function TabStrip({
                       state: dotLabel(tab.dot),
                     })
                   : tab.title;
-                // 이름이 안 보이는 접힌 split은 어느 쪽에 올려도 두 이름을 다 보인다.
+                // 이름이 안 보이는 접힌 group은 어느 쪽에 올려도 이름을 다 보인다.
                 const tip =
-                  entry.b !== undefined && !active
-                    ? `${entry.a.title} | ${entry.b.title}`
+                  grouped && !active
+                    ? entry.tabs.map((item) => item.title).join(" | ")
                     : one;
                 return (
-                  <Fragment key={side}>
-                    {side === "b" ? (
+                  <Fragment key={tab.key}>
+                    {at > 0 ? (
                       <span className={styles.splitMark} aria-hidden>
                         <Icon
                           icon={
-                            entry.dir === "column"
+                            entry.dirs?.[at - 1] === "column"
                               ? shellIcons.splitDown
                               : shellIcons.split
                           }
@@ -281,12 +270,12 @@ export function TabStrip({
                         className={styles.half}
                         data-tab-key={tab.key}
                         data-focused={
-                          (entry.b !== undefined && active && focus === side) ||
+                          (grouped && active && focused.key === tab.key) ||
                           undefined
                         }
                         onClick={(event) => {
                           event.stopPropagation();
-                          onSelect(entry.key, side);
+                          onSelect(tab.key);
                         }}
                         onDoubleClick={() => {
                           if (tab.preview) onPin?.(tab.key);

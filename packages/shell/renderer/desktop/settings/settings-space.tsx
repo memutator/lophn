@@ -122,15 +122,16 @@ export function SettingsSpace({
             entries={[
               {
                 key: "settings",
-                a: {
-                  key: "settings",
-                  title,
-                  icon: <Icon icon={settingsEntryIcon} pixels={14} />,
-                },
+                tabs: [
+                  {
+                    key: "settings",
+                    title,
+                    icon: <Icon icon={settingsEntryIcon} pixels={14} />,
+                  },
+                ],
               },
             ]}
             selected="settings"
-            focus="a"
             minimized={[]}
             floating={[]}
             onSelect={() => {}}

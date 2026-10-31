@@ -3,7 +3,6 @@ import { t } from "@lophn/i18n";
 import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
 
 import { editorIcons, shellIcons, workspaceIcons } from "../icons/mod.ts";
-import type { SplitDir } from "./desk-model.ts";
 import styles from "./tab-menu.module.css";
 
 export type TabAction =
@@ -17,6 +16,7 @@ export type TabAction =
   | "float"
   | "split-right"
   | "split-down"
+  | "split-remove"
   | "unsplit"
   | "detach"
   | "copy-path"
@@ -32,9 +32,9 @@ export interface TabMenuState {
   readonly file: boolean;
   /** detached 창 통로가 있고 kind가 noDetach가 아니다. */
   readonly canDetach: boolean;
-  /** tab이 split 구성원이면 그 split의 방향. 아니면 null. */
-  readonly split: SplitDir | null;
-  /** 이웃 tab이 있어 split할 수 있다. */
+  /** tab이 든 group의 leaf 수. group에 들지 않았으면 0. */
+  readonly group: number;
+  /** 옆에 붙일 plain tab이 있고 group이 가득 차지 않았다(Split right·down을 할 수 있다). */
   readonly canSplit: boolean;
   /** desk에 이 칸 말고 tab이 있다. */
   readonly hasOthers: boolean;
@@ -42,34 +42,43 @@ export interface TabMenuState {
   readonly hasRight: boolean;
 }
 
-// split이 아니면 Split right·down, split이면 다른 방향 하나와 Unsplit이다.
+// Split right·down은 늘 있다(group 안에서는 그 leaf 옆에 다음 plain tab을 붙인다). group 구성원이면 그 뒤에
+// 꺼내기(Remove from split)와 풀기가 온다: leaf가 둘이면 Unsplit 하나, 셋 이상이면 Remove from split과 Unsplit all.
 function splitItems(state: TabMenuState): MenuItem[] {
-  const right: MenuItem = {
-    id: "split-right",
-    label: t("shell.button.tab-split-right"),
-    leading: <MenuIcon icon={shellIcons.split} />,
-    disabled: state.split === null && !state.canSplit,
-  };
-  const down: MenuItem = {
-    id: "split-down",
-    label: t("shell.button.tab-split-down"),
-    leading: <MenuIcon icon={shellIcons.splitDown} />,
-    disabled: state.split === null && !state.canSplit,
-  };
-  const items =
-    state.split === null
-      ? [right, down]
-      : state.split === "row"
-        ? [down]
-        : [right];
-  if (state.split !== null) {
+  const items: MenuItem[] = [
+    {
+      id: "split-right",
+      label: t("shell.button.tab-split-right"),
+      leading: <MenuIcon icon={shellIcons.split} />,
+      disabled: !state.canSplit,
+      separatorBefore: true,
+    },
+    {
+      id: "split-down",
+      label: t("shell.button.tab-split-down"),
+      leading: <MenuIcon icon={shellIcons.splitDown} />,
+      disabled: !state.canSplit,
+    },
+  ];
+  if (state.group >= 3) {
+    items.push({
+      id: "split-remove",
+      label: t("shell.button.tab-split-remove"),
+      leading: <MenuIcon icon={shellIcons.splitRemove} />,
+    });
+  }
+  if (state.group >= 2) {
     items.push({
       id: "unsplit",
-      label: t("shell.button.tab-unsplit"),
+      label: t(
+        state.group >= 3
+          ? "shell.button.tab-unsplit-all"
+          : "shell.button.tab-unsplit",
+      ),
       leading: <MenuIcon icon={shellIcons.unsplit} />,
     });
   }
-  return [{ ...items[0]!, separatorBefore: true }, ...items.slice(1)];
+  return items;
 }
 
 /** `extra`는 탭 본문이 올린 맨 위 묶음(card-head.tsx)이고 기본 항목과 구분선으로 나뉜다. */

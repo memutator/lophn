@@ -1,5 +1,5 @@
 // shell 틀을 fake desk 상태로 그린다. 진짜 연결은 project 화면 task가 하고, 여기는 틀이 callback에 맞게 움직이는지 보이려고
-// 선택·닫기·float·split만 가볍게 받는다.
+// 선택·닫기·float·group만 가볍게 받는다. desk는 실제 desk model이고 동작은 그 순수 함수를 부른다.
 import { useState } from "react";
 import { shellIcons } from "../../../../../packages/shell/renderer/icons/mod.ts";
 import {
@@ -14,18 +14,38 @@ import {
 } from "../../../../../packages/shell/renderer/shell/tab-menu.tsx";
 import { PanelTabs } from "../../../../../packages/shell/renderer/shell/panel-tabs.tsx";
 import { ShellFrame } from "../../../../../packages/shell/renderer/shell/shell-frame.tsx";
+import { TabStrip } from "../../../../../packages/shell/renderer/shell/tab-strip.tsx";
 import {
-  type Side,
-  TabStrip,
-} from "../../../../../packages/shell/renderer/shell/tab-strip.tsx";
-import type { FloatRect } from "../../../../../packages/shell/renderer/workspace/model.ts";
+  closeFloat,
+  closeTab,
+  type Desk,
+  deskEntries,
+  dirsOf,
+  dockFloat,
+  floatTab,
+  groupOf,
+  leavesOf,
+  minimizeFloat,
+  openTab,
+  reorderTab,
+  restoreFloat,
+  selectTab,
+  setFloatRect,
+  setRatio,
+  splitPartner,
+  splitTab,
+  type TabItem,
+  ungroup,
+  ungroupTab,
+} from "../../../../../packages/shell/renderer/shell/desk-model.ts";
 import {
   cardPane,
+  FLOAT_RECTS,
   floatBody,
   type MockDesk,
-  type MockEntry,
   type MockTab,
   mockDesks,
+  mockOf,
   stripTab,
   tabIcon,
   type Variant,
@@ -41,15 +61,6 @@ const PANELS = [
   { key: "workflow", label: "Workflows", icon: shellIcons.workflow },
   { key: "jobs", label: "Jobs", icon: shellIcons.jobs },
 ];
-
-// gallery 창 크기(1280x800)에 맞춘 자리. 편 순서대로 쓴다.
-const FLOAT_RECTS: readonly FloatRect[] = [
-  { x: 300, y: 56, width: 396, height: 300 },
-  { x: 32, y: 420, width: 440, height: 220 },
-  { x: 180, y: 240, width: 400, height: 260 },
-];
-
-const tabsOf = (entry: MockEntry) => (entry.b ? [entry.a, entry.b] : [entry.a]);
 
 export function ShellScene({
   variant,
@@ -74,7 +85,6 @@ export function ShellScene({
   const [leftOpen, setLeft] = useState(left);
   const [rightOpen, setRight] = useState(right);
   const [panel, setPanel] = useState("files");
-  const [rects, setRects] = useState<Readonly<Record<string, FloatRect>>>({});
   const [menu, setMenu] = useState<{
     key: string;
     x: number;
@@ -85,131 +95,71 @@ export function ShellScene({
     if (context !== undefined) await contextMenu('[role="tab"]', context);
   });
 
-  const desk = desks.find((d) => d.key === deskKey) ?? desks[0]!;
-  const patch = (change: (d: MockDesk) => Partial<MockDesk>) =>
+  const mock = desks.find((d) => d.key === deskKey) ?? desks[0]!;
+  const desk = mock.model;
+  const patch = (change: (d: Desk) => Desk) =>
     setDesks((all) =>
-      all.map((d) => (d.key === desk.key ? { ...d, ...change(d) } : d)),
-    );
-
-  const entry = desk.entries.find((e) => e.key === desk.selected);
-  const index = entry === undefined ? -1 : desk.entries.indexOf(entry);
-  const next = desk.entries[index + 1] ?? desk.entries[index - 1];
-  const tabByKey = (key: string): MockTab | undefined =>
-    [...desk.entries.flatMap(tabsOf), ...desk.minimized].find(
-      (tab) => tab.key === key,
+      all.map((d) =>
+        d.key === mock.key ? { ...d, model: change(d.model) } : d,
+      ),
     );
 
   const close = (key: string) =>
-    patch((d) => {
-      const entries = d.entries.flatMap((e) => {
-        if (e.b === undefined) return e.key === key ? [] : [e];
-        if (e.a.key === key) return [{ key: e.b.key, a: e.b }];
-        return e.b.key === key ? [{ key: e.a.key, a: e.a }] : [e];
-      });
-      return {
-        entries,
-        selected: entries.some((e) => e.key === d.selected)
-          ? d.selected
-          : (entries[0]?.key ?? null),
-        minimized: d.minimized.filter((tab) => tab.key !== key),
-        floating: d.floating.filter((k) => k !== key),
-      };
-    });
+    patch((d) => closeFloat(closeTab(d, key), key));
 
-  const action = (what: TabAction, side: Side) => {
-    if (entry === undefined) return;
-    const tab = side === "b" && entry.b ? entry.b : entry.a;
-    if (what === "close") close(tab.key);
+  const action = (what: TabAction, key: string) => {
+    if (what === "close") close(key);
     if (what === "float") {
-      close(tab.key);
-      patch((d) => ({
-        minimized: [...d.minimized, tab],
-        floating: [...d.floating, tab.key],
-      }));
+      const rect = FLOAT_RECTS[desk.floats.length % FLOAT_RECTS.length]!;
+      patch((d) => floatTab(d, key, rect));
     }
     if (what === "split-right" || what === "split-down") {
-      const dir = what === "split-right" ? "row" : "column";
-      if (entry.b) {
-        patch((d) => ({
-          entries: d.entries.map((e) =>
-            e.key === entry.key ? { ...e, dir } : e,
-          ),
-        }));
-      } else if (next !== undefined) {
-        patch((d) => ({
-          entries: d.entries
-            .filter((e) => e.key !== next.key)
-            .map((e) =>
-              e.key === entry.key ? { ...e, b: next.a, dir, ratio: 0.5 } : e,
-            ),
-        }));
-      }
+      const partner = splitPartner(desk, key);
+      if (partner === null) return;
+      patch((d) =>
+        splitTab(d, key, partner, what === "split-right" ? "right" : "bottom", {
+          select: "target",
+        }),
+      );
     }
-    if (what === "unsplit" && entry.b) {
-      const b = entry.b;
-      patch((d) => ({
-        entries: d.entries.flatMap((e) =>
-          e.key === entry.key
-            ? [
-                { key: e.a.key, a: e.a },
-                { key: b.key, a: b },
-              ]
-            : [e],
-        ),
-        focus: "a",
-      }));
-    }
+    if (what === "split-remove") patch((d) => ungroupTab(d, key));
+    if (what === "unsplit") patch((d) => ungroup(d, key));
   };
 
   const toggleFloat = (key: string) =>
-    patch((d) => ({
-      floating: d.floating.includes(key)
-        ? d.floating.filter((k) => k !== key)
-        : [...d.floating, key],
-    }));
+    patch((d) =>
+      d.floats.some((f) => f.tab.key === key && !f.minimized)
+        ? minimizeFloat(d, key)
+        : restoreFloat(d, key),
+    );
 
-  const dock = (key: string) => {
-    const tab = tabByKey(key);
-    if (tab === undefined) return;
-    patch((d) => ({
-      entries: [...d.entries, { key, a: tab }],
-      selected: key,
-      minimized: d.minimized.filter((t) => t.key !== key),
-      floating: d.floating.filter((k) => k !== key),
-    }));
-  };
-
-  const reorder = (key: string, before: string | null) =>
-    patch((d) => {
-      const moving = d.entries.find((e) => e.key === key);
-      if (moving === undefined || key === before) return {};
-      const rest = d.entries.filter((e) => e.key !== key);
-      const at =
-        before === null ? rest.length : rest.findIndex((e) => e.key === before);
-      return {
-        entries: [...rest.slice(0, at), moving, ...rest.slice(at)],
-      };
-    });
-
-  const menuState = (tab: MockTab): TabMenuState => {
-    const at = desk.entries.findIndex((e) => tabsOf(e).includes(tab));
-    const member = desk.entries[at]?.b !== undefined;
+  const menuState = (tab: TabItem): TabMenuState => {
+    const own = groupOf(desk, tab.key);
+    const span = own === null ? [tab.key] : leavesOf(own.layout);
+    const at = Math.max(
+      ...span.map((key) => desk.tabs.findIndex((item) => item.key === key)),
+    );
     return {
-      renamable: tab.kind !== "file",
-      preview: tab.preview === true,
-      file: tab.kind === "file",
-      canDetach: tab.kind !== "terminal",
-      split: member ? (desk.entries[at]?.dir ?? "row") : null,
-      canSplit: desk.entries.length > 1,
-      hasOthers: desk.entries.length > 1,
-      hasRight: at < desk.entries.length - 1,
+      renamable: mockOf(tab).kind !== "file",
+      preview: mockOf(tab).preview === true,
+      file: mockOf(tab).kind === "file",
+      canDetach: mockOf(tab).kind !== "terminal",
+      group: own === null ? 0 : span.length,
+      canSplit: splitPartner(desk, tab.key) !== null,
+      hasOthers: desk.tabs.length > span.length,
+      hasRight: at < desk.tabs.length - 1,
     };
   };
-  const menuTab = menu === null ? undefined : tabByKey(menu.key);
-  const panes =
-    entry === undefined
-      ? []
-      : tabsOf(entry).map((tab) => cardPane(tab, menuState(tab)));
+  const menuTab =
+    menu === null ? undefined : desk.tabs.find((tab) => tab.key === menu.key);
+  const group = groupOf(desk, desk.selected);
+  const panes = desk.tabs
+    .filter((tab) =>
+      group === null
+        ? tab.key === desk.selected
+        : leavesOf(group.layout).includes(tab.key),
+    )
+    .map((tab) => cardPane(mockOf(tab), menuState(tab)));
   const chosen = PANELS.find((p) => p.key === panel) ?? PANELS[0]!;
 
   return (
@@ -221,10 +171,13 @@ export function ShellScene({
       deskSwitcher={
         <DeskSwitcher
           desks={desks.map((d) => ({
-            ...d,
+            key: d.key,
+            label: d.label,
+            workflow: d.workflow,
+            status: d.status,
             manageable: d.key !== "_default" && !d.workflow,
           }))}
-          current={desk.key}
+          current={mock.key}
           onSelect={setDeskKey}
           onNewDesk={() => {}}
           onRename={(key, label) =>
@@ -240,7 +193,13 @@ export function ShellScene({
                 .filter((d) => d.key !== key)
                 .map((d) =>
                   d.key === "_default"
-                    ? { ...d, entries: [...d.entries, ...gone.entries] }
+                    ? {
+                        ...d,
+                        model: gone.model.tabs.reduce(
+                          (now, tab) => openTab(now, tab, { select: false }),
+                          d.model,
+                        ),
+                      }
                     : d,
                 ),
             );
@@ -250,31 +209,36 @@ export function ShellScene({
       }
       tabs={
         <TabStrip
-          entries={desk.entries.map((e) => ({
-            key: e.key,
-            a: stripTab(e.a),
-            b: e.b === undefined ? undefined : stripTab(e.b),
-            dir: e.dir,
+          entries={deskEntries(desk).map((entry) => ({
+            key: entry.key,
+            tabs: entry.tabs.map((tab) => stripTab(mockOf(tab))),
+            ...(entry.group === null
+              ? {}
+              : { dirs: dirsOf(entry.group.layout), focus: entry.group.focus }),
           }))}
-          selected={desk.selected}
-          focus={desk.focus}
-          minimized={desk.minimized.map(stripTab)}
-          floating={desk.floating}
-          onSelect={(key, side) =>
-            patch(() => ({ selected: key, focus: side }))
-          }
+          selected={group === null ? desk.selected : leavesOf(group.layout)[0]!}
+          minimized={desk.floats.map((f) => stripTab(mockOf(f.tab)))}
+          floating={desk.floats
+            .filter((f) => !f.minimized)
+            .map((f) => f.tab.key)}
+          onSelect={(key) => patch((d) => selectTab(d, key))}
           onClose={close}
           onMenu={(key, at) => setMenu({ key, ...at })}
           onPin={(key) =>
             patch((d) => ({
-              entries: d.entries.map((e) => ({
-                ...e,
-                a: e.a.key === key ? { ...e.a, preview: false } : e.a,
-              })),
+              ...d,
+              tabs: d.tabs.map((tab) =>
+                tab.key === key
+                  ? {
+                      ...tab,
+                      fields: { mock: { ...mockOf(tab), preview: false } },
+                    }
+                  : tab,
+              ),
             }))
           }
           onNewTab={() => {}}
-          onReorder={reorder}
+          onReorder={(key, before) => patch((d) => reorderTab(d, key, before))}
           onToggleFloat={toggleFloat}
         />
       }
@@ -292,50 +256,41 @@ export function ShellScene({
       rightSidebar={<MockRightSidebar title={chosen.label} />}
       floats={
         <FloatLayer
-          floats={desk.floating.flatMap((key, order) => {
-            const tab = desk.minimized.find((t) => t.key === key);
-            if (tab === undefined) return [];
+          floats={desk.floats.flatMap((item, order) => {
+            if (item.minimized) return [];
+            const tab = mockOf(item.tab);
             return [
               {
-                key,
+                key: tab.key,
                 title: tab.title,
                 icon: tabIcon(tab),
                 dot: tab.dot,
-                rect: rects[key] ?? FLOAT_RECTS[order % FLOAT_RECTS.length]!,
+                rect: item.rect,
                 body: floatBody(tab),
               },
             ];
           })}
-          onRaise={(key) =>
-            patch((d) => ({
-              floating: [...d.floating.filter((k) => k !== key), key],
-            }))
-          }
-          onRect={(key, rect) => setRects((all) => ({ ...all, [key]: rect }))}
+          onRaise={(key) => patch((d) => restoreFloat(d, key))}
+          onRect={(key, rect) => patch((d) => setFloatRect(d, key, rect))}
           onMinimize={toggleFloat}
-          onDock={dock}
+          onDock={(key) => patch((d) => dockFloat(d, key))}
           onClose={close}
         />
       }
     >
       <ContentCard
         panes={panes}
-        focus={desk.focus}
-        splitDir={entry?.dir}
-        splitRatio={entry?.ratio}
-        onSplitRatio={(ratio) =>
-          patch((d) => ({
-            entries: d.entries.map((e) =>
-              e.key === entry?.key ? { ...e, ratio } : e,
-            ),
-          }))
+        {...(group === null ? {} : { layout: group.layout })}
+        focus={desk.selected}
+        onSplitRatio={(path, ratio) =>
+          patch((d) => setRatio(d, d.selected!, path, ratio))
         }
-        deskLabel={desk.label}
+        deskLabel={mock.label}
         canBack
         canForward={false}
         onBack={() => {}}
         onForward={() => {}}
-        onFocus={(side) => patch(() => ({ focus: side }))}
+        onFocus={(key) => patch((d) => selectTab(d, key))}
         onAction={action}
         onEmptyAction={() => {}}
       />
@@ -343,9 +298,7 @@ export function ShellScene({
         <TabContextMenu
           at={menu}
           state={menuState(menuTab)}
-          onSelect={(what) => {
-            if (what === "close") close(menuTab.key);
-          }}
+          onSelect={(what) => action(what, menuTab.key)}
           onClose={() => setMenu(null)}
         />
       )}

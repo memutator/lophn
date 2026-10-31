@@ -1,7 +1,7 @@
 // 동작하는 project 화면. 새 shell 틀(title bar의 tab 줄, 가운데 card, 양쪽 sidebar) 안에서 sidebar·+ 메뉴·검색·상단 검색·toast·
 // 대화·문서의 링크가 탭을 열면 탭 줄에 그 탭이 생기고 선택된다(이미 열린 탭이면 그 탭을 고른다). 실제 ShellFrame·TabStrip·
 // ContentCard·Palette·Menu와 실제 sidebar(`LeftSidebar`, `ProjectPanel`)·`NewTabMenu`를 쓴다(고정 data는 project-window.tsx가
-// 넘긴다). 칸이 둘인 page(`panes` 둘)는 두 탭을 한 칸으로 붙인 split tab 하나로 그린다.
+// 넘긴다). 칸이 둘인 page(`panes` 둘)는 두 탭을 한 칸으로 붙인 group 하나로 그린다. desk는 실제 desk model이다.
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { Palette, type PaletteItem } from "@lophn/ui/overlay";
@@ -10,10 +10,24 @@ import { ContentCard } from "../../../../packages/shell/renderer/shell/content-c
 import { DeskSwitcher } from "../../../../packages/shell/renderer/shell/desk-switcher.tsx";
 import { PanelTabs } from "../../../../packages/shell/renderer/shell/panel-tabs.tsx";
 import { ShellFrame } from "../../../../packages/shell/renderer/shell/shell-frame.tsx";
+import { TabStrip } from "../../../../packages/shell/renderer/shell/tab-strip.tsx";
 import {
-  type Side,
-  TabStrip,
-} from "../../../../packages/shell/renderer/shell/tab-strip.tsx";
+  closeTab,
+  type Desk,
+  deskEntries,
+  dirsOf,
+  emptyDesk,
+  groupOf,
+  leavesOf,
+  openTab,
+  selectTab,
+  setRatio,
+  splitPartner,
+  splitTab,
+  type TabItem,
+  ungroup,
+  ungroupTab,
+} from "../../../../packages/shell/renderer/shell/desk-model.ts";
 import type { SidebarTab } from "../../../../packages/shell/renderer/workspace/sidebar/project-sidebar.tsx";
 import { workspaceIcons } from "../../../../packages/shell/renderer/icons/mod.ts";
 
@@ -74,34 +88,23 @@ const PANELS = [
   { key: "jobs", label: "Jobs", icon: shellIcons.jobs },
 ];
 
-interface DeskState {
-  readonly tabs: readonly TabSpec[];
-  /** 고른 칸의 key. split이면 a의 key다. */
-  readonly selected: string;
-  /** 붙은 두 탭(b가 a 바로 뒤)과 강조할 쪽. */
-  readonly split: {
-    readonly a: string;
-    readonly b: string;
-    readonly focus: Side;
-  } | null;
-}
+// desk model의 tab은 TabSpec 그대로 담는다(model은 tab을 복사해도 필드를 지우지 않는다). 읽을 때만 TabSpec로 본다.
+const specsOf = (tabs: readonly TabItem[]) => tabs as readonly TabSpec[];
 
-// 칸이 둘인 page의 입력을 한 줄의 탭과 split 하나로 합친다.
-function deskOf(panes: readonly PaneInit[]): DeskState {
+// 칸이 둘인 page의 입력을 한 줄의 탭과 group 하나로 합친다.
+function deskOf(panes: readonly PaneInit[]): Desk {
   const first = panes[0];
   const second = panes[1];
-  const tabs = panes.flatMap((pane) => pane.tabs);
-  if (first === undefined || second === undefined || second.selected === "") {
-    return { tabs, selected: first?.selected ?? "", split: null };
-  }
-  const b = tabs.find((tab) => tab.key === second.selected);
-  const rest = tabs.filter((tab) => tab.key !== second.selected);
-  const at = rest.findIndex((tab) => tab.key === first.selected) + 1;
-  return {
-    tabs: b === undefined ? tabs : [...rest.slice(0, at), b, ...rest.slice(at)],
-    selected: first.selected,
-    split: b === undefined ? null : { a: first.selected, b: b.key, focus: "a" },
+  const base: Desk = {
+    ...emptyDesk("_default", "Main"),
+    tabs: panes.flatMap((pane) => pane.tabs),
+    selected: first?.selected ?? null,
   };
+  return first === undefined || second === undefined || second.selected === ""
+    ? base
+    : splitTab(base, first.selected, second.selected, "right", {
+        select: "target",
+      });
 }
 
 export const CHAT_TAB: TabSpec = {
@@ -213,70 +216,37 @@ export function ProjectApp({
   }, []);
 
   // 이미 열린 탭이면 그 탭을 고르고(문서 탭은 다른 줄을 달라면 그쪽으로), 아니면 고른 탭 바로 뒤에 더해 고른다.
-  // `other`면 고른 탭과 한 칸으로 붙인다(split).
+  // `other`면 고른 탭과 한 칸으로 붙인다(group).
   const open = (tab: TabSpec, other = false) =>
     setDesk((current) => {
       if (current.tabs.some((item) => item.key === tab.key)) {
-        return {
-          ...current,
-          tabs: current.tabs.map((item) =>
-            item.key === tab.key && tab.file?.line !== undefined
-              ? { ...item, file: tab.file, rev: (item.rev ?? 0) + 1 }
-              : item,
-          ),
-          selected: current.split?.b === tab.key ? current.split.a : tab.key,
-        };
+        return selectTab(
+          {
+            ...current,
+            tabs: specsOf(current.tabs).map((item) =>
+              item.key === tab.key && tab.file?.line !== undefined
+                ? { ...item, file: tab.file, rev: (item.rev ?? 0) + 1 }
+                : item,
+            ),
+          },
+          tab.key,
+        );
       }
-      const at = current.tabs.findIndex(
-        (item) => item.key === current.selected,
-      );
-      const after = current.split?.a === current.selected ? at + 2 : at + 1;
-      const tabs = [
-        ...current.tabs.slice(0, after),
-        tab,
-        ...current.tabs.slice(after),
-      ];
-      if (other && current.split === null && at >= 0) {
-        return {
-          tabs: [
-            ...current.tabs.slice(0, at + 1),
-            tab,
-            ...current.tabs.slice(at + 1),
-          ],
-          selected: current.selected,
-          split: { a: current.selected, b: tab.key, focus: "b" },
-        };
-      }
-      return { ...current, tabs, selected: tab.key };
+      const added = openTab(current, tab, {
+        ...(current.selected === null ? {} : { after: current.selected }),
+      });
+      return other && current.selected !== null
+        ? splitTab(added, current.selected, tab.key, "right")
+        : added;
     });
 
-  const close = (key: string) =>
-    setDesk((current) => {
-      const index = current.tabs.findIndex((tab) => tab.key === key);
-      if (index === -1) return current;
-      const tabs = current.tabs.filter((tab) => tab.key !== key);
-      const partner =
-        current.split?.a === key
-          ? current.split.b
-          : current.split?.b === key
-            ? current.split.a
-            : null;
-      const selected =
-        current.selected !== key && partner === null
-          ? current.selected
-          : (partner ?? (tabs[index] ?? tabs[index - 1])?.key ?? "");
-      return {
-        tabs,
-        selected,
-        split: partner === null ? current.split : null,
-      };
-    });
+  const close = (key: string) => setDesk((current) => closeTab(current, key));
 
   // 같은 탭 안에서 session을 바꾼다(탭 key는 그대로, agent는 그대로). row가 없으면 새 session이다.
   const swapSession = (key: string, agent: string, row?: SessionRow) =>
     setDesk((current) => ({
       ...current,
-      tabs: current.tabs.map((tab) =>
+      tabs: specsOf(current.tabs).map((tab) =>
         tab.key !== key
           ? tab
           : row === undefined
@@ -389,23 +359,19 @@ export function ProjectApp({
   };
 
   const items = paletteItems(paletteQuery);
-  const split = desk.split;
-  const inSplit = split !== null && desk.selected === split.a;
-  const focus: Side = inSplit ? split.focus : "a";
-  const shown = (inSplit ? [split.a, split.b] : [desk.selected]).flatMap(
-    (key) => desk.tabs.find((tab) => tab.key === key) ?? [],
+  const group = groupOf(desk, desk.selected);
+  const shown = specsOf(desk.tabs).filter((tab) =>
+    group === null
+      ? tab.key === desk.selected
+      : leavesOf(group.layout).includes(tab.key),
   );
-  const selectedAt = desk.tabs.findIndex((tab) => tab.key === desk.selected);
-  const entries = desk.tabs.flatMap((tab) => {
-    if (split !== null && tab.key === split.b) return [];
-    const [a] = stripTabsOf([tab], tabStates);
-    const partner =
-      split !== null && tab.key === split.a
-        ? desk.tabs.find((item) => item.key === split.b)
-        : undefined;
-    const [b] = partner === undefined ? [] : stripTabsOf([partner], tabStates);
-    return [{ key: tab.key, a: a!, ...(b === undefined ? {} : { b }) }];
-  });
+  const entries = deskEntries(desk).map((entry) => ({
+    key: entry.key,
+    tabs: stripTabsOf(specsOf(entry.tabs), tabStates),
+    ...(entry.group === null
+      ? {}
+      : { dirs: dirsOf(entry.group.layout), focus: entry.group.focus }),
+  }));
   const crumbsOf = (tab: TabSpec) =>
     tab.kind === "document"
       ? ["phroner", ...(tab.sub ?? tab.title).split("/").filter(Boolean)]
@@ -432,21 +398,13 @@ export function ProjectApp({
           tabs={
             <TabStrip
               entries={entries}
-              selected={desk.selected}
-              focus={focus}
+              selected={
+                group === null ? desk.selected : leavesOf(group.layout)[0]!
+              }
               minimized={[]}
               floating={[]}
               newTab={<PageNewTabMenu onPick={pick} startOpen={newTabOpen} />}
-              onSelect={(key, side) =>
-                setDesk((current) => ({
-                  ...current,
-                  selected: key,
-                  split:
-                    current.split?.a === key
-                      ? { ...current.split, focus: side }
-                      : current.split,
-                }))
-              }
+              onSelect={(key) => setDesk((current) => selectTab(current, key))}
               onClose={close}
               onReorder={() => {}}
               onToggleFloat={() => {}}
@@ -492,8 +450,8 @@ export function ProjectApp({
                   preview: false,
                   file: tab.kind === "document",
                   canDetach: true,
-                  split: inSplit ? "row" : null,
-                  canSplit: desk.tabs.length > 1,
+                  group: group === null ? 0 : leavesOf(group.layout).length,
+                  canSplit: splitPartner(desk, tab.key) !== null,
                   hasOthers: desk.tabs.length > 1,
                   hasRight: true,
                 },
@@ -503,49 +461,40 @@ export function ProjectApp({
                   </div>
                 ),
               }))}
-              focus={focus}
+              {...(group === null ? {} : { layout: group.layout })}
+              focus={desk.selected}
               deskLabel="Main"
               canBack={false}
               canForward={false}
               onBack={() => {}}
               onForward={() => {}}
-              onFocus={(side) =>
+              onFocus={(key) => setDesk((current) => selectTab(current, key))}
+              onSplitRatio={(path, ratio) =>
                 setDesk((current) =>
-                  current.split === null
-                    ? current
-                    : { ...current, split: { ...current.split, focus: side } },
+                  setRatio(current, current.selected!, path, ratio),
                 )
               }
-              onAction={(action, side) => {
-                const tab = shown[side === "b" ? 1 : 0];
-                if (tab === undefined) return;
-                if (action === "close") close(tab.key);
+              onAction={(action, key) => {
+                if (action === "close") close(key);
                 else if (action === "unsplit") {
-                  setDesk((current) => ({ ...current, split: null }));
+                  setDesk((current) => ungroup(current, key));
+                } else if (action === "split-remove") {
+                  setDesk((current) => ungroupTab(current, key));
                 } else if (
                   action === "split-right" ||
                   action === "split-down"
                 ) {
-                  const next =
-                    desk.tabs[selectedAt + 1] ?? desk.tabs[selectedAt - 1];
-                  if (next === undefined) return;
-                  setDesk((current) => {
-                    const rest = current.tabs.filter(
-                      (item) => item.key !== next.key,
-                    );
-                    const at =
-                      rest.findIndex((item) => item.key === current.selected) +
-                      1;
-                    return {
-                      tabs: [...rest.slice(0, at), next, ...rest.slice(at)],
-                      selected: current.selected,
-                      split: {
-                        a: current.selected,
-                        b: next.key,
-                        focus: "a",
-                      },
-                    };
-                  });
+                  const partner = splitPartner(desk, key);
+                  if (partner === null) return;
+                  setDesk((current) =>
+                    splitTab(
+                      current,
+                      key,
+                      partner,
+                      action === "split-right" ? "right" : "bottom",
+                      { select: "target" },
+                    ),
+                  );
                 }
               }}
               onEmptyAction={() => {}}

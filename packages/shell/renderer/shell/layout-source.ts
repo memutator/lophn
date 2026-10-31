@@ -12,6 +12,10 @@ import {
   type FloatRect,
   type FloatTab,
   clampSplitRatio,
+  GROUP_MAX,
+  type Group,
+  type GroupNode,
+  leavesOf,
   MAIN_DESK,
   type PlaceLayout,
   type PlaceRef,
@@ -169,19 +173,45 @@ function rectOf(value: unknown): FloatRect | null {
   };
 }
 
-// tab이 빠졌을 때(알 수 없는 kind, 저장할 수 없는 tab) 고른 tab과 split이 남은 tabs 안에 있게 고친다.
+// tab이 빠졌을 때(알 수 없는 kind, 저장할 수 없는 tab) 고른 tab과 group이 남은 tabs 안에 있게 고친다. group은
+// leaf가 빠지면 그 leaf를 걷어내고 1개로 줄면 푼다. tabs 순서는 건드리지 않는다(main이 이미 붙어 있게 검증했다).
 function repaired(desk: Desk): Desk {
-  const keys = desk.tabs.map((tab) => tab.key);
-  const split = desk.split;
-  const at = split === null ? -1 : keys.indexOf(split.a);
+  const keys = new Set(desk.tabs.map((tab) => tab.key));
+  const groups = desk.groups.flatMap((group): Group[] => {
+    const layout = prune(group.layout, keys);
+    if (layout === null) return [];
+    const leaves = leavesOf(layout);
+    return leaves.length < 2
+      ? []
+      : [
+          {
+            layout,
+            focus: leaves.includes(group.focus) ? group.focus : leaves[0]!,
+          },
+        ];
+  });
+  const selected =
+    desk.selected !== null && keys.has(desk.selected)
+      ? desk.selected
+      : (desk.tabs[0]?.key ?? null);
   return {
     ...desk,
-    selected:
-      desk.selected !== null && keys.includes(desk.selected)
-        ? desk.selected
-        : (keys[0] ?? null),
-    split: split !== null && at >= 0 && keys[at + 1] === split.b ? split : null,
+    selected,
+    groups: groups.map((group) =>
+      selected !== null && leavesOf(group.layout).includes(selected)
+        ? { ...group, focus: selected }
+        : group,
+    ),
   };
+}
+
+function prune(node: GroupNode, keys: ReadonlySet<string>): GroupNode | null {
+  if ("tab" in node) return keys.has(node.tab) ? node : null;
+  const a = prune(node.a, keys);
+  const b = prune(node.b, keys);
+  if (a === null) return b;
+  if (b === null) return a;
+  return { ...node, a, b };
 }
 
 function compact<T>(items: readonly (T | null)[]): T[] {
@@ -190,33 +220,54 @@ function compact<T>(items: readonly (T | null)[]): T[] {
 
 type Stored = Record<string, unknown>;
 
+// main이 이미 검증했다. 모양이 틀리면 그 group만 버리고 tab은 남는다.
+function nodeFromStored(value: unknown, depth = 0): GroupNode | null {
+  const node = value as Stored | null;
+  if (typeof node !== "object" || node === null || depth > GROUP_MAX) {
+    return null;
+  }
+  if (typeof node.tab === "string") return { tab: node.tab };
+  const a = nodeFromStored(node.a, depth + 1);
+  const b = nodeFromStored(node.b, depth + 1);
+  if (a === null || b === null) return null;
+  return {
+    dir: node.dir === "column" ? "column" : "row",
+    ratio: clampSplitRatio(typeof node.ratio === "number" ? node.ratio : 0.5),
+    a,
+    b,
+  };
+}
+
+function nodeToStored(node: GroupNode): Stored {
+  return "tab" in node
+    ? { tab: node.tab }
+    : {
+        dir: node.dir,
+        ratio: node.ratio,
+        a: nodeToStored(node.a),
+        b: nodeToStored(node.b),
+      };
+}
+
+function groupFromStored(value: unknown): Group | null {
+  const group = value as Stored | null;
+  const layout = nodeFromStored(group?.layout);
+  if (layout === null || typeof group?.focus !== "string") return null;
+  return { layout, focus: group.focus };
+}
+
 function deskFromStored(key: string, value: unknown): Desk | null {
   if (typeof value !== "object" || value === null) return null;
   const desk = value as Stored;
   const list = (field: string): unknown[] =>
     Array.isArray(desk[field]) ? (desk[field] as unknown[]) : [];
-  const split = desk.split as Stored | null | undefined;
   return repaired({
     key,
     label: typeof desk.label === "string" ? desk.label : key,
     ...(typeof desk.workflow === "string" ? { workflow: desk.workflow } : {}),
     tabs: compact(list("tabs").map(tabFromStored)),
     selected: typeof desk.selected_tab === "string" ? desk.selected_tab : null,
-    split:
-      split &&
-      typeof split.a === "string" &&
-      typeof split.b === "string" &&
-      (split.focus === "a" || split.focus === "b")
-        ? {
-            a: split.a,
-            b: split.b,
-            focus: split.focus,
-            dir: split.dir === "column" ? "column" : "row",
-            ratio: clampSplitRatio(
-              typeof split.ratio === "number" ? split.ratio : 0.5,
-            ),
-          }
-        : null,
+    groups: compact(list("groups").map(groupFromStored)),
     floats: compact(
       list("floats").map((item): FloatTab | null => {
         const float = item as Stored | null;
@@ -268,7 +319,10 @@ function deskToStored(input: Desk): Stored {
     ...(desk.workflow === undefined ? {} : { workflow: desk.workflow }),
     tabs: desk.tabs.map((tab) => tabToStored(tab)),
     selected_tab: desk.selected,
-    split: desk.split,
+    groups: desk.groups.map((group) => ({
+      layout: nodeToStored(group.layout),
+      focus: group.focus,
+    })),
     floats: compact(
       desk.floats.map((item) => {
         const tab = tabToStored(item.tab);

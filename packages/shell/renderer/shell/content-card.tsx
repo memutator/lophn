@@ -1,7 +1,9 @@
-// 가운데 둥근 card. 머리 줄(← →, 경로, 상태, ⋯ tab 메뉴)과 본문이고, split이면 반쪽마다 자기 머리 줄을 가진다.
+// 가운데 둥근 card. 머리 줄(← →, 경로, 상태, ⋯ tab 메뉴)과 본문이고, group이면 leaf마다 자기 머리 줄을 가진다.
 // tab이 하나도 없으면 빈 desk 안내를 보인다. 본문은 호출자가 그려 넣는다.
+//
+// 칸(pane)은 tab key로 key를 준 평평한 absolute 상자이고 자리는 group tree에서 계산한다(group-geometry.ts). tree가
+// 바뀌어도 칸의 React 부모가 같아 본문이 다시 mount되지 않는다. DOM 순서도 tab key 순으로 고정해 옮겨지지 않는다.
 import {
-  Fragment,
   type PointerEvent,
   type ReactNode,
   useCallback,
@@ -21,13 +23,13 @@ import {
   type CardHeadSpec,
 } from "./card-head.tsx";
 import styles from "./content-card.module.css";
-import { clampSplitRatio, type SplitDir } from "./desk-model.ts";
+import { type GroupNode, type NodePath, setNodeRatio } from "./desk-model.ts";
+import { dragRatio, FULL, placeGroup } from "./group-geometry.ts";
 import {
   type TabAction,
   type TabMenuState,
   tabMenuItems,
 } from "./tab-menu.tsx";
-import type { Side } from "./tab-strip.tsx";
 
 export type { TabAction };
 
@@ -36,7 +38,7 @@ const DEFAULT_MENU: TabMenuState = {
   preview: false,
   file: false,
   canDetach: true,
-  split: null,
+  group: 0,
   canSplit: true,
   hasOthers: true,
   hasRight: true,
@@ -55,36 +57,36 @@ export interface CardPane {
 }
 
 export interface ContentCardProps {
-  /** 0이면 빈 desk, 1이면 한 tab, 2면 split(a, b 차례). */
+  /** 0이면 빈 desk, 1이면 한 tab, group이면 leaf마다 하나(순서는 상관없다). */
   panes: readonly CardPane[];
-  /** split에서 강조할 쪽. */
-  focus: Side;
-  /** split의 방향. row는 좌우, column은 위아래. 주지 않으면 row다. */
-  splitDir?: SplitDir;
-  /** split에서 a의 몫(0.15~0.85). 주지 않으면 반반이다. */
-  splitRatio?: number;
+  /** group의 배치 tree. panes가 둘 이상일 때만 쓴다. */
+  layout?: GroupNode;
+  /** group에서 강조할 칸의 tab key. */
+  focus: string | null;
   /** 나누는 선을 끌어 놓았다. 끄는 동안은 card가 자기 몫을 그리고 놓을 때 한 번 부른다. */
-  onSplitRatio?: (ratio: number) => void;
+  onSplitRatio?: (path: NodePath, ratio: number) => void;
   /** 빈 desk 안내의 제목으로 쓰는 desk 이름. */
   deskLabel: string;
   canBack: boolean;
   canForward: boolean;
   onBack: () => void;
   onForward: () => void;
-  /** split에서 반쪽을 눌렀다. */
-  onFocus: (side: Side) => void;
-  onAction: (action: TabAction, side: Side) => void;
+  /** group에서 칸을 눌렀다. */
+  onFocus: (key: string) => void;
+  onAction: (action: TabAction, key: string) => void;
   /** 빈 desk의 단추. */
   onEmptyAction: (action: "new-session" | "open-file") => void;
   /** Explorer의 파일을 card 위에 놓았다. 주지 않으면 받지 않는다. */
   onDropPath?: (path: string) => void;
 }
 
+// 나누는 선의 두께. content-card.module.css의 .handle과 같다.
+const GAP = "var(--space-3)";
+
 export function ContentCard({
   panes,
+  layout,
   focus,
-  splitDir = "row",
-  splitRatio = 0.5,
   onSplitRatio,
   deskLabel,
   canBack,
@@ -96,20 +98,35 @@ export function ContentCard({
   onEmptyAction,
   onDropPath,
 }: ContentCardProps) {
-  const split = panes.length === 2;
+  const grouped = panes.length > 1 && layout !== undefined;
   const [dropping, setDropping] = useState(false);
-  const splitBox = useRef<HTMLDivElement>(null);
-  // 끄는 동안의 몫. 놓을 때 onSplitRatio로 한 번만 저장한다.
-  const [live, setLive] = useState<number | null>(null);
-  const ratio = live ?? splitRatio;
-  const dragRatio = (event: PointerEvent<HTMLElement>) => {
-    const box = splitBox.current?.getBoundingClientRect();
-    if (box === undefined) return null;
-    return clampSplitRatio(
-      splitDir === "row"
-        ? (event.clientX - box.left) / box.width
-        : (event.clientY - box.top) / box.height,
+  const area = useRef<HTMLDivElement>(null);
+  // 끄는 동안의 선과 몫. 놓을 때 onSplitRatio로 한 번만 저장한다.
+  const [live, setLive] = useState<{
+    readonly path: NodePath;
+    readonly ratio: number;
+  } | null>(null);
+  const shownLayout =
+    grouped && live !== null
+      ? setNodeRatio(layout, live.path, live.ratio)
+      : layout;
+  const placed = grouped ? placeGroup(shownLayout!, GAP) : null;
+  const dragTo = (
+    event: PointerEvent<HTMLElement>,
+    path: NodePath,
+  ): number | null => {
+    const box = area.current?.getBoundingClientRect();
+    if (box === undefined || !grouped) return null;
+    const handle = event.currentTarget.getBoundingClientRect();
+    const dir = placed?.splits.find((split) => sameWay(split.path, path))?.dir;
+    const ratio = dragRatio(
+      layout,
+      path,
+      { x: event.clientX - box.left, y: event.clientY - box.top },
+      { w: box.width, h: box.height },
+      dir === "column" ? handle.height : handle.width,
     );
+    return ratio === null ? null : Math.min(0.85, Math.max(0.15, ratio));
   };
   // 본문이 올린 머리 줄(card-head.tsx). 칸 key별이고 본문이 사라지면 비워진다.
   const [heads, setHeads] = useState<Readonly<Record<string, CardHeadSpec>>>(
@@ -125,22 +142,8 @@ export function ContentCard({
       return { ...now, [key]: spec };
     });
   }, []);
-  const body = (pane: CardPane) => (
-    <HeadScope paneKey={pane.key} onHead={setHead}>
-      {pane.body}
-    </HeadScope>
-  );
-  const head = (pane: CardPane, side: Side) => (
-    <CardHead
-      pane={pane}
-      spec={heads[pane.key]}
-      canBack={canBack}
-      canForward={canForward}
-      onBack={onBack}
-      onForward={onForward}
-      onAction={(action) => onAction(action, side)}
-    />
-  );
+  // DOM 순서는 key 순으로 고정한다. leaf가 자리를 바꿔도 요소가 옮겨지지 않는다.
+  const ordered = [...panes].sort((a, b) => (a.key < b.key ? -1 : 1));
   return (
     <div
       className={styles.card}
@@ -168,66 +171,88 @@ export function ContentCard({
     >
       {panes.length === 0 ? (
         <EmptyDesk label={deskLabel} onAction={onEmptyAction} />
-      ) : split ? (
+      ) : (
         <div
-          ref={splitBox}
-          className={styles.split}
-          data-dir={splitDir}
-          data-resizing={live !== null || undefined}
+          ref={area}
+          className={styles.area}
+          data-grouped={grouped || undefined}
         >
-          {panes.map((pane, index) => {
-            const side: Side = index === 0 ? "a" : "b";
+          {ordered.map((pane) => {
+            const box = placed?.leaves.get(pane.key) ?? FULL;
             return (
-              <Fragment key={pane.key}>
-                {index === 1 ? (
-                  <div
-                    className={styles.handle}
-                    role="separator"
-                    aria-orientation={
-                      splitDir === "row" ? "vertical" : "horizontal"
-                    }
-                    aria-label={t("shell.label.split-resize")}
-                    onPointerDown={(event) => {
-                      if (event.button !== 0) return;
-                      event.preventDefault();
-                      event.currentTarget.setPointerCapture(event.pointerId);
-                      setLive(dragRatio(event));
-                    }}
-                    onPointerMove={(event) => {
-                      if (live !== null) setLive(dragRatio(event));
-                    }}
-                    onPointerUp={(event) => {
-                      if (live === null) return;
-                      const done = dragRatio(event) ?? live;
-                      setLive(null);
-                      onSplitRatio?.(done);
-                    }}
-                    onPointerCancel={() => setLive(null)}
-                    onDoubleClick={() => onSplitRatio?.(0.5)}
-                  />
-                ) : null}
-                <section
-                  className={styles.half}
-                  style={{ flexGrow: index === 0 ? ratio : 1 - ratio }}
-                  data-focused={focus === side || undefined}
-                  onPointerDown={() => onFocus(side)}
-                >
-                  {head(pane, side)}
-                  <div className={styles.body}>{body(pane)}</div>
-                </section>
-              </Fragment>
+              <section
+                key={pane.key}
+                className={styles.pane}
+                style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
+                data-pane={pane.key}
+                data-dim={(grouped && focus !== pane.key) || undefined}
+                onPointerDown={() => {
+                  if (grouped) onFocus(pane.key);
+                }}
+              >
+                <CardHead
+                  pane={pane}
+                  spec={heads[pane.key]}
+                  canBack={canBack}
+                  canForward={canForward}
+                  onBack={onBack}
+                  onForward={onForward}
+                  onAction={(action) => onAction(action, pane.key)}
+                />
+                <div className={styles.body}>
+                  <HeadScope paneKey={pane.key} onHead={setHead}>
+                    {pane.body}
+                  </HeadScope>
+                </div>
+              </section>
             );
           })}
+          {placed?.splits.map((split) => (
+            <div
+              key={`handle:${split.path.join("")}`}
+              className={styles.handle}
+              style={{
+                left: split.box.x,
+                top: split.box.y,
+                width: split.box.w,
+                height: split.box.h,
+              }}
+              role="separator"
+              aria-orientation={split.dir === "row" ? "vertical" : "horizontal"}
+              aria-label={t("shell.label.split-resize")}
+              data-dir={split.dir}
+              data-resizing={
+                (live !== null && sameWay(live.path, split.path)) || undefined
+              }
+              onPointerDown={(event) => {
+                if (event.button !== 0) return;
+                event.preventDefault();
+                event.currentTarget.setPointerCapture(event.pointerId);
+                const ratio = dragTo(event, split.path);
+                if (ratio !== null) setLive({ path: split.path, ratio });
+              }}
+              onPointerMove={(event) => {
+                if (live === null) return;
+                const ratio = dragTo(event, split.path);
+                if (ratio !== null) setLive({ path: split.path, ratio });
+              }}
+              onPointerUp={(event) => {
+                if (live === null) return;
+                const done = dragTo(event, split.path) ?? live.ratio;
+                setLive(null);
+                onSplitRatio?.(split.path, done);
+              }}
+              onPointerCancel={() => setLive(null)}
+              onDoubleClick={() => onSplitRatio?.(split.path, 0.5)}
+            />
+          ))}
         </div>
-      ) : (
-        <>
-          {head(panes[0]!, "a")}
-          <div className={styles.body}>{body(panes[0]!)}</div>
-        </>
       )}
     </div>
   );
 }
+
+const sameWay = (a: NodePath, b: NodePath) => a.join("") === b.join("");
 
 function HeadScope({
   paneKey,

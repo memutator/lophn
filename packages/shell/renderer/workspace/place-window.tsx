@@ -63,13 +63,17 @@ import {
   closeTab,
   closeTargets,
   type Desk,
+  deskEntries,
   deskTabs,
   detachTab,
+  dirsOf,
   dockFloat,
   entryKey,
   findTab,
   floatTab,
-  focusedKey,
+  focusLeaf,
+  groupOf,
+  leavesOf,
   mapLayoutTabs,
   minimizeFloat,
   MAIN_DESK,
@@ -85,18 +89,19 @@ import {
   reattachTab,
   removeDesk,
   renameDesk,
+  reorderTab,
   restoreFloat,
   selectTab,
   setActiveDesk,
   setFloatRect,
-  setSplitDir,
-  setSplitRatio,
-  splitWith,
-  type SplitDir,
+  setRatio,
+  splitPartner,
+  splitTab,
   stepTab,
   type PlaceRef,
   type TabItem,
-  unsplit,
+  ungroup,
+  ungroupTab,
   updateDesk,
   whereInDesk,
 } from "../shell/desk-model.ts";
@@ -106,7 +111,6 @@ import { PanelTabs } from "../shell/panel-tabs.tsx";
 import { ShellFrame } from "../shell/shell-frame.tsx";
 import { TabContextMenu, type TabMenuState } from "../shell/tab-menu.tsx";
 import {
-  type Side,
   type StripEntry,
   type StripTab,
   TabStrip,
@@ -265,7 +269,8 @@ const TRAIL_MAX = 50;
 interface Stop {
   readonly desk: string;
   readonly key: string | null;
-  readonly focus: Side;
+  /** 칸의 focus tab key(group이 아니면 칸의 tab). */
+  readonly focus: string | null;
 }
 
 const sameStop = (a: Stop, b: Stop) =>
@@ -846,7 +851,9 @@ export function PlaceWindow(props: PlaceWindowProps) {
         update((item) =>
           item.selected !== null &&
           item.tabs.some((tab) => tab.key === appScreenKey(appId))
-            ? splitWith(item, appScreenKey(appId), item.selected)
+            ? splitTab(item, appScreenKey(appId), item.selected, "right", {
+                select: "target",
+              })
             : item,
         );
       }
@@ -1223,16 +1230,14 @@ export function PlaceWindow(props: PlaceWindowProps) {
         return;
       }
       case "tab.nth": {
-        const target =
-          arg === 0 ? current.tabs.at(-1) : current.tabs[(arg ?? 1) - 1];
-        if (target !== undefined && target.key !== current.selected) {
-          selectKey(target.key);
-        }
+        const entries = deskEntries(current);
+        const entry = arg === 0 ? entries.at(-1) : entries[(arg ?? 1) - 1];
+        const key = entry?.group?.focus ?? entry?.key;
+        if (key !== undefined && key !== current.selected) selectKey(key);
         return;
       }
       case "tab.close": {
-        const key = focusedKey(current);
-        if (key !== null) close(key);
+        if (current.selected !== null) close(current.selected);
         return;
       }
       case "tab.reopen": {
@@ -1258,23 +1263,17 @@ export function PlaceWindow(props: PlaceWindowProps) {
         return;
       }
       case "pane.focus": {
-        const split = current.split;
-        const key = entryKey(current);
-        if (split === null || key !== split.a) return;
-        update((item) =>
-          selectTab(item, split.a, (arg ?? 1) === 2 ? "b" : "a"),
-        );
-        focusTabBody(arg === 2 ? split.b : split.a);
+        const group = groupOf(current, current.selected);
+        const key =
+          group === null ? undefined : leavesOf(group.layout)[(arg ?? 1) - 1];
+        if (key === undefined) return;
+        update((item) => focusLeaf(item, (arg ?? 1) - 1));
+        focusTabBody(key);
         return;
       }
-      case "pane.split": {
-        if (current.split !== null) {
-          update(unsplit);
-          return;
-        }
-        splitWithNext();
+      case "pane.split":
+        if (current.selected !== null) splitNext(current.selected, "right");
         return;
-      }
       case "sidebar.toggle":
         setLeftOpen((open) => !open);
         return;
@@ -1366,33 +1365,27 @@ export function PlaceWindow(props: PlaceWindowProps) {
     }
   }, [terminalVersion, terminal, windowTabs]);
 
-  // card에 그릴 탭. split이면 a, b 둘이고 아니면 고른 탭 하나다.
-  const split = desk.split;
-  const inSplit = split !== null && entryKey(desk) === split.a;
-  const focusSide: Side = inSplit ? split.focus : "a";
+  // card에 그릴 탭. 고른 탭이 group 구성원이면 그 group의 leaf 전부(leaf 순서), 아니면 고른 탭 하나다.
+  const group = groupOf(desk, desk.selected);
   const deskTab = (key: string | null) =>
     desk.tabs.find((tab) => tab.key === key);
-  const shown = (inSplit ? [split.a, split.b] : [desk.selected]).flatMap(
-    (key) => deskTab(key) ?? [],
-  );
-  const splitWithNext = (key?: string, dir: SplitDir = "row") => {
-    const current = latestDesk();
-    const from = key ?? current.selected;
-    const at = current.tabs.findIndex((tab) => tab.key === from);
-    const next = current.tabs[at + 1] ?? current.tabs[at - 1];
-    if (from === null || at < 0 || next === undefined) return;
-    update((item) => splitWith(item, from, next.key, dir));
+  const shown = (
+    group === null ? [desk.selected] : leavesOf(group.layout)
+  ).flatMap((key) => deskTab(key) ?? []);
+  // key의 칸 옆에 다음 plain tab을 붙인다. group은 그 leaf 옆에 끼고 가득 차면 아무 일도 없다.
+  const splitNext = (key: string, side: "right" | "bottom") => {
+    const partner = splitPartner(latestDesk(), key);
+    if (partner === null) return;
+    update((item) => splitTab(item, key, partner, side, { select: "target" }));
   };
 
   // tab 메뉴(오른쪽 클릭과 card ⋯)가 보이는 항목.
   const menuStateOf = (tab: TabItem): TabMenuState => {
     const tabs = desk.tabs;
-    const member =
-      split !== null && (split.a === tab.key || split.b === tab.key);
+    const own = groupOf(desk, tab.key);
+    const span = own === null ? [tab.key] : leavesOf(own.layout);
     const lastAt = Math.max(
-      ...(member ? [split.a, split.b] : [tab.key]).map((key) =>
-        tabs.findIndex((item) => item.key === key),
-      ),
+      ...span.map((key) => tabs.findIndex((item) => item.key === key)),
     );
     return {
       renamable: tabKindOf(tab.kind)?.rename !== undefined,
@@ -1400,9 +1393,9 @@ export function PlaceWindow(props: PlaceWindowProps) {
       file: pathOfTab(tab) !== null,
       canDetach:
         props.detached !== undefined && tabKindOf(tab.kind)?.noDetach !== true,
-      split: member ? split.dir : null,
-      canSplit: tabs.length > 1,
-      hasOthers: tabs.length > (member ? 2 : 1),
+      group: own === null ? 0 : span.length,
+      canSplit: splitPartner(desk, tab.key) !== null,
+      hasOthers: tabs.length > span.length,
       hasRight: lastAt < tabs.length - 1,
     };
   };
@@ -1448,16 +1441,14 @@ export function PlaceWindow(props: PlaceWindowProps) {
         floatByKey(key);
         return;
       case "split-right":
-      case "split-down": {
-        const dir = action === "split-right" ? "row" : "column";
-        // 이 tab이 이미 split 구성원이면 방향만 바꾼다.
-        if (split !== null && (split.a === key || split.b === key)) {
-          update((item) => setSplitDir(item, dir));
-        } else splitWithNext(key, dir);
+      case "split-down":
+        splitNext(key, action === "split-right" ? "right" : "bottom");
         return;
-      }
+      case "split-remove":
+        update((item) => ungroupTab(item, key));
+        return;
       case "unsplit":
-        update(unsplit);
+        update((item) => ungroup(item, key));
         return;
       case "detach":
         void detach(key);
@@ -1491,7 +1482,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
               .filter((part) => part !== ""),
           ];
   };
-  const panes: CardPane[] = shown.map((tab, index) => {
+  const panes: CardPane[] = shown.map((tab) => {
     const dot = tabKindOf(tab.kind)?.dotOf?.(tab, host) ?? null;
     return {
       key: tab.key,
@@ -1500,51 +1491,28 @@ export function PlaceWindow(props: PlaceWindowProps) {
       menu: menuStateOf(tab),
       body: (
         <div key={tab.key} className={styles.tabBody} data-tab-body={tab.key}>
-          {bodyOf(tab, !inSplit || focusSide === (index === 0 ? "a" : "b"))}
+          {bodyOf(tab, group === null || desk.selected === tab.key)}
         </div>
       ),
     };
   });
 
-  const onCardAction = (action: TabAction, side: Side) => {
-    const tab = shown[side === "b" ? 1 : 0];
-    if (tab !== undefined) runTabAction(action, tab.key);
-  };
-
-  // tab 줄의 한 칸. split은 칸 하나에 a, b 둘이 붙는다.
-  const entries: StripEntry[] = desk.tabs.flatMap((tab) => {
-    if (split !== null && tab.key === split.b) return [];
-    const partner =
-      split !== null && tab.key === split.a ? deskTab(split.b) : undefined;
-    return [
-      {
-        key: tab.key,
-        a: stripTab(tab),
-        ...(partner === undefined
-          ? {}
-          : { b: stripTab(partner), dir: split!.dir }),
-      },
-    ];
-  });
-  const reorder = (key: string, before: string | null) => {
-    const moving = new Set(
-      split !== null && (key === split.a || key === split.b)
-        ? [split.a, split.b]
-        : [key],
-    );
-    const rest = desk.tabs.filter((tab) => !moving.has(tab.key));
-    const at =
-      before === null
-        ? rest.length
-        : rest.findIndex((tab) => tab.key === before);
-    if (at >= 0) update((item) => moveTab(item, key, at));
-  };
+  // tab 줄의 한 칸. group은 칸 하나에 leaf 순서로 붙는다.
+  const entries: StripEntry[] = deskEntries(desk).map((entry) => ({
+    key: entry.key,
+    tabs: entry.tabs.map(stripTab),
+    ...(entry.group === null
+      ? {}
+      : { dirs: dirsOf(entry.group.layout), focus: entry.group.focus }),
+  }));
+  const reorder = (key: string, before: string | null) =>
+    update((item) => reorderTab(item, key, before));
 
   // 이동 기록. ← →가 오가는 창 하나의 지나온 자리이고 저장하지 않는다.
   const here: Stop = {
     desk: layout.active,
     key: entryKey(desk),
-    focus: focusSide,
+    focus: desk.selected,
   };
   const [trail, setTrail] = useState<{
     readonly stops: readonly Stop[];
@@ -1592,8 +1560,9 @@ export function PlaceWindow(props: PlaceWindowProps) {
             ? item
             : selectTab(
                 item,
-                stop.key,
-                item.split?.a === stop.key ? stop.focus : undefined,
+                item.tabs.some((tab) => tab.key === stop.focus)
+                  ? stop.focus!
+                  : stop.key,
               ),
       ),
     );
@@ -1656,19 +1625,20 @@ export function PlaceWindow(props: PlaceWindowProps) {
     <div className={styles.stage} ref={stageRef}>
       <ContentCard
         panes={panes}
-        focus={focusSide}
-        splitDir={split?.dir}
-        splitRatio={split?.ratio}
-        onSplitRatio={(ratio) => update((item) => setSplitRatio(item, ratio))}
+        {...(group === null ? {} : { layout: group.layout })}
+        focus={desk.selected}
+        onSplitRatio={(path, ratio) =>
+          update((item) =>
+            setRatio(item, leavesOf(group!.layout)[0]!, path, ratio),
+          )
+        }
         deskLabel={desk.label}
         canBack={backAt >= 0}
         canForward={forwardAt >= 0}
         onBack={() => walk(backAt)}
         onForward={() => walk(forwardAt)}
-        onFocus={(side) => {
-          if (split !== null) update((item) => selectTab(item, split.a, side));
-        }}
-        onAction={onCardAction}
+        onFocus={(key) => update((item) => selectTab(item, key))}
+        onAction={runTabAction}
         onDropPath={(path) =>
           openFile(host, path, {
             ...(desk.selected === null ? {} : { from: desk.selected }),
@@ -1739,20 +1709,11 @@ export function PlaceWindow(props: PlaceWindowProps) {
               <TabStrip
                 entries={entries}
                 selected={entryKey(desk)}
-                focus={focusSide}
                 minimized={desk.floats.map((item) => stripTab(item.tab))}
                 floating={desk.floats
                   .filter((item) => !item.minimized)
                   .map((item) => item.tab.key)}
-                onSelect={(key, side) =>
-                  update((item) =>
-                    selectTab(
-                      item,
-                      key,
-                      item.split?.a === key ? side : undefined,
-                    ),
-                  )
-                }
+                onSelect={(key) => update((item) => selectTab(item, key))}
                 onClose={close}
                 onMenu={(key, at) => setTabMenu({ key, ...at })}
                 onPin={(key) => update((item) => pinTab(item, key))}

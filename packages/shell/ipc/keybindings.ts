@@ -42,7 +42,7 @@ export type KeyPlatform = "mac" | "other";
 
 export interface Binding {
   readonly command: Command;
-  /** tab.nth는 1~9와 0(마지막 탭), pane.focus는 split의 쪽 번호(1부터). */
+  /** tab.nth는 1~9와 0(마지막 탭), pane.focus는 고른 group의 leaf 번호(1부터). */
   readonly arg?: number;
   /** Linux·Windows의 chord. */
   readonly other: readonly string[];
@@ -110,7 +110,7 @@ const FIXED: readonly Binding[] = [
 ];
 
 // split은 두 tab뿐이다. 1이 왼쪽 tab, 2가 오른쪽 tab이다.
-const PANES = [1, 2];
+const PANES = [1, 2, 3, 4];
 // Alt+숫자는 macOS에서 Option 글자 입력이라 mac은 Ctrl+숫자다. 0은 마지막 탭.
 const TAB_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
 

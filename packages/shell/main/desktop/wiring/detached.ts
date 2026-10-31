@@ -4,7 +4,7 @@
 import { type BrowserWindow, screen } from "electron";
 
 import { DETACHED_EVENT_CHANNEL } from "../../../ipc/detached.ts";
-import type { WindowBounds } from "../../workspace/layout.ts";
+import type { WindowBounds } from "../../workspace/schema.ts";
 import { clampToWorkAreas } from "../work-area.ts";
 import { createDetachedIpc } from "../detached/ipc.ts";
 import { DetachedRegistry } from "../detached/registry.ts";

@@ -1,4 +1,4 @@
-// project settings 탭 kind. project 창에 하나이고 값은 project 등록과 rail_apps에 있어 탭은 열려 있다는 사실만 저장한다.
+// project settings 탭 kind. project 창에 하나이고 값은 project 등록에 있어 탭은 열려 있다는 사실만 저장한다.
 import { t } from "@lophn/i18n";
 
 import { commonIcons } from "../../icons/mod.ts";

@@ -25,7 +25,7 @@ import {
 } from "../window.ts";
 import { clampToWorkAreas } from "../work-area.ts";
 import { stateOf } from "../window-controls.ts";
-import type { WindowBounds } from "../../workspace/layout.ts";
+import type { WindowBounds } from "../../workspace/schema.ts";
 import type { ShellContext } from "./context.ts";
 
 /** 영역이 창을 열고 보이게 할 때 쓰는 통로. */

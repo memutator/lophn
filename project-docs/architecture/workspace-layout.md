@@ -17,7 +17,7 @@ place 창(Home, project, 앱)이 가진 탭이 어디에 있는가를 정하는 
         │ 바뀔 때마다(commit) mapLayoutTabs(읽던 위치 채우기) ─▶ WorkspaceSource.layout.savePlaceLayout ─▶ layoutToStored(renderer/shell/layout-source.ts: transient 탭 빼기,
         ▼                                                      kind registry의 toStored) ─▶ shell:place-layout-save { place, layout } (main이 살아 있는 detached 창의 bounds로 덮는다)
  main/workspace/place-layout*.ts ── <data>/shell/places/<place>.json (schema_version 8, desk 1~200개, desk마다 floats·detached 각 최대 20, tabs 최대 1200)
-                             없고 place가 project면 옛 <data>/shell/layouts/<prj_id>.json(판 5~7)을 읽어 올린다(아래 place layout). 그 밖의 다른 판은 unsupported_schema
+                             없으면 기본 layout(옛 layouts/는 읽지 않는다). 다른 판은 unsupported_schema
  project settings 탭(kind project_settings, key "project-settings", project 창에 하나, noDetach) ─▶ General은 Places panel의 상세 dialog와 같은 ProjectForm이고 ProjectsSource를 PlaceWindow의 `projects` prop으로 받는다. 저장하면 host.projectSettings.projectChanged
      진입: 팔레트 행동 "Project settings". layout 파일에는 탭 kind와 key만 남는다
  jobs·inbox 탭(kind jobs·inbox, key "jobs"·"inbox", 어느 place에서든 desk마다 하나, noDetach) ─▶ jobs는 모든 job의 목록·고치기·지우기·기록(desktop/jobs/jobs-page.tsx), inbox는 대기 목록 카드(desktop/connection/waiting/waiting-page.tsx). PlaceWindow의 `jobs` prop(JobsSource)을 host.props로 읽는다
@@ -128,12 +128,11 @@ Settings는 place가 아니라 같은 shell 틀을 쓰는 창 안의 한 자리�
 
 ## place layout (판 8)
 
-place 창이 읽고 쓰는 저장과 model이다. 옛 project layout 파일(`layouts/<prj_id>.json`)은 읽어 올리는 데만 쓴다.
+place 창이 읽고 쓰는 저장과 model이다. 옛 project layout 파일(`layouts/<prj_id>.json`, 판 5~7)은 읽지도 올리지도 않는다.
 
-- **파일은 place마다 하나다.** `<data>/shell/places/<place>.json`이고 place는 `home`, project id, app id다(`main/workspace/place-layout*.ts`). 파일 이름이 되는 key는 `[A-Za-z0-9_-]{1,64}`만 받아 폴더 밖으로 나갈 수 없다(`invalid_input`). 원자 교체와 mode는 `layouts/`와 같다(`atomic-file.ts`).
-- **모양은 `{ schema_version: 8, active_desk, desks: { <key> → { label, workflow?, tabs, selected_tab, groups: [{ layout, focus }], floats: [{tab, rect, minimized}], detached: [{tab, bounds}] } } }`다.** `layout`은 `{ tab: <key> }`(leaf)나 `{ dir, ratio, a, b }`이고 `focus`는 leaf의 key다. desk는 1~200개이고 `_default`(Main)가 늘 있다. 한 desk 안에서 tab key는 tabs·floats·detached를 통틀어 한 번만 나오고, `selected_tab`과 group의 leaf는 tabs 안에 있다. group은 leaf가 2~4개이고, tab은 group 하나에만 들며, leaf는 tabs에서 leaf 순서로 붙어 있고, `ratio`는 0.15~0.85, `focus`는 leaf다. schema가 이를 거절한다. 판 8을 낸 초기 개발 파일은 `groups` 대신 `split {a, b, focus, dir?, ratio?}` 하나를 가졌다: 판 8이 아직 출시 전이라 판을 올리지 않고 읽을 때 group 하나(`{dir, ratio, a: {tab: a}, b: {tab: b}}`, focus는 `focus`가 가리킨 쪽, `dir`·`ratio`가 없으면 좌우 반반)로 읽으며 다음 저장이 `groups`로 쓴다. renderer의 순수 model은 `renderer/shell/desk-model.ts`가 같은 불변 조건을 지키고, 저장된 값과의 변환은 `renderer/shell/layout-source.ts`가 kind registry로 한다(저장할 수 없는 tab이 빠지면 그 leaf를 걷어내고 1개가 된 group은 푼다).
-- **읽는 순서.** place 파일이 있으면 판 8만 읽는다(다른 판은 `unsupported_schema`이고 파일은 그대로다). 없고 place가 project면 `layouts/<prj_id>.json`을 `parseLayoutFile`(판 5·6 → 7)로 읽어 판 8로 올린다(`upgradeFromV7`). 둘 다 없으면 `absent`이고 renderer가 Main 하나인 기본 layout을 쓴다. 옛 파일은 읽기만 하고 고치지 않으며, 다음 저장이 place 파일을 만들어 그 뒤로는 옛 파일을 보지 않는다.
-- **판 7 → 8.** desk마다 칸이 2~4개이고 모두 tab이 있으면 칸 tree 그대로 group 하나로 올린다: 칸 하나가 leaf 하나(그 칸의 고른 tab, 이미 앞 칸의 leaf면 그 칸의 다음 tab, 고를 수 없으면 group 없음)이고 칸 tree의 `dir`·`ratio`(0.15~0.85로 당김)가 나눔 tree가 되며 `focus`는 focus 칸의 leaf이고 `selected_tab`도 그것이다. tabs는 group의 leaf가 leaf 순서로 맨 앞에 서고 나머지 tab이 칸 순서(왼쪽·위에서부터)로 뒤따른다. 칸이 1개거나 5개 이상이거나 빈 칸이 있으면 group 없이 칸의 tab을 칸 순서로 한 줄에 합치고 `selected_tab`은 focus 칸의 선택(없으면 첫 tab)이다. 어느 쪽이든 같은 key는 처음 것만 남기고(float·detached 포함) tab을 잃거나 둘로 만들지 않는다. float은 `tab`·`rect`·`minimized`만 남고 `origin_pane`·`docked_at`은 버린다. `rail_apps`는 버린다. `_default`는 label `Main`이고 다른 desk는 workflow desk라 key(workflow 이름)가 label이자 `workflow`다. tabs 상한은 옛 칸 6개 × 200을 잃지 않도록 1200이다(`place-layout_test.ts`).
+- **파일은 place마다 하나다.** `<data>/shell/places/<place>.json`이고 place는 `home`, project id, app id다(`main/workspace/place-layout*.ts`). 파일 이름이 되는 key는 `[A-Za-z0-9_-]{1,64}`만 받아 폴더 밖으로 나갈 수 없다(`invalid_input`). 원자 교체와 mode는 `atomic-file.ts`가 정한다.
+- **모양은 `{ schema_version: 8, active_desk, desks: { <key> → { label, workflow?, tabs, selected_tab, groups: [{ layout, focus }], floats: [{tab, rect, minimized}], detached: [{tab, bounds}] } } }`다.** `layout`은 `{ tab: <key> }`(leaf)나 `{ dir, ratio, a, b }`이고 `focus`는 leaf의 key다. desk는 1~200개이고 `_default`(Main)가 늘 있다. 한 desk 안에서 tab key는 tabs·floats·detached를 통틀어 한 번만 나오고, `selected_tab`과 group의 leaf는 tabs 안에 있다. group은 leaf가 2~4개이고, tab은 group 하나에만 들며, leaf는 tabs에서 leaf 순서로 붙어 있고, `ratio`는 0.15~0.85, `focus`는 leaf다. schema가 이를 거절한다. renderer의 순수 model은 `renderer/shell/desk-model.ts`가 같은 불변 조건을 지키고, 저장된 값과의 변환은 `renderer/shell/layout-source.ts`가 kind registry로 한다(저장할 수 없는 tab이 빠지면 그 leaf를 걷어내고 1개가 된 group은 푼다).
+- **읽는 순서.** place 파일이 있으면 판 8만 읽는다(다른 판은 `unsupported_schema`이고 파일은 그대로다). 없으면 `absent`이고 renderer가 Main 하나인 기본 layout을 쓴다. 옛 `layouts/<prj_id>.json`은 보지 않으므로 처음 여는 place는 모두 기본 layout이다.
 - **IPC.** `shell:place-layout-read`(`{ place }`)와 `shell:place-layout-save`(`{ place, layout: { active_desk, desks } }`)다. desktop 창 본문만 부르고, 저장할 때 main이 살아 있는 detached 창의 bounds로 덮는 것은 옛 저장과 같다. preload는 `lophnLayout.readPlace/savePlace`다.
 - **renderer의 길.** `PlaceWindow`는 `source.layout`(`WorkspaceSource.layout: LayoutSource`, `createLayoutSource()`가 preload의 `lophnLayout`을 감싼다)으로 자기 place(`placeKey`)의 layout을 읽고(null이면 `defaultPlaceLayout()`, 앱은 앱 화면 탭 하나가 선 `freshLayout`) 바뀔 때마다 저장한다. 읽던 위치·입력처럼 잦은 바뀜은 200ms 모아 쓴다. 옛 `layout:read`·`layout:save` IPC와 `lophnLayout.read/save`는 없다.
 
@@ -148,7 +147,7 @@ place 창이 읽고 쓰는 저장과 model이다. 옛 project layout 파일(`lay
 - **새 패널은 stage 가운데 60% 크기로 겹쳐 뜬다.** 비껴 놓기(cascade)는 하지 않는다.
 - **겹치는 패널은 `<webview>` 위에 그린다.** native view 때는 화면이 DOM 위에 그려져 겹치는 동안 view를 cover로 줄여야 했다. 앱·artifact 화면은 DOM(`<webview>`)이라 패널이 그 위에 바로 겹친다. 버린 안: 겹치는 동안 마지막 `capturePage` 그림을 보이기(page가 멈춘다), DOM 패널도 native view로 띄우기(패널마다 shell renderer 하나라 가장 크다). 잃는 것은 없다. 밑의 page가 패널에 가려진 채 계속 돈다.
 - **view 보관소는 renderer에 둔다.** `<webview>` element는 창의 그릇이 들고 view_session·state는 `ViewKeeps`가 든다. main registry가 이미 view와 붙은 guest를 구분하므로 새 IPC가 필요 없다. 탭을 닫는 길이 여럿이라 길마다 닫지 않고 layout에 없으면 닫는다.
-- **옛 layout 파일(판 1, 2)은 읽지 않는다.** 새로 만든다(AGENTS.md "호환성").
+- **옛 layout 파일(판 1~7)은 읽지 않는다.** 새로 시작한다(AGENTS.md "호환성", 사람이 결정).
 - **detached 창은 탭 하나만 갖는다.** 탭 줄이 있는 detached 창은 workspace를 하나 더 만드는 일이다. 탭 여럿을 보려면 창을 여럿 띄운다. dock은 그 desk의 tabs 끝에 붙이고 떼기 전 자리는 저장하지 않는다(floated였어도 docked로 온다).
 - **값은 창이 뜬 뒤 `take()`로 당겨 받는다.** hash `#detached=<key>`는 route 선택용이다. 탭 key가 4096자까지이고 transfer가 커질 수 있다.
 - **두 방향(project 창, detached 창)을 IPC 하나(`ipc/detached.ts`, `window.lophnDetached`)로 묶는다.** 같은 renderer bundle과 preload를 쓰는 창이고 main이 보낸 창으로 역할을 가른다. 통로를 둘로 가르면 preload·노출·type이 두 벌이 된다.
@@ -156,8 +155,8 @@ place 창이 읽고 쓰는 저장과 model이다. 옛 project layout 파일(`lay
 - **detached 창 안의 popup은 또 하나의 detached 창이다.** 가장 단순하게 `window.opener`를 지킨다. 대안인 project 창 floats 층으로 옮기기는 opener 소유 이동이 더 필요하다. `open`의 bounds에 opener 창 가운데 features의 크기를 넣고, 화면 작업 영역 안으로 당긴다. detached 창만 최소 크기가 320×240이다(다른 창과 bounds가 없는 detached 창은 960×600).
 - **group은 칸 tree가 아니라 tabs 위의 값 하나다(사람).** 옛 칸 tree는 칸마다 탭 줄·focus·drop zone을 따로 갖게 해 탭이 어느 칸에 있는지가 복잡했다. 탭 줄은 하나로 두고 같이 보고 싶은 tab 2~4개만 한 칸(group)으로 묶으면 탭 줄·선택·저장이 모두 한 줄로 끝난다. 처음에는 붙은 두 tab뿐이었으나 자유 배치(위 둘 아래 하나, 2×2 등)를 위해 나눔 tree를 가진 group으로 넓혔고(최대 4칸), 칸마다 탭 줄이 있는 옛 방식으로는 돌아가지 않는다.
 - **칸은 구조와 상관없이 평평한 absolute 상자다.** tree를 중첩 flex로 그리면 나눔이 늘거나 줄 때 leaf의 부모가 바뀌어 본문이 다시 mount된다(terminal·editor 상태, webview slot). 자리를 tree에서 계산해 평평하게 놓으면 구조가 바뀌어도 leaf의 React 부모가 같다.
-- **고정 앱 패널(`rail_apps`)과 activity bar는 없다.** 판 8로 올릴 때 버린다. 앱 panel은 + menu나 왼쪽 sidebar 빠른 실행의 App ▾, 앱 place의 열기로 연다. 앱 place의 localStorage `lophn.app-layout.<app>`도 읽지 않는다(배치 기본값으로 돌아갈 뿐 data가 아니다).
-- **옛 project layout은 읽을 때 올리고 고치지 않는다.** 판 5(좌우 두 칸 `split_ratio`)는 `layout.ts`의 `upgradeFromV5`가 칸 tree로 올린 뒤 판 7과 같이 판 8로 올린다. 쓰던 탭 배치를 새로 만들지 않으려는 것이고 사람의 `~/.lophn/shell/layouts/`는 읽기만 한다(AGENTS.md "호환성").
+- **고정 앱 패널(`rail_apps`)과 activity bar는 없다.** 앱 panel은 + menu나 왼쪽 sidebar 빠른 실행의 App ▾, 앱 place의 열기로 연다. 앱 place의 localStorage `lophn.app-layout.<app>`도 읽지 않는다(배치 기본값으로 돌아갈 뿐 data가 아니다).
+- **옛 project layout(`~/.lophn/shell/layouts/`, 판 5~7)은 읽지 않는다.** 사람이 결정했다: 지웠고 layout은 새로 시작해도 되는 화면 상태다. 첫 열기는 기본 layout이다.
 - **앱 화면도 `<webview>`로 옮겼다(사람, 2026-10-31).** native view는 shell HTML 위에 그려져 menu·popover·floated 패널·toast가 앱 page 밑에 깔렸고, 피하려고 층·cover·bounds relay가 쌓였다. browser 탭이 같은 이유로 이미 `<webview>`를 쓰고 그 뒤로 겹침 문제가 없다. iframe은 preload의 isolated world, 앱별 partition, sender 신원을 잃고, remote UI는 앱이 자기 DOM·CSS component를 못 쓰게 해서 버렸다. Electron은 `<webview>`를 권하지 않지만 browser 탭이 이미 그 위험을 지고 있어 새 위험이 아니다.
 - **artifact 탭도 같이 옮겼다(agent).** 같은 겹침 문제를 갖고 있었다. 남겨 두면 앱 쪽 장치를 지우지 못한다.
 - **붙이기 ticket은 `src` 하나이고 한 번만 쓴다(agent).** registry의 `acceptGuest(window, src)`가 그 창의 view이고 그 src를 아직 안 쓴 때만 받는다. renderer가 적은 partition·preload·webPreferences는 버리고 main이 정한 값만 쓴다. renderer가 붙이기 값을 위조해도 다른 session이나 preload로 갈 수 없다.

@@ -1,6 +1,6 @@
 // 저장한 창 자리를 되살릴 때 지금 화면 안으로 당긴다. 모니터를 뺀 뒤 창이 화면 밖에 남지 않게 한다.
 // desktop 창(`window-state.ts`)과 detached 창이 같이 쓴다.
-import type { WindowBounds } from "../workspace/layout.ts";
+import type { WindowBounds } from "../workspace/schema.ts";
 
 const right = (b: WindowBounds) => b.x + b.width;
 const bottom = (b: WindowBounds) => b.y + b.height;

@@ -4,7 +4,7 @@ import { t } from "@lophn/i18n";
 import type { ReactNode } from "react";
 import type { TerminalResume } from "../../../ipc/terminal.ts";
 import { workspaceIcons } from "../../icons/mod.ts";
-import type { TabDot } from "../../parts/tab-strip/tab-strip.tsx";
+import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import {
   harnessVendorOf,
   VendorIcon,

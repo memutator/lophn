@@ -12,7 +12,7 @@ import type { DraftStore } from "../../conversation/drafts.ts";
 import type { ReadPosition } from "./kind.ts";
 import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import type { ArtifactListItem } from "../../../ipc/artifact.ts";
-import type { TabDot } from "../../parts/tab-strip/tab-strip.tsx";
+import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 
 /** 파일 탭이 작업대와 나누는 상태. */
 interface DocumentSlice {

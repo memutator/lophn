@@ -6,7 +6,7 @@ import type { IconProps } from "@lophn/ui/primitives";
 import type { MessageKey } from "@lophn/i18n";
 import type { ReactNode } from "react";
 import type { TabTransfer } from "../../../ipc/detached.ts";
-import type { TabDot } from "../../parts/tab-strip/tab-strip.tsx";
+import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import type { TabItem } from "../model.ts";
 import type { TabHost } from "./host.ts";
 

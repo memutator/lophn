@@ -5,6 +5,7 @@ import {
   addDesk,
   closeDetached,
   closeFloat,
+  closeTargets,
   closeTab,
   defaultPlaceLayout,
   type Desk,
@@ -156,4 +157,32 @@ test("preview tab은 자리를 바꿔 쓰고 저장 안 된 것은 남기며 spl
   desk = openTab(desk, tab("n"), { after: "p2", select: false });
   assertValid(desk, ["a", "p2", "b", "p3", "n"]);
   assert.equal(desk.selected, "p3");
+});
+
+test("tab 메뉴의 여러 개 닫기는 의도한 tab만 닫고 split을 유효하게 둔다", () => {
+  let desk = emptyDesk("d", "D");
+  for (const key of ["a", "b", "c", "d", "e"]) desk = openTab(desk, tab(key));
+  desk = splitWith(desk, "b", "c");
+  desk = floatTab(desk, "e", RECT);
+  const unsaved = (key: string) => key === "d";
+  const all = ["a", "b", "c", "d", "e"];
+
+  const run = (scope: Parameters<typeof closeTargets>[1], key: string) => {
+    const targets = closeTargets(desk, scope, key, unsaved);
+    let next = desk;
+    for (const target of targets) next = closeTab(next, target);
+    assertValid(
+      next,
+      all.filter((item) => !targets.includes(item)),
+    );
+    return { targets, next };
+  };
+
+  // split의 어느 쪽에서 눌러도 짝은 남는다. float은 닫지 않는다.
+  assert.deepEqual(run("others", "c").targets, ["a", "d"]);
+  assert.deepEqual(run("right", "b").targets, ["d"]);
+  assert.deepEqual(run("right", "c").targets, ["d"]);
+  assert.deepEqual(run("saved", "a").targets, ["a", "b", "c"]);
+  assert.deepEqual(run("all", "a").targets, ["a", "b", "c", "d"]);
+  assert.equal(run("others", "b").next.split?.a, "b");
 });

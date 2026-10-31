@@ -240,3 +240,58 @@
   border-radius: var(--radius-full);
   transform: translateX(-50%);
 }
+
+/* preview tab은 이름이 italic이다. */
+.title[data-preview] {
+  font-style: italic;
+}
+
+/* 이름 바꾸기 입력. 이름 자리를 채운다. */
+.rename {
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-width: var(--space-0);
+  height: var(--control-sm-height);
+  padding: var(--space-0) var(--space-2);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--type-small-size);
+  background: var(--color-surface-base);
+  border: var(--border-width) solid var(--color-focus);
+  border-radius: var(--radius-xs);
+  outline: none;
+  user-select: text;
+}
+
+/* 저장 안 된 변경의 ●. 닫기 자리에서는 ×를 대신하다가 hover하면 ×가 된다. */
+.mark {
+  display: none;
+  flex: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  background: currentColor;
+  border-radius: var(--radius-full);
+}
+
+.half > .mark {
+  display: block;
+}
+
+.close[data-unsaved] {
+  visibility: visible;
+}
+
+.close[data-unsaved] .mark {
+  display: block;
+}
+
+.close[data-unsaved] .cross,
+.close[data-unsaved]:focus-visible .mark,
+.tab:hover .close[data-unsaved] .mark {
+  display: none;
+}
+
+.tab:hover .close[data-unsaved] .cross,
+.close[data-unsaved]:focus-visible .cross {
+  display: inline-block;
+}

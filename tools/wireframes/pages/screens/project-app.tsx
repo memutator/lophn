@@ -487,7 +487,16 @@ export function ProjectApp({
               panes={shown.map((tab) => ({
                 key: tab.key,
                 crumbs: crumbsOf(tab),
-                copyPath: tab.kind === "document",
+                menu: {
+                  renamable: false,
+                  preview: false,
+                  file: tab.kind === "document",
+                  canDetach: true,
+                  inSplit,
+                  canSplit: desk.tabs.length > 1,
+                  hasOthers: desk.tabs.length > 1,
+                  hasRight: true,
+                },
                 body: (
                   <div key={tab.key} className={workspace.tabBody}>
                     {body(tab)}
@@ -500,7 +509,6 @@ export function ProjectApp({
               canForward={false}
               onBack={() => {}}
               onForward={() => {}}
-              canSplit={!inSplit && desk.tabs.length > 1}
               onFocus={(side) =>
                 setDesk((current) =>
                   current.split === null

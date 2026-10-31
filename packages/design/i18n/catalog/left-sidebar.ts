@@ -1,0 +1,21 @@
+export const leftSidebar = {
+  "left-sidebar.button.add-place": "Add place",
+  "left-sidebar.button.create-app": "Create app",
+  "left-sidebar.button.inbox": "Inbox",
+  "left-sidebar.button.jobs": "Jobs",
+  "left-sidebar.button.new-session": "New session",
+  "left-sidebar.button.new-session-with": "New session with…",
+  "left-sidebar.button.register-project": "Register project",
+  "left-sidebar.button.remove-recent": "Remove from Recent",
+  "left-sidebar.button.settings": "Settings",
+  "left-sidebar.label.age":
+    "{unit, select, now {now} minute {{value}m} hour {{value}h} other {{value}d}}",
+  "left-sidebar.heading.coding-agents": "Coding agents",
+  "left-sidebar.heading.lophn-agents": "lophn agents",
+  "left-sidebar.heading.places": "Places",
+  "left-sidebar.label.home": "Home",
+  "left-sidebar.label.nav": "Sidebar",
+  "left-sidebar.label.recent": "Recent",
+  "left-sidebar.label.untitled": "Untitled session",
+  "left-sidebar.label.your-turn": "Your turn",
+} as const;

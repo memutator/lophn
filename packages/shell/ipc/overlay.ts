@@ -32,7 +32,7 @@ const PALETTE_ICONS = [
   "file",
   "project",
   "app",
-  "launcher",
+  "home",
   "screen",
   "terminal",
   "panel",

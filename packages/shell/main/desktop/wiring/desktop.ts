@@ -324,7 +324,7 @@ export function register(
           icon: ctx.appIcon,
           actions: {
             openWindow: () => desktop.show(),
-            openLauncher: () => desktop.open(),
+            openHome: () => desktop.open(),
             readAutostart: () => readAutostart(autostartOs),
             writeAutostart: (enabled) => writeAutostart(autostartOs, enabled),
             quit: () => void quitFlow.request(),

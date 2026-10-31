@@ -160,7 +160,7 @@ export const tokenNames = [
   "--page-dashboard-columns",
   "--page-list",
   "--page-form",
-  "--page-launcher",
+  "--page-settings",
   "--page-overview",
   "--editor-quote-bar",
   "--editor-check",

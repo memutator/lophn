@@ -23,7 +23,7 @@ export type DesktopTarget =
     }
   | { readonly kind: "app"; readonly id: string }
   | { readonly kind: "settings" }
-  | { readonly kind: "launcher" };
+  | { readonly kind: "home" };
 
 interface DesktopScopeInput {
   readonly catalog: Catalog;
@@ -36,11 +36,11 @@ function actions(platform: WindowPlatform): PaletteEntry<DesktopTarget>[] {
   return [
     {
       group: "actions",
-      key: "action:launcher",
-      label: t("common.button.palette-launcher"),
-      hint: windowShortcutLabel("launcher", platform),
-      icon: "launcher",
-      target: { kind: "launcher" },
+      key: "action:home",
+      label: t("common.button.palette-home"),
+      hint: windowShortcutLabel("home", platform),
+      icon: "home",
+      target: { kind: "home" },
     },
     {
       group: "actions",

@@ -111,7 +111,6 @@ export const project = {
   "project-workspace.button.float-close": "Close",
   "project-workspace.button.float-dock": "Dock",
   "project-workspace.button.float-minimize": "Minimize",
-  "project-workspace.button.launcher": "Launcher",
   "project-workspace.button.manage-agents": "Manage",
   "project-workspace.button.new-session-with": "New session with {agent}",
   "project-workspace.button.new-tab": "New tab",

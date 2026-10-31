@@ -52,10 +52,7 @@ import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts"
 import { CommandsProvider } from "../commands/react.tsx";
 import { createWindowCommands } from "../commands/window.ts";
 import { currentPlatform } from "./top-bar/platform.ts";
-import {
-  type PlaceRef,
-  rememberPlace,
-} from "../workspace/top-path/recent-places.ts";
+import type { PlaceRef } from "../shell/desk-model.ts";
 
 // desktop preload만 연다(entry.tsx의 bridges와 같은 꼴). gallery·dev 창에는 없어 main이 먼저 받는 키는 표의 키로 남는다.
 const keybindingsBridge = globalThis as { lophnKeybindings?: KeybindingsApi };
@@ -195,15 +192,6 @@ export function Desktop({
   const [route, setRoute] = useState<Route>(initial);
   // 같은 화면이어도 다시 열게 하는 횟수. Settings는 열 때 처음 상태로 선다.
   const [visits, setVisits] = useState(0);
-  // place에 닿을 때마다 최근 목록을 고친다. 어느 길로 왔든(switcher, Places panel, palette, toast의 session)
-  // 한 곳에서 남기려고 route를 본다.
-  useEffect(() => {
-    if (route.space === "project" && route.project !== undefined) {
-      rememberPlace({ kind: "project", id: route.project });
-    } else if (route.space === "app" && route.app !== undefined) {
-      rememberPlace({ kind: "app", id: route.app });
-    }
-  }, [route]);
   const home = () => setRoute(HOME);
   // Settings를 열기 전 자리. Settings의 [Back]이 돌아가는 곳이고, 없으면(처음부터 Settings) Home으로 간다.
   const beforeSettings = useRef<Route | null>(null);
@@ -223,15 +211,15 @@ export function Desktop({
     setVisits((value) => value + 1);
     setRoute(openSettings(pane));
   };
-  // place switcher에서 고른 place를 연다.
-  const openPlace = (place: PlaceRef) =>
+  // sidebar에서 고른 place를 연다.
+  const openPlace = (place: Exclude<PlaceRef, { kind: "home" }>) =>
     setRoute(
       place.kind === "project" ? openProject(place.id) : openApp(place.id),
     );
   const appSpace = (app: string) => setRoute(openApp(app));
   // 전역 팔레트에서 고른 대상. Workspace 팔레트와 같은 목적지로만 간다.
   const go = (target: DesktopTarget) => {
-    if (target.kind === "launcher") home();
+    if (target.kind === "home") home();
     else if (target.kind === "project") setRoute(openProject(target.id));
     else if (target.kind === "settings") settingsSpace();
     else if (target.kind === "app") appSpace(target.id);
@@ -421,7 +409,7 @@ export function Desktop({
         key={visits}
         source={catalog}
         settingsPane={route.settingsPane}
-        onLauncher={home}
+        onHome={home}
         onBack={() => setRoute(beforeSettings.current ?? HOME)}
         backTo={backTarget(beforeSettings.current)}
         onProject={(project) => setRoute(openProject(project))}
@@ -440,7 +428,7 @@ export function Desktop({
   // 창 shortcut의 Home 복귀와 팔레트는 어느 공간에서든 이 한 곳에서 받는다.
   const tree = (
     <CommandsProvider value={commands}>
-      <PaletteProvider deps={palette} onLauncher={home}>
+      <PaletteProvider deps={palette} onHome={home}>
         <DefaultToastHandler
           openSession={openSession}
           goApp={(app) => setRoute(openApp(app))}

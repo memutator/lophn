@@ -1,9 +1,8 @@
 export const data = {
-  "launcher.connection.confirmed-at": "Last checked {when}.",
-  "launcher.connection.disconnected":
-    "lophn can't refresh this page right now.",
-  "launcher.connection.failed": "lophn couldn't get ready.",
-  "launcher.connection.starting": "lophn is getting ready.",
+  "home.connection.confirmed-at": "Last checked {when}.",
+  "home.connection.disconnected": "lophn can't refresh this page right now.",
+  "home.connection.failed": "lophn couldn't get ready.",
+  "home.connection.starting": "lophn is getting ready.",
   "secret-input.button.cancel": "Cancel",
   "secret-input.button.save": "Save",
   "secret-input.error.invalid": "That value can't be saved.",

@@ -1,25 +1,14 @@
-// WorkspaceLayout의 검증과 기본값, 읽던 위치
-// 보존의 순수 동작만 둔다. schema 원본은 schema.ts가 정한다.
+// 옛 layout 파일(판 5~7) 읽기. place layout이 옛 파일에서 올릴 때만 쓴다. schema 원본은 schema.ts가 정한다.
 import { z } from "zod";
 
 import {
   LAYOUT_SCHEMA_VERSION,
-  type LayoutFile,
   layoutFileSchema,
   type WorkspaceLayout,
-  workspaceLayoutSchema,
 } from "./schema.ts";
 import { tabKindOf } from "./kinds/registry.ts";
 
-export type {
-  LayoutFile,
-  LayoutNode,
-  LayoutTab,
-  WindowBounds,
-  WorkspaceDesk,
-  WorkspaceLayout,
-} from "./schema.ts";
-export { MAX_PANES } from "./schema.ts";
+export type { WindowBounds } from "./schema.ts";
 
 export const SCHEMA_VERSION = LAYOUT_SCHEMA_VERSION;
 
@@ -182,16 +171,4 @@ function skipInDesk(value: unknown): unknown {
   }
   if (!changed) return value;
   return { ...desk, panes, floats, detached };
-}
-
-/** file schema의 layout을 감싼다. */
-export function toLayoutFile(layout: WorkspaceLayout): LayoutFile {
-  return { schema_version: SCHEMA_VERSION, layout };
-}
-
-/** 저장 전 검증. 실패 원문 대신 안전한 이유만 내놓는다. */
-export function validateLayout(value: unknown): LayoutResult {
-  const parsed = workspaceLayoutSchema.safeParse(value);
-  if (!parsed.success) return { ok: false, reason: "corrupt" };
-  return { ok: true, layout: parsed.data };
 }

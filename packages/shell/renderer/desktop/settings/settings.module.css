@@ -18,7 +18,7 @@
 }
 
 .wide.wide {
-  max-width: var(--page-launcher);
+  max-width: var(--page-settings);
 }
 
 /* Providers, Agents, Tools and skills 본문의 틀. */

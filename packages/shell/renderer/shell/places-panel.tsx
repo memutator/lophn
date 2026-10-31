@@ -18,7 +18,7 @@ import type {
   ProjectsSource,
 } from "../desktop/places/projects/source.ts";
 import { RegisterDialog } from "../desktop/places/register-dialog.tsx";
-import { commonIcons, launcherIcons } from "../icons/mod.ts";
+import { commonIcons, homeIcons } from "../icons/mod.ts";
 import { PlaceMark } from "../parts/place-mark/place-mark.tsx";
 import { ProjectPlaceMark } from "../parts/project-icon/project-icon.tsx";
 import {
@@ -61,8 +61,8 @@ function RowMenuButton({
     <Menu
       trigger={
         <IconButton
-          icon={launcherIcons.more}
-          label={t("launcher.button.more", { name })}
+          icon={homeIcons.more}
+          label={t("home.button.more", { name })}
           size="sm"
           data-card-menu=""
         />
@@ -103,7 +103,7 @@ function Body({
 
 const ARCHIVE = () => ({
   id: "archive",
-  label: t("launcher.button.archive"),
+  label: t("home.button.archive"),
   icon: commonIcons.archive,
 });
 
@@ -200,8 +200,8 @@ export function PlacesPanel({
   const archivedCount = archivedProjects.length + archivedApps.length;
   const detailed = projectItems.find((item) => item.id === detail);
 
-  const register = t("launcher.button.register-project");
-  const newApp = t("launcher.button.new-app");
+  const register = t("home.button.register-project");
+  const newApp = t("home.button.new-app");
 
   const projectRow = (card: ProjectItem) => {
     const missing = missingFolder(card);
@@ -209,16 +209,16 @@ export function PlacesPanel({
     const menu: RowMenu = [
       {
         id: "details",
-        label: t("launcher.button.details"),
-        icon: launcherIcons.details,
+        label: t("home.button.details"),
+        icon: homeIcons.details,
       },
       ...(missing === undefined
         ? []
         : [
             {
               id: "relocate",
-              label: t("launcher.button.choose-location"),
-              icon: launcherIcons.chooseFolder,
+              label: t("home.button.choose-location"),
+              icon: homeIcons.chooseFolder,
             },
           ]),
       ARCHIVE(),
@@ -231,8 +231,8 @@ export function PlacesPanel({
         title={card.title}
         meta={
           missing !== undefined
-            ? t("launcher.label.folder-missing")
-            : (first?.path ?? t("launcher.label.folder-count", { count: 0 }))
+            ? t("home.label.folder-missing")
+            : (first?.path ?? t("home.label.folder-count", { count: 0 }))
         }
         metaTone={missing === undefined ? undefined : "warning"}
         hoverTrailing
@@ -276,7 +276,7 @@ export function PlacesPanel({
     />
   );
 
-  const unarchive = t("launcher.button.unarchive");
+  const unarchive = t("home.button.unarchive");
   const archivedRow = (
     kind: "project" | "app",
     id: string,
@@ -308,12 +308,12 @@ export function PlacesPanel({
       {projects ? (
         <PanelSection
           data-section="projects"
-          title={t("launcher.heading.projects")}
+          title={t("home.heading.projects")}
           count={activeProjects.length}
           actions={
             <Tooltip content={register}>
               <IconButton
-                icon={launcherIcons.register}
+                icon={homeIcons.register}
                 label={register}
                 size="sm"
                 data-register-project=""
@@ -325,14 +325,14 @@ export function PlacesPanel({
           <Body
             state={cards}
             items={activeProjects}
-            target={t("launcher.label.projects")}
-            empty={t("launcher.empty.no-projects")}
+            target={t("home.label.projects")}
+            empty={t("home.empty.no-projects")}
             onRetry={() => {
               setCards({ state: "loading" });
               void loadProjects();
             }}
           >
-            <PanelRows label={t("launcher.heading.projects")}>
+            <PanelRows label={t("home.heading.projects")}>
               {activeProjects.map(projectRow)}
             </PanelRows>
           </Body>
@@ -341,12 +341,12 @@ export function PlacesPanel({
       {apps ? (
         <PanelSection
           data-section="apps"
-          title={t("launcher.heading.apps")}
+          title={t("home.heading.apps")}
           count={activeApps.length}
           actions={
             <Tooltip content={newApp}>
               <IconButton
-                icon={launcherIcons.register}
+                icon={homeIcons.register}
                 label={newApp}
                 size="sm"
                 data-new-app=""
@@ -358,14 +358,14 @@ export function PlacesPanel({
           <Body
             state={rows}
             items={activeApps}
-            target={t("launcher.label.apps")}
-            empty={t("launcher.empty.no-apps")}
+            target={t("home.label.apps")}
+            empty={t("home.empty.no-apps")}
             onRetry={() => {
               setRows({ state: "loading" });
               void loadApps();
             }}
           >
-            <PanelRows label={t("launcher.heading.apps")}>
+            <PanelRows label={t("home.heading.apps")}>
               {activeApps.map(appRowOf)}
             </PanelRows>
           </Body>
@@ -374,12 +374,12 @@ export function PlacesPanel({
       {archivedCount === 0 ? null : (
         <PanelSection
           data-section="archived"
-          title={t("launcher.heading.archived")}
+          title={t("home.heading.archived")}
           count={archivedCount}
           folded={archivedFolded}
           onToggle={() => setArchivedFolded(!archivedFolded)}
         >
-          <PanelRows label={t("launcher.heading.archived")}>
+          <PanelRows label={t("home.heading.archived")}>
             {archivedProjects.map((item) =>
               archivedRow(
                 "project",

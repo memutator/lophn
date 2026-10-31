@@ -1,6 +1,5 @@
-// <home>/shell/layouts/<prj_id>.json은 main만 쓴다. 원자 교체 temp 파일 뒤 rename이고,
-// 폴더 0700·파일 0600(Windows는 mode bit가 없어 기본 ACL이 사용자 limit이다)을
-// 유지한다. 본문·결정·token은 여기 남지 않는다.
+// <home>/shell/layouts/<prj_id>.json(판 5~7)은 읽기만 한다. place layout이 없을 때
+// place-layout-store가 여기서 읽어 판 8로 올린다. 이 파일은 고치지 않는다.
 import { join } from "node:path";
 
 import {
@@ -8,7 +7,6 @@ import {
   fsError,
   type StoreDeps,
   type StoreResult,
-  writeFileAtomic,
 } from "./atomic-file.ts";
 import { type LayoutResult, parseLayoutFile } from "./layout.ts";
 
@@ -20,8 +18,6 @@ function layoutPath(dataRoot: string, project: string): string {
 export interface LayoutStore {
   /** 그 project의 layout. 파일이 없으면 null이고 손상은 안전한 오류다. */
   read(project: string): Promise<StoreResult<LayoutResult | null>>;
-  /** 원자 교체로 쓴다. 실패하면 기존 파일을 그대로 둔다. */
-  write(project: string, content: string): Promise<StoreResult<null>>;
 }
 
 export function createLayoutStore(
@@ -51,9 +47,6 @@ export function createLayoutStore(
         return { ok: true, value: { ok: false, reason: "corrupt" as const } };
       }
       return { ok: true, value: parseLayoutFile(parsed) };
-    },
-    write(project: string, content: string): Promise<StoreResult<null>> {
-      return writeFileAtomic(layoutPath(dataRoot, project), content, impl);
     },
   };
 }

@@ -20,7 +20,7 @@ export const paletteIcons = {
   file: File,
   project: FolderKanban,
   app: AppWindow,
-  launcher: LayoutGrid,
+  home: LayoutGrid,
   screen: SquareArrowOutUpRight,
   terminal: SquareTerminal,
   panel: PanelRight,

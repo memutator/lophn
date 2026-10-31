@@ -415,7 +415,7 @@
       },
       "list": "360px",
       "form": "640px",
-      "launcher": "1040px",
+      "settings": "1040px",
       "overview": "800px"
     },
     "editor": {

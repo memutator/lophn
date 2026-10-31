@@ -64,21 +64,21 @@ function activeElement(): HTMLElement {
 
 /**
  * Desktop이 창마다 하나 둔다. 팔레트 키는 지금 공간의 scope를 열고, Home 복귀 키는
- * onLauncher를 부른다. scope가 없는 곳(연결 화면)에서 팔레트 키는 아무것도 열지 않는다.
+ * onHome를 부른다. scope가 없는 곳(연결 화면)에서 팔레트 키는 아무것도 열지 않는다.
  */
 export function PaletteProvider({
   deps,
-  onLauncher,
+  onHome,
   children,
 }: {
   deps: PaletteDeps | undefined;
-  onLauncher: () => void;
+  onHome: () => void;
   children: ReactNode;
 }) {
   const scopes = useRef<PaletteScope<unknown>[]>([]);
   const opener = useRef<PaletteOpener | null>(null);
-  const launcher = useRef(onLauncher);
-  launcher.current = onLauncher;
+  const home = useRef(onHome);
+  home.current = onHome;
   const platform = deps?.platform ?? currentPlatform();
   const search = deps?.search;
   const available = deps !== undefined;
@@ -117,7 +117,7 @@ export function PaletteProvider({
     opener.current = created;
     const release = deps.shortcuts.subscribe((shortcut) => {
       if (shortcut === "palette") hub.toggle(activeElement());
-      else if (shortcut === "launcher") launcher.current();
+      else if (shortcut === "home") home.current();
       // main이 먼저 받아 보낸 작업대 command. 주인(작업대)이 없는 공간이면 키만 삼킨 것이다.
       else commands?.registry.execute(shortcut);
     });

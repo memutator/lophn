@@ -19,24 +19,24 @@ export interface StartFailure {
 const SCHEMA: Record<SchemaReason, StartFailure> = {
   newer_schema: {
     kind: "newer_schema",
-    title: "launcher.title.newer-schema",
-    text: "launcher.failure.newer-schema",
-    update: "launcher.failure.update-newer-schema",
-    details: "launcher.failure.check-newer-schema",
+    title: "home.title.newer-schema",
+    text: "home.failure.newer-schema",
+    update: "home.failure.update-newer-schema",
+    details: "home.failure.check-newer-schema",
   },
   history_mismatch: {
     kind: "history_mismatch",
-    title: "launcher.title.history-mismatch",
-    text: "launcher.failure.history-mismatch",
-    update: "launcher.failure.update-history-mismatch",
-    details: "launcher.failure.check-history-mismatch",
+    title: "home.title.history-mismatch",
+    text: "home.failure.history-mismatch",
+    update: "home.failure.update-history-mismatch",
+    details: "home.failure.check-history-mismatch",
   },
   damaged_original: {
     kind: "damaged_original",
-    title: "launcher.title.damaged-original",
-    text: "launcher.failure.damaged-original",
-    update: "launcher.failure.update-damaged-original",
-    details: "launcher.failure.check-damaged-original",
+    title: "home.title.damaged-original",
+    text: "home.failure.damaged-original",
+    update: "home.failure.update-damaged-original",
+    details: "home.failure.check-damaged-original",
   },
 };
 
@@ -44,8 +44,8 @@ const SCHEMA: Record<SchemaReason, StartFailure> = {
 function startFailure(): StartFailure {
   return {
     kind: "start",
-    title: "launcher.title.start-failed",
-    text: "launcher.failure.start-failed",
+    title: "home.title.start-failed",
+    text: "home.failure.start-failed",
   };
 }
 
@@ -53,8 +53,8 @@ function startFailure(): StartFailure {
 function sandboxFailure(): StartFailure {
   return {
     kind: "sandbox",
-    title: "launcher.title.sandbox-failed",
-    text: "launcher.failure.sandbox-failed",
+    title: "home.title.sandbox-failed",
+    text: "home.failure.sandbox-failed",
   };
 }
 

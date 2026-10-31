@@ -78,7 +78,7 @@ test("한글 입력 상태의 키와 modifier가 더 붙은 키를 가려서 판
   // Ctrl+Alt+1(편집기 제목 단계)은 Alt+1(첫 탭)이 아니다.
   assert.deepStrictEqual(matchKey(inputOf("Ctrl+Alt+Digit1"), "other"), null);
   assert.deepStrictEqual(matchKey(inputOf("Alt+Digit1"), "other")?.arg, 1);
-  // macOS는 Option+숫자가 글자 입력이라 Ctrl+숫자가 탭, Cmd+숫자가 칸이다.
+  // macOS는 Option+숫자가 글자 입력이라 Ctrl+숫자가 탭, Cmd+숫자가 split의 쪽이다.
   assert.deepStrictEqual(matchKey(inputOf("Alt+Digit1"), "mac"), null);
   assert.deepStrictEqual(
     matchKey(inputOf("Ctrl+Digit3"), "mac")?.command,
@@ -171,7 +171,7 @@ test("사람이 바꾼 키는 검사를 지난 것만 덮고 main이 받는 키�
     checkChord("F5", ["pane.split"], "other", {}).ok,
     true,
   );
-  // 번호 줄은 자기 번호들의 키와 겹쳐도 되지만 다른 줄의 번호 키(Ctrl+1 칸)와는 안 된다.
+  // 번호 줄은 자기 번호들의 키와 겹쳐도 되지만 다른 줄의 번호 키(Ctrl+1 split 쪽)와는 안 된다.
   const tabs = Array.from({ length: 10 }, (_, n) => `tab.nth:${n}`);
   assert.deepStrictEqual(checkChord("Alt+Digit3", tabs, "other", {}).ok, true);
   const pane = checkChord("Ctrl+Digit1", tabs, "other", {});

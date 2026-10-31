@@ -1,9 +1,8 @@
-// WorkspaceLayout 값. 파일 계약이다. 판 2부터 떠 있는 탭(floats)이, 판 3부터 detached 탭(OS 창)이, 판 4부터 자리(desk)가 있다.
+// 옛 layout 파일(판 5~7, `<data>/shell/layouts/<project>.json`) 읽기 schema. 더는 쓰지 않고 place layout(판 8)이 올릴 때만 읽는다.
+// 판 2부터 떠 있는 탭(floats)이, 판 3부터 detached 탭(OS 창)이, 판 4부터 자리(desk)가 있다.
 // 판 5에서 쓰지 않던 desktop 창 bounds(`window_bounds`)를 뺐다. 창 자리는 `window-state.ts`가 앱에 하나 둔다.
 // 판 6에서 좌우 두 칸의 `split_ratio`를 칸 배치 tree(`layout`)로 바꿨다. 칸은 최대 6개이고 위아래로도 나뉜다.
 // 판 7에서 activity bar에 고정한 앱 패널 목록(`rail_apps`)이 project마다 생겼다.
-// renderer가 보내는 wire 모양은 ipc/workspace.ts가 정한다. 여기는 파일에 남는
-// schema 원본과 검증·기본값의 순수 동작만 둔다.
 import { z } from "zod";
 
 import { type LayoutTab, tabKindOf } from "./kinds/registry.ts";
@@ -11,10 +10,10 @@ import { appId, tabKey } from "./kinds/values.ts";
 
 export const LAYOUT_SCHEMA_VERSION = 7;
 
-// 칸 최대 수. renderer layout-tree.ts의 MAX_PANES와 짝이다.
+// 칸 최대 수.
 export const MAX_PANES = 6;
 
-// default 자리의 key. workflow 이름은 slug라 `_`로 시작할 수 없어 겹치지 않는다. renderer model.ts의 DEFAULT_DESK와 짝이다.
+// default 자리의 key. workflow 이름은 slug라 `_`로 시작할 수 없어 겹치지 않는다. renderer shell/desk-model.ts의 기본 desk key와 짝이다.
 export const DEFAULT_DESK = "_default";
 
 // 탭 값은 등록된 kind의 schema가 정한다(kinds/registry.ts). tagged union이고 preview(mode)는 복원 파일에서
@@ -82,7 +81,7 @@ const layoutDetachedSchema = z.strictObject({
 });
 
 // 칸 배치 tree. 잎은 "leaf"이고 나눔은 row(a가 왼쪽)나 column(a가 위)이다. ratio는 a가 차지하는 몫이다.
-// 잎의 순서(왼쪽·위에서 오른쪽·아래로)가 panes의 순서다. renderer layout-tree.ts의 LayoutNode와 짝이다.
+// 잎의 순서(왼쪽·위에서 오른쪽·아래로)가 panes의 순서다.
 export type LayoutNode =
   | "leaf"
   | {
@@ -186,5 +185,3 @@ export const layoutFileSchema = z.strictObject({
   schema_version: z.number().int().min(1),
   layout: workspaceLayoutSchema,
 });
-
-export type LayoutFile = z.infer<typeof layoutFileSchema>;

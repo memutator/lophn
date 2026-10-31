@@ -21,11 +21,8 @@ export type Command =
   | "tab.reopen"
   | "tab.move-left"
   | "tab.move-right"
-  | "tab.to-prev-pane"
-  | "tab.to-next-pane"
   | "pane.focus"
   | "pane.split"
-  | "pane.split-down"
   | "sidebar.toggle"
   | "explorer.focus"
   | "search.open"
@@ -45,7 +42,7 @@ export type KeyPlatform = "mac" | "other";
 
 export interface Binding {
   readonly command: Command;
-  /** tab.nth는 1~9와 0(마지막 탭), pane.focus는 칸 번호(1부터). */
+  /** tab.nth는 1~9와 0(마지막 탭), pane.focus는 split의 쪽 번호(1부터). */
   readonly arg?: number;
   /** Linux·Windows의 chord. */
   readonly other: readonly string[];
@@ -92,22 +89,7 @@ const FIXED: readonly Binding[] = [
     mac: ["Ctrl+Shift+PageDown"],
     main: BOTH,
   },
-  {
-    command: "tab.to-prev-pane",
-    other: ["Ctrl+Alt+ArrowLeft"],
-    mac: ["Cmd+Ctrl+ArrowLeft"],
-  },
-  {
-    command: "tab.to-next-pane",
-    other: ["Ctrl+Alt+ArrowRight"],
-    mac: ["Cmd+Ctrl+ArrowRight"],
-  },
   { command: "pane.split", other: ["Ctrl+Backslash"], mac: ["Cmd+Backslash"] },
-  {
-    command: "pane.split-down",
-    other: ["Ctrl+Shift+Backslash"],
-    mac: ["Cmd+Shift+Backslash"],
-  },
   { command: "sidebar.toggle", other: ["Ctrl+KeyB"], mac: ["Cmd+KeyB"] },
   {
     command: "explorer.focus",
@@ -127,8 +109,8 @@ const FIXED: readonly Binding[] = [
   { command: "files.quick-open", other: ["Ctrl+KeyP"], mac: ["Cmd+KeyP"] },
 ];
 
-// 칸은 최대 여섯이다. 번호는 칸 순서(왼쪽·위에서 오른쪽·아래로)다.
-const PANES = [1, 2, 3, 4, 5, 6];
+// split은 두 tab뿐이다. 1이 왼쪽 tab, 2가 오른쪽 tab이다.
+const PANES = [1, 2];
 // Alt+숫자는 macOS에서 Option 글자 입력이라 mac은 Ctrl+숫자다. 0은 마지막 탭.
 const TAB_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
 

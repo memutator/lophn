@@ -28,7 +28,7 @@ interface SettingsSpaceProps {
   source: CatalogSource;
   /** 처음 보일 항목. 없으면 General이다. */
   settingsPane?: SettingsPane;
-  onLauncher: () => void;
+  onHome: () => void;
   /** Settings를 열기 전 화면으로 돌아간다. 왼쪽 위 [Back]과 tab 닫기가 쓴다. */
   onBack: () => void;
   /** 돌아갈 자리. 이름을 [Back] 줄에 보인다. Home이면 null이다. */
@@ -53,7 +53,7 @@ const EMPTY_CATALOG: Catalog = { projects: [], apps: [] };
 export function SettingsSpace({
   source,
   settingsPane: initialPane,
-  onLauncher,
+  onHome,
   onBack,
   backTo,
   onProject,
@@ -92,7 +92,7 @@ export function SettingsSpace({
         ? (query) => palette.search!(query, null)
         : undefined,
       go: (target) => {
-        if (target.kind === "launcher") onLauncher();
+        if (target.kind === "home") onHome();
         else if (target.kind === "project") onProject?.(target.id);
         else if (target.kind === "file") {
           onOpenFile?.(target.project, target.file);

@@ -1,6 +1,6 @@
 // Settings › Keyboard. 작업대 단축키를 command마다 한 줄로 보이고 바꾼다. 줄은 이름 아래 작은 설명이 있고, 위의
 // 검색 칸이 이름·설명·키로 줄을 거른다. 키 칸을 누르면 그 줄이 새 키를 받고, 받은 키는 바로 저장해 창의
-// keybinding service와 main에 덮는다. 번호 줄(n번째 탭, n번째 칸)은 modifier 하나를 받아 모든 번호에 붙인다.
+// keybinding service와 main에 덮는다. 번호 줄(n번째 탭, split의 n번째 쪽)은 modifier 하나를 받아 모든 번호에 붙인다.
 import { type KeyboardEvent, useCallback, useState } from "react";
 import { Button, IconButton, Kbd } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";

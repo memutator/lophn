@@ -50,14 +50,14 @@ export function ConnectionGate({ connection, onRetry }: ConnectionGateProps) {
             className={styles.critical}
           />
           <div className={styles.body}>
-            <p className={styles.title}>{t("launcher.connection.failed")}</p>
+            <p className={styles.title}>{t("home.connection.failed")}</p>
             <div>
               <Button
                 variant="primary"
                 icon={actionIcons.retry}
                 onClick={onRetry}
               >
-                {t("launcher.button.retry")}
+                {t("home.button.retry")}
               </Button>
             </div>
           </div>
@@ -72,7 +72,7 @@ export function ConnectionGate({ connection, onRetry }: ConnectionGateProps) {
         role="status"
         data-connection={connection.state}
       >
-        <h1 className={styles.heading}>{t("launcher.connection.starting")}</h1>
+        <h1 className={styles.heading}>{t("home.connection.starting")}</h1>
         <div className={styles.skeleton} aria-hidden="true">
           <span className={styles.block} />
           <span className={styles.lineLong}>
@@ -113,18 +113,18 @@ export function ConnectionNotice({
           className={styles.muted}
         />
         <span className={styles.message}>
-          {t("launcher.connection.disconnected")}
+          {t("home.connection.disconnected")}
         </span>
         {connection.confirmedAt !== null && (
           <span className={styles.confirmed}>
-            {t("launcher.connection.confirmed-at", {
+            {t("home.connection.confirmed-at", {
               when: formatTime(connection.confirmedAt),
             })}
           </span>
         )}
       </span>
       <Button icon={actionIcons.retry} onClick={onRetry}>
-        {t("launcher.button.reconnect")}
+        {t("home.button.reconnect")}
       </Button>
     </div>
   );

@@ -14,7 +14,7 @@ export const WINDOW_SHORTCUT_CHANNEL = "shell:shortcut";
  */
 export const WINDOW_SHORTCUTS = {
   palette: "CommandOrControl+K",
-  launcher: "CommandOrControl+Shift+L",
+  home: "CommandOrControl+Shift+L",
 } as const;
 
 export type PaletteShortcut = keyof typeof WINDOW_SHORTCUTS;

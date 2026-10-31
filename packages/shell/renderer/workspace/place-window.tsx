@@ -1178,7 +1178,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
         if (target.kind === "tab") selectKey(target.key);
         else if (target.kind === "document") openDocumentRow(target.document);
         else if (target.kind === "bookmark") openBrowserTab(host, target.url);
-        else if (target.action === "launcher") onHome();
+        else if (target.action === "home") onHome();
         else if (target.action === "settings") onSettings();
         else if (target.action === "project-settings") {
           openProjectSettings(host);
@@ -1246,10 +1246,6 @@ export function PlaceWindow(props: PlaceWindowProps) {
         }
         return;
       }
-      // 칸이 하나뿐이라 칸 사이로 옮기는 command는 할 일이 없다.
-      case "tab.to-prev-pane":
-      case "tab.to-next-pane":
-        return;
       case "pane.focus": {
         const split = current.split;
         const key = entryKey(current);
@@ -1260,8 +1256,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
         focusTabBody(arg === 2 ? split.b : split.a);
         return;
       }
-      case "pane.split":
-      case "pane.split-down": {
+      case "pane.split": {
         if (current.split !== null) {
           update(unsplit);
           return;

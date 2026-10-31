@@ -18,7 +18,7 @@ import {
   actionIcons,
   commonIcons,
   editorIcons,
-  launcherIcons,
+  homeIcons,
   paletteIcons,
 } from "../../icons/mod.ts";
 import { type MessageKey, t } from "@lophn/i18n";
@@ -397,7 +397,7 @@ function Switcher(
             }}
           />
           <IconButton
-            icon={launcherIcons.remove}
+            icon={homeIcons.remove}
             label={t("conversation.button.delete")}
             size="sm"
             onClick={(event) => {

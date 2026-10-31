@@ -1,7 +1,6 @@
 // 작업대 layout 저장·복원.
 import { BrowserWindow, type WebContents } from "electron";
 
-import { createLayoutStore } from "../../workspace/layout-store.ts";
 import { createPlaceLayoutStore } from "../../workspace/place-layout-store.ts";
 import { registerLayoutIpc, removeLayoutIpc } from "../core/layout-ipc.ts";
 import type { Registered, ShellContext } from "./context.ts";
@@ -16,7 +15,6 @@ export function register(ctx: ShellContext, detached: Detached): Registered {
   // desktop 창 본문만 부르고 파일 schema는 여기서 검사한다.
   registerLayoutIpc(ipc, {
     registry: overlays.overlayRegistry(),
-    store: createLayoutStore(dataRoot),
     placeStore: createPlaceLayoutStore(dataRoot),
     detachedBounds: (event) => {
       const parent = windowOf(event);

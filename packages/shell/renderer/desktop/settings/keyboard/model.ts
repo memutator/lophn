@@ -1,5 +1,5 @@
 // Settings › Keyboard의 순수 규칙. 표(ipc/keybindings.ts)의 command마다 한 줄이고 줄의 이름과 설명은 wording이다.
-// 번호가 있는 command(n번째 탭, n번째 칸)는 번호마다 바인딩이 따로지만 한 줄로 묶는다. 그 줄은 modifier를
+// 번호가 있는 command(n번째 탭, split의 n번째 쪽)는 번호마다 바인딩이 따로지만 한 줄로 묶는다. 그 줄은 modifier를
 // 바꾸고 번호마다 `<modifier>+Digit<n>`이 된다. 바꾸면 이 기기 OS의 것만 바꾸고 다른 OS의 값은 다시 쓴다.
 import { type MessageKey, t } from "@lophn/i18n";
 
@@ -50,14 +50,6 @@ const WORDING: Readonly<Record<Command, Wording>> = {
     name: "settings.label.key-tab-move-right",
     help: "settings.note.key-tab-move-right",
   },
-  "tab.to-prev-pane": {
-    name: "settings.label.key-tab-to-prev-pane",
-    help: "settings.note.key-tab-to-prev-pane",
-  },
-  "tab.to-next-pane": {
-    name: "settings.label.key-tab-to-next-pane",
-    help: "settings.note.key-tab-to-next-pane",
-  },
   "pane.focus": {
     name: "settings.label.key-pane-focus",
     help: "settings.note.key-pane-focus",
@@ -65,10 +57,6 @@ const WORDING: Readonly<Record<Command, Wording>> = {
   "pane.split": {
     name: "settings.label.key-pane-split",
     help: "settings.note.key-pane-split",
-  },
-  "pane.split-down": {
-    name: "settings.label.key-pane-split-down",
-    help: "settings.note.key-pane-split-down",
   },
   "sidebar.toggle": {
     name: "settings.label.key-sidebar-toggle",

@@ -31,3 +31,19 @@ modules: [packages/core/lophn-agent, packages/core/apps]
 고치려면:
 - 작음(추천): 실패 이유를 `app-oauth.<이름>.meta` 자리에 남긴다. 지울 때 meta를 `{ failed: reason }`으로 바꿔 쓰고 `report`가 읽는다. MCP는 지금처럼 메모리에 둔다.
 - 두지 않음: 이유 글만 잃고 다시 sign-in하면 풀리니 kept로 닫는다.
+
+## app.status 요약이 `[object Object]`를 돌려준다
+
+```yaml
+kind: bug
+modules: [packages/core/apps]
+```
+
+지금: `packages/core/apps/agent-tools/runtime.ts`의 `app.status` handler가 `fitted(\`app ${input.app} is ${body.state}\`, body)`를 부른다. `body.state`는 문자열이 아니라 `{ state, termination_pending, reason? }` 객체다(`packages/protocol/apps/runtime.ts`의 `runtimeStateSchema`). 그래서 요약이 `app app_01m661c1… is [object Object]`가 된다. 실제 session에서 네 번 모두 그 문장이었다.
+
+영향: model이 결과를 읽을 때 요약 줄에서는 앱 상태를 알 수 없고 뒤 `content`를 따로 읽어야 한다. 요약은 tool 결과 목록과 turn 기록에 그대로 남는 줄이라, 나중에 기록만 보고 진단할 때 상태가 보이지 않는다. `app.status`는 앱이 뜨지 않을 때 agent가 가장 먼저 부르는 tool이다.
+
+고치려면:
+- 작음(추천): `${body.state.state}`로 고치고, `reason`이 있으면 덧붙인다(`app X is unavailable (reason)`). handler 한 줄이다.
+- 작음: 요약 함수를 protocol에 두고 output schema에서 만든다. 한 곳에서만 쓰는 요약에 공용 장치를 두는 것은 과하다.
+- 추천: 앞의 것.

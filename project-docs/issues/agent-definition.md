@@ -58,3 +58,55 @@ modules: [packages/shell/renderer, packages/core/lophn-agent]
 - 정의 꼴을 `skills_off`(끈 이름)로 바꾼다. 비면 다 받고, 이름이 있으면 그것만 뺀다. place와 상관없이 뜻이 같다(중간, 정의 꼴과 core 거르기와 화면).
 - 화면이 모든 place의 skill을 읽어 목록을 만든다(중간, 읽기가 place 수만큼 는다).
 - 추천: 앞의 것. 정의가 전역이 된 뒤 받는 목록은 place마다 달라 "받을 이름"이 맞지 않는다.
+
+## skill.read에 path를 주면 본문도 딸린 파일도 못 읽는다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent]
+```
+
+지금: `skill.read`는 `path`가 없을 때만 본문을 준다. `packages/core/lophn-agent/extensions/skill-read.ts`의 reader에서 `path === undefined`면 `ok(one.body)`이고, 그 밖에는 `one.files.get(path)`만 본다. `one.files`를 채우는 `readFixed`(같은 file)는 `name === SKILL_MANIFEST`(`SKILL.md`)를 건너뛰고 형제 `.md`만 담는다. 그러니 `path: "SKILL.md"`는 어떤 skill에서도 성공할 수 없다. 내장 skill 여덟(`packages/core/agent-places/skills/*/SKILL.md`)은 전부 `SKILL.md` 한 file뿐이라 딸린 file이 없다.
+
+tool 정의(`packages/core/lophn-agent/tools/bundles/skill.ts`)의 설명은 "Read an enabled skill's body, or its bundled file at path"이고 prompt의 skill 목록(`packages/core/lophn-agent/prompt-assembly/skill-list.ts`)도 "Read a skill's full text with skill_read"뿐이다. 본문은 `path`를 빼야 온다는 말이 어디에도 없어서 model은 `path: "SKILL.md"`를 고른다. 실제 session에서 9번 모두 그렇게 불렀고 9번 모두 `not_found`였다(`path` 값: `SKILL.md`, `/`, `.`, `design-app.md`).
+
+영향: agent가 skill 본문을 한 번도 못 읽는다. skill 목록에 붙는 frontmatter description만 보고 일한다. 한 session은 `DESIGN.md`의 절 이름을 description에서 외워 문서는 채웠지만 본문이 정한 규칙(앱 이름을 다시 쓰지 않는다, 화면을 설명하는 글을 두지 않는다, `@lophn/ui` guide를 먼저 읽는다)은 하나도 지키지 않았고, 그 session의 `DESIGN.md` `Reuse` 절에는 skill을 못 읽었다는 사실이 적혀 있다. 본문을 읽으려는 시도가 실패하면 agent는 재시도에 turn을 쓰고, 다음 turn에서 같은 값을 다시 보내 같은 실패를 되풀이한다.
+
+고치려면:
+- 작음(추천): `readFixed`가 `SKILL.md`도 `files`에 담고, reader가 `path`가 `SKILL.md`(과 `./SKILL.md`)면 본문을 준다. `has no file` 결과에는 그 skill의 딸린 file 이름 목록(없으면 빈 배열)을 함께 싣는다. tool 설명에 "path를 빼면 본문, path는 skill에 딸린 .md file"을 쓴다.
+- 작음: `path`를 없애고 `file?: string`으로 바꿔 이름만으로 본문/file을 가른다. contract가 바뀌므로 `skill.read`를 부르는 곳과 guide를 같이 고친다.
+- 추천: 앞의 것. 기존 입력이 그대로 살고, `SKILL.md`가 실제로 있는 file이라 실패할 이유가 없다.
+
+## tool 실패 문장이 원인을 지워서 agent가 같은 실수를 되풀이한다
+
+```yaml
+kind: defect
+modules: [packages/core/lophn-agent]
+```
+
+지금: `packages/core/lophn-agent/tools/work.ts`의 `FAILURE_SUMMARIES`가 `forbidden`과 `not_found`를 같은 문장 "tool target is not available"로 낸다. handler가 만든 문장은 `invalid_input`일 때만 살아남는다(`executeToolCall`의 summary 계산). 그래서 `skill.read`의 "skill X has no file Y"(없는 file), "skill X is turned off"(꺼진 skill), "skill X does not exist"(없는 이름)가 model에게 모두 같은 문장으로 간다.
+
+주석에 이유가 있다: 대상 이름·존재가 새지 않게. 그런데 실패한 대상은 model이 자기가 보낸 입력이고, `skill.read`의 이름은 prompt의 skill 목록에 이미 실려 있다. 가리려는 것과 잃는 것이 뒤바뀐 경우다.
+
+영향: model이 원인을 가를 수 없어 추측으로 재시도한다. 실제 session에서 `skill.read`가 4가지 다른 `path` 값(`SKILL.md`, `/`, `.`, `design-app.md`)으로 불렸고, 그것이 원인이 아니라 문장이 지워져서 생긴 재시도다. 같은 실패가 turn을 넘어 반복되면 turn 하나에 model 호출 몇 번과 몇 달러가 더 든다.
+
+고치려면:
+- 작음(추천): 실패 code가 가리키는 대상이 model의 입력뿐인 tool은 handler 문장을 그대로 싣는다. `work.ts`에 tool별 허용 집합(`input_scoped_failure`)을 두거나, handler가 `detail`을 실어 보내고 `executeToolCall`이 그것만 덧붙인다. 자격·grant처럼 model이 몰라야 하는 대상은 지금처럼 공통 문장을 쓴다.
+- 작음: `forbidden`과 `not_found` 문장만 가른다("tool target is not available" / "tool target does not exist"). 이름은 여전히 숨기지만 원인은 갈린다.
+- 추천: 앞의 것. code 두 개를 가르는 것만으로는 "이 skill에 그 file이 없다"를 알 수 없다.
+
+## skill 설명이 본문의 체크리스트를 대신해서 skill을 안 읽고도 통과한다
+
+```yaml
+kind: defect
+modules: [packages/core/agent-places, packages/core/lophn-agent]
+```
+
+지금: prompt의 skill 목록(`packages/core/lophn-agent/prompt-assembly/skill-list.ts`)은 SKILL.md frontmatter의 `description` 한 줄만 싣는다. `packages/core/agent-places/skills/design-app/SKILL.md`의 description은 본문이 정한 `DESIGN.md` 절 이름 일곱(`Purpose, Reuse, Model, Journeys, Screens, Tools, Failure branches`)을 그대로 들어 있다. 본문이 실제로 정하는 것(절마다 무엇을 쓰나, kit guide를 먼저 읽어라, 화면 원칙)은 description에 없다.
+
+영향: model이 description만으로 `DESIGN.md`의 뼈대를 채울 수 있어 "skill을 읽었다"와 "절 이름만 안다"가 산출물에서 구별되지 않는다. 실제 session은 skill 본문을 한 번도 못 읽은 상태에서 그 일곱 절을 모두 채웠고, 본문이 금지한 것(앱 이름을 화면 머리에 다시 쓰기, 화면을 설명하는 상시 문단, 자산 안내 문단)을 그대로 넣었다. skill 본문이 유일한 전달 경로인 규칙이 조용히 빠진다.
+
+고치려면:
+- 작음(추천): `design-app`의 description에서 절 목록을 빼고, 무엇을 하는 skill인지만 한 줄로 남긴다("Design an app or a change before you build it; write DESIGN.md as this skill says."). 절과 규칙은 본문에만 둔다. 다른 내장 skill도 description이 본문을 요약하지 않는지 같은 눈으로 본다.
+- 작음: skill 목록 글에 "본문을 읽지 않았으면 그 skill의 절차를 지킨 것으로 보지 않는다" 한 줄을 더한다. 문장으로 막는 것이라 다시 생길 수 있다.
+- 추천: 앞의 것. description은 "읽을지 말지"를 고르는 재료여야 하고, 절차의 요약이면 안 된다.

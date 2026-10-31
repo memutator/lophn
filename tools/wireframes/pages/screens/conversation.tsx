@@ -52,6 +52,10 @@ const DEMOS: Readonly<
     }
   >
 > = {
+  "edit-diff": {
+    scene: "report",
+    steps: [() => click("[data-edit-diff-toggle]")],
+  },
   "sender-chips": {
     scene: "sender-chips",
     steps: [() => click("[data-actor=received] button", undefined, 2)],

@@ -1,5 +1,4 @@
 // Part 2: agent 부르기·대화·관리 화면. 모두 동작하는 ProjectApp(과 Workspace) 위에 고정 상태로 놓는다.
-
 import {
   ANTHROPIC,
   CUSTOM_INFO_MODEL,
@@ -26,6 +25,7 @@ import {
   ContextFullScene,
   ContextWarningScene,
   ConversationScene,
+  EditDiffScene,
   ModelShortcutScene,
   PermissionsScene,
   QuestionAnsweredScene,
@@ -215,6 +215,8 @@ export const AgentApprovalDeny = ApprovalDenyScene;
 export const AgentApprovalStates = ApprovalStatesScene;
 /** rewind panel. */
 export const AgentRewind = RewindScene;
+/** 편집 카드를 펼친 모습. 바뀐 줄은 unified diff로 보인다. */
+export const AgentEditDiff = EditDiffScene;
 /** skip을 켠 session. */
 export const AgentSkip = SkipScene;
 /** 창을 86% 쓴 session. 푸터와 status 막대가 warning 색. */

@@ -119,6 +119,21 @@ const CLEANUP_COMMAND = "rm -r docs/reports/2026-w40";
 
 const turn1 = turnId(1);
 
+// report 장면의 agent 답. 수식·diagram·목록을 한 글에 담아 markdown 그리기를 다 보인다.
+const REPORT_ANSWER = [
+  "I wrote the report from the three findings. The regression share fell to $0.4\\%$ this week:",
+  "",
+  "$$",
+  "\\text{regressions} = \\frac{11}{24}",
+  "$$",
+  "",
+  "```mermaid",
+  "flowchart LR",
+  "  edit[plan edit] --> lookup[recipe lookup]",
+  "  lookup --> gap[query-recipe-gap]",
+  "```",
+].join("\n");
+
 // working 장면에서 쓰는 중인 글. 짧은 문단, 목록 하나, 닫히지 않은 ts code fence로 끝난다.
 const LIVE_TEXT = [
   "F-011 is the query-recipe-gap regression. The other two changed for the same reason:",
@@ -304,7 +319,16 @@ function shellBody(stdout: string): ToolCallBodyView {
   });
 }
 
+// 편집 카드의 [Show diff]가 읽는 file.edit 입력. 앞뒤 글에서 unified diff를 만든다.
+const REPORT_EDIT_INPUT = inputBody({
+  path: "docs/reports/2026-w41.md",
+  old_string: "## Regressions\n\n- F-011 query-recipe-gap\n- F-012 sched-edit",
+  new_string:
+    "## Regressions\n\n- F-011 query-recipe-gap — fixed in 0.10.3\n- F-012 sched-edit — still open\n- F-014 tool-retry-loop",
+});
+
 const REPORT_TOOL_BODIES: SceneData["toolBodies"] = {
+  ["edit-1"]: { input: REPORT_EDIT_INPUT },
   [toolId(1)]: {
     input: inputBody({ path: "docs/reports/2026-w39.md" }),
     output: resultBody("read docs/reports/2026-w39.md lines 1-28", {
@@ -358,6 +382,7 @@ const REPORT_TOOL_BODIES: SceneData["toolBodies"] = {
 };
 
 const WORKING_TOOL_BODIES: SceneData["toolBodies"] = {
+  ["edit-1"]: { input: REPORT_EDIT_INPUT },
   [toolId(6)]: {
     input: inputBody({
       command: "npm run eval -- --week 41",
@@ -382,8 +407,8 @@ const reportEdit = (minutes: number): ThreadEntry => ({
     id: "edit-1",
     document: fakeId("doc", 1),
     path: "docs/reports/2026-w41.md",
-    added: 24,
-    removed: 3,
+    added: 3,
+    removed: 2,
   },
 });
 
@@ -541,7 +566,7 @@ function sceneData(scene: AgentTabScene): SceneData {
             { kind: "reasoning", text: REASONING, durationMs: 12_000 },
             {
               kind: "text",
-              text: "I wrote the report from the three findings.",
+              text: REPORT_ANSWER,
             },
           ],
         },

@@ -1,5 +1,8 @@
 import { Fragment, type MouseEvent, type ReactNode, useMemo } from "react";
+import katex from "katex";
 import { Square, SquareCheck } from "lucide-react";
+// KaTeX 글꼴은 이 CSS의 @font-face가 가리키고, build가 woff2를 bundle 옆에 둔다(CSP 'self').
+import "katex/dist/katex.min.css";
 import { Icon } from "../../primitives/icon/icon.tsx";
 import {
   type Clipboard,
@@ -24,6 +27,8 @@ export interface MarkdownProps extends ParseOptions {
   clipboard?: Clipboard;
   // 있으면 code block마다 복사 단추 앞에 둘 단추를 그린다(대화의 실행 단추). 없으면 undefined를 낸다.
   codeAction?: (code: string, language: string | undefined) => ReactNode;
+  // 있으면 fence 하나를 호출자가 그린다(대화의 mermaid). undefined를 돌려주면 CodeBlock이다.
+  renderCode?: (code: string, language: string | undefined) => ReactNode;
 }
 
 interface RenderContext {
@@ -32,6 +37,7 @@ interface RenderContext {
   images: "show" | "link";
   renderText?: (text: string, kind: "text" | "code") => ReactNode;
   codeAction?: MarkdownProps["codeAction"];
+  renderCode?: MarkdownProps["renderCode"];
   // <a> 안에서는 다른 <a>를 만들지 않는다.
   inLink?: boolean;
 }
@@ -50,6 +56,32 @@ function linkOnClick(
 
 const HEADING_CLASS = [styles.h1, styles.h2, styles.h3, styles.h4];
 const HEADING_TAG = ["h1", "h2", "h3", "h4", "h5", "h6"] as const;
+
+// KaTeX는 자기 DOM만 내고 trust는 켜지 않는다. 틀린 수식은 throwOnError false로 원문이 빨간 글 그대로 남는다.
+function MathView({ tex, display }: { tex: string; display: boolean }) {
+  const html = useMemo(
+    () =>
+      katex.renderToString(tex, {
+        displayMode: display,
+        throwOnError: false,
+        strict: "ignore",
+      }),
+    [tex, display],
+  );
+  return display ? (
+    <div
+      className={styles.mathDisplay}
+      data-math="display"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  ) : (
+    <span
+      className={styles.mathInline}
+      data-math="inline"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
 
 function inlines(
   content: readonly Inline[],
@@ -83,6 +115,11 @@ function inlines(
       }
       case "break":
         return <br key={index} />;
+      case "math":
+        // 문단 안에 낀 display 수식(글과 섞인 $$…$$)은 여기서 span으로 그린다.
+        return (
+          <MathView key={index} tex={inline.tex} display={inline.display} />
+        );
       case "image": {
         if (context.images === "link" && inline.src !== undefined) {
           const href = inline.src;
@@ -191,7 +228,10 @@ function block(item: Block, index: number, context: RenderContext): ReactNode {
           {inlines(item.children, context)}
         </p>
       );
-    case "code":
+    case "code": {
+      const custom = context.renderCode?.(item.text, item.language);
+      if (custom !== undefined)
+        return <Fragment key={index}>{custom}</Fragment>;
       return (
         <CodeBlock
           key={index}
@@ -201,6 +241,9 @@ function block(item: Block, index: number, context: RenderContext): ReactNode {
           action={context.codeAction?.(item.text, item.language)}
         />
       );
+    }
+    case "math":
+      return <MathView key={index} tex={item.tex} display={item.display} />;
     case "quote":
       return (
         <blockquote key={index} className={styles.quote}>
@@ -274,6 +317,7 @@ export function Markdown({
   renderText,
   clipboard = systemClipboard,
   codeAction,
+  renderCode,
 }: MarkdownProps) {
   const document = useMemo(
     () => parseMarkdown(source, { resolveImage }),
@@ -293,6 +337,7 @@ export function Markdown({
         images,
         renderText,
         codeAction,
+        renderCode,
       })}
     </div>
   );

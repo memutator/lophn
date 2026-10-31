@@ -85,3 +85,5 @@ export const StatusScene = () => (
 export const StatusFromFooterScene = () => <Scene sub="status-footer" />;
 /** composer 안에서 Ctrl/Cmd+Shift+M을 눌러 model picker를 연 모습. */
 export const ModelShortcutScene = () => <Scene sub="model-shortcut" />;
+/** 편집 카드를 펼친 모습: 바뀐 줄을 unified diff로 보이고 길면 [Show all]로 펼친다. */
+export const EditDiffScene = () => <Scene sub="edit-diff" />;

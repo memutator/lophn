@@ -21,6 +21,8 @@ export {
   HighlighterProvider,
 } from "./code-block/highlighter.ts";
 export type { DiffLine } from "./diff-view/diff-view.tsx";
+// 줄 단위 unified diff를 표로 보이고 긴 것은 접어 둔다. 편집 카드처럼 좁은 자리에서 쓴다.
+export { DiffView, type DiffViewProps } from "./diff-view/diff-view.tsx";
 // 문서의 제목 목차. ReadingFrame이 정한 자리에 따라 옆 목록이나 머리 선택으로 그린다.
 export { Toc, TOC_MAX_LEVEL, type TocProps } from "./toc/toc.tsx";
 // diff 줄 앞의 +/− 기호. 색 없이도 추가·삭제를 읽게 줄 배경과 같이 쓴다.

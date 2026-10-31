@@ -3,6 +3,7 @@
 import type { ReactElement, ReactNode } from "react";
 import { memo } from "react";
 import { IconButton } from "@lophn/ui/primitives";
+import { Skeleton, useDelayedLoading } from "@lophn/ui/feedback";
 import { Tooltip } from "@lophn/ui/overlay";
 import { conversationIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
@@ -104,12 +105,22 @@ export const MessageBody = memo(function MessageBody({
       </p>
     );
   }
-  return (
-    <p className={styles.loading} data-body="loading">
-      {t("conversation.notice.message-loading")}
-    </p>
-  );
+  return <LoadingBody />;
 });
+
+// 본문을 아직 읽는 중. 300ms 안에 끝나면 아무것도 그리지 않고, 늦어지면 자리만 보인다.
+// 화면 읽기는 skeleton 대신 한 문장을 읽는다.
+function LoadingBody(): ReactElement {
+  const shown = useDelayedLoading(true);
+  return (
+    <div className={styles.loadingBody} data-body="loading">
+      <span className={styles.srOnly}>
+        {t("conversation.notice.message-loading")}
+      </span>
+      {shown ? <Skeleton lines={3} /> : null}
+    </div>
+  );
+}
 
 interface UserBodyProps extends MessageBodyProps {
   /** 첨부한 이미지의 그림 주소. */

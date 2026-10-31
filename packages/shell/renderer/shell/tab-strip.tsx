@@ -1,6 +1,7 @@
 // title bar에 올라가는 tab 줄. 고른 tab은 아래 card와 곡선으로 이어지고(Chrome), split은 두 tab이 한 칸으로 붙은
 // tab 하나다. 오른쪽 끝에는 접힌 float이 아이콘 칸으로 모인다. 데이터와 callback만 받고 model은 모른다.
 import {
+  Fragment,
   type DragEvent,
   type ReactNode,
   useEffect,
@@ -18,6 +19,7 @@ import {
   type TabDot,
   TabStateDot,
 } from "../parts/tab-state-dot/tab-state-dot.tsx";
+import type { SplitDir } from "./desk-model.ts";
 import styles from "./tab-strip.module.css";
 
 export type Side = "a" | "b";
@@ -43,6 +45,8 @@ export interface StripEntry {
   readonly key: string;
   readonly a: StripTab;
   readonly b?: StripTab;
+  /** split의 방향. 두 반쪽 사이의 작은 표시가 된다. 주지 않으면 row다. */
+  readonly dir?: SplitDir;
 }
 
 export interface TabStripProps {
@@ -208,6 +212,9 @@ export function TabStrip({
               data-entry-key={entry.key}
               data-active={active || undefined}
               data-split={entry.b === undefined ? undefined : ""}
+              data-dir={
+                entry.b === undefined ? undefined : (entry.dir ?? "row")
+              }
               data-drop={markOf(index)}
               draggable={renaming === null}
               onClick={() => onSelect(entry.key, "a")}
@@ -248,59 +255,71 @@ export function TabStrip({
                     })
                   : tab.title;
                 return (
-                  <Tooltip
-                    key={side}
-                    content={tip}
-                    open={editing ? false : undefined}
-                  >
-                    <span
-                      className={styles.half}
-                      data-tab-key={tab.key}
-                      data-focused={
-                        (entry.b !== undefined && active && focus === side) ||
-                        undefined
-                      }
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onSelect(entry.key, side);
-                      }}
-                      onDoubleClick={() => {
-                        if (tab.preview) onPin?.(tab.key);
-                        else if (tab.renamable) onRenaming?.(tab.key);
-                      }}
-                      onAuxClick={(event) => {
-                        if (event.button !== 1 || editing) return;
-                        event.preventDefault();
-                        onClose(tab.key);
-                      }}
-                    >
-                      <span className={styles.icon}>{tab.icon}</span>
-                      {editing ? (
-                        <RenameInput
-                          title={tab.title}
-                          onDone={(name) => {
-                            if (name !== undefined) onRename?.(tab.key, name);
-                            onRenaming?.(null);
-                          }}
+                  <Fragment key={side}>
+                    {side === "b" ? (
+                      <span className={styles.splitMark} aria-hidden>
+                        <Icon
+                          icon={
+                            entry.dir === "column"
+                              ? shellIcons.splitDown
+                              : shellIcons.split
+                          }
+                          pixels={12}
                         />
-                      ) : (
-                        <span
-                          className={styles.title}
-                          data-preview={tab.preview || undefined}
-                        >
-                          {tab.title}
-                        </span>
-                      )}
-                      {tab.dot ? <TabStateDot dot={tab.dot} /> : null}
-                      {markHere ? (
-                        <span
-                          className={styles.mark}
-                          role="img"
-                          aria-label={t("project-workspace.label.tab-unsaved")}
-                        />
-                      ) : null}
-                    </span>
-                  </Tooltip>
+                      </span>
+                    ) : null}
+                    <Tooltip content={tip} open={editing ? false : undefined}>
+                      <span
+                        className={styles.half}
+                        data-tab-key={tab.key}
+                        data-focused={
+                          (entry.b !== undefined && active && focus === side) ||
+                          undefined
+                        }
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onSelect(entry.key, side);
+                        }}
+                        onDoubleClick={() => {
+                          if (tab.preview) onPin?.(tab.key);
+                          else if (tab.renamable) onRenaming?.(tab.key);
+                        }}
+                        onAuxClick={(event) => {
+                          if (event.button !== 1 || editing) return;
+                          event.preventDefault();
+                          onClose(tab.key);
+                        }}
+                      >
+                        <span className={styles.icon}>{tab.icon}</span>
+                        {editing ? (
+                          <RenameInput
+                            title={tab.title}
+                            onDone={(name) => {
+                              if (name !== undefined) onRename?.(tab.key, name);
+                              onRenaming?.(null);
+                            }}
+                          />
+                        ) : (
+                          <span
+                            className={styles.title}
+                            data-preview={tab.preview || undefined}
+                          >
+                            {tab.title}
+                          </span>
+                        )}
+                        {tab.dot ? <TabStateDot dot={tab.dot} /> : null}
+                        {markHere ? (
+                          <span
+                            className={styles.mark}
+                            role="img"
+                            aria-label={t(
+                              "project-workspace.label.tab-unsaved",
+                            )}
+                          />
+                        ) : null}
+                      </span>
+                    </Tooltip>
+                  </Fragment>
                 );
               })}
               <button

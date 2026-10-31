@@ -38,10 +38,23 @@ export interface FloatTab {
   readonly minimized: boolean;
 }
 
+export type SplitDir = "row" | "column";
+
+/** row는 좌우, column은 위아래. ratio는 a가 차지하는 몫이다. */
+export const SPLIT_RATIO_MIN = 0.15;
+export const SPLIT_RATIO_MAX = 0.85;
+
 export interface Split {
   readonly a: string;
   readonly b: string;
   readonly focus: "a" | "b";
+  readonly dir: SplitDir;
+  readonly ratio: number;
+}
+
+export function clampSplitRatio(ratio: number): number {
+  if (!Number.isFinite(ratio)) return 0.5;
+  return Math.min(SPLIT_RATIO_MAX, Math.max(SPLIT_RATIO_MIN, ratio));
 }
 
 export interface Desk {
@@ -310,7 +323,12 @@ export function moveTab(desk: Desk, key: string, toIndex: number): Desk {
 }
 
 /** tabs의 두 tab을 split 하나로 붙인다. b를 a 바로 뒤로 옮기고 a를 고른다. 이미 있던 split은 풀린다. */
-export function splitWith(desk: Desk, a: string, b: string): Desk {
+export function splitWith(
+  desk: Desk,
+  a: string,
+  b: string,
+  dir: SplitDir = "row",
+): Desk {
   const tabB = desk.tabs.find((tab) => tab.key === b);
   if (a === b || tabB === undefined) return desk;
   if (!desk.tabs.some((tab) => tab.key === a)) return desk;
@@ -320,12 +338,30 @@ export function splitWith(desk: Desk, a: string, b: string): Desk {
     ...desk,
     tabs: [...rest.slice(0, at), tabB, ...rest.slice(at)],
     selected: a,
-    split: { a, b, focus: "a" },
+    split: { a, b, focus: "a", dir, ratio: 0.5 },
   };
 }
 
 export function unsplit(desk: Desk): Desk {
   return desk.split === null ? desk : { ...desk, split: null };
+}
+
+/** 있는 split의 방향을 바꾼다. 나눔 몫은 그대로다. */
+export function setSplitDir(desk: Desk, dir: SplitDir): Desk {
+  const split = desk.split;
+  return split === null || split.dir === dir
+    ? desk
+    : { ...desk, split: { ...split, dir } };
+}
+
+/** 있는 split의 나눔 몫(a의 몫)을 정한다. 범위 밖이면 가장자리로 당긴다. */
+export function setSplitRatio(desk: Desk, ratio: number): Desk {
+  const split = desk.split;
+  if (split === null) return desk;
+  const next = clampSplitRatio(ratio);
+  return next === split.ratio
+    ? desk
+    : { ...desk, split: { ...split, ratio: next } };
 }
 
 /** tabs의 tab을 떠 있는 패널로 만든다(맨 위). 상한이면 그대로다. */

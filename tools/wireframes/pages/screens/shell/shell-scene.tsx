@@ -127,12 +127,23 @@ export function ShellScene({
         floating: [...d.floating, tab.key],
       }));
     }
-    if (what === "split" && next !== undefined) {
-      patch((d) => ({
-        entries: d.entries
-          .filter((e) => e.key !== next.key)
-          .map((e) => (e.key === entry.key ? { ...e, b: next.a } : e)),
-      }));
+    if (what === "split-right" || what === "split-down") {
+      const dir = what === "split-right" ? "row" : "column";
+      if (entry.b) {
+        patch((d) => ({
+          entries: d.entries.map((e) =>
+            e.key === entry.key ? { ...e, dir } : e,
+          ),
+        }));
+      } else if (next !== undefined) {
+        patch((d) => ({
+          entries: d.entries
+            .filter((e) => e.key !== next.key)
+            .map((e) =>
+              e.key === entry.key ? { ...e, b: next.a, dir, ratio: 0.5 } : e,
+            ),
+        }));
+      }
     }
     if (what === "unsplit" && entry.b) {
       const b = entry.b;
@@ -188,7 +199,7 @@ export function ShellScene({
       preview: tab.preview === true,
       file: tab.kind === "file",
       canDetach: tab.kind !== "terminal",
-      inSplit: member,
+      split: member ? (desk.entries[at]?.dir ?? "row") : null,
       canSplit: desk.entries.length > 1,
       hasOthers: desk.entries.length > 1,
       hasRight: at < desk.entries.length - 1,
@@ -209,10 +220,32 @@ export function ShellScene({
       onToggleRight={() => setRight(!rightOpen)}
       deskSwitcher={
         <DeskSwitcher
-          desks={desks}
+          desks={desks.map((d) => ({
+            ...d,
+            manageable: d.key !== "_default" && !d.workflow,
+          }))}
           current={desk.key}
           onSelect={setDeskKey}
           onNewDesk={() => {}}
+          onRename={(key, label) =>
+            setDesks((all) =>
+              all.map((d) => (d.key === key ? { ...d, label } : d)),
+            )
+          }
+          onDelete={(key) => {
+            const gone = desks.find((d) => d.key === key);
+            if (gone === undefined) return;
+            setDesks((all) =>
+              all
+                .filter((d) => d.key !== key)
+                .map((d) =>
+                  d.key === "_default"
+                    ? { ...d, entries: [...d.entries, ...gone.entries] }
+                    : d,
+                ),
+            );
+            if (deskKey === key) setDeskKey("_default");
+          }}
         />
       }
       tabs={
@@ -221,6 +254,7 @@ export function ShellScene({
             key: e.key,
             a: stripTab(e.a),
             b: e.b === undefined ? undefined : stripTab(e.b),
+            dir: e.dir,
           }))}
           selected={desk.selected}
           focus={desk.focus}
@@ -287,6 +321,15 @@ export function ShellScene({
       <ContentCard
         panes={panes}
         focus={desk.focus}
+        splitDir={entry?.dir}
+        splitRatio={entry?.ratio}
+        onSplitRatio={(ratio) =>
+          patch((d) => ({
+            entries: d.entries.map((e) =>
+              e.key === entry?.key ? { ...e, ratio } : e,
+            ),
+          }))
+        }
         deskLabel={desk.label}
         canBack
         canForward={false}

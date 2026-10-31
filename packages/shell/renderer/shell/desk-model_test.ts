@@ -24,6 +24,8 @@ import {
   removeDesk,
   restoreFloat,
   selectTab,
+  setSplitDir,
+  setSplitRatio,
   splitWith,
   type TabItem,
   unsplit,
@@ -54,6 +56,7 @@ function assertValid(desk: Desk, expected: readonly string[]) {
     const a = desk.tabs.findIndex((item) => item.key === desk.split!.a);
     const b = desk.tabs.findIndex((item) => item.key === desk.split!.b);
     assert.ok(a >= 0 && b === a + 1, "split is not adjacent");
+    assert.ok(desk.split.ratio >= 0.15 && desk.split.ratio <= 0.85, "ratio");
   }
 }
 
@@ -185,4 +188,24 @@ test("tab 메뉴의 여러 개 닫기는 의도한 tab만 닫고 split을 유효
   assert.deepEqual(run("saved", "a").targets, ["a", "b", "c"]);
   assert.deepEqual(run("all", "a").targets, ["a", "b", "c", "d"]);
   assert.equal(run("others", "b").next.split?.a, "b");
+});
+
+test("split의 방향과 나눔 몫은 바뀌어도 tab을 건드리지 않고 범위를 지킨다", () => {
+  let desk = emptyDesk("d", "D");
+  for (const key of ["a", "b", "c"]) desk = openTab(desk, tab(key));
+  desk = splitWith(desk, "a", "c", "column");
+  assert.deepEqual(
+    [desk.split?.dir, desk.split?.ratio, desk.tabs[1]!.key],
+    ["column", 0.5, "c"],
+  );
+  desk = setSplitRatio(desk, 0.99);
+  assert.equal(desk.split?.ratio, 0.85);
+  desk = setSplitRatio(desk, -3);
+  assert.equal(desk.split?.ratio, 0.15);
+  desk = setSplitDir(desk, "row");
+  assert.deepEqual([desk.split?.dir, desk.split?.ratio], ["row", 0.15]);
+  assertValid(desk, ["a", "b", "c"]);
+  // 다시 붙이면 몫은 처음으로 돌아가고, split이 없으면 아무 일도 없다.
+  assert.equal(splitWith(desk, "a", "b").split?.ratio, 0.5);
+  assert.equal(setSplitRatio(unsplit(desk), 0.3).split, null);
 });

@@ -425,6 +425,8 @@ export function ProjectApp({
               current="_default"
               onSelect={() => {}}
               onNewDesk={() => {}}
+              onRename={() => {}}
+              onDelete={() => {}}
             />
           }
           tabs={
@@ -489,7 +491,7 @@ export function ProjectApp({
                   preview: false,
                   file: tab.kind === "document",
                   canDetach: true,
-                  inSplit,
+                  split: inSplit ? "row" : null,
                   canSplit: desk.tabs.length > 1,
                   hasOthers: desk.tabs.length > 1,
                   hasRight: true,
@@ -519,7 +521,10 @@ export function ProjectApp({
                 if (action === "close") close(tab.key);
                 else if (action === "unsplit") {
                   setDesk((current) => ({ ...current, split: null }));
-                } else if (action === "split") {
+                } else if (
+                  action === "split-right" ||
+                  action === "split-down"
+                ) {
                   const next =
                     desk.tabs[selectedAt + 1] ?? desk.tabs[selectedAt - 1];
                   if (next === undefined) return;
@@ -533,7 +538,11 @@ export function ProjectApp({
                     return {
                       tabs: [...rest.slice(0, at), next, ...rest.slice(at)],
                       selected: current.selected,
-                      split: { a: current.selected, b: next.key, focus: "a" },
+                      split: {
+                        a: current.selected,
+                        b: next.key,
+                        focus: "a",
+                      },
                     };
                   });
                 }

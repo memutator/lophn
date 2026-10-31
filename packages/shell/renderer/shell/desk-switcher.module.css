@@ -38,14 +38,132 @@
   text-overflow: ellipsis;
 }
 
-.item {
+/* 목록. 행은 menu 행과 같은 높이이고 오른쪽 끝 고정 열에 단추가 있다. */
+.list {
   display: flex;
-  gap: var(--space-4);
-  align-items: baseline;
+  flex-direction: column;
+  width: calc(var(--space-12) * 4);
 }
 
-.status {
+.heading {
+  margin: var(--space-0);
+  padding: var(--space-3) var(--space-4) var(--space-1);
   color: var(--color-text-muted);
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line);
+}
+
+.separator {
+  height: var(--border-width);
+  margin: var(--space-2) var(--space-0);
+  background: var(--color-border-base);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  height: var(--menu-row);
+  border-radius: var(--radius-sm);
+}
+
+.row:hover,
+.row:focus-within {
+  background: var(--floating-hover);
+}
+
+/* 줄 전체를 누르면 고른다. 단추 열은 이 단추 밖이다. */
+.pick {
+  box-sizing: border-box;
+  display: flex;
+  flex: 1;
+  gap: var(--control-gap);
+  align-items: center;
+  min-width: var(--space-0);
+  height: 100%;
+  padding: var(--space-0) var(--space-4);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  outline: none;
+  cursor: pointer;
+}
+
+.pick:focus-visible {
+  background: var(--floating-hover);
+}
+
+.lead {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-size-base);
+  color: var(--color-text-muted);
+}
+
+/* 이름 바꾸는 줄: pick 단추의 안쪽 여백을 줄이 직접 가진다. */
+.row > .lead {
+  margin-inline-start: var(--space-4);
+}
+
+.name {
+  min-width: var(--space-0);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.status {
+  flex: none;
+  margin-inline-start: auto;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.actions {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-1);
+  padding-inline: var(--space-2);
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-sm-height);
+  height: var(--control-sm-height);
+  padding: var(--space-0);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.action:hover,
+.action:focus-visible {
+  color: var(--color-text-primary);
+  background: var(--color-surface-muted);
+  outline: none;
+}
+
+.rename {
+  box-sizing: border-box;
+  flex: 1;
+  min-width: var(--space-0);
+  height: var(--control-sm-height);
+  margin-inline-start: var(--control-gap);
+  padding: var(--space-0) var(--space-2);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--type-small-size);
+  background: var(--color-surface-base);
+  border: var(--border-width) solid var(--color-focus);
+  border-radius: var(--radius-xs);
+  outline: none;
 }

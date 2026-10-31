@@ -3,6 +3,7 @@ import { t } from "@lophn/i18n";
 import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
 
 import { editorIcons, shellIcons, workspaceIcons } from "../icons/mod.ts";
+import type { SplitDir } from "./desk-model.ts";
 import styles from "./tab-menu.module.css";
 
 export type TabAction =
@@ -14,7 +15,8 @@ export type TabAction =
   | "close-all"
   | "keep-open"
   | "float"
-  | "split"
+  | "split-right"
+  | "split-down"
   | "unsplit"
   | "detach"
   | "copy-path"
@@ -30,14 +32,44 @@ export interface TabMenuState {
   readonly file: boolean;
   /** detached 창 통로가 있고 kind가 noDetach가 아니다. */
   readonly canDetach: boolean;
-  /** tab이 split 구성원이다. */
-  readonly inSplit: boolean;
+  /** tab이 split 구성원이면 그 split의 방향. 아니면 null. */
+  readonly split: SplitDir | null;
   /** 이웃 tab이 있어 split할 수 있다. */
   readonly canSplit: boolean;
   /** desk에 이 칸 말고 tab이 있다. */
   readonly hasOthers: boolean;
   /** 이 칸 오른쪽에 tab이 있다. */
   readonly hasRight: boolean;
+}
+
+// split이 아니면 Split right·down, split이면 다른 방향 하나와 Unsplit이다.
+function splitItems(state: TabMenuState): MenuItem[] {
+  const right: MenuItem = {
+    id: "split-right",
+    label: t("shell.button.tab-split-right"),
+    leading: <MenuIcon icon={shellIcons.split} />,
+    disabled: state.split === null && !state.canSplit,
+  };
+  const down: MenuItem = {
+    id: "split-down",
+    label: t("shell.button.tab-split-down"),
+    leading: <MenuIcon icon={shellIcons.splitDown} />,
+    disabled: state.split === null && !state.canSplit,
+  };
+  const items =
+    state.split === null
+      ? [right, down]
+      : state.split === "row"
+        ? [down]
+        : [right];
+  if (state.split !== null) {
+    items.push({
+      id: "unsplit",
+      label: t("shell.button.tab-unsplit"),
+      leading: <MenuIcon icon={shellIcons.unsplit} />,
+    });
+  }
+  return [{ ...items[0]!, separatorBefore: true }, ...items.slice(1)];
 }
 
 export function tabMenuItems(state: TabMenuState): MenuItem[] {
@@ -78,20 +110,7 @@ export function tabMenuItems(state: TabMenuState): MenuItem[] {
       label: t("shell.button.tab-close-all"),
       leading: <MenuIcon icon={workspaceIcons.closeAll} />,
     },
-    state.inSplit
-      ? {
-          id: "unsplit",
-          label: t("shell.button.tab-unsplit"),
-          leading: <MenuIcon icon={shellIcons.unsplit} />,
-          separatorBefore: true,
-        }
-      : {
-          id: "split",
-          label: t("shell.button.tab-split"),
-          leading: <MenuIcon icon={shellIcons.split} />,
-          disabled: !state.canSplit,
-          separatorBefore: true,
-        },
+    ...splitItems(state),
     {
       id: "float",
       label: t("shell.button.tab-float"),

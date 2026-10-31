@@ -35,6 +35,9 @@ export interface MockEntry {
   key: string;
   a: MockTab;
   b?: MockTab;
+  /** split의 방향과 a의 몫. 없으면 좌우 반반이다. */
+  dir?: "row" | "column";
+  ratio?: number;
 }
 
 export interface MockDesk {
@@ -121,6 +124,7 @@ const desk = (
 export type Variant =
   | "project"
   | "split"
+  | "split-down"
   | "floats"
   | "empty"
   | "overflow"
@@ -153,6 +157,18 @@ export function mockDesks(variant: Variant): MockDesk[] {
         {
           ...main,
           entries: [{ key: "p1", a: P1, b: C1 }, single(README), single(PLAN)],
+        },
+        ...others,
+      ];
+    case "split-down":
+      return [
+        {
+          ...main,
+          entries: [
+            { key: "p1", a: P1, b: C1, dir: "column" },
+            single(README),
+            single(PLAN),
+          ],
         },
         ...others,
       ];

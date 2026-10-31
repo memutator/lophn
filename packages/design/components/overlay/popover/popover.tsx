@@ -17,6 +17,8 @@ export interface PopoverProps {
   onOpenChange?: (open: boolean) => void;
   container?: HTMLElement | null;
   placement?: Placement;
+  // Escape를 눌렀을 때. preventDefault하면 닫히지 않는다(안의 입력이 Escape를 먼저 쓸 때).
+  onEscapeKeyDown?: (event: KeyboardEvent) => void;
   // 닫힐 때 trigger로 focus를 돌린다. 연 자리가 다른 renderer에 있으면 끈다.
   returnFocus?: boolean;
 }
@@ -28,6 +30,7 @@ export function Popover({
   container,
   placement = "beside",
   returnFocus = true,
+  onEscapeKeyDown,
   ...state
 }: PopoverProps) {
   return (
@@ -39,6 +42,7 @@ export function Popover({
           side="bottom"
           {...placementProps(placement)}
           onCloseAutoFocus={returnFocus ? undefined : keepFocus}
+          onEscapeKeyDown={onEscapeKeyDown}
           {...componentMark("Popover")}
         >
           {children}

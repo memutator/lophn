@@ -1,12 +1,13 @@
 # job
 
-job은 정해진 때 저절로 도는 일 하나다. 주기(`every`, 선택 `at`)와 할 일 하나(agent 호출 run, 앱 tool 호출 run, workflow instance 시작)와 놓친 차례 정책(`run`, `hold`)을 갖고, scheduler가 차례마다 job run 한 줄을 남기며 그 일을 시작한다. agent가 만들고 켜고, 사람은 화면에서 보고 고치고 끄고 지운다. 이 문서는 job이 무엇이고 누가 만들고 고치는지, scheduler가 언제 깨어 무엇을 하는지, 놓친 차례와 겹침과 hold와 서머타임을 어떻게 다루는지, 할 일마다 어떻게 시작하고 끝을 아는지, 권한과 화면을 정한다. 이 경계가 흐려지면 꺼진 사이 놓친 차례가 몇 번이든 같은 바깥 효과가 여러 번 나거나, 앞 차례가 도는데 같은 job이 또 돌거나, agent가 남이 만든 job을 고쳐 남의 할당으로 일을 시키거나, 켤 때 끊긴 차례가 영영 running으로 남는다. 여러 곳에 걸쳐 있다. 계약은 `packages/protocol/jobs`, 규칙은 `packages/core/jobs`(jobs), 끼우는 곳은 `packages/core/main/daemon/wiring/jobs.ts`와 `jobs-registration.ts`, agent tool은 `packages/core/jobs/agent-tools.ts`, 화면은 `packages/shell/renderer/desktop/settings/jobs/`다.
+job은 정해진 때 저절로 도는 일 하나다. 주기(`every`, 선택 `at`)와 할 일 하나(agent 호출 run, 앱 tool 호출 run, workflow instance 시작)와 놓친 차례 정책(`run`, `hold`)을 갖고, scheduler가 차례마다 job run 한 줄을 남기며 그 일을 시작한다. agent가 만들고 사람이 등록을 한 번 승인해야 돈다. 사람은 화면에서 보고 고치고 끄고 지운다. 이 문서는 job이 무엇이고 누가 만들고 승인하고 고치는지, scheduler가 언제 깨어 무엇을 하는지, 놓친 차례와 겹침과 hold와 서머타임을 어떻게 다루는지, 할 일마다 어떻게 시작하고 끝을 아는지, 권한과 화면을 정한다. 이 경계가 흐려지면 꺼진 사이 놓친 차례가 몇 번이든 같은 바깥 효과가 여러 번 나거나, 앞 차례가 도는데 같은 job이 또 돌거나, 사람이 승인하지 않은 일이 사람 없이 되풀이되거나, 승인한 뒤 할 일이 바뀌거나, 켤 때 끊긴 차례가 영영 running으로 남는다. 여러 곳에 걸쳐 있다. 계약은 `packages/protocol/jobs`, 규칙은 `packages/core/jobs`(jobs), 끼우는 곳은 `packages/core/main/daemon/wiring/jobs.ts`와 `jobs-registration.ts`, agent tool은 `packages/core/jobs/agent-tools.ts`, 화면은 `packages/shell/renderer/desktop/settings/jobs/`다.
 
 ## 흐름
 
 ```
  agent: tool job.create | update | delete | list         (어느 place 종류의 session이든)
  사람: Settings › System › Scheduled jobs 화면            job.update | delete | list | job_run.list
+ 사람: 대기 목록의 승인 card                              job.pending | job.approve
  사람: 대기 목록의 hold card                              job.holds | job.decide_hold
    │  이름 풀기(agent·앱·project)와 시간대는 port (jobs.targets, jobs.zone)
    ▼
@@ -17,17 +18,17 @@ job은 정해진 때 저절로 도는 일 하나다. 주기(`every`, 선택 `at`
  scheduler 바퀴 (core/jobs/scheduler.ts, 한 번에 한 바퀴)      깨우는 것: timer | wake | 최대 잠 1분
    1 store.open      도는 줄 가운데 workflow_start의 running 줄: instance가 ended → done, stopped → cancelled
                      그 밖의 running 줄(run이 있음): run이 끝났으면 그 상태로 다시 닫는다 (켜는 첫 바퀴는 제외)
-   2 job.claim_due   온 차례를 job run 줄로 만들고 시작할 줄(queued)을 한 번만 넘긴다. 다음 차례 시각도 받는다
+   2 job.claim_due   승인한 job만 본다. 온 차례를 job run 줄로 만들고 시작할 줄(queued)을 한 번만 넘긴다. 다음 차례 시각도 받는다
    3 starter.start   agent_run | tool_run → runService.start(…, origin)   workflow_start → workflowService.start(…, {kind: "job"})
    4 job_run.started 줄을 running으로, run·instance·session id를 적는다
    5 run이면 waitRun으로 기다렸다가 job_run.ended (done | failed | cancelled)
    6 다음 차례까지 timer를 건다 (최소 1초, 최대 1분)
 
- tool_run: run 연산이 앱 호출 경로를 program caller로 부른다 ─▶ 만든 agent의 할당과 domain 거르기 (architecture/app-call.md)
+ tool_run: run 연산이 앱 호출 경로를 program caller로 부른다 ─▶ 승인한 job이라 막지 않는다 (architecture/app-call.md)
  켤 때: 첫 바퀴가 startup claim이다. 도는 중 끊긴 줄을 interrupted로 닫고 꺼진 사이 온 차례를 놓친 차례로 접는다
 ```
 
-- `jobs` 표(job 한 행)와 `job_runs` 표(차례마다 한 행)가 정본이다. 쓰는 것은 job command(`create`, `update`, `delete`, `decide_hold`)와 scheduler의 machine command(`claim_due`, `started`, `ended`)뿐이다. 화면, CLI, agent는 route로 읽는다.
+- `jobs` 표(job 한 행)와 `job_runs` 표(차례마다 한 행)가 정본이다. 쓰는 것은 job command(`create`, `update`, `approve`, `delete`, `decide_hold`)와 scheduler의 machine command(`claim_due`, `started`, `ended`)뿐이다. 화면, CLI, agent는 route로 읽는다.
 - 다른 module은 이 표를 SQL로 읽지 않는다. scheduler는 run과 instance를 `runService`와 `workflowService`, `workflowInstanceRead`로만 본다(`architecture/layers.md`).
 - scheduler의 core 안 자격은 `machine:jobs`(operation은 `job.claim_due`, `job_run.open`, `job_run.started`, `job_run.ended`, `ReadWorkflowInstance`)다. 기동 때 ledger에 기록한다.
 
@@ -43,12 +44,20 @@ job
 - `title`은 1~80자이고 목록, card, run 줄과 instance 줄에 보일 이름이다.
 - 놓친 차례 정책은 `run`(켜지면 바로 한 번 돈다)과 `hold`(사람에게 묻는다) 둘이다.
 - 켜고 끄기(`enabled`)가 있다. 꺼진 job은 `next_due_at`이 null이고 돌지 않는다. 만들 때 `enabled`는 기본 true다.
+- `approved_at`은 사람이 등록을 승인한 때다. null이면 승인 대기이고 `next_due_at`도 null이며 돌지 않는다(아래 "승인").
 - `last_run`은 저장하지 않고 읽을 때 그 job의 가장 새 job run으로 채운다. place는 `creator`의 place다.
 
 만들고 고치는 쪽
-- job을 만드는 것은 agent뿐이다(`job.create`의 actor는 agent). 만든 쪽(`creator`)은 그 session의 (agent, place)이고(`jobs.creator_agent`, `creator_place`) job에 남는다. 그 agent의 지금 할당이 tool_run의 허락이 된다.
+- job을 만드는 것은 agent뿐이다(`job.create`의 actor는 agent). 만든 쪽(`creator`)은 그 session의 (agent, place)이고(`jobs.creator_agent`, `creator_place`) job에 남는다.
 - agent는 같은 agent, 같은 place가 만든 job만 고치고 지우고 읽는다. 남의 job은 있는지도 알리지 않는다(`not_found`). 사람은 모든 job을 고치고 끄고 지우고 읽는다. 사람은 만들지 못한다.
-- 다른 agent가 고칠 수 있으면 남의 할당으로 일을 시키는 길이 되기 때문이다. 위험 test가 있다(`packages/core/jobs/commands_test.ts`).
+- 다른 agent가 고칠 수 있으면 남의 job을 끄거나 주기를 바꿔 남의 일을 흔드는 길이 되기 때문이다. 위험 test가 있다(`packages/core/jobs/commands_test.ts`).
+- 할 일(`action`)은 만든 뒤 바꾸지 못한다(`job.update`에 칸이 없다). 사람이 승인한 할 일이 그대로 돌게 하려는 것이다. 다른 일은 지우고 새 job으로 만든다. 제목, 주기, 놓친 차례 정책, 켜고 끄기는 고쳐도 다시 묻지 않는다.
+
+승인
+- agent가 만든 job은 승인 대기다(`approved_at`, `next_due_at`이 null). 대기 목록에 승인 card가 뜨고 사람이 [Approve]나 [Reject]를 고른다(`job.approve`, user만). 종류(agent_run, tool_run, workflow_start)와 상관없이 같다.
+- 승인은 job마다 한 번이다. [Approve]는 `approved_at`을 적고, 켜져 있으면 그 순간부터 센 첫 차례를 `next_due_at`에 잡는다. 기다린 동안은 놓친 것으로 치지 않는다. [Reject]는 job을 지운다. 이미 승인한 job에 다시 오면 `conflict`다.
+- scheduler는 승인한 job만 본다(`claim_due`의 SQL과 `turnFor`가 둘 다 거른다). 승인 전 job의 `held` 줄도 [Start now]가 `conflict`다. 위험 test가 있다(`packages/core/jobs/due_test.ts`).
+- 승인한 job의 tool_run은 만든 agent의 할당과 상관없이 그 할 일을 부른다(아래 "권한"). 승인 칸이 생기기 전의 job은 migration(`jobs.approval`)이 승인 대기로 옮겼다.
 - job이 연 agent run의 agent도 job tool을 받아 job을 만들 수 있다. 막지 않는다. program은 약하게 두고, 고치기는 만든 agent만 하며, 사람은 모든 job을 화면에서 본다.
 - job 지우기는 job과 그 job run을 지운다(FK 없이 command가 두 표를 같이 지운다). 도는 run이나 instance는 끝까지 돈다. 지운 job이 남긴 run과 instance에서는 job 제목이 사라진다(id만 남는다).
 - `revision`과 `compare`는 없다(`compare`는 늘 `{}`). 같은 job을 동시에 고치는 쪽이 사람 화면과 만든 agent 정도라 마지막 쓰기가 이긴다.
@@ -101,7 +110,7 @@ job run
 
 할 일마다 시작과 끝
 - agent_run은 이름을 푼 agent로 run을 연다(`runService.start`의 `agent_resolved` 갈래). 차례마다 새 session을 열고 unattended 사람 메시지로 turn을 연다. 끝은 `waitRun`이 돌려준 run의 상태다. `ended` 기록이 오류로 못 적혔어도 바퀴마다 열린 run 줄의 run 상태를 한 번 읽어(`starter.runState`, 기다리지 않는다) 끝났으면 `ended`를 다시 적는다. 다시 부르기 loop는 없다. 그렇지 않으면 그 job의 차례가 다음 기동까지 모두 `skipped(overlap)`가 된다. run의 결과 칸은 job run에 옮기지 않고 run 기록에서 읽는다.
-- tool_run은 run 연산이 앱 호출 경로를 program caller로 부른다(아래 권한). 막히면 run이 `tool_denied`로 실패하고 job run이 `failed`다.
+- tool_run은 run 연산이 앱 호출 경로를 program caller로 부른다(아래 권한). 앱이 꺼졌거나 tool이 선언에 없으면 run이 실패하고 job run이 `failed`다.
 - workflow_start는 `workflowService.start`를 시작한 쪽 `{kind: "job", job}`으로 직접 부른다. 사람만 받는 `StartWorkflow` route는 그대로다. flow면 service가 그 process를 띄운다. job 쪽은 agent workflow와 다를 것이 없다. 시작하지 못하면(`conflict` 등) job run이 `failed`다. 끝은 scheduler가 다음 바퀴에 instance 상태를 읽어 안다: `ended`면 `done`, `stopped`면 `cancelled`. 한 번 닫은 줄은 instance가 다시 열려도 되살리지 않는다.
 - 시작하지 못한 차례(이름이 안 풀림, run 시작 실패)는 그 자리에서 `failed`로 닫는다. `waitRun`이 오류로 그치거나 lophn이 꺼지는 중이면 거짓 끝을 적지 않고 줄을 둔다. 다음 켤 때 `interrupted`로 닫힌다.
 - `started`나 `ended`가 `not_found`(그 사이 job이 지워짐)나 `conflict`(켤 때 이미 닫힘)면 정상이라 넘긴다. 그 밖의 오류는 log 한 줄이다.
@@ -115,24 +124,26 @@ job run
 
 권한
 - job tool(`job.create`, `job.update`, `job.delete`, `job.list`)은 세 place 종류 목록에 모두 든다(`packages/core/agent-places/tool-lists.ts`의 `JOB_TOOL_NAMES`). `job.list`는 agent에게 자기가 만든 job만 준다.
-- scheduler 쪽 route(`job.claim_due`, `job_run.open`, `job_run.started`, `job_run.ended`)는 machine 자격만 받는다. command 셋은 handler도 한 번 더 본다. 사람 쪽 route(`job.holds`, `job.decide_hold`, `job_run.list`)는 user만 받는다.
-- tool_run은 사람이 없는 호출이라 만든 agent의 지금 할당과 domain 거르기로 판정한다. mode는 unattended이고, 할당은 호출 때 읽는다. 막히면 호출이 `denied(gate_blocked)`로 기록되고 run은 실패한다(`architecture/app-call.md`, `architecture/approval.md`).
-- agent_run이 연 turn은 unattended다. 묻지 않고 deny만 막힌다. 사람이 agent에게 시킨 것이 승낙이다. 사람은 모든 job을 화면에서 보고 끌 수 있고, job의 일은 만든 agent의 할당 안에서만 돈다.
+- scheduler 쪽 route(`job.claim_due`, `job_run.open`, `job_run.started`, `job_run.ended`)는 machine 자격만 받는다. command 셋은 handler도 한 번 더 본다. 사람 쪽 route(`job.pending`, `job.approve`, `job.holds`, `job.decide_hold`, `job_run.list`)는 user만 받는다.
+- tool_run은 사람이 없는 호출이고 허락은 사람의 등록 승인이다. 앱 호출 경로는 program caller를 막지 않는다. 만든 agent의 할당과 domain은 보지 않는다(`architecture/app-call.md`, `architecture/approval.md`).
+- agent_run이 연 turn은 unattended다. 묻지 않고 deny만 막힌다. 받은 agent는 자기 할당으로 일한다. 사람은 모든 job을 등록 때 보고 승인하며 화면에서 보고 끌 수 있다.
 
 화면
 - Settings › System › Scheduled jobs는 모든 job을 한곳에 모은다(job은 project를 건너고 home에서 만든 job은 place가 없다). 줄마다 제목, 주기, 다음 차례, 마지막 결과, 만든 agent와 그 place 이름을 보이고(agent 이름은 `agents/list`를 한 번 읽어 붙인다) 켜고 끄기, 제목·주기·놓친 차례 정책 고치기, 지우기, 기록(`job_run.list`)을 한다. 할 일(`action`)을 고치거나 job을 만드는 단추는 없다. 기록 줄에서 session이나 project로 가는 길은 이미 있는 길(`onOpenSession`, [Open project])뿐이다.
 - project 창 activity bar의 Scheduled jobs panel은 그 project와 걸린 job과 그 규칙을 보인다. 걸린 job은 그 project place의 session이 만든 것, 그 project의 agent를 부르는 것, 그 project의 workflow를 시작하는 것이다(`creator`와 `action`으로 가르고 계약은 바꾸지 않는다). 줄은 제목, Switch, 주기, 다음 차례나 대기 상태이고 줄과 "Open all jobs"는 Settings의 같은 화면을 연다(`packages/shell/renderer/workspace/sidebar/job-panel.tsx`, 거르기는 `desktop/settings/jobs/model.ts`의 `jobsOfProject`).
-- 대기 목록의 hold card는 셋째 read source다(앞 둘은 session snapshot과 activation 동의). `job.holds`로 통째로 맞추고 `JobChanged`를 받을 때 다시 읽는다(`packages/shell/renderer/desktop/connection/waiting/`의 `cards/job-hold-card.tsx`). [Start now]와 [Skip]은 `job.decide_hold`다. 결정한 card는 다시 읽을 때 빠지고 toast는 없다.
+- 대기 목록의 job card(승인 card와 hold card)는 셋째 read source다(앞 둘은 session snapshot과 activation 동의). `job.pending`과 `job.holds`를 같이 읽어 통째로 맞추고(둘 다 읽혀야 맞춘다) `JobChanged`를 받을 때 다시 읽는다(`packages/shell/renderer/desktop/connection/events/waiting-store.ts`, `waiting/cards/job-approval-card.tsx`, `job-hold-card.tsx`). 승인 card는 제목, 할 일, 주기, 만든 agent와 place를 보이고 [Approve]와 [Reject]는 `job.approve`다. [Start now]와 [Skip]은 `job.decide_hold`다. 결정한 card는 다시 읽을 때 빠지고 toast는 없다.
+- Scheduled jobs 화면과 project panel은 승인 대기 job의 다음 차례 자리에 "Waiting for your approval"을 보인다. 승인은 대기 목록에서만 한다.
 - run 줄과 instance 줄은 job 제목을 보인다. run 줄은 이름 자리에 제목을 두고 agent 이름이나 tool 이름은 둘째 줄이다. instance 줄은 시작한 쪽이 job이면 제목을 보인다. 제목은 읽는 곳이 `job.list`를 읽어 job id로 붙인다(`packages/shell/renderer/workspace/core-source.ts`). 지운 job의 옛 줄은 제목 없이 원래 이름으로 보인다. 제목은 꾸밈이라 읽기에 실패해도 run과 instance 읽기는 그대로 간다.
 - 화면이 다시 읽는 신호는 `JobChanged`(subject job, payload `job_run`)다. 남지 않는 event라 놓친 화면은 열 때 다시 읽는다(`architecture/event.md`). run과 instance 줄은 지금의 session event와 `WorkflowInstanceChanged` 때 다시 읽으므로 따로 알리지 않는다.
 
 ## 왜 이 모양인가
 
 - scheduler를 기록 event나 Bus에 얹지 않는다. 뒤에 꼭 움직여야 하는 일은 그 일을 아는 command가 같은 tx에서 한다(`architecture/event.md`). job command는 표만 바꾸고, commit 뒤 `jobs.changed`는 timer를 다시 걸라는 신호일 뿐이다. 신호를 놓쳐도 정본은 표라서 다음 timer나 최대 잠이 같은 표를 다시 읽는다. Reactor 같은 반응 장치(cursor, 멱등 key, backoff)를 지지 않는다.
+- job의 허락을 만든 agent의 할당에서 빌리지 않고 사람의 등록 승인으로 둔다. 할당으로 판정하면 job 하나를 돌리려고 만든 agent에게 그 앱 전체를 열어 줘야 하고, job을 만든 agent는 그 tool을 직접 쓸 이유가 없을 때가 많다(앱 place에서 앱을 만든 agent가 그 앱의 수집 job을 만드는 경우). 그 판정에서는 할당이 없어도 job이 만들어지고 차례마다 `gate_blocked`로 말없이 실패했다. 사람이 job 하나를 보고 승인하면 허락이 그 할 일 하나로 맞고, agent가 job으로 권한을 넓히는 길도 승인에서 막힌다. 승인은 한 번이고 할 일은 바뀌지 않으니 다시 묻지 않는다.
 - 다른 module의 표를 SQL로 읽지 않는다(`architecture/layers.md`). 그래서 workflow job run은 scheduler가 닫는다. jobs가 workflows의 표를 읽을 수도 workflows가 jobs를 알 수도 없으니, 켜져 있는 동안 scheduler가 바퀴마다 instance 상태를 읽는 길만 남는다.
 - 겹침 판정을 `job_runs` 표 하나로 한다. 앞 차례가 run이든 instance든 "도는 줄이 있나"는 같은 질문이라 할 일마다 다른 표를 묻지 않는다. unique index는 코드가 틀려도 같은 바깥 효과가 두 번 나지 않게 하는 한 겹이다.
 - hold를 job마다 한 줄에 접는다. 몇 번을 놓쳤든 사람에게 같은 질문을 쌓지 않는다. 제때 온 차례가 돌면 그 줄은 쓸모가 없어져 `superseded`로 닫는다.
-- program caller를 앱 호출 경로에 따로 둔다. 사람이 연 run은 사람의 호출이라 Gate를 거치지 않지만, job의 호출은 사람이 없다. 만든 agent의 할당 안이어야 하므로 agent caller와 같은 판정을 받되, 부른 turn이나 tool call이 없어 job과 job run을 싣는다. 그 자격(`CallAuth.program`)은 route가 만들지 못하고 core 안 run 연산만 만든다. 본문의 caller는 주장일 뿐이라 core가 만든 자격과 맞춰 본다. 앱 process의 caller parser(`packages/core/apps/runtime/entrypoint/wire.ts`)는 protocol schema의 손 사본이라(앱 process는 Zod를 싣지 않는다) 네 종류를 같이 받아야 한다. 하나를 놓치면 job의 앱 호출이 모두 말없이 거절된다.
+- program caller를 앱 호출 경로에 따로 둔다. 사람이 연 run은 사람의 호출이라 Gate를 거치지 않지만, job의 호출은 사람이 없다. 사람이 승인한 job이라 판정 없이 지나가지만 기록에 어느 job, 어느 차례인지 남아야 하고, 부른 turn이나 tool call이 없어 job과 job run을 싣는다. 그 자격(`CallAuth.program`)은 route가 만들지 못하고 core 안 run 연산만 만든다. 본문의 caller는 주장일 뿐이라 core가 만든 자격과 맞춰 본다. 앱 process의 caller parser(`packages/core/apps/runtime/entrypoint/wire.ts`)는 protocol schema의 손 사본이라(앱 process는 Zod를 싣지 않는다) 네 종류를 같이 받아야 한다. 하나를 놓치면 job의 앱 호출이 모두 말없이 거절된다.
 - `revision`과 `compare`를 두지 않는다. 동시에 고치는 쪽이 사람 화면과 만든 agent 정도라 마지막 쓰기가 이기게 두는 쪽이 단순하다.
 - place를 job의 칸으로 두지 않는다. place는 `creator`에서 나오고 job은 project를 건너기도 한다(home에서 만든 job은 place가 없다). 칸으로 두면 `creator`나 `action`과 어긋날 수 있다. 화면의 "걸린 job"은 읽을 때 가른다.
 - cron을 쓰지 않는다. 간격과 하루 중 시각으로 쓰려는 일(10일마다, 매일 09:00)이 다 된다. 서머타임 규칙도 한 곳(`schedule.ts`)에 있다. 모자라면 그때 더한다.

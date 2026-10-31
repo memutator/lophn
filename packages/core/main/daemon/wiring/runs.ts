@@ -290,7 +290,7 @@ export const runsWiring: WiringFactory = () => {
             );
           }
           // job이 연 run은 program caller로, instance가 연 run은 flow caller로 부른다.
-          // 자격의 agent·place는 job을 만든 쪽, instance의 project place session이다.
+          // flow 자격의 agent·place는 instance의 project place session이다.
           return origin === undefined
             ? ctx.appCallPath.call(
                 { ...call, caller: { kind: "person", view_session: run } },
@@ -307,12 +307,7 @@ export const runsWiring: WiringFactory = () => {
                 },
                 {
                   actor: "program",
-                  program: {
-                    job: origin.job,
-                    job_run: origin.job_run,
-                    agent: origin.creator.agent,
-                    place: origin.creator.place,
-                  },
+                  program: { job: origin.job, job_run: origin.job_run },
                 },
               );
         },

@@ -529,6 +529,7 @@ const job = (
   id: `job_${n}`,
   missed_policy: "run",
   enabled: true,
+  approved_at: at(-30 * DAY),
   next_due_at: null,
   last_run: null,
   ...fields,

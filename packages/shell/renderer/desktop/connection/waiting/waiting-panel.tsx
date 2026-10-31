@@ -12,6 +12,7 @@ import {
 import { useEventClient } from "../events/hooks.tsx";
 import type { WaitingEntry } from "../events/waiting-store.ts";
 import { ActivationCard } from "./cards/activation-card.tsx";
+import { JobApprovalCard } from "./cards/job-approval-card.tsx";
 import { JobHoldCard } from "./cards/job-hold-card.tsx";
 import type { OnDecide } from "./cards/decision.tsx";
 import {
@@ -32,7 +33,7 @@ const GROUPS = [
   },
   { title: "waiting.label.group-question", kinds: ["question"] },
   { title: "waiting.label.group-activation", kinds: ["activation"] },
-  { title: "waiting.label.group-job", kinds: ["job_hold"] },
+  { title: "waiting.label.group-job", kinds: ["job_approval", "job_hold"] },
 ] as const;
 
 const SETTLED_MARK = {
@@ -214,6 +215,15 @@ export function WaitingPanel({
       case "job_hold":
         return (
           <JobHoldCard key={entry.id} entry={entry} view={view} core={core} />
+        );
+      case "job_approval":
+        return (
+          <JobApprovalCard
+            key={entry.id}
+            entry={entry}
+            view={view}
+            core={core}
+          />
         );
     }
   }

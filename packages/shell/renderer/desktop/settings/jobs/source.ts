@@ -45,6 +45,8 @@ export interface JobView {
   readonly action: JobActionView;
   readonly missed_policy: MissedPolicy;
   readonly enabled: boolean;
+  /** null이면 사람의 등록 승인을 기다린다(대기 목록에서 승인한다). */
+  readonly approved_at: string | null;
   readonly next_due_at: string | null;
   readonly last_run: {
     readonly state: JobRunState;

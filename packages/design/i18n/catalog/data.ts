@@ -23,6 +23,7 @@ export const data = {
   "secret-input.title.mcp": "Enter MCP server credential",
   "secret-input.title.provider": "Enter provider key",
   "waiting.button.allow": "Allow",
+  "waiting.button.approve-job": "Approve",
   "waiting.button.allow-always": "Always allow",
   "waiting.button.allow-once": "Allow once",
   "waiting.button.answer-in-terminal": "Answer in terminal",
@@ -31,6 +32,7 @@ export const data = {
   "waiting.button.dismiss-finished": "Dismiss",
   "waiting.button.open-session": "Open session",
   "waiting.button.show-finished": "Show",
+  "waiting.button.reject-job": "Reject",
   "waiting.button.skip": "Skip",
   "waiting.button.start-now": "Start now",
   "waiting.label.activation-first":
@@ -94,6 +96,8 @@ export const data = {
   "waiting.notice.job-agent": "Asks {agent}.",
   "waiting.notice.job-conflict":
     "The previous turn is still going. Try again when it finishes.",
+  "waiting.notice.job-approval":
+    "Wants to run {schedule}, unattended. It won't run until you approve. Reject deletes it.",
   "waiting.notice.job-missed":
     "{count, plural, one {Missed once} other {Missed # times}}. The last turn was due {due}.",
   "waiting.notice.job-tool": "Uses {tool} in {app}.",

@@ -11,11 +11,9 @@ import type { runCreate, runSettle } from "../../protocol/runs/mod.ts";
 import type { Input } from "../../protocol/server/mod.ts";
 
 // job이 run을 열 때 붙이는 출처다. 메모리에만 있고 route 입력이 아니다.
-// creator는 job을 만든 (agent, place)다.
 export type JobOrigin = {
   job: Id<"job">;
   job_run: Id<"jbr">;
-  creator: AgentAtPlace;
 };
 
 // flow instance가 run을 열 때 붙이는 출처다. creator는 flow의 앱 tool 호출을 맡는

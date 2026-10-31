@@ -7,6 +7,7 @@ import {
   WaitingDenyReason,
   WaitingFinished,
   WaitingFirstActivation,
+  WaitingJobApproval,
   WaitingJobHoldConflict,
   WaitingJobHoldKinds,
   WaitingJobHolds,
@@ -76,6 +77,13 @@ export const questionsArea: Area = {
       description:
         "대기 목록의 네 번째 묶음 Scheduled jobs다. hold 정책 job이 놓친 차례를 [Skip]이나 [Start now]로 정한다. 정하면 card는 목록에서 빠지고 남는 줄과 toast는 없다.",
       render: () => <WaitingJobHolds />,
+    },
+    {
+      id: "waiting-job-approval",
+      title: "Waiting · job approval",
+      description:
+        "agent가 만든 job의 등록 승인 card다. job은 사람이 한 번 [Approve]해야 돌고, 승인 뒤로는 만든 agent의 할당과 상관없이 정한 할 일만 돈다. [Reject]는 job을 지운다. 같은 Scheduled jobs 묶음에서 hold card보다 앞에 온다.",
+      render: () => <WaitingJobApproval />,
     },
     {
       id: "waiting-job-hold-kinds",

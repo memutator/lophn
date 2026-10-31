@@ -24,7 +24,9 @@ import {
 const SCHEDULE_NOTE =
   "every uses m/h/d (minutes/hours/days); at is this computer's local HH:MM, only for d. After downtime, missed_policy run runs once; hold asks the person.";
 const ACTION_NOTE =
-  "Runs unattended. agent_run opens a new session (agent/place use exact names; no place means home). tool_run uses the creator agent's app assignment. workflow_start names <project>/<workflow>; step is only for agent workflows, not flows.";
+  "Runs unattended. agent_run opens a new session (agent/place use exact names; no place means home). tool_run calls one app tool. workflow_start names <project>/<workflow>; step is only for agent workflows, not flows.";
+const APPROVAL_NOTE =
+  "A new job waits until the person approves it in the waiting list (approved_at stays null until then); tell them. The action cannot be changed later: delete the job and create a new one.";
 const OWN_NOTE =
   "You can change or delete only jobs you created in this place.";
 const RESTART_NOTE =
@@ -42,7 +44,7 @@ export const JOB_AGENT_TOOLS: readonly ToolDefinition[] = [
       enabled: z.boolean().optional(),
     }),
     routes: [jobCreate],
-    description: `Create a repeating job; enabled defaults to true. ${SCHEDULE_NOTE} ${ACTION_NOTE}`,
+    description: `Create a repeating job; enabled defaults to true. ${APPROVAL_NOTE} ${SCHEDULE_NOTE} ${ACTION_NOTE}`,
     effect: "write",
     handler: async (input, ctx) => {
       const made = await commandOf(
@@ -63,12 +65,11 @@ export const JOB_AGENT_TOOLS: readonly ToolDefinition[] = [
       title: jobTitleSchema.optional(),
       every: jobEverySchema.optional(),
       at: jobAtSchema.nullable().optional(),
-      action: jobActionInputSchema.optional(),
       missed_policy: missedPolicySchema.optional(),
       enabled: z.boolean().optional(),
     }),
     routes: [jobUpdate],
-    description: `Update a job. Omitted fields stay; at:null clears the time; action replaces the whole action. ${RESTART_NOTE} ${SCHEDULE_NOTE} ${ACTION_NOTE} ${OWN_NOTE}`,
+    description: `Update a job's title, schedule, missed policy or on/off. Omitted fields stay; at:null clears the time. The action cannot be changed. ${RESTART_NOTE} ${SCHEDULE_NOTE} ${OWN_NOTE}`,
     effect: "write",
     handler: async (input, ctx) => {
       const body = Object.fromEntries(

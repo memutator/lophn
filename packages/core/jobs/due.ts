@@ -141,7 +141,10 @@ function turnFor(
   const loaded = loadJob(tx.sql, id);
   if (!loaded.ok) return loaded;
   const job = loaded.value;
-  if (job === null || !job.enabled) return ok(undefined);
+  // 승인 전 job은 돌지 않는다. 켤 때 닫힌 줄이 있어도 차례를 만들지 않는다.
+  if (job === null || !job.enabled || job.approved_at === null) {
+    return ok(undefined);
+  }
   const spec = { every: job.every, at: job.at, zone };
   const came = job.next_due_at !== null && job.next_due_at <= now;
   const turns = came ? dueTurns(spec, job.next_due_at!, now) : null;
@@ -256,7 +259,8 @@ export function createDueCommands(): {
           ...tx.sql
             .all(
               `SELECT id FROM jobs
-             WHERE enabled = 1 AND next_due_at IS NOT NULL AND next_due_at <= ?`,
+             WHERE enabled = 1 AND approved_at IS NOT NULL
+               AND next_due_at IS NOT NULL AND next_due_at <= ?`,
               [now],
             )
             .map((row) => row.id as string),
@@ -357,6 +361,11 @@ export function createDueCommands(): {
             ended_at: tx.now(),
           });
         } else {
+          const job = loadJob(tx.sql, hold.job);
+          if (!job.ok) return job;
+          if (job.value?.approved_at === null) {
+            return fail("conflict", "the job waits for approval");
+          }
           const open = tx.sql.get(
             "SELECT id FROM job_runs WHERE job = ? AND state IN ('queued', 'running')",
             [hold.job],

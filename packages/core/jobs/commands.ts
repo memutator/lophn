@@ -4,6 +4,7 @@ import { type Id, parseActor } from "../../protocol/base/mod.ts";
 import {
   type JobAction,
   type JobActionInput,
+  jobApprove,
   jobCreate,
   jobDelete,
   type JobRecord,
@@ -24,10 +25,16 @@ import {
 } from "./ports.ts";
 import { creatorColumns } from "./rows.ts";
 import { firstDue } from "./schedule.ts";
-import { deleteJob, insertJob, loadJob, replaceJob } from "./store.ts";
+import {
+  approveJob,
+  deleteJob,
+  insertJob,
+  loadJob,
+  replaceJob,
+} from "./store.ts";
 
 function fail(
-  code: "invalid_input" | "not_found" | "forbidden",
+  code: "invalid_input" | "not_found" | "forbidden" | "conflict",
   message: string,
 ): Result<never> {
   return err({ code, message });
@@ -122,6 +129,7 @@ function loadOwned(tx: Tx, ctx: RequestContext, id: string): Result<JobRecord> {
 export function createJobCommands(): {
   create: CommandDefinition<typeof jobCreate>;
   update: CommandDefinition<typeof jobUpdate>;
+  approve: CommandDefinition<typeof jobApprove>;
   remove: CommandDefinition<typeof jobDelete>;
 } {
   return {
@@ -143,8 +151,6 @@ export function createJobCommands(): {
         if (!checked.ok) return checked;
         const action = resolveAction(tx, input.action);
         if (!action.ok) return action;
-        const now = tx.now();
-        const enabled = input.enabled ?? true;
         const id = tx.newId("job");
         insertJob(tx.sql, {
           id,
@@ -154,18 +160,8 @@ export function createJobCommands(): {
           at,
           action: action.value,
           missed_policy: input.missed_policy,
-          enabled,
-          next_due_at: enabled
-            ? firstDue(
-                {
-                  every: input.every,
-                  at,
-                  zone: tx.port(jobZonePort).zone(),
-                },
-                now,
-              )
-            : null,
-          created_at: now,
+          enabled: input.enabled ?? true,
+          created_at: tx.now(),
         });
         changed(tx, id);
         const job = loadJob(tx.sql, id);
@@ -183,12 +179,6 @@ export function createJobCommands(): {
         const enabled = input.enabled ?? job.enabled;
         const checked = checkAt(every, at);
         if (!checked.ok) return checked;
-        let action = job.action;
-        if (input.action !== undefined) {
-          const resolved = resolveAction(tx, input.action);
-          if (!resolved.ok) return resolved;
-          action = resolved.value;
-        }
         const now = tx.now();
         // 켜지는 순간이거나 주기나 시각이 바뀌면 그 순간부터 새로 센다. 놓친 것으로 치지 않는다.
         const recount =
@@ -197,19 +187,56 @@ export function createJobCommands(): {
           title: input.title ?? job.title,
           every,
           at,
-          action,
           missed_policy: input.missed_policy ?? job.missed_policy,
           enabled,
-          next_due_at: !enabled
-            ? null
-            : recount
-              ? firstDue({ every, at, zone: tx.port(jobZonePort).zone() }, now)
-              : job.next_due_at,
+          next_due_at:
+            !enabled || job.approved_at === null
+              ? null
+              : recount
+                ? firstDue(
+                    { every, at, zone: tx.port(jobZonePort).zone() },
+                    now,
+                  )
+                : job.next_due_at,
           updated_at: now,
         });
         changed(tx, job.id);
         const updated = loadJob(tx.sql, job.id);
         return updated.ok ? ok({ job: updated.value! }) : updated;
+      },
+    },
+    approve: {
+      route: jobApprove,
+      handle(tx, _ctx, input) {
+        const loaded = loadJob(tx.sql, input.job);
+        if (!loaded.ok) return loaded;
+        const job = loaded.value;
+        if (job === null) return fail("not_found", "job not found");
+        if (job.approved_at !== null) {
+          return fail("conflict", "job is already approved");
+        }
+        changed(tx, job.id);
+        if (input.choice === "reject") {
+          deleteJob(tx.sql, job.id);
+          return ok({ job: null });
+        }
+        // 승인한 순간부터 센다. 기다린 동안은 놓친 것으로 치지 않는다.
+        const now = tx.now();
+        approveJob(tx.sql, job.id, {
+          approved_at: now,
+          next_due_at: job.enabled
+            ? firstDue(
+                {
+                  every: job.every,
+                  at: job.at,
+                  zone: tx.port(jobZonePort).zone(),
+                },
+                now,
+              )
+            : null,
+        });
+        const approved = loadJob(tx.sql, job.id);
+        return approved.ok ? ok({ job: approved.value! }) : approved;
       },
     },
     remove: {

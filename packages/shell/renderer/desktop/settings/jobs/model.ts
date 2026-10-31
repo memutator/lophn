@@ -47,6 +47,7 @@ export function jobsOfProject(
 }
 
 export function nextText(job: JobView, now: Date): string {
+  if (job.approved_at === null) return t("jobs.label.waiting-approval");
   if (!job.enabled || job.next_due_at === null) {
     return t("jobs.label.turned-off");
   }

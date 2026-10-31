@@ -290,6 +290,12 @@ export function cardOf(entry: WaitingEntry, now = new Date()): CardView {
         title: entry.hold.job.title,
         description: jobActionText(entry.hold.job.action),
       };
+    case "job_approval":
+      return {
+        ...base,
+        title: entry.job.title,
+        description: jobActionText(entry.job.action),
+      };
     case "activation": {
       const view = activationView(entry.request.comparison);
       const counts = { declared: view.added.length, lost: view.loss.length };

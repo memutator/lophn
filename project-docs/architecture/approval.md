@@ -20,7 +20,7 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
                                                     TurnRequestClosed ─▶ turn이 이어 간다
  앱 호출 경로 (agent·앱·job·flow가 앱 tool을 부름): 묻지 않고 막기만 한다
    agent ─▶ judge로 할당을 본다      앱 ─▶ active 앱 grant의 app.call
-   program(job의 tool run) ─▶ 만든 agent의 할당을 unattended로 judge + domain 거르기
+   program(job의 tool run) ─▶ 막지 않는다. 사람이 그 job의 등록을 승인했다
    flow(instance의 tool run) ─▶ 그 project PM의 할당을 unattended로 judge + domain 거르기
 ```
 
@@ -55,7 +55,7 @@ turn mode
 - 정하는 순서는 unattended 입력, session skip, attended다(`packages/core/lophn-agent/run-loop/turn-mode.ts`). skip session이 받은 unattended call의 turn도 unattended다. skip이 먼저면 사슬 아래가 attended로 떨어져 사람 없이 멈춘다.
 - unattended는 call 봉투에 실려 따라간다. unattended turn이 보낸 call과 답에 표시가 실리고, 그 call의 늦은 실패와 취소 알림도 call 행의 표시를 따른다(`architecture/agent-call.md`). 답의 표시는 답한 turn에서 온다. 사람이 끼어든 attended turn의 답은 attended다.
 - reaction과 화면에서 사람이 보낸 메시지가 연 turn은 attended다. `SendMessage`에 `unattended: true`를 실어 넣은 사람 메시지(run 입력, `architecture/run.md`)가 연 turn은 unattended다. 사람 메시지의 이 표시는 run만 싣는다. workflow가 넣은 step 입력(`architecture/workflow.md`)도 unattended 표시를 싣는다. 사람이 instance를 시작한 것이 그 사슬을 맡긴 것이다. 표시는 할당을 넓히지 않는다.
-- job도 사람이 없는 일이다(`architecture/job.md`). job이 연 agent run의 turn은 run 입력이라 unattended이고 그 turn이 보낸 call 사슬도 따라간다. job이 시작한 instance의 step 입력도 같다. job의 tool 호출은 turn이 아니라 호출이라 mode를 turn 행에서 읽지 않는다. 만든 agent의 지금 할당을 `unattended`로 `judge`해 막기만 한다(`architecture/app-call.md`). 그래서 job은 만든 agent의 할당을 넓히지 못한다.
+- job도 사람이 없는 일이다(`architecture/job.md`). job이 연 agent run의 turn은 run 입력이라 unattended이고 그 turn이 보낸 call 사슬도 따라간다. job이 시작한 instance의 step 입력도 같다. job은 사람이 등록을 한 번 승인해야 돈다(`architecture/job.md` "승인"). job의 tool 호출은 그 승인이 허락이라 할당을 보지 않는다(`architecture/app-call.md`). agent run과 instance는 받은 agent의 할당으로 일한다.
 - flow도 사람이 없는 일이다(`architecture/workflow.md` "flow"). flow가 연 agent run의 turn은 run 입력이라 unattended다. flow의 tool 호출은 그 project PM의 지금 할당을 `unattended`로 `judge`해 막기만 한다. code를 쓴 것이 PM이라 code로 PM의 할당을 넓히지 못한다. flow가 부르는 agent는 누구든 되지만 받은 agent는 자기 할당으로만 일한다.
 - unattended turn의 `ask` tool은 기다리지 않고 `unattended`를 바로 돌려준다. skip turn의 `ask`는 사람이 있으니 기다린다.
 - skip은 session 표시다. 사람만 켜고 끈다(`ChangeSessionSkip`). agent 정의의 `skip`이 그 agent 새 session의 기본값이고, 이 칸도 사람만 쓴다. skip은 call을 따라 가지 않는다. fork는 skip을 가져가지 않고 정의의 기본값으로 시작한다.
@@ -75,7 +75,7 @@ shell 규칙
 - 보류 request 길을 지웠다. 쓰던 둘 가운데 reaction의 `ask`는 지웠고(그 reaction 설정이 없어졌다), activation 동의는 activation module이 자기 상태로 갖는다.
 - 바깥 효과 tool도 묻지 않는다. "시킨 것이 승낙", "할당이 허락"을 그대로 따른 사람의 결정이다. 다시 묻기로 하면 `judge`의 `ASK_EXTERNAL_WHEN_ATTENDED` 한 줄을 켜고 할당 줄에 묻지 않을 tool 칸을 더한다.
 - agent call은 묻지도 막지도 않는다. 받은 agent는 자기 할당으로만 일한다(`products/AGENT.md` T5, T6). 누구를 부르는지는 지침과 workflow의 일이다.
-- job은 agent가 만들고 정해진 때 사람 없이 돈다. 그래서 job이 부르는 agent run, instance, 앱 tool은 모두 unattended이고 할당이 허락이다. job이 만든 agent의 할당 밖의 일을 하면 agent가 job으로 자기 할당을 넓히는 셈이고, 다른 agent가 job을 고치면 남의 할당을 빌리는 셈이다. 그래서 job의 tool 호출은 호출 때 만든 agent의 지금 할당을 읽고 job은 만든 agent만 고친다. flow는 PM이 쓴 code라 같은 이유로 PM의 할당이 허락이다.
+- job은 agent가 만들고 정해진 때 사람 없이 돈다. 그래서 사람이 job 하나(주기와 할 일)를 보고 등록을 한 번 승인해야 돈다. agent가 혼자 정한 일이 사람 없이 되풀이되지 않게 하고, 허락의 범위를 그 job의 할 일 하나로 맞춘다. 승인 뒤 할 일은 바뀌지 않는다. job이 부르는 agent run과 instance는 unattended이고 받은 agent의 할당으로 일한다. 앱 tool 호출은 승인이 허락이다. flow는 PM이 쓴 code라 PM의 할당이 허락이다.
 - workflow를 쓴다는 것은 바깥 효과까지 책임지겠다는 뜻이고 사람이 loop에서 자주 빠진다. 그래서 unattended는 묻지 않고, 시작한 사람이 그 사슬 전체를 시켰으니 call을 따라 간다. skip은 사람이 그 대화에 정한 것이라 따라 가지 않는다.
 - shell 규칙은 prefix와 `*`, 마지막 일치다(OpenCode, Codex). regex 사전(Hermes)과 명령 parser(OpenCode의 tree-sitter)는 쓰지 않는다. 조각의 길이를 고르는 표 없이 `<앞 두 낱말> *`로 `always`의 줄을 만든다.
 - LLM judge는 넣지 않았다. 판정은 program이 결정적으로 하고 결정은 사람이 한다.

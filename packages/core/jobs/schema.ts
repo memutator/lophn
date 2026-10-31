@@ -50,4 +50,12 @@ export const jobsSchemaSteps: readonly SchemaStep[] = [
     CREATE UNIQUE INDEX job_runs_held ON job_runs(job) WHERE state = 'held';
   `,
   },
+  // job 등록은 사람이 한 번 승인해야 돈다. 승인 칸이 없던 job은 승인 대기로 옮기고 다음 차례를 지운다.
+  {
+    id: "jobs.approval",
+    sql: `
+    ALTER TABLE jobs ADD COLUMN approved_at TEXT;
+    UPDATE jobs SET next_due_at = NULL;
+  `,
+  },
 ];

@@ -80,6 +80,9 @@ export const appFrameViewStateSchema = z
     mode,
     screen: screenKey,
     size,
+    // renderer가 <webview src>에 그대로 넣는 주소. main이 붙일 화면을 새로 만들 때마다
+    // (열기, release 바뀜, crash 뒤 다시 열기) 새 src를 낸다.
+    src: z.string(),
     connectionState: z.enum(["preparing", "stopped", "running", "unavailable"]),
     // 화면 process 상태. main은 늘 싣고, 없으면 ok로 읽는다. 깨진 view만
     // [새 view 열기]를 받는다.
@@ -102,13 +105,18 @@ export type ViewReply<T> =
   | { ok: false; error: { code: ViewErrorCode; message: string } };
 
 /**
- * shell preload의 view API(LophnShellViewsApi 중 앱 view). 실패는 code 하나를
+ * shell preload의 view API. 실패는 code 하나를
  * message로 싣은 Error로 거절한다. `subscribeViewState`는 `shell:view-state` push를 받는다.
+ * 앱 화면·artifact 화면은 `<webview>`라 `src`가 위치·보임을 정한다. bounds·hidden은 browser의
+ * 크기 준 popup·DevTools native view만 쓴다.
  */
 export interface LophnShellViewsApi {
   openApp(input: AppViewOpen): Promise<AppFrameViewState>;
+  /** browser native popup·DevTools의 자리. 앱·artifact view는 부르지 않는다. */
   setViewBounds(input: ViewBoundsRequest): Promise<VisibilityResult>;
+  /** browser native popup·DevTools를 숨긴다. 앱·artifact view는 부르지 않는다. */
   setViewsHidden(input: ViewsHidden): Promise<VisibilityResult>;
+  /** 앱 view·artifact view를 폐기한다. */
   closeView(input: ViewCloseRequest): Promise<void>;
   /** crash·멈춘 view를 지금 연결로 새로 연다. 건강한 view는 conflict다. */
   reopenView(input: ViewCloseRequest): Promise<AppFrameViewState>;

@@ -1,7 +1,8 @@
 // browser 탭의 page 목록. 보통 탭은 shell renderer의 <webview> guest(위치·숨김은 renderer CSS)이고,
 // 크기 준 popup만 native view(contents 하나와 그 위치 placement)다. 앱 view registry
-// (app-frame/registry.ts)는 앱 연결에 묶여 있어 여기 넣지 않고, native popup의 위치·숨김만 같은
-// createPlacement를 쓴다. 규칙(navigation·활동·주소 정리)은 이 폴더의 순수 모듈이 정한다.
+// (app-frame/registry.ts)는 앱 연결에 묶여 있어 여기 넣지 않고, native popup의 위치·숨김만
+// native-view.ts의 createPlacement를 쓴다. 규칙(navigation·활동·주소 정리)은 이 폴더의 순수
+// 모듈이 정한다.
 import type {
   BrowserEvent,
   BrowserViewState,
@@ -14,12 +15,13 @@ import {
   type ViewHealth,
   type ViewHealthSignal,
 } from "../app-frame/crash.ts";
-import { createPlacement, type Placed } from "../app-frame/placement.ts";
-import type {
-  AppViewContents,
-  AppViewHost,
-  ViewBounds,
-} from "../app-frame/view-model.ts";
+import {
+  createPlacement,
+  type NativeViewContents,
+  type NativeViewHost,
+  type Placed,
+  type ViewBounds,
+} from "./native-view.ts";
 import { normalizeAddress } from "./address.ts";
 import { decideNavigation } from "./navigation.ts";
 
@@ -36,7 +38,7 @@ export interface BrowserPage {
   favicon?: string;
 }
 
-export interface BrowserContents extends AppViewContents {
+export interface BrowserContents extends NativeViewContents {
   page(): BrowserPage;
   back(): void;
   forward(): void;
@@ -74,13 +76,13 @@ export interface BrowserHooks {
 }
 
 /** page에 붙인 DevTools view. project 창과 따로 뜬 OS 창 사이를 연결을 끊지 않고 옮긴다. */
-export interface DevtoolsContents extends AppViewContents {
+export interface DevtoolsContents extends NativeViewContents {
   toWindow(on: boolean, title: string): void;
 }
 
 export interface BrowserViewHost
   extends Pick<
-    AppViewHost,
+    NativeViewHost,
     "hasWindow" | "attach" | "detach" | "focused" | "focusShell"
   > {
   create(hooks: BrowserHooks): BrowserContents;
@@ -461,7 +463,7 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
       return { ok: true, value: null };
     },
 
-    // frame-router 길: native popup과 DevTools view. guest의 위치는 renderer CSS가 한다.
+    // native-bounds 길: native popup과 DevTools view. guest의 위치는 renderer CSS가 한다.
     has: (view_session: string) =>
       entries.has(view_session) || devtools.has(view_session),
 

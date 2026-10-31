@@ -15,15 +15,12 @@ import { slimDetachedTab } from "../../../ipc/detached.ts";
 import { TabStateDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import { TopBar } from "../../desktop/top-bar/top-bar.tsx";
 import { workspaceIcons } from "../../icons/mod.ts";
-import {
-  ViewCoversProvider,
-  ViewKeepsProvider,
-} from "../../app-frame/embedded-view.tsx";
+import { ViewKeepsProvider } from "../../app-frame/embedded-view.tsx";
 import { DetachedWindowProvider } from "../../browser/detached-window.ts";
 import {
   WebviewHostProvider,
   WebviewLayer,
-} from "../../browser/webview-host.tsx";
+} from "../../app-frame/webview-host.tsx";
 import type { EditorDeps } from "../../editor/document-view.tsx";
 import type { TerminalDeps } from "../../terminal/deps.ts";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
@@ -138,7 +135,7 @@ function DetachedTab({
 
   // 앱 화면을 여는 길(Settings 등)은 이 창에 없다.
   const noop = () => {};
-  const { agentView, agents, covers, keeps, webviews } = useTabHostSlices({
+  const { agentView, agents, keeps, webviews } = useTabHostSlices({
     project,
     source: workspace,
     agentViewSource,
@@ -292,41 +289,39 @@ function DetachedTab({
       : (def.keep?.(tab, true, host) ?? def.render?.(tab, true, host) ?? null);
 
   return (
-    <ViewCoversProvider value={covers}>
-      <ViewKeepsProvider value={keeps}>
-        <WebviewHostProvider value={webviews}>
-          <DetachedWindowProvider value>
-            <div className={styles.window}>
-              <TopBar
-                leading={
-                  <>
-                    {icon}
-                    <span className={styles.title} data-detached-title>
-                      {tab.title}
-                    </span>
-                    {dot ? <TabStateDot dot={dot} /> : null}
-                  </>
-                }
-                trailing={
-                  <Tooltip content={label}>
-                    <IconButton
-                      icon={workspaceIcons.dock}
-                      label={label}
-                      size="sm"
-                      data-detached-action="dock"
-                      onClick={() => void dock()}
-                    />
-                  </Tooltip>
-                }
-              />
-              <div className={styles.body}>
-                {body}
-                <WebviewLayer host={webviews} />
-              </div>
+    <ViewKeepsProvider value={keeps}>
+      <WebviewHostProvider value={webviews}>
+        <DetachedWindowProvider value>
+          <div className={styles.window}>
+            <TopBar
+              leading={
+                <>
+                  {icon}
+                  <span className={styles.title} data-detached-title>
+                    {tab.title}
+                  </span>
+                  {dot ? <TabStateDot dot={dot} /> : null}
+                </>
+              }
+              trailing={
+                <Tooltip content={label}>
+                  <IconButton
+                    icon={workspaceIcons.dock}
+                    label={label}
+                    size="sm"
+                    data-detached-action="dock"
+                    onClick={() => void dock()}
+                  />
+                </Tooltip>
+              }
+            />
+            <div className={styles.body}>
+              {body}
+              <WebviewLayer host={webviews} />
             </div>
-          </DetachedWindowProvider>
-        </WebviewHostProvider>
-      </ViewKeepsProvider>
-    </ViewCoversProvider>
+          </div>
+        </DetachedWindowProvider>
+      </WebviewHostProvider>
+    </ViewKeepsProvider>
   );
 }

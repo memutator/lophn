@@ -18,13 +18,13 @@ import {
   slimDetachedTab,
 } from "../../ipc/detached.ts";
 import { type Command, KEYBINDINGS } from "../../ipc/keybindings.ts";
-import {
-  ViewCoversProvider,
-  ViewKeepsProvider,
-} from "../app-frame/embedded-view.tsx";
+import { ViewKeepsProvider } from "../app-frame/embedded-view.tsx";
 import { useBookmarks } from "../browser/bookmarks.ts";
 import { useBrowserApi } from "../browser/browser-api.tsx";
-import { WebviewHostProvider, WebviewLayer } from "../browser/webview-host.tsx";
+import {
+  WebviewHostProvider,
+  WebviewLayer,
+} from "../app-frame/webview-host.tsx";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
@@ -251,7 +251,6 @@ export function Workspace(props: WorkspaceProps) {
     sessionStates,
     agentView,
     agents,
-    covers,
     appViews,
     keeps,
     webviews,
@@ -464,22 +463,39 @@ export function Workspace(props: WorkspaceProps) {
   );
 
   // layout에서 사라진 탭의 view를 닫는다. 탭을 닫는 길이 여럿이라 길마다 닫지 않고 차이로 본다.
+  // <webview>는 모든 desk의 탭이 사는 동안(보이지 않는 desk 포함) 그대로 두어 desk를 오가도 page가
+  // 다시 load되지 않는다. 놓는 것은 탭 key가 layout에서 사라졌을 때뿐이다.
+  const webviewTabKeys = useRef<Set<string>>(new Set());
+  // 다른 창으로 넘긴 view(main이 소유를 옮긴 browser popup native view)는 여기서 닫지 않는다.
+  const transferredViews = useRef<Set<string>>(new Set());
   useEffect(() => {
-    // 다른 자리의 탭도 layout에 있는 동안은 산다. 자리를 건너가도 app panel의 native view가 이어진다.
-    const live = new Set(allDeskTabs(desks).map((tab) => tab.key));
-    for (const key of keeps.keys()) if (!live.has(key)) keeps.release(key);
-    // detached 탭의 <webview>는 그 창이 갖는다. 여기 남기면 page가 두 창에 산다.
-    const shown = new Set(
-      [
-        ...view.panes.flatMap((pane) => pane.tabs),
-        ...view.floats.map((float) => float.tab),
-      ].map((tab) => tab.key),
+    const deskViews = Object.values(desks.desks);
+    const detached = new Set(
+      deskViews.flatMap((desk) => desk.detached.map((item) => item.tab.key)),
     );
-    for (const key of webviews.keys()) {
-      if (!shown.has(key)) webviews.release(key);
+    // 다른 자리의 탭도 layout에 있는 동안은 산다. 자리를 건너가도 app panel의 view가 이어진다.
+    // detached 탭의 <webview>는 그 창이 갖는다. 여기 남기면 page가 두 창에 산다. 앱·artifact view는
+    // 넘어가지 않으므로(받는 창이 다시 연다) detached가 되면 보내는 창이 닫는다.
+    const allKeys = new Set(allDeskTabs(desks).map((tab) => tab.key));
+    for (const key of keeps.keys()) {
+      const session = keeps.lookup<{ view_session: string }>(key)?.session;
+      if (
+        !allKeys.has(key) ||
+        (detached.has(key) &&
+          (session === undefined || !transferredViews.current.has(session)))
+      ) {
+        keeps.release(key);
+      }
     }
+    const live = new Set([...allKeys].filter((key) => !detached.has(key)));
+    const previous = webviewTabKeys.current;
+    for (const key of webviews.keys()) {
+      // 앱 view_session처럼 탭 key가 아닌 자리(card·앱 공간)는 그 화면이 닫을 때 놓는다.
+      if (previous.has(key) && !live.has(key)) webviews.release(key);
+    }
+    webviewTabKeys.current = live;
     const terminals = new Set(
-      Object.values(desks.desks)
+      deskViews
         .flatMap((desk) => [
           ...desk.panes.flatMap((pane) => pane.tabs),
           ...desk.floats.map((float) => float.tab),
@@ -922,6 +938,9 @@ export function Workspace(props: WorkspaceProps) {
       }));
     } catch {
       return;
+    }
+    for (const session of transfer.views) {
+      transferredViews.current.add(session);
     }
     const now = latest.current;
     if (findTab(now, key) === undefined) {
@@ -1481,409 +1500,394 @@ export function Workspace(props: WorkspaceProps) {
   }, [terminalVersion, terminal, windowTabs]);
 
   return (
-    <ViewCoversProvider value={covers}>
-      <ViewKeepsProvider value={keeps}>
-        <WebviewHostProvider value={webviews}>
-          <div className={styles.workspace} data-space="project" ref={frameRef}>
-            <div
-              className={styles.topBar}
-              data-drop={topDrop ? "" : undefined}
-              onDragOver={(event) => {
-                if (!event.dataTransfer.types.includes(TAB_MIME)) return;
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "move";
-                setTopDrop(true);
-              }}
-              onDragLeave={(event) => {
-                if (
-                  !event.currentTarget.contains(event.relatedTarget as Node)
-                ) {
-                  setTopDrop(false);
-                }
-              }}
-              onDrop={(event) => {
+    <ViewKeepsProvider value={keeps}>
+      <WebviewHostProvider value={webviews}>
+        <div className={styles.workspace} data-space="project" ref={frameRef}>
+          <div
+            className={styles.topBar}
+            data-drop={topDrop ? "" : undefined}
+            onDragOver={(event) => {
+              if (!event.dataTransfer.types.includes(TAB_MIME)) return;
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+              setTopDrop(true);
+            }}
+            onDragLeave={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node)) {
                 setTopDrop(false);
-                delete document.documentElement.dataset.tabDragging;
-                const key = event.dataTransfer.getData(TAB_MIME);
-                if (key === "") return;
-                event.preventDefault();
-                if (isFloated(latest.current, key)) {
+              }
+            }}
+            onDrop={(event) => {
+              setTopDrop(false);
+              delete document.documentElement.dataset.tabDragging;
+              const key = event.dataTransfer.getData(TAB_MIME);
+              if (key === "") return;
+              event.preventDefault();
+              if (isFloated(latest.current, key)) {
+                leaveTopFloat(key);
+                update(minimizeFloat(latest.current, key));
+              } else if (mainSize !== undefined) {
+                update(minimizeTab(latest.current, key, mainSize));
+              }
+            }}
+          >
+            <TopBar
+              rail={<LauncherButton onLauncher={onLauncher} />}
+              leading={
+                <span className={styles.leading}>
+                  <PlaceSwitcher
+                    active={{ kind: "project", id: projectId }}
+                    activeName={loaded.project?.title}
+                    projects={placeLists.projects}
+                    apps={placeLists.apps}
+                    recent={recentPlaces}
+                    onOpenChange={readListsOnOpen}
+                    onSelect={(place) => {
+                      if (place.kind !== "project" || place.id !== projectId) {
+                        props.onOpenPlace?.(place);
+                      }
+                    }}
+                  />
+                  {deskOptions.length > 1 ? (
+                    <>
+                      <PathSep />
+                      <DeskSelector
+                        options={deskOptions}
+                        active={desks.active}
+                        onOpenChange={readListsOnOpen}
+                        onSelect={(key) =>
+                          switchTo(
+                            key,
+                            openTabIn(
+                              emptyView(),
+                              workflowTab(key),
+                              () => false,
+                            ),
+                          )
+                        }
+                      />
+                    </>
+                  ) : null}
+                  <MinimizedBar
+                    items={view.floats.filter((item) => item.minimized)}
+                    stripTab={stripTab}
+                    onRestore={(key) => {
+                      setFloatFocused(true);
+                      update(restoreFloat(latest.current, key));
+                    }}
+                    onDock={(key) => {
+                      update(dockTab(latest.current, key));
+                      focusPaneBody(latest.current.focusedPane);
+                    }}
+                    onClose={(key) => close(null, key)}
+                  />
+                </span>
+              }
+              trailing={
+                <span className={styles.trailing}>
+                  <WaitingLayer
+                    onOpenSession={(session) =>
+                      runToastAction({ kind: "session", session })
+                    }
+                  />
+                  {noticesHidden && hasNotices ? (
+                    <Tooltip
+                      content={t("project-workspace.button.show-notices")}
+                    >
+                      <IconButton
+                        icon={workspaceIcons.notices}
+                        label={t("project-workspace.button.show-notices")}
+                        data-show-notices=""
+                        onClick={() => setNoticesHidden(false)}
+                      />
+                    </Tooltip>
+                  ) : null}
+                  <PaletteButton />
+                </span>
+              }
+            />
+          </div>
+          <div className={styles.main}>
+            {sidebarShown.mode === "hidden" ? null : (
+              <ProjectSidebar
+                mode={sidebarShown.mode === "collapsed" ? "collapsed" : "open"}
+                width={sidebarShown.width}
+                project={loaded.project}
+                source={source}
+                agents={sidebarAgents.agents}
+                sessions={allSessions.filter((item) => !runOpened.has(item.id))}
+                terminals={panelTerminals}
+                runs={panelRuns(
+                  runRecords,
+                  sidebarAgents.agents,
+                  projectId,
+                  allSessions,
+                )}
+                artifactPanel={
+                  <ArtifactPanel
+                    domains={domains}
+                    onOpen={(domain, name) => openArtifact(host, domain, name)}
+                  />
+                }
+                jobs={props.jobs}
+                onOpenJobs={() => onSettings("jobs")}
+                current={
+                  currentTab?.kind === "document_editor" ? currentTab.key : null
+                }
+                onToggle={toggleSidebar}
+                onSettings={() => onSettings()}
+                reveal={reveal}
+                focusExplorer={explorerFocus}
+                onOpenFile={(path, keep) =>
+                  openFile(host, path, { preview: keep !== true })
+                }
+                onMove={moveFile}
+                onTrash={trashFile}
+                explorerRoot={explorerRoot ?? null}
+                onExplorerRoot={setExplorerRoot}
+                onAddFolder={addProjectFolder}
+                onRemoveFolder={removeProjectFolder}
+                {...(terminal === undefined
+                  ? {}
+                  : {
+                      onOpenTerminal: (cwd: string) =>
+                        openTerminalTab(host, { cwd }),
+                    })}
+                onRail={onRail}
+                onAgent={(agent) =>
+                  openAgent(host, {
+                    agent: agent.assignment,
+                    name: agent.name,
+                  })
+                }
+                onSession={(session) => {
+                  const row = sidebarAgents.agents.find(
+                    (agent) => agent.assignment === session.agent,
+                  );
+                  if (row !== undefined) {
+                    openAgent(host, {
+                      agent: row.assignment,
+                      name: row.name,
+                      session: session.id,
+                    });
+                  }
+                }}
+                onTerminal={(item) => {
+                  if (item.live !== null) {
+                    terminal?.store.select(item.live.tabKey);
+                  } else if (item.saved !== null) {
+                    openTerminalTab(host, {
+                      folderRef: item.saved.folderRef,
+                      ...(item.saved.resumable
+                        ? {
+                            resume: {
+                              harness: item.harness,
+                              external_session: item.saved.externalSession,
+                            },
+                          }
+                        : {}),
+                    });
+                  }
+                }}
+                onManage={() => openAgents(host)}
+                onOpenDomainDoc={(domain) => void openDomainDoc(domain)}
+                onOpenWorkflow={(workflow) => openWorkflow(host, workflow)}
+                activeWorkflow={
+                  desks.active === DEFAULT_DESK ? undefined : desks.active
+                }
+                onResizeStart={(event) => {
+                  const start = sidebar.chosenWidth;
+                  const startShown = sidebarShown.width;
+                  let last = start;
+                  startPointerDrag(event, {
+                    move: (dx) => {
+                      last = clampSidebar(startShown + dx);
+                      setSidebar((current) => ({
+                        ...current,
+                        chosenWidth: last,
+                      }));
+                    },
+                    finish: (outcome) => {
+                      const applied = applyDrag(start, last, outcome);
+                      setSidebar((current) => ({
+                        ...current,
+                        chosenWidth: applied,
+                      }));
+                      if (outcome.type === "drag-end") {
+                        setUserChoseWidth(true);
+                      }
+                    },
+                  });
+                }}
+              />
+            )}
+            <div className={styles.content} ref={mainRef}>
+              {noticesHidden ? null : (
+                <div className={styles.notices} data-notices="">
+                  {loaded.failed ? (
+                    <NoticeCard
+                      tone="error"
+                      data={{ "data-load-failed": "" }}
+                      text={t("project-workspace.error.load-failed")}
+                      onDismiss={hideNotices}
+                    />
+                  ) : null}
+                </div>
+              )}
+              <Panes
+                view={view}
+                focusedPane={inFloats ? null : view.focusedPane}
+                onDropTab={(pane, key, zone) => {
+                  setFloatFocused(false);
+                  update(dropTabOnPane(latest.current, key, pane, zone));
+                  focusPaneBody(latest.current.focusedPane);
+                }}
+                onDropPath={(pane, path) => {
+                  setFloatFocused(false);
+                  update({ ...latest.current, focusedPane: pane });
+                  openFile(host, path);
+                }}
+                windowWidth={measuredWindow}
+                onSelect={(pane, key) => {
+                  setFloatFocused(false);
+                  update({
+                    ...view,
+                    focusedPane: pane,
+                    panes: view.panes.map((item, index) =>
+                      index === pane ? { ...item, selected: key } : item,
+                    ),
+                  });
+                }}
+                onClose={close}
+                onCloseMany={(pane, scope, key) =>
+                  void closeMany(pane, scope, key)
+                }
+                onPin={(key) => update(pinTab(latest.current, key))}
+                onFloat={(_pane, key) => {
+                  if (mainSize === undefined) return;
+                  setFloatFocused(true);
+                  update(floatTab(latest.current, key, mainSize));
+                }}
+                onMinimize={(_pane, key) => {
+                  if (mainSize === undefined) return;
+                  update(minimizeTab(latest.current, key, mainSize));
+                }}
+                onRename={(key, name) => {
+                  const tab = findTab(latest.current, key);
+                  if (tab !== undefined) {
+                    tabKindOf(tab.kind)?.rename?.(tab, name, host);
+                  }
+                }}
+                {...detachProps}
+                pathOf={pathOfTab}
+                onCopyPath={copyPath}
+                onReveal={revealInExplorer}
+                onFocus={(pane) => {
+                  setFloatFocused(false);
+                  if (pane !== latest.current.focusedPane) {
+                    update({ ...latest.current, focusedPane: pane });
+                  }
+                }}
+                onMove={(key, toPane, before) =>
+                  update(moveTab(view, key, toPane, before))
+                }
+                onSplit={(pane, key, side) => {
+                  setFloatFocused(false);
+                  update(splitTab(latest.current, key, pane, side));
+                  focusPaneBody(latest.current.focusedPane);
+                }}
+                onRatio={(path, ratio) =>
+                  update({
+                    ...latest.current,
+                    layout: setRatio(latest.current.layout, path, ratio),
+                  })
+                }
+                newTab={
+                  <NewTabMenu
+                    {...(pickFile === undefined
+                      ? {}
+                      : {
+                          onDocument: () =>
+                            void pickFile().then((path) => {
+                              if (path !== null) openFile(host, path);
+                            }),
+                        })}
+                    {...(terminal === undefined
+                      ? {}
+                      : { onTerminal: () => openTerminalTab(host) })}
+                    {...(browserApi === null
+                      ? {}
+                      : { onBrowser: () => openBrowserTab(host) })}
+                    {...(agentView === null
+                      ? {}
+                      : {
+                          agents: sidebarAgents.agents.map((agent) => ({
+                            id: agent.assignment,
+                            name: agent.name,
+                            profile: agent.profile,
+                          })),
+                          onAgent: (id: string) => {
+                            const row = sidebarAgents.agents.find(
+                              (agent) => agent.assignment === id,
+                            );
+                            if (row !== undefined) {
+                              openAgent(host, { agent: id, name: row.name });
+                            }
+                          },
+                        })}
+                    {...(source.searchSource === undefined
+                      ? {}
+                      : {
+                          onSearch: () => openSearchShortcut(host),
+                        })}
+                    {...(host.appScreens
+                      ? { onAppPanel: () => openAppPanel(host) }
+                      : {})}
+                  />
+                }
+                stripTab={stripTab}
+                renderTab={renderTab}
+                renderKept={renderKept}
+              />
+              <Floats
+                floats={view.floats}
+                focused={inFloats}
+                area={mainSize}
+                stripTab={stripTab}
+                renderTab={renderTab}
+                renderKept={renderKept}
+                onRaise={(key) => {
+                  setFloatFocused(true);
+                  const next = raiseFloat(latest.current, key);
+                  if (next !== latest.current) update(next);
+                }}
+                onRect={(key, rect) => {
+                  if (mainSize === undefined) return;
+                  update(setFloatRect(latest.current, key, rect, mainSize));
+                }}
+                onMinimize={(key) => {
                   leaveTopFloat(key);
                   update(minimizeFloat(latest.current, key));
-                } else if (mainSize !== undefined) {
-                  update(minimizeTab(latest.current, key, mainSize));
-                }
-              }}
-            >
-              <TopBar
-                rail={<LauncherButton onLauncher={onLauncher} />}
-                leading={
-                  <span className={styles.leading}>
-                    <PlaceSwitcher
-                      active={{ kind: "project", id: projectId }}
-                      activeName={loaded.project?.title}
-                      projects={placeLists.projects}
-                      apps={placeLists.apps}
-                      recent={recentPlaces}
-                      onOpenChange={readListsOnOpen}
-                      onSelect={(place) => {
-                        if (
-                          place.kind !== "project" ||
-                          place.id !== projectId
-                        ) {
-                          props.onOpenPlace?.(place);
-                        }
-                      }}
-                    />
-                    {deskOptions.length > 1 ? (
-                      <>
-                        <PathSep />
-                        <DeskSelector
-                          options={deskOptions}
-                          active={desks.active}
-                          onOpenChange={readListsOnOpen}
-                          onSelect={(key) =>
-                            switchTo(
-                              key,
-                              openTabIn(
-                                emptyView(),
-                                workflowTab(key),
-                                () => false,
-                              ),
-                            )
-                          }
-                        />
-                      </>
-                    ) : null}
-                    <MinimizedBar
-                      items={view.floats.filter((item) => item.minimized)}
-                      stripTab={stripTab}
-                      onRestore={(key) => {
-                        setFloatFocused(true);
-                        update(restoreFloat(latest.current, key));
-                      }}
-                      onDock={(key) => {
-                        update(dockTab(latest.current, key));
-                        focusPaneBody(latest.current.focusedPane);
-                      }}
-                      onClose={(key) => close(null, key)}
-                    />
-                  </span>
-                }
-                trailing={
-                  <span className={styles.trailing}>
-                    <WaitingLayer
-                      onOpenSession={(session) =>
-                        runToastAction({ kind: "session", session })
-                      }
-                    />
-                    {noticesHidden && hasNotices ? (
-                      <Tooltip
-                        content={t("project-workspace.button.show-notices")}
-                      >
-                        <IconButton
-                          icon={workspaceIcons.notices}
-                          label={t("project-workspace.button.show-notices")}
-                          data-show-notices=""
-                          onClick={() => setNoticesHidden(false)}
-                        />
-                      </Tooltip>
-                    ) : null}
-                    <PaletteButton />
-                  </span>
-                }
+                }}
+                onDock={(key) => {
+                  setFloatFocused(false);
+                  update(dockTab(latest.current, key));
+                  focusPaneBody(latest.current.focusedPane);
+                }}
+                onClose={(key) => close(null, key)}
+                {...(props.detached === undefined
+                  ? {}
+                  : {
+                      onDetach: (key: string) => void detach(key),
+                      canDetach,
+                    })}
+                webviews={<WebviewLayer host={webviews} />}
               />
             </div>
-            <div className={styles.main}>
-              {sidebarShown.mode === "hidden" ? null : (
-                <ProjectSidebar
-                  mode={
-                    sidebarShown.mode === "collapsed" ? "collapsed" : "open"
-                  }
-                  width={sidebarShown.width}
-                  project={loaded.project}
-                  source={source}
-                  agents={sidebarAgents.agents}
-                  sessions={allSessions.filter(
-                    (item) => !runOpened.has(item.id),
-                  )}
-                  terminals={panelTerminals}
-                  runs={panelRuns(
-                    runRecords,
-                    sidebarAgents.agents,
-                    projectId,
-                    allSessions,
-                  )}
-                  artifactPanel={
-                    <ArtifactPanel
-                      domains={domains}
-                      onOpen={(domain, name) =>
-                        openArtifact(host, domain, name)
-                      }
-                    />
-                  }
-                  jobs={props.jobs}
-                  onOpenJobs={() => onSettings("jobs")}
-                  current={
-                    currentTab?.kind === "document_editor"
-                      ? currentTab.key
-                      : null
-                  }
-                  onToggle={toggleSidebar}
-                  onSettings={() => onSettings()}
-                  reveal={reveal}
-                  focusExplorer={explorerFocus}
-                  onOpenFile={(path, keep) =>
-                    openFile(host, path, { preview: keep !== true })
-                  }
-                  onMove={moveFile}
-                  onTrash={trashFile}
-                  explorerRoot={explorerRoot ?? null}
-                  onExplorerRoot={setExplorerRoot}
-                  onAddFolder={addProjectFolder}
-                  onRemoveFolder={removeProjectFolder}
-                  {...(terminal === undefined
-                    ? {}
-                    : {
-                        onOpenTerminal: (cwd: string) =>
-                          openTerminalTab(host, { cwd }),
-                      })}
-                  onRail={onRail}
-                  onAgent={(agent) =>
-                    openAgent(host, {
-                      agent: agent.assignment,
-                      name: agent.name,
-                    })
-                  }
-                  onSession={(session) => {
-                    const row = sidebarAgents.agents.find(
-                      (agent) => agent.assignment === session.agent,
-                    );
-                    if (row !== undefined) {
-                      openAgent(host, {
-                        agent: row.assignment,
-                        name: row.name,
-                        session: session.id,
-                      });
-                    }
-                  }}
-                  onTerminal={(item) => {
-                    if (item.live !== null) {
-                      terminal?.store.select(item.live.tabKey);
-                    } else if (item.saved !== null) {
-                      openTerminalTab(host, {
-                        folderRef: item.saved.folderRef,
-                        ...(item.saved.resumable
-                          ? {
-                              resume: {
-                                harness: item.harness,
-                                external_session: item.saved.externalSession,
-                              },
-                            }
-                          : {}),
-                      });
-                    }
-                  }}
-                  onManage={() => openAgents(host)}
-                  onOpenDomainDoc={(domain) => void openDomainDoc(domain)}
-                  onOpenWorkflow={(workflow) => openWorkflow(host, workflow)}
-                  activeWorkflow={
-                    desks.active === DEFAULT_DESK ? undefined : desks.active
-                  }
-                  onResizeStart={(event) => {
-                    const start = sidebar.chosenWidth;
-                    const startShown = sidebarShown.width;
-                    let last = start;
-                    startPointerDrag(event, {
-                      move: (dx) => {
-                        last = clampSidebar(startShown + dx);
-                        setSidebar((current) => ({
-                          ...current,
-                          chosenWidth: last,
-                        }));
-                      },
-                      finish: (outcome) => {
-                        const applied = applyDrag(start, last, outcome);
-                        setSidebar((current) => ({
-                          ...current,
-                          chosenWidth: applied,
-                        }));
-                        if (outcome.type === "drag-end") {
-                          setUserChoseWidth(true);
-                        }
-                      },
-                    });
-                  }}
-                />
-              )}
-              <div className={styles.content} ref={mainRef}>
-                {noticesHidden ? null : (
-                  <div className={styles.notices} data-notices="">
-                    {loaded.failed ? (
-                      <NoticeCard
-                        tone="error"
-                        data={{ "data-load-failed": "" }}
-                        text={t("project-workspace.error.load-failed")}
-                        onDismiss={hideNotices}
-                      />
-                    ) : null}
-                  </div>
-                )}
-                <Panes
-                  view={view}
-                  focusedPane={inFloats ? null : view.focusedPane}
-                  onDropTab={(pane, key, zone) => {
-                    setFloatFocused(false);
-                    update(dropTabOnPane(latest.current, key, pane, zone));
-                    focusPaneBody(latest.current.focusedPane);
-                  }}
-                  onDropPath={(pane, path) => {
-                    setFloatFocused(false);
-                    update({ ...latest.current, focusedPane: pane });
-                    openFile(host, path);
-                  }}
-                  windowWidth={measuredWindow}
-                  onSelect={(pane, key) => {
-                    setFloatFocused(false);
-                    update({
-                      ...view,
-                      focusedPane: pane,
-                      panes: view.panes.map((item, index) =>
-                        index === pane ? { ...item, selected: key } : item,
-                      ),
-                    });
-                  }}
-                  onClose={close}
-                  onCloseMany={(pane, scope, key) =>
-                    void closeMany(pane, scope, key)
-                  }
-                  onPin={(key) => update(pinTab(latest.current, key))}
-                  onFloat={(_pane, key) => {
-                    if (mainSize === undefined) return;
-                    setFloatFocused(true);
-                    update(floatTab(latest.current, key, mainSize));
-                  }}
-                  onMinimize={(_pane, key) => {
-                    if (mainSize === undefined) return;
-                    update(minimizeTab(latest.current, key, mainSize));
-                  }}
-                  onRename={(key, name) => {
-                    const tab = findTab(latest.current, key);
-                    if (tab !== undefined) {
-                      tabKindOf(tab.kind)?.rename?.(tab, name, host);
-                    }
-                  }}
-                  {...detachProps}
-                  pathOf={pathOfTab}
-                  onCopyPath={copyPath}
-                  onReveal={revealInExplorer}
-                  onFocus={(pane) => {
-                    setFloatFocused(false);
-                    if (pane !== latest.current.focusedPane) {
-                      update({ ...latest.current, focusedPane: pane });
-                    }
-                  }}
-                  onMove={(key, toPane, before) =>
-                    update(moveTab(view, key, toPane, before))
-                  }
-                  onSplit={(pane, key, side) => {
-                    setFloatFocused(false);
-                    update(splitTab(latest.current, key, pane, side));
-                    focusPaneBody(latest.current.focusedPane);
-                  }}
-                  onRatio={(path, ratio) =>
-                    update({
-                      ...latest.current,
-                      layout: setRatio(latest.current.layout, path, ratio),
-                    })
-                  }
-                  newTab={
-                    <NewTabMenu
-                      {...(pickFile === undefined
-                        ? {}
-                        : {
-                            onDocument: () =>
-                              void pickFile().then((path) => {
-                                if (path !== null) openFile(host, path);
-                              }),
-                          })}
-                      {...(terminal === undefined
-                        ? {}
-                        : { onTerminal: () => openTerminalTab(host) })}
-                      {...(browserApi === null
-                        ? {}
-                        : { onBrowser: () => openBrowserTab(host) })}
-                      {...(agentView === null
-                        ? {}
-                        : {
-                            agents: sidebarAgents.agents.map((agent) => ({
-                              id: agent.assignment,
-                              name: agent.name,
-                              profile: agent.profile,
-                            })),
-                            onAgent: (id: string) => {
-                              const row = sidebarAgents.agents.find(
-                                (agent) => agent.assignment === id,
-                              );
-                              if (row !== undefined) {
-                                openAgent(host, { agent: id, name: row.name });
-                              }
-                            },
-                          })}
-                      {...(source.searchSource === undefined
-                        ? {}
-                        : {
-                            onSearch: () => openSearchShortcut(host),
-                          })}
-                      {...(host.appScreens
-                        ? { onAppPanel: () => openAppPanel(host) }
-                        : {})}
-                    />
-                  }
-                  stripTab={stripTab}
-                  renderTab={renderTab}
-                  renderKept={renderKept}
-                />
-                <Floats
-                  floats={view.floats}
-                  focused={inFloats}
-                  area={mainSize}
-                  stripTab={stripTab}
-                  renderTab={renderTab}
-                  renderKept={renderKept}
-                  onRaise={(key) => {
-                    setFloatFocused(true);
-                    const next = raiseFloat(latest.current, key);
-                    if (next !== latest.current) update(next);
-                  }}
-                  onRect={(key, rect) => {
-                    if (mainSize === undefined) return;
-                    update(setFloatRect(latest.current, key, rect, mainSize));
-                  }}
-                  onMinimize={(key) => {
-                    leaveTopFloat(key);
-                    update(minimizeFloat(latest.current, key));
-                  }}
-                  onDock={(key) => {
-                    setFloatFocused(false);
-                    update(dockTab(latest.current, key));
-                    focusPaneBody(latest.current.focusedPane);
-                  }}
-                  onClose={(key) => close(null, key)}
-                  {...(props.detached === undefined
-                    ? {}
-                    : {
-                        onDetach: (key: string) => void detach(key),
-                        canDetach,
-                      })}
-                  webviews={<WebviewLayer host={webviews} />}
-                />
-              </div>
-            </div>
           </div>
-        </WebviewHostProvider>
-      </ViewKeepsProvider>
-    </ViewCoversProvider>
+        </div>
+      </WebviewHostProvider>
+    </ViewKeepsProvider>
   );
 }
 

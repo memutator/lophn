@@ -1,20 +1,18 @@
-// 앱 native view의 자리. 앱 공간·탭 패널·세션 카드가 본문 경계에 이 자리를 두면 main이 그
-// 경계 안에 앱 view를 붙인다. 앱은 자기 페이지 머리부터 그리고 바깥 크롬은 이 자리 밖의 shell이
-// 그린다. 앱 UI 코드는 여기 import하지 않는다.
+// 앱 화면의 자리. 앱 공간·탭 패널·세션 카드가 본문 경계에 이 자리를 두면 창의 <webview> 그릇이 state의
+// src로 그 화면을 이 자리 위에 그린다. 앱은 자기 page를 그리고 바깥 크롬은 이 자리 밖의 shell이 그린다.
+// 앱 UI 코드는 여기 import하지 않는다.
 //
-// 순서: 안 보이게 되면(탭 전환·공간 이동·닫기) cleanup에서 바로 숨기거나 닫는다. React는
-// 한 commit에서 옛 effect의 cleanup을 새 effect보다 먼저 돌리므로 새 view의 열기·bounds보다
-// 옛 view 숨김이 먼저 main에 간다. 새 view는 main이 준비를 확인한 뒤에 붙인다.
+// view를 여는 일은 main이 한다(openApp). main이 만든 src가 바뀌면(열기, crash 뒤 다시 열기) 그릇이 같은
+// 자리에서 element를 새로 만든다. view_session은 main이 미는 state로 갱신된다.
 import {
   createContext,
   type ReactNode,
-  useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
+import { t } from "@lophn/i18n";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 
 import type {
@@ -22,20 +20,13 @@ import type {
   AppViewOpen,
   LophnShellViewsApi,
 } from "../../ipc/app-frame.ts";
-import {
-  createViewCovers,
-  type Rect,
-  startBoundsRelay,
-  type ViewCovers,
-} from "./bounds.ts";
 import { createViewKeeps, type ViewKeeps } from "./view-keeps.ts";
+import {
+  useViewLayer,
+  useWebviewHost,
+  useWebviewSlot,
+} from "./webview-host.tsx";
 import styles from "./embedded-view.module.css";
-
-const ViewCoversContext = createContext<ViewCovers | null>(null);
-
-/** 창마다 하나. 본문을 덮는 패널과 앱 view 자리가 같은 목록을 본다. */
-export const ViewCoversProvider = ViewCoversContext.Provider;
-export { createViewCovers };
 
 const ViewKeepsContext = createContext<ViewKeeps | null>(null);
 
@@ -45,90 +36,6 @@ const ViewKeepsContext = createContext<ViewKeeps | null>(null);
  */
 export const ViewKeepsProvider = ViewKeepsContext.Provider;
 export { createViewKeeps };
-
-const ViewLayerContext = createContext(0);
-
-/** 이 아래 EmbeddedView의 층. 0 = pane view, 1.. = floated view(floats 배열 index + 1). 기본 0. */
-export const ViewLayerProvider = ViewLayerContext.Provider;
-
-/**
- * 좁은 창에서 본문을 덮는 패널(대화·정보·운영 패널)이 부른다. 덮는 동안 자기보다 아래 층의
- * 앱 view는 숨지 않고 덮이지 않는 영역으로 줄고, 닫으면 원래 bounds로 돌아온다. layer 기본
- * Infinity(side panel·picker 같은 overlay 성격은 늘 위). 돌려주는 함수는 cover 요소가 크기
- * 변화 없이 옮겨졌을 때 부른다.
- */
-export function useViewCover(
-  ref: { readonly current: Element | null },
-  covering: boolean,
-  layer?: number,
-): () => void {
-  const covers = useContext(ViewCoversContext);
-  useEffect(() => {
-    const element = ref.current;
-    if (covers === null || element === null || !covering) return;
-    return covers.add(element, layer);
-  }, [covers, ref, covering, layer]);
-  return useCallback(() => covers?.changed(), [covers]);
-}
-
-/**
- * 보이는 동안만 자리의 사각형을 main에 보낸다. 안 보이게 되면 cleanup에서 바로 숨긴다. main은
- * bounds를 받기 전의 view를 붙이지 않으므로 처음부터 안 보이는 view는 숨길 것이 없다. 층만
- * 바뀌면 view를 숨기지 않고 새 층을 다시 보낸다(effect를 다시 돌리면 hide로 깜빡인다).
- */
-export function useViewBounds(input: {
-  views: LophnShellViewsApi;
-  viewSession: string | null;
-  shown: boolean;
-  ref: { readonly current: HTMLElement | null };
-}): void {
-  const { views, viewSession, shown, ref } = input;
-  const covers = useContext(ViewCoversContext);
-  const layer = useContext(ViewLayerContext);
-  const layerRef = useRef(layer);
-  layerRef.current = layer;
-  const relayRef = useRef<{ refresh(): void } | null>(null);
-  const fallbackCovers = useMemo(createViewCovers, []);
-  useEffect(() => {
-    const element = ref.current;
-    if (viewSession === null || element === null || !shown) return;
-    const hide = () =>
-      void views
-        .setViewsHidden({ view_sessions: [viewSession] })
-        .catch(() => {});
-    const list = covers ?? fallbackCovers;
-    const relay = startBoundsRelay({
-      element,
-      covers: list.list,
-      onCoversChange: list.subscribe,
-      layer: () => layerRef.current,
-      send: (bounds: Rect, layer: number) =>
-        void views
-          .setViewBounds({ view_session: viewSession, bounds, layer })
-          .catch(() => {}),
-      hide,
-      frame: {
-        request: (callback) => requestAnimationFrame(callback),
-        cancel: (handle) => cancelAnimationFrame(handle),
-      },
-      observe(elements, callback) {
-        const observer = new ResizeObserver(callback);
-        for (const target of elements) observer.observe(target);
-        return () => observer.disconnect();
-      },
-    });
-    relayRef.current = relay;
-    return () => {
-      relayRef.current = null;
-      relay.stop();
-      hide();
-    };
-  }, [views, viewSession, shown, ref, covers, fallbackCovers]);
-
-  useEffect(() => {
-    relayRef.current?.refresh();
-  }, [layer]);
-}
 
 type Phase = "opening" | "ready" | "failed";
 
@@ -159,10 +66,13 @@ export function EmbeddedView(props: EmbeddedViewProps) {
   const cardMessage = props.card?.message;
   const cardBlock = props.card?.block;
   const shown = props.shown ?? true;
+  const host = useWebviewHost();
+  const layer = useViewLayer();
   const ref = useRef<HTMLDivElement | null>(null);
   const keeps = useContext(ViewKeepsContext);
   const keepKey = keeps === null ? undefined : props.keepKey;
   const [viewSession, setViewSession] = useState<string | null>(null);
+  const [viewSrc, setViewSrc] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("opening");
   const [failure, setFailure] = useState("unavailable");
   const [attempt, setAttempt] = useState(0);
@@ -172,6 +82,17 @@ export function EmbeddedView(props: EmbeddedViewProps) {
   failedListener.current = props.onFailed;
   // 보관할 때 함께 넘길 마지막 state.
   const lastState = useRef<AppFrameViewState | null>(null);
+
+  // main이 민 state를 화면과 자리에 반영한다. src가 바뀌면 그릇이 element를 새로 만든다.
+  const apply = (state: AppFrameViewState) => {
+    lastState.current = state;
+    setViewSession(state.view_session);
+    setViewSrc(state.src);
+    setPhase("ready");
+    stateListener.current?.(state);
+  };
+  const applyRef = useRef(apply);
+  applyRef.current = apply;
 
   // 여는 동안 이 자리가 사라지면 늦게 온 view를 바로 닫는다(keepKey가 있으면 보관한다).
   useEffect(() => {
@@ -200,23 +121,15 @@ export function EmbeddedView(props: EmbeddedViewProps) {
         void views
           .closeView({ view_session: state.view_session })
           .catch(() => {});
+        host?.release(state.view_session);
       }
-    };
-    const show = (state: AppFrameViewState) => {
-      lastState.current = state;
-      if (keepKey !== undefined && keeps !== null) {
-        keeps.track(keepKey, { session: state.view_session, signature, state });
-      }
-      setViewSession(state.view_session);
-      setPhase("ready");
-      stateListener.current?.(state);
     };
     const kept =
       keepKey === undefined || keeps === null
         ? undefined
         : keeps.take<AppFrameViewState>(keepKey, signature);
     if (kept !== undefined) {
-      show(kept.state);
+      applyRef.current(kept.state);
     } else {
       views.openApp(input).then(
         (state) => {
@@ -224,7 +137,14 @@ export function EmbeddedView(props: EmbeddedViewProps) {
             dispose(state);
             return;
           }
-          show(state);
+          if (keepKey !== undefined && keeps !== null) {
+            keeps.track(keepKey, {
+              session: state.view_session,
+              signature,
+              state,
+            });
+          }
+          applyRef.current(state);
         },
         (error: unknown) => {
           if (!alive) return;
@@ -238,6 +158,7 @@ export function EmbeddedView(props: EmbeddedViewProps) {
     return () => {
       alive = false;
       setViewSession(null);
+      setViewSrc(null);
       if (lastState.current !== null) {
         dispose(lastState.current);
       }
@@ -246,6 +167,7 @@ export function EmbeddedView(props: EmbeddedViewProps) {
     views,
     keeps,
     keepKey,
+    host,
     app,
     mode,
     release,
@@ -259,10 +181,7 @@ export function EmbeddedView(props: EmbeddedViewProps) {
   useEffect(() => {
     if (viewSession === null) return;
     return views.subscribeViewState((state) => {
-      if (state.view_session === viewSession) {
-        lastState.current = state;
-        stateListener.current?.(state);
-      }
+      if (state.view_session === viewSession) applyRef.current(state);
     });
   }, [views, viewSession]);
 
@@ -271,7 +190,27 @@ export function EmbeddedView(props: EmbeddedViewProps) {
     if (keepKey !== undefined) keeps?.watch(views.subscribeViewState);
   }, [views, keeps, keepKey]);
 
-  useViewBounds({ views, viewSession, shown, ref });
+  // view_session이 바뀌면(다시 열기) 이전 session의 element는 새 그릇 자리가 없다. 닫는 쪽이 놓는다.
+  const elementKey = keepKey ?? viewSession ?? "";
+  const previousKey = useRef<string | null>(null);
+  useEffect(() => {
+    const previous = previousKey.current;
+    if (previous !== null && previous !== elementKey) {
+      host?.release(previous);
+    }
+    previousKey.current = elementKey === "" ? null : elementKey;
+  }, [host, elementKey]);
+
+  useWebviewSlot({
+    host,
+    kind: "app",
+    enabled: host !== null && elementKey !== "" && viewSrc !== null,
+    key: elementKey,
+    src: viewSrc ?? "",
+    ref,
+    shown: shown && phase === "ready",
+    layer,
+  });
 
   const retry = () => setAttempt((count) => count + 1);
 
@@ -282,7 +221,9 @@ export function EmbeddedView(props: EmbeddedViewProps) {
       data-phase={phase}
       data-shown={shown}
     >
-      {phase === "failed" ? (
+      {host === null ? (
+        <p className={styles.unavailable}>{t("common.empty.not-ready")}</p>
+      ) : phase === "failed" ? (
         (props.renderFailure?.(failure, retry) ?? (
           <ErrorState target={label} onRetry={retry} />
         ))

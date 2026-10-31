@@ -1,9 +1,11 @@
+// overlay native view(팔레트·dialog·toast·browser menu)의 층. overlay는 pane view와 browser의
+// 크기 준 popup·DevTools 위에 있어야 해서 붙일 때마다 그 창의 내용 위로 다시 놓는다.
 export interface ViewHost<T> {
   addChildView(view: T): void;
   removeChildView(view: T): void;
 }
 
-// native view 순서를 바꾸는 자리는 여기뿐이다. overlay 열기는 app visibility를 건드리지 않는다.
+// native view 순서를 바꾸는 자리는 여기뿐이다. overlay 열기는 pane view의 배치를 건드리지 않는다.
 export function viewOrder<T>(host: ViewHost<T>) {
   let overlay: T | undefined;
   return {
@@ -22,53 +24,5 @@ export function viewOrder<T>(host: ViewHost<T>) {
       host.removeChildView(view);
       if (overlay === view) overlay = undefined;
     },
-  };
-}
-
-/**
- * native view의 세 층(앱 view와 browser view가 같이 쓴다): pane view(layer 0) < floated view(layer 1..) < overlay. 같은 층에서는
- * 나중에 붙은 것이 위다. 창마다 하나를 만든다. Electron의 addChildView는 이미 child인
- * view를 다시 넣으면 맨 위로 옮기므로, 붙인 view와 그 위에 있어야 할 view를 차례로 다시 넣는다.
- */
-export function appViewOrder<T>(host: ViewHost<T>, raiseOverlay: () => void) {
-  // 붙은 순서대로. 같은 layer에서 나중에 붙은 것이 뒤에 온다.
-  const attached: { view: T; layer: number }[] = [];
-  return {
-    attach(view: T, layer: number) {
-      const at = attached.findIndex((item) => item.view === view);
-      // bounds만 바뀐 호출마다 다시 쌓지 않는다.
-      if (at >= 0 && attached[at]!.layer === layer) return;
-      if (at >= 0) attached.splice(at, 1);
-      attached.push({ view, layer });
-      host.addChildView(view);
-      // 방금 붙인 view보다 layer가 큰 것을 layer 순(같으면 붙은 순)으로 다시 위에 둔다.
-      const above = attached
-        .filter((item) => item.view !== view && item.layer > layer)
-        .sort((a, b) => a.layer - b.layer);
-      for (const item of above) host.addChildView(item.view);
-      raiseOverlay();
-    },
-    remove(view: T) {
-      const at = attached.findIndex((item) => item.view === view);
-      if (at >= 0) attached.splice(at, 1);
-      host.removeChildView(view);
-    },
-  };
-}
-
-export type AppViewOrder<T> = ReturnType<typeof appViewOrder<T>>;
-
-/** 창마다 하나의 층 순서. 창이 닫혀 WeakMap에서 사라지면 기억도 함께 사라진다. */
-export function windowViewOrders<W extends { contentView: ViewHost<T> }, T>(
-  raiseOverlay: (window: W) => void,
-): (window: W) => AppViewOrder<T> {
-  const orders = new WeakMap<W, AppViewOrder<T>>();
-  return (window) => {
-    let order = orders.get(window);
-    if (order === undefined) {
-      order = appViewOrder<T>(window.contentView, () => raiseOverlay(window));
-      orders.set(window, order);
-    }
-    return order;
   };
 }

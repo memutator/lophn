@@ -1,9 +1,9 @@
-// 앱 view registry. `appFrame.open/replace/close`의 main service다. view가 보는 앱 process는
+// 앱 view registry. `appFrame.open/close/reopen`의 main service다. view가 보는 앱 process는
 // main이 core 읽기로 알아 view에 묶는다. 페이지는 자기가 어느 앱인지 모른다.
-// 실제 붙이기·숨기기·폐기는 이 모듈과 placement.ts만 하고 같은
-// view_session과 generation으로 진단을 남긴다. view가 있다는 것만으로 권한이 생기지
-// 않는다: view는 자기 대상의 화면 byte만 받는다. tool은 `app:call-tool`(app-call.ts)이 이 view의
-// 신원으로만 부른다.
+// 화면은 shell renderer의 `<webview>` guest다: 이 모듈은 view마다 지금 `src`와 붙은 guest 하나를
+// 쥐고, 붙이기 판정(acceptGuest)과 신원 묶기(bindGuest)만 한다. 위치·보임은 renderer CSS다.
+// view가 있다는 것만으로 권한이 생기지 않는다: view는 자기 대상의 화면 byte만 받는다.
+// tool은 `app:call-tool`(app-call.ts)이 이 view의 신원으로만 부른다.
 import {
   appEntryUrl,
   type ProtocolView,
@@ -20,7 +20,6 @@ import type { ViewDiagnostics, ViewEvent } from "./diagnostics.ts";
 import { bindTarget } from "./binding.ts";
 import { nextHealth, reopenable, type ViewHealth } from "./crash.ts";
 import { navigationAllowed } from "./network-policy.ts";
-import { createPlacement, type Placed } from "./placement.ts";
 import type { AnnotateViewPort } from "../../ipc/annotation.ts";
 import {
   appHostLabel,
@@ -29,19 +28,18 @@ import {
 } from "./session-policy.ts";
 import {
   type AppFrameViewState,
+  type AppViewContents,
   type AppViewHost,
   type Bound,
-  boundsEmpty,
-  boundsValid,
   type BoundView,
   boundViewOf,
   type CardDisplay,
   checkOpen,
   type ConnectionState,
+  type GuestContents,
   sameConnection,
   stateOf as state,
   targetOf,
-  type ViewBounds,
   type ViewListing,
 } from "./view-model.ts";
 
@@ -52,7 +50,7 @@ export type {
   BoundView,
   CardDisplay,
   ConnectionState,
-  ViewBounds,
+  GuestContents,
   ViewListing,
 } from "./view-model.ts";
 export { checkOpen } from "./view-model.ts";
@@ -71,15 +69,32 @@ interface AppFrameDeps {
   onState?(window: string, state: AppFrameViewState): void;
 }
 
-interface Entry extends Bound, Placed {
+interface Entry extends Bound {
   view_session: string;
+  /** 화면 세대. mount마다 오르고 진단 기록·sender 신원에 쓴다. */
+  generation: number;
   token: string;
+  window: string;
+  /** 지금 화면을 열 guest의 주소. mount마다 새로 낸다. */
+  src: string;
+  /** 그 src를 붙이기로 이미 받았는가. 한 src는 1회만 받는다. */
+  srcUsed: boolean;
+  /** 지금 붙은 guest. renderer가 아직 안 붙였거나 지웠으면 undefined다. */
+  contents: AppViewContents | undefined;
+  /** 붙이기로 받았지만 아직 did-attach가 오지 않은 guest. */
+  accepted: AcceptedAppGuest | undefined;
   connectionState: ConnectionState;
-  /** 화면 process 상태(crash.ts). 새 contents마다 ok로 시작한다. */
+  /** 화면 process 상태(crash.ts). 새 guest를 받을 때마다 ok로 시작한다. */
   viewHealth: ViewHealth;
   refreshing: Promise<void> | undefined;
   /** 세션 카드가 묶인 message·block. 카드가 아니면 null이다. */
   card: CardDisplay | null;
+}
+
+/** `will-attach-webview`가 받은 이 view의 붙이기 하나. src 하나에 한 번만 준다. */
+export interface AcceptedAppGuest {
+  readonly src: string;
+  readonly partition: string;
 }
 
 // core가 화면 byte를 낼 대상. 묶인 release·preview process다.
@@ -93,10 +108,21 @@ function screenTargetOf(entry: Entry): ScreenTarget {
       };
 }
 
+// view 하나가 새 화면을 열 때의 주소. `mount`가 바뀔 때마다 renderer가 guest를 새로 만든다.
+function entryUrl(
+  label: string,
+  screen: string,
+  view_session: string,
+  mount: number,
+): string {
+  return `${appEntryUrl(label, screen, view_session)}&mount=${mount}`;
+}
+
 export function createAppFrame(deps: AppFrameDeps) {
   const entries = new Map<string, Entry>();
   const byContents = new Map<number, Entry>();
   const byToken = new Map<string, Entry>();
+  const pending = new Map<AcceptedAppGuest, Entry>();
 
   function record(entry: Entry, event: ViewEvent): void {
     deps.diagnostics.record(
@@ -156,62 +182,41 @@ export function createAppFrame(deps: AppFrameDeps) {
     deps.onState?.(entry.window, state(entry));
   }
 
-  // 붙이기·떼기·숨기기는 placement만 한다.
-  const placement = createPlacement<Entry>({ views: deps.views, record });
-
-  // 새 contents를 만들어 등록하고 화면을 연다. 첫 load가 끝나면(실패도) 붙인다. 실패 화면은
-  // view 실패 경로가 다룬다.
+  // 화면을 새로 연다. 새 세대·새 token·새 src를 내고, 옛 guest 묶음은 즉시 버린다(그 뒤 그 guest의
+  // 요청은 session 정책이 막는다). load는 renderer의 `<webview>`가 src로 한다.
   function mount(entry: Entry): void {
     const label = appHostLabel(entry.target.app);
     sessions.ensure(entry.partition, label);
-    const screen = entry.target.screen;
-    // 바뀐 뒤 옛 contents가 늦게 보낸 신호는 새 view 상태가 아니다.
-    const contents = deps.views.create({
-      partition: entry.partition,
-      allowNavigation: (url) => navigationAllowed(url, label, screen),
-      onHealth: (signal) => {
-        if (entries.get(entry.view_session) !== entry) return;
-        if (entry.contents !== contents) return;
-        setHealth(entry, nextHealth(entry.viewHealth, signal));
-      },
-    });
-    entry.contents = contents;
-    entry.viewHealth = "ok";
+    unmount(entry);
+    entry.generation += 1;
     entry.token = deps.ids.token();
-    byContents.set(entry.contents.id, entry);
+    entry.src = entryUrl(
+      label,
+      entry.target.screen,
+      entry.view_session,
+      entry.generation,
+    );
+    entry.srcUsed = false;
+    entry.viewHealth = "ok";
     byToken.set(entry.token, entry);
     record(entry, "created");
-    placement.mounted(entry);
-    void contents
-      .load(appEntryUrl(label, screen, entry.view_session))
-      .catch(() => {})
-      .then(() => {
-        // 그 사이 닫히거나 다른 contents로 바뀌었으면 옛 load 결과로 붙이지 않는다.
-        if (entries.get(entry.view_session) !== entry) return;
-        if (entry.contents !== contents) return;
-        placement.loaded(entry);
-      });
   }
 
-  // contents를 떼고 부순다. 이 뒤 그 contents의 요청은 어느 view에도 묶이지 않아 막힌다.
+  // 이 view의 guest 묶음과 token을 버린다. guest 자체는 renderer가 `<webview>`를 지우며 사라진다.
   function unmount(entry: Entry): void {
-    byContents.delete(entry.contents.id);
+    if (entry.contents !== undefined) byContents.delete(entry.contents.id);
+    entry.contents = undefined;
+    if (entry.accepted !== undefined) pending.delete(entry.accepted);
+    entry.accepted = undefined;
     byToken.delete(entry.token);
-    placement.unmounted(entry);
-    entry.contents.destroy();
   }
 
   // release·연결·권한이 바뀌었다. 옛 view와 연결을 버리고 cache를 지운 뒤 다시 연다.
-  async function remount(
-    entry: Entry,
-    next: Bound,
-    at?: { window: string; bounds: ViewBounds },
-  ): Promise<void> {
+  async function remount(entry: Entry, next: Bound): Promise<void> {
     const previous = entry.partition;
     unmount(entry);
-    entry.generation += 1;
     record(entry, "replaced");
-    Object.assign(entry, next, at ?? {});
+    Object.assign(entry, next);
     entry.connectionState = "running";
     await sessions.clearCache(previous);
     if (next.partition !== previous) await sessions.clearCache(next.partition);
@@ -232,20 +237,20 @@ export function createAppFrame(deps: AppFrameDeps) {
   }
 
   /**
-   * 깨진 view에 지금 묶음(같은 binding·partition)으로 새 contents를 연다. 묶음을 다시 읽거나
+   * 깨진 view에 지금 묶음(같은 binding·partition)으로 새 화면을 연다. 묶음을 다시 읽거나
    * 앱을 다시 부르지 않는다. 건강한 view는 conflict다(crash.ts).
    */
-  function reopen(view_session: string): Outcome<AppFrameViewState> {
+  function reopen(
+    window: string,
+    view_session: string,
+  ): Outcome<AppFrameViewState> {
     const entry = entries.get(view_session);
-    if (entry === undefined) {
+    if (entry === undefined || entry.window !== window) {
       return failure("invalid_input", "view is not open");
     }
     if (!reopenable(entry.viewHealth)) {
       return failure("conflict", "view is not broken");
     }
-    unmount(entry);
-    entry.generation += 1;
-    record(entry, "replaced");
     mount(entry);
     pushState(entry);
     return { ok: true, value: state(entry) };
@@ -288,19 +293,13 @@ export function createAppFrame(deps: AppFrameDeps) {
     if (entry === undefined) return;
     entries.delete(view_session);
     unmount(entry);
-    entry.generation += 1;
     record(entry, "disposed");
   }
 
-  // 만든 때의 contents·generation을 고정한다. 그 사이 교체·폐기되면 `current()`가 false다.
+  // 만든 때의 guest·generation을 고정한다. 그 사이 교체·폐기되면 `current()`가 false다.
   function annotatePort(entry: Entry): AnnotateViewPort {
-    const contents = entry.contents;
-    const generation = entry.generation;
     const view_session = entry.view_session;
-    const current = () =>
-      entries.get(view_session) === entry &&
-      entry.contents === contents &&
-      entry.generation === generation;
+    const current = () => entries.get(view_session) === entry;
     return {
       view_session,
       target: {
@@ -309,32 +308,29 @@ export function createAppFrame(deps: AppFrameDeps) {
         release: entry.target.release,
         screen: entry.target.screen,
       },
-      pageUrl: () => deps.views.pageUrl?.(contents) ?? null,
+      pageUrl: () => entry.contents?.pageUrl() ?? null,
       current,
       send(channel, payload) {
-        if (current()) deps.views.send?.(contents, channel, payload);
+        const contents = entry.contents;
+        if (contents !== undefined) contents.send(channel, payload);
       },
-      capture() {
-        if (!current() || deps.views.capture === undefined) {
-          return Promise.reject(new Error("view is not capturable"));
+      async capture() {
+        const contents = entry.contents;
+        if (contents === undefined) throw new Error("view is not capturable");
+        const png = await contents.capture();
+        // 캡처하는 사이 guest가 바뀌었으면 그 그림은 이 view의 것이 아니다.
+        if (entry.contents !== contents) {
+          throw new Error("view changed while capturing");
         }
-        return deps.views.capture(contents);
+        return png;
       },
     };
   }
 
-  /** 떼어 숨긴다. view와 연결은 남는다. */
-  function hide(view_session: string): Outcome<{ generation: number }> {
-    const entry = entries.get(view_session);
-    if (entry === undefined) {
-      return failure("invalid_input", "view is not open");
-    }
-    return placement.hide(entry);
-  }
-
   return {
-    /** 연결을 얻어 view에 묶는다. bounds가 비어 있지 않으면 준비된 뒤 창 본문에 붙인다. */
+    /** 연결을 얻어 view에 묶는다. 화면 src는 renderer가 붙인다. */
     async open(
+      window: string,
       value: unknown,
       card?: CardDisplay,
     ): Promise<Outcome<AppFrameViewState>> {
@@ -345,26 +341,24 @@ export function createAppFrame(deps: AppFrameDeps) {
       ) {
         return failure("invalid_input", "view request is invalid");
       }
-      if (!deps.views.hasWindow(input.parentWindow)) {
+      if (!deps.views.hasWindow(window)) {
         return failure("invalid_input", "window is not open");
       }
       const bound = await bind(targetOf(input), false);
       if (!bound.ok) return bound;
-      if (!deps.views.hasWindow(input.parentWindow)) {
+      if (!deps.views.hasWindow(window)) {
         return failure("invalid_input", "window is not open");
       }
-      const entry = {
+      const entry: Entry = {
         ...bound.value,
         view_session: deps.ids.viewSession(),
         token: "",
-        generation: 1,
-        window: input.parentWindow,
-        bounds: input.bounds,
-        layer: 0,
-        shown: !boundsEmpty(input.bounds),
-        ready: false,
-        placed: false,
-        attached: false,
+        window,
+        src: "",
+        srcUsed: false,
+        contents: undefined,
+        accepted: undefined,
+        generation: 0,
         connectionState: "running",
         viewHealth: "ok",
         refreshing: undefined,
@@ -372,45 +366,9 @@ export function createAppFrame(deps: AppFrameDeps) {
           card === undefined
             ? null
             : { message: card.message, block: card.block },
-      } as Entry;
+      };
       entries.set(entry.view_session, entry);
       mount(entry);
-      return { ok: true, value: state(entry) };
-    },
-
-    /** 같은 view_session을 새 대상으로 다시 연다. 실패하면 옛 view를 그대로 둔다. */
-    async replace(
-      view_session: string,
-      value: unknown,
-    ): Promise<Outcome<AppFrameViewState>> {
-      const entry = entries.get(view_session);
-      const input = checkOpen(value);
-      // 카드는 묶인 답 자리 그대로 다른 대상으로 바꾸지 않는다.
-      if (
-        entry === undefined ||
-        input === undefined ||
-        entry.card !== null ||
-        input.size === "card"
-      ) {
-        return failure("invalid_input", "view request is invalid");
-      }
-      if (!deps.views.hasWindow(input.parentWindow)) {
-        return failure("invalid_input", "window is not open");
-      }
-      const generation = entry.generation;
-      const next = await bind(targetOf(input), false);
-      if (!next.ok) return next;
-      if (
-        entries.get(view_session) !== entry ||
-        entry.generation !== generation
-      ) {
-        return failure("conflict", "view changed while replacing");
-      }
-      entry.shown = !boundsEmpty(input.bounds);
-      await remount(entry, next.value, {
-        window: input.parentWindow,
-        bounds: input.bounds,
-      });
       return { ok: true, value: state(entry) };
     },
 
@@ -419,22 +377,74 @@ export function createAppFrame(deps: AppFrameDeps) {
     reopen,
 
     /**
-     * 보이게 하고 bounds를 옮긴다. 준비 전이면 마지막 bounds를 기억했다가 준비되면 붙인다.
-     * 실제 attach로 바뀔 때만 generation이 오른다. 빈 bounds는 숨김이다.
+     * `<webview>` 붙이기 하나를 받는다. 이 창의 view이고 그 src를 아직 안 붙였을 때만 받는다
+     * (1회용). 아니면 undefined다.
      */
-    setBounds(
-      view_session: string,
-      bounds: unknown,
-      layer = 0,
-    ): Outcome<{ generation: number }> {
-      const entry = entries.get(view_session);
-      if (entry === undefined || !boundsValid(bounds)) {
-        return failure("invalid_input", "view bounds are invalid");
+    acceptGuest(window: string, src: string): AcceptedAppGuest | undefined {
+      for (const entry of entries.values()) {
+        if (entry.window !== window || entry.src !== src) continue;
+        if (entry.srcUsed || entry.contents !== undefined) return undefined;
+        try {
+          sessions.ensure(entry.partition, appHostLabel(entry.target.app));
+        } catch {
+          return undefined;
+        }
+        entry.srcUsed = true;
+        const accepted: AcceptedAppGuest = Object.freeze({
+          src: entry.src,
+          partition: entry.partition,
+        });
+        entry.accepted = accepted;
+        pending.set(accepted, entry);
+        return accepted;
       }
-      return placement.setBounds(entry, bounds, layer);
+      return undefined;
     },
 
-    hide,
+    /** 받아 두었지만 붙지 못한 붙이기를 버린다(창이 닫히거나 규칙이 뒤에서 거절). */
+    dropGuest(accepted: AcceptedAppGuest): void {
+      const entry = pending.get(accepted);
+      if (entry === undefined || entry.accepted !== accepted) return;
+      pending.delete(accepted);
+      entry.accepted = undefined;
+    },
+
+    /** 받아 둔 붙이기의 guest를 view 신원·건강 감시에 묶는다(did-attach). */
+    bindGuest(accepted: AcceptedAppGuest, guest: GuestContents): void {
+      const entry = pending.get(accepted);
+      if (entry === undefined) return;
+      pending.delete(accepted);
+      if (entry.accepted !== accepted) return;
+      entry.accepted = undefined;
+      if (
+        entries.get(entry.view_session) !== entry ||
+        entry.src !== accepted.src
+      ) {
+        return;
+      }
+      let bound: AppViewContents | undefined;
+      const contents = deps.views.guest(guest, {
+        allowNavigation: (url) =>
+          navigationAllowed(
+            url,
+            appHostLabel(entry.target.app),
+            entry.target.screen,
+          ),
+        onHealth(signal) {
+          if (entries.get(entry.view_session) !== entry) return;
+          if (bound === undefined || entry.contents !== bound) return;
+          setHealth(entry, nextHealth(entry.viewHealth, signal));
+        },
+        onDestroyed() {
+          if (bound === undefined || entry.contents !== bound) return;
+          entry.contents = undefined;
+          byContents.delete(bound.id);
+        },
+      });
+      bound = contents;
+      entry.contents = contents;
+      byContents.set(contents.id, entry);
+    },
 
     /** webContents id로 지금 살아 있는 view를 찾는다. 폐기·교체된 contents는 없다. */
     senderView(contentsId: number): BoundView | undefined {
@@ -462,25 +472,6 @@ export function createAppFrame(deps: AppFrameDeps) {
     /** 그 view가 붙는 창. 없는 view는 undefined다. */
     owner(view_session: string): string | undefined {
       return entries.get(view_session)?.window;
-    },
-
-    /**
-     * view를 닫지 않고 from 창에서 to 창으로 옮긴다. 떼어 숨긴 상태가 되고(page와 연결은 산다)
-     * 새 창 renderer가 bounds를 보내면 붙는다.
-     */
-    move(view_session: string, from: string, to: string): Outcome<null> {
-      const entry = entries.get(view_session);
-      if (entry === undefined || entry.window !== from) {
-        return failure("invalid_input", "view is not open");
-      }
-      if (!deps.views.hasWindow(to)) {
-        return failure("invalid_input", "window is not open");
-      }
-      // 떼기는 옛 창 기준이라 소유 창을 바꾸기 전에 한다.
-      placement.hide(entry);
-      entry.window = to;
-      pushState(entry);
-      return { ok: true, value: null };
     },
 
     /**

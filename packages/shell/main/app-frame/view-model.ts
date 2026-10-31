@@ -1,5 +1,5 @@
 // 앱 view registry의 값과 순수 검사. 입력 모양 검사와 같은 연결
-// 판정은 IO 없이 여기 둔다. 상태와 붙이기·숨기기·폐기는 registry.ts가 맡는다.
+// 판정은 IO 없이 여기 둔다. 상태와 guest 붙이기·폐기는 registry.ts가 맡는다.
 import type {
   AppBinding,
   ConnectTarget,
@@ -9,21 +9,12 @@ import type {
 import type { ViewHealth, ViewHealthSignal } from "./crash.ts";
 import type { FetchHost } from "./network-policy.ts";
 
-export interface ViewBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
 interface AppFrameOpen {
   app: string;
   mode: ViewMode;
   release: string | null;
   screen: string;
   size: ScreenSize;
-  parentWindow: string;
-  bounds: ViewBounds;
 }
 
 export type ConnectionState =
@@ -47,49 +38,45 @@ export interface AppFrameViewState {
   mode: ViewMode;
   screen: string;
   size: ScreenSize;
+  /** renderer가 `<webview src>`에 그대로 넣는 주소. main이 화면을 새로 붙일 때마다 새로 낸다. */
+  src: string;
   connectionState: ConnectionState;
   /** 그 view 화면 process의 상태(crash.ts). 연결 상태와 따로 본다. */
   viewHealth: ViewHealth;
 }
 
-/** Electron WebContentsView 하나. */
+/** shell renderer 안의 `<webview>` guest 하나. 신원은 contents id다. */
 export interface AppViewContents {
   readonly id: number;
-  load(url: string): Promise<void>;
-  destroy(): void;
+  /** 그 guest만 PNG로 캡처한다(긴 변 1,600px 이하로 줄인 것). 다른 view·창·overlay는 담지 않는다. */
+  capture(): Promise<Uint8Array>;
+  /** 그 guest의 지금 주소. 없으면 null이다. */
+  pageUrl(): string | null;
+  /** 그 guest의 페이지로 보낸다(`webContents.send`). */
+  send(channel: string, payload: unknown): void;
 }
 
-/** 창과 native view를 다루는 adapter. 앱 UI 코드는 shell renderer로 오지 않는다. */
+/** 붙은 guest의 webContents. registry는 Electron을 모르고 id만 쓴다. */
+export interface GuestContents {
+  readonly id: number;
+}
+
+/** 창과 guest를 다루는 adapter. 앱 UI 코드는 shell renderer로 오지 않는다. */
 export interface AppViewHost {
   hasWindow(window: string): boolean;
-  /** partition의 sandbox view를 만든다. main frame 탐색은 allowNavigation이 true일 때만 둔다. */
-  create(input: {
-    partition: string;
-    allowNavigation(url: string): boolean;
-    /** 화면 process가 사라지거나 응답이 없거나 돌아왔다(crash.ts). */
-    onHealth?(signal: ViewHealthSignal): void;
-  }): AppViewContents;
-  /** 창 본문에 붙이거나 bounds를 옮긴다. layer가 클수록 위다(0 = pane view). 창이 없으면 false다. */
-  attach(
-    window: string,
-    view: AppViewContents,
-    bounds: ViewBounds,
-    layer: number,
-  ): boolean;
-  detach(window: string, view: AppViewContents): void;
-  /** 이 view가 지금 키보드 focus를 가졌는가. */
-  focused?(view: AppViewContents): boolean;
   /**
-   * 그 view만 PNG로 캡처한다(긴 변 1,600px 이하로 줄인 것). 다른 view·창·overlay는 담지
-   * 않는다. view가 crash했거나 없으면 거절한다.
+   * 붙은 guest에 탐색 규칙·새 창 거절·건강 감시·캡처를 건다. allowNavigation은 그 view의
+   * 규칙이고, onDestroyed는 renderer가 `<webview>`를 지워 guest가 사라졌을 때 부른다.
    */
-  capture?(view: AppViewContents): Promise<Uint8Array>;
-  /** 그 view의 지금 주소. 없으면 null이다. */
-  pageUrl?(view: AppViewContents): string | null;
-  /** 키보드 focus를 그 창의 shell renderer로 돌린다. */
-  focusShell?(window: string): void;
-  /** 그 view의 페이지로 보낸다(`webContents.send`). */
-  send?(view: AppViewContents, channel: string, payload: unknown): void;
+  guest(
+    contents: GuestContents,
+    input: {
+      allowNavigation(url: string): boolean;
+      /** 화면 process가 사라지거나 응답이 없거나 돌아왔다(crash.ts). */
+      onHealth?(signal: ViewHealthSignal): void;
+      onDestroyed(): void;
+    },
+  ): AppViewContents;
 }
 
 /** 세션 앱 카드가 묶인 답의 표시 참조. 카드 입력은 싣지 않는다. */
@@ -119,41 +106,24 @@ const SAFE_TEXT = (value: unknown): value is string =>
   value.trim().length > 0 &&
   !/\p{Cc}/u.test(value);
 
-export function boundsValid(value: unknown): value is ViewBounds {
-  if (typeof value !== "object" || value === null) return false;
-  const bounds = value as Record<string, unknown>;
-  const keys = Object.keys(bounds).sort().join(",");
-  return (
-    keys === "height,width,x,y" &&
-    [bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isInteger) &&
-    (bounds.width as number) >= 0 &&
-    (bounds.height as number) >= 0
-  );
-}
+const OPEN_KEYS: Record<string, true> = {
+  app: true,
+  card: true,
+  mode: true,
+  release: true,
+  screen: true,
+  size: true,
+};
+const OPEN_KEY_COUNT = Object.keys(OPEN_KEYS).length;
 
-/** 넓이가 없는 bounds다. 붙일 자리가 없으니 보이지 않는 view로 둔다. */
-export function boundsEmpty(bounds: ViewBounds): boolean {
-  return bounds.width <= 0 || bounds.height <= 0;
-}
-
-const OPEN_KEYS = new Set([
-  "app",
-  "bounds",
-  "mode",
-  "parentWindow",
-  "release",
-  "screen",
-  "size",
-]);
-
-/** 모르는 field도 거절한다. */
+/** 모르는 field도 거절한다. 카드는 있을 때만 센다. */
 export function checkOpen(value: unknown): AppFrameOpen | undefined {
   if (typeof value !== "object" || value === null) return undefined;
   const input = value as Record<string, unknown>;
   const keys = Object.keys(input);
   if (
-    keys.some((key) => !OPEN_KEYS.has(key)) ||
-    keys.length !== OPEN_KEYS.size
+    keys.some((key) => OPEN_KEYS[key] === undefined) ||
+    keys.length !== OPEN_KEY_COUNT - (input.card === undefined ? 1 : 0)
   ) {
     return undefined;
   }
@@ -167,9 +137,7 @@ export function checkOpen(value: unknown): AppFrameOpen | undefined {
     ) ||
     (input.mode === "live" && input.release === null) ||
     !SAFE_TEXT(input.screen) ||
-    !SIZES.includes(input.size as string) ||
-    !SAFE_TEXT(input.parentWindow) ||
-    !boundsValid(input.bounds)
+    !SIZES.includes(input.size as string)
   ) {
     return undefined;
   }
@@ -208,6 +176,7 @@ export function sameConnection(entry: Bound, next: Bound): boolean {
 interface ViewEntry extends Bound {
   view_session: string;
   generation: number;
+  src: string;
   connectionState: ConnectionState;
   viewHealth: ViewHealth;
 }
@@ -220,6 +189,7 @@ export function stateOf(entry: ViewEntry): AppFrameViewState {
     mode: entry.target.mode,
     screen: entry.target.screen,
     size: entry.target.size,
+    src: entry.src,
     connectionState: entry.connectionState,
     viewHealth: entry.viewHealth,
   };

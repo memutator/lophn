@@ -1,18 +1,27 @@
-// browser 탭: persistent session 정책, project 창의 <webview> 붙이기 규칙과 guest 등록, 크기 준
-// popup의 native view 목록, renderer IPC. native popup의 위치·숨김 길은 browser.frame으로
-// app-views.ts가 받는다.
-import { app, type BrowserWindow, shell, type WebContentsView } from "electron";
+// browser 탭: persistent session 정책, 창의 `<webview>` 붙이기 판정과 guest 등록, 크기 준 popup의
+// native view 목록, renderer IPC. app·artifact view의 붙이기도 이 한 handler가 함께 판정한다
+// (preventDefault와 prefs 수정은 여기 한 곳만 한다). native popup·DevTools의 위치·숨김은
+// native-bounds.ts가 한다.
+import {
+  app,
+  type BrowserWindow,
+  shell,
+  type WebContents,
+  type WebContentsView,
+} from "electron";
 import { randomUUID } from "node:crypto";
 
 import {
   BROWSER_EVENT_CHANNEL,
   BROWSER_STATE_CHANNEL,
 } from "../../../ipc/browser.ts";
-import { windowViewOrders } from "../../app-frame/view-order.ts";
 import { createActivation } from "../../browser/activation.ts";
 import { electronBrowserViews } from "../../browser/electron-view.ts";
 import { electronBrowserSession } from "../../browser/electron-session.ts";
-import type { BrowserFrame } from "../../browser/frame-router.ts";
+import {
+  createNativeBounds,
+  type NativeBounds,
+} from "../../browser/native-bounds.ts";
 import {
   type BrowserViews,
   createBrowserViews,
@@ -23,18 +32,23 @@ import {
   removeBrowserIpc,
 } from "../../browser/browser-ipc.ts";
 import { installBrowserSession } from "../../browser/session.ts";
+import { windowBrowserViewOrders } from "../../browser/view-order.ts";
 import {
+  type AcceptedWebviewGuest,
   guestViewSession,
   hardenWebviewAttach,
+  type WebviewGuestResolver,
 } from "../../browser/webview-guest.ts";
 import { webPreferences } from "../security.ts";
+import { TOP_BAR_HEIGHT } from "../window.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
 export type BrowserWiring = Registered & {
   views: BrowserViews;
-  frame: BrowserFrame;
-  /** 창마다 하나인 native view 층 순서. 앱 view가 같은 것을 쓴다. */
-  orderOf: ReturnType<typeof windowViewOrders<BrowserWindow, WebContentsView>>;
+  /** native popup·DevTools의 위치·숨김·창 옮기기. view IPC가 bounds·hidden 채널을 여기로 보낸다. */
+  nativeBounds: NativeBounds;
+  /** app·artifact view 영역이 자기 `<webview>` 붙이기 판정을 넣는다. 창이 열리기 전에 넣는다. */
+  webviewGuests: { add(resolver: WebviewGuestResolver): void };
 };
 
 export function register(ctx: ShellContext): BrowserWiring {
@@ -51,8 +65,8 @@ export function register(ctx: ShellContext): BrowserWiring {
       platform: process.platform,
     }));
 
-  const orderOf = windowViewOrders<BrowserWindow, WebContentsView>((window) =>
-    overlays.raise(window),
+  const orderOf = windowBrowserViewOrders<BrowserWindow, WebContentsView>(
+    (window) => overlays.raise(window),
   );
   const host = electronBrowserViews({
     windowOf: (ref) => windowOfRef(ref),
@@ -87,6 +101,30 @@ export function register(ctx: ShellContext): BrowserWiring {
     pushEvent: sendTo(BROWSER_EVENT_CHANNEL),
   });
 
+  // native popup·DevTools의 자리. renderer는 CSS pixel 사각형을 보내고 여기서 창 DIP로 바꾼다.
+  const nativeBounds = createNativeBounds({
+    frame: views,
+    geometry: {
+      // overlay와 같은 창 본문이다. 상단 바는 shell 크롬이라 view가 덮지 않는다.
+      body(ref) {
+        const window = windowOfRef(ref);
+        if (window === undefined) return undefined;
+        const [width = 0, height = 0] = window.getContentSize();
+        return {
+          x: 0,
+          y: TOP_BAR_HEIGHT,
+          width: Math.max(0, width),
+          height: Math.max(0, height - TOP_BAR_HEIGHT),
+        };
+      },
+      zoom: (ref) => windowOfRef(ref)?.webContents.getZoomFactor() ?? 1,
+    },
+    timer: {
+      set: (callback, ms) => setTimeout(callback, ms),
+      clear: (handle) => clearTimeout(handle as NodeJS.Timeout),
+    },
+  });
+
   registerBrowserIpc(
     ipc,
     createBrowserIpc({
@@ -99,11 +137,23 @@ export function register(ctx: ShellContext): BrowserWiring {
       clearData: () => ensureSession().clearData(),
     }),
   );
-  ctx.windowHooks.closed.push(({ ref }) => views.closeWindow(ref));
+  ctx.windowHooks.closed.push(({ ref }) => {
+    nativeBounds.closeWindow(ref);
+    views.closeWindow(ref);
+  });
 
-  // project 창만 webviewTag가 켜져 있다(window.ts). 붙이기 전에 규칙을 강제하고, 붙은 guest에 hook을 건다.
+  // app·artifact view의 붙이기 판정. 영역이 자기 resolver를 넣는다.
+  const resolvers: WebviewGuestResolver[] = [];
+  // 모든 붙이기의 격리 기본값. browser view만 이 위에 DevTools를 켠다.
+  const base = { ...webPreferences(app.isPackaged) };
+
+  // project 창과 앱 전용 창은 모두 `lophn-shell://desktop` 문서다(webviewTag는 window.ts가 켠다).
+  // 붙이기 전에 규칙을 강제하고, 붙은 guest에 hook을 건다. 받아 둔 붙이기는 did-attach가 오는
+  // 순서 그대로 하나씩 꺼내 묶는다(Electron은 거절하지 않은 붙이기에만 did-attach를 보낸다).
   ctx.windowHooks.created.push((window) => {
     const contents = window.webContents;
+    const ref = windowRef(window);
+    const accepted: AcceptedWebviewGuest[] = [];
     contents.on("will-attach-webview", (event, prefs, params) => {
       let fromShell = false;
       try {
@@ -112,34 +162,79 @@ export function register(ctx: ShellContext): BrowserWiring {
       } catch {
         // 아직 문서가 없으면 shell이 아니다.
       }
-      const allowed = hardenWebviewAttach({
+      const src = typeof params.src === "string" ? params.src : "";
+      let guest: AcceptedWebviewGuest | undefined;
+      if (fromShell && src !== "") {
+        for (const resolve of resolvers) {
+          guest = resolve(ref, src);
+          if (guest !== undefined) break;
+        }
+      }
+      const target = hardenWebviewAttach({
         fromShell,
         webPreferences: prefs as unknown as Record<string, unknown>,
         params: params as unknown as Record<string, string>,
-        base: { ...webPreferences(app.isPackaged), devTools: true },
+        app: guest?.target.kind === "app" ? guest.target : undefined,
+        artifact: guest?.target.kind === "artifact" ? guest.target : undefined,
+        base,
       });
-      if (!allowed) {
+      if (target === undefined) {
+        // 다른 창의 view·모르는 src·이미 쓴 src·shell 밖 문서는 여기서 끝난다.
+        guest?.drop();
         event.preventDefault();
         return;
       }
-      // guest가 생기기 전에 partition의 정책을 깐다.
-      ensureSession();
+      if (target.kind === "browser") {
+        let view_session: string | undefined;
+        accepted.push({
+          target,
+          bind(webContents: WebContents) {
+            view_session = guestViewSession(webContents.id);
+            views.addGuest(ref, view_session, (hooks) =>
+              host.guest(webContents, hooks),
+            );
+          },
+          drop() {
+            if (view_session !== undefined) views.forgetGuest(view_session);
+          },
+        });
+        // guest가 생기기 전에 partition의 정책을 깐다.
+        ensureSession();
+        return;
+      }
+      // app·artifact는 resolver가 받아 둔 붙이기 그대로 묶는다.
+      if (guest === undefined) {
+        event.preventDefault();
+        return;
+      }
+      accepted.push(guest);
     });
     contents.on("did-attach-webview", (_event, guest) => {
-      const view_session = guestViewSession(guest.id);
-      views.addGuest(windowRef(window), view_session, (hooks) =>
-        host.guest(guest, hooks),
-      );
-      guest.once("destroyed", () => views.forgetGuest(view_session));
+      const next = accepted.shift();
+      if (next === undefined) {
+        // 규칙을 지나지 않은 guest는 이 창에 붙이지 않는다.
+        guest.close();
+        return;
+      }
+      next.bind(guest);
+      guest.once("destroyed", () => next.drop());
+    });
+    window.on("closed", () => {
+      for (const item of accepted.splice(0)) item.drop();
     });
   });
 
   return {
     views,
-    frame: views,
-    orderOf,
+    nativeBounds,
+    webviewGuests: {
+      add(resolver) {
+        resolvers.push(resolver);
+      },
+    },
     stop() {
       removeBrowserIpc(ipc);
+      nativeBounds.dispose();
       views.dispose();
     },
   };

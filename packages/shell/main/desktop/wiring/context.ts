@@ -77,8 +77,8 @@ export type ShellContext = {
   windows: Set<BrowserWindow>;
   /** detached 탭 창들. `windows`에도 들어 있다. 창 밖에서 온 일은 이 창으로 가지 않는다. */
   detached: Set<BrowserWindow>;
-  /** 앱 전용 창. shell 창이 아니라서 shortcut·intent·core 상태를 받지 않는다. */
-  appWindowRefs: Map<string, BrowserWindow>;
+  /** 앱 전용 창들. `windows`에도 들어 있다. 창 밖에서 온 일은 이 창으로 가지 않는다. */
+  appWindows: Set<BrowserWindow>;
   log: (message: string) => void;
   core: CoreConnection;
   /** main 안 core 통로. renderer allowlist를 거치지 않는다. */
@@ -125,14 +125,14 @@ export function createShellContext(): ShellContext {
   if (headless.shotDir) mkdirSync(headless.shotDir, { recursive: true });
   const overlays = electronOverlays(headless);
   const windows = new Set<BrowserWindow>();
-  const appWindowRefs = new Map<string, BrowserWindow>();
+  const appWindows = new Set<BrowserWindow>();
   const log = (message: string) => console.log(`[lophn] ${message}`);
 
   const windowRef = (window: BrowserWindow) => `window-${window.id}`;
   const windowOfRef = (ref: string) =>
     [...windows].find(
       (window) => !window.isDestroyed() && windowRef(window) === ref,
-    ) ?? appWindowRefs.get(ref);
+    );
 
   let stopped = false;
   const relay: CoreRelay = {
@@ -170,7 +170,7 @@ export function createShellContext(): ShellContext {
     overlays,
     windows,
     detached: new Set(),
-    appWindowRefs,
+    appWindows,
     log,
     core,
     coreInternal,

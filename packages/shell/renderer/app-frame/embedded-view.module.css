@@ -18,3 +18,11 @@
   gap: var(--space-3);
   padding: var(--space-6);
 }
+
+.unavailable {
+  margin: var(--space-0);
+  padding: var(--space-8) var(--space-9);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}

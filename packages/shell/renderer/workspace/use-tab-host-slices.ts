@@ -10,11 +10,8 @@ import {
 import { useArtifactList } from "../artifact/use-artifact-list.ts";
 import { useSessions } from "../desktop/connection/events/hooks.tsx";
 import { useAppViews } from "../app-frame/app-views.tsx";
-import {
-  createViewCovers,
-  createViewKeeps,
-} from "../app-frame/embedded-view.tsx";
-import { createWebviewHost } from "../browser/webview-host.tsx";
+import { createViewKeeps } from "../app-frame/embedded-view.tsx";
+import { createWebviewHost } from "../app-frame/webview-host.tsx";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { DraftStore } from "../conversation/drafts.ts";
 import { useConversation } from "../conversation/window-deps.tsx";
@@ -89,13 +86,12 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
   const hostRef = useRef(input.host);
   hostRef.current = input.host;
 
-  const covers = useMemo(createViewCovers, []);
   const appViews = useAppViews();
   // 탭 view의 보관소. 닫는 일은 호출하는 쪽 effect가 정한다.
   const closeViewRef = useRef<(session: string) => void>(() => {});
   closeViewRef.current = (session) =>
     void appViews?.views.closeView({ view_session: session }).catch(() => {});
-  // browser 탭의 <webview> 그릇. 창마다 하나이고 탭 key당 <webview> 하나다(옮기면 다시 load된다).
+  // 화면(browser 탭·앱·artifact)의 <webview> 그릇. 창마다 하나이고 탭 key당 <webview> 하나다(옮기면 다시 load된다).
   const webviews = useMemo(createWebviewHost, []);
   const keeps = useMemo(
     () => createViewKeeps((session) => closeViewRef.current(session)),
@@ -169,7 +165,6 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
     sessionStates,
     agentView,
     agents,
-    covers,
     appViews,
     keeps,
     webviews,

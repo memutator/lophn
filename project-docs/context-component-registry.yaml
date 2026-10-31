@@ -348,7 +348,7 @@ components:
     path: project-docs/architecture/workspace-layout.md
     change_reasons:
       boundaries: [shell]
-      paths: [packages/shell/renderer/workspace/model.ts, packages/shell/main/workspace/schema.ts, packages/shell/main/app-frame/view-order.ts, packages/shell/renderer/app-frame/bounds.ts, packages/shell/renderer/app-frame/view-keeps.ts, packages/shell/ipc/detached.ts, packages/shell/main/desktop/detached/, packages/shell/renderer/workspace/detached/]
+      paths: [packages/shell/renderer/workspace/model.ts, packages/shell/main/workspace/schema.ts, packages/shell/main/browser/view-order.ts, packages/shell/renderer/app-frame/webview-host.tsx, packages/shell/renderer/app-frame/view-keeps.ts, packages/shell/ipc/detached.ts, packages/shell/main/desktop/detached/, packages/shell/renderer/workspace/detached/]
 
   - id: architecture-ui-kit
     kind: doc

@@ -3,7 +3,7 @@
 import { useRef } from "react";
 
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
-import { useViewBounds } from "../app-frame/embedded-view.tsx";
+import { useViewBounds } from "./native-bounds.ts";
 import styles from "./browser-tab.module.css";
 
 export function DevtoolsPane(props: {

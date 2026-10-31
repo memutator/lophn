@@ -84,10 +84,15 @@ export function sendIntent(ctx: ShellContext, intent: DesktopIntent): void {
   } else send();
 }
 
-// detached 창은 건너뛴다: 전역 키와 tray가 탭 하나만 든 창으로 가지 않게 한다.
+// detached 창과 앱 전용 창은 건너뛴다: 전역 키와 tray가 탭 하나만 든 창으로 가지 않게 한다.
 function recentWindow(ctx: ShellContext): BrowserWindow | undefined {
   return [...ctx.windows]
-    .filter((window) => !window.isDestroyed() && !ctx.detached.has(window))
+    .filter(
+      (window) =>
+        !window.isDestroyed() &&
+        !ctx.detached.has(window) &&
+        !ctx.appWindows.has(window),
+    )
     .at(-1);
 }
 
@@ -101,10 +106,20 @@ export function showDesktopWindow(ctx: ShellContext): void {
   reveal(recent, ctx.headless);
 }
 
-/** `start`가 있으면 그 hash와 자리로 연다(detached 창). 개발용 시작 환경 변수는 보지 않는다. */
+/** shell 창의 시작 값. detached 탭 창과 앱 전용 창이 쓴다. */
+export interface DesktopWindowStart {
+  hash: string;
+  bounds?: WindowBounds;
+  /** 시스템 제목. 없으면 제품 이름이다. */
+  title?: string;
+  /** detached 탭 창이면 작은 최소 크기를 쓴다. 앱 전용 창은 기본 최소 크기(960x600)다. */
+  detached?: boolean;
+}
+
+/** `start`가 있으면 그 hash와 자리로 연다(detached·앱 전용 창). 개발용 시작 환경 변수는 보지 않는다. */
 export function openDesktopWindow(
   ctx: ShellContext,
-  start?: { hash: string; bounds?: WindowBounds },
+  start?: DesktopWindowStart,
 ): BrowserWindow | undefined {
   const { here, headless, windows, overlays } = ctx;
   // detached 창은 layout이 탭마다 자리를 갖는다. 앱 전체의 마지막 자리는 desktop 창만 쓰고 고친다.
@@ -126,7 +141,8 @@ export function openDesktopWindow(
     ...(bounds ? { bounds } : {}),
     // 저장한 자리로 여는 창은 숨긴 채 만들고 크기를 맞춘 뒤 보인다(`rememberPlace`).
     ...(place ? { show: false } : {}),
-    detached: start !== undefined,
+    ...(start?.title === undefined ? {} : { title: start.title }),
+    detached: start === undefined ? false : start.detached !== false,
     url:
       start !== undefined
         ? `${desktopUrl}${start.hash}`

@@ -1,4 +1,4 @@
-// 모든 BrowserWindow·WebContentsView에 같은 격리 기본값을 쓴다.
+// 모든 BrowserWindow·WebContentsView·<webview> guest에 같은 격리 기본값을 쓴다.
 // 배포 sandbox 실패를 --no-sandbox로 우회하지 않는다.
 import { ARTIFACT_SCHEME } from "../artifact/session.ts";
 
@@ -30,6 +30,15 @@ export function registerViewSchemes(protocol: SchemeRegistry): void {
   );
 }
 
+/** shell 문서·앱 화면·artifact 화면의 scheme인가. browser guest는 이 scheme의 주소를 열지 않는다. */
+export function isViewScheme(value: string): boolean {
+  try {
+    return VIEW_SCHEMES.includes(new URL(value).protocol.replace(/:$/, ""));
+  } catch {
+    return false;
+  }
+}
+
 /** 격리 기본값. 창과 view가 같은 값을 쓰도록 여기 하나만 둔다. */
 export interface WebPreferences {
   sandbox: true;
@@ -38,7 +47,7 @@ export interface WebPreferences {
   nodeIntegration: false;
   nodeIntegrationInSubFrames: false;
   nodeIntegrationInWorker: false;
-  // project 창(window.ts)만 true다. browser 탭의 <webview>를 그 창에서만 붙인다.
+  // shell 창(window.ts)만 true다. browser 탭과 앱·artifact 화면의 <webview>를 그 창에서만 붙인다.
   webviewTag: boolean;
   allowRunningInsecureContent: false;
   devTools: boolean;

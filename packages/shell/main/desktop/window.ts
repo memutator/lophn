@@ -27,6 +27,8 @@ interface WindowOptions {
   packaged: boolean;
   /** main이 검증한 공간 이름. 런처는 없다. */
   spaceName?: string;
+  /** 시스템 제목. 없으면 spaceName(또는 제품 이름)으로 만든다. 앱 전용 창이 앱 이름을 쓴다. */
+  title?: string;
   preload: string;
   /** false면 숨긴 채 만든다. 부르는 쪽이 크기를 맞춘 뒤 보인다. */
   show?: boolean;
@@ -63,12 +65,12 @@ function windowConfig(options: WindowOptions): WindowConfig {
     minWidth,
     minHeight,
     frame: false,
-    title: windowTitle(options.spaceName),
+    title: options.title ?? windowTitle(options.spaceName),
     autoHideMenuBar: true,
     ...(mac ? { trafficLightPosition: { x: 16, y: 16 } } : {}),
     webPreferences: {
       ...webPreferences(options.packaged),
-      // browser 탭의 <webview>. 붙일 때 설정은 browser/webview-guest.ts가 강제한다.
+      // browser 탭·앱 화면·artifact 화면의 <webview>. 붙일 때 설정은 browser/webview-guest.ts가 강제한다.
       webviewTag: true,
       preload: options.preload,
     },

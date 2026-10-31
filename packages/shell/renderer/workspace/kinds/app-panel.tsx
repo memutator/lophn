@@ -2,7 +2,6 @@
 import { workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
-import type { AppFrameViewState } from "../../../ipc/app-frame.ts";
 import { AppPanelPicker, AppPanelTab } from "../app-panel-tab.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
@@ -60,37 +59,6 @@ export const appPanelKind: TabKindDef = {
       app: tab.app,
       surface: tab.screen,
     };
-  },
-  // 앱 view를 닫지 않고 받는 창으로 넘긴다. 아직 앱을 안 골랐거나 열리는 중이면 넘길 view가 없다.
-  transfer(tab, host) {
-    const kept = host.viewKeeps.lookup<AppFrameViewState>(tab.key);
-    return Promise.resolve(
-      kept === undefined
-        ? { value: null, views: [] }
-        : {
-            value: { signature: kept.signature, state: kept.state },
-            views: [kept.session],
-          },
-    );
-  },
-  // 받는 창의 EmbeddedView가 mount될 때 take로 이 view를 이어 쓴다(signature가 같아야 한다).
-  receive(tab, transfer, host) {
-    const [session] = transfer.views;
-    const value = transfer.value as {
-      signature?: unknown;
-      state?: Partial<AppFrameViewState>;
-    } | null;
-    if (
-      session === undefined ||
-      typeof value?.signature !== "string" ||
-      value.state?.view_session !== session
-    )
-      return;
-    host.viewKeeps.put(tab.key, {
-      session,
-      signature: value.signature,
-      state: value.state,
-    });
   },
   hasAppView: (tab) => tab.app !== undefined && tab.screen !== undefined,
   // 앱 패널은 고르지 않아도 칸에 남아 view를 숨긴 채 둔다. 닫으면 빠져 view가 폐기된다.

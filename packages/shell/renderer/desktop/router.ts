@@ -1,7 +1,13 @@
 import type { SettingsPane } from "./settings/model.ts";
 
 // 창 안의 자리. 새 기본 창은 언제나 런처에서 시작한다.
-type Space = "launcher" | "settings" | "project" | "app" | "detached";
+type Space =
+  | "launcher"
+  | "settings"
+  | "project"
+  | "app"
+  | "app-window"
+  | "detached";
 
 export interface Route {
   readonly space: Space;
@@ -11,6 +17,9 @@ export interface Route {
   readonly detached?: string;
   /** app 공간의 앱 id. 다른 공간은 없다. */
   readonly app?: string;
+  /** app-window 공간이 그릴 앱 화면의 판·화면. 다른 공간은 없다. */
+  readonly release?: string;
+  readonly screen?: string;
   /** settings 공간에서 처음 보일 항목. 없으면 General이다. */
   readonly settingsPane?: SettingsPane;
   /** project·app 공간에서 열어 시작할 session. launcher 공간에서는 lophn 패널이 열 session이다. */
@@ -55,6 +64,15 @@ export function openApp(app: string, session?: string): Route {
 /** 방금 만든 앱의 앱 공간으로 이동한다. 오른쪽 패널이 그 앱 place의 lophn 새 session으로 열린다. */
 export function openNewApp(app: string): Route {
   return { space: "app", app, newSession: true };
+}
+
+/** 앱 전용 창(앱 화면 하나만 그리는 OS 창)으로 시작한다. main이 이 hash로 창을 연다. */
+export function openAppWindow(
+  app: string,
+  release: string,
+  screen: string,
+): Route {
+  return { space: "app-window", app, release, screen };
 }
 
 /** detached 창(탭 하나만 그리는 OS 창)으로 시작한다. */

@@ -1,7 +1,13 @@
 // secret 보호 입력 창. 일반 desktop 창이 `openSecretInput`을 부르면 그 창의 child modal로 연다.
 // 창마다 메모리 partition이고 설치된 secret-input 페이지만 그 partition에서 연다.
 // 같은 영역에 창 없는 사람 결정 handle IPC도 둔다: 둘 다 사람 자격이 필요한 입력을 shell main이 받는 길이다.
-import { app, BrowserWindow, session, WebContentsView } from "electron";
+import {
+  app,
+  BrowserWindow,
+  session,
+  webContents as allContents,
+  WebContentsView,
+} from "electron";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -82,13 +88,24 @@ export function register(ctx: ShellContext): Registered {
         (window) => !window.isDestroyed() && windowRef(window) === parentId,
       );
       if (parent === undefined) return [];
-      // shell 크롬 overlay 말고 부모 창에 붙은 앱·문서 view 전부의 입력을 막는다.
-      return parent.contentView.children.flatMap((view) =>
+      // shell 크롬 overlay 말고 부모 창에 붙은 앱·문서 view 전부의 입력을 막는다. 앱·artifact·browser
+      // 화면은 renderer의 <webview> guest라 창의 child view가 아니므로 host로 찾는다.
+      const native = parent.contentView.children.flatMap((view) =>
         view instanceof WebContentsView &&
         !view.webContents.getURL().startsWith("lophn-shell:")
           ? [view.webContents as unknown as AppContents]
           : [],
       );
+      const guests = allContents
+        .getAllWebContents()
+        .filter(
+          (contents) =>
+            !contents.isDestroyed() &&
+            contents.getType() === "webview" &&
+            contents.hostWebContents === parent.webContents,
+        )
+        .map((contents) => contents as unknown as AppContents);
+      return [...native, ...guests];
     },
   };
 

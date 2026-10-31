@@ -1,5 +1,6 @@
-// 보호 창은 요청한 shell 창의 child modal이다. 앱 view는 부모 contentView 안에만
-// 있으므로 다른 BrowserWindow를 덮지 못한다. 그래서 native view를 숨기거나 떼지 않는다.
+// 보호 창은 요청한 shell 창의 child modal이다. 앱·artifact 화면은 부모 창 renderer의
+// `<webview>` guest라 부모 창 안에만 그려지므로 다른 BrowserWindow를 덮지 못한다. 그래서 화면을
+// 숨기거나 떼지 않고, 그 창의 guest 입력만 막는다.
 import { type WebPreferences, webPreferences } from "../desktop/security.ts";
 import {
   focusSurface,

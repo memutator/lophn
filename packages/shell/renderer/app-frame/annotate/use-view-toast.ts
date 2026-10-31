@@ -1,5 +1,5 @@
-// 앱 화면 위쪽에 띄우는 알림(Annotate 켜짐·보냄·돌아감). native view가 DOM을 가리므로 overlay가 있으면
-// overlay의 notification 표면으로 열고, 없으면(앱 view가 없는 창, gallery) 같은 모양의 toast를 DOM으로 그리게 값을 돌려준다.
+// 앱 화면 위쪽에 띄우는 알림(Annotate 켜짐·보냄·돌아감). overlay가 있으면 overlay의 notification 표면으로
+// 열고, 없으면(앱 view가 없는 창, gallery) 같은 모양의 toast를 DOM으로 그리게 값을 돌려준다.
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { OverlayApi, OverlayIdentity } from "../../../ipc/overlay.ts";

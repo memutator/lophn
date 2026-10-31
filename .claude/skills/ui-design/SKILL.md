@@ -61,7 +61,7 @@ npm run check
 - gallery는 iframe 안 고정 크기 창이다. 화면 root는 `position: absolute; inset: 0`이고 `100vh`와 fixed 배치가 그대로 맞는다. root 높이를 body에 기대면 Radix modal(Select, Menu, Dialog)이 열릴 때 접혀 보인다(`main.tsx`).
 - Radix modal은 열리면 page 전체를 inert로 만든다. 디자인 시스템 page에서는 modal 견본을 같이 열어 두지 말고 따로 둔다(`pages/kit/overlay`는 단추로 연다).
 - dialog와 menu는 portal로 열리므로 drive에서 `global`로 document 전체에서 찾는다.
-- 앱 view(사용자 앱이 그리는 부분)는 main의 native view라 gallery에 없다. 자리에 고정 그림(`mock/app-space/orders-view.tsx`, CSS는 `drafts/app-space/`)을 넣는다. browser 탭의 page(`<webview>`)도 gallery에 없다. `renderer/browser/webview-host.tsx`가 `<webview>`가 정의되지 않은 곳에서 빈 자리를 그린다. page 상태와 bookmark는 fake browser 통로(`renderer/browser/testdata/fake-browser-api.ts`)가 준다.
+- 앱 화면(사용자 앱이 그리는 부분)은 shell 창의 `<webview>` guest라 gallery에 없다. 자리에 고정 그림(`mock/app-space/orders-view.tsx`, CSS는 `drafts/app-space/`)을 넣는다. browser 탭의 page(`<webview>`)도 gallery에 없다. `renderer/app-frame/webview-host.tsx`가 `<webview>`가 정의되지 않은 곳에서 빈 자리를 그린다. page 상태와 bookmark는 fake browser 통로(`renderer/browser/testdata/fake-browser-api.ts`)가 준다.
 - gallery는 Electron이 아니라서 맞게 보여도 앱에서 깨지는 것이 있다. 이것들은 `npm run dev:mock`으로 본다.
   - shell CSP는 `style` 속성을 허용하고(`style-src-attr 'unsafe-inline'`) inline `<style>` 요소는 막는다(`style-src 'self'`). CodeMirror·xterm이 넣는 `<style>`은 constructable stylesheet로 옮겨 붙인다(`editor/adopt-styles.ts`, `terminal/xterm-view.ts`). 새 library가 `<style>`을 넣으면 같은 일을 해야 앱에서 모양이 산다.
   - 위쪽 바는 창 끌기 영역이고 `-webkit-app-region`은 자식에게 이어진다. 바 안에서 absolute로 내려오는 panel은 `no-drag`를 주지 않으면 클릭과 scroll이 창 끌기로 먹힌다.

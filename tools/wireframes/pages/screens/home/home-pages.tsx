@@ -48,10 +48,7 @@ export const HomeSession = () => <MockDesktop homeTabs={[SESSION_TAB]} />;
 
 /** 오른쪽 Jobs panel. project와 상관없이 모든 job이 보인다. */
 export const HomeJobs = () => (
-  <Driven
-    withSession
-    steps={[() => click('[role="tab"]', /Scheduled jobs/)]}
-  />
+  <Driven withSession steps={[() => click('[role="tab"]', /Scheduled jobs/)]} />
 );
 
 /** 등록 dialog를 연 Home. */

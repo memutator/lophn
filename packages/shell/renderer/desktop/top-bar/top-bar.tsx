@@ -12,9 +12,9 @@ import { WindowControls } from "./window-controls.tsx";
 interface TopBarProps {
   /** 액티비티 바 위에 놓이는 레일 칸 (런처 복귀 등). 폭이 액티비티 바와 같다. */
   rail?: ReactNode;
-  /** 바 왼쪽 자리. 런처는 wordmark를 둔다. */
+  /** 바 왼쪽 자리. 시작 화면(HomeGate)은 wordmark를 둔다. */
   leading?: ReactNode;
-  /** 바 오른쪽 자리. 런처는 Settings 진입점을 둔다. */
+  /** 바 오른쪽 자리. */
   trailing?: ReactNode;
   /** 비울 OS 창 조작 자리. 기본은 지금 renderer의 OS다. */
   platform?: WindowPlatform;

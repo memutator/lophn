@@ -170,7 +170,10 @@ export const agentKind: TabKindDef = {
     }
     const source = host.agentView?.factory({
       assignment: agent,
-      place: place === HOME ? { kind: "global", id: "" } : { kind: "project", id: place },
+      place:
+        place === HOME
+          ? { kind: "global", id: "" }
+          : { kind: "project", id: place },
     });
     if (source === undefined) return;
     void source.renameSession(session, trimmed).then((result) => {

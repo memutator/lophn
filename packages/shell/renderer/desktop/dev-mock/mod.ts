@@ -36,7 +36,7 @@ export interface DevMock {
   readonly editor: Omit<EditorDeps, "menu">;
   /** 팔레트의 project·앱 행. */
   readonly catalog: CatalogSource;
-  /** 런처 카드와 앱 공간의 project 고르기. */
+  /** Home Places panel과 앱 공간의 project 고르기. */
   readonly projects: ProjectsSource;
   readonly apps: AppsSource;
   readonly settings: SettingsSource;
@@ -78,7 +78,7 @@ export function devMock(
       ...bench.source,
       // Agents 탭과 sidebar의 Agents 묶음도 메모리 통로를 읽는다.
       agentsSource: agents,
-      // 목록도 런처 카드의 것이다(보관된 카드는 뺀다).
+      // 목록도 Places panel의 것이다(보관된 것은 뺀다).
       projects: async () => {
         const cards = await projects.list();
         return cards.ok

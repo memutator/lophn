@@ -65,7 +65,7 @@ lophn의 agent는 lophn과 사람이 만든 agent이고 정의는 전역이다. 
 ## 왜 이 모양인가
 
 - **agent는 전역이고 place는 session이 갖는다(사람, 2026-10-28).** role(lophn, Project Manager, App Engineer, Operator)이 agent를 place에 묶었지만, place가 하는 일(file 범위, 받는 domain, credential 조건, prompt, 주소)은 모두 "session이 어디서 일하나"의 일이다. Claude Code, Codex, OpenCode도 agent 설정은 전역이고 작업 폴더는 session마다다. 옛 assignment 상태 machine(누가 무엇을 맡았나)은 agent와 할당으로 대체했다. 상태를 따로 추적하지 않아도, 맡기는 것은 call이고 허락은 할당이다.
-- **앱 일은 그 앱 place의 session이 한다.** 앱은 project에 묶이지 않는 그릇이라 앱 코드의 일(설계, 선언, 구현, release)은 그 앱 place에서 한다. 앱은 사람이 런처의 New app으로 직접 만들거나(그 앱 place의 lophn 새 session으로 시작한다), home의 lophn이 등록하고 그 앱 place의 lophn session에 call로 맡긴다.
+- **앱 일은 그 앱 place의 session이 한다.** 앱은 project에 묶이지 않는 그릇이라 앱 코드의 일(설계, 선언, 구현, release)은 그 앱 place에서 한다. 앱은 사람이 Home의 Places panel에서 New app으로 직접 만들거나(그 앱 place의 lophn 새 session으로 시작한다), home의 lophn이 등록하고 그 앱 place의 lophn session에 call로 맡긴다.
 - **앱 place에는 project 지침이 없다.** 앱은 project에 묶이지 않으므로 앱 place의 session은 `LOPHN.md`를 받지 않는다. 지침 층은 전역, 맡은 domain의 `DOMAIN.md`, agent 정의 본문이다.
 - **"이 session 동안" 허락은 없다.** 할당했으면 허락한 것이고, shell 규칙의 `ask`는 `always`로 규칙 줄을 더한다(`architecture/approval.md`). skip은 사람이 그 session에 켠 표시라 표에 남긴다.
 - **agent runtime child 하나가 여러 session을 돈다.** 폴더·provider·MCP·skill 목록이 바뀌어도 다시 띄우지 않는다. session마다의 file 범위는 `placeScope`가 코드로 지킨다.

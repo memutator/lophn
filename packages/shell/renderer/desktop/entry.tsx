@@ -89,10 +89,10 @@ const core = mock?.core ?? windowCoreSource();
 const editor = windowEditorDeps(core);
 // 창마다 하나인 event 연결. 대기 목록·session 상태·toast가 이 연결 하나를 나눠 쓴다.
 const events = createEventClient(mock?.events ?? core);
-// 런처의 프로젝트 카드·등록·보관과 앱 공간의 project 고르기.
+// Home Places panel의 project 목록·등록·보관과 앱 공간의 project 고르기.
 const projects =
   mock?.projects ?? coreProjectsSource(core, windowFolderPicker());
-// 런처의 앱 카드·보관과 앱 공간. 앱 view는 shell preload의 view 통로로 main이 붙인다.
+// Home Places panel의 앱 목록·보관과 앱 공간. 앱 view는 shell preload의 view 통로로 main이 붙인다.
 const apps = mock?.apps ?? coreAppsSource(core);
 // 팔레트의 project·앱 행.
 const catalog = mock?.catalog ?? catalogSource(projects, apps);
@@ -136,7 +136,7 @@ function appWindowRoute(value: string): Route | undefined {
 
 // 개발 확인용 시작 화면. `#settings`면 Settings부터 연다.
 // `#project=<id>`면 그 프로젝트 작업대부터, `#app=<id>`면 그 앱 공간부터 연다.
-// `#detached=<탭 key>`는 main이 띄우는 detached 창이다. 기본은 런처다.
+// `#detached=<탭 key>`는 main이 띄우는 detached 창이다. 기본은 Home이다.
 const start: Route | undefined = seed
   ? openProject(seed.project)
   : location.hash.startsWith("#project=")

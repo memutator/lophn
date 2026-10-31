@@ -243,10 +243,7 @@ export function MockDesktop(props: MockDesktopProps) {
     const homeLayout =
       homeTabs === undefined
         ? undefined
-        : layoutOf(
-            [{ tabs: homeTabs, selected: homeTabs[0]?.key ?? "" }],
-            [],
-          );
+        : layoutOf([{ tabs: homeTabs, selected: homeTabs[0]?.key ?? "" }], []);
     const workspace =
       panes === undefined && homeLayout === undefined
         ? mock.workspace

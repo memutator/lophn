@@ -1404,7 +1404,8 @@ export function PlaceWindow(props: PlaceWindowProps) {
   // 탭이 파일이면 project 폴더 기준 경로 조각, 아니면 탭 이름이 crumb이다.
   const crumbsOf = (tab: TabItem): string[] => {
     const path = pathOfTab(tab);
-    const base = loaded.project?.title ?? projectId ?? t("left-sidebar.label.home");
+    const base =
+      loaded.project?.title ?? projectId ?? t("left-sidebar.label.home");
     return path === null
       ? [base, tab.title]
       : [
@@ -1786,42 +1787,46 @@ export function PlaceWindow(props: PlaceWindowProps) {
                   onOpenJobs={() => onSettings("jobs")}
                 />
               ) : (
-              <ProjectPanel
-                tab={panel as SidebarTab}
-                project={loaded.project}
-                source={source}
-                artifactPanel={
-                  <ArtifactPanel
-                    domains={domains}
-                    onOpen={(domain, name) => openArtifact(host, domain, name)}
-                  />
-                }
-                jobs={props.jobs}
-                onOpenJobs={() => onSettings("jobs")}
-                current={
-                  currentTab?.kind === "document_editor" ? currentTab.key : null
-                }
-                focusExplorer={explorerFocus}
-                reveal={reveal}
-                onOpenFile={(path, keep) =>
-                  openFile(host, path, { preview: keep !== true })
-                }
-                onMove={moveFile}
-                onTrash={trashFile}
-                explorerRoot={explorerRoot ?? null}
-                onExplorerRoot={setExplorerRoot}
-                onAddFolder={addProjectFolder}
-                onRemoveFolder={removeProjectFolder}
-                {...(terminal === undefined
-                  ? {}
-                  : {
-                      onOpenTerminal: (cwd: string) =>
-                        openTerminalTab(host, { cwd }),
-                    })}
-                onOpenDomainDoc={(domain) => void openDomainDoc(domain)}
-                onOpenWorkflow={(workflow) => openWorkflow(host, workflow)}
-                activeWorkflow={desk.workflow}
-              />
+                <ProjectPanel
+                  tab={panel as SidebarTab}
+                  project={loaded.project}
+                  source={source}
+                  artifactPanel={
+                    <ArtifactPanel
+                      domains={domains}
+                      onOpen={(domain, name) =>
+                        openArtifact(host, domain, name)
+                      }
+                    />
+                  }
+                  jobs={props.jobs}
+                  onOpenJobs={() => onSettings("jobs")}
+                  current={
+                    currentTab?.kind === "document_editor"
+                      ? currentTab.key
+                      : null
+                  }
+                  focusExplorer={explorerFocus}
+                  reveal={reveal}
+                  onOpenFile={(path, keep) =>
+                    openFile(host, path, { preview: keep !== true })
+                  }
+                  onMove={moveFile}
+                  onTrash={trashFile}
+                  explorerRoot={explorerRoot ?? null}
+                  onExplorerRoot={setExplorerRoot}
+                  onAddFolder={addProjectFolder}
+                  onRemoveFolder={removeProjectFolder}
+                  {...(terminal === undefined
+                    ? {}
+                    : {
+                        onOpenTerminal: (cwd: string) =>
+                          openTerminalTab(host, { cwd }),
+                      })}
+                  onOpenDomainDoc={(domain) => void openDomainDoc(domain)}
+                  onOpenWorkflow={(workflow) => openWorkflow(host, workflow)}
+                  activeWorkflow={desk.workflow}
+                />
               )
             }
             floats={

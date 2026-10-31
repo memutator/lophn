@@ -9,7 +9,10 @@ export function sessionAgentKey(entry: SessionEntry): string | null {
 }
 
 // project가 null이면 Home(place 없음)이다.
-function sessionAtProject(entry: SessionEntry, project: string | null): boolean {
+function sessionAtProject(
+  entry: SessionEntry,
+  project: string | null,
+): boolean {
   return project === null
     ? entry.place === null
     : entry.place?.kind === "project" && entry.place.id === project;

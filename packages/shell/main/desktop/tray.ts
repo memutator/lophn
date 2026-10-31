@@ -1,4 +1,4 @@
-// tray. 런처·로그인 자동 시작·Quit을 둔다. 모든 창을 닫아도
+// tray. Home·로그인 자동 시작·Quit을 둔다. 모든 창을 닫아도
 // main과 tray, 그 아래 core는 남는다. tray의 Quit만 main과 core를 멈추는 명시 행동이다.
 // Electron Tray·Menu는 adapter 뒤에 둔다.
 import { join } from "node:path";
@@ -77,7 +77,7 @@ export interface TrayFactory {
 interface TrayActions {
   /** 가장 최근 창을 앞으로, 창이 없으면 새 기본 창. */
   openWindow(): void;
-  /** 새 기본 창. 새 기본 창은 언제나 런처에서 시작한다. */
+  /** 새 기본 창. 새 기본 창은 언제나 Home에서 시작한다. */
   openLauncher(): void;
   readAutostart(): AutostartState;
   writeAutostart(enabled: boolean): AutostartState;

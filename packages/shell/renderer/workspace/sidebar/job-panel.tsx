@@ -58,10 +58,13 @@ export function JobPanel({
     void source.list().then((read) => {
       setLoaded(
         read.ok
-          ? { state: "ready", jobs:
-            project === null
-              ? read.value.jobs
-              : jobsOfProject(read.value.jobs, project) }
+          ? {
+              state: "ready",
+              jobs:
+                project === null
+                  ? read.value.jobs
+                  : jobsOfProject(read.value.jobs, project),
+            }
           : { state: "failed" },
       );
     });

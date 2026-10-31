@@ -1,8 +1,9 @@
-/* composer 아래 한 줄. 높이 24px에 창 사용률 막대·글, token, 금액을 왼쪽부터 늘어놓는다. 누르면 `/status` panel. */
+/* composer 아래 place·권한과 같은 줄의 오른쪽 끝. 높이 24px에 창 사용률 막대·글, token, 금액을 늘어놓는다. 누르면 `/status` panel. */
 .footer {
   box-sizing: border-box;
   display: flex;
-  flex: none;
+  flex: 0 1 auto;
+  min-width: var(--space-0);
   align-items: center;
   gap: var(--space-3);
   height: var(--space-8);

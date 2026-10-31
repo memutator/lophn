@@ -45,7 +45,7 @@ lophn의 agent는 lophn과 사람이 만든 agent이고 정의는 전역이다. 
 - fork는 이력만 복사한다. 같은 agent, 같은 place의 새 session이고 고른 지점까지의 확정 메시지를 가져간다. rewind가 숨긴 구간은 복사하지 않는다.
   - 대기 request와 질문, 열린 call, rewind 기록은 원래 session의 turn에 묶여 있어 가져가지 않는다. 같은 파일을 두 session이 되돌리면 부딪친다.
   - skip도 가져가지 않는다. 새 session은 agent 정의의 `skip` 기본값으로 시작한다.
-- checkpoint는 turn을 시작하는 입력(사람 메시지, call, 답, step)마다 생긴다. steer로 도는 turn에 들어간 메시지, fork 복사본, reaction, 알림은 아니다.
+- checkpoint는 turn을 시작하는 입력(사람 메시지, call, 답, step)마다 생긴다. steer로 도는 turn에 들어간 메시지, fork 복사본, reaction, 알림은 아니다. 다음 turn으로 접수했다가 [Send now]로 올린 메시지는 model 요청에 실려 turn이 정해지는 같은 tx(`takeSteering`)에서 checkpoint를 잃는다. 기록의 `delivery`는 접수 때 값이라 화면은 "turn을 연 입력이 아닌데 turn이 정해진 사람 메시지"를 steer로 본다.
   - Claude Code checkpointing도 turn 중 보낸 메시지는 checkpoint로 치지 않는다.
 - session rewind는 도는 turn이 없을 때만 시작한다. 앱 data는 file까지 함께 되돌리는 선택(restore_all)에서, 사람이 고른 앱만 되돌린다. 안 고르면 그대로다.
   - 앱 rewind는 시점 단위라 그 사이 다른 쪽의 변경도 함께 사라진다. 그래서 session rewind가 저절로 하지 않고, 사람에게 함께 되돌아갈 목록을 먼저 보인다.

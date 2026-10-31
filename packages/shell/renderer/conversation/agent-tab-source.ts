@@ -242,6 +242,8 @@ export interface ThreadMessage extends EntryBase {
   readonly turn: string | null;
   /** event나 snapshot이 이미 가진 글. 본문을 읽기 전에 보인다. 모르면 null이고 `body`로 읽는다. */
   readonly text: string | null;
+  /** 저장되기 전 live였던 reasoning 글. 본문을 읽기 전 자리를 채워 저장되는 순간 줄이 비었다 채워지지 않게 한다. */
+  readonly liveReasoning?: string | null;
 }
 
 interface EditView {
@@ -630,8 +632,6 @@ export interface AgentTabSource {
   stop(turn: string, key: string): Promise<SourceResult<void>>;
   /** 실패한 turn의 입력을 같은 session에 다시 보낸다. */
   retryTurn(turn: string): Promise<SourceResult<void>>;
-  /** 끝난 turn의 입력을 새 메시지로 다시 보낸다. 누를 때마다 새 turn이다. */
-  repeatTurn(turn: string): Promise<SourceResult<void>>;
   answerQuestions(input: {
     session: string;
     toolCall: string;

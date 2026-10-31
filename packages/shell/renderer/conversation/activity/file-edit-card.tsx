@@ -40,7 +40,7 @@ function diffOf(value: unknown): readonly DiffLine[] | null {
   return compareLines(before, after).map(({ kind, text }) => ({ kind, text }));
 }
 
-// 파일을 바꾼 편집 카드 "Edited <경로> +n −m"와 [Open]. 펼치면 바뀐 줄을 unified diff로 본다.
+// 파일을 바꾼 편집 카드 "Edited <경로> +n −m". 한 줄: 앞에 펼침 chevron, 오른쪽 끝에 [Open]. 펼치면 바뀐 줄을 unified diff로 본다.
 // 되돌리는 길은 rewind뿐이라 Undo는 없다.
 export function EditCard({
   path,
@@ -77,31 +77,29 @@ export function EditCard({
   return (
     <Card>
       <div className={styles.editCard} data-edit-card="">
+        {readInput === undefined ? null : (
+          <IconButton
+            icon={conversationIcons.expand}
+            size="sm"
+            label={t(
+              open
+                ? "conversation.button.edit-diff-hide"
+                : "conversation.button.edit-diff-show",
+            )}
+            aria-expanded={open}
+            data-edit-diff-toggle=""
+            onClick={() => setOpen(!open)}
+          />
+        )}
         <span className={styles.editText} data-edit-summary="">
           {t("conversation.label.edit-made")}{" "}
           <span className={styles.mono}>{path}</span>{" "}
           <span className={styles.added}>+{added}</span>{" "}
           <span className={styles.removed}>−{removed}</span>
         </span>
-        <span className={styles.editActions}>
-          {readInput === undefined ? null : (
-            <IconButton
-              icon={conversationIcons.expand}
-              size="sm"
-              label={t(
-                open
-                  ? "conversation.button.edit-diff-hide"
-                  : "conversation.button.edit-diff-show",
-              )}
-              aria-expanded={open}
-              data-edit-diff-toggle=""
-              onClick={() => setOpen(!open)}
-            />
-          )}
-          <Button size="sm" onClick={onOpen}>
-            {t("conversation.button.edit-open")}
-          </Button>
-        </span>
+        <Button size="sm" onClick={onOpen}>
+          {t("conversation.button.edit-open")}
+        </Button>
       </div>
       {open ? (
         <div className={styles.editDiff} data-edit-diff="">

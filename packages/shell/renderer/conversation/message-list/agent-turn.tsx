@@ -33,6 +33,7 @@ export function WorkingRow({
   now,
   waiting,
   streaming = false,
+  activity,
 }: {
   clock: { activeMs: number; at: number } | null;
   now: () => number;
@@ -40,6 +41,11 @@ export function WorkingRow({
   waiting?: "approval" | "answer";
   /** 쓰는 중인 글이 보이고 있다. */
   streaming?: boolean;
+  /**
+   * 지금 하는 일 한 줄(도는 tool의 제목, 또는 reasoning 중이면 "Thinking"). Messages 보기는 tool 줄과 reasoning을 숨겨
+   * 오래 걸리는 turn이 멈춘 것처럼 보이므로 이 줄이 진행을 말한다. 모든 보기에서 같은 한 줄을 보인다.
+   */
+  activity?: string | undefined;
 }): ReactElement | null {
   const shown = useDelayedLoading(true);
   const [start] = useState(now);
@@ -81,6 +87,11 @@ export function WorkingRow({
           {duration(elapsed)}
         </span>
       ) : null}
+      {activity === undefined ? null : (
+        <span className={styles.activity} data-activity="">
+          {t("conversation.label.status-activity", { activity })}
+        </span>
+      )}
       {hint === null ? null : (
         <span
           className={styles.hint}
@@ -94,33 +105,27 @@ export function WorkingRow({
 }
 
 /**
- * agent의 말 한 덩어리. 왼쪽 열에 avatar·이름·시각이 위에 한 번 있고, 이어지는 말과 tool 줄·카드는 같은 덩어리
- * 안에서 그 아래에 이름 없이 이어진다. 카드는 이 열의 폭을 다 쓴다. 아래 줄에 시각과 [Copy]·[Fork from here]를,
- * 마지막으로 끝난 turn의 덩어리면 [Retry]도 둔다. 대화의 마지막 덩어리면 늘 보이며 그 밖에는 hover에서 보인다.
+ * agent의 말 한 덩어리. 왼쪽 열에 avatar·이름이 위에 한 번 있고, 이어지는 말과 tool 줄·카드는 같은 덩어리
+ * 안에서 그 아래에 이름 없이 이어진다. 카드는 이 열의 폭을 다 쓴다. 아래 줄에 시각과 [Copy]·[Fork from here]를 둔다.
+ * 시각은 머리에 두지 않고 아래 줄 한 곳뿐이다. 대화의 마지막 덩어리면 늘 보이며 그 밖에는 hover에서 보인다.
  */
 export function AgentTurn({
   agent,
-  time,
   actionTime,
   copyText,
   onFork,
-  onRetry,
   children,
 }: {
   agent: { readonly name: string; readonly profile: AvatarProfile };
-  time: string;
   /** 아래 줄의 시각. 사람 메시지와 같은 모양이다. */
   actionTime?: string;
   /** 덩어리에서 글이 비어 있지 않은 마지막 agent 메시지. 누를 때 읽는다. */
   copyText?: () => string;
   /** 이 덩어리의 마지막 agent 메시지까지를 새 session으로 복사한다. */
   onFork?: () => void;
-  /** 끝난 turn의 입력을 새 메시지로 다시 보낸다. */
-  onRetry?: () => void;
   children: ReactNode;
 }): ReactElement {
   const forkLabel = t("conversation.button.fork-here");
-  const retryLabel = t("conversation.button.retry");
   return (
     <div className={styles.agentTurn} data-agent-turn="" data-side="start">
       <div className={styles.agentHead}>
@@ -128,15 +133,11 @@ export function AgentTurn({
         <span className={styles.agentName} data-agent-name="">
           {agent.name}
         </span>
-        <span className={styles.agentTime} data-turn-time="">
-          {time}
-        </span>
       </div>
       <div className={styles.agentBody}>{children}</div>
       {actionTime === undefined &&
       copyText === undefined &&
-      onFork === undefined &&
-      onRetry === undefined ? null : (
+      onFork === undefined ? null : (
         <div className={styles.messageActions} data-message-actions="">
           {actionTime === undefined || actionTime === "" ? null : (
             <span className={styles.messageTime} data-message-time="">
@@ -151,16 +152,6 @@ export function AgentTurn({
                 label={forkLabel}
                 size="sm"
                 onClick={onFork}
-              />
-            </Tooltip>
-          )}
-          {onRetry === undefined ? null : (
-            <Tooltip content={retryLabel}>
-              <IconButton
-                icon={conversationIcons.resend}
-                label={retryLabel}
-                size="sm"
-                onClick={onRetry}
               />
             </Tooltip>
           )}
@@ -190,7 +181,7 @@ export function Said({
 }
 
 /**
- * 내 메시지. 오른쪽 bubble이고 이름·avatar는 없다. bubble 아래 줄에 시각과 [Copy]·[Rewind to here]·[Fork]가
+ * 내 메시지. 오른쪽 bubble이고 이름·avatar는 없다. bubble 아래 줄에 시각과 [Copy]·[Rewind to here]가
  * 있고 hover나 focus에서 보인다. [Rewind to here]를 누르면 부르는 쪽이 rewind panel을 연다. 도는 turn에 steer로
  * 들어간 메시지는 rewind 시점이 아니라서 그 단추 대신 steer 표시가 붙는다. 보내는 중인 말은 bubble이 옅다.
  */
@@ -203,7 +194,6 @@ export function UserMessage({
   copyText,
   rewindOpen = false,
   onRewind,
-  onFork,
 }: {
   children: ReactNode;
   id?: string;
@@ -216,12 +206,9 @@ export function UserMessage({
   /** rewind panel이 이 메시지를 가리켜 열려 있다. 단추가 계속 보인다. */
   rewindOpen?: boolean;
   onRewind?: () => void;
-  /** 이 메시지까지의 확정 메시지를 복사한다. */
-  onFork?: () => void;
 }): ReactElement {
   const rewindable = onRewind !== undefined && !steer;
   const rewindLabel = t("conversation.button.rewind-here");
-  const forkLabel = t("conversation.button.fork-here");
   return (
     <div
       className={styles.userTurn}
@@ -256,16 +243,6 @@ export function UserMessage({
             />
           </Tooltip>
         ) : null}
-        {onFork === undefined ? null : (
-          <Tooltip content={forkLabel}>
-            <IconButton
-              icon={conversationIcons.newSession}
-              label={forkLabel}
-              size="sm"
-              onClick={onFork}
-            />
-          </Tooltip>
-        )}
       </div>
     </div>
   );

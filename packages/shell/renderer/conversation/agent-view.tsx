@@ -427,11 +427,6 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     }
   };
 
-  // 끝난 turn의 입력을 새 메시지로 다시 보낸다. 같은 turn을 여러 번 다시 할 수 있다.
-  const retry = (turn: string) => {
-    void perform(() => source.repeatTurn(turn));
-  };
-
   const startNew = () => {
     setLayer(null);
     onSessionChange(null);
@@ -672,7 +667,6 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             onFork={(message) => void fork(message)}
             onCheck={() => void check()}
             onResend={() => void sendAgain()}
-            onRetry={retry}
             onOpenFile={host.openFile}
             onOpenRef={(ref: EvidenceRef) => {
               if (ref.kind === "file") host.openFile?.(ref.target);
@@ -681,7 +675,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             artifacts={host.artifacts}
           />
         </RunCodeProvider>
-        {layer === null ? null : (
+        {layer === null || layer.kind === "status" ? null : (
           <div className={styles.layer} data-panel-layer={layer.kind}>
             {layer.kind === "rewind" && session !== null ? (
               <RewindPanel
@@ -700,9 +694,6 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
                 onClose={() => setLayer(null)}
                 onEdit={host.openPermissions}
               />
-            ) : null}
-            {layer.kind === "status" && status !== null ? (
-              <StatusView status={status} onClose={() => setLayer(null)} />
             ) : null}
           </div>
         )}
@@ -742,8 +733,21 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         <QueuedMessages
           items={thread?.queued ?? []}
           disabled={offline}
-          onSendNow={(id) => void perform(() => source.sendQueuedNow(id))}
-          onRemove={(id) => void perform(() => source.removeQueued(id))}
+          onSendNow={(id) =>
+            void perform(async () => {
+              const result = await source.sendQueuedNow(id);
+              // 옮기는 event를 놓쳐도 줄이 남지 않게 기록을 다시 읽는다.
+              if (result.ok) await data.reload();
+              return result;
+            })
+          }
+          onRemove={(id) =>
+            void perform(async () => {
+              const result = await source.removeQueued(id);
+              if (result.ok) await data.reload();
+              return result;
+            })
+          }
           onEdit={(id, text) =>
             void perform(async () => {
               const result = await source.editQueued(id, text);
@@ -759,45 +763,57 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             })
           }
         />
-        <AgentComposer
-          key={key}
-          source={source}
-          session={session}
-          agentName={agent.name}
-          draft={draft}
-          pathOf={windowPathOf()}
-          readImage={windowReadImage()}
-          working={active !== null}
-          locked={composerLocked(draft.outgoing)}
-          tooLong={!fitsMessage(draft.text)}
-          offline={offline}
-          readOnly={readOnly}
-          hint={hint}
-          place={agent.place}
-          permissionSummary={agent.permissionSummary}
-          permissions={permissions}
-          skip={
-            session === null || entry === null || readOnly
-              ? undefined
-              : {
-                  on: entry.skip,
-                  onChange: (on) =>
-                    void perform(() => source.changeSkip(session, on)).then(
-                      (ok) => (ok ? refresh() : undefined),
-                    ),
-                }
-          }
-          onDraft={(patch) => drafts.save(key, patch)}
-          onLoadPermissions={() => void loadPermissions()}
-          onEditPermissions={host.openPermissions}
-          onSend={() => void send()}
-          onStop={() => void stop()}
-          onCommand={runSlash}
-          onProblem={fail}
-        />
-        {status === null ? null : (
-          <StatusFooter status={status} onOpen={() => void showStatus()} />
-        )}
+        <div className={styles.composerAnchor}>
+          {layer?.kind === "status" && status !== null ? (
+            <div className={styles.statusOverlay} data-panel-layer="status">
+              <StatusView status={status} onClose={() => setLayer(null)} />
+            </div>
+          ) : null}
+          <AgentComposer
+            key={key}
+            source={source}
+            session={session}
+            agentName={agent.name}
+            draft={draft}
+            pathOf={windowPathOf()}
+            readImage={windowReadImage()}
+            working={active !== null}
+            locked={composerLocked(draft.outgoing)}
+            tooLong={!fitsMessage(draft.text)}
+            offline={offline}
+            readOnly={readOnly}
+            hint={hint}
+            place={agent.place}
+            permissionSummary={agent.permissionSummary}
+            permissions={permissions}
+            skip={
+              session === null || entry === null || readOnly
+                ? undefined
+                : {
+                    on: entry.skip,
+                    onChange: (on) =>
+                      void perform(() => source.changeSkip(session, on)).then(
+                        (ok) => (ok ? refresh() : undefined),
+                      ),
+                  }
+            }
+            onDraft={(patch) => drafts.save(key, patch)}
+            onLoadPermissions={() => void loadPermissions()}
+            onEditPermissions={host.openPermissions}
+            onSend={() => void send()}
+            onStop={() => void stop()}
+            onCommand={runSlash}
+            onProblem={fail}
+            usage={
+              status === null ? null : (
+                <StatusFooter
+                  status={status}
+                  onOpen={() => void showStatus()}
+                />
+              )
+            }
+          />
+        </div>
       </div>
     </section>
   );

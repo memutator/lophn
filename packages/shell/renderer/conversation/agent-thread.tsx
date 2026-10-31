@@ -67,7 +67,7 @@ interface AgentThreadProps {
   now: () => number;
   /** 내 말에 첨부한 이미지의 그림 주소. */
   imageUrl: (id: string) => Promise<string | null>;
-  /** archive한 session이다. 내 말의 Rewind·Fork 단추가 없다. */
+  /** archive한 session이다. 내 말의 Rewind 단추와 agent 말의 Fork 단추가 없다. */
   readOnly: boolean;
   drafts: DraftStore;
   source: Pick<
@@ -82,8 +82,6 @@ interface AgentThreadProps {
   onFork: (message: string) => void;
   onCheck: () => void;
   onResend: () => void;
-  /** 끝난 turn의 입력을 새 메시지로 다시 보낸다. */
-  onRetry: (turn: string) => void;
   /** 편집 카드의 [Open]. 없으면 단추가 아무것도 하지 않는다. */
   onOpenFile: ((path: string) => void) | undefined;
   /** 받은 메시지 panel의 근거 링크. */
@@ -138,6 +136,7 @@ export function AgentThread(props: AgentThreadProps): ReactElement {
           ? {}
           : { waiting: props.working.waiting })}
         streaming={live !== null && live.text !== ""}
+        activity={activityOf(entries, live)}
       />,
     );
   }
@@ -159,6 +158,21 @@ export function AgentThread(props: AgentThreadProps): ReactElement {
   );
 }
 
+/** 일하는 중 줄에 붙일 지금 하는 일. 글이 흐르면 그 글이 진행 표시라 붙이지 않는다. */
+function activityOf(
+  entries: readonly ThreadEntry[],
+  live: LiveText | null,
+): string | undefined {
+  if (live !== null) {
+    return live.text === "" && live.reasoning !== ""
+      ? t("conversation.label.status-thinking")
+      : undefined;
+  }
+  const last = entries.at(-1);
+  if (last?.kind !== "tools") return undefined;
+  return last.calls.findLast((call) => call.state === "running")?.title;
+}
+
 function hasEntry(entries: readonly ThreadEntry[], id: string): boolean {
   return entries.some(
     (entry) =>
@@ -169,39 +183,19 @@ function hasEntry(entries: readonly ThreadEntry[], id: string): boolean {
 
 interface Group {
   readonly id: string;
+  /**
+   * React key. 묶음을 연 줄의 id는 쓰는 중인 글이 저장되거나 snapshot이 줄을 더하면 바뀌어 묶음 전체가 다시 mount된다
+   * (깜빡임). 바로 앞 구분 줄(내 말, 받은 메시지, 숨긴 구간)의 id는 그때도 그대로다.
+   */
+  readonly key: string;
   readonly at: string;
-  readonly time: string;
   readonly items: ReactNode[];
   readonly said: ThreadMessage[];
 }
 
 /**
- * 그 turn-end가 들어가는 덩어리의 첫 entry id. 거꾸로 내 말이나 받은 메시지, 숨긴 구간을 만날 때까지 간다.
- * `itemsOf`가 덩어리를 끊는 자리와 같다.
- */
-function groupStartOf(
-  list: readonly ThreadEntry[],
-  endId: string,
-): string | null {
-  const index = list.findLastIndex((entry) => entry.id === endId);
-  if (index < 0) return null;
-  let start = index;
-  while (start > 0) {
-    const previous = list[start - 1]!;
-    if (
-      previous.kind === "hidden" ||
-      (previous.kind === "message" && previous.actor !== "agent")
-    ) {
-      break;
-    }
-    start -= 1;
-  }
-  return list[start]!.id;
-}
-
-/**
  * 줄을 화면 항목으로 바꾼다. agent 쪽 항목은 사이에 내 말이나 받은 메시지가 없는 동안 한 덩어리에 쌓이고,
- * 덩어리 위의 시각은 첫 항목의 것이다. `nested`는 숨긴 구간 안이라 읽기만 한다.
+ * `nested`는 숨긴 구간 안이라 읽기만 한다.
  */
 function itemsOf(
   list: readonly ThreadEntry[],
@@ -211,27 +205,19 @@ function itemsOf(
   live: LiveText | null,
 ): ReactElement[] {
   const out: ReactElement[] = [];
-  // 마지막으로 끝난 turn의 덩어리. 그 덩어리에만 [Retry]를 둔다. 숨긴 구간 안에서는 다시 하지 않는다.
-  const lastEnded = nested
-    ? null
-    : ([...list].reverse().find((entry) => entry.kind === "turn-end") ?? null);
-  const retryGroup =
-    nested || lastEnded === null ? null : groupStartOf(list, lastEnded.id);
   // 묶음은 닫혀 있을 때 group이 null이다. closure가 열고 닫으므로 상자에 담아 읽는다(TS는 closure의 대입을
   // 흐름 분석에 넣지 않는다).
   const open: { group: Group | null } = { group: null };
+  let after = "start";
   const flush = () => {
     const group = open.group;
     if (group === null) return;
     const said = group.said;
     const actions = !nested && !props.readOnly && said.length > 0;
-    const retry =
-      retryGroup === null || retryGroup !== group.id ? null : lastEnded!.turn;
     out.push(
       <AgentTurn
-        key={`turn-${group.id}`}
+        key={`turn-${group.key}`}
         agent={props.agent}
-        time={group.time}
         actionTime={
           nested ? undefined : messageTime(group.at, new Date(props.now()))
         }
@@ -241,9 +227,6 @@ function itemsOf(
               onFork: () => props.onFork(said[said.length - 1]!.id),
             }
           : {})}
-        {...(retry === null || props.readOnly
-          ? {}
-          : { onRetry: () => props.onRetry(retry) })}
       >
         {group.items}
       </AgentTurn>,
@@ -257,8 +240,8 @@ function itemsOf(
   ) => {
     open.group ??= {
       id: entry.id,
+      key: after,
       at: entry.at,
-      time: clockTime(entry.at),
       items: [],
       said: [],
     };
@@ -277,6 +260,7 @@ function itemsOf(
                 message={entry.id}
                 body={props.drafts.body(entry.id)}
                 fallback={entry.text ?? undefined}
+                fallbackReasoning={entry.liveReasoning ?? undefined}
                 artifacts={props.artifacts}
                 reasoning={props.detail !== "messages"}
               />
@@ -290,6 +274,7 @@ function itemsOf(
               ? userMessage(entry, props, nested)
               : receivedMessage(entry, props, all),
           );
+          after = entry.id;
         }
         break;
       case "tools":
@@ -402,6 +387,7 @@ function itemsOf(
             </div>
           </HiddenRange>,
         );
+        after = entry.id;
         break;
     }
   }
@@ -441,7 +427,6 @@ function userMessage(
       {...(actions
         ? {
             onRewind: () => props.onRewind(message.id),
-            onFork: () => props.onFork(message.id),
           }
         : {})}
     >

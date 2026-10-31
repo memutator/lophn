@@ -61,7 +61,7 @@ export const ApprovalDenyScene = () => <Scene sub="approval-deny" />;
 export const ApprovalStatesScene = () => <Scene sub="approval-states" />;
 /** skip을 켠 session. composer 아래 줄의 권한 단추가 Skip permissions로 바뀌고 경고색이다. */
 export const SkipScene = () => <Scene sub="skip" />;
-/** 창을 86% 쓴 session. composer 아래 푸터와 /status 막대가 warning 색이고 푸터의 %가 경고색이다. */
+/** 창을 86% 쓴 session. composer 아래 줄의 사용량과 /status 막대가 warning 색이고 사용량의 %가 경고색이다. */
 export const ContextWarningScene = () => (
   <Scene
     sub="working"
@@ -86,11 +86,27 @@ export const RewindScene = () => <Scene sub="rewind" />;
 export const PermissionsScene = () => (
   <Scene sub="working" chat={{ view: "permissions" }} />
 );
-/** `/status`: session id, model, 계정, 창을 쓴 만큼, 이 session의 token과 금액. */
+/** `/status`: composer 위에 뜨는 panel. session id, model, 계정, 창을 쓴 만큼, 이 session의 token과 금액. */
 export const StatusScene = () => (
   <Scene sub="working" chat={{ view: "status" }} />
 );
-/** composer 아래 푸터를 눌러 `/status` panel을 연 모습. 창을 94% 써서 푸터와 막대가 위험색이다. */
+/** 금액이 있는 `/status`: 구독이 아닌 연결이라 composer 아래 줄 사용량과 panel의 Cost가 `$2.06`처럼 보인다. */
+export const StatusCostScene = () => (
+  <Scene
+    sub="working"
+    chat={{
+      view: "status",
+      status: {
+        context: { tokens: 142_000, limit: 1_000_000 },
+        inputTokens: 1_280_400,
+        cacheReadTokens: 2_160_000,
+        outputTokens: 34_200,
+        costs: [{ kind: "estimated", currency: "USD", amount: "2.064708" }],
+      },
+    }}
+  />
+);
+/** composer 아래 줄 오른쪽 끝 사용량을 눌러 `/status` panel을 연 모습. 창을 94% 써서 푸터와 막대가 위험색이다. */
 export const StatusFromFooterScene = () => <Scene sub="status-footer" />;
 /** composer 안에서 Ctrl/Cmd+Shift+M을 눌러 model picker를 연 모습. */
 export const ModelShortcutScene = () => <Scene sub="model-shortcut" />;
@@ -102,3 +118,5 @@ export const DetailScene = () => <Scene sub="steps-detail" />;
 export const FindScene = () => <Scene sub="find" />;
 /** session 검색이 제목뿐 아니라 메시지 글에서도 찾은 모습. session 묶음마다 한 줄 snippet이 보인다. */
 export const SessionSearchScene = () => <Scene sub="session-search" />;
+/** Messages 보기: tool 줄과 reasoning을 숨기는 대신 일하는 중 줄이 지금 하는 일을 말한다. */
+export const WorkingMessagesScene = () => <Scene sub="working-messages" />;

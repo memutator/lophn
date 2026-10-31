@@ -536,6 +536,19 @@ function hiddenEntry(
   };
 }
 
+/**
+ * 다음 turn으로 접수했다가 [Send now]로 올려 도는 turn이 가져간 사람 메시지다. 기록의 delivery는 접수 때 값 그대로라
+ * turn을 연 입력이 아닌데 turn이 정해진 것으로 안다.
+ */
+function steered(
+  message: { id: string; from: { kind: string }; turn: string | null },
+  turns: ReadonlyMap<string, TurnRecord>,
+): boolean {
+  if (message.from.kind !== "human" || message.turn === null) return false;
+  const turn = turns.get(message.turn);
+  return turn !== undefined && turn.input_message !== message.id;
+}
+
 export async function readThread(
   env: Env,
   memo: ThreadMemo,
@@ -580,6 +593,7 @@ export async function readThread(
       ? null
       : liveFromWriting(writing, writingAt);
 
+  const steeringIds = new Set(sessionSnapshot?.steering ?? []);
   // 사람이 도는 중에 다음 turn으로 보낸 메시지는 입력함에 있다.
   const queued: QueuedView[] = [];
   const entries: ThreadMessage[] = [];
@@ -589,11 +603,14 @@ export async function readThread(
     const sender = await senderOf(env, memo, message.from);
     const own =
       message.from.kind === "agent" && message.from.session === session;
+    // [Send now]로 올렸지만 아직 model 요청에 싣지 않은 메시지는 기록에 turn이 비어 있어도 대화에 steer로 선다.
+    const steering = steeringIds.has(message.id);
     if (
       sender === null &&
       message.turn === null &&
       message.delivery === "next_turn" &&
-      running
+      running &&
+      !steering
     ) {
       const body = await readBody(env, memo, message.id);
       queued.push({
@@ -611,8 +628,9 @@ export async function readThread(
       sender: sender === null || own ? null : sender,
       call: message.call,
       replyTo: message.reply_to,
-      delivery: message.delivery,
-      turn: message.turn,
+      delivery:
+        steering || steered(message, turnById) ? "steer" : message.delivery,
+      turn: steering ? (current?.id ?? null) : message.turn,
       text: null,
     };
     entries.push(entry);

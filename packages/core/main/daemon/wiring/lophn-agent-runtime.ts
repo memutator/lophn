@@ -131,9 +131,17 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
         const user = humanOnly(who);
         if (!user.ok) return user;
         const input = steerQueuedNow.input.parse(body);
-        return inbox.steerNow(input.session as Id<"ses">, input.message)
-          ? ok({ message: input.message })
-          : taken();
+        if (!inbox.steerNow(input.session as Id<"ses">, input.message)) {
+          return taken();
+        }
+        // 입력함은 메모리라 화면이 알 길이 event뿐이다. 다음 turn 줄에서 대화로 옮긴다.
+        ctx.bus.publish({
+          session: input.session as Id<"ses">,
+          type: "MessageSteered",
+          at: ctx.clock.now(),
+          payload: { message: input.message as Id<"msg"> },
+        });
+        return ok({ message: input.message });
       };
       // 기록을 먼저 지운다. 이미 turn이 가져간 메시지는 거기서 conflict로 막힌다.
       const remove: MemoryHandler = async (who, body) => {
@@ -149,6 +157,12 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
         });
         if (!done.ok) return done;
         inbox.remove(input.session as Id<"ses">, input.message);
+        ctx.bus.publish({
+          session: input.session as Id<"ses">,
+          type: "MessageRemoved",
+          at: ctx.clock.now(),
+          payload: { message: input.message as Id<"msg"> },
+        });
         return ok({ message: input.message });
       };
       // 저장된 본문을 먼저 바꾼다. 이미 turn이 가져간 메시지는 거기서 conflict로 막힌다.

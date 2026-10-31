@@ -1,4 +1,4 @@
-// composer 아래 24px 한 줄. 마지막 요청이 창을 얼마나 썼는지, 이 session의 token과 금액을 늘 보이고 누르면 `/status` panel을
+// composer 아래 줄(place·권한 옆 오른쪽 끝) 24px. 마지막 요청이 창을 얼마나 썼는지, 이 session의 token과 금액을 늘 보이고 누르면 `/status` panel을
 // 연다. omp의 하단 푸터와 같은 자리이고, 창을 80% 넘게 쓰면 경고색, 90%부터 위험색이다.
 
 import { t } from "@lophn/i18n";
@@ -33,8 +33,14 @@ export function StatusFooter({
           ),
           output: compactTokens(status.outputTokens),
         };
-  const cost =
-    status.costs.length === 0 ? null : status.costs.map(costText).join(" · ");
+  // 값을 모르는 묶음은 panel이 보인다. 좁은 줄에는 아는 금액과 구독만 둔다.
+  const known = status.costs.filter(
+    (cost) =>
+      cost.kind === "subscription" ||
+      cost.kind === "free" ||
+      cost.amount !== null,
+  );
+  const cost = known.length === 0 ? null : known.map(costText).join(" · ");
   // 아직 아무것도 모르는 새 session에는 줄을 두지 않는다.
   if (context === null && tokens === null && cost === null) return null;
   return (
